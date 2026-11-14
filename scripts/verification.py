@@ -25,15 +25,7 @@ REMOVALS = Path("tests/audit/registry-removals.json")
 OPEN_SAFETY_FLOOR = "ec860375"
 # Proved per-function safety goals that have no function mutants of their own yet, each with its
 # reason. The list may only shrink: an entry whose goal is unproved or has mutants is rejected.
-MUTANT_COVERAGE_PENDING = {
-    "ZlibF.Spec.Public.Goal.compress_safety": "wrapper mutants: batch B acceptance batch",
-    "ZlibF.Spec.Public.Goal.compress_z_safety": "wrapper mutants: batch B acceptance batch",
-    "ZlibF.Spec.Public.Goal.compress2_safety": "wrapper mutants: batch B acceptance batch",
-    "ZlibF.Spec.Public.Goal.uncompress_safe": "wrapper mutants: batch B acceptance batch",
-    "ZlibF.Spec.Public.Goal.uncompress_z_safe": "wrapper mutants: batch B acceptance batch",
-    "ZlibF.Spec.Public.Goal.uncompress2_safe": "wrapper mutants: batch B acceptance batch",
-    "ZlibF.Spec.Public.Goal.deflateCopy_safety": "deflateCopy rows keyed to the safety goal: batch B acceptance batch",
-}
+MUTANT_COVERAGE_PENDING: dict[str, str] = {}
 
 
 class Rejected(Exception):

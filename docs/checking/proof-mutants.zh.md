@@ -1,4 +1,4 @@
-<!-- source-sha256: 364ca9daed7d6cdb8bac82a916700ed2b9ce43d3d5fd10d4c4d98980eaaf0adf -->
+<!-- source-sha256: 3e3c8db00dce97a11abb3a2e9bc8f8d9305f5eae94beabcfe6cd9aade8dc671d -->
 
 # 证明变异
 
@@ -54,6 +54,15 @@ bash tests/audit/proofmut.sh tests/audit/proofmut/crc32.tsv '^combine'
 - 缓冲区失败路径跳过对 `pending_buf` 的释放；
 - 副本的反向指针被设为源。
 每一行都被重放拒绝；`deflate_copy_public` 的重放峰值约为 10.4 GB。拒绝目标 `Goal.inflate_refusal` 与 `Goal.deflate_refusal` 不是公开入口。它们的行在安全表 `tests/proof-mutants/stream-refusal.tsv` 中，由变异分片以重新繁饰检查：每一行把一次拒绝改为 `Z_OK`。
+
+每个公开函数自己的安全目标（`Goal.<function>_safety`）也有键，并有自己的函数变异体。大多数函数用的是其功能目标的那些行：流调用的安全证明是序列定理（`inflate_sequence_safety_public`、`deflate_sequence_safety`，调用用第 2 条，`End` 用第 3 条）的推论，初始化、复制和无状态函数的安全证明是其功能证明的推论，所以同样的翻译修改必须使它们失败。没有这类行的函数，其行在 `tests/proof-mutants/public-safety.tsv` 中，都是结构性的：
+- `compress`、`compress_z`、`compress2`：不传递长度指针（改传 `NULL`）。`api-boundary.tsv` 中让 `compress2` 在 `destLen` 为 `NULL` 时返回的那一行不是 `Goal.compress2_safety` 的变异体：C 先读取 `*destLen`，所以该目标排除 `NULL` 长度（`CompressorSafety` 取 `nullableLength = false`），重放接受这一行；
+- `uncompress2`：目标长度从 `sourceLen` 读取；去掉一个局部单元的释放；
+- `uncompress_z`、`uncompress`：把源长度单元当作目标长度传递；去掉局部单元的释放；
+- `deflateBound`：丢弃结果；`deflateBound_z`：去掉状态检查；
+- `deflatePrime`：去掉 `bits > 16` 的测试；去掉待输出空间的测试；
+- `inflateSync`：局部缓冲区是三个字节而不是四个。
+`deflateParams` 和 `deflateSetDictionary` 用 `stream-refusal.tsv` 中它们的拒绝行。去掉 `deflateEnd` 或 `inflateEnd` 调用的行属于发出该调用的 `compress2_z` 和 `uncompress2_z`。`Goal.deflate_initialisation_domain` 不是公开入口：它陈述 `deflateInit2_` 的成功运行，`deflateInit2_` 的四行就是它的变异体：对 `deflate_initialisation_domain_public` 的内核重放拒绝全部四行（峰值约 3.4 GB）。
 
 `Goal.inflate_back_sequence_safety` 也不是公开入口。它的十一行在安全表 `tests/proof-mutants/infback-sequence.tsv` 中：`inflateBack` 四行、`inflateBackInit_` 四行、`inflateBackEnd` 三行，都是结构性的：
 - `inflateBack`：空流返回 `Z_OK`；模式没有重置为 `TYPE`；输出从 `NULL` 而不是窗口开始；结束之后最后一个窗口被拒绝时返回 `Z_OK`；

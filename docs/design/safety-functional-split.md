@@ -155,8 +155,8 @@ As implemented (step 3):
   any difference from the goals it finds PROVED. The required, open and mutant checks use that
   file. The auditor also rejects a declaration name with a control character.
 - Every proved goal of one function (its functional goal, or its own safety goal) needs function
-  mutants. `MUTANT_COVERAGE_PENDING` in `scripts/verification.py` names, with a reason, the proved
-  safety goals still without rows; a stale entry is rejected.
+  mutants. `MUTANT_COVERAGE_PENDING` in `scripts/verification.py` may name, with a reason, a proved
+  safety goal still without rows; a stale entry is rejected. The acceptance batch emptied it.
 - Against the base branch, no name leaves `theorems.txt` or `proved-goals.txt` unless
   `tests/audit/registry-removals.json` names it with a reason. While the base has no
   `open_safety`, the list at `ec860375` is the floor.

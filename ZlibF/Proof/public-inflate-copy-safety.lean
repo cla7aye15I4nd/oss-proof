@@ -12,6 +12,7 @@ branch gives the reachable destination by `StreamReachable.inflateCopy`.
 namespace ZlibF.Spec.Public.InflateCopySafetyProof
 open C ZlibF.Spec ZlibF.Spec.Public
 
+/-- `Goal.inflateCopy_safety`: `inflateCopy` refuses null arguments and is safe from every reachable source into a distinct destination record; on `Z_OK` the copy is reachable, on `Z_MEM_ERROR` nothing leaks; from `Zlib.Inflate.Proofs.inflate_copy_public`. -/
 theorem inflateCopy_safety : Goal.inflateCopy_safety := by
   obtain ⟨hnull, hnone, hmain⟩ := Zlib.Inflate.Proofs.inflate_copy_public
   refine ⟨hnull, hnone, ?_⟩

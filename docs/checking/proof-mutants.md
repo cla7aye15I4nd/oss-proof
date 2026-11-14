@@ -95,6 +95,29 @@ goals `Goal.inflate_refusal` and `Goal.deflate_refusal` are not public entries. 
 safety list `tests/proof-mutants/stream-refusal.tsv`, which the mutation shards check by
 re-elaboration: each row turns a refusal into `Z_OK`.
 
+Each public function's own safety goal (`Goal.<function>_safety`) is keyed as well, with
+function mutants of its own. For most functions these are the rows of its functional goal: the
+safety proofs of the stream calls are corollaries of the sequence theorems
+(`inflate_sequence_safety_public`, `deflate_sequence_safety`, clause 2 for a call and clause 3 for
+`End`), and those of the init, copy and stateless functions are corollaries of their functional
+proofs, so the same translation edits must break them. Functions without such rows have rows in
+`tests/proof-mutants/public-safety.tsv`, all structural:
+- `compress`, `compress_z`, `compress2`: the length pointer is not passed on (`NULL` instead). The
+  row of `api-boundary.tsv` that makes `compress2` return on a `NULL` `destLen` is not a mutant of
+  `Goal.compress2_safety`: the C reads `*destLen` first, so the goal excludes a `NULL` length
+  (`CompressorSafety` with `nullableLength = false`), and the replay accepts that row;
+- `uncompress2`: the destination length is read from `sourceLen`; the free of a local cell is dropped;
+- `uncompress_z`, `uncompress`: the source-length cell is passed as the destination length; the free
+  of the local cell is dropped;
+- `deflateBound`: the result is dropped; `deflateBound_z`: the state check is dropped;
+- `deflatePrime`: the `bits > 16` test is dropped; the pending room test is dropped;
+- `inflateSync`: the local buffer has three bytes, not four.
+`deflateParams` and `deflateSetDictionary` use their refusal rows of `stream-refusal.tsv`. A dropped
+`deflateEnd` or `inflateEnd` call is a row of `compress2_z` and `uncompress2_z`, the functions that
+make the call. `Goal.deflate_initialisation_domain` is not a public entry: it states the successful
+runs of `deflateInit2_`, and the four `deflateInit2_` rows are its mutants: a kernel replay of
+`deflate_initialisation_domain_public` rejects all four (peak about 3.4 GB).
+
 `Goal.inflate_back_sequence_safety` is not a public entry either. Its eleven rows are in the safety list
 `tests/proof-mutants/infback-sequence.tsv`: four of `inflateBack`, four of `inflateBackInit_` and three of
 `inflateBackEnd`, all structural:

@@ -66,6 +66,7 @@ theorem frame_of_same {h after : Heap} {r : ZStreamRef} {z v : ZStream} (hz : r.
     · rw [hgz b]; exact upd_ne _ _ _ _ hbi
     · exact hro b (by simpa [Heap.live, upd_ne _ _ _ _ hbi] using hl)
 
+/-- `Goal.inflateInit2__safety`: `inflateInit2_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
 theorem inflateInit2__safety : Goal.inflateInit2__safety := by
   intro h r version wb ⟨hf, hu, hg, hv, z, hz, hd, _⟩
   obtain ⟨rc, after, hrun, -, hbr⟩ :=
@@ -94,9 +95,11 @@ theorem inflateInit2__safety : Goal.inflateInit2__safety := by
       subst hb
       exact ⟨z', hgood.live.hz, Or.inl ⟨h.nextBlk, s', hgood.live.zst, hgood.live.hs, Or.inl rfl⟩⟩
 
+/-- `Goal.inflateInit__safety`: `inflateInit_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
 theorem inflateInit__safety : Goal.inflateInit__safety :=
   fun h r version d => inflateInit2__safety h r version DEF_WBITS d
 
+/-- `Goal.deflateInit2__safety`: `deflateInit2_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
 theorem deflateInit2__safety : Goal.deflateInit2__safety := by
   intro h r version level method wb mem strategy ⟨hf, hu, hg, hv, z, hz, hd, _⟩
   obtain ⟨rc, after, hrun, hbr⟩ :=
@@ -131,6 +134,7 @@ theorem deflateInit2__safety : Goal.deflateInit2__safety := by
         obtain ⟨hrc, -, hl, hfr⟩ := hbr
         exact ⟨hfr, Or.inr ⟨by rw [hrc]; decide, hl⟩⟩
 
+/-- `Goal.deflateInit__safety`: `deflateInit_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
 theorem deflateInit__safety : Goal.deflateInit__safety :=
   fun h r version level d =>
     deflateInit2__safety h r version level Z_DEFLATED MAX_WBITS
