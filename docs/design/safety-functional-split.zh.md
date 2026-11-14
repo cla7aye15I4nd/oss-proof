@@ -1,4 +1,4 @@
-<!-- source-sha256: 9d5df85db61aff8c3b5dff2081ba1665510955d0850937a710643688d6343bb6 -->
+<!-- source-sha256: 52feb66c43b53a3851cd8b2801f9f29749bfc04142a92726641ee4e56fc2467e -->
 # 安全规范与功能规范
 
 状态：设计已于 2026-11-13 批准，按“工作顺序”中的步骤实施。本页说明怎样拆分 `ZlibF/Spec/`，使当前目标（每个公开函数的安全性）能从一个目录读出。这里的任何内容都不改变已证定理的含义。
@@ -83,13 +83,14 @@ flowchart TD
 实际实现（第 3 步）：
 
 - 未文档化的函数，以及不属于目标构建的 `gzopen_w`，其 `safety_goal` 为 `null`。
-- 在第 4 步为每个函数陈述目标之前，gzip 函数指向 `Goal.gz_sequence_safety`，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 指向 `Goal.inflate_back_sequence_safety`。共享的安全目标不作为变异的键。
+- 在第 4 步为每个函数陈述目标之前，gzip 函数指向 `Goal.gz_sequence_safety`，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 指向 `Goal.inflate_back_sequence_safety`。共享的安全目标不作为变异的键。这两个目标及其函数固定在 `scripts/verification.py` 的 `SHARED_SAFETY_GOALS` 中；其余每个有文档的函数都指向自己的 `Goal.<function>_safety`（或 `_safe`），或者带 `safety_note` 的完整契约。
 - `compressBound` 和 `compressBound_z` 指向它们的完整契约，并带 `safety_note`：它们的翻译是不访问堆、不会出错的纯函数，单独的安全目标会按定义成立。
-- `open_safety` 与基线分支比较：先取 `ZLIBF_BASE_REF`，否则取拉取请求的基线分支，否则取 `origin/main`；在 `main` 上则取第一个父提交。基线要求且未列为待完成的目标不得重新列为待完成。新加入必需集合的目标可以进入该列表。
+- `open_safety` 与基线分支（先取 `ZLIBF_BASE_REF`，否则取拉取请求的基线分支，否则取 `origin/main`；在 `main` 上则取第一个父提交）以及从基线到 `HEAD` 的每个第一父提交比较。回溯在把基线合并进本分支的那个提交处停止。在这些修订中任何一个上属于必需且未列为待完成的目标，都不得重新列为待完成。新加入必需集合的目标可以进入该列表。
 - `open_safety` 不得列出已证明的目标。`final` 还要求它为空。不再使用审计工具的严格模式：它会拒绝每个未证明的功能目标。
-- 任何判定都不读取报告文本：Lean 名字可以含换行，从而伪造一行。`tests/audit/proved-goals.txt` 列出已证明的目标，审计工具的 `--proved` 检查拒绝它与审计工具得出的 PROVED 集合之间的任何差异。必需、待完成和变异的检查都使用这个文件。审计工具还拒绝含控制字符的声明名。
-- 只属于一个函数的每个已证明目标（它的功能目标或它自己的安全目标）都需要函数变异。`scripts/verification.py` 中的 `MUTANT_COVERAGE_PENDING` 可以带理由列出尚无变异行的已证明安全目标；过时的条目会被拒绝。验收批已把它清空。
-- 与基线分支相比，除非 `tests/audit/registry-removals.json` 带理由列出，否则任何名字都不得离开 `theorems.txt` 或 `proved-goals.txt`。在基线还没有 `open_safety` 时，以 `ec860375` 的列表为下限。
+- 任何判定都不读取报告文本：Lean 名字可以含换行，从而伪造一行。`tests/audit/proved-goals.txt` 列出已证明的目标，审计工具的 `--proved` 检查拒绝它与审计工具得出的 PROVED 集合之间的任何差异。`specs` 和 `final` 还用 `--require` 传入未列为待完成的必需目标，所以其中任何一个为 OPEN 时由审计工具自己判定失败。`proved-goals.txt` 中的每个名字都必须是目标。审计工具拒绝含控制字符（C0、DEL、C1、U+2028、U+2029）的声明名。
+- 每个登记文件在审计工具和 `scripts/verification.py` 中遵循同一条行规则：行只以 `\n` 分隔，空行和以 `#` 开头的行被跳过，任何行不得含控制字符，名字行不得含空白。违反规则的行被拒绝。
+- 只属于一个函数的每个已证明目标（它的功能目标或它自己的安全目标）都需要函数变异。`scripts/verification.py` 中的 `MUTANT_COVERAGE_PENDING` 可以带理由列出尚无变异行的已证明安全目标；过时的条目会被拒绝，相对上述修订也不得新增条目。验收批已把它清空。
+- 在上述任何修订中登记于 `theorems.txt` 或记录于 `proved-goals.txt` 的名字都不得消失，除非 `tests/audit/registry-removals.json` 带理由列出。一个条目的名字如果从未在那里登记过，或者现在仍然登记，就是过时的，会被拒绝。在基线还没有 `open_safety` 时，以 `ec860375` 的列表为下限。
 
 ## 进度视图
 

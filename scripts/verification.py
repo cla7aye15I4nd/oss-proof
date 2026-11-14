@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -26,6 +27,17 @@ OPEN_SAFETY_FLOOR = "ec860375"
 # Proved per-function safety goals that have no function mutants of their own yet, each with its
 # reason. The list may only shrink: an entry whose goal is unproved or has mutants is rejected.
 MUTANT_COVERAGE_PENDING: dict[str, str] = {}
+# The only safety goals that several functions share, each with exactly the functions that name it.
+# Every other documented function names its own Goal.<function>_safety (or _safe), or its full
+# contract with a safety_note.
+SHARED_SAFETY_GOALS = {
+    "ZlibF.Spec.Public.Goal.gz_sequence_safety": [
+        "gzbuffer", "gzclearerr", "gzclose", "gzclose_r", "gzclose_w", "gzdirect", "gzdopen", "gzeof",
+        "gzerror", "gzflush", "gzfread", "gzfwrite", "gzgetc", "gzgetc_", "gzgets", "gzoffset", "gzoffset64",
+        "gzopen", "gzopen64", "gzprintf", "gzputc", "gzputs", "gzread", "gzrewind", "gzseek", "gzseek64",
+        "gzsetparams", "gztell", "gztell64", "gzungetc", "gzwrite"],
+    "ZlibF.Spec.Public.Goal.inflate_back_sequence_safety": ["inflateBack", "inflateBackEnd", "inflateBackInit_"],
+}
 
 
 class Rejected(Exception):
@@ -36,11 +48,42 @@ def run(args: list[str], *, stdout=None) -> subprocess.CompletedProcess:
     return subprocess.run(args, cwd=ROOT, text=True, stdout=stdout, check=True)
 
 
+def control_char(c: str) -> bool:
+    """C0, DEL, C1 and U+2028/U+2029: the class of `isControlChar` in tests/audit/Audit.lean."""
+    n = ord(c)
+    return n < 32 or n == 127 or 0x80 <= n <= 0x9F or n in (0x2028, 0x2029)
+
+
+# Whitespace that may not occur in a registry name: the list of `isRegistrySpace` in Audit.lean.
+SPACES = {0x20, 0xA0, 0x1680, *range(0x2000, 0x200B), 0x202F, 0x205F, 0x3000, 0xFEFF}
+
+
+def registry_lines(text: str, label: str) -> list[str]:
+    """The registry line rule, shared with the auditor's `registryLines`: lines are separated by
+    "\n" only; an empty line or a line that starts with "#" is skipped; no line holds a control
+    character, and a name line holds no whitespace either. A line that breaks the rule is rejected,
+    never repaired, so both readers see the same names."""
+    names = []
+    for line in text.split("\n"):
+        if any(control_char(c) for c in line):
+            raise Rejected(f"{label}: line breaks the registry rule: {line!r}")
+        if line == "" or line.startswith("#"):
+            continue
+        if any(ord(c) in SPACES for c in line):
+            raise Rejected(f"{label}: line breaks the registry rule: {line!r}")
+        names.append(line)
+    return names
+
+
+def raw_text(path: Path) -> str:
+    """The file's text with no newline translation (read_text() would turn "\r" into a line break)."""
+    return path.read_bytes().decode("utf-8")
+
+
 def read_names(path: Path) -> list[str]:
     if not path.is_file() or path.is_symlink():
         raise Rejected(f"missing registry: {path}")
-    names = [s.strip() for s in path.read_text().splitlines()
-             if s.strip() and not s.lstrip().startswith("#")]
+    names = registry_lines(raw_text(path), str(path))
     if not names or len(names) != len(set(names)):
         raise Rejected(f"empty or duplicate registry: {path}")
     return names
@@ -122,32 +165,65 @@ def base_revision() -> str:
     return base
 
 
-def check_open_safety_shrinks(manifest: dict) -> None:
-    """The open list only shrinks: a goal that the base branch requires and does not list as open
-    may not become open. A goal new to the required set may enter the open list."""
-    base = base_revision()
+def show(revision: str, path: Path) -> str | None:
+    """A file at a revision, without newline translation; None when it is absent."""
     try:
-        text = subprocess.check_output(["git", "show", f"{base}:{MANIFEST.as_posix()}"],
-                                       cwd=ROOT, text=True, stderr=subprocess.DEVNULL)
+        data = subprocess.check_output(["git", "show", f"{revision}:{path.as_posix()}"], cwd=ROOT,
+                                       stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError:
-        raise Rejected(f"the base branch {base} has no {MANIFEST}")
-    previous = json.loads(text)
-    if "open_safety" not in previous:
+        return None
+    return data.decode("utf-8")
+
+
+def revision_chain() -> list[str]:
+    """The revisions the shrink-only checks compare with: the base, and every first-parent commit
+    from the base to HEAD. A run on dev compares with origin/main, so a name registered and then
+    removed on dev between two merges to main is still seen. The walk stops at the commit that merged
+    the base into this branch (main into dev after a squash): from there on the branch holds the base."""
+    base = base_revision()
+    lines = subprocess.check_output(["git", "rev-list", "--first-parent", "--parents", f"{base}..HEAD"],
+                                    cwd=ROOT, text=True).split("\n")
+    chain = []
+    for line in lines:
+        if not line.strip():
+            continue
+        commit, *parents = line.split()
+        chain.append(commit)
+        if any(subprocess.run(["git", "merge-base", "--is-ancestor", parent, base], cwd=ROOT).returncode == 0
+               for parent in parents[1:]):
+            break
+    return [base] + chain[::-1]
+
+
+def check_open_safety_shrinks(manifest: dict) -> None:
+    """The open list only shrinks: a required goal that is not open at the base or at any
+    first-parent commit since may not be open now. A goal new to the required set may enter it."""
+    chain = revision_chain()
+    closed: dict[str, str] = {}
+    seen = 0
+    for revision in chain:
+        text = show(revision, MANIFEST)
+        previous = json.loads(text) if text is not None else None
+        if previous is None or "open_safety" not in previous:
+            continue
+        seen += 1
+        for goal in set(required_public_goals(previous)) - set(open_safety(previous)):
+            closed.setdefault(goal, revision)
+    if not show(chain[0], MANIFEST) or "open_safety" not in json.loads(show(chain[0], MANIFEST)):
         # The base predates the open list: compare with the list where it was introduced.
-        try:
-            text = subprocess.check_output(["git", "show", f"{OPEN_SAFETY_FLOOR}:{MANIFEST.as_posix()}"],
-                                           cwd=ROOT, text=True, stderr=subprocess.DEVNULL)
-        except subprocess.CalledProcessError:
+        text = show(OPEN_SAFETY_FLOOR, MANIFEST)
+        if text is None:
             raise Rejected(f"the open_safety floor {OPEN_SAFETY_FLOOR} is not available: fetch it")
-        previous = json.loads(text)
-        print(f"open_safety: base {base[:12]} predates the open list; floor {OPEN_SAFETY_FLOOR}")
-    closed = set(required_public_goals(previous)) - set(open_safety(previous))
-    reopened = sorted(closed & set(open_safety(manifest)))
+        floor = json.loads(text)
+        for goal in set(required_public_goals(floor)) - set(open_safety(floor)):
+            closed.setdefault(goal, OPEN_SAFETY_FLOOR)
+        print(f"open_safety: base {chain[0][:12]} predates the open list; floor {OPEN_SAFETY_FLOOR}")
+    reopened = sorted(g for g in open_safety(manifest) if g in closed)
     if reopened:
-        raise Rejected("open_safety grew: required goals closed on the base branch are open again: " +
-                       ", ".join(reopened))
-    print(f"open_safety: {len(open_safety(manifest))} open, base {base[:12]} had "
-          f"{len(open_safety(previous))}")
+        raise Rejected("open_safety grew: required goals closed before are open again: " +
+                       ", ".join(f"{g} (closed at {closed[g][:12]})" for g in reopened))
+    print(f"open_safety: {len(open_safety(manifest))} open; {len(chain)} revisions compared, "
+          f"{seen} with an open list")
 
 
 def proved_goals() -> list[str]:
@@ -156,7 +232,7 @@ def proved_goals() -> list[str]:
     path = ROOT / PROVED_GOALS
     if not path.is_file() or path.is_symlink():
         raise Rejected(f"missing registry: {PROVED_GOALS}")
-    names = [s.strip() for s in path.read_text().splitlines() if s.strip() and not s.lstrip().startswith("#")]
+    names = registry_lines(raw_text(path), str(PROVED_GOALS))
     if len(names) != len(set(names)):
         raise Rejected(f"duplicate entry in {PROVED_GOALS}")
     return names
@@ -165,7 +241,7 @@ def proved_goals() -> list[str]:
 def removals() -> dict[str, set[str]]:
     """Reviewed removals: a registered theorem or a recorded proved goal that may disappear."""
     path = ROOT / REMOVALS
-    data = json.loads(path.read_text()) if path.is_file() else {"version": 1, "theorems": [], "proved_goals": []}
+    data = json.loads(raw_text(path)) if path.is_file() else {"version": 1, "theorems": [], "proved_goals": []}
     if set(data) != {"version", "theorems", "proved_goals"} or data["version"] != 1:
         raise Rejected(f"unknown {REMOVALS}")
     result = {}
@@ -173,47 +249,74 @@ def removals() -> dict[str, set[str]]:
         names = set()
         for entry in data[key]:
             if not isinstance(entry, dict) or set(entry) != {"name", "reason"} or \
-                    not str(entry["reason"]).strip() or not str(entry["name"]).strip():
-                raise Rejected(f"{REMOVALS} entries need a name and a reason: {entry}")
+                    not isinstance(entry["name"], str) or not isinstance(entry["reason"], str) or \
+                    not entry["reason"].strip() or registry_lines(entry["name"], str(REMOVALS)) != [entry["name"]]:
+                raise Rejected(f"{REMOVALS} entries need one name and a reason: {entry}")
             names.add(entry["name"])
         result[key] = names
     return result
 
 
 def check_registries_shrink() -> None:
-    """No registered theorem and no recorded proved goal of the base branch disappears, unless
-    tests/audit/registry-removals.json names it with a reason. So a goal proved on the base cannot
-    become open, required or not."""
-    base = base_revision()
+    """No name registered in theorems.txt or recorded in proved-goals.txt at the base or at any
+    first-parent commit since disappears, unless tests/audit/registry-removals.json names it with a
+    reason. So a goal proved once cannot become open, required or not. A removal entry whose name
+    was never registered on that chain, or is registered now, is stale and rejected."""
+    chain = revision_chain()
     allowed = removals()
-    def names_at(path: Path) -> set[str] | None:
-        try:
-            text = subprocess.check_output(["git", "show", f"{base}:{path.as_posix()}"],
-                                           cwd=ROOT, text=True, stderr=subprocess.DEVNULL)
-        except subprocess.CalledProcessError:
-            return None
-        return {s.strip() for s in text.splitlines() if s.strip() and not s.lstrip().startswith("#")}
-    old_theorems = names_at(THEOREMS)
-    if old_theorems is None:
-        raise Rejected(f"the base branch {base} has no {THEOREMS}")
-    lost = sorted(old_theorems - set(read_names(ROOT / THEOREMS)) - allowed["theorems"])
-    if lost:
-        raise Rejected("registered theorems removed without a reviewed entry in "
-                       f"{REMOVALS}: " + ", ".join(lost))
-    old_proved = names_at(PROVED_GOALS)
-    if old_proved is None:
-        print(f"proved goals: base {base[:12]} predates {PROVED_GOALS}; theorems.txt is compared")
-        return
-    lost = sorted(old_proved - set(proved_goals()) - allowed["proved_goals"])
-    if lost:
-        raise Rejected(f"goals proved on the base branch are no longer proved (no reviewed entry in "
-                       f"{REMOVALS}): " + ", ".join(lost))
+    for path, key, current in ((THEOREMS, "theorems", set(read_names(ROOT / THEOREMS))),
+                               (PROVED_GOALS, "proved_goals", set(proved_goals()))):
+        earlier: dict[str, str] = {}
+        for revision in chain:
+            text = show(revision, path)
+            if text is None:
+                continue
+            for name in registry_lines(text, f"{revision[:12]}:{path}"):
+                earlier.setdefault(name, revision)
+        if show(chain[0], path) is None:
+            print(f"{path}: base {chain[0][:12]} predates it; {len(chain)} revisions compared")
+        stale = sorted(n for n in allowed[key] if n not in earlier or n in current)
+        if stale:
+            raise Rejected(f"stale entries in {REMOVALS} ({key}): " + ", ".join(stale))
+        lost = sorted(set(earlier) - current - allowed[key])
+        if lost:
+            raise Rejected(f"names in {path} removed without a reviewed entry in {REMOVALS}: " +
+                           ", ".join(f"{n} (registered at {earlier[n][:12]})" for n in lost))
+
+
+def pending_waivers(text: str | None) -> dict | None:
+    """MUTANT_COVERAGE_PENDING as written in a version of this script; None when it has none."""
+    if text is None:
+        return None
+    for node in ast.parse(text).body:
+        target = node.target if isinstance(node, ast.AnnAssign) else \
+            (node.targets[0] if isinstance(node, ast.Assign) and len(node.targets) == 1 else None)
+        if isinstance(target, ast.Name) and target.id == "MUTANT_COVERAGE_PENDING" and node.value is not None:
+            return ast.literal_eval(node.value)
+    return None
+
+
+def check_waivers_shrink() -> None:
+    """The mutant waivers only shrink: no entry is new against the base or any first-parent commit
+    since that has the list."""
+    for revision in revision_chain():
+        earlier = pending_waivers(show(revision, Path("scripts/verification.py")))
+        if earlier is None:
+            continue
+        added = sorted(set(MUTANT_COVERAGE_PENDING) - set(earlier))
+        if added:
+            raise Rejected(f"MUTANT_COVERAGE_PENDING grew against {revision[:12]}: " + ", ".join(added))
 
 
 def check_required_proved(manifest: dict) -> None:
     """Every required goal that is not listed as open is proved, and no listed goal is proved.
     Decided on tests/audit/proved-goals.txt, which the auditor checks to be exact."""
     proved = set(proved_goals())
+    targets = set(read_names(ROOT / "tests/audit/goals.txt")) | set(required_public_goals(manifest)) | \
+        set(functional_goals(manifest))
+    unknown = sorted(proved - targets)
+    if unknown:
+        raise Rejected(f"{PROVED_GOALS} names what is not a goal: " + ", ".join(map(repr, unknown)))
     opened = set(open_safety(manifest))
     missing = [g for g in required_public_goals(manifest) if g not in proved and g not in opened]
     if missing:
@@ -233,13 +336,9 @@ def mutation_apis(manifest: dict) -> dict:
     """
     lp64 = [a for a in manifest["apis"] if a["scope"] == "lp64-linux"]
     apis = {a["functional_goal"]: a for a in lp64}
-    shared = {}
     for a in lp64:
-        if a.get("safety_goal"):
-            shared.setdefault(a["safety_goal"], []).append(a)
-    for goal, owners in shared.items():
-        if len(owners) == 1:
-            apis.setdefault(goal, owners[0])
+        if a.get("safety_goal") and a["safety_goal"] not in SHARED_SAFETY_GOALS:
+            apis.setdefault(a["safety_goal"], a)
     return apis
 
 
@@ -628,6 +727,7 @@ def coverage() -> dict:
                 raise Rejected(f"a full contract used as safety goal needs a safety_note: {api['function']}")
         elif safety not in manifest.get("safety_goals", []):
             raise Rejected(f"safety goal is not a listed safety target: {api['function']}: {safety}")
+    check_safety_binding(manifest)
     groups = {
         "sequence_goals": ["inflate_sequence", "deflate_sequence", "inflate_back_sequence", "gz_sequence"],
         "nonvacuity_goals": ["inflate_initialisation_domain", "deflate_initialisation_domain",
@@ -669,6 +769,28 @@ def coverage() -> dict:
     return manifest
 
 
+def check_safety_binding(manifest: dict) -> None:
+    """Each documented function names its own safety goal: Goal.<function>_safety or _safe, its full
+    contract (with a safety_note), or a shared goal of SHARED_SAFETY_GOALS that lists it. A shared
+    goal is named by exactly its pinned functions. So no manifest edit can make a function's goal
+    shared and drop it from the mutant requirement."""
+    hidden = set(manifest.get("undocumented", {}).get("functions", []))
+    sharing: dict[str, list[str]] = {}
+    for api in manifest["apis"]:
+        if api["scope"] != "lp64-linux" or api["function"] in hidden:
+            continue
+        function, safety = api["function"], api.get("safety_goal")
+        own = {"ZlibF.Spec.Public.Goal." + function + suffix for suffix in ("_safety", "_safe")}
+        if safety in SHARED_SAFETY_GOALS:
+            sharing.setdefault(safety, []).append(function)
+        elif safety not in own and safety != api["functional_goal"]:
+            raise Rejected(f"safety goal of {function} is not its own: {safety}")
+    for goal, functions in SHARED_SAFETY_GOALS.items():
+        if sorted(sharing.get(goal, [])) != sorted(functions):
+            raise Rejected(f"shared safety goal {goal} is named by {sorted(sharing.get(goal, []))}, "
+                           f"not by its pinned functions")
+
+
 def build_auditor() -> Path:
     """Compile the invoking snapshot's auditor, never a candidate-supplied tool."""
     subprocess.run(["lake", "build", "zlibf-audit"], cwd=AUDITOR_ROOT, check=True)
@@ -690,6 +812,12 @@ def audit(report: Path, *, strict: bool = False, public: bool = False) -> int:
             args.append("--require-complete")
         # The auditor rejects any difference between this list and the goals it finds PROVED.
         args += ["--proved", str(ROOT / PROVED_GOALS)]
+        if public:
+            # The auditor itself decides that every required goal not listed as open is PROVED.
+            required = Path(directory) / "required.txt"
+            opened = set(open_safety(manifest))
+            required.write_text("".join(g + "\n" for g in required_public_goals(manifest) if g not in opened))
+            args += ["--require", str(required)]
         with report.open("w") as out:
             return subprocess.run(args, cwd=ROOT, text=True, stdout=out).returncode
 
@@ -743,6 +871,7 @@ def main() -> int:
                 check_required_proved(manifest)
                 check_open_safety_shrinks(manifest)
                 check_registries_shrink()
+                check_waivers_shrink()
             if args.mode == "final" and open_safety(manifest):
                 raise Rejected("final acceptance requires an empty open_safety: " +
                                ", ".join(open_safety(manifest)))

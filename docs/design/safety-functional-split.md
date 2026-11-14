@@ -141,25 +141,36 @@ As implemented (step 3):
 - An undocumented function, and `gzopen_w` (not in the target build), has `safety_goal: null`.
 - The gzip functions name `Goal.gz_sequence_safety`, and `inflateBackInit_`, `inflateBack` and
   `inflateBackEnd` name `Goal.inflate_back_sequence_safety`, until step 4 states one goal per
-  function. A shared safety goal does not key mutants.
+  function. A shared safety goal does not key mutants. These two goals and their functions are
+  pinned in `SHARED_SAFETY_GOALS` in `scripts/verification.py`; every other documented function
+  names its own `Goal.<function>_safety` (or `_safe`), or its full contract with a `safety_note`.
 - `compressBound` and `compressBound_z` name their full contracts, with a `safety_note`: their
   translations are pure functions with no heap and no fault, so a separate safety goal would hold
   by definition.
-- `open_safety` is compared with the base branch: `ZLIBF_BASE_REF`, else the pull request's base,
-  else `origin/main`; on `main` itself, the first parent. A goal that the base requires and does
-  not list as open may not become open. A goal new to the required set may enter the list.
+- `open_safety` is compared with the base branch (`ZLIBF_BASE_REF`, else the pull request's base,
+  else `origin/main`; on `main` itself, the first parent) and with every first-parent commit from
+  the base to `HEAD`. The walk stops at the commit that merged the base into the branch. A goal
+  that is required and not open at any of these revisions may not become open. A goal new to the
+  required set may enter the list.
 - `open_safety` may not list a proved goal. `final` also requires it to be empty. The auditor's
   strict mode is no longer used: it would reject every unproved functional goal.
 - No decision reads the report text: a Lean name can hold a newline and forge a line.
   `tests/audit/proved-goals.txt` lists the proved goals, and the auditor's `--proved` check rejects
-  any difference from the goals it finds PROVED. The required, open and mutant checks use that
-  file. The auditor also rejects a declaration name with a control character.
+  any difference from the goals it finds PROVED. `specs` and `final` also pass `--require` with
+  the required goals not listed as open, so the auditor itself fails on one that is OPEN. Every
+  name in `proved-goals.txt` must be a goal. The auditor rejects a declaration name with a control
+  character (C0, DEL, C1, U+2028, U+2029).
+- Every registry file follows one line rule in both the auditor and `scripts/verification.py`:
+  lines are separated by `\n` only, an empty line or a `#` line is skipped, no line holds a control
+  character, and a name line holds no whitespace. A line that breaks the rule is rejected.
 - Every proved goal of one function (its functional goal, or its own safety goal) needs function
   mutants. `MUTANT_COVERAGE_PENDING` in `scripts/verification.py` may name, with a reason, a proved
-  safety goal still without rows; a stale entry is rejected. The acceptance batch emptied it.
-- Against the base branch, no name leaves `theorems.txt` or `proved-goals.txt` unless
-  `tests/audit/registry-removals.json` names it with a reason. While the base has no
-  `open_safety`, the list at `ec860375` is the floor.
+  safety goal still without rows; a stale entry is rejected, and no entry may be new against the
+  revisions above. The acceptance batch emptied it.
+- No name registered in `theorems.txt` or recorded in `proved-goals.txt` at any of the revisions
+  above may disappear, unless `tests/audit/registry-removals.json` names it with a reason. An entry
+  whose name was never registered there, or is registered now, is stale and rejected. While the
+  base has no `open_safety`, the list at `ec860375` is the floor.
 
 ## Progress view
 

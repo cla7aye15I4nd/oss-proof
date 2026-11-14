@@ -73,6 +73,7 @@ class AuditTests(unittest.TestCase):
         # Decided on proved-goals.txt (which the auditor checks to be exact), never on report text.
         (self.root / "tests/audit").mkdir(parents=True, exist_ok=True)
         (self.root / "tests/audit/proved-goals.txt").write_text("Goal.first_safety\n")
+        (self.root / "tests/audit/goals.txt").write_text("Goal.other\n")
         with patch.object(verification, "ROOT", self.root):
             verification.check_required_proved(self.open_manifest("Goal.second_safety"))
             with self.assertRaises(verification.Rejected):
@@ -129,6 +130,166 @@ class AuditTests(unittest.TestCase):
                 {"name": "T.b", "reason": ""}], "proved_goals": []}))
             with self.assertRaises(verification.Rejected):
                 verification.check_registries_shrink()
+
+    def repo(self):
+        """A scratch git repository with a git() helper."""
+        repo = self.root / "repo"
+        (repo / "tests/audit").mkdir(parents=True)
+        def git(*args):
+            subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=repo, check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        git("init", "-q", "-b", "main")
+        return repo, git
+
+    def test_registry_line_rule(self):
+        # Batch 3, third reading, defect 1: Python split on "\r" and other line breaks, Lean deleted "\r".
+        # Both now split on "\n" only and reject every other control character and whitespace in a name.
+        self.assertEqual(verification.registry_lines("# a comment\n\nA.b\nC.d\n", "t"), ["A.b", "C.d"])
+        for line in ["Y.\rGoal.target", "Y.\x0bGoal.target", "Y.\x0cGoal.target", "Y.\x1cGoal.target",
+                     "Y.\x85Goal.target", "Y.\u2028Goal.target", "Y.\u2029Goal.target", "A.b\r",
+                     " A.b", "A.b ", "A.\u00a0b", "A.\tb", "# comment\x85"]:
+            with self.assertRaises(verification.Rejected, msg=repr(line)):
+                verification.registry_lines("Goal.first_safety\n" + line + "\n", "t")
+        # The file is read without newline translation, so "\r" reaches the rule.
+        (self.root / "tests/audit").mkdir(parents=True, exist_ok=True)
+        (self.root / "tests/audit/proved-goals.txt").write_bytes(b"ZlibF.Fixture.Y.\rZlibF.Fixture.Goal.target\n")
+        with patch.object(verification, "ROOT", self.root):
+            with self.assertRaises(verification.Rejected):
+                verification.proved_goals()
+
+    def test_proved_goals_are_goals(self):
+        # A junk name such as the left half of the "\r" cheat is not a goal.
+        (self.root / "tests/audit").mkdir(parents=True, exist_ok=True)
+        (self.root / "tests/audit/goals.txt").write_text("Goal.other\n")
+        (self.root / "tests/audit/proved-goals.txt").write_text("Goal.first_safety\nZlibF.Fixture.Y.\n")
+        with patch.object(verification, "ROOT", self.root):
+            with self.assertRaisesRegex(verification.Rejected, "not a goal"):
+                verification.check_required_proved(self.open_manifest("Goal.second_safety"))
+
+    def binding_manifest(self):
+        p = "ZlibF.Spec.Public.Goal."
+        apis = [{"function": f, "functional_goal": p + f, "safety_goal": p + f + "_safety", "scope": "lp64-linux"}
+                for f in ("adler32", "adler32_combine")]
+        apis += [{"function": f, "functional_goal": p + f, "safety_goal": goal, "scope": "lp64-linux"}
+                 for goal, functions in verification.SHARED_SAFETY_GOALS.items() for f in functions]
+        apis.append({"function": "compressBound", "functional_goal": p + "compressBound",
+                     "safety_goal": p + "compressBound", "safety_note": "full contract", "scope": "lp64-linux"})
+        return {"apis": apis, "undocumented": {"functions": []}}
+
+    def test_safety_goal_is_bound_to_its_function(self):
+        # Defect 2: pointing adler32_combine at Goal.adler32_safety made both goals "shared" and
+        # dropped both from the mutant requirement.
+        manifest = self.binding_manifest()
+        verification.check_safety_binding(manifest)
+        self.assertIn("ZlibF.Spec.Public.Goal.adler32_combine_safety", verification.mutant_public_goals(manifest))
+        manifest["apis"][1]["safety_goal"] = "ZlibF.Spec.Public.Goal.adler32_safety"
+        with self.assertRaisesRegex(verification.Rejected, "adler32_combine"):
+            verification.check_safety_binding(manifest)
+        # A shared goal is named by exactly its pinned functions.
+        manifest = self.binding_manifest()
+        manifest["apis"][0]["safety_goal"] = "ZlibF.Spec.Public.Goal.gz_sequence_safety"
+        with self.assertRaises(verification.Rejected):
+            verification.check_safety_binding(manifest)
+        manifest = self.binding_manifest()
+        gz = [a for a in manifest["apis"] if a["function"] == "gzread"][0]
+        gz["safety_goal"] = "ZlibF.Spec.Public.Goal.gzread_safety"
+        with self.assertRaisesRegex(verification.Rejected, "pinned"):
+            verification.check_safety_binding(manifest)
+        # A shared goal never keys function mutants.
+        self.assertNotIn("ZlibF.Spec.Public.Goal.gz_sequence_safety",
+                         verification.mutant_public_goals(self.binding_manifest()))
+
+    def test_registration_removed_on_the_branch_is_seen(self):
+        # Defect 3: a dispatch on dev compares with origin/main; a name registered on dev and removed
+        # again was invisible. Every first-parent commit from the base to HEAD is compared now.
+        repo, git = self.repo()
+        audit = repo / "tests/audit"
+        (audit / "theorems.txt").write_text("T.a\n")
+        (audit / "proved-goals.txt").write_text("Goal.a\n")
+        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
+        git("checkout", "-q", "-b", "dev")
+        (audit / "theorems.txt").write_text("T.a\nT.c\n")
+        (audit / "proved-goals.txt").write_text("Goal.a\nGoal.c\n")
+        git("add", "-A"); git("commit", "-qm", "register c")
+        (audit / "theorems.txt").write_text("T.a\n")
+        (audit / "proved-goals.txt").write_text("Goal.a\n")
+        git("add", "-A"); git("commit", "-qm", "drop c")
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
+            with self.assertRaisesRegex(verification.Rejected, "T.c"):
+                verification.check_registries_shrink()
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1,
+                "theorems": [{"name": "T.c", "reason": "replaced"}], "proved_goals": []}))
+            with self.assertRaisesRegex(verification.Rejected, "Goal.c"):
+                verification.check_registries_shrink()
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1,
+                "theorems": [{"name": "T.c", "reason": "replaced"}],
+                "proved_goals": [{"name": "Goal.c", "reason": "replaced"}]}))
+            verification.check_registries_shrink()
+            # Defect 4: an entry for a name never registered, or registered now, is stale.
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1,
+                "theorems": [{"name": "T.c", "reason": "replaced"}, {"name": "T.never", "reason": "x"}],
+                "proved_goals": [{"name": "Goal.c", "reason": "replaced"}]}))
+            with self.assertRaisesRegex(verification.Rejected, "stale"):
+                verification.check_registries_shrink()
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1,
+                "theorems": [{"name": "T.a", "reason": "x"}, {"name": "T.c", "reason": "replaced"}],
+                "proved_goals": [{"name": "Goal.c", "reason": "replaced"}]}))
+            with self.assertRaisesRegex(verification.Rejected, "stale"):
+                verification.check_registries_shrink()
+
+    def test_chain_starts_at_the_merge_of_the_base(self):
+        # After main took a squash of dev and was merged back, the older dev commits are not compared.
+        repo, git = self.repo()
+        audit = repo / "tests/audit"
+        (audit / "theorems.txt").write_text("T.a\n")
+        (audit / "proved-goals.txt").write_text("Goal.a\n")
+        git("add", "-A"); git("commit", "-qm", "root")
+        git("checkout", "-q", "-b", "dev")
+        (audit / "theorems.txt").write_text("T.a\nT.x\n")
+        git("add", "-A"); git("commit", "-qm", "x")
+        (audit / "theorems.txt").write_text("T.a\nT.b\n")
+        git("add", "-A"); git("commit", "-qm", "x replaced by b")
+        git("checkout", "-q", "main")
+        (audit / "theorems.txt").write_text("T.a\nT.b\n")
+        git("add", "-A"); git("commit", "-qm", "squash of dev"); git("tag", "base")
+        git("checkout", "-q", "dev")
+        git("merge", "-q", "--no-ff", "-m", "merge main", "main")
+        (repo / "README").write_text("x\n")
+        git("add", "README"); git("commit", "-qm", "later")
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
+            self.assertEqual(len(verification.revision_chain()), 3)
+            verification.check_registries_shrink()
+
+    def test_open_safety_reopened_on_the_branch_is_seen(self):
+        repo, git = self.repo()
+        manifest = repo / "tests/audit/public-api.json"
+        manifest.write_text(json.dumps(self.open_manifest("Goal.first_safety", "Goal.second_safety")))
+        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
+        manifest.write_text(json.dumps(self.open_manifest("Goal.second_safety")))
+        git("add", "-A"); git("commit", "-qm", "close first")
+        manifest.write_text(json.dumps(self.open_manifest("Goal.first_safety", "Goal.second_safety")))
+        git("add", "-A"); git("commit", "-qm", "reopen first")
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
+            with self.assertRaisesRegex(verification.Rejected, "first_safety"):
+                verification.check_open_safety_shrinks(self.open_manifest("Goal.first_safety", "Goal.second_safety"))
+
+    def test_mutant_waivers_only_shrink(self):
+        # Defect 4: a new waiver needed only a script edit.
+        repo, git = self.repo()
+        (repo / "scripts").mkdir()
+        script = repo / "scripts/verification.py"
+        script.write_text('MUTANT_COVERAGE_PENDING: dict[str, str] = {"Goal.old": "rows later"}\n')
+        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
+        (repo / "README").write_text("x\n")
+        git("add", "README"); git("commit", "-qm", "head")
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
+            with patch.object(verification, "MUTANT_COVERAGE_PENDING", {}):
+                verification.check_waivers_shrink()
+            with patch.object(verification, "MUTANT_COVERAGE_PENDING", {"Goal.old": "rows later"}):
+                verification.check_waivers_shrink()
+            with patch.object(verification, "MUTANT_COVERAGE_PENDING", {"Goal.new": "no rows"}):
+                with self.assertRaisesRegex(verification.Rejected, "Goal.new"):
+                    verification.check_waivers_shrink()
 
     def test_open_safety_only_shrinks_against_the_base_branch(self):
         repo = self.root / "repo"
@@ -252,13 +413,19 @@ class AuditTests(unittest.TestCase):
                                 capture_output=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def audit(self, strict=False, compare=True, proved=None):
+    def audit(self, strict=False, compare=True, proved=None, proved_text=None, require=None):
         args = ["lake", "env", str(self.auditor),
                 str(self.theorems), str(self.goals), str(ROOT / "tests/audit/compiler-helpers.txt")]
         if proved is not None:
+            proved_text = "".join(name + "\n" for name in proved)
+        if proved_text is not None:
             path = self.root / "proved-goals.txt"
-            path.write_text("".join(name + "\n" for name in proved))
+            path.write_bytes(proved_text.encode("utf-8"))
             args += ["--proved", str(path)]
+        if require is not None:
+            path = self.root / "required-goals.txt"
+            path.write_bytes("".join(name + "\n" for name in require).encode("utf-8"))
+            args += ["--require", str(path)]
         if compare:
             args.append("--compare-axiom-collectors")
         if strict:
@@ -361,6 +528,51 @@ end ZlibF.Fixture
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("control character", result.stderr)
         self.assertNotIn("PROVED", result.stdout)
+
+    def test_registry_line_cheat_is_rejected_by_the_auditor(self):
+        # Defect 1, batch 3's cheat: a decoy goal named Y.<target>; the line "Y.\rTarget" read as one name.
+        self.source.write_text(FIXTURE + "\nnamespace ZlibF.Fixture\ndef Goal.target : Prop := False\n"
+                               "def Y.ZlibF.Fixture.Goal.target : Prop := True\n"
+                               "/-- decoy -/\ntheorem decoy : Y.ZlibF.Fixture.Goal.target := True.intro\n"
+                               "end ZlibF.Fixture\n")
+        self.build()
+        self.goals.write_text("ZlibF.Fixture.Goal.checked\nZlibF.Fixture.Goal.target\n"
+                              "ZlibF.Fixture.Y.ZlibF.Fixture.Goal.target\n")
+        self.theorems.write_text("ZlibF.Fixture.exact\nZlibF.Fixture.decoy\n")
+        cheat = self.audit(compare=False, proved_text="ZlibF.Fixture.Goal.checked\n"
+                           "ZlibF.Fixture.Y.\rZlibF.Fixture.Goal.target\n")
+        self.assertNotEqual(cheat.returncode, 0)
+        self.assertIn("registry rule", cheat.stderr)
+        self.theorems.write_bytes(b"ZlibF.Fixture.exact\nZlibF.Fixture.de\rcoy\n")
+        cheat = self.audit(compare=False, proved_text="ZlibF.Fixture.Goal.checked\n")
+        self.assertNotEqual(cheat.returncode, 0)
+        self.assertIn("registry rule", cheat.stderr)
+
+    def test_required_goals_are_decided_by_the_auditor(self):
+        self.source.write_text(FIXTURE + "\nnamespace ZlibF.Fixture\ndef Goal.target : Prop := False\n"
+                               "end ZlibF.Fixture\n")
+        self.build()
+        self.goals.write_text("ZlibF.Fixture.Goal.checked\nZlibF.Fixture.Goal.target\n")
+        proved = self.audit(compare=False, proved=["ZlibF.Fixture.Goal.checked"],
+                            require=["ZlibF.Fixture.Goal.checked"])
+        self.assertEqual(proved.returncode, 0, proved.stdout + proved.stderr)
+        open_goal = self.audit(compare=False, proved=["ZlibF.Fixture.Goal.checked"],
+                               require=["ZlibF.Fixture.Goal.target"])
+        self.assertNotEqual(open_goal.returncode, 0)
+        self.assertIn("required goal ZlibF.Fixture.Goal.target is OPEN", open_goal.stderr)
+        unknown = self.audit(compare=False, proved=["ZlibF.Fixture.Goal.checked"],
+                             require=["ZlibF.Fixture.Goal.absent"])
+        self.assertNotEqual(unknown.returncode, 0)
+        self.assertIn("is not a goal", unknown.stderr)
+
+    def test_c1_and_separator_characters_in_a_name_are_rejected(self):
+        # Defect 5: C1 controls and U+2028/U+2029 were accepted in names.
+        for char in ("\u0085", "\u2028", "\u2029"):
+            self.source.write_text(FIXTURE + f"\nnamespace ZlibF.Fixture\ndef «x{char}y» : Nat := 1\nend ZlibF.Fixture\n")
+            self.build()
+            result = self.audit(compare=False)
+            self.assertNotEqual(result.returncode, 0, repr(char))
+            self.assertIn("control character", result.stderr)
 
     def test_extra_premise_stays_open(self):
         self.theorems.write_text("ZlibF.Fixture.stronger\n")

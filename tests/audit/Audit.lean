@@ -9,16 +9,21 @@ theorems. It never elaborates source and never runs code from the audited module
 no syntax extensions), so the audited code cannot change what it reports.
 
 Usage: `lake env lean --run tests/audit/Audit.lean <theorems.txt> <goals.txt> [--require-complete]
-[--proved <proved-goals.txt>]`.
+[--proved <proved-goals.txt>] [--require <required-goals.txt>]`.
 The `zlibf-audit` executable runs the same source. `--compare-axiom-collectors`
 also checks each result against Lean's per-declaration collector for small fixtures.
 Problems make the exit code 1. Strict mode also rejects every unproved goal.
 Missing, empty and duplicate registries fail in both modes.
 `--proved <file>` names the goals that must be PROVED, and exactly those: a listed goal that is OPEN
 and a PROVED goal that is not listed are both problems. Callers decide on the list, never on the
-report text.
-A declaration whose name contains a control character is rejected: such a name would print across
-lines and could forge report lines.
+report text. `--require <file>` names goals that must be PROVED: a listed goal that is OPEN or not a
+goal is a problem, so the auditor itself decides that the required goals are proved.
+A declaration whose name contains a control character (C0, DEL, C1, U+2028, U+2029) is rejected:
+such a name would print across lines and could forge report lines.
+Every registry file follows one line rule, the same as `scripts/verification.py`: lines are
+separated by `\n` only; an empty line or a line that starts with `#` is skipped; no line holds a
+control character, and a name line holds no whitespace either. A line that breaks the rule is a
+problem, never silently repaired.
 
 Report lines:
 - `trusted <name> <hash of type> <hash of value>`: a definition, inductive type or structure that is
@@ -150,10 +155,22 @@ def ppType (env : Environment) (ty : Expr) : IO String := do
   let (fmt, _, _) ← Meta.MetaM.toIO (Meta.ppExpr ty) ctx { env := env }
   return (fmt.pretty 110).replace "\n" " "
 
+/-- A control character: C0, DEL, C1, and the line and paragraph separators U+2028 and U+2029.
+The same class as `control_char` in `scripts/verification.py`. -/
+def isControlChar (c : Char) : Bool :=
+  c.toNat < 32 || c.toNat == 127 || (0x80 ≤ c.toNat && c.toNat ≤ 0x9F) ||
+    c.toNat == 0x2028 || c.toNat == 0x2029
+
+/-- Whitespace that may not occur in a registry name: the same list as `SPACES` in
+`scripts/verification.py` (control characters are rejected separately). -/
+def isRegistrySpace (c : Char) : Bool :=
+  c.toNat == 0x20 || c.toNat == 0xA0 || c.toNat == 0x1680 || (0x2000 ≤ c.toNat && c.toNat ≤ 0x200A) ||
+    c.toNat == 0x202F || c.toNat == 0x205F || c.toNat == 0x3000 || c.toNat == 0xFEFF
+
 /-- A name component with a control character (such as a newline inside `«…»`) prints across lines. -/
 def hasControlChar (n : Name) : Bool :=
   n.components.any fun part => match part with
-    | .str _ text => text.toList.any (fun c => c.toNat < 32 || c.toNat == 127)
+    | .str _ text => text.toList.any isControlChar
     | _ => false
 
 /-- Split `--flag value` options from the positional arguments. -/
@@ -166,27 +183,36 @@ def splitOptions (flags : List String) : List String → List String × List (St
       | [] => ([], [], [a])
     else let (p, o, m) := splitOptions flags rest; (a :: p, o, m)
 
-def readNames (path : String) : IO (List Name) := do
+/-- The registry line rule (module docstring): the names of a registry and the lines that break it. -/
+def registryLines (text : String) : List String × List String :=
+  text.splitOn "\n" |>.foldr (init := ([], [])) fun line (names, bad) =>
+    if line.toList.any isControlChar then (names, line :: bad)
+    else if line == "" || line.startsWith "#" then (names, bad)
+    else if line.toList.any isRegistrySpace then (names, line :: bad)
+    else (line :: names, bad)
+
+/-- A registry's names. A line that breaks the line rule is reported as a problem by the caller. -/
+def readRegistry (path : String) : IO (List Name × List String) := do
   if !(← System.FilePath.pathExists path) then
     throw (IO.userError s!"missing registry: {path}")
-  return (← IO.FS.readFile path).splitOn "\n" |>.map (fun l => l.replace "\r" "")
-    |>.filter (fun l => l != "" && !l.startsWith "#") |>.map String.toName
+  let (names, bad) := registryLines (← IO.FS.readFile path)
+  return (names.map String.toName, bad.map fun line => s!"{path}: line breaks the registry rule: {repr line}")
 
 def main (args : List String) : IO UInt32 := do
   let strict := args.contains "--require-complete"
   let compareAxioms := args.contains "--compare-axiom-collectors"
-  let (positional, options, missingValue) := splitOptions ["--proved"] args
+  let (positional, options, missingValue) := splitOptions ["--proved", "--require"] args
   let provedFile := (options.find? (·.1 == "--proved")).map (·.2)
+  let requireFile := (options.find? (·.1 == "--require")).map (·.2)
   let paths := positional.filter (fun arg => arg != "--require-complete" && arg != "--compare-axiom-collectors")
   let thmFile := paths.headD "tests/audit/theorems.txt"
   let goalFile := paths.getD 1 "tests/audit/goals.txt"
   let compilerFile := paths.getD 2 "tests/audit/compiler-helpers.txt"
-  let compilerHelpers ← readNames compilerFile
+  let (compilerHelpers, compilerBad) ← readRegistry compilerFile
   initSearchPath (← findSysroot)
   let env ← importModules #[{ module := `ZlibF }] {} 0
-  let listed := (← IO.FS.readFile thmFile).splitOn "\n" |>.map (fun l => l.replace "\r" "")
-    |>.filter (fun l => l != "" && !l.startsWith "#") |>.map String.toName
-  let mut problems : Array String := #[]
+  let (listed, listedBad) ← readRegistry thmFile
+  let mut problems : Array String := (compilerBad ++ listedBad).toArray
   for flag in missingValue do problems := problems.push s!"option {flag} needs a value"
   if listed.isEmpty then problems := problems.push "empty theorem registry"
   if listed.eraseDups.length != listed.length then
@@ -261,7 +287,8 @@ def main (args : List String) : IO UInt32 := do
     | some _ => problems := problems.push s!"listed name {n} is not a theorem"
     | none => problems := problems.push s!"listed theorem {n} does not exist"
   -- 5. Every standalone goal in the audited closure must be registered.
-  let goals ← readNames goalFile
+  let (goals, goalsBad) ← readRegistry goalFile
+  problems := problems ++ goalsBad.toArray
   for (n, ci) in env.constants.map₁.toList do
     if isOurs env n && n.components.contains `Goal then
       match ci with
@@ -295,7 +322,8 @@ def main (args : List String) : IO UInt32 := do
     | none => problems := problems.push s!"goal {g} does not exist"
   -- 6. The recorded list of proved goals is exact, so a caller decides on that list alone.
   if let some file := provedFile then
-    let recorded ← readNames file
+    let (recorded, recordedBad) ← readRegistry file
+    problems := problems ++ recordedBad.toArray
     if recorded.eraseDups.length != recorded.length then
       problems := problems.push s!"duplicate entry in {file}"
     for g in recorded do
@@ -303,6 +331,15 @@ def main (args : List String) : IO UInt32 := do
       else if !provedGoals.contains g then problems := problems.push s!"recorded proved goal {g} is OPEN"
     for g in provedGoals do
       if !recorded.contains g then problems := problems.push s!"proved goal {g} is not recorded in {file}"
+  -- 7. The required goals are proved: decided here, not by the caller.
+  if let some file := requireFile then
+    let (required, requiredBad) ← readRegistry file
+    problems := problems ++ requiredBad.toArray
+    if required.eraseDups.length != required.length then
+      problems := problems.push s!"duplicate entry in {file}"
+    for g in required do
+      if !goals.contains g then problems := problems.push s!"required goal {g} is not a goal"
+      else if !provedGoals.contains g then problems := problems.push s!"required goal {g} is OPEN"
   IO.eprintln s!"{proved} of {goals.length} goals proved"
   for l in lines.qsort (· < ·) do IO.println l
   IO.eprintln s!"audited {count} declarations of ZlibF, {listed.length} listed theorems"
