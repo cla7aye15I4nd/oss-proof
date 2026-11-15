@@ -812,7 +812,7 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
     - *状态。* `source` 记录及其状态不变。返回 `Z_OK` 时，`dest` 是可达流。返回 `Z_MEM_ERROR` 时，`dest->state` 为 NULL，`dest` 的其他字段不变。
     - *写入。* 只写 `dest` 记录和调用自己分配的块。
     - *分配。* 返回 `Z_OK` 时，新块恰好是新状态的那些块，也就是 `dest` 自己的块；不释放任何块。返回 `Z_MEM_ERROR` 时，已分配的块与调用前相同。
-- **不在本目标内。** `source` 不一致（状态为 NULL、`zalloc` 或 `zfree` 为 NULL，或流检查拒绝其状态）：`Goal.inflate_refusal`。`dest == source`：在所有目标之外（见[偏离记录](../../deviations.md)中“复制目标”一行）。副本的内容：功能目标 `Goal.inflateCopy`，安全结果不需要它。
+- **不在本目标内。** `source` 不一致（状态为 NULL、`zalloc` 或 `zfree` 为 NULL，或流检查拒绝其状态）：`Goal.inflate_refusal`。`dest == source`：在所有目标之外（见[偏离记录](../../deviations.md)中“复制的目的流”一行）。副本的内容：功能目标 `Goal.inflateCopy`，安全结果不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCopy"><summary>完整返回条件与边界</summary>
 

@@ -35,7 +35,7 @@ gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`cl
 
 有两种结果被模型排除。它们是关于 Linux 的被信任的事实，不是某个定理的前提：对非空缓冲区的 `write` 从不返回 0；`close` 失败时也释放描述符。
 
-预言就是 `Fs` 的字段 `nos`、`readChoice`、`writeChoice`、`lseekChoice`、`closeFail`、`openFail`、`openFd`、`okErrno` 和 `readBudget`。它们的默认值给出普通文件行为，只供可执行的测试驱动程序使用；每个目标都对所有世界量化。`gzfs.lean` 的注释给预言的各个子句编了号：M1 是 `read`，M2 是 `write`，M3 是 `lseek`，M4 是 `close`，M5 是 `open`，M7 是读取预算。没有 M6。[偏离记录](../deviations.md#gzip-file-interface)中“gz 读取终止”一行使用了 M7 这个标签。
+预言就是 `Fs` 的字段 `nos`、`readChoice`、`writeChoice`、`lseekChoice`、`closeFail`、`openFail`、`openFd`、`okErrno` 和 `readBudget`。它们的默认值给出普通文件行为，只供可执行的测试驱动程序使用；每个目标都对所有世界量化。`gzfs.lean` 的注释给预言的各个子句编了号：M1 是 `read`，M2 是 `write`，M3 是 `lseek`，M4 是 `close`，M5 是 `open`，M7 是读取预算。没有 M6。[偏离记录](../deviations.md#gzip-file-interface)中“Gz 读取调用的终止”一行使用了 M7 这个标签。
 
 ## 错误文本
 

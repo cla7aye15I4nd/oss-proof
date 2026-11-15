@@ -93,9 +93,9 @@
 | 情形 | 问题与证据的边界 |
 | --- | --- |
 | `compress2` 和 `uncompress2` 的 NULL 长度指针 | 兼容包装函数在 `_z` 的检查之前读取标量单元。[分配回归测试](../tests/regression/compress-allocation/README.md)保留了一个读 NULL 的见证。诊断出读 NULL，并不说明调用者被允许传入 NULL。 |
-| `deflateCopy(&s, &s)` | 报告称原来拥有的状态丢失。复制的安全目标假设目的流不是源记录（[偏离记录](deviations.md)，“复制目标”一行）。 |
+| `deflateCopy(&s, &s)` | 报告称原来拥有的状态丢失。复制的安全目标假设目的流不是源记录（[偏离记录](deviations.md)，“复制的目的流”一行）。 |
 | `inflateGetHeader(strm, NULL)` | 报告称解引用了 NULL。`inflateGetHeader` 的安全目标假设头部不是 `NULL`（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)，“头部参数”一行）。 |
-| inflate 期间的 `gz_header` extra 缓冲区 | 当 `extra` 缓冲区与未读输入重叠时，EXTRA 的 `zmemcpy` 是未定义的；当调用者在 extra 字段中途调低 `extra_len` 时，它会写到 `extra_max` 之外。两种情况都已用 sanitizer 在 [extra 字段回归测试](../tests/regression/inflate-gzip-extra/README.md)中复现。zlib.h 没有说明这两种布局是否允许；`Goal.inflate_safety` 通过 `ActiveHeader` 排除了两者（[偏离记录](deviations.md)，“inflate gzip extra 字段”一行）。 |
+| inflate 期间的 `gz_header` extra 缓冲区 | 当 `extra` 缓冲区与未读输入重叠时，EXTRA 的 `zmemcpy` 是未定义的；当调用者在 extra 字段中途调低 `extra_len` 时，它会写到 `extra_max` 之外。两种情况都已用 sanitizer 在 [extra 字段回归测试](../tests/regression/inflate-gzip-extra/README.md)中复现。zlib.h 没有说明这两种布局是否允许；`Goal.inflate_safety` 通过 `ActiveHeader` 排除了两者（[偏离记录](deviations.md)，“inflate 的 gzip extra 字段”一行）。 |
 | `deflateSetDictionary` 与 `total_in` | 字典字节计入这个计数器。早先对“输入字节”的解释可能没有算上它们；文档的含义与操作上的细化必须分清。 |
 | 迟到的 `deflatePrime` 和 `deflateSetHeader` | C 可能接受不合文档顺序的调用；之后对头部的解引用就可能无效。C 接受了调用，不等于该序列是文档允许的用法。 |
 | `deflateResetKeep` 与预置字典输出 | 保留下来的历史可能让下一个流要求字典。这需要按文档所述的重置语义处理，不能假设每次重置都得到全新的历史。 |

@@ -470,9 +470,9 @@ records. The consequences:
 | Addresses and alignment | Only the low three address bits, and only for the CRC code, which reads eight bytes at a time. A heap byte block starts at an aligned address; a static or embedded byte array has an arbitrary fixed residue. | The checksum goals hold for every residue. No other proof may use an address. |
 | Effective types and aliasing rules | Not modelled. A word read is assembled from bytes. | Whether a C cast respects the aliasing rules is outside the theorems. |
 
-[Deviations](../deviations.md), rows "Heap well-formedness" and "CRC address and word
-access", and [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schema) record
-these limits.
+[Model limits](../model-limits.md#conditions-on-the-model-that-goals-state), rows "Heap
+well-formedness" and "CRC address and word access", and
+[trusted base, item 2](../trusted-base.md#2-runtime-and-object-schema) record these limits.
 
 ## Outside safety
 

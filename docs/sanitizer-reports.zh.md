@@ -67,7 +67,7 @@ WRITE of size 4 at 0x7b0f3f1ff7ff thread T0
     #2 0x64da3988bf46 in inflate inflate.c:626
 ```
 
-排除它的前提：[偏离记录，“inflate gzip extra 字段”一行](deviations.md#stream-calls-inflate-and-deflate)（`InflateHeaderProgress`）。`inflate` 读取 gzip 头部期间，extra 缓冲区与未读输入分开；在 extra 字段内，`extra_len` 不小于还要读取的字节数。它是 `Goal.inflate_safety` 的前提，也是 `Goal.inflate_sequence_safety` 中每个 `inflate` 调用的前提。
+排除它的前提：[偏离记录，“inflate 的 gzip extra 字段”一行](deviations.md#stream-calls-inflate-and-deflate)（`InflateHeaderProgress`）。`inflate` 读取 gzip 头部期间，extra 缓冲区与未读输入分开；在 extra 字段内，`extra_len` 不小于还要读取的字节数。它是 `Goal.inflate_safety` 的前提，也是 `Goal.inflate_sequence_safety` 中每个 `inflate` 调用的前提。
 
 ### `deflate-gzip-name-output`：gzip 名称位于 `deflate` 要写的缓冲区里
 
@@ -98,7 +98,7 @@ READ of size 1 at 0x6daba5be0500 thread T0
     #0 0x644e87c872e9 in deflate deflate.c:1177
 ```
 
-排除它的前提：[偏离记录，“deflate gzip 头区域”一行](deviations.md#stream-calls-inflate-and-deflate)（`DeflateHeaderApart`）。`deflate` 写出挂接的 gzip 头部期间，输入范围、输出范围、extra 字段、名称和注释两两分开，后三者位于流拥有的存储之外。它是 `Goal.deflate_safety` 的前提，也是 `Goal.deflate_sequence_safety` 中每个 `deflate` 调用的前提。
+排除它的前提：[偏离记录，“deflate 的 gzip 头区域”一行](deviations.md#stream-calls-inflate-and-deflate)（`DeflateHeaderApart`）。`deflate` 写出挂接的 gzip 头部期间，输入范围、输出范围、extra 字段、名称和注释两两分开，后三者位于流拥有的存储之外。它是 `Goal.deflate_safety` 的前提，也是 `Goal.deflate_sequence_safety` 中每个 `deflate` 调用的前提。
 
 ### `deflate-history-domain`：迟到的调用，以及对头部记录的修改
 
@@ -174,7 +174,7 @@ READ of size 1 at 0x722a2ebe0204 thread T0
 0x722a2ebe0204 is located 496 bytes after 4-byte region [0x722a2ebe0010,0x722a2ebe0014)
 ```
 
-排除这两种情形的前提：[偏离记录，“deflate gzip 头进度”一行](deviations.md#stream-calls-inflate-and-deflate)（`DeflateHeaderProgress`）。在每个写出挂接的 gzip 头部的 `deflate` 调用处，字段仍然覆盖已写出的部分，并且字段没有在中途被设为 `NULL`。它是 `Goal.deflate_safety` 的前提，也是 `Goal.deflate_sequence_safety` 中每个 `deflate` 调用的前提。
+排除这两种情形的前提：[偏离记录，“deflate 的 gzip 头进度”一行](deviations.md#stream-calls-inflate-and-deflate)（`DeflateHeaderProgress`）。在每个写出挂接的 gzip 头部的 `deflate` 调用处，字段仍然覆盖已写出的部分，并且字段没有在中途被设为 `NULL`。它是 `Goal.deflate_safety` 的前提，也是 `Goal.deflate_sequence_safety` 中每个 `deflate` 调用的前提。
 
 ### `compress-allocation`：`NULL` 长度单元
 
