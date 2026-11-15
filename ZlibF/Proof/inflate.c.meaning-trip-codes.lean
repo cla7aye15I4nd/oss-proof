@@ -2,15 +2,18 @@ import ZlibF.Proof.«inflate.c.meaning-trip-body»
 import ZlibF.Proof.«inflate.c.meaning-fast»
 import ZlibF.Proof.«inflate.c.pending-dispatch»
 import ZlibF.Proof.«inflate.c.fast-view-caller-start»
+import ZlibF.Proof.«inflate.c.meaning-trip-dynamic»
 
 /-!
-# inflate.c: the code modes `LEN_`..`LIT` (`TripCodes`)
+# inflate.c: the code modes `LEN_`..`LIT` (`TripCodes`) and the fast `LEN` step on byte views
 
 Each code mode is its per-mode step behind its dispatch equation: `len__step` and
 `len_slow_step` (slow `LEN_`, `LEN`), `fast_call_meaning` (fast `LEN`), `lenext_step`,
 `dist_step`, `distext_step`, `match_step` and `lit_step`. `body_outcome` turns the ends into a
 `TripOutcome`. The premises of the steps come from `CallSide` and `LoopMatches`. The fast call
 takes input and output in any byte view the dispatch packet admits (`DispatchBuffers.fast_views`).
+That fast step is `fast_len_meaning : FastLenMeaning`; it also closes the dynamic header row
+(`trip_dynamic`, through `trip_dynamic_of`).
 -/
 
 namespace Zlib.Inflate.Proofs
@@ -38,6 +41,12 @@ theorem fast_len {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
   have good := (state zs s st hs).2.1
   obtain ⟨inRef, outRef, _, _, io, oo, input, _, _, _, _, output, _⟩ := buffers.fast_views good fit fast
   exact MeaningFast.fast_call_meaning loop strm hz fast state fit buffers input output rawWidth
+
+/-- `FastLenMeaning`: the fast `case LEN` call keeps the format meaning for every caller byte
+view of input and output. -/
+theorem fast_len_meaning : MeaningLenEntry.FastLenMeaning :=
+  fun _ _ _ _ _ _ loop strm hz fast state fit buffers rawWidth =>
+    fast_len loop strm hz fast state fit buffers rawWidth
 
 /-! ## Premises of the steps -/
 
@@ -226,7 +235,7 @@ theorem len_start_fast {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
     buffers.byte_views invariant.good good rfl
       (byte_view_get_setI h zs current) (byte_view_ro_setI h zs current)
   have loop1 : LoopMatches c f heap l := loop_len_start loop E.st E.hs mode
-  obtain ⟨l', h', run, _, rest⟩ := fast_len loop1 E.strm currentJ.good.live.hz fast
+  obtain ⟨l', h', run, _, rest⟩ := fast_len_meaning _ _ _ _ _ _ loop1 E.strm currentJ.good.live.hz fast
     (at_state_id (P := fun zs s => s.mode = LEN ∧ Good heap r zs z s ∧ DataTablesSafe heap s ∧
       DataPendingInvariant s) E.st (setI_istates_same h zs current)
       ⟨rfl, currentJ.good, currentJ.tables (by change DataTableMode LEN; unfold DataTableMode; decide),
@@ -279,7 +288,7 @@ theorem trip_codes : TripCodes := by
       exact ⟨result, l', h', run', Or.inl (body_outcome side loop body run' (decode_ends ends))⟩
   · -- LEN
     by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
-    · obtain ⟨l', h', run, _, rest⟩ := fast_len loop E.strm E.hz fast
+    · obtain ⟨l', h', run, _, rest⟩ := fast_len_meaning _ _ _ _ _ _ loop E.strm E.hz fast
         (at_state_id (P := fun zs s => s.mode = LEN ∧ Good h r zs z s ∧ DataTablesSafe h s ∧
           DataPendingInvariant s) st E.hs
           ⟨m, j.good, j.tables (by rw [m]; unfold DataTableMode; decide), j.pending⟩)
@@ -329,8 +338,12 @@ theorem trip_codes : TripCodes := by
     · exact Or.inl ⟨e, loop⟩
     · exact Or.inr ⟨e, Or.inl m'⟩
 
-#print axioms fast_len
+/-- The dynamic header row, from the fast `case LEN` call on every byte view. -/
+theorem trip_dynamic : TripDynamic := MeaningTripDynamic.trip_dynamic_of fast_len_meaning
+
+#print axioms fast_len_meaning
 #print axioms len_start_fast
 #print axioms trip_codes
+#print axioms trip_dynamic
 
 end Zlib.Inflate.Proofs
