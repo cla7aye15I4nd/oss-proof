@@ -122,6 +122,36 @@ C; not reproducible in practice (about 2^63 decoded bytes); not confirmed by a s
 Confidence is high for the patched source as written. Scope: patch 0004 readers within `size`
 bytes of `GZ_OFF_MAX` after that history. Patch 0004 now bounds that branch too.
 
+## Source finding: gzseek after an initial gzungetc
+
+`gzungetc` at position 0 makes `x.pos` -1. `gzseek64` then overflows signed arithmetic in its
+range checks, which is undefined behaviour. The
+[retained reproduction](tests/regression/gzseek-pushback-overflow/README.md) builds the unpatched
+C under the sanitizers: UndefinedBehaviorSanitizer reports three sites. Confidence is high. Scope:
+inside the documented use. The fix is submitted as
+[upstream PR #1361](https://github.com/madler/zlib/pull/1361), open, and applied here as
+[patch 0002](patches/README.md).
+
+## Source finding: gzread after a partial read that fails
+
+In transparent mode, when `read` supplies some bytes and then fails, `gz_fetch` returns before it
+sets `x.next`, and the readers copy from the old pointer: a read outside the buffer. The
+[retained reproduction](tests/regression/gzread-transparent-stale-next/README.md) builds the
+unpatched C under the sanitizers: AddressSanitizer reports the read. Confidence is high. Scope:
+inside the documented use; it needs a read error after partial data. The fix is submitted as
+[upstream PR #1363](https://github.com/madler/zlib/pull/1363), open, and applied here as
+[patch 0003](patches/README.md).
+
+## Source finding: zero advance of an unset or dangling x.next
+
+`gzseek64` and `gz_skip_have` do `x.next += n` with `n == 0` when the field was never written
+([R-3](docs/findings/gz-reset-next-uninitialised/README.md)) or points into a freed caller buffer
+([R-4](docs/findings/gz-next-dangling-after-direct-read/README.md)). This is undefined by the
+letter of C. The evidence is weaker than for the findings above: no sanitizer reports either
+case and no misbehaviour was observed; each finding has a probe run. Scope: the two call
+sequences of the findings. The verified source includes a local fix,
+[patch 0005](patches/README.md), approved by the owner and not yet submitted upstream.
+
 ## Source fix
 
 `inflateCopy` compares a static fixed table with a separately allocated state

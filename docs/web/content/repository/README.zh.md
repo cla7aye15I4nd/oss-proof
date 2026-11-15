@@ -1,4 +1,4 @@
-<!-- source-sha256: e81b6760a0ee40ded834739134849fc036a5929af1a6b9472b3b963abebcf387 -->
+<!-- source-sha256: 984bfbf51bd49d7f99cc67a76e732bff52d645c9f9514077346bd97086ed83e7 -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean；证明表明，默认 x86_64 Linux 构建中每个有文档的公开函数，在它的各种调用序列上运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止。
@@ -62,6 +62,18 @@ scripts/check-sorry.sh
 `gzread` 和 `gzwrite` 把搬运的字节数加到有符号 64 位位置 `x.pos` 上，不做上界检查。在位置能到达 2^63 − 1 的透明文件上，这个加法会溢出，是未定义行为。读取：在 `lseek` 成功却不移动的设备上（Linux 上的 `/dev/zero`），`gzseek(INT64_MAX, SEEK_SET)` 被接受，随后的 `gzread` 在 `gz_read`、`gzgetc` 和 `gzgetc()` 宏中溢出（[复现](docs/findings/gzread-pos-overflow/README.md)）。写入：透明写入者在 `/dev/null` 上定位到接近 2^63 之后，`gzwrite` 和 `gzputc` 溢出（[复现](docs/findings/gzwrite-pos-overflow/README.md)）。在 x86_64 Linux 上用固定版本的 C，UndefinedBehaviorSanitizer 报告了两者。对诊断出的序列，置信度高。范围：`lseek` 成功却不移动的设备，或接近 2^63 的透明位置。验证对象包含一个本地修复，[补丁 0004](patches/README.md)，经所有者批准，尚未提交上游：位置保持在 `z_off64_t` 之内，会溢出的调用以 `Z_DATA_ERROR` 失败。
 
 该修复中的一个缺口：`gz_look` 的透明 COPY 分支缓冲至多 `size` 个字节，不受剩余空间的限制。所以在一个带尾部数据的 gzip 成员、`gzclearerr` 和一次接近 2^63 − 1 的读取之后，读取者返回时 `x.pos + x.have` 超过 `GZ_OFF_MAX`，随后 `gzgetc()` 宏使 `x.pos` 溢出（[发现](docs/findings/gz-position-copy-overflow.md)）。已在模型中确认，也已通过阅读 C 确认；实际中无法复现（约 2^63 个解码字节）；没有 sanitizer 确认。对按所写的打过补丁的源码，置信度高。范围：带补丁 0004、在这段历史之后位置距 `GZ_OFF_MAX` 不到 `size` 个字节的读取者。补丁 0004 现在也限制了这个分支。
+
+## 源码问题：开头 gzungetc 之后的 gzseek
+
+在位置 0 调用 `gzungetc` 会使 `x.pos` 变为 -1。之后 `gzseek64` 的范围检查发生有符号算术溢出，是未定义行为。保留的[复现材料](tests/regression/gzseek-pushback-overflow/README.md)在 sanitizer 下构建未打补丁的 C：UndefinedBehaviorSanitizer 报告了三处。置信度高。范围：在文档规定的用法之内。修复已作为[上游 PR #1361](https://github.com/madler/zlib/pull/1361)提交，尚未合并，在这里作为[补丁 0002](patches/README.md)应用。
+
+## 源码问题：部分读取后失败的 gzread
+
+在透明模式下，如果 `read` 先交付一部分字节然后失败，`gz_fetch` 会在设置 `x.next` 之前返回，读取函数于是从旧指针复制：这是缓冲区之外的读取。保留的[复现材料](tests/regression/gzread-transparent-stale-next/README.md)在 sanitizer 下构建未打补丁的 C：AddressSanitizer 报告了这次读取。置信度高。范围：在文档规定的用法之内；需要在部分数据之后出现读错误。修复已作为[上游 PR #1363](https://github.com/madler/zlib/pull/1363)提交，尚未合并，在这里作为[补丁 0003](patches/README.md)应用。
+
+## 源码问题：未设置或悬空的 x.next 前进零
+
+`gzseek64` 和 `gz_skip_have` 在 `n == 0` 时执行 `x.next += n`，而此时该字段可能从未写入（[R-3](docs/findings/gz-reset-next-uninitialised/README.md)），或指向已释放的调用者缓冲区（[R-4](docs/findings/gz-next-dangling-after-direct-read/README.md)）。按 C 标准的字面，这是未定义行为。这里的证据比上面几项弱：没有 sanitizer 报告这两种情况，也没有观察到异常行为；每项发现各有一次探针运行。范围：两项发现中的两个调用序列。验证的源码包含一个本地修复，即[补丁 0005](patches/README.md)，已获所有者批准，尚未提交上游。
 
 ## 源码修复
 
