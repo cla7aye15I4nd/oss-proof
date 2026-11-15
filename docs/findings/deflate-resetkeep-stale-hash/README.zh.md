@@ -1,28 +1,28 @@
-<!-- source-sha256: 3c6f7ce6ad9855ac37ffccdc30b385dceb4bf6d3b94939a2a08b2db4bf6bb21b -->
+<!-- source-sha256: be4be52ff40f17a46f0f920748d3ffb714c186f6ec971ceba9e797dec70eb46b -->
 # `deflateResetKeep`：过时的散列项可能产生错误的匹配
 
 在流的中途直接调用 `deflateResetKeep` 之后，下一个流里可能出现第三个字节不对的匹配，于是它解码出的数据与输入不同。这是数据错误，不是内存错误，没有 sanitizer 会报告它。`zlib.h` 把 `deflateResetKeep` 列为不属于 zlib API。
 
 ## 状态
 
-- 在固定版本源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上复现，平台为 arm64 macOS，不带 sanitizer。
-- 它是不是 zlib 的缺陷，**尚未向上游确认**：zlib.h 没有说明 `deflateResetKeep` 的预期用法。
+- 在固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上复现，平台为 arm64 macOS，不带 sanitizer。
+- 它是不是 zlib 的缺陷，尚未向上游核实：zlib.h 没有说明 `deflateResetKeep` 的预期用法。
 - 没有报告给上游。没有补丁：证明排除了直接调用 `deflateResetKeep`（[偏离记录](../../deviations.md)，“直接调用 `deflateResetKeep`”一行）。
 
 ## 调用序列
 
 ```c
-deflateInit2(&s, level, Z_DEFLATED, -wb, mem, Z_DEFAULT_STRATEGY);   /* raw deflate */
+deflateInit2(&s, level, Z_DEFLATED, -wb, mem, Z_DEFAULT_STRATEGY);   /* 裸 deflate */
 /* 输入 A */
-deflate(&s, Z_NO_FLUSH);            /* 窗口里留有前瞻 */
-deflateResetKeep(&s);               /* 保留窗口和散列，丢弃前瞻 */
+deflate(&s, Z_NO_FLUSH);            /* 窗口里留有预读 */
+deflateResetKeep(&s);               /* 保留窗口和散列，丢弃预读 */
 /* 输入 B */
 deflate(&s, Z_FINISH);              /* 第二个流 */
 ```
 
 第二个流可以引用保留下来的窗口 `window[0 .. strstart)`。把这些字节当作预置字典来解码，应当得到 B。在某些历史中却得不到。
 
-原因：`deflateResetKeep` 保留 `strstart`，把 `lookahead` 设为 0。散列里仍有位置 `strstart - 2` 和 `strstart - 1`，它们插入时所用的三字节键延伸到了已被丢弃的前瞻里。下一次 `deflate` 调用从 `strstart` 起写入新的输入。`longest_match` 不比较候选的第三个字节（它依赖散列键相等），所以一个过时的候选可能在第三个字节不对的情况下被接受。
+原因：`deflateResetKeep` 保留 `strstart`，把 `lookahead` 设为 0。散列里仍有位置 `strstart - 2` 和 `strstart - 1`，它们插入时所用的三字节键延伸到了已被丢弃的预读里。下一次 `deflate` 调用从 `strstart` 起写入新的输入。`longest_match` 不比较候选的第三个字节（它依赖散列键相等），所以一个过时的候选可能在第三个字节不对的情况下被接受。
 
 完整程序是 [`repro.c`](repro.c)。它按种子逐个尝试随机的参数和输入，找到三个解码结果与 B 不同的历史后停止。它包含 `deflate.h`，用来读取 `strstart` 和保留下来的窗口。
 
@@ -53,7 +53,7 @@ tried 41 bad 3
 
 ## 范围与严重程度
 
-- **谁会遇到。** 在一次留下前瞻的 `deflate` 调用之后直接调用 `deflateResetKeep`，然后用同一个流继续压缩数据的程序。
+- **谁会遇到。** 在一次留下预读的 `deflate` 调用之后直接调用 `deflateResetKeep`，然后用同一个流继续压缩数据的程序。
 - **后果。** 压缩流解码出的数据与输入不同。没有内存错误。`deflate` 和 `inflate` 都不返回错误码。
 - **严重程度。** 对这样的程序：无声的数据损坏。对只用文档 API 的程序：没有影响，因为 `deflateReset` 在 `deflateResetKeep` 之后会清空散列。
 
@@ -61,7 +61,7 @@ tried 41 bad 3
 
 ## `zlib.h` 的说法
 
-`deflateResetKeep` 声明在注释`/* undocumented functions (not part of the zlib API) */` 之下（`zlib.h:2043`，声明在第 2051 行）。它的用法没有说明。
+`deflateResetKeep` 声明在注释 “`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下（`zlib.h:2043`，声明在第 2051 行）。它的用法没有说明。
 
 ## 修复
 
@@ -69,4 +69,6 @@ tried 41 bad 3
 
 ## 与证明的关系
 
-直接调用 `deflateResetKeep` 之后，deflate 不变式 `DInv` 的散列链子句不成立。因此安全目标的 deflate 流定义域里没有这样的调用。在这个不带 `deflateCopy` 的历史中，安全性不依赖散列键：`longest_match` 只读取 `strstart` 以下的窗口字节。
+直接调用 `deflateResetKeep` 之后，deflate 不变量 `DInv` 的散列链子句不成立。因此安全目标的 deflate 流定义域里没有这样的调用，也没有定理覆盖这个历史。
+
+在这个不带 `deflateCopy` 的历史中，没有发现内存错误。对 C 的解读是：无论散列键是什么，`longest_match` 都只读取窗口之内的字节。这一解读**尚未由证明确认**；只要这个调用仍在已证明的定义域之外，本项目的证明就不会确认它。

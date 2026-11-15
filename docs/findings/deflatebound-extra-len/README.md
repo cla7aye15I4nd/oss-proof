@@ -6,7 +6,7 @@ Status: reproduced on the pinned C. Known upstream (discussion in upstream PR 13
 sum is computed at 32 bits and wraps to 0 or 1 for `extra_len` 2^32 - 2 and 2^32 - 1. `deflate`
 writes `extra_len & 0xffff` bytes of the field (65534 or 65535). The bound is then about 64 KiB
 too small, and one `deflate(Z_FINISH)` with that room returns `Z_OK`
-(`tests/goals/deflate-bound/bound.c`, mode `extra`: bound 126 and 125 for 100 input bytes).
+(`tests/goals/deflate-bound/bound.c`, mode `extra`: bound 125 and 126 for 100 input bytes).
 
 For `extra_len` from 2^16 up to 2^32 - 3 the bound counts `extra_len` bytes and `deflate` writes
 fewer: the bound is conservative, not wrong.

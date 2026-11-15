@@ -9,8 +9,8 @@ part of the zlib API.
 
 - Reproduced on the pinned source (`757f0527154291bcf6bfbd6396ecde6bedd2db95`, upstream
   `develop`) on arm64 macOS, with no sanitizer.
-- Whether it is a zlib bug is **to confirm** with upstream: zlib.h does not document the intended
-  use of `deflateResetKeep`.
+- Whether it is a zlib bug is not yet checked with upstream: zlib.h does not document the
+  intended use of `deflateResetKeep`.
 - Not reported upstream. No patch: the proofs exclude a direct `deflateResetKeep`
   ([deviations](../../deviations.md), row "Direct `deflateResetKeep`").
 
@@ -92,6 +92,10 @@ not rerun for this page.
 ## Relation to the proofs
 
 The hash-chain clause of the deflate invariant `DInv` does not hold after a direct
-`deflateResetKeep`. The deflate stream domain of the safety goals therefore has no such call. In
-this history, without `deflateCopy`, safety does not depend on the hash keys: `longest_match`
-reads only window bytes below `strstart`.
+`deflateResetKeep`. The deflate stream domain of the safety goals therefore has no such call, and
+no theorem covers this history.
+
+In this history, without `deflateCopy`, no memory error is known. The reading of the C is that
+`longest_match` reads only bytes inside the window, whatever the hash keys are. That reading is
+**to confirm**, and no proof of this project will confirm it while the call stays outside the
+proved domain.
