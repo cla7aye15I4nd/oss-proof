@@ -1154,6 +1154,8 @@ import ZlibF.Proof.«inflate.c.meaning-call»
 import ZlibF.Proof.«inflate.c.meaning-zlib»
 import ZlibF.Proof.«public-deflate-inflate-roundtrip»
 import ZlibF.Proof.«inflate.c.meaning-call-exit»
+import ZlibF.Proof.«inflate.c.config-source-observer»
+import ZlibF.Proof.«inflate.c.meaning-call-unstaged»
 import ZlibF.Proof.«inflate.c.meaning-call-entry»
 import ZlibF.Proof.«inflate.c.meaning-type-final»
 import ZlibF.Proof.«inflate.c.meaning-gzip-fields-loop»
