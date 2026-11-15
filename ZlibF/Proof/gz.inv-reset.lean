@@ -70,10 +70,9 @@ theorem GzInv.drop_input {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) 
         ⟨(c.distinct.2 p hp b hb).1, by rw [hso]; exact (c.distinct.2 p hp b hb).2⟩⟩
       live := fun b hb => (putGz_live hs b).2 (c.live b ((hown b).1 hb))
       pos := c.pos
-      next := by
-        rcases c.next with hn | ⟨b, off, a, hx, hbi, ho, hmb, hb, hle⟩
-        · exact Or.inl hn
-        · exact Or.inr ⟨b, off, a, hx, hbi, (hown b).2 ho, hmb, hb, hle⟩
+      next := fun hh => by
+        obtain ⟨b, off, a, hx, hbi, ho, hmb, hb, hle⟩ := c.next hh
+        exact ⟨b, off, a, hx, hbi, (hown b).2 ho, hmb, hb, hle⟩
       nullHave := c.nullHave
       recordFree := by rw [hso]; exact c.recordFree }
   · intro hm
@@ -97,7 +96,12 @@ theorem GzInv.drop_input {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) 
         subst hz'
         exact ⟨StreamReachable.rebuffer reach hreb (fun _ => fitH), _, k, st, gH, hzst, hk, hhead⟩
       posHave := r.posHave
-      againSize := r.againSize }
+      againSize := r.againSize
+      haveSkip := r.haveSkip
+      againEof := fun _ _ => rfl
+      errEnd := r.errEnd
+      copyIn := fun _ => rfl
+      msgLit := r.msgLit }
   · intro hm
     have w := inv.writer hm
     exact {
@@ -106,7 +110,7 @@ theorem GzInv.drop_input {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) 
       reset := w.reset
       unalloc := w.unalloc
       bufs := w.bufs
-      input := Or.inl rfl
+      input := w.input.imp (fun hn => ⟨hn.1, rfl⟩) (fun ⟨hz, a, ha, hle⟩ => ⟨hz, a, ha, by simp <;> omega⟩)
       output := w.output
       codec := fun hd hz => by
         obtain ⟨reach, z, k, d, hzget, hzst, hk, hhead⟩ := w.codec hd hz
@@ -143,8 +147,8 @@ theorem GzInv.gz_reset {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) :
       LiveChange h after (fun _ => False) (fun b => blkOf s.msg = some b) := by
   have hs := inv.common.record
   -- step 1: the message
-  obtain ⟨inv1, own1, live1, frame1⟩ := inv.clear_message s.eof s.past Z_OK
-    (fun hm => ⟨(inv.reader hm).flags.1, (inv.reader hm).flags.2.1⟩)
+  obtain ⟨inv1, own1, live1, frame1⟩ := inv.clear_message s.eof s.past Z_OK (by decide)
+    (fun hm => ⟨(inv.reader hm).flags.1, (inv.reader hm).flags.2.1, (inv.reader hm).againEof⟩)
   -- step 2: the scalars of `resetRec`
   have h0 : (0 : Int64).toInt = 0 := rfl
   have main : ∃ s2 : GzState,
@@ -163,8 +167,9 @@ theorem GzInv.gz_reset {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) :
           (fun _ => ⟨Or.inl rfl, fun e => absurd e (by show ¬ (LOOK = GZ_COPY); decide),
             fun e => absurd e (by show ¬ (LOOK = GZIP); decide), Or.inl rfl,
             Or.inl rfl, Or.inl rfl, Or.inl rfl, fun _ => rfl, fun _ => rfl,
-            by show (0 : Int64).toInt + ((0 : UInt32).toNat : Int) ≤ 9223372036854775807; decide⟩)
-          (fun hw => absurd (hmo.symm.trans hw) (by decide))
+            by show (0 : Int64).toInt + ((0 : UInt32).toNat : Int) ≤ 9223372036854775807; decide, fun _ => rfl,
+            fun h0 _ => absurd rfl h0⟩)
+          (fun hw => absurd (hmo.symm.trans hw) (by decide)) (fun _ => (fun hc => absurd hc (by show ¬ (LOOK = GZ_COPY); decide)))
       · unfold Zlib.Gzlib.Spec.resetRec
         rw [hmo']
         rfl
@@ -178,7 +183,7 @@ theorem GzInv.gz_reset {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) :
             by show (0 : Int) ≤ (0 : Int64).toInt + ((0 : UInt32).toNat : Int); decide⟩
           (by show (0 : UInt32).toNat ≤ _; exact Nat.zero_le _)
           (fun hr => absurd hr hmo)
-          (fun _ => Or.inl rfl)
+          (fun _ => Or.inl rfl) (fun hr => absurd hr hmo)
       · unfold Zlib.Gzlib.Spec.resetRec
         rw [hmo']
         rfl

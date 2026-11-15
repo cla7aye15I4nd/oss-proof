@@ -27,7 +27,7 @@ class ProgressTests(unittest.TestCase):
         self.goals = ['ZlibF.Spec.Public.Goal.' + x for x in 'abcde']
         (self.root / 'tests/audit/goals.txt').write_text('\n'.join(self.goals) + '\n')
         (self.root / 'tests/audit/public-api.json').write_text(json.dumps({'apis': [
-            {'goal': g, 'implementation': 'F.' + g[-1], 'manual': 'docs/api.md'} for g in self.goals]}))
+            {'functional_goal': g, 'implementation': 'F.' + g[-1], 'manual': 'docs/api.md'} for g in self.goals]}))
         (self.root / 'ZlibF/Spec/Goals.lean').write_text('\n'.join('def Goal.' + x + ' : Prop := True' for x in 'abcde'))
         (self.root / 'ZlibF/Proof/candidate.lean').write_text('theorem candidate : Goal.d := by trivial\n')
         (self.root / 'ZlibF/Proof/exact.lean').write_text('theorem a : Goal.a := by trivial\n')
@@ -117,7 +117,7 @@ class ProgressTests(unittest.TestCase):
         diagram = progress.mermaid(graph)
         for index in [2, 3]:
             self.assertIn(f'n{index}["{"abcde"[index]}<br/>Blocked"]:::unproved', diagram)
-            self.assertIn(f'click n{index} href "https://github.com/example/project/blob/{"a" * 40}/docs/progress.md#address-model"', diagram)
+            self.assertIn(f'click n{index} href "https://github.com/example/project/blob/{"a" * 12}/docs/progress.md#address-model"', diagram)
         for branch in ['dev', 'main']:
             base = f'https://github.com/example/project/blob/{branch}/docs/progress.md'
             url = urlsplit(urljoin(base, progress.target_url(graph, graph['nodes'][2])))
@@ -183,7 +183,7 @@ class ProgressTests(unittest.TestCase):
             links = re.findall(r'click \w+ href "([^"]+)"', diagram)
             self.assertTrue(links)
             self.assertTrue(all(line.endswith('_blank') for line in diagram.splitlines() if line.strip().startswith('click ')))
-            self.assertTrue(all(link.startswith('https://github.com/example/project/blob/' + 'a' * 40) for link in links))
+            self.assertTrue(all(link.startswith('https://github.com/example/project/blob/' + 'a' * 12 + '/') for link in links))
             bases = ['https://viewscreen.githubusercontent.com/markdown/mermaid',
                      'https://github.com/example/project/blob/dev/docs/' + page,
                      'https://github.com/example/project/blob/main/docs/' + page]
@@ -191,7 +191,7 @@ class ProgressTests(unittest.TestCase):
                 for link in links:
                     resolved = urlsplit(urljoin(base, link))
                     self.assertEqual(resolved.netloc, 'github.com')
-                    self.assertEqual(resolved.path, f'/example/project/blob/{"a" * 40}/ZlibF/Spec/Goals.lean')
+                    self.assertEqual(resolved.path, f'/example/project/blob/{"a" * 12}/ZlibF/Spec/Goals.lean')
 
     def test_new_targets_and_groups_link_to_existing_specifications(self):
         self.link_context['progressAnchors'] = []
@@ -204,11 +204,27 @@ class ProgressTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'before generating'):
             progress.target_url(graph, graph['nodes'][0])
 
-    def test_recorded_revision_is_stable_until_proof_inputs_change(self):
-        (self.root / 'docs/progress.md').write_text(
-            '<!-- proof-link-revision: ' + 'a' * 40 + ' -->\nInput fingerprint: `123abc`.\n')
-        self.assertEqual(progress.recorded_link_revision('123abc'), 'a' * 40)
-        self.assertIsNone(progress.recorded_link_revision('456def'))
+    def test_recorded_revision_is_kept_whatever_the_proof_inputs(self):
+        (self.root / 'docs/progress.md').write_text('<!-- proof-link-revision: ' + 'a' * 40 + ' -->\n')
+        self.assertEqual(progress.recorded_link_revision(), 'a' * 40)
+        (self.root / 'docs/progress.md').write_text('# Status\n')
+        self.assertIsNone(progress.recorded_link_revision())
+
+    def test_staleness_is_content_based(self):
+        # A Lean edit that changes no shown fact changes only the input fingerprint: same page.
+        page = progress.outputs(self.graph())['docs/progress.md']
+        edited = progress.outputs(progress.build_graph(self.export, 'another-fingerprint'))['docs/progress.md']
+        self.assertEqual(page, edited)
+        self.assertNotIn('input-fingerprint', page)
+        # A proof status that changes is shown: the page differs.
+        self.export['goals'][2]['proofs'] = [{'name': 'Proof.c', 'source': 'ZlibF/Proof/exact.lean',
+                                              'registered': False, 'allowedAxioms': True, 'axioms': []}]
+        proved = progress.outputs(self.graph())['docs/progress.md']
+        self.assertNotEqual(page, proved)
+        # A registration that changes is shown: the page differs.
+        self.export['goals'][2]['proofs'][0]['registered'] = True
+        registered = progress.outputs(self.graph())['docs/progress.md']
+        self.assertNotEqual(proved, registered)
 
     def test_github_remote_formats(self):
         for remote in ['git@github.com:example/project.git', 'ssh://git@github.com/example/project.git',
@@ -303,6 +319,22 @@ class ProgressTests(unittest.TestCase):
         path.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'targets missing'):
             self.graph()
+
+    def test_not_planned_goal_is_public_and_not_open_work(self):
+        # Goal.gz_initialisation_domain: in goals.txt, in no manifest group; not_planned keeps it public.
+        path = self.root / 'tests/audit/public-api.json'
+        manifest = json.loads(path.read_text())
+        dropped = manifest['apis'].pop()['functional_goal']
+        manifest['not_planned'] = [{'goal': dropped, 'reason': 'functional, not planned'}]
+        path.write_text(json.dumps(manifest))
+        graph = self.graph()
+        node = next(n for n in graph['nodes'] if n['id'] == dropped)
+        self.assertEqual(node['status'], 'not-planned')
+        self.assertEqual(node['scope'], 'public')
+        self.assertNotIn(dropped, [n['id'] for n in graph['nodes'] if n['status'] == 'open'])
+        page = progress.outputs(graph)['docs/progress.md']
+        self.assertIn('Not proved / Not planned', page)
+        self.assertIn('[Not planned](#scope)', page)
 
     def add_readiness(self, targets='`c`, `d`', label='Needs: position history'):
         path = self.root / 'docs/progress.md'

@@ -1,5 +1,6 @@
 import ZlibF.Spec.Public.GzControl
 import ZlibF.Spec.PlatformMemory
+import ZlibF.Spec.Functional.Api.Compress
 
 /-!
 # gz file interface, safety: the representation invariant `GzInv` and the shape of a safe call
@@ -11,7 +12,7 @@ over the OS-call oracle of `ZlibF/Zlib/gzfs.lean`:
    C's W1–W10 folded into the write part. Other modules use its interface lemmas, not the definition.
 2. `GzCallSafe`: safety of one public call on a handle in `GzInv`, for every world.
 3. `ReadsFinite`: the M7 premise of the termination half of the reading calls: the descriptor is non-negative and
-   has a finite read budget in the OS-call oracle (`Fs.readBudget`).
+   has a read budget below `2^61` bytes in the OS-call oracle (`Fs.readBudget`).
 
 Corrections against the skeleton at `7d896179` (strengthenings):
 - `GzCommon.next` also excludes the message block (`blkOf s.msg ≠ some b`), as `NextOk` does. Without it `x.next`
@@ -24,10 +25,13 @@ Corrections against the skeleton at `7d896179` (strengthenings):
 - `GzReadInv.posHave`: `x.pos + x.have ≤ GZ_OFF_MAX` on return (patch 0004). Without it the buffered path of
   `gzgetc` overflows `x.pos`.
 - `GzReadInv.againSize`: `size = 0 → again = 0`. Without it `gzungetc` computes `out + 2·size - 1` on a NULL `out`.
+- `GzReadInv.haveSkip`: `x.have ≠ 0 → skip = 0` at call boundaries; `GzInvUpToSkip` is the invariant without it, for
+  the inside of reading calls. Without it `gzgetc` returns a buffered byte while a skip is pending, and moves `x.pos`
+  past `GZ_OFF_MAX - skip`.
 - `GzPost` has a no-grab clause: a block owned after a helper call was owned before it or was not live before it.
 
 Patches. Some clauses (`GzCommon.pos`, `GzCommon.next`, `GzReadInv.output`) are established only for the patched
-source (patch 0002, patch 0003, and local patches for F-1, W7, R-3, R-4). The definitions do not depend on that;
+source (patch 0002, patch 0003, patch 0005, and local patches for F-1 and W7). The definitions do not depend on that;
 the lemmas that need a patch say so.
 -/
 
@@ -42,11 +46,19 @@ def FdOpen (fs : Fs) (j : Nat) : Prop := ∃ f, fs.fds[j]? = some (some f)
 
 end GzOracle
 
-/-- **M7, the finiteness premise.** The handle's descriptor is non-negative and has a finite read budget, so every
-later read is cut to a bound. A premise of the termination half only, and only for the calls of `NeedsReadBound`;
-`docs/deviations.md`, "Gz reading termination". A negative descriptor is unbudgeted (`readCap` does not cut its
-reads), hence the first conjunct. -/
-def ReadsFinite (fs : Fs) (fd : Int32) : Prop := 0 ≤ fd.toInt ∧ fs.readBudget fd.toInt.toNat ≠ none
+/-- The handle's descriptor is non-negative and has a read budget in the OS-call oracle, so every later read is cut
+to it. A negative descriptor is unbudgeted (`readCap` does not cut its reads), hence the first conjunct. -/
+def HasBudget (fs : Fs) (fd : Int32) : Prop := 0 ≤ fd.toInt ∧ fs.readBudget fd.toInt.toNat ≠ none
+
+/-- **M7, the finiteness premise.** The handle's descriptor has a read budget (`HasBudget`) below `2^61` bytes: the
+total the descriptor can still deliver. A premise of the termination half only, and only for the calls of
+`NeedsReadBound`; `docs/deviations.md`, "Gz reading termination". A finite budget is a real requirement: an endless
+source (an endless `FNAME`, or endless empty gzip members) makes one `gzread` call run forever in C. The figure `2^61`
+is the model's limit, not zlib's: a loop of the model has `2^64` trips of fuel, and the reading loops are bounded by
+measures built from the input left, the read budget and the bytes still to deliver (`fetchRank`, and the measures of
+`gz_read` and `gz_skip`), which a budget below `2^61` keeps below `2^64`. -/
+def ReadsFinite (fs : Fs) (fd : Int32) : Prop :=
+  HasBudget fs fd ∧ (fs.readBudget fd.toInt.toNat).getD 0 < 2 ^ 61
 
 /-- The calls whose termination needs M7: the loops of `gz_fetch` (over empty gzip members), `gz_skip` and
 `gz_read` read until the input ends. `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets` reach them, `gzungetc`
@@ -109,9 +121,13 @@ structure GzCommon (h : Heap) (i : Nat) (s : GzState) : Prop where
   (`GzInv.pos_lower`), since `x.have ≤ 2·size` by `GzReadInv.output`. -/
   pos : 0 ≤ s.skip.toInt ∧ s.x.pos.toInt + s.skip.toInt ≤ 9223372036854775807 ∧
     0 ≤ s.x.pos.toInt + s.x.have.toNat
-  /-- `x.next` is NULL, or inside an owned buffer other than the message with `x.have` bytes after it. Relies on
-  local patches for R-3 (`gz_reset` writes `x.next`) and R-4 (`x.next` is never left in the caller's buffer). -/
-  next : s.x.next = .null ∨ ∃ b off a, s.x.next = .ref (.blk b) off ∧ b ≠ i ∧ GzOwned h i s b ∧
+  /-- With buffered output (`x.have ≠ 0`), `x.next` is inside an owned buffer other than the message with `x.have`
+  bytes after it. With `x.have = 0` it says nothing: the direct path of `gz_read` (`gz_decomp` into the caller's
+  buffer) leaves `x.next = next_out - have` inside the caller's buffer with `x.have = 0`, and patch 0005 only guards
+  `x.next += n` with `n != 0` (regression `gz-next-caller.c`). After patch 0005 every read or advance of `x.next`
+  happens with `x.have ≠ 0` (`gz_skip_have`, `gzseek64`, `gzgetc`, `gzgets`, the compare in `gzungetc`), so a stale
+  or never-written `x.next` (R-3, R-4) is never used. -/
+  next : s.x.have ≠ 0 → ∃ b off a, s.x.next = .ref (.blk b) off ∧ b ≠ i ∧ GzOwned h i s b ∧
     blkOf s.msg ≠ some b ∧ h.bytes b = some a ∧ off + s.x.have.toNat ≤ a.size
   nullHave : s.x.next = .null → s.x.have = 0
   /-- The codec does not own the record block. The record holds the embedded stream, so a write of the record is a
@@ -120,11 +136,19 @@ structure GzCommon (h : Heap) (i : Nat) (s : GzState) : Prop where
   the record block. -/
   recordFree : ¬ StreamOwned h (gzStrm i) i
 
+/-- The message of the embedded stream is `NULL` or a string literal of the sources (`inflateInit2_` and
+`inflateReset` clear it, `inflate` sets literals). `gz_decomp` hands it to `gz_error`. Only asked with buffers: a
+failed `inflateInit2` in `gz_look` sets `size = 0`. -/
+def MsgLit (s : GzState) : Prop :=
+  s.size ≠ 0 → s.strm.msg = .null ∨ ∃ j, j < strTable.size ∧ s.strm.msg = .ref (.str j) 0
+
 /-- The reader part (`s.mode = GZ_READ`). The note's clause "past ≠ 0 → skip = 0" is not included: a forward
 `gzseek` after a short read keeps `past` and sets `skip` (`Api.GzSeek`). -/
 structure GzReadInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   how : s.how = LOOK ∨ s.how = GZ_COPY ∨ s.how = GZIP
-  copyDirect : s.how = GZ_COPY → s.direct = 1
+  /-- COPY is set only when `direct ≠ -1`; it may be 0: after a gzip member with trailing data, `gzclearerr` and
+  another read take `gz_look`'s COPY branch with `direct = 0` (regression `gz-copy-direct.c`). -/
+  copyDirect : s.how = GZ_COPY → s.direct = 0 ∨ s.direct = 1
   gzipDirect : s.how = GZIP → s.direct = 0
   direct : s.direct = -1 ∨ s.direct = 0 ∨ s.direct = 1
   junk : s.junk = -1 ∨ s.junk = 0 ∨ s.junk = 1
@@ -150,6 +174,26 @@ structure GzReadInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   /-- no stalled read without buffers: only `gz_load` sets `again`, and it runs only with buffers; `gz_reset`
   clears it. Without it `gzungetc` could skip its `size == 0` refusal after a failed `gz_look`. -/
   againSize : s.size = 0 → s.again = 0
+  /-- buffered output means no pending skip: the buffered bytes are at the current position `x.pos`, as the
+  buffered paths of `gzgetc` (the function and the zlib.h macro) assume. It holds at call boundaries: `gzseek64`
+  empties the buffer or zeroes the offset before it sets `skip`; `gz_read`, `gzgets` and `gzungetc` run `gz_skip`
+  first (it ends with `skip = 0`, or fails with `x.have = 0`); `gzdirect` follows `gz_look` with `gz_skip_have`.
+  Inside a reading call `gz_look` (COPY) and `gz_fetch` (called by `gz_skip`) may leave both nonzero: their posts are
+  stated over `GzInvUpToSkip`. -/
+  haveSkip : s.x.have ≠ 0 → s.skip = 0
+  /-- a reader that stalled at the end of its input has no pending input. Otherwise `gz_read` loops forever:
+  `gz_avail` reads nothing at `eof`, and `gz_look` returns 0 in LOOK because `again && avail_in < 4`. `again` is
+  set only by a stalled `gz_load`, which runs with `eof = 0`; the junk path of `gz_decomp` sets `eof` with
+  `avail_in = 0`; `gzclearerr` and `gz_reset` clear `eof` or `again`; `gz_look`'s COPY branch zeroes `avail_in`. -/
+  againEof : s.again ≠ 0 → s.eof ≠ 0 → s.strm.avail_in = 0
+  /-- `Z_STREAM_END` is never recorded: `state->err` is written only at open (`Z_OK`) and by `gz_error`,
+  and no caller passes `Z_STREAM_END`. `gz_decomp` would return 0 on a failed `gz_avail` with this code. -/
+  errEnd : s.err ≠ Z_STREAM_END
+  /-- COPY has no pending input: `gz_look` zeroes `avail_in` when it sets COPY, `gzseek64` zeroes it in COPY, and in
+  COPY only `gz_load` into `out` reads. -/
+  copyIn : s.how = GZ_COPY → s.strm.avail_in = 0
+  /-- the embedded stream's message is `NULL` or a literal (`MsgLit`) -/
+  msgLit : MsgLit s
 
 /-- The writer part (`s.mode = GZ_WRITE`): batch C's W1–W10. W1 and W9 are in `GzCommon`; W10 needs no fact;
 W7 is the position clause of `GzCommon` (relies on the local patch for W7). -/
@@ -163,8 +207,12 @@ structure GzWriteInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   unalloc : s.size = 0 → s.strm.state = none
   /-- W3 -/
   bufs : s.size ≠ 0 → ExactBuffer h s.«in» (2 * s.size.toNat) ∧ (s.direct = 0 → ExactBuffer h s.out s.size.toNat)
-  /-- W4 -/
-  input : s.strm.avail_in = 0 ∨ ∃ a, s.strm.next_in = padv s.«in» a ∧ a + s.strm.avail_in.toNat ≤ s.size.toNat
+  /-- W4: `next_in` is NULL with no pending input, or points into `in` (which then exists) with its pending input
+  inside. So the input of the embedded deflate stream is always a `CallerRange`, as every deflate result asks
+  (`StreamBuffers`), also with no pending input. The C: `gz_init` sets `next_in = NULL` (`avail_in` is 0 from
+  `gz_reset`); the writers point it into `in`, or into a caller buffer only inside `gz_write`'s large path. -/
+  input : (s.strm.next_in = .null ∧ s.strm.avail_in = 0) ∨
+    (s.size ≠ 0 ∧ ∃ a, s.strm.next_in = padv s.«in» a ∧ a + s.strm.avail_in.toNat ≤ s.size.toNat)
   /-- W5 -/
   output : s.direct = 0 → s.size ≠ 0 → ∃ b c, s.strm.next_out = padv s.out b ∧
     s.strm.avail_out.toNat = s.size.toNat - b ∧ s.x.next = padv s.out c ∧ c ≤ b ∧ b ≤ s.size.toNat
@@ -180,10 +228,13 @@ def GzInv (h : Heap) (i : Nat) (s : GzState) : Prop :=
 
 /-! ## The shape of a safe call -/
 
-/-- The caller regions a call may write. -/
+/-- The caller regions a call may write. A zero-length read names no region: `BufferFrame` keeps the view of every
+named region, and with `len = 0` the buffer may be any pointer, also one into a block the call frees
+(regression `tests/verification/regressions/gz-read-empty-region.lean`). -/
 def GzWriteRegions : Call → List Region
-  | .gzread _ p n => if n.toNat < 2 ^ 31 then [⟨p, n.toNat⟩] else []
-  | .gzfread p size n _ => if size.toNat * n.toNat < 2 ^ 64 then [⟨p, size.toNat * n.toNat⟩] else []
+  | .gzread _ p n => if 0 < n.toNat ∧ n.toNat < 2 ^ 31 then [⟨p, n.toNat⟩] else []
+  | .gzfread p size n _ =>
+      if 0 < size.toNat * n.toNat ∧ size.toNat * n.toNat < 2 ^ 64 then [⟨p, size.toNat * n.toNat⟩] else []
   | .gzgets _ p n => if 1 ≤ n.toInt then [⟨p, n.toInt.toNat⟩] else []
   | .gzerror _ p => [⟨p, 4⟩]
   | _ => []
@@ -236,10 +287,21 @@ def GzPost (h : Heap) (i : Nat) (s : GzState) (regions : List Region) (fs' : Fs)
 def clearOut (s : GzState) : GzState := { s with x := { s.x with «have» := 0, next := .null } }
 
 /-- **The invariant up to the buffered output**, for the inside of a reading call: `GzInv` of the record with no
-buffered output. `gz_decomp` and `gz_load` into the caller's buffer leave `x.next` in that buffer until `gz_read`
-resets it (the local patch for R-4); this is what holds in between. -/
+buffered output. `gz_decomp` and `gz_load` into the caller's buffer leave `x.next` in that buffer; `GzInv` allows
+that once `x.have = 0` (`GzCommon.next`), and this is what holds before `x.have` is reset. -/
 def GzInvUpToOutput (h : Heap) (i : Nat) (s : GzState) : Prop :=
   h.gzstates i = some s ∧ GzInv (putGz h i (clearOut s)) i (clearOut s)
+
+/-- The record with no pending skip. -/
+def clearSkip (s : GzState) : GzState := { s with skip := 0 }
+
+/-- **The invariant up to the pending skip**, for the inside of a reading call: `GzInv` without the clause
+`GzReadInv.haveSkip`. It is `GzInv` of the record with no pending skip, plus the bounds of `GzCommon.pos` on the
+skip. `gz_look` (COPY) and `gz_fetch` (from `gz_skip`) may buffer output while a skip is pending; the caller
+(`gz_skip`, `gzungetc`, `gzdirect`) consumes it before it returns. -/
+def GzInvUpToSkip (h : Heap) (i : Nat) (s : GzState) : Prop :=
+  h.gzstates i = some s ∧ GzInv (putGz h i (clearSkip s)) i (clearSkip s) ∧
+    0 ≤ s.skip.toInt ∧ s.x.pos.toInt + s.skip.toInt ≤ 9223372036854775807
 
 /-! ## Interface lemmas of `GzInv` -/
 

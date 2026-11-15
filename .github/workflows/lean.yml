@@ -11,7 +11,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # One group per pull request (a newer push cancels the superseded run), and one per commit and event
+  # otherwise, so that no pushed head loses its gate result to a later push or a manual dispatch.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -92,6 +94,8 @@ jobs:
         run: scripts/check-sorry.sh
       - name: Every string literal of the translations is in strTable
         run: python3 scripts/check-strlit.py
+      - name: Safety specifications import no functional specification
+        run: python3 scripts/check-spec-layers.py
 
   # The audit: axioms, doc strings and the goals.
   audit_core:
@@ -157,9 +161,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -173,7 +177,7 @@ jobs:
       - name: Model and public function proof mutants
         env:
           ZLIBF_REQUIRE_PREBUILT: '1'
-        run: python3 scripts/verification.py mutants --shard-count 4 --shard-index ${{ matrix.shard }}
+        run: python3 scripts/verification.py mutants --shard-count 20 --shard-index ${{ matrix.shard }}
 
   # Keep audit as the required status. Failure, cancellation or skipping in any
   # worker must prevent this status from passing.

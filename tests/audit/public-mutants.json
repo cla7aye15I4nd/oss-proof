@@ -474,6 +474,416 @@
         "list": "tests/proof-mutants/public-deflate.tsv",
         "name": "deflateInit2-failure-not-freed"
       }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateCopy": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-null-dest-ok"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-state-failure-ok"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-buffer-failure-keeps-state"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-buffer-failure-leak"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-strm-backpointer"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.adler32_combine64_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "adler32_combine64-combine64"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.adler32_combine_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "adler32_combine-combine"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.adler32_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "adler32-wrapper-length"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.adler32_z_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "adler32_z-high-reduction"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.compress2_safety": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "compress2-destLen-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.compress_safety": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "compress-destLen-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.compress_z_safety": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "compress_z-destLen-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.crc32_combine64_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "crc32_combine64-combine64"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.crc32_combine_gen64_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "crc32_combine_gen64-gen64"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.crc32_combine_gen_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "crc32_combine_gen-gen"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.crc32_combine_op_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "crc32_combine_op-op"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.crc32_combine_safety": [
+      {
+        "list": "tests/proof-mutants/public-checksums.tsv",
+        "name": "crc32_combine-combine"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.crc32_safety": [
+      {
+        "list": "tests/proofmut/crc-updates-public.tsv",
+        "name": "crc32-length-plus-one"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.crc32_z_safety": [
+      {
+        "list": "tests/proofmut/crc-updates-public.tsv",
+        "name": "crc32-z-null-query"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateBound_safety": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "deflateBound-result-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateBound_z_safety": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "deflateBound_z-state-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateCopy_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-null-dest-ok"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-state-failure-ok"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-buffer-failure-keeps-state"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-buffer-failure-leak"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateCopy-strm-backpointer"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateEnd_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateEnd-free-pending"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateGetDictionary_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateGetDictionary-length-clamp"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateInit2__safety": [
+      {
+        "list": "tests/proof-mutants/public-deflate.tsv",
+        "name": "deflateInit2-memlevel-zero"
+      },
+      {
+        "list": "tests/proof-mutants/public-deflate.tsv",
+        "name": "deflateInit2-window-seven"
+      },
+      {
+        "list": "tests/proof-mutants/public-deflate.tsv",
+        "name": "deflateInit2-state-null-unchecked"
+      },
+      {
+        "list": "tests/proof-mutants/public-deflate.tsv",
+        "name": "deflateInit2-failure-not-freed"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateInit__safety": [
+      {
+        "list": "tests/proofmut/deflate-default-init.tsv",
+        "name": "deflateInit-stream-forwarding"
+      },
+      {
+        "list": "tests/proofmut/deflate-default-init.tsv",
+        "name": "deflateInit-version-forwarding"
+      },
+      {
+        "list": "tests/proofmut/deflate-default-init.tsv",
+        "name": "deflateInit-size-forwarding"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateParams_safety": [
+      {
+        "list": "tests/proof-mutants/stream-refusal.tsv",
+        "name": "deflateParams-refusal-ok"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflatePending_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflatePending-pending-overflow"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflatePrime_safety": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "deflatePrime-bits-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "deflatePrime-room-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateReset_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateReset-reset-dispatch"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateSetDictionary_safety": [
+      {
+        "list": "tests/proof-mutants/stream-refusal.tsv",
+        "name": "deflateSetDictionary-refusal-ok"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateSetHeader_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateSetHeader-header-wrap"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateTune_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateTune-tune-good"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflateUsed_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "deflateUsed-used-field"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.deflate_safety": [
+      {
+        "list": "tests/proof-mutants/public-deflate.tsv",
+        "name": "deflate-accept-null-output"
+      },
+      {
+        "list": "tests/proof-mutants/public-deflate.tsv",
+        "name": "deflate-accept-negative-flush"
+      },
+      {
+        "list": "tests/proof-mutants/public-deflate.tsv",
+        "name": "deflate-accept-null-input"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateCopy_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateCopy-null-dest-ok"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateCopy-window-failure-leak"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateCopy-strm-backpointer"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateEnd_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateEnd-free-window"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateGetDictionary_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateGetDictionary-first-copy"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateGetHeader_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateGetHeader-wrapper-bit"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateInit2__safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateInit2_-mem-error-value"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateInit2_-strm-backpointer"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateInit2_-failed-state-not-freed"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateInit__safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateInit_-omit-delegation"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateMark_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateMark-refused-result"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflatePrime_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflatePrime-negative-clear"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateReset2_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateReset2-negative-bound"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateReset_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateReset-window-size"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateSetDictionary_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflateSetDictionary-null-source"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateSync_safety": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "inflateSync-buffer-short"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflate_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflate-accept-null-output"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflate-local-buffer-leak"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "inflate-skip-leave"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.uncompress2_safe": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "uncompress2-destLen-from-sourceLen"
+      },
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "uncompress2-local-free-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.uncompress_safe": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "uncompress-destLen-swapped"
+      },
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "uncompress-local-free-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.uncompress_z_safe": [
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "uncompress_z-destLen-swapped"
+      },
+      {
+        "list": "tests/proof-mutants/public-safety.tsv",
+        "name": "uncompress_z-local-free-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.zlibCompileFlags_safety": [
+      {
+        "list": "tests/proof-mutants/public-queries.tsv",
+        "name": "zlibCompileFlags-uint"
+      },
+      {
+        "list": "tests/proof-mutants/public-queries.tsv",
+        "name": "zlibCompileFlags-ulong"
+      },
+      {
+        "list": "tests/proof-mutants/public-queries.tsv",
+        "name": "zlibCompileFlags-pointer"
+      },
+      {
+        "list": "tests/proof-mutants/public-queries.tsv",
+        "name": "zlibCompileFlags-offset"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.zlibVersion_safety": [
+      {
+        "list": "tests/proof-mutants/public-queries.tsv",
+        "name": "zlibVersion-wrong-string"
+      },
+      {
+        "list": "tests/proof-mutants/public-queries.tsv",
+        "name": "zlibVersion-null-pointer"
+      }
     ]
   }
 }

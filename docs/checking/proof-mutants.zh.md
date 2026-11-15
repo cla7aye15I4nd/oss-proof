@@ -1,4 +1,4 @@
-<!-- source-sha256: deebca68b693820fd86fac95eeab21fa9e89dff01a79b9808cbf31a045f0a016 -->
+<!-- source-sha256: f9cfdef49f9116ec2dd2be6266c3d8237171a74e7652c46298bfcdfb5545a771 -->
 
 # 证明变异
 
@@ -46,6 +46,51 @@ bash tests/audit/proofmut.sh tests/audit/proofmut/crc32.tsv '^combine'
 - `cdoWhile` 循环体内的任何修改，哪怕只是去掉一个测试。两个循环体比较失败后，惰性 delta 在两边展开 `cdoWhile`。它的燃料递归随后一次展开一轮迭代，并在每一步再次比较循环体。`compress2_z` 上实测：467 s 后达到 12 GiB 预算；去掉一个测试的变异 214 s 后达到 16 GiB。
 
 循环外的修改很快被拒绝：去掉或替换的调用、去掉的存储、改变的常量。在 `uncompress2_z` 和 `compress2_z` 上，每个这样的行用 120 s 到 200 s，约 10.5 GB。因此公开记录指定结构性变异。**规则：**`tests/audit/public-mutants.json` 中指定的变异不得修改循环体或机器算术；这类变异只放在源码级的表中。超出预算的重放会在失败信息中说明这一点。表中也保留算术变异和循环体变异，每个变异分片都用重新繁饰检查它们，证明必须在语义引理处失败。`tests/proof-mutants/api-boundary.tsv` 是一个例子：`uncompress2_z-destLen-count` 和两个 `refill-off-by-one` 行由重新繁饰检查。意图相同、修改是结构性的行承担内核重放：`uncompress2_z-destLen-drop`（错误的 `destLen` 计数），以及两个 `initial-room` 行（输出空间超过剩余量）。
+
+`Goal.deflateCopy` 遵循同一规则。它在 `tests/proof-mutants/public-streams.tsv` 中的五行都是结构性的：
+- 空目标返回 `Z_OK`；
+- 状态分配失败时返回 `Z_OK`；
+- 缓冲区失败路径保留 `dest->state`；
+- 缓冲区失败路径跳过对 `pending_buf` 的释放；
+- 副本的反向指针被设为源。
+每一行都被重放拒绝；`deflate_copy_public` 的重放峰值约为 10.4 GB。拒绝目标 `Goal.inflate_refusal` 与 `Goal.deflate_refusal` 不是公开入口。它们的行在安全表 `tests/proof-mutants/stream-refusal.tsv` 中，由变异分片以重新繁饰检查：每一行把一次拒绝改为 `Z_OK`。
+
+每个公开函数自己的安全目标（`Goal.<function>_safety`）也有键，并有自己的函数变异体。大多数函数用的是其功能目标的那些行：流调用的安全证明是序列定理（`inflate_sequence_safety_public`、`deflate_sequence_safety`，调用用第 2 条，`End` 用第 3 条）的推论，初始化、复制和无状态函数的安全证明是其功能证明的推论，所以同样的翻译修改必须使它们失败。没有这类行的函数，其行在 `tests/proof-mutants/public-safety.tsv` 中，都是结构性的：
+- `compress`、`compress_z`、`compress2`：不传递长度指针（改传 `NULL`）。`api-boundary.tsv` 中让 `compress2` 在 `destLen` 为 `NULL` 时返回的那一行不是 `Goal.compress2_safety` 的变异体：C 先读取 `*destLen`，所以该目标排除 `NULL` 长度（`CompressorSafety` 取 `nullableLength = false`），重放接受这一行；
+- `uncompress2`：目标长度从 `sourceLen` 读取；去掉一个局部单元的释放；
+- `uncompress_z`、`uncompress`：把源长度单元当作目标长度传递；去掉局部单元的释放；
+- `deflateBound`：丢弃结果；`deflateBound_z`：去掉状态检查；
+- `deflatePrime`：去掉 `bits > 16` 的测试；去掉待输出空间的测试；
+- `inflateSync`：局部缓冲区是三个字节而不是四个。
+`deflateParams` 和 `deflateSetDictionary` 用 `stream-refusal.tsv` 中它们的拒绝行。去掉 `deflateEnd` 或 `inflateEnd` 调用的行属于发出该调用的 `compress2_z` 和 `uncompress2_z`。`Goal.deflate_initialisation_domain` 不是公开入口：它陈述 `deflateInit2_` 的成功运行，`deflateInit2_` 的四行就是它的变异体：对 `deflate_initialisation_domain_public` 的内核重放拒绝全部四行（峰值约 3.4 GB）。
+
+`Goal.inflate_back_sequence_safety` 也不是公开入口。它的十一行在安全表 `tests/proof-mutants/infback-sequence.tsv` 中：`inflateBack` 四行、`inflateBackInit_` 四行、`inflateBackEnd` 三行，都是结构性的：
+- `inflateBack`：空流返回 `Z_OK`；模式没有重置为 `TYPE`；输出从 `NULL` 而不是窗口开始；结束之后最后一个窗口被拒绝时返回 `Z_OK`；
+- `inflateBackInit_`：状态没有存入流；窗口没有存入；分配失败返回 `Z_OK`；`sane` 被清零；
+- `inflateBackEnd`：跳过对状态的释放；保留 `strm->state`；返回 `Z_STREAM_ERROR`。
+收尾部分的那一行是脚本（`infback-sequence.py`），它在重述 `backTail` 中做相同修改，使失败的是语义引理，而不是 `inflateBack_eq` 的 `rfl`。变异分片以重新繁饰检查这些行。用每行的翻译修改对 `inflate_back_sequence_safety` 做内核重放，也拒绝全部十一行；原始证明的重放峰值约为 9.8 GB。
+
+gz 目标也不是公开入口；它们的行在三个安全表中。
+- `tests/proof-mutants/gz-refusal.tsv`，对应 `Goal.gz_refusal`：十九行，每行在 `NULL` 句柄上改变返回值或去掉 `NULL` 检查，覆盖除 `gzread` 与 `gzfread`（在 `gz-read.tsv` 中）以及 `gzbuffer`、`gzeof` 与 `gzoffset64`（在 `public-streams.tsv` 中）之外的每个 gz 函数。目标的子句由求值成立，所以每行都在 `public-gz-refusal` 中失败。
+- `tests/proof-mutants/gz-sequence.tsv`，对应 `Goal.gz_sequence_safety`：写入调用（`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzvprintf` 从而 `gzprintf`、`gzflush`、`gzsetparams`）、关闭（`gzclose_w`、`gzclose_r`、`gzclose` 的分派）、打开（`gz_open`、`gzdopen`）、`gzseek64` 与 `gztell64`、`gz_error`（跳过释放；为 `Z_MEM_ERROR` 分配消息）、`gzgetc()` 宏的两个分支（`zlib.h.lean`：去掉 `have` 检查；`pos` 不前进）、读取叶子 `gzgetc`、`gzungetc`、`gzgets` 与 `gzdirect`，以及补丁 0002 到 0005 的每个补丁块各一行，去掉该补丁块（即未打补丁的 C）。大多数行是脚本行（`gz-sequence.py`），在代码的每个 `rfl` 重述（`gzwrite_eq`、`putcSlow`、`closeTail`、`pfFmt`、`gTail`、`seekTail`、`openAfterMode`、`fetchBody`、`restK`、`getsRest`、`gz_error` 的私有副本）中做相同修改，使失败的是语义引理，而不是重述。
+- `tests/proof-mutants/gz-read.tsv`（及 `gz-read.py`），来自读取侧：`gzread`、`gzfread`、`gzgetc` 与 `gzungetc` 的拒绝，以及 `gzclose_r`。其中两行 `gzungetc-mode-check` 与 `gzungetc-skip-dropped` 还列出步骤引理所在的模块 `gz.read-getc-step`：只列 `gzread.c.getc-ungetc` 时不会构建 `gzungetc_step` 的证明，两行都能构建通过；列出后两行都在那里被杀死。
+
+第一个错误的位置。每一行都在被变异函数的证明中被杀死：其步骤引理、其函数体的精确运行，或（对被调用者）该被调用者的证明。有五行列出步骤引理之外的模块，它们都是被变异函数的证明：三行 `gz_open` 在 `gz_open` 的精确运行中失败（`gzlib.c.open-init` 中的 `gz_open_empty_mode`，`gzlib.c.open-io` 中的 `openAfterPath_writer`：`gz_open` 的 I/O 尾部，它释放路径并调用 `gz_reset`），`gzdopen` 一行在 `gzdopen` 的运行中失败（`gzdopen_writer_regular_run`，`gzlib.c.dopen-entry`），`gztell64` 一行在 `gztell64` 的运行中失败（`gztell64_run`，`gzlib.c.simple`）。`gzclose_w` 的各行在 `closeTail_ok`（`gzwrite.c.close`）中失败，即 `gzclose_w` 的释放证明；`gzclose` 的分派一行在 `gzclose_dispatch` 中失败。有一行由心跳超时而非类型错误杀死：`patch0004-fetch-copy-room-removed`，在 `fetch_look`（`gz.read-fetch`）中，这是同一函数 `gz_fetch` 的证明。
+
+`macro-have-guard-dropped` 一行起初存活：目标只在 `x.have ≠ 0` 时运行宏，所以它的 `have = 0` 分支从未被运行。目标已更正（3c5292f7；回归 `tests/verification/regressions/gz-macro-have-zero.lean`），该行现在在 `zlib.h.gzgetc-macro` 中被杀死。
+
+变异分片以重新繁饰检查这三个表。对 `gz_refusal` 的内核重放拒绝全部十九行拒绝变异（每次重放在两秒内结束）。用每个结构性行的翻译修改对 `gz_sequence_safety_public` 做内核重放（不含位于循环体或机器算术中的行：`patch0003-*`、`gz_fetch` 与 `gz_read` 的三行 `patch0004`、`patch0004-gets-room-removed`、`gzgets-left-whole-length`、`gztell64-adds-max`），接受原始证明（51615 个依赖，峰值约 10.7 GB），并拒绝所给 36 行中的 29 行，多数在被变异函数的重述处（`gzwrite_eq`、`gzclose_w_eq`、`gzgetc_macro_eq` 等），峰值约 10.7 GB。有七行在得出结论之前达到 12 GiB 预算：`gzvprintf-length-check-dropped`、`gz_open-open-failure-path-leak`、`gz_open-reset-skipped`、`gzseek64-have-not-consumed`、`gzseek64-skip-wrong`、`patch0005-seek-next-unconditional` 与 `patch0004-printf-position-check-removed`。它们所在的函数（`gzvprintf`、`gz_open`、`gzseek64`）含有循环，函数体不同时内核会展开该循环；对这些行，以重新繁饰杀死为证据。
+
+## 没有键的目标的证据，以及已知限制
+
+十一个已证明的必需目标在 `tests/audit/public-mutants.json` 中没有自己的键：四个序列安全目标、三个拒绝目标和四个已证明的非空性目标。它们的变异证据固定在 `scripts/verification.py` 的 `PINNED_EVIDENCE` 中：承载证据的语义列表（每个列表带必须被杀死的行的最少数目），以及其重放同样检查它的有键目标。每个固定的列表都必须是变异分片运行的列表之一。既没有键也没有固定证据的已证明必需目标会被拒绝。
+
+这些列表（`SAFETY_MUTANT_LISTS` 和 `tests/proof-mutants/api-boundary.tsv`）的行沿只减不增检查的修订链冻结：包括每个字段、`PROOF_MODULES` 列和标记，以及 `script:` 行的变异脚本的 sha256。可以添加行。修改或删除一行需要在 `tests/audit/registry-removals.json` 中写一个带理由的 `mutant_rows` 条目 `{list, name, reason}`；不豁免任何东西的条目作为过时条目被拒绝。严格模式下的 `proofmut.sh` 至少需要一个 KILLED 行；能通过构建的 `same:` 行不算证据。分片把每个 `same:` 行分给同时运行其列表中一个可杀死行的分片，没有可杀死行的列表会被拒绝。
+
+已知限制：
+- 审计工具（`tests/audit/*.lean`）、`proofmut.sh`、`selftest.sh` 和变异脚本（`tests/proof-mutants/*.py`）是受信任的，与 `scripts/` 一样靠审查保护。变异脚本的内容由其哈希冻结，但它做什么只能靠阅读来检查。特别是 `proofmut.sh` 的 BAD MUTANT 保护把第一个错误与该行的 `FILE` 比较，而 `script:` 行的 `FILE` 是脚本本身，所以把错误写进预期证明模块的变异脚本会被算作 KILLED。要堵上这一点需要重新设计脚本行；目前靠审查防范。
+- 带理由的删除条目是每个只减不增检查的经审查的出口。它在差异中可见，过时的条目会被拒绝。
+- 修订链覆盖 `HEAD` 仍包含的、在固定下限提交之后的历史。在下限之后改写 `dev` 的强制推送会逃过它；防范手段是禁止强制推送的分支保护。
 
 ## 列表格式
 

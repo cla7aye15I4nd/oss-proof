@@ -27,7 +27,7 @@ set_option autoImplicit false
 `GetcUngetc.GzErrorSpec`. -/
 def GzErrorSpec : Prop :=
   ∀ {h : Heap} {i : Nat} {s : GzState}, GzInv h i s → ∀ (err : Int32) (msg : BPtr),
-    (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) →
+    (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) → err ≠ Z_STREAM_END →
     ∃ after s', C.run (Zlib.Gzlib.gz_error (gzSt i) err msg) h = .ok ((), after) ∧ GzInv after i s' ∧
       s' = { s with err := s'.err, msg := s'.msg } ∧ (s'.err = err ∨ (s'.err = Z_MEM_ERROR ∧ s'.msg = .null)) ∧
       Frame h after (fun b => b = i ∨ blkOf s.msg = some b) ∧
@@ -37,7 +37,7 @@ def GzErrorSpec : Prop :=
 call that was live before was owned before. The same as `GetcUngetc.GzErrorOwn`. -/
 def GzErrorOwn : Prop :=
   ∀ (h : Heap) (i : Nat) (s : GzState) (err : Int32) (msg : BPtr) (after : Heap), GzInv h i s →
-    (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) →
+    (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) → err ≠ Z_STREAM_END →
     C.run (Zlib.Gzlib.gz_error (gzSt i) err msg) h = .ok ((), after) →
     ∀ s', after.gzstates i = some s' → ∀ b, GzOwned after i s' b → h.live b → GzOwned h i s b
 
@@ -238,14 +238,17 @@ theorem msg_of_blkOf {h : Heap} {i : Nat} {s : GzState} (cm : GzCommon h i s) {b
     cases e
     rfl
 
+/-- `next_in` is NULL and `avail_in` is zero before the buffers exist (W4 with `size = 0`). -/
+theorem input_zero {h : Heap} {i : Nat} {s : GzState} (wr : GzWriteInv h i s) (hsz : s.size = 0) :
+    s.strm.next_in = .null ∧ s.strm.avail_in = 0 := by
+  rcases wr.input with e | ⟨hz, -⟩
+  · exact e
+  · exact absurd hsz hz
+
 /-- `avail_in` is zero before the buffers exist (W4 with `size = 0`). -/
 theorem avail_zero {h : Heap} {i : Nat} {s : GzState} (wr : GzWriteInv h i s) (hsz : s.size = 0) :
-    s.strm.avail_in = 0 := by
-  rcases wr.input with e | ⟨a, _, hle⟩
-  · exact e
-  · rw [hsz] at hle
-    have : s.strm.avail_in.toNat = 0 := by simp at hle; omega
-    exact UInt32.toNat_inj.mp (by simpa using this)
+    s.strm.avail_in = 0 :=
+  (input_zero wr hsz).2
 
 /-! ## Heap steps of `gz_init` -/
 
@@ -261,10 +264,14 @@ def fHeap (H : Heap) : Heap := { H with nalloc := H.nalloc + 1 }
 def dHeap (H : Heap) (b : Nat) : Heap := { H with bytes := upd H.bytes b none }
 
 theorem allocB_eq (n : Nat) (H : Heap) : allocB n H =
-    if H.allocOk H.nalloc then
+    if H.allocOk H.nalloc = true ∧ n < mallocLimit then
       (if H.slotUsed H.nextBlk then .error (.ub "allocation: the block number is in use (the heap is not Fresh)")
        else .ok (.ref (.blk H.nextBlk) 0, aHeap H n))
     else .ok (.null, fHeap H) := rfl
+
+/-- The buffer sizes of `gz_init` are `unsigned`, so the allocator's `PTRDIFF_MAX` test passes. -/
+theorem mod_pow32_lt_mallocLimit (n : Nat) : n % 4294967296 < mallocLimit :=
+  lt_mallocLimit_of_lt_pow32 (Nat.mod_lt _ (by decide))
 
 theorem freeB_eq (b : Nat) (H : Heap) : freeB (.ref (.blk b) 0) H =
     match H.bytes b with
@@ -658,7 +665,7 @@ theorem gz_strm_init_run {H : Heap} {i : Nat} {g : GzState} {version : BPtr}
     ∃ rc after, C.run (deflateInit2_ (some (.in_gzstate_strm i)) level method wb mem strategy version 112) H =
         .ok (rc, after) ∧
       (∃ z', after.gzstates i = some { g with strm := z' } ∧ z'.avail_in = g.strm.avail_in ∧
-        (rc ≠ Z_OK → z'.state = none ∨ z'.state = g.strm.state)) ∧
+        z'.next_in = g.strm.next_in ∧ (rc ≠ Z_OK → z'.state = none ∨ z'.state = g.strm.state)) ∧
       after.libcErrorBorrow = H.libcErrorBorrow ∧
       (rc ≠ Z_OK → Zlib.Gzwrite.SafeInit.FailSlots H after i) := by
   have hz : (ZStreamRef.in_gzstate_strm i).get H = some g.strm := by simp [ZStreamRef.get, hg]
@@ -685,7 +692,7 @@ theorem gz_strm_init_run {H : Heap} {i : Nat} {g : GzState} {version : BPtr}
   cases params : ZlibF.Spec.Api.deflInit? level.toInt method.toInt wb.toInt mem.toInt strategy.toInt with
   | none =>
     rw [params] at entry
-    exact ⟨Z_STREAM_ERROR, hp, entry, ⟨zp, hgP, rfl, fun _ => Or.inr rfl⟩, hlP, fun _ => slotsP⟩
+    exact ⟨Z_STREAM_ERROR, hp, entry, ⟨zp, hgP, rfl, rfl, fun _ => Or.inr rfl⟩, hlP, fun _ => slotsP⟩
   | some p =>
     rw [params] at entry
     dsimp only at entry
@@ -695,7 +702,7 @@ theorem gz_strm_init_run {H : Heap} {i : Nat} {g : GzState} {version : BPtr}
     let lev : Int32 := Int32.ofNat p.level
     have levInt : lev.toInt = p.level := Int32.toInt_ofNat_of_lt (by omega)
     by_cases first : H.allocOk H.nalloc = false
-    · refine ⟨Z_MEM_ERROR, { hp with nalloc := hp.nalloc + 1 }, ?_, ⟨zp, hgP, rfl, fun _ => Or.inr rfl⟩, hlP,
+    · refine ⟨Z_MEM_ERROR, { hp with nalloc := hp.nalloc + 1 }, ?_, ⟨zp, hgP, rfl, rfl, fun _ => Or.inr rfl⟩, hlP,
         fun _ => ⟨slotsP.1, slotsP.2.1, slotsP.2.2.1, slotsP.2.2.2.1, slotsP.2.2.2.2.1, Nat.le_succ_of_le slotsP.2.2.2.2.2⟩⟩
       rw [entry]
       exact alloc_state_fail hzP haP.1 (by simpa [hp] using first) _ _ _ _ _ _
@@ -711,7 +718,7 @@ theorem gz_strm_init_run {H : Heap} {i : Nat} {g : GzState} {version : BPtr}
           s0 s4 (by cases p.wrap <;> decide) (by cases p.wrap <;> decide) w9 w15 m1 m9
         refine ⟨Z_OK, successHeap (wrapCode p.wrap) p.wbits p.memLevel hp (.in_gzstate_strm i) zp lev strategy
           a1 a2 a3 qa, ?_, ⟨resultStream (wrapCode p.wrap) p.wbits p.memLevel hp (.in_gzstate_strm i) zp lev
-          strategy, ?_, rfl, fun e => absurd rfl e⟩, ?_, fun e => absurd rfl e⟩
+          strategy, ?_, rfl, rfl, fun e => absurd rfl e⟩, ?_, fun e => absurd rfl e⟩
         · rw [entry]
           exact hsucc
         · simp [successHeap, readyHeap, successfulBuffers, publishedHeap, stateHeap, setW, gzInit_put_gz, hgP]
@@ -767,7 +774,7 @@ theorem gz_strm_init_run {H : Heap} {i : Nat} {g : GzState} {version : BPtr}
           frame_trans (.in_gzstate_strm i) (frame_put (.in_gzstate_strm i) zp hf)
             (failure_frame (wrapCode p.wrap) p.wbits p.memLevel (.in_gzstate_strm i) zp m hfP)
         have liveA : ∀ x, after.live x ↔ H.live x := fun x => (shp.live x).trans (hshape.live x)
-        refine ⟨Z_MEM_ERROR, after, ?_, ⟨_, gA, rfl, fun _ => Or.inl rfl⟩, lA, fun _ =>
+        refine ⟨Z_MEM_ERROR, after, ?_, ⟨_, gA, rfl, rfl, fun _ => Or.inl rfl⟩, lA, fun _ =>
           Zlib.Gzwrite.SafeInit.failSlots_of_frame frameA liveA hu (shp.uniq huP) hg gA⟩
         rw [entry, alloc_to_finish hfP hzP haP.1 (by simpa [hp] using firstT)]
         exact hm
@@ -883,7 +890,7 @@ theorem write_ne_read : ¬ (GZ_WRITE = GZ_READ) := by decide
 theorem inv_size0 {h H : Heap} {i : Nat} {s : GzState} {pin pout : BPtr} {z : ZStream}
     (inv : GzInv h i s) (hm : s.mode = GZ_WRITE) (hsz : s.size = 0)
     (ht : H.gzstates i = some { s with «in» := pin, out := pout, strm := z })
-    (hav : z.avail_in = 0)
+    (hav : z.next_in = .null ∧ z.avail_in = 0)
     (fresh : Fresh H) (uniq : Zlib.Gzlib.Spec.Uniq H) (glob : LibraryGlobals H)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit H)
     (same : ∀ x, h.live x → x ≠ i → H.bytes x = h.bytes x ∧ H.ro x = h.ro x)
@@ -922,9 +929,7 @@ theorem inv_size0 {h H : Heap} {i : Nat} {s : GzState} {pin pout : BPtr} {z : ZS
       exact live_of_gz ht
     · exact live b (cm.live b ho)
     · exact live b (cm.live b ho)
-  · rcases cm.next with hn | ⟨b, off, a, he, hbi, ho, hnm, hb, hle⟩
-    · exact Or.inl hn
-    · exact Or.inr ⟨b, off, a, he, hbi, (hown b).2 ho, hnm, by rw [(same b (cm.live b ho) hbi).1]; exact hb, hle⟩
+  · exact fun hh => absurd wr.have0 hh
 
 /-! ## The `gz_error` tail of the failure paths -/
 
@@ -939,7 +944,7 @@ theorem err_tail (err : GzErrorSpec) (errOwn : GzErrorOwn)
   have cm := inv.common
   obtain ⟨t, ct⟩ := oom_cstring H hk
   obtain ⟨after, s', run, invA, eq, -, frameE, liveE⟩ :=
-    err invH Z_MEM_ERROR (.ref (.str k) 0) (Or.inr ⟨t, ct, fun b hb => by simp [ByteRoot] at hb⟩)
+    err invH Z_MEM_ERROR (.ref (.str k) 0) (Or.inr ⟨t, ct, fun b hb => by simp [ByteRoot] at hb⟩) (by decide)
   have hmode : s'.mode = s.mode := by
     have := congrArg GzState.mode eq
     simpa using this
@@ -991,7 +996,7 @@ theorem err_tail (err : GzErrorSpec) (errOwn : GzErrorOwn)
     · exact Or.inl ((owned0 hsz b).2 (Or.inr (Or.inl (by rw [← hpath]; exact e))))
     · by_cases hl : h.live b
       · have ho' := errOwn H i _ Z_MEM_ERROR (.ref (.str k) 0) after invH
-          (Or.inr ⟨t, ct, fun b hb => by simp [ByteRoot] at hb⟩) run s' invA.common.record b ho ((live b).2 hl)
+          (Or.inr ⟨t, ct, fun b hb => by simp [ByteRoot] at hb⟩) (by decide) run s' invA.common.record b ho ((live b).2 hl)
         rcases (owned0 (s := { s with «in» := pin, out := pout, strm := z }) hsz b).1 ho' with e' | e' | e'
         · exact Or.inl ((owned0 hsz b).2 (Or.inl e'))
         · exact Or.inl ((owned0 hsz b).2 (Or.inr (Or.inl e')))
@@ -1002,7 +1007,8 @@ theorem err_tail (err : GzErrorSpec) (errOwn : GzErrorOwn)
 
 theorem inv_ext {h H : Heap} {i : Nat} {s : GzState} {pin pout : BPtr} {z : ZStream}
     (inv : GzInv h i s) (hm : s.mode = GZ_WRITE) (hsz : s.size = 0)
-    (E : Ext h H i { s with «in» := pin, out := pout, strm := z }) (hav : z.avail_in = 0)
+    (E : Ext h H i { s with «in» := pin, out := pout, strm := z })
+    (hav : z.next_in = .null ∧ z.avail_in = 0)
     (hst : z.state = none) : GzInv H i { s with «in» := pin, out := pout, strm := z } := by
   have hs := inv.common.record
   have fr := inv.common.fresh
@@ -1014,7 +1020,8 @@ theorem err_run (err : GzErrorSpec) (errOwn : GzErrorOwn)
     {h H A : Heap} {i k : Nat} {s : GzState} {pin pout : BPtr} {z : ZStream} {u : Unit} (fs : Fs)
     (run : Zlib.Gzlib.gz_error (some (.tab i)) Z_MEM_ERROR (.ref (.str k) 0) H = .ok (u, A))
     (hfs : FileSystem fs) (hk : strIndex "out of memory" = some k) (inv : GzInv h i s) (hm : s.mode = GZ_WRITE)
-    (hsz : s.size = 0) (E : Ext h H i { s with «in» := pin, out := pout, strm := z }) (hav : z.avail_in = 0)
+    (hsz : s.size = 0) (E : Ext h H i { s with «in» := pin, out := pout, strm := z })
+    (hav : z.next_in = .null ∧ z.avail_in = 0)
     (hst : z.state = none) (free : ∀ x, h.nextBlk ≤ x → H.bytes x = none) :
     GzPost h i s [] fs A GzInv := by
   have hs := inv.common.record
@@ -1031,7 +1038,8 @@ theorem err_noerr (err : GzErrorSpec) (errOwn : GzErrorOwn)
     {h H : Heap} {i k : Nat} {s : GzState} {pin pout : BPtr} {z : ZStream} {e : Fault} (fs : Fs)
     (run : Zlib.Gzlib.gz_error (some (.tab i)) Z_MEM_ERROR (.ref (.str k) 0) H = .error e)
     (hfs : FileSystem fs) (hk : strIndex "out of memory" = some k) (inv : GzInv h i s) (hm : s.mode = GZ_WRITE)
-    (hsz : s.size = 0) (E : Ext h H i { s with «in» := pin, out := pout, strm := z }) (hav : z.avail_in = 0)
+    (hsz : s.size = 0) (E : Ext h H i { s with «in» := pin, out := pout, strm := z })
+    (hav : z.next_in = .null ∧ z.avail_in = 0)
     (hst : z.state = none) (free : ∀ x, h.nextBlk ≤ x → H.bytes x = none) : False := by
   have hs := inv.common.record
   have fr := inv.common.fresh
@@ -1106,7 +1114,7 @@ theorem direct_final {h : Heap} {i : Nat} {s : GzState} {n1 : Nat} (fs : Fs) (hf
       fun hr => absurd (hm.symm.trans hr) write_ne_read, fun _ => ⟨wr.have0, wr.direct, wr.reset,
       fun h0 => absurd h0 hW0, fun _ => ⟨⟨h.nextBlk, _, rfl, bnb, ronb, by simp [hn1, dRec]⟩,
         fun h0 => absurd h0 hd⟩,
-      Or.inl hav0, fun h0 => absurd h0 hd,
+      Or.inl ⟨rfl, hav0⟩, fun h0 => absurd h0 hd,
       fun h0 => absurd h0 hd, fun _ => wr.transparent hd⟩⟩
     · obtain ⟨p, c, m⟩ := cm.path
       have e := E.same fr pb lpb npb
@@ -1148,11 +1156,7 @@ theorem direct_final {h : Heap} {i : Nat} {s : GzState} {n1 : Nat} (fs : Fs) (hf
       · simp [dRec] at e
         exact (live b).2 (Or.inr e.symm)
       · exact absurd m mode1
-    · rcases cm.next with hn | ⟨b, off, a, he, hbi, ho, hnm, hb, hle⟩
-      · exact Or.inl hn
-      · refine Or.inr ⟨b, off, a, he, hbi, owned_mono (t := dRec h s) hsz rfl rfl ho, hnm, ?_, hle⟩
-        rw [(E.same fr b (cm.live b ho) hbi).1]
-        exact hb
+    · exact fun hh => absurd wr.have0 hh
   refine ⟨hfs, dRec h s, invX, rfl, rfl,
     ⟨frame_mono (E.frame fr) (fun x e => (owned0 hsz x).2 (Or.inl e)), fun _ hr => by simp at hr⟩,
     ledger (fun b o => owned_mono (X := Zlib.Gzlib.Spec.setS (aHeap h n1) i (dRec h s)) (t := dRec h s) hsz rfl rfl o)
@@ -1267,7 +1271,7 @@ theorem init_facts {H A : Heap} {i : Nat} {g : GzState} {rc level strategy : Int
     (hg : H.gzstates i = some g) (fr : Fresh H) (u : Zlib.Gzlib.Spec.Uniq H) (gl : LibraryGlobals H)
     (ha : DefaultOrNull g.strm) :
     (∃ z', A.gzstates i = some { g with strm := z' } ∧ z'.avail_in = g.strm.avail_in ∧
-        (rc ≠ Z_OK → z'.state = none ∨ z'.state = g.strm.state)) ∧
+        z'.next_in = g.strm.next_in ∧ (rc ≠ Z_OK → z'.state = none ∨ z'.state = g.strm.state)) ∧
       A.libcErrorBorrow = H.libcErrorBorrow ∧
       (rc ≠ Z_OK → FailSlots H A i) ∧
       (rc = Z_OK → ∃ p, DeflateInitial H A (gzStrm i) p) := by
@@ -1423,7 +1427,7 @@ theorem deflate_final {h A : Heap} {i : Nat} {s : GzState} {z' : ZStream} {p : Z
       ?_, fun _ => wr.have0, fun o => by have := (soF i).1 o; omega⟩, fun hr => absurd (hm.symm.trans hr) write_ne_read, fun _ => ⟨wr.have0, Or.inl hd,
       wr.reset, fun h0 => absurd h0 hW0, fun _ => ⟨⟨h.nextBlk, a0, rfl, Fb0, Fr0, hs0⟩,
         fun _ => ⟨h.nextBlk + 1, a1, rfl, Fb1, Fr1, hs1⟩⟩,
-      Or.inl (show zA.avail_in = 0 from avA.trans hav), fun _ _ => ⟨0, 0, ?_, ?_, ?_, Nat.le_refl _, Nat.zero_le _⟩,
+      Or.inl ⟨rfl, show zA.avail_in = 0 from avA.trans hav⟩, fun _ _ => ⟨0, 0, ?_, ?_, ?_, Nat.le_refl _, Nat.zero_le _⟩,
       fun _ _ => ⟨?_, _, _, sd, getF, zst, dsF, hgz⟩, fun h0 => absurd hd h0⟩⟩
     · apply fit_of cm.fit (Fstatic.trans (frame3.1.symm.trans E3.static)) (Flibc.trans (libcA.trans E3.libc))
       · intro x arr e
@@ -1582,7 +1586,7 @@ theorem deflate_final {h A : Heap} {i : Nat} {s : GzState} {z' : ZStream} {p : Z
         intro e
         have := Fresh.lt fr (cm.live _ ((owned0 hsz _).2 (Or.inr (Or.inr (msg_of_blkOf cm e)))))
         omega
-      exact Or.inr ⟨h.nextBlk + 1, 0, a1, rfl, by omega,
+      exact fun _ => ⟨h.nextBlk + 1, 0, a1, rfl, by omega,
         Or.inr (Or.inr (Or.inr ⟨hW0, Or.inr ⟨mode0, Or.inl rfl⟩⟩)), hnm, Fb1, by simp [sf, wr.have0]⟩
     · simp [sf, s3, padv]
     · simp [sf]
@@ -1627,7 +1631,8 @@ theorem fail_tail (err : GzErrorSpec) (errOwn : GzErrorOwn)
     (hfs : FileSystem fs) (hk : strIndex "out of memory" = some k)
     (inv : GzInv h i s) (hm : s.mode = GZ_WRITE) (hsz : s.size = 0)
     (F : FailSlots (heap3 h i s) A i) (recA : A.gzstates i = some (s3z h s z'))
-    (avA : z'.avail_in = s.strm.avail_in) (stA : z'.state = none ∨ z'.state = s.strm.state)
+    (avA : z'.avail_in = s.strm.avail_in) (nxA : z'.next_in = s.strm.next_in)
+    (stA : z'.state = none ∨ z'.state = s.strm.state)
     (libcA : A.libcErrorBorrow = (heap3 h i s).libcErrorBorrow) :
     (∀ u B, Zlib.Gzlib.gz_error (some (.tab i)) Z_MEM_ERROR (.ref (.str k) 0)
       (dHeap (dHeap A (h.nextBlk + 1)) h.nextBlk) = .ok (u, B) → GzPost h i s [] fs B GzInv) ∧
@@ -1655,7 +1660,8 @@ theorem fail_tail (err : GzErrorSpec) (errOwn : GzErrorOwn)
         rw [upd_same]
       · rw [upd_ne _ _ _ _ e1, (F.1 x).1]
         exact E3.fresh x (by rw [heap3_next]; omega)
-  have hav : z'.avail_in = 0 := avA.trans (avail_zero (inv.writer hm) hsz)
+  have hav : z'.next_in = .null ∧ z'.avail_in = 0 :=
+    ⟨nxA.trans (input_zero (inv.writer hm) hsz).1, avA.trans (input_zero (inv.writer hm) hsz).2⟩
   exact ⟨fun u B run => err_run err errOwn fs run hfs hk inv hm hsz E hav nso free,
     fun e run => err_noerr err errOwn fs run hfs hk inv hm hsz E hav nso free⟩
 
@@ -1684,21 +1690,23 @@ theorem outfail_tail (err : GzErrorSpec) (errOwn : GzErrorOwn)
       rw [upd_same]
     · rw [upd_ne _ _ _ _ e]
       exact E'.fresh x (show h.nextBlk + 1 ≤ x by omega)
-  have hav := avail_zero (inv.writer hm) hsz
+  have hav := input_zero (inv.writer hm) hsz
   exact ⟨fun u B run => err_run err errOwn fs run hfs hk inv hm hsz E hav nso free,
     fun e run => err_noerr err errOwn fs run hfs hk inv hm hsz E hav nso free⟩
 
 macro "gzsimp" "[" ts:Lean.Parser.Tactic.simpLemma,* "]" : tactic =>
   `(tactic| simp [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_pure_app, g_lift_app,
     Zlib.Gzlib.Proofs.ldS_eq, Zlib.Gzlib.Proofs.updS_eq, Zlib.Gzlib.Proofs.updX_eq, Zlib.Gzlib.Proofs.ldZ_eq,
-    Zlib.Gzlib.Proofs.updZ_eq, gzSt, allocB_eq, freeB_eq, aHeap_gz, aHeap_allocOk, aHeap_nalloc, aHeap_nextBlk,
+    Zlib.Gzlib.Proofs.updZ_eq, gzSt, allocB_eq, C.UInt32.toNat_lt_mallocLimit,
+    Zlib.Gzwrite.SafeInit.mod_pow32_lt_mallocLimit, freeB_eq, aHeap_gz, aHeap_allocOk, aHeap_nalloc, aHeap_nextBlk,
     aHeap_bytes, aHeap_ro, fHeap_gz, fHeap_allocOk, fHeap_nalloc, fHeap_nextBlk, fHeap_bytes, fHeap_ro, dHeap_gz,
     dHeap_bytes, dHeap_ro, dHeap_nextBlk, slot_setS, slot_aHeap, Zlib.GzFs.strLit, $ts,*])
 
 theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
     (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size = 0) :
     ∃ v after, Zlib.Gzwrite.gz_init (gzSt i) fs h = .ok ((v, fs), after) ∧ (v = 0 ∨ v = -1) ∧
-      GzPost h i s [] fs after GzInv := by
+      GzPost h i s [] fs after GzInv ∧
+      (v = 0 → (∃ s', after.gzstates i = some s' ∧ s'.size ≠ 0) ∧ after.libcErrorBorrow = h.libcErrorBorrow) := by
   have cm := inv.common
   have wr := inv.writer hm
   have hs := cm.record
@@ -1706,8 +1714,12 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
   have il := rec_lt hs fr
   obtain ⟨k, hk⟩ := strIndex_of_mem (s := "out of memory") (by decide +kernel)
   have hW := cm.want
+  have hwant : s.want ≠ 0 := fun e => by
+    have := hW.1
+    rw [e] at this
+    exact absurd this (by decide)
   have E0 := Ext.base hs fr
-  have hav := avail_zero wr hsz
+  have hav := input_zero wr hsz
   have hi1 : h.nextBlk + 1 ≠ i := by omega
   have hi0 : h.nextBlk ≠ i := by omega
   have hnn : h.nextBlk + 1 ≠ h.nextBlk := by omega
@@ -1733,7 +1745,7 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
             subst e1 e2 e3
             have hrun' : Zlib.Deflate.deflateInit2_ (some (.in_gzstate_strm i)) s.level Z_DEFLATED (MAX_WBITS + 16)
                 DEF_MEM_LEVEL s.strategy (.ref (.str 57) 0) 112 (heap3 h i s) = .ok (rc, A) := hrun
-            obtain ⟨⟨z', recA, avA, stA⟩, libcA, failA, okA⟩ := init_facts hrun' heap3_rec (E3.fresh' hs fr)
+            obtain ⟨⟨z', recA, avA, nxA, stA⟩, libcA, failA, okA⟩ := init_facts hrun' heap3_rec (E3.fresh' hs fr)
               (E3.uniq hs fr cm.uniq) (E3.globals cm.globals) ⟨Or.inl rfl, Or.inl rfl⟩
             have recA' : A.gzstates i = some
                 { s with
@@ -1743,7 +1755,8 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
               obtain ⟨p, initA⟩ := okA rfl
               gzsimp [recA', eq_true hd]
               exact ⟨0, _, ⟨rfl, rfl⟩, Or.inl rfl,
-                deflate_final fs hfs inv hm hsz hd hrun' initA recA avA libcA (by simp [sf, s3, zs3])⟩
+                deflate_final fs hfs inv hm hsz hd hrun' initA recA avA libcA (by simp [sf, s3, zs3]),
+                fun _ => ⟨⟨_, Zlib.Gzlib.Proofs.setS_gz_same _ _ _, hwant⟩, libcA⟩⟩
             · have F := failA hrc
               have l0 : (heap3 h i s).live h.nextBlk := (heap3_live hs fr hW _).2 (Or.inr (Or.inl rfl))
               have l1 : (heap3 h i s).live (h.nextBlk + 1) := (heap3_live hs fr hW _).2 (Or.inr (Or.inr rfl))
@@ -1754,7 +1767,7 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
               have hR0 : A.ro h.nextBlk = false := ((F.1 _).2.2.2.2.2.2.2 l0 hi0).trans heap3_r0
               have hR1 : A.ro (h.nextBlk + 1) = false := ((F.1 _).2.2.2.2.2.2.2 l1 hi1).trans heap3_r1
               have hnn' : h.nextBlk ≠ h.nextBlk + 1 := by omega
-              have T := fail_tail err errOwn fs hfs hk inv hm hsz F recA avA (stA hrc) libcA
+              have T := fail_tail err errOwn fs hfs hk inv hm hsz F recA avA nxA (stA hrc) libcA
               gzsimp [recA', eq_false hrc, hA0, hA1, hR0, hR1, hnn', strLitRef_of_index hk]
               split
               next a fs1 h1 heq =>
@@ -1763,7 +1776,7 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
                   simp only [Except.ok.injEq, Prod.mk.injEq] at heq
                   obtain ⟨⟨-, e2⟩, e3⟩ := heq
                   subst e2 e3
-                  exact ⟨-1, B, rfl, Or.inr rfl, T.1 u B hrun2⟩
+                  exact ⟨-1, B, rfl, Or.inr rfl, T.1 u B hrun2, fun e => absurd e (by decide)⟩
                 next _ e hrun2 => cases heq
               next e heq =>
                 split at heq
@@ -1786,7 +1799,7 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
             simp only [Except.ok.injEq, Prod.mk.injEq] at heq
             obtain ⟨⟨-, e2⟩, e3⟩ := heq
             subst e2 e3
-            exact ⟨-1, B, rfl, Or.inr rfl, T.1 u B hrun2⟩
+            exact ⟨-1, B, rfl, Or.inr rfl, T.1 u B hrun2, fun e => absurd e (by decide)⟩
           next _ e hrun2 => cases heq
         next e heq =>
           split at heq
@@ -1794,7 +1807,8 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
           next _ e' hrun2 => exact absurd hrun2 (T.2 e')
     · gzsimp [hs, hok, eq_false hd, hi1, hi0, hnn, hS0, hS1, strLitRef_of_index hk,
         strLitRef_of_index version_index]
-      exact ⟨0, _, ⟨rfl, rfl⟩, Or.inl rfl, direct_final fs hfs inv hm hsz hd hn1⟩
+      exact ⟨0, _, ⟨rfl, rfl⟩, Or.inl rfl, direct_final fs hfs inv hm hsz hd hn1,
+        fun _ => ⟨⟨_, Zlib.Gzlib.Proofs.setS_gz_same _ _ _, hwant⟩, rfl⟩⟩
   · gzsimp [hs, hok, hi1, hi0, hnn, hS0, hS1, strLitRef_of_index hk, strLitRef_of_index version_index]
     have E := Ext.setS (Ext.failed E0) ({ s with «in» := .null } : GzState)
     have nso : s.strm.state = none := wr.unalloc hsz
@@ -1806,7 +1820,8 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
         simp only [Except.ok.injEq, Prod.mk.injEq] at heq
         obtain ⟨⟨e1, e2⟩, e3⟩ := heq
         subst e2 e3
-        exact ⟨-1, A, rfl, Or.inr rfl, err_run err errOwn fs run hfs hk inv hm hsz E hav nso free⟩
+        exact ⟨-1, A, rfl, Or.inr rfl, err_run err errOwn fs run hfs hk inv hm hsz E hav nso free,
+          fun e => absurd e (by decide)⟩
       next _ e run => cases heq
     next e heq =>
       split at heq
@@ -1820,7 +1835,7 @@ theorem gz_init_safe_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h :
     (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size = 0) :
     RunSafe (Zlib.Gzwrite.gz_init (gzSt i)) fs h True fun r fs' after =>
       (r = 0 ∨ r = -1) ∧ FdsKept fs fs' ∧ GzPost h i s [] fs' after GzInv := by
-  obtain ⟨v, after, run, hv, post⟩ := gz_init_run err errOwn i h fs s inv hfs hm hsz
+  obtain ⟨v, after, run, hv, post, -⟩ := gz_init_run err errOwn i h fs s inv hfs hm hsz
   refine ⟨fun e he => ?_, fun _ => ⟨v, fs, after, run⟩, fun a fs' after' he => ?_⟩
   · rw [run] at he
     cases he

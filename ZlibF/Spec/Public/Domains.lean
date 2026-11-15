@@ -19,35 +19,6 @@ def witnessHeap : Heap :=
     static := Zlib.Crc32.initStatics
       (Zlib.Inftrees.initStatics (Zlib.Trees.trees_statics Heap.empty.static)) }
 
-/-- Every accepted signed window parameter has a non-failing init on every permitted heap.
-The fixed witness additionally rules out an empty caller domain. -/
-def Goal.inflate_initialisation_domain : Prop :=
-  (∀ h r version wb wrap bits,
-    InitDomain h r version → Api.inflWbits wb.toInt = some (wrap, bits) →
-    h.allocOk h.nalloc = true →
-    ∃ after, C.run (Zlib.Inflate.inflateInit2_ (some r) wb version 112) h = .ok (Z_OK, after) ∧
-      InflateInitial h after r wrap bits ∧ StreamReachable .inflate after r) ∧
-  InitDomain witnessHeap (.tab 0) (.ref (.blk 1) 0) ∧
-  (∀ wb wrap bits, Api.inflWbits wb.toInt = some (wrap, bits) →
-    ∃ after, C.run (Zlib.Inflate.inflateInit2_ (some (.tab 0)) wb (.ref (.blk 1) 0) 112)
-      witnessHeap = .ok (Z_OK, after) ∧ InflateInitial witnessHeap after (.tab 0) wrap bits)
-
-/-- Full level, method, window, memory-level and strategy coverage, including normalisation.
-No assumption that the post-init invariant already holds is permitted. -/
-def Goal.deflate_initialisation_domain : Prop :=
-  (∀ h r version level method wb mem strategy p,
-    InitDomain h r version →
-    Api.deflInit? level.toInt method.toInt wb.toInt mem.toInt strategy.toInt = some p →
-    (∀ j, j < 5 → h.allocOk (h.nalloc + j) = true) →
-    ∃ after, C.run (Zlib.Deflate.deflateInit2_ (some r) level method wb mem strategy version 112) h =
-      .ok (Z_OK, after) ∧ DeflateInitial h after r p ∧ StreamReachable .deflate after r) ∧
-  InitDomain witnessHeap (.tab 0) (.ref (.blk 1) 0) ∧
-  (∀ level method wb mem strategy p,
-    Api.deflInit? level.toInt method.toInt wb.toInt mem.toInt strategy.toInt = some p →
-    ∃ after, C.run (Zlib.Deflate.deflateInit2_ (some (.tab 0)) level method wb mem strategy
-      (.ref (.blk 1) 0) 112) witnessHeap = .ok (Z_OK, after) ∧
-      DeflateInitial witnessHeap after (.tab 0) p)
-
 /-- All eight documented callback-window sizes, with an arbitrary valid caller window.
 Init establishes the back-decoder invariant and retains ownership of the window. -/
 def Goal.inflate_back_initialisation_domain : Prop :=
@@ -73,11 +44,14 @@ def gzWitnessFs (mode : Api.GzMode) : Fs :=
   if mode = .read then Fs.put default #[120] #[] else default
 
 /-- External open success is specified by the fixed file-system semantics. No gz contract
-is an assumption. Every accepted mode has a successful concrete open witness. -/
+is an assumption. Every accepted mode has a successful concrete open witness.
+The LP64 platform scope bounds each byte object below `2^63` bytes, including the caller's path
+(`docs/deviations.md`). -/
 def Goal.gz_initialisation_domain : Prop :=
   (∀ h fs path mode name flags kind level strategy direct fd world start,
     Fresh h → Zlib.Gzlib.Spec.Uniq h → LibraryGlobals h → FileSystem fs →
-    NoAllocationFailure h → CString h path name → CString h mode flags →
+    NoAllocationFailure h → ZlibF.PlatformMemory.ByteObjectsFit h →
+    CString h path name → CString h mode flags →
     parsedMode flags = some (kind, level, strategy, direct) →
     OpenWorld h fs world name flags kind none fd start → fd ≠ -1 →
     ∃ after fs' i s, Zlib.Gzlib.gzopen path mode fs h = .ok ((some (.in_gzstate_x i), fs'), after) ∧

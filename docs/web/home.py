@@ -47,7 +47,7 @@ def result_level(names) -> str:
 
 
 def counts() -> Counter:
-    return Counter({'registered': 0, 'local': 0, 'open': 0, 'blocked': 0}) + Counter(t.status for t in progress_targets().values()) + Counter(total=len(progress_targets()))
+    return Counter({'registered': 0, 'local': 0, 'open': 0, 'blocked': 0, 'not-planned': 0}) + Counter(t.status for t in progress_targets().values()) + Counter(total=len(progress_targets()))
 
 
 def statement_href(name: str, current: Path, lang: str) -> str:
@@ -219,8 +219,8 @@ def render_status() -> None:
             html_text, _, _ = md(markdown_text, baselevel=2)
             return rewrite(html_text, source, current, lang)
         c = counts()
-        stats = t(f'证明记录共有 {c["total"]} 个固定目标：已登记 {c["registered"]}，已检查未登记 {c["local"]}，未完成 {c["open"] + c["blocked"]}。这些数字不是工作量的百分比。',
-                  f'The proof records hold {c["total"]} fixed targets: {c["registered"]} registered, {c["local"]} checked but not registered, {c["open"] + c["blocked"]} open. These are not a percentage of effort.')
+        stats = t(f'证明记录共有 {c["total"]} 个固定目标：已登记 {c["registered"]}，已检查未登记 {c["local"]}，未完成 {c["open"] + c["blocked"]}，不在计划内 {c["not-planned"]}。这些数字不是工作量的百分比。',
+                  f'The proof records hold {c["total"]} fixed targets: {c["registered"]} registered, {c["local"]} checked but not registered, {c["open"] + c["blocked"]} open, {c["not-planned"]} not planned. These are not a percentage of effort.')
         evidence = route_href('reference/docs/progress', current, lang)
         body = (f'<p class="rf-scope-note">{t("快照", "Snapshot")}: <a href="{REPO_URL}/commit/{COMMIT}"><code>{COMMIT[:10]}</code></a>, {DATE}, '
                 f'{t("分支", "branch")} {html.escape(BRANCH)}. {stats}</p>'

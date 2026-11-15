@@ -7,9 +7,9 @@ import ZlibF.Proof.«gzlib.c.error-borrow»
 `gz_comp`, `gz_write`, `gz_zero` and `gz_vacate` work on a handle whose embedded deflate stream may have pending
 input in a caller region: `next_in` points into the caller's buffer and `avail_in ≠ 0`. The full invariant `GzInv`
 does not hold then (its writer part wants the input inside the handle's `in` buffer). The invariant they keep is
-`GzInvUpToInput`: `GzInv` of the record with no pending input (`clearIn`), and the pending input inside a region
-`src`, which is the `in` buffer or a caller region the handle does not own. `GzInvUpToInputWeak` drops the
-readability of a caller region (what holds after a failed write, `gz_comp`).
+`GzInvUpToInput`: `GzInv` of the record with no pending input (`clearIn`), and `next_in` NULL with no pending
+input, or the pending input inside a region `src`, which is the `in` buffer or a caller region the handle does not
+own. `GzInvUpToInputWeak` drops the readability of a caller region (what holds after a failed write, `gz_comp`).
 
 On their error paths these functions call `gz_error`. The fact on `gz_error` (`GzErrorSpec`, with its no-grab fact
 `GzErrorOwn`) takes `GzInv` on the actual heap. This file transfers it.
@@ -32,15 +32,16 @@ set_option autoImplicit false
 
 /-! ## The shared definitions of the write side -/
 
-/-- The record with no pending input (`avail_in = 0`). -/
-def clearIn (s : GzState) : GzState := { s with strm := { s.strm with avail_in := 0 } }
+/-- The record with no pending input (`avail_in = 0`, `next_in` NULL), which meets W4 whatever `next_in` was. -/
+def clearIn (s : GzState) : GzState := { s with strm := { s.strm with avail_in := 0, next_in := .null } }
 
 /-- **The writer invariant up to the pending input**: `GzInv` of the record with no pending input, and the pending
 input lies in `src`, which is the `in` buffer or a caller region the handle does not own. -/
 def GzInvUpToInput (h : Heap) (i : Nat) (s : GzState) (src : Region) : Prop :=
   h.gzstates i = some s ∧ GzInv (putGz h i (clearIn s)) i (clearIn s) ∧ s.mode = GZ_WRITE ∧
-  (s.strm.avail_in = 0 ∨ ∃ a, s.strm.next_in = padv src.pointer a ∧ a + s.strm.avail_in.toNat ≤ src.length) ∧
-  (src.pointer = s.«in» ∧ src.length = s.size.toNat ∨
+  ((s.strm.next_in = .null ∧ s.strm.avail_in = 0) ∨
+    ∃ a, s.strm.next_in = padv src.pointer a ∧ a + s.strm.avail_in.toNat ≤ src.length) ∧
+  (src.pointer = s.«in» ∧ src.length ≤ 2 * s.size.toNat ∨
     (∃ xs, Bytes h src.pointer src.length xs) ∧ ∀ b, ByteRoot src.pointer b → ¬ GzOwned h i s b)
 
 /-- `GzInvUpToInput` without the readability of a caller region: what holds after `gz_comp` fails. A failed write
@@ -48,8 +49,9 @@ calls `gz_error(Z_ERRNO, zstrerror())`, and `zstrerror` invalidates a borrowed `
 have passed as the input region; the C does not read the input after `-1` (`gz_write` resets `next_in` to `in`). -/
 def GzInvUpToInputWeak (h : Heap) (i : Nat) (s : GzState) (src : Region) : Prop :=
   h.gzstates i = some s ∧ GzInv (putGz h i (clearIn s)) i (clearIn s) ∧ s.mode = GZ_WRITE ∧
-  (s.strm.avail_in = 0 ∨ ∃ a, s.strm.next_in = padv src.pointer a ∧ a + s.strm.avail_in.toNat ≤ src.length) ∧
-  (src.pointer = s.«in» ∧ src.length = s.size.toNat ∨ ∀ b, ByteRoot src.pointer b → ¬ GzOwned h i s b)
+  ((s.strm.next_in = .null ∧ s.strm.avail_in = 0) ∨
+    ∃ a, s.strm.next_in = padv src.pointer a ∧ a + s.strm.avail_in.toNat ≤ src.length) ∧
+  (src.pointer = s.«in» ∧ src.length ≤ 2 * s.size.toNat ∨ ∀ b, ByteRoot src.pointer b → ¬ GzOwned h i s b)
 
 /-! ## Replacing the stream of record `i` -/
 
@@ -168,8 +170,11 @@ theorem comm_strLit (s : String) : Comm i z (Zlib.GzFs.strLit s) := comm_strLitR
 
 theorem comm_allocB (n : Nat) : Comm i z (allocB n) := by
   intro h
-  simp only [allocB, setStrm_allocOk, setStrm_nalloc, setStrm_nextBlk, slotUsed_setStrm]
-  cases h.allocOk h.nalloc <;> cases h.slotUsed h.nextBlk <;> rfl
+  by_cases hn : n < mallocLimit
+  · simp only [allocB, hn, and_true, setStrm_allocOk, setStrm_nalloc, setStrm_nextBlk, slotUsed_setStrm]
+    cases h.allocOk h.nalloc <;> cases h.slotUsed h.nextBlk <;> rfl
+  · simp only [allocB, hn, and_false, ite_false, setStrm_allocOk, setStrm_nalloc, setStrm_nextBlk]
+    rfl
 
 theorem comm_allocBytes (a : Array UInt8) : Comm i z (allocBytes a) := by
   intro h
@@ -519,7 +524,7 @@ theorem msg_owned {h : Heap} {i : Nat} {s : GzState} (invC : GzInv (putGz h i (c
 /-- The common part of the two interface lemmas: the run, the new record, the transferred facts. -/
 theorem gz_error_upTo_core (err : GzErrorSpec) (errOwn : GzErrorOwn) {h : Heap} {i : Nat} {s : GzState}
     (hs : h.gzstates i = some s) (invC : GzInv (putGz h i (clearIn s)) i (clearIn s)) (e : Int32) (msg : BPtr)
-    (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) :
+    (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) (he : e ≠ Z_STREAM_END) :
     ∃ after s', C.run (Zlib.Gzlib.gz_error (gzSt i) e msg) h = .ok ((), after) ∧
       after.gzstates i = some s' ∧ GzInv (putGz after i (clearIn s')) i (clearIn s') ∧
       s' = { s with err := s'.err, msg := s'.msg } ∧ (s'.err = e ∨ (s'.err = Z_MEM_ERROR ∧ s'.msg = .null)) ∧
@@ -532,9 +537,9 @@ theorem gz_error_upTo_core (err : GzErrorSpec) (errOwn : GzErrorOwn) {h : Heap} 
     rcases hmsg with hn | ⟨t, ct, no⟩
     · exact Or.inl hn
     · exact Or.inr ⟨t, (cstring_putGz _ _ _ _ _).2 ct, fun b hb => by rw [owned_clearIn hs]; exact no b hb⟩
-  obtain ⟨A, s0, run, invA, eq0, errs, frameA, liveA⟩ := err invC e msg hmsg'
+  obtain ⟨A, s0, run, invA, eq0, errs, frameA, liveA⟩ := err invC e msg hmsg' he
   have hA : A.gzstates i = some s0 := invA.common.record
-  have ownA := errOwn _ _ _ _ _ _ invC hmsg' run s0 hA
+  have ownA := errOwn _ _ _ _ _ _ invC hmsg' he run s0 hA
   have bor : A.libcErrorBorrow = (putGz h i (clearIn s)).libcErrorBorrow :=
     C.LibcBorrow.gz_error_borrow_stable (gzSt i) e msg _ () A run
   generalize s0.err = e0 at eq0 errs
@@ -594,14 +599,14 @@ does not own (a literal, a borrowed `strerror` view, a caller string). The calle
 are live and not owned, and `gz_error` changes only the record and the old owned message. -/
 theorem gz_error_upToInput (err : GzErrorSpec) (errOwn : GzErrorOwn) {h : Heap} {i : Nat} {s : GzState}
     {src : Region} (inv : GzInvUpToInput h i s src) (e : Int32) (msg : BPtr)
-    (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) :
+    (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) (he : e ≠ Z_STREAM_END) :
     ∃ after s', C.run (Zlib.Gzlib.gz_error (gzSt i) e msg) h = .ok ((), after) ∧ GzInvUpToInput after i s' src ∧
       s' = { s with err := s'.err, msg := s'.msg } ∧ Frame h after (fun b => b = i ∨ blkOf s.msg = some b) ∧
       LiveChange h after (fun b => blkOf s'.msg = some b ∧ ¬ h.live b) (fun b => blkOf s.msg = some b) ∧
       (∀ b, GzOwned after i s' b → h.live b → GzOwned h i s b) := by
   obtain ⟨hs, invC, hmode, hin, hreg⟩ := inv
   obtain ⟨after, s', run, hrec, invA, eq', -, frame, live, own, get⟩ :=
-    gz_error_upTo_core err errOwn hs invC e msg hmsg
+    gz_error_upTo_core err errOwn hs invC e msg hmsg he
   have hmode' : s'.mode = s.mode := by rw [eq']
   have hz : s'.strm = s.strm := by rw [eq']
   have hinb : s'.«in» = s.«in» := by rw [eq']
@@ -618,8 +623,8 @@ new message block, which differs from the region's blocks only when they are liv
 `hlive` (a readable range has live blocks). -/
 theorem gz_error_upToInputWeak (err : GzErrorSpec) (errOwn : GzErrorOwn) {h : Heap} {i : Nat} {s : GzState}
     {src : Region} (inv : GzInvUpToInputWeak h i s src) (e : Int32) (msg : BPtr)
-    (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b)
-    (hlive : src.pointer = s.«in» ∧ src.length = s.size.toNat ∨ ∀ b, ByteRoot src.pointer b → h.live b) :
+    (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) (he : e ≠ Z_STREAM_END)
+    (hlive : src.pointer = s.«in» ∧ src.length ≤ 2 * s.size.toNat ∨ ∀ b, ByteRoot src.pointer b → h.live b) :
     ∃ after s', C.run (Zlib.Gzlib.gz_error (gzSt i) e msg) h = .ok ((), after) ∧
       GzInvUpToInputWeak after i s' src ∧
       s' = { s with err := s'.err, msg := s'.msg } ∧ Frame h after (fun b => b = i ∨ blkOf s.msg = some b) ∧
@@ -627,7 +632,7 @@ theorem gz_error_upToInputWeak (err : GzErrorSpec) (errOwn : GzErrorOwn) {h : He
       (∀ b, GzOwned after i s' b → h.live b → GzOwned h i s b) := by
   obtain ⟨hs, invC, hmode, hin, hreg⟩ := inv
   obtain ⟨after, s', run, hrec, invA, eq', -, frame, live, own, -⟩ :=
-    gz_error_upTo_core err errOwn hs invC e msg hmsg
+    gz_error_upTo_core err errOwn hs invC e msg hmsg he
   have hmode' : s'.mode = s.mode := by rw [eq']
   have hz : s'.strm = s.strm := by rw [eq']
   have hinb : s'.«in» = s.«in» := by rw [eq']

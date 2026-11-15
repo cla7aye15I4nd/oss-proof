@@ -1,4 +1,4 @@
-<!-- source-sha256: 717b9ae61bf915c3d8ce744918ddc78daacdc82d86a33c78e6db464028da2de8 -->
+<!-- source-sha256: 7c3e71770a17606af64459c47deb833548453a6c4769f4a66a05f1e16b4cba82 -->
 # 内核检查与可信边界
 
 内核检查证明是否符合其 Lean 命题。将结果用于选定 C 源码，还依赖以下事项。它们经过审阅和测试，不能仅靠编译证明消除。结论、验收规则和当前状态分别见[安全性](spec/safety.md)、[验证策略](anti-cheating.md)和[进度](progress.md)。
@@ -27,7 +27,7 @@
 | `memmove` | 检查相同范围与可写性，但允许重叠，并从原始源复制。 |
 | `memset`, `zmemzero` | `Ptr.fill` 按元素计数并赋值；只有指定用法才表示字节 `memset` 或零填充。`Ptr.memset` 重复一个字节。整记录清零存储显式零记录。 |
 | `strlen` | 要求表示出的块内有 NUL。 |
-| 分配 | 新鲜整数来自任意初值函数，新鲜指针字段为 NULL。`allocOk` 预言机决定失败。自动局部对象绕过它，不消耗分配尝试。 |
+| 分配 | 新鲜整数来自任意初值函数，新鲜指针字段为 NULL。超过 `PTRDIFF_MAX` 字节的 `malloc` 请求返回 NULL；否则由 `allocOk` 预言机决定失败。每次 `malloc` 调用消耗一个预言编号。自动局部对象绕过它，不消耗分配尝试。 |
 | `free` | NULL 无操作。否则参数必须指向对应种类的存活可写分配起点。没有分配来源标签。 |
 | 字符串字面量 | `strLitRef` 表示生成的封闭 `strTable` 中静态、只读、NUL 结尾的条目。它始终存活、身份稳定且永不释放。未知字面量文本会故障。借用的外部错误文本具有独立的只读视图和生命周期。 |
 
@@ -73,11 +73,13 @@
 
 分配失败仍在范围内。其他上游配置和自定义分配器需要自己的对应关系论证；完整项目目标包含它们。
 
+**分配大小。** 对超过 `PTRDIFF_MAX`（`2^63 − 1` 字节）的请求，`malloc` 无论分配预言如何都返回 NULL。该调用仍消耗一个预言编号，之后的堆与预言失败之后的堆相同：除请求大小外，调用者无法区分两者。低于该上限时仍由预言决定。这是 glibc 2.43 的行为（`malloc/malloc.c`：`_int_malloc` 与 `__libc_realloc` 检查 `bytes > PTRDIFF_MAX`，返回 NULL 并设置 `ENOMEM`；`__libc_calloc` 先拒绝溢出 `size_t` 的乘积）。`malloc` 的 `errno` 不建模；zlib 没有路径在分配之后读取它。只有两个调用点可能发出这样的请求（`gz_open` 的路径复制和 `gz_error` 的消息）；其他分配的大小是 `unsigned` 或固定值。因此每次库分配都使每个字节对象保持在 `2^63` 字节以下（`ByteObjectsFit.allocB`），平台前提只对调用者存储才需要。
+
 **格式化。** `GzFs.snprintf` 模拟 `gzlib.c` 的三个固定格式调用（`"%s%s%s"`、`"%s"`、`"<fd:%d>"`）。它在 `[dst, dst + size)` 内写入完整输出的至多 `size - 1` 个字节和一个 NUL，返回完整长度；超过 `INT_MAX` 时返回 -1。在 glibc 2.43 中，对 `char *` 的 `%s` 和 `%d` 这是唯一的失败（`stdio-common/vfprintf-process-arg.c` 的 `form_string` 与 `form_integer`；`stdio-common/Xprintf_buffer_done.c`，超过 `INT_MAX` 时为 `EOVERFLOW`）。它的 `errno` 不建模，这是明示的限制。在系统调用再次设置 `errno` 之前，没有调用者读取它：模型只在 `zstrerror` 和 `getErrno` 中读取 `errno`，位于 `gzwrite.c.lean`（`gz_comp`，在以 `setErrno 0` 开始的迭代中 `fsWrite` 失败之后）和 `gzread.c.lean`（`gz_load`，在 `fsRead` 失败之后；`gzread`，当 `again` 由同一次调用中的 `gz_load` 设置时）。
 
 `GzFs.vsnprintf` 模拟 `gzvprintf` 以调用者格式进行的调用。任何一次调用都可能经由世界预言 `printfOk` 失败。失败的调用返回 -1，设置非零的 `errno`（`printfErrno`；超过 `INT_MAX` 时为 `EOVERFLOW`），并在 `[dst, dst + size)` 内留下任意字节（`printfJunk`）和一个 NUL。glibc 在每条路径上都写入终止符（`libio/vsnprintf.c`，`__printf_buffer_snprintf_init` 与 `__printf_buffer_snprintf_done`），且不在缓冲区之外写入。预言在两个方向上都成立：它可以在 glibc 确定成功之处失败，这一放宽对安全性无害；它也可以在 glibc 确定失败之处成功，例如带无效宽字符的 `%lc`，但 `%lc` 未被表示，会故障。因此以 `printfOk` 为条件的目标子句描述的是模型分支，而不是断言 glibc 对该格式成功。格式化器在查询预言之前运行，所以未表示的转换会故障：这是保守的。预言字段的默认值（所有调用成功、空的残留字节、`EOVERFLOW`）只为可执行驱动程序而设，对证明没有意义。每个目标都对所有世界量化。
 
-**gz 文件世界。** `ZlibF/Zlib/gzfs.lean` 有两部分。普通文件部分表示扁平路径、普通文件、目录标记、描述符位置和文件大小上限。系统调用预言（`Fs` 的字段，由调用计数器 `nos` 编号）为每次 `read`、`write`、`lseek`、`close` 和 `open` 调用决定：按普通文件行为、以所选 errno 失败，或返回所选结果。每个预言值都被映射到该调用的 POSIX 契约之内：`read` 返回 -1 或至多请求的字节数；非空 `write` 返回 -1 或 1 到请求字节数之间的值；`lseek` 返回 -1 或 `[0, 2^63 - 1]` 中的值，可能与之后的读取无关；`close` 返回 0 或 -1，两种情况下都释放描述符；`open` 返回 -1 或任一此前未打开的描述符编号。失败设置非零 errno，成功也可能改变 errno。安全目标对每个世界量化，因此对每个预言量化。
+**gz 文件世界。** `ZlibF/Zlib/gzfs.lean` 有两部分。普通文件部分表示扁平路径、普通文件、目录标记、描述符位置和文件大小上限。系统调用预言（`Fs` 的字段，由调用计数器 `nos` 编号）为每次 `read`、`write`、`lseek`、`close` 和 `open` 调用决定：按普通文件行为、以所选 errno 失败，或返回所选结果。每个预言值都被映射到该调用的 POSIX 契约之内：`read` 返回 -1 或至多请求的字节数；非空 `write` 返回 -1 或 1 到请求字节数之间的值；`lseek` 返回 -1 或 `[0, 2^63 - 1]` 中的值，可能与之后的读取无关；`close` 返回 0 或 -1，两种情况下都释放描述符；`open` 返回 -1 或任一此前未打开且小于 `2^31` 的描述符编号；当 `2^31` 以下没有空闲描述符时，以 `EMFILE` 失败。失败设置非零 errno，成功也可能改变 errno。安全目标对每个世界量化，因此对每个预言量化。
 
 这个预言有意比任何真实系统更宽：预言的读写不论描述符状态如何（已关闭、访问模式不符）都成功；预言的写不改变文件；预言的 `lseek` 不移动描述符；读到的数据任意；普通读取仍受读取额度截断。这些选择只增加行为，不得收窄。任何证明都不得依赖 `open` 返回的编号：模型的描述符表不是整个进程。
 

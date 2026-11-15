@@ -32,7 +32,8 @@
 #   PROOFMUT_TIMEOUT  seconds per build (default 3600)
 #   PROOFMUT_BASELINE 1 (default): first build the unmutated copy of the listed modules; it must pass
 #   PROOFMUT_KEEP     1: keep the temporary copies (default: remove)
-#   PROOFMUT_STRICT   1: require the baseline and reject every known proof gap (final acceptance)
+#   PROOFMUT_STRICT   1: require the baseline, reject every known proof gap, and require at least one KILLED row
+#                     (a SAME row is not evidence) (final acceptance and the mutant shards)
 # One mutant runs at a time.
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -157,8 +158,8 @@ PY
   rm -rf "$d"
 done < "$list"
 echo "$killed killed, $same equivalent (build as expected), $gap known gaps (proofs still build), $bad bad mutants"
-if [ "${PROOFMUT_STRICT:-0}" = 1 ] && { [ "$gap" -gt 0 ] || [ $((killed + same)) = 0 ]; }; then
-  echo "strict acceptance requires checked mutants and no known proof gaps"
+if [ "${PROOFMUT_STRICT:-0}" = 1 ] && { [ "$gap" -gt 0 ] || [ "$killed" = 0 ]; }; then
+  echo "strict acceptance requires a killed mutant (same: rows do not count) and no known proof gaps"
   fail=1
 fi
 if [ "$fail" = 0 ]; then echo "PROOFMUT PASS"; else echo "PROOFMUT FAIL: see the lines above that are not KILLED or SAME ok"; exit 1; fi

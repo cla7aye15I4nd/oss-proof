@@ -29,6 +29,7 @@ STATUS = {
     'local': ('本地证明（未登记）', 'Local proof, not registered'),
     'open': ('未完成', 'Not completed'),
     'blocked': ('存在阻塞', 'Blocked'),
+    'not-planned': ('不在计划内', 'Not planned'),
 }
 COVERAGE = {
     'all': ('覆盖命题全部输入', 'All stated inputs'),
@@ -96,6 +97,8 @@ def parse_progress(source: str) -> Progress:
                 status = 'local'
             elif 'Blocked' in state:
                 status = 'blocked'
+            elif 'Not planned' in state:
+                status = 'not-planned'
             elif 'Not proved' in state:
                 status = 'open'
             else:
@@ -186,7 +189,7 @@ def render_progress(original: str, lang: str, current: Path | None = None) -> st
     open_count = counts['open'] + counts['blocked']
     body = ['<section class="pg-map" data-progress-map aria-label="'+t('证明目标与依赖','Proof targets and dependencies')+'">']
     body.append('<header class="pg-intro"><p>'+t('用连线查看依赖，再进入具体目标的输入范围、证明状态和证据。','Follow the dependency edges, then inspect a target’s input range, proof state, and evidence.')+'</p></header>')
-    body.append('<dl class="pg-totals">'+''.join('<div><dt>'+label+'</dt><dd>'+str(count)+'</dd></div>' for label, count in [(t('固定目标','Fixed targets'), len(data.targets)), (t('已登记精确证明','Registered exact proofs'), counts['registered']), (t('本地证明，尚未登记','Local, not registered'), counts['local']), (t('未完成目标','Uncompleted targets'), open_count)])+'</dl>')
+    body.append('<dl class="pg-totals">'+''.join('<div><dt>'+label+'</dt><dd>'+str(count)+'</dd></div>' for label, count in [(t('固定目标','Fixed targets'), len(data.targets)), (t('已登记精确证明','Registered exact proofs'), counts['registered']), (t('本地证明，尚未登记','Local, not registered'), counts['local']), (t('未完成目标','Uncompleted targets'), open_count), (t('不在计划内','Not planned'), counts['not-planned'])])+'</dl>')
     body.append('<p class="pg-reading-note">'+t('未完成目标中有 '+str(counts['blocked'])+' 项记录了阻塞。展开目标后，输入覆盖与证明登记状态分别列出。', str(counts['blocked'])+' uncompleted targets have recorded blockers. Input coverage and registration are listed separately inside each target.')+'</p>')
     body.append(render_graph(data,lang,GROUPS,STATUS))
     body.append('<div class="pg-explorer"><header><h4>'+t('逐项查看目标与依赖','Inspect targets and dependencies')+'</h4><p>'+t('先选组件，或按名称和证据状态筛选。每项都保留通往完整证据表和记录源码的链接。','Choose a component, or filter by name and evidence state. Every target links to its full evidence entry and recorded source.')+'</p></header><div class="pg-controls" data-progress-controls hidden><label>'+t('目标名称','Target name')+'<input type="search" data-progress-search placeholder="'+t('例如 inflate、copy、crc32','For example: inflate, copy, crc32')+'"></label><label>'+t('组件','Component')+'<select data-progress-group><option value="">'+t('全部组件','All components')+'</option>'+''.join('<option value="'+g+'">'+e(GROUPS[g][0 if zh else 1])+'</option>' for g in data.groups)+'</select></label><label>'+t('证据状态','Evidence state')+'<select data-progress-status><option value="">'+t('全部状态','All states')+'</option>'+''.join('<option value="'+key+'">'+tr(value)+'</option>' for key, value in STATUS.items())+'</select></label><button type="button" data-progress-reset>'+t('清除筛选','Clear filters')+'</button><output data-progress-count aria-live="polite"></output></div>')

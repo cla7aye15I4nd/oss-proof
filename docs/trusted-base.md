@@ -44,7 +44,7 @@ future identities. The initial heap must also have unique block identities acros
 | `memmove` | Checks the same ranges and writability, but permits overlap and copies from the original source. |
 | `memset`, `zmemzero` | `Ptr.fill` counts elements and assigns a value; it represents byte `memset` or zero filling only in the stated uses. `Ptr.memset` replicates a byte. Whole-record zeroing stores the explicit zero record. |
 | `strlen` | Requires a NUL inside the represented block. |
-| Allocation | Fresh integers come from the arbitrary garbage function; fresh pointer fields are NULL. The `allocOk` oracle determines failure. Automatic local objects bypass that oracle and do not consume an allocator attempt. |
+| Allocation | Fresh integers come from the arbitrary garbage function; fresh pointer fields are NULL. A `malloc` request above `PTRDIFF_MAX` bytes returns NULL. Otherwise the `allocOk` oracle determines failure. Every `malloc` call consumes one oracle number. Automatic local objects bypass that oracle and do not consume an allocator attempt. |
 | `free` | NULL is a no-op. Otherwise the argument must be the start of a live writable allocation of the represented kind. There is no allocation-origin tag. |
 | String literals | `strLitRef` denotes a static read-only NUL-terminated entry in the generated closed `strTable`. It is always live, has stable identity and is never freed. Unknown literal text faults. Borrowed external error text has a separate read-only view and lifetime. |
 
@@ -118,6 +118,18 @@ limit, and it holds on every heap of a call history.
 Allocation failure remains in scope. Other upstream configurations and custom allocators
 require their own correspondence arguments; the full project goal includes them.
 
+**Allocation size.** `malloc` returns NULL for a request above `PTRDIFF_MAX` (`2^63 − 1` bytes),
+whatever the allocation oracle says. The call still consumes one oracle number, and the heap
+after it is the same as after an oracle failure: the two are indistinguishable to the caller
+except through the size. Below the limit the oracle decides, as before. This is glibc 2.43's
+behaviour (`malloc/malloc.c`: `_int_malloc` and `__libc_realloc` test `bytes > PTRDIFF_MAX` and
+return NULL with `ENOMEM`; `__libc_calloc` first refuses a product that overflows `size_t`).
+`errno` is not modelled for `malloc`; no zlib path reads it after an allocation. Only two call
+sites can make such a request (`gz_open`'s path copy and `gz_error`'s message); the other
+allocations have `unsigned` or fixed sizes. So every library allocation keeps each byte object
+below `2^63` bytes (`ByteObjectsFit.allocB`), and the platform premise is needed only for
+caller storage.
+
 **Formatting.** `GzFs.snprintf` models the three fixed-format calls of `gzlib.c` (`"%s%s%s"`,
 `"%s"`, `"<fd:%d>"`). It writes at most `size - 1` bytes of the full output and a NUL inside
 `[dst, dst + size)`, and returns the full length, or -1 past `INT_MAX`. In glibc 2.43 that is
@@ -151,7 +163,8 @@ chosen errno, or returns a chosen result. Every oracle value is mapped into the 
 the call: `read` returns -1 or at most the requested count; a nonempty `write` returns -1 or
 between 1 and the count; `lseek` returns -1 or a value in `[0, 2^63 - 1]`, possibly unrelated to
 later reads; `close` returns 0 or -1 and releases the descriptor in both cases; `open` returns -1
-or any descriptor number that was not open. A failure sets a nonzero errno, and a success may
+or any descriptor number below `2^31` that was not open, and fails with `EMFILE` when no
+descriptor below `2^31` is free. A failure sets a nonzero errno, and a success may
 change errno. The safety goals quantify over every world, hence over every oracle.
 
 The oracle is deliberately wider than any real system: an oracle read or write succeeds whatever
