@@ -656,7 +656,7 @@ theorem leave_meaning_bad {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZSt
     (statics : Zlib.Crc32.Proofs.StaticsOK h) (output : LeaveOutputView h l)
     (run : inflate_leave c { l with ret := Z_DATA_ERROR } h = .ok (rc, after)) :
     LeaveBad c f r l rc after := by
-  obtain ⟨zs, s, st, hs, mode, _, config, haveLe, inLen, doomed⟩ := bad
+  obtain ⟨zs, s, st, hs, mode, config, haveLe, inLen, doomed⟩ := bad
   obtain ⟨good, pendingInv, unowned⟩ := side zs s st hs
   obtain ⟨bs, binv⟩ := binv
   obtain ⟨ref, off, array, put, get, startBound, endBound⟩ := output

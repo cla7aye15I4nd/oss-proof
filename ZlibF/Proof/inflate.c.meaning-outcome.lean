@@ -24,10 +24,12 @@ set_option autoImplicit false
 
 /-- The decoder is in `BAD` after this trip: the configuration and the input
 cursor are those of the loop, and no valid full-window stream begins with
-the input read so far. -/
+the input read so far. The return register is not constrained: `TABLE`,
+`LENLENS` and `CODELENS` store the result of `inflate_table` in `ret` before
+they enter `BAD`, and `case BAD:` overwrites it with `Z_DATA_ERROR`. -/
 def LoopBad (c : Ctx) (f : LoopFrame) (h : Heap) (l : IL) : Prop :=
   ∃ (zs : Nat) (s : InflateState), c.st = some (.tab zs) ∧ h.istates zs = some s ∧
-    s.mode = BAD ∧ l.ret = Z_OK ∧ ConfigMatches (loopState s l) f.wrap f.configured ∧
+    s.mode = BAD ∧ ConfigMatches (loopState s l) f.wrap f.configured ∧
     l.have_.toNat ≤ l.in_.toNat ∧ l.in_.toNat = f.inp.length ∧ LoopDoomed f l
 
 /-- The possible ends of one trip of the mode loop (one `inflate_dispatch`). -/
@@ -43,15 +45,9 @@ theorem bad_trip {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef} 
     (bad : LoopBad c f h l) (strm : c.strm = some r) (hz : r.get h = some z) :
     runX (inflate_dispatch c) l h = .ok ((.error .leave, { l with ret := Z_DATA_ERROR }), h) ∧
       TripOutcome c f (.error .leave) h { l with ret := Z_DATA_ERROR } := by
-  obtain ⟨zs, s, st, hs, mode, retOk, rest⟩ := bad
+  obtain ⟨zs, s, st, hs, mode, rest⟩ := bad
   have E : Env c h r zs z s := ⟨strm, st, hz, hs⟩
-  refine ⟨inflate_dispatch_BAD_leave E l mode, Or.inr ⟨rfl, Or.inr (Or.inr ⟨rfl, ?_⟩)⟩⟩
-  have same : ({ { l with ret := Z_DATA_ERROR } with ret := Z_OK } : IL) = l := by
-    cases l
-    simp only at retOk ⊢
-    rw [retOk]
-  rw [same]
-  exact ⟨zs, s, st, hs, mode, retOk, rest⟩
+  exact ⟨inflate_dispatch_BAD_leave E l mode, Or.inr ⟨rfl, Or.inr (Or.inr ⟨rfl, ⟨zs, s, st, hs, mode, rest⟩⟩)⟩⟩
 
 #print axioms bad_trip
 
