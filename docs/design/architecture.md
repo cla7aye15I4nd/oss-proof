@@ -262,8 +262,8 @@ in two files is defined in each of them separately; the definitions are not shar
 | `gzfs.lean` | `Fs.put`, `Fs.mkdir`, `Fs.get?`, `Fs.posOf?` | Not C operations: they build and inspect a file system for statements and tests |
 | `infback.c.lean` | `InCb`, `OutCb` | The types of the `in_func` and `out_func` callbacks of `inflateBack`. A callback is a Lean function |
 
-[Trusted base](../trusted-base.md) names the runtime files and the gz file world. It does not
-list the helpers of the other translation files.
+[Trusted base](../trusted-base.md) names the runtime files and the gz file world. For the
+helpers of the other translation files its item 3 refers to the tables above.
 
 Each translation file states its preprocessor choices and its modelling decisions in its header
 comment.
@@ -336,7 +336,7 @@ These are limits of the model, not extra claims about C. The authoritative detai
 | --- | --- |
 | Fresh integer cells have arbitrary values | A theorem quantifies over every `garbage` function; it never assumes zero |
 | Each fresh cell keeps one value throughout a run | A proof does not rely on repeated uninitialised reads agreeing |
-| Fresh pointer fields are NULL | A proof shows that a pointer field was written before it is read; a NULL comparison alone does not show this |
+| Fresh pointer fields are NULL | A missing write of a pointer field does not show in the model, and a NULL comparison alone does not show that the field was written. That each pointer field is written before it is read is **to confirm** by source review; no theorem states it ([trusted base](../trusted-base.md#2-runtime-and-object-schema)) |
 | `NULL + 0` succeeds; the general `NULL - NULL` faults | The one translation that allows `NULL - NULL` is reviewed separately ([buffers](../proof/buffers.md)) |
 | Equality has no adjacent-object address cases | No C branch is justified by equality of pointers from different objects |
 | No general addresses, alignment or type tags | Casts and address-sensitive paths are reviewed explicitly; structs have no general byte view |
@@ -362,7 +362,7 @@ this table.
 | 2 | Proof automation is local | Every generated proof term is checked by the kernel; no assumed verification-condition generator replaces a proof |
 | 3 | The C is translated by hand, statement by statement | The correspondence rests on review; differential tests are evidence |
 | 4 | The compressor's overlapping pending and symbol storage is modelled as in C | Its lifetime and non-overwrite conditions are proved for every admitted memory level ([trees](../proof/trees.md)) |
-| 5 | Fresh integer cells have arbitrary values and fresh pointers are NULL | Theorems quantify over integer garbage; proofs show that pointers are written before they are read |
+| 5 | Fresh integer cells have arbitrary values and fresh pointers are NULL | Theorems quantify over integer garbage; that pointers are written before they are read is left to source review, because no theorem can state it |
 | 6 | Records have no ABI byte layout | A byte view of a record, and an alias between a scalar and a buffer, are outside the model |
 
 ## Composing calls without assuming their answers

@@ -122,8 +122,8 @@ between the state and the format, for the same executions, and shows how each st
 **Initialisation** establishes the invariant on success and accounts for every allocation
 failure. The default allocator does not zero memory, so the proof shows the write that
 initialises each field that is read later. For pointer fields the model is weaker than C: a
-pointer field in fresh memory reads as `NULL` without a fault. The proof therefore shows
-separately that each pointer field is written before it is read; see
+pointer field in fresh memory reads as `NULL` without a fault. So a proof does not show that
+a pointer field is written before it is read: that is **to confirm** by source review; see
 [safety](../spec/safety.md#uninitialised-memory) and the [trusted base](../trusted-base.md).
 
 **Uninitialised integers** have an arbitrary value, and a theorem holds for every such value.

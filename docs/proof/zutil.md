@@ -61,7 +61,9 @@ The wrapper theorems say nothing about the following. The init, copy and end the
 - **Fields are written before they are read.** A fresh block has arbitrary integers, and a
   fresh record has `NULL` pointers in the model
   ([uninitialised memory](../spec/safety.md#uninitialised-memory)). An allocation does not make
-  a pointer field safe to read.
+  a pointer field safe to read. For integers the theorems hold for every value. For pointer
+  fields this one item is not proved: a missing write does not show in the model, so it is
+  **to confirm** by source review.
 - **Each block is freed exactly once.** A non-null free needs the block to be live. The heap
   stores liveness; the proofs' `Owns` relation assigns the live blocks to a stream, and the end
   and failure-cleanup proofs free each owned block once.

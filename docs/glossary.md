@@ -115,8 +115,9 @@ tables, and the allocator's bookkeeping.
 an object under its number. A freed number is never used again.
 
 **Pointer.** `NULL`, or a reference to an object with an offset. The model has no value for an
-uninitialised pointer: a pointer field in fresh memory reads as `NULL`, so a proof shows that a
-pointer field was written before it is read ([trusted base](trusted-base.md), item 2).
+uninitialised pointer: a pointer field in fresh memory reads as `NULL`, so a missing write does
+not show. That a pointer field is written before it is read is not a theorem; it is **to
+confirm** by source review ([trusted base](trusted-base.md), item 2).
 
 **Well-formed heap.** Three conditions that most goals state about the heap a call starts on:
 `Fresh` (no live block at or above the next block number), `Uniq` (a block number holds an object
