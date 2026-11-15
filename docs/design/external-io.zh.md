@@ -70,7 +70,7 @@ C 字符串字面量是另一回事：它们是库源码中各字面量组成的
 
 - `gzFile` 是指向句柄记录的公开前缀 `x` 的指针（`GzFilePtr`）。`castState` 恢复出这个记录，`strmOf` 指出内嵌的 `z_stream`。一次字段写入加载并存回这同一个记录，所以句柄、它的公开前缀和它的内嵌流始终是一个对象。
 - 调用者的标量单元是小端字节块：`gzerror` 的可选参数 `int *errnum`（四字节），以及四个 `uncompress*` 函数的长度单元（各八字节）。
-- `gz_load` 内部的 `unsigned *have` 是一个返回值（[规范化 1](translation.md#the-accepted-normalisations)）。每个调用者在成功和失败时都存储它。有一点 **to confirm**，要靠审查：在每个调用点，这次存储在效果顺序中的位置与 C 相同。
+- `gz_load` 内部的 `unsigned *have` 是一个返回值（[规范化 1](translation.md#the-accepted-normalisations)）。每个调用者在成功和失败时都存储它。下面这一解读**尚未确认**，须由源码审查确认：在每个调用点，这次存储在效果顺序中的位置与 C 相同。
 - 被取地址的局部变量是一个新分配的对象，它不消耗分配失败预言，并在每条返回路径上被释放：`gzgetc` 和 `gzputc` 的单字节缓冲区；`uncompress2_z` 的局部流，以及它为 `&stream.reserved` 准备的八字节块；还有 `uncompress2`、`uncompress_z` 和 `uncompress` 的局部长度单元。
 - `z_off64_t` 上的文件位置运算使用带检查的 64 位操作。
 

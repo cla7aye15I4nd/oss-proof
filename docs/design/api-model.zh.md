@@ -1,7 +1,7 @@
 <!-- source-sha256: b4e5b8c55b2102f9b9953fdc5ed9ed99d2e84a98903ed7ca6214ecd66ece8652 -->
 # API 模型
 
-API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料。没有安全目标使用它们，它们也不是安全结果所必需的；这些模型以及已经证明的关于它们的定理都保留（[范围](../progress.md#scope)）。[各族详解](api-model-details.md)逐个说明每个模型。
+API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料。没有安全目标使用它们，它们也不是安全结论所必需的；这些模型以及已经证明的关于它们的定理都保留（[范围](../progress.md#scope)）。[各族详解](api-model-details.md)逐个说明每个模型。
 
 ## 两类命题
 
@@ -39,7 +39,7 @@ flowchart TD
 | `Header.lean` | gzip 头请求、输出记录和头部字节 |
 | `Inflate.lean` | inflate 的状态、步进关系、字典、恢复和回调解码 |
 | `InflateAccepted.lean` | `Api.Layer.InflateAccepted`：默认的 `inflate` 接受的流，供功能序列目标使用 |
-| `Deflate.lean` | deflate 的状态、步进关系、flush 历史、字典和上界 |
+| `Deflate.lean` | deflate 的状态、步进关系、刷新历史、字典和上界 |
 | `Compress.lean` | 单次调用的压缩和解压关系，以及数值上界 |
 | `Gz.lean` | 抽象文件内容上的文件句柄状态机 |
 | `Run.lean` | 操作的数据类型、按族分派和轨迹 |
@@ -54,7 +54,7 @@ flowchart TD
 | --- | --- |
 | `format_deterministic`, `format_prefix_free` | 完整的格式流只有一种解码，并且没有完整的真扩展 |
 | `inflate_decodes`, `inflate_completes`, `inflate_rejects_invalid` | 在模型的精确性、窗口和检测子句之下的输出前缀、完成和拒绝 |
-| `deflate_valid`, `deflate_completes`, `deflate_full_flush_resync` | 有效的完成输出、在假定的上界内完成，以及 raw 重新同步 |
+| `deflate_valid`, `deflate_completes`, `deflate_full_flush_resync` | 有效的完成输出、在假定的上界内完成，以及裸流重新同步 |
 | `roundtrip`, `roundtrip_completes`, `dict_roundtrip`, `header_roundtrip` | 经由独立的格式关系进行组合 |
 | `deflate_bound_adequate`, `compress_bound_adequate`, `compress_roundtrip` | 对应的模型子句在工具函数和上界方面的推论 |
 | `gz_roundtrip`, `gz_seek_read` | 抽象文件的往返，以及指定的位置情形 |

@@ -3,7 +3,7 @@
 Each C function of the selected source is rewritten by hand as a Lean function, statement by
 statement. This page gives the rule, the four accepted normalisations, the forms found in the
 current translations that the four do not cover, and two functions shown with their C, so that a
-reader can compare a translation with its source himself. The kernel does not check a
+reader can compare a translation with its source. The kernel does not check a
 translation against C. Review and differential tests do; tests are evidence of
 fidelity, not proof.
 
@@ -396,7 +396,8 @@ Some of these plain shifts are not an unsigned operand with a literal count:
 and a zero `code`. `inflateBack` uses the same record. The rule for an uninitialised integer is
 an arbitrary value, and a theorem must hold for every value. The file header of
 `inflate.c.lean` records this choice. Whether `inflate` can read one of these locals before
-assigning it is **to confirm**.
+assigning it is **to confirm** by source review: the model fixes these values, so a proof
+about the current translation does not show it.
 
 ## Integer types and arithmetic
 

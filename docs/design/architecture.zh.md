@@ -26,9 +26,9 @@ flowchart TD
 | 模型与规格 | 说明程序做什么，而不限定它的实现方式 | 审查各个定义、定义域，以及它们与 `zlib.h` 和数据格式的关系 |
 | 证明 | 把计算与这些命题联系起来 | Lean 内核的检查和[验收检查](../checking/README.md) |
 
-安全结果只需要经过*执行证明*的那条路径：无故障、终止、帧性质和所有权，并在调用序列上组合。经过*细化证明*的路径给出功能正确性。它不是安全结果所必需的。
+安全结论只需要经过*执行证明*的那条路径：无故障、终止、帧性质和所有权，并在调用序列上组合。经过*细化证明*的路径给出功能正确性。它不是安全结论所必需的。
 
-安全结果之后计划做一项功能结果：默认 zlib 流的往返。它的条件形式已检查。定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）说的是翻译后函数的两次运行：一次是按默认级别调用 `deflateInit_`，随后是若干次 `deflate` 调用，flush 值任意，两次调用之间对缓冲区的改动也任意；另一次是以 `windowBits` 15 调用 `inflateInit2_`，随后是若干次 `inflate` 调用，每次调用都带着平台前提 `ByteObjectsFit`。当两次运行都已返回 `Z_STREAM_END`，并且解码器消耗的字节是编码器写出的字节的前缀时，解码器写出的字节就是编码器消耗的字节。这条定理尚未登记，也未验收。完备性（空间足够时，两次运行确实到达 `Z_STREAM_END`）和无条件的往返仍未证明。其他已经证明的细化结果保留；哪些功能结果在计划内，见[范围](../progress.md#scope)。
+安全结论之后计划做一项功能结果：默认 zlib 流的往返。它的条件形式已检查。定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）说的是翻译后函数的两次运行：一次是按默认级别调用 `deflateInit_`，随后是若干次 `deflate` 调用，flush 值任意，两次调用之间对缓冲区的改动也任意；另一次是以 `windowBits` 15 调用 `inflateInit2_`，随后是若干次 `inflate` 调用，每次调用都带着平台前提 `ByteObjectsFit`。当两次运行都已返回 `Z_STREAM_END`，并且解码器消耗的字节是编码器写出的字节的前缀时，解码器写出的字节就是编码器消耗的字节。这条定理尚未登记，也未验收。完备性（空间足够时，两次运行确实到达 `Z_STREAM_END`）和无条件的往返仍未证明。其他已经证明的细化结果保留；哪些功能结果在计划内，见[范围](../progress.md#scope)。
 
 ## 用几个定义看模型
 
@@ -105,7 +105,7 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 | `ZlibF/Zlib/X.h.lean` | `zlib/X.h` 的翻译 |
 | `ZlibF/Zlib/gzfs.lean` | 供 gz 翻译使用的文件、`errno` 和格式化的模型（[外部 I/O](external-io.md)） |
 | `ZlibF/Spec/Safety/` | 必需的安全目标 |
-| `ZlibF/Spec/Functional/` | 功能目标，以及不涉及堆的格式模型和 API 模型；不是安全结果所必需的 |
+| `ZlibF/Spec/Functional/` | 功能目标，以及不涉及堆的格式模型和 API 模型；不是安全结论所必需的 |
 | `ZlibF/Spec/Public/` | 两类目标共用的定义：调用、历史、帧、参数；gz 和 `inflateBack` 的目标也在这里（[规格的布局](safety-functional-split.md)） |
 | `ZlibF/Spec/*.lean` | 关于内部函数的命题。每一条都先对翻译后的函数证明，调用者才使用它（[见下文](#composing-calls-without-assuming-their-answers)） |
 | `ZlibF/Proof/X.c.<topic>.lean` | 关于 `zlib/X.c` 的证明 |
@@ -134,7 +134,7 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 
 有些语义辅助定义不在 `ZlibF/Runtime/` 里。它们定义在使用它们的翻译文件中，被信任的方式相同。下面各表按种类列出它们。
 
-这份清单是这样得到的：把 `ZlibF/Zlib/*.lean` 中每个顶层的 `def`、`abbrev`、`structure` 和 `inductive` 连同它的文档字符串列出来（这些文件里没有 `instance`、`macro` 或 `notation`）。其中每一个都放进某张表，除非它是某个 C 函数的翻译，是某个 C 函数的一部分（循环体、循环条件、`switch` 的一个 `case`）的翻译，是 C 宏、C 常量或 C 表的翻译，或者是只把某个函数的局部变量或参数归在一起的记录。出现在两个文件里的同一个名字，在两个文件里各自定义；这些定义并不共用。
+这份列表是这样得到的：把 `ZlibF/Zlib/*.lean` 中每个顶层的 `def`、`abbrev`、`structure` 和 `inductive` 连同它的文档字符串列出来（这些文件里没有 `instance`、`macro` 或 `notation`）。其中每一个都放进某张表，除非它是某个 C 函数的翻译，是某个 C 函数的一部分（循环体、循环条件、`switch` 的一个 `case`）的翻译，是 C 宏、C 常量或 C 表的翻译，或者是只把某个函数的局部变量或参数归在一起的记录。出现在两个文件里的同一个名字，在两个文件里各自定义；这些定义并不共用。
 
 **带检查的算术和移位。** C 未定义的结果就是 `Fault.ub`。
 
@@ -300,7 +300,7 @@ flowchart LR
 | | 决定 | 后果 |
 | --- | --- | --- |
 | 1 | 对象堆，每种记录一张表 | 表示出来的操作依靠审查；记录与字节缓冲区之间的别名无法表达 |
-| 2 | 证明自动化是局部的 | 每个生成的证明项都由内核检查；不用一个被假定为正确的验证条件生成器来代替证明 |
+| 2 | 证明自动化是局部的 | 每个生成的证明项都由内核检查；不用任何被假定正确的验证条件生成器来代替证明 |
 | 3 | C 由人工逐语句翻译 | 对应关系依靠审查；差分测试是证据 |
 | 4 | 压缩器中相互重叠的待输出存储和符号存储按 C 的方式建模 | 它的生命周期和不被覆盖的条件，对每个允许的内存级别都作了证明（[trees](../proof/trees.md)） |
 | 5 | 新分配的整数单元取任意值，新分配的指针是 NULL | 定理对整数垃圾值量化；证明表明指针在被读之前已被写过 |
