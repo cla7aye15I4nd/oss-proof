@@ -1,10 +1,18 @@
 # Public contract review record
 
-This record explains the source review and counterexamples behind the 95 default-build
-entry contracts and eight family targets. It is not independent approval of a semantic
-baseline. Statements about checked proofs below describe the recorded review evidence;
-current acceptance still requires the registry and CI on a named commit. Current remaining
-work is listed only in [progress](../progress.md).
+> **Dated record.** This review was written on 2026-11-06, when the project aimed at full
+> functional contracts for the 95 default-build entries and eight family targets. Since 2026-11-11
+> the scope is safety only ([scope](../progress.md#scope)): the contracts described here are the
+> functional goals, which are not required. Those already proved stay registered. The
+> specification files have moved since: the format and API models are under
+> `ZlibF/Spec/Functional/`, the safety goals under `ZlibF/Spec/Safety/`, and `ZlibF/Spec/Public/`
+> holds the common definitions ([split design](../design/safety-functional-split.md)). The module
+> names in the tables below are those of the review. The corrections and counterexamples remain
+> valid as evidence about the statements; whether each corrected statement is proved today is
+> answered only by the registries and [progress](../progress.md).
+
+This record explains the source review and counterexamples behind those contracts. It is not
+independent approval of a semantic baseline.
 
 ## Three specification layers
 

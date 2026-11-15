@@ -1,6 +1,6 @@
 # Reviewed recursive execution helpers
 
-> **Historical record.** It describes the process when it was written: lock files, regenerated locks, an approved baseline and review of lock differences. Those mechanisms were removed later. There are no lock files now; see [anti-cheating](../anti-cheating.md). Read the evidence below as evidence about that snapshot only.
+> **Dated record.** Written in the first week of November 2026. It describes the process of that time: lock files, regenerated locks, an approved baseline and review of lock differences. Those mechanisms were gone by 2026-11-10. There are no lock files now; see [anti-cheating](../anti-cheating.md). The counts of goals, theorems and declarations below are those of that snapshot; the current ones are in the registries under `tests/audit/` and in [progress](../progress.md). The list of compiler helpers has grown since; the current list is `tests/audit/compiler-helpers.txt`. Read the evidence below as evidence about that snapshot only.
 
 The audit lists six generated execution helpers for total logical definitions.
 Each entry is the listed name followed by `._unsafe_rec`.

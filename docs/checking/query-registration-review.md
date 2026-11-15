@@ -1,6 +1,6 @@
 # Public query registration review
 
-> **Historical record.** It describes the process when it was written: lock files, regenerated locks, an approved baseline and review of lock differences. Those mechanisms were removed later. There are no lock files now; see [anti-cheating](../anti-cheating.md). Read the evidence below as evidence about that snapshot only.
+> **Dated record.** Written in the first week of November 2026. It describes the process of that time: lock files, regenerated locks, an approved baseline and review of lock differences. Those mechanisms were gone by 2026-11-10. There are no lock files now; see [anti-cheating](../anti-cheating.md). The counts of goals, theorems and declarations below are those of that snapshot; the current ones are in the registries under `tests/audit/` and in [progress](../progress.md). Read the evidence below as evidence about that snapshot only.
 
 The source review found no type or domain blocker in the inspected snapshot. The registration changes no goal, translation or proof body.
 
