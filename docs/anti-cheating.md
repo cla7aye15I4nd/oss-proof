@@ -63,7 +63,9 @@ Failure only in an unrelated or stronger theorem does not count.
 
 Proof sensitivity alone does not establish a behavioural difference. An equivalent rewrite can
 break a particular proof term, so a mutation should change behaviour on an allowed input.
-`verification.py mutants` runs the model list and every referenced public-function list. The
+`verification.py mutants` runs the model list, every referenced public-function list and the
+semantic safety lists (`SAFETY_MUTANT_LISTS` in `scripts/verification.py`); a missing or empty
+safety list is an error. The
 [mutant guide](checking/proof-mutants.md) explains the checks.
 
 ## Human review
