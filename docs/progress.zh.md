@@ -1,4 +1,4 @@
-<!-- source-sha256: e8e8bbaa3d745a2986909604628a4cf41c2dc2b1bea74396d893b53392001ca0 -->
+<!-- source-sha256: 91872dd45ceda3c825d627c08855370041bf7e6cd7ea0a9730a0cd32234e39c0 -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：274 个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
@@ -50,7 +50,7 @@
 - **不是必需目标的命题有改动。** 快速解码器的规格允许输入和输出位于任意字节视图中，而不只是堆块中（提交 `4ed7315e`，`ZlibF/Spec/InflateFast*.lean`）；有一个回归文件从现行命题推出每个早先的命题（`tests/verification/regressions/inffast-byte-views-old-from-new.lean`）。两个功能定义有改动：`WrapperLength`（提交 `ac0fccc5`）和 `DeflateCompletes`（提交 `a2cf8723`）。这些命题中已登记的目标，其现行形式同样还没有结束的验收运行。
 - **功能方面工作的证明模块有改动。** 关于 `inflate` 输出含义的模块（`ZlibF/Proof/inflate.c.meaning*.lean`）有新增和修改。其中没有任何定理被登记。
 
-登记表的改动只有第一条所说的 35 个目标和 35 条定理。全部改动就是 `bde170e9` 与本提交之间在 `ZlibF/Spec/`、`tests/audit/` 和 `scripts/` 下的差异。
+`goals.txt`、`proved-goals.txt` 和 `theorems.txt` 这三份列表的改动只有第一条所说的 35 个目标和 35 条定理；`public-mutants.json` 增加了这 35 个目标的键。全部改动就是 `bde170e9` 与本提交之间在 `ZlibF/Spec/`、`tests/audit/` 和 `scripts/` 下的差异。
 
 **未完成。** 安全结论所需要的东西没有缺口。每个必需目标都已登记。待完成的是上面所列目标的验收（[按顺序的下一步工作](#ordered-next-work)）。
 

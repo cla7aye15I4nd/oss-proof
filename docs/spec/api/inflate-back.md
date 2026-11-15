@@ -44,7 +44,7 @@ It continues with any number of two kinds of step. One is an `inflateBack` call 
 conditions 2, 3, 5 and 6 of [its goal](#inflateback) and returned. The other is a caller edit
 that changes only `next_in`, `avail_in`, `next_out`, `avail_out` and memory the stream does not
 own, and keeps the bytes of the window slice. An edit also keeps the read-only flag of every
-block, which no C code can change. The premises that are narrower than `zlib.h` are rows of
+block that stays live, which no C code can change. The premises that are narrower than `zlib.h` are rows of
 [deviations](../../deviations.md#callback-decoder).
 
 `inflateBack` decodes raw DEFLATE. The caller handles any zlib/gzip header, trailer and checksum.

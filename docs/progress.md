@@ -93,7 +93,8 @@ Between that commit and this page, these things changed:
   `inflate` (`ZlibF/Proof/inflate.c.meaning*.lean`) were added or changed. None of their theorems
   is registered.
 
-The registries changed only by the 35 goals and 35 theorems of the first item. The complete list
+The lists `goals.txt`, `proved-goals.txt` and `theorems.txt` changed only by the 35 goals and 35
+theorems of the first item; `public-mutants.json` gained the keys of the 35 goals. The complete list
 of changes is the difference between `bde170e9` and this commit under `ZlibF/Spec/`,
 `tests/audit/` and `scripts/`.
 

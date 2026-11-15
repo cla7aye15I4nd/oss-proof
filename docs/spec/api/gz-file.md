@@ -25,9 +25,9 @@ target. [Progress](../../progress.md) records which goals are registered.
 
 ## The safety goal
 
-Every function on this page has its own required safety goal, `Goal.<function>_safety`
-([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)). Its entry states it under
-**Proof goals**. Each of these goals restricts one clause of the sequence goal
+Every function on this page that the default build compiles has its own required safety goal,
+`Goal.<function>_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)). Its
+entry states it under **Proof goals**. `gzopen_w` is Windows-only and has none. Each of these goals restricts one clause of the sequence goal
 `Goal.gz_sequence_safety` ([GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)) to the calls
 of one function. The goal of a function that takes a handle also has that function's clause of
 `Goal.gz_refusal`, the refusal of a NULL handle. The sequence goal is required as well. It adds
@@ -58,7 +58,7 @@ fewer than `2^63` bytes, with its string arguments (`path`, `mode`) NUL-terminat
 | No fault | The next call, in every world, does not end in undefined behaviour or a memory error. The only error it can end in is running out of loop fuel. No premise beyond the arguments. |
 | Termination | The next call returns. `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets` and `gzungetc` need the read budget below for this. Every other call returns in every world. |
 | Frame and ledger | A call that returns keeps the set of open descriptors, keeps `GzInv`, the mode and the descriptor, writes only the handle's own blocks and the caller regions named below, and changes the live blocks exactly by the handle's ledger (`GzStepPost`). |
-| `gzerror` | The pointer it returns is a readable NUL-terminated string in the heap after the call: a literal or the handle's message. |
+| `gzerror` | The pointer it returns is a readable NUL-terminated string in the heap after the call. In the C it is a literal or the handle's message; the goal states only that it is a readable string. |
 | Close | `gzclose`, `gzclose_r` and `gzclose_w` return in every world. A close of the wrong mode refuses and changes nothing. Otherwise the handle record and every owned block are freed, nothing else changes, and the descriptor is released, also when the system `close` fails. No return code is claimed. |
 | Open | `gzopen`, `gzopen64` and `gzdopen` return for every world and every allocation outcome and change no existing block. A NULL result leaves no new block; for `gzopen` and `gzopen64` it also leaves the same open descriptors. A handle is in `GzInv` and owns exactly the new blocks. `gzdopen` opens and closes no descriptor. |
 
@@ -78,7 +78,7 @@ back can then be a use after free in the C
 | `gzfread`, `gzfwrite` | `size * nitems >= 2^64`: none. Otherwise the product is zero, or `buf` covers that many bytes (writable for `gzfread`, readable for `gzfwrite`) outside the handle's blocks. |
 | `gzgets(file, buf, len)` | `buf == NULL` or `len < 1`: none. Otherwise `buf` covers `len` writable bytes outside the handle's blocks. |
 | `gzputs(file, s)` | `s` is a NUL-terminated string outside the handle's blocks. |
-| `gzprintf`, `gzvprintf` | The format is a NUL-terminated string that the model's formatter can evaluate with the arguments (`Formatted`). The format string and every string argument of a `%s` conversion lie outside the handle's blocks. |
+| `gzprintf`, `gzvprintf` | The format is a NUL-terminated string that the model's formatter can evaluate with the arguments (`Formatted`). The format string and every string argument lie outside the handle's blocks. |
 | `gzerror(file, errnum)` | `errnum` is NULL or covers 4 writable bytes outside the handle's blocks. |
 | every other call | none: every value of every scalar argument is covered. |
 
@@ -2030,7 +2030,7 @@ The status comes from the reader or writer close selected for this handle. A val
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
 - **Guarantees.**
     - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`. On a handle the call returns, in every world. No return code is claimed for a handle.
-    - *State.* On a handle, the handle is gone: its record is removed, the world is well formed, the handle's descriptor is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`). `gzclose` accepts both modes, so it never refuses a handle.
+    - *State.* On a handle, the handle is gone: its record is removed, the world is well formed, the handle's descriptor, when its number is not negative, is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`). `gzclose` accepts both modes, so it never refuses a handle.
     - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
     - *Allocations.* On a handle exactly the handle's own blocks are freed, the record included, and nothing is allocated (`LiveChange`).
 - **Not in this goal.** A use of the handle after the call that closed it: the history has ended, and no goal covers it. The return code, and which bytes reach the file before the close: functional goal `Goal.gzclose`, not required for the safety results.
@@ -2090,7 +2090,7 @@ The status reports reader cleanup and descriptor closing, with a special result 
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
 - **Guarantees.**
     - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`. On a handle the call returns, in every world. No return code is claimed for a handle.
-    - *State.* On a handle that is not a reader, the call refuses: the heap and the world are unchanged, and the handle stays as it was. Otherwise the handle is gone: its record is removed, the world is well formed, the handle's descriptor is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`).
+    - *State.* On a handle that is not a reader, the call refuses: the heap and the world are unchanged, and the handle stays as it was. Otherwise the handle is gone: its record is removed, the world is well formed, the handle's descriptor, when its number is not negative, is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`).
     - *Writes.* On a NULL handle and in a refusal, nothing: the heap and the world are unchanged. Otherwise only the handle's own blocks.
     - *Allocations.* In a refusal, none. Otherwise exactly the handle's own blocks are freed, the record included, and nothing is allocated (`LiveChange`).
 - **Not in this goal.** A use of the handle after the call that closed it: the history has ended, and no goal covers it. The return code, and which bytes reach the file before the close: functional goal `Goal.gzclose_r`, not required for the safety results.
@@ -2152,7 +2152,7 @@ The status reports final zero-fill/finish work and descriptor closing. Once a li
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
 - **Guarantees.**
     - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`. On a handle the call returns, in every world. No return code is claimed for a handle.
-    - *State.* On a handle that is not a writer, the call refuses: the heap and the world are unchanged, and the handle stays as it was. Otherwise the handle is gone: its record is removed, the world is well formed, the handle's descriptor is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`).
+    - *State.* On a handle that is not a writer, the call refuses: the heap and the world are unchanged, and the handle stays as it was. Otherwise the handle is gone: its record is removed, the world is well formed, the handle's descriptor, when its number is not negative, is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`).
     - *Writes.* On a NULL handle and in a refusal, nothing: the heap and the world are unchanged. Otherwise only the handle's own blocks.
     - *Allocations.* In a refusal, none. Otherwise exactly the handle's own blocks are freed, the record included, and nothing is allocated (`LiveChange`).
 - **Not in this goal.** A use of the handle after the call that closed it: the history has ended, and no goal covers it. The return code, and which bytes reach the file before the close: functional goal `Goal.gzclose_w`, not required for the safety results.

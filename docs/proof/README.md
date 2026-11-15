@@ -34,9 +34,11 @@ each and where a reader sees it.
   axioms each registered theorem depends on.
 - **Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
   Only an accepted result is reported as final, and always with that commit. The commit is
-  `bde170e9` ([progress, Scope](../progress.md#scope)). The four initialisation goals of
-  `inflate` and `deflate` were widened after it; they are registered in the wider form and
-  accepted in the form they had on that commit.
+  `bde170e9` ([progress, Scope](../progress.md#scope)). Three groups are registered and not yet
+  accepted in their present form: the four initialisation goals of `inflate` and `deflate`,
+  which were widened after it; the sequence goal of the callback decoder, whose histories were
+  widened; and the 35 one-function goals of the gz functions and of the callback decoder, which
+  were added after it.
 
 A theorem that is checked and not registered is a lemma inside the proof of a registered
 theorem. The pages say so where they name one. The axiom check of a registered theorem follows
