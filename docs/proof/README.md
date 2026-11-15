@@ -20,8 +20,14 @@ defines them, and [checking](../checking/README.md#three-levels) says which chec
 each and where a reader sees it.
 
 - **Checked.** The theorem is on the integration branch `dev`, and the fast gate is green on
-  that commit. Lean's kernel has checked the proof. The fast gate is: everything builds, there
-  is no `sorry` and no forbidden construct.
+  that commit. Lean's kernel has checked the proof. The fast gate is the two jobs `build` and
+  `no-sorry` of the workflow `.github/workflows/lean.yml`, which run on every push to `dev` or
+  `main` and on every pull request. `build` builds the library and the differential-test
+  drivers, searches the sources for forbidden constructs, checks the built environment for
+  `unsafe` and `partial` declarations, and applies the patches to the pinned `zlib/`. `no-sorry`
+  checks that there is no `sorry` and that every string literal of the translations is in the
+  runtime's table of literals, and runs the import check between the specification layers
+  (`scripts/check-spec-layers.py`).
 - **Registered.** The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and
   the goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the
   acceptance suite is the check that the theorem's type is exactly the goal. It also checks the
@@ -140,8 +146,9 @@ registered.
 
 ## The shape of a component page
 
-The pages for `inflate.c`, `inffast.c`, `inftrees.c`, `deflate.c` and `trees.c` have the same
-sections.
+The pages for `inflate.c`, `inffast.c`, `inftrees.c`, `deflate.c` and `trees.c` follow one
+outline. A page leaves out a section that has no content for its file, and some pages add
+sections of their own.
 
 1. **Results.** The theorems, their modules and their levels.
 2. **Assumptions.** Every premise of the main theorem.
@@ -151,6 +158,9 @@ sections.
 6. **Where the hard part is.**
 7. **Readings of the C that no theorem states.**
 8. **Functional results**, where there are any.
+
+The pages for `inftrees.c` and `trees.c` have no invariant section; their argument is in the
+section "Why each step is safe". The page for `trees.c` has no section on functional results.
 
 ## Reading order
 
