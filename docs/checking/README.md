@@ -95,8 +95,9 @@ hand for a named commit. The nightly suite does not run it.
 The script reads the registries under `tests/audit/`. [Public goals](goals.md) describes them.
 
 1. **Inventory.** The functions of `public-api.json` are exactly the exported functions of the
-   pinned `zlib.h`. Each has a manual section, a translated entry and a functional goal. Each
-   documented function has a safety goal. The goal groups of the manifest equal the lists pinned in
+   pinned `zlib.h`. Each function of the default build has a manual section, a translated entry
+   and a functional goal. `gzopen_w`, which exists only on Windows, has only its manual section
+   and a reason. Each documented function has a safety goal. The goal groups of the manifest equal the lists pinned in
    the script. The source pin equals the submodule commit, and the submodule has no local change.
 2. **Fresh kernel.** `leanchecker --fresh ZlibF` rechecks the compiled proof terms.
 3. **Declaration audit.** The auditor (`tests/audit/Audit.lean`) reads the compiled modules. It

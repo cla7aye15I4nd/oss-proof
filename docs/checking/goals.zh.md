@@ -1,4 +1,4 @@
-<!-- source-sha256: 64c253da32b0e1a21c4e87da0a9085c7ff4109ae1d8b979628f58a61c16f6c3e -->
+<!-- source-sha256: 2da09586ecc131c8f11f3279749e61749c03f6d042c069b0c31acd4e039be44d -->
 
 # 公开验证目标
 
@@ -19,15 +19,15 @@ zlib 每个有文档的公开函数都是安全的：没有未定义行为，没
 | `goals.txt` | 每个目标：类型为 `Prop`、名字中含 `Goal` 的定义。 | 库中的 `Goal.*` 命题若没有列出，审计器拒绝。 |
 | `theorems.txt` | 已登记的定理，每行一个完全限定名。 | 审计器：每个定理都存在，确实是定理，有文档字符串，并且只依赖允许的公理。 |
 | `proved-goals.txt` | 已有登记定理证明的目标。 | 它与审计器判定为 PROVED 的集合有任何出入，审计器都拒绝。所以脚本依据这个文件作判断，从不依据报告文字。 |
-| `public-api.json` | 清单：固定版本 `zlib.h` 的每个导出函数，连同它的手册小节、翻译后的入口、功能目标和安全目标；目标分组；`open_safety`；`not_planned`。 | `scripts/verification.py`（`coverage`）。 |
+| `public-api.json` | 清单文件：固定的 `zlib.h` 的每个导出函数，连同它的手册小节、翻译后的入口、功能目标和安全目标（只在 Windows 上存在的 `gzopen_w` 只有手册小节和一条理由）；目标分组；`open_safety`；`not_planned`。 | `scripts/verification.py`（`coverage`）。 |
 | `public-mutants.json` | 对每个带键的目标，列出它的精确证明必须拒绝的变异体行。 | `scripts/verification.py`；见[证明变异体](proof-mutants.md)。 |
 | `registry-removals.json` | 从登记表和变异体列表中删除条目时写下的理由。 | `scripts/verification.py`：过时的条目会被拒绝。 |
 
-只有当 `theorems.txt` 中某个定理的类型恰好是这个目标时，目标才算 PROVED。多出前提的定理，或关于抽象模型的定理，在这里什么也不证明。清单中的条目是一项要求，不是一个证明。
+只有当 `theorems.txt` 中某个定理的类型恰好是这个目标时，目标才算 PROVED。多出前提的定理，或关于抽象模型的定理，在这里什么也不证明。清单文件中的条目是一项要求，不是一个证明。
 
 ## 必需目标集合
 
-清单有 96 个函数：默认构建的 95 个，加上只在 Windows 上存在的 `gzopen_w`。zlib.h 把这 96 个中的十个列为无文档函数（默认构建中九个，加上 `gzopen_w`）；清单把它们列在 `undocumented` 下，脚本把这份列表与头文件相比较。它们的目标不是必需的。它们已登记的定理继续接受审计。这样剩下 86 个有文档的函数。
+清单文件有 96 个函数：默认构建的 95 个，加上只在 Windows 上存在的 `gzopen_w`。zlib.h 把这 96 个中的十个列为未文档化的函数（默认构建中九个，加上 `gzopen_w`）；清单文件把它们列在 `undocumented` 下，脚本把这份列表与头文件相比较。它们的目标不是必需的。它们已登记的定理继续接受审计。这样剩下 86 个有文档的函数。
 
 必需目标由 `scripts/verification.py` 中的 `required_public_goals` 计算。这个集合是三部分的并集：
 
@@ -52,14 +52,14 @@ flowchart LR
 
 四个非空性目标说明序列目标的前提可以被满足：初始化函数在它的参数定义域上建立表示不变量。
 
-有两条规则防止通过编辑清单把这个集合变小。
+有两条规则防止通过编辑清单文件把这个集合变小。
 
-**分组固定在脚本里。**`coverage` 把清单中的 `sequence_goals`、`nonvacuity_goals` 和 `safety_goals` 与脚本中写明的列表相比较。有出入的分组会被拒绝。所以，一个目标只有通过对 `scripts/` 的改动才能离开必需集合，而这种改动要经过审查。
+**分组固定在脚本里。**`coverage` 把清单文件中的 `sequence_goals`、`nonvacuity_goals` 和 `safety_goals` 与脚本中写明的列表相比较。有出入的分组会被拒绝。所以，一个目标只有通过对 `scripts/` 的改动才能离开必需集合，而这种改动要经过审查。
 
 **每个函数的安全目标由脚本固定**（`check_safety_binding`）。一个有文档的函数恰好指定下列之一：
 
 1. 它自己的目标 `Goal.<function>_safety`（或 `_safe`），前提是该目标在固定的分组中；
-2. 它的完整契约，只适用于 `compressBound` 和 `compressBound_z`（不涉及堆的纯函数；清单中带有 `safety_note`）；
+2. 它的完整契约，只适用于 `compressBound` 和 `compressBound_z`（不涉及堆的纯函数；清单文件中带有 `safety_note`）；
 3. 一个共享的序列目标，只适用于脚本为它列出的函数：31 个有文档的 gz 函数指定 `Goal.gz_sequence_safety`，`inflateBack`、`inflateBackInit_` 和 `inflateBackEnd` 指定 `Goal.inflate_back_sequence_safety`。
 
 第 3 种情况的 34 个函数通过它们的序列目标被证明是安全的。它们还没有各自单独的单函数安全目标（见[进度页](../progress.md)）。
@@ -82,7 +82,7 @@ flowchart LR
 5. 目标有变异体证据：在 `tests/audit/public-mutants.json` 中有键；不针对单个函数的目标则有固定证据（见[证明变异体](proof-mutants.md#which-goals-need-which-evidence)）。
 6. `docs/progress.md` 中的进度视图已重新生成。视图过时时审计失败。
 
-新目标还在 `goals.txt` 中有一行。新的必需目标，其名字同时在清单的分组和脚本固定的列表中，两处在同一个经过审查的改动里加入。
+新目标还在 `goals.txt` 中有一行。新的必需目标，其名字同时在清单文件的分组和脚本固定的列表中，两处在同一个经过审查的改动里加入。
 
 已登记不等于已验收。验收套件在该提交上全部通过，并且报告写出这个提交，结果才是已验收的（见[三个层级](README.md#three-levels)）。
 
@@ -94,7 +94,7 @@ flowchart LR
 
 | 规则 | 审计沿提交链拒绝什么 | 经过审查的出口 |
 | --- | --- | --- |
-| 未完成列表 | 某个必需目标在某个提交上已经完成（是必需的且不在 `open_safety` 中），在 `HEAD` 上却在 `open_safety` 中。新加入必需集合的目标可以进入这个列表。 | 无。 |
+| 未证明列表 | 某个必需目标在某个提交上已经完成（是必需的且不在 `open_safety` 中），在 `HEAD` 上却在 `open_safety` 中。新加入必需集合的目标可以进入这个列表。 | 无。 |
 | 登记表 | `theorems.txt` 或 `proved-goals.txt` 在某个提交上有的名字，在 `HEAD` 上没有了。 | `theorems` 或 `proved_goals` 下的条目 `{name, reason}`。 |
 | 变异体引用 | 一个在 `HEAD` 上已证明的目标，它的某个引用（目标、列表、行）不见了，或被引用行的文件、旧文本或新文本变了。 | `mutant_references` 下的条目 `{goal, list, name, reason}`。 |
 | 冻结的行 | 冻结的变异体列表中有一行不见了，或任何字段有变化，或 `script:` 行的变异脚本内容变了。 | `mutant_rows` 下的条目 `{list, name, reason}`。 |
