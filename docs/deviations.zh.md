@@ -1,4 +1,4 @@
-<!-- source-sha256: cc589fab1ffeb7884b4e7897ce75dafd3042de489b368c3cc1c85e42c59c9b2d -->
+<!-- source-sha256: 8f2576c4d49160a354a8155c3204d98911b64a0cdbecf8f09019e3817e0a296c -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -40,7 +40,9 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 这次调用被覆盖，结构体不必事先清零。它返回 `Z_OK` 时，定理还说这个流是可达的，所以此后在 `s` 上的每次调用都被下面的目标覆盖。对代码没有设置的字段，模型怎样处理，见[注 1](#note-1-init-and-unset-fields)。
 
-调用没有返回 `Z_OK` 时，不要再把 `s` 传给别的 zlib 函数，除非你在调用之前已经置 `s.state = Z_NULL`。有三种失败不会改动 `state`：`Z_VERSION_ERROR`；状态记录分配不出来时的 `Z_MEM_ERROR`；以及 `deflateInit` 或 `deflateInit2` 因参数有误返回的 `Z_STREAM_ERROR`。`state` 没有设置时，之后的调用在所有目标之外（[注 2](#note-2-refused-streams)）。
+调用返回的既不是 `Z_OK` 也不是 `Z_VERSION_ERROR` 时，不要再把 `s` 传给别的 zlib 函数，除非你在调用之前已经置 `s.state = Z_NULL`。有两种失败不会改动 `state`，而分配器字段已经填好：状态记录分配不出来时的 `Z_MEM_ERROR`，以及 `deflateInit` 或 `deflateInit2` 因参数有误返回的 `Z_STREAM_ERROR`。这时 `state` 没有设置，之后的调用在所有目标之外（[注 2](#note-2-refused-streams)）。
+
+`Z_VERSION_ERROR` 同样不改动 `state`，但函数在填写 `zalloc` 和 `zfree` 之前就返回了。按上面那一行，这两个字段原本是 `Z_NULL`，现在仍然是，所以不论 `state` 里是什么，之后在 `s` 上的每次调用都以 `Z_STREAM_ERROR` 被拒绝（`RefusedInflate`、`RefusedDeflate`）：状态检查先看这两个分配器字段，然后才读 `state`。
 
 **`inflate`、`deflate`、`deflateParams`**
 
@@ -86,13 +88,14 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 **其余流调用**（`inflateEnd`、`deflateEnd`、`inflateReset`、`inflateReset2`、`inflatePrime`、`inflateMark`、`deflateReset`、`deflateTune`、`deflatePending`、`deflateUsed`）
 
 - 对参数没有前提。流须是某次初始化或复制返回 `Z_OK` 得到的，并且一直按这份清单使用。
+- 不在 deflate 流上直接调用 `deflateResetKeep`。`zlib.h` 把它列在未文档化的函数里，含有直接调用的历史在各个 deflate 目标之外。`deflateReset` 先调用它、再清空哈希表，是被覆盖的（`StreamOperation`）。
 - `deflatePending` 和 `deflateUsed`：每个结果指针（`pending`、`bits`）是 `NULL`，或者指向你自己的一个变量，它与 `z_stream` 和流自身的内存都不重叠。这一行没有 Lean 谓词陈述：翻译把结果作为值返回（见[“结果单元”](#stream-calls-inflate-and-deflate)一行）。
 
 **`NULL` 流或不一致的流**
 
 - 以下几种会被以 `Z_STREAM_ERROR` 拒绝：`NULL` 流指针；`state` 为 `Z_NULL` 的 `z_stream`，例如 `End` 之后的；以及仍然存活的 `z_stream` 的结构体副本。这一点已对[注 2](#note-2-refused-streams) 所列的函数证明。
 - 被拒绝的调用什么也不写，什么也不分配。只有一个例外：源被拒绝时，`inflateCopy` 和 `deflateCopy` 会把 `dest->state` 置为 `Z_NULL`。
-- 不被覆盖：分配器已设置、而 `state` 是过期指针或垃圾指针的 `z_stream`。这包括原件结束之后还在使用的结构体副本，也包括初始化失败、而 `state` 仍是未设置的值的 `z_stream`（见上面初始化的各行）。
+- 不被覆盖：分配器已设置、而 `state` 是过期指针或垃圾指针的 `z_stream`。这包括原件结束之后还在使用的结构体副本，也包括初始化在填好分配器字段之后失败、而 `state` 仍是未设置的值的 `z_stream`（见上面初始化的各行）。
 
 **`compress`、`compress2`、`compress_z`、`compress2_z`**
 
@@ -173,7 +176,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 | inflate 的 gzip extra 字段（`InflateHeaderProgress`） | `inflate` 把 gzip 头（`HEAD` .. `HCRC`）读入挂接的 `gz_header` 时，其 `extra` 缓冲区（`extra_max` 字节）与尚未读取的输入分离；在 `EXTRA` 模式中，记录的 `extra_len` 不小于 `state->length`。 | `Goal.inflate_safety`，以及 `Goal.inflate_sequence_safety` 中的每次 `inflate` 调用；功能目标 `Goal.inflate` 与 `Goal.inflate_sequence` 也是如此 | 每个被排除的情形都是真实 C 在 EXTRA 的 `zmemcpy` 中的未定义行为（[复现](../tests/regression/inflate-gzip-extra/README.md)）：重叠的复制，或者调用者在 extra 字段读到一半时调低 `extra_len`，导致写到 `extra_max` 之外。`zlib.h` 没有说明这两种布局是否允许。 |
 | deflate 的 gzip 头区域（`DeflateHeaderApart`） | 状态为 `GZIP_STATE` .. `HCRC_STATE` 且挂接着 `gz_header` 期间，每次 `deflate`、`deflateParams`、`deflateBound` 和 `deflateBound_z` 调用时：输入范围、输出范围、extra 字段（`extra_len mod 2^16` 字节）、name 与 comment（各含其 NUL）是两两分离的字节范围，可以位于同一个块中；extra 字段、name 与 comment 位于流拥有的存储之外。输入范围和输出范围就是那次调用时 `z_stream` 各字段所指的范围；对并不使用它们的 `deflateBound` 和 `deflateBound_z` 也是如此。 | `Goal.deflate_safety`、`Goal.deflateParams_safety`、`Goal.deflateBound_safety`、`Goal.deflateBound_z_safety`，以及 `Goal.deflate_sequence_safety` 中的每次这类调用；功能目标 `Goal.deflate` 与 `Goal.deflate_sequence` 也是如此 | 这些区域没有重叠的理由。被排除的情形中有两种是真实 C 的未定义行为（[复现](../tests/regression/deflate-gzip-name-output/README.md)）：name 位于输出范围或 `pending_buf` 中时，它的 NUL 会被一次刷新或一个头部字节覆盖，name 循环随即读到缓冲区之外。`zlib.h` 没有说明这些布局是否允许。 |
 | deflate 的 gzip 头进度（`DeflateHeaderProgress`） | 在上一行所说的每次调用时，如果此前某次 `deflate` 调用在挂接的 `gz_header` 的某个字段写到一半时返回，调用者保留了已经写出的部分：字段仍覆盖已写出的部分（`gzindex`），并且在 `EXTRA_STATE`、`NAME_STATE` 或 `COMMENT_STATE` 中，该字段没有中途被置为 `NULL`（它为 `NULL` 时 `gzindex = 0`）。 | 与上一行相同的目标 | 被排除的修改是真实 C 的未定义行为（[复现](../tests/regression/deflate-history-domain/README.md)）：被缩短的字段会被读到末尾之外；中途置为 `NULL` 的字段会被跳过，而 `gzindex` 没有重置，下一个字符串就从 `gzindex` 处读起，越过它的末尾。`zlib.h` 要求调用者在第一次 `deflate` 调用之前提供头部；它没有说明记录在写出期间能否改变。 |
-| 被拒绝的流（`RefusedInflate`、`RefusedDeflate`） | 被拒绝的流是 `NULL`，或者是一个可读的记录：其状态为 `NULL`，或其 `zalloc` 或 `zfree` 为 `NULL`，或其状态是一个被检查拒绝的存活状态记录（反向指针、`mode` 或 `status` 字段有误）。 | `Goal.inflate_refusal`、`Goal.deflate_refusal` | 这涵盖 `End` 之后的记录、复制失败时的目的记录、存活记录的结构体副本，以及初始化失败之后 `state` 为 `NULL` 的记录：要么是初始化函数在那里写入了 `NULL`，要么是这个字段在调用之前就是 `NULL`。有三类记录在范围之外：见[注 2](#note-2-refused-streams)。 |
+| 被拒绝的流（`RefusedInflate`、`RefusedDeflate`） | 被拒绝的流是 `NULL`，或者是一个可读的记录：其状态为 `NULL`，或其 `zalloc` 或 `zfree` 为 `NULL`，或其状态是一个被检查拒绝的存活状态记录（反向指针、`mode` 或 `status` 字段有误）。 | `Goal.inflate_refusal`、`Goal.deflate_refusal` | 这涵盖 `End` 之后的记录、复制失败时的目的记录、存活记录的结构体副本，初始化返回 `Z_VERSION_ERROR` 之后的记录（只要它的 `zalloc` 和 `zfree` 在调用之前是 `NULL`），以及其他初始化失败之后 `state` 为 `NULL` 的记录：要么是初始化函数在那里写入了 `NULL`，要么是这个字段在调用之前就是 `NULL`。有三类记录在范围之外：见[注 2](#note-2-refused-streams)。 |
 | 复制的目的流 | 目的流是一个可读的流记录，并且不是源记录（`source ≠ dest`）。源使用默认分配器（`DefAlloc`）。 | `Goal.inflateCopy_safety`、`Goal.deflateCopy_safety`，以及功能目标 `Goal.inflateCopy`、`Goal.deflateCopy` | 当 `dest == source` 时，C 的 `zmemcpy(dest, source, sizeof(z_stream))` 把一个对象复制到它自身上，这是未定义行为；这种情形不被覆盖。目的记录与源记录、某个缓冲区或某个状态记录部分重叠的情形无法表达：模型把 `z_stream` 记录放在单独的表里（[模型的限制](model-limits.md#how-the-runtime-represents-c)，地址与布局模型）。`zlib.h` 没有说明是否允许这种布局。 |
 | 直接调用 `deflateResetKeep` | deflate 的调用历史（`StreamOperation .deflate`）中没有对 `deflateResetKeep` 的直接调用；`deflateReset` 和 `deflateInit2_` 仍在其中。 | `Goal.deflate_sequence_safety`，以及通过 `StreamReachable` 涉及的各个单函数 deflate 目标 | 这不是比 `zlib.h` 更窄的限制：`zlib.h` 把 `deflateResetKeep` 声明在 `undocumented functions (not part of the zlib API)` 之下，它的目标不是必需的公开目标（[进度](progress.md#scope)）。真实的 C 在那里不安全：在 `deflateResetKeep`、`deflate(Z_BLOCK)`、`deflateCopy`，以及副本上的一次 `Z_RLE` 或 `Z_HUFFMAN_ONLY` 刷新之后，后续的 `deflate` 会沿着一个未初始化的 `prev` 槽走下去，读到窗口之外（[发现](findings/deflate-copy-pending-prev/README.md)）；不做复制时，后续的匹配可能出错（[发现](findings/deflate-resetkeep-stale-hash/README.md)）。单次调用的安全性（不出故障、终止）仍然得到了证明；`deflateReset` 要经过它。 |
 
@@ -181,7 +184,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 | 流 | 时段 | 必须成立的条件 |
 | --- | --- | --- |
-| inflate | 从 `inflateGetHeader` 到下一次成功的 `inflateReset` 或 `inflateReset2`、下一次 `inflateGetHeader`，或 `inflateEnd`，其间每次 `inflate` 调用时 | 记录存活；`extra`、`name` 和 `comment` 各自是 `NULL`，或在各自的 `_max` 大小内可写 |
+| inflate | 从 `inflateGetHeader` 到下一次成功的 `inflateReset` 或 `inflateReset2`、下一次找到同步点的 `inflateSync`、下一次 `inflateGetHeader`，或 `inflateEnd`，其间每次 `inflate` 调用时 | 记录存活；`extra`、`name` 和 `comment` 各自是 `NULL`，或在各自的 `_max` 大小内可写 |
 | inflate | `inflate` 读头部期间（`HEAD` .. `HCRC`） | 另外：`extra` 不与尚未读取的输入重叠；`extra_len` 没有被调低 |
 | deflate | 调用 `deflateSetHeader` 时 | 在第一次 `deflate` 调用之前；`extra` 有 `extra_len` 个可读字节，并位于流的存储之外；`name` 和 `comment` 以 NUL 结尾 |
 | deflate | 从 `deflateSetHeader` 到头部写完（`GZIP_STATE` .. `HCRC_STATE`），其间每次 `deflate`、`deflateParams`、`deflateBound` 和 `deflateBound_z` 调用时 | 记录和缓冲区存活；没有字段被缩短或置为 `NULL`；输入、输出、extra、name 和 comment 两两分离；extra、name 和 comment 位于流的存储之外 |
@@ -200,7 +203,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 被拒绝的调用改变了什么。除 `inflate` 和两个复制函数外，调用之后的堆就是调用之前的堆。源被拒绝的复制把 `NULL` 写入目的记录的 `state` 字段，与 C 相同（`dest->state = Z_NULL`），此外什么也不改。`inflate` 的拒绝是在满足 `Fresh` 的堆上，用帧性质和不变的账本陈述的：每个存活的块都保持原样，没有块被创建或释放。它没有陈述成堆相等，因为翻译会分配并释放 `inflate` 的那个四字节局部数组。
 
-初始化失败之后的 `z_stream`，只有 `state` 为 `NULL` 时才在拒绝目标的定义域内。`inflateInit2_` 在拒绝 `windowBits` 时会把 `NULL` 写入这个字段，`deflateInit2_` 在它的四个缓冲区之一分配不出来时也会。遇到 `Z_VERSION_ERROR`、状态记录分配失败的 `Z_MEM_ERROR`，以及 `deflateInit2_` 因参数有误返回的 `Z_STREAM_ERROR` 时，C 在写 `state` 之前就返回了，这个字段保持调用之前的值。如果那个值不是 `NULL`，这个记录就属于下面三类之一。
+初始化失败之后的 `z_stream`，在 `state` 为 `NULL` 时，或者在 `zalloc` 或 `zfree` 为 `NULL` 时，在拒绝目标的定义域内。`inflateInit2_` 在拒绝 `windowBits` 时会把 `NULL` 写入 `state`，`deflateInit2_` 在它的四个缓冲区之一分配不出来时也会。遇到 `Z_VERSION_ERROR`、状态记录分配失败的 `Z_MEM_ERROR`，以及 `deflateInit2_` 因参数有误返回的 `Z_STREAM_ERROR` 时，C 在写 `state` 之前就返回了，这个字段保持调用之前的值。后两种返回发生在 C 把为 `NULL` 的 `zalloc` 和 `zfree` 换成默认函数之后：如果 `state` 原来不是 `NULL`，这个记录就属于下面三类之一。`Z_VERSION_ERROR` 的返回发生在那之前，所以 `zalloc` 和 `zfree` 也保持原值：只要其中一个是 `NULL`（初始化的前提正是这样要求的），不论 `state` 里是什么，这个记录都被拒绝。
 
 在 `zalloc` 和 `zfree` 已设置的情况下，有三类记录在拒绝目标的定义域之外。
 
@@ -228,7 +231,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 | 回调解码器的初始化（`BackSafeReachable.init` 中的 `InitDomain`） | 流记录可读；`zalloc` 与 `zfree` 各自是 `NULL` 或默认函数；记录的 `state` 字段是 `NULL`；`version` 指向一个可读的字节 `'1'`；`stream_size = 112`；调用返回了 `Z_OK`。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 不要求 `state` 为 `NULL`，C 也是不读 `state` 就覆盖它。`z_stream` 在 `inflateBackInit_` 之前 `state` 不为 `NULL` 的历史，在这个序列目标之外。已登记的功能目标 `Goal.inflateBackInit_` 没有这一子句：它对每个 `state` 值覆盖初始化调用，连同各种拒绝。 |
 | 回调（`CallbackProtocol`） | 调用者为它的 `in` 和 `out` 函数提供一个协议；各子句见下面的列表。 | `Goal.inflate_back_sequence_safety` | 这些是调用者代码的契约，不是被假设的库契约，并且一直显式写出。描述符对象可以与窗口共用同一次分配中切片以外的部分。 |
 | 调用之间调用者的修改（`BackSafeReachable.caller`） | 两次调用之间，调用者的修改是一次 `Rebuffer`（“调用之间调用者的修改”一行），并且保持窗口切片，以及每个仍存活的块的只读标志。 | `Goal.inflate_back_sequence_safety` | C 代码无法改变只读标志，所以那一子句不排除任何 C 调用者。关于窗口的子句确实排除了一些调用者：调用者在两次 `inflateBack` 调用之间写窗口切片，这样的历史在范围之外。窗口指针位于所在块的偏移 0 处时，模型中这个块归流拥有（`InflateOwned`），于是 `Rebuffer` 在两次调用之间保持的是整个块，而不只是切片。`inflateBack` 在每次调用开始时置 `state->whave = 0`，所以 C 看来不会读取先前的窗口字节（**尚未由证明确认**）；`zlib.h` 并不禁止这样的写入。 |
-| 回调输入总量 | `protocol.inputBound < 2^48`：一次 `inflateBack` 调用在它所有的 `in` 调用中总共得到少于 `2^48` 字节。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代以内（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)），而解码循环每轮至少读一个比特，所以输入更多的调用可能在 C 还会继续运行时就耗尽燃料。`2^48` 字节远远超过一次调用实际能处理的输入。功能目标 `Goal.inflateBack`（不在计划内，未证明）没有这条前提。 |
+| 回调输入总量 | `protocol.inputBound < 2^48`：一次 `inflateBack` 调用总共得到的输入少于 `2^48` 字节。这个总量包括第一个片段（调用时的 `next_in`、`avail_in`）和各次 `in` 调用交出的每个片段。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代以内（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)），而解码循环每轮至少读一个比特，所以输入更多的调用可能在 C 还会继续运行时就耗尽燃料。`2^48` 字节远远超过一次调用实际能处理的输入。功能目标 `Goal.inflateBack`（不在计划内，未证明）没有这条前提。 |
 | 回调解码器窗口 | `8 ≤ windowBits ≤ 15`，窗口不是 `NULL` 并且有 `2^windowBits` 个可写字节，这是 `zlib.h` 的要求；另外还要求：窗口是某个堆字节块的切片。 | `Goal.inflate_back_sequence_safety`，通过 `BackSafeReachable.init` | `zlib.h` 只要求一个有 `2^windowBits` 个可写字节的窗口。模型中另外唯一一种可写的字节视图是 deflate 状态内部的 depth 数组，那是调用者无法指名的库内存储；窗口位于那里不在已证明的定义域内。 |
 | 回调解码器输入片段 | 每个输入片段都位于某个堆字节块中：调用者给出的第一个片段（`BackFirstChunk`），以及 `in` 交出的每个片段（`BackPlatform`）。 | `Goal.inflate_back_sequence_safety` | C 能处理位于任何可读存储中的片段。位于模型中其他存储里的输入片段，例如结构体的字段或静态数据，不在已证明的定义域内。这与 `inflate` 快速入口的限制相同（[模型的限制](model-limits.md#functional-and-model-statements)，“快速解码辅助函数”）：`inflate_fast` 就运行在这个片段上。把两个解码器推广到任意字节引用不在计划内；[回调解码器骨架记录](history/skeleton-inflate-back.md)把它列为候选工作。 |
 
@@ -238,9 +241,10 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 - 两者都保持窗口切片中的字节。
 - `in` 交出的片段可读，并且与窗口、状态和流记录分离。`out` 保持当前的输入片段可读。
 - 总输入有一个有限的上界（`inputBound`）。
-- 第一个片段（`next_in`、`avail_in`）可读，并且与窗口分离。
 - 每个回调都让堆保持良构（`Fresh`、`Uniq`），它新建的每个块都属于调用者自己（`ExternalFrame`）。
-- 协议带有一个不变量，说的是堆以及“已供给和已交付字节”的日志。调用 `inflateBack` 时它成立，每个回调都保持它。这个不变量只能依赖调用者自己的块和堆的分配器字段，不能依赖窗口切片中的字节（`CallbackProtocol.local_`）。
+- 协议带有一个不变量，说的是堆以及“已供给和已交付字节”的日志。每个回调都保持它。这个不变量只能依赖调用者自己的块和堆的分配器字段，不能依赖窗口切片中的字节（`CallbackProtocol.local_`）。
+
+关于同一次调用还有两条前提，它们是目标第三个子句的前提，不是 `CallbackProtocol` 的子句：第一个片段（`next_in`、`avail_in`）可读，并且与窗口分离；在调用 `inflateBack` 时的堆上，不变量成立。
 
 ## Gzip 文件接口
 

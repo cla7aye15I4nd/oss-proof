@@ -123,7 +123,7 @@ def render_home() -> None:
         other = OUT / ('index.html' if zh else 'index.zh.html')
         c = counts()
         body = (f'<section id="results"><h2>{t("三项核心结论", "Three core results")}</h2>'
-                f'<p>{t("安全性方面有三项结论，按此顺序验收。下面的状态直接取自登记记录。之后计划证明默认 zlib 流的往返性质（先压缩再解压得到原输入），目前尚未证明。", "There are three safety results, accepted in this order. The status below is read from the registry. Planned after them, and not yet proved: the round trip of the default zlib stream (compressing and then decompressing gives back the input).")}</p>'
+                f'<p>{t("安全性方面有三项结论，按此顺序验收。下面的状态直接取自登记记录。之后计划证明默认 zlib 流的往返性质（先压缩再解压得到原输入）：条件形式已证明、尚未登记，完备性和无条件形式尚未证明。", "There are three safety results, accepted in this order. The status below is read from the registry. Planned after them: the round trip of the default zlib stream (compressing and then decompressing gives back the input). Its conditional form is proved and not yet registered; completeness and the unconditional form are open.")}</p>'
                 + results_table(current, lang, False) +
                 f'<p>{t("翻译和运行时模型与 C 相符，这一点靠审阅和测试，不是靠证明：见", "That the translation and the runtime model match the C is reviewed and tested, not proved: see the")} '
                 f'<a href="{route_href("reference/docs/trusted-base", current, lang)}">{t("可信基础", "trusted base")}</a>{t("；调用必须满足的条件见", ". The conditions a call must meet are in the")} '

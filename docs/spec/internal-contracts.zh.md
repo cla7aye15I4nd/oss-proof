@@ -1,4 +1,4 @@
-<!-- source-sha256: 73f8f889ddd412ef8f459b58cadaf2d24b1dfd6ad6a4caadc5922b826dbc3419 -->
+<!-- source-sha256: 9de53470e607e312a6d2cddf431c7c6954532d24678377e35227f0abede4fa33 -->
 
 # 内部调用处的义务
 
@@ -140,10 +140,10 @@ flowchart TD
 | 类别／ID | 契约 |
 | --- | --- |
 | 前置／后置条件 `I-hc-inv` | `INSERT_STRING`、`slide_hash`、`CLEAR_HASH`、`fill_window` 和 `deflateSetDictionary` 保持：链头指向已插入位置，可达 `prev[p mod w_size]` 槽已写入 `NIL` 或更小的同哈希位置。位置与当前窗口／预读一致。 |
-| 前置条件 `I-lm-pre` | `cur_match` 是当前字符串哈希的非零链头，`cur_match < strstart`，且距离至多为 `MAX_DIST`。`I-hc-inv` 成立；`strstart ≤ window_size - MIN_LOOKAHEAD`、`1 ≤ prev_length ≤ MAX_MATCH`，配置的搜索设置在可能的缩减后仍给出正链预算。 |
+| 前置条件 `I-lm-pre` | `cur_match` 是当前字符串哈希的非零链头，`cur_match < strstart`，且距离至多为 `MAX_DIST`。`I-hc-inv` 成立；`strstart ≤ window_size - MIN_LOOKAHEAD`、`1 ≤ prev_length ≤ MAX_MATCH`。对链预算没有前提：`deflateTune` 接受 `max_chain_length = 0`。 |
 | 效果 `I-lm-reads` | 读取窗口直到并包括 `strstart + MAX_MATCH`，可能越过预读；还读取已写入的可达 `prev` 槽。只修改 `match_start`。预读之后的填充字节从不使一个匹配成为有效匹配。 |
 | 后置条件 `I-lm-ret` | 返回至多 `min(MAX_MATCH, lookahead)`。找到更优结果时设置有效的 `match_start`；否则可以保留 `prev_length`，再以 `lookahead` 为上限，但不提供新的 `match_start` 保证。 |
-| 后置条件 `I-lm-term` | 在链预算内结束；遍历的非零位置严格递减。不保证全局最优匹配。 |
+| 后置条件 `I-lm-term` | 因为遍历的位置严格递减而结束：循环的证明（`lm_loop_ok`，`deflate.c.engine.lmmain.lean`）以 `cur_match` 为度量，对任何链预算都成立。链预算可以让遍历提前结束，但终止不依赖它：预算为 0 时，`--chain_length` 回绕成一个很大的值。不保证全局最优匹配。 |
 
 ## 构造并发出 Huffman 树：`trees.c`
 

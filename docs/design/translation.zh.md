@@ -1,4 +1,4 @@
-<!-- source-sha256: 7a30e8ba77ac018e5b953b6cc168c3fd540898b9630afc48d20dd0f13abe749d -->
+<!-- source-sha256: 0fc2517ed61c85d478a4a8e403915dd8bd2003889fe69657c32f8ba2f2620ef8 -->
 # 翻译 C 而不改变它的行为
 
 选定源码中的每个 C 函数，都由人工逐语句改写成一个 Lean 函数。本页给出规则、四条采纳的规范化、当前翻译中这四条没有覆盖的形式，以及两个连同 C 一起列出的函数，让读者能够自己把翻译与源码对照。内核不对照 C 检查翻译。做这件事的是审查和差分测试；测试是忠实性的证据，不是证明。
@@ -16,7 +16,7 @@
 3. 对同一个记录的字段的连续赋值，算一次记录更新。
 4. 如果同一函数中前面的检验已保证某个有符号运算不会越界，这个运算就用普通运算符书写。
 
-按这条规则，这四条之外的任何改动都是翻译缺陷。当前的翻译含有这四条之外的形式。它们连同文件和函数列在[四条采纳的规范化没有覆盖的形式](#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)里。每种形式是成为采纳的规范化，还是改成照 C 的写法，所有者尚未决定。
+按这条规则，这四条之外的任何改动都是翻译缺陷。当前的翻译含有这四条之外的形式。目前发现的实例连同文件和函数列在[四条采纳的规范化没有覆盖的形式](#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)里。每种形式是成为采纳的规范化，还是改成照 C 的写法，所有者尚未决定。
 
 ## 被翻译的源码
 
@@ -236,7 +236,7 @@ Lean 的 `Int32` 减法回绕；C 的减法在溢出时未定义。这个减法�
 
 ## 四条采纳的规范化没有覆盖的形式；所有者尚未决定
 
-`ZlibF/Zlib/` 中的翻译含有下面五种形式。按四条采纳的规范化的措辞，没有一条覆盖它们。这里把它们作为观察到的事实记下来。每种形式是成为采纳的规范化，还是改成照 C 的写法，所有者尚未决定。
+`ZlibF/Zlib/` 中的翻译至少含有下面六种形式。按四条采纳的规范化的措辞，没有一条覆盖它们。这里把它们作为观察到的事实记下来。每种形式是成为采纳的规范化，还是改成照 C 的写法，所有者尚未决定。
 
 这份列表是这样得到的：在 `ZlibF/Zlib/` 上做三次搜索，再把每个命中处与 C 逐一人工对照。
 
@@ -244,7 +244,7 @@ Lean 的 `Int32` 减法回绕；C 的减法在溢出时未定义。这个减法�
 - 每一条 C 注释，只要其中的条件含有 `&&` 或 `||`，并且有带 `->` 的操作数；以及每一行同时含有 `&&` 或 `||` 和内嵌动作 `(← …)` 的 Lean 代码；
 - 每一处同时设置两个或更多字段的记录更新。
 
-形式 1、2、4 可以按文本搜到。形式 3 在文本上没有标志，所以它的列表只是例子，并不完整。形式 5 是在文件头注释里发现的。下面没有哪一处被发现算出与 C 不同的值。这是对每一处的解读，不是已证明的事实。
+下面各表列的是这些搜索和后来的阅读发现的实例。它们是例子，不是完整的清单。第二次阅读发现了搜索漏掉的形式 1 和形式 4 的实例，还发现了形式 6，而没有哪次搜索是找它的；可能还有更多的实例和更多的形式。形式 3 和形式 6 在文本上没有标志。形式 5 是在文件头注释里发现的。下面没有哪一处被发现算出与 C 不同的值。这是对每一处的解读，不是已证明的事实。
 
 **1. 刚写入的值被直接再用，而不是读回来。**
 
@@ -253,8 +253,11 @@ Lean 的 `Int32` 减法回绕；C 的减法在溢出时未定义。这个减法�
 | `inflate.c.lean`，`inflateSync` | `state->have = 0; syncsearch(&(state->have), buf, len);` | 字段被置为 0，调用写成 `syncsearch 0 buf len`：被调用函数拿到的是字面量，不是读回来的字段。这个函数里的第二次调用确实读了字段。 |
 | `inflate.c.lean`，`inflate_CODELENS` 和 `inflate_LENLENS`；`infback.c.lean`，`back_TABLE`（两处） | `state->next = state->codes; state->lencode = (const code FAR *)(state->next);` | 一次更新，其中 `next := codesP c.st, lencode := codesP c.st`。`inflate_LENLENS` 对 `state->lencode = state->distcode = (const code FAR *)(state->next)` 也这样设置 `distcode`。 |
 | `deflate_strategies.c.lean`，`deflate_stored` | `s->strstart = s->w_size; s->insert = s->strstart;` | 一次更新，其中 `strstart := d.w_size, insert := d.w_size`。 |
+| `deflate_strategies.c.lean`，`deflate_stored`（两处窗口滑动） | `s->strstart -= s->w_size; zmemcpy(s->window, s->window + s->w_size, s->strstart);`，以及后面的 `if (s->insert > s->strstart) s->insert = s->strstart;` | 新值是局部变量 `ss`。复制的长度和对 `insert` 的检验用的都是 `ss`；字段在这之后才写入（形式 6）。 |
+| `inflate.c.lean`，`updatewindow` | `state->wnext += dist; if (state->wnext == state->wsize) state->wnext = 0; if (state->whave < state->wsize) state->whave += dist;` | 和是局部变量 `wnext`，它与 `wsize` 比较，相等时置为 0。然后用一次更新写入 `wnext` 和 `whave`：其间字段没有被写入再读回。 |
+| `deflate_base.c.lean`，`flush_pending` | `s->pending -= len; if (s->pending == 0)` | 差是局部变量 `pend`。它被写入字段，而检验用的是 `pend`，不是字段。 |
 
-按规范化 3 的例子所作的解释，它不覆盖后两行：这里有一个右边读的是同组中在前的语句写过的字段。
+按规范化 3 的例子所作的解释，它不覆盖第二行和第三行：这里有一个右边读的是同组中在前的语句写过的字段。
 
 **2. 一个操作数在 C 中受短路检验保护，在 Lean 中却先于这个检验求值。** C 只在左操作数不能决定结果时才对 `&&` 和 `||` 的右操作数求值。在 Lean 的 `do` 块里，条件中的内嵌动作 `(← e)` 在条件求值之前运行；条件上方用 `let` 读取的记录，则在任何情形下都会被读取。
 
@@ -271,7 +274,7 @@ Lean 的 `Int32` 减法回绕；C 的减法在溢出时未定义。这个减法�
 | `gzread.c.lean`，`gz_look` | gz 状态在检验左操作数 `strm->avail_in == 0` 之前被读取。流在 `state->junk == 0 &&` 之前被读取。 |
 | `gzread.c.lean`，`gz_skip`、`gz_read` | 流在 `state->eof &&` 之前被读取。在 `gz_read` 里，gz 状态在 `n == 0 &&` 之前和 `len &&` 之前被读取。 |
 
-除三行之外，每一行里提前的操作都不写入任何东西，它要么是读取同一函数已经读取过的记录（直接读取，或经由它调用的状态检查读取），要么是读取内嵌在函数已读取过的 gz 状态里的流。另外三行在模型里可能在某个状态上发生故障，而 C 在这个状态上并不对该操作数求值：带检查算术的两行（`deflate`、`deflateParams`），以及 `detect_data_type` 的数组读取。已验收的安全定理表明翻译在它们的定义域内不发生故障，所以这个差别落在定义域之外。
+除三行之外，每一行里提前的操作都不写入任何东西，它要么是读取同一函数已经读取过的记录（直接读取，或经由它调用的状态检查读取），要么是读取内嵌在函数已读取过的 gz 状态里的流。另外三行在模型里可能在某个状态上发生故障，而 C 在这个状态上并不对该操作数求值：带检查算术的两行（`deflate`、`deflateParams`），以及 `detect_data_type` 的数组读取。在 `deflate` 里，只有 `RANK old_flush` 可能发生故障：`flush` 已经通过函数开头的范围检验，而 `old_flush` 是存下来的字段 `last_flush`。已验收的安全定理表明翻译在它们的定义域内不发生故障，所以这个差别落在定义域之外。
 
 右操作数是一次调用，或者是通过左操作数所检验的指针进行的读取时，翻译用嵌套的 `if` 保持 C 的顺序。例子：`inflateBack` 中的 `strm == Z_NULL || strm->state == Z_NULL`，以及 `gzvprintf` 中的 `state->skip && gz_zero(state) == -1`。
 
@@ -306,11 +309,22 @@ Lean 的 `Int32` 减法回绕；C 的减法在溢出时未定义。这个减法�
 
 这些普通移位中，有一些不是“无符号操作数加字面量计数”：
 
-- 操作数有符号，计数是字面量：`inflateReset2` 中的 `windowBits >>> 4`，`deflatePrime` 中的 `(s->bi_valid + bits) >> 3`，`x2nmodp` 中作用于 `z_off64_t` 的 `n >>= 1`，`braidTab` 和 `braidBigTab` 中的 `k <<< 3`，`inflateMark` 中的 `-(1L << 16)`，以及 `trees.c.lean` 中的常量 `STORED_BLOCK << 1`、`STATIC_TREES << 1` 和 `DYN_TREES << 1`。对负值右移在 C 里是实现定义的，不是未定义的；这种构建的编译器与 Lean 的 `Int32`、`Int64` 都作算术右移。
+- 操作数有符号，计数是字面量：`inflateReset2` 中的 `windowBits >>> 4`，`deflatePrime` 中的 `(s->bi_valid + bits) >> 3`，`x2nmodp` 中作用于 `z_off64_t` 的 `n >>= 1`，`braidTab` 和 `braidBigTab` 中的 `k <<< 3`，`inflateMark` 中的 `-(1L << 16)`，`inflate_HCRC` 中的 `(state->flags >> 9) & 1`（`flags` 是 `int`），以及 `trees.c.lean` 中的常量 `STORED_BLOCK << 1`、`STATIC_TREES << 1` 和 `DYN_TREES << 1`。对负值右移在 C 里是实现定义的，不是未定义的；这种构建的编译器与 Lean 的 `Int32`、`Int64` 都作算术右移。
 - 计数是变量：`deflatePrime` 中的 `value >>> put`（操作数有符号；`put` 已通过同一轮循环里带检查的 `ishl 1 put`），以及 `inflatePrime` 中的 `(1 : Int64) <<< bits.toInt64`（它之前的检验保证 `1 ≤ bits ≤ 16`，所以这一处属于规范化 4）。
 - 辅助定义 `loadWord`、`load64` 和 `store64` 的移位计数是 8 乘以一个小于 8 的循环下标。
 
 **5. `inflate` 中 C 没有初始化的局部变量从固定的值开始。** `inflate.c.lean` 中的 `IL.init` 给局部变量 `copy`、`len`、`from`、`here` 和 `last` 的值是 0、NULL 和一个全零的 `code`。`inflateBack` 使用同一个记录。对未初始化整数的规则是：它的值任意，定理必须对每个值都成立。`inflate.c.lean` 的文件头注释记录了这个选择。`inflate` 是否可能在给这些局部变量赋值之前读它们，这一解读**尚未确认**，须由源码审查确认：模型把这些值固定了，所以对当前翻译的证明显示不了这一点。
+
+**6. 一次写入在 C 中位于某次调用之前，翻译却把它写在这次调用之后。** C 先写入一个字段，再调用 `zmemcpy`。Lean 先做复制，再在其后的一次记录更新里写这个字段。
+
+| 文件，函数 | C | Lean |
+| --- | --- | --- |
+| `deflate_strategies.c.lean`，`deflate_stored` | `s->matches = 2; zmemcpy(s->window, s->strm->next_in - s->w_size, s->w_size);` | `memcpyB` 先运行。`matches := 2` 在其后的那次更新里，与 `strstart` 和 `insert` 一起写入。 |
+| `deflate_strategies.c.lean`，`deflate_stored`（两处窗口滑动） | `s->strstart -= s->w_size; zmemcpy(s->window, s->window + s->w_size, s->strstart);` 第二处滑动在这之前还有 `s->block_start -= s->w_size;`。 | 新值是局部变量 `ss` 和 `bs`。`memcpyB` 运行之后，一次更新把 `strstart`（以及 `block_start`）连同 `matches` 和 `insert` 一起写入。 |
+
+在这几处，复制读写的是窗口和输入中的字节，被移后的写入写的是状态记录的字段。
+
+还有一种相近的重新分组，其中没有调用。在 `flush_pending`（`deflate_base.c.lean`）里，C 对两个记录的写入是交错的：`strm->next_out += len; s->pending_out += len; strm->total_out += len; strm->avail_out -= len; s->pending -= len;`。Lean 先算出两个新指针，用一次更新写流的三个字段，再用另一次更新写状态的两个字段。规范化 3 说的是对同一个记录的连续赋值。
 
 ## 整数类型与算术
 

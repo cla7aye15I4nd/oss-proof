@@ -1,4 +1,4 @@
-<!-- source-sha256: 45c69a6fb96983803cd253b8f535d2b3e77fc28d6f8594a2382e160768fd1290 -->
+<!-- source-sha256: 20cb72ba4da8c7169f31debcbe52eb47cabfd5ef5078bc69354d308bc7f1e3c2 -->
 # 术语表
 
 本页定义其他页面用到的术语，每个术语只定义一次，用一两句话说清。术语分为几组：目标、状态层级、模型、前提、gzip 文件世界和检查。状态层级背后的规则见[检查指南](checking/README.md)；每项结论处于哪个层级，见[进度页的“范围”一节](progress.md#scope)。
@@ -59,7 +59,7 @@
 
 **块。** 堆中的一次分配，用一个编号指称。某张表在该编号下存有对象时，这个块就是**存活**的。释放过的编号不会再用。
 
-**指针。** `NULL`，或者“某个对象加偏移”的引用。模型里没有表示未初始化指针的值：新分配内存中的指针字段读出来是 `NULL`，所以证明要说明指针字段在被读取之前已被写入（[可信基础](trusted-base.md)第 2 项）。
+**指针。** `NULL`，或者“某个对象加偏移”的引用。模型里没有表示未初始化指针的值：新分配内存中的指针字段读出来是 `NULL`，所以漏掉一次写入是看不出来的。指针字段在被读取之前已被写入，这不是定理；它**尚未确认**，须由源码审查确认（[可信基础](trusted-base.md)第 2 项）。
 
 **良构的堆。** 多数目标对调用开始时的堆陈述的三个条件：`Fresh`（下一个块编号及其以上没有存活的块）、`Uniq`（一个块编号至多在一张表中存有对象）和 `LibraryGlobals`（静态表就是所选构建的那些表）。它们描述的是模型的簿记；C 调用者无法破坏它们（[模型的限制](model-limits.md)）。
 
@@ -75,7 +75,7 @@
 
 **拥有。** 流或句柄的状态指向某个块时，这个块就归它拥有：状态记录、窗口、哈希表、待输出缓冲区（`StreamOwned`、`GzOwned`）。
 
-**结果单元。** 某个指针参数所指的变量，C 通过这个指针写出结果，例如 `*destLen` 或 `*dictLength`。有八个公开函数的翻译把这个单元当作值，而不是内存，所以它们的目标对这个单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”一行）。
+**结果单元。** 某个指针参数所指的变量，C 通过这个指针写出结果，例如 `*destLen` 或 `*dictLength`。有八个公开函数的翻译把这个单元当作值，而不是内存，所以它们的目标对这个单元的内存什么都没说：四个 `compress*` 函数、两个 `GetDictionary` 函数、`deflatePending` 和 `deflateUsed`（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。
 
 **库堆。** API 条目对上面定义的良构堆的叫法（[契约约定](spec/api/contracts.md#reading-a-proof-goals-paragraph)）。
 
@@ -85,7 +85,7 @@
 
 **固定版本（pin）。** 子模块 `zlib/` 所指向的上游 zlib 提交。被验证的源码是这个固定版本加上 `patches/` 中按文件名顺序应用的补丁。
 
-**规范化。** 翻译可以不同于逐语句照抄 C 的四种方式之一，每一种的行为都与 C 相同。[翻译](design/translation.md#the-accepted-normalisations)逐条列出它们，各配一个例子。其他任何差别都是翻译缺陷。
+**规范化。** 翻译可以不同于逐语句照抄 C 的四种方式之一，每一种的行为都与 C 相同。[翻译](design/translation.md#the-accepted-normalisations)逐条列出它们，各配一个例子。按工作规则，其他任何差别都是翻译缺陷。翻译中另有五种形式，按这四种的措辞都覆盖不到；每一种是采纳还是改写，所有者尚未决定（[列表](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)）。
 
 ## 前提
 

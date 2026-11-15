@@ -1,4 +1,4 @@
-<!-- source-sha256: ffd973ae6970d3a360ed6d78d62a47c3dc4c28fa6d58052ea8f0713584f59392 -->
+<!-- source-sha256: 5e095181f04201c5eb51436d5490933a12e180a8368a1bf2e3b5a0d0c8258072 -->
 
 # 6. 应用接口
 
@@ -204,8 +204,8 @@ flowchart LR
 | `compress`、`compress2`、`compress_z`、`compress2_z` | `Goal.compress_safety`、`Goal.compress2_safety`、`Goal.compress_z_safety`、`Goal.compress2_z_safety` | [compress](../spec/api/utility.md#compress) |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `Goal.uncompress_safe`、`Goal.uncompress2_safe`、`Goal.uncompress_z_safe`、`Goal.uncompress2_z_safe` | [uncompress](../spec/api/utility.md#uncompress) |
 | `compressBound`、`compressBound_z` | 完整契约 `Goal.compressBound`、`Goal.compressBound_z`：纯函数，不涉及堆，不出故障。 | [compressBound](../spec/api/utility.md#compressbound) |
-| `inflateBackInit`（`inflateBackInit_` 的宏）、`inflateBack`、`inflateBackEnd` | 通过序列目标 `Goal.inflate_back_sequence_safety` 证明安全。它们还没有单独的单函数目标。 | [回调解码器](../spec/api/inflate-back.md#inflateback) |
-| `gzopen`、`gzread`、`gzwrite`、`gzseek`、`gztell`、`gzoffset`、`gzclose` 以及默认构建中其余已文档化的 gz 函数，共 31 个 | 通过序列目标 `Goal.gz_sequence_safety` 证明安全。它们还没有单独的单函数目标。 | [gzip 文件](../spec/api/gz-file.md) |
+| `inflateBackInit`（`inflateBackInit_` 的宏）、`inflateBack`、`inflateBackEnd` | 通过序列目标 `Goal.inflate_back_sequence_safety` 证明安全。它们还没有单独的单函数安全目标。 | [回调解码器](../spec/api/inflate-back.md#inflateback) |
+| `gzopen`、`gzread`、`gzwrite`、`gzseek`、`gztell`、`gzoffset`、`gzclose` 以及默认构建中其余已文档化的 gz 函数，共 31 个 | 通过序列目标 `Goal.gz_sequence_safety` 证明安全。它们还没有单独的单函数安全目标。 | [gzip 文件](../spec/api/gz-file.md) |
 | `adler32`、`adler32_z` | `Goal.adler32_safety`、`Goal.adler32_z_safety` | [adler32](../spec/api/checksums.md#adler32) |
 | `crc32`、`crc32_z` | `Goal.crc32_safety`、`Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`、`crc32_combine` | `Goal.adler32_combine_safety`、`Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine)、[crc32_combine](../spec/api/checksums.md#crc32_combine) |

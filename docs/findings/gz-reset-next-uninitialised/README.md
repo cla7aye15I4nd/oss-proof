@@ -21,7 +21,7 @@ Source pin: `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 000
 | --- | --- |
 | `gz_open` | `size`, `want`, `err`, `msg`, `mode`, `level`, `strategy`, `direct`, `path`, `fd`; for a reader also `start` |
 | `gz_reset`, which `gz_open` calls last | `x.have`, `x.pos`, `past`, `again`, `skip`, the error (`err`, `msg`), `strm.avail_in`; for a reader also `eof`, `how`, `junk`; for a writer also `reset` |
-| neither | `x.next`, the buffer pointers `in` and `out`, every field of `strm` except `avail_in` |
+| neither | `x.next`, the buffer pointers `in` and `out`, every field of `strm` except `avail_in`; for a reader also `reset`; for a writer also `eof`, `how`, `junk`, `start` |
 
 This report is about `x.next`: it is evaluated before it is written. On a reader, `x.next` is
 first written when output is produced (`gz_look` in transparent mode, `gz_decomp`, `gz_fetch`,

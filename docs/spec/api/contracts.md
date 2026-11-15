@@ -36,7 +36,7 @@ a decoding allocation failure can follow partial output.
 A Proof goals paragraph has the same five items, in this order, on the pages for the inflate
 streams, the deflate streams, the checksums and the utilities. The entries of the gzip file
 interface and of the callback decoder give the same content as one paragraph: their functions
-are covered by a sequence goal and have no one-function goal yet.
+are covered by a sequence safety goal and have no one-function safety goal yet.
 
 | Item | Content |
 | --- | --- |

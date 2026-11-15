@@ -36,13 +36,15 @@ checklist of these premises by function.
 **Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
 functions are proved safe through two sequence goals (`Goal.gz_sequence_safety`,
 `Goal.inflate_back_sequence_safety`), which cover every call in every history. They do not have a
-separate one-function goal each, as the other 52 functions have; stating and registering those 34
-goals is remaining work. Patches 0004 and 0005 are not submitted upstream.
+separate one-function safety goal each, as the other 52 functions have; stating and registering
+those 34 goals is remaining work. Patches 0004 and 0005 are not submitted upstream.
 
 **Not required.** Functional correctness is not required for the safety results: that the output
 of `inflate` equals the format, or that the output of `deflate` decodes to its input. One part of
-it is planned work and not proved: the round trip of a default zlib stream through `deflate` and
-then `inflate`. Other build configurations, custom allocators and the functions that `zlib.h`
+it is planned work: the round trip of a default zlib stream through `deflate` and
+then `inflate`. Its conditional form is proved on `dev` and not yet registered
+(`deflate_inflate_roundtrip`: when both call sequences reach `Z_STREAM_END`, the output equals the
+input); that both always finish with enough room, and the unconditional form, are open. Other build configurations, custom allocators and the functions that `zlib.h`
 lists as undocumented are not planned. [Scope](docs/progress.md#scope) gives every group with its
 reason. Functional goals proved earlier stay registered.
 

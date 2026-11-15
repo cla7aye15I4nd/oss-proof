@@ -1,4 +1,4 @@
-<!-- source-sha256: c9f8434eb9e02cd580e37236d1b5dbbdbf80bc0f60231978ded35844b3cfc09b -->
+<!-- source-sha256: 3f35d7c38af0dc9cc6be5caa7fbecb6c126318b30646dee79109df86502b5299 -->
 # 证明参考：组件、页面、定理
 
 本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理，定理在哪里，处于哪个层级。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
@@ -62,10 +62,10 @@ deflateEnd(&strm);
 | `trees.c` | [树与块输出](trees.md) | 没有公开函数。它的引理服务于 `deflate_sequence_safety`。已登记的有：`tinyOverlayAt_256`、`tinyOverlayAt_128`（最小的两个 `memLevel` 下共用缓冲区的界）、`gen_bitlen_safe`、`pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`、`trees.c.heap.*.lean` |
 | `infback.c` | [回调解码器](callbacks.md) | 序列定理：`inflate_back_sequence_safety`。非空性：`back_init_domain_public` | `infback.c.safety-fast.lean`、`public-infback-init.lean` |
 | `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c` | [Gzip 文件](gzip.md) | 序列定理：`gz_sequence_safety_public`。`NULL` 句柄：`gz_refusal`。非空性：`gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`、`public-gz-refusal.lean`、`public-gz-sequence-nonvacuity.lean` |
-| `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`；上界函数的定理是 `compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
+| `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`；两个上界函数的定理与函数同名：`compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
 | `uncompr.c` | [`uncompress*` 的安全性](uncompress-safety.md) | `uncompress_safe`、`uncompress_z_safe`、`uncompress2_safe`、`uncompress2_z_safe` | `public-uncompress-safe.lean` |
 
-31 个 gz 函数和三个 `inflateBack` 函数的安全性，是通过各自的序列定理证明的。它们还没有单独的、针对一个函数的目标。这不是未完成的证明：序列目标覆盖了这些函数的每一次调用，清单文件 `tests/audit/public-api.json` 也把序列目标写作它们每一个的安全目标。
+31 个 gz 函数和三个 `inflateBack` 函数的安全性，是通过各自的序列定理证明的。它们还没有单独的、针对一个函数的安全目标。这不是未完成的证明：序列目标覆盖了这些函数的每一次调用，清单文件 `tests/audit/public-api.json` 也把序列目标写作它们每一个的安全目标。
 
 `trees.c` 页面解释的引理中，有一些已检查而未登记，其中包括 `memLevel` 为 3 到 9 时共用缓冲区的界（`dynamic_overlay_mid`、`dynamic_overlay_large`）。每条引理的层级见[树](trees.md#results)页面。
 

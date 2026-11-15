@@ -1,4 +1,4 @@
-<!-- source-sha256: 9d9fb13fbefd7c4a5c198b139af7f88bb44d75901fd4ca9ea7e2b55dfb6abbcb -->
+<!-- source-sha256: 2ede01a9e3cf6cada25993aee14c273cfc609af1459185fb212ec425d94365a6 -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -71,7 +71,7 @@ gzclose(f);                         /* 子句 5：全部释放，close 失败时
 | 前提 | 位置 | 含义 |
 | --- | --- | --- |
 | 打开时的调用者堆和世界 | `GzHistory.open`、`open64`、`dopen`；`GzOpenSafe`、`GzDopenSafe` | 堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`），每个字节对象少于 `2^63` 字节（`ByteObjectsFit`），世界是良构的（`FileSystem`），`path` 和 `mode` 是以 NUL 结尾的字符串（在子句 6 和 7 中也可以是 `NULL`）。 |
-| 调用者缓冲区 | `GzArguments`，经由 `GzRange` | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 和 `gzerror` 的缓冲区在请求的长度内可读，在调用要向其中存入数据时可写，并且与句柄拥有的块不重叠。`gzputs` 的参数是以 NUL 结尾的字符串。长度为 0 的请求、C 因大小而拒绝的请求，以及 `gzerror` 的 `errnum` 为 `NULL` 的情形，都没有缓冲区前提。 |
+| 调用者缓冲区 | `GzArguments`，经由 `GzRange` | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 和 `gzerror` 的缓冲区在请求的长度内可读，在调用要向其中存入数据时可写，并且与句柄拥有的块不重叠。`gzputs` 的参数是以 NUL 结尾的字符串。长度为 0 的请求、C 因大小而拒绝的请求、缓冲区为 `NULL` 或长度小于 1 的 `gzgets` 调用，以及 `gzerror` 的 `errnum` 为 `NULL` 的情形，都没有缓冲区前提。 |
 | `gzprintf` 和 `gzvprintf` 的参数 | `GzArguments` | 格式串是模型的格式化器对这些参数能表示的一种（`Formatted`；见[格式语言](../design/external-io.md#formatted-output)）。格式串和每个 `%s` 参数都与句柄的块不重叠。 |
 | 读取预算 | `ReadsFinite` | 句柄的描述符还能交付的字节少于 `2^61`。它只是 (b) 部分的前提，并且只针对六个读调用。这个前提还说描述符的编号不为负。库返回的每个句柄都有这样的编号：`GzOpenSafe` 对 `gzopen` 写明了这一点，而 `gzdopen` 对负的描述符返回 `NULL`。 |
 | 两次调用之间的调用者步骤 | `GzHistory.caller`：`GzCallerFrame`、`ByteObjectsFit` | 调用者只改动句柄不拥有的块。改动之后的堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`），其中每个字节对象少于 `2^63` 字节。 |
@@ -87,7 +87,7 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 
 ### 源码是打过补丁的源码
 
-这些命题说的是应用了补丁 0002 到 0005 的 C。没有这些补丁，未打补丁的 C
+这些命题说的是应用了补丁 0002 到 0005 的 C。未打补丁的 C
 在某些历史上有未定义行为：见[源码报告与补丁](#source-reports-and-patches)。
 
 ### 为什么要读取预算
@@ -153,9 +153,9 @@ C 中一样。这个步骤还可以替换预言。
   接受一个世界，返回一个结果和一个新的世界。对每个预言值，它们各自都是对一个只依赖世界的结果取
   `pure`：从不产生故障，也从不改动堆（`fsRead_pure`、`fsWrite_pure`、`fsLseek_pure`、`fsClose_pure`、`fsOpen_pure`，在
   `ZlibF/Proof/gzfs.oracle.lean` 中）。`fsRead` 把读到的字节作为一个值返回。随后 `gz_load` 的翻译把它们存到 `buf`
-  处（`storeBytes`）；这次存入是一次普通的、受检查的堆存入，它是被翻译的 C 的一步，不是系统调用的一步。
-- **两个库调用改动堆。** `vsnprintf` 向它的目的地址存入数据：格式化出的字节和一个 NUL；预言让这次调用失败时，则是预言选择的字节和一个
-  NUL。两种情况下都在交给它的 `size` 个字节之内。格式串不是字符串，或者是模型的格式化器不能表示的格式，或者目的地址对这些字节不可写时，它产生故障。`vsnprintf_in`（`ZlibF/Proof/gzwrite.c.printf-run.lean`）表明：`gzvprintf`
+  处（`storeBytes`）；这次存入是一次受检查的堆复制，它是被翻译的 C 的一步，不是系统调用的一步。这次复制经过一个它自己创建并释放的临时块，所以它还会推进堆的块计数器（`nextBlk`）。
+- **两个库调用改动堆。** `vsnprintf` 向它的目的地址存入数据：格式化出的字节和一个 NUL；调用失败时，则是预言选择的字节和一个
+  NUL。两种情况下都在交给它的 `size` 个字节之内。预言让它失败时调用失败，格式化输出超过 `INT_MAX` 字节时调用也失败。格式串不是字符串，或者是模型的格式化器不能表示的格式，或者目的地址对这些字节不可写时，它产生故障。`vsnprintf_in`（`ZlibF/Proof/gzwrite.c.printf-run.lean`）表明：`gzvprintf`
   中的那次调用（目的地址在句柄的 `in` 缓冲区内）对每个预言值都会返回，保持 `GzInv`，并且只写句柄拥有的块。`zstrerror` 是
   `strerror(errno)` 的模型，它不分配任何东西，返回一个借用的字符串，这个字符串不是堆块。它改动堆的一个字段
   `libcErrorBorrow`，这个字段记录当前借出的是哪一段错误文本；块、存活标志和分配器字段都不变（`zstrerror_run`、`zstrerror_no_malloc`，在
@@ -386,7 +386,7 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 ## 位置、定位与错误消息的归属
 
-`gztell64` 报告逻辑位置加上待处理的跳过，除非 `past` 把这段跳过抑制掉。`gzoffset64` 查询描述符的位置，在读模式下再减去已缓冲的压缩输入。这是两个不同的位置。
+`gztell64` 报告逻辑位置加上待处理的跳过；`past` 置位时不加这段跳过。`gzoffset64` 查询描述符的位置，在读模式下再减去已缓冲的压缩输入。这是两个不同的位置。
 
 `gzseek64_step` 和 `gzseek_step`（`ZlibF/Proof/gz.inv-seek.lean`）对每个世界成立。路径有：
 

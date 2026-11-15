@@ -111,7 +111,8 @@ flowchart LR
 | A call on a stream that is not finished, whose pending bytes fill the output, returns `Z_OK` without touching the input | `public_pending_exhausted` | `deflate.c.engine.public-pending.lean` |
 
 All four theorems assume a well-formed state (`DGood`), `StreamBuffers` and an output pointer
-into a heap byte block. Their other premises:
+into a heap byte block. The first two also assume the well-formed tree state `TreesInvAt`. Their
+other premises:
 
 - `zlib_trailer_publish`: `wrap = 1` (a zlib stream whose trailer is not written), an empty
   pending buffer with its cursor at the start, and no held bits.

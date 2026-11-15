@@ -44,7 +44,7 @@
 - 进度与总览：[进度检查点](history/progress-checkpoints.md)、[早先的工作顺序与准备情况说明](history/next-work-and-readiness.md)、[总览变更记录](history/overview-changelog.md)。
 - 覆盖情况：[审查记录](history/coverage-review-record.md)、[早先的未完成项](history/coverage-open-items.md)。
 - 规格：[规格审查记录](history/specification-review.md)、[安全与功能拆分的计划](history/safety-functional-split-plan.md)、[deflate 内部证明范围](history/deviations-internal-scopes.md)。
-- 早先的目标 `DeflateCompletes` 的命题改正记录：[FINISH 之后出现新输入](history/deflate-completion-input.md)、[NULL 输出](history/deflate-completion-null-output.md)。
+- 早先的目标 `DeflateCompletes` 的命题更正记录：[FINISH 之后出现新输入](history/deflate-completion-input.md)、[NULL 输出](history/deflate-completion-null-output.md)。
 - 证明笔记：[早期证明笔记](history/proof-earlier-notes.md)、[早先关于功能证明需要什么的笔记](history/proof-functional-notes.md)、[早期论证与参考来源](history/references.md)。
 - 锁文件时期的审查记录：[本地证明登记检查](history/registration-review.md)、[公开查询登记审查](history/query-registration-review.md)、[已审查的递归执行辅助声明](history/compiler-helper-review.md)。
 

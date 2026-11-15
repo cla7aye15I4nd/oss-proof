@@ -53,7 +53,8 @@ which is not required for the safety results.
 | Separation, `uncompress` and `uncompress_z` | Three `Separate` premises of `UncompressSingleSafe`: source and destination; the destination-length cell and the destination; the destination-length cell and the source. |
 
 Two ranges are separate (`Separate`, `ZlibF/Spec/Public/Memory.lean`) when one of them is empty,
-or they lie in different blocks, or their byte ranges in one block do not overlap.
+or one of the two pointers is `NULL`, or they lie in different blocks, or their byte ranges in
+one block do not overlap.
 
 The separation has a row in [deviations](../deviations.md), "Counted decompression".
 

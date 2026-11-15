@@ -115,8 +115,9 @@ tables, and the allocator's bookkeeping.
 an object under its number. A freed number is never used again.
 
 **Pointer.** `NULL`, or a reference to an object with an offset. The model has no value for an
-uninitialised pointer: a pointer field in fresh memory reads as `NULL`, so a proof shows that a
-pointer field was written before it is read ([trusted base](trusted-base.md), item 2).
+uninitialised pointer: a pointer field in fresh memory reads as `NULL`, so a missing write does
+not show. That a pointer field is written before it is read is not a theorem; it is **to
+confirm** by source review ([trusted base](trusted-base.md), item 2).
 
 **Well-formed heap.** Three conditions that most goals state about the heap a call starts on:
 `Fresh` (no live block at or above the next block number), `Uniq` (a block number holds an object
@@ -147,8 +148,10 @@ the window, the hash tables, the pending buffer (`StreamOwned`, `GzOwned`).
 
 **Result cell.** The variable that a pointer argument names and the C stores a result through,
 such as `*destLen` or `*dictLength`. For eight public functions the translation takes the cell as
-a value and not as memory, so their goals say nothing about the cell's memory
-([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Result cells").
+a value and not as memory, so their goals say nothing about the cell's memory: the four
+`compress*` functions, the two `GetDictionary` functions, `deflatePending` and `deflateUsed`
+([deviations](deviations.md#stream-calls-inflate-and-deflate), rows "Result cells" and
+"Whole-buffer compression").
 
 **Library heap.** The phrase the API entries use for the well-formed heap defined above
 ([contracts](spec/api/contracts.md#reading-a-proof-goals-paragraph)).
@@ -168,7 +171,10 @@ the pin plus the files of `patches/`, applied in name order.
 **Normalisation.** One of four ways in which a translation may differ from a literal
 statement-by-statement copy of the C, each with the same behaviour as the C.
 [Translation](design/translation.md#the-accepted-normalisations) lists them with an example of
-each. Any other difference is a translation bug.
+each. By the working rules any other difference is a translation bug. The translations contain
+five further forms that the four do not cover as worded; the owner has not decided whether each
+is accepted or changed
+([the list](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)).
 
 ## Premises
 

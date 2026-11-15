@@ -1,4 +1,4 @@
-<!-- source-sha256: 4173efb7f0ca4c8f1b2d35144d573a924c222822cf46a0917243fc8891576cf9 -->
+<!-- source-sha256: bed9bc6eec105419f2f02b0e202dfccc1cab96eba049fc1ef83dea13d539b866 -->
 # `uncompress*` 的安全性
 
 `uncompress`、`uncompress_z`、`uncompress2` 和 `uncompress2_z` 在满足下列前提的每个输入上都是安全的，不论源字节是什么：调用会返回，没有未定义行为，只写目的缓冲区和长度单元，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -37,7 +37,7 @@
 | 分离，`uncompress2` 和 `uncompress2_z`（`UtilitySeparation`） | 源缓冲区、目的缓冲区、目的长度单元和源长度单元两两分离：共六个条件。 |
 | 分离，`uncompress` 和 `uncompress_z` | `UncompressSingleSafe` 的三条 `Separate` 前提：源缓冲区与目的缓冲区；目的长度单元与目的缓冲区；目的长度单元与源缓冲区。 |
 
-两个范围分离（`Separate`，`ZlibF/Spec/Public/Memory.lean`）是指：其中一个为空，或者它们位于不同的块，或者它们在同一个块里的字节范围不重叠。
+两个范围分离（`Separate`，`ZlibF/Spec/Public/Memory.lean`）是指：其中一个为空，或者两个指针之一是 `NULL`，或者它们位于不同的块，或者它们在同一个块里的字节范围不重叠。
 
 这一分离在[偏离记录](../deviations.md)中有一行：“计数解压”。
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: d7cbedae84e6d8d14ade0afdf4cc75eb38ef517ccbf91f91b12d8054bb5d7ce4 -->
+<!-- source-sha256: 2395097e298bf7e85bc68eccc528462c8fbf4c4d7182e1f12aa24cab2792f2c1 -->
 # 证明一个函数
 
 本页说明本项目里关于一个 C 函数的证明是怎样搭起来的，以及证明走不通时怎样诊断。它讲的是方法，本身不陈述任何结论；定理列在[地图](README.md)里，论证在各组件页面里。
@@ -74,13 +74,13 @@ flowchart TD
 
 其他模块只使用不变量的一小组接口引理，不展开它的定义。这样，改动不变量时只需重建它的接口，而不必重建所有用到它的模块。
 
-不变量太弱时，表现出来的是反例，而不是证明难做。举一个例子：早先的 `deflate` 不变量允许状态 `EXTRA_STATE` 带着为 `NULL` 的 `gz_header` 指针，从这样的状态运行 `deflate(Z_BLOCK)` 会出故障。修复办法是加一个子句 `HeaderInv.record`，说明在读这个指针的四个头部状态里它不是 `NULL`，同时证明每个可达状态都满足它（`reachable_inv_of`，`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`）。这条定理有一个假设 `SequenceFacts`：关于从满足不变量的状态出发的一次 `deflate` 调用的三个事实。这次调用会返回，并保持 `DInv` 和所拥有的块；它保持 `HeaderInv`；它保持 `CallFacts`。这三个事实本身也已证明：`sequence_facts`（`ZlibF/Proof/public-deflate-copy.lean`）没有任何假设，同一文件中的 `deflate_copy_public` 把 `reachable_inv_of` 应用于它。所以这个假设已被证明消去，不是留下来的假设。
+不变量太弱时，表现出来的是反例，而不是证明难做。举一个例子：早先的 `deflate` 不变量允许状态 `EXTRA_STATE` 带着为 `NULL` 的 `gz_header` 指针，从这样的状态运行 `deflate(Z_BLOCK)` 会出故障。修复办法是加一个子句 `HeaderInv.record`，说明在读这个指针的四个头部状态里它不是 `NULL`，同时证明每个可达状态都满足它（`reachable_inv_of`，`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`）。这条定理有一个假设 `SequenceFacts`：关于一次 `deflate` 调用的三个事实。三者的前提相同：调用之前的状态满足 `DInv`、`HeaderInv` 和 `CallFacts`，并且这次调用带有目标所要求的缓冲区和头部（`StreamBuffers`、`ActiveHeader`）。这次调用会返回，并保持 `DInv` 和所拥有的块；它保持 `HeaderInv`；它保持 `CallFacts`。这三个事实本身也已证明：`sequence_facts`（`ZlibF/Proof/public-deflate-copy.lean`）没有任何假设，同一文件中的 `deflate_copy_public` 把 `reachable_inv_of` 应用于它。所以这个假设已被证明消去，不是留下来的假设。
 
 仅与功能有关：界并不能说明解码出的是哪些字节。功能证明要针对同样的执行，加上一条状态与格式之间的关系，并说明每一步怎样改变它。
 
 ## 初始化、帧性质与所有权
 
-**初始化**在成功时确立不变量，并交代每一种分配失败的情况。默认分配器不把内存清零，所以证明要指出，每个后来被读的字段是由哪一次写初始化的。对指针字段，模型比 C 弱：新分配的内存里的指针字段读出来是 `NULL`，而且不出故障。因此证明要另外说明每个指针字段在被读之前已经写过；见[安全性](../spec/safety.md#uninitialised-memory)和[可信基础](../trusted-base.md)。
+**初始化**在成功时确立不变量，并交代每一种分配失败的情况。默认分配器不把内存清零，所以证明要指出，每个后来被读的字段是由哪一次写初始化的。对指针字段，模型比 C 弱：新分配的内存里的指针字段读出来是 `NULL`，而且不出故障。所以证明并不表明指针字段在被读之前已经写过：这一点**尚未确认**，须由源码审查确认；见[安全性](../spec/safety.md#uninitialised-memory)和[可信基础](../trusted-base.md)。
 
 **未初始化的整数**取任意值，定理对每一个这样的值都成立。例如 `slide_hash` 会读 `prev` 的每一个槽，不管写没写过；而链的遍历只会到达写过的槽（[流式压缩](deflate.md#hashing-chains-that-can-be-followed)）。模型让每个从未写过的单元在一次运行中取一个固定的值，所以对它读两次结果相同。C 并不保证这一点。有没有证明依赖这种一致，还没有系统地检查过；[模型的限制](../model-limits.md)里“每个单元一个任意初值”那一行记录了这条限制。
 

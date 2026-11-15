@@ -61,7 +61,9 @@ The wrapper theorems say nothing about the following. The init, copy and end the
 - **Fields are written before they are read.** A fresh block has arbitrary integers, and a
   fresh record has `NULL` pointers in the model
   ([uninitialised memory](../spec/safety.md#uninitialised-memory)). An allocation does not make
-  a pointer field safe to read.
+  a pointer field safe to read. For integers the theorems hold for every value. For pointer
+  fields this one item is not proved: a missing write does not show in the model, so it is
+  **to confirm** by source review.
 - **Each block is freed exactly once.** A non-null free needs the block to be live. The heap
   stores liveness; the proofs' `Owns` relation assigns the live blocks to a stream, and the end
   and failure-cleanup proofs free each owned block once.
@@ -97,5 +99,6 @@ allocations shown; it is not a maximum for the gz functions or for other paths.
 overflow for an arbitrary `int`. The value 169 holds for this build only: other type widths or
 build options give other flags.
 
-A constant return is still an exact contract: a wrong version pointer or a changed flag bit
-fails the function's proof mutant ([proof mutants](../checking/proof-mutants.md)).
+A constant return is still an exact contract. The [proof mutants](../checking/proof-mutants.md)
+test it: a copy of the translation that returns a wrong version pointer, or one with a changed
+flag bit, no longer passes the proof of that function.

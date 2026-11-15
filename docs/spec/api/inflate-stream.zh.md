@@ -1,4 +1,4 @@
-<!-- source-sha256: 1dcb79cdbf2183c085cbf91ff09b548f1134bb7a28db5f684ac1ed13a5479804 -->
+<!-- source-sha256: 5699b18a580b6c81c7041bdcaae07633fc3e4cba90e8b66e49eed99b8a9c0ffd -->
 
 # 流式解压
 
@@ -218,7 +218,7 @@ int ZEXPORT inflateInit2_(z_streamp strm, int windowBits, const char *version, i
 | --- | --- | --- |
 | `Z_OK`<br>**解码器已建立** | 版本及流大小匹配，状态分配成功且 windowBits 被接受。 | 提供输入和输出范围后调用 inflate；完成或放弃时调用 inflateEnd。 |
 | `Z_VERSION_ERROR`<br>**版本或结构大小不匹配** | version 为 NULL、首字节不匹配或 stream_size 错误；在检查 strm 前返回，内容不变。 | 修正版本和结构大小后重新初始化；本次失败无需 inflateEnd。 |
-| `Z_STREAM_ERROR`<br>**流或窗口请求被拒绝** | 版本检查通过后 strm 为 NULL；或成功分配状态后发现 windowBits 无效，释放该状态并将 state 置为 NULL。 | 提供可写的非活跃流和可接受的 windowBits 后重新初始化；本次失败无需结束。 |
+| `Z_STREAM_ERROR`<br>**流或窗口请求被拒绝** | 版本检查通过后 strm 为 NULL；或成功分配状态后发现 windowBits 无效，释放该状态并将 state 置为 NULL。 | 提供可写的、不是存活流的流和可接受的 windowBits 后重新初始化；本次失败无需结束。 |
 | `Z_MEM_ERROR`<br>**状态分配失败** | 状态分配失败，保留旧 state 字段；msg 已清空，所需默认分配器字段可能已设置。 | 在资源可用时可重新初始化；本次失败未保留新分配，无需 inflateEnd。 |
 
 **判读要点。**
@@ -283,7 +283,7 @@ int ZEXPORT inflateInit_(z_streamp strm, const char *version, int stream_size);
 | --- | --- | --- |
 | `Z_OK`<br>**zlib 解码器已建立** | 等价于 windowBits 为 15 的 inflateInit2_，状态分配成功。 | 用 inflate 解码 zlib 输入；完成或放弃后调用 inflateEnd。 |
 | `Z_VERSION_ERROR`<br>**版本或结构大小不匹配** | version 为 NULL、首字节不匹配或 stream_size 错误；不检查流且内容不变。 | 修正版本及结构大小后重新初始化；本次失败无需 inflateEnd。 |
-| `Z_STREAM_ERROR`<br>**流指针被拒绝** | 版本检查通过后 strm 为 NULL。 | 提供可写的非活跃流后重新初始化；本次失败无需结束。 |
+| `Z_STREAM_ERROR`<br>**流指针被拒绝** | 版本检查通过后 strm 为 NULL。 | 提供可写的、不是存活流的流后重新初始化；本次失败无需结束。 |
 | `Z_MEM_ERROR`<br>**状态分配失败** | 未能分配状态；保留旧 state，msg 和默认分配器字段可能已改变。 | 资源可用时可重新初始化；本次失败未保留新分配，无需 inflateEnd。 |
 
 ### 调用条件与效果 {#api-inflateinit_-contract}
@@ -708,6 +708,7 @@ int ZEXPORT inflateSync(z_streamp strm);
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSync"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 先在缓冲的整字节、再在输入中搜索 `00 00 ff ff`，跨调用保留部分匹配。输入指针/计数和 `total_in` 按已搜索输入量推进。不产生输出，`total_out` 不变。
+
 **结果。** `Z_OK` 表示找到模式：重置历史和头部挂接，保留总计数，可在后续块恢复解码。如果尚未读取头部，恢复使用裸模式；否则关闭尾部校验。仍未知的窗口大小变为 15。`Z_DATA_ERROR` 表示继续搜索；该搜索期间，普通 `inflate` 返回 `Z_STREAM_ERROR`。
 
 **边界情况。** 无输入且缓冲位少于八位时，返回 `Z_BUF_ERROR`，不发生变化。流检查失败不改变任何内容。找到的模式不一定是真正的刷新点；即使是同步刷新边界，也可能需要更早的历史。恢复不承诺有效后缀，也不承诺恢复校验和检查。不分配。
@@ -784,7 +785,7 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 
 | 返回值 | 含义与出现条件 | 调用者接下来 |
 | --- | --- | --- |
-| `Z_OK`<br>**解码状态已复制** | 有效源被复制到不同的非活跃目的流；目的流拥有独立状态和所需窗口，源不变。 | 两个流最终都须 inflateEnd；继续前提供分离的可写目的缓冲区并维持共享指针的生命周期。 |
+| `Z_OK`<br>**解码状态已复制** | 有效源被复制到另一个不是存活流的目的流；目的流拥有独立状态和所需窗口，源不变。 | 两个流最终都须 inflateEnd；继续前提供分离的可写目的缓冲区并维持共享指针的生命周期。 |
 | `Z_STREAM_ERROR`<br>**复制请求被拒绝** | dest 为 NULL 或源流检查失败；非 NULL dest 的 state 清空，其他字段不变，源不变。 | 修正源和目的流后再复制；本次失败未建立需结束的目的流。 |
 | `Z_MEM_ERROR`<br>**副本分配失败** | 状态或窗口分配失败；本次已分配存储全部释放，目的流的 state 为 NULL，源不变。 | 资源可用时可重新复制；本次失败的目的流无需 inflateEnd，源仍须正常结束。 |
 

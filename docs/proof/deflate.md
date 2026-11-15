@@ -295,9 +295,12 @@ three facts about `deflate` itself: one call is safe and keeps `DInv`, it keeps 
 it keeps `CallFacts`. `operation_step_of` takes the first of these and the step theorems of
 `deflateSetDictionary` and `deflateParams`. The three facts are the theorems `deflate_call_of`,
 `deflate_header_of` and `deflate_calls_of`, each under the hypothesis that F9 holds for the two
-smallest buffers (`TinyOverlay`). `sequence_facts` (`public-deflate-copy.lean`) supplies that
-hypothesis from `tinyOverlayAt_128` and `tinyOverlayAt_256`, and so has no hypothesis left. The
-registered theorem `deflate_sequence_safety` is `deflate_sequence_safety_of` applied to it.
+smallest buffers (`TinyOverlay`). `sequence_facts_of` collects the three into the record under
+that hypothesis. The registered theorem `deflate_sequence_safety` (`public-deflate-goals.lean`)
+is `deflate_sequence_safety_of` applied to `sequence_facts_of`, with the hypothesis supplied from
+the two overlay theorems `tinyOverlayAt_128` and `tinyOverlayAt_256`; it has no hypothesis left.
+`sequence_facts` (`public-deflate-copy.lean`) is the same record built from the same two
+theorems. The `deflateCopy` proof uses it.
 
 | Step | Theorem | Why it holds |
 | --- | --- | --- |

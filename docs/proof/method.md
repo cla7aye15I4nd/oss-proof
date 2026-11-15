@@ -108,8 +108,10 @@ pointer, and a `deflate(Z_BLOCK)` run from such a state faulted. The repair was 
 `HeaderInv.record`, which says the pointer is not `NULL` in the four header states that read
 it, together with a proof that every reachable state has it (`reachable_inv_of`,
 `ZlibF/Proof/deflate.c.universal-sequence-safety.lean`). That theorem takes one hypothesis,
-`SequenceFacts`: three facts about one `deflate` call from a state with the invariant. The call
-returns and keeps `DInv` and the owned blocks; it keeps `HeaderInv`; it keeps `CallFacts`.
+`SequenceFacts`: three facts about one `deflate` call. Each has the same premises: the state
+before the call has `DInv`, `HeaderInv` and `CallFacts`, and the call has the buffers and the
+header that the goal asks for (`StreamBuffers`, `ActiveHeader`). The call returns and keeps
+`DInv` and the owned blocks; it keeps `HeaderInv`; it keeps `CallFacts`.
 The three facts are themselves proved: `sequence_facts`
 (`ZlibF/Proof/public-deflate-copy.lean`) has no hypothesis, and `deflate_copy_public` in that
 file applies `reachable_inv_of` to it. So the hypothesis is discharged, not assumed.
@@ -122,8 +124,8 @@ between the state and the format, for the same executions, and shows how each st
 **Initialisation** establishes the invariant on success and accounts for every allocation
 failure. The default allocator does not zero memory, so the proof shows the write that
 initialises each field that is read later. For pointer fields the model is weaker than C: a
-pointer field in fresh memory reads as `NULL` without a fault. The proof therefore shows
-separately that each pointer field is written before it is read; see
+pointer field in fresh memory reads as `NULL` without a fault. So a proof does not show that
+a pointer field is written before it is read: that is **to confirm** by source review; see
 [safety](../spec/safety.md#uninitialised-memory) and the [trusted base](../trusted-base.md).
 
 **Uninitialised integers** have an arbitrary value, and a theorem holds for every such value.

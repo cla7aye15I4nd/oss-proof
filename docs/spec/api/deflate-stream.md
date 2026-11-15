@@ -68,7 +68,8 @@ the bytes delivered, then give the same stream more input or more output room.
   clears a non-NULL destination state. Query output cells are untouched on this refusal.
 - **Restricted domain** means these explicit memory, lifetime and call-order conditions,
   plus the entry's Pre. It does not mean every representable pointer or integer is accepted.
-  Error summaries cover readable checked states, not arbitrary invalid addresses.
+  Error summaries cover stream records and states that the checks can read, not arbitrary
+  invalid addresses.
 - **Reachable stream:** the proof goals speak of a reachable stream where the contracts say live
   stream ([how to read a contract](contracts.md)). A call that a goal covers extends the stream's
   history: when it returns, with any code, the stream is reachable again and the goal of the next
@@ -699,7 +700,7 @@ The result says whether the new level and strategy were installed. Completing th
 | `Z_OK`<br>**New settings installed** | Parameters are valid and required old-block work is complete; level -1 selects 6, and a changed level restores its standard tuning. A required flush uses the old settings and may make I/O progress. | Account for output and unconsumed input through the updated pointers and counts, then continue with the new settings. |
 | `Z_BUF_ERROR`<br>**Old block incomplete** | Required old-block work is incomplete; level and strategy retain their old values, but compression progress, including input consumed and output delivered, is retained. | Provide more output room, preserve the updated stream and remaining input, and retry deflateParams; the live stream and allocations are retained. |
 | `Z_STREAM_ERROR`<br>**Setting arguments refused** | level is neither -1 nor 0..9, or strategy is outside 0..4; refusal changes no stream fields. | Correct the arguments and retry in a legal stream phase; the new settings have not taken effect. |
-| `Z_STREAM_ERROR`<br>**Required flush refused** | The arguments are valid, but a required deflate(Z_BLOCK) returns Z_STREAM_ERROR, for example after finishing began or when buffer conditions fail; new settings are not installed. | Establish the original stream phase and buffer conditions. Once finishing began, follow the Z_FINISH protocol, or legally reset/end. |
+| `Z_STREAM_ERROR`<br>**Required flush refused** | The arguments are valid, but a required deflate(Z_BLOCK) returns Z_STREAM_ERROR, for example after finishing began or when buffer conditions fail; new settings are not installed. | Determine the stream phase and the buffer conditions the call started in. Once finishing began, follow the Z_FINISH protocol, or legally reset/end. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check fails before normal operation; neither the stream nor result cells are written. | Establish a live stream and the call preconditions; this result does not complete the operation. |
 
 **Reading the result.**
@@ -1025,8 +1026,9 @@ stays unchanged. Some input can remain when output fills. No allocation or free 
 
 Across calls, delivered bytes form a prefix of a valid encoding of accepted input, using
 the chosen wrapper, settings and preset dictionary. Completed output decodes to that input.
-This specifies valid output, not one unique compressed byte sequence. `adler` tracks accepted
-input using Adler-32 for zlib and CRC-32 for gzip after header emission; raw has no input checksum.
+This specifies valid output, not one unique compressed byte sequence. Once the header has been
+written, `adler` tracks the accepted input, with Adler-32 for zlib and CRC-32 for gzip; raw has
+no input checksum.
 
 `Z_OK` means continuation may be needed. `Z_STREAM_END` occurs only with `Z_FINISH`, after
 all supplied input and all compressed output, including trailer, have been delivered.

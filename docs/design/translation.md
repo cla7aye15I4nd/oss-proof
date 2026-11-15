@@ -27,7 +27,7 @@ in [the accepted normalisations](#the-accepted-normalisations):
    with the plain operator.
 
 By the rule, anything outside these four is a translation bug. The current translations contain
-forms outside the four. They are listed, with file and function, in
+forms outside the four. The instances found so far are listed, with file and function, in
 [forms not covered by the four accepted normalisations](#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided).
 The owner has not decided whether each form becomes an accepted normalisation or is changed to
 follow the C.
@@ -284,7 +284,7 @@ The helpers are listed in [architecture](architecture.md#where-the-trusted-seman
 
 ## Forms not covered by the four accepted normalisations; the owner has not decided
 
-The translations in `ZlibF/Zlib/` contain the five forms below. None of the four accepted
+The translations in `ZlibF/Zlib/` contain at least the six forms below. None of the four accepted
 normalisations covers them as worded. They are recorded here as observed facts. Whether each
 form becomes an accepted normalisation or is changed to follow the C is an open decision of the
 owner.
@@ -297,8 +297,10 @@ hand:
   that has `&&` or `||` together with a nested action `(← …)`;
 - every record update that sets two or more fields.
 
-The searches find forms 1, 2 and 4 by their text. Form 3 has no textual mark, so its list gives
-examples and is not complete. Form 5 was found in a file header. No instance below was found to
+The tables below hold the instances these searches and later readings found. They are examples,
+not a complete inventory. A second reading found instances of forms 1 and 4 that the searches
+had missed, and form 6, which no search looks for; more instances, and more forms, may exist.
+Forms 3 and 6 have no textual mark. Form 5 was found in a file header. No instance below was found to
 compute a different value from the C. That is a reading of each place, not a proved fact.
 
 **1. A value just stored is used again instead of being read back.**
@@ -308,9 +310,12 @@ compute a different value from the C. That is a reading of each place, not a pro
 | `inflate.c.lean`, `inflateSync` | `state->have = 0; syncsearch(&(state->have), buf, len);` | The field is set to 0, and the call is `syncsearch 0 buf len`: the callee gets the literal, not the field read back. The second call of the function does read the field. |
 | `inflate.c.lean`, `inflate_CODELENS` and `inflate_LENLENS`; `infback.c.lean`, `back_TABLE` (two places) | `state->next = state->codes; state->lencode = (const code FAR *)(state->next);` | One update with `next := codesP c.st, lencode := codesP c.st`. `inflate_LENLENS` sets `distcode` the same way, for `state->lencode = state->distcode = (const code FAR *)(state->next)`. |
 | `deflate_strategies.c.lean`, `deflate_stored` | `s->strstart = s->w_size; s->insert = s->strstart;` | One update with `strstart := d.w_size, insert := d.w_size`. |
+| `deflate_strategies.c.lean`, `deflate_stored` (the two window slides) | `s->strstart -= s->w_size; zmemcpy(s->window, s->window + s->w_size, s->strstart);` and later `if (s->insert > s->strstart) s->insert = s->strstart;` | The new value is the local `ss`. The copy length and the test of `insert` use `ss`; the field is stored afterwards (form 6). |
+| `inflate.c.lean`, `updatewindow` | `state->wnext += dist; if (state->wnext == state->wsize) state->wnext = 0; if (state->whave < state->wsize) state->whave += dist;` | The sum is the local `wnext`, which is compared with `wsize` and set to 0 when equal. One update then stores `wnext` and `whave`: the field is not stored and read back in between. |
+| `deflate_base.c.lean`, `flush_pending` | `s->pending -= len; if (s->pending == 0)` | The difference is the local `pend`. It is stored, and the test uses `pend`, not the field. |
 
-Normalisation 3 does not cover the last two rows as its example explains it: here a right side
-reads a field that an earlier statement of the group wrote.
+Normalisation 3 does not cover the second and third rows as its example explains it: here a
+right side reads a field that an earlier statement of the group wrote.
 
 **2. An operand is evaluated before the short-circuit test that guards it in C.** C evaluates
 the right operand of `&&` and `||` only when the left operand does not decide. In a Lean `do`
@@ -335,7 +340,8 @@ the same function has already loaded, directly or through the state check it cal
 of the stream embedded in the gz state that the function has already loaded. The three
 others can fault in the model on a state for which the C does not evaluate the operand: the two
 rows with checked arithmetic (`deflate`, `deflateParams`) and the array read of
-`detect_data_type`. The accepted safety theorems show that the translation does not fault in
+`detect_data_type`. In `deflate`, only `RANK old_flush` can fault: `flush` has passed the range
+test at the start of the function, and `old_flush` is the stored field `last_flush`. The accepted safety theorems show that the translation does not fault in
 their domain, so the difference lies outside it.
 
 Where the right operand is a call, or a read through a pointer that the left operand tests, the
@@ -382,7 +388,8 @@ Some of these plain shifts are not an unsigned operand with a literal count:
 
 - The operand is signed and the count is a literal: `windowBits >>> 4` in `inflateReset2`,
   `(s->bi_valid + bits) >> 3` in `deflatePrime`, `n >>= 1` on a `z_off64_t` in `x2nmodp`,
-  `k <<< 3` in `braidTab` and `braidBigTab`, `-(1L << 16)` in `inflateMark`, and the constants
+  `k <<< 3` in `braidTab` and `braidBigTab`, `-(1L << 16)` in `inflateMark`,
+  `(state->flags >> 9) & 1` in `inflate_HCRC` (`flags` is an `int`), and the constants
   `STORED_BLOCK << 1`, `STATIC_TREES << 1` and `DYN_TREES << 1` in `trees.c.lean`. A right shift
   of a negative value is implementation-defined in C, not undefined; the build's compiler and
   Lean's `Int32` and `Int64` both shift arithmetically.
@@ -398,6 +405,23 @@ an arbitrary value, and a theorem must hold for every value. The file header of
 `inflate.c.lean` records this choice. Whether `inflate` can read one of these locals before
 assigning it is **to confirm** by source review: the model fixes these values, so a proof
 about the current translation does not show it.
+
+**6. A store is written after a call that follows it in C.** The C stores a field and then
+calls `zmemcpy`. The Lean runs the copy first and writes the field in a record update after it.
+
+| File, function | C | Lean |
+| --- | --- | --- |
+| `deflate_strategies.c.lean`, `deflate_stored` | `s->matches = 2; zmemcpy(s->window, s->strm->next_in - s->w_size, s->w_size);` | `memcpyB` runs first. `matches := 2` is in the update after it, together with `strstart` and `insert`. |
+| `deflate_strategies.c.lean`, `deflate_stored` (the two window slides) | `s->strstart -= s->w_size; zmemcpy(s->window, s->window + s->w_size, s->strstart);` The second slide has `s->block_start -= s->w_size;` before these. | The new values are the locals `ss` and `bs`. `memcpyB` runs, and one update after it stores `strstart` (and `block_start`) with `matches` and `insert`. |
+
+In these places the copy reads and writes bytes of the window and of the input, and the moved
+stores write fields of the state record.
+
+A related regrouping has no call in it. In `flush_pending` (`deflate_base.c.lean`) the C
+interleaves stores to two records: `strm->next_out += len; s->pending_out += len;
+strm->total_out += len; strm->avail_out -= len; s->pending -= len;`. The Lean computes both new
+pointers, writes the three stream fields in one update and then the two state fields in
+another. Normalisation 3 speaks of consecutive assignments to one record.
 
 ## Integer types and arithmetic
 

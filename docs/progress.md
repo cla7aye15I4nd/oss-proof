@@ -71,16 +71,18 @@ No other goal, registered theorem or registry line differs from `bde170e9`.
 
 **Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
 functions are proved safe through the sequence goals of 3b and 3c, which cover every call in
-every history. They have no separate one-function goal yet; stating and registering those goals
-is the first item of [Ordered next work](#ordered-next-work).
+every history. They have no separate one-function safety goal yet; stating and registering those
+goals is the first item of [Ordered next work](#ordered-next-work).
 
 **Planned after the safety results: the round trip of the default zlib stream.** The default
 stream is `deflateInit` at the default level with `inflateInit`. The order is: first the
 conditional form (when a `deflate` call sequence and an `inflate` call sequence both reach
 `Z_STREAM_END`, the bytes `inflate` writes are the bytes `deflate` read); then completeness (with
 enough output room and successful allocation both sides reach `Z_STREAM_END`); then the
-unconditional round trip and `uncompress(compress(x)) = x`. None of this is proved for the
-translated C. The registered goal `Api.Goal.roundtrip` is a model-only statement: it is about the
+unconditional round trip and `uncompress(compress(x)) = x`. The conditional form is checked on
+`dev` for the translated C: the theorem `deflate_inflate_roundtrip`
+(`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), which is not registered. Completeness and
+the unconditional form are open. The registered goal `Api.Goal.roundtrip` is a model-only statement: it is about the
 abstract API model. Earlier work on the deflate side of the round trip (`Ledger`, `ledger_*`,
 `completes`, `bound_before_output`, the decoding part of `deflate_sequence`) is kept; which of
 it the default-stream round trip needs is not settled on this page.

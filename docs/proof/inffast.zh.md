@@ -1,4 +1,4 @@
-<!-- source-sha256: 8d30098330dc5ceabad4bf6f74cc60b96ba4dc1cac702ada918fb1dd233f8915 -->
+<!-- source-sha256: 6a54d14457d2d8728f96b8b9b3de5ddb20517347680cb672ef94e79e219ce6f9 -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -21,7 +21,7 @@
 
 调用者这样使用这些定理：
 
-- **`inflateBack`。** `LEN_fast_p`（`infback.c.safety-fast.lean`）证明入口条件，并应用 `fast_consumes`。这在已登记的 `inflate_back_sequence_safety` 的证明内部。从 `inflateBack` 发出的调用靠它才安全，这个调用者的循环也靠它才终止。
+- **`inflateBack`。** `fast_env`（`infback.c.safety-fast.lean`）证明入口条件。同一文件中的 `LEN_fast_p` 从它取得这些条件，并应用 `fast_consumes`。这在已登记的 `inflate_back_sequence_safety` 的证明内部。从 `inflateBack` 发出的调用靠它才安全，这个调用者的循环也靠它才终止。
 - **`inflate`，输入和输出位于两个不同的堆块。** `inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在这条前提下证明入口条件，然后对它们应用 `inflate_fast_safe_progress`。
 - **`inflate`，每一种布局。** 已登记的 `inflate_sequence_safety_public` 允许输入和输出是同一个块里的两段。对快速调用，它的证明用的是 `inflate_fast_default_view_buffers_progress`（`inflate.c.fast-view-public-step.lean`，已检查，未登记）。这条定理对块没有前提。它是对同一个翻译后的函数的第二个证明，针对调用者的区域和解码器不变量陈述（`inflate.c.fast-view-*.lean`）；它不使用 `EnvG`。`fast_consumes` 没有用于 `inflate`。见[流式解码](inflate.md#the-fast-path)。
 - **`inflate`，功能结论。** `inflate_fast_entry`（`inflate.c.meaning-fast.lean`，已检查，未登记）对每一种布局证明入口条件。功能定理 `fast_call_meaning` 用到它；安全结论不用它。
@@ -32,7 +32,7 @@
 
 ## 假设
 
-这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段（`ZlibF/Proof/inffast.c.env.lean`）。`Env` 是 `inflate` 的情形，这时窗口绝不是输出对象；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：调用者在应用本页的定理之前证明它们。`LEN_fast_p`（`infback.c.safety-fast.lean`）为 `inflateBack` 做这件事。`inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在输入和输出位于两个不同的堆块时为 `inflate` 做这件事；它带有这条前提（`ib ≠ ob`）。`inflate_fast_entry`（`inflate.c.meaning-fast.lean`）为每一种布局下的 `inflate` 做这件事。
+这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段（`ZlibF/Proof/inffast.c.env.lean`）。`Env` 是 `inflate` 的情形，这时窗口绝不是输出对象；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：调用者在应用本页的定理之前证明它们。`fast_env`（`infback.c.safety-fast.lean`）为 `inflateBack` 做这件事。`inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在输入和输出位于两个不同的堆块时为 `inflate` 做这件事；它带有这条前提（`ib ≠ ob`）。`inflate_fast_entry`（`inflate.c.meaning-fast.lean`）为每一种布局下的 `inflate` 做这件事。
 
 - **流。** `strm` 指向一个可写的流记录，它的 `state` 是 inflate 状态。
 - **输入。** `next_in` 指向一个少于 `2^63` 字节的字节对象内部。`avail_in ≥ 6`，这 `avail_in` 个字节都在对象内。字节对象是一个堆块，或者模型里其他的字节数组，例如状态记录内部的数组。

@@ -4,7 +4,7 @@
 
 Use an `inflate` stream to decode input in pieces while controlling output space. Select zlib,
 gzip or raw DEFLATE at initialization, then continue with more input or room until completion,
-a dictionary request or an error. End releases the decoder after any of those outcomes.
+a dictionary request or an error. `inflateEnd` releases the decoder after any of those outcomes.
 For whole-buffer zlib decoding, see [uncompress](utility.md#uncompress2_z).
 
 | Task | Entries |
@@ -281,7 +281,7 @@ The result says whether a decoder with the requested format was created. Only su
 | --- | --- | --- |
 | `Z_OK`<br>**Decoder created** | The version and stream size match, state allocation succeeded, and windowBits was accepted. | Supply input and output ranges, call inflate, then call inflateEnd when finished or abandoning decoding. |
 | `Z_VERSION_ERROR`<br>**Version or structure size mismatch** | version is NULL, its first byte mismatches, or stream_size is wrong; this returns before inspecting strm and changes nothing. | Correct the version and structure size before initializing again; this failed attempt needs no inflateEnd. |
-| `Z_STREAM_ERROR`<br>**Stream or window request refused** | After the version check, strm is NULL; or state allocation succeeds but windowBits is invalid, so that state is freed and state becomes NULL. | Provide a writable inactive stream and accepted windowBits before initializing again; this failed attempt needs no end call. |
+| `Z_STREAM_ERROR`<br>**Stream or window request refused** | After the version check, strm is NULL; or state allocation succeeds but windowBits is invalid, so that state is freed and state becomes NULL. | Provide a writable non-live stream and accepted windowBits before initializing again; this failed attempt needs no end call. |
 | `Z_MEM_ERROR`<br>**State allocation failed** | State allocation failed and the old state field is retained; msg is cleared and required default allocator fields may have been installed. | Initialization may be tried again when resources are available; this failure retained no new allocation and needs no inflateEnd. |
 
 **Reading the result.**
@@ -358,7 +358,7 @@ The result says whether a zlib decoder with a maximum 32 KiB window was created.
 | --- | --- | --- |
 | `Z_OK`<br>**Zlib decoder created** | This is inflateInit2_ with windowBits 15, and state allocation succeeded. | Decode zlib input with inflate; call inflateEnd after completion or abandonment. |
 | `Z_VERSION_ERROR`<br>**Version or structure size mismatch** | version is NULL, its first byte mismatches, or stream_size is wrong; the stream is not inspected and nothing changes. | Correct the version and structure size before initializing again; this failure needs no inflateEnd. |
-| `Z_STREAM_ERROR`<br>**Stream pointer refused** | strm is NULL after the version check passed. | Provide a writable inactive stream before initializing again; this failure needs no end call. |
+| `Z_STREAM_ERROR`<br>**Stream pointer refused** | strm is NULL after the version check passed. | Provide a writable non-live stream before initializing again; this failure needs no end call. |
 | `Z_MEM_ERROR`<br>**State allocation failed** | State could not be allocated; the old state remains, while msg and default allocator fields may have changed. | Initialization may be tried again when resources are available; no new allocation was retained and no inflateEnd is needed. |
 
 ### Calling conditions and effects {#api-inflateinit_-contract}
@@ -859,6 +859,7 @@ recovery search, with readable input.
 **Post.** Searches buffered whole bytes and then input for `00 00 ff ff`, retaining
 partial matches across calls. Input pointers/counts and `total_in` advance by the
 input searched. No output is produced and `total_out` is preserved.
+
 **Results.** `Z_OK` means a pattern was found: history and header registration are
 reset, totals are preserved, decoding can resume at the following block. If no
 header had been read, recovery uses raw mode; otherwise it disables trailer
@@ -944,7 +945,7 @@ The result says whether the destination acquired an independently endable decode
 
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
-| `Z_OK`<br>**Decoder state copied** | The valid source was copied to a distinct inactive destination; the destination owns independent state and any required window, and the source is unchanged. | Eventually call inflateEnd on both streams; provide separate writable destinations before continuing and preserve shared pointer lifetimes. |
+| `Z_OK`<br>**Decoder state copied** | The valid source was copied to a distinct non-live destination; the destination owns independent state and any required window, and the source is unchanged. | Eventually call inflateEnd on both streams; provide separate writable destinations before continuing and preserve shared pointer lifetimes. |
 | `Z_STREAM_ERROR`<br>**Copy request refused** | dest is NULL or the source stream check failed; a non-NULL dest has state cleared and other fields unchanged, and the source is unchanged. | Correct source and destination before copying again; this failure created no destination stream requiring end. |
 | `Z_MEM_ERROR`<br>**Copy allocation failed** | State or window allocation failed; all allocations from this attempt are freed, destination state is NULL, and source is unchanged. | Copy may be tried again when resources are available; the failed destination needs no inflateEnd, while the source still needs normal cleanup. |
 

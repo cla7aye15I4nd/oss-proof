@@ -1,4 +1,4 @@
-<!-- source-sha256: 25c4c328abd1eb29e93bf435ddd778fac462f887e9d6e2a5e450a203c0f041fb -->
+<!-- source-sha256: f2879c09212685e1072bfc7109b624f1f41e7962cb0749ce15e0893d93a17798 -->
 # 树与块输出：块刷新为什么是安全的
 
 源文件：`zlib/trees.c`，符号布局在 `zlib/deflate.h` 中。翻译：`ZlibF/Zlib/trees.c.lean`。
@@ -37,7 +37,7 @@
 - 代价字段 `opt_len` 和 `static_len` 以及码长的频率都是零（`BlockClear`）。
 - `-2^62 ≤ block_start ≤ strstart ≤ window_size`。第一个界使块长 `strstart - block_start` 落在 `long` 的范围内；窗口滑动之后 `block_start` 可以是负的。
 - `StreamBuffers` 成立，并且 `next_out` 指向堆上一个字节块的内部，或者指向某个 deflate 状态记录的 `depth` 数组内部。模型里可写的字节存储只有这两种；各策略由 `StreamBuffers` 和不为 `NULL` 的 `next_out` 得到这条前提（`output_reference`）。
-- **动态形式的共用缓冲区余量**（`DynamicOverlay`，`trees.c.universal-block.lean`）。这条前提是一个假设，不是关于大小的事实：如果在这个状态上建树，并且代价选中了动态形式，那么准备好的状态具有[事实 F9](#the-overlay-lemma-f9) 的余量 `DynamicRoom`。“结论”表中的三条共用缓冲区定理对每一个 `B` 证明了它。`FlushSafeAt`（`deflate.c.universal-strategies.lean`）是去掉这条假设之后的 `flush_block_only_safe` 命题，各策略用的就是它。
+- **动态形式的共用缓冲区余量**（`DynamicOverlay`，`trees.c.universal-block.lean`）。这条前提是一个假设，不是关于大小的事实。它有这样几个条件：在这个状态上建树，并且建树只改变树的各字段和两个代价；树的描述至多 2283 位；各符号的代价超出每符号 24 位的部分，对已记录的 `n` 个符号求和，满足 `1000 * bitExcess ≤ 6257 * (n + 3)`；代价选中了动态形式。在这些条件下，准备好的状态具有[事实 F9](#the-overlay-lemma-f9) 的余量 `DynamicRoom`。“结论”表中的三条共用缓冲区定理对每一个 `B` 证明了它。`FlushSafeAt L`（`deflate.c.universal-strategies.lean`）是去掉这条假设之后、针对 `lit_bufsize` 为 `L` 的状态的 `flush_block_only_safe` 命题；各策略用的就是它，各自取自己的缓冲区大小。
 
 这条定理对参数 `last` 的两个值都成立。
 
@@ -141,10 +141,10 @@ overflow -= 2;
 
 | 函数 | 它的访问为什么不越界 |
 | --- | --- |
-| `scan_tree` | 它作用于两棵数据树。它在 `tree[max_code + 1]` 处写一个哨兵值 `0xffff`；这个下标至多是 286 或 30，在 573 项和 61 项的数组之内。真实的码长是 0 到 15，用来访问 `bl_tree` 的下标是 0 到 18；哨兵只参与比较，从不用作下标。`ws_scan_tree`（`trees.c.scan-tree.lean`）证明这个函数会返回。它假设到 `max_code` 为止的码长至多是 15，对 `max_code + 1` 处的表项不作任何假设。`scGuard_lengths` 说明：之后的数组只有 `max_code + 1` 处的码长不同，它是 `0xffff`。这两条定理和 `send_tree_emit` 不在登记表里 |
+| `scan_tree` | 它作用于两棵数据树。它在 `tree[max_code + 1]` 处写一个哨兵值 `0xffff`；这个下标至多是 286 或 30，在 573 项和 61 项的数组之内。真实的码长是 0 到 15，用来访问 `bl_tree` 的下标是 0 到 18；哨兵只参与比较，从不用作下标。`ws_scan_tree`（`trees.c.scan-tree.lean`）证明这个函数会返回。它假设到 `max_code` 为止的码长至多是 15，对 `max_code + 1` 处的表项不作任何假设。它的结论还说明：之后的树是数组 `scGuard`，即原数组只把 `max_code + 1` 处的码长改成 `0xffff`。`scGuard_lengths` 是关于这个数组的码长的引理，不是关于这个函数的。这两条定理和 `send_tree_emit` 不在登记表里 |
 | `build_bl_tree` | 它从 18 往下扫描 `bl_order[max_blindex]`，最迟在 3 处停下 |
 | `send_all_trees` | 它分别用 5、5、4 位发送 `lcodes - 257`、`dcodes - 1` 和 `blcodes - 4`，然后发送 `blcodes ≤ 19` 个三位码长 |
-| `send_tree` | 它重复 `scan_tree` 的扫描，读的是同样的表项，包括哨兵。`send_tree_emit`（`trees.c.send-tree.lean`）证明它会返回，条件是到 `max_code` 为止的码长至多是 15，`max_code + 1` 处可以是任意 16 位值 |
+| `send_tree` | 它重复 `scan_tree` 的扫描，读的是同样的表项，包括哨兵。`send_tree_emit`（`trees.c.send-tree.lean`）证明它会返回，条件是到 `max_code` 为止的码长至多是 15，`max_code + 1` 处可以是任意 16 位值，并且出现的位长符号都有合适的码，`pending_buf` 里有容纳这些位的空间 |
 
 ### 位与待输出字节
 

@@ -72,7 +72,7 @@ int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits, unsigned char FAR *
 
 - 窗口始终属于调用者；此函数只建立回调 API 状态，不能作为普通 inflate 状态使用。
 
-### 调用条件与状态效果 {#api-inflatebackinit_-contract}
+### 调用条件与效果 {#api-inflatebackinit_-contract}
 
 **定义域。** 受限定义域：有效调用者内存、未活动的流和默认分配器。
 
@@ -127,7 +127,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 - Z_BUF_ERROR 时用 next_in 是否为 NULL 区分输入耗尽与输出失败；这不是普通 inflate 的缓冲重试协议。
 - 输入回调返回字节数，零表示无输入；输出回调返回零表示成功。错误之前及最终错误路径都可能交付输出。
 
-### 调用条件与状态效果 {#api-inflateback-contract}
+### 调用条件与效果 {#api-inflateback-contract}
 
 **定义域。** 受限定义域：活跃的回调解码器、有效且分离的切片，以及有限、会返回的
 回调协议。包括任意畸形输入字节。
@@ -190,7 +190,7 @@ int ZEXPORT inflateBackEnd(z_streamp strm);
 | `Z_OK`<br>**内部状态已释放** | 有效回调解码器的内部状态已释放，state 置为 NULL；窗口及其他字段不变。 | 现在可释放或复用调用者窗口；再次解码前重新初始化。 |
 | `Z_STREAM_ERROR`<br>**未执行释放** | strm、state 或 zfree 为 NULL；不释放任何内存。 | 确认生命周期及匹配的释放函数；不能由这些检查推断任意非 NULL 状态有效。 |
 
-### 调用条件与状态效果 {#api-inflatebackend-contract}
+### 调用条件与效果 {#api-inflatebackend-contract}
 
 **定义域。** 受限定义域：使用有效默认释放函数的活跃回调解码器，另包括经检查的
 NULL 流、NULL 状态和 NULL 释放函数拒绝情形。

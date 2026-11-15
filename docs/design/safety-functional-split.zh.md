@@ -1,4 +1,4 @@
-<!-- source-sha256: d695a5807b3c02ee38cb9b82370fdbb77c3dab75a96a5ecdfacd5f4c98053ab5 -->
+<!-- source-sha256: fd0fca9c894eff9f12046d80ac62e9c10f381337a315054ef3a680d31a0f788c -->
 # 规格的布局：安全与功能
 
 必需的目标是安全目标。它们与功能目标分开存放，读者不读任何功能规格，就能看到全部必需的目标。本页说明每一类目标放在哪里，哪条导入规则把它们分开，以及这条规则怎样检查。形成这个布局的计划，连同它的步骤和状态，在一个[历史页面](../history/safety-functional-split-plan.md)中。
@@ -13,7 +13,7 @@
 
 关于公开函数的目标，不论在三个目录中的哪一个，Lean 名字都是 `ZlibF.Spec.Public.Goal.<name>`。目录表明种类；命名空间相同。清单文件 `tests/audit/public-api.json` 只列这个命名空间里的目标。
 
-`Spec/Functional/` 下有两组功能目标用的是别的命名空间。API 模型的目标是 `ZlibF.Spec.Api.Goal.<name>`（`Functional/Api/Goals.lean`），例如 `ZlibF.Spec.Api.Goal.roundtrip`。记号格式的目标是 `ZlibF.Spec.Token.Goal.<name>`（`Functional/Format/Token.lean`）。它们是关于模型的命题，不是关于翻译后的 C 的命题。`tests/audit/goals.txt` 按完整名字列出每个目标；它还列出关于内部函数和关于不涉及堆的数学的命题，这些命题各自在所属模块的命名空间里。
+`Spec/Functional/` 下有两组功能目标用的是别的命名空间。第一组是 `ZlibF.Spec.Api.Goal.<name>`，例如 `ZlibF.Spec.Api.Goal.roundtrip`。`tests/audit/goals.txt` 列出其中 20 个目标，都定义在 `Functional/Api/` 下：`Goals.lean` 里 17 个，`Inflate.lean` 里 1 个，`Concrete.lean` 里 2 个。`Concrete.lean` 里的两个（`compress_bound_value`、`compress2_z_first_alloc_failure`）说的是翻译后的 `compress.c`；其余 18 个是关于 API 模型的命题，不是关于翻译后的 C 的命题。第二组是记号格式的目标 `ZlibF.Spec.Token.Goal.<name>`（`Functional/Format/Token.lean`），它们是关于格式模型的命题。`tests/audit/goals.txt` 按完整名字列出每个目标；它还列出关于内部函数和关于不涉及堆的数学的命题，这些命题各自在所属模块的命名空间里。
 
 默认 zlib 流的往返在这些目录里还没有目标定义。它的条件形式是一条已检查的定理，即 `ZlibF/Proof/public-deflate-inflate-roundtrip.lean` 中的 `deflate_inflate_roundtrip`：它尚未登记，也未验收。完备性和无条件的往返仍未证明（定理的内容见[架构](architecture.md#the-layers)）。
 
@@ -50,7 +50,7 @@ flowchart TD
 
 - **不带流的调用**（校验和、`zlibVersion`、`zlibCompileFlags`、`compress*`、`uncompress*`）：在文档规定的定义域上，调用无故障地返回，只写声明的调用者区域，存活块保持原样。
 - **流函数**（inflate 族和 deflate 族）：每个函数一个目标。它陈述的是：在一个流的每个可达历史上，再调用一次这个函数。四个初始化函数不需要历史：它们的目标覆盖 `zlib.h` 允许的每一次调用（`InitArguments`）。`NULL` 流或不一致的流由 `Goal.inflate_refusal` 和 `Goal.deflate_refusal` 覆盖。
-- **gzip 文件接口和 `inflateBack`**：31 个 gz 函数和三个 `inflateBack` 函数的安全性通过它们的序列目标 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety` 证明。它们没有单独的单函数目标；清单文件把序列目标写作其中每个函数的安全目标。
+- **gzip 文件接口和 `inflateBack`**：31 个 gz 函数和三个 `inflateBack` 函数的安全性通过它们的序列目标 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety` 证明。它们没有单独的单函数安全目标；清单文件把序列目标写作其中每个函数的安全目标。
 
 清单文件中的特殊情况：
 

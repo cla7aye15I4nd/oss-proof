@@ -385,9 +385,9 @@ recorded in [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schem
 | U2 | Pointer arithmetic stays within an object or one past it | Yes, except `NULL + 0` ([below](#null-pointers-and-pointer-differences)). |
 | U3 | No null dereference | Yes. |
 | U4 | No use after free or double free | Yes. A freed block number is never reused, so a dangling pointer faults. |
-| U5 | No invalid use of uninitialised data | Integers: every theorem holds for every value. Pointers: no; the proofs show it by hand ([below](#uninitialised-memory)). |
+| U5 | No invalid use of uninitialised data | Integers: every theorem holds for every value. Pointers: no; no theorem states it, and it is left to source review ([below](#uninitialised-memory)). |
 | U6 | No signed overflow | Yes, where the translation uses a checked signed operation. Where a preceding test in the same function keeps the operands in range, the translation uses the plain operator ([working rules, Translation](../../AGENTS.md#translation)); there the test excludes the overflow, and the model does not check it. |
-| U7 | No invalid shift | Yes, by the checked shift operations of the translation. |
+| U7 | No invalid shift | Yes, where the translation uses a checked shift operation. A shift by a literal count, and a few other shifts, are written with the plain operator, which the model does not check ([translation, form 4](../design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)). |
 | U8 | No write to a read-only object | Partly: byte objects and static tables carry a read-only flag; other objects do not. |
 | U9 | No overlapping `memcpy` | Yes, for every `memcpy` call. |
 | U10 | Accesses respect C type and alignment requirements | No. The model has no type tags, no alignment and no complete ABI layout ([below](#object-representation)). |
@@ -452,8 +452,12 @@ uninitialised memory is indeterminate, and using it is undefined. In the model t
 yields a valid null: a comparison with `NULL`, a copy and `free(NULL)` all succeed. So the
 model does not detect a missing write of a pointer field.
 
-The proofs close this gap by hand: for every pointer field a call reads, they show that an
-earlier statement of the translation wrote the field. The two init functions zero their newly
+No theorem closes this gap, and none can in this model. What the proofs show is that the
+invariant of each kind of state (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream
+and on every gz handle with a history; the invariant says what the pointer fields it names
+hold. That an earlier statement wrote every pointer field a call reads is **to confirm** by
+source review, as the [inflate guide](../proof/inflate.md#readings-of-the-c-that-no-theorem-states) says for the inflate
+state. The two init functions zero their newly
 allocated state record explicitly, as the C does. That does not initialise a caller's record
 or an automatic one. The automatic `z_stream` inside `compress` starts with arbitrary integer
 fields and model-null pointers; its fields are written as in the C.

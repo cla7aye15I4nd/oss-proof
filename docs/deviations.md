@@ -70,11 +70,16 @@ the theorem also says that the stream is reachable, so every later call on `s` i
 goals below. [Note 1](#note-1-init-and-unset-fields) says what the model does with the fields
 the code leaves unset.
 
-When the call does not return `Z_OK`, do not pass `s` to another zlib function unless you had
-set `s.state = Z_NULL` before the call. Three failures leave `state` as it was: `Z_VERSION_ERROR`,
-`Z_MEM_ERROR` when the state record cannot be allocated, and `Z_STREAM_ERROR` of `deflateInit` or
-`deflateInit2` for a bad parameter. With `state` unset, a later call is outside every goal
-([note 2](#note-2-refused-streams)).
+When the call does not return `Z_OK` or `Z_VERSION_ERROR`, do not pass `s` to another zlib
+function unless you had set `s.state = Z_NULL` before the call. Two failures leave `state` as it
+was with the allocator fields filled in: `Z_MEM_ERROR` when the state record cannot be allocated,
+and `Z_STREAM_ERROR` of `deflateInit` or `deflateInit2` for a bad parameter. With `state` unset,
+a later call is then outside every goal ([note 2](#note-2-refused-streams)).
+
+`Z_VERSION_ERROR` also leaves `state` as it was, but the function returns before it fills in
+`zalloc` and `zfree`. They were `Z_NULL` by the line above and still are, so every later call on
+`s` is refused with `Z_STREAM_ERROR` whatever `state` holds (`RefusedInflate`, `RefusedDeflate`):
+the state check tests the two allocator fields before it reads `state`.
 
 **`inflate`, `deflate`, `deflateParams`**
 
@@ -108,13 +113,14 @@ set `s.state = Z_NULL` before the call. Three failures leave `state` as it was: 
   writable for `extra_max`, `name_max` and `comm_max` bytes. The record and these buffers are
   outside the stream's own memory (`HeaderMemory`).
 - The record stays attached to the stream until a successful `inflateReset` or `inflateReset2`,
-  an `inflateGetHeader` call that replaces it, or `inflateEnd`. While it is attached, the record
+  an `inflateSync` that finds a sync point (it resets the stream), an `inflateGetHeader` call
+  that replaces it, or `inflateEnd`. While it is attached, the record
   and its buffers stay valid in the same way at every `inflate` call, also after the header is
   complete (`HeaderMemory` in `ActiveHeader`).
 - While `inflate` is still reading the header, the `extra` buffer does not overlap the unread
   input, and you do not lower `extra_len` in the record (`InflateHeaderProgress`).
 - A copy made by `inflateCopy` is attached to the same record. These lines hold at every
-  `inflate` call on the copy too, until the copy is reset or ended.
+  `inflate` call on the copy too, until the copy is detached in one of the same ways.
 
 **gzip header, writing: `deflateSetHeader`, `deflatePrime`, then `deflate`, `deflateParams`,
 `deflateBound`, `deflateBound_z`**
@@ -155,6 +161,9 @@ set `s.state = Z_NULL` before the call. Three failures leave `state` as it was: 
 
 - No premise on the arguments. The stream is one that an init or a copy returned `Z_OK` for and
   that was used as this checklist says.
+- You do not call `deflateResetKeep` directly on a deflate stream. `zlib.h` lists it among the
+  undocumented functions, and a history that contains a direct call is outside the deflate goals.
+  `deflateReset`, which calls it and then clears the hash tables, is covered (`StreamOperation`).
 - `deflatePending` and `deflateUsed`: each result pointer (`pending`, `bits`) is `NULL` or points
   to a variable of your own that overlaps neither the `z_stream` nor the stream's own memory. No
   Lean predicate states this line: the translation returns the results as values (row
@@ -169,7 +178,8 @@ set `s.state = Z_NULL` before the call. Three failures leave `state` as it was: 
   `deflateCopy` from a refused source set `dest->state` to `Z_NULL`.
 - Not covered: a `z_stream` with a set allocator whose `state` holds a stale or garbage pointer.
   This includes a struct copy used after the original was ended, and a `z_stream` whose init
-  failed and left an unset `state` in place (see the init lines above).
+  failed after it filled in the allocator fields and left an unset `state` in place (see the
+  init lines above).
 
 **`compress`, `compress2`, `compress_z`, `compress2_z`**
 
@@ -297,7 +307,7 @@ apart; the goals state the separation as a hypothesis.
 | Inflate gzip extra field (`InflateHeaderProgress`) | While `inflate` reads a gzip header (`HEAD` .. `HCRC`) into an attached `gz_header`, its `extra` buffer (`extra_max` bytes) is separate from the unread input; in `EXTRA`, the record's `extra_len` is not below `state->length`. | `Goal.inflate_safety` and every `inflate` call of `Goal.inflate_sequence_safety`; also the functional `Goal.inflate` and `Goal.inflate_sequence` | Each excluded case is undefined behaviour of the real C in EXTRA's `zmemcpy` ([reproduction](../tests/regression/inflate-gzip-extra/README.md)): an overlapping copy, or a write past `extra_max` after a caller lowers `extra_len` inside the extra field. `zlib.h` does not say whether either layout is permitted. |
 | Deflate gzip header regions (`DeflateHeaderApart`) | While the status is `GZIP_STATE` .. `HCRC_STATE` and a `gz_header` is attached, at every `deflate`, `deflateParams`, `deflateBound` and `deflateBound_z` call: the input range, the output range, the extra field (`extra_len mod 2^16` bytes), the name and the comment (each through its NUL) are pairwise separate byte ranges, which may share a block; the extra field, name and comment lie outside the storage the stream owns. The input and output ranges are the ones the `z_stream` fields name at that call, also for `deflateBound` and `deflateBound_z`, which do not use them. | `Goal.deflate_safety`, `Goal.deflateParams_safety`, `Goal.deflateBound_safety`, `Goal.deflateBound_z_safety` and every such call of `Goal.deflate_sequence_safety`; also the functional `Goal.deflate` and `Goal.deflate_sequence` | These regions have no reason to overlap. Two excluded cases are undefined behaviour of the real C ([reproduction](../tests/regression/deflate-gzip-name-output/README.md)): a name in the output range or in `pending_buf` has its NUL overwritten by a flush or a header byte, and the name loop reads past the buffer. `zlib.h` does not say whether these layouts are permitted. |
 | Deflate gzip header progress (`DeflateHeaderProgress`) | At each call of the row above, when an earlier `deflate` call returned in the middle of a field of the attached `gz_header`, the caller has kept what was already written: a field still covers the part written (`gzindex`), and in `EXTRA_STATE`, `NAME_STATE` or `COMMENT_STATE` that field is not set to `NULL` part-way (`gzindex = 0` when it is `NULL`). | The same goals as the row above | The excluded edits are undefined behaviour of the real C ([reproduction](../tests/regression/deflate-history-domain/README.md)): a shortened field is read past its end; a field set to `NULL` part-way is skipped without resetting `gzindex`, and the next string is read from `gzindex` on, past its end. `zlib.h` asks the caller to provide the header before the first `deflate` call; it does not say whether the record may change while it is written. |
-| Refused streams (`RefusedInflate`, `RefusedDeflate`) | A refused stream is `NULL`, or a readable record whose state is `NULL`, whose `zalloc` or `zfree` is `NULL`, or whose state is a live state record the check refuses (a wrong back pointer, `mode` or `status`). | `Goal.inflate_refusal`, `Goal.deflate_refusal` | This covers a record after `End`, the destination of a failed copy, a struct copy of a live record, and a record after a failed init when its `state` is `NULL`: the init stored `NULL` there, or the field was `NULL` before the call. Three kinds of record are outside: see [note 2](#note-2-refused-streams). |
+| Refused streams (`RefusedInflate`, `RefusedDeflate`) | A refused stream is `NULL`, or a readable record whose state is `NULL`, whose `zalloc` or `zfree` is `NULL`, or whose state is a live state record the check refuses (a wrong back pointer, `mode` or `status`). | `Goal.inflate_refusal`, `Goal.deflate_refusal` | This covers a record after `End`, the destination of a failed copy, a struct copy of a live record, a record after an init that returned `Z_VERSION_ERROR` when its `zalloc` and `zfree` were `NULL` before the call, and a record after any other failed init when its `state` is `NULL`: the init stored `NULL` there, or the field was `NULL` before the call. Three kinds of record are outside: see [note 2](#note-2-refused-streams). |
 | Copy destination | The destination is a readable stream record that is not the source record (`source ≠ dest`). The source has the default allocator (`DefAlloc`). | `Goal.inflateCopy_safety`, `Goal.deflateCopy_safety`, and the functional `Goal.inflateCopy`, `Goal.deflateCopy` | With `dest == source`, the C `zmemcpy(dest, source, sizeof(z_stream))` copies an object onto itself, which is undefined behaviour; the case is not covered. A destination that partly overlaps the source record, a buffer or a state record cannot be expressed: the model keeps `z_stream` records in their own table ([model limits](model-limits.md#how-the-runtime-represents-c), address and layout model). `zlib.h` does not say whether such a layout is permitted. |
 | Direct `deflateResetKeep` | A deflate call history (`StreamOperation .deflate`) has no direct `deflateResetKeep` call; `deflateReset` and `deflateInit2_` stay. | `Goal.deflate_sequence_safety` and the one-function deflate goals through `StreamReachable` | Not a narrowing below `zlib.h`, which declares `deflateResetKeep` under "undocumented functions (not part of the zlib API)"; its goal is not a required public target ([progress](progress.md#scope)). The real C is unsafe there: after `deflateResetKeep`, `deflate(Z_BLOCK)`, `deflateCopy` and a `Z_RLE` or `Z_HUFFMAN_ONLY` flush on the copy, a later `deflate` follows an uninitialised `prev` slot and reads outside the window ([finding](findings/deflate-copy-pending-prev/README.md)); without the copy a later match can be wrong ([finding](findings/deflate-resetkeep-stale-hash/README.md)). Safety of the single call is still proved (no fault, termination); `deflateReset` goes through it. |
 
@@ -305,7 +315,7 @@ apart; the goals state the separation as a hypothesis.
 
 | Stream | Period | What must hold |
 | --- | --- | --- |
-| inflate | From `inflateGetHeader` to the next successful `inflateReset` or `inflateReset2`, the next `inflateGetHeader`, or `inflateEnd`, at every `inflate` call | The record is live; `extra`, `name` and `comment` are `NULL` or writable for their `_max` sizes |
+| inflate | From `inflateGetHeader` to the next successful `inflateReset` or `inflateReset2`, the next `inflateSync` that finds a sync point, the next `inflateGetHeader`, or `inflateEnd`, at every `inflate` call | The record is live; `extra`, `name` and `comment` are `NULL` or writable for their `_max` sizes |
 | inflate | While `inflate` reads the header (`HEAD` .. `HCRC`) | Also: `extra` does not overlap the unread input; `extra_len` is not lowered |
 | deflate | At `deflateSetHeader` | Before the first `deflate` call; `extra` readable for `extra_len` bytes and outside the stream's storage; `name` and `comment` NUL-terminated |
 | deflate | From `deflateSetHeader` until the header is written (`GZIP_STATE` .. `HCRC_STATE`), at every `deflate`, `deflateParams`, `deflateBound` and `deflateBound_z` call | The record and buffers are live; no field is shortened or set to `NULL`; input, output, extra, name and comment are pairwise separate; extra, name and comment are outside the stream's storage |
@@ -344,12 +354,16 @@ record, as the C does (`dest->state = Z_NULL`), and changes nothing else. The re
 block is as it was, and no block is created or freed. It is not stated as heap equality, because
 the translation allocates and frees the local four-byte array of `inflate`.
 
-A `z_stream` after a failed init is in the refusal domain only when its `state` is `NULL`.
-`inflateInit2_` stores `NULL` there when it rejects `windowBits`, and `deflateInit2_` when one of
-its four buffers cannot be allocated. On `Z_VERSION_ERROR`, on `Z_MEM_ERROR` from the allocation
-of the state record, and on `Z_STREAM_ERROR` of `deflateInit2_` for a bad parameter, the C returns
-before it writes `state`, and the field keeps the value it had before the call. If that value was
-not `NULL`, the record is one of the three kinds below.
+A `z_stream` after a failed init is in the refusal domain when its `state` is `NULL`, or when
+its `zalloc` or `zfree` is `NULL`. `inflateInit2_` stores `NULL` in `state` when it rejects
+`windowBits`, and `deflateInit2_` when one of its four buffers cannot be allocated. On
+`Z_VERSION_ERROR`, on `Z_MEM_ERROR` from the allocation of the state record, and on
+`Z_STREAM_ERROR` of `deflateInit2_` for a bad parameter, the C returns before it writes `state`,
+and the field keeps the value it had before the call. The last two returns come after the C has
+replaced a `NULL` `zalloc` and `zfree` by the default functions: if `state` was not `NULL`, the
+record is then one of the three kinds below. The `Z_VERSION_ERROR` return comes before that, so
+`zalloc` and `zfree` also keep their values: if either was `NULL`, as the init premise asks, the
+record is refused whatever `state` holds.
 
 Three kinds of record are outside the refusal domain when `zalloc` and `zfree` are set.
 
@@ -388,7 +402,7 @@ with it when it lands.
 | Callback decoder init (`InitDomain` in `BackSafeReachable.init`) | The stream record is readable; `zalloc` and `zfree` are each `NULL` or the default function; the record's `state` field is `NULL`; `version` points to a readable byte `'1'`; `stream_size = 112`; the call returned `Z_OK`. | `Goal.inflate_back_sequence_safety` | `zlib.h` does not ask for a `NULL` `state`, and the C overwrites `state` without reading it. A history whose `z_stream` had a non-`NULL` `state` before `inflateBackInit_` is outside the sequence goal. The registered functional goal `Goal.inflateBackInit_` has no such clause: it covers the init call for every `state`, with the refusals. |
 | Callbacks (`CallbackProtocol`) | The caller supplies a protocol for its `in` and `out` functions; the list below gives its clauses. | `Goal.inflate_back_sequence_safety` | These are contracts of caller code, not assumed library contracts, and stay explicit. Descriptor objects may share the window allocation outside the slice. |
 | Caller edits between calls (`BackSafeReachable.caller`) | Between two calls a caller edit is a `Rebuffer` (row "Caller edits between calls") that keeps the window slice and the read-only flag of every block that stays live. | `Goal.inflate_back_sequence_safety` | C code cannot change a read-only flag, so that clause excludes no C caller. The window clause does exclude callers: a history in which the caller writes the window slice between two `inflateBack` calls is outside. When the window pointer is at offset 0 of its block, the stream owns that block in the model (`InflateOwned`), and `Rebuffer` then keeps the whole block between calls, not only the slice. `inflateBack` sets `state->whave = 0` at the start of each call, so the C appears not to read earlier window bytes (**to confirm**); `zlib.h` does not forbid such a write. |
-| Callback input total | `protocol.inputBound < 2^48`: one `inflateBack` call is offered fewer than `2^48` bytes in all its `in` calls. | `Goal.inflate_back_sequence_safety` | `zlib.h` puts no limit on the total input of one call. The runtime bounds every loop by `2^64` iterations ([model limits](model-limits.md#conditions-on-the-model-that-goals-state)), and each round of the decoding loop reads at least one bit, so a call offered more input could exhaust the fuel where C would continue. `2^48` bytes is far above any input a call can process in practice. The functional `Goal.inflateBack`, which is not planned and not proved, has no such premise. |
+| Callback input total | `protocol.inputBound < 2^48`: one `inflateBack` call is offered fewer than `2^48` input bytes in all. The total counts the first chunk (`next_in`, `avail_in` at the call) and every chunk the `in` calls hand out. | `Goal.inflate_back_sequence_safety` | `zlib.h` puts no limit on the total input of one call. The runtime bounds every loop by `2^64` iterations ([model limits](model-limits.md#conditions-on-the-model-that-goals-state)), and each round of the decoding loop reads at least one bit, so a call offered more input could exhaust the fuel where C would continue. `2^48` bytes is far above any input a call can process in practice. The functional `Goal.inflateBack`, which is not planned and not proved, has no such premise. |
 | Callback decoder window | `8 ≤ windowBits ≤ 15` and a non-`NULL` window writable for `2^windowBits` bytes, as `zlib.h` asks, and also: the window is a slice of a heap byte block. | `Goal.inflate_back_sequence_safety`, through `BackSafeReachable.init` | `zlib.h` only asks for a writable window of `2^windowBits` bytes. The model's only other writable byte view is the depth array inside a deflate state, which is library storage that a caller cannot name; a window there is outside the proved domain. |
 | Callback decoder input chunks | Every input chunk lies in a heap byte block: the caller's first chunk (`BackFirstChunk`) and each chunk `in` hands out (`BackPlatform`). | `Goal.inflate_back_sequence_safety` | The C handles a chunk in any readable storage. An input chunk in other storage of the model, for example a field of a structure or static data, is outside the proved domain. This is the same restriction as the fast entry of `inflate` ([model limits](model-limits.md#functional-and-model-statements), "Fast decoder helpers"): `inflate_fast` runs on the chunk. Generalising both decoders to any byte reference is not planned; the [callback decoder skeleton record](history/skeleton-inflate-back.md) describes it as a candidate. |
 
@@ -400,13 +414,16 @@ The clauses of `CallbackProtocol`:
 - `in` hands out a readable chunk that is separate from the window, the state and the stream
   record. `out` keeps the current input chunk readable.
 - The total input has a finite bound (`inputBound`).
-- The first chunk (`next_in`, `avail_in`) is readable and separate from the window.
 - Each callback leaves the heap well formed (`Fresh`, `Uniq`), and every block it creates is one
   of the caller's own (`ExternalFrame`).
-- The protocol carries an invariant over the heap and the log of bytes supplied and delivered. It
-  holds when `inflateBack` is called, and each callback keeps it. The invariant may depend only
+- The protocol carries an invariant over the heap and the log of bytes supplied and delivered.
+  Each callback keeps it. The invariant may depend only
   on the caller's own blocks and on the allocator fields of the heap, and not on the bytes of the
   window slice (`CallbackProtocol.local_`).
+
+Two more premises about the same call are premises of the third clause of the goal, not clauses
+of `CallbackProtocol`: the first chunk (`next_in`, `avail_in`) is readable and separate from the
+window, and the invariant holds on the heap on which `inflateBack` is called.
 
 ## Gzip file interface
 

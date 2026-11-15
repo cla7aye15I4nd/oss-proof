@@ -1,4 +1,4 @@
-<!-- source-sha256: 1ee1275d1ae7f4a5881b58adaa5e06943276c9a8811bbe70ec050f78e5497b07 -->
+<!-- source-sha256: 89a7b9a106ebedfdac70fa9ed21a1cdfe877e4deb1f13c9f12f703887109822e -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -104,7 +104,7 @@ sequenceDiagram
 | 在每次调用时和每个回调步骤之后，每个字节对象少于 `2^63` 字节。 | `ByteObjectsFit`、`BackPlatform` | 平台字节对象范围 |
 | 流使用默认分配器，或者分配器字段为 `NULL`，由初始化替换。 | `BackValid`、`InitDomain` | 初始配置 |
 | 调用者的第一个输入片段可读，并且与窗口分离：它是 `strm->next_in` 处的 `strm->avail_in` 个字节；`strm->next_in` 为 `NULL` 时没有字节。 | 子句 3 中的 `Bytes` 和 `Separate` | 回调 |
-| 在两次调用之间，调用者只改动流不拥有的内存和流记录的四个缓冲区字段。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 | `BackSafeReachable.caller` | 回调 |
+| 在两次调用之间，调用者只改动流不拥有的内存和流记录的四个缓冲区字段。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 | `BackSafeReachable.caller` | 调用之间调用者的修改（`BackSafeReachable.caller`） |
 
 完整的列表就是命题本身：`ZlibF/Spec/Public/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety` 和
 `BackSafeReachable`，以及 `ZlibF/Spec/Public/Domains.lean` 中的 `InitDomain`。
