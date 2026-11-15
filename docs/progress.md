@@ -25,6 +25,11 @@ other stream calls that a sequence goal ranges over, such as `inflateSync`, `inf
 `deflateCopy`, `deflateParams`, `deflatePrime` and `deflateSetDictionary`. `gzvprintf` is
 undocumented in zlib.h, but `gzprintf` goes through it, so it is planned with result 5.
 
+**Accepted.** The acceptance suite is green on `bde170e9` (2026-11-15): axiom gate, exact goals,
+self tests, proof mutants and differential tests. All 63 required goals are registered on that
+commit, so results 1 to 5 are accepted there. The differential tests are evidence of fidelity,
+not proof.
+
 **Not planned.** No further work goes to these. Results already registered for them stay.
 
 | Group | Targets | Reason |

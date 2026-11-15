@@ -4,8 +4,11 @@ Formal verification of zlib in Lean 4: safety, termination and resource ownershi
 faithful C translation. Functional correctness is not planned since 2026-11-11, except a
 functional fact that a planned safety proof depends on; what is already proved of it stays.
 
-**Work in progress. The project is not finished.**
-It is finished when the safety results are accepted, in this order: `inflate` is safe on every
+**Status.** The acceptance suite is green on `bde170e9` (2026-11-15) with all 63 required safety
+and non-vacuity goals registered: a safety theorem is accepted for every documented public
+function. Differential tests are evidence of fidelity, not proof. Still to be registered: the
+per-function restatements of the gzip and callback-decoder sequence theorems.
+The project is finished when the safety results are accepted, in this order: `inflate` is safe on every
 input; `deflate` is safe on every input, both with their call sequences; then every other
 public function, including the gzip file interface and the callback decoder `inflateBack`. The
 safety of `compress` and `uncompress` follows as compositions. The target is the default x86_64
@@ -110,5 +113,5 @@ The [retained reproduction](docs/findings/inflate-copy-fixed/README.md) diagnose
 the pinned unmodified C. The verified source now includes the exact fix from
 [upstream PR #1369](https://github.com/madler/zlib/pull/1369) through
 [the temporary patch](patches/README.md). The translation uses the same equality
-check. Confidence is high for the diagnosed LP64 issue; the full public copy
-proof is open and is planned: `inflateCopy` is a stream call that `inflate_sequence` ranges over.
+check. Confidence is high for the diagnosed LP64 issue. The public copy proof is
+registered: `Goal.inflateCopy` and `Goal.inflateCopy_safety`.
