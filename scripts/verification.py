@@ -13,7 +13,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
+import mutant_reuse
 import mutation_spans
 from pathlib import Path
 
@@ -618,8 +620,13 @@ def copy_build_cache(source: Path, destination: Path) -> None:
                     {'bin'} if Path(path).resolve() == build else set())
 
 
-def replay_public_mutants(manifest: dict, selected: set[str] | None = None) -> None:
-    """A failure in an unrelated or stronger theorem does not count."""
+def replay_public_mutants(manifest: dict, selected: set[str] | None = None,
+                          session: mutant_reuse.Session | None = None) -> None:
+    """A failure in an unrelated or stronger theorem does not count.
+
+    With a session, each replay is a unit with a content key: a pre-check session skips a unit
+    whose key has a passing stored verdict, and every unit that runs and passes is recorded.
+    Without one (final acceptance) nothing is read or recorded."""
     targets = public_mutants(manifest)
     apis = mutation_apis(manifest)
     library = ROOT / ".lake/build/lib/lean"
@@ -634,14 +641,25 @@ def replay_public_mutants(manifest: dict, selected: set[str] | None = None) -> N
         api = apis[goal]
         module = source_module(api["source"])
         command = ["lake", "env", str(replay), str(library)]
-        control = run_replay(command + [str(library), module, goal, str(registry)], goal)
-        sys.stdout.write(control.stdout)
-        sys.stderr.write(control.stderr)
-        if control.returncode != 0:
-            raise Rejected(f"exact public proof does not replay: {goal}")
-        report_peak(goal, control.peak)
+        key = session.control(goal, api) if session else None
+        if not (session and session.lookup(key, "control", f"control {goal}")):
+            started = time.monotonic()
+            control = run_replay(command + [str(library), module, goal, str(registry)], goal)
+            sys.stdout.write(control.stdout)
+            sys.stderr.write(control.stderr)
+            if control.returncode != 0:
+                raise Rejected(f"exact public proof does not replay: {goal}")
+            report_peak(goal, control.peak)
+            if session:
+                session.passed(key, "control", f"control {goal}", detail=control.stdout.strip(),
+                               peak=control.peak, seconds=time.monotonic() - started)
         for reference in references:
             row = mutation_row(reference)
+            unit = f"replay {goal}: {reference['list']}: {reference['name']}"
+            key = session.replay(goal, api, reference["list"], "\t".join(row)) if session else None
+            if session and session.lookup(key, "replay", unit):
+                continue
+            started = time.monotonic()
             with tempfile.TemporaryDirectory(prefix="public-proof-replay-") as directory:
                 candidate = Path(directory)
                 shutil.copytree(ROOT / "ZlibF", candidate / "ZlibF")
@@ -658,7 +676,10 @@ def replay_public_mutants(manifest: dict, selected: set[str] | None = None) -> N
                 if result.returncode != 2 or not result.stdout.startswith("EXACT_PROOF_REJECTED: "):
                     raise Rejected(f"original exact public proof survives or replay failed: {goal}: "
                                    f"{reference['name']}\n{result.stdout}{result.stderr}")
-                print(f"exact public proof rejects: {goal}: {reference['name']}")
+                print(f"exact public proof rejects: {goal}: {reference['name']}", flush=True)
+                if session:
+                    session.passed(key, "replay", unit, detail=result.stdout.strip(), peak=result.peak,
+                                   seconds=time.monotonic() - started)
 
 
 SAFETY_MUTANT_LISTS = ("tests/proof-mutants/deflate-header.tsv", "tests/proof-mutants/deflate-strategies.tsv",
@@ -782,17 +803,50 @@ def check_frozen_mutant_rows() -> None:
         raise Rejected(f"stale mutant_rows entries in {REMOVALS}: " + ", ".join(map(str, stale)))
 
 
+# Recorded seconds of each unit of the mutants stage, written from the verdict stores of a full run
+# (`python3 scripts/mutant_reuse.py durations`). It only balances the shards: it cannot add, drop or
+# change a unit. A unit it does not name weighs DEFAULT_SECONDS.
+DURATIONS = Path("tests/proof-mutants/durations.json")
+DEFAULT_SECONDS = 60.0
+
+
+def unit_seconds() -> dict[str, float]:
+    path = ROOT / DURATIONS
+    if not path.is_file():
+        return {}
+    data = json.loads(raw_text(path))
+    if not isinstance(data, dict) or set(data) != {"version", "seconds"} or data["version"] != 1 or \
+            not isinstance(data["seconds"], dict) or not all(
+                isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v < 86400
+                for v in data["seconds"].values()):
+        raise Rejected(f"unknown {DURATIONS}")
+    return data["seconds"]
+
+
 def mutation_partition(manifest: dict, count: int = 1, index: int = 0) -> tuple[set[str], dict[str, list[str]]]:
     """Assign every goal bundle and every full proof-list row exactly once.
 
     A goal's unchanged exact-proof control travels with all its public mutants.
     Full proof lists also contain cases outside the public registry. Partition
     those rows independently so none are lost or concentrated in one worker.
+
+    The items (a goal bundle; a killable row with the same: rows that travel with it) are packed by
+    recorded duration: longest first, each into the shard with the least load so far, ties to the
+    lower shard. Every item goes to exactly one shard whatever the durations say.
     """
     if count <= 0 or not 0 <= index < count:
         raise Rejected('shard count must be positive and index must be in range')
     targets = public_mutants(manifest)
-    goals = {goal for ordinal, goal in enumerate(sorted(targets)) if ordinal % count == index}
+    seconds = unit_seconds()
+
+    def weight(unit: str) -> float:
+        return max(1.0, float(seconds.get(unit, DEFAULT_SECONDS)))
+
+    items: list[tuple[float, str]] = []
+    for goal in sorted(targets):
+        items.append((weight(f"control {goal}") + sum(
+            weight(f"replay {goal}: {reference['list']}: {reference['name']}") for reference in targets[goal]),
+            "goal " + goal))
     lists = {reference["list"] for references in targets.values() for reference in references}
     lists.add("tests/proof-mutants/api-boundary.tsv")
     # The semantic mutants of the deflate safety proof: script rows that edit the translation and
@@ -805,25 +859,33 @@ def mutation_partition(manifest: dict, count: int = 1, index: int = 0) -> tuple[
                 row and not row.startswith("#") for row in table.read_text().splitlines()):
             raise Rejected(f"missing or empty semantic mutant list: {path}")
         lists.add(path)
-    selected = {}
-    ordinal = 0
+    tables: dict[str, list[tuple[str, str]]] = {}
     for path in sorted(lists):
         # A row flagged same: (an equivalent mutant) is not evidence: proofmut.sh in strict mode needs a
-        # KILLED row in every list it runs. So the killable rows are dealt round robin, and each same:
+        # KILLED row in every list it runs. So the killable rows are packed one by one, and each same:
         # row goes to the shard of its list's first killable row. A list with no killable row is an error.
         all_rows = [row for row in (ROOT / path).read_text().splitlines() if row and not row.startswith('#')]
-        killable = [row for row in all_rows if not (len(row.split('\t')) > 5 and row.split('\t')[5].startswith('same:'))]
-        if not killable:
+        same = [len(row.split('\t')) > 5 and row.split('\t')[5].startswith('same:') for row in all_rows]
+        if all(same):
             raise Rejected(f"proof mutant list without a row that must be killed: {path}")
-        first_shard = ordinal % count
-        rows = []
-        for row in all_rows:
-            if row in killable:
-                if ordinal % count == index:
-                    rows.append(row)
-                ordinal += 1
-            elif first_shard == index:
-                rows.append(row)
+        first = f"row {path}: {same.index(False):06d}"
+        carried = sum(weight(f"row {path}: {row.split(chr(9))[0]}") for row, flagged in zip(all_rows, same) if flagged)
+        tables[path] = []
+        for position, (row, flagged) in enumerate(zip(all_rows, same)):
+            item = first if flagged else f"row {path}: {position:06d}"
+            tables[path].append((item, row))
+            if not flagged:
+                items.append((weight(f"row {path}: {row.split(chr(9))[0]}") + (carried if item == first else 0.0), item))
+    loads = [0.0] * count
+    shard: dict[str, int] = {}
+    for seconds_of, item in sorted(items, key=lambda entry: (-entry[0], entry[1])):
+        chosen = min(range(count), key=lambda k: (loads[k], k))
+        loads[chosen] += seconds_of
+        shard[item] = chosen
+    goals = {goal for goal in targets if shard["goal " + goal] == index}
+    selected = {}
+    for path, table in tables.items():
+        rows = [row for item, row in table if shard[item] == index]
         if rows:
             selected[path] = rows
     if not goals and not selected:
@@ -831,16 +893,41 @@ def mutation_partition(manifest: dict, count: int = 1, index: int = 0) -> tuple[
     return goals, selected
 
 
-def run_public_mutants(manifest: dict, count: int = 1, index: int = 0) -> None:
+def predicted_loads(manifest: dict, count: int) -> list[float]:
+    """The recorded seconds of each shard's units (DEFAULT_SECONDS for an unrecorded unit)."""
+    seconds = unit_seconds()
+    targets = public_mutants(manifest)
+    loads = []
+    for index in range(count):
+        goals, lists = mutation_partition(manifest, count, index)
+        units = [f"control {g}" for g in goals] + \
+            [f"replay {g}: {r['list']}: {r['name']}" for g in goals for r in targets[g]] + \
+            [f"row {path}: {row.split(chr(9))[0]}" for path, rows in lists.items() for row in rows]
+        loads.append(sum(max(1.0, float(seconds.get(unit, DEFAULT_SECONDS))) for unit in units))
+    return loads
+
+
+def run_public_mutants(manifest: dict, count: int = 1, index: int = 0,
+                       session: mutant_reuse.Session | None = None) -> None:
+    """Run this shard's units. A session records the verdicts and, in a pre-check, leaves out the
+    units whose stored verdict it reuses; the runner and its strict mode are the same either way."""
     goals, lists = mutation_partition(manifest, count, index)
     check_public_mutant_spans(manifest, goals)
-    replay_public_mutants(manifest, goals)
+    replay_public_mutants(manifest, goals, session)
     with tempfile.TemporaryDirectory(prefix='proof-mutation-shard-') as directory:
         for ordinal, (path, rows) in enumerate(lists.items()):
+            pending, keys = session.pending_rows(path, rows) if session else (rows, {})
+            if not pending:
+                print(f'proof mutation shard {index}/{count}: {path}: 0 cases to run, {len(rows)} reused', flush=True)
+                continue
             subset = Path(directory) / (str(ordinal) + '-' + Path(path).name)
-            subset.write_text('\n'.join(rows) + '\n')
-            print(f'proof mutation shard {index}/{count}: {path}: {len(rows)} cases', flush=True)
-            run(["env", "PROOFMUT_STRICT=1", "bash", "tests/audit/proofmut.sh", str(subset)])
+            subset.write_text('\n'.join(pending) + '\n')
+            print(f'proof mutation shard {index}/{count}: {path}: {len(pending)} cases', flush=True)
+            verdicts = Path(directory) / (str(ordinal) + '-verdicts.tsv')
+            run(["env", "PROOFMUT_STRICT=1"] + ([f"PROOFMUT_VERDICTS={verdicts}"] if session else []) +
+                ["bash", "tests/audit/proofmut.sh", str(subset)])
+            if session:
+                session.record_rows(path, pending, keys, verdicts)
 
 
 def build_library() -> None:
@@ -1072,12 +1159,20 @@ def main() -> int:
     parser.add_argument("--root", type=Path, help="candidate checkout; the auditor remains the invoking snapshot")
     parser.add_argument('--shard-count', type=int, default=1)
     parser.add_argument('--shard-index', type=int, default=0)
+    parser.add_argument('--reuse', type=Path, metavar='STORE',
+                        help='mutants, pre-check only: skip a unit whose content key has a passing verdict in STORE')
+    parser.add_argument('--record', type=Path, metavar='STORE',
+                        help='mutants: write the verdict of every unit that passed (and every reused record) to STORE')
     args = parser.parse_args()
     if args.root:
         ROOT = args.root.resolve()
     try:
         if args.mode != 'mutants' and (args.shard_count, args.shard_index) != (1, 0):
             raise Rejected('sharding applies only to the mutants stage')
+        if args.mode != 'mutants' and (args.reuse or args.record):
+            raise Rejected('verdict reuse applies only to the mutants stage')
+        if args.root and (args.reuse or args.record):
+            raise Rejected('verdict reuse needs the auditor and the candidate to be one checkout')
         manifest = coverage()
         if args.mode == "coverage":
             print("coverage is not specification readiness or proof completion")
@@ -1085,8 +1180,17 @@ def main() -> int:
         if args.mode == "mutants":
             mutation_partition(manifest, args.shard_count, args.shard_index)
             build_library()
-            run_public_mutants(manifest, args.shard_count, args.shard_index)
-            print("stage passed: mutants")
+            session = mutant_reuse.Session(ROOT, AUDITOR_ROOT, args.reuse, args.record) \
+                if args.reuse or args.record else None
+            try:
+                run_public_mutants(manifest, args.shard_count, args.shard_index, session)
+            finally:
+                if session:
+                    print(session.summary(), flush=True)
+                    if os.environ.get("GITHUB_STEP_SUMMARY"):
+                        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+                            summary.write(f"shard {args.shard_index}/{args.shard_count}: {session.summary()}\n\n")
+            print("stage passed: mutants" + (" (pre-check with reused verdicts)" if args.reuse else ""))
             return 0
         if args.mode == "final":
             if os.environ.get('ZLIBF_REQUIRE_PREBUILT', '0') != '0':

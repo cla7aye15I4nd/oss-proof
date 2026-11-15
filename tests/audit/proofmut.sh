@@ -32,6 +32,8 @@
 #   PROOFMUT_TIMEOUT  seconds per build (default 3600)
 #   PROOFMUT_BASELINE 1 (default): first build the unmutated copy of the listed modules; it must pass
 #   PROOFMUT_KEEP     1: keep the temporary copies (default: remove)
+#   PROOFMUT_VERDICTS a file: append `name<TAB>verdict<TAB>seconds<TAB>first error` for every row that reaches a
+#                     build (scripts/mutant_reuse.py records them; it changes no verdict)
 #   PROOFMUT_STRICT   1: require the baseline, reject every known proof gap, and require at least one KILLED row
 #                     (a SAME row is not evidence) (final acceptance and the mutant shards)
 # One mutant runs at a time.
@@ -154,6 +156,7 @@ PY
     fi
   fi
   printf '%-40s %-12s %4ss %s\n' "$name" "$verdict" "$secs" "$detail"
+  [ -z "${PROOFMUT_VERDICTS:-}" ] || printf '%s\t%s\t%s\t%s\n' "$name" "$verdict" "$secs" "$detail" >> "$PROOFMUT_VERDICTS"
   if [ -n "${PROOFMUT_SHOWLOG:-}" ] && { [ "$verdict" = SURVIVED ] || [ "$verdict" = "BAD MUTANT" ]; }; then tail -15 "$log"; fi
   rm -rf "$d"
 done < "$list"
