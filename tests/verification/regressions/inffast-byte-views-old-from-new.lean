@@ -10,7 +10,8 @@ of `inflate_fast` (`Zlib.Inffast.Proofs.EnvG`): its input and output were heap b
 Nat`, read through `h0.bytes`), and are now byte views (`ib ob : BRef`, read through `Space.get`).
 The statements of the registered `Zlib.Inffast.Spec` goals changed with it.
 
-This file restates the old definitions verbatim, from the parent of that commit, under the
+This file restates the old definitions verbatim, from the parent of that commit (`4ed7315e^` on
+`dev`), under the
 namespace `InffastOld` (`InffastOld.Proofs` for the definitions of `ZlibF/Proof/inffast.c.*`,
 `InffastOld.Spec` for those of `ZlibF/Spec/InflateFast*`). Only the namespace lines and the `open`
 lines differ from the old source, so that the old text names the old definitions. A definition
@@ -20,6 +21,16 @@ the current one.
 `toNew` maps an old situation to a new one: a heap block `b` becomes the byte view `BRef.blk b`.
 Each `X_old_of_new : Zlib.Inffast.Spec.Goal.X → InffastOld.Spec.Goal.X` shows that the new goal
 is at least as strong as the old one. Nothing is evaluated: every fact is checked by the kernel.
+
+How the old and new forms relate. `toNew` itself needs `BRef.blk.inj` for two fields: `hsep`
+(`ib ≠ ob` becomes `BRef.blk ib ≠ BRef.blk ob`) and `hwin` (`WinRel`). Of the definitions the
+goals use, `InputFrame` is related only through `BRef.blk.inj` (`ib = ob` against
+`BRef.blk ib = BRef.blk ob`, `inputFrame_iff`). Every other old definition is definitionally the
+new one on `toNew`: the heap (a record update against `Space.put` and `setI` on `BRef.blk`), the
+pointers (`.ref (.blk e.ib)` against `.ref (toNew e).ib`), `Sg`, `DistLook`, `Look`, `ready` and
+`FastPost`; the old structures (`CtxOK`, `LS`, `Origin.Inv`, `StepPre`, `Tables`) are
+repackaged field by field, each field definitionally equal. The docstring of each
+`X_old_of_new` says which case its goal is in.
 -/
 
 namespace InffastOld.Proofs
@@ -1032,16 +1043,19 @@ end Bridge
 
 /-! ## Each old goal follows from the new one -/
 
+/-- Through `BRef.blk.inj`: the premise `StepPre` contains `InputFrame`. -/
 theorem step_safe_old_of_new (g : Zlib.Inffast.Spec.Goal.step_safe) : Spec.Goal.step_safe := by
   intro e c A msg mode l i o pre
   obtain ⟨l', h', run, post⟩ := g (toNew e) c A msg mode l i o (stepPre_iff.1 pre)
   exact ⟨l', h', run, stepPost_iff.2 post⟩
 
+/-- Definitional on `toNew` (`FastPost` is `Iff.rfl`). -/
 theorem fast_safe_old_of_new (g : Zlib.Inffast.Spec.Goal.fast_safe) : Spec.Goal.fast_safe := by
   intro e
   obtain ⟨after, run, post⟩ := g (toNew e)
   exact ⟨after, run, fastPost_iff.2 post⟩
 
+/-- Definitional on `toNew` (`FastPost`, and `HasOrigin` up to the repackaged `Origin.Inv`). -/
 theorem actual_fast_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.CallOrigin.Goal.actual_fast_preserves_origin) :
     Spec.CallOrigin.Goal.actual_fast_preserves_origin := by
@@ -1049,6 +1063,7 @@ theorem actual_fast_preserves_origin_old_of_new
   obtain ⟨after, run, post, origin⟩ := g (toNew e)
   exact ⟨after, run, fastPost_iff.2 post, hasOrigin_iff.2 origin⟩
 
+/-- Through `BRef.blk.inj`: the premise `StepPre` contains `InputFrame`. -/
 theorem actual_body_retains_selected_length_old_of_new
     (g : Zlib.Inffast.Spec.LengthTrace.Goal.actual_body_retains_selected_length) :
     Spec.LengthTrace.Goal.actual_body_retains_selected_length := by
@@ -1057,34 +1072,40 @@ theorem actual_body_retains_selected_length_old_of_new
   simp only [stepPost_iff, end_iff]
   exact result
 
+/-- The same statement: it does not depend on the situation. -/
 theorem match_array_refines_lz77_old_of_new
     (g : Zlib.Inffast.Spec.MatchHistory.Goal.match_array_refines_lz77) :
     Spec.MatchHistory.Goal.match_array_refines_lz77 :=
   g
 
+/-- Definitional on `toNew` (`CtxOK` repackaged). -/
 theorem actual_copy_match_refines_lz77_old_of_new
     (g : Zlib.Inffast.Spec.MatchHistory.Goal.actual_copy_match_refines_lz77) :
     Spec.MatchHistory.Goal.actual_copy_match_refines_lz77 := by
   intro e c bytes msg mode l o context out begin op dist len room running
   exact g (toNew e) c bytes msg mode l o (ctx_iff.1 context) out begin op dist len room running
 
+/-- Definitional on `toNew` (`Origin.Inv` repackaged). -/
 theorem initial_origin_old_of_new (g : Zlib.Inffast.Spec.Origin.Goal.initial_origin) :
     Spec.Origin.Goal.initial_origin := by
   intro e
   exact inv_iff.2 (g (toNew e))
 
+/-- Definitional on `toNew` (`Origin.Inv` repackaged). -/
 theorem pull_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.Origin.Goal.pull_preserves_origin) :
     Spec.Origin.Goal.pull_preserves_origin := by
   intro e hold bits input used inv more
   exact inv_iff.2 (g (toNew e) hold bits input used (inv_iff.1 inv) more)
 
+/-- Definitional on `toNew` (`Origin.Inv` repackaged). -/
 theorem drop_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.Origin.Goal.drop_preserves_origin) :
     Spec.Origin.Goal.drop_preserves_origin := by
   intro e hold bits input used count inv le
   exact inv_iff.2 (g (toNew e) hold bits input used count (inv_iff.1 inv) le)
 
+/-- Definitional on `toNew` (`Origin.Inv` repackaged). -/
 theorem rollback_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.Origin.Goal.rollback_preserves_origin) :
     Spec.Origin.Goal.rollback_preserves_origin := by
@@ -1092,6 +1113,7 @@ theorem rollback_preserves_origin_old_of_new
   obtain ⟨returned, stream, inv'⟩ := g (toNew e) hold bits input used (inv_iff.1 inv)
   exact ⟨returned, stream, inv_iff.2 inv'⟩
 
+/-- Through `BRef.blk.inj`: the premise `InputFrame`. -/
 theorem actual_pull_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.Origin.Goal.actual_pull_preserves_origin) :
     Spec.Origin.Goal.actual_pull_preserves_origin := by
@@ -1100,6 +1122,7 @@ theorem actual_pull_preserves_origin_old_of_new
     (inv_iff.1 inv) bound more (inputFrame_iff.1 frame)
   exact ⟨l', run, ls_iff.2 locals', inv_iff.2 inv'⟩
 
+/-- Definitional on `toNew` (`LS`, `Origin.Inv` repackaged). -/
 theorem actual_drop_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.Origin.Goal.actual_drop_preserves_origin) :
     Spec.Origin.Goal.actual_drop_preserves_origin := by
@@ -1107,6 +1130,7 @@ theorem actual_drop_preserves_origin_old_of_new
   obtain ⟨run, locals', inv'⟩ := g (toNew e) h l i o used count (ls_iff.1 locals) (inv_iff.1 inv) le
   exact ⟨run, ls_iff.2 locals', inv_iff.2 inv'⟩
 
+/-- Through `BRef.blk.inj`: the premise `InputFrame`. -/
 theorem actual_rollback_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.Origin.Goal.actual_rollback_preserves_origin) :
     Spec.Origin.Goal.actual_rollback_preserves_origin := by
@@ -1115,6 +1139,7 @@ theorem actual_rollback_preserves_origin_old_of_new
     (inv_iff.1 inv) (inputFrame_iff.1 frame)
   exact ⟨run, small, inv_iff.2 inv', stream⟩
 
+/-- Through `BRef.blk.inj`: the premise `StepPre` contains `InputFrame`. -/
 theorem actual_body_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.BodyOrigin.Goal.actual_body_preserves_origin) :
     Spec.BodyOrigin.Goal.actual_body_preserves_origin := by
@@ -1123,6 +1148,7 @@ theorem actual_body_preserves_origin_old_of_new
     g (toNew e) c bytes msg mode l i o used (stepPre_iff.1 pre) (inv_iff.1 inv)
   exact ⟨l', after, run, stepPost_iff.2 post, i', o', used', ls_iff.2 locals, inv_iff.2 inv', le⟩
 
+/-- Through `BRef.blk.inj`: the premise `StepPre` contains `InputFrame`. -/
 theorem actual_body_refines_token_old_of_new
     (g : Zlib.Inffast.Spec.BodyToken.Goal.actual_body_refines_token) :
     Spec.BodyToken.Goal.actual_body_refines_token := by
@@ -1132,6 +1158,7 @@ theorem actual_body_refines_token_old_of_new
   simp only [stepPost_iff, ls_iff]
   exact result
 
+/-- Through `BRef.blk.inj`: the premise `InputFrame`. -/
 theorem actual_distance_block_preserves_origin_old_of_new
     (g : Zlib.Inffast.Spec.DistanceOrigin.Goal.actual_distance_block_preserves_origin) :
     Spec.DistanceOrigin.Goal.actual_distance_block_preserves_origin := by
@@ -1141,6 +1168,7 @@ theorem actual_distance_block_preserves_origin_old_of_new
   simp only [distEnd_iff, ls_iff, inv_iff]
   exact result
 
+/-- Through `BRef.blk.inj`: the premise `InputFrame`. -/
 theorem actual_distance_refines_lz77_old_of_new
     (g : Zlib.Inffast.Spec.DistanceResult.Goal.actual_distance_refines_lz77) :
     Spec.DistanceResult.Goal.actual_distance_refines_lz77 := by
@@ -1151,12 +1179,14 @@ theorem actual_distance_refines_lz77_old_of_new
   simp only [distEnd_iff, outcome_iff]
   exact result
 
+/-- Definitional on `toNew`: the text of the goal did not change, only the type of the situation. -/
 theorem distance_lookup_matches_format_old_of_new
     (g : Zlib.Inffast.Spec.DistanceSemantics.Goal.distance_lookup_matches_format) :
     Spec.DistanceSemantics.Goal.distance_lookup_matches_format := by
   intro e
   exact g (toNew e)
 
+/-- Definitional on `toNew`: the text of the goal did not change, only the type of the situation. -/
 theorem length_lookup_matches_format_old_of_new
     (g : Zlib.Inffast.Spec.LengthSemantics.Goal.length_lookup_matches_format) :
     Spec.LengthSemantics.Goal.length_lookup_matches_format := by
