@@ -154,7 +154,7 @@ extra 字段的长度小于 `2^16`，以及所取的名称和注释中不含零�
 | 缓冲区大小、不完整的输入、封装的自动检测、位预置和恢复 | [流 API](../api/streams.md)和 [API 模型](../../design/api-model.md) |
 | 压缩时匹配的选择、刷新的完成和输出上界 | [Deflate API](../api/deflate-stream.md) |
 | 拼接的成员、透明读取和文件错误 | [Gzip 文件 API](../api/gz-file.md) |
-| 校验和组合的各个函数 | [校验和 API](../api/checksums.md) |
+| 校验和组合的各个入口 | [校验和 API](../api/checksums.md) |
 | 解码表的分配和 `ENOUGH` 容量上界 | [表的证明指南](../../proof/inftrees.md) |
 | 翻译后的实现的内存安全、所有权和终止 | [安全性](../safety.md)和[证明方法](../../proof/method.md) |
 
