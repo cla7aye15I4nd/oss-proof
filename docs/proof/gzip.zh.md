@@ -1,4 +1,4 @@
-<!-- source-sha256: 160cbceeb12fcc24823c4ed14858de505c0f0924ec51cd2bb4a825d522403076 -->
+<!-- source-sha256: 412d483b07903d8de46c9c6f444531b3f8fef946e6bab2704ed0ca841ace6dee -->
 # Gzip 文件：不变量、历史与操作系统预言机
 
 源文件为 `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c`、`gzguts.h`，以及 `zlib.h` 中的 `gzgetc` 宏。[API 页面](../spec/api/gz-file.md)给出调用者可见的行为。[外部 I/O 模型](../design/external-io.md)定义翻译所调用的文件系统、`errno` 和 `vsnprintf`。
@@ -39,7 +39,7 @@ gzip 文件接口在句柄的每一个历史上、在每一个文件系统世界
 | 打开时的调用者堆 | `GzHistory.open`、`open64`、`dopen` | 堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`），每个字节对象小于 `2^63` 字节（`ByteObjectsFit`），`path` 和 `mode` 是以 NUL 结尾的字符串。 |
 | 调用者缓冲区 | `GzArguments`，经由 `GzRange` | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 和 `gzerror` 的缓冲区在所请求的长度内可读或可写，并且与句柄拥有的块分离。 |
 | `gzprintf` 的参数 | `GzArguments` | 格式串对其参数而言是模型能表示的格式串（`Formatted`）。格式串和每个 `%s` 参数都与句柄的块分离。 |
-| 读取预算 | `ReadsFinite` | 描述符还能交付的字节数少于 `2^61`。它只是终止性的前提，并且只针对六个读取调用。 |
+| 读取预算 | `ReadsFinite` | 描述符编号不为负（`0 ≤ fd`，见 `HasBudget`），且还能交付的字节数少于 `2^61`。它只是终止性的前提，并且只针对六个读取调用。`gzdopen` 用 -1 以外的负描述符建立的句柄没有预算，所以不声称其读取调用终止。 |
 | 操作系统事实 | 预言机，属于可信部分 | 对非空缓冲区的 `write` 从不返回 0。`close` 即使失败也释放描述符。 |
 | 打过补丁的源代码 | `patches/` | 陈述针对应用了补丁 0002 至 0005 的 C 代码。见[源代码报告与补丁](#source-reports-and-patches)。 |
 

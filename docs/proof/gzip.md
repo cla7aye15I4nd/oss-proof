@@ -59,7 +59,7 @@ Every premise is explicit in the statement. The rows are in
 | Caller heap at an open | `GzHistory.open`, `open64`, `dopen` | The heap is well formed (`Fresh`, `Uniq`, `LibraryGlobals`), every byte object has fewer than `2^63` bytes (`ByteObjectsFit`), and `path` and `mode` are NUL-terminated strings. |
 | Caller buffers | `GzArguments`, through `GzRange` | The buffers of `gzread`, `gzfread`, `gzwrite`, `gzfwrite`, `gzputs`, `gzgets` and `gzerror` are readable or writable for the requested length and lie apart from the blocks the handle owns. |
 | `gzprintf` arguments | `GzArguments` | The format is a represented format string for its arguments (`Formatted`). The format and every `%s` argument lie apart from the handle's blocks. |
-| Read budget | `ReadsFinite` | The descriptor can still deliver fewer than `2^61` bytes. It is a premise of termination only, and only for the six reading calls. |
+| Read budget | `ReadsFinite` | The descriptor number is not negative (`0 ≤ fd`, in `HasBudget`) and can still deliver fewer than `2^61` bytes. It is a premise of termination only, and only for the six reading calls. A handle that `gzdopen` made from a negative descriptor other than -1 has no budget, so termination of its reading calls is not claimed. |
 | OS facts | the oracle, trusted | A `write` of a nonempty buffer never returns 0. `close` releases the descriptor also when it fails. |
 | Patched source | `patches/` | The statements are for the C with patches 0002 to 0005 applied. See [source reports](#source-reports-and-patches). |
 

@@ -239,7 +239,7 @@ because the C itself may not terminate there:
 
 | Family | Statement | Reason |
 | --- | --- | --- |
-| Reading from a gzip file: `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` (`NeedsReadBound`) | With no premise: the only error the run can end in is `outOfFuel`, never `Fault.ub`. With `ReadsFinite` (the descriptor can still deliver fewer than `2^61` bytes): the run is `.ok`. | A source that delivers empty gzip members forever keeps one `gzread` running forever in C. `2^61` is the model's figure: it keeps the loop measures below `2^64`. |
+| Reading from a gzip file: `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` (`NeedsReadBound`) | With no premise: the only error the run can end in is `outOfFuel`, never `Fault.ub`. With `ReadsFinite` (the descriptor number is not negative and can still deliver fewer than `2^61` bytes): the run is `.ok`. A handle that `gzdopen` made from a negative descriptor other than -1 has no budget, so its termination is not claimed. | A source that delivers empty gzip members forever keeps one `gzread` running forever in C. `2^61` is the model's figure: it keeps the loop measures below `2^64`. |
 | `inflateBack` | With `protocol.inputBound < 2^48` (the call is offered fewer than `2^48` input bytes in all): the run is `.ok`. | `zlib.h` puts no limit on what the `in` callback supplies. |
 
 So out-of-fuel is the only error a registered safety goal allows, and only in the first clause

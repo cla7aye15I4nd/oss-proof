@@ -1,4 +1,4 @@
-<!-- source-sha256: eb536a58995bbec3b71663aa8697a346c5e4174380896e7360835670d188061b -->
+<!-- source-sha256: c6c67f12d1e43f86a56a95554146a94d8df0d8dc0f18e4ed208a98380f8a590e -->
 
 # 安全性：目标陈述了什么
 
@@ -213,7 +213,7 @@ gzip 文件接口和回调解码器结构相同，各有自己的历史：`GzHis
 
 | 目标族 | 陈述 | 原因 |
 | --- | --- | --- |
-| 读 gzip 文件：`gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets`、`gzungetc`（`NeedsReadBound`） | 不加前提：执行可能得到的唯一错误是 `outOfFuel`，绝不是 `Fault.ub`。加上 `ReadsFinite`（描述符还能交付的字节少于 `2^61`）：执行是 `.ok`。 | 一个不断交付空 gzip 成员的数据源，会让 C 中的一次 `gzread` 永远运行。`2^61` 是模型的数字：它让循环度量保持在 `2^64` 以下。 |
+| 读 gzip 文件：`gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets`、`gzungetc`（`NeedsReadBound`） | 不加前提：执行可能得到的唯一错误是 `outOfFuel`，绝不是 `Fault.ub`。加上 `ReadsFinite`（描述符编号不为负，且还能交付的字节少于 `2^61`）：执行是 `.ok`。`gzdopen` 用 -1 以外的负描述符建立的句柄没有额度，所以不声称它终止。 | 一个不断交付空 gzip 成员的数据源，会让 C 中的一次 `gzread` 永远运行。`2^61` 是模型的数字：它让循环度量保持在 `2^64` 以下。 |
 | `inflateBack` | 加上 `protocol.inputBound < 2^48`（这次调用总共得到的输入少于 `2^48` 字节）：执行是 `.ok`。 | `zlib.h` 对 `in` 回调提供多少数据没有限制。 |
 
 所以，燃料耗尽是已登记安全目标允许的唯一错误，而且只出现在 gzip 读调用的第一条里，即没有读预算的时候。
