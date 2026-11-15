@@ -1,7 +1,7 @@
-<!-- source-sha256: a2733363851cc03808d922f88bbd320af228779ff42a71bcd1b2ada93e83eb79 -->
+<!-- source-sha256: 99ff2dc82dfccad0b284bb3885608dc014c92a18a990c7918e9ae9aba0224a1f -->
 # 外部 I/O：文件、格式化与局部存储
 
-gzip 翻译除对象堆外，还需要文件操作、`errno`、字符串和格式化输出。已实现模型位于翻译 C 文件旁的 [`gzfs.lean`](../../ZlibF/Zlib/gzfs.lean)，属于可信基础。[Gzip 源码说明](../proof/gzip.md)解释库控制流，[API 契约](../spec/api/README.md)定义预期公开行为。[进度](../progress.md)统一记录状态和剩余工作。
+gzip 翻译除对象堆外，还需要文件操作、`errno`、字符串和格式化输出。已实现模型位于翻译 C 文件旁的 [`gzfs.lean`](../../ZlibF/Zlib/gzfs.lean)，属于可信基础。[Gzip 源码说明](../proof/gzip.md)解释库控制流，[API 契约](../spec/api/README.md)定义预期公开行为。gz 接口的安全性已对这个模型的每一个世界证明（`Goal.gz_sequence_safety`）；它的前提见[偏离记录](../deviations.md#gzip-file-interface)。[进度](../progress.md)统一记录状态和剩余工作。
 
 ## 文件与堆效果
 
@@ -45,7 +45,7 @@ C 字符串字面量保留原来的封闭表和索引。`strerror` 文本采用�
 
 被取地址的局部字节、局部流和标量输出存储使用不消耗调用者分配失败预言机的局部分配器。每个返回路径都必须释放它们。这适用于 `gzgetc`/`gzputc` 的单字节缓冲区，以及便利解压接口的局部流和长度单元。有符号文件位置算术使用经过检查的 64 位操作。模型允许空指针加零，并不能证明使用悬空指针有定义。
 
-翻译文件保留了源码中缺失的 `x.next` 初始化、部分读取赋值顺序、直接缓冲区指针保留和 seek 算术。历史报告和修复提案在 [gzip 证明指南](../proof/gzip.md)中分开记录。这里没有应用 gzip 补丁。
+翻译文件遵循打过补丁的源码。有四个补丁修改 gz 文件（[补丁登记](../../patches/README.md)）：0002 修改 `gzseek64` 的范围检查，0003 在透明模式下先设置 `x.next` 再调用 `gz_load`，0004 把位置 `x.pos` 保持在 `z_off64_t` 之内，0005 只在前进量非零时才移动 `x.next`。`gz_reset` 仍然不初始化 `x.next`，直接读取之后 `x.next` 仍然指向调用者的缓冲区；补丁 0005 去掉了对这些值的指针运算。历史报告和修复提案在 [gzip 证明指南](../proof/gzip.md)中分开记录。
 
 ## 差分证据
 

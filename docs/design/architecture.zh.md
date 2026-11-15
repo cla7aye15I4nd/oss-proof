@@ -1,4 +1,4 @@
-<!-- source-sha256: f590bcbcf13b5db936ae4baf6d19cc075b8b8addd77ee0e4db805ba77391fccb -->
+<!-- source-sha256: fb4078f8ccb44b68198e062cb039e3ad2454f92b533a269e3a4e8faf53288263 -->
 # 从 C 到经过检查的定理
 
 定理针对的是一个 Lean 计算。将它用于 zlib，需要审阅两个联系：运行时必须表示相关 C 操作，翻译必须对应选定的 C 源码。内核在这些选择确定后检查证明，并不检查它们与 C 的这两个联系。[可信基础](../trusted-base.md)记录了这条边界。
@@ -26,18 +26,26 @@ flowchart TD
 | 模型与规范 | 描述程序必须做什么，而不预先选定实现方式 | 审阅定义、定义域及其与公开手册和数据格式的关系 |
 | 证明 | 将计算连接到这些命题 | Lean 内核检查与[验收检查](../checking/README.md) |
 
+只有左边那条路径是必需的：无故障、终止、帧性质和所有权的执行证明，并在调用序列上组合。细化路径给出功能正确性，自 2026-11-11 起不在计划内；计划内的安全证明所依赖的功能性事实仍在范围内，已经证明的细化结果保留（[范围](../progress.md#scope)）。
+
 安全性与功能正确性使用同一组具体状态。不涉及堆的数学内容放在 `ZlibF/Math/`；不能仅因为内存证明使用它，就让它依赖堆。中间算法模型可用于分离数学推理与内存推理，但仍需要细化证明，将模型连接到翻译后的函数。
 
 ## 选定源码与模块布局
 
-首个目标是默认 x86_64 Linux 静态构建，使用 LP64 位宽和默认分配器。分配失败在范围内。其他构建配置和自定义分配器实现是独立范围，记录在[表示限制](../deviations.md)中。绝不修改源码子模块。只有确认的上游缺陷才允许补丁，并须遵守仓库 `AGENTS.md` 与 `patches/README.md` 的规则。
+目标是默认 x86_64 Linux 静态构建，使用 LP64 位宽和默认分配器。分配失败在范围内。其他构建配置和自定义分配器实现不在计划内；这一限制记录在[偏离记录](../deviations.md)中。绝不修改源码子模块。只有确认的上游缺陷才允许补丁，并须遵守仓库 `AGENTS.md` 与 `patches/README.md` 的规则。
 
 | 位置 | 职责 |
 | --- | --- |
 | `ZlibF/Runtime/` | 堆、指针、故障、循环和建模的库操作 |
-| `ZlibF/Zlib/X.c.lean` | `zlib/X.c` 的翻译，以及该文件的规范与证明 |
+| `ZlibF/Zlib/X.c.lean` | `zlib/X.c` 的翻译；其中没有证明 |
 | `ZlibF/Zlib/X.h.lean` | `zlib/X.h` 的翻译 |
-| `ZlibF/Spec/` | 不涉及堆的格式/API 关系与具体公开目标 |
+| `ZlibF/Zlib/gzfs.lean` | gz 翻译所用的文件、`errno` 和格式化模型（[外部 I/O](external-io.md)） |
+| `ZlibF/Spec/Safety/` | 必需的安全目标 |
+| `ZlibF/Spec/Functional/` | 功能目标，以及不涉及堆的格式模型和 API 模型；不是必需的 |
+| `ZlibF/Spec/Public/` | 两类目标共用的定义：调用、历史、帧、参数；gz 与 `inflateBack` 的目标也在这里 |
+| `ZlibF/Spec/*.lean` | 证明中当作被调用者契约使用的内部规范 |
+| `ZlibF/Proof/X.c.<topic>.lean` | 关于 `zlib/X.c` 的证明 |
+| `ZlibF/Proof/public-<name>.lean` | 公开目标的证明 |
 | `ZlibF/Math/` | 各证明共享的不涉及堆的事实 |
 | `tests/` | 差分证据、回归与验收检查 |
 

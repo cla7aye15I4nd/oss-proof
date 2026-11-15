@@ -28,6 +28,11 @@ flowchart TD
 | Models and specifications | State what the program must do without committing to its implementation | Review of definitions, domains and their relation to the public manual and data formats |
 | Proofs | Connect the computation to those statements | Lean kernel checking and the [acceptance checks](../checking/README.md) |
 
+Only the left path is required: the execution proofs of no fault, termination, frame and
+ownership, composed over call sequences. The refinement path gives functional correctness, which
+is not planned since 2026-11-11; a functional fact stays in scope when a planned safety proof
+depends on it, and the refinement results already proved stay ([scope](../progress.md#scope)).
+
 Safety and functional correctness use the same concrete states. Heap-free mathematics belongs
 in `ZlibF/Math/`; it should not acquire heap dependencies merely because a memory proof uses it.
 An intermediate algorithm model is useful when it separates mathematics from memory reasoning.
@@ -35,18 +40,24 @@ It still needs a refinement proof connecting it to the translated function.
 
 ## Selected source and module layout
 
-The first target is the default x86_64 Linux static build with LP64 widths and the default
+The target is the default x86_64 Linux static build with LP64 widths and the default
 allocator. Allocation failure is in scope. Other build configurations and custom allocator
-implementations are separate scope, recorded in [representation limits](../deviations.md).
+implementations are not planned; [deviations](../deviations.md) records the limit.
 The source submodule is never edited. A patch is permitted only for a confirmed upstream bug,
 under the rules in the repository's `AGENTS.md` and `patches/README.md`.
 
 | Location | Responsibility |
 | --- | --- |
 | `ZlibF/Runtime/` | Heap, pointers, faults, loops and modelled library operations |
-| `ZlibF/Zlib/X.c.lean` | Translation of `zlib/X.c`, with the specification and proofs for that file |
+| `ZlibF/Zlib/X.c.lean` | Translation of `zlib/X.c`; it holds no proofs |
 | `ZlibF/Zlib/X.h.lean` | Translation of `zlib/X.h` |
-| `ZlibF/Spec/` | Heap-free format/API relations and concrete public targets |
+| `ZlibF/Zlib/gzfs.lean` | The model of files, `errno` and formatting for the gz translations ([external I/O](external-io.md)) |
+| `ZlibF/Spec/Safety/` | The required safety goals |
+| `ZlibF/Spec/Functional/` | Functional goals, and the heap-free format and API models; not required |
+| `ZlibF/Spec/Public/` | Definitions both kinds of goal use: calls, histories, frames, parameters; also the gz and `inflateBack` goals |
+| `ZlibF/Spec/*.lean` | Internal specifications that proofs use as callee contracts |
+| `ZlibF/Proof/X.c.<topic>.lean` | Proofs about `zlib/X.c` |
+| `ZlibF/Proof/public-<name>.lean` | Proofs of public goals |
 | `ZlibF/Math/` | Heap-free facts shared by the proofs |
 | `tests/` | Differential evidence, regressions and acceptance checks |
 

@@ -1,8 +1,15 @@
 # API models and the concrete boundary
 
+Everything on this page is functional material. It is not required since 2026-11-11: no safety
+goal imports these models, and a script in the fast gate checks that
+(`scripts/check-spec-layers.py`; one listed edge from `Public/GzState` to the gz mode decoder
+remains). The models and the theorems already proved about them stay. Goals that speak only about
+a model are not planned ([scope](../progress.md#scope)).
+
 There are two different kinds of API statement in this repository. The heap-free relations in
-`ZlibF/Spec/Api/` describe histories of bytes and allowed results. The concrete public targets in
-`ZlibF/Spec/Public/` name translated calls and their runtime effects. A theorem about a heap-free
+`ZlibF/Spec/Functional/Api/` describe histories of bytes and allowed results. The concrete public
+goals in `ZlibF/Spec/Safety/`, `ZlibF/Spec/Functional/` and `ZlibF/Spec/Public/` name translated
+calls and their runtime effects. A theorem about a heap-free
 relation is not a theorem about a C entry point. Read the [public API manual](../spec/api/README.md)
 for individual calls and the [target guide](../checking/goals.md) for acceptance requirements.
 
@@ -35,7 +42,9 @@ do not narrow those targets. See [representation limits](../deviations.md).
 
 ## Where the definitions live
 
-Paths below are relative to `ZlibF/Spec/Api/`.
+Paths below are relative to `ZlibF/Spec/Functional/Api/`. The old paths under
+`ZlibF/Spec/Api/` are one-line re-export modules. The parameter decoders that safety goals need
+(return codes, flush values, window and wrapper selection) are in `ZlibF/Spec/Public/Parameters.lean`.
 
 | Module | Role |
 | --- | --- |

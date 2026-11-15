@@ -1,7 +1,9 @@
-<!-- source-sha256: 0b86a4561f917f3646e13a369c1f75738922797de2b9c15dfee6956589b5e8d1 -->
+<!-- source-sha256: cda0e6be463acb520c131a60be3ac9bf1987b348792d7d31ea4c550f42ee7c54 -->
 # API 模型与具体实现边界
 
-仓库里有两类不同的 API 命题。`ZlibF/Spec/Api/` 中不涉及堆的关系描述字节历史和允许结果。`ZlibF/Spec/Public/` 中的具体公开目标命名翻译后的调用及其运行时效果。关于无堆关系的定理并不是关于 C 入口的定理。单个调用见[公开 API 手册](../spec/api/README.md)，验收要求见[目标指南](../checking/goals.md)。
+本页的全部内容都属于功能性材料。自 2026-11-11 起它不是必需的：没有任何安全目标导入这些模型，快速关卡中的一个脚本检查这一点（`scripts/check-spec-layers.py`；目前还剩一条登记在案的导入边，从 `Public/GzState` 指向 gz 模式解码器）。这些模型以及已经证明的关于它们的定理都保留。只谈模型的目标不在计划内（[范围](../progress.md#scope)）。
+
+仓库里有两类不同的 API 命题。`ZlibF/Spec/Functional/Api/` 中不涉及堆的关系描述字节历史和允许结果。`ZlibF/Spec/Safety/`、`ZlibF/Spec/Functional/` 和 `ZlibF/Spec/Public/` 中的具体公开目标命名翻译后的调用及其运行时效果。关于无堆关系的定理并不是关于 C 入口的定理。单个调用见[公开 API 手册](../spec/api/README.md)，验收要求见[目标指南](../checking/goals.md)。
 
 本页解释模型结构和限制，不提供缺失的细化证明，也不替代公开目标。[进度](../progress.md)记录当前状态。
 
@@ -26,7 +28,7 @@ flowchart TD
 
 ## 定义的位置
 
-以下路径相对于 `ZlibF/Spec/Api/`。
+以下路径相对于 `ZlibF/Spec/Functional/Api/`。`ZlibF/Spec/Api/` 下的旧路径是只有一行的转发模块。安全目标需要的参数解码器（返回码、flush 值、窗口与包装器的选择）在 `ZlibF/Spec/Public/Parameters.lean` 中。
 
 | 模块 | 作用 |
 | --- | --- |

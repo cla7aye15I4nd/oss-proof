@@ -11,6 +11,8 @@ record fields and pointer kinds.
 
 ## Fix the source before translating
 
+Translation files hold no proofs: proofs about `zlib/X.c` are in `ZlibF/Proof/X.c.<topic>.lean`.
+
 Translate the default x86_64 Linux static build, with LP64 widths. Resolve preprocessor choices
 against `zlib/` plus the ordered patches, rather than against an unpatched checkout or a different
 configuration. A source file maps to the same name with `.lean` appended:
@@ -59,8 +61,8 @@ for uses at C type `int`. A macro colliding with an enumerator uses `GZ_<name>` 
 | String literal | `strLitRef` into the closed, read-only source literal table; no allocation |
 | `ZALLOC` / `ZFREE` | Default-allocator operations, including its failure oracle; custom allocators are outside the selected model |
 
-The schema is generated from the C headers. A translator requests schema additions through the
-reviewed runtime workflow; it does not invent a second record layout. Generated array fields
+The schema is generated from the C headers. A translator adds to the schema through its
+generator; it does not invent a second record layout. Generated array fields
 still need their declared-length facts. An allocating theorem also carries `Fresh`, so an
 allocation cannot overwrite an existing object.
 
@@ -117,7 +119,8 @@ liveness, read-only stores, invalid comparisons, signed arithmetic and overlappi
 Deliver the mirrored source module, a function-level differential test, and a record of the
 translation decisions with the corresponding C lines. Report the checks actually run in the
 pull request. Follow the [checking guide](../checking/README.md) for audit and mutation evidence.
-A runtime change needs independent review because all function proofs depend on its semantics.
+A runtime change is its own commit, with the reason and the proofs it affects, because all
+function proofs depend on its semantics. The runtime changes only for a confirmed mismatch with C.
 
 If a proof exposes a possible upstream bug, preserve the public domain. Distinguish a proof
 technique problem, a wrong specification, a translation mismatch and a real C defect. The last

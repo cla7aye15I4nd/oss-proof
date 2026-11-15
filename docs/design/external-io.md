@@ -5,6 +5,8 @@ to the object heap. Their implemented model is
 [`gzfs.lean`](../../ZlibF/Zlib/gzfs.lean), beside the translated C files. It belongs to the
 trusted base. [Gzip source notes](../proof/gzip.md) explain the library control flow;
 [API contracts](../spec/api/README.md) define the intended public behavior.
+The safety of the gz interface is proved for every world of this model
+(`Goal.gz_sequence_safety`); its premises are in [deviations](../deviations.md#gzip-file-interface).
 [Progress](../progress.md) is the status and remaining-work record.
 
 ## Files and heap effects
@@ -102,9 +104,13 @@ This applies to `gzgetc`/`gzputc`'s one-byte buffers and the convenience decompr
 stream and length cells. Signed file-position arithmetic uses checked 64-bit operations.
 The modeled allowance for null-plus-zero arithmetic does not justify using a dangling pointer.
 
-The translated files preserve the source's missing `x.next` initialization, partial-read
-assignment order, direct-buffer pointer retention and seek arithmetic. Historical reports and
-proposed fixes are separated in [gzip proof guide](../proof/gzip.md). No gzip patch is applied here.
+The translated files follow the patched source. Four patches change the gz files
+([patch register](../../patches/README.md)): 0002 changes the range checks of `gzseek64`, 0003
+sets `x.next` before `gz_load` in transparent mode, 0004 keeps the position `x.pos` within
+`z_off64_t`, and 0005 advances `x.next` only by a nonzero amount. `gz_reset` still does not
+initialise `x.next`, and a direct read still leaves `x.next` pointing into the caller's buffer;
+patch 0005 removes the arithmetic on those values. Historical reports and proposed fixes are
+separated in [gzip proof guide](../proof/gzip.md).
 
 ## Differential evidence
 
