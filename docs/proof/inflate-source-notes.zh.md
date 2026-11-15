@@ -1,4 +1,4 @@
-<!-- source-sha256: 138e929a3ac6d5900173ff4c084691a287c8360628da02d7f6f4be9cc71342fc -->
+<!-- source-sha256: 8a0b19cae747641f91d9293e8a16478e29edb84440a449e83605c1737c79387c -->
 # 解码器的源码笔记：`inflate.c`、`inffast.c`、`inftrees.c`
 
 本页记录 C 源码里的一些细节：在这些地方，翻译若走捷径，程序的行为就会改变。它们涉及求值顺序、整数转换、贯穿（fall-through），以及跨辅助函数保留的值。本页写给拿 `zlib/*.c` 与 `ZlibF/Zlib/*.c.lean` 对照的读者。
@@ -33,9 +33,18 @@ C 里这些细节是可以观察到的：
 
 ### 窗口、字典、复制
 
-`updatewindow` 分配窗口时不初始化，然后复制最后 `wsize` 个字节，或者复制在环的末尾处断成两段的一个后缀。`inflateGetDictionary` 先返回从 `window + wnext` 到末尾的部分，再返回 `wnext` 之前的部分。`inflateSetDictionary` 在 `DICT` 模式下检查 Adler-32 标识，并把字典的末尾传给 `updatewindow`。`inflateResetKeep` 保留窗口内容。`inflateReset` 清空窗口计数。`inflateReset2` 释放大小发生变化的窗口。
+`updatewindow` 分配窗口时不初始化，然后复制最后 `wsize` 个字节，或者复制在环的末尾处断成两段的一个后缀。`inflateGetDictionary` 先返回从 `window + wnext` 到末尾的部分，再返回 `wnext` 之前的部分。`inflateSetDictionary` 在 `DICT` 模式下检查 Adler-32 标识，并把字典的末尾传给 `updatewindow`。
 
-`inflateCopy` 通过源流的分配器分配。如果窗口分配失败，它释放新的状态。当状态检查拒绝源流时，以及两种分配失败时，它都把 `dest->state` 置为 `NULL`。成功时它复制两个记录并修好回指指针。如果 `lencode` 是状态自己的 `codes` 数组，它让 `lencode` 和 `distcode` 指向副本的数组；指向固定表的指针保持不变。它重新定位 `next`，并复制 `whave` 个窗口字节。指针修正的证明用到不变量子句 `origin`（`CopyTableOrigin`）和 `CopyTableOrigin.dynamic_geometry`（`ZlibF/Proof/inflate.c.copy-origin.lean`）：`next` 和动态的 `distcode` 是 `codes` 内的偏移，`next` 可以恰在它末尾之后一个位置。
+窗口在两个地方分配：在 `updatewindow` 中，当它被调用而 `window == NULL` 时（调用来自 `inflate` 的出口代码和 `inflateSetDictionary`）；以及在 `inflateCopy` 中，为带窗口的流的副本分配。窗口在四个地方释放：
+
+- `inflateReset` 在 `wbits != reqbits` 时释放它，然后置 `wbits = reqbits`。无论哪种情况，它都把 `wsize`、`whave` 和 `wnext` 置为 0。两个宽度相等时，窗口块保留下来并被再次使用。
+- `inflateReset2` 在窗口的宽度 `wbits` 与新 `windowBits` 所要求的宽度不同时释放它，然后调用 `inflateReset`。
+- `inflateSync` 在匹配成功之后调用 `inflateReset`。之后如果 `wbits == 0`，它释放仍然存在的窗口，并置 `wbits = 15`。
+- `inflateEnd` 释放它，然后释放状态。
+
+`inflateResetKeep` 什么都不释放。窗口块和三个计数保持原样。
+
+`inflateCopy` 通过源流的分配器分配。如果窗口分配失败，它释放新的状态。当状态检查拒绝源流时，以及两种分配失败时，它都把 `dest->state` 置为 `NULL`。成功时它复制两个记录并修复回指指针。如果 `lencode` 是状态自己的 `codes` 数组，它让 `lencode` 和 `distcode` 指向副本的数组；指向固定表的指针保持不变。它重新定位 `next`，并复制 `whave` 个窗口字节。指针修复的证明用到不变量子句 `origin`（`CopyTableOrigin`）和 `CopyTableOrigin.dynamic_geometry`（`ZlibF/Proof/inflate.c.copy-origin.lean`）：`next` 和动态的 `distcode` 是 `codes` 内的偏移，`next` 可以恰在它末尾之后一个位置。
 
 在模型里，同一个字节对象中两段不相交区域之间的 `memcpy` 是允许的。区域重叠则是故障。
 
@@ -51,7 +60,7 @@ C 里这些细节是可以观察到的：
 
 `inflateGetDictionary` 通过指针接收可选的长度。翻译改为返回这个值。所以定理不覆盖 `dictLength` 单元与调用者其他数据重叠的情形。
 
-### 表模式与尾部模式引理的陈述
+### 表模式与尾部模式引理的命题
 
 `inflate_TABLE_run` 涵盖三个计数的提取，以及长度符号或距离符号过多时的出口。`inflate_LENLENS_run` 假设 `have ≤ ncode ≤ 19`，并假设已写入的项都是 3 位的值（`Good3`）；前者由 `TABLE` 给出，后者由前几轮给出。`ll1_run`、`lz_run` 和 `llTail_run` 是它的三个循环部分。
 
@@ -103,6 +112,6 @@ C 以指针传递 `table` 和 `bits`。翻译按值传入 `*table` 和 `*bits`�
 
 ### 位数不足时的慢速查表
 
-慢速解码器可以在手里还不到 `root` 位时就查根表项。如果表项自己的长度不超过手里的位数，它就接受这个表项；否则它取一个字节再查。它接受的表项在更多的位到来之后不变（`constructor_establishes_query_stability`）。链接则需要第二次查表和两个长度。
+慢速解码器可以在手里还不到 `root` 位时就查根表项。如果表项自己的长度不超过手里的位数，它就接受这个表项；否则它取一个字节再查。它接受的表项在更多的位到来之后不变（`constructor_establishes_query_stability`，针对 `inflate_table` 以 0 返回的 `LENS` 或 `DISTS` 表）。链接则需要第二次查表和两个长度。
 
 提前读入的字节为什么不必有效，见[流式解码](inflate.md#causality-and-history-across-calls)。
