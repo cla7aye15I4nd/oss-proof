@@ -57,8 +57,8 @@ flowchart LR
 | Gz handles | `GzState`, `GzOpen`, `GzControl`, `GzRead`, `GzWrite`, `GzClose` | Lazy allocation, inactive dangling fields, recovery, positions, whole-item counts, borrowed messages, accepted bytes, seek zeros and descriptor cleanup. |
 | Lifecycles | `Sequences`, `GzTrace` | Every admitted next call returns, init-established invariants, exact allocation changes, cleanup, ordinary format epochs and complete writer output. |
 
-Source readings remain **to confirm** by implementation proofs outside the named checked
-results. [The API manuals](../spec/api/README.md) explain the operations. Historical execution
+Apart from the named checked results, each reading of the source is **to confirm** by an
+implementation proof. [The API manuals](../spec/api/README.md) explain the operations. Historical execution
 notes and proof-status prose never override the registry or required CI.
 
 ## Source-review corrections

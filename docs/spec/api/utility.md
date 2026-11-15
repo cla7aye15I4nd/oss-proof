@@ -71,7 +71,7 @@ Decompression error handling needs no valid compressed-data assumption.
 **Common effects.** Every in-scope call terminates without a fault. Buffer calls preserve input
 and memory outside the output and length cells. They write at most the original capacity.
 All internal allocations are released before return, including on allocation failure;
-no local stream or owned allocation is returned. Pointer-valued queries return borrowed immutable storage.
+the call leaves the caller no local stream and no allocation of its own. Pointer-valued queries return borrowed immutable storage.
 The safety goals named under **Proof goals** state these effects, without the claim about
 borrowed storage; the content of the output is functional behaviour.
 
@@ -190,7 +190,7 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 **Pre.** Restricted domain of `compress2_z`, with a non-NULL `destLen` cell.
 The wrapper reads that cell before calling the checked `_z` entry.
 
-**Effects.** Stateful; same buffer and cleanup effects. The wrapper copies the length back
+**Effects.** Stateful; the buffer and cleanup effects are those of `compress2_z`. The wrapper copies the length back
 on every return, including errors. Early argument rejection preserves its original value;
 invalid level or allocation failure leaves it zero.
 
@@ -250,7 +250,8 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 
 **Pre.** Restricted domain of [compress2_z](#compress2_z), without a level argument.
 
-**Effects.** Stateful; same length writes, checked NULL cases and complete cleanup.
+**Effects.** Stateful; the same length writes, checked NULL cases and complete cleanup as
+`compress2_z`.
 
 **Proof goals.**
 
@@ -542,7 +543,7 @@ The status says whether the first zlib stream decoded completely. Length values 
 **Pre.** Restricted domain of [uncompress2_z](#uncompress2_z), with both length cells non-NULL
 because the wrapper reads them before the `_z` checks.
 
-**Effects.** Stateful; same output and cleanup effects. Both lengths are copied back on every
+**Effects.** Stateful; the output and cleanup effects are those of `uncompress2_z`. Both lengths are copied back on every
 return, including errors. Argument rejection and initialisation failure preserve their values.
 
 **Proof goals.**
@@ -596,8 +597,8 @@ The status says whether the first zlib stream decoded completely. Length values 
 **Reading the result.**
 
 - After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- Length pointers may be NULL for checked rejection; non-NULL cells must be readable and writable.
-- Input, destination and length cells are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
+- `destLen` may be NULL for checked rejection; a non-NULL cell must be readable and writable.
+- Input, destination and the length cell are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
 
 ### Calling conditions and effects {#api-uncompress_z-contract}
 
@@ -606,7 +607,8 @@ The status says whether the first zlib stream decoded completely. Length values 
 **Pre.** Restricted domain of [uncompress2_z](#uncompress2_z); `sourceLen` is passed by value.
 `destLen` may be NULL for checked rejection.
 
-**Effects.** Stateful; same output-length writes and complete cleanup. The consumed count is local.
+**Effects.** Stateful; the same output-length writes and complete cleanup as `uncompress2_z`.
+The consumed count is local.
 
 **Proof goals.**
 
@@ -624,7 +626,7 @@ The status says whether the first zlib stream decoded completely. Length values 
     - *State.* None is kept: no stream, state or window of the call exists afterwards.
     - *Writes.* With `Z_STREAM_ERROR` for the arguments just listed, nothing. Otherwise only: bytes at `dest`, at most the `*destLen` given on entry; and `*destLen`, which receives the number of bytes written. With `Z_MEM_ERROR` it can also be that no byte is written and the cell keeps its entry value. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** A length cell that overlaps a buffer or the other cell, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress_z`, not required for the safety results.
+- **Not in this goal.** The length cell overlapping a buffer, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress_z`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -659,8 +661,8 @@ The status says whether the first zlib stream decoded completely. Length values 
 **Reading the result.**
 
 - After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- The ordinary adapter reads length cells first: destLen must be non-NULL and is copied back on every return.
-- Input, destination and length cells are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
+- The ordinary adapter reads the length cell first: destLen must be non-NULL and is copied back on every return.
+- Input, destination and the length cell are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
 
 ### Calling conditions and effects {#api-uncompress-contract}
 
@@ -668,7 +670,8 @@ The status says whether the first zlib stream decoded completely. Length values 
 
 **Pre.** Restricted buffer domain of [uncompress2](#uncompress2), with non-NULL `destLen`.
 
-**Effects.** Stateful; same output-length writes, retained partial output and complete cleanup.
+**Effects.** Stateful; the same output-length writes, retained partial output and complete
+cleanup as `uncompress2`.
 
 **Proof goals.**
 
@@ -687,7 +690,7 @@ The status says whether the first zlib stream decoded completely. Length values 
     - *State.* None is kept: no stream, state or window of the call exists afterwards.
     - *Writes.* With `Z_STREAM_ERROR` for the arguments just listed, nothing. Otherwise only: bytes at `dest`, at most the `*destLen` given on entry; and `*destLen`, which receives the number of bytes written. With `Z_MEM_ERROR` it can also be that no byte is written and the cell keeps its entry value. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** A length cell that overlaps a buffer or the other cell, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress`, not required for the safety results.
+- **Not in this goal.** The length cell overlapping a buffer, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress"><summary>Complete return conditions and boundaries</summary>
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 0c42d4b5d3e8ad220e256f7759b9bceb712ec780e4decb630aefe9da293aaa78 -->
+<!-- source-sha256: 5b8f14bc7ff82a7cfd17ef66a11f826b4cb4163021cf363e27fbf9ae06beb657 -->
 
 # 缓冲区工具与库信息
 
@@ -54,7 +54,7 @@ flowchart LR
 
 **通用效果。** 范围内的每次调用都终止，且不产生故障。
 缓冲区调用保持输入以及输出、长度单元以外的内存不变，写入不超过原始容量。
-返回前释放所有内部分配，包括分配失败路径；不返回局部流，也不返回带所有权的分配。
+返回前释放所有内部分配，包括分配失败路径；调用不给调用者留下局部流，也不留下它自己做的分配。
 返回指针的查询，返回的是借用的不可变存储。
 “证明目标”下列出的安全目标陈述了这些效果，借用存储那一条除外；输出的内容属于功能行为。
 
@@ -167,7 +167,7 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
 **前置条件。** `compress2_z` 的受限定义域，且 `destLen` 单元非 NULL。
 包装函数会先读取该单元，再调用带检查的 `_z` 条目。
 
-**效果。** 有状态；缓冲区效果和清理效果相同。
+**效果。** 有状态；缓冲区效果和清理效果与 `compress2_z` 相同。
 包装函数在每次返回时写回长度，包括错误返回。
 早期参数拒绝保持其原值；无效级别或分配失败使其为零。
 
@@ -227,7 +227,7 @@ int ZEXPORT compress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_si
 
 **前置条件。** [compress2_z](#compress2_z) 的受限定义域，不包含级别参数。
 
-**效果。** 有状态；长度写入、经检查的 NULL 情形和完整清理均相同。
+**效果。** 有状态；长度写入、经检查的 NULL 情形和完整清理均与 `compress2_z` 相同。
 
 **证明目标。**
 
@@ -517,7 +517,7 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 **前置条件。** [uncompress2_z](#uncompress2_z) 的受限定义域，且两个长度单元均非 NULL，
 因为包装函数会在 `_z` 检查前读取它们。
 
-**效果。** 有状态；输出效果和清理效果相同。每次返回都写回两个长度，包括错误返回。
+**效果。** 有状态；输出效果和清理效果与 `uncompress2_z` 相同。每次返回都写回两个长度，包括错误返回。
 参数拒绝和初始化失败保持这两个长度的值不变。
 
 **证明目标。**
@@ -571,7 +571,7 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
 **判读要点。**
 
 - 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- 长度指针可以为 NULL，此时调用经检查后拒绝；非 NULL 的单元须可读写。
+- `destLen` 可以为 NULL，此时调用经检查后拒绝；非 NULL 的单元须可读写。
 - 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
 
 ### 调用条件与效果 {#api-uncompress_z-contract}
@@ -581,7 +581,7 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
 **前置条件。** [uncompress2_z](#uncompress2_z) 的受限定义域；`sourceLen` 按值传递。
 `destLen` 可在经检查的拒绝情形中为 NULL。
 
-**效果。** 有状态；输出长度的写入和完整清理均相同。已消费计数为局部值。
+**效果。** 有状态；输出长度的写入和完整清理均与 `uncompress2_z` 相同。已消费计数为局部值。
 
 **证明目标。**
 
@@ -599,7 +599,7 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
     - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress_z`，安全结论不需要它。
+- **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress_z`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress_z"><summary>完整返回条件与边界</summary>
 
@@ -643,7 +643,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 
 **前置条件。** [uncompress2](#uncompress2) 的受限缓冲区定义域，且 `destLen` 非 NULL。
 
-**效果。** 有状态；输出长度的写入、部分输出的保留和完整清理均相同。
+**效果。** 有状态；输出长度的写入、部分输出的保留和完整清理均与 `uncompress2` 相同。
 
 **证明目标。**
 
@@ -662,7 +662,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
     - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress`，安全结论不需要它。
+- **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress"><summary>完整返回条件与边界</summary>
 
