@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzState
+import ZlibF.Spec.Functional.GzState
 import ZlibF.Spec.Public.Queries
 
 namespace ZlibF.Spec.Public
