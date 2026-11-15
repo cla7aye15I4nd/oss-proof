@@ -46,6 +46,35 @@ zlib itself; formal verification has its own reference material below.
 [Sanitizer reports](sanitizer-reports.md) lists every sanitizer reproduction and the premise that excludes it.
 [Runtime schema](runtime-schema.md) is the field and type reference.
 
+## History {#history}
+
+The pages under `history/` are dated records, kept unchanged. They describe the time they were
+written: their states, counts and hours are not current facts. Current status is only in
+[progress](progress.md).
+
+- Proof skeletons, the top-down plans of the four core proofs:
+  [inflate](history/skeleton-inflate.md), [deflate](history/skeleton-deflate.md),
+  [gzip file interface](history/skeleton-gz.md),
+  [callback decoder](history/skeleton-inflate-back.md).
+- Progress and overview: [progress checkpoints](history/progress-checkpoints.md),
+  [earlier work order and readiness notes](history/next-work-and-readiness.md),
+  [overview changelog](history/overview-changelog.md).
+- Coverage: [review record](history/coverage-review-record.md),
+  [earlier open items](history/coverage-open-items.md).
+- Specifications: [specification review records](history/specification-review.md),
+  [plan of the safety and functional split](history/safety-functional-split-plan.md),
+  [internal deflate proof scopes](history/deviations-internal-scopes.md).
+- Corrected statements of the earlier goal `DeflateCompletes`:
+  [new input after FINISH](history/deflate-completion-input.md),
+  [NULL output](history/deflate-completion-null-output.md).
+- Proof notes: [earlier proof notes](history/proof-earlier-notes.md),
+  [earlier notes on what a functional proof needs](history/proof-functional-notes.md),
+  [earlier arguments and reference sources](history/references.md).
+- Review records from the time of the lock files:
+  [local proof registration checks](history/registration-review.md),
+  [public query registration review](history/query-registration-review.md),
+  [reviewed recursive execution helpers](history/compiler-helper-review.md).
+
 ## Build and preview {#local}
 
 Article sources live in `articles/`. The website builder, interactions, styles and

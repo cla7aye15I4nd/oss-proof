@@ -1,4 +1,4 @@
-<!-- source-sha256: 5f02186fff46d884cfcd2ee1c04ce3f8accef2474c6ea709e25419567eb3f27b -->
+<!-- source-sha256: 468218cd72664028183050e9b862407fcf04c843e7441f028bdd0949176c45e5 -->
 # 文档
 
 这个目录存放文档网站的内容源码。本页说明从哪里读起，以及这些源码怎样变成网站。
@@ -32,9 +32,21 @@
 - [验证策略](anti-cheating.md)：验收套件能挡住哪些作弊方式。
 - [证据索引](progress.md)：每个目标的命题、证明与依赖。
 
-[源码发现](findings.md)记录已确认的报告及其范围。
+[发现](findings.md)记录已确认的报告及其范围。
 [Sanitizer 报告](sanitizer-reports.md)列出每个 sanitizer 复现以及排除它的前提。
 [运行时结构](runtime-schema.md)提供字段与类型参考。
+
+## 历史 {#history}
+
+`history/` 下的页面是带日期的记录，原样保留。它们描述的是写下它们的那个时候：其中的状态、数字和工时都不是现在的事实。现在的状态只记在[进度](progress.md)中。
+
+- 证明骨架，即四个核心证明自顶向下的计划：[inflate](history/skeleton-inflate.md)、[deflate](history/skeleton-deflate.md)、[gzip 文件接口](history/skeleton-gz.md)、[回调解码器](history/skeleton-inflate-back.md)。
+- 进度与总览：[进度检查点](history/progress-checkpoints.md)、[早先的工作顺序与准备情况说明](history/next-work-and-readiness.md)、[总览变更记录](history/overview-changelog.md)。
+- 覆盖情况：[审查记录](history/coverage-review-record.md)、[早先的未完成项](history/coverage-open-items.md)。
+- 规格：[规格审查记录](history/specification-review.md)、[安全与功能拆分的计划](history/safety-functional-split-plan.md)、[deflate 内部证明范围](history/deviations-internal-scopes.md)。
+- 早先的目标 `DeflateCompletes` 的命题改正记录：[FINISH 之后出现新输入](history/deflate-completion-input.md)、[NULL 输出](history/deflate-completion-null-output.md)。
+- 证明笔记：[早期证明笔记](history/proof-earlier-notes.md)、[早先关于功能证明需要什么的笔记](history/proof-functional-notes.md)、[早期论证与参考来源](history/references.md)。
+- 锁文件时期的审查记录：[本地证明登记检查](history/registration-review.md)、[公开查询登记审查](history/query-registration-review.md)、[已审查的递归执行辅助声明](history/compiler-helper-review.md)。
 
 ## 构建与本地预览 {#local}
 
