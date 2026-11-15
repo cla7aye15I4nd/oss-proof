@@ -387,7 +387,7 @@ recorded in [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schem
 | U4 | No use after free or double free | Yes. A freed block number is never reused, so a dangling pointer faults. |
 | U5 | No invalid use of uninitialised data | Integers: every theorem holds for every value. Pointers: no; no theorem states it, and it is left to source review ([below](#uninitialised-memory)). |
 | U6 | No signed overflow | Yes, where the translation uses a checked signed operation. Where a preceding test in the same function keeps the operands in range, the translation uses the plain operator ([working rules, Translation](../../AGENTS.md#translation)); there the test excludes the overflow, and the model does not check it. |
-| U7 | No invalid shift | Yes, by the checked shift operations of the translation. |
+| U7 | No invalid shift | Yes, where the translation uses a checked shift operation. A shift by a literal count, and a few other shifts, are written with the plain operator, which the model does not check ([translation, form 4](../design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)). |
 | U8 | No write to a read-only object | Partly: byte objects and static tables carry a read-only flag; other objects do not. |
 | U9 | No overlapping `memcpy` | Yes, for every `memcpy` call. |
 | U10 | Accesses respect C type and alignment requirements | No. The model has no type tags, no alignment and no complete ABI layout ([below](#object-representation)). |

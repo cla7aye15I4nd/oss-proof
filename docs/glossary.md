@@ -148,8 +148,10 @@ the window, the hash tables, the pending buffer (`StreamOwned`, `GzOwned`).
 
 **Result cell.** The variable that a pointer argument names and the C stores a result through,
 such as `*destLen` or `*dictLength`. For eight public functions the translation takes the cell as
-a value and not as memory, so their goals say nothing about the cell's memory
-([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Result cells").
+a value and not as memory, so their goals say nothing about the cell's memory: the four
+`compress*` functions, the two `GetDictionary` functions, `deflatePending` and `deflateUsed`
+([deviations](deviations.md#stream-calls-inflate-and-deflate), rows "Result cells" and
+"Whole-buffer compression").
 
 **Library heap.** The phrase the API entries use for the well-formed heap defined above
 ([contracts](spec/api/contracts.md#reading-a-proof-goals-paragraph)).
@@ -169,7 +171,10 @@ the pin plus the files of `patches/`, applied in name order.
 **Normalisation.** One of four ways in which a translation may differ from a literal
 statement-by-statement copy of the C, each with the same behaviour as the C.
 [Translation](design/translation.md#the-accepted-normalisations) lists them with an example of
-each. Any other difference is a translation bug.
+each. By the working rules any other difference is a translation bug. The translations contain
+five further forms that the four do not cover as worded; the owner has not decided whether each
+is accepted or changed
+([the list](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)).
 
 ## Premises
 
