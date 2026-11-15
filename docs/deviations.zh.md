@@ -1,4 +1,4 @@
-<!-- source-sha256: 85d5295ac74e6c785484218c18b95eb7629a5a8a165f1f234e7460cbffcf8176 -->
+<!-- source-sha256: 63b30c7a973182af3641162dcd4f65e8e6bef3c40defbf6b01277bac7508e874 -->
 # 偏离记录：定理假设了什么
 
 本页列出已登记安全目标的每一条前提，以及与之相关的每一条模型限制。前提之外的调用不在覆盖范围内：既没有证明它安全，也不声称它不安全。每条前提都显式写在 Lean 命题中；表中每一行写出陈述它的谓词。凡是 Lean 谓词允许 `NULL` 的地方都允许 `NULL`。
@@ -42,8 +42,8 @@
 
 | 领域 | 当前限制 | 后果 |
 | --- | --- | --- |
-| 整缓冲区压缩（`CompressArguments`） | 源与目标不重叠：`Separate source n dest c`。 | 它是 `Goal.compress_safety`、`Goal.compress2_safety` 及其 `_z` 形式的前提。源可读，目标在其容量内可写，除非该调用是 C 会拒绝的调用（`compressRejected`）。`compress` 与 `compress2` 的长度单元不为 `NULL`；只有 `_z` 形式允许 `NULL` 单元。源与目标重叠的调用不在覆盖范围内。 |
-| 计数解压（`UtilitySeparation`、`UncompressCountedSafe`、`UncompressSingleSafe`） | 源、目标、目标长度单元和源长度单元两两分离。`uncompress` 与 `uncompress_z` 需要源与目标、长度单元与数据的分离。 | 它是 `Goal.uncompress_safe`、`Goal.uncompress2_safe` 及其 `_z` 形式的前提。长度单元是八个可读可写的字节（`LengthCell`）；`uncompress` 与 `uncompress2` 的单元不为 `NULL`。长度单元与数据缓冲区或另一个单元重叠的调用不在覆盖范围内。 |
+| 整缓冲区压缩（`CompressArguments`） | 源与目标不重叠：`Separate source n dest c`。 | 它是 `Goal.compress_safety`、`Goal.compress2_safety` 及其 `_z` 形式的前提。源可读，目标在其容量内可写，除非该调用是 C 会拒绝的调用（`compressRejected`）。`compress` 与 `compress2` 的长度单元不为 `NULL`；只有 `_z` 形式允许 `NULL` 单元。源与目标重叠的调用不在覆盖范围内。长度单元 `*destLen` 在翻译中是一个标量值（`Option UInt64`，`ZlibF/Zlib/compress.c.lean`），不是内存：与源或目标重叠的单元无法表达，也不在覆盖范围内。这限制了 `Goal.compress_safety`、`Goal.compress2_safety` 及其 `_z` 形式。 |
+| 计数解压（`UtilitySeparation`、`UncompressCountedSafe`、`UncompressSingleSafe`） | 源、目标、目标长度单元和源长度单元两两分离。`uncompress` 与 `uncompress_z` 需要源与目标、长度单元与数据的分离。 | 它是 `Goal.uncompress_safe`、`Goal.uncompress2_safe` 及其 `_z` 形式的前提。长度单元是八个可读可写的字节（`LengthCell`）；`uncompress` 与 `uncompress2` 的单元不为 `NULL`。长度单元与数据缓冲区或另一个单元重叠的调用不在覆盖范围内。与 `compress*` 不同，单元 `*destLen` 和 `*sourceLen` 在翻译中是内存（`ZlibF/Zlib/uncompr.c.lean`），所以这里的分离是写明的前提，而不是模型的限制。 |
 | Adler 初始化查询 | `AdlerBufferBytes` 只允许零长度时为 NULL；非空可读对象保留原定义域 | 该显式限制窄于固定头文件对 NULL 不加限定的表述。它适用于 `Goal.adler32_safety` 和 `Goal.adler32_z_safety`，也适用于功能目标 `Goal.adler32` 和 `Goal.adler32_z`。CRC 目标保留 `BufferBytes`，它允许任意长度下的 `NULL`。上游 [PR #1364](https://github.com/madler/zlib/pull/1364) 报告了对 NULL `buf` 的单字节读取；维护者于 2026 年 11 月 6 日关闭该请求，保留代码，并宣布将在 zlib.h 中加入对 `len` 的限制。`develop` 头 `99623ef7097352da7993ba614161fd6a311e046e` 尚未包含该文字；文字合入后需按其复核本行。 |
 | CRC 组合算子 | `Goal.crc32_combine_op_safety` 取的算子是 `crc32_combine_gen` 或 `crc32_combine_gen64` 返回的值 | 这是 `zlib.h` 为 `crc32_combine_op` 规定的定义域，不是收窄。任意的 `op` 值不在覆盖范围内。 |
 
@@ -80,7 +80,7 @@
 | 领域 | 当前限制 | 后果 |
 | --- | --- | --- |
 | 聚焦函数手册 | 条目可能要求有效句柄、分离缓冲区、实际字符串的校验和、生成的操作符或特定调用顺序 | 这些是明确的文字范围，不缩小更广泛 Lean 公开目标。 |
-| 压缩器长度单元 | `Concrete.compress2_z` 和 `Concrete.compress2` 使用可选标量输入及返回的存储值 | 不表示该单元与输入或输出的别名。若 C API 允许，完整指针定义域结论需要解决它。`_z` 与兼容包装的空单元效果仍不同。 |
+| API 模型中的压缩器长度单元 | 功能性模型 `Concrete.compress2_z` 和 `Concrete.compress2` 使用可选标量输入及返回的存储值 | 本行只涉及功能性模型。其中不表示该单元与输入或输出的别名。`_z` 与兼容包装的空单元效果仍不同。翻译中的长度单元同样是标量，而这一点确实限制了必需的安全目标：见上文“整缓冲区压缩”一行。 |
 | 计数解压单元 | 草案适配器保持输入长度、输出长度和数据范围分离 | 单元与数据或彼此的别名在适配器之外。早期和后期内存失败保留不同标量效果。 |
 | 压缩器数据关系 | `Compress2` 用粗粒度拒绝标志描述数据 | `Compress2Z` 和 `Compress2Wrapper` 表达指针形状、错误顺序和长度存储。数据模型定理本身不是入口细化。 |
 | 上界算术 | LP64 上两个长度都是 64 位 | `Goal.compress_bound_value` 覆盖每个 `UInt64`，没有更小数值前提。其他 ABI 需要大小转换命题。只有数值公式不能建立输出容量充足性。 |
