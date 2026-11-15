@@ -1,4 +1,5 @@
 import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Functional.Format.Wrapper
 
 /-!
 # Default deflate calls, separately from auxiliary APIs and capacity bounds
