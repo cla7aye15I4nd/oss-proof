@@ -46,29 +46,31 @@ exhibits, for example `witnessHeap` in `ZlibF/Spec/Public/Domains.lean`.
 
 **Documented function.** A function that `zlib.h` declares before its comment "undocumented
 functions (not part of the zlib API)". The ten functions after that comment are undocumented, and
-a goal of their own is not required. One of them, `gzvprintf`, is still a call of the gz sequence
-goal, because `gzprintf` goes through it.
+a goal of their own is not required. The exception is `gzvprintf`: `gzprintf` goes through it, so
+its safety goal `Goal.gzvprintf_safety` is required and it is a call of the gz sequence goal.
 
 **Required goal.** A goal the acceptance audit insists on: the safety goal of every documented
-function of the target build, the listed sequence and refusal goals, and the non-vacuity goals.
+function of the target build, the listed safety goals (which add the sequence goals, the refusal
+goals and the goal of `gzvprintf`), and the non-vacuity goals.
 `scripts/verification.py` computes the set from the manifest.
 
 **Manifest.** The file `tests/audit/public-api.json`. It has an entry for every exported
 function, with its manual entry and, when the target build compiles the function, its translated
 definition. For every documented function the entry names the functional goal and the safety
-goal. The ten undocumented functions have no safety goal there, and one of them, `gzopen_w`,
-which the target build does not compile, has no functional goal. The manifest also lists the
-sequence goals and the non-vacuity goals.
+goal. Of the ten undocumented functions only `gzvprintf` has a safety goal there, and one of
+them, `gzopen_w`, which the target build does not compile, has no functional goal. The manifest
+also lists the sequence goals, the required safety goals and the non-vacuity goals.
 
 **Registry.** One of three hand-edited lists under `tests/audit/`: `goals.txt` (every goal),
 `theorems.txt` (the theorems that make up the result) and `proved-goals.txt` (the goals that have
 a listed theorem of exactly their type).
 
-**Counts.** 86 documented functions of the target build. 63 required goals: 52 one-function safety
-goals, four sequence safety goals, three refusal goals and four non-vacuity goals; the 31 gz
-functions share one sequence goal and the three `inflateBack` functions another. 239 goals in
-`goals.txt`, of which 193 have a registered theorem; these include functional goals and internal
-goals that are not required. The status page counts all 239.
+**Counts.** 86 documented functions of the target build. 98 required goals: 87 one-function safety
+goals, four sequence safety goals, three refusal goals and four non-vacuity goals. The 87 are one
+for each documented function and one for `gzvprintf`; for `compressBound` and `compressBound_z`,
+which are pure, the functional goal stands for the safety goal. 274 goals in `goals.txt`, of which
+228 have a registered theorem; these include functional goals and internal goals that are not
+required. The status page counts all 274.
 
 **Model-only statement.** A theorem about the abstract API model in `ZlibF/Spec/Functional/`, not
 about the translated C. It says nothing about the implementation until a separate theorem relates
@@ -100,8 +102,9 @@ Only an accepted result is reported as final, and always with that commit.
 
 **Fault.** The model's result for a run that does not return normally. Every undefined behaviour
 the C can reach raises `Fault.ub`; a loop that uses up its fuel raises `Fault.outOfFuel`. A safety
-theorem shows that no run raises either. One goal splits the two: the gz sequence goal proves that
-no run raises `Fault.ub` in any world, and that the six reading calls return under a read budget.
+theorem shows that no run raises either. The gz goals split the two: the gz sequence goal, and the
+goals of the six reading calls, prove that no run raises `Fault.ub` in any world, and that the six
+reading calls return under a read budget.
 
 **Fuel.** The bound on the iterations of one translated loop: `2^64` (`ZlibF/Runtime/Monad.lean`).
 A theorem that concludes a normal return proves that the bound is never reached, which is the

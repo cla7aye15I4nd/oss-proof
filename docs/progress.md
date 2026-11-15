@@ -2,7 +2,7 @@
 
 This page records the level of every result and the work that remains. Its first section, Scope,
 says what is planned, what is accepted and on which commit, and what is not planned. The long
-middle part is generated from the proof records: one entry for each of the 239 goals, with its
+middle part is generated from the proof records: one entry for each of the 274 goals, with its
 statement, proof and dependencies. For what the results mean, read [the overview](overview.md);
 for the theorem that covers one function, read [coverage by function](coverage.md).
 
@@ -19,11 +19,11 @@ and termination. The third result has four parts.
 | 1 | `inflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.inflate_safety`, `Goal.inflate_sequence_safety` |
 | 2 | `deflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.deflate_safety`, `Goal.deflate_sequence_safety` |
 | 3a | The whole-buffer functions are safe: compositions of 1 and 2. | `Goal.compress_safety`, `Goal.compress2_safety`, `Goal.uncompress_safe`, `Goal.uncompress2_safe` and their `_z` forms |
-| 3b | The callback decoder is safe on every input and every caller protocol, also over its call sequences. | `Goal.inflate_back_sequence_safety`, `Goal.inflate_back_initialisation_domain` |
-| 3c | The gzip file interface is safe on every history of a handle, for every file-system world. | `Goal.gz_sequence_safety` (the 31 documented gz functions and `gzvprintf`), `Goal.gz_refusal` (a `NULL` handle), `Goal.gz_sequence_nonvacuity` |
+| 3b | The callback decoder is safe on every input and every caller protocol, also over its call sequences. | `Goal.inflateBackInit__safety`, `Goal.inflateBack_safety`, `Goal.inflateBackEnd_safety`, `Goal.inflate_back_sequence_safety`, `Goal.inflate_back_initialisation_domain` |
+| 3c | The gzip file interface is safe on every history of a handle, for every file-system world. | The 32 one-function safety goals of the 31 documented gz functions and of `gzvprintf`; `Goal.gz_sequence_safety`; `Goal.gz_refusal` (a `NULL` handle); `Goal.gz_sequence_nonvacuity` |
 | 3d | Every other documented function is safe: the other stream calls with init, End and Copy, the checksums, `compressBound*`, `zlibVersion` and `zlibCompileFlags`. | Their 42 one-function safety goals, `Goal.inflate_refusal`, `Goal.deflate_refusal`, `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain` |
 
-The six rows hold all 63 required goals: 2 + 2 + 8 + 2 + 3 + 46. The 63 are computed from
+The six rows hold all 98 required goals: 2 + 2 + 8 + 5 + 35 + 46. The 98 are computed from
 `tests/audit/public-api.json` by `scripts/verification.py`; [coverage](coverage.md) names the
 theorem of each.
 
@@ -33,7 +33,7 @@ Three notes on the table:
   `gzgetc`, `gzgetc_`, `gzgets` and `gzungetc`. These six need a read budget below `2^61`
   (`ReadsFinite`), also where the C returns at once.
 - `gzvprintf` is undocumented in `zlib.h`, but `gzprintf` goes through it, so it is planned
-  with 3c.
+  with 3c, and its goal `Goal.gzvprintf_safety` is required.
 - A functional fact is in scope exactly when a planned proof depends on it.
 
 **Level of each result.** The three levels, checked, registered and accepted, are defined in the
@@ -44,16 +44,35 @@ Three notes on the table:
 | 1 | Yes, both goals | `bde170e9` |
 | 2 | Yes, both goals | `bde170e9` |
 | 3a | Yes, all eight | `bde170e9` |
-| 3b | Yes, both goals | `bde170e9` |
-| 3c | Yes, all three | `bde170e9` |
+| 3b | Yes, all five | `bde170e9` for the non-vacuity goal, and for the sequence goal in its earlier form. Acceptance pending for the three one-function goals and for the sequence goal in its present form |
+| 3c | Yes, all 35 | `bde170e9` for the sequence, refusal and non-vacuity goals. Acceptance pending for the 32 one-function goals |
 | 3d | Yes, all 46 | `bde170e9`, except the four init safety goals in their present form |
 
 On `bde170e9` the acceptance suite was green: axiom gate, exact goals, self tests, proof mutants
-and differential tests, with all 63 required goals registered. The differential tests are
-evidence of fidelity, not proof.
+and differential tests, with all 63 goals registered that were required then. The differential
+tests are evidence of fidelity, not proof.
 
-Between that commit and this page, the registries under `tests/audit/` and the scripts under
-`scripts/` are unchanged, and two things changed under `ZlibF/`:
+"Acceptance pending" means registered and not yet accepted: no acceptance run that covers the
+goal in its present form has finished.
+
+Between that commit and this page, these things changed:
+
+- **Each gz function and each callback-decoder function has its own safety goal.** There are 35
+  new goals: one for each of the 31 documented gz functions, one for `gzvprintf`, and one each for
+  `inflateBackInit_`, `inflateBack` and `inflateBackEnd` (`ZlibF/Spec/Safety/GzCalls.lean`,
+  `ZlibF/Spec/Safety/Back.lean`; proofs in `ZlibF/Proof/public-gz-call-safety.lean` and
+  `ZlibF/Proof/public-back-safety.lean`). They were registered in commit `0cdd7bdd`: the
+  registries under `tests/audit/` gained the 35 goals and their 35 theorems, the manifest names
+  each function's own goal, and `scripts/verification.py` no longer lets functions share a safety
+  goal. The required set grew from 63 goals to 98. Before, the gz functions named
+  `Goal.gz_sequence_safety` and the three callback functions named
+  `Goal.inflate_back_sequence_safety`. The 35 goals are checked and registered, with acceptance
+  pending: the fast gate is green on `3fdbbc38`.
+- **The histories of the callback decoder were widened.** The first step of a history
+  (`BackSafeReachable.init`) no longer asks for a `NULL` `state` field before `inflateBackInit_`
+  (commit `874a9398`, `BackInitArguments` in `ZlibF/Spec/Public/Sequences.lean`). So
+  `Goal.inflate_back_sequence_safety` covers more histories than it did on `bde170e9`. In this
+  form it is registered, with acceptance pending.
 
 - **The four init safety goals were widened.** `Goal.inflateInit__safety`,
   `Goal.inflateInit2__safety`, `Goal.deflateInit__safety` and `Goal.deflateInit2__safety` hold for
@@ -63,16 +82,23 @@ Between that commit and this page, the registries under `tests/audit/` and the s
   goals are checked and registered, and not yet accepted: the fast gate is green on `8642e435`,
   and no acceptance run covers a commit that contains them. They are accepted on `bde170e9` only
   in the narrower form.
+- **Statements that are not required goals changed.** The specifications of the fast decoder take
+  the input and the output in any byte view, not only in a heap block (commit `4ed7315e`,
+  `ZlibF/Spec/InflateFast*.lean`); a regression derives each earlier statement from the present one
+  (`tests/verification/regressions/inffast-byte-views-old-from-new.lean`). Two functional
+  definitions were changed: `WrapperLength` (commit `ac0fccc5`) and `DeflateCompletes` (commit
+  `a2cf8723`). Registered goals among these statements have, in their present form, no finished
+  acceptance run either.
 - **Proof modules of functional work changed.** Modules about the meaning of the output of
   `inflate` (`ZlibF/Proof/inflate.c.meaning*.lean`) were added or changed. None of their theorems
-  is registered, and they change no goal.
+  is registered.
 
-No other goal, registered theorem or registry line differs from `bde170e9`.
+The registries changed only by the 35 goals and 35 theorems of the first item. The complete list
+of changes is the difference between `bde170e9` and this commit under `ZlibF/Spec/`,
+`tests/audit/` and `scripts/`.
 
-**Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
-functions are proved safe through the sequence goals of 3b and 3c, which cover every call in
-every history. They have no separate one-function safety goal yet; stating and registering those
-goals is the first item of [Ordered next work](#ordered-next-work).
+**Open.** Nothing that a safety result needs. Every required goal is registered. What is pending
+is acceptance of the goals listed above ([Ordered next work](#ordered-next-work)).
 
 **Planned after the safety results: the round trip of the default zlib stream.** The default
 stream is `deflateInit` at the default level with `inflateInit`. The order is: first the
@@ -2417,7 +2443,7 @@ link or a line anchor. Its links keep the revision they were generated at until 
 
 ## Remaining work
 
-All 63 required goals are registered; [Scope](#scope) gives the level of each result and the
+All 98 required goals are registered; [Scope](#scope) gives the level of each result and the
 commit of acceptance. No goal has a documented blocker. The work that remains is listed in
 [Ordered next work](#ordered-next-work).
 
@@ -2468,22 +2494,19 @@ The table with one row for each function that `zlib.h` documents is on its own p
 type is that goal, the proof file, the domain and the theorem that covers a `NULL` or
 inconsistent stream. A separate column names the functional theorem.
 
-Every documented function has a registered safety theorem on the domain its row states. Four
+Every documented function has a registered safety theorem on the domain its row states. Three
 kinds of item are open or narrower than `zlib.h`:
 
-1. **One-function safety goals** for the gz functions and for `inflateBackInit_`, `inflateBack`
-   and `inflateBackEnd` are not stated. `Goal.gz_sequence_safety` and
-   `Goal.inflate_back_sequence_safety` prove their safety.
-2. **Refusal clauses.** The safety goals of `inflatePrime`, `inflateMark`, `deflateTune`,
+1. **Refusal clauses.** The safety goals of `inflatePrime`, `inflateMark`, `deflateTune`,
    `deflatePending`, `deflateUsed` and `deflateSetHeader` cover the call on a reachable stream.
    The refusal of a `NULL` or inconsistent stream is proved in the functional goal of the same
    function, and is not yet a clause of the safety goal.
-3. **Domains narrower than `zlib.h`**, each with a row in [deviations](deviations.md):
-   `inflateBack` (`inputBound < 2^48`; the window and every input chunk in a heap byte block;
-   `state == NULL` before `inflateBackInit_`); `inflateCopy` and `deflateCopy`
+2. **Domains narrower than `zlib.h`**, each with a row in [deviations](deviations.md):
+   `inflateBack` (`inputBound < 2^48`; the window and every input chunk in a heap byte block);
+   `inflateCopy` and `deflateCopy`
    (`source ≠ dest`); `adler32` and `adler32_z` (a `NULL` `buf` only with `len = 0`: `len = 1`
    is a real C fault, and `NULL` with `len ≥ 2` is safe in C but unproved).
-4. **Result cells passed as values.** The translations of eight public functions take a scalar
+3. **Result cells passed as values.** The translations of eight public functions take a scalar
    out-parameter as a value and return the stored value as a further result: `destLen` of
    `compress`, `compress2` and their `_z` forms; `dictLength` of `inflateGetDictionary` and
    `deflateGetDictionary`; `pending` and `bits` of `deflatePending`; `bits` of `deflateUsed`. The
@@ -2499,28 +2522,27 @@ registered.
 
 ### Ordered next work
 
-Every required goal is registered: 63 safety and non-vacuity goals, none open
+Every required goal is registered: 98 safety and non-vacuity goals, none open
 (`tests/audit/public-api.json`). [Scope](#scope) names the commit on which the acceptance suite
 was green and what changed after it. What remains, in order:
 
-1. **One-function safety goals** for the 31 functions of the gzip file interface and for
-   `inflateBackInit_`, `inflateBack` and `inflateBackEnd`. Each restates the registered sequence
-   theorem (`gz_sequence_safety`, `inflate_back_sequence_safety`) for one function. They are not
-   on `dev`. The manifest names the sequence goal as the safety goal of each of these functions.
+1. **Acceptance** of the goals registered or changed after `bde170e9`: the 35 one-function safety
+   goals of the gz functions and of the callback decoder, the widened init goals, and the
+   callback-decoder sequence goal in its present form. They are registered and wait only for a
+   green acceptance suite on a named commit.
 2. **Refusal clauses** in the safety goals of the six stream functions listed under
-   [coverage](#no-fault-coverage-of-zlibh-functions), item 2.
-3. **Acceptance** of items 1 and 2 and of the widened init goals: registration in
-   `tests/audit/theorems.txt`, proof mutants, and a green acceptance suite on a named commit.
-   The widened init goals are registered already and wait only for that run.
-4. **The round trip of the default zlib stream**, after the safety results ([Scope](#scope)).
-5. **Upstream submission of the local patches** 0004 and 0005
+   [coverage](#no-fault-coverage-of-zlibh-functions), item 1, and then their acceptance:
+   registration in `tests/audit/theorems.txt`, proof mutants, and a green acceptance suite on a
+   named commit.
+3. **The round trip of the default zlib stream**, after the safety results ([Scope](#scope)).
+4. **Upstream submission of the local patches** 0004 and 0005
    ([patches](../patches/README.md)). Patches 0001 to 0003 match submitted upstream pull
    requests.
-6. **Open reviews and decisions**: [Translation review](#translation-review),
+5. **Open reviews and decisions**: [Translation review](#translation-review),
    [Historical reports to recheck](#historical-reports-to-recheck), and the owner's decision on
    the result cells of eight public functions
-   ([coverage](#no-fault-coverage-of-zlibh-functions), item 4).
-7. **Optional cleanup** of proofs that no registered theorem uses
+   ([coverage](#no-fault-coverage-of-zlibh-functions), item 3).
+6. **Optional cleanup** of proofs that no registered theorem uses
    ([Core proof skeletons](#core-proof-skeletons)).
 
 The groups that [Scope](#scope) lists as not planned get no work. The earlier ordered table (13

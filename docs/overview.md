@@ -13,11 +13,13 @@ that each theorem states. The words in bold type are defined in the [glossary](g
 On every input that its premises admit, the translated call returns with no undefined behaviour
 and no memory error, writes only the memory it is allowed to (its frame), leaks nothing, and
 terminates. This holds over call sequences: for every history of an inflate stream, a deflate
-stream, a callback decoder and a gzip file handle. The 63 required goals are registered. The
-acceptance suite was green on commit `bde170e9`, so the results are accepted on that commit. One
-exception: the four init safety goals were widened after it, and in the wider form they are
-registered and not yet accepted. [Scope](progress.md#scope) records the level of each result and
-what changed after that commit.
+stream, a callback decoder and a gzip file handle. The 98 required goals are registered. The
+acceptance suite was green on commit `bde170e9`, when the required set had 63 goals, so those
+results are accepted on that commit. Registered since then, with acceptance pending: the 35
+one-function safety goals of the gz functions and of the callback decoder; the four init safety
+goals, which were widened; and the sequence goal of the callback decoder, whose histories were
+widened. [Scope](progress.md#scope) records the level of each result and what changed after that
+commit.
 
 **Assumed.** The theorems are about a Lean translation that runs on a runtime model. Six things
 are trusted and not proved ([trusted base](trusted-base.md)):
@@ -33,10 +35,8 @@ Differential tests are evidence of fidelity, not proof. Compiler, operating-syst
 correctness are outside the proof. The premises that a theorem puts on the caller are in
 [deviations](deviations.md), as a checklist by function.
 
-**Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
-functions are proved safe through their sequence goals, which cover every call in every history;
-they have no separate one-function safety goal yet. Stating and registering those 34 goals is
-remaining work ([progress](progress.md#ordered-next-work)).
+**Open.** Nothing that a safety result needs. Acceptance is pending for the goals registered
+after `bde170e9` ([progress](progress.md#ordered-next-work)).
 
 **Not required.** Functional correctness is not required for the safety results. A functional
 fact is in scope when a planned safety proof depends on it; what is already proved stays. One

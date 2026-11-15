@@ -1,11 +1,12 @@
-<!-- source-sha256: ef8b8028931bd1a71ba977bef246406895fff897b654418b313e92b57684ba41 -->
+<!-- source-sha256: 522a845a3a266bf8f5adf3effc432de63915141b9feb83f5beea8bee49a935f9 -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的已登记定理，以及证明所在的文件。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
 
 - **已证明。** 目标构建中每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。表中的名字已与 `tests/audit/public-api.json`、`tests/audit/theorems.txt` 和证明文件核对。
 - **所作假设。** [可信基础](trusted-base.md)的六项，以及[偏离记录](deviations.md)中的前提；“定义域”一列指向的就是这些前提。
-- **未完成。** gz 函数和三个 `inflateBack` 函数由序列目标覆盖，没有单函数安全目标（[进度](progress.md#ordered-next-work)）。有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，还没有写进安全目标；相应的行有说明。
+- **已登记，验收待完成。** gz 函数和三个 `inflateBack` 函数的单函数目标、四个初始化目标的现行形式，以及回调解码器序列目标的现行形式（[范围](progress.md#scope)）。
+- **未完成。** 有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，还没有写进安全目标；相应的行有说明。
 
 “已登记”指列在 `tests/audit/theorems.txt` 中。结论的层级和验收所在的提交见[范围](progress.md#scope)。
 
@@ -69,15 +70,17 @@
 
 ## 回调解码器
 
-这三个函数的安全性由序列目标证明，没有单函数安全目标（[进度](progress.md#ordered-next-work)）。
+安全一列的定理：`public-back-safety.lean` 中的 `ZlibF.Spec.Public.BackSafetyProof.<name>`。目标在 `ZlibF/Spec/Safety/Back.lean` 中。
 
-| 函数 | 安全目标与定理 | 定义域 | `NULL` 流或不一致的流 | 功能定理（保留，并非必需） |
+| 函数 | 安全目标 = 定理名 | 定义域 | `NULL` 流或不一致的流 | 功能定理（保留，并非必需） |
 | --- | --- | --- | --- | --- |
-| `inflateBackInit_`（宏 `inflateBackInit`） | `Goal.inflate_back_sequence_safety`：`Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。初始化是每段历史的第一步。 | [回调解码器各行](deviations.md#callback-decoder)，其中包括调用之前 `state == NULL` | 在功能目标中 | `Goal.inflateBackInit_`：`ZlibF.Spec.Public.InflateBackInitProof.back_init_public`，`public-infback-init.lean`。它对每个 `state` 值覆盖错误的版本或大小、`NULL` 流、`NULL` 窗口、错误的 `windowBits` 和分配失败。 |
-| `inflateBack` | 同一个目标和定理，第 3 个子句 | `inputBound < 2^48`；窗口和每一块输入都在堆字节块中；回调协议 | `NULL` 流是目标的第 1 个子句。状态为 `NULL`：`Zlib.Infback.Proofs.inflateBack_nostate`，已登记，不是目标 | 没有：`Goal.inflateBack` 未证明，不在计划内 |
-| `inflateBackEnd` | 同一个目标和定理，第 4 个子句 | 除历史之外没有别的要求 | 在功能目标中 | `Goal.inflateBackEnd`：`ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean`。它覆盖 `NULL`、状态为 `NULL` 和 `zfree` 为 `NULL` 的情形。 |
+| `inflateBackInit_`（宏 `inflateBackInit`） | `Goal.inflateBackInit__safety` | `zlib.h` 允许的每次调用（`InitArguments`），对每个 `windowBits`、`stream_size` 和 `state`；窗口非 `NULL` 且 `windowBits` 为 8 到 15 时，窗口有 `2^windowBits` 个可写字节；每一种分配结果 | `NULL` 流在目标之内 | `Goal.inflateBackInit_`：`ZlibF.Spec.Public.InflateBackInitProof.back_init_public`，`public-infback-init.lean`。它对每个 `state` 值说明错误的版本或大小、`NULL` 流、`NULL` 窗口、错误的 `windowBits` 和分配失败各返回哪个值。 |
+| `inflateBack` | `Goal.inflateBack_safety` | `BackSafeReachable` 的一段历史；`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中；回调协议 | 在目标之内：`NULL` 流，以及状态为 `NULL` 的流记录 | 没有：`Goal.inflateBack` 未证明，不在计划内 |
+| `inflateBackEnd` | `Goal.inflateBackEnd_safety` | `BackSafeReachable` 的一段历史；没有别的要求 | 在目标之内：`NULL` 流，以及状态或 `zfree` 为 `NULL` 的流记录 | `Goal.inflateBackEnd`：`ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean` |
 
-这条序列定理有十一个证明变异体，针对 `inflateBack`、`inflateBackInit_` 和 `inflateBackEnd`（`tests/proof-mutants/infback-sequence.tsv`）。
+- **序列目标。** `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Public/Sequences.lean`）：定理 `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。它多说一点：每段历史之后，调用者的窗口上都有一个有效的解码器状态。它的子句 1 和子句 3 是 `Goal.inflateBack_safety` 的第一个和第三个子句，它的子句 4 是 `Goal.inflateBackEnd_safety` 的第三个子句。历史从一次返回 `Z_OK` 的 `inflateBackInit_` 调用开始，调用之前 `state` 字段可以取任意值（`BackInitArguments`）。
+- **非空性。** `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Public/Domains.lean`）。
+- **证明变异体。** 序列定理有十一个证明变异体，针对 `inflateBack`、`inflateBackInit_` 和 `inflateBackEnd`（`tests/proof-mutants/infback-sequence.tsv`）。三个单函数目标在 `tests/audit/public-mutants.json` 中各有自己的键（[变异体指南](checking/proof-mutants.md)）。
 
 ## 校验和与查询
 
@@ -105,32 +108,32 @@
 
 ## Gzip 文件接口
 
-31 个有文档的 gz 函数的安全性由序列目标证明，没有单函数安全目标（[进度](progress.md#ordered-next-work)）。
+31 个有文档的 gz 函数以及 `gzvprintf`，各有自己的安全目标 `Goal.<function>_safety`，在 `ZlibF/Spec/Safety/GzCalls.lean` 中。定理与目标同名：`public-gz-call-safety.lean` 中的 `ZlibF.Spec.Public.GzCallSafetyProof.<function>_safety`。每个目标是序列目标的一个子句，限制到一个函数的调用上。接受句柄的函数，其目标还带有对 `NULL` 句柄的拒绝。
 
 - **序列目标。** `Goal.gz_sequence_safety`（`ZlibF/Spec/Public/GzSafety.lean`）：定理 `ZlibF.Spec.Public.Proofs.gz_sequence_safety_public`，`public-gz-sequence-safety.lean`。它的定义域是一个句柄在每个文件系统世界中的每段历史（`GzHistory`）。
 - **非空性。** `Goal.gz_sequence_nonvacuity`：定理 `ZlibF.Spec.Public.Proofs.GzNonvacuity.gz_sequence_nonvacuity_public`，`public-gz-sequence-nonvacuity.lean`。
-- **`NULL` 句柄。** `Goal.gz_refusal`：定理 `ZlibF.Spec.Public.GzRefusalProof.gz_refusal`，`public-gz-refusal.lean`。接受句柄的 29 个 gz 函数（包括 `gzvprintf`）各自返回文档规定的值，堆和世界都不变。三个打开函数不接受句柄。
-- **证明变异体。** 每一组 gz 函数，以及补丁 0002 至 0005 的每一处改动，都有变异体（`gz-sequence.tsv`、`gz-read.tsv`、`gz-refusal.tsv`；[变异体指南](checking/proof-mutants.md)）。
+- **`NULL` 句柄。** `Goal.gz_refusal`：定理 `ZlibF.Spec.Public.GzRefusalProof.gz_refusal`，`public-gz-refusal.lean`。接受句柄的 29 个 gz 函数（包括 `gzvprintf`）各自返回文档规定的值，堆和世界都不变。三个打开函数不接受句柄。这 29 个函数各自的目标都重复了属于它的那个子句。
+- **证明变异体。** 每一组 gz 函数，以及补丁 0002 至 0005 的每一处改动，都有变异体（`gz-sequence.tsv`、`gz-read.tsv`、`gz-refusal.tsv`）。32 个单函数目标在 `tests/audit/public-mutants.json` 中各有自己的键；随这些键新增的行在 `public-gz-safety.tsv` 中（[变异体指南](checking/proof-mutants.md)）。
 
-下表说明序列目标的哪一部分覆盖哪些函数。前提是[偏离记录中 gz 的各行](deviations.md#gzip-file-interface)。
+下表说明每个函数的目标限制的是序列目标的哪个子句。前提是[偏离记录中 gz 的各行](deviations.md#gzip-file-interface)。
 
-| 函数 | `Goal.gz_sequence_safety` 的哪一部分 | 说明 |
+| 函数（各有自己的 `Goal.<function>_safety`） | 目标所限制的 `Goal.gz_sequence_safety` 的部分 | 说明 |
 | --- | --- | --- |
 | `gzopen`、`gzopen64` | 打开子句（`GzOpenSafe`） | 每个路径、模式和世界，包括每一种失败 |
 | `gzdopen` | 打开子句（`GzDopenSafe`） | 每个 `fd`。功能目标 `Goal.gzdopen` 也已登记（`Zlib.Gzlib.Proofs.gzdopen_complete`）。 |
-| `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzseek`、`gzseek64` | 调用子句 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gzoffset`、`gzoffset64` 和 `gzrewind` 的功能目标也已登记。 |
-| `gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams` | 调用子句 | `gzprintf` 的每次调用都需要可表示的格式串，读取端句柄上也一样。未文档化的 `gzvprintf` 同样是这个目标中的一种调用。 |
-| `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets` | 调用子句；终止需要 `ReadsFinite` | 在每个世界中都不出故障；读取预算小于 `2^61` 时正常返回 |
+| `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzseek`、`gzseek64` | 调用子句；`gzerror` 还有关于它所返回字符串的子句 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gzoffset`、`gzoffset64` 和 `gzrewind` 的功能目标也已登记。 |
+| `gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams` | 调用子句 | `gzprintf` 和 `gzvprintf` 的每次调用都需要可表示的格式串，读句柄上也一样。`zlib.h` 把 `gzvprintf` 列为未文档化；它的目标仍然是必需的。 |
+| `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets` | 调用子句；终止需要 `ReadsFinite`。`gzgetc` 还有宏子句 | 在每个世界中都不出故障；读取预算小于 `2^61` 时正常返回 |
 | `gzdirect` | 调用子句 | 在每个世界中都终止 |
 | `gzclose`、`gzclose_r`、`gzclose_w` | 关闭子句 | 模式不对的关闭被拒绝，什么也不改变；否则释放拥有的每个块，并释放描述符 |
-| `zlib.h` 的 `gzgetc()` 宏 | 宏子句，以及历史步骤 `GzHistory.getcMacro` | 有已缓冲的输出时走内联路径；`x.have = 0` 时调用函数，在 `ReadsFinite` 之下被覆盖。对 `NULL` 句柄使用这个宏在 C 中是未定义行为，不被覆盖。 |
+| `zlib.h` 的 `gzgetc()` 宏（在 `Goal.gzgetc_safety` 中） | 宏子句，以及历史步骤 `GzHistory.getcMacro` | 有已缓冲的输出时走内联路径；`x.have = 0` 时调用函数，在 `ReadsFinite` 之下被覆盖。对 `NULL` 句柄使用这个宏在 C 中是未定义行为，不被覆盖。 |
 | 同一描述符上的第二个句柄 | 世界步骤 `GzHistory.world` | 一次调用之后可以换成任何良构的世界，所以别的参与者可以关闭或重用这个描述符（[回归](../tests/verification/regressions/gz-world-closes-fd.lean)）。 |
 
 ## 比 `zlib.h` 更窄的定义域
 
 每一条在[偏离记录](deviations.md)中都有对应的行。
 
-- `inflateBack`：`inputBound < 2^48`；窗口和每一块输入都在堆字节块中；`inflateBackInit_` 之前 `state == NULL`。
+- `inflateBack`：`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中；两次调用之间调用者不写窗口。
 - `inflateCopy` 与 `deflateCopy`：`source ≠ dest`。
 - `adler32` 与 `adler32_z`：只有 `len = 0` 时 `buf` 才可以是 `NULL`。
 - `inflate`、`deflate`、`deflateParams`、`compress*`、`uncompress*`：调用者的各区域互不重叠。

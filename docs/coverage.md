@@ -10,10 +10,11 @@ names the functional theorem, where one exists; functional theorems are kept and
   `tests/audit/public-api.json`, `tests/audit/theorems.txt` and the proof files.
 - **Assumed.** The six items of the [trusted base](trusted-base.md), and the premises in
   [deviations](deviations.md), which the column "domain" refers to.
-- **Open.** The gz functions and the three `inflateBack` functions are covered by a sequence
-  goal and have no one-function safety goal ([progress](progress.md#ordered-next-work)). Six stream
-  functions have their `NULL`-stream refusal proved in the functional goal and not yet in the
-  safety goal; their rows say so.
+- **Registered, acceptance pending.** The one-function goals of the gz functions and of the three
+  `inflateBack` functions, the four init goals in their present form, and the callback-decoder
+  sequence goal in its present form ([Scope](progress.md#scope)).
+- **Open.** Six stream functions have their `NULL`-stream refusal proved in the functional goal
+  and not yet in the safety goal; their rows say so.
 
 "Registered" means listed in `tests/audit/theorems.txt`. The level and the commit of acceptance
 are in [Scope](progress.md#scope).
@@ -103,17 +104,27 @@ which calls the model represents. The same holds for the length cell of `compres
 
 ## Callback decoder
 
-The three functions are proved safe through the sequence goal and have no one-function safety
-goal ([progress](progress.md#ordered-next-work)).
+Theorems of the safety column: `ZlibF.Spec.Public.BackSafetyProof.<name>` in
+`public-back-safety.lean`. The goals are in `ZlibF/Spec/Safety/Back.lean`.
 
-| Function | Safety goal and theorem | Domain | `NULL` or inconsistent stream | Functional theorem (kept, not required) |
+| Function | Safety goal = theorem name | Domain | `NULL` or inconsistent stream | Functional theorem (kept, not required) |
 | --- | --- | --- | --- | --- |
-| `inflateBackInit_` (macro `inflateBackInit`) | `Goal.inflate_back_sequence_safety`: `Zlib.Infback.Safety.inflate_back_sequence_safety`, `infback.c.safety-fast.lean`. The init is the first step of every history. | The [callback decoder rows](deviations.md#callback-decoder), which include `state == NULL` before the call | In the functional goal | `Goal.inflateBackInit_`: `ZlibF.Spec.Public.InflateBackInitProof.back_init_public`, `public-infback-init.lean`. It covers a bad version or size, a `NULL` stream, a `NULL` window, a bad `windowBits` and allocation failure, for every `state`. |
-| `inflateBack` | The same goal and theorem, clause 3 | `inputBound < 2^48`; the window and every input chunk in a heap byte block; the callback protocol | A `NULL` stream is clause 1 of the goal. A `NULL` state: `Zlib.Infback.Proofs.inflateBack_nostate`, registered, not a goal | None: `Goal.inflateBack` is open and not planned |
-| `inflateBackEnd` | The same goal and theorem, clause 4 | None beyond the history | In the functional goal | `Goal.inflateBackEnd`: `ZlibF.Spec.Public.InflateBackEndProof.back_end_public`, `public-infback-end.lean`. It covers `NULL`, a `NULL` state and a `NULL` `zfree`. |
+| `inflateBackInit_` (macro `inflateBackInit`) | `Goal.inflateBackInit__safety` | Every call `zlib.h` allows (`InitArguments`), for every `windowBits`, `stream_size` and `state`; a non-`NULL` window with `windowBits` 8 to 15 is writable for `2^windowBits` bytes; every allocation outcome | A `NULL` stream is inside the goal | `Goal.inflateBackInit_`: `ZlibF.Spec.Public.InflateBackInitProof.back_init_public`, `public-infback-init.lean`. It says which code a bad version or size, a `NULL` stream, a `NULL` window, a bad `windowBits` and allocation failure return, for every `state`. |
+| `inflateBack` | `Goal.inflateBack_safety` | A history of `BackSafeReachable`; `inputBound < 2^48`; the window and every input chunk in a heap byte block; the callback protocol | Inside the goal: a `NULL` stream, and a stream record whose state is `NULL` | None: `Goal.inflateBack` is open and not planned |
+| `inflateBackEnd` | `Goal.inflateBackEnd_safety` | A history of `BackSafeReachable`; nothing more | Inside the goal: a `NULL` stream, and a stream record whose state or `zfree` is `NULL` | `Goal.inflateBackEnd`: `ZlibF.Spec.Public.InflateBackEndProof.back_end_public`, `public-infback-end.lean` |
 
-The sequence theorem has eleven proof mutants of `inflateBack`, `inflateBackInit_` and
-`inflateBackEnd` (`tests/proof-mutants/infback-sequence.tsv`).
+- **Sequence goal.** `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Public/Sequences.lean`):
+  theorem `Zlib.Infback.Safety.inflate_back_sequence_safety`, `infback.c.safety-fast.lean`. It
+  adds that every history leaves a valid decoder state over the caller's window. Its clauses 1 and
+  3 are the first and third clause of `Goal.inflateBack_safety`, and its clause 4 is the third
+  clause of `Goal.inflateBackEnd_safety`. A history starts at an `inflateBackInit_` call that
+  returned `Z_OK`, with any `state` field before the call (`BackInitArguments`).
+- **Non-vacuity.** `Goal.inflate_back_initialisation_domain`
+  (`ZlibF/Spec/Public/Domains.lean`).
+- **Proof mutants.** The sequence theorem has eleven proof mutants of `inflateBack`,
+  `inflateBackInit_` and `inflateBackEnd` (`tests/proof-mutants/infback-sequence.tsv`). Each of the
+  three one-function goals has a key of its own in `tests/audit/public-mutants.json`
+  ([mutant guide](checking/proof-mutants.md)).
 
 ## Checksums and queries
 
@@ -146,8 +157,11 @@ column "Domain" says "None" for a CRC row with no premise on the arguments.
 
 ## Gzip file interface
 
-The 31 documented gz functions are proved safe through the sequence goal and have no one-function
-safety goal ([progress](progress.md#ordered-next-work)).
+Each of the 31 documented gz functions, and `gzvprintf`, has its own safety goal
+`Goal.<function>_safety` in `ZlibF/Spec/Safety/GzCalls.lean`. The theorem has the name of the
+goal: `ZlibF.Spec.Public.GzCallSafetyProof.<function>_safety` in `public-gz-call-safety.lean`.
+Each goal is one clause of the sequence goal for the calls of one function. The goal of a
+function that takes a handle also has the refusal of a `NULL` handle.
 
 - **Sequence goal.** `Goal.gz_sequence_safety` (`ZlibF/Spec/Public/GzSafety.lean`): theorem
   `ZlibF.Spec.Public.Proofs.gz_sequence_safety_public`, `public-gz-sequence-safety.lean`. Its
@@ -158,32 +172,33 @@ safety goal ([progress](progress.md#ordered-next-work)).
 - **`NULL` handle.** `Goal.gz_refusal`: theorem `ZlibF.Spec.Public.GzRefusalProof.gz_refusal`,
   `public-gz-refusal.lean`. Each of the 29 gz functions that take a handle, `gzvprintf` included,
   returns its documented value with the heap and the world unchanged. The three open functions
-  take no handle.
+  take no handle. The own goal of each of the 29 repeats its clause.
 - **Proof mutants.** Every gz function group and each hunk of patches 0002 to 0005 has mutants
-  (`gz-sequence.tsv`, `gz-read.tsv`, `gz-refusal.tsv`;
-  [mutant guide](checking/proof-mutants.md)).
+  (`gz-sequence.tsv`, `gz-read.tsv`, `gz-refusal.tsv`). Each of the 32 one-function goals has a
+  key of its own in `tests/audit/public-mutants.json`; the rows new with these keys are in
+  `public-gz-safety.tsv` ([mutant guide](checking/proof-mutants.md)).
 
-The table says which part of the sequence goal covers each function. The premises are the
-[gz rows of deviations](deviations.md#gzip-file-interface).
+The table says which clause of the sequence goal the goal of each function restricts. The
+premises are the [gz rows of deviations](deviations.md#gzip-file-interface).
 
-| Functions | Part of `Goal.gz_sequence_safety` | Note |
+| Functions (each with its own `Goal.<function>_safety`) | Part of `Goal.gz_sequence_safety` that the goal restricts | Note |
 | --- | --- | --- |
 | `gzopen`, `gzopen64` | Open clauses (`GzOpenSafe`) | Every path, mode and world, including every failure |
 | `gzdopen` | Open clause (`GzDopenSafe`) | Every `fd`. The functional `Goal.gzdopen` is also registered (`Zlib.Gzlib.Proofs.gzdopen_complete`). |
-| `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzrewind`, `gzseek`, `gzseek64` | Call clause | The functional goals of `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gzoffset`, `gzoffset64` and `gzrewind` are also registered. |
-| `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzprintf`, `gzflush`, `gzsetparams` | Call clause | `gzprintf` needs a representable format on every call, also on a reader. The undocumented `gzvprintf` is a call of the goal as well. |
-| `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzungetc`, `gzgets` | Call clause; termination under `ReadsFinite` | No fault in every world; a normal return when the read budget is below `2^61` |
+| `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzrewind`, `gzseek`, `gzseek64` | Call clause; `gzerror` also the clause about the string it returns | The functional goals of `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gzoffset`, `gzoffset64` and `gzrewind` are also registered. |
+| `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzprintf`, `gzvprintf`, `gzflush`, `gzsetparams` | Call clause | `gzprintf` and `gzvprintf` need a representable format on every call, also on a reader. `zlib.h` lists `gzvprintf` as undocumented; its goal is required all the same. |
+| `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzungetc`, `gzgets` | Call clause; termination under `ReadsFinite`. `gzgetc` also the macro clause | No fault in every world; a normal return when the read budget is below `2^61` |
 | `gzdirect` | Call clause | Terminates in every world |
 | `gzclose`, `gzclose_r`, `gzclose_w` | Close clause | A close of the wrong mode refuses and changes nothing; otherwise every owned block is freed and the descriptor released |
-| The `gzgetc()` macro of `zlib.h` | Macro clause, and the history step `GzHistory.getcMacro` | With buffered output it is the inline path; with `x.have = 0` it calls the function, covered under `ReadsFinite`. The macro on a `NULL` handle is undefined behaviour in C and is not covered. |
+| The `gzgetc()` macro of `zlib.h` (in `Goal.gzgetc_safety`) | Macro clause, and the history step `GzHistory.getcMacro` | With buffered output it is the inline path; with `x.have = 0` it calls the function, covered under `ReadsFinite`. The macro on a `NULL` handle is undefined behaviour in C and is not covered. |
 | A second handle on the same descriptor | World step `GzHistory.world` | Any well-formed world may follow a call, so another party may close or reuse the descriptor ([regression](../tests/verification/regressions/gz-world-closes-fd.lean)). |
 
 ## Domains narrower than `zlib.h`
 
 Each has a row in [deviations](deviations.md).
 
-- `inflateBack`: `inputBound < 2^48`; the window and every input chunk in a heap byte block;
-  `state == NULL` before `inflateBackInit_`.
+- `inflateBack`: `inputBound < 2^48`; the window and every input chunk in a heap byte block; no
+  caller write to the window between two calls.
 - `inflateCopy` and `deflateCopy`: `source ≠ dest`.
 - `adler32` and `adler32_z`: a `NULL` `buf` only with `len = 0`.
 - `inflate`, `deflate`, `deflateParams`, `compress*`, `uncompress*`: caller regions that do not

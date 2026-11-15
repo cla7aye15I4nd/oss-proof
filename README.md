@@ -5,16 +5,19 @@ statement. The proofs show that every documented public function of the default 
 build runs with no undefined behaviour, no memory error and no leak, and terminates, in every
 sequence of calls, under the premises each theorem states.
 
-**Proved.** All 63 required goals have a [registered](docs/glossary.md#status) theorem of exactly
+**Proved.** All 98 required goals have a [registered](docs/glossary.md#status) theorem of exactly
 their type. They cover the 86 documented functions of the target build: `inflate` and `deflate`
 with their call sequences, the other stream functions, the checksums, `compress*` and
-`uncompress*`, the gzip file interface, and the callback decoder `inflateBack`. The 63 are 52
+`uncompress*`, the gzip file interface, and the callback decoder `inflateBack`. The 98 are 87
 one-function safety goals, four sequence safety goals, three refusal goals and four
-[non-vacuity goals](docs/glossary.md#goals). The 31 gz functions share one sequence goal and the
-three `inflateBack` functions another, which is why 86 functions need fewer goals.
-The [acceptance suite](docs/glossary.md#checking) was green on commit `bde170e9`, with all 63
-registered, so the results are accepted on that commit. One exception: the four init safety
-goals were widened after it, and in the wider form they are registered and not yet accepted.
+[non-vacuity goals](docs/glossary.md#goals). The 87 are one for each documented function and one
+for `gzvprintf`, which `zlib.h` lists as undocumented and `gzprintf` goes through.
+The [acceptance suite](docs/glossary.md#checking) was green on commit `bde170e9`. The required
+set had 63 goals then, all registered: the 31 gz functions shared one sequence goal and the
+three `inflateBack` functions another. Those results are accepted on that commit. Registered
+since then, with acceptance pending: the 35 one-function goals of the gz functions, of
+`gzvprintf` and of the three `inflateBack` functions; the four init safety goals, which were
+widened; and the sequence goal of the callback decoder, whose histories were widened.
 [Scope](docs/progress.md#scope) says what changed after that commit.
 
 **Assumed.** The kernel checks each proof against its Lean statement. Six things are trusted and
@@ -33,11 +36,8 @@ allocator, a read budget below 2^61 bytes for the termination of the gz reading 
 than 2^48 input bytes for one `inflateBack` call. [Deviations](docs/deviations.md) is the
 checklist of these premises by function.
 
-**Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
-functions are proved safe through two sequence goals (`Goal.gz_sequence_safety`,
-`Goal.inflate_back_sequence_safety`), which cover every call in every history. They do not have a
-separate one-function safety goal each, as the other 52 functions have; stating and registering
-those 34 goals is remaining work. Patches 0004 and 0005 are not submitted upstream.
+**Open.** Nothing that a safety result needs. Acceptance is pending for the goals registered
+after `bde170e9`, listed above. Patches 0004 and 0005 are not submitted upstream.
 
 **Not required.** Functional correctness is not required for the safety results: that the output
 of `inflate` equals the format, or that the output of `deflate` decodes to its input. One part of
@@ -61,12 +61,13 @@ reason. Functional goals proved earlier stay registered.
 
 A goal is a Lean proposition named `Goal.…`; a goal is proved only by a theorem whose type is
 exactly the goal. The manifest `tests/audit/public-api.json` names a safety goal and a functional
-goal for every documented function. For the 34 gz and `inflateBack` functions the safety goal it
-names is the sequence goal.
+goal for every documented function. The safety goal is the function's own, named
+`Goal.<function>_safety` (or `_safe`); for `compressBound` and `compressBound_z`, which are pure,
+the functional goal stands for it.
 
 | Kind | Says | Where | Required by the audit |
 | --- | --- | --- | --- |
-| Safety goal | The call returns without undefined behaviour, writes only the memory it is allowed to (its frame) and leaks nothing | `ZlibF/Spec/Safety/`; the gz and `inflateBack` goals in `ZlibF/Spec/Public/` | Yes |
+| Safety goal | The call returns without undefined behaviour, writes only the memory it is allowed to (its frame) and leaks nothing | `ZlibF/Spec/Safety/`; the sequence and refusal goals of gz and the sequence goal of `inflateBack` in `ZlibF/Spec/Public/` | Yes |
 | Non-vacuity goal | The premises of the safety goals can be met: a concrete heap on which init or open succeeds | `ZlibF/Spec/Safety/Domains.lean`, `ZlibF/Spec/Public/` | Yes |
 | Functional goal | What the result is: return values, output bytes | `ZlibF/Spec/Functional/` | No. A proved one is audited in full; an unproved one fails nothing |
 
@@ -98,8 +99,8 @@ names is the sequence goal.
 - `zlib/`: pinned upstream source, never edited in place; fixes are in `patches/`.
 - `ZlibF/Zlib/`: statement-by-statement C translation.
 - `ZlibF/Spec/Safety/`: the required safety goals. `ZlibF/Spec/Functional/`: functional contracts,
-  the format and API models. `ZlibF/Spec/Public/`: definitions both use, and the five required
-  goals of the gz interface and of `inflateBack`.
+  the format and API models. `ZlibF/Spec/Public/`: definitions both use, and five required
+  goals of the gz interface and of `inflateBack`: their sequence, refusal and non-vacuity goals.
 - `ZlibF/Proof/` and `ZlibF/Math/`: implementation proofs and heap-free reasoning.
 - `ZlibF/Runtime/`: memory, pointer, arithmetic and execution semantics.
 - `tests/`: differential, mutation and proof-audit checks.

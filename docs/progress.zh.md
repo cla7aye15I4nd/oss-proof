@@ -1,7 +1,7 @@
-<!-- source-sha256: 6d7e4989d9e31a54c61978f5de21a8d476cc1d06daf9bd2e77c082e90622a1a8 -->
+<!-- source-sha256: e8e8bbaa3d745a2986909604628a4cf41c2dc2b1bea74396d893b53392001ca0 -->
 # 证明进度与剩余工作
 
-本页记录每项结论的层级和剩余的工作。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：239 个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
+本页记录每项结论的层级和剩余的工作。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：274 个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
 
 ## 范围
 
@@ -14,16 +14,16 @@
 | 1 | `inflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.inflate_safety`、`Goal.inflate_sequence_safety` |
 | 2 | `deflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.deflate_safety`、`Goal.deflate_sequence_safety` |
 | 3a | 整缓冲区函数是安全的：它们是第 1、2 项的组合。 | `Goal.compress_safety`、`Goal.compress2_safety`、`Goal.uncompress_safe`、`Goal.uncompress2_safe` 及其 `_z` 形式 |
-| 3b | 回调解码器对每个输入、每种调用者协议都安全，对它的调用序列也是如此。 | `Goal.inflate_back_sequence_safety`、`Goal.inflate_back_initialisation_domain` |
-| 3c | gzip 文件接口在一个句柄的每段历史上、对每个文件系统世界都安全。 | `Goal.gz_sequence_safety`（31 个有文档的 gz 函数和 `gzvprintf`）、`Goal.gz_refusal`（`NULL` 句柄）、`Goal.gz_sequence_nonvacuity` |
+| 3b | 回调解码器对每个输入、每种调用者协议都安全，对它的调用序列也是如此。 | `Goal.inflateBackInit__safety`、`Goal.inflateBack_safety`、`Goal.inflateBackEnd_safety`、`Goal.inflate_back_sequence_safety`、`Goal.inflate_back_initialisation_domain` |
+| 3c | gzip 文件接口在一个句柄的每段历史上、对每个文件系统世界都安全。 | 31 个有文档的 gz 函数和 `gzvprintf` 的 32 个单函数安全目标；`Goal.gz_sequence_safety`；`Goal.gz_refusal`（`NULL` 句柄）；`Goal.gz_sequence_nonvacuity` |
 | 3d | 其余每个有文档的函数都安全：其他流调用（连同初始化、End 和 Copy）、校验和、`compressBound*`、`zlibVersion` 和 `zlibCompileFlags`。 | 它们的 42 个单函数安全目标、`Goal.inflate_refusal`、`Goal.deflate_refusal`、`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` |
 
-这六行包含了全部 63 个必需目标：2 + 2 + 8 + 2 + 3 + 46。这 63 个目标由 `scripts/verification.py` 根据 `tests/audit/public-api.json` 算出；每个目标的定理见[按函数查覆盖情况](coverage.md)。
+这六行包含了全部 98 个必需目标：2 + 2 + 8 + 5 + 35 + 46。这 98 个目标由 `scripts/verification.py` 根据 `tests/audit/public-api.json` 算出；每个目标的定理见[按函数查覆盖情况](coverage.md)。
 
 关于这张表有三点说明：
 
 - 在 3c 中，每个调用在每个世界里的终止都已证明，只有 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc` 例外。这六个调用需要小于 `2^61` 的读取预算（`ReadsFinite`），即使在 C 立即返回的情形下也是如此。
-- `gzvprintf` 在 `zlib.h` 中是未文档化函数，但 `gzprintf` 要经过它，所以它随 3c 一起在计划内。
+- `gzvprintf` 在 `zlib.h` 中是未文档化函数，但 `gzprintf` 要经过它，所以它随 3c 一起在计划内，它的目标 `Goal.gzvprintf_safety` 是必需的。
 - 一个功能性事实在范围内，当且仅当有计划内的证明依赖它。
 
 **每项结论的层级。** 已检查、已登记、已验收这三个层级的定义见[术语表](glossary.md#status)。
@@ -33,20 +33,26 @@
 | 1 | 是，两个目标都已登记 | `bde170e9` |
 | 2 | 是，两个目标都已登记 | `bde170e9` |
 | 3a | 是，八个都已登记 | `bde170e9` |
-| 3b | 是，两个目标都已登记 | `bde170e9` |
-| 3c | 是，三个都已登记 | `bde170e9` |
+| 3b | 是，五个都已登记 | 非空性目标以及序列目标的早先形式：`bde170e9`。三个单函数目标以及序列目标的现行形式：验收待完成 |
+| 3c | 是，35 个都已登记 | 序列目标、拒绝目标和非空性目标：`bde170e9`。32 个单函数目标：验收待完成 |
 | 3d | 是，46 个都已登记 | `bde170e9`；四个 init 安全目标的现行形式除外 |
 
-在 `bde170e9` 上，验收套件全部通过：公理关卡、目标精确匹配、自测、证明变异体和差分测试，当时 63 个必需目标都已登记。差分测试是忠实度的证据，不是证明。
+在 `bde170e9` 上，验收套件全部通过：公理关卡、目标精确匹配、自测、证明变异体和差分测试，当时必需的 63 个目标都已登记。差分测试是忠实度的证据，不是证明。
 
-从那个提交到本页之间，`tests/audit/` 下的登记表和 `scripts/` 下的脚本没有改动，`ZlibF/` 下有两处改动：
+“验收待完成”指已登记、尚未验收：还没有哪次覆盖该目标现行形式的验收运行结束。
+
+从那个提交到本页之间，有以下改动：
+
+- **每个 gz 函数和每个回调解码器函数都有了自己的安全目标。** 新增 35 个目标：31 个有文档的 gz 函数各一个，`gzvprintf` 一个，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 各一个（`ZlibF/Spec/Safety/GzCalls.lean`、`ZlibF/Spec/Safety/Back.lean`；证明在 `ZlibF/Proof/public-gz-call-safety.lean` 和 `ZlibF/Proof/public-back-safety.lean`）。它们在提交 `0cdd7bdd` 中登记：`tests/audit/` 下的登记表增加了这 35 个目标和它们的 35 条定理，清单文件为每个函数写明它自己的目标，`scripts/verification.py` 不再允许几个函数共用一个安全目标。必需目标从 63 个增加到 98 个。此前，gz 函数写的是 `Goal.gz_sequence_safety`，三个回调函数写的是 `Goal.inflate_back_sequence_safety`。这 35 个目标已检查、已登记，验收待完成：快速关卡在 `3fdbbc38` 上全部通过。
+- **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Public/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式已登记，验收待完成。
 
 - **四个初始化安全目标扩大了范围。** `Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 对 `zlib.h` 允许的每次调用都成立（提交 `101c6ab3`，`ZlibF/Spec/Safety/Initialisation.lean`；证明在 `8642e435`，`ZlibF/Proof/public-init-safety.lean`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。范围扩大之后的四个目标已检查、已登记，尚未验收：快速关卡在 `8642e435` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是较窄的形式。
-- **功能方面工作的证明模块有改动。** 关于 `inflate` 输出含义的模块（`ZlibF/Proof/inflate.c.meaning*.lean`）有新增和修改。其中没有任何定理被登记，它们也不改变任何目标。
+- **不是必需目标的命题有改动。** 快速解码器的规格允许输入和输出位于任意字节视图中，而不只是堆块中（提交 `4ed7315e`，`ZlibF/Spec/InflateFast*.lean`）；有一个回归文件从现行命题推出每个早先的命题（`tests/verification/regressions/inffast-byte-views-old-from-new.lean`）。两个功能定义有改动：`WrapperLength`（提交 `ac0fccc5`）和 `DeflateCompletes`（提交 `a2cf8723`）。这些命题中已登记的目标，其现行形式同样还没有结束的验收运行。
+- **功能方面工作的证明模块有改动。** 关于 `inflate` 输出含义的模块（`ZlibF/Proof/inflate.c.meaning*.lean`）有新增和修改。其中没有任何定理被登记。
 
-除此之外，没有任何目标、已登记定理或登记表的行与 `bde170e9` 不同。
+登记表的改动只有第一条所说的 35 个目标和 35 条定理。全部改动就是 `bde170e9` 与本提交之间在 `ZlibF/Spec/`、`tests/audit/` 和 `scripts/` 下的差异。
 
-**未完成。** 安全结论所需要的东西没有缺口。31 个 gz 函数和三个 `inflateBack` 函数的安全性由 3b 和 3c 的序列目标证明，序列目标覆盖每段历史中的每次调用。它们还没有各自的单函数安全目标；陈述并登记这些目标是[按顺序的下一步工作](#ordered-next-work)的第一项。
+**未完成。** 安全结论所需要的东西没有缺口。每个必需目标都已登记。待完成的是上面所列目标的验收（[按顺序的下一步工作](#ordered-next-work)）。
 
 **安全结论之后的计划：默认 zlib 流的往返。** 默认流指默认压缩级别的 `deflateInit` 配上 `inflateInit`。顺序是：先证条件形式（当一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节）；再证完备性（输出空间足够且分配成功时，两边都到达 `Z_STREAM_END`）；最后是无条件的往返，以及 `uncompress(compress(x)) = x`。条件形式已在 `dev` 上对翻译后的 C 检查：定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`），它没有登记。完备性和无条件形式未证明。已登记的目标 `Api.Goal.roundtrip` 是仅关于模型的命题：它说的是抽象 API 模型。先前在往返的 deflate 一侧所做的工作（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分）保留着；默认流的往返需要其中哪些，本页不作定论。
 
@@ -2354,7 +2360,7 @@ flowchart LR
 
 ## 剩余工作
 
-63 个必需目标都已登记；每项结论的层级和验收所在的提交见[范围](#scope)。没有任何目标存在记录在案的阻碍。剩下的工作列在[按顺序的下一步工作](#ordered-next-work)中。
+98 个必需目标都已登记；每项结论的层级和验收所在的提交见[范围](#scope)。没有任何目标存在记录在案的阻碍。剩下的工作列在[按顺序的下一步工作](#ordered-next-work)中。
 
 以下各节只保留事实和未完成的事项。已经结束的工作记录原样保存在 `docs/history/` 下；其中的状态、工时和数字描述的是写作当时的情况：
 
@@ -2386,26 +2392,24 @@ flowchart LR
 
 “`zlib.h` 中每个有文档的函数一行”的那张表，现在单独成页：[按函数查覆盖情况](coverage.md)。每行写明安全目标、类型就是该目标的已登记定理、证明文件、定义域，以及覆盖 `NULL` 流或不一致的流的定理。功能定理另占一列。
 
-每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。有四类事项尚未完成，或比 `zlib.h` 更窄：
+每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。有三类事项尚未完成，或比 `zlib.h` 更窄：
 
-1. **单函数安全目标。** gz 函数以及 `inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 的单函数安全目标还没有陈述。它们的安全性由 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety` 证明。
-2. **拒绝子句。** `inflatePrime`、`inflateMark`、`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader` 的安全目标覆盖的是可达的流上的调用。对 `NULL` 流或不一致的流的拒绝，是在同一函数的功能目标中证明的，还不是安全目标的子句。
-3. **比 `zlib.h` 更窄的定义域**，每一条在[偏离记录](deviations.md)中都有对应的行：`inflateBack`（`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中；`inflateBackInit_` 之前 `state == NULL`）；`inflateCopy` 与 `deflateCopy`（`source ≠ dest`）；`adler32` 与 `adler32_z`（只有 `len = 0` 时 `buf` 才可以是 `NULL`：`len = 1` 是 C 中真实的故障，`buf` 为 `NULL` 且 `len ≥ 2` 在 C 中安全，但没有证明）。
-4. **作为值传递的结果单元。** 有八个公开函数的翻译把一个标量输出参数当作值接收，并把写入的值作为另一个结果返回：`compress`、`compress2` 及其 `_z` 形式的 `destLen`；`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`；`deflatePending` 的 `pending` 和 `bits`；`deflateUsed` 的 `bits`。因此这些函数的安全目标对结果单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。工作规则只对内部函数的输出参数采纳这种表示。这些翻译是否改为像 `uncompress*` 和 `gzerror` 那样把单元当作内存，所有者尚未决定。
+1. **拒绝子句。** `inflatePrime`、`inflateMark`、`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader` 的安全目标覆盖的是可达的流上的调用。对 `NULL` 流或不一致的流的拒绝，是在同一函数的功能目标中证明的，还不是安全目标的子句。
+2. **比 `zlib.h` 更窄的定义域**，每一条在[偏离记录](deviations.md)中都有对应的行：`inflateBack`（`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中）；`inflateCopy` 与 `deflateCopy`（`source ≠ dest`）；`adler32` 与 `adler32_z`（只有 `len = 0` 时 `buf` 才可以是 `NULL`：`len = 1` 是 C 中真实的故障，`buf` 为 `NULL` 且 `len ≥ 2` 在 C 中安全，但没有证明）。
+3. **作为值传递的结果单元。** 有八个公开函数的翻译把一个标量输出参数当作值接收，并把写入的值作为另一个结果返回：`compress`、`compress2` 及其 `_z` 形式的 `destLen`；`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`；`deflatePending` 的 `pending` 和 `bits`；`deflateUsed` 的 `bits`。因此这些函数的安全目标对结果单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。工作规则只对内部函数的输出参数采纳这种表示。这些翻译是否改为像 `uncompress*` 和 `gzerror` 那样把单元当作内存，所有者尚未决定。
 
 `deflateParams`、`deflateSetDictionary`、`deflatePrime`、`deflateBound`、`deflateBound_z` 和 `inflateSync` 的功能目标没有定理，也不在计划内。它们的安全目标已登记。
 
 ### 按顺序的下一步工作
 
-每个必需目标都已登记：63 个安全目标和非空性目标，没有未完成的（`tests/audit/public-api.json`）。验收套件在哪个提交上全部通过、此后有什么变化，见[范围](#scope)。剩下的工作按顺序是：
+每个必需目标都已登记：98 个安全目标和非空性目标，没有未完成的（`tests/audit/public-api.json`）。验收套件在哪个提交上全部通过、此后有什么变化，见[范围](#scope)。剩下的工作按顺序是：
 
-1. **单函数安全目标**：gzip 文件接口的 31 个函数，以及 `inflateBackInit_`、`inflateBack` 和 `inflateBackEnd`。每个目标就一个函数重述已登记的序列定理（`gz_sequence_safety`、`inflate_back_sequence_safety`）。它们不在 `dev` 上。清单文件把序列目标写成这些函数各自的安全目标。
-2. **拒绝子句**：给[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 2 条所列六个流函数的安全目标加上拒绝子句。
-3. **验收**第 1、2 项以及范围扩大后的初始化目标：登记到 `tests/audit/theorems.txt`，补上证明变异体，并让验收套件在某个具名提交上全部通过。范围扩大后的初始化目标已经登记，只差这次运行。
-4. **默认 zlib 流的往返**，排在安全结论之后（[范围](#scope)）。
-5. **把本地补丁提交上游**：0004 和 0005（[补丁](../patches/README.md)）。补丁 0001 至 0003 与已经提交上游的拉取请求一致。
-6. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对八个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 4 条）。
-7. **可选的清理**：删除没有任何已登记定理使用的证明（[核心证明骨架](#core-proof-skeletons)）。
+1. **验收** `bde170e9` 之后登记或改动的目标：gz 函数和回调解码器的 35 个单函数安全目标、范围扩大后的初始化目标，以及回调解码器序列目标的现行形式。它们已经登记，只差验收套件在某个具名提交上全部通过。
+2. **拒绝子句**：给[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 1 条所列六个流函数的安全目标加上拒绝子句，然后验收它们：登记到 `tests/audit/theorems.txt`，补上证明变异体，并让验收套件在某个具名提交上全部通过。
+3. **默认 zlib 流的往返**，排在安全结论之后（[范围](#scope)）。
+4. **把本地补丁提交上游**：0004 和 0005（[补丁](../patches/README.md)）。补丁 0001 至 0003 与已经提交上游的拉取请求一致。
+5. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对八个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 3 条）。
+6. **可选的清理**：删除没有任何已登记定理使用的证明（[核心证明骨架](#core-proof-skeletons)）。
 
 [范围](#scope)列为不在计划内的各组不投入工作。早先的有序工作表（13 行，每一行不是已登记就是不在计划内）见[早先的工作顺序](history/next-work-and-readiness.md)。
 
