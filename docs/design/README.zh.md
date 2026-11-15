@@ -1,22 +1,22 @@
-<!-- source-sha256: 3d075a22dc8e82e2dd91d0f0c91ccd4d7cf2f62197f6238fd2a040bb9430752f -->
-# 内存、翻译与外部输入输出语义
+<!-- source-sha256: 48ed32b91c301abb923ddf352ed111102b2893b9a1661f18c8babceae86a0a0d -->
+# 设计：模型、翻译与外部世界
 
-本项目证明关于 C 的可执行 Lean 翻译的命题。本节解释翻译表示什么、规范怎样描述它，以及与 C 的哪些联系仍依赖审阅。这里不记录进度；相关记录统一在[进度](../progress.md)中。
+本项目证明的命题，针对的是 C 的一份可执行 Lean 翻译。本节说明这份翻译由什么构成，它与 C 的联系在哪些地方依靠审查，以及规格是怎样布局的。本节不是状态报告；状态记在[进度](../progress.md)里。
 
-必需的结论是安全结论。架构、翻译规则和外部 I/O 描述的是每个安全证明所依赖的东西。API 模型一页描述的是功能性材料：它保留下来，但自 2026-11-11 起不是必需的。
+必需的结果是安全结果。架构、翻译和外部 I/O 三页描述每个安全证明所依赖的东西。两页 API 模型描述功能性材料：这些材料保留下来，但不是安全结果所必需的。
 
-先读[架构](architecture.md)，再按问题查阅：
+先读[架构](architecture.md)。然后按你的问题选页面：
 
-| 问题 | 文档 |
+| 问题 | 阅读 |
 | --- | --- |
-| C、运行时、规范与证明怎样组合？ | [架构](architecture.md) |
-| 一个 C 语句必须怎样翻译？ | [翻译规则](translation.md) |
-| 不涉及堆的 API 关系描述什么（功能性，非必需）？ | [API 模型与具体实现边界](api-model.md) |
-| 内部辅助函数的前置条件在哪里定义？ | [内部调用规范](../spec/internal-contracts.md) |
-| 外部世界表示哪些文件、格式化和错误行为？ | [外部 I/O](external-io.md) |
-| 安全目标怎样与功能目标分开？ | [安全规范与功能规范](safety-functional-split.md) |
-| 有哪些记录和指针种类？ | [生成的运行时结构参考](../runtime-schema.md) |
+| C、运行时、规格和证明怎样拼在一起？到底哪些东西是被信任的？ | [架构](architecture.md) |
+| 一条 C 语句怎样翻译？我怎样把一份翻译与它的 C 对照？ | [翻译](translation.md) |
+| 文件系统、`errno` 和 `printf` 在模型里是什么样子？ | [外部 I/O](external-io.md) |
+| 安全目标在哪里？是什么把它们与功能目标分开？ | [规格的布局](safety-functional-split.md) |
+| 不涉及堆的 API 关系描述什么（功能性）？ | [API 模型](api-model.md)、[各族的细节](api-model-details.md) |
+| 内部辅助函数的前置条件在哪里规定？ | [内部调用规格](../spec/internal-contracts.md) |
+| 有哪些记录和指针种类？ | [生成的运行时结构](../runtime-schema.md) |
 
-[API 手册](../spec/api/README.md)描述公开调用，[证明指南](../proof/README.md)解释怎样建立它们的性质，[检查指南](../checking/README.md)解释结果怎样验收。判断任何定理的适用范围时，请同时阅读[安全性](../spec/safety.md)、[可信基础](../trusted-base.md)和[表示限制](../deviations.md)。
+[API 手册](../spec/api/README.md)描述公开调用。[证明指南](../proof/README.md)解释各个证明。[检查](../checking/README.md)定义已检查、已登记和已验收这三个级别。要判断一个定理的适用范围，请读[安全](../spec/safety.md)、[可信基础](../trusted-base.md)和[偏离记录](../deviations.md)。
 
 [文档首页](../README.md)
