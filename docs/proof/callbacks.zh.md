@@ -1,4 +1,4 @@
-<!-- source-sha256: c6599172f49f7bcafc15f18ce3b820647a82894f87de3cc908e874ff5f4adc63 -->
+<!-- source-sha256: ddee1d52685676a679d34f79c3d1b6b482e77a0c35b9b75bc0cd0fae6e0bbdaa -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -234,4 +234,4 @@ flowchart TD
   `Goal.inflateBackEnd`（`back_end_public`）：两个生命周期函数的完整契约。安全目标的子句 4 使用 `back_end_public`。
 - `inflateBack` 的分支结果：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`，`ZlibF/Proof/infback.c.back.lean`）。
 
-`Goal.inflateBack` 和 `Goal.inflate_back_sequence` 还陈述了到达 `out` 的是什么。那些解码子句未证明，也不是必需的。
+`Goal.inflateBack` 和 `Goal.inflate_back_sequence` 还陈述了到达 `out` 的是什么。那些解码子句未证明，安全结果也用不到它们。

@@ -107,8 +107,8 @@ A reading of the C that no theorem states is marked **to confirm**.
   sum wrapped.
 - **Model.** A pure function on `UInt64`.
 - **Status.** `compressBound` and `compressBound_z` prove the exact value for every input. That
-  every compressor output fits the bound is a separate, functional statement and is not
-  required.
+  every compressor output fits the bound is a separate, functional statement, which the safety
+  results do not need.
 
 ### `deflateBound_z`: `2 + extra_len` is computed in 32 bits
 
@@ -118,8 +118,12 @@ A reading of the C that no theorem states is marked **to confirm**.
   sum wraps, while the header writer emits only `extra_len & 0xffff` bytes.
 - **Model.** The translation computes the same wrapped sum.
 - **Status.** Safety is covered (`deflateBound_safety`, `deflateBound_z_safety`). The point
-  concerns the value of the bound, not safety. A correction with
+  concerns the value of the bound, not safety. For `extra_len` of `2^32 - 2` and `2^32 - 1` the
+  bound is too small; this is reproduced on the C
+  ([finding](../findings/deflatebound-extra-len/README.md)). A correction with
   `2 + (z_size_t)(extra_len & 0xffff)` was proposed in an
   [upstream discussion](https://github.com/madler/zlib/pull/1360); no patch for it is applied
-  (`patches/README.md` lists the patches). **To confirm**: that the output fits the bound on the
-  stated source and header domain. That is a functional question and is not required.
+  (`patches/README.md` lists the patches). Whether the output fits the bound is a functional
+  question, which the safety results do not need. A second finding shows a configuration in
+  which it does not: [`Z_FIXED` at levels 1 to 3](../findings/deflatebound-fixed-far-matches/README.md).
+  **To confirm**: that the output fits the bound on the rest of the source and header domain.

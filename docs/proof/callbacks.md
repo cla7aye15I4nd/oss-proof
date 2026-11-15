@@ -287,4 +287,4 @@ These results are not required for the safety results. They are registered.
   at once (`inflateBack_eof`, `ZlibF/Proof/infback.c.back.lean`).
 
 `Goal.inflateBack` and `Goal.inflate_back_sequence` also state what reaches `out`. Those
-decoding clauses are not proved, and they are not required.
+decoding clauses are not proved, and the safety results do not need them.

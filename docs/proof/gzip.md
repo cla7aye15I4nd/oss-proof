@@ -517,5 +517,5 @@ These results are not required for the safety results. They are registered.
 - `Goal.gzoffset64`, `Goal.gzoffset` and `Goal.gzrewind`: stated for the regular-file world
   (premise `RegularOs fs`).
 
-Not proved, and not required: `Goal.gz_sequence`, the functional sequence goal, and
+Not proved, and not needed by the safety results: `Goal.gz_sequence`, the functional sequence goal, and
 `Goal.gz_initialisation_domain`, the functional contract of `gzopen`.

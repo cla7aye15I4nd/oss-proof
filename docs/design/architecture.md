@@ -30,9 +30,9 @@ flowchart TD
 
 Only the path through *Execution proofs* is required for the safety results: no fault,
 termination, frame and ownership, composed over call sequences. The path through *Refinement
-proofs* gives functional correctness. It is not required for the safety results; a functional
-fact is in scope when a planned safety proof depends on it, and the refinement results already
-proved stay ([scope](../progress.md#scope)).
+proofs* gives functional correctness. It is not required for the safety results. The refinement
+results already proved stay; [scope](../progress.md#scope) says which functional results are
+planned.
 
 ## The model in a few definitions
 

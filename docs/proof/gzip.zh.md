@@ -1,4 +1,4 @@
-<!-- source-sha256: 04796eec803a8cd5a8e382a189e374ff0fc3aadf13a6e1928f954bb9bbdf3f50 -->
+<!-- source-sha256: 09b105b955c4162d4f721827ff4d1b9f19e3a87bdd90fb7c450fa5d808f88c93 -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -400,4 +400,4 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 - `Goal.gzbuffer`、`Goal.gzeof`、`Goal.gzerror`、`Goal.gzclearerr`、`Goal.gzdopen`：单个函数的完整契约。
 - `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`：针对普通文件的世界陈述（前提 `RegularOs fs`）。
 
-未证明，也不是必需的：功能序列目标 `Goal.gz_sequence`，以及 `gzopen` 的功能契约 `Goal.gz_initialisation_domain`。
+未证明，安全结果也用不到的：功能序列目标 `Goal.gz_sequence`，以及 `gzopen` 的功能契约 `Goal.gz_initialisation_domain`。
