@@ -1,9 +1,9 @@
-<!-- source-sha256: 04515b9ee7cf70581a3d4d476dab65030bc4e23ee9cda1222317d768f1bda1c8 -->
+<!-- source-sha256: 957f08b95c81dca4aa7066663c355aba1865ae1defa0f7683478e3e14f8f1703 -->
 # 检查一个验证结论
 
 构建全部通过，说明各模块能够编译，其中每个证明都经过了 Lean 内核的检查。它并不说明关于 zlib 的哪些命题已被证明。本页说明一个结果处于哪个层级，每项检查运行什么、能确立什么，以及它的局限在哪里。
 
-要运行这些检查，请读[参与贡献](contributing.md)。要添加变异体，请读[证明变异体](proof-mutants.md)。各登记表的含义见[公开目标](goals.md)。
+要运行这些检查，请读[参与贡献](contributing.md)。要添加变异体，请读[证明变异体](proof-mutants.md)。各登记表的含义见[公开目标](goals.md)。哪项结论处于哪个层级、每次验收运行在哪个提交上，只记录在[进度页的“范围”一节](../progress.md#scope)。
 
 ## 三个层级
 
@@ -13,25 +13,27 @@
 | --- | --- | --- |
 | **已检查** | 定理在集成分支 `dev` 上，并且快速关卡在该提交上全部通过。Lean 内核检查过这个证明。 | 工作流 `lean` 在该提交上的 `build` 和 `no-sorry` 两项结果。 |
 | **已登记** | 定理已检查，它的名字列在 `tests/audit/theorems.txt` 中，它证明的目标列在 `tests/audit/proved-goals.txt` 中。这两行是一个声明；检查“定理的类型与目标完全相同”的，是验收套件。 | 该提交上的这两个文件。[进度页的“目标证据”](../progress.md#target-evidence)中生成的表格列出每个目标对应的定理。 |
-| **已验收** | 定理已登记，并且验收套件在某个具名提交上全部通过。只有已验收的结论才作为最终结论报告，而且总是带着那个提交。 | 工作流 `lean` 在该提交上的 `audit` 和 `difftest` 两项结果，以及[进度页“范围”一节](../progress.md#scope)中“验收套件在……上全部通过”那句话。 |
+| **已验收** | 定理已登记，并且验收套件在某个具名提交上全部通过：公理关卡、精确目标匹配、自测和差分测试。只有已验收的结论才作为最终结论报告，而且总是带着那个提交。 | 工作流 `lean` 在该提交上的 `audit` 和 `difftest` 两项结果，以及[进度页“范围”一节](../progress.md#scope)中对这次运行的记录。 |
 
-已验收的提交是 `bde170e9`（2026-11-15）：当时必需的 63 个目标在该提交上已登记，验收套件在该提交上全部通过。如果某个目标的命题在更晚的提交上改动过，它的新形式是已登记，已验收的只是它在 `bde170e9` 上的形式。初始化函数的四个安全目标就是这种情况：提交 `101c6ab3` 把它们的范围扩大到 zlib.h 允许的每一次调用；回调解码器的序列目标也是这种情况：提交 `874a9398` 扩大了它的历史的范围。在更晚的提交上新增的目标是已登记，尚未验收。gz 函数和回调解码器的 35 个单函数安全目标就是这种情况，它们使必需目标增加到 98 个。保持最新的页面是[进度页](../progress.md#scope)。
+验收是针对某个提交的。如果某个目标的命题在一次验收运行之后改动过，已验收的只是它在那个已验收提交上的形式；它的新形式是已登记，直到之后的一次运行全部通过。在一次运行之后新增的目标是已登记，到之后的一次运行之前都不是已验收。
 
 没有已登记定理以它为类型的目标是**未证明**的。
+
+证明变异体不属于任何层级。它们是额外的证据：只按需运行，一次运行连同它的提交单独报告，不构成合并、验收或里程碑的关卡（见[下文](#proof-mutants-on-request)）。
 
 ```mermaid
 flowchart LR
     P["推送到 dev"] --> G["快速关卡"]
     G --> C["已检查"]
-    C --> M["里程碑批次：登记行、变异体、进度视图"]
+    C --> M["里程碑批次：登记行、变异体行、进度视图"]
     M --> R["已登记"]
     R --> A["在具名提交上运行验收套件"]
     A --> F["已验收；main 接收 dev"]
 ```
 
-## 两组检查
+## 两组检查，以及变异体
 
-两组检查都是工作流 `.github/workflows/lean.yml` 中的作业。
+快速关卡和验收套件都是工作流 `.github/workflows/lean.yml` 中的作业。变异体阶段也是，但它不属于这两组中的任何一组。
 
 ### 快速关卡
 
@@ -52,17 +54,22 @@ flowchart LR
 
 ### 验收套件
 
-它每晚在 `main` 上运行，也可以按需运行（`lean` 工作流的手动触发，可用于任何分支）。它有两项必需的结果：`audit` 和 `difftest`。任何一个工作任务失败、被跳过或被取消，对应的结果就失败。
+它每晚在 `main` 上运行，也可以按需运行（`lean` 工作流的手动触发，可用于任何分支）。它有两项必需的结果：`audit` 和 `difftest`。下表中任何一个工作任务失败、被跳过或被取消，对应的结果就失败。
 
 | 结果 | 工作任务 | 运行什么 |
 | --- | --- | --- |
 | `audit` | `audit_core` | `python3 scripts/verification.py specs`：函数清单检查、在全新内核中重新检查整个库、声明审计，以及下文的登记表规则。然后运行 `tests/verification/` 下针对审计器和脚本的测试，以及 `scripts/proof-progress.py --check`；进度视图过时时后者失败。 |
 | `audit` | `audit_selftest`，两个分片 | `tests/audit/selftest.sh`：`tests/audit/cheats/` 中的每个文件（一个 `sorry`、一条公理、`native_decide`、`implemented_by`、一个 opaque 常量、一个 partial 或 unsafe 定义、一个经典逻辑的取巧）都必须被审计器拒绝。 |
-| `audit` | `audit_mutants`，二十个分片 | `python3 scripts/verification.py mutants --shard-count 20 --shard-index N`：[证明变异体](proof-mutants.md)。 |
 | `difftest` | `diff_core` | `tests/run.sh`：让翻译和打过补丁的 C 处理相同的输入。然后用 AddressSanitizer 和 UndefinedBehaviorSanitizer 构建 C，再做一遍。 |
 | `difftest` | `diff_harness`，八个分片 | `tests/selftest.sh`：变异后的翻译必须让差分测试报告出差异。 |
 
 夜间运行失败时，先修复它，再做新的验收工作。它不阻塞证明工作。验收工作在里程碑处成批完成，不是每次改动都做。
+
+### 证明变异体，按需运行 {#proof-mutants-on-request}
+
+[证明变异体](proof-mutants.md)是额外的证据，不属于验收：完整运行一次需要几个小时。作业 `audit_mutants`（二十个分片，每个分片运行 `python3 scripts/verification.py mutants --shard-count 20 --shard-index N`）只在使用 `lean` 工作流的手动触发并打开它的 `mutants` 选项时才启动。夜间运行和不带该选项的手动运行会跳过它，没有它 `audit` 也全部通过。打开该选项时，`audit` 还要求每个变异体分片都通过。一次变异体运行连同它的提交单独报告。它不构成合并、验收或里程碑的关卡。
+
+审计仍然检查这些行是否存在，但不运行任何变异体（[下文第 6 项](#what-verificationpy-specs-decides)）：这样，之后的一次变异体运行就能覆盖每个已证明的目标。
 
 ### 单进程运行
 
@@ -74,7 +81,7 @@ flowchart LR
 - 差分测试（普通构建和 sanitizer 构建），以及差分测试框架的自测；
 - 三个列表目录中的每个变异体列表，使用严格模式。
 
-它不运行 `tests/verification/` 下的 Python 测试，不检查进度视图，也不运行快速关卡中除 `check-sorry.sh` 以外的步骤（字符串字面量、规格分层、禁用构造、`PartialCheck.lean`、补丁可以应用）。工作流 `verification-final` 针对具名提交手动启动它。夜间套件不运行它。
+它运行变异体，所以它比验收套件做得更多。它不运行 `tests/verification/` 下的 Python 测试，不检查进度视图，也不运行快速关卡中除 `check-sorry.sh` 以外的步骤（字符串字面量、规格分层、禁用构造、`PartialCheck.lean`、补丁可以应用）。工作流 `verification-final` 针对具名提交手动启动它。夜间套件不运行它。
 
 ## `verification.py specs` 判定什么
 
@@ -85,7 +92,7 @@ flowchart LR
 3. **声明审计。**审计器（`tests/audit/Audit.lean`）读取编译后的模块。它拒绝公理、opaque 常量、`implemented_by`、`extern`，以及不在编译器辅助声明列表内的 unsafe 或 partial 声明。每个定义和定理只能依赖 `propext`、`Classical.choice` 和 `Quot.sound`。`theorems.txt` 中的每个定理都存在，确实是定理，并且有文档字符串。每个 `Goal.*` 命题都列在 `goals.txt` 中。只有当某个列出的定理的类型恰好是这个目标时，目标才算 PROVED。
 4. **登记表一致。**`proved-goals.txt` 等于审计器判定为 PROVED 的目标集合。每个必需目标要么是 PROVED，要么列在清单文件的 `open_safety` 中；`open_safety` 中的目标不是 PROVED。
 5. **不会悄悄消失。**沿提交链，任何已登记定理、已证明目标、变异体引用或冻结的变异体行，如果消失了，`registry-removals.json` 中必须有一条说明理由的条目。已经完成的目标不得重新列为未完成。规则见[公开目标](goals.md#shrink-only-rules)。
-6. **变异体证据。**每个针对单个公开函数的已证明目标都有函数变异体。每个已证明的必需目标要么在 `public-mutants.json` 中有键，要么有固定证据（见[证明变异体](proof-mutants.md#which-goals-need-which-evidence)）。
+6. **变异体行存在。**每个针对单个公开函数的已证明目标都有函数变异体。每个已证明的必需目标要么在 `public-mutants.json` 中有键，要么有固定证据（见[证明变异体](proof-mutants.md#which-goals-need-which-evidence)）。这一项只读列表，不运行变异体。
 
 ## 这些检查确立什么
 
@@ -96,7 +103,7 @@ flowchart LR
 | 无占位符检查 | 拒绝 `sorry` 和 `AGENTS.md` 列出的其他禁用构造。 |
 | 差分测试 | 把翻译后的执行与真实的 C 相比较，包括出错和分配失败的情形。它们是关于忠实性的有限证据，不是证明。sanitizer 运行扩充了这份证据。 |
 | 审计自测与差分自测 | 故意破坏检查机制的输入，要求检查机制发现这一改动。 |
-| 证明变异体 | 改变一个翻译后函数的行为，要求该函数的证明拒绝它。对一处修改敏感，并不证明每种错误都被覆盖。 |
+| 证明变异体（按需运行，不属于验收） | 改变一个翻译后函数的行为，要求该函数的证明拒绝它。对一处修改敏感，并不证明每种错误都被覆盖。 |
 
 ## 已知局限
 
@@ -113,7 +120,7 @@ flowchart LR
 | 页面 | 用途 |
 | --- | --- |
 | [参与贡献](contributing.md) | 带编号的步骤和命令：每次改动、登记一个结果、运行验收。 |
-| [公开目标](goals.md) | 登记表、98 个必需目标的集合，以及防止悄悄删除的规则。 |
+| [公开目标](goals.md) | 登记表、必需目标的集合，以及防止悄悄删除的规则。 |
 | [证明变异体](proof-mutants.md) | 什么是变异体，附一个完整的例子；怎样添加、运行和解读；有哪些局限。 |
 | [变异体证据记录](mutant-evidence.md) | 带日期的记录：各组目标的证据由哪些行承担，这些行在哪里被杀死。 |
 

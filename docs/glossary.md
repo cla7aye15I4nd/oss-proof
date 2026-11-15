@@ -65,12 +65,13 @@ also lists the sequence goals, the required safety goals and the non-vacuity goa
 `theorems.txt` (the theorems that make up the result) and `proved-goals.txt` (the goals that have
 a listed theorem of exactly their type).
 
-**Counts.** 86 documented functions of the target build. 98 required goals: 87 one-function safety
-goals, four sequence safety goals, three refusal goals and four non-vacuity goals. The 87 are one
-for each documented function and one for `gzvprintf`; for `compressBound` and `compressBound_z`,
-which are pure, the functional goal stands for the safety goal. 274 goals in `goals.txt`, of which
-228 have a registered theorem; these include functional goals and internal goals that are not
-required. The status page counts all 274.
+**Kinds of required goal.** The target build has 86 documented functions. The required goals are
+of four kinds: one-function safety goals, sequence safety goals, refusal goals and non-vacuity
+goals. There is one one-function safety goal for each documented function and one for
+`gzvprintf`; for `compressBound` and `compressBound_z`, which are pure, the functional goal
+stands for the safety goal. `goals.txt` also holds functional goals and internal goals that are
+not required, and the status page counts every goal of the file. How many goals there are of
+each kind, and how many have a theorem, is on the [progress page](progress.md#scope).
 
 **Model-only statement.** A theorem about the abstract API model in `ZlibF/Spec/Functional/`, not
 about the translated C. It says nothing about the implementation until a separate theorem relates
@@ -92,7 +93,8 @@ need not prove a goal. The lines are a claim; the acceptance suite is the check 
 theorem's type is exactly the goal.
 
 **Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
-Only an accepted result is reported as final, and always with that commit.
+Only an accepted result is reported as final, and always with that commit. Proof mutants are not
+part of acceptance.
 
 **Open.** A goal with no registered theorem of its type.
 
@@ -231,14 +233,15 @@ reading calls.
 It is evidence of fidelity, not proof.
 
 **Proof mutant.** A deliberately wrong translation, such as a dropped check. A sound proof must
-fail on it. The words used for mutants (list, row, key, structural mutant, restatement, script
+fail on it. Mutants are additional evidence, not part of acceptance: a mutant run starts only on
+request and is reported separately, with its commit. The words used for mutants (list, row, key, structural mutant, restatement, script
 row, semantic list, pinned evidence) are defined once, in
 [proof mutants, Terms](checking/proof-mutants.md#terms).
 
 **Fast gate.** The jobs `build` and `no-sorry`. They run on every push and pull request.
 
-**Acceptance suite.** Axiom gate, exact goal match, self tests, proof mutants and differential
-tests. It runs nightly on `main` and on request.
+**Acceptance suite.** Axiom gate, exact goal match, self tests and differential tests. It runs
+nightly on `main` and on request.
 
 **Axiom gate.** The part of the audit that walks every declaration a registered theorem depends
 on and rejects any axiom other than `propext`, `Classical.choice` and `Quot.sound`.

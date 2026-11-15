@@ -1,10 +1,10 @@
-<!-- source-sha256: 0111ba89fbd50242051a65c9d504b75a6d4518165074b723bc56b0348783a8bd -->
+<!-- source-sha256: 7f719560f4b5a0b070a482eb9b4ad62af6873899f8566ba15228dd48d3fe1195 -->
 
 # 公开验证目标
 
-一个目标是名为 `Goal.<名称>` 的 Lean 命题；当某个已登记定理的类型恰好是这个命题时，才有一个结果。本页说明哪些目标是必需的（98 个），登记一个已证明的目标需要什么，以及哪些规则防止已登记的结果消失。
+一个目标是名为 `Goal.<名称>` 的 Lean 命题；当某个已登记定理的类型恰好是这个命题时，才有一个结果。本页说明哪些目标是必需的，登记一个已证明的目标需要什么，以及哪些规则防止已登记的结果消失。
 
-安全目标说的是什么，见[安全结论](../spec/safety.md)。每个目标的状态只写在[进度页](../progress.md)。
+安全目标说的是什么，见[安全结论](../spec/safety.md)。每个目标的状态，以及每个分组中目标的个数，只写在[进度页](../progress.md)。
 
 ## 这些目标合起来的结论
 
@@ -32,23 +32,23 @@ zlib 每个有文档的公开函数都是安全的：没有未定义行为，没
 必需目标由 `scripts/verification.py` 中的 `required_public_goals` 计算。这个集合是三部分的并集：
 
 - 86 个有文档的函数各自指定的安全目标；
-- 分组 `safety_goals` 中的目标（92 个）；
-- 分组 `nonvacuity_goals` 中的目标（4 个）。
+- 分组 `safety_goals` 中的目标；
+- 分组 `nonvacuity_goals` 中的目标。
 
 ```mermaid
 flowchart LR
     D["86 个有文档的函数"] --> O["84 个指定自己的目标"]
     D --> C["2 个指定自己的完整契约：compressBound、compressBound_z"]
-    O --> G["safety_goals：92 个"]
-    Q["没有任何有文档的函数指定的 8 个目标：4 个序列目标，3 个拒绝目标，gzvprintf 的目标"] --> G
-    G --> R["98 个必需目标"]
+    O --> G["safety_goals"]
+    Q["没有任何有文档的函数指定的目标：序列安全目标，拒绝目标，gzvprintf 的目标"] --> G
+    G --> R["必需目标"]
     C --> R
-    N["nonvacuity_goals：4 个"] --> R
+    N["nonvacuity_goals"] --> R
 ```
 
-所以总数是 92 + 4 + 2 = 98。这 92 个是 84 个函数自己的目标、四个序列安全目标（`inflate`、`deflate`、`inflateBack` 和 gz）、三个拒绝目标和 `Goal.gzvprintf_safety`。两个完整契约不在任何分组里，它们就是那个 2。
+分组 `safety_goals` 包含 84 个函数自己的目标、序列安全目标（`inflate`、`deflate`、`inflateBack` 和 gz）、拒绝目标和 `Goal.gzvprintf_safety`。两个完整契约不在任何分组里。命令 `python3 scripts/verification.py coverage` 打印每个分组和必需集合的大小；[进度页的“范围”一节](../progress.md#scope)按结论逐项列出这个集合。
 
-四个非空性目标说明序列目标的前提可以被满足：初始化函数在它的参数定义域上建立表示不变量。
+非空性目标说明序列目标的前提可以被满足：初始化函数在它的参数定义域上建立表示不变量。
 
 有两条规则防止通过编辑清单文件把这个集合变小。
 
@@ -66,7 +66,7 @@ flowchart LR
 
 ### `open_safety` 和 `not_planned`
 
-- `open_safety` 列出还没有已登记定理的必需目标，每个都写明负责人。它是空的。必需目标要么是 PROVED，要么列在这里；列在这里的目标不是 PROVED。列表不为空时，`verification.py final` 拒绝。
+- `open_safety` 列出还没有已登记定理的必需目标，每个都写明负责人。有没有未证明的目标，见[进度页](../progress.md#scope)。必需目标要么是 PROVED，要么列在这里；列在这里的目标不是 PROVED。列表不为空时，`verification.py final` 拒绝。
 - `not_planned` 列出这样的公开目标：它们保留定义，仍作为未证明的目标留在 `goals.txt` 中，但项目不在它们上面投入工作；每个都写明理由。它不是离开必需集合的出口：什么是必需的，由固定的分组决定。其中的条目不在任何分组里，没有函数指定它，它也没有被证明。它只有一个条目：`Goal.gz_initialisation_domain`，即 `gzopen` 的功能契约。
 
 ## 登记需要什么
@@ -77,12 +77,12 @@ flowchart LR
 2. 定理的名字在 `tests/audit/theorems.txt` 中。
 3. 目标的名字在 `tests/audit/proved-goals.txt` 中。
 4. 目标不在 `tests/audit/public-api.json` 的 `open_safety` 中。
-5. 目标有变异体证据：在 `tests/audit/public-mutants.json` 中有键；不针对单个函数的目标则有固定证据（见[证明变异体](proof-mutants.md#which-goals-need-which-evidence)）。
+5. 目标有变异体行：在 `tests/audit/public-mutants.json` 中有键；不针对单个函数的目标则有固定证据（见[证明变异体](proof-mutants.md#which-goals-need-which-evidence)）。审计检查这些行是否存在。运行它们不属于登记，也不属于验收。
 6. `docs/progress.md` 中的进度视图已重新生成。视图过时时审计失败。
 
 新目标还在 `goals.txt` 中有一行。新的必需目标，其名字同时在清单文件的分组和脚本固定的列表中，两处在同一个经过审查的改动里加入。
 
-已登记不等于已验收。验收套件在该提交上全部通过，并且报告写出这个提交，结果才是已验收的（见[三个层级](README.md#three-levels)）。
+已登记不等于已验收。验收套件（公理关卡、精确目标匹配、自测、差分测试）在该提交上全部通过，并且报告写出这个提交，结果才是已验收的（见[三个层级](README.md#three-levels)）。
 
 ## 防止悄悄删除的规则 {#shrink-only-rules}
 
@@ -98,7 +98,7 @@ flowchart LR
 | 冻结的行 | 冻结的变异体列表中有一行不见了，或任何字段有变化，或 `script:` 行的变异脚本内容变了。 | `mutant_rows` 下的条目 `{list, name, reason}`。 |
 | 变异体豁免 | 脚本中“已证明但没有函数变异体的目标”列表（`MUTANT_COVERAGE_PENDING`，它是空的）多了一个条目。 | 无。 |
 
-这些条目在 `tests/audit/registry-removals.json` 中。每个条目都有非空的理由。什么也不豁免的条目（该名字在提交链上从未登记过，或在 `HEAD` 上仍然登记着）是过时的，审计会拒绝它。该文件有九个 `mutant_rows` 条目，都针对 `api-boundary.tsv` 中的行：规格拆分为安全部分和功能部分时，这些行的规格文件移动了位置。
+这些条目在 `tests/audit/registry-removals.json` 中。每个条目都有非空的理由。什么也不豁免的条目（该名字在提交链上从未登记过，或在 `HEAD` 上仍然登记着）是过时的，审计会拒绝它。举一个例子：该文件有一些 `mutant_rows` 条目，针对 `api-boundary.tsv` 中的行；规格拆分为安全部分和功能部分时，这些行的规格文件移动了位置。
 
 ## 安全目标说什么，假设什么
 

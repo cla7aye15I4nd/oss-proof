@@ -1,5 +1,10 @@
 # Mutant evidence record
 
+> **Since 2026-11-15 proof mutants are additional evidence, not part of acceptance.** They run
+> only on request, and a run is reported separately with its commit
+> ([checking guide](README.md#proof-mutants-on-request)). The record below was written before
+> that decision and is kept as it was.
+
 > **Dated record.** Written from 2026-11-12 to 2026-11-14, at the runs that registered the goals
 > named here. It says which mutant rows carried the evidence of each group of goals and where
 > they were killed. The times, memory peaks and counts are those of these runs. The authority

@@ -20,7 +20,7 @@ green on a named commit, makes it accepted ([glossary](glossary.md#status)).
 | A proof term the kernel never saw | Compiled declarations are replayed in a fresh environment of the same Lean kernel. A cached build trace is not a certificate. |
 | An unregistered goal | Every standalone `Goal` proposition in the audited closure must be registered. The inventory in `tests/audit/public-api.json` is checked against the pinned header, the translated entries and the manual sections. |
 | A required goal left out or quietly dropped | The required goals are computed from `tests/audit/public-api.json`: the safety goal of every documented function of the target build, the listed safety goals, and the non-vacuity goals. The auditor fails when one of them is open. A registered theorem or a proved goal may not disappear without an entry and a reason in `tests/audit/registry-removals.json`. |
-| A proof that does not depend on the translation | Proof mutants: a deliberately wrong translation, such as a dropped check, must fail to check, with the error in that function's proof. |
+| A proof that does not depend on the translation | Not the acceptance suite. The defence is the proof mutants, which are additional evidence and run only on request: a deliberately wrong translation, such as a dropped check, must fail to check, with the error in that function's proof. The audit checks that every proved required goal has mutant rows; it does not run them ([below](#proof-mutants)). |
 | A translation that differs from the C | Differential tests run the real C and the translation on the same inputs, with and without sanitisers. They are evidence of fidelity, not proof. |
 | `sorry` and the other forbidden constructs | The fast gate rejects them on every push. |
 
@@ -36,7 +36,8 @@ What still holds in that case:
 - the goal is still proved only by a theorem of exactly its type, whatever that type is after
   the change;
 - the axiom gate still applies;
-- proof mutants and differential tests still run against the changed translation.
+- differential tests still run against the changed translation, and so do the proof mutants
+  when a mutant run is requested.
 
 None of these detects a goal that was changed to be easier. A reader who relies on a result
 compares the statement of its goal with the earlier versions in git. The rules for correcting a
@@ -60,15 +61,20 @@ other declaration of a forbidden kind is rejected.
 
 ## Proof mutants
 
-Every proved required goal needs mutant evidence, in one of two forms: its own key in
+Proof mutants are additional evidence, not part of acceptance. A full run takes several hours, so
+it starts only on request (the manual trigger of the `lean` workflow with its `mutants` option).
+A run is reported separately, with its commit, and it gates no merge, no acceptance and no
+milestone. What the audit, which is part of acceptance, does check is that the rows exist.
+
+Every proved required goal needs mutant rows, in one of two forms: its own key in
 `tests/audit/public-mutants.json`, or an entry in the table `PINNED_EVIDENCE` of
 `scripts/verification.py`, which names the mutant lists and the keyed goals that carry the
 evidence for a goal without a key of its own, such as a sequence goal.
 
 Each mutation of a keyed goal changes the translated body of that function and keeps its
-signature. The check fails when the record is missing, when the mutation changes another
+signature. The audit fails when the record is missing, when the mutation changes another
 function or only a specification, or when its row in the mutant list carries a flag that
-exempts it from being killed. A fresh-kernel
+exempts it from being killed. In a mutant run, a fresh-kernel
 replay substitutes only the mutated declarations into the dependency closure of the original
 registered proof. That proof must check before the mutation and fail after it. A failure only in
 an unrelated or stronger theorem does not count.

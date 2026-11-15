@@ -1,11 +1,11 @@
 # Public verification goals
 
 A goal is a Lean proposition named `Goal.<something>`; a result exists when a registered theorem
-has exactly that proposition as its type. This page says which goals are required (98), what
+has exactly that proposition as its type. This page says which goals are required, what
 registering a proved goal needs, and which rules stop a registered result from disappearing.
 
-What a safety goal says is in [safety claims](../spec/safety.md). The status of each goal is only
-in [progress](../progress.md).
+What a safety goal says is in [safety claims](../spec/safety.md). The status of each goal, and
+the number of goals in each group, are only in [progress](../progress.md).
 
 ## The claim the goals add up to
 
@@ -24,7 +24,7 @@ All of them are under `tests/audit/`. The acceptance suite reads them; the fast 
 | `theorems.txt` | The registered theorems, one fully qualified name per line. | The auditor: each exists, is a theorem, has a doc string and depends only on the allowed axioms. |
 | `proved-goals.txt` | The goals that a registered theorem proves. | The auditor rejects any difference from the set it finds PROVED. So the scripts decide on this file, never on report text. |
 | `public-api.json` | The manifest: every exported function of the pinned `zlib.h` with its manual section, translated entry, functional goal and safety goal (`gzopen_w`, which exists only on Windows, has only its manual section and a reason); the goal groups; `open_safety`; `not_planned`. | `scripts/verification.py` (`coverage`). |
-| `public-mutants.json` | For each keyed goal, the mutant rows that its exact proof must reject. | `scripts/verification.py`; see [proof mutants](proof-mutants.md). |
+| `public-mutants.json` | For each keyed goal, the mutant rows that its exact proof must reject. | `scripts/verification.py` checks that the rows exist; a mutant run, which is on request, runs them. See [proof mutants](proof-mutants.md). |
 | `registry-removals.json` | Reasoned removals from the registries and the mutant tables. | `scripts/verification.py`: a stale entry is rejected. |
 
 A goal is PROVED only when a theorem of `theorems.txt` has exactly the goal as its type. A theorem
@@ -44,25 +44,27 @@ The required goals are computed by `required_public_goals` in `scripts/verificat
 is the union of three parts:
 
 - the safety goal that each of the 86 documented functions names;
-- the goals of the group `safety_goals` (92);
-- the goals of the group `nonvacuity_goals` (4).
+- the goals of the group `safety_goals`;
+- the goals of the group `nonvacuity_goals`.
 
 ```mermaid
 flowchart LR
     D["86 documented functions"] --> O["84 name their own goal"]
     D --> C["2 name their full contract: compressBound, compressBound_z"]
-    O --> G["safety_goals: 92"]
-    Q["8 goals that no documented function names: 4 sequence goals, 3 refusal goals, the goal of gzvprintf"] --> G
-    G --> R["98 required goals"]
+    O --> G["safety_goals"]
+    Q["Goals that no documented function names: the sequence safety goals, the refusal goals, the goal of gzvprintf"] --> G
+    G --> R["Required goals"]
     C --> R
-    N["nonvacuity_goals: 4"] --> R
+    N["nonvacuity_goals"] --> R
 ```
 
-So the count is 92 + 4 + 2 = 98. The 92 are the 84 own goals, the four sequence safety goals
-(`inflate`, `deflate`, `inflateBack` and gz), the three refusal goals and `Goal.gzvprintf_safety`.
-The two full contracts are not in any group; they are the 2.
+The group `safety_goals` holds the 84 own goals, the sequence safety goals (`inflate`, `deflate`,
+`inflateBack` and gz), the refusal goals and `Goal.gzvprintf_safety`. The two full contracts are
+not in any group. The command `python3 scripts/verification.py coverage` prints the size of each
+group and of the required set; [progress, Scope](../progress.md#scope) lists the set result by
+result.
 
-The four non-vacuity goals show that the premises of the sequence goals can be met: the init
+The non-vacuity goals show that the premises of the sequence goals can be met: the init
 function establishes the representation invariant on its parameter domain.
 
 Two rules stop a manifest edit from making the set smaller.
@@ -90,7 +92,7 @@ one is audited in full. An unproved one is reported as open and fails nothing.
 ### `open_safety` and `not_planned`
 
 - `open_safety` lists the required goals that have no registered theorem, each with an owner.
-  It is empty. A required goal is PROVED or listed there; a listed goal is not PROVED.
+  [Progress](../progress.md#scope) says whether any goal is open. A required goal is PROVED or listed there; a listed goal is not PROVED.
   `verification.py final` rejects a list that is not empty.
 - `not_planned` lists public goals that stay defined and stay in `goals.txt` as open goals, but
   that the project does not work on, each with a reason. It is not a way out of the required set:
@@ -109,15 +111,18 @@ gives the steps, with real registry lines and commands.
 2. The theorem's name is in `tests/audit/theorems.txt`.
 3. The goal's name is in `tests/audit/proved-goals.txt`.
 4. The goal is not in `open_safety` of `tests/audit/public-api.json`.
-5. The goal has mutant evidence: a key in `tests/audit/public-mutants.json`, or pinned evidence
+5. The goal has mutant rows: a key in `tests/audit/public-mutants.json`, or pinned evidence
    for a goal that is not about one function ([proof mutants](proof-mutants.md#which-goals-need-which-evidence)).
+   The audit checks that the rows exist. Running them is not part of registration or of
+   acceptance.
 6. The progress view in `docs/progress.md` is regenerated. The audit fails on a stale view.
 
 A new goal also has a line in `goals.txt`. A new required goal has its name in the manifest
 group and in the pinned list of the script, in one reviewed change.
 
-Registered is not accepted. The result is accepted when the acceptance suite is green on that
-commit, and a report names the commit ([the three levels](README.md#three-levels)).
+Registered is not accepted. The result is accepted when the acceptance suite (axiom gate, exact
+goal match, self tests, differential tests) is green on that commit, and a report names the
+commit ([the three levels](README.md#three-levels)).
 
 ## Rules against silent removal {#shrink-only-rules}
 
@@ -143,8 +148,8 @@ the audit rejects the run. A floor moves forward only by an edit to the script.
 
 The entries are in `tests/audit/registry-removals.json`. Each has a reason that is not empty. An
 entry that excuses nothing (the name was never registered on the chain, or is registered at
-`HEAD`) is stale, and the audit rejects it. The file holds nine `mutant_rows` entries, all for rows
-of `api-boundary.tsv` whose specification file moved when the specifications were split into
+`HEAD`) is stale, and the audit rejects it. An example: the file holds `mutant_rows` entries for
+rows of `api-boundary.tsv` whose specification file moved when the specifications were split into
 safety and functional parts.
 
 ## What a safety goal says, and what it assumes

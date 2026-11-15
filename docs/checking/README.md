@@ -6,6 +6,8 @@ what each check runs, what it establishes and where its limit is.
 
 To run the checks, read [contributing](contributing.md). To add a mutant, read
 [proof mutants](proof-mutants.md). What the registries mean is in [public goals](goals.md).
+Which result is at which level, and the commit of each acceptance run, is recorded only in
+[progress, Scope](../progress.md#scope).
 
 ## Three levels
 
@@ -16,33 +18,32 @@ Each level includes the one before it. The definitions are those of the
 | --- | --- | --- |
 | **Checked** | The theorem is on the integration branch `dev`, and the fast gate is green on that commit. Lean's kernel has checked the proof. | The results `build` and `no-sorry` of the workflow `lean` on that commit. |
 | **Registered** | The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and the goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the acceptance suite is the check that the theorem's type is exactly the goal. | The two files at that commit. The generated tables in [progress, Target evidence](../progress.md#target-evidence) show the theorem of each goal. |
-| **Accepted** | The theorem is registered, and the acceptance suite is green on a named commit. Only an accepted result is reported as final, and always with that commit. | The results `audit` and `difftest` of the workflow `lean` on that commit, and the sentence "The acceptance suite is green on ..." in [progress, Scope](../progress.md#scope). |
+| **Accepted** | The theorem is registered, and the acceptance suite is green on a named commit: axiom gate, exact goal match, self tests and differential tests. Only an accepted result is reported as final, and always with that commit. | The results `audit` and `difftest` of the workflow `lean` on that commit, and the record of the run in [progress, Scope](../progress.md#scope). |
 
-The accepted commit is `bde170e9` (2026-11-15): the 63 goals that were required then are
-registered there, and the acceptance suite is green there. A goal whose statement changed on a
-later commit is registered in its new form and accepted only in the form it had on `bde170e9`.
-This is the case for the four safety goals of the init functions, which commit `101c6ab3` widened
-to every call that zlib.h allows, and for the sequence goal of the callback decoder, whose
-histories commit `874a9398` widened. A goal added on a later commit is registered and not yet
-accepted. This is the case for the 35 one-function safety goals of the gz functions and of the
-callback decoder, which brought the required set to 98 goals.
-[Progress](../progress.md#scope) is the page that is kept current.
+Acceptance belongs to a commit. A goal whose statement changes after an acceptance run is
+accepted only in the form it had on the accepted commit; in its new form it is registered until
+a later run is green. A goal added after a run is registered and not accepted until a later run.
 
 A goal with no registered theorem of its type is **open**.
+
+Proof mutants are not part of any level. They are additional evidence: they run only on request,
+a run is reported separately with its commit, and it gates no merge, no acceptance and no
+milestone ([below](#proof-mutants-on-request)).
 
 ```mermaid
 flowchart LR
     P["Push to dev"] --> G["Fast gate"]
     G --> C["Checked"]
-    C --> M["Milestone batch: registry lines, mutants, progress view"]
+    C --> M["Milestone batch: registry lines, mutant rows, progress view"]
     M --> R["Registered"]
     R --> A["Acceptance suite on a named commit"]
     A --> F["Accepted; main receives dev"]
 ```
 
-## Two sets of checks
+## Two sets of checks, and the mutants
 
-Both sets are jobs of the workflow `.github/workflows/lean.yml`.
+The fast gate and the acceptance suite are jobs of the workflow `.github/workflows/lean.yml`. So
+is the mutant stage, which belongs to neither set.
 
 ### Fast gate
 
@@ -64,19 +65,32 @@ The fast gate does not read the registries. A green fast gate says nothing about
 ### Acceptance suite
 
 It runs every night on `main` and on request (the manual trigger of the `lean` workflow, on any
-branch). It has two required results, `audit` and `difftest`. Each one fails when any of its
-workers fails, is skipped or is cancelled.
+branch). It has two required results, `audit` and `difftest`. Each one fails when any worker of
+the table below fails, is skipped or is cancelled.
 
 | Result | Worker | What it runs |
 | --- | --- | --- |
 | `audit` | `audit_core` | `python3 scripts/verification.py specs`: the inventory, a fresh-kernel recheck of the whole library, the declaration audit and the registry rules below. Then the tests of the auditor and of the scripts under `tests/verification/`, and `scripts/proof-progress.py --check`, which fails on a stale progress view. |
 | `audit` | `audit_selftest`, two shards | `tests/audit/selftest.sh`: each file of `tests/audit/cheats/` (a `sorry`, an axiom, `native_decide`, `implemented_by`, an opaque constant, a partial or unsafe definition, a classical trick) must be rejected by the auditor. |
-| `audit` | `audit_mutants`, twenty shards | `python3 scripts/verification.py mutants --shard-count 20 --shard-index N`: the [proof mutants](proof-mutants.md). |
 | `difftest` | `diff_core` | `tests/run.sh`: the translation and the patched C on the same inputs. Then the same with the C built under AddressSanitizer and UndefinedBehaviorSanitizer. |
 | `difftest` | `diff_harness`, eight shards | `tests/selftest.sh`: a mutated translation must make the differential test report a difference. |
 
 A red nightly run is fixed before new acceptance work. It does not block proof work.
 Acceptance work is done in batches at a milestone, not for each change.
+
+### Proof mutants, on request
+
+The [proof mutants](proof-mutants.md) are additional evidence, not part of acceptance: a full run
+takes several hours. The job `audit_mutants` (twenty shards, each running
+`python3 scripts/verification.py mutants --shard-count 20 --shard-index N`) starts only when the
+manual trigger of the `lean` workflow is used with its `mutants` option. The nightly run and a
+manual run without the option skip it, and `audit` is green without it. When the option is set,
+`audit` also requires every mutant shard to pass. A mutant run is reported separately, with its
+commit. It gates no merge, no acceptance and no milestone.
+
+The audit still checks, without running any mutant, that the rows exist
+([item 6 below](#what-verificationpy-specs-decides)): a later mutant run then covers every
+proved goal.
 
 ### The one-process run
 
@@ -89,7 +103,7 @@ prints the commit:
 - the differential tests, plain and sanitised, and the self-test of the differential harness;
 - every mutant list of the three list directories, in strict mode.
 
-It does not run the Python tests under `tests/verification/`, the check of the progress view, or
+It runs the mutants, so it is more than the acceptance suite. It does not run the Python tests under `tests/verification/`, the check of the progress view, or
 the fast-gate steps other than `check-sorry.sh` (string literals, specification layers, forbidden
 constructs, `PartialCheck.lean`, patches apply). The workflow `verification-final` starts it by
 hand for a named commit. The nightly suite does not run it.
@@ -117,9 +131,10 @@ The script reads the registries under `tests/audit/`. [Public goals](goals.md) d
    mutant reference or frozen mutant row disappears without a reasoned entry in
    `registry-removals.json`. A goal closed once is not open again. [Public goals](goals.md#shrink-only-rules)
    gives the rules.
-6. **Mutant evidence.** Every proved goal of one public function has function mutants. Every
+6. **Mutant rows exist.** Every proved goal of one public function has function mutants. Every
    proved required goal has a key in `public-mutants.json` or pinned evidence
-   ([proof mutants](proof-mutants.md#which-goals-need-which-evidence)).
+   ([proof mutants](proof-mutants.md#which-goals-need-which-evidence)). This item reads the
+   lists; it does not run a mutant.
 
 ## What the checks establish
 
@@ -130,7 +145,7 @@ The script reads the registries under `tests/audit/`. [Public goals](goals.md) d
 | No-placeholder check | Rejects `sorry` and the other forbidden constructs listed in `AGENTS.md`. |
 | Differential tests | Compare translated execution with real C, including errors and allocation failure. They are finite evidence of fidelity, not proof. Sanitizer runs extend that evidence. |
 | Audit and differential self-tests | Deliberately break their inputs and require the checking mechanisms to detect the change. |
-| Proof mutants | Change the behaviour of a translated function and require the function's proof to reject it. Sensitivity to one edit does not prove that every error is covered. |
+| Proof mutants (on request, not part of acceptance) | Change the behaviour of a translated function and require the function's proof to reject it. Sensitivity to one edit does not prove that every error is covered. |
 
 ## Known limits
 
@@ -158,7 +173,7 @@ what it does not. A statement that is wrong is corrected, not worked around: see
 | Page | Purpose |
 | --- | --- |
 | [Contributing](contributing.md) | Numbered steps and commands: every change, registering a result, running acceptance. |
-| [Public goals](goals.md) | The registries, the required set of 98 goals and the rules against silent removal. |
+| [Public goals](goals.md) | The registries, the required set of goals and the rules against silent removal. |
 | [Proof mutants](proof-mutants.md) | What a mutant is, with one worked example; how to add, run and read one; the limits. |
 | [Mutant evidence record](mutant-evidence.md) | Dated record: which rows carry the evidence of each group of goals, and where they are killed. |
 

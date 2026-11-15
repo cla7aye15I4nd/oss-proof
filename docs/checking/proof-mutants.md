@@ -5,6 +5,12 @@ sources. The proof of that function must then fail to check. If it still checks,
 not depend on the code that was changed. This page shows one mutant from start to end, defines the
 terms, and then gives the steps and the rules.
 
+Proof mutants are additional evidence. They are not part of acceptance: a full run takes several
+hours, so a mutant run starts only on request (the manual trigger of the `lean` workflow with its
+`mutants` option), is reported separately with its commit, and gates no merge, no acceptance and
+no milestone. The audit, which is part of acceptance, checks only that the rows a goal needs
+exist ([below](#which-goals-need-which-evidence)).
+
 A kill is evidence that a proof is sensitive to one edit. It is not a proof that the goal covers
 every error. Which rows carried the evidence when the goals were registered is a dated record:
 [mutant evidence](mutant-evidence.md).
@@ -70,9 +76,9 @@ This row has a second use. The file `tests/audit/public-mutants.json` names it u
 ]
 ```
 
-(and the same under `Goal.adler32`). For each such entry the acceptance suite takes the
+(and the same under `Goal.adler32`). For each such entry a mutant run takes the
 registered proof of the goal, substitutes the mutated `adler32` into it, and checks the result in
-a fresh kernel. The kernel must report a type mismatch. On success the suite prints
+a fresh kernel. The kernel must report a type mismatch. On success the run prints
 `exact public proof rejects: ZlibF.Spec.Public.Goal.adler32_safety: adler32-wrapper-length` (text
 from `scripts/verification.py`).
 
@@ -103,7 +109,7 @@ row is killed in `zlib.h.gzgetc-macro`.
 
 | Directory | Content | Run by |
 | --- | --- | --- |
-| `tests/proof-mutants/` | The lists of the public goals (`public-*.tsv`), `api-boundary.tsv`, and the eight semantic lists with their mutator scripts. New rows go here. | The twenty mutant shards of the acceptance suite, and `verification.py final`. |
+| `tests/proof-mutants/` | The lists of the public goals (`public-*.tsv`), `api-boundary.tsv`, and the eight semantic lists with their mutator scripts. New rows go here. | The twenty mutant shards (the job `audit_mutants`, on request), and `verification.py final`. |
 | `tests/audit/proofmut/` | Eight lists, one per C file (`adler32.tsv`, `crc32.tsv`, `deflate.tsv`, `inflate.tsv`, `inftrees.tsv`, `trees.tsv`, `trees-out.tsv`, `zutil.tsv`), about the checksum, utility, tree, inflate, deflate and decode-table proofs. No key names them. | Only `verification.py final`, and by hand. |
 | `tests/proofmut/` | Nine small lists on single topics. Keys name rows of three of them (`crc-updates-public.tsv`, `deflate-default-init.tsv`, `gzip-frontier.tsv`); the shards run those three. The `.py` files there are stand-alone checks that no workflow runs. | The shards for the three lists; `verification.py final` for all nine. |
 
@@ -115,7 +121,7 @@ row is killed in `zlib.h.gzgetc-macro`.
 | --- | --- |
 | `KILLED` | The first error is in an expected proof module. The mutation check passes. |
 | `SAME ok` | A mutation marked as equivalent still builds. Review the equivalence reason. |
-| `GAP (known)` | A documented proof gap survives in development mode. It is not coverage and fails strict acceptance. |
+| `GAP (known)` | A documented proof gap survives in development mode. It is not coverage and fails in strict mode. |
 | `SURVIVED` | A mutation with no marker still builds. Investigate missing coverage or equivalence. |
 | `BAD MUTANT` | The translation or a file outside the proof tree fails. Repair the mutation. |
 | `WRONG PLACE` | Another proof fails first. This does not satisfy the check of the designated function. |
@@ -181,7 +187,7 @@ The first command builds the project. Then, for every keyed goal, it checks the 
 boundaries, replays the original exact proof and replays each keyed row. It then runs, in strict
 mode, `api-boundary.tsv`, the semantic lists and every list that a key references. The
 second command runs one of twenty shards, as CI does. The last two run one list, optionally
-filtered by mutant name. They are useful during development and do not replace acceptance.
+filtered by mutant name. They are useful during development and do not replace a full mutant run.
 
 **Shards.** The keyed goals are dealt to the shards in name order; the replay of a goal's
 unchanged proof travels with all its keyed rows. The rows of the lists that are not marked `same:`
@@ -195,14 +201,16 @@ The original cache is left untouched. One mutant runs at a time.
 **Strict mode** (`PROOFMUT_STRICT=1`) forces the unchanged build, rejects every `gap:` row and
 requires at least one `KILLED` row; a `same:` row that builds is not evidence. The shards give each
 `same:` row to a shard that also runs a row of its list that must be killed. A list with no such
-row is rejected. A run that skipped the unchanged build cannot support acceptance.
+row is rejected. A run that skipped the unchanged build is not evidence.
 
 **Runner settings.** `PROOFMUT_CACHE` selects the warm cache. `PROOFMUT_TIMEOUT` sets seconds per
 build, defaulting to 3600. `PROOFMUT_KEEP=1` retains temporary copies; `PROOFMUT_SHOWLOG=1` prints
 failure details. `PROOFMUT_BASELINE=0` skips the unchanged build, for local diagnosis only.
 `PROOFMUT_STRICT=1` overrides that skip.
 
-**What runs where.** The nightly suite runs the twenty shards. A list that no key references and
+**What runs where.** The twenty shards run only on request: the manual trigger of the `lean`
+workflow with its `mutants` option. The nightly suite and a manual run without the option do not
+run them. A list that no key references and
 that is not a semantic list or `api-boundary.tsv` is not run by the shards; it runs only
 in `python3 scripts/verification.py final`, which runs every list of the three directories in
 strict mode. A list that was not run is not a passing check.
@@ -214,7 +222,7 @@ strict mode. A list that was not run is not a passing check.
 | Re-elaboration (`tests/audit/proofmut.sh`) | Applies one row of a list to a copy of the workspace and builds the proof modules the row names. | The first error is in one of those proof modules (`KILLED`). |
 | Kernel replay (`zlibf-proof-replay`) | Takes the registered exact proof of a goal and substitutes only the changed source declarations into its dependency closure, in a fresh kernel. | The kernel reports a type mismatch. The original is accepted first. |
 
-Re-elaboration runs for every row of every list the suite runs. The kernel replay runs in
+Re-elaboration runs for every row of every list a mutant run covers. The kernel replay runs in
 addition for the keyed rows.
 For the replay, failure of an unrelated theorem, or of a stronger theorem with extra premises, is
 insufficient. A timeout or a kernel resource error is not a rejection.
@@ -232,11 +240,14 @@ proof coverage. What the acceptance suite does and does not defend against is in
 | A function's own safety goal (`Goal.<function>_safety` or `_safe`), when it is proved | A key of its own. |
 | A proved required goal that is not about one function: the four sequence safety goals, the three refusal goals and the four non-vacuity goals | Pinned evidence in `PINNED_EVIDENCE` of `scripts/verification.py`. |
 
+The audit requires that this evidence exists as rows and keys. It does not run a row.
+
 A proved goal of one public function without a key is rejected. The script has a list of
 waivers for this (`MUTANT_COVERAGE_PENDING`); it is empty, and the audit rejects a new entry. A
 proved required goal with neither a key nor a pin is rejected.
 
-**Pinned evidence.** Eleven proved required goals have no key of their own. For each, the script
+**Pinned evidence.** The proved required goals that are not about one function have no key of
+their own. For each, the script
 pins the semantic lists that carry its evidence, each with a minimum number of rows that must be
 killed, and the keyed goals whose replay also checks it: their proofs are corollaries of this
 goal, or share its run lemmas. Every pinned list is a list that the mutant shards run. Each

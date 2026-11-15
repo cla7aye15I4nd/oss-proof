@@ -1,4 +1,4 @@
-<!-- source-sha256: 675aec984b846ca3f42b97d4157a717f3b00079e350453e884487bd242a0127d -->
+<!-- source-sha256: 60ad47e6ee5ad972ab99fb862ea9710c5cd2457b58376e850973a92b8373f8de -->
 
 # 公开契约审查记录
 
@@ -13,7 +13,7 @@
 | 三层规格 | 分层仍然成立，路径按上面说明中移动后的位置。`ZlibF/Spec/Public/Calls.lean` 固定每个公开目标所运行的翻译后的入口。 |
 | 命题审查的范围 | 审查针对每组功能契约读过哪些义务。它不是已证明内容的列表。 |
 | 源码审查的更正 | 更正后的功能契约所表达的、对固定的 C 的解读。只有当某个已登记定理证明了陈述该解读的目标时，这一解读才算得到确认。 |
-| 旧命题的反例 | 在旧命题中发现的三处错误及其更正。第一处作为回归测试 `tests/regression/inflate-deferred-distance/` 保留。另外两处更正后的目标 `Goal.gzclearerr` 和 `Goal.inflateCodesUsed` 已登记。 |
+| 旧命题的反例 | 在旧命题中发现的三处错误及其更正。第一处作为回归测试 `tests/regression/inflate-deferred-distance/` 保留。另外两处更正后的目标 `Goal.gzclearerr` 和 `Goal.inflateCodesUsed` 已被证明。 |
 | 高级操作的边界 | 功能序列目标的限度。安全结论不需要这些目标。 |
 | 审查与批准 | 更正一个命题的规则。有约束力的文本是 `AGENTS.md` 中关于更正规格、目标或翻译的一节。 |
 

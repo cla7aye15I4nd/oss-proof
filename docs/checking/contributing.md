@@ -1,14 +1,14 @@
 # Contributing
 
-This page lists the steps of three tasks: making any change, registering a proved goal, and
-running the acceptance suite. Each step gives the command and the last line it prints on
+This page lists the steps of four tasks: making any change, registering a proved goal, running
+the acceptance suite, and running the proof mutants on request. Each step gives the command and the last line it prints on
 success. Run every command from the repository root.
 
 The rules are in `AGENTS.md`. What each check establishes, and the three levels checked,
 registered and accepted, are in [the checking guide](README.md#three-levels).
 
 **Which last lines are exact.** A line marked "(run)" was copied from a run of the command on
-commit `8642e435`. A line marked "(from the script)" is the text the script prints on success,
+commit `8642e435`; the numbers in it are those of that commit. A line marked "(from the script)" is the text the script prints on success,
 read in its source; the command needs a Lean build and was not run for this page.
 
 ## Every change
@@ -145,8 +145,10 @@ named.
    The change to `scripts/` is reviewed. If the goal is listed in `open_safety` of the manifest,
    remove that entry in this commit: a goal is not both open and proved.
 
-6. **Add mutant evidence.** A goal of one public function needs a key in
-   `tests/audit/public-mutants.json` that names at least one mutant row:
+6. **Add mutant rows.** A goal of one public function needs a key in
+   `tests/audit/public-mutants.json` that names at least one mutant row. The audit checks that
+   the key and the row exist; it does not run the row. The rows are there so that a later mutant
+   run covers the goal.
 
    ```json
    "ZlibF.Spec.Public.Goal.adler32_safety": [
@@ -154,8 +156,8 @@ named.
    ]
    ```
 
-   [Proof mutants](proof-mutants.md) explains this row and how to write one. Run the row. This
-   needs the build of step 3 above (a warm `.lake`) and builds four proof modules twice.
+   [Proof mutants](proof-mutants.md) explains this row and how to write one. Run the new row
+   once, to see that the proof rejects it. This needs the build of step 3 above (a warm `.lake`) and builds four proof modules twice.
 
    ```bash
    bash tests/audit/proofmut.sh tests/proof-mutants/public-checksums.tsv '^adler32-wrapper-length$'
@@ -211,16 +213,7 @@ slow to find in CI.
    Last line: `stage passed: specs` (from the script). A failure prints `REJECTED: <reason>`; when
    the auditor rejects, the lines before it start with `goal ` or `PROBLEM:`.
 
-2. **The mutants.** This runs every shard in one process and takes many hours. In CI the mutants
-   run in twenty shards (`--shard-count 20 --shard-index N`).
-
-   ```bash
-   python3 scripts/verification.py mutants
-   ```
-
-   Last line: `stage passed: mutants` (from the script).
-
-3. **The differential tests**, plain and with the C under the sanitizers.
+2. **The differential tests**, plain and with the C under the sanitizers.
 
    ```bash
    ZLIB_SRC=$PWD/zlib bash tests/run.sh
@@ -231,20 +224,41 @@ slow to find in CI.
    (from the script). The suite also runs two self tests, `bash tests/audit/selftest.sh` and
    `bash tests/selftest.sh`; the second ends with `SELFTEST PASS` (from the script).
 
-4. **Start the suite on the pushed commit.** On the repository's Actions page, choose the workflow
-   `lean`, then "Run workflow", then the branch `dev`. The workflow has a manual trigger
-   (`workflow_dispatch` in `.github/workflows/lean.yml`); with it, the acceptance workers run in
-   addition to the fast gate.
+3. **Start the suite on the pushed commit.** On the repository's Actions page, choose the workflow
+   `lean`, then "Run workflow", then the branch `dev`. Leave the option `mutants` off. The
+   workflow has a manual trigger (`workflow_dispatch` in `.github/workflows/lean.yml`); with it,
+   the acceptance workers run in addition to the fast gate.
 
-5. **Read the two results.** The run is green when its results `audit` and `difftest` are both
-   green. Each of them fails when one of its workers fails, is skipped or is cancelled.
+4. **Read the two results.** The run is green when its results `audit` and `difftest` are both
+   green. Each of them fails when one of its workers fails, is skipped or is cancelled. The
+   mutant stage is skipped in such a run, and `audit` does not need it.
 
-6. **Report.** The result is **accepted** on that commit. A report says "accepted" together with
+5. **Report.** The result is **accepted** on that commit. A report says "accepted" together with
    the commit hash, and [progress, Scope](../progress.md#scope) records the commit. `main` receives
    `dev` after that.
 
 Never report a check as passing unless it was run. Differential tests are evidence of fidelity,
 not proof.
+
+## Run the proof mutants
+
+The mutants are additional evidence, not part of acceptance. They run only on request, and they
+gate no merge, no acceptance and no milestone. A full run takes several hours.
+
+1. **In CI.** Start the workflow `lean` by hand as above, with the option `mutants` on. The job
+   `audit_mutants` then runs twenty shards (`--shard-count 20 --shard-index N`), and the result
+   `audit` of that run also requires every shard to pass.
+
+2. **Locally.** This runs every shard in one process and takes many hours.
+
+   ```bash
+   python3 scripts/verification.py mutants
+   ```
+
+   Last line: `stage passed: mutants` (from the script).
+
+3. **Report.** A mutant run is reported separately from acceptance, with its commit.
+   [Progress, Scope](../progress.md#scope) records it.
 
 ## Removing or changing a registered item
 
