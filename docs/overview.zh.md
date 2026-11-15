@@ -1,30 +1,110 @@
-<!-- source-sha256: 0bd420853f85faed32b67d6a8475d7f58432610d83bae6b7d256ff7d4fedd092 -->
-# 理解并证明 zlib
+<!-- source-sha256: 739dd187fb6d694028566d8f8e5e25cfe95dc5689ec41d93a1a3260024bf1226 -->
+# 总览：关于 zlib 证明了什么
 
-先跟随一次完整任务，再逐层展开需要的机制。每章都把实际操作、例子和由此产生的证明义务放在一起讲。
-页面顶部的语言菜单可在同一页切换 **简体中文／English**。
+本页说明本项目关于 zlib 证明了什么、假设了什么、还有什么未完成，以及证明是怎样搭起来的。要点是：默认 x86_64 Linux 构建中每个有文档的公开函数，都被证明在任何调用序列里是安全的；这是对 C 的一份 Lean 翻译证明的，前提是每条定理自己写明的条件。加粗的词在[术语表](glossary.md)中有定义。
 
-## 结论 {#the-claim}
+<a id="proving-the-zlib-implementation"></a>
 
-**已证明。** zlib 默认 x86_64 Linux 构建中每个有文档的公开函数都是安全的。对前提允许的每个输入，翻译后的调用都会返回，没有未定义行为，没有内存错误，只写它可以写的内容，不泄漏，并且终止。这对调用序列同样成立：对 inflate 流、deflate 流、回调解码器和 gzip 文件句柄的每一段历史都成立。63 个必需目标均已登记，验收套件在提交 `bde170e9`（2026-11-15）上全部通过。
+## 结论
 
-**所作假设。** 定理说的是在运行时模型上执行的 Lean 翻译。模型和翻译与 C 一致这一点靠审阅和测试，没有被证明：见[可信基础](trusted-base.md)。各定理加给调用者的前提见[偏离记录](deviations.md)。差分测试是忠实度的证据，不是证明。编译器、操作系统和硬件的正确性在证明之外。
+**已证明。** zlib 的默认 x86_64 Linux 构建中，每个有文档的公开函数都是安全的。对其前提所容许的每个输入，翻译后的调用都会返回，没有未定义行为，没有内存错误，只写它获准写的内存（它的帧），不泄漏，并且终止。这对调用序列也成立：对 inflate 流、deflate 流、回调解码器和 gzip 文件句柄的每段历史都成立。63 个必需目标都已登记。验收套件曾在提交 `bde170e9` 上全部通过；每项结论的层级，以及那个提交之后有什么变化，记在[范围](progress.md#scope)中。
 
-**未完成。** gz 函数和三个 `inflateBack` 函数还没有各自的安全目标。它们目前都指向各自的序列目标，序列目标已登记。逐函数的目标尚待陈述和登记。
+**所作假设。** 这些定理说的是一份运行在运行时模型上的 Lean 翻译。有六件事是被信任而没有被证明的（[可信基础](trusted-base.md)）：
 
-**不在计划内。** 功能正确性（`inflate` 的输出等于格式规定的内容，`deflate` 的输出能解码回输入），自 2026-11-11 起。只有计划内的安全证明所依赖的功能性事实才在范围内；已经证明的部分保留。仅针对模型的命题、其他构建配置以及 `zlib.h` 声明为未文档化的函数也不在计划内。[范围](progress.md#scope)列出每一组及其理由。
+1. Lean 内核、三条标准公理，以及审计程序；
+2. 关于内存、指针、故障和循环的运行时模型；
+3. 对 C 的手工翻译；
+4. 选定的源码：固定版本的 `zlib/` 加上五个补丁；
+5. 构建配置，以及分配、文件和格式化的模型；
+6. 命题本身：每个目标说的确实是它该说的。
+
+差分测试是忠实度的证据，不是证明。编译器、操作系统和硬件的正确性在证明之外。定理对调用者提出的前提列在[偏离记录](deviations.md)中，按函数排成核对清单。
+
+**未完成。** 安全结论所需要的东西没有缺口。31 个 gz 函数和三个 `inflateBack` 函数的安全性由它们的序列目标证明，序列目标覆盖每段历史中的每次调用；它们还没有各自的单函数目标。陈述并登记这 34 个目标是剩余的工作（[进度](progress.md#ordered-next-work)）。
+
+**并非必需。** 安全结论不需要功能正确性。一个功能性事实在范围内，当且仅当有计划内的证明依赖它；已经证明的部分保留。有一项功能结论是计划内的工作，尚未证明：默认 zlib 流先经 `deflate` 再经 `inflate` 的往返。仅关于模型的命题（说的是抽象 API 模型，而不是翻译后的 C）、其他构建配置，以及 `zlib.h` 声明为无文档的函数，都不在计划内。[范围](progress.md#scope)列出每一组及其理由。
 
 ## 目录
 
 - [结论](#the-claim)
-- [阅读主线](#reading-path)
-- [共用证明规则](#shared-proof-rules)
-  - [范围](#scope)
-  - [论证](#argument)
-  - [证据](#evidence)
+- [证明是怎样搭起来的](#how-the-proof-is-built)
+- [怎样读一项结论](#how-to-read-a-result)
+- [导读各章](#guide-chapters)
+- [各条规则写在哪里](#where-each-rule-is-written)
 
-## 阅读主线
+## 证明是怎样搭起来的
 
+<a id="shared-proof-rules"></a>
+<a id="argument"></a>
+<a id="1-what-must-be-proved"></a>
+<a id="3-what-must-be-proved-and-why"></a>
+<a id="7-how-the-arguments-become-checked-claims"></a>
+<a id="3-how-the-proof-is-built"></a>
+<a id="31-translate-the-actual-c-execution"></a>
+<a id="32-establish-an-invariant-by-initialization"></a>
+<a id="33-preserve-it-through-calls"></a>
+<a id="34-relate-executions-to-byte-meaning"></a>
+<a id="4-the-inflate-argument"></a>
+<a id="5-how-the-proof-is-built"></a>
+<a id="5-the-deflate-argument"></a>
+<a id="51-translate-the-actual-c-execution"></a>
+<a id="52-establish-an-invariant-by-initialization"></a>
+<a id="53-preserve-it-through-calls"></a>
+<a id="54-relate-executions-to-byte-meaning"></a>
+<a id="6-the-inflate-argument"></a>
+<a id="7-the-deflate-argument"></a>
+<a id="73-establish-preserve-and-compose"></a>
+
+证明分四步。
+
+1. **翻译。** 固定版本的 C 加上已登记的补丁，由人手工逐条语句翻译成 Lean。C 可能到达的每一种未定义行为，在翻译里都成为故障 `Fault.ub`。
+2. **定义不变量。** 对每一类流定义一个不变量：在每次调用之前都成立的、关于流状态的事实。例如：解码器保存的历史与它已经产生的字节一致。
+3. **逐个函数证明。** 证明 init 函数建立这个不变量。对其余每个函数，证明它在不变量成立时返回而不出故障，保持不变量，只写它的帧，并且分配和释放的恰好是它的账本所记的那些块。不假设任何函数的行为：每个被调用的函数都有一条关于它自己的翻译的定理。
+4. **组合。** 对调用历史作归纳，就得到序列目标。End 函数被证明会释放流拥有的每一个块。另有一条非空性定理给出一个具体的堆，在它上面 init 成功，所以这些前提不是空的。
+
+```mermaid
+flowchart LR
+    S["固定版本的 C 与补丁"] -->|"手工翻译"| T["Lean 翻译"]
+    T --> I["init：建立不变量"]
+    I --> V["不变量成立"]
+    V -->|"任意一次调用：不出故障，只写它的帧"| V
+    V --> E["End：释放拥有的每个块"]
+```
+
+[通用方法](proof/method.md)详细给出这个归纳，[实现论证](proof/README.md)给出每个 C 组件的不变量。
+
+## 怎样读一项结论
+
+<a id="evidence"></a>
+<a id="6-reading-a-formal-result"></a>
+<a id="61-find-its-exact-statement"></a>
+<a id="62-follow-its-proof-and-evidence"></a>
+<a id="8-reading-a-formal-result"></a>
+<a id="81-find-its-exact-statement"></a>
+<a id="82-follow-its-proof-and-evidence"></a>
+<a id="74-locate-the-exact-evidence"></a>
+
+一项结论有四个部分：目标、它的前提、证明它的定理，以及它的层级。下面以 `inflate` 为例。
+
+| 部分 | 对 `inflate` 而言 |
+| --- | --- |
+| 目标 | `Goal.inflate_safety`，在 `ZlibF/Spec/Safety/Streams.lean` 中 |
+| 它说了什么 | 对每个堆、每个流 `r` 和每个 `flush` 值：只要前提成立，调用 `inflate(r, flush)` 就返回而不出故障，保持不变量，只写流自己的块、流记录、挂接的 gzip 头部和输出范围，并且存活块集合的变化与它的账本完全一致（`StreamCallSafe`） |
+| 前提 | `StreamCallDomain`：流是可达的（有一段从成功的 init 开始的历史产生了它）；每个字节对象都小于 2^63 字节；缓冲区符合[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的描述（`StreamArguments`） |
+| 定理 | `ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`，在 `ZlibF/Proof/public-stream-call-safety.lean` 中 |
+| 层级 | 已登记：定理列在 `tests/audit/theorems.txt` 中。它在哪个提交上已验收，见[范围](progress.md#scope) |
+
+[按函数查覆盖情况](coverage.md)对每个函数给出同样的四个部分。
+
+读任何一项结论时，有三点要留意。
+
+- 关于某一个分支的引理，或者关于抽象 API 模型的定理，并不确立一个公开函数的结论。只有类型与目标完全相同的定理才算。
+- 有限次的差分测试检查的是例子，证明不了关于所有输入的命题。
+- 下面的导读各章用文字描述实现。这些对 C 的解读**尚未由证明确认**：只有已登记的定理才能定论。
+
+## 导读各章
+
+<a id="reading-path"></a>
 <a id="1-follow-a-complete-task"></a>
 <a id="1-what-zlib-does"></a>
 <a id="11-one-library-three-related-formats"></a>
@@ -56,30 +136,22 @@
 <a id="72-follow-the-actual-implementation"></a>
 <a id="72-trees-symbols-and-shared-output-storage"></a>
 <a id="73-publish-blocks-and-compose-calls"></a>
-<a id="74-locate-the-exact-evidence"></a>
-<a id="proving-the-zlib-implementation"></a>
 
-| 章节 | 通过例子理解什么 |
+下面六章各自沿着一个例子走过 zlib，并指出它带来的证明义务。它们解释机制；精确的契约在[规格](spec/README.md)中，按 C 组件展开的推导在[实现论证](proof/README.md)中。
+
+| 章节 | 沿着例子理解…… |
 | --- | --- |
-| [1. 一次完整任务](guide/round-trip.md) | 原始字节 → 压缩字节 → 还原字节，以及创建、处理和释放。 |
-| [2. 重复、编码与数据块](guide/encoding.md) | 历史引用的重叠复制、Huffman 编码和数据块选择。 |
-| [3. 流式处理](guide/streaming.md) | 缓冲区耗尽时如何保留位和历史，再准确继续。 |
-| [4. 格式与完整性检查](guide/wrappers.md) | 共用的 DEFLATE 主体、包装条件和尾部校验。 |
-| [5. 状态操作](guide/state-operations.md) | 用 Reset 开始新任务，用 Copy 保存检查点，以及字典和刷新。 |
-| [6. 应用接口](guide/interfaces.md) | 整块缓冲区、回调、gzip 文件与逻辑位置跳转（Seek）。 |
+| [1. 一次完整的任务](guide/round-trip.md) | 原始字节 → 压缩字节 → 恢复出的字节；开始、处理和释放。 |
+| [2. 重复、编码与块](guide/encoding.md) | 重叠的历史复制、Huffman 编码和块的选择。 |
+| [3. 流式处理](guide/streaming.md) | 缓冲区耗尽、保留的比特与历史，以及精确的续接。 |
+| [4. 格式与完整性校验](guide/wrappers.md) | 共用的 DEFLATE 主体、封装条件和尾部校验。 |
+| [5. 状态操作](guide/state-operations.md) | 为下一个任务重置、为检查点复制、字典与刷新。 |
+| [6. 应用接口](guide/interfaces.md) | 整缓冲区、回调、gzip 文件和逻辑定位。 |
 
-需要精确条件或 C 层面的论证时，再沿章内链接下钻。
-[规范](spec/README.md)定义必须满足的行为；[实现证明参考](proof/README.md)按 C 组件给出技术推导。
-它们与图解例子回答不同的问题。审阅记录收在“检查与验收”下，不放进入门阅读主线。
+## 各条规则写在哪里
 
-## 共用证明规则
-
-<a id="1-what-must-be-proved"></a>
-<a id="3-what-must-be-proved-and-why"></a>
-<a id="7-how-the-arguments-become-checked-claims"></a>
-
-### 范围
-
+<a id="scope"></a>
+<a id="project-status-and-remaining-work"></a>
 <a id="11-the-implementation-and-configurations"></a>
 <a id="12-safety-of-calls-and-lifetimes"></a>
 <a id="2-assumptions-and-model-boundaries"></a>
@@ -95,61 +167,15 @@
 <a id="43-what-the-kernel-trusts"></a>
 <a id="71-scope-and-assumptions"></a>
 
-目标是默认 x86_64 Linux 构建。安全目标对前提允许的每个输入、参数、分配结果和历史作全称量化。[输入配置](spec/input-configurations.md)中的范围描述的是中间工作的覆盖程度。
-例子选择具体运行，不会缩小公开目标的定义域。接受的[平台前提](spec/platform.md)包括：每个被表示的字节对象少于 `2^63` 字节；这不限制整个流的总长度。
-[安全规范](spec/safety.md)统一规定 UB、帧性质、终止和资源义务。
-[可信基础](trusted-base.md)与[偏离记录](deviations.md)统一记录模型限制。
+| 问题 | 页面 |
+| --- | --- |
+| “安全”到底指什么：未定义行为、帧、终止、泄漏？ | [安全性](spec/safety.md) |
+| 假设的是哪个平台？ | [平台](spec/platform.md)：默认 x86_64 Linux 构建；每个字节对象小于 `2^63` 字节，这并不限制流的长度 |
+| 调用者的调用要满足什么？ | [偏离记录](deviations.md) |
+| 模型有哪些调用者无能为力的限制？ | [模型的限制](model-limits.md) |
+| 什么是被信任而没有被证明的？ | [可信基础](trusted-base.md) |
+| 哪条定理覆盖某个函数？ | [按函数查覆盖情况](coverage.md) |
+| 每项结论处于哪个层级，还剩什么工作？ | [进度](progress.md#scope) |
+| 定理怎样成为已验收？ | [检查指南](checking/README.md) |
 
-### 论证
-
-这里的“不变量”是每次继续调用前都必须成立的一组状态事实。例如，解压器保存的历史范围必须与已经恢复的字节一致，窗口指针也必须仍指向有效存储。初始化先建立这些事实；后续调用使用它们并重新建立它们；结束调用再释放相应资源。
-
-<a id="3-how-the-proof-is-built"></a>
-<a id="31-translate-the-actual-c-execution"></a>
-<a id="32-establish-an-invariant-by-initialization"></a>
-<a id="33-preserve-it-through-calls"></a>
-<a id="34-relate-executions-to-byte-meaning"></a>
-<a id="4-the-inflate-argument"></a>
-<a id="5-how-the-proof-is-built"></a>
-<a id="5-the-deflate-argument"></a>
-<a id="51-translate-the-actual-c-execution"></a>
-<a id="52-establish-an-invariant-by-initialization"></a>
-<a id="53-preserve-it-through-calls"></a>
-<a id="54-relate-executions-to-byte-meaning"></a>
-<a id="6-the-inflate-argument"></a>
-<a id="7-the-deflate-argument"></a>
-<a id="73-establish-preserve-and-compose"></a>
-
-对象是固定版本的 C 加上已登记补丁，并逐语句翻译。各章按执行步骤说明算法事实、表示不变量和相应证明义务。
-初始化必须建立状态不变量与所有权。每次实际调用都要推出辅助函数的前提，并在返回的堆上保持所需性质；End 要交代资源释放。
-被调用函数的契约必须是关于该函数的已证明定理。顶层定义域还需要具体见证。
-
-[共用证明方法](proof/method.md)对合法调用历史做归纳，把这些步骤连接起来。安全证明需要某个功能性事实时，才把实际字节与独立的格式含义对应起来。
-各章只在相关例子处解释该机制特有的不变量。
-
-### 证据
-
-<a id="6-reading-a-formal-result"></a>
-<a id="61-find-its-exact-statement"></a>
-<a id="62-follow-its-proof-and-evidence"></a>
-<a id="8-reading-a-formal-result"></a>
-<a id="81-find-its-exact-statement"></a>
-<a id="82-follow-its-proof-and-evidence"></a>
-
-检查精确命题、调用者定义域与返回状态。局部分支引理或无堆模型定理不能独自证明整个公开 API。
-关于抽象 API 模型的陈述说的是模型，不是 C；具体执行仍需自己的细化论证。
-有限差分运行只能核对例子，不能证明全称命题。[检查指南](checking/README.md)定义指定提交上的验收要求。
-[进度页](progress.md)记录目标依赖图、当前证据与剩余工作。
-
----
-
-## 项目状态与剩余工作
-
-[文档](README.md) · [API](spec/api/README.md) · [检查](checking/README.md)
-
-安全结论按以下顺序被验收时项目完成：`inflate` 对每个输入都安全；`deflate` 对每个输入都安全，两者都包括各自的调用序列；然后是其他每个公开函数，包括 gzip 文件接口和 `inflateBack`。`compress` 与 `uncompress` 的安全作为组合随后完成。验收套件在提交 `bde170e9`（2026-11-15）上全部通过，全部 63 个必需目标均已登记。剩余的工作列在[结论](#the-claim)的“未完成”一项下。
-
-每个公开函数有一个安全目标和一个功能目标；`tests/audit/public-api.json` 写出两者。安全目标在 `ZlibF/Spec/Safety/` 中，功能目标在 `ZlibF/Spec/Functional/` 中；gz 与 `inflateBack` 的两类目标都仍在 `ZlibF/Spec/Public/` 中。验收审计要求安全目标和非空性目标；已证明的功能目标接受完整审计，未证明的不使任何检查失败。[拆分说明](design/safety-functional-split.zh.md)给出规则，[安全](spec/safety.zh.md#where-the-goals-are)给出目录布局。
-
-当前状态、数字和按顺序排列的剩余工作只在[进度](progress.zh.md)中。
-早先的叙述性检查点原样保存在[概览变更记录](history/overview-changelog.zh.md)中，属于历史记录。
+安全目标对其前提所容许的每个输入、参数、分配结果和历史量化。[输入配置](spec/input-configurations.md)中那些较窄的范围描述的是内部引理和目标图的颜色，并不限制安全目标。本页早先的叙述性记录原样保存在[总览变更记录](history/overview-changelog.md)中，属于历史资料。
