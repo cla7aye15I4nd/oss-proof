@@ -299,8 +299,9 @@ strict consumption of input bits: the held bits plus eight times the bytes left 
 and they fall strictly unless the call ends in `TYPE` or `BAD`. `LEN_fast_p` turns that into
 one round of the dispatch loop.
 
-The entry conditions of `inflate_fast` take output in a heap byte block. So the fast path is
-proved at such a window only (`lenFast_of_blk`). Every history of the goal has its window
+`fast_env` builds the entry conditions of `inflate_fast` for a window in a heap byte block,
+and the fast path is proved at such a window only (`lenFast_of_blk`). The entry conditions
+themselves allow any byte object ([fast decoding](inffast.md#assumptions)). Every history of the goal has its window
 there (`back_reach_window`), because the `init` constructor asks for it. That is the reason
 for the window premise.
 

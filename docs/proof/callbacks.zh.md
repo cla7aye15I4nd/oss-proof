@@ -1,4 +1,4 @@
-<!-- source-sha256: ca1a6585184a4aed98bd11150ba8ebcdb750c6464f746d0c51d84c4f90ac6c8b -->
+<!-- source-sha256: 1ee1275d1ae7f4a5881b58adaa5e06943276c9a8811bbe70ec050f78e5497b07 -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -243,7 +243,7 @@ flowchart TD
 `fast_consumes`（`ZlibF/Proof/inffast.c.consume.lean`）给出运行、它的帧性质以及对输入位的严格消耗：已持有的位加上八倍的剩余字节从不增长，并且严格下降，除非调用以
 `TYPE` 或 `BAD` 结束。`LEN_fast_p` 把这变成分派循环的一轮。
 
-`inflate_fast` 的入口条件要求输出在一个堆字节块中。所以快速路径只在这样的窗口上证明（`lenFast_of_blk`）。目标的每个历史都有这样的窗口（`back_reach_window`），因为
+`fast_env` 是对位于堆字节块中的窗口构造 `inflate_fast` 的入口条件的，快速路径也只在这样的窗口上证明（`lenFast_of_blk`）。入口条件本身允许任何字节对象（[快速解码](inffast.md#assumptions)）。目标的每个历史都有这样的窗口（`back_reach_window`），因为
 `init` 构造子要求它。这就是窗口前提的理由。
 
 ## 保留的功能结果
