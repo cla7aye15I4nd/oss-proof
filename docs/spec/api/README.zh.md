@@ -1,4 +1,4 @@
-<!-- source-sha256: ada3da8e264f7e9a0b70a940da3f5a3a7830531c205c0e774b4c6b17ac9a86a3 -->
+<!-- source-sha256: 093ee23b0003e387a76d4baee5141147fe473fd95b8e4f2493f3c02375175bc7 -->
 
 # zlib API 手册
 
@@ -39,7 +39,7 @@
 
 **已证明的内容。** 每个有文档的函数的必需目标是它的安全目标：没有未定义行为，没有内存错误，
 没有泄漏，并且终止（见[安全性](../safety.md)）。每个条目在**证明目标**下写出它。
-`zlib.h` 在“undocumented functions”之下声明的函数有条目，但没有必需目标。
+`zlib.h` 在“undocumented functions”（未文档化的函数）之下声明的函数有条目，但没有必需目标。
 目标的条件中比 `zlib.h` 窄的，在[偏离记录](../../deviations.md)中各有一行。
 
 **这里没有证明的内容。** 后置条件描述的返回值、输出字节和状态变化是功能行为。
@@ -50,7 +50,7 @@
 
 ## 查找函数
 
-索引按用途链接全部 96 个条目。函数页面保留 C 名称，包括由初始化宏调用的、名称末尾带下划线的函数。
+索引按用途链接全部 96 个条目。函数页面保留 C 名称，包括初始化宏所调用的函数名末尾的下划线。
 
 ### 流式压缩
 
@@ -60,7 +60,7 @@
 | [deflateInit2_](deflate-stream.md#deflateinit2_) | 指定所有参数进行初始化 |
 | [deflateSetDictionary](deflate-stream.md#deflatesetdictionary) | 预载字典 |
 | [deflateGetDictionary](deflate-stream.md#deflategetdictionary) | 复制出当前字典窗口 |
-| [deflateResetKeep](deflate-stream.md#deflateresetkeep) | 重新开始一个流，但保留窗口和哈希表（未公开文档化） |
+| [deflateResetKeep](deflate-stream.md#deflateresetkeep) | 重新开始一个流，但保留窗口和哈希表（未文档化） |
 | [deflateReset](deflate-stream.md#deflatereset) | 重新开始一个流 |
 | [deflateSetHeader](deflate-stream.md#deflatesetheader) | 提供要写入的 gzip 头 |
 | [deflatePending](deflate-stream.md#deflatepending) | 查询待输出数据 |
@@ -68,7 +68,7 @@
 | [deflatePrime](deflate-stream.md#deflateprime) | 在输出中插入位 |
 | [deflateParams](deflate-stream.md#deflateparams) | 更改级别和策略 |
 | [deflateTune](deflate-stream.md#deflatetune) | 设置内部匹配搜索的调优参数 |
-| [deflateBound_z](deflate-stream.md#deflatebound_z) | 压缩大小上界（大小类型长度） |
+| [deflateBound_z](deflate-stream.md#deflatebound_z) | 压缩大小上界（长度为大小类型） |
 | [deflateBound](deflate-stream.md#deflatebound) | 压缩大小上界（`uLong`） |
 | [deflate](deflate-stream.md#deflate) | 压缩 |
 | [deflateEnd](deflate-stream.md#deflateend) | 释放流 |
@@ -78,7 +78,7 @@
 
 | 函数 | 简述 |
 | --- | --- |
-| [inflateResetKeep](inflate-stream.md#inflateresetkeep) | 重新开始一个流并保留窗口内容（未公开文档化） |
+| [inflateResetKeep](inflate-stream.md#inflateresetkeep) | 重新开始一个流并保留窗口内容（未文档化） |
 | [inflateReset](inflate-stream.md#inflatereset) | 重新开始一个流，丢弃窗口内容 |
 | [inflateReset2](inflate-stream.md#inflatereset2) | 使用新窗口大小重新开始一个流 |
 | [inflateInit2_](inflate-stream.md#inflateinit2_) | 指定窗口大小进行初始化 |
@@ -93,9 +93,9 @@
 | [inflateSyncPoint](inflate-stream.md#inflatesyncpoint) | 检查是否停在同步刷新点 |
 | [inflateCopy](inflate-stream.md#inflatecopy) | 复制流 |
 | [inflateUndermine](inflate-stream.md#inflateundermine) | 请求距离检查选项；默认构建返回 `Z_DATA_ERROR` |
-| [inflateValidate](inflate-stream.md#inflatevalidate) | 控制包装格式的完整性检查 |
+| [inflateValidate](inflate-stream.md#inflatevalidate) | 控制封装的完整性检查 |
 | [inflateMark](inflate-stream.md#inflatemark) | 查询 `inflate` 在块或码中的位置 |
-| [inflateCodesUsed](inflate-stream.md#inflatecodesused) | 查询当前块已使用的编码表项数（未公开文档化） |
+| [inflateCodesUsed](inflate-stream.md#inflatecodesused) | 查询当前块已使用的编码表项数（未文档化） |
 
 ### 回调解压
 
@@ -109,15 +109,15 @@
 
 | 函数 | 简述 |
 | --- | --- |
-| [compress2_z](utility.md#compress2_z) | 按指定级别压缩缓冲区（大小类型长度） |
+| [compress2_z](utility.md#compress2_z) | 按指定级别压缩缓冲区（长度为大小类型） |
 | [compress2](utility.md#compress2) | 按指定级别压缩缓冲区 |
-| [compress_z](utility.md#compress_z) | 按默认级别压缩缓冲区（大小类型长度） |
+| [compress_z](utility.md#compress_z) | 按默认级别压缩缓冲区（长度为大小类型） |
 | [compress](utility.md#compress) | 按默认级别压缩缓冲区 |
-| [compressBound_z](utility.md#compressbound_z) | 压缩大小上界（大小类型长度） |
+| [compressBound_z](utility.md#compressbound_z) | 压缩大小上界（长度为大小类型） |
 | [compressBound](utility.md#compressbound) | 压缩大小上界 |
-| [uncompress2_z](utility.md#uncompress2_z) | 解压缓冲区，报告使用的输入量（大小类型长度） |
+| [uncompress2_z](utility.md#uncompress2_z) | 解压缓冲区，报告使用的输入量（长度为大小类型） |
 | [uncompress2](utility.md#uncompress2) | 解压缓冲区，报告使用的输入量 |
-| [uncompress_z](utility.md#uncompress_z) | 解压缓冲区（大小类型长度） |
+| [uncompress_z](utility.md#uncompress_z) | 解压缓冲区（长度为大小类型） |
 | [uncompress](utility.md#uncompress) | 解压缓冲区 |
 | [zlibVersion](utility.md#zlibversion) | 库的版本字符串 |
 | [zlibCompileFlags](utility.md#zlibcompileflags) | 构建库所用的类型大小和选项 |
@@ -127,12 +127,12 @@
 
 | 函数 | 简述 |
 | --- | --- |
-| [adler32_z](checksums.md#adler32_z) | 缓冲区的 Adler-32（大小类型长度） |
+| [adler32_z](checksums.md#adler32_z) | 缓冲区的 Adler-32（长度为大小类型） |
 | [adler32](checksums.md#adler32) | 缓冲区的 Adler-32 |
 | [adler32_combine](checksums.md#adler32_combine) | 组合两个 Adler-32 值 |
 | [adler32_combine64](checksums.md#adler32_combine64) | 组合两个 Adler-32 值（64 位长度） |
 | [get_crc_table](checksums.md#get_crc_table) | CRC-32 表 |
-| [crc32_z](checksums.md#crc32_z) | 缓冲区的 CRC-32（大小类型长度） |
+| [crc32_z](checksums.md#crc32_z) | 缓冲区的 CRC-32（长度为大小类型） |
 | [crc32](checksums.md#crc32) | 缓冲区的 CRC-32 |
 | [crc32_combine_gen64](checksums.md#crc32_combine_gen64) | 用于组合的算子（64 位长度） |
 | [crc32_combine_gen](checksums.md#crc32_combine_gen) | 用于组合的算子 |
@@ -154,12 +154,12 @@
 
 ## 构建变体与宏
 
-与 `zlib.h` 声明的函数相比，下列内容不会编译成默认 Linux 库中的独立条目：
+与 `zlib.h` 声明的函数相比，下列名称没有编译进默认 Linux 库：
 
 | 名称 | 原因 |
 | --- | --- |
 | `gzopen_w` | 仅为 Windows（`_WIN32`）声明；`gzlib.c` 中的定义受宽字符选项控制 |
 | `deflateInit`, `deflateInit2`, `inflateInit`, `inflateInit2`, `inflateBackInit` | 它们是 `zlib.h` 中的宏；使用头文件自身的版本字符串和 `sizeof(z_stream)` 调用 `deflateInit_`, `deflateInit2_`, `inflateInit_`, `inflateInit2_`, `inflateBackInit_` |
-| 作为宏的 `gzgetc` | `zlib.h` 还把 `gzgetc` 定义为宏，直接读取缓冲区，缓冲区为空时调用 `gzgetc_`；函数形式的 `gzgetc` 也存在 |
+| 作为宏的 `gzgetc` | `zlib.h` 还把 `gzgetc` 定义为宏，直接读取缓冲区，缓冲区为空时调用函数 `gzgetc`；`gzgetc_` 是另一个导出函数，为向后兼容而保留 |
 
 索引包含全部 95 个默认构建条目，以及单独列出的 Windows 条目 `gzopen_w`。[内部辅助函数契约](../internal-contracts.md)描述库内部使用的例程。
