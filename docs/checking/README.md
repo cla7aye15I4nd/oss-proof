@@ -59,6 +59,13 @@ workers fails, is skipped or is cancelled.
 A red nightly run is fixed before new acceptance work. It does not block proof work.
 Acceptance work is done in batches at a milestone, not for each change.
 
+**Pre-check with reused verdicts.** The manual trigger has an input `reuse`. With it, the mutant
+shards skip each proof mutant whose inputs are byte for byte those of an execution that already
+passed, and print how many units ran and how many were reused. The result then reports as
+`audit (pre-check, reused verdicts)`. It is a faster check for `dev` and for branches. It is not
+acceptance: an accepted result needs a full run, without the input, on the commit you name. The
+nightly run is always full. [Proof mutants](proof-mutants.md#verdict-reuse) says what the key covers.
+
 `python3 scripts/verification.py final` runs the whole suite in one process from a clean build, with
 every mutant list in strict mode, and prints the commit. The workflow `verification-final` starts it
 by hand for a named commit. The nightly suite does not run it.
@@ -105,6 +112,10 @@ The script reads four registries under `tests/audit/`. [Public goals](goals.md) 
 - **The checkers are trusted.** The auditor (`tests/audit/*.lean`), `scripts/`, `tests/audit/proofmut.sh`,
   `tests/audit/selftest.sh` and the mutator scripts (`tests/proof-mutants/*.py`) are protected by
   review of their diffs, not by another check.
+- **A reused verdict is trusted like the scripts.** A pre-check believes a stored record whose key
+  matches. The store is in the workflow cache; a run on a branch or on `main` can write the store
+  that a pre-check on that branch reads. A full run reads no store.
+  See [proof mutants](proof-mutants.md#verdict-reuse).
 - **A reasoned removal is the reviewed escape.** An entry with a reason in
   `tests/audit/registry-removals.json` lifts a shrink-only rule for one name. It is visible in the
   diff. An entry that excuses nothing is rejected as stale.

@@ -190,9 +190,13 @@ mode, `api-boundary.tsv`, the semantic safety lists and every list that a key re
 second command runs one of twenty shards, as CI does. The last two run one list, optionally
 filtered by mutant name. They are useful during development and do not replace acceptance.
 
-**Shards.** The keyed goals are dealt to the shards in name order; a goal's unchanged control
-replay travels with all its keyed rows. The killable rows of the lists are dealt round robin, so
-no row is lost or run twice. A shard with nothing to run is rejected.
+**Shards.** A goal's unchanged control replay travels with all its keyed rows, as one item. Each
+killable row of a list is an item; a `same:` row travels with the first killable row of its list.
+The items are packed by recorded duration: longest first, each into the shard with the least load
+so far. The durations are in `tests/proof-mutants/durations.json`, written from the verdicts of a
+full run (`python3 scripts/mutant_reuse.py durations`); an item it does not name weighs one minute.
+The file only balances the shards. Whatever it says, every item goes to exactly one shard, so no
+row is lost or run twice. A shard with nothing to run is rejected.
 
 **The list runner** copies the workspace and warm cache into a temporary directory. It builds
 the unmodified listed proof modules, applies each replacement exactly once and builds only
@@ -221,13 +225,104 @@ build, defaulting to 3600. `PROOFMUT_KEEP=1` retains temporary copies; `PROOFMUT
 failure details. `PROOFMUT_BASELINE=0` skips the positive build for local diagnosis only.
 `PROOFMUT_STRICT=1` overrides that skip, rejects all known gaps and requires a killed row.
 
-**What runs where.** The nightly suite runs the twenty shards. A list that no key references and
+**What runs where.** The nightly suite runs the twenty shards, in full. A pre-check with
+[verdict reuse](#verdict-reuse) runs the same shards and skips the units whose inputs are unchanged. A list that no key references and
 that is not a semantic safety list or `api-boundary.tsv` is not run by the shards; it runs only
 in `python3 scripts/verification.py final`, which runs every list of the three directories in
 strict mode. Neither a proposed workflow snippet nor an unexecuted list counts as a passing check.
 
+## Verdict reuse
+
+A full run executes every unit: about 2400 runner minutes on twenty shards. Most units have the
+same inputs as in the run before. A **pre-check** reuses the stored verdict of such a unit. It
+does not change what a mutant is: the mutated translation, the unchanged proof sources, and Lean
+and the kernel as judges. It only skips an execution whose inputs are byte for byte those of an
+execution that already passed.
+
+**A pre-check is not acceptance.** An accepted result needs a full run on the commit you name.
+The nightly run on `main` and the run before each merge to `main` are full runs.
+
+```sh
+python3 scripts/verification.py mutants --record verdicts.json
+python3 scripts/verification.py mutants --reuse store.json --record verdicts.json
+```
+
+The first command is a full run that also writes its verdicts. It reads no store. The second is a
+pre-check. It prints one line for each unit, `REUSED <key> from <commit> (run <run>) <unit>` or
+`RAN <key> <unit>`, and ends with the counts:
+`mutants: 31 units, 4 ran, 27 reused (pre-check with reused verdicts; an accepted result needs a full run)`.
+A full run ends with `N ran, 0 reused (full run)`.
+
+**Units.** There are three kinds: a row of a list (run by `proofmut.sh`), the control replay of a
+keyed goal, and the replay of one keyed row against one goal.
+
+**The key.** `scripts/mutant_reuse.py` derives the key, and nothing else does. It is a sha256 over:
+
+| Input | Covered by |
+| --- | --- |
+| The scripts that produce a verdict | The bytes of `scripts/verification.py`, `scripts/mutant_reuse.py`, `scripts/mutation_spans.py`, `tests/audit/proofmut.sh`, `tests/audit/ReplayPublicProof.lean` and `tests/audit/DeclarationSpan.lean`. An edit to any of them changes every key. |
+| The build configuration | `lean-toolchain`, `lakefile.toml`, the Lake manifest when present, the operating system and machine type. |
+| The runner's settings | The `PROOFMUT_*` variables, `ZLIBF_REPLAY_RSS_MB` and `ZLIBF_REQUIRE_PREBUILT`. |
+| The row | The list's path and the whole row, every field. |
+| A text row's edit | The file's text before and after the edit. |
+| A `script:` row's edit | The mutator's bytes. The mutator is run on a fresh copy of the workspace, as the runner does it, and the tree it leaves is the mutated tree. |
+| The proofs (a row) | The import closure of the row's proof modules, each file by content: once in the unmutated tree (the baseline build) and once in the mutated tree (the mutant build). |
+| The proofs (a replay) | Every Lean source of the library, the registry `theorems.txt`, the goal, and the function and its source file. A keyed row's replay adds the row and the source after the edit. |
+
+The import closure is read from the `import` commands of each file's header. The reader accepts
+`import Name` with the modifiers `public`, `private`, `meta` and `all`. Any other text on the line
+of an import makes the unit unkeyable. A test compares the reader with the audited reading of
+`check_imports` on every file of the library.
+
+A replay is keyed by the whole library because the replay tool picks the registered proof from the
+whole compiled library. So any edit under `ZlibF/` runs every replay again. The replays are about a
+fifth of the stage; the rows, which are the rest, are keyed by their closure.
+
+**What is never reused.**
+
+- A unit without a key. No key is computed when the edit does not apply exactly once, the mutator
+  fails, the row has a `gap:` flag, an input is a symbolic link, an import is not understood, or
+  the mutated text contains the word `sorry`. When the word `sorry` occurs anywhere in the Lean
+  sources, comments included, no row is reused: the runner's `sorry` scan reads the whole tree.
+- A verdict that is not the passing verdict of the unit's kind: `KILLED` for a row, `SAME ok` for a
+  `same:` row, an accepted control replay, a rejected mutant replay. A store holds only these. A
+  unit that failed or survived is not recorded, so it runs again.
+- A row's verdict from a list run that failed as a whole, or whose verdict lines do not match the
+  rows that were asked for.
+- A record made in another repository, or outside the workflow (its run is `local`).
+
+A unit that cannot be keyed runs. It never fails the run for that reason.
+
+**Strict mode is unchanged.** The runner still needs a killed row in every list it runs. When only
+`same:` rows of a list are left to run, the first killable row of that list runs again beside them.
+
+**The store** is a JSON file of records: key, kind of unit, verdict, the first error line or the
+replay's last line, peak memory (replays only), seconds, and the commit and workflow run that
+produced the verdict. It is never committed. Each mutant shard uploads the verdicts of the units
+that passed in it. The job `mutant_store` merges them with the earlier store and saves the result
+in the workflow cache under `mutant-verdicts-<run>`. A record older than 45 days is dropped.
+
+**In the workflow.** The manual trigger of `lean` has an input `reuse`, off by default. With it the
+shards restore the newest store and run with `--reuse`, and the required result reports as
+`audit (pre-check, reused verdicts)`, not as `audit`. The scheduled run and a dispatch without the
+input never restore the store. Every run writes its verdicts, so full runs seed the store.
+
+**Who can write the store.** The store is trusted like the scripts: a record with the right key
+and a passing verdict is believed. A workflow run can read the cache of its own branch and of
+`main`. A run can write only the cache of the branch it runs on. So a record that a pre-check on
+`dev` reads was written by a run on `dev` or on `main`, with the workflow file of that branch.
+Whoever can push to those branches can already edit the scripts. A pull request from a fork writes
+to a cache of its own, which no branch reads. A pre-check on a new branch reads the store of
+`main` until the branch has run once. The cache is evicted when the repository's caches exceed
+their quota; a pre-check without a store runs everything.
+
 ## Known limits
 
+- Verdict reuse trusts the store, the key derivation and the mutators' determinism. A mutator
+  that writes something else on a second run of the same inputs is not seen by the key. The key
+  does not cover the compiled library itself: it relies on the build of the run being the build of
+  the sources, which each shard checks with Lake before the stage starts. A full run does not
+  depend on any of this.
 - The auditor (`tests/audit/*.lean`), `proofmut.sh`, `selftest.sh` and the mutator scripts
   (`tests/proof-mutants/*.py`) are trusted and protected by review, like `scripts/`. A mutator's
   content is frozen by its hash, but what it does is checked only by reading it. In particular the
