@@ -161,7 +161,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -177,7 +177,7 @@ jobs:
       - name: Model and public function proof mutants
         env:
           ZLIBF_REQUIRE_PREBUILT: '1'
-        run: python3 scripts/verification.py mutants --shard-count 12 --shard-index ${{ matrix.shard }}
+        run: python3 scripts/verification.py mutants --shard-count 20 --shard-index ${{ matrix.shard }}
 
   # Keep audit as the required status. Failure, cancellation or skipping in any
   # worker must prevent this status from passing.
