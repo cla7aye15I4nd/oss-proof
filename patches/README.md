@@ -1,7 +1,24 @@
 # Patches
 
-The verified source is the pinned `zlib/` submodule plus any `*.patch` files in this
-directory, applied in name order.
+The verified source is the pinned `zlib/` submodule plus the `*.patch` files in this
+directory, applied in name order. The submodule is never edited.
+
+A patch is allowed only for a confirmed upstream bug that blocks a proof. It must be minimal,
+match a fix submitted upstream, and be listed here. A patch approved by the owner may land before
+its upstream submission; its entry then says it is local and pending, and it is replaced by the
+upstream fix when one exists. Remove a patch once upstream incorporates the fix and the pin moves
+past it.
+
+| Patch | Fixes | Upstream state (read on 2026-11-14) |
+| --- | --- | --- |
+| 0001 | Relational comparison of unrelated pointers in `inflateCopy` | [PR #1369](https://github.com/madler/zlib/pull/1369): the maintainer answered "Applied" on 2026-11-06; not yet on `develop` |
+| 0002 | Signed overflow in `gzseek64` after an initial `gzungetc` | [PR #1361](https://github.com/madler/zlib/pull/1361), open |
+| 0003 | Stale `x.next` after a partial transparent read that then fails | [PR #1363](https://github.com/madler/zlib/pull/1363), open |
+| 0004 | Signed overflow of the gz position `x.pos` | Local and pending: not submitted |
+| 0005 | Zero advance of an unset or dangling `x.next` | Local and pending: not submitted |
+
+Each issue is described, with its reproduction, confidence and scope, in
+[findings](../docs/findings.md).
 
 ## 0001-inflate-copy-pointer-equality.patch
 
@@ -13,9 +30,9 @@ unpatched C. This blocks the corresponding total safety proof.
 The patch exactly matches commit
 `300fea14353d2e2ca61210aca7c48861ded5788c` in
 [upstream PR #1369](https://github.com/madler/zlib/pull/1369).
-The maintainer confirmed application on 6 November 2026. The publicly
-fetchable `develop` and `master` heads still name
-`99623ef7097352da7993ba614161fd6a311e046e`, whose `inflate.c` retains the old
+The maintainer answered "Applied" on 6 November 2026 and the pull request is
+closed. On 2026-11-14 the publicly fetchable `develop` and `master` heads still
+name `99623ef7097352da7993ba614161fd6a311e046e`, whose `inflate.c` retains the old
 comparison. Keep the current pin and this submitted fix until the applied
 commit is available on the upstream branch. Then advance the pin and remove
 the patch.
@@ -55,7 +72,7 @@ patches.
 
 ## 0004-gz-position-overflow.patch
 
-Local, not yet submitted upstream; approved by the owner on 2026-11-12.
+Local and pending upstream: not yet submitted. Approved by the owner on 2026-11-12.
 
 Keep the uncompressed position `state->x.pos` within `z_off64_t`. Reading: `gz_fetch` fills the
 output buffer only with bytes whose position is representable (at least one, to find the end of
@@ -70,12 +87,14 @@ refuse a write that would carry the position past `GZ_OFF_MAX`, with the same er
 [gzread-pos-overflow](../docs/findings/gzread-pos-overflow/README.md) (F-1) and
 [gzwrite-pos-overflow](../docs/findings/gzwrite-pos-overflow/README.md) (W7). Evidence:
 UndefinedBehaviorSanitizer reports the signed overflow on x86_64 Linux for both, with
-`/dev/zero` and the real `/dev/null`; reproductions under `tests/regression/`. This blocks the
+`/dev/zero` and the real `/dev/null`; reproductions under `tests/regression/`. The overflow after
+a transparent look, which the COPY-branch bound covers, is confirmed in the model and by reading
+the C; it is not reproduced under a sanitizer. This blocks the
 safety proof of the gz readers and writers. A pull request draft is in the read-side finding.
 
 ## 0005-gz-next-zero-advance.patch
 
-Local, not yet submitted upstream; approved by the owner on 2026-11-12.
+Local and pending upstream: not yet submitted. Approved by the owner on 2026-11-12.
 
 In `gzseek64` and `gz_skip_have`, advance `state->x.next` only when the advance `n` is not zero.
 With `n == 0` the field may never have been written (`gz_reset` does not set it: R-3) or may point
@@ -88,9 +107,3 @@ reproductions shows the zero advance on the never-written and on the dangling va
 absence with the patch. The proof rule that a pointer field is written before it is read, and the
 model's fault on arithmetic with a dangling pointer, block the gz reader proofs without it. A pull
 request draft is in the R-3 finding.
-
-The submodule is never edited. A patch is allowed only for a confirmed upstream bug
-that blocks a proof. It must be minimal, match a submitted upstream fix, and be listed
-here. A patch approved by the owner may land before its upstream submission; its entry
-then says it is local and pending, and it is replaced by the upstream fix when one
-exists. Remove a patch once upstream incorporates the fix and the pin moves past it.

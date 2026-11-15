@@ -1,19 +1,21 @@
-<!-- source-sha256: c9c34b95b12d9f24c04ebd77ec0d798cbc23f4e89ad6f4a9481cb1c82b9379b7 -->
+<!-- source-sha256: c03913eba9538569dd6d198bba1cd41ef404ae8d14be6f89f75f7034c20a3b1b -->
 # Sanitizer 报告
 
 本页列出所有保留的复现：在这些复现中，sanitizer 报告真实 C 代码有未定义行为或内存错误。每个复现都有一个目录，内含运行脚本、C 驱动程序，以及 `report.txt` 中的原始 sanitizer 输出。
 
 ## 这些是什么
 
-主表各行都是调用者一侧的内存布局和调用顺序。调用 zlib 的程序必须有意构造它们：把头部缓冲区指向自己的输入或输出，在 zlib 写头部时修改头部记录，在 zlib.h 允许的时间点之后调用函数，或者为长度单元传入 `NULL`。它们不是攻击者能控制的输入。任何压缩字节流都到达不了这些情形。
+主表各行都是调用者一侧的内存布局和调用顺序。调用 zlib 的程序必须有意构造它们：把头部缓冲区指向自己的输入或输出，在 zlib 写头部时修改头部记录，在 zlib.h 允许的时间点之后调用函数，为长度单元传入 `NULL`，或者把 `gzerror` 返回的字符串传给同一句柄上的 `gzprintf`。它们不是攻击者能控制的输入。任何压缩字节流都到达不了这些情形。
 
 每一行都在已证明的定义域之外：某个公开目标的一个具名前提排除了它。若 zlib.h 对该布局没有说明，该前提列在[偏离记录](deviations.md)中。
 
-这些行都没有报告给上游。库缺陷在“库缺陷”一节：上游已修复其中一个；两个的修复已提交上游，维护者尚未确认；另外两个有本地的候选修复，尚未提交。
+这些行都没有报告给上游，也都不记为 zlib 缺陷。`gzprintf` 一行记为文档缺口：zlib.h 没有说明 `gzprintf` 会使 `gzerror` 返回的字符串失效。
+
+库缺陷在“库缺陷”一节。其中一个，维护者已答复修复已应用，但上游 `develop` 分支还不包含它。两个的修复已提交上游，维护者尚未答复。另外两个有本地修复，尚待提交上游。每个缺陷的描述、可信度和范围见[发现](findings.md)。
 
 ## 已证明定义域之外的调用者布局
 
-判定来自固定版本源码加本仓库补丁，在本项目的目标平台 x86_64 Linux 上用 AddressSanitizer 和 UndefinedBehaviorSanitizer 构建。源码行号以固定版本源码为准。此前在 arm64 macOS 上的运行给出相同判定，唯一差异记在 `迟到的 deflatePrime` 一行。
+判定来自固定版本源码加本仓库补丁，在本项目的目标平台 x86_64 Linux 上用 AddressSanitizer 和 UndefinedBehaviorSanitizer 构建。源码行号以固定版本源码为准。此前在 arm64 macOS 上的运行给出相同判定，唯一差异记在 `迟到的 deflatePrime` 一行。最后一行（使用句柄错误字符串的 `gzprintf`）只在 arm64 macOS 上运行过。
 
 | 名称 | 调用者布局或调用序列 | Sanitizer 判定 | 由谁排除 | 复现 | zlib.h |
 | --- | --- | --- | --- | --- | --- |
@@ -26,7 +28,7 @@
 | deflate extra 缩短 | 开头相同；调用者把 `extra_len` 设为 10，小于已写出的 500 字节；再调用 `deflate` | `heap-buffer-overflow`，512 字节读，`deflate.c:1142` | `DeflateHeaderProgress`（字段仍覆盖 `gzindex`），`ActiveHeader` 的合取项：`Goal.deflate` 和 `Goal.deflate_sequence` 的前提 | [deflate-history-domain](../tests/regression/deflate-history-domain/README.md)，`header.c 2`，[报告](../tests/regression/deflate-history-domain/report.txt) | 未说明写头部期间能否修改 |
 | deflate extra 清空 | gzip，`memLevel` 1，1500 字节 extra 字段，3 字节名称；第一次 `deflate` 停在 extra 字段内；调用者把 `extra` 设为 `NULL`；再调用 `deflate` | `heap-buffer-overflow`，1 字节读，`deflate.c:1177`，位于名称之后 496 字节 | `DeflateHeaderProgress`（字段为 `NULL` 时 `gzindex` 为 0）：`Goal.deflate` 和 `Goal.deflate_sequence` 的前提 | [deflate-history-domain](../tests/regression/deflate-history-domain/README.md)，`clear.c`，[报告](../tests/regression/deflate-history-domain/report.txt) | 未说明写头部期间能否修改 |
 | compress 空长度 | `compress2(dest, NULL, source, 1, 6)` 和 `compress(dest, NULL, source, 1)` | UBSan：加载类型为 `uLongf` 的空指针，`compress.c:70` | 长度单元非空的 `CompressorContract`（`capacity ≠ none`）：`Goal.compress2` 和 `Goal.compress` 的前提 | [compress-allocation](../tests/regression/compress-allocation/README.md)，`ubwitness.c`，[报告](../tests/regression/compress-allocation/report.txt) | 把 `destLen` 描述为入口时的缓冲区大小；没有提到 `NULL` |
-| 使用句柄错误字符串的 gzprintf | 非阻塞管道被填满，`gzdopen(fd, "wT")`；写入 100000 字节的 `gzwrite` 停滞（`EAGAIN`）；`m = gzerror(f, &e)`；`gzprintf(f, "%s", m)` | ASan `heap-use-after-free` 读取，`gzwrite.c:491`（`gzvprintf` 中的 `vsnprintf`），由 `gz_error`（`gzlib.c:568`）从 `gzwrite.c:448` 释放；arm64 macOS | printf 字符串与句柄所拥有的块分离（`GzArguments`，[偏差](deviations.md)） | [gzprintf-error-string](../tests/regression/gzprintf-error-string/README.md)，`errstr.c`，[报告](../tests/regression/gzprintf-error-string/report.txt) | 只说明之后的 `gzerror` 调用可能使该字符串失效 |
+| 使用句柄错误字符串的 gzprintf | 非阻塞管道被填满，`gzdopen(fd, "wT")`；写入 100000 字节的 `gzwrite` 停滞（`EAGAIN`）；`m = gzerror(f, &e)`；`gzprintf(f, "%s", m)` | ASan `heap-use-after-free` 读取，`gzwrite.c:491`（`gzvprintf` 中的 `vsnprintf`），由 `gz_error`（`gzlib.c:568`）从 `gzwrite.c:448` 释放；arm64 macOS | printf 字符串与句柄所拥有的块分离（`GzArguments`，[偏差](deviations.md)） | [gzprintf-error-string](../tests/regression/gzprintf-error-string/README.md)，`errstr.c`，[报告](../tests/regression/gzprintf-error-string/report.txt) | 这是文档缺口，不是 zlib 缺陷：zlib.h 只说明之后的 `gzerror` 调用可能使该字符串失效 |
 
 对 `compress 空长度`，`report.txt` 只包含 `run.sh` 的见证步骤。该脚本其余部分是 Lean 对比，没有 sanitizer 报告。
 
@@ -42,11 +44,11 @@
 
 | 名称 | 调用序列 | Sanitizer 判定 | 状态 | 复现 |
 | --- | --- | --- | --- | --- |
-| inflateCopy 固定表 | 默认 `inflateInit`；`inflate` 停在固定块内；`inflateCopy` | `invalid-pointer-pair`，`inflate.c:1383`，比较静态 `lenfix` 与 inflate 状态 | 文档允许的用法之内的 zlib 缺陷。上游已修复（[PR #1369](https://github.com/madler/zlib/pull/1369)）；验证所用源码以临时补丁应用该修复 | [inflate-copy-fixed](findings/inflate-copy-fixed/README.md)，[报告](findings/inflate-copy-fixed/report.txt) |
-| 初始 gzungetc 之后的 gzseek | `gzopen`；在位置 0 调用 `gzungetc`（`x.pos` 变为 -1）；`gzseek(f, 1, SEEK_CUR)`，或在另一个句柄上 `gzseek(f, LONG_MAX, SEEK_SET)`；透明输入和 gzip 输入 | UBSan：有符号整数溢出，`gzlib.c:395`（`SEEK_CUR`）、`gzlib.c:403`（`SEEK_SET`，透明）、`gzlib.c:424`（`SEEK_SET`，gzip） | 文档允许的用法之内的 zlib 缺陷。修复已提交上游（[PR #1361](https://github.com/madler/zlib/pull/1361)），维护者尚未确认；验证所用源码以临时补丁应用该修复 | [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md)，`seek.c`，[报告](../tests/regression/gzseek-pushback-overflow/report.txt) |
-| 部分读取后 gzread 使用过期的 next | 透明 `gzopen`，`gzbuffer(f, 16)`；对 128 字节文件调用 48 次 `gzgetc`；`read()` 返回 1 字节，随后以 `EIO` 失败；`gzread(f, buf, 1)` | `heap-buffer-overflow`，1 字节读，`gzread.c:369`（`gz_read`），在 32 字节输出缓冲区之后 0 字节处 | 文档允许的用法之内的 zlib 缺陷。修复已提交上游（[PR #1363](https://github.com/madler/zlib/pull/1363)），维护者尚未确认；验证所用源码以临时补丁应用该修复 | [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md)，`stale.c`，[报告](../tests/regression/gzread-transparent-stale-next/report.txt) |
-| gzread 位置溢出（F-1） | x86_64 Linux：`gzdopen(open("/dev/zero"), "r")`；`gzread(f, buf, 1)`（透明）；`gzseek(f, INT64_MAX, SEEK_SET)`，因为对设备的 `lseek` 返回 0 而被接受；`gzread(f, buf, 16)`。另一个历史：定位到 `INT64_MAX - 4`，`gzread` 1 字节，四次 `gzgetc()` | UBSan：有符号整数溢出，`gzread.c:414`（`gz_read`，`x.pos += n`）；第二个历史中在调用者里的 `gzgetc()` 宏 | 文档允许的用法之内的 zlib 缺陷。候选修复，尚未提交：本地补丁 0004，所有者于 2026-11-12 批准 | [gzread-pos-overflow](../tests/regression/gzread-pos-overflow/README.md)，`devzero.c`，[报告](../tests/regression/gzread-pos-overflow/report.txt)；[发现](findings/gzread-pos-overflow/README.md) |
-| gzwrite 位置溢出（W7） | `gzdopen(open("/dev/null"), "wT")`；`gzbuffer(f, 2^29)`；`gzseek(f, INT64_MAX - 10, SEEK_SET)`；`gzwrite(f, buf, 100)`（填零需要 17 分钟）。另一个历史：定位到 `INT64_MAX`，`gzputc` | UBSan：有符号整数溢出，`gzwrite.c:230`（`gz_write`，`x.pos += copy`）；`gzwrite.c:352`（`gzputc`） | 文档允许的用法之内的 zlib 缺陷。候选修复，尚未提交：本地补丁 0004，所有者于 2026-11-12 批准 | [gzwrite-pos-overflow](../tests/regression/gzwrite-pos-overflow/README.md)，`wpos.c`，[报告](../tests/regression/gzwrite-pos-overflow/report.txt)；[发现](findings/gzwrite-pos-overflow/README.md) |
+| inflateCopy 固定表 | 默认 `inflateInit`；`inflate` 停在固定块内；`inflateCopy` | `invalid-pointer-pair`，`inflate.c:1383`，比较静态 `lenfix` 与 inflate 状态 | 文档允许的用法之内的 zlib 缺陷。修复已作为 [PR #1369](https://github.com/madler/zlib/pull/1369) 提交；维护者于 2026-11-06 答复“Applied”，而 2026-11-14 读取的上游 `develop` 分支头还不包含它；验证所用源码以临时补丁 0001 应用该修复 | [inflate-copy-fixed](findings/inflate-copy-fixed/README.md)，[报告](findings/inflate-copy-fixed/report.txt) |
+| 初始 gzungetc 之后的 gzseek | `gzopen`；在位置 0 调用 `gzungetc`（`x.pos` 变为 -1）；`gzseek(f, 1, SEEK_CUR)`，或在另一个句柄上 `gzseek(f, LONG_MAX, SEEK_SET)`；透明输入和 gzip 输入 | UBSan：有符号整数溢出，`gzlib.c:395`（`SEEK_CUR`）、`gzlib.c:403`（`SEEK_SET`，透明）、`gzlib.c:424`（`SEEK_SET`，gzip） | 文档允许的用法之内的 zlib 缺陷。修复已提交上游（[PR #1361](https://github.com/madler/zlib/pull/1361)），尚未合入，维护者尚未答复；验证所用源码以临时补丁 0002 应用该修复 | [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md)，`seek.c`，[报告](../tests/regression/gzseek-pushback-overflow/report.txt) |
+| 部分读取后 gzread 使用过期的 next | 透明 `gzopen`，`gzbuffer(f, 16)`；对 128 字节文件调用 48 次 `gzgetc`；`read()` 返回 1 字节，随后以 `EIO` 失败；`gzread(f, buf, 1)` | `heap-buffer-overflow`，1 字节读，`gzread.c:369`（`gz_read`），在 32 字节输出缓冲区之后 0 字节处 | 文档允许的用法之内的 zlib 缺陷。修复已提交上游（[PR #1363](https://github.com/madler/zlib/pull/1363)），尚未合入，维护者尚未答复；验证所用源码以临时补丁 0003 应用该修复 | [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md)，`stale.c`，[报告](../tests/regression/gzread-transparent-stale-next/report.txt) |
+| gzread 位置溢出（F-1） | x86_64 Linux：`gzdopen(open("/dev/zero"), "r")`；`gzread(f, buf, 1)`（透明）；`gzseek(f, INT64_MAX, SEEK_SET)`，因为对设备的 `lseek` 返回 0 而被接受；`gzread(f, buf, 16)`。另一个历史：定位到 `INT64_MAX - 4`，`gzread` 1 字节，四次 `gzgetc()` | UBSan：有符号整数溢出，`gzread.c:414`（`gz_read`，`x.pos += n`）；第二个历史中在调用者里的 `gzgetc()` 宏 | 文档允许的用法之内的 zlib 缺陷。修复是本地补丁 0004，所有者于 2026-11-12 批准，尚待提交上游 | [gzread-pos-overflow](../tests/regression/gzread-pos-overflow/README.md)，`devzero.c`，[报告](../tests/regression/gzread-pos-overflow/report.txt)；[发现](findings/gzread-pos-overflow/README.md) |
+| gzwrite 位置溢出（W7） | `gzdopen(open("/dev/null"), "wT")`；`gzbuffer(f, 2^29)`；`gzseek(f, INT64_MAX - 10, SEEK_SET)`；`gzwrite(f, buf, 100)`（填零需要 17 分钟）。另一个历史：定位到 `INT64_MAX`，`gzputc` | UBSan：有符号整数溢出，`gzwrite.c:230`（`gz_write`，`x.pos += copy`）；`gzwrite.c:352`（`gzputc`） | 文档允许的用法之内的 zlib 缺陷。修复是本地补丁 0004，所有者于 2026-11-12 批准，尚待提交上游 | [gzwrite-pos-overflow](../tests/regression/gzwrite-pos-overflow/README.md)，`wpos.c`，[报告](../tests/regression/gzwrite-pos-overflow/report.txt)；[发现](findings/gzwrite-pos-overflow/README.md) |
 
 这些复现有意构建不含修复的源码；gz 运行脚本还会构建含修复的源码，并检查报告已消失。F-1 和 W7 的报告来自 x86_64 Linux（内核 7.0，gcc 15.2）；gzungetc 之后 gzseek 和过期 `x.next` 的报告来自 arm64 macOS（Apple clang 21），它们显示的缺陷与目标平台无关。
 
@@ -62,6 +64,9 @@
 - [deflate-slide](../tests/regression/deflate-slide/README.md)：UBSan 在一个人为构造的内部状态中报告有符号溢出，没有证据表明任何调用序列能到达该状态。它检验的是翻译的溢出故障，不是调用者布局。
 - sanitizer 构建必须保持安静的差分回归：`inflate-copy`、`inflate-deferred-distance`、`inflate-prime`、`trees-depth-read`、`crc-byte-views`。
 - [deflate-resetkeep-stale-hash](findings/deflate-resetkeep-stale-hash/README.md) 中的数据错误，没有 sanitizer 报告它。
+- 本地补丁 0005 去掉的对 `x.next` 的零前进（[未写入](findings/gz-reset-next-uninitialised/README.md)、[悬空](findings/gz-next-dangling-after-direct-read/README.md)）：按 C 标准的字面规定未定义，用探针展示；没有 sanitizer 报告它。
+- 补丁 0004 已覆盖的透明探测之后的位置溢出（[发现](findings/gz-position-copy-overflow.md)）：已在模型中确认，也已通过阅读 C 确认，没有在 sanitizer 下复现。
+- [inflate-configured-window](../tests/regression/inflate-configured-window/README.md)：在一个输入上对 C 的原生运行，没有 sanitizer，也没有报告。
 
 ## 添加复现
 

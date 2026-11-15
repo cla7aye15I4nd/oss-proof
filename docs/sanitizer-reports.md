@@ -8,23 +8,31 @@ sanitizer output in `report.txt`.
 
 The rows of the main table are caller-side layouts and call orders. A program that calls zlib
 has to build them on purpose: it points a header buffer into its own input or output, edits
-the header record while zlib writes it, calls a function after the point zlib.h allows, or
-passes `NULL` for a length cell. They are not inputs an attacker controls. No compressed byte
-stream reaches any of them.
+the header record while zlib writes it, calls a function after the point zlib.h allows,
+passes `NULL` for a length cell, or passes the string that `gzerror` returned to `gzprintf` on
+the same handle. They are not inputs an attacker controls. No compressed byte stream reaches any
+of them.
 
 Each row is outside the proved domain: a named premise of a public goal excludes it. Where
 zlib.h is silent about the layout, the premise is listed in [deviations](deviations.md).
 
-None of these rows was reported upstream. The library defects are in the section "Library
-defects": upstream has fixed one; two have a fix submitted upstream that the maintainer has not
-yet confirmed; two have a local candidate fix that is not yet submitted.
+None of these rows was reported upstream, and none is recorded as a zlib bug. The `gzprintf` row
+is recorded as a documentation gap: zlib.h does not say that `gzprintf` invalidates the string
+that `gzerror` returned.
+
+The library defects are in the section "Library defects". For one, the maintainer has answered
+that the fix is applied; the upstream `develop` branch does not contain it yet. Two have a fix
+submitted upstream that the maintainer has not yet answered. Two have a local fix that is
+pending upstream submission. [Findings](findings.md) gives the description, confidence and scope
+of each.
 
 ## Caller layouts outside the proved domain
 
 The verdicts come from the pinned source with the repository patches, built with
 AddressSanitizer and UndefinedBehaviorSanitizer on x86_64 Linux, the project's target. Source
 lines are those of the pinned source. An earlier run on arm64 macOS gave the same verdicts, with
-one difference noted in the row `late deflatePrime`.
+one difference noted in the row `late deflatePrime`. The last row, `gzprintf` with the handle's
+error string, was run on arm64 macOS only.
 
 | Name | Caller layout or call sequence | Sanitizer verdict | Excluded by | Reproduction | zlib.h |
 | --- | --- | --- | --- | --- | --- |
@@ -37,7 +45,7 @@ one difference noted in the row `late deflatePrime`.
 | deflate extra shrink | the same start; the caller sets `extra_len` to 10, below the 500 bytes written; `deflate` | `heap-buffer-overflow` READ of size 512, `deflate.c:1142` | `DeflateHeaderProgress` (the field still covers `gzindex`), a conjunct of `ActiveHeader`: premise of `Goal.deflate` and `Goal.deflate_sequence` | [deflate-history-domain](../tests/regression/deflate-history-domain/README.md), `header.c 2`, [report](../tests/regression/deflate-history-domain/report.txt) | Silent on edits while the header is written |
 | deflate extra cleared | gzip, `memLevel` 1, 1500-byte extra field, 3-byte name; the first `deflate` stops inside the extra field; the caller sets `extra` to `NULL`; `deflate` | `heap-buffer-overflow` READ of size 1, `deflate.c:1177`, 496 bytes after the name | `DeflateHeaderProgress` (`gzindex` is 0 when the field is `NULL`): premise of `Goal.deflate` and `Goal.deflate_sequence` | [deflate-history-domain](../tests/regression/deflate-history-domain/README.md), `clear.c`, [report](../tests/regression/deflate-history-domain/report.txt) | Silent on edits while the header is written |
 | compress null length | `compress2(dest, NULL, source, 1, 6)` and `compress(dest, NULL, source, 1)` | UBSan: load of null pointer of type `uLongf`, `compress.c:70` | `CompressorContract` with a nonnull length cell (`capacity ≠ none`): premise of `Goal.compress2` and `Goal.compress` | [compress-allocation](../tests/regression/compress-allocation/README.md), `ubwitness.c`, [report](../tests/regression/compress-allocation/report.txt) | Describes `destLen` as the buffer size on entry; does not mention `NULL` |
-| gzprintf with the handle's error string | non-blocking pipe filled, `gzdopen(fd, "wT")`; `gzwrite` of 100000 bytes stalls (`EAGAIN`); `m = gzerror(f, &e)`; `gzprintf(f, "%s", m)` | ASan `heap-use-after-free` READ, `gzwrite.c:491` (`vsnprintf` in `gzvprintf`), freed by `gz_error` (`gzlib.c:568`) from `gzwrite.c:448`; arm64 macOS | Separation of the printf strings from the handle's blocks (`GzArguments`, [deviations](deviations.md)) | [gzprintf-error-string](../tests/regression/gzprintf-error-string/README.md), `errstr.c`, [report](../tests/regression/gzprintf-error-string/report.txt) | Says only that later `gzerror` calls may invalidate the string |
+| gzprintf with the handle's error string | non-blocking pipe filled, `gzdopen(fd, "wT")`; `gzwrite` of 100000 bytes stalls (`EAGAIN`); `m = gzerror(f, &e)`; `gzprintf(f, "%s", m)` | ASan `heap-use-after-free` READ, `gzwrite.c:491` (`vsnprintf` in `gzvprintf`), freed by `gz_error` (`gzlib.c:568`) from `gzwrite.c:448`; arm64 macOS | Separation of the printf strings from the handle's blocks (`GzArguments`, [deviations](deviations.md)) | [gzprintf-error-string](../tests/regression/gzprintf-error-string/README.md), `errstr.c`, [report](../tests/regression/gzprintf-error-string/report.txt) | A documentation gap, not a zlib bug: zlib.h says only that later `gzerror` calls may invalidate the string |
 
 For `compress null length`, `report.txt` holds only the witness step of `run.sh`. The rest of
 that runner is a Lean comparison with no sanitizer report.
@@ -57,11 +65,11 @@ source on x86_64 Linux; the same AddressSanitizer report on arm64 macOS.
 
 | Name | Call sequence | Sanitizer verdict | Status | Reproduction |
 | --- | --- | --- | --- | --- |
-| inflateCopy fixed table | default `inflateInit`; `inflate` stops inside a fixed block; `inflateCopy` | `invalid-pointer-pair`, `inflate.c:1383`, between the static `lenfix` and the inflate state | A zlib defect inside the documented use. Fixed upstream ([PR #1369](https://github.com/madler/zlib/pull/1369)); the verified source applies that fix as a temporary patch | [inflate-copy-fixed](findings/inflate-copy-fixed/README.md), [report](findings/inflate-copy-fixed/report.txt) |
-| gzseek after initial gzungetc | `gzopen`; `gzungetc` at position 0 (`x.pos` becomes -1); `gzseek(f, 1, SEEK_CUR)`, or on another handle `gzseek(f, LONG_MAX, SEEK_SET)`; transparent and gzip input | UBSan: signed integer overflow, `gzlib.c:395` (`SEEK_CUR`), `gzlib.c:403` (`SEEK_SET`, transparent), `gzlib.c:424` (`SEEK_SET`, gzip) | A zlib defect inside the documented use. Fix submitted upstream ([PR #1361](https://github.com/madler/zlib/pull/1361)), not yet confirmed by the maintainer; the verified source applies it as a temporary patch | [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md), `seek.c`, [report](../tests/regression/gzseek-pushback-overflow/report.txt) |
-| gzread stale next after partial read | transparent `gzopen`, `gzbuffer(f, 16)`; 48 `gzgetc` on a 128-byte file; `read()` returns 1 byte, then fails with `EIO`; `gzread(f, buf, 1)` | `heap-buffer-overflow` READ of size 1, `gzread.c:369` (`gz_read`), 0 bytes after the 32-byte output buffer | A zlib defect inside the documented use. Fix submitted upstream ([PR #1363](https://github.com/madler/zlib/pull/1363)), not yet confirmed by the maintainer; the verified source applies it as a temporary patch | [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md), `stale.c`, [report](../tests/regression/gzread-transparent-stale-next/report.txt) |
-| gzread position overflow (F-1) | x86_64 Linux: `gzdopen(open("/dev/zero"), "r")`; `gzread(f, buf, 1)` (transparent); `gzseek(f, INT64_MAX, SEEK_SET)`, accepted because `lseek` on the device returns 0; `gzread(f, buf, 16)`. Also: seek to `INT64_MAX - 4`, `gzread` 1 byte, four `gzgetc()` | UBSan: signed integer overflow, `gzread.c:414` (`gz_read`, `x.pos += n`); in the second history in the `gzgetc()` macro in the caller | A zlib defect inside the documented use. Candidate fix, not yet submitted: the local patch 0004, approved by the owner on 2026-11-12 | [gzread-pos-overflow](../tests/regression/gzread-pos-overflow/README.md), `devzero.c`, [report](../tests/regression/gzread-pos-overflow/report.txt); [finding](findings/gzread-pos-overflow/README.md) |
-| gzwrite position overflow (W7) | `gzdopen(open("/dev/null"), "wT")`; `gzbuffer(f, 2^29)`; `gzseek(f, INT64_MAX - 10, SEEK_SET)`; `gzwrite(f, buf, 100)` (the zero fill takes 17 minutes). Also: seek to `INT64_MAX`, `gzputc` | UBSan: signed integer overflow, `gzwrite.c:230` (`gz_write`, `x.pos += copy`); `gzwrite.c:352` (`gzputc`) | A zlib defect inside the documented use. Candidate fix, not yet submitted: the local patch 0004, approved by the owner on 2026-11-12 | [gzwrite-pos-overflow](../tests/regression/gzwrite-pos-overflow/README.md), `wpos.c`, [report](../tests/regression/gzwrite-pos-overflow/report.txt); [finding](findings/gzwrite-pos-overflow/README.md) |
+| inflateCopy fixed table | default `inflateInit`; `inflate` stops inside a fixed block; `inflateCopy` | `invalid-pointer-pair`, `inflate.c:1383`, between the static `lenfix` and the inflate state | A zlib defect inside the documented use. Fix submitted as [PR #1369](https://github.com/madler/zlib/pull/1369); the maintainer answered "Applied" on 2026-11-06, and the upstream `develop` head read on 2026-11-14 does not contain it yet. The verified source applies that fix as the temporary patch 0001 | [inflate-copy-fixed](findings/inflate-copy-fixed/README.md), [report](findings/inflate-copy-fixed/report.txt) |
+| gzseek after initial gzungetc | `gzopen`; `gzungetc` at position 0 (`x.pos` becomes -1); `gzseek(f, 1, SEEK_CUR)`, or on another handle `gzseek(f, LONG_MAX, SEEK_SET)`; transparent and gzip input | UBSan: signed integer overflow, `gzlib.c:395` (`SEEK_CUR`), `gzlib.c:403` (`SEEK_SET`, transparent), `gzlib.c:424` (`SEEK_SET`, gzip) | A zlib defect inside the documented use. Fix submitted upstream ([PR #1361](https://github.com/madler/zlib/pull/1361)), open, not yet answered by the maintainer; the verified source applies it as the temporary patch 0002 | [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md), `seek.c`, [report](../tests/regression/gzseek-pushback-overflow/report.txt) |
+| gzread stale next after partial read | transparent `gzopen`, `gzbuffer(f, 16)`; 48 `gzgetc` on a 128-byte file; `read()` returns 1 byte, then fails with `EIO`; `gzread(f, buf, 1)` | `heap-buffer-overflow` READ of size 1, `gzread.c:369` (`gz_read`), 0 bytes after the 32-byte output buffer | A zlib defect inside the documented use. Fix submitted upstream ([PR #1363](https://github.com/madler/zlib/pull/1363)), open, not yet answered by the maintainer; the verified source applies it as the temporary patch 0003 | [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md), `stale.c`, [report](../tests/regression/gzread-transparent-stale-next/report.txt) |
+| gzread position overflow (F-1) | x86_64 Linux: `gzdopen(open("/dev/zero"), "r")`; `gzread(f, buf, 1)` (transparent); `gzseek(f, INT64_MAX, SEEK_SET)`, accepted because `lseek` on the device returns 0; `gzread(f, buf, 16)`. Also: seek to `INT64_MAX - 4`, `gzread` 1 byte, four `gzgetc()` | UBSan: signed integer overflow, `gzread.c:414` (`gz_read`, `x.pos += n`); in the second history in the `gzgetc()` macro in the caller | A zlib defect inside the documented use. The fix is the local patch 0004, approved by the owner on 2026-11-12 and pending upstream submission | [gzread-pos-overflow](../tests/regression/gzread-pos-overflow/README.md), `devzero.c`, [report](../tests/regression/gzread-pos-overflow/report.txt); [finding](findings/gzread-pos-overflow/README.md) |
+| gzwrite position overflow (W7) | `gzdopen(open("/dev/null"), "wT")`; `gzbuffer(f, 2^29)`; `gzseek(f, INT64_MAX - 10, SEEK_SET)`; `gzwrite(f, buf, 100)` (the zero fill takes 17 minutes). Also: seek to `INT64_MAX`, `gzputc` | UBSan: signed integer overflow, `gzwrite.c:230` (`gz_write`, `x.pos += copy`); `gzwrite.c:352` (`gzputc`) | A zlib defect inside the documented use. The fix is the local patch 0004, approved by the owner on 2026-11-12 and pending upstream submission | [gzwrite-pos-overflow](../tests/regression/gzwrite-pos-overflow/README.md), `wpos.c`, [report](../tests/regression/gzwrite-pos-overflow/report.txt); [finding](findings/gzwrite-pos-overflow/README.md) |
 
 These reproductions build the source without the fix on purpose; the gz runners also build it
 with the fix and check that the report is gone. The F-1 and W7 reports come from x86_64 Linux
@@ -88,6 +96,15 @@ so the proofs must cover it.
   `inflate-deferred-distance`, `inflate-prime`, `trees-depth-read`, `crc-byte-views`.
 - The data error in [deflate-resetkeep-stale-hash](findings/deflate-resetkeep-stale-hash/README.md),
   which no sanitizer reports.
+- The zero advance of `x.next` that the local patch 0005 removes
+  ([unset](findings/gz-reset-next-uninitialised/README.md),
+  [dangling](findings/gz-next-dangling-after-direct-read/README.md)): undefined by the letter of C,
+  shown with a probe; no sanitizer reports it.
+- The position overflow after a transparent look that patch 0004 covers
+  ([finding](findings/gz-position-copy-overflow.md)): confirmed in the model and by reading the C,
+  not reproduced under a sanitizer.
+- [inflate-configured-window](../tests/regression/inflate-configured-window/README.md): a native run
+  of the C on one input, with no sanitizer and no report.
 
 ## Adding a reproduction
 

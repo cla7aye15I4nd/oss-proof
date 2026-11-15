@@ -79,7 +79,10 @@ only data that would have overflowed the position becomes an error.
 
 The invariant the patch keeps is `x.pos + x.have <= GZ_OFF_MAX` whenever a call returns. Every
 producer of `x.have` keeps it: `gz_fetch` loads at most `GZ_OFF_MAX - x.pos` bytes; `gz_look`
-loads at most `size` bytes in transparent mode, and only at position 0 (right after `gz_reset`);
+buffers at most `gz_room(state, avail_in)` bytes in transparent mode and records the same error
+when its input goes past that (this bound was added after
+[gz-position-copy-overflow](../gz-position-copy-overflow.md) showed that the branch is not reached
+only at position 0);
 the direct paths of `gz_read` deliver at most that many bytes; `gzungetc` lowers `x.pos` by the
 byte it adds; a seek in transparent mode empties the buffer. The single byte that `gz_fetch` loads
 at `GZ_OFF_MAX` to find the end of the input is discarded by its only callers there, `gz_read` and
