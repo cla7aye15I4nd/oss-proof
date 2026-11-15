@@ -56,7 +56,7 @@ The paragraphs use the following phrases with a fixed meaning.
 | **the handle's own blocks** | For a gzip file handle: the handle record, its path, its error message, its buffers and its codec state. | `GzOwned` |
 | **platform size bound** | Every byte object has fewer than `2^63` bytes. A fact of the platform, not a duty of the caller ([platform](../platform.md)). | `ByteObjectsFit` |
 | **exact allocation account** | After the call the allocated blocks are those allocated before, plus the new blocks the stream owns, minus the blocks the stream owned and no longer owns. Nothing else is allocated or freed. This is the no-leak clause. | `LiveChange` |
-| **library heap** | A condition on the model's memory, not on the caller: block numbers are consistent (no object above the next unused number, one object per number) and the library's constant tables are present. | `Fresh`, `Uniq`, `LibraryGlobals` |
+| **library heap** | A condition on the model's memory, not on the caller: block numbers are consistent (no live object at the next unused number or above it, one object per number) and the library's constant tables are present. | `Fresh`, `Uniq`, `LibraryGlobals` |
 | **every allocation outcome** | The goal holds whichever `malloc` calls fail. | the goal quantifies over the heap, and the allocation oracle is part of it |
 | **world** | What the gzip file functions see outside the process: the files, the open descriptors, `errno`, and the result of each system call. "In every world" includes every permitted result of every `open`, `read`, `write`, `lseek` and `close`. | `Fs`, well formed by `FileSystem` |
 
