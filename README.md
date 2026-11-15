@@ -1,47 +1,72 @@
 # zlib-f
 
-Kernel-checked Lean 4 proofs that zlib is safe. The C source is translated statement by statement,
-and the proofs show that every documented public function of the default x86_64 Linux build runs
-with no undefined behaviour, no memory error and no leak, and terminates, over its call sequences.
+Kernel-checked Lean 4 proofs that zlib is safe. The C source is translated to Lean statement by
+statement. The proofs show that every documented public function of the default x86_64 Linux
+build runs with no undefined behaviour, no memory error and no leak, and terminates, in every
+sequence of calls, under the premises each theorem states.
 
-**Proved.** All 63 required goals have a registered theorem of exactly their type, and the
-acceptance suite is green on commit `bde170e9` (2026-11-15). The required goals are the safety
-goals and the non-vacuity goals of the 86 documented functions of the target build: `inflate` and
-`deflate` with their call sequences, the other stream functions, the checksums, `compress*` and
-`uncompress*`, the gzip file interface, and the callback decoder `inflateBack`.
+**Proved.** All 63 required goals have a [registered](docs/glossary.md#status) theorem of exactly
+their type. They cover the 86 documented functions of the target build: `inflate` and `deflate`
+with their call sequences, the other stream functions, the checksums, `compress*` and
+`uncompress*`, the gzip file interface, and the callback decoder `inflateBack`. The 63 are 52
+one-function safety goals, four sequence safety goals, three refusal goals and four
+[non-vacuity goals](docs/glossary.md#goals). The 31 gz functions share one sequence goal and the
+three `inflateBack` functions another, which is why 86 functions need fewer goals.
+The [acceptance suite](docs/glossary.md#checking) was green on commit `bde170e9`, with all 63
+registered. [Scope](docs/progress.md#scope) says what changed after that commit.
 
-**Assumed.** The kernel checks each proof against its Lean statement. It does not check that the
-runtime model, the hand translation, or the model of files and formatting match C: these are
-reviewed and tested, and listed in the [trusted base](docs/trusted-base.md). Differential tests
-are evidence of fidelity, not proof. Some theorems state a premise that `zlib.h` does not: caller
-buffers that do not overlap, a read budget below 2^61 bytes for the termination of the gz reading
-calls, fewer than 2^48 input bytes for one `inflateBack` call. [Deviations](docs/deviations.md)
-lists every one. The verified source is the pinned `zlib/` plus the five [patches](patches/README.md).
+**Assumed.** The kernel checks each proof against its Lean statement. Six things are trusted and
+not proved ([trusted base](docs/trusted-base.md)):
 
-**Open.** The 31 gz functions and the three `inflateBack` functions have no safety goal of their
-own yet: each names its sequence goal (`Goal.gz_sequence_safety`,
-`Goal.inflate_back_sequence_safety`), which is registered. The per-function goals are still to be
-stated and registered.
+1. the Lean kernel, three standard axioms, and the audit programs;
+2. the runtime model of memory, pointers, faults and loops;
+3. the hand translation of the C;
+4. the selected source: the pinned `zlib/` plus the five [patches](patches/README.md);
+5. the build configuration, and the model of allocation, files and formatting;
+6. the statements: that each goal says what it should.
 
-**Not planned.** Functional correctness (the output of `inflate` equals the format, the output of
-`deflate` decodes to its input), since 2026-11-11; a functional fact stays in scope only when a
-planned safety proof depends on it, and what is already proved stays. Also not planned: other
-build configurations, and the functions that `zlib.h` lists as undocumented.
-[Scope](docs/progress.md#scope) gives every group with its reason. The
-[status page](https://www.dataisland.org/zlib-f/status.html) shows each result as open, checked or
-registered, from the proof records.
+Differential tests are evidence that the translation matches the C, not proof. Some theorems
+state a premise that `zlib.h` does not: caller buffers that do not overlap, the default
+allocator, a read budget below 2^61 bytes for the termination of the gz reading calls, fewer
+than 2^48 input bytes for one `inflateBack` call. [Deviations](docs/deviations.md) is the
+checklist of these premises by function.
 
-## Targets
+**Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
+functions are proved safe through two sequence goals (`Goal.gz_sequence_safety`,
+`Goal.inflate_back_sequence_safety`), which cover every call in every history. They do not have a
+separate one-function goal each, as the other 52 functions have; stating and registering those 34
+goals is remaining work. Patches 0004 and 0005 are not submitted upstream.
 
-Each public function has two goals, both in the Lean namespace `ZlibF.Spec.Public.Goal`. Its
-**safety goal** says the call returns without undefined behaviour, writes only its frame and leaks
-nothing. Its **functional goal**, in `ZlibF/Spec/Functional/`, says what the result is.
-`tests/audit/public-api.json` names both for every function (`safety_goal`, `functional_goal`).
-The safety goals are in `ZlibF/Spec/Safety/`; the gz and `inflateBack` goals of both kinds are
-still in `ZlibF/Spec/Public/`. The acceptance audit requires the safety goals and the non-vacuity goals:
-each must have a theorem of exactly its type in `tests/audit/theorems.txt`. The manifest's
-`open_safety` list of exceptions is empty. A proved functional goal is audited in full; an
-unproved one fails nothing. See [the split](docs/design/safety-functional-split.md).
+**Not required.** Functional correctness is not required for the safety results: that the output
+of `inflate` equals the format, or that the output of `deflate` decodes to its input. One part of
+it is planned work and not proved: the round trip of a default zlib stream through `deflate` and
+then `inflate`. Other build configurations, custom allocators and the functions that `zlib.h`
+lists as undocumented are not planned. [Scope](docs/progress.md#scope) gives every group with its
+reason. Functional goals proved earlier stay registered.
+
+## Which theorem covers a function
+
+| Question | Where |
+| --- | --- |
+| Which theorem proves that function X is safe, and on which domain? | [Coverage by function](docs/coverage.md) |
+| What must my call satisfy to be covered? | [Deviations](docs/deviations.md), the checklist at the top |
+| Is the result checked, registered or accepted, and on which commit? | [Scope](docs/progress.md#scope) |
+| What do the words mean? | [Glossary](docs/glossary.md) |
+
+## Kinds of goal
+
+A goal is a Lean proposition named `Goal.…`; a goal is proved only by a theorem whose type is
+exactly the goal. The manifest `tests/audit/public-api.json` names a safety goal and a functional
+goal for every function. For the 34 gz and `inflateBack` functions the safety goal it names is
+the sequence goal.
+
+| Kind | Says | Where | Required by the audit |
+| --- | --- | --- | --- |
+| Safety goal | The call returns without undefined behaviour, writes only the memory it is allowed to (its frame) and leaks nothing | `ZlibF/Spec/Safety/`; the gz and `inflateBack` goals in `ZlibF/Spec/Public/` | Yes |
+| Non-vacuity goal | The premises of the safety goals can be met: a concrete heap on which init or open succeeds | `ZlibF/Spec/Safety/Domains.lean`, `ZlibF/Spec/Public/` | Yes |
+| Functional goal | What the result is: return values, output bytes | `ZlibF/Spec/Functional/` | No. A proved one is audited in full; an unproved one fails nothing |
+
+[The split](docs/design/safety-functional-split.md) gives the rules.
 
 ## Documentation
 
@@ -49,16 +74,18 @@ unproved one fails nothing. See [the split](docs/design/safety-functional-split.
 
 | Start here | What it answers |
 | --- | --- |
-| [Proof overview](https://www.dataisland.org/zlib-f/reference/docs/overview.html) | What is the claim, its assumptions and the proof framework? |
-| [Results and status](https://www.dataisland.org/zlib-f/status.html) | What is established, what is planned and what is not? |
+| [Overview](https://www.dataisland.org/zlib-f/reference/docs/overview.html) | What is proved, what is assumed, and how is the proof built? |
+| [Results and status](https://www.dataisland.org/zlib-f/status.html) | What is registered, what is planned and what is not? |
+| [Coverage by function](https://www.dataisland.org/zlib-f/reference/docs/coverage.html) | Which theorem covers function X? |
+| [Deviations](https://www.dataisland.org/zlib-f/reference/docs/deviations.html) | What must a call satisfy to be covered? |
+| [Trusted base](https://www.dataisland.org/zlib-f/reference/docs/trusted-base.html) | What does the kernel not check? |
 | [All-target proof graph](https://www.dataisland.org/zlib-f/reference/docs/progress.html#proof-progress-graph) | How do targets depend on each other, and which input ranges are covered? |
 | [Evidence index](https://www.dataisland.org/zlib-f/reference/docs/progress.html) | Where are the exact statements, proofs and dependencies of every target? |
-| [Specifications](https://www.dataisland.org/zlib-f/reference/docs/spec/README.html) | What safety, input, API, helper and format requirements must be proved? |
+| [Specifications](https://www.dataisland.org/zlib-f/reference/docs/spec/README.html) | What do the safety goals, the API contracts and the formats say? |
 | [API](https://www.dataisland.org/zlib-f/reference/api.html) | What does each function require and guarantee? |
-| [Data format](https://www.dataisland.org/zlib-f/reference/docs/spec/format/README.html) | What do DEFLATE, zlib and gzip bytes mean? |
 | [Design](https://www.dataisland.org/zlib-f/reference/docs/design/README.html) | How do the translation and memory model work? |
 | [Proofs](https://www.dataisland.org/zlib-f/reference/docs/proof/README.html) | How are the arguments composed? |
-| [Checking](https://www.dataisland.org/zlib-f/reference/docs/checking/README.html) | What counts as checked and as accepted? |
+| [Checking](https://www.dataisland.org/zlib-f/reference/docs/checking/README.html) | What does each check establish? |
 | [Contributing](https://www.dataisland.org/zlib-f/reference/docs/checking/contributing.html) | Which commands do I run, in which order? |
 | [Glossary](https://www.dataisland.org/zlib-f/reference/docs/glossary.html) | What do the terms mean? |
 
@@ -79,86 +106,24 @@ lake build ZlibF
 scripts/check-sorry.sh
 ```
 
-[Contributing](docs/checking/contributing.md) lists every step. See [checking](https://www.dataisland.org/zlib-f/reference/docs/checking/README.html) for each check's scope and final acceptance.
-Differential tests are evidence of translation fidelity, not proof.
-[Source findings](docs/findings.md) state their confidence and scope.
+These two are the fast gate. [Contributing](docs/checking/contributing.md) lists every step, and
+[checking](docs/checking/README.md) says what each check establishes and how a result becomes
+accepted.
 
-## Source finding: deflateCopy after deflateResetKeep
+## Issues found in zlib
 
-After a direct `deflateResetKeep` and a `deflate(Z_BLOCK)`, two chain heads wait for insertion;
-`deflateCopy` does not copy their `prev` slots, and a `Z_RLE` or `Z_HUFFMAN_ONLY` flush on the copy
-ends with `insert = 0`, so they are never re-inserted. A later default-strategy `deflate` then
-follows an uninitialised `prev` slot, and `longest_match` reads outside the window. The
-[retained reproduction](docs/findings/deflate-copy-pending-prev/README.md) diagnoses the pinned
-unmodified C on x86_64 Linux: AddressSanitizer reports the read outside the window, and valgrind
-the use of the uninitialised slot. Confidence is high for the diagnosed sequence. It reproduces on
-zlib 1.4 and the pinned `develop`, not on 1.3.1 or 1.3.2 (the partial copy came with 1.3.2, the
-dropped lookahead with 1.4). Scope: it needs `deflateResetKeep`, which zlib.h declares
-undocumented and not part of the zlib API, so this is not a bug of the documented API; the proved
-deflate stream domain excludes it ([deviations](docs/deviations.md)). A
-[report draft](docs/findings/deflate-copy-pending-prev-report.md) is written; nothing was sent
-upstream.
+The work found the issues below in the pinned source. Each row gives the reproduction, the
+confidence and the scope. [Findings](docs/findings.md) has the full text of each and the upstream
+state; [patches](patches/README.md) describes each patch.
 
-## Source finding: gz position overflow
+| Issue | In the documented API? | Evidence and confidence | Fix in the verified source |
+| --- | --- | --- | --- |
+| `inflateCopy` compares unrelated pointers with a relational operator, which is undefined behaviour, when a stream has stopped inside a fixed block | Yes | [Reproduction](docs/findings/inflate-copy-fixed/README.md) on the pinned C. High for the diagnosed sequence. | Patch 0001, the fix of upstream [PR #1369](https://github.com/madler/zlib/pull/1369) |
+| `gzseek` after an initial `gzungetc`: `x.pos` is -1 and the range checks of `gzseek64` overflow signed arithmetic | Yes | [Reproduction](tests/regression/gzseek-pushback-overflow/README.md): UndefinedBehaviorSanitizer reports three sites. High. | Patch 0002, from upstream [PR #1361](https://github.com/madler/zlib/pull/1361), open |
+| `gzread` after a partial read that fails, in transparent mode: `gz_fetch` returns before it sets `x.next`, and the readers copy from the old pointer, outside the buffer | Yes; it needs a read error after partial data | [Reproduction](tests/regression/gzread-transparent-stale-next/README.md): AddressSanitizer reports the read. High. | Patch 0003, upstream [PR #1363](https://github.com/madler/zlib/pull/1363), open |
+| gz position overflow: `gzread`, `gzgetc`, the `gzgetc()` macro, `gzwrite` and `gzputc` add to the signed 64-bit position `x.pos` without a bound | Yes; on a device whose `lseek` succeeds without moving (`/dev/zero`, `/dev/null`), or a transparent position near 2^63 | Reproductions for [reading](docs/findings/gzread-pos-overflow/README.md) and [writing](docs/findings/gzwrite-pos-overflow/README.md): UndefinedBehaviorSanitizer on x86_64 Linux. High for the diagnosed sequences. | Patch 0004, local, approved by the owner, not submitted upstream: the position stays within `z_off64_t`, and an overflowing call fails with `Z_DATA_ERROR` |
+| The same overflow through the transparent COPY branch of `gz_look`, in the first version of patch 0004: after a gzip member with trailing data, `gzclearerr` and a read near 2^63 − 1, `x.pos + x.have` passes `GZ_OFF_MAX` | Yes; within `size` bytes of `GZ_OFF_MAX` after that history | [Finding](docs/findings/gz-position-copy-overflow.md): confirmed in the model and by reading the C. Not confirmed by a sanitizer; the history needs about 2^63 decoded bytes. High for the patched source as written. | Patch 0004 bounds that branch too |
+| Zero advance of an unset or dangling `x.next`: `gzseek64` and `gz_skip_have` do `x.next += 0` when the field was never written or points into a freed caller buffer | Yes; the two call sequences of the findings | Probe runs for the [unset](docs/findings/gz-reset-next-uninitialised/README.md) and the [dangling](docs/findings/gz-next-dangling-after-direct-read/README.md) case. Undefined by the letter of C. Weaker than the rows above: no sanitizer reports either case and no misbehaviour was observed. | Patch 0005, local, approved by the owner, not submitted upstream |
+| `deflateCopy` after `deflateResetKeep`: two pending `prev` slots are not copied, a later `deflate` on the copy follows an uninitialised slot, and `longest_match` reads outside the window | No: it needs a direct call of `deflateResetKeep`, which `zlib.h` lists as undocumented | [Reproduction](docs/findings/deflate-copy-pending-prev/README.md) on the unmodified pin: AddressSanitizer reports the read, valgrind the uninitialised slot. High for the diagnosed sequence. It reproduces on zlib 1.4 and the pinned `develop`, not on 1.3.1 or 1.3.2. | None. The proved deflate domain excludes the call ([deviations](docs/deviations.md)). A [report draft](docs/findings/deflate-copy-pending-prev-report.md) exists; nothing was sent upstream. |
 
-`gzread` and `gzwrite` add the bytes they move to the signed 64-bit position `x.pos` without a
-bound. On a transparent file whose position can reach 2^63 − 1 the addition overflows, which is
-undefined behaviour. Reading: on a device whose `lseek` succeeds without moving (`/dev/zero` on
-Linux), `gzseek(INT64_MAX, SEEK_SET)` is accepted and the next `gzread` overflows in `gz_read`,
-`gzgetc` and the `gzgetc()` macro ([reproduction](docs/findings/gzread-pos-overflow/README.md)).
-Writing: after a transparent writer seeks near 2^63 on `/dev/null`, `gzwrite` and `gzputc` overflow
-([reproduction](docs/findings/gzwrite-pos-overflow/README.md)). UndefinedBehaviorSanitizer reports
-both on x86_64 Linux with the pinned C. Confidence is high for the diagnosed sequences. Scope: a
-device whose `lseek` succeeds without moving, or a transparent position near 2^63. The verified
-source includes a local fix, [patch 0004](patches/README.md), approved by the owner and not yet
-submitted upstream: the position stays within `z_off64_t`, and an overflowing call fails with
-`Z_DATA_ERROR`.
-
-A gap in that fix: `gz_look`'s transparent COPY branch buffers up to `size` bytes without the room
-bound, so after a gzip member with trailing data, `gzclearerr` and a read near 2^63 − 1, a reader
-returns with `x.pos + x.have` past `GZ_OFF_MAX`, and the `gzgetc()` macro then overflows `x.pos`
-([finding](docs/findings/gz-position-copy-overflow.md)). Confirmed in the model and by reading the
-C; not reproducible in practice (about 2^63 decoded bytes); not confirmed by a sanitizer.
-Confidence is high for the patched source as written. Scope: patch 0004 readers within `size`
-bytes of `GZ_OFF_MAX` after that history. Patch 0004 now bounds that branch too.
-
-## Source finding: gzseek after an initial gzungetc
-
-`gzungetc` at position 0 makes `x.pos` -1. `gzseek64` then overflows signed arithmetic in its
-range checks, which is undefined behaviour. The
-[retained reproduction](tests/regression/gzseek-pushback-overflow/README.md) builds the unpatched
-C under the sanitizers: UndefinedBehaviorSanitizer reports three sites. Confidence is high. Scope:
-inside the documented use. The fix is submitted as
-[upstream PR #1361](https://github.com/madler/zlib/pull/1361), open, and applied here as
-[patch 0002](patches/README.md).
-
-## Source finding: gzread after a partial read that fails
-
-In transparent mode, when `read` supplies some bytes and then fails, `gz_fetch` returns before it
-sets `x.next`, and the readers copy from the old pointer: a read outside the buffer. The
-[retained reproduction](tests/regression/gzread-transparent-stale-next/README.md) builds the
-unpatched C under the sanitizers: AddressSanitizer reports the read. Confidence is high. Scope:
-inside the documented use; it needs a read error after partial data. The fix is submitted as
-[upstream PR #1363](https://github.com/madler/zlib/pull/1363), open, and applied here as
-[patch 0003](patches/README.md).
-
-## Source finding: zero advance of an unset or dangling x.next
-
-`gzseek64` and `gz_skip_have` do `x.next += n` with `n == 0` when the field was never written
-([R-3](docs/findings/gz-reset-next-uninitialised/README.md)) or points into a freed caller buffer
-([R-4](docs/findings/gz-next-dangling-after-direct-read/README.md)). This is undefined by the
-letter of C. The evidence is weaker than for the findings above: no sanitizer reports either
-case and no misbehaviour was observed; each finding has a probe run. Scope: the two call
-sequences of the findings. The verified source includes a local fix,
-[patch 0005](patches/README.md), approved by the owner and not yet submitted upstream.
-
-## Source fix
-
-`inflateCopy` compares a static fixed table with a separately allocated state
-table after a default-initialized stream pauses inside a fixed block.
-The [retained reproduction](docs/findings/inflate-copy-fixed/README.md) diagnoses
-the pinned unmodified C. The verified source now includes the exact fix from
-[upstream PR #1369](https://github.com/madler/zlib/pull/1369) through
-[the temporary patch](patches/README.md). The translation uses the same equality
-check. Confidence is high for the diagnosed LP64 issue. The public copy proof is
-registered: `Goal.inflateCopy` and `Goal.inflateCopy_safety`.
+The safety goals of `inflateCopy` and of the gz functions are stated for the patched source.
