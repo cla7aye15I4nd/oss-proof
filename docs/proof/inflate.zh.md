@@ -3,7 +3,7 @@
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
 
-`inflate` 和其他 `inflate*` 函数，对任意输入、对输入输出缓冲区的任意切分、在任意一串被允许的调用上，都是安全的。证明维护解码器状态的一个不变量：`inflateInit2_` 建立它，每次调用保持它，而 C 代码的每一次内存访问都落在不变量描述的范围之内。本页解释这个不变量、每一步为什么保持它，以及解码循环为什么会结束。
+`inflate` 和其他 `inflate*` 函数，对任意输入、对输入输出缓冲区的任意切分、在任意一串被允许的调用上，都是安全的。证明维护解码器状态的一个不变量：`inflateInit2_` 确立它，每次调用保持它，而 C 代码的每一次内存访问都落在不变量描述的范围之内。本页解释这个不变量、每一步为什么保持它，以及解码循环为什么会结束。
 
 本页以[解码表](inftrees.md)和[快速解码](inffast.md)为基础。翻译怎样跟随 C 的细节，见[解码器的源码笔记](inflate-source-notes.md)。`updatewindow` 的内部契约是[内部契约](../spec/internal-contracts.md)中的 `I-uw-*`。
 
@@ -25,7 +25,7 @@
 **序列结论**有三部分（`StreamSequenceSafety`，`ZlibF/Spec/Public/Sequences.lean`）。
 
 1. 每个可达的流都满足公开不变量 `StreamInvariant`。
-2. 在可达的流上，再做一次被允许的调用，调用会返回且不出故障。之后不变量仍然成立。调用只改动了流记录、流拥有的块、挂接的 `gz_header` 记录，以及交给它的调用者区域（这是它的*帧*）。存活块集合的变化，恰好是流新得到或释放掉的块（这是*分配账本*，下文简称账本）：没有任何泄漏。
+2. 在可达的流上，再做一次被允许的调用，调用会返回且不出故障。之后不变量仍然成立。调用只改动了流记录、流拥有的块、挂接的 `gz_header` 记录，以及交给它的调用者区域（这是*帧性质*）。存活块集合的变化，恰好是流新得到或释放掉的块（这是*分配账本*）：没有任何泄漏。
 3. 在可达的流上调用 `inflateEnd`，返回 `Z_OK`，并释放流拥有的每一个块。
 
 一个流是*可达*的，指它来自一次成功的 `inflateInit2_`，之后经过任意多次被允许的调用、成功的 `inflateCopy` 调用，以及调用者对四个缓冲区字段的修改。各函数的定理就是第 2 部分在一个函数上的情形，`inflateEnd` 的定理则是第 3 部分。它们是序列定理的推论。
@@ -65,7 +65,7 @@
 | 第一次调用（`StreamReachable.inflateInit`） | 历史从一次返回 `Z_OK` 的 `inflateInit2_` 调用开始。这次调用运行在良构的堆上，针对一个可读的流记录，记录的 `zalloc` 和 `zfree` 各自是 `NULL` 或默认函数；版本字符串的第一个字节是 `'1'`，结构体大小是 112，`windowBits` 任意 | 历史 |
 | 调用者的修改（`Rebuffer`） | 两次调用之间，调用者只改 `next_in`、`avail_in`、`next_out`、`avail_out`，以及不属于流的内存。它交回的堆是良构的，并且满足 `ByteObjectsFit`。这次修改不改变模型的分配失败预言和垃圾值，也不使模型的块计数器和分配计数器变小（`Frame`） | 历史 |
 | 此前的调用（`StreamReachable.step`） | 此前的每次调用都是这个流上十四个 `inflate*` 流函数之一，满足它的参数前提和 `ByteObjectsFit`，并且返回了；返回码任意 | 历史 |
-| 复制（`StreamReachable.inflateCopy`） | 一次返回 `Z_OK` 的 `inflateCopy` 调用，从可达的源流复制到另一个可读的记录，它的目的流也是可达的 | 历史 |
+| 复制（`StreamReachable.inflateCopy`） | 流也可以作为一次返回 `Z_OK` 的 `inflateCopy` 调用的目的流而可达：这次调用从可达的源流复制到另一个可读的记录 | 历史 |
 | `ByteObjectsFit` | 每个字节对象都少于 `2^63` 字节 | 每次调用 |
 | `StreamBuffers` | 输入区域（`next_in`、`avail_in`）和输出区域（`next_out`、`avail_out`）互不重叠。每个区域要么是 `NULL`，要么在它的长度内可读（输出区域还要可写），并且在流拥有的块之外 | `inflate` |
 | `ActiveHeader` 的第一部分（`HeaderMemory`） | 没有挂接 `gz_header` 记录；或者挂接的记录是存活的，不属于流，并且它的 `extra`、`name`、`comment` 缓冲区各自要么是 `NULL`，要么在 `extra_max`、`name_max`、`comm_max` 字节内可写，并且在流拥有的块之外 | `inflate` |
@@ -208,7 +208,7 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 - 第二种情形：一次 `memcpy` 写到 `[wnext, wnext + copy)`，它的终点不超过 `wsize`。然后 `wnext` 前进，到 `wsize` 时回到 0。如果窗口原先没满，W.5 给出 `whave = wnext`，所以给 `whave` 加上同样的数，W.5 仍然成立。
 - 第三种情形：第一次 `memcpy` 把 `wsize - wnext` 字节写到块的末尾，第二次把剩下的写到下标 0 处。之后窗口是满的。
 
-`updatewindow_safe`（`inflate.c.uw.lean`，已登记）证明这个调用不会出故障，并且之后 `Good` 仍然成立。如果需要分配窗口而分配失败，调用返回 1，状态不变，只有分配计数前进了。
+`updatewindow_safe`（`inflate.c.uw.lean`，已登记）证明这个调用不会出故障，并且之后 `Good` 仍然成立。如果需要分配窗口而分配失败，调用返回 1，状态不变，只有分配计数器前进了。
 
 ## 每一步为什么保持不变量
 
@@ -229,11 +229,11 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 | `inflateUndermine` | `inflateUndermine_preserves` | 在本构建中它写 `sane = 1`，这正是子句 `pending` 要求的值，并返回 `Z_DATA_ERROR` |
 | `inflateCopy` 成功 | `inflateCopy_invariant` | 副本得到自己的状态块和窗口块。子句 `origin` 说明了 `lencode` 可能是什么，所以副本可以照同样的方式指向自己的表 |
 
-`operation_preserves` 汇总了流调用的各行。序列结论的第 2 部分还需要每次调用的帧和账本，它们是 `inflate_call_safe` 和 `operation_safe_other`（`inflate.c.sequence-safety.lean`）。第 3 部分是 `inflateEnd_invariant`。
+`operation_preserves` 汇总了流调用的各行。序列结论的第 2 部分还需要每次调用的帧性质和账本，它们是 `inflate_call_safe` 和 `operation_safe_other`（`inflate.c.sequence-safety.lean`）。第 3 部分是 `inflateEnd_invariant`。
 
 ### 一次 `inflate` 调用的内部 {#the-mode-proof}
 
-`inflate_call`（`inflate.c.call-default.lean`）处理通过了入口检查、并且模式不是 `SYNC` 的调用。`inflate_call_refused`（`inflate.c.call-refused.lean`）处理这样的调用：流通过了状态检查，而调用返回 `Z_STREAM_ERROR`，即 `next_out` 是 `NULL`，或者 `next_in` 是 `NULL` 而 `avail_in != 0`，或者模式是 `SYNC`。前两种由入口检查拒绝。处于 `SYNC` 模式的流通过入口检查，在 switch 里（`case SYNC`）被拒绝，流记录和状态都不变。`inflate_call` 除了安全性之外，还证明了返回码和各计数更新的完整列表；安全性只用到其中一部分。
+`inflate_call`（`inflate.c.call-default.lean`）处理通过了入口检查、并且模式不是 `SYNC` 的调用。`inflate_call_refused`（`inflate.c.call-refused.lean`）处理这样的调用：流通过了状态检查，而调用返回 `Z_STREAM_ERROR`，即 `next_out` 是 `NULL`，或者 `next_in` 是 `NULL` 而 `avail_in != 0`，或者模式是 `SYNC`。前两种由入口检查拒绝。处于 `SYNC` 模式的流通过入口检查，在 switch 里（`case SYNC`）被拒绝，流记录和状态都不变。`inflate_call` 除了安全性之外，还证明了返回码和各计数器更新的完整列表；安全性只用到其中一部分。
 
 下表对每组模式说明：哪次访问需要论证，哪条事实提供了论证。
 
@@ -290,7 +290,7 @@ rank = 64 * mass + credit(mode)
 
 ## 难点在哪里
 
-难点不在某一个循环。难在一次调用可以在任何一个 `NEEDBITS` 处停下再继续，所以不变量必须在大约三十个模式中的每一个里都足够强，同时又能被每一个模式重新建立。有三处花的功夫最多。
+难点不在某一个循环。难在一次调用可以在任何一个 `NEEDBITS` 处停下再继续，所以不变量必须在大约三十个模式中的每一个里都足够强，同时又能被每一个模式重新确立。有三处花的功夫最多。
 
 - **gzip 头部。** 这是 `inflate` 往输出之外的调用者缓冲区里写东西的唯一地方。对某些调用者布局，真实的 C 在这里会出故障，所以才有前提 `InflateHeaderProgress` 和它的 sanitizer 回归测试。
 - **终止性。** 有几种转移既不用输入也不写输出。只看输入和输出的度量在这些地方不会下降；秩里的 credit 项处理的就是它们。
@@ -310,10 +310,10 @@ rank = 64 * mass + credit(mode)
 
 | 结论 | 定理 | 模块 |
 | --- | --- | --- |
-| `Goal.inflate`：一次调用的完整契约，包括进展、返回码、计数、帧和所有权。`uncompress*` 和 gzip 读取端的安全证明用到它 | `inflate_public` | `public-inflate.lean` |
+| `Goal.inflate`：一次调用的完整契约，包括进展、返回码、计数器、帧性质和所有权。`uncompress*` 和 gzip 读取端的安全证明用到它 | `inflate_public` | `public-inflate.lean` |
 | 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 | `public-inflate-*.lean` |
 
-有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes`（`public-deflate-inflate-roundtrip.lean`）说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 建立，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。同一个模块证明了带条件的往返定理 `deflate_inflate_roundtrip`：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都已检查，没有登记，也没有验收。完备性（各次调用会到达 `Z_STREAM_END`）和无条件的往返还未完成。
+有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes`（`public-deflate-inflate-roundtrip.lean`）说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。同一个模块证明了带条件的往返定理 `deflate_inflate_roundtrip`：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都已检查，没有登记，也没有验收。完备性（各次调用会到达 `Z_STREAM_END`）和无条件的往返还未完成。
 
 对其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置），没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
 

@@ -42,7 +42,7 @@
 - **窗口。** `wsize ≤ 32768`，`whave ≤ wsize`，`wnext ≤ wsize`。如果 `whave ≠ 0`，`window` 指向某个堆块内的 `wsize` 个字节。对 `inflate`，这个块不是输出对象。对 `inflateBack`，它可以就是输出对象；这时 `wnext = 0`，并且窗口的末尾落在输出区域之内。
 - **表。** `lencode` 和 `distcode` 指向的表，对 `lenbits` 和 `distbits` 具有安全的形状（`LenTableSafe`、`DistTableSafe`；见[解码表](inftrees.md#the-table-shape)）。
 
-[内部契约](../spec/internal-contracts.md)页面用 `I-if-pre-room`、`I-if-pre-bits`、`I-if-pre-tables` 和 `I-if-pre-window` 这些名字描述 `inflate_fast` 的入口。那里的描述若比上面的列表多，以上面的列表为准：安全定理假设的就是这份列表。
+[内部契约](../spec/internal-contracts.md)页面用 `I-if-pre-room`、`I-if-pre-bits`、`I-if-pre-tables` 和 `I-if-pre-window` 这些名字描述 `inflate_fast` 的入口。那里的描述若比上面的列表多，安全定理假设的是上面的列表。
 
 没有哪条前提提到模式。也没有哪条前提说窗口里的字节是什么，或者说 `whave < wsize` 蕴含 `wnext = whave`。安全性只需要上面这些界；其余的属于[功能论证](#functional-results)。
 
@@ -107,7 +107,7 @@ do {
 
 ### 读表
 
-根下标是 `hold & ((1 << lenbits) - 1)`，小于 `2^lenbits`；表形状保证数组里有 `2^lenbits` 个根表项。根表项是叶子或链接。链接指定一张二级表，它整个在数组之内，并且只含叶子，所以每个编码至多发生一次 `goto dolen` 或 `goto dodist`。
+根下标是 `hold & ((1 << lenbits) - 1)`，小于 `2^lenbits`；表形状保证这 `2^lenbits` 个表项都在数组之内。根表项是叶子或链接。链接指定一张二级表，它整个在数组之内，并且只含叶子，所以每个编码至多发生一次 `goto dolen` 或 `goto dodist`。
 
 无效编码设置 `msg` 和模式 `BAD`，然后离开循环。块结束符设置模式 `TYPE`，然后离开循环。两者经过的出口代码与正常结束相同。
 
@@ -142,7 +142,7 @@ I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就
 
 `inflate` 在选择快速路径的条件里自己检查了 `bits < 8`。`inflateBack` 不检查；它的不变量保证每次进入 `LEN` 模式时 `bits < 8`（`LEN_fast_p`）。
 
-随后函数用各自同一个块内的指针差算出新的 `avail_in` 和 `avail_out`，连同两个游标、`hold` 和 `bits` 一起存回（`fast_finish_wp`，`inffast.c.final.lean`）。
+随后函数算出新的 `avail_in` 和 `avail_out`，两者各由同一个块内的指针差得到，连同两个游标、`hold` 和 `bits` 一起存回（`fast_finish_wp`，`inffast.c.final.lean`）。
 
 ## 循环为什么会结束
 
@@ -170,4 +170,4 @@ I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就
 | 查长度表或距离表得到的是格式规定的符号 | `length_lookup_matches_format`、`distance_lookup_matches_format` | `inffast.c.length-semantics.lean`、`inffast.c.distance-semantics.lean` |
 | 匹配复制就是格式中的 LZ77 复制 | `actual_distance_refines_lz77`、`actual_copy_match_refines_lz77` | `inffast.c.distance-result.lean`、`inffast.c.match-history.lean` |
 
-这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning`（`inflate.c.meaning-fast.lean`，已检查，未登记）把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然符合格式的文法；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是带条件的往返定理的一步，那条定理已检查，没有登记，也没有验收（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。关于功能不变量需要携带什么，早先的一条笔记保存在[历史](../history/proof-functional-notes.md)中。
+这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning`（`inflate.c.meaning-fast.lean`，已检查，未登记）把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然能按格式的规定解析；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是带条件的往返定理的一步，那条定理已检查，没有登记，也没有验收（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。关于功能不变量需要携带什么，早先的一条笔记保存在[历史](../history/proof-functional-notes.md)中。

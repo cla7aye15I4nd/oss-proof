@@ -21,7 +21,7 @@
 | `inflate_fixed` 让状态指向两张静态表，改动四个字段 | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
 | 对 `LENS` 和 `DISTS`，在调用返回 0 之后：慢速解码器在手里位数还少时接受的表项，在更多的位到来之后不变 | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
 
-另有一条定理已检查而未登记：`inflate_table_len_leaves_positive`（`inftrees.c.decoder-safe.lean`）。它说，一次返回 0 的 `LENS` 调用之后，表里每个字面量/长度叶子至少用掉一位。两个调用者都用到它，都是在两条已登记的序列定理的证明内部。`inflate` 需要它来建立[它的不变量](inflate.md#the-invariant)的子句 `tables`，这个子句包含这条事实（`inflate.c.dynamic-install.lean`）。回调解码器的终止性需要它（`infback.c.safety-table-lens.lean`；[快速解码](inffast.md#assumptions)）。
+另有一条定理已检查而未登记：`inflate_table_len_leaves_positive`（`inftrees.c.decoder-safe.lean`）。它说，一次返回 0 的 `LENS` 调用之后，表里每个字面量/长度叶子至少用掉一位。两个调用者都用到它，都是在两条已登记的序列定理的证明内部。`inflate` 需要它来得到[它的不变量](inflate.md#the-invariant)的子句 `tables`，这个子句包含这条事实（`inflate.c.dynamic-install.lean`）。回调解码器的终止性需要它（`infback.c.safety-table-lens.lean`；[快速解码](inffast.md#assumptions)）。
 
 关于表项含义的功能结论列在[功能结论](#functional-results)一节。
 
@@ -171,7 +171,7 @@ val + 2^op = used ≤ 592   对 DISTS
 有两种情形不是完整编码，要单独处理。
 
 - 只有一个码长为 1 的符号：`root = 1`。循环写下标 0，第 5 步在下标 1 处写无效标记。
-- 一个符号都没有：C 写两个无效表项，置 `*bits = 1`，把 `*table` 前移两项，返回 0。
+- 一个符号都没有：C 写两个无效表项，置 `*bits = 1`，让 `*table` 前进两项，返回 0。
 
 ### 叶子里存着什么
 

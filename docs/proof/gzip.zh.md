@@ -7,7 +7,7 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 源文件：`gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c`、`gzguts.h`，以及 `zlib.h` 中的 `gzgetc`
 宏。[API 页面](../spec/api/gz-file.md)给出调用者可见的行为。术语见[术语表](../glossary.md)。
 
-## 结果
+## 结论
 
 | 目标 | 定理 | 模块 |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ gzclose(f);                         /* 子句 5：全部释放，close 失败时
 
 ## 假设了什么
 
-结果的背后有三样不同的东西：前提、一个可信的模型，以及对源码的补丁。只有第一样在 Lean 命题里。
+这个结论的背后有三样不同的东西：前提、一个可信的模型，以及对源码的补丁。只有第一样在 Lean 命题里。
 
 ### 命题中的前提
 
@@ -80,7 +80,7 @@ gzclose(f);                         /* 子句 5：全部释放，close 失败时
 ### 受信任而不在命题中：世界模型
 
 世界及其预言是用 Lean 写的一个 Linux 模型（[外部 I/O](../design/external-io.md)）。内核对照这个模型检查证明。它不对照
-Linux 检查这个模型（[可信基础](../trusted-base.md)）。模型有两个事实在证明中起承重作用：
+Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重模型的两个事实：
 
 - 对非空缓冲区的 `write` 从不返回 0；
 - `close` 失败时也释放描述符。
@@ -112,14 +112,14 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。模型有两�
 
 | 情形 | 未打补丁的 C 的行为 | 修复与证据 |
 | --- | --- | --- |
-| R-1：负的定位位置 | 在一开始的 `gzungetc` 之后，`GZ_OFF_MAX - pos` 或者后来的位置差使有符号 64 位算术溢出。 | 已复现：[gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md)。上游 [PR 1361](https://github.com/madler/zlib/pull/1361)，作为补丁 0002 应用。该拉取请求仍处于打开状态。 |
-| R-2：部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已复现：[gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md)。上游 [PR 1363](https://github.com/madler/zlib/pull/1363)，作为补丁 0003 应用。该拉取请求仍处于打开状态。 |
+| R-1：负的定位位置 | 在一开始的 `gzungetc` 之后，`GZ_OFF_MAX - pos` 或者后来的位置差使有符号 64 位算术溢出。 | 已复现：[gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md)。上游 [PR 1361](https://github.com/madler/zlib/pull/1361)，作为补丁 0002 应用。该拉取请求处于打开状态。 |
+| R-2：部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已复现：[gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md)。上游 [PR 1363](https://github.com/madler/zlib/pull/1363)，作为补丁 0003 应用。该拉取请求处于打开状态。 |
 | R-3：未写入的指针 | `gz_reset` 没有写 `x.next`；`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-reset-next-uninitialised/README.md)，用探针展示。本地补丁 0005 只在计数非零时推进 `x.next`。初始化为 `NULL` 不行：`NULL + 0` 在 C 中是未定义的。 |
 | R-4：调用者缓冲区的生命期 | 直接读取把 `x.next` 指进调用者的缓冲区，并在 `x.have = 0` 时保留它。调用者释放缓冲区之后，`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-next-dangling-after-direct-read/README.md)，用探针展示。本地补丁 0005。`gzseek64_dangling_next_ok` 表明打过补丁的定位不使用这个指针。 |
 | F-1：读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已复现：[gzread-pos-overflow](../findings/gzread-pos-overflow/README.md)。本地补丁 0004 在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
 | W7：写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已复现：[gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md)。本地补丁 0004 拒绝会越过 `GZ_OFF_MAX` 的写入。 |
 
-关于 `gzsetparams` 的一个未确认的实验保留在[早期证明笔记](../history/proof-earlier-notes.md#gzsetparams-experiment)中。
+关于 `gzsetparams` 的一个尚未确认的实验保留在[早期证明笔记](../history/proof-earlier-notes.md#gzsetparams-experiment)中。
 
 ## 历史
 
@@ -133,7 +133,7 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。模型有两�
 | `caller` | 调用者改动它自己的内存：句柄不拥有的任何块。它可以释放自己的缓冲区，包括上一次 `gzread` 的缓冲区。改动之后的堆是良构的（`GzCallerFrame`：`Fresh`、`Uniq`、`LibraryGlobals`），它的字节对象都在大小上限之内（`ByteObjectsFit`）。世界不变。 |
 | `world` | 另一方改动世界（`GzWorldStep`）：变成任何良构的文件系统状态。堆不变。 |
 
-`world` 步骤有意放得很宽。另一个句柄或应用程序可以关闭这个句柄的描述符，或者在它的编号下打开另一个文件。下一次读或写于是得到错误，或者落到那个文件上，与
+`world` 步骤有意定得很宽。另一个句柄或应用程序可以关闭这个句柄的描述符，或者在它的编号下打开另一个文件。下一次读或写于是得到错误，或者落到那个文件上，与
 C 中一样。这个步骤还可以替换预言。
 
 `GzHistory` 没有预算前提，所以子句 1 在每个历史上成立。gz 的功能目标是在另一个谓词 `GzReachable` 上表述的；安全目标不使用它。
@@ -218,7 +218,7 @@ flowchart TD
 
 在 LP64 构建上，偏移是有符号 64 位的，`GZ_OFF_MAX = 2^63 - 1`，一次 I/O 请求至多 `2^30` 字节。
 
-下面三个列表是用平常的话写的摘要。本页后面用到的子句，名字写在括号里。
+下面三个列表是用白话写的摘要。本页后面用到的子句，名字写在括号里。
 
 **公共部分（`GzCommon`）。**
 
@@ -260,7 +260,7 @@ flowchart TD
 完整的命题是 `ZlibF/Proof/gz.inv-model.lean` 中的定义 `GzInv`，以及它的三个部分 `GzCommon`、`GzReadInv` 和
 `GzWriteInv`；这份摘要与定义不一致的地方，以定义为准。
 
-每个子句之所以存在，是因为有某个调用需要它。三个例子显示这个模式。
+每个子句之所以存在，是因为有某个调用需要它。下面三个例子说明这一点。
 
 - 没有 `posHave`，`gzgetc` 的缓冲路径会使 `x.pos` 溢出。
 - 没有 `haveSkip`，`gzgetc` 会在有跳过待处理时返回一个已缓冲的字节，并把 `x.pos` 移过 `GZ_OFF_MAX - skip`。
@@ -273,10 +273,10 @@ flowchart TD
 ### 新分配的记录的指针字段
 
 `gz_open` 不写 `strm.state`、`strm.next_in` 和 `x.next`。在模型中，新分配的指针是 `NULL`。在 C
-中它是不确定的，读它是未定义的（[安全，第 3 节](../spec/safety.md#uninitialised-memory)）。
+中它是不确定的，读它是未定义的（[安全性，第 3 节](../spec/safety.md#uninitialised-memory)）。
 
 - `strm.state` 和 `strm.next_in`：不变量写明 `size = 0` 时 `strm.state = NULL`。证明表明的是翻译的安全性。它没有表明读取了不确定指针的
-  C 代码会被发现：这是[可信基础](../trusted-base.md)第 2 节的模型缺口。下面这一解读**尚未确认**，须由源码审查确认：在 `gz_look` 或 `gz_init`
+  C 代码会被发现：这是[可信基础](../trusted-base.md)第 2 节的模型缺口。**尚未确认**，须由源码审查确认：在 `gz_look` 或 `gz_init`
   写入 `strm.state` 和 `strm.next_in` 之前，C 从不读它们。
 - `x.next`：`x.have = 0` 时不变量对它不作任何断言，而有了补丁 0005，对 `x.next` 的每次读取或推进都发生在 `x.have ≠ 0` 时。
 
@@ -299,7 +299,7 @@ flowchart LR
 `gz_load` 累积字节，直到请求被填满或者某次读取让它停下。正数的读取结果推进 `have`；零设置 `eof`；阻塞造成的拒绝设置
 `again`；其他失败设置一个错误。失败可以跟在成功的部分读取之后。
 
-`gz_look` 在第一次调用时建立缓冲区和编解码器，然后决定怎么读。它只在至少有四个可用字节时才认出 gzip：魔数 `31, 139`、方法 8，以及小于
+`gz_look` 在第一次调用时创建缓冲区和编解码器，然后决定怎么读。它只在至少有四个可用字节时才认出 gzip：魔数 `31, 139`、方法 8，以及小于
 32 的标志字节。否则，在模式允许时，输入按透明处理。
 
 `gz_decomp` 在内嵌的流上运行 `inflate`，直到输出已满、成员结束、输入结束或者出现错误。成员结束的路径回到检测，以处理连接在一起的多个成员。
@@ -317,7 +317,7 @@ flowchart LR
 | `gz_read_safe_of` | `gz_read` 是安全的，条件是上面三条（`gz.read-read.lean`）。 |
 | `gzread_step`、`gzfread_step` | 公开调用，由 `gz_read` 得出。 |
 
-每个内嵌的 `inflate` 调用都使用[流解码](inflate.md)的流结果：内嵌的流是可达的，所以单次调用的完整契约适用。
+每个内嵌的 `inflate` 调用都使用[流式解码](inflate.md)中关于流的结论：内嵌的流是可达的，所以单次调用的完整契约适用。
 
 ### 读循环的终止
 
@@ -386,7 +386,7 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 ## 位置、定位与错误消息的归属
 
-`gztell64` 报告逻辑位置加上待处理的跳过，除非 `past` 把它压下。`gzoffset64` 查询描述符的位置，在读模式下再减去已缓冲的压缩输入。这是两个不同的位置。
+`gztell64` 报告逻辑位置加上待处理的跳过，除非 `past` 把这段跳过抑制掉。`gzoffset64` 查询描述符的位置，在读模式下再减去已缓冲的压缩输入。这是两个不同的位置。
 
 `gzseek64_step` 和 `gzseek_step`（`ZlibF/Proof/gz.inv-seek.lean`）对每个世界成立。路径有：
 
@@ -428,7 +428,7 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 所以子句 2，以及它对读调用的 (b) 部分，适用于一次长度非零的真实调用。
 
-## 保留的功能结果
+## 保留的功能结论
 
 `tests/audit/goals.txt` 为 31 个有文档的 gz 函数和 `gzvprintf` 各列出一个功能契约 `Goal.<function>`：共 32
 个目标。安全结论不需要其中任何一个。`tests/audit/proved-goals.txt` 把其中八个列为已证明；它们的定理已登记。
