@@ -79,7 +79,15 @@ It includes `deflate.h` only to read `strstart` and three window bytes for step 
 It installs an allocator that fills fresh memory with the 16-bit value 1030, which makes the
 candidate deterministic; with the argument `plain` it uses the default allocator.
 
-Build the pinned sources with `-fsanitize=address,undefined -g -O1` and run:
+Build and run, from the root of this repository:
+
+```sh
+ZLIB_SRC=$PWD/zlib bash tests/regression/deflate-copy-pending-prev/run.sh
+```
+
+The script builds the pinned sources with `-fsanitize=address,undefined -g -O1`, links `copy.c`
+against them and runs it. The patches of this repository, which the script applies, do not touch
+`deflate.c` or `trees.c`. AddressSanitizer prints:
 
 ```
 ==ERROR: AddressSanitizer: heap-buffer-overflow ... READ of size 1

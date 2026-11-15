@@ -1,4 +1,4 @@
-<!-- source-sha256: aa4d42c7e23e371f99910f821e2639f1898e719f8e487ea3d0075d828a3f34e5 -->
+<!-- source-sha256: 5d2cadfec713bd76d9773df94cdd4503aacafc570c8dc240ab1a272999ec072a -->
 # 报告：`deflateResetKeep` 与 `deflateCopy` 之后 `longest_match` 的越界读取
 
 写给 zlib 维护者的草稿，供项目所有者使用。未发送，仅作记录保留。
@@ -50,7 +50,13 @@
 
 本目录中的 [`deflate-copy-pending-prev/repro.c`](deflate-copy-pending-prev/repro.c)；带运行脚本的相同驱动程序在 [`tests/regression/deflate-copy-pending-prev`](../../tests/regression/deflate-copy-pending-prev/README.md)。它包含 `deflate.h`，只为读取第 6 步所需的 `strstart` 和三个窗口字节，以及打印状态。它安装一个用 16 位值 1030 填充新内存的分配器，使候选可确定；带参数 `plain` 时使用默认分配器。
 
-用 `-fsanitize=address,undefined -g -O1` 构建固定版本的源码并运行：
+在本仓库根目录构建并运行：
+
+```sh
+ZLIB_SRC=$PWD/zlib bash tests/regression/deflate-copy-pending-prev/run.sh
+```
+
+脚本用 `-fsanitize=address,undefined -g -O1` 构建固定版本的源码，把 `copy.c` 与之链接并运行。脚本会应用本仓库的补丁，这些补丁不涉及 `deflate.c` 和 `trees.c`。AddressSanitizer 打印：
 
 ```
 ==ERROR: AddressSanitizer: heap-buffer-overflow ... READ of size 1
