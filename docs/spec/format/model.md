@@ -8,21 +8,21 @@ API. Read [the format guide](README.md) for the rules and [the API model](../../
 for calls, buffers and return values. Accepted results and remaining work live in
 [progress](../../progress.md).
 
-The umbrella module is [`ZlibF/Spec/Format.lean`](../../../ZlibF/Spec/Format.lean). The token
-extension is imported separately. Definitions below are in namespace `ZlibF.Spec`, except
+The umbrella module is [`ZlibF/Spec/Functional/Format.lean`](../../../ZlibF/Spec/Functional/Format.lean).
+The token extension is imported separately. Definitions below are in namespace `ZlibF.Spec`, except
 the local token relations in `ZlibF.Spec.Token`.
 
 ## Module map
 
 | Module | Vocabulary |
 | --- | --- |
-| [`Bits.lean`](../../../ZlibF/Spec/Format/Bits.lean) | Byte-to-bit order, numeric readers, big- and little-endian byte encodings |
-| [`Checksum.lean`](../../../ZlibF/Spec/Format/Checksum.lean) | Bytewise Adler-32 and CRC-32, update functions and append laws |
-| [`Huffman.lean`](../../../ZlibF/Spec/Format/Huffman.lean) | Canonical codes, accepted length sets, fixed codes, length and distance tables |
-| [`Deflate.lean`](../../../ZlibF/Spec/Format/Deflate.lean) | Symbol and block relations, raw prefix and exact-stream relations |
-| [`Wrapper.lean`](../../../ZlibF/Spec/Format/Wrapper.lean) | Zlib and gzip headers, trailers and exact-stream relations |
-| [`Token.lean`](../../../ZlibF/Spec/Format/Token.lean) | One-token decoding and rejection, with obligations connecting them to the block grammar |
-| [`Examples.lean`](../../../ZlibF/Spec/Format/Examples.lean) | Concrete acceptance and rejection examples |
+| [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) | Numeric readers, big- and little-endian byte encodings. The byte-to-bit order (`byteBits`, `bytesToBits`) is in [`Public/Bits.lean`](../../../ZlibF/Spec/Public/Bits.lean) |
+| [`Checksum.lean`](../../../ZlibF/Spec/Functional/Format/Checksum.lean) | Bytewise Adler-32 and CRC-32, update functions and append laws |
+| [`Huffman.lean`](../../../ZlibF/Spec/Functional/Format/Huffman.lean) | Canonical codes, accepted length sets, fixed codes, length and distance tables |
+| [`Deflate.lean`](../../../ZlibF/Spec/Functional/Format/Deflate.lean) | Symbol and block relations, raw prefix and exact-stream relations |
+| [`Wrapper.lean`](../../../ZlibF/Spec/Functional/Format/Wrapper.lean) | Zlib and gzip headers, trailers and exact-stream relations |
+| [`Token.lean`](../../../ZlibF/Spec/Functional/Format/Token.lean) | One-token decoding and rejection, with obligations connecting them to the block grammar |
+| [`Examples.lean`](../../../ZlibF/Spec/Functional/Format/Examples.lean) | Concrete acceptance and rejection examples |
 
 ## From bytes to output
 
@@ -46,6 +46,12 @@ Readers such as `readBits`, `readBytes` and `decodeSym` return either `none` or 
 with the remaining bits. Relation constructors require the appropriate reader equations.
 There is no constructor for an invalid block type or reserved length/distance symbol.
 
+The relations share their arguments. `dict` is the preset dictionary, and `h` is the output
+produced before this point, without the dictionary. `inp` is the bit sequence not yet read,
+and `rest` is what is left of it when the relation ends. `out` is the whole output at that
+point: `h` followed by the new bytes. `L` and `D` give the code length, in bits, of each
+literal/length symbol and of each distance symbol.
+
 `Symbols L D dict h inp rest out` starts with history `h`, uses literal/length lengths `L`
 and distance lengths `D`, and ends at an end-of-block symbol. It consumes `inp` down to `rest`
 and leaves output `out`. `copyBack` appends each copied byte before reading the next one,
@@ -54,6 +60,8 @@ so overlapping matches have their ordinary bytewise meaning.
 `Blocks dict h inp rest out` composes bodies until a block with `BFINAL = 1`. The block grammar
 uses bits derived from whole input bytes. Under that entry condition, `inp.length % 8` is
 the number of bits left before the next byte boundary; stored bodies drop that many bits.
+For example, when the three header bits of a stored block were the first three bits of a
+byte, five bits of that byte remain; the body drops them and reads `LEN` from the next byte.
 
 The public format relations differ in what they require after the final block:
 
