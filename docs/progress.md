@@ -37,6 +37,14 @@ undocumented in zlib.h, but `gzprintf` goes through it, so it is planned with re
 | More proof mutants for query functions | getters and constant queries | Mutants defend against a wrong proof setup. For a one-line query they add nothing to the planned results. |
 | Functional correctness | the format part of `inflate_sequence` (`inflate` output equals the format: `ParseMeaning` and its stream and decoding sides), the `DecoderFacts` format facts behind `InflateCompletes` and the format clauses of `uncompress*`, and the deflate round-trip (`Ledger`, `ledger_*`, `completes`, `bound_before_output`, `deflate_sequence`'s decoding part) | Owner's decision of 2026-11-11, to finish sooner. A functional fact that a planned safety proof depends on stays in scope. What is already proved of it is kept and listed as checked; open rows are marked not planned in [Core proof skeletons](#core-proof-skeletons). |
 
+`Goal.gz_initialisation_domain` is not a required non-vacuity target (owner's approval of 2026-11-14). It states the
+functional contract of `gzopen` (`OpenState`, `GzReachable`), which the gzip row above lists as not planned. No planned
+safety proof depends on it: `Goal.gz_sequence_safety` starts each history at the open call and proves `GzInv` along
+it, and in the import closure of the registered gz safety theorems (`gz_sequence_safety_public`,
+`gz_sequence_nonvacuity_public`, `gz_refusal`) the goal occurs only in its own definition and `GzReachable` is never a
+premise. That the premises of the gz safety goal can be met is the registered `Goal.gz_sequence_nonvacuity`. The
+statement stays in `tests/audit/goals.txt` as an open, not-planned goal.
+
 A not-planned target is not claimed. Reports say "not planned", never "proved".
 
 ## Contents

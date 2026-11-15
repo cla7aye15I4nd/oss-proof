@@ -31,6 +31,13 @@
 | 为查询函数增加证明变异体 | 取值函数和常量查询 | 变异体用来防止证明的设置有误。对只有一行的查询函数，它们不会为计划内的结论增加任何内容。 |
 | 功能正确性 | `inflate_sequence` 的格式部分（`inflate` 的输出等于格式：`ParseMeaning` 及其流侧与解码侧），`InflateCompletes` 背后的 `DecoderFacts` 格式事实与 `uncompress*` 的格式条款，以及 deflate 的往返（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分） | 所有者 2026-11-11 的决定，为了更快完成。计划内的安全证明所依赖的功能性事实仍在范围内。已经证明的部分保留并列为已检查；未完成的行在[核心证明骨架](#core-proof-skeletons)中标为不在计划内。 |
 
+`Goal.gz_initialisation_domain` 不是必需的非空性目标（所有者 2026-11-14 批准）。它陈述的是 `gzopen` 的功能契约
+（`OpenState`、`GzReachable`），上表 gzip 一行已列为不在计划内。没有计划内的安全证明依赖它：`Goal.gz_sequence_safety`
+从打开调用开始每段历史，并沿历史证明 `GzInv`；在已登记的 gz 安全定理（`gz_sequence_safety_public`、
+`gz_sequence_nonvacuity_public`、`gz_refusal`）的导入闭包中，该目标只出现在它自己的定义里，`GzReachable` 从不作为前提。
+gz 安全目标的前提可以满足，由已登记的 `Goal.gz_sequence_nonvacuity` 给出。该陈述仍留在 `tests/audit/goals.txt` 中，
+作为未证明、不在计划内的目标。
+
 不在计划内的目标不作任何声明。报告中写"不在计划内"，绝不写"已证明"。
 
 ## 目录
