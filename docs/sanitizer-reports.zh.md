@@ -1,7 +1,7 @@
-<!-- source-sha256: 62b3ca5d4dd44c9e807b1cf9259ef075806820ab689309bd9877e83b260fd543 -->
+<!-- source-sha256: 414b1f2ecf94ee662d676bfee378da5f681026d8350569bd139530ea1a052a31 -->
 # Sanitizer 报告
 
-本页列出所有保留的复现：在这些复现中，sanitizer 报告真实 C 有未定义行为或内存错误。共有十一个目录。五个展示调用者的错误，安全定理用一条具名前提把它们排除在外；一个展示一个需要未文档化函数的调用序列；五个展示 zlib 本身的缺陷，验证对象为它们打了补丁。每个目录里有运行脚本、C 驱动程序，以及 `report.txt` 中的原始 sanitizer 输出。
+本页列出所有保留的复现：在这些复现中，sanitizer 报告真实 C 有未定义行为或内存错误。共有十一个目录。五个展示调用者的错误，安全定理用一条具名前提把它们排除在外；一个展示一个需要未文档化函数的调用序列；五个展示 zlib 本身的缺陷，被验证的源码为它们打了补丁。每个目录里有运行脚本、C 驱动程序，以及 `report.txt` 中的原始 sanitizer 输出。
 
 ## 怎样读每一节
 
@@ -16,17 +16,17 @@
 
 | 报告 | 主机 | 所构建的源码 |
 | --- | --- | --- |
-| 除 `gzprintf-error-string` 之外的四个调用者错误目录 | x86_64 Linux；arm64 macOS 上判定相同，唯一的差异记在 `prime.c` 下 | 固定版本源码加补丁 0001。行号是固定版本源码的行号：补丁 0001 只改动 `inflate.c` 第 1383 行附近。 |
-| `gzprintf-error-string` | 只有 arm64 macOS（Apple clang） | 固定版本源码加补丁 0001 至 0005。行号是这份打过补丁的源码的行号，与固定版本源码不同。 |
-| `deflate-copy-pending-prev` | x86_64 Linux（GCC 14）；arm64 macOS 上有同样的 AddressSanitizer 报告 | 固定版本源码；没有补丁涉及 deflate 的文件。 |
-| `inflate-copy-fixed`、`gzseek-pushback-overflow`、`gzread-transparent-stale-next` | x86_64 Linux（GCC 15.2）；arm64 macOS（Apple clang 21）上判定相同 | 不打任何补丁的固定版本源码。行号是固定版本源码的行号。 |
-| `gzread-pos-overflow`、`gzwrite-pos-overflow` | x86_64 Linux（内核 7.0，GCC 15.2）。写入一侧的报告在 arm64 macOS 上也能复现；读取一侧的报告需要 Linux。 | 固定版本源码加除 0004 以外的全部补丁。`gzread.c` 的行号比固定版本源码大一；`gzwrite.c` 的行号与固定版本源码相同。 |
+| 除 `gzprintf-error-string` 之外的四个调用者错误目录 | x86_64 Linux；arm64 macOS 上判定相同，唯一的差异记在 `prime.c` 下 | 固定的源码加补丁 0001。行号是固定的源码的行号：补丁 0001 只改动 `inflate.c` 第 1383 行附近。 |
+| `gzprintf-error-string` | 只有 arm64 macOS（Apple clang） | 固定的源码加补丁 0001 至 0005。行号是这份打过补丁的源码的行号，与固定的源码不同。 |
+| `deflate-copy-pending-prev` | x86_64 Linux（GCC 14）；arm64 macOS 上有同样的 AddressSanitizer 报告 | 固定的源码；没有补丁涉及 deflate 的文件。 |
+| `inflate-copy-fixed`、`gzseek-pushback-overflow`、`gzread-transparent-stale-next` | x86_64 Linux（GCC 15.2）；arm64 macOS（Apple clang 21）上判定相同 | 不打任何补丁的固定的源码。行号是固定的源码的行号。 |
+| `gzread-pos-overflow`、`gzwrite-pos-overflow` | x86_64 Linux（内核 7.0，GCC 15.2）。写入一侧的报告在 arm64 macOS 上也能复现；读取一侧的报告在那里运行了一次，没有复现（观察到的情况见[它的页面](findings/gzread-pos-overflow/README.md)）。 | 固定的源码加除 0004 以外的补丁，即各自的 `run.sh` 构建的源码。保留下来的那次用真实 `/dev/null` 的 `gzwrite-pos-overflow` 运行，用的是补丁 0001 至 0003。`gzread.c` 的行号比固定的源码大一；`gzwrite.c` 的行号与固定的源码相同。 |
 
 一份 sanitizer 报告是关于真实 C 的一次运行的证据。它不是证明。
 
 ## 已证明定义域之外的调用者错误
 
-调用 zlib 的程序必须有意构造这些布局和调用顺序：把头部缓冲区指向自己的输入或输出，在 zlib 使用头部记录时修改它，在 zlib.h 允许的时间点之后调用函数，为长度单元传入 `NULL`，或者把 `gzerror` 返回的字符串传给同一句柄上的 `gzprintf`。它们不是攻击者能控制的输入。没有哪个压缩字节流能到达其中任何一个。
+调用 zlib 的程序必须有意构造这些布局和调用顺序：把头部缓冲区指向自己的输入或输出，在 zlib 使用头部记录时修改它，在 zlib.h 允许的时间点之后调用函数，为长度单元传入 `NULL`，或者把 `gzerror` 返回的字符串传给同一句柄上的 `gzprintf`。它们不是攻击者能控制的输入。任何压缩字节流都触发不了其中任何一种。
 
 这些都没有报告给上游，也都不记为 zlib 缺陷。`gzprintf` 的情形记为文档缺口。
 
@@ -104,10 +104,10 @@ READ of size 1 at 0x6daba5be0500 thread T0
 
 [目录](../tests/regression/deflate-history-domain/README.md)，[报告](../tests/regression/deflate-history-domain/report.txt)。四种情形。
 
-`prime.c`：`deflate` 已经开始之后调用 `deflatePrime`。zlib.h 排除了它：`deflatePrime` 必须在第一次 `deflate()` 调用之前使用（`zlib.h:825`）。
+`prime.c`：`deflate` 已经开始之后调用 `deflatePrime`。zlib.h 排除了它：它写道 `deflatePrime` “`must be used before the first deflate() call`”（必须在第一次 deflate() 调用之前使用，`zlib.h:825`）。
 
 ```c
-deflateInit2(&z, 1, Z_DEFLATED, -15, 1, Z_DEFAULT_STRATEGY);  /* raw，memLevel 1 */
+deflateInit2(&z, 1, Z_DEFLATED, -15, 1, Z_DEFAULT_STRATEGY);  /* 裸流，memLevel 1 */
 deflate(&z, Z_NO_FLUSH);            /* 300 个输入字节：符号已被记录 */
 for (k = 0; k < 200; k++)
     deflatePrime(&z, 16, 0xffff);   /* pending 增长到符号缓冲区上 */
@@ -121,7 +121,7 @@ trees.c:930:20: runtime error: load of address 0x614810c3571f with insufficient 
 
 在 arm64 macOS 上第一行相同；UndefinedBehaviorSanitizer 接下来报告的是 `trees.c:937` 处的有符号左移溢出，而不是上面的第二行，因为越界读到的字节不同。
 
-`header.c 1`：`deflate` 已经开始之后调用 `deflateSetHeader(strm, NULL)`。zlib.h 排除了它：`deflateSetHeader` 可以在初始化或重置之后、第一次调用 `deflate()` 之前调用（`zlib.h:840`）。
+`header.c 1`：`deflate` 已经开始之后调用 `deflateSetHeader(strm, NULL)`。zlib.h 排除了它：`deflateSetHeader` 可以在初始化或重置之后调用，并且要 “`before the first call of deflate()`”（在第一次调用 deflate() 之前，`zlib.h:840`）。
 
 ```c
 deflateInit2(&z, 6, Z_DEFLATED, 31, 1, Z_DEFAULT_STRATEGY);   /* gzip，memLevel 1 */
@@ -193,7 +193,7 @@ compress.c:70:20: runtime error: load of null pointer of type 'uLongf'
 
 ### `gzprintf-error-string`：把句柄自己的错误字符串当作 `%s` 参数
 
-[目录](../tests/regression/gzprintf-error-string/README.md)，`errstr.c`，[报告](../tests/regression/gzprintf-error-string/report.txt)。这是文档缺口，不是 zlib 缺陷：zlib.h 只说之后的 `gzerror` 调用可能使该字符串失效。
+[目录](../tests/regression/gzprintf-error-string/README.md)，`errstr.c`，[报告](../tests/regression/gzprintf-error-string/report.txt)。这是文档缺口，不是 zlib 缺陷：zlib.h 说之后的 `gzerror` 调用可能使该字符串失效，文件关闭后该字符串不再可用（`zlib.h:1793`）；它没有提到 `gzprintf`。
 
 ```c
 /* p[1]：一个已写满的非阻塞管道的写端 */
@@ -212,7 +212,7 @@ freed by thread T0 here:
     #2 0x0001025a9b1c in gzvprintf gzwrite.c:448
 ```
 
-在不打补丁的固定版本源码中，这三条语句分别位于 `gzwrite.c:485`（`vsnprintf` 调用）、`gzlib.c:563`（`free`）和 `gzwrite.c:442`（`gz_error` 调用）。
+在不打补丁的固定的源码中，这三条语句分别位于 `gzwrite.c:485`（`vsnprintf` 调用）、`gzlib.c:563`（`free`）和 `gzwrite.c:442`（`gz_error` 调用）。
 
 排除它的前提：[偏离记录，“Gz printf 字符串”一行](deviations.md#gzip-file-interface)（`GzArguments`）。`gzprintf` 和 `gzvprintf` 的格式串以及每个 `%s` 参数都位于句柄拥有的块之外。它是 `Goal.gz_sequence_safety` 中每个 `gzprintf` 和 `gzvprintf` 调用的前提。
 
@@ -220,7 +220,7 @@ freed by thread T0 here:
 
 ### `deflate-copy-pending-prev`：`deflateResetKeep` 之后的 `deflateCopy`
 
-[目录](../tests/regression/deflate-copy-pending-prev/README.md)，`copy.c`，[报告](../tests/regression/deflate-copy-pending-prev/report.txt)。这不是调用者布局：每个缓冲区都有效且互不重叠，每个调用都是对导出函数的调用。这个序列用到 `deflateResetKeep`，zlib.h 把它声明在`/* undocumented functions (not part of the zlib API) */` 之下。完整说明见[发现](findings/deflate-copy-pending-prev/README.md)；有一份[报告草稿](findings/deflate-copy-pending-prev-report.md)，没有寄出。
+[目录](../tests/regression/deflate-copy-pending-prev/README.md)，`copy.c`，[报告](../tests/regression/deflate-copy-pending-prev/report.txt)。这不是调用者布局：每个缓冲区都有效且互不重叠，每个调用都是对导出函数的调用。这个序列用到 `deflateResetKeep`，zlib.h 把它声明在 “`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。完整说明见[发现](findings/deflate-copy-pending-prev/README.md)；有一份[报告草稿](findings/deflate-copy-pending-prev-report.md)，没有寄出。
 
 ```c
 deflateInit2(&a, 6, Z_DEFLATED, 9, 8, Z_DEFAULT_STRATEGY);
@@ -248,11 +248,11 @@ READ of size 1 at 0x519000000e89 thread T0
 
 这五个是 zlib 在文档用法之内的缺陷。每个在[发现](findings.md)之下都有一页，给出调用序列、运行命令、判定、严重程度和修复。运行脚本有意构建不带修复的源码；gz 的运行脚本还会构建带修复的源码，并检查报告已经消失。
 
-| 目录 | 判定 | 发现 | 验证对象中的修复 |
+| 目录 | 判定 | 发现 | 被验证的源码中的修复 |
 | --- | --- | --- | --- |
-| [inflate-copy-fixed](findings/inflate-copy-fixed/README.md)（[报告](findings/inflate-copy-fixed/report.txt)） | AddressSanitizer `invalid-pointer-pair`，`inflate.c:1383`，在静态的 `lenfix` 与 inflate 状态之间 | [`inflateCopy` 比较无关的指针](findings/inflate-copy-fixed/README.md) | 补丁 0001，上游 PR #1369 |
-| [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md)（[报告](../tests/regression/gzseek-pushback-overflow/report.txt)） | UndefinedBehaviorSanitizer：有符号整数溢出，`gzlib.c:395`、`403`、`424` | [开头的 `gzungetc` 之后调用 `gzseek`](findings/gzseek-pushback-overflow/README.md) | 补丁 0002，上游 PR #1361 |
-| [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md)（[报告](../tests/regression/gzread-transparent-stale-next/report.txt)） | AddressSanitizer `heap-buffer-overflow`，1 字节读，`gzread.c:369`，位于 32 字节输出缓冲区之后 0 字节处 | [`gzread` 从过时的 `x.next` 复制](findings/gzread-transparent-stale-next/README.md) | 补丁 0003，上游 PR #1363 |
+| [inflate-copy-fixed](findings/inflate-copy-fixed/README.md)（[报告](findings/inflate-copy-fixed/report.txt)） | AddressSanitizer `invalid-pointer-pair`，`inflate.c:1383`，在静态的 `lenfix` 与 inflate 状态之间 | [`inflateCopy` 比较无关的指针](findings/inflate-copy-fixed/README.md) | 补丁 0001，上游拉取请求 #1369 |
+| [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md)（[报告](../tests/regression/gzseek-pushback-overflow/report.txt)） | UndefinedBehaviorSanitizer：有符号整数溢出，`gzlib.c:395`、`403`、`424` | [开头的 `gzungetc` 之后调用 `gzseek`](findings/gzseek-pushback-overflow/README.md) | 补丁 0002，上游拉取请求 #1361 |
+| [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md)（[报告](../tests/regression/gzread-transparent-stale-next/report.txt)） | AddressSanitizer `heap-buffer-overflow`，1 字节读，`gzread.c:369`，位于 32 字节输出缓冲区之后 0 字节处 | [`gzread` 从过时的 `x.next` 复制](findings/gzread-transparent-stale-next/README.md) | 补丁 0003，上游拉取请求 #1363 |
 | [gzread-pos-overflow](../tests/regression/gzread-pos-overflow/README.md)（[报告](../tests/regression/gzread-pos-overflow/report.txt)） | UndefinedBehaviorSanitizer：有符号整数溢出，位于 `gz_read`（`x.pos += n`）、`gzgetc()` 宏和 `gzgetc` 函数 | [gz 位置溢出，读取](findings/gzread-pos-overflow/README.md) | 补丁 0004，本地 |
 | [gzwrite-pos-overflow](../tests/regression/gzwrite-pos-overflow/README.md)（[报告](../tests/regression/gzwrite-pos-overflow/report.txt)） | UndefinedBehaviorSanitizer：有符号整数溢出，`gzwrite.c:230`（`gz_write`）和 `gzwrite.c:352`（`gzputc`） | [gz 位置溢出，写入](findings/gzwrite-pos-overflow/README.md) | 补丁 0004，本地 |
 
@@ -263,15 +263,15 @@ READ of size 1 at 0x519000000e89 thread T0
 这些运行使用同样的 sanitizer，没有任何报告。它们表明某种布局是有定义的 C，所以证明覆盖它。
 
 - [inflate-shared-block](../tests/regression/inflate-shared-block/README.md)：输入范围和输出范围位于同一个堆块中，两种先后顺序都有。这在前提 `StreamBuffers` 之内：它要求两个范围分开，不要求它们位于不同的块。
-- [inflate-gzip-flags-prime](../tests/regression/inflate-gzip-flags-prime/README.md)：对处于 `FLAGS` 的 gzip 流调用 `inflatePrime`，使标志字变为 65544。这是有定义的，尽管 zlib.h 说 `inflatePrime` 应当与 raw inflate 一起使用（`zlib.h:1021`）。
+- [inflate-gzip-flags-prime](../tests/regression/inflate-gzip-flags-prime/README.md)：对处于 `FLAGS` 的 gzip 流调用 `inflatePrime`，使标志字变为 65544。这是有定义的，尽管 zlib.h 说 `inflatePrime` “`should be used with raw inflate`”（应当用于裸 inflate，`zlib.h:1021`）。
 
 ## 未列入
 
-- [deflate-slide](../tests/regression/deflate-slide/README.md)：UndefinedBehaviorSanitizer 在一个人为构造的内部状态中报告有符号溢出，没有哪个调用序列被表明能到达它。它测试的是翻译中的溢出故障，不是调用者布局。
+- [deflate-slide](../tests/regression/deflate-slide/README.md)：UndefinedBehaviorSanitizer 在一个人为构造的内部状态中报告有符号溢出，目前没有任何调用序列被证实能到达这个状态。它测试的是翻译中的溢出故障，不是调用者布局。
 - sanitizer 构建保持无报告的差分回归测试：`inflate-copy`、`inflate-deferred-distance`、`inflate-prime`、`trees-depth-read`、`crc-byte-views`。
 - [deflate-resetkeep-stale-hash](findings/deflate-resetkeep-stale-hash/README.md) 中的数据错误，没有 sanitizer 报告它。
 - 本地补丁 0005 去掉的对 `x.next` 的加零（[未写入](findings/gz-reset-next-uninitialised/README.md)、[悬空](findings/gz-next-dangling-after-direct-read/README.md)）：按 C 标准的字面规定未定义，用探针展示；没有 sanitizer 报告它。
-- 透明探测之后的位置溢出，是补丁 0004 第一版的缺口（[发现](findings/gz-position-copy-overflow.md)）：已在模型中确认，也已通过阅读 C 确认，没有在 sanitizer 下复现。
+- 透明探测之后的位置溢出，是补丁 0004 第一版的缺口（[发现](findings/gz-position-copy-overflow.md)）：已在模型中确认，也已通过对 C 的解读确认，没有在 sanitizer 下复现。
 - [inflate-configured-window](../tests/regression/inflate-configured-window/README.md)：在一个输入上对 C 的原生运行，不带 sanitizer，没有报告。
 
 ## 添加复现

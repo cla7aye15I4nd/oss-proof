@@ -29,7 +29,7 @@ Platform and source of the reports:
 | `gzprintf-error-string` | arm64 macOS (Apple clang) only | The pinned source with patches 0001 to 0005. Its line numbers are those of that patched source and differ from the pinned source. |
 | `deflate-copy-pending-prev` | x86_64 Linux (GCC 14); the same AddressSanitizer report on arm64 macOS | The pinned source; no patch touches the deflate files. |
 | `inflate-copy-fixed`, `gzseek-pushback-overflow`, `gzread-transparent-stale-next` | x86_64 Linux (GCC 15.2); the same verdicts on arm64 macOS (Apple clang 21) | The pinned source without any patch. Line numbers are those of the pinned source. |
-| `gzread-pos-overflow`, `gzwrite-pos-overflow` | x86_64 Linux (kernel 7.0, GCC 15.2). The write report also reproduces on arm64 macOS; the read report needs Linux. | The pinned source with every patch except 0004. The `gzread.c` lines are one above those of the pinned source; the `gzwrite.c` lines are those of the pinned source. |
+| `gzread-pos-overflow`, `gzwrite-pos-overflow` | x86_64 Linux (kernel 7.0, GCC 15.2). The write report also reproduces on arm64 macOS; the read report did not reproduce in a run there ([its page](findings/gzread-pos-overflow/README.md) says what was observed). | The pinned source with the patches except 0004, as each `run.sh` builds it. The retained run of `gzwrite-pos-overflow` with the real `/dev/null` used patches 0001 to 0003. The `gzread.c` lines are one above those of the pinned source; the `gzwrite.c` lines are those of the pinned source. |
 
 A sanitizer report is evidence about one run of the real C. It is not a proof.
 
@@ -240,7 +240,8 @@ Excluding premise: [deviations, row "Whole-buffer compression"](deviations.md#wh
 
 [Directory](../tests/regression/gzprintf-error-string/README.md), `errstr.c`,
 [report](../tests/regression/gzprintf-error-string/report.txt). A documentation gap, not a zlib
-bug: zlib.h says only that later `gzerror` calls may invalidate the string.
+bug: zlib.h says that later `gzerror` calls may invalidate the string and that closing the file
+makes it unavailable (`zlib.h:1793`); it does not mention `gzprintf`.
 
 ```c
 /* p[1]: the write end of a full, non-blocking pipe */

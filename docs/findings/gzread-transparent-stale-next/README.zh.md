@@ -6,8 +6,8 @@
 ## 状态
 
 - 内存错误：读到输出缓冲区之外的堆内存。在文档用法之内；它需要在读到部分数据之后发生 I/O 错误。
-- 在未修改的固定版本源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上由 AddressSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
-- 修复已作为 [PR #1363](https://github.com/madler/zlib/pull/1363) 提交上游。该拉取请求仍处于打开状态；2026-11-14 读取其状态时，维护者还没有答复。验证对象把它作为[补丁 0003](../../../patches/README.md) 应用。
+- 在未修改的固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上由 AddressSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
+- 修复已作为[拉取请求 #1363](https://github.com/madler/zlib/pull/1363) 提交上游。该拉取请求仍处于打开状态；2026-11-14 读取其状态时，维护者还没有答复。被验证的源码把它作为[补丁 0003](../../../patches/README.md) 应用。
 
 ## 调用序列
 
@@ -20,7 +20,7 @@ for (int i = 0; i < 48; i++)
 gzread(f, buf, 1);                       /* gzread.c:369：memcpy(buf, state->x.next, n) */
 ```
 
-最后一个调用在固定版本的 `gzread.c` 中这样执行：
+最后一个调用在固定的 `gzread.c` 中这样执行：
 
 1. `gz_read` 发现没有缓冲的输出，调用 `gz_fetch`。
 2. 在 `gz_fetch` 的 `case COPY` 中，`gz_load` 存下读到的那一个字节，设置 `x.have = 1`，然后返回 -1，因为下一次 `read()` 以 `EAGAIN` 以外的错误失败。
@@ -37,7 +37,7 @@ gzread(f, buf, 1);                       /* gzread.c:369：memcpy(buf, state->x.
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzread-transparent-stale-next/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g -O1` 把固定版本源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。未打补丁的构建必须报告这次读取。打过补丁的构建不得有任何报告，并且 `gzread` 必须返回 1 并保留错误 `Z_ERRNO`。两项都成立时脚本以状态 0 退出，最后一行是：
+脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g -O1` 把固定的源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。未打补丁的构建必须报告这次读取。打过补丁的构建不得有任何报告，并且 `gzread` 必须返回 1 并保留错误 `Z_ERRNO`。两项都成立时脚本以状态 0 退出，最后一行是：
 
 ```
 ok: patched: gzread returns the byte and keeps Z_ERRNO, no report
@@ -65,13 +65,13 @@ READ of size 1 at 0x7926271e0060 thread T0
 
 ## `zlib.h` 的说法
 
-zlib.h 把这种情形说成是已处理的：如果在出错之前读到了一些数据，这些数据会被返回，直到取完（`zlib.h:1492`）。未打补丁的代码返回的字节数是对的，字节却是错的。
+zlib.h 把这种情形说成是已处理的：“`If some data was read before an error, then that data is returned until exhausted`”（如果在出错之前读到了一些数据，这些数据会被返回，直到取完，`zlib.h:1492`）。未打补丁的代码返回的字节数是对的，字节却是错的。
 
 ## 修复
 
-[PR #1363](https://github.com/madler/zlib/pull/1363)，头部 `37627fd3bb47`：在 `gz_fetch` 的 `case COPY` 中，把 `state->x.next = state->out;` 移到 `gz_load` 调用之前，这样当 `gz_load` 带着部分计数返回 -1 时它也成立。
+[拉取请求 #1363](https://github.com/madler/zlib/pull/1363)，最新提交 `37627fd3bb47`：在 `gz_fetch` 的 `case COPY` 中，把 `state->x.next = state->out;` 移到 `gz_load` 调用之前，这样当 `gz_load` 带着部分计数返回 -1 时它也成立。
 
-[补丁 0003](../../../patches/README.md) 正是这一改动。上游包含该修复、固定版本越过它之后，补丁就会删除。
+[补丁 0003](../../../patches/README.md) 正是这一改动。上游包含该修复、固定的提交越过它之后，补丁就会删除。
 
 ## 与证明的关系
 

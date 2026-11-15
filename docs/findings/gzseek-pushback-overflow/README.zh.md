@@ -6,8 +6,8 @@
 ## 状态
 
 - 未定义行为：有符号整数溢出，出现在 `gzlib.c` 的三条语句上。在文档用法之内。
-- 在未修改的固定版本源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上由 UndefinedBehaviorSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
-- 修复已作为 [PR #1361](https://github.com/madler/zlib/pull/1361) 提交上游。该拉取请求仍处于打开状态；2026-11-14 读取其状态时，维护者还没有答复。验证对象把其中 `gzlib.c` 的部分作为[补丁 0002](../../../patches/README.md) 应用。
+- 在未修改的固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上由 UndefinedBehaviorSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
+- 修复已作为[拉取请求 #1361](https://github.com/madler/zlib/pull/1361) 提交上游。该拉取请求仍处于打开状态；2026-11-14 读取其状态时，维护者还没有答复。被验证的源码把其中 `gzlib.c` 的部分作为[补丁 0002](../../../patches/README.md) 应用。
 
 ## 调用序列
 
@@ -27,7 +27,7 @@ gzseek(f, LONG_MAX, SEEK_SET);      /* 范围检查通过（pos 先是 0，后�
                                        gzlib.c:403（透明），gzlib.c:424（gzip） */
 ```
 
-固定版本 `gzlib.c` 中的语句：
+固定的 `gzlib.c` 中的语句：
 
 ```c
     if (offset > GZ_OFF_MAX - pos)                                           /* 395 */
@@ -45,7 +45,7 @@ gzseek(f, LONG_MAX, SEEK_SET);      /* 范围检查通过（pos 先是 0，后�
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzseek-pushback-overflow/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把固定版本源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。它在每个构建上运行 `seek.c` 四次（透明输入和 gzip 输入，`SEEK_CUR` 和 `SEEK_SET`）。未打补丁的构建每次运行都必须报告有符号溢出。打过补丁的构建不得有任何报告；这时 `SEEK_CUR` 返回 0，`SEEK_SET` 返回 -1。八项检查全部成立时脚本以状态 0 退出，最后一行是：
+脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把固定的源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。它在每个构建上运行 `seek.c` 四次（透明输入和 gzip 输入，`SEEK_CUR` 和 `SEEK_SET`）。未打补丁的构建每次运行都必须报告有符号溢出。打过补丁的构建不得有任何报告；这时 `SEEK_CUR` 返回 0，`SEEK_SET` 返回 -1。八项检查全部成立时脚本以状态 0 退出，最后一行是：
 
 ```
 ok: patched: seek set LONG_MAX = -1, no report
@@ -71,16 +71,16 @@ gzlib.c:424:12: runtime error: signed integer overflow: 9223372036854775807 - -1
 
 ## `zlib.h` 的说法
 
-这个序列是文档用法：按 `zlib.h:1643`，如果 gzungetc 紧跟在 gzopen 或 gzdopen 之后使用，允许推回的字符数可达输出缓冲区的大小。关于 `gzseek`，zlib.h 说，如果结果位置“不能用偏移类型表示”，它返回 -1（`zlib.h:1687`）；还说流被重新定位时，推回的字符会被丢弃。
+这个序列是文档用法：zlib.h 写到 “`If gzungetc is used immediately after gzopen or gzdopen`”（如果 gzungetc 紧跟在 gzopen 或 gzdopen 之后使用，`zlib.h:1643`）的情形：这时允许推回的字符数可达输出缓冲区的大小。关于 `gzseek`，zlib.h 说，如果结果位置 “`would not be representable in the offset type`”（不能用偏移类型表示），它返回 -1（`zlib.h:1687`）；还说流被重新定位时，推回的字符会被丢弃。
 
 ## 修复
 
-[PR #1361](https://github.com/madler/zlib/pull/1361)，头部 `ce2248ee9750`，`gzlib.c` 部分：
+[拉取请求 #1361](https://github.com/madler/zlib/pull/1361)，最新提交 `ce2248ee9750`，`gzlib.c` 部分：
 
 - 上界检查只在 `pos > 0` 时求值，所以 `GZ_OFF_MAX - pos` 不会溢出；
 - 在 `pos += offset` 之后，如果位移 `pos - state->x.pos` 放不下，就拒绝从负位置出发的定位：`state->x.pos < 0 && pos > GZ_OFF_MAX + state->x.pos` 时返回 -1。
 
-[补丁 0002](../../../patches/README.md) 就是这一改动。该拉取请求中 `test/example.c` 的部分不属于验证对象。上游包含该修复、固定版本越过它之后，补丁就会删除。
+[补丁 0002](../../../patches/README.md) 就是这一改动。该拉取请求中 `test/example.c` 的部分不属于被验证的源码。上游包含该修复、固定的提交越过它之后，补丁就会删除。
 
 ## 与证明的关系
 
