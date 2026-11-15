@@ -2426,7 +2426,7 @@ gzip 文件接口的安全（第 5 项结论，所有者 2026-11-12 的决定）
 
 ### zlib.h 函数的无故障覆盖
 
-zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出错的已检查定理，以及所走的路线：它自己的目标、序列目标（该调用是一个 `StreamOperation`）、`StreamSequenceSafety` 的 End 子句，或 open。这是 `dev` 在 `10bd366a`（2026-11-13）的快照。“已登记”指列入 `tests/audit/theorems.txt`，即验收候选，尚未验收。定理或目标变化时，需重新核对对应行。
+zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出错的已检查定理，以及所走的路线：它自己的目标、序列目标（该调用是一个 `StreamOperation`）、`StreamSequenceSafety` 的 End 子句，或 open。这是 `dev` 在 `6a097d3b`（2026-11-14）的快照。“已登记”指列入 `tests/audit/theorems.txt`，即验收候选，尚未验收。定理或目标变化时，需重新核对对应行。
 
 每条流路线或工具函数路线共有的模型级前提，不在每行重复：默认分配器（`DefaultOrNull`/`DefAlloc`/`zfree = zcfree`；已声明的目标限制）、堆良构性（`Fresh`、`Uniq`、`LibraryGlobals`），以及对 inflate、工具函数和 inflateBack 而言的 `ByteObjectsFit`（`docs/deviations.md` 中的平台行）。
 
@@ -2440,20 +2440,20 @@ zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出�
 | 函数 | 路线 | 定理（Lean 名称，文件） | 已登记？ | 定义域缺口或备注 |
 | --- | --- | --- | --- | --- |
 | deflateInit_（宏 deflateInit） | 自身目标 | `ZlibF.Spec.Public.Proofs.DeflateInit.deflateInit_proof`，`public-deflate-init.lean` | 是 | 完整：错误版本（`VersionValue`，NULL 或可读的首字节）、错误的 `stream_size`（任意 `p`）、NULL strm、每个 level、分配失败。 |
-| deflateInit2_（宏 deflateInit2） | 自身目标 | `ZlibF.Spec.Public.Proofs.DeflateInit2.deflateInit2_proof`，`public-deflate-init2.lean` | 是 | 完整，同 deflateInit_，另加每个 method/windowBits/memLevel/strategy。`Goal.deflate_initialisation_domain`（非空性）没有定理。 |
+| deflateInit2_（宏 deflateInit2） | 自身目标 | `ZlibF.Spec.Public.Proofs.DeflateInit2.deflateInit2_proof`，`public-deflate-init2.lean` | 是 | 完整，同 deflateInit_，另加每个 method/windowBits/memLevel/strategy。`Goal.deflate_initialisation_domain`（非空性）已登记（`DeflateInitDomain.deflate_initialisation_domain_public`）。 |
 | deflate | 自身目标 + SeqD | `Zlib.Deflate.Universal.deflate_safety`，`public-deflate-goals.lean` | 是 | 可达 + `DGood` + `StreamBuffers` + `ActiveHeader`（分离行）。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
 | deflateEnd | 自身目标 + SeqD 的 End 子句 | `ZlibF.Spec.Public.DeflateEndProof.deflate_end_public`，`public-deflate-end.lean`；SeqD 的第 3 子句 | 是 | 自身目标需要 `DGood`。Refusal：`Zlib.Deflate.Proofs.deflateEnd_reject`（`deflate.c.life.end.lean`，已登记）覆盖 NULL、zalloc/zfree 为 NULL、state 为 NULL，以及被拒绝的活动 state。因此已覆盖：从未初始化（模型指针为 NULL）、NULL、state 为 NULL，以及复制失败之后。它不是类型为目标的定理。 |
-| deflateSetDictionary | SeqD | SeqD | 是 | 自身的 `Goal.deflateSetDictionary`：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| deflateGetDictionary | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateDictionaryProof.deflate_getdict_public`，`public-deflate-getdict.lean` | 是 | 自身目标需要 `DGood`，且目标缓冲区与窗口分离。Refusal：`Zlib.Deflate.Proofs.deflateGetDictionary_reject`（`deflate.c.life.getdict.lean`）已检查，但**未登记**。 |
+| deflateSetDictionary | 安全目标 + SeqD | `Goal.deflateSetDictionary_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateSetDictionary`（不在计划内）：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
+| deflateGetDictionary | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateDictionaryProof.deflate_getdict_public`，`public-deflate-getdict.lean` | 是 | 自身目标需要 `DGood`，且目标缓冲区与窗口分离。Refusal：`Zlib.Deflate.Proofs.deflateGetDictionary_reject`（`deflate.c.life.getdict.lean`）已登记。 |
 | deflateCopy | 自身目标 | `Zlib.Deflate.Universal.deflate_copy_public` / `deflate_copy_safety`，`public-deflate-copy.lean` | 是 | 不是 `StreamOperation`；`StreamReachable.deflateCopy` 只为 SeqD 的第 1 子句提供输入。缺口：`source ≠ dest`（偏差行）。不一致的源由 `Goal.deflate_refusal`（checked）覆盖。 |
 | deflateReset | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateResetProof.deflate_reset_public`，`public-deflate-reset.lean` | 是 | Refusal：`Zlib.Deflate.Proofs.deflateReset_reject`（已登记）。 |
-| deflateParams | SeqD | SeqD | 是 | 自身的 `Goal.deflateParams`：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
+| deflateParams | 安全目标 + SeqD | `Goal.deflateParams_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateParams`（不在计划内）：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
 | deflateTune | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.tune_public`，`public-deflate-small-queries.lean` | 是 | 完整（`CheckedDeflate` 包含各 refusal）。 |
-| deflateBound | SeqD | SeqD | 是 | 自身的 `Goal.deflateBound`：无定理。SeqD 需要 `ActiveHeader ∧ DeflateHeaderLive`。Refusal：`deflateBound_nostate`（已登记）。 |
-| deflateBound_z | SeqD | SeqD | 是 | 同 deflateBound（`deflateBound_z_nostate`，已登记）。 |
+| deflateBound | 安全目标 + SeqD | `Goal.deflateBound_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateBound`（不在计划内）：无定理。SeqD 需要 `ActiveHeader ∧ DeflateHeaderLive`。Refusal：`deflateBound_nostate`（已登记）。 |
+| deflateBound_z | 安全目标 + SeqD | `Goal.deflateBound_z_safety`（已登记）；SeqD | 是 | 同 deflateBound（`deflateBound_z_nostate`，已登记）。 |
 | deflatePending | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.pending_public` | 是 | 完整。 |
 | deflateUsed | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.used_public` | 是 | 完整。 |
-| deflatePrime | SeqD | SeqD | 是 | 自身的 `Goal.deflatePrime`：无定理。SeqD 需要 `DeflateNotStarted`，这是 zlib.h 自己的次序规则。Refusal：`deflatePrime_refused`（已登记）。 |
+| deflatePrime | 安全目标 + SeqD | `Goal.deflatePrime_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflatePrime`（不在计划内）：无定理。SeqD 需要 `DeflateNotStarted`，这是 zlib.h 自己的次序规则。Refusal：`deflatePrime_refused`（已登记）。 |
 | deflateSetHeader | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.header_public` | 是 | 完整。SeqD 需要 `DeflateNotStarted`（zlib.h 的次序）。 |
 
 #### 流：inflate
@@ -2466,7 +2466,7 @@ zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出�
 | inflateEnd | 自身目标 + SeqI 的 End 子句 | `ZlibF.Spec.Public.InflateEndProof.inflate_end_public`，`public-inflate-end.lean`；SeqI 的第 3 子句 | 是 | 自身目标需要 `Good`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
 | inflateSetDictionary | 自身目标 + SeqI | `ZlibF.Spec.Public.Proofs.inflateSetDictionary_public`，`public-inflate-setdict.lean` | 是 | 自身目标需要 `Good`、`zalloc = zcalloc`，以及与窗口分离的字典（偏差行）。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
 | inflateGetDictionary | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateDictionaryProof.inflate_getdict_public` | 是 | 自身目标需要 `Good`，且目标缓冲区与窗口分离。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateSync | SeqI | SeqI | 是 | 自身的 `Goal.inflateSync`：无定理。Refusal：`inflateSync_check`（已登记）。 |
+| inflateSync | 安全目标 + SeqI | `Goal.inflateSync_safety`（已登记）；SeqI | 是 | 自身的功能目标 `Goal.inflateSync`（不在计划内）：无定理。Refusal：`inflateSync_check`（已登记）。 |
 | inflateCopy | 自身目标 | `Zlib.Inflate.Proofs.inflate_copy_public`，`public-inflate-copy.lean` | 是 | 不是 `StreamOperation`。缺口：`source ≠ dest`（偏差行）。不一致的源由 `Goal.inflate_refusal`（checked）覆盖。 |
 | inflateReset | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateResetProof.reset_public` | 是 | 自身目标需要 `InflateView`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
 | inflateReset2 | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateReset2Proof.reset2_public` | 是 | 每个 `windowBits`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
@@ -2536,14 +2536,14 @@ zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出�
 3. **inflateEnd**：已关闭。NULL、state 为 NULL、`End` 之后、初始化失败之后，以及复制失败的目标由 `Goal.inflate_refusal`（checked）覆盖。
 4. **inflateCopy**：已关闭。不一致的源由 `Goal.inflate_refusal`（checked）覆盖。
 5. **NULL 或不一致流的 refusal**：已关闭。`Goal.inflate_refusal` 与 `Goal.deflate_refusal`（checked）覆盖 `inflate`、`deflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary`、`inflateCopy`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 与 `deflateCopy`。这些目标与 `deflateGetDictionary_reject` 已登记。
-6. **deflateParams、deflateSetDictionary、deflatePrime、deflateBound、deflateBound_z、inflateSync**：没有自身目标定理。可达流上的无故障只经由 SeqI 或 SeqD 得到。这对计划内的安全性已足够，但逐调用的自身目标仍为 open。
+6. **deflateParams、deflateSetDictionary、deflatePrime、deflateBound、deflateBound_z、inflateSync**：它们的逐函数安全目标（`Goal.*_safety`）已登记（dd73d9d2）。它们的功能性自身目标没有定理，不在计划内。
 7. **adler32、adler32_z**：定义域比 zlib.h 更窄（NULL 只在 `len = 0` 时允许）。`len = 1` 是真实的 C 错误（偏差行）。`len ≥ 2` 的 NULL 安全但未证明。
 8. **gz 函数**：`Goal.gz_sequence_safety` 已登记（`gz_sequence_safety_public`，无前提），连同其非空性目标。`gzgetc` 宏路径（审读 A1）和同一 fd 上的第二个句柄（审读 B1）都在目标之内。`NULL` 句柄由 `Goal.gz_refusal` 覆盖。
-9. 相关，但不是函数：`Goal.deflate_initialisation_domain`（非空性）没有定理。
+9. 相关，但不是函数：`Goal.deflate_initialisation_domain`（非空性）已登记（`deflate_initialisation_domain_public`，06cbfd06；在 dd73d9d2 登记）。`Goal.gz_initialisation_domain` 不是必需目标（见[范围](#scope)）。
 
 ### 按顺序的下一步工作
 
-第 9 至 12 行是计划内工作，见[范围](#scope)。先做第 11 行，然后是第 9 行和第 12 行。第 1 至 5 行和第 13 行属于 gzip 文件接口：它们的安全在计划内（第 5 项），按 [gz 骨架](#gz) 进行，而不按本表；它们的功能契约不在计划内。第 6 至 8 行和第 10 行只在某个 sequence 目标需要时才做。
+每个必需目标都已登记（63 个必需目标，没有未完成的；2026-11-14）。计划内的第 9 至 12 行中，现已登记的目标是 `deflateInit2_`、`deflate_initialisation_domain`、`inflateCopy`、`deflateCopy`、`inflate`、`deflate`，以及所列其他调用的安全目标（`inflate_sequence_safety`、`deflate_sequence_safety`、`inflateSync_safety`、`deflateParams_safety`、`uncompress*_safe`、`compress*_safety`、`inflate_back_sequence_safety`）。其中剩下的都是功能性的，不在计划内：`inflate_sequence`、`deflate_sequence`、`uncompress*`、`compress*`、`inflateBack`、`inflate_back_sequence` 以及各功能性自身目标。第 1 至 5 行和第 13 行属于 gzip 文件接口：它们的安全在计划内（第 5 项），按 [gz 骨架](#gz) 进行，而不按本表；它们的功能契约不在计划内。第 6 至 8 行和第 10 行只在某个 sequence 目标需要时才做。
 
 按顺序排列。“前提”是必须先证明的内容，绝不是假设的契约。“负责 PR”是承载该工作的拉取请求（如已存在）。
 
@@ -2557,8 +2557,8 @@ zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出�
 | 6 | `deflatePrime` | 在 `DGood` 下的待输出字节压缩与位插入 | — |
 | 7 | `deflateBound`、`deflateBound_z` | 执行公式与饱和上界的对应，包括头部字符串 | — |
 | 8 | `deflateSetDictionary` | 在 `DGood` 下的窗口填充、散列插入与输入恢复 | — |
-| 9 | `deflateInit2_`、`deflate_initialisation_domain` | 参数规范化、五次分配、清理，以及对每组参数建立 `DGood` | — |
-| 10 | `inflateCopy`、`deflateCopy` | 分配失败、缓冲区复制、指针重定位、独立归属 | — |
+| 9 | `deflateInit2_`、`deflate_initialisation_domain` | 已登记。原为：参数规范化、五次分配、清理，以及对每组参数建立 `DGood` | — |
+| 10 | `inflateCopy`、`deflateCopy` | 已登记。原为：分配失败、缓冲区复制、指针重定位、独立归属 | — |
 | 11 | `inflate` → `inflate_sequence` → `inflateSync`、`uncompress*`、`inflateBack`、`inflate_back_sequence` | 由实际 `inflate_table` 得到的表含义；覆盖所有模式的单一调度循环不变式 | — |
 | 12 | `deflate` → `deflate_sequence` → `deflateParams`、`compress*` | `fill_window` 与滑动；以级别、`memLevel`、`windowBits` 为参数的单一策略循环不变式；块输出 | — |
 | 13 | 压缩 gz 路径、`gzclose_w`、`gzclose`、`gz_sequence` | 第 11 和 12 项 | — |
