@@ -33,9 +33,12 @@ repackaged field by field, each field definitionally equal. The docstring of eac
 `X_old_of_new` says which case its goal is in.
 -/
 
+set_option autoImplicit false
+
 namespace InffastOld.Proofs
 open C Zlib.Inffast ZlibF.Spec
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 section EnvSection
 
@@ -232,6 +235,7 @@ end InffastOld.Proofs
 namespace InffastOld.Spec
 open C Zlib.Inffast
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 /-- The loop's six-byte and 258-byte margins, and the existing concrete heap/table context.
 `A` is the current output array, with its original allocation size. No function contract occurs
@@ -300,6 +304,7 @@ end InffastOld.Spec
 namespace InffastOld.Spec.Origin
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 /-- The complete logical input remaining at entry to this fast call. -/
 def initial (e : Env) : List Bool := Sg e e.s0.hold.toNat e.s0.bits.toNat e.i0
@@ -391,6 +396,7 @@ end InffastOld.Spec.Origin
 namespace InffastOld.Spec.BodyOrigin
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 /-- Actual bit movement consumes a nonnegative exact prefix of the
 original fast-call input and retains the complete existing body result.
@@ -412,6 +418,7 @@ end InffastOld.Spec.BodyOrigin
 namespace InffastOld.Spec.CallOrigin
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 def HasOrigin (e : Env) (after : Heap) : Prop :=
   ∃ (state : InflateState) (stream : ZStream) (input used : Nat),
@@ -435,6 +442,7 @@ end InffastOld.Spec.CallOrigin
 namespace InffastOld.Spec.LengthSemantics
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 open Zlib.Inftrees Zlib.Inftrees.Spec
 
 /-- The final entry selected by the actual fast root/link branch order.
@@ -485,6 +493,7 @@ end InffastOld.Spec.LengthSemantics
 namespace InffastOld.Spec.LengthTrace
 open C Zlib.Inffast InffastOld.Proofs ZlibF.Spec
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 /-- The two actual pre-lookup pulls, when needed, expressed with the
 existing register-update function. No output or table storage changes. -/
@@ -548,6 +557,7 @@ end InffastOld.Spec.LengthTrace
 namespace InffastOld.Spec.MatchHistory
 open C Zlib.Inffast InffastOld.Proofs ZlibF.Math.LZ77Copy
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 /-- The saved bytes in chronological order at the window's actual base
 offset. No default array access may be selected when the window is used. -/
@@ -607,6 +617,7 @@ end InffastOld.Spec.MatchHistory
 namespace InffastOld.Spec.DistanceOrigin
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 
 /-- The complete actual distance sub-block retains its existing result
 and the exact source suffix on every exit. These are internal data
@@ -639,6 +650,7 @@ end InffastOld.Spec.DistanceOrigin
 namespace InffastOld.Spec.DistanceSemantics
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 open Zlib.Inftrees Zlib.Inftrees.Spec
 
 /-- A selected fast leaf has the exact query, consumed code length and
@@ -674,6 +686,7 @@ end InffastOld.Spec.DistanceSemantics
 namespace InffastOld.Spec.DistanceResult
 open C Zlib.Inffast InffastOld.Proofs ZlibF.Spec
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 open Zlib.Inftrees Zlib.Inftrees.Spec
 open ZlibF.Math.LZ77Copy
 
@@ -790,6 +803,7 @@ end InffastOld.Spec.DistanceResult
 namespace InffastOld.Spec.BodyToken
 open C Zlib.Inffast InffastOld.Proofs ZlibF.Spec
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
+open Zlib.Inffast.Spec
 open Zlib.Inftrees Zlib.Inftrees.Spec
 open ZlibF.Math.LZ77Copy
 
