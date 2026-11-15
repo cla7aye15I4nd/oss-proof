@@ -1,10 +1,24 @@
 # Buffer utilities and output bounds
 
-Source: `compress.c`, `uncompr.c` and the bound entries in `deflate.c`.
-Read the [API contracts](../spec/api/utility.md) for caller obligations and
-[progress](../progress.md) for accepted scope and remaining work.
-This guide records source correspondence and composition obligations, not
-complete buffer-utility proofs.
+Source: `compress.c`, `uncompr.c` and the bound entries in `deflate.c`. The
+[API contracts](../spec/api/utility.md) give the caller obligations.
+
+This page reads the C of the whole-buffer functions and records the source decisions that
+their proofs depend on. The proofs themselves are on two other pages.
+
+| Functions | Safety (required) | Page |
+| --- | --- | --- |
+| `compress`, `compress_z`, `compress2`, `compress2_z` | `compress_safety`, `compress_z_safety`, `compress2_safety`, `compress2_z_safety` (`ZlibF/Proof/public-compress-safe-mid.lean`) | [Safety of `compress*`](compress-safety.md) |
+| `uncompress`, `uncompress_z`, `uncompress2`, `uncompress2_z` | `uncompress_safe`, `uncompress_z_safe`, `uncompress2_safe`, `uncompress2_z_safe` (`ZlibF/Proof/public-uncompress-safe.lean`) | [Safety of `uncompress*`](uncompress-safety.md) |
+| `deflateBound`, `deflateBound_z` | `deflateBound_safety`, `deflateBound_z_safety` (`ZlibF/Proof/public-stream-call-safety.lean`) | [Stream compression](deflate.md) |
+| `compressBound`, `compressBound_z` | `compressBound`, `compressBound_z` (`ZlibF/Proof/public-compress-bound.lean`). The manifest uses the full contract, the exact value of the formula, as the safety goal: the functions read no memory | this page |
+
+The safety theorems are accepted on commit `bde170e9`
+([progress, Scope](../progress.md#scope)). The functional contracts of these functions, such
+as the bytes that `uncompress` writes or that every compressor output fits the bound, are not
+required.
+
+A source reading that no theorem states is marked **to confirm**.
 
 ## Bounds and buffer utility wrappers
 
@@ -14,14 +28,15 @@ formula alone does not show that every compressor output fits it.
 scan includes the terminating null. It normalizes a negative `wrap` after
 finishing and retains every overflow guard.
 
-The historical `deflateBound_z` header issue concerns correctness, not signed
-overflow: `2 + extra_len` is evaluated as 32-bit unsigned before addition to the
-64-bit wrapper cost. For `extra_len >= 0xfffffffe` it wraps, whereas emission
-uses only `extra_len & 0xffff`. The earlier proposed correction used
+One point of `deflateBound_z` concerns the value of the bound, not safety:
+`2 + extra_len` is evaluated as 32-bit unsigned before addition to the 64-bit
+wrapper cost. For `extra_len >= 0xfffffffe` it wraps, whereas emission uses only
+`extra_len & 0xffff`. A proposed correction used
 `2 + (z_size_t)(extra_len & 0xffff)`
-([upstream discussion](https://github.com/madler/zlib/pull/1360)). This history
-does not authorize an unlisted patch. **to confirm**: the output bound follows
-for its stated source and header domain.
+([upstream discussion](https://github.com/madler/zlib/pull/1360)). No patch for
+it is applied; `patches/README.md` lists the patches. **to confirm**: the output
+bound follows for its stated source and header domain. That is a functional
+question and is not required.
 
 `compress2_z` and `uncompress2_z` have automatic local streams. Creating them
 must not fail, consume an allocator-oracle call or shift the failure index of
@@ -35,7 +50,7 @@ lengths. They continue only on `Z_OK`, call `End` after successful initializatio
 and retain result mapping and final scalar writes. Late decoder memory failure
 can follow emitted output; it does not imply an empty destination.
 
-Two named decisions from the original review remain relevant:
+Two source decisions matter to the statements:
 
 - **R-2, wrapper null reads.** `compress2` reads `*destLen` before its `_z` call;
   `uncompress2` reads both scalar cells. The `_z` null tests cannot protect those
@@ -48,8 +63,8 @@ Two named decisions from the original review remain relevant:
 
 The compressor adapter represents its length pointer as an optional input and a
 returned value. It cannot express aliases with byte buffers. Counted
-decompressor adapters also have scalar separation limits. See
-[deviations](../deviations.md); these limits do not settle the full C domain.
+decompressor adapters also have scalar separation limits. Both limits are rows
+in [deviations](../deviations.md). A call outside them is outside the theorems.
 
 `uncompress2_z` uses the address of its local stream's `reserved` field as a
 non-null dummy output at zero capacity. A separate represented byte can model
