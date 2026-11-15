@@ -2,8 +2,29 @@
 
 Sources: `zlib/zutil.c` and `zlib/zutil.h`; translation:
 `ZlibF/Zlib/zutil.c.lean`. These functions support both stream implementations.
-Their public contracts are in the [API guide](../spec/api/README.md), and their
+Their public contracts are in the [API page](../spec/api/utility.md), and their
 ownership role is defined in [safety](../spec/safety.md).
+
+The two documented queries are safe, and the allocator wrappers have exact
+ownership effects. This page explains the size arithmetic that the stream
+proofs take from the allocator, and the constant queries.
+
+## What is proved
+
+| Result | Kind | Theorem | Module |
+| --- | --- | --- | --- |
+| `Goal.zlibVersion_safety`, `Goal.zlibCompileFlags_safety` (`ZlibF/Spec/Safety/Queries.lean`) | Safety, required | `zlibVersion_safety`, `zlibCompileFlags_safety` | `ZlibF/Proof/public-stateless-safety.lean` |
+| `Goal.zlibVersion`, `Goal.zlibCompileFlags` | Functional, stays | `zlibVersion`, `zlibCompileFlags` | `ZlibF/Proof/public-zlib-version.lean`, `ZlibF/Proof/public-zlib-compile-flags.lean` |
+| `Goal.zError` | Not required: `zlib.h` lists `zError` as undocumented | `zError` | `ZlibF/Proof/public-zerror.lean` |
+| The allocator wrappers `zcalloc` and `zcfree` | Internal, used by every stream proof | `zcalloc_safe`, `zcalloc_correct_some`, `zcalloc_correct_size`, `zcalloc_correct_none`, `zcfree_safe`, `zcfree_correct`, `zcfree_correct_null`, `zcalloc_zcfree_no_leak` | `ZlibF/Proof/zutil.c.lean` |
+
+All of these are registered in `tests/audit/theorems.txt` and accepted on commit
+`bde170e9` ([progress, Scope](../progress.md#scope)).
+
+`zcalloc` and `zcfree` are not public functions. Leak freedom of a stream is a
+clause of the sequence safety theorems of [inflate](inflate.md) and
+[deflate](deflate.md), which use these wrapper results at each allocation and
+free.
 
 The default LP64 allocator branch uses `malloc`, despite the name `zcalloc`.
 It does not zero the block. Initialization proofs must establish the field
@@ -12,9 +33,9 @@ writes they need, including pointer writes that the model does not track.
 ## Size arithmetic at callers
 
 `zcalloc(opaque, items, size)` computes `items * size` in 32-bit `unsigned`
-arithmetic in this branch. Its wrapper theorem must describe that product
-faithfully. A caller expecting the ordinary product must prove it is below
-`2^32` before relying on the allocated capacity.
+arithmetic in this branch. `zcalloc_correct_size` describes that product
+faithfully. A caller that expects the ordinary product proves that it is below
+`2^32` before it relies on the allocated capacity.
 
 | Default stream allocation | Largest product in bytes |
 | --- | --- |
@@ -51,7 +72,8 @@ not imply that later ones were never attempted. Cleanup must free all successful
 allocations of that attempt, clear or preserve fields as the source specifies
 and restore the previous live-block set. `inflateInit2_`, delayed decoder-window
 allocation and both copy functions need their own failure-case compositions.
-The allocator wrapper alone proves none of that lifecycle cleanup.
+The allocator wrapper alone proves none of that lifecycle cleanup. The init
+and copy theorems prove it: see [inflate](inflate.md) and [deflate](deflate.md).
 
 ## Constant and error queries
 
@@ -61,12 +83,9 @@ The allocator wrapper alone proves none of that lifecycle cleanup.
 | `zlibVersion` | Return the selected version string pointer with the static contents required by the contract; preserve the heap. |
 | `zlibCompileFlags` | Derive the exact numeric flags from the selected type widths and enabled source branches; preserve the heap. |
 
-A constant return is still an exact contract: a wrong version pointer or changed
-flag bit must fail the function's proof mutant. Earlier documentation classified
-these wrappers as complete in a prior model. Present results require the exact
-goal, registration, mutation evidence and reviewed CI described in
-[checking](../checking/README.md). See [progress](../progress.md) for that
-current checkpoint.
+A constant return is still an exact contract: a wrong version pointer or a
+changed flag bit fails the function's proof mutant
+([checking](../checking/README.md)).
 
 ## C correspondence checks
 

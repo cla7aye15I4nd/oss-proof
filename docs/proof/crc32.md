@@ -1,14 +1,48 @@
 # CRC-32: byte ranges, braids and polynomial meaning
 
-Source: `zlib/crc32.c`; translation: `ZlibF/Zlib/crc32.c.lean`. The first target
-is the default x86_64 Linux branch with `W = 8`, `N = 5`, little-endian words and
-no hardware CRC instructions. `F-crc-incremental` is specified in the
+Source: `zlib/crc32.c`; translation: `ZlibF/Zlib/crc32.c.lean`. The target is the
+default x86_64 Linux branch with `W = 8`, `N = 5`, little-endian words and no
+hardware CRC instructions. `F-crc-incremental` is specified in the
 [format guide](../spec/format/README.md); public helper domains are in the
-[API guide](../spec/api/README.md).
+[API page](../spec/api/checksums.md).
 
-Local execution proofs cover every represented byte-array view and all of its
-origin residues. General ABI layout and C aliasing remain separate obligations.
-[Progress](../progress.md) records current results and remaining work.
+The CRC-32 functions are safe on their documented domain, and they return the
+CRC-32 value. This page explains the read budget, the address model behind the
+alignment test, and the polynomial argument for the value.
+
+## What is proved
+
+| Result | Kind | Theorem | Module |
+| --- | --- | --- | --- |
+| `Goal.crc32_safety`, `Goal.crc32_z_safety`, `Goal.crc32_combine_safety`, `Goal.crc32_combine64_safety`, `Goal.crc32_combine_gen_safety`, `Goal.crc32_combine_gen64_safety`, `Goal.crc32_combine_op_safety` (`ZlibF/Spec/Safety/Checksums.lean`) | Safety, required | theorems of the same names without `Goal.` | `ZlibF/Proof/public-stateless-safety.lean` |
+| `Goal.crc32`, `Goal.crc32_z` | Functional, stays | `crc32`, `crc32_z` | `ZlibF/Proof/public-crc-updates.lean` |
+| The five combination goals | Functional, stays | `gen`, `gen64`, `op`, `combine`, `combine64` | `ZlibF/Proof/public-crc-combine.lean` |
+| Every represented byte-array view, with every origin residue | Both | `crc32_z_all_byte_views`, `crc32_all_byte_views` | `ZlibF/Proof/crc32.c.views.lean` |
+| Heap byte blocks and the helpers | Both | `crc32_z_safe`, `crc32_z_correct`, `multmodp_safe`, `multmodp_correct`, `x2nmodp_safe`, `x2nmodp_correct`, and the combination results | `ZlibF/Proof/crc32.c.lean` |
+| `get_crc_table` | Not required: `zlib.h` lists it as undocumented | `get_crc_table` | `ZlibF/Proof/public-get-crc-table.lean` |
+
+All of these are registered in `tests/audit/theorems.txt` and accepted on commit
+`bde170e9` ([progress, Scope](../progress.md#scope)).
+
+A safety goal says that the call returns without a fault and leaves the heap
+exactly as it was. Each safety theorem is the full contract of the same function
+with the value forgotten. The polynomial argument below is functional: it was
+proved earlier and it stays, but only its no-fault part is required.
+
+A paragraph marked **to confirm** is a reading of the C source that no theorem
+named here states in that form. The theorems are checked against the
+translation, not against this prose.
+
+## What is assumed
+
+- The static tables are the library's own (`CrcGlobals`).
+- The buffer is a readable range of `len` bytes, or `NULL` (`BufferBytes`).
+- `crc32_combine_op` takes an operator that `crc32_combine_gen` or
+  `crc32_combine_gen64` returned. That is the domain `zlib.h` documents. Outside it
+  the C can hang: see [the helper table](#helper-contracts).
+- The address model and the C aliasing rule for the word loads are part of the
+  [trusted base](../trusted-base.md). The rows are in
+  [deviations](../deviations.md).
 
 ## The read budget
 
@@ -39,21 +73,24 @@ unrolled byte loop while `len ≥ 8`, followed by a byte loop; it is not an
 additional word-read loop. Each body consumes exactly the count removed from
 `len`.
 
+`crc32_z_safe` is the result of this argument for heap byte blocks:
+every load is inside the range, and no counter wraps.
+
 For every byte lookup, `x & 0xff < 256`. The braid row index is `k < W = 8`, and
 each row has 256 entries. Table values do not affect these index bounds. Shifts
-extracting bytes use `8k ≤ 56`, below the 64-bit word width. The proof must also
-preserve the 32-bit CRC interpretation where the source masks or converts it.
-Loop measures are the remaining byte/block count or the fixed row counter;
-they must justify the runtime's fuel bounds.
+extracting bytes use `8k ≤ 56`, below the 64-bit word width. The proof also
+preserves the 32-bit CRC interpretation where the source masks or converts it.
+Loop measures are the remaining byte or block count, or the fixed row counter.
+They stay below the runtime's fuel bound.
 
 ## Alignment and represented addresses
 
 The source alignment test uses the address of `buf`, not its array index.
 The translated word read groups eight bytes in the selected endian order.
-A faithful bridge needs a relation between represented object addresses,
-interior offsets, alignment and valid byte ranges. It also needs the selected C
-branch's access and aliasing interpretation; byte grouping alone does not prove
-that bridge.
+The bridge between the two is a relation between represented object addresses,
+interior offsets, alignment and valid byte ranges
+(`ZlibF/Proof/ByteAddress.lean`). The C branch's access and aliasing
+interpretation is not proved; it is trusted.
 
 Allocated byte blocks retain the aligned-origin convention. Static and embedded
 byte arrays have arbitrary stable origin residues in the heap. The address
@@ -86,9 +123,10 @@ final `crc_word` merges in their actual order. The tail composes the byte
 recurrence with that merged prefix. Input-splitting correctness follows from
 the polynomial concatenation law.
 
-Earlier work used long entry-by-entry proofs and named results
-`crc32_z_correct` and `multmodp_eq_gf2`. Those are historical references for the
-algebra, not acceptance evidence for the current translated run.
+`crc32_z_correct` states the result for heap byte blocks: for every seed, every
+length and every alignment of the offset, `crc32_z` returns
+`ZlibF.Spec.crc32Update` of the byte list and leaves the heap unchanged.
+`crc32_z_all_byte_views` extends it to static and embedded arrays.
 
 ## Helper contracts
 
@@ -96,10 +134,10 @@ algebra, not acceptance evidence for the current translated run.
 | --- | --- |
 | `crc32` | Preserve the selected wrapper branch and convert its length argument to the `crc32_z` domain. |
 | `crc_word`, `crc_word_big`, `byte_swap` | Fixed-width loops and exact endian/polynomial meaning for the selected build. |
-| `multmodp(a, b)` | The scanning mask starts at bit 31. Termination requires a set bit in the represented 32-bit operand `a`; the source comment excludes zero. Prove this from each caller's domain before using its multiplication theorem. |
+| `multmodp(a, b)` | The scanning mask starts at bit 31. Termination requires a set bit in the low 32 bits of `a`; the source comment excludes zero. `multmodp_safe` has that premise, and `multmodp_diverges` shows that without it the loop never ends. Each caller supplies the premise from its own domain. |
 | `x2nmodp(n, k)` | `n` is nonnegative and its right shifts terminate; `k & 31` is within the 32-entry table. Prove that represented powers of x satisfy the multiplication premises. |
 | `crc32_combine_gen64`, `crc32_combine_gen` | Preserve the negative-length return of 0 and prove the power-of-x formula for permitted lengths. |
-| `crc32_combine_op` | Preserve the `op == 0` return. For a permitted generated operator, discharge the multiplication premise and prove the concatenation effect. |
+| `crc32_combine_op` | Preserve the `op == 0` return. For a generated operator the multiplication premise holds, which is how `crc32_combine_op_safety` is stated. `crc32_combine_op_diverges` shows the hang for a nonzero `op` whose low 32 bits are zero. |
 | `crc32_combine64`, `crc32_combine` | Compose the generator and operator theorems, including negative-length behavior and argument conversions. |
 | `get_crc_table` | Return the exact read-only static table pointer and the entries specified by its goal; no allocation or heap mutation. |
 
@@ -116,8 +154,8 @@ their own source-specific arguments under the same public contracts.
 masks the complemented CRC to 32 bits. Braiding begins at length 47. Alignment
 consumes at most seven bytes, leaving at least one 40-byte block. The
 `while (--blks)` loop processes all but the final block, which is combined
-separately. **to confirm**: this argument bounds every load and excludes counter
-wrap.
+separately. `crc32_z_safe` and `crc32_z_all_byte_views` confirm that this bounds
+every load and excludes counter wrap.
 
 Pointer-to-integer tests and byte-to-word casts cross representation boundaries.
 The address helper uses offsets for allocated byte blocks and arbitrary stable
@@ -131,17 +169,19 @@ endian marker also depends on the target. Default execution cannot test its
 unreachable big-endian branch.
 
 `multmodp` scans bits 31 down to zero of its first operand. If its low word is
-zero, the mask reaches zero and the C loop never terminates. The earlier review
-observed this through `crc32_combine_op(1, 2, 1UL << 32)`. The documented operator
-comes from `crc32_combine_gen`; an arbitrary nonzero 64-bit value is insufficient.
-`crc32_combine_op` handles zero before calling `multmodp`. Negative lengths are
-rejected before `x2nmodp` can arithmetic-shift a negative value forever. Its
-index is masked by 31. **to confirm**: generated operators have the nonzero low
-word needed for termination. This misuse observation is not a confirmed defect
-within the documented domain.
+zero, the mask reaches zero and the C loop never terminates. The real C hangs on
+`crc32_combine_op(1, 2, 1UL << 32)`, and `crc32_combine_op_diverges` states it for
+the translation. The documented operator comes from `crc32_combine_gen`; an
+arbitrary nonzero 64-bit value is not in the domain. `crc32_combine_op` handles
+zero before calling `multmodp`. Negative lengths are rejected before `x2nmodp`
+can arithmetic-shift a negative value forever. Its index is masked by 31.
+Generated operators have the nonzero low word needed for termination: that is
+the content of `crc32_combine_op_safety`. The hang is a misuse outside the
+documented domain, not a defect within it.
 
-The source review regenerated the static tree and CRC headers and reported
-byte-identical results. That supports table fidelity, not mathematical meaning.
+A source review regenerated the static tree and CRC headers and reported
+byte-identical results. That is evidence of table fidelity, not proof, and it
+says nothing about mathematical meaning.
 Important shapes include the 288-entry literal tree, 30-entry distance tree,
 512-entry distance map, 256-entry length map, 256-entry CRC table, eight-row braid
 tables and 32-entry polynomial-power table. Static entries and bounds must stay
