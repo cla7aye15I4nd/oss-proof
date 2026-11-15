@@ -1,128 +1,169 @@
 # External I/O: files, formatting and local storage
 
-The gzip translations need file operations, `errno`, strings and formatted output in addition
-to the object heap. Their implemented model is
-[`gzfs.lean`](../../ZlibF/Zlib/gzfs.lean), beside the translated C files. It belongs to the
-trusted base. [Gzip source notes](../proof/gzip.md) explain the library control flow;
-[API contracts](../spec/api/README.md) define the intended public behavior.
-The safety of the gz interface is proved for every world of this model
-(`Goal.gz_sequence_safety`); its premises are in [deviations](../deviations.md#gzip-file-interface).
-[Progress](../progress.md) is the status and remaining-work record.
+The gz functions call the operating system and the C library: `open`, `read`, `write`,
+`lseek`, `close`, `fcntl`, `strerror`, `snprintf` and `vsnprintf`. This page describes the model
+of those calls, [`ZlibF/Zlib/gzfs.lean`](../../ZlibF/Zlib/gzfs.lean). The model is trusted: the
+kernel checks the proofs against it and does not check it against Linux
+([trusted base](../trusted-base.md)).
 
-## Files and heap effects
+The main point: every system call may return any result its POSIX contract allows, chosen by an
+oracle, and the safety of the gz interface is proved for every oracle
+(`Goal.gz_sequence_safety`; [gzip files](../proof/gzip.md)). The premises of that result are in
+[deviations](../deviations.md#gzip-file-interface).
 
-A computation has type `G α = StateT Fs C.M α`. `Fs` is separate from `Heap`; a computation
-returns both updated states or a runtime fault. Paths are flat byte strings. Nodes hold byte
-arrays or a directory marker. Each open descriptor stores a node, position and read/write/
-append flags. The regular-file `open` starts at descriptor 3 and chooses the lowest free
-represented slot; the OS-call oracle may choose any other free number. A descriptor is a C `int`:
-when no descriptor below `2^31` is free, `open` fails with `EMFILE`.
+## The world beside the heap
 
-| Operation | Implemented behavior |
-| --- | --- |
-| `open` | Regular: read or write mode; creation, exclusion, truncation and append are represented. Invalid modes and modeled path failures set `errno` and return `-1`. When no descriptor below `2^31` is free, `-1` with `EMFILE`, before anything is created or truncated. Oracle: `-1` with any nonzero errno before anything is created, or the new descriptor moved to any free number below `2^31`. |
-| `read` | Regular: copies the requested regular-file bytes up to EOF, cut to the read budget. Invalid descriptors, wrong access mode and directory reads fail. Oracle: `-1` with any nonzero errno, or any `k ∈ [0, n]` bytes of arbitrary data within the budget, whatever the descriptor's state. |
-| `write` | Regular: writes at the position or end in append mode. Seeking past EOF makes a later write fill the gap with zeros. Crossing `fsizeLimit` gives a short write; writing at the limit fails with `EFBIG`. Oracle: `-1` with any nonzero errno, or any count in `[1, n]` (0 for an empty buffer) without changing the file. |
-| `lseek` | Regular: supports set/current/end offsets, rejects negative results and results above `2^63 - 1`. Oracle: `-1` with any nonzero errno, or any value in `[0, 2^63 - 1]` without moving the descriptor. |
-| `close` | Regular: releases the represented descriptor; invalid descriptors fail. Oracle: `-1` with any nonzero errno, the descriptor released anyway. |
-| `fcntl` | No effect in this model. |
-| `errno` and `strerror` | An explicit integer plus a table of represented error texts. A successful call may leave any errno the oracle chooses (`okErrno`); the library's explicit resets are separate effects. |
+The file system, the descriptor table and `errno` are a record `Fs`, separate from the heap. A
+gz computation has type `G α = StateT Fs C.M α`: it takes a world and a heap, and returns a
+value with the new world and the new heap, or a fault.
 
-The OS-call oracle fields of `Fs` (`nos`, `readChoice`, `writeChoice`, `lseekChoice`,
-`closeFail`, `openFail`, `openFd`, `okErrno`, `readBudget`) choose each call's result within
-that contract; the defaults reproduce the regular-file model and serve the executable drivers
-only. Every oracle value is mapped into the contract (cut or clamp, never reject), so every
-world is legal and `FileSystem` constrains only the regular-file part. The oracle covers the
-behaviours of pipes, sockets, devices, signals (`EINTR`), nonblocking descriptors (`EAGAIN`),
-transient failures and concurrent file changes on each call, without representing those objects.
-It is deliberately wider than any real system ([trusted base](../trusted-base.md)). The
-regular-file part still does not represent permissions, directory traversal, links or descriptor
-sharing through duplication; `O_NONBLOCK`, `O_CLOEXEC` and `O_LARGEFILE` have no regular-file
-effect.
+- A path is a flat byte string. A node holds the bytes of a file, or is a directory marker.
+- An open descriptor stores its node, a position and read, write and append flags.
+- A descriptor is a C `int`.
+- `Fs` also holds the oracle described below.
 
-C string literals keep their original closed table and indices. `strerror` text uses a
-separate borrowed read-only view in the static-string suffix. It creates no malloc object
-and does not change the live-allocation ledger or allocation oracle. The fixed Linux errno
-text includes the same fallback for every Int32 value.
+`FileSystem fs` is the well-formedness condition on a world: descriptors and names refer to
+existing nodes, positions and file sizes are at most `2^63 - 1`, and a directory is not open for
+writing. It constrains the file part only; every value of the oracle is allowed.
 
-Each call advances an external borrow epoch. Only the current borrowed pointer is readable;
-a later call invalidates the earlier pointer, even for the same errno. This models sequential
-invalidation. Thread exit, concurrent calls and locale changes are not represented. The four
-translated call sites pass the borrowed pointer directly to `gz_error`, which synchronously
-copies into its own message allocation and never stores or frees the borrowed pointer.
+## The OS oracle
 
-A malloc-object frame alone does not preserve volatile external views. Internal proof rules
-must establish borrow stability from the actual operation, or use a persistent source view.
-Public caller domains and exact no-new-live close requirements are unchanged.
+Each call of `read`, `write`, `lseek`, `close` and `open` takes the next call number and asks
+the oracle what to do. The oracle either lets the call behave as on a regular file, or chooses
+another result. Every oracle value is mapped into the contract of the call (cut or clamped,
+never rejected), so every world is legal.
 
-`storeBytes`, used for read and formatting results, copies via a temporary byte block and
-frees that block. Its result is a block copy rather than a sequence of byte stores.
-`memchrB` stops at the first matching byte. Memory operations still check object bounds,
-read-only destinations and overlap where relevant. Invalid user buffers raise a model fault;
-this is not a complete model of the operating system's `EFAULT` behavior.
+| Call | Regular-file behaviour (the oracle's default) | Other results the oracle may choose |
+| --- | --- | --- |
+| `open` | Read or write mode; creation, exclusion, truncation and append are represented. An invalid mode or a modelled path failure sets `errno` and returns `-1`. The new descriptor is the lowest free number from 3 up. When no number below `2^31` is free: `-1` with `EMFILE`, before anything is created or truncated. | `-1` with any nonzero `errno`, before anything is created. Or success with the new descriptor moved to any free number below `2^31`. |
+| `read` | Copies the requested bytes of the file up to its end, cut to the read budget. An invalid descriptor, a wrong access mode and a directory fail. | `-1` with any nonzero `errno`. Or, for a request of `n` bytes, any `k` in `[0, n]` bytes of arbitrary data, cut to the read budget, whatever the descriptor's state. |
+| `write` | Writes at the position, or at the end in append mode. After a seek past the end, a write fills the gap with zeros. A write that crosses `fsizeLimit` is short; a write at the limit fails with `EFBIG`. | `-1` with any nonzero `errno`. Or any count in `[1, n]` for a nonempty buffer (0 for an empty one), without changing the file. |
+| `lseek` | Set, current and end offsets; a negative result or a result above `2^63 - 1` is refused. | `-1` with any nonzero `errno`. Or any value in `[0, 2^63 - 1]`, without moving the descriptor. |
+| `close` | Releases the descriptor; an invalid descriptor fails. | `-1` with any nonzero `errno`; the descriptor is released anyway. |
+| `fcntl` | No effect. | None. |
+| `errno` after a success | Unchanged. | A successful call may leave any `errno`. The library's own resets of `errno` are separate effects. |
+| Read budget | No bound. | For each non-negative descriptor number, the bytes it may still deliver; every `read` is cut to it and debits it. A negative descriptor has no budget. |
+
+The oracle is deliberately wider than any real system. It covers, call by call, the results of
+pipes, sockets, devices, signals (`EINTR`), nonblocking descriptors (`EAGAIN`), transient
+failures and concurrent file changes, without representing those objects. The regular-file part
+does not represent permissions, directory traversal, links or descriptor sharing through
+duplication; `O_NONBLOCK`, `O_CLOEXEC` and `O_LARGEFILE` have no regular-file effect.
+
+Two results are excluded by the model and are trusted facts about Linux, not premises of a
+theorem: a `write` of a nonempty buffer never returns 0, and `close` releases the descriptor
+also when it fails.
+
+The oracle is the fields `nos`, `readChoice`, `writeChoice`, `lseekChoice`, `closeFail`,
+`openFail`, `openFd`, `okErrno` and `readBudget` of `Fs`. Their default values give the
+regular-file behaviour and serve the executable test drivers only; every goal quantifies over
+all worlds. The comments of `gzfs.lean` number the clauses of the oracle: M1 `read`, M2 `write`,
+M3 `lseek`, M4 `close`, M5 `open`, M7 the read budget. There is no M6. The row "Gz reading
+termination" of [deviations](../deviations.md#gzip-file-interface) uses the label M7.
+
+## Error texts
+
+`errno` is an integer of the world. `strerror` returns a pointer to a static text; the model has
+a fixed table of Linux texts with a fallback text for every other `int` value.
+
+The model lets only the most recent `strerror` pointer be read: each call makes the earlier
+pointer unreadable, also for the same `errno`. This models sequential invalidation. Thread exit,
+concurrent calls and locale changes are not represented. The pointer is a read-only view; it is
+not an allocation, and it does not change the set of live blocks or the allocation oracle.
+
+The translation calls `strerror` at four places (two in `gzread.c`, two in `gzwrite.c`). Each
+passes the pointer at once to `gz_error`, which copies the text into its own message
+allocation and neither stores nor frees the pointer.
+
+C string literals are a different thing: a closed, read-only table of the literals of the
+library sources, with one fixed pointer per literal.
+
+## Buffers of external calls
+
+`storeBytes` stores the bytes that `read` or a formatter produced. It copies through a temporary
+block and frees it, so its effect is one block copy, not a sequence of byte stores. Memory
+operations check object bounds, read-only destinations and overlap as everywhere else. An
+invalid user buffer is a model fault; the model does not reproduce the operating system's
+`EFAULT`.
 
 ## Formatted output
 
-Variadic arguments are represented values in `VaArg`, with signed/unsigned 32- and 64-bit
-integers and byte-string pointers. `gzprintf` receives that list and delegates to `gzvprintf`.
-The ABI storage of a C `va_list` is not represented.
+Variadic arguments are a list of values `VaArg`: signed and unsigned 32-bit and 64-bit integers,
+and string pointers. `gzprintf` receives the list and delegates to `gzvprintf`. The ABI storage
+of a C `va_list` is not represented.
 
-The formatter supports `%%`, `%c`, `%s`, `%d`, `%i`, `%u`, `%x`, `%X` and `%o`, flags
-`-0+ #`, decimal width and precision, and length modifiers `l`, `ll`, `z`, `j` and `t`.
-Unsupported conversions include floating point, `%p`, `%n`, `%*d`, `%hd` and `%ls`.
-Unsupported syntax or mismatched/missing argument kinds faults. Unsigned conversions also
-accept the corresponding signed argument kind and reinterpret its bits. There is no implemented
-fallback that returns arbitrary formatting bytes. The older proposal's `h`/`hh`, dynamic
-width and demonic fallback must not be read as supported behavior.
+The formatter supports the conversions `%%`, `%c`, `%s`, `%d`, `%i`, `%u`, `%x`, `%X` and `%o`,
+the flags `-`, `0`, `+`, space and `#`, a decimal width and precision, and the length modifiers
+`l`, `ll`, `z`, `j` and `t`. An unsigned conversion also accepts the signed argument kind of the
+same width and reinterprets its bits.
 
-The model has two operations, as the C has two functions. `snprintf` serves the fixed formats
-of `gz_error`, `gz_open` and `gzdopen`: it is deterministic, writes at most `capacity - 1` text
-bytes plus NUL, and returns the untruncated length, or -1 when that length exceeds `INT_MAX`.
-`vsnprintf` serves `gzvprintf`'s caller format: it behaves the same, except that any call may
-fail through a world oracle (`printfOk`). A failed call returns -1, sets a nonzero `errno` and
-leaves arbitrary bytes and a NUL inside the buffer. [Trusted base](../trusted-base.md) gives the
-glibc evidence. The gzip wrapper still
-performs its own length and sentinel tests, then its own buffer-vacate and error handling.
-A formatting model is not a callee contract that may replace those effects. See
-[deviations](../deviations.md) for the public representation limit.
+Not supported: floating point, `%p`, `%n`, `*` for a width or precision, the modifiers `h` and
+`hh`, and `%ls`. An unsupported conversion, or an argument that is missing or of the wrong kind,
+is a model fault. There is no fallback that returns arbitrary bytes. The safety goal therefore
+asks for a represented format (`Formatted`); [deviations](../deviations.md#gzip-file-interface)
+has the row.
 
-## Pointer and local-storage choices
+The model has two functions, as the C has:
 
-`GzFilePtr` identifies the `x` prefix of its owner; `castState` recovers that owner.
-`strmOf` identifies the embedded stream. Field writes load and update that same record.
-This preserves identity for codec backlinks and shared public fields.
+- `snprintf` serves the fixed formats of `gz_error`, `gz_open` and `gzdopen`. It is
+  deterministic. It writes at most `capacity - 1` bytes of text and a NUL, and returns the
+  untruncated length, or `-1` when that length exceeds `INT_MAX`.
+- `vsnprintf` serves the caller's format in `gzvprintf`. It behaves the same, except that any
+  call may fail, chosen by a second oracle (`printfOk`). A failed call returns `-1`, sets a
+  nonzero `errno`, and leaves arbitrary bytes and a NUL inside the buffer.
+  [Trusted base](../trusted-base.md) gives the glibc evidence.
 
-Caller scalar pointers such as `gzerror`'s optional `int *errnum` and `uncompress2`'s length
-outputs are little-endian byte blocks, accessed with four- or eight-byte loads and stores.
-`gz_load`'s internal `unsigned *have` instead becomes a returned value, stored by each caller
-on success and failure. The C callee does not observe that target through another alias;
-**to confirm** the same effect order for every represented call site.
+`gzvprintf` still runs its own length test, its sentinel test, its buffer vacate and its error
+handling after the call. The formatting model does not replace those statements.
 
-Address-taken local bytes, local streams and scalar output storage use local allocators that
-do not consume the caller allocation-failure oracle. They must be released on every return.
-This applies to `gzgetc`/`gzputc`'s one-byte buffers and the convenience decompressor's local
-stream and length cells. Signed file-position arithmetic uses checked 64-bit operations.
-The modeled allowance for null-plus-zero arithmetic does not justify using a dangling pointer.
+## Pointers and local storage in the gz translations
 
-The translated files follow the patched source. Four patches change the gz files
-([patch register](../../patches/README.md)): 0002 changes the range checks of `gzseek64`, 0003
-sets `x.next` before `gz_load` in transparent mode, 0004 keeps the position `x.pos` within
-`z_off64_t`, and 0005 advances `x.next` only by a nonzero amount. `gz_reset` still does not
-initialise `x.next`, and a direct read still leaves `x.next` pointing into the caller's buffer;
-patch 0005 removes the arithmetic on those values. Historical reports and proposed fixes are
-separated in [gzip proof guide](../proof/gzip.md).
+- A `gzFile` is a pointer to the public prefix `x` of the handle's record (`GzFilePtr`).
+  `castState` recovers the record, and `strmOf` names the embedded `z_stream`. A field write
+  loads and stores that one record, so the handle, its public prefix and its embedded stream
+  stay one object.
+- A caller's scalar cell is a little-endian byte block: `gzerror`'s optional `int *errnum`
+  (four bytes) and the length cells of `uncompress2` (eight bytes).
+- The internal `unsigned *have` of `gz_load` is a returned value
+  ([normalisation 1](translation.md#the-accepted-normalisations)). Each caller stores it, on
+  success and on failure. **To confirm** by review: the store happens at the same point of the
+  effect order as in C at every call site.
+- A local whose address is taken is a fresh object that does not consume the allocation-failure
+  oracle and is released on every return: the one-byte buffers of `gzgetc` and `gzputc`, and the
+  local stream and length cells of `uncompress2_z`.
+- File-position arithmetic on `z_off64_t` uses checked 64-bit operations.
+
+The model allows `NULL + 0`. That does not make arithmetic on a dangling pointer acceptable.
+
+## The source is the patched source
+
+Four patches change the gz files ([patch register](../../patches/README.md)):
+
+| Patch | Change |
+| --- | --- |
+| 0002 | The range checks of `gzseek64` |
+| 0003 | `x.next` is set before `gz_load` in transparent mode |
+| 0004 | The position `x.pos` stays within `z_off64_t` |
+| 0005 | `x.next` is advanced only by a nonzero amount |
+
+`gz_reset` still does not initialise `x.next`, and a direct read still leaves `x.next` pointing
+into the caller's buffer; patch 0005 removes the arithmetic on those values.
+[Gzip files](../proof/gzip.md#source-reports-and-patches) gives the reports behind the patches.
 
 ## Differential evidence
 
-The gzip differential cases are defined by [`tests/gen/gz.py`](../../tests/gen/gz.py),
+The gz differential cases are defined by [`tests/gen/gz.py`](../../tests/gen/gz.py),
 [`tests/c/gz.c`](../../tests/c/gz.c) and
-[`tests/lean/Driver/Gz.lean`](../../tests/lean/Driver/Gz.lean).
-They compare operation observations on temporary real files with runs over `Fs`.
-The same family compares `uncompress2` bytes and lengths.
+[`tests/lean/Driver/Gz.lean`](../../tests/lean/Driver/Gz.lean). They compare what each operation
+returns on temporary real files with runs over `Fs`. The same family compares the bytes and
+lengths of `uncompress2`.
 
-Agreement checks the translation and its external model together against selected C
-executions. It is evidence of fidelity, not proof of codec correctness, all error paths,
-all POSIX behaviors or leak freedom. The restricted file model cannot generate the
-partial-success/read-failure counterexample described in [gzip proof guide](../proof/gzip.md).
-Run results and acceptance requirements belong in [checking](../checking/README.md)
-and [progress](../progress.md), rather than a second test-history list here.
+The drivers start from the default oracle, the regular-file behaviour. A test case can make one
+chosen `read` call fail, and one caller-format `vsnprintf` call fail. Every other oracle choice
+is covered only by the proofs.
+
+Agreement tests the translation and the world model together against selected C executions. It
+is evidence of fidelity. It is not a proof of codec correctness, of all error paths, of all
+POSIX behaviour or of leak freedom. [Checking](../checking/README.md) says when these tests run.
+
+[Design](README.md) · [Documentation home](../README.md)
