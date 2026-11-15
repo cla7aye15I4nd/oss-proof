@@ -5,6 +5,12 @@
 # proof modules must fail on re-elaboration (at the rfl restatement of the code, or a semantic lemma).
 # The rows of gzbuffer, gzeof, gzoffset64, gztell64, gztell, gzseek, gzgetc_, gzprintf, gzopen and gzopen64,
 # and the two state-null rows of inflateBack and inflateBackEnd, are new. None edits a loop body or machine arithmetic.
+# The thin wrappers gzoffset, gztell, gzseek, gzgetc_ and gzprintf only pass the handle on (gzoffset64,
+# gztell64, gzseek64, gzgetc, gzvprintf) and convert the result. No mutant of their own body can make the
+# safety goal false except one that changes the handle passed or the NULL result. Their keyed rows
+# (*-wrapper-result, gzgetc_-handle-dropped, gzprintf-handle-dropped) are of that kind; the evidence for
+# the body they reach is in the keys of the callee: gzoffset64_safety, gztell64_safety, gzseek64_safety,
+# gzgetc_safety and gzvprintf_safety.
 # NAME	FILE	OLD	NEW	PROOF_MODULES
 gzwrite-mode-check-dropped	ZlibF/Zlib/gzwrite.c.lean	if s.mode != GZ_WRITE || (s.err != Z_OK && s.again == 0) then return 0\n  gz_error state Z_OK .null\n  -- if ((int)len < 0)	if s.err != Z_OK && s.again == 0 then return 0\n  gz_error state Z_OK .null\n  -- if ((int)len < 0)	gz.sequence-safety,gzwrite.c.safety,gzwrite.c.write,gzwrite.c.write-calls
 gzfwrite-mode-check-dropped	ZlibF/Zlib/gzwrite.c.lean	if s.mode != GZ_WRITE || (s.err != Z_OK && s.again == 0) then return 0\n  gz_error state Z_OK .null\n  -- len = nitems	if s.err != Z_OK && s.again == 0 then return 0\n  gz_error state Z_OK .null\n  -- len = nitems	gz.sequence-safety,gzwrite.c.safety,gzwrite.c.write,gzwrite.c.write-calls
