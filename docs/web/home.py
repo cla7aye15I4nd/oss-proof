@@ -219,9 +219,10 @@ def render_status() -> None:
         body = (f'<p class="rf-scope-note">{t("快照", "Snapshot")}: <a href="{REPO_URL}/commit/{COMMIT}"><code>{COMMIT[:10]}</code></a>, {DATE}, '
                 f'{t("分支", "branch")} {html.escape(BRANCH)}. {stats}</p>'
                 f'<h2 id="core-results">{t("三项核心结论", "Three core results")}</h2>' + results_table(current, lang, True) + levels_note(lang) +
+                f'<p class="rf-scope-note">{t("下面的范围表把第三项结论分成三行：整缓冲区函数、回调解码器和 gzip 文件接口。", "The scope table below splits the third result into three rows: the whole-buffer functions, the callback decoder and the gzip file interface.")}</p>' +
                 f'<h2 id="scope">{t("计划内与不计划", "Planned and not planned")}</h2>' + wrap(render(scope)) +
                 f'<h2 id="next-work">{t("下一步工作", "Next work")}</h2>' + wrap(render(nxt)) +
-                f'<p><a href="{route_href("reference/docs/progress", current, lang, "ordered-next-work")}">{t("完整的工作表", "Full work table")}</a></p>'
+                f'<p><a href="{route_href("reference/docs/progress", current, lang, "ordered-next-work")}">{t("进度记录中的这一节", "This section in the progress record")}</a></p>'
                 f'<h2 id="evidence">{t("证据", "Evidence")}</h2><ul>'
                 f'<li><a href="{evidence}">{t("证据索引", "Evidence index")}</a>: {t("每个目标的命题、证明和依赖。", "the statement, proof and dependencies of every target.")}</li>'
                 f'<li><a href="{route_href("reference/docs/progress", current, lang, "proof-progress-graph")}">{t("全部目标的依赖图", "Dependency graph of all targets")}</a></li>'
