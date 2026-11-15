@@ -137,6 +137,40 @@ def open_safety(manifest: dict) -> list[str]:
     return [entry["goal"] for entry in manifest.get("open_safety", [])]
 
 
+def check_not_planned(manifest: dict) -> None:
+    """`not_planned` names public goals that stay defined and registered in goals.txt as open
+    targets but are not planned, each with a reason. It is not a way out of the required set: the
+    pinned groups of coverage() decide what is required. An entry must be a goal of goals.txt with a
+    definition, in no manifest group and named by no api, and not proved (a proved entry is stale)."""
+    entries = manifest.get("not_planned", [])
+    if not isinstance(entries, list):
+        raise Rejected("not_planned must be a list")
+    goals = set(read_names(ROOT / "tests/audit/goals.txt"))
+    proved = set(proved_goals())
+    grouped = set(required_public_goals(manifest)) | set(manifest.get("sequence_goals", [])) | \
+        set(manifest.get("nonvacuity_goals", [])) | set(manifest.get("safety_goals", []))
+    named = {a.get(k) for a in manifest["apis"] for k in ("functional_goal", "safety_goal")}
+    sources = [path.read_text() for path in (ROOT / "ZlibF/Spec").rglob("*.lean")]
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {"goal", "reason"} or \
+                not isinstance(entry["goal"], str) or not isinstance(entry["reason"], str) or not entry["reason"].strip():
+            raise Rejected(f"not_planned entries need a goal and a reason: {entry}")
+        goal = entry["goal"]
+        if goal in seen:
+            raise Rejected(f"duplicate not_planned entry: {goal}")
+        seen.add(goal)
+        if goal not in goals:
+            raise Rejected(f"not_planned goal is not in tests/audit/goals.txt: {goal}")
+        leaf = goal.rsplit(".", 1)[-1]
+        if not any(re.search(r"^def\s+Goal\." + re.escape(leaf) + r"\s*:", text, re.M) for text in sources):
+            raise Rejected(f"not_planned goal has no definition under ZlibF/Spec: {goal}")
+        if goal in grouped or goal in named:
+            raise Rejected(f"not_planned goal is required, grouped or named by an api: {goal}")
+        if goal in proved:
+            raise Rejected(f"stale not_planned entry, the goal is proved: {goal}")
+
+
 def check_open_safety(manifest: dict) -> None:
     """`open_safety` names required goals that have no registered theorem yet, each with an owner."""
     entries = manifest.get("open_safety")
@@ -950,6 +984,7 @@ def coverage() -> dict:
         raise Rejected("public contracts must have distinct targets")
     check_safety_binding(manifest)
     check_open_safety(manifest)
+    check_not_planned(manifest)
     public_mutants(manifest)
     check_imports()
     run([sys.executable, "scripts/gen_public_calls.py", "--check"])

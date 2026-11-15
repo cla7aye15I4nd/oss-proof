@@ -58,6 +58,32 @@ class AuditTests(unittest.TestCase):
                 "safety_goals": ["Goal.first_safety", "Goal.second_safety"], "nonvacuity_goals": [],
                 "open_safety": [{"goal": g, "owner": "someone"} for g in open_goals]}
 
+    def test_not_planned_goals_are_registered_unrequired_and_unproved(self):
+        # A goal that left the required set stays in goals.txt; not_planned names it with a reason,
+        # and is no way out of the required set.
+        audit = self.root / "tests/audit"
+        audit.mkdir(parents=True, exist_ok=True)
+        (self.root / "ZlibF/Spec").mkdir(parents=True, exist_ok=True)
+        (self.root / "ZlibF/Spec/Domains.lean").write_text("def Goal.domain : Prop := True\n")
+        (audit / "goals.txt").write_text("Goal.domain\nGoal.first_safety\n")
+        (audit / "proved-goals.txt").write_text("Goal.first_safety\n")
+        manifest = self.open_manifest()
+        def check(entries):
+            manifest["not_planned"] = entries
+            verification.check_not_planned(manifest)
+        with patch.object(verification, "ROOT", self.root):
+            check([{"goal": "Goal.domain", "reason": "functional contract, not planned"}])
+            for bad in ([{"goal": "Goal.domain", "reason": " "}],
+                        [{"goal": "Goal.domain", "reason": "x"}, {"goal": "Goal.domain", "reason": "x"}],
+                        [{"goal": "Goal.absent", "reason": "not in goals.txt"}],
+                        [{"goal": "Goal.second_safety", "reason": "required by the pinned groups"}],
+                        [{"goal": "Goal.first_safety", "reason": "proved, so the entry is stale"}]):
+                with self.assertRaises(verification.Rejected, msg=str(bad)):
+                    check(bad)
+            (audit / "goals.txt").write_text("Goal.domain\nGoal.first_safety\nGoal.undefined\n")
+            with self.assertRaisesRegex(verification.Rejected, "no definition"):
+                check([{"goal": "Goal.undefined", "reason": "no definition"}])
+
     def test_open_safety_names_required_goals_with_owners(self):
         verification.check_open_safety(self.open_manifest("Goal.second_safety"))
         with self.assertRaises(verification.Rejected):

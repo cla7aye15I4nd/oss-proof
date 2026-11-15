@@ -27,7 +27,7 @@ GROUPS = {'queries': 'Library queries', 'checksums': 'Checksums', 'addresses': '
           'buffers': 'Whole-buffer operations', 'models': 'Format and API models',
           'lifecycle': 'Lifecycles and call sequences', 'internal': 'Internal proof obligations'}
 STATUSES = {'registered': 'Registered proof', 'local': 'Locally checked',
-            'open': 'Not proved', 'blocked': 'Blocked'}
+            'open': 'Not proved', 'blocked': 'Blocked', 'not-planned': 'Not planned'}
 
 # The Chinese twin docs/progress.zh.md carries the same generated region. It is written from the same
 # graph, with these fixed phrases, so a regeneration updates both pages (the documentation site needs
@@ -36,7 +36,8 @@ GROUPS_ZH = {'queries': '库信息查询', 'checksums': '校验和', 'addresses'
              'fast': '快速解码器的证明义务', 'tables': '解码表的证明义务', 'copy': '回引用复制',
              'deflate': '压缩流', 'back': '回调解码', 'gzip': 'gzip 文件', 'buffers': '完整缓冲区操作',
              'models': '格式与 API 模型', 'lifecycle': '生命周期与调用序列', 'internal': '内部证明义务'}
-STATUSES_ZH = {'registered': '已登记证明', 'local': '本地已检查', 'open': '未证明', 'blocked': '存在阻碍'}
+STATUSES_ZH = {'registered': '已登记证明', 'local': '本地已检查', 'open': '未证明', 'blocked': '存在阻碍',
+               'not-planned': '不在计划内'}
 COVERAGE_ZH = {'unproved': '未证明', 'default': '默认输入', 'common': '常见输入', 'all': '陈述所允许的全部输入'}
 FAMILIES_ZH = {'runtime object and arithmetic lemmas': '运行时对象与算术引理', 'heap-free mathematics': '不涉及堆的数学证明',
                'format-model lemmas': '格式模型引理', 'API-model lemmas': 'API 模型引理', 'specification lemmas': '规格引理',
@@ -229,6 +230,9 @@ def build_graph(export, digest, revision=None):
     public.update(manifest.get('sequence_goals', []))
     public.update(manifest.get('nonvacuity_goals', []))
     public.update(manifest.get('safety_goals', []))
+    # Public goals that stay registered as open targets but are not planned (docs/progress.md, Scope).
+    not_planned = {entry['goal'] for entry in manifest.get('not_planned', [])}
+    public.update(not_planned)
     if public - set(goals): raise ValueError('public manifest targets missing from goal registry')
     if {g for g in goals if g.startswith('ZlibF.Spec.Public.Goal.')} - public:
         raise ValueError('public goal missing from public manifest')
@@ -262,6 +266,9 @@ def build_graph(export, digest, revision=None):
         if g in blockers:
             if proofs: raise ValueError(f'remove the stale blocker for checked target: {g}')
             status = 'blocked'
+        if g in not_planned:
+            if proofs: raise ValueError(f'remove the stale not_planned entry for checked target: {g}')
+            status = 'not-planned'
         nodes.append({'id': g, 'label': g.rsplit('.', 1)[-1], 'group': group(g), 'status': status,
                       'blocker': blockers.get(g), 'readiness': readiness.get(g), 'scope': 'public' if g in public else 'supporting',
                       'source': row['source'], 'line': line_of(row['source'], g),
@@ -530,7 +537,7 @@ def detail_page(graph):
             contract = f'[Contract](../{node["manual"]})' if node['manual'] else 'Exact target statement'
             contract += f'; [input range](spec/input-configurations.md#{input_family(node)}-inputs)'
             work = node.get('readiness')
-            next_work = f"[{work['label']}](progress.md#{work['anchor']})" if work and node['status'] in {'open', 'blocked'} else ('Prerequisites unreviewed' if node['status'] == 'open' else '—')
+            next_work = f"[{work['label']}](progress.md#{work['anchor']})" if work and node['status'] in {'open', 'blocked'} else ('Prerequisites unreviewed' if node['status'] == 'open' else '[Not planned](#scope)' if node['status'] == 'not-planned' else '—')
             coverage = COVERAGE[coverage_level(node)][0] + ' / ' + STATUSES[node['status']]
             rows.append(f'| {label} | {coverage} | {contract} | {evidence} | {next_work} |')
         rows.append('')
@@ -590,6 +597,7 @@ Some Markdown viewers disable diagram links; use these ordinary source links.
 <a id="status-local"></a>Locally checked: an exact theorem exists but is not listed.
 <a id="status-open"></a>Not proved: no exact theorem covers this target.
 <a id="status-blocked"></a>Blocked: a documented obstacle applies to the target.
+<a id="status-not-planned"></a>Not planned: the target stays registered but is not planned and not required (see Scope).
 These labels do not assign input coverage or replace named-commit CI acceptance.
 "All stated inputs" means every input the goal itself states. A goal can state less than zlib.h
 allows: [No-fault coverage of zlib.h functions](#no-fault-coverage-of-zlibh-functions) lists the gaps.
@@ -633,7 +641,7 @@ def detail_page_zh(graph):
             if work and node['status'] in {'open', 'blocked'}:
                 next_work = f"[{readiness_zh.get(work['anchor'], work['label'])}](progress.md#{work['anchor']})"
             else:
-                next_work = '前置义务尚未审查' if node['status'] == 'open' else '—'
+                next_work = '前置义务尚未审查' if node['status'] == 'open' else '[不在计划内](#scope)' if node['status'] == 'not-planned' else '—'
             coverage = COVERAGE_ZH[coverage_level(node)] + ' / ' + STATUSES_ZH[node['status']]
             rows.append(f'| {label} | {coverage} | {contract} | {evidence} | {next_work} |')
         rows.append('')
@@ -685,6 +693,7 @@ def detail_page_zh(graph):
 <a id="status-local"></a>本地已检查：存在精确覆盖该目标的定理，但尚未列入登记表。
 <a id="status-open"></a>未证明：还没有精确覆盖该目标的定理。
 <a id="status-blocked"></a>存在阻碍：已有文档记录影响该目标的具体障碍。
+<a id="status-not-planned"></a>不在计划内：目标仍然登记，但不在计划内，也不是必需目标（见范围）。
 输入覆盖范围单独列出；CI 验收对应具体提交。
 “陈述所允许的全部输入”指目标自身陈述的每个输入。目标陈述的输入可能少于 zlib.h 允许的范围：
 [zlib.h 函数的无故障覆盖](#no-fault-coverage-of-zlibh-functions)列出了这些差距。

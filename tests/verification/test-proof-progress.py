@@ -320,6 +320,22 @@ class ProgressTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'targets missing'):
             self.graph()
 
+    def test_not_planned_goal_is_public_and_not_open_work(self):
+        # Goal.gz_initialisation_domain: in goals.txt, in no manifest group; not_planned keeps it public.
+        path = self.root / 'tests/audit/public-api.json'
+        manifest = json.loads(path.read_text())
+        dropped = manifest['apis'].pop()['functional_goal']
+        manifest['not_planned'] = [{'goal': dropped, 'reason': 'functional, not planned'}]
+        path.write_text(json.dumps(manifest))
+        graph = self.graph()
+        node = next(n for n in graph['nodes'] if n['id'] == dropped)
+        self.assertEqual(node['status'], 'not-planned')
+        self.assertEqual(node['scope'], 'public')
+        self.assertNotIn(dropped, [n['id'] for n in graph['nodes'] if n['status'] == 'open'])
+        page = progress.outputs(graph)['docs/progress.md']
+        self.assertIn('Not proved / Not planned', page)
+        self.assertIn('[Not planned](#scope)', page)
+
     def add_readiness(self, targets='`c`, `d`', label='Needs: position history'):
         path = self.root / 'docs/progress.md'
         path.write_text(path.read_text() +
