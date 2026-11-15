@@ -19,14 +19,14 @@ cc -O2 -Wall -Wextra -I"$work/z" "$here/bound.c" "$work/z/libz.a" -o "$work/boun
 cc -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -I"$work/zs" "$here/bound.c" \
   "$work/zs/libz.a" -o "$work/bound-san"
 "$work/bound" grid "$seed" "$n" | grep -v '^MIN\|^INFO'
-for slice in $(seq 0 23); do "$work/bound" sweep "$slice" 300 | grep '^FAIL\|^FAILURES [1-9]' && exit 1; done
+for slice in $(seq 0 23); do "$work/bound" sweep "$slice" 300 | grep '^FAIL \|^FAILURES [1-9]' && exit 1; done
 "$work/bound" compress "$seed" $((n * 500)) | grep -v '^MIN\|^INFO'
 # The far-match search (docs/findings/deflatebound-fixed-far-matches): no failure with patch 0006.
-for wb in 9 10 11 12 13 14 15; do "$work/bound" far "$wb" 120000 | grep '^FAIL\|^FAILURES [1-9]' && exit 1; done
-"$work/bound-san" far 15 120000 | grep '^FAIL\|^FAILURES [1-9]' && exit 1
+for wb in 9 10 11 12 13 14 15; do "$work/bound" far "$wb" 120000 | grep '^FAIL \|^FAILURES [1-9]' && exit 1; done
+"$work/bound-san" far 15 120000 | grep '^FAIL \|^FAILURES [1-9]' && exit 1
 "$work/bound-san" grid "$((seed + 1))" 1 | grep -v '^MIN\|^INFO'
 "$work/bound-san" compress "$((seed + 2))" $((n * 100)) | grep -v '^MIN\|^INFO'
 # The extra-length finding: exactly the two lengths 2^32-1 and 2^32-2 must fail.
 out=$("$work/bound-san" extra "$seed" 1 || true)
 echo "$out"
-[ "$(echo "$out" | grep -c '^FAIL')" = 2 ] || { echo "extra: expected exactly two failures"; exit 1; }
+[ "$(echo "$out" | grep -c '^FAIL ')" = 2 ] || { echo "extra: expected exactly two failures"; exit 1; }
