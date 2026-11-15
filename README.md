@@ -37,8 +37,8 @@ Each public function has two goals, both in the Lean namespace `ZlibF.Spec.Publi
 **safety goal** says the call returns without undefined behaviour, writes only its frame and leaks
 nothing. Its **functional goal**, in `ZlibF/Spec/Functional/`, says what the result is.
 `tests/audit/public-api.json` names both for every function (`safety_goal`, `functional_goal`).
-The safety goals are in `ZlibF/Spec/Safety/`; the gz and `inflateBack` goals are still in
-`ZlibF/Spec/Public/`. The acceptance audit requires the safety goals and the non-vacuity goals:
+The safety goals are in `ZlibF/Spec/Safety/`; the gz and `inflateBack` goals of both kinds are
+still in `ZlibF/Spec/Public/`. The acceptance audit requires the safety goals and the non-vacuity goals:
 each must have a theorem of exactly its type in `tests/audit/theorems.txt`. The manifest's
 `open_safety` list of exceptions is empty. A proved functional goal is audited in full; an
 unproved one fails nothing. See [the split](docs/design/safety-functional-split.md).

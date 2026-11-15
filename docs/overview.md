@@ -4,8 +4,34 @@ Read one task, then expand the mechanism you need. Each illustrated chapter
 explains what an operation does and the proof obligation that follows from it.
 The header language menu switches between English and 简体中文 on the same page.
 
+## The claim
+
+**Proved.** Every documented public function of the default x86_64 Linux build of zlib is safe.
+On every input that its premises admit, the translated call returns with no undefined behaviour
+and no memory error, writes only what it may, leaks nothing, and terminates. This holds over call
+sequences: for every history of an inflate stream, a deflate stream, a callback decoder and a
+gzip file handle. The 63 required goals are registered, and the acceptance suite is green on
+commit `bde170e9` (2026-11-15).
+
+**Assumed.** The theorems are about a Lean translation that runs on a runtime model. That the
+model and the translation match C is reviewed and tested, not proved: see
+[trusted base](trusted-base.md). The premises each theorem puts on the caller are in
+[deviations](deviations.md). Differential tests are evidence of fidelity, not proof. Compiler,
+operating-system and hardware correctness are outside the proof.
+
+**Open.** The gz functions and the three `inflateBack` functions have no safety goal of their own
+yet. Each names its sequence goal, which is registered. The per-function goals are still to be
+stated and registered.
+
+**Not planned.** Functional correctness (the output of `inflate` equals the format, the output of
+`deflate` decodes to its input), since 2026-11-11. A functional fact is in scope only when a
+planned safety proof depends on it; what is already proved stays. Model-only statements, other
+build configurations and the functions that `zlib.h` declares undocumented are not planned
+either. [Scope](progress.md#scope) lists every group with its reason.
+
 ## Contents
 
+- [The claim](#the-claim)
 - [Reading path](#reading-path)
 - [Shared proof rules](#shared-proof-rules)
   - [Scope](#scope)
@@ -86,8 +112,9 @@ Review records are grouped under Checking, outside this first reading path.
 <a id="43-what-the-kernel-trusts"></a>
 <a id="71-scope-and-assumptions"></a>
 
-The initial target uses default x86_64 Linux and default inputs. Wider nested
-ranges are defined once in [input configurations](spec/input-configurations.md).
+The target is the default x86_64 Linux build. A safety goal quantifies over every input,
+parameter, allocation outcome and history that its premises admit. The ranges in
+[input configurations](spec/input-configurations.md) describe coverage of intermediate work.
 Examples select particular runs without narrowing public targets. The accepted
 [platform premises](spec/platform.md) include each represented byte object
 having fewer than `2^63` bytes; this does not bound total stream length.
@@ -112,6 +139,8 @@ having fewer than `2^63` bytes; this does not bound total stream length.
 <a id="7-the-deflate-argument"></a>
 <a id="73-establish-preserve-and-compose"></a>
 
+An invariant is a set of facts about a stream's state that must hold before each further
+call: for example, that the decoder's saved history agrees with the bytes already recovered.
 The subject is the pinned C plus registered patches, translated statement by
 statement. Implementation readings in the chapters are **to confirm** by proof.
 Initialization must establish the state and ownership invariant. Each actual
@@ -120,7 +149,8 @@ returned heap; End accounts for released resources. A callee contract must be
 proved about that callee. A top-level domain needs a concrete witness.
 
 The [common method](proof/method.md) connects these steps by induction over
-legal call histories and relates actual bytes to independent format meaning.
+legal call histories. Where a safety proof needs a functional fact, it relates actual bytes to
+the independent format meaning.
 The chapters explain each mechanism's specific invariant at its example.
 
 ### Evidence
@@ -137,8 +167,8 @@ lemma or heap-free model theorem does not establish a whole public API.
 Statements about the abstract API model speak about the model, not about the C;
 concrete execution needs its own refinement argument. Finite differential runs validate examples, not
 universal claims. [Checking](checking/README.md) defines acceptance on a named
-commit. [Progress](progress.md) records the target graph. The status section below
-records current evidence and remaining work.
+commit. [Progress](progress.md) records the target graph, the current evidence and the remaining
+work.
 
 ---
 
@@ -146,25 +176,20 @@ records current evidence and remaining work.
 
 [Documentation](README.md) · [API](spec/api/README.md) · [Checking](checking/README.md)
 
-**Work in progress. The project is not finished.**
 The project is finished when the safety results are accepted, in this order: `inflate` is
 safe on every input; `deflate` is safe on every input, both with their call sequences; then
 every other public function, including the gzip file interface and `inflateBack`. The safety
-of `compress` and `uncompress` follows as compositions. Functional correctness (the
-output of `inflate` equals the format, the output of `deflate` decodes to its input) is
-not planned since 2026-11-11, except a functional fact that a planned safety proof depends
-on, which is in scope; what is already proved of it stays.
-The target is the default x86_64 Linux build with the default allocator. Model-only
-statements and other build configurations are not planned either: see
-[scope](progress.md#scope). The functions that zlib.h declares
-undocumented and not part of the zlib API are not required public targets. Compiler and OS
-correctness and performance are outside the proof.
+of `compress` and `uncompress` follows as compositions. The acceptance suite is green on commit
+`bde170e9` (2026-11-15) with all 63 required goals registered. What remains is listed under
+"Open" in [the claim](#the-claim).
 
-Each public function has a safety goal in `ZlibF/Spec/Safety/` and a functional goal in
-`ZlibF/Spec/Functional/`; `tests/audit/public-api.json` names both. The acceptance audit
-requires the safety goals and the non-vacuity goals, except those `open_safety` lists with an
-owner; a proved functional goal is audited in full. [The split](design/safety-functional-split.md)
-gives the rules and [safety](spec/safety.md#where-the-goals-are) the layout.
+Each public function has a safety goal and a functional goal; `tests/audit/public-api.json`
+names both. The safety goals are in `ZlibF/Spec/Safety/` and the functional goals in
+`ZlibF/Spec/Functional/`; the gz and `inflateBack` goals of both kinds are still in
+`ZlibF/Spec/Public/`. The acceptance audit
+requires the safety goals and the non-vacuity goals; a proved functional goal is audited in full,
+and an unproved one fails nothing. [The split](design/safety-functional-split.md) gives the rules
+and [safety](spec/safety.md#where-the-goals-are) the layout.
 
 Current status, counts and the ordered list of remaining work are only in
 [progress](progress.md). Earlier narrative checkpoints are kept, unchanged, in the

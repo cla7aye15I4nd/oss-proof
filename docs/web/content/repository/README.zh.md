@@ -1,4 +1,4 @@
-<!-- source-sha256: 1e95704edf2b00ecef4af8f946fcbaac0553df7c9c7920cb39f3ca8f018635fe -->
+<!-- source-sha256: e81b6760a0ee40ded834739134849fc036a5929af1a6b9472b3b963abebcf387 -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean；证明表明，默认 x86_64 Linux 构建中每个有文档的公开函数，在它的各种调用序列上运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止。
@@ -13,7 +13,7 @@
 
 ## 目标
 
-每个公开函数有两个目标，都在 Lean 命名空间 `ZlibF.Spec.Public.Goal` 中。它的**安全目标**陈述调用返回、没有未定义行为、只写自己的帧、不泄漏。它的**功能目标**在 `ZlibF/Spec/Functional/` 中，陈述结果是什么。`tests/audit/public-api.json` 为每个函数写出两者（`safety_goal`、`functional_goal`）。安全目标在 `ZlibF/Spec/Safety/` 中；gz 与 `inflateBack` 的目标仍在 `ZlibF/Spec/Public/` 中。验收审计要求安全目标和非空性目标：每个都必须在 `tests/audit/theorems.txt` 中有一个类型恰好相同的定理。清单中列出例外的 `open_safety` 现在为空。已证明的功能目标接受完整审计；未证明的不使任何检查失败。见[拆分说明](docs/design/safety-functional-split.md)。
+每个公开函数有两个目标，都在 Lean 命名空间 `ZlibF.Spec.Public.Goal` 中。它的**安全目标**陈述调用返回、没有未定义行为、只写自己的帧、不泄漏。它的**功能目标**在 `ZlibF/Spec/Functional/` 中，陈述结果是什么。`tests/audit/public-api.json` 为每个函数写出两者（`safety_goal`、`functional_goal`）。安全目标在 `ZlibF/Spec/Safety/` 中；gz 与 `inflateBack` 的两类目标都仍在 `ZlibF/Spec/Public/` 中。验收审计要求安全目标和非空性目标：每个都必须在 `tests/audit/theorems.txt` 中有一个类型恰好相同的定理。清单中列出例外的 `open_safety` 现在为空。已证明的功能目标接受完整审计；未证明的不使任何检查失败。见[拆分说明](docs/design/safety-functional-split.md)。
 
 ## 文档
 
