@@ -5,9 +5,9 @@
 
 各项安全结论按以下顺序通过验收时，项目即告完成：`inflate` 对每个输入都安全；`deflate` 对每个输入都安全；然后是其余每个公开函数，包括 gzip 文件接口和 `inflateBack`。每项结论都覆盖各自的调用序列，`compress` 和 `uncompress` 的安全性作为组合得出。
 
-安全结论之后是往返，针对默认的 zlib 流（默认级别的 `deflateInit`，`inflateInit`），按以下顺序。先是有条件的形式：一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，不论刷新值和分块方式如何，`inflate` 写出的字节就是 `deflate` 读入的字节。然后是完备性：输出空间足够且分配成功时，带 `Z_FINISH` 的 `deflate` 消耗全部输入并结束；空间不少于 `deflateBound` 时，一次 `deflate(Z_FINISH)` 调用就结束；空间不少于 `compressBound` 时，`compress` 返回 `Z_OK`；格式所接受的每个流，`inflate` 都能读到 `Z_STREAM_END`。最后是无条件的结论：流的往返，以及 `uncompress(compress(x)) = x`。这些结论的 `sorry` 只能留在骨架分支上。
+安全结论之后是往返，针对默认的 zlib 流（默认级别的 `deflateInit`，`inflateInit`），按以下顺序。先是有条件的形式：一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，不论取什么刷新值、怎样划分片段，`inflate` 写出的字节就是 `deflate` 读入的字节。然后是完备性：输出空间足够且分配成功时，带 `Z_FINISH` 的 `deflate` 消耗全部输入并结束；空间不少于 `deflateBound` 时，一次 `deflate(Z_FINISH)` 调用就结束；空间不少于 `compressBound` 时，`compress` 返回 `Z_OK`；格式所接受的每个流，`inflate` 都能读到 `Z_STREAM_END`。然后是无条件的结论：流的往返，以及 `uncompress(compress(x)) = x`。这些结论的 `sorry` 只能留在骨架分支上。
 
-其他功能正确性（其他级别、策略、窗口大小和封装，预设字典，以及作为往返一方的 gzip 文件接口和 `inflateBack`）、仅关于模型的命题和其他构建配置，都不在计划内。未文档化的函数不是必需的公开目标；已经为它们登记的证明保留。`docs/progress.md` 的“范围”一节列出每一组及其理由。不在计划内的目标，只有计划内的目标需要它时才去做。在保证诚实的前提下尽快工作：流程是为了让结果诚实，不是为了拖慢它。
+其他功能正确性（其他级别、策略、窗口大小和封装，预置字典，以及作为往返一方的 gzip 文件接口和 `inflateBack`）、仅关于模型的命题和其他构建配置，都不在计划内。未文档化的函数不是必需的公开目标；已经为它们登记的证明保留。`docs/progress.md` 的“范围”一节列出每一组及其理由。不在计划内的目标，只有计划内的目标需要它时才去做。在保证诚实的前提下尽快工作：流程是为了让结果诚实，不是为了拖慢它。
 
 ## 源码
 
