@@ -16,7 +16,7 @@ The sources named were read for this table; nothing was built or run for it.
 | F2 large block numbers allocate large arrays | Still true. It is an evaluation cost, not a wrong result. |
 | F3 comments described function tables | Partly corrected. The doc comment of `Tbl` in `ZlibF/Runtime/Space.lean` describes the array. The list at the top of that file still calls a table "a function from block numbers". The driver comments were not rechecked. |
 | F4 the class law covers only live references | Unchanged: `Space.modify_eq` assumes a live reference, and there is no law for a dead one. |
-| F5 locks covered the definitions; no targeted negative self-test | The locks are gone. The audit self-test (`tests/audit/cheats/`) still has no case that changes `Tbl.get` or makes `modify` revive a dead block. The runtime is protected by review of its diffs. |
+| F5 locks covered the definitions; no targeted negative self-test | The locks are gone. The audit self-test (`tests/audit/cheats/`) still has no case that changes `Tbl.get` or makes `modify` revive a dead block. The two cheats that section F5 calls runtime-touch and runtime-weakening (`touch_runtime.mut`, `weaken_runtime.mut`) were removed together with the lock files (commit `465281a4`); the nine files of `tests/audit/cheats/` do not touch the runtime. The runtime is protected by review of its diffs. |
 | F6 freed slots stay in the table | Still true of the never-reuse model. |
 
 ## Scope and method
