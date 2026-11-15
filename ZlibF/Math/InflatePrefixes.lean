@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Inflate
+import ZlibF.Spec.Functional.Api.Inflate
 import ZlibF.Proof.Format.Wrapper
 import ZlibF.Proof.«inffast.c.sig»
 

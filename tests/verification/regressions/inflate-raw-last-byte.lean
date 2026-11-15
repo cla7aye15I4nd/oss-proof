@@ -1,5 +1,5 @@
-import ZlibF.Spec.Format.Huffman
-import ZlibF.Spec.Format.Bits
+import ZlibF.Spec.Functional.Format.Huffman
+import ZlibF.Spec.Functional.Format.Bits
 
 open ZlibF.Spec
 

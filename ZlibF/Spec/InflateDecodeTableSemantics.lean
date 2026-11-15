@@ -1,5 +1,5 @@
 import ZlibF.Spec.InflateTableContent
-import ZlibF.Spec.Format.Huffman
+import ZlibF.Spec.Functional.Format.Huffman
 
 /-!
 # Canonical symbols in the constructed LENS and DISTS tables

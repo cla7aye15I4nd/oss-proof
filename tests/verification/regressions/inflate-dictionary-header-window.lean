@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Inflate
+import ZlibF.Spec.Functional.Api.Inflate
 
 open ZlibF.Spec
 

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Deflate
+import ZlibF.Spec.Functional.Format.Deflate
 import ZlibF.Proof.«inffast.c.copy»
 
 /-!

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Goals
+import ZlibF.Spec.Functional.Api.Goals
 
 /-!
 # Seek then read on the gz model

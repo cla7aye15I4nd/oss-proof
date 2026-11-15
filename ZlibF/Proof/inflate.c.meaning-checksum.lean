@@ -1,5 +1,5 @@
 import ZlibF.Proof.«adler32.c.public-block»
-import ZlibF.Spec.Format.Checksum
+import ZlibF.Spec.Functional.Format.Checksum
 
 /-!
 # inflate.c: the running check value continues over more output

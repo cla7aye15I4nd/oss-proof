@@ -1,5 +1,5 @@
 import ZlibF.Zlib.«crc32.c»
-import ZlibF.Spec.Format.Checksum
+import ZlibF.Spec.Functional.Format.Checksum
 
 /-!
 # crc32.c: safety and correctness

@@ -1,5 +1,5 @@
 import ZlibF.Math.DeflateSymbols
-import ZlibF.Spec.Format.Deflate
+import ZlibF.Spec.Functional.Format.Deflate
 
 /-! # Buffered symbols reproduce the logical input prefix
 

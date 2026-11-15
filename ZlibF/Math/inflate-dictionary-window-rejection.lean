@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Wrapper
+import ZlibF.Spec.Functional.Format.Wrapper
 import ZlibF.Math.«inflate-dictionary-window-token»
 
 namespace ZlibF.Spec.SmallCmfDictionary

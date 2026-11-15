@@ -1,5 +1,5 @@
 import ZlibF.Zlib.«inftrees.c»
-import ZlibF.Spec.Format.Huffman
+import ZlibF.Spec.Functional.Format.Huffman
 
 /-!
 # inftrees.c: what the theorems about `inflate_table` say

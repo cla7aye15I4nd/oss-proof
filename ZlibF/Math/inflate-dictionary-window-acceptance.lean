@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.InflateAccepted
+import ZlibF.Spec.Functional.Api.InflateAccepted
 import ZlibF.Math.«inflate-dictionary-window-token»
 import ZlibF.Math.«inflate-dictionary-window-checksum»
 

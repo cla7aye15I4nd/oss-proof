@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Deflate
+import ZlibF.Spec.Functional.Format.Deflate
 
 /-!
 # Retained windows and complete independent output history

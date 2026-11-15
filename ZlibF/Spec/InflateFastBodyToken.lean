@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Token
+import ZlibF.Spec.Functional.Format.Token
 import ZlibF.Spec.InflateFastLengthTrace
 import ZlibF.Spec.InflateFastDistanceResult
 

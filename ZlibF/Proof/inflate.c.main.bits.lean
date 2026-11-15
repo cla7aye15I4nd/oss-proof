@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.base»
-import ZlibF.Spec.Format
+import ZlibF.Spec.Functional.Format
 
 /-!
 # inflate.c: bit-list algebra and the shift lemmas of the bit buffer

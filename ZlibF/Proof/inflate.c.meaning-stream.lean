@@ -1,6 +1,6 @@
 import ZlibF.Zlib.«inflate.c»
-import ZlibF.Spec.Format.Wrapper
-import ZlibF.Spec.Api.Basic
+import ZlibF.Spec.Functional.Format.Wrapper
+import ZlibF.Spec.Functional.Api.Basic
 import ZlibF.Math.«inflate-meaning-wrap»
 
 /-!

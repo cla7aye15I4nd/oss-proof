@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Examples
+import ZlibF.Spec.Functional.Api.Examples
 
 /-!
 # Deflate model: validity of a completed stream

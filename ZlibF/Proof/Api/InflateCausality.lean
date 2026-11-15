@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Inflate
+import ZlibF.Spec.Functional.Api.Inflate
 import ZlibF.Proof.Format.Api
 import ZlibF.Math.InflatePrefixes
 

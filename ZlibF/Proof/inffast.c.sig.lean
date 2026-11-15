@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inffast.c.match»
-import ZlibF.Spec.Format
+import ZlibF.Spec.Functional.Format
 
 /-!
 # inffast.c: the bit stream that the bit buffer and the input pointer stand for

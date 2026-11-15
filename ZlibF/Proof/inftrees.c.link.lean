@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inftrees.c.math»
-import ZlibF.Spec.Format.Huffman
+import ZlibF.Spec.Functional.Format.Huffman
 import ZlibF.Runtime.Schema
 import ZlibF.Proof.«inftrees.c.spec»
 

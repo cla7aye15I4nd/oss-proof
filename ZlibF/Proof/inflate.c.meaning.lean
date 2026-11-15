@@ -1,6 +1,6 @@
 import ZlibF.Proof.«inflate.c.invariant»
 import ZlibF.Proof.«inflate.c.meaning-stream»
-import ZlibF.Spec.Format.Token
+import ZlibF.Spec.Functional.Format.Token
 import ZlibF.Spec.InflateDecodeTableInvariant
 import ZlibF.Spec.InflateDecodeTableStability
 import ZlibF.Spec.InflateFastTableFlags
@@ -8,8 +8,8 @@ import ZlibF.Proof.«inftrees.c.decode.prefix-query»
 import ZlibF.Proof.«inftrees.c.code-length-meaning-state»
 import ZlibF.Proof.«inftrees.c.code-length-contents»
 import ZlibF.Math.«code-length-prefix»
-import ZlibF.Spec.Format.Wrapper
-import ZlibF.Spec.Api.Basic
+import ZlibF.Spec.Functional.Format.Wrapper
+import ZlibF.Spec.Functional.Api.Basic
 import ZlibF.Spec.Public.Sequences
 import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Spec.Functional.Api.InflateAccepted

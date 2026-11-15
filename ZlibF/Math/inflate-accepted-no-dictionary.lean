@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.InflateAccepted
+import ZlibF.Spec.Functional.Api.InflateAccepted
 
 /-! # Successful acceptance without a preset dictionary
 

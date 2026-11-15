@@ -1,5 +1,5 @@
 import ZlibF.Proof.Format.Deflate
-import ZlibF.Spec.Format.Wrapper
+import ZlibF.Spec.Functional.Format.Wrapper
 import ZlibF.Math.DeflateByteEncoding
 
 /-! # Any independently valid raw stream admits its exact zlib trailer -/
