@@ -8,7 +8,7 @@ set_option autoImplicit false
 /-- A real public call from an initialized, platform-scoped protocol history
 produces its accounting, output, frame and allocation facts together with the
 next actual protocol history. No incoming decoder invariant or successful
-callee execution is assumed. This does not yet identify the output with an
+callee execution is assumed. This does not identify the output with an
 independent compressed-stream parse. -/
 theorem public_step_with_history
     {r : ZStreamRef} {h : Heap} {log : DataLog} {pending : Bool}

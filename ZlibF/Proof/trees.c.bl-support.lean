@@ -261,7 +261,7 @@ theorem prepare_build_bl_fields {h : Heap} {id b : Nat} {d : DeflateState} {buf 
 
 /-- Actual initialization and the complete actual tree-description prefix
 supply the format's HLIT, HDIST and HCLEN ranges and every transmitted
-three-bit length bound. This theorem does not yet execute send_all_trees or
+three-bit length bound. This theorem does not execute send_all_trees or
 prove preservation through intervening streaming tallies. -/
 theorem init_prepare_build_bl_fields {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
     (hI : Out.TreesInvAt h id d b buf) :

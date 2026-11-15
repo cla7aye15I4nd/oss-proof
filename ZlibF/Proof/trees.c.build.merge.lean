@@ -727,7 +727,7 @@ theorem ws_btMergeBody_queue {h0 : Heap} {id : Nat} {tk : TK} {d : DeflateState}
 
 /-- The complete actual merge loop terminates after exactly K-1 iterations.
 Its queue has one valid root and its counter and tail boundary have their
-exact source values. This is queue safety and order, not yet tree-layout or
+exact source values. This is queue safety and order, not tree-layout or
 code-emission correctness. -/
 theorem ws_btMergeLoop {h0 : Heap} {id : Nat} {tk : TK} {d : DeflateState}
     {N K : Nat} {node : Int32} (hi : BTMergeQueue tk N K 0 node d) :

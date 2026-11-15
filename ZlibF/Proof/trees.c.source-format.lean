@@ -135,7 +135,7 @@ theorem init_tallies_source_format {h : Heap} {id b : Nat} {d : DeflateState} {b
 /-- Actual construction establishes every header-format premise. The
 actual count-argument call emits that header under exact bit room. The
 header composes with any independent payload for these source alphabets;
-the actual compressor's payload and its overlay bound remain open. -/
+the actual compressor's payload and its overlay bound are not stated here. -/
 theorem atPrepared_dynamic_header {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
     (hI : TreesInvAt h id d b buf) (symbols : List (UInt32 × UInt32))
     (hlegal : ∀ t ∈ symbols, t.2.toNat < 256 ∧ t.1.toNat ≤ 32768)

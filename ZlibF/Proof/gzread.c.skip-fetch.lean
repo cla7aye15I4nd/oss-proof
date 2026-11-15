@@ -10,8 +10,8 @@ import ZlibF.Proof.«gz.read-read»
 `gz_skip_have` (`gz_skip_have_run'`).
 
 Premises beyond the skeleton statement:
-- `msg`, `err`, `copy` on the record: `GzFetchSafe` asks for them at entry. They are to become clauses of `GzInv`
-  (**open**); the loop carries them from `GzFetchSafe`'s post.
+- `msg`, `err`, `copy` on the record: `GzFetchSafe` asks for them at entry. They are clauses of `GzReadInv`
+  (`msgLit`, `errEnd`, `copyIn`); the loop carries them from `GzFetchSafe`'s post.
 - `skip : s.skip ≠ 0`, a **statement correction** of the skeleton's `gz_skip_safe`, which is false without it. With
   `skip = 0`, `x.pos = GZ_OFF_MAX`, `x.have = 0` and input left, the do-while still calls `gz_fetch`; its COPY or GZIP
   branch has room 0 and loads or decodes one byte (`room ? room : 1`), and the loop ends with `x.have = 1`: then
@@ -389,7 +389,7 @@ end measure
 
 /-! ## The loop -/
 
-/-- The entry facts of `gz_fetch` that are not yet clauses of `GzInv` (**open**). -/
+/-- The entry facts of `gz_fetch` named apart from `GzInv`; for a reader they are the clauses `msgLit`, `errEnd` and `copyIn` of `GzReadInv` (`GzInv.reader`). -/
 def SkipEnt (s : GzState) : Prop :=
   MsgLit s ∧ s.err ≠ Z_STREAM_END ∧ (s.how = GZ_COPY → s.strm.avail_in = 0)
 
@@ -401,8 +401,8 @@ def SkipInvF (h : Heap) (i : Nat) (s : GzState) (fs : Fs) (fsc : Fs) (hc : Heap)
     (HasBudget fs s.fd → HasBudget fsc s.fd) ∧ (∀ sc, hc.gzstates i = some sc → SkipEnt sc)
 
 /-- **`gz_skip`, the three halves, from `GzFetchSafe`**, with no skip left on success, the size of the buffers kept,
-`ReadsFinite` and `HasBudget` kept, and the entry facts of `gz_fetch` kept on the final record (for `gz_read`). Premises beyond the skeleton statement: `fetch`; `msg`, `err`, `copy` (the entry facts of `gz_fetch`, to become
-clauses of `GzInv`, **open**); and `skip : s.skip ≠ 0`, a statement correction: without it the skeleton statement
+`ReadsFinite` and `HasBudget` kept, and the entry facts of `gz_fetch` kept on the final record (for `gz_read`). Premises beyond the skeleton statement: `fetch`; `msg`, `err`, `copy` (the entry facts of `gz_fetch`, which are
+clauses of `GzReadInv`); and `skip : s.skip ≠ 0`, a statement correction: without it the skeleton statement
 is false (with `skip = 0`, `x.pos = GZ_OFF_MAX`, nothing buffered and input left, the do-while fetches one byte and
 ends with `x.pos + x.have > GZ_OFF_MAX`, against `GzReadInv.posHave`). Every caller (`gz_read`, `gzgetc_`, `gzgets`)
 tests `skip != 0` before calling `gz_skip`. -/
@@ -589,7 +589,7 @@ theorem gz_skip_run_fetch (fetch : GzFetchSafe)
       fun sc hsc hs0 => si.2.2.1 hs0 sc hsc, si.2.1, si.2.2.2.1, fun sc hsc => si.2.2.2.2 sc hsc⟩
 
 /-- **`gz_skip_safe`** (skeleton statement, branch `skeleton/gz`) from `GzFetchSafe`, with the entry facts of
-`gz_fetch` (`msg`, `err`, `copy`, **open**) and the statement correction `skip : s.skip ≠ 0` (see
+`gz_fetch` (`msg`, `err`, `copy`, clauses of `GzReadInv`) and the statement correction `skip : s.skip ≠ 0` (see
 `gz_skip_run_fetch`). -/
 theorem gz_skip_safe_fetch (fetch : GzFetchSafe)
     (i : Nat) (h : Heap) (fs : Fs) (s : GzState) (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_READ)
@@ -599,8 +599,8 @@ theorem gz_skip_safe_fetch (fetch : GzFetchSafe)
       (r = 0 ∨ r = -1) ∧ FdsKept fs fs' ∧ GzPost h i s [] fs' after GzInv :=
   (gz_skip_run_fetch fetch i h fs s inv hfs hm msg err copy skip).mono fun _ _ _ x => ⟨x.1, x.2.1, x.2.2.1⟩
 
-/-- `gz_skip` in the shape of the read side's `GzSkipRead` (premise of `gz_read_safe_of`, `gz.read-read`, not yet on
-`dev`): the same proposition, so that `gzSkipRead_holds` is `gz_skip_read_fetch fetch` once that definition lands. -/
+/-- `gz_skip` in the shape of the read side's `GzSkipRead` (premise of `gz_read_safe_of`, `gz.read-read`): the same
+proposition; `gzSkipRead_holds` below is `gz_skip_read_fetch fetch`. -/
 theorem gz_skip_read_fetch (fetch : GzFetchSafe) :
     ∀ (i : Nat) (h : Heap) (fs : Fs) (s : GzState), GzInv h i s → FileSystem fs → s.mode = GZ_READ → s.skip ≠ 0 →
       s.err ≠ Z_STREAM_END → (s.how = GZ_COPY → s.strm.avail_in = 0) → MsgLit s →

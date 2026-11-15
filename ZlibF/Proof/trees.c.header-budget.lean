@@ -14,7 +14,7 @@ def dynamicHeaderBits (d : DeflateState) (mb : Int32) : List Bool :=
 
 /-- The returned header has at most 2283 bits. This follows from actual
 source lengths, actual BL lengths, descriptor maxima and the actual search
-result. It does not yet assert emission or the format's BL-count minimum. -/
+result. It does not assert emission or the format's BL-count minimum. -/
 theorem build_bl_tree_header_budget {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
     (trees : TreesInvAt h id d b buf) (input : BLInput d) :
     ∃ (mb : Int32) (result : DeflateState),

@@ -15,11 +15,12 @@ on every reachable history (`reachable_inv_of`, by induction on `StreamReachable
 more operation is safe with an exact ledger (`operation_step_of`), and `deflateEnd` frees every
 block the stream owns (`end_from_inv`).
 
-The lemmas that are not yet theorems are the fields of `SequenceFacts`: `deflate` itself
-(`deflate_call` with the owned-block clause, its header phase, and its `CallFacts`). A direct
-`deflateResetKeep` is not a stream operation (`StreamOperation`, `docs/deviations.md`). When each
-lands, its field is discharged and the theorem below becomes `Goal.deflate_sequence_safety` with
-no hypothesis.
+The theorem below takes the facts about `deflate` itself as the fields of `SequenceFacts`
+(`deflate_call` with the owned-block clause, its header phase, and its `CallFacts`). Every field is
+a theorem: `sequence_facts` (`public-deflate-copy`) proves `SequenceFacts` with no hypothesis, and
+`deflate_sequence_safety` (`public-deflate-goals`) is `Goal.deflate_sequence_safety` with no
+hypothesis. A direct `deflateResetKeep` is not a stream operation (`StreamOperation`,
+`docs/deviations.md`).
 -/
 
 namespace Zlib.Deflate.Universal
@@ -27,8 +28,8 @@ open C ZlibF.Spec ZlibF.Spec.Public Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.
 open Zlib.Deflate.Proofs
 set_option autoImplicit false
 
-/-- The open lemmas of the deflate sequence-safety composition, each with the statement its
-owner proves: `deflate` itself (`deflate_call` with the owned-block clause, the header phase, and
+/-- The deflate lemmas of the sequence-safety composition, each with the statement its owner
+proves (all proved: `sequence_facts`, `public-deflate-copy`): `deflate` itself (`deflate_call` with the owned-block clause, the header phase, and
 `CallFacts`). `deflateSetDictionary` and `deflateParams` are theorems
 (`step_setDictionary`, `setDictionary_header`, `setDictionary_callfacts`, `step_params`,
 `params_header`, `params_callfacts`). -/
@@ -89,7 +90,7 @@ theorem reachable_inv_of (facts : SequenceFacts) {h : Heap} {r : ZStreamRef}
     exact ⟨ds', z', d', invAfter, copy_header inv header distinct get run invAfter,
       copy_callfacts inv calls distinct get run invAfter⟩
 
-/-- **Safety of every permitted deflate call sequence** from the open lemmas of `SequenceFacts`. -/
+/-- **Safety of every permitted deflate call sequence** from the lemmas of `SequenceFacts`. -/
 theorem deflate_sequence_safety_of (facts : SequenceFacts) : Goal.deflate_sequence_safety := by
   refine ⟨?_, ?_, ?_⟩
   · intro h r reach

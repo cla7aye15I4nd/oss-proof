@@ -9,7 +9,7 @@ project. No result here alone establishes refinement of the translated C.
 # Abstract Huffman merge of `build_tree` (spec-level, no translated code)
 
 A pure model of the tree that `trees.c`'s `build_tree` builds, used to state and prove the
-facts the overlay bounds need (`docs/the reference overlay analysis` §3, §7, §8.3): Kraft equality,
+facts the overlay bounds need (the overlay analysis of the zlib-formal reference, `docs/history/references.md`, §3, §7, §8.3): Kraft equality,
 optimality, the Fibonacci depth bound (`FibPlus`), and later the effect of `gen_bitlen`'s
 overflow repair. Nothing here mentions the heap or a translated function; this file imports
 only core Lean.

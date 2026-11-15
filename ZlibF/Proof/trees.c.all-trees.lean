@@ -290,7 +290,7 @@ structure AllTreeData (d : DeflateState) (L D B : Nat) : Prop where
 /-- `local void send_all_trees(deflate_state *s, int lcodes, int dcodes, int blcodes)`.
 Under explicit internal construction data and exact total bit room, the
 complete actual routine terminates and emits the modeled dynamic header.
-This statement does not yet identify the whole output with the independent
+This statement does not identify the whole output with the independent
 format grammar or derive room from the output/symbol overlay bound. -/
 theorem send_all_trees_emit {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
     (hI : TreesInvAt h id d b buf) (lc dc bc : Int32) (L D B : Nat)

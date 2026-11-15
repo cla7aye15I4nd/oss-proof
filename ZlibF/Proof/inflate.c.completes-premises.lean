@@ -4,7 +4,7 @@ import ZlibF.Proof.«inflate.c.sync2»
 import ZlibF.Proof.«inflate.c.invariant»
 
 /-!
-# inflate.c: the two open premises of `BlockedLeave`
+# inflate.c: the two premises of `BlockedLeave`
 
 `blocked_leave` (`inflate.c.completes-blocked`) proves `BlockedLeave` from:
 
@@ -12,6 +12,9 @@ import ZlibF.Proof.«inflate.c.invariant»
   configuration (the inflate owner's general leave theorem; the default
   configuration is `leaveRetCodes_default`);
 * `GzipFieldLeaves`: the string and extra-field gzip modes leave only with no input.
+
+Both are theorems: `leave_ret_codes` (`inflate.c.leave-ret-codes`) and `gzip_field_leaves`
+(`inflate.c.completes-gzip-fields`).
 -/
 
 namespace Zlib.Inflate.Proofs

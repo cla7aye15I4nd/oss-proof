@@ -13,8 +13,9 @@ input byte, then `pending`) lowers `Φ + 2^30·avail_in`: a byte of input consum
 term by four, which is `2^20 < 2^30` in `Φ`. `Quiet` is `QuietS`.
 
 `deflate_quiet_in_of` is `DeflateQuietIn` (batch C's statement, written out here) from `call_in`,
-`deflate_call_full` (the call keeps `gzhead`), `quiet_silent` and `stateOf_rebuffer`, under the open
-fact `StoredStop` of `deflate_stored` with input.
+`deflate_call_full` (the call keeps `gzhead`), `quiet_silent` and `stateOf_rebuffer`, under the
+fact `StoredStop` of `deflate_stored` with input, which `stored_stop` (`deflate.c.quiet-in-stored`)
+proves; `deflate_quiet_in_holds_block` there is `DeflateQuietIn` with no premise.
 -/
 
 namespace Zlib.Deflate.Universal.Quiet
@@ -101,7 +102,7 @@ theorem call_in_gz {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : Def
   obtain ⟨_, _, rfl⟩ := inv1.unique inv2.good
   exact ⟨rc, a2, z1, d2, run, inv1, gz2, cA, cQ, cF⟩
 
-/-- **`DeflateQuietIn`** (batch C's statement, `gzwrite.c.comp`), under the open fact `StoredStop`. -/
+/-- **`DeflateQuietIn`** (batch C's statement, `gzwrite.c.comp`), under the fact `StoredStop` (proved by `stored_stop`, `deflate.c.quiet-in-stored`). -/
 theorem deflate_quiet_in_of (sstop : StoredStop) :
   ∃ (Φ : Int32 → Heap → ZStreamRef → Nat) (Quiet : Int32 → Heap → ZStreamRef → Prop),
     (∀ (flush : Int32) (h : Heap) (r : ZStreamRef) (z : ZStream) (value : Int32) (after : Heap) (z' : ZStream),

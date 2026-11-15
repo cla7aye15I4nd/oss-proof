@@ -10,7 +10,7 @@ set_option autoImplicit false
 /-- Actual default initialization and every finite ordinary request/rebuffer
 history establish the scoped public request contract. No earlier execution
 contract is a premise of the history. Other flush flags, output references,
-advanced operations and encoded-output correctness remain open. -/
+advanced operations and encoded-output correctness are not stated here. -/
 theorem default_init_ordinary_histories_request_contract {h : Heap} {r : ZStreamRef}
     {z : ZStream} {version : BPtr}
     (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
@@ -45,7 +45,7 @@ theorem default_init_ordinary_histories_request_contract {h : Heap} {r : ZStream
 /-- Actual default initialization and every finite ordinary request/rebuffer
 history establish the scoped public request contract. No earlier execution
 contract is a premise of the history. Other valid flush flags, output references,
-advanced operations and encoded-output correctness remain open. -/
+advanced operations and encoded-output correctness are not stated here. -/
 theorem default_init_ordinary_histories_scalar_contract {h : Heap} {r : ZStreamRef}
     {z : ZStream} {version : BPtr}
     (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)

@@ -86,13 +86,13 @@ example : ¬ Acceptable .litLen [2, 2] := by decide
 example : ¬ Acceptable .dist [2, 2, 0, 0] := by decide
 /-- Negative: a length above 15 is rejected. -/
 example : ¬ Acceptable .litLen [16, 16] := by decide
-/-- The single-symbol exception (format.md 2.4): one symbol of length 1 is accepted for the
+/-- The single-symbol exception (`docs/spec/format/README.md`, "Canonical Huffman codes"): one symbol of length 1 is accepted for the
 literal/length and distance codes, but not for the code-length code. -/
 example : Acceptable .dist [0, 1] ∧ Acceptable .litLen [1] := by decide
 example : ¬ Acceptable .codeLength [0, 1] := by decide
 /-- Negative: a single symbol of length 2 is not the exception. -/
 example : ¬ Acceptable .dist [0, 2] := by decide
-/-- No symbol at all is accepted (format.md 2.4); every decode attempt then fails. -/
+/-- No symbol at all is accepted (`docs/spec/format/README.md`, "Canonical Huffman codes"); every decode attempt then fails. -/
 example : Acceptable .dist [0, 0, 0] := by decide
 example : decodeSym [0, 0, 0] [true, false] = none := by decide
 /-- Decoding by prefix: with lengths (1,2,2), "1" then "0 1" then "0 0". -/
@@ -467,7 +467,7 @@ example : ∀ out, ¬ Zlib.Decodes [] [0x78, 0x9C, 0x4b, 0x04, 0x00] out := by
   rw [hr] at ht
   exact absurd ht (by decide)
 
-/-! ## The gzip wrapper (format.md section 4, `F-gzip-check`) -/
+/-! ## The gzip wrapper (`docs/spec/format/README.md`, "The gzip wrapper", `F-gzip-check`) -/
 
 /-- zlib's own gzip stream for "a" (no optional fields): header 1F 8B 08 00 + MTIME 0 + XFL 2 + OS 19,
 the fixed block, CRC-32 `E8B7BE43` and length 1, both little endian. -/

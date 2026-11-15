@@ -336,8 +336,8 @@ theorem gzSkipSpecNZ_of (fetch : FetchFacts) (term : GzSkipTerminates) : GzSkipS
 
 /-! ## Facts of the callees, from their statements on `dev` -/
 
-/-- **The open fact of `inflate`** behind `gz_decomp_safe_of`: a call from `BAD` or `MEM` moves nothing
-(`InflateStuckNoOutput`). -/
+/-- **The fact of `inflate`** behind `gz_decomp_safe_of`: a call from `BAD` or `MEM` moves nothing
+(`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`, `inflate.c.stuck-no-output`). -/
 def DecompFacts : Prop := InflateStuckNoOutput
 
 /-- **The three reader facts** that `GzFetchSafe` and `GzLookSpec` take as premises: the embedded stream's message
@@ -387,7 +387,7 @@ theorem gzFetchRoom_holds (head : DecompFacts) : GzFetchRoom := by
   · exact Or.inr hb
 
 /-- The facts of `gz_fetch` that `gz_skip` uses, from `gz_fetch_safe_of`, `gz_look_safe`, `gz_decomp_safe_of` and the
-open premises. -/
+premises `ReadInvFacts`, `DecompFacts` and `GzFetchRoom` (proved: `readInvFacts_holds`, `inflateStuckNoOutput_holds`, `gzFetchRoom_holds`). -/
 theorem fetchFacts_of (P : ReadInvFacts) (head : DecompFacts) (room : GzFetchRoom) : FetchFacts := by
   intro i h fs s inv hfs hm h0 hsk
   have hu := GzInv.upToOutput inv hm h0

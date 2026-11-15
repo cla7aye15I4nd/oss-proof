@@ -9,7 +9,7 @@ Source: `uncompr.c` of the verified source, default x86_64 Linux build.
 Decisions (see `docs/design/external-io.md`):
 * `z_stream stream;` is a local record made by `allocLocalZ` (no allocation oracle: automatic storage cannot fail),
   with arbitrary content, and freed before every return.
-* `(Bytef *)&stream.reserved` (D-5) is a local 8-byte block, freed before every return. It is only ever passed as
+* `(Bytef *)&stream.reserved` (a field of the local record, cast from `uLong *` to `Bytef *`) is a local 8-byte block, freed before every return. It is only ever passed as
   `next_out` with `avail_out == 0`.
 * A pointer to a scalar (`z_size_t *destLen`, `uLong *sourceLen`) is a pointer to an 8-byte block holding the
   value in little-endian order (`load64`/`store64` of `gzguts.h.lean`).

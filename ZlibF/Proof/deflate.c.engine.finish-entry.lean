@@ -77,7 +77,7 @@ theorem public_busy_finish_entry {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZSt
 /-- The accepted complete public FINISH call on a BUSY default stream.
 It executes the real entry, unrestricted slow call, final status stores
 and trailer publication. The initialized boundary is explicit; this is
-not yet the arbitrary-history, frame or output-refinement public goal. -/
+not the arbitrary-history, frame or output-refinement public goal. -/
 theorem public_default_busy_finish {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
     (boundary : StrategyBoundary h r ds z d input origin base xs config)

@@ -8,7 +8,7 @@ import ZlibF.Proof.«gzread.c.close»
 `out` and `in`; then `gz_error(state, Z_OK, NULL)` frees the message, `free(path)`, `close(fd)`, `free(state)`.
 
 The statement is the close step of the gz skeleton (`gzclose_r_step`, with `GzCloseSafe` and `GzReleased` of
-`gz.skeleton-model.lean` on the branch `skeleton/gz`). Those two definitions are not on `dev`; `Close.Released`
+`gz.skeleton-model.lean` on the branch `skeleton/gz`; both are now in `ZlibF/Spec/Public/GzSafety.lean`). `Close.Released`
 below is a copy of `GzReleased`, and `gzclose_r_step_safe` is `GzCloseSafe i (.gzclose_r (some (.in_gzstate_x i)))`
 written out.
 

@@ -10,7 +10,7 @@ set_option autoImplicit false
 /-- The complete actual default BUSY call, including any previously queued
 bytes and all positive raw output capacities, returns a working or finishing
 phase. Pending drain may exhaust output or continue into the real strategy.
-The complete output history, total counters and heap frame remain open. -/
+The complete output history, total counters and heap frame are not stated here. -/
 theorem public_default_busy_finish_phase {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
     (boundary : BufferedBoundary h r ds z d input origin base xs config) (buffers : StreamBuffers h r)

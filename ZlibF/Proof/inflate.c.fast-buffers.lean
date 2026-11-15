@@ -132,7 +132,7 @@ theorem DispatchBuffers.byte_views {h after : Heap} {r : ZStreamRef} {zs : Nat}
 /-- The real fast LEN call retains the complete scalar/table/buffer packet
 for distinct raw input/output blocks. Input and output advances, remaining
 counts and normalized bits all come from the actual callee. General caller
-views, semantic bit consumption and whole-loop progress remain open. -/
+views, semantic bit consumption and whole-loop progress are not stated here. -/
 theorem inflate_LEN_fast_raw_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8} {ib io ob oo : Nat}
     (E : Env c h r zs z s) (good : Good h r zs z s)

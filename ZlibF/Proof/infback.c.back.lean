@@ -4,8 +4,9 @@ import ZlibF.Proof.«infback.c.callbacks»
 # infback.c: `inflateBack`, the entry checks and the end-of-input exit
 
 Proved here: the `Z_STREAM_ERROR` exits of the entry, and the exit when `in` has no input at the first `PULL`
-(`Z_BUF_ERROR`, `next_in` is `NULL`, `avail_in` is 0, `out` is not called). The loop over the blocks is open (see
-`docs/proof/callbacks.md`).
+(`Z_BUF_ERROR`, `next_in` is `NULL`, `avail_in` is 0, `out` is not called). The loop over the blocks is proved in
+the safety modules: `inflate_back_sequence_safety` (`infback.c.safety-fast`) is
+`Goal.inflate_back_sequence_safety` (see `docs/proof/callbacks.md`).
 -/
 
 namespace Zlib.Infback.Spec

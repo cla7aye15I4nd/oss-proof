@@ -11,7 +11,7 @@ set_option autoImplicit false
 /-- Every actual nonzero non-FINISH strategy call returns with the
 initialized content and EOF frontiers intact, including empty, zero and
 short output. Public PARTIAL/SYNC/FULL/BLOCK markers are not part of this
-internal strategy theorem. Their composition remains open. -/
+internal strategy theorem. Their composition is not stated here. -/
 theorem deflate_slow_positive_nonfinal_ready {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
     (boundary : StrategyBoundary h r ds z d input origin base xs config)

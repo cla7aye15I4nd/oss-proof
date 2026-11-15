@@ -779,7 +779,7 @@ theorem fastPost_retained (e : Zlib.Inffast.Proofs.Env) {after : Heap}
 
 /-- The actual raw-buffer fast branch now retains the same scalar/table
 clauses as the slow data dispatch. Its buffer and progress transport remain
-the next composition obligations; broader caller views are still open. -/
+the next composition obligations; broader caller views are not stated here. -/
 theorem inflate_LEN_fast_raw_retained {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8} {ib io ob oo : Nat}
     (E : Env c h r zs z s) (good : Good h r zs z s)

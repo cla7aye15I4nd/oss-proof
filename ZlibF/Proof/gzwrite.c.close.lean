@@ -7,7 +7,7 @@ import ZlibF.Proof.«deflate.c.universal-sequence-safety»
 # gzwrite.c: `gzclose_w` is safe
 
 `gzclose_w_step_of`: the skeleton statement `gzclose_w_step` (`GzCloseSafe`, branch `skeleton/gz`), from the facts of
-`gz_error` (`GzErrorSpec`, `GzErrorOwn`). `GzCloseSafe` and `GzReleased` are not on `dev`; as for `gzclose_r`
+`gz_error` (`GzErrorSpec`, `GzErrorOwn`). `GzCloseSafe` and `GzReleased` are now in `ZlibF/Spec/Public/GzSafety.lean`; as for `gzclose_r`
 (`gz.read-close`), the statement is written out with `GzRead.Close.Released`, the copy of `GzReleased`.
 
 `gzclose_w(file)` refuses a reader with no effect. On a writer:

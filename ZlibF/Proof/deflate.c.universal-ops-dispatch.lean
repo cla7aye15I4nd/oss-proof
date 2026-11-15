@@ -83,10 +83,11 @@ theorem bufferFrame_widen {h after : Heap} {c1 c2 : Nat → Prop} {p : BPtr} {n 
     obtain ⟨o, po, l1, l2⟩ := cov
     exact nc ⟨⟨p, m⟩, List.mem_singleton.mpr rfl, o, po, l1, by simp only at l2 ⊢; omega⟩
 
-/-- **`operation_step` from the open operation lemmas.** Every operation of
+/-- **`operation_step` from the per-operation lemmas.** Every operation of
 `StreamOperation .deflate` keeps the invariant, with the frame and the allocation ledger of
-`StreamSequenceSafety`. Hypotheses (not yet theorems): `deflateCall` (the skeleton's `deflate_call`,
-owner 2, with the owned-block clause), `stepSetDictionary` and `stepParams`. Premises: the header
+`StreamSequenceSafety`. Hypotheses, each proved elsewhere: `deflateCall` (the skeleton's
+`deflate_call` with the owned-block clause, `deflate_call_of` with `tinyOverlay`),
+`stepSetDictionary` (`step_setDictionary`) and `stepParams` (`step_params`). Premises: the header
 facts `header` and the between-calls facts `calls`. -/
 theorem operation_step_of
     (deflateCall : ∀ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState},

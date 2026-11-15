@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.quiet-in»
 /-!
 # deflate.c: `deflate_stored` stops on a full output or an empty input (`StoredStop`)
 
-`stored_stop` proves `StoredStop`, the last open fact of `DeflateQuietIn`, and
+`stored_stop` proves `StoredStop`, the last premise of `DeflateQuietIn`, and
 `deflate_quiet_in_holds_block` is `DeflateQuietIn` itself, for `0 ≤ flush ≤ 5`.
 
 The copy loop of `deflate_stored` stops without a last block only with `len < min_block`

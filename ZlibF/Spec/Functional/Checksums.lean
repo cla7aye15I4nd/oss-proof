@@ -45,7 +45,8 @@ def Goal.adler32 : Prop :=
       .ok ((if pointer = .null then 1 else adlerValue seed bytes), h)
 
 /-- Combine calls never fault or change the heap, even for forged checksums. Negative lengths
-return the documented sentinel. For genuine checksums and the length of the second input,
+return `0xffffffff`: zlib.h says only that the result then has no meaning or utility, and the value
+itself appears only in `adler32.c`. For genuine checksums and the length of the second input,
 the result is the checksum of concatenation. No claim of a meaningful checksum is made for
 a forged pair that does not describe those inputs. -/
 def AdlerCombine (program : UInt64 → UInt64 → Int64 → M UInt64) : Prop :=

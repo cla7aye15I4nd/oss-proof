@@ -11,7 +11,7 @@ set_option autoImplicit false
 /-- A default history may mix NO_FLUSH, FINISH, BLOCK and legal rebuffering.
 The next ordinary request retains its full scoped safety/control contract,
 including precise BufferFrame. The BLOCK request's whole-public frame,
-other valid flags, advanced APIs and encoded correctness remain open. -/
+other valid flags, advanced APIs and encoded correctness are not stated here. -/
 theorem default_init_ordinary_block_histories_request_contract {h : Heap} {r : ZStreamRef}
     {z : ZStream} {version : BPtr}
     (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)

@@ -7,8 +7,10 @@ import ZlibF.Proof.«deflate.c.engine.overlay-mem1w»
 
 Below 512, `lit_bufsize` is 128 or 256 (`memLevel` 1 or 2). The overlay room holds at 256 from
 `HeaderRefBound Δ₂` with `Δ₂ ≤ 640` (`dynamic_overlay_256c`, region scan and choice row) and at 128 from `HeaderRefBound128 Δ₁`
-with `Δ₁ ≤ 132` (`dynamic_overlay_128`). So `TinyOverlay`, the one open hypothesis of the deflate
-proofs, follows from the two header bounds (batch 1's open pieces).
+with `Δ₁ ≤ 132` (`dynamic_overlay_128`). So `TinyOverlay`, the one hypothesis of the deflate
+proofs, follows from the two header bounds (batch 1's pieces). The proof of `TinyOverlay` that is
+used, `tinyOverlay` (`deflate.c.engine.overlay-header-ref`), takes the `HeaderRefBound128W` route
+(`header_ref_bound_128w`, `header_ref_bound_256`).
 -/
 
 namespace Zlib.Deflate.Engine.Proofs

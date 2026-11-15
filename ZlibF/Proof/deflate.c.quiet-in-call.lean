@@ -378,8 +378,8 @@ theorem call_pending_in {h : Heap} {r : ZStreamRef} {ds : Nat}
     have : z3.avail_out.toNat = 0 := by rw [z0]; rfl
     omega
 
-/-- **One `deflate` call, with or without input, for `DeflateQuietIn`.** `sstop` is the open fact of
-`deflate_stored` with input. -/
+/-- **One `deflate` call, with or without input, for `DeflateQuietIn`.** `sstop` is the fact of
+`deflate_stored` with input (`StoredStop`, proved by `stored_stop`). -/
 theorem call_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {flush : Int32}
     (inv : DInv h r ds z d) (ov : Block.OverlayAt d.lit_bufsize.toNat) (header : HeaderInv d) (facts : CallFacts d)
     (buffers : StreamBuffers h r) (active : ActiveHeader h r) (out : z.next_out ≠ .null)

@@ -153,7 +153,7 @@ theorem public_default_first_finish_one {h : Heap} {r : ZStreamRef} {ds ob oo : 
 stream has a successful safety/accounting result at every positive raw
 output capacity. One byte splits the header; exactly two bytes enters
 compression with no output space left. Input length is unrestricted.
-The call-history, full frame and format-refinement goals remain open. -/
+The call-history, full frame and format-refinement goals are not stated here. -/
 theorem public_default_first_finish {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {config : EngineConfig}
     (initial : EngineStart h r ds z d) (level : d.level = 6)
