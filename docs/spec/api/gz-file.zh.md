@@ -1,4 +1,4 @@
-<!-- source-sha256: e81741abe377319795a456d089c66fc195debb573325a02560159611f892fd4f -->
+<!-- source-sha256: 607b25f5eb440c01309c8d6eba9da4750bcc3dc64dc2a966b8a3f1c32e458400 -->
 
 # Gzip 文件
 
@@ -27,9 +27,15 @@
 
 ## 安全目标
 
-本页每个函数的必需安全目标都是 `Goal.gz_sequence_safety`
-（[GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它已登记。把它分别重述到单个函数上的逐函数安全目标尚未写出。
-这个目标针对打过补丁的源码（见[注意事项](#scope-and-source-caveats)）。
+本页每个函数都有自己的必需安全目标 `Goal.<function>_safety`
+（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)），它的条目在**证明目标**下陈述这个目标。
+每个这样的目标都把序列目标 `Goal.gz_sequence_safety`
+（[GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）的一个子句限制到一个函数的调用上。
+接受句柄的函数，其目标还带有 `Goal.gz_refusal` 中属于该函数的子句，即对 NULL 句柄的拒绝。
+序列目标同样是必需的。它多出下表中的不变量子句，这个子句说的是历史，而不是某一次调用。
+
+本节描述序列目标，因为各条目要引用它的历史、参数条件和读取预算。这些目标都已登记。
+它们针对打过补丁的源码（见[注意事项](#scope-and-source-caveats)）。
 
 **历史（`GzHistory`）。** 目标覆盖一个句柄的每一段历史。历史从一次成功的 `gzopen`、`gzopen64` 或 `gzdopen` 开始：
 堆良构，字节对象都小于 `2^63` 字节，字符串参数（`path`、`mode`）以 NUL 结尾。此后可以接着发生以下任何一种情况：
@@ -91,7 +97,7 @@
 
 **NULL 句柄与非空性。** `Goal.gz_refusal`
 （[GzRefusal.lean](../../../ZlibF/Spec/Public/GzRefusal.lean)）说明：每个接受句柄的 gz 函数在句柄为 NULL 时返回文档规定的值，
-堆和世界都不变。`Goal.gz_sequence_nonvacuity` 表明前提可以满足：一个带有限读取预算的 `gzopen` 读句柄加一次一字节的
+堆和世界都不变。每个这样的函数自己的目标都重复了属于它的那个子句。`Goal.gz_sequence_nonvacuity` 表明前提可以满足：一个带有限读取预算的 `gzopen` 读句柄加一次一字节的
 `gzread`，以及一个 `gzdopen` 写句柄加一次一字节的 `gzwrite`。
 
 **功能契约。** 逐函数目标 `Goal.gzread`、`Goal.gzwrite` 等说明读写了哪些字节、返回了什么值。
@@ -172,7 +178,8 @@ stateDiagram-v2
 
 源码为 [gzlib.c](../../../zlib/gzlib.c)、[gzread.c](../../../zlib/gzread.c)、
 [gzwrite.c](../../../zlib/gzwrite.c)、[gzclose.c](../../../zlib/gzclose.c) 和
-[zlib.h](../../../zlib/zlib.h)。安全目标位于 [GzSafety](../../../ZlibF/Spec/Public/GzSafety.lean)，
+[zlib.h](../../../zlib/zlib.h)。序列安全目标位于 [GzSafety](../../../ZlibF/Spec/Public/GzSafety.lean)，
+各函数的安全目标位于 [GzCalls](../../../ZlibF/Spec/Safety/GzCalls.lean)，
 NULL 句柄目标位于 [GzRefusal](../../../ZlibF/Spec/Public/GzRefusal.lean)。
 抽象契约位于 [Functional/Api/Gz.lean](../../../ZlibF/Spec/Functional/Api/Gz.lean)。
 功能目标位于 [GzOpen](../../../ZlibF/Spec/Public/GzOpen.lean)、
@@ -210,7 +217,21 @@ gzFile ZEXPORT gzopen(const char *path, const char *mode);
 
 **前置条件：** 非 NULL 的 `path` 和 `mode` 是可读、以 NUL 结尾的字符串。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开子句（`GzOpenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `path` 和非 NULL 的 `mode` 是以 NUL 结尾的字符串。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；返回 NULL 时不留下新块，打开的描述符集合不变；返回句柄时，句柄满足不变量，恰好拥有新块，并且它的描述符是唯一新打开的。功能目标（非必需）：`Goal.gzopen`。
+**证明目标。**
+
+- **目标。** `Goal.gzopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **适用条件**（`GzOpenSafe`）：
+    1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
+    2. 平台大小上界成立（`ByteObjectsFit`）；
+    3. 世界是良构的文件系统（`FileSystem`）；
+    4. `path` 为 NULL，或是以 NUL 结尾的字符串；`mode` 也是如此（`CString`）。
+- **无条件覆盖。** `path` 或 `mode` 为 NULL；每一个路径和每一种模式文本，无论是否合法；每个文件系统世界，包括系统的 `open` 的每一种失败；每一种分配结果。
+- **保证。**
+    - *返回。* 调用返回，结果是 NULL 或一个句柄。
+    - *状态。* 世界良构。返回 NULL 时，打开的描述符集合不变（`FdsKept`）。返回的句柄满足其不变量（`GzInv`）；它的描述符编号不是负数，并且在调用前没有打开；其他每个描述符是否打开都与调用前相同。
+    - *写入。* 调用前已有的块都不改变（`Frame`）。
+    - *分配。* 返回 NULL 时，已分配的块与调用前相同：失败的打开不留下任何东西。返回句柄时，新块恰好是句柄自己的块，并且不释放任何块（`LiveChange`）。
+- **不在本目标内。** `path` 或 `mode` 在其所在对象之内没有以 NUL 结尾：在本目标之外，与 C 中一样。哪些调用返回句柄，以及该句柄的模式、位置和缓冲区：功能目标 `Goal.gzopen`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzopen"><summary>完整返回条件与边界</summary>
 
@@ -260,7 +281,21 @@ gzFile ZEXPORT gzopen64(const char *path, const char *mode);
 
 **前置条件：** 满足 `gzopen` 的字符串和环境要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开子句（`GzOpenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `path` 和非 NULL 的 `mode` 是以 NUL 结尾的字符串。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；返回 NULL 时不留下新块，打开的描述符集合不变；返回句柄时，句柄满足不变量，恰好拥有新块，并且它的描述符是唯一新打开的。功能目标（非必需）：`Goal.gzopen64`。
+**证明目标。**
+
+- **目标。** `Goal.gzopen64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **适用条件**（`GzOpenSafe`）：
+    1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
+    2. 平台大小上界成立（`ByteObjectsFit`）；
+    3. 世界是良构的文件系统（`FileSystem`）；
+    4. `path` 为 NULL，或是以 NUL 结尾的字符串；`mode` 也是如此（`CString`）。
+- **无条件覆盖。** `path` 或 `mode` 为 NULL；每一个路径和每一种模式文本，无论是否合法；每个文件系统世界，包括系统的 `open` 的每一种失败；每一种分配结果。
+- **保证。**
+    - *返回。* 调用返回，结果是 NULL 或一个句柄。
+    - *状态。* 世界良构。返回 NULL 时，打开的描述符集合不变（`FdsKept`）。返回的句柄满足其不变量（`GzInv`）；它的描述符编号不是负数，并且在调用前没有打开；其他每个描述符是否打开都与调用前相同。
+    - *写入。* 调用前已有的块都不改变（`Frame`）。
+    - *分配。* 返回 NULL 时，已分配的块与调用前相同：失败的打开不留下任何东西。返回句柄时，新块恰好是句柄自己的块，并且不释放任何块（`LiveChange`）。
+- **不在本目标内。** `path` 或 `mode` 在其所在对象之内没有以 NUL 结尾：在本目标之外，与 C 中一样。哪些调用返回句柄，以及该句柄的模式、位置和缓冲区：功能目标 `Goal.gzopen64`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzopen64"><summary>完整返回条件与边界</summary>
 
@@ -306,7 +341,21 @@ gzFile ZEXPORT gzdopen(int fd, const char *mode);
 非 NULL 的 `mode` 满足 `gzopen` 的字符串要求。
 句柄拥有该描述符期间，其他使用者不对它读、写、定位或关闭。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开子句（`GzDopenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `mode` 是以 NUL 结尾的字符串。`fd` 的每个取值都被覆盖，无论它是否打开。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；不打开也不关闭任何描述符；返回 NULL 时不留下新块；返回句柄时，句柄满足不变量，以 `fd` 为描述符，并且恰好拥有新块。功能目标（非必需）：`Goal.gzdopen`。
+**证明目标。**
+
+- **目标。** `Goal.gzdopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzDopenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **适用条件**（`GzDopenSafe`）：
+    1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
+    2. 平台大小上界成立（`ByteObjectsFit`）；
+    3. 世界是良构的文件系统（`FileSystem`）；
+    4. `mode` 为 NULL，或是以 NUL 结尾的字符串（`CString`）。
+- **无条件覆盖。** `fd` 的每个取值：无论是否打开，无论是否为负；`mode` 为 NULL；每一种模式文本，无论是否合法；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 调用返回，结果是 NULL 或一个句柄。
+    - *状态。* 世界良构，打开的描述符集合不变（`FdsKept`）：调用不打开也不关闭任何描述符。返回的句柄满足其不变量（`GzInv`），它的描述符是 `fd`。
+    - *写入。* 调用前已有的块都不改变（`Frame`）。
+    - *分配。* 返回 NULL 时，已分配的块与调用前相同：失败的打开不留下任何东西。返回句柄时，新块恰好是句柄自己的块，并且不释放任何块（`LiveChange`）。
+- **不在本目标内。** `mode` 在其所在对象之内没有以 NUL 结尾：在本目标之外，与 C 中一样。哪些调用返回句柄，以及该句柄的模式、位置和缓冲区：功能目标 `Goal.gzdopen`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzdopen"><summary>完整返回条件与边界</summary>
 
@@ -397,7 +446,18 @@ int ZEXPORT gzbuffer(gzFile file, unsigned size);
 
 **前置条件：** 活跃读取或写入句柄满足通用要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzbuffer`。
+**证明目标。**
+
+- **目标。** `Goal.gzbuffer_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzbuffer_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** `size` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzbuffer`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzbuffer"><summary>完整返回条件与边界</summary>
 
@@ -443,7 +503,18 @@ int ZEXPORT gzsetparams(gzFile file, int level, int strategy);
 **前置条件：** 活跃 gzip 写入句柄满足通用要求。拒绝透明写入句柄。
 已有硬错误通常阻止调用。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzsetparams`。
+**证明目标。**
+
+- **目标。** `Goal.gzsetparams_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzsetparams_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** `level` 和 `strategy` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzsetparams`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzsetparams"><summary>完整返回条件与边界</summary>
 
@@ -493,7 +564,19 @@ int ZEXPORT gzread(gzFile file, voidp buf, unsigned len);
 **前置条件：** 当 `len <= INT_MAX` 时，`buf` 按共享分离规则覆盖 `len` 个可写字节。
 零范围不需要访问任何字节。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：当 `len <= INT_MAX` 且 `len != 0` 时，`buf` 覆盖 `len` 个可写字节且在句柄自有的块之外（`GzRange`）。`len == 0` 和 `len > INT_MAX` 对 `buf` 没有要求。终止性：描述符还能交付的字节少于 `2^61` 时（`ReadsFinite`）调用返回，即使 C 会立刻返回的情形也取这一前提；没有这一前提时，唯一可能的错误是循环燃料耗尽，绝不是未定义行为。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，长度非零时还有 `buf` 处的 `len` 个字节；长度为零的读不点名任何调用者区域，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzread`。
+**证明目标。**
+
+- **目标。** `Goal.gzread_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzread_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：`len > INT_MAX` 时没有要求；否则 `len == 0`，或者 `buf` 覆盖 `len` 个可写字节且在句柄自己的块之外（`GzRange`）。
+- **无条件覆盖。** `len` 的每个取值，包括 0 和大于 `INT_MAX` 的值；在这两种情形下 `buf` 可取任意值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `-1`。对句柄调用时，在每个世界里，调用都不会以未定义行为或内存错误结束：执行唯一可能的错误是循环燃料耗尽。读取预算成立时（`ReadsFinite`：描述符还能交付的字节少于 `2^61`）调用返回。即使 C 会立刻返回的情形，也要求这个预算。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块；当 `0 < len <= INT_MAX` 时还有 `buf` 处的 `len` 个字节。长度为零的读不点名任何调用者区域。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzread`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzread"><summary>完整返回条件与边界</summary>
 
@@ -543,7 +626,19 @@ z_size_t ZEXPORT gzfread(voidp buf, z_size_t size, z_size_t nitems, gzFile file)
 
 **前置条件：** 乘积可表示时，`buf` 覆盖 `size * nitems` 个可写字节，并满足共享分离规则。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：当 `size * nitems` 非零且小于 `2^64` 时，`buf` 覆盖这么多可写字节且在句柄自有的块之外（`GzRange`）。乘积为零或溢出时，对 `buf` 没有要求。终止性：描述符还能交付的字节少于 `2^61` 时（`ReadsFinite`）调用返回，即使 C 会立刻返回的情形也取这一前提；没有这一前提时，唯一可能的错误是循环燃料耗尽，绝不是未定义行为。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，乘积非零时还有 `buf` 处的 `size * nitems` 个字节；长度为零的读不点名任何调用者区域，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzfread`。
+**证明目标。**
+
+- **目标。** `Goal.gzfread_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzfread_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：`size * nitems >= 2^64` 时没有要求；否则乘积为零，或者 `buf` 覆盖这么多个可写字节且在句柄自己的块之外（`GzRange`）。
+- **无条件覆盖。** `size` 和 `nitems` 的每个取值，包括乘积为零和乘积不小于 `2^64` 的情形；在这两种情形下 `buf` 可取任意值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `0`。对句柄调用时，在每个世界里，调用都不会以未定义行为或内存错误结束：执行唯一可能的错误是循环燃料耗尽。读取预算成立时（`ReadsFinite`：描述符还能交付的字节少于 `2^61`）调用返回。即使 C 会立刻返回的情形，也要求这个预算。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块；当乘积非零且小于 `2^64` 时还有 `buf` 处的 `size * nitems` 个字节。长度为零的读不点名任何调用者区域。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzfread`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzfread"><summary>完整返回条件与边界</summary>
 
@@ -586,7 +681,18 @@ int ZEXPORT gzgetc(gzFile file);
 
 **前置条件：** 满足共享读取句柄要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无。终止性：描述符还能交付的字节少于 `2^61` 时（`ReadsFinite`）调用返回，即使 C 会立刻返回的情形也取这一前提；没有这一前提时，唯一可能的错误是循环燃料耗尽，绝不是未定义行为。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。目标里另有一条针对 `zlib.h` 的 `gzgetc()` 宏（`Zlib.ZlibH.gzgetc`），这是应用程序调用 `gzgetc` 的默认方式：有缓冲输出（`have != 0`）时，宏不需要前提就返回；`have == 0` 时它调用函数，在 `ReadsFinite` 下返回。它的结论与函数相同。对 NULL 句柄使用宏会读取 `file->have`，在 C 中是未定义行为；`Goal.gz_refusal` 说的是函数。功能目标（非必需）：`Goal.gzgetc`。
+**证明目标。**
+
+- **目标。** `Goal.gzgetc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgetc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有三个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）；以及对 `zlib.h` 的 `gzgetc()` 宏（`Zlib.ZlibH.gzgetc`）的同样陈述，这个宏是应用程序调用 `gzgetc` 的默认方式。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `-1`。对句柄调用时，在每个世界里，调用都不会以未定义行为或内存错误结束：执行唯一可能的错误是循环燃料耗尽。读取预算成立时（`ReadsFinite`：描述符还能交付的字节少于 `2^61`）调用返回。即使 C 会立刻返回的情形，也要求这个预算。对句柄使用宏时，同样不会以未定义行为或内存错误结束。有缓冲输出（`have != 0`）时，它不需要前提就返回；`have == 0` 时它调用函数，在读取预算下返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。宏返回之后同样如此。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。宏同样不写任何调用者区域。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对 NULL 句柄使用宏：它读取 `file->have`，在 C 中是未定义行为；拒绝子句说的是函数。对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzgetc`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgetc"><summary>完整返回条件与边界</summary>
 
@@ -626,7 +732,18 @@ int ZEXPORT gzgetc_(gzFile file);
 
 **前置条件：** 满足 `gzgetc` 的句柄要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无。终止性：描述符还能交付的字节少于 `2^61` 时（`ReadsFinite`）调用返回，即使 C 会立刻返回的情形也取这一前提；没有这一前提时，唯一可能的错误是循环燃料耗尽，绝不是未定义行为。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzgetc_`。
+**证明目标。**
+
+- **目标。** `Goal.gzgetc__safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgetc__safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `-1`。对句柄调用时，在每个世界里，调用都不会以未定义行为或内存错误结束：执行唯一可能的错误是循环燃料耗尽。读取预算成立时（`ReadsFinite`：描述符还能交付的字节少于 `2^61`）调用返回。即使 C 会立刻返回的情形，也要求这个预算。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzgetc_`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgetc_"><summary>完整返回条件与边界</summary>
 
@@ -669,7 +786,18 @@ int ZEXPORT gzungetc(int c, gzFile file);
 **前置条件：** 满足共享读取句柄要求。允许在打开后立即回退字节，
 因此逻辑位置可能成为负数。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无。终止性：描述符还能交付的字节少于 `2^61` 时（`ReadsFinite`）调用返回，即使 C 会立刻返回的情形也取这一前提；没有这一前提时，唯一可能的错误是循环燃料耗尽，绝不是未定义行为。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzungetc`。
+**证明目标。**
+
+- **目标。** `Goal.gzungetc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzungetc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** `c` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `-1`。对句柄调用时，在每个世界里，调用都不会以未定义行为或内存错误结束：执行唯一可能的错误是循环燃料耗尽。读取预算成立时（`ReadsFinite`：描述符还能交付的字节少于 `2^61`）调用返回。即使 C 会立刻返回的情形，也要求这个预算。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzungetc`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzungetc"><summary>完整返回条件与边界</summary>
 
@@ -718,7 +846,19 @@ char * ZEXPORT gzgets(gzFile file, char *buf, int len);
 
 **前置条件：** `buf` 非 NULL 且 `len > 0` 时，目标按共享分离规则覆盖 `len` 个可写字节。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：当 `buf` 非 NULL 且 `len >= 1` 时，`buf` 覆盖 `len` 个可写字节且在句柄自有的块之外（`GzRange`）。`buf` 为 NULL 或 `len < 1` 时没有要求。终止性：描述符还能交付的字节少于 `2^61` 时（`ReadsFinite`）调用返回，即使 C 会立刻返回的情形也取这一前提；没有这一前提时，唯一可能的错误是循环燃料耗尽，绝不是未定义行为。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块和 `buf` 处的 `len` 个字节，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzgets`。
+**证明目标。**
+
+- **目标。** `Goal.gzgets_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgets_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：`buf == NULL` 或 `len < 1` 时没有要求；否则 `buf` 覆盖 `len` 个可写字节且在句柄自己的块之外（`GzRange`）。
+- **无条件覆盖。** `len` 的每个取值，包括小于 1 的值；`buf` 为 NULL；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `NULL`。对句柄调用时，在每个世界里，调用都不会以未定义行为或内存错误结束：执行唯一可能的错误是循环燃料耗尽。读取预算成立时（`ReadsFinite`：描述符还能交付的字节少于 `2^61`）调用返回。即使 C 会立刻返回的情形，也要求这个预算。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块；当 `len >= 1` 时还有 `buf` 处的 `len` 个字节。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzgets`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgets"><summary>完整返回条件与边界</summary>
 
@@ -765,7 +905,19 @@ int ZEXPORT gzwrite(gzFile file, voidpc buf, unsigned len);
 **前置条件：** `len <= INT_MAX` 时，`buf` 按共享分离规则覆盖 `len` 个可读字节。
 所选压缩参数有效。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：当 `len <= INT_MAX` 且 `len != 0` 时，`buf` 覆盖 `len` 个可读字节且在句柄自有的块之外（`GzRange`）。`len == 0` 和 `len > INT_MAX` 对 `buf` 没有要求。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzwrite`。
+**证明目标。**
+
+- **目标。** `Goal.gzwrite_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzwrite_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：`len > INT_MAX` 时没有要求；否则 `len == 0`，或者 `buf` 覆盖 `len` 个可读字节且在句柄自己的块之外（`GzRange`）。
+- **无条件覆盖。** `len` 的每个取值，包括 0 和大于 `INT_MAX` 的值；在这两种情形下 `buf` 可取任意值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `0`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzwrite`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzwrite"><summary>完整返回条件与边界</summary>
 
@@ -811,7 +963,19 @@ z_size_t ZEXPORT gzfwrite(voidpc buf, z_size_t size, z_size_t nitems, gzFile fil
 **前置条件：** 乘积可表示时，`buf` 覆盖 `size * nitems` 个可读字节。
 满足共享写入句柄和分离要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：当 `size * nitems` 非零且小于 `2^64` 时，`buf` 覆盖这么多可读字节且在句柄自有的块之外（`GzRange`）。乘积为零或溢出时，对 `buf` 没有要求。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzfwrite`。
+**证明目标。**
+
+- **目标。** `Goal.gzfwrite_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzfwrite_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：`size * nitems >= 2^64` 时没有要求；否则乘积为零，或者 `buf` 覆盖这么多个可读字节且在句柄自己的块之外（`GzRange`）。
+- **无条件覆盖。** `size` 和 `nitems` 的每个取值，包括乘积为零和乘积不小于 `2^64` 的情形；在这两种情形下 `buf` 可取任意值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `0`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzfwrite`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzfwrite"><summary>完整返回条件与边界</summary>
 
@@ -857,7 +1021,18 @@ int ZEXPORT gzputc(gzFile file, int c);
 
 **前置条件：** 满足共享写入句柄要求，压缩参数有效。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzputc`。
+**证明目标。**
+
+- **目标。** `Goal.gzputc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzputc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** `c` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzputc`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzputc"><summary>完整返回条件与边界</summary>
 
@@ -900,7 +1075,19 @@ int ZEXPORT gzputs(gzFile file, const char *s);
 **前置条件：** `s` 是可读、以 NUL 结尾、与拥有的状态分离的字符串。
 满足共享写入句柄要求，压缩参数有效。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：`s` 是以 NUL 结尾的字符串，直到 NUL 都可读，并且在句柄自有的块之外。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzputs`。
+**证明目标。**
+
+- **目标。** `Goal.gzputs_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzputs_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：`s` 是以 NUL 结尾的字符串，直到 NUL 为止都可读，且在句柄自己的块之外（`CString`、`GzRange`）；`s` 为 NULL 时不满足这个条件。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzputs`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzputs"><summary>完整返回条件与边界</summary>
 
@@ -951,7 +1138,19 @@ int ZEXPORTVA gzprintf(gzFile file, const char *format, ...);
 参数具有各转换要求的类型；引用对象有效。外部格式化遵循平台的 `vsnprintf` 语义。
 任何 `%n` 目标均可写、正确分离，且属于允许的调用者可见效果。压缩参数有效。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串以及 `%s` 转换的每个字符串参数都在句柄自有的块之外。不在定义域内的有：浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度（见[偏离记录](../../deviations.md)的“格式化”一行）。在读句柄和处于错误状态的句柄上也取这一前提，尽管那时 C 并不读格式串。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzprintf`。
+**证明目标。**
+
+- **目标。** `Goal.gzprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定的参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串和每个字符串参数都在句柄自己的块之外。在读句柄和处于错误状态的句柄上也要求这个条件，尽管那时 C 并不读格式串。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzprintf`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>完整返回条件与边界</summary>
 
@@ -1003,7 +1202,19 @@ int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va);
 **前置条件：** 满足 `gzprintf` 的格式、参数和分离要求。
 `va` 已按这些参数初始化；其使用遵循平台的 `va_list` 生存期和复制规则。
 
-**证明目标。** 清单没有为它指定必需的安全目标：`zlib.h` 把这个函数列为未文档化。`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）和 `Goal.gz_refusal` 仍然覆盖它，因为 `gzprintf` 经由它实现；它的参数前提与 [gzprintf](#gzprintf) 相同。功能目标（非必需）：`Goal.gzvprintf`。
+**证明目标。**
+
+- **目标。** `Goal.gzvprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需，尽管 `zlib.h` 把这个函数列为未文档化：`gzprintf` 经由它实现，所以它随 gzip 文件接口一起列入计划。清单文件仍把这个函数留在 `undocumented` 列表里，并通过 `safety_goals` 列表使这个目标成为必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定的参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串和每个字符串参数都在句柄自己的块之外。在读句柄和处于错误状态的句柄上也要求这个条件，尽管那时 C 并不读格式串。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzvprintf`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzvprintf"><summary>完整返回条件与边界</summary>
 
@@ -1049,7 +1260,18 @@ int ZEXPORT gzflush(gzFile file, int flush);
 **前置条件：** 满足共享写入句柄要求，压缩参数有效。
 普通刷新模式范围为 `Z_NO_FLUSH` 至 `Z_FINISH`。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzflush`。
+**证明目标。**
+
+- **目标。** `Goal.gzflush_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzflush_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** `flush` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzflush`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzflush"><summary>完整返回条件与边界</summary>
 
@@ -1097,7 +1319,18 @@ int ZEXPORT gzrewind(gzFile file);
 **前置条件：** 活跃读取句柄满足共享要求。成功要求描述符可定位。
 `Z_OK` 和 `Z_BUF_ERROR` 允许该操作。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzrewind`。
+**证明目标。**
+
+- **目标。** `Goal.gzrewind_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzrewind_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzrewind`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzrewind"><summary>完整返回条件与边界</summary>
 
@@ -1144,7 +1377,18 @@ z_off64_t ZEXPORT gzseek64(gzFile file, z_off64_t offset, int whence);
 **前置条件：** 满足共享要求。普通参考点为 `SEEK_SET` 和 `SEEK_CUR`。
 `Z_OK` 和 `Z_BUF_ERROR` 允许该操作。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzseek64`。
+**证明目标。**
+
+- **目标。** `Goal.gzseek64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzseek64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** `offset` 和 `whence` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzseek64`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzseek64"><summary>完整返回条件与边界</summary>
 
@@ -1194,7 +1438,18 @@ z_off_t ZEXPORT gzseek(gzFile file, z_off_t offset, int whence);
 
 **前置条件：** 满足 `gzseek64` 的句柄、参考点和环境要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzseek`。
+**证明目标。**
+
+- **目标。** `Goal.gzseek_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzseek_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** `offset` 和 `whence` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzseek`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzseek"><summary>完整返回条件与边界</summary>
 
@@ -1239,7 +1494,18 @@ z_off64_t ZEXPORT gztell64(gzFile file);
 
 **前置条件：** 满足共享句柄要求，且报告的和可表示。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gztell64`。
+**证明目标。**
+
+- **目标。** `Goal.gztell64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gztell64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gztell64`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gztell64"><summary>完整返回条件与边界</summary>
 
@@ -1285,7 +1551,18 @@ z_off_t ZEXPORT gztell(gzFile file);
 
 **前置条件：** 满足 `gztell64` 的句柄和可表示性要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gztell`。
+**证明目标。**
+
+- **目标。** `Goal.gztell_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gztell_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gztell`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gztell"><summary>完整返回条件与边界</summary>
 
@@ -1327,7 +1604,18 @@ z_off64_t ZEXPORT gzoffset64(gzFile file);
 
 **前置条件：** 满足共享要求。成功偏移计算可表示。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzoffset64`。
+**证明目标。**
+
+- **目标。** `Goal.gzoffset64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzoffset64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzoffset64`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzoffset64"><summary>完整返回条件与边界</summary>
 
@@ -1372,7 +1660,18 @@ z_off_t ZEXPORT gzoffset(gzFile file);
 
 **前置条件：** 满足 `gzoffset64` 的句柄、环境和计算要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzoffset`。
+**证明目标。**
+
+- **目标。** `Goal.gzoffset_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzoffset_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `-1`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzoffset`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzoffset"><summary>完整返回条件与边界</summary>
 
@@ -1410,7 +1709,18 @@ int ZEXPORT gzeof(gzFile file);
 
 **前置条件：** 非 NULL 句柄满足共享要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzeof`。
+**证明目标。**
+
+- **目标。** `Goal.gzeof_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzeof_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `0`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzeof`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzeof"><summary>完整返回条件与边界</summary>
 
@@ -1454,7 +1764,18 @@ int ZEXPORT gzdirect(gzFile file);
 
 **前置条件：** 满足共享句柄要求。先设置任何所需的缓冲区大小。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzdirect`。
+**证明目标。**
+
+- **目标。** `Goal.gzdirect_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdirect_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `0`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzdirect`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzdirect"><summary>完整返回条件与边界</summary>
 
@@ -1503,7 +1824,19 @@ const char * ZEXPORT gzerror(gzFile file, int *errnum);
 **前置条件：** 非 NULL `errnum` 指向与拥有的状态分离的可写 `int`。
 满足共享句柄要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：`errnum` 为 NULL，或覆盖 4 个可写字节且在句柄自有的块之外。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块和 `errnum` 处的 4 个字节，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。目标还说明：返回的指针在调用后的堆里是一个可读的、以 NUL 结尾的字符串。功能目标（非必需）：`Goal.gzerror`。
+**证明目标。**
+
+- **目标。** `Goal.gzerror_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzerror_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有三个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）；以及关于调用所返回字符串的一个子句。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
+    2. 参数条件（`GzArguments`）：`errnum` 为 NULL，或者覆盖 4 个可写字节且在句柄自己的块之外（`GzRange`）。
+- **无条件覆盖。** `errnum` 为 NULL；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时，不论 `errnum` 取什么值，调用都返回 `NULL`，并且不写 `*errnum`。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。调用返回的指针，在调用后的堆里是一个可读的、以 NUL 结尾的字符串。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块，以及 `errnum` 处的 4 个字节。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzerror`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzerror"><summary>完整返回条件与边界</summary>
 
@@ -1543,7 +1876,18 @@ void ZEXPORT gzclearerr(gzFile file);
 
 **前置条件：** 非 NULL 句柄满足共享要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：无；标量参数的每个取值都被覆盖。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzclearerr`。
+**证明目标。**
+
+- **目标。** `Goal.gzclearerr_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclearerr_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回。对句柄调用时，调用在每个世界里都返回。
+    - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
+- **不在本目标内。** 调用清除句柄的哪些标志：功能目标 `Goal.gzclearerr`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclearerr"><summary>完整返回条件与边界</summary>
 
@@ -1593,7 +1937,18 @@ int ZEXPORT gzclose(gzFile file);
 
 **前置条件：** 满足共享句柄要求。后续不再使用此句柄。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖，没有参数前提，也不需要读取预算。结论：调用返回；它释放句柄记录和句柄拥有的每个块，堆中其余内容不变，并且释放描述符，即使系统的 `close` 报告失败也是如此。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzclose`。
+**证明目标。**
+
+- **目标。** `Goal.gzclose_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的关闭要求（没有参数条件，也不需要读取预算）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界，包括系统的 `close` 报告失败的世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。对句柄的返回码不作陈述。
+    - *状态。* 句柄不复存在：它的记录被移除，世界良构，调用之后句柄的描述符不再打开（即使系统的 `close` 报告失败也是如此），其他每个描述符是否打开都与调用前相同（`GzReleased`）。`gzclose` 两种模式都接受，所以它从不拒绝一个句柄。
+    - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
+    - *分配。* 对句柄调用时，恰好释放句柄自己的块（包括句柄记录），并且不分配任何块（`LiveChange`）。
+- **不在本目标内。** 在关闭它的那次调用之后再使用句柄：历史已经结束，没有目标覆盖这种使用。返回码，以及关闭之前哪些字节到达文件：功能目标 `Goal.gzclose`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclose"><summary>完整返回条件与边界</summary>
 
@@ -1641,7 +1996,18 @@ int ZEXPORT gzclose_r(gzFile file);
 
 **前置条件：** 活跃读取句柄满足共享要求，且只关闭一次。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖，没有参数前提，也不需要读取预算。结论：调用返回；对写句柄它拒绝并且什么都不改变；否则它释放句柄记录和句柄拥有的每个块，堆中其余内容不变，并且释放描述符，即使系统的 `close` 报告失败也是如此。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzclose_r`。
+**证明目标。**
+
+- **目标。** `Goal.gzclose_r_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_r_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的关闭要求（没有参数条件，也不需要读取预算）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界，包括系统的 `close` 报告失败的世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。对句柄的返回码不作陈述。
+    - *状态。* 句柄不是读句柄时，调用拒绝：堆和世界都不变，句柄保持原样。否则句柄不复存在：它的记录被移除，世界良构，调用之后句柄的描述符不再打开（即使系统的 `close` 报告失败也是如此），其他每个描述符是否打开都与调用前相同（`GzReleased`）。
+    - *写入。* 句柄为 NULL 时以及拒绝时不写任何内容：堆和世界都不变。否则只写句柄自己的块。
+    - *分配。* 拒绝时没有分配变化。否则恰好释放句柄自己的块（包括句柄记录），并且不分配任何块（`LiveChange`）。
+- **不在本目标内。** 在关闭它的那次调用之后再使用句柄：历史已经结束，没有目标覆盖这种使用。返回码，以及关闭之前哪些字节到达文件：功能目标 `Goal.gzclose_r`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclose_r"><summary>完整返回条件与边界</summary>
 
@@ -1689,7 +2055,18 @@ int ZEXPORT gzclose_w(gzFile file);
 
 **前置条件：** 活跃写入句柄满足共享要求，且只关闭一次。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖，没有参数前提，也不需要读取预算。结论：调用返回；对读句柄它拒绝并且什么都不改变；否则它释放句柄记录和句柄拥有的每个块，堆中其余内容不变，并且释放描述符，即使系统的 `close` 报告失败也是如此。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzclose_w`。
+**证明目标。**
+
+- **目标。** `Goal.gzclose_w_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_w_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
+- **适用条件。** 拒绝子句没有条件。对句柄的关闭要求（没有参数条件，也不需要读取预算）：
+    1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
+- **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界，包括系统的 `close` 报告失败的世界；每一种分配结果。
+- **保证。**
+    - *返回。* 句柄为 NULL 时调用返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。对句柄的返回码不作陈述。
+    - *状态。* 句柄不是写句柄时，调用拒绝：堆和世界都不变，句柄保持原样。否则句柄不复存在：它的记录被移除，世界良构，调用之后句柄的描述符不再打开（即使系统的 `close` 报告失败也是如此），其他每个描述符是否打开都与调用前相同（`GzReleased`）。
+    - *写入。* 句柄为 NULL 时以及拒绝时不写任何内容：堆和世界都不变。否则只写句柄自己的块。
+    - *分配。* 拒绝时没有分配变化。否则恰好释放句柄自己的块（包括句柄记录），并且不分配任何块（`LiveChange`）。
+- **不在本目标内。** 在关闭它的那次调用之后再使用句柄：历史已经结束，没有目标覆盖这种使用。返回码，以及关闭之前哪些字节到达文件：功能目标 `Goal.gzclose_w`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclose_w"><summary>完整返回条件与边界</summary>
 

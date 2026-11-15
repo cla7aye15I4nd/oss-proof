@@ -43,7 +43,8 @@ It is not thereby undefined behaviour in C, and the safety goal often covers it
 **What is proved.** The required goal of each documented function is its safety goal: no
 undefined behaviour, no memory error, no leak, and termination ([safety](../safety.md)). Each
 entry names it under **Proof goals**. The functions that `zlib.h` declares under "undocumented
-functions" have entries but no required goal. Conditions of a goal that are narrower than `zlib.h` are rows of
+functions" have entries but no required goal. The one exception is `gzvprintf`: `gzprintf` goes
+through it, and its goal `Goal.gzvprintf_safety` is required. Conditions of a goal that are narrower than `zlib.h` are rows of
 [deviations](../../deviations.md).
 
 **What is not proved here.** The return values, output bytes and state changes that Post

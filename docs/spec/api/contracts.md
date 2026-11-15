@@ -33,10 +33,8 @@ a decoding allocation failure can follow partial output.
 
 ## Reading a Proof goals paragraph
 
-A Proof goals paragraph has the same five items, in this order, on the pages for the inflate
-streams, the deflate streams, the checksums and the utilities. The entries of the gzip file
-interface and of the callback decoder give the same content as one paragraph: their functions
-are covered by a sequence safety goal and have no one-function safety goal yet.
+A Proof goals paragraph has the same five items, in this order, on every page of the manual.
+An entry whose function has no required goal says so in one sentence in their place.
 
 | Item | Content |
 | --- | --- |
@@ -46,16 +44,21 @@ are covered by a sequence safety goal and have no one-function safety goal yet.
 | **Guarantees** | What the goal concludes, always in this order: the call returns; the state after the call; what was written; the allocations. |
 | **Not in this goal** | Cases that another goal states, such as a refused `NULL` stream, and the functional goal of the function. |
 
+A goal can have more than one clause. The goals of the gzip file functions that take a handle,
+and those of `inflateBack` and `inflateBackEnd`, have a refusal clause beside the clause for a
+call on a handle or on a history. "Applies when" then says which clause each condition belongs
+to, and "Guarantees" keeps its order and names the case in each item.
+
 The paragraphs use the following phrases with a fixed meaning.
 
 | Phrase | Meaning | Lean |
 | --- | --- | --- |
-| **returns** | The call ends without undefined behaviour and without a memory error, and it terminates. An error code of the C, such as `Z_DATA_ERROR` or `Z_MEM_ERROR`, is a return. | the run is `.ok`: neither `Fault.ub` nor `Fault.outOfFuel` |
+| **returns** | The call ends without undefined behaviour and without a memory error, and it terminates. An error code of the C, such as `Z_DATA_ERROR` or `Z_MEM_ERROR`, is a return. The six reading calls of the gzip file interface return under a read budget; without it their goals state only the first two parts ([gzip files](gz-file.md#the-safety-goal)). | the run is `.ok`: neither `Fault.ub` nor `Fault.outOfFuel` |
 | **reachable stream** | A stream produced by an init call that returned `Z_OK` (on a library heap, with `zalloc` and `zfree` each `NULL` or the default function), or the destination of a copy that returned `Z_OK`, followed by any sequence of two kinds of step: a permitted call with valid arguments that returned, with any code; and a caller edit of `next_in`, `avail_in`, `next_out`, `avail_out` or of memory the stream does not own. A reachable stream uses the default allocator. | `StreamReachable` |
 | **the stream's own blocks** | The state record and the buffers the library allocated for this stream: for inflate the window; for deflate the window, the two hash arrays and the pending buffer. The `z_stream` record itself is the caller's and is named separately. | `StreamOwned` |
 | **the handle's own blocks** | For a gzip file handle: the handle record, its path, its error message, its buffers and its codec state. | `GzOwned` |
 | **platform size bound** | Every byte object has fewer than `2^63` bytes. A fact of the platform, not a duty of the caller ([platform](../platform.md)). | `ByteObjectsFit` |
-| **exact allocation account** | After the call the allocated blocks are those allocated before, plus the new blocks the stream owns, minus the blocks the stream owned and no longer owns. Nothing else is allocated or freed. This is the no-leak clause. | `LiveChange` |
+| **exact allocation account** | After the call the allocated blocks are those allocated before, plus the new blocks the stream owns, minus the blocks the stream owned and no longer owns. Nothing else is allocated or freed. This is the no-leak clause. For a gzip file handle, read "handle" for "stream". | `LiveChange` |
 | **library heap** | A condition on the model's memory, not on the caller: block numbers are consistent (no live object at the next unused number or above it, one object per number) and the library's constant tables are present. | `Fresh`, `Uniq`, `LibraryGlobals` |
 | **every allocation outcome** | The goal holds whichever `malloc` calls fail. | the goal quantifies over the heap, and the allocation oracle is part of it |
 | **world** | What the gzip file functions see outside the process: the files, the open descriptors, `errno`, and the result of each system call. "In every world" includes every permitted result of every `open`, `read`, `write`, `lseek` and `close`. | `Fs`, well formed by `FileSystem` |
@@ -63,12 +66,13 @@ The paragraphs use the following phrases with a fixed meaning.
 [Safety](../safety.md) explains the four clauses behind "Guarantees", with an example. The
 [glossary](../../glossary.md) defines goal, history, refusal and the status levels.
 
-The entries of the gzip file interface and of the callback decoder name the goal and not its
-theorem. [Coverage by function](../../coverage.md) gives the theorem of every function in one table,
+[Coverage by function](../../coverage.md) gives the theorem of every function in one table,
 [progress, Target evidence](../../progress.md#target-evidence) links each goal to the theorem that
 proves it, and `tests/audit/theorems.txt` lists the registered theorems. For example, the
-theorems for the calls on a live stream are in `ZlibF/Proof/public-stream-call-safety.lean`, and
-those for the four init functions in `ZlibF/Proof/public-init-safety.lean`.
+theorems for the calls on a live stream are in `ZlibF/Proof/public-stream-call-safety.lean`,
+those for the four init functions in `ZlibF/Proof/public-init-safety.lean`, those for the gzip
+file functions in `ZlibF/Proof/public-gz-call-safety.lean`, and those for the callback decoder in
+`ZlibF/Proof/public-back-safety.lean`.
 
 ## Domain and effects are independent
 
