@@ -183,7 +183,7 @@ Proof guide: [trees](../proof/trees.md).
 | Pre / Effects `I-cb-reads` | `compress_block` requires complete three-byte symbols in `sym_buf[0..sym_next)`, valid literal/match ranges, matching trees with usable codes, and pending/bit-buffer room. It reads symbols in order and emits their codes/extra bits followed by `END_BLOCK`. |
 | Post `I-cb-pending` | After symbol `k` (from 0), `pending < lit_bufsize + 3*(k+1)`. Emission also leaves every unread symbol intact. Callers do not supply this bound; it is a property of `compress_block` itself. |
 | Pre `I-tf-choice` | `_tr_flush_block` requires valid block symbols/frequencies, `last` in `0..1` and pending capacity. For a block that will be stored it also requires `stored_len ≤ 65535` and readable `buf[0..stored_len)`. |
-| Post `I-tf-choice` (the choice) | It chooses stored if `buf != NULL` and `stored_len + 4 ≤ opt_lenb`; otherwise fixed if `static_lenb = opt_lenb`; otherwise dynamic. `opt_lenb` is the smaller of the two compressed sizes, each rounded up to bytes, except that the `Z_FIXED` strategy selects the fixed size first. |
+| Post `I-tf-choice` (the choice) | It chooses stored if `buf != NULL` and `stored_len + 4 ≤ opt_lenb`; otherwise fixed if `static_lenb = opt_lenb`; otherwise dynamic. `opt_lenb` is the smaller of the two compressed sizes, each rounded up to bytes, except that the `Z_FIXED` strategy selects the fixed size first. At level 0 no trees are built and `opt_lenb = static_lenb = stored_len + 5`, which forces a stored block. |
 | Effects `I-tf-choice` | It resets the block accounting, and aligns the bit buffer to a byte if `last`. |
 
 The symbol buffer `sym_buf` shares its storage with the pending output buffer `pending_buf`:

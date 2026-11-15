@@ -1,12 +1,12 @@
-<!-- source-sha256: e2c1c519d6e314460c5bd1bee710e781f186361f6fdb0886ede8b904fc6034fa -->
+<!-- source-sha256: 73f8f889ddd412ef8f459b58cadaf2d24b1dfd6ad6a4caadc5922b826dbc3419 -->
 
 # 内部调用处的义务
 
 本页用文字说明默认构建中主要的内部辅助函数需要调用它的函数提供什么，以及它们交付什么。
 辅助函数指 `zlib.h` 没有声明的函数，例如 `inflate_table` 或 `longest_match`。
-本页是阅读公开函数证明时的辅助材料。它不是定理清单，也没有哪个证明假设其中的某一行。
+本页是阅读公开函数证明时的辅助材料。它不是定理列表，也没有哪个证明假设其中的某一行。
 
-**状态。** 每一行都是对 C 的解读，**尚未由证明确认**，除非所在小节的证明指南为它指明了定理。
+**状态。** 每一行都是对 C 的解读；除非所在小节的证明指南为它指明了定理，否则**尚未由证明确认**。
 关于辅助函数已经证明的内容来自公开目标：`inflate`、`deflate` 和其他公开函数的安全目标已登记
 （见[进度](../progress.md#scope)），每个目标说的都是整个翻译后的函数体，包括其中对辅助函数的调用。
 所以，公开调用所做的每一次辅助函数调用都返回，不出故障。
@@ -72,7 +72,7 @@ flowchart TD
 | 后置条件 `I-it-complete` | 成功时写入全部已构造项，包括允许的单符号码对应的一个无效项，或空码集合对应的两个无效项。 |
 | 后置条件 `I-it-links` | 每个成功构造的根表链接及其完整子表都位于 `[base, base + used)`。 |
 | 后置条件 `I-it-canonical` | 成功时按照[规范赋码](format/README.md)解码，并为保留符号设置无效标记。 |
-| 后置条件 `I-it-term` | 调用在所述定义域内结束。 |
+| 后置条件 `I-it-term` | 在所述定义域下，调用会终止。 |
 
 ## 留足余量进行解码：`inflate_fast`
 
@@ -123,10 +123,10 @@ flowchart TD
 | --- | --- |
 | 前置条件 `I-fw-pre` | `fill_window` 满足 `lookahead < MIN_LOOKAHEAD`、`window_size = 2*w_size`、`strstart + lookahead ≤ window_size` 及 `insert ≤ strstart`。窗口、哈希大小／掩码、高水位、搜索设置和位置范围满足配置的 deflate 状态，包括 `I-hc-inv`。输入具有可读的 `avail_in` 视图。 |
 | 后置条件 `I-fw-post-room` | `fill_window` 返回后满足 `strstart ≤ window_size - MIN_LOOKAHEAD`。 |
-| 后置条件 `I-fw-post-lookahead` | 返回后满足 `lookahead ≥ MIN_LOOKAHEAD` 或 `avail_in = 0`。新读入字节按顺序扩展当前前瞻输入。 |
+| 后置条件 `I-fw-post-lookahead` | 返回后满足 `lookahead ≥ MIN_LOOKAHEAD` 或 `avail_in = 0`。新读入字节按顺序接在当前预读之后。 |
 | 效果 `I-fw-slide` | 滑动将上半窗口的存活字节下移 `w_size`，用 C 算术调整位置／`insert`，并调用 `slide_hash`。其他写入包括输入／校验和核算、哈希及高水位填充。 |
 | 前置／后置条件 `I-sh-total` | `slide_hash` 要求正的 `hash_size` 和 `w_size`，以及可写的 `head[0..hash_size)`／`prev[0..w_size)`。每项在 `m ≥ w_size` 时变为 `m - w_size`，否则变为 `NIL`；并设置 `slid = 1`。不可达的 `prev` 值不必初始化。 |
-| 前置／后置条件 `I-rb-copy` | `read_buf` 要求可写入 `n = min(avail_in, size)` 字节的目的缓冲区，并与输入互不重叠。它返回 `n`、复制该前缀、推进 `next_in`、减少 `avail_in`、增加 `total_in`，并为当前包装更新 Adler-32／CRC-32。`n = 0` 时不改变任何内容。 |
+| 前置／后置条件 `I-rb-copy` | `read_buf` 要求可写入 `n = min(avail_in, size)` 字节的目的缓冲区，并与输入互不重叠。它返回 `n`、复制该前缀、推进 `next_in`、减少 `avail_in`、增加 `total_in`，并为当前封装更新 Adler-32／CRC-32。`n = 0` 时不改变任何内容。 |
 
 ## 搜索有效哈希链：`longest_match`
 
@@ -139,10 +139,10 @@ flowchart TD
 
 | 类别／ID | 契约 |
 | --- | --- |
-| 前置／后置条件 `I-hc-inv` | `INSERT_STRING`、`slide_hash`、`CLEAR_HASH`、`fill_window` 和 `deflateSetDictionary` 保持：链头指向已插入位置，可达 `prev[p mod w_size]` 槽已写入 `NIL` 或更小的同哈希位置。位置与当前窗口／前瞻输入一致。 |
+| 前置／后置条件 `I-hc-inv` | `INSERT_STRING`、`slide_hash`、`CLEAR_HASH`、`fill_window` 和 `deflateSetDictionary` 保持：链头指向已插入位置，可达 `prev[p mod w_size]` 槽已写入 `NIL` 或更小的同哈希位置。位置与当前窗口／预读一致。 |
 | 前置条件 `I-lm-pre` | `cur_match` 是当前字符串哈希的非零链头，`cur_match < strstart`，且距离至多为 `MAX_DIST`。`I-hc-inv` 成立；`strstart ≤ window_size - MIN_LOOKAHEAD`、`1 ≤ prev_length ≤ MAX_MATCH`，配置的搜索设置在可能的缩减后仍给出正链预算。 |
-| 效果 `I-lm-reads` | 读取窗口直到并包括 `strstart + MAX_MATCH`，可能越过前瞻输入；还读取已写入的可达 `prev` 槽。只修改 `match_start`。前瞻输入之后的填充字节从不使一个匹配成为有效匹配。 |
-| 后置条件 `I-lm-ret` | 返回至多 `min(MAX_MATCH, lookahead)`。找到更优结果时设置有效的 `match_start`；否则可以保留 `prev_length`，再以 lookahead 为上限，但不提供新的 `match_start` 保证。 |
+| 效果 `I-lm-reads` | 读取窗口直到并包括 `strstart + MAX_MATCH`，可能越过预读；还读取已写入的可达 `prev` 槽。只修改 `match_start`。预读之后的填充字节从不使一个匹配成为有效匹配。 |
+| 后置条件 `I-lm-ret` | 返回至多 `min(MAX_MATCH, lookahead)`。找到更优结果时设置有效的 `match_start`；否则可以保留 `prev_length`，再以 `lookahead` 为上限，但不提供新的 `match_start` 保证。 |
 | 后置条件 `I-lm-term` | 在链预算内结束；遍历的非零位置严格递减。不保证全局最优匹配。 |
 
 ## 构造并发出 Huffman 树：`trees.c`
@@ -156,19 +156,19 @@ flowchart TD
 
 | 类别／ID | 契约 |
 | --- | --- |
-| 前置条件 `I-bt-pre` | `build_tree` 接收对应 286／30／19 个字面量-长度／距离／位长度叶子的描述符、已设置的频次，以及容纳内部节点／堆／深度的空间。补足叶子后的频次总和适合对应字段。 |
+| 前置条件 `I-bt-pre` | `build_tree` 接收对应 286／30／19 个字面量-长度／距离／位长度叶子的描述符、已设置的频次，以及容纳内部节点／堆／深度的空间。用强制叶子补足之后，频次总和放得进各自的字段。 |
 | 效果 `I-bt-heap` | 堆索引小于 573；节点保持在各自树内。写入描述符最大值、节点、堆／深度、位数统计和成本。 |
-| 中间事实 `I-bt-forest` | 在长度／编码覆盖父节点／频次字段前，节点在正频次符号上形成满二叉树，并通过强制叶子补足两个。父节点频次等于子节点频次之和。 |
+| 中间事实 `I-bt-forest` | 在长度／编码覆盖父节点／频次字段前，节点在正频次符号上形成满二叉树，并用强制叶子补足到两个。父节点频次等于子节点频次之和。 |
 | 前置／后置条件 `I-gb-len` | 给定该树、有序堆和描述符，`gen_bitlen` 写入活跃叶子长度，位于 `1..max_length`（15 或 7），并满足 Kraft 和为 1，同时写入计数和成本。 |
 | 后置条件 `I-gb-count` | `bl_count[l]` 统计长度为 `l` 的活跃叶子；`bl_count[0] = 0`。 |
 | 前置／后置条件 `I-gc-code` | `gen_codes` 要求直到 `max_code` 的长度处于 `0..15`，且完整码计数匹配。它只写正长度的编码字段：按符号顺序排列的位反转规范码字。 |
-| 前置条件／效果 `I-cb-reads` | `compress_block` 要求 `sym_buf[0..sym_next)` 中有完整三字节符号、有效的字面量／匹配范围、具有可用编码的匹配树，以及待输出／位缓冲空间。它按顺序读取符号，发出对应编码／额外位，最后发出 `END_BLOCK`。 |
+| 前置条件／效果 `I-cb-reads` | `compress_block` 要求 `sym_buf[0..sym_next)` 中有完整三字节符号、有效的字面量／匹配范围、与之对应且编码可用的树，以及待输出／位缓冲空间。它按顺序读取符号，发出对应编码／额外位，最后发出 `END_BLOCK`。 |
 | 后置条件 `I-cb-pending` | 在符号 `k`（从 0 开始）之后，`pending < lit_bufsize + 3*(k+1)`。发出过程也让每个未读符号保持原样。这个上界不由调用者提供；它是 `compress_block` 自身的性质。 |
-| 前置条件 `I-tf-choice` | `_tr_flush_block` 要求有效的块符号／频次、处于 `0..1` 的 `last`，以及待输出容量。对将要直接存储的块，还要求 `stored_len ≤ 65535` 和可读的 `buf[0..stored_len)`。 |
-| 后置条件 `I-tf-choice`（块的选择） | 若 `buf != NULL` 且 `stored_len + 4 ≤ opt_lenb`，选择直接存储块；否则若 `static_lenb = opt_lenb`，选择固定编码块；否则选择动态编码块。`opt_lenb` 是两种压缩大小（各自向上取整到字节）中较小的一个，但 `Z_FIXED` 策略会先选固定编码的大小。 |
+| 前置条件 `I-tf-choice` | `_tr_flush_block` 要求有效的块符号／频次、处于 `0..1` 的 `last`，以及待输出容量。对将要存储的块，还要求 `stored_len ≤ 65535` 和可读的 `buf[0..stored_len)`。 |
+| 后置条件 `I-tf-choice`（块的选择） | 若 `buf != NULL` 且 `stored_len + 4 ≤ opt_lenb`，选择存储块；否则若 `static_lenb = opt_lenb`，选择固定编码块；否则选择动态编码块。`opt_lenb` 是两种压缩大小（各自向上取整到字节）中较小的一个，但 `Z_FIXED` 策略会先选固定编码的大小。级别为 0 时不构造树，`opt_lenb = static_lenb = stored_len + 5`，这就强制使用存储块。 |
 | 效果 `I-tf-choice` | 它重置块的核算；若 `last` 成立，把位缓冲对齐到字节。 |
 
-符号缓冲区 `sym_buf` 与待输出缓冲区 `pending_buf` 共用存储：这就是所谓*重叠存储*。
+符号缓冲区 `sym_buf` 与待输出缓冲区 `pending_buf` 共用存储：这就是*共用缓冲区*。
 `I-cb-pending` 这个上界保证输出不会覆盖尚未读取的符号。
 [trees 指南](../proof/trees.md)列出了对调用者可以传入的每个内存级别给出这个上界的定理，所以它不限制调用者。
 
@@ -183,9 +183,9 @@ flowchart TD
 
 | 类别／ID | 契约 |
 | --- | --- |
-| 前置／后置条件 `I-fp-inv` | `pending_out` 位于待输出分配内，且 `pending_out + pending ≤ pending_buf + pending_buf_size`。仅凭这个区间条件，写入函数并没有空间：每个写入函数需要在它写入的偏移处有空间。 |
-| 前置／后置条件 `I-fp-copy` | `flush_pending` 要求可写的 `avail_out` 输出，与待输出存储互不重叠，并要求有效位缓冲状态为 `_tr_flush_bits` 留出空间。它先排出完整的缓冲字节，再复制 `n = min(pending, avail_out)`，推进两个游标、增加 `total_out`，并从两个计数中减去 `n`。非零复制清空待输出内容后，`pending_out = pending_buf`。只修改待输出／位字段、流的输出字段和已复制输出字节。 |
-| 前置／后置条件 `I-pb-room` | `put_byte` 和 `put_short` 要求各自的待输出偏移处有一个／两个可写字节。`send_bits` 要求 `1 ≤ length ≤ 16`、数值放得进这个长度、有效的 `bi_valid`／`bi_buf`，并为可能的双字节写入留出空间。它们追加字节或位而不检查容量，所以空间是它们的调用者持有的事实；在重叠存储中，由 `I-cb-pending` 给出。 |
+| 前置／后置条件 `I-fp-inv` | `pending_out` 位于待输出分配内，且 `pending_out + pending ≤ pending_buf + pending_buf_size`。仅凭这个区间条件，并不能保证写入函数有空间：每个写入函数需要在它写入的偏移处有空间。 |
+| 前置／后置条件 `I-fp-copy` | `flush_pending` 要求可写的 `avail_out` 输出，与待输出存储互不重叠，并要求位缓冲状态有效，且有空间供 `_tr_flush_bits` 使用。它先排出完整的缓冲字节，再复制 `n = min(pending, avail_out)`，推进两个游标、增加 `total_out`，并从两个计数中减去 `n`。非零复制清空待输出内容后，`pending_out = pending_buf`。只修改待输出／位字段、流的输出字段和已复制输出字节。 |
+| 前置／后置条件 `I-pb-room` | `put_byte` 和 `put_short` 要求各自的待输出偏移处有一个／两个可写字节。`send_bits` 要求 `1 ≤ length ≤ 16`、数值放得进这个长度、有效的 `bi_valid`／`bi_buf`，并为可能的双字节写入留出空间。它们追加字节或位而不检查容量，所以空间是它们的调用者持有的事实；在共用缓冲区中，由 `I-cb-pending` 给出。 |
 
 [翻译规则](../design/translation.md)解释这些义务引用的操作。
 [API 模型](../design/api-model.md)解释字节历史与具体堆效果的区别。

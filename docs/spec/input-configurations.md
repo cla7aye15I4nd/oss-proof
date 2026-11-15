@@ -101,8 +101,8 @@ functional question, not a safety one.
 
 `inflate` has a fast decoding loop (`inflate_fast`) and a slow one. Which one runs does not
 depend on the configuration: `inflate` enters the fast loop when at least six input bytes and
-at least 258 output bytes are available, and the fast loop needs fewer than eight held bits
-at entry. A stream with the default configuration takes either path as the caller changes
+at least 258 output bytes are available and fewer than eight bits are held
+(`have >= 6 && left >= 258 && bits < 8`). A stream with the default configuration takes either path as the caller changes
 the buffers. So a result for the default inputs has to cover both paths and the changes
 between them.
 
