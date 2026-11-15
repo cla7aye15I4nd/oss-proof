@@ -1,52 +1,87 @@
-<!-- source-sha256: 1594d5f04b2724f20d2093a5234001e47b6226c2abeeacf4c0ee5e0345ac0478 -->
-# 实现证明参考
+<!-- source-sha256: 026f1e7e61f9f78433db19c961a00f76eb0fb600f168f82d7678fa59905b8d65 -->
+# 证明参考：组件、页面与定理
 
-压缩器把原文字节写成压缩流，解压器再把压缩流恢复为原文。这里要论证的是实际 C 执行如何完成这件事：每次读写都在许可范围内，暂停后能够继续，最终输出具有格式规定的含义。先沿一个组件理解算法，再沿同一组件的状态和内存变化阅读证明。
+本节每一页解释一个 C 组件相关定理背后的论证。本页是地图：哪一页解释哪条定理，定理在哪个模块，处于什么状态。
 
-首次阅读请从[图解导读](../overview.md)开始。各章把算法、API 用法与相应证明义务放在一起说明。本节按 C 组件给出详细论证。
+每一页都交代三件事。
 
-本指南按数学引理、实际内存执行和跨调用组合三层，解释翻译后的 C 如何满足 zlib 契约。每项论证标明所用前提、已建立的关系，以及实现连接中未完成的步骤。
+- **已证明什么。** 项目要求的每个安全目标都有一条已登记的定理，其类型与目标完全一致。各页给出这些定理的名称及其在 `ZlibF/Proof/` 下的 Lean 模块。
+- **假设了什么。** 每条定理都明确写出前提。比 `zlib.h` 更窄的前提在[偏差记录](../deviations.md)中各占一行。模型本身见[可信基础](../trusted-base.md)。
+- **还有什么未完成。** 要求的安全目标中没有未完成项。功能正确性不在计划内；[进度](../progress.md#scope)列出不在计划内的目标及原因。
 
-[进度](../progress.md)是当前检查点和剩余工作的唯一记录。[安全规范](../spec/safety.md)定义所声称的性质，[检查指南](../checking/README.md)说明接受结果所需的证据。下文保留历史证明名称，便于定位其源代码版本和适用前提。
+初次阅读请先看[图解指南](../overview.md)。术语见[术语表](../glossary.md)。
 
-## 选择阅读路线
+## 状态等级
 
-本节中的“契约”描述调用者必须提供什么、函数返回后保证什么；“不变量”描述处理过程中始终要成立的状态关系；“帧性质”说明未获授权的内存保持不变；“所有权”记录哪些分配块应由当前流最终释放。四者分别回答调用、执行、隔离和清理的问题。
+[AGENTS.md](../../AGENTS.md) 定义了两个等级，本节只在该含义下使用它们。
 
-总体方法从[证明一个函数](method.md)开始，其中解释契约、不变量、帧性质、所有权和证明受阻时的诊断。随后按函数需要阅读 [API 契约](../spec/api/README.md)、[格式规范](../spec/format/README.md)和[设计指南](../design/README.md)。
+- **已检查。** 定理位于 `main`，且该提交的快速检查通过：全部模块可构建，没有 `sorry`，也没有禁用构造。
+- **已接受。** 定理还列在 `tests/audit/theorems.txt` 中，并且验收套件在一个指明的提交上通过。
 
-解压方向先读校验和与分配器，再读建表、快速解码器和主解码器。主解码器必须建立快速路径的进入条件；建表必须建立两种解码器都要使用的谓词。
+下表中的定理都列在 `tests/audit/theorems.txt` 中。验收套件在提交 `bde170e9` 上通过（[进度，范围](../progress.md#scope)），因此它们在该提交上是已接受的。差分测试属于该套件，它们是忠实性的证据，不是证明。
 
-压缩方向先读校验和与分配器，再读 `deflate.c` 的窗口和哈希链论证。`trees.c` 涵盖建树、位输出以及共享的输出／符号缓冲区。共享存储的覆盖界限也是内存安全的一部分。
+这些页面上的文字论证只是解释，不是经过检查的定理。页面对 C 源代码的某种解读若没有被证明直接陈述，文中会注明该处尚未完成确认；各页的写法是“尚未完成”或“仍需证明”。
 
-| 源文件 | 指南 | 主要论证 |
-| --- | --- | --- |
-| `adler32.c` | [Adler-32](adler32.md) | 模和、有界批处理与准确的初值范围 |
-| `crc32.c` | [CRC-32](crc32.md) | 交织读取、地址语义与多项式细化 |
-| `zutil.c` | [工具与分配](zutil.md) | 分配大小、失败、所有权与常量查询 |
-| `inftrees.c` | [解码表](inftrees.md) | 规范码、表容量、覆盖与表项含义 |
-| `inffast.c` | [快速解码](inffast.md) | 输入／输出余量、复制、回退与源位 |
-| `inflate.c` | [流式解码](inflate.md) | 模式、历史、字典与跨调用组合 |
-| `deflate.c` | [流式压缩](deflate.md) | 窗口界限、已初始化链、策略与生命周期 |
-| `trees.c` | [树与块输出](trees.md) | 堆构造、码长修正、编码与共享存储前缀 |
-| `infback.c` | [回调解码器](callbacks.md) | 窗口所有权、有限输入与回调效果 |
-| `gz*.c` | [Gzip 文件](gzip.md) | 延迟分配、I/O 流水线、位置与清理 |
-| `compress.c`, `uncompr.c` | [缓冲区工具](buffers.md) | 自动局部变量、标量输出、界限与错误映射 |
+## 必需与非必需
 
-唯一的[目标图](../progress.md#proof-progress-graph)用实线表示实际证明引用、虚线表示 C 调用。[证据索引](../progress.md)区分这些引用、C 调用和规范依赖。调用者建立实际被调用函数的每项前置条件，无须假定其完整的通用参数 API 目标。[输入范围指南](../spec/input-configurations.md)也区分了压缩策略选择与由缓冲区驱动的解码快慢路径分派。
+项目范围是安全性：对默认 x86_64 Linux 构建中每个有文档的公开函数及其调用序列，没有未定义行为，没有内存错误，没有泄漏，并且终止。安全目标位于 `ZlibF/Spec/Safety/`；gzip 文件接口和回调解码器的安全目标位于 `ZlibF/Spec/Public/GzSafety.lean`、`ZlibF/Spec/Public/GzRefusal.lean` 和 `ZlibF/Spec/Public/Sequences.lean`。
 
-## 阅读组件页面
+功能性结果说明函数算出了什么：校验和的值、解码出的字节、往返一致。它们不是必需的。其中许多在范围调整之前已经证明，并继续保持登记。各页会说明每个结果属于安全还是功能。安全证明用到的功能性事实仍在范围内，主要例子是单次调用的完整契约 `Goal.inflate` 和 `Goal.deflate`。见[安全与功能的划分](../design/safety-functional-split.md)。
 
-每页先指出源文件和契约术语，再解释函数所需的不变量与引理。所述界限依赖其旁边明确写出的前提。公开定理必须从初始化、先前调用和文档中的调用者要求取得这些前提，不能假定被调用函数契约，也不能丢弃合法 API 情形。
+## 地图
 
-例如，一次历史复制既需要“距离不超过已有历史”的边界条件，也需要“历史中的那些字节正是此前恢复的内容”的数据关系。前者排除越界，后者说明复制结果正确。各组件页面会把这两类义务连接到同一段执行。
+所有模块路径都在 `ZlibF/Proof/` 下。“序列”表示该定理覆盖每一个允许的调用历史，而不只是一次调用。
 
-`U1`–`U12` 是安全要求的编号，`F1`–`F9` 是多个组件共用的结构事实，`I-*` 是内部函数契约。沿这些编号可以回到精确定义；每个未完成步骤会写明还缺少哪一段执行或组合论证。
+| 组件 | 页面 | 必需的安全定理 | 模块 |
+| --- | --- | --- | --- |
+| `adler32.c` | [Adler-32](adler32.md) | `adler32_safety`、`adler32_z_safety`、`adler32_combine_safety`、`adler32_combine64_safety` | `public-stateless-safety.lean` |
+| `crc32.c` | [CRC-32](crc32.md) | `crc32_safety`、`crc32_z_safety`、`crc32_combine_safety`、`crc32_combine64_safety`、`crc32_combine_gen_safety`、`crc32_combine_gen64_safety`、`crc32_combine_op_safety` | `public-stateless-safety.lean` |
+| `zutil.c` | [工具函数与分配](zutil.md) | `zlibVersion_safety`、`zlibCompileFlags_safety` | `public-stateless-safety.lean` |
+| `inftrees.c` | [解码表](inftrees.md) | 没有公开函数。内部定理：`inflate_table_safe`、`inflate_table_decoder_safe` | `inftrees.c.lean`、`inftrees.c.decoder-safe.lean` |
+| `inffast.c` | [快速解码](inffast.md) | 没有公开函数。内部定理：`inflate_fast_safe` | `inffast.c.final.lean` |
+| `inflate.c` | [流解码](inflate.md) | 序列：`inflate_sequence_safety_public`。逐函数：`inflate_safety` 及其他 `inflate*_safety` 定理、`inflateInit__safety`、`inflateInit2__safety`、`inflateCopy_safety`。拒绝：`inflate_refusal`。非空泛性：`inflate_initialisation_domain_public` | `public-inflate-sequence-safety.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-inflate-copy-safety.lean`、`public-stream-refusal.lean`、`public-inflate-init.lean` |
+| `deflate.c` | [流压缩](deflate.md) | 序列：`deflate_sequence_safety`。逐函数：`deflate_safety` 及其他 `deflate*_safety` 定理、`deflateInit__safety`、`deflateInit2__safety`、`deflate_copy_safety`。拒绝：`deflate_refusal`。非空泛性：`deflate_initialisation_domain_public` | `public-deflate-goals.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-deflate-copy.lean`、`public-stream-refusal.lean`、`public-deflate-init-domain.lean` |
+| `trees.c` | [树与块输出](trees.md) | 没有公开函数。它的引理服务于 `deflate_sequence_safety`。重叠缓冲区余量：`dynamic_overlay_large`、`dynamic_overlay_mid`、`tinyOverlayAt_256`、`tinyOverlayAt_128` | `trees.c.universal-block.lean`、`trees.c.universal-overlay-mid.lean`、`deflate.c.engine.overlay-header-ref.lean` |
+| `infback.c` | [回调解码器](callbacks.md) | 序列：`inflate_back_sequence_safety`。非空泛性：`back_init_domain_public` | `infback.c.safety-fast.lean`、`public-infback-init.lean` |
+| `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c` | [Gzip 文件](gzip.md) | 序列：`gz_sequence_safety_public`。`NULL` 句柄：`gz_refusal`。非空泛性：`gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`、`public-gz-refusal.lean`、`public-gz-sequence-nonvacuity.lean` |
+| `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`。界限函数：`compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
+| `uncompr.c` | [`uncompress*` 的安全性](uncompress-safety.md) | `uncompress_safe`、`uncompress_z_safe`、`uncompress2_safe`、`uncompress2_z_safe` | `public-uncompress-safe.lean` |
 
-区间 `[a, b)` 包含 `a`，不包含 `b`。可以构造指向数组末尾后一位置的指针，但不能读取该位置。无符号运算像 C 一样回绕。需要普通算术的证明必须说明回绕不会改变相关值。
+另有两页属于同一批组件。
 
-本指南先针对默认 x86_64 Linux 构建。由该构建的位宽、表或分配器分支推出的界限，在其他配置下必须重新审查。[信任边界](../trusted-base.md)和[偏差记录](../deviations.md)仍属于每项结果的范围。
+- [缓冲区工具](buffers.md)解读 `compress.c`、`uncompr.c` 和界限函数的 C 代码，记录两页安全性证明所依赖的源代码决定。
+- [证明一个函数](method.md)解释方法：契约、不变量、帧、所有权，以及证明卡住时如何诊断。
 
-## 源代码对应与早期论证
+31 个 gz 函数和 3 个 `inflateBack` 函数的逐函数安全目标尚未陈述。在此之前，清单 `tests/audit/public-api.json` 把两个序列目标登记为这些函数各自的安全目标。
 
-各组件负责自己的 C 文件对应检查。共享的整数、对象和控制流规则保留在[翻译语义](../design/translation.md)中。gzip 外部世界只有一份[外部 I/O 定义指南](../design/external-io.md)。[参考附录](references.md)保留早期定理族映射与历史实验，并说明其证据边界；当前结果与未完成工作仍统一见[进度](../progress.md)。
+## 保留的功能性结果
+
+这些页面还解释了一些非必需的结果。它们是早先证明的，继续保持登记。
+
+| 页面 | 所解释的功能性结果 |
+| --- | --- |
+| [Adler-32](adler32.md)、[CRC-32](crc32.md) | 校验和的值与组合公式 |
+| [解码表](inftrees.md)、[快速解码](inffast.md) | 表项实现规范码；一个快速步骤细化一个格式记号 |
+| [流解码](inflate.md) | `Goal.inflate`，单次调用的完整契约（`inflate_public`） |
+| [流压缩](deflate.md) | `Goal.deflate`，单次调用的完整契约（`Zlib.Deflate.Universal.deflate_safety`） |
+| [Deflate 完成性：空输出](deflate-completion-null-output.md)、[Deflate 完成性：结束后的输入](deflate-completion-input.md) | 早先功能性目标 `DeflateCompletes` 的两个反例。它们是一次陈述修正的记录，不是必需结果 |
+
+[早期论证与参考来源](references.md)把一个早期开发映射到当前模块。它是复用记录，不提供任何证明。
+
+## 阅读顺序
+
+解压部分：先读校验和与分配两页，再读解码表、快速解码器和流解码器。流解码器建立快速路径的入口条件；表构造建立两个解码器共用的谓词。
+
+压缩部分：先读校验和与分配两页，再读[流压缩](deflate.md)了解窗口和哈希链，然后读[树](trees.md)了解树构造、位输出，以及输出与符号共用的缓冲区。这个共用缓冲区上的界限属于内存安全。
+
+gzip 文件接口和回调解码器建立在流解码器和压缩器之上，它们的页面放在最后读。
+
+## 约定
+
+区间 `[a, b)` 包含 `a`，不包含 `b`。数组指针可以形成末尾后一位置，但不能读取该位置。无符号运算按 C 回绕。证明若需要普通算术，就要说明回绕不改变结果。
+
+标识符 `U1`–`U12`、`F1`–`F9` 和 `I-*` 把推理与[安全规范](../spec/safety.md)、[方法](method.md)和[内部契约](../spec/internal-contracts.md)联系起来。它们命名的是义务，不表示状态。
+
+由默认构建的位宽、表或分配器分支得到的界限只对该构建成立。整数、对象和控制流的共用规则见[翻译语义](../design/translation.md)。gzip 的外部世界由[外部 I/O 模型](../design/external-io.md)定义。
+
+[证据索引](../progress.md)列出每个目标的陈述、证明和依赖。
