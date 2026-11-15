@@ -49,7 +49,7 @@ def WrapperLength (h : Heap) (s : DeflateState) (n : Nat) : Prop :=
         (if gh.hcrc = 0 then 0 else 2)))
 
 def deflateBoundValue (s : DeflateState) (wrapper n : Nat) : UInt64 :=
-  if s.w_bits = 15 ∧ s.hash_bits = 15 then
+  if s.w_bits = 15 ∧ s.hash_bits = 15 ∧ s.strategy ≠ Z_FIXED then
     bound64 (n + n / 4096 + n / 16384 + n / 33554432 + 7 + wrapper)
   else if s.w_bits ≤ s.hash_bits ∧ s.level ≠ 0 then
     bound64 (n + n / 8 + n / 256 + n / 512 + 4 + wrapper)

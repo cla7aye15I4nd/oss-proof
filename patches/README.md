@@ -16,11 +16,12 @@ past it.
 | 0003 | [Stale `x.next` after a partial transparent read that then fails](../docs/findings/gzread-transparent-stale-next/README.md) | [PR #1363](https://github.com/madler/zlib/pull/1363), open |
 | 0004 | Signed overflow of the gz position `x.pos`, [reading](../docs/findings/gzread-pos-overflow/README.md) and [writing](../docs/findings/gzwrite-pos-overflow/README.md) | Local and pending: not submitted |
 | 0005 | Zero advance of an [unset](../docs/findings/gz-reset-next-uninitialised/README.md) or [dangling](../docs/findings/gz-next-dangling-after-direct-read/README.md) `x.next` | Local and pending: not submitted |
+| 0006 | [`deflateBound` too small for `Z_FIXED` at levels 1 to 3](../docs/findings/deflatebound-fixed-far-matches/README.md) | Local and pending: not submitted |
 
 Each linked page gives the call sequence, the run command, the sanitizer's verdict, the scope
 and the fix. [Findings](../docs/findings.md) lists them in one table. Patches 0001 to 0004 fix
 issues that a sanitizer reports on the real C. Patch 0005 fixes behaviour that is undefined only
-by the letter of C. The labels R-1 to R-4, F-1 and W7 below are those of
+by the letter of C. Patch 0006 fixes a broken promise of `zlib.h`, not undefined behaviour. The labels R-1 to R-4, F-1 and W7 below are those of
 [the gzip proof notes](../docs/proof/gzip.md).
 
 ## 0001-inflate-copy-pointer-equality.patch
@@ -109,3 +110,22 @@ reproductions shows the zero advance on the never-written and on the dangling va
 absence with the patch. The proof rule that a pointer field is written before it is read, and the
 model's fault on arithmetic with a dangling pointer, block the gz reader proofs without it. A pull
 request draft is in the R-3 finding.
+
+## 0006-deflatebound-fixed-conservative.patch
+
+Local and pending upstream: not yet submitted. Approved by the owner on 2026-11-15.
+
+In `deflateBound_z`, return one of the conservative bounds also when the strategy is `Z_FIXED`, not
+only when `windowBits` or `memLevel` differ from the defaults. The tight default bound counts on a
+stored block as the fallback of every block. A block that crosses a window slide has none
+(`FLUSH_BLOCK_ONLY` passes `buf = NULL`), and `deflate_fast` (levels 1 to 3) takes 3-byte matches at
+any distance, which cost 25 bits with fixed codes. With `Z_FIXED` the output then exceeds the bound,
+and one `deflate(Z_FINISH)` call with that room returns `Z_OK`, against the promise of `zlib.h`. The
+conservative bound that applies (`fixedlen` for levels 1 to 9, `storelen` for level 0, as for the
+other parameter sets) allows 9 bits per byte. No other strategy and no other parameter set changes.
+Finding: [deflatebound-fixed-far-matches](../docs/findings/deflatebound-fixed-far-matches/README.md).
+Evidence: the reproduction returns `Z_OK` at levels 1 to 3 on the unpatched C and `Z_STREAM_END` at
+every level with the patch, with and without AddressSanitizer and UndefinedBehaviorSanitizer; the
+far-match search of `tests/goals/deflate-bound` finds no failure with the patch. It is a broken API
+promise, not a memory error. It blocks the round-trip completeness goal `DeflateCompletes` and the
+`deflateBound` promise, which quantify over every strategy.

@@ -1,0 +1,16 @@
+diff --git a/deflate.c b/deflate.c
+--- a/deflate.c
++++ b/deflate.c
+@@ -932,8 +932,10 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen) {
+         wraplen = 18;
+     }
+ 
+-    /* if not default parameters, return one of the conservative bounds */
+-    if (s->w_bits != 15 || s->hash_bits != 8 + 7) {
++    /* if not default parameters, or if fixed codes are forced, return one of
++       the conservative bounds -- a fixed-code block that crosses a window slide
++       has no stored fallback, and can exceed its input */
++    if (s->w_bits != 15 || s->hash_bits != 8 + 7 || s->strategy == Z_FIXED) {
+         bound = s->w_bits <= s->hash_bits && s->level ? fixedlen :
+                                                         storelen;
+         return bound + wraplen < bound ? (z_size_t)-1 : bound + wraplen;
