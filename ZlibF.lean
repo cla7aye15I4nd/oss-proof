@@ -241,6 +241,7 @@ import ZlibF.Spec.Functional.GzRead
 import ZlibF.Spec.Functional.GzWrite
 import ZlibF.Spec.Functional.GzClose
 import ZlibF.Spec.Public.Back
+import ZlibF.Spec.Functional.Back
 import ZlibF.Spec.Public.Domains
 import ZlibF.Spec.Functional.GzTrace
 import ZlibF.Spec.Public.Sequences
