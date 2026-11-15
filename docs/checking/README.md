@@ -1,29 +1,43 @@
 # Checking a verification claim
 
-A green build says that the modules compile. It does not say that zlib is verified.
-This page says what each check runs, what it establishes and where its limit is.
-To run the checks, read [contributing](contributing.md). The current status and the planned
-scope are on the [results page](../progress.md#scope).
+A green build says that the modules compile and that Lean's kernel checked every proof in them.
+It does not say which statements about zlib are proved. This page says which level a result has,
+what each check runs, what it establishes and where its limit is.
 
-## Two levels
+To run the checks, read [contributing](contributing.md). To add a mutant, read
+[proof mutants](proof-mutants.md). What the registries mean is in [public goals](goals.md).
 
-- **Checked.** The theorem is on `dev`, and the fast gate is green on that commit. Lean's kernel
-  has checked the proof. Day-to-day work is merged at this level.
-- **Accepted.** The theorem is also listed in `tests/audit/theorems.txt`, and the acceptance suite
-  is green on a commit you name. Only an accepted result may be reported as final.
+## Three levels
 
-## Two sets of checks
+Each level includes the one above it.
 
-Both sets are jobs of the workflow `.github/workflows/lean.yml`.
+| Level | What is true | Where you see it |
+| --- | --- | --- |
+| **Checked** | The theorem is on the integration branch `dev`, and the fast gate is green on that commit. Lean's kernel has checked the proof. | The results `build` and `no-sorry` of the workflow `lean` on that commit. |
+| **Registered** | Also: the theorem's name is in `tests/audit/theorems.txt`, and the goal it proves is in `tests/audit/proved-goals.txt`. The two lines are a claim. The acceptance suite is the check that the theorem's type is exactly the goal. | The two files at that commit. The generated tables in [progress, Target evidence](../progress.md#target-evidence) show the theorem of each goal. |
+| **Accepted** | Also: the acceptance suite is green on that commit. Only an accepted result is reported as final, and a report names the commit. | The results `audit` and `difftest` of the workflow `lean` on that commit, and the sentence "The acceptance suite is green on ..." in [progress, Scope](../progress.md#scope). |
+
+The accepted commit is `bde170e9` (2026-11-15): all 63 required goals are registered there, and the
+acceptance suite is green there. A goal whose statement changed on a later commit is registered in
+its new form and accepted only in the form it had on `bde170e9`. This is the case for the four
+safety goals of the init functions, which commit `101c6ab3` widened to every call that zlib.h
+allows. [Progress](../progress.md#scope) is the page that is kept current.
+
+A goal with no registered theorem of its type is **open**.
 
 ```mermaid
 flowchart LR
     P["Push to dev"] --> G["Fast gate"]
     G --> C["Checked"]
-    C --> M["Milestone batch: register, mutants, progress view"]
-    M --> A["Acceptance suite on a named commit"]
-    A --> R["Accepted; main receives dev"]
+    C --> M["Milestone batch: registry lines, mutants, progress view"]
+    M --> R["Registered"]
+    R --> A["Acceptance suite on a named commit"]
+    A --> F["Accepted; main receives dev"]
 ```
+
+## Two sets of checks
+
+Both sets are jobs of the workflow `.github/workflows/lean.yml`.
 
 ### Fast gate
 
@@ -36,9 +50,9 @@ It runs on every push to `dev` or `main` and on every pull request. It is the on
 | `build` | Forbidden constructs | `native_decide`, `bv_decide`, `implemented_by`, `axiom`, `partial`, `unsafe`, `opaque` or `extern` in the source text of `ZlibF`. |
 | `build` | No unsafe or partial declaration (`tests/audit/PartialCheck.lean`) | A compiled declaration marked unsafe or partial that is not a listed compiler helper (`tests/audit/compiler-helpers.txt`). |
 | `build` | Patches apply | A file of `patches/` that does not apply to a copy of the pinned `zlib/`. |
-| `no-sorry` | `scripts/check-sorry.sh` | A `sorry` in the Lean sources. |
+| `no-sorry` | `scripts/check-sorry.sh` | A `sorry` in `ZlibF.lean` or under `ZlibF/`. |
 | `no-sorry` | `scripts/check-strlit.py` | A string literal of a translation that is missing from the runtime's string table. |
-| `no-sorry` | `scripts/check-spec-layers.py` | A module under `ZlibF/Spec/Safety/` or `ZlibF/Spec/Public/` that imports, even transitively, a functional specification (`ZlibF/Spec/Functional/` or the old paths `ZlibF/Spec/Api*`, `ZlibF/Spec/Format*`). The script holds a list of the edges still allowed; the list may only shrink. |
+| `no-sorry` | `scripts/check-spec-layers.py` | A module under `ZlibF/Spec/Safety/` or `ZlibF/Spec/Public/` that imports, even transitively, a functional specification (`ZlibF/Spec/Functional/` or the old paths `ZlibF/Spec/Api*`, `ZlibF/Spec/Format*`). The script holds a list of the edges still allowed; an entry may be removed from that list and none may be added. |
 
 The fast gate does not read the registries. A green fast gate says nothing about which goals are proved.
 
@@ -59,13 +73,25 @@ workers fails, is skipped or is cancelled.
 A red nightly run is fixed before new acceptance work. It does not block proof work.
 Acceptance work is done in batches at a milestone, not for each change.
 
-`python3 scripts/verification.py final` runs the whole suite in one process from a clean build, with
-every mutant list in strict mode, and prints the commit. The workflow `verification-final` starts it
-by hand for a named commit. The nightly suite does not run it.
+### The one-process run
+
+`python3 scripts/verification.py final` runs these parts in one process, from a clean build, and
+prints the commit:
+
+- the checks of `specs`;
+- `scripts/check-sorry.sh` and the audit self-test;
+- the kernel replay of every keyed mutant;
+- the differential tests, plain and sanitised, and the self-test of the differential harness;
+- every mutant list of the three list directories, in strict mode.
+
+It does not run the Python tests under `tests/verification/`, the check of the progress view, or
+the fast-gate steps other than `check-sorry.sh` (string literals, specification layers, forbidden
+constructs, `PartialCheck.lean`, patches apply). The workflow `verification-final` starts it by
+hand for a named commit. The nightly suite does not run it.
 
 ## What `verification.py specs` decides
 
-The script reads four registries under `tests/audit/`. [Public goals](goals.md) describes them.
+The script reads the registries under `tests/audit/`. [Public goals](goals.md) describes them.
 
 1. **Inventory.** The functions of `public-api.json` are exactly the exported functions of the
    pinned `zlib.h`. Each has a manual section, a translated entry and a functional goal. Each
@@ -81,8 +107,8 @@ The script reads four registries under `tests/audit/`. [Public goals](goals.md) 
 4. **Registries agree.** `proved-goals.txt` equals the set of goals the auditor finds PROVED. Every
    required goal is PROVED or listed in `open_safety` of the manifest; a goal in `open_safety` is
    not PROVED.
-5. **Shrink-only rules.** Along the commit chain, no registered theorem, proved goal, mutant
-   reference or frozen mutant row disappears without a reasoned entry in
+5. **Nothing disappears silently.** Along the commit chain, no registered theorem, proved goal,
+   mutant reference or frozen mutant row disappears without a reasoned entry in
    `registry-removals.json`. A goal closed once is not open again. [Public goals](goals.md#shrink-only-rules)
    gives the rules.
 6. **Mutant evidence.** Every proved goal of one public function has function mutants. Every
@@ -94,11 +120,11 @@ The script reads four registries under `tests/audit/`. [Public goals](goals.md) 
 | Check | Evidence and limit |
 | --- | --- |
 | Kernel replay and axiom audit | Check the proof terms and dependencies. Only `propext`, `Classical.choice` and `Quot.sound` are allowed. A correct proof can still answer an incomplete question. |
-| Exact goal matching | A registered theorem must have the fixed target as its type. Extra premises, a similar name or an abstract-model theorem do not count. Whether the target says enough is decided by review. |
+| Exact goal matching | A registered theorem has the fixed goal as its type. Extra premises, a similar name or a theorem about an abstract model do not count. Whether the goal says enough is decided by review. |
 | No-placeholder check | Rejects `sorry` and the other forbidden constructs listed in `AGENTS.md`. |
 | Differential tests | Compare translated execution with real C, including errors and allocation failure. They are finite evidence of fidelity, not proof. Sanitizer runs extend that evidence. |
 | Audit and differential self-tests | Deliberately break their inputs and require the checking mechanisms to detect the change. |
-| Proof mutants | Change translated function behaviour and require the function's proof to reject it. Sensitivity does not prove that every error is covered. |
+| Proof mutants | Change the behaviour of a translated function and require the function's proof to reject it. Sensitivity to one edit does not prove that every error is covered. |
 
 ## Known limits
 
@@ -106,9 +132,9 @@ The script reads four registries under `tests/audit/`. [Public goals](goals.md) 
   `tests/audit/selftest.sh` and the mutator scripts (`tests/proof-mutants/*.py`) are protected by
   review of their diffs, not by another check.
 - **A reasoned removal is the reviewed escape.** An entry with a reason in
-  `tests/audit/registry-removals.json` lifts a shrink-only rule for one name. It is visible in the
+  `tests/audit/registry-removals.json` lifts a removal rule for one name. It is visible in the
   diff. An entry that excuses nothing is rejected as stale.
-- **The commit chain starts at pinned floors.** The shrink-only rules read the history after two
+- **The commit chain starts at pinned floors.** The removal rules read the history after two
   commits pinned in the script. A force-push that rewrites the history after a floor escapes them.
   Branch protection against force-push is the defence.
 - **A `script:` mutant row is checked by reading it.** The runner's guard against a bad mutant
@@ -121,23 +147,28 @@ The script reads four registries under `tests/audit/`. [Public goals](goals.md) 
 [The anti-cheating page](../anti-cheating.md) says what the acceptance suite defends against and
 what it does not. A statement that is wrong is corrected, not worked around: see `AGENTS.md`.
 
-## Guides and records
+## Pages in this folder
 
 | Page | Purpose |
 | --- | --- |
-| [Contributing](contributing.md) | Numbered steps and commands, from a clone to an accepted result. |
-| [Public goals](goals.md) | The registries, the required set and the shrink-only rules. |
-| [Proof mutants](proof-mutants.md) | How to add, run and read mutation checks, and their limits. |
+| [Contributing](contributing.md) | Numbered steps and commands: every change, registering a result, running acceptance. |
+| [Public goals](goals.md) | The registries, the required set of 63 goals and the rules against silent removal. |
+| [Proof mutants](proof-mutants.md) | What a mutant is, with one worked example; how to add, run and read one; the limits. |
+| [Mutant evidence record](mutant-evidence.md) | Dated record: which rows carry the evidence of each group of goals, and where they are killed. |
 
-The remaining pages in this folder are dated records of past reviews. They preserve evidence and
-scope. They are not the current process and not current defect lists. Each one starts with a note
-that says when it was written and what has changed since.
+Three pages are dated records of source reviews. They are evidence about the statements and the
+runtime at the time of the review. They are not the process and not a list of present defects.
+Each starts with a note that says when it was written, and the two runtime records start with a
+table of the state of each finding.
 
 | Record | Content |
 | --- | --- |
-| [Public contract review](contract-review.md) | Statement layers, source-review corrections and counterexamples, from before the scope became safety only. |
-| [Local registration review](registration-review.md) | What the recorded local registration checks established. |
-| [Query registration review](query-registration-review.md) | Six exact public queries and their mutation evidence. |
-| [Compiler helper review](compiler-helper-review.md) | Generated recursive execution helpers and their logical counterparts. |
-| [Runtime review](runtime-review.md) | Findings R1–R13 and translation questions U1–U5, with their state today. |
-| [Heap-table review](runtime-tables-review.md) | Findings F1–F6 about array-backed tables and in-place updates, with their state today. |
+| [Public contract review](contract-review.md) | Corrections and counterexamples found by reading the functional contracts against the C. |
+| [Runtime review](runtime-review.md) | Findings R1–R13 and translation questions U1–U5 about the runtime model. |
+| [Heap-table review](runtime-tables-review.md) | Findings F1–F6 about array-backed tables and in-place updates. |
+
+Three older records describe a process with lock files, which the project does not have. They are
+kept under `docs/history/`:
+[registration checks](../history/registration-review.md),
+[query registration review](../history/query-registration-review.md) and
+[compiler helper review](../history/compiler-helper-review.md).
