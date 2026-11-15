@@ -784,7 +784,7 @@ theorem lenlens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
         ⟨Or.inr ⟨hlit, hdist, hclen, r1 ++ vb, r2 ++ vb, r3 ++ vb, read1', read2', read3', counts,
             nlenEq, ndistEq, ncodeEq,
             Or.inr ⟨rfl, cl, [], .istate_codes zs, 0, codes, readCL, rfl,
-              CodeRef.get_istate_codes (setI_istates_same h zs s3), contents.toCodeLengthMeaning,
+              CodeRef.get_istate_codes (setI_istates_same h zs s3), contents,
               by show (0 : UInt32).toNat < _; simp only [UInt32.toNat_zero]; omega,
               by
                 have e : lensPrefix (loopState s3 { l1 with ret := 0 }) = [] := by
@@ -941,7 +941,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
         ∃ (cl : List Nat) (r4 : List Bool) (ref : CodeRef) (offset : Nat) (codes : Array Code),
           readCodeLenLens (hclen + 4) r3 = some (cl, r4) ∧
           s.lencode = .ref ref offset ∧ Space.get h ref = some codes ∧
-          Zlib.Inftrees.Proofs.CodeLengthMeaning codes offset s.lenbits.toNat cl ∧
+          Zlib.Inftrees.Proofs.CodeLengthContents codes offset s.lenbits.toNat cl ∧
           s.«have».toNat < hlit + 257 + (hdist + 1) ∧
           ZlibF.Math.CodeLengthPrefix.Trace cl (hlit + 257 + (hdist + 1)) [] r4 (lensPrefix s) ∧
           (∀ future rest lens, CodeLens cl (hlit + 257 + (hdist + 1)) [] (r4 ++ future) rest lens →
@@ -994,7 +994,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
     exact heldB
   have more : s.«have».toNat < s.nlen.toNat + s.ndist.toNat := by omega
   obtain ⟨result, regs, after, lensA, haveA, used, consumed, runL, ub, keep, nxt, szA, hbA, valsA, res⟩ :=
-    cl_loop strm st hz hs wfS.1 mode invS meaning0 ordinary emptyCells more (fun e => (emptyF e).2) binv bound
+    cl_loop strm st hz hs wfS.1 mode invS meaning0.toCodeLengthMeaning ordinary emptyCells more (fun e => (emptyF e).2) binv bound
   have haveOld := binv.have_eq
   simp only [List.length_drop] at haveOld
   have ub' : used ≤ (f.inp.drop (loopRead l)).length := ub
@@ -1087,7 +1087,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
       obtain ⟨rfl, rfl⟩ := Ptr.ref.inj ptr''
       rw [CodeRef.get_istate_codes (setI_istates_same h zs _)] at get'
       cases get'
-      exact fullA (codeLenItem_meaning meaning0 m' item)
+      exact fullA (codeLenItem_meaning meaning0.toCodeLengthMeaning m' item)
     exact ⟨_, _, _, runW, Or.inl ⟨rfl, Or.inl ⟨have0, short⟩, moved⟩⟩
   · -- a bad repeat
     left

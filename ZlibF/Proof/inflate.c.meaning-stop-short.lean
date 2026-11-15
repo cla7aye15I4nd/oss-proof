@@ -126,7 +126,7 @@ theorem body_starved {h : Heap} {s : InflateState} {dict : List UInt8} {dbits he
           have prefixLen : (lensPrefix s).length = s.«have».toNat := by simp [lensPrefix]
           obtain ⟨sym, a1, x, a2, dsym, rb, _⟩ :=
             codeLens_item c2 (by rw [prefixLen]; exact haveLt)
-          exact sh.of_codelens m ref offset codes cl ptr get meaning ⟨sym, a1, x, a2, dsym, rb⟩
+          exact sh.of_codelens m ref offset codes cl ptr get meaning.toCodeLengthMeaning ⟨sym, a1, x, a2, dsym, rb⟩
   cases parsed with
   | start => exact boundaryCase resid bm.1
   | storedStart => exact storedHeaderCase resid bm.1
