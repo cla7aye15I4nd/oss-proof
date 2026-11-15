@@ -478,7 +478,7 @@ def WrapMatches (h : Heap) (s : InflateState) (wrap : Api.Wrap) (configured : Na
   | .header bytes => HeaderMatches s wrap configured bytes ∧ WindowMeaning h s dict [] ∧
       (dict = [] ∨ wrap = .raw)
   | .needDict header => s.check = dictId header ∧ s.flags = 0 ∧ s.bits = 0 ∧
-      HeaderWidth s configured header ∧
+      HeaderWidth s configured header ∧ s.last = 0 ∧ s.total = 0 ∧
       (s.havedict = 0 → s.wsize = 0 ∧ s.whave = 0) ∧
       (s.havedict ≠ 0 → be32 (adler32 dict).toNat = header.drop 2 ∧ WindowMeaning h s dict [])
   | .body header _ => FlagsMatch s wrap header ∧ HeaderWidth s configured header ∧

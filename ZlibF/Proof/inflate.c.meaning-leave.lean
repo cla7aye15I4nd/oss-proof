@@ -559,11 +559,12 @@ theorem leave_meaning {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
       have sZ : leaveValueState s1 0 ((a0.toList.drop (i0 + callOut.length - (0 : UInt32).toNat)).take
           (0 : UInt32).toNat) = s1 := by simpa using leaveValueState_zero s1
       rw [sZ] at viewsA ⊢
-      obtain ⟨wcheck, wflags, wbits, wwidth, wnone, wsome⟩ := wrapM
+      obtain ⟨wcheck, wflags, wbits, wwidth, wlast, wtotal, wnone, wsome⟩ := wrapM
       refine ⟨by show s1.mode = DICT; rw [modeA]; exact stageM, ?_⟩
       have widthA : HeaderWidth s1 f.configured header := by rw [frame]; exact wwidth
       refine ⟨by rw [fieldsA.2.2.2.1]; exact wcheck, by rw [fieldsA.2.1]; exact wflags,
-        by rw [fieldsA.1]; exact wbits, widthA, ?_, ?_⟩
+        by rw [fieldsA.1]; exact wbits, widthA, by rw [frame]; exact wlast,
+        by rw [frame]; exact wtotal, ?_, ?_⟩
       · intro hd0
         rcases window with ⟨skip, heapEq⟩ | ⟨upd, _⟩
         · rw [skipState skip heapEq] at hd0 ⊢; exact wnone hd0

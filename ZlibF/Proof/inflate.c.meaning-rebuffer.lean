@@ -88,8 +88,8 @@ theorem WrapMatches.frameRefs {h after : Heap} {s : InflateState} (same : SameRe
     obtain ⟨headerMatches, window, used⟩ := meaning
     exact ⟨headerMatches, window.frameRefs same, used⟩
   | needDict header =>
-    obtain ⟨check, flags, bits, width, empty, installed⟩ := meaning
-    exact ⟨check, flags, bits, width, empty, fun have_ => ⟨(installed have_).1,
+    obtain ⟨check, flags, bits, width, last, total, empty, installed⟩ := meaning
+    exact ⟨check, flags, bits, width, last, total, empty, fun have_ => ⟨(installed have_).1,
       (installed have_).2.frameRefs same⟩⟩
   | _ => exact meaning
 

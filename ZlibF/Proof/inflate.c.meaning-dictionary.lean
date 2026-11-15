@@ -511,7 +511,7 @@ theorem meaning_dictionary {h after : Heap} {r : ZStreamRef} {wb : Int32} {log :
           request⟩ := stageClause single (by rw [dict]; decide) (by rw [dict]; decide)
             (by rw [dict]; decide)
         obtain ⟨header, rfl, noDict⟩ := request pendingTrue
-        obtain ⟨check, flags, bits0, width, empty, _⟩ := wrapM
+        obtain ⟨check, flags, bits0, width, last0, total0, empty, _⟩ := wrapM
         obtain ⟨wsizeZero, whaveZero⟩ := empty noDict
         have parsed' := parsed
         obtain ⟨_, _, cmf, flg, dictid, rfl, idLength, _, _, _⟩ := parsed'
@@ -523,7 +523,7 @@ theorem meaning_dictionary {h after : Heap} {r : ZStreamRef} {wb : Int32} {log :
             (Or.inr ⟨wsizeZero, whaveZero, rfl⟩) inv.good.inv.win inv'.good.inv.win rfl install
           simp only [List.nil_append] at windowM
           exact ⟨consumed, held, .needDict ([cmf, flg] ++ [c, d, e, f]), inputBits, heldBits, parsed,
-            stageM, ⟨check, flags, bits0, width, fun zero => absurd zero (show ¬ (1 : Int32) = 0 by decide),
+            stageM, ⟨check, flags, bits0, width, last0, total0, fun zero => absurd zero (show ¬ (1 : Int32) = 0 by decide),
               fun _ => ⟨by simpa using idEq, windowM⟩⟩, outputEq,
             fun no => absurd no (by simp)⟩
 

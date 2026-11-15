@@ -166,7 +166,7 @@ theorem dictid_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       heldBits1, parsed1, stageM1, wrapM1, outputEq1⟩ := loop'
     obtain ⟨rfl, rfl⟩ := sameState zs1 s1 st1 hs1
     obtain ⟨bytes, rfl⟩ := stage_of_header stageM1 high
-    obtain ⟨⟨rawHead1, _, dictidC1, _, _, wrappedC1, _⟩, _, _⟩ := wrapM1
+    obtain ⟨⟨rawHead1, _, dictidC1, _, _, wrappedC1, last0, total0, _⟩, _, _⟩ := wrapM1
     obtain ⟨two, notGzip, flags0, _, width1, fdict⟩ := dictidC1 mode
     have wrapped : f.wrap ≠ .raw := by
       intro raw
@@ -229,7 +229,8 @@ theorem dictid_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
         by rw [List.append_nil]; exact bitsField, ⟨rfl, rfl⟩,
         wrapParsed_needDict zlibLike ok fits fdict rfl, rfl, ?_, outputEq1⟩
       exact ⟨dictId_swap holdValue, flags0, rfl, ⟨w1, w2, fun zero => ⟨fun g => (w3 zero).1 g,
-        fun ng => (w3 zero).2 ng⟩⟩, fun _ => ⟨wsize0, whave0⟩, fun ne => absurd havedict0 ne⟩
+        fun ng => (w3 zero).2 ng⟩⟩, last0, total0, fun _ => ⟨wsize0, whave0⟩,
+        fun ne => absurd havedict0 ne⟩
     exact ⟨_, _, _, cut.trans wait, Or.inr ⟨rfl, r, _, zs, _, _, strm, hz2, setI_istates_same _ _ _, rfl,
       havedict0, loopMid, rfl⟩⟩
   · -- the input ran out

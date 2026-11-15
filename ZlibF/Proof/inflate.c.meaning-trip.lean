@@ -61,10 +61,11 @@ def LoopModeCases : Prop :=
        (LEN_ ≤ s.mode ∧ s.mode ≤ LIT) ∨ s.mode = CHECK ∨ s.mode = LENGTH ∨ s.mode = DONE)
 
 /-- A zlib or raw configuration never reaches the gzip header modes: `ConfigMatches` fixes the
-wrapper code, and `WrapMatches` puts a non-gzip header stage in `HEAD` or `DICTID`. -/
+wrapper code (5 or 0), and the safety invariant puts `FLAGS`..`HCRC` only under a gzip wrapper
+code (`GzipHeaderMode`). -/
 def GzipFieldsAbsent : Prop :=
-  ∀ (c : Ctx) (f : LoopFrame) (h : Heap) (l : IL), LoopMatches c f h l →
-    (f.wrap = .zlib ∨ f.wrap = .raw) →
+  ∀ (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (h : Heap) (l : IL), CallSide c r l h →
+    LoopMatches c f h l → (f.wrap = .zlib ∨ f.wrap = .raw) →
     ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → ¬ (FLAGS ≤ s.mode ∧ s.mode ≤ HCRC)
 
 /-- `HEAD`, raw: from `head_raw_step`; the raw width is 8..15 by `Api.inflWbits`. -/
@@ -97,10 +98,16 @@ from their ends to `TripOutcome`. -/
 def TripTypeOpen : Prop :=
   ∀ c f r, TripAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last = 0)
 
-/-- `TYPE`/`TYPEDO` after the last block: `BYTEBITS()` and on to `CHECK` (the stage moves from the
-body to the trailer). New step. -/
+/-- `TYPE`/`TYPEDO` after the last block, with a wrapper: `BYTEBITS()` and on to `CHECK` (the
+stage moves from the body to the trailer). New step. -/
 def TripTypeFinal : Prop :=
-  ∀ c f r, TripAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0)
+  ∀ c f r, f.wrap ≠ .raw → TripAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0)
+
+/-- `TYPE`/`TYPEDO` after the last block of raw data: on to `CHECK`, `LENGTH` and `DONE`. No
+`LoopMatches` state is a raw `CHECK` (the trailer stage needs a wrapper), so this row needs a raw
+trailer stage first. Not needed by the zlib round trip. -/
+def TripTypeFinalRaw : Prop :=
+  ∀ c f r, f.wrap = .raw → TripAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0)
 
 /-- Stored blocks: from `stored_step`, `copy_start_step` and `copy_step`. -/
 def TripStored : Prop :=
@@ -145,6 +152,7 @@ structure ZlibTripRows : Prop where
 /-- The rows of every configuration. -/
 structure TripRows : Prop extends ZlibTripRows where
   headRaw : TripHeadRaw
+  typeFinalRaw : TripTypeFinalRaw
   headGzip : TripHeadGzip
   gzipFields : TripGzipFields
   checkRaw : TripCheckRaw
@@ -155,15 +163,16 @@ structure TripRows : Prop extends ZlibTripRows where
 theorem trip_gzip_fields_plain (modes : LoopModeCases) (absent : GzipFieldsAbsent)
     (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (plain : f.wrap = .zlib ∨ f.wrap = .raw) :
     TripAt c f r (fun s => FLAGS ≤ s.mode ∧ s.mode ≤ HCRC) := by
-  intro h l _ loop range
+  intro h l side loop range
   obtain ⟨zs, s, st, hs, _⟩ := modes c f h l loop
-  exact absurd (range zs s st hs) (absent c f h l loop plain zs s st hs)
+  exact absurd (range zs s st hs) (absent c f r h l side loop plain zs s st hs)
 
 /-- `TripMeaning` from a row for each mode group. -/
 theorem trip_of_rows {c : Ctx} {f : LoopFrame} {r : ZStreamRef} (rows : ZlibTripRows)
     (head : TripAt c f r (fun s => s.mode = HEAD))
     (fields : TripAt c f r (fun s => FLAGS ≤ s.mode ∧ s.mode ≤ HCRC))
-    (check : TripAt c f r (fun s => s.mode = CHECK)) :
+    (check : TripAt c f r (fun s => s.mode = CHECK))
+    (final : TripAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0)) :
     TripMeaning c f (CallSide c r) := by
   intro h l side loop
   obtain ⟨zs, s, st, hs, mode⟩ := rows.modes c f h l loop
@@ -174,7 +183,7 @@ theorem trip_of_rows {c : Ctx} {f : LoopFrame} {r : ZStreamRef} (rows : ZlibTrip
   · exact rows.dict c f r h l side loop (at_state (P := fun s => s.mode = DICT) st hs m)
   · exact rows.typeOpen c f r h l side loop
       (at_state (P := fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last = 0) st hs m)
-  · exact rows.typeFinal c f r h l side loop
+  · exact final h l side loop
       (at_state (P := fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0) st hs m)
   · exact rows.stored c f r h l side loop
       (at_state (P := fun s => s.mode = STORED ∨ s.mode = COPY_ ∨ s.mode = COPY) st hs m)
@@ -195,21 +204,22 @@ theorem trip_meaning (rows : TripRows) (c : Ctx) (f : LoopFrame) (r : ZStreamRef
   cases hw : f.wrap with
   | raw =>
     exact trip_of_rows z (rows.headRaw c f r hw) (rows.gzipFields c f r) (rows.checkRaw c f r hw)
+      (rows.typeFinalRaw c f r hw)
   | zlib =>
     exact trip_of_rows z (rows.headZlib c f r hw) (rows.gzipFields c f r)
-      (rows.checkWrapped c f r (by rw [hw]; decide))
+      (rows.checkWrapped c f r (by rw [hw]; decide)) (rows.typeFinal c f r (by rw [hw]; decide))
   | gzip =>
     exact trip_of_rows z (rows.headGzip c f r (Or.inl hw)) (rows.gzipFields c f r)
-      (rows.checkWrapped c f r (by rw [hw]; decide))
+      (rows.checkWrapped c f r (by rw [hw]; decide)) (rows.typeFinal c f r (by rw [hw]; decide))
   | auto =>
     exact trip_of_rows z (rows.headGzip c f r (Or.inr hw)) (rows.gzipFields c f r)
-      (rows.checkWrapped c f r (by rw [hw]; decide))
+      (rows.checkWrapped c f r (by rw [hw]; decide)) (rows.typeFinal c f r (by rw [hw]; decide))
 
 /-- `TripMeaning` for the zlib wrapper, without the gzip header rows and the raw `CHECK` row. -/
 theorem trip_meaning_zlib (rows : ZlibTripRows) (c : Ctx) (f : LoopFrame) (r : ZStreamRef)
     (zlib : f.wrap = .zlib) : TripMeaning c f (CallSide c r) :=
   trip_of_rows rows (rows.headZlib c f r zlib)
     (trip_gzip_fields_plain rows.modes rows.absent c f r (Or.inl zlib))
-    (rows.checkWrapped c f r (by rw [zlib]; decide))
+    (rows.checkWrapped c f r (by rw [zlib]; decide)) (rows.typeFinal c f r (by rw [zlib]; decide))
 
 end Zlib.Inflate.Proofs
