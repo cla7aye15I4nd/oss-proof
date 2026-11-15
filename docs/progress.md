@@ -2420,9 +2420,12 @@ finding; it is worth an upstream note only if a platform is known that returns 0
 **A string returned by `gzerror` is freed by the next call that reaches `gz_error`.**
 Unconfirmed finding, a documentation gap, not a code bug. `zlib.h` says only that later calls of
 `gzerror` may invalidate the returned string. In fact `gzerror` returns `state->msg`, and every
-call that reaches `gz_error` frees it: `gzprintf`, `gzvprintf`, `gzputs`, `gzwrite`, `gzread` and
-others reset the error with `gz_error(state, Z_OK, NULL)` before they use their arguments. A caller
-that passes that string back to the same handle gets a use after free:
+call that reaches `gz_error` frees it. The writing entries (`gzwrite`, `gzfwrite`, `gzputc`,
+`gzputs`, `gzprintf`, `gzvprintf`, `gzflush`, `gzsetparams`) reset the error with
+`gz_error(state, Z_OK, NULL)` after their mode and error test and before they use their
+arguments. The reading entries (`gzread`, `gzfread`, `gzgetc`, `gzungetc`, `gzgets`) do so only
+when the previous read stalled ([deviations](deviations.md#why-the-handles-own-strings-are-excluded)
+has the table). A caller that passes that string back to the same handle can get a use after free:
 `gzprintf(f, "%s", gzerror(f, &e))` after a stalled write reads freed memory in `vsnprintf`
 ([reproduction](../tests/regression/gzprintf-error-string/README.md), ASan). No patch. The proved
 domain keeps caller strings and buffers apart from the handle's blocks (`GzRange`, and the
