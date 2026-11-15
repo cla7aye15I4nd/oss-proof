@@ -4,19 +4,13 @@ import ZlibF.Proof.«inflate.c.pending-dispatch»
 import ZlibF.Proof.«inflate.c.fast-view-caller-start»
 
 /-!
-# inflate.c: the code modes `LEN_`..`LIT` (`TripCodes`, up to the fast call on byte views)
+# inflate.c: the code modes `LEN_`..`LIT` (`TripCodes`)
 
 Each code mode is its per-mode step behind its dispatch equation: `len__step` and
 `len_slow_step` (slow `LEN_`, `LEN`), `fast_call_meaning` (fast `LEN`), `lenext_step`,
 `dist_step`, `distext_step`, `match_step` and `lit_step`. `body_outcome` turns the ends into a
-`TripOutcome`. The premises of the steps come from `CallSide` and `LoopMatches`.
-
-What is open: `fast_call_meaning` needs input and output in raw heap blocks (`.blk`). The public
-caller range (`CallerRange`) also admits the other byte views: a static string or a static table
-as input, and the `depth` array of another deflate state as input or as writable output. The
-safety proof covers these views (`DispatchBuffers.fast_views`); the format meaning of the fast
-call does not yet. `FastViewsOpen` states exactly that case, and `trip_codes_of_fast_views`
-proves `TripCodes` from it.
+`TripOutcome`. The premises of the steps come from `CallSide` and `LoopMatches`. The fast call
+takes input and output in any byte view the dispatch packet admits (`DispatchBuffers.fast_views`).
 -/
 
 namespace Zlib.Inflate.Proofs
@@ -26,25 +20,8 @@ open Zlib.Inflate.Proofs.MeaningBlock Zlib.Inflate.Proofs.MeaningMatch
 open Zlib.Inflate.Proofs.MeaningDistance Zlib.Inflate.Proofs.MeaningLength
 set_option autoImplicit false
 
-/-- The fast `case LEN` call keeps the format meaning when the input or the output is not in a raw
-heap block. Open: `fast_call_meaning` proves the same end for raw blocks. -/
-def FastViewsOpen : Prop :=
-  ∀ (c : Ctx) (f : LoopFrame) (h : Heap) (l : IL) (r : ZStreamRef) (z : ZStream),
-    LoopMatches c f h l → c.strm = some r → r.get h = some z →
-    (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true →
-    (∀ zs s, c.st = some (.tab zs) → h.istates zs = some s →
-      s.mode = LEN ∧ Good h r zs z s ∧ DataTablesSafe h s ∧ DataPendingInvariant s) →
-    ZlibF.PlatformMemory.ByteObjectsFit h →
-    DispatchBuffers h r l (f.inp.drop (loopRead l)) →
-    (f.wrap = .raw → f.configured ≠ 0) →
-    ¬ (∃ ib io ob oo, l.next = .ref (.blk ib) io ∧ l.put = .ref (.blk ob) oo) →
-    ∃ l' h', runX (inflate_LEN c) l h = .ok ((.ok (), l'), h') ∧ loopRead l ≤ loopRead l' ∧
-      (LoopMatches c f h' l' ∨
-        ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
-          LoopRefuted f l'))
-
-/-- The fast `case LEN` call: `fast_call_meaning` on raw blocks, `FastViewsOpen` otherwise. -/
-theorem fast_len (views : FastViewsOpen) {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
+/-- The fast `case LEN` call: `fast_call_meaning` on the byte views of the dispatch packet. -/
+theorem fast_len {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
     {r : ZStreamRef} {z : ZStream}
     (loop : LoopMatches c f h l) (strm : c.strm = some r) (hz : r.get h = some z)
     (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true)
@@ -57,10 +34,10 @@ theorem fast_len (views : FastViewsOpen) {c : Ctx} {f : LoopFrame} {h : Heap} {l
       (LoopMatches c f h' l' ∨
         ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
           LoopRefuted f l')) := by
-  by_cases blk : ∃ ib io ob oo, l.next = .ref (.blk ib) io ∧ l.put = .ref (.blk ob) oo
-  · obtain ⟨ib, io, ob, oo, input, output⟩ := blk
-    exact MeaningFast.fast_call_meaning loop strm hz fast state fit buffers input output rawWidth
-  · exact views c f h l r z loop strm hz fast state fit buffers rawWidth blk
+  obtain ⟨zs, s, _, _, _, _, st, hs, _⟩ := id loop
+  have good := (state zs s st hs).2.1
+  obtain ⟨inRef, outRef, _, _, io, oo, input, _, _, _, _, output, _⟩ := buffers.fast_views good fit fast
+  exact MeaningFast.fast_call_meaning loop strm hz fast state fit buffers input output rawWidth
 
 /-! ## Premises of the steps -/
 
@@ -217,7 +194,7 @@ theorem loop_len_start {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {zs : Nat}
 
 /-- `case LEN_` on the fast branch: set `LEN`, then the fast call. The decoder invariant after
 the mode write is that of `inflate_LEN_start_fast_view_state_run`. -/
-theorem len_start_fast (views : FastViewsOpen) {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
+theorem len_start_fast {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
     {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (loop : LoopMatches c f h l) (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
     (buffers : DispatchBuffers h r l (f.inp.drop (loopRead l))) (mode : s.mode = LEN_)
@@ -249,7 +226,7 @@ theorem len_start_fast (views : FastViewsOpen) {c : Ctx} {f : LoopFrame} {h : He
     buffers.byte_views invariant.good good rfl
       (byte_view_get_setI h zs current) (byte_view_ro_setI h zs current)
   have loop1 : LoopMatches c f heap l := loop_len_start loop E.st E.hs mode
-  obtain ⟨l', h', run, _, rest⟩ := fast_len views loop1 E.strm currentJ.good.live.hz fast
+  obtain ⟨l', h', run, _, rest⟩ := fast_len loop1 E.strm currentJ.good.live.hz fast
     (at_state_id (P := fun zs s => s.mode = LEN ∧ Good heap r zs z s ∧ DataTablesSafe heap s ∧
       DataPendingInvariant s) E.st (setI_istates_same h zs current)
       ⟨rfl, currentJ.good, currentJ.tables (by change DataTableMode LEN; unfold DataTableMode; decide),
@@ -259,8 +236,8 @@ theorem len_start_fast (views : FastViewsOpen) {c : Ctx} {f : LoopFrame} {h : He
 
 /-! ## The row -/
 
-/-- `TripCodes`, from the fast call on byte views outside raw blocks (`FastViewsOpen`). -/
-theorem trip_codes_of_fast_views (views : FastViewsOpen) : TripCodes := by
+/-- The code modes keep the format meaning. -/
+theorem trip_codes : TripCodes := by
   intro c f r h l side loop mode
   obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, _, _⟩ := id side
   have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
@@ -291,7 +268,7 @@ theorem trip_codes_of_fast_views (views : FastViewsOpen) : TripCodes := by
   rcases code_mode_cases m0 with m | m | m | m | m | m | m
   · -- LEN_
     by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
-    · obtain ⟨l', h', run, rest⟩ := len_start_fast views loop E j buffers m fast rawWidth
+    · obtain ⟨l', h', run, rest⟩ := len_start_fast loop E j buffers m fast rawWidth
       have run' := (inflate_dispatch_LEN_start E l m).trans run
       exact ⟨_, l', h', run', Or.inl (body_outcome side loop body run' (Or.inr ⟨rfl, rest⟩))⟩
     · obtain ⟨result, l', h', run, ends⟩ := len__step loop E.strm E.hz fast
@@ -302,7 +279,7 @@ theorem trip_codes_of_fast_views (views : FastViewsOpen) : TripCodes := by
       exact ⟨result, l', h', run', Or.inl (body_outcome side loop body run' (decode_ends ends))⟩
   · -- LEN
     by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
-    · obtain ⟨l', h', run, _, rest⟩ := fast_len views loop E.strm E.hz fast
+    · obtain ⟨l', h', run, _, rest⟩ := fast_len loop E.strm E.hz fast
         (at_state_id (P := fun zs s => s.mode = LEN ∧ Good h r zs z s ∧ DataTablesSafe h s ∧
           DataPendingInvariant s) st E.hs
           ⟨m, j.good, j.tables (by rw [m]; unfold DataTableMode; decide), j.pending⟩)
@@ -354,6 +331,6 @@ theorem trip_codes_of_fast_views (views : FastViewsOpen) : TripCodes := by
 
 #print axioms fast_len
 #print axioms len_start_fast
-#print axioms trip_codes_of_fast_views
+#print axioms trip_codes
 
 end Zlib.Inflate.Proofs
