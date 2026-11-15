@@ -1,4 +1,4 @@
-<!-- source-sha256: 722c4d19e150f6c2c1ad31efd67bb008e941d8448e29f52e600978bc8ea8e886 -->
+<!-- source-sha256: 1c9fcd25d3dbc0ec6e27cde0f76b8aa43add1cb99755cb4e731f963a8575ab7c -->
 # 发现与证据登记
 
 本页列出本项目在 zlib 本身发现的问题。它把四组分开：由 sanitizer 在真实 C 上确认的问题，仅按 C 标准字面规定属于未定义的问题，`deflateBound` 的两处不属于内存错误的失信，以及在本项目自己的补丁里发现的一个缺口。每个问题都有自己的页面，给出调用序列、运行命令、输出、严重程度和修复。后面的几节保留早期的、未确认的观察。
@@ -33,14 +33,14 @@
 
 ## `deflateBound` 的失信，不是内存错误
 
-`zlib.h` 承诺：一次带 `Z_FINISH` 的 `deflate` 调用，如果拿到全部输入，并且输出缓冲区的大小是 `deflateBound` 返回的值，就以 `Z_STREAM_END` 结束。下面两种情形已在固定的 C 上复现，这次调用返回的是 `Z_OK`：这个界太小。两者都不是未定义行为，sanitizer 也没有任何报告，所以它们不满足上面“已确认”的定义，那个定义要求有 sanitizer 报告。两者都没有打补丁。
+`zlib.h` 承诺：一次带 `Z_FINISH` 的 `deflate` 调用，如果拿到全部输入，并且输出缓冲区的大小是 `deflateBound` 返回的值，就以 `Z_STREAM_END` 结束。下面两种情形已在固定的 C 上复现，这次调用返回的是 `Z_OK`：这个界太小。两者都不是未定义行为，sanitizer 也没有任何报告，所以它们不满足上面“已确认”的定义，那个定义要求有 sanitizer 报告。第一种已在本地打补丁（补丁 0006）；第二种没有打补丁。
 
 | 问题 | 在哪里出问题 | 证据 | 上游状态 |
 | --- | --- | --- | --- |
-| [`Z_FIXED` 在级别 1 到 3 时 `deflateBound` 太小](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 为 15、`memLevel` 为 8、策略为 `Z_FIXED`、级别 1 到 3。对 1,000,000 字节的输入，界是 1,000,318，而流最多需要 1,008,570 字节。`compress`、`compress2` 和 `compressBound` 使用默认策略，不受影响。 | 固定的 C 上的 `repro.c`，分别在启用和不启用 AddressSanitizer 与 UndefinedBehaviorSanitizer 的情况下运行。范围来自命题测试 `tests/goals/deflate-bound`。系统自带的 zlib 1.2.12 在级别 1 到 9 上全部失败。 | 没有报告。上游是否已经知道，尚未向上游核实。 |
+| [`Z_FIXED` 在级别 1 到 3 时 `deflateBound` 太小](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 为 15、`memLevel` 为 8、策略为 `Z_FIXED`、级别 1 到 3。对 1,000,000 字节的输入，界是 1,000,318，而流最多需要 1,008,570 字节。`compress`、`compress2` 和 `compressBound` 使用默认策略，不受影响。 | 固定的 C 上的 `repro.c`，分别在启用和不启用 AddressSanitizer 与 UndefinedBehaviorSanitizer 的情况下运行。范围来自命题测试 `tests/goals/deflate-bound`。系统自带的 zlib 1.2.12 在级别 1 到 9 上全部失败。带补丁 0006 时，复现程序和命题测试的远距离匹配搜索在每个级别都能结束。 | 没有报告。上游是否已经知道，尚未向上游核实。本项目的本地补丁 0006，待提交：未提交。 |
 | [gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`](findings/deflatebound-extra-len/README.md) | `deflateBound` 按 32 位计算 `2 + extra_len`，所以对这两个长度，和发生回绕，界大约小了 64 KiB。 | 固定的 C 上的 `tests/goals/deflate-bound/bound.c`，`extra` 模式 | 上游已知（上游拉取请求 1360 中有讨论）。 |
 
-每个发现页面都说明了该情形对功能命题意味着什么。按这两页的说法，`DeflateCompletes` 照现在的写法对第一种情形不成立，因为它对每一种策略全称量化；数值目标 `Goal.deflateBound` 和 `Goal.deflateBound_z` 对第二种情形的两个长度不成立。这两个数值目标都没有定理（`tests/audit/proved-goals.txt`）。
+每个发现页面都说明了该情形对功能命题意味着什么。按这两页的说法，在没有补丁 0006 时，`DeflateCompletes` 照现在的写法对第一种情形不成立，因为它对每一种策略全称量化；数值目标 `Goal.deflateBound` 和 `Goal.deflateBound_z` 对第二种情形的两个长度不成立。这两个数值目标都没有定理（`tests/audit/proved-goals.txt`）。
 
 ## 在本项目自己的补丁里发现的缺口
 

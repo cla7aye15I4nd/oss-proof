@@ -1,9 +1,10 @@
 # deflateBound is too small for Z_FIXED at levels 1 to 3
 
-Status: reproduced on the pinned C (upstream `develop` 757f052, unpatched; the local patches do not
-touch `deflate.c` or `trees.c`), with and without AddressSanitizer and UndefinedBehaviorSanitizer,
-and on a system zlib 1.2.12. Not yet reported upstream; whether upstream knows it is not yet
-checked with upstream.
+Status: patched locally. Local patch 0006 (`patches/0006-deflatebound-fixed-conservative.patch`,
+approved by the owner on 2026-11-15) is pending upstream: not submitted. Reproduced on the pinned
+C without that patch (upstream `develop` 757f052; patches 0001 to 0005 do not touch `deflate.c` or
+`trees.c`), with and without AddressSanitizer and UndefinedBehaviorSanitizer, and on a system zlib
+1.2.12. Not yet reported upstream; whether upstream knows it is not yet checked with upstream.
 It is a broken API promise, not a memory error: the sanitizers report nothing.
 
 zlib.h, `deflateBound`: "If that first deflate() call is provided the sourceLen input bytes, an
@@ -23,8 +24,8 @@ fallback of every block: about 5 bytes for each block of at most 16383 symbols. 
 An input made of 3-byte copies from distances in (16384, 32000] gives blocks of 16383 such matches,
 about 49 KB each. They cross a slide, have no stored fallback, and grow by 1/24.
 
-Reproduction: `repro.c` (no clock, no input). Output on the pinned C under the sanitizers:
-`report.txt`. For n = 1,000,000 the bound is 1,000,318; at levels 1, 2 and 3 one
+Reproduction: `repro.c` (no clock, no input). Output on the pinned C without patch 0006, under the
+sanitizers: `report.txt`. For n = 1,000,000 the bound is 1,000,318; at levels 1, 2 and 3 one
 `deflate(Z_FINISH)` with that room returns `Z_OK`, and the stream needs 1,007,343, 1,008,565 and
 1,008,570 bytes. Levels 4 to 9 end.
 
@@ -45,8 +46,26 @@ per byte. The default strategy is not affected in these tests: dynamic codes giv
 a short code. `compress`, `compress2` and `compressBound` use the default strategy and are not
 affected.
 
-Effect on the proof: `DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`) quantifies over
-every strategy, so it is false as stated for this case. A correction needs a decision: a premise
-that excludes `Z_FIXED` at levels 1 to 3 with the tight bound (listed in `docs/deviations.md`), or
-a local patch. A minimal fix in `deflateBound` would use the conservative bound for `Z_FIXED`
-(fixed codes cost at most 9 bits per byte, which the `fixedlen` bound covers).
+## Fix: patch 0006
+
+The owner chose a local patch over a premise. In `deflateBound_z` the conservative bounds now
+apply also when the strategy is `Z_FIXED`: `fixedlen` at levels 1 to 9, `storelen` at level 0,
+as for the other parameter sets. Fixed codes cost at most 9 bits per byte, which `fixedlen`
+covers. No other strategy and no other parameter set changes.
+
+Measured with the patch (pinned C with patches 0001 to 0006):
+
+- `repro.c`, n = 1,000,000: the bound is 1,130,869, and one `deflate(Z_FINISH)` with that room
+  returns `Z_STREAM_END` at every level 1 to 9, with and without the sanitizers. The stream sizes
+  are unchanged (1,007,343 to 1,008,570 at levels 1 to 3).
+- The far-match search, mode `far` of `tests/goals/deflate-bound/bound.c`: copy lengths 3 to 5,
+  literal rates 0, 10, 25 and 50%, every `windowBits` 9 to 15, `memLevel` 1 to 9, level 1 to 9
+  and strategy, n = 200,000. Without patch 0006 it fails in 6 cases, all `windowBits` 15,
+  `memLevel` 8, `Z_FIXED`, levels 1 to 3, copy length 3, literal rates 0 and 10%. With the patch it
+  fails in none. Under the sanitizers (`windowBits` 15, n = 150,000) it fails in none and the
+  sanitizers report nothing.
+- `tests/goals/deflate-bound/run.sh` passes with the patch; it now runs the far-match search.
+
+Effect on the proof: with the patch, `DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`)
+needs no premise for this case. The translation of `deflateBound_z` and the value specifications
+(`deflateBoundValue`, `Api.DeflState.bound`) follow the patched C.

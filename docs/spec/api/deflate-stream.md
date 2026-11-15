@@ -874,7 +874,7 @@ header and dictionary fixed; use standard tuning and no inserted prime bits.
 **Post:** the heap is unchanged. The numerical target is the following mathematical value,
 saturated at `SIZE_MAX`, where `n = sourceLen` and `w` is the full wrapper size:
 
-- Window 15 and memory level 8: `n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`.
+- Window 15, memory level 8 and a strategy other than `Z_FIXED` (patch 0006): `n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`.
 - Otherwise, if window bits are at most hash bits and level is nonzero:
   `n + floor(n/8) + floor(n/256) + floor(n/512) + 4 + w`.
 - Otherwise: `n + floor(n/32) + floor(n/128) + floor(n/2048) + 7 + w`.

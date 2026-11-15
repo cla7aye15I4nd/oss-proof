@@ -49,16 +49,17 @@ the evaluation with a probe compiled into the real C.
 of the size `deflateBound` returned ends with `Z_STREAM_END`. In the two cases below, reproduced
 on the pinned C, that call returns `Z_OK`: the bound is too small. Neither is undefined
 behaviour, and the sanitizers report nothing, so they do not meet the definition of confirmed
-above, which asks for a sanitizer report. No patch is applied for either.
+above, which asks for a sanitizer report. The first is patched locally (patch 0006); the second is
+not patched.
 
 | Issue | Where it bites | Evidence | Upstream state |
 | --- | --- | --- | --- |
-| [`deflateBound` is too small for `Z_FIXED` at levels 1 to 3](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 15 with `memLevel` 8, strategy `Z_FIXED`, levels 1 to 3. For 1,000,000 input bytes the bound is 1,000,318 and the stream needs up to 1,008,570 bytes. `compress`, `compress2` and `compressBound` use the default strategy and are not affected. | `repro.c` on the pinned C, with and without AddressSanitizer and UndefinedBehaviorSanitizer. The scope comes from the statement test `tests/goals/deflate-bound`. A system zlib 1.2.12 fails at every level 1 to 9. | Not reported. Whether upstream knows it is not yet checked with upstream. |
+| [`deflateBound` is too small for `Z_FIXED` at levels 1 to 3](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 15 with `memLevel` 8, strategy `Z_FIXED`, levels 1 to 3. For 1,000,000 input bytes the bound is 1,000,318 and the stream needs up to 1,008,570 bytes. `compress`, `compress2` and `compressBound` use the default strategy and are not affected. | `repro.c` on the pinned C, with and without AddressSanitizer and UndefinedBehaviorSanitizer. The scope comes from the statement test `tests/goals/deflate-bound`. A system zlib 1.2.12 fails at every level 1 to 9. With patch 0006 the reproduction and the far-match search of the statement test end at every level. | Not reported. Whether upstream knows it is not yet checked with upstream. Local patch 0006 here, pending: not submitted. |
 | [`deflateBound` with a gzip extra field of length 2^32 − 2 or 2^32 − 1](findings/deflatebound-extra-len/README.md) | `deflateBound` computes `2 + extra_len` at 32 bits, so the sum wraps for these two lengths, and the bound is about 64 KiB too small. | `tests/goals/deflate-bound/bound.c`, mode `extra`, on the pinned C | Known upstream (discussion in upstream PR 1360). |
 
 Each finding page says what the case means for the functional statements. According to them,
-`DeflateCompletes` is false as stated for the first case, because it quantifies over every
-strategy; and the value goals `Goal.deflateBound` and `Goal.deflateBound_z` are false for the two
+`DeflateCompletes` was false as stated for the first case without patch 0006, because it
+quantifies over every strategy; and the value goals `Goal.deflateBound` and `Goal.deflateBound_z` are false for the two
 lengths of the second. Neither value goal has a theorem
 (`tests/audit/proved-goals.txt`).
 

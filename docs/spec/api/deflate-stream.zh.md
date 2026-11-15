@@ -1,4 +1,4 @@
-<!-- source-sha256: 61a10d15f1d45c31f37a8c4233ed6aed377bbc001e424ac144db7f99befcd23e -->
+<!-- source-sha256: 0248f83df3bba206b71756360436bcb9dd2509e1677becfa982cf63231eb679e -->
 
 # 流式压缩
 
@@ -725,7 +725,7 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
 
 **后置条件：** 堆不变。要得到的数值是下述数学值，在 `SIZE_MAX` 处饱和，其中 `n = sourceLen`，`w` 为完整封装大小：
 
-- 窗口 15 且内存级别 8：`n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`。
+- 窗口 15、内存级别 8 且策略不是 `Z_FIXED`（补丁 0006）：`n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`。
 - 否则，若窗口位数不超过哈希位数且级别非零：`n + floor(n/8) + floor(n/256) + floor(n/512) + 4 + w`。
 - 否则：`n + floor(n/32) + floor(n/128) + floor(n/2048) + 7 + w`。
 
