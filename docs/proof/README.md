@@ -20,15 +20,17 @@ defines them, and [checking](../checking/README.md#three-levels) says which chec
 each and where a reader sees it.
 
 - **Checked.** The theorem is on the integration branch `dev`, and the fast gate is green on
-  that commit: everything builds, there is no `sorry` and no forbidden construct. Lean's kernel
-  has checked the proof.
-- **Registered.** The theorem is also listed in `tests/audit/theorems.txt`, and its goal in
-  `tests/audit/proved-goals.txt`. The acceptance suite audits the theorems of that list: the
-  type of each against its goal, and the axioms each depends on.
+  that commit. Lean's kernel has checked the proof. The fast gate is: everything builds, there
+  is no `sorry` and no forbidden construct.
+- **Registered.** The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and
+  the goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the
+  acceptance suite is the check that the theorem's type is exactly the goal. It also checks the
+  axioms each registered theorem depends on.
 - **Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
-  That commit is `bde170e9` ([progress, Scope](../progress.md#scope)). The four initialisation
-  goals of `inflate` and `deflate` were widened after it; they are registered in the wider form
-  and accepted in the form they had on that commit.
+  Only an accepted result is reported as final, and always with that commit. The commit is
+  `bde170e9` ([progress, Scope](../progress.md#scope)). The four initialisation goals of
+  `inflate` and `deflate` were widened after it; they are registered in the wider form and
+  accepted in the form they had on that commit.
 
 A theorem that is checked and not registered is a lemma inside the proof of a registered
 theorem. The pages say so where they name one. The axiom check of a registered theorem follows

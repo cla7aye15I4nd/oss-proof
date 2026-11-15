@@ -9,13 +9,14 @@ To run the checks, read [contributing](contributing.md). To add a mutant, read
 
 ## Three levels
 
-Each level includes the one above it.
+Each level includes the one before it. The definitions are those of the
+[glossary](../glossary.md#status), in the same words.
 
 | Level | What is true | Where you see it |
 | --- | --- | --- |
 | **Checked** | The theorem is on the integration branch `dev`, and the fast gate is green on that commit. Lean's kernel has checked the proof. | The results `build` and `no-sorry` of the workflow `lean` on that commit. |
-| **Registered** | Also: the theorem's name is in `tests/audit/theorems.txt`, and the goal it proves is in `tests/audit/proved-goals.txt`. The two lines are a claim. The acceptance suite is the check that the theorem's type is exactly the goal. | The two files at that commit. The generated tables in [progress, Target evidence](../progress.md#target-evidence) show the theorem of each goal. |
-| **Accepted** | Also: the acceptance suite is green on that commit. Only an accepted result is reported as final, and a report names the commit. | The results `audit` and `difftest` of the workflow `lean` on that commit, and the sentence "The acceptance suite is green on ..." in [progress, Scope](../progress.md#scope). |
+| **Registered** | The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and the goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the acceptance suite is the check that the theorem's type is exactly the goal. | The two files at that commit. The generated tables in [progress, Target evidence](../progress.md#target-evidence) show the theorem of each goal. |
+| **Accepted** | The theorem is registered, and the acceptance suite is green on a named commit. Only an accepted result is reported as final, and always with that commit. | The results `audit` and `difftest` of the workflow `lean` on that commit, and the sentence "The acceptance suite is green on ..." in [progress, Scope](../progress.md#scope). |
 
 The accepted commit is `bde170e9` (2026-11-15): all 63 required goals are registered there, and the
 acceptance suite is green there. A goal whose statement changed on a later commit is registered in

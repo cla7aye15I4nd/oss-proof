@@ -73,16 +73,20 @@ the two.
 
 ## Status
 
-**Checked.** The theorem is on the integration branch `dev` and the fast gate is green on that
-commit: Lean's kernel has checked the proof. Every registered theorem is also checked. The status
-page shows "checked" for a theorem that is checked and not registered.
+There are three levels, and each includes the one before it. These three definitions are the
+ones the other pages repeat; [checking](checking/README.md#three-levels) says which checks stand
+behind each level and where a reader sees it.
 
-**Registered.** The theorem is listed in `tests/audit/theorems.txt`, and its goal in
-`tests/audit/proved-goals.txt`. The acceptance audit then requires the theorem's type to be
-exactly the goal.
+**Checked.** The theorem is on the integration branch `dev`, and the fast gate is green on that
+commit. Lean's kernel has checked the proof. The status page shows "checked" for a theorem that
+is checked and not registered.
 
-**Accepted.** The theorem is registered and the acceptance suite is green on a named commit. Only
-an accepted result is reported as final, and always with that commit.
+**Registered.** The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and the
+goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the
+acceptance suite is the check that the theorem's type is exactly the goal.
+
+**Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
+Only an accepted result is reported as final, and always with that commit.
 
 **Open.** A goal with no registered theorem of its type.
 
@@ -137,6 +141,14 @@ live before it or is owned by the stream or handle.
 **Owned.** A block is owned by a stream or handle when its state points to it: the state record,
 the window, the hash tables, the pending buffer (`StreamOwned`, `GzOwned`).
 
+**Result cell.** The variable that a pointer argument names and the C stores a result through,
+such as `*destLen` or `*dictLength`. For seven public functions the translation takes the cell as
+a value and not as memory, so their goals say nothing about the cell's memory
+([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Result cells").
+
+**Library heap.** The phrase the API entries use for the well-formed heap defined above
+([contracts](spec/api/contracts.md#reading-a-proof-goals-paragraph)).
+
 **Representation invariant.** A property of a stream's state that every call preserves, for
 example `DGood` for a deflate stream, `Good` for an inflate stream and `GzInv` for a gz handle.
 The init or open function establishes it.
@@ -149,6 +161,11 @@ the build configuration with the model of the outside world; and the statements 
 **Pin.** The commit of upstream zlib that the `zlib/` submodule points to. The verified source is
 the pin plus the files of `patches/`, applied in name order.
 
+**Normalisation.** One of four ways in which a translation may differ from a literal
+statement-by-statement copy of the C, each with the same behaviour as the C.
+[Translation](design/translation.md#the-accepted-normalisations) lists them with an example of
+each. Any other difference is a translation bug.
+
 ## Premises
 
 **Precondition, premise.** What a theorem assumes about its inputs.
@@ -158,6 +175,16 @@ definition that states it and listed in [deviations](deviations.md).
 
 **Separation precondition.** Caller memory regions do not overlap each other or the storage the
 stream owns. A theorem states it as a hypothesis.
+
+**Caller edit.** What the caller does to a stream between two calls of a history: it changes
+`next_in`, `avail_in`, `next_out` or `avail_out` of the `z_stream`, or memory the stream does not
+own. `Rebuffer` is the Lean predicate; the gz form is `GzCallerFrame`. A history in which the
+caller changes anything else of the stream is outside the sequence goals
+([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Caller edits between calls").
+
+**Focused contract.** An entry of the API manual whose Pre describes ordinary correct use and is
+on purpose narrower than what the function accepts
+([contracts](spec/api/contracts.md#entry-structure)).
 
 **`DefaultOrNull`.** The stream's `zalloc` and `zfree` are each `Z_NULL` or the library's default
 function. A stream with a custom allocator is outside every goal.
@@ -191,7 +218,9 @@ reading calls.
 It is evidence of fidelity, not proof.
 
 **Proof mutant.** A deliberately wrong translation, such as a dropped check. A sound proof must
-fail on it.
+fail on it. The words used for mutants (list, row, key, structural mutant, restatement, script
+row, semantic list, pinned evidence) are defined once, in
+[proof mutants, Terms](checking/proof-mutants.md#terms).
 
 **Fast gate.** The jobs `build` and `no-sorry`. They run on every push and pull request.
 
@@ -213,3 +242,7 @@ blue, yellow or green, for how much of the input range a target's theorem covers
 
 **Milestone.** `inflate` proved, `deflate` proved, a sequence goal proved, or about twenty newly
 checked targets.
+
+**Skeleton.** The top-down plan of one core proof: the goal proved from named lemmas whose proofs
+are left open on a branch. Every skeleton is closed
+([progress](progress.md#core-proof-skeletons)).
