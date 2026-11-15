@@ -1,4 +1,4 @@
-<!-- source-sha256: 22e1946e9548efae773c3d2f11cc1d3d39f0f38c36d515b7fa6814dfc51dd6d8 -->
+<!-- source-sha256: ca7d22378f1ac811b22f8760381a75a2af1ed5659ad275a29bc4f8a72f839856 -->
 # `deflateResetKeep` 之后的 `deflateCopy`：`longest_match` 读到窗口之外
 
 直接调用 `deflateResetKeep` 之后，由 `deflateCopy` 得到的流可能在散列链表 `prev` 中带有两个未初始化的项。之后在副本上调用 `deflate` 会沿着其中一个走下去，`longest_match` 于是读到窗口之外。这个序列需要 `deflateResetKeep`，而 `zlib.h` 把它列为不属于 zlib API，所以这不是文档 API 的缺陷。
@@ -8,7 +8,7 @@
 ## 状态
 
 - 内存错误：先读取一个未初始化的表项，然后读到窗口之外的堆内存。
-- 在固定版本源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上，由 AddressSanitizer 和 valgrind 在 x86_64 Linux（GCC 14）上报告；arm64 macOS 上有同样的 AddressSanitizer 报告。本仓库的补丁不涉及 deflate 的源文件。
+- 在固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上，由 AddressSanitizer 和 valgrind 在 x86_64 Linux（GCC 14）上报告；arm64 macOS 上有同样的 AddressSanitizer 报告。本仓库的补丁不涉及 deflate 的源文件。
 - 在文档 API 之外：它需要直接调用 `deflateResetKeep`。
 - 没有报告给上游。没有补丁：证明排除了这个调用（[偏离记录](../../deviations.md)，“直接调用 `deflateResetKeep`”一行）。
 
@@ -18,7 +18,7 @@
 deflateInit2(&a, 6, Z_DEFLATED, 9, 8, Z_DEFAULT_STRATEGY);   /* windowBits 9：1024 字节的窗口缓冲区 */
 /* 600 字节输入 */
 deflate(&a, Z_NO_FLUSH);
-deflateResetKeep(&a);               /* 保留窗口和散列，丢弃前瞻 */
+deflateResetKeep(&a);               /* 保留窗口和散列，丢弃预读 */
 deflate(&a, Z_BLOCK);               /* 无输入：insert 变为 2 */
 deflateCopy(&c, &a);                /* 只复制 strstart - insert 以下的 prev */
 deflateParams(&c, 6, Z_RLE);
@@ -72,12 +72,12 @@ READ of size 1 at 0x519000000e89 thread T0
 
 - **谁会遇到。** 在流的中途直接调用 `deflateResetKeep`，然后调用 `deflateCopy`，再把副本的策略改为 `Z_RLE`（或 `Z_HUFFMAN_ONLY`）又改回来的程序。只靠数据不能触发它：只能控制被压缩字节的攻击者决定不了这些调用。
 - **后果。** 先读取未初始化的内存，然后在距窗口起点至多 65535 的偏移处读取至多 258 个字节。没有观察到写入。压缩输出可能依赖于读到的字节。
-- **发行版。** 报告出现在 zlib 1.4 和固定版本的 `develop` 上，在 1.3.1 和 1.3.2 上不出现（AddressSanitizer，arm64 macOS，同一驱动程序）。报告草稿写明了缺一不可的两个上游提交。
+- **发行版。** 报告出现在 zlib 1.4 和固定的 `develop` 上，在 1.3.1 和 1.3.2 上不出现（AddressSanitizer，arm64 macOS，同一驱动程序）。报告草稿写明了缺一不可的两个上游提交。
 - **严重程度。** 对这样使用 `deflateResetKeep` 的程序是中等；对只用文档 API 的程序没有影响。
 
 ## `zlib.h` 的说法
 
-`deflateResetKeep` 声明在注释`/* undocumented functions (not part of the zlib API) */` 之下（`zlib.h:2043`，声明在第 2051 行）。`deflateCopy`、`deflateParams` 和 `deflate` 是有文档的，zlib.h 没有提到在 `deflateResetKeep` 之后怎样使用它们。
+`deflateResetKeep` 声明在注释 “`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下（`zlib.h:2043`，声明在第 2051 行）。`deflateCopy`、`deflateParams` 和 `deflate` 是有文档的，zlib.h 没有提到在 `deflateResetKeep` 之后怎样使用它们。
 
 ## 修复
 
@@ -89,10 +89,10 @@ deflate 的安全目标把直接调用 `deflateResetKeep` 排除在它们覆盖�
 
 没有这个调用时，对 `prev` 的部分复制是可靠的，而且这是一个定理。按报告草稿中机制的编号：
 
-- 没有第 2 步（`deflateResetKeep`），就没有等待插入的链头：每个非零的 `head` 项都在 `strstart - insert` 以下。这就是 `DInv.heads_inserted`，以及在级别 0、有一次待执行滑动时的 `DInv.slid_heads_inserted`（`ZlibF/Proof/deflate.c.universal-heads.lean`），对满足 deflate 不变式 `DInv` 的每个状态成立。`DInv` 在 deflate 流定义域的每个历史之后都成立（`reachable_inv`，在 `Goal.deflate_sequence_safety` 的假设下）。有两次或更多待执行滑动时（级别 0），不变式对这两张表不作任何断言，而 `deflateParams` 会在非零级别运行之前清空它们。
+- 没有第 2 步（`deflateResetKeep`），就没有等待插入的链头：每个非零的 `head` 项都在 `strstart - insert` 以下。对满足 deflate 不变量 `DInv` 的状态，没有待执行的滑动时（前提 `matches = 0`），这就是 `DInv.heads_inserted`。在级别 0、有一次待执行滑动时（前提 `matches = 1`），这是 `DInv.slid_heads_inserted`，说的是这次滑动执行之后的各项。两者都在 `ZlibF/Proof/deflate.c.universal-heads.lean` 中。`DInv` 在 deflate 流定义域的历史所到达的每个状态中都成立：这是定理 `reachable_inv_of`（`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`），它唯一的前提 `SequenceFacts` 就是定理 `sequence_facts`（`ZlibF/Proof/public-deflate-copy.lean`）。有两次或更多待执行滑动时（级别 0），不变量对这些表不作任何断言，而 `deflateParams` 会在非零级别运行之前清空它们。
 - 没有第 4 步（`deflateCopy`），这两个项保存着那两个位置插入时写下的值。
 - 没有第 5 步（`Z_RLE` 刷新），`fill_window` 会在任何 `longest_match` 之前插入这两个位置，从而重写它们的项。
 
-本项目的真实 C 检查器在 460 万个抽样状态上与第一条陈述一致。这是证据，不是证明。
+本项目的真实 C 检查器在 460 万个抽样状态上与第一条命题一致。这是证据，不是证明。
 
-允许 `deflateResetKeep` 的按位置的散列链不变式，在第 5 步之后不成立。不带复制时相关的数据错误见 [deflate-resetkeep-stale-hash](../deflate-resetkeep-stale-hash/README.md)。
+允许 `deflateResetKeep` 的按位置的散列链不变量，在第 5 步之后不成立。不带复制时相关的数据错误见 [deflate-resetkeep-stale-hash](../deflate-resetkeep-stale-hash/README.md)。

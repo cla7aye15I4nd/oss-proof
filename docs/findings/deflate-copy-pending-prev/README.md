@@ -126,12 +126,16 @@ Without the call, the partial copy of `prev` is sound, and that is a theorem. In
 the report draft's mechanism:
 
 - Without step 2 (`deflateResetKeep`) no chain head waits for insertion: every nonzero `head`
-  entry is below `strstart - insert`. This is `DInv.heads_inserted` and, at level 0 with one
-  pending slide, `DInv.slid_heads_inserted` (`ZlibF/Proof/deflate.c.universal-heads.lean`), for
-  every state that satisfies the deflate invariant `DInv`. `DInv` holds after every history of the
-  deflate stream domain (`reachable_inv`, under the hypotheses of
-  `Goal.deflate_sequence_safety`). With two or more pending slides (level 0) the invariant says
-  nothing about the tables, and `deflateParams` clears them before a nonzero level runs.
+  entry is below `strstart - insert`. For a state that satisfies the deflate invariant `DInv`,
+  this is `DInv.heads_inserted` when no slide is pending (premise `matches = 0`). At level 0 with
+  one pending slide (premise `matches = 1`) it is `DInv.slid_heads_inserted`, about the entries
+  as the pending slide will leave them. Both are in
+  `ZlibF/Proof/deflate.c.universal-heads.lean`. `DInv` holds in every state that a history of the
+  deflate stream domain reaches: theorem `reachable_inv_of`
+  (`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`), whose one premise `SequenceFacts` is
+  the theorem `sequence_facts` (`ZlibF/Proof/public-deflate-copy.lean`). With two or more pending
+  slides (level 0) the invariant says nothing about the tables, and `deflateParams` clears them
+  before a nonzero level runs.
 - Without step 4 (`deflateCopy`) the two entries hold the values written when the positions were
   inserted.
 - Without step 5 (the `Z_RLE` flush) `fill_window` inserts the two positions, and so rewrites

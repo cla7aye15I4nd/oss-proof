@@ -141,9 +141,12 @@ of the zlib API, and this report is a reason the exclusion cannot be removed.
 
 For histories without that call, no chain head waits for insertion, so the partial copy of `prev`
 in `deflateCopy` copies every entry a chain walk can reach. This is a theorem:
-`DInv.heads_inserted` (and `DInv.slid_heads_inserted` for one pending slide at level 0,
-`ZlibF/Proof/deflate.c.universal-heads.lean`) states that every nonzero `head` entry is below
-`strstart - insert` in every state that satisfies the deflate invariant `DInv`. `DInv` holds after
-every history of the stream domain (`reachable_inv`, under the hypotheses of
-`Goal.deflate_sequence_safety`). The real-C checker of the project agrees on 4.6 million sampled
+`DInv.heads_inserted` states that every nonzero `head` entry is below `strstart - insert` in
+every state that satisfies the deflate invariant `DInv` with no pending slide (`matches = 0`).
+`DInv.slid_heads_inserted` states the same for one pending slide at level 0 (`matches = 1`),
+about the entries as the slide will leave them. Both are in
+`ZlibF/Proof/deflate.c.universal-heads.lean`. `DInv` holds in every state that a history of the
+stream domain reaches (`reachable_inv_of` in
+`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`, with `sequence_facts` of
+`ZlibF/Proof/public-deflate-copy.lean`). The real-C checker of the project agrees on 4.6 million sampled
 states (evidence, not proof).
