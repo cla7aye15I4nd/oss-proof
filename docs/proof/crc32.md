@@ -39,8 +39,11 @@ was. Each safety theorem is the full contract of the same function with the valu
   returned. That is the domain `zlib.h` documents. Outside it the C can hang: see
   [helper contracts](#helper-contracts).
 - Trusted, not in the statements: the address model behind the alignment test, and the reading
-  of the C word load as eight byte reads ([below](#alignment-and-represented-addresses);
-  [trusted base](../trusted-base.md)).
+  of the C word load as eight byte reads ([below](#alignment-and-represented-addresses)). The
+  address model is part of the runtime and the word load part of the manual translation, items
+  2 and 3 of the [trusted base](../trusted-base.md). The row that describes both is "CRC
+  address and word access" in
+  [model limits](../model-limits.md#conditions-on-the-model-that-goals-state).
 
 The rows are in [deviations](../deviations.md).
 
@@ -97,8 +100,9 @@ therefore hold for every residue, and no alignment premise is added to them.
 
 The translated word read assembles eight bytes in little-endian order. In C the read is a load
 through a pointer cast to `z_word_t *`. That the two agree, including the strict-aliasing reading
-of the cast, and the general ABI layout behind real addresses, are trusted
-([trusted base](../trusted-base.md)); they are not proved. The C also reads the low byte of a
+of the cast, and the general ABI layout behind real addresses, are trusted; they are not
+proved. [Model limits](../model-limits.md#representation-gaps-and-proof-obligations) records
+this in the row "Address and layout model is partial". The C also reads the low byte of a
 local endian marker to choose the branch; on this target it chooses the little-endian one, and
 the big-endian branch is not run. Of the big-endian helpers only `crc_word_big_safe` is proved.
 
@@ -129,7 +133,9 @@ The argument, as proved in `ZlibF/Proof/crc32.c.lean`:
 
 ## Helper contracts
 
-Every theorem of this table also states that the heap is unchanged.
+Every `_safe` and `_correct` theorem of this table also states that the heap is unchanged. The
+two `_diverges` theorems state a fault instead: the run ends in `Fault.outOfFuel` and returns no
+heap.
 
 | Function | What is proved |
 | --- | --- |
@@ -154,9 +160,14 @@ reaches zero and the C loop never terminates. `crc32_combine_op` handles `op == 
 calls `multmodp`, and a generated operator has a nonzero low word, so the documented use
 terminates: that is the content of `Goal.crc32_combine_op_safety`. An arbitrary nonzero 64-bit
 value is not in the documented domain. For `crc32_combine_op(1, 2, 1UL << 32)`,
-`crc32_combine_op_diverges` proves that the translation runs out of fuel. A review reported that
-the real C does not return on that call; no reproduction is kept in the repository. The hang is
-a misuse outside the documented domain, not a defect within it.
+`crc32_combine_op_diverges` proves that the translation runs out of fuel. An earlier report says
+that the real C did not return on that call in two runs with a timeout. The repository keeps no
+reproduction of it: there is no directory for it under `tests/regression/` or `docs/findings/`
+and no row in the [sanitizer reports](../sanitizer-reports.md).
+[Findings](../findings.md#earlier-library-observations) lists it among the earlier
+observations, with no retained reproduction. So the behaviour of the C on this call is a
+report, and the theorem is about the translation. The hang is a misuse outside the documented
+domain, not a defect within it.
 
 ## Evidence for the static tables
 
