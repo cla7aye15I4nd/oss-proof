@@ -934,7 +934,6 @@
     "ZlibF.Spec.Public.Goal.inflate_initialisation_domain",
     "ZlibF.Spec.Public.Goal.deflate_initialisation_domain",
     "ZlibF.Spec.Public.Goal.inflate_back_initialisation_domain",
-    "ZlibF.Spec.Public.Goal.gz_initialisation_domain",
     "ZlibF.Spec.Public.Goal.gz_sequence_nonvacuity"
   ],
   "safety_goals": [
@@ -996,10 +995,5 @@
     "ZlibF.Spec.Public.Goal.zlibVersion_safety",
     "ZlibF.Spec.Public.Goal.zlibCompileFlags_safety"
   ],
-  "open_safety": [
-    {
-      "goal": "ZlibF.Spec.Public.Goal.gz_initialisation_domain",
-      "owner": "batch C"
-    }
-  ]
+  "open_safety": []
 }
