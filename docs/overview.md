@@ -1,7 +1,7 @@
 # Overview: what is proved about zlib
 
-This page says what the project proves about zlib, what it assumes, what is open, and how the
-proof is built. The main point: every documented public function of the default x86_64 Linux
+This page says what the project proves about zlib, what it assumes, where its status is
+recorded, and how the proof is built. The main point: every documented public function of the default x86_64 Linux
 build is proved safe in every sequence of calls, for a Lean translation of the C, under premises
 that each theorem states. The words in bold type are defined in the [glossary](glossary.md).
 
@@ -13,13 +13,9 @@ that each theorem states. The words in bold type are defined in the [glossary](g
 On every input that its premises admit, the translated call returns with no undefined behaviour
 and no memory error, writes only the memory it is allowed to (its frame), leaks nothing, and
 terminates. This holds over call sequences: for every history of an inflate stream, a deflate
-stream, a callback decoder and a gzip file handle. The 98 required goals are registered. The
-acceptance suite was green on commit `bde170e9`, when the required set had 63 goals, so those
-results are accepted on that commit. Registered since then, with acceptance pending: the 35
-one-function safety goals of the gz functions and of the callback decoder; the four init safety
-goals, which were widened; and the sequence goal of the callback decoder, whose histories were
-widened. [Scope](progress.md#scope) records the level of each result and what changed after that
-commit.
+stream, a callback decoder and a gzip file handle. Each of these statements is a goal, proved by
+a theorem whose type is exactly the goal; [coverage by function](coverage.md) names the theorem
+of each function.
 
 **Assumed.** The theorems are about a Lean translation that runs on a runtime model. Six things
 are trusted and not proved ([trusted base](trusted-base.md)):
@@ -27,7 +23,7 @@ are trusted and not proved ([trusted base](trusted-base.md)):
 1. the Lean kernel, three standard axioms, and the audit programs;
 2. the runtime model of memory, pointers, faults and loops;
 3. the hand translation of the C;
-4. the selected source: the pinned `zlib/` plus five patches;
+4. the selected source: the pinned `zlib/` plus the [patches](../patches/README.md);
 5. the build configuration, and the model of allocation, files and formatting;
 6. the statements: that each goal says what it should.
 
@@ -35,16 +31,18 @@ Differential tests are evidence of fidelity, not proof. Compiler, operating-syst
 correctness are outside the proof. The premises that a theorem puts on the caller are in
 [deviations](deviations.md), as a checklist by function.
 
-**Open.** Nothing that a safety result needs. Acceptance is pending for the goals registered
-after `bde170e9` ([progress](progress.md#ordered-next-work)).
+**Status.** The level of each result (checked, registered or accepted), the commit of each
+acceptance run, the number of goals and the work that remains are recorded on one page only:
+[progress, Scope](progress.md#scope).
 
 **Not required.** Functional correctness is not required for the safety results. A functional
 fact is in scope when a planned safety proof depends on it; what is already proved stays. One
-functional result is planned work: the round trip of a default zlib stream through `deflate` and then `inflate`. Its conditional form is proved on `dev` and not yet registered
-(`deflate_inflate_roundtrip`: when both call sequences reach `Z_STREAM_END`, the output equals the
-input); that both always finish with enough room, and the unconditional form, are open. Model-only statements (theorems about the abstract API model, not
+functional result is planned work: the round trip of a default zlib stream through `deflate` and then `inflate`. Its conditional form says: when both call sequences reach `Z_STREAM_END`, the
+output equals the input. After it come completeness (both always finish with enough room) and the
+unconditional form. Model-only statements (theorems about the abstract API model, not
 about the translated C), other build configurations and the functions that `zlib.h` declares
-undocumented are not planned. [Scope](progress.md#scope) lists every group with its reason.
+undocumented are not planned. [Scope](progress.md#scope) lists every group with its reason, and
+says how far the round trip is.
 
 ## Contents
 
@@ -126,7 +124,7 @@ they are for `inflate`.
 | What it says | For every heap, every stream `r` and every `flush` value: if the premises hold, the call `inflate(r, flush)` returns without a fault, keeps the invariant, writes only the stream's own blocks, the stream record, an attached gzip header and the output range, and changes the set of live blocks exactly as its ledger says (`StreamCallSafe`) |
 | Premises | `StreamCallDomain`: the stream is reachable (some history starting at a successful init produces it); every byte object has fewer than 2^63 bytes; the buffers are as [deviations](deviations.md#stream-calls-inflate-and-deflate) describes (`StreamArguments`) |
 | Theorem | `ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`, in `ZlibF/Proof/public-stream-call-safety.lean` |
-| Level | Registered: the theorem is in `tests/audit/theorems.txt`. [Scope](progress.md#scope) names the commit on which it is accepted |
+| Level | Checked, registered or accepted ([glossary](glossary.md#status)). [Scope](progress.md#scope) records the level and the commit of the acceptance run |
 
 [Coverage by function](coverage.md) gives the same four parts for every function.
 

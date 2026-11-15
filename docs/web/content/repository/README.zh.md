@@ -1,24 +1,24 @@
-<!-- source-sha256: 8148cde92ce082307c43751abe0bdc0e76099fe2f997052e04c1a47229380550 -->
+<!-- source-sha256: 8a7ee0fef07bd14ce4e85e82a393148da576fb85f347effbba840f101bbe89fc -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean。证明表明：默认 x86_64 Linux 构建中每个有文档的公开函数，在任何调用序列里运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止；前提是每条定理自己写明的那些条件。
 
-**已证明。** 全部 98 个必需目标都有一个类型完全相同的[已登记](docs/glossary.md#status)定理。它们覆盖目标构建中 86 个有文档的函数：`inflate` 与 `deflate` 及其调用序列、其他流函数、校验和、`compress*` 与 `uncompress*`、gzip 文件接口，以及回调解码器 `inflateBack`。这 98 个目标是：87 个单函数安全目标、4 个序列安全目标、3 个拒绝目标和 4 个[非空性目标](docs/glossary.md#goals)。这 87 个是每个有文档的函数各一个，再加 `gzvprintf` 一个：`zlib.h` 把它列为未文档化，而 `gzprintf` 经由它实现。[验收套件](docs/glossary.md#checking)曾在提交 `bde170e9` 上全部通过。当时必需目标有 63 个，都已登记：31 个 gz 函数共用一个序列目标，三个 `inflateBack` 函数共用另一个。那些结论在该提交上已验收。此后登记、验收待完成的有：gz 函数、`gzvprintf` 和三个 `inflateBack` 函数的 35 个单函数目标；扩大了范围的四个初始化安全目标；以及历史扩大了范围的回调解码器序列目标。那个提交之后有什么变化，见[范围](docs/progress.md#scope)。
+**已证明。** 目标构建中 86 个有文档的函数，每个都有一个安全目标，以及一个类型与该目标完全相同的定理：`inflate` 与 `deflate`、其他流函数、校验和、`compress*` 与 `uncompress*`、gzip 文件接口，以及回调解码器 `inflateBack`。`gzvprintf` 也有：`zlib.h` 把它列为未文档化，而 `gzprintf` 经由它实现。另有一些目标，各有一个类型完全相同的定理，覆盖 `inflate`、`deflate`、`inflateBack` 和 gz 函数的调用序列（序列安全目标），覆盖库必须拒绝的调用，例如流或句柄为 `NULL`（拒绝目标），并说明这些前提可以被满足（[非空性目标](docs/glossary.md#goals)）。每个函数对应的定理见[按函数查覆盖情况](docs/coverage.md)。
+
+**状态。** 每项结论处于哪个[层级](docs/glossary.md#status)（已检查、已登记还是已验收）、[验收套件](docs/glossary.md#checking)每次运行所在的提交、目标的个数，以及剩余的工作，只记录在一个页面上：[进度页的“范围”一节](docs/progress.md#scope)。
 
 **所作假设。** 内核对照 Lean 命题检查每个证明。有六件事是被信任而没有被证明的（[可信基础](docs/trusted-base.md)）：
 
 1. Lean 内核、三条标准公理，以及审计程序；
 2. 关于内存、指针、故障和循环的运行时模型；
 3. 对 C 的手工翻译；
-4. 选定的源码：固定版本的 `zlib/` 加上五个[补丁](patches/README.md)；
+4. 选定的源码：固定版本的 `zlib/` 加上各个[补丁](patches/README.md)；
 5. 构建配置，以及分配、文件和格式化的模型；
 6. 命题本身：每个目标说的确实是它该说的。
 
 差分测试是翻译与 C 一致的证据，不是证明。有些定理带有 `zlib.h` 没有写出的前提：调用者的缓冲区互不重叠、使用默认分配器、gz 读取调用的终止需要小于 2^61 字节的读取预算、一次 `inflateBack` 调用的输入少于 2^48 字节。[偏离记录](docs/deviations.md)把这些前提按函数列成了核对清单。
 
-**未完成。** 安全结论所需要的东西没有缺口。上面列出的、在 `bde170e9` 之后登记的目标，验收待完成。补丁 0004 和 0005 尚未提交上游。
-
-**并非必需。** 安全结论不需要功能正确性，即 `inflate` 的输出等于格式规定的内容，或 `deflate` 的输出能解码回输入。其中有一部分是计划内的工作：默认 zlib 流先经 `deflate` 再经 `inflate` 的往返。它的条件形式已在 `dev` 上证明，尚未登记（`deflate_inflate_roundtrip`：两条调用序列都到达 `Z_STREAM_END` 时，输出等于输入）；“空间足够时两边一定能结束”以及无条件形式，尚未证明。其他构建配置、自定义分配器，以及 `zlib.h` 列为未文档化的函数，都不在计划内。[范围](docs/progress.md#scope)列出每一组及其理由。先前已证明的功能目标保持登记。
+**并非必需。** 安全结论不需要功能正确性，即 `inflate` 的输出等于格式规定的内容，或 `deflate` 的输出能解码回输入。其中有一部分是计划内的工作：默认 zlib 流先经 `deflate` 再经 `inflate` 的往返。它的条件形式说的是：两条调用序列都到达 `Z_STREAM_END` 时，输出等于输入。在它之后是完备性（空间足够时两边一定能结束）和无条件形式。其他构建配置、自定义分配器，以及 `zlib.h` 列为未文档化的函数，都不在计划内。[范围](docs/progress.md#scope)列出每一组及其理由，并说明往返性质进行到哪一步。先前已证明的功能目标予以保留。
 
 ## 哪条定理覆盖某个函数
 
@@ -69,7 +69,7 @@
 - `ZlibF/Spec/Safety/`：必需的安全目标。`ZlibF/Spec/Functional/`：功能契约、格式模型和 API 模型。`ZlibF/Spec/Public/`：两者共用的定义，以及 gz 接口和 `inflateBack` 的五个必需目标：它们的序列目标、拒绝目标和非空性目标。
 - `ZlibF/Proof/` 和 `ZlibF/Math/`：实现证明和不涉及堆的数学推导。
 - `ZlibF/Runtime/`：内存、指针、算术和执行语义。
-- `tests/`：差分测试、变异测试和证明审计。
+- `tests/`：差分测试、证明审计和证明变异体。
 
 ## 本地检查
 
@@ -78,7 +78,7 @@ lake build ZlibF
 scripts/check-sorry.sh
 ```
 
-这两条命令就是快速关卡。[参与贡献](docs/checking/contributing.md)列出每一步；[检查指南](docs/checking/README.md)说明每项检查能确立什么，以及一项结论怎样成为已验收。
+这两条命令就是快速关卡。[参与贡献](docs/checking/contributing.md)列出每一步；[检查指南](docs/checking/README.md)说明每项检查能确立什么，以及一项结论怎样成为已验收。证明变异体是额外的证据，按需运行；它们不属于验收。
 
 ## 在 zlib 中发现的问题
 

@@ -5,20 +5,20 @@ statement. The proofs show that every documented public function of the default 
 build runs with no undefined behaviour, no memory error and no leak, and terminates, in every
 sequence of calls, under the premises each theorem states.
 
-**Proved.** All 98 required goals have a [registered](docs/glossary.md#status) theorem of exactly
-their type. They cover the 86 documented functions of the target build: `inflate` and `deflate`
-with their call sequences, the other stream functions, the checksums, `compress*` and
-`uncompress*`, the gzip file interface, and the callback decoder `inflateBack`. The 98 are 87
-one-function safety goals, four sequence safety goals, three refusal goals and four
-[non-vacuity goals](docs/glossary.md#goals). The 87 are one for each documented function and one
-for `gzvprintf`, which `zlib.h` lists as undocumented and `gzprintf` goes through.
-The [acceptance suite](docs/glossary.md#checking) was green on commit `bde170e9`. The required
-set had 63 goals then, all registered: the 31 gz functions shared one sequence goal and the
-three `inflateBack` functions another. Those results are accepted on that commit. Registered
-since then, with acceptance pending: the 35 one-function goals of the gz functions, of
-`gzvprintf` and of the three `inflateBack` functions; the four init safety goals, which were
-widened; and the sequence goal of the callback decoder, whose histories were widened.
-[Scope](docs/progress.md#scope) says what changed after that commit.
+**Proved.** Each of the 86 documented functions of the target build has a safety goal, and a
+theorem whose type is exactly that goal: `inflate` and `deflate`, the other stream functions, the
+checksums, `compress*` and `uncompress*`, the gzip file interface, and the callback decoder
+`inflateBack`. So has `gzvprintf`, which `zlib.h` lists as undocumented and `gzprintf` goes
+through. Further goals, each with a theorem of exactly its type, cover the call sequences of
+`inflate`, `deflate`, `inflateBack` and the gz functions (sequence safety goals), the calls the
+library must refuse, such as a `NULL` stream or handle (refusal goals), and the fact that the
+premises can be met ([non-vacuity goals](docs/glossary.md#goals)).
+[Coverage by function](docs/coverage.md) names the theorem of each function.
+
+**Status.** One page records at which [level](docs/glossary.md#status) each result stands
+(checked, registered or accepted), the commit of each run of the
+[acceptance suite](docs/glossary.md#checking), the number of goals and the work that remains:
+[progress, Scope](docs/progress.md#scope).
 
 **Assumed.** The kernel checks each proof against its Lean statement. Six things are trusted and
 not proved ([trusted base](docs/trusted-base.md)):
@@ -26,7 +26,7 @@ not proved ([trusted base](docs/trusted-base.md)):
 1. the Lean kernel, three standard axioms, and the audit programs;
 2. the runtime model of memory, pointers, faults and loops;
 3. the hand translation of the C;
-4. the selected source: the pinned `zlib/` plus the five [patches](patches/README.md);
+4. the selected source: the pinned `zlib/` plus the [patches](patches/README.md);
 5. the build configuration, and the model of allocation, files and formatting;
 6. the statements: that each goal says what it should.
 
@@ -36,17 +36,14 @@ allocator, a read budget below 2^61 bytes for the termination of the gz reading 
 than 2^48 input bytes for one `inflateBack` call. [Deviations](docs/deviations.md) is the
 checklist of these premises by function.
 
-**Open.** Nothing that a safety result needs. Acceptance is pending for the goals registered
-after `bde170e9`, listed above. Patches 0004 and 0005 are not submitted upstream.
-
 **Not required.** Functional correctness is not required for the safety results: that the output
 of `inflate` equals the format, or that the output of `deflate` decodes to its input. One part of
 it is planned work: the round trip of a default zlib stream through `deflate` and
-then `inflate`. Its conditional form is proved on `dev` and not yet registered
-(`deflate_inflate_roundtrip`: when both call sequences reach `Z_STREAM_END`, the output equals the
-input); that both always finish with enough room, and the unconditional form, are open. Other build configurations, custom allocators and the functions that `zlib.h`
+then `inflate`. Its conditional form says: when both call sequences reach `Z_STREAM_END`, the
+output equals the input. After it come completeness (both always finish with enough room) and the
+unconditional form. Other build configurations, custom allocators and the functions that `zlib.h`
 lists as undocumented are not planned. [Scope](docs/progress.md#scope) gives every group with its
-reason. Functional goals proved earlier stay registered.
+reason, and how far the round trip is. Functional goals proved earlier are kept.
 
 ## Which theorem covers a function
 
@@ -103,7 +100,7 @@ the functional goal stands for it.
   goals of the gz interface and of `inflateBack`: their sequence, refusal and non-vacuity goals.
 - `ZlibF/Proof/` and `ZlibF/Math/`: implementation proofs and heap-free reasoning.
 - `ZlibF/Runtime/`: memory, pointer, arithmetic and execution semantics.
-- `tests/`: differential, mutation and proof-audit checks.
+- `tests/`: differential tests, the proof audit, and the proof mutants.
 
 ## Local checks
 
@@ -114,7 +111,7 @@ scripts/check-sorry.sh
 
 These two are the fast gate. [Contributing](docs/checking/contributing.md) lists every step, and
 [checking](docs/checking/README.md) says what each check establishes and how a result becomes
-accepted.
+accepted. Proof mutants are additional evidence, run on request; they are not part of acceptance.
 
 ## Issues found in zlib
 
