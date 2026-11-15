@@ -18,11 +18,15 @@ Each level includes the one before it. The definitions are those of the
 | **Registered** | The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and the goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the acceptance suite is the check that the theorem's type is exactly the goal. | The two files at that commit. The generated tables in [progress, Target evidence](../progress.md#target-evidence) show the theorem of each goal. |
 | **Accepted** | The theorem is registered, and the acceptance suite is green on a named commit. Only an accepted result is reported as final, and always with that commit. | The results `audit` and `difftest` of the workflow `lean` on that commit, and the sentence "The acceptance suite is green on ..." in [progress, Scope](../progress.md#scope). |
 
-The accepted commit is `bde170e9` (2026-11-15): all 63 required goals are registered there, and the
-acceptance suite is green there. A goal whose statement changed on a later commit is registered in
-its new form and accepted only in the form it had on `bde170e9`. This is the case for the four
-safety goals of the init functions, which commit `101c6ab3` widened to every call that zlib.h
-allows. [Progress](../progress.md#scope) is the page that is kept current.
+The accepted commit is `bde170e9` (2026-11-15): the 63 goals that were required then are
+registered there, and the acceptance suite is green there. A goal whose statement changed on a
+later commit is registered in its new form and accepted only in the form it had on `bde170e9`.
+This is the case for the four safety goals of the init functions, which commit `101c6ab3` widened
+to every call that zlib.h allows, and for the sequence goal of the callback decoder, whose
+histories commit `874a9398` widened. A goal added on a later commit is registered and not yet
+accepted. This is the case for the 35 one-function safety goals of the gz functions and of the
+callback decoder, which brought the required set to 98 goals.
+[Progress](../progress.md#scope) is the page that is kept current.
 
 A goal with no registered theorem of its type is **open**.
 
@@ -154,7 +158,7 @@ what it does not. A statement that is wrong is corrected, not worked around: see
 | Page | Purpose |
 | --- | --- |
 | [Contributing](contributing.md) | Numbered steps and commands: every change, registering a result, running acceptance. |
-| [Public goals](goals.md) | The registries, the required set of 63 goals and the rules against silent removal. |
+| [Public goals](goals.md) | The registries, the required set of 98 goals and the rules against silent removal. |
 | [Proof mutants](proof-mutants.md) | What a mutant is, with one worked example; how to add, run and read one; the limits. |
 | [Mutant evidence record](mutant-evidence.md) | Dated record: which rows carry the evidence of each group of goals, and where they are killed. |
 

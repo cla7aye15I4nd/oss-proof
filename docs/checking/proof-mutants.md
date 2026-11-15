@@ -339,3 +339,19 @@ A shard fails when a semantic list is missing or empty.
   list's existence or an earlier result is not proof that every function in its C file is covered.
 - A row that is rejected at a restatement shows that the proof is tied to the translation, not
   that it depends on the mutated check. The semantic lists exist to cover that case.
+- **The selector of a gz goal is checked only by reading it.** The safety goal of a gz function
+  that takes a handle restricts a clause of the sequence goal to the calls of that function. It
+  does so with a selector: a predicate on calls, the argument of `GzCallSafety` or
+  `GzCloseCallSafety` in `ZlibF/Spec/Safety/GzCalls.lean`. No check ties the selector to the
+  function. The restricted clause is proved for every selector (`call_safety` and `close_safety`
+  in `ZlibF/Proof/public-gz-call-safety.lean`), so a goal whose selector named another function
+  would still be proved and would still match its theorem exactly. The manifest binds a function
+  to a goal by the goal's name. The replay of a keyed row does not look at the selector either: a
+  mutated function fails inside the proof of the sequence theorem, which every such goal uses.
+  That each of the 29 selectors names its own function is established by reading the 29
+  statements. The refusal clause of the same goal calls the function directly, so it does not
+  have this limit.
+- The gz functions `gzoffset`, `gztell`, `gzseek`, `gzgetc_` and `gzprintf` only pass the handle
+  to another function and convert the result. Their keyed rows change the handle that is passed
+  or the result. The evidence for the code they reach is in the keys of the function they call
+  (`tests/proof-mutants/public-gz-safety.tsv`, header).

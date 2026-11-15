@@ -1,7 +1,7 @@
 # Public verification goals
 
 A goal is a Lean proposition named `Goal.<something>`; a result exists when a registered theorem
-has exactly that proposition as its type. This page says which goals are required (63), what
+has exactly that proposition as its type. This page says which goals are required (98), what
 registering a proved goal needs, and which rules stop a registered result from disappearing.
 
 What a safety goal says is in [safety claims](../spec/safety.md). The status of each goal is only
@@ -36,32 +36,31 @@ a requirement, not a proof.
 The manifest has 96 functions: 95 of the default build and the Windows-only `gzopen_w`. zlib.h
 lists ten of the 96 as undocumented (nine of the default build, and `gzopen_w`); the manifest names
 them under `undocumented`, and the script compares that list with the header. Their goals are not
-required. Their registered theorems stay audited. That leaves 86 documented functions.
+required, with one exception: the safety goal of `gzvprintf` is in the group `safety_goals`,
+because `gzprintf` goes through that function. Their registered theorems stay audited. That
+leaves 86 documented functions.
 
 The required goals are computed by `required_public_goals` in `scripts/verification.py`. The set
 is the union of three parts:
 
 - the safety goal that each of the 86 documented functions names;
-- the goals of the group `safety_goals` (57);
+- the goals of the group `safety_goals` (92);
 - the goals of the group `nonvacuity_goals` (4).
 
 ```mermaid
 flowchart LR
-    D["86 documented functions"] --> O["50 name their own goal"]
-    D --> S["34 name one of 2 shared sequence goals: 31 gz functions, 3 inflateBack functions"]
+    D["86 documented functions"] --> O["84 name their own goal"]
     D --> C["2 name their full contract: compressBound, compressBound_z"]
-    O --> G["safety_goals: 57"]
-    S --> G
-    Q["5 goals that no function names: 2 sequence goals, 3 refusal goals"] --> G
-    G --> R["63 required goals"]
+    O --> G["safety_goals: 92"]
+    Q["8 goals that no documented function names: 4 sequence goals, 3 refusal goals, the goal of gzvprintf"] --> G
+    G --> R["98 required goals"]
     C --> R
     N["nonvacuity_goals: 4"] --> R
 ```
 
-So the count is 57 + 4 + 2 = 63. The 57 are the 50 own goals, the four sequence safety goals
-(`inflate`, `deflate`, `inflateBack` and gz) and the three refusal goals. The two shared goals are
-two of the four sequence goals, so the 34 functions that name them add nothing to the count. The
-two full contracts are not in any group; they are the 2.
+So the count is 92 + 4 + 2 = 98. The 92 are the 84 own goals, the four sequence safety goals
+(`inflate`, `deflate`, `inflateBack` and gz), the three refusal goals and `Goal.gzvprintf_safety`.
+The two full contracts are not in any group; they are the 2.
 
 The four non-vacuity goals show that the premises of the sequence goals can be met: the init
 function establishes the representation invariant on its parameter domain.
@@ -78,12 +77,12 @@ function names exactly one of:
 1. its own goal `Goal.<function>_safety` (or `_safe`), when that goal is in the pinned group;
 2. its full contract, only for `compressBound` and `compressBound_z` (pure functions with no heap;
    the manifest carries a `safety_note`);
-3. a shared sequence goal, only for the functions the script lists for it: the 31 documented gz
-   functions name `Goal.gz_sequence_safety`, and `inflateBack`, `inflateBackInit_` and
-   `inflateBackEnd` name `Goal.inflate_back_sequence_safety`.
+3. a shared goal, only for the functions the script lists for it (`SHARED_SAFETY_GOALS`). The
+   list is empty: no function shares a safety goal.
 
-The 34 functions of case 3 are proved safe through their sequence goal. They have no separate
-one-function safety goal yet ([progress](../progress.md)).
+An undocumented function names no safety goal, or exactly its own `Goal.<function>_safety` when
+that goal is in the pinned group (`check_api_safety_goal`). `gzvprintf` is the only one that
+names a goal.
 
 The functional goals (`Goal.<function>` and the group `sequence_goals`) are not required. A proved
 one is audited in full. An unproved one is reported as open and fails nothing.

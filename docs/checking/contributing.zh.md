@@ -1,4 +1,4 @@
-<!-- source-sha256: b9f2e885a567cd08f2889528918bcd2896c436a436d2951ded324856dd6a3663 -->
+<!-- source-sha256: 780b3c4ebb9ca64d9be88ba027ec243afaa3edf04b994454ea4d4dc688b91668 -->
 # 参与贡献
 
 本页列出三件事的步骤：做任何一次改动，登记一个已证明的目标，运行验收套件。每一步给出命令，以及命令成功时打印的最后一行。所有命令都在仓库根目录运行。
@@ -136,7 +136,7 @@
    最后两行（已运行）：
 
    ```console
-   coverage: 96 public declarations, 95 default-build entries (86 documented, the rest undocumented in zlib.h), 4 sequence targets, 4 non-vacuity targets, 57 safety targets; 63 required goals, 0 open
+   coverage: 96 public declarations, 95 default-build entries (86 documented, the rest undocumented in zlib.h), 4 sequence targets, 4 non-vacuity targets, 92 safety targets; 98 required goals, 0 open
    coverage is not specification readiness or proof completion
    ```
 

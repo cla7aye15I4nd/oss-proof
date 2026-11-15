@@ -172,7 +172,7 @@ named.
    Last two lines (run):
 
    ```console
-   coverage: 96 public declarations, 95 default-build entries (86 documented, the rest undocumented in zlib.h), 4 sequence targets, 4 non-vacuity targets, 57 safety targets; 63 required goals, 0 open
+   coverage: 96 public declarations, 95 default-build entries (86 documented, the rest undocumented in zlib.h), 4 sequence targets, 4 non-vacuity targets, 92 safety targets; 98 required goals, 0 open
    coverage is not specification readiness or proof completion
    ```
 
