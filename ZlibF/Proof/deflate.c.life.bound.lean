@@ -207,7 +207,7 @@ theorem boundBody_raw {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
     boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level d.strategy 0 fx st n, h) := by
   unfold boundBody
   dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw]
-  by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
+  by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
 
 theorem boundBody_zlib {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hL : DLive h r ds z d) (hw : d.wrap = 1 ∨ d.wrap = -1) (fx st n : UInt64) :
@@ -216,9 +216,9 @@ theorem boundBody_zlib {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
   unfold boundBody
   rcases hw with hw | hw
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, ineg_m1]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
 
 
 theorem boundBody_gz_nohead {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
@@ -227,9 +227,9 @@ theorem boundBody_gz_nohead {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
   unfold boundBody
   rcases hw with hw | hw
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ineg_m2]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
 
 theorem GzStr.ne_null {h : Heap} {p : BPtr} {len : Nat} (hs : GzStr h p len) : p ≠ .null := by
   obtain ⟨r, off, a, rfl, -⟩ := hs
@@ -254,12 +254,12 @@ theorem boundBody_gz_head {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
   unfold boundBody
   rcases hw with hw | hw
   · rcases hn with ⟨hn0, rfl⟩ | ⟨ln, hs1, rfl⟩ <;> rcases hc with ⟨hc0, rfl⟩ | ⟨lc, hs2, rfl⟩ <;>
-      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 ∨ d.strategy = Z_FIXED <;>
+      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;>
       (try have := GzStr.ne_null ‹GzStr h gh.name _›) <;> (try have := GzStr.ne_null ‹GzStr h gh.comment _›) <;>
       dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ldGzHeader_tab hgh] <;>
       simp (disch := assumption) [boundTailP, c, he, hh, *, strLoop_eq]
   · rcases hn with ⟨hn0, rfl⟩ | ⟨ln, hs1, rfl⟩ <;> rcases hc with ⟨hc0, rfl⟩ | ⟨lc, hs2, rfl⟩ <;>
-      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 ∨ d.strategy = Z_FIXED <;>
+      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;>
       (try have := GzStr.ne_null ‹GzStr h gh.name _›) <;> (try have := GzStr.ne_null ‹GzStr h gh.comment _›) <;>
       dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ldGzHeader_tab hgh, ineg_m2] <;>
       simp (disch := assumption) [boundTailP, c, he, hh, *, strLoop_eq]
