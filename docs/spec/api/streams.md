@@ -8,8 +8,8 @@ must be, and in which order calls may come. The function entries refer to these 
 not repeat them.
 
 **What is proved.** The safety of every permitted call sequence on a stream:
-`Goal.inflate_sequence_safety` and `Goal.deflate_sequence_safety`, both registered
-([safety, calls and sequences](../safety.md#2-calls-and-sequences)). **What is not proved
+`Goal.inflate_sequence_safety` and `Goal.deflate_sequence_safety`, each with a theorem of
+exactly its type ([safety, calls and sequences](../safety.md#2-calls-and-sequences)). **What is not proved
 here.** The rules below also describe functional behaviour: return codes, output bytes,
 flush markers. That part is read from the pinned C and `zlib.h`, is **to confirm**, and is not
 required for the safety results. The page uses the default LP64 Linux build and the default
@@ -37,7 +37,7 @@ and the advanced operations.
 
 The sequence rule (`A-sequence`): calls that satisfy their own Pre and the call-order rules
 keep the stream invariant, terminate without a fault, leave unrelated memory unchanged and
-account for every allocation. For safety this is the registered statement
+account for every allocation. For safety this is the statement
 `StreamSequenceSafety`, for both kinds of stream. Init establishes the invariant; no call
 assumes it.
 

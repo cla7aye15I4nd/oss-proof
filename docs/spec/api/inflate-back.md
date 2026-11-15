@@ -17,7 +17,7 @@ memory error, no leak, and termination ([safety](../safety.md)). Each entry name
 the two differ, the Lean statement counts. The return values, output bytes and state changes
 described here are functional behaviour. They are read from the C and are **to confirm** where no
 registered theorem states them. They are not a planned proof target.
-[Progress](../../progress.md) records which goals are registered.
+[Progress](../../progress.md) records the level of each goal.
 
 Each function has its own required safety goal: `Goal.inflateBackInit__safety`,
 `Goal.inflateBack_safety` and `Goal.inflateBackEnd_safety` in
@@ -111,7 +111,7 @@ The window remains caller-owned and is not allocated, cleared or freed here.
 
 **Proof goals.**
 
-- **Goal.** `Goal.inflateBackInit__safety` ([Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)); required. Registered theorem: `ZlibF.Spec.Public.BackSafetyProof.inflateBackInit__safety` ([public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)).
+- **Goal.** `Goal.inflateBackInit__safety` ([Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)); required. Theorem: `ZlibF.Spec.Public.BackSafetyProof.inflateBackInit__safety` ([public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)).
 - **Applies when** (1 to 3 are `InitArguments`, the conditions of `inflateInit2_`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. `version` is NULL or its first byte is readable (`VersionValue`);
@@ -192,7 +192,7 @@ The library allocates and frees nothing; callback allocations remain the caller'
 
 **Proof goals.**
 
-- **Goal.** `Goal.inflateBack_safety` ([Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)); required. Registered theorem: `ZlibF.Spec.Public.BackSafetyProof.inflateBack_safety` ([public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)). The goal has three clauses: the refusal of a NULL stream, the refusal of a stream record whose state is NULL, and one call on a history. The first and the third are clauses 1 and 3 of the sequence goal `Goal.inflate_back_sequence_safety`.
+- **Goal.** `Goal.inflateBack_safety` ([Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)); required. Theorem: `ZlibF.Spec.Public.BackSafetyProof.inflateBack_safety` ([public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)). The goal has three clauses: the refusal of a NULL stream, the refusal of a stream record whose state is NULL, and one call on a history. The first and the third are clauses 1 and 3 of the sequence goal `Goal.inflate_back_sequence_safety`.
 - **Applies when.** The first refusal has no condition. The second asks that `strm` points to a readable stream record. The call on a history asks:
     1. `strm` has a [callback-decoder history](#callback-decoder-history) (`BackSafeReachable`); the premise `BackValid` names its record and its state;
     2. `next_in` is NULL, or covers `avail_in` readable bytes (`Bytes`) that do not overlap the window (`Separate`);
@@ -259,7 +259,7 @@ Cleanup is permitted after successful decoding and after any decode error.
 
 **Proof goals.**
 
-- **Goal.** `Goal.inflateBackEnd_safety` ([Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)); required. Registered theorem: `ZlibF.Spec.Public.BackSafetyProof.inflateBackEnd_safety` ([public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)). The goal has three clauses: the refusal of a NULL stream, the refusal of a stream record whose `state` or `zfree` is NULL, and the end of a history. The third is clause 4 of the sequence goal `Goal.inflate_back_sequence_safety`.
+- **Goal.** `Goal.inflateBackEnd_safety` ([Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)); required. Theorem: `ZlibF.Spec.Public.BackSafetyProof.inflateBackEnd_safety` ([public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)). The goal has three clauses: the refusal of a NULL stream, the refusal of a stream record whose `state` or `zfree` is NULL, and the end of a history. The third is clause 4 of the sequence goal `Goal.inflate_back_sequence_safety`.
 - **Applies when.** The first refusal has no condition. The second asks that `strm` points to a readable stream record. The end of a history asks:
     1. `strm` has a [callback-decoder history](#callback-decoder-history) (`BackSafeReachable`).
 - **Covered without condition.** Every history: straight after init, and after a decode that returned `Z_STREAM_END`, `Z_DATA_ERROR` or `Z_BUF_ERROR`. The end clause has no platform premise. In the second refusal, every value of the other fields of the record.

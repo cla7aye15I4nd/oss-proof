@@ -26,7 +26,7 @@ error code. See [how to read a contract](contracts.md) for the domain and effect
 **What is proved.** Safety only: each call returns without undefined behaviour or a memory error,
 writes only what its goal names, and leaks nothing ([safety](../safety.md)). Each entry gives its
 goal under **Proof goals**, in the five items and with the fixed phrases that
-[Reading a Proof goals paragraph](contracts.md#reading-a-proof-goals-paragraph) defines: the goal and its registered theorem; the conditions under which it
+[Reading a Proof goals paragraph](contracts.md#reading-a-proof-goals-paragraph) defines: the goal and its theorem; the conditions under which it
 applies, in the order of the Lean statement; what it covers for every value; what it guarantees
 (returns, state, writes, allocations); and what it leaves to another goal. The proof assumes the
 conditions listed there, not the documentary Pre. Post, the return tables and the notes describe
@@ -117,7 +117,7 @@ initialised as above. `level` is -1 or 0..9. `version` has a readable first byte
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateInit__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)); required. Registered theorem: `ZlibF.Spec.Public.InitSafetyProof.deflateInit__safety` ([public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)).
+- **Goal.** `Goal.deflateInit__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)); required. Theorem: `ZlibF.Spec.Public.InitSafetyProof.deflateInit__safety` ([public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)).
 - **Applies when** (`InitArguments`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. `version` is NULL or its first byte is readable (`VersionValue`);
@@ -186,7 +186,7 @@ The result separates an established compressor from compatibility, argument and 
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateInit2__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)); required. Registered theorem: `ZlibF.Spec.Public.InitSafetyProof.deflateInit2__safety` ([public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)).
+- **Goal.** `Goal.deflateInit2__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)); required. Theorem: `ZlibF.Spec.Public.InitSafetyProof.deflateInit2__safety` ([public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)).
 - **Applies when** (`InitArguments`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. `version` is NULL or its first byte is readable (`VersionValue`);
@@ -259,7 +259,7 @@ readable bytes and is separate from the window.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateSetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateSetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -326,7 +326,7 @@ window; `dictLength` is NULL or a valid scalar output cell.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateGetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateGetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -378,7 +378,7 @@ The result says whether output progress was reset; success retains history that 
 **Pre:** live stream in any phase. This is an undocumented entry; use `deflateReset`
 when the next compressed stream must start with empty history.
 
-**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A direct call is not a step of the deflate sequence goal either: `StreamOperation` leaves it out ([deviations](../../deviations.md), row "Direct `deflateResetKeep`"). A goal is stated for the single call, not required: `Goal.deflateResetKeep` ([Functional/Lifecycle.lean](../../../ZlibF/Spec/Functional/Lifecycle.lean)), with the registered theorem `ZlibF.Spec.Public.DeflateResetKeepProof.deflate_resetkeep_public` ([public-deflate-reset-keep.lean](../../../ZlibF/Proof/public-deflate-reset-keep.lean)).
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A direct call is not a step of the deflate sequence goal either: `StreamOperation` leaves it out ([deviations](../../deviations.md), row "Direct `deflateResetKeep`"). A goal is stated for the single call, not required: `Goal.deflateResetKeep` ([Functional/Lifecycle.lean](../../../ZlibF/Spec/Functional/Lifecycle.lean)), with the theorem `ZlibF.Spec.Public.DeflateResetKeepProof.deflate_resetkeep_public` ([public-deflate-reset-keep.lean](../../../ZlibF/Proof/public-deflate-reset-keep.lean)).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateResetKeep"><summary>Complete return conditions and boundaries</summary>
 
@@ -424,7 +424,7 @@ The result says whether the stream is ready for reuse with empty history. Succes
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateReset_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateReset_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -434,7 +434,7 @@ The result says whether the stream is ready for reuse with empty history. Succes
     - *State.* The stream keeps its invariant (`StreamInvariant`).
     - *Writes.* Only the stream record and the stream's own blocks.
     - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the registered lemma `Zlib.Deflate.Proofs.deflateReset_reject` ([deflate.c.life.reset.lean](../../../ZlibF/Proof/deflate.c.life.reset.lean)) states the refusal. The return value and the field values after the call: functional goal `Goal.deflateReset`, not required for the safety results.
+- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateReset_reject` ([deflate.c.life.reset.lean](../../../ZlibF/Proof/deflate.c.life.reset.lean)) states the refusal. The return value and the field values after the call: functional goal `Goal.deflateReset`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateReset"><summary>Complete return conditions and boundaries</summary>
 
@@ -479,7 +479,7 @@ The result says whether the gzip header pointer was registered; success does not
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateSetHeader_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateSetHeader_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -540,7 +540,7 @@ The status says whether the requested values fit their output types; pending byt
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflatePending_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflatePending_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -595,7 +595,7 @@ The return value is query status; optional bits carries the bit use at the last 
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateUsed_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateUsed_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -653,7 +653,7 @@ when interpreting the later compressed stream.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflatePrime_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflatePrime_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -664,7 +664,7 @@ when interpreting the later compressed stream.
     - *State.* The stream keeps its invariant (`StreamInvariant`).
     - *Writes.* Only the stream record and the stream's own blocks.
     - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A NULL or inconsistent stream: no required goal covers it for this function; the registered lemma `Zlib.Deflate.Proofs.deflatePrime_refused` ([deflate.c.prime.lean](../../../ZlibF/Proof/deflate.c.prime.lean)) states the refusal. Which code is returned and the pending bits after the call: functional goal `Goal.deflatePrime`, not required for the safety results.
+- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflatePrime_refused` ([deflate.c.prime.lean](../../../ZlibF/Proof/deflate.c.prime.lean)) states the refusal. Which code is returned and the pending bits after the call: functional goal `Goal.deflatePrime`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePrime"><summary>Complete return conditions and boundaries</summary>
 
@@ -717,7 +717,7 @@ The result says whether the new level and strategy were installed. Completing th
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateParams_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateParams_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -793,7 +793,7 @@ The result only reports whether the four tuning fields were stored; it does not 
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateTune_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateTune_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -855,7 +855,7 @@ header and dictionary fixed; use standard tuning and no inserted prime bits.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateBound_z_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateBound_z_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -867,7 +867,7 @@ header and dictionary fixed; use standard tuning and no inserted prime bits.
     - *State.* The stream keeps its invariant (`StreamInvariant`).
     - *Writes.* Only the stream record and the stream's own blocks.
     - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the registered lemma `Zlib.Deflate.Proofs.deflateBound_z_nostate` ([deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)) states the value returned and that the heap is unchanged. The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound_z`, not required for the safety results.
+- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateBound_z_nostate` ([deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)) states the value returned and that the heap is unchanged. The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound_z`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -929,7 +929,7 @@ This returns the uLong form of the deflateBound_z bound, still in bytes. ULONG_M
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateBound_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateBound_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -941,7 +941,7 @@ This returns the uLong form of the deflateBound_z bound, still in bytes. ULONG_M
     - *State.* The stream keeps its invariant (`StreamInvariant`).
     - *Writes.* Only the stream record and the stream's own blocks.
     - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the registered lemma `Zlib.Deflate.Proofs.deflateBound_nostate` ([deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)) states the value returned and that the heap is unchanged. The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound`, not required for the safety results.
+- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateBound_nostate` ([deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)) states the value returned and that the heap is unchanged. The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>Complete return conditions and boundaries</summary>
 
@@ -999,7 +999,7 @@ use legal dictionary/header setup, standard tuning and no arbitrary priming.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflate_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflate_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when** (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -1084,7 +1084,7 @@ The result distinguishes the compression phase before release. Both Z_OK and Z_D
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateEnd_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Registered theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
+- **Goal.** `Goal.deflateEnd_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
 - **Applies when.** `strm` is a reachable stream (`StreamReachable`). The platform size bound is not asked.
 - **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`.
 - **Guarantees.**
@@ -1092,7 +1092,7 @@ The result distinguishes the compression phase before release. Both Z_OK and Z_D
     - *State.* `strm->state` is NULL.
     - *Writes.* Only the stream record and the stream's own blocks.
     - *Allocations.* Exact allocation account (`LiveChange`): the stream's own blocks are freed; nothing else is freed and nothing is allocated.
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the registered lemma `Zlib.Deflate.Proofs.deflateEnd_reject` ([deflate.c.life.end.lean](../../../ZlibF/Proof/deflate.c.life.end.lean)) states the refusal. Which of the two codes is returned, and the values of the other stream fields: functional goal `Goal.deflateEnd`, not required for the safety results.
+- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateEnd_reject` ([deflate.c.life.end.lean](../../../ZlibF/Proof/deflate.c.life.end.lean)) states the refusal. Which of the two codes is returned, and the values of the other stream fields: functional goal `Goal.deflateEnd`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateEnd"><summary>Complete return conditions and boundaries</summary>
 
@@ -1142,7 +1142,7 @@ separate from the source's memory. Source buffers and any retained header satisf
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateCopy_safety` ([Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)); required. Registered theorem: `Zlib.Deflate.Universal.deflate_copy_safety` ([public-deflate-copy.lean](../../../ZlibF/Proof/public-deflate-copy.lean)).
+- **Goal.** `Goal.deflateCopy_safety` ([Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)); required. Theorem: `Zlib.Deflate.Universal.deflate_copy_safety` ([public-deflate-copy.lean](../../../ZlibF/Proof/public-deflate-copy.lean)).
 - **Applies when** (the main clause):
     1. `source` is a reachable stream (`StreamReachable`). The statement also takes its invariant and default allocator as hypotheses (`DGood`, `DefAlloc`); every reachable stream has them (`Goal.deflate_sequence_safety`, first clause);
     2. `dest` points to a readable stream record that is not the `source` record (`source ≠ dest`). The platform size bound is not asked.

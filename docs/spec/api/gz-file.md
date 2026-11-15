@@ -21,7 +21,7 @@ These contracts follow the pinned source with the listed patches and `zlib.h`.
 error, no leak, and termination ([the safety goal](#the-safety-goal)). The return values,
 bytes and positions described in the entries are functional behaviour. They are read from the
 C and are **to confirm** where no registered theorem states them. They are not a planned proof
-target. [Progress](../../progress.md) records which goals are registered.
+target. [Progress](../../progress.md) records the level of each goal.
 
 ## The safety goal
 
@@ -34,7 +34,7 @@ of one function. The goal of a function that takes a handle also has that functi
 the invariant clause of the table below, which is about histories and not about one call.
 
 This section describes the sequence goal, because the entries refer to its histories, its
-argument conditions and its read budget. All these goals are registered. They are about the
+argument conditions and its read budget. Each of these goals has a theorem of exactly its type. They are about the
 patched source ([caveats](#scope-and-source-caveats)).
 
 **Histories (`GzHistory`).** The goal ranges over every history of one handle. A history starts
@@ -119,7 +119,7 @@ read budget and a one-byte `gzread`, and a `gzdopen` writer and a one-byte `gzwr
 **Functional contracts.** The per-function goals `Goal.gzread`, `Goal.gzwrite` and the others
 state which bytes are read and written and which values are returned. They are stated for a
 regular file with no outside interference (`RegularOs`) and rest on a hand-made model of the file
-system. They are not required and not planned; those already registered stay.
+system. They are not required and not planned; those already proved stay.
 
 ## Common handle conditions
 
@@ -246,7 +246,7 @@ invalid strings. **Effect:** stateful open and ownership acquisition.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Goal.** `Goal.gzopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
 - **Applies when** (`GzOpenSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -312,7 +312,7 @@ The result tells you whether opening acquired a new gzip file handle.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzopen64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Goal.** `Goal.gzopen64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
 - **Applies when** (`GzOpenSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -373,7 +373,7 @@ write, seek or close this descriptor while the handle owns it.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzdopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzDopenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Goal.** `Goal.gzdopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzDopenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
 - **Applies when** (`GzDopenSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -482,7 +482,7 @@ The result reports whether the requested future buffer size was recorded. This c
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzbuffer_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzbuffer_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzbuffer_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzbuffer_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every `size`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
@@ -540,7 +540,7 @@ writer is refused. Existing hard errors normally prevent the call.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzsetparams_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzsetparams_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzsetparams_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzsetparams_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every `level` and `strategy`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -603,7 +603,7 @@ shared separation rules. A zero extent needs no accessed bytes.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzread_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzread_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzread_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzread_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): `len > INT_MAX` asks nothing; otherwise `len == 0`, or `buf` covers `len` writable bytes outside the handle's own blocks (`GzRange`).
@@ -670,7 +670,7 @@ writable bytes and meets the shared separation rules.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzfread_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzfread_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzfread_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzfread_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): `size * nitems >= 2^64` asks nothing; otherwise the product is zero, or `buf` covers that many writable bytes outside the handle's own blocks (`GzRange`).
@@ -727,7 +727,7 @@ Read one uncompressed byte as an unsigned value.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzgetc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgetc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has three clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function); and the same for the `gzgetc()` macro of `zlib.h` (`Zlib.ZlibH.gzgetc`), the default way an application calls `gzgetc`.
+- **Goal.** `Goal.gzgetc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgetc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has three clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function); and the same for the `gzgetc()` macro of `zlib.h` (`Zlib.ZlibH.gzgetc`), the default way an application calls `gzgetc`.
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -780,7 +780,7 @@ This exported single-byte wrapper has the same result as the gzgetc function.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzgetc__safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgetc__safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzgetc__safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgetc__safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -835,7 +835,7 @@ after open and can therefore make the logical position negative.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzungetc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzungetc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzungetc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzungetc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every `c`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -899,7 +899,7 @@ writable bytes under the shared separation rules.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzgets_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgets_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzgets_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgets_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): `buf == NULL` or `len < 1` asks nothing; otherwise `buf` covers `len` writable bytes outside the handle's own blocks (`GzRange`).
@@ -959,7 +959,7 @@ shared separation rules. The selected compression parameters are valid.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzwrite_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzwrite_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzwrite_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzwrite_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): `len > INT_MAX` asks nothing; otherwise `len == 0`, or `buf` covers `len` readable bytes outside the handle's own blocks (`GzRange`).
@@ -1018,7 +1018,7 @@ bytes. The shared writer and separation requirements hold.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzfwrite_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzfwrite_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzfwrite_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzfwrite_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): `size * nitems >= 2^64` asks nothing; otherwise the product is zero, or `buf` covers that many readable bytes outside the handle's own blocks (`GzRange`).
@@ -1077,7 +1077,7 @@ A successful result is the byte value, not a count or zlib status. Every int inp
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzputc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzputc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzputc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzputc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every `c`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -1132,7 +1132,7 @@ The shared writer requirements and valid compression parameters hold.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzputs_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzputs_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzputs_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzputs_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): `s` is a NUL-terminated string, readable through its NUL, outside the handle's own blocks (`CString`, `GzRange`); a NULL `s` does not meet this.
@@ -1198,7 +1198,7 @@ separated and an allowed caller-visible effect. Valid compression parameters hol
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): the format is a NUL-terminated string that the model's formatter can evaluate with the given arguments (`Formatted`): integer, character and string conversions with the supported flags, widths, precisions and length modifiers; the format string and every string argument lie outside the handle's own blocks. The condition is asked also on a reader and on a handle in error, where the C does not read the format.
@@ -1265,7 +1265,7 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzvprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required, although `zlib.h` lists this function as undocumented: `gzprintf` goes through it, so it is planned with the gzip file interface. The manifest keeps the function in its `undocumented` list and makes the goal required through the list `safety_goals`. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzvprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required, although `zlib.h` lists this function as undocumented: `gzprintf` goes through it, so it is planned with the gzip file interface. The manifest keeps the function in its `undocumented` list and makes the goal required through the list `safety_goals`. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): the format is a NUL-terminated string that the model's formatter can evaluate with the given arguments (`Formatted`): integer, character and string conversions with the supported flags, widths, precisions and length modifiers; the format string and every string argument lie outside the handle's own blocks. The condition is asked also on a reader and on a handle in error, where the C does not read the format.
@@ -1326,7 +1326,7 @@ Ordinary flush modes range from `Z_NO_FLUSH` through `Z_FINISH`.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzflush_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzflush_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzflush_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzflush_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every `flush` value; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -1387,7 +1387,7 @@ seekable for success. `Z_OK` and `Z_BUF_ERROR` permit the operation.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzrewind_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzrewind_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzrewind_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzrewind_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -1447,7 +1447,7 @@ range checks, including pushback-created negative positions.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzseek64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzseek64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzseek64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzseek64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every `offset` and `whence`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -1511,7 +1511,7 @@ A nonnegative value is the requested logical uncompressed position. Accepting a 
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzseek_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzseek_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzseek_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzseek_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every `offset` and `whence`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -1567,7 +1567,7 @@ The result includes consumed/accepted position and applicable pending forward sk
 
 **Proof goals.**
 
-- **Goal.** `Goal.gztell64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gztell64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gztell64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gztell64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
@@ -1625,7 +1625,7 @@ This queries logical position without executing a pending seek or flush. Pushbac
 
 **Proof goals.**
 
-- **Goal.** `Goal.gztell_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gztell_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gztell_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gztell_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
@@ -1680,7 +1680,7 @@ The result is the descriptor's current position, less unused compressed input wh
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzoffset64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzoffset64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzoffset64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzoffset64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
@@ -1739,7 +1739,7 @@ This queries the underlying file position, subtracting unused compressed input w
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzoffset_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzoffset_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzoffset_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzoffset_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
@@ -1790,7 +1790,7 @@ This queries whether reading has been attempted beyond available data; it perfor
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzeof_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzeof_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzeof_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzeof_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
@@ -1846,7 +1846,7 @@ The result is the current transparent-mode flag; 1 does not guarantee that forma
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzdirect_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdirect_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzdirect_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdirect_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
@@ -1908,7 +1908,7 @@ The shared handle requirements hold.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzerror_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzerror_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has three clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function); and a clause about the string the call returns.
+- **Goal.** `Goal.gzerror_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzerror_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has three clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function); and a clause about the string the call returns.
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
     2. the argument condition (`GzArguments`): `errnum` is NULL, or covers 4 writable bytes outside the handle's own blocks (`GzRange`).
@@ -1962,7 +1962,7 @@ This clears the saved error message and code; for a reader it also clears input 
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzclearerr_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclearerr_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Goal.** `Goal.gzclearerr_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclearerr_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
@@ -2024,7 +2024,7 @@ The status comes from the reader or writer close selected for this handle. A val
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzclose_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
+- **Goal.** `Goal.gzclose_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
 - **Applies when.** The refusal has no condition. The close of a handle asks (no argument condition and no read budget):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
@@ -2084,7 +2084,7 @@ The status reports reader cleanup and descriptor closing, with a special result 
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzclose_r_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_r_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
+- **Goal.** `Goal.gzclose_r_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_r_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
 - **Applies when.** The refusal has no condition. The close of a handle asks (no argument condition and no read budget):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
@@ -2146,7 +2146,7 @@ The status reports final zero-fill/finish work and descriptor closing. Once a li
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzclose_w_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Registered theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_w_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
+- **Goal.** `Goal.gzclose_w_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_w_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
 - **Applies when.** The refusal has no condition. The close of a handle asks (no argument condition and no read budget):
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.

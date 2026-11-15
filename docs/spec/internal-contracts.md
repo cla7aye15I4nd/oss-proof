@@ -7,8 +7,8 @@ proofs of the public functions. It is not a list of theorems, and no proof assum
 
 **Status.** Each row is a reading of the C, **to confirm** unless the proof guide of its
 section names a theorem for it. What is proved about the helpers follows from the public
-goals: the safety goals of `inflate`, `deflate` and the other public functions are registered
-([progress](../progress.md#scope)), and each is about the whole translated body, helper calls
+goals: the safety goals of `inflate`, `deflate` and the other public functions are proved
+(their level is in [progress](../progress.md#scope)), and each is about the whole translated body, helper calls
 included. So every helper call that a public call makes returns without a fault. A row's own
 wording, for example an exact postcondition, is not thereby a theorem. The
 [proof guides](../proof/README.md) list the theorems about each helper.

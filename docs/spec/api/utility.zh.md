@@ -1,4 +1,4 @@
-<!-- source-sha256: 5b8f14bc7ff82a7cfd17ef66a11f826b4cb4163021cf363e27fbf9ae06beb657 -->
+<!-- source-sha256: e243efe2b05c424c2c4d74a3b2c6eee8b60d586e68af95fad6cb733fe5389655 -->
 
 # 缓冲区工具与库信息
 
@@ -20,7 +20,7 @@
 这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。
 超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。
 
-**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其已登记定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
+**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
 
 安全目标在 [Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean) 和
 [Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean) 中；它们所实例化的命题
@@ -105,7 +105,7 @@ NULL 目的缓冲区，会在任何长度写入之前返回 `Z_STREAM_ERROR`。
 
 **证明目标。**
 
-- **目标。** `Goal.compress2_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress2_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -173,7 +173,7 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
 
 **证明目标。**
 
-- **目标。** `Goal.compress2_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress2_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -231,7 +231,7 @@ int ZEXPORT compress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_si
 
 **证明目标。**
 
-- **目标。** `Goal.compress_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Compress.compress_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -288,7 +288,7 @@ int ZEXPORT compress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong so
 
 **证明目标。**
 
-- **目标。** `Goal.compress_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Compress.compress_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -343,7 +343,7 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 
 **证明目标。**
 
-- **目标。** `Goal.compressBound_z`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)）；必需。它是这个函数的完整契约，同时充当它的安全目标；安全目标没有另行陈述。已登记定理：`ZlibF.Spec.Public.Proofs.compressBound_z`（[public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)）。
+- **目标。** `Goal.compressBound_z`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)）；必需。它是这个函数的完整契约，同时充当它的安全目标；安全目标没有另行陈述。定理：`ZlibF.Spec.Public.Proofs.compressBound_z`（[public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)）。
 - **适用条件。** 始终适用：命题没有前提。
 - **无条件覆盖。** 每一个 `sourceLen`。
 - **保证。**
@@ -391,7 +391,7 @@ uLong ZEXPORT compressBound(uLong sourceLen);
 
 **证明目标。**
 
-- **目标。** `Goal.compressBound`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)）；必需。它是这个函数的完整契约，同时充当它的安全目标；安全目标没有另行陈述。已登记定理：`ZlibF.Spec.Public.Proofs.compressBound`（[public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)）。
+- **目标。** `Goal.compressBound`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)）；必需。它是这个函数的完整契约，同时充当它的安全目标；安全目标没有另行陈述。定理：`ZlibF.Spec.Public.Proofs.compressBound`（[public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)）。
 - **适用条件。** 始终适用：命题没有前提。
 - **无条件覆盖。** 每一个 `sourceLen`。
 - **保证。**
@@ -451,7 +451,7 @@ int ZEXPORT uncompress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress2_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress2_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressCountedSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -522,7 +522,7 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress2_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress2_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressCountedSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -585,7 +585,7 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressSingleSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -647,7 +647,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。已登记定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressSingleSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -699,7 +699,7 @@ const char * ZEXPORT zlibVersion(void);
 
 **证明目标。**
 
-- **目标。** `Goal.zlibVersion_safety`（[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.zlibVersion_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.zlibVersion_safety`（[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.zlibVersion_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 始终适用：命题没有前提。
 - **无条件覆盖。** 每一个堆，包括不是库堆的堆。
 - **保证。**
@@ -741,7 +741,7 @@ uLong ZEXPORT zlibCompileFlags(void);
 
 **证明目标。**
 
-- **目标。** `Goal.zlibCompileFlags_safety`（[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.zlibCompileFlags_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.zlibCompileFlags_safety`（[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.zlibCompileFlags_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 始终适用：命题没有前提。
 - **无条件覆盖。** 每一个堆，包括不是库堆的堆。
 - **保证。**
@@ -797,7 +797,7 @@ const char * ZEXPORT zError(int err);
 没有分配、堆变化或错误返回。索引计算前会检查 -6–2 范围外的值，
 因此两个标量极值均安全返回空文本。
 
-**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标（非必需）：`Goal.zError`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)），已登记定理为 `ZlibF.Spec.Public.Proofs.zError`（[public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)）。对每一个堆和每一个 `err`，它陈述：调用返回，堆不变，结果是后置条件所述的静态文本。
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标（非必需）：`Goal.zError`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)），定理为 `ZlibF.Spec.Public.Proofs.zError`（[public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)）。对每一个堆和每一个 `err`，它陈述：调用返回，堆不变，结果是后置条件所述的静态文本。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zError"><summary>完整返回条件与边界</summary>
 

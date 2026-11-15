@@ -1,4 +1,4 @@
-<!-- source-sha256: 618c9b36612090877c4249f42f3c0622e209067180a22fed895b3a7900060271 -->
+<!-- source-sha256: 35f249198aba73294d7823c5bb67f01b1c693a87dbf27614d31c49bb7867231e -->
 
 # Gzip 文件
 
@@ -21,7 +21,7 @@
 
 **已证明的内容。** 句柄每一段历史的安全性：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全目标](#the-safety-goal)）。
 各条目描述的返回值、字节和位置属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**。
-它们不在计划的证明目标之内。哪些目标已登记，见[进度](../../progress.md)。
+它们不在计划的证明目标之内。每个目标的层级见[进度](../../progress.md)。
 
 ## 安全目标
 
@@ -33,7 +33,7 @@
 接受句柄的函数，其目标还带有 `Goal.gz_refusal` 中属于该函数的子句，即对 NULL 句柄的拒绝。
 序列目标同样是必需的。它多出下表中的不变量子句，这个子句说的是历史，而不是某一次调用。
 
-本节描述序列目标，因为各条目要引用它的历史、参数条件和读取预算。这些目标都已登记。
+本节描述序列目标，因为各条目要引用它的历史、参数条件和读取预算。这些目标各有一条类型完全相同的定理。
 它们针对打过补丁的源码（见[注意事项](#scope-and-source-caveats)）。
 
 **历史（`GzHistory`）。** 目标覆盖一个句柄的每一段历史。历史从一次成功的 `gzopen`、`gzopen64` 或 `gzdopen` 开始：
@@ -101,7 +101,7 @@
 
 **功能契约。** 逐函数目标 `Goal.gzread`、`Goal.gzwrite` 等说明读写了哪些字节、返回了什么值。
 它们针对没有外部干扰的普通文件（`RegularOs`），并依赖一个手工建立的文件系统模型。
-它们不是必需的，也不在计划内；已登记的予以保留。
+它们不是必需的，也不在计划内；已证明的予以保留。
 
 ## 通用句柄条件
 
@@ -218,7 +218,7 @@ gzFile ZEXPORT gzopen(const char *path, const char *mode);
 
 **证明目标。**
 
-- **目标。** `Goal.gzopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **目标。** `Goal.gzopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
 - **适用条件**（`GzOpenSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -282,7 +282,7 @@ gzFile ZEXPORT gzopen64(const char *path, const char *mode);
 
 **证明目标。**
 
-- **目标。** `Goal.gzopen64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **目标。** `Goal.gzopen64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
 - **适用条件**（`GzOpenSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -342,7 +342,7 @@ gzFile ZEXPORT gzdopen(int fd, const char *mode);
 
 **证明目标。**
 
-- **目标。** `Goal.gzdopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzDopenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **目标。** `Goal.gzdopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzDopenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
 - **适用条件**（`GzDopenSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -447,7 +447,7 @@ int ZEXPORT gzbuffer(gzFile file, unsigned size);
 
 **证明目标。**
 
-- **目标。** `Goal.gzbuffer_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzbuffer_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzbuffer_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzbuffer_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** `size` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
@@ -504,7 +504,7 @@ int ZEXPORT gzsetparams(gzFile file, int level, int strategy);
 
 **证明目标。**
 
-- **目标。** `Goal.gzsetparams_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzsetparams_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzsetparams_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzsetparams_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** `level` 和 `strategy` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -565,7 +565,7 @@ int ZEXPORT gzread(gzFile file, voidp buf, unsigned len);
 
 **证明目标。**
 
-- **目标。** `Goal.gzread_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzread_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzread_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzread_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：`len > INT_MAX` 时没有要求；否则 `len == 0`，或者 `buf` 覆盖 `len` 个可写字节且在句柄自己的块之外（`GzRange`）。
@@ -627,7 +627,7 @@ z_size_t ZEXPORT gzfread(voidp buf, z_size_t size, z_size_t nitems, gzFile file)
 
 **证明目标。**
 
-- **目标。** `Goal.gzfread_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzfread_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzfread_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzfread_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：`size * nitems >= 2^64` 时没有要求；否则乘积为零，或者 `buf` 覆盖这么多个可写字节且在句柄自己的块之外（`GzRange`）。
@@ -682,7 +682,7 @@ int ZEXPORT gzgetc(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzgetc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgetc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有三个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）；以及对 `zlib.h` 的 `gzgetc()` 宏（`Zlib.ZlibH.gzgetc`）的同样陈述，这个宏是应用程序调用 `gzgetc` 的默认方式。
+- **目标。** `Goal.gzgetc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgetc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有三个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）；以及对 `zlib.h` 的 `gzgetc()` 宏（`Zlib.ZlibH.gzgetc`）的同样陈述，这个宏是应用程序调用 `gzgetc` 的默认方式。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -733,7 +733,7 @@ int ZEXPORT gzgetc_(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzgetc__safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgetc__safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzgetc__safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgetc__safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -787,7 +787,7 @@ int ZEXPORT gzungetc(int c, gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzungetc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzungetc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzungetc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzungetc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** `c` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -847,7 +847,7 @@ char * ZEXPORT gzgets(gzFile file, char *buf, int len);
 
 **证明目标。**
 
-- **目标。** `Goal.gzgets_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgets_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzgets_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzgets_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：`buf == NULL` 或 `len < 1` 时没有要求；否则 `buf` 覆盖 `len` 个可写字节且在句柄自己的块之外（`GzRange`）。
@@ -906,7 +906,7 @@ int ZEXPORT gzwrite(gzFile file, voidpc buf, unsigned len);
 
 **证明目标。**
 
-- **目标。** `Goal.gzwrite_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzwrite_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzwrite_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzwrite_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：`len > INT_MAX` 时没有要求；否则 `len == 0`，或者 `buf` 覆盖 `len` 个可读字节且在句柄自己的块之外（`GzRange`）。
@@ -964,7 +964,7 @@ z_size_t ZEXPORT gzfwrite(voidpc buf, z_size_t size, z_size_t nitems, gzFile fil
 
 **证明目标。**
 
-- **目标。** `Goal.gzfwrite_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzfwrite_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzfwrite_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzfwrite_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：`size * nitems >= 2^64` 时没有要求；否则乘积为零，或者 `buf` 覆盖这么多个可读字节且在句柄自己的块之外（`GzRange`）。
@@ -1022,7 +1022,7 @@ int ZEXPORT gzputc(gzFile file, int c);
 
 **证明目标。**
 
-- **目标。** `Goal.gzputc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzputc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzputc_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzputc_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** `c` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -1076,7 +1076,7 @@ int ZEXPORT gzputs(gzFile file, const char *s);
 
 **证明目标。**
 
-- **目标。** `Goal.gzputs_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzputs_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzputs_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzputs_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：`s` 是以 NUL 结尾的字符串，直到 NUL 为止都可读，且在句柄自己的块之外（`CString`、`GzRange`）；`s` 为 NULL 时不满足这个条件。
@@ -1139,7 +1139,7 @@ int ZEXPORTVA gzprintf(gzFile file, const char *format, ...);
 
 **证明目标。**
 
-- **目标。** `Goal.gzprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定的参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串和每个字符串参数都在句柄自己的块之外。在读句柄和处于错误状态的句柄上也要求这个条件，尽管那时 C 并不读格式串。
@@ -1203,7 +1203,7 @@ int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va);
 
 **证明目标。**
 
-- **目标。** `Goal.gzvprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需，尽管 `zlib.h` 把这个函数列为未文档化：`gzprintf` 经由它实现，所以它随 gzip 文件接口一起列入计划。清单文件仍把这个函数留在 `undocumented` 列表里，并通过 `safety_goals` 列表使这个目标成为必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzvprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需，尽管 `zlib.h` 把这个函数列为未文档化：`gzprintf` 经由它实现，所以它随 gzip 文件接口一起列入计划。清单文件仍把这个函数留在 `undocumented` 列表里，并通过 `safety_goals` 列表使这个目标成为必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定的参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串和每个字符串参数都在句柄自己的块之外。在读句柄和处于错误状态的句柄上也要求这个条件，尽管那时 C 并不读格式串。
@@ -1261,7 +1261,7 @@ int ZEXPORT gzflush(gzFile file, int flush);
 
 **证明目标。**
 
-- **目标。** `Goal.gzflush_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzflush_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzflush_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzflush_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** `flush` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -1320,7 +1320,7 @@ int ZEXPORT gzrewind(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzrewind_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzrewind_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzrewind_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzrewind_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -1378,7 +1378,7 @@ z_off64_t ZEXPORT gzseek64(gzFile file, z_off64_t offset, int whence);
 
 **证明目标。**
 
-- **目标。** `Goal.gzseek64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzseek64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzseek64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzseek64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** `offset` 和 `whence` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -1439,7 +1439,7 @@ z_off_t ZEXPORT gzseek(gzFile file, z_off_t offset, int whence);
 
 **证明目标。**
 
-- **目标。** `Goal.gzseek_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzseek_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzseek_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzseek_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** `offset` 和 `whence` 的每个取值；历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -1495,7 +1495,7 @@ z_off64_t ZEXPORT gztell64(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gztell64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gztell64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gztell64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gztell64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
@@ -1552,7 +1552,7 @@ z_off_t ZEXPORT gztell(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gztell_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gztell_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gztell_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gztell_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
@@ -1605,7 +1605,7 @@ z_off64_t ZEXPORT gzoffset64(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzoffset64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzoffset64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzoffset64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzoffset64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
@@ -1661,7 +1661,7 @@ z_off_t ZEXPORT gzoffset(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzoffset_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzoffset_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzoffset_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzoffset_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
@@ -1710,7 +1710,7 @@ int ZEXPORT gzeof(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzeof_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzeof_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzeof_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzeof_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
@@ -1765,7 +1765,7 @@ int ZEXPORT gzdirect(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzdirect_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdirect_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzdirect_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdirect_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
@@ -1825,7 +1825,7 @@ const char * ZEXPORT gzerror(gzFile file, int *errnum);
 
 **证明目标。**
 
-- **目标。** `Goal.gzerror_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzerror_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有三个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）；以及关于调用所返回字符串的一个子句。
+- **目标。** `Goal.gzerror_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzerror_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有三个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）；以及关于调用所返回字符串的一个子句。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
     2. 参数条件（`GzArguments`）：`errnum` 为 NULL，或者覆盖 4 个可写字节且在句柄自己的块之外（`GzRange`）。
@@ -1877,7 +1877,7 @@ void ZEXPORT gzclearerr(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzclearerr_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclearerr_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
+- **目标。** `Goal.gzclearerr_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclearerr_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求（这个调用没有参数条件）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界。
@@ -1938,7 +1938,7 @@ int ZEXPORT gzclose(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzclose_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
+- **目标。** `Goal.gzclose_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的关闭要求（没有参数条件，也不需要读取预算）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界，包括系统的 `close` 报告失败的世界；每一种分配结果。
@@ -1997,7 +1997,7 @@ int ZEXPORT gzclose_r(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzclose_r_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_r_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
+- **目标。** `Goal.gzclose_r_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_r_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的关闭要求（没有参数条件，也不需要读取预算）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界，包括系统的 `close` 报告失败的世界；每一种分配结果。
@@ -2056,7 +2056,7 @@ int ZEXPORT gzclose_w(gzFile file);
 
 **证明目标。**
 
-- **目标。** `Goal.gzclose_w_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。已登记定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_w_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
+- **目标。** `Goal.gzclose_w_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzclose_w_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次关闭（`GzCloseCallSafety`，即[序列目标](#the-safety-goal)的关闭子句限制到这个函数上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的关闭要求（没有参数条件，也不需要读取预算）：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界，包括系统的 `close` 报告失败的世界；每一种分配结果。

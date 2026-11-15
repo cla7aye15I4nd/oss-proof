@@ -1,4 +1,4 @@
-<!-- source-sha256: fccf7b8fa6e44aa2231decaff6e317afb9379f085228c314cdcd3387c7860f0e -->
+<!-- source-sha256: 8dd4d8a45e769fce8cdf35b8d4c51ff266757aca40fdc6b75ab26fe119f6d966 -->
 
 # 校验和
 
@@ -25,7 +25,7 @@
 这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。
 超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。
 
-**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其已登记定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
+**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
 
 安全目标在 [Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean) 中。它们说的是调用返回、堆不变；
 对返回的数值什么也没说。
@@ -83,7 +83,7 @@ NULL 配合非零长度不在本契约范围内。伪造种子仍不属于本实
 
 **证明目标。**
 
-- **目标。** `Goal.adler32_z_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_z_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.adler32_z_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_z_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** `buf` 为 NULL 且 `len == 0`；或者 `buf` 指向 `len` 个可读字节（`AdlerBufferBytes`）。`len == 0` 时，允许指向对象末尾之后一个位置的指针。
 - **无条件覆盖。** 每一个 `adler`，包括不是校验和的值；字节的每一种内容；每一个堆，无论其中有没有库的表。内存条件与前置条件相同；前置条件另外要求 `adler` 是 A 的校验和，这只影响返回的数值。
 - **保证。**
@@ -143,7 +143,7 @@ uLong ZEXPORT adler32(uLong adler, const Bytef *buf, uInt len);
 
 **证明目标。**
 
-- **目标。** `Goal.adler32_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.adler32_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** `buf` 为 NULL 且 `len == 0`；或者 `buf` 指向 `len` 个可读字节（`AdlerBufferBytes`）。`len == 0` 时，允许指向对象末尾之后一个位置的指针。
 - **无条件覆盖。** 每一个 `adler`，包括不是校验和的值；字节的每一种内容；每一个堆，无论其中有没有库的表。内存条件与前置条件相同；前置条件另外要求 `adler` 是 A 的校验和，这只影响返回的数值。
 - **保证。**
@@ -199,7 +199,7 @@ Adler-32，且 `len2` 是 B 的长度。特别地，B 的校验和独立于 A，
 
 **证明目标。**
 
-- **目标。** `Goal.adler32_combine_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.adler32_combine_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 始终适用：命题没有前提。
 - **无条件覆盖。** 每一个 `adler1`、`adler2` 和 `len2`，包括伪造的校验和与负长度；每一个堆。本目标比前置条件宽：前置条件描述的是真实的校验和。
 - **保证。**
@@ -253,7 +253,7 @@ A 和 B 的 Adler-32，且 `len2` 是 B 的长度。负长度属于拒绝情形�
 
 **证明目标。**
 
-- **目标。** `Goal.adler32_combine64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine64_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.adler32_combine64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine64_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 始终适用：命题没有前提。
 - **无条件覆盖。** 每一个 `adler1`、`adler2` 和 `len2`，包括伪造的校验和与负长度；每一个堆。本目标比前置条件宽：前置条件描述的是真实的校验和。
 - **保证。**
@@ -304,7 +304,7 @@ const z_crc_t FAR * ZEXPORT get_crc_table(void);
 `zlib.h` 把这个函数列在文档化 API 之外的函数中。它只公开字节表，不公开相邻表或
 编织表。此处 `z_crc_t` 为无符号 32 位类型。动态建表不属于本构建范围。
 
-**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标（非必需）：`Goal.get_crc_table`（[Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)），已登记定理为 `ZlibF.Spec.Public.Proofs.get_crc_table`（[public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)）。在存有库的 CRC 表的堆上（`CrcGlobals`），它陈述：调用返回，堆不变，表的内容如后置条件所述。
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标（非必需）：`Goal.get_crc_table`（[Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)），定理为 `ZlibF.Spec.Public.Proofs.get_crc_table`（[public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)）。在存有库的 CRC 表的堆上（`CrcGlobals`），它陈述：调用返回，堆不变，表的内容如后置条件所述。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>完整返回条件与边界</summary>
 
@@ -356,7 +356,7 @@ uLong ZEXPORT crc32_z(uLong crc, const unsigned char FAR *buf, z_size_t len);
 
 **证明目标。**
 
-- **目标。** `Goal.crc32_z_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_z_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.crc32_z_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_z_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件**：
     1. 堆中有库的两张 CRC 常量表（`CrcGlobals`）。每个库堆都满足这一点；
     2. `buf` 为 NULL（`len` 任意）；或者 `buf` 指向 `len` 个可读字节（`BufferBytes`）。`len == 0` 时，允许指向对象末尾之后一个位置的指针。
@@ -415,7 +415,7 @@ uLong ZEXPORT crc32(uLong crc, const unsigned char FAR *buf, uInt len);
 
 **证明目标。**
 
-- **目标。** `Goal.crc32_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.crc32_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件**：
     1. 堆中有库的两张 CRC 常量表（`CrcGlobals`）。每个库堆都满足这一点；
     2. `buf` 为 NULL（`len` 任意）；或者 `buf` 指向 `len` 个可读字节（`BufferBytes`）。`len == 0` 时，允许指向对象末尾之后一个位置的指针。
@@ -471,7 +471,7 @@ uLong ZEXPORT crc32_combine_gen64(z_off64_t len2);
 
 **证明目标。**
 
-- **目标。** `Goal.crc32_combine_gen64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen64_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.crc32_combine_gen64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen64_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 堆中有库的两张 CRC 常量表（`CrcGlobals`）。每个库堆都满足这一点。
 - **无条件覆盖。** 每一个 `len2`，包括负长度。
 - **保证。**
@@ -523,7 +523,7 @@ LP64 下，普通长度和显式 64 位长度的范围相同。
 
 **证明目标。**
 
-- **目标。** `Goal.crc32_combine_gen_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.crc32_combine_gen_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 堆中有库的两张 CRC 常量表（`CrcGlobals`）。每个库堆都满足这一点。
 - **无条件覆盖。** 每一个 `len2`，包括负长度。
 - **保证。**
@@ -581,7 +581,7 @@ uLong ZEXPORT crc32_combine_op(uLong crc1, uLong crc2, uLong op);
 
 **证明目标。**
 
-- **目标。** `Goal.crc32_combine_op_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_op_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.crc32_combine_op_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_op_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件**：
     1. 堆中有库的两张 CRC 常量表（`CrcGlobals`）。每个库堆都满足这一点；
     2. `op` 是 `crc32_combine_gen` 或 `crc32_combine_gen64` 对某个 `len2` 返回的值。这就是 `zlib.h` 给出的定义域。
@@ -639,7 +639,7 @@ A 和 B 的 CRC-32，且 `len2` 是 B 的长度。固定 CRC 表存在。
 
 **证明目标。**
 
-- **目标。** `Goal.crc32_combine64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine64_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.crc32_combine64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine64_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 堆中有库的两张 CRC 常量表（`CrcGlobals`）。每个库堆都满足这一点。
 - **无条件覆盖。** 每一个 `crc1`、`crc2` 和 `len2`，包括伪造的校验和与负长度。本目标比前置条件宽：前置条件描述的是真实的校验和。
 - **保证。**
@@ -695,7 +695,7 @@ LP64 下，普通长度和显式 64 位长度的范围相同。
 
 **证明目标。**
 
-- **目标。** `Goal.crc32_combine_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
+- **目标。** `Goal.crc32_combine_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）；必需。定理：`ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_safety`（[public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)）。
 - **适用条件。** 堆中有库的两张 CRC 常量表（`CrcGlobals`）。每个库堆都满足这一点。
 - **无条件覆盖。** 每一个 `crc1`、`crc2` 和 `len2`，包括伪造的校验和与负长度。本目标比前置条件宽：前置条件描述的是真实的校验和。
 - **保证。**

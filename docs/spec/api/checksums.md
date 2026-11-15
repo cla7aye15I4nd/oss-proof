@@ -33,7 +33,7 @@ error code.
 **What is proved.** Safety only: each call returns without undefined behaviour or a memory error,
 writes only what its goal names, and leaks nothing ([safety](../safety.md)). Each entry gives its
 goal under **Proof goals**, in the five items and with the fixed phrases that
-[Reading a Proof goals paragraph](contracts.md#reading-a-proof-goals-paragraph) defines: the goal and its registered theorem; the conditions under which it
+[Reading a Proof goals paragraph](contracts.md#reading-a-proof-goals-paragraph) defines: the goal and its theorem; the conditions under which it
 applies, in the order of the Lean statement; what it covers for every value; what it guarantees
 (returns, state, writes, allocations); and what it leaves to another goal. The proof assumes the
 conditions listed there, not the documentary Pre. Post, the return tables and the notes describe
@@ -101,7 +101,7 @@ reducing both seed halves modulo 65521. See the
 
 **Proof goals.**
 
-- **Goal.** `Goal.adler32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_z_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.adler32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_z_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** `buf` is NULL with `len == 0`, or `buf` points to `len` readable bytes (`AdlerBufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
 - **Covered without condition.** Every `adler`, also a value that is not a checksum; every content of the bytes; every heap, with or without the library's tables. The memory conditions are those of Pre; Pre asks in addition that `adler` is the checksum of A, which matters only for the value.
 - **Guarantees.**
@@ -162,7 +162,7 @@ The zero-length NULL query and forged-seed scope of `adler32_z` apply here too.
 
 **Proof goals.**
 
-- **Goal.** `Goal.adler32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.adler32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** `buf` is NULL with `len == 0`, or `buf` points to `len` readable bytes (`AdlerBufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
 - **Covered without condition.** Every `adler`, also a value that is not a checksum; every content of the bytes; every heap, with or without the library's tables. The memory conditions are those of Pre; Pre asks in addition that `adler` is the checksum of A, which matters only for the value.
 - **Guarantees.**
@@ -220,7 +220,7 @@ goal. No concatenation promise is made for an incorrect B length.
 
 **Proof goals.**
 
-- **Goal.** `Goal.adler32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.adler32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** Always: the statement has no premise.
 - **Covered without condition.** Every `adler1`, `adler2` and `len2`, also forged checksums and negative lengths; every heap. The goal is wider than Pre, which describes genuine checksums.
 - **Guarantees.**
@@ -275,7 +275,7 @@ The explicit width matters on other builds; this page does not cover them.
 
 **Proof goals.**
 
-- **Goal.** `Goal.adler32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.adler32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** Always: the statement has no premise.
 - **Covered without condition.** Every `adler1`, `adler2` and `len2`, also forged checksums and negative lengths; every heap. The goal is wider than Pre, which describes genuine checksums.
 - **Guarantees.**
@@ -328,7 +328,7 @@ and must neither write through the pointer nor free it.
 only the byte table, not adjacent or braided tables. `z_crc_t` is unsigned
 32-bit here. Dynamic table generation is outside this build's scope.
 
-**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.get_crc_table` ([Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)), with the registered theorem `ZlibF.Spec.Public.Proofs.get_crc_table` ([public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)). On a heap that holds the library's CRC tables (`CrcGlobals`) it states that the call returns, that the heap is unchanged, and the table contents given under Post.
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.get_crc_table` ([Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)), with the theorem `ZlibF.Spec.Public.Proofs.get_crc_table` ([public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)). On a heap that holds the library's CRC tables (`CrcGlobals`) it states that the call returns, that the heap is unchanged, and the table contents given under Post.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>Complete return conditions and boundaries</summary>
 
@@ -383,7 +383,7 @@ the contract. The word-access model's limits are recorded in
 
 **Proof goals.**
 
-- **Goal.** `Goal.crc32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_z_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.crc32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_z_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when**:
     1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
     2. `buf` is NULL, with any `len`, or `buf` points to `len` readable bytes (`BufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
@@ -444,7 +444,7 @@ it before the call; use `crc32_z` or multiple updates for larger ranges.
 
 **Proof goals.**
 
-- **Goal.** `Goal.crc32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.crc32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when**:
     1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
     2. `buf` is NULL, with any `len`, or `buf` points to `len` readable bytes (`BufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
@@ -501,7 +501,7 @@ any A and B with that B length. It is an operator, not a checksum.
 
 **Proof goals.**
 
-- **Goal.** `Goal.crc32_combine_gen64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.crc32_combine_gen64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
 - **Covered without condition.** Every `len2`, also negative lengths.
 - **Guarantees.**
@@ -555,7 +555,7 @@ The ordinary and explicit 64-bit length ranges coincide in LP64.
 
 **Proof goals.**
 
-- **Goal.** `Goal.crc32_combine_gen_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.crc32_combine_gen_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
 - **Covered without condition.** Every `len2`, also negative lengths.
 - **Guarantees.**
@@ -615,7 +615,7 @@ not an unambiguous error code, since a valid CRC can also be zero.
 
 **Proof goals.**
 
-- **Goal.** `Goal.crc32_combine_op_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_op_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.crc32_combine_op_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_op_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when**:
     1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
     2. `op` is a value that `crc32_combine_gen` or `crc32_combine_gen64` returns for some `len2`. This is the domain `zlib.h` gives.
@@ -676,7 +676,7 @@ a possible valid CRC, so negative-length rejection has no distinct error code.
 
 **Proof goals.**
 
-- **Goal.** `Goal.crc32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.crc32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
 - **Covered without condition.** Every `crc1`, `crc2` and `len2`, also forged checksums and negative lengths. The goal is wider than Pre, which describes genuine checksums.
 - **Guarantees.**
@@ -734,7 +734,7 @@ table executables. See [build and model scope](../../deviations.md).
 
 **Proof goals.**
 
-- **Goal.** `Goal.crc32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.crc32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
 - **Covered without condition.** Every `crc1`, `crc2` and `len2`, also forged checksums and negative lengths. The goal is wider than Pre, which describes genuine checksums.
 - **Guarantees.**

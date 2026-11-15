@@ -1,4 +1,4 @@
-<!-- source-sha256: c200c4999dedae5dea891027b47093f7dd9ea2b4443ea185413b926a153c8b31 -->
+<!-- source-sha256: 69cda1b67934added3f99fc97ec4d4bb6386f317a2607af32d6cfeeb235f11c7 -->
 
 # 回调解压
 
@@ -12,7 +12,7 @@
 [zlib.h](../../../zlib/zlib.h)，针对默认 LP64 Linux 构建。
 定义域和效果标签见[契约约定](contracts.md)。
 
-**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**。它们不在计划的证明目标之内。哪些目标已登记，见[进度](../../progress.md)。
+**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**。它们不在计划的证明目标之内。每个目标的层级见[进度](../../progress.md)。
 
 每个函数都有自己的必需安全目标：`Goal.inflateBackInit__safety`、`Goal.inflateBack_safety` 和
 `Goal.inflateBackEnd_safety`，在 [Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean) 中。
@@ -102,7 +102,7 @@ int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits, unsigned char FAR *
 
 **证明目标。**
 
-- **目标。** `Goal.inflateBackInit__safety`（[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)）；必需。已登记定理：`ZlibF.Spec.Public.BackSafetyProof.inflateBackInit__safety`（[public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)）。
+- **目标。** `Goal.inflateBackInit__safety`（[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)）；必需。定理：`ZlibF.Spec.Public.BackSafetyProof.inflateBackInit__safety`（[public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)）。
 - **适用条件**（1 到 3 是 `InitArguments`，即 `inflateInit2_` 的条件）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. `version` 为 NULL，或其首字节可读（`VersionValue`）；
@@ -182,7 +182,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 
 **证明目标。**
 
-- **目标。** `Goal.inflateBack_safety`（[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)）；必需。已登记定理：`ZlibF.Spec.Public.BackSafetyProof.inflateBack_safety`（[public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)）。这个目标有三个子句：对 NULL 流的拒绝，对状态为 NULL 的流记录的拒绝，以及历史上的一次调用。第一个和第三个是序列目标 `Goal.inflate_back_sequence_safety` 的子句 1 和子句 3。
+- **目标。** `Goal.inflateBack_safety`（[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)）；必需。定理：`ZlibF.Spec.Public.BackSafetyProof.inflateBack_safety`（[public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)）。这个目标有三个子句：对 NULL 流的拒绝，对状态为 NULL 的流记录的拒绝，以及历史上的一次调用。第一个和第三个是序列目标 `Goal.inflate_back_sequence_safety` 的子句 1 和子句 3。
 - **适用条件。** 第一个拒绝子句没有条件。第二个要求 `strm` 指向一个可读的流记录。历史上的调用要求：
     1. `strm` 有一段[回调解码器历史](#callback-decoder-history)（`BackSafeReachable`）；前提 `BackValid` 给它的记录和状态命名；
     2. `next_in` 为 NULL，或者覆盖 `avail_in` 个可读字节（`Bytes`）且不与窗口重叠（`Separate`）；
@@ -249,7 +249,7 @@ NULL 流、NULL 状态和 NULL 释放函数拒绝情形。
 
 **证明目标。**
 
-- **目标。** `Goal.inflateBackEnd_safety`（[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)）；必需。已登记定理：`ZlibF.Spec.Public.BackSafetyProof.inflateBackEnd_safety`（[public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)）。这个目标有三个子句：对 NULL 流的拒绝，对 `state` 或 `zfree` 为 NULL 的流记录的拒绝，以及历史的结束。第三个是序列目标 `Goal.inflate_back_sequence_safety` 的子句 4。
+- **目标。** `Goal.inflateBackEnd_safety`（[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)）；必需。定理：`ZlibF.Spec.Public.BackSafetyProof.inflateBackEnd_safety`（[public-back-safety.lean](../../../ZlibF/Proof/public-back-safety.lean)）。这个目标有三个子句：对 NULL 流的拒绝，对 `state` 或 `zfree` 为 NULL 的流记录的拒绝，以及历史的结束。第三个是序列目标 `Goal.inflate_back_sequence_safety` 的子句 4。
 - **适用条件。** 第一个拒绝子句没有条件。第二个要求 `strm` 指向一个可读的流记录。历史的结束要求：
     1. `strm` 有一段[回调解码器历史](#callback-decoder-history)（`BackSafeReachable`）。
 - **无条件覆盖。** 每一段历史：刚初始化之后，以及一次返回 `Z_STREAM_END`、`Z_DATA_ERROR` 或 `Z_BUF_ERROR` 的解码之后。结束子句没有平台前提。在第二个拒绝子句中，记录其他字段的每一个取值。

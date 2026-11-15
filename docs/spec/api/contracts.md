@@ -38,7 +38,7 @@ An entry whose function has no required goal says so in one sentence in their pl
 
 | Item | Content |
 | --- | --- |
-| **Goal** | The name of the Lean goal, its file, and whether it is required; then the registered theorem whose type is the goal, and the proof file. |
+| **Goal** | The name of the Lean goal, its file, and whether it is required; then the theorem whose type is the goal, which `tests/audit/theorems.txt` lists, and the proof file. |
 | **Applies when** | The conditions of the goal, in C terms, numbered. The Lean name of each is in parentheses. A call that breaks one is not covered: it is neither proved safe nor claimed to be unsafe. |
 | **Covered without condition** | What the goal quantifies over freely, for example every value of a scalar argument, every input byte sequence and every allocation outcome. |
 | **Guarantees** | What the goal concludes, always in this order: the call returns; the state after the call; what was written; the allocations. |

@@ -23,7 +23,7 @@ error code.
 **What is proved.** Safety only: each call returns without undefined behaviour or a memory error,
 writes only what its goal names, and leaks nothing ([safety](../safety.md)). Each entry gives its
 goal under **Proof goals**, in the five items and with the fixed phrases that
-[Reading a Proof goals paragraph](contracts.md#reading-a-proof-goals-paragraph) defines: the goal and its registered theorem; the conditions under which it
+[Reading a Proof goals paragraph](contracts.md#reading-a-proof-goals-paragraph) defines: the goal and its theorem; the conditions under which it
 applies, in the order of the Lean statement; what it covers for every value; what it guarantees
 (returns, state, writes, allocations); and what it leaves to another goal. The proof assumes the
 conditions listed there, not the documentary Pre. Post, the return tables and the notes describe
@@ -128,7 +128,7 @@ with length zero before any allocation. Later returns store the number of bytes 
 
 **Proof goals.**
 
-- **Goal.** `Goal.compress2_z_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Compress.compress2_z_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
+- **Goal.** `Goal.compress2_z_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Compress.compress2_z_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
 - **Applies when** (`CompressorSafety`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -196,7 +196,7 @@ invalid level or allocation failure leaves it zero.
 
 **Proof goals.**
 
-- **Goal.** `Goal.compress2_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Compress.compress2_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
+- **Goal.** `Goal.compress2_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Compress.compress2_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
 - **Applies when** (`CompressorSafety`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -255,7 +255,7 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 
 **Proof goals.**
 
-- **Goal.** `Goal.compress_z_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Compress.compress_z_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
+- **Goal.** `Goal.compress_z_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Compress.compress_z_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
 - **Applies when** (`CompressorSafety`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -312,7 +312,7 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 
 **Proof goals.**
 
-- **Goal.** `Goal.compress_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Compress.compress_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
+- **Goal.** `Goal.compress_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `CompressorSafety` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Compress.compress_safety` ([public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)).
 - **Applies when** (`CompressorSafety`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -368,7 +368,7 @@ It gives no bound for arbitrary raw or gzip stream settings.
 
 **Proof goals.**
 
-- **Goal.** `Goal.compressBound_z` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)); required. It is the function's whole contract and stands for its safety goal, which is not stated separately. Registered theorem: `ZlibF.Spec.Public.Proofs.compressBound_z` ([public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)).
+- **Goal.** `Goal.compressBound_z` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)); required. It is the function's whole contract and stands for its safety goal, which is not stated separately. Theorem: `ZlibF.Spec.Public.Proofs.compressBound_z` ([public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)).
 - **Applies when.** Always: the statement has no premise.
 - **Covered without condition.** Every `sourceLen`.
 - **Guarantees.**
@@ -416,7 +416,7 @@ Computes the capacity value used for default compression settings; allocates no 
 
 **Proof goals.**
 
-- **Goal.** `Goal.compressBound` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)); required. It is the function's whole contract and stands for its safety goal, which is not stated separately. Registered theorem: `ZlibF.Spec.Public.Proofs.compressBound` ([public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)).
+- **Goal.** `Goal.compressBound` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)); required. It is the function's whole contract and stands for its safety goal, which is not stated separately. Theorem: `ZlibF.Spec.Public.Proofs.compressBound` ([public-compress-bound.lean](../../../ZlibF/Proof/public-compress-bound.lean)).
 - **Applies when.** Always: the statement has no premise.
 - **Covered without condition.** Every `sourceLen`.
 - **Guarantees.**
@@ -477,7 +477,7 @@ in `*destLen`, including later memory failure. Output already written remains av
 
 **Proof goals.**
 
-- **Goal.** `Goal.uncompress2_z_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressCountedSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_z_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
+- **Goal.** `Goal.uncompress2_z_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressCountedSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_z_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
 - **Applies when** (`UncompressCountedSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -548,7 +548,7 @@ return, including errors. Argument rejection and initialisation failure preserve
 
 **Proof goals.**
 
-- **Goal.** `Goal.uncompress2_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressCountedSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
+- **Goal.** `Goal.uncompress2_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressCountedSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
 - **Applies when** (`UncompressCountedSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -612,7 +612,7 @@ The consumed count is local.
 
 **Proof goals.**
 
-- **Goal.** `Goal.uncompress_z_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressSingleSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress_z_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
+- **Goal.** `Goal.uncompress_z_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressSingleSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress_z_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
 - **Applies when** (`UncompressSingleSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -675,7 +675,7 @@ cleanup as `uncompress2`.
 
 **Proof goals.**
 
-- **Goal.** `Goal.uncompress_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressSingleSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Registered theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
+- **Goal.** `Goal.uncompress_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean); the statement is `UncompressSingleSafe` in [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean)); required. Theorem: `ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe` ([public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)).
 - **Applies when** (`UncompressSingleSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -727,7 +727,7 @@ the caller must neither write it nor free it. No allocation or heap change occur
 
 **Proof goals.**
 
-- **Goal.** `Goal.zlibVersion_safety` ([Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.zlibVersion_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.zlibVersion_safety` ([Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.zlibVersion_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** Always: the statement has no premise.
 - **Covered without condition.** Every heap, also one that is not a library heap.
 - **Guarantees.**
@@ -769,7 +769,7 @@ Returns encoded type sizes and compile options for this build. The value is not 
 
 **Proof goals.**
 
-- **Goal.** `Goal.zlibCompileFlags_safety` ([Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)); required. Registered theorem: `ZlibF.Spec.Public.StatelessSafetyProof.zlibCompileFlags_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Goal.** `Goal.zlibCompileFlags_safety` ([Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.zlibCompileFlags_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when.** Always: the statement has no premise.
 - **Covered without condition.** Every heap, also one that is not a library heap.
 - **Guarantees.**
@@ -825,7 +825,7 @@ Maps the supplied result code to text. The function itself always returns a non-
 No allocation, heap change or error return occurs. Values outside -6–2 are checked before
 index arithmetic, so both scalar extremes safely return empty text.
 
-**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.zError` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)), with the registered theorem `ZlibF.Spec.Public.Proofs.zError` ([public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)). For every heap and every `err` it states that the call returns, that the heap is unchanged, and that the result is the static text given under Post.
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.zError` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)), with the theorem `ZlibF.Spec.Public.Proofs.zError` ([public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)). For every heap and every `err` it states that the call returns, that the heap is unchanged, and that the result is the static text given under Post.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zError"><summary>Complete return conditions and boundaries</summary>
 

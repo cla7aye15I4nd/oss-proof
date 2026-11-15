@@ -1,4 +1,4 @@
-<!-- source-sha256: 854724da9494797f23bd67f273d90f6208f8abffaf258f4f4fcd3e662c099f24 -->
+<!-- source-sha256: 47eb9b41add11c69c5a5c1b2727bb7fe7b8ad8f12b1916e2ea1523ef2bbeeb50 -->
 
 # 共享流规则
 
@@ -8,7 +8,7 @@
 哪块内存归谁所有，缓冲区必须是什么样，调用可以按什么顺序进行。各函数条目引用这些规则，不再重复。
 
 **已证明的内容。** 流上每个允许的调用序列的安全性：`Goal.inflate_sequence_safety` 和
-`Goal.deflate_sequence_safety`，两者都已登记（见[安全性，调用与调用序列](../safety.md#2-calls-and-sequences)）。
+`Goal.deflate_sequence_safety`，两者各有一条类型完全相同的定理（见[安全性，调用与调用序列](../safety.md#2-calls-and-sequences)）。
 **这里没有证明的内容。** 下面的规则也描述功能行为：返回码、输出字节、刷新标记。
 这一部分读自固定版本的 C 和 `zlib.h`，**尚未由证明确认**，也不是安全结论所必需的。
 本页采用默认 LP64 Linux 构建和默认分配器。
@@ -37,7 +37,7 @@ stateDiagram-v2
 
 序列规则（`A-sequence`）：满足各自前置条件和调用顺序规则的调用保持流不变量，
 终止且不出故障，不改变无关的内存，并且对每一次分配都有交代。
-对安全性来说，这就是已登记的命题 `StreamSequenceSafety`，两种流都有。
+对安全性来说，这就是命题 `StreamSequenceSafety`，两种流都有。
 不变量由初始化建立；没有哪次调用假设它。
 
 ## 规则标识符

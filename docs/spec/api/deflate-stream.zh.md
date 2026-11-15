@@ -1,4 +1,4 @@
-<!-- source-sha256: 2c3ee49030ee8310321d13f554c1c1e013ce223c56de44ccd2292f49ea1782e0 -->
+<!-- source-sha256: 49f14ea679f3e867167f3f954bc6460a40c88f6d79b58ae13877c0c1bed001cc -->
 
 # 流式压缩
 
@@ -16,7 +16,7 @@
 
 这些契约遵循固定版本的 `deflate.c` 和 `zlib.h`，采用默认 LP64 Linux 构建。没有补丁改动 `deflate.c`（见[补丁说明](../../../patches/README.md)）。这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。前置条件之外、C 仍会处理的情况，写在“错误”或**聚焦范围之外**下。超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。定义域和效果标签的含义见[契约约定](contracts.md)。
 
-**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其已登记定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
+**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
 
 ## 共享约定
 
@@ -69,7 +69,7 @@ int ZEXPORT deflateInit_(z_streamp strm, int level, const char *version, int str
 
 **证明目标。**
 
-- **目标。** `Goal.deflateInit__safety`（[Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)）；必需。已登记定理：`ZlibF.Spec.Public.InitSafetyProof.deflateInit__safety`（[public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)）。
+- **目标。** `Goal.deflateInit__safety`（[Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)）；必需。定理：`ZlibF.Spec.Public.InitSafetyProof.deflateInit__safety`（[public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)）。
 - **适用条件**（`InitArguments`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. `version` 为 NULL，或其首字节可读（`VersionValue`）；
@@ -128,7 +128,7 @@ int ZEXPORT deflateInit2_(z_streamp strm, int level, int method, int windowBits,
 
 **证明目标。**
 
-- **目标。** `Goal.deflateInit2__safety`（[Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)）；必需。已登记定理：`ZlibF.Spec.Public.InitSafetyProof.deflateInit2__safety`（[public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)）。
+- **目标。** `Goal.deflateInit2__safety`（[Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)）；必需。定理：`ZlibF.Spec.Public.InitSafetyProof.deflateInit2__safety`（[public-init-safety.lean](../../../ZlibF/Proof/public-init-safety.lean)）。
 - **适用条件**（`InitArguments`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. `version` 为 NULL，或其首字节可读（`VersionValue`）；
@@ -184,7 +184,7 @@ int ZEXPORT deflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt d
 
 **证明目标。**
 
-- **目标。** `Goal.deflateSetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateSetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -238,7 +238,7 @@ int ZEXPORT deflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
 
 **证明目标。**
 
-- **目标。** `Goal.deflateGetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateGetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -286,7 +286,7 @@ int ZEXPORT deflateResetKeep(z_streamp strm);
 
 **前置条件：** 处于任意阶段的存活流。这是一个未文档化的条目；如果下一个压缩流必须从空历史开始，使用 `deflateReset`。
 
-**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。直接调用它也不是 deflate 序列目标中的一步：`StreamOperation` 没有列出它（见[偏离记录](../../deviations.md)中“直接调用 `deflateResetKeep`”一行）。为单次调用陈述了一个目标（非必需）：`Goal.deflateResetKeep`（[Functional/Lifecycle.lean](../../../ZlibF/Spec/Functional/Lifecycle.lean)），已登记定理为 `ZlibF.Spec.Public.DeflateResetKeepProof.deflate_resetkeep_public`（[public-deflate-reset-keep.lean](../../../ZlibF/Proof/public-deflate-reset-keep.lean)）。
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。直接调用它也不是 deflate 序列目标中的一步：`StreamOperation` 没有列出它（见[偏离记录](../../deviations.md)中“直接调用 `deflateResetKeep`”一行）。为单次调用陈述了一个目标（非必需）：`Goal.deflateResetKeep`（[Functional/Lifecycle.lean](../../../ZlibF/Spec/Functional/Lifecycle.lean)），定理为 `ZlibF.Spec.Public.DeflateResetKeepProof.deflate_resetkeep_public`（[public-deflate-reset-keep.lean](../../../ZlibF/Proof/public-deflate-reset-keep.lean)）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateResetKeep"><summary>完整返回条件与边界</summary>
 
@@ -327,7 +327,7 @@ int ZEXPORT deflateReset(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateReset_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateReset_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -337,7 +337,7 @@ int ZEXPORT deflateReset(z_streamp strm);
     - *状态。* 流保持其不变量（`StreamInvariant`）。
     - *写入。* 只写流记录和流自己的块。
     - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；已登记的引理 `Zlib.Deflate.Proofs.deflateReset_reject`（[deflate.c.life.reset.lean](../../../ZlibF/Proof/deflate.c.life.reset.lean)）陈述了这种拒绝。返回值和调用之后各字段的值：功能目标 `Goal.deflateReset`，安全结论不需要它。
+- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；引理 `Zlib.Deflate.Proofs.deflateReset_reject`（[deflate.c.life.reset.lean](../../../ZlibF/Proof/deflate.c.life.reset.lean)）陈述了这种拒绝。返回值和调用之后各字段的值：功能目标 `Goal.deflateReset`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateReset"><summary>完整返回条件与边界</summary>
 
@@ -376,7 +376,7 @@ int ZEXPORT deflateSetHeader(z_streamp strm, gz_headerp head);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateSetHeader_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateSetHeader_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -430,7 +430,7 @@ int ZEXPORT deflatePending(z_streamp strm, unsigned *pending, int *bits);
 
 **证明目标。**
 
-- **目标。** `Goal.deflatePending_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflatePending_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -481,7 +481,7 @@ int ZEXPORT deflateUsed(z_streamp strm, int *bits);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateUsed_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateUsed_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -534,7 +534,7 @@ int ZEXPORT deflatePrime(z_streamp strm, int bits, int value);
 
 **证明目标。**
 
-- **目标。** `Goal.deflatePrime_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflatePrime_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -545,7 +545,7 @@ int ZEXPORT deflatePrime(z_streamp strm, int bits, int value);
     - *状态。* 流保持其不变量（`StreamInvariant`）。
     - *写入。* 只写流记录和流自己的块。
     - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。NULL 流或不一致的流：没有必需目标为这个函数覆盖它；已登记的引理 `Zlib.Deflate.Proofs.deflatePrime_refused`（[deflate.c.prime.lean](../../../ZlibF/Proof/deflate.c.prime.lean)）陈述了这种拒绝。返回哪个状态码，以及调用之后的待输出位：功能目标 `Goal.deflatePrime`，安全结论不需要它。
+- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。NULL 流或不一致的流：没有必需目标为这个函数覆盖它；引理 `Zlib.Deflate.Proofs.deflatePrime_refused`（[deflate.c.prime.lean](../../../ZlibF/Proof/deflate.c.prime.lean)）陈述了这种拒绝。返回哪个状态码，以及调用之后的待输出位：功能目标 `Goal.deflatePrime`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePrime"><summary>完整返回条件与边界</summary>
 
@@ -589,7 +589,7 @@ int ZEXPORT deflateParams(z_streamp strm, int level, int strategy);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateParams_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateParams_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -656,7 +656,7 @@ int ZEXPORT deflateTune(z_streamp strm, int good_length, int max_lazy, int nice_
 
 **证明目标。**
 
-- **目标。** `Goal.deflateTune_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateTune_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -707,7 +707,7 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateBound_z_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateBound_z_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -719,7 +719,7 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
     - *状态。* 流保持其不变量（`StreamInvariant`）。
     - *写入。* 只写流记录和流自己的块。
     - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；已登记的引理 `Zlib.Deflate.Proofs.deflateBound_z_nostate`（[deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)）陈述了返回的值以及堆不变。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound_z`，安全结论不需要它。
+- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；引理 `Zlib.Deflate.Proofs.deflateBound_z_nostate`（[deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)）陈述了返回的值以及堆不变。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound_z`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound_z"><summary>完整返回条件与边界</summary>
 
@@ -770,7 +770,7 @@ uLong ZEXPORT deflateBound(z_streamp strm, uLong sourceLen);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateBound_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateBound_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -782,7 +782,7 @@ uLong ZEXPORT deflateBound(z_streamp strm, uLong sourceLen);
     - *状态。* 流保持其不变量（`StreamInvariant`）。
     - *写入。* 只写流记录和流自己的块。
     - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；已登记的引理 `Zlib.Deflate.Proofs.deflateBound_nostate`（[deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)）陈述了返回的值以及堆不变。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound`，安全结论不需要它。
+- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；引理 `Zlib.Deflate.Proofs.deflateBound_nostate`（[deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)）陈述了返回的值以及堆不变。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>完整返回条件与边界</summary>
 
@@ -828,7 +828,7 @@ int ZEXPORT deflate(z_streamp strm, int flush);
 
 **证明目标。**
 
-- **目标。** `Goal.deflate_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflate_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件**（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -890,7 +890,7 @@ int ZEXPORT deflateEnd(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateEnd_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。已登记定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
+- **目标。** `Goal.deflateEnd_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
 - **适用条件。** `strm` 是可达流（`StreamReachable`）。不要求平台大小上界。
 - **无条件覆盖。** 每一个可达流，无论处于哪个阶段：第一次 `deflate` 之前、流的中途、收尾期间，以及 `Z_STREAM_END` 之后。
 - **保证。**
@@ -898,7 +898,7 @@ int ZEXPORT deflateEnd(z_streamp strm);
     - *状态。* `strm->state` 为 NULL。
     - *写入。* 只写流记录和流自己的块。
     - *分配。* 精确的分配账本（`LiveChange`）：流自己的块被释放；除此之外不释放任何块，也不分配任何块。
-- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；已登记的引理 `Zlib.Deflate.Proofs.deflateEnd_reject`（[deflate.c.life.end.lean](../../../ZlibF/Proof/deflate.c.life.end.lean)）陈述了这种拒绝。返回两个状态码中的哪一个，以及流的其他字段的值：功能目标 `Goal.deflateEnd`，安全结论不需要它。
+- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；引理 `Zlib.Deflate.Proofs.deflateEnd_reject`（[deflate.c.life.end.lean](../../../ZlibF/Proof/deflate.c.life.end.lean)）陈述了这种拒绝。返回两个状态码中的哪一个，以及流的其他字段的值：功能目标 `Goal.deflateEnd`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateEnd"><summary>完整返回条件与边界</summary>
 
@@ -941,7 +941,7 @@ int ZEXPORT deflateCopy(z_streamp dest, z_streamp source);
 
 **证明目标。**
 
-- **目标。** `Goal.deflateCopy_safety`（[Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)）；必需。已登记定理：`Zlib.Deflate.Universal.deflate_copy_safety`（[public-deflate-copy.lean](../../../ZlibF/Proof/public-deflate-copy.lean)）。
+- **目标。** `Goal.deflateCopy_safety`（[Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)）；必需。定理：`Zlib.Deflate.Universal.deflate_copy_safety`（[public-deflate-copy.lean](../../../ZlibF/Proof/public-deflate-copy.lean)）。
 - **适用条件**（主子句）：
     1. `source` 是可达流（`StreamReachable`）。命题还把它的不变量和默认分配器作为假设（`DGood`、`DefAlloc`）；每个可达流都满足它们（`Goal.deflate_sequence_safety` 的第一个子句）；
     2. `dest` 指向一个可读的流记录，且不是 `source` 记录（`source ≠ dest`）。不要求平台大小上界。
