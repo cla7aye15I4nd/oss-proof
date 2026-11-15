@@ -1,4 +1,4 @@
-<!-- source-sha256: 6ae08188abe200f4c9310d089eb3ad07fc2fc4bdc0508248f2b43a885db047d5 -->
+<!-- source-sha256: 31528d82c64d30effe77bf2a19339c5e7da504b8cd923ea01db5c01ae89a43d9 -->
 # 解码表：`inflate_table` 为什么安全，它建的表为什么可以放心读
 
 源文件：`zlib/inftrees.c`。翻译：`ZlibF/Zlib/inftrees.c.lean`。
@@ -16,12 +16,12 @@
 | **T1.** 对每一次满足前提的调用，`inflate_table` 返回且不出故障。只有 `work` 和表空间发生变化。返回值是 0、1 或 -1 | `inflate_table_safe` | `inftrees.c.lean` |
 | 返回 -1 当且仅当这组码长不是可接受的编码；返回 1 只出现在 `LENS` 和 `DISTS` | `inflate_table_correct_ret` | `inftrees.c.lean` |
 | **T2.** 调用返回 0 之后，表对返回的根宽度具有[表形状](#the-table-shape) | `inflate_table_decoder_safe` | `inftrees.c.decoder-safe.lean` |
-| 调用返回 0 之后，表中每个链接都指向本次调用用到的表项之内，所以不会走到紧接在后面建的第二张表里 | `inflate_table_read_extent` | `inftrees.c.read-extent.lean` |
-| 每个根下标和每个二级下标处，都有本次调用写入的表项 | `root_cover`、`group_cover` | `inftrees.c.cover.root.lean`、`inftrees.c.cover.group.lean` |
+| 调用返回 0 之后，返回的指针在 `*table` 之后 `used` 项处，`used` 至多是 128、852 或 592。对 `LENS` 和 `DISTS`，根表以及每个链接指定的二级表，都在第 `used` 项或之前结束（`TableReadExtent`），所以不会走到建在这张表后面的另一张表里 | `inflate_table_read_extent` | `inftrees.c.read-extent.lean` |
+| T2 的证明用到的两条引理，它们说的是码长列表，不涉及堆。`root_cover`：对没有超额分配的码长，每个根下标要么恰好被一个码长不超过 `root` 的编码填充，要么存着一组更长编码的链接，要么没有被写；最后一种情形要求 Kraft 和够不到这个下标，完整的编码排除了它（`RootCell`）。`group_cover`：对完整的编码，如果二级表的宽度容得下它那一组编码，表里每个下标恰好属于这一组中的一个编码。关于堆的事实，即查表能到达的每个表项都是符合表形状的叶子或链接，是 T2 | `root_cover`、`group_cover` | `inftrees.c.cover.root.lean`、`inftrees.c.cover.group.lean` |
 | `inflate_fixed` 让状态指向两张静态表，改动四个字段 | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
-| 慢速解码器在手里位数还少时接受的表项，在更多的位到来之后不变 | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
+| 对 `LENS` 和 `DISTS`，在调用返回 0 之后：慢速解码器在手里位数还少时接受的表项，在更多的位到来之后不变 | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
 
-另有一条定理已检查而未登记：`inflate_table_len_leaves_positive`（`inftrees.c.decoder-safe.lean`）。它说，建出来的表里每个字面量/长度叶子至少用掉一位。回调解码器的终止性需要它（[快速解码](inffast.md#assumptions)）；它在已登记的 `inflate_back_sequence_safety` 的证明内部。
+另有一条定理已检查而未登记：`inflate_table_len_leaves_positive`（`inftrees.c.decoder-safe.lean`）。它说，一次返回 0 的 `LENS` 调用之后，表里每个字面量/长度叶子至少用掉一位。两个调用者都用到它，都是在两条已登记的序列定理的证明内部。`inflate` 需要它来建立[它的不变量](inflate.md#the-invariant)的子句 `tables`，这个子句包含这条事实（`inflate.c.dynamic-install.lean`）。回调解码器的终止性需要它（`infback.c.safety-table-lens.lean`；[快速解码](inffast.md#assumptions)）。
 
 关于表项含义的功能结论列在[功能结论](#functional-results)一节。
 
@@ -149,7 +149,16 @@ while (curr + drop < max) {
 
 `left` 是当前宽度下还空着的槽数。如果这个码长的编码把槽用完了，宽度就够了。否则宽度加一位。循环最迟在 `max` 处停下，所以读 `count[curr + drop]` 时下标至多是 15。循环之后，这一组里每个编码都满足 `len - root ≤ curr`。然后像写根表那样写表项，只是用 `huff >> drop` 代替 `huff`，用 `2^curr` 代替 `2^root`。
 
-新表从 `next` 开始，它等于表的基址加上此前所有表的大小。`used` 就是这个总和。对 `LENS` 和 `DISTS`，C 在写入或链接新表之前，把 `used` 与 852 或 592 比较，更大时返回 1。所以每次写都在前提给出的空间之内。根链接把宽度 `curr` 存进 `op`，把偏移 `next - *table` 存进 16 位字段 `val`；这个偏移小于 852。
+新表从 `next` 开始，它等于表的基址加上此前所有表的大小。`used` 就是这个总和。对 `LENS` 和 `DISTS`，C 先把新表的大小 `2^curr` 加到 `used` 上，再把这个和与 852（`LENS`）或 592（`DISTS`）比较，更大时返回 1。通过之后它才链接新表；表项在随后的各轮里写入。根表在主循环之前做同样的比较，那时 `used = 2^root`。所以每次写都在前提给出的空间之内。
+
+根链接把宽度 `curr` 存进 `op`，把偏移 `next - *table` 存进 16 位字段 `val`。这时 `next - *table = used - 2^curr`，所以
+
+```
+val + 2^op = used ≤ 852   对 LENS
+val + 2^op = used ≤ 592   对 DISTS
+```
+
+这个偏移放得进该字段，它指定的表也在空间之内结束。有两条定理对成功调用返回的表陈述了这一点。`inflate_table_read_extent` 对每个根链接给出 `val + 2^op ≤ used`，其中 `used ≤ 852` 或 `used ≤ 592`。`inflate_table_decoder_safe` 对每个根链接给出：`val` 处的 `2^op` 个表项在数组之内，并且都是叶子（`LinkOK`，表形状的一部分）。
 
 `CODES` 没有这项检查，也不需要：每个码长至多是 7，请求的根宽度至少是 7，于是 `root = max`，没有比根更长的编码，表有 `2^root ≤ 128` 项。这就是 `CODES` 的前提更强的原因。
 
@@ -157,7 +166,7 @@ while (curr + drop < max) {
 
 填充写和链接写合起来必须覆盖每一个下标，否则查表可能读到从未写过的表项。
 
-给每个码长为 `l` 的编码分配以它开头的那些 15 位字，共 `2^(15-l)` 个。对完整的编码，这些区间互不相交，并且盖住全部 `2^15` 个字（`inftrees.c.cover.tile.lean`）。一个根下标代表以它那 `root` 位开头的字。要么有一个码长不超过 `root` 的编码是这些字的前缀，它的填充写了这个下标；要么有更长的编码共用这个前缀，其中第一个在这里写了链接（`root_cover`）。在二级表内做同样的论证，就得到 `group_cover`。
+给每个码长为 `l` 的编码分配一个区间：以它开头的那些 15 位字，共 `2^(15-l)` 个。对完整的编码，这些区间互不相交，并且盖住全部 `2^15` 个字（`inftrees.c.cover.tile.lean`）。一个根下标代表以它那 `root` 位开头的字。要么有一个码长不超过 `root` 的编码是这些字的前缀，它的填充写了这个下标；要么有更长的编码共用这个前缀，其中第一个在这里写了链接（`root_cover`）。在二级表内做同样的论证，就得到 `group_cover`。
 
 有两种情形不是完整编码，要单独处理。
 
@@ -186,7 +195,7 @@ while (curr + drop < max) {
 
 ## 难点在哪里
 
-一旦知道 `huff < 2^len`，写操作的安全性就容易了。难的是覆盖：任何一张表都没有一个下标漏写。它需要规范编码的整套理论（上面的区间），需要一个模型来描述哪些编码共用一张二级表，还需要证明那个向前查看 `count` 的定大小循环，给每一组的宽度恰好是它的编码所需要的。覆盖看起来像功能性质，但解码器的安全性依赖它，因为解码器使用表项之前并不检查。
+一旦知道 `huff < 2^len`，写操作的安全性就容易了。难的是覆盖：任何一张表都没有一个下标漏写。它需要规范编码的整套理论（上面的区间），需要一个模型来描述哪些编码共用一张二级表，还需要证明那个向前查看 `count` 的确定大小的循环，给每一组的宽度恰好是它的编码所需要的。覆盖看起来像功能性质，但解码器的安全性依赖它，因为解码器使用表项之前并不检查。
 
 ## 没有定理陈述的 C 解读
 
