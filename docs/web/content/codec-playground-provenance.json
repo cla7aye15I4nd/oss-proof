@@ -22,6 +22,10 @@
     {
       "path": "patches/0005-gz-next-zero-advance.patch",
       "sha256": "d2524a6af61583e4007ed1367415e75f111eccc94c229bc50c1dd8ab6eba046b"
+    },
+    {
+      "path": "patches/0006-deflatebound-fixed-conservative.patch",
+      "sha256": "f04413d93d4ddaa4717ba5ac3a795acd913a2ff3b52c91c0552f3a4f984829b5"
     }
   ],
   "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12-git",
@@ -58,7 +62,7 @@
     },
     {
       "path": "deflate.c",
-      "sha256": "f1d7780041bb7821cd6ddb3b95ae033b5e3b83cdb67c708973245932e42a316d"
+      "sha256": "965f636d700002bd8bd35946379df549e5d13ed73330568b0a5aae8ad9695dd9"
     },
     {
       "path": "trees.c",
