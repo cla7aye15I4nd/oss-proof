@@ -105,9 +105,9 @@ facts.
 
 ## What is proved, what is assumed
 
-**Proved.** The required set has 63 goals in `tests/audit/public-api.json`: 54 that are the
-`safety_goal` of a function, 5 more in the list `safety_goals` (two sequence goals and three
-refusal goals), and 4 `nonvacuity_goals`. Each has a theorem of exactly its type, listed in
+**Proved.** The required set has 98 goals in `tests/audit/public-api.json`: 86 that are the
+`safety_goal` of a documented function, 8 more in the list `safety_goals` (four sequence goals,
+three refusal goals and the goal of `gzvprintf`), and 4 `nonvacuity_goals`. Each has a theorem of exactly its type, listed in
 `tests/audit/theorems.txt`, and each goal is listed in `tests/audit/proved-goals.txt`. This
 level is called **registered**. A result is **accepted** only when the acceptance suite is also
 green on a named commit; [progress](../progress.md#scope) names that commit. The
@@ -122,14 +122,6 @@ green on a named commit; [progress](../progress.md#scope) names that commit. The
   proof about the model does not settle the C.
 - The [trusted base](../trusted-base.md): the runtime, the hand translation, the compiler, the
   operating system.
-
-**Not stated separately.** The gzip file functions (`gzopen` to `gzclose`) and the three
-callback decoder functions (`inflateBackInit_`, `inflateBack`, `inflateBackEnd`) have no goal of
-their own. Each family is covered by one registered goal over every call sequence:
-`Goal.gz_sequence_safety` and `Goal.inflate_back_sequence_safety`. One goal per function is
-remaining work ([progress](../progress.md#remaining-work)). The callback goal starts each
-sequence at a successful `inflateBackInit_`; it states nothing about an init call that fails
-or is refused ([callback contracts](api/inflate-back.md)).
 
 The [proof method](../proof/method.md) explains how the goals are proved.
 
@@ -307,7 +299,11 @@ The gzip file interface and the callback decoder have the same structure with th
 histories: `GzHistory` ([Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)) and
 `BackSafeReachable` ([Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean)). A gz
 history also has a step for the outside world between calls: the file system and the
-descriptors (the **world**) may change to any well-formed state. The
+descriptors (the **world**) may change to any well-formed state. Each function of the two
+families also has a goal of its own, which restricts one clause of the sequence goal to that
+function ([Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean),
+[Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean)). The goal of `inflateBackInit_` needs no
+history: it covers every call `zlib.h` allows, also one that fails or is refused. The
 [gzip file contracts](api/gz-file.md) and the [callback contracts](api/inflate-back.md) state
 them.
 
@@ -500,8 +496,8 @@ Malformed input is inside the safety domain: an error return must not hide a fau
 ## Appendix: where the goals are {#where-the-goals-are}
 
 Every safety goal is a Lean definition `ZlibF.Spec.Public.Goal.<name>`. It is in
-`ZlibF/Spec/Safety/`, or in `ZlibF/Spec/Public/` for the gzip file interface and the callback
-decoder. `ZlibF/Spec/Public/` also holds the definitions the goals use. There are two
+`ZlibF/Spec/Safety/`, or in `ZlibF/Spec/Public/` for the sequence, refusal and non-vacuity goals
+of the gzip file interface and of the callback decoder. `ZlibF/Spec/Public/` also holds the definitions the goals use. There are two
 exceptions and one addition:
 
 - `Goal.compressBound` and `Goal.compressBound_z` are in `ZlibF/Spec/Functional/Queries.lean`
@@ -530,12 +526,15 @@ decoder from `ZlibF/Spec/Api/Gz.lean`. The functional gz and callback goals
 | `zlibVersion`, `zlibCompileFlags` | `Goal.<function>_safety`: the call returns and the heap is unchanged | [Safety/Queries.lean](../../ZlibF/Spec/Safety/Queries.lean) |
 | `compress*`, `uncompress*` | `Goal.compress*_safety`, `Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
 | `compressBound`, `compressBound_z` | `Goal.compressBound`, `Goal.compressBound_z`: the full contract. The translation is a pure function with no heap and no fault, so a separate safety goal would hold by definition. | [Functional/Queries.lean](../../ZlibF/Spec/Functional/Queries.lean) |
-| gzip file interface | `Goal.gz_sequence_safety`; a `NULL` handle: `Goal.gz_refusal` | [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean), [Public/GzRefusal.lean](../../ZlibF/Spec/Public/GzRefusal.lean) |
-| `inflateBackInit_`, `inflateBack`, `inflateBackEnd` | `Goal.inflate_back_sequence_safety` | [Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean) |
+| the gzip file functions, and `gzvprintf` | `Goal.<function>_safety`: one call on a handle of any history, with the refusal of a `NULL` handle; for the three open functions, the open | [Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean) |
+| every history of a gzip file handle | `Goal.gz_sequence_safety`; a `NULL` handle: `Goal.gz_refusal` | [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean), [Public/GzRefusal.lean](../../ZlibF/Spec/Public/GzRefusal.lean) |
+| `inflateBackInit_`, `inflateBack`, `inflateBackEnd` | `Goal.<function>_safety`: for init, every call that `zlib.h` allows; for the other two, the call on a history and the refusals | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
+| every history of a callback decoder | `Goal.inflate_back_sequence_safety` | [Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean) |
 | non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Public/Domains.lean](../../ZlibF/Spec/Public/Domains.lean), [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean) |
 
 `tests/audit/public-api.json` is the list the audit uses. For each function it gives a
 `safety_goal` and a `functional_goal`. The required set is every `safety_goal`, the list
 `safety_goals` and the list `nonvacuity_goals`. The list `open_safety` names required goals
 that have no registered theorem; it is empty. The functions that `zlib.h` declares under
-"undocumented functions" have no required goal.
+"undocumented functions" have no required goal, except `gzvprintf`: its goal
+`Goal.gzvprintf_safety` is in the list `safety_goals`.

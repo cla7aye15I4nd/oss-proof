@@ -1,4 +1,4 @@
-<!-- source-sha256: fd0fca9c894eff9f12046d80ac62e9c10f381337a315054ef3a680d31a0f788c -->
+<!-- source-sha256: 666b7f47057890a2436d9e5d8e2d593e2823dc99c81fc550b0b5c29ee0fb4ec8 -->
 # 规格的布局：安全与功能
 
 必需的目标是安全目标。它们与功能目标分开存放，读者不读任何功能规格，就能看到全部必需的目标。本页说明每一类目标放在哪里，哪条导入规则把它们分开，以及这条规则怎样检查。形成这个布局的计划，连同它的步骤和状态，在一个[历史页面](../history/safety-functional-split-plan.md)中。
@@ -8,7 +8,7 @@
 | 目录 | 内容 | 是否必需 |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | 安全目标：在文档规定的定义域上，调用返回，没有 `Fault.ub`，没有 `Fault.outOfFuel`，只写自己的帧，不泄漏任何东西 | 是 |
-| `ZlibF/Spec/Public/` | 两类目标共用的定义：调用、历史、帧、参数。还有 gzip 文件接口和 `inflateBack` 的目标，安全的和功能的都在这里 | 其中的安全目标：是 |
+| `ZlibF/Spec/Public/` | 两类目标共用的定义：调用、历史、帧、参数。还有 gzip 文件接口和 `inflateBack` 的序列目标、拒绝目标和非空性目标，以及它们的功能目标 | 其中的安全目标：是 |
 | `ZlibF/Spec/Functional/` | 结果契约（`Goal.<function>`）、格式模型和 API 模型及它们的目标（`Format/`、`Api/`），以及完整的序列契约 `Goal.inflate_sequence` 和 `Goal.deflate_sequence`，它们把序列安全与功能子句合在一起 | 否 |
 
 关于公开函数的目标，不论在三个目录中的哪一个，Lean 名字都是 `ZlibF.Spec.Public.Goal.<name>`。目录表明种类；命名空间相同。清单文件 `tests/audit/public-api.json` 只列这个命名空间里的目标。
@@ -50,12 +50,12 @@ flowchart TD
 
 - **不带流的调用**（校验和、`zlibVersion`、`zlibCompileFlags`、`compress*`、`uncompress*`）：在文档规定的定义域上，调用无故障地返回，只写声明的调用者区域，存活块保持原样。
 - **流函数**（inflate 族和 deflate 族）：每个函数一个目标。它陈述的是：在一个流的每个可达历史上，再调用一次这个函数。四个初始化函数不需要历史：它们的目标覆盖 `zlib.h` 允许的每一次调用（`InitArguments`）。`NULL` 流或不一致的流由 `Goal.inflate_refusal` 和 `Goal.deflate_refusal` 覆盖。
-- **gzip 文件接口和 `inflateBack`**：31 个 gz 函数和三个 `inflateBack` 函数的安全性通过它们的序列目标 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety` 证明。它们没有单独的单函数安全目标；清单文件把序列目标写作其中每个函数的安全目标。
+- **gzip 文件接口和 `inflateBack`**：同样是每个函数一个目标（`Safety/GzCalls.lean`、`Safety/Back.lean`）。每个目标把所属一族的序列目标（`Goal.gz_sequence_safety` 或 `Goal.inflate_back_sequence_safety`）的一个子句限制到一个函数上。它还带有这个函数的拒绝：对接受句柄的 gz 函数是 `NULL` 句柄；对 `inflateBack` 和 `inflateBackEnd` 是 `NULL` 流和状态为 `NULL` 的流记录，对 `inflateBackEnd` 还有 `zfree` 为 `NULL`。`Goal.inflateBackInit__safety` 与其他初始化目标一样，覆盖 `zlib.h` 允许的每一次调用。两个序列目标仍然是必需的。没有函数与别的函数共用安全目标：`scripts/verification.py` 中的 `SHARED_SAFETY_GOALS` 列表是空的。
 
 清单文件中的特殊情况：
 
 - `compressBound` 和 `compressBound_z` 把它们的完整契约写作安全目标。它们的翻译是纯函数，没有堆，也没有故障，所以单独的安全目标会按定义成立。
-- 对 `zlib.h` 列为未文档化的函数，以及不在目标构建中的 `gzopen_w`，`safety_goal` 为 `null`。
+- 对 `zlib.h` 列为未文档化的函数，`safety_goal` 为 `null`；其中包括不在目标构建中的 `gzopen_w`。例外是 `gzvprintf`：它写的是 `Goal.gzvprintf_safety`，这个目标通过 `safety_goals` 列表成为必需。
 - 四个 `uncompress*` 目标以 `_safe` 结尾；其他每个单函数安全目标都以 `_safety` 结尾。清单文件写出每个目标的全名，所以任何检查都不必去猜后缀。
 
 流目标的强度取决于它的可达历史集合。四个非空性目标为每一族给出一个可达的见证，它们属于必需集合：`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain` 和 `Goal.gz_sequence_nonvacuity`。`Goal.gz_initialisation_domain` 不是必需的：它陈述的是 `gzopen` 的功能契约，清单文件把它列在 `not_planned` 之下。
@@ -66,7 +66,7 @@ flowchart TD
 
 ## 没有分开的部分
 
-- gzip 文件接口和 `inflateBack` 的目标定义在 `Spec/Public/` 中，不在 `Spec/Safety/` 中：`Public/GzSafety.lean`、`Public/GzRefusal.lean`、`Public/Sequences.lean` 和 `Public/Domains.lean` 存放安全目标和非空性目标；`Public/Gz*.lean` 各文件、`Public/Back.lean` 和 `Public/Sequences.lean` 还存放功能目标。
+- gzip 文件接口和 `inflateBack` 的序列目标、拒绝目标和非空性目标在 `Spec/Public/` 中，不在 `Spec/Safety/` 中：它们存放在 `Public/GzSafety.lean`、`Public/GzRefusal.lean`、`Public/Sequences.lean` 和 `Public/Domains.lean` 里；`Public/Gz*.lean` 各文件、`Public/Back.lean` 和 `Public/Sequences.lean` 还存放功能目标。这两族只有单函数目标在 `Spec/Safety/` 中。
 - 上文那一条被允许的导入边。
 - 上文所说的对证明模块的导入。
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: d049bbcde8067c90b4db71102d3fb8e54a38179bd5b08880633873bfd0b24393 -->
+<!-- source-sha256: 22c8cbf4935123da45b67490237f4beb023b7fdf648dbfb81c10ab7c3b2b0244 -->
 
 # 安全性：目标陈述了什么
 
@@ -96,8 +96,8 @@ flowchart LR
 
 ## 已证明的内容与所作的假设
 
-**已证明。** 必需目标共 63 个，列在 `tests/audit/public-api.json` 中：
-54 个是某个函数的 `safety_goal`，另有 5 个在 `safety_goals` 列表里（两个序列目标和三个拒绝目标），
+**已证明。** 必需目标共 98 个，列在 `tests/audit/public-api.json` 中：
+86 个是某个有文档的函数的 `safety_goal`，另有 8 个在 `safety_goals` 列表里（四个序列目标、三个拒绝目标和 `gzvprintf` 的目标），
 还有 4 个 `nonvacuity_goals`。每个目标都有一条类型与它完全相同的定理，列在 `tests/audit/theorems.txt` 中；
 目标本身列在 `tests/audit/proved-goals.txt` 中。这一层级叫**已登记**。
 只有验收套件也在一个指明的提交上全部通过，结果才是**已验收**；
@@ -110,13 +110,6 @@ flowchart LR
   在[偏离记录](../deviations.md)中都有一行。
 - 下文的[模型的限制](#3-faults-undefined-behaviour-and-model-gaps)：在这些情形下，关于模型的证明不能对 C 作出定论。
 - [可信基础](../trusted-base.md)：运行时、手工翻译、编译器、操作系统。
-
-**没有单独陈述的。** gzip 文件函数（从 `gzopen` 到 `gzclose`）和三个回调解码函数
-（`inflateBackInit_`、`inflateBack`、`inflateBackEnd`）没有各自的目标。
-每一族由一个已登记的、针对每个调用序列的目标覆盖：`Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety`。
-为每个函数各立一个目标是剩余工作（见[进度](../progress.md#remaining-work)）。
-回调目标的每个序列都从一次成功的 `inflateBackInit_` 开始；
-对失败或被拒绝的初始化调用，它什么也没有说（见[回调契约](api/inflate-back.md)）。
 
 这些目标怎样证明，见[证明方法](../proof/method.md)。
 
@@ -279,6 +272,9 @@ gzip 文件接口和回调解码器的结构相同，各有自己的历史：
 `GzHistory`（[Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)）和
 `BackSafeReachable`（[Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean)）。
 gz 历史在两次调用之间还有一步留给外部：文件系统和描述符（即**世界**）可以变成任何良构的状态。
+这两族的每个函数还各有自己的目标，它把序列目标的一个子句限制到这个函数上
+（[Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean)、[Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean)）。
+`inflateBackInit_` 的目标不需要历史：它覆盖 `zlib.h` 允许的每一次调用，包括失败或被拒绝的调用。
 具体命题见 [gzip 文件契约](api/gz-file.md)和[回调契约](api/inflate-back.md)。
 
 ### 终止与循环燃料
@@ -444,7 +440,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 ## 附录：目标在哪里 {#where-the-goals-are}
 
 每个安全目标都是一个 Lean 定义 `ZlibF.Spec.Public.Goal.<name>`。它位于 `ZlibF/Spec/Safety/`；
-gzip 文件接口和回调解码器的目标位于 `ZlibF/Spec/Public/`。
+gzip 文件接口和回调解码器的序列目标、拒绝目标和非空性目标位于 `ZlibF/Spec/Public/`。
 `ZlibF/Spec/Public/` 还存放目标用到的定义。有两个例外和一点补充：
 
 - `Goal.compressBound` 和 `Goal.compressBound_z` 在 `ZlibF/Spec/Functional/Queries.lean` 中（见下表中的那一行）。
@@ -470,11 +466,13 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 | `zlibVersion`、`zlibCompileFlags` | `Goal.<function>_safety`：调用返回，堆不变 | [Safety/Queries.lean](../../ZlibF/Spec/Safety/Queries.lean) |
 | `compress*`、`uncompress*` | `Goal.compress*_safety`、`Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
 | `compressBound`、`compressBound_z` | `Goal.compressBound`、`Goal.compressBound_z`：完整契约。翻译是一个纯函数，不涉及堆，也不会出故障，所以单独的安全目标会按定义成立。 | [Functional/Queries.lean](../../ZlibF/Spec/Functional/Queries.lean) |
-| gzip 文件接口 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)、[Public/GzRefusal.lean](../../ZlibF/Spec/Public/GzRefusal.lean) |
-| `inflateBackInit_`、`inflateBack`、`inflateBackEnd` | `Goal.inflate_back_sequence_safety` | [Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean) |
+| gzip 文件函数，以及 `gzvprintf` | `Goal.<function>_safety`：任意历史的句柄上的一次调用，连同对 `NULL` 句柄的拒绝；对三个打开函数，是打开本身 | [Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean) |
+| gzip 文件句柄的每段历史 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)、[Public/GzRefusal.lean](../../ZlibF/Spec/Public/GzRefusal.lean) |
+| `inflateBackInit_`、`inflateBack`、`inflateBackEnd` | `Goal.<function>_safety`：对初始化，是 `zlib.h` 允许的每一次调用；对另外两个，是历史上的调用和各种拒绝 | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
+| 回调解码器的每段历史 | `Goal.inflate_back_sequence_safety` | [Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean) |
 | 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Public/Domains.lean](../../ZlibF/Spec/Public/Domains.lean)、[Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean) |
 
 `tests/audit/public-api.json` 是审计所用的清单。它为每个函数给出一个 `safety_goal` 和一个 `functional_goal`。
 必需集合是每个 `safety_goal`、`safety_goals` 列表和 `nonvacuity_goals` 列表。
 `open_safety` 列表列出还没有已登记定理的必需目标；它是空的。
-`zlib.h` 在“undocumented functions”（未文档化的函数）注释之下声明的函数没有必需目标。
+`zlib.h` 在“undocumented functions”（未文档化的函数）注释之下声明的函数没有必需目标，只有 `gzvprintf` 例外：它的目标 `Goal.gzvprintf_safety` 在 `safety_goals` 列表里。

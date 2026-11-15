@@ -11,7 +11,7 @@ checked. The plan that led to this layout, with its steps and status, is a
 | Directory | Content | Required |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | Safety goals: the call returns with no `Fault.ub` and no `Fault.outOfFuel`, writes only its frame, and leaks nothing, on the documented domain | Yes |
-| `ZlibF/Spec/Public/` | The definitions both kinds of goal use: calls, histories, frames, parameters. Also the goals of the gzip file interface and of `inflateBack`, safety and functional | The safety goals in it: yes |
+| `ZlibF/Spec/Public/` | The definitions both kinds of goal use: calls, histories, frames, parameters. Also the sequence, refusal and non-vacuity goals of the gzip file interface and of `inflateBack`, and their functional goals | The safety goals in it: yes |
 | `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), the format and API models with their goals (`Format/`, `Api/`), and the full sequence contracts `Goal.inflate_sequence` and `Goal.deflate_sequence`, which join the sequence safety with functional clauses | No |
 
 A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`, in each of
@@ -94,18 +94,24 @@ the safety goal and its file for every function. The safety goals have three sha
   more call of that function on every reachable history of a stream. The four init functions
   need no history: their goals cover every call `zlib.h` allows (`InitArguments`). A `NULL` or
   inconsistent stream is covered by `Goal.inflate_refusal` and `Goal.deflate_refusal`.
-- **The gzip file interface and `inflateBack`**: the 31 gz functions and the three `inflateBack`
-  functions are proved safe through their sequence goals, `Goal.gz_sequence_safety` and
-  `Goal.inflate_back_sequence_safety`. They have no separate one-function safety goal; the manifest
-  names the sequence goal as the safety goal of each.
+- **The gzip file interface and `inflateBack`**: one goal per function as well
+  (`Safety/GzCalls.lean`, `Safety/Back.lean`). Each restricts a clause of the sequence goal of its
+  family, `Goal.gz_sequence_safety` or `Goal.inflate_back_sequence_safety`, to one function. It
+  also has the refusals of that function: a `NULL` handle for a gz function that takes a handle;
+  a `NULL` stream and a stream record with a `NULL` state for `inflateBack` and `inflateBackEnd`,
+  and for `inflateBackEnd` also a `NULL` `zfree`. `Goal.inflateBackInit__safety` covers every
+  call `zlib.h` allows, as the other init goals do. The two sequence goals stay required. No
+  function shares a safety goal with another: the list `SHARED_SAFETY_GOALS` of
+  `scripts/verification.py` is empty.
 
 Special cases in the manifest:
 
 - `compressBound` and `compressBound_z` name their full contracts as safety goals. Their
   translations are pure functions with no heap and no fault, so a separate safety goal would
   hold by definition.
-- `safety_goal` is `null` for the functions `zlib.h` lists as undocumented, and for `gzopen_w`,
-  which is not in the target build.
+- `safety_goal` is `null` for the functions `zlib.h` lists as undocumented, `gzopen_w` among
+  them, which is not in the target build. The exception is `gzvprintf`: it names
+  `Goal.gzvprintf_safety`, and that goal is required through the list `safety_goals`.
 - The four `uncompress*` goals end in `_safe`; every other one-function safety goal ends in
   `_safety`. The manifest names each goal in full, so no check guesses a suffix.
 
@@ -127,11 +133,11 @@ and the [rules against silent removal](../checking/goals.md#shrink-only-rules) i
 
 ## What is not separated
 
-- The goal definitions of the gzip file interface and of `inflateBack` are in `Spec/Public/`,
-  not in `Spec/Safety/`: `Public/GzSafety.lean`, `Public/GzRefusal.lean`,
-  `Public/Sequences.lean` and `Public/Domains.lean` hold the safety and non-vacuity goals; the
-  `Public/Gz*.lean` files, `Public/Back.lean` and `Public/Sequences.lean` also hold the functional
-  ones.
+- The sequence, refusal and non-vacuity goals of the gzip file interface and of `inflateBack`
+  are in `Spec/Public/`, not in `Spec/Safety/`: `Public/GzSafety.lean`, `Public/GzRefusal.lean`,
+  `Public/Sequences.lean` and `Public/Domains.lean` hold them; the `Public/Gz*.lean` files,
+  `Public/Back.lean` and `Public/Sequences.lean` also hold the functional goals. Only the
+  one-function goals of these two families are in `Spec/Safety/`.
 - The one allowed import edge above.
 - The imports of proof modules above.
 
