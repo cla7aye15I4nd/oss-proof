@@ -1,16 +1,37 @@
 # What the kernel does not establish
 
 The kernel checks a proof against its Lean statement. Applying that result to the selected C
-source also depends on the items below. These dependencies are reviewed and tested;
-they are not discharged merely by compiling the proofs. See [safety](spec/safety.md),
-[verification policy](anti-cheating.md) and [progress](progress.md) for the claim, acceptance
-rules and current status.
+source also depends on the six items below. They are reviewed and tested; they are not proved,
+and compiling the proofs does not discharge them.
+
+| # | Trusted | Checked by |
+| --- | --- | --- |
+| 1 | The Lean kernel, three axioms, and the audit programs | The axiom gate and a fresh kernel replay |
+| 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and semantic regression tests |
+| 3 | The hand translation of the C | Review and differential tests against the real C |
+| 4 | The selected source: the pin and five patches | The patch register and the sanitizer reproductions |
+| 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
+| 6 | The statements: that each goal says what it should | Review against `zlib.h`; the exact-goal check |
+
+See [safety](spec/safety.md) for the claim, [deviations](deviations.md) for the premises of each
+theorem, [verification policy](anti-cheating.md) for the acceptance rules and
+[progress](progress.md) for the current status. Differential tests are evidence of fidelity, not
+proof.
 
 ## 1. Kernel and permitted axioms
 
 The Lean kernel and `propext`, `Classical.choice` and `Quot.sound` are trusted.
 The declaration audit permits only those axioms. Fresh kernel replay checks the compiled
 proof closure; execution tests do not replace it.
+
+The audit itself is trusted code and trusted data. `tests/audit/Audit.lean` reads the compiled
+modules; it does not elaborate source or run code of the audited modules. `scripts/verification.py`
+decides which goals are required from `tests/audit/public-api.json`. The registries
+(`tests/audit/theorems.txt`, `goals.txt`, `proved-goals.txt`) and the manifest are edited by hand
+and tracked by git alone. `tests/audit/compiler-helpers.txt` lists the compiler-generated
+auxiliary declarations (such as `._unsafe_rec`) that the audit exempts from its `unsafe` and
+`partial` checks and does not take as roots of the axiom traversal. The
+[helper review](checking/compiler-helper-review.md) of them is a historical record.
 
 ## 2. Runtime and object schema
 
@@ -100,23 +121,33 @@ has defined semantics.
 ## 4. Selected source
 
 The verified source is the pinned `zlib/` submodule plus `patches/*.patch` in name order.
-The submodule is never edited. A patch is permitted only for a confirmed upstream bug blocking
-a proof; it must be minimal and match a submitted upstream fix. It is removed after the fix is
-merged and the pin moves past it.
+The submodule is never edited. A patch is permitted only for a confirmed zlib bug that blocks a
+proof; it must be minimal and match a fix submitted upstream. A patch that the owner approves may
+land before its submission; the register then marks it as local and pending. A patch is removed
+after upstream merges the fix and the pin moves past it.
 
-Each patch is for a confirmed zlib bug that blocks a proof. [The patch register](../patches/README.md) records the
-selected-source policy. Historical proposals are not part of the verified source merely
-because notes mention them.
+Five patches are applied today. Every theorem is about the patched source, so each patch is part
+of what a reader trusts. [The patch register](../patches/README.md) gives the evidence for each.
+
+| Patch | Fixes | Upstream state |
+| --- | --- | --- |
+| 0001 | Relational comparison of unrelated pointers in `inflateCopy` | Matches upstream PR #1369; not yet on the upstream branch |
+| 0002 | Signed overflow in `gzseek64` after `gzungetc` | The `gzlib.c` part of upstream PR #1361, open |
+| 0003 | Stale `x.next` after a partial transparent read fails | Upstream PR #1363, open |
+| 0004 | Overflow of the gz position `x.pos` | Local, approved by the owner, not submitted |
+| 0005 | Arithmetic on an unwritten or dangling `x.next` with a zero advance | Local, approved by the owner, not submitted |
+
+Historical proposals are not part of the verified source merely because notes mention them.
 
 ## 5. Configuration and external world
 
-The first target is the default x86_64 Linux/LP64 static build with the default allocator.
+The target is the default x86_64 Linux/LP64 static build with the default allocator.
 The accepted [platform scope](spec/platform.md) requires each represented byte
 object to have fewer than `2^63` bytes. This is an environment premise; zlib
 proofs establish that their operations preserve it. It is the LP64 `PTRDIFF_MAX` object-size
 limit, and it holds on every heap of a call history.
-Allocation failure remains in scope. Other upstream configurations and custom allocators
-require their own correspondence arguments; the full project goal includes them.
+Allocation failure remains in scope. Other build configurations and custom allocators would
+need their own correspondence arguments; they are not planned ([scope](progress.md#scope)).
 
 **Allocation size.** `malloc` returns NULL for a request above `PTRDIFF_MAX` (`2^63 − 1` bytes),
 whatever the allocation oracle says. The call still consumes one oracle number, and the heap
@@ -206,5 +237,5 @@ invariant and that the caller domain has not been reduced.
 
 Nothing in the tooling fixes definitions and theorem types: git tracks them, and review decides
 whether their meaning is right. The [verification policy](anti-cheating.md) says what the
-acceptance suite still defends against. Current checked results and unresolved
-obligations belong in [progress](progress.md).
+acceptance suite still defends against. Current results and open work are only in
+[progress](progress.md).
