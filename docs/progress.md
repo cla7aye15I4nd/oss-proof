@@ -2269,7 +2269,7 @@ kinds of item are open or narrower than `zlib.h`:
    `state == NULL` before `inflateBackInit_`); `inflateCopy` and `deflateCopy`
    (`source ≠ dest`); `adler32` and `adler32_z` (a `NULL` `buf` only with `len = 0`: `len = 1`
    is a real C fault, and `NULL` with `len ≥ 2` is safe in C but unproved).
-4. **Result cells passed as values.** The translations of seven public functions take a scalar
+4. **Result cells passed as values.** The translations of eight public functions take a scalar
    out-parameter as a value and return the stored value as a further result: `destLen` of
    `compress`, `compress2` and their `_z` forms; `dictLength` of `inflateGetDictionary` and
    `deflateGetDictionary`; `pending` and `bits` of `deflatePending`; `bits` of `deflateUsed`. The
@@ -2304,7 +2304,7 @@ was green and what changed after it. What remains, in order:
    requests.
 6. **Open reviews and decisions**: [Translation review](#translation-review),
    [Historical reports to recheck](#historical-reports-to-recheck), and the owner's decision on
-   the result cells of seven public functions
+   the result cells of eight public functions
    ([coverage](#no-fault-coverage-of-zlibh-functions), item 4).
 7. **Optional cleanup** of proofs that no registered theorem uses
    ([Core proof skeletons](#core-proof-skeletons)).

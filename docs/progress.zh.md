@@ -1,4 +1,4 @@
-<!-- source-sha256: 050f2519c9ecff65b0486c353d1cf26500710d36eaa3e4929d4f8464472e9d40 -->
+<!-- source-sha256: 61eeb6d2448bcae620ab59b36506569f9431a05d82c19ac7cf08f030a5f651a8 -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：239 个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
@@ -2179,7 +2179,7 @@ flowchart LR
 1. **单函数安全目标。** gz 函数以及 `inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 的单函数安全目标还没有陈述。它们的安全性由 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety` 证明。
 2. **拒绝子句。** `inflatePrime`、`inflateMark`、`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader` 的安全目标覆盖的是可达的流上的调用。对 `NULL` 流或不一致的流的拒绝，是在同一函数的功能目标中证明的，还不是安全目标的子句。
 3. **比 `zlib.h` 更窄的定义域**，每一条在[偏离记录](deviations.md)中都有对应的行：`inflateBack`（`inputBound < 2^48`；窗口和每一块输入都在堆字节块中；`inflateBackInit_` 之前 `state == NULL`）；`inflateCopy` 与 `deflateCopy`（`source ≠ dest`）；`adler32` 与 `adler32_z`（只有 `len = 0` 时 `buf` 才可以是 `NULL`：`len = 1` 是 C 中真实的故障，`buf` 为 `NULL` 且 `len ≥ 2` 在 C 中安全，但没有证明）。
-4. **作为值传递的结果单元。** 有七个公开函数的翻译把一个标量输出参数当作值接收，并把写入的值作为另一个结果返回：`compress`、`compress2` 及其 `_z` 形式的 `destLen`；`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`；`deflatePending` 的 `pending` 和 `bits`；`deflateUsed` 的 `bits`。因此这些函数的安全目标对结果单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。工作规则只对内部函数的输出参数采纳这种表示。这些翻译是否改为像 `uncompress*` 和 `gzerror` 那样把单元当作内存，所有者尚未决定。
+4. **作为值传递的结果单元。** 有八个公开函数的翻译把一个标量输出参数当作值接收，并把写入的值作为另一个结果返回：`compress`、`compress2` 及其 `_z` 形式的 `destLen`；`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`；`deflatePending` 的 `pending` 和 `bits`；`deflateUsed` 的 `bits`。因此这些函数的安全目标对结果单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。工作规则只对内部函数的输出参数采纳这种表示。这些翻译是否改为像 `uncompress*` 和 `gzerror` 那样把单元当作内存，所有者尚未决定。
 
 `deflateParams`、`deflateSetDictionary`、`deflatePrime`、`deflateBound`、`deflateBound_z` 和 `inflateSync` 的功能目标没有定理，也不在计划内。它们的安全目标已登记。
 
@@ -2192,7 +2192,7 @@ flowchart LR
 3. **验收**第 1、2 项以及放宽后的 init 目标：登记到 `tests/audit/theorems.txt`，补上证明变异体，并让验收套件在某个具名提交上全部通过。放宽后的 init 目标已经登记，只差这次运行。
 4. **默认 zlib 流的往返**，排在安全结论之后（[范围](#scope)）。
 5. **把本地补丁提交上游**：0004 和 0005（[补丁](../patches/README.md)）。补丁 0001 至 0003 与已经提交上游的拉取请求一致。
-6. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对七个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 4 条）。
+6. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对八个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 4 条）。
 7. **可选的清理**：删除没有任何已登记定理使用的证明（[核心证明骨架](#core-proof-skeletons)）。
 
 [范围](#scope)列为不在计划内的各组不投入工作。早先的有序工作表（13 行，每一行不是已登记就是不在计划内）见[早先的工作顺序](history/next-work-and-readiness.md)。

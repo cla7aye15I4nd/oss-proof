@@ -10,7 +10,7 @@ it is neither proved safe nor claimed to be unsafe.
 - **What is listed.** Every premise of a required safety goal that is narrower than `zlib.h`, or
   that a reader could miss. A premise that only repeats `zlib.h` is in the Lean statement of the
   goal, which is the authority; [coverage](coverage.md) names the goal of each function.
-- **Result cells.** Seven functions store a result through a pointer that the translation
+- **Result cells.** Eight functions store a result through a pointer that the translation
   represents as a value and not as memory: `destLen` of the four `compress*` functions,
   `dictLength` of the two `GetDictionary` functions, and the result pointers of `deflatePending`
   and `deflateUsed`. Their goals have no premise on the cell and say nothing about its memory. The

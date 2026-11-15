@@ -1,4 +1,4 @@
-<!-- source-sha256: 49afc23424595d8c6cae18d0a955e509f4c4f81c6ad78748480e88d180b58e9b -->
+<!-- source-sha256: f5501a6aaec053fc03d1951cfd746f9910af2a28d277b1a2e4dab2698356b4d5 -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -6,7 +6,7 @@
 满足自己那个函数的各行，调用就被覆盖。不满足的调用不被覆盖：既没有被证明安全，也没有被断言不安全。
 
 - **列出了什么。** 必需的安全目标中每一条比 `zlib.h` 更窄的前提，以及读者容易漏看的前提。只是重复 `zlib.h` 的前提写在目标的 Lean 命题里，以命题为准；每个函数对应哪个目标，见[按函数查覆盖情况](coverage.md)。
-- **结果单元。** 有七个函数通过指针写出结果，而翻译把这个指针表示成一个值，不是内存：四个 `compress*` 函数的 `destLen`，两个 `GetDictionary` 函数的 `dictLength`，以及 `deflatePending` 和 `deflateUsed` 的结果指针。它们的目标对这个单元没有前提，对它的内存也什么都没说。核对清单给出调用者必须遵守的那一行，并注明“没有 Lean 谓词”。细节见[“结果单元”](#stream-calls-inflate-and-deflate)和[“整缓冲区压缩”](#whole-buffer-utilities-and-checksums)两行。
+- **结果单元。** 有八个函数通过指针写出结果，而翻译把这个指针表示成一个值，不是内存：四个 `compress*` 函数的 `destLen`，两个 `GetDictionary` 函数的 `dictLength`，以及 `deflatePending` 和 `deflateUsed` 的结果指针。它们的目标对这个单元没有前提，对它的内存也什么都没说。核对清单给出调用者必须遵守的那一行，并注明“没有 Lean 谓词”。细节见[“结果单元”](#stream-calls-inflate-and-deflate)和[“整缓冲区压缩”](#whole-buffer-utilities-and-checksums)两行。
 - **这里没有列什么。** 调用者无能为力的、对模型的条件，以及功能定理和模型定理的限制：它们在[模型的限制](model-limits.md)中。被信任而没有被证明的东西在[可信基础](trusted-base.md)中。
 - **证据。** 已知真实的 C 在某条前提之外会出错时，该行给出复现的链接；[sanitizer 报告](sanitizer-reports.md)列出全部复现。
 

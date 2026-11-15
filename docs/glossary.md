@@ -142,7 +142,7 @@ live before it or is owned by the stream or handle.
 the window, the hash tables, the pending buffer (`StreamOwned`, `GzOwned`).
 
 **Result cell.** The variable that a pointer argument names and the C stores a result through,
-such as `*destLen` or `*dictLength`. For seven public functions the translation takes the cell as
+such as `*destLen` or `*dictLength`. For eight public functions the translation takes the cell as
 a value and not as memory, so their goals say nothing about the cell's memory
 ([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Result cells").
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 9c889f5ea322295a3c33b0bc4bd1a760f2ba110bba5fd900e9d900e7291c125b -->
+<!-- source-sha256: 7b736ca16609df9a11cc8aed0abfe138c97332edc3f7659fb2ee6be8f7226b97 -->
 # 术语表
 
 本页定义其他页面用到的术语，每个术语只定义一次，用一两句话说清。术语分为几组：目标、状态层级、模型、前提、gzip 文件世界和检查。状态层级背后的规则见[检查指南](checking/README.md)；每项结论处于哪个层级，见[进度页的“范围”一节](progress.md#scope)。
@@ -75,7 +75,7 @@
 
 **拥有。** 流或句柄的状态指向某个块时，这个块就归它拥有：状态记录、窗口、哈希表、待输出缓冲区（`StreamOwned`、`GzOwned`）。
 
-**结果单元。** 某个指针参数所指的变量，C 通过这个指针写出结果，例如 `*destLen` 或 `*dictLength`。有七个公开函数的翻译把这个单元当作值，而不是内存，所以它们的目标对这个单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”一行）。
+**结果单元。** 某个指针参数所指的变量，C 通过这个指针写出结果，例如 `*destLen` 或 `*dictLength`。有八个公开函数的翻译把这个单元当作值，而不是内存，所以它们的目标对这个单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”一行）。
 
 **库堆。** API 条目对上面定义的良构堆的叫法（[契约约定](spec/api/contracts.md#reading-a-proof-goals-paragraph)）。
 

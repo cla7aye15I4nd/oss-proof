@@ -1,4 +1,4 @@
-<!-- source-sha256: dcdf21c231d590011f20e41e674db8e87f366258035d2739ebbd7f82a5668951 -->
+<!-- source-sha256: 9d32434430ca8f98550d60251f26e9990c1deb14016b2504a09ee1493c50fa8c -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean。证明表明：默认 x86_64 Linux 构建中每个有文档的公开函数，在任何调用序列里运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止；前提是每条定理自己写明的那些条件。
@@ -93,7 +93,7 @@ scripts/check-sorry.sh
 | 同一种溢出，经由补丁 0004 第一版中 `gz_look` 的透明 COPY 分支：在一个带尾随数据的 gzip 成员、一次 `gzclearerr` 和一次接近 2^63 − 1 的读取之后，`x.pos + x.have` 超过 `GZ_OFF_MAX` | 是；在上述历史之后、距 `GZ_OFF_MAX` 不超过 `size` 字节之处 | [问题记录](docs/findings/gz-position-copy-overflow.md)：在模型中确认，并通过阅读 C 确认。没有 sanitizer 的确认；这段历史需要大约 2^63 个解码字节。就打过补丁的源码本身而言，置信度高。 | 补丁 0004 也给这个分支加了上界 |
 | 对未设置或悬空的 `x.next` 前进零步：该字段从未写入，或指向已释放的调用者缓冲区时，`gzseek64` 和 `gz_skip_have` 执行 `x.next += 0` | 是；即两份问题记录中的两个调用序列 | [未设置](docs/findings/gz-reset-next-uninitialised/README.md)与[悬空](docs/findings/gz-next-dangling-after-direct-read/README.md)两种情形各有一次探针运行。按 C 标准的字面是未定义行为。证据弱于上面各行：sanitizer 对两种情形都不报告，也没有观察到异常行为。 | 补丁 0005，本地补丁，经所有者批准，尚未提交上游 |
 | `deflateResetKeep` 之后的 `deflateCopy`：两个待处理的 `prev` 槽没有被复制，之后在副本上调用 `deflate` 会沿着未初始化的槽走下去，`longest_match` 读到窗口之外 | 否：需要直接调用 `deflateResetKeep`，而 `zlib.h` 把它列为无文档函数 | 在未修改的固定版本上的[复现](docs/findings/deflate-copy-pending-prev/README.md)：AddressSanitizer 报告这次读取，valgrind 报告未初始化的槽。对所诊断的调用序列置信度高。在 zlib 1.4 和固定的 `develop` 上能复现，在 1.3.1 和 1.3.2 上不能。 | 没有。已证明的 deflate 定义域排除了这种调用（[偏离记录](docs/deviations.md)）。已有一份[报告草稿](docs/findings/deflate-copy-pending-prev-report.md)；尚未向上游发送任何内容。 |
-| `Z_FIXED` 策略、压缩级别 1 到 3、`windowBits` 为 15 且 `memLevel` 为 8 时，`deflateBound` 给出的上界偏小：按这个大小给出空间，一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`，与 `zlib.h` 的承诺不符 | 是。这是没有兑现的承诺，不是内存错误；`compress`、`compress2` 和 `compressBound` 使用默认策略，不受影响 | 在固定版本的 C 上的[复现](docs/findings/deflatebound-fixed-far-matches/README.md)，开启和不开启 sanitizer 都做过，sanitizer 没有任何报告。对所诊断的参数置信度高。尚未报告上游。 | 没有。安全目标都不依赖这个上界的数值 |
+| `Z_FIXED` 策略、压缩级别 1 到 3、`windowBits` 为 15 且 `memLevel` 为 8 时，`deflateBound` 给出的上界偏小：按这个大小给出空间，一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`，与 `zlib.h` 的承诺不符 | 是。这是没有兑现的承诺，不是内存错误；`compress`、`compress2` 和 `compressBound` 使用默认策略，不受影响 | 在固定版本的 C 上的[复现](docs/findings/deflatebound-fixed-far-matches/README.md)，开启和不开启 sanitizer 都做过，sanitizer 没有任何报告。对所诊断的参数置信度高。系统自带的 zlib 1.2.12 在级别 1 到 9 上全部失败。尚未报告上游；上游是否已知，**尚未由证明确认**。 | 没有。安全目标都不依赖这个上界的数值 |
 | gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`：`2 + extra_len` 在 32 位上回绕，上界少了大约 64 KiB | 是。这是没有兑现的承诺，不是内存错误 | 在固定版本的 C 上的[复现](docs/findings/deflatebound-extra-len/README.md)。上游已知。 | 没有。安全目标都不依赖这个上界的数值 |
 
 `inflateCopy` 和各 gz 函数的安全目标是针对打过补丁的源码陈述的。

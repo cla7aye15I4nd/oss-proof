@@ -215,5 +215,5 @@ the proof of that function must then fail. A mutant that only breaks a lemma els
 count.
 
 The three levels, checked, registered and accepted, are defined in the
-[proof map](README.md#status-levels). A small proof or a green build is not acceptance. See
+[glossary](../glossary.md#status). A small proof or a green build is not acceptance. See
 [checking](../checking/README.md) and [verification policy](../anti-cheating.md).
