@@ -129,15 +129,15 @@ theorem side_kept_all (c : Ctx) (r : ZStreamRef) :
     ∀ l h outcome l' h', CallSide c r l h →
       runX (inflate_dispatch c) l h = .ok ((outcome, l'), h') → CallSide c r l' h' := by
   intro l h outcome l' h' side run
-  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits⟩ := side
+  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits, apart⟩ := side
   have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
-  obtain ⟨outcome', regs, after, stream, state, _, _, _, run', j', ⟨rest, _, buf'⟩, _, _, _, _, _,
-    bits', loc', _⟩ := inflate_dispatch_default_view_state_rank E j buf loc bits
+  obtain ⟨outcome', regs, after, stream, state, used, _, _, run', j', ⟨rest, _, buf'⟩, _, next,
+    count, _, _, bits', loc', _⟩ := inflate_dispatch_default_view_state_rank E j buf loc bits
   have same := run.symm.trans run'
   simp only [Except.ok.injEq, Prod.mk.injEq] at same
   obtain ⟨⟨_, hl⟩, hh⟩ := same
   subst hl hh
-  exact ⟨zs, stream, state, strm, st, j', ⟨rest, buf'⟩, loc', bits'⟩
+  exact ⟨zs, stream, state, strm, st, j', ⟨rest, buf'⟩, loc', bits', apart.advance next count⟩
 
 /-- `loop_meaning_from` with the side facts at the exit. -/
 theorem loop_meaning_side {c : Ctx} {f : LoopFrame} {r : ZStreamRef}

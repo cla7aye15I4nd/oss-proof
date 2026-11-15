@@ -21,11 +21,43 @@ namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec ZlibF.Spec.Public
 set_option autoImplicit false
 
+/-- The local buffer `hbuf` of the call (`unsigned char hbuf[4]`, a local of `inflate()`) is not
+the block of the unread input. The gzip header modes write it (`CRC2`, `CRC4`); in C a local
+cannot alias the caller's input. In the model the buffer is the fresh block of the call. -/
+def HbufInputApart (c : Ctx) (l : IL) : Prop :=
+  l.have_ ≠ 0 → ∀ (b o : Nat) (ref : BRef) (off : Nat), c.hbuf = .ref (.blk b) o →
+    l.next = .ref ref off → ref ≠ .blk b
+
 /-- The safety facts at a trip of the mode loop of the call with context `c` on stream `r`. -/
 def CallSide (c : Ctx) (r : ZStreamRef) (l : IL) (h : Heap) : Prop :=
   ∃ (zs : Nat) (z : ZStream) (s : InflateState), c.strm = some r ∧ c.st = some (.tab zs) ∧
     DefaultStateJ h r zs z s ∧ (∃ bs, DispatchBuffers h r l bs) ∧ HeaderLocal c h r s l ∧
-    l.bits.toNat ≤ 39
+    l.bits.toNat ≤ 39 ∧ HbufInputApart c l
+
+/-- The input cursor only advances within its block and `have` only decreases, so a dispatch keeps
+`HbufInputApart`. -/
+theorem HbufInputApart.advance {c : Ctx} {l regs : IL} {used : Nat} (apart : HbufInputApart c l)
+    (next : regs.next = inputAdvance l.next used) (count : regs.have_.toNat + used = l.have_.toNat) :
+    HbufInputApart c regs := by
+  intro nonzero b o ref off hb hn
+  have before : l.have_ ≠ 0 := by
+    intro zero
+    apply nonzero
+    apply UInt32.toNat_inj.mp
+    rw [zero] at count
+    simp only [UInt32.toNat_zero] at count ⊢
+    omega
+  cases hnext : l.next with
+  | null =>
+    rw [hnext] at next
+    rw [next] at hn
+    cases hn
+  | ref ref0 off0 =>
+    rw [hnext] at next
+    rw [next] at hn
+    cases hn
+    exact apart before b o _ _ hb hnext
+
 
 /-- The side facts name a live stream record. -/
 theorem CallSide.record {c : Ctx} {r : ZStreamRef} {l : IL} {h : Heap} (side : CallSide c r l h) :
@@ -36,15 +68,15 @@ theorem CallSide.record {c : Ctx} {r : ZStreamRef} {l : IL} {h : Heap} (side : C
 /-- `SideKept` for `CallSide`, from the safety step of one dispatch. -/
 theorem side_kept (c : Ctx) (r : ZStreamRef) : SideKept c (CallSide c r) := by
   intro l h l' h' side run
-  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits⟩ := side
+  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits, apart⟩ := side
   have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
-  obtain ⟨outcome, regs, after, stream, state, _, _, _, run', j', ⟨rest, _, buf'⟩, _, _, _, _, _,
-    bits', loc', _⟩ := inflate_dispatch_default_view_state_rank E j buf loc bits
+  obtain ⟨outcome, regs, after, stream, state, used, _, _, run', j', ⟨rest, _, buf'⟩, _, next, count,
+    _, _, bits', loc', _⟩ := inflate_dispatch_default_view_state_rank E j buf loc bits
   have same := run.symm.trans run'
   simp only [Except.ok.injEq, Prod.mk.injEq] at same
   obtain ⟨⟨_, hl⟩, hh⟩ := same
   subst hl hh
-  exact ⟨zs, stream, state, strm, st, j', ⟨rest, buf'⟩, loc', bits'⟩
+  exact ⟨zs, stream, state, strm, st, j', ⟨rest, buf'⟩, loc', bits', apart.advance next count⟩
 
 /-- `loop_meaning` entered from `LoopMatches` or from `LoopBad`: the proof of `loop_meaning`, whose
 loop predicate already admits `LoopBad`, with the start relaxed. -/

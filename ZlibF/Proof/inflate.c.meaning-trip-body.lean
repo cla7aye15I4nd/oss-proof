@@ -39,7 +39,7 @@ theorem loopBad_of_refuted {c : Ctx} {f : LoopFrame} {r : ZStreamRef} {h h' : He
     (run : runX (inflate_dispatch c) l h = .ok ((.ok (), l'), h'))
     (bad : ∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD)
     (refuted : LoopRefuted f l') : LoopBad c f h' l' := by
-  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits⟩ := side
+  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits, _⟩ := side
   have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
   obtain ⟨inEq, s', hs', ew, erw, ehd, erb, ewb⟩ :=
     body_dispatch_frame st E.hs (body zs s st E.hs) run
