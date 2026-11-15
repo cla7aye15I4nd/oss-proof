@@ -1,4 +1,4 @@
-<!-- source-sha256: 7dd410a3ef5f71c33595bf86fa8f427e65e8ae6c84121690c144eb0b069ec2b8 -->
+<!-- source-sha256: 219fc4fabb9fd9e00162d55b3ef996c17fee760ffe15c3e9776033441e04fd9d -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：239 个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
@@ -46,9 +46,9 @@
 
 除此之外，没有任何目标、已登记定理或登记表的行与 `bde170e9` 不同。
 
-**未完成。** 安全结论所需要的东西没有缺口。31 个 gz 函数和三个 `inflateBack` 函数的安全性由 3b 和 3c 的序列目标证明，序列目标覆盖每段历史中的每次调用。它们还没有各自的单函数目标；陈述并登记这些目标是[按顺序的下一步工作](#ordered-next-work)的第一项。
+**未完成。** 安全结论所需要的东西没有缺口。31 个 gz 函数和三个 `inflateBack` 函数的安全性由 3b 和 3c 的序列目标证明，序列目标覆盖每段历史中的每次调用。它们还没有各自的单函数安全目标；陈述并登记这些目标是[按顺序的下一步工作](#ordered-next-work)的第一项。
 
-**安全结论之后的计划：默认 zlib 流的往返。** 默认流指默认压缩级别的 `deflateInit` 配上 `inflateInit`。顺序是：先证条件形式（当一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节）；再证完备性（输出空间足够且分配成功时，两边都到达 `Z_STREAM_END`）；最后是无条件的往返，以及 `uncompress(compress(x)) = x`。对翻译后的 C，这些都还没有证明。已登记的目标 `Api.Goal.roundtrip` 是仅关于模型的命题：它说的是抽象 API 模型。先前在往返的 deflate 一侧所做的工作（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分）保留着；默认流的往返需要其中哪些，本页不作定论。
+**安全结论之后的计划：默认 zlib 流的往返。** 默认流指默认压缩级别的 `deflateInit` 配上 `inflateInit`。顺序是：先证条件形式（当一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节）；再证完备性（输出空间足够且分配成功时，两边都到达 `Z_STREAM_END`）；最后是无条件的往返，以及 `uncompress(compress(x)) = x`。条件形式已在 `dev` 上对翻译后的 C 检查：定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`），它没有登记。完备性和无条件形式未证明。已登记的目标 `Api.Goal.roundtrip` 是仅关于模型的命题：它说的是抽象 API 模型。先前在往返的 deflate 一侧所做的工作（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分）保留着；默认流的往返需要其中哪些，本页不作定论。
 
 **不在计划内。** 这些不投入任何工作。已经为它们登记的结果保留。
 

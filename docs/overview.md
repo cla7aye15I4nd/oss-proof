@@ -35,8 +35,8 @@ correctness are outside the proof. The premises that a theorem puts on the calle
 
 **Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
 functions are proved safe through their sequence goals, which cover every call in every history;
-they have no separate one-function goal yet. Stating and registering those 34 goals is remaining
-work ([progress](progress.md#ordered-next-work)).
+they have no separate one-function safety goal yet. Stating and registering those 34 goals is
+remaining work ([progress](progress.md#ordered-next-work)).
 
 **Not required.** Functional correctness is not required for the safety results. A functional
 fact is in scope when a planned safety proof depends on it; what is already proved stays. One

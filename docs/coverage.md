@@ -11,7 +11,7 @@ names the functional theorem, where one exists; functional theorems are kept and
 - **Assumed.** The six items of the [trusted base](trusted-base.md), and the premises in
   [deviations](deviations.md), which the column "domain" refers to.
 - **Open.** The gz functions and the three `inflateBack` functions are covered by a sequence
-  goal and have no one-function goal ([progress](progress.md#ordered-next-work)). Six stream
+  goal and have no one-function safety goal ([progress](progress.md#ordered-next-work)). Six stream
   functions have their `NULL`-stream refusal proved in the functional goal and not yet in the
   safety goal; their rows say so.
 

@@ -1,11 +1,11 @@
-<!-- source-sha256: 5f3815c0ed8a5d6c42c71dcd890d6737ea2dce4cff6685c5fcd79e533091c7c9 -->
+<!-- source-sha256: ef8b8028931bd1a71ba977bef246406895fff897b654418b313e92b57684ba41 -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的已登记定理，以及证明所在的文件。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
 
 - **已证明。** 目标构建中每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。表中的名字已与 `tests/audit/public-api.json`、`tests/audit/theorems.txt` 和证明文件核对。
 - **所作假设。** [可信基础](trusted-base.md)的六项，以及[偏离记录](deviations.md)中的前提；“定义域”一列指向的就是这些前提。
-- **未完成。** gz 函数和三个 `inflateBack` 函数由序列目标覆盖，没有单函数目标（[进度](progress.md#ordered-next-work)）。有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，还没有写进安全目标；相应的行有说明。
+- **未完成。** gz 函数和三个 `inflateBack` 函数由序列目标覆盖，没有单函数安全目标（[进度](progress.md#ordered-next-work)）。有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，还没有写进安全目标；相应的行有说明。
 
 “已登记”指列在 `tests/audit/theorems.txt` 中。结论的层级和验收所在的提交见[范围](progress.md#scope)。
 

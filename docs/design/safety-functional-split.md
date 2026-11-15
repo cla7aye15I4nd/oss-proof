@@ -18,11 +18,15 @@ A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`
 the three directories. The directory shows the kind; the namespace is the same. The manifest
 `tests/audit/public-api.json` names only goals of this namespace.
 
-Two groups of functional goals under `Spec/Functional/` have other namespaces. The goals of the
-API model are `ZlibF.Spec.Api.Goal.<name>` (`Functional/Api/Goals.lean`), for example
-`ZlibF.Spec.Api.Goal.roundtrip`. The goals of the token format are
-`ZlibF.Spec.Token.Goal.<name>` (`Functional/Format/Token.lean`). They are statements about the
-models, not about the translated C. `tests/audit/goals.txt` lists every goal under its full
+Two groups of functional goals under `Spec/Functional/` have other namespaces. The first group
+is `ZlibF.Spec.Api.Goal.<name>`, for example `ZlibF.Spec.Api.Goal.roundtrip`.
+`tests/audit/goals.txt` lists 20 goals of it, defined under `Functional/Api/`: 17 in
+`Goals.lean`, one in `Inflate.lean` and two in `Concrete.lean`. The two in `Concrete.lean`
+(`compress_bound_value`, `compress2_z_first_alloc_failure`) are about the translated
+`compress.c`; the other 18 are statements about the API model, not about the translated C. The
+second group, the goals of the token format, is `ZlibF.Spec.Token.Goal.<name>`
+(`Functional/Format/Token.lean`); they are statements about the format model.
+`tests/audit/goals.txt` lists every goal under its full
 name; it also lists the statements about internal functions and about heap-free mathematics,
 each in the namespace of its own module.
 
@@ -92,7 +96,7 @@ the safety goal and its file for every function. The safety goals have three sha
   inconsistent stream is covered by `Goal.inflate_refusal` and `Goal.deflate_refusal`.
 - **The gzip file interface and `inflateBack`**: the 31 gz functions and the three `inflateBack`
   functions are proved safe through their sequence goals, `Goal.gz_sequence_safety` and
-  `Goal.inflate_back_sequence_safety`. They have no separate one-function goal; the manifest
+  `Goal.inflate_back_sequence_safety`. They have no separate one-function safety goal; the manifest
   names the sequence goal as the safety goal of each.
 
 Special cases in the manifest:
