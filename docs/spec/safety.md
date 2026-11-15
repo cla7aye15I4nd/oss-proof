@@ -48,7 +48,7 @@ contracts) are still in `ZlibF/Spec/Public/`; they are not required
 | `inflateInit_`, `inflateInit2_`, `deflateInit_`, `deflateInit2_` | `Goal.<function>_safety` on a fresh record | [Safety/Initialisation.lean](../../ZlibF/Spec/Safety/Initialisation.lean) |
 | `inflateCopy`, `deflateCopy` | `Goal.<function>_safety` | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
 | every inflate or deflate call sequence | `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| a `NULL` or inconsistent stream | `Goal.inflate_refusal`, `Goal.deflate_refusal` | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
+| a `NULL` or inconsistent stream | `Goal.inflate_refusal`, `Goal.deflate_refusal` (the functions each goal lists; the rest: [progress, No-fault coverage](../progress.md#no-fault-coverage-of-zlibh-functions)) | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
 | checksums | `Goal.<function>_safety`: the call returns and the heap is unchanged | [Safety/Checksums.lean](../../ZlibF/Spec/Safety/Checksums.lean) |
 | `zlibVersion`, `zlibCompileFlags` | `Goal.<function>_safety`: the call returns and the heap is unchanged | [Safety/Queries.lean](../../ZlibF/Spec/Safety/Queries.lean) |
 | `compress*`, `uncompress*` | `Goal.compress*_safety`, `Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |

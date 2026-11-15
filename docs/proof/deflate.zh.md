@@ -1,4 +1,4 @@
-<!-- source-sha256: 720c36f0c321f753536864e13d14b2b28978180568df8a8afa2247fe9aeaba5a -->
+<!-- source-sha256: c7201320e663717404d6fba2416a0e3dae226f87233193aa6bba21282bef1799 -->
 # 流式压缩：窗口、链与生命周期
 
 压缩器先找出原文中的重复片段，再把字面量和“长度／距离”符号交给块输出器。例如输入是 `ABCDABCD`，处理完前一个 `ABCD` 后，接下来的四个字节与它相同，可以用“从当前位置回退 4 字节，复制 4 字节”描述它们。证明必须说明被引用的旧内容确实相同，而且窗口搬动、提前停止搜索或暂停输出，都不会破坏这个含义。
@@ -20,7 +20,7 @@
 | 逐函数的安全目标：`deflate`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateReset`、`deflateParams`、`deflateTune`、`deflateBound`、`deflateBound_z`、`deflatePending`、`deflateUsed`、`deflatePrime`、`deflateSetHeader`、`deflateEnd`（`ZlibF/Spec/Safety/Streams.lean`） | 安全，必需 | `StreamCallSafetyProof.deflate_safety` 及其他 `deflate*_safety` 定理 | `ZlibF/Proof/public-stream-call-safety.lean` |
 | `Goal.deflateInit__safety`、`Goal.deflateInit2__safety` | 安全，必需 | `deflateInit__safety`、`deflateInit2__safety` | `ZlibF/Proof/public-init-safety.lean` |
 | `Goal.deflateCopy_safety` | 安全，必需 | `deflate_copy_safety` | `ZlibF/Proof/public-deflate-copy.lean` |
-| `Goal.deflate_refusal`：每个函数都拒绝未初始化的流，并保持堆不变 | 安全，必需 | `deflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
+| `Goal.deflate_refusal`：`deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 和 `deflateCopy` 在被拒绝的流（`RefusedDeflate`：`NULL`，或状态检查拒绝的记录）上无故障地返回 `Z_STREAM_ERROR`。`deflateCopy` 清空目标的状态；其余函数保持堆不变。状态字段为垃圾指针的记录在定义域之外（[偏离记录](../deviations.md)）。其他函数的拒绝在各自的功能性目标中，或在已登记但不属于必需目标的引理中（`deflatePrime_refused`、`deflateBound_nostate`、`deflateBound_z_nostate`、`deflateEnd_reject`、`deflateReset_reject`） | 安全，必需 | `deflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
 | `Goal.deflate_initialisation_domain`：序列目标的前提可以被满足 | 非空泛性，必需 | `deflate_initialisation_domain_public` | `ZlibF/Proof/public-deflate-init-domain.lean` |
 | `Goal.deflate`：单次调用的完整契约，包括进展、返回码、计数器、帧和所有权 | 功能性，保留；`compress*` 的安全证明用到它 | `Zlib.Deflate.Universal.deflate_safety` | `ZlibF/Proof/public-deflate-goals.lean` |
 | 完整契约 `Goal.deflateInit_`、`Goal.deflateInit2_`、`Goal.deflateCopy`、`Goal.deflateEnd`、`Goal.deflateReset` 以及各查询函数 | 功能性，保留 | `deflateInit_proof`、`deflateInit2_proof`、`deflate_copy_public`、`deflate_end_public`、`deflate_reset_public` 等 | `ZlibF/Proof/public-deflate-*.lean` |

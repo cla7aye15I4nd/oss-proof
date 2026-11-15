@@ -1,4 +1,4 @@
-<!-- source-sha256: c783f77406a2fa8e8c5092bbaaecc72b2a6c612105cdef81c22d23070594f39d -->
+<!-- source-sha256: f6df1c881eb2ff56a61690f2819aec1130fe1096378563271b3d99114a1ea29a -->
 # 流式解码：模式、历史与调用组合
 
 解压器的工作是从压缩比特中识别字面量和匹配，再按顺序恢复原文。例如，先恢复两个字面量 `AB`，再遇到“距离 2、长度 6”，就应继续产生 `ABABAB`，得到 `ABABABAB`。输出缓冲区可能在中途用完；本页的证明必须把读位、查表、历史复制和下一次调用连接成这同一个解码过程。
@@ -17,7 +17,7 @@
 | 逐函数的安全目标：`inflate`、`inflateSetDictionary`、`inflateGetDictionary`、`inflateSync`、`inflateReset`、`inflateReset2`、`inflatePrime`、`inflateMark`、`inflateGetHeader`、`inflateEnd`（`ZlibF/Spec/Safety/Streams.lean`） | 安全，必需 | `inflate_safety` 及其他 `inflate*_safety` 定理 | `ZlibF/Proof/public-stream-call-safety.lean` |
 | `Goal.inflateInit__safety`、`Goal.inflateInit2__safety` | 安全，必需 | `inflateInit__safety`、`inflateInit2__safety` | `ZlibF/Proof/public-init-safety.lean` |
 | `Goal.inflateCopy_safety` | 安全，必需 | `inflateCopy_safety` | `ZlibF/Proof/public-inflate-copy-safety.lean` |
-| `Goal.inflate_refusal`：每个函数都拒绝未初始化的流，并保持堆不变 | 安全，必需 | `inflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
+| `Goal.inflate_refusal`：`inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary` 和 `inflateCopy` 在被拒绝的流（`RefusedInflate`：`NULL`，或状态检查拒绝的记录）上无故障地返回 `Z_STREAM_ERROR`。`inflate` 留下一个账目不变的帧；`inflateCopy` 清空目标的状态；其余函数保持堆不变。状态字段为垃圾指针的记录在定义域之外（[偏离记录](../deviations.md)）。其他函数的拒绝在各自的功能性目标中，或在已登记但不属于必需目标的引理中（`inflateSync_check`） | 安全，必需 | `inflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
 | `Goal.inflate_initialisation_domain`：序列目标的前提可以被满足 | 非空泛性，必需 | `inflate_initialisation_domain_public` | `ZlibF/Proof/public-inflate-init.lean` |
 | `Goal.inflate`：单次调用的完整契约，包括进展、返回码、计数器、帧和所有权 | 功能性，保留；`uncompress*` 和 gzip 读取侧的安全证明用到它 | `inflate_public` | `ZlibF/Proof/public-inflate.lean` |
 | 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | 功能性，保留 | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 | `ZlibF/Proof/public-inflate-*.lean` |

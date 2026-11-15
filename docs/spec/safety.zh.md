@@ -1,4 +1,4 @@
-<!-- source-sha256: c6c67f12d1e43f86a56a95554146a94d8df0d8dc0f18e4ed208a98380f8a590e -->
+<!-- source-sha256: 6235ceec86090167e218a2ac5e067418d0eed6e0b2275dac7c07c2186e1ec19d -->
 
 # 安全性：目标陈述了什么
 
@@ -43,7 +43,7 @@ gzip 模块的拆分还没有做完。脚本目前仍放行一条导入：`Publi
 | `inflateInit_`、`inflateInit2_`、`deflateInit_`、`deflateInit2_` | 在新记录上的 `Goal.<function>_safety` | [Safety/Initialisation.lean](../../ZlibF/Spec/Safety/Initialisation.lean) |
 | `inflateCopy`、`deflateCopy` | `Goal.<function>_safety` | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
 | 每个 inflate 或 deflate 调用序列 | `Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| `NULL` 或不一致的流 | `Goal.inflate_refusal`、`Goal.deflate_refusal` | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
+| `NULL` 或不一致的流 | `Goal.inflate_refusal`、`Goal.deflate_refusal`（只含各目标列出的函数；其余见[进度的“无故障覆盖”一节](../progress.md#no-fault-coverage-of-zlibh-functions)） | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
 | 校验和 | `Goal.<function>_safety`：调用返回，堆不变 | [Safety/Checksums.lean](../../ZlibF/Spec/Safety/Checksums.lean) |
 | `zlibVersion`、`zlibCompileFlags` | `Goal.<function>_safety`：调用返回，堆不变 | [Safety/Queries.lean](../../ZlibF/Spec/Safety/Queries.lean) |
 | `compress*`、`uncompress*` | `Goal.compress*_safety`、`Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
