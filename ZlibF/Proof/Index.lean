@@ -1137,6 +1137,8 @@ import ZlibF.Proof.«inflate.c.completes-blocked»
 import ZlibF.Proof.«inflate.c.completes-gzip-fields»
 import ZlibF.Proof.«inflate.c.completes-within»
 import ZlibF.Proof.«inflate.c.meaning-run»
+import ZlibF.Proof.«inflate.c.meaning-side»
+import ZlibF.Proof.«inflate.c.meaning-trip»
 import ZlibF.Proof.«inflate.c.meaning-leave»
 import ZlibF.Proof.«public-uncompress-memory»
 import ZlibF.Proof.«public-uncompress-refusal»
