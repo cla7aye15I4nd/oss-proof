@@ -17,8 +17,10 @@ earlier results for one configuration. The internal contracts of this file are `
 
 ## Results
 
-All theorems below are registered in `tests/audit/theorems.txt` and accepted on commit
-`bde170e9` ([levels](README.md#status-levels)). Modules are under `ZlibF/Proof/`.
+All theorems below are registered in `tests/audit/theorems.txt`. They are accepted on commit
+`bde170e9` ([levels](README.md#status-levels)), with one exception: the two initialisation goals
+were widened after that commit, so they are registered in the form shown here and accepted in
+their earlier, narrower form. Modules are under `ZlibF/Proof/`.
 
 | Goal | What it says | Theorem | Module |
 | --- | --- | --- | --- |
@@ -61,7 +63,7 @@ their functional goals or in registered lemmas that are not required goals:
 ## Assumptions
 
 These are all the premises of the sequence goal and of the per-function goals
-(`StreamCallDomain`). Each has a row in [deviations](../deviations.md).
+(`StreamCallDomain`). Each is listed in [deviations](../deviations.md).
 
 | Premise | Says | Belongs to |
 | --- | --- | --- |

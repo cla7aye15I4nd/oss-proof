@@ -126,7 +126,7 @@ separately that each pointer field is written before it is read; see
 only slots that were written ([stream compression](deflate.md#hashing-chains-that-can-be-followed)).
 The model gives each never-written cell one value for a whole run, so two reads of it agree. C
 does not promise that. Whether any proof depends on such an agreement has not been checked
-systematically; the row "One garbage value per cell" of the [trusted base](../trusted-base.md)
+systematically; the row "One garbage value per cell" of [model limits](../model-limits.md)
 records this limit.
 
 **The frame** of a call is the memory it may change: the stream record, the blocks the stream

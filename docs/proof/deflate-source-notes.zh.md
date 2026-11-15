@@ -1,4 +1,4 @@
-<!-- source-sha256: ef25977ebba0856eff33a01ea92398cdeafc35590856f04fc6d23ee0c6f15b34 -->
+<!-- source-sha256: 98750e5a1a168691d92faec2ad3968001d8ffffdbc9182428473f0ae08e30ee3 -->
 # 压缩器的源码笔记：`deflate.c`、`trees.c`
 
 本页记录 C 源码里的一些细节：在这些地方，翻译若走捷径，程序的行为就会改变。它们涉及求值顺序、整数转换、提前返回和宏展开。本页写给拿 `zlib/*.c` 与 `ZlibF/Zlib/*.c.lean` 对照的读者。
@@ -63,7 +63,7 @@
 
 `deflateSetDictionary` 保存 `next_in`、`avail_in` 和 `wrap`，把 `wrap` 置为 0 以免动到校验和，让输入指向字典，调用 `fill_window`，插入哈希表项，然后恢复保存的值。对 zlib 流，它先对整个字典计算 Adler-32，再把过长的字典截到最后 `w_size` 个字节。经过 `read_buf` 的那一趟会增加 `total_in`（[流式压缩](deflate.md#readings-of-the-c-that-no-theorem-states)）。
 
-流结束之后，C 仍然接受 zlib 字典。功能模型在那里拒绝它（[偏离记录](../deviations.md)中“Deflate 字典顺序”一行）；安全定理说的是 C 的行为。
+流结束之后，C 仍然接受 zlib 字典。功能模型在那里拒绝它（[模型的限制](../model-limits.md)中“deflate 字典的顺序”一行）；安全定理说的是 C 的行为。
 
 `deflateGetDictionary` 复制 `strstart + lookahead` 之前的最后若干字节，至多 `w_size` 个。它的缓冲区和长度单元各自都是可选的。
 

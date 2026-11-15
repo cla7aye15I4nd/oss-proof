@@ -130,8 +130,8 @@ through `read_buf` adds to `total_in`
 ([stream compression](deflate.md#readings-of-the-c-that-no-theorem-states)).
 
 The C accepts a zlib dictionary also after the stream has ended. The functional model rejects
-it there (row "Deflate dictionary order" of [deviations](../deviations.md)); the safety theorems
-are about the C behaviour.
+it there (row "Deflate dictionary order" of [model limits](../model-limits.md)); the safety
+theorems are about the C behaviour.
 
 `deflateGetDictionary` copies the last bytes before `strstart + lookahead`, at most `w_size`.
 Its buffer and its length cell are each optional.

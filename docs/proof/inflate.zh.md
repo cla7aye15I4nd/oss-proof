@@ -1,4 +1,4 @@
-<!-- source-sha256: ba19c0ae522fea944bc790cd9eef9baff22446ef94729e6c0da8d5bb2d6818aa -->
+<!-- source-sha256: ff1a976c65d07e00b7a2d9e112f951514d493c408142633a39c4e3a9ac7d18b7 -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -9,7 +9,7 @@
 
 ## 结论
 
-除非某一行另有说明，下面的定理都已登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上已验收。层级的定义见[证明地图](README.md#status-levels)。
+下面的定理都已登记在 `tests/audit/theorems.txt` 中。它们在提交 `bde170e9` 上已验收，只有一处例外：两个初始化目标在那次提交之后被放宽了，所以它们以这里给出的形式已登记，而已验收的是它们早先较窄的形式。层级的定义见[证明地图](README.md#status-levels)。
 
 | 目标 | 内容 | 定理 | `ZlibF/Proof/` 下的模块 |
 | --- | --- | --- | --- |
@@ -46,7 +46,7 @@
 
 ## 假设
 
-下面是序列目标和各函数目标（`StreamCallDomain`）的全部前提。每一条在[偏离记录](../deviations.md)中都有一行。
+下面是序列目标和各函数目标（`StreamCallDomain`）的全部前提。每一条都列在[偏离记录](../deviations.md)中。
 
 | 前提 | 内容 | 属于 |
 | --- | --- | --- |

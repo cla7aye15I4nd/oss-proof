@@ -1,4 +1,4 @@
-<!-- source-sha256: f75ea46cdd76fcd79c226fa770ca27e300ba17a81fc4b6ba338994532022575f -->
+<!-- source-sha256: 147942fe4884c26dff9b4ed1641effeeac366ee55ee564ebf34ead6c9afe0679 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
@@ -9,7 +9,7 @@
 
 ## 结论
 
-下面的定理都已登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)）。模块在 `ZlibF/Proof/` 下。
+下面的定理都已登记在 `tests/audit/theorems.txt` 中。它们在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)），只有一处例外：两个初始化目标在那次提交之后被放宽了，所以它们以这里给出的形式已登记，而已验收的是它们早先较窄的形式。模块在 `ZlibF/Proof/` 下。
 
 | 目标 | 内容 | 定理 | 模块 |
 | --- | --- | --- | --- |
@@ -34,7 +34,7 @@
 
 ## 假设
 
-下面是序列目标和各函数目标（`StreamCallDomain`）的全部前提。每一条在[偏离记录](../deviations.md)中都有一行。
+下面是序列目标和各函数目标（`StreamCallDomain`）的全部前提。每一条都列在[偏离记录](../deviations.md)中。
 
 | 前提 | 内容 | 属于 |
 | --- | --- | --- |

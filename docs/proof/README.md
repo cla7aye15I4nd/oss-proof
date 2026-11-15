@@ -8,7 +8,7 @@ has. A reader who knows the C should be able to follow each page with the matchi
 Every required safety goal has a registered theorem of exactly its type. Nothing in the
 required set is open. What each theorem assumes is on its page and in
 [deviations](../deviations.md); what the model itself assumes is in the
-[trusted base](../trusted-base.md).
+[trusted base](../trusted-base.md) and in [model limits](../model-limits.md).
 
 For a first reading, follow the [illustrated guide](../overview.md). Terms are in the
 [glossary](../glossary.md).
@@ -16,7 +16,8 @@ For a first reading, follow the [illustrated guide](../overview.md). Terms are i
 ## Status levels
 
 The pages use three words for the state of a theorem. The [glossary](../glossary.md#status)
-defines them, and [checking](../checking/README.md) says which checks stand behind each.
+defines them, and [checking](../checking/README.md#three-levels) says which checks stand behind
+each and where a reader sees it.
 
 - **Checked.** The theorem is on the integration branch `dev`, and the fast gate is green on
   that commit: everything builds, there is no `sorry` and no forbidden construct. Lean's kernel
@@ -25,7 +26,9 @@ defines them, and [checking](../checking/README.md) says which checks stand behi
   `tests/audit/proved-goals.txt`. The acceptance suite audits the theorems of that list: the
   type of each against its goal, and the axioms each depends on.
 - **Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
-  That commit is `bde170e9` ([progress, Scope](../progress.md#scope)).
+  That commit is `bde170e9` ([progress, Scope](../progress.md#scope)). The four initialisation
+  goals of `inflate` and `deflate` were widened after it; they are registered in the wider form
+  and accepted in the form they had on that commit.
 
 A theorem that is checked and not registered is a lemma inside the proof of a registered
 theorem. The pages say so where they name one. The axiom check of a registered theorem follows
@@ -113,7 +116,7 @@ bound on the shared buffer for `memLevel` 3 to 9 (`dynamic_overlay_mid`,
 | [Source notes for the decoder](inflate-source-notes.md), [Source notes for the compressor](deflate-source-notes.md) | Details of the C that the translation has to follow exactly. Readings, not theorems |
 | [The default-configuration engine](deflate-default-engine.md) | Earlier functional results about `deflate` for one configuration |
 | [Buffer utilities](buffers.md) | Readings of `compress.c`, `uncompr.c` and the bound functions that the two safety pages rely on |
-| [Earlier arguments and reference sources](references.md) | A map from an earlier development to the present modules. A reuse record; it supplies no proof |
+| [Earlier arguments and reference sources](../history/references.md) | A map from an earlier development to the present modules, kept in the history section. A reuse record; it supplies no proof |
 
 Records of corrected statements are in `docs/history/`. Two of them concern an earlier
 functional goal about `deflate`, `DeflateCompletes`:

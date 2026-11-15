@@ -15,9 +15,10 @@ internal contract of `updatewindow` is `I-uw-*` in
 
 ## Results
 
-All theorems below are registered in `tests/audit/theorems.txt` and accepted on commit
-`bde170e9`, unless the row says otherwise. The levels are defined in
-[the proof map](README.md#status-levels).
+All theorems below are registered in `tests/audit/theorems.txt`. They are accepted on commit
+`bde170e9`, with one exception: the two initialisation goals were widened after that commit, so
+they are registered in the form shown here and accepted in their earlier, narrower form. The
+levels are defined in [the proof map](README.md#status-levels).
 
 | Goal | What it says | Theorem | Module under `ZlibF/Proof/` |
 | --- | --- | --- | --- |
@@ -72,7 +73,7 @@ refuse in their functional goals or in registered lemmas that are not required g
 ## Assumptions
 
 These are all the premises of the sequence goal and of the per-function goals
-(`StreamCallDomain`). Each has a row in [deviations](../deviations.md).
+(`StreamCallDomain`). Each is listed in [deviations](../deviations.md).
 
 | Premise | Says | Belongs to |
 | --- | --- | --- |
