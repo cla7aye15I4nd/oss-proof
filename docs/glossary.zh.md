@@ -1,4 +1,4 @@
-<!-- source-sha256: 5d94edb111dc7d3358852bdcc0c927be8e093848ebc6cf9603a2323f9450eb3d -->
+<!-- source-sha256: 506d8ad3263f566958aaf03933ac88aa5f707a381d1a83a0df7122cce61a655b -->
 # 术语表
 
 每个术语只定义一次，按读者需要的顺序排列。状态用语背后的规则见[检查指南](checking/README.md)；当前状态见[进度](progress.md#scope)。
@@ -23,7 +23,7 @@
 
 ## 状态
 
-**已检查。** 定理在 `dev` 上，且该提交上快速关卡为绿。Lean 内核已检查过证明。
+**已检查。** 定理在 `dev` 上，且该提交上快速关卡为绿。Lean 内核已检查过证明。`AGENTS.md` 在这一级的措辞里写的是 `main`；实际做法是日常工作合并到 `dev`，`main` 在里程碑时接收 `dev`。
 
 **已登记。** 定理列入 `tests/audit/theorems.txt`，它的目标列入 `tests/audit/proved-goals.txt`。
 

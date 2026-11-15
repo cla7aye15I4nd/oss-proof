@@ -42,7 +42,8 @@ set.
 ## Status
 
 **Checked.** The theorem is on `dev` and the fast gate is green on that commit. Lean's kernel has
-checked the proof.
+checked the proof. `AGENTS.md` words this level with `main`; in practice day-to-day work is
+merged to `dev`, and `main` receives `dev` at a milestone.
 
 **Registered.** The theorem is listed in `tests/audit/theorems.txt`, and its goal in
 `tests/audit/proved-goals.txt`.
