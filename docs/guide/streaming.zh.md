@@ -13,7 +13,7 @@
 - **安全：** 已登记的安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
 - **功能：** 关于字节或格式的性质。安全结论不要求它。
 
-标有**尚未由证明确认**的句子说的是 C 实现了格式的某条规则；本章没有为这种读法引用定理。
+标有**尚未由证明确认**的句子说的是 C 实现了格式的某条规则；本章没有为这种解读引用定理。
 [章末的表](#what-the-safety-theorems-say-about-this-chapter)列出相关的安全目标。
 
 ## 目录
@@ -58,7 +58,7 @@ flowchart LR
 [共同的论证](../overview.md#argument)解释帧性质，以及为什么辅助函数的契约是证明出来的，而不是假设的。
 
 [共享契约](../spec/api/streams.md#stream-storage-and-ownership)给出精确的缓冲区、别名和生命期条件。
-Init 分配状态；之后的某次 `inflate` 调用可能分配历史窗口。
+初始化函数分配状态；之后的某次 `inflate` 调用可能分配历史窗口。
 **安全：** 这两处分配无论哪一处失败，调用都返回，并且不留下无主的块。
 
 ## 3.2 三次调用，一个解码结果
@@ -72,7 +72,7 @@ Init 分配状态；之后的某次 `inflate` 调用可能分配历史窗口。
 ```
 
 这份编码不一定是默认压缩器会选择的结果。[编码](encoding.md)一章解释块的选择，
-[包装格式](wrappers.md)一章解释头部和校验值。
+[格式封装](wrappers.md)一章解释头部和校验值。
 
 `inflateInit` 成功后，使用 `Z_NO_FLUSH` 和三个字节的输出缓冲区。
 先提供九个输入字节，耗尽后再提供剩余十一个。第三次调用保留未读输入。
@@ -80,7 +80,7 @@ Init 分配状态；之后的某次 `inflate` 调用可能分配历史窗口。
 
 ![三次调用消费十九字节的 zlib 流，依次产生 AB、ABA、BAB，并保留额外的 EE 字节。](assets/streaming-call-trace.zh.svg)
 
-*蓝色表示已提供的输入；琥珀色表示已产生的字节；灰色表示未读输入。颜色表示数据角色，不表示证明进度。*
+*蓝色表示已提供的输入；琥珀色表示已产生的字节；灰色表示未读输入。颜色表示数据角色，不表示证明状态。*
 
 | 调用 | 调用前可用输入 | 已消费 | 已产生 | 剩余输入 | 剩余输出空间 | 返回值 |
 | --- | ---: | ---: | --- | ---: | ---: | --- |
@@ -90,7 +90,7 @@ Init 分配状态；之后的某次 `inflate` 调用可能分配历史窗口。
 
 累计 `(total_in, total_out)` 依次为 `(9, 2)`、`(12, 5)`、`(19, 8)`。
 第三次调用消费三个载荷字节和四个尾部字节。输出拼接后为 `ABABABAB`，`EE` 仍未读取。
-对固定版本 C 的一次有限运行确认了这些数值。
+对固定的 C 的一次有限运行确认了这些数值。
 这是[示例证据，不是一般证明](../overview.md#evidence)。
 
 ### 3.2.1 保留剩余输入
@@ -125,7 +125,7 @@ next_in_after  = next_in_before  + c
 next_out_after = next_out_before + p
 ```
 
-**安全：** 调用只在调用前的计数所描述的输入范围内读取，只在输出范围内写入。
+**安全：** 调用只在输入范围内读取，只在输出范围内写入；这两个范围由调用前的计数给出。
 **功能：** 这四个等式成立；对有效输入，新写入的字节延长了已解码前缀。
 关于计数器的命题和关于输出的命题说的是同一次执行。
 [解码器一页](../proof/inflate.md)把各个模式的论证与公共返回路径连接起来。
@@ -153,13 +153,13 @@ next_out_after = next_out_before + p
 
 ## 3.4 缓冲区边界不等于格式边界
 
-一个符号可以跨越多个输入块。解码器也可以消费一个字节，却保留其中尚未使用的位。
+一个符号可以跨越多个输入片段。解码器也可以消费一个字节，却保留其中尚未使用的位。
 因此，`avail_in == 0` 表示调用者没有未读字节，但内部仍可能有缓冲位或待产生的输出。
 
 ```mermaid
 flowchart LR
-    first["输入块 A：符号的前几位"] --> saved["保留位和解码模式"]
-    saved --> second["输入块 B：剩余位"]
+    first["输入片段 A：符号的前几位"] --> saved["保留位和解码模式"]
+    saved --> second["输入片段 B：剩余位"]
     second --> symbol["完整符号"]
     symbol --> partial["匹配展开时输出空间耗尽"]
     partial --> resumed["保留剩余匹配，有空间后继续"]
@@ -183,16 +183,16 @@ stateDiagram-v2
     state "已释放" as Released
     [*] --> Active: 初始化成功
     [*] --> InitFailed: 初始化失败，清理本次分配
-    InitFailed --> [*]: 没有可继续的活跃解码器
+    InitFailed --> [*]: 没有可继续的存活解码器
     Active --> Active: 推进或合法更换缓冲区
     Active --> Waiting: 当前缓冲区无法推进
     Waiting --> Active: 提供输入或输出空间
     Active --> Complete: Z_STREAM_END
     Active --> Error: 检测到数据或分配错误
-    Active --> Released: 结束函数放弃任务
-    Waiting --> Released: 结束函数放弃任务
-    Complete --> Released: 释放资源
-    Error --> Released: 释放资源
+    Active --> Released: End，放弃任务
+    Waiting --> Released: End，放弃任务
+    Complete --> Released: End（结束函数）
+    Error --> Released: End（结束函数）
     Released --> [*]
 ```
 
@@ -206,7 +206,7 @@ stateDiagram-v2
 压缩先使用 `Z_NO_FLUSH`，再持续使用 `Z_FINISH` 直到 `Z_STREAM_END`，
 第一次结束请求之后不再添加新输入。见[刷新操作](state-operations.md)。
 
-**安全：** [序列命题](../spec/safety.md#2-calls-and-sequences)把实际的 Init、各次调用、调用之间更换缓冲区和 End 组合起来。
+**安全：** [序列命题](../spec/safety.md#2-calls-and-sequences)把实际的初始化、各次调用、调用之间更换缓冲区和 End 组合起来。
 它包括初始化失败时的清理，以及数据错误或窗口分配失败之后 End 的安全性。
 这张图只是说明这条命题，并不证明它。
 
