@@ -1,4 +1,4 @@
-<!-- source-sha256: 6cf10917ca693535163babb7f65896fb6ca15e801676ac5186a9442e9f731d45 -->
+<!-- source-sha256: 2c01e92e9a63dfa4caaac30466115d80ae63fa1e5ab661fa127aadc14da2d555 -->
 # 快速解码：余量、历史与源比特
 
 快速路径把“读一个符号、恢复输出、再读下一个符号”的过程批量放进一个紧凑循环，减少反复检查空间的开销。例如长度 6、距离 2 的匹配，仍要把已有 `AB` 扩展成 `ABABABAB`；加速不能改变逐字节历史复制的规则。证明先建立每轮足够的空间，再把循环恢复出的字节接回独立格式含义。
@@ -20,7 +20,7 @@
 | 静态固定表具有表的形状 | 安全，内部 | `lenfix_tableSafe`、`distfix_tableSafe` | `ZlibF/Proof/inffast.c.tableok.lean` |
 | 源比特出处与记号细化：一个快速步骤恰好消耗一个格式记号的比特，一次匹配复制细化 LZ77 复制 | 功能性，保留 | `actual_body_refines_token`、`actual_body_preserves_origin`、`actual_distance_refines_lz77`、`actual_copy_match_refines_lz77`、`length_lookup_matches_format`、`distance_lookup_matches_format` 以及其他 `*_origin` 定理 | `ZlibF/Proof/inffast.c.body-token.lean`、`inffast.c.body-origin.lean` 及相邻模块 |
 
-已登记的定理在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+`inflate_fast_safe_progress` 和 `fast_consumes` 只是已检查，没有登记在 `tests/audit/theorems.txt` 中：它们分别位于已登记定理 `inflate_sequence_safety_public` 和 `Zlib.Infback.Safety.inflate_back_sequence_safety` 的证明之中。表中其余定理均已登记，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
 
 用到本页的必需结果，是 `inflate` 的序列安全（[流解码](inflate.md)）和 `inflateBack` 的序列安全（[回调解码器](callbacks.md)）。功能性的几行是早先证明的，继续保留。它们不是必需的。
 

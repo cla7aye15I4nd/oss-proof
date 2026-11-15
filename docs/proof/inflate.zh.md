@@ -1,4 +1,4 @@
-<!-- source-sha256: f6df1c881eb2ff56a61690f2819aec1130fe1096378563271b3d99114a1ea29a -->
+<!-- source-sha256: 64a90f78449c6c84afb5ab5e2c51b9014421ed1c87bdfbd5b77d39c6b2079f05 -->
 # 流式解码：模式、历史与调用组合
 
 解压器的工作是从压缩比特中识别字面量和匹配，再按顺序恢复原文。例如，先恢复两个字面量 `AB`，再遇到“距离 2、长度 6”，就应继续产生 `ABABAB`，得到 `ABABABAB`。输出缓冲区可能在中途用完；本页的证明必须把读位、查表、历史复制和下一次调用连接成这同一个解码过程。
@@ -22,7 +22,7 @@
 | `Goal.inflate`：单次调用的完整契约，包括进展、返回码、计数器、帧和所有权 | 功能性，保留；`uncompress*` 和 gzip 读取侧的安全证明用到它 | `inflate_public` | `ZlibF/Proof/public-inflate.lean` |
 | 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | 功能性，保留 | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 | `ZlibF/Proof/public-inflate-*.lean` |
 
-这些定理登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+这些定理登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。有一个例外：`inflate_sequence_safety` 只是已检查，没有登记；已登记的定理 `inflate_sequence_safety_public` 由它得到。
 
 逐函数的安全定理是序列定理的推论。序列定理建立在一个不变量 `InflateInv`（`ZlibF/Proof/inflate.c.invariant.lean`）之上。初始化对每个被接受的 `windowBits` 建立它；调用者更换缓冲区、每个流操作以及 `inflateCopy` 都保持它（`reachable_invariant_kind`，`ZlibF/Proof/inflate.c.reachable.lean`）。
 

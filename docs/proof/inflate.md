@@ -24,7 +24,9 @@ call sequences. This page explains how the proof is composed. It uses
 | The full contracts of the other functions, such as `Goal.inflateCopy`, `Goal.inflateReset`, `Goal.inflateSetDictionary` | Functional, stays | `inflate_copy_public`, `reset_public`, `inflateSetDictionary_public` and others | `ZlibF/Proof/public-inflate-*.lean` |
 
 These theorems are registered in `tests/audit/theorems.txt` and accepted on
-commit `bde170e9` ([progress, Scope](../progress.md#scope)).
+commit `bde170e9` ([progress, Scope](../progress.md#scope)). One exception:
+`inflate_sequence_safety` is checked, not registered; the registered theorem
+`inflate_sequence_safety_public` is derived from it.
 
 The per-function safety theorems are corollaries of the sequence theorem. The
 sequence theorem rests on one invariant, `InflateInv`

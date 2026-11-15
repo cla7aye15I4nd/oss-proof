@@ -1,4 +1,4 @@
-<!-- source-sha256: 3536bf36a217bbaf06698de6f31c0926448ca4d19cef3511fa97572568fa2af0 -->
+<!-- source-sha256: 18897ca0d7a8e44886c963a99529332584817cdbd703650ca071bf722a6403d6 -->
 # 树与块输出：界限、码字及共用存储
 
 本页沿“统计符号 → 构造树 → 分配码长 → 生成码字 → 写出块”的顺序论证压缩输出。频率高的符号应少花一些比特，但最终输出还受格式码长限制和共享缓冲区约束。例如记录区有一个尚未读取的匹配，输出器即使最终容量足够，也不能先写长码把这条记录覆盖。
@@ -20,7 +20,7 @@
 | `lit_bufsize = 256` 和 `128`（`memLevel` 2 和 1）时的重叠缓冲区余量 F9 | 安全，内部 | `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay` | `ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean` |
 | 权重低于 1597 的树，`gen_bitlen` 从不截断 | 安全，内部 | `ws_gen_bitlen_fib_plus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
 
-用到这些结果的必需定理是 `deflate_sequence_safety`。它没有假设，因为重叠缓冲区余量对每个 `memLevel` 都已证明。已登记的重叠缓冲区定理在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+表中的定理只有 `tinyOverlayAt_256`、`tinyOverlayAt_128` 和 `tinyOverlay` 登记在 `tests/audit/theorems.txt` 中；它们在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。其余几条（`flush_block_only_safe`、`tr_flush_block_safe`、`dynamic_overlay_large`、`dynamic_room_large`、`dynamic_overlay_mid`、`ws_gen_bitlen_fib_plus`）只是已检查，没有登记：它们位于已登记定理 `Zlib.Deflate.Universal.deflate_sequence_safety` 的证明之中，这也是用到本页的必需定理。它没有假设，因为重叠缓冲区余量对每个 `memLevel` 都已证明。
 
 不是必需的是：发出的比特对所记录的符号而言构成合法的 DEFLATE 块。数组安全本身不能说明这一点。下面各节会指出哪些论证只属于功能性证明。
 

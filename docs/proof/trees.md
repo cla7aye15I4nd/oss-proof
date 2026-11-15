@@ -23,10 +23,15 @@ construction, bit emission and that bound.
 | The overlay room F9 for `lit_bufsize = 256` and `128` (`memLevel` 2 and 1) | Safety, internal | `tinyOverlayAt_256`, `tinyOverlayAt_128`, `tinyOverlay` | `ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean` |
 | `gen_bitlen` never clamps a tree whose weight is below 1597 | Safety, internal | `ws_gen_bitlen_fib_plus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
 
-The required theorem that uses these is `deflate_sequence_safety`. It has no
-hypothesis, because the overlay room is proved for every `memLevel`. The
-registered overlay theorems are accepted on commit `bde170e9`
-([progress, Scope](../progress.md#scope)).
+Of the theorems in this table, only `tinyOverlayAt_256`, `tinyOverlayAt_128` and
+`tinyOverlay` are registered in `tests/audit/theorems.txt`; they are accepted on
+commit `bde170e9` ([progress, Scope](../progress.md#scope)). The others
+(`flush_block_only_safe`, `tr_flush_block_safe`, `dynamic_overlay_large`,
+`dynamic_room_large`, `dynamic_overlay_mid`, `ws_gen_bitlen_fib_plus`) are
+checked, not registered: they lie in the proof of the registered theorem
+`Zlib.Deflate.Universal.deflate_sequence_safety`, which is the required theorem
+that uses this page. It has no hypothesis, because the overlay room is proved for
+every `memLevel`.
 
 Not required: that the emitted bits are a valid DEFLATE block for the tallied
 symbols. Array safety alone does not show that. The sections below say where an

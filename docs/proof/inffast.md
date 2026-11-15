@@ -21,7 +21,10 @@ theorem states safety under explicit entry conditions, and the two callers,
 | The static fixed tables have the table shape | Safety, internal | `lenfix_tableSafe`, `distfix_tableSafe` | `ZlibF/Proof/inffast.c.tableok.lean` |
 | Source-bit origin and token refinement: a fast step consumes exactly the bits of one format token, and a match copy refines the LZ77 copy | Functional, stays | `actual_body_refines_token`, `actual_body_preserves_origin`, `actual_distance_refines_lz77`, `actual_copy_match_refines_lz77`, `length_lookup_matches_format`, `distance_lookup_matches_format` and the other `*_origin` theorems | `ZlibF/Proof/inffast.c.body-token.lean`, `inffast.c.body-origin.lean` and the modules beside them |
 
-The registered theorems are accepted on commit `bde170e9`
+`inflate_fast_safe_progress` and `fast_consumes` are checked, not registered in
+`tests/audit/theorems.txt`: they lie in the proofs of the registered theorems
+`inflate_sequence_safety_public` and `Zlib.Infback.Safety.inflate_back_sequence_safety`.
+The other theorems of the table are registered and accepted on commit `bde170e9`
 ([progress, Scope](../progress.md#scope)).
 
 The required result that uses this page is sequence safety of `inflate`
