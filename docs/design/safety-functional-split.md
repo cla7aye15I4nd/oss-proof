@@ -12,10 +12,25 @@ checked. The plan that led to this layout, with its steps and status, is a
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | Safety goals: the call returns with no `Fault.ub` and no `Fault.outOfFuel`, writes only its frame, and leaks nothing, on the documented domain | Yes |
 | `ZlibF/Spec/Public/` | The definitions both kinds of goal use: calls, histories, frames, parameters. Also the goals of the gzip file interface and of `inflateBack`, safety and functional | The safety goals in it: yes |
-| `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), the format and API models (`Format/`, `Api/`), and the round-trip statements (`Goal.*_sequence`) | No |
+| `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), the format and API models with their goals (`Format/`, `Api/`), and the full sequence contracts `Goal.inflate_sequence` and `Goal.deflate_sequence`, which join the sequence safety with functional clauses | No |
 
-Every goal has the Lean name `ZlibF.Spec.Public.Goal.<name>`, whatever its directory. The
-directory shows the kind; the namespace is the same for all.
+A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`, in each of
+the three directories. The directory shows the kind; the namespace is the same. The manifest
+`tests/audit/public-api.json` names only goals of this namespace.
+
+Two groups of functional goals under `Spec/Functional/` have other namespaces. The goals of the
+API model are `ZlibF.Spec.Api.Goal.<name>` (`Functional/Api/Goals.lean`), for example
+`ZlibF.Spec.Api.Goal.roundtrip`. The goals of the token format are
+`ZlibF.Spec.Token.Goal.<name>` (`Functional/Format/Token.lean`). They are statements about the
+models, not about the translated C. `tests/audit/goals.txt` lists every goal under its full
+name; it also lists the statements about internal functions and about heap-free mathematics,
+each in the namespace of its own module.
+
+The round trip of the default zlib stream has no goal definition in these directories yet. Its
+conditional form is a checked theorem, `deflate_inflate_roundtrip` in
+`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`: it is not registered and not accepted.
+Completeness and the unconditional round trip are open
+([architecture](architecture.md#the-layers) states the theorem).
 
 The functional specifications are still built. A functional goal that has a
 [registered](../checking/README.md) theorem is audited in full. A functional goal without one is
