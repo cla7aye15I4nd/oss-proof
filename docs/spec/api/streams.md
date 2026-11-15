@@ -9,8 +9,10 @@ A successful copy starts a second lifetime with its own end obligation.
 
 This page gathers the buffer, ownership and call-order rules shared by the function entries.
 It uses the default LP64 Linux build and default allocator. The pinned C and `zlib.h` supply
-source readings **to confirm** by proof. These focused contracts leave the broader
-[registered public goals](../../checking/goals.md) unchanged.
+source readings **to confirm** by proof. The proved statement is the sequence safety goal
+`Goal.inflate_sequence_safety` or `Goal.deflate_sequence_safety`
+([safety, section 2](../safety.md#2-calls-and-sequences)); the rules below explain it and add
+the functional behaviour, which is not a planned proof target.
 
 ## Related function pages
 
@@ -94,7 +96,8 @@ only `Z_NO_FLUSH` before `Z_FINISH`. Other flush schedules can exceed the bound.
 A saturated bound does not establish that a buffer of that size exists. Extreme gzip extra
 lengths also need care: the C computes `2 + extra_len` at unsigned-int width before adding it
 to the bound, so that addition can wrap. The focused 16-bit header range does not settle the
-broader registered numerical target or justify an unrestricted output-capacity claim.
+functional goal `Goal.deflateBound_z`, which covers every header length, or justify an
+unrestricted output-capacity claim. That goal is not required.
 
 ## Stream lifetime
 
@@ -118,4 +121,6 @@ The diagram summarises ordinary lifetimes; the manuals govern finishing, memory 
 recovery and advanced operations. Init establishes the invariant; callee contracts are theorem
 obligations, not assumptions. Every successful init/copy creates its own end obligation.
 Outside a focused Pre is outside that contract, not automatically undefined C. Custom allocators
-are outside this page's scope. See [progress](../../progress.md) for proof status and remaining work.
+are outside this page's scope. The sequence obligation is the registered statement
+`StreamSequenceSafety` for both kinds of stream. See [progress](../../progress.md) for proof
+status and remaining work.

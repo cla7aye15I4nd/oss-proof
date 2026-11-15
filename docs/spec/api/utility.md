@@ -14,12 +14,23 @@ I/O, a different wrapper, a dictionary or explicit flush boundaries.
 
 The focused contracts follow `compress.c`, `uncompr.c`, `zutil.c` and `zlib.h` in the default
 LP64 Linux build. `_z` forms use `z_size_t`; plain forms use `uLong`. Both are 64-bit here.
-Source readings are **to confirm** by proof. They do not narrow the registered targets in
-[Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) and
-[Queries.lean](../../../ZlibF/Spec/Public/Queries.lean).
+See [contract conventions](contracts.md) for domain/effect labels.
+
+**What is proved.** The required goal of each function is its safety goal: no undefined behaviour, no
+memory error, no leak, and termination ([safety](../safety.md)). Each entry names that goal under
+**Proof goals**, with its premises. The proof assumes those premises, not the documentary Pre; where
+the two differ, the Lean statement counts. The return values, output bytes and state changes
+described here are functional behaviour. They are read from the C and are **to confirm** where no
+registered theorem states them. They are not a planned proof target.
+[Progress](../../progress.md) records which goals are registered.
+
+The safety goals are in [Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean) and
+[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean); their premises
+(`CompressorSafety`, `UncompressCountedSafe`, `UncompressSingleSafe`) are defined in
+[Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean). The functional goals are in
+[Functional/Utilities.lean](../../../ZlibF/Spec/Functional/Utilities.lean) and
+[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean).
 [Calls.lean](../../../ZlibF/Spec/Public/Calls.lean) fixes translated arguments and results.
-See [contract conventions](contracts.md) for domain/effect labels and
-[progress](../../progress.md) for proof status and remaining work.
 
 The buffer utilities create and release a local stream with the zlib wrapper and default settings.
 
@@ -44,7 +55,8 @@ Decompression error handling needs no valid compressed-data assumption.
 and memory outside the output and length cells. They write at most the original capacity.
 All internal allocations are released before return, including on allocation failure;
 no local stream or owned allocation is returned. Pointer-valued queries return borrowed immutable storage.
-These are contract requirements, not claims that the implementation proofs are complete.
+The safety goals named under **Proof goals** state these effects, without the claim about
+borrowed storage; the content of the output is functional behaviour.
 
 ## compress2_z
 
@@ -88,6 +100,8 @@ including the zero-capacity case below. Levels -1 and 0–9 are valid; -1 select
 or NULL destination with nonzero capacity gives `Z_STREAM_ERROR` before any length write.
 Otherwise `*destLen` is cleared before initialisation. A bad level returns `Z_STREAM_ERROR`
 with length zero before any allocation. Later returns store the number of bytes written.
+
+**Proof goals.** Required safety goal: `Goal.compress2_z_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`CompressorSafety`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `CompressArguments`: the source covers `sourceLen` readable bytes, the destination covers `*destLen` writable bytes, and the two ranges do not overlap, or the arguments are among those the call refuses with `Z_STREAM_ERROR`. A NULL `destLen` is in the domain and is refused. The length cell is modelled as a value, not as memory, so a cell that overlaps a buffer is outside the model ([deviations](../../deviations.md)). Conclusion: the call returns, writes at most the capacity at `dest`, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Every `level` is covered. Functional goal, not required: `Goal.compress2_z`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -142,6 +156,8 @@ The wrapper reads that cell before calling the checked `_z` entry.
 on every return, including errors. Early argument rejection preserves its original value;
 invalid level or allocation failure leaves it zero.
 
+**Proof goals.** Required safety goal: `Goal.compress2_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`CompressorSafety`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `CompressArguments`: the source covers `sourceLen` readable bytes, the destination covers `*destLen` writable bytes, and the two ranges do not overlap, or the arguments are among those the call refuses with `Z_STREAM_ERROR`. `destLen` is non-NULL. The length cell is modelled as a value, not as memory, so a cell that overlaps a buffer is outside the model ([deviations](../../deviations.md)). Conclusion: the call returns, writes at most the capacity at `dest`, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Every `level` is covered. Functional goal, not required: `Goal.compress2`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Same encoding and return-code contract as `compress2_z`.
@@ -183,6 +199,8 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 **Pre.** Restricted domain of [compress2_z](#compress2_z), without a level argument.
 
 **Effects.** Stateful; same length writes, checked NULL cases and complete cleanup.
+
+**Proof goals.** Required safety goal: `Goal.compress_z_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`CompressorSafety`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `CompressArguments`: the source covers `sourceLen` readable bytes, the destination covers `*destLen` writable bytes, and the two ranges do not overlap, or the arguments are among those the call refuses with `Z_STREAM_ERROR`. A NULL `destLen` is in the domain and is refused. The length cell is modelled as a value, not as memory, so a cell that overlaps a buffer is outside the model ([deviations](../../deviations.md)). Conclusion: the call returns, writes at most the capacity at `dest`, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Functional goal, not required: `Goal.compress_z`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -226,6 +244,8 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 
 **Effects.** Stateful; same length writes and complete cleanup as `compress2`.
 
+**Proof goals.** Required safety goal: `Goal.compress_safety` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`CompressorSafety`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `CompressArguments`: the source covers `sourceLen` readable bytes, the destination covers `*destLen` writable bytes, and the two ranges do not overlap, or the arguments are among those the call refuses with `Z_STREAM_ERROR`. `destLen` is non-NULL. The length cell is modelled as a value, not as memory, so a cell that overlaps a buffer is outside the model ([deviations](../../deviations.md)). Conclusion: the call returns, writes at most the capacity at `dest`, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Functional goal, not required: `Goal.compress`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="compress"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Same as `compress2` at level -1.
@@ -266,6 +286,8 @@ Computes the capacity value used for default compression settings; allocates no 
 for valid compression calls with the default wrapper, window and memory settings.
 It gives no bound for arbitrary raw or gzip stream settings.
 
+**Proof goals.** Required goal: `Goal.compressBound_z` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)), the full contract; it also serves as the safety goal. No premise: every `sourceLen`. The translation is a pure function: it has no heap and cannot fault, so a separate safety goal would hold by definition.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns `min(2^64 - 1, n + (n >> 12) + (n >> 14) + (n >> 25) + 13)`
@@ -303,6 +325,8 @@ Computes the capacity value used for default compression settings; allocates no 
 **Pre.** Full type domain: every 64-bit `sourceLen`.
 
 **Effects.** Pure. No memory access or error return. The same output-adequacy scope applies.
+
+**Proof goals.** Required goal: `Goal.compressBound` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)), the full contract; it also serves as the safety goal. No premise: every `sourceLen`. The translation is a pure function: it has no heap and cannot fault, so a separate safety goal would hold by definition.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>Complete return conditions and boundaries</summary>
 
@@ -354,6 +378,8 @@ returns `Z_STREAM_ERROR` with both existing length cells unchanged.
 Initialisation failure also preserves both lengths and writes no output.
 After initialisation, every return stores bytes consumed in `*sourceLen` and bytes produced
 in `*destLen`, including later memory failure. Output already written remains available.
+
+**Proof goals.** Required safety goal: `Goal.uncompress2_z_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`UncompressCountedSafe`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); a non-NULL length pointer names a readable, writable 8-byte cell (`LengthCell`); a non-NULL `source` covers `*sourceLen` readable bytes; a non-NULL `dest` covers `*destLen` writable bytes; and the destination, the source and the two length cells are pairwise separate (`UtilitySeparation`). NULL pointers are in the domain and are refused. The input bytes are arbitrary. Conclusion: the call returns one of its documented codes, writes only the output (at most its capacity) and the length cells, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Functional goal, not required: `Goal.uncompress2_z`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -408,6 +434,8 @@ because the wrapper reads them before the `_z` checks.
 **Effects.** Stateful; same output and cleanup effects. Both lengths are copied back on every
 return, including errors. Argument rejection and initialisation failure preserve their values.
 
+**Proof goals.** Required safety goal: `Goal.uncompress2_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`UncompressCountedSafe`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); a non-NULL length pointer names a readable, writable 8-byte cell (`LengthCell`); a non-NULL `source` covers `*sourceLen` readable bytes; a non-NULL `dest` covers `*destLen` writable bytes; and the destination, the source and the two length cells are pairwise separate (`UtilitySeparation`). Both length pointers are non-NULL. The input bytes are arbitrary. Conclusion: the call returns one of its documented codes, writes only the output (at most its capacity) and the length cells, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Functional goal, not required: `Goal.uncompress2`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Same decoding, return codes and consumed count as `uncompress2_z`.
@@ -451,6 +479,8 @@ The status says whether the first zlib stream decoded completely. Length values 
 `destLen` may be NULL for checked rejection.
 
 **Effects.** Stateful; same output-length writes and complete cleanup. The consumed count is local.
+
+**Proof goals.** Required safety goal: `Goal.uncompress_z_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`UncompressSingleSafe`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); a non-NULL `destLen` names a readable, writable 8-byte cell (`LengthCell`); a non-NULL `source` covers `sourceLen` readable bytes; a non-NULL `dest` covers `*destLen` writable bytes; and the destination, the source and the length cell are pairwise separate (`Separate`). NULL pointers are in the domain and are refused. The input bytes are arbitrary. Conclusion: the call returns one of its documented codes, writes only the output (at most its capacity) and the length cells, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Functional goal, not required: `Goal.uncompress_z`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -496,6 +526,8 @@ The status says whether the first zlib stream decoded completely. Length values 
 
 **Effects.** Stateful; same output-length writes, retained partial output and complete cleanup.
 
+**Proof goals.** Required safety goal: `Goal.uncompress_safe` ([Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)). Premises (`UncompressSingleSafe`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); a non-NULL `destLen` names a readable, writable 8-byte cell (`LengthCell`); a non-NULL `source` covers `sourceLen` readable bytes; a non-NULL `dest` covers `*destLen` writable bytes; and the destination, the source and the length cell are pairwise separate (`Separate`). `destLen` is non-NULL. The input bytes are arbitrary. Conclusion: the call returns one of its documented codes, writes only the output (at most its capacity) and the length cells, leaves no new live object, and reports `Z_MEM_ERROR` only after an allocation failed. Functional goal, not required: `Goal.uncompress`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Same output and return codes as `uncompress2`; trailing input is ignored.
@@ -529,6 +561,8 @@ Returns the version string of the linked library.
 **Effects.** Read-only. The result is borrowed immutable static storage;
 the caller must neither write it nor free it. No allocation or heap change occurs.
 
+**Proof goals.** Required safety goal: `Goal.zlibVersion_safety` ([Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)). No premise: every heap. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.zlibVersion`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibVersion"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns a non-NULL pointer to NUL-terminated `ZLIB_VERSION` (`1.3.2.1-motley`).
@@ -560,6 +594,8 @@ Returns encoded type sizes and compile options for this build. The value is not 
 **Pre.** Full type domain; no arguments or caller state are required.
 
 **Effects.** Pure scalar query. No allocation, memory write or error return.
+
+**Proof goals.** Required safety goal: `Goal.zlibCompileFlags_safety` ([Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)). No premise: every heap. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.zlibCompileFlags`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibCompileFlags"><summary>Complete return conditions and boundaries</summary>
 
@@ -608,6 +644,8 @@ Maps the supplied result code to text. The function itself always returns a non-
 **Effects.** Read-only. The result is borrowed immutable static storage; do not write or free it.
 No allocation, heap change or error return occurs. Values outside -6–2 are checked before
 index arithmetic, so both scalar extremes safely return empty text.
+
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.zError`.
 
 [Back to the API manual](README.md) · [Contract conventions](contracts.md)
 

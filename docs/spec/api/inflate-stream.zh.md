@@ -1,4 +1,4 @@
-<!-- source-sha256: 1da7cdff30baecfcaba99cc269816af199ee84ee9b70f012833e5345528f13e3 -->
+<!-- source-sha256: 97768440d22a22919a80e06a0d08c7b1400d404e43064f0b63e8114738a9f48a -->
 
 # 流式解压
 
@@ -14,7 +14,9 @@
 | 调整或分支 | [预置位](#inflateprime)、[校验](#inflatevalidate)、[距离选项](#inflateundermine)、[复制](#inflatecopy) |
 | 释放存储 | [结束](#inflateend) |
 
-聚焦契约遵循固定版本的 `inflate.c` 和 `zlib.h`，采用默认 LP64 Linux 构建，启用 gzip，不启用可选的无效距离或严格距离模式。范围更广的[已登记公开目标](../../checking/goals.md)保持各自定义域。术语见[契约约定](contracts.md)，证明状态和剩余工作见[进度](../../progress.md)。
+聚焦契约遵循固定版本的 `inflate.c` 和 `zlib.h`，采用默认 LP64 Linux 构建，启用 gzip，不启用可选的无效距离或严格距离模式。术语见[契约约定](contracts.md)。
+
+**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都还需要由证明核实。它们不在计划的证明目标之内。哪些目标已登记，见[进度](../../progress.md)。
 
 ## 公共条件
 
@@ -66,6 +68,8 @@ int ZEXPORT inflateResetKeep(z_streamp strm);
 
 **前置条件。** 满足公共有效流条件。调用者有意让旧窗口继续供下一个流使用。
 
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数列在“未文档化函数（不属于 zlib API）”之下。为它陈述的目标（非必需）：`Goal.inflateResetKeep`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateResetKeep"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 返回 `Z_OK`。清空总计数、消息、`data_type`、缓冲位、字典已设置状态和头部登记。使用当前包装重新开始头部/块解码，保留窗口及其历史。使用包装时，若接受 zlib，`adler` 为 1，否则为 0；raw 保持 `adler` 不变。
@@ -105,6 +109,8 @@ int ZEXPORT inflateReset(z_streamp strm);
 
 **前置条件。** 满足公共有效流条件。
 
+**证明目标。** 必需的安全目标：`Goal.inflateReset_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：对这个调用没有要求。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflateReset`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 返回 `Z_OK`。恢复请求的包装和窗口大小，丢弃历史，然后执行 `inflateResetKeep` 所述重置。输入/输出指针和可用计数不变。相同大小的窗口可以保持已分配；不兼容窗口被释放。
@@ -143,6 +149,8 @@ int ZEXPORT inflateReset2(z_streamp strm, int windowBits);
 **影响。** 修改状态，可能释放窗口，绝不分配。
 
 **前置条件。** 满足公共有效流条件。放弃旧的解码过程。
+
+**证明目标。** 必需的安全目标：`Goal.inflateReset2_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：对这个调用没有要求。`windowBits` 的每个取值都被覆盖。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflateReset2`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset2"><summary>完整返回条件与边界</summary>
 
@@ -186,6 +194,8 @@ int ZEXPORT inflateInit2_(z_streamp strm, int windowBits, const char *version, i
 **影响。** 分配状态。
 
 **前置条件。** 流尚未有效初始化。分配器字段遵循公共约定。只要求版本首字节可读；不检查整个字符串。
+
+**证明目标。** 必需的安全目标：`Goal.inflateInit2__safety`（[Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)）。前提（`InitDomain`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；`strm` 指向一个流记录，其 `zalloc` 和 `zfree` 为 NULL 或默认分配器，`state` 为 NULL；`version` 的第一个字节可读并且是 `1`；`stream_size` 等于 `sizeof(z_stream)`。`windowBits` 的每个取值都被覆盖。每一种分配结果都被覆盖。结论（`InitCallSafe`）：调用返回，只写流记录和新块；返回 `Z_OK` 时流可达并拥有每个新块；返回其他代码时存活块不变。NULL 流、错误的版本和错误的 `stream_size` 不属于这个目标；它们是功能目标中的拒绝情形。功能目标（非必需）：`Goal.inflateInit2_`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit2_"><summary>完整返回条件与边界</summary>
 
@@ -233,6 +243,8 @@ int ZEXPORT inflateInit_(z_streamp strm, const char *version, int stream_size);
 
 **前置条件。** 满足 `inflateInit2_` 的前置条件。
 
+**证明目标。** 必需的安全目标：`Goal.inflateInit__safety`（[Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)）。前提（`InitDomain`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；`strm` 指向一个流记录，其 `zalloc` 和 `zfree` 为 NULL 或默认分配器，`state` 为 NULL；`version` 的第一个字节可读并且是 `1`；`stream_size` 等于 `sizeof(z_stream)`。每一种分配结果都被覆盖。结论（`InitCallSafe`）：调用返回，只写流记录和新块；返回 `Z_OK` 时流可达并拥有每个新块；返回其他代码时存活块不变。NULL 流、错误的版本和错误的 `stream_size` 不属于这个目标；它们是功能目标中的拒绝情形。功能目标（非必需）：`Goal.inflateInit_`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit_"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 精确等于 `inflateInit2_(strm, 15, version, stream_size)`。成功后接受窗口不超过 32 KiB 的 zlib 流，拥有一项状态分配。
@@ -271,6 +283,8 @@ int ZEXPORT inflatePrime(z_streamp strm, int bits, int value);
 **影响。** 只修改状态。
 
 **前置条件。** 满足公共有效流条件和所述位预置调用顺序。
+
+**证明目标。** 必需的安全目标：`Goal.inflatePrime_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：对这个调用没有要求。`bits` 和 `value` 的每个取值都被覆盖。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflatePrime`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflatePrime"><summary>完整返回条件与边界</summary>
 
@@ -324,6 +338,8 @@ int ZEXPORT inflate(z_streamp strm, int flush);
 
 **所有权。** 新窗口存储归流所有，仍可用于重置/结束，包括错误之后。一次调用的 `Z_FINISH` 完成可能无需窗口。拼接 gzip 成员要求成员之间重置。错误消息是借用的静态字符串。缓冲区和流检查的拒绝不改变任何内容。
 
+**证明目标。** 必需的安全目标：`Goal.inflate_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`next_in` 为 NULL 或覆盖 `avail_in` 个可读字节，`next_out` 为 NULL 或覆盖 `avail_out` 个可写字节，两者都在流自有的块之外且互不重叠（`StreamBuffers`），并且 gzip 头的条件成立（`ActiveHeader`）。对 inflate 流，`ActiveHeader` 指：交给 `inflateGetHeader` 的头记录存活，其 `extra`、`name`、`comment` 缓冲区为 NULL，或者分别可写 `extra_max`、`name_max`、`comm_max` 个字节且在流自有的块之外；读取 gzip 头期间，`extra` 缓冲区不与未读输入重叠，`extra_len` 也不被调低到尚待读取的长度以下。`flush` 的每个取值和每一种输入字节序列都被覆盖。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块、所挂的头记录、输出范围和头缓冲区，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflate`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflate"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 在所述范围内读写。按已消费/已产生字节数推进指针并减少可用计数。从初始化/重置开始的普通运行中，如果所选格式有效且字典正确，累计输出是解码数据的前缀，在 `Z_STREAM_END` 时等于完整数据。畸形字节也在定义域内：检测到格式错误，或启用的校验和/长度检查失败时，返回 `Z_DATA_ERROR`，此前可能已有输出。仅有输入不完整时需要更多输入；不必把它报告为数据错误。
@@ -369,6 +385,8 @@ int ZEXPORT inflateEnd(z_streamp strm);
 
 **前置条件。** 满足公共有效流条件。
 
+**证明目标。** 必需的安全目标：`Goal.inflateEnd_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提：流可达（`StreamReachable`）。结论：调用返回 `Z_OK`，清空状态指针，只写流记录和流自有的块，并且恰好释放流拥有的那些块。功能目标（非必需）：`Goal.inflateEnd`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateEnd"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 返回 `Z_OK`，对可选窗口和状态恰好释放一次，将 `state` 置为 NULL。其他流字段和调用者缓冲区不变。不分配，使用默认释放函数时不可能返回 `Z_MEM_ERROR`。
@@ -407,6 +425,8 @@ int ZEXPORT inflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
 **影响。** 观察状态，只写入这些目标。
 
 **前置条件。** 非 NULL 字典具有容纳保留历史的空间；32768 字节总是足够。非 NULL 的 `dictLength` 指向可写 `uInt` 存储。
+
+**证明目标。** 必需的安全目标：`Goal.inflateGetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`dictionary` 为 NULL，或覆盖与窗口现有内容一样多的可写字节（`whave`，至多 32768）且在流自有的块之外。长度结果按可选值建模，不按内存建模。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块和字典范围，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflateGetDictionary`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetDictionary"><summary>完整返回条件与边界</summary>
 
@@ -448,6 +468,8 @@ int ZEXPORT inflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt d
 **影响。** 修改历史，可能分配窗口。
 
 **前置条件。** `dictionary` 非 NULL，描述 `dictLength` 个可读字节，即使长度为零也如此。要产生正确输出，它须与压缩器字典一致。
+
+**证明目标。** 必需的安全目标：`Goal.inflateSetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`dictionary` 为 NULL，或覆盖 `dictLength` 个可读字节且在流自有的块之外。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflateSetDictionary`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSetDictionary"><summary>完整返回条件与边界</summary>
 
@@ -493,6 +515,8 @@ int ZEXPORT inflateGetHeader(z_streamp strm, gz_headerp head);
 
 **前置条件。** `head` 非 NULL 且可写。其 `extra`、`name`、`comment` 指针为 NULL，或分别具有可写容量 `extra_max`、`name_max`、`comm_max`。所有已登记存储保持有效，直到头部解析结束或请求被清空。头部记录及其目标缓冲区彼此分离，并与流、流拥有的存储，以及使用它们的调用的输入/输出范围分离。
 
+**证明目标。** 必需的安全目标：`Goal.inflateGetHeader_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`head` 非 NULL，指向一个不归流所有的存活头记录；其 `extra`、`name`、`comment` 为 NULL，或者分别可写 `extra_max`、`name_max`、`comm_max` 个字节且在流自有的块之外（`HeaderMemory`）。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块和头记录，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflateGetHeader`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 返回 `Z_OK`，保留指针，将 `done` 置为 0。后续 `inflate` 调用填充标量字段和可用缓冲区前缀。存在扩展字段 `extra` 时，`extra_len` 为实际长度；不存在时，`extra` 变为 NULL，`extra_len` 不变。只有终止符能放下时，名称/注释才以零终止。缺失的可选字段使对应指针变为 NULL。完成时将 `done` 置为 1；自动检测到 zlib 时置为 -1。
@@ -533,6 +557,8 @@ int ZEXPORT inflateSync(z_streamp strm);
 **影响。** 消费输入、修改状态，可能释放窗口。
 
 **前置条件。** `next_in` 和 `avail_in` 描述可读范围。不使用输出。
+
+**证明目标。** 必需的安全目标：`Goal.inflateSync_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`next_in` 覆盖 `avail_in` 个可读字节且在流自有的块之外，只有 `avail_in == 0` 时才可以为 NULL。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflateSync`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSync"><summary>完整返回条件与边界</summary>
 
@@ -575,6 +601,8 @@ int ZEXPORT inflateSyncPoint(z_streamp strm);
 
 **前置条件。** 满足公共有效流条件。
 
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数列在“未文档化函数（不属于 zlib API）”之下。为它陈述的目标（非必需）：`Goal.inflateSyncPoint`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSyncPoint"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 当且仅当正在等待存储块长度，且位缓冲区为空时返回 1，否则返回 0。不分配/释放，不改变任何内容。
@@ -615,6 +643,8 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 
 **前置条件。** 源满足公共条件。目标不与源或源拥有的存储重叠。共享的输入/输出和头部指针保留各自的调用者生命周期；使用前为流提供独立可写目标。
 
+**证明目标。** 必需的安全目标：`Goal.inflateCopy_safety`（[Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)）。主条款的前提：源流可达（`StreamReachable`），`dest` 是另一个可读的流记录。结论：调用返回 `Z_OK` 或 `Z_MEM_ERROR`，源记录和源状态不变，只写目的记录和新块；返回 `Z_MEM_ERROR` 时确有分配失败，目的状态被清空，存活块不变；返回 `Z_OK` 时目的流可达，存活块恰好增加新状态拥有的那些块。NULL 参数在同一个目标里被拒绝；不一致的源由 `Goal.inflate_refusal` 拒绝。功能目标（非必需）：`Goal.inflateCopy`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCopy"><summary>完整返回条件与边界</summary>
 
 **后置条件。** `Z_OK` 复制解码位置、历史和流字段。两个流独立拥有各自状态/窗口，都必须结束。源不变。调用者缓冲区指针、消息和任何已登记头部指针共享，不做深复制。不消费或产生调用者数据。
@@ -651,6 +681,8 @@ int ZEXPORT inflateUndermine(z_streamp strm, int subvert);
 **影响。** 只修改状态。
 
 **前置条件。** 满足公共有效流条件。
+
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数列在“未文档化函数（不属于 zlib API）”之下。为它陈述的目标（非必需）：`Goal.inflateUndermine`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateUndermine"><summary>完整返回条件与边界</summary>
 
@@ -690,6 +722,8 @@ int ZEXPORT inflateValidate(z_streamp strm, int check);
 **影响。** 只修改配置。
 
 **前置条件。** 满足公共有效流条件和所述调用顺序。
+
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数列在“未文档化函数（不属于 zlib API）”之下。为它陈述的目标（非必需）：`Goal.inflateValidate`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateValidate"><summary>完整返回条件与边界</summary>
 
@@ -732,6 +766,8 @@ long ZEXPORT inflateMark(z_streamp strm);
 
 **前置条件。** 满足公共有效流条件。
 
+**证明目标。** 必需的安全目标：`Goal.inflateMark_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：对这个调用没有要求。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.inflateMark`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateMark"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 返回 `back * 65536 + progress`：`back` 是向后回到当前码所需的位数；在码之间/头部内/存储块内为 -1。`progress` 为剩余存储块字节数、已输出匹配字节数，其他情况为零。不改变任何内容，不分配/释放。
@@ -766,6 +802,8 @@ unsigned long ZEXPORT inflateCodesUsed(z_streamp strm);
 **影响。** 只读查询。
 
 **前置条件。** 满足公共有效流条件。
+
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数列在“未文档化函数（不属于 zlib API）”之下。为它陈述的目标（非必需）：`Goal.inflateCodesUsed`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCodesUsed"><summary>完整返回条件与边界</summary>
 

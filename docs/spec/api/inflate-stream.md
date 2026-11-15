@@ -17,9 +17,15 @@ For whole-buffer zlib decoding, see [uncompress](utility.md#uncompress2_z).
 
 The focused contracts follow the pinned `inflate.c` and `zlib.h` in the default LP64 Linux
 build, with gzip enabled and without optional invalid-distance or strict-distance modes.
-Source readings are **to confirm** by proof. The broader [registered public goals](../../checking/goals.md)
-retain their domains. See [contract conventions](contracts.md) for terminology and
-[progress](../../progress.md) for proof status and remaining work.
+See [contract conventions](contracts.md) for terminology.
+
+**What is proved.** The required goal of each function is its safety goal: no undefined behaviour, no
+memory error, no leak, and termination ([safety](../safety.md)). Each entry names that goal under
+**Proof goals**, with its premises. The proof assumes those premises, not the documentary Pre; where
+the two differ, the Lean statement counts. The return values, output bytes and state changes
+described here are functional behaviour. They are read from the C and are **to confirm** where no
+registered theorem states them. They are not a planned proof target.
+[Progress](../../progress.md) records which goals are registered.
 
 ## Common conditions
 
@@ -83,6 +89,8 @@ The result says whether decoding restarted while retaining the existing history.
 **Pre.** The common live-stream conditions hold. The caller deliberately wants the
 old window to remain usable by the next stream.
 
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.inflateResetKeep`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateResetKeep"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns `Z_OK`. Clears totals, message, `data_type`, buffered bits,
@@ -125,6 +133,8 @@ The result says whether the existing configuration is ready for a new independen
 **Effects.** Mutates state and may free the window, never allocates.
 
 **Pre.** The common live-stream conditions hold.
+
+**Proof goals.** Required safety goal: `Goal.inflateReset_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflateReset`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset"><summary>Complete return conditions and boundaries</summary>
 
@@ -169,6 +179,8 @@ The result says whether a new wrapper and window configuration took effect for a
 **Effects.** Mutates state and may free the window, never allocates.
 
 **Pre.** The common live-stream conditions hold. Old decoding is being abandoned.
+
+**Proof goals.** Required safety goal: `Goal.inflateReset2_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. Every `windowBits` is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflateReset2`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset2"><summary>Complete return conditions and boundaries</summary>
 
@@ -216,6 +228,8 @@ and NULL or readable version pointer; all signed scalar arguments.
 
 **Pre.** The stream is not live. Allocator fields follow the common convention.
 Only the first version byte must be readable; a whole string is not inspected.
+
+**Proof goals.** Required safety goal: `Goal.inflateInit2__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)). Premises (`InitDomain`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); `strm` names a stream record whose `zalloc` and `zfree` are NULL or the default allocator and whose `state` is NULL; the first byte of `version` is readable and is `1`; `stream_size` is `sizeof(z_stream)`. Every `windowBits` is covered. Every allocation outcome is covered. Conclusion (`InitCallSafe`): the call returns and writes only the stream record and new blocks; with `Z_OK` the stream is reachable and owns every new block; with any other code the live blocks are unchanged. A NULL stream, a wrong version and a wrong `stream_size` are not part of this goal; they are refusal cases of the functional goal. Functional goal, not required: `Goal.inflateInit2_`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit2_"><summary>Complete return conditions and boundaries</summary>
 
@@ -274,6 +288,8 @@ The result says whether a zlib decoder with a maximum 32 KiB window was created.
 
 **Pre.** The `inflateInit2_` preconditions hold.
 
+**Proof goals.** Required safety goal: `Goal.inflateInit__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)). Premises (`InitDomain`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); `strm` names a stream record whose `zalloc` and `zfree` are NULL or the default allocator and whose `state` is NULL; the first byte of `version` is readable and is `1`; `stream_size` is `sizeof(z_stream)`. Every allocation outcome is covered. Conclusion (`InitCallSafe`): the call returns and writes only the stream record and new blocks; with `Z_OK` the stream is reachable and owns every new block; with any other code the live blocks are unchanged. A NULL stream, a wrong version and a wrong `stream_size` are not part of this goal; they are refusal cases of the functional goal. Functional goal, not required: `Goal.inflateInit_`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit_"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Exactly `inflateInit2_(strm, 15, version, stream_size)`. On success it
@@ -315,6 +331,8 @@ reported block/header boundary; every signed `bits` and `value`.
 **Effects.** Mutates state only.
 
 **Pre.** The common live-stream conditions and the stated priming call order hold.
+
+**Proof goals.** Required safety goal: `Goal.inflatePrime_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. Every `bits` and `value` is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflatePrime`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflatePrime"><summary>Complete return conditions and boundaries</summary>
 
@@ -384,6 +402,8 @@ reset/end, including after errors. A one-call `Z_FINISH` completion may need no
 window. Concatenated gzip members require reset between members. Error messages
 are borrowed static strings. Buffer and stream check refusals change nothing.
 
+**Proof goals.** Required safety goal: `Goal.inflate_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `next_in` is NULL or covers `avail_in` readable bytes, `next_out` is NULL or covers `avail_out` writable bytes, both lie outside the stream's own blocks and do not overlap (`StreamBuffers`), and the gzip header conditions hold (`ActiveHeader`). `ActiveHeader` for an inflate stream: a header record given to `inflateGetHeader` is live, its `extra`, `name` and `comment` buffers are NULL or writable for `extra_max`, `name_max` and `comm_max` bytes outside the stream's blocks, and while the gzip header is read the `extra` buffer does not overlap the unread input and `extra_len` is not lowered below the length still to read. Every `flush` value and every input byte sequence is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record, the stream's own blocks, the attached header record, the output range and the header buffers, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflate`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflate"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Reads/writes within the stated ranges. Advances pointers and reduces
@@ -441,6 +461,8 @@ allocation/data errors.
 
 **Pre.** The common live-stream conditions hold.
 
+**Proof goals.** Required safety goal: `Goal.inflateEnd_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premise: the stream is reachable (`StreamReachable`). Conclusion: the call returns `Z_OK`, clears the state pointer, writes only the stream record and the stream's own blocks, and frees exactly the blocks the stream owns. Functional goal, not required: `Goal.inflateEnd`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateEnd"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns `Z_OK`, frees the optional window and state exactly once, and
@@ -485,6 +507,8 @@ and length destinations.
 
 **Pre.** A non-NULL dictionary has room for the retained history; 32768 bytes is
 always enough. Non-NULL `dictLength` points to writable `uInt` storage.
+
+**Proof goals.** Required safety goal: `Goal.inflateGetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `dictionary` is NULL or covers as many writable bytes as the window holds (`whave`, at most 32768), outside the stream's own blocks. The length result is modelled as an optional value, not as memory. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record, the stream's own blocks and the dictionary range, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflateGetDictionary`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -531,6 +555,8 @@ live raw streams at any call boundary.
 
 **Pre.** `dictionary` is non-NULL and describes `dictLength` readable bytes, even
 when the length is zero. For correct output it matches the compressor's dictionary.
+
+**Proof goals.** Required safety goal: `Goal.inflateSetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `dictionary` is NULL or covers `dictLength` readable bytes outside the stream's own blocks. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflateSetDictionary`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -586,6 +612,8 @@ registered storage valid until header parsing ends or the request is cleared.
 The header record and its destination buffers stay separate from each other,
 the stream and its owned storage, and the input/output ranges of calls using them.
 
+**Proof goals.** Required safety goal: `Goal.inflateGetHeader_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `head` is non-NULL and names a live header record that the stream does not own; its `extra`, `name` and `comment` are NULL or writable for `extra_max`, `name_max` and `comm_max` bytes outside the stream's own blocks (`HeaderMemory`). Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record, the stream's own blocks and the header record, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflateGetHeader`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns `Z_OK`, retains the pointer and sets `done` to 0. Later `inflate`
@@ -635,6 +663,8 @@ recovery search, with readable input.
 **Effects.** Consumes input, mutates state, may free a window.
 
 **Pre.** `next_in` and `avail_in` describe a readable range. Output is not used.
+
+**Proof goals.** Required safety goal: `Goal.inflateSync_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `next_in` covers `avail_in` readable bytes outside the stream's own blocks, and is NULL only with `avail_in == 0`. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflateSync`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSync"><summary>Complete return conditions and boundaries</summary>
 
@@ -686,6 +716,8 @@ This is a state query with an error code; distinguish 1, 0 and the negative erro
 
 **Pre.** The common live-stream conditions hold.
 
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.inflateSyncPoint`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSyncPoint"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns 1 exactly when waiting for stored-block lengths with an empty
@@ -731,6 +763,8 @@ destination.
 source or its owned storage. Shared input/output and header pointers retain their
 caller lifetimes; give the streams separate writable destinations before use.
 
+**Proof goals.** Required safety goal: `Goal.inflateCopy_safety` ([Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)). Premises of the main clause: the source is reachable (`StreamReachable`), `dest` is a different, readable stream record. Conclusion: the call returns `Z_OK` or `Z_MEM_ERROR`, leaves the source record and state unchanged, and writes only the destination record and new blocks; with `Z_MEM_ERROR` an allocation failed, the destination state is cleared and the live blocks are unchanged; with `Z_OK` the destination is a reachable stream and the live blocks grow by exactly the blocks the new state owns. NULL arguments are refused in the same goal; an inconsistent source is refused by `Goal.inflate_refusal`. Functional goal, not required: `Goal.inflateCopy`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCopy"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** `Z_OK` copies decoding position, history and stream fields. Both streams
@@ -773,6 +807,8 @@ In the default build, the return value reports refusal of permissive distance mo
 **Effects.** Mutates state only.
 
 **Pre.** The common live-stream conditions hold.
+
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.inflateUndermine`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateUndermine"><summary>Complete return conditions and boundaries</summary>
 
@@ -817,6 +853,8 @@ The result says whether wrapper validation settings were updated.
 
 **Pre.** The common live-stream conditions and the stated call order hold.
 
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.inflateValidate`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateValidate"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns `Z_OK`. Zero disables checks; nonzero enables them for wrapped
@@ -860,6 +898,8 @@ This returns a packed position value rather than a zlib status code. Its error s
 
 **Pre.** The common live-stream conditions hold.
 
+**Proof goals.** Required safety goal: `Goal.inflateMark_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.inflateMark`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateMark"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** Returns `back * 65536 + progress`: `back` is the bits back to the current
@@ -898,6 +938,8 @@ This returns a count of embedded decoding-table entries, not bytes or a status c
 **Effects.** Read-only query.
 
 **Pre.** The common live-stream conditions hold.
+
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.inflateCodesUsed`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCodesUsed"><summary>Complete return conditions and boundaries</summary>
 

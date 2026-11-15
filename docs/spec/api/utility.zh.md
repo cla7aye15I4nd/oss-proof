@@ -1,4 +1,4 @@
-<!-- source-sha256: 33fcde440928c400dc852d8acc07efa7139001810bb56cd423eeec0335a96b68 -->
+<!-- source-sha256: 8dc4bd8e55ad3cab57e2051c9727a6e90be95c177d81c7ba1995925e8ee40816 -->
 
 # 缓冲区工具与库信息
 
@@ -15,12 +15,18 @@
 
 这些聚焦契约对应默认 LP64 Linux 构建中的 `compress.c`、`uncompr.c`、`zutil.c` 和
 `zlib.h`。`_z` 形式使用 `z_size_t`；普通形式使用 `uLong`。这里两者均为 64 位。
-本页契约不会缩小
-[Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 和
-[Queries.lean](../../../ZlibF/Spec/Public/Queries.lean) 中登记的目标。
-[Calls.lean](../../../ZlibF/Spec/Public/Calls.lean) 固定翻译后的参数和结果。
-定义域和效果标签见[契约约定](contracts.md)；证明状态和剩余工作见[进度](../../progress.md)。
+定义域和效果标签见[契约约定](contracts.md)。
 超出聚焦前提只表示本契约不作保证，不自动等于 C 未定义行为（UB），也不保证一定返回错误码。
+
+**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都还需要由证明核实。它们不在计划的证明目标之内。哪些目标已登记，见[进度](../../progress.md)。
+
+安全目标在 [Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean) 和
+[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean) 中；它们的前提
+（`CompressorSafety`、`UncompressCountedSafe`、`UncompressSingleSafe`）定义在
+[Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中。功能目标在
+[Functional/Utilities.lean](../../../ZlibF/Spec/Functional/Utilities.lean) 和
+[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean) 中。
+[Calls.lean](../../../ZlibF/Spec/Public/Calls.lean) 固定翻译后的参数和结果。
 
 缓冲区工具使用 zlib 包装和默认设置，创建并释放一个局部流。
 
@@ -49,6 +55,7 @@ flowchart LR
 返回前释放所有内部分配，包括分配失败路径；不返回局部流或其拥有的分配。
 返回指针的查询交付借用的不可变存储。
 这些要求适用于每一条所述返回路径，包括分配失败和部分输出之后的清理。
+“证明目标”下列出的安全目标陈述了这些效果，借用存储那一条除外；输出的内容属于功能行为。
 
 ## compress2_z
 
@@ -92,6 +99,8 @@ int ZEXPORT compress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source,
 NULL 目标，会在任何长度写入之前返回 `Z_STREAM_ERROR`。
 否则在初始化前清零 `*destLen`。错误级别在任何分配前返回 `Z_STREAM_ERROR`，长度为零。
 后续返回会存储已写字节数。
+
+**证明目标。** 必需的安全目标：`Goal.compress2_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`CompressorSafety`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `CompressArguments`：源覆盖 `sourceLen` 个可读字节，目的覆盖 `*destLen` 个可写字节，两个范围不重叠，或者参数属于调用以 `Z_STREAM_ERROR` 拒绝的情形。`destLen` 为 NULL 在定义域之内，会被拒绝。长度单元按值建模，不按内存建模，所以与缓冲区重叠的长度单元不在模型之内（见[偏差](../../deviations.md)）。结论：调用返回，在 `dest` 处至多写入容量那么多字节，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。`level` 的每个取值都被覆盖。功能目标（非必需）：`Goal.compress2_z`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2_z"><summary>完整返回条件与边界</summary>
 
@@ -146,6 +155,8 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
 包装函数在每次返回时写回长度，包括错误返回。
 早期参数拒绝保持其原值；无效级别或分配失败使其为零。
 
+**证明目标。** 必需的安全目标：`Goal.compress2_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`CompressorSafety`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `CompressArguments`：源覆盖 `sourceLen` 个可读字节，目的覆盖 `*destLen` 个可写字节，两个范围不重叠，或者参数属于调用以 `Z_STREAM_ERROR` 拒绝的情形。`destLen` 非 NULL。长度单元按值建模，不按内存建模，所以与缓冲区重叠的长度单元不在模型之内（见[偏差](../../deviations.md)）。结论：调用返回，在 `dest` 处至多写入容量那么多字节，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。`level` 的每个取值都被覆盖。功能目标（非必需）：`Goal.compress2`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 编码和返回码契约与 `compress2_z` 相同。
@@ -187,6 +198,8 @@ int ZEXPORT compress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_si
 **前置条件。** [compress2_z](#compress2_z) 的受限定义域，不包含级别参数。
 
 **效果。** 有状态；长度写入、经检查的 NULL 情形及完整清理相同。
+
+**证明目标。** 必需的安全目标：`Goal.compress_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`CompressorSafety`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `CompressArguments`：源覆盖 `sourceLen` 个可读字节，目的覆盖 `*destLen` 个可写字节，两个范围不重叠，或者参数属于调用以 `Z_STREAM_ERROR` 拒绝的情形。`destLen` 为 NULL 在定义域之内，会被拒绝。长度单元按值建模，不按内存建模，所以与缓冲区重叠的长度单元不在模型之内（见[偏差](../../deviations.md)）。结论：调用返回，在 `dest` 处至多写入容量那么多字节，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。功能目标（非必需）：`Goal.compress_z`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress_z"><summary>完整返回条件与边界</summary>
 
@@ -230,6 +243,8 @@ int ZEXPORT compress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong so
 
 **效果。** 有状态；长度写入和完整清理与 `compress2` 相同。
 
+**证明目标。** 必需的安全目标：`Goal.compress_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`CompressorSafety`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `CompressArguments`：源覆盖 `sourceLen` 个可读字节，目的覆盖 `*destLen` 个可写字节，两个范围不重叠，或者参数属于调用以 `Z_STREAM_ERROR` 拒绝的情形。`destLen` 非 NULL。长度单元按值建模，不按内存建模，所以与缓冲区重叠的长度单元不在模型之内（见[偏差](../../deviations.md)）。结论：调用返回，在 `dest` 处至多写入容量那么多字节，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。功能目标（非必需）：`Goal.compress`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="compress"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 与级别 -1 的 `compress2` 相同。
@@ -269,6 +284,8 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 **范围。** 本契约规定数值。输出容量充分性是另一个性质，针对使用默认包装、
 窗口和内存设置的有效压缩调用。它不为任意 raw 或 gzip 流设置给出上界。
 
+**证明目标。** 必需目标：`Goal.compressBound_z`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)），即完整契约；它同时充当安全目标。没有前提：`sourceLen` 的每个取值。其翻译是纯函数：不涉及堆，也不会产生故障，所以单独的安全目标会按定义成立。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 对 `n = sourceLen`，返回
@@ -306,6 +323,8 @@ uLong ZEXPORT compressBound(uLong sourceLen);
 **前置条件。** 完整类型定义域：每个 64 位 `sourceLen`。
 
 **效果。** 纯计算。没有内存访问或错误返回。输出容量充分性的范围也相同。
+
+**证明目标。** 必需目标：`Goal.compressBound`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)），即完整契约；它同时充当安全目标。没有前提：`sourceLen` 的每个取值。其翻译是纯函数：不涉及堆，也不会产生故障，所以单独的安全目标会按定义成立。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>完整返回条件与边界</summary>
 
@@ -356,6 +375,8 @@ int ZEXPORT uncompress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z
 并保持两个已有长度单元不变。初始化失败也保持两个长度不变，且不写输出。
 初始化后，每次返回都会在 `*sourceLen` 存储已消费字节数，在 `*destLen` 存储已产生
 字节数，包括后续内存失败。此前写入的输出仍可用。
+
+**证明目标。** 必需的安全目标：`Goal.uncompress2_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`UncompressCountedSafe`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；非 NULL 的长度指针指向一个可读可写的 8 字节单元（`LengthCell`）；非 NULL 的 `source` 覆盖 `*sourceLen` 个可读字节；非 NULL 的 `dest` 覆盖 `*destLen` 个可写字节；目的、源和两个长度单元两两分离（`UtilitySeparation`）。NULL 指针在定义域之内，会被拒绝。输入字节任意。结论：调用返回文档规定的某个代码，只写输出（至多其容量）和长度单元，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。功能目标（非必需）：`Goal.uncompress2_z`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2_z"><summary>完整返回条件与边界</summary>
 
@@ -410,6 +431,8 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 **效果。** 有状态；输出和清理效果相同。每次返回都写回两个长度，包括错误返回。
 参数拒绝和初始化失败保持其值不变。
 
+**证明目标。** 必需的安全目标：`Goal.uncompress2_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`UncompressCountedSafe`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；非 NULL 的长度指针指向一个可读可写的 8 字节单元（`LengthCell`）；非 NULL 的 `source` 覆盖 `*sourceLen` 个可读字节；非 NULL 的 `dest` 覆盖 `*destLen` 个可写字节；目的、源和两个长度单元两两分离（`UtilitySeparation`）。两个长度指针都非 NULL。输入字节任意。结论：调用返回文档规定的某个代码，只写输出（至多其容量）和长度单元，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。功能目标（非必需）：`Goal.uncompress2`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 解码、返回码和已消费计数与 `uncompress2_z` 相同。
@@ -453,6 +476,8 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
 `destLen` 可在经检查的拒绝情形中为 NULL。
 
 **效果。** 有状态；输出长度写入和完整清理相同。已消费计数为局部值。
+
+**证明目标。** 必需的安全目标：`Goal.uncompress_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`UncompressSingleSafe`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；非 NULL 的 `destLen` 指向一个可读可写的 8 字节单元（`LengthCell`）；非 NULL 的 `source` 覆盖 `sourceLen` 个可读字节；非 NULL 的 `dest` 覆盖 `*destLen` 个可写字节；目的、源和长度单元两两分离（`Separate`）。NULL 指针在定义域之内，会被拒绝。输入字节任意。结论：调用返回文档规定的某个代码，只写输出（至多其容量）和长度单元，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。功能目标（非必需）：`Goal.uncompress_z`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress_z"><summary>完整返回条件与边界</summary>
 
@@ -498,6 +523,8 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 
 **效果。** 有状态；输出长度写入、部分输出保留和完整清理相同。
 
+**证明目标。** 必需的安全目标：`Goal.uncompress_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)）。前提（`UncompressSingleSafe`）：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；非 NULL 的 `destLen` 指向一个可读可写的 8 字节单元（`LengthCell`）；非 NULL 的 `source` 覆盖 `sourceLen` 个可读字节；非 NULL 的 `dest` 覆盖 `*destLen` 个可写字节；目的、源和长度单元两两分离（`Separate`）。`destLen` 非 NULL。输入字节任意。结论：调用返回文档规定的某个代码，只写输出（至多其容量）和长度单元，不留下新的存活对象，并且只有在确有分配失败之后才报告 `Z_MEM_ERROR`。功能目标（非必需）：`Goal.uncompress`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 输出和返回码与 `uncompress2` 相同；忽略尾随输入。
@@ -531,6 +558,8 @@ const char * ZEXPORT zlibVersion(void);
 **效果。** 只读。结果是借用的不可变静态存储；调用者不得写入或释放。
 不发生分配或堆变化。
 
+**证明目标。** 必需的安全目标：`Goal.zlibVersion_safety`（[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)）。没有前提：每个堆。结论：调用返回，堆不变。功能目标（非必需）：`Goal.zlibVersion`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibVersion"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 返回非 NULL 指针，指向以 NUL 结尾的 `ZLIB_VERSION`（`1.3.2.1-motley`）。
@@ -562,6 +591,8 @@ uLong ZEXPORT zlibCompileFlags(void);
 **前置条件。** 完整类型定义域；不需要参数或调用者状态。
 
 **效果。** 纯标量查询。没有分配、内存写入或错误返回。
+
+**证明目标。** 必需的安全目标：`Goal.zlibCompileFlags_safety`（[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean)）。没有前提：每个堆。结论：调用返回，堆不变。功能目标（非必需）：`Goal.zlibCompileFlags`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibCompileFlags"><summary>完整返回条件与边界</summary>
 
@@ -610,6 +641,8 @@ const char * ZEXPORT zError(int err);
 **效果。** 只读。结果是借用的不可变静态存储；不得写入或释放。
 没有分配、堆变化或错误返回。索引计算前会检查 -6–2 范围外的值，
 因此两个标量极值均安全返回空文本。
+
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数列在“未文档化函数（不属于 zlib API）”之下。为它陈述的目标（非必需）：`Goal.zError`。
 
 [返回 API 手册](README.md) · [契约约定](contracts.md)
 

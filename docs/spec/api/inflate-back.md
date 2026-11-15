@@ -8,12 +8,22 @@ from its window. Start with [inflateBackInit_](#inflatebackinit_), decode with
 The caller's window remains caller-owned throughout.
 
 These focused contracts follow the pinned [infback.c](../../../zlib/infback.c) and
-[zlib.h](../../../zlib/zlib.h) in the default LP64 Linux build. Source readings are **to confirm**
-by proof. Their restricted domains do not narrow the broader targets in
-[Back.lean](../../../ZlibF/Spec/Public/Back.lean) or
-[Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean). See
-[contract conventions](contracts.md) for domain/effect labels and
-[progress](../../progress.md) for proof status and remaining work.
+[zlib.h](../../../zlib/zlib.h) in the default LP64 Linux build. See
+[contract conventions](contracts.md) for domain/effect labels.
+
+**What is proved.** The required goal of each function is its safety goal: no undefined behaviour, no
+memory error, no leak, and termination ([safety](../safety.md)). Each entry names that goal under
+**Proof goals**, with its premises. The proof assumes those premises, not the documentary Pre; where
+the two differ, the Lean statement counts. The return values, output bytes and state changes
+described here are functional behaviour. They are read from the C and are **to confirm** where no
+registered theorem states them. They are not a planned proof target.
+[Progress](../../progress.md) records which goals are registered.
+
+The required safety goal of all three functions is `Goal.inflate_back_sequence_safety` in
+[Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean); per-function safety goals are not
+stated yet. The functional goals `Goal.inflateBackInit_`, `Goal.inflateBack` and
+`Goal.inflateBackEnd` are in [Back.lean](../../../ZlibF/Spec/Public/Back.lean). The decoding
+clauses of `Goal.inflateBack` (what reaches `out`) are not planned.
 
 `inflateBack` decodes raw DEFLATE. The caller handles any zlib/gzip header, trailer and checksum.
 The caller owns a writable window of at least `2^windowBits` bytes. It is also the output buffer.
@@ -76,6 +86,8 @@ A non-NULL `version` has a readable first byte. On the initialization path, `win
 
 **Effects.** May initialize allocator fields and `opaque`, clear `msg` and allocate one state.
 The window remains caller-owned and is not allocated, cleared or freed here.
+
+**Proof goals.** Required safety goal: `Goal.inflate_back_sequence_safety` ([Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)). It is the sequence goal: a per-function goal is not stated yet. Its histories are `BackSafeReachable`: init succeeded on `InitDomain` with `windowBits` 8..15 and a non-NULL window of `2^windowBits` writable bytes that is a slice of a heap byte block. The goal starts its histories at a successful init. It states nothing about an init call that fails or is refused; those paths are in the functional goal. That a valid init succeeds, writes only the stream record and allocates exactly one block is the required non-vacuity goal `Goal.inflate_back_initialisation_domain`. Functional goal, not required: `Goal.inflateBackInit_`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackInit_"><summary>Complete return conditions and boundaries</summary>
 
@@ -142,6 +154,8 @@ Full windows and a final nonempty partial window are delivered to `out`, includi
 Callbacks may therefore observe output before a later format or input failure.
 The library allocates and frees nothing; callback allocations remain the caller's responsibility.
 
+**Proof goals.** Required safety goal: `Goal.inflate_back_sequence_safety` ([Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)). It is the sequence goal: a per-function goal is not stated yet. Its histories are `BackSafeReachable`: init succeeded on `InitDomain` with `windowBits` 8..15 and a non-NULL window of `2^windowBits` writable bytes that is a slice of a heap byte block. Premises of one more call: `next_in` is NULL or covers `avail_in` readable bytes that do not overlap the window; the callbacks follow a `CallbackProtocol`, whose total input is below `2^48` bytes (`inputBound`); every byte object has fewer than `2^63` bytes, and the callbacks keep that (`BackPlatform`); and every input chunk, the first one and each one `in` hands out, lies in a heap byte block (`BackFirstChunk`, `BackPlatform`). The input bytes are arbitrary. Conclusion: the call returns `Z_STREAM_END`, `Z_DATA_ERROR` or `Z_BUF_ERROR`, keeps the state valid over the same window, changes only the stream record, the state record, the callbacks' own blocks and the window slice, and leaves the live blocks outside the callbacks' own unchanged. A NULL stream is refused in the same goal. The premises narrower than `zlib.h` are rows of [deviations](../../deviations.md). Functional goal, not required: `Goal.inflateBack`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBack"><summary>Complete return conditions and boundaries</summary>
 
 **Post.** `Z_STREAM_END` means the complete raw stream was decoded and every output call succeeded.
@@ -190,6 +204,8 @@ The stream and attached state remain valid; retain the matching `zfree` and `opa
 Cleanup is permitted after successful decoding and after any decode error.
 
 **Effects.** Free exactly the internal state and clear `state`.
+
+**Proof goals.** Required safety goal: `Goal.inflate_back_sequence_safety` ([Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)). It is the sequence goal: a per-function goal is not stated yet. Its histories are `BackSafeReachable`: init succeeded on `InitDomain` with `windowBits` 8..15 and a non-NULL window of `2^windowBits` writable bytes that is a slice of a heap byte block. Conclusion for this call: on every such history it returns `Z_OK`, clears the state pointer, writes only the stream record and the state block, and frees exactly the state block. The refusal cases of this function are in the functional goal. Functional goal, not required: `Goal.inflateBackEnd`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackEnd"><summary>Complete return conditions and boundaries</summary>
 

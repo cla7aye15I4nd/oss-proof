@@ -5,6 +5,16 @@ allocator, with the accepted [platform assumptions](platform.md). The per-object
 `2^63` byte bound is shared by every range. The ranges below concern API input parameters. They do not introduce
 new formal contracts or change the existing targets.
 
+**The required safety goals cover every input.** They quantify over every value of each
+parameter: `Goal.deflateInit2__safety` over every level, method, window, memory level and
+strategy, `Goal.inflateInit2__safety` over every window value, and the sequence goals over
+every history that starts from such an init. A value outside the supported range is a
+documented refusal, which the goal also covers. So for safety there is one range, the widest.
+
+The narrower ranges below matter for two things: internal lemmas that are stated for a fixed
+configuration, and functional targets, which are not planned ([progress, Scope](../progress.md#scope)).
+The colours are used by the target graph in [progress](../progress.md).
+
 For each target family, default inputs are contained in common inputs, which
 are contained in all supported inputs. The containment is strict for the two
 stream engines. A particular entry can ignore or fix some dimensions; its
@@ -72,8 +82,8 @@ input grammar already includes all stored, fixed and dynamic blocks.
 
 Common inputs select a 32 KiB raw, zlib, gzip or automatically detected stream.
 Zero window-bit forms select the size from the header, with the pinned gzip
-handling retained. Smaller windows affect distance checking and completeness;
-accepting every valid format stream needs the target's window conditions.
+handling retained. Smaller windows affect distance checking. Whether a small window
+accepts every valid format stream is a functional question, not a safety one.
 
 ### Fast and slow execution
 

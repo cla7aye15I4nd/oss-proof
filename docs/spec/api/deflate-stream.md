@@ -16,9 +16,15 @@ see [compress and compress2](utility.md#compress2_z).
 | Release storage | [End](#deflateend) |
 
 These focused contracts follow the pinned `deflate.c`, applied patches and `zlib.h` in the
-default LP64 Linux build. Source readings are **to confirm** by proof. They leave the broader
-[registered public goals](../../checking/goals.md) unchanged. See [contract conventions](contracts.md)
-for domain/effect labels and [progress](../../progress.md) for proof status and remaining work.
+default LP64 Linux build. See [contract conventions](contracts.md) for domain/effect labels.
+
+**What is proved.** The required goal of each function is its safety goal: no undefined behaviour, no
+memory error, no leak, and termination ([safety](../safety.md)). Each entry names that goal under
+**Proof goals**, with its premises. The proof assumes those premises, not the documentary Pre; where
+the two differ, the Lean statement counts. The return values, output bytes and state changes
+described here are functional behaviour. They are read from the C and are **to confirm** where no
+registered theorem states them. They are not a planned proof target.
+[Progress](../../progress.md) records which goals are registered.
 
 ## Shared conventions
 
@@ -83,6 +89,8 @@ The result separates an established compressor from compatibility, argument and 
 initialised as above. `level` is -1 or 0..9. `version` has a readable first byte matching
 `ZLIB_VERSION`, and `stream_size == sizeof(z_stream)`.
 
+**Proof goals.** Required safety goal: `Goal.deflateInit__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)). Premises (`InitDomain`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); `strm` names a stream record whose `zalloc` and `zfree` are NULL or the default allocator and whose `state` is NULL; the first byte of `version` is readable and is `1`; `stream_size` is `sizeof(z_stream)`. Every `level` is covered. Every allocation outcome is covered. Conclusion (`InitCallSafe`): the call returns and writes only the stream record and new blocks; with `Z_OK` the stream is reachable and owns every new block; with any other code the live blocks are unchanged. A NULL stream, a wrong version and a wrong `stream_size` are not part of this goal; they are refusal cases of the functional goal. Functional goal, not required: `Goal.deflateInit_`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateInit_"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** the `deflateInit2_` contract holds with method `Z_DEFLATED`, window 15,
@@ -130,6 +138,8 @@ The result separates an established compressor from compatibility, argument and 
 `level` -1 or 0..9; `method == Z_DEFLATED`; `memLevel` 1..9; `strategy` 0..4;
 `windowBits` 8..15 for zlib, -15..-9 for raw, or 25..31 for gzip.
 
+**Proof goals.** Required safety goal: `Goal.deflateInit2__safety` ([Safety/Initialisation.lean](../../../ZlibF/Spec/Safety/Initialisation.lean)). Premises (`InitDomain`): a well-formed heap with the library's tables (`Fresh`, `Uniq`, `LibraryGlobals`); `strm` names a stream record whose `zalloc` and `zfree` are NULL or the default allocator and whose `state` is NULL; the first byte of `version` is readable and is `1`; `stream_size` is `sizeof(z_stream)`. Every `level`, `method`, `windowBits`, `memLevel` and `strategy` is covered. Every allocation outcome is covered. Conclusion (`InitCallSafe`): the call returns and writes only the stream record and new blocks; with `Z_OK` the stream is reachable and owns every new block; with any other code the live blocks are unchanged. A NULL stream, a wrong version and a wrong `stream_size` are not part of this goal; they are refusal cases of the functional goal. Functional goal, not required: `Goal.deflateInit2_`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateInit2_"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** `Z_OK` establishes a live stream with five owned allocations and the selected
@@ -148,7 +158,7 @@ returns `Z_VERSION_ERROR` without changing the stream. With compatible version a
 `strm`, return `Z_STREAM_ERROR`. Other scalar parameters outside the accepted ranges
 return `Z_STREAM_ERROR` before allocation, after clearing `msg` and installing default
 allocator fields where needed. Installing the default allocator clears `opaque`.
-These refusals are required by the unchanged public init goals.
+These refusals are stated by the functional init goals.
 
 </details>
 
@@ -173,7 +183,7 @@ The result says whether preset history was accepted; the dictionary is not emitt
 
 **Reading the result.**
 
-- The public goal also includes legal raw-boundary replacement and repeated pre-start zlib calls; repeated zlib calls accumulate Adler-32.
+- Both Lean goals also include legal raw-boundary replacement and repeated pre-start zlib calls; repeated zlib calls accumulate Adler-32.
 
 ### Calling conditions and effects {#api-deflatesetdictionary-contract}
 
@@ -182,6 +192,8 @@ The result says whether preset history was accepted; the dictionary is not emitt
 **Pre:** live raw or zlib stream, immediately after init or `deflateReset`, before its first
 `deflate` and first dictionary call. `dictionary` is non-NULL, covers `dictLength`
 readable bytes and is separate from the window.
+
+**Proof goals.** Required safety goal: `Goal.deflateSetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `dictionary` is NULL or covers `dictLength` readable bytes outside the stream's own blocks. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateSetDictionary`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -194,7 +206,7 @@ The decoder must be given the same preset dictionary when required.
 **Outside focused scope:** gzip, NULL dictionary, zlib after its initial state, nonzero
 lookahead, or raw input not at a completed block boundary returns `Z_STREAM_ERROR`
 without changes. Raw replacement at legal boundaries and repeated pre-start zlib calls
-remain in the public goal. Repeated zlib calls accumulate Adler-32 rather than restarting it.
+remain in both Lean goals. Repeated zlib calls accumulate Adler-32 rather than restarting it.
 
 </details>
 
@@ -227,6 +239,8 @@ The status reports query success; optional output parameters carry the actual hi
 
 **Pre:** live stream. `dictionary` is NULL or writable for one window, separate from the
 window; `dictLength` is NULL or a valid scalar output cell.
+
+**Proof goals.** Required safety goal: `Goal.deflateGetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `dictionary` is NULL or covers `min(w_size, strstart + lookahead)` writable bytes outside the stream's own blocks. The length result is modelled as an optional value, not as memory. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record, the stream's own blocks and the dictionary range, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateGetDictionary`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateGetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -266,6 +280,8 @@ The result says whether output progress was reset; success retains history that 
 
 **Pre:** live stream in any phase. This is an undocumented entry; use `deflateReset`
 when the next compressed stream must start with empty history.
+
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.deflateResetKeep`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateResetKeep"><summary>Complete return conditions and boundaries</summary>
 
@@ -309,6 +325,8 @@ The result says whether the stream is ready for reuse with empty history. Succes
 
 **Pre:** live stream in any phase, including after `Z_STREAM_END`.
 
+**Proof goals.** Required safety goal: `Goal.deflateReset_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateReset`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateReset"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** return `Z_OK`. The `deflateResetKeep` counter, wrapper and pending-output reset
@@ -349,6 +367,8 @@ The result says whether the gzip header pointer was registered; success does not
 
 **Pre:** live gzip stream, after init or reset and before its first `deflate`.
 `head` is NULL for defaults, or satisfies the shared header conditions.
+
+**Proof goals.** Required safety goal: `Goal.deflateSetHeader_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `head` is NULL, or names a live header record that the stream does not own whose `extra` is NULL or covers `extra_len` readable bytes and whose `name` and `comment` are NULL or NUL-terminated strings (`HeaderMemory`); and no `deflate` call has started the stream since init or reset (`DeflateNotStarted`). Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateSetHeader`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetHeader"><summary>Complete return conditions and boundaries</summary>
 
@@ -394,6 +414,8 @@ The status says whether the requested values fit their output types; pending byt
 
 **Pre:** live stream; each result is NULL or a valid separate output cell.
 
+**Proof goals.** Required safety goal: `Goal.deflatePending_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. The result cells are modelled as optional values, not as memory. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflatePending`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePending"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** return `Z_OK`. If requested, `pending` receives the undelivered whole-byte count
@@ -401,7 +423,7 @@ and `bits` the remaining bit count (0..7 for legal compression history).
 The stream and its buffers are unchanged. Omitted results are not written.
 
 If a represented pending count exceeds `unsigned`, the requested byte count saturates
-and return is `Z_BUF_ERROR`; a requested bit result is still written. The public query
+and return is `Z_BUF_ERROR`; a requested bit result is still written. The functional
 goal includes this numerical refusal even though normal default-build buffers are smaller.
 
 </details>
@@ -427,7 +449,7 @@ The return value is query status; optional bits carries the bit use at the last 
 
 **Reading the result.**
 
-- The public goal returns the stored value for every checked state without imposing normal-history ranges on arbitrary represented states. It differs from the current pending bits from deflatePending.
+- The functional goal returns the stored value for every checked state without imposing normal-history ranges on arbitrary represented states. It differs from the current pending bits from deflatePending.
 
 ### Calling conditions and effects {#api-deflateused-contract}
 
@@ -435,13 +457,15 @@ The return value is query status; optional bits carries the bit use at the last 
 
 **Pre:** live stream; `bits` is NULL or a valid output cell.
 
+**Proof goals.** Required safety goal: `Goal.deflateUsed_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. The result cells are modelled as optional values, not as memory. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateUsed`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateUsed"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** return `Z_OK`. If requested, store the saved bit-use count: 1..8 after a
 byte-boundary flush, or 0 since init/reset if none occurred. The stream is unchanged.
 This saved count differs from the currently pending bits returned by `deflatePending`.
 
-The public goal returns the stored value for every checked state, without assuming that
+The functional goal returns the stored value for every checked state, without assuming that
 an arbitrary represented state satisfies the normal-history range.
 
 </details>
@@ -479,6 +503,8 @@ The result says whether a bit fragment joined pending output. A buffer-space ref
 `bits` is 0..16 and `value` is any `int`. The caller accounts for these prefix bits
 when interpreting the later compressed stream.
 
+**Proof goals.** Required safety goal: `Goal.deflatePrime_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: no `deflate` call has started the stream since init or reset (`DeflateNotStarted`). Every `bits` and `value` is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflatePrime`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePrime"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** `Z_OK` appends the low `bits` bits of `value`, least significant first,
@@ -489,7 +515,7 @@ Existing pending bytes may be compacted within their owned buffer before that re
 
 **Outside focused scope:** counts outside 0..16 give `Z_BUF_ERROR` before compaction;
 a failed stream check gives `Z_STREAM_ERROR`. The implementation does not check wrapper
-or first-call timing. Its public goal covers exact pending-bit effects there, without
+or first-call timing. Its functional goal covers exact pending-bit effects there, without
 promising ordinary stream validity for arbitrary inserted fragments.
 
 </details>
@@ -527,6 +553,8 @@ The result says whether the new level and strategy were installed. Completing th
 **Pre:** live stream before finishing, valid stream buffers and any active header;
 `level` is -1 or 0..9 and `strategy` is 0..4. To choose an exact input boundary, complete
 `deflate(Z_BLOCK)` until `avail_out` is nonzero and supply no new input before this call.
+
+**Proof goals.** Required safety goal: `Goal.deflateParams_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `next_in` is NULL or covers `avail_in` readable bytes, `next_out` is NULL or covers `avail_out` writable bytes, both lie outside the stream's own blocks and do not overlap (`StreamBuffers`), and the gzip header conditions hold (`ActiveHeader`). `ActiveHeader` for a deflate stream: while the gzip header is being written, a header given to `deflateSetHeader` is live, its `name` and `comment` are NUL-terminated strings, the header is not shortened below the part already written, and the input, the output, `extra`, `name` and `comment` are pairwise separate and outside the stream's blocks. Every `level` and `strategy` is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record, the stream's own blocks and the output range, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateParams`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateParams"><summary>Complete return conditions and boundaries</summary>
 
@@ -575,6 +603,8 @@ The result only reports whether the four tuning fields were stored; it does not 
 
 **Pre:** live stream.
 
+**Proof goals.** Required safety goal: `Goal.deflateTune_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: nothing for this call. Every value of the four tuning arguments is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateTune`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateTune"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** return `Z_OK`. Store `good_length`, `max_lazy` and `max_chain` after conversion
@@ -617,6 +647,8 @@ The return is an output-capacity bound in bytes, not a zlib status code. It can 
 call after init and any dictionary/header setup, before compression. Keep configuration,
 header and dictionary fixed; use standard tuning and no inserted prime bits.
 
+**Proof goals.** Required safety goal: `Goal.deflateBound_z_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: a gzip header that was set is live, with its `extra` buffer and its `name` and `comment` strings readable (`ActiveHeader`, `DeflateHeaderLive`). Every `sourceLen` is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateBound_z`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound_z"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** the heap is unchanged. The numerical target is the following mathematical value,
@@ -639,7 +671,7 @@ A saturated result is not a promise that an addressable buffer of that size exis
 
 **Outside focused scope:** NULL or a safely checkable invalid stream receives the larger
 of the fixed/stored formulas above, plus 18, with saturation. There is no error code.
-The public numerical goal still includes every readable gzip header length, including
+The functional goal still includes every readable gzip header length, including
 lengths outside the focused 16-bit extra-field range; this page does not remove that obligation.
 
 </details>
@@ -674,6 +706,8 @@ This returns the uLong form of the deflateBound_z bound, still in bytes. ULONG_M
 **Effect:** query.
 
 **Pre:** the `deflateBound_z` conditions apply.
+
+**Proof goals.** Required safety goal: `Goal.deflateBound_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: a gzip header that was set is live, with its `extra` buffer and its `name` and `comment` strings readable (`ActiveHeader`, `DeflateHeaderLive`). Every `sourceLen` is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record and the stream's own blocks, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflateBound`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>Complete return conditions and boundaries</summary>
 
@@ -724,6 +758,8 @@ After finishing begins, supply no new input and continue only with `Z_FINISH`.
 For ordinary format validity, begin from init/`deflateReset` (or a copy of that history),
 use legal dictionary/header setup, standard tuning and no arbitrary priming.
 
+**Proof goals.** Required safety goal: `Goal.deflate_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premises (`StreamCallDomain`): the stream is reachable (`StreamReachable`: produced by a successful init or copy and any history of permitted calls and caller edits); every byte object has fewer than `2^63` bytes (`ByteObjectsFit`); and `StreamArguments`: `next_in` is NULL or covers `avail_in` readable bytes, `next_out` is NULL or covers `avail_out` writable bytes, both lie outside the stream's own blocks and do not overlap (`StreamBuffers`), and the gzip header conditions hold (`ActiveHeader`). `ActiveHeader` for a deflate stream: while the gzip header is being written, a header given to `deflateSetHeader` is live, its `name` and `comment` are NUL-terminated strings, the header is not shortened below the part already written, and the input, the output, `extra`, `name` and `comment` are pairwise separate and outside the stream's blocks. Every `flush` value is covered. Conclusion (`StreamCallSafe`): the call returns, keeps the stream invariant, writes only the stream record, the stream's own blocks and the output range, and changes the live blocks exactly by the ledger. Functional goal, not required: `Goal.deflate`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflate"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** accept `used <= old avail_in` bytes and deliver `made <= old avail_out` bytes.
@@ -753,8 +789,8 @@ live stream; provide room/input as appropriate. `Z_STREAM_ERROR` covers the stre
 invalid flush (including `Z_TREES`), invalid NULL I/O combinations, or non-finish flush after
 finishing began. Initial argument refusals consume no input or output. A later
 `Z_BUF_ERROR` for new input after finishing may first deliver old pending output; no new
-input is accepted. `msg` and remembered flush can change. The unchanged public goal
-includes all signed flush values and these refusals.
+input is accepted. `msg` and remembered flush can change. The safety goal and the
+functional goal both include all signed flush values and these refusals.
 
 </details>
 
@@ -787,6 +823,8 @@ The result distinguishes the compression phase before release. Both Z_OK and Z_D
 **Domain:** Restricted domain. **Effect:** free owned state.
 
 **Pre:** live stream in any phase, with the default free routine intact.
+
+**Proof goals.** Required safety goal: `Goal.deflateEnd_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)). Premise: the stream is reachable (`StreamReachable`). Conclusion: the call returns `Z_OK` or `Z_DATA_ERROR`, clears the state pointer, writes only the stream record and the stream's own blocks, and frees exactly the blocks the stream owns. Functional goal, not required: `Goal.deflateEnd`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateEnd"><summary>Complete return conditions and boundaries</summary>
 
@@ -834,6 +872,8 @@ The result says whether the destination gained independent compression state. Fa
 **Pre:** `source` is live. `dest` is a different writable `z_stream` with no owned state,
 separate from the source's memory. Source buffers and any retained header satisfy their lifetimes.
 
+**Proof goals.** Required safety goal: `Goal.deflateCopy_safety` ([Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)). Premises of the main clause: the source is reachable (`StreamReachable`), `dest` is a different, readable stream record. Conclusion: the call returns `Z_OK` or `Z_MEM_ERROR`, leaves the source record and state unchanged, and writes only the destination record and new blocks; with `Z_MEM_ERROR` an allocation failed, the destination state is cleared and the live blocks are unchanged; with `Z_OK` the destination satisfies the stream invariant and the live blocks grow by exactly the blocks the new state owns. NULL arguments are refused in the same goal, and so is a source with a NULL `zalloc`, `zfree` or state. Functional goal, not required: `Goal.deflateCopy`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateCopy"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** `Z_OK` gives `dest` five new owned allocations containing equivalent compression
@@ -847,7 +887,7 @@ room before continuing both. The header remains shared caller-owned storage.
 fields and the source unchanged. There is no new live state to release.
 
 **Outside focused scope:** NULL destination gives `Z_STREAM_ERROR`; a failed source check
-also clears a non-NULL destination's state. The public goal explicitly assumes distinct
+also clears a non-NULL destination's state. Both Lean goals assume distinct
 streams. Self-copy and overwriting an already live destination are excluded here and do not
 receive a leak-free contract.
 

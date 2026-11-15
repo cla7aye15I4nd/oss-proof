@@ -1,4 +1,4 @@
-<!-- source-sha256: 1152c99b442a373aa3a6fb2b4e7d5dc433e83fd127204f81ef6e28c45905c402 -->
+<!-- source-sha256: 7ae16099487643cd825524f2aab0dd20b872ff6edd0de7d4fa82523afea145f4 -->
 
 # 回调解压
 
@@ -10,11 +10,15 @@
 
 这些聚焦契约对应固定版本的 [infback.c](../../../zlib/infback.c) 和
 [zlib.h](../../../zlib/zlib.h)，针对默认 LP64 Linux 构建。
-本页的受限定义域不会缩小
-[Back.lean](../../../ZlibF/Spec/Public/Back.lean) 或
-[Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中更宽的目标。
-定义域和效果标签见[契约约定](contracts.md)；证明状态和剩余工作见[进度](../../progress.md)。
+定义域和效果标签见[契约约定](contracts.md)。
 超出聚焦前提只表示本契约不作保证，不自动等于 C 未定义行为（UB），也不保证一定返回错误码。
+
+**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都还需要由证明核实。它们不在计划的证明目标之内。哪些目标已登记，见[进度](../../progress.md)。
+
+三个函数的必需安全目标都是 [Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的
+`Goal.inflate_back_sequence_safety`；逐函数的安全目标尚未写出。功能目标 `Goal.inflateBackInit_`、`Goal.inflateBack`
+和 `Goal.inflateBackEnd` 在 [Back.lean](../../../ZlibF/Spec/Public/Back.lean) 中。
+`Goal.inflateBack` 的解码条款（什么数据到达 `out`）不在计划内。
 
 `inflateBack` 解码 raw DEFLATE。任何 zlib/gzip 头部、尾部和校验和都由调用者处理。
 调用者拥有一个至少 `2^windowBits` 字节的可写窗口，它同时也是输出缓冲区。
@@ -80,6 +84,8 @@ int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits, unsigned char FAR *
 **效果。** 可能初始化分配器字段和 `opaque`，清除 `msg`，并分配一个状态。
 窗口仍由调用者拥有，此处不分配、不清空，也不释放窗口。
 
+**证明目标。** 必需的安全目标：`Goal.inflate_back_sequence_safety`（[Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)）。它是序列目标：逐函数目标尚未写出。它的历史是 `BackSafeReachable`：在 `InitDomain` 上以 8..15 的 `windowBits` 和一个非 NULL 的窗口成功初始化，窗口有 `2^windowBits` 个可写字节，并且是某个堆字节块的一段。这个目标的历史从成功的初始化开始。它对失败或被拒绝的初始化调用不作陈述；那些路径在功能目标里。合法的初始化成功、只写流记录、恰好分配一个块，是必需的非空性目标 `Goal.inflate_back_initialisation_domain`。功能目标（非必需）：`Goal.inflateBackInit_`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackInit_"><summary>完整返回条件与边界</summary>
 
 **后置条件。** `Z_OK` 关联供 `inflateBack` 使用的新状态，且 `8 <= windowBits <= 15`。
@@ -144,6 +150,8 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 因此回调可能在后续格式或输入失败之前已观察到输出。
 库本身不分配或释放内存；回调分配的内存仍由调用者负责。
 
+**证明目标。** 必需的安全目标：`Goal.inflate_back_sequence_safety`（[Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)）。它是序列目标：逐函数目标尚未写出。它的历史是 `BackSafeReachable`：在 `InitDomain` 上以 8..15 的 `windowBits` 和一个非 NULL 的窗口成功初始化，窗口有 `2^windowBits` 个可写字节，并且是某个堆字节块的一段。再调用一次的前提：`next_in` 为 NULL，或覆盖 `avail_in` 个可读字节且不与窗口重叠；回调遵守某个 `CallbackProtocol`，其输入总量少于 `2^48` 字节（`inputBound`）；每个字节对象小于 `2^63` 字节，并且回调保持这一点（`BackPlatform`）；每个输入块，包括第一块和 `in` 交出的每一块，都位于堆字节块中（`BackFirstChunk`、`BackPlatform`）。输入字节任意。结论：调用返回 `Z_STREAM_END`、`Z_DATA_ERROR` 或 `Z_BUF_ERROR`，状态在同一窗口上保持有效，只改变流记录、状态记录、回调自己的块和窗口那一段，回调自有块之外的存活块不变。NULL 流在同一个目标里被拒绝。比 `zlib.h` 更窄的前提在[偏差](../../deviations.md)中各有一行。功能目标（非必需）：`Goal.inflateBack`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBack"><summary>完整返回条件与边界</summary>
 
 **后置条件。** `Z_STREAM_END` 表示完整 raw 流已解码，且每次输出调用都成功。
@@ -192,6 +200,8 @@ NULL 流、NULL 状态和 NULL 释放函数拒绝情形。
 成功解码或任何解码错误后均允许清理。
 
 **效果。** 恰好释放内部状态，并清除 `state`。
+
+**证明目标。** 必需的安全目标：`Goal.inflate_back_sequence_safety`（[Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)）。它是序列目标：逐函数目标尚未写出。它的历史是 `BackSafeReachable`：在 `InitDomain` 上以 8..15 的 `windowBits` 和一个非 NULL 的窗口成功初始化，窗口有 `2^windowBits` 个可写字节，并且是某个堆字节块的一段。对这个调用的结论：在每段这样的历史上，它返回 `Z_OK`，清空状态指针，只写流记录和状态块，并且恰好释放状态块。这个函数的拒绝情形在功能目标里。功能目标（非必需）：`Goal.inflateBackEnd`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackEnd"><summary>完整返回条件与边界</summary>
 

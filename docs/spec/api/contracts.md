@@ -18,6 +18,7 @@ would otherwise repeat under every function.
 | Post | The result and guarantees on each stated return path. |
 | Effects | Reads, writes, allocations, frees, file operations and borrowed storage. |
 | Edges or errors | Cases such as empty input, partial output and refusal that change how to use the result. |
+| Proof goals | The required safety goal with the premises of its Lean statement, and the functional goal, which is not required. |
 
 An error return does not generally undo work. Output, pointer advances, length cells or file
 position can already have changed. Follow the stated return path and effects. In particular,
@@ -73,7 +74,11 @@ satisfy Post, and change only the stated footprint. Allocation failure, partial 
 cleanup are part of that requirement. [Shared stream rules](streams.md) explain the
 common ownership and frame obligations; [safety](../safety.md) defines the modeled faults.
 
-These are focused documentary contracts. A narrower Pre neither changes the registered
-Lean goals nor makes excluded calls undefined. See [scope deviations](../../deviations.md) and
-[registered public goals](../../checking/goals.md). Source readings are **to confirm** by proof.
-Proof status and remaining work are recorded only in [progress](../../progress.md).
+These are documentary contracts. Domain, Pre, Post and Effects describe intended use and
+behaviour. **Proof goals** states what is proved: the safety goal and the premises of its Lean
+statement. The two can differ. Where Pre is narrower, the safety goal still covers the wider
+domain, and a call outside Pre is not thereby undefined. Where the Lean premises are narrower
+than `zlib.h`, [scope deviations](../../deviations.md) has a row. Post describes functional
+behaviour; it is read from the C, is **to confirm** where no registered theorem states it, and
+is not a planned proof target. Proof status and remaining work are recorded only in
+[progress](../../progress.md).

@@ -1,4 +1,4 @@
-<!-- source-sha256: c8771d0499c6de2c8cba819f5433ba5347c6abdfc262d5f2a4ab13e94236972b -->
+<!-- source-sha256: 67ee7b366e64979692d1b8274e12e3517a576de9f3dc188ad6c01bbc22104086 -->
 
 # 校验和
 
@@ -24,11 +24,17 @@
 特殊数值结果是普通值，而不是错误码。定义域和效果互相独立，见[契约约定](contracts.md)。
 超出聚焦前提只表示本契约不作保证，不自动等于 C 未定义行为（UB），也不保证一定返回错误码。
 
+**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都还需要由证明核实。它们不在计划的证明目标之内。哪些目标已登记，见[进度](../../progress.md)。
+
+安全目标在 [Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean) 中。它们说的是调用返回、堆不变；
+对返回的数值不作陈述。
+
 实用校验和契约使用真实字节序列 A 和 B。各校验和独立计算：Adler-32 从 1 开始，
 CRC-32 从 0 开始。这些契约有意不对伪造校验和值作功能保证。
-[Lean 目标](../../../ZlibF/Spec/Public/Checksums.lean)还描述任意种子及精确标量结果。
-Adler 入口及其 Lean 目标都要求 NULL 初始化查询的长度为零。
-见[范围偏差](../../deviations.md)和[公开目标](../../checking/goals.md)。
+[Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean) 中的功能目标还描述任意种子及精确标量结果。
+Adler 入口及其 Lean 目标（安全目标和功能目标）都要求 NULL 初始化查询的长度为零
+（[Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean) 中的 `AdlerBufferBytes`）。
+见[范围偏差](../../deviations.md)。
 
 此构建中，`uLong` 和 `z_size_t` 是无符号 64 位类型；`uInt` 是无符号 32 位类型。
 `z_off_t` 和 `z_off64_t` 是有符号 64 位类型。输入校验和值中高于第 31 位的位被忽略；
@@ -73,6 +79,8 @@ uLong ZEXPORT adler32_z(uLong adler, const Bytef *buf, z_size_t len);
 NULL 配合非零长度不在本契约范围内。伪造种子不属于本实用功能契约：单字节路径
 不一定等价于先将种子的两个半部对 65521 取模。见
 [Adler 种子说明](../../proof/adler32.md)。
+
+**证明目标。** 必需的安全目标：`Goal.adler32_z_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：`buf` 覆盖 `len` 个可读字节，或者为 NULL 且 `len == 0`（`AdlerBufferBytes`）。`adler` 的每个取值都被覆盖。结论：调用返回，堆不变。功能目标（非必需）：`Goal.adler32_z`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_z"><summary>完整返回条件与边界</summary>
 
@@ -122,6 +130,8 @@ uLong ZEXPORT adler32(uLong adler, const Bytef *buf, uInt len);
 更大范围应使用 `adler32_z` 或分多次调用。
 `adler32_z` 关于零长度 NULL 查询和伪造种子的范围同样适用。
 
+**证明目标。** 必需的安全目标：`Goal.adler32_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：`buf` 覆盖 `len` 个可读字节，或者为 NULL 且 `len == 0`（`AdlerBufferBytes`）。`adler` 的每个取值都被覆盖。结论：调用返回，堆不变。功能目标（非必需）：`Goal.adler32`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32"><summary>完整返回条件与边界</summary>
 
 **后置条件：** 返回值与 `adler32_z(adler, buf, len)` 完全相同。
@@ -165,7 +175,9 @@ Adler-32，且 `len2` 是 B 的长度。特别地，B 的校验和独立于 A，
 **效果：** 保持全部内存与所有权。不读取缓冲区或流状态。
 
 该哨兵值不是有效的 Adler-32。任意标量参数不会导致内存访问；其精确的非校验和结果
-由更宽的 Lean 契约描述。若 B 的长度错误，不保证拼接结果。
+由功能目标描述。若 B 的长度错误，不保证拼接结果。
+
+**证明目标。** 必需的安全目标：`Goal.adler32_combine_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。没有前提：每组参数都被覆盖，包括伪造的校验和与负长度。结论：调用返回，堆不变。功能目标（非必需）：`Goal.adler32_combine`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine"><summary>完整返回条件与边界</summary>
 
@@ -211,6 +223,8 @@ A 和 B 的 Adler-32，且 `len2` 是 B 的长度。负长度纳入拒绝情形�
 在 LP64 下，它与 `adler32_combine` 的契约和长度范围相同。
 显式位宽在其他构建中有意义；本页不涵盖那些构建。
 
+**证明目标。** 必需的安全目标：`Goal.adler32_combine64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。没有前提：每组参数都被覆盖，包括伪造的校验和与负长度。结论：调用返回，堆不变。功能目标（非必需）：`Goal.adler32_combine64`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine64"><summary>完整返回条件与边界</summary>
 
 **后置条件：** 负长度返回 `0xFFFFFFFF`。否则返回 A 后接 B 的 Adler-32。
@@ -253,6 +267,8 @@ const z_crc_t FAR * ZEXPORT get_crc_table(void);
 
 `zlib.h` 将此入口列于文档化 API 之外的函数中。它只公开字节表，不公开相邻表或
 交织表。此处 `z_crc_t` 为无符号 32 位类型。动态建表不属于本构建范围。
+
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数列在“未文档化函数（不属于 zlib API）”之下。为它陈述的目标（非必需）：`Goal.get_crc_table`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>完整返回条件与边界</summary>
 
@@ -302,6 +318,8 @@ uLong ZEXPORT crc32_z(uLong crc, const unsigned char FAR *buf, z_size_t len);
 对齐方式不改变契约。字访问模型的限制记录在
 [安全模型](../safety.md)和[可信基](../../trusted-base.md)中。
 
+**证明目标。** 必需的安全目标：`Goal.crc32_z_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：堆中有库的 CRC 表（`CrcGlobals`）；`buf` 覆盖 `len` 个可读字节，或者为 NULL（此时 `len` 任意）（`BufferBytes`）。`crc` 的每个取值都被覆盖。结论：调用返回，堆不变。功能目标（非必需）：`Goal.crc32_z`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_z"><summary>完整返回条件与边界</summary>
 
 **后置条件：** NULL `buf` 对任意 `crc` 和 `len` 都返回 0，不读取缓冲区。
@@ -349,6 +367,8 @@ uLong ZEXPORT crc32(uLong crc, const unsigned char FAR *buf, uInt len);
 长度最多为 `2^32 - 1`。把更大计数转换为 `uInt` 会在调用前截断；
 更大范围应使用 `crc32_z` 或分多次更新。
 
+**证明目标。** 必需的安全目标：`Goal.crc32_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：堆中有库的 CRC 表（`CrcGlobals`）；`buf` 覆盖 `len` 个可读字节，或者为 NULL（此时 `len` 任意）（`BufferBytes`）。`crc` 的每个取值都被覆盖。结论：调用返回，堆不变。功能目标（非必需）：`Goal.crc32`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32"><summary>完整返回条件与边界</summary>
 
 **后置条件：** 返回值与 `crc32_z(crc, buf, len)` 完全相同。
@@ -393,6 +413,8 @@ uLong ZEXPORT crc32_combine_gen64(z_off64_t len2);
 算子只取决于长度。保持其值不变，即可用于 B 长度相同的任意 A 和 B。
 它描述随长度推进校验和的运算，本身不是任何特定字节序列的校验和值。
 
+**证明目标。** 必需的安全目标：`Goal.crc32_combine_gen64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：堆中有库的 CRC 表（`CrcGlobals`）。每组参数都被覆盖，包括负长度。结论：调用返回，堆不变。功能目标（非必需）：`Goal.crc32_combine_gen64`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen64"><summary>完整返回条件与边界</summary>
 
 **后置条件：** 负长度返回 0。非负长度返回非零 32 位算子，适用于 B 长度为
@@ -434,6 +456,8 @@ uLong ZEXPORT crc32_combine_gen(z_off_t len2);
 **效果：** 保持全部内存与所有权。不读取缓冲区或流状态。
 
 LP64 下，普通长度和显式 64 位长度的范围相同。
+
+**证明目标。** 必需的安全目标：`Goal.crc32_combine_gen_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：堆中有库的 CRC 表（`CrcGlobals`）。每组参数都被覆盖，包括负长度。结论：调用返回，堆不变。功能目标（非必需）：`Goal.crc32_combine_gen`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen"><summary>完整返回条件与边界</summary>
 
@@ -483,6 +507,8 @@ uLong ZEXPORT crc32_combine_op(uLong crc1, uLong crc2, uLong op);
 特别地，若 LP64 `op` 非零、但低 32 位全为零，调用可能不终止；这不在生成算子契约内。
 零是拒绝值，不是无歧义的错误码，因为有效 CRC 也可能为零。
 
+**证明目标。** 必需的安全目标：`Goal.crc32_combine_op_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：堆中有库的 CRC 表（`CrcGlobals`）；`op` 是 `crc32_combine_gen` 或 `crc32_combine_gen64` 对某个长度返回的值。`crc1` 和 `crc2` 任意。伪造的 `op` 不在目标之内。结论：调用返回，堆不变。功能目标（非必需）：`Goal.crc32_combine_op`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_op"><summary>完整返回条件与边界</summary>
 
 **后置条件：** 返回 A 后接 B 的 CRC-32。若 `op == 0`，返回 0。
@@ -529,6 +555,8 @@ A 和 B 的 CRC-32，且 `len2` 是 B 的长度。固定 CRC 表存在。
 若校验和值任意且长度为零，实现返回低 32 位的异或。
 错误长度不保证拼接结果。零也是可能的有效 CRC，因此负长度拒绝没有独立错误码。
 
+**证明目标。** 必需的安全目标：`Goal.crc32_combine64_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：堆中有库的 CRC 表（`CrcGlobals`）。每组参数都被覆盖，包括负长度。结论：调用返回，堆不变。功能目标（非必需）：`Goal.crc32_combine64`。
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine64"><summary>完整返回条件与边界</summary>
 
 **后置条件：** 负长度返回 0。否则返回 A 后接 B 的 CRC-32。
@@ -574,6 +602,8 @@ uLong ZEXPORT crc32_combine(uLong crc1, uLong crc2, z_off_t len2);
 LP64 下，普通长度和显式 64 位长度的范围相同。
 本页不包括动态建表、硬件 CRC 钩子或生成表的可执行程序。
 见[构建与模型范围](../../deviations.md)。
+
+**证明目标。** 必需的安全目标：`Goal.crc32_combine_safety`（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）。前提：堆中有库的 CRC 表（`CrcGlobals`）。每组参数都被覆盖，包括负长度。结论：调用返回，堆不变。功能目标（非必需）：`Goal.crc32_combine`。
 
 [返回 API 手册](README.md) · [契约约定](contracts.md)
 

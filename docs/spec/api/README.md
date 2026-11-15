@@ -25,8 +25,11 @@ Linux static build and default allocator. Entries state their additional limits.
 some preconditions are narrower than the public header. Outside a stated Pre is outside that
 contract, not automatically undefined C. See [scope deviations](../../deviations.md).
 
-The behavior read from C is **to confirm** by implementation proof. This manual does not
-report completed verification or change the broader [registered public goals](../../checking/goals.md).
+The required goal of each function is its safety goal: no undefined behaviour, no memory
+error, no leak, and termination ([safety](../safety.md)). Each entry names that goal and its
+premises under **Proof goals**, and names its functional goal, which is not required. The
+behaviour read from C (return values, output bytes, state changes) is **to confirm** where no
+registered theorem states it; functional correctness is not a planned proof target.
 [Progress](../../progress.md) is the single record of proof status and remaining work.
 
 ## Find a function

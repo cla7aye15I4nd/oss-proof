@@ -16,18 +16,30 @@ the contracts use the Adler-32 or CRC-32 of those sequences.
 | Inspect the byte table | [get_crc_table](#get_crc_table) |
 
 These focused contracts follow `adler32.c`, `crc32.c` and `zlib.h` in the default LP64 Linux
-static build, with the pinned source and listed patches. Source readings are **to confirm**
-by proof. No checksum entry writes state, allocates, frees or performs I/O. Exceptional
+static build, with the pinned source and listed patches. No checksum entry writes state,
+allocates, frees or performs I/O. Exceptional
 numeric results are ordinary values, rather than error codes. Domain and effects remain
 independent as explained in [contract conventions](contracts.md).
+
+**What is proved.** The required goal of each function is its safety goal: no undefined behaviour, no
+memory error, no leak, and termination ([safety](../safety.md)). Each entry names that goal under
+**Proof goals**, with its premises. The proof assumes those premises, not the documentary Pre; where
+the two differ, the Lean statement counts. The return values, output bytes and state changes
+described here are functional behaviour. They are read from the C and are **to confirm** where no
+registered theorem states them. They are not a planned proof target.
+[Progress](../../progress.md) records which goals are registered.
+
+The safety goals are in [Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean). They
+say that the call returns and the heap is unchanged; they say nothing about the value.
 
 The practical checksum contracts use actual byte sequences A and B. Each
 checksum is computed independently, starting at 1 for Adler-32 or 0 for CRC-32.
 These contracts deliberately omit functional promises for forged checksums.
-The [Lean targets](../../../ZlibF/Spec/Public/Checksums.lean) also describe arbitrary
-seeds and exact scalar results. Both the Adler entries and their Lean targets
-require zero length for NULL initialization queries.
-See [scope deviations](../../deviations.md) and [public goals](../../checking/goals.md).
+The functional goals in [Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)
+also describe arbitrary seeds and exact scalar results. Both the Adler entries and their Lean
+goals, safety and functional, require zero length for NULL initialization queries
+(`AdlerBufferBytes` in [Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean)).
+See [scope deviations](../../deviations.md).
 
 In this build, `uLong` and `z_size_t` are unsigned 64-bit types; `uInt` is
 unsigned 32-bit. `z_off_t` and `z_off64_t` are signed 64-bit. Input checksum bits
@@ -74,6 +86,8 @@ NULL with nonzero length is outside this contract. Forged seeds remain outside t
 practical functional contract: the one-byte path need not agree with first
 reducing both seed halves modulo 65521. See the
 [Adler seed note](../../proof/adler32.md).
+
+**Proof goals.** Required safety goal: `Goal.adler32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premise: `buf` covers `len` readable bytes, or is NULL with `len == 0` (`AdlerBufferBytes`). Every `adler` value is covered. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.adler32_z`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -123,6 +137,8 @@ The length is at most `2^32 - 1`. Converting a larger length to `uInt` discards
 high bits before the call; use `adler32_z` or several calls for larger ranges.
 The zero-length NULL query and forged-seed scope of `adler32_z` apply here too.
 
+**Proof goals.** Required safety goal: `Goal.adler32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premise: `buf` covers `len` readable bytes, or is NULL with `len == 0` (`AdlerBufferBytes`). Every `adler` value is covered. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.adler32`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return exactly the result of `adler32_z(adler, buf, len)`.
@@ -168,8 +184,10 @@ Negative lengths are included only for the rejection result below.
 **Effects:** Preserve all memory and ownership. Read no buffers or stream state.
 
 The sentinel is not a valid Adler-32. Arbitrary scalar arguments do not create
-memory accesses; their exact non-checksum results belong to the broader Lean
-contract. No concatenation promise is made for an incorrect B length.
+memory accesses; their exact non-checksum results belong to the functional
+goal. No concatenation promise is made for an incorrect B length.
+
+**Proof goals.** Required safety goal: `Goal.adler32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). No premise: every argument is covered, also forged checksums and negative lengths. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.adler32_combine`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine"><summary>Complete return conditions and boundaries</summary>
 
@@ -216,6 +234,8 @@ length of B. Negative lengths are included for rejection.
 This has the same contract and length range as `adler32_combine` in LP64.
 The explicit width matters on other builds; this page does not cover them.
 
+**Proof goals.** Required safety goal: `Goal.adler32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). No premise: every argument is covered, also forged checksums and negative lengths. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.adler32_combine64`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return `0xFFFFFFFF` for a negative length. Otherwise return the
@@ -260,6 +280,8 @@ and must neither write through the pointer nor free it.
 `zlib.h` places this among functions outside the documented API. It exposes
 only the byte table, not adjacent or braided tables. `z_crc_t` is unsigned
 32-bit here. Dynamic table generation is outside this build's scope.
+
+**Proof goals.** No required goal: `zlib.h` lists this function under "undocumented functions (not part of the zlib API)". Goal stated for it, not required: `Goal.get_crc_table`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>Complete return conditions and boundaries</summary>
 
@@ -312,6 +334,8 @@ the caller must not complement the running value. Alignment does not change
 the contract. The word-access model's limits are recorded in
 [the safety model](../safety.md) and [trusted base](../../trusted-base.md).
 
+**Proof goals.** Required safety goal: `Goal.crc32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premises: the heap holds the library's CRC tables (`CrcGlobals`), and `buf` covers `len` readable bytes or is NULL with any `len` (`BufferBytes`). Every `crc` value is covered. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.crc32_z`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_z"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A NULL `buf` returns 0 for every `crc` and `len`, without reading the
@@ -361,6 +385,8 @@ and fixed library tables. A one-past pointer is allowed for an empty range.
 The length is at most `2^32 - 1`. Converting a larger count to `uInt` truncates
 it before the call; use `crc32_z` or multiple updates for larger ranges.
 
+**Proof goals.** Required safety goal: `Goal.crc32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premises: the heap holds the library's CRC tables (`CrcGlobals`), and `buf` covers `len` readable bytes or is NULL with any `len` (`BufferBytes`). Every `crc` value is covered. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.crc32`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return exactly the result of `crc32_z(crc, buf, len)`.
@@ -406,6 +432,8 @@ present. `len2` may be any signed 64-bit value.
 The operator depends only on the length. Keep it unchanged and reuse it for
 any A and B with that B length. It is an operator, not a checksum.
 
+**Proof goals.** Required safety goal: `Goal.crc32_combine_gen64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premise: the heap holds the library's CRC tables (`CrcGlobals`). Every argument is covered, also negative lengths. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.crc32_combine_gen64`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A negative length returns 0. A nonnegative length returns a nonzero
@@ -449,6 +477,8 @@ present. `len2` may be any representable signed value.
 **Effects:** Preserve all memory and ownership. Read no buffers or stream state.
 
 The ordinary and explicit 64-bit length ranges coincide in LP64.
+
+**Proof goals.** Required safety goal: `Goal.crc32_combine_gen_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premise: the heap holds the library's CRC tables (`CrcGlobals`). Every argument is covered, also negative lengths. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.crc32_combine_gen`.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen"><summary>Complete return conditions and boundaries</summary>
 
@@ -500,6 +530,8 @@ In particular, a nonzero LP64 `op` with zero low 32 bits can fail to terminate;
 this is outside the generated-operator contract. Zero is a rejection value,
 not an unambiguous error code, since a valid CRC can also be zero.
 
+**Proof goals.** Required safety goal: `Goal.crc32_combine_op_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premises: the heap holds the library's CRC tables (`CrcGlobals`), and `op` is a value that `crc32_combine_gen` or `crc32_combine_gen64` returned for some length. `crc1` and `crc2` are arbitrary. A forged `op` is outside the goal. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.crc32_combine_op`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_op"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return the CRC-32 of A followed by B. If `op == 0`, return 0.
@@ -549,6 +581,8 @@ For arbitrary checksums at length zero, the implementation returns the XOR of
 the low 32 bits. A wrong length has no concatenation guarantee. Zero is also
 a possible valid CRC, so negative-length rejection has no distinct error code.
 
+**Proof goals.** Required safety goal: `Goal.crc32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premise: the heap holds the library's CRC tables (`CrcGlobals`). Every argument is covered, also negative lengths. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.crc32_combine64`.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A negative length returns 0. Otherwise return the CRC-32 of A
@@ -596,6 +630,8 @@ rejection, with no checksum restriction.
 The ordinary and explicit 64-bit length ranges coincide in LP64.
 This page excludes dynamic table generation, hardware CRC hooks and generated
 table executables. See [build and model scope](../../deviations.md).
+
+**Proof goals.** Required safety goal: `Goal.crc32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)). Premise: the heap holds the library's CRC tables (`CrcGlobals`). Every argument is covered, also negative lengths. Conclusion: the call returns and the heap is unchanged. Functional goal, not required: `Goal.crc32_combine`.
 
 [Back to the API manual](README.md) · [Contract conventions](contracts.md)
 

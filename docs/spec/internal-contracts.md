@@ -5,6 +5,11 @@ establish and what the helper's execution proof must deliver. All readings of C 
 **to confirm**; the table itself is not a proof or an assumed callee contract. See the
 [proof guide](../proof/README.md) for the execution proofs and [progress](../progress.md) for status.
 
+The required target is safety. An entry below is needed as far as the safety proof of a
+public caller uses it: bounds, termination, frames and the facts those rest on. A `Post` that
+only describes content (for example `I-it-canonical` or `I-uw-content`) is a functional fact.
+It is in scope only where a safety proof depends on it, and is not a target on its own.
+
 An internal precondition can be stronger than a public entry's precondition. The actual caller
 must derive it from init-established invariants and current execution state. It cannot become
 a hidden restriction on a public call. In particular, small memory levels, arbitrary fresh
