@@ -169,17 +169,6 @@ inductive BackSafeReachable : Heap → ZStreamRef → Nat → BPtr → Nat → P
       C.run (Zlib.Infback.inflateBack (some r) input inDesc output outDesc) h = .ok (rc, after) →
       BackSafeReachable after r i window n
 
-/-- Includes actual callback execution and raw-format delivery, re-use of the window, and
-complete end cleanup. Callback memory and returning/finite-input obligations remain explicit. -/
-def Goal.inflate_back_sequence : Prop :=
-  Goal.inflateBack ∧
-  (∀ h r i window n, BackReachable h r i window n →
-    (∃ z s, BackValid h r i z s ∧ s.window = window ∧ s.wsize.toNat = n) ∧
-    ∃ after z, C.run (Zlib.Infback.inflateBackEnd (some r)) h = .ok (Z_OK, after) ∧
-      r.get after = some z ∧ z.state = none ∧
-      Frame h after (fun b => StreamRoot r b ∨ b = i) ∧
-      LiveChange h after (fun _ => False) (fun b => b = i))
-
 /-- **Safety of every permitted callback-decoder sequence** (the safety half of
 `Goal.inflate_back_sequence`). A null stream is refused. Every reachable history leaves a valid
 state over the caller's window. One more `inflateBack` call, for every caller protocol whose total

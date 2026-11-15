@@ -1,6 +1,7 @@
 import ZlibF.Spec.Public.Sequences
 import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Spec.Functional.Api.InflateAccepted
+import ZlibF.Spec.Functional.Back
 
 /-!
 # Sequences: functional goals and the definitions only they use
@@ -223,5 +224,16 @@ def Goal.deflate_sequence : Prop :=
     C.run (Zlib.Deflate.deflateBound_z (some r) n) h = .ok (bound, h) ∧
     C.run (Zlib.Deflate.deflateBound (some r) n) h = .ok (bound, h)) ∧
   DeflateCompletes
+
+/-- Includes actual callback execution and raw-format delivery, re-use of the window, and
+complete end cleanup. Callback memory and returning/finite-input obligations remain explicit. -/
+def Goal.inflate_back_sequence : Prop :=
+  Goal.inflateBack ∧
+  (∀ h r i window n, BackReachable h r i window n →
+    (∃ z s, BackValid h r i z s ∧ s.window = window ∧ s.wsize.toNat = n) ∧
+    ∃ after z, C.run (Zlib.Infback.inflateBackEnd (some r)) h = .ok (Z_OK, after) ∧
+      r.get after = some z ∧ z.state = none ∧
+      Frame h after (fun b => StreamRoot r b ∨ b = i) ∧
+      LiveChange h after (fun _ => False) (fun b => b = i))
 
 end ZlibF.Spec.Public
