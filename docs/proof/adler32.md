@@ -156,4 +156,8 @@ that the translated reductions compute the formula. `adler32_combine_correct`
 states the result: for byte strings `A` and `B` with `|B| < 2^63`,
 `adler32_combine64(adler32(A), adler32(B), |B|) = adler32(A ++ B)`, from the
 initial value 1. `adler32_combine_safe` shows that the functions never fault, for
-every argument. A negative length returns the documented sentinel.
+every argument. For a negative length the C returns `0xffffffff`. A comment in
+`adler32.c` calls this an invalid Adler-32, returned "as a clue for debugging";
+`zlib.h` does not name the value and says only that the result then "has no meaning
+or utility". The functional goals `Goal.adler32_combine` and
+`Goal.adler32_combine64` state the value `0xffffffff`.

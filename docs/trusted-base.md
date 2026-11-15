@@ -42,20 +42,26 @@ auxiliary declarations (such as `._unsafe_rec`) that the audit exempts from its 
 `ZlibF/Runtime/` defines what a translated run means. `Space.lean` supplies object references
 and updates. `Monad.lean` supplies faults, sequencing and loops. `Ptr.lean` supplies pointer
 arithmetic, loads, stores and comparisons. `Libc.lean` models the required library operations;
-`Alloc.lean` imports it. `Schema.lean`, `Tables.lean` and `LibcTables.lean` supply generated
-records, constants, heap tables and operations for each struct kind. Their generator and the
+`Alloc.lean` imports it. `LibcStrings.lean` supplies the text that `strerror` returns
+(`libcErrnoText`). `Address.lean` supplies the low address bits of a byte pointer, which the CRC
+code observes. `Schema.lean`, `Tables.lean` and `LibcTables.lean` supply generated records,
+constants, heap tables and operations for each struct kind. Their generator and the
 [runtime schema](runtime-schema.md) are part of this item.
 
 A no-fault theorem is a statement about these definitions. The intended correspondence is that
 every undefined behaviour the C can reach becomes `Fault.ub`. Unsigned arithmetic is modular.
-Signed arithmetic, shifts and conversions are checked by each translation; item 3 names the one
-accepted exception. The correspondence
+Signed arithmetic, shifts and conversions are checked by each translation; item 3 names the
+accepted exception and the forms that are not yet decided. The correspondence
 has limits, and four of them matter to every reader:
 
 - **Uninitialised pointers.** The model has no value for an uninitialised pointer: a pointer field
   in fresh memory reads as `NULL`. Comparing, copying and freeing it can succeed in the model
-  where C gives no guarantee. So every proof shows that a pointer field was written before it is
-  read; the runtime does not check this.
+  where C gives no guarantee. The working rules therefore ask that a pointer field is written
+  before it is read. No theorem states this, and none can in this model: a missing write does
+  not show, and the runtime does not check it. What the proofs show is narrower: the invariant
+  of each kind of state (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream and on
+  every gz handle with a history, and the invariant says what the pointer fields it names hold.
+  That the C writes each pointer field before it reads it is **to confirm** by source review.
 - **Uninitialised integers.** An integer cell of fresh memory has an arbitrary value, fixed per
   cell by the garbage function. Theorems hold for every garbage function.
 - **Loop fuel.** A loop runs for at most `2^64` iterations; exhausting the bound is
@@ -88,6 +94,37 @@ test of the same function keeps in range uses the plain operator. The
 [translation rules](design/translation.md) show an example of each and say what evidence each
 function needs. The test inventory is `tests/list.txt`.
 
+The translations also contain at least six forms that the four do not cover as worded: a value
+just stored is used again without a read; an operand is evaluated before the short-circuit test
+that guards it in C; a field value is taken from a record loaded before a store; a shift by a
+constant count uses the plain operator; the locals of `inflate` that C leaves uninitialised
+start at fixed values; and a store is written after a call that follows it in C. Whether each becomes an accepted normalisation or is changed is an open
+decision of the owner.
+[Translation](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)
+lists the places found; its tables are examples, not a complete inventory. No place was found to compute a different value from the C; that is a reading,
+not a proved fact.
+
+Three parts of this item are easy to miss:
+
+- **Helpers defined in the translation files.** Not every semantic helper is in
+  `ZlibF/Runtime/`. The checked arithmetic and shifts, the integer conversions, the loop and
+  control-flow forms, field and table access, the allocator dispatch, local storage, string
+  literals and the library stand-ins are defined in the translation files that use them. They
+  are trusted in the same way as the runtime.
+  [Architecture](design/architecture.md#where-the-trusted-semantics-is) lists them by kind and
+  file.
+- **The CRC word load.** `crc32.c` reads the buffer through a pointer cast to `z_word_t *`. The
+  translation (`loadWord` in `crc32.c.lean`) reads eight bytes and assembles them little-endian.
+  That the two agree, and the aliasing semantics of the cast, are trusted
+  ([model limits](model-limits.md#conditions-on-the-model-that-goals-state), row "CRC address
+  and word access").
+- **Locals of `inflate`.** `IL.init` in `inflate.c.lean` gives the locals `copy`, `len`, `from`,
+  `here` and `last`, which C leaves uninitialised, the values 0, NULL and a zero `code`.
+  `inflateBack` uses the same record. The rule for an uninitialised integer is an arbitrary
+  value; here the value is fixed. Whether `inflate` can read one of these locals before
+  assigning it is **to confirm** by source review: a proof about the current translation does
+  not show it.
+
 Differential tests compare finite executions against the real C. They are evidence of fidelity,
 not proof. In particular, agreement and a silent sanitizer do not establish that a C expression
 has defined semantics.
@@ -117,9 +154,11 @@ Historical proposals are not part of the verified source merely because notes me
 
 The target is the default x86_64 Linux/LP64 static build with the default allocator.
 The [platform scope](spec/platform.md) requires each represented byte
-object to have fewer than `2^63` bytes. This is an environment premise; the zlib
-proofs establish that the library's operations preserve it. It is the LP64 `PTRDIFF_MAX` object-size
-limit, and it holds on every heap of a call history.
+object to have fewer than `2^63` bytes. This is an environment premise: the LP64 `PTRDIFF_MAX`
+limit on the size of one object. Every library allocation keeps it (`ByteObjectsFit.allocB`). An
+inflate history states it on every heap on which a call runs and after every caller edit; a
+deflate history states it only at the call a goal is about.
+[Deviations](deviations.md#build-and-platform) lists where each goal states it.
 Allocation failure remains in scope. Other build configurations and custom allocators would
 need their own correspondence arguments; they are not planned ([scope](progress.md#scope)).
 

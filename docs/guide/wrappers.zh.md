@@ -17,7 +17,7 @@
 
 ## 目录
 
-- [4.1 把同一个主体放入三种包装](#41-put-the-same-body-in-three-envelopes)
+- [4.1 把同一个主体放入三种封装](#41-put-the-same-body-in-three-envelopes)
 - [4.2 头部建立解码器的起始条件](#42-headers-establish-the-decoders-starting-conditions)
   - [4.2.1 窗口与可选的初始历史](#421-a-window-and-an-optional-initial-history)
   - [4.2.2 Gzip 元数据有独立的接收位置](#422-gzip-metadata-has-a-different-destination)
@@ -26,7 +26,7 @@
 - [4.5 结束一个成员，再开始下一个](#45-finishing-one-member-and-starting-another)
 - [安全定理对本章说了什么](#what-the-safety-theorems-say-about-this-chapter)
 
-## 4.1 把同一个主体放入三种包装
+## 4.1 把同一个主体放入三种封装
 
 一个最终**存储块**可以不使用 Huffman 编码，直接携带这三个字节：
 
@@ -53,7 +53,7 @@
 
 ```mermaid
 flowchart TD
-    select["配置的输入格式"] --> raw["裸流：没有包装头"]
+    select["配置的输入格式"] --> raw["裸流：没有封装头"]
     select --> zh["zlib 头：方法、窗口、字典标志"]
     select --> gh["gzip 头：方法、标志、可选元数据"]
     zh -->|"请求字典"| dict["检查标识，提供初始历史"]
@@ -96,7 +96,7 @@ Adler-32 字典标识可能碰撞：恢复预期的数据需要字节相符，�
 Gzip 的名称、注释和额外字段不会改变字面量、匹配或 Huffman 规则。
 Gzip 没有 zlib 式的预置字典请求。
 
-`inflateGetHeader()` 登记一个由调用者拥有的头部记录及其缓冲区。之后的 `inflate()` 调用解析并写入它们。
+`inflateGetHeader()` 把调用者拥有的头部记录及其缓冲区交给解码器。之后的 `inflate()` 调用解析并写入它们。
 名称可能跨越多个输入缓冲区，所以解码器在调用之间保存解析进度。
 **安全：** `inflate` 向这三个缓冲区最多分别写入 `extra_max`、`name_max` 和 `comm_max` 个字节。
 这依赖一条前提：只要还在调用 `inflate`，该记录及其缓冲区就保持有效，并且 `extra` 缓冲区与未读输入互不重叠（见[偏离记录](../deviations.md)）。
@@ -168,7 +168,7 @@ sequenceDiagram
 
 在 `member("ABC") || member("DEF")` 中，`||` 表示拼接。
 每个 gzip 成员都有自己的头部、主体、校验和和长度。
-`inflate()` 在第一个 `Z_STREAM_END` 处停止；处理下一个成员前，重置活跃解码器，并保留未读输入。
+`inflate()` 在第一个 `Z_STREAM_END` 处停止；处理下一个成员前，重置存活的解码器，并保留未读输入。
 
 ```text
 第一个成员：头部 → 主体 ABC → CRC／长度 → Z_STREAM_END
@@ -178,7 +178,7 @@ sequenceDiagram
 
 **功能：** 正确的组合在第一个成员的实际终点处切分输入，重新开始历史和校验和，并把输出拼成 `ABCDEF`。
 在第一个终点就停下的应用会丢失 `DEF`。
-**安全：** 两个成员之间的 `inflateReset` 保持流的存储有主且有界。
+**安全：** 两个成员之间的 `inflateReset` 使流的存储仍归流所有，并且访问不越界。
 详见[重置操作](state-operations.md)；[gzip 文件读取接口](interfaces.md)自己处理连续的成员。
 [共同的证明规则](../overview.md#shared-proof-rules)适用于本章全部内容。
 

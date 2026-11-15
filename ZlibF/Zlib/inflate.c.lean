@@ -9,7 +9,7 @@ import ZlibF.Zlib.«inffast.c»
 /-!
 # inflate.c — faithful translation
 
-Source: `inflate.c` of the verified source (`zlib/` plus `patches/*.patch`; there is no `ub.patch` yet), default x86_64
+Source: `inflate.c` of the verified source (`zlib/` plus `patches/*.patch` applied in name order, see `patches/README.md`), default x86_64
 Linux build: `GUNZIP` defined, `Z_SOLO`, `PKZIP_BUG_WORKAROUND`, `INFLATE_STRICT`,
 `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR`, `ZLIB_DEBUG` undefined (so `Tracev` is nothing and `dmax` is written but
 never read). Types as in `docs/design/translation.md`. The notes are `docs/proof/inflate.md`.
@@ -35,7 +35,8 @@ never read). Types as in `docs/design/translation.md`. The notes are `docs/proof
 * `unsigned char hbuf[4]` and `unsigned char buf[4]` are byte blocks made at the declaration (`allocLocalB`, which never
   fails; it uses the runtime's `allocBytes`) and freed before every return.
 * The local variables of `inflate()` that the C leaves uninitialised (`copy len from here last`) start as `0`, `NULL`,
-  `{0,0,0}`: an arbitrary value, as the guide allows; `from` starts null so that a use before assignment faults.
+  `{0,0,0}` (`IL.init`): fixed values, not every value; that no path reads them before writing them is **to confirm**
+  by source review. `from` starts null so that a use before assignment faults.
 * Only the default allocator is modelled (`zcalloc`/`zcfree` stored in the stream); another `zalloc`/`zfree` that the
   code would call is `ub "custom allocator not modelled"`.
 * The cast of `strm->state` to `struct inflate_state *` faults if the state is a `deflate_state` (the C reads through

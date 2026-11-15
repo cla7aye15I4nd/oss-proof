@@ -513,7 +513,7 @@ theorem writerIo_fresh_world (name : Array UInt8) (fs : Fs)
   exact writerOpen_world name fs hfs hc hm he hr
 
 /-- The actual read open and current-position seek compose on the same world.
-The fitting-slot condition is local and explicit; the full domain stays open. -/
+The fitting-slot condition is local and explicit; the full domain is covered by `gzopen_safe` (`gz.inv-open-fresh`). -/
 theorem readerIo_fresh_world (name : Array UInt8) (fs : Fs)
     (hfs : ZlibF.Spec.Public.FileSystem fs)
     (hc0 : fs.openFail fs.nos = none) (hm0 : fs.openFd fs.nos = none) (he0 : fs.okErrno fs.nos = none)

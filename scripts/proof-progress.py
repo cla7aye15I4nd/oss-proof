@@ -468,10 +468,10 @@ def visible_dependencies(graph):
             for a,b in sorted(reduce(edges))]
 
 def diagram_url(graph, node):
-    # Click links carry the commit as a 12-digit prefix: the full hash on every node would
+    # Click links carry the commit as a 7-digit prefix: the full hash on every node would
     # take most of the renderer's 50000-character budget. GitHub resolves the prefix.
     revision = graph['links']['revision']
-    return target_url(graph, node).replace('/' + revision + '/', '/' + revision[:12] + '/', 1)
+    return target_url(graph, node).replace('/' + revision + '/', '/' + revision[:7] + '/', 1)
 
 def mermaid(graph):
     indexes = {n['id']: f'n{i}' for i, n in enumerate(graph['nodes'])}
@@ -496,7 +496,8 @@ def mermaid(graph):
             lines.append(f'  {indexes[source]} {arrow} {indexes[target]}')
     for node in graph['nodes']:
         if node['blocker']: lines.append(f'  class {indexes[node["id"]]} obstacle')
-        lines.append(f'  click {indexes[node["id"]]} href "{diagram_url(graph, node)}" _blank')
+        # Mermaid's short form `click id "url" _blank` (no `href`) saves five characters a node.
+        lines.append(f'  click {indexes[node["id"]]} "{diagram_url(graph, node)}" _blank')
     lines.extend(diagram_styles())
     diagram = '\n'.join(lines)
     if len(diagram) > 50000:

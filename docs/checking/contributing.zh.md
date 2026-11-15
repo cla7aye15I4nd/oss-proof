@@ -15,7 +15,7 @@
    git clone --recurse-submodules <repository-url>
    ```
 
-2. 从 `dev` 开一个分支工作。提交要小。按路径暂存文件。推送到 `dev`；或者在快速关卡全部通过后，把拉取请求合并到 `dev`。不需要评审。
+2. 从 `dev` 开一个分支工作。提交要小。按路径暂存文件。推送到 `dev`；或者在快速关卡全部通过后，把拉取请求合并到 `dev`。不需要审查。
 
 3. 构建库和审计工具。最多使用四个并行任务，内存上限 16 GB。`crc32.c` 和 `inftrees.c` 的证明各需要 8 到 9 GB。
 
@@ -40,7 +40,7 @@
 
    它是 `lean.yml` 中那个模式的简写；完整的模式还拒绝 `partial`、`unsafe`、`opaque` 和 `extern`。
 
-5. 如果改了 `patches/`，检查每个补丁都能应用到固定版本的上游源码上。每个补丁都能应用时，这些命令什么也不打印。写本页时没有按这个形式运行它们；五个补丁是用 `patch -p1` 应用到固定版本源码的一份副本上的，没有出错。
+5. 如果改了 `patches/`，检查每个补丁都能应用到固定的上游源码上。每个补丁都能应用时，这些命令什么也不打印。写本页时没有按这个形式运行它们；五个补丁是用 `patch -p1` 应用到固定版本源码的一份副本上的，没有出错。
 
    ```bash
    rm -rf /tmp/zlib-verified && cp -r zlib /tmp/zlib-verified && rm -rf /tmp/zlib-verified/.git
@@ -66,7 +66,7 @@
 
    没有 `sha256sum` 的系统上，`shasum -a 256` 打印同样的哈希。
 
-   对应文件过时不会让构建失败。这时中文页面会显示一条提示，说明英文源文件更新。
+   对应文件过时不会让构建失败。这时中文页面会显示一条提示，说明英文源文件比它新。
 
 8. 推送到 `dev`。每次推送和每个拉取请求都会运行快速关卡（`build`、`no-sorry`）。它是合并的唯一关卡。如果一次推送让它失败，先修复它。
 
@@ -109,7 +109,7 @@
    "safety_goal": "ZlibF.Spec.Public.Goal.adler32_safety"
    ```
 
-   对 `scripts/` 的改动要经过审查。如果目标列在清单的 `open_safety` 中，在这个提交里删掉那个条目：一个目标不能既未证明又已证明。
+   对 `scripts/` 的改动要经过审查。如果目标列在清单文件的 `open_safety` 中，在这个提交里删掉那个条目：一个目标不能既未证明又已证明。
 
 6. **添加变异体证据。**针对单个公开函数的目标，需要在 `tests/audit/public-mutants.json` 中有一个键，其中至少指定一个变异体行：
 
@@ -119,7 +119,7 @@
    ]
    ```
 
-   [证明变异体](proof-mutants.md)解释这一行，并说明怎样写一行。运行这一行。这需要上面第 3 步的构建（已有内容的 `.lake`），并且要把四个证明模块构建两遍。
+   [证明变异体](proof-mutants.md)解释这一行，并说明怎样写一行。运行这一行。这需要上面第 3 步的构建（已构建好的 `.lake` 缓存），并且要把四个证明模块构建两遍。
 
    ```bash
    bash tests/audit/proofmut.sh tests/proof-mutants/public-checksums.tsv '^adler32-wrapper-length$'
@@ -127,7 +127,7 @@
 
    最后一行：`PROOFMUT PASS`（取自脚本）。
 
-7. **检查清单。**这需要子模块，不需要构建。
+7. **核对函数清单。**这需要子模块，不需要构建。
 
    ```bash
    python3 scripts/verification.py coverage
@@ -140,7 +140,7 @@
    coverage is not specification readiness or proof completion
    ```
 
-   失败时打印一行 `REJECTED: <reason>`。上面第二行是一句提醒：这条命令检查清单、头文件和键是否一致，不检查任何证明。
+   失败时打印一行 `REJECTED: <reason>`。上面第二行是一句提醒：这条命令检查清单文件、头文件和键是否一致，不检查任何证明。
 
 8. **重新生成进度视图**，也就是 `docs/progress.md` 和 `docs/progress.zh.md` 中 `proof-progress` 两个标记之间的那一块。这需要上面第 3 步的构建。
 

@@ -80,10 +80,11 @@ translation edit of each row also rejects all eleven; the replay of the original
 ## The gz goals
 
 The gz goals have no key; their rows are three semantic lists.
-- `tests/proof-mutants/gz-refusal.tsv`, for `Goal.gz_refusal`: nineteen rows, each a different return value on a
-  `NULL` handle or a dropped `NULL` test, of every gz function except `gzread` and `gzfread` (in `gz-read.tsv`) and
-  `gzbuffer`, `gzeof` and `gzoffset64` (in `public-streams.tsv`). The goal's clauses hold by evaluation, so each row
-  fails in `public-gz-refusal`.
+- `tests/proof-mutants/gz-refusal.tsv`, for `Goal.gz_refusal`: nineteen rows, one for each of nineteen gz functions.
+  Each row is a different return value on a `NULL` handle or a dropped `NULL` test. `gzread` and `gzfread` have
+  their rows in `gz-read.tsv`, and `gzbuffer`, `gzeof` and `gzoffset64` in `public-streams.tsv`. The thin wrappers
+  `gzseek`, `gztell`, `gzoffset`, `gzgetc_` and `gzprintf` have no row. The goal's clauses hold by evaluation, so
+  each row fails in `public-gz-refusal`.
 - `tests/proof-mutants/gz-sequence.tsv`, for `Goal.gz_sequence_safety`: the write calls (`gzwrite`, `gzfwrite`,
   `gzputc`, `gzputs`, `gzvprintf` and so `gzprintf`, `gzflush`, `gzsetparams`), the closes (`gzclose_w`, `gzclose_r`,
   the dispatch of `gzclose`), the opens (`gz_open`, `gzdopen`), `gzseek64` and `gztell64`, `gz_error` (a skipped free;

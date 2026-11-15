@@ -49,7 +49,7 @@ theorem slow_finish_body_after_fill {h filledHeap : Heap} {ds : Nat} {d filled :
 /-- Every actual FINISH body includes refill/sliding and all short/full
 strategy decisions. Its continuing rank decreases, its output remains
 positive, and a new loop break means true EOF with no remaining input.
-This is one complete body step, not yet the whole FINISH loop. -/
+This is one complete body step, not the whole FINISH loop. -/
 theorem slow_finish_strategy_step {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
     (boundary : StrategyBoundary h r ds z d input origin base xs config)

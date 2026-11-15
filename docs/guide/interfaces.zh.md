@@ -1,4 +1,4 @@
-<!-- source-sha256: 50a6c3b23943af288224b98d81676275a7ba989228fe60c7707b71278894407c -->
+<!-- source-sha256: 5e095181f04201c5eb51436d5490933a12e180a8368a1bf2e3b5a0d0c8258072 -->
 
 # 6. 应用接口
 
@@ -36,15 +36,15 @@ sequenceDiagram
     participant A as 应用
     participant U as 缓冲区工具接口
     participant E as 普通流引擎
-    A->>U: 输入字节、目标容量
+    A->>U: 源字节、目的缓冲区容量
     U->>E: 初始化
     alt 初始化成功
         loop 引擎返回 Z_OK 时继续
             U->>E: 提供可用片段并处理
             E-->>U: 更新后的游标、结果
         end
-        U->>E: 结束并释放，包括处理失败的情况
-        U-->>A: 已用目标长度、映射后的结果
+        U->>E: End，包括处理失败的情况
+        U-->>A: 已用的目的长度、映射后的结果
     else 初始化失败
         U-->>A: 初始化错误
     end
@@ -52,7 +52,7 @@ sequenceDiagram
 
 如果长度超出流的 32 位字段 `avail_in` 和 `avail_out` 所能表示的范围，就分片传入。
 [流式使用规则](streaming.md)对应用是隐藏的，但它仍然存在。
-**安全：** 工具函数只读取源范围，只写入目的范围和长度单元，并且在每条路径上都结束内部的流，所以没有块继续存活。
+**安全：** 工具函数只读取源范围，只写入目的范围和长度单元，并且在每条路径上都结束内部的流，所以没有块继续存活。这些目标有若干前提，其中一条是源与目的缓冲区不重叠；完整的前提见[偏离记录](../deviations.md#whole-buffer-utilities-and-checksums)。
 
 **八字节示例。** 对 `ABABABAB`，设压缩器产生 `m` 个字节。头部、尾部和块描述可能使 `m` 大于八。
 默认公式给出 `compressBound(8) = 21`。
@@ -66,7 +66,7 @@ sequenceDiagram
 工具函数把引擎的 `Z_STREAM_END` 映射为 `Z_OK`。`uncompress2` 还会报告消费了多少输入。
 当流请求字典，或者输入先于流结束时，它返回 `Z_DATA_ERROR`。
 [契约](../spec/api/utility.md)给出精确的结果，以及长度单元必须指向什么；
-[缓冲区一页](../proof/buffers.md)讨论局部的流、类型转换和边界。
+[缓冲区一页](../proof/buffers.md)讨论局部的流、类型转换和上界函数。
 
 ## 6.2 回调让解码器主动请求输入
 
@@ -95,15 +95,16 @@ sequenceDiagram
 
 图中假定初始化成功，展示一种可能的循环；解码器并不是每调用一次输入就调用一次输出。
 通过 `next_in` 和 `avail_in` 传入的输入先于第一次输入回调被使用。
-一个输出块最长为一个窗口；最后一块可能更短。
+一个输出片段最长为一个窗口；最后一个片段可能更短。
 窗口同时也是历史，所以回调不得覆盖或释放它。
 输出函数在返回之前读取或复制每个片段；之后解码器可能复用这个片段。
 
 **复制到目的地。** 输入回调提供归档的各个片段。输出回调把每个解码后的片段复制到应用的存储。
 **安全：** 解码器只读取输入回调最近一次交出的片段，只在窗口之内写入。
-这依赖关于回调的前提，因为函数指针类型什么也不保证：每个回调都会返回，只改动调用者自己的存储，
-交出的片段可读且与窗口分离；并且一次 `inflateBack` 调用得到的输入总量少于 `2^48` 字节
-（见[偏离记录](../deviations.md)）。
+这依赖关于回调的前提，因为函数指针类型什么也不保证。主要的几条是：每个回调都会返回，只改动调用者自己的存储，
+交出的片段可读且与窗口分离；并且一次 `inflateBack` 调用得到的输入总量少于 `2^48` 字节。
+前提不止这些。目标还假设窗口和每个输入片段都位于堆上的字节块中，已经放在 `next_in` 中的输入与窗口分离，
+并且每个字节对象都小于 `2^63` 字节。完整的前提见[偏离记录](../deviations.md#callback-decoder)。
 
 输入回调不提供数据，或者输出回调报告失败时，`inflateBack` 返回 `Z_BUF_ERROR`。
 数据格式有误时它返回 `Z_DATA_ERROR`，此前可能已有输出。
@@ -112,7 +113,7 @@ sequenceDiagram
 
 [回调契约](../spec/api/inflate-back.md)说明这个定义域，
 [回调一页](../proof/callbacks.md)把这些调用与窗口的所有权联系起来。
-外层的 [zlib 或 gzip 包装](wrappers.md)由应用自己处理。
+外层的 [zlib 或 gzip 封装](wrappers.md)由应用自己处理。
 
 ## 6.3 gzip 句柄把编解码器连接到文件
 
@@ -139,42 +140,42 @@ flowchart LR
 **安全：** 解码和原样复制这两条路径都在覆盖范围内。
 
 **成员分别包含 `AB` 和 `CD`。** 无论缓冲区边界落在哪里，多次读取都交付 `ABCD`。
-数据可能在之后才发现的错误之前就已返回。
+数据可能已经返回，错误到后面才被发现。
 文件结束、数据被截断、数据损坏和操作系统失败有不同的 [API 结果](../spec/api/gz-file.md)。
 **安全：** 在任何调用历史之后，对句柄的每次调用都是安全的，包括第一次分配失败、部分 I/O 以及出错之后的关闭；
 即使最后一次写入失败，`gzclose` 也释放句柄的存储。
-读取类调用的终止依赖一条前提：该描述符还能交付的字节少于 `2^61`（见[偏离记录](../deviations.md)）。
+这个目标带有前提。其中一条是该描述符还能交付的字节少于 `2^61`：读取类调用的终止依赖它。完整的前提见[偏离记录](../deviations.md#gzip-file-interface)。
 见 [gzip 一页](../proof/gzip.md)。
 
 ## 6.4 定位使用原始数据中的位置
 
-`gzseek(file, 100000000, SEEK_SET)` 指的是**未压缩**数据中的第 100,000,000 个字节。
+`gzseek(file, 100000000, SEEK_SET)` 指的是**未压缩**数据中偏移 100,000,000 处的字节。
 `gztell` 返回下一次传输的未压缩位置。`gzoffset` 返回压缩文件中的偏移；
 读取时，它会减去已缓冲但尚未使用的输入。
 这两种位置之间没有固定的换算关系。
 
-**读取。** 要从未压缩位置 150,000,000 向后定位到 100,000,000，库把文件倒回起点，
+**读取。** 要从未压缩位置 150,000,000 往回定位（朝文件开头）到 100,000,000，库把文件倒回起点，
 然后解码并丢弃前 100,000,000 个字节。其中一部分工作要等到下一次读取才做。
 因此定位可能比普通文件的定位慢得多。
 
 ```mermaid
 flowchart LR
-    current["逻辑位置 150,000,000"] -->|"请求向后定位"| start["回到流起点"]
+    current["逻辑位置 150,000,000"] -->|"请求往回定位"| start["回到流起点"]
     start -->|"解码并丢弃前缀"| target["逻辑位置 100,000,000"]
     target -->|"下一次读取交付字节"| next["应用输出"]
 ```
 
-向前定位会用掉已经缓冲的解码字节，或者记下稍后要跳过的字节数。
+往前定位（朝文件末尾）会用掉已经缓冲的解码字节，或者记下稍后要跳过的字节数。
 输入不是 gzip 时，库直接在文件中定位。不支持 `SEEK_END`。
 **功能：** 已处理的位置加上待跳过的量，等于应用观察到的位置。
-**安全：** 偏移的算术不会溢出有符号偏移类型。这对打过补丁的源码成立；固定版本的源码可能溢出（见[发现](../findings.md)）。
+**安全：** 偏移的算术不会溢出有符号偏移类型。这对打过补丁的源码成立；固定的源码可能溢出（见[发现](../findings.md)）。
 
 **写入。** 写入 `ABC`，定位到未压缩偏移 6，再写入 `D`：中间的三个字节是零，按普通数据压缩。
 
-![七个未压缩字节单元格显示 ABC、向前定位插入的三个零字节，以及下标 6 处的 D。](assets/interfaces-forward-seek.zh.svg)
+![七个未压缩字节单元格显示 ABC、往前定位插入的三个零字节，以及下标 6 处的 D。](assets/interfaces-forward-seek.zh.svg)
 
 颜色区分已有字节、零字节和新输入，不表示证明覆盖范围。
-写入方不能向后定位去修改 `A`。这些零在下一次写入或关闭时才写出，
+写入方不能往回定位去修改 `A`。这些零在下一次写入或关闭时才写出，
 所以待补的距离要跨调用保存，之后发生 I/O 失败时也要保存。
 见[定位](../spec/api/gz-file.md#gzseek64)、[位置查询](../spec/api/gz-file.md#gztell64)
 和[位置论证](../proof/gzip.md#positions-seeking-and-error-ownership)。
@@ -189,7 +190,7 @@ flowchart LR
 **功能：** 组合得到的值等于拼接后数据的校验和。
 **安全：** 更新调用只读取它的字节范围，组合调用不写任何内存，两者的整数算术都没有未定义行为。
 见[契约](../spec/api/checksums.md)、[Adler-32](../proof/adler32.md) 和
-[CRC-32](../proof/crc32.md)。校验和在包装中的用法见[第 4 章](wrappers.md)。
+[CRC-32](../proof/crc32.md)。校验和在封装中的用法见[第 4 章](wrappers.md)。
 
 ## 安全定理对本章说了什么
 
@@ -203,8 +204,8 @@ flowchart LR
 | `compress`、`compress2`、`compress_z`、`compress2_z` | `Goal.compress_safety`、`Goal.compress2_safety`、`Goal.compress_z_safety`、`Goal.compress2_z_safety` | [compress](../spec/api/utility.md#compress) |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `Goal.uncompress_safe`、`Goal.uncompress2_safe`、`Goal.uncompress_z_safe`、`Goal.uncompress2_z_safe` | [uncompress](../spec/api/utility.md#uncompress) |
 | `compressBound`、`compressBound_z` | 完整契约 `Goal.compressBound`、`Goal.compressBound_z`：纯函数，不涉及堆，不出故障。 | [compressBound](../spec/api/utility.md#compressbound) |
-| `inflateBackInit`（`inflateBackInit_` 的宏）、`inflateBack`、`inflateBackEnd` | 通过序列目标 `Goal.inflate_back_sequence_safety` 证明安全。它们还没有单独的单函数目标。 | [回调解码器](../spec/api/inflate-back.md#inflateback) |
-| `gzopen`、`gzread`、`gzwrite`、`gzseek`、`gztell`、`gzoffset`、`gzclose` 以及默认构建中其余已文档化的 gz 函数，共 31 个 | 通过序列目标 `Goal.gz_sequence_safety` 证明安全。它们还没有单独的单函数目标。 | [gzip 文件](../spec/api/gz-file.md) |
+| `inflateBackInit`（`inflateBackInit_` 的宏）、`inflateBack`、`inflateBackEnd` | 通过序列目标 `Goal.inflate_back_sequence_safety` 证明安全。它们还没有单独的单函数安全目标。 | [回调解码器](../spec/api/inflate-back.md#inflateback) |
+| `gzopen`、`gzread`、`gzwrite`、`gzseek`、`gztell`、`gzoffset`、`gzclose` 以及默认构建中其余已文档化的 gz 函数，共 31 个 | 通过序列目标 `Goal.gz_sequence_safety` 证明安全。它们还没有单独的单函数安全目标。 | [gzip 文件](../spec/api/gz-file.md) |
 | `adler32`、`adler32_z` | `Goal.adler32_safety`、`Goal.adler32_z_safety` | [adler32](../spec/api/checksums.md#adler32) |
 | `crc32`、`crc32_z` | `Goal.crc32_safety`、`Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`、`crc32_combine` | `Goal.adler32_combine_safety`、`Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine)、[crc32_combine](../spec/api/checksums.md#crc32_combine) |

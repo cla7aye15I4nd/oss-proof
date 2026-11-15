@@ -43,7 +43,8 @@ def refHeaderCost128 (ready : DeflateState) : Nat :=
   mass (fun k => (scanFreqUpTo (sendLengths ready .lit) (ready.l_desc.max_code.toInt.toNat + 1) k +
     scanFreqUpTo (sendLengths ready .dist) (ready.d_desc.max_code.toInt.toNat + 1) k) * refWeight1 k) 19
 
-/-- **Batch 1's piece at `lit_bufsize = 128` (open)**: the header is at most the `κ1` header plus `Δ`. -/
+/-- **Batch 1's piece at `lit_bufsize = 128`** (not proved; `tinyOverlayAt_128` uses
+`HeaderRefBound128W` instead, proved by `header_ref_bound_128w`): the header is at most the `κ1` header plus `Δ`. -/
 def HeaderRefBound128 (Δ : Nat) : Prop :=
   ∀ {h : Heap} {ds : Nat} {d : DeflateState} {xs : List Symbol} {mb : Int32} {ready : DeflateState},
     TinyPrepared h ds d xs mb ready → d.lit_bufsize.toNat = 128 →

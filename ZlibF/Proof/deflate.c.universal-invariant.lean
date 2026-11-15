@@ -112,7 +112,7 @@ are in the window, so none of the last two bytes of the data is inserted either.
 def chainTop (d : DeflateState) : Nat :=
   min (d.strstart.toNat - d.insert.toNat) (d.strstart.toNat + d.lookahead.toNat - 2)
 
-/-- H1/H2 (`docs/proof/deflate.md`): the hash chains name inserted positions below the
+/-- The `hashing` clause of the deflate invariant (`HashChains`; `docs/proof/deflate.md#hashing-chains-that-can-be-followed`): the hash chains name inserted positions below the
 insertion frontier `chainTop`, for every content of the unwritten `prev` slots. -/
 def Chains (h : Heap) (d : DeflateState) : Prop :=
   HeapChains h d (chainTop d)

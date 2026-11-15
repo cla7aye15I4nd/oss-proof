@@ -2,13 +2,14 @@ import ZlibF.Proof.«trees.c.universal-flush»
 import ZlibF.Proof.«deflate.c.universal-strategies»
 
 /-!
-# trees.c: `FlushSafe` of batch B from the open overlay case
+# trees.c: `FlushSafe` of batch B from the small overlay case
 
 Batch C of the deflate skeleton. Batch B states the block flush it needs as `FlushSafe`
 (`deflate.c.universal-strategies`). `flushSafe_of_small` proves it from one hypothesis: the
 dynamic overlay room (fact F9) when `lit_bufsize < 2048`, that is `memLevel` 1 to 4. That
-hypothesis is the open lemma `dynamic_overlay_small` (`docs/progress.md`); for `memLevel ≥ 5`
-the room is `dynamic_overlay_large`.
+hypothesis, `SmallOverlay`, is proved: `smallOverlay_of_tiny` (`trees.c.universal-overlay-mid`)
+reduces it to `TinyOverlay`, which `tinyOverlay` (`deflate.c.engine.overlay-header-ref`) proves.
+For `memLevel ≥ 5` the room is `dynamic_overlay_large`.
 -/
 
 namespace Zlib.Deflate.Universal.Block
@@ -18,7 +19,7 @@ open Zlib.Trees.Proofs.Out (TreesInvAt)
 open ZlibF.Math.DeflateSymbols
 set_option autoImplicit false
 
-/-- **F9 for `memLevel` 1 to 4** (open): the dynamic overlay room of every block of a
+/-- **F9 for `memLevel` 1 to 4** (proved by `smallOverlay_of_tiny tinyOverlay`): the dynamic overlay room of every block of a
 small symbol buffer, from a drained entry. -/
 def SmallOverlay : Prop :=
   ∀ {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : DeflateState} {buf : Array UInt8}

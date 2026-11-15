@@ -884,6 +884,416 @@
         "list": "tests/proof-mutants/public-queries.tsv",
         "name": "zlibVersion-null-pointer"
       }
+    ],
+    "ZlibF.Spec.Public.Goal.gzbuffer_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzbuffer-size-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzclearerr_safety": [
+      {
+        "list": "tests/proof-mutants/api-boundary.tsv",
+        "name": "gzclearerr-omit-clear"
+      },
+      {
+        "list": "tests/proof-mutants/api-boundary.tsv",
+        "name": "gzclearerr-keep-past"
+      },
+      {
+        "list": "tests/proof-mutants/api-boundary.tsv",
+        "name": "gzclearerr-keep-eof"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzclearerr-null-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzclose_safety": [
+      {
+        "list": "tests/proof-mutants/gz-sequence.tsv",
+        "name": "gzclose-dispatch-swapped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzclose-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzclose_r_safety": [
+      {
+        "list": "tests/proof-mutants/gz-read.tsv",
+        "name": "gzclose_r-mode-check"
+      },
+      {
+        "list": "tests/proof-mutants/gz-read.tsv",
+        "name": "gzclose_r-in-leak"
+      },
+      {
+        "list": "tests/proof-mutants/gz-sequence.tsv",
+        "name": "gzclose_r-descriptor-kept"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzclose_r-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzclose_w_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzclose_w-deflateEnd-skipped"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzclose_w-in-free-skipped"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzclose_w-path-free-skipped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzclose_w-null-refusal"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzclose_w-descriptor-kept"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzdirect_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzdirect-mode-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzdirect-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzdopen_safety": [
+      {
+        "list": "tests/proofmut/gzip-frontier.tsv",
+        "name": "dopen-negative-descriptor"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzdopen-path-leak"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzeof_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzeof-writer-result"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "gzeof-null-result"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzerror_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "gzerror-wrong-message-pointer"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzerror-null-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzflush_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzflush-mode-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzflush-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzfread_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzfread-mode-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzfread-overflow-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzfread-overflow-compare"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzfwrite_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzfwrite-mode-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzfwrite-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzgetc_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzgetc-have-not-decremented"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzgetc-mode-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzgetc-have-check"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzgetc-null-refusal"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzgetc-local-leak"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzgetc__safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzgetc_-handle-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzgets_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzgets-mode-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzgets-null-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzoffset_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "gzoffset-wrapper-result"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzoffset64_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzoffset64-lseek-failure-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "gzoffset64-null-handle"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzopen_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzopen-descriptor-zero"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzopen64_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzopen64-descriptor-zero"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzprintf_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzprintf-handle-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzputc_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzputc-local-free-skipped"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "patch0004-putc-position-check-removed"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzputc-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzputs_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzputs-mode-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzputs-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzread_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzread-mode-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzread-int-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzread-int-check-off-by-one"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzrewind_safety": [
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "gzrewind-mode-check"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzrewind-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzseek_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzseek-wrapper-result"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzseek64_safety": [
+      {
+        "list": "tests/proof-mutants/gz-sequence.tsv",
+        "name": "patch0002-seek-cur-guard-removed"
+      },
+      {
+        "list": "tests/proof-mutants/gz-sequence.tsv",
+        "name": "patch0002-displacement-check-removed"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzseek64-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzsetparams_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzsetparams-mode-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzsetparams-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gztell_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gztell-wrapper-result"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gztell64_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gztell64-mode-result"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gztell64-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzungetc_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzungetc-slide-skipped"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzungetc-mode-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzungetc-skip-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzungetc-null-refusal"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzungetc-full-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzungetc-empty-offset"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzwrite_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzwrite-mode-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzwrite-null-refusal"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateBack_safety": [
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBack-null-ok"
+      },
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBack-mode-not-reset"
+      },
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBack-null-output"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "inflateBack-state-null-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateBackEnd_safety": [
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBackEnd-free-skipped"
+      },
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBackEnd-state-kept"
+      },
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBackEnd-wrong-code"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "inflateBackEnd-state-null-check-dropped"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.inflateBackInit__safety": [
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBackInit_-state-not-stored"
+      },
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBackInit_-window-not-stored"
+      },
+      {
+        "list": "tests/proof-mutants/infback-sequence.tsv",
+        "name": "inflateBackInit_-allocation-failure-ok"
+      }
+    ],
+    "ZlibF.Spec.Public.Goal.gzvprintf_safety": [
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzvprintf-length-check-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/gz-refusal.tsv",
+        "name": "gzvprintf-null-refusal"
+      }
     ]
   }
 }

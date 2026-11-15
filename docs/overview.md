@@ -35,13 +35,14 @@ correctness are outside the proof. The premises that a theorem puts on the calle
 
 **Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
 functions are proved safe through their sequence goals, which cover every call in every history;
-they have no separate one-function goal yet. Stating and registering those 34 goals is remaining
-work ([progress](progress.md#ordered-next-work)).
+they have no separate one-function safety goal yet. Stating and registering those 34 goals is
+remaining work ([progress](progress.md#ordered-next-work)).
 
 **Not required.** Functional correctness is not required for the safety results. A functional
 fact is in scope when a planned safety proof depends on it; what is already proved stays. One
-functional result is planned work and not proved: the round trip of a default zlib stream through
-`deflate` and then `inflate`. Model-only statements (theorems about the abstract API model, not
+functional result is planned work: the round trip of a default zlib stream through `deflate` and then `inflate`. Its conditional form is proved on `dev` and not yet registered
+(`deflate_inflate_roundtrip`: when both call sequences reach `Z_STREAM_END`, the output equals the
+input); that both always finish with enough room, and the unconditional form, are open. Model-only statements (theorems about the abstract API model, not
 about the translated C), other build configurations and the functions that `zlib.h` declares
 undocumented are not planned. [Scope](progress.md#scope) lists every group with its reason.
 
@@ -82,8 +83,9 @@ The proof has four steps.
    statement by statement. Every undefined behaviour the C can reach becomes the fault `Fault.ub`
    in the translation.
 2. **Define an invariant.** For each kind of stream an invariant is defined: the facts about the
-   stream's state that hold before every call. An example is that the decoder's saved history
-   agrees with the bytes it has already produced.
+   stream's state that hold before every call. An example, for an inflate stream: the window is
+   `NULL` or a writable block of exactly `2^wbits` bytes, and the count of valid bytes in it
+   (`whave`) is at most its size (`WinInv`).
 3. **Prove each function.** The init function is proved to establish the invariant. Every other
    function is proved to return without a fault when the invariant holds, to keep the invariant,
    to write only its frame, and to allocate and free exactly what its ledger says. No function's

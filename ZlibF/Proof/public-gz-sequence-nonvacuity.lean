@@ -13,7 +13,7 @@ import ZlibF.Proof.«gzlib.c.dopen-joint-witness»
 2. Writer. The concrete `gzdopen(3, "wT")` run of `gzlib.c.dopen-joint-witness` on a world where descriptor 3 is an
    open writable file. `GzInv` comes from `gzdopen_safe` on the same run. The `gzwrite` source is the caller's block 0.
 
-Neither part uses an open read leaf (`GzReadLeaves`): `GzInv` comes from the open lemmas, not from `history_inv`.
+Neither part uses a read leaf (`GzReadLeaves`): `GzInv` comes from the lemmas of `gzopen` and `gzdopen`, not from `history_inv`.
 -/
 
 namespace ZlibF.Spec.Public.Proofs.GzNonvacuity

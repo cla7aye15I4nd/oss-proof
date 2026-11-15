@@ -140,7 +140,7 @@ Two useful distinctions are explicit in `Concrete.lean`:
 
 | Target | Scope |
 | --- | --- |
-| `Goal.compress_bound_value` | Numeric equality for both translated bound functions on every `UInt64` input; no output-adequacy claim |
+| `Goal.compress_bound_value` | Each of the two translated bound functions equals the model's bound formula on every `UInt64` input; no output-adequacy claim |
 | `Goal.compress2_z_first_alloc_failure` | First default allocation fails: memory error, stored zero length, unchanged byte blocks and no additional live block |
 
 The latter treats the local stream as automatic storage, so it consumes no allocator-failure

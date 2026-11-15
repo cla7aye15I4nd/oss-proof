@@ -29,7 +29,7 @@ theorem DefaultFinishBoundary.request_with_block {h : Heap} {r : ZStreamRef} {ds
 
 /-- Actual histories admit exactly NO_FLUSH, FINISH, BLOCK and legal
 rebuffering. No invariant or successful-return condition is a constructor
-premise. Other flags, advanced operations and encoded history remain open. -/
+premise. Other flags, advanced operations and encoded history are not stated here. -/
 inductive DefaultOrdinaryBlockRequests (r : ZStreamRef) (ds : Nat) : Heap → Heap → Prop
   | refl (h : Heap) : DefaultOrdinaryBlockRequests r ds h h
   | rebuffer {h middle after : Heap} : DefaultOrdinaryBlockRequests r ds h middle →

@@ -6,7 +6,11 @@ import ZlibF.Spec.Safety.Utilities
 # compress.c: safety of `compress2_z`, `compress2`, `compress_z` and `compress`
 
 `Goal.compress2_z_safety` and its wrappers, from the public goal `Goal.deflate` and the four
-deflate facts `DeflateLoopFacts`, both explicit hypotheses. `deflateInit_` and `deflateEnd` are
+deflate facts `DeflateLoopFacts`, both explicit hypotheses of the theorems in this file. Both are
+discharged elsewhere: the `_gen` forms are applied over `DeflateReachMid` with `goalDeflate_mid`
+and `loopFacts_mid`, and `compress2_z_safety`, `compress_z_safety`, `compress2_safety` and
+`compress_safety` (`public-compress-safe-mid`) prove the four goals with no hypothesis.
+`Goal.deflate` itself is `deflate_safety` (`public-deflate-goals`). `deflateInit_` and `deflateEnd` are
 used through their proved lemmas (`deflateInit_proof` and its parts, `deflateEnd_safe`,
 `deflate_end_public`). The loop terminates by the measure of `public-compress-safe-loop`.
 -/

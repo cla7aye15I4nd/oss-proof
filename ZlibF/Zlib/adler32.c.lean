@@ -1,7 +1,7 @@
 import ZlibF.Runtime.Alloc
 
 /-!
-# adler32.c — faithful translation (draft)
+# adler32.c — faithful translation
 
 Source: `zlib/adler32.c`, default build (`NO_DIVIDE` undefined, so
 `MOD`/`MOD28` are `a %= BASE`), LP64. Translated statement by statement; the
@@ -12,7 +12,8 @@ Types: `uLong`/`unsigned long` = `UInt64`, `z_size_t` = `UInt64`,
 and then converted to `unsigned long`, which preserves their value.
 
 Status: translated by hand; differentially tested against the real C (`tests/`); the proofs are in
-`ZlibF/Proof/adler32.c.lean`.
+`ZlibF/Proof/adler32.c.lean`. The statement-by-statement review of the translations is not complete
+(`docs/progress.md#translation-review`).
 -/
 
 namespace Zlib.Adler32

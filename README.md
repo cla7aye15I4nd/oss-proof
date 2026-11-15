@@ -36,13 +36,15 @@ checklist of these premises by function.
 **Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
 functions are proved safe through two sequence goals (`Goal.gz_sequence_safety`,
 `Goal.inflate_back_sequence_safety`), which cover every call in every history. They do not have a
-separate one-function goal each, as the other 52 functions have; stating and registering those 34
-goals is remaining work. Patches 0004 and 0005 are not submitted upstream.
+separate one-function safety goal each, as the other 52 functions have; stating and registering
+those 34 goals is remaining work. Patches 0004 and 0005 are not submitted upstream.
 
 **Not required.** Functional correctness is not required for the safety results: that the output
 of `inflate` equals the format, or that the output of `deflate` decodes to its input. One part of
-it is planned work and not proved: the round trip of a default zlib stream through `deflate` and
-then `inflate`. Other build configurations, custom allocators and the functions that `zlib.h`
+it is planned work: the round trip of a default zlib stream through `deflate` and
+then `inflate`. Its conditional form is proved on `dev` and not yet registered
+(`deflate_inflate_roundtrip`: when both call sequences reach `Z_STREAM_END`, the output equals the
+input); that both always finish with enough room, and the unconditional form, are open. Other build configurations, custom allocators and the functions that `zlib.h`
 lists as undocumented are not planned. [Scope](docs/progress.md#scope) gives every group with its
 reason. Functional goals proved earlier stay registered.
 
@@ -59,8 +61,8 @@ reason. Functional goals proved earlier stay registered.
 
 A goal is a Lean proposition named `Goal.…`; a goal is proved only by a theorem whose type is
 exactly the goal. The manifest `tests/audit/public-api.json` names a safety goal and a functional
-goal for every function. For the 34 gz and `inflateBack` functions the safety goal it names is
-the sequence goal.
+goal for every documented function. For the 34 gz and `inflateBack` functions the safety goal it
+names is the sequence goal.
 
 | Kind | Says | Where | Required by the audit |
 | --- | --- | --- | --- |
@@ -96,7 +98,8 @@ the sequence goal.
 - `zlib/`: pinned upstream source, never edited in place; fixes are in `patches/`.
 - `ZlibF/Zlib/`: statement-by-statement C translation.
 - `ZlibF/Spec/Safety/`: the required safety goals. `ZlibF/Spec/Functional/`: functional contracts,
-  the format and API models. `ZlibF/Spec/Public/`: definitions both use.
+  the format and API models. `ZlibF/Spec/Public/`: definitions both use, and the five required
+  goals of the gz interface and of `inflateBack`.
 - `ZlibF/Proof/` and `ZlibF/Math/`: implementation proofs and heap-free reasoning.
 - `ZlibF/Runtime/`: memory, pointer, arithmetic and execution semantics.
 - `tests/`: differential, mutation and proof-audit checks.
@@ -127,7 +130,7 @@ state; [patches](patches/README.md) describes each patch.
 | The same overflow through the transparent COPY branch of `gz_look`, in the first version of patch 0004: after a gzip member with trailing data, `gzclearerr` and a read near 2^63 − 1, `x.pos + x.have` passes `GZ_OFF_MAX` | Yes; within `size` bytes of `GZ_OFF_MAX` after that history | [Finding](docs/findings/gz-position-copy-overflow.md): confirmed in the model and by reading the C. Not confirmed by a sanitizer; the history needs about 2^63 decoded bytes. High for the patched source as written. | Patch 0004 bounds that branch too |
 | Zero advance of an unset or dangling `x.next`: `gzseek64` and `gz_skip_have` do `x.next += 0` when the field was never written or points into a freed caller buffer | Yes; the two call sequences of the findings | Probe runs for the [unset](docs/findings/gz-reset-next-uninitialised/README.md) and the [dangling](docs/findings/gz-next-dangling-after-direct-read/README.md) case. Undefined by the letter of C. Weaker than the rows above: no sanitizer reports either case and no misbehaviour was observed. | Patch 0005, local, approved by the owner, not submitted upstream |
 | `deflateCopy` after `deflateResetKeep`: two pending `prev` slots are not copied, a later `deflate` on the copy follows an uninitialised slot, and `longest_match` reads outside the window | No: it needs a direct call of `deflateResetKeep`, which `zlib.h` lists as undocumented | [Reproduction](docs/findings/deflate-copy-pending-prev/README.md) on the unmodified pin: AddressSanitizer reports the read, valgrind the uninitialised slot. High for the diagnosed sequence. It reproduces on zlib 1.4 and the pinned `develop`, not on 1.3.1 or 1.3.2. | None. The proved deflate domain excludes the call ([deviations](docs/deviations.md)). A [report draft](docs/findings/deflate-copy-pending-prev-report.md) exists; nothing was sent upstream. |
-| `deflateBound` is too small with `Z_FIXED` at levels 1 to 3, `windowBits` 15 and `memLevel` 8: one `deflate(Z_FINISH)` call with that room returns `Z_OK`, against the promise of `zlib.h` | Yes. A broken promise, not a memory error; `compress`, `compress2` and `compressBound` use the default strategy and are not affected | [Reproduction](docs/findings/deflatebound-fixed-far-matches/README.md) on the pinned C, with and without sanitizers, which report nothing. High for the diagnosed parameters. A system zlib 1.2.12 fails at every level 1 to 9. Not reported upstream; whether upstream knows it is **to confirm**. | None. No safety goal depends on the value of the bound |
+| `deflateBound` is too small with `Z_FIXED` at levels 1 to 3, `windowBits` 15 and `memLevel` 8: one `deflate(Z_FINISH)` call with that room returns `Z_OK`, against the promise of `zlib.h` | Yes. A broken promise, not a memory error; `compress`, `compress2` and `compressBound` use the default strategy and are not affected | [Reproduction](docs/findings/deflatebound-fixed-far-matches/README.md) on the pinned C, with and without sanitizers, which report nothing. High for the diagnosed parameters. A system zlib 1.2.12 fails at every level 1 to 9. Not reported upstream. Whether upstream knows it is not yet checked with upstream. | None. No safety goal depends on the value of the bound |
 | `deflateBound` with a gzip extra field of length 2^32 − 2 or 2^32 − 1: `2 + extra_len` wraps at 32 bits, and the bound is about 64 KiB too small | Yes. A broken promise, not a memory error | [Reproduction](docs/findings/deflatebound-extra-len/README.md) on the pinned C. Known upstream. | None. No safety goal depends on the value of the bound |
 
 The safety goals of `inflateCopy` and of the gz functions are stated for the patched source.

@@ -106,7 +106,7 @@ def parse_progress(source: str) -> Progress:
             evidence[anchor] = (name, evidence_group, status)
     if not evidence:
         raise ValueError('No fixed-target evidence')
-    urls = dict(re.findall(r'^  click (n\d+) href "([^"]+)"', graph, re.M))
+    urls = dict(re.findall(r'^  click (n\d+) (?:href )?"([^"]+)"', graph, re.M))
     obstacles = set(re.findall(r'^  class (n\d+) obstacle$', graph, re.M))
     targets = []
     used = set()

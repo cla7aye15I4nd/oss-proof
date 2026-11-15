@@ -18,7 +18,7 @@
 三个函数的必需安全目标都是 [Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的
 `Goal.inflate_back_sequence_safety`；逐函数的安全目标尚未写出。功能目标 `Goal.inflateBackInit_`、`Goal.inflateBack`
 和 `Goal.inflateBackEnd` 在 [Back.lean](../../../ZlibF/Spec/Public/Back.lean) 中。
-`Goal.inflateBack` 的解码条款（什么数据到达 `out`）不在计划内。
+`Goal.inflateBack` 的解码子句（什么数据到达 `out`）不在计划内。
 
 `inflateBack` 解码 raw DEFLATE。任何 zlib/gzip 头部、尾部和校验和都由调用者处理。
 调用者拥有一个至少 `2^windowBits` 字节的可写窗口，它同时也是输出缓冲区。
@@ -72,7 +72,7 @@ int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits, unsigned char FAR *
 
 - 窗口始终属于调用者；此函数只建立回调 API 状态，不能作为普通 inflate 状态使用。
 
-### 调用条件与状态效果 {#api-inflatebackinit_-contract}
+### 调用条件与效果 {#api-inflatebackinit_-contract}
 
 **定义域。** 受限定义域：有效调用者内存、未活动的流和默认分配器。
 
@@ -127,7 +127,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 - Z_BUF_ERROR 时用 next_in 是否为 NULL 区分输入耗尽与输出失败；这不是普通 inflate 的缓冲重试协议。
 - 输入回调返回字节数，零表示无输入；输出回调返回零表示成功。错误之前及最终错误路径都可能交付输出。
 
-### 调用条件与状态效果 {#api-inflateback-contract}
+### 调用条件与效果 {#api-inflateback-contract}
 
 **定义域。** 受限定义域：活跃的回调解码器、有效且分离的切片，以及有限、会返回的
 回调协议。包括任意畸形输入字节。
@@ -150,7 +150,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 因此回调可能在后续格式或输入失败之前已观察到输出。
 库本身不分配或释放内存；回调分配的内存仍由调用者负责。
 
-**证明目标。** 必需的安全目标：`Goal.inflate_back_sequence_safety`（[Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)）。它是序列目标：逐函数目标尚未写出。它的历史是 `BackSafeReachable`：在 `InitDomain` 上以 8..15 的 `windowBits` 和一个非 NULL 的窗口成功初始化，窗口有 `2^windowBits` 个可写字节，并且是某个堆字节块的一段。再调用一次的前提：`next_in` 为 NULL，或覆盖 `avail_in` 个可读字节且不与窗口重叠；回调遵守某个 `CallbackProtocol`，其输入总量少于 `2^48` 字节（`inputBound`）；每个字节对象小于 `2^63` 字节，并且回调保持这一点（`BackPlatform`）；每个输入块，包括第一块和 `in` 交出的每一块，都位于堆字节块中（`BackFirstChunk`、`BackPlatform`）。输入字节任意。结论：调用返回 `Z_STREAM_END`、`Z_DATA_ERROR` 或 `Z_BUF_ERROR`，状态在同一窗口上保持有效，只改变流记录、状态记录、回调自己的块和窗口那一段，回调自有块之外的存活块不变。NULL 流在同一个目标里被拒绝。比 `zlib.h` 更窄的前提在[偏差](../../deviations.md)中各有一行。功能目标（非必需）：`Goal.inflateBack`。
+**证明目标。** 必需的安全目标：`Goal.inflate_back_sequence_safety`（[Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)）。它是序列目标：逐函数目标尚未写出。它的历史是 `BackSafeReachable`：在 `InitDomain` 上以 8..15 的 `windowBits` 和一个非 NULL 的窗口成功初始化，窗口有 `2^windowBits` 个可写字节，并且是某个堆字节块的一段。再调用一次的前提：`next_in` 为 NULL，或覆盖 `avail_in` 个可读字节且不与窗口重叠；回调遵守某个 `CallbackProtocol`，其输入总量少于 `2^48` 字节（`inputBound`）；每个字节对象小于 `2^63` 字节，并且回调保持这一点（`BackPlatform`）；每个输入块，包括第一块和 `in` 交出的每一块，都位于堆字节块中（`BackFirstChunk`、`BackPlatform`）。输入字节任意。结论：调用返回 `Z_STREAM_END`、`Z_DATA_ERROR` 或 `Z_BUF_ERROR`，状态在同一窗口上保持有效，只改变流记录、状态记录、回调自己的块和窗口那一段，回调自有块之外的存活块不变。NULL 流在同一个目标里被拒绝。比 `zlib.h` 更窄的前提在[偏离记录](../../deviations.md)中各有一行。功能目标（非必需）：`Goal.inflateBack`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBack"><summary>完整返回条件与边界</summary>
 
@@ -190,7 +190,7 @@ int ZEXPORT inflateBackEnd(z_streamp strm);
 | `Z_OK`<br>**内部状态已释放** | 有效回调解码器的内部状态已释放，state 置为 NULL；窗口及其他字段不变。 | 现在可释放或复用调用者窗口；再次解码前重新初始化。 |
 | `Z_STREAM_ERROR`<br>**未执行释放** | strm、state 或 zfree 为 NULL；不释放任何内存。 | 确认生命周期及匹配的释放函数；不能由这些检查推断任意非 NULL 状态有效。 |
 
-### 调用条件与状态效果 {#api-inflatebackend-contract}
+### 调用条件与效果 {#api-inflatebackend-contract}
 
 **定义域。** 受限定义域：使用有效默认释放函数的活跃回调解码器，另包括经检查的
 NULL 流、NULL 状态和 NULL 释放函数拒绝情形。

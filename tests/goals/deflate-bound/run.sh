@@ -4,7 +4,7 @@
 # zlib.h, the compressBound promise of compress and compress2) on the patched real C: random
 # parameter grids, an exhaustive length sweep, compress at every level, and the gzip extra-length
 # cases. Once plainly, once under ASan and UBSan. Exit 0: no failure except the two expected
-# extra-length cases (docs/findings/deflatebound-extra-len.md), which `extra` must still report.
+# extra-length cases (docs/findings/deflatebound-extra-len/README.md), which `extra` must still report.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}

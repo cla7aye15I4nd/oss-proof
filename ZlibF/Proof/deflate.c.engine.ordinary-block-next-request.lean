@@ -11,7 +11,7 @@ history and legal rebuffering retain the same boundary and establish that
 the next supported request returns. All capacities and refusal cases are
 included for null/raw-array output, level 6, memLevel 8 and the zlib wrapper.
 Other valid flags, embedded output, advanced APIs and encoded correctness
-remain open. This supporting theorem does not replace Goal.deflate. -/
+are not stated here. This supporting theorem does not replace Goal.deflate. -/
 theorem default_init_ordinary_block_next_request {h : Heap} {r : ZStreamRef} {z : ZStream} {version : BPtr}
     (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
     (ha : DefaultOrNull z) (hv : VersionValue h version (some 49))

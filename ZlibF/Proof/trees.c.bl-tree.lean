@@ -483,7 +483,7 @@ theorem bl_scan_pair_zero {h : Heap} {id b : Nat} {d : DeflateState} {buf : Arra
 
 /-- Actual init_block establishes zero bit-length frequencies. Both actual
 source-tree constructors preserve them, and both scans then store their
-exact natural counts. This is an init-to-call composition; it is not yet the
+exact natural counts. This is an init-to-call composition; it is not the
 streaming proof that arbitrary intervening symbol tallies retain the same
 entry facts. -/
 theorem init_prepare_scans {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}

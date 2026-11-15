@@ -74,7 +74,7 @@ PROOFMUT PASS
 | 语义列表 | `scripts/verification.py` 的 `SAFETY_MUTANT_LISTS` 中的八个列表之一。它们的行在关于行为的引理中被杀死，而不是在重述处。它们是 `tests/proof-mutants/` 下的 `deflate-header.tsv`、`deflate-strategies.tsv`、`deflate-ops.tsv`、`stream-refusal.tsv`、`infback-sequence.tsv`、`gz-refusal.tsv`、`gz-sequence.tsv` 和 `gz-read.tsv`。 |
 | 固定证据 | 对不针对单个函数的必需目标：脚本指定作为其证据的列表和带键的目标（`PINNED_EVIDENCE`）。 |
 
-### 三个列表目录
+### 三个列表目录 {#the-three-list-directories}
 
 | 目录 | 内容 | 由谁运行 |
 | --- | --- | --- |
@@ -135,7 +135,7 @@ PROOFMUT PASS
 
 ## 运行检查
 
-在仓库根目录，已有内容的 `.lake` 构建缓存就绪时运行：
+在仓库根目录，有已构建好的 `.lake` 缓存时运行：
 
 ```sh
 python3 scripts/verification.py mutants
@@ -148,11 +148,11 @@ bash tests/audit/proofmut.sh tests/audit/proofmut/crc32.tsv '^combine'
 
 **分片。**每个目标未修改的对照重放与它的全部带键行作为一项，在同一分片。列表的每个可杀死行是一项；`same:` 行跟随其列表的第一个可杀死行。各项按记录的时长装入分片：最长的先放，每一项放入当前负载最小的分片。时长在 `tests/proof-mutants/durations.json` 中，由一次完整运行的判定写出（`python3 scripts/mutant_reuse.py durations`）；它没有列出的项按一分钟计。这个文件只用于平衡分片。无论它写了什么，每一项都恰好进入一个分片，所以没有行丢失或重复运行。无事可做的分片会被拒绝。
 
-**列表运行器**把工作区和已有内容的缓存复制到一个临时目录。它原样构建列出的证明模块，把每个替换恰好应用一次，并且只构建指定的模块。报告的第一个错误必须位于预期的证明模块。原来的缓存保持不变。一次只运行一个变异体。
+**列表运行器**把工作区和已构建好的缓存复制到一个临时目录。它原样构建列出的证明模块，把每个替换恰好应用一次，并且只构建指定的模块。报告的第一个错误必须位于预期的证明模块。原来的缓存保持不变。一次只运行一个变异体。
 
-**严格模式**（`PROOFMUT_STRICT=1`）强制进行未改动的构建，拒绝每个 `gap:` 行，并要求至少有一个 `KILLED` 行；能构建的 `same:` 行不是证据。分片把每个 `same:` 行分给同时运行该列表中某个必须被杀死的行的分片。没有这种行的列表会被拒绝。跳过了未改动构建的运行不能用来支持验收。
+**严格模式**（`PROOFMUT_STRICT=1`）强制进行未改动的构建，拒绝每个 `gap:` 行，并要求至少有一个 `KILLED` 行；能构建的 `same:` 行不是证据。每个 `same:` 行所在的分片，同时还运行同一列表中某个必须被杀死的行。没有这种行的列表会被拒绝。跳过了未改动构建的运行不能用来支持验收。
 
-**运行器设置。**`PROOFMUT_CACHE` 选择已有内容的缓存。`PROOFMUT_TIMEOUT` 设定每次构建的秒数，默认 3600。`PROOFMUT_KEEP=1` 保留临时副本；`PROOFMUT_SHOWLOG=1` 打印失败的细节。`PROOFMUT_BASELINE=0` 跳过未改动的构建，只用于本地诊断。`PROOFMUT_STRICT=1` 使这个跳过设置失效。
+**运行器设置。**`PROOFMUT_CACHE` 选择已构建好的缓存。`PROOFMUT_TIMEOUT` 设定每次构建的秒数，默认 3600。`PROOFMUT_KEEP=1` 保留临时副本；`PROOFMUT_SHOWLOG=1` 打印失败的细节。`PROOFMUT_BASELINE=0` 跳过未改动的构建，只用于本地诊断。`PROOFMUT_STRICT=1` 使这个跳过设置失效。
 
 **哪里运行什么。**夜间套件完整运行这二十个分片。带[判定复用](#verdict-reuse)的预检运行同样的分片，并跳过输入未变的单元。一个列表如果没有键引用它，又不是语义列表或 `api-boundary.tsv`，分片就不运行它；它只在 `python3 scripts/verification.py final` 中运行，后者以严格模式运行三个目录中的每个列表。没有运行过的列表不算通过的检查。
 

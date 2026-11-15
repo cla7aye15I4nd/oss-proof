@@ -43,7 +43,7 @@ abbrev Complete (lens : List Nat) : Prop :=
   codeStart lens maxCodeLen + count lens maxCodeLen = 2 ^ maxCodeLen
 
 /-- The three kinds of code of a dynamic block. The code-length code never gets the
-single-symbol exception (`F-code-complete`, table of format.md 2.4). -/
+single-symbol exception (`F-code-complete`, `docs/spec/format/README.md`, "Canonical Huffman codes"). -/
 inductive CodeKind where
   | codeLength
   | litLen
@@ -51,7 +51,7 @@ inductive CodeKind where
   deriving DecidableEq
 
 /-- What zlib's `inflate_table` accepts as the lengths of one code (`F-code-fits`,
-`F-code-complete`, `F-dynamic-valid`; format.md 2.4): every length is at most 15, the set
+`F-code-complete`, `F-dynamic-valid`; `docs/spec/format/README.md`, "Canonical Huffman codes"): every length is at most 15, the set
 is not over-subscribed, and it is complete, or it has no symbol at all, or (not for the
 code-length code) its only symbol has length 1. -/
 abbrev Acceptable (k : CodeKind) (lens : List Nat) : Prop :=

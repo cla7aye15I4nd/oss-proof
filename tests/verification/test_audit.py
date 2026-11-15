@@ -52,6 +52,23 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(verification.functional_goals(manifest),
                          ["Goal.documented", "Goal.hidden", "Goal.sequence"])
 
+    def test_undocumented_function_names_only_its_own_pinned_safety_goal(self):
+        own = "ZlibF.Spec.Public.Goal.hidden_safety"
+        api = {"function": "hidden", "functional_goal": "ZlibF.Spec.Public.Goal.hidden", "safety_goal": None}
+        verification.check_api_safety_goal(api, True, [])
+        api["safety_goal"] = own
+        verification.check_api_safety_goal(api, True, [own])
+        # Not pinned: it would be named but not required.
+        with self.assertRaisesRegex(verification.Rejected, "own pinned goal"):
+            verification.check_api_safety_goal(api, True, [])
+        # Another goal, even a pinned one.
+        api["safety_goal"] = "ZlibF.Spec.Public.Goal.gz_sequence_safety"
+        with self.assertRaisesRegex(verification.Rejected, "own pinned goal"):
+            verification.check_api_safety_goal(api, True, [own, api["safety_goal"]])
+        api["safety_goal"] = api["functional_goal"]
+        with self.assertRaisesRegex(verification.Rejected, "own pinned goal"):
+            verification.check_api_safety_goal(api, True, [own])
+
     def open_manifest(self, *open_goals):
         return {"apis": [{"function": "first", "functional_goal": "Goal.first",
                           "safety_goal": "Goal.first_safety", "scope": "lp64-linux"}],
@@ -207,25 +224,28 @@ class AuditTests(unittest.TestCase):
     def test_safety_goal_is_bound_to_its_function(self):
         # Defect 2: pointing adler32_combine at Goal.adler32_safety made both goals "shared" and
         # dropped both from the mutant requirement.
-        manifest = self.binding_manifest()
-        verification.check_safety_binding(manifest)
-        self.assertIn("ZlibF.Spec.Public.Goal.adler32_combine_safety", verification.mutant_public_goals(manifest))
-        manifest["apis"][1]["safety_goal"] = "ZlibF.Spec.Public.Goal.adler32_safety"
-        with self.assertRaisesRegex(verification.Rejected, "adler32_combine"):
+        # A fixture shared goal: since step 4 the real set is empty.
+        shared = {"ZlibF.Spec.Public.Goal.gz_sequence_safety": ["gzread", "gzwrite"]}
+        with patch.object(verification, "SHARED_SAFETY_GOALS", shared):
+            manifest = self.binding_manifest()
             verification.check_safety_binding(manifest)
-        # A shared goal is named by exactly its pinned functions.
-        manifest = self.binding_manifest()
-        manifest["apis"][0]["safety_goal"] = "ZlibF.Spec.Public.Goal.gz_sequence_safety"
-        with self.assertRaises(verification.Rejected):
-            verification.check_safety_binding(manifest)
-        manifest = self.binding_manifest()
-        gz = [a for a in manifest["apis"] if a["function"] == "gzread"][0]
-        gz["safety_goal"] = "ZlibF.Spec.Public.Goal.gzread_safety"
-        with self.assertRaisesRegex(verification.Rejected, "pinned"):
-            verification.check_safety_binding(manifest)
-        # A shared goal never keys function mutants.
-        self.assertNotIn("ZlibF.Spec.Public.Goal.gz_sequence_safety",
-                         verification.mutant_public_goals(self.binding_manifest()))
+            self.assertIn("ZlibF.Spec.Public.Goal.adler32_combine_safety", verification.mutant_public_goals(manifest))
+            manifest["apis"][1]["safety_goal"] = "ZlibF.Spec.Public.Goal.adler32_safety"
+            with self.assertRaisesRegex(verification.Rejected, "adler32_combine"):
+                verification.check_safety_binding(manifest)
+            # A shared goal is named by exactly its pinned functions.
+            manifest = self.binding_manifest()
+            manifest["apis"][0]["safety_goal"] = "ZlibF.Spec.Public.Goal.gz_sequence_safety"
+            with self.assertRaises(verification.Rejected):
+                verification.check_safety_binding(manifest)
+            manifest = self.binding_manifest()
+            gz = [a for a in manifest["apis"] if a["function"] == "gzread"][0]
+            gz["safety_goal"] = "ZlibF.Spec.Public.Goal.gzread_safety"
+            with self.assertRaisesRegex(verification.Rejected, "pinned"):
+                verification.check_safety_binding(manifest)
+            # A shared goal never keys function mutants.
+            self.assertNotIn("ZlibF.Spec.Public.Goal.gz_sequence_safety",
+                             verification.mutant_public_goals(self.binding_manifest()))
 
     def test_registration_removed_on_the_branch_is_seen(self):
         # Defect 3: a dispatch on dev compares with origin/main; a name registered on dev and removed

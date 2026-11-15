@@ -7,7 +7,7 @@ These are executions of the real `gz_open`, including its allocation, field
 writes, mode loop, and cleanup. The mode pointer here is into a heap byte block.
 The rejection branches do not read the path. A complete successful execution
 and its public state invariant have a concrete witness. The universal open
-contract remains open.
+safety contract is `gzopen_safe` (`gz.inv-open-fresh`).
 -/
 
 namespace Zlib.Gzlib.Proofs

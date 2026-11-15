@@ -632,8 +632,8 @@ theorem gzgets_step_of' (P : ReadInvFacts) (head : DecompFacts) (room : GzFetchR
   obtain ⟨k, hfs', s', inv', m, f, bf, lc, -⟩ := R.2.2 v fs' after he
   exact ⟨k, hfs', s', inv', m, f, bf, lc⟩
 
-/-- **`gzgets_step`** (skeleton statement), from the one open fact of `inflate` that the whole read side rests on
-(`InflateStuckNoOutput`, as for `gzread_step_stuck`). `gz_skip` is batch 3's `gzSkipRead_holds`. -/
+/-- **`gzgets_step`** (skeleton statement), from the one fact of `inflate` that the whole read side rests on
+(`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`, as for `gzread_step_stuck`). `gz_skip` is batch 3's `gzSkipRead_holds`. -/
 theorem gzgets_step_stuck (stuck : InflateStuckNoOutput) (i : Nat) (buf : BPtr) (len : Int32) :
     GzCallSafe i (.gzgets (some (.in_gzstate_x i)) buf len) :=
   gzgets_step_of' readInvFacts_holds stuck (gzFetchRoom_holds stuck)

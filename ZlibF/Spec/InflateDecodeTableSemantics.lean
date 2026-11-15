@@ -46,7 +46,7 @@ def SymbolEntry (type : UInt32) (symbol : Nat) (entry : Code) : Prop :=
 
 /-- The actual constructor's table selects the independent decoder's symbol,
 with the exact consumed code length and the DEFLATE leaf meaning. This is
-the forward direction for full-width input. It does not yet assert that
+the forward direction for full-width input. It does not assert that
 every table result is a valid independent symbol. -/
 def Goal.decode_table_matches_format : Prop :=
   ∀ (h : Heap) (type : UInt32) (rl : WRef) (ol : Nat) (codes : UInt32)

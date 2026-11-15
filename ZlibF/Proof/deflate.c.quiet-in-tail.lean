@@ -34,10 +34,10 @@ theorem tailRelIn_of {d d' : DeflateState} {a a' p : Nat} (st : d'.status = d.st
   · exact Or.inr ⟨w, eq e w⟩
   · exact Or.inl (by omega)
 
-/-- **The open fact of `deflate_stored` with input**: on return, the input is used up or the output is
+/-- **The fact of `deflate_stored` with input**: on return, the input is used up or the output is
 full, and `need_more` or `finish_started` with output room left come only with no input left and,
 for `need_more`, without `Z_FINISH`. The other strategies prove it (`StratMeaning.stop`,
-`StratMeaning.more`); for `deflate_stored` it is open. -/
+`StratMeaning.more`); for `deflate_stored` it is `stored_stop` (`deflate.c.quiet-in-stored`). -/
 def StoredStop : Prop :=
   ∀ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {flush : Int32} {b : block_state}
     {a : Heap} {z1 : ZStream} {d1 : DeflateState},

@@ -10,7 +10,7 @@ set_option autoImplicit false
 /-- Every initialized default NO_FLUSH/FINISH/BLOCK request has the same
 public safety/control contract, with exact counters, byte slice, BufferFrame
 and no allocation changes. Null/raw output and all refusal cases are
-included. Other valid flags, advanced APIs and encoded correctness are open. -/
+included. Other valid flags, advanced APIs and encoded correctness are not stated here. -/
 theorem DefaultFinishBoundary.request_contract_with_block {h : Heap} {r : ZStreamRef} {ds : Nat}
     {z : ZStream} {d : DeflateState} {config : EngineConfig}
     (boundary : DefaultFinishBoundary h r ds z d config) (flush : Int32)

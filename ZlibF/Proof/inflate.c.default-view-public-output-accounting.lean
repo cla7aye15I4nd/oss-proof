@@ -102,7 +102,7 @@ theorem inflate_default_view_public_output_accounting
 
 /-- One complete actual default public result: all returned codes and
 terminal modes, exact cursors and both ordinary totals, memory-error input timing,
-OK progress and FINISH exclusion. Memory-error output timing, frame and histories stay open. -/
+OK progress and FINISH exclusion. Memory-error output timing, frame and histories are not stated here. -/
 theorem inflate_default_view_public_totals
     {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (invariant : DefaultStateJ h r zs z s) (allocator : DefAlloc z)

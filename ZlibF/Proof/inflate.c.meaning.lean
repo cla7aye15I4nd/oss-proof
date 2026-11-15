@@ -31,8 +31,8 @@ The grammar is closed under exactly the steps of `ZlibF/Spec/Format`, so a
 position reached on a prefix of a valid stream can be completed to that
 stream's decoding, and a rejected position has no valid completion.
 
-The proof obligations are listed in `docs/progress.md` (Core proof skeletons,
-inflate). Each component is separate:
+The proof obligations were listed in the inflate skeleton, archived in
+`docs/history/skeleton-inflate.md`. Each component is separate:
 
 * `TableMeaning`: an installed table decodes the canonical code of its lengths
   (`DecodeTableInvariant.Inv`), and its queries are stable, read only their

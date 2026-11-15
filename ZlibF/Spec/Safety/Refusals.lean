@@ -8,8 +8,13 @@ open C
 
 zlib.h documents `Z_STREAM_ERROR` for a stream that is `NULL` or inconsistent: its state is
 `NULL`, its `zalloc` or `zfree` is `NULL`, or its state is not the one an init gave it. That
-covers a record after `End`, after a failed init, the destination of a failed copy, and a struct
-copy of a live record. These goals state that every stream function of a family refuses such a
+covers a record after `End`, a record whose init failed after it had set `state` (`inflateInit2_`
+when `inflateReset2` rejects the window bits, `deflateInit2_` when a buffer allocation fails: both
+clear `state`), the destination of a failed `deflateCopy` (which clears `state`), and a struct
+copy of a live record. Not every failed init clears `state`: `Z_VERSION_ERROR`, a failed state
+allocation and a `deflateInit2_` parameter error return before writing it, and a failed
+`inflateCopy` returns before writing its destination, so such a record is in the domain only if it
+already was before the call. These goals state that every stream function of a family refuses such a
 stream without a fault and without a change. The domain is `RefusedInflate` and
 `RefusedDeflate`. A record whose state field holds a garbage pointer, such as a never-initialised
 automatic `z_stream`, is outside the domain: reading through that pointer is undefined in C

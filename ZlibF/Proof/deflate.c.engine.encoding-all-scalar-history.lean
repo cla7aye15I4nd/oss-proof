@@ -40,7 +40,7 @@ result gives independent zlib validity for exactly the observed accepted
 input and cumulative output. No schedule or representation premise is
 added to the actual trace. Scope is the explicit DefaultDataTrace domain:
 default parameters, null/raw output, no dictionary/advanced operations.
-Bound-based completion and the unchanged full public targets remain open. -/
+Bound-based completion and the unchanged full public targets are not stated here. -/
 theorem DefaultDataTrace.encoding {h : Heap} {r : ZStreamRef} {log : DataLog}
     (history : DefaultDataTrace r h log) :
     ∃ ds z d config, DefaultEncodingState h r ds z d config log.input log.output ∧

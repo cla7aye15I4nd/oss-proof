@@ -23,7 +23,7 @@ All of them are under `tests/audit/`. The acceptance suite reads them; the fast 
 | `goals.txt` | Every goal: a definition of type `Prop` whose name contains `Goal`. | The auditor rejects a `Goal.*` proposition of the library that is not listed. |
 | `theorems.txt` | The registered theorems, one fully qualified name per line. | The auditor: each exists, is a theorem, has a doc string and depends only on the allowed axioms. |
 | `proved-goals.txt` | The goals that a registered theorem proves. | The auditor rejects any difference from the set it finds PROVED. So the scripts decide on this file, never on report text. |
-| `public-api.json` | The manifest: every exported function of the pinned `zlib.h` with its manual section, translated entry, functional goal and safety goal; the goal groups; `open_safety`; `not_planned`. | `scripts/verification.py` (`coverage`). |
+| `public-api.json` | The manifest: every exported function of the pinned `zlib.h` with its manual section, translated entry, functional goal and safety goal (`gzopen_w`, which exists only on Windows, has only its manual section and a reason); the goal groups; `open_safety`; `not_planned`. | `scripts/verification.py` (`coverage`). |
 | `public-mutants.json` | For each keyed goal, the mutant rows that its exact proof must reject. | `scripts/verification.py`; see [proof mutants](proof-mutants.md). |
 | `registry-removals.json` | Reasoned removals from the registries and the mutant tables. | `scripts/verification.py`: a stale entry is rejected. |
 

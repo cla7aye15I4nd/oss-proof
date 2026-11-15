@@ -18,6 +18,10 @@ open proof; a row is closed by a theorem of exactly its type in its own file.
   raw `CHECK` row, since a zlib configuration never reaches the gzip header modes
   (`GzipFieldsAbsent`).
 * `trip_meaning`: every configuration, from `TripRows`.
+
+The trip from the raw `CHECK` state (`RawCheck`, the end of raw data inside a call) is the row
+`TripRawCheck`, the second premise of the loop rule; for zlib it is vacuous
+(`raw_check_trip_zlib`).
 -/
 
 namespace Zlib.Inflate.Proofs
@@ -26,13 +30,14 @@ open Zlib.Inflate.Proofs.MeaningDictid (NeedDictExit)
 set_option autoImplicit false
 
 /-- One trip of the loop of the call `c`, from `LoopMatches` and `CallSide`, when the decoder state
-satisfies `P`: the dispatch runs without a fault and ends in a `TripOutcome` or at the dictionary
-request. -/
+satisfies `P`: the dispatch runs without a fault and ends in a `TripOutcome`, at the dictionary
+request, or (raw data after the final block) in the raw `CHECK` state `RawCheck`. -/
 def TripAt (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (P : InflateState → Prop) : Prop :=
   ∀ h l, CallSide c r l h → LoopMatches c f h l →
     (∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → P s) →
     ∃ result l' h', runX (inflate_dispatch c) l h = .ok ((result, l'), h') ∧
-      (TripOutcome c f result h' l' ∨ NeedDictExit c f result h' l')
+      (TripOutcome c f result h' l' ∨ NeedDictExit c f result h' l' ∨
+        (result = .ok () ∧ RawCheck c f h' l'))
 
 /-- A fact of the one decoder state of the call holds of every state the context names. -/
 theorem at_state {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState} {P : InflateState → Prop}
@@ -103,9 +108,9 @@ stage moves from the body to the trailer). New step. -/
 def TripTypeFinal : Prop :=
   ∀ c f r, f.wrap ≠ .raw → TripAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0)
 
-/-- `TYPE`/`TYPEDO` after the last block of raw data: on to `CHECK`, `LENGTH` and `DONE`. No
-`LoopMatches` state is a raw `CHECK` (the trailer stage needs a wrapper), so this row needs a raw
-trailer stage first. Not needed by the zlib round trip. -/
+/-- `TYPE`/`TYPEDO` after the last block of raw data: `TYPE` with `Z_BLOCK` or `Z_TREES` leaves;
+otherwise `BYTEBITS()` and on to `CHECK`, which ends the trip in `RawCheck` (no `LoopMatches`
+state is a raw `CHECK`: the trailer stage needs a wrapper). Not needed by the zlib round trip. -/
 def TripTypeFinalRaw : Prop :=
   ∀ c f r, f.wrap = .raw → TripAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0)
 
@@ -127,12 +132,18 @@ def TripCodes : Prop := ∀ c f r, TripAt c f r (fun s => LEN_ ≤ s.mode ∧ s.
 def TripCheckWrapped : Prop :=
   ∀ c f r, f.wrap ≠ .raw → TripAt c f r (fun s => s.mode = CHECK)
 
-/-- `CHECK` for raw data: no trailer, on to `LENGTH`. New step; not needed by the zlib round trip. -/
+/-- `CHECK` for raw data, from `LoopMatches`: vacuous, since no `LoopMatches` state is a raw
+`CHECK`; the raw `CHECK` state is `RawCheck`, row `TripRawCheck`. Not needed by the zlib round
+trip. -/
 def TripCheckRaw : Prop :=
   ∀ c f r, f.wrap = .raw → TripAt c f r (fun s => s.mode = CHECK)
 
 /-- `LENGTH` and `DONE`: from `length_step` and `done_step`. -/
 def TripTrailer : Prop := ∀ c f r, TripAt c f r (fun s => s.mode = LENGTH ∨ s.mode = DONE)
+
+/-- The raw `CHECK` state (`RawCheck`): `CHECK`, `LENGTH` and `DONE` run in one trip with nothing
+to read, and the call leaves with `Z_STREAM_END` in `DONE`. Not needed by the zlib round trip. -/
+def TripRawCheck : Prop := ∀ c f r, RawCheckTrip c f (CallSide c r)
 
 /-- The rows the zlib wrapper needs. -/
 structure ZlibTripRows : Prop where
@@ -156,6 +167,7 @@ structure TripRows : Prop extends ZlibTripRows where
   headGzip : TripHeadGzip
   gzipFields : TripGzipFields
   checkRaw : TripCheckRaw
+  rawCheck : TripRawCheck
 
 /-! ## Assembly -/
 
@@ -214,6 +226,13 @@ theorem trip_meaning (rows : TripRows) (c : Ctx) (f : LoopFrame) (r : ZStreamRef
   | auto =>
     exact trip_of_rows z (rows.headGzip c f r (Or.inr hw)) (rows.gzipFields c f r)
       (rows.checkWrapped c f r (by rw [hw]; decide)) (rows.typeFinal c f r (by rw [hw]; decide))
+
+/-- No zlib state is the raw `CHECK` state, so the raw `CHECK` trip is vacuous for zlib. -/
+theorem raw_check_trip_zlib {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop}
+    (zlib : f.wrap = .zlib) : RawCheckTrip c f Side := by
+  intro h l _ raw
+  rw [raw.1] at zlib
+  cases zlib
 
 /-- `TripMeaning` for the zlib wrapper, without the gzip header rows and the raw `CHECK` row. -/
 theorem trip_meaning_zlib (rows : ZlibTripRows) (c : Ctx) (f : LoopFrame) (r : ZStreamRef)

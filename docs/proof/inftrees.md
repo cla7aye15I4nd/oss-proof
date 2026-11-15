@@ -21,16 +21,18 @@ All theorems in this table are registered in `tests/audit/theorems.txt` and acce
 | **T1.** For every call that meets the premises, `inflate_table` returns without a fault. Only `work` and the table space changed. The result is 0, 1 or -1 | `inflate_table_safe` | `inftrees.c.lean` |
 | The result is -1 exactly when the lengths are not an acceptable code; 1 only for `LENS` and `DISTS` | `inflate_table_correct_ret` | `inftrees.c.lean` |
 | **T2.** After a call that returns 0, the table has [the table shape](#the-table-shape) for the returned root width | `inflate_table_decoder_safe` | `inftrees.c.decoder-safe.lean` |
-| After a call that returns 0, every link of the table points inside the entries this call used, so a second table built behind it cannot be reached | `inflate_table_read_extent` | `inftrees.c.read-extent.lean` |
-| Every root index and every second-level index holds an entry that the call wrote | `root_cover`, `group_cover` | `inftrees.c.cover.root.lean`, `inftrees.c.cover.group.lean` |
+| After a call that returns 0, the returned pointer is `used` entries after `*table`, with `used` at most 128, 852 or 592. For `LENS` and `DISTS`, the root table and every second-level table that a link designates end at or before entry `used` (`TableReadExtent`), so a table built behind this one cannot be reached | `inflate_table_read_extent` | `inftrees.c.read-extent.lean` |
+| Two lemmas about lists of code lengths, without the heap, that the proof of T2 uses. `root_cover`: for lengths that are not over-subscribed, each root index is filled by exactly one code of length at most `root`, or holds the link of one group of longer codes, or is not written; the last case needs a Kraft sum that does not reach the index, which a complete code excludes (`RootCell`). `group_cover`: for a complete code, each index of a second-level table wide enough for its group belongs to exactly one code of the group. The fact about the heap, that every entry a lookup can reach is a leaf or a link of the table shape, is T2 | `root_cover`, `group_cover` | `inftrees.c.cover.root.lean`, `inftrees.c.cover.group.lean` |
 | `inflate_fixed` points the state at the two static tables and changes four fields | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
-| An entry that the slow decoder accepts with few bits held stays the same when more bits arrive | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
+| For `LENS` and `DISTS`, after a call that returns 0: an entry that the slow decoder accepts with few bits held stays the same when more bits arrive | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
 
 One more theorem is checked and not registered: `inflate_table_len_leaves_positive`
-(`inftrees.c.decoder-safe.lean`). It says that every literal/length leaf of a constructed table
-uses at least one bit. The callback decoder needs it for termination
-([fast decoding](inffast.md#assumptions)); it lies inside the proof of the registered
-`inflate_back_sequence_safety`.
+(`inftrees.c.decoder-safe.lean`). It says that, after a `LENS` call that returns 0, every
+literal/length leaf of the table uses at least one bit. Both callers use it, inside the proofs
+of the two registered sequence theorems. `inflate` needs it for clause `tables` of
+[its invariant](inflate.md#the-invariant), which includes this fact
+(`inflate.c.dynamic-install.lean`). The callback decoder needs it for termination
+(`infback.c.safety-table-lens.lean`; [fast decoding](inffast.md#assumptions)).
 
 Functional results about the meaning of the entries are listed under
 [Functional results](#functional-results).
@@ -198,10 +200,25 @@ code of the group has `len - root ≤ curr`. The entries are then written as in 
 with `huff >> drop` in place of `huff` and `2^curr` in place of `2^root`.
 
 The new table starts at `next`, which is the table base plus the sizes of all tables so far.
-`used` is that total. For `LENS` and `DISTS` the C compares `used` with 852 or 592 before it
-writes or links the new table, and returns 1 if it is larger. So every write is inside the
-space the premises give. The root link stores the width `curr` in `op` and the offset
-`next - *table` in the 16-bit field `val`; the offset is below 852.
+`used` is that total. For `LENS` and `DISTS` the C first adds the size `2^curr` of the new
+table to `used`, compares the sum with 852 (`LENS`) or 592 (`DISTS`), and returns 1 if it is
+larger. Only then does it link the new table; the entries are written in the rounds that
+follow. The root table gets the same comparison before the main loop, with `used = 2^root`. So
+every write is inside the space the premises give.
+
+The root link stores the width `curr` in `op` and the offset `next - *table` in the 16-bit
+field `val`. At that point `next - *table = used - 2^curr`, so
+
+```
+val + 2^op = used ≤ 852   for LENS
+val + 2^op = used ≤ 592   for DISTS
+```
+
+The offset fits the field, and the table it designates ends inside the space. Two theorems
+state this for the table a successful call returns. `inflate_table_read_extent` gives
+`val + 2^op ≤ used` for every root link, with `used ≤ 852` or `used ≤ 592`.
+`inflate_table_decoder_safe` gives, for every root link, that the `2^op` entries at `val` lie
+inside the array and are leaves (`LinkOK`, a part of the table shape).
 
 `CODES` has no such test. It does not need one: with every length at most 7 and a requested
 root of at least 7, `root = max`, so no code is longer than the root and the table has

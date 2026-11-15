@@ -2358,7 +2358,8 @@ theorem crc32_combine_gen_correct (h : Heap) (hs : StaticsOK h) (len2 : Int64) (
 /-- **crc32_combine_op, safety.** For every `crc1`, `crc2`, and every `op` that is `0` or has a bit set among its low
 32 bits (in particular every value `crc32_combine_gen` returns, and every `op < 2^32`): no fault, heap unchanged.
 Narrower than the C signature: for `op` nonzero with zero low 32 bits the C function never terminates
-(`crc32_combine_op_diverges`; reproduced on the real zlib: `crc32_combine_op(1, 2, 1UL << 32)` does not return). -/
+(`crc32_combine_op_diverges`: the translation runs out of fuel there, for example at `crc32_combine_op(1, 2, 1UL << 32)`;
+that the real C does not return follows from reading `multmodp`, and no run of the real C is kept). -/
 theorem crc32_combine_op_safe (h : Heap) (crc1 crc2 op : UInt64) (hop : op = 0 ∨ op.toUInt32 ≠ 0) :
     ∃ r, C.run (crc32_combine_op crc1 crc2 op) h = .ok (r, h) := by
   rcases hop with rfl | hop

@@ -6,7 +6,7 @@ import ZlibF.Proof.«deflate.c.engine.public-finishing-phase»
 
 This internal protocol covers default initialization followed by accepted
 Z_FINISH calls. It is not the all-flush, all-operation public goal. Complete
-output-format history, total counters and heap-frame refinement remain open.
+output-format history, total counters and heap-frame refinement are not stated here.
 -/
 
 namespace Zlib.Deflate.Engine.Proofs

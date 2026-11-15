@@ -23,8 +23,8 @@ ends, the input ends or an error occurs.
    `ReadsFinite`.
 3. The tail: `x.have` and `x.next` describe the output written into `out`.
 
-`gz_decomp_safe_of` takes one premise, a fact of `inflate` that is open: `InflateStuckNoOutput` (a call from `BAD` or
-`MEM` moves neither buffer and returns `Z_DATA_ERROR`, `Z_MEM_ERROR` or `Z_STREAM_ERROR`). The fact that a call from
+`gz_decomp_safe_of` takes one premise, a fact of `inflate`: `InflateStuckNoOutput` (a call from `BAD` or
+`MEM` moves neither buffer and returns `Z_DATA_ERROR`, `Z_MEM_ERROR` or `Z_STREAM_ERROR`; proved by `inflateStuckNoOutput_holds`). The fact that a call from
 mode `HEAD` with no held bits, `last = 0` and pending input uses input is `inflateHeadUsesInputR_holds`
 (`inflate.c.head-uses-input`), on reachable streams. Two proved facts of `inflate` serve the
 clauses on a bad error: a `Z_OK` call with input left has filled the output (`blocked_leave`), and a `Z_NEED_DICT`
@@ -38,7 +38,7 @@ set_option autoImplicit false
 
 /-! ## The open functional fact -/
 
-/-- **The stuck fact, a premise** (a fact of `inflate`, **open**). An `inflate` call from mode `BAD` or `MEM` returns
+/-- **The stuck fact, a premise** (a fact of `inflate`, proved by `inflateStuckNoOutput_holds`). An `inflate` call from mode `BAD` or `MEM` returns
 `Z_DATA_ERROR` or `Z_MEM_ERROR` and leaves `avail_in` and `avail_out` unchanged. `inflate.c`, `inflate()`:
 `case BAD: ret = Z_DATA_ERROR; goto inf_leave;` (`inf_leave` restores the registers, which no step of the call moved;
 `updatewindow` then copies no output and can only fail, into `MEM` with `Z_MEM_ERROR`) and
@@ -657,7 +657,7 @@ theorem inflate_step (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutpu
         · exact Al b o
     · exact O2
 
-/-! ## Open facts outside this module -/
+/-! ## Facts outside this module -/
 
 /-! ## The source, split -/
 

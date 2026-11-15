@@ -1,4 +1,4 @@
-<!-- source-sha256: b901a7625a0489b29c9b73abc42cec55346f009247f147660d2f5ee7ed1a4bca -->
+<!-- source-sha256: 01bad49a87b66262d6420ed79e03ed55ae63bfe2667950329cbebc15a9906832 -->
 
 # 变异体证据记录
 
@@ -45,8 +45,8 @@
 ## gz 目标
 
 gz 目标没有键；它们的行在三个语义列表中。
-- `tests/proof-mutants/gz-refusal.tsv`，对应 `Goal.gz_refusal`：十九行，每一行是在 `NULL` 句柄上返回另一个值，或去掉一次 `NULL` 测试，涉及除 `gzread` 和 `gzfread`（在 `gz-read.tsv` 中）以及 `gzbuffer`、`gzeof` 和 `gzoffset64`（在 `public-streams.tsv` 中）之外的每个 gz 函数。这个目标的各子句靠求值成立，所以每一行都在 `public-gz-refusal` 中失败。
-- `tests/proof-mutants/gz-sequence.tsv`，对应 `Goal.gz_sequence_safety`：写入调用（`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzvprintf` 以及由它实现的 `gzprintf`、`gzflush`、`gzsetparams`），关闭（`gzclose_w`、`gzclose_r`、`gzclose` 的分派），打开（`gz_open`、`gzdopen`），`gzseek64` 和 `gztell64`，`gz_error`（跳过一次释放；为 `Z_MEM_ERROR` 分配消息），`gzgetc()` 宏的两个分支（`zlib.h.lean`：去掉 `have` 测试；`pos` 不前进），读取一侧的 `gzgetc`、`gzungetc`、`gzgets` 和 `gzdirect`，以及补丁 0002 到 0005 的每个补丁块各一行，去掉这个补丁块（也就是未打补丁的 C）。大多数行是脚本行（`gz-sequence.py`），它们在代码的每一处 `rfl` 重述（`gzwrite_eq`、`putcSlow`、`closeTail`、`pfFmt`、`gTail`、`seekTail`、`openAfterMode`、`fetchBody`、`restK`、`getsRest`，以及 `gz_error` 的几份私有副本）中做同样的修改，于是失败的是语义引理，而不是重述。
+- `tests/proof-mutants/gz-refusal.tsv`，对应 `Goal.gz_refusal`：十九行，十九个 gz 函数各一行。每一行是在 `NULL` 句柄上返回另一个值，或去掉一次 `NULL` 测试。`gzread` 和 `gzfread` 的行在 `gz-read.tsv` 中，`gzbuffer`、`gzeof` 和 `gzoffset64` 的行在 `public-streams.tsv` 中。薄包装函数 `gzseek`、`gztell`、`gzoffset`、`gzgetc_` 和 `gzprintf` 没有行。这个目标的各子句靠求值成立，所以每一行都在 `public-gz-refusal` 中失败。
+- `tests/proof-mutants/gz-sequence.tsv`，对应 `Goal.gz_sequence_safety`：写入调用（`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzvprintf`（因而也包括 `gzprintf`）、`gzflush`、`gzsetparams`），关闭（`gzclose_w`、`gzclose_r`、`gzclose` 的分派），打开（`gz_open`、`gzdopen`），`gzseek64` 和 `gztell64`，`gz_error`（跳过一次释放；为 `Z_MEM_ERROR` 分配消息），`gzgetc()` 宏的两个分支（`zlib.h.lean`：去掉 `have` 测试；`pos` 不前进），读取一侧的叶子函数 `gzgetc`、`gzungetc`、`gzgets` 和 `gzdirect`，以及补丁 0002 到 0005 的每个补丁块各一行，去掉这个补丁块（也就是未打补丁的 C）。大多数行是脚本行（`gz-sequence.py`），它们在代码的每一处 `rfl` 重述（`gzwrite_eq`、`putcSlow`、`closeTail`、`pfFmt`、`gTail`、`seekTail`、`openAfterMode`、`fetchBody`、`restK`、`getsRest`，以及 `gz_error` 的几份私有副本）中做同样的修改，于是失败的是语义引理，而不是重述。
 - `tests/proof-mutants/gz-read.tsv`（连同 `gz-read.py`），来自读取一侧：`gzread` 和 `gzfread`，`gzgetc` 与 `gzungetc` 的拒绝情形，以及 `gzclose_r`。其中 `gzungetc` 的两行 `gzungetc-mode-check` 和 `gzungetc-skip-dropped` 还指定了步骤引理所在的模块 `gz.read-getc-step`：只指定 `gzread.c.getc-ungetc` 时，`gzungetc_step` 的证明不会被构建，两行都能构建通过；加上它之后，两行都在那里被杀死。
 
 **第一个错误落在哪里。**每一行都在被变异函数的某个证明中被杀死：它的步骤引理，它的函数体的精确运行，或者（对被调用函数）那个被调用函数的证明。有五行指定了步骤引理之外的模块，它们都是被变异函数的证明：

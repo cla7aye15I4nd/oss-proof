@@ -18,16 +18,23 @@ Terms: [glossary](../glossary.md).
 
 Both are required: the first is the safety result, the second shows that its premises can be
 met. They are [registered](../checking/README.md) in `tests/audit/theorems.txt` and
-[accepted](../checking/README.md) on commit `bde170e9`. The three functions `inflateBackInit_`,
-`inflateBack` and `inflateBackEnd` are proved safe through the sequence goal; they have no
-separate one-function goal ([progress, Scope](../progress.md#scope)).
+[accepted](../checking/README.md) on commit `bde170e9`.
+
+The three functions `inflateBackInit_`, `inflateBack` and `inflateBackEnd` are proved safe
+through the sequence goal. None has a one-function safety goal: the manifest
+`tests/audit/public-api.json` names `Goal.inflate_back_sequence_safety` as the safety goal of
+each, and `tests/audit/goals.txt` lists no other safety goal for them
+([progress, Scope](../progress.md#scope)). Each also has a functional contract
+(`Goal.inflateBackInit_`, `Goal.inflateBack`, `Goal.inflateBackEnd`). These contracts are not
+required; [the last section](#functional-results-that-stay) says which are proved.
 
 `Goal.inflate_back_sequence_safety` has four clauses.
 
 1. `inflateBack` on a `NULL` stream returns `Z_STREAM_ERROR` and changes nothing.
 2. After every reachable history the stream has a valid state over the caller's window
-   (`BackValid`: the stream record points to a live inflate state with the default allocator,
-   `8 ≤ wbits ≤ 15`, `wsize = 2^wbits`, and a writable window of `wsize` bytes).
+   (`BackValid`: the heap is well formed, the stream record points to a live inflate state
+   with the default allocator, `8 ≤ wbits ≤ 15`, `wsize = 2^wbits`, and the window is not
+   `NULL` and writable for `wsize` bytes).
 3. One more `inflateBack` call returns without a fault, for every caller protocol in the
    domain below. Its result is `Z_STREAM_END`, `Z_DATA_ERROR` or `Z_BUF_ERROR`. The state
    stays valid over the same window. The call changes only the stream record, the state
@@ -108,13 +115,19 @@ its own theorem.
 
 | Premise | Where | Row in [deviations](../deviations.md#callback-decoder) |
 | --- | --- | --- |
+| Before `inflateBackInit_`: the heap is well formed (`Fresh`, `Uniq`, `LibraryGlobals`); `version` points to a readable byte `'1'`; the stream record is readable; its `zalloc` and `zfree` are each `NULL` or the default function; its `state` field is `NULL`. The call has `stream_size = 112` and returned `Z_OK`. `zlib.h` does not ask for a `NULL` `state`, so this row is narrower than `zlib.h`. | `InitDomain` in `BackSafeReachable.init` | Callback decoder init |
 | The callbacks follow a `CallbackProtocol` (next section), and its invariant holds when `inflateBack` is called. | the `protocol` argument | Callbacks |
-| One call is offered fewer than `2^48` bytes in all its `in` calls. | `protocol.inputBound < 2^48` | Callback input total |
-| The window is a slice of a heap byte block. | `BackSafeReachable.init` | Callback decoder window |
+| One call is offered fewer than `2^48` bytes in the caller's first chunk and all its `in` calls together. | `protocol.inputBound < 2^48`, with `bounded` | Callback input total |
+| `8 ≤ windowBits ≤ 15`, and the window is not `NULL`, is writable for `2^windowBits` bytes and is a slice of a heap byte block. | `BackSafeReachable.init` | Callback decoder window |
 | Every input chunk lies in a heap byte block: the caller's first chunk and each chunk `in` hands out. | `BackFirstChunk`, `BackPlatform` | Callback decoder input chunks |
 | Every byte object has fewer than `2^63` bytes at each call and after each callback step. | `ByteObjectsFit`, `BackPlatform` | Platform byte-object scope |
 | The stream uses the default allocator, or `NULL` allocator fields that init replaces. | `BackValid`, `InitDomain` | Initial configuration |
-| The caller's first input chunk (`strm->next_in`, `strm->avail_in`) is readable and separate from the window. | `Bytes` and `Separate` in clause 3 | Callbacks |
+| The caller's first input chunk is readable and separate from the window: `strm->avail_in` bytes at `strm->next_in`, or no bytes when `strm->next_in` is `NULL`. | `Bytes` and `Separate` in clause 3 | Callbacks |
+| Between two calls the caller changes only memory the stream does not own and the four buffer fields of the stream record. The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. | `BackSafeReachable.caller` | Caller edits between calls (`BackSafeReachable.caller`) |
+
+The complete list is the statement itself: `Goal.inflate_back_sequence_safety` and
+`BackSafeReachable` in `ZlibF/Spec/Public/Sequences.lean`, with `InitDomain` in
+`ZlibF/Spec/Public/Domains.lean`.
 
 ### Why a bound on the input
 
@@ -126,6 +139,10 @@ callback eventually ends its input.
 The figure `2^48` is the model's limit, not zlib's. The runtime bounds every loop by `2^64`
 iterations, and the measure of the dispatch loop counts input bits.
 
+The bound counts every byte of the call. The log of supplied bytes starts with the caller's
+first chunk (`strm->next_in`, `strm->avail_in`), and each `in` call appends to it. The
+requirement `bounded` below limits the length of that log.
+
 ## The caller protocol
 
 `CallbackProtocol` (`ZlibF/Spec/Public/Back.lean`) says what the two callbacks may do. The
@@ -133,20 +150,23 @@ caller of the theorem chooses its parts:
 
 - `own`: the set of heap blocks that belong to the callbacks. It excludes the state record and
   the stream record.
-- `invariant`: a property of the heap and of a log. The log (`BackLog`) records the bytes that
-  `in` has supplied and the chunks that `out` has received. It is not memory; it exists only in
-  the statement.
+- `invariant`: a property of the heap and of a log. The log (`BackLog`) records the bytes
+  supplied so far, which are the caller's first chunk and then what `in` has returned, and the
+  chunks that `out` has received. It is not memory; it exists only in the statement.
 - `inputBound`: a number.
 
 The protocol then requires five things of `in` and `out`.
 
 | Requirement | Meaning, against the C calls above |
 | --- | --- |
-| `local_` | The invariant depends only on the callbacks' own blocks. A change of the window slice does not affect it. The object behind `in_desc` or `out_desc` may lie in the same allocation as the window, outside the slice. |
+| `local_` | The invariant depends on two things only: the contents of the callbacks' own blocks, and the allocator fields of the heap (the next block number, the count of allocation calls, the allocation-failure oracle, the content of fresh memory, and the static tables). Two heaps that agree on these (`ExternalAgreement`) satisfy it equally. The bytes of the window slice are left out of the comparison, so a change of the window slice does not affect it. The object behind `in_desc` or `out_desc` may lie in the same allocation as the window, outside the slice. |
 | `inStep` | From the invariant, `in(in_desc, &next)` returns a count and a chunk address without a fault. It changes only its own blocks (`ExternalFrame`) and keeps the bytes of the window slice. A nonempty chunk is readable for the count, separate from the window, and outside the state and stream records. The invariant holds again, with the chunk appended to the log. |
 | `outStep` | From the invariant, `out(out_desc, buf, len)` returns without a fault for any readable range of at most the window capacity. It changes only its own blocks, keeps the bytes of the window slice, and keeps the current input chunk readable until the next `in` call. The invariant holds again, with the chunk appended to the log. |
 | `liveInput` | Under the invariant, the current input chunk is readable. |
-| `bounded` | Under the invariant, the bytes supplied so far number at most `inputBound`. |
+| `bounded` | Under the invariant, the bytes supplied so far, the caller's first chunk included, number at most `inputBound`. |
+
+The table is a summary. The complete statement is the structure `CallbackProtocol` in
+`ZlibF/Spec/Public/Back.lean`.
 
 "Changes only its own blocks" (`ExternalFrame`) allows a callback to allocate and free blocks
 of its own. Every block it creates is one of its own, and the heap stays well formed. It cannot
@@ -159,9 +179,9 @@ the stream `r` with state block `i` over the caller's window of `n` bytes.
 
 | Constructor | Step |
 | --- | --- |
-| `init` | A successful `inflateBackInit_` with `8 ≤ windowBits ≤ 15` and a writable window in a heap byte block. |
-| `caller` | The caller changes its own memory and the four buffer fields of the stream, and keeps the window slice. |
-| `step` | An `inflateBack` call that returned, under a protocol with the platform premises. |
+| `init` | A successful `inflateBackInit_` from caller storage in `InitDomain` (the `state` field of the stream record is `NULL`), with `stream_size = 112`, `8 ≤ windowBits ≤ 15` and a non-`NULL` writable window in a heap byte block. |
+| `caller` | The caller changes memory the stream does not own and the four buffer fields of the stream record (`Rebuffer`). The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. |
+| `step` | An `inflateBack` call that returned. Its first chunk was readable and separate from the window, the protocol's invariant held at the call, and the platform premises held (`ByteObjectsFit` at the call, `BackPlatform`, `BackFirstChunk`). |
 
 A `step` does not ask for the input bound. So a history may contain calls with unbounded
 input that happened to return. The bound is asked only of the next call, where the goal
@@ -176,8 +196,9 @@ at the call, and it mentions the protocol's log.
 - The state is valid over the caller's window, and the window is outside the state and
   stream records.
 - `put` and `left` describe the unwritten tail of the window: `put = window + (n - left)`.
-- `next` and `have` describe the rest of the chunk that `in` returned last. That chunk stays
-  readable, outside the window and outside both records.
+- `next` and `have` describe the rest of the chunk in use: the caller's first chunk, or the
+  one that `in` returned last. That chunk stays readable, outside the window and outside both
+  records.
 - The bit buffer is normalised: `bits ≤ 39` and `hold < 2^bits`.
 - The protocol's invariant holds of the current heap and the log.
 - The heap differs from the heap at the call by a `CallbackFrame`, and liveness is unchanged
@@ -188,6 +209,13 @@ at the call, and it mentions the protocol's log.
   [decode tables](inftrees.md).
 - `sane ≠ 0`, `wnext = 0` and `whave ≤ wsize` (`StOk`). `inflate_fast` relies on them and
   `inflateBack` never breaks them.
+- The platform premises hold: the protocol's platform side (`BackPlatform`), every byte object
+  of the current heap has fewer than `2^63` bytes, and the chunk in use lies in a heap byte
+  block. The fast path needs them.
+
+The list is a summary. It leaves out the two clauses that tie the loop to the stream record
+and the state block of the call (`cstrm`, `cst`). The complete statement is the structure
+`PInv` in `ZlibF/Proof/infback.c.safety-inv.lean`.
 
 `inflateBackInit_` allocates a state and does not zero it. It writes the window settings,
 the window pointer, the history counters and `sane`. The prologue of `inflateBack` then
@@ -271,20 +299,27 @@ strict consumption of input bits: the held bits plus eight times the bytes left 
 and they fall strictly unless the call ends in `TYPE` or `BAD`. `LEN_fast_p` turns that into
 one round of the dispatch loop.
 
-The entry conditions of `inflate_fast` take output in a heap byte block. So the fast path is
-proved at such a window only (`lenFast_of_blk`). Every history of the goal has its window
+`fast_env` builds the entry conditions of `inflate_fast` for a window in a heap byte block,
+and the fast path is proved at such a window only (`lenFast_of_blk`). The entry conditions
+themselves allow any byte object ([fast decoding](inffast.md#assumptions)). Every history of the goal has its window
 there (`back_reach_window`), because the `init` constructor asks for it. That is the reason
 for the window premise.
 
 ## Functional results that stay
 
-These results are not required for the safety results. They are registered.
+`tests/audit/goals.txt` lists one functional contract for each of the three functions, and
+the functional sequence goal `Goal.inflate_back_sequence`. None is required for the safety
+results. `tests/audit/proved-goals.txt` lists two of the four as proved; their theorems are
+registered.
 
 - `Goal.inflateBackInit_` (`back_init_public`) and `Goal.inflateBackEnd` (`back_end_public`):
   the full contracts of the two lifecycle functions. Clause 4 of the safety goal uses
   `back_end_public`.
+
+Registered theorems that are not goals:
+
 - Branch results of `inflateBack`: the `NULL` stream, the missing state, and input that ends
   at once (`inflateBack_eof`, `ZlibF/Proof/infback.c.back.lean`).
 
-`Goal.inflateBack` and `Goal.inflate_back_sequence` also state what reaches `out`. Those
-decoding clauses are not proved, and the safety results do not need them.
+Not proved, and not needed by the safety results: `Goal.inflateBack` and
+`Goal.inflate_back_sequence`. They also state what reaches `out` (the decoding clauses).

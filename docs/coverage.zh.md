@@ -1,11 +1,11 @@
-<!-- source-sha256: 7adcca11dd80b7bc63cc1ea331b3d9d1260c8ba6a341b1d4b52bccfafcf00a65 -->
+<!-- source-sha256: ef8b8028931bd1a71ba977bef246406895fff897b654418b313e92b57684ba41 -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的已登记定理，以及证明所在的文件。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
 
 - **已证明。** 目标构建中每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。表中的名字已与 `tests/audit/public-api.json`、`tests/audit/theorems.txt` 和证明文件核对。
 - **所作假设。** [可信基础](trusted-base.md)的六项，以及[偏离记录](deviations.md)中的前提；“定义域”一列指向的就是这些前提。
-- **未完成。** gz 函数和三个 `inflateBack` 函数由序列目标覆盖，没有单函数目标（[进度](progress.md#ordered-next-work)）。有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，还没有写进安全目标；相应的行有说明。
+- **未完成。** gz 函数和三个 `inflateBack` 函数由序列目标覆盖，没有单函数安全目标（[进度](progress.md#ordered-next-work)）。有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，还没有写进安全目标；相应的行有说明。
 
 “已登记”指列在 `tests/audit/theorems.txt` 中。结论的层级和验收所在的提交见[范围](progress.md#scope)。
 
@@ -14,15 +14,15 @@
 - **安全目标与定理。** 所有目标都在命名空间 `ZlibF.Spec.Public` 中，这里写作 `Goal.…`。定理名不带命名空间；每张表前面的说明给出命名空间和 `ZlibF/Proof/` 下的文件。
 - **定义域。** 目标在“流可达”之外还要求什么。“无”表示对参数没有前提。有三条前提是每个流函数行和实用函数行共有的，不再重复：默认分配器、良构的模型堆，以及字节对象小于 `2^63` 字节（[偏离记录](deviations.md#build-and-platform)）。
 - **`NULL` 流或不一致的流。** 流函数的单函数目标是针对可达的流陈述的。对 `NULL` 流，或对 `zlib.h` 称为不一致的记录的调用，是一次返回 `Z_STREAM_ERROR` 的拒绝；这一列写明证明这次拒绝的定理。
-- **序列目标。** 除 init、End 和 Copy 之外，每个流调用除了自己的目标，还是所属那一类流的序列目标中的一种调用，所以它在任何历史的任何位置上也被覆盖：
+- **序列目标。** 除初始化、End 和 Copy 之外，每个流调用除了自己的目标，还是所属那一类流的序列目标中的一种调用，所以它在任何历史的任何位置上也被覆盖：
   - `Goal.inflate_sequence_safety`：定理 `Zlib.Inflate.Proofs.inflate_sequence_safety_public`，`public-inflate-sequence-safety.lean`；
   - `Goal.deflate_sequence_safety`：定理 `Zlib.Deflate.Universal.deflate_sequence_safety`，`public-deflate-goals.lean`。
 
-  End 调用是序列目标的第 3 个子句。一次成功的 init 或复制开启一段历史。
+  End 调用是序列目标的第 3 个子句。一次成功的初始化或复制开启一段历史。
 
 ## Inflate 流
 
-“安全目标”一列的定理：`public-stream-call-safety.lean` 中的 `ZlibF.Spec.Public.StreamCallSafetyProof.<名字>`，除非该行写了别的文件。两条 init 定理是 `public-init-safety.lean` 中的 `ZlibF.Spec.Public.InitSafetyProof.<名字>`。
+“安全目标”一列的定理：`public-stream-call-safety.lean` 中的 `ZlibF.Spec.Public.StreamCallSafetyProof.<名字>`，除非该行写了别的文件。两条初始化定理是 `public-init-safety.lean` 中的 `ZlibF.Spec.Public.InitSafetyProof.<名字>`。
 
 | 函数 | 安全目标（定理同名） | 定义域 | `NULL` 流或不一致的流 | 功能定理（保留，并非必需） |
 | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@
 
 ## Deflate 流
 
-“安全目标”一列的定理：`public-stream-call-safety.lean` 中的 `ZlibF.Spec.Public.StreamCallSafetyProof.<名字>`；两个 init 函数则是 `public-init-safety.lean` 中的 `ZlibF.Spec.Public.InitSafetyProof.<名字>`；该行写了别的文件时以该行为准。
+“安全目标”一列的定理：`public-stream-call-safety.lean` 中的 `ZlibF.Spec.Public.StreamCallSafetyProof.<名字>`；两个初始化函数则是 `public-init-safety.lean` 中的 `ZlibF.Spec.Public.InitSafetyProof.<名字>`；该行写了别的文件时以该行为准。
 
 | 函数 | 安全目标（定理同名） | 定义域 | `NULL` 流或不一致的流 | 功能定理（保留，并非必需） |
 | --- | --- | --- | --- | --- |
@@ -73,7 +73,7 @@
 
 | 函数 | 安全目标与定理 | 定义域 | `NULL` 流或不一致的流 | 功能定理（保留，并非必需） |
 | --- | --- | --- | --- | --- |
-| `inflateBackInit_`（宏 `inflateBackInit`） | `Goal.inflate_back_sequence_safety`：`Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。init 是每段历史的第一步。 | [回调解码器各行](deviations.md#callback-decoder)，其中包括调用之前 `state == NULL` | 在功能目标中 | `Goal.inflateBackInit_`：`ZlibF.Spec.Public.InflateBackInitProof.back_init_public`，`public-infback-init.lean`。它对每个 `state` 值覆盖错误的版本或大小、`NULL` 流、`NULL` 窗口、错误的 `windowBits` 和分配失败。 |
+| `inflateBackInit_`（宏 `inflateBackInit`） | `Goal.inflate_back_sequence_safety`：`Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。初始化是每段历史的第一步。 | [回调解码器各行](deviations.md#callback-decoder)，其中包括调用之前 `state == NULL` | 在功能目标中 | `Goal.inflateBackInit_`：`ZlibF.Spec.Public.InflateBackInitProof.back_init_public`，`public-infback-init.lean`。它对每个 `state` 值覆盖错误的版本或大小、`NULL` 流、`NULL` 窗口、错误的 `windowBits` 和分配失败。 |
 | `inflateBack` | 同一个目标和定理，第 3 个子句 | `inputBound < 2^48`；窗口和每一块输入都在堆字节块中；回调协议 | `NULL` 流是目标的第 1 个子句。状态为 `NULL`：`Zlib.Infback.Proofs.inflateBack_nostate`，已登记，不是目标 | 没有：`Goal.inflateBack` 未证明，不在计划内 |
 | `inflateBackEnd` | 同一个目标和定理，第 4 个子句 | 除历史之外没有别的要求 | 在功能目标中 | `Goal.inflateBackEnd`：`ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean`。它覆盖 `NULL`、状态为 `NULL` 和 `zfree` 为 `NULL` 的情形。 |
 
@@ -81,14 +81,14 @@
 
 ## 校验和与查询
 
-“安全目标”一列的定理：`public-stateless-safety.lean` 中的 `ZlibF.Spec.Public.StatelessSafetyProof.<名字>`。这些目标说的是：调用返回，并且堆保持不变。
+“安全目标”一列的定理：`public-stateless-safety.lean` 中的 `ZlibF.Spec.Public.StatelessSafetyProof.<名字>`。这些目标说的是：调用返回，并且堆保持不变。每个 CRC 目标，包括各组合目标，都有一条前提：模型中的两张 CRC 表就是该构建的表（`CrcGlobals`）。这是对模型的条件，不是对参数的条件（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)），所以对参数没有前提的 CRC 行，“定义域”一列写“无”。
 
 | 函数 | 安全目标（定理同名） | 定义域 | 功能定理（保留，并非必需） |
 | --- | --- | --- | --- |
 | `adler32` | `Goal.adler32_safety` | **比 `zlib.h` 更窄**：只有 `len = 0` 时 `buf` 才可以是 `NULL`（`AdlerBufferBytes`）。`len = 1` 时 C 会读 `buf[0]`。`buf` 为 `NULL` 且 `len ≥ 2` 在 C 中是安全的，但没有证明。 | `Goal.adler32`：`adler_public`，`public-adler-update.lean` |
 | `adler32_z` | `Goal.adler32_z_safety` | 与 `adler32` 相同 | `Goal.adler32_z`：`adler_z_public`，`public-adler-update.lean` |
 | `adler32_combine`、`adler32_combine64` | `Goal.adler32_combine_safety`、`Goal.adler32_combine64_safety` | 无 | `Goal.adler32_combine`、`Goal.adler32_combine64`：`combine_public`、`combine64_public`，`public-adler-combine.lean` |
-| `crc32`、`crc32_z` | `Goal.crc32_safety`、`Goal.crc32_z_safety` | `buf` 可读，或为 `NULL`（长度任意）（`BufferBytes`）；模型中的 CRC 表（`CrcGlobals`） | `Goal.crc32`、`Goal.crc32_z`：`crc32`、`crc32_z`，`public-crc-updates.lean` |
+| `crc32`、`crc32_z` | `Goal.crc32_safety`、`Goal.crc32_z_safety` | `buf` 可读，或为 `NULL`（长度任意）（`BufferBytes`） | `Goal.crc32`、`Goal.crc32_z`：`crc32`、`crc32_z`，`public-crc-updates.lean` |
 | `crc32_combine`、`crc32_combine64` | `Goal.crc32_combine_safety`、`Goal.crc32_combine64_safety` | 无 | `Goal.crc32_combine`、`Goal.crc32_combine64`：`combine`、`combine64`，`public-crc-combine.lean` |
 | `crc32_combine_gen`、`crc32_combine_gen64` | `Goal.crc32_combine_gen_safety`、`Goal.crc32_combine_gen64_safety` | 无 | `Goal.crc32_combine_gen`、`Goal.crc32_combine_gen64`：`gen`、`gen64`，`public-crc-combine.lean` |
 | `crc32_combine_op` | `Goal.crc32_combine_op_safety` | `op` 来自 `crc32_combine_gen` 或 `crc32_combine_gen64`，这是 `zlib.h` 的规定 | `Goal.crc32_combine_op`：`op`，`public-crc-combine.lean` |
@@ -119,7 +119,7 @@
 | `gzopen`、`gzopen64` | 打开子句（`GzOpenSafe`） | 每个路径、模式和世界，包括每一种失败 |
 | `gzdopen` | 打开子句（`GzDopenSafe`） | 每个 `fd`。功能目标 `Goal.gzdopen` 也已登记（`Zlib.Gzlib.Proofs.gzdopen_complete`）。 |
 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzseek`、`gzseek64` | 调用子句 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gzoffset`、`gzoffset64` 和 `gzrewind` 的功能目标也已登记。 |
-| `gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams` | 调用子句 | `gzprintf` 的每次调用都需要可表示的格式串，读取端句柄上也一样。无文档的 `gzvprintf` 同样是这个目标中的一种调用。 |
+| `gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams` | 调用子句 | `gzprintf` 的每次调用都需要可表示的格式串，读取端句柄上也一样。未文档化的 `gzvprintf` 同样是这个目标中的一种调用。 |
 | `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets` | 调用子句；终止需要 `ReadsFinite` | 在每个世界中都不出故障；读取预算小于 `2^61` 时正常返回 |
 | `gzdirect` | 调用子句 | 在每个世界中都终止 |
 | `gzclose`、`gzclose_r`、`gzclose_w` | 关闭子句 | 模式不对的关闭被拒绝，什么也不改变；否则释放拥有的每个块，并释放描述符 |

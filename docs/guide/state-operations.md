@@ -41,7 +41,7 @@ requested format and window size. The caller supplies the buffers for B.
 Blue cells denote valid history. The white application box denotes delivered data. Reset does
 not erase bytes already delivered, and it does not move the read position of a file.
 
-**Functional:** after Reset, no later match can read the old window contents, even though the
+**Functional:** after Reset, no later match can read the old window contents, even when the
 storage is still allocated. **Safety:** Reset keeps the stream invariant. When a header had
 selected a window size different from the requested one, `inflateReset` frees the window, and
 that block leaves the set of blocks the stream owns.

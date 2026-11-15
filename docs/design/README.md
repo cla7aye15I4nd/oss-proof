@@ -7,14 +7,16 @@ status.
 
 The required results are safety results. Architecture, translation and external I/O describe
 what every safety proof rests on. The two API-model pages describe functional material, which is
-kept and is not required for the safety results.
+kept and is not required for the safety results. One functional result is planned after the
+safety results, the round trip of the default zlib stream: its conditional form is checked, and
+completeness and the unconditional form are open ([architecture](architecture.md#the-layers)).
 
 Start with [architecture](architecture.md). Then use the page that answers your question:
 
 | Question | Read |
 | --- | --- |
 | How do C, the runtime, specifications and proofs fit together? What exactly is trusted? | [Architecture](architecture.md) |
-| How is a C statement translated, and how can I compare a translation with its C? | [Translation](translation.md) |
+| How is a C statement translated, how can I compare a translation with its C, and which forms in the translations do the accepted normalisations not cover? | [Translation](translation.md) |
 | What do the file system, `errno` and `printf` look like in the model? | [External I/O](external-io.md) |
 | Where are the safety goals, and what keeps them apart from the functional ones? | [Layout of the specifications](safety-functional-split.md) |
 | What do the heap-free API relations describe (functional)? | [API models](api-model.md), [the families in detail](api-model-details.md) |

@@ -55,7 +55,10 @@ sequenceDiagram
 A length wider than the stream's 32-bit `avail_in` and `avail_out` fields is passed in slices.
 The [streaming discipline](streaming.md) is hidden from the application, but it is still there.
 **Safety:** the utility reads only the source range and writes only the destination range and
-the length cell, and it ends the internal stream on every path, so no block stays live.
+the length cell, and it ends the internal stream on every path, so no block stays live. The
+goals assume, among other premises, that the source and the destination do not overlap; the
+complete premises are in
+[deviations](../deviations.md#whole-buffer-utilities-and-checksums).
 
 **Eight-byte example.** For `ABABABAB`, let the compressor produce `m` bytes. Headers, trailers
 and block descriptions can make `m` larger than eight. The default formula gives
@@ -109,9 +112,12 @@ reads or copies each slice before it returns; the decoder may reuse the slice af
 callback copies each decoded slice to the application's storage.
 **Safety:** the decoder reads only the chunk the input callback last handed out, and writes only
 inside the window. This rests on premises about the callbacks, because a function-pointer type
-guarantees nothing: each callback returns, changes only the caller's own storage, and hands out
-a readable chunk apart from the window; and one `inflateBack` call is offered fewer than `2^48`
-input bytes in all ([deviations](../deviations.md)).
+guarantees nothing. The main ones: each callback returns, changes only the caller's own storage,
+and hands out a readable chunk apart from the window; and one `inflateBack` call is offered fewer
+than `2^48` input bytes in all. These are not all of them. The goal also assumes that the window
+and every input chunk lie in heap byte blocks, that the input already in `next_in` is apart from
+the window, and that every byte object has fewer than `2^63` bytes. The complete premises are in
+[deviations](../deviations.md#callback-decoder).
 
 `inflateBack` returns `Z_BUF_ERROR` when the input callback supplies nothing or the output
 callback reports a failure. It returns `Z_DATA_ERROR` for malformed data, possibly after some
@@ -155,8 +161,9 @@ boundaries fall. Data may be returned before a later error is found. End of file
 corruption and an OS failure give different [API results](../spec/api/gz-file.md).
 **Safety:** every call on a handle is safe after any history of calls, including a failed first
 allocation, partial I/O and a close after an error; `gzclose` frees the handle's storage also
-when its last write fails. The reading calls terminate on the premise that the descriptor can
-deliver fewer than `2^61` further bytes ([deviations](../deviations.md)). See the
+when its last write fails. The goal has premises. One of them is that the descriptor can deliver
+fewer than `2^61` further bytes: the reading calls terminate on it. The complete premises are in
+[deviations](../deviations.md#gzip-file-interface). See the
 [gzip page](../proof/gzip.md).
 
 ## 6.4 Seeking names a position in the original data
@@ -223,8 +230,8 @@ goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what t
 | `compress`, `compress2`, `compress_z`, `compress2_z` | `Goal.compress_safety`, `Goal.compress2_safety`, `Goal.compress_z_safety`, `Goal.compress2_z_safety` | [compress](../spec/api/utility.md#compress) |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | `Goal.uncompress_safe`, `Goal.uncompress2_safe`, `Goal.uncompress_z_safe`, `Goal.uncompress2_z_safe` | [uncompress](../spec/api/utility.md#uncompress) |
 | `compressBound`, `compressBound_z` | The full contract `Goal.compressBound`, `Goal.compressBound_z`: a pure function with no heap and no fault. | [compressBound](../spec/api/utility.md#compressbound) |
-| `inflateBackInit` (macro for `inflateBackInit_`), `inflateBack`, `inflateBackEnd` | Proved safe through the sequence goal `Goal.inflate_back_sequence_safety`. They have no separate one-function goal yet. | [callback decoder](../spec/api/inflate-back.md#inflateback) |
-| `gzopen`, `gzread`, `gzwrite`, `gzseek`, `gztell`, `gzoffset`, `gzclose` and the other documented gz functions of the default build, 31 in all | Proved safe through the sequence goal `Goal.gz_sequence_safety`. They have no separate one-function goal yet. | [gzip files](../spec/api/gz-file.md) |
+| `inflateBackInit` (macro for `inflateBackInit_`), `inflateBack`, `inflateBackEnd` | Proved safe through the sequence goal `Goal.inflate_back_sequence_safety`. They have no separate one-function safety goal yet. | [callback decoder](../spec/api/inflate-back.md#inflateback) |
+| `gzopen`, `gzread`, `gzwrite`, `gzseek`, `gztell`, `gzoffset`, `gzclose` and the other documented gz functions of the default build, 31 in all | Proved safe through the sequence goal `Goal.gz_sequence_safety`. They have no separate one-function safety goal yet. | [gzip files](../spec/api/gz-file.md) |
 | `adler32`, `adler32_z` | `Goal.adler32_safety`, `Goal.adler32_z_safety` | [adler32](../spec/api/checksums.md#adler32) |
 | `crc32`, `crc32_z` | `Goal.crc32_safety`, `Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`, `crc32_combine` | `Goal.adler32_combine_safety`, `Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine), [crc32_combine](../spec/api/checksums.md#crc32_combine) |

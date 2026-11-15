@@ -17,7 +17,9 @@ Fibonacci bound from the unclamped trees, the symbol counts from the ledger. The
 heap-free certificate (`DeflateOverlayCertificate.certificate`) and the per-entry scan bound
 (`scan_cost_le`).
 
-The header itself is compared with `refHeaderCost` by one open hypothesis, `HeaderRefBound Δ`:
+The header itself is compared with `refHeaderCost` by one hypothesis, `HeaderRefBound Δ`
+(proved for `Δ = 245` by `header_ref_bound_256`, `deflate.c.engine.overlay-header-ref`, and used
+there with `dynamic_overlay_256c`, which allows `Δ ≤ 640`):
 the header is at most `71 + Δ + refHeaderCost` (Huffman optimality of the bit-length tree against
 `κ0`, plus zlib's 7-bit repair). With `Δ ≤ 171` the order-free budget holds
 (`overlay_budget_256`), and so the overlay room (`dynamic_overlay_256`).
@@ -244,7 +246,8 @@ theorem ref_header_excess_256 {h : Heap} {ds pb : Nat} {d : DeflateState} {buf :
   rw [exL, exD] at excess
   omega
 
-/-- **Batch 1's piece (open)**: the header of every prepared block at `lit_bufsize = 256` is at most
+/-- **Batch 1's piece** (proved for `Δ = 245`: `header_ref_bound_256`,
+`deflate.c.engine.overlay-header-ref`): the header of every prepared block at `lit_bufsize = 256` is at most
 the reference-code header plus `Δ`. -/
 def HeaderRefBound (Δ : Nat) : Prop :=
   ∀ {h : Heap} {ds : Nat} {d : DeflateState} {xs : List Symbol} {mb : Int32} {ready : DeflateState},

@@ -16,8 +16,13 @@ freed by `gz_error` (`gzlib.c:568`) called from `gzvprintf` (`gzwrite.c:448`), a
 
 `report.txt` is the raw output of one run on arm64 macOS (Apple clang), process id replaced.
 
-zlib.h says only that later calls of `gzerror` may invalidate the returned string. In fact any call
-that reaches `gz_error` frees it: `gzprintf`, `gzputs`, `gzwrite`, `gzread` and others. The proved
+zlib.h says only that later calls of `gzerror` may invalidate the returned string. In fact a call
+that reaches `gz_error` frees it. The writing entries (`gzwrite`, `gzfwrite`, `gzputc`, `gzputs`,
+`gzprintf`, `gzvprintf`, `gzflush`, `gzsetparams`) clear the error after their mode and error test.
+The reading entries (`gzread`, `gzfread`, `gzgetc`, `gzungetc`, `gzgets`) do so only when `again`
+is set, after a stalled read. Any entry that records a new error replaces the message; the table in
+[deviations](../../../docs/deviations.md#why-the-handles-own-strings-are-excluded) lists the
+other entries. The proved
 domain keeps caller strings and buffers apart from the handle's own blocks: `GzRange` for the
 buffers of `gzwrite`, `gzputs` and `gzread`, and the separation clause of `GzArguments` for the
 format and the `%s` arguments of `gzprintf` and `gzvprintf` ([deviations](../../../docs/deviations.md)).

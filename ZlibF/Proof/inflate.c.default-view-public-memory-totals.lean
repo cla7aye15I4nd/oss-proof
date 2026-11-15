@@ -102,7 +102,7 @@ theorem inflate_default_view_public_memory_totals
 
 /-- One complete actual default public result: all returned codes and
 terminal modes, exact cursors and both ordinary totals, both original totals on memory error,
-OK progress and FINISH exclusion. The exact whole-call frame, ownership and histories stay open. -/
+OK progress and FINISH exclusion. The exact whole-call frame, ownership and histories are not stated here. -/
 theorem inflate_default_view_public_scalar_contract
     {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (invariant : DefaultStateJ h r zs z s) (allocator : DefAlloc z)

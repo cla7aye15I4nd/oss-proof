@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inflate.c.default-origin-state»
 
 /-!
-# inflate.c: the decoder invariant over every reachable history (skeleton)
+# inflate.c: the decoder invariant over every reachable history
 
 `InflateInv` generalizes `DefaultOriginState` to every configuration that
 `inflateInit2_`, `inflateReset2` and `inflateValidate` can select: raw, zlib,
@@ -11,8 +11,10 @@ field: object sizes are a per-call premise of `Goal.inflate`, and
 `StreamReachable` does not carry them.
 
 Other modules use only the interface lemmas in this file, never the fields.
-The remaining interface lemmas and the open proof steps are on the branch
-`skeleton/inflate` and in `docs/progress.md`.
+The inflate proof that uses it is complete: `inflate_sequence_safety_public`
+(`public-inflate-sequence-safety`) proves `Goal.inflate_sequence_safety`, and `inflate_safety`
+(`public-stream-call-safety`) proves `Goal.inflate_safety`. The former skeleton's lemma list is
+kept in `docs/history/skeleton-inflate.md`.
 -/
 
 namespace Zlib.Inflate.Proofs

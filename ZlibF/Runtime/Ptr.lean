@@ -18,7 +18,8 @@ section generic
 variable {R T : Type} [Space Heap R T]
 
 /-- `p + k`. Faults unless the result is an index of the array or one past its end. `NULL + 0` is `NULL` (allowed
-by decision, although C17 leaves it undefined; see `docs/trusted-base.md`); the pointer must point to a live array.
+by decision, although C17 leaves it undefined; see `docs/model-limits.md#conditions-on-the-model-that-goals-state`,
+row "Null pointer arithmetic"); the pointer must point to a live array.
 It checks the result only: a pointer built by hand outside its array (`Ptr.ref r off` with `off` beyond the end) is
 not caught here. The translations obtain pointers from `Ptr.add` and from the schema, which never form one. -/
 def Ptr.add (p : Ptr R) (k : Int) : M (Ptr R) := fun h =>
@@ -57,7 +58,8 @@ def Ptr.store (p : Ptr R) (v : T) : M Unit := fun h =>
       else .error (.ub "store outside its object")
 
 /-- `p - q` (a `ptrdiff_t`). Faults unless both point into the same live array and the difference is a `ptrdiff_t`
-(`NULL - NULL` is a fault although C23 defines it as 0). -/
+(`NULL - NULL` is a fault: C17 and C23 leave it undefined, since neither operand points into an array object;
+C++ defines it as 0). -/
 def Ptr.diff [DecidableEq R] (p q : Ptr R) : M Int64 := fun h =>
   match p, q with
   | .ref r1 o1, .ref r2 o2 =>

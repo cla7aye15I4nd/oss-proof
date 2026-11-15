@@ -17,7 +17,7 @@ registered theorems are accepted on commit `bde170e9` ([levels](README.md#status
 | Result | Theorem | Module | Level |
 | --- | --- | --- | --- |
 | `DeflateCore.SafeEncodingAndCleanup`: the four clauses below | `DeflateCore.safe_encoding_and_cleanup` | `deflate.c.default-core.lean` | registered |
-| `DeflateCore.Completes`: from any point of a history there is a continuation of `Z_FINISH` calls, each with positive output room and no new input, that reaches `Z_STREAM_END` | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` | registered |
+| `DeflateCore.Completes`: from a point of a history at which the stream has not ended, there is a continuation of `Z_FINISH` calls that reaches `Z_STREAM_END`; the premises and the form of the continuation are below | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` | registered |
 | Both together | `DeflateCore.correct` | `deflate.c.default-core-completes.lean` | registered |
 | The conclusion of `Goal.deflate` on default histories | `generic_default_public_contract` | `deflate.c.default-public-contract.lean` | registered |
 | The premises can be met: concrete histories | `generic_default_request_trace_witness`, `default_public_full_contract_witness` and the other `*_witness` theorems | `deflate.c.default-public-contract.lean`, `deflate.c.engine.full-contract-witness.lean` | registered |
@@ -32,6 +32,15 @@ The four clauses of `SafeEncodingAndCleanup`:
    zlib stream for the input bytes that were accepted (`Zlib.Valid`, the format specification).
 4. **Cleanup.** After any history, `deflateEnd` frees exactly the five owned blocks.
 
+`Completes` starts from a point of a history with these premises: no call has returned
+`Z_STREAM_END` yet (`finished = false`); `StreamBuffers` holds; the output pointer is `NULL` or
+points into a heap byte block; the input range `next_in`, `avail_in` is readable; and a stream
+that is already in `FINISH_STATE` has no input. Call the bytes of that input range the
+remaining input. The continuation is a sequence of `Z_FINISH` calls and caller edits. Each call
+has an output pointer into a heap byte block and positive output room, and is offered the part
+of the remaining input that no call has accepted yet. The continuation ends with
+`Z_STREAM_END`, and all of the remaining input is accepted. The caller supplies no other input.
+
 ## Assumptions
 
 - The history is `deflateInit_` with `Z_DEFAULT_COMPRESSION`, then `deflate` calls and caller
@@ -39,10 +48,23 @@ The four clauses of `SafeEncodingAndCleanup`:
   `deflateParams`, no priming, no gzip header.
 - `StreamBuffers` holds at each call.
 - The output pointer is `NULL` or points into a heap byte block (`DeflateCore.Output`).
-- For completion: once the stream is finishing, the caller offers no new input.
+- For completion: the premises of `Completes` given above. The only input of the continuation
+  is the input present at its start; a stream in `FINISH_STATE` gets none.
 
 These histories are a subset of those of the sequence goal. Nothing on this page widens a
 safety result.
+
+## The round trip built on these results
+
+`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) is checked
+and not registered. It joins the completed-encoding result of this page with the matching
+result for `inflate`. Take a `deflate` history of the default configuration and an `inflate`
+history that starts with `inflateInit2_` at `windowBits` 15, each made of caller edits and
+calls with any flush value, and each ending with a call that returned `Z_STREAM_END`. If the
+input that `inflate` consumed is a prefix of the output of `deflate`, the output of `inflate`
+is the input that `deflate` accepted. The theorem is conditional: it assumes that both
+histories reach `Z_STREAM_END`. Completeness, and the unconditional round trip that needs it,
+are open.
 
 ## What the universal proof reuses
 
@@ -85,12 +107,28 @@ flowchart LR
 | --- | --- | --- |
 | The trailer bytes are stored, pending bytes are copied and `wrap` is negated, for any output capacity including zero | `zlib_trailer_publish` | `deflate.c.engine.trailer-output.lean` |
 | A `Z_FINISH` call after the last block has drained writes the trailer and returns `Z_OK` for a short copy or `Z_STREAM_END` | `public_zlib_finish_ready` | `deflate.c.engine.public-finish.lean` |
-| A `Z_FINISH` call with a trailer already queued drains it and returns `Z_STREAM_END`, without a second trailer | `public_finished_pending_drained` | `deflate.c.engine.public-finish-pending.lean` |
-| A call whose pending bytes fill the output returns without touching the input | `public_pending_exhausted` | `deflate.c.engine.public-pending.lean` |
+| A `Z_FINISH` call with trailer bytes still pending and more output room than pending bytes drains them and returns `Z_STREAM_END`, without a second trailer | `public_finished_pending_drained` | `deflate.c.engine.public-finish-pending.lean` |
+| A call on a stream that is not finished, whose pending bytes fill the output, returns `Z_OK` without touching the input | `public_pending_exhausted` | `deflate.c.engine.public-pending.lean` |
 
-`public_zlib_finish_ready` assumes the state that the strategies leave after the last block:
-`FINISH_STATE`, no input, no lookahead, an empty pending buffer with its cursor at the start, no
-held bits, and positive output room.
+All four theorems assume a well-formed state (`DGood`), `StreamBuffers` and an output pointer
+into a heap byte block. The first two also assume the well-formed tree state `TreesInvAt`. Their
+other premises:
+
+- `zlib_trailer_publish`: `wrap = 1` (a zlib stream whose trailer is not written), an empty
+  pending buffer with its cursor at the start, and no held bits.
+- `public_zlib_finish_ready`: the state that the strategies leave after the last block. That is
+  `FINISH_STATE`, `wrap = 1`, no input, no lookahead, an empty pending buffer with its cursor at
+  the start, no held bits, positive output room, and `last_flush` between -2 and 5.
+- `public_finished_pending_drained`: `FINISH_STATE`, `wrap = -1` (the trailer is written), no
+  input, no lookahead, at least one pending byte, `avail_out` greater than `pending`, and fewer
+  than eight held bits.
+- `public_pending_exhausted`: a status other than `FINISH_STATE`, a flush value from 0 to 5, an
+  input pointer that is not `NULL` when `avail_in` is not 0, `0 < avail_out ≤ pending`, and
+  fewer than eight held bits. `public_pending_exhausted_allowed` in the same module also covers
+  a finished stream called with `Z_FINISH`.
+
+The last two also take a name for the pending output (`PendingBits`: the pending bytes, readable
+at `pending_out`, followed by the held bits); their conclusions say what becomes of it.
 
 ### Tree construction on the compressor heap
 
@@ -103,7 +141,9 @@ calls the state has what `build_bl_tree` needs as input.
 
 ### Preparation and the fixed choice
 
-At a positive level `_tr_flush_block` begins with the same steps for every block.
+At a positive level `_tr_flush_block` begins with the same steps for every block. The last
+node of the diagram is outside it: `flush_pending` is called by the macro `FLUSH_BLOCK_ONLY`
+of `deflate.c`, after `_tr_flush_block` has returned.
 
 ```mermaid
 flowchart LR
@@ -115,7 +155,7 @@ flowchart LR
     costs --> dynamic["dynamic block"]
     fixed --> payload["block type bits, then every symbol"]
     payload --> reset["init_block; bi_windup if last"]
-    reset --> publish["flush_pending"]
+    reset --> publish["FLUSH_BLOCK_ONLY: flush_pending"]
 ```
 
 `block_prepare_engine` (`deflate.c.engine.block-prepare.lean`) covers the preparation: the

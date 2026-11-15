@@ -59,8 +59,22 @@ modular. The error result is `-65536`.
 or a suffix split at the end of the ring. `inflateGetDictionary` returns the part from
 `window + wnext` to the end, followed by the part before `wnext`. `inflateSetDictionary` checks
 the Adler-32 identifier in mode `DICT` and passes the end of the dictionary to `updatewindow`.
-`inflateResetKeep` keeps the window contents. `inflateReset` clears the window counters.
-`inflateReset2` frees a window whose size changes.
+
+A window is allocated in two places: in `updatewindow`, when it is called with
+`window == NULL` (from the exit code of `inflate` and from `inflateSetDictionary`), and in
+`inflateCopy`, for the copy of a stream that has one. A window is freed in four places:
+
+- `inflateReset` frees it when `wbits != reqbits`, then sets `wbits = reqbits`. In every case
+  it sets `wsize`, `whave` and `wnext` to 0. When the two widths are equal the block stays and
+  is reused.
+- `inflateReset2` frees it when its width `wbits` differs from the width that the new
+  `windowBits` asks for, then calls `inflateReset`.
+- `inflateSync`, after a match, calls `inflateReset`. Then, if `wbits == 0`, it frees a window
+  that is still there and sets `wbits = 15`.
+- `inflateEnd` frees it, and then the state.
+
+`inflateResetKeep` frees nothing. It leaves the window block and the three counters as they
+are.
 
 `inflateCopy` allocates through the source stream's allocator. If the window allocation fails
 it frees the new state. It sets `dest->state` to `NULL` when the state check rejects the source
@@ -196,7 +210,8 @@ Arithmetic details:
 The slow decoder can look up a root entry before it holds `root` bits. It accepts the entry when
 the entry's own length is at most the number of bits held; otherwise it pulls a byte and looks
 again. The entry it accepts does not change when more bits arrive
-(`constructor_establishes_query_stability`). A link needs the second lookup and both lengths.
+(`constructor_establishes_query_stability`, for a `LENS` or `DISTS` table that `inflate_table`
+returned with 0). A link needs the second lookup and both lengths.
 
 Why the bytes read ahead do not have to be valid is explained in
 [stream decoding](inflate.md#causality-and-history-across-calls).

@@ -11,7 +11,7 @@ names the functional theorem, where one exists; functional theorems are kept and
 - **Assumed.** The six items of the [trusted base](trusted-base.md), and the premises in
   [deviations](deviations.md), which the column "domain" refers to.
 - **Open.** The gz functions and the three `inflateBack` functions are covered by a sequence
-  goal and have no one-function goal ([progress](progress.md#ordered-next-work)). Six stream
+  goal and have no one-function safety goal ([progress](progress.md#ordered-next-work)). Six stream
   functions have their `NULL`-stream refusal proved in the functional goal and not yet in the
   safety goal; their rows say so.
 
@@ -119,14 +119,17 @@ The sequence theorem has eleven proof mutants of `inflateBack`, `inflateBackInit
 
 Theorems of the safety column: `ZlibF.Spec.Public.StatelessSafetyProof.<name>` in
 `public-stateless-safety.lean`. These goals say that the call returns and leaves the heap
-unchanged.
+unchanged. Every CRC goal, the combine goals included, has the premise that the model's two CRC
+tables are those of the build (`CrcGlobals`). It is a condition on the model, not on the
+arguments ([model limits](model-limits.md#conditions-on-the-model-that-goals-state)), so the
+column "Domain" says "None" for a CRC row with no premise on the arguments.
 
 | Function | Safety goal = theorem name | Domain | Functional theorem (kept, not required) |
 | --- | --- | --- | --- |
 | `adler32` | `Goal.adler32_safety` | **Narrower than `zlib.h`**: a `NULL` `buf` only with `len = 0` (`AdlerBufferBytes`). With `len = 1` the C reads `buf[0]`. `NULL` with `len ≥ 2` is safe in C and not proved. | `Goal.adler32`: `adler_public`, `public-adler-update.lean` |
 | `adler32_z` | `Goal.adler32_z_safety` | As `adler32` | `Goal.adler32_z`: `adler_z_public`, `public-adler-update.lean` |
 | `adler32_combine`, `adler32_combine64` | `Goal.adler32_combine_safety`, `Goal.adler32_combine64_safety` | None | `Goal.adler32_combine`, `Goal.adler32_combine64`: `combine_public`, `combine64_public`, `public-adler-combine.lean` |
-| `crc32`, `crc32_z` | `Goal.crc32_safety`, `Goal.crc32_z_safety` | `buf` readable or `NULL` with any length (`BufferBytes`); the model's CRC tables (`CrcGlobals`) | `Goal.crc32`, `Goal.crc32_z`: `crc32`, `crc32_z`, `public-crc-updates.lean` |
+| `crc32`, `crc32_z` | `Goal.crc32_safety`, `Goal.crc32_z_safety` | `buf` readable or `NULL` with any length (`BufferBytes`) | `Goal.crc32`, `Goal.crc32_z`: `crc32`, `crc32_z`, `public-crc-updates.lean` |
 | `crc32_combine`, `crc32_combine64` | `Goal.crc32_combine_safety`, `Goal.crc32_combine64_safety` | None | `Goal.crc32_combine`, `Goal.crc32_combine64`: `combine`, `combine64`, `public-crc-combine.lean` |
 | `crc32_combine_gen`, `crc32_combine_gen64` | `Goal.crc32_combine_gen_safety`, `Goal.crc32_combine_gen64_safety` | None | `Goal.crc32_combine_gen`, `Goal.crc32_combine_gen64`: `gen`, `gen64`, `public-crc-combine.lean` |
 | `crc32_combine_op` | `Goal.crc32_combine_op_safety` | `op` comes from `crc32_combine_gen` or `crc32_combine_gen64`, as `zlib.h` says | `Goal.crc32_combine_op`: `op`, `public-crc-combine.lean` |

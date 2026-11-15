@@ -4,7 +4,7 @@ import ZlibF.Proof.«gz.read-gzread»
 # gzread.c: the public call `gzfread`
 
 `gzfread_step_of`: the skeleton leaf `gzfread_step` (`GzReadLeaves`, `gz.sequence-safety`), from the statement of
-`gz_read` (`GzReadSafe`) and the three open clauses of the reader invariant (`GzReadClauses`, `gz.read-gzread`).
+`gz_read` (`GzReadSafe`) and the three clauses of the reader invariant (`GzReadClauses`, proved by `gzReadClauses_holds`, `gz.read-gzread`).
 It mirrors `gzread_step_of`.
 
 The pieces: the mode and error refusals (no change), the reset `gz_error(state, Z_OK, NULL)` when `again` is set
@@ -130,8 +130,8 @@ theorem frRest_run (read : GzReadSafe) (clauses : GzReadClauses) {i : Nat} {buf 
 end Fr
 
 open Fr in
-/-- **`gzfread_step`**, from the statement of `gz_read` and the three open clauses of the reader invariant
-(`GzReadClauses`, to be discharged by the reader invariant). -/
+/-- **`gzfread_step`**, from the statement of `gz_read` and the three clauses of the reader invariant
+(`GzReadClauses`, proved by `gzReadClauses_holds`, `gz.read-gzread`). -/
 theorem gzfread_step_of (read : GzReadSafe) (clauses : GzReadClauses) :
     ∀ (i : Nat) (buf : BPtr) (size nitems : UInt64),
       GzCallSafe i (.gzfread buf size nitems (some (.in_gzstate_x i))) := by

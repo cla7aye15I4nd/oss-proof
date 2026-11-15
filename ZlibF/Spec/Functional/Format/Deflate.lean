@@ -4,7 +4,7 @@ import ZlibF.Spec.Functional.Format.Huffman
 # Format: DEFLATE (RFC 1951) as a declarative relation
 
 the DEFLATE block rules in `docs/spec/format/README.md`. The relations say exactly what zlib's `inflate` accepts
-(zlib is stricter than the RFC in the places listed in format.md; each is a premise below).
+(zlib is stricter than the RFC in the places listed in `docs/spec/format/README.md`; each is a premise below).
 
 Convention: the history `h` is the output produced so far (without the preset dictionary);
 a back-reference may reach into `dict ++ h` (`F-distance-bound`).
@@ -22,7 +22,7 @@ def copyBack (dict : List UInt8) (dist : Nat) : Nat → List UInt8 → List UInt
   | n + 1, h => copyBack dict dist n (h ++ [(dict ++ h).getD ((dict ++ h).length - dist) 0])
 
 /-- The symbols of one Huffman block with the literal/length code `L` and distance code `D`
-(RFC 1951, 3.2.3 and 3.2.5; format.md 2.7). `Symbols L D dict h inp rest out`: starting with output
+(RFC 1951, 3.2.3 and 3.2.5; `docs/spec/format/README.md`, "Literals, matches and history"). `Symbols L D dict h inp rest out`: starting with output
 `h` and bits `inp`, the block ends with the end-of-block symbol, leaves the bits `rest`, and
 the output is `out`. -/
 inductive Symbols (L D : List Nat) (dict : List UInt8) :
@@ -115,7 +115,7 @@ inductive Body (dict : List UInt8) :
   /-- `BTYPE = 1` (`F-fixed-lengths`): the fixed codes. -/
   | fixed {h : List UInt8} {inp rest : List Bool} {out : List UInt8} :
       Symbols fixedLitLens fixedDistLens dict h inp rest out → Body dict 1 h inp rest out
-  /-- `BTYPE = 2` (RFC 1951, 3.2.7; format.md 2.6): `HLIT`, `HDIST`, `HCLEN`, the code-length code,
+  /-- `BTYPE = 2` (RFC 1951, 3.2.7; `docs/spec/format/README.md`, "Dynamic codes"): `HLIT`, `HDIST`, `HCLEN`, the code-length code,
   the literal/length and distance lengths, then the symbols. `F-dynamic-limits`,
   `F-dynamic-repeat` (in `CodeLens`), `F-dynamic-eob`, `F-dynamic-valid`. -/
   | dynamic {h : List UInt8} {inp r1 r2 r3 r4 r5 rest : List Bool} {hlit hdist hclen : Nat}
@@ -129,7 +129,7 @@ inductive Body (dict : List UInt8) :
       Symbols (lens.take (hlit + 257)) (lens.drop (hlit + 257)) dict h r5 rest out →
       Body dict 2 h inp rest out
 
-/-- A sequence of blocks (RFC 1951, 3.2.3; format.md 2.2): the three header bits
+/-- A sequence of blocks (RFC 1951, 3.2.3; `docs/spec/format/README.md`, "Bits and blocks"): the three header bits
 `BFINAL` and `BTYPE`, the body, and, unless `BFINAL` was 1, more blocks.
 `Blocks dict h inp rest out`: starting with output `h`, the blocks use the bits up to `rest`. -/
 inductive Blocks (dict : List UInt8) : List UInt8 → List Bool → List Bool → List UInt8 → Prop

@@ -1,4 +1,4 @@
-<!-- source-sha256: 405c1b11379221b91b86ee658e07e826a6282a9480a37f42f4453fcbf75b7e4f -->
+<!-- source-sha256: 001b57799e274d18a0cfb15643a33d8408c06497ec2b5568741391b6603720a7 -->
 # `deflate` 的默认配置引擎
 
 本页介绍早先的一批结论，它们针对 `deflate` 的一种配置：由 `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` 创建的流（级别 6，zlib 封装，`windowBits` 为 15，`memLevel` 为 8，默认策略），并且只通过 `deflate` 调用来使用。对这种配置，结论说的不止是安全性：已完成的流能解码回它的输入。
@@ -12,7 +12,7 @@
 | 结论 | 定理 | 模块 | 层级 |
 | --- | --- | --- | --- |
 | `DeflateCore.SafeEncodingAndCleanup`：下面的四个子句 | `DeflateCore.safe_encoding_and_cleanup` | `deflate.c.default-core.lean` | 已登记 |
-| `DeflateCore.Completes`：从历史的任意一点出发，都存在一串后续的 `Z_FINISH` 调用，每次都有正的输出空间且不提供新输入，最终到达 `Z_STREAM_END` | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` | 已登记 |
+| `DeflateCore.Completes`：从历史中流尚未结束的一点出发，存在一串后续的 `Z_FINISH` 调用，最终到达 `Z_STREAM_END`；前提和这串后续调用的形式见下文 | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` | 已登记 |
 | 两者合在一起 | `DeflateCore.correct` | `deflate.c.default-core-completes.lean` | 已登记 |
 | 在默认历史上，`Goal.deflate` 的结论成立 | `generic_default_public_contract` | `deflate.c.default-public-contract.lean` | 已登记 |
 | 前提可以被满足：具体的历史 | `generic_default_request_trace_witness`、`default_public_full_contract_witness` 以及其他 `*_witness` 定理 | `deflate.c.default-public-contract.lean`、`deflate.c.engine.full-contract-witness.lean` | 已登记 |
@@ -24,14 +24,20 @@
 3. **已完成的编码。** 如果一段历史以 `Z_STREAM_END` 结束，那么输出字节就是被接受的那些输入字节的一个有效 zlib 流（`Zlib.Valid`，即格式规格）。
 4. **清理。** 在任意历史之后，`deflateEnd` 恰好释放流拥有的五个块。
 
+`Completes` 从历史中的一点出发，前提如下：还没有哪次调用返回过 `Z_STREAM_END`（`finished = false`）；`StreamBuffers` 成立；输出指针是 `NULL`，或者指向一个堆上字节块的内部；输入区域 `next_in`、`avail_in` 可读；已经处于 `FINISH_STATE` 的流没有输入。把这段输入区域里的字节称为剩余输入。后续是由 `Z_FINISH` 调用和调用者的修改组成的一个序列。每次调用的输出指针都指向一个堆上字节块的内部，输出空间为正，提供给它的是剩余输入中还没有被任何调用接受的那一部分。这串后续调用以 `Z_STREAM_END` 结束，剩余输入全部被接受。调用者不提供别的输入。
+
 ## 假设
 
-- 历史是带 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_`，随后是 `deflate` 调用和调用者对缓冲区字段的修改（`DeflateCore.Calls`、`DeflateCore.Trace`）。没有字典，没有 `deflateParams`，没有预置位，没有 gzip 头部。
+- 历史是带 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_`，随后是 `deflate` 调用和调用者对缓冲区字段的修改（`DeflateCore.Calls`、`DeflateCore.Trace`）。没有字典，没有 `deflateParams`，没有位预置，没有 gzip 头部。
 - 每次调用时 `StreamBuffers` 成立。
 - 输出指针是 `NULL`，或者指向一个堆上字节块的内部（`DeflateCore.Output`）。
-- 对完成性：流进入结束阶段之后，调用者不再提供新输入。
+- 对完成性：上面给出的 `Completes` 的前提。后续调用的输入只有开始时已有的那段输入；处于 `FINISH_STATE` 的流得不到任何输入。
 
-这些历史是序列目标所允许的历史的一个子集。本页的内容不会扩大任何一条安全结论。
+这些历史是序列目标所允许的历史的一个子集。本页的内容不会扩大任何一条安全结论的范围。
+
+## 建立在这些结论之上的往返
+
+`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）已检查而未登记。它把本页“已完成的编码”这条结论与 `inflate` 的对应结论接在一起。取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史；两者都由调用者的修改和带任意刷新值的调用组成，并且都以一次返回 `Z_STREAM_END` 的调用结束。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。这条定理是有条件的：它假设两段历史都到达 `Z_STREAM_END`。完备性，以及需要它的无条件往返，尚未证明。
 
 ## 通用证明复用了什么
 
@@ -40,7 +46,7 @@
 - 哈希链不变量及其引理（`chains_insert`、`chains_slide`、`chain_ok_of_chains`，`deflate.c.engine.chains.lean`）；
 - `longest_match`（`longest_match_ok`，`deflate.c.engine.lmmain.lean`）；
 - 符号账本（`SymbolLedger`，`deflate.c.engine.symbol-ledger.lean`）；
-- 最小的两个缓冲区的覆盖余量（`tinyOverlayAt_256`、`tinyOverlayAt_128`，`deflate.c.engine.overlay-header-ref.lean`；见[树](trees.md#the-overlay-lemma-f9)）。
+- 最小的两个缓冲区的共用缓冲区余量（`tinyOverlayAt_256`、`tinyOverlayAt_128`，`deflate.c.engine.overlay-header-ref.lean`；见[树](trees.md#the-overlay-lemma-f9)）。
 
 ## 引擎证明中的三个部分是怎样做的
 
@@ -66,10 +72,17 @@ flowchart LR
 | --- | --- | --- |
 | 对任意输出容量（包括零），尾部字节被存入，待输出字节被复制，`wrap` 被取负 | `zlib_trailer_publish` | `deflate.c.engine.trailer-output.lean` |
 | 最后一块排空之后的一次 `Z_FINISH` 调用写出尾部，复制不完时返回 `Z_OK`，否则返回 `Z_STREAM_END` | `public_zlib_finish_ready` | `deflate.c.engine.public-finish.lean` |
-| 尾部已在排队时的一次 `Z_FINISH` 调用把它排空并返回 `Z_STREAM_END`，不写第二个尾部 | `public_finished_pending_drained` | `deflate.c.engine.public-finish-pending.lean` |
-| 待输出字节填满输出的调用，不碰输入就返回 | `public_pending_exhausted` | `deflate.c.engine.public-pending.lean` |
+| 尾部字节仍待输出、而输出空间多于待输出字节时，一次 `Z_FINISH` 调用把它们排空并返回 `Z_STREAM_END`，不写第二个尾部 | `public_finished_pending_drained` | `deflate.c.engine.public-finish-pending.lean` |
+| 在尚未结束的流上，待输出字节填满输出的调用返回 `Z_OK`，不碰输入 | `public_pending_exhausted` | `deflate.c.engine.public-pending.lean` |
 
-`public_zlib_finish_ready` 假设的是各策略在最后一块之后留下的状态：`FINISH_STATE`，没有输入，没有前瞻数据，待输出缓冲为空且游标在开头，缓冲里没有位，输出空间为正。
+这四条定理都假设状态是良构的（`DGood`）、`StreamBuffers` 成立，并且输出指针指向一个堆上字节块的内部。前两条还假设树的状态是良构的（`TreesInvAt`）。它们其余的前提是：
+
+- `zlib_trailer_publish`：`wrap = 1`（尾部还没写的 zlib 流），待输出缓冲为空且游标在开头，缓冲里没有位。
+- `public_zlib_finish_ready`：各策略在最后一块之后留下的状态。也就是 `FINISH_STATE`，`wrap = 1`，没有输入，没有预读数据，待输出缓冲为空且游标在开头，缓冲里没有位，输出空间为正，`last_flush` 在 -2 到 5 之间。
+- `public_finished_pending_drained`：`FINISH_STATE`，`wrap = -1`（尾部已写），没有输入，没有预读数据，至少有一个待输出字节，`avail_out` 大于 `pending`，缓冲里的位少于八个。
+- `public_pending_exhausted`：状态值不是 `FINISH_STATE`，刷新值在 0 到 5 之间，`avail_in` 不为 0 时输入指针不是 `NULL`，`0 < avail_out ≤ pending`，缓冲里的位少于八个。同一模块中的 `public_pending_exhausted_allowed` 还涵盖以 `Z_FINISH` 调用的已结束的流。
+
+后两条定理还带一个描述待输出内容的名字（`PendingBits`：在 `pending_out` 处可读的待输出字节，后接缓冲里的位）；它们的结论说明了这些内容的去向。
 
 ### 在压缩器的堆上建树
 
@@ -77,7 +90,7 @@ flowchart LR
 
 ### 准备阶段与固定形式的选择
 
-级别为正时，`_tr_flush_block` 对每个块都以同样的步骤开头。
+级别为正时，`_tr_flush_block` 对每个块都以同样的步骤开头。图中最后一个结点在它之外：`flush_pending` 由 `deflate.c` 的宏 `FLUSH_BLOCK_ONLY` 在 `_tr_flush_block` 返回之后调用。
 
 ```mermaid
 flowchart LR
@@ -89,9 +102,9 @@ flowchart LR
     costs --> dynamic["动态块"]
     fixed --> payload["块类型位，然后是每个符号"]
     payload --> reset["init_block；最后一块时 bi_windup"]
-    reset --> publish["flush_pending"]
+    reset --> publish["FLUSH_BLOCK_ONLY：flush_pending"]
 ```
 
 `block_prepare_engine`（`deflate.c.engine.block-prepare.lean`）涵盖准备阶段：`data_type` 的检测，它只读字面量的频率并写流的一个字段；三次建树；以及代价的存入。树、工作数组和代价之外的每个字段都不变。
 
-`flush_fixed_prepared` 和 `flush_fixed_final_valid`（`deflate.c.engine.flush-fixed.lean`）随后处理这样的情形：算出的代价选中了固定形式，即静态代价不超过动态代价，并且此前对存储形式的判断没有通过。它们并不把策略强制成 `Z_FIXED`。在这种情形下整个函数运行完毕，它写出的位能解码回已记录的符号。对于在字节边界处结束的最后一块，输出的字节是一个完整的 raw deflate 流。
+`flush_fixed_prepared` 和 `flush_fixed_final_valid`（`deflate.c.engine.flush-fixed.lean`）随后处理这样的情形：算出的代价选中了固定形式，即静态代价不超过动态代价，并且此前对存储形式的判断没有通过。它们并不把策略强制成 `Z_FIXED`。在这种情形下整个函数运行完毕，它写出的位能解码回已记录的符号。对于在字节边界处结束的最后一块，输出的字节是一个完整的裸 deflate 流。

@@ -1147,12 +1147,15 @@ import ZlibF.Proof.«inflate.c.meaning-trip-modes»
 import ZlibF.Proof.«inflate.c.body-dispatch-frame»
 import ZlibF.Proof.«inflate.c.meaning-trip-body»
 import ZlibF.Proof.«inflate.c.meaning-trip-codes»
+import ZlibF.Proof.«inflate.c.meaning-raw-trailer»
 import ZlibF.Proof.«inflate.c.meaning-len-entry»
 import ZlibF.Proof.«inflate.c.meaning-trip-dynamic»
 import ZlibF.Proof.«inflate.c.meaning-call»
 import ZlibF.Proof.«inflate.c.meaning-zlib»
 import ZlibF.Proof.«public-deflate-inflate-roundtrip»
 import ZlibF.Proof.«inflate.c.meaning-call-exit»
+import ZlibF.Proof.«inflate.c.config-source-observer»
+import ZlibF.Proof.«inflate.c.meaning-call-unstaged»
 import ZlibF.Proof.«inflate.c.meaning-call-entry»
 import ZlibF.Proof.«inflate.c.meaning-type-final»
 import ZlibF.Proof.«inflate.c.meaning-gzip-fields-loop»

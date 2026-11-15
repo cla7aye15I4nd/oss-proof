@@ -81,7 +81,7 @@ theorem DefaultDataTrace.protocol {h : Heap} {r : ZStreamRef} {log : DataLog}
 
 /-- After any scoped actual observed history, the next signed request
 returns with accounting and the preserved protocol. No history or callee
-contract is assumed. This structural conclusion does not yet prove the
+contract is assumed. This structural conclusion does not prove the
 complete log's functional correctness. -/
 theorem DefaultDataTrace.next_request {h : Heap} {r : ZStreamRef} {log : DataLog}
     (history : DefaultDataTrace r h log) :

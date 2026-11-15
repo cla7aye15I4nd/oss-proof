@@ -57,8 +57,11 @@ fewer than `2^63` bytes, with its string arguments (`path`, `mode`) NUL-terminat
 
 **Argument conditions (`GzArguments`).** A caller range must lie outside the blocks the handle
 owns (`GzOwned`: the handle record, its path, its message, its buffers and its codec state).
-The string `gzerror` returns is the handle's message, and the entries free that message before
-they touch their buffer; passing it back is a use after free in the C
+The string `gzerror` returns is the handle's message. An entry that clears the error frees that
+message before it touches its buffer: the writing entries do so on every call that passes their
+mode and error test, the reading entries only after a stalled read
+([the table](../../deviations.md#why-the-handles-own-strings-are-excluded)). Passing the string
+back can then be a use after free in the C
 ([deviations](../../deviations.md), rows "Gz caller buffers" and "Gz printf strings").
 
 | Call | Condition |
@@ -82,7 +85,9 @@ the handle's descriptor can still deliver fewer than `2^61` bytes. The premise i
 source that delivers empty gzip members forever keeps one `gzread` running forever in C. It goes
 by call name, so it is asked also where the C returns at once, for example on a writer or for a
 length of zero. `2^61` is the model's figure, not zlib's: it keeps the loop measures below the
-`2^64` iterations of loop fuel ([safety](../safety.md#2-calls-and-sequences)). The no-fault
+`2^64` iterations of loop fuel ([safety](../safety.md#2-calls-and-sequences)). The premise also
+says that the descriptor number is not negative (`HasBudget`); every handle the library returns
+has such a number, because `gzdopen` returns `NULL` for a negative descriptor. The no-fault
 clause and the frame and ledger clause do not use the premise.
 
 **The `gzgetc` macro.** `zlib.h` defines `gzgetc` as a macro, which is how an application

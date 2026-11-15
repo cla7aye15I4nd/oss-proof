@@ -13,8 +13,11 @@ symbol that has not been read yet. The second fact, F9, is the hardest step of t
 `trees.c` has no public function. Its theorems serve the safety of `deflate`
 ([stream compression](deflate.md)). Notes on how the translation follows the C are in the
 [source notes for the compressor](deflate-source-notes.md#treesc). The internal contracts of
-this file are `I-bt-*`, `I-gb-*`, `I-gc-*`, `I-cb-*`, `I-tf-*`, `I-fp-*` and `I-pb-room` in
-[internal contracts](../spec/internal-contracts.md).
+this file are `I-bt-*`, `I-gb-*`, `I-gc-*`, `I-cb-*` and `I-tf-*` in
+[internal contracts](../spec/internal-contracts.md). Two more groups there concern the block
+output. `I-pb-room` is the room that the bit writers need: `put_short` and `send_bits` of this
+file, and the macro `put_byte` of `deflate.h`. `I-fp-*` are the contracts of `flush_pending`,
+a function of `deflate.c` that `FLUSH_BLOCK_ONLY` calls after `_tr_flush_block`.
 
 ## Results
 
@@ -44,12 +47,14 @@ a proof has to cover are kept in the [history](../history/proof-functional-notes
 
 ## Assumptions
 
-`flush_block_only_safe` is an internal theorem. Its premises are facts about the compressor
-state, and the strategies prove them at every flush from the invariant `DInv`
-([stream compression](deflate.md#the-invariant)).
+`flush_block_only_safe` (`ZlibF/Proof/trees.c.universal-flush.lean`) is an internal theorem.
+Its premises are facts about the compressor state, and the strategies prove them at every flush
+from the invariant `DInv` ([stream compression](deflate.md#the-invariant)). The list has every
+premise of the Lean statement.
 
 - The state is well formed (`DGood`, `TreesInvAt`): array sizes, tree descriptors, the block
   that holds `pending_buf` and `sym_buf`.
+- The window pointer is the start of a live byte block.
 - The level is positive. Level 0 does not build trees.
 - **H0, the entry accounting.** `pending = 0`, `pending_out = pending_buf`, and `bi_valid ≤ 7`.
 - The recorded symbols are described by a list (`SymbolLedger`): `sym_next = 3n`, the bytes in
@@ -57,9 +62,25 @@ state, and the strategies prove them at every flush from the invariant `DInv`
   32768, and the frequencies in `dyn_ltree` and `dyn_dtree` count exactly these symbols.
 - The cost fields `opt_len` and `static_len` and the bit-length frequencies are zero
   (`BlockClear`).
-- `-2^62 ≤ block_start ≤ strstart ≤ window_size`.
-- The caller's output pointer is not `NULL`, and the stream's buffers are as
-  `StreamBuffers` says.
+- `-2^62 ≤ block_start ≤ strstart ≤ window_size`. The first bound keeps the block length
+  `strstart - block_start` inside `long`; `block_start` can be negative after a window slide.
+- `StreamBuffers` holds, and `next_out` points into a byte block of the heap or into the
+  `depth` array of a deflate state record. These are the two kinds of writable byte storage in
+  the model; the strategies get the premise from `StreamBuffers` and a `next_out` that is not
+  `NULL` (`output_reference`).
+- **The overlay room of the dynamic form** (`DynamicOverlay`, `trees.c.universal-block.lean`).
+  This premise is a hypothesis, not a fact about sizes. It has these conditions: the trees are
+  built on this state, and building them changes only the tree fields and the two costs; the
+  description of the trees has at most 2283 bits; the bits by which the symbol costs exceed 24
+  bits a symbol, summed over the `n` recorded symbols, satisfy
+  `1000 * bitExcess ≤ 6257 * (n + 3)`; and the costs select the dynamic form. Under them the
+  prepared state has the room `DynamicRoom` of
+  [fact F9](#the-overlay-lemma-f9). The three overlay theorems of the Results table prove it
+  for every `B`. `FlushSafeAt L` (`deflate.c.universal-strategies.lean`) is the statement of
+  `flush_block_only_safe` without this hypothesis, for the states whose `lit_bufsize` is `L`;
+  it is what the strategies use, each for its own buffer size.
+
+The theorem holds for both values of the argument `last`.
 
 H0 holds at every flush. `bi_valid ≤ 7` is the clause `biValid` of the invariant: every path
 that sends bits ends with `bi_flush` or `bi_windup`. `pending = 0` is part of the loop state of
@@ -201,10 +222,10 @@ length between 1 and 15 and loops that many times (`bi_reverse_safe`).
 
 | Function | Why its accesses are in range |
 | --- | --- |
-| `scan_tree` | It runs on the two data trees. It writes a guard value `0xffff` at `tree[max_code + 1]`; that index is at most 286 or 30, inside the arrays of 573 and 61 entries. Real lengths are 0 to 15 and index `bl_tree` at 0 to 18; the guard is compared, never used as an index |
+| `scan_tree` | It runs on the two data trees. It writes a guard value `0xffff` at `tree[max_code + 1]`; that index is at most 286 or 30, inside the arrays of 573 and 61 entries. Real lengths are 0 to 15 and index `bl_tree` at 0 to 18; the guard is compared, never used as an index. `ws_scan_tree` (`trees.c.scan-tree.lean`) proves that the function returns. It assumes lengths of at most 15 up to `max_code` and nothing about the entry at `max_code + 1`. Its conclusion also says that afterwards the tree is the array `scGuard`: the old array with only the length at `max_code + 1` changed, to `0xffff`. `scGuard_lengths` is a lemma about the lengths of that array, not about the function. These two theorems and `send_tree_emit` are not in the registry |
 | `build_bl_tree` | It scans `bl_order[max_blindex]` down from 18 and stops at 3 at the latest |
 | `send_all_trees` | It sends `lcodes - 257`, `dcodes - 1` and `blcodes - 4` in 5, 5 and 4 bits, then `blcodes ≤ 19` three-bit lengths |
-| `send_tree` | It repeats the scan of `scan_tree` and reads the same entries |
+| `send_tree` | It repeats the scan of `scan_tree` and reads the same entries, the guard included. `send_tree_emit` (`trees.c.send-tree.lean`) proves that it returns, for lengths of at most 15 up to `max_code` and any 16-bit value at `max_code + 1`, given fitted codes for the bit-length symbols that occur and room in `pending_buf` for the bits |
 
 ### Bits and pending bytes
 
@@ -343,7 +364,9 @@ An earlier development reached the same bound by other routes; see the
 - `compress_block`: one round per recorded symbol, `sym_next / 3` rounds.
 - `bi_reverse`: `len` rounds, with `1 ≤ len ≤ 15`.
 
-Each bound is at most a few thousand, far below the loop fuel of `2^64`. The safety theorems
+The largest bound is that of `compress_block`: a block has at most `B - 1 ≤ 32767` symbols.
+The bounds of the other loops are a few hundred rounds at most. All are far below the loop
+fuel of `2^64`. The safety theorems
 named above include termination.
 
 ## Where the hard part is
