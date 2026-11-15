@@ -1,9 +1,10 @@
 # Translating C without changing its behaviour
 
 Each C function of the selected source is rewritten by hand as a Lean function, statement by
-statement. This page gives the rule, the four accepted normalisations, and two functions shown
-with their C, so that a reader can compare a translation with its source himself. The kernel
-does not check a translation against C. Review and differential tests do; tests are evidence of
+statement. This page gives the rule, the four accepted normalisations, the forms found in the
+current translations that the four do not cover, and two functions shown with their C, so that a
+reader can compare a translation with its source himself. The kernel does not check a
+translation against C. Review and differential tests do; tests are evidence of
 fidelity, not proof.
 
 [Architecture](architecture.md) defines the types used here (`M`, `Fault`, `cwhile`, pointers).
@@ -25,7 +26,11 @@ in [the accepted normalisations](#the-accepted-normalisations):
 4. A signed operation that a preceding test of the same function keeps in range is written
    with the plain operator.
 
-Anything outside these four is a translation bug.
+By the rule, anything outside these four is a translation bug. The current translations contain
+forms outside the four. They are listed, with file and function, in
+[forms not covered by the four accepted normalisations](#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided).
+The owner has not decided whether each form becomes an accepted normalisation or is changed to
+follow the C.
 
 ## The source that is translated
 
@@ -129,12 +134,16 @@ returns. Nothing reads the field in between. A fault inside the callee ends the 
 
 ## A second example: signed arithmetic and record fields
 
-The start of `inflateReset2` in `zlib/inflate.c`:
+The start of the body of `inflateReset2` in `zlib/inflate.c`, after the two declarations
+`int wrap;` and `struct inflate_state FAR *state;`. `GUNZIP` is defined in this build, so the
+lines between `#ifdef GUNZIP` and `#endif` are compiled:
 
 ```c
+    /* get the state */
     if (inflateStateCheck(strm)) return Z_STREAM_ERROR;
     state = (struct inflate_state FAR *)strm->state;
 
+    /* extract wrap request from windowBits parameter */
     if (windowBits < 0) {
         if (windowBits < -15)
             return Z_STREAM_ERROR;
@@ -143,10 +152,13 @@ The start of `inflateReset2` in `zlib/inflate.c`:
     }
     else {
         wrap = (windowBits >> 4) + 5;
+#ifdef GUNZIP
         if (windowBits < 48)
             windowBits &= 15;
+#endif
     }
 
+    /* set number of window bits, free window if different */
     if (windowBits && (windowBits < 8 || windowBits > 15))
         return Z_STREAM_ERROR;
     if (state->window != Z_NULL && state->wbits != (unsigned)windowBits) {
@@ -270,11 +282,130 @@ Lean's `Int32` subtraction wraps; C's is undefined on overflow. The subtraction 
 A signed operation with no such test uses a checked helper (`chkI32` in the second example).
 The helpers are listed in [architecture](architecture.md#where-the-trusted-semantics-is).
 
+## Forms not covered by the four accepted normalisations; the owner has not decided
+
+The translations in `ZlibF/Zlib/` contain the five forms below. None of the four accepted
+normalisations covers them as worded. They are recorded here as observed facts. Whether each
+form becomes an accepted normalisation or is changed to follow the C is an open decision of the
+owner.
+
+How the list was made. Three searches over `ZlibF/Zlib/`, and each hit compared with the C by
+hand:
+
+- every `>>>` and `<<<` outside the definitions of the checked shift helpers;
+- every C comment whose condition has `&&` or `||` and an operand with `->`, and every Lean line
+  that has `&&` or `||` together with a nested action `(← …)`;
+- every record update that sets two or more fields.
+
+The searches find forms 1, 2 and 4 by their text. Form 3 has no textual mark, so its list gives
+examples and is not complete. Form 5 was found in a file header. No instance below was found to
+compute a different value from the C. That is a reading of each place, not a proved fact.
+
+**1. A value just stored is used again instead of being read back.**
+
+| File, function | C | Lean |
+| --- | --- | --- |
+| `inflate.c.lean`, `inflateSync` | `state->have = 0; syncsearch(&(state->have), buf, len);` | The field is set to 0, and the call is `syncsearch 0 buf len`: the callee gets the literal, not the field read back. The second call of the function does read the field. |
+| `inflate.c.lean`, `inflate_CODELENS` and `inflate_LENLENS`; `infback.c.lean`, `back_TABLE` (two places) | `state->next = state->codes; state->lencode = (const code FAR *)(state->next);` | One update with `next := codesP c.st, lencode := codesP c.st`. `inflate_LENLENS` sets `distcode` the same way, for `state->lencode = state->distcode = (const code FAR *)(state->next)`. |
+| `deflate_strategies.c.lean`, `deflate_stored` | `s->strstart = s->w_size; s->insert = s->strstart;` | One update with `strstart := d.w_size, insert := d.w_size`. |
+
+Normalisation 3 does not cover the last two rows as its example explains it: here a right side
+reads a field that an earlier statement of the group wrote.
+
+**2. An operand is evaluated before the short-circuit test that guards it in C.** C evaluates
+the right operand of `&&` and `||` only when the left operand does not decide. In a Lean `do`
+block, a nested action `(← e)` inside a condition runs before the condition is evaluated, and a
+record loaded by a `let` above the condition is loaded in every case.
+
+| File, function | What runs early |
+| --- | --- |
+| `inflate.c.lean`, `inflateSync` | `ldInflateState st` runs before `z.avail_in == 0 && s.bits < 8`. C reads `state->bits` only when `strm->avail_in == 0`. |
+| `inflate.c.lean`, `inflatePrime` | The state is loaded before the left operand `bits > 16` is tested. C reads `state->bits` only when that operand is false. |
+| `inflate.c.lean`, `inflateValidate` | The state is loaded before `check != 0 && s.wrap != 0` and before the same test of `reqwrap`. |
+| `deflate.c.lean`, `deflate` | The state is loaded before the test that starts with the operand `strm->next_out == Z_NULL`. `RANK flush` and `RANK old_flush`, which are checked signed arithmetic, run before `z.avail_in == 0 &&`. The stream is loaded before `s->status == FINISH_STATE &&`. |
+| `deflate.c.lean`, `deflateParams` | The checked sum `(s->strstart - s->block_start) + s->lookahead` is computed before the left operand `strm->avail_in` is tested. C computes it only when `strm->avail_in` is 0. |
+| `deflate_strategies.c.lean`, `deflate_stored` | The state and `s->strm->avail_in` are loaded before `flush != Z_NO_FLUSH && flush != Z_FINISH &&`. `s->strm->avail_in` is loaded before the left operand `left >= min_block` is tested. |
+| `deflate_strategies.c.lean`, `deflate_fast_body`, `deflate_slow_body` | The state is loaded before `hash_head != NIL &&`. |
+| `trees.c.lean`, `detect_data_type` | `s->dyn_ltree[n].Freq` is read before `(block_mask & 1) &&`. |
+| `gzread.c.lean`, `gz_look` | The gz state is loaded before the left operand `strm->avail_in == 0` is tested. The stream is loaded before `state->junk == 0 &&`. |
+| `gzread.c.lean`, `gz_skip`, `gz_read` | The stream is loaded before `state->eof &&`. In `gz_read` the gz state is loaded before `n == 0 &&` and before `len &&`. |
+
+In every row except three, the early operation stores nothing and is a load of a record that
+the same function has already loaded, directly or through the state check it calls, or a load
+of the stream embedded in the gz state that the function has already loaded. The three
+others can fault in the model on a state for which the C does not evaluate the operand: the two
+rows with checked arithmetic (`deflate`, `deflateParams`) and the array read of
+`detect_data_type`. The accepted safety theorems show that the translation does not fault in
+their domain, so the difference lies outside it.
+
+Where the right operand is a call, or a read through a pointer that the left operand tests, the
+translation keeps the C order with nested `if`s. Examples: `strm == Z_NULL || strm->state ==
+Z_NULL` in `inflateBack`, and `state->skip && gz_zero(state) == -1` in `gzvprintf`.
+
+**3. A field value is taken from a record that was loaded before a store.** Normalisation 2
+covers two reads with no store between them. Here a store lies between the load and the use; it
+writes another field or another record. Examples, not a complete list:
+
+| File, function | What is reused |
+| --- | --- |
+| `deflate.c.lean`, `deflate` | The state `d` and the stream `z` are loaded before `s->last_flush = flush`. `d.pending` and `z.avail_in` are used after that store. |
+| `deflate_strategies.c.lean`, `deflate_stored` | `s->strm` is read once at the start (`let strm := d.strm`) and used for every later `s->strm`, across stores to other fields of `*s`. |
+| `inflate.c.lean`, `inflate_leave` | The stream `z` is loaded after `RESTORE()`. `z.avail_in`, `z.avail_out` and `z.next_out` are used after the call of `updatewindow` and after the store of `total_in` and `total_out`. |
+
+**4. A shift by a constant count is written with the plain operator.** A shift whose count is a
+variable goes through a checked helper (`shl32`, `shr32`, `shl64`, `shr64`, `ishl`, `ushl`,
+`shl1`, `shl1i32`, `shlUs`, `shrUs`). A shift whose count is a literal smaller than the operand
+width is written `>>>` or `<<<`: for example `s.hold >>> 8` for `state->hold >>= 8` in
+`inflateSync`, and `adler >>> 16` in `adler32_z`. For an unsigned operand the two languages agree
+on such a shift. The functions that contain a plain shift, by file:
+
+| File | Functions |
+| --- | --- |
+| `adler32.c.lean` | `adler32_z`, `adler32_combine_` |
+| `compress.c.lean` | `compressBound_z` |
+| `crc32.c.lean` | `byte_swap`, `crc_word`, `crc_word_big`, `multmodp`, `x2nmodp`, `braidTab`, `braidBigTab`, `crcByte`, and the helper `loadWord` |
+| `deflate.c.lean` | `deflatePrime`, `deflate`, `deflateBound_z` |
+| `deflate_base.c.lean` | `d_code`, `tally_dist`, `putShortMSB` |
+| `deflate_strategies.c.lean` | `longest_match`, `deflate_stored` |
+| `gzguts.h.lean` | the helpers `load32`, `store32`, `load64`, `store64` |
+| `gzlib.c.lean` | `gzbuffer` |
+| `gzread.c.lean` | `gz_load`, `gz_look`, `gz_fetch`, `gz_read`, `gzungetc` |
+| `gzwrite.c.lean` | `gz_init`, `gz_comp` |
+| `infback.c.lean` | `back_STORED` |
+| `inffast.c.lean` | `inflate_fast` |
+| `inflate.c.lean` | `inflateReset2`, `inflatePrime`, `ZSWAP32`, `CRC2`, `CRC4`, `inflate_STORED`, `inflate_HCRC`, `inflate_OS`, `inflate_FLAGS`, `inflate_HEAD`, `inflateSync`, `inflateMark` |
+| `inftrees.c.lean` | `buildStep` |
+| `trees.c.lean` | `put_short`, `d_code`, `bi_reverse`, `bi_flush`, `gen_codes`, `_tr_stored_block`, `_tr_align`, `compress_block`, `detect_data_type`, `_tr_flush_block`, `_tr_tally` |
+| `zutil.c.lean` | `zlibCompileFlags` |
+
+Some of these plain shifts are not an unsigned operand with a literal count:
+
+- The operand is signed and the count is a literal: `windowBits >>> 4` in `inflateReset2`,
+  `(s->bi_valid + bits) >> 3` in `deflatePrime`, `n >>= 1` on a `z_off64_t` in `x2nmodp`,
+  `k <<< 3` in `braidTab` and `braidBigTab`, `-(1L << 16)` in `inflateMark`, and the constants
+  `STORED_BLOCK << 1`, `STATIC_TREES << 1` and `DYN_TREES << 1` in `trees.c.lean`. A right shift
+  of a negative value is implementation-defined in C, not undefined; the build's compiler and
+  Lean's `Int32` and `Int64` both shift arithmetically.
+- The count is a variable: `value >>> put` in `deflatePrime` (signed operand; `put` has passed
+  the checked `ishl 1 put` of the same loop pass), and `(1 : Int64) <<< bits.toInt64` in
+  `inflatePrime` (the tests before it leave `1 ≤ bits ≤ 16`, so this one is normalisation 4).
+- The helpers `loadWord`, `load64` and `store64` shift by eight times a loop index below 8.
+
+**5. Locals of `inflate` that C leaves uninitialised start at fixed values.** `IL.init` in
+`inflate.c.lean` gives the locals `copy`, `len`, `from`, `here` and `last` the values 0, NULL
+and a zero `code`. `inflateBack` uses the same record. The rule for an uninitialised integer is
+an arbitrary value, and a theorem must hold for every value. The file header of
+`inflate.c.lean` records this choice. Whether `inflate` can read one of these locals before
+assigning it is **to confirm**.
+
 ## Integer types and arithmetic
 
-Macros are expanded in source order. Reads, writes, branch conditions, early returns and
-short-circuit evaluation are kept. Integer promotions and the usual arithmetic conversions are
-written out: `unsigned short + int` is computed as `int` on this target.
+Macros are expanded in source order. Reads, writes, branch conditions and early returns are
+kept. Short-circuit evaluation is kept where the right operand is a call or a read through a
+pointer that the left operand tests; the places where an operand is evaluated early are form 2
+of [the list above](#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided).
+Integer promotions and the usual arithmetic conversions are written out:
+`unsigned short + int` is computed as `int` on this target.
 
 | C type | Lean type on LP64 |
 | --- | --- |
@@ -286,8 +417,12 @@ written out: `unsigned short + int` is computed as `int` on this target.
 | `long`, `z_off_t`, `z_off64_t` | `Int64` |
 
 Unsigned operations wrap at their width. A signed operation is checked for representability,
-except under normalisation 4. A shift is checked for the operand width and the count, including
-a negative count. Lean's arithmetic is total; that alone never justifies a C operation.
+except under normalisation 4. A shift by a variable count goes through a checked helper. The
+helper for an unsigned operand faults when the count is not below the operand width. The helpers
+for an `int` operand also fault on a negative count, and the left shifts among them on a negative
+operand or a result that does not fit. A shift by a literal count below the operand width is
+written with the plain operator; form 4 of the list above names the places and the exceptions.
+Lean's arithmetic is total; that alone never justifies a C operation.
 
 An enumerator has a `UInt32` name for unsigned state fields and an `Int32` name with the suffix
 `_i` for uses at C type `int`. A macro that collides with an enumerator is named `GZ_<name>`:
