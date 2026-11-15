@@ -47,15 +47,16 @@ these definitions. The two tables list the choices a reviewer has to know.
 ### Memory and library operations
 
 The heap has a separate table for each kind of object. Freed block numbers are never reused.
-An allocator writes at `nextBlk` only if that number is unused in its table; otherwise it faults.
+An allocator writes at `nextBlk` only if that number is unused in every table (`Heap.slotUsed`);
+otherwise it faults.
 `Fresh` protects future numbers. The initial heap must also have unique block numbers across
 tables below `nextBlk`; `Fresh` alone does not express that condition, and `Uniq` does.
 
 | Operation | Model behaviour requiring review |
 | --- | --- |
-| `memcpy`, `zmemcpy` | Reject null pointers even for zero length, overlapping ranges and read-only destinations. Whole-record copies use `copyK`, which rejects copying an object onto itself. A bare load/store record pair does not check overlap. |
-| `memmove` | Checks the same ranges and writability, but permits overlap and copies from the original source. |
-| `memset`, `zmemzero` | `Ptr.fill` counts elements and assigns a value; it represents byte `memset` or zero filling only in the stated uses. `Ptr.memset` replicates a byte. Whole-record zeroing stores the explicit zero record. |
+| `memcpy`, `zmemcpy` | Reject null pointers even for zero length, overlapping ranges, and read-only destinations when the length is not zero. Whole-record copies use `copyK`, which rejects copying an object onto itself. A bare load/store record pair does not check overlap. |
+| `memmove` | Checks the same ranges and writability, with the same exception for a zero length, but permits overlap and copies from the original source. |
+| `memset`, `zmemzero` | `Ptr.fill` counts elements and assigns a value; it rejects a null pointer even for zero length, and a read-only destination when the length is not zero; it represents byte `memset` or zero filling only in the stated uses. `Ptr.memset` replicates a byte. Whole-record zeroing stores the explicit zero record. |
 | `strlen` | Requires a NUL inside the represented block. |
 | Allocation | Fresh integers come from the arbitrary garbage function; fresh pointer fields are NULL. A `malloc` request above `PTRDIFF_MAX` bytes returns NULL. Otherwise the `allocOk` oracle determines failure. Every `malloc` call consumes one oracle number. Automatic local objects bypass that oracle and do not consume an allocator attempt. |
 | `free` | NULL is a no-op. Otherwise the argument must be the start of a live writable allocation of the represented kind. There is no allocation-origin tag. |
@@ -114,7 +115,7 @@ goals are not required for the safety results ([scope](progress.md#scope)).
 | Ordinary byte-format epochs | One initial preset dictionary interprets an ordinary stream | Raw dictionary replacement after decoding starts has a constructor-derived marker. Its exact window effect is a functional statement and is not planned. Sequence safety of those histories is proved: `Goal.inflate_sequence_safety` is registered and covers `inflateSetDictionary` at any point of a history. A single initial dictionary cannot describe the entire advanced history. |
 | Advanced operation combinations | Priming, headers and recovery retain concrete per-entry targets | The target set is not a completed operational refinement of every combination. A proof may not choose or clear history eligibility markers to avoid obligations. |
 | Fast decoder helpers | Local execution and bit-origin lemmas assume raw byte blocks for input and output (distinct, or disjoint ranges of one block), a window block other than the output block, six input bytes, 258 output bytes, entry bits below eight and sane mode | These are internal premises for construction and init invariants to establish. They do not restrict or prove the public inflate goal. |
-| Accepted-window inflate initialization | `inflate_init2_valid_public` assumes `Api.inflWbits wb.toInt = some (wrap, bits)` | It retains the existing initialization contract, including all allocation outcomes, ABI/version refusal and null-stream refusal, for accepted raw/zlib/gzip/automatic window parameters. Invalid window arguments are excluded explicitly; the fixed `Goal.inflateInit2_` and its recorded cleanup-contract issue are unchanged. |
+| Accepted-window inflate initialization | `inflate_init2_valid_public` assumes `Api.inflWbits wb.toInt = some (wrap, bits)` | It retains the existing initialization contract, including all allocation outcomes, ABI/version refusal and null-stream refusal, for accepted raw/zlib/gzip/automatic window parameters. Invalid window arguments are excluded explicitly; the statement of `Goal.inflateInit2_` and its recorded cleanup-contract issue are unchanged. |
 | Gz file data | Functional gz contracts (`FileData`, `CloseContract`, `GzWriterFormat`, read and write values) and the registered goals `Goal.gzoffset64`, `Goal.gzoffset` and `Goal.gzrewind` (premise `RegularOs fs`) are stated for the world in which every OS call behaves as a regular file (`RegularOs`) | They describe regular files. An oracle `lseek` may return without moving the descriptor, as on some Linux devices; there the offset and rewind values do not hold ([regression](../tests/verification/regressions/gz-offset-regular-world.lean)). The safety goals do not use these contracts. The safety of `gzoffset64`, `gzoffset` and `gzrewind` on every world is part of `Goal.gz_sequence_safety`, which is registered and has no `RegularOs` premise. File-system permissions, parent directories, links, ownership and locking are not represented; the oracle's failures cover their effect on each call. |
 
 The premises of the intermediate deflate theorems, and of the local open, close and priming

@@ -1,4 +1,4 @@
-<!-- source-sha256: 898fd213ee5c5f517ef62eb45fb79e1f4a93523493caad8588b754a1f189604b -->
+<!-- source-sha256: 2846046f75c5ea44599852d5d68a419960c154d87d2919bff678baf742d9466d -->
 # 可信基础：内核不检查什么
 
 内核对照 Lean 命题检查证明。这个命题说的是不是选定的 C 源码的真实情况，还取决于下面六项。它们经过审查和测试，但没有被证明；把证明编译通过并不能免除它们。本文档的每一页列出的都是这同样的六项。
@@ -20,17 +20,17 @@
 
 被信任的是 Lean 内核，以及 `propext`、`Classical.choice`、`Quot.sound` 三条公理。声明审计只允许这三条公理。在全新环境中的内核重放检查编译后的证明闭包；执行测试替代不了它。
 
-审计本身也是被信任的代码和数据。`tests/audit/Audit.lean` 读取编译后的模块；它不对源码作繁释，也不运行被审计模块的代码。`scripts/verification.py` 根据 `tests/audit/public-api.json` 决定哪些目标是必需的。各登记表（`tests/audit/theorems.txt`、`goals.txt`、`proved-goals.txt`）和清单由人手工编辑，只由 git 跟踪。`tests/audit/compiler-helpers.txt` 列出编译器生成的辅助声明（例如 `._unsafe_rec`）：审计不对它们作 `unsafe` 和 `partial` 检查，也不把它们当作公理遍历的起点。对它们的[辅助声明审查](history/compiler-helper-review.md)是一份历史记录。
+审计本身也是被信任的代码和数据。`tests/audit/Audit.lean` 读取编译后的模块；它不对源码作繁释，也不运行被审计模块的代码。`scripts/verification.py` 根据 `tests/audit/public-api.json` 决定哪些目标是必需的。各登记表（`tests/audit/theorems.txt`、`goals.txt`、`proved-goals.txt`）和清单文件由人手工编辑，只由 git 跟踪。`tests/audit/compiler-helpers.txt` 列出编译器生成的辅助声明（例如 `._unsafe_rec`）：审计不对它们作 `unsafe` 和 `partial` 检查，也不把它们当作公理遍历的起点。对它们的[辅助声明审查](history/compiler-helper-review.md)是一份历史记录。
 
 ## 2. 运行时与对象结构
 
-`ZlibF/Runtime/` 定义了翻译后的一次运行是什么意思。`Space.lean` 提供对象引用和更新，`Monad.lean` 提供故障、顺序执行和循环，`Ptr.lean` 提供指针算术、读、写和比较。`Libc.lean` 为所需的库操作建模，`Alloc.lean` 导入它。`Schema.lean`、`Tables.lean` 和 `LibcTables.lean` 提供生成的记录、常量、堆表，以及每类结构体的操作。它们的生成器和[运行时结构参考](runtime-schema.md)也属于这一项。
+`ZlibF/Runtime/` 定义了翻译后的一次运行是什么意思。`Space.lean` 提供对象引用和更新，`Monad.lean` 提供故障、顺序执行和循环，`Ptr.lean` 提供指针算术、读、写和比较。`Libc.lean` 为所需的库操作建模，`Alloc.lean` 导入它。`LibcStrings.lean` 提供 `strerror` 返回的文本（`libcErrnoText`）。`Address.lean` 提供字节指针地址的低位，CRC 代码会观察这些位。`Schema.lean`、`Tables.lean` 和 `LibcTables.lean` 提供生成的记录、常量、堆表，以及每类结构体的操作。它们的生成器和[运行时结构参考](runtime-schema.md)也属于这一项。
 
 “不出故障”的定理说的就是这些定义。设想的对应关系是：C 可能到达的每一种未定义行为都成为 `Fault.ub`。无符号算术是模算术。有符号算术、移位和转换由每处翻译加以检查；唯一采纳的例外见第 3 项。这种对应是有限度的，其中四点与每位读者都有关：
 
 - **未初始化的指针。** 模型里没有表示未初始化指针的值：新分配内存中的指针字段读出来是 `NULL`。对它作比较、复制和释放，在模型里可以成功，而 C 对此不作任何保证。所以每个证明都要说明指针字段在被读取之前已被写入；运行时不检查这一点。
 - **未初始化的整数。** 新分配内存中的整数单元取一个任意的值，由任意初值函数按单元固定下来。定理对每个这样的函数都成立。
-- **循环燃料。** 一个循环至多运行 `2^64` 次迭代；耗尽这个上界就是 `Fault.outOfFuel`，终止证明要排除它。有一处陈述允许 `outOfFuel`：gz 安全目标的前一半。它是“每个循环 `2^64` 次迭代以内”的部分正确性，而任何真实的执行都到不了这个次数。随迭代而增长的未定义行为（每次迭代至少加 1 的有符号 64 位计数器）会在 `2^63` 次迭代之内出现，仍在燃料之内，所以不会被 `outOfFuel` 掩盖。
+- **循环燃料。** 一个循环至多运行 `2^64` 次迭代；耗尽这个上界就是 `Fault.outOfFuel`，终止证明要排除它。有一处命题允许 `outOfFuel`：gz 安全目标的前一半。它是“每个循环 `2^64` 次迭代以内”的部分正确性，而任何真实的执行都到不了这个次数。随迭代而增长的未定义行为（每次迭代至少加 1 的有符号 64 位计数器）会在 `2^63` 次迭代之内出现，仍在燃料之内，所以不会被 `outOfFuel` 掩盖。
 - **表的就地更新。** 执行写入的原语就地修改堆中的表（`Space.modify`）。有一条引理（`modify_eq`）说，这等于证明所用的那种函数式更新；对这条引理和表类型的审查属于这一项。
 
 完整的列表在[模型的限制](model-limits.md#how-the-runtime-represents-c)中，分三个小节：“内存与库操作”（`memcpy`、`malloc`、`free` 等被建模的调用检查什么）、“表示上的缺口与证明义务”（指针、数组范围、地址、只读标记）和“表的更新”。
@@ -39,7 +39,7 @@
 
 `ZlibF/Zlib/` 中的翻译是手工逐条语句写成的。内核不检查它与 C 是否对应。审查要核对求值顺序、各处检查、算术、存储的生命周期和效果。不一致就是翻译缺陷：要改正它，并加上一个能抓住它的差分测试，决不能靠修改定理把它藏起来。
 
-翻译与字面上的逐句照搬有四处得到认可的不同，每一处都与 C 等价：内部函数的输出参数按值传入，并作为第二个结果返回；对同一位置的两次读取，中间没有写入时，合为一次读取；对同一记录的字段的连续赋值，合为一次记录更新；有符号运算如果已被同一函数中前面的判断限制在范围之内，就使用普通运算符。[翻译规则](design/translation.md)对每一处各举一例，并说明每个函数需要什么证据。测试清单是 `tests/list.txt`。
+翻译与字面上的逐句照搬有四处被采纳的不同，每一处都与 C 等价：内部函数的输出参数按值传入，并作为第二个结果返回；对同一位置的两次读取，中间没有写入时，合为一次读取；对同一记录的字段的连续赋值，合为一次记录更新；有符号运算如果已被同一函数中前面的判断限制在范围之内，就使用普通运算符。[翻译规则](design/translation.md)对每一处各举一例，并说明每个函数需要什么证据。测试清单是 `tests/list.txt`。
 
 差分测试把有限次的执行与真实的 C 作比较。它们是忠实度的证据，不是证明。尤其是，结果一致加上 sanitizer 没有报告，并不能确立某个 C 表达式的语义有定义。
 
@@ -61,15 +61,15 @@
 
 ## 5. 配置与外部世界
 
-目标是默认 x86_64 Linux/LP64 静态构建和默认分配器。[平台范围](spec/platform.md)要求每个表示出的字节对象小于 `2^63` 字节。这是环境前提；zlib 的证明确立了库的操作保持这个条件。它就是 LP64 的 `PTRDIFF_MAX` 对象大小限制，并在调用历史的每个堆上成立。
+目标是默认 x86_64 Linux/LP64 静态构建和默认分配器。[平台范围](spec/platform.md)要求每个表示出的字节对象小于 `2^63` 字节。这是环境前提：LP64 下单个对象大小的上限 `PTRDIFF_MAX`。库的每次分配都保持它（`ByteObjectsFit.allocB`）。inflate 的历史在每次调用所在的堆上和每次调用者修改之后都陈述它；deflate 的历史只在目标所针对的那次调用上陈述它。各目标在哪里陈述它，见[偏离记录](deviations.md#build-and-platform)。
 
 分配失败仍在范围内。其他构建配置和自定义分配器需要各自的对应关系论证；它们不在计划内（[范围](progress.md#scope)）。
 
 **分配大小。** 对超过 `PTRDIFF_MAX`（`2^63 − 1` 字节）的请求，`malloc` 无论分配预言如何都返回 NULL。该调用仍消耗一个预言编号，之后的堆与预言失败之后的堆相同：除请求大小外，调用者无法区分两者。低于该上限时由预言决定。这是 glibc 2.43 的行为（`malloc/malloc.c`：`_int_malloc` 与 `__libc_realloc` 检查 `bytes > PTRDIFF_MAX`，返回 NULL 并设置 `ENOMEM`；`__libc_calloc` 先拒绝溢出 `size_t` 的乘积）。`malloc` 的 `errno` 不建模；zlib 没有路径在分配之后读取它。只有两个调用点可能发出这样的请求（`gz_open` 的路径复制和 `gz_error` 的消息）；其他分配的大小是 `unsigned` 或固定值。因此每次库分配都使每个字节对象保持在 `2^63` 字节以下（`ByteObjectsFit.allocB`），平台前提只对调用者存储才需要。
 
-**格式化。** `GzFs.snprintf` 模拟 `gzlib.c` 的三个固定格式调用（`"%s%s%s"`、`"%s"`、`"<fd:%d>"`）。它在 `[dst, dst + size)` 内写入完整输出的至多 `size - 1` 个字节和一个 NUL，返回完整长度；超过 `INT_MAX` 时返回 -1。在 glibc 2.43 中，对 `char *` 的 `%s` 和 `%d` 这是唯一的失败（`stdio-common/vfprintf-process-arg.c` 的 `form_string` 与 `form_integer`；`stdio-common/Xprintf_buffer_done.c`，超过 `INT_MAX` 时为 `EOVERFLOW`）。它的 `errno` 不建模，这是明示的限制。在系统调用再次设置 `errno` 之前，没有调用者读取它：模型只在 `zstrerror` 和 `getErrno` 中读取 `errno`，位于 `gzwrite.c.lean`（`gz_comp`，在以 `setErrno 0` 开始的迭代中 `fsWrite` 失败之后）和 `gzread.c.lean`（`gz_load`，在 `fsRead` 失败之后；`gzread`，当 `again` 由同一次调用中的 `gz_load` 设置时）。
+**格式化。** `GzFs.snprintf` 模拟 `gzlib.c` 的三个固定格式调用（`"%s%s%s"`、`"%s"`、`"<fd:%d>"`）。它在 `[dst, dst + size)` 内写入完整输出的至多 `size - 1` 个字节和一个 NUL，返回完整长度；超过 `INT_MAX` 时返回 -1。在 glibc 2.43 中，对带 `char *` 参数的 `%s`，以及对 `%d`，这是唯一的失败情形（`stdio-common/vfprintf-process-arg.c` 的 `form_string` 与 `form_integer`；`stdio-common/Xprintf_buffer_done.c`，超过 `INT_MAX` 时为 `EOVERFLOW`）。它的 `errno` 不建模，这是明示的限制。在系统调用再次设置 `errno` 之前，没有调用者读取它：模型只在 `zstrerror` 和 `getErrno` 中读取 `errno`，位于 `gzwrite.c.lean`（`gz_comp`，在以 `setErrno 0` 开始的迭代中 `fsWrite` 失败之后）和 `gzread.c.lean`（`gz_load`，在 `fsRead` 失败之后；`gzread`，当 `again` 由同一次调用中的 `gz_load` 设置时）。
 
-`GzFs.vsnprintf` 模拟 `gzvprintf` 以调用者格式进行的调用。任何一次调用都可能经由世界预言 `printfOk` 失败。失败的调用返回 -1，设置非零的 `errno`（`printfErrno`；超过 `INT_MAX` 时为 `EOVERFLOW`），并在 `[dst, dst + size)` 内留下任意字节（`printfJunk`）和一个 NUL。glibc 在每条路径上都写入终止符（`libio/vsnprintf.c`，`__printf_buffer_snprintf_init` 与 `__printf_buffer_snprintf_done`），且不在缓冲区之外写入。预言在两个方向上都成立：它可以在 glibc 确定成功之处失败，这一放宽对安全性无害；它也可以在 glibc 确定失败之处成功，例如带无效宽字符的 `%lc`，但 `%lc` 未被表示，会故障。因此以 `printfOk` 为条件的目标子句描述的是模型分支，而不是断言 glibc 对该格式成功。格式化器在查询预言之前运行，所以未表示的转换会故障：这是保守的。预言字段的默认值（所有调用成功、空的残留字节、`EOVERFLOW`）只为可执行驱动程序而设，对证明没有意义。每个目标都对所有世界量化。
+`GzFs.vsnprintf` 模拟 `gzvprintf` 以调用者格式进行的调用。任何一次调用都可能经由世界预言 `printfOk` 失败。失败的调用返回 -1，设置非零的 `errno`（`printfErrno`；超过 `INT_MAX` 时为 `EOVERFLOW`），并在 `[dst, dst + size)` 内留下任意字节（`printfJunk`）和一个 NUL。glibc 在每条路径上都写入终止符（`libio/vsnprintf.c`，`__printf_buffer_snprintf_init` 与 `__printf_buffer_snprintf_done`），且不在缓冲区之外写入。预言在两个方向上都可能与 glibc 不同：它可以在 glibc 确定成功之处失败，这一放宽对安全性无害；它也可以在 glibc 确定失败之处成功，例如带无效宽字符的 `%lc`，但 `%lc` 未被表示，会故障。因此以 `printfOk` 为条件的目标子句描述的是模型分支，而不是断言 glibc 对该格式成功。格式化器在查询预言之前运行，所以未表示的转换会故障：这是保守的。预言字段的默认值（所有调用成功、空的残留字节、`EOVERFLOW`）只为可执行驱动程序而设，对证明没有意义。每个目标都对所有世界量化。
 
 **gz 文件世界。** `ZlibF/Zlib/gzfs.lean` 有两部分。普通文件部分表示扁平路径、普通文件、目录标记、描述符位置和文件大小上限。系统调用预言（`Fs` 的字段，由调用计数器 `nos` 编号）为每次 `read`、`write`、`lseek`、`close` 和 `open` 调用决定：按普通文件行为、以所选 errno 失败，或返回所选结果。每个预言值都被映射到该调用的 POSIX 契约之内：`read` 返回 -1 或至多请求的字节数；非空 `write` 返回 -1 或 1 到请求字节数之间的值；`lseek` 返回 -1 或 `[0, 2^63 - 1]` 中的值，可能与之后的读取无关；`close` 返回 0 或 -1，两种情况下都释放描述符；`open` 返回 -1 或任一此前未打开且小于 `2^31` 的描述符编号；当 `2^31` 以下没有空闲描述符时，以 `EMFILE` 失败。失败设置非零 errno，成功也可能改变 errno。安全目标对每个世界量化，因此对每个预言量化。
 
@@ -85,6 +85,6 @@ gz 文件世界和格式化模型是额外的可信语义。其支持的文件�
 
 ## 6. 命题与权威
 
-证明所确立的规格可能是不完整的，甚至是错的。所以命题本身要经过审查：把每个目标、它的前置条件和它提到的定义，与 [API](spec/api/README.md)、[格式](spec/format/README.md)和选定的 C 作比较。审查还要确认 init 建立了不变量，并且调用者的定义域没有被缩小。目标对调用者的要求多于 `zlib.h` 的地方，都列在[偏离记录](deviations.md)中。
+证明所确立的规格可能是不完整的，甚至是错的。所以命题本身要经过审查：把每个目标、它的前置条件和它提到的定义，与 [API](spec/api/README.md)、[格式](spec/format/README.md)和选定的 C 作比较。审查还要确认初始化建立了不变量，并且调用者的定义域没有被缩小。目标对调用者的要求多于 `zlib.h` 的地方，都列在[偏离记录](deviations.md)中。
 
 工具并不固定定义和定理的类型：它们由 git 跟踪，含义是否正确由审查决定。验收套件仍然防得住什么，见[验证策略](anti-cheating.md)。当前的结论和未完成的工作只记在[进度](progress.md)中。

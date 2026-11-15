@@ -42,8 +42,10 @@ auxiliary declarations (such as `._unsafe_rec`) that the audit exempts from its 
 `ZlibF/Runtime/` defines what a translated run means. `Space.lean` supplies object references
 and updates. `Monad.lean` supplies faults, sequencing and loops. `Ptr.lean` supplies pointer
 arithmetic, loads, stores and comparisons. `Libc.lean` models the required library operations;
-`Alloc.lean` imports it. `Schema.lean`, `Tables.lean` and `LibcTables.lean` supply generated
-records, constants, heap tables and operations for each struct kind. Their generator and the
+`Alloc.lean` imports it. `LibcStrings.lean` supplies the text that `strerror` returns
+(`libcErrnoText`). `Address.lean` supplies the low address bits of a byte pointer, which the CRC
+code observes. `Schema.lean`, `Tables.lean` and `LibcTables.lean` supply generated records,
+constants, heap tables and operations for each struct kind. Their generator and the
 [runtime schema](runtime-schema.md) are part of this item.
 
 A no-fault theorem is a statement about these definitions. The intended correspondence is that
@@ -117,9 +119,11 @@ Historical proposals are not part of the verified source merely because notes me
 
 The target is the default x86_64 Linux/LP64 static build with the default allocator.
 The [platform scope](spec/platform.md) requires each represented byte
-object to have fewer than `2^63` bytes. This is an environment premise; the zlib
-proofs establish that the library's operations preserve it. It is the LP64 `PTRDIFF_MAX` object-size
-limit, and it holds on every heap of a call history.
+object to have fewer than `2^63` bytes. This is an environment premise: the LP64 `PTRDIFF_MAX`
+limit on the size of one object. Every library allocation keeps it (`ByteObjectsFit.allocB`). An
+inflate history states it on every heap on which a call runs and after every caller edit; a
+deflate history states it only at the call a goal is about.
+[Deviations](deviations.md#build-and-platform) lists where each goal states it.
 Allocation failure remains in scope. Other build configurations and custom allocators would
 need their own correspondence arguments; they are not planned ([scope](progress.md#scope)).
 
