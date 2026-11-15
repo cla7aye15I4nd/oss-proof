@@ -1,7 +1,7 @@
 <!-- source-sha256: 5c142fae4071144b457186bc724ab6daced2aef1940b2dd8c7a36aca9b205e60 -->
 # `compress*` 的安全性
 
-`compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这条陈述、它的前提和证明的轮廓。
+`compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
 
 源文件：`compress.c`。[缓冲区工具函数](buffers.md)一页解读这段 C。术语见[术语表](../glossary.md)。
 
@@ -14,7 +14,7 @@
 | `Goal.compress_z_safety` | `compress_z_safety` | 同上 |
 | `Goal.compress_safety` | `compress_safety` | 同上 |
 
-这四个都是安全结果，都是必需的。每个定理证明的正是所陈述的目标，没有附加假设；下面的前提是目标陈述的一部分。这些定理[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
+这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
 
 每个目标都是 `CompressorSafety`（`ZlibF/Spec/Public/Utilities.lean`）的一个实例。对满足下列前提的每个输入：
 
@@ -24,7 +24,7 @@
 - 每次分配在每条路径上都被释放；
 - `Z_MEM_ERROR` 只在某次分配失败之后出现。
 
-关于写出的字节，这里什么都没有说。那是功能契约 `CompressorContract`，不是安全结果所必需的。
+关于写出的字节，这里什么都没有说。那是功能契约 `CompressorContract`，不是安全结论所必需的。
 
 ## 假设了什么
 
@@ -32,8 +32,8 @@
 | --- | --- |
 | `Fresh`、`Uniq`、`LibraryGlobals` | 调用者的堆是良构的，静态表是初始的那些表。 |
 | `ByteObjectsFit` | 每个字节对象少于 `2^63` 个字节。 |
-| `CompressArguments` | 参数要么被 C 自己的检查拒绝，要么源缓冲区可读、目的缓冲区在其容量内可写，并且两者不重叠。 |
-| 长度单元 | `compress` 和 `compress2` 取非 NULL 的 `destLen`。`_z` 形式接受 `NULL` 并拒绝它。在翻译中，这个单元是一个传入的值和一个返回的值，不是内存。所以与源缓冲区或目的缓冲区重叠的单元无法表达，这样的调用在定理之外。 |
+| `CompressArguments` | 参数要么被 C 自己的检查拒绝，要么源缓冲区可读、目的缓冲区在其容量范围内可写，并且两者不重叠。 |
+| 长度单元 | `compress` 和 `compress2` 要求 `destLen` 非 `NULL`。`_z` 形式允许传入 `NULL`，并以错误返回拒绝。在翻译中，这个单元是一个传入的值和一个返回的值，不是内存。所以与源缓冲区或目的缓冲区重叠的单元无法表达，这样的调用在定理之外。 |
 
 源缓冲区与目的缓冲区的分离，以及对长度单元的限制，在[偏离记录](../deviations.md)中有一行：“整缓冲区压缩”。
 
@@ -52,7 +52,7 @@ flowchart TD
 
 `CState` 是两次迭代之间的状态：流不变量、可达性、已消耗输入和已产生输出的计数，以及这样一个事实：堆就是调用者的堆，只是目的缓冲区里写入了到此为止的输出。
 
-证明对它所驱动的流的历史是泛型的（`CompressReach`）。`compress2_z_safety_gen` 取关于这些历史的两个事实：
+证明不依赖它所驱动的流有哪一类历史（`CompressReach`），对任意一类都适用。`compress2_z_safety_gen` 以关于这些历史的两个事实为前提：
 
 - 一次 `deflate` 调用的完整契约 `Goal.deflate`，限制在这些历史上；
 - `DeflateLoopFacts`，即 `Goal.deflate` 没有陈述的、关于一次 `deflate` 调用的四个事实：
@@ -61,7 +61,7 @@ flowchart TD
   - 每次调用都保持 gzip 头指针；
   - 每次调用都保持所拥有的块。
 
-`compress2_z` 以 `memLevel` 8 初始化它的流。所以已登记的定理用 `DeflateReachMid` 实例化这个泛型证明：这些历史以 `memLevel ≥ 3` 的 `deflateInit2_` 开始，之后只重新装填流并调用 `deflate`。沿着这些历史有 `lit_bufsize ≥ 512`，两个事实都无需假设即成立（`goalDeflate_mid`、`loopFacts_mid`）。`memLevel` 为 1 或 2 的历史还需要一个关于压缩器共用的待输出与符号缓冲区的界，见 [trees](trees.md#the-overlay-lemma-f9)。这里的定理不使用它。
+`compress2_z` 以 `memLevel` 8 初始化它的流。所以已登记的定理用 `DeflateReachMid` 实例化这个通用证明：这些历史以 `memLevel ≥ 3` 的 `deflateInit2_` 开始，之后只重新装填流并调用 `deflate`。沿着这些历史有 `lit_bufsize ≥ 512`，两个事实都无需假设即成立（`goalDeflate_mid`、`loopFacts_mid`）。`memLevel` 为 1 或 2 的历史还需要一个关于压缩器共用的待输出与符号缓冲区的界，见[树](trees.md#the-overlay-lemma-f9)。这里的定理不使用它。
 
 `deflateInit_` 和 `deflateEnd` 通过它们各自的定理使用（`deflateInit_proof`、`deflateEnd_safe`、`deflate_end_public`）。
 
@@ -71,6 +71,6 @@ flowchart TD
 
 ## 上界函数
 
-`compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，清单 `tests/audit/public-api.json` 把这两个目标用作它们的安全目标。定理是 `compressBound` 和 `compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）。
+`compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，清单文件 `tests/audit/public-api.json` 把这两个目标用作它们的安全目标。定理是 `compressBound` 和 `compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）。
 
-压缩器的每个输出是否都不超过上界，是另一个单独的功能问题。它不是安全结果所必需的；见[缓冲区工具函数](buffers.md)。
+压缩器的每个输出是否都不超过上界，是另一个单独的功能问题。它不是安全结论所必需的；见[缓冲区工具函数](buffers.md)。

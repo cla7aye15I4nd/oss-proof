@@ -29,8 +29,11 @@ The goals are instances of `UncompressCountedSafe` and `UncompressSingleSafe`
 - the call runs without undefined behaviour and returns. In Lean: running the translated
   function on the heap gives `.ok` with a return code and a new heap, not a fault;
 - an argument error returns `Z_STREAM_ERROR` and changes nothing;
-- otherwise the call writes at most `capacity` bytes into the output buffer and the length
-  cells, and nothing else;
+- otherwise the call writes at most `capacity` bytes into the output buffer, writes the length
+  cells, and writes nothing else. The destination-length cell then holds the number of bytes
+  written. The goal admits one exception: `Z_MEM_ERROR` with nothing written and both cells
+  holding the values they had. That is the return after a failed `inflateInit`, where the C
+  does not store through the cells;
 - every allocation is freed on every return path;
 - the code is `Z_OK`, `Z_BUF_ERROR`, `Z_DATA_ERROR` or `Z_MEM_ERROR`, and `Z_MEM_ERROR` comes
   only after an allocation failed.
@@ -44,8 +47,13 @@ which is not required for the safety results.
 | --- | --- |
 | `Fresh`, `Uniq`, `LibraryGlobals` | The caller heap is well formed and the static tables are the initial ones. |
 | `ByteObjectsFit` | Every byte object has fewer than `2^63` bytes. |
-| Readable source, writable destination, length cells | Each non-null pointer names a range or an eight-byte cell of the stated size. `uncompress` and `uncompress2` take non-null cells; the `_z` forms admit `NULL` and refuse it. |
-| `UtilitySeparation` | Source, destination, the destination-length cell and the source-length cell are pairwise separate. |
+| Length cells (`LengthCell`) | Each non-`NULL` length pointer names eight readable and writable bytes. They hold the length in little-endian order: the capacity in `*destLen`, the source length in `*sourceLen`. `uncompress` and `uncompress2` take non-`NULL` cells; the `_z` forms admit `NULL` and refuse it. `uncompress` and `uncompress_z` pass the source length as a value and have no source-length cell. |
+| Readable source, writable destination | A non-`NULL` `source` is readable for the source length. A non-`NULL` `dest` is writable for the capacity. |
+| Separation, `uncompress2` and `uncompress2_z` (`UtilitySeparation`) | Source, destination, the destination-length cell and the source-length cell are pairwise separate: six conditions. |
+| Separation, `uncompress` and `uncompress_z` | Three `Separate` premises of `UncompressSingleSafe`: source and destination; the destination-length cell and the destination; the destination-length cell and the source. |
+
+Two ranges are separate (`Separate`, `ZlibF/Spec/Public/Memory.lean`) when one of them is empty,
+or they lie in different blocks, or their byte ranges in one block do not overlap.
 
 The separation has a row in [deviations](../deviations.md), "Counted decompression".
 
@@ -56,7 +64,7 @@ flowchart TD
   init["start_state: inflateInit2_ on the local stream"] --> loop
   loop["loop_run_safe: do ... while (err == Z_OK)"] --> call
   call["call_phase_safe: one inflate call (inflate_public)"] --> loop
-  loop --> epi["epilogue: store the counts, inflateEnd, free the stream and the reserved byte"]
+  loop --> epi["epilogue: store the counts, inflateEnd, free the stream and the dummy output block"]
   epi --> z["uncompress2_z_with_safe"]
   z --> w2["counted2_of_z: uncompress2"]
   z --> w1["single_of_counted: uncompress_z, uncompress"]
@@ -84,7 +92,8 @@ The measure is the unread source plus the unfilled room:
 `avail_in + len + avail_out + left`, where `len` and `left` are the C locals: the source bytes
 and the destination room not yet given to the stream. The refills move bytes between the stream fields and the
 remaining lengths, so they keep it. Each call that returns `Z_OK` consumes input or writes
-output, by the progress clause of `Goal.inflate`: `rc = Z_OK → used ≠ 0 ∨ out ≠ []`. So the
+output. This is the progress clause of `Goal.inflate`,
+`rc = Z_OK → (used ≠ 0 ∨ out ≠ []) ∧ flush ≠ Z_FINISH`; the proof uses its first part. So the
 measure falls. At the start it is at most `sourceLen + destLen`, which is below `2^64`, the loop
 fuel.
 The rule is `cdoWhile_decreasing`.
