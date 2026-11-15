@@ -1,4 +1,4 @@
-<!-- source-sha256: ac234faaa85591fb4756ff8372b213e2e5135a58f06541bc17822b21573e78a6 -->
+<!-- source-sha256: d9f7afa3a7dddeb5867e81a79d86ddf6271f32ee8502cfdacaa062b9c2b7d02f -->
 
 # 4. 格式与完整性检查
 
@@ -10,7 +10,7 @@
 
 两个标记说明一句话与证明的关系：
 
-- **安全：** 已登记的安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
+- **安全：** 安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
 - **功能：** 关于字节或格式的性质。安全结论不要求它。
 
 [章末的表](#what-the-safety-theorems-say-about-this-chapter)列出本章用到的每个函数的安全目标。
@@ -184,10 +184,10 @@ sequenceDiagram
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都已登记：`tests/audit/theorems.txt` 列有一个类型恰好是该目标的定理，
+下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
 `tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)给出验收套件全部通过的提交。
+[进度页](../progress.md#scope)记录每项结论的层级。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |

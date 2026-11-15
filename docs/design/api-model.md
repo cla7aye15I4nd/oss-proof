@@ -14,12 +14,12 @@ already proved about them stay ([scope](../progress.md#scope)).
 | Concrete goal | `ZlibF/Spec/Safety/`, `ZlibF/Spec/Functional/`, `ZlibF/Spec/Public/` | A translated call run on the runtime heap, and its effects. |
 
 A theorem about a model relation is not a theorem about a C function. For example,
-`ZlibF.Spec.Api.Goal.roundtrip` is a registered statement about the model only. The planned round
+`ZlibF.Spec.Api.Goal.roundtrip` is a proved statement about the model only. The planned round
 trip of the default zlib stream is a different statement: it is about runs of the translated
 `deflate` and `inflate`. Its conditional form, `deflate_inflate_roundtrip`
-(`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), is checked, not registered and not
-accepted; completeness and the unconditional form are open
-([architecture](architecture.md#the-layers)).
+(`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), is stated in
+[architecture](architecture.md#the-layers); completeness and the unconditional form come after
+it ([progress, Scope](../progress.md#scope) says how far the work is).
 
 To say something about the C, a functional claim needs three connections:
 

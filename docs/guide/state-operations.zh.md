@@ -1,4 +1,4 @@
-<!-- source-sha256: 634190950cde6dd3ee84b75a0bb41655a81a64a614e7ae7d8041f665b89e5644 -->
+<!-- source-sha256: 860aefd350713dab582f01b84cb28c899818a59d21dff7c82819a2dd64fade0e -->
 
 # 5. 状态操作
 
@@ -11,7 +11,7 @@ Reset 满足前一种需要，Copy 满足后一种。本章讨论它们，以及
 
 两个标记说明一句话与证明的关系：
 
-- **安全：** 已登记的安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
+- **安全：** 安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
 - **功能：** 关于字节或格式的性质。安全结论不要求它。
 
 [章末的表](#what-the-safety-theorems-say-about-this-chapter)列出本章用到的每个函数的安全目标。
@@ -189,10 +189,10 @@ C 并不强制两个 Prime 函数的每一条时机规则。违反这类规则�
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都已登记：`tests/audit/theorems.txt` 列有一个类型恰好是该目标的定理，
+下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
 `tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)给出验收套件全部通过的提交。
+[进度页](../progress.md#scope)记录每项结论的层级。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |

@@ -9,7 +9,7 @@ It explains what zlib does. It proves nothing.
 
 Two markers say how a sentence relates to the proofs:
 
-- **Safety:** an obligation that the registered safety theorems cover: no undefined behaviour,
+- **Safety:** an obligation that the safety theorems cover: no undefined behaviour,
   no memory error, no leak, and termination ([safety](../spec/safety.md)).
 - **Functional:** a property of the bytes or of the format. It is not required for the safety
   results.
@@ -205,11 +205,11 @@ stream's storage owned and bounded. See [Reset](state-operations.md); the
 
 ## What the safety theorems say about this chapter
 
-Each goal below is registered: a theorem of exactly its type is listed in
-`tests/audit/theorems.txt`, and the goal in `tests/audit/proved-goals.txt`. The full name of a
+Each goal below has a theorem of exactly its type, listed in
+`tests/audit/theorems.txt`; the goal is listed in `tests/audit/proved-goals.txt`. The full name of a
 goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what the goals state,
 [deviations](../deviations.md) lists every premise narrower than `zlib.h`, and
-[progress](../progress.md#scope) names the commit on which the acceptance suite is green.
+[progress](../progress.md#scope) records the level of each result.
 
 | Function | Safety goal | Contract |
 | --- | --- | --- |

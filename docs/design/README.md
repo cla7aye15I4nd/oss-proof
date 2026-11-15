@@ -8,8 +8,9 @@ status.
 The required results are safety results. Architecture, translation and external I/O describe
 what every safety proof rests on. The two API-model pages describe functional material, which is
 kept and is not required for the safety results. One functional result is planned after the
-safety results, the round trip of the default zlib stream: its conditional form is checked, and
-completeness and the unconditional form are open ([architecture](architecture.md#the-layers)).
+safety results, the round trip of the default zlib stream: first its conditional form, then
+completeness and the unconditional form ([architecture](architecture.md#the-layers) states the
+conditional theorem; [progress, Scope](../progress.md#scope) says how far the work is).
 
 Start with [architecture](architecture.md). Then use the page that answers your question:
 

@@ -31,10 +31,10 @@ name; it also lists the statements about internal functions and about heap-free 
 each in the namespace of its own module.
 
 The round trip of the default zlib stream has no goal definition in these directories yet. Its
-conditional form is a checked theorem, `deflate_inflate_roundtrip` in
-`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`: it is not registered and not accepted.
-Completeness and the unconditional round trip are open
-([architecture](architecture.md#the-layers) states the theorem).
+conditional form is a theorem, `deflate_inflate_roundtrip` in
+`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`. Completeness and the unconditional round
+trip come after it ([architecture](architecture.md#the-layers) states the theorem;
+[progress, Scope](../progress.md#scope) says how far the work is).
 
 The functional specifications are still built. A functional goal that has a
 [registered](../checking/README.md) theorem is audited in full. A functional goal without one is
@@ -127,8 +127,9 @@ and the manifest lists it under `not_planned`.
 The acceptance audit (`scripts/verification.py`) reads the required set from the manifest: the
 safety goal of every documented function of the target build, plus the entries of
 `safety_goals` and `nonvacuity_goals`. Each required goal needs a registered theorem of exactly
-its type, with allowed axioms only. The list `open_safety` of the manifest is empty, so a missing
-theorem fails the audit. [Goals](../checking/goals.md) gives the registries, the required set
+its type, with allowed axioms only. A required goal with no theorem must be named in the list
+`open_safety` of the manifest, or the audit fails ([progress](../progress.md#scope) says whether
+any is). [Goals](../checking/goals.md) gives the registries, the required set
 and the [rules against silent removal](../checking/goals.md#shrink-only-rules) in full.
 
 ## What is not separated

@@ -59,7 +59,7 @@ above, which asks for a sanitizer report. No patch is applied for either.
 Each finding page says what the case means for the functional statements. According to them,
 `DeflateCompletes` is false as stated for the first case, because it quantifies over every
 strategy; and the value goals `Goal.deflateBound` and `Goal.deflateBound_z` are false for the two
-lengths of the second. Neither value goal has a registered theorem
+lengths of the second. Neither value goal has a theorem
 (`tests/audit/proved-goals.txt`).
 
 ## A gap found in the project's own patch

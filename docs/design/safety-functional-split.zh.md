@@ -1,4 +1,4 @@
-<!-- source-sha256: 666b7f47057890a2436d9e5d8e2d593e2823dc99c81fc550b0b5c29ee0fb4ec8 -->
+<!-- source-sha256: 755f446311c856fe854ad07fa13c2b96bc6bbd740cd05d1b76d111ee055fb4f6 -->
 # 规格的布局：安全与功能
 
 必需的目标是安全目标。它们与功能目标分开存放，读者不读任何功能规格，就能看到全部必需的目标。本页说明每一类目标放在哪里，哪条导入规则把它们分开，以及这条规则怎样检查。形成这个布局的计划，连同它的步骤和状态，在一个[历史页面](../history/safety-functional-split-plan.md)中。
@@ -15,7 +15,7 @@
 
 `Spec/Functional/` 下有两组功能目标用的是别的命名空间。第一组是 `ZlibF.Spec.Api.Goal.<name>`，例如 `ZlibF.Spec.Api.Goal.roundtrip`。`tests/audit/goals.txt` 列出其中 20 个目标，都定义在 `Functional/Api/` 下：`Goals.lean` 里 17 个，`Inflate.lean` 里 1 个，`Concrete.lean` 里 2 个。`Concrete.lean` 里的两个（`compress_bound_value`、`compress2_z_first_alloc_failure`）说的是翻译后的 `compress.c`；其余 18 个是关于 API 模型的命题，不是关于翻译后的 C 的命题。第二组是记号格式的目标 `ZlibF.Spec.Token.Goal.<name>`（`Functional/Format/Token.lean`），它们是关于格式模型的命题。`tests/audit/goals.txt` 按完整名字列出每个目标；它还列出关于内部函数和关于不涉及堆的数学的命题，这些命题各自在所属模块的命名空间里。
 
-默认 zlib 流的往返在这些目录里还没有目标定义。它的条件形式是一条已检查的定理，即 `ZlibF/Proof/public-deflate-inflate-roundtrip.lean` 中的 `deflate_inflate_roundtrip`：它尚未登记，也未验收。完备性和无条件的往返仍未证明（定理的内容见[架构](architecture.md#the-layers)）。
+默认 zlib 流的往返在这些目录里还没有目标定义。它的条件形式是一条定理，即 `ZlibF/Proof/public-deflate-inflate-roundtrip.lean` 中的 `deflate_inflate_roundtrip`。完备性和无条件的往返排在它之后（定理的内容见[架构](architecture.md#the-layers)；这项工作进行到哪一步，见[进度，范围](../progress.md#scope)）。
 
 功能规格仍然参加构建。有[已登记](../checking/README.md)定理的功能目标接受完整的审计。没有已登记定理的功能目标报告为未证明，不使任何检查失败。形成这个布局时，没有削弱或删除任何命题：完整契约 `Goal.X` 是 `X` 的功能目标，安全目标写在它旁边。
 
@@ -62,7 +62,7 @@ flowchart TD
 
 ## 必需集合怎样检查
 
-验收审计（`scripts/verification.py`）从清单文件读出必需集合：目标构建中每个有文档的函数的安全目标，加上 `safety_goals` 和 `nonvacuity_goals` 的各项。每个必需的目标都需要一个类型恰好是它的已登记定理，并且只用允许的公理。清单文件的 `open_safety` 列表为空，所以缺少定理会使审计失败。各登记表、必需集合和[防止悄悄删除的规则](../checking/goals.md#shrink-only-rules)，完整内容见[目标](../checking/goals.md)。
+验收审计（`scripts/verification.py`）从清单文件读出必需集合：目标构建中每个有文档的函数的安全目标，加上 `safety_goals` 和 `nonvacuity_goals` 的各项。每个必需的目标都需要一个类型恰好是它的已登记定理，并且只用允许的公理。没有定理的必需目标必须写在清单文件的 `open_safety` 列表里，否则审计失败（有没有这样的目标，见[进度](../progress.md#scope)）。各登记表、必需集合和[防止悄悄删除的规则](../checking/goals.md#shrink-only-rules)，完整内容见[目标](../checking/goals.md)。
 
 ## 没有分开的部分
 

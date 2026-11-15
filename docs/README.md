@@ -10,10 +10,10 @@ can be behind `dev`. Every page ends with the commit and date it was built from.
 
 ## Where to start
 
-- [Overview](overview.md): what is proved, what is assumed, what is open, and how the proof is
-  built.
-- [Results and status](progress.md#scope): the three planned safety results, their level (checked,
-  registered, accepted) with the commit, and what is not planned. The website shows the same
+- [Overview](overview.md): what is proved, what is assumed, and how the proof is built.
+- [Results and status](progress.md#scope): the one page that records status. The three planned
+  safety results, their level (checked, registered, accepted) with the commit, and what is not
+  planned. The website shows the same
   facts on its home page and on a status page.
 - [Coverage by function](coverage.md): the safety theorem of each function and its domain.
 - [Deviations](deviations.md): what a call must satisfy to be covered, as a checklist by function.

@@ -2,22 +2,22 @@
 
 This page answers one question: which theorem proves that function X of `zlib.h` is safe, and on
 which domain? There is one row for each documented function. Each row names the safety goal, the
-registered theorem whose type is exactly that goal, and the file of the proof. A separate column
+theorem whose type is exactly that goal, and the file of the proof. Every theorem named in a
+safety column is listed in `tests/audit/theorems.txt`. A separate column
 names the functional theorem, where one exists; functional theorems are kept and not required.
 
-- **Proved.** Every documented function of the target build has a registered safety theorem on
+- **Proved.** Every documented function of the target build has a safety theorem on
   the domain its row states. The names in the tables were compared with
   `tests/audit/public-api.json`, `tests/audit/theorems.txt` and the proof files.
 - **Assumed.** The six items of the [trusted base](trusted-base.md), and the premises in
   [deviations](deviations.md), which the column "domain" refers to.
-- **Registered, acceptance pending.** The one-function goals of the gz functions and of the three
-  `inflateBack` functions, the four init goals in their present form, and the callback-decoder
-  sequence goal in its present form ([Scope](progress.md#scope)).
-- **Open.** Six stream functions have their `NULL`-stream refusal proved in the functional goal
-  and not yet in the safety goal; their rows say so.
+- **Narrower than the function.** Six stream functions have their `NULL`-stream refusal proved in
+  the functional goal and not in the safety goal; their rows say so.
 
-"Registered" means listed in `tests/audit/theorems.txt`. The level and the commit of acceptance
-are in [Scope](progress.md#scope).
+This page is a map, not a status page. It does not say at which level a result stands. The level
+of each result (checked, registered or accepted) and the commit of each acceptance run are in
+[progress, Scope](progress.md#scope), and the work planned on the items above is in
+[progress, No-fault coverage](progress.md#no-fault-coverage-of-zlibh-functions).
 
 ## How to read a row
 
@@ -54,13 +54,13 @@ Theorems of the safety column: `ZlibF.Spec.Public.StreamCallSafetyProof.<name>` 
 | `inflateEnd` | `Goal.inflateEnd_safety` | None | `Goal.inflate_refusal` | `Goal.inflateEnd`: `inflate_end_public`, `public-inflate-end.lean` |
 | `inflateSetDictionary` | `Goal.inflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | `Goal.inflate_refusal` | `Goal.inflateSetDictionary`: `inflateSetDictionary_public`, `public-inflate-setdict.lean` |
 | `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | `Goal.inflate_refusal` | `Goal.inflateGetDictionary`: `inflate_getdict_public`, `public-inflate-getdict.lean` |
-| `inflateSync` | `Goal.inflateSync_safety` | The input range | `Zlib.Inflate.Proofs.inflateSync_check`, registered, not a goal | None: `Goal.inflateSync` is open and not planned |
+| `inflateSync` | `Goal.inflateSync_safety` | The input range | `Zlib.Inflate.Proofs.inflateSync_check`, a theorem that is not a goal | None: `Goal.inflateSync` is not planned |
 | `inflateCopy` | `Goal.inflateCopy_safety`: `ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`, `public-inflate-copy-safety.lean` | `source ≠ dest`; the destination is a readable record | `NULL` arguments inside the goal; an inconsistent source in `Goal.inflate_refusal` | `Goal.inflateCopy`: `inflate_copy_public`, `public-inflate-copy.lean` |
 | `inflateReset` | `Goal.inflateReset_safety` | None | `Goal.inflate_refusal` | `Goal.inflateReset`: `reset_public`, `public-inflate-reset.lean` |
 | `inflateReset2` | `Goal.inflateReset2_safety` | None; every `windowBits` | `Goal.inflate_refusal` | `Goal.inflateReset2`: `reset2_public`, `public-inflate-reset2.lean` |
 | `inflatePrime` | `Goal.inflatePrime_safety` | None | In the functional goal only (see below) | `Goal.inflatePrime`: `prime_public`, `public-inflate-prime.lean` |
 | `inflateMark` | `Goal.inflateMark_safety` | None | In the functional goal only (see below) | `Goal.inflateMark`: `mark_public`, `public-inflate-mark.lean` |
-| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` is not `NULL`; the header buffers (`HeaderMemory`) | `Zlib.Inflate.Proofs.inflateGetHeader_check`, registered, not a goal | `Goal.inflateGetHeader`: `getheader_public`, `public-inflate-header.lean` |
+| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` is not `NULL`; the header buffers (`HeaderMemory`) | `Zlib.Inflate.Proofs.inflateGetHeader_check`, a theorem that is not a goal | `Goal.inflateGetHeader`: `getheader_public`, `public-inflate-header.lean` |
 
 ## Deflate streams
 
@@ -73,26 +73,26 @@ Theorems of the safety column: `ZlibF.Spec.Public.StreamCallSafetyProof.<name>` 
 | `deflateInit_` (macro `deflateInit`) | `Goal.deflateInit__safety` | Every call `zlib.h` allows (`InitArguments`), every level | Inside the goal | `Goal.deflateInit_`: `deflateInit_proof`, `public-deflate-init.lean` |
 | `deflateInit2_` (macro `deflateInit2`) | `Goal.deflateInit2__safety` | As above, for every method, `windowBits`, `memLevel` and strategy | Inside the goal | `Goal.deflateInit2_`: `deflateInit2_proof`, `public-deflate-init2.lean` |
 | `deflate` | `Goal.deflate_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.deflate_refusal` | `Goal.deflate`: `Zlib.Deflate.Universal.deflate_safety`, `public-deflate-goals.lean` |
-| `deflateEnd` | `Goal.deflateEnd_safety` | None | `Zlib.Deflate.Proofs.deflateEnd_reject`, registered, not a goal | `Goal.deflateEnd`: `deflate_end_public`, `public-deflate-end.lean` |
-| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | `Goal.deflate_refusal` | None: `Goal.deflateSetDictionary` is open and not planned |
+| `deflateEnd` | `Goal.deflateEnd_safety` | None | `Zlib.Deflate.Proofs.deflateEnd_reject`, a theorem that is not a goal | `Goal.deflateEnd`: `deflate_end_public`, `public-deflate-end.lean` |
+| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | `Goal.deflate_refusal` | None: `Goal.deflateSetDictionary` is not planned |
 | `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | `Goal.deflate_refusal` | `Goal.deflateGetDictionary`: `deflate_getdict_public`, `public-deflate-getdict.lean` |
 | `deflateCopy` | `Goal.deflateCopy_safety`: `Zlib.Deflate.Universal.deflate_copy_safety`, `public-deflate-copy.lean` | `source ≠ dest`; the destination is a readable record | `NULL` arguments and a source with a `NULL` allocator or state inside the goal; a source whose state the check refuses in `Goal.deflate_refusal` | `Goal.deflateCopy`: `deflate_copy_public`, `public-deflate-copy.lean` |
-| `deflateReset` | `Goal.deflateReset_safety` | None | `Zlib.Deflate.Proofs.deflateReset_reject`, registered, not a goal | `Goal.deflateReset`: `deflate_reset_public`, `public-deflate-reset.lean` |
-| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.deflate_refusal` | None: `Goal.deflateParams` is open and not planned |
+| `deflateReset` | `Goal.deflateReset_safety` | None | `Zlib.Deflate.Proofs.deflateReset_reject`, a theorem that is not a goal | `Goal.deflateReset`: `deflate_reset_public`, `public-deflate-reset.lean` |
+| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.deflate_refusal` | None: `Goal.deflateParams` is not planned |
 | `deflateTune` | `Goal.deflateTune_safety` | None | In the functional goal only (see below) | `Goal.deflateTune`: `tune_public`, `public-deflate-small-queries.lean` |
-| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_nostate`, registered, not a goal | None: `Goal.deflateBound` is open and not planned |
-| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_z_nostate`, registered, not a goal | None: `Goal.deflateBound_z` is open and not planned |
+| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_nostate`, a theorem that is not a goal | None: `Goal.deflateBound` is not planned |
+| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_z_nostate`, a theorem that is not a goal | None: `Goal.deflateBound_z` is not planned |
 | `deflatePending` | `Goal.deflatePending_safety` | None. The result cells `*pending` and `*bits` are values in the model ([note](#result-cells)) | In the functional goal only (see below) | `Goal.deflatePending`: `pending_public`, `public-deflate-small-queries.lean` |
 | `deflateUsed` | `Goal.deflateUsed_safety` | None. The result cell `*bits` is a value in the model ([note](#result-cells)) | In the functional goal only (see below) | `Goal.deflateUsed`: `used_public`, `public-deflate-small-queries.lean` |
-| `deflatePrime` | `Goal.deflatePrime_safety` | Before the first `deflate` call (`DeflateNotStarted`), `zlib.h`'s rule | `Zlib.Deflate.Proofs.deflatePrime_refused`, registered, not a goal | None: `Goal.deflatePrime` is open and not planned |
+| `deflatePrime` | `Goal.deflatePrime_safety` | Before the first `deflate` call (`DeflateNotStarted`), `zlib.h`'s rule | `Zlib.Deflate.Proofs.deflatePrime_refused`, a theorem that is not a goal | None: `Goal.deflatePrime` is not planned |
 | `deflateSetHeader` | `Goal.deflateSetHeader_safety` | Before the first `deflate` call; the header buffers (`HeaderMemory`) | In the functional goal only (see below) | `Goal.deflateSetHeader`: `header_public`, `public-deflate-small-queries.lean` |
 
 **Refusal in the functional goal only.** For `inflatePrime`, `inflateMark`, `deflateTune`,
 `deflatePending`, `deflateUsed` and `deflateSetHeader`, the `_safety` goal covers the call on a
 reachable stream and says nothing about a `NULL` or inconsistent stream. The refusal of such a
-stream is a clause of the registered functional goal of the same function (`CheckedInflate`,
-`CheckedDeflate`), so it is proved, and it is not part of a required goal. Adding the refusal
-clause to these six safety goals is remaining work.
+stream is a clause of the functional goal of the same function (`CheckedInflate`,
+`CheckedDeflate`), so it is proved, and it is not part of a required goal.
+[Progress](progress.md#ordered-next-work) says what is planned for these six safety goals.
 
 <a id="result-cells"></a>**Result cells.** `inflateGetDictionary`, `deflateGetDictionary`,
 `deflatePending` and `deflateUsed` store a result through a pointer. The translation takes such a
@@ -110,7 +110,7 @@ Theorems of the safety column: `ZlibF.Spec.Public.BackSafetyProof.<name>` in
 | Function | Safety goal = theorem name | Domain | `NULL` or inconsistent stream | Functional theorem (kept, not required) |
 | --- | --- | --- | --- | --- |
 | `inflateBackInit_` (macro `inflateBackInit`) | `Goal.inflateBackInit__safety` | Every call `zlib.h` allows (`InitArguments`), for every `windowBits`, `stream_size` and `state`; a non-`NULL` window with `windowBits` 8 to 15 is writable for `2^windowBits` bytes; every allocation outcome | A `NULL` stream is inside the goal | `Goal.inflateBackInit_`: `ZlibF.Spec.Public.InflateBackInitProof.back_init_public`, `public-infback-init.lean`. It says which code a bad version or size, a `NULL` stream, a `NULL` window, a bad `windowBits` and allocation failure return, for every `state`. |
-| `inflateBack` | `Goal.inflateBack_safety` | A history of `BackSafeReachable`; `inputBound < 2^48`; the window and every input chunk in a heap byte block; the callback protocol | Inside the goal: a `NULL` stream, and a stream record whose state is `NULL` | None: `Goal.inflateBack` is open and not planned |
+| `inflateBack` | `Goal.inflateBack_safety` | A history of `BackSafeReachable`; `inputBound < 2^48`; the window and every input chunk in a heap byte block; the callback protocol | Inside the goal: a `NULL` stream, and a stream record whose state is `NULL` | None: `Goal.inflateBack` is not planned |
 | `inflateBackEnd` | `Goal.inflateBackEnd_safety` | A history of `BackSafeReachable`; nothing more | Inside the goal: a `NULL` stream, and a stream record whose state or `zfree` is `NULL` | `Goal.inflateBackEnd`: `ZlibF.Spec.Public.InflateBackEndProof.back_end_public`, `public-infback-end.lean` |
 
 - **Sequence goal.** `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Public/Sequences.lean`):
@@ -152,8 +152,8 @@ column "Domain" says "None" for a CRC row with no premise on the arguments.
 
 | Function | Safety goal and theorem | Domain | Functional theorem (kept, not required) |
 | --- | --- | --- | --- |
-| `compress`, `compress_z`, `compress2`, `compress2_z` | `Goal.compress_safety`, `Goal.compress_z_safety`, `Goal.compress2_safety`, `Goal.compress2_z_safety`: `ZlibF.Spec.Public.Proofs.Compress.<name>`, `public-compress-safe-mid.lean` | Source separate from destination; the length cell is a scalar in the model, so a cell that overlaps the data is not covered ([deviations](deviations.md#whole-buffer-utilities-and-checksums)). Every level. | None: `Goal.compress*` are open and not planned |
-| `uncompress`, `uncompress_z`, `uncompress2`, `uncompress2_z` | `Goal.uncompress_safe`, `Goal.uncompress_z_safe`, `Goal.uncompress2_safe`, `Goal.uncompress2_z_safe`: `ZlibF.Spec.Public.Proofs.Uncompress.<name>`, `public-uncompress-safe.lean` | Data and length cells pairwise separate (`UtilitySeparation`) | None: `Goal.uncompress*` are open and not planned |
+| `compress`, `compress_z`, `compress2`, `compress2_z` | `Goal.compress_safety`, `Goal.compress_z_safety`, `Goal.compress2_safety`, `Goal.compress2_z_safety`: `ZlibF.Spec.Public.Proofs.Compress.<name>`, `public-compress-safe-mid.lean` | Source separate from destination; the length cell is a scalar in the model, so a cell that overlaps the data is not covered ([deviations](deviations.md#whole-buffer-utilities-and-checksums)). Every level. | None: `Goal.compress*` are not planned |
+| `uncompress`, `uncompress_z`, `uncompress2`, `uncompress2_z` | `Goal.uncompress_safe`, `Goal.uncompress_z_safe`, `Goal.uncompress2_safe`, `Goal.uncompress2_z_safe`: `ZlibF.Spec.Public.Proofs.Uncompress.<name>`, `public-uncompress-safe.lean` | Data and length cells pairwise separate (`UtilitySeparation`) | None: `Goal.uncompress*` are not planned |
 
 ## Gzip file interface
 
@@ -184,8 +184,8 @@ premises are the [gz rows of deviations](deviations.md#gzip-file-interface).
 | Functions (each with its own `Goal.<function>_safety`) | Part of `Goal.gz_sequence_safety` that the goal restricts | Note |
 | --- | --- | --- |
 | `gzopen`, `gzopen64` | Open clauses (`GzOpenSafe`) | Every path, mode and world, including every failure |
-| `gzdopen` | Open clause (`GzDopenSafe`) | Every `fd`. The functional `Goal.gzdopen` is also registered (`Zlib.Gzlib.Proofs.gzdopen_complete`). |
-| `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzrewind`, `gzseek`, `gzseek64` | Call clause; `gzerror` also the clause about the string it returns | The functional goals of `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gzoffset`, `gzoffset64` and `gzrewind` are also registered. |
+| `gzdopen` | Open clause (`GzDopenSafe`) | Every `fd`. The functional `Goal.gzdopen` is also proved (`Zlib.Gzlib.Proofs.gzdopen_complete`). |
+| `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzrewind`, `gzseek`, `gzseek64` | Call clause; `gzerror` also the clause about the string it returns | The functional goals of `gzbuffer`, `gzeof`, `gzerror`, `gzclearerr`, `gzoffset`, `gzoffset64` and `gzrewind` are also proved. |
 | `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzprintf`, `gzvprintf`, `gzflush`, `gzsetparams` | Call clause | `gzprintf` and `gzvprintf` need a representable format on every call, also on a reader. `zlib.h` lists `gzvprintf` as undocumented; its goal is required all the same. |
 | `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzungetc`, `gzgets` | Call clause; termination under `ReadsFinite`. `gzgetc` also the macro clause | No fault in every world; a normal return when the read budget is below `2^61` |
 | `gzdirect` | Call clause | Terminates in every world |

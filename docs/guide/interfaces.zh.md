@@ -1,4 +1,4 @@
-<!-- source-sha256: 909f87820b3a2cf049f278028613687d9a5a31992b3cfd838418894751559ed8 -->
+<!-- source-sha256: 046f212efd6cd19a1dce9a68082a0ec31090701621fee4d0670642c4b2fa4cf4 -->
 
 # 6. 应用接口
 
@@ -10,7 +10,7 @@
 
 两个标记说明一句话与证明的关系：
 
-- **安全：** 已登记的安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
+- **安全：** 安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
 - **功能：** 关于字节或格式的性质。安全结论不要求它。
 
 [章末的表](#what-the-safety-theorems-say-about-this-chapter)列出本章用到的每个函数的安全目标。
@@ -194,10 +194,10 @@ flowchart LR
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都已登记：`tests/audit/theorems.txt` 列有一个类型恰好是该目标的定理，
+下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
 `tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)给出验收套件全部通过的提交。
+[进度页](../progress.md#scope)记录每项结论的层级。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |
@@ -210,6 +210,6 @@ flowchart LR
 | `crc32`、`crc32_z` | `Goal.crc32_safety`、`Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`、`crc32_combine` | `Goal.adler32_combine_safety`、`Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine)、[crc32_combine](../spec/api/checksums.md#crc32_combine) |
 
-`Goal.gz_sequence_nonvacuity` 和 `Goal.inflate_back_initialisation_domain` 也已登记：
+`Goal.gz_sequence_nonvacuity` 和 `Goal.inflate_back_initialisation_domain` 也已证明：
 它们表明这两个序列目标的前提可以满足。
 [进度页](../progress.md)记录每个目标的状态。

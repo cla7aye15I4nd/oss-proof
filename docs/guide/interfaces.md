@@ -9,7 +9,7 @@ adds to the stream calls of the earlier chapters. It explains what zlib does. It
 
 Two markers say how a sentence relates to the proofs:
 
-- **Safety:** an obligation that the registered safety theorems cover: no undefined behaviour,
+- **Safety:** an obligation that the safety theorems cover: no undefined behaviour,
   no memory error, no leak, and termination ([safety](../spec/safety.md)).
 - **Functional:** a property of the bytes or of the format. It is not required for the safety
   results.
@@ -219,11 +219,11 @@ integer arithmetic of both has no undefined behaviour. See the
 
 ## What the safety theorems say about this chapter
 
-Each goal below is registered: a theorem of exactly its type is listed in
-`tests/audit/theorems.txt`, and the goal in `tests/audit/proved-goals.txt`. The full name of a
+Each goal below has a theorem of exactly its type, listed in
+`tests/audit/theorems.txt`; the goal is listed in `tests/audit/proved-goals.txt`. The full name of a
 goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what the goals state,
 [deviations](../deviations.md) lists every premise narrower than `zlib.h`, and
-[progress](../progress.md#scope) names the commit on which the acceptance suite is green.
+[progress](../progress.md#scope) records the level of each result.
 
 | Function | Safety goal | Contract |
 | --- | --- | --- |
@@ -236,6 +236,6 @@ goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what t
 | `crc32`, `crc32_z` | `Goal.crc32_safety`, `Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`, `crc32_combine` | `Goal.adler32_combine_safety`, `Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine), [crc32_combine](../spec/api/checksums.md#crc32_combine) |
 
-`Goal.gz_sequence_nonvacuity` and `Goal.inflate_back_initialisation_domain` are registered too:
+`Goal.gz_sequence_nonvacuity` and `Goal.inflate_back_initialisation_domain` are proved too:
 they show that the premises of the two sequence goals can be met.
 [Progress](../progress.md) holds the status of every goal.

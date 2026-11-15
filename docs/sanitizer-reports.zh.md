@@ -1,4 +1,4 @@
-<!-- source-sha256: 414b1f2ecf94ee662d676bfee378da5f681026d8350569bd139530ea1a052a31 -->
+<!-- source-sha256: 59598244a568b41c5f177854f99d1837e23305605d3a29f97e3f637528d221bd -->
 # Sanitizer 报告
 
 本页列出所有保留的复现：在这些复现中，sanitizer 报告真实 C 有未定义行为或内存错误。共有十一个目录。五个展示调用者的错误，安全定理用一条具名前提把它们排除在外；一个展示一个需要未文档化函数的调用序列；五个展示 zlib 本身的缺陷，被验证的源码为它们打了补丁。每个目录里有运行脚本、C 驱动程序，以及 `report.txt` 中的原始 sanitizer 输出。
@@ -10,7 +10,7 @@
 - 对调用者的错误，给出**排除它的前提**：该布局违反的那条安全目标假设，并链接到[偏离记录](deviations.md)中对应的行；
 - 对 zlib 的缺陷，给出它在[发现](findings.md)中的页面链接，以及修复它的补丁。
 
-这里说的安全目标是 `ZlibF/Spec/Safety/` 中的目标：每个函数一个目标，例如 `Goal.inflate_safety` 和 `Goal.deflate_safety`；每种调用序列一个目标，例如 `Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` 和 `Goal.gz_sequence_safety`。某个函数目标的前提，也是序列目标中同一调用的前提。这些目标都已登记；验收状态见[进度](progress.md#scope)。
+这里说的安全目标是 `ZlibF/Spec/Safety/` 中的目标：每个函数一个目标，例如 `Goal.inflate_safety` 和 `Goal.deflate_safety`；每种调用序列一个目标，例如 `Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` 和 `Goal.gz_sequence_safety`。某个函数目标的前提，也是序列目标中同一调用的前提。这些目标都已证明；各自的层级见[进度](progress.md#scope)。
 
 各报告的平台和源码：
 

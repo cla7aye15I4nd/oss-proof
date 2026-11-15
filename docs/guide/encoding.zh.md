@@ -1,4 +1,4 @@
-<!-- source-sha256: c5c73bc884bf635276c6eb5bf0f65f1a859043435ff3e0fce6552a82f08cf082 -->
+<!-- source-sha256: 837b5cae2eef38acab3f26aaa092be1ec1dace00d9d295ef578bf9df0dd9d6d1 -->
 
 # 2. 重复、编码与数据块
 
@@ -10,7 +10,7 @@
 
 两个标记说明一句话与证明的关系：
 
-- **安全：** 已登记的安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
+- **安全：** 安全定理所覆盖的义务：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。
 - **功能：** 关于字节或格式的性质。安全结论不要求它。
 
 标有**尚未由证明确认**的句子说的是某个 C 函数实现了格式的某条规则；本章没有为这种解读引用定理。
@@ -206,10 +206,10 @@ flowchart TD
 本章的机制都在库内部：`longest_match`、`_tr_flush_block`、`inflate_table` 和 `inflate_fast` 不是公开函数。
 它们的安全性是到达它们的公开调用的安全性的一部分。
 
-下表中的每个目标都已登记：`tests/audit/theorems.txt` 列有一个类型恰好是该目标的定理，
+下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
 `tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)给出验收套件全部通过的提交。
+[进度页](../progress.md#scope)记录每项结论的层级。
 
 | 函数 | 安全目标 | 契约与内部论证 |
 | --- | --- | --- |

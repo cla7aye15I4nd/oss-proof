@@ -50,10 +50,11 @@ of each run are these:
 
 When both runs have returned `Z_STREAM_END` and the bytes the decoder consumed are a prefix of
 the bytes the encoder wrote, the bytes the decoder wrote are the bytes the encoder consumed.
-The theorem is not registered and not accepted. Completeness (the runs do
-reach `Z_STREAM_END` when there is enough room) and the unconditional round trip are open. The
-other refinement results already proved stay; [scope](../progress.md#scope) says which
-functional results are planned.
+The theorem is conditional: it assumes that both runs reach `Z_STREAM_END`. Completeness (the
+runs do reach `Z_STREAM_END` when there is enough room) and the unconditional round trip are
+planned after it. The other refinement results already proved stay;
+[scope](../progress.md#scope) says which functional results are planned, and how far the round
+trip is.
 
 ## The model in a few definitions
 

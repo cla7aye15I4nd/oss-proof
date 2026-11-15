@@ -1,14 +1,13 @@
-<!-- source-sha256: 522a845a3a266bf8f5adf3effc432de63915141b9feb83f5beea8bee49a935f9 -->
+<!-- source-sha256: ebfa6b237e8fb99882c9055d0746d3a24446bac6ade4223d1802e1b5862b2243 -->
 # 按函数查覆盖情况
 
-本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的已登记定理，以及证明所在的文件。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
+本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的定理，以及证明所在的文件。安全一列提到的每条定理都列在 `tests/audit/theorems.txt` 中。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
 
-- **已证明。** 目标构建中每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。表中的名字已与 `tests/audit/public-api.json`、`tests/audit/theorems.txt` 和证明文件核对。
+- **已证明。** 目标构建中每个有文档的函数，都在其所在行写明的定义域上有一条安全定理。表中的名字已与 `tests/audit/public-api.json`、`tests/audit/theorems.txt` 和证明文件核对。
 - **所作假设。** [可信基础](trusted-base.md)的六项，以及[偏离记录](deviations.md)中的前提；“定义域”一列指向的就是这些前提。
-- **已登记，验收待完成。** gz 函数和三个 `inflateBack` 函数的单函数目标、四个初始化目标的现行形式，以及回调解码器序列目标的现行形式（[范围](progress.md#scope)）。
-- **未完成。** 有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，还没有写进安全目标；相应的行有说明。
+- **比函数本身更窄。** 有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，不在安全目标里；相应的行有说明。
 
-“已登记”指列在 `tests/audit/theorems.txt` 中。结论的层级和验收所在的提交见[范围](progress.md#scope)。
+本页是一张地图，不是状态页。它不写一项结论处于哪个层级。每项结论的层级（已检查、已登记还是已验收）和每次验收运行所在的提交，见[进度页的“范围”一节](progress.md#scope)；针对上面这些事项计划做的工作，见[进度页的“zlib.h 函数的无故障覆盖”一节](progress.md#no-fault-coverage-of-zlibh-functions)。
 
 ## 怎样读一行
 
@@ -33,13 +32,13 @@
 | `inflateEnd` | `Goal.inflateEnd_safety` | 无 | `Goal.inflate_refusal` | `Goal.inflateEnd`：`inflate_end_public`，`public-inflate-end.lean` |
 | `inflateSetDictionary` | `Goal.inflateSetDictionary_safety` | 字典缓冲区（`CallerRange`） | `Goal.inflate_refusal` | `Goal.inflateSetDictionary`：`inflateSetDictionary_public`，`public-inflate-setdict.lean` |
 | `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | 目的缓冲区（`CallerRange`）。结果单元 `*dictLength` 在模型中是一个值（见[说明](#result-cells)） | `Goal.inflate_refusal` | `Goal.inflateGetDictionary`：`inflate_getdict_public`，`public-inflate-getdict.lean` |
-| `inflateSync` | `Goal.inflateSync_safety` | 输入范围 | `Zlib.Inflate.Proofs.inflateSync_check`，已登记，不是目标 | 没有：`Goal.inflateSync` 未证明，不在计划内 |
+| `inflateSync` | `Goal.inflateSync_safety` | 输入范围 | `Zlib.Inflate.Proofs.inflateSync_check`，这是一条不是目标的定理 | 没有：`Goal.inflateSync` 不在计划内 |
 | `inflateCopy` | `Goal.inflateCopy_safety`：`ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`，`public-inflate-copy-safety.lean` | `source ≠ dest`；目的流是一个可读的记录 | `NULL` 参数在目标之内；不一致的源在 `Goal.inflate_refusal` 中 | `Goal.inflateCopy`：`inflate_copy_public`，`public-inflate-copy.lean` |
 | `inflateReset` | `Goal.inflateReset_safety` | 无 | `Goal.inflate_refusal` | `Goal.inflateReset`：`reset_public`，`public-inflate-reset.lean` |
 | `inflateReset2` | `Goal.inflateReset2_safety` | 无；每个 `windowBits` | `Goal.inflate_refusal` | `Goal.inflateReset2`：`reset2_public`，`public-inflate-reset2.lean` |
 | `inflatePrime` | `Goal.inflatePrime_safety` | 无 | 只在功能目标中（见下文） | `Goal.inflatePrime`：`prime_public`，`public-inflate-prime.lean` |
 | `inflateMark` | `Goal.inflateMark_safety` | 无 | 只在功能目标中（见下文） | `Goal.inflateMark`：`mark_public`，`public-inflate-mark.lean` |
-| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` 不是 `NULL`；头部缓冲区（`HeaderMemory`） | `Zlib.Inflate.Proofs.inflateGetHeader_check`，已登记，不是目标 | `Goal.inflateGetHeader`：`getheader_public`，`public-inflate-header.lean` |
+| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` 不是 `NULL`；头部缓冲区（`HeaderMemory`） | `Zlib.Inflate.Proofs.inflateGetHeader_check`，这是一条不是目标的定理 | `Goal.inflateGetHeader`：`getheader_public`，`public-inflate-header.lean` |
 
 ## Deflate 流
 
@@ -50,21 +49,21 @@
 | `deflateInit_`（宏 `deflateInit`） | `Goal.deflateInit__safety` | `zlib.h` 允许的每次调用（`InitArguments`），每个压缩级别 | 在目标之内 | `Goal.deflateInit_`：`deflateInit_proof`，`public-deflate-init.lean` |
 | `deflateInit2_`（宏 `deflateInit2`） | `Goal.deflateInit2__safety` | 同上，并对每个方法、`windowBits`、`memLevel` 和策略 | 在目标之内 | `Goal.deflateInit2_`：`deflateInit2_proof`，`public-deflate-init2.lean` |
 | `deflate` | `Goal.deflate_safety` | `StreamBuffers` 与 `ActiveHeader` | `Goal.deflate_refusal` | `Goal.deflate`：`Zlib.Deflate.Universal.deflate_safety`，`public-deflate-goals.lean` |
-| `deflateEnd` | `Goal.deflateEnd_safety` | 无 | `Zlib.Deflate.Proofs.deflateEnd_reject`，已登记，不是目标 | `Goal.deflateEnd`：`deflate_end_public`，`public-deflate-end.lean` |
-| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | 字典缓冲区（`CallerRange`） | `Goal.deflate_refusal` | 没有：`Goal.deflateSetDictionary` 未证明，不在计划内 |
+| `deflateEnd` | `Goal.deflateEnd_safety` | 无 | `Zlib.Deflate.Proofs.deflateEnd_reject`，这是一条不是目标的定理 | `Goal.deflateEnd`：`deflate_end_public`，`public-deflate-end.lean` |
+| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | 字典缓冲区（`CallerRange`） | `Goal.deflate_refusal` | 没有：`Goal.deflateSetDictionary` 不在计划内 |
 | `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | 目的缓冲区（`CallerRange`）。结果单元 `*dictLength` 在模型中是一个值（见[说明](#result-cells)） | `Goal.deflate_refusal` | `Goal.deflateGetDictionary`：`deflate_getdict_public`，`public-deflate-getdict.lean` |
 | `deflateCopy` | `Goal.deflateCopy_safety`：`Zlib.Deflate.Universal.deflate_copy_safety`，`public-deflate-copy.lean` | `source ≠ dest`；目的流是一个可读的记录 | `NULL` 参数，以及分配器或状态为 `NULL` 的源，在目标之内；状态被检查拒绝的源在 `Goal.deflate_refusal` 中 | `Goal.deflateCopy`：`deflate_copy_public`，`public-deflate-copy.lean` |
-| `deflateReset` | `Goal.deflateReset_safety` | 无 | `Zlib.Deflate.Proofs.deflateReset_reject`，已登记，不是目标 | `Goal.deflateReset`：`deflate_reset_public`，`public-deflate-reset.lean` |
-| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` 与 `ActiveHeader` | `Goal.deflate_refusal` | 没有：`Goal.deflateParams` 未证明，不在计划内 |
+| `deflateReset` | `Goal.deflateReset_safety` | 无 | `Zlib.Deflate.Proofs.deflateReset_reject`，这是一条不是目标的定理 | `Goal.deflateReset`：`deflate_reset_public`，`public-deflate-reset.lean` |
+| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` 与 `ActiveHeader` | `Goal.deflate_refusal` | 没有：`Goal.deflateParams` 不在计划内 |
 | `deflateTune` | `Goal.deflateTune_safety` | 无 | 只在功能目标中（见下文） | `Goal.deflateTune`：`tune_public`，`public-deflate-small-queries.lean` |
-| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_nostate`，已登记，不是目标 | 没有：`Goal.deflateBound` 未证明，不在计划内 |
-| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_z_nostate`，已登记，不是目标 | 没有：`Goal.deflateBound_z` 未证明，不在计划内 |
+| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_nostate`，这是一条不是目标的定理 | 没有：`Goal.deflateBound` 不在计划内 |
+| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_z_nostate`，这是一条不是目标的定理 | 没有：`Goal.deflateBound_z` 不在计划内 |
 | `deflatePending` | `Goal.deflatePending_safety` | 无。结果单元 `*pending` 和 `*bits` 在模型中是值（见[说明](#result-cells)） | 只在功能目标中（见下文） | `Goal.deflatePending`：`pending_public`，`public-deflate-small-queries.lean` |
 | `deflateUsed` | `Goal.deflateUsed_safety` | 无。结果单元 `*bits` 在模型中是一个值（见[说明](#result-cells)） | 只在功能目标中（见下文） | `Goal.deflateUsed`：`used_public`，`public-deflate-small-queries.lean` |
-| `deflatePrime` | `Goal.deflatePrime_safety` | 在第一次 `deflate` 调用之前（`DeflateNotStarted`），这是 `zlib.h` 的规则 | `Zlib.Deflate.Proofs.deflatePrime_refused`，已登记，不是目标 | 没有：`Goal.deflatePrime` 未证明，不在计划内 |
+| `deflatePrime` | `Goal.deflatePrime_safety` | 在第一次 `deflate` 调用之前（`DeflateNotStarted`），这是 `zlib.h` 的规则 | `Zlib.Deflate.Proofs.deflatePrime_refused`，这是一条不是目标的定理 | 没有：`Goal.deflatePrime` 不在计划内 |
 | `deflateSetHeader` | `Goal.deflateSetHeader_safety` | 在第一次 `deflate` 调用之前；头部缓冲区（`HeaderMemory`） | 只在功能目标中（见下文） | `Goal.deflateSetHeader`：`header_public`，`public-deflate-small-queries.lean` |
 
-**只在功能目标中的拒绝。** 对 `inflatePrime`、`inflateMark`、`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader`，`_safety` 目标覆盖的是可达的流上的调用，对 `NULL` 流或不一致的流什么也没说。对这种流的拒绝，是同一函数已登记的功能目标中的一个子句（`CheckedInflate`、`CheckedDeflate`），所以它是已证明的，但不属于必需目标。给这六个安全目标加上拒绝子句是剩余的工作。
+**只在功能目标中的拒绝。** 对 `inflatePrime`、`inflateMark`、`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader`，`_safety` 目标覆盖的是可达的流上的调用，对 `NULL` 流或不一致的流什么也没说。对这种流的拒绝，是同一函数的功能目标中的一个子句（`CheckedInflate`、`CheckedDeflate`），所以它是已证明的，但不属于必需目标。针对这六个安全目标计划做什么，见[进度](progress.md#ordered-next-work)。
 
 <a id="result-cells"></a>**结果单元。** `inflateGetDictionary`、`deflateGetDictionary`、`deflatePending` 和 `deflateUsed` 通过指针写出结果。翻译把这样的指针当作值，而不是内存，所以这四个函数的安全目标对结果单元的内存什么都没说：既没说它可写，也没说它与其他区域分开。模型表示的是哪些调用，见[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”一行。`compress*` 的长度单元也是如此（[整缓冲区实用函数](#whole-buffer-utilities)）。
 
@@ -75,7 +74,7 @@
 | 函数 | 安全目标 = 定理名 | 定义域 | `NULL` 流或不一致的流 | 功能定理（保留，并非必需） |
 | --- | --- | --- | --- | --- |
 | `inflateBackInit_`（宏 `inflateBackInit`） | `Goal.inflateBackInit__safety` | `zlib.h` 允许的每次调用（`InitArguments`），对每个 `windowBits`、`stream_size` 和 `state`；窗口非 `NULL` 且 `windowBits` 为 8 到 15 时，窗口有 `2^windowBits` 个可写字节；每一种分配结果 | `NULL` 流在目标之内 | `Goal.inflateBackInit_`：`ZlibF.Spec.Public.InflateBackInitProof.back_init_public`，`public-infback-init.lean`。它对每个 `state` 值说明错误的版本或大小、`NULL` 流、`NULL` 窗口、错误的 `windowBits` 和分配失败各返回哪个值。 |
-| `inflateBack` | `Goal.inflateBack_safety` | `BackSafeReachable` 的一段历史；`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中；回调协议 | 在目标之内：`NULL` 流，以及状态为 `NULL` 的流记录 | 没有：`Goal.inflateBack` 未证明，不在计划内 |
+| `inflateBack` | `Goal.inflateBack_safety` | `BackSafeReachable` 的一段历史；`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中；回调协议 | 在目标之内：`NULL` 流，以及状态为 `NULL` 的流记录 | 没有：`Goal.inflateBack` 不在计划内 |
 | `inflateBackEnd` | `Goal.inflateBackEnd_safety` | `BackSafeReachable` 的一段历史；没有别的要求 | 在目标之内：`NULL` 流，以及状态或 `zfree` 为 `NULL` 的流记录 | `Goal.inflateBackEnd`：`ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean` |
 
 - **序列目标。** `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Public/Sequences.lean`）：定理 `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。它多说一点：每段历史之后，调用者的窗口上都有一个有效的解码器状态。它的子句 1 和子句 3 是 `Goal.inflateBack_safety` 的第一个和第三个子句，它的子句 4 是 `Goal.inflateBackEnd_safety` 的第三个子句。历史从一次返回 `Z_OK` 的 `inflateBackInit_` 调用开始，调用之前 `state` 字段可以取任意值（`BackInitArguments`）。
@@ -103,8 +102,8 @@
 
 | 函数 | 安全目标与定理 | 定义域 | 功能定理（保留，并非必需） |
 | --- | --- | --- | --- |
-| `compress`、`compress_z`、`compress2`、`compress2_z` | `Goal.compress_safety`、`Goal.compress_z_safety`、`Goal.compress2_safety`、`Goal.compress2_z_safety`：`ZlibF.Spec.Public.Proofs.Compress.<名字>`，`public-compress-safe-mid.lean` | 源与目的缓冲区分离；长度单元在模型中是标量，所以与数据重叠的单元不被覆盖（[偏离记录](deviations.md#whole-buffer-utilities-and-checksums)）。每个压缩级别。 | 没有：`Goal.compress*` 未证明，不在计划内 |
-| `uncompress`、`uncompress_z`、`uncompress2`、`uncompress2_z` | `Goal.uncompress_safe`、`Goal.uncompress_z_safe`、`Goal.uncompress2_safe`、`Goal.uncompress2_z_safe`：`ZlibF.Spec.Public.Proofs.Uncompress.<名字>`，`public-uncompress-safe.lean` | 数据与各长度单元两两分离（`UtilitySeparation`） | 没有：`Goal.uncompress*` 未证明，不在计划内 |
+| `compress`、`compress_z`、`compress2`、`compress2_z` | `Goal.compress_safety`、`Goal.compress_z_safety`、`Goal.compress2_safety`、`Goal.compress2_z_safety`：`ZlibF.Spec.Public.Proofs.Compress.<名字>`，`public-compress-safe-mid.lean` | 源与目的缓冲区分离；长度单元在模型中是标量，所以与数据重叠的单元不被覆盖（[偏离记录](deviations.md#whole-buffer-utilities-and-checksums)）。每个压缩级别。 | 没有：`Goal.compress*` 不在计划内 |
+| `uncompress`、`uncompress_z`、`uncompress2`、`uncompress2_z` | `Goal.uncompress_safe`、`Goal.uncompress_z_safe`、`Goal.uncompress2_safe`、`Goal.uncompress2_z_safe`：`ZlibF.Spec.Public.Proofs.Uncompress.<名字>`，`public-uncompress-safe.lean` | 数据与各长度单元两两分离（`UtilitySeparation`） | 没有：`Goal.uncompress*` 不在计划内 |
 
 ## Gzip 文件接口
 
@@ -120,8 +119,8 @@
 | 函数（各有自己的 `Goal.<function>_safety`） | 目标所限制的 `Goal.gz_sequence_safety` 的部分 | 说明 |
 | --- | --- | --- |
 | `gzopen`、`gzopen64` | 打开子句（`GzOpenSafe`） | 每个路径、模式和世界，包括每一种失败 |
-| `gzdopen` | 打开子句（`GzDopenSafe`） | 每个 `fd`。功能目标 `Goal.gzdopen` 也已登记（`Zlib.Gzlib.Proofs.gzdopen_complete`）。 |
-| `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzseek`、`gzseek64` | 调用子句；`gzerror` 还有关于它所返回字符串的子句 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gzoffset`、`gzoffset64` 和 `gzrewind` 的功能目标也已登记。 |
+| `gzdopen` | 打开子句（`GzDopenSafe`） | 每个 `fd`。功能目标 `Goal.gzdopen` 也已证明（`Zlib.Gzlib.Proofs.gzdopen_complete`）。 |
+| `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzseek`、`gzseek64` | 调用子句；`gzerror` 还有关于它所返回字符串的子句 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gzoffset`、`gzoffset64` 和 `gzrewind` 的功能目标也已证明。 |
 | `gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams` | 调用子句 | `gzprintf` 和 `gzvprintf` 的每次调用都需要可表示的格式串，读句柄上也一样。`zlib.h` 把 `gzvprintf` 列为未文档化；它的目标仍然是必需的。 |
 | `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets` | 调用子句；终止需要 `ReadsFinite`。`gzgetc` 还有宏子句 | 在每个世界中都不出故障；读取预算小于 `2^61` 时正常返回 |
 | `gzdirect` | 调用子句 | 在每个世界中都终止 |
