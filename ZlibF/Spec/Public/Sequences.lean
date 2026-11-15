@@ -1,5 +1,5 @@
 import ZlibF.Spec.Public.Domains
-import ZlibF.Spec.Public.GzTrace
+import ZlibF.Spec.Functional.GzTrace
 
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs ZlibF.Spec

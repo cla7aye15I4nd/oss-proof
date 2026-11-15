@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzWrite
+import ZlibF.Spec.Functional.GzWrite
 
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs

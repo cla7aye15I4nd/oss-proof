@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzRead
+import ZlibF.Spec.Functional.GzRead
 
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzControl
+import ZlibF.Spec.Functional.GzControl
 import ZlibF.Spec.PlatformMemory
 
 namespace ZlibF.Spec.Public

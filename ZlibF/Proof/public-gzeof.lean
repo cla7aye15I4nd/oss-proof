@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzControl
+import ZlibF.Spec.Functional.GzControl
 import ZlibF.Proof.«gzlib.c.base»
 import ZlibF.Spec.Functional.Api.Compress
 

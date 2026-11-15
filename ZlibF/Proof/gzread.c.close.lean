@@ -1,5 +1,5 @@
 import ZlibF.Proof.«public-gz-offset»
-import ZlibF.Spec.Public.GzClose
+import ZlibF.Spec.Functional.GzClose
 import ZlibF.Proof.«gzfs.oracle»
 import ZlibF.Spec.Functional.Api.Compress
 

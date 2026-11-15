@@ -1,3 +1,4 @@
+import ZlibF.Spec.Functional.GzClose
 import ZlibF.Spec.Public.Domains
 
 namespace ZlibF.Spec.Public

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzClose
+import ZlibF.Spec.Functional.GzClose
 
 namespace ZlibF.Spec.Public
 open C Zlib.Infback ZlibF.Spec
