@@ -1,49 +1,123 @@
-# Fixed-block stream copy compares unrelated pointers
+# `inflateCopy` compares pointers into unrelated objects
 
-Confidence: high for the diagnosed unpatched C issue. The verified source now
-includes the accepted upstream fix. This is not a proof of all copy histories.
+`inflateCopy` on a stream that stopped inside a fixed-code block compares a pointer into a static
+table with a pointer into the heap-allocated inflate state, using `>=` and `<=`. C defines these
+operators only for pointers into the same object. This page lets a zlib maintainer reproduce the
+report and judge it without reading anything else.
 
-Source pin: `757f0527154291bcf6bfbd6396ecde6bedd2db95`.
-The reproduction compiles the unmodified decoder sources. It calls default
-`inflateInit`, supplies a valid zlib stream with a fixed block, and provides
-one output byte. `inflate` returns OK after producing `A`. It then calls
-`inflateCopy` with a distinct zeroed destination.
+## Status
 
-Run from the repository root:
+- Undefined behaviour by the C standard (C11 6.5.8p5: relational comparison of pointers into
+  different objects). Inside the documented use of `inflateCopy`.
+- Reported by AddressSanitizer's pointer-pair check on the unmodified pinned source
+  (`757f0527154291bcf6bfbd6396ecde6bedd2db95`, upstream `develop`), on x86_64 Linux and on arm64
+  macOS.
+- No wrong result was observed: without the pointer-pair check the same program returns `Z_OK`
+  from `inflateCopy`.
+- Fix submitted upstream as [PR #1369](https://github.com/madler/zlib/pull/1369). The maintainer
+  answered "Applied" on 2026-11-06. The upstream `develop` head read on 2026-11-14 (`99623ef7`)
+  does not contain it. The verified source applies the submitted commit as
+  [patch 0001](../../../patches/README.md).
+
+## Call sequence
+
+```c
+z_stream strm, copy;
+unsigned char out[1];
+memset(&strm, 0, sizeof strm);
+memset(&copy, 0, sizeof copy);
+inflateInit(&strm);                 /* default: zlib wrapper, 32K window */
+strm.next_in = encoded;             /* a zlib stream whose only block is a fixed block */
+strm.avail_in = sizeof encoded;
+strm.next_out = out;
+strm.avail_out = 1;                 /* room for one byte */
+inflate(&strm, Z_NO_FLUSH);         /* Z_OK inside the fixed block: state->lencode is the static lenfix */
+inflateCopy(&copy, &strm);          /* inflate.c:1383: state->lencode >= state->codes */
+```
+
+`encoded` is 23 bytes: a zlib header and one final fixed block that decodes to 2048 bytes `A`. The
+complete program is [`repro.c`](repro.c). No buffer is too small, and no two buffers overlap.
+
+The statement, in the pinned `inflate.c` (lines 1383 and 1384):
+
+```c
+if (state->lencode >= state->codes &&
+    state->lencode <= state->codes + ENOUGH - 1) {
+```
+
+`state->codes` is an array inside the inflate state, which `inflateInit` allocates. Inside a
+fixed block `state->lencode` points to `lenfix`, a static table.
+
+## Run
+
+From the repository root, with the `zlib/` submodule checked out:
 
 ```sh
 python3 docs/findings/inflate-copy-fixed/reproduce.py
 ```
 
-The compiler and runtime must support address and pointer-comparison sanitizers.
-Set `CC` to select the compiler. The script requires a nonzero execution exit
-and the specific pointer-pair diagnosis; a compile error or another failure
-does not count as reproduction.
+The script compiles `repro.c` with the six decoder sources of the unmodified `zlib/`, using
+`-O1 -g -fsanitize=address,pointer-compare,pointer-subtract -fno-omit-frame-pointer`, and runs it
+with `ASAN_OPTIONS=detect_invalid_pointer_pairs=2:detect_leaks=0`. `CC` selects the compiler (the
+default is `clang`). The script fails unless the run exits with an error and prints the
+pointer-pair report that names `inflateCopy` and `lenfix`; a compile error does not count. On
+success its last line is:
 
-The retained reproduction was run successfully on an LP64 build. The diagnostic
-identifies `inflateCopy` at `inflate.c:1383`, the static `lenfix` object, and the
-separately allocated inflate state. This is the source expression
-`state->lencode >= state->codes`. Neither caller buffer is oversized or aliased.
-The default LP64 Linux build has not been rerun for this finding.
+```
+CONFIRMED: default-init fixed-block inflateCopy compares unrelated objects
+```
 
-The old translation retained that expression, and its pointer model rejected
-ordering pointers from those different objects. No kernel-checked refutation
-of `Goal.inflateCopy` is claimed. A faulting copy does not by itself establish
-a successful copied destination in `StreamReachable`.
+## Sanitizer verdict
 
-## Applied fix
+From [`report.txt`](report.txt), x86_64 Linux:
 
-[Upstream PR #1369](https://github.com/madler/zlib/pull/1369) contains the fix.
-The maintainer confirmed application on 6 November 2026. The publicly fetched
-`develop` and `master` heads still point to
-`99623ef7097352da7993ba614161fd6a311e046e` and retain the old comparison.
-The [temporary patch](../../../patches/README.md) exactly matches the submitted
-commit `300fea14353d2e2ca61210aca7c48861ded5788c`.
+```
+inflate=0 produced=1 fixed_block=1
+==PID==ERROR: AddressSanitizer: invalid-pointer-pair: 0x5a0a568b10a0 0x78f4037e0668
+    #0 0x5a0a568ab70f in inflateCopy zlib/inflate.c:1383
+0x5a0a568b10a0 is located 0 bytes inside of global variable 'lenfix' defined in 'zlib/inffixed.h:10:19' (0x5a0a568b10a0) of size 2048
+0x78f4037e0668 is located 1384 bytes inside of 7176-byte region [0x78f4037e0100,0x78f4037e1d08)
+```
 
-The verified C and Lean translation now use pointer equality to distinguish
-internal tables from fixed tables. Internal `lencode` is set to the copied
-array base; `distcode` retains its offset. Pointer semantics and the caller
-domain are unchanged. The historical reproduction above intentionally builds
-the unpatched source. The [copy regression](../../../tests/regression/inflate-copy/README.md)
-instead builds the patched source and compares actual successful copy calls
-with the translation.
+These are five lines of the report; the 7176-byte region is the inflate state allocated by
+`inflateInit2_` (`inflate.c:206`). A run on arm64 macOS (Apple clang) for this page printed the
+same verdict at the same line.
+
+## Scope and severity
+
+- **Who reaches it.** Any `inflateCopy` of a stream that is inside a fixed-code block: the
+  default `inflateInit` or any `inflateInit2`, any input that contains a fixed block, and an
+  `inflate` call that returns before the block ends.
+- **Effect.** None was observed. On a platform with a flat address space the comparison is an
+  address comparison, it is false for the static table, and the copy keeps the pointer to the
+  static table, which is correct. The same holds for `distcode`. The risk is only that a compiler
+  may assume the comparison is between pointers into one object.
+- **Severity.** Low: strictly undefined, no memory error, no wrong output, not controlled by the
+  compressed data beyond its use of a fixed block.
+
+## What `zlib.h` says
+
+`inflateCopy` "Sets the destination stream as a complete copy of the source stream"
+(`zlib.h:974`). It puts no condition on where in the stream the source has stopped, so the call
+sequence above is a documented use.
+
+## Fix
+
+[PR #1369](https://github.com/madler/zlib/pull/1369), commit
+`300fea14353d2e2ca61210aca7c48861ded5788c`: test whether the table is the state's own with pointer
+equality, `state->lencode == state->codes`, in place of the two relational comparisons. Whenever `lencode` points into the state's own array it points to its start: `inflate.c` assigns
+it from `state->next` right after `state->next = state->codes` (lines 118, 820 and 898). So the
+equality test selects the same cases.
+`copy->lencode` is then set to `copy->codes`, and `distcode` keeps its offset.
+
+[Patch 0001](../../../patches/README.md) is exactly that
+commit. It is removed when the upstream branch contains the fix and the pin moves past it.
+
+## Relation to the proofs
+
+The Lean translation follows the patched source. In the pointer model, ordering two pointers into
+different objects is a fault, so the unpatched statement could not be proved safe. The reproduction
+on this page builds the unpatched source on purpose. The
+[copy regression](../../../tests/regression/inflate-copy/README.md) builds the patched source and
+compares successful `inflateCopy` calls of the real C with the translation; that comparison is
+evidence of fidelity, not proof.
