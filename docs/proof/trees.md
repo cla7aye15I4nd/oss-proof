@@ -21,7 +21,7 @@ construction, bit emission and that bound.
 | The overlay room F9 for `lit_bufsize ≥ 2048` (`memLevel ≥ 5`) | Safety, internal | `dynamic_overlay_large`, from `dynamic_room_large` | `ZlibF/Proof/trees.c.universal-block.lean`, `trees.c.universal-dynamic.lean` |
 | The overlay room F9 for `lit_bufsize = 512` and `1024` (`memLevel` 3 and 4) | Safety, internal | `dynamic_overlay_mid` | `ZlibF/Proof/trees.c.universal-overlay-mid.lean` |
 | The overlay room F9 for `lit_bufsize = 256` and `128` (`memLevel` 2 and 1) | Safety, internal | `tinyOverlayAt_256`, `tinyOverlayAt_128`, `tinyOverlay` | `ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean` |
-| `gen_bitlen` never clamps a tree whose weight is below 1597 | Safety, internal | see `trees.c.universal-overlay-fibplus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
+| `gen_bitlen` never clamps a tree whose weight is below 1597 | Safety, internal | `ws_gen_bitlen_fib_plus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
 
 The required theorem that uses these is `deflate_sequence_safety`. It has no
 hypothesis, because the overlay room is proved for every `memLevel`. The

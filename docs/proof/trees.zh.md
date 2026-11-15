@@ -1,4 +1,4 @@
-<!-- source-sha256: bcfa3e454ddbd0bb4133dcef74ab98eb4eaa003a6e2c4b0ce64f45a70a0e9021 -->
+<!-- source-sha256: 3536bf36a217bbaf06698de6f31c0926448ca4d19cef3511fa97572568fa2af0 -->
 # 树与块输出：界限、码字及共用存储
 
 本页沿“统计符号 → 构造树 → 分配码长 → 生成码字 → 写出块”的顺序论证压缩输出。频率高的符号应少花一些比特，但最终输出还受格式码长限制和共享缓冲区约束。例如记录区有一个尚未读取的匹配，输出器即使最终容量足够，也不能先写长码把这条记录覆盖。
@@ -18,7 +18,7 @@
 | `lit_bufsize ≥ 2048`（`memLevel ≥ 5`）时的重叠缓冲区余量 F9 | 安全，内部 | `dynamic_overlay_large`，由 `dynamic_room_large` 得到 | `ZlibF/Proof/trees.c.universal-block.lean`、`trees.c.universal-dynamic.lean` |
 | `lit_bufsize = 512` 和 `1024`（`memLevel` 3 和 4）时的重叠缓冲区余量 F9 | 安全，内部 | `dynamic_overlay_mid` | `ZlibF/Proof/trees.c.universal-overlay-mid.lean` |
 | `lit_bufsize = 256` 和 `128`（`memLevel` 2 和 1）时的重叠缓冲区余量 F9 | 安全，内部 | `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay` | `ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean` |
-| 权重低于 1597 的树，`gen_bitlen` 从不截断 | 安全，内部 | 见 `trees.c.universal-overlay-fibplus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
+| 权重低于 1597 的树，`gen_bitlen` 从不截断 | 安全，内部 | `ws_gen_bitlen_fib_plus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
 
 用到这些结果的必需定理是 `deflate_sequence_safety`。它没有假设，因为重叠缓冲区余量对每个 `memLevel` 都已证明。已登记的重叠缓冲区定理在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
 
