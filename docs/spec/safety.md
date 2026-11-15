@@ -362,8 +362,8 @@ which is undefined behaviour.
 
 **A theorem that the model does not fault is not, alone, a proof that the C has no undefined
 behaviour.** The model detects most undefined behaviour and raises `Fault.ub`. This section
-lists what it detects and the four places where it does not: two null-pointer operations,
-uninitialised pointers, object layout and types. Each is a stated limit of the result, also
+lists what it detects and where it does not. The main gaps are two null-pointer operations,
+uninitialised pointers, and object layout and types. Each is a stated limit of the result, also
 recorded in [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schema).
 
 ### The obligations
