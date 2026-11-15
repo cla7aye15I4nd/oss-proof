@@ -1000,7 +1000,7 @@
   "not_planned": [
     {
       "goal": "ZlibF.Spec.Public.Goal.gz_initialisation_domain",
-      "reason": "The functional contract of gzopen (OpenState, GzReachable). Functional goals are not planned (owner, 2026-11-11); removed from the required set with the owner's approval on 2026-11-14. Non-vacuity of the gz safety premises is Goal.gz_sequence_nonvacuity. See docs/progress.md, Scope."
+      "reason": "The functional contract of gzopen (OpenState, GzReachable). Functional goals of the gz file interface are not planned: the only planned functional result is the round trip of the default zlib stream (owner, 2026-11-11 and 2026-11-15). Removed from the required set with the owner's approval on 2026-11-14. Non-vacuity of the gz safety premises is Goal.gz_sequence_nonvacuity. See docs/progress.md, Scope."
     }
   ]
 }
