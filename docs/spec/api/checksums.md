@@ -75,7 +75,7 @@ Returns the updated Adler-32, or the initial value for a new checksum.
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
 | `1`<br>**Initial value** | buf == NULL and len == 0, with any incoming checksum; no bytes are read. | Start a new sequence at 1. |
-| `low32(adler)`<br>**Empty range preserves value** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. | Keep this value for the next update. |
+| `reduce(adler)`<br>**Empty range reduces the seed** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. `reduce` takes the low 32 bits and reduces each 16-bit half modulo 65521. The result equals `low32(adler)` when `adler` is a genuine Adler-32, because both halves of a genuine Adler-32 are below 65521. | Keep this value for the next update. |
 | <code>Adler-32(A &#124;&#124; buf)</code><br>**Checksum after append** | buf covers len readable bytes, len > 0, and the low 32 bits of adler are the Adler-32 of A. | Use this value in later updates or compare it with the expected checksum. |
 
 **Reading the result.**
@@ -113,7 +113,10 @@ reducing both seed halves modulo 65521. See the
 
 **Post:** A NULL, zero-length query returns 1 for every `adler`, without reading
 bytes. Otherwise return the Adler-32 of A followed by `buf[0..len-1]`.
-A non-NULL zero-length range returns the incoming checksum's low 32 bits.
+A non-NULL zero-length range returns the low 32 bits of `adler` with each 16-bit half reduced
+modulo 65521 (`adlerStart` in [Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean)).
+For a genuine Adler-32 that is the incoming checksum unchanged; a seed of `0x0000FFFF` returns
+`0x0000000E`.
 
 </details>
 
@@ -134,7 +137,7 @@ Returns the updated Adler-32, or the initial value for a new checksum.
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
 | `1`<br>**Initial value** | buf == NULL and len == 0, with any incoming checksum; no bytes are read. | Start a new sequence at 1. |
-| `low32(adler)`<br>**Empty range preserves value** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. | Keep this value for the next update. |
+| `reduce(adler)`<br>**Empty range reduces the seed** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. `reduce` takes the low 32 bits and reduces each 16-bit half modulo 65521. The result equals `low32(adler)` when `adler` is a genuine Adler-32, because both halves of a genuine Adler-32 are below 65521. | Keep this value for the next update. |
 | <code>Adler-32(A &#124;&#124; buf)</code><br>**Checksum after append** | buf covers len readable bytes, len > 0, and the low 32 bits of adler are the Adler-32 of A. | Use this value in later updates or compare it with the expected checksum. |
 
 **Reading the result.**
@@ -170,8 +173,8 @@ The zero-length NULL query and forged-seed scope of `adler32_z` apply here too.
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return exactly the result of `adler32_z(adler, buf, len)`.
-A NULL, zero-length query returns 1. A non-NULL empty range preserves
-the checksum's low 32 bits.
+A NULL, zero-length query returns 1. A non-NULL empty range returns the low 32 bits of
+`adler` with each 16-bit half reduced modulo 65521, which preserves a genuine checksum.
 
 </details>
 
