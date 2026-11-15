@@ -675,6 +675,7 @@ import ZlibF.Proof.«infback.c.safety-call»
 import ZlibF.Proof.«infback.c.safety-reach»
 import ZlibF.Proof.«deflate.c.universal-flush-cursor»
 import ZlibF.Proof.«public-stream-call-safety»
+import ZlibF.Proof.«public-stream-refusal-strengthening»
 import ZlibF.Proof.«public-init-safety»
 import ZlibF.Proof.«public-gz-call-safety»
 import ZlibF.Proof.«public-back-safety»

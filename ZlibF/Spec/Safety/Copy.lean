@@ -18,9 +18,9 @@ destination record and new blocks. On `Z_MEM_ERROR` an allocation really failed,
 state is cleared and the live blocks are unchanged (no leak). On `Z_OK` the destination satisfies
 the stream invariant (`StreamInvariant .deflate`, written out) and the live blocks grow by exactly the five new blocks it owns. The copied
 contents (`copiedDeflate` and the prefix clauses) are left to `Goal.deflateCopy`. The last clause is
-zlib.h's refusal of an inconsistent source ("such as zalloc being Z_NULL"): a source record with a
-null `zalloc`, a null `zfree` or no state (as a never-initialised record has in the model) is
-refused with `Z_STREAM_ERROR`, and the destination state is cleared. -/
+zlib.h's refusal of an inconsistent source ("such as zalloc being Z_NULL"): a source the state check
+refuses (`RefusedDeflate`: a null `zalloc` or `zfree`, no state, or a live state with a wrong back
+pointer or status) is refused with `Z_STREAM_ERROR`, and the destination state is cleared. -/
 def Goal.deflateCopy_safety : Prop :=
   (∀ h source, C.run (Zlib.Deflate.deflateCopy none source) h = .ok (Z_STREAM_ERROR, h)) ∧
   (∀ h dest z, dest.get h = some z →
@@ -40,8 +40,7 @@ def Goal.deflateCopy_safety : Prop :=
          after.dstates h.nextBlk = some copied ∧
          (∀ b, DeflateOwned h.nextBlk copied b ↔ h.nextBlk ≤ b ∧ b < h.nextBlk + 5) ∧
          LiveChange h after (DeflateOwned h.nextBlk copied) (fun _ => False)))) ∧
-  (∀ h source dest zs oldDest, source.get h = some zs → dest.get h = some oldDest →
-    (zs.zalloc = .null ∨ zs.zfree = .null ∨ zs.state = none) →
+  (∀ h source dest oldDest, dest.get h = some oldDest → RefusedDeflate h (some source) →
     C.run (Zlib.Deflate.deflateCopy (some dest) (some source)) h =
       .ok (Z_STREAM_ERROR, dest.put h { oldDest with state := none }))
 
@@ -53,7 +52,9 @@ unchanged and writes only the destination record and new blocks. On `Z_MEM_ERROR
 really failed, the destination state is cleared and the live blocks are unchanged (no leak). On
 `Z_OK` the destination is a reachable stream (`StreamReachable.inflateCopy`) and the live blocks
 grow by exactly the fresh blocks its new state owns. The copied contents are left to
-`Goal.inflateCopy`. An inconsistent source is refused by `Goal.inflate_refusal`. -/
+`Goal.inflateCopy`. The last clause is zlib.h's refusal of an inconsistent source: a source the state
+check refuses (`RefusedInflate`) is refused with `Z_STREAM_ERROR`, and the destination state is
+cleared (as in `Goal.inflate_refusal`). -/
 def Goal.inflateCopy_safety : Prop :=
   (∀ h source, C.run (Zlib.Inflate.inflateCopy none source) h = .ok (Z_STREAM_ERROR, h)) ∧
   (∀ h dest z, dest.get h = some z →
@@ -71,6 +72,9 @@ def Goal.inflateCopy_safety : Prop :=
        (rc = Z_OK ∧ StreamReachable .inflate after dest ∧
         ∃ copied, after.istates h.nextBlk = some copied ∧
           (∀ b, InflateOwned h.nextBlk copied b → h.nextBlk ≤ b) ∧
-          LiveChange h after (InflateOwned h.nextBlk copied) (fun _ => False))))
+          LiveChange h after (InflateOwned h.nextBlk copied) (fun _ => False)))) ∧
+  (∀ h source dest oldDest, dest.get h = some oldDest → RefusedInflate h (some source) →
+    C.run (Zlib.Inflate.inflateCopy (some dest) (some source)) h =
+      .ok (Z_STREAM_ERROR, dest.put h { oldDest with state := none }))
 
 end ZlibF.Spec.Public
