@@ -1,4 +1,4 @@
-<!-- source-sha256: fa63a37165cdf71427e0384a059f16e9908c03c249e26087a14af349e1bd795c -->
+<!-- source-sha256: 898fd213ee5c5f517ef62eb45fb79e1f4a93523493caad8588b754a1f189604b -->
 # 可信基础：内核不检查什么
 
 内核对照 Lean 命题检查证明。这个命题说的是不是选定的 C 源码的真实情况，还取决于下面六项。它们经过审查和测试，但没有被证明；把证明编译通过并不能免除它们。本文档的每一页列出的都是这同样的六项。
@@ -20,7 +20,7 @@
 
 被信任的是 Lean 内核，以及 `propext`、`Classical.choice`、`Quot.sound` 三条公理。声明审计只允许这三条公理。在全新环境中的内核重放检查编译后的证明闭包；执行测试替代不了它。
 
-审计本身也是被信任的代码和数据。`tests/audit/Audit.lean` 读取编译后的模块；它不对源码作繁释，也不运行被审计模块的代码。`scripts/verification.py` 根据 `tests/audit/public-api.json` 决定哪些目标是必需的。各登记表（`tests/audit/theorems.txt`、`goals.txt`、`proved-goals.txt`）和清单由人手工编辑，只由 git 跟踪。`tests/audit/compiler-helpers.txt` 列出编译器生成的辅助声明（例如 `._unsafe_rec`）：审计不对它们作 `unsafe` 和 `partial` 检查，也不把它们当作公理遍历的起点。对它们的[辅助声明审查](checking/compiler-helper-review.md)是一份历史记录。
+审计本身也是被信任的代码和数据。`tests/audit/Audit.lean` 读取编译后的模块；它不对源码作繁释，也不运行被审计模块的代码。`scripts/verification.py` 根据 `tests/audit/public-api.json` 决定哪些目标是必需的。各登记表（`tests/audit/theorems.txt`、`goals.txt`、`proved-goals.txt`）和清单由人手工编辑，只由 git 跟踪。`tests/audit/compiler-helpers.txt` 列出编译器生成的辅助声明（例如 `._unsafe_rec`）：审计不对它们作 `unsafe` 和 `partial` 检查，也不把它们当作公理遍历的起点。对它们的[辅助声明审查](history/compiler-helper-review.md)是一份历史记录。
 
 ## 2. 运行时与对象结构
 

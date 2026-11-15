@@ -918,7 +918,7 @@ The latest local declaration audit recognizes 78 registered targets across
 398 listed theorems and 20,399 project declarations. The earlier registration batch
 covers 59 existing exact proofs: six queries, nine checksum entries, 29 stream or
 gzip entries, two initialization-domain goals and 13 abstract model goals.
-The [registration review](../checking/registration-review.md) records scope and checks.
+The [registration review](registration-review.md) records scope and checks.
 Earlier format/query and CRC/address/view registrations remain intact.
 The audit also tracks 47 internal obligations that were already defined but missing
 from the registry. They are internal targets, not additional public APIs.

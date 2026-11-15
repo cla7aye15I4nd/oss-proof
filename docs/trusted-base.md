@@ -35,7 +35,7 @@ decides which goals are required from `tests/audit/public-api.json`. The registr
 and tracked by git alone. `tests/audit/compiler-helpers.txt` lists the compiler-generated
 auxiliary declarations (such as `._unsafe_rec`) that the audit exempts from its `unsafe` and
 `partial` checks and does not take as roots of the axiom traversal. The
-[helper review](checking/compiler-helper-review.md) of them is a historical record.
+[helper review](history/compiler-helper-review.md) of them is a historical record.
 
 ## 2. Runtime and object schema
 
