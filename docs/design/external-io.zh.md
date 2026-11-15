@@ -1,4 +1,4 @@
-<!-- source-sha256: e8f4acac86b3e5b443230facd8d32f5b48bbf076baa8b2e58179cc895c69b869 -->
+<!-- source-sha256: b55adb19276cfb3e3435e0c6e761ecf1921da00dddacc0cfeaaf88e5a88347e0 -->
 # 外部 I/O：文件、格式化与局部存储
 
 gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`close`、`fcntl`、`strerror`、`snprintf` 和 `vsnprintf`。本页说明这些调用的模型 [`ZlibF/Zlib/gzfs.lean`](../../ZlibF/Zlib/gzfs.lean)。这个模型是被信任的：内核对照它检查证明，但不对照 Linux 检查它本身（[可信基础](../trusted-base.md)）。
@@ -69,9 +69,9 @@ C 字符串字面量是另一回事：它们是库源码中各字面量组成的
 ## gz 翻译中的指针与局部存储
 
 - `gzFile` 是指向句柄记录的公开前缀 `x` 的指针（`GzFilePtr`）。`castState` 恢复出这个记录，`strmOf` 指出内嵌的 `z_stream`。一次字段写入加载并存回这同一个记录，所以句柄、它的公开前缀和它的内嵌流始终是一个对象。
-- 调用者的标量单元是小端字节块：`gzerror` 的可选参数 `int *errnum`（四字节），以及 `uncompress2` 的长度单元（八字节）。
-- `gz_load` 内部的 `unsigned *have` 是一个返回值（[规范化 1](translation.md#the-accepted-normalisations)）。每个调用者在成功和失败时都存储它。有一点**尚未由证明确认**，要靠审查：在每个调用点，这次存储发生在效果顺序中与 C 相同的位置。
-- 被取地址的局部变量是一个新分配的对象，它不消耗分配失败预言，并在每条返回路径上被释放：`gzgetc` 和 `gzputc` 的单字节缓冲区，以及 `uncompress2_z` 的局部流和长度单元。
+- 调用者的标量单元是小端字节块：`gzerror` 的可选参数 `int *errnum`（四字节），以及四个 `uncompress*` 函数的长度单元（各八字节）。
+- `gz_load` 内部的 `unsigned *have` 是一个返回值（[规范化 1](translation.md#the-accepted-normalisations)）。每个调用者在成功和失败时都存储它。有一点 **to confirm**，要靠审查：在每个调用点，这次存储在效果顺序中的位置与 C 相同。
+- 被取地址的局部变量是一个新分配的对象，它不消耗分配失败预言，并在每条返回路径上被释放：`gzgetc` 和 `gzputc` 的单字节缓冲区；`uncompress2_z` 的局部流，以及它为 `&stream.reserved` 准备的八字节块；还有 `uncompress2`、`uncompress_z` 和 `uncompress` 的局部长度单元。
 - `z_off64_t` 上的文件位置运算使用带检查的 64 位操作。
 
 模型允许 `NULL + 0`。这并不使悬空指针上的运算变得可以接受。

@@ -123,14 +123,15 @@ handling after the call. The formatting model does not replace those statements.
   loads and stores that one record, so the handle, its public prefix and its embedded stream
   stay one object.
 - A caller's scalar cell is a little-endian byte block: `gzerror`'s optional `int *errnum`
-  (four bytes) and the length cells of `uncompress2` (eight bytes).
+  (four bytes) and the length cells of the four `uncompress*` functions (eight bytes each).
 - The internal `unsigned *have` of `gz_load` is a returned value
   ([normalisation 1](translation.md#the-accepted-normalisations)). Each caller stores it, on
   success and on failure. **To confirm** by review: the store happens at the same point of the
   effect order as in C at every call site.
 - A local whose address is taken is a fresh object that does not consume the allocation-failure
-  oracle and is released on every return: the one-byte buffers of `gzgetc` and `gzputc`, and the
-  local stream and length cells of `uncompress2_z`.
+  oracle and is released on every return: the one-byte buffers of `gzgetc` and `gzputc`; the
+  local stream of `uncompress2_z` and its eight-byte block for `&stream.reserved`; and the local
+  length cells of `uncompress2`, `uncompress_z` and `uncompress`.
 - File-position arithmetic on `z_off64_t` uses checked 64-bit operations.
 
 The model allows `NULL + 0`. That does not make arithmetic on a dangling pointer acceptable.
