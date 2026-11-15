@@ -1,15 +1,16 @@
 # Accepted platform assumptions
 
-The initial scope is the default x86_64 Linux/LP64 static build with the default
-allocator. This page states its environment assumptions. It does not ask zlib
-to prove properties of the operating system, compiler or hardware.
+The scope is the default x86_64 Linux/LP64 static build with the default allocator.
+This page states the one environment premise the goals take: no byte object has `2^63`
+bytes or more. Properties of the operating system, compiler and hardware are not proved;
+the [trusted base](../trusted-base.md) lists them.
 
 ## Byte-object size
 
 Every represented byte object has fewer than `2^63` bytes. This bound is accepted
 as part of the system environment. It is the LP64 `PTRDIFF_MAX` object-size limit: no allocator
-returns a larger object. It holds on every heap of a call history (`StreamReachable`). It covers caller-provided storage, raw byte
-blocks, static arrays and embedded byte-array views.
+returns a larger object. It covers caller-provided storage, raw byte blocks, static arrays
+and embedded byte-array views.
 
 The exact predicate is `ZlibF.PlatformMemory.ByteObjectsFit` in
 [PlatformMemory.lean](../../ZlibF/Spec/PlatformMemory.lean):
@@ -24,23 +25,30 @@ the total length processed across repeated calls. It is shared by the default,
 common and all-supported [input ranges](input-configurations.md); it is not an
 extra colour or a compression parameter.
 
-## Use in execution proofs
+## Where the goals use it
 
-A theorem may take this predicate as an explicit environment premise.
-`Goal.inflate` states it directly. Internal fast-decoder entry proofs derive
-their whole-input/output object-size facts from it. The bound gives a signed
-64-bit range for differences of valid offsets in the same object.
+The premise is explicit in every safety goal that needs it. It is stated on the heap a call
+starts from, and on each heap the caller hands back.
 
-The zlib proofs must establish that their actual initialization, allocation and
-updates preserve the premise. A caller replacing buffers must supply storage
-within the accepted environment. The runtime allocator refuses requests above
-`PTRDIFF_MAX`, so library allocations preserve the predicate
-(`ByteObjectsFit.allocB`); it is not derived for caller storage or for an
-arbitrary mathematical heap.
+| Goals | Where the premise is |
+| --- | --- |
+| One call on a stream (`Goal.<function>_safety`, `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety`) | `StreamCallDomain` and clause 2 of `StreamSequenceSafety`: on the heap of the call. An inflate history (`StreamReachable .inflate`) also has it at every call and after every caller edit. A deflate history does not carry it. |
+| `compress*`, `uncompress*` | A premise of `CompressorSafety`, `UncompressCountedSafe` and `UncompressSingleSafe`. |
+| Gzip file interface | `GzHistory`: on the heap of each open and after every caller edit. `GzOpenSafe` and `GzDopenSafe` take it too. |
+| Callback decoder | `BackSafeReachable` and `Goal.inflate_back_sequence_safety`: on the heap of each `inflateBack` call. `BackPlatform` asks the callbacks to keep it. |
+| Checksums, queries, init, end, copy, refusals | Not needed and not stated. |
 
-Each exact statement retains its written domain. Statements that do not need
-the bound may quantify over a larger mathematical domain. This page does not
-silently insert a new hypothesis into those statements.
+The bound gives a signed 64-bit range for the difference of two valid offsets in one object.
+The fast decoder's entry proofs derive their object-size facts from it.
+
+The library's own allocations keep the premise: the runtime allocator refuses a request above
+`PTRDIFF_MAX`, so a new block fits (`ByteObjectsFit.allocB`,
+[Proof/PlatformMemory.lean](../../ZlibF/Proof/PlatformMemory.lean)). For caller storage and for
+an arbitrary heap it is assumed, not derived. [Deviations](../deviations.md), row "Platform
+byte-object scope", records it.
+
+A goal that does not state the premise holds without it. This page adds no hypothesis to any
+statement.
 
 ## Other pointer obligations
 
