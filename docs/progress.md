@@ -2811,7 +2811,7 @@ Ordered. "Prerequisite" is what must be proved first; it is never an assumed con
 
 | # | Target | Prerequisite | Owner PR |
 | ---: | --- | --- | --- |
-| 1 | `gzopen`, `gzopen64`, `gz_initialisation_domain` | Statement corrected (see [gzip open path length](#gzip-open-path-length)). Next: the path-open (`fd = -1`) branch of `gz_open`: `fsOpen` outcomes and the append/read seeks, reusing the `gzdopen` composition | — |
+| 1 | `gzopen`, `gzopen64`, `gz_initialisation_domain` | Functional contracts, not planned; `gz_initialisation_domain` is not required (see [Scope](#scope)). Statement corrected (see [gzip open path length](#gzip-open-path-length)). Next: the path-open (`fd = -1`) branch of `gz_open`: `fsOpen` outcomes and the append/read seeks, reusing the `gzdopen` composition | — |
 | 2 | `gztell`, `gztell64` | `PosInv` from every permitted gz history (open, read, write, seek, pushback) | — |
 | 3 | `gzclose_r` | Reader buffer ownership over histories, then `inflateEnd` on an initialized reader | — |
 | 4 | `gzseek`, `gzseek64` | `PosInv` and buffer invariants from item 2; transparent and buffered paths | — |

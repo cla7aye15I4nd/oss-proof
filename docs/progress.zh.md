@@ -2549,7 +2549,7 @@ zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出�
 
 | # | 目标 | 前提 | 负责 PR |
 | ---: | --- | --- | --- |
-| 1 | `gzopen`、`gzopen64`、`gz_initialisation_domain` | 陈述已修正（见 [gzip 打开路径长度](#gzip-open-path-length)）。接下来是 `gz_open` 的路径打开（`fd = -1`）分支：`fsOpen` 的结果以及追加/读取定位，复用 `gzdopen` 的组合 | — |
+| 1 | `gzopen`、`gzopen64`、`gz_initialisation_domain` | 功能契约，不在计划内；`gz_initialisation_domain` 不是必需目标（见[范围](#scope)）。陈述已修正（见 [gzip 打开路径长度](#gzip-open-path-length)）。接下来是 `gz_open` 的路径打开（`fd = -1`）分支：`fsOpen` 的结果以及追加/读取定位，复用 `gzdopen` 的组合 | — |
 | 2 | `gztell`、`gztell64` | 从每个允许的 gz 调用历史（打开、读、写、定位、回退）推出 `PosInv` | — |
 | 3 | `gzclose_r` | 读端缓冲区在调用历史上的归属，然后是已初始化读端上的 `inflateEnd` | — |
 | 4 | `gzseek`、`gzseek64` | 第 2 项的 `PosInv` 和缓冲区不变式；透明路径与缓冲路径 | — |
