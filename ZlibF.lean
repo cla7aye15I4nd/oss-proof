@@ -234,6 +234,7 @@ import ZlibF.Spec.HeapUniq
 import ZlibF.Spec.Public.GzRefusal
 import ZlibF.Spec.Public.GzState
 import ZlibF.Spec.Functional.GzState
+import ZlibF.Spec.Public.GzInv
 import ZlibF.Spec.Public.GzControl
 import ZlibF.Spec.Public.GzOpen
 import ZlibF.Spec.Public.GzRead

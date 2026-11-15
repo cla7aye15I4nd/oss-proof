@@ -1,4 +1,4 @@
-import ZlibF.Proof.«gz.inv-model»
+import ZlibF.Spec.Public.GzInv
 import ZlibF.Zlib.«zlib.h»
 
 /-!
