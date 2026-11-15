@@ -94,14 +94,14 @@ test of the same function keeps in range uses the plain operator. The
 [translation rules](design/translation.md) show an example of each and say what evidence each
 function needs. The test inventory is `tests/list.txt`.
 
-The translations also contain five forms that the four do not cover as worded: a value just
-stored is used again without a read; an operand is evaluated before the short-circuit test that
-guards it in C; a field value is taken from a record loaded before a store; a shift by a
-constant count uses the plain operator; and the locals of `inflate` that C leaves uninitialised
-start at fixed values. Whether each becomes an accepted normalisation or is changed is an open
+The translations also contain at least six forms that the four do not cover as worded: a value
+just stored is used again without a read; an operand is evaluated before the short-circuit test
+that guards it in C; a field value is taken from a record loaded before a store; a shift by a
+constant count uses the plain operator; the locals of `inflate` that C leaves uninitialised
+start at fixed values; and a store is written after a call that follows it in C. Whether each becomes an accepted normalisation or is changed is an open
 decision of the owner.
 [Translation](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)
-lists the places. No place was found to compute a different value from the C; that is a reading,
+lists the places found; its tables are examples, not a complete inventory. No place was found to compute a different value from the C; that is a reading,
 not a proved fact.
 
 Three parts of this item are easy to miss:
