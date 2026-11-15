@@ -1,4 +1,4 @@
-<!-- source-sha256: 98750e5a1a168691d92faec2ad3968001d8ffffdbc9182428473f0ae08e30ee3 -->
+<!-- source-sha256: ceb645e5fd08d7710eb345c8ba398706bd080ad1627bb117c4f48085cd9acd9c -->
 # 压缩器的源码笔记：`deflate.c`、`trees.c`
 
 本页记录 C 源码里的一些细节：在这些地方，翻译若走捷径，程序的行为就会改变。它们涉及求值顺序、整数转换、提前返回和宏展开。本页写给拿 `zlib/*.c` 与 `ZlibF/Zlib/*.c.lean` 对照的读者。
@@ -32,13 +32,13 @@
 
 `read_buf` 先减小 `avail_in` 再复制，对目的处的字节计算校验和，然后推进 `next_in` 和 `total_in`。`deflate_stored` 也用它把输入直接复制到调用者的输出。
 
-`fill_window` 用 `ulg` 计算空闲空间，把它截成 `unsigned`，并且可能在检查是否还有输入之前就滑动窗口。一次滑动把窗口的上半部分往下复制，调整各个位置和有符号的 `block_start`，把 `insert` 限制到不超过 `strstart`，然后滑动哈希表项。之后它把数据后面至多 `WIN_INIT` 个字节清零，并用 `high_water` 记录，这样匹配器读到前瞻数据之后时，遇到的是写过的字节。
+`fill_window` 用 `ulg` 计算空闲空间，把它截成 `unsigned`，并且可能在检查是否还有输入之前就滑动窗口。一次滑动把窗口的上半部分往下复制，调整各个位置和有符号的 `block_start`，把 `insert` 限制到不超过 `strstart`，然后滑动哈希表项。之后它把数据后面至多 `WIN_INIT` 个字节清零，并用 `high_water` 记录，这样匹配器读到预读数据之后时，遇到的是写过的字节。
 
 下面三条事实是定理的一部分：
 
-- 滑动时的复制不越界，它的两段区域不重叠（`fill_window_inv`）；
-- 匹配器的读始终在窗口之内，超过 `strstart + lookahead` 时也是如此（`longest_match_inserted`）；
-- 匹配器返回的长度至多是 `lookahead`（`longest_match_inserted`）。
+- 滑动时的复制不越界，它的两段区域不重叠。在模型里，不满足这两点时 `memcpy` 就出故障，所以一条说 `fill_window` 会返回的定理就陈述了这件事。`fill_window_inv` 是这样的定理，但只针对非零级别，也就是各策略调用 `fill_window` 的地方。`deflateSetDictionary` 里的那次调用可以发生在级别 0，它由 `step_setDictionary` 涵盖；
+- 匹配器的读始终在窗口之内，超过 `strstart + lookahead` 时也是如此（`longest_match_inserted`，它假设各策略确立的入口条件，见[流式压缩](deflate.md#inside-one-deflate-call)）；
+- 匹配器返回的长度至多是 `lookahead`（`longest_match_inserted`：结果是最佳长度与 `lookahead` 中较小的一个）。
 
 `CLEAR_HASH` 把 `head` 的最后一项置 0，把其余各项清零，并清掉 `slid`。它不碰 `prev`。`INSERT_STRING` 先把旧的链头存进 `prev[str & w_mask]`，再把 `str` 存进链头，所以一个位置的 `prev` 槽在这个位置能被到达之前就写过了。
 
@@ -69,9 +69,16 @@
 
 `deflateSetHeader` 存下调用者的指针。它不复制也不释放这个记录。C 检查流是不是 gzip 流，不检查调用顺序。在序列目标里，`deflateSetHeader` 只允许在第一次 `deflate` 调用之前使用（`DeflateNotStarted`）；在这条规则下，读头部指针的那些状态里它不是 `NULL`（`HeaderInv.record`，由 `reachable_inv_of` 对每个可达状态证明）。`deflate` 跨多次调用写头部期间，调用者必须让 `extra`、`name` 和 `comment` 保持原样：`extra_len` 小于 `gzindex` 会让“剩余长度”的减法回绕（`DeflateHeaderProgress`）。
 
-`deflateParams` 在改变级别或策略之前可能调用 `deflate(strm, Z_BLOCK)`，而且可能在那次调用已经产生效果之后返回错误。离开级别 0 时，它按 `matches` 的值把哈希表滑动一次或清空。是否需要这次刷新，由策略函数指针的比较决定。
+`deflateParams` 在改变级别或策略之前可能调用 `deflate(strm, Z_BLOCK)`，而且可能在那次调用已经产生效果之后返回错误。离开级别 0 时，它按 `matches` 的值把哈希表滑动一次或清空。决定是否刷新的检查是
 
-`deflateTune` 不做检查就把参数存进无符号字段；负的参数会变成很大的值。`nice_length` 仍是有符号的。链上限为 0 时，第一次递减就回绕。安全定理覆盖每一个调优值：`deflateTune` 是带任意参数都被允许的调用，而链的遍历靠位置下降结束，不靠这个计数器。
+```c
+if ((strategy != s->strategy || func != configuration_table[level].func) &&
+    s->last_flush != -2)
+```
+
+所以，策略改变，或者新级别的压缩函数与旧级别的不同，才需要刷新，而且只在 `last_flush` 不是 -2 时才需要。重置存入 -2，这个值一直保持到某次 `deflate` 调用通过它的入口检查为止。
+
+`deflateTune` 不做检查就把参数存进无符号字段；负的参数会变成很大的值。`nice_length` 仍是有符号的。链上限为 0 时，第一次递减就回绕。安全定理覆盖每一个调优值：`deflateTune` 无论带什么参数都是被允许的调用，而链的遍历靠位置下降结束，不靠这个计数器。
 
 ### 预置位、查询与主函数
 
@@ -85,7 +92,7 @@
 
 ### 有符号的位置
 
-`strstart - block_start` 用 `long` 计算；在这个平台上 `long` 容得下每一个 `uInt`。滑动时的 `block_start -= (long)wsize` 和 `deflateParams` 里的表达式也是如此。翻译对其中每一处都检查溢出。`block_start_low` 由子句 `blockSpan` 给出：级别非零时 `block_start ≥ -2^62`；`block_start_slide_signed` 和 `flush_length_general` 把它用于滑动和块长的计算。
+`strstart - block_start` 用 `long` 计算；在这个平台上 `long` 容得下每一个 `uInt`。滑动时的 `block_start -= (long)wsize`，以及 `deflateParams` 里的表达式 `(s->strstart - s->block_start) + s->lookahead` 也是如此。翻译对其中每一处都检查溢出。`block_start_low` 由子句 `blockSpan` 给出：级别非零时 `block_start ≥ -2^62`；`block_start_slide_signed` 和 `flush_length_general` 把它用于滑动和块长的计算。对 `deflateParams` 里的那个表达式，`params_after_outcome`（`ZlibF/Proof/deflate.c.universal-ops-params-general.lean`）证明：从满足不变量的每个状态出发，内层 `deflate` 调用之后的那段代码都会返回。它的证明用子句 `blockStart` 和 `blockSpan` 限定这个差，级别为 0 时用 `levelZero`。
 
 `ct_data` 里的两个联合体各有两个 `unsigned short` 成员。在翻译里每个联合体是一个单元：`Freq` 和 `Code` 是同一个单元的两个名字，`Dad` 和 `Len` 是另一个的。建树时往同一个单元里先写父结点、后写码长，先写频率、后写编码。
 
@@ -93,7 +100,7 @@
 
 ### 未初始化的存储
 
-`slide_hash` 读 `prev` 的每一个表项，不管写没写过。`longest_match` 可能比较前瞻数据之后的字节。在模型里，从未写过的整数取任意值，定理对每一个这样的值都成立；定理说明垃圾的 `prev` 表项永远不会被用作下标。这个模型的局限见[安全性](../spec/safety.md#uninitialised-memory)和[可信基础](../trusted-base.md)。
+`slide_hash` 读 `prev` 的每一个表项，不管写没写过。`longest_match` 可能比较预读数据之后的字节。在模型里，从未写过的整数取任意值，定理对每一个这样的值都成立；定理说明垃圾的 `prev` 表项永远不会被用作下标。这个模型的限制见[安全性](../spec/safety.md#uninitialised-memory)和[可信基础](../trusted-base.md)。
 
 在 `build_tree` 中，表达式 `(s->depth[n] >= s->depth[m] ? s->depth[n] : s->depth[m]) + 1` 比较两个结点的深度，然后再读其中一个。翻译把两次读都做了。[深度读取回归测试](../../tests/regression/trees-depth-read/README.md)在翻译的结构上检查这一点，因为用初始化过的值做测试分辨不出这两种写法。
 
@@ -116,7 +123,7 @@ flowchart LR
     P --> W
 ```
 
-`sym_end = 3 * (lit_bufsize - 1)`。记录一个符号时，依次写距离的低字节、高字节，以及字面量或长度字节，然后统计频率。字面量的距离是 0。对匹配，宏在查表之前按 16 位把距离减一；距离若是 0，就会回绕成 65535，使 `d_code` 去读一张 512 项的表的下标 767。不变量排除了这种情况：每个记录下来的匹配，距离至少是 1、至多是 `w_size - 262`，并且总还放得下一个符号（子句 `recorded` 和 `symRoom`）。
+`sym_end = 3 * (lit_bufsize - 1)`。记录一个符号时，依次写距离的低字节、高字节，以及字面量或长度字节，然后统计频率。字面量的距离是 0。对匹配，宏在查表之前按 16 位把距离减一；距离若是 0，就会回绕成 65535，使 `d_code` 去读一张 512 项的表的下标 767。证明分两部分排除这种情况。上界在不变量里：每个记录下来的距离至多是 `w_size - 262`（子句 `recorded`），并且总还放得下一个符号（子句 `symRoom`）。下界不是不变量的子句，因为 `recorded` 也涵盖字面量，而字面量的距离是 0。它是符号记录引理 `tally_match_run` 的一个前提，各策略在记录匹配的地方提供它：`deflate_rle` 用常数 1；`deflate_fast` 记录的是 `longest_match_inserted` 在 `strstart` 之下找到的匹配；`deflate_slow` 用子句 `pendingMatch`（[流式压缩](deflate.md#inside-one-deflate-call)）。
 
 位输出的辅助函数不检查空间。每次写都放得下、并且落在未读符号之下，这是[树](trees.md#the-overlay-lemma-f9)的事实 F9，它对每一个 `memLevel` 都证明了。
 
@@ -129,7 +136,7 @@ flowchart LR
 | 堆操作 | `pqremove` 读堆的最后一项，递减 `heap_len`，然后下沉。频率相同时按深度排序 |
 | `build_tree` | 出现的符号不足两个时它补入叶子。代价的递减 `opt_len--` 有意按 `ulg` 回绕。频率之和按 `int` 计算，再截成 `ush` |
 | `gen_bitlen` | 它用码长覆盖结点的父结点字段。父结点先于孩子被访问，修复在走到下标 0 之前就能找到一个非空的较短类（`gen_bitlen_safe`）。它对代价的调整有意回绕 |
-| `scan_tree`、`send_tree` | 前者在 `max_code + 1` 处写哨兵；后者用同一个 `max_code` 读它。哨兵只充当“下一个码长”，从不作为用于下标的码长 |
+| `scan_tree`、`send_tree` | 前者在 `max_code + 1` 处写哨兵；后者用同一个 `max_code` 读它。哨兵只充当“下一个码长”，从不作为用于下标的码长（`ws_scan_tree`、`send_tree_emit`；见[树](trees.md#codes-and-the-tree-description)） |
 | `_tr_flush_block` | 存储、固定、动态三种代价在块被重置之前算出并比较。代价按 `ulg` 向上取整到字节；相等时选固定形式 |
 
-宏：`send_bits` 声明了 `len` 和 `val`，记录距离的宏声明了 `len` 和 `dist`；源码里传入的实参与它们不冲突。`put_short` 和 `MIN` 对某个参数求值不止一次。`INSERT_STRING` 是从左到右求值的逗号表达式。`FLUSH_BLOCK` 可以从使用它的函数返回；`FLUSH_BLOCK_ONLY` 不会。`Assert` 和 `Trace` 宏没有编译进来，不起任何保护作用。
+宏：`send_bits` 声明了 `len` 和 `val`，记录距离的宏声明了 `len` 和 `dist`；源码里传入的实参与它们不冲突。`put_short` 和 `MIN` 对某个参数求值不止一次。`INSERT_STRING` 是从左到右求值的逗号表达式。`FLUSH_BLOCK` 可以从使用它的函数返回；`FLUSH_BLOCK_ONLY` 不能。`Assert` 和 `Trace` 宏没有编译进来，不起任何保护作用。

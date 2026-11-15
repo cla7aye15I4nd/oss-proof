@@ -75,10 +75,15 @@ slides the hash entries. Afterwards it zeroes up to `WIN_INIT` bytes beyond the 
 
 These three facts are parts of theorems:
 
-- the slide copy is in range and its two ranges do not overlap (`fill_window_inv`);
+- the slide copy is in range and its two ranges do not overlap. In the model `memcpy` faults
+  otherwise, so a theorem that `fill_window` returns states it. `fill_window_inv` is that
+  theorem at a nonzero level only, where the strategies call `fill_window`. The call from
+  `deflateSetDictionary`, which can run at level 0, is covered by `step_setDictionary`;
 - the matcher's reads stay inside the window, also beyond `strstart + lookahead`
-  (`longest_match_inserted`);
-- the length the matcher returns is at most `lookahead` (`longest_match_inserted`).
+  (`longest_match_inserted`, which assumes the entry condition the strategies establish; see
+  [stream compression](deflate.md#inside-one-deflate-call));
+- the length the matcher returns is at most `lookahead` (`longest_match_inserted`: the result is
+  the smaller of the best length and `lookahead`).
 
 `CLEAR_HASH` sets the last entry of `head` to 0, zeroes the others and clears `slid`. It does
 not touch `prev`. `INSERT_STRING` first stores the old head in `prev[str & w_mask]` and then
@@ -147,8 +152,16 @@ they were: `extra_len` below `gzindex` would make the remaining-length subtracti
 
 `deflateParams` may call `deflate(strm, Z_BLOCK)` before it changes the level or strategy, and
 it can return an error after that call has had effects. When it leaves level 0 it slides the
-hash once or clears it, according to `matches`. The comparison of the strategy function pointers
-decides whether the flush is needed.
+hash once or clears it, according to `matches`. The flush test is
+
+```c
+if ((strategy != s->strategy || func != configuration_table[level].func) &&
+    s->last_flush != -2)
+```
+
+so the flush is needed when the strategy changes or the compression function of the new level
+differs from that of the old one, and only when `last_flush` is not -2. A reset stores -2, and
+it stays until a `deflate` call passes its entry checks.
 
 `deflateTune` stores its arguments into unsigned fields without checking them; a negative
 argument becomes a large value. `nice_length` stays signed. A chain limit of 0 wraps on the
@@ -179,11 +192,15 @@ records that the trailer is written.
 ### Signed positions
 
 `strstart - block_start` is computed in `long`; `long` holds every `uInt` on this platform. The
-same holds for `block_start -= (long)wsize` in a slide and for the expressions in
-`deflateParams`. The translation checks each of these for overflow. `block_start_low` gives
-`block_start ≥ -2^62` at a nonzero level, from the clause `blockSpan`;
-`block_start_slide_signed` and `flush_length_general` use it for the slide and for the block
-length.
+same holds for `block_start -= (long)wsize` in a slide and for the expression
+`(s->strstart - s->block_start) + s->lookahead` in `deflateParams`. The translation checks each
+of these for overflow. `block_start_low` gives `block_start ≥ -2^62` at a nonzero level, from
+the clause `blockSpan`; `block_start_slide_signed` and `flush_length_general` use it for the
+slide and for the block length. For the expression in `deflateParams`,
+`params_after_outcome` (`ZlibF/Proof/deflate.c.universal-ops-params-general.lean`) proves that
+the code after the inner `deflate` call returns from every state with the invariant. Its proof
+bounds the difference by the clauses `blockStart` and `blockSpan`, and at level 0 by
+`levelZero`.
 
 The two unions in `ct_data` have two `unsigned short` members each. In the translation each
 union is one cell: `Freq` and `Code` name one, `Dad` and `Len` the other. Tree construction
@@ -232,9 +249,14 @@ flowchart LR
 `sym_end = 3 * (lit_bufsize - 1)`. A tally writes the low byte of the distance, its high byte,
 and the literal or the length byte, then counts the frequencies. A literal has distance 0. For a
 match the macro decrements the distance in 16 bits before the lookup; a distance of 0 would wrap
-to 65535 and make `d_code` read index 767 of a 512-entry table. The invariant excludes it: every
-recorded match has a distance of at least 1 and at most `w_size - 262`, and one more symbol
-always fits (clauses `recorded` and `symRoom`).
+to 65535 and make `d_code` read index 767 of a 512-entry table. The proof excludes it in two
+parts. The upper bound is in the invariant: every recorded distance is at most `w_size - 262`
+(clause `recorded`), and one more symbol always fits (clause `symRoom`). The lower bound is not
+a clause of the invariant, because `recorded` also covers literals, whose distance is 0. It is
+a premise of the tally lemma `tally_match_run`, and each strategy supplies it where it records
+a match: the constant 1 in `deflate_rle`, a match that `longest_match_inserted` found below
+`strstart` in `deflate_fast`, and the clause `pendingMatch` in `deflate_slow`
+([stream compression](deflate.md#inside-one-deflate-call)).
 
 The bit-output helpers do not check for room. That every write fits and stays below the unread
 symbols is fact F9 of [trees](trees.md#the-overlay-lemma-f9), proved for every `memLevel`.
@@ -251,7 +273,7 @@ on this platform, and `bi_used` gets that value.
 | Heap operations | `pqremove` reads the last heap entry, decrements `heap_len`, then sifts. Equal frequencies are ordered by depth |
 | `build_tree` | It adds leaves when fewer than two symbols occur. The cost decrements `opt_len--` wrap in `ulg` on purpose. A frequency sum is computed in `int` and narrowed to `ush` |
 | `gen_bitlen` | It overwrites the parent field of a node with its length. Parents are visited before children, and the repair finds a nonempty shorter class before it could reach index 0 (`gen_bitlen_safe`). Its cost adjustments wrap on purpose |
-| `scan_tree`, `send_tree` | The first writes the guard at `max_code + 1`; the second reads it with the same `max_code`. The guard is only ever the "next length", never a length used as an index |
+| `scan_tree`, `send_tree` | The first writes the guard at `max_code + 1`; the second reads it with the same `max_code`. The guard is only ever the "next length", never a length used as an index (`ws_scan_tree`, `send_tree_emit`; see [trees](trees.md#codes-and-the-tree-description)) |
 | `_tr_flush_block` | The stored, fixed and dynamic costs are computed and compared before the block is reset. The costs are rounded up to bytes in `ulg`; on a tie the fixed form wins |
 
 Macros: `send_bits` declares `len` and `val`, and the distance tally declares `len` and `dist`;
