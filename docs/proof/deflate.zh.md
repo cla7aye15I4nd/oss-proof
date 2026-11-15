@@ -1,4 +1,4 @@
-<!-- source-sha256: d72db6d89e38c9f98bbbeaa22e6f218b36652ab1df8117ef24f30d1e9de1c017 -->
+<!-- source-sha256: 720c36f0c321f753536864e13d14b2b28978180568df8a8afa2247fe9aeaba5a -->
 # 流式压缩：窗口、链与生命周期
 
 压缩器先找出原文中的重复片段，再把字面量和“长度／距离”符号交给块输出器。例如输入是 `ABCDABCD`，处理完前一个 `ABCD` 后，接下来的四个字节与它相同，可以用“从当前位置回退 4 字节，复制 4 字节”描述它们。证明必须说明被引用的旧内容确实相同，而且窗口搬动、提前停止搜索或暂停输出，都不会破坏这个含义。
@@ -10,21 +10,71 @@
 
 先区分三种任务：窗口负责保留哪些字节，哈希链负责把可能匹配的位置连起来，输出器负责把选定符号编码成压缩字节。数组边界证明只说明访问合法；还需要内容关系，才能说明这些符号恢复出的原文等于实际消费的输入。
 
-本页给出证明结构及其内部前提。以 `DGood` 或搜索不变量为条件的结果，
-需要通过初始化与保持论证连接，才能推出公开正确性。
-当前已接受范围与剩余工作只记录在[进度](../progress.md)。
+`deflate` 在每个输入和缓冲区的每种切分上都是安全的，对每个级别、`memLevel`、`windowBits`、策略、调优参数和头部都如此，对它的调用序列也是如此。本页解释不变量和这个证明的结构。
 
-## 输入范围与路径组合
+## 已证明什么
 
-[共用输入配置](../spec/input-configurations.md#deflate-inputs)定义严格嵌套的默认、常见及完整流参数范围。
-完整且范围明确的声明使用同一套覆盖颜色。精确入口契约保持其原有定义域。
-较小的分支引理仍是组合证明的依据，其前提必须明确。
+| 结果 | 类别 | 定理 | 模块 |
+| --- | --- | --- | --- |
+| `Goal.deflate_sequence_safety`（`ZlibF/Spec/Safety/Sequences.lean`）：每个可达历史上不变量成立；下一次调用安全，分配账目准确；`deflateEnd` 释放流拥有的一切 | 安全，必需 | `Zlib.Deflate.Universal.deflate_sequence_safety` | `ZlibF/Proof/public-deflate-goals.lean` |
+| 逐函数的安全目标：`deflate`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateReset`、`deflateParams`、`deflateTune`、`deflateBound`、`deflateBound_z`、`deflatePending`、`deflateUsed`、`deflatePrime`、`deflateSetHeader`、`deflateEnd`（`ZlibF/Spec/Safety/Streams.lean`） | 安全，必需 | `StreamCallSafetyProof.deflate_safety` 及其他 `deflate*_safety` 定理 | `ZlibF/Proof/public-stream-call-safety.lean` |
+| `Goal.deflateInit__safety`、`Goal.deflateInit2__safety` | 安全，必需 | `deflateInit__safety`、`deflateInit2__safety` | `ZlibF/Proof/public-init-safety.lean` |
+| `Goal.deflateCopy_safety` | 安全，必需 | `deflate_copy_safety` | `ZlibF/Proof/public-deflate-copy.lean` |
+| `Goal.deflate_refusal`：每个函数都拒绝未初始化的流，并保持堆不变 | 安全，必需 | `deflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
+| `Goal.deflate_initialisation_domain`：序列目标的前提可以被满足 | 非空泛性，必需 | `deflate_initialisation_domain_public` | `ZlibF/Proof/public-deflate-init-domain.lean` |
+| `Goal.deflate`：单次调用的完整契约，包括进展、返回码、计数器、帧和所有权 | 功能性，保留；`compress*` 的安全证明用到它 | `Zlib.Deflate.Universal.deflate_safety` | `ZlibF/Proof/public-deflate-goals.lean` |
+| 完整契约 `Goal.deflateInit_`、`Goal.deflateInit2_`、`Goal.deflateCopy`、`Goal.deflateEnd`、`Goal.deflateReset` 以及各查询函数 | 功能性，保留 | `deflateInit_proof`、`deflateInit2_proof`、`deflate_copy_public`、`deflate_end_public`、`deflate_reset_public` 等 | `ZlibF/Proof/public-deflate-*.lean` |
+| 只针对默认配置的结果：已观察请求轨迹的编码、完成和清理 | 功能性，保留 | 登记表中的 `Zlib.Deflate.Engine.Proofs.*` 和 `DeflateCore.*` 条目 | `ZlibF/Proof/deflate.c.engine.*.lean`、`deflate.c.default-*.lean` |
 
-对于这个压缩器，级别与策略选择不同引擎。
-应把存储、快速、慢速、仅 Huffman、RLE 的执行义务，与可共用参数化证明的数值范围分开。
-补充输入／窗口引理及树／输出引理各自记录内存级别、窗口、符号空间前提。
-默认初始化可以建立自己的不变量，不必依赖通用参数的 `deflateInit2_` 契约。
-成功见证是支持性证据，不能代替对所有许可调用者状态的覆盖。
+这些定理登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+
+注意有两条名为 `deflate_safety` 的定理。`Zlib.Deflate.Universal.deflate_safety` 证明 `Goal.deflate`，即单次调用的完整契约。`StreamCallSafetyProof.deflate_safety` 证明逐函数的安全目标 `Goal.deflate_safety`。
+
+不是必需的、也不在计划内的是：`deflate` 的输出解码后等于它的输入。
+
+下文中说明某一步“尚未完成”或“仍需证明”的段落，是对 C 源代码的解读，这里列出的定理没有以那种形式陈述它。定理是依据翻译检查的，而不是依据这段文字。
+
+## 假设了什么
+
+- 每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）。
+- 流使用默认分配器。
+- 输入范围和输出范围相互分离，并且位于流所拥有的存储之外（`StreamBuffers`）。字典缓冲区与窗口分离。
+- `deflate` 写出所附的 `gz_header` 时，输入范围、输出范围和头部各字段相互分离（`DeflateHeaderApart`），并且调用者保留了已经写出的部分（`DeflateHeaderProgress`）。
+- 调用历史中没有对 `deflateResetKeep` 的直接调用。`zlib.h` 把该函数列为无文档函数。
+
+每个前提都明确写在陈述中，并在[偏差记录](../deviations.md)中各占一行。
+
+## 证明结构
+
+```mermaid
+flowchart TD
+    G["deflate_sequence_safety"] --> R["reachable_inv_of：每个历史上的 DInv、HeaderInv 和 CallFacts"]
+    G --> O["operation_step_of：再做一次操作是安全的"]
+    G --> E["end_from_inv：deflateEnd 释放所拥有的块"]
+    R --> I["初始化：deflateInit2_ 建立 DInv"]
+    R --> OPS["每个操作和调用者更换缓冲区都保持 DInv"]
+    O --> C["deflate_call：一次 deflate 调用"]
+    C --> H["头部阶段"]
+    C --> S["五个策略函数"]
+    C --> T["尾部阶段"]
+    S --> F["FLUSH_BLOCK：树与重叠缓冲区余量"]
+```
+
+不变量是 `DInv`（`ZlibF/Proof/deflate.c.universal-invariant.lean`）。它在每个可达状态成立。它把早先的谓词 `DGood`（五个块的存活性、大小和所有权）与 `Shape`（窗口界限）、`Hashing`（哈希链）和 `Symbols`（当前块的符号账目）打包在一起。在调用边界上，`HeaderInv` 和 `CallFacts` 与它一同成立。其他模块使用接口引理 `DInv.*`。
+
+组合在 `ZlibF/Proof/deflate.c.universal-sequence-safety.lean` 中。它使用三条引理：
+
+- `reachable_inv_of`：对历史归纳，每个可达状态都满足 `DInv`、`HeaderInv` 和 `CallFacts`；
+- `operation_step_of`：再做一次操作会返回，保持不变量，并具有缓冲区帧和准确的分配账目；
+- `end_from_inv`：`deflateEnd` 释放流拥有的每个块。
+
+一次 `deflate` 调用在 `ZlibF/Proof/deflate.c.universal-call-assemble.lean` 中组装。它按入口阶段分情形：无效的刷新参数、拒绝、输出已满、无进展的拒绝、没有待输出内容、有待输出内容。每种情形依次经过头部、策略和尾部阶段。
+
+五个策略函数在 `ZlibF/Proof/deflate.c.universal-strategies.lean` 中。在策略循环每次迭代的开头，状态重新满足 `DInv`，待输出缓冲区为空，调用者的输出还有空间。关于终止：每次迭代要么离开循环，要么消耗 `avail_in + lookahead` 中的一个字节；`fill_window` 把输入移到预读区，不改变这个和。
+
+块刷新需要[树](trees.md#the-overlay-lemma-f9)页上的重叠缓冲区余量。它对每个 `memLevel` 都已证明。这就是两个 deflate 目标没有假设的原因。
+
+级别和策略选择不同的引擎：存储、快速、慢速、仅 Huffman 和 RLE。参数范围的名称见[输入配置](../spec/input-configurations.md#deflate-inputs)。通用定理覆盖全部范围；上表中针对默认配置的结果只覆盖其中一个。
 
 ## 存储与大小等式
 
@@ -82,7 +132,7 @@ strstart + lookahead ≤ window_size = 2W
 
 初始化把两个计数都设为零。读入使预读量的增量不超过可用窗口空间。
 消费字节使 `strstart` 增加、预读量减少相同数量。
-证明必须在每个使用 D 的入口及策略循环位置建立它。
+D 是 `Shape` 的一个子句，所以它在每个入口以及每个策略循环的开头都成立。
 
 补充输入函数叫 `fill_window`。它用局部量 `more` 记录真实数据之后的空闲字节数。`insert` 记录尚待补做哈希插入的位置数，`match_start` 保存上次匹配的起点，`block_start` 保存当前压缩块原始字节的起点。滑动改变的是数组下标；每个字节在整条输入中的位置和字节内容不应改变。
 
@@ -115,7 +165,7 @@ strstart + lookahead ≤ window_size = 2W
 `I-fw-post-room` 给出 `strstart ≤ window_size - MIN_LOOKAHEAD`。
 滑动判断先于无输入出口，所以空间论证也必须覆盖输入结束后的调用。
 **未完成的证明步骤：** 每个搜索调用者都能由 D 下足够的预读量，或一次 `fill_window` 调用，
-取得该界限，包括策略变化和恢复调用。只阅读一个循环的源代码，不能证明全部策略。
+取得该界限，包括策略变化和恢复调用。策略引理（`ZlibF/Proof/deflate.c.universal-strategies.lean`）证明了各策略下的搜索都不产生故障；这里对界限来源的描述是对源代码的解读。
 
 ## H1/H2：有意义的哈希链读取
 
@@ -140,7 +190,7 @@ strstart + lookahead ≤ window_size = 2W
 找到它的搜索至少有三个前瞻字节，因此没有等待插入的位置；随后又越过了匹配起点一步。`deflate_slow`
 输出该匹配时两者都需要：`max_insert = strstart + lookahead - 3` 不回绕，其插入循环恰好结束于 `chainTop`。
 
-这些条件表达 `I-hc-inv`。其准确的时序／范围形式必须覆盖 `fill_window` 与字典中的插入，
+这些条件表达 `I-hc-inv`。它们覆盖 `fill_window` 与字典中的插入，
 也覆盖策略宏。某位置属于已分配 `prev` 数组，并不能证明这些事实。
 
 `CLEAR_HASH` 写最后一个桶头，再把前面的桶头清零。
@@ -181,7 +231,7 @@ strstart + lookahead ≤ window_size = 2W
 
 比较可能查看真实预读量之外的任意字节。在模型中的整数型字节上，这种读取被允许，
 但返回匹配会被截断到预读量。
-功能正确性必须说明所选匹配在真实数据部分相等；无故障论证本身不能证明结果与垃圾值无关。
+仅属于功能性证明：正确性必须说明所选匹配在真实数据部分相等；无故障论证本身不能证明结果与垃圾值无关。
 
 终止性方面，有意义的前驱位置严格递减。配置中的链预算也限制遍历。
 **未完成的证明步骤：** 适用 `>>= 2` 缩减分支时，预算缩减后仍为正，
@@ -260,7 +310,7 @@ stateDiagram-v2
 `flush_pending` 使用 `pending_out + pending ≤ pending_buf + pending_buf_size`，
 复制量至多为 `avail_out`，随后准确更新游标和计数。
 
-公开正确性还需把发出的包装字段、块比特、校验和及尾部长度，
+仅属于功能性证明：公开正确性还需把发出的包装字段、块比特、校验和及尾部长度，
 对应到已消费输入与所选刷新安排。
 对于“压缩是否已经开始”需要单调的历史记录，并跨拒绝保持：
 失败调用不得使后续调用看起来像全新流。
@@ -286,10 +336,7 @@ stateDiagram-v2
 证明必须逐一保持源清理行为及目标／源的帧性质。
 被调用者契约是已证明的执行结果，不能打包成顶层定理的假设。
 
-生命周期定理组合初始化、数据调用、重置／字典／头部／位预置／复制操作及结束。
-往返定理再把实际发出流连接到独立 DEFLATE 语义，覆盖其定义域中全部许可拆分、策略、级别与配置。
-如果某个定理有 `memLevel ≥ 4` 等历史限制，必须明确保留；
-不能用它代表完整 `zlib.h` 定义域。
+序列定理组合初始化、数据调用、重置、字典、头部、位预置和复制操作，以及结束。它对 `memLevel` 和其他任何参数都没有限制。把发出的流连接到独立 DEFLATE 语义的往返定理是功能性的，不在计划内。
 
 ## 与 C 的对应检查
 

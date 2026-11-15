@@ -4,7 +4,9 @@
 
 This records evidence for a reviewed completion caller-protocol correction.
 It is not a zlib bug report or a kernel-checked counterexample.
-Current status and remaining work are maintained in [overview](../overview.md).
+`DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`) is a functional goal. It is
+not required and not planned ([progress, Scope](../progress.md#scope)). This page is kept
+as the record of a correction to its statement.
 
 ## Contract and target
 

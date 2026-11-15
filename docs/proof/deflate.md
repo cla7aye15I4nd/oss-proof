@@ -6,26 +6,106 @@ The [API guide](../spec/api/README.md) gives public behavior. Internal contracts
 [internal contracts](../spec/internal-contracts.md). Tree construction and the
 shared-buffer bound F9 are explained in [trees](trees.md).
 
-This page gives the proof structure and its internal premises. Conditional
-results over `DGood` or a search invariant need an initialization and
-preservation bridge before they imply public correctness. Current accepted
-scope and remaining work are recorded only in [progress](../progress.md).
+`deflate` is safe on every input and every split of the buffers, for every
+level, `memLevel`, `windowBits`, strategy, tuning and header, also over its call
+sequences. This page explains the invariant and the structure of that proof.
 
-## Input ranges and path composition
+## What is proved
 
-The [shared input configurations](../spec/input-configurations.md#deflate-inputs)
-define the strictly nested default, common and full stream parameter ranges.
-Apply the same coverage colours to complete scoped declarations. Exact entry
-contracts keep their existing domains. Smaller branch lemmas remain evidence
-for composition, with their premises explicit.
+| Result | Kind | Theorem | Module |
+| --- | --- | --- | --- |
+| `Goal.deflate_sequence_safety` (`ZlibF/Spec/Safety/Sequences.lean`): the invariant on every reachable history, a safe next call with an exact allocation ledger, and a `deflateEnd` that frees everything the stream owns | Safety, required | `Zlib.Deflate.Universal.deflate_sequence_safety` | `ZlibF/Proof/public-deflate-goals.lean` |
+| One safety goal per function: `deflate`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateReset`, `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z`, `deflatePending`, `deflateUsed`, `deflatePrime`, `deflateSetHeader`, `deflateEnd` (`ZlibF/Spec/Safety/Streams.lean`) | Safety, required | `StreamCallSafetyProof.deflate_safety` and the other `deflate*_safety` theorems | `ZlibF/Proof/public-stream-call-safety.lean` |
+| `Goal.deflateInit__safety`, `Goal.deflateInit2__safety` | Safety, required | `deflateInit__safety`, `deflateInit2__safety` | `ZlibF/Proof/public-init-safety.lean` |
+| `Goal.deflateCopy_safety` | Safety, required | `deflate_copy_safety` | `ZlibF/Proof/public-deflate-copy.lean` |
+| `Goal.deflate_refusal`: every function refuses a stream that is not initialised and leaves the heap as it was | Safety, required | `deflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
+| `Goal.deflate_initialisation_domain`: the premises of the sequence goal can be met | Non-vacuity, required | `deflate_initialisation_domain_public` | `ZlibF/Proof/public-deflate-init-domain.lean` |
+| `Goal.deflate`: the full contract of one call, with progress, return codes, counters, frame and ownership | Functional, stays; the safety proof of `compress*` uses it | `Zlib.Deflate.Universal.deflate_safety` | `ZlibF/Proof/public-deflate-goals.lean` |
+| The full contracts `Goal.deflateInit_`, `Goal.deflateInit2_`, `Goal.deflateCopy`, `Goal.deflateEnd`, `Goal.deflateReset` and the query functions | Functional, stays | `deflateInit_proof`, `deflateInit2_proof`, `deflate_copy_public`, `deflate_end_public`, `deflate_reset_public` and others | `ZlibF/Proof/public-deflate-*.lean` |
+| Results for the default configuration only: encoding, completion and cleanup of observed request traces | Functional, stays | the `Zlib.Deflate.Engine.Proofs.*` and `DeflateCore.*` entries of the registry | `ZlibF/Proof/deflate.c.engine.*.lean`, `deflate.c.default-*.lean` |
 
-For this compressor, level and strategy select different engines. Separate
-the stored, fast, slow, Huffman-only and RLE execution obligations from numeric
-ranges that can share one parameterized proof. Refill/window and tree/output
-lemmas record their memory-level, window and symbol-room premises individually.
-Default initialization can establish its invariant without the universal Init2
-contract. Its successful witness is supporting evidence, not a replacement for
-all admitted caller states.
+These theorems are registered in `tests/audit/theorems.txt` and accepted on
+commit `bde170e9` ([progress, Scope](../progress.md#scope)).
+
+Note the two theorems named `deflate_safety`. `Zlib.Deflate.Universal.deflate_safety`
+proves `Goal.deflate`, the full contract of one call.
+`StreamCallSafetyProof.deflate_safety` proves `Goal.deflate_safety`, the
+per-function safety goal.
+
+Not required and not planned: that the output of `deflate` decodes to its input.
+
+A paragraph marked **to confirm** is a reading of the C source that no theorem
+named here states in that form. The theorems are checked against the
+translation, not against this prose.
+
+## What is assumed
+
+- Every byte object has fewer than `2^63` bytes (`ByteObjectsFit`).
+- The stream uses the default allocator.
+- The input and output ranges are separate and lie outside the storage the
+  stream owns (`StreamBuffers`). Dictionary buffers are separate from the
+  window.
+- While `deflate` writes an attached `gz_header`, the input range, the output
+  range and the header's fields are separate (`DeflateHeaderApart`), and the
+  caller has kept what was already written (`DeflateHeaderProgress`).
+- A call history has no direct `deflateResetKeep`. `zlib.h` lists that function
+  as undocumented.
+
+Each premise is explicit in the statement and has a row in
+[deviations](../deviations.md).
+
+## Proof structure
+
+```mermaid
+flowchart TD
+    G["deflate_sequence_safety"] --> R["reachable_inv_of: DInv, HeaderInv and CallFacts on every history"]
+    G --> O["operation_step_of: one more operation is safe"]
+    G --> E["end_from_inv: deflateEnd frees the owned blocks"]
+    R --> I["init: deflateInit2_ establishes DInv"]
+    R --> OPS["each operation and caller rebuffering keep DInv"]
+    O --> C["deflate_call: one deflate call"]
+    C --> H["header phase"]
+    C --> S["five strategy functions"]
+    C --> T["trailer phase"]
+    S --> F["FLUSH_BLOCK: trees and the overlay room"]
+```
+
+The invariant is `DInv` (`ZlibF/Proof/deflate.c.universal-invariant.lean`). It
+holds in every reachable state. It bundles the earlier predicate `DGood`
+(liveness, sizes and ownership of the five blocks) with `Shape` (the window
+bounds), `Hashing` (the hash chains) and `Symbols` (the symbol ledger of the
+current block). `HeaderInv` and `CallFacts` hold beside it at call boundaries.
+Other modules use the interface lemmas `DInv.*`.
+
+The composition is in `ZlibF/Proof/deflate.c.universal-sequence-safety.lean`.
+It uses three lemmas:
+
+- `reachable_inv_of`: by induction on the history, every reachable state
+  satisfies `DInv`, `HeaderInv` and `CallFacts`;
+- `operation_step_of`: one more operation returns, keeps the invariant, and has
+  the buffer frame and the exact allocation ledger;
+- `end_from_inv`: `deflateEnd` frees every block the stream owns.
+
+One `deflate` call is assembled in
+`ZlibF/Proof/deflate.c.universal-call-assemble.lean`. It splits by the entry
+phase: invalid flush, refusal, full output, no-progress refusal, nothing pending,
+output pending. Each case runs through the header, strategy and trailer phases.
+
+The five strategy functions are in
+`ZlibF/Proof/deflate.c.universal-strategies.lean`. At the head of every iteration
+of a strategy loop the state satisfies `DInv` again, with an empty pending buffer
+and room in the caller's output. For termination, every iteration leaves the
+loop or consumes one byte of `avail_in + lookahead`; `fill_window` moves input to
+lookahead without changing the sum.
+
+A block flush needs the overlay room of [trees](trees.md#the-overlay-lemma-f9).
+It is proved for every `memLevel`. That is why the two deflate goals have no
+hypothesis.
+
+Level and strategy select different engines: stored, fast, slow, Huffman-only
+and RLE. The [input configurations](../spec/input-configurations.md#deflate-inputs)
+page names the parameter ranges. The universal theorems cover all of them; the
+default-configuration results in the table above cover one.
 
 ## Storage and size equations
 
@@ -76,8 +156,8 @@ strstart + lookahead ≤ window_size = 2W
 
 Initialization starts both counters at zero. Reading input increases lookahead
 by no more than the available window room. Consuming bytes advances `strstart`
-and decreases lookahead by the same count. The proof must establish D at every
-entry and strategy-loop point that uses it.
+and decreases lookahead by the same count. D is a clause of `Shape`, so it holds
+at every entry and at the head of every strategy loop.
 
 `I-fw-pre` additionally provides `lookahead < MIN_LOOKAHEAD`, valid sizes/masks,
 `insert ≤ strstart`, a bounded high-water mark, search settings and the
@@ -113,8 +193,10 @@ These writes also support the initialization history of later reads.
 runs before the no-input exit, so the room argument must cover end-of-input
 calls too. **to confirm**: every search caller obtains this bound from either
 sufficient lookahead under D or a call to `fill_window`, including strategy
-changes and resumed calls. A source reading of one loop does not prove it for
-all strategies.
+changes and resumed calls. The strategy lemmas
+(`ZlibF/Proof/deflate.c.universal-strategies.lean`) prove that the searches do
+not fault for every strategy; this description of where the bound comes from is
+a reading of the source.
 
 ## H1/H2: meaningful hash-chain reads
 
@@ -143,9 +225,9 @@ for insertion, and the step past its start followed. `deflate_slow` needs both t
 `max_insert = strstart + lookahead - 3` does not wrap, and its insertion loop ends exactly at
 `chainTop`.
 
-These clauses express `I-hc-inv`. Their exact temporal/range formulation must
-cover insertion in `fill_window` and dictionaries as well as the strategy
-macros. Membership in an allocated `prev` array alone proves no such fact.
+These clauses express `I-hc-inv`. They cover insertion in `fill_window` and
+dictionaries as well as the strategy macros. Membership in an allocated `prev`
+array alone proves no such fact.
 
 `CLEAR_HASH` writes the last head and zeroes the preceding heads. The head map
 is then empty; there is no need to initialize every `prev` slot. An insertion
@@ -190,9 +272,9 @@ unaligned comparison branches require their actual width/alignment proof.
 
 These comparisons may inspect arbitrary bytes beyond real lookahead. Such a
 read is allowed for the modeled integer bytes, but the returned match is
-clamped to lookahead. Functional correctness must show that the selected match
-agrees on the real data; no-fault reasoning alone does not prove independence
-of garbage.
+clamped to lookahead. Functional only: correctness must show that the selected
+match agrees on the real data; no-fault reasoning alone does not prove
+independence of garbage.
 
 For termination, meaningful predecessor positions strictly decrease. The
 configured chain budget also bounds the walk. **to confirm**: the budget stays
@@ -266,10 +348,11 @@ progress bound. Trailer writes require the same room proof. `flush_pending`
 uses `pending_out + pending ≤ pending_buf + pending_buf_size` and copies at
 most `avail_out`, then updates exact cursors and counts.
 
-Public correctness additionally relates emitted wrapper fields, block bits,
-checksums and trailer lengths to the consumed input and selected flush schedule.
-A monotone history of whether compression has started matters across refusals:
-a failed call must not make a later call look like a fresh stream.
+Functional only: public correctness additionally relates emitted wrapper
+fields, block bits, checksums and trailer lengths to the consumed input and
+selected flush schedule. A monotone history of whether compression has started
+matters across refusals: a failed call must not make a later call look like a
+fresh stream.
 
 ## API lifecycle and error cases
 
@@ -291,12 +374,11 @@ The proof must retain the source's cleanup behavior and destination/source
 frames for each case. Callee contracts are proved execution results, never
 hypotheses bundled into the top theorem.
 
-The lifecycle theorem composes initialization, calls, reset/dictionary/header/
-priming/copy operations and End. The round-trip theorem then connects the actual
-emitted stream to independent DEFLATE semantics for every permitted split,
-strategy, level and configuration in its domain. Historical restrictions such
-as `memLevel ≥ 4` must remain explicit where a theorem has them; they cannot
-stand for the full `zlib.h` domain.
+The sequence theorem composes initialization, calls, the reset, dictionary,
+header, priming and copy operations, and End. It has no restriction on
+`memLevel` or on any other parameter. A round-trip theorem, which would connect
+the emitted stream to independent DEFLATE semantics, is functional and not
+planned.
 
 ## C correspondence checks
 

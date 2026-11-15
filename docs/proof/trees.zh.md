@@ -1,4 +1,4 @@
-<!-- source-sha256: 64bf4a0acde71b2b7a63a6a4fa68f38c39938097d476cd0b57e1f16885ccc394 -->
+<!-- source-sha256: bcfa3e454ddbd0bb4133dcef74ab98eb4eaa003a6e2c4b0ce64f45a70a0e9021 -->
 # 树与块输出：界限、码字及共用存储
 
 本页沿“统计符号 → 构造树 → 分配码长 → 生成码字 → 写出块”的顺序论证压缩输出。频率高的符号应少花一些比特，但最终输出还受格式码长限制和共享缓冲区约束。例如记录区有一个尚未读取的匹配，输出器即使最终容量足够，也不能先写长码把这条记录覆盖。
@@ -8,9 +8,23 @@
 `I-bt-*`、`I-gb-*`、`I-gc-*`、`I-cb-*`、`I-tf-*`、`I-fp-*` 与 `I-pb-room`。
 数学编码规则是[格式指南](../spec/format/README.md)中的 `F-code-*`、`F-length-table` 与 `F-distance-table`。
 
-证明必须连接实际树构造、规范码字和输出比特。数组安全本身不能说明输出是 DEFLATE 块。
-下文历史结果指出一些带有明确范围的可用论证。
-当前结果与剩余工作见[进度](../progress.md)。
+`trees.c` 没有公开函数。它的引理服务于 `deflate` 的安全性（[流压缩](deflate.md)）。这个文件特有的部分，是待输出内容与未读符号共用的那个缓冲区上的界限：输出绝不能覆盖尚待读取的符号。本页解释树构造、位输出和这个界限。
+
+## 已证明什么
+
+| 结果 | 类别 | 定理 | 模块 |
+| --- | --- | --- | --- |
+| 对每种块选择和每个 `memLevel`，块刷新都是安全的：`FLUSH_BLOCK_ONLY` 运行 `_tr_flush_block` 并发布待输出字节 | 安全，内部 | `flush_block_only_safe`、`tr_flush_block_safe` | `ZlibF/Proof/trees.c.universal-flush.lean`、`trees.c.universal-block.lean` |
+| `lit_bufsize ≥ 2048`（`memLevel ≥ 5`）时的重叠缓冲区余量 F9 | 安全，内部 | `dynamic_overlay_large`，由 `dynamic_room_large` 得到 | `ZlibF/Proof/trees.c.universal-block.lean`、`trees.c.universal-dynamic.lean` |
+| `lit_bufsize = 512` 和 `1024`（`memLevel` 3 和 4）时的重叠缓冲区余量 F9 | 安全，内部 | `dynamic_overlay_mid` | `ZlibF/Proof/trees.c.universal-overlay-mid.lean` |
+| `lit_bufsize = 256` 和 `128`（`memLevel` 2 和 1）时的重叠缓冲区余量 F9 | 安全，内部 | `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay` | `ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean` |
+| 权重低于 1597 的树，`gen_bitlen` 从不截断 | 安全，内部 | 见 `trees.c.universal-overlay-fibplus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
+
+用到这些结果的必需定理是 `deflate_sequence_safety`。它没有假设，因为重叠缓冲区余量对每个 `memLevel` 都已证明。已登记的重叠缓冲区定理在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+
+不是必需的是：发出的比特对所记录的符号而言构成合法的 DEFLATE 块。数组安全本身不能说明这一点。下面各节会指出哪些论证只属于功能性证明。
+
+下文中说明某一步“尚未完成”或“仍需证明”的段落，是对 C 源代码的解读，这里列出的定理没有以那种形式陈述它。定理是依据翻译检查的，而不是依据这段文字。
 
 ## 数据流
 
@@ -285,29 +299,23 @@ tree_bits + Σ_(i < q) dynamic_symbol_bits(i)
 
 只知道所有码长满足 Kraft 条件，无法限制记录出现的顺序：很长的码可能集中在前面。前缀证明因此需要实际构造树的频率信息，而不能把“最终动态块比固定块短”误用成“每个动态前缀都更短”。
 
-早期工作研究真实 Huffman 路径上的 Fibonacci 增长。
-一个深的低频叶子会迫使周围子树具有足够总权重；形式化深度／频率定理便可限制前缀输出成本。
-早先 `theorems_trees_fib.txt` 记录的 `build_tree_fib_stmt_holds` 是历史构造器结果。
-在早期开发中，`dynFits_dynOf_of_fib` 覆盖 `memLevel` 4、5，`dynFits_of_push` 覆盖 6 到 9。
-复用时必须为当前翻译推导其准确的频率、同频排序、深度及成本前提。
-它们并不建立当前整个压缩器定理。
+这个不等式按缓冲区大小 B 分三段证明。
 
-对于 `memLevel` 1、2、3，B 只有 128、256、512。
-固定码余量约为 16 到 64 字节，动态描述可能消耗相近空间。
-历史搜索未发现真实块违规，记录的最近情形还剩 47 字节。
-搜索是证据，不是证明。历史 `lowmem_lp_bound` 路线使用线性规划对偶证书；
-已检查证书本身并未完成从真实块频率及前缀到所需界限的连接。
+**`B ≥ 2048`（`memLevel ≥ 5`）。** 动态块的头部至多 2283 位。每个符号的成本比它三字节记录的 24 位至多多出 6.257 位。这两个界限同时给出前缀界限和最终容量（`dynamic_room_large`，`ZlibF/Proof/trees.c.universal-dynamic.lean`）。
 
-限制为 `memLevel ≥ 4` 的定理必须明确该前提，并列入[偏离与限制](../deviations.md)。
-它不能证明 `zlib.h` 许可的全部配置都安全。
-全部覆盖情形的权威当前记录在[进度](../progress.md)。
+**`B = 512` 和 `B = 1024`（`memLevel` 3 和 4）。** 一个块至多有 `B - 1` 个符号，所以两棵源树的权重都至多为 `B + 2 ≤ 1026`。根权重低于 `F(17) = 1597` 的 Huffman 树从不超出码长限制：超出限制的节点，其父节点深度至少为 15，而 Fibonacci 链界限给出该父节点的权重至少为 `F(16) + F(15) = 1597`（`ZlibF/Proof/trees.c.universal-overlay-fibplus.lean`）。因此每个码长就是 Huffman 深度，每个频率为 `f`、码长为 `l` 的已用符号都满足 `f · F(l + 1) + F(l) ≤ W`。由此，权重至多 514 时块的超额至多 1777 位，权重至多 1026 时至多 3678 位。加上头部界限，与顺序无关的预算 `头部 + 超额 + 25 ≤ 8B` 成立：`2283 + 1777 + 25 = 4085 ≤ 4096`，`2283 + 3678 + 25 = 5986 ≤ 8192`（`ZlibF/Proof/trees.c.universal-overlay-mid.lean`）。
 
-## 组件定理必须组合的内容
+**`B = 256` 和 `B = 128`（`memLevel` 2 和 1）。** 余量太小，用不了一般的头部界限。证明把每个已准备好的块的头部与一个参考位长码相比较（`ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean`）。头部是 `14 + 3(mb + 1)` 位，至多 71 位，再加上扫描得到的位长符号的成本。`B = 256` 时每个数据树码长至多为 11，所以位长符号 12 到 15 不出现。`B = 128` 时每个码长至多为 9。两种情形下都有一个完整的参考码给出成本上界。随后一个不依赖堆的证书把区域扫描、块选择行、Kraft 条件和强制叶子组合成与顺序无关的预算（`ZlibF/Proof/deflate.c.engine.overlay-mem2c.lean`、`deflate.c.engine.overlay-mem1w.lean`）。结果是 `tinyOverlayAt_256` 和 `tinyOverlayAt_128`。
 
-完整结果使用实际描述符初始化、堆选择与合并、码长修复、规范赋值、描述输出及块成本选择。
-它在同一次执行上建立 F7/F8/F9，并证明许可树、符号和待输出区域外的所有内存不变。
-即便完整源代码相等引理仍通过，变异也必须使该函数的执行证明失败。
-重置／扫描／建堆前缀的证明，不能证明尚未变化的后续合并与输出代码。
+因此 F9 对 `zlib.h` 允许的每种配置都成立。没有哪条定理受 `memLevel` 限制。
+
+早先的一个开发曾用其他路线得到同样的界限。它的记录见[早期证明笔记](../history/proof-earlier-notes.md#overlay-bound-earlier-routes)。
+
+## 块刷新所组合的内容
+
+刷新结果使用实际描述符初始化、堆选择与合并、码长修复、规范赋值、描述输出及块成本选择。
+它在同一次执行上建立 F7、F8 和 F9，并证明许可的树、符号和待输出区域之外的所有内存不变。
+即便源代码相等引理仍通过，证明变异也必须使该函数的执行证明失败。
 
 ## 与 C 的对应检查
 
@@ -335,9 +343,7 @@ flowchart LR
 覆盖界限依赖块选择与树码长，不仅依赖分配大小。
 存储块还需要填充、四个长度字节及载荷所需的容量。
 
-早期覆盖分析包括内存级别 4 到 9 的已检查分类论证，以及级别 1 到 3 的松弛分析。
-这些不同形式的证据并未证明全部实际执行。
-数学论证见[树证明指南](trees.md)。
+重叠缓冲区界限对每个内存级别都已证明；见上文的[共用存储覆盖引理](#the-overlay-lemma-f9)。
 
 `send_bits` 把 `ush` 提升为有符号 `int` 后移位，再把保存值缩窄。
 **未完成的证明步骤：** 位数与码字范围排除无效移位和有符号溢出，包括左移 16 位。

@@ -5,7 +5,9 @@
 The completion proposition before the output-pointer correction is false.
 This is a specification-domain error, not a zlib bug. The earlier reviewed
 no-new-input condition in FINISH_STATE did not exclude this case.
-Current status and remaining work belong in [overview](../overview.md).
+`DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`) is a functional goal. It is
+not required and not planned ([progress, Scope](../progress.md#scope)). This page is kept
+as the record of a correction to its statement.
 
 ## Exact Lean refutation
 

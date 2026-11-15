@@ -1,4 +1,4 @@
-<!-- source-sha256: ed4bf953200f1a4944cbd1af5fcc4badddd1eb0da471dab9a09e267e94429f2f -->
+<!-- source-sha256: 30f2eed1fc17f91d0e32db4104eb59689e749cc5815379b3e2bed0cd152c4cd5 -->
 # NULL 输出与完成目标
 
 > **历史记录。** 本文描述写作当时的流程：锁文件、重新生成的锁、经批准的基线以及对锁差异的审阅。这些机制后来已被移除，现在没有锁文件，见[防作弊](../anti-cheating.md)。下文只应作为那个快照的证据来读。
@@ -6,7 +6,7 @@
 在输出指针修正之前，完成命题为假。
 这是一个规范域错误，而非 zlib 缺陷。此前审查过的
 FINISH_STATE 中无新输入条件并未排除此情况。
-当前状态和剩余工作记录在[概览](../overview.md)中。
+`DeflateCompletes`（`ZlibF/Spec/Functional/Sequences.lean`）是功能性目标。它不是必需的，也不在计划内（[进度，范围](../progress.md#scope)）。本页作为对其陈述所作修正的记录保留。
 
 ## 精确的 Lean 反证
 

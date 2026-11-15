@@ -7,10 +7,34 @@ Translation: `ZlibF/Zlib/trees.c.lean`. Internal contracts use `I-bt-*`,
 are `F-code-*`, `F-length-table` and `F-distance-table` in the
 [format guide](../spec/format/README.md).
 
-The proof must connect the actual tree construction, canonical words and emitted
-bits. Array safety alone does not show that the output is a DEFLATE block.
-Historical results below identify useful arguments with explicit scope.
-[Progress](../progress.md) records current results and remaining work.
+`trees.c` has no public function. Its lemmas serve the safety of `deflate`
+([stream compression](deflate.md)). The part that is specific to this file is
+the bound on the buffer that pending output and unread symbols share: output
+must never overwrite a symbol that is still to be read. This page explains tree
+construction, bit emission and that bound.
+
+## What is proved
+
+| Result | Kind | Theorem | Module |
+| --- | --- | --- | --- |
+| A block flush is safe for every block choice and every `memLevel`: `FLUSH_BLOCK_ONLY` runs `_tr_flush_block` and publishes the pending bytes | Safety, internal | `flush_block_only_safe`, `tr_flush_block_safe` | `ZlibF/Proof/trees.c.universal-flush.lean`, `trees.c.universal-block.lean` |
+| The overlay room F9 for `lit_bufsize ≥ 2048` (`memLevel ≥ 5`) | Safety, internal | `dynamic_overlay_large`, from `dynamic_room_large` | `ZlibF/Proof/trees.c.universal-block.lean`, `trees.c.universal-dynamic.lean` |
+| The overlay room F9 for `lit_bufsize = 512` and `1024` (`memLevel` 3 and 4) | Safety, internal | `dynamic_overlay_mid` | `ZlibF/Proof/trees.c.universal-overlay-mid.lean` |
+| The overlay room F9 for `lit_bufsize = 256` and `128` (`memLevel` 2 and 1) | Safety, internal | `tinyOverlayAt_256`, `tinyOverlayAt_128`, `tinyOverlay` | `ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean` |
+| `gen_bitlen` never clamps a tree whose weight is below 1597 | Safety, internal | see `trees.c.universal-overlay-fibplus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
+
+The required theorem that uses these is `deflate_sequence_safety`. It has no
+hypothesis, because the overlay room is proved for every `memLevel`. The
+registered overlay theorems are accepted on commit `bde170e9`
+([progress, Scope](../progress.md#scope)).
+
+Not required: that the emitted bits are a valid DEFLATE block for the tallied
+symbols. Array safety alone does not show that. The sections below say where an
+argument is functional only.
+
+A paragraph marked **to confirm** is a reading of the C source that no theorem
+named here states in that form. The theorems are checked against the
+translation, not against this prose.
 
 ## Dataflow
 
@@ -286,38 +310,53 @@ for each emitted prefix, plus the bound for the tree before symbol 0 and the
 final flush. Kraft-valid code lengths alone do not establish this inequality;
 it must use the tree actually constructed from the block's frequencies.
 
-Earlier work explored Fibonacci growth along real Huffman paths. A deep
-low-frequency leaf forces enough total weight in surrounding subtrees; a
-formal depth/frequency theorem can then bound prefix emission cost.
-`build_tree_fib_stmt_holds`, recorded in the earlier
-`theorems_trees_fib.txt`, was the historical constructor result.
-`dynFits_dynOf_of_fib` covered `memLevel` 4 and 5, and `dynFits_of_push` covered
-6 through 9 in that earlier development. Reuse requires their exact frequency,
-tie-breaking, depth and cost premises to be derived for this translation.
-They do not establish the present whole compressor theorem.
+The inequality is proved in three ranges of the buffer size B.
 
-For `memLevel` 1, 2 and 3, B is only 128, 256 and 512. The fixed-code slack is
-roughly 16 to 64 bytes, and the dynamic description can consume comparable
-space. Historical searches found no real-block violation and recorded a
-closest case with 47 bytes free. That search is evidence, not a proof. The
-historical `lowmem_lp_bound` route used linear-programming dual certificates;
-checked certificates did not by themselves complete the required bridge from
-real block frequencies and prefixes.
+**`B ≥ 2048` (`memLevel ≥ 5`).** The header of a dynamic block is at most 2283
+bits. Each symbol costs at most 6.257 bits above the 24 bits of its three-byte
+record. These two bounds give both the prefix bound and the final capacity
+(`dynamic_room_large`, `ZlibF/Proof/trees.c.universal-dynamic.lean`).
 
-A theorem restricted to `memLevel ≥ 4` must state that premise and appear in
-[deviations](../deviations.md). It cannot justify a safety claim over every
-configuration permitted by `zlib.h`. The authoritative current treatment of
-all overlay cases is in [progress](../progress.md).
+**`B = 512` and `B = 1024` (`memLevel` 3 and 4).** A block holds at most `B - 1`
+symbols, so both source trees weigh at most `B + 2 ≤ 1026`. A Huffman tree whose
+root weight is below `F(17) = 1597` never overflows the length limit: an
+overflowing node has a parent at depth 15 or more, and the Fibonacci chain bound
+gives that parent a weight of at least `F(16) + F(15) = 1597`
+(`ZlibF/Proof/trees.c.universal-overlay-fibplus.lean`). So every length is the
+Huffman depth, and every used symbol with frequency `f` and length `l` keeps
+`f · F(l + 1) + F(l) ≤ W`. That caps the block excess at 1777 bits for weight
+at most 514 and 3678 bits for weight at most 1026. With the header bound the
+order-free budget `header + excess + 25 ≤ 8B` holds: `2283 + 1777 + 25 = 4085 ≤
+4096` and `2283 + 3678 + 25 = 5986 ≤ 8192`
+(`ZlibF/Proof/trees.c.universal-overlay-mid.lean`).
 
-## What the component theorem must compose
+**`B = 256` and `B = 128` (`memLevel` 2 and 1).** The slack is too small for the
+general header bound. The proof bounds the header of each prepared block
+against a reference bit-length code
+(`ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean`). The header is
+`14 + 3(mb + 1)` bits, at most 71, plus the cost of the scanned bit-length
+symbols. At `B = 256` every data-tree length is at most 11, so the bit-length
+symbols 12 to 15 are absent. At `B = 128` every length is at most 9. In both
+cases a complete reference code bounds the cost. A heap-free certificate then
+combines the region scan, the block-choice row, Kraft and the forced leaves into
+the order-free budget (`ZlibF/Proof/deflate.c.engine.overlay-mem2c.lean`,
+`deflate.c.engine.overlay-mem1w.lean`). The results are `tinyOverlayAt_256` and
+`tinyOverlayAt_128`.
 
-The whole result uses actual descriptor initialization, heap selection and
+So F9 holds for every configuration that `zlib.h` permits. No theorem is
+restricted by `memLevel`.
+
+An earlier development reached the same bound by other routes. Its record is in
+the [earlier proof notes](../history/proof-earlier-notes.md#overlay-bound-earlier-routes).
+
+## What the block flush composes
+
+The flush result uses actual descriptor initialization, heap selection and
 merges, length repair, canonical assignment, description emission and
-block-cost selection. It establishes F7/F8/F9 on the same execution and frames
-all memory outside the allowed tree, symbol and pending regions. Mutations
-must fail the function's execution proof, even when a complete source-equality
-lemma still checks. A proof of a reset/scan/heapify prefix is not a proof of
-the unchanged remaining merge and emission code.
+block-cost selection. It establishes F7, F8 and F9 on the same execution and
+frames all memory outside the allowed tree, symbol and pending regions. A proof
+mutant must fail the function's execution proof, even when a source-equality
+lemma still checks.
 
 ## C correspondence checks
 
@@ -346,10 +385,8 @@ and cannot overwrite unread symbols. The overlay bound depends on block choice
 and tree lengths, not just allocation size. Stored blocks also need capacity
 for padding, four length bytes and payload.
 
-The earlier overlay analysis included a checked case analysis for memory
-levels 4 through 9 and a relaxation-based analysis for levels 1 through 3.
-These different forms of evidence do not prove all actual executions. See
-[the tree proof guide](trees.md) for the mathematical argument.
+The overlay bound is proved for every memory level; see
+[the overlay lemma](#the-overlay-lemma-f9) above.
 
 `send_bits` promotes `ush` to signed `int` for shifts, then narrows stores.
 **to confirm**: bit counts and code ranges exclude invalid shifts and signed
