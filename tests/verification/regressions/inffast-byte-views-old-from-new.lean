@@ -443,7 +443,8 @@ namespace InffastOld.Spec.LengthSemantics
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
 open Zlib.Inffast.Spec
-open Zlib.Inftrees Zlib.Inftrees.Spec
+open Zlib.Inftrees hiding Ctx
+open Zlib.Inftrees.Spec
 
 /-- The final entry selected by the actual fast root/link branch order.
 The second index uses the hold value after dropping the root code bits. -/
@@ -651,7 +652,8 @@ namespace InffastOld.Spec.DistanceSemantics
 open C Zlib.Inffast InffastOld.Proofs
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
 open Zlib.Inffast.Spec
-open Zlib.Inftrees Zlib.Inftrees.Spec
+open Zlib.Inftrees hiding Ctx
+open Zlib.Inftrees.Spec
 
 /-- A selected fast leaf has the exact query, consumed code length and
 independent symbol meaning, or rejects every future extension. This is
@@ -687,7 +689,8 @@ namespace InffastOld.Spec.DistanceResult
 open C Zlib.Inffast InffastOld.Proofs ZlibF.Spec
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
 open Zlib.Inffast.Spec
-open Zlib.Inftrees Zlib.Inftrees.Spec
+open Zlib.Inftrees hiding Ctx
+open Zlib.Inftrees.Spec
 open ZlibF.Math.LZ77Copy
 
 /-- Physical copying after the distance extras have been consumed. Both
@@ -804,7 +807,8 @@ namespace InffastOld.Spec.BodyToken
 open C Zlib.Inffast InffastOld.Proofs ZlibF.Spec
 open Zlib.Inffast.Proofs hiding WinRel EnvG Env CtxOK LS inBits Sg DistLook DistClass DistEnd RefillPost
 open Zlib.Inffast.Spec
-open Zlib.Inftrees Zlib.Inftrees.Spec
+open Zlib.Inftrees hiding Ctx
+open Zlib.Inftrees.Spec
 open ZlibF.Math.LZ77Copy
 
 /-- Data facts about the same actual arrays used by the fast decoder.
