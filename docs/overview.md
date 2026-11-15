@@ -82,8 +82,9 @@ The proof has four steps.
    statement by statement. Every undefined behaviour the C can reach becomes the fault `Fault.ub`
    in the translation.
 2. **Define an invariant.** For each kind of stream an invariant is defined: the facts about the
-   stream's state that hold before every call. An example is that the decoder's saved history
-   agrees with the bytes it has already produced.
+   stream's state that hold before every call. An example, for an inflate stream: the window is
+   `NULL` or a writable block of exactly `2^wbits` bytes, and the count of valid bytes in it
+   (`whave`) is at most its size (`WinInv`).
 3. **Prove each function.** The init function is proved to establish the invariant. Every other
    function is proved to return without a fault when the invariant holds, to keep the invariant,
    to write only its frame, and to allocate and free exactly what its ledger says. No function's

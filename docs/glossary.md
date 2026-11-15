@@ -53,9 +53,12 @@ goal, because `gzprintf` goes through it.
 function of the target build, the listed sequence and refusal goals, and the non-vacuity goals.
 `scripts/verification.py` computes the set from the manifest.
 
-**Manifest.** The file `tests/audit/public-api.json`. For every exported function it names the
-translated definition, the manual entry, the functional goal and the safety goal, and it lists
-the undocumented functions and the non-vacuity goals.
+**Manifest.** The file `tests/audit/public-api.json`. It has an entry for every exported
+function, with its manual entry and, when the target build compiles the function, its translated
+definition. For every documented function the entry names the functional goal and the safety
+goal. The ten undocumented functions have no safety goal there, and one of them, `gzopen_w`,
+which the target build does not compile, has no functional goal. The manifest also lists the
+sequence goals and the non-vacuity goals.
 
 **Registry.** One of three hand-edited lists under `tests/audit/`: `goals.txt` (every goal),
 `theorems.txt` (the theorems that make up the result) and `proved-goals.txt` (the goals that have
@@ -81,9 +84,10 @@ behind each level and where a reader sees it.
 commit. Lean's kernel has checked the proof. The status page shows "checked" for a theorem that
 is checked and not registered.
 
-**Registered.** The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and the
-goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the
-acceptance suite is the check that the theorem's type is exactly the goal.
+**Registered.** The theorem is checked and its name is listed in `tests/audit/theorems.txt`. When
+it proves a goal, the goal is also listed in `tests/audit/proved-goals.txt`; a registered theorem
+need not prove a goal. The lines are a claim; the acceptance suite is the check that the
+theorem's type is exactly the goal.
 
 **Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
 Only an accepted result is reported as final, and always with that commit.
