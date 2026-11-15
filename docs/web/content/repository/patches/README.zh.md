@@ -1,4 +1,4 @@
-<!-- source-sha256: f74221c4d210c06786bed3aaff0fb119f4a678678c5435707111ca303faf8308 -->
+<!-- source-sha256: 9e4428c707c9d2e236e7deb417415fad9e913ae2ececc066bc9a9d86bac474b3 -->
 # 补丁
 
 验证对象是固定版本的 `zlib/` 子模块，加上本目录中按文件名顺序应用的 `*.patch` 文件。绝不直接修改子模块。
@@ -7,17 +7,17 @@
 
 | 补丁 | 修复什么 | 上游状态（2026-11-14 读取） |
 | --- | --- | --- |
-| 0001 | `inflateCopy` 中对无关指针的关系比较 | [PR #1369](https://github.com/madler/zlib/pull/1369)：维护者于 2026-11-06 答复“Applied”；尚未出现在 `develop` 上 |
-| 0002 | 开头调用 `gzungetc` 之后 `gzseek64` 中的有符号溢出 | [PR #1361](https://github.com/madler/zlib/pull/1361)，尚未合入 |
-| 0003 | 透明模式下部分读取后失败时过期的 `x.next` | [PR #1363](https://github.com/madler/zlib/pull/1363)，尚未合入 |
-| 0004 | gz 位置 `x.pos` 的有符号溢出 | 本地补丁，等待提交：尚未提交 |
-| 0005 | 对未写入或悬空的 `x.next` 的零前进 | 本地补丁，等待提交：尚未提交 |
+| 0001 | [`inflateCopy` 中对无关指针的关系比较](../docs/findings/inflate-copy-fixed/README.md) | [PR #1369](https://github.com/madler/zlib/pull/1369)：维护者于 2026-11-06 答复“Applied”；尚未出现在 `develop` 上 |
+| 0002 | [开头调用 `gzungetc` 之后 `gzseek64` 中的有符号溢出](../docs/findings/gzseek-pushback-overflow/README.md) | [PR #1361](https://github.com/madler/zlib/pull/1361)，该拉取请求仍处于打开状态 |
+| 0003 | [透明模式下部分读取后失败时过时的 `x.next`](../docs/findings/gzread-transparent-stale-next/README.md) | [PR #1363](https://github.com/madler/zlib/pull/1363)，该拉取请求仍处于打开状态 |
+| 0004 | gz 位置 `x.pos` 的有符号溢出，[读取](../docs/findings/gzread-pos-overflow/README.md)和[写入](../docs/findings/gzwrite-pos-overflow/README.md) | 本地补丁，等待提交：尚未提交 |
+| 0005 | 对[未写入](../docs/findings/gz-reset-next-uninitialised/README.md)或[悬空](../docs/findings/gz-next-dangling-after-direct-read/README.md)的 `x.next` 的零前进 | 本地补丁，等待提交：尚未提交 |
 
-每个问题的描述、复现、可信度和范围见[发现](../docs/findings.md)。
+每个链接的页面给出调用序列、运行命令、sanitizer 的判定、范围和修复。[发现](../docs/findings.md)把它们列在一张表里。补丁 0001 至 0004 修复的是 sanitizer 在真实 C 上报告的问题。补丁 0005 修复的行为仅按 C 标准的字面规定未定义。下文的标签 R-1 至 R-4、F-1 和 W7 是 [gzip 证明说明](../docs/proof/gzip.md)中的标签。
 
 ## 0001-inflate-copy-pointer-equality.patch
 
-`inflateCopy` 不再对静态固定码表与状态内部码数组中的指针做关系比较。保留的[复现材料](../docs/findings/inflate-copy-fixed/README.md)诊断了未打补丁的 C。这一问题阻碍相应的全称安全证明。
+`inflateCopy` 不再对静态固定码表与状态内部码数组中的指针做关系比较。保留的[复现材料](../docs/findings/inflate-copy-fixed/README.md)诊断了未打补丁的 C。没有这个补丁，就无法对每个流证明 `inflateCopy` 的安全性。
 
 补丁与[上游 PR #1369](https://github.com/madler/zlib/pull/1369) 中的提交 `300fea14353d2e2ca61210aca7c48861ded5788c` 完全一致。维护者于 2026 年 11 月 6 日答复“Applied”，该 PR 已关闭。2026-11-14 时，公开可获取的 `develop` 和 `master` 分支头仍为 `99623ef7097352da7993ba614161fd6a311e046e`；其中的 `inflate.c` 仍保留旧的指针比较。因此，在修复提交出现在上游分支之前，继续使用当前固定版本和这一已提交的修复。届时再更新固定版本并删除补丁。
 
@@ -25,13 +25,13 @@
 
 避免在开头调用 `gzungetc`（它把 `state->x.pos` 设为 -1）之后，`gzseek64` 中的有符号溢出：`SEEK_CUR` 的范围检查在 `pos` 为负时计算 `GZ_OFF_MAX - pos`，而接近 `GZ_OFF_MAX` 的 `SEEK_SET` 目标在 `pos - state->x.pos` 中溢出。UndefinedBehaviorSanitizer 在未打补丁的 C 上报告这两处。这是 [gzip 证明说明](../docs/proof/gzip.md) 中的 R-1，阻碍 `gzseek64` 和 `gzseek` 的安全证明。
 
-补丁是[上游 PR #1361](https://github.com/madler/zlib/pull/1361) 在分支头 `ce2248ee9750` 时 `gzlib.c` 的部分。该 PR 中 `test/example.c` 的部分不属于验证对象。该 PR 尚未合入。保留的[复现](../tests/regression/gzseek-pushback-overflow/README.md)在 sanitizer 下构建未打补丁的 C，并表明打补丁后报告消失。
+补丁是[上游 PR #1361](https://github.com/madler/zlib/pull/1361) 在分支头 `ce2248ee9750` 时 `gzlib.c` 的部分。该 PR 中 `test/example.c` 的部分不属于验证对象。该拉取请求仍处于打开状态。[发现](../docs/findings/gzseek-pushback-overflow/README.md)给出复现：它在 sanitizer 下构建未打补丁的 C，并表明打补丁后报告消失。
 
 ## 0003-gzread-partial-copy-read-error.patch
 
 在透明（`COPY`）模式下，于 `gz_load` 之前设置 `state->x.next = state->out`。如果 `read` 先提供一些字节后失败，`gz_load` 把部分计数留在 `x.have` 并返回 -1，而 `gz_fetch` 在给 `x.next` 赋值之前就返回了。随后读取函数通过过时的 `x.next` 消费这些字节：当先前的输出缓冲区已用完时，这是越界读。这是 [gzip 证明说明](../docs/proof/gzip.md) 中的 R-2，阻碍读取一侧的安全证明。
 
-补丁与[上游 PR #1363](https://github.com/madler/zlib/pull/1363) 在分支头 `37627fd3bb47` 时的改动完全一致。该 PR 尚未合入。保留的[复现](../tests/regression/gzread-transparent-stale-next/README.md)在 sanitizer 下构建未打补丁的 C，并表明打补丁后报告消失。
+补丁与[上游 PR #1363](https://github.com/madler/zlib/pull/1363) 在分支头 `37627fd3bb47` 时的改动完全一致。该拉取请求仍处于打开状态。[发现](../docs/findings/gzread-transparent-stale-next/README.md)给出复现：它在 sanitizer 下构建未打补丁的 C，并表明打补丁后报告消失。
 
 ## 0004-gz-position-overflow.patch
 
