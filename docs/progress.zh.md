@@ -1,4 +1,4 @@
-<!-- source-sha256: 5ec06baf7251a808a4fdb1948816ac719bd325f87366d06fb6c39c9f853aa68b -->
+<!-- source-sha256: 61252313e57e5462898f6e8ab4665640eb90fd9a27aff469c49884a033c5f8cc -->
 # 证明进度与剩余工作
 
 本页集中记录证明证据和剩余工作。要了解目标陈述和证明的整体结构，请先读[总览](overview.md)。
@@ -30,7 +30,7 @@
 | gzip 文件接口的功能部分 | `gz_sequence`、`gz_initialisation_domain`，以及各 gz 调用的功能条款（读出或写入的字节、安全之外的返回值） | 功能性。这些定理依赖一个人工建立的文件系统、描述符和 `printf` 格式化模型。gz 调用的安全在计划内（第 5 项）。 |
 | 未文档化函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w` | zlib.h 把它们声明在 `/* undocumented functions (not part of the zlib API) */` 之下（`tests/audit/public-api.json` 的 `undocumented`）。它们不是必需的公开目标，直接调用其中之一也不是序列目标必需的操作；deflate 流定义域排除直接调用 `deflateResetKeep`（`docs/deviations.md`）。已登记的证明继续登记并接受审计。`gzvprintf` 已移入第 5 项（2026-11-12）。内部用法不变：`deflateReset` 和 `inflateReset` 经过 `ResetKeep` 引理。 |
 | 回调解码器的解码部分 | `inflateBack` 与 `inflate_back_sequence` 的解码条款（交给 `out` 的内容、`Decodes`） | 功能性。回调解码器的安全在计划内（第 4 项）。 |
-| 仅关于模型的陈述 | `Api.Goal.inflate_rejects_invalid`，以及未登记的 `*_refines` 目标 | 它们说的是抽象模型，不是 C 代码。前者还依赖八字节的检测延迟，而该延迟已被反例否定。对非法输入的拒绝已在第 2 项结论中针对 C 代码陈述。 |
+| 仅关于模型的陈述 | `Api.Goal.inflate_rejects_invalid`，以及未登记的 `*_refines` 目标 | 它们说的是抽象模型，不是 C 代码。前者还依赖八字节的检测延迟，而该延迟已被反例否定。对非法输入的拒绝，是在 `inflate_sequence` 的格式部分中针对 C 代码陈述的（见下面“功能正确性”一行，不在计划内）；它在 2026-11-11 之前是第 2 项结论。 |
 | 其他构建配置 | 默认 x86_64 Linux 构建之外的所有配置 | 每一种配置都要针对不同的平台模型重做整个证明。结论由默认构建承载。 |
 | 为查询函数增加证明变异体 | 取值函数和常量查询 | 变异体用来防止证明的设置有误。对只有一行的查询函数，它们不会为计划内的结论增加任何内容。 |
 | 功能正确性 | `inflate_sequence` 的格式部分（`inflate` 的输出等于格式：`ParseMeaning` 及其流侧与解码侧），`InflateCompletes` 背后的 `DecoderFacts` 格式事实与 `uncompress*` 的格式条款，以及 deflate 的往返（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分） | 所有者 2026-11-11 的决定，为了更快完成。计划内的安全证明所依赖的功能性事实仍在范围内。已经证明的部分保留并列为已检查；未完成的行在归档的骨架表中标为不在计划内（见 [inflate](history/skeleton-inflate.zh.md)、[deflate](history/skeleton-deflate.zh.md)）。 |
@@ -2331,7 +2331,7 @@ zlib.h 文档化的每个函数都有已登记的无故障定理，定义域如�
 
 对照当前固定版本，复查 gzip 额外长度算术、部分读取后的恢复、负位置定位、参数变更丢失、结束失败后的恢复，以及 EOF 之后的向前定位。带条件的定位故障引理，不能证明状态可达；须从实际调用序列建立有符号位置与借用指针条件。
 
-`inflateBack` 边界情况针对回调 API 的复核尚未完成；还需要该接口自身的复现，普通 inflate 的内存检查示例不足以完成这一步。在声称完整 gzip 所有权，或任意有限回调都会终止之前，还须审查外部字符串分配器和固定循环执行额度。怀疑存在缺陷，不等于可以把某种公开调用情形排除在外。
+`inflateBack` 边界情况针对回调 API 的复核尚未完成；还需要该接口自身的复现，普通 inflate 的内存检查示例不足以完成这一步。[早期证明笔记](history/proof-earlier-notes.md)保留了其中两份报告的原文：`inflateBack` 缺少 `whave` 的报告（“Callback decoder: the migrated domain table”一节），以及 `gzsetparams`“参数变更丢失”的实验（见[该节](history/proof-earlier-notes.md#gzsetparams-experiment)）。在声称完整 gzip 所有权，或任意有限回调都会终止之前，还须审查外部字符串分配器和固定循环执行额度。怀疑存在缺陷，不等于可以把某种公开调用情形排除在外。
 
 [发现记录](findings.md)保存证据和置信度；当前补丁见 [patches/README.md](../patches/README.md)。没有应用一揽子未定义行为补丁。
 
