@@ -351,6 +351,103 @@ class AuditTests(unittest.TestCase):
             write({})
             verification.check_mutants_shrink()
 
+    def frozen_repo(self):
+        """A frozen semantic list with a script row and its mutator, committed as the floor "base"."""
+        repo, git = self.repo()
+        (repo / "tests/proof-mutants").mkdir()
+        table = repo / "tests/proof-mutants/gz-sequence.tsv"
+        mutator = repo / "tests/proof-mutants/gz-sequence.py"
+        table.write_text("# NAME\tFILE\tOLD\tNEW\tPROOF_MODULES\n" +
+                         "".join(f"row{i}\tscript:tests/proof-mutants/gz-sequence.py\t-\t-\tgz.sequence-safety\n"
+                                 for i in range(3)) +
+                         "plain\tZ.lean\ta\tb\tgz.sequence-safety\n")
+        mutator.write_text("# the edit of each row, also in the proof restatements\n")
+        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
+        (repo / "README").write_text("x\n")
+        git("add", "README"); git("commit", "-qm", "head")
+        return repo, table, mutator
+
+    def test_semantic_list_cannot_be_cut(self):
+        # Fifth reading, cheat 1: gz-sequence.tsv cut from 43 rows to 1 passed every check.
+        repo, table, mutator = self.frozen_repo()
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}), \
+                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/gz-sequence.tsv",)):
+            verification.check_frozen_mutant_rows()
+            lines = table.read_text().splitlines(keepends=True)
+            table.write_text(lines[0] + lines[1])
+            with self.assertRaisesRegex(verification.Rejected, "row1"):
+                verification.check_frozen_mutant_rows()
+            table.write_text("".join(lines).replace("\tb\tgz.sequence-safety", "\tb\tany.module"))
+            with self.assertRaisesRegex(verification.Rejected, "plain"):
+                verification.check_frozen_mutant_rows()
+            table.write_text("".join(lines) + "added\tZ.lean\tc\td\tgz.sequence-safety\n")
+            verification.check_frozen_mutant_rows()
+
+    def test_mutator_script_is_frozen(self):
+        # Fifth reading, cheat 2: a script: row's mutator was in no identity.
+        repo, table, mutator = self.frozen_repo()
+        audit = repo / "tests/audit"
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}), \
+                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/gz-sequence.tsv",)):
+            mutator.write_text("# writes an error into the expected proof module instead\n")
+            with self.assertRaisesRegex(verification.Rejected, "row0"):
+                verification.check_frozen_mutant_rows()
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1, "theorems": [], "proved_goals": [],
+                "mutant_rows": [{"list": "tests/proof-mutants/gz-sequence.tsv", "name": f"row{i}",
+                                 "reason": "the mutator was rewritten"} for i in range(3)]}))
+            verification.check_frozen_mutant_rows()
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1, "theorems": [], "proved_goals": [],
+                "mutant_rows": [{"list": "tests/proof-mutants/gz-sequence.tsv", "name": "plain", "reason": "x"}]}))
+            with self.assertRaisesRegex(verification.Rejected, "row0"):
+                verification.check_frozen_mutant_rows()
+
+    def test_list_of_only_equivalent_mutants_is_rejected(self):
+        # Fifth reading: a list with only same: rows gave killed + same > 0 with no kill.
+        (self.root / "tests/proof-mutants").mkdir(parents=True)
+        (self.root / "tests/proof-mutants/only-same.tsv").write_text(
+            "equivalent\tZ.lean\ta\tb\tM\tsame:unused\n")
+        (self.root / "tests/proof-mutants/mixed.tsv").write_text(
+            "equivalent\tZ.lean\ta\tb\tM\tsame:unused\n" +
+            "".join(f"k{i}\tZ.lean\ta\tb{i}\tM\n" for i in range(5)))
+        with patch.object(verification, "ROOT", self.root), patch.object(verification, "public_mutants", lambda m: {}), \
+                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/mixed.tsv",)):
+            (self.root / "tests/proof-mutants/api-boundary.tsv").write_text("k\tZ.lean\ta\tb\tM\n")
+            shards = [verification.mutation_partition({}, 4, i)[1] for i in range(4)]
+            for shard in shards:
+                rows = shard.get("tests/proof-mutants/mixed.tsv", [])
+                if rows:
+                    self.assertTrue(any("same:" not in row for row in rows))
+            self.assertEqual(sum(len(s.get("tests/proof-mutants/mixed.tsv", [])) for s in shards), 6)
+            with patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/only-same.tsv",)):
+                with self.assertRaisesRegex(verification.Rejected, "without a row that must be killed"):
+                    verification.mutation_partition({}, 4, 0)
+
+    def test_proved_required_goal_needs_keyed_or_pinned_evidence(self):
+        audit = self.root / "tests/audit"
+        audit.mkdir(parents=True, exist_ok=True)
+        (self.root / "tests/proof-mutants").mkdir()
+        (audit / "proved-goals.txt").write_text("Goal.first_safety\nGoal.second_safety\n")
+        (audit / "public-mutants.json").write_text(json.dumps({"version": 1, "targets": {
+            "Goal.first_safety": [{"list": "tests/proof-mutants/l.tsv", "name": "x"}]}}))
+        table = self.root / "tests/proof-mutants/l.tsv"
+        table.write_text("a\tZ.lean\ta\tb\tM\nb\tZ.lean\tc\td\tM\n")
+        manifest = self.open_manifest()
+        with patch.object(verification, "ROOT", self.root), \
+                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/l.tsv",)):
+            with patch.object(verification, "PINNED_EVIDENCE", {}):
+                with self.assertRaisesRegex(verification.Rejected, "second_safety"):
+                    verification.check_pinned_evidence(manifest)
+            with patch.object(verification, "PINNED_EVIDENCE",
+                              {"Goal.second_safety": {"lists": {"tests/proof-mutants/l.tsv": 2}, "keys": []}}):
+                verification.check_pinned_evidence(manifest)
+                table.write_text("a\tZ.lean\ta\tb\tM\nb\tZ.lean\tc\td\tM\tsame:x\n")
+                with self.assertRaisesRegex(verification.Rejected, "fewer than 2"):
+                    verification.check_pinned_evidence(manifest)
+            with patch.object(verification, "PINNED_EVIDENCE",
+                              {"Goal.second_safety": {"lists": {"tests/proof-mutants/other.tsv": 1}, "keys": []}}):
+                with self.assertRaisesRegex(verification.Rejected, "not run in the shards"):
+                    verification.check_pinned_evidence(manifest)
+
     def test_open_safety_reopened_on_the_branch_is_seen(self):
         repo, git = self.repo()
         manifest = repo / "tests/audit/public-api.json"
@@ -784,6 +881,13 @@ end ZlibF.Fixture
         self.assertIn("KILLED", nested.stdout)
         empty = mutants(1, "no-match")
         self.assertNotEqual(empty.returncode, 0, empty.stdout + empty.stderr)
+        # Fifth reading: a list whose only row is an equivalent (same:) mutant is not evidence.
+        mutations.write_text("equivalent\tZlibF/Zlib/fixture.c.lean\tdef unused : Nat := 0\t"
+                             "def unused : Nat := 1\tfixture.c\tsame:unused definition\n")
+        only_same = mutants(1)
+        self.assertNotEqual(only_same.returncode, 0, only_same.stdout + only_same.stderr)
+        self.assertIn("SAME ok", only_same.stdout)
+        self.assertIn("strict acceptance requires a killed mutant", only_same.stdout)
 
 
 if __name__ == "__main__":

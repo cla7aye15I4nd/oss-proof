@@ -175,6 +175,37 @@ rows reach the 12 GiB budget before a verdict: `gzvprintf-length-check-dropped`,
 and `patch0004-printf-position-check-removed`. Their functions (`gzvprintf`, `gz_open`, `gzseek64`) contain a loop,
 and the kernel unfolds it when the bodies differ; for these rows the re-elaboration kill is the evidence.
 
+## Evidence for goals without a key, and known limits
+
+Eleven proved required goals have no key of their own in `tests/audit/public-mutants.json`: the four
+sequence safety goals, the three refusal goals and the four proved non-vacuity goals. Their mutant
+evidence is pinned in `PINNED_EVIDENCE` in `scripts/verification.py`: the semantic lists that carry
+it, each with a minimum number of rows that must be killed, and keyed goals whose replay also
+checks it. Every pinned list must be one of the lists the mutant shards run. A proved required goal
+with neither a key nor a pin is rejected.
+
+The rows of those lists (`SAFETY_MUTANT_LISTS` and `tests/proof-mutants/api-boundary.tsv`) are
+frozen along the revision chain of the shrink checks: every field, the `PROOF_MODULES` column and
+the flag included, and the sha256 of the mutator of a `script:` row. Rows may be added. A changed
+or removed row needs a `mutant_rows` entry `{list, name, reason}` in
+`tests/audit/registry-removals.json`, and an entry that excuses nothing is rejected as stale.
+`proofmut.sh` in strict mode needs at least one KILLED row; a `same:` row that builds is not
+evidence. The shards give each `same:` row to a shard that also runs a killable row of its list, and
+a list with no killable row is rejected.
+
+Known limits:
+- The auditor (`tests/audit/*.lean`), `proofmut.sh`, `selftest.sh` and the mutator scripts
+  (`tests/proof-mutants/*.py`) are trusted and protected by review, like `scripts/`. A mutator's
+  content is frozen by its hash, but what it does is checked only by reading it. In particular the
+  BAD MUTANT guard of `proofmut.sh` compares the first error with the row's `FILE`, which for a
+  `script:` row is the script, so a mutator that writes an error into the expected proof module
+  would count as KILLED. Closing this needs a redesign of script rows; for now review is the defence.
+- A removal entry with a reason is the reviewed way out of every shrink-only check. It is visible
+  in the diff, and a stale entry is rejected.
+- The revision chain covers the history after the pinned floors that `HEAD` still contains. A
+  force-push that rewrites `dev` after the floor escapes it; branch protection against force-push
+  is the defence.
+
 ## List format
 
 Lists use one tab-separated row per mutant. Lines starting with `#` are comments.

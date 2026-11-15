@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import os
 import re
@@ -251,7 +252,7 @@ def removals() -> dict[str, set]:
     path = ROOT / REMOVALS
     data = json.loads(raw_text(path)) if path.is_file() else {"version": 1, "theorems": [], "proved_goals": []}
     if not {"version", "theorems", "proved_goals"} <= set(data) <= \
-            {"version", "theorems", "proved_goals", "mutant_references"} or data["version"] != 1:
+            {"version", "theorems", "proved_goals", "mutant_references", "mutant_rows"} or data["version"] != 1:
         raise Rejected(f"unknown {REMOVALS}")
     result: dict[str, set] = {}
     for key in ("theorems", "proved_goals"):
@@ -270,6 +271,13 @@ def removals() -> dict[str, set]:
             raise Rejected(f"{REMOVALS} mutant_references entries need a goal, a list, a name and a reason: {entry}")
         references.add((entry["goal"], entry["list"], entry["name"]))
     result["mutant_references"] = references
+    rows = set()
+    for entry in data.get("mutant_rows", []):
+        if not isinstance(entry, dict) or set(entry) != {"list", "name", "reason"} or \
+                not all(isinstance(entry[k], str) and entry[k].strip() for k in entry):
+            raise Rejected(f"{REMOVALS} mutant_rows entries need a list, a name and a reason: {entry}")
+        rows.add((entry["list"], entry["name"]))
+    result["mutant_rows"] = rows
     return result
 
 
@@ -625,6 +633,121 @@ SAFETY_MUTANT_LISTS = ("tests/proof-mutants/deflate-header.tsv", "tests/proof-mu
                        "tests/proof-mutants/gz-sequence.tsv", "tests/proof-mutants/gz-read.tsv")
 
 
+# The lists whose rows are frozen along the chain: the semantic safety lists and the API boundary list.
+# They carry the only mutant evidence of the goals in PINNED_EVIDENCE. Rows may be added; a row may not
+# change or go (all fields, and the sha256 of a script: row's mutator) without a reasoned mutant_rows
+# entry in tests/audit/registry-removals.json.
+def frozen_mutant_lists() -> tuple[str, ...]:
+    return SAFETY_MUTANT_LISTS + ("tests/proof-mutants/api-boundary.tsv",)
+
+
+P_GOAL = "ZlibF.Spec.Public.Goal."
+# The mutant evidence of each proved required goal that has no key of its own in public-mutants.json:
+# the frozen lists that carry it, each with the minimum number of rows that must be killed (rows not
+# flagged same:), and the keyed goals whose replay also checks it (their proofs are corollaries of, or
+# share the run lemmas of, this goal). Every pinned list must be a frozen list, so it is run in the shards.
+PINNED_EVIDENCE: dict[str, dict] = {
+    P_GOAL + "gz_sequence_safety": {"lists": {"tests/proof-mutants/gz-sequence.tsv": 43,
+                                              "tests/proof-mutants/gz-read.tsv": 18}, "keys": []},
+    P_GOAL + "inflate_back_sequence_safety": {"lists": {"tests/proof-mutants/infback-sequence.tsv": 11}, "keys": []},
+    P_GOAL + "deflate_sequence_safety": {"lists": {"tests/proof-mutants/deflate-header.tsv": 5,
+                                                   "tests/proof-mutants/deflate-strategies.tsv": 10,
+                                                   "tests/proof-mutants/deflate-ops.tsv": 7},
+                                         "keys": [P_GOAL + "deflate_safety", P_GOAL + "deflateEnd_safety"]},
+    P_GOAL + "inflate_sequence_safety": {"lists": {}, "keys": [P_GOAL + "inflate_safety", P_GOAL + "inflateEnd_safety",
+                                                               P_GOAL + "inflateCopy_safety"]},
+    P_GOAL + "inflate_refusal": {"lists": {"tests/proof-mutants/stream-refusal.tsv": 5}, "keys": []},
+    P_GOAL + "deflate_refusal": {"lists": {"tests/proof-mutants/stream-refusal.tsv": 5}, "keys": []},
+    P_GOAL + "gz_refusal": {"lists": {"tests/proof-mutants/gz-refusal.tsv": 19}, "keys": []},
+    P_GOAL + "inflate_initialisation_domain": {"lists": {}, "keys": [P_GOAL + "inflateInit2__safety"]},
+    P_GOAL + "deflate_initialisation_domain": {"lists": {}, "keys": [P_GOAL + "deflateInit2__safety"]},
+    P_GOAL + "inflate_back_initialisation_domain": {"lists": {"tests/proof-mutants/infback-sequence.tsv": 11},
+                                                    "keys": [P_GOAL + "inflateBackInit_"]},
+    P_GOAL + "gz_sequence_nonvacuity": {"lists": {"tests/proof-mutants/gz-sequence.tsv": 43},
+                                        "keys": [P_GOAL + "gzdopen"]},
+}
+
+
+def killable_rows(text: str) -> list[list[str]]:
+    rows = [line.split("\t") for line in text.split("\n") if line and not line.startswith("#")]
+    return [row for row in rows if not (len(row) > 5 and row[5].startswith("same:"))]
+
+
+def check_pinned_evidence(manifest: dict) -> None:
+    """Every proved required goal has mutant evidence: its own key in public-mutants.json, or the
+    pinned lists and keyed goals of PINNED_EVIDENCE, each list present with at least its pinned
+    number of rows that must be killed, and each keyed goal keyed with at least one row."""
+    proved = set(proved_goals())
+    targets = json.loads(raw_text(ROOT / "tests/audit/public-mutants.json"))["targets"]
+    frozen = set(frozen_mutant_lists())
+    for goal in required_public_goals(manifest):
+        if goal not in proved or targets.get(goal):
+            continue
+        pin = PINNED_EVIDENCE.get(goal)
+        if pin is None:
+            raise Rejected(f"proved required goal without a mutant key or pinned evidence: {goal}")
+        if not pin["lists"] and not pin["keys"]:
+            raise Rejected(f"pinned evidence of {goal} is empty")
+        for path, minimum in pin["lists"].items():
+            table = ROOT / path
+            if path not in frozen or not table.is_file() or table.is_symlink():
+                raise Rejected(f"pinned mutant list of {goal} is missing or not run in the shards: {path}")
+            if len(killable_rows(raw_text(table))) < minimum:
+                raise Rejected(f"pinned mutant list of {goal} has fewer than {minimum} rows to kill: {path}")
+        for key in pin["keys"]:
+            if not targets.get(key):
+                raise Rejected(f"pinned mutant key of {goal} has no rows: {key}")
+
+
+def show_bytes(revision: str, path: Path) -> bytes | None:
+    try:
+        return subprocess.check_output(["git", "show", f"{revision}:{path.as_posix()}"], cwd=ROOT,
+                                       stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        return None
+
+
+def frozen_row_identities(read_text, read_bytes) -> set[tuple]:
+    """(list, row name, the whole row, sha256 of the mutator of a script: row) of every frozen row."""
+    found = set()
+    for path in frozen_mutant_lists():
+        text = read_text(path)
+        if text is None:
+            continue
+        for line in text.split("\n"):
+            if not line or line.startswith("#"):
+                continue
+            fields = line.split("\t")
+            digest = ""
+            if len(fields) > 1 and fields[1].startswith("script:"):
+                data = read_bytes(fields[1][len("script:"):])
+                digest = hashlib.sha256(data).hexdigest() if data is not None else "missing"
+            found.add((path, fields[0], line, digest))
+    return found
+
+
+def check_frozen_mutant_rows() -> None:
+    """No row of a frozen list at the base or a later commit of the chain disappears or changes
+    (all fields, and the content of a script: row's mutator), unless registry-removals.json names
+    the list and row under mutant_rows with a reason. An entry that excuses nothing is stale."""
+    allowed = removals()["mutant_rows"]
+    current = frozen_row_identities(lambda p: raw_text(ROOT / p) if (ROOT / p).is_file() else None,
+                                    lambda p: (ROOT / p).read_bytes() if (ROOT / p).is_file() else None)
+    earlier: dict[tuple, str] = {}
+    for revision in revision_chain():
+        for identity in frozen_row_identities(lambda p: show(revision, Path(p)),
+                                              lambda p: show_bytes(revision, Path(p))):
+            earlier.setdefault(identity, revision)
+    missing = set(earlier) - current
+    lost = sorted(i for i in missing if i[:2] not in allowed)
+    if lost:
+        raise Rejected("frozen mutant rows removed or changed without a reviewed entry in "
+                       f"{REMOVALS}: " + ", ".join(f"{i[0]}: {i[1]} (at {earlier[i][:12]})" for i in lost))
+    stale = sorted(a for a in allowed if not any(i[:2] == a for i in missing))
+    if stale:
+        raise Rejected(f"stale mutant_rows entries in {REMOVALS}: " + ", ".join(map(str, stale)))
+
+
 def mutation_partition(manifest: dict, count: int = 1, index: int = 0) -> tuple[set[str], dict[str, list[str]]]:
     """Assign every goal bundle and every full proof-list row exactly once.
 
@@ -651,13 +774,22 @@ def mutation_partition(manifest: dict, count: int = 1, index: int = 0) -> tuple[
     selected = {}
     ordinal = 0
     for path in sorted(lists):
+        # A row flagged same: (an equivalent mutant) is not evidence: proofmut.sh in strict mode needs a
+        # KILLED row in every list it runs. So the killable rows are dealt round robin, and each same:
+        # row goes to the shard of its list's first killable row. A list with no killable row is an error.
+        all_rows = [row for row in (ROOT / path).read_text().splitlines() if row and not row.startswith('#')]
+        killable = [row for row in all_rows if not (len(row.split('\t')) > 5 and row.split('\t')[5].startswith('same:'))]
+        if not killable:
+            raise Rejected(f"proof mutant list without a row that must be killed: {path}")
+        first_shard = ordinal % count
         rows = []
-        for row in (ROOT / path).read_text().splitlines():
-            if not row or row.startswith('#'):
-                continue
-            if ordinal % count == index:
+        for row in all_rows:
+            if row in killable:
+                if ordinal % count == index:
+                    rows.append(row)
+                ordinal += 1
+            elif first_shard == index:
                 rows.append(row)
-            ordinal += 1
         if rows:
             selected[path] = rows
     if not goals and not selected:
@@ -948,6 +1080,8 @@ def main() -> int:
                 check_registries_shrink()
                 check_waivers_shrink()
                 check_mutants_shrink()
+                check_frozen_mutant_rows()
+                check_pinned_evidence(manifest)
             if args.mode == "final" and open_safety(manifest):
                 raise Rejected("final acceptance requires an empty open_safety: " +
                                ", ".join(open_safety(manifest)))
