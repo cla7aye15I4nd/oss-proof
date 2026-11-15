@@ -1,9 +1,11 @@
-<!-- source-sha256: 2a6724e1a35a1afd071c6b28dbceff66c7a100c0383fd2b213baeb5f12c47cee -->
+<!-- source-sha256: 30900b8eb94cf6c419a89539a0665b773ca78e57d3fe98507cf649a7f86f4598 -->
 # gz_reset 从不写入 x.next；gzseek 和 gzdirect 却读取它
 
-状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为。验证对象中由本地补丁
-[0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁经所有者于
-2026-11-12 批准，尚未提交上游。同一补丁也修复 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)。
+`gz_reset` 初始化读取者状态中除指针 `x.next` 以外的每个字段。在还没有任何输出时调用 `gzseek` 和 `gzdirect`，会给这个从未写入的指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
+
+状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。验证对象中由本地补丁
+[0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁经项目所有者于
+2026-11-12 批准，没有提交上游。同一补丁也修复 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)。[gz 证明说明](../../proof/gzip.md)把这份报告称为 R-3。
 
 源码固定版本：`757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。
 
@@ -16,9 +18,9 @@
 
 读到的值是这块分配的不确定内容。C11 规定，使用可能是陷阱表示的不确定值是未定义的（6.2.6.1p5，J.2）；指针运算只对指向对象或其末尾之后一个位置的指针有定义（6.5.6p8），不确定的指针两者都不是。在 x86_64 上，用通常的编译器，`p + 0` 不改变 `p`，不会出错。
 
-## 调用历史
+## 调用序列
 
-```
+```c
 f = gzopen("data.gz", "rb");      /* gzip 文件 */
 gzseek(f, 3, SEEK_SET);           /* 对从未写入的字段执行 x.next += 0 */
 
@@ -30,14 +32,20 @@ gzdirect(f);                      /* gz_look（gzip），然后 gz_skip_have：x
 
 ## 证据
 
-强度：仅按 C 标准的字面规定。没有 sanitizer 报告它：对任意值做 `p + 0` 既不是越界访问也不是指针溢出，而 MemorySanitizer 不报告只被复制的未初始化值。因此复现把 `gzlib.c` 和 `gzread.c` 中每个 `x.next += n` 都经过一个探针（`probe.h`；计算出的值不变），并打印每次 `n == 0` 的计算。在 AddressSanitizer 下，新分配的内存填充为 `0xbe`：
+强度：仅按 C 标准的字面规定。没有 sanitizer 报告它：对任意值做 `p + 0` 既不是越界访问也不是指针溢出，而 MemorySanitizer 不报告只被复制的未初始化值。因此复现把 `gzlib.c` 和 `gzread.c` 中每个 `x.next += n` 都经过一个探针（`probe.h`；计算出的值不变），并打印每次 `n == 0` 的计算。在仓库根目录、`zlib/` 子模块已检出的情况下运行：
+
+```sh
+ZLIB_SRC=$PWD/zlib bash docs/findings/gz-reset-next-uninitialised/run.sh
+```
+
+成功时最后一行是 `ok: after the fix: x.next is never evaluated with n == 0`。修复前探针打印下面两行；在 AddressSanitizer 下，新分配的内存填充为 `0xbe`：
 
 ```
 x.next + 0 at gzlib.c:435, x.next = 0xbebebebebebebebe
 x.next + 0 at gzread.c:313, x.next = 0xbebebebebebebebe
 ```
 
-文件：`unset.c`、`probe.h`、`run.sh`、[report.txt](report.txt)（x86_64 Linux，gcc 15.2；arm64 macOS 上结果相同）。`run.sh` 在 ASan 和 UBSan 下分别构建不含和含 0005 的源码；修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。在 Lean 模型中，新分配的指针字段是 NULL，而 `NULL + 0` 能通过，所以模型也看不到它；暴露它的是证明规则“指针字段先写后读”（`docs/spec/safety.md` 第 3 节）。
+文件：`unset.c`、`probe.h`、`run.sh`、[report.txt](report.txt)（x86_64 Linux，GCC 15.2）。为撰写本页在 arm64 macOS 上运行了一次，结果相同；探针打印的行号取决于所应用的补丁 0004 的版本。`run.sh` 在 ASan 和 UBSan 下分别构建不含和含 0005 的源码；修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。在 Lean 模型中，新分配的指针字段是 NULL，而 `NULL + 0` 能通过，所以模型也看不到它；暴露它的是证明规则“指针字段先写后读”（`docs/spec/safety.md` 第 3 节）。
 
 ## 范围
 

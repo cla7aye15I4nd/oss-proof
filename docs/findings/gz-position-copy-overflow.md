@@ -1,11 +1,16 @@
 # gz: position overflow after a transparent look near `GZ_OFF_MAX`
 
+This was a defect of the first version of this project's local
+[patch 0004](../../patches/README.md), not a further defect of upstream zlib. Patch 0004 is the fix
+of [gzread-pos-overflow](gzread-pos-overflow/README.md); its first version (2026-11-12) left one
+path on which a reader could still overflow the position. The second version (2026-11-13) closes
+it.
+
 Status: confirmed in the model and by reading the C. Not reproduced under a sanitizer: the history
-needs about 2^63 decoded bytes. It was a gap in the first version of the local
-[patch 0004](../../patches/README.md), the fix of [gzread-pos-overflow](gzread-pos-overflow/README.md).
-Patch 0004 now covers it: `gz_look`'s COPY branch buffers only `gz_room(state, avail_in)` bytes
-and records `Z_DATA_ERROR` "position overflow" when the input goes past that. The patch is local
-and pending upstream submission (extension approved by the owner on 2026-11-13).
+needs about 2^63 decoded bytes. The patch in the repository covers it: `gz_look`'s COPY branch
+buffers only `gz_room(state, avail_in)` bytes and records `Z_DATA_ERROR` "position overflow" when
+the input goes past that. The patch is local and not submitted upstream; the project owner
+approved the extension on 2026-11-13.
 
 ## What went wrong
 
@@ -27,11 +32,11 @@ sets `eof`; `gzclearerr` clears `eof`; the next read goes to `gz_look` with `dir
 `junk == 1`, and copies the following input transparently. If the member decoded to nearly
 `GZ_OFF_MAX` bytes, `x.pos` is near `GZ_OFF_MAX` there.
 
-## History
+## Call sequence
 
 With the first version of patch 0004:
 
-```
+```c
 /* a gzip member that decodes to GZ_OFF_MAX - 3 bytes, then non-gzip bytes */
 gzread(f, ...);            /* read the member to its end: x.pos = GZ_OFF_MAX - 3 */
 gzread(f, buf, 1);         /* trailing garbage: eof set, how = LOOK, junk = 1 */
@@ -40,7 +45,7 @@ gzread(f, buf, 3);         /* gz_look COPY: have = 8; copies 3; x.pos = GZ_OFF_M
 gzgetc(f);                 /* macro: (g)->pos++ overflows */
 ```
 
-With the current patch the fourth call buffers three bytes, returns 3 with `x.have = 0` and
+With the patch in the repository the fourth call buffers three bytes, returns 3 with `x.have = 0` and
 records `Z_DATA_ERROR`; the `gzgetc` returns -1.
 
 ## Evidence
@@ -51,7 +56,7 @@ records `Z_DATA_ERROR`; the `gzgetc` returns -1.
   `x.have = 5`. The start satisfied the position clauses of the reader invariant; the end did not.
   A following `gzgetc` faulted with `Fault.ub` on `x.pos + 1`; its buffered path is the same as
   the macro's. The state is constructed, not reached by a public history.
-- Model, now: `ZlibF/Proof/gz.position-copy-overflow-regression.lean`, restated in
+- Model, with the extension: `ZlibF/Proof/gz.position-copy-overflow-regression.lean`, restated in
   `tests/verification/regressions/gz-position-copy-overflow.lean`, checks the fixed runs from the
   same state: `gzread` returns 3 with `x.have = 0` and `Z_DATA_ERROR`, the position clauses hold,
   and the following `gzgetc` returns -1 with no fault. The file's header records the earlier run.
@@ -64,4 +69,5 @@ records `Z_DATA_ERROR`; the `gzgetc` returns -1.
 Confidence is high that the C with the first version of patch 0004 allowed the state, and that
 the history above reaches it if a gzip member that long can be read. Scope: readers with that
 version, at a position within `size` bytes of `GZ_OFF_MAX`, after a gzip member with trailing data
-and `gzclearerr`. Without patch 0004 the same history overflows already in `gz_read` (F-1).
+and `gzclearerr`. Without patch 0004 the same history overflows already in `gz_read`
+([gzread-pos-overflow](gzread-pos-overflow/README.md)).
