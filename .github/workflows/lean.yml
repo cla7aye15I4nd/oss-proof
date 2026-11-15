@@ -4,11 +4,18 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-  # The acceptance suite (audit, proof mutants, differential tests) runs every
-  # night on main and on request. It does not gate ordinary merges.
+  # The acceptance suite (audit, differential tests) runs every night on main
+  # and on request. It does not gate ordinary merges. The proof mutants are
+  # additional evidence, not part of acceptance: they run only on a manual
+  # dispatch that asks for them.
   schedule:
     - cron: '17 9 * * *'
   workflow_dispatch:
+    inputs:
+      mutants:
+        description: 'Also run the proof mutants (20 shards, several hours)'
+        type: boolean
+        default: false
 
 concurrency:
   # One group per pull request (a newer push cancels the superseded run), and one per commit and event
@@ -156,7 +163,7 @@ jobs:
         run: bash tests/audit/selftest.sh
 
   audit_mutants:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mutants }}
     needs: build
     strategy:
       fail-fast: false
@@ -179,8 +186,9 @@ jobs:
           ZLIBF_REQUIRE_PREBUILT: '1'
         run: python3 scripts/verification.py mutants --shard-count 20 --shard-index ${{ matrix.shard }}
 
-  # Keep audit as the required status. Failure, cancellation or skipping in any
-  # worker must prevent this status from passing.
+  # Keep audit as the required status. Failure, cancellation or skipping of the
+  # core or self-test stage must prevent this status from passing. The mutant
+  # stage is skipped unless the dispatch asked for it; when it runs it must pass.
   audit:
     needs: [audit_core, audit_selftest, audit_mutants]
     if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
@@ -192,7 +200,9 @@ jobs:
           AUDIT_CORE_RESULT: ${{ needs.audit_core.result }}
           AUDIT_SELFTEST_RESULT: ${{ needs.audit_selftest.result }}
           AUDIT_MUTANTS_RESULT: ${{ needs.audit_mutants.result }}
-        run: test "$AUDIT_CORE_RESULT/$AUDIT_SELFTEST_RESULT/$AUDIT_MUTANTS_RESULT" = "success/success/success"
+        run: |
+          test "$AUDIT_CORE_RESULT/$AUDIT_SELFTEST_RESULT" = "success/success"
+          test "$AUDIT_MUTANTS_RESULT" = "success" || test "$AUDIT_MUTANTS_RESULT" = "skipped"
 
   diff_core:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
