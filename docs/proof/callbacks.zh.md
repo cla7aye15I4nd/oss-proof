@@ -2,12 +2,12 @@
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
-接收输出。所以它的安全性取决于这两个函数做什么。本页的结果是：对每一对遵守一个明确写出的协议、并且提供的输入量有界的回调，`inflateBack`
-及其调用序列是安全的。本页给出这个命题、协议和证明的形状。
+接收输出。所以它的安全性取决于这两个函数做什么。本页的结论是：对每一对遵守一个明确写出的协议、并且提供的输入量有界的回调，`inflateBack`
+及其调用序列是安全的。本页给出这个命题、协议和证明的轮廓。
 
 源文件：`infback.c`。[API 页面](../spec/api/inflate-back.md)陈述公开契约。术语见[术语表](../glossary.md)。
 
-## 结果
+## 结论
 
 | 目标 | 定理 | 模块 |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ sequenceDiagram
 | 回调遵守一个 `CallbackProtocol`（下一节），并且它的不变量在调用 `inflateBack` 时成立。 | 参数 `protocol` | 回调 |
 | 一次调用得到的字节，把调用者的第一个片段和它所有的 `in` 调用合在一起，总共少于 `2^48`。 | `protocol.inputBound < 2^48`，连同 `bounded` | 回调输入总量 |
 | `8 ≤ windowBits ≤ 15`，窗口不是 `NULL`，有 `2^windowBits` 个可写字节，并且是一个堆字节块的切片。 | `BackSafeReachable.init` | 回调解码器窗口 |
-| 每个输入片段都在一个堆字节块中：调用者的第一个片段，以及 `in` 交出的每个片段。 | `BackFirstChunk`、`BackPlatform` | 回调解码器输入块 |
+| 每个输入片段都在一个堆字节块中：调用者的第一个片段，以及 `in` 交出的每个片段。 | `BackFirstChunk`、`BackPlatform` | 回调解码器输入片段 |
 | 在每次调用时和每个回调步骤之后，每个字节对象少于 `2^63` 字节。 | `ByteObjectsFit`、`BackPlatform` | 平台字节对象范围 |
 | 流使用默认分配器，或者分配器字段为 `NULL`，由初始化替换。 | `BackValid`、`InitDomain` | 初始配置 |
 | 调用者的第一个输入片段可读，并且与窗口分离：它是 `strm->next_in` 处的 `strm->avail_in` 个字节；`strm->next_in` 为 `NULL` 时没有字节。 | 子句 3 中的 `Bytes` 和 `Separate` | 回调 |
@@ -145,7 +145,7 @@ sequenceDiagram
 
 ## 历史
 
-`BackSafeReachable h r i window n` 说的是：堆 `h` 由流 `r` 的某个实际历史到达，其状态块为 `i`，在调用者的 `n` 字节窗口上。
+`BackSafeReachable h r i window n` 说的是：堆 `h` 是流 `r`（状态块为 `i`）在调用者的 `n` 字节窗口上经某个实际历史到达的。
 
 | 构造子 | 步骤 |
 | --- | --- |
@@ -246,7 +246,7 @@ flowchart TD
 `fast_env` 是对位于堆字节块中的窗口构造 `inflate_fast` 的入口条件的，快速路径也只在这样的窗口上证明（`lenFast_of_blk`）。入口条件本身允许任何字节对象（[快速解码](inffast.md#assumptions)）。目标的每个历史都有这样的窗口（`back_reach_window`），因为
 `init` 构造子要求它。这就是窗口前提的理由。
 
-## 保留的功能结果
+## 保留的功能结论
 
 `tests/audit/goals.txt` 为这三个函数各列出一个功能契约，另有功能序列目标
 `Goal.inflate_back_sequence`。安全结论不需要其中任何一个。`tests/audit/proved-goals.txt`
@@ -257,7 +257,7 @@ flowchart TD
 
 已登记但不是目标的定理：
 
-- `inflateBack` 的分支结果：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`，`ZlibF/Proof/infback.c.back.lean`）。
+- `inflateBack` 的分支结论：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`，`ZlibF/Proof/infback.c.back.lean`）。
 
 未证明，安全结论也用不到的：`Goal.inflateBack` 和 `Goal.inflate_back_sequence`。它们还说明到达 `out`
 的是什么（解码子句）。

@@ -87,7 +87,7 @@ flowchart LR
 | `pending_buf_size` | `4B` |
 | `sym_buf`、`sym_end` | `pending_buf + B`、`3(B - 1)` |
 
-`W ≥ 512` 是有用处的：`MAX_DIST = W - 262`，窗口若只有 256 字节，这个减法就会回绕。
+`W ≥ 512` 这一点很要紧：`MAX_DIST = W - 262`，窗口若只有 256 字节，这个减法就会回绕。
 
 ## 一次 `deflate` 调用
 

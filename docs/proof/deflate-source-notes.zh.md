@@ -80,7 +80,7 @@ if ((strategy != s->strategy || func != configuration_table[level].func) &&
 
 `deflateTune` 不做检查就把参数存进无符号字段；负的参数会变成很大的值。`nice_length` 仍是有符号的。链上限为 0 时，第一次递减就回绕。安全定理覆盖每一个调优值：`deflateTune` 无论带什么参数都是被允许的调用，而链的遍历靠位置下降结束，不靠这个计数器。
 
-### 预置位、查询与主函数
+### 位预置、查询与主函数
 
 `deflatePrime` 拒绝 0 到 16 之外的位数。在检查空间之前，它用一个向前的字节循环把待输出字节挪到缓冲区开头。插入循环是 `do` 循环，所以位数为零时也执行一次。掩码和左移是有符号 `int` 表达式；翻译对它们使用带检查的运算，`deflatePrime_safety` 证明在 `deflate` 尚未启动的流上它们不会溢出。负的 `value` 右移，在这个平台上是算术右移。
 
@@ -92,7 +92,7 @@ if ((strategy != s->strategy || func != configuration_table[level].func) &&
 
 ### 有符号的位置
 
-`strstart - block_start` 用 `long` 计算；在这个平台上 `long` 容得下每一个 `uInt`。滑动时的 `block_start -= (long)wsize`，以及 `deflateParams` 里的表达式 `(s->strstart - s->block_start) + s->lookahead` 也是如此。翻译对其中每一处都检查溢出。`block_start_low` 由子句 `blockSpan` 给出：级别非零时 `block_start ≥ -2^62`；`block_start_slide_signed` 和 `flush_length_general` 把它用于滑动和块长的计算。对 `deflateParams` 里的那个表达式，`params_after_outcome`（`ZlibF/Proof/deflate.c.universal-ops-params-general.lean`）证明：从满足不变量的每个状态出发，内层 `deflate` 调用之后的那段代码都会返回。它的证明用子句 `blockStart` 和 `blockSpan` 限定这个差，级别为 0 时用 `levelZero`。
+`strstart - block_start` 用 `long` 计算；在这个平台上 `long` 容得下每一个 `uInt`。滑动时的 `block_start -= (long)wsize`，以及 `deflateParams` 里的表达式 `(s->strstart - s->block_start) + s->lookahead` 也是如此。翻译对其中每一处都检查溢出。`block_start_low` 由子句 `blockSpan` 给出：级别非零时 `block_start ≥ -2^62`；`block_start_slide_signed` 和 `flush_length_general` 把它用于滑动和块长的计算。对 `deflateParams` 里的那个表达式，`params_after_outcome`（`ZlibF/Proof/deflate.c.universal-ops-params-general.lean`）证明：从满足不变量的每个状态出发，内层 `deflate` 调用之后的那段代码都会返回。它的证明用子句 `blockStart` 和 `blockSpan` 给这个差定界，级别为 0 时用 `levelZero`。
 
 `ct_data` 里的两个联合体各有两个 `unsigned short` 成员。在翻译里每个联合体是一个单元：`Freq` 和 `Code` 是同一个单元的两个名字，`Dad` 和 `Len` 是另一个的。建树时往同一个单元里先写父结点、后写码长，先写频率、后写编码。
 

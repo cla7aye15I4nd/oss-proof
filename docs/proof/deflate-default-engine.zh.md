@@ -28,7 +28,7 @@
 
 ## 假设
 
-- 历史是带 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_`，随后是 `deflate` 调用和调用者对缓冲区字段的修改（`DeflateCore.Calls`、`DeflateCore.Trace`）。没有字典，没有 `deflateParams`，没有预置位，没有 gzip 头部。
+- 历史是带 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_`，随后是 `deflate` 调用和调用者对缓冲区字段的修改（`DeflateCore.Calls`、`DeflateCore.Trace`）。没有字典，没有 `deflateParams`，没有位预置，没有 gzip 头部。
 - 每次调用时 `StreamBuffers` 成立。
 - 输出指针是 `NULL`，或者指向一个堆上字节块的内部（`DeflateCore.Output`）。
 - 对完成性：上面给出的 `Completes` 的前提。后续调用的输入只有开始时已有的那段输入；处于 `FINISH_STATE` 的流得不到任何输入。
