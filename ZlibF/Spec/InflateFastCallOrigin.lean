@@ -14,7 +14,7 @@ open C Zlib.Inffast Zlib.Inffast.Proofs
 def HasOrigin (e : Env) (after : Heap) : Prop :=
   ∃ (state : InflateState) (stream : ZStream) (input used : Nat),
     after.istates e.stid = some state ∧ e.r.get after = some stream ∧
-    stream.next_in = .ref (.blk e.ib) input ∧
+    stream.next_in = .ref e.ib input ∧
     input + stream.avail_in.toNat = e.i0 + e.sm0.avail_in.toNat ∧
     Origin.Inv e state.hold.toNat state.bits.toNat input used
 

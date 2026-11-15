@@ -93,7 +93,7 @@ def PlatformEntry.toEnv (e : PlatformEntry) : Env where
   hrw := e.hrw
   hstate := e.hstate
   hs0 := e.hs0
-  ib := e.ib
+  ib := BRef.blk e.ib
   i0 := e.i0
   IN := e.IN
   hnin := e.hnin
@@ -101,7 +101,7 @@ def PlatformEntry.toEnv (e : PlatformEntry) : Env where
   hai := e.hai
   hINsz := e.hINsz
   hINbig := e.platform (.blk e.ib) e.IN e.hIN
-  ob := e.ob
+  ob := BRef.blk e.ob
   o0 := e.o0
   A0 := e.A0
   hnout := e.hnout
@@ -112,7 +112,7 @@ def PlatformEntry.toEnv (e : PlatformEntry) : Env where
   hAbig := e.platform (.blk e.ob) e.A0 e.hA0
   hstart := e.hstart
   hbeg := e.hbeg
-  hsep := Or.inl e.hsep
+  hsep := Or.inl (fun same => e.hsep (BRef.blk.inj same))
   hbits := e.hbits
   hhold := e.hhold
   hsane := e.hsane
@@ -122,7 +122,9 @@ def PlatformEntry.toEnv (e : PlatformEntry) : Env where
   wb := e.wb
   woff := e.woff
   W := e.W
-  hwin := e.hwin
+  hwin := fun nonzero =>
+    let ⟨window, apart, get, room⟩ := e.hwin nonzero
+    ⟨window, fun same => apart (BRef.blk.inj same), get, room⟩
   rl := e.rl
   ol := e.ol
   LCA := e.LCA

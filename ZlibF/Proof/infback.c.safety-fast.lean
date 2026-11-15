@@ -99,8 +99,8 @@ theorem fast_env (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
         { s with hold := l.hold, bits := l.bits } ∧
       e.strm = c.strm ∧ e.start = s.wsize ∧ e.r = r ∧ e.stid = i ∧
       e.sm0 = { z with next_out := l.put, avail_out := l.left, next_in := l.next, avail_in := l.have_ } ∧
-      e.s0 = { s with hold := l.hold, bits := l.bits } ∧ e.ob = w ∧ e.o0 = woff + (n - l.left.toNat) ∧
-      l.next = .ref (.blk e.ib) e.i0 ∧ LenLeavesPositive e.LCA e.ol e.s0.lenbits.toNat := by
+      e.s0 = { s with hold := l.hold, bits := l.bits } ∧ e.ob = BRef.blk w ∧ e.o0 = woff + (n - l.left.toNat) ∧
+      l.next = .ref e.ib e.i0 ∧ LenLeavesPositive e.LCA e.ol e.s0.lenbits.toNat := by
   have margins : 6 ≤ l.have_ ∧ 258 ≤ l.left := by
     simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast
   have inputRoom : 6 ≤ l.have_.toNat := by simpa [UInt32.le_iff_toNat_le] using margins.1
@@ -190,13 +190,13 @@ theorem fast_env (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
   let e : Zlib.Inffast.Proofs.EnvG true := {
     h0 := setI (r.put h z1) i s1, strm := c.strm, start := s.wsize, r := r, sm0 := z1, stid := i, s0 := s1,
     hstrm := I.cstrm, hsm := hsm1, hrw := by cases r <;> rfl, hstate := zst, hs0 := hs1,
-    ib := b, i0 := aoff + (log.held.length - l.have_.toNat), IN := ina, hnin := hnext', hIN := hIN1,
+    ib := BRef.blk b, i0 := aoff + (log.held.length - l.have_.toNat), IN := ina, hnin := hnext', hIN := hIN1,
     hai := inputRoom,
     hINsz := by
       change aoff + (log.held.length - l.have_.toNat) + l.have_.toNat ≤ ina.size
       omega,
     hINbig := inbig,
-    ob := w, o0 := woff + (n - l.left.toNat), A0 := wa, hnout := hput, hA0 := hA1, hro := hro1,
+    ob := BRef.blk w, o0 := woff + (n - l.left.toNat), A0 := wa, hnout := hput, hA0 := hA1, hro := hro1,
     hao := outputRoom,
     hAsz := by
       change woff + (n - l.left.toNat) + l.left.toNat ≤ wa.size
@@ -204,7 +204,8 @@ theorem fast_env (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
     hAbig := wbig,
     hstart := by change l.left.toNat ≤ s.wsize.toNat; omega,
     hbeg := by change s.wsize.toNat - l.left.toNat ≤ woff + (n - l.left.toNat); omega,
-    hsep := hsep',
+    hsep := hsep'.imp (fun ne same => ne (BRef.blk.inj same))
+      (fun ⟨same, apart⟩ => ⟨congrArg BRef.blk same, apart⟩),
     hbits := short, hhold := I.bits.2, hsane := st.1, hws := wsize32, hwh := st.2.2,
     hwn := by change s.wnext.toNat ≤ s.wsize.toNat; rw [st.2.1]; exact Nat.zero_le _,
     wb := w, woff := woff, W := wa,
@@ -271,7 +272,7 @@ theorem LEN_fast_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Na
   rw [zo] at hmade
   obtain ⟨s2, hs2⟩ : ∃ s2 : InflateState, s2 = { s1 with mode := m2, bits := b2, hold := hd2 } := ⟨_, rfl⟩
   obtain ⟨z2, hz2⟩ : ∃ z2 : ZStream, z2 = { z1 with
-      next_in := .ref (.blk e.ib) (e.i0 + used),
+      next_in := .ref e.ib (e.i0 + used),
       next_out := .ref (.blk w) (woff + (n - l.left.toNat) + made),
       avail_in := UInt32.ofNat (z1.avail_in.toNat - used),
       avail_out := UInt32.ofNat (z1.avail_out.toNat - made), msg := msg } := ⟨_, rfl⟩
@@ -339,12 +340,12 @@ theorem LEN_fast_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Na
       obtain ⟨b, aoff, hact⟩ := I.chunkBlk hne
       have hn := I.chunk.2 hnz
       rw [enext, hact] at hn
-      have hn' : Ptr.ref (BRef.blk e.ib) e.i0 =
+      have hn' : Ptr.ref e.ib e.i0 =
           Ptr.ref (BRef.blk b) (aoff + (log.held.length - l.have_.toNat)) := hn
       injection hn' with h1 h2
       show z2.next_in = advance log.active (log.held.length - z2.avail_in.toNat)
       rw [have2, hz2, hact]
-      show Ptr.ref (BRef.blk e.ib) (e.i0 + used) =
+      show Ptr.ref e.ib (e.i0 + used) =
         Ptr.ref (BRef.blk b) (aoff + (log.held.length - (l.have_.toNat - used)))
       rw [h1]
       congr 1

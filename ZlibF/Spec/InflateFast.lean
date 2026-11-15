@@ -57,8 +57,8 @@ def FastPost {α : Bool} (e : Proofs.EnvG α) (after : Heap) : Prop :=
     outputUsed ≤ e.sm0.avail_out.toNat ∧
     bytes.size = e.A0.size ∧ bits.toNat < 8 ∧ hold.toNat < 2 ^ bits.toNat ∧
     after = e.r.put
-      { e.h0 with bytes := upd e.h0.bytes e.ob (some bytes), istates := upd e.h0.istates e.stid (some { e.s0 with mode, bits, hold }) }
-      { e.sm0 with next_in := .ref (.blk e.ib) (e.i0 + inputUsed), next_out := .ref (.blk e.ob) (e.o0 + outputUsed), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - inputUsed), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - outputUsed), msg } ∧
+      (Space.put (Zlib.Inflate.Spec.setI e.h0 e.stid { e.s0 with mode, bits, hold }) e.ob bytes)
+      { e.sm0 with next_in := .ref e.ib (e.i0 + inputUsed), next_out := .ref e.ob (e.o0 + outputUsed), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - inputUsed), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - outputUsed), msg } ∧
     (∀ index, (index < e.o0 ∨ e.o0 + outputUsed ≤ index) → bytes[index]? = e.A0[index]?) ∧
     ((mode = e.s0.mode ∧ msg = e.sm0.msg) ∨ (mode = TYPE ∧ msg = e.sm0.msg) ∨ mode = BAD) ∧
     (mode ≠ TYPE → mode ≠ BAD →

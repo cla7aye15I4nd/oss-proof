@@ -89,7 +89,7 @@ def Goal.actual_rollback_preserves_origin : Prop :=
       let input ← subn l.in_ returned
       let mask ← shl32 1 bits
       pure (input, l.hold &&& (mask - 1).toUInt64, bits)) (e.heap bytes msg mode) =
-        .ok ((.ref (.blk e.ib) (i - l.bits.toNat / 8), hold, bits), e.heap bytes msg mode) ∧
+        .ok ((.ref e.ib (i - l.bits.toNat / 8), hold, bits), e.heap bytes msg mode) ∧
     bits.toNat < 8 ∧
     Inv e hold.toNat bits.toNat (i - l.bits.toNat / 8) used ∧
     Sg e hold.toNat bits.toNat (i - l.bits.toNat / 8) = Sg e l.hold.toNat l.bits.toNat i
