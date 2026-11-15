@@ -1,9 +1,11 @@
 # Proof progress and remaining work
 
-This page records the level of every result and the work that remains. Its first section, Scope,
-says what is planned, what is accepted and on which commit, and what is not planned. The long
-middle part is generated from the proof records: one entry for each of the 274 goals, with its
-statement, proof and dependencies. For what the results mean, read [the overview](overview.md);
+This page records the level of every result and the work that remains. It is the only page that
+does: the other pages say what a theorem states and link here for its level. Its first section,
+Scope, says what is planned, what is accepted and on which commit, and what is not planned. The
+long middle part is generated from the proof records: one entry for each goal, with its
+statement, proof and dependencies. [Coverage by function](coverage.md) is the map from each
+function to its theorem; it carries no level. For what the results mean, read [the overview](overview.md);
 for the theorem that covers one function, read [coverage by function](coverage.md).
 
 ## Scope
@@ -37,23 +39,54 @@ Three notes on the table:
 - A functional fact is in scope exactly when a planned proof depends on it.
 
 **Level of each result.** The three levels, checked, registered and accepted, are defined in the
-[glossary](glossary.md#status).
+[glossary](glossary.md#status). A result is accepted when its theorem is registered and the
+acceptance suite is green on a named commit. The suite is the axiom gate, the exact goal match,
+the self tests and the differential tests. Proof mutants are not part of it; their runs are
+recorded separately below.
 
 | # | Registered | Accepted on commit |
 | ---: | --- | --- |
 | 1 | Yes, both goals | `bde170e9` |
 | 2 | Yes, both goals | `bde170e9` |
 | 3a | Yes, all eight | `bde170e9` |
-| 3b | Yes, all five | `bde170e9` for the non-vacuity goal, and for the sequence goal in its earlier form. Acceptance pending for the three one-function goals and for the sequence goal in its present form |
-| 3c | Yes, all 35 | `bde170e9` for the sequence, refusal and non-vacuity goals. Acceptance pending for the 32 one-function goals |
-| 3d | Yes, all 46 | `bde170e9`, except the four init safety goals in their present form |
+| 3b | Yes, all five | `bde170e9` for the non-vacuity goal, and for the sequence goal in its earlier form. Registered, not accepted: the three one-function goals, and the sequence goal in its present form |
+| 3c | Yes, all 35 | `bde170e9` for the sequence, refusal and non-vacuity goals. Registered, not accepted: the 32 one-function goals |
+| 3d | Yes, all 46 | `bde170e9`, except the four init safety goals in their present form, which are registered, not accepted |
 
-On `bde170e9` the acceptance suite was green: axiom gate, exact goals, self tests, proof mutants
-and differential tests, with all 63 goals registered that were required then. The differential
-tests are evidence of fidelity, not proof.
+"Registered, not accepted" means that no acceptance run that covers the goal in its present form
+has finished green.
 
-"Acceptance pending" means registered and not yet accepted: no acceptance run that covers the
-goal in its present form has finished.
+**Acceptance runs.** Each line is a run of the workflow `lean`, read from the record of the run.
+
+- **`bde170e9`, green.** Manual run 43671067586 of 2026-11-15. Every job was green: `build`,
+  `no-sorry`, `audit_core`, both `audit_selftest` shards, `diff_core`, all eight `diff_harness`
+  shards, and the results `audit` and `difftest`. All 63 goals that were required then were
+  registered. The commit of `main` with the same tree, `74a2097c`, was green in the nightly run
+  43735018381 of the same day.
+- **`3fdbbc38`, cancelled: not an accepted commit.** Manual run 43763696005 of 2026-11-15, on a
+  commit that holds all 98 required goals in their present form. It was started when the mutant
+  shards were still part of `audit`, and it was cancelled while only those shards were running.
+  Green before the cancellation: `build`, `no-sorry`, `audit_core`, both `audit_selftest`
+  shards, `diff_core`, all eight `diff_harness` shards, and the result `difftest`. The twenty
+  mutant shards were cancelled, so the result `audit` failed, and the run as a whole is recorded
+  as cancelled. No result is accepted on the strength of this run.
+- **Next run: commit not yet named.** <a id="next-acceptance-run"></a>A clean run of the
+  acceptance suite on a later commit will accept the goals that the table marks "registered, not
+  accepted". This line is the one place to record it: the commit, the run, and the date. Until it
+  is filled in, those goals stay registered.
+
+The differential tests are evidence of fidelity, not proof.
+
+**Proof mutant runs.** Proof mutants are additional evidence. They run only on request, gate
+nothing, and are reported here with their commit, apart from acceptance.
+
+- **`bde170e9`, green.** All twenty mutant shards of run 43671067586 were green. So were the
+  twenty shards of the nightly run 43735018381 on `74a2097c`, the commit of `main` with the same
+  tree.
+- **No mutant run has finished on a later commit.** The shards of the run on `3fdbbc38` were
+  cancelled. The mutant rows of the 35 goals registered after `bde170e9` exist
+  (`tests/audit/public-mutants.json`), and the audit checked that on `3fdbbc38`; no finished run
+  has executed them.
 
 Between that commit and this page, these things changed:
 
@@ -66,13 +99,13 @@ Between that commit and this page, these things changed:
   each function's own goal, and `scripts/verification.py` no longer lets functions share a safety
   goal. The required set grew from 63 goals to 98. Before, the gz functions named
   `Goal.gz_sequence_safety` and the three callback functions named
-  `Goal.inflate_back_sequence_safety`. The 35 goals are checked and registered, with acceptance
-  pending: the fast gate is green on `3fdbbc38`.
+  `Goal.inflate_back_sequence_safety`. The 35 goals are registered, not accepted: the
+  fast gate is green on `3fdbbc38`.
 - **The histories of the callback decoder were widened.** The first step of a history
   (`BackSafeReachable.init`) no longer asks for a `NULL` `state` field before `inflateBackInit_`
   (commit `874a9398`, `BackInitArguments` in `ZlibF/Spec/Public/Sequences.lean`). So
   `Goal.inflate_back_sequence_safety` covers more histories than it did on `bde170e9`. In this
-  form it is registered, with acceptance pending.
+  form it is registered, not accepted.
 
 - **The four init safety goals were widened.** `Goal.inflateInit__safety`,
   `Goal.inflateInit2__safety`, `Goal.deflateInit__safety` and `Goal.deflateInit2__safety` hold for
@@ -98,8 +131,9 @@ theorems of the first item; `public-mutants.json` gained the keys of the 35 goal
 of changes is the difference between `bde170e9` and this commit under `ZlibF/Spec/`,
 `tests/audit/` and `scripts/`.
 
-**Open.** Nothing that a safety result needs. Every required goal is registered. What is pending
-is acceptance of the goals listed above ([Ordered next work](#ordered-next-work)).
+**Open.** Nothing that a safety result needs. Every required goal is registered. What remains
+is acceptance of the goals that the table marks "registered, not accepted"
+([Ordered next work](#ordered-next-work)).
 
 **Planned after the safety results: the round trip of the default zlib stream.** The default
 stream is `deflateInit` at the default level with `inflateInit`. The order is: first the
@@ -145,7 +179,7 @@ the date.
 | 2026-11-11 | The scope is safety only, to finish sooner. Before it, the functional correctness of `inflate` was result 2. |
 | 2026-11-12 | The callback decoder (3b) and the gzip file interface (3c) are planned, safety only. `gzvprintf` moves from the undocumented group to 3c. Patches 0004 and 0005 may land before their upstream submission. |
 | 2026-11-14 | `Goal.gz_initialisation_domain` is not a required goal. |
-| 2026-11-15 | The round trip of the default zlib stream, with completeness, is planned after the safety results. Four normalisations of the translation are accepted (`AGENTS.md`, section Translation). |
+| 2026-11-15 | The round trip of the default zlib stream, with completeness, is planned after the safety results. Four normalisations of the translation are accepted (`AGENTS.md`, section Translation). Proof mutants are additional evidence and no longer part of acceptance: a full run takes several hours. They run on request and gate no merge, no acceptance and no milestone. Status is kept on this page only: other pages do not name a level, an acceptance commit or a count of goals. |
 
 ## Contents
 
@@ -2445,7 +2479,7 @@ link or a line anchor. Its links keep the revision they were generated at until 
 ## Remaining work
 
 All 98 required goals are registered; [Scope](#scope) gives the level of each result and the
-commit of acceptance. No goal has a documented blocker. The work that remains is listed in
+acceptance runs. No goal has a documented blocker. The work that remains is listed in
 [Ordered next work](#ordered-next-work).
 
 The sections below hold facts and open items only. Finished work logs are kept unchanged under
@@ -2530,10 +2564,12 @@ was green and what changed after it. What remains, in order:
 1. **Acceptance** of the goals registered or changed after `bde170e9`: the 35 one-function safety
    goals of the gz functions and of the callback decoder, the widened init goals, and the
    callback-decoder sequence goal in its present form. They are registered and wait only for a
-   green acceptance suite on a named commit.
+   green acceptance suite on a named commit: axiom gate, exact goal match, self tests and
+   differential tests. A mutant run is not needed for it. The commit goes into
+   [Scope](#next-acceptance-run).
 2. **Refusal clauses** in the safety goals of the six stream functions listed under
    [coverage](#no-fault-coverage-of-zlibh-functions), item 1, and then their acceptance:
-   registration in `tests/audit/theorems.txt`, proof mutants, and a green acceptance suite on a
+   registration in `tests/audit/theorems.txt`, mutant rows, and a green acceptance suite on a
    named commit.
 3. **The round trip of the default zlib stream**, after the safety results ([Scope](#scope)).
 4. **Upstream submission of the local patches** 0004 and 0005
@@ -2620,8 +2656,10 @@ The review of the translation against the C is not complete. The open items:
 
 - **Null pointer arithmetic.** Which C language edition and implementation extensions the
   selected build relies on, and whether the reachable null-plus-zero and null-minus-null
-  operations are defined, is not established. The model permits some of them, and the source
-  comment on `Ptr.diff` attributes null subtraction to C23, which is inaccurate. The
+  operations are defined, is not established. The model permits some of them: `Ptr.add`
+  returns `NULL` for `NULL + 0`, and the helper `Zlib.Compress.ptrDiff` returns zero for
+  `NULL - NULL`. `Ptr.diff` itself faults on `NULL - NULL`; its source comment says that C17 and
+  C23 leave that subtraction undefined and that C++ defines it as 0. The
   [comparison table](spec/safety.md#null-pointers-and-pointer-differences) records the actual
   definitions and language references. No reachable upstream bug is claimed.
 - **Statement-by-statement review.** The compressor's automatic storage was reviewed and
