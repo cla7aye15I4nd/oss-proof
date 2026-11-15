@@ -1,155 +1,94 @@
-<!-- source-sha256: 3703035634225adf4facb1fa8c86fd07421bd40e5c227348aabd4c63317fbc22 -->
-# 调用者定义域与表示限制
+<!-- source-sha256: 85d5295ac74e6c785484218c18b95eb7629a5a8a165f1f234e7460cbffcf8176 -->
+# 偏离记录：定理假设了什么
 
-超出模型能力的定理不是 C 正确性结果。本登记记录 API 适配器的受限定义域和缺口。每个强于 `zlib.h` 的前置条件，也必须写入定理文档字符串。聚焦手册中的狭窄例子不改变固定公开目标，也不把排除调用判为未定义。见[契约约定](spec/api/contracts.md)。[Sanitizer 报告](sanitizer-reports.md)列出 sanitizer 在真实 C 上报告的每种调用者布局，以及排除它的前提。
+本页列出已登记安全目标的每一条前提，以及与之相关的每一条模型限制。前提之外的调用不在覆盖范围内：既没有证明它安全，也不声称它不安全。每条前提都显式写在 Lean 命题中；表中每一行写出陈述它的谓词。凡是 Lean 谓词允许 `NULL` 的地方都允许 `NULL`。
 
-计划内的目标是公开 API 允许的调用的安全性、终止、帧性质、所有权和功能正确性，范围以[进度](progress.md#scope)为准。[进度](progress.md)记录已完成与未完成的工作；[可信基础](trusted-base.md)记录运行时选择。
+- **在这些前提下已证明：** 必需的安全目标，位于 `ZlibF/Spec/Safety/` 和 `ZlibF/Spec/Public/`（状态见[进度](progress.md#scope)）。
+- **所作假设：** 下面各行，以及模型本身（[可信基础](trusted-base.md)）。
+- **不覆盖：** 违反某条前提的调用。已知真实 C 在那里会出错时，该行给出复现的链接；[Sanitizer 报告](sanitizer-reports.md)列出全部复现。
 
-## 构建与内存表示
+比 `zlib.h` 更窄的前提也写在陈述它的定义的文档注释中。任何限制都不能成为丢掉失败的公开用例的理由：目标写错了，就连同反例一起修正；翻译或运行时错了，就在那一层修正（[验证策略](anti-cheating.md)）。API 手册所用的词汇见[契约约定](spec/api/contracts.md)。
 
-本表按“模型能表示什么 → 哪些调用或结论受影响”阅读。比如，长度输出单元与数据缓冲区分开表示时，模型可以描述两者各自的值，却还不能描述它们占用同一块存储的情况。这样的缺口必须保留在适用范围里，不能用一个成功例子把它消掉。
+## 构建、平台与模型中的堆
 
-| 领域 | 当前限制 | 影响 |
+| 领域 | 当前限制 | 后果 |
 | --- | --- | --- |
-| 初始配置 | 默认 x86_64 Linux、LP64、静态构建和默认分配器 | 其他上游配置和自定义分配器需要独立覆盖。默认分配失败仍在范围内。 |
-| 平台字节对象范围 | 每个表示出的字节对象小于 `2^63` 字节，包括调用者、静态和内嵌存储 | 这是接受的[系统环境前提](spec/platform.md)，由 `Goal.inflate`、内部快速入口、通过共享契约定义的八个压缩／解压便利入口，以及 gzip 打开入口 `Goal.gzopen`、`Goal.gzopen64` 和 `Goal.gz_initialisation_domain`（调用者的路径和模式字符串；[回归](../tests/verification/regressions/gzopen-path-ptrdiff.lean)）显式使用。限制逐对象成立，没有总内存或总流长度限制。它也在调用历史的每个堆上成立：对 inflate 流，`StreamReachable` 在每次流调用前的堆上、以及调用者修改后的堆上假设它（deflate 一侧在证明 deflate 调用保持它之后再加入），`StreamSequenceSafety` 的单次调用条款也假设它。`Goal.inflate_sequence` 的 inflate 协议历史（`InflateDataTrace`、`InflateProtocolTrace`）在相同位置带有它，`InflateCompletes` 在调用所在的堆上假设它。该前提可满足：公开调用者见证堆满足它（`inflate_default_witness_platform`）。执行证明保持它，因此以它开始的历史只在调用者提供新存储时需要再次满足它。对回调解码器，`Goal.inflate_back_sequence_safety` 在历史中每次 `inflateBack` 调用所在的堆上（`BackSafeReachable.step`）和它所陈述的那次调用的堆上假设它，并在每个回调步骤之后假设它（`BackPlatform`）。证明操作系统限制不属于 zlib 证明。 |
-| Adler 初始化查询 | `AdlerBufferBytes` 只允许零长度时为 NULL；非空可读对象保留原定义域 | 该显式限制窄于固定头文件对 NULL 不加限定的表述。它适用于 `Goal.adler32_z` 和 `Goal.adler32`；CRC 契约保留 `BufferBytes` 不变。上游 [PR #1364](https://github.com/madler/zlib/pull/1364) 报告了对 NULL `buf` 的单字节读取；维护者于 2026 年 11 月 6 日关闭该请求，保留代码，并宣布将在 zlib.h 中加入对 `len` 的限制。`develop` 头 `99623ef7097352da7993ba614161fd6a311e046e` 尚未包含该文字；文字合入后需按其复核本行。 |
+| 初始配置 | 默认 x86_64 Linux、LP64、静态构建和默认分配器 | 其他构建配置不在计划内（[范围](progress.md#scope)）。`zalloc` 或 `zfree` 为自定义函数的流在所有目标之外（`DefaultOrNull`、`DefAlloc`）。默认分配器的失败在范围内：安全目标对每一种分配结果都成立。 |
+| 平台字节对象范围（`ByteObjectsFit`） | 每个表示出的字节对象小于 `2^63` 字节，包括调用者、静态和内嵌存储 | 这是接受的[系统环境前提](spec/platform.md)：LP64 的 `PTRDIFF_MAX` 对象大小上限。它按对象计，不限制总内存或流的总长度。安全目标在以下位置陈述它：每次流调用所在的堆（`StreamCallDomain`，以及 `StreamSequenceSafety` 的第 2 条）；对 inflate 流，还包括历史中此前的每个堆，即每次调用之前和每次调用者修改之后（`StreamReachable.step`、`.rebuffer`），而 deflate 历史只在目标所陈述的那次调用上带有它；`compress*` 与 `uncompress*` 的目标（`CompressorSafety`、`UncompressCountedSafe`、`UncompressSingleSafe`）；每次 gz 打开所在的堆以及 gz 历史中每次调用者修改之后的堆（`GzHistory`、`GzOpenSafe`、`GzDopenSafe`），这覆盖调用者的路径串和模式串（[回归](../tests/verification/regressions/gzopen-path-ptrdiff.lean)）；对回调解码器，则是每次 `inflateBack` 调用所在的堆和每个回调步骤之后的堆（`BackSafeReachable.step`、`BackPlatform`）。初始化、End、校验和与拒绝目标不需要它。该前提可满足：公开的调用者见证具有它（`inflate_default_witness_platform`）。功能目标（`Goal.inflate`、`Goal.inflate_sequence`、各实用函数契约、`Goal.gzopen`、`Goal.gzopen64`、`Goal.gz_initialisation_domain`）以同样方式陈述它。证明操作系统的限制不属于 zlib 证明。 |
+| 堆的良构性（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`） | 初始化、打开、`compress*` 或 `uncompress*` 调用开始时的堆，在 `nextBlk` 及以上没有存活块（`Fresh`），每个块号至多有一个对象（`Uniq`），并带有选定构建的常量表（`LibraryGlobals`）。CRC 目标只要求两张 CRC 表（`CrcGlobals`），`inflate` 的拒绝只要求 `Fresh`。两次调用之间调用者的修改保持这三者（`Rebuffer`、`GzCallerFrame`）。 | 这些是对模型中堆的条件，不是 `zlib.h` 加给调用者的义务，但它们仍然是前提。`Fresh` 并不表示 `nextBlk` 以下的块号在各表之间唯一；`Uniq` 表示这一点（[可信基础](trusted-base.md)）。 |
+| 循环额度 | 每个翻译出的循环至多运行 `2^64` 次迭代；耗尽上界即 `Fault.outOfFuel` | 结论为 `.ok` 的安全目标证明了这个上界永远不会达到。在 C 可能无界循环、而证明又推不出上界的地方，目标带有一个给出上界的前提：下文的回调输入总量和 gz 读取预算。 |
+| CRC 地址和字访问 | `addrOf` 只观察地址低位。堆字节块保留对齐起点；静态和内嵌字节对象有任意稳定余数。字加载按字节组装 | 通用 ABI 布局、任意原始块起点和 C 转换的别名语义仍不在该抽象内。公开校验和定义域不变。[静态地址回归](../tests/verification/regressions/crc-static-address.lean)保留了此前模型反例的输入，作为正向检查。 |
+| 空指针算术 | `Ptr.add` 允许空指针加零；`Ptr.diff` 对空指针故障，而压缩器辅助函数允许空指针减空指针 | 模型允许不等于 C 有定义。[安全性规范](spec/safety.md#null-pointers-and-pointer-differences)区分操作和语言规则。[分配回归](../tests/regression/compress-allocation/README.md)为零容量空目标保留这一区别。 |
+
+## 流调用：inflate 与 deflate
+
+流函数的安全目标在每个可达的流（`StreamReachable`）上成立，只要参数满足 `StreamArguments`。`zlib.h` 针对调用者互相分开的缓冲区来描述这些调用；目标把分离写成假设。
+
+| 领域 | 当前限制 | 后果 |
+| --- | --- | --- |
+| 流的初始化（`InitDomain`） | 流记录可读；`zalloc` 与 `zfree` 各自为 `NULL` 或默认函数（`DefaultOrNull`）；记录的 `state` 字段为 `NULL`；`version` 指向一个可读字节 `'1'`；调用传入 `stream_size = 112`。堆是良构的（见上一行）。 | 这是 `Goal.inflateInit2__safety`、`Goal.inflateInit__safety`、`Goal.deflateInit2__safety`、`Goal.deflateInit__safety` 以及 `BackSafeReachable.init` 的前提。流历史的第一次调用（`StreamReachable.inflateInit`、`.deflateInit`）有同样的前提，但没有关于 `state` 的那一条。`zlib.h` 要求调用者设置 `zalloc`、`zfree` 和 `opaque`；它不要求 `state` 为 `NULL`，C 的初始化函数也不读取 `state` 就覆盖它。初始化之前 `state` 不为 `NULL` 的记录不在初始化安全目标之内。错误的版本、错误的 `stream_size` 和 `NULL` 流不在这些目标中：它们是功能目标 `Goal.inflateInit2_`、`Goal.inflateInit_`、`Goal.deflateInit2_` 和 `Goal.deflateInit_` 的拒绝分支，这些功能目标已登记。 |
+| 流缓冲区（`StreamBuffers`） | 输入范围（`next_in`、`avail_in`）与输出范围（`next_out`、`avail_out`）互相分离，且都不在流自己拥有的存储内。每个范围或为 NULL，或可读，输出范围还须可写。 | 它是每次 `inflate`、`deflate` 和 `deflateParams` 调用的前提（`StreamArguments`），因而是 `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.deflateParams_safety` 和两个序列安全目标的前提；功能目标 `Goal.inflate` 与 `Goal.deflate` 也以它为前提。输入与输出重叠，或缓冲区落在流自身状态内的调用不在覆盖范围内。 |
+| 调用之间调用者的修改（`Rebuffer`） | 在一段历史的两次调用之间，调用者只改变流记录的 `next_in`、`avail_in`、`next_out` 和 `avail_out`，以及流不拥有的内存。 | 这是 `zlib.h` 的规则：应用程序更新缓冲区字段，其余字段“不得由应用程序更新”。调用者写入记录的其他字段或流拥有的块的历史，不在序列目标之内。 |
+| 其他流参数（`StreamArguments`） | `inflateSync`：输入范围为 `NULL` 且 `avail_in = 0`，或者可读且在流的存储之外。`inflateGetHeader`：头记录不为 `NULL`，不被流拥有，其 `extra`、`name` 和 `comment` 缓冲区各自为 `NULL` 或在 `extra_max`、`name_max`、`comm_max` 字节内可写（`HeaderMemory`）。`deflateSetHeader`：头为 `NULL`，或是一个流不拥有的记录，其非 `NULL` 的 `extra` 在 `extra_len` 字节内可读，非 `NULL` 的 `name` 和 `comment` 是短于 `2^64` 字节、以 NUL 结尾的字符串；并且还没有任何 `deflate` 调用启动过这个流（`DeflateNotStarted`）。`deflatePrime`：还没有任何 `deflate` 调用启动过这个流。`deflateBound`、`deflateBound_z`：已设置的 gzip 头仍然存活（`DeflateHeaderLive`）。其余流调用没有参数前提。 | 每一条都是该函数安全目标的前提，也是序列目标中同一调用的前提。顺序规则来自 `zlib.h`（“在第一次 deflate() 调用之前”）；被排除的顺序是真实 C 的未定义行为（[复现](../tests/regression/deflate-history-domain/README.md)）。头为 `NULL` 的 `inflateGetHeader` 在目标之外：C 会通过该指针写入（`head->done = 0`）。 |
+| 字典缓冲区（`CallerRange`） | 字典参数为 `NULL`，或是一个可读范围（两个 `Get` 调用还要求可写），其中没有字节落在流拥有的块内。`inflateGetDictionary` 的范围有 `whave` 字节；`deflateGetDictionary` 的范围有 `min(w_size, strstart + lookahead)` 字节。 | 适用于 `inflateGetDictionary`、`deflateGetDictionary`、`inflateSetDictionary` 与 `deflateSetDictionary`。位于流的窗口或其他存储内的字典缓冲区不在覆盖范围内。 |
+| inflate gzip extra 字段（`InflateHeaderProgress`） | `inflate` 把 gzip 头（`HEAD` .. `HCRC`）读入挂接的 `gz_header` 时，其 `extra` 缓冲区（`extra_max` 字节）与未读输入分离；在 `EXTRA` 中，头记录的 `extra_len` 不小于 `state->length`。 | `ActiveHeader` 的一个合取项，因此是 `Goal.inflate_safety` 以及 `Goal.inflate_sequence_safety` 中每次 `inflate` 调用的前提，功能目标 `Goal.inflate` 与 `Goal.inflate_sequence` 同样如此。每个被排除的情形都是真实 C 在 EXTRA 的 `zmemcpy` 中的未定义行为（[复现](../tests/regression/inflate-gzip-extra/README.md)）：重叠复制，或调用者在 extra 字段内调低 `extra_len` 后越过 `extra_max` 写入。zlib.h 没有说明这两种布局是否允许。 |
+| deflate gzip 头区域（`DeflateHeaderApart`） | `deflate` 写入挂接的 `gz_header`（`GZIP_STATE` .. `HCRC_STATE`）期间，输入范围、输出范围、extra 字段（`extra_len mod 2^16` 字节）、name 与 comment（各含其 NUL）两两为分离的字节范围，可以位于同一块中；extra、name 与 comment 位于流所拥有的存储之外。 | `ActiveHeader` 的一个合取项，因此是 `Goal.deflate_safety`、`Goal.deflateParams_safety`、`Goal.deflateBound_safety` 以及 `Goal.deflate_sequence_safety` 中每次这类调用的前提，功能目标 `Goal.deflate` 与 `Goal.deflate_sequence` 同样如此。这些区域没有重叠的理由。其中两种被排除的情形是真实 C 的未定义行为（[复现](../tests/regression/deflate-gzip-name-output/README.md)）：位于输出范围或 `pending_buf` 中的 name，其 NUL 被刷新或头字节覆盖，name 循环越过缓冲区读取。zlib.h 没有说明这些布局是否允许。 |
+| deflate gzip 头进度（`DeflateHeaderProgress`） | 每次写入挂接 `gz_header` 的 `deflate` 调用中，调用方保持已写部分：字段仍覆盖已写部分（`gzindex`），且在 `EXTRA_STATE`、`NAME_STATE` 或 `COMMENT_STATE` 中该字段不会中途被置为 `NULL`（为 `NULL` 时 `gzindex = 0`）。 | `ActiveHeader` 的一个合取项，因此是 `Goal.deflate_safety`、`Goal.deflateParams_safety`、`Goal.deflateBound_safety` 以及 `Goal.deflate_sequence_safety` 中每次这类调用的前提，功能目标 `Goal.deflate` 与 `Goal.deflate_sequence` 同样如此。被排除的修改是真实 C 的未定义行为（[复现](../tests/regression/deflate-history-domain/README.md)）：被缩短的字段会越界读取；中途置为 `NULL` 的字段被跳过而 `gzindex` 不被重置，下一个字符串从 `gzindex` 起读取，越过其末尾。zlib.h 要求调用方在第一次 `deflate` 调用之前提供头部；它没有说明写入期间记录能否改变。 |
+| 被拒绝的流（`RefusedInflate`、`RefusedDeflate`；`Goal.inflate_refusal`、`Goal.deflate_refusal`） | 被拒绝的流是 `NULL`，或者是一个可读记录，其状态为 `NULL`、其 `zalloc` 或 `zfree` 为 `NULL`，或其状态是一个被检查拒绝的存活状态记录（反向指针、模式或状态错误）。 | 这包括 `End` 之后、初始化失败之后、复制失败的目标，以及存活记录的结构体副本。状态字段为垃圾指针的记录在定义域之外，例如从未初始化的自动 `z_stream`。检查会经由该指针读取，在 C 中这是未定义行为。模型同样无法表达它：在模型中，新内存里的指针为 `NULL`（`docs/trusted-base.md`，“Uninitialised pointers become NULL”一行）。 |
+| 复制目标（`Goal.inflateCopy_safety`、`Goal.deflateCopy_safety`，以及功能目标 `Goal.inflateCopy`、`Goal.deflateCopy`） | 目标是一个可读的流记录，且不是源记录（`source ≠ dest`）。源带有默认分配器（`DefAlloc`）。模型把 `z_stream` 记录放在自己的表中，与字节和字缓冲区以及状态记录分开。因此无法表达部分重叠源记录、缓冲区或源所拥有的状态记录的目标。 | 当 `dest == source` 时，C 的 `zmemcpy(dest, source, sizeof(z_stream))` 把对象复制到自身上，这是未定义行为；该情况不在覆盖范围内。部分重叠的目标同样在定理之外：独立的记录表把它假设掉了（`docs/trusted-base.md`，地址与布局模型）。zlib.h 没有说明是否允许这种布局。 |
+| 直接调用 `deflateResetKeep` | deflate 调用历史（`StreamOperation .deflate`）中没有对 `deflateResetKeep` 的直接调用；`deflateReset` 和 `deflateInit2_` 仍在其中 | 这不是比 zlib.h 更窄的限制：zlib.h 把 `deflateResetKeep` 声明在 `/* undocumented functions (not part of the zlib API) */` 之下，直接调用它的历史在已文档化的 API 之外，它的目标也不是必需的公开目标（[进度](progress.md#scope)）。真实 C 在那里不安全：在 `deflateResetKeep`、`deflate(Z_BLOCK)`、`deflateCopy` 以及副本上的一次 `Z_RLE` 或 `Z_HUFFMAN_ONLY` 刷新之后，之后的 `deflate` 会沿一个未初始化的 `prev` 槽前进并读到窗口之外（`docs/findings/deflate-copy-pending-prev`）；不做复制时，之后的匹配可能出错（`docs/findings/deflate-resetkeep-stale-hash`）。单次调用的安全性（无故障、终止）仍被证明；`deflateReset` 经过它。 |
+
+## 整缓冲区实用函数与校验和
+
+| 领域 | 当前限制 | 后果 |
+| --- | --- | --- |
+| 整缓冲区压缩（`CompressArguments`） | 源与目标不重叠：`Separate source n dest c`。 | 它是 `Goal.compress_safety`、`Goal.compress2_safety` 及其 `_z` 形式的前提。源可读，目标在其容量内可写，除非该调用是 C 会拒绝的调用（`compressRejected`）。`compress` 与 `compress2` 的长度单元不为 `NULL`；只有 `_z` 形式允许 `NULL` 单元。源与目标重叠的调用不在覆盖范围内。 |
+| 计数解压（`UtilitySeparation`、`UncompressCountedSafe`、`UncompressSingleSafe`） | 源、目标、目标长度单元和源长度单元两两分离。`uncompress` 与 `uncompress_z` 需要源与目标、长度单元与数据的分离。 | 它是 `Goal.uncompress_safe`、`Goal.uncompress2_safe` 及其 `_z` 形式的前提。长度单元是八个可读可写的字节（`LengthCell`）；`uncompress` 与 `uncompress2` 的单元不为 `NULL`。长度单元与数据缓冲区或另一个单元重叠的调用不在覆盖范围内。 |
+| Adler 初始化查询 | `AdlerBufferBytes` 只允许零长度时为 NULL；非空可读对象保留原定义域 | 该显式限制窄于固定头文件对 NULL 不加限定的表述。它适用于 `Goal.adler32_safety` 和 `Goal.adler32_z_safety`，也适用于功能目标 `Goal.adler32` 和 `Goal.adler32_z`。CRC 目标保留 `BufferBytes`，它允许任意长度下的 `NULL`。上游 [PR #1364](https://github.com/madler/zlib/pull/1364) 报告了对 NULL `buf` 的单字节读取；维护者于 2026 年 11 月 6 日关闭该请求，保留代码，并宣布将在 zlib.h 中加入对 `len` 的限制。`develop` 头 `99623ef7097352da7993ba614161fd6a311e046e` 尚未包含该文字；文字合入后需按其复核本行。 |
+| CRC 组合算子 | `Goal.crc32_combine_op_safety` 取的算子是 `crc32_combine_gen` 或 `crc32_combine_gen64` 返回的值 | 这是 `zlib.h` 为 `crc32_combine_op` 规定的定义域，不是收窄。任意的 `op` 值不在覆盖范围内。 |
+
+## 回调解码器
+
+`Goal.inflate_back_sequence_safety` 在 `BackSafeReachable` 的历史上成立。
+
+| 领域 | 当前限制 | 后果 |
+| --- | --- | --- |
+| 回调（`CallbackProtocol`） | 调用者为它的 `in` 和 `out` 函数提供一个协议：每个函数都不出故障地返回，只改变调用者自己的块（其中不含状态和流记录），保持窗口切片，交出的输入块可读，并与窗口、状态和流记录分离；`out` 保持当前输入块可读；总输入有一个有限上界（`inputBound`）。第一个输入块（`next_in`、`avail_in`）可读并与窗口分离。两次调用之间，调用者的修改保持窗口切片，并保持每个仍存活的块的只读标志（`BackSafeReachable.caller`）。 | 这些是调用者代码的契约，不是假设的库契约，并保持显式。描述符对象可以共享窗口所在分配中切片以外的部分。C 代码无法改变只读标志，所以最后一条不排除任何 C 调用者。 |
+| 回调输入总量 | `Goal.inflate_back_sequence_safety` 假设 `protocol.inputBound < 2^48`：一次 `inflateBack` 调用的所有 `in` 调用共提供少于 `2^48` 字节 | zlib.h 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代（`docs/trusted-base.md`），解码循环每轮至少读一位，因此提供更多输入的调用可能在 C 仍会继续时耗尽额度。`2^48` 字节远超一次调用实际能处理的输入。`Goal.inflateBack`（功能性，不在计划内，未证明）没有这个前提。 |
+| 回调解码器窗口 | `Goal.inflate_back_sequence_safety`（通过 `BackSafeReachable.init`）假设 `8 ≤ windowBits ≤ 15`、窗口不为 `NULL` 且在 `2^windowBits` 字节内可写（这是 `zlib.h` 的要求），并且还假设窗口是一个堆字节块的切片 | zlib.h 只要求 `2^windowBits` 字节的可写窗口。模型中另一种可写字节视图只有 deflate 状态内部的 depth 数组，那是调用者无法指名的库存储；窗口位于那里不在已证明的定义域内。 |
+| 回调解码器输入块 | `Goal.inflate_back_sequence_safety` 假设每个输入块位于一个堆字节块中：调用者的第一个输入块（`BackFirstChunk`）以及 `in` 交出的每个输入块（`BackPlatform`） | C 能处理位于任何可读存储中的输入块。位于其他存储中的输入块，例如调用者结构体的字段或静态数据，不在已证明的定义域内。这与 `inflate` 快速入口的限制相同（"快速解码辅助函数"）：`inflate_fast` 在该输入块上运行。把两个解码器推广到任意字节引用是 `docs/progress.md` 中的候选工作。 |
+
+## Gzip 文件接口
+
+`Goal.gz_sequence_safety` 在一个句柄的每段历史（`GzHistory`）上、对每个文件系统世界成立。它针对打过补丁的源码陈述（[补丁](../patches/README.md) 0002 至 0005）。gz 世界是堆之外的可信语义：[外部 I/O 模型](design/external-io.md)描述它，[可信基础](trusted-base.md)说明对它作了哪些假设。
+
+| 领域 | 当前限制 | 后果 |
+| --- | --- | --- |
+| Gz 打开参数（`GzOpenSafe`、`GzDopenSafe`、`GzHistory.open`） | `path` 与 `mode` 各自为 `NULL`，或是短于 `2^64` 字节、以 NUL 结尾的字符串；堆是良构的，其字节对象不超限；世界是良构的文件系统（`FileSystem`）。 | 任何描述符、任何模式文本和任何世界下的打开都在覆盖范围内，包括每一种失败。在其对象内没有 NUL 结尾的路径或模式在范围之外，与 C 中一样。 |
+| Gz 调用者缓冲区（`GzArguments` 中的 `GzRange`） | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 与 `gzerror` 的调用者缓冲区可读（读取调用的缓冲区和 `gzerror` 的 `errnum` 还须可写），并与句柄拥有的块分开：它们的字节根都不被句柄拥有（`GzOwned`）。 | 每个入口都先调用 `gz_error(state, Z_OK, NULL)`，它在触及缓冲区之前释放 `state->msg`。`gzerror` 返回的字符串就是 `state->msg`，所以把它传回去在 C 中是释放后使用：在停滞的写入者上执行 `gzputs(f, gzerror(f, &e))`，AddressSanitizer 报告 `strlen` 中的堆释放后使用（[复现](../tests/regression/gzprintf-error-string/README.md)，也覆盖 `gzwrite` 与 `gzread`）。zlib.h 只提醒之后的 `gzerror` 调用。调用者缓冲区和字面量都在覆盖范围内。 |
+| Gz printf 字符串（`GzArguments`） | `gzprintf` 与 `gzvprintf` 的格式串以及每个字符串参数（`%s`）都与句柄拥有的块分开：它们的字节根都不被句柄拥有（`GzOwned`），正如 `GzRange` 对 `gzwrite`、`gzputs` 与 `gzread` 的缓冲区所要求的。 | `gzvprintf` 在 `vsnprintf` 读取格式串和参数之前调用 `gz_error(state, Z_OK, NULL)`，它会释放 `state->msg`。`gzerror` 返回的字符串就是 `state->msg`，所以把它传回去在 C 中是释放后使用（[复现](../tests/regression/gzprintf-error-string/README.md)）；zlib.h 只提醒之后的 `gzerror` 调用。字面量和调用者字符串都在覆盖范围内。 |
+| 格式化 | 表示出的整数、字符和字符串参数，以及支持的标志、宽度、精度和长度修饰符 | 浮点、指针、写计数和其他未表示转换需要扩展模型。`GzArguments` 在 `Goal.gz_sequence_safety` 的每个 `gzprintf` 与 `gzvprintf` 步骤上都要求可表示的格式（`Formatted`），读取者或处于错误中的句柄也不例外，而 C 在那里根本不读格式串。定义域之外：`%f` 及其他浮点转换、`%p`、`%n`、长度修饰符 `h` 与 `hh`（`%hd`、`%hhu`）、`*` 宽度与精度（`%*d`）、没有 NUL 的数组上的 `%.3s`，以及给定 `unsigned` 参数的 `%c` 或 `%d`（值可表示时 `va_arg` 允许）。 |
+| Gz 调用者步骤与世界步骤（`GzCallerFrame`、`GzWorldStep`） | 两次调用之间，调用者可以改变句柄不拥有的任何块，也可以释放自己的缓冲区；堆保持良构，其字节对象不超限。世界可以变成任何良构的文件系统：另一方可以关闭或重用句柄的描述符。 | 这比真实系统更宽，是有意为之。调用者写入句柄拥有的块，则不在历史之内。`gzbuffer`、`gzclose` 等不涉及调用者内存的调用没有参数前提。 |
+| gz 读取终止（M7） | gz 序列安全目标终止的那一半，对 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc` 假设句柄的描述符编号具有小于 `2^61` 字节的有限读取额度（`fs.readBudget fd = some b` 且 `b < 2^61`，前提 `ReadsFinite`）：即该描述符还能交付的总字节数。关闭后重用的编号继承剩余额度 | zlib.h 不限制输入。永远交付只解码为空内容的数据（空 gzip 成员）的来源会让 `gz_fetch` 一直循环；对无穷来源进行巨大待跳过量的 `gz_skip` 会永远读取：这是 C 真实的不终止，任何有限额度都覆盖不了。有额度时每个循环都有界。`2^61` 这个数是模型的限制，不是 zlib 的：模型的每个循环有 `2^64` 次燃料。读取循环由输入剩余量、读取额度与尚待交付的字节数构成的度量限定（`fetchRank`，以及 `gz_read` 与 `gz_skip` 的度量）。一次取数填满缓冲区，除非失败、输入结束、到达 `GZ_OFF_MAX` 或降低 `fetchRank`，因此额度小于 `2^61` 使这些度量以及循环次数都小于 `2^64`。该上界的依据：`tests/verification/regressions/gz-read-budget-fuel.lean` 表明旧前提（任意大小的额度）允许一个额度，其中空 gzip 成员所需的轮数超过循环燃料。它只是算术核心，不是对 `gz_fetch` 返回 `outOfFuel` 的一次已检查运行。该前提不排除任何故障：无故障的那一半和后置条件对每个世界成立，不需要额度。`gzdirect`、写入一侧和 `gzseek` 不需要它。终止依赖两条世界规则：读取调用的 `ReadsFinite`，以及 OS 事实“非空 `write` 从不返回 0”（“gz 操作系统事实”一行），它约束写入一侧。 |
+| gz 操作系统事实 | 非空 `write` 从不返回 0；`close` 失败时也释放描述符 | Linux 行为，可信，未检查。`write` 永远返回 0 会让 C 中的 `gz_comp` 无限循环（`docs/progress.md` 中的观察记录）。 |
+| 外部错误字符串 | `strerror` 返回带有调用代次的只读外部视图，不消耗分配尝试，也不增加库拥有的存活块；下一次调用使旧借用视图失效 | 模型选取顺序调用和固定区域设置下的文本，不表示并发调用、区域设置更改或旧指针身份的再次复用。文本复制与借用保持是独立证明义务。这不是完整的 libc 对应结论。 |
+
+## 功能性命题与模型命题
+
+下面各行限制的是功能目标、API 模型和内部引理。没有任何必需的安全目标依赖它们。它们仍然列在这里，是因为受它们限制的定理仍然登记在册。功能目标不在计划内（[范围](progress.md#scope)）。
+
+| 领域 | 当前限制 | 后果 |
+| --- | --- | --- |
 | 聚焦函数手册 | 条目可能要求有效句柄、分离缓冲区、实际字符串的校验和、生成的操作符或特定调用顺序 | 这些是明确的文字范围，不缩小更广泛 Lean 公开目标。 |
 | 压缩器长度单元 | `Concrete.compress2_z` 和 `Concrete.compress2` 使用可选标量输入及返回的存储值 | 不表示该单元与输入或输出的别名。若 C API 允许，完整指针定义域结论需要解决它。`_z` 与兼容包装的空单元效果仍不同。 |
 | 计数解压单元 | 草案适配器保持输入长度、输出长度和数据范围分离 | 单元与数据或彼此的别名在适配器之外。早期和后期内存失败保留不同标量效果。 |
 | 压缩器数据关系 | `Compress2` 用粗粒度拒绝标志描述数据 | `Compress2Z` 和 `Compress2Wrapper` 表达指针形状、错误顺序和长度存储。数据模型定理本身不是入口细化。 |
 | 上界算术 | LP64 上两个长度都是 64 位 | `Goal.compress_bound_value` 覆盖每个 `UInt64`，没有更小数值前提。其他 ABI 需要大小转换命题。只有数值公式不能建立输出容量充足性。 |
-| CRC 地址和字访问 | `addrOf` 只观察地址低位。堆字节块保留对齐起点；静态和内嵌字节对象有任意稳定余数。字加载按字节组装 | 通用 ABI 布局、任意原始块起点和 C 转换的别名语义仍不在该抽象内。公开校验和定义域不变。[静态地址回归](../tests/verification/regressions/crc-static-address.lean)保留了此前模型反例的输入，作为正向检查。 |
-| 空指针算术 | `Ptr.add` 允许空指针加零；`Ptr.diff` 对空指针故障，而压缩器辅助函数允许空指针减空指针 | 模型允许不等于 C 有定义。[安全性规范](spec/safety.md#null-pointers-and-pointer-differences)区分操作和语言规则。[分配回归](../tests/regression/compress-allocation/README.md)为零容量空目标保留这一区别。 |
-
-`inflate_init2_valid_public` 显式要求 `Api.inflWbits wb.toInt = some (wrap, bits)`。
-它对允许的 raw、zlib、gzip 和自动窗口参数保留现有初始化契约，
-包括所有分配结果、ABI／版本拒绝和空流拒绝。无效窗口参数明确排除；
-固定 `Goal.inflateInit2_` 及已记录的清理契约问题均未改变。
-
-## 调用者缓冲区的分离
-
-`zlib.h` 针对调用者互相分开的缓冲区来描述这些调用。Lean 命题把分离写成假设，因此违反它的调用不在定理范围内。凡是 Lean 谓词允许 NULL 的地方都允许 NULL。
-
-| 领域 | 当前限制 | 后果 |
-| --- | --- | --- |
-| 流缓冲区（`StreamBuffers`） | 输入范围（`next_in`、`avail_in`）与输出范围（`next_out`、`avail_out`）互相分离，且都不在流自己拥有的存储内。每个范围或为 NULL，或可读，输出范围还须可写。 | `Goal.inflate` 与 `Goal.deflate` 以它为前提。输入与输出重叠，或缓冲区落在流自身状态内的调用不在覆盖范围内。 |
-| 整缓冲区压缩（`CompressArguments`） | 源与目标不重叠：`Separate source n dest c`。 | 适用于 `compress`、`compress2` 及其 `_z` 形式。源与目标重叠的调用不在覆盖范围内。 |
-| 计数解压（`UtilitySeparation`、`UncompressSingle`） | 源、目标、目标长度单元和源长度单元两两分离。`uncompress` 与 `uncompress_z` 需要源与目标、长度单元与数据的分离。 | 适用于 `uncompress`、`uncompress2` 及其 `_z` 形式。长度单元与数据缓冲区或另一个单元重叠的调用不在覆盖范围内。 |
-| Gz 调用者缓冲区（`GzArguments` 中的 `GzRange`） | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 与 `gzerror` 的调用者缓冲区与句柄拥有的块分开：它们的字节根都不被句柄拥有（`GzOwned`）。 | 每个入口都先调用 `gz_error(state, Z_OK, NULL)`，它在触及缓冲区之前释放 `state->msg`。`gzerror` 返回的字符串就是 `state->msg`，所以把它传回去在 C 中是释放后使用：在停滞的写入者上执行 `gzputs(f, gzerror(f, &e))`，AddressSanitizer 报告 `strlen` 中的堆释放后使用（[复现](../tests/regression/gzprintf-error-string/README.md)，也覆盖 `gzwrite` 与 `gzread`）。zlib.h 只提醒之后的 `gzerror` 调用。调用者缓冲区和字面量都在覆盖范围内。 |
-| Gz printf 字符串（`GzArguments`） | `gzprintf` 与 `gzvprintf` 的格式串以及每个字符串参数（`%s`）都与句柄拥有的块分开：它们的字节根都不被句柄拥有（`GzOwned`），正如 `GzRange` 对 `gzwrite`、`gzputs` 与 `gzread` 的缓冲区所要求的。 | `gzvprintf` 在 `vsnprintf` 读取格式串和参数之前调用 `gz_error(state, Z_OK, NULL)`，它会释放 `state->msg`。`gzerror` 返回的字符串就是 `state->msg`，所以把它传回去在 C 中是释放后使用（[复现](../tests/regression/gzprintf-error-string/README.md)）；zlib.h 只提醒之后的 `gzerror` 调用。字面量和调用者字符串都在覆盖范围内。 |
-| 被拒绝的流（`RefusedInflate`、`RefusedDeflate`；`Goal.inflate_refusal`、`Goal.deflate_refusal`） | 被拒绝的流是 `NULL`，或者是一个可读记录，其状态为 `NULL`、其 `zalloc` 或 `zfree` 为 `NULL`，或其状态是一个被检查拒绝的存活状态记录（反向指针、模式或状态错误）。 | 这包括 `End` 之后、初始化失败之后、复制失败的目标，以及存活记录的结构体副本。状态字段为垃圾指针的记录在定义域之外，例如从未初始化的自动 `z_stream`。检查会经由该指针读取，在 C 中这是未定义行为。模型同样无法表达它：在模型中，新内存里的指针为 `NULL`（`docs/trusted-base.md`，“Uninitialised pointers become NULL”一行）。 |
-| 复制目标（`Goal.inflateCopy`、`Goal.deflateCopy`、`Goal.deflateCopy_safety`） | 目标记录不是源记录（`source ≠ dest`）。模型把 `z_stream` 记录放在自己的表中，与字节和字缓冲区以及状态记录分开。因此无法表达部分重叠源记录、缓冲区或源所拥有的状态记录的目标。 | 当 `dest == source` 时，C 的 `zmemcpy(dest, source, sizeof(z_stream))` 把对象复制到自身上，这是未定义行为；该情况不在覆盖范围内。部分重叠的目标同样在定理之外：独立的记录表把它假设掉了（`docs/trusted-base.md`，地址与布局模型）。zlib.h 没有说明是否允许这种布局。 |
-| 字典缓冲区 | 字典的目标或源与流的窗口分离。 | 适用于 `inflateGetDictionary`、`deflateGetDictionary`、`inflateSetDictionary` 与 `deflateSetDictionary`。 |
-| inflate gzip extra 字段（`InflateHeaderProgress`） | `inflate` 把 gzip 头（`HEAD` .. `HCRC`）读入挂接的 `gz_header` 时，其 `extra` 缓冲区（`extra_max` 字节）与未读输入分离；在 `EXTRA` 中，头记录的 `extra_len` 不小于 `state->length`。 | `ActiveHeader` 的一个合取项，因此是 `Goal.inflate` 及 `Goal.inflate_sequence` 中每次 `inflate` 调用的前提。每个被排除的情形都是真实 C 在 EXTRA 的 `zmemcpy` 中的未定义行为（[复现](../tests/regression/inflate-gzip-extra/README.md)）：重叠复制，或调用者在 extra 字段内调低 `extra_len` 后越过 `extra_max` 写入。zlib.h 没有说明这两种布局是否允许。 |
-| deflate gzip 头区域（`DeflateHeaderApart`） | `deflate` 写入挂接的 `gz_header`（`GZIP_STATE` .. `HCRC_STATE`）期间，输入范围、输出范围、extra 字段（`extra_len mod 2^16` 字节）、name 与 comment（各含其 NUL）两两为分离的字节范围，可以位于同一块中；extra、name 与 comment 位于流所拥有的存储之外。 | `ActiveHeader` 的一个合取项，因此是 `Goal.deflate` 及 `Goal.deflate_sequence` 中每次 `deflate` 调用的前提。这些区域没有重叠的理由。其中两种被排除的情形是真实 C 的未定义行为（[复现](../tests/regression/deflate-gzip-name-output/README.md)）：位于输出范围或 `pending_buf` 中的 name，其 NUL 被刷新或头字节覆盖，name 循环越过缓冲区读取。zlib.h 没有说明这些布局是否允许。 |
-| deflate gzip 头进度（`DeflateHeaderProgress`） | 每次写入挂接 `gz_header` 的 `deflate` 调用中，调用方保持已写部分：字段仍覆盖已写部分（`gzindex`），且在 `EXTRA_STATE`、`NAME_STATE` 或 `COMMENT_STATE` 中该字段不会中途被置为 `NULL`（为 `NULL` 时 `gzindex = 0`）。 | `ActiveHeader` 的一个合取项，因此是 `Goal.deflate` 及 `Goal.deflate_sequence` 中每次 `deflate` 调用的前提。被排除的修改是真实 C 的未定义行为（[复现](../tests/regression/deflate-history-domain/README.md)）：被缩短的字段会越界读取；中途置为 `NULL` 的字段被跳过而 `gzindex` 不被重置，下一个字符串从 `gzindex` 起读取，越过其末尾。zlib.h 要求调用方在第一次 `deflate` 调用之前提供头部；它没有说明写入期间记录能否改变。 |
-
-## 流与回调模型
-
-| 领域 | 当前限制 | 影响 |
-| --- | --- | --- |
-| 直接调用 `deflateResetKeep` | deflate 调用历史（`StreamOperation .deflate`）中没有对 `deflateResetKeep` 的直接调用；`deflateReset` 和 `deflateInit2_` 仍在其中 | 这不是比 zlib.h 更窄的限制：zlib.h 把 `deflateResetKeep` 声明在 `/* undocumented functions (not part of the zlib API) */` 之下，直接调用它的历史在已文档化的 API 之外，它的目标也不是必需的公开目标（[进度](progress.md#scope)）。真实 C 在那里不安全：在 `deflateResetKeep`、`deflate(Z_BLOCK)`、`deflateCopy` 以及副本上的一次 `Z_RLE` 或 `Z_HUFFMAN_ONLY` 刷新之后，之后的 `deflate` 会沿一个未初始化的 `prev` 槽前进并读到窗口之外（`docs/findings/deflate-copy-pending-prev`）；不做复制时，之后的匹配可能出错（`docs/findings/deflate-resetkeep-stale-hash`）。单次调用的安全性（无故障、终止）仍被证明；`deflateReset` 经过它。 |
 | Deflate 字典顺序 | `DeflSetDict` 的 zlib 分支在 `started` 后拒绝字典 | C 可在流结束后接受字典。细化只能在文档顺序内使用该拒绝。`deflate_valid` 是模型定理，不是关于全部此类 C 执行的定理。 |
 | 普通字节格式阶段 | 一个初始预置字典解释普通流 | 解码开始后的 raw 字典替换有构造器导出的标记。精确窗口效果和无条件序列安全仍须满足。一个初始字典不能描述完整高级历史。 |
 | 高级操作组合 | Priming、头部和恢复保留具体逐入口目标 | 目标集合不是每种组合的完整操作细化。证明不能选择或清除历史资格标记来逃避义务。 |
 | 快速解码辅助函数 | 局部执行和位来源引理假设输入与输出为原始字节块（互异，或同一块中不相交的范围）、窗口块不同于输出块、六个输入字节、258 个输出字节、入口位数小于八及 sane 模式 | 这些是构造和 init 不变量必须建立的内部前提，既不限制也不证明公开 inflate 目标。 |
-| 内部首次公开 deflate 路径 | 默认级别六，Z_NO_FLUSH，原始输出且至少包含三个字节以及显式的块前字节预算 | 该作用域组合涵盖了初始化兼容的首次调用，包括空输入。它不替代或缩小 Goal.deflate 的范围。头部片段执行还包括一个字节分割的头部。 |
-| 回调 | 回调返回、输入有有限界限、保留调用者窗口切片 | 描述符对象可共享窗口分配中切片以外的部分。观察不变量只忽略窗口字节，保留对其余字节的效果。这些外部假设必须显式保留。在回调解码器历史的两次调用之间（`BackSafeReachable.caller`），调用者的修改保持每个仍存活的块的只读标志，与回调相同（`ExternalFrame`）；C 代码不能改变它。 |
-| 回调输入总量 | `Goal.inflate_back_sequence_safety` 假设 `protocol.inputBound < 2^48`：一次 `inflateBack` 调用的所有 `in` 调用共提供少于 `2^48` 字节 | zlib.h 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代（`docs/trusted-base.md`），解码循环每轮至少读一位，因此提供更多输入的调用可能在 C 仍会继续时耗尽额度。`2^48` 字节远超一次调用实际能处理的输入。`Goal.inflateBack`（功能性，未计划）没有这个前提。 |
-| 回调解码器窗口 | `Goal.inflate_back_sequence_safety`（通过 `BackSafeReachable.init`）假设调用者的窗口是一个堆字节块的切片 | zlib.h 只要求 `2^windowBits` 字节的可写窗口。模型中另一种可写字节视图只有 deflate 状态内部的 depth 数组，那是调用者无法指名的库存储；窗口位于那里不在已证明的定义域内。 |
-| 回调解码器输入块 | `Goal.inflate_back_sequence_safety` 假设每个输入块位于一个堆字节块中：调用者的第一个输入块（`BackFirstChunk`）以及 `in` 交出的每个输入块（`BackPlatform`） | C 能处理位于任何可读存储中的输入块。位于其他存储中的输入块，例如调用者结构体的字段或静态数据，不在已证明的定义域内。这与 `inflate` 快速入口的限制相同（"快速解码辅助函数"）：`inflate_fast` 在该输入块上运行。把两个解码器推广到任意字节引用是 `docs/progress.md` 中的候选工作。 |
+| 已接受窗口参数下的 inflate 初始化 | `inflate_init2_valid_public` 假设 `Api.inflWbits wb.toInt = some (wrap, bits)` | 它对允许的 raw、zlib、gzip 和自动窗口参数保留现有初始化契约，包括所有分配结果、ABI／版本拒绝和空流拒绝。无效窗口参数明确排除；固定的 `Goal.inflateInit2_` 及已记录的清理契约问题均未改变。 |
+| gz 文件数据 | 功能性的 gz 契约（`FileData`、`CloseContract`、`GzWriterFormat`、读写结果值）以及已登记目标 `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`（自 `caad9db4` 起带前提 `RegularOs fs`）针对系统调用预言的普通文件实例（`RegularOs`）陈述 | 它们描述普通文件。预言的 `lseek` 可以返回而不移动描述符，某些 Linux 设备即如此；此时偏移与回绕的结果值不成立（[回归](../tests/verification/regressions/gz-offset-regular-world.lean)）。安全目标不使用这些契约。`gzoffset64`、`gzoffset` 和 `gzrewind` 在每个世界上的安全属于 `Goal.gz_sequence_safety`，该目标已登记，没有 `RegularOs` 前提。文件系统权限、父目录、链接、所有权和锁未被表示；预言的失败覆盖它们对每次调用的影响。 |
 
-## Gz 外部世界
-
-gz 世界是堆之外的可信语义。目前范围小于 C 调用的系统接口。[外部 I/O 模型](design/external-io.md)描述底层表示，公开 [gz 契约](spec/api/gz-file.md)给出操作定义域。
-
-| 领域 | 当前限制 | 影响 |
-| --- | --- | --- |
-| gz 读取终止（M7） | gz 序列安全目标终止的那一半，对 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc` 假设句柄的描述符编号具有小于 `2^61` 字节的有限读取额度（`fs.readBudget fd = some b` 且 `b < 2^61`，前提 `ReadsFinite`）：即该描述符还能交付的总字节数。关闭后重用的编号继承剩余额度 | zlib.h 不限制输入。永远交付只解码为空内容的数据（空 gzip 成员）的来源会让 `gz_fetch` 一直循环；对无穷来源进行巨大待跳过量的 `gz_skip` 会永远读取：这是 C 真实的不终止，任何有限额度都覆盖不了。有额度时每个循环都有界。`2^61` 这个数是模型的限制，不是 zlib 的：模型的每个循环有 `2^64` 次燃料。读取循环由输入剩余量、读取额度与尚待交付的字节数构成的度量限定（`fetchRank`，以及 `gz_read` 与 `gz_skip` 的度量）。一次取数填满缓冲区，除非失败、输入结束、到达 `GZ_OFF_MAX` 或降低 `fetchRank`，因此额度小于 `2^61` 使这些度量以及循环次数都小于 `2^64`。该上界的依据：`tests/verification/regressions/gz-read-budget-fuel.lean` 表明旧前提（任意大小的额度）允许一个额度，其中空 gzip 成员所需的轮数超过循环燃料。它只是算术核心，不是对 `gz_fetch` 返回 `outOfFuel` 的一次已检查运行。该前提不排除任何故障：无故障的那一半和后置条件对每个世界成立，不需要额度。`gzdirect`、写入一侧和 `gzseek` 不需要它。终止依赖两条世界规则：读取调用的 `ReadsFinite`，以及 OS 事实“非空 `write` 从不返回 0”（“gz 操作系统事实”一行），它约束写入一侧。`GzWorldStep` 只要求 `FileSystem fs'`（3c2d0c9a，审计 B1）：在两次调用之间保持句柄描述符打开状态的条款（只有库打开或关闭它）已删除，其参数 `fs` 与 `fd` 不再使用。因此另一方可以在两次调用之间关闭或重用该描述符。 |
-| gz 操作系统事实 | 非空 `write` 从不返回 0；`close` 失败时也释放描述符 | Linux 行为，可信，未检查。`write` 永远返回 0 会让 C 中的 `gz_comp` 无限循环（`docs/progress.md` 中的观察记录）。 |
-| gz 文件数据 | 功能性的 gz 契约（`FileData`、`CloseContract`、`GzWriterFormat`、读写结果值）以及已登记目标 `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`（自 `caad9db4` 起带前提 `RegularOs fs`）针对系统调用预言的普通文件实例（`RegularOs`）陈述 | 它们描述普通文件。预言的 `lseek` 可以返回而不移动描述符，某些 Linux 设备即如此；此时偏移与回绕的结果值不成立（[回归](../tests/verification/regressions/gz-offset-regular-world.lean)）。安全目标不使用这些契约。`gzoffset64`、`gzoffset` 和 `gzrewind` 在每个世界上的安全属于 `Goal.gz_sequence_safety`，经由步骤引理 `gzoffset64_step`、`gzoffset_step` 和 `gzrewind_step`（分支 `skeleton/gz`，对每个 `fs` 陈述，无 `RegularOs`；未完成）。文件系统权限、父目录、链接、所有权和锁未被表示；预言的失败覆盖它们对每次调用的影响。 |
-| 格式化 | 表示出的整数、字符和字符串参数，以及支持的标志、宽度、精度和长度修饰符 | 浮点、指针、写计数和其他未表示转换需要扩展模型。草案契约显式要求可表示的有效格式化结果。`GzArguments` 在 `Goal.gz_sequence_safety` 的每个 `gzprintf` 与 `gzvprintf` 步骤上都要求可表示的格式（`Formatted`），读取者或处于错误中的句柄也不例外，而 C 在那里根本不读格式串。定义域之外：`%f` 及其他浮点转换、`%p`、`%n`、长度修饰符 `h` 与 `hh`（`%hd`、`%hhu`）、`*` 宽度与精度（`%*d`）、没有 NUL 的数组上的 `%.3s`，以及给定 `unsigned` 参数的 `%c` 或 `%d`（值可表示时 `va_arg` 允许）。 |
-| 外部错误字符串 | `strerror` 返回带有调用代次的只读外部视图，不消耗分配尝试，也不增加库拥有的存活块；下一次调用使旧借用视图失效 | 模型选取顺序调用和固定区域设置下的文本，不表示并发调用、区域设置更改或旧指针身份的再次复用。文本复制与借用保持是独立证明义务。这不是完整的 libc 对应结论。 |
-| 循环额度 | 每个翻译循环使用固定运行时额度 | 即使每个外部操作都返回，也不能据此证明任意有限回调或外部世界行为终止。 |
-
-这些限制不能成为压制失败公开用例的理由。若目标错误，应报告反例并通过独立审阅修正。若翻译或运行时错误，应在相应层修正，并提供所需审阅和回归证据。[验证策略](anti-cheating.md)使这些改动与证明进度保持分离。
-
-## 内部证明范围
-
-下列各行不是对 `zlib.h` 的偏离。每一行写明一个中间 deflate 定理的前提，这些定理会组合成公共 `deflate` 的证明。这里的前提只限制该引理，从不限制公共命题。保留这份清单，是为了不把任何引理读得比它实际的范围更宽。
-
-| 领域 | 当前限制 | 后果 |
-| --- | --- | --- |
-| 已接受的窗口参数下的 inflate 初始化 | `inflate_init2_valid_public` 假设 `Api.inflWbits wb.toInt = some (wrap, bits)` | 对已接受的 raw/zlib/gzip/自动窗口参数，它保留原有的初始化契约，包括所有分配结果、ABI/版本拒绝和空流拒绝。无效的窗口参数被明确排除；固定的 `Goal.inflateInit2_` 及其已记录的清理契约问题保持不变。 |
-| 内部固定块源分支 | 默认 memLevel 8，基础待处理游标，已排空的待处理项，至多七个入口位，合法的打包符号及其逻辑轨迹；调用者原始字节缓冲区具有任意容量 | 标签、负载、真实重置、条件对齐和发布进行组合。完整的原始流有效性推论从零位开始，并使用足够的容量 63488。早期的构建器、分支选择和公开 deflate 保持独立。 |
-| 内部计算固定选择 | 正级别默认共享缓冲区几何结构，在其基础处已排空的待处理项，至多七个入口位，实际的打包符号和轨迹；实际的取整成本选择固定编码，且早期的存储测试为假 | 完整的 _tr_flush_block 包括实际的提示检测和所有构造器。最终的完整原始有效性还需要零入口位和足够的原始输出容量 63488。存储/动态选择以及公开定义域保持不变。 |
-| 内部默认 zlib 结束 | FINISH_STATE，无输入或前瞻，已排空的最终块待处理项和位，基础游标，包装器 1，last_flush 在 -2..5 之间，正容量的调用者原始字节缓冲区 | 实际的公开调用写入并发布校验和一次。结束策略的建立和完整的公开调用历史是独立的。内部尾部发布器也涵盖零容量。 |
-| 内部默认 FINISH 协议 | 在级别 6、memLevel 8、zlib 包装器、无自定义头部的情况下成功完成默认初始化；接受具有正原始输出的 Z_FINISH 调用，当非空时输入有效且非空，且在 FINISH_STATE 中无新输入；合法的重新缓冲 | 实际的初始化建立不变式，且实际调用在任意有限接受历史上保持该不变式。不假设任何字节预算。拒绝、其他标志和高级操作保持开放。完整的输出格式历史、总计数器和堆帧保持开放；Goal.deflate 保持不变。 |
-| 内部普通默认压缩协议 | 相同的默认配置和正的原始公开输出；NO_FLUSH 请求在 FINISH_STATE 之前具有新的非空输入，且 FINISH 请求在 FINISH_STATE 之后不添加输入；任意合法的重新缓冲 | 实际初始化建立两种调用类型所使用的相同边界。每个有限的接受混合历史都保留该边界和实际的公开可达性。空输入重复/拒绝情况、其他标志和高级操作保持开放。输出格式历史、总计数器和堆帧保持开放；Goal.deflate 保持不变。 |
-| 内部总普通请求协议 | 在级别 6、memLevel 8、zlib 包装器且无自定义头部的情况下成功完成默认初始化；具有空或原始数组输出以及合法调用者重新缓冲的 NO_FLUSH/FINISH 历史；下一请求扩展还接受所有超出范围的有符号 flush 参数 | 作用域契约包括零输出、空输入、重试、重复、无效指针参数以及结束后的新输入。它们陈述了精确的计数器、产生的字节切片、精确的 BufferFrame、无分配/活动对象变更、精确的 STREAM_ERROR 守卫和 STREAM_END 条件。无效的 flush 参数使堆保持不变。其他有效标志、嵌入输出引用、高级操作和编码输出正确性在这些作用域契约之外；Goal.deflate 保持不变。 |
-| 内部默认普通和 BLOCK 请求协议 | 在级别 6、memLevel 8、zlib 包装器且无自定义头部的情况下成功完成默认初始化；具有空或原始数组输出以及合法重新缓冲的 NO_FLUSH/FINISH/BLOCK 历史 | 每个支持的请求返回并保留初始化的协议和公开可达性。在每个有限混合历史之后的下一请求具有精确的输入/输出核算、产生的字节切片、包装总数、精确的 BufferFrame、无分配/活动对象变更以及精确的公开返回控制子句。下一个无效的有符号 flush 使堆保持不变。其他有效标志、嵌入输出、高级操作和编码输出正确性仍在此作用域契约之外；Goal.deflate 保持不变。 |
-| 内部默认 PARTIAL/SYNC 协议 | 在级别 6、memLevel 8、zlib 包装器且无自定义头部的情况下成功完成默认初始化；相同的初始化边界，空或原始数组的调用者输出以及有效的调用者缓冲区范围 | 每个 PARTIAL/SYNC 请求返回并保留边界、公开可达性和精确的消耗/交付核算，包括首个头部、旧的待处理项、重复、所有容量和错误返回。标记发布还证明在其切点处的精确待处理位流和分配账本；其空间由初始化的缓冲区推导而来。共享请求保留涵盖除 FULL 之外的所有标志。完整的 PARTIAL/SYNC 计数器/帧、混合标记历史、FULL 重置、嵌入输出、高级操作和编码输出正确性保持开放；Goal.deflate 保持不变。 |
-| 内部默认 FULL 标记/重置数据路径 | 已初始化的默认慢速策略及内容/EOF 边界，memLevel 8，zlib 封装和调用者原始字节缓冲区；实际的 block_done 在标记处提供零前瞻、空符号和已确定的延迟输入 | 完整的 BUSY FULL 数据路径返回并保留已初始化的边界，适用于所有输出容量。实际的标记输出、哈希清除、位置重置和待发布发布保留了绝对输入端点和精确的标记位流。重置还保留了调用者缓冲区、待处理位和分配台账。完整的 FULL 入口、所有标志历史、完整的公共计数器/帧、嵌入输出、高级操作和编码输出正确性仍属独立范畴；Goal.deflate 保持不变。 |
-| 内部默认全标量请求协议 | 在级别 6、memLevel 8、无自定义标头的 zlib 封装下成功完成默认初始化；任何有限的实际 deflate/重新缓冲历史，所有 Int32 flush 标量和真实返回码，具有有效调用者范围的 null/原始调用者输出 | 实际初始化建立了相同的边界，且每个请求都保留该边界。每个后续请求都返回精确的消耗/交付核算，包括所有六个有效标志、无效标量、首个标头、旧待处理项和拒绝。没有任何不变式或被调用者契约是历史构造的前提。完整的 PARTIAL/SYNC/FULL 公共计数器/帧、编码输出正确性、嵌入输出和高级操作仍在此限定协议之外；Goal.deflate 保持不变。 |
-| 内部默认标记请求效应 | 已初始化的默认级别 6，memLevel 8，无自定义标头的 zlib；具有原始调用者输出和有效调用者范围的实际 PARTIAL/SYNC/FULL 请求 | 每次实际运行都具有精确的封装总计、已核算的调用者输出区间、完整的对象形状/帧以及未更改的活动/分配台账。包括首个标头、旧待处理项、重复项、所有输出容量和入口拒绝。实际的总体性和不变式保留由已建立的协议提供，而非假设的被调用者契约。精确的公共 BufferFrame 和返回控制组合、完整的编码输出、嵌入输出和高级 API 仍属独立范畴；Goal.deflate 保持不变。 |
-| 限定范围的完整默认 deflate 请求契约 | 在级别 6、memLevel 8、无自定义标头的 zlib 下成功完成默认初始化；任何有限的实际 deflate/重新缓冲历史，所有 Int32 flush 标量和真实返回码，null/原始输出和有效调用者范围 | 下一个请求返回 DGood，保留调用者范围，具有精确的消耗/交付核算、实际输出切片、封装总计、精确的 BufferFrame、未更改的活动/分配台账以及完整的公共 STREAM_ERROR/STREAM_END 子句。一个真实的非空初始化/调用见证接受 300 字节并产生两个封装字节。编码序列正确性、嵌入输出和高级公共历史仍在此限定结果之外；原始的 Goal.deflate 保持不变。 |
-| 内部固定表负载 | 已排空的待处理计数，最多十个缓冲条目位，实际合法的打包符号和已初始化的树存储；默认发布组合使用 memLevel 8 和调用者原始字节缓冲区 | 完整的字面量/匹配负载推导读写和发布空间。实际的发射、发布和独立的负载解码被组合。块选择、标签、填充、尾部和整个流的组合仍属于未更改的公共 deflate 目标。 |
-| 内部待发布阶段 | 完整的 flush_pending 结果假设 pending_out = pending_buf，完整位空间和调用者原始字节缓冲区；包括所有 0..16 的缓冲位计数和任意输出容量 | 实际的默认初始化和真实位发送提供见证。整个块输出路径必须建立这些发布条件；公共 deflate 目标保持不变。 |
-| 公共 deflate 空闲待处理延续 | BUSY_STATE，Z_NO_FLUSH，无输入或前瞻，正的待处理字节数和严格更大的原始输出容量，且剩余位少于八位 | 此实际的排空并延续结果将数据压缩和结束/尾部组合作为未更改公共目标中的独立义务保留。 |
-| 公共 deflate 待处理排空分支 | 正的原始输出容量不大于现有的待处理计数，且剩余位少于八位；覆盖所有接受的标志和接受的 FINISH_STATE 入口 | 这是新压缩之前的实际早期返回路径。它保持 Goal.deflate 和公共调用者缓冲区领域不变。 |
-| 内部待处理输出路径 | 低位 flush_pending 包括 DGood 接受的每个游标和任意原始输出容量；跨越合法重新缓冲的两次调用组合不需要注册的 gzip 标头 | 这些内部复制和重新缓冲前提保持公共调用者缓冲区领域不变。完整发布单独需要其基础游标和位空间。 |
-| 内部慢循环路径 | 完整的 Z_NO_FLUSH 策略定理假设 `3 * (origin + fillEnd + avail_in - base + 1) < sym_end` 且包装器 1 | 真实账本在每次迭代中推导计数空间。这限定了前置块定理的范围；它并未缩小公开的 deflate 目标。 |
-| 符号细化 | 规范表含义、后缀稳定性和兼容叶标志是显式前提；局部复制使用实际按时间顺序保存的字节 | 局部符号引理不建立表安装、窗口历史或整个流输出。 |
-| 内部默认联合内容/编码刷新 | 实际的 ContentBoundary，无延迟字节，正级别，默认内存，具有零待处理字节的基待处理游标，至多七个缓冲位以及调用者原始字节缓冲区 | 相同的实际宏运行恢复下一个 ContentBoundary，并为每个真实编码选择和输出容量保留精确的已写入/待处理位以及独立解码的输入前缀。真实的非最终包装器保留两者，且其发出的块可与数学解析器续接组合；存储的续接位需要字节对齐。完整的策略迭代、公开包装器和编码历史仍然开放；这不是 Goal.deflate 或公开序列目标。 |
-| 内部默认空刷新标记解码 | 初始化的空 BufferedBoundary，调用者原始字节缓冲区和 PublishReady；实际的 FULL 执行此外还具有零前瞻和已确定的延迟输入，如由已完成的非最终策略调用所确立 | 实际的 PARTIAL/SYNC/FULL 标记发布保留精确的已写入/待处理位、恢复的内容边界以及独立的块续接含义，而不添加解码字节。PARTIAL 不需要后续位对齐；存储的 SYNC/FULL 续接需要字节对齐的后续位。FULL 包含实际的哈希和位置重置。完整的策略/公开编码历史和刷新完成仍然开放。 |
-| 内部选定匹配编码 | 实际初始化的 SearchBoundary 和选定匹配守卫，严格符号计数器，正级别，默认内存，空待处理字节，少于八个保持位以及调用者原始字节缓冲区 | 真实的匹配决策为完整和非完整计数以及所有剩余输入长度（包括两字节路径）保留内容、EOF 前沿和恢复阶段。非完整执行保留精确的保持位并扩展符号账本。完整执行为实际计算的编码保留精确的调用者/待处理位和独立解码的输入含义。字面量/延迟分支、整个策略累积和公开编码历史仍然独立。 |
-| 内部完整慢决策编码 | 实际初始化的 SearchBoundary，正前瞻和级别，默认内存，严格符号计数器，零待处理字节，少于八个保持位以及调用者原始字节缓冲区 | 所有真实的匹配/字面量/延迟分支返回一个完整的 DecisionResult，具有精确的已写入/待处理位和实际的独立块含义，或者保留所有保持位而不发布。包括完整/非完整计数、短输入和所有输出容量。完整字面量发出在刷新前确定信用并在之后推进。搜索/补充传输、完整策略累积、EOF/包装器和公开编码历史仍然开放。 |
-| 内部完整慢主体编码 | 实际初始化的 StrategyBoundary 和 EOF 前沿，正级别，默认内存，zlib 包装器，调用者原始字节缓冲区，进入前有效的输入指针和 PublishReady | 完整的实际主体涵盖补充/滑动/填充、所有停止守卫、真实搜索以及所有有符号刷新标量和所有输出容量的每个完整/非完整决策。它保留精确的已写入/待处理位、来自原始接受历史的独立主体含义、一致的输入前缀扩展、两个前沿以及循环控制/秩事实。完整的循环折叠、存储块对齐累积、EOF/包装器和公开编码历史仍然开放；公开目标保持不变。 |
-| 内部可组合块编码 | 初始化的零信用 ContentBoundary、EOF 前沿、正级别、默认内存、调用者原始字节缓冲区、发布阶段以及与实际持有字模八同余的绝对位位置 | 实际的三路刷新、已检查的宏参数和待发布项推导出存储对齐，并返回一个解析器 BlockPrefix 以及两个前沿和精确的已写入/待处理位。所有调用者容量均被接受。纯前缀组合和最终块闭合已检查。决策/循环传播和公共编码历史仍开放；无公共域或目标变更。 |
-| 内部完整循环编码 | 初始化的 StrategyBoundary、EOF 前沿、正级别、默认内存、zlib 封装、具有正入口容量的原始输出、有效输入指针以及与持有位模八同余的绝对位位置 | 针对每个有符号刷新标量的实际终止慢循环在其最终堆上保留精确的组合调用者字节、待处理位、两个前沿、一致的已接受输入历史以及可组合的独立非最终块含义。存储对齐已推导。EOF/最终块/封装和公共历史组合仍开放；原始公共目标未变更。 |
-| 内部 EOF 编码闭合 | 初始化的 StrategyBoundary 和 EOF 前沿、零前瞻、正级别、默认内存、zlib 封装、调用者原始字节缓冲区和就绪的待处理游标 | 实际的 EOF 结算/重置/最终发布针对每个输出容量保留精确的位和最终主体含义。给定一个已建立的数学块前缀和字节方程，之前的字节加上实际新输出和剩余待处理字节构成一个独立有效的原始流。这些前提是解析器事实，而非 C 被调用者契约。同一运行的循环/尾部、待处理恢复和公共封装/历史组合仍开放。 |
-| 内部原始编码协议 | 初始化的默认内存 zlib 策略/内容和 EOF 切点、正策略级别和正策略入口原始输出；原始待处理位与封装头/尾阶段不同 | 完整的实际 NO_FLUSH/FINISH 调用在同一运行中保留或完成独立原始编码，具有精确的最终堆输出。实际成功的默认参数初始化建立 RawPrefix 为空；调用者替换和零/部分待处理发布保留它。初始化保留现有的显式版本、分配器和成功分配前提。公共封装/校验和/标记/历史组合和更广泛的 API 仍开放。 |
-| 内部公共原始编码分支 | 初始化的原始阶段 BufferedBoundary、默认级别 6/策略 0/内存、BUSY 状态、有效输入、正原始输出、合法重试范围以及已接受的待处理/输入/重试请求 | 实际的公共 NO_FLUSH 入口、待处理排空、慢分发和返回保留 RawPrefix 和精确的最终堆调用者字节。已检查所有有效刷新输出满时的待处理保留。重复/拒绝请求、初始/分割封装头、FINISH/尾部/校验和/标记和完整公共历史编码仍开放。 |
-| 内部零输出和首个头编码 | 初始化的默认内存 zlib 策略，具有显式 PublishReady 和任意容量的原始输出；首个公共头使用级别 6/默认策略、EngineStart 和至少两个调用者字节 | 实际的主体/循环/NO_FLUSH/FINISH 和准备好的公共分发保留具有零入口输出的独立原始编码。实际的第一个公共 NO_FLUSH 输出是 [120,156] 加上其原始字节，即使容量恰好为二。单字节头、拒绝、尾部/校验和/标记和公共历史编码仍开放；现有公共域/目标未变更。 |
-| 内部初始头部编码 | 实际的默认 EngineStart 和 BufferedBoundary，空已接受输入，级别 6，默认内存，有效输入和正的调用者原始字节缓冲区容量；显式 HeaderPending 阶段 | 每个正的初始公开 NO_FLUSH 容量都在返回的堆上产生精确的封装/原始字节。单字节头部不消耗输入，并在私有待处理存储中保留字节 156；合法的重新缓冲和私有待处理排空保持该阶段，且排空确立 RawPrefix 为空。公开的待处理头部延续、拒绝、尾部/校验和/标记以及完整的编码历史仍然开放；原始目标保持不变。 |
-| 内部恢复的头部编码 | 初始化的默认内存 zlib BufferedBoundary，BUSY 级别 6/策略 0，有效输入，调用者原始字节缓冲区和 HeaderPending [120] | 每个正的下一个 NO_FLUSH 请求输出 [156] 后跟其原始字节，并在同一最终堆上确立 RawPrefix；单字节输出覆盖所有已接受的标志而不消耗输入。头部待处理计数由表示推导得出。拒绝、尾部/校验和/标记以及完整的编码历史仍然开放；原始目标保持不变。 |
-| 内部普通主体校验和 | 初始化的默认内存 zlib 策略和 EOF 前沿，PublishReady 具有任意容量的原始输出，有效的调用者输入，NO_FLUSH/FINISH，且机器校验和等于先前已接受字节的独立校验和 | 实际的完整填充、所有压缩决策、选定的块编码器以及两个普通主体都精确地通过消耗的原始调用者切片保留或扩展 Adler 含义。先前校验和的前提是显式的；初始化、循环/历史传播、与原始编码输入的同一性以及尾部组合仍然开放。现有的公开域和目标保持不变。 |
-| 内部耦合的编码和校验和循环 | 初始化的默认内存 zlib 策略/内容和 EOF 前沿，任意调用者原始字节缓冲区容量下的 PublishReady，已接受逻辑前缀的精确位位置对齐和传入校验和 | 实际的默认参数初始化确立 RawPrefix 为空和校验和含义；合法的重新缓冲保持两者。实际的完整填充、每个有标量主体和终止慢循环对相同的已接受输入保留原始编码、精确输出和 Adler 含义。EOF、最终发布以及公开封装/待处理/拒绝/尾部/标记历史仍然开放；原始公开域和目标保持不变。 |
-| 内部完整策略编码和校验和 | 初始化的默认内存 zlib 策略和 EOF 前沿，任意调用者原始字节缓冲区容量下的 PublishReady，已确立的原始编码前缀和已接受逻辑输入的校验和 | 实际的完整 NO_FLUSH/FINISH 调用在一次执行中保留相同输入的原始编码和 Adler 校验和。EOF 完成产生一个有效的完整原始流，包括待处理字节及其精确的输入校验和。公开头部/待处理/拒绝/尾部/标记阶段以及完整的编码历史仍然开放；原始域和目标保持不变。 |
-| 内部公开原始编码和校验和 | 初始化的默认内存原始阶段 BufferedBoundary，BUSY 级别 6/策略 0，已接受逻辑输入的校验和，RawPrefix，有效输入以及一个已接受的待处理/输入/重试 NO_FLUSH 请求 | 实际的公开入口、待处理排空、压缩分发和返回保留精确的最终堆输出、原始编码和相同的输入校验和。准备好的分发允许零输出；已接受的公开入口要求正输出。所有有效刷新待处理耗尽也保留校验和。首个/分割头部、拒绝/重复、FINISH/尾部/标记以及完整的编码历史仍然开放；原始域和目标保持不变。 |
-| 内部公共头部编码与校验和 | 实际默认 EngineStart 和 BufferedBoundary，空已接受输入，级别 6/默认内存，有效输入和正的调用者原始字节缓冲区；恢复的头部使用 HeaderPending 及其已接受前缀的校验和 | 所有正的初始 NO_FLUSH 容量均返回精确的封装/原始编码和相同的输入校验和。实际的拆分头部延续和合法的重新缓冲均保留两者；单字节待定耗尽覆盖所有已接受标志。初始头部校验和由 EngineStart 推导。拒绝/重复、公共 FINISH/尾部/标记器以及完整的编码历史仍保持开放；原始域和目标保持不变。 |
-| 内部公共拒绝编码与校验和 | 已初始化的 BufferedBoundary，RawPrefix 或 HeaderPending 以及已接受逻辑输入的校验和；被允许的调用者缓冲区；有效标志的早期拒绝、BUSY 重复 NO_FLUSH 或无效带符号刷新 | 实际消息/错误执行、入口守卫、重复重试存储和坏刷新守卫保留编码、校验和、适用时的初始阶段以及精确的零输入/输出核算。不假设任何被调用者契约。完成状态的编码以及完整的公共 NO_FLUSH/FINISH/尾部/标记器历史仍保持开放；原始域和目标保持不变。 |
-| 内部实际调用者输入台账 | 实际初始化的默认内存策略边界，正的级别，封装 1，发布就绪，有效的调用者输入和调用者原始字节缓冲区；输入快照是被允许的原始可读范围 | 完整重新填充和每个带符号主体追加精确消耗调用者字节。终止循环和完整的 NO_FLUSH/FINISH 策略将逻辑输入标识为旧前缀后跟消耗的原始快照，跨越滑动和计算输出。不相交的输入/输出范围可共享一个分配；嵌入式/静态输入视图仍被允许。独立的原始 FINISH 有效性和 Adler 含义使用那些实际字节。公共封装/尾部/标记器历史仍保持开放；原始域和目标保持不变。 |
-| 内部精确输入公共 NO_FLUSH | 已初始化的级别 6 默认内存 BUSY 或首次调用 BufferedBoundary，正的调用者原始字节缓冲区，有效输入和被允许的原始输入快照；已接受的待定/输入/重试请求，首个头部和拆分头部延续 | 实际准备的分发和完整的已接受公共调用将逻辑已接受输入标识为旧前缀后跟消耗的原始快照。首次调用从 EngineStart 推导空编码和校验和。单字节头部不消耗输入。共享的不相交调用者范围和所有字节输入视图仍被允许。拒绝和 FINISH/尾部/标记器历史组合保持独立；原始域和目标保持不变。 |
-| 内部完整原始到 zlib 编码 | 任意原始流的独立有效性；实际默认 zlib 尾部执行以排空的最终原始字节、零缓冲位、封装 1、匹配的已接受输入 Adler 和已初始化的待定存储开始 | 每种块类型均接受精确的校验和后缀。实际尾部存储、任意部分发布和封装否定保留精确的已写入/待定字节和完整的独立 zlib 流。当待定为空时，仅已发布字节即为有效。公共策略/入口组合、完成状态待定延续和完整编码历史仍保持开放；原始域和目标保持不变。 |
-| 内部精确输入公共 BUSY FINISH | 已初始化的级别 6 默认内存 BUSY BufferedBoundary，匹配的原始编码和校验和，有效的原始输入快照和调用者原始字节缓冲区；准备的分发允许零输出，已接受的公共入口允许所有正容量和所有现有待定计数 | 实际入口、待定排空、完整策略、完成状态存储和尾部发布保留精确消耗原始字节的编码。早期工作返回保留逻辑输入端点。最终原始和封装状态包含精确的待定后缀；STREAM_END 证明累积已发布字节的独立 zlib 有效性。首次/拆分头部 FINISH、完成状态延续、拒绝、标记器和完整编码历史保持独立；原始域和目标保持不变。 |
-| 内部已完成的 FINISH 编码 | 在实际待处理后缀上，精确的已完成原始或包装含义，FinishingPhase 以及匹配的已接受输入校验和；初始化的 6 级/默认内存 BUSY 条目在最终块完成时建立此已完成替代项 | FinishedEncoding 记录零保留位以及已发布字节加精确待处理字节的独立有效性，无论位于一次性 zlib 尾部之前还是之后。实际的待处理副本、合法的重缓冲以及所有无新输入的正输出 FINISH 延续均保留此含义。实际的 BUSY 完成关联工作/完成的物理状态和编码状态。新输入/错误刷新拒绝、首次/拆分头部 FINISH、标记器以及完整编码历史仍保持开放；原始目标和域保持不变。 |
-| 内部精确输入首次/拆分 FINISH 编码 | 实际 6 级/默认内存 EngineStart 和首次调用时的空已接受输入，或实际 HeaderPending [120] 和延续时的空已接受输入校验和；被允许的调用者范围和原始可读输入快照 | 每个正首次 FINISH 容量和每个正拆分头部 FINISH 延续都具有精确的包装/输出字节，且已接受输入等于消耗的原始快照。实际初始化的字段或头部排空建立原始编码种子。工作表示和完成表示与实际状态关联；STREAM_END 提供独立的 zlib 有效性。拒绝、标记器以及完整实际编码历史的组合仍保持独立；原始目标和域保持不变。 |
-| 内部观察到的默认编码历史 | 实际成功的默认 deflateInit_，级别 6，窗口 15，memLevel 8，策略 0；无字典调用的 deflate 和合法重缓冲；null/原始调用者输出 | 实际跟踪保留所有带符号标志和错误返回，并在无不变式假设的情况下建立结构协议。精确的累积编码和公开的 DecodesFor 结论在所有有限 NO_FLUSH/FINISH 调度中均相连，包括拒绝分支和部分头部/尾部。BLOCK/PARTIAL/SYNC/FULL 编码、基于边界的完成、其他输出引用和高级 API 仍保持开放。此细化不替代或缩小完整的公开目标。 |
-| 内部完整非最终策略编码 | 初始化的 StrategyBoundary 和 EndFrontier，正压缩级别，内存 16384，包装器 1，原始调用者输出和可读的原始调用者输入；flush 非零且不同于 FINISH | 实际终止的慢策略保留 RawPrefix、精确的输出/待处理字节以及已消耗原始调用者前缀的 Adler，直至输出停止、EOF 结算和可选的非最终发布。包含所有调用者容量。公开标记器发布、入口/头部/待处理守卫以及这些刷新标志的完整编码历史仍保持独立。 |
-| 内部累积刷新标记器编码 | 初始化的空块 BufferedBoundary，实际的待处理树缓冲区和发布就绪状态；原始调用者输出；PARTIAL/SYNC 或已结算的 FULL 重置路径 | 实际标记器发布保留累积 RawPrefix、精确的输出字节和 Adler。存储标记器后缀对齐由累积编码长度和实际保留位推导。FULL 重新定位物理原点而不丢弃编码输入历史。完整的公开入口/头部/待处理组合和基于边界的完成仍保持开放。 |
-| 内部完整 BUSY 非最终编码 | 实际的默认 6 级/内存 8 BUSY BufferedBoundary，包装器 1，有效的调用者输入和正原始输出；last_flush 在 -2 到 5 之间；所有有效的非 FINISH 标志 | 完整的翻译调用保留精确的已消耗原始输入、最终堆输出、累积 RawPrefix 和 Adler。包含旧待处理耗尽、排空后压缩以及基于排名的重复拒绝。FULL 将物理原点重新定位到全局输入端点。初始/拆分头部组合、早期入口拒绝、完整所有刷新编码历史以及基于边界的完成仍保持独立。 |
-| 内部逐标量观察到的编码 | 实际成功的默认 deflateInit_，级别 6，窗口 15，内存 8，策略 0；实际的 deflate 观察结果及合法的重新缓冲；无字典或高级操作时的 null/原始调用者输出 | 每个有限的有符号刷新调度都保留针对确切接受输入和累计发出输出的编码及 Adler 校验和。包括首次和拆分头部、所有非最终标记、重复项、无效标志以及完成状态下的拒绝。最新的 STREAM_END 给出未改变的公开 DecodesFor 结论。该追踪不假设任何不变式、输出含义或刷新限制。基于界限的完成与完整的公开目标保持独立且未改变。 |
-| 内部观察到的请求与清理契约 | 相同的实际默认数据历史域；下一个请求使用被接受的 null/原始输出及其可读的原始输入切片 | 编码、精确计数器、错误分类、帧以及未改变的活跃分配均指代相同的实际下一次运行。默认分配器源自成功的初始化以及每个实际的调用者/数据转换。结束操作在每种此类历史（包括未完成和错误历史）之后，精确释放五个流拥有的分配，并带有其文档化的结果和帧。具有新鲜非空输入的完成状态不能返回 STREAM_END。此必要条件并非完整的完成反例。现有的公开目标未改变。 |
-| 内部空 FINISH 和待处理完成预算 | 初始化的默认 StrategyBoundary，具有空的调用者输入和前瞻，发布就绪状态以及任意容量的原始输出；或者一个 FinishingPhase，没有新输入，且原始输出空间至少为实际待处理计数加四 | 空输入执行采用真实的 EOF，包括零准备好的输出。首次公开 FINISH 恰好带有两个调用者字节时，发布头部，达到 FINISH_STATE 并返回 OK。当完成阶段的真实排队后缀和可能的尾部适配时，该阶段完成。这些阶段引理不假设任何被调用者执行契约。其直接空间预算尚未从公开的 deflateBound 公式推导出来，并且未注册完整的公开完成目标。 |
-| 默认普通核心里程碑 | 实际默认 deflateInit_，级别 6、窗口 15、memLevel 8、策略 0 和 zlib 包装器；普通 deflate 与合法更换缓冲区，允许 NULL 输出或调用者原始字节缓冲区，以及所有公开输入字节视图 | Calls 涵盖每个有符号 flush 参数和无额外内存影响的指针拒绝；可读的 Trace 记录精确的输入与输出观察。独立子句覆盖初始化、请求、完成后的编码和清理。有限的 FINISH 完成保持同一份固定的剩余源数据，在 FINISH_STATE 后不引入新输入，并构造合法的单字节输出块。它不假设 deflateBound 保证。互不重叠的区间可以共享同一次分配。复制、重置、字典、位预置、参数更改、自定义头部和其他配置仍由原有的独立目标处理。这个限定范围的里程碑未完成完整公开目标。 |
-| 默认普通请求的全部合法输出视图 | 真实成功的默认 deflateInit_，规范化后的级别六、内存八、窗口十五、策略零、zlib 包装及默认分配器；实际普通 deflate 调用和合法换缓冲区 | GenericDefaultRequestTrace 接受所有有符号标志，不要求过去请求的可读快照。下一调用定理保留原 DGood、StreamBuffers、ActiveHeader 前提及完整原公开结论，不增加输出表示或正容量条件。有限完成使用当前剩余输入的快照，并遵守 FINISH 后不引入新输入的协议；构造有限续行和释放原五个对象的成功 End。其他初始化配置和高级调用历史属于本里程碑之外的独立目标；无限定的公开目标保持不变。 |
-| 内部常用级别初始化、NO_FLUSH 及 FINISH | 标准 deflateInit_ 参数及其允许级别；首次单字节输出调用使用任意合法标志；后续 NO_FLUSH 和 FINISH 采用归一化级别 4–9、内存级别 8、窗口 15、策略 0 和 zlib 包装器 | 真实初始化及合法调用者缓冲区编辑建立私有边界。首次头部调用不消费输入；下一次完整公开 FINISH 允许任意输入和任意正容量原始输出。所有 NO_FLUSH 和 FINISH 调用保持阶段，包括重试及文档规定的拒绝。成功初始化推出其分配成功事实。FINISH 阶段还给出完整计数与资源影响，以及消费固定剩余可读输入的有限续行。首次单字节之后，任意有限的 NO_FLUSH/FINISH 和合法换缓冲区历史保持精确累计编码、结束清理及固定输入的有限完成性；已检查一个级别 4、300 字节的完整历史见证。另一个内部跟踪允许首次 NO_FLUSH 使用任意正容量的普通字节块输出，包括单字节输出和恰好两个头部字节。后续观测到的 NO_FLUSH/FINISH 调用及合法换缓冲区保持累计编码、结束清理和固定剩余输入的有限完成性。一个实际级别 4、300 字节的已完成跟踪给出该定义域的见证。其他 flush 标志以及这些更广历史的精确 BufferFrame 和回绕总量仍是独立工作。现有公开目标及默认目标保持不变。 |
-| 内部常用级别的首次 FINISH 与普通历史 | 真实成功的标准初始化；归一化级别 4–9、内存级别 8、窗口 15、策略 0 和 zlib 包装器；首次 NO_FLUSH 或 FINISH 使用正容量的普通字节块输出，后续观测到的 NO_FLUSH/FINISH 调用允许 NULL 输出或普通字节块输出及合法换缓冲区 | 首次 FINISH 的单字节与恰好双字节路径，均在实际返回的堆上确立与已消费输入一致的编码、Adler 校验和及调用协议。普通历史保持累计编码、清理和固定源输入的有限完成性。以 NO_FLUSH 开始的历史通过其真实构造器嵌入，DataLog 保持完全相同；其中真实的级别 4、300 字节完成执行提供另一个见证。其他标志、首次输出容量为零、整个历史的精确 BufferFrame／计数器以及完整公开目标仍是独立工作。现有目标陈述保持不变。 |
-| 从初始化开始的内部常用级别历史 | 真实成功的标准初始化，归一化级别 4–9、内存级别 8、窗口 15、策略 0 和 zlib 包装器；观测到的可读输入 NO_FLUSH/FINISH 调用允许 NULL 输出或普通字节块输出及合法换缓冲区 | INIT 包含在任何头部输出之前。首次输出容量为零及 NULL 输出的拒绝路径，保持初始化编码状态及精确观察结果。完整观测历史保持累计编码、对象／分配帧、清理和固定源输入的有限 FINISH 完成性；既有的真实级别 4、300 字节见证原样嵌入。这不是所有输入的结构调用覆盖，也不是整个生命周期的精确 BufferFrame／计数器结论。其他标志／配置及完整公开目标仍是独立工作，目标陈述保持不变。 |
-| 内部内存参数化的快速策略初始化 | 显式 InitDomain 下实际成功的 deflateInit2_；压缩级别 1–3、内存级别 1–9，固定方法 8、窗口 15、策略 0、zlib 包装器，回调为默认函数或 NULL | 实际成功运行建立符号及逻辑输入历史为空的边界、清零的位长频率、有界快速策略字段和可达性。分配成功事实从观测到的运行推出。合法换缓冲区保持该边界。27 个真实初始化见证覆盖允许的级别／内存组合。压缩执行、完成性和高级操作仍是独立义务；现有公开目标保持不变。 |
-| 内部内存参数化的慢速策略初始化 | 实际成功的 deflateInit2_；归一化压缩级别 4–9、内存级别 1–9，固定方法 8、窗口 15、策略 0、zlib 包装器，回调为默认函数或 NULL | 实际返回堆建立慢速边界及编码状态的初始阶段。分配选择从观测到的构造器成功推出。默认级别 −1 归一化为 6。后续调用保持、完整历史、压缩完成性和高级操作仍是独立义务。现有公开目标保持不变。 |
-
-## 局部 open、close 与 priming 里程碑
-
-open 入口引理覆盖 NULL 参数、负描述符和初次分配失败，不覆盖成功解析器，也不建立完整公开 open 契约。读取器 close 执行里程碑假设现有 `GzGood` 不变量、读模式和 `size = 0`。其定义域排除已初始化读取器，以及公开表示允许的含非活动悬空缓冲区句柄；它不从实际公开历史建立不变量。Priming 入口引理覆盖被拒绝流和 0 到 16 之外的计数；接受的位插入仍未完成。
-
-这些是有范围限制的内部定理，没有一个替代或缩小公开目标。
-
-参数化初始化全定义性及紧接 End 的家族固定方法 8、窗口 15、策略 0 和 zlib 包装器，
-分配与释放回调允许为默认函数或 NULL。它允许内存级别 1–9、全部有效的归一化
-压缩级别 0–9，以及所有分配结果。非法标量参数、其他窗口、策略、包装器和自定义
-回调不在这个内部家族的范围内；现有公开初始化目标保持不变。
-
-当前工作统一在[进度](progress.md#public-api-proof-readiness)。
+deflate 各中间定理的前提，以及局部的 open、close 和 priming 里程碑，在 2026-11-15 之前列在本页。它们收窄的是引理，从不收窄公开目标。它们原样保存在 [deflate 内部证明范围](history/deviations-internal-scopes.md)中。
