@@ -8,6 +8,7 @@ from collections import Counter
 import io
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -291,6 +292,15 @@ class Headers(unittest.TestCase):
             expected = [name for line in text.splitlines() if line.startswith('import ')
                         for name in line[7:].split('--', 1)[0].split()]
             self.assertEqual(mutant_reuse.header_imports(text, path), expected, path)
+
+    def test_no_library_source_reads_a_file_while_it_is_elaborated(self):
+        """The key of a build is the text of its modules. A module that read another file at
+        elaboration time (`include_str`, an IO action in a macro) would have an input the key misses."""
+        tree = mutant_reuse.Tree(ROOT)
+        for path in tree.lean_sources():
+            text = tree.read(path).decode('utf-8')
+            found = re.search(r'include_str|IO\.FS\.|readFile|IO\.Process|run_cmd|^\s*(builtin_)?initialize\b', text, re.M)
+            self.assertTrue(found is None, f'{path} uses {found and found[0]}: add what it reads to the key first')
 
     def test_closure_of_the_root_is_the_library(self):
         tree = mutant_reuse.Tree(ROOT)
