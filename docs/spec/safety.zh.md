@@ -1,4 +1,4 @@
-<!-- source-sha256: 22c8cbf4935123da45b67490237f4beb023b7fdf648dbfb81c10ab7c3b2b0244 -->
+<!-- source-sha256: d4176c1488413698b04439147e50833927a011bc19c42fdf8ae6c96cb66103bb -->
 
 # 安全性：目标陈述了什么
 
@@ -96,12 +96,12 @@ flowchart LR
 
 ## 已证明的内容与所作的假设
 
-**已证明。** 必需目标共 98 个，列在 `tests/audit/public-api.json` 中：
-86 个是某个有文档的函数的 `safety_goal`，另有 8 个在 `safety_goals` 列表里（四个序列目标、三个拒绝目标和 `gzvprintf` 的目标），
-还有 4 个 `nonvacuity_goals`。每个目标都有一条类型与它完全相同的定理，列在 `tests/audit/theorems.txt` 中；
-目标本身列在 `tests/audit/proved-goals.txt` 中。这一层级叫**已登记**。
-只有验收套件也在一个指明的提交上全部通过，结果才是**已验收**；
-[进度](../progress.md#scope)写明了这个提交。各层级的定义见[术语表](../glossary.md#status)。
+**已证明。** 必需目标写在 `tests/audit/public-api.json` 中：
+86 个有文档的函数各自的 `safety_goal`，`safety_goals` 列表里另外的目标（序列目标、拒绝目标和 `gzvprintf` 的目标），
+以及 `nonvacuity_goals`。每个目标都有一条类型与它完全相同的定理，列在 `tests/audit/theorems.txt` 中；
+目标本身列在 `tests/audit/proved-goals.txt` 中。
+每项结论的层级、它的验收运行所在的提交，以及目标的个数，记录在[进度](../progress.md#scope)中；
+各层级的定义见[术语表](../glossary.md#status)。
 
 **假设。**
 
@@ -299,7 +299,7 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 `ReadsFinite` 还说描述符编号不是负数。`gzopen` 只返回这样的句柄（写在 `GzOpenSafe` 中），
 而 `gzdopen` 对负的描述符返回 `NULL`（`zlib/gzlib.c`）。
 
-所以，已登记的安全目标恰好只容许一种错误结局：燃料用完，而且只出现在那六个 gzip 读取调用上，
+所以，安全目标恰好只容许一种错误结局：燃料用完，而且只出现在那六个 gzip 读取调用上，
 只在不假设读取预算的时候。对这些调用，目标分成两半：在每个世界里都没有未定义行为、没有内存错误；
 在该前提下终止。其他每个 gz 调用在每个世界里都终止。
 这两个前提在[偏离记录](../deviations.md)中各有一行。
@@ -379,8 +379,8 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 只对指向数组内部的指针定义了指针运算和指针减法，而空指针不指向任何数组元素。
 [N3261](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3261.pdf) 提议在以后的修订中给这两种空指针操作下定义；
 提案不是本项目 C 目标的规则。差分测试结果一致、sanitizer 没有报告，同样不能定论。
-运行时里 `Ptr.diff` 的注释说 C23 把 `NULL - NULL` 定义为零；这条注释不准确，
-它既不改变定义，也不改变 C 的规则。
+运行时里 `Ptr.diff` 的注释对减法说的是同一件事：C17 和 C23 都没有定义 `NULL - NULL`，
+因为两个操作数都不指向数组对象；C++ 把它定义为 0。
 
 ### 未初始化内存
 
@@ -394,7 +394,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 
 这一点在两个地方有影响：`slide_hash` 会访问从未写过的 `prev` 表项，
 `longest_match` 会比较真实输入之后的字节。对这些单元的每个取值，安全目标都成立：
-`Goal.deflate_safety` 已登记，而且它对每个堆全称量化。
+`Goal.deflate_safety` 对每个堆全称量化。
 至于压缩输出不依赖这些值，那是一个功能性命题。安全性不需要它，本项目也不声称它成立。
 
 **新分配内存中的指针在模型中是 NULL。这比 C 弱。** 模型的分配器造出的记录，每个指针字段都是 `NULL`
@@ -428,7 +428,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 
 - **功能正确性。** 输出字节是什么，调用返回哪个码。它不是安全结论所必需的；
   哪些功能结论在计划之内，见[进度，范围](../progress.md#scope)。
-  功能目标在 `ZlibF/Spec/Functional/` 中；已经证明的仍保持已登记，
+  功能目标在 `ZlibF/Spec/Functional/` 中；已经证明的予以保留，
   安全证明所依赖的功能性事实在范围之内。
   预期的行为见[格式](format/README.md)和 [API 契约](api/README.md)。
 - **其他配置。** 自定义分配器，以及默认 x86_64 Linux LP64 静态构建之外的每一种构建。
@@ -474,5 +474,5 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 
 `tests/audit/public-api.json` 是审计所用的清单。它为每个函数给出一个 `safety_goal` 和一个 `functional_goal`。
 必需集合是每个 `safety_goal`、`safety_goals` 列表和 `nonvacuity_goals` 列表。
-`open_safety` 列表列出还没有已登记定理的必需目标；它是空的。
+`open_safety` 列表列出还没有定理的必需目标（有没有这样的目标，见[进度](../progress.md#scope)）。
 `zlib.h` 在“undocumented functions”（未文档化的函数）注释之下声明的函数没有必需目标，只有 `gzvprintf` 例外：它的目标 `Goal.gzvprintf_safety` 在 `safety_goals` 列表里。

@@ -1,4 +1,4 @@
-<!-- source-sha256: b5b65d1a7ab6574e3c03ec6cd694f6a53faf649eb4bd06f317a8e5b1a76580c1 -->
+<!-- source-sha256: ca874628556c01a5c02fe3694607074888a4985eba413ff07a1fb18c8b2bb9c2 -->
 # 模型的限制
 
 本页列出模型的一类限制：zlib 的调用者对它们无法采取任何行动。它们分三类：目标作为前提陈述的、对模型中的堆的条件；运行时表示 C 的内存和库调用时所作的选择；以及功能定理和模型定理的限制，必需的安全目标都不依赖它们。调用者的义务在另一页：[偏离记录](deviations.md)。被信任的东西概括在[可信基础](trusted-base.md)中，本页是其中第 2 项的细节。
@@ -60,7 +60,7 @@
 | 每个单元一个任意初值 | 关于整数的定理对每个 `Heap.garbage` 量化，它以分配尝试和单元位置为下标。但对同一个单元的多次读取结果仍然一致。在 C 允许未指定的值不稳定的地方，证明不得依赖这种一致。 |
 | 数组的范围是谓词 | `WellFormed`、`Heap.RecordsWellFormed` 和 `Statics.WellFormed` 必须确立 C 中的长度。生成的保持引理保留它们。静态内容必须与定义它们的 C 翻译相符；运行时不把它们与 C 作比较。 |
 | 指针相等是结构相等 | 不同对象比较为不等；悬空指针的相等比较不出故障。证明不得依赖 C 不保证的结果，包括相邻对象边界处的相等。关系比较要求两个指针在同一个存活的数组里。 |
-| NULL 指针算术部分被允许 | `Ptr.add NULL 0` 返回 NULL。`Ptr.diff` 拒绝 NULL 参数，而 `Compress.ptrDiff` 对两个 NULL 返回零。这些选择都需要对相应的 C 调用另作“有定义”的论证。源码中 `Ptr.diff` 的注释把 NULL 指针相减归到 C23 名下，这并不准确；见[操作与语言对照](spec/safety.md#null-pointers-and-pointer-differences)。 |
+| NULL 指针算术部分被允许 | `Ptr.add NULL 0` 返回 NULL。`Ptr.diff` 拒绝 NULL 参数，而 `Compress.ptrDiff` 对两个 NULL 返回零。这些选择都需要对相应的 C 调用另作“有定义”的论证。源码中 `Ptr.diff` 的注释说，C17 和 C23 都没有定义 `NULL - NULL`，而 C++ 把它定义为 0；见[操作与语言对照](spec/safety.md#null-pointers-and-pointer-differences)。 |
 | 地址与布局模型不完整 | 没有通用的 ABI 地址、有效类型或“记录的字节视图”模型。CRC 观察地址的低位：堆字节块沿用对齐的起点；静态的和内嵌的字节起点有任意而稳定的余数。这些余数是堆的元数据，不是可写的字节：任何写入都不改变它们。按字节拼出的字加载，不能定论 C 强制转换的别名语义。标量单元的适配器可能略去别名；有八个公开函数的结果单元是值而不是内存（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。`z_stream` 记录放在单独的表里，所以与缓冲区或另一个记录部分重叠的记录无法表达（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)，“复制的目的流”一行）。 |
 | 只读标记不完整 | 字节块、具名的静态表和实例可以是只读的。字块和表中的记录无法表示这个限定。 |
 | 指针构造的检查不完整 | `Ptr.add` 检查它的结果，但不检查手工构造的起始偏移是否有效。翻译审查必须排除对公开构造器 `Ptr.ref` 的无效使用。 |
@@ -76,7 +76,7 @@
 
 ## 功能命题与模型命题
 
-下面各行限制的是功能目标、API 模型和内部引理。必需的安全目标都不依赖它们。它们仍然列在这里，是因为它们所限制的定理保持登记。安全结论不需要功能目标（[范围](progress.md#scope)）。
+下面各行限制的是功能目标、API 模型和内部引理。必需的安全目标都不依赖它们。它们仍然列在这里，是因为它们所限制的定理予以保留。安全结论不需要功能目标（[范围](progress.md#scope)）。
 
 | 领域 | 目前的限制 | 后果 |
 | --- | --- | --- |
@@ -90,6 +90,6 @@
 | 高级操作的组合 | 预置比特、头部和恢复各自保留具体的、按条目划分的目标 | 这组目标并不是对每种组合的完整操作性细化。证明不得为了回避义务而选择或清除历史上的资格标记。 |
 | 快速解码辅助函数 | 局部的执行引理和比特来源引理假设：输入和输出是原始字节块（不同的块，或同一块中不相交的范围），窗口所在的块不是输出块，有六个输入字节、258 个输出字节，进入时的比特数小于八，并且处于 `sane` 模式 | 这些是内部前提，由构造和初始化的不变量来确立。它们既不限制、也不证明公开的 inflate 目标。 |
 | 窗口参数被接受时的 inflate 初始化 | `inflate_init2_valid_public` 假设 `Api.inflWbits wb.toInt = some (wrap, bits)` | 对被接受的裸、zlib、gzip 和自动检测窗口参数，它保留现有的初始化契约，包括所有分配结果、ABI 与版本的拒绝，以及 NULL 流的拒绝。无效的窗口参数被显式排除；`Goal.inflateInit2_` 的命题及其记录在案的清理契约问题没有变化。 |
-| Gz 文件数据 | 功能性的 gz 契约（`FileData`、`CloseContract`、`GzWriterFormat`、读写的值），以及已登记的目标 `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`（前提 `RegularOs fs`），都是针对“每个系统调用都按普通文件行事”的世界（`RegularOs`）陈述的 | 它们描述的是普通文件。预言的 `lseek` 可以返回而不移动描述符，某些 Linux 设备就是这样；在那里，偏移值和倒回的结果不成立（[回归](../tests/verification/regressions/gz-offset-regular-world.lean)）。安全目标不使用这些契约。`gzoffset64`、`gzoffset` 和 `gzrewind` 在每个世界上的安全性是 `Goal.gz_sequence_safety` 的一部分，该目标已登记，没有 `RegularOs` 前提。文件系统的权限、父目录、链接、属主和加锁都没有表示；它们对每次调用的影响由预言的失败来涵盖。 |
+| Gz 文件数据 | 功能性的 gz 契约（`FileData`、`CloseContract`、`GzWriterFormat`、读写的值），以及目标 `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`（前提 `RegularOs fs`），都是针对“每个系统调用都按普通文件行事”的世界（`RegularOs`）陈述的 | 它们描述的是普通文件。预言的 `lseek` 可以返回而不移动描述符，某些 Linux 设备就是这样；在那里，偏移值和倒回的结果不成立（[回归](../tests/verification/regressions/gz-offset-regular-world.lean)）。安全目标不使用这些契约。`gzoffset64`、`gzoffset` 和 `gzrewind` 在每个世界上的安全性是 `Goal.gz_sequence_safety` 的一部分，该目标已登记，没有 `RegularOs` 前提。文件系统的权限、父目录、链接、属主和加锁都没有表示；它们对每次调用的影响由预言的失败来涵盖。 |
 
 中间 deflate 定理的前提，以及局部的打开、关闭和预置比特引理的前提，收窄的是引理，从不是公开目标。它们保存在[deflate 内部证明范围](history/deviations-internal-scopes.md)中。

@@ -105,12 +105,12 @@ facts.
 
 ## What is proved, what is assumed
 
-**Proved.** The required set has 98 goals in `tests/audit/public-api.json`: 86 that are the
-`safety_goal` of a documented function, 8 more in the list `safety_goals` (four sequence goals,
-three refusal goals and the goal of `gzvprintf`), and 4 `nonvacuity_goals`. Each has a theorem of exactly its type, listed in
-`tests/audit/theorems.txt`, and each goal is listed in `tests/audit/proved-goals.txt`. This
-level is called **registered**. A result is **accepted** only when the acceptance suite is also
-green on a named commit; [progress](../progress.md#scope) names that commit. The
+**Proved.** The required goals are named in `tests/audit/public-api.json`: the `safety_goal` of
+each of the 86 documented functions, the further goals of the list `safety_goals` (the sequence
+goals, the refusal goals and the goal of `gzvprintf`), and the `nonvacuity_goals`. Each has a
+theorem of exactly its type, listed in `tests/audit/theorems.txt`, and each goal is listed in
+`tests/audit/proved-goals.txt`. The level of each result, the commit of its acceptance run and
+the number of goals are recorded in [progress](../progress.md#scope); the
 [glossary](../glossary.md#status) defines the levels.
 
 **Assumed.**
@@ -333,7 +333,7 @@ because the C itself may not terminate there:
 handles (stated in `GzOpenSafe`), and `gzdopen` returns `NULL` for a negative descriptor
 (`zlib/gzlib.c`).
 
-So a registered safety goal allows exactly one error outcome: out of fuel, for the six gzip
+So the safety goals allow exactly one error outcome: out of fuel, for the six gzip
 reading calls, when the read budget is not assumed. For those calls the goal has two halves:
 no undefined behaviour and no memory error in every world, and termination under the premise.
 Every other gz call terminates in every world. Both premises are rows of
@@ -421,8 +421,9 @@ define pointer arithmetic and subtraction only for pointers into an array, and a
 points to no array element. [N3261](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3261.pdf)
 proposes to define the two null operations in a later revision; a proposal is not a rule of
 this project's C target. A differential test that agrees and a silent sanitizer do not settle
-it either. The comment on `Ptr.diff` in the runtime says that C23 defines `NULL - NULL` as
-zero; that comment is inaccurate, and it changes neither the definition nor the C rule.
+it either. The comment on `Ptr.diff` in the runtime says the same about the subtraction: C17 and
+C23 leave `NULL - NULL` undefined, since neither operand points into an array object, and C++
+defines it as 0.
 
 ### Uninitialised memory
 
@@ -437,7 +438,7 @@ agreement to justify C behaviour. Copying bytes copies these values.
 
 This matters in `slide_hash`, which visits `prev` entries that were never written, and in
 `longest_match`, which compares bytes beyond the real input. The safety goals hold for every
-value of those cells: `Goal.deflate_safety` is registered, and it quantifies over every heap.
+value of those cells: `Goal.deflate_safety` quantifies over every heap.
 That the compressed output does not depend on those values is a functional statement. It is
 not needed for safety and is not claimed.
 
@@ -482,7 +483,7 @@ well-formedness" and "CRC address and word access", and
 - **Functional correctness.** What the output bytes are and which code a call returns. It is
   not required for the safety results; [progress, Scope](../progress.md#scope) says which
   functional results are planned. The functional goals are in `ZlibF/Spec/Functional/`;
-  those already proved stay registered, and a functional fact that a safety proof depends on
+  those already proved are kept, and a functional fact that a safety proof depends on
   is in scope. The [format](format/README.md) and the [API contracts](api/README.md) describe
   the intended behaviour.
 - **Other configurations.** Custom allocators and every build other than the default x86_64
@@ -535,6 +536,6 @@ decoder from `ZlibF/Spec/Api/Gz.lean`. The functional gz and callback goals
 `tests/audit/public-api.json` is the list the audit uses. For each function it gives a
 `safety_goal` and a `functional_goal`. The required set is every `safety_goal`, the list
 `safety_goals` and the list `nonvacuity_goals`. The list `open_safety` names required goals
-that have no registered theorem; it is empty. The functions that `zlib.h` declares under
+that have no theorem yet ([progress](../progress.md#scope) says whether there is one). The functions that `zlib.h` declares under
 "undocumented functions" have no required goal, except `gzvprintf`: its goal
 `Goal.gzvprintf_safety` is in the list `safety_goals`.
