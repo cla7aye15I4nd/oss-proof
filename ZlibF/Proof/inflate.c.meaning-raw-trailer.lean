@@ -119,7 +119,7 @@ theorem trip_type_final_raw : TripTypeFinalRaw := by
     refine ⟨_, _, _, run.trans (inflate_TYPEDO_last E l last), Or.inr (Or.inr ⟨rfl, raw, zs,
       { s with mode := CHECK }, E.st, setI_istates_same _ _ _, rfl, ?_⟩)⟩
     rw [setI_setI]
-    exact final_raw_loop loop E.st E.hs mode last raw
+    exact final_raw_loop (s := s) loop E.st E.hs mode last raw
   by_cases isType : s.mode = TYPE
   · rw [ite_cond_eq_true _ _ (eq_true isType)] at dispatch
     by_cases flush : c.flush = Z_BLOCK ∨ c.flush = Z_TREES
