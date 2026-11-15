@@ -1,21 +1,21 @@
-<!-- source-sha256: 001b57799e274d18a0cfb15643a33d8408c06497ec2b5568741391b6603720a7 -->
+<!-- source-sha256: 485b1370077808067fe412fd315e7b317a1bfbde9a8fd9f911c3b58352caee3e -->
 # `deflate` 的默认配置引擎
 
 本页介绍早先的一批结论，它们针对 `deflate` 的一种配置：由 `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` 创建的流（级别 6，zlib 封装，`windowBits` 为 15，`memLevel` 为 8，默认策略），并且只通过 `deflate` 调用来使用。对这种配置，结论说的不止是安全性：已完成的流能解码回它的输入。
 
-它们是功能结论。它们已登记，但不是安全结论所必需的。`deflate` 对每一种配置的安全性是另一个证明，见[流式压缩](deflate.md)；那个证明复用了这里的引理。
+它们是功能结论。它们已证明，但不是安全结论所必需的。`deflate` 对每一种配置的安全性是另一个证明，见[流式压缩](deflate.md)；那个证明复用了这里的引理。
 
 ## 结论
 
-模块在 `ZlibF/Proof/` 下。目标在 `ZlibF/Spec/Public/DeflateCore.lean` 中。已登记的定理在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)）。
+模块在 `ZlibF/Proof/` 下。目标在 `ZlibF/Spec/Public/DeflateCore.lean` 中。表中的定理列在 `tests/audit/theorems.txt` 中；每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
-| 结论 | 定理 | 模块 | 层级 |
-| --- | --- | --- | --- |
-| `DeflateCore.SafeEncodingAndCleanup`：下面的四个子句 | `DeflateCore.safe_encoding_and_cleanup` | `deflate.c.default-core.lean` | 已登记 |
-| `DeflateCore.Completes`：从历史中流尚未结束的一点出发，存在一串后续的 `Z_FINISH` 调用，最终到达 `Z_STREAM_END`；前提和这串后续调用的形式见下文 | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` | 已登记 |
-| 两者合在一起 | `DeflateCore.correct` | `deflate.c.default-core-completes.lean` | 已登记 |
-| 在默认历史上，`Goal.deflate` 的结论成立 | `generic_default_public_contract` | `deflate.c.default-public-contract.lean` | 已登记 |
-| 前提可以被满足：具体的历史 | `generic_default_request_trace_witness`、`default_public_full_contract_witness` 以及其他 `*_witness` 定理 | `deflate.c.default-public-contract.lean`、`deflate.c.engine.full-contract-witness.lean` | 已登记 |
+| 结论 | 定理 | 模块 |
+| --- | --- | --- |
+| `DeflateCore.SafeEncodingAndCleanup`：下面的四个子句 | `DeflateCore.safe_encoding_and_cleanup` | `deflate.c.default-core.lean` |
+| `DeflateCore.Completes`：从历史中流尚未结束的一点出发，存在一串后续的 `Z_FINISH` 调用，最终到达 `Z_STREAM_END`；前提和这串后续调用的形式见下文 | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` |
+| 两者合在一起 | `DeflateCore.correct` | `deflate.c.default-core-completes.lean` |
+| 在默认历史上，`Goal.deflate` 的结论成立 | `generic_default_public_contract` | `deflate.c.default-public-contract.lean` |
+| 前提可以被满足：具体的历史 | `generic_default_request_trace_witness`、`default_public_full_contract_witness` 以及其他 `*_witness` 定理 | `deflate.c.default-public-contract.lean`、`deflate.c.engine.full-contract-witness.lean` |
 
 `SafeEncodingAndCleanup` 的四个子句：
 
@@ -37,7 +37,7 @@
 
 ## 建立在这些结论之上的往返
 
-`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）已检查而未登记。它把本页“已完成的编码”这条结论与 `inflate` 的对应结论接在一起。取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史；两者都由调用者的修改和带任意刷新值的调用组成，并且都以一次返回 `Z_STREAM_END` 的调用结束。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。这条定理是有条件的：它假设两段历史都到达 `Z_STREAM_END`。完备性，以及需要它的无条件往返，尚未证明。
+`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）把本页“已完成的编码”这条结论与 `inflate` 的对应结论接在一起。取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史；两者都由调用者的修改和带任意刷新值的调用组成，并且都以一次返回 `Z_STREAM_END` 的调用结束。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。这条定理是有条件的：它假设两段历史都到达 `Z_STREAM_END`。完备性，以及需要它的无条件往返，是计划内的工作；往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。
 
 ## 通用证明复用了什么
 
@@ -50,7 +50,7 @@
 
 ## 引擎证明中的三个部分是怎样做的
 
-本节提到的定理已检查而未登记。它们在上面那些已登记定理的证明内部。
+本节提到的定理是引理。它们在上面那些定理的证明内部。
 
 ### 结束 zlib 封装
 

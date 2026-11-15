@@ -1,4 +1,4 @@
-<!-- source-sha256: f2879c09212685e1072bfc7109b624f1f41e7962cb0749ce15e0893d93a17798 -->
+<!-- source-sha256: 771b40e43c6d7e251e636841f9ab9d4efd6af0d2212b3275e87ffe961486779d -->
 # 树与块输出：块刷新为什么是安全的
 
 源文件：`zlib/trees.c`，符号布局在 `zlib/deflate.h` 中。翻译：`ZlibF/Zlib/trees.c.lean`。
@@ -9,21 +9,21 @@
 
 ## 结论
 
-模块在 `ZlibF/Proof/` 下。“已登记”的定理在提交 `bde170e9` 上已验收。“已检查”的定理本身不在登记表里；它们在已登记定理 `Zlib.Deflate.Universal.deflate_sequence_safety` 的证明内部（[层级](README.md#status-levels)）。
+模块在 `ZlibF/Proof/` 下。表中的定理服务于 `Zlib.Deflate.Universal.deflate_sequence_safety` 的证明，即 `deflate` 的序列定理：其中多数是那个证明内部的引理。那项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
-| 结论 | 定理 | 模块 | 层级 |
-| --- | --- | --- | --- |
-| 给定动态形式的共用缓冲区余量，`FLUSH_BLOCK_ONLY` 对每种块形式、每个 `memLevel` 都安全 | `flush_block_only_safe`，来自 `tr_flush_block_safe` | `trees.c.universal-flush.lean`、`trees.c.universal-block.lean` | 已检查 |
-| 三种块形式 | `stored_block_safe`、`fixed_block_safe`、`dynamic_block_safe` | `trees.c.universal-stored.lean`、`-fixed.lean`、`-dynamic.lean` | 已检查 |
-| 共用缓冲区余量 F9，`B ≥ 2048`（`memLevel ≥ 5`） | `dynamic_overlay_large` | `trees.c.universal-block.lean` | 已检查 |
-| 共用缓冲区余量 F9，`B = 512` 和 `1024`（`memLevel` 为 3 和 4） | `dynamic_overlay_mid` | `trees.c.universal-overlay-mid.lean` | 已检查 |
-| 共用缓冲区余量 F9，`B = 256` 和 `128`（`memLevel` 为 2 和 1） | `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay` | `deflate.c.engine.overlay-header-ref.lean` | 已登记 |
-| 对权重小于 1597 的树，`gen_bitlen` 不会缩短任何编码 | `ws_gen_bitlen_fib_plus` | `trees.c.universal-overlay-fibplus.lean` | 已检查 |
-| 堆操作、`gen_bitlen`、位输出和符号记录 | `pqdownheap_safe`、`pqremove_safe`、`gen_bitlen_safe`、`kraft_clamped`、`send_bits_spec`、`bi_flush_spec`、`bi_windup_spec`、`bi_reverse_safe`、`init_block_spec`、`tr_init_spec`、`tr_tally_spec` | `trees.c.heap.*.lean`、`trees.c.bits.lean`、`trees.c.tally.lean` 以及它们旁边的模块 | 已登记 |
+| 结论 | 定理 | 模块 |
+| --- | --- | --- |
+| 给定动态形式的共用缓冲区余量，`FLUSH_BLOCK_ONLY` 对每种块形式、每个 `memLevel` 都安全 | `flush_block_only_safe`，来自 `tr_flush_block_safe` | `trees.c.universal-flush.lean`、`trees.c.universal-block.lean` |
+| 三种块形式 | `stored_block_safe`、`fixed_block_safe`、`dynamic_block_safe` | `trees.c.universal-stored.lean`、`-fixed.lean`、`-dynamic.lean` |
+| 共用缓冲区余量 F9，`B ≥ 2048`（`memLevel ≥ 5`） | `dynamic_overlay_large` | `trees.c.universal-block.lean` |
+| 共用缓冲区余量 F9，`B = 512` 和 `1024`（`memLevel` 为 3 和 4） | `dynamic_overlay_mid` | `trees.c.universal-overlay-mid.lean` |
+| 共用缓冲区余量 F9，`B = 256` 和 `128`（`memLevel` 为 2 和 1） | `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay` | `deflate.c.engine.overlay-header-ref.lean` |
+| 对权重小于 1597 的树，`gen_bitlen` 不会缩短任何编码 | `ws_gen_bitlen_fib_plus` | `trees.c.universal-overlay-fibplus.lean` |
+| 堆操作、`gen_bitlen`、位输出和符号记录 | `pqdownheap_safe`、`pqremove_safe`、`gen_bitlen_safe`、`kraft_clamped`、`send_bits_spec`、`bi_flush_spec`、`bi_windup_spec`、`bi_reverse_safe`、`init_block_spec`、`tr_init_spec`、`tr_tally_spec` | `trees.c.heap.*.lean`、`trees.c.bits.lean`、`trees.c.tally.lean` 以及它们旁边的模块 |
 
 `B` 是 `lit_bufsize = 2^(memLevel + 6)`。因为 F9 对 `memLevel` 的全部九个值都证明了，所以 `deflate` 的序列定理没有关于它的前提。
 
-也有功能定理（`gen_bitlen_correct`、`pqdownheap_correct`、`bi_reverse_correct` 等：码长构成完整的前缀码，写出的位就是想写的位）。它们已登记，但不是安全结论所必需的。没有定理说写出的块能解码回已记录的符号。关于这样的证明需要涵盖什么，早先的笔记保存在[历史](../history/proof-functional-notes.md)中。
+也有功能定理（`gen_bitlen_correct`、`pqdownheap_correct`、`bi_reverse_correct` 等：码长构成完整的前缀码，写出的位就是想写的位）。它们已证明，但不是安全结论所必需的。没有定理说写出的块能解码回已记录的符号。关于这样的证明需要涵盖什么，早先的笔记保存在[历史](../history/proof-functional-notes.md)中。
 
 ## 假设
 
@@ -133,7 +133,7 @@ overflow -= 2;
 
 **第二遍。** C 重新分发码长：有 `bl_count[bits]` 个叶子得到码长 `bits`，这些叶子取自 `heap[--h]`，内部结点被跳过。已存放的结点里有 `n` 个叶子，而 `Σ bl_count = n`，所以 `h` 不会降到 `heap_max` 之下。
 
-`gen_bitlen_safe`（`trees.c.heap.gbtop.lean`，已登记）涵盖整个函数。
+`gen_bitlen_safe`（`trees.c.heap.gbtop.lean`）涵盖整个函数。
 
 ### 编码与树的描述
 

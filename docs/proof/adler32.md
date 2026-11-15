@@ -20,9 +20,8 @@ specifies null buffers, wrappers and combination operations. Terms:
 | `Goal.adler32_combine`, `Goal.adler32_combine64` | Functional | `combine_public`, `combine64_public` | `ZlibF/Proof/public-adler-combine.lean` |
 | The local execution results behind them | Both | `adler32_z_safe`, `adler32_z_correct`, `adler32_z_correct_ne_one`, `adler32_combine_safe`, `adler32_combine_correct` | `ZlibF/Proof/adler32.c.lean` |
 
-All of these are [registered](../checking/README.md) in `tests/audit/theorems.txt`
-and [accepted](../checking/README.md) on commit `bde170e9`
-([progress, Scope](../progress.md#scope)).
+All of these are listed in `tests/audit/theorems.txt`.
+[progress, Scope](../progress.md#scope) records the level of each result.
 
 A safety goal says that the call returns without a fault and leaves the heap
 exactly as it was. Each safety theorem is the full contract of the same function

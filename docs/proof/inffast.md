@@ -15,37 +15,37 @@ how the translation follows the C are in the
 
 ## Results
 
-| Result | Theorem | Module under `ZlibF/Proof/` | Level |
-| --- | --- | --- | --- |
-| `Goal.fast_safe` (`ZlibF/Spec/InflateFast.lean`): under the entry conditions, the call returns without a fault; the postcondition `FastPost` says exactly what changed | `inflate_fast_safe` | `inffast.c.final.lean` | registered |
-| One round of the loop is safe: at most 6 bytes read, at most 258 written, at least one written if the loop continues (`Goal.step_safe`) | `inflate_fast_body_step_safe` | `inffast.c.body.lean` | registered |
-| The static fixed tables have the table shape | `lenfix_tableSafe`, `distfix_tableSafe` | `inffast.c.tableok.lean` | registered |
-| The same safety statement, and: a call that does not end in mode `TYPE` or `BAD` leaves less output room than it found | `inflate_fast_safe_progress` | `inffast.c.progress.lean` | checked |
-| The same, and: a call never increases `bits + 8 * avail_in`, and lowers it unless it ends in `TYPE` or `BAD` | `fast_consumes` | `inffast.c.consume.lean` | checked |
+| Result | Theorem | Module under `ZlibF/Proof/` |
+| --- | --- | --- |
+| `Goal.fast_safe` (`ZlibF/Spec/InflateFast.lean`): under the entry conditions, the call returns without a fault; the postcondition `FastPost` says exactly what changed | `inflate_fast_safe` | `inffast.c.final.lean` |
+| One round of the loop is safe: at most 6 bytes read, at most 258 written, at least one written if the loop continues (`Goal.step_safe`) | `inflate_fast_body_step_safe` | `inffast.c.body.lean` |
+| The static fixed tables have the table shape | `lenfix_tableSafe`, `distfix_tableSafe` | `inffast.c.tableok.lean` |
+| The same safety statement, and: a call that does not end in mode `TYPE` or `BAD` leaves less output room than it found | `inflate_fast_safe_progress` | `inffast.c.progress.lean` |
+| The same, and: a call never increases `bits + 8 * avail_in`, and lowers it unless it ends in `TYPE` or `BAD` | `fast_consumes` | `inffast.c.consume.lean` |
 
-The registered theorems are accepted on commit `bde170e9`
-([levels](README.md#status-levels)). The two checked theorems are not in the registry
-themselves. The registered `inflate_fast_safe` is stated for the entry conditions of `inflate`
-(`Env`). The two checked theorems are stated for the entry conditions of both callers (`EnvG`).
+`inflate_fast_safe` is stated for the entry conditions of `inflate` (`Env`). The last two
+theorems of the table, `inflate_fast_safe_progress` and `fast_consumes`, are stated for the
+entry conditions of both callers (`EnvG`); they are lemmas inside the proofs of the callers.
+The level of each result is recorded in [progress, Scope](../progress.md#scope).
 
 How the callers use these theorems:
 
 - **`inflateBack`.** `fast_env` (`infback.c.safety-fast.lean`) proves the entry conditions.
-  `LEN_fast_p` in the same file takes them from it and applies `fast_consumes`. This is inside the proof of the registered
+  `LEN_fast_p` in the same file takes them from it and applies `fast_consumes`. This is inside the proof of
   `inflate_back_sequence_safety`. It is what makes the call from `inflateBack` safe, and it
   gives termination of that caller's loop.
 - **`inflate`, input and output in two different heap blocks.** `inflate_fast_raw_entry`
   (`inflate.c.fast-entry.lean`) proves the entry conditions under that premise, and
   `inflate_fast_safe_progress` is applied to them.
-- **`inflate`, every layout.** The registered `inflate_sequence_safety_public` allows the input
+- **`inflate`, every layout.** `inflate_sequence_safety_public` allows the input
   and the output to be two ranges of one block. For the fast call its proof uses
-  `inflate_fast_default_view_buffers_progress` (`inflate.c.fast-view-public-step.lean`, checked,
-  not registered). That theorem has no premise on the blocks. It is a second proof of the same
+  `inflate_fast_default_view_buffers_progress` (`inflate.c.fast-view-public-step.lean`), a lemma
+  of that proof. That theorem has no premise on the blocks. It is a second proof of the same
   translated function, stated on the caller's ranges and the decoder invariant
   (`inflate.c.fast-view-*.lean`); it does not use `EnvG`. `fast_consumes` is not used for
   `inflate`. See [stream decoding](inflate.md#the-fast-path).
-- **`inflate`, functional results.** `inflate_fast_entry` (`inflate.c.meaning-fast.lean`,
-  checked, not registered) proves the entry conditions for every layout. The functional
+- **`inflate`, functional results.** `inflate_fast_entry` (`inflate.c.meaning-fast.lean`)
+  proves the entry conditions for every layout. The functional
   theorem `fast_call_meaning` uses it; the safety results do not.
 
 `FastPost` says: the stream's `next_in`, `avail_in`, `next_out`, `avail_out` and `msg` and the
@@ -258,7 +258,7 @@ array, not a separate view of "old" and "new" bytes.
 
 ## Functional results
 
-These results say what the fast decoder computes. They are registered, and they are not
+These results say what the fast decoder computes. They are proved, and they are not
 required for the safety results.
 
 | Result | Theorems | Modules |
@@ -268,11 +268,11 @@ required for the safety results.
 | A match copy is the LZ77 copy of the format | `actual_distance_refines_lz77`, `actual_copy_match_refines_lz77` | `inffast.c.distance-result.lean`, `inffast.c.match-history.lean` |
 
 For these the invariant is larger: it relates the consumed bits to the source stream and the
-window contents to the earlier output. `fast_call_meaning` (`inflate.c.meaning-fast.lean`,
-checked, not registered) carries the meaning through the fast branch of `LEN` in `inflate`, for
+window contents to the earlier output. `fast_call_meaning` (`inflate.c.meaning-fast.lean`)
+carries the meaning through the fast branch of `LEN` in `inflate`, for
 input and output in any byte objects: after the call the decoded tokens still parse as the
 format says, or the mode is `BAD` and the input read has no valid completion. It is a step of
-the conditional round trip, which is checked and neither registered nor accepted
+the conditional round trip
 ([stream decoding](inflate.md#functional-results)). Bytes read ahead and given back play no
 part in the meaning of a decoded symbol; see [stream decoding](inflate.md#causality-and-history-across-calls). An earlier note
 on what the functional invariant has to carry is kept in the

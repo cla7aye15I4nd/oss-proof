@@ -1,4 +1,4 @@
-<!-- source-sha256: 5aad162343f8e1f6b77f29f3fbfe4e0efb216a7cb5a35108587448630a906205 -->
+<!-- source-sha256: c6bf503c97eb2f0527e279097bfe8707c8a69ebf8044b06795b5234742aeebc3 -->
 # CRC-32：字节范围、编织与多项式含义
 
 CRC-32 函数在其文档给出的定义域上是安全的：它们会返回，只读调用者的缓冲区和静态表，并且让堆保持不变。它们还返回 CRC-32 的值；那一部分是功能性的，不是安全结论所必需的。本页解释为什么每次读取都在范围之内，对齐测试是怎样建模的，以及各个值定理陈述了什么。
@@ -16,7 +16,7 @@ CRC-32 函数在其文档给出的定义域上是安全的：它们会返回，�
 | 堆上的字节块以及辅助函数 | 两者 | `crc32_z_safe`、`crc32_z_correct`、`multmodp_safe`、`multmodp_correct`、`x2nmodp_safe`、`x2nmodp_correct`，以及合并的各项结论 | `ZlibF/Proof/crc32.c.lean` |
 | `get_crc_table` | 非必需：`zlib.h` 把它列为未文档化的函数 | `get_crc_table` | `ZlibF/Proof/public-get-crc-table.lean` |
 
-以上全部[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
+以上全部列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 安全目标说的是：调用在没有故障的情况下返回，并且让堆与原来完全一样。每个安全定理都是同一个函数的完整契约去掉值之后的部分。
 

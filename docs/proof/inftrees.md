@@ -13,8 +13,8 @@ arithmetic of canonical codes that they rest on.
 
 ## Results
 
-All theorems in this table are registered in `tests/audit/theorems.txt` and accepted on commit
-`bde170e9` ([levels](README.md#status-levels)). Modules are under `ZlibF/Proof/`.
+All theorems in this table are listed in `tests/audit/theorems.txt`. The level of each result
+is recorded in [progress, Scope](../progress.md#scope). Modules are under `ZlibF/Proof/`.
 
 | Result | Theorem | Module |
 | --- | --- | --- |
@@ -26,10 +26,10 @@ All theorems in this table are registered in `tests/audit/theorems.txt` and acce
 | `inflate_fixed` points the state at the two static tables and changes four fields | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
 | For `LENS` and `DISTS`, after a call that returns 0: an entry that the slow decoder accepts with few bits held stays the same when more bits arrive | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
 
-One more theorem is checked and not registered: `inflate_table_len_leaves_positive`
+One more theorem is a lemma: `inflate_table_len_leaves_positive`
 (`inftrees.c.decoder-safe.lean`). It says that, after a `LENS` call that returns 0, every
 literal/length leaf of the table uses at least one bit. Both callers use it, inside the proofs
-of the two registered sequence theorems. `inflate` needs it for clause `tables` of
+of the two sequence theorems. `inflate` needs it for clause `tables` of
 [its invariant](inflate.md#the-invariant), which includes this fact
 (`inflate.c.dynamic-install.lean`). The callback decoder needs it for termination
 (`infback.c.safety-table-lens.lean`; [fast decoding](inffast.md#assumptions)).
@@ -299,7 +299,7 @@ This and the other notes on how the translation follows `inftrees.c` are in the
 
 ## Functional results
 
-These results say what the entries mean. They are registered, and they are not required for the
+These results say what the entries mean. They are proved, and they are not required for the
 safety results.
 
 | Result | Theorems | Modules |

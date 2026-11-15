@@ -18,9 +18,8 @@ contracts are in the [API page](../spec/api/utility.md). Terms: [glossary](../gl
 | `Goal.zError` | Not required: `zlib.h` lists `zError` as undocumented | `zError` | `ZlibF/Proof/public-zerror.lean` |
 | The allocator wrappers `zcalloc` and `zcfree` | Internal, used by every stream proof | `zcalloc_safe`, `zcalloc_correct_some`, `zcalloc_correct_size`, `zcalloc_correct_none`, `zcfree_safe`, `zcfree_correct`, `zcfree_correct_null`, `zcalloc_zcfree_no_leak` | `ZlibF/Proof/zutil.c.lean` |
 
-All of these are [registered](../checking/README.md) in `tests/audit/theorems.txt` and
-[accepted](../checking/README.md) on commit `bde170e9`
-([progress, Scope](../progress.md#scope)).
+All of these are listed in `tests/audit/theorems.txt`.
+[progress, Scope](../progress.md#scope) records the level of each result.
 
 `zcalloc` and `zcfree` are not public functions. Leak freedom of a stream is a clause of the
 sequence safety theorems of [inflate](inflate.md) and [deflate](deflate.md), which use these
@@ -100,5 +99,5 @@ overflow for an arbitrary `int`. The value 169 holds for this build only: other 
 build options give other flags.
 
 A constant return is still an exact contract. The [proof mutants](../checking/proof-mutants.md)
-test it: a copy of the translation that returns a wrong version pointer, or one with a changed
+of these functions test it: a copy of the translation that returns a wrong version pointer, or one with a changed
 flag bit, no longer passes the proof of that function.

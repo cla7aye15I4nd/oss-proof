@@ -1,4 +1,4 @@
-<!-- source-sha256: bed9bc6eec105419f2f02b0e202dfccc1cab96eba049fc1ef83dea13d539b866 -->
+<!-- source-sha256: 900dcde4f258b0b551d98329aeeef6fd8896a95e8f3ca8ad991af5c16e2a8aa9 -->
 # `uncompress*` 的安全性
 
 `uncompress`、`uncompress_z`、`uncompress2` 和 `uncompress2_z` 在满足下列前提的每个输入上都是安全的，不论源字节是什么：调用会返回，没有未定义行为，只写目的缓冲区和长度单元，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -14,7 +14,7 @@
 | `Goal.uncompress_z_safe` | `uncompress_z_safe` | 同上 |
 | `Goal.uncompress_safe` | `uncompress_safe` | 同上 |
 
-这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
+这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 这些目标是 `UncompressCountedSafe` 和 `UncompressSingleSafe`（`ZlibF/Spec/Public/Utilities.lean`）的实例。对满足下列前提的每个输入：
 

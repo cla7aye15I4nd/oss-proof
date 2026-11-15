@@ -15,10 +15,8 @@ internal contract of `updatewindow` is `I-uw-*` in
 
 ## Results
 
-All theorems below are registered in `tests/audit/theorems.txt`. They are accepted on commit
-`bde170e9`, with one exception: the two initialisation goals were widened after that commit, so
-they are registered in the form shown here and accepted in their earlier, narrower form. The
-levels are defined in [the proof map](README.md#status-levels).
+All theorems below are listed in `tests/audit/theorems.txt`. The level of each result is
+recorded in [progress, Scope](../progress.md#scope).
 
 | Goal | What it says | Theorem | Module under `ZlibF/Proof/` |
 | --- | --- | --- | --- |
@@ -49,7 +47,7 @@ The per-function theorems are part 2 for one function, and part 3 for `inflateEn
 corollaries of the sequence theorem.
 
 `inflate_sequence_safety_public` is derived from `inflate_sequence_safety`
-(`inflate.c.sequence-safety.lean`), which is checked and not registered.
+(`inflate.c.sequence-safety.lean`), a lemma.
 
 Functional results also exist for this file. They are not required for the safety results and
 are listed in [Functional results](#functional-results).
@@ -75,7 +73,7 @@ stream each returns `Z_STREAM_ERROR` without a fault.
 
 A record whose `state` field holds a garbage pointer is outside this result; the row
 "Refused streams" of [deviations](../deviations.md) says why. The other `inflate*` functions
-refuse in their functional goals or in registered lemmas that are not required goals, for example
+refuse in their functional goals or in lemmas that are not required goals, for example
 `inflateSync_check`.
 
 ## Assumptions
@@ -268,7 +266,7 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 - Third case: a first `memcpy` of `wsize - wnext` bytes to the end of the block, then a second
   of the rest to index 0. The window is full afterwards.
 
-`updatewindow_safe` (`inflate.c.uw.lean`, registered) proves that the call never faults and
+`updatewindow_safe` (`inflate.c.uw.lean`) proves that the call never faults and
 gives `Good` again. If the window has to be allocated and the allocation fails, the call returns
 1, the state is unchanged, and only the allocation counter moved.
 
@@ -328,14 +326,13 @@ it.
 | `inf_leave` | `updatewindow` on the output of this call; a second checksum, over the `out` bytes before `next_out`: the output of this call that the checksum of `CHECK` has not already taken | The source of both is the output range, which `StreamBuffers` keeps apart from the window |
 
 <a id="table-and-trailer-statement-boundaries"></a>
-The run lemmas of the individual modes are registered, for example `inflate_TABLE_run`,
+Each mode has a run lemma, for example `inflate_TABLE_run`,
 `inflate_LENLENS_run` and `inflate_CHECK_run`. What the table and trailer lemmas assume is in
 the [source notes](inflate-source-notes.md#statements-of-the-table-and-trailer-lemmas).
 
 ### The fast path {#the-fast-path}
 
-The proofs reach the call of `inflate_fast` in three ways. None of the theorems below is
-registered; all are checked.
+The proofs reach the call of `inflate_fast` in three ways. The theorems below are lemmas.
 
 - `inflate_fast_raw_entry` (`inflate.c.fast-entry.lean`) builds the entry conditions of
   [fast decoding](inffast.md#assumptions) and so reuses the theorems of that page. It has the
@@ -434,7 +431,7 @@ More readings, about how the translation follows individual C statements, are in
 
 ## Functional results
 
-These say what the functions compute. They are registered, and they are not required for the
+These say what the functions compute. They are proved, and they are not required for the
 safety results.
 
 | Result | Theorem | Module |
@@ -451,8 +448,9 @@ stream made by `inflateInit2_` with `windowBits` 15, followed only by caller edi
 proves the conditional round trip `deflate_inflate_roundtrip`: when such a history and a
 default `deflate` history both end with `Z_STREAM_END`, and the decoder consumed a prefix of
 the bytes the encoder wrote, the decoder's output equals the encoder's input. Both theorems
-are checked. They are not registered and not accepted. Completeness (that the calls reach
-`Z_STREAM_END`) and the unconditional round trip are open.
+are conditional: they assume that the calls reach `Z_STREAM_END`. Completeness (that they do)
+and the unconditional round trip are planned work; [progress, Scope](../progress.md#scope) says how far the round
+trip is.
 
 For the other configurations (raw and gzip streams, other window widths, preset dictionaries,
 resets) no theorem says that the output of `inflate` equals the meaning of the input.
@@ -467,7 +465,7 @@ A decoded symbol is supported by a prefix of the input bits. The decoder may hav
 `inflate_fast` pulls whole bytes ahead and gives the unused ones back. An earlier statement
 required the output to agree with everything the decoder had read. That is false, because bytes
 read ahead can be malformed while the symbols already decoded are valid. The corrected relation
-ties each symbol to its supporting bits only. It is registered as `inflate_deferred_distance`
+ties each symbol to its supporting bits only. It is proved as `inflate_deferred_distance`
 and `inflate_deferred_distance_rejects_legacy_consistency`, with the regression
 `tests/regression/inflate-deferred-distance`.
 

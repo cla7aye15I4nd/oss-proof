@@ -21,27 +21,26 @@ a function of `deflate.c` that `FLUSH_BLOCK_ONLY` calls after `_tr_flush_block`.
 
 ## Results
 
-Modules are under `ZlibF/Proof/`. "Registered" theorems are accepted on commit `bde170e9`.
-"Checked" theorems are not in the registry themselves; they lie inside the proof of the
-registered theorem `Zlib.Deflate.Universal.deflate_sequence_safety`
-([levels](README.md#status-levels)).
+Modules are under `ZlibF/Proof/`. The theorems of the table serve the proof of
+`Zlib.Deflate.Universal.deflate_sequence_safety`, the sequence theorem of `deflate`: most are
+lemmas inside that proof. The level of that result is recorded in [progress, Scope](../progress.md#scope).
 
-| Result | Theorem | Module | Level |
-| --- | --- | --- | --- |
-| `FLUSH_BLOCK_ONLY` is safe for every block form and every `memLevel`, given the overlay room of the dynamic form | `flush_block_only_safe`, from `tr_flush_block_safe` | `trees.c.universal-flush.lean`, `trees.c.universal-block.lean` | checked |
-| The three block forms | `stored_block_safe`, `fixed_block_safe`, `dynamic_block_safe` | `trees.c.universal-stored.lean`, `-fixed.lean`, `-dynamic.lean` | checked |
-| Overlay room F9, `B ≥ 2048` (`memLevel ≥ 5`) | `dynamic_overlay_large` | `trees.c.universal-block.lean` | checked |
-| Overlay room F9, `B = 512` and `1024` (`memLevel` 3 and 4) | `dynamic_overlay_mid` | `trees.c.universal-overlay-mid.lean` | checked |
-| Overlay room F9, `B = 256` and `128` (`memLevel` 2 and 1) | `tinyOverlayAt_256`, `tinyOverlayAt_128`, `tinyOverlay` | `deflate.c.engine.overlay-header-ref.lean` | registered |
-| `gen_bitlen` never shortens a code of a tree whose weight is below 1597 | `ws_gen_bitlen_fib_plus` | `trees.c.universal-overlay-fibplus.lean` | checked |
-| The heap operations, `gen_bitlen`, the bit output and the tally | `pqdownheap_safe`, `pqremove_safe`, `gen_bitlen_safe`, `kraft_clamped`, `send_bits_spec`, `bi_flush_spec`, `bi_windup_spec`, `bi_reverse_safe`, `init_block_spec`, `tr_init_spec`, `tr_tally_spec` | `trees.c.heap.*.lean`, `trees.c.bits.lean`, `trees.c.tally.lean` and the modules beside them | registered |
+| Result | Theorem | Module |
+| --- | --- | --- |
+| `FLUSH_BLOCK_ONLY` is safe for every block form and every `memLevel`, given the overlay room of the dynamic form | `flush_block_only_safe`, from `tr_flush_block_safe` | `trees.c.universal-flush.lean`, `trees.c.universal-block.lean` |
+| The three block forms | `stored_block_safe`, `fixed_block_safe`, `dynamic_block_safe` | `trees.c.universal-stored.lean`, `-fixed.lean`, `-dynamic.lean` |
+| Overlay room F9, `B ≥ 2048` (`memLevel ≥ 5`) | `dynamic_overlay_large` | `trees.c.universal-block.lean` |
+| Overlay room F9, `B = 512` and `1024` (`memLevel` 3 and 4) | `dynamic_overlay_mid` | `trees.c.universal-overlay-mid.lean` |
+| Overlay room F9, `B = 256` and `128` (`memLevel` 2 and 1) | `tinyOverlayAt_256`, `tinyOverlayAt_128`, `tinyOverlay` | `deflate.c.engine.overlay-header-ref.lean` |
+| `gen_bitlen` never shortens a code of a tree whose weight is below 1597 | `ws_gen_bitlen_fib_plus` | `trees.c.universal-overlay-fibplus.lean` |
+| The heap operations, `gen_bitlen`, the bit output and the tally | `pqdownheap_safe`, `pqremove_safe`, `gen_bitlen_safe`, `kraft_clamped`, `send_bits_spec`, `bi_flush_spec`, `bi_windup_spec`, `bi_reverse_safe`, `init_block_spec`, `tr_init_spec`, `tr_tally_spec` | `trees.c.heap.*.lean`, `trees.c.bits.lean`, `trees.c.tally.lean` and the modules beside them |
 
 `B` is `lit_bufsize = 2^(memLevel + 6)`. Because F9 is proved for all nine values of
 `memLevel`, the sequence theorem of `deflate` has no premise about it.
 
 Functional theorems also exist (`gen_bitlen_correct`, `pqdownheap_correct`,
 `bi_reverse_correct` and others: the lengths form a complete prefix code, the bits written are
-the ones intended). They are registered, and they are not required for the safety results. No
+the ones intended). They are proved, and they are not required for the safety results. No
 theorem says that the emitted block decodes to the recorded symbols. Earlier notes on what such
 a proof has to cover are kept in the [history](../history/proof-functional-notes.md).
 
@@ -211,7 +210,7 @@ One round lowers the Kraft sum by `2^-L` and `overflow` by 2, and keeps the numb
 taken from `heap[--h]` and skipping inner nodes. There are `n` leaves among the stored nodes
 and `Σ bl_count = n`, so `h` does not go below `heap_max`.
 
-`gen_bitlen_safe` (`trees.c.heap.gbtop.lean`, registered) is the whole function.
+`gen_bitlen_safe` (`trees.c.heap.gbtop.lean`) is the whole function.
 
 ### Codes and the tree description
 

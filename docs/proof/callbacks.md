@@ -19,11 +19,9 @@ Terms: [glossary](../glossary.md).
 
 All five are required. The first is the safety result over histories, and the second shows that
 its premises can be met. The last three are the safety goals of the three functions. All five
-are [registered](../checking/README.md) in `tests/audit/theorems.txt`. The non-vacuity goal is
-[accepted](../checking/README.md) on commit `bde170e9`. The sequence goal is accepted there in
-an earlier form, whose histories asked for a `NULL` `state` field before `inflateBackInit_`. For
-its present form and for the three one-function goals, acceptance is pending
-([progress, Scope](../progress.md#scope)).
+theorems are listed in `tests/audit/theorems.txt`. The histories of the sequence goal do not ask
+for a `NULL` `state` field before `inflateBackInit_`.
+[progress, Scope](../progress.md#scope) records the level of each result.
 
 The one-function goals follow from the results of this page:
 
@@ -320,15 +318,14 @@ for the window premise.
 
 `tests/audit/goals.txt` lists one functional contract for each of the three functions, and
 the functional sequence goal `Goal.inflate_back_sequence`. None is required for the safety
-results. `tests/audit/proved-goals.txt` lists two of the four as proved; their theorems are
-registered.
+results. Two of the four are proved (`tests/audit/proved-goals.txt`):
 
 - `Goal.inflateBackInit_` (`back_init_public`) and `Goal.inflateBackEnd` (`back_end_public`):
   the full contracts of the two lifecycle functions. Clause 4 of the safety goal uses
   `back_end_public`. The refusal clauses of `Goal.inflateBackEnd_safety` and the whole of
   `Goal.inflateBackInit__safety` are derived from these two theorems.
 
-Registered theorems that are not goals:
+Theorems of `tests/audit/theorems.txt` that are not goals:
 
 - Branch results of `inflateBack`: the `NULL` stream, the missing state, and input that ends
   at once (`inflateBack_eof`, `ZlibF/Proof/infback.c.back.lean`). The first two are also clauses

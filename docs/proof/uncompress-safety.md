@@ -19,9 +19,8 @@ Source: `uncompr.c`. [Buffer utilities](buffers.md) reads the C. Terms:
 
 All four are safety results and are required. Each theorem proves its goal exactly as stated,
 with no hypothesis added; the premises below are part of the goal statements. The theorems are
-[registered](../checking/README.md) in `tests/audit/theorems.txt` and
-[accepted](../checking/README.md) on commit `bde170e9`
-([progress, Scope](../progress.md#scope)).
+listed in `tests/audit/theorems.txt`.
+[progress, Scope](../progress.md#scope) records the level of each result.
 
 The goals are instances of `UncompressCountedSafe` and `UncompressSingleSafe`
 (`ZlibF/Spec/Public/Utilities.lean`). For every input that meets the premises below:

@@ -1,4 +1,4 @@
-<!-- source-sha256: dd4305b2d85e4e6fdf54d0b17f9ee31784e6fa0234a263f2680774ddb71c85b0 -->
+<!-- source-sha256: a4b81880974b8ae398d691eccf985a1bc2f12d88856cbfd072dbaa9def847b58 -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -16,9 +16,8 @@
 | `Goal.inflateBackInit__safety`、`Goal.inflateBack_safety`、`Goal.inflateBackEnd_safety`（`ZlibF/Spec/Safety/Back.lean`） | `BackSafetyProof.inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
 五个都是必需的。第一个是关于历史的安全结论，第二个表明它的前提可以被满足。后三个是三个函数各自的安全目标。
-五个都[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中。非空性目标已在提交 `bde170e9`
-上[验收](../checking/README.md)。序列目标在该提交上验收的是早先的形式，那时它的历史要求 `inflateBackInit_` 之前
-`state` 字段为 `NULL`。它的现行形式和三个单函数目标，验收待完成（[进度，范围](../progress.md#scope)）。
+五条定理都列在 `tests/audit/theorems.txt` 中。序列目标的历史不要求 `inflateBackInit_` 之前
+`state` 字段为 `NULL`。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 单函数目标由本页的结论推出：
 
@@ -258,12 +257,12 @@ flowchart TD
 
 `tests/audit/goals.txt` 为这三个函数各列出一个功能契约，另有功能序列目标
 `Goal.inflate_back_sequence`。安全结论不需要其中任何一个。`tests/audit/proved-goals.txt`
-把这四个中的两个列为已证明；它们的定理已登记。
+表明这四个中有两个已证明：
 
 - `Goal.inflateBackInit_`（`back_init_public`）和
   `Goal.inflateBackEnd`（`back_end_public`）：两个生命周期函数的完整契约。安全目标的子句 4 使用 `back_end_public`。`Goal.inflateBackEnd_safety` 的拒绝子句和整个 `Goal.inflateBackInit__safety` 都由这两条定理推出。
 
-已登记但不是目标的定理：
+列在 `tests/audit/theorems.txt` 中、但不是目标的定理：
 
 - `inflateBack` 的分支结论：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`，`ZlibF/Proof/infback.c.back.lean`）。前两个同时也是 `Goal.inflateBack_safety` 的子句。
 

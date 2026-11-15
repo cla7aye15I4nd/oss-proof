@@ -19,9 +19,8 @@ Source: `compress.c`. [Buffer utilities](buffers.md) reads the C. Terms:
 
 All four are safety results and are required. Each theorem proves its goal exactly as stated,
 with no hypothesis added; the premises below are part of the goal statements. The theorems are
-[registered](../checking/README.md) in `tests/audit/theorems.txt` and
-[accepted](../checking/README.md) on commit `bde170e9`
-([progress, Scope](../progress.md#scope)).
+listed in `tests/audit/theorems.txt`.
+[progress, Scope](../progress.md#scope) records the level of each result.
 
 Each goal is an instance of `CompressorSafety` (`ZlibF/Spec/Public/Utilities.lean`). For
 every input that meets the premises below:
@@ -78,7 +77,7 @@ The proof is generic in the histories of the stream it drives (`CompressReach`).
   - every call keeps the gzip header pointer;
   - every call keeps the owned blocks.
 
-`compress2_z` initialises its stream with `memLevel` 8. So the registered theorems
+`compress2_z` initialises its stream with `memLevel` 8. So the four theorems
 instantiate the generic proof with `DeflateReachMid`: the histories that start with
 `deflateInit2_` at `memLevel ≥ 3` and then only rebuffer the stream and call `deflate`. Along
 them `lit_bufsize ≥ 512`, and both facts hold with no hypothesis (`goalDeflate_mid`,

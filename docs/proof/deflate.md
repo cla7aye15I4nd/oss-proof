@@ -18,10 +18,8 @@ earlier results for one configuration. The internal contracts of this file are `
 
 ## Results
 
-All theorems below are registered in `tests/audit/theorems.txt`. They are accepted on commit
-`bde170e9` ([levels](README.md#status-levels)), with one exception: the two initialisation goals
-were widened after that commit, so they are registered in the form shown here and accepted in
-their earlier, narrower form. Modules are under `ZlibF/Proof/`.
+All theorems below are listed in `tests/audit/theorems.txt`. The level of each result is
+recorded in [progress, Scope](../progress.md#scope). Modules are under `ZlibF/Proof/`.
 
 | Goal | What it says | Theorem | Module |
 | --- | --- | --- | --- |
@@ -58,7 +56,7 @@ stream each returns `Z_STREAM_ERROR` without a fault. `deflateCopy` sets the des
 
 A record whose `state` field holds a garbage pointer is outside this result; the row "Refused
 streams" of [deviations](../deviations.md) says why. The other `deflate*` functions refuse in
-their functional goals or in registered lemmas that are not required goals:
+their functional goals or in lemmas that are not required goals:
 `deflatePrime_refused`, `deflateBound_nostate`, `deflateBound_z_nostate`, `deflateEnd_reject`,
 `deflateReset_reject`.
 
@@ -296,7 +294,7 @@ it keeps `CallFacts`. `operation_step_of` takes the first of these and the step 
 `deflateSetDictionary` and `deflateParams`. The three facts are the theorems `deflate_call_of`,
 `deflate_header_of` and `deflate_calls_of`, each under the hypothesis that F9 holds for the two
 smallest buffers (`TinyOverlay`). `sequence_facts_of` collects the three into the record under
-that hypothesis. The registered theorem `deflate_sequence_safety` (`public-deflate-goals.lean`)
+that hypothesis. The theorem `deflate_sequence_safety` (`public-deflate-goals.lean`)
 is `deflate_sequence_safety_of` applied to `sequence_facts_of`, with the hypothesis supplied from
 the two overlay theorems `tinyOverlayAt_128` and `tinyOverlayAt_256`; it has no hypothesis left.
 `sequence_facts` (`public-deflate-copy.lean`) is the same record built from the same two
@@ -445,7 +443,7 @@ More notes of this kind are in the [source notes](deflate-source-notes.md).
 
 ## Functional results
 
-These say what the functions compute. They are registered, and they are not required for the
+These say what the functions compute. They are proved, and they are not required for the
 safety results.
 
 | Result | Theorem | Module |
@@ -459,12 +457,11 @@ the format specification, to the input that was accepted. For other configuratio
 says that the output of `deflate` decodes to its input. Earlier notes on what such a proof has
 to cover are kept in the [history](../history/proof-functional-notes.md).
 
-The round trip of the default zlib stream is checked in its conditional form:
-`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), not
-registered. It takes a `deflate` history of the default configuration and an `inflate` history
+The round trip of the default zlib stream has a theorem for its conditional form:
+`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`). It takes a `deflate` history of the default configuration and an `inflate` history
 that starts with `inflateInit2_` at `windowBits` 15. Both consist of caller edits and calls with
 any flush value and any split of the buffers, and in both the last call returned
 `Z_STREAM_END`. If the input that `inflate` consumed is a prefix of the output of `deflate`,
-then the output of `inflate` is the input that `deflate` accepted. Two parts are open:
-completeness (that the histories reach `Z_STREAM_END`, given enough output room), and with it
-the unconditional round trip.
+then the output of `inflate` is the input that `deflate` accepted. Two further parts are planned
+work: completeness (that the histories reach `Z_STREAM_END`, given enough output room), and with
+it the unconditional round trip. [progress, Scope](../progress.md#scope) says how far the round trip is.

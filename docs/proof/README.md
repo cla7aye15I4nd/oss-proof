@@ -1,12 +1,12 @@
 # Proof reference: component, page, theorem
 
 The pages in this section explain, for one C file each, why the theorems about it hold. This
-page is the map: which page explains which theorem, where the theorem is, and what level it
-has. A reader who knows the C should be able to follow each page with the matching file under
+page is the map: which page explains which theorem and where the theorem is. A reader who knows the C should be able to follow each page with the matching file under
 `zlib/` open, without reading Lean.
 
-Every required safety goal has a registered theorem of exactly its type. Nothing in the
-required set is open. What each theorem assumes is on its page and in
+Every safety goal named on these pages has a theorem of exactly its type. At which level each
+result stands is recorded only in [progress, Scope](../progress.md#scope). What each theorem
+assumes is on its page and in
 [deviations](../deviations.md); what the model itself assumes is in the
 [trusted base](../trusted-base.md) and in [model limits](../model-limits.md).
 
@@ -15,34 +15,17 @@ For a first reading, follow the [overview](../overview.md). Terms are in the
 
 ## Status levels
 
-The pages use three words for the state of a theorem. The [glossary](../glossary.md#status)
-defines them, and [checking](../checking/README.md#three-levels) says which checks stand behind
-each and where a reader sees it.
+A result has one of three levels: checked, registered or accepted. The
+[glossary](../glossary.md#status) defines them, and
+[checking](../checking/README.md#three-levels) says which checks stand behind each. The pages of
+this section do not name the level of a theorem. They say what a theorem states and why it
+holds; [progress, Scope](../progress.md#scope) records the level of each result and the commit
+of each acceptance run.
 
-- **Checked.** The theorem is on the integration branch `dev`, and the fast gate is green on
-  that commit. Lean's kernel has checked the proof. The fast gate is the two jobs `build` and
-  `no-sorry` of the workflow `.github/workflows/lean.yml`, which run on every push to `dev` or
-  `main` and on every pull request. `build` builds the library and the differential-test
-  drivers, searches the sources for forbidden constructs, checks the built environment for
-  `unsafe` and `partial` declarations, and applies the patches to the pinned `zlib/`. `no-sorry`
-  checks that there is no `sorry` and that every string literal of the translations is in the
-  runtime's table of literals, and runs the import check between the specification layers
-  (`scripts/check-spec-layers.py`).
-- **Registered.** The theorem is checked, its name is listed in `tests/audit/theorems.txt`, and
-  the goal it proves is listed in `tests/audit/proved-goals.txt`. The two lines are a claim; the
-  acceptance suite is the check that the theorem's type is exactly the goal. It also checks the
-  axioms each registered theorem depends on.
-- **Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
-  Only an accepted result is reported as final, and always with that commit. The commit is
-  `bde170e9` ([progress, Scope](../progress.md#scope)). Three groups are registered and not yet
-  accepted in their present form: the four initialisation goals of `inflate` and `deflate`,
-  which were widened after it; the sequence goal of the callback decoder, whose histories were
-  widened; and the 35 one-function goals of the gz functions and of the callback decoder, which
-  were added after it.
-
-A theorem that is checked and not registered is a lemma inside the proof of a registered
-theorem. The pages say so where they name one. The axiom check of a registered theorem follows
-its dependencies, so it covers such lemmas too.
+Every theorem named on these pages is in the library, and Lean's kernel has checked its proof.
+The pages name two kinds. The theorem of a goal has exactly the goal as its type and is listed in
+`tests/audit/theorems.txt`. A lemma is a step inside such a proof; a page says so where it names
+one. The axiom check of a listed theorem follows its dependencies, so it covers the lemmas too.
 
 Differential tests belong to the acceptance suite. They compare the translation with the
 compiled C. They are evidence that the translation is faithful, not proof.
@@ -60,7 +43,7 @@ callback decoder they are in `ZlibF/Spec/Public/GzSafety.lean`,
 `ZlibF/Spec/Public/GzRefusal.lean` and `ZlibF/Spec/Public/Sequences.lean`.
 
 Functional results say what a function computes: a checksum value, the decoded bytes. They are
-not required for the safety results. Many are proved and registered, and each page lists them
+not required for the safety results. Many are proved, and each page lists them
 in a section of their own. Two of them, `Goal.inflate` and `Goal.deflate`, are used by safety
 proofs of other functions. See
 [the safety and functional split](../design/safety-functional-split.md).
@@ -91,7 +74,7 @@ entitled to change, and that `deflateEnd` at any point frees everything.
 
 ## The map
 
-All modules are under `ZlibF/Proof/`. Every theorem named in this table is registered in
+All modules are under `ZlibF/Proof/`. Every theorem named in this table is listed in
 `tests/audit/theorems.txt`.
 
 | C file | Page | Required safety theorems | Module |
@@ -103,7 +86,7 @@ All modules are under `ZlibF/Proof/`. Every theorem named in this table is regis
 | `inffast.c` | [Fast decoding](inffast.md) | No public function. Internal: `inflate_fast_safe` | `inffast.c.final.lean` |
 | `inflate.c` | [Stream decoding](inflate.md) | Sequence: `inflate_sequence_safety_public`. One per function: `inflate_safety` and nine more. Also `inflateInit__safety`, `inflateInit2__safety`, `inflateCopy_safety`, `inflate_refusal`, and the non-vacuity theorem `inflate_initialisation_domain_public` | `public-inflate-sequence-safety.lean`, `public-stream-call-safety.lean`, `public-init-safety.lean`, `public-inflate-copy-safety.lean`, `public-stream-refusal.lean`, `public-inflate-init.lean` |
 | `deflate.c` | [Stream compression](deflate.md) | Sequence: `deflate_sequence_safety`. One per function: `deflate_safety` and twelve more. Also `deflateInit__safety`, `deflateInit2__safety`, `deflate_copy_safety`, `deflate_refusal`, and the non-vacuity theorem `deflate_initialisation_domain_public` | `public-deflate-goals.lean`, `public-stream-call-safety.lean`, `public-init-safety.lean`, `public-deflate-copy.lean`, `public-stream-refusal.lean`, `public-deflate-init-domain.lean` |
-| `trees.c` | [Trees and block output](trees.md) | No public function. Its lemmas serve `deflate_sequence_safety`. Registered: `tinyOverlayAt_256`, `tinyOverlayAt_128` (the bound on the shared buffer for the two smallest `memLevel` values), `gen_bitlen_safe`, `pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`, `trees.c.heap.*.lean` |
+| `trees.c` | [Trees and block output](trees.md) | No public function. Its lemmas serve `deflate_sequence_safety`. Listed theorems: `tinyOverlayAt_256`, `tinyOverlayAt_128` (the bound on the shared buffer for the two smallest `memLevel` values), `gen_bitlen_safe`, `pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`, `trees.c.heap.*.lean` |
 | `infback.c` | [Callback decoder](callbacks.md) | Sequence: `inflate_back_sequence_safety`. One per function: `inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety`. Non-vacuity: `back_init_domain_public` | `infback.c.safety-fast.lean`, `public-back-safety.lean`, `public-infback-init.lean` |
 | `gzlib.c`, `gzread.c`, `gzwrite.c`, `gzclose.c` | [Gzip files](gzip.md) | Sequence: `gz_sequence_safety_public`. One per function: `gzread_safety` and 31 more. `NULL` handle: `gz_refusal`. Non-vacuity: `gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`, `public-gz-call-safety.lean`, `public-gz-refusal.lean`, `public-gz-sequence-nonvacuity.lean` |
 | `compress.c` | [Safety of `compress*`](compress-safety.md) | `compress_safety`, `compress_z_safety`, `compress2_safety`, `compress2_z_safety`; for the two bound functions, the theorems named `compressBound` and `compressBound_z` like the functions | `public-compress-safe-mid.lean`, `public-compress-bound.lean` |
@@ -116,9 +99,10 @@ takes a handle; a `NULL` stream and a stream record with a `NULL` state for `inf
 `inflateBackEnd`, and for `inflateBackEnd` also a `NULL` `zfree`. The theorem of
 `inflateBackInit_` covers every call `zlib.h` allows and needs no history.
 
-Some lemmas of `trees.c` that the page explains are checked and not registered, among them the
-bound on the shared buffer for `memLevel` 3 to 9 (`dynamic_overlay_mid`,
-`dynamic_overlay_large`). The [trees](trees.md#results) page gives the level of each.
+Other results of `trees.c` that the page explains are lemmas inside the proof of
+`deflate_sequence_safety`, among them the bound on the shared buffer for `memLevel` 3 to 9
+(`dynamic_overlay_mid`, `dynamic_overlay_large`). The [trees](trees.md#results) page names
+each.
 
 ## Other pages of this section
 
@@ -138,7 +122,7 @@ functional goal about `deflate`, `DeflateCompletes`:
 ## Functional results
 
 These pages also explain results that are not required for the safety results. They are
-registered.
+proved.
 
 | Page | Functional results explained |
 | --- | --- |

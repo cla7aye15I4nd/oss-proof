@@ -5,22 +5,23 @@ stream that `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` creates (level 6, z
 `windowBits` 15, `memLevel` 8, default strategy), used only through `deflate` calls. For that
 configuration the results say more than safety: a completed stream decodes to its input.
 
-They are functional results. They are registered, and they are not required for the safety
+They are functional results. They are proved, and they are not required for the safety
 results. The safety of `deflate` for every configuration is a separate proof, explained in
 [stream compression](deflate.md); it reuses lemmas from here.
 
 ## Results
 
 Modules are under `ZlibF/Proof/`. The goals are in `ZlibF/Spec/Public/DeflateCore.lean`. The
-registered theorems are accepted on commit `bde170e9` ([levels](README.md#status-levels)).
+theorems of the table are listed in `tests/audit/theorems.txt`; the level of each result is
+recorded in [progress, Scope](../progress.md#scope).
 
-| Result | Theorem | Module | Level |
-| --- | --- | --- | --- |
-| `DeflateCore.SafeEncodingAndCleanup`: the four clauses below | `DeflateCore.safe_encoding_and_cleanup` | `deflate.c.default-core.lean` | registered |
-| `DeflateCore.Completes`: from a point of a history at which the stream has not ended, there is a continuation of `Z_FINISH` calls that reaches `Z_STREAM_END`; the premises and the form of the continuation are below | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` | registered |
-| Both together | `DeflateCore.correct` | `deflate.c.default-core-completes.lean` | registered |
-| The conclusion of `Goal.deflate` on default histories | `generic_default_public_contract` | `deflate.c.default-public-contract.lean` | registered |
-| The premises can be met: concrete histories | `generic_default_request_trace_witness`, `default_public_full_contract_witness` and the other `*_witness` theorems | `deflate.c.default-public-contract.lean`, `deflate.c.engine.full-contract-witness.lean` | registered |
+| Result | Theorem | Module |
+| --- | --- | --- |
+| `DeflateCore.SafeEncodingAndCleanup`: the four clauses below | `DeflateCore.safe_encoding_and_cleanup` | `deflate.c.default-core.lean` |
+| `DeflateCore.Completes`: from a point of a history at which the stream has not ended, there is a continuation of `Z_FINISH` calls that reaches `Z_STREAM_END`; the premises and the form of the continuation are below | `DeflateCore.completes` | `deflate.c.default-core-completes.lean` |
+| Both together | `DeflateCore.correct` | `deflate.c.default-core-completes.lean` |
+| The conclusion of `Goal.deflate` on default histories | `generic_default_public_contract` | `deflate.c.default-public-contract.lean` |
+| The premises can be met: concrete histories | `generic_default_request_trace_witness`, `default_public_full_contract_witness` and the other `*_witness` theorems | `deflate.c.default-public-contract.lean`, `deflate.c.engine.full-contract-witness.lean` |
 
 The four clauses of `SafeEncodingAndCleanup`:
 
@@ -56,15 +57,14 @@ safety result.
 
 ## The round trip built on these results
 
-`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) is checked
-and not registered. It joins the completed-encoding result of this page with the matching
+`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) joins the completed-encoding result of this page with the matching
 result for `inflate`. Take a `deflate` history of the default configuration and an `inflate`
 history that starts with `inflateInit2_` at `windowBits` 15, each made of caller edits and
 calls with any flush value, and each ending with a call that returned `Z_STREAM_END`. If the
 input that `inflate` consumed is a prefix of the output of `deflate`, the output of `inflate`
 is the input that `deflate` accepted. The theorem is conditional: it assumes that both
 histories reach `Z_STREAM_END`. Completeness, and the unconditional round trip that needs it,
-are open.
+are planned work; [progress, Scope](../progress.md#scope) says how far the round trip is.
 
 ## What the universal proof reuses
 
@@ -80,8 +80,8 @@ engine modules as they are:
 
 ## How three parts of the engine proof work
 
-The theorems named in this section are checked and not registered. They lie inside the proofs
-of the registered theorems above.
+The theorems named in this section are lemmas. They lie inside the proofs
+of the theorems above.
 
 ### Finishing the zlib wrapper
 

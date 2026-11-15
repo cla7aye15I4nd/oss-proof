@@ -1,4 +1,4 @@
-<!-- source-sha256: 5c142fae4071144b457186bc724ab6daced2aef1940b2dd8c7a36aca9b205e60 -->
+<!-- source-sha256: e312b894eb01d7a6e8cf8719fbd281285071ed0489878a538c7affdf9e3dd531 -->
 # `compress*` 的安全性
 
 `compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -14,7 +14,7 @@
 | `Goal.compress_z_safety` | `compress_z_safety` | 同上 |
 | `Goal.compress_safety` | `compress_safety` | 同上 |
 
-这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
+这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 每个目标都是 `CompressorSafety`（`ZlibF/Spec/Public/Utilities.lean`）的一个实例。对满足下列前提的每个输入：
 
@@ -61,7 +61,7 @@ flowchart TD
   - 每次调用都保持 gzip 头指针；
   - 每次调用都保持所拥有的块。
 
-`compress2_z` 以 `memLevel` 8 初始化它的流。所以已登记的定理用 `DeflateReachMid` 实例化这个通用证明：这些历史以 `memLevel ≥ 3` 的 `deflateInit2_` 开始，之后只重新装填流并调用 `deflate`。沿着这些历史有 `lit_bufsize ≥ 512`，两个事实都无需假设即成立（`goalDeflate_mid`、`loopFacts_mid`）。`memLevel` 为 1 或 2 的历史还需要一个关于压缩器共用的待输出与符号缓冲区的界，见[树](trees.md#the-overlay-lemma-f9)。这里的定理不使用它。
+`compress2_z` 以 `memLevel` 8 初始化它的流。所以这四条定理用 `DeflateReachMid` 实例化这个通用证明：这些历史以 `memLevel ≥ 3` 的 `deflateInit2_` 开始，之后只重新装填流并调用 `deflate`。沿着这些历史有 `lit_bufsize ≥ 512`，两个事实都无需假设即成立（`goalDeflate_mid`、`loopFacts_mid`）。`memLevel` 为 1 或 2 的历史还需要一个关于压缩器共用的待输出与符号缓冲区的界，见[树](trees.md#the-overlay-lemma-f9)。这里的定理不使用它。
 
 `deflateInit_` 和 `deflateEnd` 通过它们各自的定理使用（`deflateInit_proof`、`deflateEnd_safe`、`deflate_end_public`）。
 

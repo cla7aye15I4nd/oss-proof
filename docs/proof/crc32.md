@@ -24,9 +24,8 @@ The [API page](../spec/api/checksums.md) gives the public domains; the
 | Heap byte blocks and the helpers | Both | `crc32_z_safe`, `crc32_z_correct`, `multmodp_safe`, `multmodp_correct`, `x2nmodp_safe`, `x2nmodp_correct`, and the combination results | `ZlibF/Proof/crc32.c.lean` |
 | `get_crc_table` | Not required: `zlib.h` lists it as undocumented | `get_crc_table` | `ZlibF/Proof/public-get-crc-table.lean` |
 
-All of these are [registered](../checking/README.md) in `tests/audit/theorems.txt` and
-[accepted](../checking/README.md) on commit `bde170e9`
-([progress, Scope](../progress.md#scope)).
+All of these are listed in `tests/audit/theorems.txt`.
+[progress, Scope](../progress.md#scope) records the level of each result.
 
 A safety goal says that the call returns without a fault and leaves the heap exactly as it
 was. Each safety theorem is the full contract of the same function with the value forgotten.

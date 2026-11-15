@@ -1,4 +1,4 @@
-<!-- source-sha256: a213dbabf3ffbf5405202fa4e693465cac0f72bcc5de85c322436084a3828a33 -->
+<!-- source-sha256: c6775eb3a65c886903f6cf155a02f03ca5f9511b0469fc2d9b93bd1d7dad1fa8 -->
 # 缓冲区工具函数：源码上的决定
 
 本页列出 `compress.c`、`uncompr.c` 以及 `deflate.c` 的上界函数中，C 的做法需要模型小心表示的地方。每一处都说明 C 做了什么，模型做了什么，以及是否有定理覆盖它。这些函数的安全证明在另外两页；本页是它们的源码阅读配套页。
@@ -14,7 +14,7 @@
 | `deflateBound`、`deflateBound_z` | `deflateBound_safety`、`deflateBound_z_safety`（`ZlibF/Proof/public-stream-call-safety.lean`） | [流式压缩](deflate.md) |
 | `compressBound`、`compressBound_z` | `compressBound`、`compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）：公式的精确值。这两个函数不读内存，所以清单文件把这两个完整契约用作它们的安全目标 | [`compress*` 的安全性](compress-safety.md#the-bound-functions) |
 
-这些定理[已登记](../checking/README.md)，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。这些函数的功能契约，例如 `uncompress` 写出的字节，或者压缩器的每个输出都不超过上界，不是安全结论所必需的。
+这些定理列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。这些函数的功能契约，例如 `uncompress` 写出的字节，或者压缩器的每个输出都不超过上界，不是安全结论所必需的。
 
 对 C 的某种解读如果没有定理陈述，就标为**尚未由证明确认**。
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 85531dced0fd5c35ff0aa5e3b61f493f166ede728f8c55769121ff0fd444ce17 -->
+<!-- source-sha256: 581f98d6653c1580f70538cbd97adbbb09ec35fabb25a87906c3c3cb1ab64fba -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -16,9 +16,8 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 | `Goal.gz_sequence_nonvacuity`（`ZlibF/Spec/Public/GzSafety.lean`） | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
 | `Goal.<function>_safety`，共 32 个目标（`ZlibF/Spec/Safety/GzCalls.lean`） | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
 
-它们都是安全结论，都是必需的。它们[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中。
-前三个已在提交 `bde170e9` 上[验收](../checking/README.md)。32 个单函数目标的验收待完成
-（[进度，范围](../progress.md#scope)）。
+它们都是安全结论，都是必需的。它们的定理列在 `tests/audit/theorems.txt` 中。
+每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 31 个有文档的 gz 函数各有自己的安全目标；`gzvprintf` 也有，它在 `zlib.h` 中属于未文档化的函数，而 `gzprintf` 经由它实现。
 每个目标是序列目标的一个子句，限制到一个函数的调用上：
@@ -438,7 +437,7 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 ## 保留的功能结论
 
 `tests/audit/goals.txt` 为 31 个有文档的 gz 函数和 `gzvprintf` 各列出一个功能契约 `Goal.<function>`：共 32
-个目标。安全结论不需要其中任何一个。`tests/audit/proved-goals.txt` 把其中八个列为已证明；它们的定理已登记。
+个目标。安全结论不需要其中任何一个。其中八个已证明（`tests/audit/proved-goals.txt`）：
 
 - `Goal.gzbuffer`、`Goal.gzeof`、`Goal.gzerror`、`Goal.gzclearerr`、`Goal.gzdopen`：单个函数的完整契约。
 - `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`：针对普通文件的世界表述（前提 `RegularOs fs`）。

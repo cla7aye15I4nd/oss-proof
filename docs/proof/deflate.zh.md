@@ -1,4 +1,4 @@
-<!-- source-sha256: d500e443f9cb3696906afd6992b418c0d2aeb3275702e9fd0adeabae7af60389 -->
+<!-- source-sha256: d9b3190a8deccba5d4cf760b2ab71a1b15649a4bc2890bf8cecc1b385b936c1a -->
 # 流式压缩：`deflate` 为什么是安全的
 
 源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
@@ -9,7 +9,7 @@
 
 ## 结论
 
-下面的定理都已登记在 `tests/audit/theorems.txt` 中。它们在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)），只有一处例外：两个初始化目标在那次提交之后扩大了范围，所以登记的是这里给出的形式，已验收的是它们早先较窄的形式。模块在 `ZlibF/Proof/` 下。
+下面的定理都列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。模块在 `ZlibF/Proof/` 下。
 
 | 目标 | 内容 | 定理 | 模块 |
 | --- | --- | --- | --- |
@@ -30,7 +30,7 @@
 
 *被拒绝*的流（`RefusedDeflate`）是 `NULL`，或者是一个可读但被状态检查 `deflateStateCheck` 拒绝的记录。`Goal.deflate_refusal` 覆盖五个函数：`deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 和 `deflateCopy`。在被拒绝的流上，它们都返回 `Z_STREAM_ERROR`，不出故障。`deflateCopy` 把目的流的 `state` 字段置为 `NULL`；其余函数让堆保持原样。
 
-`state` 字段里是垃圾指针的记录不在这个结论之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。其他 `deflate*` 函数的拒绝情形，在它们的功能目标里，或者在已登记但不属于必需目标的引理里：`deflatePrime_refused`、`deflateBound_nostate`、`deflateBound_z_nostate`、`deflateEnd_reject`、`deflateReset_reject`。
+`state` 字段里是垃圾指针的记录不在这个结论之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。其他 `deflate*` 函数的拒绝情形，在它们的功能目标里，或者在不属于必需目标的引理里：`deflatePrime_refused`、`deflateBound_nostate`、`deflateBound_z_nostate`、`deflateEnd_reject`、`deflateReset_reject`。
 
 ## 假设
 
@@ -205,7 +205,7 @@ stateDiagram-v2
 
 `reachable_inv_of`（`deflate.c.universal-sequence-safety.lean`）对历史做归纳，证明每个可达状态都满足 `DInv`、`HeaderInv` 和 `CallFacts`。`operation_step_of`（`deflate.c.universal-ops-dispatch.lean`）证明再做一次调用是安全的，并给出它的帧和账本。`end_from_inv`（`deflate.c.universal-end.lean`）对应 `deflateEnd`。
 
-前两条定理的命题带有假设。`reachable_inv_of` 取一个记录 `SequenceFacts`，里面是关于 `deflate` 本身的三条事实：一次调用是安全的并保持 `DInv`，它保持 `HeaderInv`，它保持 `CallFacts`。`operation_step_of` 取其中第一条，以及 `deflateSetDictionary` 和 `deflateParams` 的步骤定理。这三条事实就是定理 `deflate_call_of`、`deflate_header_of` 和 `deflate_calls_of`，它们各自带着一个假设：F9 对最小的两个缓冲区成立（`TinyOverlay`）。`sequence_facts_of` 在这个假设之下把三者收进这个记录。已登记的定理 `deflate_sequence_safety`（`public-deflate-goals.lean`）是把 `deflate_sequence_safety_of` 应用到 `sequence_facts_of` 上，假设由 `tinyOverlayAt_128` 和 `tinyOverlayAt_256` 这两条共用缓冲区定理提供；它不再带任何假设。`sequence_facts`（`public-deflate-copy.lean`）是由同样两条定理构造的同一个记录，`deflateCopy` 的证明用的是它。
+前两条定理的命题带有假设。`reachable_inv_of` 取一个记录 `SequenceFacts`，里面是关于 `deflate` 本身的三条事实：一次调用是安全的并保持 `DInv`，它保持 `HeaderInv`，它保持 `CallFacts`。`operation_step_of` 取其中第一条，以及 `deflateSetDictionary` 和 `deflateParams` 的步骤定理。这三条事实就是定理 `deflate_call_of`、`deflate_header_of` 和 `deflate_calls_of`，它们各自带着一个假设：F9 对最小的两个缓冲区成立（`TinyOverlay`）。`sequence_facts_of` 在这个假设之下把三者收进这个记录。定理 `deflate_sequence_safety`（`public-deflate-goals.lean`）是把 `deflate_sequence_safety_of` 应用到 `sequence_facts_of` 上，假设由 `tinyOverlayAt_128` 和 `tinyOverlayAt_256` 这两条共用缓冲区定理提供；它不再带任何假设。`sequence_facts`（`public-deflate-copy.lean`）是由同样两条定理构造的同一个记录，`deflateCopy` 的证明用的是它。
 
 | 步骤 | 定理 | 为什么成立 |
 | --- | --- | --- |
@@ -275,7 +275,7 @@ stateDiagram-v2
 
 ## 功能结论
 
-这些结论说的是函数算出了什么。它们已登记，但不是安全结论所必需的。
+这些结论说的是函数算出了什么。它们已证明，但不是安全结论所必需的。
 
 | 结论 | 定理 | 模块 |
 | --- | --- | --- |
@@ -285,4 +285,4 @@ stateDiagram-v2
 
 对默认配置，`DeflateCore.correct` 说明：已完成的流按格式规格解码，得到的就是被接受的输入。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。关于这样的证明需要涵盖什么，早先的笔记保存在[历史](../history/proof-functional-notes.md)中。
 
-默认 zlib 流的往返，其有条件的形式已检查：`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`），未登记。它取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和调用组成，刷新值任意，缓冲区的切分任意，并且最后一次调用都返回了 `Z_STREAM_END`。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。有两部分尚未证明：完备性（给够输出空间时，这些历史会到达 `Z_STREAM_END`），以及依赖它的无条件往返。
+默认 zlib 流的往返，其有条件的形式有一条定理：`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）。它取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和调用组成，刷新值任意，缓冲区的切分任意，并且最后一次调用都返回了 `Z_STREAM_END`。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。另有两部分是计划内的工作：完备性（给够输出空间时，这些历史会到达 `Z_STREAM_END`），以及依赖它的无条件往返。往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。

@@ -17,10 +17,9 @@ Sources: `gzlib.c`, `gzread.c`, `gzwrite.c`, `gzclose.c`, `gzguts.h` and the `gz
 | `Goal.gz_sequence_nonvacuity` (`ZlibF/Spec/Public/GzSafety.lean`) | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
 | `Goal.<function>_safety`, 32 goals (`ZlibF/Spec/Safety/GzCalls.lean`) | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
 
-All are safety results and are required. They are [registered](../checking/README.md) in
-`tests/audit/theorems.txt`. The first three are [accepted](../checking/README.md) on commit
-`bde170e9`. For the 32 one-function goals, acceptance is pending
-([progress, Scope](../progress.md#scope)).
+All are safety results and are required. Their theorems are listed in
+`tests/audit/theorems.txt`.
+[progress, Scope](../progress.md#scope) records the level of each result.
 
 Each of the 31 documented gz functions has its own safety goal, and so has `gzvprintf`, which
 `zlib.h` lists as undocumented and `gzprintf` goes through. Each goal is a clause of the
@@ -573,8 +572,7 @@ So clause 2, and its part (b) for a reading call, apply to a real call with a no
 
 `tests/audit/goals.txt` lists one functional contract `Goal.<function>` for each of the 31
 documented gz functions and for `gzvprintf`: 32 goals. None is required for the safety
-results. `tests/audit/proved-goals.txt` lists eight of them as proved; their theorems are
-registered.
+results. Eight of them are proved (`tests/audit/proved-goals.txt`):
 
 - `Goal.gzbuffer`, `Goal.gzeof`, `Goal.gzerror`, `Goal.gzclearerr`, `Goal.gzdopen`: full
   contracts of single functions.

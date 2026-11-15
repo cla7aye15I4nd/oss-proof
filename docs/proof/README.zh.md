@@ -1,21 +1,17 @@
-<!-- source-sha256: 01ec4d88a1670815679fc1eae456ce7737ff626ba58619393e0f6cf4013f3e5e -->
+<!-- source-sha256: bab0a84c148b31b9d7738af3843265b22a8b8a8ff7f3f9752fa136da7ccb868b -->
 # 证明参考：组件、页面、定理
 
-本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理，定理在哪里，处于哪个层级。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
+本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理，定理在哪里。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
 
-每一个必需的安全目标，都有一条类型与它完全相同的已登记定理。必需集合里没有未证明的目标。每条定理假设了什么，写在它自己的页面和[偏离记录](../deviations.md)里；模型本身假设了什么，写在[可信基础](../trusted-base.md)和[模型的限制](../model-limits.md)里。
+这些页面提到的每个安全目标，都有一条类型与它完全相同的定理。每项结论处于哪个层级，只记录在[进度，范围](../progress.md#scope)中。每条定理假设了什么，写在它自己的页面和[偏离记录](../deviations.md)里；模型本身假设了什么，写在[可信基础](../trusted-base.md)和[模型的限制](../model-limits.md)里。
 
 初次阅读请先看[总览](../overview.md)。术语见[术语表](../glossary.md)。
 
 ## 状态层级
 
-这些页面用三个词说明一条定理的状态。[术语表](../glossary.md#status)给出定义，[检查](../checking/README.md#three-levels)说明每个层级背后有哪些检查，以及读者在哪里能看到它。
+一项结论处于三个层级之一：已检查、已登记或已验收。[术语表](../glossary.md#status)给出定义，[检查](../checking/README.md#three-levels)说明每个层级背后有哪些检查。本节的页面不写定理的层级。它们说的是一条定理陈述了什么、为什么成立；每项结论的层级和每次验收运行所在的提交，记录在[进度，范围](../progress.md#scope)中。
 
-- **已检查。** 定理在集成分支 `dev` 上，并且快速关卡在该提交上全部通过。Lean 内核检查过这个证明。快速关卡是工作流 `.github/workflows/lean.yml` 的 `build` 和 `no-sorry` 两个作业，每次向 `dev` 或 `main` 推送、每个拉取请求都会运行。`build` 构建库和差分测试的驱动程序，在源码中搜索被禁止的构造，在构建出的环境里检查有没有 `unsafe` 和 `partial` 声明，并把补丁应用到固定的 `zlib/` 上。`no-sorry` 检查没有 `sorry`，检查翻译中的每个字符串字面量都在运行时的字面量表里，并运行规格各层之间的导入检查（`scripts/check-spec-layers.py`）。
-- **已登记。** 定理已检查，它的名字列在 `tests/audit/theorems.txt` 中，它证明的目标列在 `tests/audit/proved-goals.txt` 中。这两行是一个声明；检查“定理的类型与目标完全相同”的，是验收套件。验收套件还检查每条已登记定理所依赖的公理。
-- **已验收。** 定理已登记，并且验收套件在某个具名提交上全部通过。只有已验收的结论才作为最终结论报告，而且总是带着那个提交。这个提交是 `bde170e9`（[进度，范围](../progress.md#scope)）。有三组目标已登记，但它们的现行形式尚未验收：`inflate` 和 `deflate` 的四个初始化目标，它们在那之后扩大了范围；回调解码器的序列目标，它的历史扩大了范围；以及 gz 函数和回调解码器的 35 个单函数目标，它们是在那之后新增的。
-
-已检查而未登记的定理，是某条已登记定理的证明内部的引理。页面提到这类定理时会说明。对已登记定理的公理检查会沿着依赖关系往下查，所以也覆盖这些引理。
+这些页面提到的每条定理都在库中，Lean 内核检查过它的证明。页面提到的定理有两种。目标的定理，类型与目标完全相同，列在 `tests/audit/theorems.txt` 中。引理是这样一个证明内部的一步；页面提到引理时会说明。对列出的定理的公理检查会沿着依赖关系往下查，所以也覆盖这些引理。
 
 差分测试属于验收套件。它把翻译与编译出来的 C 做比较，是翻译忠实于 C 的证据，不是证明。
 
@@ -25,7 +21,7 @@
 
 必需的结论是安全结论：对默认 x86_64 Linux 构建中每一个有文档的公开函数，在它的调用序列上，没有未定义行为，没有内存错误，没有泄漏，并且会终止。这些目标在 `ZlibF/Spec/Safety/` 中；gzip 文件接口和回调解码器的目标在 `ZlibF/Spec/Public/GzSafety.lean`、`ZlibF/Spec/Public/GzRefusal.lean` 和 `ZlibF/Spec/Public/Sequences.lean` 中。
 
-功能结论说的是函数算出了什么：校验和的值、解码出的字节。它们不是安全结论所必需的。其中许多已经证明并登记，每个页面都把它们单独列在一节里。其中两个，`Goal.inflate` 和 `Goal.deflate`，被其他函数的安全证明用到。见[安全与功能的划分](../design/safety-functional-split.md)。
+功能结论说的是函数算出了什么：校验和的值、解码出的字节。它们不是安全结论所必需的。其中许多已经证明，每个页面都把它们单独列在一节里。其中两个，`Goal.inflate` 和 `Goal.deflate`，被其他函数的安全证明用到。见[安全与功能的划分](../design/safety-functional-split.md)。
 
 其他构建配置，以及 `zlib.h` 列为未文档化的函数，都不是必需的；原因见[进度，范围](../progress.md#scope)。
 
@@ -48,7 +44,7 @@ deflateEnd(&strm);
 
 ## 地图
 
-所有模块都在 `ZlibF/Proof/` 下。本表提到的每一条定理都已登记在 `tests/audit/theorems.txt` 中。
+所有模块都在 `ZlibF/Proof/` 下。本表提到的每一条定理都列在 `tests/audit/theorems.txt` 中。
 
 | C 文件 | 页面 | 必需的安全定理 | 模块 |
 | --- | --- | --- | --- |
@@ -59,7 +55,7 @@ deflateEnd(&strm);
 | `inffast.c` | [快速解码](inffast.md) | 没有公开函数。内部定理：`inflate_fast_safe` | `inffast.c.final.lean` |
 | `inflate.c` | [流式解码](inflate.md) | 序列定理：`inflate_sequence_safety_public`。每个函数一条：`inflate_safety` 和另外九条。此外有 `inflateInit__safety`、`inflateInit2__safety`、`inflateCopy_safety`、`inflate_refusal`，以及非空性定理 `inflate_initialisation_domain_public` | `public-inflate-sequence-safety.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-inflate-copy-safety.lean`、`public-stream-refusal.lean`、`public-inflate-init.lean` |
 | `deflate.c` | [流式压缩](deflate.md) | 序列定理：`deflate_sequence_safety`。每个函数一条：`deflate_safety` 和另外十二条。此外有 `deflateInit__safety`、`deflateInit2__safety`、`deflate_copy_safety`、`deflate_refusal`，以及非空性定理 `deflate_initialisation_domain_public` | `public-deflate-goals.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-deflate-copy.lean`、`public-stream-refusal.lean`、`public-deflate-init-domain.lean` |
-| `trees.c` | [树与块输出](trees.md) | 没有公开函数。它的引理服务于 `deflate_sequence_safety`。已登记的有：`tinyOverlayAt_256`、`tinyOverlayAt_128`（最小的两个 `memLevel` 下共用缓冲区的界）、`gen_bitlen_safe`、`pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`、`trees.c.heap.*.lean` |
+| `trees.c` | [树与块输出](trees.md) | 没有公开函数。它的引理服务于 `deflate_sequence_safety`。列出的定理有：`tinyOverlayAt_256`、`tinyOverlayAt_128`（最小的两个 `memLevel` 下共用缓冲区的界）、`gen_bitlen_safe`、`pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`、`trees.c.heap.*.lean` |
 | `infback.c` | [回调解码器](callbacks.md) | 序列定理：`inflate_back_sequence_safety`。每个函数一条：`inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety`。非空性：`back_init_domain_public` | `infback.c.safety-fast.lean`、`public-back-safety.lean`、`public-infback-init.lean` |
 | `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c` | [Gzip 文件](gzip.md) | 序列定理：`gz_sequence_safety_public`。每个函数一条：`gzread_safety` 以及另外 31 条。`NULL` 句柄：`gz_refusal`。非空性：`gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`、`public-gz-call-safety.lean`、`public-gz-refusal.lean`、`public-gz-sequence-nonvacuity.lean` |
 | `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`；两个上界函数的定理与函数同名：`compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
@@ -67,7 +63,7 @@ deflateEnd(&strm);
 
 31 个 gz 函数、`gzvprintf` 和三个 `inflateBack` 函数，也各有一条单函数的安全定理。它把所属一族的序列定理用到一个函数的调用上，并且包括这个函数的拒绝：对接受句柄的 gz 函数是 `NULL` 句柄；对 `inflateBack` 和 `inflateBackEnd` 是 `NULL` 流和状态为 `NULL` 的流记录，对 `inflateBackEnd` 还有 `zfree` 为 `NULL`。`inflateBackInit_` 的定理覆盖 `zlib.h` 允许的每一次调用，不需要历史。
 
-`trees.c` 页面解释的引理中，有一些已检查而未登记，其中包括 `memLevel` 为 3 到 9 时共用缓冲区的界（`dynamic_overlay_mid`、`dynamic_overlay_large`）。每条引理的层级见[树](trees.md#results)页面。
+`trees.c` 页面解释的其他结论，是 `deflate_sequence_safety` 的证明内部的引理，其中包括 `memLevel` 为 3 到 9 时共用缓冲区的界（`dynamic_overlay_mid`、`dynamic_overlay_large`）。每一条见[树](trees.md#results)页面。
 
 ## 本节的其他页面
 
@@ -83,7 +79,7 @@ deflateEnd(&strm);
 
 ## 功能结论
 
-这些页面也解释了一些不是安全结论所必需的结论。它们都已登记。
+这些页面也解释了一些不是安全结论所必需的结论。它们都已证明。
 
 | 页面 | 解释的功能结论 |
 | --- | --- |

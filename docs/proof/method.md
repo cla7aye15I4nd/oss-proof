@@ -219,8 +219,10 @@ and the mathematical lemmas.
 Each newly proved public function gets proof mutants: the translation is changed in one place,
 for example a dropped check, a changed return value, a wrong field or an index off by one, and
 the proof of that function must then fail. A mutant that only breaks a lemma elsewhere does not
-count.
+count. The mutant rows are written when the function's theorem is registered. Running them is
+additional evidence and not part of acceptance: a mutant run starts only on request.
 
 The three levels, checked, registered and accepted, are defined in the
-[glossary](../glossary.md#status). A small proof or a green build is not acceptance. See
+[glossary](../glossary.md#status); [progress](../progress.md#scope) records the level of each
+result. A small proof or a green build is not acceptance. See
 [checking](../checking/README.md) and [verification policy](../anti-cheating.md).

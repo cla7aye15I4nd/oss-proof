@@ -17,9 +17,8 @@ The [API contracts](../spec/api/utility.md) give the caller obligations. Terms:
 | `deflateBound`, `deflateBound_z` | `deflateBound_safety`, `deflateBound_z_safety` (`ZlibF/Proof/public-stream-call-safety.lean`) | [Stream compression](deflate.md) |
 | `compressBound`, `compressBound_z` | `compressBound`, `compressBound_z` (`ZlibF/Proof/public-compress-bound.lean`): the exact value of the formula. The functions read no memory, so the manifest uses these full contracts as their safety goals | [Safety of `compress*`](compress-safety.md#the-bound-functions) |
 
-These theorems are [registered](../checking/README.md) and
-[accepted](../checking/README.md) on commit `bde170e9`
-([progress, Scope](../progress.md#scope)). The functional contracts of these functions, such as
+These theorems are listed in `tests/audit/theorems.txt`.
+[progress, Scope](../progress.md#scope) records the level of each result. The functional contracts of these functions, such as
 the bytes that `uncompress` writes or that every compressor output fits the bound, are not
 required for the safety results.
 
