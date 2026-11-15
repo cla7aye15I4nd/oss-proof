@@ -1,4 +1,4 @@
-<!-- source-sha256: 1f010a81a8e736d0e90651fd26a4fd8b5bf106e2151bc4e059e7daab51c9e08b -->
+<!-- source-sha256: c783f77406a2fa8e8c5092bbaaecc72b2a6c612105cdef81c22d23070594f39d -->
 # 流式解码：模式、历史与调用组合
 
 解压器的工作是从压缩比特中识别字面量和匹配，再按顺序恢复原文。例如，先恢复两个字面量 `AB`，再遇到“距离 2、长度 6”，就应继续产生 `ABABAB`，得到 `ABABABAB`。输出缓冲区可能在中途用完；本页的证明必须把读位、查表、历史复制和下一次调用连接成这同一个解码过程。
@@ -274,7 +274,7 @@ stateDiagram-v2
 源检查或分配失败时清空 `dest->state`。成功时复制两个记录，修复流反向指针，
 重定位内部表指针，并只复制 `whave` 个窗口字节。
 `next` 始终指向状态的 `codes` 数组；`lencode`／`distcode` 指向该数组或共用固定表。
-不变量携带这些事实（`InflateInv` 的子句 `origin`，即 `CopyTableOrigin`）。源、目标记录不得重叠。
+`InflateInv` 的子句 `origin`（即 `CopyTableOrigin`）只携带其中一部分：`lencode` 指向 `codes[0]`，或者 `lencode` 与 `distcode` 就是两张固定表。关于 `next` 以及动态 `distcode`（都是 `codes` 中的偏移；`next` 可以指向其末尾之后一位）的事实来自 `Good` 的子句 `inv.ptr`（`CopyTableOrigin.dynamic_geometry`，`ZlibF/Proof/inflate.c.copy-origin.lean`）。源、目标记录不得重叠。
 
 固定版本的上游源代码用 `>=` 和 `<=` 检查 `lencode` 是否位于 `codes` 内。
 使用固定表时，它们是不同对象。补丁 0001 把这个检查换成指针相等比较，翻译遵循打过补丁的源代码。

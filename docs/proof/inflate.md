@@ -310,9 +310,12 @@ has different epoch semantics from one preset dictionary. `inflateResetKeep` ret
 fails, and clears `dest->state` on its source-check and allocation failures. On success it
 copies both records, repairs the stream backlink, rebases internal table pointers and copies
 only `whave` window bytes. `next` always refers into the state's `codes` array.
-`lencode`/`distcode` either name that array or the shared fixed tables. The invariant carries
-those facts (the clause `origin` of `InflateInv`, `CopyTableOrigin`). Source and destination
-records must not overlap.
+`lencode`/`distcode` either name that array or the shared fixed tables. The clause `origin` of
+`InflateInv` (`CopyTableOrigin`) carries part of this: `lencode` points at `codes[0]`, or
+`lencode` and `distcode` are the two fixed tables. The facts for `next` and for a dynamic
+`distcode` (offsets into `codes`; `next` may be one past its end) come from `Good`, clause `inv.ptr`
+(`CopyTableOrigin.dynamic_geometry`, `ZlibF/Proof/inflate.c.copy-origin.lean`). Source and
+destination records must not overlap.
 
 The pinned upstream source tests whether `lencode` lies within `codes` using `>=` and `<=`.
 With fixed tables these are different objects. Patch 0001 replaces the test with pointer
