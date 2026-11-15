@@ -210,7 +210,11 @@ The same representation is used for the scalar out-parameters of some public fun
 `destLen` of `compress*`, `dictLength` of `inflateGetDictionary` and `deflateGetDictionary`,
 `pending` and `bits` of `deflatePending`, and `bits` of `deflateUsed`. There it is a limit of the
 model as well: the caller's cell is not memory, so a cell that overlaps one of the buffers
-cannot be expressed. [Deviations](../deviations.md) has the row for `compress*`. The length cells
+cannot be expressed, and the safety goal of the function says nothing about the cell's memory.
+This use is not one of the four accepted normalisations, which are worded for internal
+functions; whether these translations change to take the cell as memory is an open decision of
+the owner. [Deviations](../deviations.md#stream-calls-inflate-and-deflate) has the rows
+"Result cells" and "Whole-buffer compression". The length cells
 of `uncompress*` and the `errnum` cell of `gzerror` are memory: eight-byte blocks and a four-byte
 block.
 

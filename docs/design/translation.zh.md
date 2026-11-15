@@ -1,4 +1,4 @@
-<!-- source-sha256: 613d46df6f6601e6dd041ba53b02526413a2fa17819b0d08650431d279304509 -->
+<!-- source-sha256: 9cb3ef5558f4291c7333b63ca77817032ed8ccc70a6cb5d44cf2c101e45a1908 -->
 # 翻译 C 而不改变它的行为
 
 选定源码中的每个 C 函数，都由人工逐语句改写成一个 Lean 函数。本页给出规则、四条采纳的规范化，以及两个连同 C 一起列出的函数，让读者能够自己把翻译与源码对照。内核不对照 C 检查翻译。做这件事的是审查和差分测试；测试是忠实性的证据，不是证明。
@@ -183,7 +183,7 @@ C 里提前的 `return` 就是 Lean 的 `do` 块里的 `return`：块中余下�
 
 **1. 内部函数的输出参数按值传入，并作为第二个结果返回。** 模型里没有指向记录的标量字段或指向标量局部变量的指针。例子是上面的 `syncsearch`：`unsigned *have` 成了参数 `have_` 和第二个结果，由调用者写回。其他用到的地方：`inflate_table`（`table`、`bits`）、`gz_load`（`have`），以及 `inflateBack` 输入回调的 `&next`。
 
-一些公开函数的标量输出参数也用同样的表示：`compress*` 的 `destLen`，`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`，`deflatePending` 的 `pending` 和 `bits`，以及 `deflateUsed` 的 `bits`。在那里它同时也是模型的一个限制：调用者的单元不是内存，所以一个与某个缓冲区重叠的单元无法表达。[偏离记录](../deviations.md)里有 `compress*` 的那一行。`uncompress*` 的长度单元和 `gzerror` 的 `errnum` 单元是内存：前者是八字节的块，后者是一个四字节的块。
+一些公开函数的标量输出参数也用同样的表示：`compress*` 的 `destLen`，`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`，`deflatePending` 的 `pending` 和 `bits`，以及 `deflateUsed` 的 `bits`。在那里它同时也是模型的一个限制：调用者的单元不是内存，所以一个与某个缓冲区重叠的单元无法表达，这些函数的安全目标对这个单元的内存也什么都没说。这种用法不属于四项被采纳的规范化，那四项是针对内部函数写的；这些翻译是否改为把单元当作内存，所有者尚未决定。[偏离记录](../deviations.md#stream-calls-inflate-and-deflate)里有“结果单元”和“整缓冲区压缩”两行。`uncompress*` 的长度单元和 `gzerror` 的 `errnum` 单元是内存：前者是八字节的块，后者是一个四字节的块。
 
 **2. 对同一位置的两次读取，中间没有写入，就算一次读取。** 在 `syncsearch` 里：
 

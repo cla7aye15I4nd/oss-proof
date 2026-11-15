@@ -10,6 +10,13 @@ it is neither proved safe nor claimed to be unsafe.
 - **What is listed.** Every premise of a required safety goal that is narrower than `zlib.h`, or
   that a reader could miss. A premise that only repeats `zlib.h` is in the Lean statement of the
   goal, which is the authority; [coverage](coverage.md) names the goal of each function.
+- **Result cells.** Seven functions store a result through a pointer that the translation
+  represents as a value and not as memory: `destLen` of the four `compress*` functions,
+  `dictLength` of the two `GetDictionary` functions, and the result pointers of `deflatePending`
+  and `deflateUsed`. Their goals have no premise on the cell and say nothing about its memory. The
+  checklist gives the line a caller has to keep, and marks it "no Lean predicate". The rows
+  ["Result cells"](#stream-calls-inflate-and-deflate) and
+  ["Whole-buffer compression"](#whole-buffer-utilities-and-checksums) give the details.
 - **What is not listed here.** Conditions on the model that a caller cannot act on, and the limits
   of functional and model theorems: these are in [model limits](model-limits.md). What is trusted
   and not proved is in the [trusted base](trusted-base.md).
@@ -23,8 +30,8 @@ with its counterexample, and a wrong translation or runtime is corrected in that
 
 ## Checklist for a caller
 
-Each line ends with the Lean predicate that states it. `NULL` is allowed wherever a line says so,
-and only there.
+Each line ends with the Lean predicate that states it; a line that no predicate states says so.
+`NULL` is allowed wherever a line says so, and only there.
 
 **Every call**
 
@@ -82,6 +89,10 @@ the code leaves unset.
 - The dictionary pointer is `NULL`, or a buffer outside the stream's own memory: readable for
   `dictLength` bytes for the two `Set` calls, writable for the bytes returned for the two `Get`
   calls (`CallerRange`). `zlib.h` says that 32768 bytes are always enough for a `Get` call.
+- For the two `Get` calls, `dictLength` is `NULL` or points to a `uInt` variable of your own that
+  overlaps neither the dictionary buffer, the `z_stream` nor the stream's own memory. No Lean
+  predicate states this line: the translation returns the length as a value (row
+  ["Result cells"](#stream-calls-inflate-and-deflate)).
 
 **gzip header, reading: `inflateGetHeader`**
 
@@ -119,6 +130,10 @@ the code leaves unset.
 
 - No premise on the arguments. The stream is one that an init or a copy returned `Z_OK` for and
   that was used as this checklist says.
+- `deflatePending` and `deflateUsed`: each result pointer (`pending`, `bits`) is `NULL` or points
+  to a variable of your own that overlaps neither the `z_stream` nor the stream's own memory. No
+  Lean predicate states this line: the translation returns the results as values (row
+  ["Result cells"](#stream-calls-inflate-and-deflate)).
 
 **A `NULL` or inconsistent stream**
 
@@ -131,8 +146,10 @@ the code leaves unset.
 
 - `source` is readable for `sourceLen` bytes, `dest` is writable for `*destLen` bytes, and the
   two do not overlap (`CompressArguments`).
-- `destLen` does not point into `source` or `dest`. `compress` and `compress2` take a non-`NULL`
-  `destLen`.
+- `compress` and `compress2` take a non-`NULL` `destLen` (`CompressArguments`).
+- `destLen` points to a variable of your own that does not overlap `source` or `dest`. No Lean
+  predicate states this line: the translation takes `*destLen` as a value (row
+  ["Whole-buffer compression"](#whole-buffer-utilities-and-checksums)).
 
 **`uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z`**
 
@@ -229,6 +246,7 @@ apart; the goals state the separation as a hypothesis.
 | Caller edits between calls (`Rebuffer`) | Between two calls of a history the caller changes only `next_in`, `avail_in`, `next_out` and `avail_out` of the stream record, and memory the stream does not own. | Both sequence goals; every one-function stream goal through `StreamReachable` | This is `zlib.h`'s rule: the application updates the buffer fields, and all other fields "must not be updated by the application". A history in which the caller writes another field of the record, or a block the stream owns, is outside. |
 | Other stream arguments (`StreamArguments`) | `inflateSync`: the input range is `NULL` with `avail_in = 0`, or readable and outside the stream's storage. `deflatePrime`: no `deflate` call has started the stream (`DeflateNotStarted`); `deflateSetHeader` has the same ordering rule (row "Header arguments"). The header and dictionary calls have their own rows. The other stream calls have no argument premise. | The function's safety goal, and the same call in a sequence goal | The ordering rule is `zlib.h`'s ("before the first deflate() call"). The excluded order is undefined behaviour of the real C ([reproduction](../tests/regression/deflate-history-domain/README.md)). |
 | Dictionary buffers (`CallerRange`) | The dictionary argument is `NULL`, or a readable range (writable for the two `Get` calls) with no byte in a block the stream owns. For `inflateGetDictionary` the range has `whave` bytes; for `deflateGetDictionary`, `min(w_size, strstart + lookahead)` bytes. | `Goal.inflateGetDictionary_safety`, `Goal.deflateGetDictionary_safety`, `Goal.inflateSetDictionary_safety`, `Goal.deflateSetDictionary_safety`, and these calls in the sequence goals | A dictionary buffer inside the stream's window or other storage is not covered. |
+| Result cells (`dictLength`, `pending`, `bits`) | No premise, and none can be stated. The translation passes these scalar out-parameters as values, not as memory. `inflateGetDictionary` takes the value of `*dictLength`, or `none` for `NULL` (`Option UInt32`, `ZlibF/Zlib/inflate.c.lean`). `deflateGetDictionary`, `deflatePending` and `deflateUsed` take only the fact whether each pointer is `NULL` (`Bool`, `ZlibF/Zlib/deflate.c.lean`). Each function returns the value the C stores as a further result. | `Goal.inflateGetDictionary_safety`, `Goal.deflateGetDictionary_safety`, `Goal.deflatePending_safety`, `Goal.deflateUsed_safety`, and these calls in the sequence goals | The goals say nothing about the memory of the result cell. That a non-`NULL` pointer is writable, and that the cell lies apart from the dictionary buffer, the stream record and the storage the stream owns, cannot be expressed. The C stores through the pointer with a plain assignment (`*dictLength = ...`, `*pending = ...`, `*bits = ...`). A call whose result cell is an ordinary variable of the caller, apart from these regions, is the call the model represents; any other call is not covered. This is the same limit as the length cell of `compress*` (row "Whole-buffer compression"). The working rules accept this representation for an out-parameter of an internal function; these are public functions, and whether their translations change to take the cell as memory is an open decision of the owner ([progress](progress.md#no-fault-coverage-of-zlibh-functions), item 4). |
 | Header arguments (`HeaderMemory`, `DeflateNotStarted`, `DeflateHeaderLive`) | `inflateGetHeader`: the header record is not `NULL`, is not owned by the stream, and its `extra`, `name` and `comment` buffers are `NULL` or writable for `extra_max`, `name_max` and `comm_max` bytes. `deflateSetHeader`: the header is `NULL` or a record the stream does not own, whose non-`NULL` `extra` is readable for `extra_len` bytes and whose non-`NULL` `name` and `comment` are NUL-terminated strings shorter than `2^64` bytes; and no `deflate` call has started the stream. `deflateBound`, `deflateBound_z`: `ActiveHeader` (the four rows below) and a set gzip header that is live at any time, not only while it is written. | `Goal.inflateGetHeader_safety`, `Goal.deflateSetHeader_safety`, `Goal.deflateBound_safety`, `Goal.deflateBound_z_safety`, and these calls in the sequence goals | `inflateGetHeader` with a `NULL` header is outside: the C stores through the pointer (`head->done = 0`). The ordering rule of `deflateSetHeader` is `zlib.h`'s; a `NULL` header set while the header is being written is dereferenced by the real C ([reproduction](../tests/regression/deflate-history-domain/README.md)). |
 | Attached gzip header stays live (`HeaderMemory` in `ActiveHeader`) | At every `inflate` call, in every mode, also after the header is complete (`done` set): the record given to `inflateGetHeader` is still a live record that the stream does not own, and its non-`NULL` `extra`, `name` and `comment` are still writable for `extra_max`, `name_max` and `comm_max` bytes, outside the stream's storage. While `deflate` writes a header (`GZIP_STATE` .. `HCRC_STATE`): the record given to `deflateSetHeader` is live and not owned by the stream, its non-`NULL` `extra` is readable for `extra_len` bytes, and its non-`NULL` `name` and `comment` are NUL-terminated strings. After the header is written the caller may release it, except for `deflateBound` and `deflateBound_z` (row above). | `Goal.inflate_safety`, `Goal.deflate_safety`, `Goal.deflateParams_safety`, `Goal.deflateBound_safety`, `Goal.deflateBound_z_safety`, and these calls in both sequence goals | For `inflate` the premise asks more than the C uses: `inflate.c` reads and writes `state->head` only in the header modes (`HEAD` .. `HCRC`), and not after `done` is set. A caller that frees the record or its buffers after `done` and then calls `inflate` again is not covered. `inflateReset` detaches the record. For `deflate` the premise asks for `extra_len` readable bytes; the C reads `extra_len mod 2^16`. |
 | Inflate gzip extra field (`InflateHeaderProgress`) | While `inflate` reads a gzip header (`HEAD` .. `HCRC`) into an attached `gz_header`, its `extra` buffer (`extra_max` bytes) is separate from the unread input; in `EXTRA`, the record's `extra_len` is not below `state->length`. | `Goal.inflate_safety` and every `inflate` call of `Goal.inflate_sequence_safety`; also the functional `Goal.inflate` and `Goal.inflate_sequence` | Each excluded case is undefined behaviour of the real C in EXTRA's `zmemcpy` ([reproduction](../tests/regression/inflate-gzip-extra/README.md)): an overlapping copy, or a write past `extra_max` after a caller lowers `extra_len` inside the extra field. `zlib.h` does not say whether either layout is permitted. |
@@ -290,7 +308,7 @@ Three kinds of record are outside the refusal domain when `zalloc` and `zfree` a
 
 | Premise | What it asks | Goals | Outside the premise |
 | --- | --- | --- | --- |
-| Whole-buffer compression (`CompressArguments`) | The source and the destination do not overlap: `Separate source n dest c`. The source is readable and the destination writable for its capacity, unless the call is one the C refuses (`compressRejected`). `compress` and `compress2` take a non-`NULL` length cell; a `NULL` cell is admitted only for the `_z` forms. | `Goal.compress_safety`, `Goal.compress2_safety` and their `_z` forms | Overlapping source and destination are not covered. The length cell `*destLen` is a scalar value in the translation (`Option UInt64`, `ZlibF/Zlib/compress.c.lean`), not memory: a cell that overlaps the source or the destination cannot be expressed and is not covered. |
+| Whole-buffer compression (`CompressArguments`) | The source and the destination do not overlap: `Separate source n dest c`. The source is readable and the destination writable for its capacity, unless the call is one the C refuses (`compressRejected`). `compress` and `compress2` take a non-`NULL` length cell; a `NULL` cell is admitted only for the `_z` forms. | `Goal.compress_safety`, `Goal.compress2_safety` and their `_z` forms | Overlapping source and destination are not covered. The length cell `*destLen` is a scalar value in the translation (`Option UInt64`, `ZlibF/Zlib/compress.c.lean`), not memory: that the cell is writable, and that it lies apart from the source and the destination, cannot be expressed, and a call in which it is not is not covered. Whether the translation changes to take the cell as memory is an open decision of the owner, as for the row "Result cells" of the stream calls. |
 | Counted decompression (`UtilitySeparation`, `UncompressCountedSafe`, `UncompressSingleSafe`) | Source, destination, the destination-length cell and the source-length cell are pairwise separate. `uncompress` and `uncompress_z` need the source/destination and length-cell/data separations. A length cell is eight readable and writable bytes (`LengthCell`); `uncompress` and `uncompress2` take non-`NULL` cells. | `Goal.uncompress_safe`, `Goal.uncompress2_safe` and their `_z` forms | Aliasing a length cell with a data buffer or with another cell is not covered. Unlike `compress*`, the cells `*destLen` and `*sourceLen` are memory in the translation (`ZlibF/Zlib/uncompr.c.lean`), so the separation is a stated premise, not a limit of the model. |
 | Adler initialization queries (`AdlerBufferBytes`) | `buf` is `NULL` only with zero length; a non-`NULL` readable buffer has its full length domain. | `Goal.adler32_safety`, `Goal.adler32_z_safety`, and the functional `Goal.adler32`, `Goal.adler32_z` | Narrower than the pinned header's unqualified wording about `NULL`. With `NULL` and `len = 1` the C reads `buf[0]`. The CRC goals keep `BufferBytes`, which admits `NULL` with any length. See the note below. |
 | CRC combination operator | The operator is one that `crc32_combine_gen` or `crc32_combine_gen64` returned. | `Goal.crc32_combine_op_safety` | This is `zlib.h`'s domain for `crc32_combine_op`, not a narrowing. An arbitrary `op` value is not covered. |

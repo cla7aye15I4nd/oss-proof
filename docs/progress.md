@@ -50,14 +50,24 @@ Three notes on the table:
 
 On `bde170e9` the acceptance suite was green: axiom gate, exact goals, self tests, proof mutants
 and differential tests, with all 63 required goals registered. The differential tests are
-evidence of fidelity, not proof. Between that commit and this page, one change touched the
-goals, proofs or registries: `Goal.inflateInit__safety`, `Goal.inflateInit2__safety`,
-`Goal.deflateInit__safety` and `Goal.deflateInit2__safety` were widened to every call `zlib.h` allows
-(commit `101c6ab3`; proofs in `8642e435`). Before, they asked for a record with a `NULL` `state`,
-the matching version and the matching `stream_size`. In the wider
-form they are registered and not yet accepted: no acceptance run covers a commit that contains
-them, and the result of the fast gate on `8642e435` was not available when this paragraph was
-written.
+evidence of fidelity, not proof.
+
+Between that commit and this page, the registries under `tests/audit/` and the scripts under
+`scripts/` are unchanged, and two things changed under `ZlibF/`:
+
+- **The four init safety goals were widened.** `Goal.inflateInit__safety`,
+  `Goal.inflateInit2__safety`, `Goal.deflateInit__safety` and `Goal.deflateInit2__safety` hold for
+  every call `zlib.h` allows (commit `101c6ab3`, `ZlibF/Spec/Safety/Initialisation.lean`; proofs in
+  `8642e435`, `ZlibF/Proof/public-init-safety.lean`). Before, they asked for a record with a
+  `NULL` `state`, the matching version and the matching `stream_size`. In the wider form the four
+  goals are checked and registered, and not yet accepted: the fast gate is green on `8642e435`,
+  and no acceptance run covers a commit that contains them. They are accepted on `bde170e9` only
+  in the narrower form.
+- **Proof modules of functional work changed.** Modules about the meaning of the output of
+  `inflate` (`ZlibF/Proof/inflate.c.meaning*.lean`) were added or changed. None of their theorems
+  is registered, and they change no goal.
+
+No other goal, registered theorem or registry line differs from `bde170e9`.
 
 **Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
 functions are proved safe through the sequence goals of 3b and 3c, which cover every call in
@@ -2244,7 +2254,7 @@ The table with one row for each function that `zlib.h` documents is on its own p
 type is that goal, the proof file, the domain and the theorem that covers a `NULL` or
 inconsistent stream. A separate column names the functional theorem.
 
-Every documented function has a registered safety theorem on the domain its row states. Three
+Every documented function has a registered safety theorem on the domain its row states. Four
 kinds of item are open or narrower than `zlib.h`:
 
 1. **One-function safety goals** for the gz functions and for `inflateBackInit_`, `inflateBack`
@@ -2259,6 +2269,15 @@ kinds of item are open or narrower than `zlib.h`:
    `state == NULL` before `inflateBackInit_`); `inflateCopy` and `deflateCopy`
    (`source ≠ dest`); `adler32` and `adler32_z` (a `NULL` `buf` only with `len = 0`: `len = 1`
    is a real C fault, and `NULL` with `len ≥ 2` is safe in C but unproved).
+4. **Result cells passed as values.** The translations of seven public functions take a scalar
+   out-parameter as a value and return the stored value as a further result: `destLen` of
+   `compress`, `compress2` and their `_z` forms; `dictLength` of `inflateGetDictionary` and
+   `deflateGetDictionary`; `pending` and `bits` of `deflatePending`; `bits` of `deflateUsed`. The
+   safety goals of these functions therefore say nothing about the memory of the result cell
+   ([deviations](deviations.md#stream-calls-inflate-and-deflate), rows "Result cells" and
+   "Whole-buffer compression"). The working rules accept this representation for an
+   out-parameter of an internal function only. Whether these translations change to take the
+   cell as memory, as `uncompress*` and `gzerror` do, is an open decision of the owner.
 
 The functional goals of `deflateParams`, `deflateSetDictionary`, `deflatePrime`, `deflateBound`,
 `deflateBound_z` and `inflateSync` have no theorem and are not planned. Their safety goals are
@@ -2278,12 +2297,15 @@ was green and what changed after it. What remains, in order:
    [coverage](#no-fault-coverage-of-zlibh-functions), item 2.
 3. **Acceptance** of items 1 and 2 and of the widened init goals: registration in
    `tests/audit/theorems.txt`, proof mutants, and a green acceptance suite on a named commit.
+   The widened init goals are registered already and wait only for that run.
 4. **The round trip of the default zlib stream**, after the safety results ([Scope](#scope)).
 5. **Upstream submission of the local patches** 0004 and 0005
    ([patches](../patches/README.md)). Patches 0001 to 0003 match submitted upstream pull
    requests.
-6. **Open reviews**: [Translation review](#translation-review) and
-   [Historical reports to recheck](#historical-reports-to-recheck).
+6. **Open reviews and decisions**: [Translation review](#translation-review),
+   [Historical reports to recheck](#historical-reports-to-recheck), and the owner's decision on
+   the result cells of seven public functions
+   ([coverage](#no-fault-coverage-of-zlibh-functions), item 4).
 7. **Optional cleanup** of proofs that no registered theorem uses
    ([Core proof skeletons](#core-proof-skeletons)).
 
@@ -2324,7 +2346,7 @@ prerequisite for full closure.
 | `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc`  | Needs: reader path proofs | <a id="readiness-gzdirect"></a> **Start:** common lazy setup, transparent reads and buffer/history invariants. **Compose:** actual decoder execution for compressed paths, then EOF/count/pushback/error clauses. `gzdirect` needs detection and init, not the full data-decoding loop. |
 | `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams`  | Needs: writer path proofs | <a id="readiness-gzwrite"></a> **Start:** buffering, formatting, transparent writes and failures. **Compose:** actual compressor execution for compressed output and parameter changes. |
 | `deflatePrime`  | Start: compaction and bits | <a id="readiness-deflateprime"></a> **Start:** pending-byte compaction, checked shifts, bit insertion/flush and invariant/frame preservation. Refusal branches are locally checked; accepted counts remain open. |
-| `deflateBound_z`, `deflateBound`  | Start: bound and header review | <a id="readiness-deflatebound-z"></a> **Start:** connect existing execution formulas to the saturated mathematical bound, including header strings and extra lengths. The historical extra-length report is **to confirm**, not a newly confirmed blocker. |
+| `deflateBound_z`, `deflateBound`  | Start: bound and header review | <a id="readiness-deflatebound-z"></a> **Start:** connect existing execution formulas to the saturated mathematical bound, including header strings and extra lengths. The extra-length report is reproduced on the pinned C: for an `extra_len` of `2^32 - 2` or `2^32 - 1` the C wraps `2 + extra_len` at 32 bits, and the value goals as stated do not ([finding](findings/deflatebound-extra-len/README.md)). The goals need a corrected statement before a proof starts. |
 | `deflateSetDictionary`  | Start: window and hash | <a id="readiness-deflatesetdictionary"></a> **Start:** window fill, hash-chain insertion, saved-input restoration, then checksum and exact state/frame effects. Green checksum calls cover only that part. |
 | `deflateParams` | Needs: block flush and parameter state | <a id="readiness-deflateparams"></a> **Compose:** actual old-block flushing, return-code handling and canonical tuning-row updates. Check exact state preservation on refusal before full closure. |
 | `inflateSync`  | Needs: scan and history | <a id="readiness-inflatesync"></a> **Start:** compose existing first/resume scans, held bits, marker search, reset and accounting/frame results. Derive window/reset premises from histories. |
@@ -2420,11 +2442,16 @@ statements are corrected is not decided.
 
 ### Historical reports to recheck
 
-Earlier work reported the items below. They are not rechecked against the pinned source:
+Earlier work reported six items. Three were rechecked against the pinned source and are
+findings with a reproduction:
 
-- gzip extra-length arithmetic;
-- partial-read recovery;
-- negative-position seeking;
+- gzip extra-length arithmetic: [`deflateBound` with a long extra field](findings/deflatebound-extra-len/README.md);
+- partial-read recovery: [`gzread` copies from a stale `x.next`](findings/gzread-transparent-stale-next/README.md), patch 0003;
+- negative-position seeking: [`gzseek` after an initial `gzungetc`](findings/gzseek-pushback-overflow/README.md), patch 0002.
+
+Three are not rechecked against the pinned source
+([findings, earlier library observations](findings.md#earlier-library-observations)):
+
 - lost parameter changes;
 - failed-finish recovery;
 - forward seek after EOF.

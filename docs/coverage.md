@@ -52,7 +52,7 @@ Theorems of the safety column: `ZlibF.Spec.Public.StreamCallSafetyProof.<name>` 
 | `inflate` | `Goal.inflate_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.inflate_refusal` | `Goal.inflate`: `Zlib.Inflate.Proofs.inflate_public`, `public-inflate.lean` |
 | `inflateEnd` | `Goal.inflateEnd_safety` | None | `Goal.inflate_refusal` | `Goal.inflateEnd`: `inflate_end_public`, `public-inflate-end.lean` |
 | `inflateSetDictionary` | `Goal.inflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | `Goal.inflate_refusal` | `Goal.inflateSetDictionary`: `inflateSetDictionary_public`, `public-inflate-setdict.lean` |
-| `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | The destination buffer (`CallerRange`) | `Goal.inflate_refusal` | `Goal.inflateGetDictionary`: `inflate_getdict_public`, `public-inflate-getdict.lean` |
+| `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | `Goal.inflate_refusal` | `Goal.inflateGetDictionary`: `inflate_getdict_public`, `public-inflate-getdict.lean` |
 | `inflateSync` | `Goal.inflateSync_safety` | The input range | `Zlib.Inflate.Proofs.inflateSync_check`, registered, not a goal | None: `Goal.inflateSync` is open and not planned |
 | `inflateCopy` | `Goal.inflateCopy_safety`: `ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`, `public-inflate-copy-safety.lean` | `source ≠ dest`; the destination is a readable record | `NULL` arguments inside the goal; an inconsistent source in `Goal.inflate_refusal` | `Goal.inflateCopy`: `inflate_copy_public`, `public-inflate-copy.lean` |
 | `inflateReset` | `Goal.inflateReset_safety` | None | `Goal.inflate_refusal` | `Goal.inflateReset`: `reset_public`, `public-inflate-reset.lean` |
@@ -74,15 +74,15 @@ Theorems of the safety column: `ZlibF.Spec.Public.StreamCallSafetyProof.<name>` 
 | `deflate` | `Goal.deflate_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.deflate_refusal` | `Goal.deflate`: `Zlib.Deflate.Universal.deflate_safety`, `public-deflate-goals.lean` |
 | `deflateEnd` | `Goal.deflateEnd_safety` | None | `Zlib.Deflate.Proofs.deflateEnd_reject`, registered, not a goal | `Goal.deflateEnd`: `deflate_end_public`, `public-deflate-end.lean` |
 | `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | `Goal.deflate_refusal` | None: `Goal.deflateSetDictionary` is open and not planned |
-| `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | The destination buffer (`CallerRange`) | `Goal.deflate_refusal` | `Goal.deflateGetDictionary`: `deflate_getdict_public`, `public-deflate-getdict.lean` |
+| `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | `Goal.deflate_refusal` | `Goal.deflateGetDictionary`: `deflate_getdict_public`, `public-deflate-getdict.lean` |
 | `deflateCopy` | `Goal.deflateCopy_safety`: `Zlib.Deflate.Universal.deflate_copy_safety`, `public-deflate-copy.lean` | `source ≠ dest`; the destination is a readable record | `NULL` arguments and a source with a `NULL` allocator or state inside the goal; a source whose state the check refuses in `Goal.deflate_refusal` | `Goal.deflateCopy`: `deflate_copy_public`, `public-deflate-copy.lean` |
 | `deflateReset` | `Goal.deflateReset_safety` | None | `Zlib.Deflate.Proofs.deflateReset_reject`, registered, not a goal | `Goal.deflateReset`: `deflate_reset_public`, `public-deflate-reset.lean` |
 | `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.deflate_refusal` | None: `Goal.deflateParams` is open and not planned |
 | `deflateTune` | `Goal.deflateTune_safety` | None | In the functional goal only (see below) | `Goal.deflateTune`: `tune_public`, `public-deflate-small-queries.lean` |
 | `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_nostate`, registered, not a goal | None: `Goal.deflateBound` is open and not planned |
 | `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_z_nostate`, registered, not a goal | None: `Goal.deflateBound_z` is open and not planned |
-| `deflatePending` | `Goal.deflatePending_safety` | None | In the functional goal only (see below) | `Goal.deflatePending`: `pending_public`, `public-deflate-small-queries.lean` |
-| `deflateUsed` | `Goal.deflateUsed_safety` | None | In the functional goal only (see below) | `Goal.deflateUsed`: `used_public`, `public-deflate-small-queries.lean` |
+| `deflatePending` | `Goal.deflatePending_safety` | None. The result cells `*pending` and `*bits` are values in the model ([note](#result-cells)) | In the functional goal only (see below) | `Goal.deflatePending`: `pending_public`, `public-deflate-small-queries.lean` |
+| `deflateUsed` | `Goal.deflateUsed_safety` | None. The result cell `*bits` is a value in the model ([note](#result-cells)) | In the functional goal only (see below) | `Goal.deflateUsed`: `used_public`, `public-deflate-small-queries.lean` |
 | `deflatePrime` | `Goal.deflatePrime_safety` | Before the first `deflate` call (`DeflateNotStarted`), `zlib.h`'s rule | `Zlib.Deflate.Proofs.deflatePrime_refused`, registered, not a goal | None: `Goal.deflatePrime` is open and not planned |
 | `deflateSetHeader` | `Goal.deflateSetHeader_safety` | Before the first `deflate` call; the header buffers (`HeaderMemory`) | In the functional goal only (see below) | `Goal.deflateSetHeader`: `header_public`, `public-deflate-small-queries.lean` |
 
@@ -92,6 +92,14 @@ reachable stream and says nothing about a `NULL` or inconsistent stream. The ref
 stream is a clause of the registered functional goal of the same function (`CheckedInflate`,
 `CheckedDeflate`), so it is proved, and it is not part of a required goal. Adding the refusal
 clause to these six safety goals is remaining work.
+
+<a id="result-cells"></a>**Result cells.** `inflateGetDictionary`, `deflateGetDictionary`,
+`deflatePending` and `deflateUsed` store a result through a pointer. The translation takes such a
+pointer as a value, not as memory, so the safety goals of these four functions say nothing about
+the memory of the result cell: not that it is writable, and not that it lies apart from the other
+regions. [Deviations](deviations.md#stream-calls-inflate-and-deflate), row "Result cells", says
+which calls the model represents. The same holds for the length cell of `compress*`
+([whole-buffer utilities](#whole-buffer-utilities)).
 
 ## Callback decoder
 
@@ -177,6 +185,8 @@ Each has a row in [deviations](deviations.md).
 - `adler32` and `adler32_z`: a `NULL` `buf` only with `len = 0`.
 - `inflate`, `deflate`, `deflateParams`, `compress*`, `uncompress*`: caller regions that do not
   overlap.
+- `compress*`, `inflateGetDictionary`, `deflateGetDictionary`, `deflatePending`, `deflateUsed`:
+  the result cell is a value in the model, so the goal says nothing about its memory.
 - The gz reading calls: termination under a read budget.
 - Every stream: the default allocator.
 

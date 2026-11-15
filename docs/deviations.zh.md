@@ -1,4 +1,4 @@
-<!-- source-sha256: f82821ece0656fa51241cff80958cfdbd101b67a304067cde803f1068f7d8c09 -->
+<!-- source-sha256: a5078b302c214242953fd2ef23c0a7a8da37410b72623d3ee420dca23885650b -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -6,6 +6,7 @@
 满足自己那个函数的各行，调用就被覆盖。不满足的调用不被覆盖：既没有被证明安全，也没有被断言不安全。
 
 - **列出了什么。** 必需的安全目标中每一条比 `zlib.h` 更窄的前提，以及读者容易漏看的前提。只是重复 `zlib.h` 的前提写在目标的 Lean 命题里，以命题为准；每个函数对应哪个目标，见[按函数查覆盖情况](coverage.md)。
+- **结果单元。** 有七个函数通过指针写出结果，而翻译把这个指针表示成一个值，不是内存：四个 `compress*` 函数的 `destLen`，两个 `GetDictionary` 函数的 `dictLength`，以及 `deflatePending` 和 `deflateUsed` 的结果指针。它们的目标对这个单元没有前提，对它的内存也什么都没说。核对清单给出调用者必须遵守的那一行，并注明“没有 Lean 谓词”。细节见[“结果单元”](#stream-calls-inflate-and-deflate)和[“整缓冲区压缩”](#whole-buffer-utilities-and-checksums)两行。
 - **这里没有列什么。** 调用者无能为力的、对模型的条件，以及功能定理和模型定理的限制：它们在[模型的限制](model-limits.md)中。被信任而没有被证明的东西在[可信基础](trusted-base.md)中。
 - **证据。** 已知真实的 C 在某条前提之外会出错时，该行给出复现的链接；[sanitizer 报告](sanitizer-reports.md)列出全部复现。
 
@@ -13,7 +14,7 @@
 
 ## 给调用者的核对清单
 
-每一行末尾是陈述它的 Lean 谓词。只有写明允许 `NULL` 的地方才允许 `NULL`。
+每一行末尾是陈述它的 Lean 谓词；没有谓词陈述的行会注明。只有写明允许 `NULL` 的地方才允许 `NULL`。
 
 **每一次调用**
 
@@ -52,6 +53,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 **字典：`inflateSetDictionary`、`deflateSetDictionary`、`inflateGetDictionary`、`deflateGetDictionary`**
 
 - 字典指针是 `NULL`，或者是流自身内存之外的一个缓冲区：两个 `Set` 调用要求它有 `dictLength` 个可读字节，两个 `Get` 调用要求它对返回的那些字节可写（`CallerRange`）。`zlib.h` 说 32768 字节对 `Get` 调用总是够用。
+- 对两个 `Get` 调用，`dictLength` 是 `NULL`，或者指向你自己的一个 `uInt` 变量，它与字典缓冲区、`z_stream` 和流自身的内存都不重叠。这一行没有 Lean 谓词陈述：翻译把长度作为值返回（见[“结果单元”](#stream-calls-inflate-and-deflate)一行）。
 
 **读取 gzip 头部：`inflateGetHeader`**
 
@@ -73,6 +75,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 **其余流调用**（`inflateEnd`、`deflateEnd`、`inflateReset`、`inflateReset2`、`inflatePrime`、`inflateMark`、`deflateReset`、`deflateTune`、`deflatePending`、`deflateUsed`）
 
 - 对参数没有前提。流须是某次 init 或复制返回 `Z_OK` 得到的，并且一直按这份清单使用。
+- `deflatePending` 和 `deflateUsed`：每个结果指针（`pending`、`bits`）是 `NULL`，或者指向你自己的一个变量，它与 `z_stream` 和流自身的内存都不重叠。这一行没有 Lean 谓词陈述：翻译把结果作为值返回（见[“结果单元”](#stream-calls-inflate-and-deflate)一行）。
 
 **`NULL` 流或不一致的流**
 
@@ -82,7 +85,8 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 **`compress`、`compress2`、`compress_z`、`compress2_z`**
 
 - `source` 有 `sourceLen` 个可读字节，`dest` 有 `*destLen` 个可写字节，两者不重叠（`CompressArguments`）。
-- `destLen` 不指向 `source` 或 `dest` 内部。`compress` 和 `compress2` 的 `destLen` 不能是 `NULL`。
+- `compress` 和 `compress2` 的 `destLen` 不能是 `NULL`（`CompressArguments`）。
+- `destLen` 指向你自己的一个变量，它与 `source` 和 `dest` 都不重叠。这一行没有 Lean 谓词陈述：翻译把 `*destLen` 当作值传入（见[“整缓冲区压缩”](#whole-buffer-utilities-and-checksums)一行）。
 
 **`uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z`**
 
@@ -146,6 +150,7 @@ init、End、校验和与拒绝目标不需要它。这条前提可以被满足�
 | 调用之间调用者的修改（`Rebuffer`） | 在一段历史的两次调用之间，调用者只改变流记录的 `next_in`、`avail_in`、`next_out` 和 `avail_out`，以及流不拥有的内存。 | 两个序列目标；通过 `StreamReachable` 涉及的每个单函数流目标 | 这是 `zlib.h` 的规则：应用程序更新缓冲区字段，其余字段不得由应用程序更新。调用者写了记录的其他字段或流拥有的块，这样的历史在范围之外。 |
 | 其他流参数（`StreamArguments`） | `inflateSync`：输入范围是 `NULL` 且 `avail_in = 0`，或者可读且在流的存储之外。`deflatePrime`：还没有任何 `deflate` 调用启动过这个流（`DeflateNotStarted`）；`deflateSetHeader` 有同样的顺序规则（“头部参数”一行）。头部调用和字典调用各有自己的行。其余流调用没有参数前提。 | 该函数的安全目标，以及序列目标中的同一种调用 | 顺序规则来自 `zlib.h`（在第一次 `deflate()` 调用之前）。被排除的顺序是真实 C 的未定义行为（[复现](../tests/regression/deflate-history-domain/README.md)）。 |
 | 字典缓冲区（`CallerRange`） | 字典参数是 `NULL`，或是一个可读范围（两个 `Get` 调用还要求可写），其中没有字节落在流拥有的块内。`inflateGetDictionary` 的范围有 `whave` 字节；`deflateGetDictionary` 的范围有 `min(w_size, strstart + lookahead)` 字节。 | `Goal.inflateGetDictionary_safety`、`Goal.deflateGetDictionary_safety`、`Goal.inflateSetDictionary_safety`、`Goal.deflateSetDictionary_safety`，以及序列目标中的这些调用 | 位于流的窗口或其他存储内的字典缓冲区不被覆盖。 |
+| 结果单元（`dictLength`、`pending`、`bits`） | 没有前提，也无法陈述前提。翻译把这些标量输出参数当作值传递，而不是内存。`inflateGetDictionary` 接收 `*dictLength` 的值，指针为 `NULL` 时是 `none`（`Option UInt32`，`ZlibF/Zlib/inflate.c.lean`）。`deflateGetDictionary`、`deflatePending` 和 `deflateUsed` 只接收每个指针是否为 `NULL`（`Bool`，`ZlibF/Zlib/deflate.c.lean`）。每个函数都把 C 写入的值作为另一个结果返回。 | `Goal.inflateGetDictionary_safety`、`Goal.deflateGetDictionary_safety`、`Goal.deflatePending_safety`、`Goal.deflateUsed_safety`，以及序列目标中的这些调用 | 这些目标对结果单元的内存什么都没说。非 `NULL` 的指针是否可写，这个单元是否与字典缓冲区、流记录以及流拥有的存储分开，都无法表达。C 用普通赋值通过指针写入（`*dictLength = ...`、`*pending = ...`、`*bits = ...`）。结果单元是调用者自己的普通变量、并且与这些区域分开的调用，才是模型所表示的调用；其他调用不被覆盖。这与 `compress*` 的长度单元是同一个限制（“整缓冲区压缩”一行）。工作规则只对内部函数的输出参数采纳这种表示；这几个是公开函数，它们的翻译是否改为把单元当作内存，所有者尚未决定（[进展](progress.md#no-fault-coverage-of-zlibh-functions)第 4 项）。 |
 | 头部参数（`HeaderMemory`、`DeflateNotStarted`、`DeflateHeaderLive`） | `inflateGetHeader`：头记录不是 `NULL`，不归流拥有，其 `extra`、`name` 和 `comment` 缓冲区各自是 `NULL`，或分别有 `extra_max`、`name_max`、`comm_max` 个可写字节。`deflateSetHeader`：头是 `NULL`，或是一个流不拥有的记录，其非 `NULL` 的 `extra` 有 `extra_len` 个可读字节，非 `NULL` 的 `name` 和 `comment` 是短于 `2^64` 字节、以 NUL 结尾的字符串；并且还没有任何 `deflate` 调用启动过这个流。`deflateBound`、`deflateBound_z`：`ActiveHeader`（下面四行），并且已设置的 gzip 头在任何时候都存活，而不只是在写出期间。 | `Goal.inflateGetHeader_safety`、`Goal.deflateSetHeader_safety`、`Goal.deflateBound_safety`、`Goal.deflateBound_z_safety`，以及序列目标中的这些调用 | 头为 `NULL` 的 `inflateGetHeader` 在范围之外：C 会通过这个指针写入（`head->done = 0`）。`deflateSetHeader` 的顺序规则来自 `zlib.h`；在头部写出期间设置 `NULL` 头，真实的 C 会解引用它（[复现](../tests/regression/deflate-history-domain/README.md)）。 |
 | 挂接的 gzip 头保持存活（`ActiveHeader` 中的 `HeaderMemory`） | 每次 `inflate` 调用时，在每种模式下，包括头已读完（`done` 已置位）之后：交给 `inflateGetHeader` 的记录仍是一个流不拥有的存活记录，其非 `NULL` 的 `extra`、`name` 和 `comment` 仍分别有 `extra_max`、`name_max`、`comm_max` 个可写字节，并位于流的存储之外。`deflate` 写头期间（`GZIP_STATE` .. `HCRC_STATE`）：交给 `deflateSetHeader` 的记录存活且不归流拥有，其非 `NULL` 的 `extra` 有 `extra_len` 个可读字节，非 `NULL` 的 `name` 和 `comment` 是以 NUL 结尾的字符串。头写完之后调用者可以释放它，但 `deflateBound` 和 `deflateBound_z` 除外（见上一行）。 | `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.deflateParams_safety`、`Goal.deflateBound_safety`、`Goal.deflateBound_z_safety`，以及两个序列目标中的这些调用 | 对 `inflate`，这条前提要求的比 C 用到的多：`inflate.c` 只在头部模式（`HEAD` .. `HCRC`）中读写 `state->head`，`done` 置位之后不再访问。调用者在 `done` 之后释放该记录或其缓冲区、然后再次调用 `inflate`，这种情形不被覆盖。`inflateReset` 会解除该记录的挂接。对 `deflate`，前提要求 `extra_len` 个可读字节；C 只读 `extra_len mod 2^16` 个。 |
 | inflate 的 gzip extra 字段（`InflateHeaderProgress`） | `inflate` 把 gzip 头（`HEAD` .. `HCRC`）读入挂接的 `gz_header` 时，其 `extra` 缓冲区（`extra_max` 字节）与尚未读取的输入分离；在 `EXTRA` 模式中，记录的 `extra_len` 不小于 `state->length`。 | `Goal.inflate_safety`，以及 `Goal.inflate_sequence_safety` 中的每次 `inflate` 调用；功能目标 `Goal.inflate` 与 `Goal.inflate_sequence` 也是如此 | 每个被排除的情形都是真实 C 在 EXTRA 的 `zmemcpy` 中的未定义行为（[复现](../tests/regression/inflate-gzip-extra/README.md)）：重叠的复制，或者调用者在 extra 字段读到一半时调低 `extra_len`，导致写到 `extra_max` 之外。`zlib.h` 没有说明这两种布局是否允许。 |
@@ -185,7 +190,7 @@ init、End、校验和与拒绝目标不需要它。这条前提可以被满足�
 
 | 前提 | 要求什么 | 目标 | 前提之外 |
 | --- | --- | --- | --- |
-| 整缓冲区压缩（`CompressArguments`） | 源与目的缓冲区不重叠：`Separate source n dest c`。源可读，目的缓冲区在其容量范围内可写，除非这次调用是 C 会拒绝的调用（`compressRejected`）。`compress` 与 `compress2` 的长度单元不能是 `NULL`；只有 `_z` 形式允许 `NULL` 单元。 | `Goal.compress_safety`、`Goal.compress2_safety` 及其 `_z` 形式 | 源与目的缓冲区重叠的调用不被覆盖。长度单元 `*destLen` 在翻译中是一个标量值（`Option UInt64`，`ZlibF/Zlib/compress.c.lean`），不是内存：与源或目的缓冲区重叠的单元无法表达，也不被覆盖。 |
+| 整缓冲区压缩（`CompressArguments`） | 源与目的缓冲区不重叠：`Separate source n dest c`。源可读，目的缓冲区在其容量范围内可写，除非这次调用是 C 会拒绝的调用（`compressRejected`）。`compress` 与 `compress2` 的长度单元不能是 `NULL`；只有 `_z` 形式允许 `NULL` 单元。 | `Goal.compress_safety`、`Goal.compress2_safety` 及其 `_z` 形式 | 源与目的缓冲区重叠的调用不被覆盖。长度单元 `*destLen` 在翻译中是一个标量值（`Option UInt64`，`ZlibF/Zlib/compress.c.lean`），不是内存：这个单元是否可写、是否与源和目的缓冲区分开，都无法表达；不满足这两点的调用不被覆盖。翻译是否改为把这个单元当作内存，所有者尚未决定，与流调用的“结果单元”一行相同。 |
 | 计数解压（`UtilitySeparation`、`UncompressCountedSafe`、`UncompressSingleSafe`） | 源、目的缓冲区、目的长度单元和源长度单元两两分离。`uncompress` 与 `uncompress_z` 需要源与目的缓冲区分离、长度单元与数据分离。长度单元是八个可读可写的字节（`LengthCell`）；`uncompress` 与 `uncompress2` 的单元不能是 `NULL`。 | `Goal.uncompress_safe`、`Goal.uncompress2_safe` 及其 `_z` 形式 | 长度单元与数据缓冲区重叠，或两个单元互相重叠，都不被覆盖。与 `compress*` 不同，单元 `*destLen` 和 `*sourceLen` 在翻译中是内存（`ZlibF/Zlib/uncompr.c.lean`），所以这里的分离是写明的前提，而不是模型的限制。 |
 | Adler 初始化查询（`AdlerBufferBytes`） | 只有长度为零时 `buf` 才可以是 `NULL`；非 `NULL` 的可读缓冲区保留完整的长度范围。 | `Goal.adler32_safety`、`Goal.adler32_z_safety`，以及功能目标 `Goal.adler32`、`Goal.adler32_z` | 这比固定版本头文件里对 `NULL` 不加限定的说法更窄。`buf` 为 `NULL` 且 `len = 1` 时，C 会读 `buf[0]`。CRC 目标保留 `BufferBytes`，它允许任意长度下的 `NULL`。见下面的说明。 |
 | CRC 组合算子 | 算子是 `crc32_combine_gen` 或 `crc32_combine_gen64` 返回的值。 | `Goal.crc32_combine_op_safety` | 这是 `zlib.h` 为 `crc32_combine_op` 规定的定义域，不是收窄。任意的 `op` 值不被覆盖。 |
