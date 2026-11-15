@@ -42,7 +42,7 @@
 
 **目标陈述的内容。**
 
-| 条款 | 陈述 |
+| 子句 | 陈述 |
 | --- | --- |
 | 不变量 | 每段历史之后，世界良构，句柄满足其不变量（`GzInv`）。 |
 | 无故障 | 下一次调用在每个世界里都不会以未定义行为或内存错误结束。它唯一可能的错误是循环燃料耗尽。除参数条件外没有前提。 |
@@ -54,7 +54,7 @@
 
 **参数条件（`GzArguments`）。** 调用者的范围必须在句柄拥有的块之外（`GzOwned`：句柄记录、路径、消息、缓冲区和编解码器状态）。
 `gzerror` 返回的字符串就是句柄的消息，而这些入口在使用自己的缓冲区之前会先释放这条消息；把它再传回来，在 C 中是释放后使用
-（见[偏差](../../deviations.md)的“Gz 调用者缓冲区”和“Gz printf 字符串”两行）。
+（见[偏离记录](../../deviations.md)的“Gz 调用者缓冲区”和“Gz printf 字符串”两行）。
 
 | 调用 | 条件 |
 | --- | --- |
@@ -69,13 +69,13 @@
 
 `gzprintf` 的条件在每个 `gzprintf` 步骤上都要求成立，包括读句柄和处于错误状态的句柄，尽管那时 C 并不读格式串。
 格式化器覆盖整数、字符和字符串转换。浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度不在定义域之内
-（见[偏差](../../deviations.md)的“格式化”一行）。
+（见[偏离记录](../../deviations.md)的“格式化”一行）。
 
-**读预算（`ReadsFinite`）。** 六个读调用的终止条款假设：句柄的描述符还能交付的字节少于 `2^61`。
+**读预算（`ReadsFinite`）。** 六个读调用的终止子句假设：句柄的描述符还能交付的字节少于 `2^61`。
 这个前提是必要的：一个不断交付空 gzip 成员的数据源，会让 C 中的一次 `gzread` 永远运行。
 它按调用名取用，所以即使 C 会立刻返回（例如在写句柄上，或长度为零）也要求成立。
 `2^61` 是模型的数字，不是 zlib 的：它让循环度量保持在 `2^64` 次迭代的循环燃料以下
-（见[安全性](../safety.md#2-calls-and-sequences)）。无故障条款以及帧性质与账本条款不使用这个前提。
+（见[安全性](../safety.md#2-calls-and-sequences)）。无故障子句以及帧性质与账本子句不使用这个前提。
 
 **`gzgetc` 宏。** `zlib.h` 把 `gzgetc` 定义成宏，应用程序通常就是这样调用它的。目标里另有一条针对这个宏
 （`Zlib.ZlibH.gzgetc`）。有缓冲输出（`have != 0`）时，宏直接从缓冲区取一个字节，不调用库函数，不需要前提就返回。
@@ -208,7 +208,7 @@ gzFile ZEXPORT gzopen(const char *path, const char *mode);
 
 **前置条件：** 非 NULL 的 `path` 和 `mode` 是可读、以 NUL 结尾的字符串。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开条款（`GzOpenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `path` 和非 NULL 的 `mode` 是以 NUL 结尾的字符串。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；返回 NULL 时不留下新块，打开的描述符集合不变；返回句柄时，句柄满足不变量，恰好拥有新块，并且它的描述符是唯一新打开的。功能目标（非必需）：`Goal.gzopen`。
+**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开子句（`GzOpenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `path` 和非 NULL 的 `mode` 是以 NUL 结尾的字符串。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；返回 NULL 时不留下新块，打开的描述符集合不变；返回句柄时，句柄满足不变量，恰好拥有新块，并且它的描述符是唯一新打开的。功能目标（非必需）：`Goal.gzopen`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzopen"><summary>完整返回条件与边界</summary>
 
@@ -258,7 +258,7 @@ gzFile ZEXPORT gzopen64(const char *path, const char *mode);
 
 **前置条件：** 满足 `gzopen` 的字符串和环境要求。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开条款（`GzOpenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `path` 和非 NULL 的 `mode` 是以 NUL 结尾的字符串。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；返回 NULL 时不留下新块，打开的描述符集合不变；返回句柄时，句柄满足不变量，恰好拥有新块，并且它的描述符是唯一新打开的。功能目标（非必需）：`Goal.gzopen64`。
+**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开子句（`GzOpenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `path` 和非 NULL 的 `mode` 是以 NUL 结尾的字符串。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；返回 NULL 时不留下新块，打开的描述符集合不变；返回句柄时，句柄满足不变量，恰好拥有新块，并且它的描述符是唯一新打开的。功能目标（非必需）：`Goal.gzopen64`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzopen64"><summary>完整返回条件与边界</summary>
 
@@ -304,7 +304,7 @@ gzFile ZEXPORT gzdopen(int fd, const char *mode);
 非 NULL 的 `mode` 满足 `gzopen` 的字符串要求。
 句柄拥有该描述符期间，其他使用者不对它读、写、定位或关闭。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开条款（`GzDopenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `mode` 是以 NUL 结尾的字符串。`fd` 的每个取值都被覆盖，无论它是否打开。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；不打开也不关闭任何描述符；返回 NULL 时不留下新块；返回句柄时，句柄满足不变量，以 `fd` 为描述符，并且恰好拥有新块。功能目标（非必需）：`Goal.gzdopen`。
+**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。打开子句（`GzDopenSafe`）的前提：堆良构并带有库的表（`Fresh`、`Uniq`、`LibraryGlobals`）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；文件系统世界良构（`FileSystem`）；非 NULL 的 `mode` 是以 NUL 结尾的字符串。`fd` 的每个取值都被覆盖，无论它是否打开。每个世界和每一种分配结果都被覆盖。结论：调用返回，不改变任何已有的块；不打开也不关闭任何描述符；返回 NULL 时不留下新块；返回句柄时，句柄满足不变量，以 `fd` 为描述符，并且恰好拥有新块。功能目标（非必需）：`Goal.gzdopen`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzdopen"><summary>完整返回条件与边界</summary>
 
@@ -949,7 +949,7 @@ int ZEXPORTVA gzprintf(gzFile file, const char *format, ...);
 参数具有各转换要求的类型；引用对象有效。外部格式化遵循平台的 `vsnprintf` 语义。
 任何 `%n` 目标均可写、正确分离，且属于允许的调用者可见效果。压缩参数有效。
 
-**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串以及 `%s` 转换的每个字符串参数都在句柄自有的块之外。不在定义域内的有：浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度（见[偏差](../../deviations.md)的“格式化”一行）。在读句柄和处于错误状态的句柄上也取这一前提，尽管那时 C 并不读格式串。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzprintf`。
+**证明目标。** 必需的安全目标：`Goal.gz_sequence_safety`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）。它是序列目标：逐函数目标尚未写出。这个调用在句柄的每段历史（`GzHistory`）上、在每个文件系统世界里都被覆盖。参数前提（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串以及 `%s` 转换的每个字符串参数都在句柄自有的块之外。不在定义域内的有：浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度（见[偏离记录](../../deviations.md)的“格式化”一行）。在读句柄和处于错误状态的句柄上也取这一前提，尽管那时 C 并不读格式串。终止性：调用在每个世界里都返回。调用返回时，打开的描述符集合不变，句柄保持其不变量，只写句柄自有的块，并且存活块的变化与账本完全一致。NULL 句柄见 `Goal.gz_refusal`。功能目标（非必需）：`Goal.gzprintf`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>完整返回条件与边界</summary>
 

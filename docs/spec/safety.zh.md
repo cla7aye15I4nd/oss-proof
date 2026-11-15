@@ -364,7 +364,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 
 **模型接受两种 C 未加定义的空指针操作：`NULL + 0`，以及只在 `compress` 的辅助函数中出现的 `NULL - NULL`。
 一条“不出故障”的定理并不说明 C 避开了它们。**
-[模型的限制](../model-limits.md#conditions-on-the-model-that-goals-state)中有“空指针算术”一行。
+[模型的限制](../model-limits.md#conditions-on-the-model-that-goals-state)中有“NULL 指针算术”一行。
 
 | 操作 | 模型怎么做 | 关于 C 的结论还需要什么 |
 | --- | --- | --- |

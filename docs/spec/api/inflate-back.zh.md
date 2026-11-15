@@ -18,7 +18,7 @@
 三个函数的必需安全目标都是 [Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的
 `Goal.inflate_back_sequence_safety`；逐函数的安全目标尚未写出。功能目标 `Goal.inflateBackInit_`、`Goal.inflateBack`
 和 `Goal.inflateBackEnd` 在 [Back.lean](../../../ZlibF/Spec/Public/Back.lean) 中。
-`Goal.inflateBack` 的解码条款（什么数据到达 `out`）不在计划内。
+`Goal.inflateBack` 的解码子句（什么数据到达 `out`）不在计划内。
 
 `inflateBack` 解码 raw DEFLATE。任何 zlib/gzip 头部、尾部和校验和都由调用者处理。
 调用者拥有一个至少 `2^windowBits` 字节的可写窗口，它同时也是输出缓冲区。
@@ -150,7 +150,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 因此回调可能在后续格式或输入失败之前已观察到输出。
 库本身不分配或释放内存；回调分配的内存仍由调用者负责。
 
-**证明目标。** 必需的安全目标：`Goal.inflate_back_sequence_safety`（[Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)）。它是序列目标：逐函数目标尚未写出。它的历史是 `BackSafeReachable`：在 `InitDomain` 上以 8..15 的 `windowBits` 和一个非 NULL 的窗口成功初始化，窗口有 `2^windowBits` 个可写字节，并且是某个堆字节块的一段。再调用一次的前提：`next_in` 为 NULL，或覆盖 `avail_in` 个可读字节且不与窗口重叠；回调遵守某个 `CallbackProtocol`，其输入总量少于 `2^48` 字节（`inputBound`）；每个字节对象小于 `2^63` 字节，并且回调保持这一点（`BackPlatform`）；每个输入块，包括第一块和 `in` 交出的每一块，都位于堆字节块中（`BackFirstChunk`、`BackPlatform`）。输入字节任意。结论：调用返回 `Z_STREAM_END`、`Z_DATA_ERROR` 或 `Z_BUF_ERROR`，状态在同一窗口上保持有效，只改变流记录、状态记录、回调自己的块和窗口那一段，回调自有块之外的存活块不变。NULL 流在同一个目标里被拒绝。比 `zlib.h` 更窄的前提在[偏差](../../deviations.md)中各有一行。功能目标（非必需）：`Goal.inflateBack`。
+**证明目标。** 必需的安全目标：`Goal.inflate_back_sequence_safety`（[Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)）。它是序列目标：逐函数目标尚未写出。它的历史是 `BackSafeReachable`：在 `InitDomain` 上以 8..15 的 `windowBits` 和一个非 NULL 的窗口成功初始化，窗口有 `2^windowBits` 个可写字节，并且是某个堆字节块的一段。再调用一次的前提：`next_in` 为 NULL，或覆盖 `avail_in` 个可读字节且不与窗口重叠；回调遵守某个 `CallbackProtocol`，其输入总量少于 `2^48` 字节（`inputBound`）；每个字节对象小于 `2^63` 字节，并且回调保持这一点（`BackPlatform`）；每个输入块，包括第一块和 `in` 交出的每一块，都位于堆字节块中（`BackFirstChunk`、`BackPlatform`）。输入字节任意。结论：调用返回 `Z_STREAM_END`、`Z_DATA_ERROR` 或 `Z_BUF_ERROR`，状态在同一窗口上保持有效，只改变流记录、状态记录、回调自己的块和窗口那一段，回调自有块之外的存活块不变。NULL 流在同一个目标里被拒绝。比 `zlib.h` 更窄的前提在[偏离记录](../../deviations.md)中各有一行。功能目标（非必需）：`Goal.inflateBack`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBack"><summary>完整返回条件与边界</summary>
 
