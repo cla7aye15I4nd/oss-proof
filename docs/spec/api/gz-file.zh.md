@@ -1,4 +1,4 @@
-<!-- source-sha256: 607b25f5eb440c01309c8d6eba9da4750bcc3dc64dc2a966b8a3f1c32e458400 -->
+<!-- source-sha256: a1cc3f79bda4ba44fe333df8dc5e957b629ccf3a8a448d997e68d86b22396eca -->
 
 # Gzip 文件
 
@@ -457,7 +457,7 @@ int ZEXPORT gzbuffer(gzFile file, unsigned size);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzbuffer`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzbuffer`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzbuffer"><summary>完整返回条件与边界</summary>
 
@@ -514,7 +514,7 @@ int ZEXPORT gzsetparams(gzFile file, int level, int strategy);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzsetparams`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzsetparams`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzsetparams"><summary>完整返回条件与边界</summary>
 
@@ -576,7 +576,7 @@ int ZEXPORT gzread(gzFile file, voidp buf, unsigned len);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块；当 `0 < len <= INT_MAX` 时还有 `buf` 处的 `len` 个字节。长度为零的读不点名任何调用者区域。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzread`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzread`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzread"><summary>完整返回条件与边界</summary>
 
@@ -638,7 +638,7 @@ z_size_t ZEXPORT gzfread(voidp buf, z_size_t size, z_size_t nitems, gzFile file)
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块；当乘积非零且小于 `2^64` 时还有 `buf` 处的 `size * nitems` 个字节。长度为零的读不点名任何调用者区域。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzfread`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzfread`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzfread"><summary>完整返回条件与边界</summary>
 
@@ -692,7 +692,7 @@ int ZEXPORT gzgetc(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。宏返回之后同样如此。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。宏同样不写任何调用者区域。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对 NULL 句柄使用宏：它读取 `file->have`，在 C 中是未定义行为；拒绝子句说的是函数。对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzgetc`，安全结论不需要它。
+- **不在本目标内。** 对 NULL 句柄使用宏：它读取 `file->have`，在 C 中是未定义行为；拒绝子句说的是函数。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzgetc`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgetc"><summary>完整返回条件与边界</summary>
 
@@ -743,7 +743,7 @@ int ZEXPORT gzgetc_(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzgetc_`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzgetc_`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgetc_"><summary>完整返回条件与边界</summary>
 
@@ -797,7 +797,7 @@ int ZEXPORT gzungetc(int c, gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzungetc`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzungetc`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzungetc"><summary>完整返回条件与边界</summary>
 
@@ -858,7 +858,7 @@ char * ZEXPORT gzgets(gzFile file, char *buf, int len);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块；当 `len >= 1` 时还有 `buf` 处的 `len` 个字节。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzgets`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzgets`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgets"><summary>完整返回条件与边界</summary>
 
@@ -917,7 +917,7 @@ int ZEXPORT gzwrite(gzFile file, voidpc buf, unsigned len);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzwrite`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzwrite`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzwrite"><summary>完整返回条件与边界</summary>
 
@@ -975,7 +975,7 @@ z_size_t ZEXPORT gzfwrite(voidpc buf, z_size_t size, z_size_t nitems, gzFile fil
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzfwrite`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzfwrite`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzfwrite"><summary>完整返回条件与边界</summary>
 
@@ -1032,7 +1032,7 @@ int ZEXPORT gzputc(gzFile file, int c);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzputc`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzputc`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzputc"><summary>完整返回条件与边界</summary>
 
@@ -1087,7 +1087,7 @@ int ZEXPORT gzputs(gzFile file, const char *s);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzputs`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzputs`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzputs"><summary>完整返回条件与边界</summary>
 
@@ -1150,7 +1150,7 @@ int ZEXPORTVA gzprintf(gzFile file, const char *format, ...);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzprintf`，安全结论不需要它。
+- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzprintf`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>完整返回条件与边界</summary>
 
@@ -1214,7 +1214,7 @@ int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzvprintf`，安全结论不需要它。
+- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzvprintf`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzvprintf"><summary>完整返回条件与边界</summary>
 
@@ -1271,7 +1271,7 @@ int ZEXPORT gzflush(gzFile file, int flush);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzflush`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzflush`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzflush"><summary>完整返回条件与边界</summary>
 
@@ -1330,7 +1330,7 @@ int ZEXPORT gzrewind(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzrewind`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzrewind`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzrewind"><summary>完整返回条件与边界</summary>
 
@@ -1388,7 +1388,7 @@ z_off64_t ZEXPORT gzseek64(gzFile file, z_off64_t offset, int whence);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzseek64`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzseek64`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzseek64"><summary>完整返回条件与边界</summary>
 
@@ -1449,7 +1449,7 @@ z_off_t ZEXPORT gzseek(gzFile file, z_off_t offset, int whence);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzseek`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzseek`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzseek"><summary>完整返回条件与边界</summary>
 
@@ -1505,7 +1505,7 @@ z_off64_t ZEXPORT gztell64(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gztell64`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gztell64`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gztell64"><summary>完整返回条件与边界</summary>
 
@@ -1562,7 +1562,7 @@ z_off_t ZEXPORT gztell(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gztell`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gztell`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gztell"><summary>完整返回条件与边界</summary>
 
@@ -1615,7 +1615,7 @@ z_off64_t ZEXPORT gzoffset64(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzoffset64`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzoffset64`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzoffset64"><summary>完整返回条件与边界</summary>
 
@@ -1671,7 +1671,7 @@ z_off_t ZEXPORT gzoffset(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzoffset`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzoffset`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzoffset"><summary>完整返回条件与边界</summary>
 
@@ -1720,7 +1720,7 @@ int ZEXPORT gzeof(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzeof`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzeof`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzeof"><summary>完整返回条件与边界</summary>
 
@@ -1775,7 +1775,7 @@ int ZEXPORT gzdirect(gzFile file);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzdirect`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzdirect`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzdirect"><summary>完整返回条件与边界</summary>
 
@@ -1836,7 +1836,7 @@ const char * ZEXPORT gzerror(gzFile file, int *errnum);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。调用返回的指针，在调用后的堆里是一个可读的、以 NUL 结尾的字符串。
     - *写入。* 句柄为 NULL 时不写任何内容：堆不变。这个函数的翻译不接受世界，所以无从改变世界。对句柄调用时，只写句柄自己的块，以及 `errnum` 处的 4 个字节。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对句柄调用时的返回值，以及调用对文件和位置的作用：功能目标 `Goal.gzerror`，安全结论不需要它。
+- **不在本目标内。** 对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzerror`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzerror"><summary>完整返回条件与边界</summary>
 
@@ -1945,7 +1945,7 @@ int ZEXPORT gzclose(gzFile file);
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界，包括系统的 `close` 报告失败的世界；每一种分配结果。
 - **保证。**
     - *返回。* 句柄为 NULL 时调用返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。对句柄的返回码不作陈述。
-    - *状态。* 句柄不复存在：它的记录被移除，世界良构，调用之后句柄的描述符不再打开（即使系统的 `close` 报告失败也是如此），其他每个描述符是否打开都与调用前相同（`GzReleased`）。`gzclose` 两种模式都接受，所以它从不拒绝一个句柄。
+    - *状态。* 对句柄调用时，句柄不复存在：它的记录被移除，世界良构，调用之后句柄的描述符不再打开（即使系统的 `close` 报告失败也是如此），其他每个描述符是否打开都与调用前相同（`GzReleased`）。`gzclose` 两种模式都接受，所以它从不拒绝一个句柄。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，恰好释放句柄自己的块（包括句柄记录），并且不分配任何块（`LiveChange`）。
 - **不在本目标内。** 在关闭它的那次调用之后再使用句柄：历史已经结束，没有目标覆盖这种使用。返回码，以及关闭之前哪些字节到达文件：功能目标 `Goal.gzclose`，安全结论不需要它。
