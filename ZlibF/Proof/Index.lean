@@ -1152,6 +1152,17 @@ import ZlibF.Proof.«inflate.c.meaning-call»
 import ZlibF.Proof.«inflate.c.meaning-call-exit»
 import ZlibF.Proof.«inflate.c.meaning-call-entry»
 import ZlibF.Proof.«inflate.c.meaning-type-final»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-loop»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-pos»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-hcrc»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-string»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-comment»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-name»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-extra»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-exlen»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-os»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields-flags»
+import ZlibF.Proof.«inflate.c.meaning-gzip-fields»
 import ZlibF.Proof.«inflate.c.meaning-leave»
 import ZlibF.Proof.«public-uncompress-memory»
 import ZlibF.Proof.«public-uncompress-refusal»
