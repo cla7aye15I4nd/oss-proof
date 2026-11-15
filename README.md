@@ -1,30 +1,47 @@
 # zlib-f
 
-Formal verification of zlib in Lean 4: safety, termination and resource ownership of a
-faithful C translation. Functional correctness is not planned since 2026-11-11, except a
-functional fact that a planned safety proof depends on; what is already proved of it stays.
+Kernel-checked Lean 4 proofs that zlib is safe. The C source is translated statement by statement,
+and the proofs show that every documented public function of the default x86_64 Linux build runs
+with no undefined behaviour, no memory error and no leak, and terminates, over its call sequences.
 
-**Status.** The acceptance suite is green on `bde170e9` (2026-11-15) with all 63 required safety
-and non-vacuity goals registered: a safety theorem is accepted for every documented public
-function. Differential tests are evidence of fidelity, not proof. Still to be registered: the
-per-function restatements of the gzip and callback-decoder sequence theorems.
-The project is finished when the safety results are accepted, in this order: `inflate` is safe on every
-input; `deflate` is safe on every input, both with their call sequences; then every other
-public function, including the gzip file interface and the callback decoder `inflateBack`. The
-safety of `compress` and `uncompress` follows as compositions. The target is the default x86_64
-Linux build; other build configurations are not planned. The [status page](https://www.dataisland.org/zlib-f/status.html)
-shows each result as open, checked or registered, from the proof records.
+**Proved.** All 63 required goals have a registered theorem of exactly their type, and the
+acceptance suite is green on commit `bde170e9` (2026-11-15). The required goals are the safety
+goals and the non-vacuity goals of the 86 documented functions of the target build: `inflate` and
+`deflate` with their call sequences, the other stream functions, the checksums, `compress*` and
+`uncompress*`, the gzip file interface, and the callback decoder `inflateBack`.
+
+**Assumed.** The kernel checks each proof against its Lean statement. It does not check that the
+runtime model, the hand translation, or the model of files and formatting match C: these are
+reviewed and tested, and listed in the [trusted base](docs/trusted-base.md). Differential tests
+are evidence of fidelity, not proof. Some theorems state a premise that `zlib.h` does not: caller
+buffers that do not overlap, a read budget below 2^61 bytes for the termination of the gz reading
+calls, fewer than 2^48 input bytes for one `inflateBack` call. [Deviations](docs/deviations.md)
+lists every one. The verified source is the pinned `zlib/` plus the five [patches](patches/README.md).
+
+**Open.** The 31 gz functions and the three `inflateBack` functions have no safety goal of their
+own yet: each names its sequence goal (`Goal.gz_sequence_safety`,
+`Goal.inflate_back_sequence_safety`), which is registered. The per-function goals are still to be
+stated and registered.
+
+**Not planned.** Functional correctness (the output of `inflate` equals the format, the output of
+`deflate` decodes to its input), since 2026-11-11; a functional fact stays in scope only when a
+planned safety proof depends on it, and what is already proved stays. Also not planned: other
+build configurations, and the functions that `zlib.h` lists as undocumented.
+[Scope](docs/progress.md#scope) gives every group with its reason. The
+[status page](https://www.dataisland.org/zlib-f/status.html) shows each result as open, checked or
+registered, from the proof records.
 
 ## Targets
 
 Each public function has two goals, both in the Lean namespace `ZlibF.Spec.Public.Goal`. Its
-**safety goal**, in `ZlibF/Spec/Safety/`, says the call returns without undefined behaviour, writes
-only its frame and leaks nothing. Its **functional goal**, in `ZlibF/Spec/Functional/`, says what the
-result is. `tests/audit/public-api.json` names both for every function (`safety_goal`,
-`functional_goal`). CI requires the safety goals and the non-vacuity goals: each must have a
-theorem of exactly its type in `tests/audit/theorems.txt`, unless `open_safety` lists it with an
-owner, and that list may only shrink. A proved functional goal is audited in full; an unproved one
-fails nothing. See [the split](docs/design/safety-functional-split.md).
+**safety goal** says the call returns without undefined behaviour, writes only its frame and leaks
+nothing. Its **functional goal**, in `ZlibF/Spec/Functional/`, says what the result is.
+`tests/audit/public-api.json` names both for every function (`safety_goal`, `functional_goal`).
+The safety goals are in `ZlibF/Spec/Safety/`; the gz and `inflateBack` goals are still in
+`ZlibF/Spec/Public/`. The acceptance audit requires the safety goals and the non-vacuity goals:
+each must have a theorem of exactly its type in `tests/audit/theorems.txt`. The manifest's
+`open_safety` list of exceptions is empty. A proved functional goal is audited in full; an
+unproved one fails nothing. See [the split](docs/design/safety-functional-split.md).
 
 ## Documentation
 

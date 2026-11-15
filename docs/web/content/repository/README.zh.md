@@ -1,13 +1,19 @@
-<!-- source-sha256: 5e9444247b1cd1ec61d0ca87cc784e48f5ae4d17fde34f50bd79dc6138d3f6a1 -->
+<!-- source-sha256: 1e95704edf2b00ecef4af8f946fcbaac0553df7c9c7920cb39f3ca8f018635fe -->
 # zlib-f
 
-用 Lean 4 形式化验证 zlib：对 C 源码作忠实翻译，再证明其安全性、终止性和资源所有权。自 2026-11-11 起功能正确性不在计划内，但计划内的安全证明所依赖的功能性事实除外；已经证明的部分保留。
+用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean；证明表明，默认 x86_64 Linux 构建中每个有文档的公开函数，在它的各种调用序列上运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止。
 
-**项目尚未完成。** 安全结论按以下顺序被验收时项目完成：`inflate` 对每个输入都安全；`deflate` 对每个输入都安全，两者都包括各自的调用序列；然后是其他每个公开函数，包括 gzip 文件接口和回调解码器 `inflateBack`。`compress` 与 `uncompress` 的安全性作为组合随后完成。目标是默认的 x86_64 Linux 构建；其他构建配置不在计划内。[状态页](https://www.dataisland.org/zlib-f/status.zh.html)根据证明记录，把每项结论显示为未完成、已检查或已登记。
+**已证明。** 全部 63 个必需目标都有一个类型恰好相同的已登记定理，验收套件在提交 `bde170e9`（2026-11-15）上全部通过。必需目标是目标构建中 86 个有文档函数的安全目标和非空性目标：`inflate` 与 `deflate` 及其调用序列、其他流函数、校验和、`compress*` 与 `uncompress*`、gzip 文件接口，以及回调解码器 `inflateBack`。
+
+**所作假设。** 内核只对照 Lean 命题检查证明，不检查运行时模型、手工翻译以及文件和格式化模型是否与 C 一致：这些靠审阅和测试，列在[可信基础](docs/trusted-base.md)中。差分测试是忠实度的证据，不是证明。有些定理带有 `zlib.h` 没有写出的前提：调用者的缓冲区互不重叠；gz 读取调用的终止需要低于 2^61 字节的读取预算；一次 `inflateBack` 调用得到的输入少于 2^48 字节。[偏离记录](docs/deviations.md)逐条列出。验证对象是固定版本的 `zlib/` 加上五个[补丁](patches/README.md)。
+
+**未完成。** 31 个 gz 函数和三个 `inflateBack` 函数还没有各自的安全目标：它们目前都指向各自的序列目标（`Goal.gz_sequence_safety`、`Goal.inflate_back_sequence_safety`），这两个序列目标已登记。逐函数的目标尚待陈述和登记。
+
+**不在计划内。** 功能正确性（`inflate` 的输出等于格式规定的内容，`deflate` 的输出能解码回输入），自 2026-11-11 起；只有计划内的安全证明所依赖的功能性事实仍在范围内，已经证明的部分保留。其他构建配置，以及 `zlib.h` 列为未文档化的函数，也不在计划内。[范围](docs/progress.md#scope)列出每一组及其理由。[状态页](https://www.dataisland.org/zlib-f/status.zh.html)根据证明记录，把每项结论显示为未完成、已检查或已登记。
 
 ## 目标
 
-每个公开函数有两个目标，都在 Lean 命名空间 `ZlibF.Spec.Public.Goal` 中。它的**安全目标**在 `ZlibF/Spec/Safety/` 中，陈述调用返回、没有未定义行为、只写自己的帧、不泄漏。它的**功能目标**在 `ZlibF/Spec/Functional/` 中，陈述结果是什么。`tests/audit/public-api.json` 为每个函数写出两者（`safety_goal`、`functional_goal`）。CI 要求安全目标和非空性目标：每个都必须在 `tests/audit/theorems.txt` 中有一个类型恰好相同的定理，除非 `open_safety` 带负责人列出了它，而该列表只能缩短。已证明的功能目标接受完整审计；未证明的不使任何检查失败。见[拆分说明](docs/design/safety-functional-split.md)。
+每个公开函数有两个目标，都在 Lean 命名空间 `ZlibF.Spec.Public.Goal` 中。它的**安全目标**陈述调用返回、没有未定义行为、只写自己的帧、不泄漏。它的**功能目标**在 `ZlibF/Spec/Functional/` 中，陈述结果是什么。`tests/audit/public-api.json` 为每个函数写出两者（`safety_goal`、`functional_goal`）。安全目标在 `ZlibF/Spec/Safety/` 中；gz 与 `inflateBack` 的目标仍在 `ZlibF/Spec/Public/` 中。验收审计要求安全目标和非空性目标：每个都必须在 `tests/audit/theorems.txt` 中有一个类型恰好相同的定理。清单中列出例外的 `open_safety` 现在为空。已证明的功能目标接受完整审计；未证明的不使任何检查失败。见[拆分说明](docs/design/safety-functional-split.md)。
 
 ## 文档
 
@@ -44,7 +50,7 @@ lake build ZlibF
 scripts/check-sorry.sh
 ```
 
-各项检查的范围和最终验收条件见[检查指南](https://www.dataisland.org/zlib-f/reference/docs/checking/README.html)。差分测试用来检查翻译与 C 的一致性。全称正确性由证明建立。
+[参与贡献](docs/checking/contributing.md)列出每一步。各项检查的范围和最终验收条件见[检查指南](https://www.dataisland.org/zlib-f/reference/docs/checking/README.html)。差分测试是翻译忠实度的证据，不是证明。
 [源码问题记录](docs/findings.md)列出问题的证据强度和适用范围。
 
 ## 源码问题：deflateResetKeep 之后的 deflateCopy
