@@ -13,8 +13,9 @@
  *   extra    gzip header with extra_len near 2^32 (the C reads extra_len & 0xffff bytes).
  *
  *   sweep    every length below COUNT, single call, one wrapper and window per SEED (0 .. 23).
+ *   far      far 3- to 5-byte copies, n = COUNT, windowBits SEED (9 .. 15), single call (see far()).
  *
- * Usage: bound MODE SEED COUNT, MODE one of grid, sweep, compress, extra.
+ * Usage: bound MODE SEED COUNT, MODE one of grid, sweep, compress, extra, far.
  * Output: one line per failure ("FAIL ..." with every parameter), then summary lines
  * ("SLACK class min count", "EXACT class ok fail"). Exit 1 on any failure.
  * All randomness comes from SEED; no clock. */
@@ -229,6 +230,46 @@ static void sweep(int slice, size_t count) {
     free(in);
 }
 
+/* The far-match search (docs/findings/deflatebound-fixed-far-matches): random bytes, then copies
+ * of length L from a random distance in the far half of the window (the upper half of the usable
+ * distances for windowBits 9), with literals at a rate of
+ * R percent between them. Every window (SEED selects one: 9 .. 15), memLevel, level 1 .. 9 and
+ * strategy, L in 3 .. 5, R in {0, 10, 25, 50}, zlib wrapper, one deflate(Z_FINISH) with room
+ * deflateBound(n), n = COUNT. Before patch 0006 the case windowBits 15, memLevel 8, Z_FIXED,
+ * levels 1 to 3 fails here. */
+static void far(int wb, size_t n) {
+    size_t wsize = (size_t)1 << wb, hi = wsize - 262, lo = wsize / 2 + 1 <= hi ? wsize / 2 + 1 : hi / 2 + 1;
+    unsigned char *in = malloc(n + 1), *out = malloc(2 * n + 1024);
+    static const int RATE[] = {0, 10, 25, 50};
+    for (int len = 3; len <= 5; len++)
+    for (int ri = 0; ri < 4; ri++) {
+        size_t i = 0;
+        for (; i < n && i < 2 * wsize; i++) in[i] = (unsigned char)rnd();
+        while (i < n) {
+            if ((int)rn(100) < RATE[ri]) { in[i++] = (unsigned char)rnd(); continue; }
+            size_t d = lo + rn(hi - lo + 1);
+            for (int k = 0; k < len && i < n; k++, i++) in[i] = in[i - d];
+        }
+        for (int mem = 1; mem <= 9; mem++)
+        for (int level = 1; level <= 9; level++)
+        for (int strategy = 0; strategy <= 4; strategy++) {
+            z_stream s; memset(&s, 0, sizeof s);
+            if (deflateInit2(&s, level, Z_DEFLATED, wb, mem, strategy) != Z_OK) continue;
+            uLong bound = deflateBound(&s, n);
+            s.next_in = in; s.avail_in = (uInt)n; s.next_out = out; s.avail_out = (uInt)bound;
+            int rc = deflate(&s, Z_FINISH);
+            if (rc != Z_STREAM_END) {
+                printf("FAIL far level=%d wbits=%d mem=%d strategy=%d len=%d rate=%d n=%zu bound=%lu rc=%d\n",
+                       level, wb, mem, strategy, len, RATE[ri], n, bound, rc);
+                failures++;
+            }
+            deflateEnd(&s);
+        }
+    }
+    printf("FAR wbits=%d n=%zu done\n", wb, n);
+    free(in); free(out);
+}
+
 /* compressBound: compress2 at every level and compress, room exactly compressBound(n). */
 static void compress_test(size_t count) {
     size_t maxn = 300000;
@@ -292,6 +333,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "compress")) compress_test(count);
     else if (!strcmp(argv[1], "sweep")) sweep((int)strtol(argv[2], 0, 10), count);
     else if (!strcmp(argv[1], "extra")) extra_test();
+    else if (!strcmp(argv[1], "far")) far((int)strtol(argv[2], 0, 10), count);
     else { fprintf(stderr, "unknown mode\n"); return 2; }
     for (int w = 0; w < 3; w++) for (int d = 0; d < 2; d++) for (int l = 0; l < 2; l++)
         if (nslack[w][d][l]) printf("SLACK wrap=%d default=%d level0=%d min=%lld runs=%lld\n", w, d, l, minslack[w][d][l], nslack[w][d][l]);
