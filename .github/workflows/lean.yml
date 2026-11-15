@@ -9,6 +9,13 @@ on:
   schedule:
     - cron: '17 9 * * *'
   workflow_dispatch:
+    inputs:
+      reuse:
+        description: >-
+          Pre-check only: reuse the stored verdict of each proof mutant whose inputs are unchanged.
+          Not an acceptance run.
+        type: boolean
+        default: false
 
 concurrency:
   # One group per pull request (a newer push cancels the superseded run), and one per commit and event
@@ -129,6 +136,8 @@ jobs:
           python3 -O tests/verification/test_audit_shards.py
           python3 tests/verification/test_ci_build.py
           python3 -O tests/verification/test_ci_build.py
+          python3 tests/verification/test_mutant_reuse.py
+          python3 -O tests/verification/test_mutant_reuse.py
           python3 tests/verification/test-proof-progress.py
           python3 -O tests/verification/test-proof-progress.py
           python3 scripts/proof-progress.py --check
@@ -174,19 +183,103 @@ jobs:
         with:
           library: 'true'
 
+      # A pre-check (manual dispatch with `reuse`) reads the verdict store. A full run (the nightly
+      # run, and every dispatch without the input) never restores it, so it cannot reuse anything.
+      - name: Restore the verdict store (pre-check only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.reuse }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/mutant-store
+          key: mutant-verdicts-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            mutant-verdicts-
+
       - name: Model and public function proof mutants
         env:
           ZLIBF_REQUIRE_PREBUILT: '1'
-        run: python3 scripts/verification.py mutants --shard-count 20 --shard-index ${{ matrix.shard }}
+          MUTANT_REUSE: ${{ github.event_name == 'workflow_dispatch' && inputs.reuse }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/mutant-verdicts"
+          arguments=(--record "$RUNNER_TEMP/mutant-verdicts/shard-${{ matrix.shard }}.json")
+          if [ "$MUTANT_REUSE" = true ]; then arguments+=(--reuse "$RUNNER_TEMP/mutant-store/store.json"); fi
+          python3 scripts/verification.py mutants --shard-count 20 --shard-index ${{ matrix.shard }} "${arguments[@]}"
+
+      # The verdicts of the units that passed here, also when a later unit of the shard failed.
+      - name: Publish this shard's verdicts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutant-verdicts-${{ matrix.shard }}
+          path: ${{ runner.temp }}/mutant-verdicts/shard-${{ matrix.shard }}.json
+          retention-days: 2
+          if-no-files-found: ignore
+
+  # Merge the shards' verdicts into the store that a later pre-check reads. Full runs seed it. It is
+  # not a required status: a missing store only makes a pre-check run everything.
+  mutant_store:
+    needs: audit_mutants
+    if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore the earlier store
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/mutant-store
+          key: mutant-verdicts-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            mutant-verdicts-
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: mutant-verdicts-*
+          path: ${{ runner.temp }}/mutant-verdicts
+          merge-multiple: true
+
+      - name: Merge
+        env:
+          MUTANT_REUSE: ${{ github.event_name == 'workflow_dispatch' && inputs.reuse }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/mutant-store" "$RUNNER_TEMP/mutant-verdicts"
+          shopt -s nullglob
+          stores=("$RUNNER_TEMP"/mutant-verdicts/*.json)
+          if [ -f "$RUNNER_TEMP/mutant-store/store.json" ]; then stores+=("$RUNNER_TEMP/mutant-store/store.json"); fi
+          python3 scripts/mutant_reuse.py merge --run "$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT" \
+            --out "$RUNNER_TEMP/merged.json" "${stores[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          mv "$RUNNER_TEMP/merged.json" "$RUNNER_TEMP/mutant-store/store.json"
+          if [ "$MUTANT_REUSE" = true ]; then
+            echo "This run was a pre-check: it reused stored verdicts. It is not an acceptance run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "This run was a full run: every proof mutant was executed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Save the store
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/mutant-store
+          key: mutant-verdicts-${{ github.run_id }}-${{ github.run_attempt }}
 
   # Keep audit as the required status. Failure, cancellation or skipping in any
-  # worker must prevent this status from passing.
+  # worker must prevent this status from passing. A pre-check with reused verdicts reports under
+  # another name, so it can never stand for the status of a full run.
   audit:
+    name: ${{ (github.event_name == 'workflow_dispatch' && inputs.reuse) && 'audit (pre-check, reused verdicts)' || 'audit' }}
     needs: [audit_core, audit_selftest, audit_mutants]
     if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Say whether verdicts were reused
+        env:
+          MUTANT_REUSE: ${{ github.event_name == 'workflow_dispatch' && inputs.reuse }}
+        run: |
+          if [ "$MUTANT_REUSE" = true ]; then
+            echo "Pre-check: proof-mutant verdicts were reused from the store. Not an acceptance run." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Full run: every proof mutant was executed; no verdict was reused." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Require every audit stage
         env:
           AUDIT_CORE_RESULT: ${{ needs.audit_core.result }}
