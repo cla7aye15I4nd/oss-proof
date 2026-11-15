@@ -3,8 +3,14 @@
 The main source snapshot is
 [zlib-formal at `0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`](https://github.com/cla7aye15I4nd/zlib-formal/tree/0f1428677ebf5b1614ff77f4702bbb382b2bf3c6).
 The reference review read its source and audit documents. It did not rebuild the snapshot or
-establish its results in this repository. This is a reuse record; [progress](../progress.md)
-owns current work and [checking](../checking/README.md) defines acceptance.
+establish its results in this repository.
+
+This page is a reuse record. It says which ideas and argument families of that earlier
+development were adapted, and where the corresponding modules are now. It names no result of
+this repository: the [map](README.md) lists the theorems, and
+[checking](../checking/README.md) defines acceptance. The observations at the end of the page
+are historical test evidence. They are not proof, and they were not repeated for the present
+source.
 
 ## Ideas adapted
 
@@ -133,7 +139,7 @@ callee-contract hypotheses cannot replace theorems about actual translated calle
 | `Reset`, `Rewind` | Reset fields and errors, refusal rules, file seek and input-adjusted offsets | `gzlib.c.error`, `.rewind` |
 | `SeekParts`, `SeekRaw`, `SeekFwd`, `SeekBack`, `SeekTail`, `SeekMain`, `SeekCor` | Target arithmetic and raw, forward and backward branches | `gzlib.c.seek` |
 | `SeekNeg`, `SeekNegUb`, `SeekFault`, `SeekWitness` | Negative positions and signed-overflow paths | Conditional exact-fault lemmas, not a public safety theorem |
-| `OpenMode`, `OpenParts`, `OpenRest` | Mode-character fold and cleanup on `+` | `parseMode` and the opening argument structure |
+| `OpenMode`, `OpenParts`, `OpenRest` | Mode-character fold and cleanup on `+` | `gzlib.c.open-mode` and the opening argument structure |
 | `OpenPath`, `OpenDesc`, `OpenFinish`, `OpenEff*`, `GzopenEff*`, `Dopen*` | Path copy, descriptor flags, append/truncate effects and failure cleanup | Exact formatting, file effects and ownership must compose |
 | `Close`, `Dispatch` | Reader/writer dispatch and live-block accounting | `gzclose.c`; actual reader/writer cleanup belongs to their files |
 
@@ -159,11 +165,11 @@ and copying. It reported no mismatch or sanitizer diagnostic in those sessions.
 Dictionary setting, priming and custom gzip headers were outside that run. The
 one-byte-window stored path was also excluded.
 
-These observations do not prove safety for all inputs, initialization history,
-overlay capacity, other configurations or the C assumptions above. Focused
-reproducible evidence belongs with its regression. Acceptance rules belong in
-[checking](../checking/README.md). [Progress](../progress.md) records current
-unresolved items and proof acceptance.
+These observations do not prove safety. Safety for all inputs, every
+initialization history and the overlay capacity is the content of the sequence
+theorems on the [stream compression](deflate.md) page. Focused reproducible
+evidence belongs with its regression. Acceptance rules are in
+[checking](../checking/README.md).
 
 ## Historical gzip seek observation
 

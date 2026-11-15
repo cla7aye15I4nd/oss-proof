@@ -1,7 +1,9 @@
-<!-- source-sha256: 911099fbe671bb0702a4b991fe59b019167e3286370c6c065025b1a7ee77fc1e -->
+<!-- source-sha256: 57f7322f9b19a2177879013f8f4c0e34b1a708fc42a63373f70bdfa24d52ef59 -->
 # 早期论证与参考来源
 
-主要参考快照为 [zlib-formal 的 `0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`](https://github.com/cla7aye15I4nd/zlib-formal/tree/0f1428677ebf5b1614ff77f4702bbb382b2bf3c6)。参考审查阅读过其源代码和审计文档，没有重新构建快照，也没有在本仓库建立其结果。这里是复用记录；[进度](../progress.md)负责当前工作，[检查指南](../checking/README.md)定义验收。
+主要参考快照为 [zlib-formal 的 `0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`](https://github.com/cla7aye15I4nd/zlib-formal/tree/0f1428677ebf5b1614ff77f4702bbb382b2bf3c6)。参考审查阅读过其源代码和审计文档，没有重新构建快照，也没有在本仓库建立其结果。
+
+本页是复用记录。它说明那个早期开发的哪些思路和论证族被借鉴，以及对应的模块现在在哪里。它不给出本仓库的任何结果：定理列表见[地图](README.md)，验收由[检查指南](../checking/README.md)定义。页末的观察是历史测试证据。它们不是证明，也没有针对当前源代码重新运行。
 
 ## 借鉴的思路
 
@@ -118,7 +120,7 @@ flowchart LR
 | `Reset`, `Rewind` | 重设字段和错误、拒绝规则、文件定位与按输入修正偏移 | `gzlib.c.error`, `.rewind` |
 | `SeekParts`, `SeekRaw`, `SeekFwd`, `SeekBack`, `SeekTail`, `SeekMain`, `SeekCor` | 目标算术与 raw、向前、向后分支 | `gzlib.c.seek` |
 | `SeekNeg`, `SeekNegUb`, `SeekFault`, `SeekWitness` | 负位置与有符号溢出路径 | 条件性的准确故障引理，不是公开安全定理 |
-| `OpenMode`, `OpenParts`, `OpenRest` | 模式字符折叠与遇到 `+` 时清理 | `parseMode` 和打开论证结构 |
+| `OpenMode`, `OpenParts`, `OpenRest` | 模式字符折叠与遇到 `+` 时清理 | `gzlib.c.open-mode` 和打开论证结构 |
 | `OpenPath`, `OpenDesc`, `OpenFinish`, `OpenEff*`, `GzopenEff*`, `Dopen*` | 路径复制、描述符标志、追加／截断效果与失败清理 | 准确格式化、文件效果和所有权必须组合 |
 | `Close`, `Dispatch` | 读／写分派和存活块核算 | `gzclose.c`；实际读／写清理属于各自文件 |
 
@@ -132,7 +134,7 @@ flowchart LR
 
 早期审查记录过 8000 次随机压缩会话，使用运行时检测器与往返比较。变化包括级别、策略、内存级别、包装、最小一字节输出块、刷新模式、参数改变和复制。记录报告这些会话中无不一致或运行时检测器诊断。该运行不包含字典设置、位预置、自定义 gzip 头，也排除了单字节窗口的 stored 路径。
 
-这些观察不证明全部输入的安全、初始化历史、共享存储容量、其他配置或上述 C 假设。聚焦且可复现的证据应与其回归放在一起。验收规则属于[检查指南](../checking/README.md)，[进度](../progress.md)记录当前未解决项与证明验收。
+这些观察不证明安全性。对全部输入、每个初始化历史以及共享存储容量的安全性，是[流压缩](deflate.md)页上序列定理的内容。聚焦且可复现的证据应与其回归放在一起。验收规则见[检查指南](../checking/README.md)。
 
 ## 历史 gzip 定位观察
 

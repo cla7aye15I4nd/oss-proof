@@ -1,10 +1,16 @@
 # Proving one function
 
 A function proof connects the statement-by-statement translation to its fixed
-contract. It must establish safety, termination, the frame and exact ownership
-effects. Functional correctness relates the same execution and state to the
-format or API model. [Safety](../spec/safety.md) defines those claims;
-[progress](../progress.md) records their current acceptance status.
+goal. This page explains how such a proof is built and how a stuck proof is
+diagnosed. It is a method. It names no result of its own; the
+[map](README.md) lists the theorems.
+
+The required goals are safety goals: no undefined behaviour, no memory error,
+termination, the frame and exact ownership effects. [Safety](../spec/safety.md)
+defines those claims. Functional correctness relates the same execution to the
+format or API model. It is not required, and no new functional work is
+planned. A functional fact stays in scope when a safety proof uses it. The
+method below serves both kinds, and it says where a step is functional only.
 
 ## Fix the question before proving it
 
@@ -35,7 +41,7 @@ flowchart TD
     Math --> Execution["Execution, frame and ownership proof"]
     Local --> Execution
     Execution --> Init["Caller and initialization discharge premises"]
-    Init --> Acceptance["Registry, mutation checks and reviewed CI"]
+    Init --> Acceptance["Registry and acceptance suite"]
 ```
 
 For each access, show that the object is live, the pointer has the right form and
@@ -72,26 +78,38 @@ model limitation is not an upstream bug.
 
 ## One representation invariant
 
-`InflateOK` and `DeflateOK` name the intended stream invariants. The source may
-contain intermediate predicates or older names such as `DGood`; their
-relationship to the stream invariant needs an explicit theorem. A conditional
-result over such a predicate is not sequence safety.
+Each stateful component has one representation invariant. It holds on every
+reachable history: initialization establishes it and every operation keeps it.
+A result that only assumes the invariant is not sequence safety; the sequence
+theorem also proves that the invariant is reached.
 
-| Invariant | Clauses that the proof must establish |
-| --- | --- |
-| `InflateOK` | Owned state/window blocks are live and distinct; modes and bit counts are valid; window indices obey W; table pointers select the right static or dynamic object; entries and initialized ranges support every reached read. |
-| `DeflateOK` | State, window, `prev`, `head` and pending storage are live and distinct; size equations hold; D bounds the window; H1/H2 describe meaningful hash chains; pending/symbol regions satisfy the overlay bound; trees and statuses support the reached operations. |
+| Component | Invariant | Module | What it carries |
+| --- | --- | --- | --- |
+| `inflate` | `InflateInv` | `ZlibF/Proof/inflate.c.invariant.lean` | Owned state and window blocks are live and distinct; modes and bit counts are valid; window indices obey W; table pointers select the right static or dynamic object; entries and initialized ranges support every reached read. |
+| `deflate` | `DInv`, with `HeaderInv` and `CallFacts` at call boundaries | `ZlibF/Proof/deflate.c.universal-invariant.lean` | State, window, `prev`, `head` and pending storage are live and distinct; size equations hold; D bounds the window; H1/H2 describe meaningful hash chains; the symbol ledger of the current block; trees and statuses support the reached operations. |
+| gzip files | `GzInv` | `ZlibF/Proof/gz.inv-model.lean` | See [gzip files](gzip.md). |
+| callback decoder | `BackValid` between calls, `PInv` inside the dispatch loop | `ZlibF/Spec/Public/Back.lean`, `ZlibF/Proof/infback.c.safety-inv.lean` | See [callback decoder](callbacks.md). |
 
-Clause D7 ties gzip emission states `EXTRA`, `NAME`, `COMMENT` and `HCRC` to a
-non-null `gzhead`. An earlier invariant admitted `EXTRA` with a null header, so a
-conditional `deflate(Z_BLOCK)` execution faulted. This was an invariant
-counterexample. The sequence proof must establish that legal calls cannot reach
-that combination.
+The sequence goals state the invariant through the smaller public predicate
+`StreamInvariant` (`ZlibF/Spec/Public/Sequences.lean`). The proof invariants
+above imply it.
 
-The invariant carries the data relationships needed by correctness too. Bounds
-alone do not identify the decoded bytes. Add a history or format relation over
-the same state; prove how it changes at each step. Do not build a second,
-unconnected account of the stream for correctness.
+Other modules use the interface lemmas of an invariant and do not unfold its
+definition. A change to the invariant then rebuilds its interface, not every
+module that uses it.
+
+An invariant that is too weak shows up as a counterexample, not as a hard
+proof. One example: `HeaderInv` ties the gzip emission states `EXTRA`, `NAME`,
+`COMMENT` and `HCRC` to a non-null `gzhead`. An earlier invariant admitted
+`EXTRA` with a null header, and a conditional `deflate(Z_BLOCK)` execution
+faulted. The repair was to add the clause and to prove that every reachable
+history has it (`reachable_inv_of`,
+`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`).
+
+Functional only: bounds alone do not identify the decoded bytes. A correctness
+proof adds a history or format relation over the same state and proves how it
+changes at each step. It does not build a second, unconnected account of the
+stream.
 
 ## Initialization, frame and ownership
 
@@ -145,8 +163,9 @@ the translated heap API automatically.
 Compose API calls by induction over legal call sequences. Initialization supplies
 the first invariant. Each call supplies the next invariant, frame and ownership
 transition. Reset, dictionaries, priming, recovery, copying and partial buffers
-belong in that induction whenever the public API permits them. The functional
-relation must also compose across arbitrary input and output splits.
+belong in that induction whenever the public API permits them. A functional
+relation, where one is proved, must also compose across arbitrary input and
+output splits.
 
 ## Check each proof interface
 
@@ -202,13 +221,10 @@ function's proof. A source-equality lemma failing elsewhere is insufficient.
 Choose mutations that test the function's actual obligations, such as a dropped
 check, changed return, wrong field store or off-by-one index.
 
-The theorem must match a registered goal and pass the axiom audit. The full
-acceptance process also checks source/specification locks, mutation evidence,
-differential tests and all four CI jobs on the same named commit. Differential
-tests are evidence of fidelity, not proof. See
+A theorem is **checked** when it is on `main` and the fast gate is green on
+that commit. It is **accepted** when it is also listed in
+`tests/audit/theorems.txt` and the acceptance suite is green on a named commit:
+the axiom gate, the exact goal match, self tests, proof mutants and
+differential tests. Differential tests are evidence of fidelity, not proof.
+Neither a small proof nor a successful build substitutes for acceptance. See
 [checking](../checking/README.md) and [anti-cheating](../anti-cheating.md).
-
-Earlier work measured proof size and explored shorter proofs through generated
-verification conditions. Those estimates motivate the method; they establish no
-bound on the difficulty or size of the present proofs. Neither a small proof nor
-a successful build substitutes for the acceptance conditions.
