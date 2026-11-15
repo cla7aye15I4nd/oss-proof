@@ -19,7 +19,8 @@ LEVEL = {
     'registered': ('已登记', 'registered'),
 }
 # Result number, safety goals that decide it (None: every other required goal), goals linked, statement (zh, en).
-# The three results and their order are those of AGENTS.md. Functional correctness is not planned.
+# The three safety results and their order are those of AGENTS.md. The round trip of the default
+# stream is planned after them and has no row here until it has goals in the manifest.
 RESULTS = [
     (1, ('inflate_safety', 'inflate_sequence_safety'), ('inflate_safety', 'inflate_sequence_safety'),
      '`inflate` 对每个输入都安全：没有未定义行为、内存错误、泄漏，并且终止；对每个调用序列和缓冲区的任何切分都成立。',
@@ -28,8 +29,8 @@ RESULTS = [
      '`deflate` 对每个输入都安全，对每个调用序列都成立。',
      '`deflate` is safe on every input, for every call sequence.'),
     (3, None, ('compress_safety', 'uncompress_safe', 'gz_sequence_safety', 'gz_refusal', 'inflate_back_sequence_safety'),
-     '其余每个公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。',
-     'Every other public function is safe: `compress*` and `uncompress*`, the other stream functions, the checksums, the gzip file interface and the callback decoder `inflateBack`.'),
+     '其余每个有文档的公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。',
+     'Every other documented public function is safe: `compress*` and `uncompress*`, the other stream functions, the checksums, the gzip file interface and the callback decoder `inflateBack`.'),
 ]
 
 
@@ -86,7 +87,7 @@ def results_table(current: Path, lang: str, detail: bool) -> str:
         done = sum(target_level(n) == 'registered' for n in names)
         links = ' · '.join(f'<a href="{evidence_href(n, current, lang)}"><code>{n}</code></a>' for n in shown)
         if len(shown) < len(names):
-            links += f' · <a href="{route_href("reference/docs/progress", current, lang, "target-evidence")}">{t("全部目标", "all targets")}</a>'
+            links += f' · <a href="{route_href("reference/docs/coverage", current, lang)}">{t("每个函数对应的定理", "the theorem of every function")}</a>'
         rows.append(f'<li class="hm-result"><div class="hm-result-head"><b>{number}</b>{badge(level, lang)}'
                     f'<small>{done}/{len(names)} {t("个必需目标已登记", "required goals registered")}</small></div>'
                     f'<p>{inline_code(cn if zh else en)}</p><p class="hm-links">{t("命题与证据", "statement and evidence")}: {links}</p></li>')
@@ -95,10 +96,10 @@ def results_table(current: Path, lang: str, detail: bool) -> str:
 
 def levels_note(lang: str) -> str:
     if lang == 'zh':
-        return ('<p class="rf-scope-note"><b>未完成</b>：还没有精确定理。<b>已检查</b>：精确定理存在，但尚未登记。'
+        return ('<p class="rf-scope-note"><b>未完成</b>：还没有精确定理。<b>已检查</b>：定理在集成分支 <code>dev</code> 上，快速关卡在该提交上全部通过；本页用它专指已检查但尚未登记的定理。'
                 '<b>已登记</b>：定理已列入 <code>tests/audit/theorems.txt</code>。只有在某个具名提交上验收套件全部通过后，才可称为<b>已验收</b>；'
                 '已验收的提交写在进度记录的“范围”一节，本页的状态只读取登记记录。</p>')
-    return ('<p class="rf-scope-note"><b>open</b>: no exact theorem yet. <b>checked</b>: an exact theorem exists but is not registered. '
+    return ('<p class="rf-scope-note"><b>open</b>: no exact theorem yet. <b>checked</b>: the theorem is on the integration branch <code>dev</code> and the fast gate is green on that commit; this page uses it for a theorem that is checked and not yet registered. '
             '<b>registered</b>: the theorem is listed in <code>tests/audit/theorems.txt</code>. A result is <b>accepted</b> only when the acceptance suite '
             'is green on a named commit. The accepted commits are named in the Scope section of the progress record; the status on this page is read from the registry only.</p>')
 
@@ -122,8 +123,13 @@ def render_home() -> None:
         other = OUT / ('index.html' if zh else 'index.zh.html')
         c = counts()
         body = (f'<section id="results"><h2>{t("三项核心结论", "Three core results")}</h2>'
-                f'<p>{t("项目完成的标志，是这三项结论被验收，按此顺序。下面的状态直接取自证明记录。", "The project is finished when these three results are accepted, in this order. The status below is read from the proof records.")}</p>'
-                + results_table(current, lang, False) + levels_note(lang) +
+                f'<p>{t("安全性方面有三项结论，按此顺序验收。下面的状态直接取自登记记录。之后计划证明默认 zlib 流的往返性质（先压缩再解压得到原输入），目前尚未证明。", "There are three safety results, accepted in this order. The status below is read from the registry. Planned after them, and not yet proved: the round trip of the default zlib stream (compressing and then decompressing gives back the input).")}</p>'
+                + results_table(current, lang, False) +
+                f'<p>{t("翻译和运行时模型与 C 相符，这一点靠审阅和测试，不是靠证明：见", "That the translation and the runtime model match the C is reviewed and tested, not proved: see the")} '
+                f'<a href="{route_href("reference/docs/trusted-base", current, lang)}">{t("可信基础", "trusted base")}</a>{t("；调用必须满足的条件见", ". The conditions a call must meet are in the")} '
+                f'<a href="{route_href("reference/docs/deviations", current, lang)}">{t("偏离记录", "deviations")}</a>{t("。验收（在一个具名提交上全部审计通过）记录在", ". Acceptance (the full audit, green on a named commit) is recorded in")} '
+                f'<a href="{route_href("reference/docs/progress", current, lang, "scope")}">{t("范围", "Scope")}</a>{t("。", ".")}</p>'
+                + levels_note(lang) +
                 f'<p><a href="{route_href("status", current, lang)}">{t("完整状态、计划内与不计划的范围、下一步工作", "Full status, planned and not-planned scope, next work")} →</a></p></section>')
         body += f'<section id="articles"><h2>{t("先读 zlib 本身", "Read zlib first")}</h2><ol class="hm-articles">'
         for number, (route, cn, en) in enumerate(ARTICLES, 1):
@@ -132,12 +138,12 @@ def render_home() -> None:
         body += '</ol></section>'
         body += (f'<section id="reference"><h2>{t("参考与证据", "Reference and evidence")}</h2><ul>'
                  f'<li><a href="{route_href("status", current, lang)}">{t("结果与进度", "Results and progress")}</a>: {t("三项结论、范围、下一步", "the three results, scope, next work")}</li>'
-                 f'<li><a href="{route_href("reference/index", current, lang)}">{t("规格", "Specifications")}</a>: {t("安全目标、API 契约、格式、可信基与偏差", "safety goals, API contracts, formats, trusted base and deviations")}</li>'
+                 f'<li><a href="{route_href("reference/index", current, lang)}">{t("规格", "Specifications")}</a>: {t("安全目标、API 契约、格式、可信基础与偏离记录", "safety goals, API contracts, formats, trusted base and deviations")}</li>'
                  f'<li><a href="{route_href("reference/proofs", current, lang)}">{t("证明", "Proofs")}</a>: {t("证明方法与各组件的论证", "method and the argument for each component")}</li>'
                  f'<li><a href="{route_href("reference/docs/glossary", current, lang)}">{t("术语表", "Glossary")}</a> · '
                  f'<a href="{route_href("reference/docs/checking/contributing", current, lang)}">{t("参与贡献", "Contributing")}</a></li></ul></section>')
-        lead = t('用 Lean 4 对 zlib 的忠实翻译作机器检查的证明：每个公开函数的安全性，即没有未定义行为、没有内存错误、没有泄漏，并且终止。',
-                 'Machine-checked Lean 4 proofs about a faithful translation of zlib: every public function is safe, with no undefined behaviour, no memory error, no leak, and termination.')
+        lead = t('用 Lean 4 对 zlib 的逐语句翻译作机器检查的证明：默认 x86_64 Linux 构建中每个有文档的公开函数都是安全的，即没有未定义行为、没有内存错误、没有泄漏，并且终止；每条定理都写明自己的前提。',
+                 'Machine-checked Lean 4 proofs about a statement-by-statement translation of zlib: every documented public function of the default x86_64 Linux build is safe, with no undefined behaviour, no memory error, no leak, and termination, under the premises each theorem states.')
         redirect = ('<script>(function(){var h=location.hash.slice(1);if(h&&!document.getElementById(h))'
                     f'location.replace("{route_href("read/codec", current, lang)}#"+h)}})();</script>')
         write(current, shell(t('zlib × Lean', 'zlib × Lean'), body + redirect, current, lang, other=other,
@@ -213,21 +219,23 @@ def render_status() -> None:
             html_text, _, _ = md(markdown_text, baselevel=2)
             return rewrite(html_text, source, current, lang)
         c = counts()
-        stats = t(f'证明记录共有 {c["total"]} 个固定目标：已登记 {c["registered"]}，已检查未登记 {c["local"]}，未完成 {c["open"] + c["blocked"]}，不在计划内 {c["not-planned"]}。这些数字不是工作量的百分比。',
-                  f'The proof records hold {c["total"]} fixed targets: {c["registered"]} registered, {c["local"]} checked but not registered, {c["open"] + c["blocked"]} open, {c["not-planned"]} not planned. These are not a percentage of effort.')
+        stats = t(f'<code>tests/audit/goals.txt</code> 中共有 {c["total"]} 个目标（必需的安全目标只是其中一部分）：已登记 {c["registered"]}，已检查未登记 {c["local"]}，未完成 {c["open"] + c["blocked"]}，不在计划内 {c["not-planned"]}。这些数字不是工作量的百分比。',
+                  f'<code>tests/audit/goals.txt</code> lists {c["total"]} goals (the required safety goals are a part of them): {c["registered"]} registered, {c["local"]} checked but not registered, {c["open"] + c["blocked"]} open, {c["not-planned"]} not planned. These are not a percentage of effort.')
         evidence = route_href('reference/docs/progress', current, lang)
         body = (f'<p class="rf-scope-note">{t("快照", "Snapshot")}: <a href="{REPO_URL}/commit/{COMMIT}"><code>{COMMIT[:10]}</code></a>, {DATE}, '
                 f'{t("分支", "branch")} {html.escape(BRANCH)}. {stats}</p>'
                 f'<h2 id="core-results">{t("三项核心结论", "Three core results")}</h2>' + results_table(current, lang, True) + levels_note(lang) +
-                f'<p class="rf-scope-note">{t("下面的范围表把第三项结论分成三行：整缓冲区函数、回调解码器和 gzip 文件接口。", "The scope table below splits the third result into three rows: the whole-buffer functions, the callback decoder and the gzip file interface.")}</p>' +
+                f'<p class="rf-scope-note">{t("下面的范围表把第三项结论分成四行（3a 到 3d）：整缓冲区函数、回调解码器、gzip 文件接口，以及其余有文档的函数。", "The scope table below splits the third result into four rows (3a to 3d): the whole-buffer functions, the callback decoder, the gzip file interface, and the remaining documented functions.")}</p>' +
                 f'<h2 id="scope">{t("计划内与不计划", "Planned and not planned")}</h2>' + wrap(render(scope)) +
                 f'<h2 id="next-work">{t("下一步工作", "Next work")}</h2>' + wrap(render(nxt)) +
                 f'<p><a href="{route_href("reference/docs/progress", current, lang, "ordered-next-work")}">{t("进度记录中的这一节", "This section in the progress record")}</a></p>'
                 f'<h2 id="evidence">{t("证据", "Evidence")}</h2><ul>'
                 f'<li><a href="{evidence}">{t("证据索引", "Evidence index")}</a>: {t("每个目标的命题、证明和依赖。", "the statement, proof and dependencies of every target.")}</li>'
                 f'<li><a href="{route_href("reference/docs/progress", current, lang, "proof-progress-graph")}">{t("全部目标的依赖图", "Dependency graph of all targets")}</a></li>'
-                f'<li><a href="{route_href("reference/docs/trusted-base", current, lang)}">{t("可信基", "Trusted base")}</a> · '
-                f'<a href="{route_href("reference/docs/deviations", current, lang)}">{t("偏差与前置条件", "Deviations and preconditions")}</a> · '
+                f'<li><a href="{route_href("reference/docs/trusted-base", current, lang)}">{t("可信基础", "Trusted base")}</a> · '
+                f'<a href="{route_href("reference/docs/deviations", current, lang)}">{t("偏离记录：调用者的检查清单", "Deviations: the caller\'s checklist")}</a> · '
+                f'<a href="{route_href("reference/docs/coverage", current, lang)}">{t("每个函数对应的定理", "Coverage by function")}</a> · '
+                f'<a href="{route_href("reference/docs/model-limits", current, lang)}">{t("模型的限制", "Model limits")}</a> · '
                 f'<a href="{route_href("reference/docs/sanitizer-reports", current, lang)}">{t("Sanitizer 报告", "Sanitizer reports")}</a></li></ul>')
         title = t('结果与进度', 'Results and progress')
         write(current, shell(title, (NOTICE if zh and not fresh else '') + body, current, lang, other=other,
