@@ -24,6 +24,12 @@ parameter, so the loop rule does not fix the safety invariant.
 
 A trip from `LoopBad` is `case BAD:` (`bad_trip`): it sets `Z_DATA_ERROR`
 and leaves.
+
+A trip may also end in the raw `CHECK` state (`RawCheck`): raw data after the
+final block, between the `TYPEDO` trip that sets `CHECK` and the trip that
+runs `CHECK`, `LENGTH` and `DONE` and leaves. The trip from it is the second
+premise, `RawCheckTrip`; it always ends in a `TripOutcome`, so no exit is in
+that state.
 -/
 
 namespace Zlib.Inflate.Proofs
@@ -37,7 +43,15 @@ dictionary request. -/
 def TripMeaning (c : Ctx) (f : LoopFrame) (Side : IL → Heap → Prop) : Prop :=
   ∀ h l, Side l h → LoopMatches c f h l →
     ∃ result l' h', runX (inflate_dispatch c) l h = .ok ((result, l'), h') ∧
-      (TripOutcome c f result h' l' ∨ NeedDictExit c f result h' l')
+      (TripOutcome c f result h' l' ∨ NeedDictExit c f result h' l' ∨
+        (result = .ok () ∧ RawCheck c f h' l'))
+
+/-- One trip of the mode loop from the raw `CHECK` state (`RawCheck`), under the side facts
+`Side`, runs without a fault and ends in a `TripOutcome`. -/
+def RawCheckTrip (c : Ctx) (f : LoopFrame) (Side : IL → Heap → Prop) : Prop :=
+  ∀ h l, Side l h → RawCheck c f h l →
+    ∃ result l' h', runX (inflate_dispatch c) l h = .ok ((result, l'), h') ∧
+      TripOutcome c f result h' l'
 
 /-- Every normal end of a dispatch keeps the side facts. -/
 def SideKept (c : Ctx) (Side : IL → Heap → Prop) : Prop :=
@@ -65,7 +79,8 @@ theorem xwhile_true_not_ok {body : X Unit} {l l' : IL} {h h' : Heap} {u : Unit}
 /-- `loop_meaning`: the mode loop of a call, entered with `LoopMatches` and the
 side facts, ends in a `LoopExit`. -/
 theorem loop_meaning {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop} {r : ZStreamRef}
-    (trip : TripMeaning c f Side) (kept : SideKept c Side) (strm : c.strm = some r)
+    (trip : TripMeaning c f Side) (rawTrip : RawCheckTrip c f Side) (kept : SideKept c Side)
+    (strm : c.strm = some r)
     (record : ∀ l h, Side l h → ∃ z, r.get h = some z)
     {l regs : IL} {h after : Heap} {outcome : Except Ex Unit}
     (side : Side l h) (start : LoopMatches c f h l)
@@ -75,7 +90,8 @@ theorem loop_meaning {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop} {r 
   | ok u => exact absurd run (fun run => xwhile_true_not_ok run)
   | error exit =>
     refine ⟨exit, rfl, ?_⟩
-    let P : IL → Heap → Prop := fun l h => Side l h ∧ (LoopMatches c f h l ∨ LoopBad c f h l)
+    let P : IL → Heap → Prop := fun l h =>
+      Side l h ∧ ((LoopMatches c f h l ∨ LoopBad c f h l) ∨ RawCheck c f h l)
     let Q : Ex → IL → Heap → Prop := fun e l h => LoopExit c f e h l
     have step : ∀ l h outcome regs after, P l h →
         runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) →
@@ -83,18 +99,19 @@ theorem loop_meaning {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop} {r 
         | .ok () => P regs after
         | .error exit => Q exit regs after := by
       intro l h outcome regs after ⟨side, current⟩ source
-      rcases current with loop | bad
+      rcases current with (loop | bad) | raw
       · obtain ⟨result, l', h', run', outcome'⟩ := trip h l side loop
         have same := source.symm.trans run'
         simp only [Except.ok.injEq, Prod.mk.injEq] at same
         obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
-        rcases outcome' with tripOut | needDict
+        rcases outcome' with tripOut | needDict | ⟨rfl, raw'⟩
         · rcases tripOut with ⟨rfl, cont⟩ | ⟨rfl, leave⟩
-          · exact ⟨kept l h regs after side source, cont⟩
+          · exact ⟨kept l h regs after side source, Or.inl cont⟩
           · exact Or.inl ⟨rfl, leave⟩
         · have exitEq := needDict.1
           cases exitEq
           exact Or.inr needDict
+        · exact ⟨kept l h regs after side source, Or.inr raw'⟩
       · obtain ⟨z, hz⟩ := record l h side
         obtain ⟨run', tripOut⟩ := bad_trip bad strm hz
         have same := source.symm.trans run'
@@ -103,7 +120,14 @@ theorem loop_meaning {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop} {r 
         rcases tripOut with ⟨eq, _⟩ | ⟨_, leave⟩
         · cases eq
         · exact Or.inl ⟨rfl, leave⟩
-    exact xwhile_success_control_post P Q step ⟨side, Or.inl start⟩ run
+      · obtain ⟨result, l', h', run', tripOut⟩ := rawTrip h l side raw
+        have same := source.symm.trans run'
+        simp only [Except.ok.injEq, Prod.mk.injEq] at same
+        obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
+        rcases tripOut with ⟨rfl, cont⟩ | ⟨rfl, leave⟩
+        · exact ⟨kept l h regs after side source, Or.inl cont⟩
+        · exact Or.inl ⟨rfl, leave⟩
+    exact xwhile_success_control_post P Q step ⟨side, Or.inl (Or.inl start)⟩ run
 
 #print axioms loop_meaning
 

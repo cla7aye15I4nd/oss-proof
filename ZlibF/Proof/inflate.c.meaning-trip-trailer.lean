@@ -35,7 +35,8 @@ theorem trip_dictid : TripDictid := by
   intro c f r h l side loop mode
   obtain ⟨zs, z, s, E, _⟩ := side.env
   obtain ⟨result, l', h', run, out⟩ := MeaningDictid.dictid_step loop E.strm E.hz mode
-  exact ⟨result, l', h', (inflate_dispatch_DICTID E l (mode zs s E.st E.hs)).trans run, out⟩
+  exact ⟨result, l', h', (inflate_dispatch_DICTID E l (mode zs s E.st E.hs)).trans run,
+    out.elim Or.inl (fun need => Or.inr (Or.inl need))⟩
 
 /-- `CHECK` with a wrapper: `check_step`; the CRC tables are library globals. -/
 theorem trip_check_wrapped : TripCheckWrapped := by

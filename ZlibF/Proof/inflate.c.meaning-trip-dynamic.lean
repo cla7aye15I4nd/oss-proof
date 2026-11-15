@@ -230,7 +230,8 @@ theorem dyn_trip_core {c : Ctx} {f : LoopFrame} {r : ZStreamRef} {h : Heap} {l :
     (body : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s →
       TYPE ≤ s.mode ∧ s.mode ≤ LIT ∨ s.mode = CHECK ∨ s.mode = LENGTH) :
     ∃ result l' h', runX (inflate_dispatch c) l h = .ok ((result, l'), h') ∧
-      (TripOutcome c f result h' l' ∨ MeaningDictid.NeedDictExit c f result h' l') := by
+      (TripOutcome c f result h' l' ∨ MeaningDictid.NeedDictExit c f result h' l' ∨
+        (result = .ok () ∧ RawCheck c f h' l')) := by
   obtain ⟨res, L, H, runT, ends⟩ := meaning
   rcases agree l h with same | ⟨L0, H0, lenMode, runC, runT0⟩
   · have run : runX (inflate_dispatch c) l h = .ok ((res, L), H) := dispatchEq.trans (same.trans runT)
