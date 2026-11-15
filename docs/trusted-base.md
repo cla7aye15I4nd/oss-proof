@@ -9,7 +9,7 @@ and compiling the proofs does not discharge them.
 | 1 | The Lean kernel, three axioms, and the audit programs | The axiom gate and a fresh kernel replay |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and semantic regression tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: the pin and five patches | The patch register and the sanitizer reproductions |
+| 4 | The selected source: the pin and five patches | The patch register and the sanitizer reproductions, or a probe and the model where no sanitizer reports (0005, the COPY branch of 0004) |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
 | 6 | The statements: that each goal says what it should | Review against `zlib.h`; the exact-goal check |
 
