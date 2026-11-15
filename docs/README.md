@@ -1,13 +1,18 @@
 # Documentation
 
 The [documentation website](https://www.dataisland.org/zlib-f/) is the published
-reading home. The files here are its content sources. The site is built from the `dev`
-branch, so it shows the current work. Every page ends with the commit and date it was built from.
+reading home. The files here are its content sources. The site is published from the `main`
+branch only; pushes to `dev` and pull requests are built and checked, not published. So the site
+can be behind `dev`. Every page ends with the commit and date it was built from.
 
 ## Where to start
 
-- [Results and status](progress.md#scope): the three core results, what is planned and what is not.
-  The website shows the same facts on its home page and on a status page, read from the proof records.
+- [Overview](overview.md): the claim, its scope and how the argument is built.
+- [Results and status](progress.md#scope): the five planned safety results, what is accepted and
+  what is not planned. The website shows the same facts on its home page and on a status page, read
+  from the proof records.
+- [Trusted base](trusted-base.md) and [deviations](deviations.md): what the kernel does not check,
+  and every premise a theorem adds to `zlib.h`.
 - [Glossary](glossary.md): the terms used in the specifications and proofs.
 - [Contributing](checking/contributing.md): numbered steps and commands.
 
@@ -30,7 +35,6 @@ zlib itself; formal verification has its own reference material below.
 - [Checking](checking/README.md): what counts as checked and as accepted.
 - [Evidence index](progress.md): every target with its statement, proof and dependencies.
 
-[Trusted base](trusted-base.md) and [deviations](deviations.md) state model boundaries.
 [Findings](findings.md) records confirmed source reports and their scope.
 [Sanitizer reports](sanitizer-reports.md) lists every sanitizer reproduction and the premise that excludes it.
 [Runtime schema](runtime-schema.md) is the field and type reference.

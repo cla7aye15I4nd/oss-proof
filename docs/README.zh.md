@@ -1,11 +1,13 @@
-<!-- source-sha256: b3df448a23b326197b1a25a75af6d0261f2509bf0e9fe651dfc78d7accfe95c5 -->
+<!-- source-sha256: 0a3662845dec5bef6b9537a56b178e7aadbb245310593cc024479e91ba28e540 -->
 # 文档
 
-[文档网站](https://www.dataisland.org/zlib-f/index.zh.html)是正式阅读入口。这里的文件是网站内容源码。网站从 `dev` 分支构建，因此展示当前的工作。每个页面末尾写明它所构建自的提交和日期。
+[文档网站](https://www.dataisland.org/zlib-f/index.zh.html)是正式阅读入口。这里的文件是网站内容源码。网站只从 `main` 分支发布；推送到 `dev` 和拉取请求只构建并检查，不发布。因此网站可能落后于 `dev`。每个页面末尾写明它所构建自的提交和日期。
 
 ## 从哪里开始
 
-- [结果与状态](progress.md#scope)：三项核心结论，以及什么在计划内、什么不在。网站的首页和状态页展示同样的事实，数据取自证明记录。
+- [总览](overview.md)：要证明什么、范围多大、论证如何搭建。
+- [结果与状态](progress.md#scope)：五项计划内的安全结论，哪些已验收，哪些不在计划内。网站的首页和状态页展示同样的事实，数据取自证明记录。
+- [可信基础](trusted-base.md)与[偏离记录](deviations.md)：内核不检查什么，以及定理在 `zlib.h` 之外附加的每一条前提。
 - [术语表](glossary.md)：规格与证明中用到的术语。
 - [参与贡献](checking/contributing.md)：编号步骤与命令。
 
@@ -25,7 +27,6 @@
 - [检查指南](checking/README.md)：什么算已检查，什么算已验收。
 - [证据索引](progress.md)：每个目标的命题、证明与依赖。
 
-[可信基础](trusted-base.md)与[偏离记录](deviations.md)说明模型边界。
 [源码发现](findings.md)记录已确认的报告及其范围。
 [Sanitizer 报告](sanitizer-reports.md)列出每个 sanitizer 复现以及排除它的前提。
 [运行时结构](runtime-schema.md)提供字段与类型参考。
