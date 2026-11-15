@@ -53,5 +53,5 @@ Lean 谓词是 [PlatformMemory.lean](../../ZlibF/Spec/PlatformMemory.lean) 中�
 
 ## 这条前提不涵盖什么
 
-模型对空指针算术的处理是另一条局限，说明见
-[安全性，空指针](safety.md#null-pointers-and-pointer-differences)和[可信基础](../trusted-base.md)。
+模型对 NULL 指针算术的处理是另一条限制，说明见
+[安全性，空指针与指针差](safety.md#null-pointers-and-pointer-differences)和[可信基础](../trusted-base.md)。

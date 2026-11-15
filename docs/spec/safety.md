@@ -17,7 +17,7 @@ all four clauses hold.
 | --- | --- | --- | --- |
 | 1 | No undefined behaviour, no memory error | No out-of-bounds read or write, no null dereference, no use after free, no double free, no signed overflow, no invalid shift, and none of the other operations in the [table of obligations](#the-obligations). | The run does not end in `Fault.ub`. |
 | 2 | Termination | The call returns. | The run does not end in `Fault.outOfFuel`: no loop reaches the bound of `2^64` iterations. |
-| 3 | Frame | The call writes only the memory its goal names: for `inflate`, the `z_stream`, the library's own allocations for that stream, and `avail_out` bytes at `next_out`. Every other object keeps its content. | `Frame`, `BufferFrame`. |
+| 3 | Frame | The call writes only the memory its goal names: for `inflate`, the `z_stream`, the library's own allocations for that stream, `avail_out` bytes at `next_out`, and, when a gzip header record is attached, that record and its three buffers. Every other object keeps its content. | `Frame`, `BufferFrame`. |
 | 4 | No leak | When the call returns, the allocated blocks are those allocated before, plus the blocks the stream owns that are new, minus the blocks the stream owned and gave up. No other block appears or disappears. | `LiveChange`, with ownership read from the pointers in the state. |
 
 Clauses 1 and 2 together are written "the call **returns**" on the API pages: in the model the
@@ -238,9 +238,11 @@ For `compress*` and `uncompress*` the goal says the same in another form. The he
 call is the heap before it with the output bytes written (for `uncompress*` also the length
 cells), and nothing else is changed. The temporary stream and its allocations are gone: no new
 live object remains (`SameObjectsUpToTableShape`,
-[Public/Memory.lean](../../ZlibF/Spec/Public/Memory.lean)). "Up to table shape" allows one
-thing only: an internal table of the model may have grown by empty entries. An empty entry is
-not a live block, and no C operation observes the table length.
+[Public/Memory.lean](../../ZlibF/Spec/Public/Memory.lean)). "Up to table shape" allows only
+bookkeeping of the model to differ: an internal table may have grown by empty entries, and the
+next block number and the allocation counter may have advanced. An empty entry is not a live
+block, and no C operation observes the table length or either counter. The read-only flag is
+compared only for the blocks that were live before the call.
 
 ### Initialisation and callees
 
@@ -291,9 +293,10 @@ two kinds of stream.
    record and the owned blocks, and removes exactly the owned blocks.
 
 The goal of one function, `Goal.<function>_safety`, is clause 2 restricted to calls of that
-function, or clause 3 for `inflateEnd` and `deflateEnd`. Its premises are `StreamCallDomain`:
-the stream is reachable, every byte object has fewer than `2^63` bytes
-([platform](platform.md)), and `StreamArguments` holds.
+function, or clause 3 for `inflateEnd` and `deflateEnd`. For clause 2 its premises are
+`StreamCallDomain`: the stream is reachable, every byte object has fewer than `2^63` bytes
+([platform](platform.md)), and `StreamArguments` holds. The two End goals have one premise
+only: the stream is reachable.
 
 **Non-vacuity.** A goal over "every reachable stream" would hold trivially if no stream were
 reachable. The non-vacuity goals exclude this: a concrete heap satisfies the premises of init,
@@ -350,11 +353,11 @@ obligation.
 
 | ID | Obligation or scope | Lean premise |
 | --- | --- | --- |
-| A1 | **Init.** The stream pointer is `NULL` or points to a `z_stream` whose `zalloc` and `zfree` are each `NULL` or the default allocator's function. The other fields, `state` included, may hold anything. The version pointer is `NULL` or has one readable byte. **Later calls.** The stream is reachable. A `NULL` or inconsistent stream is refused with `Z_STREAM_ERROR` and no change. | `InitArguments`; `StreamReachable`; `RefusedInflate`, `RefusedDeflate` |
+| A1 | **Init.** The stream pointer is `NULL` or points to a `z_stream` whose `zalloc` and `zfree` are each `NULL` or the default allocator's function. The other fields, `state` included, may hold anything. The version pointer is `NULL` or has one readable byte. **Later calls.** The stream is reachable. A `NULL` or inconsistent stream is refused with `Z_STREAM_ERROR` by the functions the two refusal goals list ([appendix](#where-the-goals-are)). The refusal changes nothing, except that a copy from a refused source sets `dest->state` to `NULL`. | `InitArguments`; `StreamReachable`; `RefusedInflate`, `RefusedDeflate` |
 | A2 | The caller provides the readable input and writable output ranges the call uses. | `StreamBuffers`, `CallerRange`, `Bytes`, `Writable` |
 | A3 | Caller regions with no reason to overlap are separate: input, output, dictionary, the gzip header record and its buffers, length cells. They may lie in one object. `zlib.h` does not state this for every pair; each such premise has a row in [deviations](../deviations.md). | `Separate`, `ActiveHeader`, `UtilitySeparation` |
 | A4 | Calls on the same stream are not concurrent. | The model is sequential. |
-| A5 | The default allocator. Its failures are in scope: every goal holds whichever `malloc` calls fail. A stream with a custom `zalloc` or `zfree` is outside every goal. | `DefaultOrNull`, `DefAlloc` |
+| A5 | The default allocator. Its failures are in scope: every goal holds whichever `malloc` calls fail. An init call with a custom `zalloc` or `zfree`, and a live stream that has one, are outside every goal. A record with a custom allocator whose `state` is `NULL` is still refused under A1. | `DefaultOrNull`, `DefAlloc` |
 | A6 | No use after end or close. A new init starts a new lifetime. | Histories end at End; a record after End is in the refusal domain. |
 | A7 | Every scalar value is classified: normal use, documented refusal, or an explicit caller restriction. An invalid value is never dropped to avoid an error path. | The goals quantify over every `flush`, `level`, `windowBits` and so on. |
 | A8 | Every byte object has fewer than `2^63` bytes. This is a fact of the platform, not a duty of the caller. | `ByteObjectsFit` ([platform](platform.md)) |

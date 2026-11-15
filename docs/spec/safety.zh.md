@@ -1,10 +1,10 @@
-<!-- source-sha256: ea31ea5361c8249a1dd2c09aa6a606f7a9f6c561738f958c8c143df8d26ca87d -->
+<!-- source-sha256: d3722267d8b80b4f06aff7cc107dd3941be07a29fe483d1814c6f44f7b1942cb -->
 
 # 安全性：目标陈述了什么
 
 本页定义“安全”。本项目对默认 x86_64 Linux 构建中 zlib 每个有文档的公开函数证明的，就是这一性质。
 一次安全的调用没有未定义行为，会返回，只写它的目标点名的内存，并且不泄漏。
-本页依次给出定义、一个完整的例子、已证明的内容和所作的假设，最后说明定理所在的模型有哪些局限。
+本页依次给出定义、一个完整的例子、已证明的内容和所作的假设，最后说明定理所在的模型有哪些限制。
 
 ## 定义
 
@@ -16,7 +16,7 @@
 | --- | --- | --- | --- |
 | 1 | 没有未定义行为，没有内存错误 | 没有越界读写，没有空指针解引用，没有释放后使用，没有重复释放，没有有符号溢出，没有非法移位，也没有[义务表](#the-obligations)列出的其他操作。 | 执行不以 `Fault.ub` 结束。 |
 | 2 | 终止 | 调用会返回。 | 执行不以 `Fault.outOfFuel` 结束：没有循环达到 `2^64` 次迭代的上限。 |
-| 3 | 帧性质 | 调用只写它的目标点名的内存：对 `inflate` 来说，是 `z_stream`、库为这个流分配的存储，以及 `next_out` 处的 `avail_out` 个字节。其他对象的内容都不变。 | `Frame`、`BufferFrame`。 |
+| 3 | 帧性质 | 调用只写它的目标点名的内存：对 `inflate` 来说，是 `z_stream`、库为这个流分配的存储、`next_out` 处的 `avail_out` 个字节，以及（如果挂有 gzip 头记录）这个记录和它的三个缓冲区。其他对象的内容都不变。 | `Frame`、`BufferFrame`。 |
 | 4 | 无泄漏 | 调用返回时，已分配的块等于调用前已分配的块，加上流新拥有的块，减去流原先拥有而现在放弃的块。没有别的块出现或消失。 | `LiveChange`，其中的所有权由状态里的指针读出。 |
 
 API 页面把子句 1 和 2 合起来写作“调用**返回**”：在模型中，执行以 `.ok` 结束，带有一个返回值和一个堆。
@@ -88,7 +88,7 @@ inflateEnd(&s);                       /* 调用 3 */
 ```mermaid
 flowchart LR
     A["初始化之前：没有为这个流分配任何块"] -->|"inflateInit2 返回 Z_OK"| B["流拥有它的状态"]
-    B -->|"inflate：可能分配窗口"| C["流拥有它的状态，以及已分配的窗口"]
+    B -->|"inflate：可能分配窗口"| C["流拥有它的状态，以及（如果已分配）它的窗口"]
     C -->|"inflateEnd"| D["没有为这个流分配的块"]
 ```
 
@@ -108,7 +108,7 @@ flowchart LR
 - [平台大小上界](platform.md)：没有哪个字节对象达到或超过 `2^63` 字节。
 - 下文的[调用者义务](#4-caller-obligations)。凡是比 `zlib.h` 窄的前提，
   在[偏离记录](../deviations.md)中都有一行。
-- 下文的[模型局限](#3-faults-undefined-behaviour-and-model-gaps)：在这些情形下，关于模型的证明不能对 C 作出定论。
+- 下文的[模型的限制](#3-faults-undefined-behaviour-and-model-gaps)：在这些情形下，关于模型的证明不能对 C 作出定论。
 - [可信基础](../trusted-base.md)：运行时、手工翻译、编译器、操作系统。
 
 **没有单独陈述的。** gzip 文件函数（从 `gzopen` 到 `gzclose`）和三个回调解码函数
@@ -131,11 +131,11 @@ flowchart LR
 | 有定义的错误返回 | C 通过文档规定的结果拒绝一个请求。畸形的压缩字节可以返回 `Z_DATA_ERROR` 而没有 UB。安全性覆盖这些调用。 |
 | 在目标的前提之外 | 目标对这次调用什么也不说。仅凭这一点，不能说 C 的执行是 UB。 |
 | C 的 UB | C 的规则对这个操作不作任何保证。 |
-| `Fault.ub` | 模型检测到一次违规。模型并不能检测 C 的每一种 UB（见[模型局限](#3-faults-undefined-behaviour-and-model-gaps)）。 |
+| `Fault.ub` | 模型检测到一次违规。模型并不能检测 C 的每一种 UB（见[模型的限制](#3-faults-undefined-behaviour-and-model-gaps)）。 |
 | `Fault.outOfFuel` | 模型里的某个循环用完了 `2^64` 次迭代。不终止不是 C 的 UB，但在这里算安全性失败。 |
 | 泄漏 | 一个块仍然处于已分配状态，而目标的账本没有点到它。即使没有任何 C 操作是 UB，泄漏在这里也算安全性失败。 |
 
-由实现定义的选择，按所选构建来陈述。未指明的结果，凡是影响结论的，都要对每一种可能的结果给出证明。
+由实现定义的选择，按所选构建来陈述。未指明的结果，凡是影响调用结果的，都要对每一种容许的结果给出证明。
 这两类都不是 UB。
 
 下文用到的一些术语在[术语表](../glossary.md)中：目标、历史、拒绝、非空性、已登记。
@@ -188,7 +188,7 @@ flowchart LR
     b 在调用后存活  ⇔  （b 在调用前存活，且不属于 removed）或 b 属于 created
 ```
 
-本项目也把它叫作**账本**。它是一个等价式，所以两个方向都是精确的。
+下文把分配账本简称为**账本**。它是一个等价式，所以两个方向都是精确的。
 一个块只有被目标点名为移除，才会消失。一个块要保持已分配状态，要么调用前就已分配，要么被目标点名为新建。
 “无泄漏”就是后一个方向加上所有权：
 
@@ -208,7 +208,7 @@ flowchart LR
 所以，如果库分配了一个块又丢失了对它的引用，这个块就是存活的、不被拥有的，
 也不在 `created` 中：账本就不成立。
 
-**在已经持有一个流的记录上初始化或复制。** 四个 init 目标对记录的 `state` 字段没有任何条件（`InitArguments`），
+**在已经持有一个流的记录上初始化或复制。** 四个初始化目标对记录的 `state` 字段没有任何条件（`InitArguments`），
 两个复制目标对目的记录也没有，所以当这个记录还持有一个存活的流时，这些目标同样成立。
 这次调用不会释放旧状态。旧状态的块在调用前存活，调用后仍然存活，账本允许这一点，而记录不再指向它们。
 因此对初始化和复制来说，“无泄漏”的意思是：调用不泄漏它自己分配的东西。
@@ -218,8 +218,9 @@ flowchart LR
 调用后的堆等于调用前的堆写入输出字节之后的样子（对 `uncompress*` 还要写入长度单元），其他都不变。
 临时的流和它的分配都已消失：没有新的存活对象留下
 （`SameObjectsUpToTableShape`，[Public/Memory.lean](../../ZlibF/Spec/Public/Memory.lean)）。
-“除表形状外”只容许一件事：模型内部的某张表可以多出一些空表项。
-空表项不是存活的块，也没有任何 C 操作能观察到表的长度。
+“除表形状外”只容许模型自己的簿记有所不同：内部的某张表可以多出一些空表项，
+下一个块编号和分配计数器可以已经前进。空表项不是存活的块，
+也没有任何 C 操作能观察到表的长度或这两个计数。只读标志只对调用前存活的块作比较。
 
 ### 初始化与被调用函数
 
@@ -265,8 +266,9 @@ flowchart LR
    把状态指针置为 `NULL`，只写记录和流拥有的块，并且恰好移除流拥有的块。
 
 单个函数的目标 `Goal.<function>_safety` 是子句 2 限于该函数的调用；
-对 `inflateEnd` 和 `deflateEnd` 则是子句 3。它的前提是 `StreamCallDomain`：
+对 `inflateEnd` 和 `deflateEnd` 则是子句 3。对子句 2，它的前提是 `StreamCallDomain`：
 流可达，每个字节对象少于 `2^63` 字节（见[平台](platform.md)），并且 `StreamArguments` 成立。
+两个 End 目标只有一个前提：流可达。
 
 **非空性。** 如果没有任何流可达，针对“每个可达流”的目标就会平凡地成立。
 非空性目标排除了这种情况：有一个具体的堆满足初始化的前提，
@@ -277,7 +279,7 @@ gzip 文件接口和回调解码器的结构相同，各有自己的历史：
 `GzHistory`（[Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)）和
 `BackSafeReachable`（[Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean)）。
 gz 历史在两次调用之间还有一步留给外部：文件系统和描述符（即**世界**）可以变成任何良构的状态。
-具体陈述见 [gzip 文件契约](api/gz-file.md)和[回调契约](api/inflate-back.md)。
+具体命题见 [gzip 文件契约](api/gz-file.md)和[回调契约](api/inflate-back.md)。
 
 ### 终止与循环燃料
 
@@ -293,7 +295,7 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 流目标，初始化、结束和复制目标，校验和与查询目标，以及整缓冲区目标，结论都是 `.ok`，不带关于终止的前提。
 有两族需要这样的前提，因为 C 本身在那里可能不终止：
 
-| 族 | 陈述 | 原因 |
+| 族 | 命题 | 原因 |
 | --- | --- | --- |
 | 读 gzip 文件：`gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets`、`gzungetc`（`NeedsReadBound`） | 不带前提时：执行不以 `Fault.ub` 结束；它唯一可能的错误结局是燃料用完。带上前提 `ReadsFinite`（描述符还能交付的字节少于 `2^61`）时：执行是 `.ok`。 | 一个不断交付空 gzip 成员的数据源，会让 C 中的一次 `gzread` 永远运行下去。`2^61` 是模型的数字：它让各循环的度量保持在 `2^64` 以下。 |
 | `inflateBack` | 带上 `protocol.inputBound < 2^48`（这次调用总共得到的输入少于 `2^48` 字节）时：执行是 `.ok`。 | `zlib.h` 没有限制 `in` 回调提供多少数据。 |
@@ -314,11 +316,11 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 
 | 编号 | 义务或范围 | Lean 前提 |
 | --- | --- | --- |
-| A1 | **初始化。** 流指针是 `NULL`，或者指向一个 `z_stream`，其 `zalloc` 和 `zfree` 各自是 `NULL` 或默认分配器的函数。其他字段（包括 `state`）可以是任意值。版本指针是 `NULL` 或有一个可读字节。**之后的调用。** 流可达。`NULL` 流或不一致的流会被拒绝：返回 `Z_STREAM_ERROR`，什么也不改。 | `InitArguments`；`StreamReachable`；`RefusedInflate`、`RefusedDeflate` |
+| A1 | **初始化。** 流指针是 `NULL`，或者指向一个 `z_stream`，其 `zalloc` 和 `zfree` 各自是 `NULL` 或默认分配器的函数。其他字段（包括 `state`）可以是任意值。版本指针是 `NULL` 或有一个可读字节。**之后的调用。** 流可达。`NULL` 流或不一致的流，由两个拒绝目标列出的那些函数拒绝，返回 `Z_STREAM_ERROR`（见[附录](#where-the-goals-are)）。拒绝什么也不改，只有一个例外：从被拒绝的源复制时，`dest->state` 被置为 `NULL`。 | `InitArguments`；`StreamReachable`；`RefusedInflate`、`RefusedDeflate` |
 | A2 | 调用者提供这次调用要用的可读输入范围和可写输出范围。 | `StreamBuffers`、`CallerRange`、`Bytes`、`Writable` |
 | A3 | 没有理由重叠的调用者区域互不重叠：输入、输出、字典、gzip 头记录及其缓冲区、长度单元。它们可以位于同一个对象中。`zlib.h` 并没有对每一对都这样规定；每个这样的前提在[偏离记录](../deviations.md)中都有一行。 | `Separate`、`ActiveHeader`、`UtilitySeparation` |
 | A4 | 对同一个流的调用不并发。 | 模型是顺序的。 |
-| A5 | 使用默认分配器。它的失败在范围之内：不论哪些 `malloc` 调用失败，每个目标都成立。使用自定义 `zalloc` 或 `zfree` 的流在所有目标之外。 | `DefaultOrNull`、`DefAlloc` |
+| A5 | 使用默认分配器。它的失败在范围之内：不论哪些 `malloc` 调用失败，每个目标都成立。带自定义 `zalloc` 或 `zfree` 的初始化调用，以及带有这种分配器的存活流，都在所有目标之外。带自定义分配器而 `state` 为 `NULL` 的记录，仍按 A1 被拒绝。 | `DefaultOrNull`、`DefAlloc` |
 | A6 | 结束或关闭之后不再使用。新的一次初始化开始新的生命周期。 | 历史在 End 处结束；End 之后的记录属于拒绝的定义域。 |
 | A7 | 每个标量值都有归类：正常使用、文档规定的拒绝，或者明确写出的调用者限制。从不为了回避错误路径而丢掉一个非法值。 | 目标对每个 `flush`、`level`、`windowBits` 等取值全称量化。 |
 | A8 | 每个字节对象少于 `2^63` 字节。这是平台的事实，不是调用者的责任。 | `ByteObjectsFit`（见[平台](platform.md)） |
@@ -330,12 +332,12 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 `state` 指向另一种状态的记录（把 deflate 状态传给 inflate 函数）。
 在 C 中，这几种调用都会通过那个坏指针去读，这是未定义行为。
 
-## 模型局限 {#3-faults-undefined-behaviour-and-model-gaps}
+## 模型的限制 {#3-faults-undefined-behaviour-and-model-gaps}
 
 **“模型不出故障”这样一条定理，单凭它自己并不能证明 C 没有未定义行为。**
 模型能检测到大多数未定义行为，并抛出 `Fault.ub`。
 本节列出它能检测什么、检测不到什么。主要的缺口是：两种空指针操作、未初始化的指针，以及对象布局和类型。
-每一处都是结论的一条明确局限，也记录在[可信基础第 2 项](../trusted-base.md#2-runtime-and-object-schema)中。
+每一处都是结论的一条明确限制，也记录在[可信基础第 2 项](../trusted-base.md#2-runtime-and-object-schema)中。
 
 ### 各项义务
 
@@ -369,7 +371,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 | 空指针加整数零 | `Ptr.add` 返回空指针，不出故障。 | 需要论证：按所选的 C 规则，每一处可达的使用都有定义。 |
 | 空指针加非零整数 | `Ptr.add` 抛出 `Fault.ub`。 | 不需要：“不出故障”的定理已排除它。 |
 | 空指针减空指针 | `Ptr.diff` 抛出 `Fault.ub`。`Zlib.Compress.ptrDiff` 则返回零。 | 对 `compress` 的辅助函数：需要论证这个 C 表达式有定义。 |
-| 指向同一个存活数组的两个非空指针 | `Ptr.diff` 检查两个偏移，允许末尾后一位，并检查差值能放进有符号 64 位。 | 模型里的对象就是 C 的对象。 |
+| 指向同一个存活数组的两个非 NULL 指针 | `Ptr.diff` 检查两个偏移，允许末尾后一位，并检查差值能放进有符号 64 位。 | 模型里的对象就是 C 的对象。 |
 | 指向不同对象的指针，或悬空指针 | `Ptr.diff` 抛出 `Fault.ub`。 | 不需要：“不出故障”的定理已排除它。 |
 
 定义见 [Ptr.add 和 Ptr.diff](../../ZlibF/Runtime/Ptr.lean) 以及[压缩器辅助函数](../../ZlibF/Zlib/compress.c.lean)。
@@ -390,7 +392,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 每个目标都对整个堆全称量化，所以它对每个这样的函数都成立：
 没有哪个证明能依赖未初始化整数里的内容。
 
-有一条局限：模型在一次执行中给每个单元固定一个值，所以对同一个单元的两次读取结果相同。
+有一条限制：模型在一次执行中给每个单元固定一个值，所以对同一个单元的两次读取结果相同。
 它没有刻画“每次读取都得到一个新的未指明的值”。证明不得用这种一致性来论证 C 的行为。
 复制字节时，这些值也被原样复制。
 
@@ -399,7 +401,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 `Goal.deflate_safety` 已登记，而且它对每个堆全称量化。
 至于压缩输出不依赖这些值，那是一个功能性命题。安全性不需要它，本项目也不声称它成立。
 
-**新分配的指针在模型中是 NULL。这比 C 弱。** 模型的分配器造出的记录，每个指针字段都是 `NULL`
+**新分配内存中的指针在模型中是 NULL。这比 C 弱。** 模型的分配器造出的记录，每个指针字段都是 `NULL`
 （[Runtime/Schema.lean](../../ZlibF/Runtime/Schema.lean) 中的 `ZStream.garbage` 及其同类）。
 在 C 中，从未初始化内存读出的指针是不确定值，使用它是未定义的。
 在模型中，同样的读取得到一个合法的空指针：与 `NULL` 比较、复制、`free(NULL)` 都会成功。
@@ -407,7 +409,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 
 证明用手工论证补上这个缺口：对一次调用读取的每个指针字段，证明翻译中有一条更早的语句写过它。
 两个初始化函数像 C 那样，显式地把新分配的状态记录清零。这并不会初始化调用者的记录或自动变量记录。
-`compress` 内部的自动 `z_stream` 一开始有任意的整数字段和模型里为空的指针；它的字段按 C 的顺序写入。
+`compress` 内部的自动 `z_stream` 一开始有任意的整数字段和模型里为 NULL 的指针；它的字段像 C 中那样被写入。
 
 ### 对象表示
 
@@ -423,7 +425,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 | 地址与对齐 | 只有地址的低三位，而且只供 CRC 代码使用，它一次读八个字节。堆上的字节块从对齐的地址开始；静态的或内嵌的字节数组有一个任意但固定的余数。 | 校验和目标对每个余数都成立。其他证明都不得使用地址。 |
 | 有效类型与别名规则 | 没有建模。读一个字是由字节拼出来的。 | 一个 C 强制转换是否遵守别名规则，在定理之外。 |
 
-这些局限记录在[模型的限制](../model-limits.md#conditions-on-the-model-that-goals-state)的“堆的良构性”和“CRC 地址与字访问”两行，
+这些限制记录在[模型的限制](../model-limits.md#conditions-on-the-model-that-goals-state)的“堆的良构性”和“CRC 地址与字访问”两行，
 以及[可信基础第 2 项](../trusted-base.md#2-runtime-and-object-schema)中。
 
 ## 安全性之外
@@ -458,7 +460,7 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 
 | 函数 | 安全目标 | 文件 |
 | --- | --- | --- |
-| `inflate`、`deflate` 以及对有效流的其他调用 | `Goal.<function>_safety`：在可达流上再做一次调用（见[调用与调用序列](#2-calls-and-sequences)） | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
+| `inflate`、`deflate` 以及对存活流的其他调用 | `Goal.<function>_safety`：在可达流上再做一次调用（见[调用与调用序列](#2-calls-and-sequences)） | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
 | `inflateEnd`、`deflateEnd` | `Goal.<function>_safety`：流释放它拥有的块 | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
 | `inflateInit_`、`inflateInit2_`、`deflateInit_`、`deflateInit2_` | `Goal.<function>_safety`：`zlib.h` 允许的每一次调用，包括流为 `NULL` 的情况 | [Safety/Initialisation.lean](../../ZlibF/Spec/Safety/Initialisation.lean) |
 | `inflateCopy`、`deflateCopy` | `Goal.<function>_safety` | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
@@ -475,4 +477,4 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 `tests/audit/public-api.json` 是审计所用的清单。它为每个函数给出一个 `safety_goal` 和一个 `functional_goal`。
 必需集合是每个 `safety_goal`、`safety_goals` 列表和 `nonvacuity_goals` 列表。
 `open_safety` 列表列出还没有已登记定理的必需目标；它是空的。
-`zlib.h` 在“undocumented functions”（未写入文档的函数）注释之下声明的函数没有必需目标。
+`zlib.h` 在“undocumented functions”（未文档化的函数）注释之下声明的函数没有必需目标。
