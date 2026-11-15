@@ -1149,7 +1149,7 @@ separate from the source's memory. Source buffers and any retained header satisf
     - *Returns.* The call returns, with `Z_OK` or `Z_MEM_ERROR`. `Z_MEM_ERROR` is returned only after an allocation failed (`AllocationFailed`).
     - *State.* The `source` record and its state are unchanged. With `Z_OK`, `dest` satisfies the stream invariant (`StreamInvariant`), and is a reachable stream by the definition of `StreamReachable`. With `Z_MEM_ERROR`, `dest->state` is NULL and the other fields of `dest` are unchanged.
     - *Writes.* Only the `dest` record and blocks the call itself allocates.
-    - *Allocations.* With `Z_OK`, the new blocks are exactly five, the blocks of the new state, which are `dest`'s own blocks; nothing is freed. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
+    - *Allocations.* With `Z_OK`, the new blocks are exactly five: the new state record and its four buffers (`window`, `prev`, `head`, `pending_buf`). Nothing is freed. The safety goal does not say that `dest->state` points to this record; the functional goal `Goal.deflateCopy` does. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
 - **Not in this goal.** A `source` whose state the stream check refuses (a wrong back pointer or status): `Goal.deflate_refusal`. `dest == source`: outside every goal ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.deflateCopy`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateCopy"><summary>Complete return conditions and boundaries</summary>

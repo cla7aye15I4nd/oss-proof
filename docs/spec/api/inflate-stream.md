@@ -974,7 +974,7 @@ caller lifetimes; give the streams separate writable destinations before use.
     - *Returns.* The call returns, with `Z_OK` or `Z_MEM_ERROR`. `Z_MEM_ERROR` is returned only after an allocation failed (`AllocationFailed`).
     - *State.* The `source` record and its state are unchanged. With `Z_OK`, `dest` is a reachable stream. With `Z_MEM_ERROR`, `dest->state` is NULL and the other fields of `dest` are unchanged.
     - *Writes.* Only the `dest` record and blocks the call itself allocates.
-    - *Allocations.* With `Z_OK`, the new blocks are exactly the blocks of the new state, which are `dest`'s own blocks; nothing is freed. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
+    - *Allocations.* With `Z_OK`, the new blocks are exactly the blocks of the new state record: the record itself and its window, when it has one. Nothing is freed. The safety goal does not say that `dest->state` points to this record; the functional goal `Goal.inflateCopy` does. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
 - **Not in this goal.** A `source` that is inconsistent (its state is NULL, its `zalloc` or `zfree` is NULL, or the stream check refuses its state): `Goal.inflate_refusal`. `dest == source`: outside every goal ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.inflateCopy`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCopy"><summary>Complete return conditions and boundaries</summary>
