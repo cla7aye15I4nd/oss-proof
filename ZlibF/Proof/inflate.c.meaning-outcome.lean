@@ -40,6 +40,15 @@ def TripOutcome (c : Ctx) (f : LoopFrame) (result : Except Ex Unit) (h : Heap) (
      (l.ret = Z_STREAM_END ∧ LoopMatches c f h { l with ret := Z_OK }) ∨
      (l.ret = Z_DATA_ERROR ∧ LoopBad c f h { l with ret := Z_OK })))
 
+/-- The one in-call state that `LoopMatches` does not cover: raw data after the final block, in
+`CHECK`. `TYPEDO` sets `CHECK` and ends its trip with `break`; the next trip runs `CHECK`,
+`LENGTH` and `DONE` without reading anything (no wrapper), so no call leaves in this state. The
+facts are those of the end stage: `LoopMatches` for the heap whose decoder record is in `DONE`,
+with the record actually in `CHECK`. -/
+def RawCheck (c : Ctx) (f : LoopFrame) (h : Heap) (l : IL) : Prop :=
+  f.wrap = .raw ∧ ∃ (zs : Nat) (s : InflateState), c.st = some (.tab zs) ∧
+    h.istates zs = some s ∧ s.mode = CHECK ∧ LoopMatches c f (setI h zs { s with mode := DONE }) l
+
 /-- `case BAD:` sets `Z_DATA_ERROR` and leaves. -/
 theorem bad_trip {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef} {z : ZStream}
     (bad : LoopBad c f h l) (strm : c.strm = some r) (hz : r.get h = some z) :

@@ -1147,6 +1147,7 @@ import ZlibF.Proof.«inflate.c.meaning-trip-modes»
 import ZlibF.Proof.«inflate.c.body-dispatch-frame»
 import ZlibF.Proof.«inflate.c.meaning-trip-body»
 import ZlibF.Proof.«inflate.c.meaning-trip-codes»
+import ZlibF.Proof.«inflate.c.meaning-raw-trailer»
 import ZlibF.Proof.«inflate.c.meaning-len-entry»
 import ZlibF.Proof.«inflate.c.meaning-trip-dynamic»
 import ZlibF.Proof.«inflate.c.meaning-call»

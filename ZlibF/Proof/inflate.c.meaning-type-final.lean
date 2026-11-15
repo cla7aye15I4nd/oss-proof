@@ -147,7 +147,8 @@ theorem trip_type_final : TripTypeFinal := by
   have dispatch := inflate_dispatch_block_type E l mode
   have typedo : runX (inflate_dispatch c) l h = runX (inflate_TYPEDO c) l h →
       ∃ result l' h', runX (inflate_dispatch c) l h = .ok ((result, l'), h') ∧
-        (TripOutcome c f result h' l' ∨ MeaningDictid.NeedDictExit c f result h' l') := by
+        (TripOutcome c f result h' l' ∨ MeaningDictid.NeedDictExit c f result h' l' ∨
+          (result = .ok () ∧ RawCheck c f h' l')) := by
     intro run
     refine ⟨_, _, _, run.trans (inflate_TYPEDO_last E l last), Or.inl (Or.inl ⟨rfl, Or.inl ?_⟩)⟩
     exact final_loop loop E.st E.hs mode last wrapped

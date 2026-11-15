@@ -55,7 +55,7 @@ def MeaningStepSingle (wb : Int32) : Prop :=
 def TripsFor (wb : Int32) : Prop :=
   ∀ wrap configured, Api.inflWbits wb.toInt = some (wrap, configured) →
     ∀ (c : Ctx) (f : LoopFrame) (r : ZStreamRef), f.wrap = wrap → f.configured = configured →
-      TripMeaning c f (CallSide c r)
+      TripMeaning c f (CallSide c r) ∧ RawCheckTrip c f (CallSide c r)
 
 /-! ## Rows -/
 
@@ -141,7 +141,8 @@ theorem side_kept_all (c : Ctx) (r : ZStreamRef) :
 
 /-- `loop_meaning_from` with the side facts at the exit. -/
 theorem loop_meaning_side {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
-    (trip : TripMeaning c f (CallSide c r)) (strm : c.strm = some r)
+    (trip : TripMeaning c f (CallSide c r)) (rawTrip : RawCheckTrip c f (CallSide c r))
+    (strm : c.strm = some r)
     {l regs : IL} {h after : Heap} {outcome : Except Ex Unit}
     (side : CallSide c r l h) (start : LoopMatches c f h l ∨ LoopBad c f h l)
     (run : runX (xwhile (pure true) (inflate_dispatch c)) l h = .ok ((outcome, regs), after)) :
@@ -150,7 +151,8 @@ theorem loop_meaning_side {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
   | ok u => exact absurd run (fun run => xwhile_true_not_ok run)
   | error exit =>
     refine ⟨exit, rfl, ?_⟩
-    let P : IL → Heap → Prop := fun l h => CallSide c r l h ∧ (LoopMatches c f h l ∨ LoopBad c f h l)
+    let P : IL → Heap → Prop := fun l h =>
+      CallSide c r l h ∧ ((LoopMatches c f h l ∨ LoopBad c f h l) ∨ RawCheck c f h l)
     let Q : Ex → IL → Heap → Prop := fun e l h => LoopExit c f e h l ∧ CallSide c r l h
     have step : ∀ l h outcome regs after, P l h →
         runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) →
@@ -159,18 +161,19 @@ theorem loop_meaning_side {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
         | .error exit => Q exit regs after := by
       intro l h outcome regs after ⟨side, current⟩ source
       have sideAfter := side_kept_all c r l h outcome regs after side source
-      rcases current with loop | bad
+      rcases current with (loop | bad) | raw
       · obtain ⟨result, l', h', run', outcome'⟩ := trip h l side loop
         have same := source.symm.trans run'
         simp only [Except.ok.injEq, Prod.mk.injEq] at same
         obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
-        rcases outcome' with tripOut | needDict
+        rcases outcome' with tripOut | needDict | ⟨rfl, raw'⟩
         · rcases tripOut with ⟨rfl, cont⟩ | ⟨rfl, leave⟩
-          · exact ⟨sideAfter, cont⟩
+          · exact ⟨sideAfter, Or.inl cont⟩
           · exact ⟨Or.inl ⟨rfl, leave⟩, sideAfter⟩
         · have exitEq := needDict.1
           cases exitEq
           exact ⟨Or.inr needDict, sideAfter⟩
+        · exact ⟨sideAfter, Or.inr raw'⟩
       · obtain ⟨z, hz⟩ := side.record
         obtain ⟨run', tripOut⟩ := bad_trip bad strm hz
         have same := source.symm.trans run'
@@ -179,7 +182,14 @@ theorem loop_meaning_side {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
         rcases tripOut with ⟨eq, _⟩ | ⟨_, leave⟩
         · cases eq
         · exact ⟨Or.inl ⟨rfl, leave⟩, sideAfter⟩
-    exact xwhile_success_control_post P Q step ⟨side, start⟩ run
+      · obtain ⟨result, l', h', run', tripOut⟩ := rawTrip h l side raw
+        have same := source.symm.trans run'
+        simp only [Except.ok.injEq, Prod.mk.injEq] at same
+        obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
+        rcases tripOut with ⟨rfl, cont⟩ | ⟨rfl, leave⟩
+        · exact ⟨sideAfter, Or.inl cont⟩
+        · exact ⟨Or.inl ⟨rfl, leave⟩, sideAfter⟩
+    exact xwhile_success_control_post P Q step ⟨side, Or.inl start⟩ run
 
 /-! ## Assembly -/
 
@@ -234,9 +244,9 @@ theorem call_meaning (rows : CallRows) (wb : Int32) (trips : TripsFor wb) :
   | ok triple =>
     obtain ⟨⟨outcome, regs⟩, h1⟩ := triple
     rw [eq0] at erun
-    obtain ⟨exit, rfl, ends, side1⟩ :=
-      loop_meaning_side (trips wrap configured wbits (callCtx h r i flush)
-        (callFrame wrap configured log z1 input) r rfl rfl) rfl side0 start0 erun
+    obtain ⟨trip, rawTrip⟩ := trips wrap configured wbits (callCtx h r i flush)
+      (callFrame wrap configured log z1 input) r rfl rfl
+    obtain ⟨exit, rfl, ends, side1⟩ := loop_meaning_side trip rawTrip rfl side0 start0 erun
     rw [← eq0] at erun
     exact rows.exit wb r h after log pending wrap configured flush rc input output used i z1 s exit
       regs h1 meaning single wbits fit inv step bytes erun side1 ends
@@ -245,7 +255,7 @@ theorem call_meaning (rows : CallRows) (wb : Int32) (trips : TripsFor wb) :
 
 /-- The trips of every configuration. -/
 theorem trips_all (rows : TripRows) (wb : Int32) : TripsFor wb :=
-  fun _ _ _ c f r _ _ => trip_meaning rows c f r
+  fun _ _ _ c f r _ _ => ⟨trip_meaning rows c f r, rows.rawCheck c f r⟩
 
 /-- The trips of a zlib configuration, without the gzip header rows and the raw rows. -/
 theorem trips_zlib (rows : ZlibTripRows) {wb : Int32} {bits : Nat}
@@ -253,7 +263,8 @@ theorem trips_zlib (rows : ZlibTripRows) {wb : Int32} {bits : Nat}
   intro wrap configured wbits c f r fwrap _
   rw [zlib] at wbits
   have same : Api.Wrap.zlib = wrap := (Prod.mk.inj (Option.some.inj wbits)).1
-  exact trip_meaning_zlib rows c f r (fwrap.trans same.symm)
+  have zlibF : f.wrap = .zlib := fwrap.trans same.symm
+  exact ⟨trip_meaning_zlib rows c f r zlibF, raw_check_trip_zlib zlibF⟩
 
 /-- The universal `MeaningStep`, from the rows. -/
 theorem meaning_step_of_rows (trips : TripRows) (calls : CallRows) (unstaged : CallUnstaged) :

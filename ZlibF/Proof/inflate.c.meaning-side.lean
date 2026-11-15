@@ -81,7 +81,8 @@ theorem side_kept (c : Ctx) (r : ZStreamRef) : SideKept c (CallSide c r) := by
 /-- `loop_meaning` entered from `LoopMatches` or from `LoopBad`: the proof of `loop_meaning`, whose
 loop predicate already admits `LoopBad`, with the start relaxed. -/
 theorem loop_meaning_from {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop} {r : ZStreamRef}
-    (trip : TripMeaning c f Side) (kept : SideKept c Side) (strm : c.strm = some r)
+    (trip : TripMeaning c f Side) (rawTrip : RawCheckTrip c f Side) (kept : SideKept c Side)
+    (strm : c.strm = some r)
     (record : ∀ l h, Side l h → ∃ z, r.get h = some z)
     {l regs : IL} {h after : Heap} {outcome : Except Ex Unit}
     (side : Side l h) (start : LoopMatches c f h l ∨ LoopBad c f h l)
@@ -91,7 +92,8 @@ theorem loop_meaning_from {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop
   | ok u => exact absurd run (fun run => xwhile_true_not_ok run)
   | error exit =>
     refine ⟨exit, rfl, ?_⟩
-    let P : IL → Heap → Prop := fun l h => Side l h ∧ (LoopMatches c f h l ∨ LoopBad c f h l)
+    let P : IL → Heap → Prop := fun l h =>
+      Side l h ∧ ((LoopMatches c f h l ∨ LoopBad c f h l) ∨ RawCheck c f h l)
     let Q : Ex → IL → Heap → Prop := fun e l h => LoopExit c f e h l
     have step : ∀ l h outcome regs after, P l h →
         runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) →
@@ -99,18 +101,19 @@ theorem loop_meaning_from {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop
         | .ok () => P regs after
         | .error exit => Q exit regs after := by
       intro l h outcome regs after ⟨side, current⟩ source
-      rcases current with loop | bad
+      rcases current with (loop | bad) | raw
       · obtain ⟨result, l', h', run', outcome'⟩ := trip h l side loop
         have same := source.symm.trans run'
         simp only [Except.ok.injEq, Prod.mk.injEq] at same
         obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
-        rcases outcome' with tripOut | needDict
+        rcases outcome' with tripOut | needDict | ⟨rfl, raw'⟩
         · rcases tripOut with ⟨rfl, cont⟩ | ⟨rfl, leave⟩
-          · exact ⟨kept l h regs after side source, cont⟩
+          · exact ⟨kept l h regs after side source, Or.inl cont⟩
           · exact Or.inl ⟨rfl, leave⟩
         · have exitEq := needDict.1
           cases exitEq
           exact Or.inr needDict
+        · exact ⟨kept l h regs after side source, Or.inr raw'⟩
       · obtain ⟨z, hz⟩ := record l h side
         obtain ⟨run', tripOut⟩ := bad_trip bad strm hz
         have same := source.symm.trans run'
@@ -119,6 +122,13 @@ theorem loop_meaning_from {c : Ctx} {f : LoopFrame} {Side : IL → Heap → Prop
         rcases tripOut with ⟨eq, _⟩ | ⟨_, leave⟩
         · cases eq
         · exact Or.inl ⟨rfl, leave⟩
-    exact xwhile_success_control_post P Q step ⟨side, start⟩ run
+      · obtain ⟨result, l', h', run', tripOut⟩ := rawTrip h l side raw
+        have same := source.symm.trans run'
+        simp only [Except.ok.injEq, Prod.mk.injEq] at same
+        obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
+        rcases tripOut with ⟨rfl, cont⟩ | ⟨rfl, leave⟩
+        · exact ⟨kept l h regs after side source, Or.inl cont⟩
+        · exact Or.inl ⟨rfl, leave⟩
+    exact xwhile_success_control_post P Q step ⟨side, Or.inl start⟩ run
 
 end Zlib.Inflate.Proofs
