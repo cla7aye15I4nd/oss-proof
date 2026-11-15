@@ -3,6 +3,10 @@
 To deliver `ABABABAB` through three-byte output buffers, a decoder must pause
 and continue. Streaming keeps the task's state across calls. Following that
 state explains what the continuation proof must preserve.
+The required proofs are about safety: no undefined behaviour, no memory error, no leak, and
+termination ([safety](../spec/safety.md)). Where this chapter says what an argument about bytes
+or format must show, that is functional correctness: it is explained here and is not a planned
+proof target.
 
 ## Contents
 

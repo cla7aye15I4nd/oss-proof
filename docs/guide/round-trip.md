@@ -4,8 +4,12 @@
 
 An application stores the eight bytes `ABABABAB` and recovers them later.
 Following this task connects the caller's bytes, the library's output and the
-resources used. Implementation behavior below is **to confirm** by execution
-proofs under the [shared scope and method](../overview.md#7-how-the-arguments-become-checked-claims).
+resources used. Implementation behavior below is **to confirm** under the
+[shared scope and method](../overview.md#7-how-the-arguments-become-checked-claims).
+The required proofs are about safety: no undefined behaviour, no memory error, no leak, and
+termination ([safety](../spec/safety.md)). Where this chapter says what an argument about bytes
+or format must show, that is functional correctness: it is explained here and is not a planned
+proof target.
 
 ## Contents
 
@@ -125,6 +129,7 @@ Per-call termination must separately exclude exhausted loop fuel.
 
 ## 1.5 Connect both engines to byte meaning
 
+This section is about functional correctness, which is not a planned proof target.
 A round trip is insufficient as the sole correctness statement: two engines
 could agree with each other while violating the interoperable format.
 

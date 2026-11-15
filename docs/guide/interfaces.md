@@ -2,9 +2,13 @@
 
 Decoding eight bytes, copying a large archive to a destination and reading a
 line near a gzip file's end share byte meaning but use different transfer and
-resource protocols. Their source behavior is **to confirm** by execution proofs;
+resource protocols. Their source behavior is **to confirm**;
 [shared composition rules](../overview.md#73-establish-preserve-and-compose)
 apply to every interface.
+The required proofs are about safety: no undefined behaviour, no memory error, no leak, and
+termination ([safety](../spec/safety.md)). Where this chapter says what an argument about bytes
+or format must show, that is functional correctness: it is explained here and is not a planned
+proof target.
 
 ## Contents
 

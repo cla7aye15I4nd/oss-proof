@@ -3,9 +3,13 @@
 A server reuses storage for independent messages; a viewer saves progress to
 revisit a document. Reset and Copy serve these different needs. Both change
 what future calls can do with the [stream state](streaming.md).
-Source effects below are **to confirm** by execution proofs. The
+Source effects below are **to confirm**. The
 [shared method](../overview.md#73-establish-preserve-and-compose) explains how
 operation-specific invariants compose.
+The required proofs are about safety: no undefined behaviour, no memory error, no leak, and
+termination ([safety](../spec/safety.md)). Where this chapter says what an argument about bytes
+or format must show, that is functional correctness: it is explained here and is not a planned
+proof target.
 
 ## Contents
 
@@ -173,8 +177,10 @@ validation; the [contract](../spec/api/inflate-stream.md#inflatesync) states tha
 
 The C does not enforce every raw/timing premise in focused Prime contracts.
 Outside such a premise is not automatically C UB or a clean refusal; use the
-[contract conventions](../spec/api/contracts.md). Broader
-[public goals](../checking/goals.md) retain their domains. The
+[contract conventions](../spec/api/contracts.md). The safety goal of
+`inflatePrime` has no timing premise. The safety goal of `deflatePrime` assumes that no
+`deflate` call has started the stream since init or reset: priming later overwrites the symbol
+buffer in the real C ([deviations](../deviations.md)). The
 [call-history method](../proof/method.md) supplies the common composition argument;
 [progress](../progress.md) holds its evidence. Next:
 [application interfaces](interfaces.md).

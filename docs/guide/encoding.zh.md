@@ -1,10 +1,10 @@
-<!-- source-sha256: 9bf26b964c8a056ca8cc4ff4ea2940c5b878d3226502df6c0b9cf9549568723b -->
+<!-- source-sha256: 4201e06977cbc93d360e5ec83bdd10d5dbc9d76a2499ac1b4a637b4adcbac2a3 -->
 
 # 2. 重复、符号与位
 
 `ABABABAB` 提示了一条指令：先写出 `AB`，再重复当前位置前两个字节。
 沿着这条指令进入压缩块，可以看到每一步都必须保持原有含义。
-下文按[共同的证明方法](../overview.md#7-how-the-arguments-become-checked-claims)解释源码对应关系。完整对应证明未完成，仍需证明实际读取、复制和输出保持独立定义的格式含义。
+下文按[共同的证明方法](../overview.md#7-how-the-arguments-become-checked-claims)解释源码对应关系，这些读法还需要由证明核实。必需的证明针对安全性：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../spec/safety.md)）。本章讲到关于字节或格式的论证必须说明什么时，说的是功能正确性：这里只作解释，它不在计划的证明目标之内。
 
 [上一章：完整任务](round-trip.md) · [总览](../overview.md) ·
 [下一章：暂停与继续](streaming.md)

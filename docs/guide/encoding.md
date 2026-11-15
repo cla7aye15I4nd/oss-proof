@@ -4,6 +4,10 @@
 back. Follow that instruction into a compressed block, preserving its meaning
 at each step. Source correspondences below are **to confirm** under the
 [shared proof method](../overview.md#7-how-the-arguments-become-checked-claims).
+The required proofs are about safety: no undefined behaviour, no memory error, no leak, and
+termination ([safety](../spec/safety.md)). Where this chapter says what an argument about bytes
+or format must show, that is functional correctness: it is explained here and is not a planned
+proof target.
 
 [Previous: a complete task](round-trip.md) · [Overview](../overview.md) ·
 [Next: pausing and continuing](streaming.md)

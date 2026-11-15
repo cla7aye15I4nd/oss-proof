@@ -3,6 +3,10 @@
 Raw DEFLATE, zlib and gzip can carry the same body for `ABC`. Different headers
 and trailers establish its starting conditions and validate its result. This
 separates shared decoding reasoning from wrapper obligations.
+The required proofs are about safety: no undefined behaviour, no memory error, no leak, and
+termination ([safety](../spec/safety.md)). Where this chapter says what an argument about bytes
+or format must show, that is functional correctness: it is explained here and is not a planned
+proof target.
 
 ## Contents
 
