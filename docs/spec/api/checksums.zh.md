@@ -1,4 +1,4 @@
-<!-- source-sha256: 0b439893a02c19b93c3e2f34919392077d60f53b3df6700500057abeaf2ad4bc -->
+<!-- source-sha256: 649b8dbdd5d39e981aa647fc7ac8d50e4db12291f4c9344c46216e3ad56f54fb -->
 
 # 校验和
 
@@ -35,7 +35,7 @@ CRC-32 从 0 开始。这些契约有意不对伪造校验和值作功能保证�
 [Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean) 中的功能目标还描述任意种子及精确标量结果。
 Adler 入口及其 Lean 目标（安全目标和功能目标）都要求 NULL 初始化查询的长度为零
 （[Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean) 中的 `AdlerBufferBytes`）。
-见[范围偏差](../../deviations.md)。
+见[偏离记录](../../deviations.md)。
 
 此构建中，`uLong` 和 `z_size_t` 是无符号 64 位类型；`uInt` 是无符号 32 位类型。
 `z_off_t` 和 `z_off64_t` 是有符号 64 位类型。输入校验和值中高于第 31 位的位被忽略；
@@ -349,7 +349,7 @@ uLong ZEXPORT crc32_z(uLong crc, const unsigned char FAR *buf, z_size_t len);
 
 新校验和从 0 开始。函数内部完成 CRC 的取反步骤；调用者不得对运行值取反。
 对齐方式不改变契约。字访问模型的限制记录在
-[安全模型](../safety.md)和[可信基](../../trusted-base.md)中。
+[安全模型](../safety.md)和[可信基础](../../trusted-base.md)中。
 
 **证明目标。**
 

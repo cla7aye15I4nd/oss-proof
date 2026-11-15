@@ -14,7 +14,7 @@
 | `Goal.compress_z_safety` | `compress_z_safety` | 同上 |
 | `Goal.compress_safety` | `compress_safety` | 同上 |
 
-这四个都是安全结果，都是必需的。每个定理证明的正是所陈述的目标，没有附加假设；下面的前提是目标陈述的一部分。这些定理[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，Scope 一节](../progress.md#scope)）。
+这四个都是安全结果，都是必需的。每个定理证明的正是所陈述的目标，没有附加假设；下面的前提是目标陈述的一部分。这些定理[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
 
 每个目标都是 `CompressorSafety`（`ZlibF/Spec/Public/Utilities.lean`）的一个实例。对满足下列前提的每个输入：
 

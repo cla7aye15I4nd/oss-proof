@@ -2217,7 +2217,7 @@ flowchart LR
 | `gzclose_r` | 需要：资源归属 | <a id="readiness-gzclose-r"></a> **开始：**已初始化缓冲区的清理，以及从调用序列建立其所有权的证明。未缓冲执行及框架性质已有本地检查；仅有 `inflateEnd` 还不够。 |
 | `gzclose_w`, `gzclose` | 需要：交付与清理 | <a id="readiness-gzclose-w"></a> **组合：**实际补零、最终压缩和文件写入，全部清理与错误路径，再利用两个完整的关闭结果证明分派操作。 |
 | `gzseek64`, `gzseek` | 需要：定位与状态序列 | <a id="readiness-gzseek64"></a> **开始：**位置与指针的状态序列不变量、缓冲和透明模式路径，以及精确的错误框架性质。负位置的可达性与溢出复核复核尚未完成。 |
-| `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` | 需要：读取路径证明 | <a id="readiness-gzdirect"></a> **开始：**公共延迟准备、透明模式读取，以及缓冲区与状态序列不变量。**组合：**压缩路径中的实际解码执行，再建立 EOF、计数、字节回退和错误条款。`gzdirect` 需要格式探测与初始化，不需要完整的数据解码循环。 |
+| `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` | 需要：读取路径证明 | <a id="readiness-gzdirect"></a> **开始：**公共延迟准备、透明模式读取，以及缓冲区与状态序列不变量。**组合：**压缩路径中的实际解码执行，再建立 EOF、计数、字节回退和错误子句。`gzdirect` 需要格式探测与初始化，不需要完整的数据解码循环。 |
 | `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams` | 需要：写入路径证明 | <a id="readiness-gzwrite"></a> **开始：**缓冲、格式化、透明模式写入及失败情况。**组合：**压缩输出与参数变更中的实际压缩器执行。 |
 | `deflatePrime` | 开始：压紧与位操作 | <a id="readiness-deflateprime"></a> **开始：**待输出字节的压紧、带检查的移位、位插入与交付，以及不变量和框架性质的保持。拒绝分支已有本地检查；接受的位数范围仍未完成。 |
 | `deflateBound_z`, `deflateBound` | 开始：上界与头部审查 | <a id="readiness-deflatebound-z"></a> **开始：**把现有执行公式连接到具有饱和语义的数学上界，包括头部字符串与额外字段长度。额外长度的报告已在固定版本的 C 上复现：`extra_len` 为 `2^32 - 2` 或 `2^32 - 1` 时，C 按 32 位计算 `2 + extra_len` 并发生回绕，而数值目标照现在的写法没有回绕（[发现](findings/deflatebound-extra-len/README.md)）。开始证明之前，这两个目标的命题需要先改正。 |
@@ -2226,7 +2226,7 @@ flowchart LR
 | `inflateSync` | 需要：扫描与状态序列 | <a id="readiness-inflatesync"></a> **开始：**组合现有的首次扫描与恢复扫描、暂存位、标记搜索、重置，以及记账和框架结果。从调用序列推出窗口与重置前提。 |
 | `compress2_z`, `compress2`, `compress_z`, `compress` | 需要：压缩器执行 | <a id="readiness-compress2-z"></a> **开始：**参数、标量长度和清理。**组合：**实际初始化、压缩和结束操作及精确输出，再处理外层封装。抽象的往返性质还不够。 |
 | `uncompress2_z`, `uncompress2`, `uncompress_z`, `uncompress` | 需要：解码器执行 | <a id="readiness-uncompress2-z"></a> **开始：**标量结果、空间不足和清理。**组合：**实际初始化、解压和结束操作、精确消费量与输出，再处理外层封装。 |
-| `inflate_sequence`, `deflate_sequence`, `inflate_back_sequence`, `gz_sequence` | 需要：执行与格式 | <a id="readiness-inflate-sequence"></a> **组合：**每次实际调用的安全性、状态序列保持、向独立格式模型的精化，以及跨输入输出分块的完成性质。 |
+| `inflate_sequence`, `deflate_sequence`, `inflate_back_sequence`, `gz_sequence` | 需要：执行与格式 | <a id="readiness-inflate-sequence"></a> **组合：**每次实际调用的安全性、状态序列保持、向独立格式模型的细化，以及跨输入输出分块的完成性质。 |
 | `inflateBack` | 需要：表、窗口与回调 | <a id="readiness-inflateback"></a> **组合：**压缩块的 TABLE/LEN 执行、窗口内部的输出、公开回调所有权、循环终止和精确的输入输出记账。现有 stored 块和入口路径仍可独立推进。 |
 <!-- proof-readiness:end -->
 
@@ -2267,12 +2267,12 @@ flowchart LR
 - 部分读取之后的恢复：[`gzread` 从过时的 `x.next` 复制](findings/gzread-transparent-stale-next/README.md)，补丁 0003；
 - 负位置的定位：[开头的 `gzungetc` 之后调用 `gzseek`](findings/gzseek-pushback-overflow/README.md)，补丁 0002。
 
-另外三个还没有对照固定版本的源码重新检查（[源码问题记录，早期的库观察](findings.md#earlier-library-observations)）：
+另外三个还没有对照固定版本的源码重新检查（[发现，早期的库观察](findings.md#earlier-library-observations)）：
 
 - 参数变更的丢失；
 - 结束失败之后的恢复；
 - EOF 之后的向前定位。
 
-带条件的定位故障引理证明不了可达性：有符号位置的条件和借用指针的条件，还没有从实际的调用历史中推出来。`inflateBack` 的历史报告对该回调 API 而言仍未确认；普通 inflate 的 sanitizer 示例不能定论。[早先的证明笔记](history/proof-earlier-notes.md)保留了其中两份报告的原文：`inflateBack` 缺少 `whave` 的报告（`Callback decoder: the migrated domain table` 一节），以及 `gzsetparams`“参数变更丢失”的实验（[该节](history/proof-earlier-notes.md#gzsetparams-experiment)）。外部字符串的分配器和固定的循环燃料还没有审查到这样的程度：足以断言完整的 gzip 所有权，或断言任意有限的回调都会终止。怀疑存在缺陷，并不是把某种公开情形排除在外的许可。[源码问题记录](findings.md)保存证据和置信度；补丁见 [patches/README.md](../patches/README.md)。没有应用笼统的未定义行为补丁。
+带条件的定位故障引理证明不了可达性：有符号位置的条件和借用指针的条件，还没有从实际的调用历史中推出来。`inflateBack` 的历史报告对该回调 API 而言仍未确认；普通 inflate 的 sanitizer 示例不能定论。[早先的证明笔记](history/proof-earlier-notes.md)保留了其中两份报告的原文：`inflateBack` 缺少 `whave` 的报告（`Callback decoder: the migrated domain table` 一节），以及 `gzsetparams`“参数变更丢失”的实验（[该节](history/proof-earlier-notes.md#gzsetparams-experiment)）。外部字符串的分配器和固定的循环燃料还没有审查到这样的程度：足以断言完整的 gzip 所有权，或断言任意有限的回调都会终止。怀疑存在缺陷，并不是把某种公开情形排除在外的许可。[发现](findings.md)保存证据和置信度；补丁见 [patches/README.md](../patches/README.md)。没有应用笼统的未定义行为补丁。
 
 [架构指南](design/architecture.md#design-decisions)记录了设计决策 D1–D6。[安全性规格](spec/safety.md#uninitialised-memory)定义了新分配内存带来的证明义务。

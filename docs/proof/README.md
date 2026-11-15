@@ -10,7 +10,7 @@ required set is open. What each theorem assumes is on its page and in
 [deviations](../deviations.md); what the model itself assumes is in the
 [trusted base](../trusted-base.md) and in [model limits](../model-limits.md).
 
-For a first reading, follow the [illustrated guide](../overview.md). Terms are in the
+For a first reading, follow the [overview](../overview.md). Terms are in the
 [glossary](../glossary.md).
 
 ## Status levels

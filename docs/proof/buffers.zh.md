@@ -14,7 +14,7 @@
 | `deflateBound`、`deflateBound_z` | `deflateBound_safety`、`deflateBound_z_safety`（`ZlibF/Proof/public-stream-call-safety.lean`） | [流压缩](deflate.md) |
 | `compressBound`、`compressBound_z` | `compressBound`、`compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）：公式的精确值。这两个函数不读内存，所以清单把这两个完整契约用作它们的安全目标 | [`compress*` 的安全性](compress-safety.md#the-bound-functions) |
 
-这些定理[已登记](../checking/README.md)，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，Scope 一节](../progress.md#scope)）。这些函数的功能契约，例如 `uncompress` 写出的字节，或者压缩器的每个输出都不超过上界，不是安全结果所必需的。
+这些定理[已登记](../checking/README.md)，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。这些函数的功能契约，例如 `uncompress` 写出的字节，或者压缩器的每个输出都不超过上界，不是安全结果所必需的。
 
 对 C 的某种读法如果没有定理陈述，就标为**尚未由证明确认**。
 

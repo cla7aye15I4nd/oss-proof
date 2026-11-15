@@ -128,7 +128,7 @@ listed there. The contract and the goal can differ:
 
 - Where Pre is narrower than the goal's conditions, the goal still covers the wider domain.
 - Where the goal's conditions are narrower than `zlib.h`,
-  [scope deviations](../../deviations.md) has a row.
+  [deviations](../../deviations.md) has a row.
 - Post describes functional behaviour: return values, output bytes, state changes. It is read
   from the C. It is **to confirm** where no registered theorem states it, and it is not
   required for the safety results.

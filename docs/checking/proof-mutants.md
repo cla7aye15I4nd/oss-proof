@@ -222,7 +222,7 @@ insufficient. A timeout or a kernel resource error is not a rejection.
 This is different from the differential self-test in `tests/selftest.sh`, which requires an
 execution comparison to detect a mutation. A mutant caught only by testing can expose missing
 proof coverage. What the acceptance suite does and does not defend against is in
-[the anti-cheating policy](../anti-cheating.md).
+[the verification policy](../anti-cheating.md).
 
 ## Which goals need which evidence
 

@@ -44,7 +44,7 @@ It is not thereby undefined behaviour in C, and the safety goal often covers it
 undefined behaviour, no memory error, no leak, and termination ([safety](../safety.md)). Each
 entry names it under **Proof goals**. The functions that `zlib.h` declares under "undocumented
 functions" have entries but no required goal. Conditions of a goal that are narrower than `zlib.h` are rows of
-[scope deviations](../../deviations.md).
+[deviations](../../deviations.md).
 
 **What is not proved here.** The return values, output bytes and state changes that Post
 describes are functional behaviour. They are read from the C and are **to confirm** where no

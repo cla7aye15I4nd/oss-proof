@@ -145,7 +145,7 @@ The script reads the registries under `tests/audit/`. [Public goals](goals.md) d
   git alone, so a change to one is visible only in the diff. Review decides whether a statement
   says enough, whether the runtime represents C, and whether the translation matches the source.
 
-[The anti-cheating page](../anti-cheating.md) says what the acceptance suite defends against and
+[The verification policy](../anti-cheating.md) says what the acceptance suite defends against and
 what it does not. A statement that is wrong is corrected, not worked around: see `AGENTS.md`.
 
 ## Pages in this folder

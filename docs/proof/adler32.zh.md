@@ -14,7 +14,7 @@ Adler-32 函数在下面所陈述的定义域上是安全的：它们会返回�
 | `Goal.adler32_combine`、`Goal.adler32_combine64` | 功能 | `combine_public`、`combine64_public` | `ZlibF/Proof/public-adler-combine.lean` |
 | 它们背后的局部执行结果 | 两者 | `adler32_z_safe`、`adler32_z_correct`、`adler32_z_correct_ne_one`、`adler32_combine_safe`、`adler32_combine_correct` | `ZlibF/Proof/adler32.c.lean` |
 
-以上全部[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，Scope 一节](../progress.md#scope)）。
+以上全部[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
 
 安全目标说的是：调用在没有故障的情况下返回，并且让堆与原来完全一样。每个安全定理都是同一个函数的完整契约去掉值之后的部分。所以在下面关于值的论证中，只有“无故障”的部分是必需的。
 

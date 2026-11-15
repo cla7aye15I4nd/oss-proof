@@ -7,7 +7,7 @@
 格式模型描述压缩字节如何决定未压缩字节，没有堆或指针。
 它是需要被实现细化的规范，不是流式 API 的实现。
 规则见[格式指南](README.md)，调用、缓冲区和返回值见 [API 模型](../../design/api-model.md)。
-已接受结果与剩余工作记录于[进度](../../progress.md)。
+已验收的结果与剩余工作记录于[进度](../../progress.md)。
 
 总入口模块是 [`ZlibF/Spec/Format.lean`](../../../ZlibF/Spec/Format.lean)。
 单个符号步骤的扩展单独导入。下列定义位于 `ZlibF.Spec` 命名空间，

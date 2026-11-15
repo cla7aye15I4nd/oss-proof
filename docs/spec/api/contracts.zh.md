@@ -1,4 +1,4 @@
-<!-- source-sha256: 9f17a9fd128732b3ca0716f5958d33ecdbefdeeb7dea183d2f1679871aebff89 -->
+<!-- source-sha256: 54b9e51e1fbae866730fb07b20250fe8be149222af104544aea2e52f3225c293 -->
 
 # 如何阅读契约
 
@@ -60,7 +60,7 @@ gzip 文件接口和回调解码器的条目把同样的内容写成一段：这
 目标、历史、拒绝和各状态层级的定义见[术语表](../../glossary.md)。
 
 gzip 文件接口和回调解码器的条目只写出目标，不写出它的定理。
-[按函数的覆盖情况](../../coverage.md)用一张表给出每个函数的定理，[进展，目标证据](../../progress.md#target-evidence)把每个目标链接到证明它的定理，
+[按函数查覆盖情况](../../coverage.md)用一张表给出每个函数的定理，[进度，目标证据](../../progress.md#target-evidence)把每个目标链接到证明它的定理，
 `tests/audit/theorems.txt` 列出已登记的定理。例如，对有效流的各个调用的定理在
 `ZlibF/Proof/public-stream-call-safety.lean` 中，四个初始化函数的定理在
 `ZlibF/Proof/public-init-safety.lean` 中。
@@ -120,4 +120,4 @@ A 的 CRC 指从零开始对 A 调用 `crc32`。A 和 B 是普通的字节序列
 - 后置条件描述功能行为：返回值、输出字节、状态变化。它读自 C。
   没有已登记定理陈述的部分**尚未由证明确认**，它也不是安全结论所必需的。
 
-证明状态和剩余工作只记录在[进展](../../progress.md)中。
+证明状态和剩余工作只记录在[进度](../../progress.md)中。

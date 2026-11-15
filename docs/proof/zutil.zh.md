@@ -14,7 +14,7 @@
 | `Goal.zError` | 非必需：`zlib.h` 把 `zError` 列为未写入文档的函数 | `zError` | `ZlibF/Proof/public-zerror.lean` |
 | 分配器包装函数 `zcalloc` 和 `zcfree` | 内部，供每个流证明使用 | `zcalloc_safe`、`zcalloc_correct_some`、`zcalloc_correct_size`、`zcalloc_correct_none`、`zcfree_safe`、`zcfree_correct`、`zcfree_correct_null`、`zcalloc_zcfree_no_leak` | `ZlibF/Proof/zutil.c.lean` |
 
-以上全部[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，Scope 一节](../progress.md#scope)）。
+以上全部[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
 
 `zcalloc` 和 `zcfree` 不是公开函数。流的无泄漏性是 [inflate](inflate.md) 和 [deflate](deflate.md) 的序列安全定理中的一个子句，这些定理在每次分配和释放处使用这些包装函数的结果。
 

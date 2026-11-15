@@ -51,7 +51,7 @@ The functional goals in [Functional/Checksums.lean](../../../ZlibF/Spec/Function
 also describe arbitrary seeds and exact scalar results. Both the Adler entries and their Lean
 goals, safety and functional, require zero length for NULL initialization queries
 (`AdlerBufferBytes` in [Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean)).
-See [scope deviations](../../deviations.md).
+See [deviations](../../deviations.md).
 
 In this build, `uLong` and `z_size_t` are unsigned 64-bit types; `uInt` is
 unsigned 32-bit. `z_off_t` and `z_off64_t` are signed 64-bit. Input checksum bits

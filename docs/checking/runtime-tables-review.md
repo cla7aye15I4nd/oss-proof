@@ -3,7 +3,7 @@
 > **Dated record.** This review was written on 2026-11-06. It covers the move from function tables
 > to array-backed `Tbl` values and `Space.modify`. It found no incorrect primitive result in the
 > inspected code. It is not an approval of the runtime and not a current defect list. It mentions
-> lock files; those were removed later, and there are none now ([anti-cheating](../anti-cheating.md)).
+> lock files; those were removed later, and there are none now ([verification policy](../anti-cheating.md)).
 > Current work is in [progress](../progress.md).
 
 ## State of the findings on 2026-11-14

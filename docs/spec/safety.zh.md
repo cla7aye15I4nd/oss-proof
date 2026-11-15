@@ -24,7 +24,7 @@ C 的错误码也是正常返回，同样在覆盖范围内，例如输入畸形
 
 这些目标对每个参数值、每个输入字节序列、每次 `malloc` 的每种结果都成立，并且覆盖调用序列能到达的每个状态。
 输出字节是什么、返回哪个码，属于功能行为。它不是安全性的一部分，
-也不是安全结论所必需的（见[进展，范围](../progress.md#scope)）。
+也不是安全结论所必需的（见[进度，范围](../progress.md#scope)）。
 
 ## 一个完整的例子
 
@@ -101,7 +101,7 @@ flowchart LR
 还有 4 个 `nonvacuity_goals`。每个目标都有一条类型与它完全相同的定理，列在 `tests/audit/theorems.txt` 中；
 目标本身列在 `tests/audit/proved-goals.txt` 中。这一层级叫**已登记**。
 只有验收套件也在一个指明的提交上全部通过，结果才是**已验收**；
-[进展](../progress.md#scope)写明了这个提交。各层级的定义见[术语表](../glossary.md#status)。
+[进度](../progress.md#scope)写明了这个提交。各层级的定义见[术语表](../glossary.md#status)。
 
 **假设。**
 
@@ -114,7 +114,7 @@ flowchart LR
 **没有单独陈述的。** gzip 文件函数（从 `gzopen` 到 `gzclose`）和三个回调解码函数
 （`inflateBackInit_`、`inflateBack`、`inflateBackEnd`）没有各自的目标。
 每一族由一个已登记的、针对每个调用序列的目标覆盖：`Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety`。
-为每个函数各立一个目标是剩余工作（见[进展](../progress.md#remaining-work)）。
+为每个函数各立一个目标是剩余工作（见[进度](../progress.md#remaining-work)）。
 回调目标的每个序列都从一次成功的 `inflateBackInit_` 开始；
 对失败或被拒绝的初始化调用，它什么也没有说（见[回调契约](api/inflate-back.md)）。
 
@@ -429,7 +429,7 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 ## 安全性之外
 
 - **功能正确性。** 输出字节是什么，调用返回哪个码。它不是安全结论所必需的；
-  哪些功能结论在计划之内，见[进展，范围](../progress.md#scope)。
+  哪些功能结论在计划之内，见[进度，范围](../progress.md#scope)。
   功能目标在 `ZlibF/Spec/Functional/` 中；已经证明的仍保持已登记，
   安全证明所依赖的功能性事实在范围之内。
   预期的行为见[格式](format/README.md)和 [API 契约](api/README.md)。
@@ -463,7 +463,7 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 | `inflateInit_`、`inflateInit2_`、`deflateInit_`、`deflateInit2_` | `Goal.<function>_safety`：`zlib.h` 允许的每一次调用，包括流为 `NULL` 的情况 | [Safety/Initialisation.lean](../../ZlibF/Spec/Safety/Initialisation.lean) |
 | `inflateCopy`、`deflateCopy` | `Goal.<function>_safety` | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
 | 每个 inflate 或 deflate 调用序列 | `Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| `NULL` 流或不一致的流 | `Goal.inflate_refusal`、`Goal.deflate_refusal`（各目标列出的函数；其余见[进展，无故障覆盖](../progress.md#no-fault-coverage-of-zlibh-functions)） | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
+| `NULL` 流或不一致的流 | `Goal.inflate_refusal`、`Goal.deflate_refusal`（各目标列出的函数；其余见[进度，无故障覆盖](../progress.md#no-fault-coverage-of-zlibh-functions)） | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
 | 校验和 | `Goal.<function>_safety`：调用返回，堆不变 | [Safety/Checksums.lean](../../ZlibF/Spec/Safety/Checksums.lean) |
 | `zlibVersion`、`zlibCompileFlags` | `Goal.<function>_safety`：调用返回，堆不变 | [Safety/Queries.lean](../../ZlibF/Spec/Safety/Queries.lean) |
 | `compress*`、`uncompress*` | `Goal.compress*_safety`、`Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |

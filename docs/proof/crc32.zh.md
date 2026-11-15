@@ -16,7 +16,7 @@ CRC-32 函数在其文档给出的定义域上是安全的：它们会返回，�
 | 堆上的字节块以及辅助函数 | 两者 | `crc32_z_safe`、`crc32_z_correct`、`multmodp_safe`、`multmodp_correct`、`x2nmodp_safe`、`x2nmodp_correct`，以及合并的各项结果 | `ZlibF/Proof/crc32.c.lean` |
 | `get_crc_table` | 非必需：`zlib.h` 把它列为未写入文档的函数 | `get_crc_table` | `ZlibF/Proof/public-get-crc-table.lean` |
 
-以上全部[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，Scope 一节](../progress.md#scope)）。
+以上全部[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中，并[已在提交 `bde170e9` 上验收](../checking/README.md)（[进度，范围](../progress.md#scope)）。
 
 安全目标说的是：调用在没有故障的情况下返回，并且让堆与原来完全一样。每个安全定理都是同一个函数的完整契约去掉值之后的部分。
 
