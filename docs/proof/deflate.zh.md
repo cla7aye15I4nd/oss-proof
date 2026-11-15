@@ -1,581 +1,261 @@
-<!-- source-sha256: c7201320e663717404d6fba2416a0e3dae226f87233193aa6bba21282bef1799 -->
-# 流式压缩：窗口、链与生命周期
+<!-- source-sha256: 147942fe4884c26dff9b4ed1641effeeac366ee55ee564ebf34ead6c9afe0679 -->
+# 流式压缩：`deflate` 为什么是安全的
 
-压缩器先找出原文中的重复片段，再把字面量和“长度／距离”符号交给块输出器。例如输入是 `ABCDABCD`，处理完前一个 `ABCD` 后，接下来的四个字节与它相同，可以用“从当前位置回退 4 字节，复制 4 字节”描述它们。证明必须说明被引用的旧内容确实相同，而且窗口搬动、提前停止搜索或暂停输出，都不会破坏这个含义。
+源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
 
-源文件：`zlib/deflate.c`；翻译：`ZlibF/Zlib/deflate.c.lean`。
-[API 指南](../spec/api/README.md)规定公开行为。
-内部契约使用[内部契约](../spec/internal-contracts.md)中的 `I-fw-*`、`I-sh-*`、`I-hc-inv`、`I-lm-*`、`I-fp-*`。
-树构造与共用缓冲区界限 F9 见[树](trees.md)。
+`deflate` 和其他 `deflate*` 函数，对任意输入、对缓冲区的任意切分、对任意的压缩级别、`memLevel`、`windowBits`、策略、调优参数和头部，在任意一串被允许的调用上，都是安全的。证明由压缩器状态的一个不变量和三条引理组成：每个可达状态都满足不变量；从这样的状态再做一次调用是安全的；`deflateEnd` 释放一切。最难的一步是待输出字节与未读符号共用的那个缓冲区，见[树](trees.md#the-overlay-lemma-f9)。
 
-先区分三种任务：窗口负责保留哪些字节，哈希链负责把可能匹配的位置连起来，输出器负责把选定符号编码成压缩字节。数组边界证明只说明访问合法；还需要内容关系，才能说明这些符号恢复出的原文等于实际消费的输入。
+相关页面：[压缩器的源码笔记](deflate-source-notes.md)说明翻译怎样跟随 C；[默认配置引擎](deflate-default-engine.md)说明早先针对一种配置得到的结论。这个文件的内部契约是[内部契约](../spec/internal-contracts.md)中的 `I-fw-*`、`I-sh-*`、`I-hc-inv`、`I-lm-*` 和 `I-fp-*`。
 
-`deflate` 在每个输入和缓冲区的每种切分上都是安全的，对每个级别、`memLevel`、`windowBits`、策略、调优参数和头部都如此，对它的调用序列也是如此。本页解释不变量和这个证明的结构。
+## 结论
 
-## 已证明什么
+下面的定理都已登记在 `tests/audit/theorems.txt` 中。它们在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)），只有一处例外：两个初始化目标在那次提交之后被放宽了，所以它们以这里给出的形式已登记，而已验收的是它们早先较窄的形式。模块在 `ZlibF/Proof/` 下。
 
-| 结果 | 类别 | 定理 | 模块 |
+| 目标 | 内容 | 定理 | 模块 |
 | --- | --- | --- | --- |
-| `Goal.deflate_sequence_safety`（`ZlibF/Spec/Safety/Sequences.lean`）：每个可达历史上不变量成立；下一次调用安全，分配账目准确；`deflateEnd` 释放流拥有的一切 | 安全，必需 | `Zlib.Deflate.Universal.deflate_sequence_safety` | `ZlibF/Proof/public-deflate-goals.lean` |
-| 逐函数的安全目标：`deflate`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateReset`、`deflateParams`、`deflateTune`、`deflateBound`、`deflateBound_z`、`deflatePending`、`deflateUsed`、`deflatePrime`、`deflateSetHeader`、`deflateEnd`（`ZlibF/Spec/Safety/Streams.lean`） | 安全，必需 | `StreamCallSafetyProof.deflate_safety` 及其他 `deflate*_safety` 定理 | `ZlibF/Proof/public-stream-call-safety.lean` |
-| `Goal.deflateInit__safety`、`Goal.deflateInit2__safety` | 安全，必需 | `deflateInit__safety`、`deflateInit2__safety` | `ZlibF/Proof/public-init-safety.lean` |
-| `Goal.deflateCopy_safety` | 安全，必需 | `deflate_copy_safety` | `ZlibF/Proof/public-deflate-copy.lean` |
-| `Goal.deflate_refusal`：`deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 和 `deflateCopy` 在被拒绝的流（`RefusedDeflate`：`NULL`，或状态检查拒绝的记录）上无故障地返回 `Z_STREAM_ERROR`。`deflateCopy` 清空目标的状态；其余函数保持堆不变。状态字段为垃圾指针的记录在定义域之外（[偏离记录](../deviations.md)）。其他函数的拒绝在各自的功能性目标中，或在已登记但不属于必需目标的引理中（`deflatePrime_refused`、`deflateBound_nostate`、`deflateBound_z_nostate`、`deflateEnd_reject`、`deflateReset_reject`） | 安全，必需 | `deflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
-| `Goal.deflate_initialisation_domain`：序列目标的前提可以被满足 | 非空泛性，必需 | `deflate_initialisation_domain_public` | `ZlibF/Proof/public-deflate-init-domain.lean` |
-| `Goal.deflate`：单次调用的完整契约，包括进展、返回码、计数器、帧和所有权 | 功能性，保留；`compress*` 的安全证明用到它 | `Zlib.Deflate.Universal.deflate_safety` | `ZlibF/Proof/public-deflate-goals.lean` |
-| 完整契约 `Goal.deflateInit_`、`Goal.deflateInit2_`、`Goal.deflateCopy`、`Goal.deflateEnd`、`Goal.deflateReset` 以及各查询函数 | 功能性，保留 | `deflateInit_proof`、`deflateInit2_proof`、`deflate_copy_public`、`deflate_end_public`、`deflate_reset_public` 等 | `ZlibF/Proof/public-deflate-*.lean` |
-| 只针对默认配置的结果：已观察请求轨迹的编码、完成和清理 | 功能性，保留 | 登记表中的 `Zlib.Deflate.Engine.Proofs.*` 和 `DeflateCore.*` 条目 | `ZlibF/Proof/deflate.c.engine.*.lean`、`deflate.c.default-*.lean` |
+| `Goal.deflate_sequence_safety` | 序列结论，见下 | `Zlib.Deflate.Universal.deflate_sequence_safety` | `public-deflate-goals.lean` |
+| 十三个目标，每个函数一个：`deflate`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateReset`、`deflateParams`、`deflateTune`、`deflateBound`、`deflateBound_z`、`deflatePending`、`deflateUsed`、`deflatePrime`、`deflateSetHeader`、`deflateEnd` | 在可达的流上调用一次该函数是安全的 | `StreamCallSafetyProof.deflate_safety` 以及形式相同的另外十二条 | `public-stream-call-safety.lean` |
+| `Goal.deflateInit__safety`、`Goal.deflateInit2__safety` | 对 `zlib.h` 允许的每一组参数，初始化都是安全的 | `deflateInit__safety`、`deflateInit2__safety` | `public-init-safety.lean` |
+| `Goal.deflateCopy_safety` | `deflateCopy` 是安全的 | `deflate_copy_safety` | `public-deflate-copy.lean` |
+| `Goal.deflate_refusal` | 见[拒绝](#refusals) | `deflate_refusal` | `public-stream-refusal.lean` |
+| `Goal.deflate_initialisation_domain` | 序列目标的前提可以被满足（非空性） | `deflate_initialisation_domain_public` | `public-deflate-init-domain.lean` |
 
-这些定理登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+这些目标写在 `ZlibF/Spec/Safety/` 中。
 
-注意有两条名为 `deflate_safety` 的定理。`Zlib.Deflate.Universal.deflate_safety` 证明 `Goal.deflate`，即单次调用的完整契约。`StreamCallSafetyProof.deflate_safety` 证明逐函数的安全目标 `Goal.deflate_safety`。
+**序列结论**有三部分（`StreamSequenceSafety`，`ZlibF/Spec/Public/Sequences.lean`），与 [`inflate`](inflate.md#results) 的相同：每个可达的流都满足公开不变量；再做一次被允许的调用，调用返回且不出故障，保持不变量，只改动流记录、流拥有的块和交给它的调用者区域，存活块集合的变化恰好是流新得到或释放掉的块；`deflateEnd` 释放流拥有的每一个块。`deflateEnd` 返回 `Z_OK`，流处于 `BUSY_STATE` 时返回 `Z_DATA_ERROR`；两种情况下它都释放了这些块。
 
-不是必需的、也不在计划内的是：`deflate` 的输出解码后等于它的输入。
+有两条定理都叫 `deflate_safety`。`StreamCallSafetyProof.deflate_safety` 证明安全目标 `Goal.deflate_safety`。`Zlib.Deflate.Universal.deflate_safety` 证明功能目标 `Goal.deflate`，见[功能结论](#functional-results)。
 
-下文中说明某一步“尚未完成”或“仍需证明”的段落，是对 C 源代码的解读，这里列出的定理没有以那种形式陈述它。定理是依据翻译检查的，而不是依据这段文字。
+## 拒绝
 
-## 假设了什么
+*被拒绝*的流（`RefusedDeflate`）是 `NULL`，或者是一个可读但被状态检查 `deflateStateCheck` 拒绝的记录。`Goal.deflate_refusal` 覆盖五个函数：`deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 和 `deflateCopy`。在被拒绝的流上，它们都返回 `Z_STREAM_ERROR`，不出故障。`deflateCopy` 把目的流的 `state` 字段置为 `NULL`；其余函数让堆保持原样。
 
-- 每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）。
-- 流使用默认分配器。
-- 输入范围和输出范围相互分离，并且位于流所拥有的存储之外（`StreamBuffers`）。字典缓冲区与窗口分离。
-- `deflate` 写出所附的 `gz_header` 时，输入范围、输出范围和头部各字段相互分离（`DeflateHeaderApart`），并且调用者保留了已经写出的部分（`DeflateHeaderProgress`）。
-- 调用历史中没有对 `deflateResetKeep` 的直接调用。`zlib.h` 把该函数列为无文档函数。
+`state` 字段里是垃圾指针的记录不在这个结论之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。其他 `deflate*` 函数的拒绝情形，在它们的功能目标里，或者在已登记但不属于必需目标的引理里：`deflatePrime_refused`、`deflateBound_nostate`、`deflateBound_z_nostate`、`deflateEnd_reject`、`deflateReset_reject`。
 
-每个前提都明确写在陈述中，并在[偏差记录](../deviations.md)中各占一行。
+## 假设
 
-## 证明结构
+下面是序列目标和各函数目标（`StreamCallDomain`）的全部前提。每一条都列在[偏离记录](../deviations.md)中。
 
-```mermaid
-flowchart TD
-    G["deflate_sequence_safety"] --> R["reachable_inv_of：每个历史上的 DInv、HeaderInv 和 CallFacts"]
-    G --> O["operation_step_of：再做一次操作是安全的"]
-    G --> E["end_from_inv：deflateEnd 释放所拥有的块"]
-    R --> I["初始化：deflateInit2_ 建立 DInv"]
-    R --> OPS["每个操作和调用者更换缓冲区都保持 DInv"]
-    O --> C["deflate_call：一次 deflate 调用"]
-    C --> H["头部阶段"]
-    C --> S["五个策略函数"]
-    C --> T["尾部阶段"]
-    S --> F["FLUSH_BLOCK：树与重叠缓冲区余量"]
-```
+| 前提 | 内容 | 属于 |
+| --- | --- | --- |
+| 可达的流（`StreamReachable .deflate`） | 历史从一次成功的 `deflateInit2_` 开始：堆是良构的，`zalloc` 和 `zfree` 各自是 `NULL` 或默认函数 | 每个目标 |
+| 调用者的修改（`Rebuffer`） | 两次调用之间，调用者只改 `next_in`、`avail_in`、`next_out`、`avail_out`，以及不属于流的内存 | 历史 |
+| `ByteObjectsFit` | 每个字节对象都少于 `2^63` 字节 | 每次调用 |
+| `StreamBuffers` | 输入区域和输出区域在各自的长度内可读、可写，两者互不重叠，并且在流拥有的块之外 | `deflate`、`deflateParams` |
+| `ActiveHeader` | 在 `deflate` 写挂接的 `gz_header` 期间：记录以及它的 `extra`、`name`、`comment` 可读，`name` 和 `comment` 以 NUL 结尾。输入、输出和这三个字段两两不重叠，并且在流的块之外（`DeflateHeaderApart`）。对已经写了一部分的字段，调用者没有把它缩短或拿掉（`DeflateHeaderProgress`） | `deflate`、`deflateParams`、`deflateBound*` |
+| 字典区域（`CallerRange`） | 字典缓冲区是 `NULL`，或者可读（对 `deflateGetDictionary` 要可写）并且在流的块之外 | 两个字典调用 |
+| `DeflateNotStarted` | 自初始化或重置以来，还没有 `deflate` 调用启动过这个流 | `deflatePrime`、`deflateSetHeader` |
+| 不直接调用 `deflateResetKeep` | 它不在被允许的调用之列。`zlib.h` 把它列为未写入文档的函数，而且在它之后，最后两个位置的哈希表项是过时的（[发现](../findings/deflate-resetkeep-stale-hash/README.md)） | 历史 |
 
-不变量是 `DInv`（`ZlibF/Proof/deflate.c.universal-invariant.lean`）。它在每个可达状态成立。它把早先的谓词 `DGood`（五个块的存活性、大小和所有权）与 `Shape`（窗口界限）、`Hashing`（哈希链）和 `Symbols`（当前块的符号账目）打包在一起。在调用边界上，`HeaderInv` 和 `CallFacts` 与它一同成立。其他模块使用接口引理 `DInv.*`。
+`zlib.h` 要求 `deflatePrime` 和 `deflateSetHeader` 在第一次 `deflate` 调用之前使用。C 并不检查这一点。在真实的 C 上，记录了符号之后再预置的位会覆盖符号缓冲区；在写头部的中途把头部指针设成 `NULL`，这个指针会被解引用（`tests/regression/deflate-history-domain`）。头部的各条前提也有同类的理由（`tests/regression/deflate-gzip-name-output`）。
 
-组合在 `ZlibF/Proof/deflate.c.universal-sequence-safety.lean` 中。它使用三条引理：
-
-- `reachable_inv_of`：对历史归纳，每个可达状态都满足 `DInv`、`HeaderInv` 和 `CallFacts`；
-- `operation_step_of`：再做一次操作会返回，保持不变量，并具有缓冲区帧和准确的分配账目；
-- `end_from_inv`：`deflateEnd` 释放流拥有的每个块。
-
-一次 `deflate` 调用在 `ZlibF/Proof/deflate.c.universal-call-assemble.lean` 中组装。它按入口阶段分情形：无效的刷新参数、拒绝、输出已满、无进展的拒绝、没有待输出内容、有待输出内容。每种情形依次经过头部、策略和尾部阶段。
-
-五个策略函数在 `ZlibF/Proof/deflate.c.universal-strategies.lean` 中。在策略循环每次迭代的开头，状态重新满足 `DInv`，待输出缓冲区为空，调用者的输出还有空间。关于终止：每次迭代要么离开循环，要么消耗 `avail_in + lookahead` 中的一个字节；`fill_window` 把输入移到预读区，不改变这个和。
-
-块刷新需要[树](trees.md#the-overlay-lemma-f9)页上的重叠缓冲区余量。它对每个 `memLevel` 都已证明。这就是两个 deflate 目标没有假设的原因。
-
-级别和策略选择不同的引擎：存储、快速、慢速、仅 Huffman 和 RLE。参数范围的名称见[输入配置](../spec/input-configurations.md#deflate-inputs)。通用定理覆盖全部范围；上表中针对默认配置的结果只覆盖其中一个。
-
-## 存储与大小等式
-
-图中用两个尺度描述分配。`W` 是配置窗口尺度，单位为字节；连续字节数组实际容纳 `2W` 字节，放历史和已读入的待处理输入。`B` 是符号缓冲尺度：每个符号记录占 3 字节，符号区从待输出分配的偏移 B 开始，共享分配的总容量为 `4B` 字节。两者不是当前已经使用的字节数。
+## 内存与大小
 
 ```mermaid
 flowchart LR
-    Stream["调用者的 z_stream"] --> State["自有 deflate_state"]
-    State --> Window["window：2W 字节"]
-    State --> Prev["prev：W 个位置"]
-    State --> Head["head：hash_size 个位置"]
-    State --> Pending["pending_buf：4B 字节"]
-    Pending --> Symbols["sym_buf 从偏移 B 开始"]
-    State --> Header["调用者的 gzip 头"]
-    State --> Tables["只读编码表"]
+    Stream["z_stream（调用者的）"] --> State["deflate_state（流拥有）"]
+    State --> Window["window：2W 字节（流拥有）"]
+    State --> Prev["prev：W 个位置（流拥有）"]
+    State --> Head["head：hash_size 个位置（流拥有）"]
+    State --> Pending["pending_buf：4B 字节（流拥有）"]
+    Pending --> Symbols["sym_buf = pending_buf + B"]
+    State --> Header["gz_header（调用者的）"]
+    State --> Tables["静态树（只读）"]
 ```
 
-流拥有五个块：状态、窗口、`prev`、`head` 和待输出存储。
-调用者拥有流记录、输入／输出视图及 gzip 头缓冲区。
-内嵌树、堆、深度数组属于状态块。
-
-`memLevel` 是初始化时选择内部内存预算的参数。哈希表用更多桶减少无关候选，桶总数是 `hash_size`，桶号需要 `hash_bits` 位。窗口参数 `w_bits` 也是指数：例如 `w_bits = 9` 表示 `W = 2^9 = 512` 字节。下表中的 `1 << k` 就是二的 k 次幂。
-
-经过验证的默认构建参数给出以下等式：
+流拥有五个块。树、堆数组和深度数组在状态内部。不变量的子句 `good` 固定了这些大小（`DStInv`，`ZlibF/Proof/deflate.c.base.lean`）。
 
 | 字段 | 值 |
 | --- | --- |
-| `w_bits` | 规范化窗口参数，8 调整为 9 |
-| `W = w_size` | `1 << w_bits`，因此 `512 ≤ W ≤ 32768` |
+| `w_bits` | 9 到 15（请求 8 时 `deflateInit2_` 把它改成 9） |
+| `W = w_size` | `2^w_bits`，即 512 到 32768 |
 | `window_size` | `2W` |
-| `hash_bits`、`hash_size` | `memLevel + 7`、`1 << hash_bits` |
-| `B = lit_bufsize` | `1 << (memLevel + 6)`，范围 128 到 32768 |
+| `hash_bits`、`hash_size` | `memLevel + 7`、`2^hash_bits` |
+| `B = lit_bufsize` | `2^(memLevel + 6)`，即 128 到 32768 |
 | `pending_buf_size` | `4B` |
 | `sym_buf`、`sym_end` | `pending_buf + B`、`3(B - 1)` |
 
-这些等式描述默认的共用符号分支；其他配置，例如不同符号布局，需要自己的细化。
-分配大小的乘积必须能由分配器的 32 位无符号乘法表示。
-这里最大缓冲区乘积是 131072 字节。状态大小和 ABI 假设是单独事项。
+`W ≥ 512` 是有用处的：`MAX_DIST = W - 262`，窗口若只有 256 字节，这个减法就会回绕。
 
-一次 DEFLATE 匹配最多复制 258 字节，源码称为 `MAX_MATCH`。普通补充输入希望预先备好 262 字节，称为 `MIN_LOOKAHEAD`，以便比较及后续哈希操作。这个压缩器允许搜索的最远回退距离叫 `MAX_DIST`，取窗口尺度减去这 262 字节预留量。长度、预读量和回退距离都以字节计数，但用途不同。
+## 一次 `deflate` 调用
 
-规范化到 `W ≥ 512` 是关键条件：
-`MIN_LOOKAHEAD = 262`、`MAX_MATCH = 258`、`MAX_DIST = W - 262 ≥ 250`。
-否则，256 字节窗口会使距离减法回绕。
-
-## D：窗口界限与 `fill_window`
-
-`strstart` 是下一个待处理字节的数组下标；`lookahead` 是从这里开始已经读入、尚未处理的真实输入字节数；`window_size` 是数组总容量。例如下标 800 起还有 100 字节待处理，真实数据就结束在 900。粗体 D 是以下边界条件的名字，要求这个末尾不超过分配。
-
-形状不变量 **D** 为：
-
-```
-strstart + lookahead ≤ window_size = 2W
+```c
+int deflate(z_streamp strm, int flush) {
+    /* 入口检查 */
+    /* 如果还没写过，把 zlib 或 gzip 头部写进 pending_buf */
+    if (strm->avail_in != 0 || s->lookahead != 0 || ...) {
+        bstate = s->level == 0 ? deflate_stored(s, flush) : ...;   /* 五种策略之一 */
+        ...                                                         /* 刷新标记 */
+    }
+    /* 最后一个块输出之后，写尾部 */
+}
 ```
 
-初始化把两个计数都设为零。读入使预读量的增量不超过可用窗口空间。
-消费字节使 `strstart` 增加、预读量减少相同数量。
-D 是 `Shape` 的一个子句，所以它在每个入口以及每个策略循环的开头都成立。
+```mermaid
+flowchart TD
+    A["调用 deflate(strm, flush)"] --> B{"流被拒绝，或 flush 越界？"}
+    B -->|是| E1["Z_STREAM_ERROR"]
+    B -->|否| C{"next_out 为 NULL，有输入却没有指针，或已结束而 flush 不是 Z_FINISH？"}
+    C -->|是| E1
+    C -->|否| D{"avail_out = 0？"}
+    D -->|是| E2["Z_BUF_ERROR"]
+    D -->|否| F{"有待输出的字节？"}
+    F -->|"有，并且填满了输出"| OK["Z_OK"]
+    F -->|"有，输出还有空间"| I{"已结束，却有新输入？"}
+    F -->|没有| G{"没有输入，也没有新的刷新要做？"}
+    G -->|是| E2
+    G -->|否| I
+    I -->|是| E2
+    I -->|否| H["头部、策略、尾部"]
+```
 
-补充输入函数叫 `fill_window`。它用局部量 `more` 记录真实数据之后的空闲字节数。`insert` 记录尚待补做哈希插入的位置数，`match_start` 保存上次匹配的起点，`block_start` 保存当前压缩块原始字节的起点。滑动改变的是数组下标；每个字节在整条输入中的位置和字节内容不应改变。
-
-`I-fw-pre` 还提供 `lookahead < MIN_LOOKAHEAD`、有效大小／掩码、`insert ≤ strstart`、
-有界的高水位、搜索设置及哈希链不变量。
-结合当前 D，默认分支计算 `more = window_size - lookahead - strstart` 时，
-相关无符号减法与转换不会丢失数学值。
-
-若 `strstart ≥ W + MAX_DIST = 2W - 262`，则 `more ≤ 262 - lookahead < W`。
-滑动把 `W - more` 个字节从 `[W, 2W-more)` 复制到 `[0, W-more)`。
-两个范围都在窗口内且不相交。代码调整 `match_start`、`strstart`、有符号 `block_start`、
-`insert`、哈希位置及空闲空间。
-
-每项调整需要自己的类型论证。`strstart ≥ W` 证明其减法合理，却不能推出 `match_start ≥ W`：
-无符号的过期匹配位置可能回绕，证明必须说明该值何时还可能被使用。
-有符号 `block_start -= (long)W` 必须在实际不变量下保持可表示。
-应准确建模源表达式与转换。
-
-滑动后，`more += W` 再次度量数据之后的空闲空间。
-若输入仍存在，`read_buf` 把至多该空间大小的字节复制到 `window + strstart + lookahead`。
-插入循环只哈希已有的三字节串，把 `ins_h` 掩码到 `hash_size` 范围，并写相应 `prev`／`head` 单元。
-必须建立待处理 `insert` 位置与当前窗口内容的关系。
-
-比较例程可能扫描到真实预读量之后。为避免读取未初始化内容，`high_water` 记录已初始化前缀的末尾；`curr` 是当前真实数据的末尾，`WIN_INIT` 是希望额外初始化的长度，等于 258 字节。这些填零字节只能为内存读取提供初始化内容，不能算作新的输入。
-
-高水位初始化的写入不超过 `window_size`：或者在新数据之后扩展
-`min(window_size-curr, WIN_INIT)` 字节，或者从旧高水位开始，扩展期望长度与剩余容量的较小值。
-使用前应为两个分支各自的减法建立界限。这些写入也支撑后续读取的初始化历史。
-
-`I-fw-post-room` 给出 `strstart ≤ window_size - MIN_LOOKAHEAD`。
-滑动判断先于无输入出口，所以空间论证也必须覆盖输入结束后的调用。
-**未完成的证明步骤：** 每个搜索调用者都能由 D 下足够的预读量，或一次 `fill_window` 调用，
-取得该界限，包括策略变化和恢复调用。策略引理（`ZlibF/Proof/deflate.c.universal-strategies.lean`）证明了各策略下的搜索都不产生故障；这里对界限来源的描述是对源代码的解读。
-
-## H1/H2：有意义的哈希链读取
-
-哈希把相同三字节前缀的位置分到同一个桶。`head` 保存桶中最新的位置，`prev` 保存通往更早同桶位置的链接。后面称这种链接为前驱。H1/H2 分别约束桶头和前驱，保证搜索读取的是插入时记录的内容，而不是未写槽位里恰好像下标的任意整数。
-
-源代码不初始化整个 `prev`，而是按需填入。其他槽位任意取值时仍必须安全。
-当插入操作记录某位置的三字节哈希时，称该位置**已插入**；其身份随窗口滑动调整，哈希清空时失效。
-位置零是 `NIL`。在数学位置域中解释 `T = strstart - W`，使用以下条件：
-
-- **H1：** 每个桶头是零，或当前所表示数据范围内有意义的已插入位置。
-- **H2：** 对每个保留的已插入位置 `q > T`，`prev[q & wmask]` 包含滑动调整后的已记录前驱，
-  该前驱是零，或更小且哈希相关的已插入位置。
-
-这里 `q` 是一个已插入位置，`T` 是随处理位置前进的保留界限，均按字节下标解释。掩码 `wmask = W-1` 把位置映射到前驱数组的循环槽位；W 是二的幂，因此 `q & wmask` 等价于 q 对 W 取余。源码中的哨兵 `NIL` 用零表示“没有候选”。
-
-在通用不变式（`deflate.c.universal-invariant` 的 `Chains`）中，哈希链保持到插入前沿
-`chainTop = min (strstart - insert) (strstart + lookahead - 2)`：从 `strstart - insert` 起的位置等待插入；
-一个位置只有在其三个字节进入窗口后才会插入，因此数据末尾两个字节中的位置也都未插入。第二个界使
-`deflate_fast` 和 `deflate_slow` 能在输入结束时设置 `insert = MIN(strstart, 2)` 而不插入任何位置。
-`Shape.windowInit` 记录窗口已写到数据末尾（`strstart + lookahead <= high_water`），`deflateCopy` 需要此事实。
-`Shape.pendingMatch` 记录：待输出的匹配（`match_length >= 3`）满足 `insert = 0` 和 `strstart >= 1`。
-找到它的搜索至少有三个前瞻字节，因此没有等待插入的位置；随后又越过了匹配起点一步。`deflate_slow`
-输出该匹配时两者都需要：`max_insert = strstart + lookahead - 3` 不回绕，其插入循环恰好结束于 `chainTop`。
-
-这些条件表达 `I-hc-inv`。它们覆盖 `fill_window` 与字典中的插入，
-也覆盖策略宏。某位置属于已分配 `prev` 数组，并不能证明这些事实。
-
-`CLEAR_HASH` 写最后一个桶头，再把前面的桶头清零。
-此后桶头映射为空，无须初始化每个 `prev` 槽位。
-插入先写前驱槽位，再把位置发布到桶头。
-证明必须跟踪插入顺序，说明覆盖一个窗口之前的位置所用槽位，不会破坏保留的链接。
-
-`slide_hash` 访问每个桶头和 `prev` 槽位，把任意 16 位值 m 变为 `m ≥ W ? m-W : 0`。
-即使是垃圾值，这样转换也安全。对于有意义链接，应证明转换与新窗口位置一致且保持掩码槽位，
-因为减去 W 保持模 W 的余数。丢弃的位置变成 `NIL`；任意未用槽位仍在 H2 定义域之外。
-`do … while (--n)` 循环从正大小开始，具有固定界限。
-
-字典插入与复制必须保持这些关系。复制整个 `prev` 也复制垃圾值，运行时规则允许这一点。
-不能由复制推出每个槽位都已初始化。
-
-## `longest_match`：F5 与 F6
-
-`longest_match` 比较当前输入与一条候选链。`cur_match` 是正在比较的旧位置，`best_len` 是目前要胜过的匹配长度，`limit` 是仍允许搜索的最老下标。链预算限制最多比较多少候选；它的单位是候选数量，不是输入字节数。F5 关注链读取，F6 关注实际字节比较。
-
-`I-lm-pre` 提供小于 `strstart` 的非零匹配桶头、至多 `MAX_DIST` 的距离、H1/H2、空间界限、
-有效的先前长度及正的有效搜索预算。因此首个桶头位于保留的 H2 范围内。
-
-例如当前位置 1000、允许最远回退 250 字节时，最老允许位置是 750：位置 900 可以比较，700 已太远。`max(..., 0)` 处理输入开头附近尚未积累这么多历史的情况。
-
-令 `limit = max(strstart-MAX_DIST, 0)`。
-当距离恰好为 `MAX_DIST`，首个循环体可以有 `cur_match = limit`，因为循环是 `do` 循环。
-继续执行的循环体要求下一个前驱严格大于边界下标。
-不能把这个继续条件当成首个循环体的额外前提。
-
-每次实际前驱读取时，H2 都说明该槽位曾为该位置初始化，内容为零或更小的有意义位置。
-循环条件拒绝零及范围外前驱。这是 **F5**：垃圾值可以被重新缩放，但不能用作链地址。
-
-有界窗口论证是 **F6**。`scan` 从 `window + strstart` 开始，`match` 从更早的有效位置开始。
-先前匹配的哨兵使用至多 258 的长度。默认比较循环从偏移 2 开始，每组推进八个字节，直到偏移 258，
-因为 `258 - 2 = 8 × 32`。
-空间前提给出 `strstart + 258 < window_size`，所以这些比较都在界限内。
-其他非对齐比较分支需要按其实际宽度／对齐条件证明。
-
-比较可能查看真实预读量之外的任意字节。在模型中的整数型字节上，这种读取被允许，
-但返回匹配会被截断到预读量。
-仅属于功能性证明：正确性必须说明所选匹配在真实数据部分相等；无故障论证本身不能证明结果与垃圾值无关。
-
-终止性方面，有意义的前驱位置严格递减。配置中的链预算也限制遍历。
-**未完成的证明步骤：** 适用 `>>= 2` 缩减分支时，预算缩减后仍为正，
-包括 `deflateTune` 许可的值。若零预算在递减时回绕，无符号回绕本身有定义，
-但这会使“预算严格递减到零”的证明假设失效。
-只能使用精确契约能证明的界限。
-
-结果返回 `min(best_len, lookahead)`，并在改进时更新 `match_start`。
-应为调用者证明字节相等与距离事实，包括保留过期匹配状态的情形。
-
-## 策略循环与符号生成
-
-| 函数 | 所需不变量与功能步骤 |
-| --- | --- |
-| `deflate_stored` | 限制直接输入／输出复制、待输出头重写及窗口保留；跟踪 `block_start`、有／无符号转换及后续策略变化需要的哈希滑动记录。 |
-| `deflate_fast` | 插入有意义位置，证明所选匹配，累计有效符号，并在刷新／返回期间保持 D/H1/H2。 |
-| `deflate_slow` | 还要把延迟字面量、`prev_length` 及惰性匹配决策对应到已消费输入。 |
-| `deflate_rle` | 建立 `strstart-1` 的先前字节读取及到偏移 258 的比较空间，只输出有效的距离一匹配。 |
-| `deflate_huff` | 把消费的字节输出为字面量，并保持相同的块／刷新不变量。 |
-
-这里“累计符号”是先保存编码所需的记录，而不是立即写出最终压缩比特。记录含距离低字节、距离高字节及字面量／长度偏移字节。`sym_next` 是已使用的符号字节数，`sym_end` 是触发块输出的界限。匹配的最短长度为 3，所以保存的长度偏移是实际长度减 3，范围为 0 到 255。
-
-每个符号占用三字节，`sym_next` 增加三。
-在 `sym_end = 3(B-1)` 处刷新，使每次累计符号时写入都在符号区域内。
-匹配中，保存的长度偏移至多为 255，距离减一至多为 32767，
-所以 `_length_code` 和有 512 项的 `_dist_code` 查找均在范围内。
-在该前提下，`256 + (dist >> 7)` 分支至多为 511。
-
-`compress_block` 读取符号时，这些界限必须仍成立。
-若待输出区覆盖符号，重建距离可能为任意 16 位值，表索引可能达到 767。
-所以 F9 不仅保护输出写入，也保护后续读取。
-总压缩大小上界不能建立 F9 的前缀条件。
-见[树](trees.md#the-overlay-lemma-f9)，包括较小 `memLevel` 的情形。
-
-滑动后 `block_start` 可为负。此时块刷新宏传递空指针原始缓冲区指针，
-所以处处要求 `0 ≤ block_start` 的不变量是错误的。
-**未完成的证明步骤：** 有符号区间及各分支的非负条件能够证明每次实际窗口复制及存储长度减法，
-同时不隐藏负值情形。
-
-## `deflate`：头部、数据与尾部
+`deflate_call_full`（`deflate.c.universal-call-assemble.lean`）对这张图的每个出口各有一个情形。头部状态构成一条链：
 
 ```mermaid
 stateDiagram-v2
-    state "初始化" as Init
-    state "数据处理" as Busy
-    state "Gzip 头" as Gzip
-    state "附加字段" as Extra
-    state "名称" as Name
-    state "注释" as Comment
-    state "头部 CRC" as Hcrc
-    state "结束处理" as Finish
-    [*] --> Init
-    Init --> Busy: zlib 头
-    Init --> Gzip: gzip 包装
-    Gzip --> Extra: 提供了头部
-    Extra --> Name
-    Name --> Comment
-    Comment --> Hcrc
-    Hcrc --> Busy
-    Gzip --> Busy: 默认头部
-    Busy --> Busy: 策略步骤与部分 flush
-    Busy --> Finish: 完成结束处理
-    Finish --> [*]
+    [*] --> INIT
+    INIT --> BUSY: zlib 头部或 raw
+    INIT --> GZIP: gzip 封装
+    GZIP --> BUSY: 没有 gz_header 记录
+    GZIP --> EXTRA: 有 gz_header 记录
+    EXTRA --> NAME
+    NAME --> COMMENT
+    COMMENT --> HCRC
+    HCRC --> BUSY
+    BUSY --> BUSY: 策略的各步
+    BUSY --> FINISH: 最后一块已输出
+    FINISH --> [*]
 ```
 
-头部阶段中的 `gzhead` 指向调用者借出的 gzip 头。`gzindex` 计数当前头字段已经发出多少字节，`pending` 计数内部仍待交付的字节，`pending_out` 指向其中下一次应交付的位置。它们让一次写不完的头部可以跨调用继续；不是每次调用都重新从头输出。
+头部的各个阶段是接连的 `if` 语句，所以一次调用可以经过其中好几个。输出填满时每个阶段也都可以提前返回，下一次调用从那里继续。
 
-实际源代码在这些组内有条件跳过及部分返回。
-不变量 D7 把 `EXTRA`、`NAME`、`COMMENT`、`HCRC` 对应到有效的 `gzhead` 存储。
-先前不变量允许空头指针处于 `EXTRA`；该反例表明缺少可达性条件，并不是合法序列定理。
+## 不变量
 
-每个头部 `put_byte` 都需要待输出区空间。
-附加数据、名称和注释循环在容量处刷新，并在输出空间耗尽时保持准确的进度计数。
-减法 `(extra_len & 0xffff) - gzindex` 需要相应进度界限。
-尾部写入需要同样的空间证明。
-`flush_pending` 使用 `pending_out + pending ≤ pending_buf + pending_buf_size`，
-复制量至多为 `avail_out`，随后准确更新游标和计数。
+不变量是 `DInv`（`ZlibF/Proof/deflate.c.universal-invariant.lean`）。它在每个可达状态下、对每一组参数都成立。另有两组较小的事实，在两次调用之间与它一同成立。
 
-仅属于功能性证明：公开正确性还需把发出的包装字段、块比特、校验和及尾部长度，
-对应到已消费输入与所选刷新安排。
-对于“压缩是否已经开始”需要单调的历史记录，并跨拒绝保持：
-失败调用不得使后续调用看起来像全新流。
+| 部分 | 白话说明 | 用于 |
+| --- | --- | --- |
+| `good` | 流记录可读，它的 `state` 是一个存活的 deflate 状态，并且指回这个流。五个块都存在，互不相同，可写，大小如上表。`pending_out` 指向 `pending_buf` 内部，待输出的字节放得下。`sym_next` 是 3 的倍数，至多为 `sym_end`。位缓冲里有 `bi_valid ≤ 16` 位，这些位以上没有别的 | 每一次访问 |
+| `alloc`、`globals` | 分配器是默认的。静态表保持初始内容 | `deflateEnd`、`deflateCopy`、校验和 |
+| `shape` | 关于各个位置的数值事实，见下 | `fill_window`、各策略、块刷新 |
+| `hashing` | 哈希链只通向插入过的位置，见下 | `longest_match` |
+| `symbols` | `sym_buf` 里的符号字节与树的频率描述的是同一个符号列表。每个记录下来的距离至多是 `W - 262`。只要还记录着符号，待输出字节的末尾就不超过偏移 `B` | `compress_block`、块刷新 |
+| `HeaderInv`（调用之间） | 处于头部状态时没有记录任何符号。在 `EXTRA`、`NAME`、`COMMENT` 和 `HCRC` 状态下，`gz_header` 指针不是 `NULL` | 头部各阶段 |
+| `CallFacts`（调用之间） | 刚重置之后没有前瞻数据，没有符号，块从 `strstart` 开始。在 `FINISH_STATE` 下没有符号，没有前瞻数据，也没有留在缓冲里的位 | `deflate` 的入口情形、尾部 |
 
-## API 生命周期与错误情形
+序列目标陈述的是较小的公开谓词 `StreamInvariant`，也就是 `good` 和 `alloc`。
 
-| 函数 | 证明边界 |
+### `shape`：位置与计数
+
+子句名是 `Shape` 里的名字。
+
+| 子句 | 内容 |
 | --- | --- |
-| `deflateInit_`、`deflateInit2_` | 验证参数及版本／大小；分配状态与四个缓冲区；成功时建立全部字段／所有权条件，失败时释放每个成功分配。默认分配器不清零存储。 |
-| `deflateReset`、`deflateResetKeep`、`lm_init` | 区分完整历史／哈希重置与保留状态行为，并建立相应阶段不变量。 |
-| `deflateEnd` | 在每个许可状态下恰好释放一次所有自有缓冲区及状态，返回文档规定状态并清空状态指针。 |
-| `deflateSetDictionary`、`deflateGetDictionary` | 读取／复制许可字典视图，更新包装校验和／历史及有意义的插入，返回准确字典后缀。 |
-| `deflatePrime` | 用源代码准确的移位，保持非负／负计数行为及待输出区／位缓冲区容量条件。 |
-| `deflateParams` | 改变策略、级别及哈希状态前，组合可能的 `deflate(Z_BLOCK)` 调用及其部分／失败效果。 |
-| `deflateCopy` | 分配独立块，清理每个失败前缀，只复制源规定范围，并重定位待输出／符号／描述符指针。 |
-| `deflateBound`、`deflateBound_z` | 证明机器算术，并单独证明在契约配置／头部条件下容量足够。数值公式定理不等于容量充分性。 |
-| `deflateTune`、`deflatePending`、`deflateSetHeader`、`deflateUsed` | 准确参数／查询／拒绝效果、许可输出单元写入及后续数据调用所需的保持。 |
+| `room`（**D**） | `strstart + lookahead ≤ window_size` |
+| `insert`、`insertDone` | `insert ≤ strstart`。前瞻数据有三个字节或更多时，`insert = 0` |
+| `prevLength`、`matchLength` | 两者都至多是 258 |
+| `pendingMatch` | 待处理的匹配（`match_length ≥ 3`）的距离在 1 到 `W - 262` 之间，并且 `insert = 0` |
+| `blockStart` | `block_start ≤ strstart` |
+| `blockSpan` | 级别非零时，`strstart - block_start ≤ 258 * (符号个数) + 1` |
+| `levelZero` | 级别为 0 时：`block_start ≥ 0`，没有前瞻数据，没有符号 |
+| `highWater`、`windowInit` | `strstart + lookahead ≤ high_water ≤ window_size`：窗口一直写到了数据的末尾 |
+| `biValid` | `bi_valid ≤ 7` |
+| `cursor` | 待输出缓冲为空时，`pending_out = pending_buf` |
+| `symRoom` | `sym_next < sym_end`：还放得下一个符号 |
+| `slides` | `matches ≤ 2`，级别非零时为 0（级别 0 用这个字段统计窗口滑动的次数） |
+| `lastFlush`、`headerFlush`、`trailer` | `last_flush` 在 -2 到 5 之间；写头部之前它是 -2 或 -1；`wrap` 为负只出现在 `FINISH_STATE` |
 
-下表的“复制”要求两条流在相同后续输入下可以继续相同任务，同时各自拥有独立动态存储；“重置”则开始或准备另一个任务。复制内容相等不等于共享所有权，失败清理也不能误释放原流仍在使用的块。
+其余子句（`matchAvailable`、`available`、`fastLazy`、`lazyPrev`、`lazyAvail`、`lazyStart`、`symBlock`）描述 `deflate_slow` 中待处理的字面量或匹配，并说明已记录的符号至少覆盖块中的一个字节。
 
-复制的窗口内容范围是 `high_water`；`prev` 复制包括未写入的整数单元。
-先前分配成功后仍可能出现分配失败。
-证明必须逐一保持源清理行为及目标／源的帧性质。
-被调用者契约是已证明的执行结果，不能打包成顶层定理的假设。
+`block_start` 可以是负的。每次滑动时 `fill_window` 都从它减去 `W`，在一个块的中间也是这样。`blockSpan` 限定了它能比 `strstart` 小多少：一个块里的符号少于 `B ≤ 32768` 个，每个至多 258 字节。所以 `block_start` 远在 `long` 的范围之内（`block_start_low`），滑动时的有符号减法不会溢出（`block_start_slide_signed`）。
 
-序列定理组合初始化、数据调用、重置、字典、头部、位预置和复制操作，以及结束。它对 `memLevel` 和其他任何参数都没有限制。把发出的流连接到独立 DEFLATE 语义的往返定理是功能性的，不在计划内。
+### `hashing`：可以沿着走的链
 
-## 与 C 的对应检查
+`deflateInit2_` 不初始化 `prev`。证明对那些从未写过的槽里的任意内容都成立。这个子句说的是能够*到达*什么（`HashChains`，`ZlibF/Proof/deflate.c.engine.chains.lean`）。
 
-### 分配、初始化与复制
+从 `head[k]` 出发，沿着 `p → prev[p & wmask]` 走。走到 0 就停；当 `p` 的槽可能已被重用，也就是 `p + W` 小于插入前沿时，也停。途中遇到的每个非零位置 `p` 都满足：
 
-`zcalloc(items, size)` 先对 32 位无符号实参相乘，再拓宽用于分配。
-回绕是有定义行为。压缩器分配大小低于该阈值：状态为 5968 字节；
-窗口为 `2 * w_size` 字节；`prev` 有 `w_size` 个 16 位项；`head` 有 `hash_size` 个 16 位项；
-待输出存储为 `4 * lit_bufsize` 字节。
+- `p` 在前沿 `chainTop = min(strstart - insert, strstart + lookahead - 2)` 之下；
+- 它的三个字节在数据之内，并且哈希到 `k`；
+- `prev[p & wmask] < p`。
 
-`deflateInit2_` 在构造状态前检查版本、流大小与参数。
-请求八位 zlib 窗口时提升到九位。应保留这些检查及其顺序。
-缺少的分配器回调替换为默认函数。
-自定义回调行为有单独范围，见[偏离与限制](../deviations.md)。
+这就是内部契约 `I-hc-inv` 的事实 **H1** 和 **H2**。从未写过的槽永远不会被到达，所以里面是什么无关紧要。最后一条使每一次遍历都严格下降。
 
-版本检查在空指针判断后只读取第一个字节。
-状态检查读取 deflate 状态反向指针及状态标志；它们不能使任意指针或 inflate 状态指针
-都可以安全解释为 deflate 记录。
-**未完成的证明步骤：** 所表示指针种类与合法调用历史能证明这些读取有效，且不默默缩小公开拒绝域。
+级别为 0 时不维护这两张表。发生过一次存储块滑动之后，这个子句对“`slide_hash` 处理之后会得到的表”成立（`SlidChains`）；滑动更多次之后就什么都不断言了，而 `deflateParams` 会在别的策略运行之前清空哈希表。
 
-自有分配共有五个：状态、窗口、前驱、桶头和待输出存储。
-状态分配后，四次缓冲区分配先全部发生，再进行合并的失败检查。
-即使更早缓冲区分配失败，后续分配尝试仍会发生。
-清理必须恰好释放取得的块、按 C 的方式清空公开状态，并保留源返回码。
-模型中新指针字段为空指针，不能代替“C 已初始化清理时读取的每个指针”的证明。
+## 每一步为什么保持不变量
 
-`deflateEnd` 在释放前读取状态标志。
-它依次释放待输出存储、桶头、前驱、窗口、状态，然后清空流状态指针。
-对于忙碌流，它可以在全部释放后返回 `Z_DATA_ERROR`。
-返回码与所有权效果是不同事实。
+`reachable_inv_of`（`deflate.c.universal-sequence-safety.lean`）对历史做归纳，证明每个可达状态都满足 `DInv`、`HeaderInv` 和 `CallFacts`。`operation_step_of`（`deflate.c.universal-ops-dispatch.lean`）证明再做一次调用是安全的，并给出它的帧和账本。`end_from_inv`（`deflate.c.universal-end.lean`）对应 `deflateEnd`。
 
-`deflateCopy` 先复制状态记录，分配其后备块，再复制公开流并安装目标状态。
-失败时释放新块，而非复制进记录的源指针。
-成功复制保持以下区别：
+| 步骤 | 定理 | 为什么成立 |
+| --- | --- | --- |
+| `deflateInit2_` 成功 | `init2_inv`、`init2_header` | 状态被清零，四个缓冲区按上面的大小分配，`deflateReset` 运行 `lm_init`，它清空 `head` 并把每个位置置 0。空窗口加上清空的 `head` 满足每一个子句 |
+| 调用者修改缓冲区字段 | `DInv.rebuffer` | 没有哪个子句提到这四个字段 |
+| `deflate` | `deflate_call_of`、`deflate_call_header`、`deflate_calls_of` | 见下 |
+| `deflateReset` | `step_reset` | 又是 `lm_init` |
+| `deflateSetDictionary` | `step_setDictionary` | 它让字典经过 `fill_window`，并像各策略那样插入它的各个位置 |
+| `deflateParams` | `step_params` | 它可能先运行 `deflate(strm, Z_BLOCK)`。离开级别 0 时，按 `matches` 的值滑动或清空哈希表 |
+| `deflatePrime` | `step_prime` | 只允许在第一次 `deflate` 调用之前使用，那时没有记录任何符号 |
+| `deflateSetHeader` | `step_setHeader` | 只允许在第一次 `deflate` 调用之前使用，所以 `HeaderInv` 不会在写头部的中途被破坏 |
+| `deflateTune`、`deflatePending`、`deflateUsed`、`deflateBound*`、`deflateGetDictionary` | `step_tune`、`step_pending`、`step_used`、`step_bound`、`step_bound_z`、`step_getDictionary` | 它们写的是不受任何子句约束的调优字段，或者只读 |
+| `deflateCopy` 成功 | `copy_inv` | 五个新块得到旧块的内容。只复制 `high_water` 个窗口字节就够了，原因是 `windowInit` |
 
-- 窗口复制以 `high_water` 为界。
-- 前驱在滑动后复制整个窗口，否则复制由 `strstart - insert` 决定的前缀。
-  **未完成的证明步骤：** `insert <= strstart` 能证明该无符号大小计算有效。
-- 待输出指针保留其在新块中的偏移。尚未发送的待输出字节与已使用符号字节复制到相应偏移。
-  `sym_buf` 变为新待输出基址加 `lit_bufsize`。
-- 流反向指针与动态描述符指针改为目标。借用的 gzip 头及静态描述符指针保持共享。
+### 一次 `deflate` 调用的内部
 
-C 复制整个流，所以不能默默把重叠视为安全。
-源、目标相同还可能替换源状态并丢失旧所有权；API 是否许可这种调用的审阅尚未完成。
-字节复制可包含未初始化数据。值复制必须保留这些数据，以及后续修正的源顺序。
+**头部与尾部。** 每个 `put_byte` 之前都检查 `pending_buf` 里的空间，必要时先刷新；遍历 `extra`、`name` 和 `comment` 的循环在返回前后保留 `gzindex`。在解引用 `gz_header` 的四个状态里，`HeaderInv` 给出它不是 `NULL`。
 
-### 窗口移动与策略循环
+**`fill_window`**（`fill_window_inv`，`deflate.c.universal-window.lean`）。D 使 `more = window_size - lookahead - strstart` 是真正的差。如果 `strstart ≥ 2W - 262`，窗口滑动：`window + W` 处的 `W - more` 个字节被复制到 `window`，这两段区域不重叠；`strstart`、`match_start`、`block_start` 和每个表项都减去 `W`。`slide_hash` 把每个表项 `m` 变成 `m - W`，`m < W` 时变成 0。它访问每一个槽，不管写没写过；对可达的位置，新值就是它的新位置，而且仍在同一个槽里，因为减去 `W` 不改变 `p & wmask`。然后把输入复制到 `window + strstart + lookahead`，至多 `more` 个字节，并把等待中的位置（`insert`）插入。D 重新成立，并且 `strstart < 2W - 262`。
 
-`read_buf` 在复制前减少 `avail_in`，对目标字节计算校验和，再推进 `next_in` 与 `total_in`。
-存储策略还用它把输入直接复制到调用者输出。
-改变校验和输入或移动计数更新位置，都改变了翻译。
+**`longest_match`**（`longest_match_inserted`）。它在位置 `strstart` 刚插入之后被调用，链头 `cur` 满足 `1 ≤ cur < strstart` 和 `strstart - cur ≤ W - 262`。
 
-`fill_window` 在 `ulg` 中计算空闲空间，缩窄到 `unsigned`，且可在检查是否还有输入前滑动。
-滑动把窗口上半部下移，调整位置及有符号块起点、限制 `insert`，随后滑动哈希项。
-高水位清零初始化读取余量，并不使所有未来窗口字节都成为有意义输入。
+- **F5，链的遍历。** 循环读到的每个位置都是上面所说的可达位置。所以 `prev` 的下标和窗口的下标都不越界，而且下一个位置更小。
+- **F6，比较。** 循环在 `window + strstart` 和 `window + cur` 处至多比较 258 个字节。前提是 `strstart + 262 ≤ window_size`。策略走到搜索的两条路都能给出它：`lookahead ≥ 262` 时由 D 给出；经过 `fill_window` 之后由它的最后一条结论给出。比较可能读到前瞻数据之后的字节。这些字节在窗口之内，返回的长度会被截到 `lookahead`。
 
-**未完成的证明步骤：** 滑动复制有界且不相交，大小不会下溢。
-匹配器读取，包括最后的前置递增比较，即使超过 `strstart + lookahead`，也仍在窗口内。
-返回匹配长度被截断到真实预读量。这些是不同义务。
+**记录一个符号。** `_tr_tally` 在 `sym_buf + sym_next` 处写三个字节。`symRoom` 保证它们在符号区之内。匹配的长度偏移至多是 255，距离至多是 `W - 262`，所以查 `_length_code` 和 `_dist_code` 不越界。缓冲区满了，策略就刷新。
 
-`longest_match` 中，`continue` 到达 `do` 循环条件，该条件跟随前驱并有条件地递减链计数；
-`break` 跳过该条件。内层扫描在检查结束指针前执行八次短路的前置递增比较。
-改成内存比较会改变读取。
-**未完成的证明步骤：** 可达链项是更早已插入位置，所以即使调优值改变计数器，跟随它们仍安全且终止。
+**刷新一个块。** `FLUSH_BLOCK_ONLY` 用 `long` 计算块长 `strstart - block_start`，然后调用 `_tr_flush_block`。它把 `window + block_start` 作为存储块的源传进去，`block_start` 为负时传 `NULL`；传 `NULL` 时不会选存储形式。`flush_block_only_safe` 证明它对每一个 `memLevel` 都安全；论证在[树](trees.md)页面上。它要求进入时待输出缓冲为空且 `bi_valid ≤ 7`。各策略提供了这两点。
 
-`deflate_stored` 先尝试直接写调用者输出。
-它发出占位存储块头，重写其四个长度字节、刷新该头、复制窗口字节，
-再把输入直接读到输出。随后在窗口中重建保留历史，也可退回缓冲的存储块。
-这些阶段及提前出口都必须保留。
+**五种策略。** `huff_spec_of`、`rle_spec_of`、`fast_spec_of`、`slow_spec_of` 和 `stored_spec`（`deflate.c.universal-strategies.lean`、`-slow.lean`、`-stored-tail.lean`）证明每种策略都会返回，并交还 `DInv`。在策略循环每一轮的开头，状态都满足 `DInv`，并且待输出缓冲为空。
 
-局部变量 `len`、`left`、`have`、`used` 是无符号类型。
-例如，`(unsigned)(strstart - block_start)` 先做有符号差再缩窄；
-`((unsigned)bi_valid + 42) >> 3` 先转换再相加。
-`MIN(pending_buf_size - have, MAX_STORED)` 在 `ulg` 中比较。
-**未完成的证明步骤：** 被用作指针的块起点非负、`insert <= w_size`，
-且向后输入指针仍在该对象已消费的字节范围内。
-零级别绕过匹配器时，`matches` 记录延迟哈希滑动。
+## 循环为什么会结束
 
-| 函数 | 必须保留的源代码区别 |
-| --- | --- |
-| `deflate_fast` | 短匹配内部的插入不同于长匹配后的哈希重新准备。刷新宏可以从外层循环返回。 |
-| `deflate_slow` | 惰性匹配状态在迭代间保持。刷新待处理字面量后，先改变位置再检查输出耗尽。最后的待处理字面量后紧接刷新。 |
-| `deflate_rle` | 在 `lookahead <= MAX_MATCH` 时补充，只在 `strstart > 0` 时使用先前字节，并保留展开扫描与截断。它不维护哈希链。 |
-| `deflate_huff` | 不匹配，只发字面量，并重置 `insert`。空输入与刷新出口仍是循环的一部分。 |
+**策略循环**（`loopMeasure`，`deflate.c.universal-strategies.lean`）。对 `deflate_huff`、`deflate_rle`、`deflate_fast` 和 `deflate_slow`，度量是
 
-### 约束翻译的公开状态变化
-
-这些观察解释源代码决策。完整定义域与效果见 [API 手册](../spec/api/deflate-stream.md)。
-
-#### 重置、字典、头部与参数操作
-
-`deflateResetKeep` 重置计数与块状态、规范化负包装值、选择初始校验和，并清空头指针。
-它在 `_tr_init` 前后保存零级别的延迟滑动，因为该调用清空 `matches`。
-`deflateReset` 还执行 `lm_init`。合并两者会丢失保留历史的行为。
-
-`deflateSetDictionary` 保存输入视图与包装，禁用校验和包装，安装字典输入，
-调用 `fill_window`，建立哈希项，再恢复保存的视图与包装。
-zlib 校验和在把长字典截断为保留后缀之前计算。
-通过 `read_buf` 的调用也增加 `total_in`。
-早期审阅观察到了这一计数效果；字典输入在公开总计数中的准确含义仍未完成审阅；现有实现的计数更新必须保留。
-
-裸 DEFLATE 字典替换与 zlib 预置字典的定义域不同。
-C 可在流结束后接受 zlib 字典，而普通模型描述的是压缩前的文档规定顺序。
-不能用模型拒绝替代该执行。见[偏离与限制](../deviations.md)。
-
-`deflateGetDictionary` 复制结束于 `strstart + lookahead`、长度以 `w_size` 为限的后缀。
-缓冲区输出与长度输出分别可选。应保留源指针算术及每次受条件保护的写入。
-
-`deflateSetHeader` 保存借用指针，既不复制也不释放头部。
-C 检查包装，却不强制文档规定的调用顺序。
-头输出开始后把指针改为空指针，可能使后续头状态解引用空指针。
-**未完成的证明步骤：** 合法历史建立非空头指针关系。
-附加数据、其低 16 位长度、以 NUL 结尾的名称与注释，在跨调用恢复输出期间必须保持有效。
-把 `extra_len` 缩到 `gzindex` 以下可能使剩余长度计算回绕。
-这些要求并不能建立不受限的指针定义域结果。
-
-`deflateParams` 可在改变压缩函数或策略前调用 `deflate(..., Z_BLOCK)`。
-拒绝可能发生在该调用产生效果之后。
-从零级别恢复压缩时，记录状态决定滑动还是清空哈希。
-压缩函数指针变成存储／快速／慢速选择；其相等判断必须保留源分派决策。
-
-`deflateTune` 通过转换把负实参存入无符号字段，并不拒绝它们。
-`nice_length` 保持有符号。零链上限可在前置递减时回绕。
-**未完成的证明步骤：** 链论证及缓冲区不变量覆盖接受的调优定义域。
-只假设默认调优值会缩小后续 `deflate` 定理范围。
-
-#### 位预置、查询与主状态机
-
-`deflatePrime` 拒绝 `0..16` 之外的位数。
-在容量拒绝之前，它可以通过向前逐字节循环压紧待输出字节。
-应保留该循环及其在拒绝路径上的效果。
-插入循环是 `do` 循环，所以零位也执行循环体。
-填满的位缓冲区可以在一步插入零位，刷新后再取得进展。
-
-掩码与左移是有符号 `int` 表达式。
-**未完成的证明步骤：** 操作数和位数排除溢出与无效移位。
-负 `value` 的右移遵循目标的算术右移行为。
-这是实现定义的 C 行为，不能因此拒绝负值。
-
-`deflatePending` 先写比特输出。它把待输出字节数缩窄到 `unsigned`，与原 `ulg` 比较，
-若溢出，则改写为无符号最大值后返回 `Z_BUF_ERROR`。两次保存都重要。
-`deflateUsed` 有自己可选的比特输出。标量写入需要明确的表示单元及别名范围。
-
-主 `deflate` 的头部阶段是连续的 `if` 语句，不是互斥分支。
-一次调用可以经过多个阶段。各阶段都可返回，保留待输出内容、`gzindex`、`last_flush` 供下次调用。
-头循环可从外层函数返回。头 CRC 辅助函数捕获流与状态，
-对从保存起点开始恰好新生成的待输出切片计算校验和。
-
-分派先检查零级别、仅 Huffman、RLE，再使用配置表函数。
-完成结束处理时写尾部，并把 `wrap` 取负以记录已发出。
-错误检查、待输出刷新与 `last_flush` 改动保持源顺序，包括最终拒绝输入的调用。
-
-## 有符号位置与未写入窗口存储
-
-本目标上，`strstart - block_start` 是有符号 `long` 算术，因为 `long` 能表示 `uInt` 操作数。
-滑动中的 `block_start -= (long)wsize`，以及 `deflateParams` 的混合表达式也依赖这一点。
-不能把它们变成无符号差或未经检查的有符号减法。
-**未完成的证明步骤：** 可达性不变量排除溢出。
-粗略统计符号数或滑动次数并不是这一证明。
-
-树节点复用存储时，同一个单元在不同阶段承担不同含义。`Freq` 是出现频率，`Code` 是最终码字；`Dad` 是父节点索引，`Len` 是最终码长。必须按建树、分配长度、生成码字的顺序解释这些单元，不能假定四个值同时独立存在。
-
-`ct_data` 的两个共用体各有两个 `unsigned short` 成员。
-它们变为两个共用单元：`Freq` 与 `Code` 指同一个；`Dad` 与 `Len` 指另一个。
-树构造有意用长度覆盖父节点，再用码字覆盖频率。
-改成独立字段会丢失别名关系。
-
-动态树描述符指向自己状态内嵌的数组。静态描述符指向只读表。
-这些身份关系对帧性质及 `deflateCopy` 的指针修正都重要。
-
-#### 未初始化存储与重复读取
-
-默认分配器返回新存储，不清零。
-`deflateInit2_` 显式清零状态记录，但不清空全部 `prev` 或窗口。
-`lm_init` 清空哈希桶头；插入位置时写入前驱槽位。
-
-`slide_hash` 有意读取整个前驱数组。
-`longest_match` 可比较真实预读量之外的字节。
-模型允许任意未初始化整数值；定理必须涵盖每个值。
-它必须说明垃圾前驱绝不被用作地址。复制保留这些值。
-固定垃圾值与新指针的局限见[安全](../spec/safety.md)及[可信基础](../trusted-base.md)。
-
-`build_tree` 中，一个条件比较两个子深度，然后再次读取选中深度。
-缓存比较时的值会省略该源读取。
-[深度读取回归](../../tests/regression/trees-depth-read/README.md)包含结构检查，
-因为已初始化例子在两种实现下具有相同最终值。
-**未完成的证明步骤：** 每次实际深度读取都发生在初始化它的写入之后。
-已初始化样例结果一致，并不能证明这种历史。
-
-## 构造状态与源常量
-
-选定源代码具有 `TOO_FAR = 4096`、`OS_CODE = 3`。
-静态树初始化函数体为空；调试检查不存在。
-独立符号累计入口在本分支没有普通库调用者。
-
-新分配的构造状态可有 `window_size = 0`。
-完整窗口不变量在实际 `lm_init` 之后成立，不能在重置前假设。
-针对每次补充输入调用的早期限制，包括 `lookahead < 262`，
-不能默默导入字典或公开调用定义域。必须从实际调用者建立这些定义域。
-
-## 完成默认 zlib 封装
-
-源码中的完成尾部有两个阶段：先写入四个校验和字节，再向调用者复制其输出缓冲区能够接收的待发送内容。即使只复制了一部分，封装标志也会变成负数。后续调用必须排空这一待发送后缀，才会从负封装分支返回。这个顺序避免重复写入尾部。
-
-```mermaid
-flowchart LR
-    block["最终块已排空；没有残留位"] --> words["实际执行的两次大端字写入"]
-    words --> copy["实际复制待发送内容"]
-    copy --> negative["将封装标志设为 -1"]
-    negative --> partial["待发送后缀尚未排空"]
-    partial --> resume["下一次公开完成调用排空后缀"]
-    negative --> done["没有待发送内容：STREAM_END"]
-    resume --> done
-    done --> again["后续完成调用不再输出"]
+```
+1 + 2 * (avail_in + lookahead)      循环进行时；  离开循环后为 0
 ```
 
-内部尾部发布器允许原始输出缓冲区具有任意容量。公开完成入口要求容量为正、处于 FINISH_STATE、输入与 lookahead 均为空、待发送游标位于基址、待发送字节和残留位均为零。这些阶段事实由策略完成过程提供。`last_flush` 的范围为 -2..5，与初始化及已接受标志的写入一致。公开的待发送内容排空定理保留前进后的游标，并要求容量严格大于排队的后缀。容量用尽时使用已有的公开待发送定理。所有情形都保留完整的已输出位账本。
+每一轮要么离开循环，要么至少用掉前瞻数据的一个字节。`fill_window` 把字节从输入搬到前瞻数据里，两者之和不变。度量小于 `2^35`，远小于 `2^64` 的循环燃料（`loop_measure_bound`）。
 
-## 压缩器堆上的树构造
+**`deflate_stored`。** 它的第一个循环把存储块直接写到输出；度量是 `avail_out`（`deflate.c.universal-stored-loop.lean`）。
 
-构树器的精确记录作用域允许修改所选树和描述符最大值、堆与深度工作数组、位长计数及成本。所有被替换数组都保持原有长度。由这一作用域和构树器实际经过检查的树表示，可得引擎状态保持结论：流所有权、调用者缓冲区范围、分配计数及待发送位序列均被保留。
+**`longest_match`。** 度量是当前位置 `cur_match`（`deflate.c.engine.lmmain.lean`）。遍历会结束，是因为位置严格下降，与链预算是多少无关。这一点有实际意义：`deflateTune` 接受 `max_chain_length = 0`，这时 `--chain_length` 会回绕成一个很大的值，而不是减到 0。
 
-嵌入状态的深度字节视图需要单独的大小论证。构造过程会改变其内容，因此精确的字节视图相等性并不成立。调用者大小关系只记录保留的长度。实际相邻的字面量树和距离树构造将这些事实组合起来，再从同一次执行建立 BL 构造器的输入表示。这里没有假设被调用函数的规格。
+**头部循环**遍历 `extra`、`name` 和 `comment` 的字节。前提保证这些范围是有限的：`extra_len` 个字节，以及一个到 NUL 为止的字符串。
 
-## 完整准备与计算得到的固定编码选择
+## 难点在哪里
 
-实际正压缩级别路径首先检查公开的 `data_type` 提示。若为 UNKNOWN，就执行两次有界且只读的字面量频率扫描。其安全执行结论保持堆不变，并返回 BINARY 或 TEXT。随后条件性地写入该流提示，再在同一个堆上构造字面量树、距离树和 BL 树；这包含两次哨兵扫描、BL 搜索以及无符号头部成本写入。
+- **共享缓冲区。** `pending_buf` 从偏移 0 起存放输出，从偏移 `B` 起存放符号。写一个块时，输出朝着还没读的符号增长。它永远追不上这些符号，这取决于块的码长，而不只是取决于大小。这就是事实 F9；[树](trees.md#the-overlay-lemma-f9)对每一个 `memLevel` 证明了它。
+- **未初始化的 `prev`。** 不变量不能说“每个槽都有效”。它必须说明哪些槽能被到达，而每个移动窗口或前沿的操作，都得让这个集合保持在控制之下。
+- **`deflate_slow`。** 它输出匹配要晚一步。在两轮之间，状态里留着一个待处理的字面量或匹配，这是其他策略没有的；`shape` 中有六个子句是为它而设的。
+- **级别切换。** `deflateParams` 可以在级别 0 与其他级别之间切换，前者不管哈希表，后者依赖哈希表。
 
-```mermaid
-flowchart LR
-    hint["实际提示检测及写入"] --> trees["字面量树与距离树构造"]
-    trees --> bl["两次扫描、BL 构造、索引与成本"]
-    bl --> costs["实际的舍入字节成本"]
-    costs --> stored["存储块选择"]
-    costs --> fixed["计算得到的固定编码选择"]
-    costs --> dynamic["动态编码选择"]
-    fixed --> payload["实际标签与完整载荷"]
-    payload --> reset["实际复位与条件性对齐"]
-    reset --> publish["实际发布待发送内容"]
-```
+## 没有定理陈述的 C 解读
 
-固定编码选择定理返回实际准备状态，随后显式陈述其分支条件：静态舍入成本不高于动态舍入成本，并且先前的存储块测试为假。它在这些计算得到的条件下执行整个源码函数，不强行指定固定策略。准备过程保持码表数组、描述符与工作数组、堆控制和成本之外的所有状态字段。已有的固定输出框架为后续计数器复位和待发送内容／位的变化提供依据。这些结论共同保持窗口、哈希链、匹配历史和配置，供更强的引擎不变式使用。完整原始流推论包含实际树准备、实际选择、真实载荷、复位、填充以及复制。
+- `deflateSetDictionary` 经过 `read_buf`，后者把字典长度加到 `total_in` 上。翻译保留了这次更新。调用者是否应当把 `total_in` 理解为包含字典，**尚未由证明确认**。
+- 用同一个记录既作源又作目的调用 `deflateCopy`，不在目标之内：历史中的复制情形和 `Goal.deflateCopy_safety` 取的都是两个不同的记录（见[偏离记录](../deviations.md)中关于 `Goal.deflateCopy_safety` 的一行）。`zlib.h` 是否有意允许这种调用，**尚未由证明确认**。
+- 在本构建中 `deflate_state` 的大小是 5968 字节。没有哪个 Lean 文件或测试陈述这个数。**尚未由证明确认**。
+
+更多这类笔记见[源码笔记](deflate-source-notes.md)。
+
+## 功能结论
+
+这些结论说的是函数算出了什么。它们已登记，但不是安全结论所必需的。
+
+| 结论 | 定理 | 模块 |
+| --- | --- | --- |
+| `Goal.deflate`：一次调用的完整契约，包括进展、返回码、计数、帧和所有权。`compress*` 的安全证明用到它 | `Zlib.Deflate.Universal.deflate_safety` | `public-deflate-goals.lean` |
+| 完整契约 `Goal.deflateInit_`、`Goal.deflateInit2_`、`Goal.deflateCopy`、`Goal.deflateEnd`、`Goal.deflateReset`，以及各查询函数的完整契约 | `deflateInit_proof`、`deflateInit2_proof`、`deflate_copy_public`、`deflate_end_public`、`deflate_reset_public` 等 | `public-deflate-*.lean` |
+| 只针对默认配置的结论 | 见[默认配置引擎](deflate-default-engine.md) | |
+
+对默认配置，`DeflateCore.correct` 说明：已完成的流按格式规格解码，得到的就是被接受的输入。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。关于这样的证明需要涵盖什么，早先的笔记保存在[历史](../history/proof-functional-notes.md)中。

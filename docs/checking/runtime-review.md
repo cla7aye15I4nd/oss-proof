@@ -14,7 +14,7 @@ The sources named were read for this table; nothing was built or run for it.
 
 | Finding | State | Where to read the current fact |
 | --- | --- | --- |
-| R1 fresh pointer fields are null | Model limit. A fresh pointer field is still NULL. Every proof must show that a pointer field is written before it is read. | [Trusted base](../trusted-base.md), "Representation gaps"; `AGENTS.md`, Translation |
+| R1 fresh pointer fields are null | Model limit. A fresh pointer field is still NULL. Every proof must show that a pointer field is written before it is read. | [Model limits](../model-limits.md#representation-gaps-and-proof-obligations), "Representation gaps and proof obligations"; `AGENTS.md`, Translation |
 | R2 null pointer arithmetic | Model limit, by decision. `Ptr.add NULL 0` returns NULL. | Trusted base; [safety](../spec/safety.md#null-pointers-and-pointer-differences) |
 | R3 one name for two `COPY` constants | Fixed. The gz macro is `GZ_COPY` (value 1); `COPY` is the inflate enumerator. | `ZlibF/Runtime/Schema.lean` |
 | R4 enumerators typed unsigned | Fixed in the schema: each enumerator also exists with type `Int32` (`HEAD_i`, `CODES_i`, ...). Whether every translated comparison uses the right one was not rechecked here. | `ZlibF/Runtime/Schema.lean` |

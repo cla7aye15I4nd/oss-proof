@@ -1,7 +1,12 @@
 # Safety of `compress*`
 
-Source: `compress.c`. `compress`, `compress_z`, `compress2` and `compress2_z` are safe on
-every input. This page explains that result.
+`compress`, `compress_z`, `compress2` and `compress2_z` are safe on every input that meets the
+premises below: the call returns, has no undefined behaviour, writes only the destination
+buffer, and frees everything it allocated. This page gives the statement, its premises and
+the shape of the proof.
+
+Source: `compress.c`. [Buffer utilities](buffers.md) reads the C. Terms:
+[glossary](../glossary.md).
 
 ## What is proved
 
@@ -12,12 +17,14 @@ every input. This page explains that result.
 | `Goal.compress_z_safety` | `compress_z_safety` | same |
 | `Goal.compress_safety` | `compress_safety` | same |
 
-All four are safety results and are required. They have no hypothesis. They are registered in
-`tests/audit/theorems.txt` and accepted on commit `bde170e9`
+All four are safety results and are required. Each theorem proves its goal exactly as stated,
+with no hypothesis added; the premises below are part of the goal statements. The theorems are
+[registered](../checking/README.md) in `tests/audit/theorems.txt` and
+[accepted](../checking/README.md) on commit `bde170e9`
 ([progress, Scope](../progress.md#scope)).
 
 Each goal is an instance of `CompressorSafety` (`ZlibF/Spec/Public/Utilities.lean`). For
-every admitted input:
+every input that meets the premises below:
 
 - the call runs without undefined behaviour and returns;
 - a rejected argument returns `Z_STREAM_ERROR` and changes nothing;
@@ -26,7 +33,7 @@ every admitted input:
 - `Z_MEM_ERROR` comes only after an allocation failed.
 
 Nothing is said about the bytes written. That is the functional contract
-`CompressorContract`, which is not required.
+`CompressorContract`, which is not required for the safety results.
 
 ## What is assumed
 
@@ -35,10 +42,10 @@ Nothing is said about the bytes written. That is the functional contract
 | `Fresh`, `Uniq`, `LibraryGlobals` | The caller heap is well formed and the static tables are the initial ones. |
 | `ByteObjectsFit` | Every byte object has fewer than `2^63` bytes. |
 | `CompressArguments` | The arguments are rejected by the C's own checks, or the source is readable, the destination is writable for its capacity, and the two do not overlap. |
-| A length cell | `compress` and `compress2` take a non-null `destLen`. The `_z` forms admit `NULL`. |
+| The length cell | `compress` and `compress2` take a non-null `destLen`. The `_z` forms admit `NULL` and refuse it. In the translation the cell is a value passed in and a value returned, not memory. So a cell that overlaps the source or the destination cannot be expressed, and such a call is outside the theorems. |
 
-The separation of source and destination has a row in [deviations](../deviations.md),
-"Whole-buffer compression".
+The separation of source and destination, and the limit on the length cell, have a row in
+[deviations](../deviations.md), "Whole-buffer compression".
 
 ## Structure
 
@@ -46,14 +53,19 @@ The separation of source and destination has a row in [deviations](../deviations
 flowchart TD
   args["argument checks: refusal before any object is made"] --> init
   init["init_cases: deflateInit_ fails (free the stream) or succeeds"] --> loop
-  loop["loop_run: do ... while (err == Z_OK), one deflate call per iteration (step)"] --> epi
+  loop["loop_run: do ... while (err == Z_OK), one deflate call per iteration"] --> epi
   epi["epilogue: output length, deflateEnd, free the stream"] --> z["compress2_z_safety_gen"]
   z --> w["compress_z, compress2, compress"]
 ```
 
+`compress2_z` drives a local `z_stream` through `deflateInit_`, a loop of `deflate` calls and
+`deflateEnd`. Before each `deflate` call the loop refills `avail_in` and `avail_out`, which are
+32-bit, from the 64-bit remaining lengths. This page calls that refill a *rebuffer* of the
+stream.
+
 `CState` is the state between iterations: the stream invariant, reachability, the counts of
-consumed input and produced output, and agreement of the heap with the caller heap with the
-output written.
+consumed input and produced output, and the fact that the heap is the caller's heap with the
+output so far written into the destination.
 
 The proof is generic in the histories of the stream it drives (`CompressReach`).
 `compress2_z_safety_gen` takes two facts about those histories:
@@ -70,16 +82,18 @@ The proof is generic in the histories of the stream it drives (`CompressReach`).
 instantiate the generic proof with `DeflateReachMid`: the histories that start with
 `deflateInit2_` at `memLevel ≥ 3` and then only rebuffer the stream and call `deflate`. Along
 them `lit_bufsize ≥ 512`, and both facts hold with no hypothesis (`goalDeflate_mid`,
-`loopFacts_mid`). The small-buffer case of the overlay bound is not needed here; see
-[trees](trees.md#the-overlay-lemma-f9).
+`loopFacts_mid`). Histories with `memLevel` 1 or 2 need a further bound on the compressor's
+shared pending and symbol buffer, described in [trees](trees.md#the-overlay-lemma-f9). The
+theorems here do not use it.
 
 `deflateInit_` and `deflateEnd` are used through their own theorems (`deflateInit_proof`,
 `deflateEnd_safe`, `deflate_end_public`).
 
 ## Termination
 
-The measure is `avail_in + sourceLen + avail_out + left`. It starts below `2^64`, the loop
-fuel. The refills keep it. A call that returns `Z_OK` is not refused and has room; otherwise
+The measure is `avail_in + sourceLen + avail_out + left`. Here `sourceLen` and `left` are the C
+locals: the source bytes and the destination room not yet given to the stream. The measure
+starts below the loop fuel, `2^64`. The refills keep it. A call that returns `Z_OK` is not refused and has room; otherwise
 `Goal.deflate` gives `Z_BUF_ERROR`. With `Z_NO_FLUSH` the call has input, because source
 remains after the refill, so `DeflateLoopFacts` gives progress. With `Z_FINISH`, the progress
 clause of `Goal.deflate` gives progress, unless the stream is finished and has new input; in
@@ -94,4 +108,4 @@ measure.
 `compressBound` and `compressBound_z` (`ZlibF/Proof/public-compress-bound.lean`).
 
 Whether every compressor output fits the bound is a separate functional question. It is not
-required; see [buffer utilities](buffers.md).
+required for the safety results; see [buffer utilities](buffers.md).

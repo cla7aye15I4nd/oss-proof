@@ -1,48 +1,79 @@
-<!-- source-sha256: 61252313e57e5462898f6e8ab4665640eb90fd9a27aff469c49884a033c5f8cc -->
+<!-- source-sha256: 61eeb6d2448bcae620ab59b36506569f9431a05d82c19ac7cf08f030a5f651a8 -->
 # 证明进度与剩余工作
 
-本页集中记录证明证据和剩余工作。要了解目标陈述和证明的整体结构，请先读[总览](overview.md)。
+本页记录每项结论的层级和剩余的工作。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：239 个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
 
 ## 范围
 
-下列计划内目标全部通过验收时，项目即告完成。其余部分不在计划内。
+下面三项安全结论按顺序全部验收之后，项目即告完成。列在“不在计划内”之下的一切都不投入工作。
 
-**计划内。** 只证安全（所有者 2026-11-11 的决定）：下列五项结论，按此顺序进行。安全指没有未定义行为、没有内存错误、没有泄漏，并且一定终止。计划内的安全证明所依赖的功能性事实恰好在范围内；安全不需要的功能性结论不在计划内。
+**计划内：三项安全结论。** 安全指没有未定义行为、没有内存错误、没有泄漏，并且终止。第三项结论分成四个部分。
 
-| # | 结论 | 目标 |
+| # | 结论 | 必需目标 |
 | ---: | --- | --- |
-| 1 | `inflate` 对任何输入和任意缓冲区切分都安全，也包括它的调用序列。 | `inflate`，以及 `inflate_sequence` 的安全部分 |
-| 2 | `deflate` 对任何输入和任意缓冲区切分都安全，也包括它的调用序列。 | `deflateInit2_`、`deflate`、`deflate_sequence_safety` |
-| 3 | 第 1、2 项在完整缓冲区上的组合。 | `compress*`、`uncompress*` 的安全 |
-| 4 | 回调解码器对任何输入和任何调用者协议都安全，也包括它的调用序列（所有者 2026-11-12 的要求）。 | `inflate_back_sequence_safety` |
-| 5 | gzip 文件接口在一个句柄的每条调用历史上、对每个文件系统世界都安全（所有者 2026-11-12 的决定）。只证安全，不证功能正确性。 | `gzopen`、`gzopen64`、`gzdopen`、`gzbuffer`、`gzclose`、`gzclose_r`、`gzclose_w`、`gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets`、`gzdirect`、`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams`、`gzseek`、`gzseek64`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzeof`、`gzerror`、`gzclearerr`，经由 `gz_sequence_safety`；`NULL` 句柄经由 `gz_refusal`。终止：每个调用在每个世界中都终止，但 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 与 `gzungetc` 需要小于 `2^61` 的读取额度（`ReadsFinite`），即使 C 会立即返回也是如此 |
+| 1 | `inflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.inflate_safety`、`Goal.inflate_sequence_safety` |
+| 2 | `deflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.deflate_safety`、`Goal.deflate_sequence_safety` |
+| 3a | 整缓冲区函数是安全的：它们是第 1、2 项的组合。 | `Goal.compress_safety`、`Goal.compress2_safety`、`Goal.uncompress_safe`、`Goal.uncompress2_safe` 及其 `_z` 形式 |
+| 3b | 回调解码器对每个输入、每种调用者协议都安全，对它的调用序列也是如此。 | `Goal.inflate_back_sequence_safety`、`Goal.inflate_back_initialisation_domain` |
+| 3c | gzip 文件接口在一个句柄的每段历史上、对每个文件系统世界都安全。 | `Goal.gz_sequence_safety`（31 个有文档的 gz 函数和 `gzvprintf`）、`Goal.gz_refusal`（`NULL` 句柄）、`Goal.gz_sequence_nonvacuity` |
+| 3d | 其余每个有文档的函数都安全：其他流调用（连同 init、End 和 Copy）、校验和、`compressBound*`、`zlibVersion` 和 `zlibCompileFlags`。 | 它们的 42 个单函数安全目标、`Goal.inflate_refusal`、`Goal.deflate_refusal`、`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` |
 
-上述结论在证明中需要的目标，作为依赖仍在计划内。sequence 目标所涉及的其他流调用属于这种情况，例如 `inflateSync`、`inflateCopy`、`deflateCopy`、`deflateParams`、`deflatePrime` 和 `deflateSetDictionary`。`gzvprintf` 在 zlib.h 中未文档化，但 `gzprintf` 经过它，所以它随第 5 项结论一起在计划内。
+这六行包含了全部 63 个必需目标：2 + 2 + 8 + 2 + 3 + 46。这 63 个目标由 `scripts/verification.py` 根据 `tests/audit/public-api.json` 算出；每个目标的定理见[按函数查覆盖情况](coverage.md)。
 
-**已验收。** 验收套件在 `bde170e9` 上全部通过（2026-11-15）：公理检查、精确目标、自测、证明变异体和差分测试。63 个必需目标在该提交上全部登记，因此第 1 至 5 项结论在该提交上已验收。差分测试是翻译忠实度的证据，不是证明。
+关于这张表有三点说明：
 
-**未完成。** gz 函数和三个 `inflateBack` 函数还没有各自的安全目标。它们的安全由第 4、5 项结论的序列目标承担。逐函数的目标是[按顺序的下一步工作](#ordered-next-work)的第一项。
+- 在 3c 中，每个调用在每个世界里的终止都已证明，只有 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc` 例外。这六个调用需要小于 `2^61` 的读取预算（`ReadsFinite`），即使在 C 立即返回的情形下也是如此。
+- `gzvprintf` 在 `zlib.h` 中是无文档函数，但 `gzprintf` 要经过它，所以它随 3c 一起在计划内。
+- 一个功能性事实在范围内，当且仅当有计划内的证明依赖它。
 
-**不在计划内。** 不再为这些目标投入工作。已经登记的相关结果保留。
+**每项结论的层级。** 已检查、已登记、已验收这三个层级的定义见[术语表](glossary.md#status)。
+
+| # | 是否已登记 | 在哪个提交上已验收 |
+| ---: | --- | --- |
+| 1 | 是，两个目标都已登记 | `bde170e9` |
+| 2 | 是，两个目标都已登记 | `bde170e9` |
+| 3a | 是，八个都已登记 | `bde170e9` |
+| 3b | 是，两个目标都已登记 | `bde170e9` |
+| 3c | 是，三个都已登记 | `bde170e9` |
+| 3d | 是，46 个都已登记 | `bde170e9`；四个 init 安全目标的现行形式除外 |
+
+在 `bde170e9` 上，验收套件全部通过：公理关卡、目标精确匹配、自测、证明变异体和差分测试，当时 63 个必需目标都已登记。差分测试是忠实度的证据，不是证明。
+
+从那个提交到本页之间，`tests/audit/` 下的登记表和 `scripts/` 下的脚本没有改动，`ZlibF/` 下有两处改动：
+
+- **四个 init 安全目标被放宽。** `Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 对 `zlib.h` 允许的每次调用都成立（提交 `101c6ab3`，`ZlibF/Spec/Safety/Initialisation.lean`；证明在 `8642e435`，`ZlibF/Proof/public-init-safety.lean`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。放宽之后的四个目标已检查、已登记，尚未验收：快速关卡在 `8642e435` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是较窄的形式。
+- **功能方面工作的证明模块有改动。** 关于 `inflate` 输出含义的模块（`ZlibF/Proof/inflate.c.meaning*.lean`）有新增和修改。其中没有任何定理被登记，它们也不改变任何目标。
+
+除此之外，没有任何目标、已登记定理或登记表的行与 `bde170e9` 不同。
+
+**未完成。** 安全结论所需要的东西没有缺口。31 个 gz 函数和三个 `inflateBack` 函数的安全性由 3b 和 3c 的序列目标证明，序列目标覆盖每段历史中的每次调用。它们还没有各自的单函数目标；陈述并登记这些目标是[按顺序的下一步工作](#ordered-next-work)的第一项。
+
+**安全结论之后的计划：默认 zlib 流的往返。** 默认流指默认压缩级别的 `deflateInit` 配上 `inflateInit`。顺序是：先证条件形式（当一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节）；再证完备性（输出空间足够且分配成功时，两边都到达 `Z_STREAM_END`）；最后是无条件的往返，以及 `uncompress(compress(x)) = x`。对翻译后的 C，这些都还没有证明。已登记的目标 `Api.Goal.roundtrip` 是仅关于模型的命题：它说的是抽象 API 模型。先前在往返的 deflate 一侧所做的工作（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分）保留着；默认流的往返需要其中哪些，本页不作定论。
+
+**不在计划内。** 这些不投入任何工作。已经为它们登记的结果保留。
 
 | 分组 | 目标 | 原因 |
 | --- | --- | --- |
-| gzip 文件接口的功能部分 | `gz_sequence`、`gz_initialisation_domain`，以及各 gz 调用的功能条款（读出或写入的字节、安全之外的返回值） | 功能性。这些定理依赖一个人工建立的文件系统、描述符和 `printf` 格式化模型。gz 调用的安全在计划内（第 5 项）。 |
-| 未文档化函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w` | zlib.h 把它们声明在 `/* undocumented functions (not part of the zlib API) */` 之下（`tests/audit/public-api.json` 的 `undocumented`）。它们不是必需的公开目标，直接调用其中之一也不是序列目标必需的操作；deflate 流定义域排除直接调用 `deflateResetKeep`（`docs/deviations.md`）。已登记的证明继续登记并接受审计。`gzvprintf` 已移入第 5 项（2026-11-12）。内部用法不变：`deflateReset` 和 `inflateReset` 经过 `ResetKeep` 引理。 |
-| 回调解码器的解码部分 | `inflateBack` 与 `inflate_back_sequence` 的解码条款（交给 `out` 的内容、`Decodes`） | 功能性。回调解码器的安全在计划内（第 4 项）。 |
-| 仅关于模型的陈述 | `Api.Goal.inflate_rejects_invalid`，以及未登记的 `*_refines` 目标 | 它们说的是抽象模型，不是 C 代码。前者还依赖八字节的检测延迟，而该延迟已被反例否定。对非法输入的拒绝，是在 `inflate_sequence` 的格式部分中针对 C 代码陈述的（见下面“功能正确性”一行，不在计划内）；它在 2026-11-11 之前是第 2 项结论。 |
-| 其他构建配置 | 默认 x86_64 Linux 构建之外的所有配置 | 每一种配置都要针对不同的平台模型重做整个证明。结论由默认构建承载。 |
-| 为查询函数增加证明变异体 | 取值函数和常量查询 | 变异体用来防止证明的设置有误。对只有一行的查询函数，它们不会为计划内的结论增加任何内容。 |
-| 功能正确性 | `inflate_sequence` 的格式部分（`inflate` 的输出等于格式：`ParseMeaning` 及其流侧与解码侧），`InflateCompletes` 背后的 `DecoderFacts` 格式事实与 `uncompress*` 的格式条款，以及 deflate 的往返（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分） | 所有者 2026-11-11 的决定，为了更快完成。计划内的安全证明所依赖的功能性事实仍在范围内。已经证明的部分保留并列为已检查；未完成的行在归档的骨架表中标为不在计划内（见 [inflate](history/skeleton-inflate.zh.md)、[deflate](history/skeleton-deflate.zh.md)）。 |
+| gzip 文件接口的功能部分 | `gz_sequence`、`gz_initialisation_domain`，以及各 gz 调用的功能子句（读出或写入的字节、安全之外的返回值） | 功能性。这些定理依赖一个人工建立的文件系统、描述符和 `printf` 格式化模型。gz 调用的安全性在计划内（3c）。 |
+| 无文档函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w` | `zlib.h` 在 `undocumented functions (not part of the zlib API)` 之下声明了十个函数（`tests/audit/public-api.json` 的 `undocumented`），这是其中九个；第十个 `gzvprintf` 随 3c 在计划内。它们不是必需的公开目标，直接调用其中某一个也不是序列目标必需的操作；deflate 流的定义域排除了对 `deflateResetKeep` 的直接调用（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)）。它们已登记的证明保持登记并接受审计。内部用法不变：`deflateReset` 和 `inflateReset` 要经过 `ResetKeep` 的引理。 |
+| 回调解码器的解码部分 | `inflateBack` 与 `inflate_back_sequence` 的解码子句（交给 `out` 的内容、`Decodes`） | 功能性。回调解码器的安全性在计划内（3b）。 |
+| 仅关于模型的命题 | `Api.Goal.inflate_rejects_invalid`，以及未登记的 `*_refines` 目标 | 它们说的是抽象模型，不是 C。前者还依赖八字节的检测延迟，而这个延迟已被反例否定。对非法输入的拒绝，是在 `inflate_sequence` 的格式部分中针对 C 陈述的（见下面“功能正确性”一行）。 |
+| 其他构建配置 | 默认 x86_64 Linux 构建之外的每一种配置 | 每一种配置都要针对不同的平台模型把整个证明重做一遍。结论由默认构建承载。 |
+| 为查询函数增加证明变异体 | 取值函数和常量查询 | 变异体用来防备证明的设置有误。对只有一行的查询函数，它们不会给计划内的结论增加任何东西。 |
+| 功能正确性（上面的往返除外） | `inflate_sequence` 的格式部分（`inflate` 的输出等于格式：`ParseMeaning` 及其流侧与解码侧）、`InflateCompletes` 背后的 `DecoderFacts` 格式事实，以及 `uncompress*` 的格式子句；其他压缩级别、策略、窗口大小和封装的往返，带预设字典的往返，经由 gzip 文件接口或 `inflateBack` 的往返 | 安全结论不需要它们。计划内的证明所依赖的功能性事实仍在范围内。已经证明的部分保留，并列为已检查；归档的骨架表把未完成的行标为不在计划内（[inflate](history/skeleton-inflate.md)、[deflate](history/skeleton-deflate.md)）。 |
 
-`Goal.gz_initialisation_domain` 不是必需的非空性目标（所有者 2026-11-14 批准）。它陈述的是 `gzopen` 的功能契约
-（`OpenState`、`GzReachable`），上表 gzip 一行已列为不在计划内。没有计划内的安全证明依赖它：`Goal.gz_sequence_safety`
-从打开调用开始每段历史，并沿历史证明 `GzInv`；在已登记的 gz 安全定理（`gz_sequence_safety_public`、
-`gz_sequence_nonvacuity_public`、`gz_refusal`）的导入闭包中，该目标只出现在它自己的定义里，`GzReachable` 从不作为前提。
-gz 安全目标的前提可以满足，由已登记的 `Goal.gz_sequence_nonvacuity` 给出。该陈述仍留在 `tests/audit/goals.txt` 中，
-作为未证明、不在计划内的目标。
+`Goal.gz_initialisation_domain` 不是必需的非空性目标。它陈述的是 `gzopen` 的功能契约（`OpenState`、`GzReachable`），上表第一行已把它列为不在计划内。没有计划内的安全证明依赖它：`Goal.gz_sequence_safety` 让每段历史从打开调用开始，并沿着历史证明 `GzInv`。在已登记的 gz 安全定理（`gz_sequence_safety_public`、`gz_sequence_nonvacuity_public`、`gz_refusal`）的导入闭包中，这个目标只出现在它自己的定义里，`GzReachable` 从不充当前提。gz 安全目标的前提可以被满足，这一点由已登记的 `Goal.gz_sequence_nonvacuity` 给出。这个命题仍留在 `tests/audit/goals.txt` 中，是一个未证明、不在计划内的目标。
 
-不在计划内的目标不作任何声明。报告中写"不在计划内"，绝不写"已证明"。
+对不在计划内的目标不作任何断言。报告里写“不在计划内”，决不写“已证明”。
+
+**所有者的决定。** 这张表是带日期的记录；其他页面只陈述结果，不写日期。
+
+| 日期 | 决定 |
+| --- | --- |
+| 2026-11-11 | 范围只限安全，以便更快完成。在此之前，`inflate` 的功能正确性是第 2 项结论。 |
+| 2026-11-12 | 回调解码器（3b）和 gzip 文件接口（3c）在计划内，只证安全。`gzvprintf` 从无文档函数一组移到 3c。补丁 0004 和 0005 可以先于上游提交落地。 |
+| 2026-11-14 | `Goal.gz_initialisation_domain` 不是必需目标。 |
+| 2026-11-15 | 默认 zlib 流的往返（含完备性）排在安全结论之后，在计划内。翻译的四种规范化写法得到认可（`AGENTS.md` 的 Translation 一节）。 |
 
 ## 目录
 
@@ -2111,174 +2142,72 @@ flowchart LR
 
 ## 剩余工作
 
-63 个必需目标已全部登记，验收套件在 `bde170e9` 上全部通过（见[范围](#scope)）。没有任何目标存在已记录的阻碍。剩下的工作见[按顺序的下一步工作](#ordered-next-work)。
+63 个必需目标都已登记；每项结论的层级和验收所在的提交见[范围](#scope)。没有任何目标存在记录在案的阻碍。剩下的工作列在[按顺序的下一步工作](#ordered-next-work)中。
 
-以下各节只保留当前事实和未完成项。已结束的工作记录原样保存在 `docs/history/` 下，其中的状态、工时和数字不是当前状态：
+以下各节只保留事实和未完成的事项。已经结束的工作记录原样保存在 `docs/history/` 下；其中的状态、工时和数字描述的是写作当时的情况：
 
-- 证明骨架：[inflate](history/skeleton-inflate.zh.md)、[deflate](history/skeleton-deflate.zh.md)、[gz](history/skeleton-gz.zh.md)、[inflateBack](history/skeleton-inflate-back.zh.md)。
-- [早先的工作顺序与准备情况说明](history/next-work-and-readiness.zh.md)。
-- [规格审查记录](history/specification-review.zh.md)。
-- [无故障覆盖：早先的未完成项](history/coverage-open-items.zh.md)。
-- [进度检查点](history/progress-checkpoints.zh.md)和[概览变更记录](history/overview-changelog.zh.md)：更早的叙述性记录。
+- 证明骨架：[inflate](history/skeleton-inflate.md)、[deflate](history/skeleton-deflate.md)、[gz](history/skeleton-gz.md)、[inflateBack](history/skeleton-inflate-back.md)。
+- [早先的工作顺序与准备情况说明](history/next-work-and-readiness.md)。
+- [规格审查记录](history/specification-review.md)。
+- [覆盖情况：审查记录](history/coverage-review-record.md)和[覆盖情况：早先的未完成事项](history/coverage-open-items.md)。
+- [进度检查点](history/progress-checkpoints.md)和[总览变更记录](history/overview-changelog.md)：更早的叙述性记录。
 
 ### 核心证明骨架
 
-所有骨架都已完成。它们对应的目标都已登记，所以必需目标需要的引理没有一条还未证明。引理表、途中所做的陈述修正和工作记录都归入历史。
+骨架是一项核心证明自顶向下的计划：用一组具名引理证明目标，引理本身的证明先在一个分支上空着。所有骨架都已完成。它们各自针对的目标都已登记，所以必需目标所需要的引理没有一条还空着。引理表、途中对命题所作的改正和工作记录都属于历史。
 
 | 骨架 | 它完成的目标（均已登记） | 分支 | 记录 |
 | --- | --- | --- | --- |
-| inflate | `Goal.inflate`、`Goal.inflate_sequence_safety`、`Goal.uncompress*_safe` | `skeleton/inflate` | [inflate 骨架](history/skeleton-inflate.zh.md) |
-| deflate | `Goal.deflateInit2_`、`Goal.deflate`、`Goal.deflate_sequence_safety`、`Goal.compress*_safety` | `skeleton/deflate` | [deflate 骨架](history/skeleton-deflate.zh.md) |
-| gz | `Goal.gz_sequence_safety`、`Goal.gz_sequence_nonvacuity`、`Goal.gz_refusal` | `skeleton/gz` | [gz 骨架](history/skeleton-gz.zh.md) |
-| inflateBack | `Goal.inflate_back_sequence_safety` | `skeleton/inflate-back` | [inflateBack 骨架](history/skeleton-inflate-back.zh.md) |
+| inflate | `Goal.inflate`、`Goal.inflate_sequence_safety`、`Goal.uncompress*_safe` | `skeleton/inflate` | [inflate 骨架](history/skeleton-inflate.md) |
+| deflate | `Goal.deflateInit2_`、`Goal.deflate`、`Goal.deflate_sequence_safety`、`Goal.compress*_safety` | `skeleton/deflate` | [deflate 骨架](history/skeleton-deflate.md) |
+| gz | `Goal.gz_sequence_safety`、`Goal.gz_sequence_nonvacuity`、`Goal.gz_refusal` | `skeleton/gz` | [gz 骨架](history/skeleton-gz.md) |
+| inflateBack | `Goal.inflate_back_sequence_safety` | `skeleton/inflate-back` | [inflateBack 骨架](history/skeleton-inflate-back.md) |
 
-归档的表格中仍有一些行标着“未完成”（open）。必需目标都不需要它们：
+归档的表格里仍有一些行写着“未完成”。必需目标都不需要它们：
 
-- 功能性的行（inflate 的格式含义、deflate 的账目、`completes`、`bound_before_output`）不在计划内（见[范围](#scope)）。
-- 清理类的行是可选的，是否已经做完没有确认：删除没有任何已登记定理使用的 inflate 快速路径证明和固定配置证明，合并 `deflate.c.quiet-*` 中重新陈述的副本。
-- gz 的辅助行：循环规则 `gwhile_partial` 和 `gdoWhile_partial`，以及内部读取辅助引理（`gz_load_safe` 到 `gz_skip_safe`）与骨架文本的对齐。目标是用 `dev` 上的辅助陈述证明的，这两者都不需要。
-- deflate 部分 2026-11-12 的“尚未完成的工作”表仍为策略导出、`step_params` 和 `deflate` 的 `HeaderInv` 引理列着工时。`Goal.deflate_sequence_safety` 登记时这张表没有更新。这些行中哪些已经证明、哪些不再需要，没有记录。
+- 功能性的行：inflate 的格式含义、deflate 的账本、`completes` 和 `bound_before_output`。哪些功能性工作在计划内，见[范围](#scope)。
+- 清理类的行，是可选的，是否已经做完没有确认：删除没有任何已登记定理使用的 inflate 快速路径证明和固定配置证明，合并 `deflate.c.quiet-*` 中重复陈述的副本。
+- gz 的辅助行：循环规则 `gwhile_partial` 和 `gdoWhile_partial`，以及内部读取辅助引理（`gz_load_safe` 到 `gz_skip_safe`）与骨架文本的对齐。目标是用 `dev` 上的辅助命题证明的，这两者都用不着。
+- 归档的 deflate 表“尚未完成的工作”为策略导出、`step_params` 和 `deflate` 的 `HeaderInv` 引理列着工时。`Goal.deflate_sequence_safety` 登记之后，这些行里哪些已经证明、哪些不再需要，归档里没有记录。
 
 ### zlib.h 函数的无故障覆盖
 
-zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出错的已检查定理，以及所走的路线：它自己的目标、序列目标（该调用是一个 `StreamOperation`）、`StreamSequenceSafety` 的 End 子句，或 open。各行最后一次核对的是 `dev` 的 `6a097d3b`（2026-11-14）。“已登记”指列入 `tests/audit/theorems.txt`。验收套件在其后的提交 `bde170e9` 上全部通过（见[范围](#scope)）。定理或目标变化时，需重新核对对应行。
+“`zlib.h` 中每个有文档的函数一行”的那张表，现在单独成页：[按函数查覆盖情况](coverage.md)。每行写明安全目标、类型就是该目标的已登记定理、证明文件、定义域，以及覆盖 `NULL` 流或不一致的流的定理。功能定理另占一列。
 
-每条流路线或工具函数路线共有的模型级前提，不在每行重复：默认分配器（`DefaultOrNull`/`DefAlloc`/`zfree = zcfree`；已声明的目标限制）、堆良构性（`Fresh`、`Uniq`、`LibraryGlobals`），以及对 inflate、工具函数和 inflateBack 而言的 `ByteObjectsFit`（`docs/deviations.md` 中的平台行）。
+每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。有四类事项尚未完成，或比 `zlib.h` 更窄：
 
-缩写：
-- **SeqI** = `Goal.inflate_sequence_safety`：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（`public-inflate-sequence-safety.lean`，已登记）。
-- **SeqD** = `Goal.deflate_sequence_safety`：`Zlib.Deflate.Universal.deflate_sequence_safety`（`public-deflate-goals.lean`，已登记）。
-- 两者都只覆盖 `p = some r` 且 `StreamReachable r`（以及 `StreamArguments`）的情形。两者都不覆盖 NULL 流或不一致的流（zalloc/zfree 为 NULL、state 为 NULL，或检查拒绝的 state）。zlib.h 把这些情形文档化为 `Z_STREAM_ERROR` 拒绝，`docs/spec/safety.md` 的 A1 把文档化的空指针拒绝保留在范围内。“refusal”一列说明是否有定理覆盖该情形。
+1. **单函数安全目标。** gz 函数以及 `inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 的单函数安全目标还没有陈述。它们的安全性由 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety` 证明。
+2. **拒绝子句。** `inflatePrime`、`inflateMark`、`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader` 的安全目标覆盖的是可达的流上的调用。对 `NULL` 流或不一致的流的拒绝，是在同一函数的功能目标中证明的，还不是安全目标的子句。
+3. **比 `zlib.h` 更窄的定义域**，每一条在[偏离记录](deviations.md)中都有对应的行：`inflateBack`（`inputBound < 2^48`；窗口和每一块输入都在堆字节块中；`inflateBackInit_` 之前 `state == NULL`）；`inflateCopy` 与 `deflateCopy`（`source ≠ dest`）；`adler32` 与 `adler32_z`（只有 `len = 0` 时 `buf` 才可以是 `NULL`：`len = 1` 是 C 中真实的故障，`buf` 为 `NULL` 且 `len ≥ 2` 在 C 中安全，但没有证明）。
+4. **作为值传递的结果单元。** 有八个公开函数的翻译把一个标量输出参数当作值接收，并把写入的值作为另一个结果返回：`compress`、`compress2` 及其 `_z` 形式的 `destLen`；`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`；`deflatePending` 的 `pending` 和 `bits`；`deflateUsed` 的 `bits`。因此这些函数的安全目标对结果单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。工作规则只对内部函数的输出参数采纳这种表示。这些翻译是否改为像 `uncompress*` 和 `gzerror` 那样把单元当作内存，所有者尚未决定。
 
-#### 流：deflate
-
-| 函数 | 路线 | 定理（Lean 名称，文件） | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| deflateInit_（宏 deflateInit） | 自身目标 | `ZlibF.Spec.Public.Proofs.DeflateInit.deflateInit_proof`，`public-deflate-init.lean` | 是 | 完整：错误版本（`VersionValue`，NULL 或可读的首字节）、错误的 `stream_size`（任意 `p`）、NULL strm、每个 level、分配失败。 |
-| deflateInit2_（宏 deflateInit2） | 自身目标 | `ZlibF.Spec.Public.Proofs.DeflateInit2.deflateInit2_proof`，`public-deflate-init2.lean` | 是 | 完整，同 deflateInit_，另加每个 method/windowBits/memLevel/strategy。`Goal.deflate_initialisation_domain`（非空性）已登记（`DeflateInitDomain.deflate_initialisation_domain_public`）。 |
-| deflate | 自身目标 + SeqD | `Zlib.Deflate.Universal.deflate_safety`，`public-deflate-goals.lean` | 是 | 可达 + `DGood` + `StreamBuffers` + `ActiveHeader`（分离行）。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| deflateEnd | 自身目标 + SeqD 的 End 子句 | `ZlibF.Spec.Public.DeflateEndProof.deflate_end_public`，`public-deflate-end.lean`；SeqD 的第 3 子句 | 是 | 自身目标需要 `DGood`。Refusal：`Zlib.Deflate.Proofs.deflateEnd_reject`（`deflate.c.life.end.lean`，已登记）覆盖 NULL、zalloc/zfree 为 NULL、state 为 NULL，以及被拒绝的活动 state。因此已覆盖：从未初始化（模型指针为 NULL）、NULL、state 为 NULL，以及复制失败之后。它不是类型为目标的定理。 |
-| deflateSetDictionary | 安全目标 + SeqD | `Goal.deflateSetDictionary_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateSetDictionary`（不在计划内）：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| deflateGetDictionary | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateDictionaryProof.deflate_getdict_public`，`public-deflate-getdict.lean` | 是 | 自身目标需要 `DGood`，且目标缓冲区与窗口分离。Refusal：`Zlib.Deflate.Proofs.deflateGetDictionary_reject`（`deflate.c.life.getdict.lean`）已登记。 |
-| deflateCopy | 自身目标 | `Zlib.Deflate.Universal.deflate_copy_public` / `deflate_copy_safety`，`public-deflate-copy.lean` | 是 | 不是 `StreamOperation`；`StreamReachable.deflateCopy` 只为 SeqD 的第 1 子句提供输入。缺口：`source ≠ dest`（偏差行）。不一致的源由 `Goal.deflate_refusal`（checked）覆盖。 |
-| deflateReset | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateResetProof.deflate_reset_public`，`public-deflate-reset.lean` | 是 | Refusal：`Zlib.Deflate.Proofs.deflateReset_reject`（已登记）。 |
-| deflateParams | 安全目标 + SeqD | `Goal.deflateParams_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateParams`（不在计划内）：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| deflateTune | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.tune_public`，`public-deflate-small-queries.lean` | 是 | 完整（`CheckedDeflate` 包含各 refusal）。 |
-| deflateBound | 安全目标 + SeqD | `Goal.deflateBound_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateBound`（不在计划内）：无定理。SeqD 需要 `ActiveHeader ∧ DeflateHeaderLive`。Refusal：`deflateBound_nostate`（已登记）。 |
-| deflateBound_z | 安全目标 + SeqD | `Goal.deflateBound_z_safety`（已登记）；SeqD | 是 | 同 deflateBound（`deflateBound_z_nostate`，已登记）。 |
-| deflatePending | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.pending_public` | 是 | 完整。 |
-| deflateUsed | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.used_public` | 是 | 完整。 |
-| deflatePrime | 安全目标 + SeqD | `Goal.deflatePrime_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflatePrime`（不在计划内）：无定理。SeqD 需要 `DeflateNotStarted`，这是 zlib.h 自己的次序规则。Refusal：`deflatePrime_refused`（已登记）。 |
-| deflateSetHeader | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.header_public` | 是 | 完整。SeqD 需要 `DeflateNotStarted`（zlib.h 的次序）。 |
-
-#### 流：inflate
-
-| 函数 | 路线 | 定理（Lean 名称，文件） | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| inflateInit_（宏 inflateInit） | 自身目标 | `ZlibF.Spec.Public.Proofs.InflateInit.init15_public`，`public-inflate-init.lean` | 是 | 完整：错误版本或大小、NULL strm、分配失败。 |
-| inflateInit2_（宏 inflateInit2） | 自身目标 | `ZlibF.Spec.Public.Proofs.InflateInit.inflate_init2_public`，`public-inflate-init2.lean` | 是 | 完整，每个 `windowBits`。 |
-| inflate | 自身目标 + SeqI | `Zlib.Inflate.Proofs.inflate_public`，`public-inflate.lean` | 是 | 可达 + `Good` + `ByteObjectsFit` + `StreamBuffers` + `ActiveHeader`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateEnd | 自身目标 + SeqI 的 End 子句 | `ZlibF.Spec.Public.InflateEndProof.inflate_end_public`，`public-inflate-end.lean`；SeqI 的第 3 子句 | 是 | 自身目标需要 `Good`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateSetDictionary | 自身目标 + SeqI | `ZlibF.Spec.Public.Proofs.inflateSetDictionary_public`，`public-inflate-setdict.lean` | 是 | 自身目标需要 `Good`、`zalloc = zcalloc`，以及与窗口分离的字典（偏差行）。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateGetDictionary | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateDictionaryProof.inflate_getdict_public` | 是 | 自身目标需要 `Good`，且目标缓冲区与窗口分离。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateSync | 安全目标 + SeqI | `Goal.inflateSync_safety`（已登记）；SeqI | 是 | 自身的功能目标 `Goal.inflateSync`（不在计划内）：无定理。Refusal：`inflateSync_check`（已登记）。 |
-| inflateCopy | 自身目标 | `Zlib.Inflate.Proofs.inflate_copy_public`，`public-inflate-copy.lean` | 是 | 不是 `StreamOperation`。缺口：`source ≠ dest`（偏差行）。不一致的源由 `Goal.inflate_refusal`（checked）覆盖。 |
-| inflateReset | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateResetProof.reset_public` | 是 | 自身目标需要 `InflateView`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateReset2 | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateReset2Proof.reset2_public` | 是 | 每个 `windowBits`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflatePrime | 自身目标 + SeqI | `ZlibF.Spec.Public.InflatePrimeProof.prime_public` | 是 | 完整（`CheckedInflate`）。接受分支需要 `s.bits ≤ 39`，这是不变量的一个事实。 |
-| inflateMark | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateMarkProof.mark_public` | 是 | 完整。 |
-| inflateGetHeader | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateHeaderProof.getheader_public` | 是 | 在 `InflateView` 上完整。支持 gzip 的流需要 `head ≠ NULL`：C 会解引用它，而 zlib.h 不提供 NULL。SeqI 还需要 `p ≠ none`。Refusal：`inflateGetHeader_check`（已登记）。 |
-
-#### 回调解码器
-
-这三个函数还没有各自的安全目标：它们的安全由序列目标承担（见[按顺序的下一步工作](#ordered-next-work)）。
-
-| 函数 | 路线 | 定理（Lean 名称，文件） | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| inflateBackInit_（宏 inflateBackInit） | 自身目标 | `ZlibF.Spec.Public.InflateBackInitProof.back_init_public`，`public-infback-init.lean` | 是 | 完整：错误版本或大小、NULL strm、NULL 窗口、错误的 `windowBits`、分配失败。成功分支需要一个可写的 `2^wb` 字节窗口（zlib.h 自己的规则）。 |
-| inflateBack | 序列（`Goal.inflate_back_sequence_safety`） | `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`（已检查，c7169b54） | 是 | 已登记，带 `inflateBack`、`inflateBackInit_` 与 `inflateBackEnd` 的十一个结构性证明变异（`tests/proof-mutants/infback-sequence.tsv`），每个都被杀死，并被目标定理的内核重放拒绝。自身的 `Goal.inflateBack`（功能性）不在计划内。NULL strm 和 state 为 NULL 已覆盖（`inflateBack_nullstream`、`inflateBack_nostate`，已登记）。该目标还有收窄：`inputBound < 2^48`，窗口是堆字节块的一个切片，每个输入块都位于堆字节块内（偏差行）。 |
-| inflateBackEnd | 自身目标 | `ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean` | 是 | 完整：NULL、state 为 NULL 或 zfree 为 NULL，以及 `BackValid`。inflateBack 序列目标的第 4 子句在 `inflate_back_sequence_safety` 中得到证明（`back_end_blk`）。 |
-
-#### 校验和
-
-| 函数 | 路线 | 定理 | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| adler32 | 自身目标 | `ZlibF.Spec.Public.AdlerUpdateProof.adler_public`，`public-adler-update.lean` | 是 | **更窄**：NULL `buf` 只在 `len = 0` 时允许（`AdlerBufferBytes`，偏差行）。`len = 1` 时 C 会读 `buf[0]`，这是真实的错误（上游 PR #1364 已关闭，并宣布了 zlib.h 的限制）。`len ≥ 2` 的 NULL 在 C 中安全，但未证明。 |
-| adler32_z | 自身目标 | `...AdlerUpdateProof.adler_z_public` | 是 | 同 adler32。 |
-| adler32_combine / _combine64 | 自身目标 | `...AdlerCombineProof.combine_public` / `combine64_public` | 是 | 完整。 |
-| crc32 / crc32_z | 自身目标 | `ZlibF.Spec.Public.Proofs.crc32` / `crc32_z`，`public-crc-updates.lean` | 是 | 完整（`BufferBytes` 包含任意长度的 NULL）。`CrcGlobals` 是模型静态数据的前提。 |
-| crc32_combine / _combine64 | 自身目标 | `...CrcCombineProof.combine` / `combine64` | 是 | 完整。 |
-| crc32_combine_gen / _gen64 | 自身目标 | `...CrcCombineProof.gen` / `gen64` | 是 | 完整。 |
-| crc32_combine_op | 自身目标 | `...CrcCombineProof.op` | 是 | `op` 必须来自 `crc32_combine_gen`（与 zlib.h 一致）。 |
-| get_crc_table | 自身目标 | `ZlibF.Spec.Public.Proofs.get_crc_table` | 是 | zlib.h 中未文档化（不是必需的）。 |
-
-#### 工具函数
-
-| 函数 | 路线 | 定理 | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| compress / compress_z / compress2 / compress2_z | 安全目标 `Goal.compress*_safety` | `ZlibF.Spec.Public.Proofs.Compress.compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`，`public-compress-safe-mid.lean` | 是 | 源与目标缓冲区分离（偏差行）。长度单元建模为 `Option` 标量，所以长度单元与数据别名在模型之外（偏差行）。每个 level。功能性的 `Goal.compress*`（不在计划内）没有定理。 |
-| uncompress / uncompress_z / uncompress2 / uncompress2_z | 安全目标 `Goal.uncompress*_safe` | `ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe` 等，`public-uncompress-safe.lean` | 是 | `UtilitySeparation`：数据单元与长度单元两两分离（偏差行）。功能性的 `Goal.uncompress*`（不在计划内）没有定理。 |
-| compressBound / compressBound_z | 自身目标 | `ZlibF.Spec.Public.Proofs.compressBound` / `compressBound_z` | 是 | 完整。 |
-| zlibVersion | 自身目标 | `ZlibF.Spec.Public.Proofs.zlibVersion` | 是 | 完整。 |
-| zlibCompileFlags | 自身目标 | `ZlibF.Spec.Public.Proofs.zlibCompileFlags` | 是 | 完整。 |
-| zError | 自身目标 | `ZlibF.Spec.Public.Proofs.zError` | 是 | 未文档化（不是必需的）。 |
-
-#### Gzip 文件接口
-
-gz 函数还没有各自的安全目标：它们的安全由序列目标承担（见[按顺序的下一步工作](#ordered-next-work)）。
-
-`Goal.gz_sequence_safety`（`ZlibF/Spec/Public/GzSafety.lean`）是 gzip 接口的安全目标。它已登记在 `goals.txt`
-和 `safety_goals` 中，已无前提地检查（`gz_sequence_safety_public`，`public-gz-sequence-safety.lean`），并已登记在 `theorems.txt` 中，带每组 gz 函数以及补丁 0002 到 0005 每个补丁块的证明变异（`gz-sequence.tsv`、`gz-read.tsv`、`docs/checking/proof-mutants.md`）。它的非空性目标 `Goal.gz_sequence_nonvacuity`（`gz_sequence_nonvacuity_public`）也已登记。`gz_sequence_safety_of (L : GzReadLeaves)`（`gz.sequence-safety.lean`）从六个读取叶子证明它，六个都已证明。
-其他调用都直接证明：打开、关闭、写入和查询。`gzread_step` 与 `gzfread_step` 随读取侧的 `gz.read-assembly` 关闭。
-`gzgetc_step`、`gzungetc_step`、`gzgets_step` 与 `gzdirect_step` 属于 batch C。目标的定义域是单个句柄的每条历史（`GzHistory`）在每个 OS 世界中（`GzWorldStep`）。
-一次对抗性审读（2026-11-14）未发现错误的子句，发现三个缺口：`gzgetc` 宏的内联路径、`NULL` 句柄，以及一条未列出的 fd 规则（见下表）。三个都已关闭：宏步骤在目标中（A1），`NULL` 句柄有 `Goal.gz_refusal`（A2），fd 规则已从目标中删除（B1）。
-
-| 函数 | 途径 | 定理 | 已登记？ | 定义域缺口或说明 |
-| --- | --- | --- | --- | --- |
-| gzopen、gzopen64 | 打开叶子 | `gzopen_safe`（`gz.inv-open-fresh`）、`gzopen64_safe` | 经由 `gz_sequence_safety_public` | 每个路径、模式与世界。 |
-| gzdopen | 打开叶子 + 自身目标 | `gzdopen_safe`（`gz.inv-open`）；`gzdopen_complete`（`Goal.gzdopen`） | 是（自身目标） | 每个 `fd`。 |
-| gzbuffer、gzeof、gzerror、gzclearerr、gztell、gztell64、gzoffset、gzoffset64、gzrewind、gzseek、gzseek64 | 序列叶子 | `gzbuffer_step`、`gzeof_step`、`gzerror_step`、`gzclearerr_step`、`gztell*_step`、`gzoffset*_step`、`gzrewind_step`、`gzseek*_step`（`gz.inv-*`） | 经由 `gz_sequence_safety_public` | gzbuffer、gzeof、gzerror、gzclearerr、gzoffset 与 gzrewind 的自身功能目标另行登记。 |
-| gzwrite、gzfwrite、gzputc、gzputs、gzprintf、gzvprintf、gzflush、gzsetparams | 序列叶子 | `gzwrite.c.safety`（`gzwrite_step` …） | 经由 `gz_sequence_safety_public` | `gzprintf`/`gzvprintf`：`GzArguments` 在每次调用时都要求可表示的格式，读取者也不例外（审读 B3）。 |
-| gzclose、gzclose_w、gzclose_r | 关闭叶子 | `gzclose_step`、`gzclose_w_step`、`gzclose_r_step_safe` | 经由 `gz_sequence_safety_public` | |
-| gzread、gzfread | 读取叶子 | `GzRead.gzread_step`、`GzRead.gzfread_step`（`gz.read-assembly`） | 经由 `gz_sequence_safety_public` | |
-| gzgetc、gzgetc_、gzungetc、gzgets、gzdirect | 读取叶子 | `GzRead.gzgetc_step`、`GzRead.gzungetc_step`（`gz.read-getc-step`）、`GzRead.gzgets_step`、`GzRead.gzdirect_step` | 经由 `gz_sequence_safety_public` | |
-| zlib.h 的 `gzgetc()` 宏 | 历史步骤 + 目标合取项 | `GzMacro.gzgetc_macro_safe`（`zlib.h.gzgetc-macro`） | 经由 `gz_sequence_safety_public` | 已关闭（审读 A1；在证明变异 `macro-have-guard-dropped` 存活后于 3c5292f7 更正）：每一次宏调用都是 `GzHistory.getcMacro`；有缓冲输出时是内联路径，`x.have = 0` 时是对函数的调用，经由 `gzgetc_step` 在 `ReadsFinite` 下覆盖。差分测试：`tests/gen/gz.py` 的操作 `getcm`（也在 `x.have = 0` 时：刚打开之后、写入句柄上、空文件上）。 |
-| `NULL` 句柄上的所有 gz 函数 | 自身安全目标 | `ZlibF.Spec.Public.GzRefusalProof.gz_refusal`（`Goal.gz_refusal`，`public-gz-refusal.lean`） | 是，带证明变异（`gz-refusal.tsv`） | 已关闭（审读 A2）：29 个函数中的每一个都返回其文档化的值，堆和世界不变。C 测试 `tests/goals/gz-refusal`：204 次调用，无违例。`gzgetc` 宏用于 `NULL` 在 C 中是未定义行为；目标陈述的是函数。 |
-| 同一 fd 上的第二个句柄 | 世界步骤 | `GzHistory.world` | 否 | 已覆盖（审读 B1，已更正）：`GzWorldStep` 是任意良构的世界，另一方可以关闭或重用句柄的 fd（[回归](../tests/verification/regressions/gz-world-closes-fd.lean)）。 |
-
-#### 误计与未完成项
-
-zlib.h 文档化的每个函数都有已登记的无故障定理，定义域如各行所述。尚未完成或定义域较窄之处：
-
-1. **逐函数的安全目标**：gz 函数以及 `inflateBackInit_`、`inflateBack`、`inflateBackEnd` 的逐函数安全目标尚未陈述。它们的安全由 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety` 承担。
-2. **比 zlib.h 更窄的定义域**，每一项在[偏差](deviations.zh.md)中都有一行：`inflateBack`（`inputBound < 2^48`；窗口和每个输入块都位于堆字节块内）；`inflateCopy` 和 `deflateCopy`（`source ≠ dest`）；`adler32` 和 `adler32_z`（`buf` 为 NULL 时只允许 `len = 0`：`len = 1` 在 C 中确实出错，`len ≥ 2` 时 NULL 在 C 中是安全的，但尚未证明）。
-3. **自身的功能目标**：`deflateParams`、`deflateSetDictionary`、`deflatePrime`、`deflateBound`、`deflateBound_z` 和 `inflateSync` 的功能目标没有定理，也不在计划内。它们的安全目标已登记。
-
-早先的编号列表（包括此后已关闭的各项）见[无故障覆盖：早先的未完成项](history/coverage-open-items.zh.md)。
+`deflateParams`、`deflateSetDictionary`、`deflatePrime`、`deflateBound`、`deflateBound_z` 和 `inflateSync` 的功能目标没有定理，也不在计划内。它们的安全目标已登记。
 
 ### 按顺序的下一步工作
 
-每个必需目标都已登记：63 个安全目标和非空性目标，没有未完成的（`tests/audit/public-api.json`）。验收套件在 `bde170e9` 上全部通过（见[范围](#scope)）。剩下的工作按顺序如下：
+每个必需目标都已登记：63 个安全目标和非空性目标，没有未完成的（`tests/audit/public-api.json`）。验收套件在哪个提交上全部通过、此后有什么变化，见[范围](#scope)。剩下的工作按顺序是：
 
-1. **逐函数的安全目标**：gzip 文件接口的 31 个函数，以及 `inflateBackInit_`、`inflateBack` 和 `inflateBackEnd`。每个目标就一个函数重述已登记的序列定理（`gz_sequence_safety`、`inflate_back_sequence_safety`）。未完成：它们还不在 `dev` 上。在此之前，清单把序列目标记为这些函数各自的安全目标。
-2. **第 1 项的验收**：登记到 `tests/audit/theorems.txt`，补充证明变异体，并让验收套件在一个指名的提交上全部通过。
-3. **把本地补丁提交上游**：0004 和 0005（见[补丁](../patches/README.md)）。补丁 0001 至 0003 与已提交上游的拉取请求一致。
-4. **尚未结束的审查**：[翻译审查](#translation-review)和[边界情况复核](#historical-reports-to-recheck)。
-5. **可选的清理**：删除没有任何已登记定理使用的证明（见[核心证明骨架](#core-proof-skeletons)）。
+1. **单函数安全目标**：gzip 文件接口的 31 个函数，以及 `inflateBackInit_`、`inflateBack` 和 `inflateBackEnd`。每个目标就一个函数重述已登记的序列定理（`gz_sequence_safety`、`inflate_back_sequence_safety`）。它们不在 `dev` 上。清单把序列目标写成这些函数各自的安全目标。
+2. **拒绝子句**：给[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 2 条所列六个流函数的安全目标加上拒绝子句。
+3. **验收**第 1、2 项以及放宽后的 init 目标：登记到 `tests/audit/theorems.txt`，补上证明变异体，并让验收套件在某个具名提交上全部通过。放宽后的 init 目标已经登记，只差这次运行。
+4. **默认 zlib 流的往返**，排在安全结论之后（[范围](#scope)）。
+5. **把本地补丁提交上游**：0004 和 0005（[补丁](../patches/README.md)）。补丁 0001 至 0003 与已经提交上游的拉取请求一致。
+6. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对八个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 4 条）。
+7. **可选的清理**：删除没有任何已登记定理使用的证明（[核心证明骨架](#core-proof-skeletons)）。
 
-不在计划内：功能目标，以及[范围](#scope)列出的其他分组。早先的有序工作表（13 行，现在每一行不是已登记就是不在计划内）见[早先的工作顺序](history/next-work-and-readiness.zh.md)。
+[范围](#scope)列为不在计划内的各组不投入工作。早先的有序工作表（13 行，每一行不是已登记就是不在计划内）见[早先的工作顺序](history/next-work-and-readiness.md)。
 
 ### 公开 API 的证明准备情况
 
-生成的索引把每个未登记的公开目标链接到下表中的一行。生成器要读取这张表，所以表中的标签和锚点保持不变。表中的每个目标都是功能目标：尚未证明，也不在计划内（见[范围](#scope)）。同一批函数的安全性已经登记（见[无故障覆盖](#no-fault-coverage-of-zlibh-functions)）。
+生成的索引把每个未登记的公开目标链接到下表中的一行。生成器要读这张表，所以表中的标签和锚点保持不变。表中的每个目标都是功能目标：未证明，也不在计划内（见[范围](#scope)）。同一批函数的安全性已经登记（[按函数查覆盖情况](coverage.md)）。
 
-表中的说明写的是证明功能目标需要什么。大多数写于 2026-11-11 的范围决定之前，每一条与确切目标的对应都还没有核实。它们不是工作计划。任何一行都不授予“已检查”状态，也不假设被调用函数的规格。
+表中的说明写的是：证明这个功能目标需要什么。其中大多数写于功能正确性还是计划内结论的时候，每一条与确切目标是否相符都**尚未由证明确认**。它们不是工作计划。任何一行都不授予“已检查”状态，也不假设被调用函数的规格。
 
-本节早先的内容已归入历史：已停止的位置形式散列链工作（见 [deflate 骨架](history/skeleton-deflate.zh.md)）、inflateBack 的引理表（见 [inflateBack 骨架](history/skeleton-inflate-back.zh.md)），以及打开、查询与关闭操作的前提和此后已登记目标的各行（见[准备情况说明](history/next-work-and-readiness.zh.md)）。
+本节早先的内容已归入历史：已经停止的、按位置表述的哈希链工作（[deflate 骨架](history/skeleton-deflate.md)）、inflateBack 的引理表（[inflateBack 骨架](history/skeleton-inflate-back.md)），以及打开、查询与关闭操作的前置事项和后来已登记目标的各行（[准备情况说明](history/next-work-and-readiness.md)）。
 
 #### 每个未完成公开目标的下一步
 
-“开始”表示无需等待完整引擎定理就能开展的工作。“组合”列出完整收束目标所需的前提。
+“开始”表示不必等待完整的引擎定理就能着手的工作。“组合”指出彻底完成目标所需的前置事项。
 
 <!-- proof-readiness:start -->
 | 公开目标 | 图中所示证明工作 | 下一步与缺少的前提 |
@@ -2288,52 +2217,62 @@ zlib.h 文档化的每个函数都有已登记的无故障定理，定义域如�
 | `gzclose_r` | 需要：资源归属 | <a id="readiness-gzclose-r"></a> **开始：**已初始化缓冲区的清理，以及从调用序列建立其所有权的证明。未缓冲执行及框架性质已有本地检查；仅有 `inflateEnd` 还不够。 |
 | `gzclose_w`, `gzclose` | 需要：交付与清理 | <a id="readiness-gzclose-w"></a> **组合：**实际补零、最终压缩和文件写入，全部清理与错误路径，再利用两个完整的关闭结果证明分派操作。 |
 | `gzseek64`, `gzseek` | 需要：定位与状态序列 | <a id="readiness-gzseek64"></a> **开始：**位置与指针的状态序列不变量、缓冲和透明模式路径，以及精确的错误框架性质。负位置的可达性与溢出复核复核尚未完成。 |
-| `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` | 需要：读取路径证明 | <a id="readiness-gzdirect"></a> **开始：**公共延迟准备、透明模式读取，以及缓冲区与状态序列不变量。**组合：**压缩路径中的实际解码执行，再建立 EOF、计数、字节回退和错误条款。`gzdirect` 需要格式探测与初始化，不需要完整的数据解码循环。 |
+| `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` | 需要：读取路径证明 | <a id="readiness-gzdirect"></a> **开始：**公共延迟准备、透明模式读取，以及缓冲区与状态序列不变量。**组合：**压缩路径中的实际解码执行，再建立 EOF、计数、字节回退和错误子句。`gzdirect` 需要格式探测与初始化，不需要完整的数据解码循环。 |
 | `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams` | 需要：写入路径证明 | <a id="readiness-gzwrite"></a> **开始：**缓冲、格式化、透明模式写入及失败情况。**组合：**压缩输出与参数变更中的实际压缩器执行。 |
 | `deflatePrime` | 开始：压紧与位操作 | <a id="readiness-deflateprime"></a> **开始：**待输出字节的压紧、带检查的移位、位插入与交付，以及不变量和框架性质的保持。拒绝分支已有本地检查；接受的位数范围仍未完成。 |
-| `deflateBound_z`, `deflateBound` | 开始：上界与头部审查 | <a id="readiness-deflatebound-z"></a> **开始：**把现有执行公式连接到具有饱和语义的数学上界，包括头部字符串与额外字段长度。额外长度复核复核尚未完成，并不是新确认的阻碍。 |
+| `deflateBound_z`, `deflateBound` | 开始：上界与头部审查 | <a id="readiness-deflatebound-z"></a> **开始：**把现有执行公式连接到具有饱和语义的数学上界，包括头部字符串与额外字段长度。额外长度的报告已在固定版本的 C 上复现：`extra_len` 为 `2^32 - 2` 或 `2^32 - 1` 时，C 按 32 位计算 `2 + extra_len` 并发生回绕，而数值目标照现在的写法没有回绕（[发现](findings/deflatebound-extra-len/README.md)）。开始证明之前，这两个目标的命题需要先改正。 |
 | `deflateSetDictionary` | 开始：窗口与哈希 | <a id="readiness-deflatesetdictionary"></a> **开始：**填充窗口、插入哈希链、恢复保存的输入，再处理校验和以及精确的状态和框架效果。绿色校验和调用只覆盖其中的校验和部分。 |
 | `deflateParams` | 需要：块交付与参数状态 | <a id="readiness-deflateparams"></a> **组合：**实际交付旧块、处理返回码，并更新规范的调参表行。在完整收束之前，检查拒绝路径精确保持了哪些状态。 |
 | `inflateSync` | 需要：扫描与状态序列 | <a id="readiness-inflatesync"></a> **开始：**组合现有的首次扫描与恢复扫描、暂存位、标记搜索、重置，以及记账和框架结果。从调用序列推出窗口与重置前提。 |
 | `compress2_z`, `compress2`, `compress_z`, `compress` | 需要：压缩器执行 | <a id="readiness-compress2-z"></a> **开始：**参数、标量长度和清理。**组合：**实际初始化、压缩和结束操作及精确输出，再处理外层封装。抽象的往返性质还不够。 |
 | `uncompress2_z`, `uncompress2`, `uncompress_z`, `uncompress` | 需要：解码器执行 | <a id="readiness-uncompress2-z"></a> **开始：**标量结果、空间不足和清理。**组合：**实际初始化、解压和结束操作、精确消费量与输出，再处理外层封装。 |
-| `inflate_sequence`, `deflate_sequence`, `inflate_back_sequence`, `gz_sequence` | 需要：执行与格式 | <a id="readiness-inflate-sequence"></a> **组合：**每次实际调用的安全性、状态序列保持、向独立格式模型的精化，以及跨输入输出分块的完成性质。 |
+| `inflate_sequence`, `deflate_sequence`, `inflate_back_sequence`, `gz_sequence` | 需要：执行与格式 | <a id="readiness-inflate-sequence"></a> **组合：**每次实际调用的安全性、状态序列保持、向独立格式模型的细化，以及跨输入输出分块的完成性质。 |
 | `inflateBack` | 需要：表、窗口与回调 | <a id="readiness-inflateback"></a> **组合：**压缩块的 TABLE/LEN 执行、窗口内部的输出、公开回调所有权、循环终止和精确的输入输出记账。现有 stored 块和入口路径仍可独立推进。 |
 <!-- proof-readiness:end -->
 
 ### 规格审查
 
-本节的六条记录都已结束，保存在[规格审查记录](history/specification-review.zh.md)中：gzip 定位模式、inflate 初始化清理、解压工具函数的清理、gzip 打开路径长度、带本地修复的 gzip 库发现，以及 OS 调用预言下的 gzip 偏移与回绕。gzip 发现 F-1 和 W7 现已写入 `README.md`；补丁见[补丁说明](../patches/README.md)。
+本节的六条记录都已结束，保存在[规格审查记录](history/specification-review.md)中：gzip 定位模式、inflate 初始化的清理、解压实用函数的清理、gzip 打开路径的长度、带本地修复的 gzip 库问题，以及系统调用预言下的 gzip 偏移与倒回。两个 gz 位置溢出问题写在根目录的 `README.md` 中；补丁见[补丁说明](../patches/README.md)。
 
-尚未解决，但不在计划内，因为它们是只涉及模型的陈述（见[范围](#scope)）：
+未完成，并且不在计划内，因为它们是仅关于模型的命题（见[范围](#scope)）：
 
-- `Api.Goal.inflate_rejects_invalid` 依赖 `detectLag = 8`。已检查的反例表明这个常数是错的（见 [API 模型](design/api-model.md)）。
-- `Api.Goal.gz_seek_read` 已修正，并已[在本地检查](../ZlibF/Proof/Api/GzSeekRead.lean)，但没有登记。
+- `Api.Goal.inflate_rejects_invalid` 依赖 `detectLag = 8`。一个经过检查的反例表明这个常数是错的（[API 模型](design/api-model.md)）。
+- `Api.Goal.gz_seek_read` 已经改正，并已[在本地检查](../ZlibF/Proof/Api/GzSeekRead.lean)。它没有登记。
 
-沿用早先文字、是否已经完成没有确认的两件事：对修正后的共享关系 `Uncompress2` 做独立审查，以及补全较早的抽象 gz 模型和字典模型。具体的公开目标不假设这些模型中被调用函数的契约。
+本节早先的文字里有两件事，是否已经做完没有确认：对改正后的共用关系 `Uncompress2` 的独立审查，以及补全较早的抽象 gz 模型和字典模型。具体的公开目标不假设这些模型中被调用函数的契约。
 
 ### 翻译审查
 
-审查所选构建采用的 C 语言版本和实现扩展。尤其需要确认可达的“空指针加零”和“空指针减空指针”操作是否具有定义。当前模型允许其中一些操作，而 `Ptr.diff` 的源码注释错误地把空指针相减归于 C23。[对照表](spec/safety.md#null-pointers-and-pointer-differences)记录了实际定义和语言依据。这次文档修改不会改变运行时，也不能证明存在可达的上游缺陷。
+对照 C 审查翻译的工作还没有做完。未完成的事项：
 
-在已修正压缩器自动存储的基础上，继续逐语句审查。压缩器的窗口滑动现在按源码顺序检查有符号减法。[内部状态回归](../tests/regression/deflate-slide/README.md)比较三个有定义的边界情形，并在 C 和 Lean 中都拒绝一个人为构造的溢出。恢复不受检查的减法，只会改变溢出情形的观察结果。这里没有声称该人为状态实际可达；仍须从合法调用序列推出有符号运算的边界。
-
-树合并中针对所选深度的源码级重新读取已经恢复，并有[六例回归](../tests/regression/trees-depth-read/README.md)和必需的结构检查；该检查会拒绝先前缓存表达式的写法。仍须证明内部深度读取之前的初始化时序。审查标量与指针的别名，以及压缩器指针相减时空指针减空指针的特殊情况；该项审查未完成。
+- **空指针算术。** 所选构建依赖哪个 C 语言版本和哪些实现扩展，可达的“空指针加零”和“空指针减空指针”操作是否有定义，都还没有确立。模型允许其中一些操作，而源码中 `Ptr.diff` 的注释把空指针相减归到 C23 名下，这并不准确。[对照表](spec/safety.md#null-pointers-and-pointer-differences)记录了实际的定义和语言依据。这里并不断言存在可达的上游缺陷。
+- **逐条语句的审查。** 压缩器的自动存储已经审查并改正。其余部分的审查有待继续。
+- **压缩器的窗口滑动。** 滑动按源码的顺序检查有符号减法。它的[内部状态回归](../tests/regression/deflate-slide/README.md)比较三个有定义的边界情形，并在 C 和 Lean 中都拒绝一个人为构造的溢出。恢复不带检查的减法，只会改变溢出情形下观察到的结果。这里不断言那个人为构造的状态是可达的；有符号运算的界还没有从合法的调用历史中推出来。
+- **树合并中对深度的重新读取。** 翻译像源码那样重新读取选中的深度，配有[六例回归](../tests/regression/trees-depth-read/README.md)和一项必需的结构检查，后者会拒绝缓存表达式的写法。内部深度读取之前的初始化先后关系还没有证明。
+- **标量与指针的别名，以及空指针减空指针的特殊情形**（在压缩器的指针相减中）**尚未由证明确认**。
 
 ### 观察记录
 
-**`write` 返回 0 时 `gz_comp` 会空转。** 在 `gz_comp` 的两个写循环中（`gzwrite.c`：透明写循环 `while (strm->avail_in)` 和写出循环 `while (strm->next_out > state->x.next)`），对非空缓冲区返回 0 的 `write` 不推进任何东西，也不算错误，所以循环重复同一调用。如果系统一直返回 0，C 永远不返回。这是对代码的阅读；没有运行过永远返回 0 的 `write`。目前不知道 Linux 会对普通文件、管道或套接字的非零计数返回 0（其他文件类型尚未核实），所以 gz 安全证明假设它不会发生（可信基础，“gz 操作系统事实”）。gz 安全研究的故障注入测试平台检查了另一面：当 `write` 对 10% 的非空调用返回 0 时（40 条历史，ASan 和 UBSan），每条历史都结束，没有报告也没有泄漏，因为每个循环最终都会得到正数结果。这是库的行为，不是安全发现；只有在已知某个平台会返回 0 时才值得向上游说明。范围：`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams`、`gzclose_w`。
+**`write` 返回 0 时 `gz_comp` 会空转。** 在 `gz_comp` 的两个写循环中（`gzwrite.c`：透明模式的循环 `while (strm->avail_in)` 和写出循环 `while (strm->next_out > state->x.next)`），对非空缓冲区返回 0 的 `write` 不推进任何东西，也不算错误，所以循环重复同一次调用。如果系统一直返回 0，C 就永远不返回。这是对代码的解读；没有实际运行过永远返回 0 的 `write`。目前不知道 Linux 会对普通文件、管道或套接字上的非零计数返回 0（其他文件类型**尚未由证明确认**），所以 gz 安全证明假设它不会发生（[偏离记录](deviations.md#gzip-file-interface)，“Gz 操作系统事实”一行）。gz 安全研究的故障注入测试平台检查了另一面：让 `write` 对 10% 的非空调用返回 0（40 段历史，ASan 和 UBSan），每段历史都正常结束，没有报告，也没有泄漏，因为每个循环最终都会得到一个正的结果。这是库的行为，不是安全问题；只有在已知某个平台会返回 0 时，才值得向上游说明。范围：`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams`、`gzclose_w`。
 
-**`gzerror` 返回的字符串会被下一次到达 `gz_error` 的调用释放。**
-未确认的发现，是文档缺口，不是代码缺陷。zlib.h 只说以后对 `gzerror` 的调用可能使返回的字符串失效。实际上 `gzerror` 返回 `state->msg`，而每个到达 `gz_error` 的调用都会释放它：`gzprintf`、`gzvprintf`、`gzputs`、`gzwrite`、`gzread` 等在使用参数之前先用 `gz_error(state, Z_OK, NULL)` 重置错误。把这个字符串交回同一句柄的调用者会遇到释放后使用：写入停滞之后的 `gzprintf(f, "%s", gzerror(f, &e))` 在 `vsnprintf` 中读取已释放的内存（[复现](../tests/regression/gzprintf-error-string/README.md)，ASan）。没有补丁。已证明的定义域让调用者的字符串和缓冲区与句柄的块分开（`GzRange`，以及 `gzprintf`/`gzvprintf` 的 `GzArguments` 中的分离子句，[偏差](deviations.zh.md)）。
+**`gzerror` 返回的字符串会被下一次到达 `gz_error` 的调用释放。** 这是一条未确认的发现，属于文档缺口，不是代码缺陷。`zlib.h` 只说之后对 `gzerror` 的调用可能使返回的字符串失效。实际上 `gzerror` 返回的是 `state->msg`，而每个到达 `gz_error` 的调用都会释放它：`gzprintf`、`gzvprintf`、`gzputs`、`gzwrite`、`gzread` 等在使用参数之前，先用 `gz_error(state, Z_OK, NULL)` 重置错误。调用者把这个字符串再传回同一个句柄，就会遇到释放后使用：写入停滞之后的 `gzprintf(f, "%s", gzerror(f, &e))` 在 `vsnprintf` 中读取已释放的内存（[复现](../tests/regression/gzprintf-error-string/README.md)，ASan）。没有补丁。已证明的定义域让调用者的字符串和缓冲区与句柄的块分开（`GzRange`，以及 `GzArguments` 中针对 `gzprintf` 和 `gzvprintf` 的分离子句；[偏离记录](deviations.md)）。
 
-### 边界情况复核
+**`deflateBound` 在两种情形下偏小。** 两者都是 `zlib.h` 关于大小的承诺没有兑现，不是内存错误，并且都在固定版本的 C 上复现了。`Z_FIXED` 策略、压缩级别 1 到 3、`windowBits` 为 15 且 `memLevel` 为 8 时，给出 `deflateBound` 字节的空间，一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`（[问题记录](findings/deflatebound-fixed-far-matches/README.md)）。gzip extra 字段长度为 `2^32 - 2` 或 `2^32 - 1` 时，`2 + extra_len` 这个和在 32 位上回绕（[问题记录](findings/deflatebound-extra-len/README.md)）。必需的安全目标都不依赖这个上界的数值。有两处功能命题依赖它，问题记录说它们在这些情形下按现在的写法是假的：对每种策略量化的 `DeflateCompletes`，以及关于数值的目标 `Goal.deflateBound` 和 `Goal.deflateBound_z`（它们未证明）。默认策略不受影响，所以计划中的默认流往返不受影响。这些功能命题怎样改正，还没有决定。
 
-对照当前固定版本，复查 gzip 额外长度算术、部分读取后的恢复、负位置定位、参数变更丢失、结束失败后的恢复，以及 EOF 之后的向前定位。带条件的定位故障引理，不能证明状态可达；须从实际调用序列建立有符号位置与借用指针条件。
+### 待复查的历史报告
 
-`inflateBack` 边界情况针对回调 API 的复核尚未完成；还需要该接口自身的复现，普通 inflate 的内存检查示例不足以完成这一步。[早期证明笔记](history/proof-earlier-notes.md)保留了其中两份报告的原文：`inflateBack` 缺少 `whave` 的报告（“Callback decoder: the migrated domain table”一节），以及 `gzsetparams`“参数变更丢失”的实验（见[该节](history/proof-earlier-notes.md#gzsetparams-experiment)）。在声称完整 gzip 所有权，或任意有限回调都会终止之前，还须审查外部字符串分配器和固定循环执行额度。怀疑存在缺陷，不等于可以把某种公开调用情形排除在外。
+早先的工作报告过六个事项。其中三个已经对照固定版本的源码重新检查，现在是带复现的发现：
 
-[发现记录](findings.md)保存证据和置信度；当前补丁见 [patches/README.md](../patches/README.md)。没有应用一揽子未定义行为补丁。
+- gzip extra 字段长度的算术：[extra 字段很长时的 `deflateBound`](findings/deflatebound-extra-len/README.md)；
+- 部分读取之后的恢复：[`gzread` 从过时的 `x.next` 复制](findings/gzread-transparent-stale-next/README.md)，补丁 0003；
+- 负位置的定位：[开头的 `gzungetc` 之后调用 `gzseek`](findings/gzseek-pushback-overflow/README.md)，补丁 0002。
 
-[架构指南](design/architecture.md#design-decisions)记录设计决策 D1–D6。[安全规格](spec/safety.md#uninitialised-memory)定义新分配内存的证明义务。
+另外三个还没有对照固定版本的源码重新检查（[发现，早期的库观察](findings.md#earlier-library-observations)）：
 
+- 参数变更的丢失；
+- 结束失败之后的恢复；
+- EOF 之后的向前定位。
+
+带条件的定位故障引理证明不了可达性：有符号位置的条件和借用指针的条件，还没有从实际的调用历史中推出来。`inflateBack` 的历史报告对该回调 API 而言仍未确认；普通 inflate 的 sanitizer 示例不能定论。[早先的证明笔记](history/proof-earlier-notes.md)保留了其中两份报告的原文：`inflateBack` 缺少 `whave` 的报告（`Callback decoder: the migrated domain table` 一节），以及 `gzsetparams`“参数变更丢失”的实验（[该节](history/proof-earlier-notes.md#gzsetparams-experiment)）。外部字符串的分配器和固定的循环燃料还没有审查到这样的程度：足以断言完整的 gzip 所有权，或断言任意有限的回调都会终止。怀疑存在缺陷，并不是把某种公开情形排除在外的许可。[发现](findings.md)保存证据和置信度；补丁见 [patches/README.md](../patches/README.md)。没有应用笼统的未定义行为补丁。
+
+[架构指南](design/architecture.md#design-decisions)记录了设计决策 D1–D6。[安全性规格](spec/safety.md#uninitialised-memory)定义了新分配内存带来的证明义务。

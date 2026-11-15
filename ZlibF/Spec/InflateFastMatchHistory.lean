@@ -40,7 +40,7 @@ def Goal.actual_copy_match_refines_lz77 : Prop :=
   ∀ (e : Env) (c : Ctx) (bytes : Array UInt8) (msg : BPtr) (mode : UInt32)
     (l : L) (o : Nat),
     CtxOK e c →
-    l.out = .ref (.blk e.ob) o → e.bg ≤ o →
+    l.out = .ref e.ob o → e.bg ≤ o →
     l.op.toNat = o - e.bg →
     1 ≤ l.dist.toNat → 3 ≤ l.len.toNat →
     o + l.len.toNat ≤ bytes.size → l.broke = false →
@@ -57,7 +57,7 @@ def Goal.actual_copy_match_refines_lz77 : Prop :=
         C.run (copyMatch c l) (e.heap bytes msg mode) = .ok (l', after) ∧
         l'.in_ = l.in_ ∧ l'.hold = l.hold ∧ l'.bits = l.bits ∧
         l'.againL = l.againL ∧ l'.againD = l.againD ∧
-        l'.broke = false ∧ l'.out = .ref (.blk e.ob) (o + l.len.toNat) ∧
+        l'.broke = false ∧ l'.out = .ref e.ob (o + l.len.toNat) ∧
         let result := matchArr e.s0.wsize.toNat e.s0.wnext.toNat e.woff e.W e.bg o
           l.dist.toNat l.len.toNat bytes
         after = e.heap result msg mode ∧

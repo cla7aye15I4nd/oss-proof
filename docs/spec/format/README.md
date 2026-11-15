@@ -42,6 +42,11 @@ Bits occupy each byte from the least significant position upward. Ordinary numer
 including extra-bit values, put their least significant bit first. Huffman codes put their
 most significant code bit first in that same sequence of byte positions.
 
+For example, an ordinary three-bit field with the value 6 (binary `110`) is sent as the bits
+0, 1, 1: least significant bit first. A Huffman code whose bits are `110` is sent as 1, 1, 0:
+first code bit first. Both fill the bit positions of a byte in the same order; only the way
+the value is read back differs.
+
 `F-bit-order`: a decoder appends bytes at the high end of its bit buffer and consumes bits
 from the low end. To recover the numeric canonical value of an `l`-bit Huffman code, reverse
 the next `l` low buffer bits. This reversal applies to Huffman codes, not ordinary fields.
@@ -74,7 +79,8 @@ A code description gives one length per symbol. Length zero means unused. For th
 literal/length and distance alphabets, nonzero lengths are at most 15. A canonical code is
 determined by these lengths and symbol order; its bit patterns need not be transmitted.
 
-Let `count[l]` count symbols of length `l`. The first code at each length is:
+Let `count[l]` be the number of symbols of length `l`, and `code_start[l]` the value given to
+the first symbol of length `l`:
 
 ```text
 code_start[1] = 0
@@ -82,10 +88,14 @@ code_start[l] = (code_start[l - 1] + count[l - 1]) * 2    for l >= 2
 ```
 
 At a fixed length `l`, assign consecutive values beginning at `code_start[l]` in increasing
-symbol order. Write each value in exactly `l` bits.
+symbol order. Write each value in exactly `l` bits. For example, the lengths 1, 2, 2 for
+symbols 0, 1, 2 give `code_start[1] = 0` and `code_start[2] = (0 + 1) * 2 = 2`, so the codes
+are `0`, `10` and `11`.
 
 `F-code-fits`: `code_start[l] + count[l] ≤ 2^l` for every `l` from 1 to 15. Equivalently,
-the sum of `2^(-length)` over used symbols is at most 1. Exceeding it is over-subscription.
+the sum of `2^(-length)` over used symbols is at most 1: a code of length `l` takes the
+fraction `2^(-l)` of the code space. The lengths 1, 2, 2 take 1/2, 1/4 and 1/4, which fills
+it exactly. Exceeding 1 is over-subscription.
 
 `F-code-complete`: a code is complete when that sum equals 1, and incomplete when it is less.
 zlib's table builder applies the following acceptance rules:
@@ -300,8 +310,10 @@ dictionary must return exactly the input. This is a round-trip requirement over 
 stream, including the wrapper and checksum.
 
 `F-deflate-matches`: emitted matches have lengths 3–258 and distances 1 through
-`w_size - 262`, where `w_size` is the compressor window size. The distance bound is a zlib
-algorithm choice, stronger than the format's maximum of 32768.
+`w_size - 262`, where `w_size` is the compressor window size in bytes. The 262 is
+`MIN_LOOKAHEAD` (`MAX_MATCH + MIN_MATCH + 1` in `deflate.h`), the lookahead the compressor
+wants to have available; with a 32768-byte window the largest distance is 32506. The distance
+bound is a zlib algorithm choice, stronger than the format's maximum of 32768.
 
 `F-deflate-flush`: completing `Z_SYNC_FLUSH` or `Z_FULL_FLUSH` emits a sequence of complete
 blocks ending in an empty stored block. A decoder can then produce all input supplied up to

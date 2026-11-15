@@ -1,51 +1,57 @@
-<!-- source-sha256: dee8df589f94fbc5a02823810963e91ab267e7bc9ca6ca1a0031e76ae7c6ac31 -->
+<!-- source-sha256: daec8b538d3c44533183a89d69187d9c43894ff7eea16481f505d3abf56e7ac5 -->
 
-# 已接受的平台假设
+# 平台假设：对象大小
 
-范围是默认 x86_64 Linux/LP64 静态构建，使用默认分配器。
-本页陈述目标所取的唯一环境前提：没有哪个字节对象达到或超过 `2^63` 字节。
-操作系统、编译器和硬件的性质不在证明之内；[可信基础](../trusted-base.md)列出了它们。
+目标对系统只取一条前提：**没有哪个字节对象达到或超过 `2^63` 字节。**
+这是目标平台（默认 x86_64 Linux LP64 构建）的事实：在这个平台上，没有分配器会返回大于 `PTRDIFF_MAX` 的对象。
+它不需要调用者去检查。本页陈述这条前提，说明为什么需要它，并列出带有它的目标。
 
-## 字节对象大小
+操作系统、编译器和硬件的性质没有被证明；它们列在[可信基础](../trusted-base.md)中。
 
-每个被表示的字节对象都少于 `2^63` 字节。该上界作为系统环境的一部分被接受。它就是 LP64 的 `PTRDIFF_MAX` 对象大小限制：没有分配器返回更大的对象。
-它覆盖调用者提供的存储、原始字节块、静态数组和嵌入的字节数组视图。
+## 前提
 
-用 `h` 表示执行前的堆，`ref` 表示一个字节对象的引用，`a` 表示该引用对应的字节数组。`Space.get h ref` 查询这个对象，`a.size` 给出它的字节数。精确谓词是 [PlatformMemory.lean](../../ZlibF/Spec/PlatformMemory.lean) 中的
+模型中每个字节对象都少于 `2^63` 字节：调用者提供的缓冲区、库分配的块、静态数组，以及内嵌在记录里的字节数组。
+
+Lean 谓词是 [PlatformMemory.lean](../../ZlibF/Spec/PlatformMemory.lean) 中的
 `ZlibF.PlatformMemory.ByteObjectsFit`：
 
 ```text
-对每个被表示的字节引用 ref 及其数组 a：
+对每个字节对象引用 ref 及其数组 a：
     若 Space.get h ref = some a，则 a.size < 2^63
 ```
 
-它分别约束每个对象，不约束所有分配的总大小，也不约束重复调用累计处理的长度。
-默认、常见和全部支持的[输入范围](input-configurations.md)共享这一假设；
-它不是额外的颜色，也不是压缩参数。
-
-## 目标在哪里使用它
-
-每个需要这一前提的安全目标都把它明确写出。它写在调用开始时的堆上，也写在调用者每次交还的堆上。
-
-| 目标 | 前提所在位置 |
+| 这条前提说了什么 | 这条前提没有说什么 |
 | --- | --- |
-| 对流的一次调用（`Goal.<function>_safety`、`Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety`） | `StreamCallDomain` 以及 `StreamSequenceSafety` 的第 2 条：写在这次调用的堆上。inflate 的历史（`StreamReachable .inflate`）在每次调用时和每次调用者编辑之后也带着它。deflate 的历史不带。 |
-| `compress*`、`uncompress*` | `CompressorSafety`、`UncompressCountedSafe` 和 `UncompressSingleSafe` 的前提。 |
-| gzip 文件接口 | `GzHistory`：写在每次打开时的堆上，以及每次调用者编辑之后。`GzOpenSafe` 和 `GzDopenSafe` 也取这一前提。 |
-| 回调解码器 | `BackSafeReachable` 和 `Goal.inflate_back_sequence_safety`：写在每次 `inflateBack` 调用的堆上。`BackPlatform` 要求回调保持它。 |
-| 校验和、查询、初始化、结束、复制、拒绝 | 不需要，也没有写。 |
+| 每个单独的对象都少于 `2^63` 字节。 | 它不涉及所有分配的总和，也不涉及一个流在多次调用中处理的总长度。 |
+| | 它不说明指针合法、已初始化或没有越界。那些是另外的[安全义务](safety.md#the-obligations)。 |
 
-这一上界使同一对象内两个有效偏移量的差处于有符号 64 位范围。
-快速解码器的入口证明从中推导对象大小方面的事实。
+**为什么需要它。** 指向同一个对象的两个指针之差是 `ptrdiff_t`，一个有符号 64 位整数。
+在达到或超过 `2^63` 字节的对象里，这个差可能溢出，而这是未定义行为。有了这条前提，每个这样的差都放得下。
+快速解码器（`inflate_fast`）的入口证明就是从它推出各自的大小事实的。
 
-库自己的分配保持这一前提：运行时分配器拒绝超过 `PTRDIFF_MAX` 的请求，所以新块满足上界
+**哪里不必假设它就成立。** 模型的分配器拒绝 `2^63` 字节及以上的请求，所以库分配的每个块都满足它
 （`ByteObjectsFit.allocB`，[Proof/PlatformMemory.lean](../../ZlibF/Proof/PlatformMemory.lean)）。
-对调用者的存储和任意的堆，它是假设，不是推导出来的。[偏差](../deviations.md)的“平台字节对象范围”一行记录了它。
+对调用者的内存，以及历史起点的堆，这条前提是假设的。
+[偏离记录](../deviations.md)中有“平台字节对象范围”一行。
 
-没有写出这一前提的目标，不需要它就成立。本页不向任何陈述添加假设。
+## 哪些目标带有它
 
-## 其他指针义务
+需要这条前提的目标会明确写出它：写在调用开始时的堆上，以及调用者每次交回的堆上。
+没有写出它的目标，不靠它也成立。
 
-大小上界不能证明指针仍然存活、已初始化、与另一个指针属于同一对象，或偏移有效。
-这些是独立的[安全性义务](safety.md)。运行时关于空指针算术的选择仍记录在
-[模型比较](safety.md#null-pointers-and-pointer-differences)和[可信基础](../trusted-base.md)中。
+| 目标 | 前提出现在哪里 |
+| --- | --- |
+| 对流的一次调用：`Goal.<function>_safety`、`Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` | 在这次调用的堆上（`StreamCallDomain`，以及 `StreamSequenceSafety` 的子句 2）。 |
+| inflate 历史（`StreamReachable .inflate`） | 还出现在历史中此前的每次调用上，以及调用者每次修改之后。 |
+| deflate 历史（`StreamReachable .deflate`） | 不出现在此前的堆上。不论此前的堆是否满足这个上界，deflate 流都可达。所以 deflate 目标覆盖的历史更多；它们并不因此更弱。 |
+| `compress*`、`uncompress*` | `CompressorSafety`、`UncompressCountedSafe` 和 `UncompressSingleSafe` 的一条前提。 |
+| gzip 文件接口 | 在每次打开时的堆上，以及调用者每次修改之后（`GzHistory`；`GzOpenSafe` 和 `GzDopenSafe` 也带有它）。 |
+| 回调解码器 | 在每次 `inflateBack` 调用的堆上（`BackSafeReachable`、`Goal.inflate_back_sequence_safety`）。回调必须保持它（`BackPlatform`）。 |
+| 校验和、`zlibVersion`、`zlibCompileFlags`、初始化、End、复制、拒绝 | 没有写出：这些目标不靠它也成立。`inflateEnd` 和 `inflateCopy` 从 inflate 历史出发，而 inflate 历史如第二行所说带有它。 |
+
+这条前提对每个[输入范围](input-configurations.md)都相同。它不是压缩参数。
+
+## 这条前提不涵盖什么
+
+模型对 NULL 指针算术的处理是另一条限制，说明见
+[安全性，空指针与指针差](safety.md#null-pointers-and-pointer-differences)和[可信基础](../trusted-base.md)。

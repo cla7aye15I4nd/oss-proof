@@ -9,13 +9,13 @@ variable {e : Env} {c : Ctx}
 /- The original execution proof is strengthened with the actual branch test.
 The bit/input frame and both original postconditions are preserved. -/
 private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32) (l : L) (o : Nat)
-    (hout : l.out = .ref (BRef.blk e.ob) o) (hbg : e.bg ≤ o) (hop : l.op.toNat = o - e.bg)
+    (hout : l.out = .ref e.ob o) (hbg : e.bg ≤ o) (hop : l.op.toNat = o - e.bg)
     (hdist : 1 ≤ l.dist.toNat) (hlen : 3 ≤ l.len.toNat) (hroom : o + l.len.toNat ≤ A.size)
     (hbroke : l.broke = false) :
     Wp (copyMatch c l) (e.heap A msg m) (fun l' h' =>
       l'.in_ = l.in_ ∧ l'.hold = l.hold ∧ l'.bits = l.bits ∧ l'.againL = l.againL ∧ l'.againD = l.againD ∧
       l'.broke = decide (c.whave.toNat + (o - e.bg) < l.dist.toNat) ∧
-      ((l'.broke = false ∧ l'.out = .ref (BRef.blk e.ob) (o + l.len.toNat) ∧
+      ((l'.broke = false ∧ l'.out = .ref e.ob (o + l.len.toNat) ∧
           h' = e.heap (matchArr e.s0.wsize.toNat e.s0.wnext.toNat e.woff e.W e.bg o l.dist.toNat l.len.toNat A) msg m) ∨
        (l'.broke = true ∧ ∃ p, h' = e.heap A p BAD ∧ l'.out = l.out))) := by
   have hoA : o ≤ A.size := by omega
@@ -53,10 +53,9 @@ private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : 
         omega
       obtain ⟨hwptr, hwb, hWb, hWsz⟩ := e.hwin hwne
       have hwptr' : c.window = Ptr.ref (BRef.blk e.wb) e.woff := by rw [hc.window]; exact hwptr
-      have hsrc : Src e e.wb (fun _ => e.W) := Src.win e e.wb e.W hwb hWb
+      have hsrc : Src e (BRef.blk e.wb) (fun _ => e.W) := Src.win e (BRef.blk e.wb) e.W hwb hWb
       have hWg : Space.get (e.heap A msg m) (BRef.blk e.wb) = some e.W := by
-        show (e.heap A msg m).bytes e.wb = some e.W
-        rw [e.heap_bytes_ne A msg m hwb]; exact hWb
+        rw [e.heap_get_ne A msg m hwb]; exact hWb
       have hwsz : c.wsize.toNat = e.s0.wsize.toNat := by rw [hc.wsize]
       have hwnx : c.wnext.toNat = e.s0.wnext.toNat := by rw [hc.wnext]
       by_cases hn0 : c.wnext = 0
@@ -75,20 +74,20 @@ private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : 
         · simp only [hlt, ite_true]
           have hlt' : op1.toNat < l.len.toNat := UInt32.lt_iff_toNat_lt.mp hlt
           have hlen1 : (l.len - op1).toNat = l.len.toNat - op1.toNat := u32_toNat_sub (by omega)
-          refine Wp.bindE (copyOp_win e e.W msg m e.wb hwb hWb A
+          refine Wp.bindE (copyOp_win e e.W msg m (BRef.blk e.wb) hwb hWb A
             { l with op := op1, len := l.len - op1, from_ := Ptr.ref (BRef.blk e.wb) (e.woff + (c.wsize.toNat - (l.dist.toNat - (o - e.bg)))) }
             op1.toNat (e.woff + (c.wsize.toNat - (l.dist.toNat - (o - e.bg)))) o rfl (by omega) rfl hout
             (by omega) (by omega)) ?_
           dsimp only
           generalize hA1 : blitN e.W op1.toNat (e.woff + (c.wsize.toNat - (l.dist.toNat - (o - e.bg)))) o A = A1
           have hA1sz : A1.size = A.size := by rw [← hA1]; exact blitN_size _ _ _ _ _
-          have hsub2 : OkOn (e.heap A1 msg m) (subn (Ptr.ref (BRef.blk e.ob) (o + op1.toNat)) l.dist)
-              (Ptr.ref (BRef.blk e.ob) (o + op1.toNat - l.dist.toNat)) :=
-            subn_ok (r := BRef.blk e.ob) (a := A1) (e.heap_bytes_ob A1 msg m) (by omega) (by omega)
+          have hsub2 : OkOn (e.heap A1 msg m) (subn (Ptr.ref e.ob (o + op1.toNat)) l.dist)
+              (Ptr.ref e.ob (o + op1.toNat - l.dist.toNat)) :=
+            subn_ok (r := e.ob) (a := A1) (e.heap_bytes_ob A1 msg m) (by omega) (by omega)
           refine Wp.bindO hsub2 ?_
           refine Wp.of_eq (a := _) (h' := _) (tailW_run (Src.out e) A1 msg m
-            { l with out := Ptr.ref (BRef.blk e.ob) (o + op1.toNat), op := 0, len := l.len - op1,
-                     from_ := Ptr.ref (BRef.blk e.ob) (o + op1.toNat - l.dist.toNat) }
+            { l with out := Ptr.ref e.ob (o + op1.toNat), op := 0, len := l.len - op1,
+                     from_ := Ptr.ref e.ob (o + op1.toNat - l.dist.toNat) }
             (l.len - op1).toNat (o + op1.toNat - l.dist.toNat) (o + op1.toNat) rfl rfl rfl (by simp; omega)
             (by omega)) ?_
           refine ⟨rfl, rfl, rfl, rfl, rfl, (by simp only [hbroke]; have hn : ¬ (c.whave.toNat + (o - e.bg) < l.dist.toNat) := (by omega); simp [hn]), Or.inl ⟨hbroke, ?_, ?_⟩⟩
@@ -155,7 +154,7 @@ private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : 
           · simp only [hlt, ite_true]
             have hlt' : op2.toNat < l.len.toNat := UInt32.lt_iff_toNat_lt.mp hlt
             have hlen1 : (l.len - op2).toNat = l.len.toNat - op2.toNat := u32_toNat_sub (by omega)
-            refine Wp.bindE (copyOp_win e e.W msg m e.wb hwb hWb A
+            refine Wp.bindE (copyOp_win e e.W msg m (BRef.blk e.wb) hwb hWb A
               { l with op := op2, len := l.len - op2, from_ := Ptr.ref (BRef.blk e.wb) (e.woff + (c.wsize.toNat + c.wnext.toNat - (l.dist.toNat - (o - e.bg)))) }
               op2.toNat (e.woff + (c.wsize.toNat + c.wnext.toNat - (l.dist.toNat - (o - e.bg)))) o rfl (by omega) rfl hout
               (by omega) (by omega)) ?_
@@ -167,21 +166,21 @@ private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : 
               have hwl2' : c.wnext.toNat < (l.len - op2).toNat := UInt32.lt_iff_toNat_lt.mp hwl2
               have hlen2 : (l.len - op2 - c.wnext).toNat = l.len.toNat - op2.toNat - c.wnext.toNat := by
                 rw [u32_toNat_sub (by omega), hlen1]
-              refine Wp.bindE (copyOp_win e e.W msg m e.wb hwb hWb A1
-                { l with out := Ptr.ref (BRef.blk e.ob) (o + op2.toNat), op := c.wnext, len := l.len - op2 - c.wnext,
+              refine Wp.bindE (copyOp_win e e.W msg m (BRef.blk e.wb) hwb hWb A1
+                { l with out := Ptr.ref e.ob (o + op2.toNat), op := c.wnext, len := l.len - op2 - c.wnext,
                          from_ := c.window }
                 c.wnext.toNat e.woff (o + op2.toNat) rfl hn0n hwptr' rfl (by omega) (by omega)) ?_
               dsimp only
               generalize hA2 : blitN e.W c.wnext.toNat e.woff (o + op2.toNat) A1 = A2
               have hA2sz : A2.size = A.size := by rw [← hA2]; rw [blitN_size]; exact hA1sz
-              have hsub2 : OkOn (e.heap A2 msg m) (subn (Ptr.ref (BRef.blk e.ob) (o + op2.toNat + c.wnext.toNat)) l.dist)
-                  (Ptr.ref (BRef.blk e.ob) (o + op2.toNat + c.wnext.toNat - l.dist.toNat)) :=
-                subn_ok (r := BRef.blk e.ob) (a := A2) (e.heap_bytes_ob A2 msg m) (by omega) (by omega)
+              have hsub2 : OkOn (e.heap A2 msg m) (subn (Ptr.ref e.ob (o + op2.toNat + c.wnext.toNat)) l.dist)
+                  (Ptr.ref e.ob (o + op2.toNat + c.wnext.toNat - l.dist.toNat)) :=
+                subn_ok (r := e.ob) (a := A2) (e.heap_bytes_ob A2 msg m) (by omega) (by omega)
               refine Wp.bindO hsub2 ?_
               refine Wp.of_eq (a := _) (h' := _) (tailW_run (Src.out e) A2 msg m
-                { l with out := Ptr.ref (BRef.blk e.ob) (o + op2.toNat + c.wnext.toNat), op := 0,
+                { l with out := Ptr.ref e.ob (o + op2.toNat + c.wnext.toNat), op := 0,
                          len := l.len - op2 - c.wnext,
-                         from_ := Ptr.ref (BRef.blk e.ob) (o + op2.toNat + c.wnext.toNat - l.dist.toNat) }
+                         from_ := Ptr.ref e.ob (o + op2.toNat + c.wnext.toNat - l.dist.toNat) }
                 (l.len - op2 - c.wnext).toNat (o + op2.toNat + c.wnext.toNat - l.dist.toNat)
                 (o + op2.toNat + c.wnext.toNat) rfl rfl rfl (by simp; omega) (by omega)) ?_
               refine ⟨rfl, rfl, rfl, rfl, rfl, (by simp only [hbroke]; have hn : ¬ (c.whave.toNat + (o - e.bg) < l.dist.toNat) := (by omega); simp [hn]), Or.inl ⟨hbroke, ?_, ?_⟩⟩
@@ -205,7 +204,7 @@ private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : 
                 have h2 : ¬ (c.wnext.toNat < (l.len - op2).toNat) := fun h => h1 (UInt32.lt_iff_toNat_lt.mpr h)
                 omega
               refine Wp.of_eq (a := _) (h' := _) (tailW_run hsrc A1 msg m
-                { l with out := Ptr.ref (BRef.blk e.ob) (o + op2.toNat), op := 0, len := l.len - op2, from_ := c.window }
+                { l with out := Ptr.ref e.ob (o + op2.toNat), op := 0, len := l.len - op2, from_ := c.window }
                 (l.len - op2).toNat e.woff (o + op2.toNat) rfl hwptr' rfl (by show _ ≤ e.W.size; omega) (by omega)) ?_
               refine ⟨rfl, rfl, rfl, rfl, rfl, (by simp only [hbroke]; have hn : ¬ (c.whave.toNat + (o - e.bg) < l.dist.toNat) := (by omega); simp [hn]), Or.inl ⟨hbroke, ?_, ?_⟩⟩
               · simp only [hlen1]; rw [show o + op2.toNat + (l.len.toNat - op2.toNat) = o + l.len.toNat by omega]
@@ -257,20 +256,20 @@ private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : 
           · simp only [hlt, ite_true]
             have hlt' : op1.toNat < l.len.toNat := UInt32.lt_iff_toNat_lt.mp hlt
             have hlen1 : (l.len - op1).toNat = l.len.toNat - op1.toNat := u32_toNat_sub (by omega)
-            refine Wp.bindE (copyOp_win e e.W msg m e.wb hwb hWb A
+            refine Wp.bindE (copyOp_win e e.W msg m (BRef.blk e.wb) hwb hWb A
               { l with op := op1, len := l.len - op1, from_ := Ptr.ref (BRef.blk e.wb) (e.woff + (c.wnext.toNat - (l.dist.toNat - (o - e.bg)))) }
               op1.toNat (e.woff + (c.wnext.toNat - (l.dist.toNat - (o - e.bg)))) o rfl (by omega) rfl hout
               (by omega) (by omega)) ?_
             dsimp only
             generalize hA1 : blitN e.W op1.toNat (e.woff + (c.wnext.toNat - (l.dist.toNat - (o - e.bg)))) o A = A1
             have hA1sz : A1.size = A.size := by rw [← hA1]; exact blitN_size _ _ _ _ _
-            have hsub2 : OkOn (e.heap A1 msg m) (subn (Ptr.ref (BRef.blk e.ob) (o + op1.toNat)) l.dist)
-                (Ptr.ref (BRef.blk e.ob) (o + op1.toNat - l.dist.toNat)) :=
-              subn_ok (r := BRef.blk e.ob) (a := A1) (e.heap_bytes_ob A1 msg m) (by omega) (by omega)
+            have hsub2 : OkOn (e.heap A1 msg m) (subn (Ptr.ref e.ob (o + op1.toNat)) l.dist)
+                (Ptr.ref e.ob (o + op1.toNat - l.dist.toNat)) :=
+              subn_ok (r := e.ob) (a := A1) (e.heap_bytes_ob A1 msg m) (by omega) (by omega)
             refine Wp.bindO hsub2 ?_
             refine Wp.of_eq (a := _) (h' := _) (tailW_run (Src.out e) A1 msg m
-              { l with out := Ptr.ref (BRef.blk e.ob) (o + op1.toNat), op := 0, len := l.len - op1,
-                       from_ := Ptr.ref (BRef.blk e.ob) (o + op1.toNat - l.dist.toNat) }
+              { l with out := Ptr.ref e.ob (o + op1.toNat), op := 0, len := l.len - op1,
+                       from_ := Ptr.ref e.ob (o + op1.toNat - l.dist.toNat) }
               (l.len - op1).toNat (o + op1.toNat - l.dist.toNat) (o + op1.toNat) rfl rfl rfl (by simp; omega)
               (by omega)) ?_
             refine ⟨rfl, rfl, rfl, rfl, rfl, (by simp only [hbroke]; have hn : ¬ (c.whave.toNat + (o - e.bg) < l.dist.toNat) := (by omega); simp [hn]), Or.inl ⟨hbroke, ?_, ?_⟩⟩
@@ -312,11 +311,11 @@ private theorem copy_match_branch_run (hc : CtxOK e c) (A : Array UInt8) (msg : 
       have h1 : ¬ (l.op < l.dist) := hd
       have h2 : ¬ (l.op.toNat < l.dist.toNat) := fun h => h1 (UInt32.lt_iff_toNat_lt.mpr h)
       omega
-    have hsub : OkOn (e.heap A msg m) (subn l.out l.dist) (Ptr.ref (BRef.blk e.ob) (o - l.dist.toNat)) := by
-      rw [hout]; exact subn_ok (r := BRef.blk e.ob) (a := A) (e.heap_bytes_ob A msg m) (by omega) hoA
+    have hsub : OkOn (e.heap A msg m) (subn l.out l.dist) (Ptr.ref e.ob (o - l.dist.toNat)) := by
+      rw [hout]; exact subn_ok (r := e.ob) (a := A) (e.heap_bytes_ob A msg m) (by omega) hoA
     refine Wp.bindO hsub ?_
     refine Wp.of_eq (a := _) (h' := _) (tailD_run (Src.out e) A msg m
-      { l with from_ := Ptr.ref (BRef.blk e.ob) (o - l.dist.toNat) } l.len.toNat (o - l.dist.toNat) o rfl hlen rfl hout
+      { l with from_ := Ptr.ref e.ob (o - l.dist.toNat) } l.len.toNat (o - l.dist.toNat) o rfl hlen rfl hout
       (by simp; omega) (by omega)) ?_
     have hmb : ¬ (o - e.bg < l.dist.toNat) := by omega
     refine ⟨rfl, rfl, rfl, rfl, rfl, (by simp only [hbroke]; have hn : ¬ (c.whave.toNat + (o - e.bg) < l.dist.toNat) := (by omega); simp [hn]), Or.inl ⟨hbroke, rfl, ?_⟩⟩

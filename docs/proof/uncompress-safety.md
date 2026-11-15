@@ -1,7 +1,12 @@
 # Safety of `uncompress*`
 
-Source: `uncompr.c`. `uncompress`, `uncompress_z`, `uncompress2` and `uncompress2_z` are safe
-on every input. This page explains that result.
+`uncompress`, `uncompress_z`, `uncompress2` and `uncompress2_z` are safe on every input that
+meets the premises below, whatever the source bytes are: the call returns, has no undefined
+behaviour, writes only the destination buffer and the length cells, and frees everything it
+allocated. This page gives the statement, its premises and the shape of the proof.
+
+Source: `uncompr.c`. [Buffer utilities](buffers.md) reads the C. Terms:
+[glossary](../glossary.md).
 
 ## What is proved
 
@@ -12,14 +17,17 @@ on every input. This page explains that result.
 | `Goal.uncompress_z_safe` | `uncompress_z_safe` | same |
 | `Goal.uncompress_safe` | `uncompress_safe` | same |
 
-All four are safety results and are required. They have no hypothesis. They are registered in
-`tests/audit/theorems.txt` and accepted on commit `bde170e9`
+All four are safety results and are required. Each theorem proves its goal exactly as stated,
+with no hypothesis added; the premises below are part of the goal statements. The theorems are
+[registered](../checking/README.md) in `tests/audit/theorems.txt` and
+[accepted](../checking/README.md) on commit `bde170e9`
 ([progress, Scope](../progress.md#scope)).
 
 The goals are instances of `UncompressCountedSafe` and `UncompressSingleSafe`
-(`ZlibF/Spec/Public/Utilities.lean`). For every admitted input:
+(`ZlibF/Spec/Public/Utilities.lean`). For every input that meets the premises below:
 
-- the call runs without undefined behaviour and returns (`C.run … = .ok`);
+- the call runs without undefined behaviour and returns. In Lean: running the translated
+  function on the heap gives `.ok` with a return code and a new heap, not a fault;
 - an argument error returns `Z_STREAM_ERROR` and changes nothing;
 - otherwise the call writes at most `capacity` bytes into the output buffer and the length
   cells, and nothing else;
@@ -28,7 +36,7 @@ The goals are instances of `UncompressCountedSafe` and `UncompressSingleSafe`
   only after an allocation failed.
 
 Nothing is said about the bytes written. That is the functional goal `Goal.uncompress*`,
-which is not required.
+which is not required for the safety results.
 
 ## What is assumed
 
@@ -36,7 +44,7 @@ which is not required.
 | --- | --- |
 | `Fresh`, `Uniq`, `LibraryGlobals` | The caller heap is well formed and the static tables are the initial ones. |
 | `ByteObjectsFit` | Every byte object has fewer than `2^63` bytes. |
-| Readable source, writable destination, length cells | Each non-null pointer names a range or an eight-byte cell of the stated size. |
+| Readable source, writable destination, length cells | Each non-null pointer names a range or an eight-byte cell of the stated size. `uncompress` and `uncompress2` take non-null cells; the `_z` forms admit `NULL` and refuse it. |
 | `UtilitySeparation` | Source, destination, the destination-length cell and the source-length cell are pairwise separate. |
 
 The separation has a row in [deviations](../deviations.md), "Counted decompression".
@@ -45,7 +53,7 @@ The separation has a row in [deviations](../deviations.md), "Counted decompressi
 
 ```mermaid
 flowchart TD
-  init["start_state: inflateInit2_ and the bound stream"] --> loop
+  init["start_state: inflateInit2_ on the local stream"] --> loop
   loop["loop_run_safe: do ... while (err == Z_OK)"] --> call
   call["call_phase_safe: one inflate call (inflate_public)"] --> loop
   loop --> epi["epilogue: store the counts, inflateEnd, free the stream and the reserved byte"]
@@ -54,11 +62,12 @@ flowchart TD
   z --> w1["single_of_counted: uncompress_z, uncompress"]
 ```
 
-The run is shared with the functional proof. `SafeState` and `SafeFinal` hold everything but
-the format fact. The functional proof extends them with `NoOver`: no complete stream at the
-start of the source has been read to its end. The wrappers are proved once for every data
-relation (`CountedWith`, `SingleWith`). The safety goals use the relation `SafeRel`: the
-output fits the capacity, the consumed input fits the source, and the code is documented.
+The proof is written once, for any relation on the result (`CountedWith`, `SingleWith`). The
+safety goals instantiate it with `SafeRel`: the output fits the capacity, the consumed input
+fits the source, and the return code is one of the documented ones. `SafeState` and `SafeFinal`
+are the loop state and the final state of that proof; they hold everything but the format
+fact. The functional proof, which is not required for the safety results, extends them with
+`NoOver`: no complete stream at the start of the source has been read to its end.
 
 ## What the proof uses
 
@@ -72,8 +81,10 @@ No format fact of `inflate` is used.
 ## Termination
 
 The measure is the unread source plus the unfilled room:
-`avail_in + len + avail_out + left`. The refills move bytes between the stream fields and the
+`avail_in + len + avail_out + left`, where `len` and `left` are the C locals: the source bytes
+and the destination room not yet given to the stream. The refills move bytes between the stream fields and the
 remaining lengths, so they keep it. Each call that returns `Z_OK` consumes input or writes
 output, by the progress clause of `Goal.inflate`: `rc = Z_OK → used ≠ 0 ∨ out ≠ []`. So the
-measure falls. At the start it is at most `sourceLen + destLen < 2^64`, below the loop fuel.
+measure falls. At the start it is at most `sourceLen + destLen`, which is below `2^64`, the loop
+fuel.
 The rule is `cdoWhile_decreasing`.

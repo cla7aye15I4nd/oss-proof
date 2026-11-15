@@ -66,15 +66,15 @@ theorem dolenRefill_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl3 := hls.pullL (by omega) hiin
     have hs3 := Sg_pullL hls (by omega) hiin
-    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
     have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-    have hb3' : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+    have hb3' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
       simp only [pullL] at hb3 ⊢; omega
     refine Wp.bindO (pull_run e _ _ (i + 1) o hl3 hb3' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl4 := hl3.pullL hb3' hi2
     have hs4 := Sg_pullL hl3 hb3' hi2
-    have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))) (e.IN.getD (i + 1) 0)
-      (.ref (BRef.blk e.ib) (i + 1 + 1)) hl3.hb
+    have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (e.IN.getD (i + 1) 0)
+      (.ref e.ib (i + 1 + 1)) hl3.hb
     simp only [pullL] at hb3 hb4
     refine Wp.mono (dolenDist_wp hc A msg m _ (i + 1 + 1) o hts hl4 hA ho hAb hbroke hlen (by simp only [pullL]; omega) ?_ (hfr.mono (by omega))) ?_
     · by_cases hc3 : i = s + 3
@@ -82,8 +82,8 @@ theorem dolenRefill_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt
       · left; omega
     · intro l' h' hq
       obtain ⟨E, cb, hcb, hlk, hend⟩ := hq
-      refine ⟨i + 1 + 1, (pullL (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))) (e.IN.getD (i + 1) 0) (.ref (BRef.blk e.ib) (i + 1 + 1))).hold.toNat,
-        (pullL (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))) (e.IN.getD (i + 1) 0) (.ref (BRef.blk e.ib) (i + 1 + 1))).bits.toNat,
+      refine ⟨i + 1 + 1, (pullL (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1))).hold.toNat,
+        (pullL (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1))).bits.toNat,
         E, cb, by omega, by omega, ?_, ?_, ?_, ?_, hcb, hlk, ?_⟩
       · exact hs4.trans hs3
       · exact hl4.hH
@@ -177,7 +177,7 @@ theorem dolenLen_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32)
       refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl3 := hls.pullL (by omega) hiin
       have hs3 := Sg_pullL hls (by omega) hiin
-      have hb3 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+      have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
       refine Wp.mono (dolenExt_wp hc A msg m _ (i + 1) o s hts hl3 hA ho hAb hbroke (by simp only [pullL]; omega)
         (by simp only [pullL] at hb3 ⊢; omega) (by simp only [pullL]; omega) hs6 (by omega)
         (by intro h3; simp only [pullL] at hb3 ⊢; have := hb2 (by omega); omega) (hfr.mono (by omega))) ?_

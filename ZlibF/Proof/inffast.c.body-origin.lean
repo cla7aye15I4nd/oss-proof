@@ -19,8 +19,8 @@ variable {e : Env} {c : Ctx}
 private theorem pull_origin {l : L} {i o used : Nat}
     (hl : LS e l i o) (origin : Origin.Inv e l.hold.toNat l.bits.toNat i used)
     (buffer : l.bits.toNat ≤ 22) (available : i < e.i0 + e.sm0.avail_in.toNat) :
-    Origin.Inv e (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1))).hold.toNat
-      (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1))).bits.toNat (i + 1) used := by
+    Origin.Inv e (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).hold.toNat
+      (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat (i + 1) used := by
   have next := pull_preserves_origin e l.hold.toNat l.bits.toNat i used origin available
   simpa only [pullL_hold l _ _ hl.hb hl.hH, pullL_bits l _ _ hl.hb] using next
 
@@ -46,15 +46,15 @@ private theorem refill_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr)
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl3 := hls.pullL (by omega) hiin
     have origin3 := pull_origin hls origin (by omega) hiin
-    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
     have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-    have hb3' : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+    have hb3' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
       simp only [pullL] at hb3 ⊢; omega
     refine Wp.bindO (pull_run e _ _ (i + 1) o hl3 hb3' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl4 := hl3.pullL hb3' hi2
     have origin4 := pull_origin hl3 origin3 hb3' hi2
-    have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))) (e.IN.getD (i + 1) 0)
-      (.ref (BRef.blk e.ib) (i + 1 + 1)) hl3.hb
+    have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (e.IN.getD (i + 1) 0)
+      (.ref e.ib (i + 1 + 1)) hl3.hb
     simp only [pullL] at hb3 hb4
     obtain ⟨lr, hr, run, _, endOrigin⟩ := actual_distance_block_preserves_origin e c A msg m _ (i + 1 + 1) o used
       hc hl4 hA ho hAb hbroke hlen (by simp only [pullL]; omega) (by
@@ -123,7 +123,7 @@ private theorem len_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m
       refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl3 := hls.pullL (by omega) hiin
       have origin3 := pull_origin hls origin (by omega) hiin
-      have hb3 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+      have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
       exact ext_origin_wp hc A msg m _ (i + 1) o s used hl3 hA ho hAb hbroke (by simp only [pullL]; omega)
         (by simp only [pullL] at hb3 ⊢; omega) (by simp only [pullL]; omega) hs6 (by omega)
         (by intro h3; simp only [pullL] at hb3 ⊢; have := hb2 (by omega); omega) origin3 (hfr.mono (by omega))
@@ -184,7 +184,7 @@ private theorem pass_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (
       rw [hls.hout, ← e.heap_put A (A.set! o E.val.toUInt8) msg m]
       exact Ptr.store_ok (e.heap_bytes_ob A msg m) (e.heap_ro_ob A msg m) (by omega)
     refine Wp.bindE hst ?_
-    refine Wp.bindO (x := Ptr.ref (BRef.blk e.ob) (o + 1)) ?_ ?_
+    refine Wp.bindO (x := Ptr.ref e.ob (o + 1)) ?_ ?_
     · rw [hls.hout]
       exact Ptr.add_nat_ok (e.heap_bytes_ob _ msg m) (by simp; omega)
     · refine Wp.pure' ⟨Or.inr ?_, ?_⟩
@@ -391,15 +391,15 @@ theorem actual_body_preserves_origin : BodyOrigin.Goal.actual_body_preserves_ori
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl1 := hls.pullL (by omega) hiin
     have origin1 := pull_origin hls origin (by omega) hiin
-    have hb1 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+    have hb1 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
     have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-    have hb1' : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+    have hb1' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
       simp only [pullL] at hb1 ⊢; omega
     refine Wp.bindO (pull_run e _ _ (i + 1) o hl1 hb1' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl2 := hl1.pullL hb1' hi2
     have origin2 := pull_origin hl1 origin1 hb1' hi2
-    have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)))
-      (e.IN.getD (i + 1) 0) (.ref (BRef.blk e.ib) (i + 1 + 1)) hl1.hb
+    have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1)))
+      (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1)) hl1.hb
     exact root_origin_wp hc A msg m _ (i + 1 + 1) o i used hl2 hAsz ho258 hbroke hi6 (by omega) (by omega)
       (by simp only [pullL] at hb1 hb2 ⊢; omega)
       (by intro _; simp only [pullL] at hb1 hb2 ⊢; omega) origin2 (hfr.mono (by omega))

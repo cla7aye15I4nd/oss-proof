@@ -63,7 +63,7 @@ private theorem pass_trace_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m
       rw [hls.hout, ← e.heap_put A (A.set! o E.val.toUInt8) msg m]
       exact Ptr.store_ok (e.heap_bytes_ob A msg m) (e.heap_ro_ob A msg m) (by omega)
     refine Wp.bindE hst ?_
-    refine Wp.bindO (x := Ptr.ref (BRef.blk e.ob) (o + 1)) ?_ ?_
+    refine Wp.bindO (x := Ptr.ref e.ob (o + 1)) ?_ ?_
     · rw [hls.hout]
       exact Ptr.add_nat_ok (e.heap_bytes_ob _ msg m) (by simp; omega)
     · have hop : E.op = 0 := by rw [mask0] at hz; simpa using hz
@@ -272,15 +272,15 @@ theorem actual_body_retains_selected_length : LengthTrace.Goal.actual_body_retai
       refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl1 := hls.pullL (by omega) hiin
       have stream1 := Sg_pullL hls (by omega) hiin
-      have hb1 := pullL_bits l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)) hls.hb
+      have hb1 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
       have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-      have hb1' : (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+      have hb1' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
         simp only [pullL] at hb1 ⊢; omega
       refine Wp.bindO (pull_run e _ _ (i + 1) o hl1 hb1' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl2 := hl1.pullL hb1' hi2
       have stream2 := Sg_pullL hl1 hb1' hi2
-      have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)))
-        (e.IN.getD (i + 1) 0) (.ref (.blk e.ib) (i + 1 + 1)) hl1.hb
+      have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1)))
+        (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1)) hl1.hb
       refine Wp.mono (root_trace_wp hc A msg m _ (i + 1 + 1) o i hl2 hAsz ho258 hbroke hi6 (by omega) (by omega)
         (by simp only [pullL] at hb1 hb2 ⊢; omega)
         (by intro _; simp only [pullL] at hb1 hb2 ⊢; omega) (hfr.mono (by omega))) ?_

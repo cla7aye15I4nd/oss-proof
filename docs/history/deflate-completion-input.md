@@ -2,11 +2,17 @@
 
 > **Historical record.** It describes the process when it was written: lock files, regenerated locks, an approved baseline and review of lock differences. Those mechanisms were removed later. There are no lock files now; see [anti-cheating](../anti-cheating.md). Read the evidence below as evidence about that snapshot only.
 
+**State today.** `DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`) has the premise this
+page argues for, `s.status = FINISH_STATE → z.avail_in = 0`, and the premise `z.next_out ≠ .null`
+of the [second correction](deflate-completion-null-output.md). It is a clause of the functional
+goal `Goal.deflate_sequence`. That goal has no registered theorem, and it is not required for the
+safety results ([progress, Scope](../progress.md#scope)). The evidence for this correction is a C
+run and one checked lemma, `DefaultDataTrace.finished_new_input_not_end`; no Lean counterexample
+to the earlier statement was built. The text below is the record as it was written, with links
+adjusted. Its future tense, its counts and its lock files describe that time.
+
 This records evidence for a reviewed completion caller-protocol correction.
 It is not a zlib bug report or a kernel-checked counterexample.
-`DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`) is a functional goal. It is
-not required and not planned ([progress, Scope](../progress.md#scope)). This page is kept
-as the record of a correction to its statement.
 
 ## Contract and target
 

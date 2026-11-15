@@ -59,12 +59,12 @@ theorem Sg_dropL (l : L) (k : UInt32) (i : Nat) (hk : k.toNat ≤ l.bits.toNat) 
   exact Sg_drop _ _ _ _ hk
 
 theorem LS.pullL {l : L} {i o : Nat} (hl : LS e l i o) (hb : l.bits.toNat ≤ 22) (hi : i < e.i0 + e.sm0.avail_in.toNat) :
-    LS e (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))) (i + 1) o :=
+    LS e (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (i + 1) o :=
   LS.pull e hl hb hi _
 
 theorem Sg_pullL {l : L} {i o : Nat} (hl : LS e l i o) (hb : l.bits.toNat ≤ 22) (hi : i < e.i0 + e.sm0.avail_in.toNat) :
-    Sg e (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).hold.toNat
-      (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat (i + 1) = Sg e l.hold.toNat l.bits.toNat i := by
+    Sg e (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).hold.toNat
+      (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat (i + 1) = Sg e l.hold.toNat l.bits.toNat i := by
   rw [pullL_hold _ _ _ hl.hb hl.hH, pullL_bits _ _ _ hl.hb]
   exact Sg_pull e _ _ _ hl.hH hi
 
@@ -130,7 +130,7 @@ theorem distCont_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32)
   have hbeg := e.hbeg
   have hdiff : OkOn (e.heap A msg m) (Ptr.diff l.out c.beg) (Int64.ofInt (((o - e.bg : Nat)) : Int)) := by
     rw [hls.hout, hc.beg]
-    have := Ptr.diff_ok (r := BRef.blk e.ob) (a := A) (o1 := o) (o2 := e.bg) (e.heap_bytes_ob A msg m) hoA (by omega)
+    have := Ptr.diff_ok (r := e.ob) (a := A) (o1 := o) (o2 := e.bg) (e.heap_bytes_ob A msg m) hoA (by omega)
       ⟨by omega, by omega⟩
     have e1 : (o : Int) - (e.bg : Int) = ((o - e.bg : Nat) : Int) := by omega
     rw [e1] at this
@@ -232,21 +232,21 @@ theorem dodistBase_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt3
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl3 := hls.pullL (by omega) hiin
     have hs3 := Sg_pullL hls (by omega) hiin
-    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
-    by_cases h2 : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits <
-        (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).op
+    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
+    by_cases h2 : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits <
+        (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).op
     · simp only [h2, ite_true]
       have h2' : l.bits.toNat + 8 < l.op.toNat := by
         have := UInt32.lt_iff_toNat_lt.mp h2
         simp only [pullL] at this hb3 ⊢
         omega
       have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-      have hb3' : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by omega
+      have hb3' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by omega
       refine Wp.bindO (pull_run e _ _ (i + 1) o hl3 hb3' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl4 := hl3.pullL hb3' hi2
       have hs4 := Sg_pullL hl3 hb3' hi2
-      have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))) (e.IN.getD (i + 1) 0)
-        (.ref (BRef.blk e.ib) (i + 1 + 1)) hl3.hb
+      have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (e.IN.getD (i + 1) 0)
+        (.ref e.ib (i + 1 + 1)) hl3.hb
       refine Wp.mono (distCont_wp hc A msg m _ (i + 1 + 1) o hl4 hA ho hAb (by simp only [pullL]; omega)
         (by simp only [pullL] at hb3 hb4 ⊢; omega) (by simp only [pullL]; omega) (by simp only [pullL]; omega)
         (by simp only [pullL]; omega) (by simp only [pullL]; omega)) ?_
@@ -259,10 +259,10 @@ theorem dodistBase_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt3
       · simp only [pullL] at hres ⊢
         exact Or.imp id (fun h => ⟨h.1, h.2.1, h.2.2.2⟩) hres
     · simp only [h2, ite_false]
-      have h2n : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).op.toNat ≤
-          (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat := by
-        have : ¬ ((pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat <
-            (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).op.toNat) :=
+      have h2n : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).op.toNat ≤
+          (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat := by
+        have : ¬ ((pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat <
+            (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).op.toNat) :=
           fun h => h2 (UInt32.lt_iff_toNat_lt.mpr h)
         omega
       refine Wp.mono (distCont_wp hc A msg m _ (i + 1) o hl3 hA ho hAb (by simp only [pullL]; omega)

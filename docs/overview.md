@@ -1,45 +1,145 @@
-# Understanding and proving zlib
+# Overview: what is proved about zlib
 
-Read one task, then expand the mechanism you need. Each illustrated chapter
-explains what an operation does and the proof obligation that follows from it.
-The header language menu switches between English and 简体中文 on the same page.
+This page says what the project proves about zlib, what it assumes, what is open, and how the
+proof is built. The main point: every documented public function of the default x86_64 Linux
+build is proved safe in every sequence of calls, for a Lean translation of the C, under premises
+that each theorem states. The words in bold type are defined in the [glossary](glossary.md).
+
+<a id="proving-the-zlib-implementation"></a>
 
 ## The claim
 
 **Proved.** Every documented public function of the default x86_64 Linux build of zlib is safe.
 On every input that its premises admit, the translated call returns with no undefined behaviour
-and no memory error, writes only what it may, leaks nothing, and terminates. This holds over call
-sequences: for every history of an inflate stream, a deflate stream, a callback decoder and a
-gzip file handle. The 63 required goals are registered, and the acceptance suite is green on
-commit `bde170e9` (2026-11-15).
+and no memory error, writes only the memory it is allowed to (its frame), leaks nothing, and
+terminates. This holds over call sequences: for every history of an inflate stream, a deflate
+stream, a callback decoder and a gzip file handle. The 63 required goals are registered. The
+acceptance suite was green on commit `bde170e9`, so the results are accepted on that commit. One
+exception: the four init safety goals were widened after it, and in the wider form they are
+registered and not yet accepted. [Scope](progress.md#scope) records the level of each result and
+what changed after that commit.
 
-**Assumed.** The theorems are about a Lean translation that runs on a runtime model. That the
-model and the translation match C is reviewed and tested, not proved: see
-[trusted base](trusted-base.md). The premises each theorem puts on the caller are in
-[deviations](deviations.md). Differential tests are evidence of fidelity, not proof. Compiler,
-operating-system and hardware correctness are outside the proof.
+**Assumed.** The theorems are about a Lean translation that runs on a runtime model. Six things
+are trusted and not proved ([trusted base](trusted-base.md)):
 
-**Open.** The gz functions and the three `inflateBack` functions have no safety goal of their own
-yet. Each names its sequence goal, which is registered. The per-function goals are still to be
-stated and registered.
+1. the Lean kernel, three standard axioms, and the audit programs;
+2. the runtime model of memory, pointers, faults and loops;
+3. the hand translation of the C;
+4. the selected source: the pinned `zlib/` plus five patches;
+5. the build configuration, and the model of allocation, files and formatting;
+6. the statements: that each goal says what it should.
 
-**Not planned.** Functional correctness (the output of `inflate` equals the format, the output of
-`deflate` decodes to its input), since 2026-11-11. A functional fact is in scope only when a
-planned safety proof depends on it; what is already proved stays. Model-only statements, other
-build configurations and the functions that `zlib.h` declares undocumented are not planned
-either. [Scope](progress.md#scope) lists every group with its reason.
+Differential tests are evidence of fidelity, not proof. Compiler, operating-system and hardware
+correctness are outside the proof. The premises that a theorem puts on the caller are in
+[deviations](deviations.md), as a checklist by function.
+
+**Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
+functions are proved safe through their sequence goals, which cover every call in every history;
+they have no separate one-function goal yet. Stating and registering those 34 goals is remaining
+work ([progress](progress.md#ordered-next-work)).
+
+**Not required.** Functional correctness is not required for the safety results. A functional
+fact is in scope when a planned safety proof depends on it; what is already proved stays. One
+functional result is planned work and not proved: the round trip of a default zlib stream through
+`deflate` and then `inflate`. Model-only statements (theorems about the abstract API model, not
+about the translated C), other build configurations and the functions that `zlib.h` declares
+undocumented are not planned. [Scope](progress.md#scope) lists every group with its reason.
 
 ## Contents
 
 - [The claim](#the-claim)
-- [Reading path](#reading-path)
-- [Shared proof rules](#shared-proof-rules)
-  - [Scope](#scope)
-  - [Argument](#argument)
-  - [Evidence](#evidence)
+- [How the proof is built](#how-the-proof-is-built)
+- [How to read a result](#how-to-read-a-result)
+- [Guide chapters](#guide-chapters)
+- [Where each rule is written](#where-each-rule-is-written)
 
-## Reading path
+## How the proof is built
 
+<a id="shared-proof-rules"></a>
+<a id="argument"></a>
+<a id="1-what-must-be-proved"></a>
+<a id="3-what-must-be-proved-and-why"></a>
+<a id="7-how-the-arguments-become-checked-claims"></a>
+<a id="3-how-the-proof-is-built"></a>
+<a id="31-translate-the-actual-c-execution"></a>
+<a id="32-establish-an-invariant-by-initialization"></a>
+<a id="33-preserve-it-through-calls"></a>
+<a id="34-relate-executions-to-byte-meaning"></a>
+<a id="4-the-inflate-argument"></a>
+<a id="5-how-the-proof-is-built"></a>
+<a id="5-the-deflate-argument"></a>
+<a id="51-translate-the-actual-c-execution"></a>
+<a id="52-establish-an-invariant-by-initialization"></a>
+<a id="53-preserve-it-through-calls"></a>
+<a id="54-relate-executions-to-byte-meaning"></a>
+<a id="6-the-inflate-argument"></a>
+<a id="7-the-deflate-argument"></a>
+<a id="73-establish-preserve-and-compose"></a>
+
+The proof has four steps.
+
+1. **Translate.** The pinned C, with the registered patches, is translated to Lean by hand,
+   statement by statement. Every undefined behaviour the C can reach becomes the fault `Fault.ub`
+   in the translation.
+2. **Define an invariant.** For each kind of stream an invariant is defined: the facts about the
+   stream's state that hold before every call. An example is that the decoder's saved history
+   agrees with the bytes it has already produced.
+3. **Prove each function.** The init function is proved to establish the invariant. Every other
+   function is proved to return without a fault when the invariant holds, to keep the invariant,
+   to write only its frame, and to allocate and free exactly what its ledger says. No function's
+   behaviour is assumed: each callee has its own theorem about its own translation.
+4. **Compose.** Induction over the history of calls gives the sequence goal. The End function is
+   proved to free every block the stream owns. A separate non-vacuity theorem exhibits one
+   concrete heap on which init succeeds, so the premises are not empty.
+
+```mermaid
+flowchart LR
+    S["Pinned C and patches"] -->|"translated by hand"| T["Lean translation"]
+    T --> I["init: establishes the invariant"]
+    I --> V["Invariant holds"]
+    V -->|"any call: no fault, writes only its frame"| V
+    V --> E["End: frees every owned block"]
+```
+
+The [common method](proof/method.md) gives the induction in detail, and the
+[implementation arguments](proof/README.md) give the invariant of each C component.
+
+## How to read a result
+
+<a id="evidence"></a>
+<a id="6-reading-a-formal-result"></a>
+<a id="61-find-its-exact-statement"></a>
+<a id="62-follow-its-proof-and-evidence"></a>
+<a id="8-reading-a-formal-result"></a>
+<a id="81-find-its-exact-statement"></a>
+<a id="82-follow-its-proof-and-evidence"></a>
+<a id="74-locate-the-exact-evidence"></a>
+
+A result has four parts: the goal, its premises, the theorem that proves it, and its level. Here
+they are for `inflate`.
+
+| Part | For `inflate` |
+| --- | --- |
+| Goal | `Goal.inflate_safety`, in `ZlibF/Spec/Safety/Streams.lean` |
+| What it says | For every heap, every stream `r` and every `flush` value: if the premises hold, the call `inflate(r, flush)` returns without a fault, keeps the invariant, writes only the stream's own blocks, the stream record, an attached gzip header and the output range, and changes the set of live blocks exactly as its ledger says (`StreamCallSafe`) |
+| Premises | `StreamCallDomain`: the stream is reachable (some history starting at a successful init produces it); every byte object has fewer than 2^63 bytes; the buffers are as [deviations](deviations.md#stream-calls-inflate-and-deflate) describes (`StreamArguments`) |
+| Theorem | `ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`, in `ZlibF/Proof/public-stream-call-safety.lean` |
+| Level | Registered: the theorem is in `tests/audit/theorems.txt`. [Scope](progress.md#scope) names the commit on which it is accepted |
+
+[Coverage by function](coverage.md) gives the same four parts for every function.
+
+Three cautions apply when reading any result.
+
+- A lemma about one branch, or a theorem about the abstract API model, does not establish a
+  public function. Only a theorem whose type is exactly the goal does.
+- A finite run of differential tests checks examples. It does not prove a statement about all
+  inputs.
+- The guide chapters below describe the implementation in prose. Those readings of the C are
+  **to confirm**: only a registered theorem settles one.
+
+## Guide chapters
+
+<a id="reading-path"></a>
 <a id="1-follow-a-complete-task"></a>
 <a id="1-what-zlib-does"></a>
 <a id="11-one-library-three-related-formats"></a>
@@ -71,8 +171,11 @@ either. [Scope](progress.md#scope) lists every group with its reason.
 <a id="72-follow-the-actual-implementation"></a>
 <a id="72-trees-symbols-and-shared-output-storage"></a>
 <a id="73-publish-blocks-and-compose-calls"></a>
-<a id="74-locate-the-exact-evidence"></a>
-<a id="proving-the-zlib-implementation"></a>
+
+The six chapters below each follow one example through zlib and name the proof obligation it
+creates. They explain the mechanism; the exact contracts are in the
+[specifications](spec/README.md), and the derivations by C component are in the
+[implementation arguments](proof/README.md).
 
 | Chapter | Follow the example to understand… |
 | --- | --- |
@@ -83,20 +186,10 @@ either. [Scope](progress.md#scope) lists every group with its reason.
 | [5. State operations](guide/state-operations.md) | Reset for another task, Copy for a checkpoint, dictionaries and flushes. |
 | [6. Application interfaces](guide/interfaces.md) | Whole buffers, callbacks, gzip files and logical Seek. |
 
-Follow a chapter's links when you need an exact contract or C-level argument.
-[Specifications](spec/README.md) define required behavior;
-[implementation arguments](proof/README.md) give the technical derivation by
-C component. These references serve different questions from the guided examples.
-Review records are grouped under Checking, outside this first reading path.
+## Where each rule is written
 
-## Shared proof rules
-
-<a id="1-what-must-be-proved"></a>
-<a id="3-what-must-be-proved-and-why"></a>
-<a id="7-how-the-arguments-become-checked-claims"></a>
-
-### Scope
-
+<a id="scope"></a>
+<a id="project-status-and-remaining-work"></a>
 <a id="11-the-implementation-and-configurations"></a>
 <a id="12-safety-of-calls-and-lifetimes"></a>
 <a id="2-assumptions-and-model-boundaries"></a>
@@ -112,85 +205,19 @@ Review records are grouped under Checking, outside this first reading path.
 <a id="43-what-the-kernel-trusts"></a>
 <a id="71-scope-and-assumptions"></a>
 
-The target is the default x86_64 Linux build. A safety goal quantifies over every input,
-parameter, allocation outcome and history that its premises admit. The ranges in
-[input configurations](spec/input-configurations.md) describe coverage of intermediate work.
-Examples select particular runs without narrowing public targets. The accepted
-[platform premises](spec/platform.md) include each represented byte object
-having fewer than `2^63` bytes; this does not bound total stream length.
-[Safety](spec/safety.md) owns the exact UB, frame, termination and resource rules.
-[Trusted base](trusted-base.md) and [deviations](deviations.md) own model limits.
+| Question | Page |
+| --- | --- |
+| What exactly does "safe" mean: undefined behaviour, frame, termination, leaks? | [Safety](spec/safety.md) |
+| Which platform is assumed? | [Platform](spec/platform.md): the default x86_64 Linux build; each byte object has fewer than `2^63` bytes, which does not bound the length of a stream |
+| What must a caller's call satisfy? | [Deviations](deviations.md) |
+| Which limits of the model can a caller not act on? | [Model limits](model-limits.md) |
+| What is trusted and not proved? | [Trusted base](trusted-base.md) |
+| Which theorem covers a function? | [Coverage by function](coverage.md) |
+| What is the level of each result, and what work remains? | [Progress](progress.md#scope) |
+| How does a theorem become accepted? | [Checking](checking/README.md) |
 
-### Argument
-
-<a id="3-how-the-proof-is-built"></a>
-<a id="31-translate-the-actual-c-execution"></a>
-<a id="32-establish-an-invariant-by-initialization"></a>
-<a id="33-preserve-it-through-calls"></a>
-<a id="34-relate-executions-to-byte-meaning"></a>
-<a id="4-the-inflate-argument"></a>
-<a id="5-how-the-proof-is-built"></a>
-<a id="5-the-deflate-argument"></a>
-<a id="51-translate-the-actual-c-execution"></a>
-<a id="52-establish-an-invariant-by-initialization"></a>
-<a id="53-preserve-it-through-calls"></a>
-<a id="54-relate-executions-to-byte-meaning"></a>
-<a id="6-the-inflate-argument"></a>
-<a id="7-the-deflate-argument"></a>
-<a id="73-establish-preserve-and-compose"></a>
-
-An invariant is a set of facts about a stream's state that must hold before each further
-call: for example, that the decoder's saved history agrees with the bytes already recovered.
-The subject is the pinned C plus registered patches, translated statement by
-statement. Implementation readings in the chapters are **to confirm** by proof.
-Initialization must establish the state and ownership invariant. Each actual
-call derives its helper premises and preserves the required facts on the
-returned heap; End accounts for released resources. A callee contract must be
-proved about that callee. A top-level domain needs a concrete witness.
-
-The [common method](proof/method.md) connects these steps by induction over
-legal call histories. Where a safety proof needs a functional fact, it relates actual bytes to
-the independent format meaning.
-The chapters explain each mechanism's specific invariant at its example.
-
-### Evidence
-
-<a id="6-reading-a-formal-result"></a>
-<a id="61-find-its-exact-statement"></a>
-<a id="62-follow-its-proof-and-evidence"></a>
-<a id="8-reading-a-formal-result"></a>
-<a id="81-find-its-exact-statement"></a>
-<a id="82-follow-its-proof-and-evidence"></a>
-
-Inspect the exact statement, caller domain and returned state. A local branch
-lemma or heap-free model theorem does not establish a whole public API.
-Statements about the abstract API model speak about the model, not about the C;
-concrete execution needs its own refinement argument. Finite differential runs validate examples, not
-universal claims. [Checking](checking/README.md) defines acceptance on a named
-commit. [Progress](progress.md) records the target graph, the current evidence and the remaining
-work.
-
----
-
-## Project status and remaining work
-
-[Documentation](README.md) · [API](spec/api/README.md) · [Checking](checking/README.md)
-
-The project is finished when the safety results are accepted, in this order: `inflate` is
-safe on every input; `deflate` is safe on every input, both with their call sequences; then
-every other public function, including the gzip file interface and `inflateBack`. The safety
-of `compress` and `uncompress` follows as compositions. The acceptance suite is green on commit
-`bde170e9` (2026-11-15) with all 63 required goals registered. What remains is listed under
-"Open" in [the claim](#the-claim).
-
-Each public function has a safety goal and a functional goal; `tests/audit/public-api.json`
-names both. The safety goals are in `ZlibF/Spec/Safety/` and the functional goals in
-`ZlibF/Spec/Functional/`; the gz and `inflateBack` goals of both kinds are still in
-`ZlibF/Spec/Public/`. The acceptance audit
-requires the safety goals and the non-vacuity goals; a proved functional goal is audited in full,
-and an unproved one fails nothing. [The split](design/safety-functional-split.md) gives the rules
-and [safety](spec/safety.md#where-the-goals-are) the layout.
-
-Current status, counts and the ordered list of remaining work are only in
-[progress](progress.md). Earlier narrative checkpoints are kept, unchanged, in the
+A safety goal quantifies over every input, parameter, allocation outcome and history that its
+premises admit. The narrower ranges in [input configurations](spec/input-configurations.md)
+describe internal lemmas and the colours of the target graph; they do not limit a safety goal.
+Earlier narrative checkpoints of this page are kept, unchanged, in the
 [overview changelog](history/overview-changelog.md); they are historical.

@@ -1,416 +1,363 @@
-# Trees and block emission: bounds, codes and shared storage
+# Trees and block output: why a block flush is safe
 
 Source: `zlib/trees.c`, with the symbol layout in `zlib/deflate.h`.
-Translation: `ZlibF/Zlib/trees.c.lean`. Internal contracts use `I-bt-*`,
-`I-gb-*`, `I-gc-*`, `I-cb-*`, `I-tf-*`, `I-fp-*` and `I-pb-room` in
-[internal contracts](../spec/internal-contracts.md). Mathematical code rules
-are `F-code-*`, `F-length-table` and `F-distance-table` in the
-[format guide](../spec/format/README.md).
+Translation: `ZlibF/Zlib/trees.c.lean`.
 
-`trees.c` has no public function. Its lemmas serve the safety of `deflate`
-([stream compression](deflate.md)). The part that is specific to this file is
-the bound on the buffer that pending output and unread symbols share: output
-must never overwrite a symbol that is still to be read. This page explains tree
-construction, bit emission and that bound.
+When `deflate` closes a block it calls `_tr_flush_block`. That function builds two Huffman
+trees from the recorded symbols, picks the cheapest of three block forms, and writes the block.
+It writes into the same buffer from which it is still reading the symbols. This page explains
+why every array access of tree construction is in range, and why the output never overwrites a
+symbol that has not been read yet. The second fact, F9, is the hardest step of the whole
+`deflate` proof.
 
-## What is proved
+`trees.c` has no public function. Its theorems serve the safety of `deflate`
+([stream compression](deflate.md)). Notes on how the translation follows the C are in the
+[source notes for the compressor](deflate-source-notes.md#treesc). The internal contracts of
+this file are `I-bt-*`, `I-gb-*`, `I-gc-*`, `I-cb-*`, `I-tf-*`, `I-fp-*` and `I-pb-room` in
+[internal contracts](../spec/internal-contracts.md).
 
-| Result | Kind | Theorem | Module |
+## Results
+
+Modules are under `ZlibF/Proof/`. "Registered" theorems are accepted on commit `bde170e9`.
+"Checked" theorems are not in the registry themselves; they lie inside the proof of the
+registered theorem `Zlib.Deflate.Universal.deflate_sequence_safety`
+([levels](README.md#status-levels)).
+
+| Result | Theorem | Module | Level |
 | --- | --- | --- | --- |
-| A block flush is safe for every block choice and every `memLevel`: `FLUSH_BLOCK_ONLY` runs `_tr_flush_block` and publishes the pending bytes | Safety, internal | `flush_block_only_safe`, `tr_flush_block_safe` | `ZlibF/Proof/trees.c.universal-flush.lean`, `trees.c.universal-block.lean` |
-| The overlay room F9 for `lit_bufsize ≥ 2048` (`memLevel ≥ 5`) | Safety, internal | `dynamic_overlay_large`, from `dynamic_room_large` | `ZlibF/Proof/trees.c.universal-block.lean`, `trees.c.universal-dynamic.lean` |
-| The overlay room F9 for `lit_bufsize = 512` and `1024` (`memLevel` 3 and 4) | Safety, internal | `dynamic_overlay_mid` | `ZlibF/Proof/trees.c.universal-overlay-mid.lean` |
-| The overlay room F9 for `lit_bufsize = 256` and `128` (`memLevel` 2 and 1) | Safety, internal | `tinyOverlayAt_256`, `tinyOverlayAt_128`, `tinyOverlay` | `ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean` |
-| `gen_bitlen` never clamps a tree whose weight is below 1597 | Safety, internal | `ws_gen_bitlen_fib_plus` | `ZlibF/Proof/trees.c.universal-overlay-fibplus.lean` |
+| `FLUSH_BLOCK_ONLY` is safe for every block form and every `memLevel`, given the overlay room of the dynamic form | `flush_block_only_safe`, from `tr_flush_block_safe` | `trees.c.universal-flush.lean`, `trees.c.universal-block.lean` | checked |
+| The three block forms | `stored_block_safe`, `fixed_block_safe`, `dynamic_block_safe` | `trees.c.universal-stored.lean`, `-fixed.lean`, `-dynamic.lean` | checked |
+| Overlay room F9, `B ≥ 2048` (`memLevel ≥ 5`) | `dynamic_overlay_large` | `trees.c.universal-block.lean` | checked |
+| Overlay room F9, `B = 512` and `1024` (`memLevel` 3 and 4) | `dynamic_overlay_mid` | `trees.c.universal-overlay-mid.lean` | checked |
+| Overlay room F9, `B = 256` and `128` (`memLevel` 2 and 1) | `tinyOverlayAt_256`, `tinyOverlayAt_128`, `tinyOverlay` | `deflate.c.engine.overlay-header-ref.lean` | registered |
+| `gen_bitlen` never shortens a code of a tree whose weight is below 1597 | `ws_gen_bitlen_fib_plus` | `trees.c.universal-overlay-fibplus.lean` | checked |
+| The heap operations, `gen_bitlen`, the bit output and the tally | `pqdownheap_safe`, `pqremove_safe`, `gen_bitlen_safe`, `kraft_clamped`, `send_bits_spec`, `bi_flush_spec`, `bi_windup_spec`, `bi_reverse_safe`, `init_block_spec`, `tr_init_spec`, `tr_tally_spec` | `trees.c.heap.*.lean`, `trees.c.bits.lean`, `trees.c.tally.lean` and the modules beside them | registered |
 
-Of the theorems in this table, only `tinyOverlayAt_256`, `tinyOverlayAt_128` and
-`tinyOverlay` are registered in `tests/audit/theorems.txt`; they are accepted on
-commit `bde170e9` ([progress, Scope](../progress.md#scope)). The others
-(`flush_block_only_safe`, `tr_flush_block_safe`, `dynamic_overlay_large`,
-`dynamic_room_large`, `dynamic_overlay_mid`, `ws_gen_bitlen_fib_plus`) are
-checked, not registered: they lie in the proof of the registered theorem
-`Zlib.Deflate.Universal.deflate_sequence_safety`, which is the required theorem
-that uses this page. It has no hypothesis, because the overlay room is proved for
-every `memLevel`.
+`B` is `lit_bufsize = 2^(memLevel + 6)`. Because F9 is proved for all nine values of
+`memLevel`, the sequence theorem of `deflate` has no premise about it.
 
-Not required: that the emitted bits are a valid DEFLATE block for the tallied
-symbols. Array safety alone does not show that. The sections below say where an
-argument is functional only.
+Functional theorems also exist (`gen_bitlen_correct`, `pqdownheap_correct`,
+`bi_reverse_correct` and others: the lengths form a complete prefix code, the bits written are
+the ones intended). They are registered, and they are not required for the safety results. No
+theorem says that the emitted block decodes to the recorded symbols. Earlier notes on what such
+a proof has to cover are kept in the [history](../history/proof-functional-notes.md).
 
-A paragraph marked **to confirm** is a reading of the C source that no theorem
-named here states in that form. The theorems are checked against the
-translation, not against this prose.
+## Assumptions
 
-## Dataflow
+`flush_block_only_safe` is an internal theorem. Its premises are facts about the compressor
+state, and the strategies prove them at every flush from the invariant `DInv`
+([stream compression](deflate.md#the-invariant)).
+
+- The state is well formed (`DGood`, `TreesInvAt`): array sizes, tree descriptors, the block
+  that holds `pending_buf` and `sym_buf`.
+- The level is positive. Level 0 does not build trees.
+- **H0, the entry accounting.** `pending = 0`, `pending_out = pending_buf`, and `bi_valid ≤ 7`.
+- The recorded symbols are described by a list (`SymbolLedger`): `sym_next = 3n`, the bytes in
+  `sym_buf` are the `n` symbols, each has a length byte below 256 and a distance of at most
+  32768, and the frequencies in `dyn_ltree` and `dyn_dtree` count exactly these symbols.
+- The cost fields `opt_len` and `static_len` and the bit-length frequencies are zero
+  (`BlockClear`).
+- `-2^62 ≤ block_start ≤ strstart ≤ window_size`.
+- The caller's output pointer is not `NULL`, and the stream's buffers are as
+  `StreamBuffers` says.
+
+H0 holds at every flush. `bi_valid ≤ 7` is the clause `biValid` of the invariant: every path
+that sends bits ends with `bi_flush` or `bi_windup`. `pending = 0` is part of the loop state of
+each strategy (`BlockReady`, `ZlibF/Proof/deflate.c.universal-strategies.lean`): `deflate`
+calls a strategy only with an empty pending buffer, and after a flush that leaves bytes pending
+the strategy returns instead of going on.
+
+## What a flush does
 
 ```mermaid
 flowchart TD
-    Tally["Tally literal or match"] --> Flush["_tr_flush_block"]
-    Flush --> Trees["build_tree: literal/length and distance"]
-    Trees --> Lengths["gen_bitlen"]
-    Lengths --> Codes["gen_codes"]
-    Codes --> BitTree["build_bl_tree / scan_tree"]
-    BitTree --> Choose{"Choose block form"}
-    Choose --> Stored["_tr_stored_block"]
-    Choose --> Fixed["compress_block: fixed codes"]
-    Choose --> Dynamic["send_all_trees then compress_block"]
-    Fixed --> Bits["send_bits and pending writes"]
+    Tally["symbols recorded in sym_buf, frequencies counted"] --> Flush["_tr_flush_block"]
+    Flush --> Trees["build_tree: literal/length tree, distance tree"]
+    Trees --> Lengths["gen_bitlen: code lengths, limited to 15"]
+    Lengths --> Codes["gen_codes: canonical codes"]
+    Codes --> BitTree["build_bl_tree: code for the code lengths"]
+    BitTree --> Choose{"cheapest form"}
+    Choose --> Stored["stored: copy the input bytes"]
+    Choose --> Fixed["fixed: compress_block with the static trees"]
+    Choose --> Dynamic["dynamic: send_all_trees, then compress_block"]
+    Fixed --> Bits["send_bits into pending_buf"]
     Dynamic --> Bits
     Stored --> Bits
 ```
 
-Each edge requires an execution theorem and established representation facts.
-In particular, block emission must preserve unread symbols in the pending
-buffer before their values can be used in table-index proofs.
+The buffer that `send_bits` writes is the one `compress_block` reads:
 
-## Heap and node bounds: F7
+```
+pending_buf   0 .......... pending ......... B ......... B + 3k ......... B + 3n ...... 4B
+              | output written |    free     | symbols read | symbols unread |   free   |
+                               --> grows                    --> moves
+```
+
+The "invariant" of this page is the picture: while a block is written, `pending` stays below
+`B + 3k`, the start of the next unread symbol. Everything else is ordinary array bounds.
+
+## Why each step is safe
+
+### Building a tree: F7
 
 Let `elems` be 286, 30 or 19 for the literal/length, distance or bit-length tree.
-`HEAP_SIZE = 573`. The `heap`, `depth` and `dyn_ltree` arrays have 573 entries;
-`dyn_dtree` has 61 and `bl_tree` has 39.
+`HEAP_SIZE = 573`. The arrays `heap`, `depth` and `dyn_ltree` have 573 entries, `dyn_dtree` has
+61 and `bl_tree` has 39.
 
-The scan resets heap counters, selects nonzero-frequency leaves and initializes
-the required lengths/depths. For zero or one live leaf, the forcing loop creates
-at most two distinct live leaves. Prove this from unrestricted old array
-contents, including its exact descriptor maximum and unsigned cost adjustments.
-The result is `2 ≤ N ≤ elems` populated entries in heap positions `1..N`.
+`build_tree` first puts every symbol with a nonzero frequency on the heap. If fewer than two
+are found, it adds symbols with frequency 1 until there are two. So the heap holds `N` leaves
+with `2 ≤ N ≤ elems`, at `heap[1..N]`.
 
-For `pqdownheap(k)`, the left child `j = 2k` is read only with `j ≤ heap_len`;
-the right child `j+1` only with `j < heap_len`. Descending moves k to a child,
-so the finite heap depth bounds the loop and shifts. Its execution theorem must
-preserve the heap's node permutation and restore the ordering needed by the
-constructor. A bound on indices does not establish a minimal root.
+`pqdownheap(k)` reads the left child `heap[2k]` only when `2k ≤ heap_len` and the right child
+`heap[2k+1]` only when `2k < heap_len`. Each round moves `k` to a child, so the loop runs at
+most as many times as the heap is deep.
 
-The heapify loop applies that theorem in reverse internal-node order. The
-following merge loop starts with `heap_len = N`, `heap_max = HEAP_SIZE` and
-`node = elems`. After t merges,
+The merge loop takes the two smallest nodes off the heap, stores them at the top of `heap`, and
+puts a new parent node on the heap. After `t` merges
 
 ```
 heap_len = N - t
 heap_max = HEAP_SIZE - 2t
 ```
 
-The next merge exists only with `t ≤ N-2`. Its two stored-node writes use indices
-`HEAP_SIZE-2t-1` and `HEAP_SIZE-2t-2`. They are positive and above the active heap:
+A merge happens only while `t ≤ N - 2`. It writes `heap[HEAP_SIZE - 2t - 1]` and
+`heap[HEAP_SIZE - 2t - 2]`. These indices are positive and above the active heap:
 
 ```
-HEAP_SIZE - 2t - 2 > N - t
+HEAP_SIZE - 2t - 2 > N - t      because N ≤ 286 and t ≤ N - 2
 ```
 
-because `N ≤ 286` and `t ≤ N-2`. The new node number is at most
-`elems+N-2 ≤ 2*elems-2`, namely 570, 58 or 36. It fits its selected tree array.
-The last root write uses `HEAP_SIZE-2N+1 ≥ 2`. These are the principal array
-bounds in **F7**.
+The new node has number at most `elems + N - 2 ≤ 2 * elems - 2`: 570, 58 or 36. That fits the
+tree array (573, 61, 39). The last root write goes to `heap[HEAP_SIZE - 2N + 1]`, an index of
+at least 2. These bounds are fact **F7** of
+[the method](method.md#structural-facts-used-by-several-proofs). `pqdownheap_safe` and
+`pqremove_safe` cover the heap operations, and `ws_build_tree_complete`
+(`trees.c.build.complete.lean`) the whole function.
 
-The full merge proof must also establish distinct children, parent links,
-frequency sums, node membership and stored order. Source-level tie-breaking
-uses depth reads at specific times. Preserve the selected-depth reread in the
-translated merge expression; a cached earlier depth is a different program.
-The initialization history of every reached depth read is part of the proof.
+`depth` is an `unsigned char` and its increment can wrap. That is defined behaviour and has no
+effect on any index. Frequencies of parent nodes are sums of leaf frequencies; a block has
+fewer than `B ≤ 32768` symbols, so the sums fit in 16 bits.
 
-Depth is an unsigned byte. A depth increment may wrap as C permits. That fact
-alone is harmless to memory safety, but it does not justify a mathematical
-claim that uses the unwrapped depth for ordering or an overlay bound. Such a
-claim must establish a sufficient range or explicitly account for wrapping.
-Frequency and cost fields likewise need their actual width and total-weight
-bounds, including artificial leaves and reset/repair effects.
+### Limiting the code lengths: F8
 
-## Length repair: F8
+`gen_bitlen` walks the nodes that `build_tree` stored in `heap[heap_max..HEAP_SIZE)`. A parent
+is stored at a smaller index than its children, so the walk meets every parent first. Let `L`
+be the length limit: 15 for the two data trees, 7 for the bit-length tree.
 
-`gen_bitlen` receives the constructed full binary tree, its parent links and
-ordered stored-node region. Let `L = max_length`, 15 for data codes or 7 for the
-bit-length tree, and let n be its number of leaves. The root precedes its
-descendants in `heap[heap_max..HEAP_SIZE)`: a parent is constructed after its
-children leave the priority queue and is stored later at a smaller index.
+**First pass.** Each node gets `Len = min(Len(parent) + 1, L)`. `overflow` counts the nodes,
+leaves and inner nodes, whose true depth is greater than `L`. `bl_count[l]` counts the leaves
+of length `l`.
 
-The first pass assigns each non-root node
-`Len = min(Len(parent)+1, L)`. Thus `Len = min(true depth, L)`.
-`overflow` counts every node whose true depth exceeds L, including internal
-nodes; it is not merely a count of deep leaves. The pass counts leaf lengths in
-`bl_count` and updates exact source cost fields.
-
-### The clamped Kraft identity
-
-For a full binary tree, the true leaf Kraft sum is 1. Let
-`K = Σ_leaves 2^-Len` after clamping. Every internal node v at true depth L
-has a full subtree with `ℓ_v` leaves and `2ℓ_v-2` nodes strictly below it.
-Clamping that subtree raises its Kraft weight from `2^-L` to `ℓ_v*2^-L`.
-Every node below depth L belongs to exactly one such subtree. Hence
+**The Kraft sum after clamping.** In a full binary tree the leaves satisfy `Σ 2^-depth = 1`.
+Take an inner node `v` at true depth `L`, with `m_v` leaves below it. Before clamping those
+leaves weigh `2^-L` together. After clamping each weighs `2^-L`, so together `m_v * 2^-L`. The
+subtree has `2 m_v - 2` nodes below `v`, all deeper than `L`. Every node deeper than `L` lies
+under exactly one such `v`. Summing over all `v`:
 
 ```
-K - 1 = 2^-L Σ_v (ℓ_v - 1)
-overflow = Σ_v (2ℓ_v - 2)
-K = 1 + (overflow/2) 2^-L
+overflow          = Σ_v (2 m_v - 2)
+Σ_leaves 2^-Len   = 1 + (overflow / 2) * 2^-L
 ```
 
-In particular, overflow is even. This identity depends on the real full tree
-and the traversal accounting; arbitrary bounded leaf lengths do not imply it.
+So `overflow` is even (`kraft_clamped`, `trees.c.heap.gbtree.lean`).
 
-A repair finds the highest nonempty class `b < L`, then performs
+**Repair.** While `overflow > 0` the C does
 
-```
-bl_count[b]--
-bl_count[b+1] += 2
-bl_count[L]--
-overflow -= 2
-```
-
-Splitting a leaf preserves Kraft weight and adds one leaf. Dropping a length-L
-leaf removes `2^-L` and one leaf. Thus repair preserves n and the displayed
-identity while lowering overflow by two.
-
-### Why repair cannot run off the arrays
-
-**F8(i):** while overflow is positive, some class `1 ≤ b < L` is nonempty.
-Otherwise all n leaves have length L, so the identity with positive overflow
-would give `n > 2^L`. But the descriptor gives `n ≤ 286 < 2^15`, or
-`n ≤ 19 < 2^7` for the bit-length tree. The downward class scan therefore stops
-before zero or a negative index.
-
-**F8(ii):** the final class has at least two leaves at every repair entry.
-Initially its count is at least the number of deep leaves:
-
-```
-a₀ ≥ Σ_v ℓ_v = overflow₀/2 + R ≥ overflow₀/2 + 1
+```c
+bits = max_length - 1;
+while (s->bl_count[bits] == 0) bits--;
+s->bl_count[bits]--;          /* one leaf of length bits becomes an inner node ...  */
+s->bl_count[bits + 1] += 2;   /* ... with two leaves below it                      */
+s->bl_count[max_length]--;    /* one of them is a leaf moved up from the last level */
+overflow -= 2;
 ```
 
-where R is the positive number of depth-L internal subtrees when overflow is
-positive. Each repair decreases a by at most one and overflow/2 by exactly one.
-Thus `a ≥ overflow/2 + 1 ≥ 2` at a continuing entry. The decrement cannot wrap.
-The intermediate count increase is bounded by n+1, so it also fits its field.
+One round lowers the Kraft sum by `2^-L` and `overflow` by 2, and keeps the number of leaves
+(`round_kraft`). Two things have to be true for it not to fault.
 
-Overflow decreases through nonnegative even values, so repair terminates with
-K = 1. The second pass assigns exactly `bl_count[b]` leaves at each length,
-scanning `heap[--h]` and skipping internal nodes. There are n leaves among the
-`2n-2` non-root stored nodes, so the scan stays at or above `heap_max+1`.
-Prove that assignment order and cost corrections match the source, in addition
-to these bounds.
+- **F8(i): the downward scan stops at a positive index.** Suppose every leaf had length `L`
+  while `overflow > 0`. The identity would give `n * 2^-L > 1`, so `n > 2^L`. But `n ≤ 286 <
+  2^15` for the data trees and `n ≤ 19 < 2^7` for the bit-length tree. So some class below `L`
+  is not empty (`exists_short`).
+- **F8(ii): `bl_count[max_length]` does not go below zero.** At the start it is at least
+  `overflow / 2 + 1`: the leaves under the nodes `v` number `Σ m_v = overflow / 2 + (number of
+  such v)`, and there is at least one `v`. Each round takes one from it and one from
+  `overflow / 2`. So it is at least 2 at every round.
 
-The resulting `I-gb-len` gives active leaf lengths in `1..L`, counts and a
-complete prefix code. The parent/tree/heap premises must come from
-`build_tree` execution; they cannot be callee-contract assumptions.
+`overflow` goes down through even values to 0, and then the Kraft sum is 1.
 
-## Canonical words and tree descriptions
+**Second pass.** The C hands out the lengths again: `bl_count[bits]` leaves get length `bits`,
+taken from `heap[--h]` and skipping inner nodes. There are `n` leaves among the stored nodes
+and `Σ bl_count = n`, so `h` does not go below `heap_max`.
 
-`gen_codes` first computes canonical start words from `bl_count`, then writes
-the reversed word for each positive-length symbol and advances that length's
-next word. `I-gc-*` must establish the exact reversed canonical assignment,
-preservation of lengths and the frame outside selected code cells. Safety
-needs explicit array and length bounds; correctness additionally needs the
-canonical-code/count relation. Unsigned wrapping in the start-code arithmetic
-must agree with the actual translated operations.
+`gen_bitlen_safe` (`trees.c.heap.gbtop.lean`, registered) is the whole function.
 
-`bi_reverse` has a positive count for each such call, at most 15. Its loop
-reverses exactly that many bits. The zero-length case is skipped before the
-call. The actual execution proof must account for both loops and their fuel.
+### Codes and the tree description
 
-| Functions | Required bounds and meanings |
+`gen_codes` computes the first code of each length from `bl_count` and gives each symbol with a
+nonzero length the next code of its length, bit-reversed by `bi_reverse`. The local array
+`next_code[16]` is written at indices 1 to 15 before it is read. `bi_reverse` is called with a
+length between 1 and 15 and loops that many times (`bi_reverse_safe`).
+
+| Function | Why its accesses are in range |
 | --- | --- |
-| `scan_tree` | Sentinel store at `max_code+1` fits the tree. Real lengths are `0..15`; sentinel `0xffff` is compared without indexing `bl_tree` by it. Repeat symbols 16, 17 and 18 fit the bit-length tree. |
-| `send_tree` | Its repeat decomposition matches the scan's counts and reproduces the original code-length sequence using the generated bit-length codes. |
-| `build_bl_tree` | `bl_order[max_blindex]` is bounded while scanning from 18 toward 3; connect tree costs to the actual description. |
-| `send_all_trees` | `blcodes ≤ 19` and the other count bounds justify descriptor and order-table accesses; emitted counts and lengths match the format grammar. |
-| `_tr_tally` and tally macros | Every stored literal/match has the specified length/distance domain and corresponding frequency update; symbol writes fit the shared region. |
-| Initialization and reset helpers | Establish descriptor pointers, END_BLOCK frequency, bit-buffer state and zero/count facts before their consumers read them. |
+| `scan_tree` | It runs on the two data trees. It writes a guard value `0xffff` at `tree[max_code + 1]`; that index is at most 286 or 30, inside the arrays of 573 and 61 entries. Real lengths are 0 to 15 and index `bl_tree` at 0 to 18; the guard is compared, never used as an index |
+| `build_bl_tree` | It scans `bl_order[max_blindex]` down from 18 and stops at 3 at the latest |
+| `send_all_trees` | It sends `lcodes - 257`, `dcodes - 1` and `blcodes - 4` in 5, 5 and 4 bits, then `blcodes ≤ 19` three-bit lengths |
+| `send_tree` | It repeats the scan of `scan_tree` and reads the same entries |
 
-## Bits, pending bytes and `compress_block`
+### Bits and pending bytes
 
-`I-pb-room` requires one/two bytes of room for `put_byte`/`put_short`.
-`send_bits` requires `1 ≤ length ≤ 16`, a fitting value and valid bit-buffer
-state. It has no capacity check of its own. It either appends within the
-16-bit buffer or writes a short and retains the remainder. Each shift and
-conversion needs the exact branch-specific range.
+`send_bits(s, value, length)` adds `length` bits to the 16-bit buffer `bi_buf`. When the buffer
+would overflow it writes two bytes to `pending_buf` and keeps the rest. It does not check the
+room in `pending_buf`. `send_bits_spec` assumes `0 ≤ length ≤ 15`, a value below `2^length`,
+and room for the bits; every call in `trees.c` sends at most 15 bits. With `bi_valid ≤ 16` and
+`length ≤ 15` all shifts are by at most 16 on 32-bit operands.
 
-Use **P** for the accounting bound. If S bits have been sent since a base
-pending position and the initial bit count is v, then the short-write portion
-satisfies
+If `S` bits were sent from a state with `v` bits held, then
 
 ```
-pending ≤ base + 2 floor((S + v) / 16)
+pending ≤ base + 2 * floor((S + v) / 16)
 ```
 
-Equality need not hold at an exact 16-bit boundary: the source can retain a full
-bit buffer until the next write. With `v ≤ 7`, the convenient upper bound is
-`pending ≤ base + S/8 + 1`. Byte-alignment, tree headers and final flushes need
-their own extra-byte accounting.
+Equality need not hold at a multiple of 16: the C keeps a full bit buffer until the next write.
+With `v ≤ 7` this gives `pending ≤ base + S / 8 + 1`.
 
-`compress_block` reads three symbol bytes before emitting their code. For a
-match, `lc ≤ 255` bounds `_length_code[lc]`; its code is at most 28 and indexes
-the length base/extra tables and the literal/length tree up to symbol 285.
-Distance minus one is at most 32767, so
-`d_code(x) = x < 256 ? _dist_code[x] : _dist_code[256 + (x >> 7)]`
-indexes at most 511. The selected distance code is at most 29.
+`compress_block` reads the three bytes of symbol `k` and then sends its code. For a match the
+length byte `lc ≤ 255` indexes `_length_code`, and the distance minus one, at most 32767,
+indexes `_dist_code` through
+`d_code(x) = x < 256 ? _dist_code[x] : _dist_code[256 + (x >> 7)]`, at most index 511 of 512.
 
-Those premises require the symbols still to be the values tallied. Overwriting
-an unread distance can create an arbitrary 16-bit value and an index up to 767.
-The overlay lemma therefore supports static-table read safety as well as
-pending write safety.
+These bounds hold only if the bytes read are the ones recorded. If output had overwritten an
+unread symbol, the distance could be any 16-bit value and `d_code` could index 767. So F9
+protects a read of a static table as well as the writes.
 
 ## The overlay lemma F9
 
-Let `B = lit_bufsize`. Pending storage has `4B` bytes. Symbols start at offset B,
-consume three bytes each and number at most `K ≤ B-1`. Symbol k is read at
-`[B+3k, B+3k+3)`.
+Write `B = lit_bufsize`. The buffer has `4B` bytes. Symbols start at offset `B`, take three
+bytes each, and number `n ≤ B - 1`. Symbol `k` is at `[B + 3k, B + 3k + 3)`.
 
-**F9 / I-cb-pending:** after emitting symbol k,
-
-```
-pending < B + 3(k+1)
-```
-
-and no write during emission may reach the unread suffix. After the end code
-and final flush, require `pending ≤ 4B`. The pre-symbol tree/header writes must
-also preserve symbol 0. A proof needs these temporal facts, not only the final
-pending count.
-
-### Entry accounting H0
-
-The intended **H0** is `pending = 0` and `bi_valid ≤ 7` at `_tr_flush_block`
-entry. **to confirm**: derive it for every caller, wrapper-header path and
-resumed partial-output call. The source flushes pending bits/bytes and may
-return when output is exhausted. A fresh block must not bypass residual
-pending bytes. Any path with a different entry bound needs the actual stronger
-accounting premise rather than H0 by assertion.
-
-### Fixed and stored blocks
-
-For fixed codes a literal costs at most nine bits and a match at most
-`8 + 5 + 5 + 13 = 31`. A fixed block adds a three-bit header and seven-bit end
-code. Under H0 and P, after q symbols (`1 ≤ q ≤ K`) a convenient bound is
+**F9.** While a block is written, after the header and after each of the first `k` symbols,
 
 ```
-pending ≤ (7 + 3 + 31q)/8 + 1
+8 * pending + bi_valid + 15 ≤ 8 * (B + 3k)          (prefix room)
 ```
 
-It is below `B+3q` whenever `(7/8)q + 9/4 < B`. Since `q ≤ B-1`, `B > 11`
-suffices; the permitted minimum is B = 128. Exact integer rounding only
-improves that loose bound. Include the end code and final alignment to prove
-the final `4B` capacity. The initial slack also protects symbol 0 from the
-three-bit header.
+and when the block is complete, with its end code and the final alignment, it fits in `4B`
+bytes (block room). The 15 bits of slack cover the bits held in `bi_buf` and the two-byte step
+of `send_bits`. In Lean this is `DynamicRoom` (`trees.c.universal-dynamic.lean`) for the dynamic
+form; it is written with the entry state and the bit costs of the header and of each symbol.
 
-Block selection computes rounded dynamic and fixed byte costs. Dynamic output
-is chosen only if its rounded cost is strictly less than the fixed cost; a
-stored block requires `stored_len+4 ≤` the selected cost and an available raw
-buffer. For stored blocks, that comparison and the fixed cost bound control
-the header plus copied data. Symbols are not read afterwards, so overwriting
-their region is permitted once the stored form is selected. Prove the byte
-rounding and entry-bit accounting for the actual branch.
+A symbol frees 24 bits of buffer when it is read. So the question is how much more than 24
+bits a symbol's code can take, and how many bits the block header takes before the first
+symbol.
 
-### Dynamic blocks need a prefix bound
+### Stored and fixed blocks
 
-A dynamic block emits its tree description before its symbols: 14 count bits,
-three bits per announced bit-length code and a repeat-coded length sequence.
-The subsequent data code lengths can be as large as 15. Comparing the complete
-dynamic block against the complete fixed block bounds a total. It does not
-bound each prefix: long early symbols can precede short late symbols.
+A stored block is chosen only when its length plus 4 is at most the cost of the other forms.
+Once it is chosen the symbols are not read again, so the copy may overwrite them
+(`stored_block_safe`).
 
-The required inequality is of the form
+With the fixed codes a literal costs at most 9 bits and a match at most `8 + 5 + 5 + 13 = 31`.
+The header has 3 bits. From H0, after `q` symbols
 
 ```
-tree_bits + Σ_(i < q) dynamic_symbol_bits(i)
-    < 8(B + 3q) - rounding_and_entry_slack
+pending ≤ (7 + 3 + 31 q) / 8 + 1
 ```
 
-for each emitted prefix, plus the bound for the tree before symbol 0 and the
-final flush. Kraft-valid code lengths alone do not establish this inequality;
-it must use the tree actually constructed from the block's frequencies.
+For the smallest buffer, `B = 128` with `q = 127`: `pending ≤ 494`, and the next symbol starts
+at `128 + 3 * 127 = 509`. In general the bound is below `B + 3q` whenever `B > 11`
+(`fixed_block_safe`).
 
-The inequality is proved in three ranges of the buffer size B.
+### Dynamic blocks
 
-**`B ≥ 2048` (`memLevel ≥ 5`).** The header of a dynamic block is at most 2283
-bits. Each symbol costs at most 6.257 bits above the 24 bits of its three-byte
-record. These two bounds give both the prefix bound and the final capacity
-(`dynamic_room_large`, `ZlibF/Proof/trees.c.universal-dynamic.lean`).
+A dynamic block sends its tree description first, and its codes can be 15 bits long. Comparing
+the total size with a fixed block is not enough: long codes may come early and short ones late.
+The proof bounds the whole block instead. Let
 
-**`B = 512` and `B = 1024` (`memLevel` 3 and 4).** A block holds at most `B - 1`
-symbols, so both source trees weigh at most `B + 2 ≤ 1026`. A Huffman tree whose
-root weight is below `F(17) = 1597` never overflows the length limit: an
-overflowing node has a parent at depth 15 or more, and the Fibonacci chain bound
-gives that parent a weight of at least `F(16) + F(15) = 1597`
-(`ZlibF/Proof/trees.c.universal-overlay-fibplus.lean`). So every length is the
-Huffman depth, and every used symbol with frequency `f` and length `l` keeps
-`f · F(l + 1) + F(l) ≤ W`. That caps the block excess at 1777 bits for weight
-at most 514 and 3678 bits for weight at most 1026. With the header bound the
-order-free budget `header + excess + 25 ≤ 8B` holds: `2283 + 1777 + 25 = 4085 ≤
-4096` and `2283 + 3678 + 25 = 5986 ≤ 8192`
-(`ZlibF/Proof/trees.c.universal-overlay-mid.lean`).
-
-**`B = 256` and `B = 128` (`memLevel` 2 and 1).** The slack is too small for the
-general header bound. The proof bounds the header of each prepared block
-against a reference bit-length code
-(`ZlibF/Proof/deflate.c.engine.overlay-header-ref.lean`). The header is
-`14 + 3(mb + 1)` bits, at most 71, plus the cost of the scanned bit-length
-symbols. At `B = 256` every data-tree length is at most 11, so the bit-length
-symbols 12 to 15 are absent. At `B = 128` every length is at most 9. In both
-cases a complete reference code bounds the cost. A heap-free certificate then
-combines the region scan, the block-choice row, Kraft and the forced leaves into
-the order-free budget (`ZlibF/Proof/deflate.c.engine.overlay-mem2c.lean`,
-`deflate.c.engine.overlay-mem1w.lean`). The results are `tinyOverlayAt_256` and
-`tinyOverlayAt_128`.
-
-So F9 holds for every configuration that `zlib.h` permits. No theorem is
-restricted by `memLevel`.
-
-An earlier development reached the same bound by other routes. Its record is in
-the [earlier proof notes](../history/proof-earlier-notes.md#overlay-bound-earlier-routes).
-
-## What the block flush composes
-
-The flush result uses actual descriptor initialization, heap selection and
-merges, length repair, canonical assignment, description emission and
-block-cost selection. It establishes F7, F8 and F9 on the same execution and
-frames all memory outside the allowed tree, symbol and pending regions. A proof
-mutant must fail the function's execution proof, even when a source-equality
-lemma still checks.
-
-## C correspondence checks
-
-### Trees, bit output and the shared-buffer overlay
-
-The pending block contains both output and symbols:
-
-```mermaid
-flowchart LR
-    A["one pending allocation"] --> P["output from offset 0"]
-    A --> S["symbols from offset lit_bufsize"]
-    S --> R["compress_block reads three bytes per symbol"]
-    R --> W["send_bits writes below unread symbols"]
-    P --> W
+```
+header = bits of the tree description
+excess = Σ over the symbols of max(0, cost - 24)
 ```
 
-`sym_end = 3 * (lit_bufsize - 1)`. Tallies write distance low byte, distance high
-byte and literal or length byte, then update frequencies. A literal uses zero
-distance. A match needs positive distance before the macro's 16-bit decrement:
-zero would wrap to 65535 and make `d_code` index 767 in a 512-entry table.
-**to confirm**: callers supply distances `1..32768` and length offsets `0..255`,
-and every flush decision leaves room for its three-byte tally.
+Any prefix of `k` symbols costs at most `24k + excess`. With H0 (7 held bits), 3 block-type
+bits and the 15 bits of slack, prefix room follows from the **budget**
 
-Bit-output helpers perform no capacity checks. **to confirm**: every write fits
-and cannot overwrite unread symbols. The overlay bound depends on block choice
-and tree lengths, not just allocation size. Stored blocks also need capacity
-for padding, four length bytes and payload.
+```
+header + excess + 25 ≤ 8B
+```
 
-The overlay bound is proved for every memory level; see
-[the overlay lemma](#the-overlay-lemma-f9) above.
+The budget is proved in three ranges of `B`.
 
-`send_bits` promotes `ush` to signed `int` for shifts, then narrows stores.
-**to confirm**: bit counts and code ranges exclude invalid shifts and signed
-overflow, including a shift by 16. `bi_windup` computes
-`((bi_valid - 1) & 7) + 1`; zero valid bits yield eight on this target.
-Replacing that result with zero changes `bi_used`.
+| `B` | `8B` | Proved bound on `header + excess` | With the 25 |
+| --- | --- | --- | --- |
+| 2048 and above | 16384 and above | `2283 + 6.257 (B + 2)`, which is 15110 at `B = 2048` | 15135 at `B = 2048` |
+| 1024 | 8192 | `2283 + 3678 = 5961` | 5986 |
+| 512 | 4096 | `2283 + 1777 = 4060` | 4085 |
+| 256 | 2048 | 2023 | 2048 |
+| 128 | 1024 | 999 | 1024 |
 
-| Function or concern | Source distinction and required justification |
-| --- | --- |
-| `init_block`, `_tr_init` | Reset clears frequencies and costs, not every old length or parent. Initialization also installs descriptors and resets bit-buffer fields. |
-| `gen_codes` | Local `next_code[16]` has no read of entry zero. Entries `1..15` are written before use. Starting codes use unsigned arithmetic and narrow to 16 bits. Post-increment supplies the old value to reversal. |
-| Heap construction | `pqremove` reads the old heap end, decrements `heap_len`, then sifts. Equal frequencies compare depths. Selected-depth rereads remain separate accesses. |
-| `build_tree` | Forces extra leaves when needed. Cost decrements wrap in `ulg` by design. Frequency sums promote to `int` before narrowing to `ush`. |
-| `gen_bitlen` | Replaces parents with lengths. **to confirm**: parent writes precede reads, heap nodes are valid, and length repair finds a nonzero lower count before decrementing below zero. Its cost adjustments wrap by design. |
-| `scan_tree`, `send_tree` | The former writes the `max_code + 1` sentinel; the latter reads it with the same maximum. Dynamic arrays have 573, 61 and 39 entries. **to confirm**: the extra slot is in bounds and stays a next length, never a real length used as a tree index. |
-| `_tr_flush_block` | Stored, fixed and dynamic costs determine emission before reset. Preserve rounded unsigned costs and exact tie choices. |
+**The header bound 2283.** The description has 14 count bits, at most 19 three-bit lengths, and
+one code of at most 7 bits for each of at most `286 + 30` code lengths:
+`14 + 57 + 7 * 316 = 2283` (`build_bl_tree_header_budget`, `trees.c.header-budget.lean`).
 
-Macro scope and control flow also matter. `send_bits` declares `len` and `val`;
-the distance tally declares `len` and `dist`. Existing arguments avoid capture.
-`put_short` and `MIN` can evaluate arguments repeatedly. `INSERT_STRING` is an
-ordered comma expression. `FLUSH_BLOCK` can return from its caller;
-`FLUSH_BLOCK_ONLY` cannot. Compiled-out assertions prove none of their bounds.
+**`B ≥ 2048`.** In a Huffman tree a frequent symbol has a short code: a leaf of frequency `f`
+at depth `l` forces the total weight to be at least about `f` times the Fibonacci number
+`F(l + 1)`. Summing the worst case over both alphabets, with their extra bits and with the
+effect of the length repair, gives an excess of at most 6.257 bits per symbol, counted over
+`n + 3` (`source_trees_symbol_excess_engine`, `deflate.c.engine.symbol-excess.lean`, from
+`symbol_excess_from_fib`, `ZlibF/Math/DeflateSymbolExcess.lean`). The 3 are the end-of-block
+symbol and the up to two symbols that `build_tree` adds. With `n ≤ B - 1` the budget holds from
+`B = 1332` up. At `B = 1024` it fails: `2283 + 6.257 * 1026 + 25 = 8728 > 8192`.
+
+**`B = 512` and `1024`.** The trees weigh at most `B + 2 ≤ 1026`. A tree lighter than
+`F(17) = 1597` has no node deeper than 15: such a node has a parent at depth 15 or more, and a
+node that deep forces a total weight of at least `F(16) + F(15) = 1597`. So `gen_bitlen` repairs
+nothing in the two data trees
+(`ws_gen_bitlen_fib_plus`), every length is the true depth, and each symbol satisfies
+`f * F(l + 1) + F(l) ≤ W`. Under that constraint the largest possible excess is 1777 bits for a
+weight of at most 514 and 3678 bits for a weight of at most 1026
+(`ZlibF/Math/DeflateOverlaySmall.lean`).
+
+**`B = 256` and `128`.** The general header bound is too large here: `2283 > 2048`. The proof
+bounds the header of the block at hand. It is `14 + 3 (max_blindex + 1)` bits, at most 71, plus
+the cost of the code-length symbols. At `B = 256` every data code is at most 11 bits long, so
+the code-length symbols 12 to 15 do not occur; at `B = 128` every code is at most 9 bits long.
+The cost of the remaining symbols is bounded against a fixed complete code
+(`deflate.c.engine.overlay-header-ref.lean`). One more inequality is used: the dynamic form was
+chosen, so its rounded cost is below the cost of the fixed form. A heap-free certificate
+combines these facts into `header + excess ≤ 2023` and `≤ 999`
+(`deflate.c.engine.overlay-mem2c.lean`, `deflate.c.engine.overlay-mem1w.lean`). In both cases
+the proved bound meets the budget exactly.
+
+An earlier development reached the same bound by other routes; see the
+[earlier proof notes](../history/proof-earlier-notes.md#overlay-bound-earlier-routes).
+
+## Why the loops end
+
+- `pqdownheap`: `k` at least doubles each round and stays at most `heap_len ≤ 573`.
+- The merge loop of `build_tree`: `heap_len` falls by one per round, from `N` to 1.
+- `gen_bitlen`: the first and second pass run over the stored nodes; the repair loop lowers
+  `overflow` by 2 per round; the downward scan stops by F8(i).
+- `gen_codes`, `scan_tree`, `send_tree`: fixed ranges up to `max_code`.
+- `compress_block`: one round per recorded symbol, `sym_next / 3` rounds.
+- `bi_reverse`: `len` rounds, with `1 ≤ len ≤ 15`.
+
+Each bound is at most a few thousand, far below the loop fuel of `2^64`. The safety theorems
+named above include termination.
+
+## Where the hard part is
+
+F9 for a dynamic block, at small `memLevel`. Array bounds do not give it, and neither does the
+comparison of block costs. It needs a fact about the code lengths of the tree that was actually
+built: no cheap sequence of symbols can have codes long enough to catch up with the read
+position. For `B ≥ 2048` a general bound per symbol is enough. For the two smallest buffers
+the proved bound has no slack, and the proof has to use the exact header of the block and the
+fact that the dynamic form was chosen.
+
+## Readings of the C that no theorem states
+
+- Every `depth` value that the tie-break of `pqdownheap` reads was written during the same
+  `build_tree` call. No theorem states it. In the model a read of an integer that was never
+  written returns an arbitrary value and is not a fault, and the theorems hold for every such
+  value ([trusted base](../trusted-base.md)). **to confirm**.

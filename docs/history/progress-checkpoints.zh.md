@@ -1,4 +1,4 @@
-<!-- source-sha256: 3e99efee14ae8f8d5975c325c8ac00bcad72a97119862162399eb99cad057d08 -->
+<!-- source-sha256: f9f78bd6fbb97544505df8c0f2c694a5a43bf33d4693453eb48c50380938cce2 -->
 # 进度检查点（历史）
 
 这些叙述性检查点原先位于[进度](../progress.zh.md)生成区块之后，现原样保留为历史记录。
@@ -11,7 +11,7 @@
 | 部分 | 已建立的结果 | 仍需完成的连接 |
 | --- | --- | --- |
 | 文件描述符打开 | 完整的 [`gzdopen` 公开契约](../../ZlibF/Proof/gzlib.c.dopen-public.lean)及初始化见证已登记，覆盖分配失败、描述符效果、清理和实际返回的堆。 | 后续 gzip 读、写与关闭仍需各自的证明。 |
-| 默认解码调用序列 | [限定范围的序列安全性](../../ZlibF/Proof/inflate.c.default-scoped-sequence-safety.lean)组合实际初始化、允许的状态操作、恢复、复制和释放。[单次调用结果](../../ZlibF/Proof/inflate.c.default-history-public-goal.lean)保留公开契约中的输出、计数、返回码与内存修改范围。 | 调用序列的范围有明确限制；完整公开解码器和独立的序列格式正确性仍未完成。 |
+| 默认解码调用序列 | 限定范围的序列安全性（`ZlibF/Proof/inflate.c.default-scoped-sequence-safety.lean`，这个模块后来在提交 `1b399a9c` 中删除）组合实际初始化、允许的状态操作、恢复、复制和释放。单次调用结果（`ZlibF/Proof/inflate.c.default-history-public-goal.lean`，在同一提交中删除）保留公开契约中的输出、计数、返回码与内存修改范围。 | 调用序列的范围有明确限制；完整公开解码器和独立的序列格式正确性仍未完成。 |
 | 快速解码 | [语义基础](overview-changelog.md#fast-decoder-semantic-foundation-local)把根表查询与独立定义的长度、距离和指令含义连接起来，覆盖额外位和块结束。 | 整个快速循环的输出组合，以及与全部公开调用序列的连接仍未完成。 |
 | 压缩器初始化 | [快速与慢速策略初始化](overview-changelog.md#memory-aware-fast-initialization)已在内存级别 1–9 上建立实际初始化边界：快速策略对应压缩级别 1–3，慢速策略对应 4–9。 | 这些配置下后续策略循环的执行与完成性仍未完成。 |
 | 预设字典的接受条件 | [配置窗口修正](overview-changelog.md#configured-dictionary-window-authorized-repair)与默认解码器实际保留的字典窗口一致。正反格式样例及无字典时的等价性已检查。 | 这次修正解决规格边界；完整翻译程序的序列正确性与完成性仍未完成。 |

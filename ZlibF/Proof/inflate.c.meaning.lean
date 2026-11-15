@@ -6,6 +6,7 @@ import ZlibF.Spec.InflateDecodeTableStability
 import ZlibF.Spec.InflateFastTableFlags
 import ZlibF.Proof.«inftrees.c.decode.prefix-query»
 import ZlibF.Proof.«inftrees.c.code-length-meaning-state»
+import ZlibF.Proof.«inftrees.c.code-length-contents»
 import ZlibF.Math.«code-length-prefix»
 import ZlibF.Spec.Format.Wrapper
 import ZlibF.Spec.Api.Basic
@@ -385,7 +386,7 @@ def DynamicMatches (h : Heap) (s : InflateState) (header : List Bool) : Prop :=
         (codes : Array Code),
       readCodeLenLens (hclen + 4) r3 = some (cl, r4) ∧
       s.lencode = .ref ref offset ∧ Space.get h ref = some codes ∧
-      Zlib.Inftrees.Proofs.CodeLengthMeaning codes offset s.lenbits.toNat cl ∧
+      Zlib.Inftrees.Proofs.CodeLengthContents codes offset s.lenbits.toNat cl ∧
       s.«have».toNat < hlit + 257 + (hdist + 1) ∧
       ZlibF.Math.CodeLengthPrefix.Trace cl (hlit + 257 + (hdist + 1)) [] r4 (lensPrefix s) ∧
       (∀ future rest lens, CodeLens cl (hlit + 257 + (hdist + 1)) [] (r4 ++ future) rest lens →
@@ -477,7 +478,7 @@ def WrapMatches (h : Heap) (s : InflateState) (wrap : Api.Wrap) (configured : Na
   | .header bytes => HeaderMatches s wrap configured bytes ∧ WindowMeaning h s dict [] ∧
       (dict = [] ∨ wrap = .raw)
   | .needDict header => s.check = dictId header ∧ s.flags = 0 ∧ s.bits = 0 ∧
-      HeaderWidth s configured header ∧
+      HeaderWidth s configured header ∧ s.last = 0 ∧ s.total = 0 ∧
       (s.havedict = 0 → s.wsize = 0 ∧ s.whave = 0) ∧
       (s.havedict ≠ 0 → be32 (adler32 dict).toNat = header.drop 2 ∧ WindowMeaning h s dict [])
   | .body header _ => FlagsMatch s wrap header ∧ HeaderWidth s configured header ∧

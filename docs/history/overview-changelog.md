@@ -918,7 +918,7 @@ The latest local declaration audit recognizes 78 registered targets across
 398 listed theorems and 20,399 project declarations. The earlier registration batch
 covers 59 existing exact proofs: six queries, nine checksum entries, 29 stream or
 gzip entries, two initialization-domain goals and 13 abstract model goals.
-The [registration review](../checking/registration-review.md) records scope and checks.
+The [registration review](registration-review.md) records scope and checks.
 Earlier format/query and CRC/address/view registrations remain intact.
 The audit also tracks 47 internal obligations that were already defined but missing
 from the registry. They are internal targets, not additional public APIs.
@@ -1037,7 +1037,7 @@ were locally kernel-refuted even with the reviewed FINISH-input condition.
 An actual default init with empty input, NULL output and capacity 64 meets
 all current completion premises; the bound is 13, but FINISH returns
 STREAM_ERROR. This is a wrong specification domain, not a zlib bug.
-[The exact Lean refutation, pinned C reproduction and guard review](../proof/deflate-completion-null-output.md)
+[The exact Lean refutation, pinned C reproduction and guard review](deflate-completion-null-output.md)
 are saved. Human review separately authorized `z.next_out ≠ .null` and regeneration
 of the audit locks. The exact condition is applied. Safe error-call coverage
 is unchanged. Local build (1008 jobs), fresh kernel replay, no-placeholder
@@ -3034,7 +3034,7 @@ The earlier DeflateCompletes target admitted fresh input after an earlier
 FINISH call had entered FINISH_STATE. The pinned header requires retries
 after FINISH to provide no more input. A concrete default C execution with
 ample output returns BUF_ERROR for that excluded caller behaviour. The
-[reproduction and premise analysis](../proof/deflate-completion-input.md)
+[reproduction and premise analysis](deflate-completion-input.md)
 record the evidence. Human review authorized adding the explicit
 FINISH_STATE input condition to completion. That one-line condition is now
 applied. The data-trace constructors and safety domains are unchanged,

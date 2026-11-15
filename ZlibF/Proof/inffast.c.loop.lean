@@ -25,7 +25,9 @@ theorem zstream_put_self {h : Heap} {r : ZStreamRef} {z : ZStream}
 
 theorem EnvG.heap_initial {α : Bool} (e : EnvG α) : e.heap e.A0 e.sm0.msg e.s0.mode = e.h0 := by
   unfold EnvG.heap
-  rw [upd_self _ _ _ e.hA0, upd_self _ _ _ e.hs0]
+  rw [Zlib.Inflate.Proofs.byte_view_put_setI, Zlib.Inflate.Proofs.byte_view_put_self e.hA0 e.hro]
+  unfold Zlib.Inflate.Spec.setI
+  rw [upd_self _ _ _ e.hs0]
   exact zstream_put_self e.hsm
 
 theorem EnvG.heap_msg_mode_eq {α : Bool} (e : EnvG α) {A B : Array UInt8} {p q : BPtr} {m n : UInt32}

@@ -326,7 +326,7 @@ theorem length_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       obtain ⟨i, _, badRun⟩ := matchRun.1 wrap4 agree
       refine ⟨_, _, _, badRun, Or.inl ⟨rfl, Or.inr ?_⟩⟩
       refine ⟨zs, { s with mode := BAD }, st1, setI_istates_same _ _ _, rfl,
-        shapeFields.1.trans retOk, ?_, haveLe1, inLen1, ?_⟩
+        ?_, haveLe1, inLen1, ?_⟩
       · obtain ⟨a, b, c', d, e, _⟩ := config1
         exact ⟨a, b, c', d, e, show BAD ≠ SYNC by decide⟩
       · intro source decoded valid _ started

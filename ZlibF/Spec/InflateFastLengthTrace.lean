@@ -15,8 +15,8 @@ open C Zlib.Inffast Zlib.Inffast.Proofs ZlibF.Spec
 existing register-update function. No output or table storage changes. -/
 def ready (e : Env) (l : L) (input : Nat) : L × Nat :=
   if l.bits < 15 then
-    let first := pullL l (e.IN.getD input 0) (.ref (.blk e.ib) (input + 1))
-    (pullL first (e.IN.getD (input + 1) 0) (.ref (.blk e.ib) (input + 2)), input + 2)
+    let first := pullL l (e.IN.getD input 0) (.ref e.ib (input + 1))
+    (pullL first (e.IN.getD (input + 1) 0) (.ref e.ib (input + 2)), input + 2)
   else (l, input)
 
 /-- The source branches after dropping the selected literal/length code.

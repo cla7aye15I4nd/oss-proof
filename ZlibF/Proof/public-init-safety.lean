@@ -6,7 +6,10 @@ import ZlibF.Spec.Safety.Initialisation
 # Safety of the inflate and deflate init functions
 
 Each goal of `ZlibF/Spec/Safety/Initialisation.lean` follows from the full contract of the same
-function (`Goal.inflateInit2_`, `Goal.deflateInit2_`), restricted to `InitDomain`. The failure
+function (`Goal.inflateInit2_`, `Goal.deflateInit2_`). A wrong version or `stream_size` is the
+contract's version refusal, and a `NULL` stream with the right ones is its stream refusal; both
+leave the heap unchanged. A stream record with the right version and size is the contract's main
+clause, which has no premise on the record's `state` field. The failure
 branches of the contracts give `SameObjects` (or `SameObjectsUpToTableShape`) with the heap whose
 stream record was rewritten; `frame_of_same` turns that into the frame of the record and an
 unchanged set of live blocks. `inflateInit_` and `deflateInit_` are `inflateInit2_` and
@@ -66,9 +69,12 @@ theorem frame_of_same {h after : Heap} {r : ZStreamRef} {z v : ZStream} (hz : r.
     · rw [hgz b]; exact upd_ne _ _ _ _ hbi
     · exact hro b (by simpa [Heap.live, upd_ne _ _ _ _ hbi] using hl)
 
-/-- `Goal.inflateInit2__safety`: `inflateInit2_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
-theorem inflateInit2__safety : Goal.inflateInit2__safety := by
-  intro h r version wb ⟨hf, hu, hg, hv, z, hz, hd, _⟩
+/-- The record case of `inflateInit2_` with the right version and size, from its contract. -/
+theorem inflateInit2_record {h : Heap} {r : ZStreamRef} {z : ZStream} {version : BPtr} (wb : Int32)
+    (hf : Fresh h) (hu : Zlib.Inflate.Spec.Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
+    (hd : DefaultOrNull z) (hv : VersionValue h version (some 49)) :
+    ∃ rc after, C.run (Zlib.Inflate.inflateInit2_ (some r) wb version 112) h = .ok (rc, after) ∧
+      InitCallSafe .inflate h after r rc := by
   obtain ⟨rc, after, hrun, -, hbr⟩ :=
     (ZlibF.Spec.Public.Proofs.InflateInit.inflate_init2_public wb).2.2 h r z version hf hu hg hz hd hv
   refine ⟨rc, after, hrun, ?_⟩
@@ -95,13 +101,44 @@ theorem inflateInit2__safety : Goal.inflateInit2__safety := by
       subst hb
       exact ⟨z', hgood.live.hz, Or.inl ⟨h.nextBlk, s', hgood.live.zst, hgood.live.hs, Or.inl rfl⟩⟩
 
-/-- `Goal.inflateInit__safety`: `inflateInit_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
-theorem inflateInit__safety : Goal.inflateInit__safety :=
-  fun h r version d => inflateInit2__safety h r version DEF_WBITS d
+/-- An unchanged heap is a safe outcome of a refused init call on a stream record. -/
+theorem same_heap_safe (kind : StreamKind) (h : Heap) (r : ZStreamRef) {rc : Int32}
+    (hrc : rc ≠ Z_OK) : InitCallSafe kind h h r rc :=
+  ⟨⟨rfl, rfl, rfl, Nat.le_refl _, Nat.le_refl _, fun _ _ _ =>
+      ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩⟩,
+    Or.inr ⟨hrc, fun _ => by simp⟩⟩
 
-/-- `Goal.deflateInit2__safety`: `deflateInit2_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
-theorem deflateInit2__safety : Goal.deflateInit2__safety := by
-  intro h r version level method wb mem strategy ⟨hf, hu, hg, hv, z, hz, hd, _⟩
+/-- `Goal.inflateInit2__safety`: `inflateInit2_` is safe on every call `zlib.h` allows: a `NULL` stream, a wrong version or a wrong `stream_size` is refused with the heap unchanged; on a stream record, on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
+theorem inflateInit2__safety : Goal.inflateInit2__safety := by
+  intro h strm version size wb ⟨hf, hu, hg, ⟨head, hv⟩, hs⟩
+  have hc := ZlibF.Spec.Public.Proofs.InflateInit.inflate_init2_public wb
+  by_cases hok : head = some 49 ∧ size = 112
+  · obtain ⟨rfl, rfl⟩ := hok
+    cases strm with
+    | none => exact ⟨_, _, hc.2.1 h version hv, Or.inr rfl, rfl⟩
+    | some r =>
+      obtain ⟨z, hz, hd⟩ := hs r rfl
+      exact inflateInit2_record wb hf hu hg hz hd hv
+  · have hne : head ≠ some 49 ∨ size ≠ 112 := by
+      by_cases h1 : head = some 49
+      · exact Or.inr fun h2 => hok ⟨h1, h2⟩
+      · exact Or.inl h1
+    refine ⟨_, _, hc.1 h strm version head size hv hne, ?_⟩
+    cases strm with
+    | none => exact ⟨Or.inl rfl, rfl⟩
+    | some r => exact same_heap_safe .inflate h r (by decide)
+
+/-- `Goal.inflateInit__safety`: `inflateInit_` is safe on every call `zlib.h` allows, as `inflateInit2_` at window bits 15; from its functional init theorem. -/
+theorem inflateInit__safety : Goal.inflateInit__safety :=
+  fun h strm version size d => inflateInit2__safety h strm version size DEF_WBITS d
+
+/-- The record case of `deflateInit2_` with the right version and size, from its contract. -/
+theorem deflateInit2_record {h : Heap} {r : ZStreamRef} {z : ZStream} {version : BPtr}
+    (level method wb mem strategy : Int32)
+    (hf : Fresh h) (hu : Zlib.Inflate.Spec.Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
+    (hd : DefaultOrNull z) (hv : VersionValue h version (some 49)) :
+    ∃ rc after, C.run (Zlib.Deflate.deflateInit2_ (some r) level method wb mem strategy version 112) h =
+      .ok (rc, after) ∧ InitCallSafe .deflate h after r rc := by
   obtain ⟨rc, after, hrun, hbr⟩ :=
     (ZlibF.Spec.Public.Proofs.DeflateInit2.deflateInit2_proof level method wb mem strategy).2.2
       h r z version hf hu hg hz hd hv
@@ -134,10 +171,30 @@ theorem deflateInit2__safety : Goal.deflateInit2__safety := by
         obtain ⟨hrc, -, hl, hfr⟩ := hbr
         exact ⟨hfr, Or.inr ⟨by rw [hrc]; decide, hl⟩⟩
 
-/-- `Goal.deflateInit__safety`: `deflateInit_` is safe on every stream record its domain allows: on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
+/-- `Goal.deflateInit2__safety`: `deflateInit2_` is safe on every call `zlib.h` allows: a `NULL` stream, a wrong version or a wrong `stream_size` is refused with the heap unchanged; on a stream record, on `Z_OK` the stream is reachable and owns every new block, on any other code no live block changes; from its functional init theorem. -/
+theorem deflateInit2__safety : Goal.deflateInit2__safety := by
+  intro h strm version size level method wb mem strategy ⟨hf, hu, hg, ⟨head, hv⟩, hs⟩
+  have hc := ZlibF.Spec.Public.Proofs.DeflateInit2.deflateInit2_proof level method wb mem strategy
+  by_cases hok : head = some 49 ∧ size = 112
+  · obtain ⟨rfl, rfl⟩ := hok
+    cases strm with
+    | none => exact ⟨_, _, hc.2.1 h version hv, Or.inr rfl, rfl⟩
+    | some r =>
+      obtain ⟨z, hz, hd⟩ := hs r rfl
+      exact deflateInit2_record level method wb mem strategy hf hu hg hz hd hv
+  · have hne : head ≠ some 49 ∨ size ≠ 112 := by
+      by_cases h1 : head = some 49
+      · exact Or.inr fun h2 => hok ⟨h1, h2⟩
+      · exact Or.inl h1
+    refine ⟨_, _, hc.1 h strm version head size hv hne, ?_⟩
+    cases strm with
+    | none => exact ⟨Or.inl rfl, rfl⟩
+    | some r => exact same_heap_safe .deflate h r (by decide)
+
+/-- `Goal.deflateInit__safety`: `deflateInit_` is safe on every call `zlib.h` allows, as `deflateInit2_` with the default method, window, memory level and strategy; from its functional init theorem. -/
 theorem deflateInit__safety : Goal.deflateInit__safety :=
-  fun h r version level d =>
-    deflateInit2__safety h r version level Z_DEFLATED MAX_WBITS
+  fun h strm version size level d =>
+    deflateInit2__safety h strm version size level Z_DEFLATED MAX_WBITS
       DEF_MEM_LEVEL Z_DEFAULT_STRATEGY d
 
 end ZlibF.Spec.Public.InitSafetyProof

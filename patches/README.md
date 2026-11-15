@@ -11,21 +11,24 @@ past it.
 
 | Patch | Fixes | Upstream state (read on 2026-11-14) |
 | --- | --- | --- |
-| 0001 | Relational comparison of unrelated pointers in `inflateCopy` | [PR #1369](https://github.com/madler/zlib/pull/1369): the maintainer answered "Applied" on 2026-11-06; not yet on `develop` |
-| 0002 | Signed overflow in `gzseek64` after an initial `gzungetc` | [PR #1361](https://github.com/madler/zlib/pull/1361), open |
-| 0003 | Stale `x.next` after a partial transparent read that then fails | [PR #1363](https://github.com/madler/zlib/pull/1363), open |
-| 0004 | Signed overflow of the gz position `x.pos` | Local and pending: not submitted |
-| 0005 | Zero advance of an unset or dangling `x.next` | Local and pending: not submitted |
+| 0001 | [Relational comparison of unrelated pointers in `inflateCopy`](../docs/findings/inflate-copy-fixed/README.md) | [PR #1369](https://github.com/madler/zlib/pull/1369): the maintainer answered "Applied" on 2026-11-06; not yet on `develop` |
+| 0002 | [Signed overflow in `gzseek64` after an initial `gzungetc`](../docs/findings/gzseek-pushback-overflow/README.md) | [PR #1361](https://github.com/madler/zlib/pull/1361), open |
+| 0003 | [Stale `x.next` after a partial transparent read that then fails](../docs/findings/gzread-transparent-stale-next/README.md) | [PR #1363](https://github.com/madler/zlib/pull/1363), open |
+| 0004 | Signed overflow of the gz position `x.pos`, [reading](../docs/findings/gzread-pos-overflow/README.md) and [writing](../docs/findings/gzwrite-pos-overflow/README.md) | Local and pending: not submitted |
+| 0005 | Zero advance of an [unset](../docs/findings/gz-reset-next-uninitialised/README.md) or [dangling](../docs/findings/gz-next-dangling-after-direct-read/README.md) `x.next` | Local and pending: not submitted |
 
-Each issue is described, with its reproduction, confidence and scope, in
-[findings](../docs/findings.md).
+Each linked page gives the call sequence, the run command, the sanitizer's verdict, the scope
+and the fix. [Findings](../docs/findings.md) lists them in one table. Patches 0001 to 0004 fix
+issues that a sanitizer reports on the real C. Patch 0005 fixes behaviour that is undefined only
+by the letter of C. The labels R-1 to R-4, F-1 and W7 below are those of
+[the gzip proof notes](../docs/proof/gzip.md).
 
 ## 0001-inflate-copy-pointer-equality.patch
 
 Avoid relational comparisons between the static fixed-code table and the
 state's internal code array in `inflateCopy`. The retained
 [reproduction](../docs/findings/inflate-copy-fixed/README.md) diagnoses the
-unpatched C. This blocks the corresponding total safety proof.
+unpatched C. Without the patch the safety of `inflateCopy` cannot be proved for every stream.
 
 The patch exactly matches commit
 `300fea14353d2e2ca61210aca7c48861ded5788c` in
@@ -49,9 +52,9 @@ safety proof of `gzseek64` and `gzseek`.
 The patch is the `gzlib.c` part of
 [upstream PR #1361](https://github.com/madler/zlib/pull/1361) at head
 `ce2248ee9750`. The `test/example.c` part of that pull request is not part of
-the verified source. The pull request is open. The retained
-[reproduction](../tests/regression/gzseek-pushback-overflow/README.md) builds the
-unpatched C under the sanitizers and shows the reports gone with the patches.
+the verified source. The pull request is open. The
+[finding](../docs/findings/gzseek-pushback-overflow/README.md) gives the reproduction, which
+builds the unpatched C under the sanitizers and shows the reports gone with the patches.
 
 ## 0003-gzread-partial-copy-read-error.patch
 
@@ -65,10 +68,9 @@ blocks the safety proof of the read side.
 
 The patch is exactly the change of
 [upstream PR #1363](https://github.com/madler/zlib/pull/1363) at head
-`37627fd3bb47`. The pull request is open. The retained
-[reproduction](../tests/regression/gzread-transparent-stale-next/README.md)
-builds the unpatched C under the sanitizers and shows the report gone with the
-patches.
+`37627fd3bb47`. The pull request is open. The
+[finding](../docs/findings/gzread-transparent-stale-next/README.md) gives the reproduction,
+which builds the unpatched C under the sanitizers and shows the report gone with the patches.
 
 ## 0004-gz-position-overflow.patch
 

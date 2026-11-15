@@ -1,9 +1,9 @@
-<!-- source-sha256: aa4d42c7e23e371f99910f821e2639f1898e719f8e487ea3d0075d828a3f34e5 -->
+<!-- source-sha256: 4d0adff37918214a7e74edc0b01566d27052cfdc3a4154a30bc19ad946c04b5f -->
 # 报告：`deflateResetKeep` 与 `deflateCopy` 之后 `longest_match` 的越界读取
 
 写给 zlib 维护者的草稿，供项目所有者使用。未发送，仅作记录保留。
 
-对本项目而言，`deflateResetKeep` 是 `deflateReset` 的内部步骤：zlib.h 声明它不属于 zlib API，因此已证明的 deflate 定义域排除对它的直接调用，此发现不再计划进一步的工作。
+对本项目而言，`deflateResetKeep` 是 `deflateReset` 的内部步骤：zlib.h 声明它不属于 zlib API，因此已证明的 deflate 定义域排除对它的直接调用，对这项发现不计划进一步的工作。
 
 ## 摘要
 
@@ -31,14 +31,14 @@
 两个成因都是近期修改，这个序列需要两者同时存在：
 
 - 自提交 8404590（`Copy only the initialized deflate state in deflateCopy`，2026-01-10）起，`deflateCopy` 只复制前沿以下的 `prev`，首次发布于 1.3.2。1.3.1 复制全部 `w_size` 项。
-- 自提交 1e4178b（`Fix deflateResetKeep() when used in the middle of a stream`，2026-11-02）起，`deflateResetKeep` 丢弃前瞻，首次发布于 1.4。在此之前，`deflateResetKeep` 之后的 `deflate(Z_BLOCK)` 会压缩保留的前瞻，不留下等待插入的链头。
+- 自提交 1e4178b（`Fix deflateResetKeep() when used in the middle of a stream`，2026-11-02）起，`deflateResetKeep` 丢弃预读，首次发布于 1.4。在此之前，`deflateResetKeep` 之后的 `deflate(Z_BLOCK)` 会压缩保留的预读，不留下等待插入的链头。
 
 复现在 1.4 和 `develop`（757f0527）上报告这次读取，在 1.3.1 和 1.3.2 上没有报告（AddressSanitizer，arm64 macOS，同一个驱动程序）。
 
 ## 机制
 
 1. 一个流不刷新地压缩一些输入。位置 `strstart - 2` 和 `strstart - 1` 已插入散列，是链头。
-2. `deflateResetKeep` 丢弃前瞻，保留散列。这两个位置仍是链头。
+2. `deflateResetKeep` 丢弃预读，保留散列。这两个位置仍是链头。
 3. 无输入的 `deflate(Z_BLOCK)` 设置 `insert = 2`。这两个位置此时算作等待插入，尽管散列中已经有它们。
 4. `deflateCopy` 只复制 `strstart - insert` 以下的 `prev`。在副本中，这两个链头的 `prev` 项从未被写入。
 5. 在副本上，`deflateParams(Z_RLE)` 和无输入的 `deflate(Z_SYNC_FLUSH)` 运行 `deflate_rle`，它设置 `insert = 0`。`fill_window` 只在 `insert` 非零时重新插入等待的位置，所以这两个项保持未写入。
@@ -50,7 +50,13 @@
 
 本目录中的 [`deflate-copy-pending-prev/repro.c`](deflate-copy-pending-prev/repro.c)；带运行脚本的相同驱动程序在 [`tests/regression/deflate-copy-pending-prev`](../../tests/regression/deflate-copy-pending-prev/README.md)。它包含 `deflate.h`，只为读取第 6 步所需的 `strstart` 和三个窗口字节，以及打印状态。它安装一个用 16 位值 1030 填充新内存的分配器，使候选可确定；带参数 `plain` 时使用默认分配器。
 
-用 `-fsanitize=address,undefined -g -O1` 构建固定版本的源码并运行：
+在本仓库根目录构建并运行：
+
+```sh
+ZLIB_SRC=$PWD/zlib bash tests/regression/deflate-copy-pending-prev/run.sh
+```
+
+脚本用 `-fsanitize=address,undefined -g -O1` 构建固定的源码，把 `copy.c` 与之链接并运行。脚本会应用本仓库的补丁，这些补丁不涉及 `deflate.c` 和 `trees.c`。AddressSanitizer 打印：
 
 ```
 ==ERROR: AddressSanitizer: heap-buffer-overflow ... READ of size 1
@@ -85,11 +91,11 @@ Linux 输出见 [`report.txt`](../../tests/regression/deflate-copy-pending-prev/
 每一项都只是建议。只试过第一项，且只在上面这一个复现上试过。
 
 1. 在 `deflateCopy` 中复制 `prev` 的全部 `w_size` 项。
-2. 在 `deflateResetKeep` 中清空散列（`CLEAR_HASH`），使没有链头指向将被再次插入的位置。这也消除了 `deflate-resetkeep-stale-hash` 中过期散列造成的数据错误。
+2. 在 `deflateResetKeep` 中清空散列（`CLEAR_HASH`），使没有链头指向将被再次插入的位置。这也消除了 `deflate-resetkeep-stale-hash` 中过时散列造成的数据错误。
 3. 不改代码：`zlib.h` 已声明 `deflateResetKeep` 不属于 zlib API。在那里注明它不得与 `deflateCopy` 一起使用，或不再导出它，会让这一点更明确。
 
 ## 与证明的关系
 
 deflate 安全定理把直接调用 `deflateResetKeep` 排除在流定义域之外（`docs/deviations.md`）。这不是比 `zlib.h` 更窄的限制，因为 `zlib.h` 声明该函数不属于 zlib API；这份报告也是不能取消这一排除的原因之一。
 
-对于没有这一调用的历史，没有链头等待插入，因此 `deflateCopy` 对 `prev` 的部分复制覆盖了链遍历能到达的每一项。这是一个定理：`DInv.heads_inserted`（以及 level 0 有一次待处理滑动时的 `DInv.slid_heads_inserted`，`ZlibF/Proof/deflate.c.universal-heads.lean`）断言，在满足 deflate 不变式 `DInv` 的每个状态中，每个非零的 `head` 项都小于 `strstart - insert`。`DInv` 在流定义域的每个历史之后都成立（`reachable_inv`，在 `Goal.deflate_sequence_safety` 的假设下）。本项目的真实 C 检查器在 460 万个采样状态上与之一致（这是证据，不是证明）。
+对于没有这一调用的历史，没有链头等待插入，因此 `deflateCopy` 对 `prev` 的部分复制覆盖了链遍历能到达的每一项。这是一个定理：`DInv.heads_inserted` 断言，在满足 deflate 不变量 `DInv` 且没有待执行滑动（`matches = 0`）的每个状态中，每个非零的 `head` 项都小于 `strstart - insert`。`DInv.slid_heads_inserted` 对级别 0、有一次待执行滑动（`matches = 1`）的状态断言同样的事，说的是这次滑动执行之后的各项。两者都在 `ZlibF/Proof/deflate.c.universal-heads.lean` 中。`DInv` 在流定义域的历史所到达的每个状态中都成立（`ZlibF/Proof/deflate.c.universal-sequence-safety.lean` 中的 `reachable_inv_of`，配合 `ZlibF/Proof/public-deflate-copy.lean` 中的 `sequence_facts`）。本项目的真实 C 检查器在 460 万个采样状态上与之一致（这是证据，不是证明）。

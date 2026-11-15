@@ -14,6 +14,17 @@
 This record explains the source review and counterexamples behind those contracts. It is not
 independent approval of a semantic baseline.
 
+## What each section still tells a reader
+
+| Section | What a reader can rely on |
+| --- | --- |
+| Three specification layers | The layering stands under the moved paths of the note above. `ZlibF/Spec/Public/Calls.lean` fixes the translated entry that each public goal runs. |
+| Scope of the statement review | Which obligations the review read for each group of functional contracts. It is not a list of what is proved. |
+| Source-review corrections | Readings of the pinned C that the corrected functional contracts encode. A reading is confirmed only where a registered theorem proves the goal that states it. |
+| Counterexamples to the old statements | Three errors found in older statements, with their corrections. The first is kept as the regression `tests/regression/inflate-deferred-distance/`. The corrected goals of the other two, `Goal.gzclearerr` and `Goal.inflateCodesUsed`, are registered. |
+| The advanced-operation boundary | The limits of the functional sequence goals. Those goals are not required for the safety results. |
+| Review and approval | The rule for correcting a statement. The binding text is `AGENTS.md`, "Correcting a specification, a goal or a translation". |
+
 ## Three specification layers
 
 | Layer | Meaning |
@@ -132,7 +143,7 @@ specification, translation mismatch and upstream defect. An internal-invariant c
 does not justify narrowing a public precondition. Init and earlier calls must establish any
 replacement invariant. Callee contracts remain proved results.
 
-A confirmed specification error belongs in its own reviewed change with regression evidence
+A confirmed specification error is corrected in its own change, with its counterexample kept
 as a regression. Readiness checks presence, compilation and fresh replay;
 it cannot decide semantic completeness. Review must approve the public domains,
 representation limits and runtime.

@@ -1,4 +1,4 @@
-<!-- source-sha256: 9435922b0ac1f0dca62c0b0cce0a6e06201d405ccc843b71cc8d9611775db379 -->
+<!-- source-sha256: d65c9f437f4a3d5f0debd4b424dde7eda6d79aa77900e6684b3a616c4110c3b3 -->
 
 # 可信运行时审阅记录
 
@@ -10,7 +10,7 @@
 
 | 发现 | 状态 | 当前事实见何处 |
 | --- | --- | --- |
-| R1 新分配的指针字段为空 | 模型边界。新分配的指针字段仍是 NULL。每个证明都必须说明指针字段先写后读。 | [可信基础](../trusted-base.md)“表示缺口”；`AGENTS.md` 的翻译规则 |
+| R1 新分配的指针字段为空 | 模型边界。新分配的指针字段仍是 NULL。每个证明都必须说明指针字段先写后读。 | [模型的限制](../model-limits.md#representation-gaps-and-proof-obligations)“表示上的缺口与证明义务”一节；`AGENTS.md` 的翻译规则 |
 | R2 空指针算术 | 模型边界，属于有意的决定。`Ptr.add NULL 0` 返回 NULL。 | 可信基础；[安全性](../spec/safety.md#null-pointers-and-pointer-differences) |
 | R3 一个名称表示两个 `COPY` 常量 | 已修复。gz 的宏是 `GZ_COPY`（值为 1）；`COPY` 是 inflate 的枚举常量。 | `ZlibF/Runtime/Schema.lean` |
 | R4 枚举常量被定为无符号类型 | 在模式中已修复：每个枚举常量另有类型为 `Int32` 的版本（`HEAD_i`、`CODES_i` 等）。这里没有重新检查每处翻译后的比较是否用了正确的版本。 | `ZlibF/Runtime/Schema.lean` |
@@ -81,7 +81,7 @@ if (s) { free(s->next_in); free(s); }
 
 ### R9. 未初始化整数的每个单元只取一个固定值
 
-历史严重程度：中风险，是语义选择。`Alloc.lean` 在分配时通过垃圾值预言机一次填充新单元。因此重复读取一致，而某些 C 解读允许不稳定的未指定值。依赖这种一致性的证明可能超出模型对 C 的正当依据。审阅过的 `slide_hash` 和 `longest_match` 用法没有依赖它。关于初始化位的旧注释也不正确，见 R12。
+历史严重程度：中风险，是语义选择。`Alloc.lean` 在分配时通过垃圾值预言一次填充新单元。因此重复读取一致，而某些 C 解读允许不稳定的未指定值。依赖这种一致性的证明可能超出模型对 C 的正当依据。审阅过的 `slide_hash` 和 `longest_match` 用法没有依赖它。关于初始化位的旧注释也不正确，见 R12。
 
 ### R10. 整记录复制缺少重叠检查
 

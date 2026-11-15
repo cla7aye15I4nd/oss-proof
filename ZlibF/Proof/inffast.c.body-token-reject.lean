@@ -176,13 +176,13 @@ theorem ready_locals (e : Env) (c : Ctx) (A : Array UInt8)
   · have bitsLt : l.bits.toNat < 15 := by simpa using UInt32.lt_iff_toNat_lt.mp short
     have in1 : i < e.i0 + e.sm0.avail_in.toNat := by have := pre.inputRoom; omega
     have first := pre.locals.pullL (by omega) in1
-    have bits1 := pullL_bits l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)) pre.locals.hb
-    have bound1 : (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+    have bits1 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) pre.locals.hb
+    have bound1 : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
       simp only [pullL] at bits1 ⊢; omega
     have in2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by have := pre.inputRoom; omega
     have second := first.pullL bound1 in2
-    have bits2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)))
-      (e.IN.getD (i + 1) 0) (.ref (.blk e.ib) (i + 1 + 1)) first.hb
+    have bits2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1)))
+      (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1)) first.hb
     simp only [ready, short, ite_true]
     constructor
     · simpa only [Nat.add_assoc] using second

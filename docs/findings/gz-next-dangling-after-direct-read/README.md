@@ -1,10 +1,16 @@
 # x.next left in the caller's buffer after a direct read
 
+After a large `gzread` that decompresses straight into the caller's buffer, the gz state keeps a
+pointer into that buffer. If the caller frees the buffer, a later `gzseek` or `gzdirect` adds zero
+to the dangling pointer. That is undefined by the letter of C, and nothing else is known to go
+wrong.
+
 Status: undefined by the letter of C. No sanitizer reports it, and no misbehaviour has been
-observed. Fixed in the verified source by the local patch
-[0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch), approved by
-the owner on 2026-11-12 and not yet submitted upstream. The same patch fixes
-[gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md).
+observed, so this is not listed as a confirmed issue. Fixed in the verified source by the local
+patch [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch),
+approved by the project owner on 2026-11-12 and not submitted upstream. The same patch fixes
+[gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md). The
+[gz proof notes](../../proof/gzip.md) call this report R-4.
 
 Source pin: `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 0004.
 
@@ -25,10 +31,10 @@ the end of its lifetime; 6.5.6p8: pointer arithmetic needs a pointer to an objec
 evaluation is undefined. On x86_64 with the usual compilers, `p + 0` leaves `p` unchanged, and
 the pointer is never dereferenced.
 
-## History
+## Call sequence
 
-```
-f = gzopen("data.gz", "rb");             /* 100000 bytes compressed */
+```c
+f = gzopen("data.gz", "rb");             /* holds 100000 bytes of data */
 buf = malloc(100000);
 gzread(f, buf, 100000);                  /* direct decompression: x.next into buf */
 free(buf);
@@ -39,21 +45,37 @@ gzseek(f, 1, SEEK_CUR);                  /* x.next += 0 on the dangling pointer 
 ## Evidence
 
 Strength: by the letter of C only. No sanitizer reports it: there is no access, and `p + 0` does
-not overflow. The Lean model does report it: there the arithmetic on a pointer into a freed block
-is a fault. Before the translation followed this patch, the theorem `gzseek64_dangling_next_ub`
-proved that the translation of `gzseek64` reaches it; with the patch, `gzseek64_dangling_next_ok`
-(`ZlibF/Proof/gzlib.c.seek.lean`) proves that a forward seek with nothing buffered does not fault,
-whatever `x.next` holds. The reproduction uses the probe of
-[../gz-reset-next-uninitialised/probe.h](../gz-reset-next-uninitialised/probe.h):
+not overflow. The Lean model does report it: arithmetic on a pointer into a freed block is a fault
+there. With the patch, `gzseek64_dangling_next_ok` (`ZlibF/Proof/gzlib.c.seek.lean`) proves that a
+forward seek with nothing buffered does not fault, whatever `x.next` holds.
+
+Because no sanitizer sees it, the reproduction routes every `x.next += n` of `gzlib.c` and
+`gzread.c` through a probe
+([../gz-reset-next-uninitialised/probe.h](../gz-reset-next-uninitialised/probe.h); the value
+computed is unchanged) and prints each evaluation with `n == 0`. Run it from the repository root,
+with the `zlib/` submodule checked out:
+
+```sh
+ZLIB_SRC=$PWD/zlib bash docs/findings/gz-next-dangling-after-direct-read/run.sh
+```
+
+The script builds the pinned source under AddressSanitizer and UndefinedBehaviorSanitizer twice:
+with `patches/*.patch` except 0005, and with all of them. Its last line on success is
+`ok: after the fix: x.next is never evaluated with n == 0`. Before the fix the probe prints two
+lines. The retained [report.txt](report.txt) (x86_64 Linux, GCC 15.2) has them as follows:
 
 ```
 x.next + 0 at gzread.c:313, x.next = inside the freed caller buffer
 x.next + 0 at gzlib.c:435, x.next = inside the freed caller buffer
 ```
 
-Files: `dangling.c`, `run.sh`, [report.txt](report.txt) (x86_64 Linux, gcc 15.2; the same result
-on arm64 macOS). Before the fix the probe sees both evaluations, after it none, and neither build
-gets a sanitizer report.
+The retained output was produced with the first version of patch 0004. The patch 0004 of this
+repository is its second version, which adds two lines to `gz_look` in `gzread.c`, so the same
+statement of `gz_skip_have` is line 315 of the source that `run.sh` builds. A run on arm64 macOS
+with Apple clang printed `gzread.c:315` and `gzlib.c:435`, and was otherwise the same.
+
+Files: `dangling.c`, `run.sh`, `report.txt`. Before the fix the probe sees both evaluations,
+after it none, and neither build gets a sanitizer report.
 
 ## Scope
 

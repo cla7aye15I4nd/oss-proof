@@ -1,13 +1,17 @@
-# Earlier arguments and reference sources
+# Earlier arguments and reference sources (historical)
+
+This page is a historical record. It says which ideas and argument families of an earlier
+development were adapted in this repository. It names no result of this repository, and its
+columns "Present source family" describe the modules as they stood when the record was written:
+several cells, in particular in the gzip table, predate the gz safety result
+([gzip files](../proof/gzip.md)).
 
 The main source snapshot is
 [zlib-formal at `0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`](https://github.com/cla7aye15I4nd/zlib-formal/tree/0f1428677ebf5b1614ff77f4702bbb382b2bf3c6).
 The reference review read its source and audit documents. It did not rebuild the snapshot or
 establish its results in this repository.
 
-This page is a reuse record. It says which ideas and argument families of that earlier
-development were adapted, and where the corresponding modules are now. It names no result of
-this repository: the [map](README.md) lists the theorems, and
+The [proof guide](../proof/README.md) lists the theorems of this repository, and
 [checking](../checking/README.md) defines acceptance. The observations at the end of the page
 are historical test evidence. They are not proof, and they were not repeated for the present
 source.
@@ -24,14 +28,16 @@ source.
 | `check_axioms.py` | Reject empty/duplicate registries; avoid checks disabled by optimisation; inspect declarations beyond registered names | Registration alone cannot validate a statement's domain or translation fidelity |
 | `Witness/`, `CONTRACT_AUDIT.md` | Init-domain targets and non-vacuity requirements beside sequence goals | Actual init must establish the same invariant used by calls |
 
-The table uses paths relative to the reference's `lean/` directory. The tables below map the function families and changed representations.
+The table uses paths relative to the reference's `lean/` directory. The tables after the next
+section map the function families and the changed representations.
 
 ## What does not transfer
 
-The reference heap uses typed cells and byte blocks. The present heap uses object records and
-tables. Heap statements and proof terms need adaptation. Pure arithmetic, bitstream relations,
-loop measures and decomposition can retain their meaning only after their definitions and
-domains are compared.
+The reference heap uses typed (tagged) cells and byte blocks. The present heap uses object
+records and tables. Heap statements and proof terms need adaptation: heap-level proofs require
+new execution, frame and ownership arguments. Pure arithmetic, bitstream relations, loop
+measures and decomposition can retain their meaning only after their definitions and domains
+are compared.
 
 The reference sequence theorem `Zlib.Api.seq_safe` takes `ApiContract` as a hypothesis. Its
 contract audit records instances with false preconditions and false strategy contracts. The call
@@ -51,16 +57,9 @@ flowchart LR
     K --> C[Accept only evidence for this repository]
 ```
 
-The tables below locate reusable argument families. [Component proof guides](README.md)
-explain the present argument structure. Neither a reference link nor a historical
-reported test is a new validation run.
-
-## Reusing an earlier argument
-
-Earlier heaps used tagged cells and byte blocks. Current heaps use records and
-object tables. Pure arguments transfer only after definitions and domains agree.
-Heap-level proofs require new execution, frame and ownership arguments. Earlier
-callee-contract hypotheses cannot replace theorems about actual translated callees.
+The tables below locate reusable argument families. The
+[component proof guides](../proof/README.md) explain the argument structure of this repository.
+Neither a reference link nor a historical reported test is a new validation run.
 
 ## Deflate engine sources
 
@@ -96,23 +95,15 @@ callee-contract hypotheses cannot replace theorems about actual translated calle
 | Earlier family | Content | Present source family |
 | --- | --- | --- |
 | `natBits`, `bytesBits`, shift and mask lemmas | Low-bit lists, byte append, bit dropping and format bit order | `inflate.c.main.bits` |
-| `InflateBits` | `PULLBYTE`, `NEEDBITS`, `BITS`, `DROPBITS`, `BYTEBITS`, `INITBITS`; preserve held bits followed by unread bytes | `inflate.c.main.macros` |
+| `InflateBits` | `PULLBYTE`, `NEEDBITS`, `BITS`, `DROPBITS`, `BYTEBITS`, `INITBITS`; preserve held bits followed by unread bytes; refill and consume bits without changing the represented stream | `inflate.c.main.macros` |
 | `InflateTopLoop`, `InflateLoop` | Decreasing measure and every loop exit | `inflate.c.main.xloop` |
 | `SpecStored`, `SpecStoredCopy`, `Copy*` | Stored length/complement check and unchanged copied bytes | `inflate.c.main.stored`, `.stored2` |
 | `InflateHead`, `InflateHdr*`, `InflateName` | Header checks, field lengths, optional header writes and CRC | Mode arguments and header arithmetic |
-| `InflateTable`, `InflateTables`, `InflateCodeLens*` | Dynamic counts, code-length order, repeats and table installation | `inflate.c.main.table` through `.table6`; see companion record |
+| `InflateTable`, `InflateTables` (about 1,161 lines), `InflateCodeLens*` | Dynamic counts, code-length order, repeats and table installation. `LENLENS` reads `min(ncode - have, available_bits / 3)` groups; order permutation, `lensRead`, `lensZero`, `Good3`; read and zero-fill loops | `inflate.c.main.table` through `.table6` |
 | `InflateLen*`, `InflateDist*`, `InflateMatch*` | Slow lookup, subtables, distance checks and window/output copy | Symbol, lookup and copy argument structure |
-| `InflateCheck`, `InflateCheckStep` | Totals, checksum update and trailer comparison | `inflate.c.main.check0`, `.check` |
+| `InflateCheck`, `InflateCheckStep` | Output totals, checksum update and trailer comparison, including the byte-swapped zlib comparison | `inflate.c.main.check0`, `.check` |
 | `InflateCases1`, `InflateUpd`, `InflateFixed` | Simple modes, dispatch, refusals and fixed-table selection | Simple/type modules and fixed-table theorem |
 | `infLeave_ok`, `leaveTail_ok`, `updatewindow_frame` | Register writeback, window update, counters and return-code rules | Epilogue composition argument |
-
-## Table and trailer sources
-
-| Earlier source | Reusable argument | Present source family |
-| --- | --- | --- |
-| `InflateTables` (about 1,161 lines) | `LENLENS` reads `min(ncode - have, available_bits / 3)` groups; order permutation, `lensRead`, `lensZero`, `Good3`; read and zero-fill loops | `inflate.c.main.table` through `.table6` |
-| `InflateCheck`, `InflateCheckStep` | Output totals, checksum update and byte-swapped zlib comparison | `inflate.c.main.check0`, `.check` |
-| `InflateBits` | Refill and consume bits without changing the represented stream | Shared `inflate.c.main.macros` results |
 
 ## Callback sources
 
@@ -167,7 +158,7 @@ one-byte-window stored path was also excluded.
 
 These observations do not prove safety. Safety for all inputs, every
 initialization history and the overlay capacity is the content of the sequence
-theorems on the [stream compression](deflate.md) page. Focused reproducible
+theorems on the [stream compression](../proof/deflate.md) page. Focused reproducible
 evidence belongs with its regression. Acceptance rules are in
 [checking](../checking/README.md).
 
@@ -179,3 +170,6 @@ Its interpretation was that forward seek retained `past`; an older abstract
 relation instead required the target position and a cleared flag. This was not
 rerun for this revision. The source interpretation remains **to confirm**, and
 the observation does not establish an operational refinement or a new finding.
+The functional gz model describes the same behaviour
+([API models, the families in detail](../design/api-model-details.md)); no theorem depends on
+this observation.

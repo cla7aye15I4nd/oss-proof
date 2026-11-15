@@ -34,11 +34,10 @@ theorem inflate_LEN_fast_raw_default_J_configuration {c : Ctx} {h : Heap} {r : Z
     exact good0
   have entryPending : DataPendingInvariant entry.toEnv.s0 := by change DataPendingInvariant entry.s0; rw [stateEq]; exact pending0
   have privateWindow := callerRange_private_window good buffers.output.range output
-  have window : ∀ w, entry.toEnv.s0.window = .ref (.blk w) 0 → entry.toEnv.ob ≠ w := by
-    change ∀ w, entry.s0.window = .ref (.blk w) 0 → entry.ob ≠ w
+  have window : ∀ w, entry.toEnv.s0.window = .ref (.blk w) 0 → entry.toEnv.ob ≠ BRef.blk w := by
+    change ∀ w, entry.s0.window = .ref (.blk w) 0 → BRef.blk entry.ob ≠ BRef.blk w
     rw [stateEq, outputEq]
-    intro w win equal
-    exact privateWindow w win (by rw [equal])
+    exact privateWindow
   obtain ⟨stream1, state1, good1, tables1, pending1, held1, bits1, _⟩ :=
     fastPost_retained entry.toEnv entryGood entryPending (by
       change ∀ ref offset ca, entry.s0.lencode = .ref ref offset → Space.get entry.h0 ref = some ca →
@@ -53,7 +52,7 @@ theorem inflate_LEN_fast_raw_default_J_configuration {c : Ctx} {h : Heap} {r : Z
     have get := good1'.live.hs
     rw [exactHeap] at get
     have entryId : entry.toEnv.stid = zs := idEq
-    simp only [ZStreamRef.put_istates, entryId, upd_same] at get
+    simp only [ZStreamRef.put_istates, byte_view_put_istates, setI, entryId, upd_same] at get
     exact get.symm
   have selected : DataExitMode state1.mode := by
     rw [exactState]
@@ -68,7 +67,7 @@ theorem inflate_LEN_fast_raw_default_J_configuration {c : Ctx} {h : Heap} {r : Z
     · exact Or.inr (Or.inl type.1)
     · exact Or.inr (Or.inr bad)
   have static : heap1.static = h.static := by
-    rw [exactHeap, ZStreamRef.put_static]
+    rw [exactHeap, ZStreamRef.put_static, Zlib.Inffast.Proofs.space_put_static]
     change entry.h0.static = h.static
     rw [heapEq]
     simp only [setI, ZStreamRef.put_static]

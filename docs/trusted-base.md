@@ -1,22 +1,26 @@
-# What the kernel does not establish
+# Trusted base: what the kernel does not check
 
-The kernel checks a proof against its Lean statement. Applying that result to the selected C
-source also depends on the six items below. They are reviewed and tested; they are not proved,
-and compiling the proofs does not discharge them.
+The kernel checks a proof against its Lean statement. That the statement says something true of
+the selected C source also depends on the six items below. They are reviewed and tested; they
+are not proved, and compiling the proofs does not discharge them. Every page of this
+documentation lists the same six.
 
 | # | Trusted | Checked by |
 | --- | --- | --- |
 | 1 | The Lean kernel, three axioms, and the audit programs | The axiom gate and a fresh kernel replay |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and semantic regression tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: the pin and five patches | The patch register and the sanitizer reproductions, or a probe and the model where no sanitizer reports (0005, the COPY branch of 0004) |
+| 4 | The selected source: the pin and five patches | The patch register. Each patch has a sanitizer reproduction, except 0005 and one branch of 0004, which rest on a probe run and on the model |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
 | 6 | The statements: that each goal says what it should | Review against `zlib.h`; the exact-goal check |
 
-See [safety](spec/safety.md) for the claim, [deviations](deviations.md) for the premises of each
-theorem, [verification policy](anti-cheating.md) for the acceptance rules and
-[progress](progress.md) for the current status. Differential tests are evidence of fidelity, not
-proof.
+Compiler, operating-system and hardware correctness are outside the proof altogether.
+Differential tests are evidence of fidelity, not proof.
+
+Related pages: [safety](spec/safety.md) defines the claim; [deviations](deviations.md) lists the
+premises a caller must meet; [model limits](model-limits.md) details item 2;
+[verification policy](anti-cheating.md) gives the acceptance rules; [progress](progress.md#scope)
+has the level of each result.
 
 ## 1. Kernel and permitted axioms
 
@@ -31,7 +35,7 @@ decides which goals are required from `tests/audit/public-api.json`. The registr
 and tracked by git alone. `tests/audit/compiler-helpers.txt` lists the compiler-generated
 auxiliary declarations (such as `._unsafe_rec`) that the audit exempts from its `unsafe` and
 `partial` checks and does not take as roots of the axiom traversal. The
-[helper review](checking/compiler-helper-review.md) of them is a historical record.
+[helper review](history/compiler-helper-review.md) of them is a historical record.
 
 ## 2. Runtime and object schema
 
@@ -39,80 +43,50 @@ auxiliary declarations (such as `._unsafe_rec`) that the audit exempts from its 
 and updates. `Monad.lean` supplies faults, sequencing and loops. `Ptr.lean` supplies pointer
 arithmetic, loads, stores and comparisons. `Libc.lean` models the required library operations;
 `Alloc.lean` imports it. `Schema.lean`, `Tables.lean` and `LibcTables.lean` supply generated
-records, constants, heap tables and operations for each struct kind. Their generator and
-[runtime schema](runtime-schema.md) are part of this dependency.
+records, constants, heap tables and operations for each struct kind. Their generator and the
+[runtime schema](runtime-schema.md) are part of this item.
 
-A no-fault theorem concerns these definitions. The intended correspondence is that reachable
-C undefined behaviour becomes `Fault.ub`, subject to the limits below. Unsigned arithmetic is
-modular. Each translation must check signed arithmetic, shifts and conversions. Loops have
-fuel `2^64`; exhausting it is `Fault.outOfFuel`, which termination proofs must exclude. A
-no-fault statement that allows `outOfFuel` (the first half of the gz safety goal) is partial
-correctness up to `2^64` iterations of each loop, which no real execution reaches. Undefined
-behaviour that grows with iterations (a signed 64-bit counter advancing by at least 1 per
-iteration) would occur within `2^63` iterations, inside the fuel, so it is not hidden behind
-`outOfFuel`.
+A no-fault theorem is a statement about these definitions. The intended correspondence is that
+every undefined behaviour the C can reach becomes `Fault.ub`. Unsigned arithmetic is modular.
+Signed arithmetic, shifts and conversions are checked by each translation; item 3 names the one
+accepted exception. The correspondence
+has limits, and four of them matter to every reader:
 
-### Memory and library operations
+- **Uninitialised pointers.** The model has no value for an uninitialised pointer: a pointer field
+  in fresh memory reads as `NULL`. Comparing, copying and freeing it can succeed in the model
+  where C gives no guarantee. So every proof shows that a pointer field was written before it is
+  read; the runtime does not check this.
+- **Uninitialised integers.** An integer cell of fresh memory has an arbitrary value, fixed per
+  cell by the garbage function. Theorems hold for every garbage function.
+- **Loop fuel.** A loop runs for at most `2^64` iterations; exhausting the bound is
+  `Fault.outOfFuel`, which a termination proof excludes. One statement allows `outOfFuel`: the
+  first half of the gz safety goal. It is partial correctness up to `2^64` iterations of each
+  loop, which no real execution reaches. Undefined behaviour that grows with the iterations (a
+  signed 64-bit counter advancing by at least 1 per iteration) would occur within `2^63`
+  iterations, inside the fuel, so it is not hidden behind `outOfFuel`.
+- **In-place table updates.** The primitives that write change a heap table in place
+  (`Space.modify`). A lemma (`modify_eq`) states that this equals the functional update the
+  proofs reason with; the review of that lemma and of the table type is part of this item.
 
-The heap has separate tables for object kinds. Freed block numbers are never reused. Allocators
-write at `nextBlk` only if that identity is unused there; otherwise they fault. `Fresh` protects
-future identities. The initial heap must also have unique block identities across tables below
-`nextBlk`; `Fresh` alone does not express that condition.
-
-| Operation | Model behaviour requiring review |
-| --- | --- |
-| `memcpy`, `zmemcpy` | Reject null pointers even for zero length, overlapping ranges and read-only destinations. Whole-record copies use `copyK`, which rejects copying an object onto itself. A bare load/store record pair does not check overlap. |
-| `memmove` | Checks the same ranges and writability, but permits overlap and copies from the original source. |
-| `memset`, `zmemzero` | `Ptr.fill` counts elements and assigns a value; it represents byte `memset` or zero filling only in the stated uses. `Ptr.memset` replicates a byte. Whole-record zeroing stores the explicit zero record. |
-| `strlen` | Requires a NUL inside the represented block. |
-| Allocation | Fresh integers come from the arbitrary garbage function; fresh pointer fields are NULL. A `malloc` request above `PTRDIFF_MAX` bytes returns NULL. Otherwise the `allocOk` oracle determines failure. Every `malloc` call consumes one oracle number. Automatic local objects bypass that oracle and do not consume an allocator attempt. |
-| `free` | NULL is a no-op. Otherwise the argument must be the start of a live writable allocation of the represented kind. There is no allocation-origin tag. |
-| String literals | `strLitRef` denotes a static read-only NUL-terminated entry in the generated closed `strTable`. It is always live, has stable identity and is never freed. Unknown literal text faults. Borrowed external error text has a separate read-only view and lifetime. |
-
-The runtime and translations provide particular models of the external operations they use,
-not general libc models. Runtime error text and the gzip external helper implement the
-fixed-locale, sequential borrowed-view behaviour recorded in [deviations](deviations.md).
-Allocation, formatting, `errno` and `abs` also require their stated correspondence review;
-placement outside `Runtime/` does not reduce their semantic role.
-
-### Representation gaps and proof obligations
-
-| Choice or gap | Consequence for a C claim |
-| --- | --- |
-| Uninitialised pointers become NULL | Equality, copying and freeing NULL can succeed without a prior write. Every pointer read needs a write-before-read argument. The init translations explicitly zero the two allocated stream-state records; this is not a general property of fresh records or automatic `z_stream` storage. Closing the gap requires initialisation tracking or a distinct uninitialised value for all pointer forms, with checked operations and corresponding translation changes. |
-| One garbage value per cell | Integer theorems quantify over every `Heap.garbage`, indexed by allocation attempt and cell position. Repeated reads of a cell nevertheless agree. Proofs must not rely on that agreement where C permits unstable unspecified values. |
-| Array extents are predicates | `WellFormed`, `Heap.RecordsWellFormed` and `Statics.WellFormed` must establish C lengths. Generated preservation lemmas retain them. Static contents must match the defining C translation; the runtime does not compare them with C. |
-| Pointer equality is structural | Different objects compare unequal; equality of dangling pointers does not fault. Proofs must not rely on outcomes that C does not guarantee, including equality at adjacent object boundaries. Relational comparison requires the same live array. |
-| Null arithmetic is partly permitted | `Ptr.add NULL 0` returns NULL. `Ptr.diff` rejects null arguments, but `Compress.ptrDiff` returns zero for two nulls. These choices require a separate definedness argument for the corresponding C calls. The `Ptr.diff` comment's C23 attribution is inaccurate; see the [operation and language comparison](spec/safety.md#null-pointers-and-pointer-differences). |
-| Address and layout model is partial | There is no general ABI address, effective-type or record-byte-view model. CRC observes low address bits: heap byte blocks retain aligned origins; static and embedded byte origins have arbitrary stable residues. The metadata can be configured without changing any existing storage. Byte-assembled word loads do not settle the C cast's aliasing semantics. Scalar-cell adapters may omit aliases. See [deviations](deviations.md). |
-| Read-only marking is partial | Byte blocks, named static tables and instances can be read-only. Word blocks and records in tables cannot represent that qualifier. |
-| Pointer construction checks are partial | `Ptr.add` checks its result, not whether a manually constructed starting offset was valid. Translation review must exclude invalid uses of the public `Ptr.ref` constructor. |
-| Object origin is not tracked | A caller block created by `allocBytes` can be freed by translated code. Frame and ownership clauses must prevent this where the API forbids it. A wrong-kind state cast faults earlier than the corresponding C access. |
-
-These are limits of the model, not permission to narrow a public theorem silently. The
-[runtime review](checking/runtime-review.md) is historical evidence about these choices,
-not independent approval of the current definitions.
-
-### Table updates
-
-`Tbl` wraps an array and reads as a total function of block identity. Missing entries return
-the default (`none` or `false`). `upd` has proved same-key, different-key and repeated-update
-rules from `Tbl.get_set`.
-
-Writing primitives use `Space.modify` to remove, modify and replace an array without retaining
-a chain of previous arrays. `Space.modify_eq` states equality with the simpler functional
-`put` operation. The trusted review must cover `Tbl.get_set`, `Tbl.modify_eq` and every generated
-`Space` instance's `modify` and `modify_eq`. The operation lemmas reason with `put`; execution
-performance does not establish their correspondence. See the
-[table-update review](checking/runtime-tables-review.md).
+[Model limits](model-limits.md#how-the-runtime-represents-c) has the full lists under three
+headings: "Memory and library operations" (what `memcpy`, `malloc`, `free` and the other modelled
+calls check), "Representation gaps and proof obligations" (pointers, array extents, addresses,
+read-only marking) and "Table updates".
 
 ## 3. Manual translation
 
-The translation in `ZlibF/Zlib/` is written statement by statement. The kernel does not check
-its correspondence to C. Review must check evaluation order, checks, arithmetic, storage
-lifetime and effects. A mismatch is a translation bug; it must be corrected with a differential
-regression, never hidden by changing a theorem. The [translation rules](design/translation.md)
-require evidence for each function. The test inventory is `tests/list.txt`.
+The translation in `ZlibF/Zlib/` is written by hand, statement by statement. The kernel does not
+check that it corresponds to the C. Review checks evaluation order, checks, arithmetic, storage
+lifetime and effects. A mismatch is a translation bug: it is corrected, with a differential test
+that catches it, and never hidden by changing a theorem.
+
+The translation differs from a literal statement-by-statement copy in four accepted ways, each
+equivalent to the C: an out-parameter of an internal function is passed by value and returned as
+a second result; two reads of one location with no store between them are one read; consecutive
+assignments to fields of one record are one record update; a signed operation that a preceding
+test of the same function keeps in range uses the plain operator. The
+[translation rules](design/translation.md) show an example of each and say what evidence each
+function needs. The test inventory is `tests/list.txt`.
 
 Differential tests compare finite executions against the real C. They are evidence of fidelity,
 not proof. In particular, agreement and a silent sanitizer do not establish that a C expression
@@ -126,7 +100,7 @@ proof; it must be minimal and match a fix submitted upstream. A patch that the o
 land before its submission; the register then marks it as local and pending. A patch is removed
 after upstream merges the fix and the pin moves past it.
 
-Five patches are applied today. Every theorem is about the patched source, so each patch is part
+Five patches are applied. Every theorem is about the patched source, so each patch is part
 of what a reader trusts. [The patch register](../patches/README.md) gives the evidence for each.
 
 | Patch | Fixes | Upstream state |
@@ -142,9 +116,9 @@ Historical proposals are not part of the verified source merely because notes me
 ## 5. Configuration and external world
 
 The target is the default x86_64 Linux/LP64 static build with the default allocator.
-The accepted [platform scope](spec/platform.md) requires each represented byte
-object to have fewer than `2^63` bytes. This is an environment premise; zlib
-proofs establish that their operations preserve it. It is the LP64 `PTRDIFF_MAX` object-size
+The [platform scope](spec/platform.md) requires each represented byte
+object to have fewer than `2^63` bytes. This is an environment premise; the zlib
+proofs establish that the library's operations preserve it. It is the LP64 `PTRDIFF_MAX` object-size
 limit, and it holds on every heap of a call history.
 Allocation failure remains in scope. Other build configurations and custom allocators would
 need their own correspondence arguments; they are not planned ([scope](progress.md#scope)).
@@ -152,7 +126,7 @@ need their own correspondence arguments; they are not planned ([scope](progress.
 **Allocation size.** `malloc` returns NULL for a request above `PTRDIFF_MAX` (`2^63 − 1` bytes),
 whatever the allocation oracle says. The call still consumes one oracle number, and the heap
 after it is the same as after an oracle failure: the two are indistinguishable to the caller
-except through the size. Below the limit the oracle decides, as before. This is glibc 2.43's
+except through the size. Below the limit the oracle decides. This is glibc 2.43's
 behaviour (`malloc/malloc.c`: `_int_malloc` and `__libc_realloc` test `bytes > PTRDIFF_MAX` and
 return NULL with `ENOMEM`; `__libc_calloc` first refuses a product that overflows `size_t`).
 `errno` is not modelled for `malloc`; no zlib path reads it after an allocation. Only two call
@@ -207,7 +181,7 @@ depend on the number `open` returns: the model's descriptor table is not the who
 Two OS facts are assumed and not checked: a nonempty `write` never returns 0, and `close`
 releases the descriptor even when it reports an error. Both hold on Linux. The first is needed
 for termination of `gz_comp`; the real C spins forever on a `write` that returns 0 forever
-([progress](progress.md), observation).
+([observation](progress.md#observations)).
 
 `strerror` (`C.libcErrnoText`) is total over every `Int32`. For a number outside its table it
 returns glibc's `"Unknown error N"` (glibc `string/strerror_l.c`, checked on glibc 2.43; glibc's
@@ -217,23 +191,26 @@ knows and the table does not, the text differs from glibc's; no safety argument 
 text or its length, because `gz_error` sizes its copy from `strlen`.
 
 The read budget (`readBudget`) bounds the bytes a non-negative descriptor number may still
-deliver; a negative descriptor is unbudgeted. It is a premise of the termination half of the gz
-safety goal only ([deviations](deviations.md)). Functional gz contracts are stated for the
-regular-file instance (`RegularOs`). `fcntl` has no effect; its results are ignored by the C.
+deliver. It is a premise of the termination half of the gz safety goal only
+([deviations](deviations.md#gzip-file-interface)). Functional gz contracts are stated for the
+world in which every OS call behaves as a regular file (`RegularOs`). `fcntl` has no effect; its
+results are ignored by the C.
 
 The gz file world and formatting model are additional trusted semantics. Their supported file
 kinds, errors, conversions and external string allocation do not represent every operating-system
-or library behaviour. Callback correctness relies on the explicit returning protocol, finite
-input bound and window-preservation assumptions. [Deviations](deviations.md) records the
-consequences for the public adapters. Compiler, operating-system and hardware correctness are
-outside the proof.
+or library behaviour. The callback decoder's theorem assumes the caller's protocol for `in` and
+`out`: both return, the total input is bounded, and the window is preserved
+([deviations](deviations.md#callback-decoder)). Compiler, operating-system and hardware
+correctness are outside the proof.
 
 ## 6. Statements and authority
 
-A proof can establish an incomplete or wrong specification. Reviewers must compare the target,
-its preconditions and named specification identifiers with the [API](spec/api/README.md),
-[format](spec/format/README.md) and selected C. They must also confirm that init establishes the
-invariant and that the caller domain has not been reduced.
+A proof can establish an incomplete or wrong specification. So the statements are reviewed: each
+goal, its preconditions and the definitions it names are compared with the
+[API](spec/api/README.md), the [format](spec/format/README.md) and the selected C. The review also
+confirms that init establishes the invariant and that the caller domain has not been reduced.
+[Deviations](deviations.md) is the list of the places where a goal asks more of the caller than
+`zlib.h` does.
 
 Nothing in the tooling fixes definitions and theorem types: git tracks them, and review decides
 whether their meaning is right. The [verification policy](anti-cheating.md) says what the

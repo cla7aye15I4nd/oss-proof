@@ -2,12 +2,19 @@
 
 > **Historical record.** It describes the process when it was written: lock files, regenerated locks, an approved baseline and review of lock differences. Those mechanisms were removed later. There are no lock files now; see [anti-cheating](../anti-cheating.md). Read the evidence below as evidence about that snapshot only.
 
+**State today.** `DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`) has the premise this
+page proposes, `z.next_out ≠ .null`, and the premise `s.status = FINISH_STATE → z.avail_in = 0` of
+the [first correction](deflate-completion-input.md). It is a clause of the functional goal
+`Goal.deflate_sequence`. That goal has no registered theorem, and it is not required for the
+safety results ([progress, Scope](../progress.md#scope)). The archived Lean file refutes the
+statement as it was before this correction, at the commit the page names. The text
+below is the record as it was written, with links adjusted. Its section "Minimal proposed
+correction" was written before the approval that the same section reports, and its counts (400
+listed theorems, 78 of 181 goals) and lock files describe that time.
+
 The completion proposition before the output-pointer correction is false.
 This is a specification-domain error, not a zlib bug. The earlier reviewed
 no-new-input condition in FINISH_STATE did not exclude this case.
-`DeflateCompletes` (`ZlibF/Spec/Functional/Sequences.lean`) is a functional goal. It is
-not required and not planned ([progress, Scope](../progress.md#scope)). This page is kept
-as the record of a correction to its statement.
 
 ## Exact Lean refutation
 
