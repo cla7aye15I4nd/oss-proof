@@ -1,4 +1,4 @@
-<!-- source-sha256: 0e408a33d0542f5cc5c6cecbc7772d3d13584c8b732c7fd26bc3091f60b45c30 -->
+<!-- source-sha256: 4de285b2b9ab1d4d42a8debb6e4bc98615df54a79275e42f6afb7200ed9520e9 -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：239 个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
@@ -37,7 +37,7 @@
 | 3c | 是，三个都已登记 | `bde170e9` |
 | 3d | 是，46 个都已登记 | `bde170e9`；四个 init 安全目标的现行形式除外 |
 
-在 `bde170e9` 上，验收套件全部通过：公理关卡、目标精确匹配、自测、证明变异体和差分测试，当时 63 个必需目标都已登记。差分测试是忠实度的证据，不是证明。从那个提交到本页之间，目标、证明和登记表只有一处改动：`Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 被放宽到 `zlib.h` 允许的每次调用（提交 `101c6ab3`；证明在 `8642e435`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。放宽之后的形式已登记，尚未验收：还没有哪次验收运行覆盖了包含它们的提交。
+在 `bde170e9` 上，验收套件全部通过：公理关卡、目标精确匹配、自测、证明变异体和差分测试，当时 63 个必需目标都已登记。差分测试是忠实度的证据，不是证明。从那个提交到本页之间，目标、证明和登记表只有一处改动：`Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 被放宽到 `zlib.h` 允许的每次调用（提交 `101c6ab3`；证明在 `8642e435`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。放宽之后的形式已登记，尚未验收：还没有哪次验收运行覆盖了包含它们的提交，而且写下这一段时，快速关卡在 `8642e435` 上的结果还没有出来。
 
 **未完成。** 安全结论所需要的东西没有缺口。31 个 gz 函数和三个 `inflateBack` 函数的安全性由 3b 和 3c 的序列目标证明，序列目标覆盖每段历史中的每次调用。它们还没有各自的单函数目标；陈述并登记这些目标是[按顺序的下一步工作](#ordered-next-work)的第一项。
 
@@ -2248,6 +2248,8 @@ flowchart LR
 **`write` 返回 0 时 `gz_comp` 会空转。** 在 `gz_comp` 的两个写循环中（`gzwrite.c`：透明模式的循环 `while (strm->avail_in)` 和写出循环 `while (strm->next_out > state->x.next)`），对非空缓冲区返回 0 的 `write` 不推进任何东西，也不算错误，所以循环重复同一次调用。如果系统一直返回 0，C 就永远不返回。这是对代码的解读；没有实际运行过永远返回 0 的 `write`。目前不知道 Linux 会对普通文件、管道或套接字上的非零计数返回 0（其他文件类型**尚未由证明确认**），所以 gz 安全证明假设它不会发生（[偏离记录](deviations.md#gzip-file-interface)，“Gz 操作系统事实”一行）。gz 安全研究的故障注入测试平台检查了另一面：让 `write` 对 10% 的非空调用返回 0（40 段历史，ASan 和 UBSan），每段历史都正常结束，没有报告，也没有泄漏，因为每个循环最终都会得到一个正的结果。这是库的行为，不是安全问题；只有在已知某个平台会返回 0 时，才值得向上游说明。范围：`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams`、`gzclose_w`。
 
 **`gzerror` 返回的字符串会被下一次到达 `gz_error` 的调用释放。** 这是一条未确认的发现，属于文档缺口，不是代码缺陷。`zlib.h` 只说之后对 `gzerror` 的调用可能使返回的字符串失效。实际上 `gzerror` 返回的是 `state->msg`，而每个到达 `gz_error` 的调用都会释放它：`gzprintf`、`gzvprintf`、`gzputs`、`gzwrite`、`gzread` 等在使用参数之前，先用 `gz_error(state, Z_OK, NULL)` 重置错误。调用者把这个字符串再传回同一个句柄，就会遇到释放后使用：写入停滞之后的 `gzprintf(f, "%s", gzerror(f, &e))` 在 `vsnprintf` 中读取已释放的内存（[复现](../tests/regression/gzprintf-error-string/README.md)，ASan）。没有补丁。已证明的定义域让调用者的字符串和缓冲区与句柄的块分开（`GzRange`，以及 `GzArguments` 中针对 `gzprintf` 和 `gzvprintf` 的分离子句；[偏离记录](deviations.md)）。
+
+**`deflateBound` 在两种情形下偏小。** 两者都是 `zlib.h` 关于大小的承诺没有兑现，不是内存错误，并且都在固定版本的 C 上复现了。`Z_FIXED` 策略、压缩级别 1 到 3、`windowBits` 为 15 且 `memLevel` 为 8 时，给出 `deflateBound` 字节的空间，一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`（[问题记录](findings/deflatebound-fixed-far-matches/README.md)）。gzip extra 字段长度为 `2^32 - 2` 或 `2^32 - 1` 时，`2 + extra_len` 这个和在 32 位上回绕（[问题记录](findings/deflatebound-extra-len/README.md)）。必需的安全目标都不依赖这个上界的数值。有两处功能命题依赖它，问题记录说它们在这些情形下按现在的写法是假的：对每种策略量化的 `DeflateCompletes`，以及关于数值的目标 `Goal.deflateBound` 和 `Goal.deflateBound_z`（它们未证明）。默认策略不受影响，所以计划中的默认流往返不受影响。这些功能命题怎样改正，还没有决定。
 
 ### 待复查的历史报告
 

@@ -56,7 +56,8 @@ goals, proofs or registries: `Goal.inflateInit__safety`, `Goal.inflateInit2__saf
 (commit `101c6ab3`; proofs in `8642e435`). Before, they asked for a record with a `NULL` `state`,
 the matching version and the matching `stream_size`. In the wider
 form they are registered and not yet accepted: no acceptance run covers a commit that contains
-them.
+them, and the result of the fast gate on `8642e435` was not available when this paragraph was
+written.
 
 **Open.** Nothing that a safety result needs. The 31 gz functions and the three `inflateBack`
 functions are proved safe through the sequence goals of 3b and 3c, which cover every call in
@@ -2404,6 +2405,18 @@ that passes that string back to the same handle gets a use after free:
 ([reproduction](../tests/regression/gzprintf-error-string/README.md), ASan). No patch. The proved
 domain keeps caller strings and buffers apart from the handle's blocks (`GzRange`, and the
 separation clause of `GzArguments` for `gzprintf`/`gzvprintf`, [deviations](deviations.md)).
+
+**`deflateBound` is too small in two cases.** Both are broken promises of `zlib.h` about a size,
+not memory errors, and both are reproduced on the pinned C. With `Z_FIXED` at levels 1 to 3,
+`windowBits` 15 and `memLevel` 8, one `deflate(Z_FINISH)` call with `deflateBound` bytes of room
+returns `Z_OK` ([finding](findings/deflatebound-fixed-far-matches/README.md)). With a gzip extra
+field of length `2^32 - 2` or `2^32 - 1`, the sum `2 + extra_len` wraps at 32 bits
+([finding](findings/deflatebound-extra-len/README.md)). No required safety goal depends on the
+value of the bound. Two functional statements do, and the finding pages say they are false as
+stated for these cases: `DeflateCompletes`, which quantifies over every strategy, and the value
+goals `Goal.deflateBound` and `Goal.deflateBound_z`, which are open. The default strategy is not
+affected, so the planned round trip of the default stream is not affected. How the functional
+statements are corrected is not decided.
 
 ### Historical reports to recheck
 
