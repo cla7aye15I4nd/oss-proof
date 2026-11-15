@@ -230,6 +230,7 @@ import ZlibF.Spec.Public.History
 import ZlibF.Spec.Public.Streams
 import ZlibF.Spec.Public.Copy
 import ZlibF.Spec.Safety.Refusals
+import ZlibF.Spec.HeapUniq
 import ZlibF.Spec.Public.GzRefusal
 import ZlibF.Spec.Public.GzState
 import ZlibF.Spec.Public.GzControl

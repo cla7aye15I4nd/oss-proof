@@ -1,4 +1,5 @@
 import ZlibF.Zlib.«gzlib.c»
+import ZlibF.Spec.HeapUniq
 
 /-!
 # gzlib.c: the representation invariant of a gz handle and the rules that every proof of gzlib.c, gzread.c, gzwrite.c
@@ -24,16 +25,8 @@ open C Zlib.GzFs Zlib.Gzguts
 /-- The heap with the `gz_state` record `gs` replaced. -/
 def setS (h : Heap) (gs : Nat) (s : GzState) : Heap := { h with gzstates := upd h.gzstates gs (some s) }
 
-/-- 1 if the table entry holds an object, else 0. -/
-def cnt {α : Type} (o : Option α) : Nat := if o.isSome then 1 else 0
-
 @[simp] theorem cnt_none {α : Type} : cnt (none : Option α) = 0 := rfl
 @[simp] theorem cnt_some {α : Type} (a : α) : cnt (some a) = 1 := rfl
-
-/-- A block number holds an object of at most one table. -/
-def Uniq (h : Heap) : Prop := ∀ b,
-  cnt (h.bytes b) + cnt (h.words b) + cnt (h.streams b) + cnt (h.gzheaders b) + cnt (h.dstates b) + cnt (h.istates b) +
-  cnt (h.gzstates b) ≤ 1
 
 /-- The two heaps hold an object in the same tables at the same block numbers (the objects may differ). -/
 def Shape (h h' : Heap) : Prop := ∀ b, (h'.bytes b).isSome = (h.bytes b).isSome ∧ (h'.words b).isSome = (h.words b).isSome ∧

@@ -1,6 +1,7 @@
 import ZlibF.Zlib.«deflate.c»
 import ZlibF.Proof.«zutil.c»
 import ZlibF.Proof.«trees.c.bits»
+import ZlibF.Spec.HeapUniq
 
 /-!
 # deflate.c: the stream invariant and the lemmas the stream functions share
@@ -26,16 +27,8 @@ in `DStInv` (`bits`, `sym`), so that a proof about the lifecycle functions can r
 namespace Zlib.Deflate.Spec
 open C
 
-/-- 1 if the table entry holds an object, else 0. -/
-def cnt {α : Type} (o : Option α) : Nat := if o.isSome then 1 else 0
-
 @[simp] theorem cnt_none {α : Type} : cnt (none : Option α) = 0 := rfl
 @[simp] theorem cnt_some {α : Type} (a : α) : cnt (some a) = 1 := rfl
-
-/-- A block number holds an object of at most one table. -/
-def Uniq (h : Heap) : Prop := ∀ b,
-  cnt (h.bytes b) + cnt (h.words b) + cnt (h.streams b) + cnt (h.gzheaders b) + cnt (h.dstates b) + cnt (h.istates b) +
-  cnt (h.gzstates b) ≤ 1
 
 /-- The heap with the deflate state record `ds` replaced. -/
 def setD (h : Heap) (ds : Nat) (d : DeflateState) : Heap := { h with dstates := upd h.dstates ds (some d) }
