@@ -27,6 +27,14 @@ Reproduction: `repro.c` (no clock, no input). Output on the pinned C under the s
 `deflate(Z_FINISH)` with that room returns `Z_OK`, and the stream needs 1,007,343, 1,008,565 and
 1,008,570 bytes. Levels 4 to 9 end.
 
+Older releases fail more widely. On a system zlib 1.2.12 the same input fails at every level 1 to
+9 (for n = 1,000,000 the stream needs up to 1,031,475 bytes). There `Z_FIXED` forced a fixed block
+even when a stored block was smaller. Upstream commit 7fabcb5 ("Fix bug in block type selection when
+Z_FIXED used", zlib 1.2.13) lets the smaller stored block win again. That leaves only the blocks
+without a stored fallback (`buf == NULL`), and only `deflate_fast` takes far 3-byte matches. No
+entry of `ChangeLog` up to 1.3.2.1 addresses this case (checked: every `deflateBound` and `Z_FIXED`
+entry); a web search found no upstream issue. Whether upstream knows it stays **to confirm**.
+
 Scope, from the statement test (`tests/goals/deflate-bound`, a targeted search over every
 `windowBits` 9 to 15, `memLevel` 1 to 9, level 1 to 9, strategy default and `Z_FIXED`, copy
 lengths 3 to 5, literal rates 0 to 50%): only `windowBits` 15 with `memLevel` 8 (the tight bound),
