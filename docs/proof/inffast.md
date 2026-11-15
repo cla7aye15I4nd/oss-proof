@@ -35,7 +35,9 @@ translation, not against this prose.
 
 ## What is assumed
 
-The entry environment (`Env`, `ZlibF/Proof/inffast.c.env.lean`) bundles the
+The entry environment (`Env`, `ZlibF/Proof/inffast.c.env.lean`; the structure is `EnvG`, and
+`Env` is `EnvG false`, the case of every caller but `inflateBack`, in which the window is
+another block than the output) bundles the
 premises `I-if-pre-*` below with their witnesses. Input and output lie in heap
 byte blocks: distinct blocks, or disjoint ranges of one block. The row "Fast
 decoder helpers" in [deviations](../deviations.md) records this. It is an
