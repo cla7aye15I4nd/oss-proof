@@ -1,4 +1,4 @@
-<!-- source-sha256: 98162b1bdb929bb3fd076cdb401693244f43897849e55d6966a3bb15e12b080b -->
+<!-- source-sha256: 9bbde7eaefb3de88cc42af5ae83b412d197743a108a36e8f01223cdcdb34c860 -->
 # 规格的布局：安全与功能
 
 必需的目标是安全目标。它们与功能目标分开存放，读者不读任何功能规格，就能看到全部必需的目标。本页说明每一类目标放在哪里，哪条导入规则把它们分开，以及这条规则怎样检查。形成这个布局的计划，连同它的步骤和状态，在一个[历史页面](../history/safety-functional-split-plan.md)中。
@@ -58,7 +58,7 @@ flowchart TD
 
 ## 必需集合怎样检查
 
-验收审计（`scripts/verification.py`）从清单读出必需集合：目标构建中每个有文档的函数的安全目标，加上 `safety_goals` 和 `nonvacuity_goals` 的各项。每个必需的目标都需要一个类型恰好是它的已登记定理，并且只用允许的公理。清单的 `open_safety` 列表为空，所以缺少定理会使审计失败。各登记表、必需集合和只减不增的规则，完整内容见[目标](../checking/goals.md)。
+验收审计（`scripts/verification.py`）从清单读出必需集合：目标构建中每个有文档的函数的安全目标，加上 `safety_goals` 和 `nonvacuity_goals` 的各项。每个必需的目标都需要一个类型恰好是它的已登记定理，并且只用允许的公理。清单的 `open_safety` 列表为空，所以缺少定理会使审计失败。各登记表、必需集合和[防止悄悄删除的规则](../checking/goals.md#shrink-only-rules)，完整内容见[目标](../checking/goals.md)。
 
 ## 没有分开的部分
 

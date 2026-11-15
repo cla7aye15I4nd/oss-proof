@@ -104,7 +104,7 @@ safety goal of every documented function of the target build, plus the entries o
 `safety_goals` and `nonvacuity_goals`. Each required goal needs a registered theorem of exactly
 its type, with allowed axioms only. The list `open_safety` of the manifest is empty, so a missing
 theorem fails the audit. [Goals](../checking/goals.md) gives the registries, the required set
-and the shrink-only rules in full.
+and the [rules against silent removal](../checking/goals.md#shrink-only-rules) in full.
 
 ## What is not separated
 

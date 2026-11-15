@@ -1,4 +1,4 @@
-<!-- source-sha256: 65dca4c5f11d76d37427be0bf177651c5f2a3a1984e7413fa93706b7600d77c0 -->
+<!-- source-sha256: f63722ce2445d1e39dd3be5ba1dcf0041b54c1cbef2df408097744fc95dded18 -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean。证明表明：默认 x86_64 Linux 构建中每个有文档的公开函数，在任何调用序列里运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止；前提是每条定理自己写明的那些条件。
@@ -87,8 +87,8 @@ scripts/check-sorry.sh
 | 问题 | 是否在有文档的 API 之内 | 证据与置信度 | 被验证源码中的修复 |
 | --- | --- | --- | --- |
 | 流停在固定块内部时，`inflateCopy` 用关系运算符比较互不相关的指针，这是未定义行为 | 是 | 在固定版本的 C 上的[复现](docs/findings/inflate-copy-fixed/README.md)。对所诊断的调用序列置信度高。 | 补丁 0001，即上游 [PR #1369](https://github.com/madler/zlib/pull/1369) 的修复 |
-| 一开始就调用 `gzungetc` 之后再调用 `gzseek`：`x.pos` 为 -1，`gzseek64` 的范围检查发生有符号溢出 | 是 | [复现](tests/regression/gzseek-pushback-overflow/README.md)：UndefinedBehaviorSanitizer 报告三处。置信度高。 | 补丁 0002，取自上游 [PR #1361](https://github.com/madler/zlib/pull/1361)，该拉取请求仍处于打开状态 |
-| 透明模式下，部分读取之后读取失败，再调用 `gzread`：`gz_fetch` 在设置 `x.next` 之前就返回，读取函数从旧指针复制，读到缓冲区之外 | 是；需要在读到部分数据之后出现读取错误 | [复现](tests/regression/gzread-transparent-stale-next/README.md)：AddressSanitizer 报告这次读取。置信度高。 | 补丁 0003，上游 [PR #1363](https://github.com/madler/zlib/pull/1363)，该拉取请求仍处于打开状态 |
+| 一开始就调用 `gzungetc` 之后再调用 `gzseek`：`x.pos` 为 -1，`gzseek64` 的范围检查发生有符号溢出 | 是 | [复现](docs/findings/gzseek-pushback-overflow/README.md)：UndefinedBehaviorSanitizer 报告三处。置信度高。 | 补丁 0002，取自上游 [PR #1361](https://github.com/madler/zlib/pull/1361)，该拉取请求仍处于打开状态 |
+| 透明模式下，部分读取之后读取失败，再调用 `gzread`：`gz_fetch` 在设置 `x.next` 之前就返回，读取函数从旧指针复制，读到缓冲区之外 | 是；需要在读到部分数据之后出现读取错误 | [复现](docs/findings/gzread-transparent-stale-next/README.md)：AddressSanitizer 报告这次读取。置信度高。 | 补丁 0003，上游 [PR #1363](https://github.com/madler/zlib/pull/1363)，该拉取请求仍处于打开状态 |
 | gz 位置溢出：`gzread`、`gzgetc`、`gzgetc()` 宏、`gzwrite` 和 `gzputc` 把字节数加到有符号 64 位位置 `x.pos` 上，没有上界检查 | 是；出现在 `lseek` 成功却不移动的设备上（`/dev/zero`、`/dev/null`），或透明模式下位置接近 2^63 时 | [读取](docs/findings/gzread-pos-overflow/README.md)和[写入](docs/findings/gzwrite-pos-overflow/README.md)两个方向的复现：x86_64 Linux 上的 UndefinedBehaviorSanitizer。对所诊断的调用序列置信度高。 | 补丁 0004，本地补丁，经所有者批准，尚未提交上游：位置保持在 `z_off64_t` 范围内，会溢出的调用以 `Z_DATA_ERROR` 失败 |
 | 同一种溢出，经由补丁 0004 第一版中 `gz_look` 的透明 COPY 分支：在一个带尾随数据的 gzip 成员、一次 `gzclearerr` 和一次接近 2^63 − 1 的读取之后，`x.pos + x.have` 超过 `GZ_OFF_MAX` | 是；在上述历史之后、距 `GZ_OFF_MAX` 不超过 `size` 字节之处 | [问题记录](docs/findings/gz-position-copy-overflow.md)：在模型中确认，并通过阅读 C 确认。没有 sanitizer 的确认；这段历史需要大约 2^63 个解码字节。就打过补丁的源码本身而言，置信度高。 | 补丁 0004 也给这个分支加了上界 |
 | 对未设置或悬空的 `x.next` 前进零步：该字段从未写入，或指向已释放的调用者缓冲区时，`gzseek64` 和 `gz_skip_have` 执行 `x.next += 0` | 是；即两份问题记录中的两个调用序列 | [未设置](docs/findings/gz-reset-next-uninitialised/README.md)与[悬空](docs/findings/gz-next-dangling-after-direct-read/README.md)两种情形各有一次探针运行。按 C 标准的字面是未定义行为。证据弱于上面各行：sanitizer 对两种情形都不报告，也没有观察到异常行为。 | 补丁 0005，本地补丁，经所有者批准，尚未提交上游 |
