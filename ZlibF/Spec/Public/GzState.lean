@@ -149,4 +149,7 @@ def availableRead (s : GzState) (buffered decoded : List UInt8) : List UInt8 :=
 
 def NoAllocationFailure (h : Heap) : Prop := ∀ n, h.allocOk n = true
 
+def putGz (h : Heap) (i : Nat) (s : GzState) : Heap :=
+  { h with gzstates := upd h.gzstates i (some s) }
+
 end ZlibF.Spec.Public

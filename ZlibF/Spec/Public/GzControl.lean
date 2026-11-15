@@ -4,9 +4,6 @@ import ZlibF.Spec.Public.Queries
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs
 
-def putGz (h : Heap) (i : Nat) (s : GzState) : Heap :=
-  { h with gzstates := upd h.gzstates i (some s) }
-
 /-- `int gzbuffer(gzFile file, unsigned size)`.
 The current source clamps to eight bytes. It refuses initialized buffers and doubled-size overflow. -/
 def Goal.gzbuffer : Prop :=
