@@ -226,6 +226,14 @@ call: the state record, the window and the other buffers those pointers name. A 
 choose it. So a block that the library allocated and lost track of would be live, not owned,
 and not in `created`: the account would be false.
 
+**Init or copy onto a record that already holds a stream.** The four init goals put no condition
+on the `state` field of the record (`InitArguments`), and the two copy goals put none on the
+destination record, so these goals also hold when that record still holds a live stream. The
+call does not free the old state. Its blocks were live before the call and stay live, which the
+account allows, and the record no longer points to them. For init and copy, "no leak" therefore
+means that the call leaks none of its own allocations. Ending a stream before its record is
+used again is the caller's duty, as in C.
+
 For `compress*` and `uncompress*` the goal says the same in another form. The heap after the
 call is the heap before it with the output bytes written (for `uncompress*` also the length
 cells), and nothing else is changed. The temporary stream and its allocations are gone: no new
@@ -392,7 +400,8 @@ obligations. U11 and U12 add termination and resources; a failure of one is not 
 
 **The model accepts two null-pointer operations that C leaves undefined: `NULL + 0`, and, in
 the helper of `compress` only, `NULL - NULL`. A no-fault theorem does not show that the C
-avoids them.** [Deviations](../deviations.md) has the row "Null pointer arithmetic".
+avoids them.** [Model limits](../model-limits.md#conditions-on-the-model-that-goals-state) has the
+row "Null pointer arithmetic".
 
 | Operation | What the model does | What a claim about the C still needs |
 | --- | --- | --- |

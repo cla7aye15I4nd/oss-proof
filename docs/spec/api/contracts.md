@@ -33,11 +33,14 @@ a decoding allocation failure can follow partial output.
 
 ## Reading a Proof goals paragraph
 
-A Proof goals paragraph always has the same five items, in this order.
+A Proof goals paragraph has the same five items, in this order, on the pages for the inflate
+streams, the deflate streams, the checksums and the utilities. The entries of the gzip file
+interface and of the callback decoder give the same content as one paragraph: their functions
+are covered by a sequence goal and have no one-function goal yet.
 
 | Item | Content |
 | --- | --- |
-| **Goal** | The name of the Lean goal, its file, and whether it is required. |
+| **Goal** | The name of the Lean goal, its file, and whether it is required; then the registered theorem whose type is the goal, and the proof file. |
 | **Applies when** | The conditions of the goal, in C terms, numbered. The Lean name of each is in parentheses. A call that breaks one is not covered: it is neither proved safe nor claimed to be unsafe. |
 | **Covered without condition** | What the goal quantifies over freely, for example every value of a scalar argument, every input byte sequence and every allocation outcome. |
 | **Guarantees** | What the goal concludes, always in this order: the call returns; the state after the call; what was written; the allocations. |
@@ -60,11 +63,12 @@ The paragraphs use the following phrases with a fixed meaning.
 [Safety](../safety.md) explains the four clauses behind "Guarantees", with an example. The
 [glossary](../../glossary.md) defines goal, history, refusal and the status levels.
 
-An entry names the goal, not its proof. [Progress, Target evidence](../../progress.md#target-evidence)
-links each goal to the theorem that proves it, and `tests/audit/theorems.txt` lists the
-registered theorems. For example, the theorems for the calls on a live stream are in
-`ZlibF/Proof/public-stream-call-safety.lean`, and those for the four init functions in
-`ZlibF/Proof/public-init-safety.lean`.
+The entries of the gzip file interface and of the callback decoder name the goal and not its
+theorem. [Coverage by function](../../coverage.md) gives the theorem of every function in one table,
+[progress, Target evidence](../../progress.md#target-evidence) links each goal to the theorem that
+proves it, and `tests/audit/theorems.txt` lists the registered theorems. For example, the
+theorems for the calls on a live stream are in `ZlibF/Proof/public-stream-call-safety.lean`, and
+those for the four init functions in `ZlibF/Proof/public-init-safety.lean`.
 
 ## Domain and effects are independent
 
