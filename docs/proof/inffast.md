@@ -25,11 +25,28 @@ how the translation follows the C are in the
 
 The registered theorems are accepted on commit `bde170e9`
 ([levels](README.md#status-levels)). The two checked theorems are not in the registry
-themselves. They are used inside the proofs of the registered sequence theorems
-`inflate_sequence_safety_public` and `inflate_back_sequence_safety`, where they give
-termination of the callers' loops. The registered `inflate_fast_safe` is stated for the entry
-conditions of `inflate`. The two checked theorems are stated for the entry conditions of both
-callers, so they are also what makes the call from `inflateBack` safe.
+themselves. The registered `inflate_fast_safe` is stated for the entry conditions of `inflate`
+(`Env`). The two checked theorems are stated for the entry conditions of both callers (`EnvG`).
+
+How the callers use these theorems:
+
+- **`inflateBack`.** `LEN_fast_p` (`infback.c.safety-fast.lean`) proves the entry conditions and
+  applies `fast_consumes`. This is inside the proof of the registered
+  `inflate_back_sequence_safety`. It is what makes the call from `inflateBack` safe, and it
+  gives termination of that caller's loop.
+- **`inflate`, input and output in two different heap blocks.** `inflate_fast_raw_entry`
+  (`inflate.c.fast-entry.lean`) proves the entry conditions under that premise, and
+  `inflate_fast_safe_progress` is applied to them.
+- **`inflate`, every layout.** The registered `inflate_sequence_safety_public` allows the input
+  and the output to be two ranges of one block. For the fast call its proof uses
+  `inflate_fast_default_view_buffers_progress` (`inflate.c.fast-view-public-step.lean`, checked,
+  not registered). That theorem has no premise on the blocks. It is a second proof of the same
+  translated function, stated on the caller's ranges and the decoder invariant
+  (`inflate.c.fast-view-*.lean`); it does not use `EnvG`. `fast_consumes` is not used for
+  `inflate`. See [stream decoding](inflate.md#the-fast-path).
+- **`inflate`, functional results.** `inflate_fast_entry` (`inflate.c.meaning-fast.lean`,
+  checked, not registered) proves the entry conditions for every layout. The functional
+  theorem `fast_call_meaning` uses it; the safety results do not.
 
 `FastPost` says: the stream's `next_in`, `avail_in`, `next_out`, `avail_out` and `msg` and the
 state's `mode`, `hold` and `bits` were written; output bytes changed only in the range this
@@ -42,24 +59,28 @@ Functional results about `inflate_fast` also exist; see [Functional results](#fu
 
 The theorems assume the entry conditions below. In Lean they are the fields of the record
 `EnvG` (`ZlibF/Proof/inffast.c.env.lean`). `Env` is the case of `inflate`, in which the window
-is never the output block; `inflate_fast_safe` is stated for `Env`. These are
-internal premises: each caller proves them before the call (`inflate_fast_raw_entry` in
-`inflate.c.fast-entry.lean`; `LEN_fast_p` in `infback.c.safety-fast.lean`).
+is never the output object; `inflate_fast_safe` is stated for `Env`. These are
+internal premises: a caller proves them before it applies a theorem of this page. `LEN_fast_p`
+(`infback.c.safety-fast.lean`) does so for `inflateBack`. `inflate_fast_raw_entry`
+(`inflate.c.fast-entry.lean`) does so for `inflate` when input and output are in two different
+heap blocks; it has that premise (`ib ≠ ob`). `inflate_fast_entry`
+(`inflate.c.meaning-fast.lean`) does so for `inflate` in every layout.
 
 - **Stream.** `strm` points at a writable stream record whose `state` is an inflate state.
-- **Input.** `next_in` points into a byte block of fewer than `2^63` bytes. `avail_in ≥ 6`, and
-  the `avail_in` bytes lie inside the block.
-- **Output.** `next_out` points into a writable byte block of fewer than `2^63` bytes.
-  `avail_out ≥ 258`, and the `avail_out` bytes lie inside the block. `start ≥ avail_out`, and
-  `start - avail_out` bytes lie before `next_out` in the same block; so `beg` below is a pointer
-  into that block.
-- **Separation.** Input and output are different blocks, or two ranges of one block that do not
-  overlap.
+- **Input.** `next_in` points into a byte object of fewer than `2^63` bytes. `avail_in ≥ 6`,
+  and the `avail_in` bytes lie inside the object. A byte object is a heap block or any other
+  byte array of the model, such as an array inside a state record.
+- **Output.** `next_out` points into a writable byte object of fewer than `2^63` bytes.
+  `avail_out ≥ 258`, and the `avail_out` bytes lie inside the object. `start ≥ avail_out`, and
+  `start - avail_out` bytes lie before `next_out` in the same object; so `beg` below is a
+  pointer into that object.
+- **Separation.** Input and output are different byte objects, or two ranges of one object that
+  do not overlap.
 - **Bit buffer.** `bits < 8`, `hold < 2^bits`, `sane ≠ 0`.
 - **Window.** `wsize ≤ 32768`, `whave ≤ wsize`, `wnext ≤ wsize`. If `whave ≠ 0`, `window`
-  points at `wsize` bytes inside a block. For `inflate` that block is not the output block. For
-  `inflateBack` it may be the output block; then `wnext = 0` and the window ends inside the
-  output range.
+  points at `wsize` bytes inside a heap block. For `inflate` that block is not the output
+  object. For `inflateBack` it may be the output object; then `wnext = 0` and the window ends
+  inside the output range.
 - **Tables.** `lencode` and `distcode` point at tables of the safe shape for `lenbits` and
   `distbits` (`LenTableSafe`, `DistTableSafe`; see
   [decode tables](inftrees.md#the-table-shape)).
@@ -244,9 +265,12 @@ required for the safety results.
 | A match copy is the LZ77 copy of the format | `actual_distance_refines_lz77`, `actual_copy_match_refines_lz77` | `inffast.c.distance-result.lean`, `inffast.c.match-history.lean` |
 
 For these the invariant is larger: it relates the consumed bits to the source stream and the
-window contents to the earlier output. No theorem connects them to every caller view of
-`inflate`; that would be the functional correctness of `inflate`, which is not required for the
-safety results. Bytes read ahead and given back play no part in the meaning of a decoded
-symbol; see [stream decoding](inflate.md#causality-and-history-across-calls). An earlier note
+window contents to the earlier output. `fast_call_meaning` (`inflate.c.meaning-fast.lean`,
+checked, not registered) carries the meaning through the fast branch of `LEN` in `inflate`, for
+input and output in any byte objects: after the call the decoded tokens still parse as the
+format says, or the mode is `BAD` and the input read has no valid completion. It is a step of
+the conditional round trip, which is checked and neither registered nor accepted
+([stream decoding](inflate.md#functional-results)). Bytes read ahead and given back play no
+part in the meaning of a decoded symbol; see [stream decoding](inflate.md#causality-and-history-across-calls). An earlier note
 on what the functional invariant has to carry is kept in the
 [history](../history/proof-functional-notes.md).

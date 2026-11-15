@@ -1,4 +1,4 @@
-<!-- source-sha256: 0dc4011e3f24dc3cf10bfc50a4d7906029e2c859d8c741d9414cfeeb848c65c8 -->
+<!-- source-sha256: 8d30098330dc5ceabad4bf6f74cc60b96ba4dc1cac702ada918fb1dd233f8915 -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -14,10 +14,17 @@
 | `Goal.fast_safe`（`ZlibF/Spec/InflateFast.lean`）：在入口条件下，调用返回且不出故障；后置条件 `FastPost` 准确说明了改动了什么 | `inflate_fast_safe` | `inffast.c.final.lean` | 已登记 |
 | 循环的一轮是安全的：至多读 6 个字节，至多写 258 个字节，循环继续时至少写了一个字节（`Goal.step_safe`） | `inflate_fast_body_step_safe` | `inffast.c.body.lean` | 已登记 |
 | 静态固定表具有表形状 | `lenfix_tableSafe`、`distfix_tableSafe` | `inffast.c.tableok.lean` | 已登记 |
-| 同样的安全性陈述，外加：结束时模式不是 `TYPE` 或 `BAD` 的调用，留下的输出空间比进入时少 | `inflate_fast_safe_progress` | `inffast.c.progress.lean` | 已检查 |
+| 同样的安全性命题，外加：结束时模式不是 `TYPE` 或 `BAD` 的调用，留下的输出空间比进入时少 | `inflate_fast_safe_progress` | `inffast.c.progress.lean` | 已检查 |
 | 同上，外加：一次调用绝不使 `bits + 8 * avail_in` 增加，并且除非结束于 `TYPE` 或 `BAD`，都使它减小 | `fast_consumes` | `inffast.c.consume.lean` | 已检查 |
 
-已登记的定理在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)）。两条已检查的定理本身不在登记清单里。它们用在已登记的序列定理 `inflate_sequence_safety_public` 和 `inflate_back_sequence_safety` 的证明内部，给出调用者循环的终止性。已登记的 `inflate_fast_safe` 是针对 `inflate` 的入口条件陈述的。两条已检查的定理是针对两个调用者的入口条件陈述的，所以从 `inflateBack` 发出的调用也是靠它们才安全。
+已登记的定理在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)）。两条已检查的定理本身不在登记表里。已登记的 `inflate_fast_safe` 是针对 `inflate` 的入口条件（`Env`）陈述的。两条已检查的定理是针对两个调用者的入口条件（`EnvG`）陈述的。
+
+调用者这样使用这些定理：
+
+- **`inflateBack`。** `LEN_fast_p`（`infback.c.safety-fast.lean`）证明入口条件，并应用 `fast_consumes`。这在已登记的 `inflate_back_sequence_safety` 的证明内部。从 `inflateBack` 发出的调用靠它才安全，这个调用者的循环也靠它才终止。
+- **`inflate`，输入和输出位于两个不同的堆块。** `inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在这条前提下证明入口条件，然后对它们应用 `inflate_fast_safe_progress`。
+- **`inflate`，每一种布局。** 已登记的 `inflate_sequence_safety_public` 允许输入和输出是同一个块里的两段。对快速调用，它的证明用的是 `inflate_fast_default_view_buffers_progress`（`inflate.c.fast-view-public-step.lean`，已检查，未登记）。这条定理对块没有前提。它是对同一个翻译后的函数的第二个证明，针对调用者的区域和解码器不变量陈述（`inflate.c.fast-view-*.lean`）；它不使用 `EnvG`。`fast_consumes` 没有用于 `inflate`。见[流式解码](inflate.md#the-fast-path)。
+- **`inflate`，功能结论。** `inflate_fast_entry`（`inflate.c.meaning-fast.lean`，已检查，未登记）对每一种布局证明入口条件。功能定理 `fast_call_meaning` 用到它；安全结论不用它。
 
 `FastPost` 说的是：流的 `next_in`、`avail_in`、`next_out`、`avail_out` 和 `msg`，以及状态的 `mode`、`hold` 和 `bits` 被写过；输出字节只在本次调用写入的范围内发生变化；`bits < 8` 和 `hold < 2^bits` 重新成立；模式不变，或者变成 `TYPE`（块结束），或者变成 `BAD`。堆里其他东西都没有变，也没有发生分配。
 
@@ -25,17 +32,17 @@
 
 ## 假设
 
-这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段（`ZlibF/Proof/inffast.c.env.lean`）。`Env` 是 `inflate` 的情形，这时窗口绝不是输出块；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：每个调用者在调用之前证明它们（`inflate.c.fast-entry.lean` 中的 `inflate_fast_raw_entry`；`infback.c.safety-fast.lean` 中的 `LEN_fast_p`）。
+这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段（`ZlibF/Proof/inffast.c.env.lean`）。`Env` 是 `inflate` 的情形，这时窗口绝不是输出对象；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：调用者在应用本页的定理之前证明它们。`LEN_fast_p`（`infback.c.safety-fast.lean`）为 `inflateBack` 做这件事。`inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在输入和输出位于两个不同的堆块时为 `inflate` 做这件事；它带有这条前提（`ib ≠ ob`）。`inflate_fast_entry`（`inflate.c.meaning-fast.lean`）为每一种布局下的 `inflate` 做这件事。
 
 - **流。** `strm` 指向一个可写的流记录，它的 `state` 是 inflate 状态。
-- **输入。** `next_in` 指向一个少于 `2^63` 字节的字节块内部。`avail_in ≥ 6`，这 `avail_in` 个字节都在块内。
-- **输出。** `next_out` 指向一个少于 `2^63` 字节的可写字节块内部。`avail_out ≥ 258`，这 `avail_out` 个字节都在块内。`start ≥ avail_out`，并且在同一个块里 `next_out` 之前有 `start - avail_out` 个字节；所以下面的 `beg` 是指向该块内部的指针。
-- **分离。** 输入和输出是不同的块，或者是同一个块里互不重叠的两段。
+- **输入。** `next_in` 指向一个少于 `2^63` 字节的字节对象内部。`avail_in ≥ 6`，这 `avail_in` 个字节都在对象内。字节对象是一个堆块，或者模型里其他的字节数组，例如状态记录内部的数组。
+- **输出。** `next_out` 指向一个少于 `2^63` 字节的可写字节对象内部。`avail_out ≥ 258`，这 `avail_out` 个字节都在对象内。`start ≥ avail_out`，并且在同一个对象里 `next_out` 之前有 `start - avail_out` 个字节；所以下面的 `beg` 是指向该对象内部的指针。
+- **分离。** 输入和输出是不同的字节对象，或者是同一个对象里互不重叠的两段。
 - **位缓冲。** `bits < 8`，`hold < 2^bits`，`sane ≠ 0`。
-- **窗口。** `wsize ≤ 32768`，`whave ≤ wsize`，`wnext ≤ wsize`。如果 `whave ≠ 0`，`window` 指向某个块内的 `wsize` 个字节。对 `inflate`，这个块不是输出块。对 `inflateBack`，它可以就是输出块；这时 `wnext = 0`，并且窗口的末尾落在输出区域之内。
+- **窗口。** `wsize ≤ 32768`，`whave ≤ wsize`，`wnext ≤ wsize`。如果 `whave ≠ 0`，`window` 指向某个堆块内的 `wsize` 个字节。对 `inflate`，这个块不是输出对象。对 `inflateBack`，它可以就是输出对象；这时 `wnext = 0`，并且窗口的末尾落在输出区域之内。
 - **表。** `lencode` 和 `distcode` 指向的表，对 `lenbits` 和 `distbits` 具有安全的形状（`LenTableSafe`、`DistTableSafe`；见[解码表](inftrees.md#the-table-shape)）。
 
-[内部契约](../spec/internal-contracts.md)页面用 `I-if-pre-room`、`I-if-pre-bits`、`I-if-pre-tables` 和 `I-if-pre-window` 这些名字描述 `inflate_fast` 的入口。那里的描述比上面的清单说得更多的地方，安全定理假设的以上面的清单为准。
+[内部契约](../spec/internal-contracts.md)页面用 `I-if-pre-room`、`I-if-pre-bits`、`I-if-pre-tables` 和 `I-if-pre-window` 这些名字描述 `inflate_fast` 的入口。那里的描述若比上面的列表多，以上面的列表为准：安全定理假设的就是这份列表。
 
 没有哪条前提提到模式。也没有哪条前提说窗口里的字节是什么，或者说 `whave < wsize` 蕴含 `wnext = whave`。安全性只需要上面这些界；其余的属于[功能论证](#functional-results)。
 
@@ -163,4 +170,4 @@ I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就
 | 查长度表或距离表得到的是格式规定的符号 | `length_lookup_matches_format`、`distance_lookup_matches_format` | `inffast.c.length-semantics.lean`、`inffast.c.distance-semantics.lean` |
 | 匹配复制就是格式中的 LZ77 复制 | `actual_distance_refines_lz77`、`actual_copy_match_refines_lz77` | `inffast.c.distance-result.lean`、`inffast.c.match-history.lean` |
 
-这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。没有定理把它们接到 `inflate` 的每一种调用者视图上；那将是 `inflate` 的功能正确性，而它不是安全结论所必需的。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。关于功能不变量需要携带什么，早先的一条笔记保存在[历史](../history/proof-functional-notes.md)中。
+这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning`（`inflate.c.meaning-fast.lean`，已检查，未登记）把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然符合格式的文法；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是带条件的往返定理的一步，那条定理已检查，没有登记，也没有验收（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。关于功能不变量需要携带什么，早先的一条笔记保存在[历史](../history/proof-functional-notes.md)中。
