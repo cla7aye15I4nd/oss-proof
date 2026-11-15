@@ -133,6 +133,17 @@ def BackPlatform {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat} {input : Z
 def BackFirstChunk (z : ZStream) (first : List UInt8) : Prop :=
   first ≠ [] → ∃ b off, z.next_in = .ref (.blk b) off
 
+/-- The arguments of an `inflateBackInit_` call that can return `Z_OK`, on a well-formed heap: the
+version starts with '1' (with `stream_size` 112, the only call that is not refused), and the stream
+is a readable record with the default allocator or `NULL` allocator fields (`DefaultOrNull`). Its
+other fields, `state` included, are arbitrary: init overwrites `state` without reading it. This is
+`InitDomain` without its state clause, and `InitArguments` (`Spec/Safety/Initialisation.lean`)
+restricted to a stream record with version '1'. It is not stated with `InitArguments`, because that
+file imports this one (an import cycle). -/
+def BackInitArguments (h : Heap) (r : ZStreamRef) (version : BPtr) : Prop :=
+  Fresh h ∧ Zlib.Inflate.Spec.Uniq h ∧ LibraryGlobals h ∧ VersionValue h version (some 49) ∧
+  ∃ z, r.get h = some z ∧ DefaultOrNull z
+
 /-- Callback histories of the safety goal: those of `BackReachable` whose window is a slice of a
 heap byte block, and whose calls start on a heap whose byte objects fit, with a protocol that
 keeps them fitting and hands out chunks in heap byte blocks (`docs/deviations.md`, "Callback
@@ -141,7 +152,7 @@ read-only flag of every block that stays live, as `ExternalFrame` does for the c
 cannot make memory read-only, and `Rebuffer` alone lets a window at a nonzero offset (a block the
 stream does not own) become read-only in the model. -/
 inductive BackSafeReachable : Heap → ZStreamRef → Nat → BPtr → Nat → Prop
-  | init {h after r version wb window} : InitDomain h r version →
+  | init {h after r version wb window} : BackInitArguments h r version →
       8 ≤ wb.toInt → wb.toInt ≤ 15 → Writable h window (2 ^ wb.toInt.toNat) → window ≠ .null →
       (∃ w off, window = .ref (.blk w) off) →
       C.run (Zlib.Infback.inflateBackInit_ (some r) wb window version 112) h = .ok (Z_OK, after) →
