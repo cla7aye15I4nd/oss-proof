@@ -30,15 +30,24 @@ wrapper results at each allocation and free.
 
 On this build `zcalloc` calls `malloc`, despite its name, and does not zero the block.
 
-| Theorem | Statement |
-| --- | --- |
-| `zcalloc_safe` | On a `Fresh` heap, for every `items` and `size`, the call returns. Either it returns `NULL` and only the allocation counter moves, or it returns the start of a new writable byte block and adds exactly that block to the live blocks. |
-| `zcalloc_correct_some` | When the oracle lets the call succeed, the block is writable, its size is `items * size` reduced modulo `2^32`, and its content is arbitrary. |
-| `zcalloc_correct_size` | When `items * size` is below `2^32`, the block has exactly `items * size` bytes. |
-| `zcalloc_correct_none` | When the oracle refuses, the result is `NULL` and the heap changes only in the call counter. |
-| `zcfree_safe` | For `NULL`, or the start of a live writable byte block, the call returns: `NULL` changes nothing, otherwise exactly that block is removed. |
-| `zcfree_correct`, `zcfree_correct_null` | Freeing a live block removes exactly that block from the live blocks; freeing `NULL` changes nothing. |
-| `zcalloc_zcfree_no_leak` | `zcalloc` followed by `zcfree` of its result returns, also when the allocation failed, and the set of live blocks is the one before. |
+Three terms of the model appear in the premises. A heap is `Fresh` when no block at or above
+its next block number is live, so the next allocation gets an unused number. The *allocation
+oracle* (`allocOk`) decides for each allocation attempt whether it succeeds; the theorems hold
+for every oracle. `h.Owns S` says that the live blocks of the heap `h` are exactly the set `S`.
+
+| Theorem | Premises | Statement |
+| --- | --- | --- |
+| `zcalloc_safe` | The heap is `Fresh` | For every `items` and `size` the call returns. Either it returns `NULL` and only the allocation counter moves, or it returns the start of a new writable byte block and adds exactly that block to the live blocks. |
+| `zcalloc_correct_some` | The heap is `Fresh`; the oracle lets this attempt succeed | The result is the start of a new block. The block is writable, its size is `items * size` reduced modulo `2^32`, and its content is arbitrary. |
+| `zcalloc_correct_size` | The heap is `Fresh`; the oracle lets this attempt succeed; `items * size` is below `2^32` | The block has exactly `items * size` bytes. |
+| `zcalloc_correct_none` | The oracle refuses this attempt | The result is `NULL`, and the heap changes only in the allocation counter. |
+| `zcfree_safe` | The pointer is `NULL`, or the start of a live writable byte block | The call returns. For `NULL` the heap is unchanged; otherwise exactly that byte block is removed. |
+| `zcfree_correct` | The pointer is the start of a live byte block `b`; the block is writable; no other table of the heap holds an object under the number `b` (the Lean hypothesis `hother`); `h.Owns S` | The call returns; the live blocks are `S` without `b`; every other byte block is unchanged. |
+| `zcfree_correct_null` | None | Freeing `NULL` returns and leaves the heap unchanged. |
+| `zcalloc_zcfree_no_leak` | The heap is `Fresh` | `zcalloc` followed by `zcfree` of its result returns, also when the allocation failed, and the set of live blocks is the one before. |
+
+The premises column lists every hypothesis of each theorem (`ZlibF/Proof/zutil.c.lean`). The
+`opaque` argument is unrestricted in all of them: the C ignores it.
 
 ## What the stream proofs prove themselves
 
