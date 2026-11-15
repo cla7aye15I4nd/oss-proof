@@ -1,4 +1,4 @@
-<!-- source-sha256: 026f1e7e61f9f78433db19c961a00f76eb0fb600f168f82d7678fa59905b8d65 -->
+<!-- source-sha256: 364d6f2756f43b472807e442a486d62c5fbb676623d087eadce9341e6d2b7ed4 -->
 # 证明参考：组件、页面与定理
 
 本节每一页解释一个 C 组件相关定理背后的论证。本页是地图：哪一页解释哪条定理，定理在哪个模块，处于什么状态。
@@ -64,7 +64,7 @@
 | [解码表](inftrees.md)、[快速解码](inffast.md) | 表项实现规范码；一个快速步骤细化一个格式记号 |
 | [流解码](inflate.md) | `Goal.inflate`，单次调用的完整契约（`inflate_public`） |
 | [流压缩](deflate.md) | `Goal.deflate`，单次调用的完整契约（`Zlib.Deflate.Universal.deflate_safety`） |
-| [Deflate 完成性：空输出](deflate-completion-null-output.md)、[Deflate 完成性：结束后的输入](deflate-completion-input.md) | 早先功能性目标 `DeflateCompletes` 的两个反例。它们是一次陈述修正的记录，不是必需结果 |
+| [Deflate 完成性：空输出](../history/deflate-completion-null-output.md)、[Deflate 完成性：结束后的输入](../history/deflate-completion-input.md) | 早先功能性目标 `DeflateCompletes` 的两个反例。它们是一次陈述修正的记录，不是必需结果 |
 
 [早期论证与参考来源](references.md)把一个早期开发映射到当前模块。它是复用记录，不提供任何证明。
 

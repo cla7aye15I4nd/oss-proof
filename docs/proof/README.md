@@ -93,7 +93,7 @@ registered.
 | [Decode tables](inftrees.md), [Fast decoding](inffast.md) | The table entries implement the canonical code; a fast step refines one format token |
 | [Stream decoding](inflate.md) | `Goal.inflate`, the full contract of one call (`inflate_public`) |
 | [Stream compression](deflate.md) | `Goal.deflate`, the full contract of one call (`Zlib.Deflate.Universal.deflate_safety`) |
-| [Deflate completion, null output](deflate-completion-null-output.md), [Deflate completion, input after finish](deflate-completion-input.md) | Two counterexamples to an earlier functional goal, `DeflateCompletes`. They are records of a statement correction, not required results |
+| [Deflate completion, null output](../history/deflate-completion-null-output.md), [Deflate completion, input after finish](../history/deflate-completion-input.md) | Two counterexamples to an earlier functional goal, `DeflateCompletes`. They are records of a statement correction, not required results |
 
 [Earlier arguments and reference sources](references.md) maps an earlier development to the
 present modules. It is a reuse record. It supplies no proof.

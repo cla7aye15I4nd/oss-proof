@@ -1,11 +1,12 @@
-<!-- source-sha256: 97d083499f76b9d2276f16750c25414984fe9e876f0fffee752ff38b950fc62b -->
+<!-- source-sha256: 1a43434f8d06e02402b880a22c7bee61ea0d0f99005f96f225c06b8c90ad7ba7 -->
 # FINISH 之后出现新输入以及完成目标
 
 > **历史记录。** 本文描述写作当时的流程：锁文件、重新生成的锁、经批准的基线以及对锁差异的审阅。这些机制后来已被移除，现在没有锁文件，见[防作弊](../anti-cheating.md)。下文只应作为那个快照的证据来读。
 
+**现状。** `DeflateCompletes`（`ZlibF/Spec/Functional/Sequences.lean`）已经带有本页主张的前提 `s.status = FINISH_STATE → z.avail_in = 0`，也带有[第二次修正](deflate-completion-null-output.md)的前提 `z.next_out ≠ .null`。它是功能目标 `Goal.deflate_sequence` 的一个子句。该目标没有已登记的定理，也不是安全结论所必需的（[进度，范围](../progress.md#scope)）。这次修正的证据是一次 C 运行和一条已检查的引理 `DefaultDataTrace.finished_new_input_not_end`；针对修正前命题的 Lean 反例并没有构造出来。下文是当时写下的记录，只调整了链接。其中的将来时、计数和锁文件说的都是当时的情况。
+
 本文件记录了对已审查的完成调用者协议修正的证据。
 它不是 zlib 的缺陷报告，也不是经过内核验证的反例。
-`DeflateCompletes`（`ZlibF/Spec/Functional/Sequences.lean`）是功能性目标。它不是必需的，也不在计划内（[进度，范围](../progress.md#scope)）。本页作为对其陈述所作修正的记录保留。
 
 ## 契约与目标
 
@@ -60,6 +61,6 @@ DeflateCompletes。它实现了头文件中的重试义务。实际数据
 未更改。语义锁的差异需要对此授权的目标含义变更进行显式审查；重新生成本身并非批准。
 
 针对先前目标的精确可达 Lean 反例，包括
-其所有完成前提，仍**待核实**。编码正确性、
+其所有完成前提，仍**尚未由证明确认**。编码正确性、
 安全执行和输出长度预算是独立的义务。
 修正后的完成定理仍需要其实现证明。

@@ -1,12 +1,13 @@
-<!-- source-sha256: 30f2eed1fc17f91d0e32db4104eb59689e749cc5815379b3e2bed0cd152c4cd5 -->
+<!-- source-sha256: 97ce2467194e123cc61ac22b35ce7a8f1e3aa4ccd5c0a244c8966502649139f0 -->
 # NULL 输出与完成目标
 
 > **历史记录。** 本文描述写作当时的流程：锁文件、重新生成的锁、经批准的基线以及对锁差异的审阅。这些机制后来已被移除，现在没有锁文件，见[防作弊](../anti-cheating.md)。下文只应作为那个快照的证据来读。
 
+**现状。** `DeflateCompletes`（`ZlibF/Spec/Functional/Sequences.lean`）已经带有本页提出的前提 `z.next_out ≠ .null`，也带有[第一次修正](deflate-completion-input.md)的前提 `s.status = FINISH_STATE → z.avail_in = 0`。它是功能目标 `Goal.deflate_sequence` 的一个子句。该目标没有已登记的定理，也不是安全结论所必需的（[进度，范围](../progress.md#scope)）。归档的 Lean 文件反驳的是这次修正之前的命题，针对的是文中写明的那个提交。下文是当时写下的记录，只调整了链接。其中“最小化建议修正”一节写于批准之前，而同一节后面又报告了这次批准；文中的计数（400 条列出的定理、181 个目标中的 78 个）和锁文件说的都是当时的情况。
+
 在输出指针修正之前，完成命题为假。
 这是一个规范域错误，而非 zlib 缺陷。此前审查过的
 FINISH_STATE 中无新输入条件并未排除此情况。
-`DeflateCompletes`（`ZlibF/Spec/Functional/Sequences.lean`）是功能性目标。它不是必需的，也不在计划内（[进度，范围](../progress.md#scope)）。本页作为对其陈述所作修正的记录保留。
 
 ## 精确的 Lean 反证
 
