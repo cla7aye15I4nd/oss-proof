@@ -217,7 +217,10 @@ condition `bits < 8` is used. Without it the function could step back over bytes
 had consumed.
 
 `inflate` tests `bits < 8` in its own condition for taking the fast path. `inflateBack` does not
-test it; its invariant gives `bits < 8` whenever mode `LEN` is entered (`LEN_fast_p`).
+test it. The proof of its dispatch loop carries the fact in the loop invariant: fewer than 8 bits
+are held whenever a round starts in mode `TYPE`, `TABLE` or `LEN` (`Short`,
+`infback.c.safety-modes.lean`). `LEN_fast_p` does not prove `bits < 8` at entry: it takes it as a
+premise, which that invariant supplies, and proves that it holds again after the call.
 
 The function then computes the new `avail_in` and `avail_out` from pointer differences inside
 one block each and stores them with the cursors, `hold` and `bits`

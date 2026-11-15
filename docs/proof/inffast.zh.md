@@ -1,4 +1,4 @@
-<!-- source-sha256: 6a54d14457d2d8728f96b8b9b3de5ddb20517347680cb672ef94e79e219ce6f9 -->
+<!-- source-sha256: e61e59daaac6635ac50f2a3a3399a92116cd2c4bc4ab698ef338a06489ed3604 -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -140,7 +140,7 @@ hold &= (1U << bits) - 1;
 
 I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就得到 `len ≤ in - in0`：函数归还的只是它自己读入的字节，`in` 不会退到 `in0` 之前。之后 `bits < 8`，所以掩码的移位在合法范围内。入口条件 `bits < 8` 就用在这里。没有它，函数可能退过调用者已经消耗掉的字节。
 
-`inflate` 在选择快速路径的条件里自己检查了 `bits < 8`。`inflateBack` 不检查；它的不变量保证每次进入 `LEN` 模式时 `bits < 8`（`LEN_fast_p`）。
+`inflate` 在选择快速路径的条件里自己检查了 `bits < 8`。`inflateBack` 不检查。它的分派循环的证明把这个事实放在循环不变量里：每一轮以 `TYPE`、`TABLE` 或 `LEN` 模式开始时，持有的位都少于 8 个（`Short`，`infback.c.safety-modes.lean`）。`LEN_fast_p` 并不证明入口处的 `bits < 8`：它把这一点当作前提，由上述不变量提供，并证明调用之后它再次成立。
 
 随后函数算出新的 `avail_in` 和 `avail_out`，两者各由同一个块内的指针差得到，连同两个游标、`hold` 和 `bits` 一起存回（`fast_finish_wp`，`inffast.c.final.lean`）。
 
