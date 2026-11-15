@@ -244,6 +244,7 @@ import ZlibF.Spec.Public.Back
 import ZlibF.Spec.Public.Domains
 import ZlibF.Spec.Functional.GzTrace
 import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Functional.GzSequence
 import ZlibF.Proof.«public-gzeof»
 import ZlibF.Proof.«public-gzbuffer»
 import ZlibF.Proof.«inffast.c.origin»

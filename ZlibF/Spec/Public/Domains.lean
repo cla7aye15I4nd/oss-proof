@@ -35,33 +35,4 @@ def Goal.inflate_back_initialisation_domain : Prop :=
       (.ref (.blk 1) 0) 112) witnessHeap = .ok (Z_OK, after) ∧
       BackValid after (.tab 0) witnessHeap.nextBlk z s ∧ s.window = .ref (.blk 2) 0)
 
-def gzWitnessHeap (mode : List UInt8) : Heap :=
-  { witnessHeap with
-    bytes := upd (upd witnessHeap.bytes 3 (some #[120, 0])) 4 (some (mode ++ [0]).toArray)
-    nextBlk := 5 }
-
-def gzWitnessFs (mode : Api.GzMode) : Fs :=
-  if mode = .read then Fs.put default #[120] #[] else default
-
-/-- External open success is specified by the fixed file-system semantics. No gz contract
-is an assumption. Every accepted mode has a successful concrete open witness.
-The LP64 platform scope bounds each byte object below `2^63` bytes, including the caller's path
-(`docs/deviations.md`). -/
-def Goal.gz_initialisation_domain : Prop :=
-  (∀ h fs path mode name flags kind level strategy direct fd world start,
-    Fresh h → Zlib.Gzlib.Spec.Uniq h → LibraryGlobals h → FileSystem fs →
-    NoAllocationFailure h → ZlibF.PlatformMemory.ByteObjectsFit h →
-    CString h path name → CString h mode flags →
-    parsedMode flags = some (kind, level, strategy, direct) →
-    OpenWorld h fs world name flags kind none fd start → fd ≠ -1 →
-    ∃ after fs' i s, Zlib.Gzlib.gzopen path mode fs h = .ok ((some (.in_gzstate_x i), fs'), after) ∧
-      OpenState after i s kind level strategy direct fd name ∧ GzReachable after fs' i ∧
-      Frame h after (fun _ => False) ∧ LiveChange h after (GzOwned after i s) (fun _ => False)) ∧
-  (∀ flags kind level strategy direct, 0 ∉ flags →
-    parsedMode flags = some (kind, level, strategy, direct) →
-    ∃ after fs' i s,
-      Zlib.Gzlib.gzopen (.ref (.blk 3) 0) (.ref (.blk 4) 0) (gzWitnessFs kind) (gzWitnessHeap flags) =
-        .ok ((some (.in_gzstate_x i), fs'), after) ∧
-      OpenState after i s kind level strategy direct s.fd [120] ∧ GzReachable after fs' i)
-
 end ZlibF.Spec.Public

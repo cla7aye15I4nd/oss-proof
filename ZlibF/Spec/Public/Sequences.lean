@@ -1,5 +1,4 @@
 import ZlibF.Spec.Public.Domains
-import ZlibF.Spec.Functional.GzTrace
 
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs ZlibF.Spec
@@ -218,23 +217,5 @@ def Goal.inflate_back_sequence_safety : Prop :=
       r.get after = some z ∧ z.state = none ∧
       Frame h after (fun b => StreamRoot r b ∨ b = i) ∧
       LiveChange h after (fun _ => False) (fun b => b = i))
-
-/-- The gz lifecycle includes every admitted operation, external file growth and final close.
-The per-entry read contracts express transparent/concatenated-member decoding and the
-per-entry write contracts account for accepted bytes and seek zeros. -/
-def Goal.gz_sequence : Prop :=
-  (∀ h fs i, GzReachable h fs i → FileSystem fs ∧ ∃ s, GzValid h i s) ∧
-  (∀ h fs i s call, GzReachable h fs i → h.gzstates i = some s →
-    GzOperation i call → GzArguments h i s call → RegularOs fs →
-    ∃ value fs' after s', call.execute fs h = .ok ((value, fs'), after) ∧
-      GzValid after i s' ∧ FileSystem fs' ∧
-      LiveChange h after
-        (fun b => GzOwned after i s' b ∧ ¬ h.live b)
-        (fun b => GzOwned h i s b ∧ ¬ GzOwned after i s' b)) ∧
-  (∀ h fs i s, GzReachable h fs i → h.gzstates i = some s →
-    ∃ rc fs' after, Zlib.Gzclose.gzclose (some (.in_gzstate_x i)) fs h = .ok ((rc, fs'), after) ∧
-      CloseEffects h after fs fs' i s) ∧
-  Goal.gzread ∧ Goal.gzfread ∧ Goal.gzgetc ∧ Goal.gzgets ∧
-  Goal.gzwrite ∧ Goal.gzfwrite ∧ Goal.gzflush ∧ Goal.gzclose ∧ GzWriterFormat
 
 end ZlibF.Spec.Public
