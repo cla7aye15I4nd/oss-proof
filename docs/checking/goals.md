@@ -154,12 +154,12 @@ These are the subject of other pages. The table gives the place of each part.
 
 | Question | Short answer | Full account |
 | --- | --- | --- |
-| Which calls does a goal cover? | Every call that zlib.h permits. A parameter the library rejects has a specified error path. A premise narrower than zlib.h has a row in the deviations page. | [Deviations](../deviations.md) |
+| Which calls does a goal cover? | Every call that zlib.h permits. A parameter the library rejects has a specified error path. Bounds of internal helpers are established by the implementation, not added as caller requirements. A premise narrower than zlib.h has a row in the deviations page. | [Deviations](../deviations.md) |
 | What does it say about the run? | The translated entry returns without a fault, fuel exhaustion included, for every permitted initial heap and every pattern of allocation failure. An empty execution relation cannot satisfy the goal. | [Safety claims, one call](../spec/safety.md#1-what-a-function-theorem-must-say) |
 | What about memory the call does not own? | Memory outside the call's footprint is unchanged, and unrelated live objects are kept. Init and copy establish ownership; a failed init or copy releases its partial allocations; end and close release owned storage exactly once. | [Safety claims, frames and the allocation account](../spec/safety.md#frames) |
 | How do calls compose? | The init function establishes the representation invariant, and every permitted call preserves it. No registered theorem assumes an unproved contract of a callee. | [Safety claims, calls and sequences](../spec/safety.md#2-calls-and-sequences) |
 | What does the caller owe? | Live objects with the ranges the API requires, sequential calls on one stream, no change to library-owned state, and disjoint buffers where the statement says so. Undefined behaviour in a permitted call is a defect to resolve, not a new restriction on the caller. | [Safety claims, caller obligations](../spec/safety.md#4-caller-obligations) |
-| What is assumed about callbacks and system calls? | Their documented memory contracts, that they return, and that callback input is finite where an unlimited stream could continue forever. | [Trusted base](../trusted-base.md) |
+| What is assumed about callbacks and system calls? | Their documented memory contracts, that they return, and that callback input is finite where an unlimited stream could continue forever. The claim is not a theorem about arbitrary caller code or the operating system. | [Trusted base](../trusted-base.md) |
 | What is outside the claim? | Compiler and operating-system correctness, performance, constant-time behaviour, and resource bounds against decompression bombs. Malformed compressed data is inside the claim. | [Safety claims, outside safety](../spec/safety.md#outside-safety) |
 
 The goal definitions are in `ZlibF/Spec/Safety/` and, for the gz interface and `inflateBack`, in
