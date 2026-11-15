@@ -30,7 +30,7 @@
 
 - **C。** `compress2` 在调用 `compress2_z` 之前执行 `z_size_t got = *destLen;`。`uncompress2` 以同样的方式读取 `*destLen` 和 `*sourceLen`。`_z` 函数内部的 `NULL` 测试来得太晚，保护不了这些读取：`NULL` 单元在包装函数里就是未定义行为。
 - **模型。** 在 `compress2`、`compress`、`uncompress2` 或 `uncompress` 中，`NULL` 单元是 `Fault.ub`。
-- **状态。** 这四个函数的安全目标要求单元非 `NULL`；`_z` 形式允许传入 `NULL`，并以 `Z_STREAM_ERROR` 返回拒绝。`zlib.h` 没有说包装函数可以接受 `NULL` 单元。分配回归测试里有一个演示这次读取的见证程序；带 `NULL` 单元的调用不是比较中的一行，因为它不是合法调用。
+- **状态。** 这四个函数的安全目标要求单元非 `NULL`；`_z` 形式允许传入 `NULL`，并返回 `Z_STREAM_ERROR` 拒绝它。`zlib.h` 没有说包装函数可以接受 `NULL` 单元。分配回归测试里有一个演示这次读取的见证程序；带 `NULL` 单元的调用不是比较中的一行，因为它不是合法调用。
 
 ### `compress*` 的长度单元是值，不是内存
 

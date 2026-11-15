@@ -33,7 +33,7 @@
 | `Fresh`、`Uniq`、`LibraryGlobals` | 调用者的堆是良构的，静态表是初始的那些表。 |
 | `ByteObjectsFit` | 每个字节对象少于 `2^63` 个字节。 |
 | `CompressArguments` | 参数要么被 C 自己的检查拒绝，要么源缓冲区可读、目的缓冲区在其容量范围内可写，并且两者不重叠。 |
-| 长度单元 | `compress` 和 `compress2` 要求 `destLen` 非 `NULL`。`_z` 形式允许传入 `NULL`，并以错误返回拒绝。在翻译中，这个单元是一个传入的值和一个返回的值，不是内存。所以与源缓冲区或目的缓冲区重叠的单元无法表达，这样的调用在定理之外。 |
+| 长度单元 | `compress` 和 `compress2` 要求 `destLen` 非 `NULL`。`_z` 形式允许传入 `NULL`，并拒绝它。在翻译中，这个单元是一个传入的值和一个返回的值，不是内存。所以与源缓冲区或目的缓冲区重叠的单元无法表达，这样的调用在定理之外。 |
 
 源缓冲区与目的缓冲区的分离，以及对长度单元的限制，在[偏离记录](../deviations.md)中有一行：“整缓冲区压缩”。
 
@@ -71,6 +71,6 @@ flowchart TD
 
 ## 上界函数
 
-`compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，清单文件 `tests/audit/public-api.json` 把这两个目标用作它们的安全目标。定理是 `compressBound` 和 `compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）。
+`compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，清单文件 `tests/audit/public-api.json` 把这同样的两个目标用作它们的安全目标。定理是 `compressBound` 和 `compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）。
 
 压缩器的每个输出是否都不超过上界，是另一个单独的功能问题。它不是安全结论所必需的；见[缓冲区工具函数](buffers.md)。

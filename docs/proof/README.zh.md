@@ -23,9 +23,9 @@
 
 ## 必需与非必需
 
-必需的结论是安全性结论：对默认 x86_64 Linux 构建中每一个有文档的公开函数，在它的调用序列上，没有未定义行为，没有内存错误，没有泄漏，并且会终止。这些目标在 `ZlibF/Spec/Safety/` 中；gzip 文件接口和回调解码器的目标在 `ZlibF/Spec/Public/GzSafety.lean`、`ZlibF/Spec/Public/GzRefusal.lean` 和 `ZlibF/Spec/Public/Sequences.lean` 中。
+必需的结论是安全结论：对默认 x86_64 Linux 构建中每一个有文档的公开函数，在它的调用序列上，没有未定义行为，没有内存错误，没有泄漏，并且会终止。这些目标在 `ZlibF/Spec/Safety/` 中；gzip 文件接口和回调解码器的目标在 `ZlibF/Spec/Public/GzSafety.lean`、`ZlibF/Spec/Public/GzRefusal.lean` 和 `ZlibF/Spec/Public/Sequences.lean` 中。
 
-功能结论说的是函数算出了什么：校验和的值、解码出的字节。它们不是安全结论所必需的。其中许多已经证明并登记，每个页面都单列一节说明。有两个功能目标 `Goal.inflate` 和 `Goal.deflate`，被其他函数的安全证明用到。见[安全与功能的划分](../design/safety-functional-split.md)。
+功能结论说的是函数算出了什么：校验和的值、解码出的字节。它们不是安全结论所必需的。其中许多已经证明并登记，每个页面都把它们单独列在一节里。其中两个，`Goal.inflate` 和 `Goal.deflate`，被其他函数的安全证明用到。见[安全与功能的划分](../design/safety-functional-split.md)。
 
 其他构建配置，以及 `zlib.h` 列为未文档化的函数，都不是必需的；原因见[进度，范围](../progress.md#scope)。
 
@@ -62,7 +62,7 @@ deflateEnd(&strm);
 | `trees.c` | [树与块输出](trees.md) | 没有公开函数。它的引理服务于 `deflate_sequence_safety`。已登记的有：`tinyOverlayAt_256`、`tinyOverlayAt_128`（最小的两个 `memLevel` 下共用缓冲区的界）、`gen_bitlen_safe`、`pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`、`trees.c.heap.*.lean` |
 | `infback.c` | [回调解码器](callbacks.md) | 序列定理：`inflate_back_sequence_safety`。非空性：`back_init_domain_public` | `infback.c.safety-fast.lean`、`public-infback-init.lean` |
 | `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c` | [Gzip 文件](gzip.md) | 序列定理：`gz_sequence_safety_public`。`NULL` 句柄：`gz_refusal`。非空性：`gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`、`public-gz-refusal.lean`、`public-gz-sequence-nonvacuity.lean` |
-| `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`；上界函数对应 `compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
+| `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`；上界函数的定理是 `compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
 | `uncompr.c` | [`uncompress*` 的安全性](uncompress-safety.md) | `uncompress_safe`、`uncompress_z_safe`、`uncompress2_safe`、`uncompress2_z_safe` | `public-uncompress-safe.lean` |
 
 31 个 gz 函数和三个 `inflateBack` 函数的安全性，是通过各自的序列定理证明的。它们还没有单独的、针对一个函数的目标。这不是未完成的证明：序列目标覆盖了这些函数的每一次调用，清单文件 `tests/audit/public-api.json` 也把序列目标写作它们每一个的安全目标。
@@ -110,7 +110,7 @@ deflateEnd(&strm);
 
 ## 阅读顺序
 
-解压方向：先读[解码表](inftrees.md)，再读[快速解码](inffast.md)，最后读[流式解码](inflate.md)。建表给出两个解码器都依赖的表形状，流式解码器建立快速路径的入口条件。
+解压方向：先读[解码表](inftrees.md)，再读[快速解码](inffast.md)，最后读[流式解码](inflate.md)。建表给出两个解码器都依赖的表形状，流式解码器确立快速路径的入口条件。
 
 压缩方向：先读[流式压缩](deflate.md)，了解窗口和哈希链；再读[树](trees.md)，了解建树以及输出与符号共用的缓冲区。
 

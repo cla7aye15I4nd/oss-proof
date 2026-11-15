@@ -32,12 +32,12 @@
 | --- | --- |
 | `Fresh`、`Uniq`、`LibraryGlobals` | 调用者的堆是良构的，静态表是初始的那些表。 |
 | `ByteObjectsFit` | 每个字节对象少于 `2^63` 个字节。 |
-| 长度单元（`LengthCell`） | 每个非 `NULL` 的长度指针指向八个可读可写的字节。它们按小端序存放长度：`*destLen` 里是容量，`*sourceLen` 里是源长度。`uncompress` 和 `uncompress2` 要求单元非 `NULL`；`_z` 形式允许传入 `NULL`，并以错误返回拒绝。`uncompress` 和 `uncompress_z` 把源长度作为值传入，没有源长度单元。 |
+| 长度单元（`LengthCell`） | 每个非 `NULL` 的长度指针指向八个可读可写的字节。它们按小端序存放长度：`*destLen` 里是容量，`*sourceLen` 里是源长度。`uncompress` 和 `uncompress2` 要求单元非 `NULL`；`_z` 形式允许传入 `NULL`，并拒绝它。`uncompress` 和 `uncompress_z` 把源长度作为值传入，没有源长度单元。 |
 | 可读的源缓冲区、可写的目的缓冲区 | 非 `NULL` 的 `source` 在源长度范围内可读。非 `NULL` 的 `dest` 在容量范围内可写。 |
 | 分离，`uncompress2` 和 `uncompress2_z`（`UtilitySeparation`） | 源缓冲区、目的缓冲区、目的长度单元和源长度单元两两分离：共六个条件。 |
 | 分离，`uncompress` 和 `uncompress_z` | `UncompressSingleSafe` 的三条 `Separate` 前提：源缓冲区与目的缓冲区；目的长度单元与目的缓冲区；目的长度单元与源缓冲区。 |
 
-两个范围分离（`Separate`，`ZlibF/Spec/Public/Memory.lean`）是指：其中一个的长度为零，或者它们位于不同的块，或者它们在同一个块里的字节范围不重叠。
+两个范围分离（`Separate`，`ZlibF/Spec/Public/Memory.lean`）是指：其中一个为空，或者它们位于不同的块，或者它们在同一个块里的字节范围不重叠。
 
 这一分离在[偏离记录](../deviations.md)中有一行：“计数解压”。
 
