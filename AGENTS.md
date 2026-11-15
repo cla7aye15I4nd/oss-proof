@@ -42,6 +42,12 @@ exists to keep the result honest, not to slow it down.
 ## Translation
 
 - Translate statement by statement. Do not reorder, merge or simplify.
+  Four normalisations are accepted (owner's decision of 2026-11-15) and are not translation bugs:
+  an out-parameter of an internal function is passed by value and returned as a second result;
+  two reads of one location with no store between them are one read; consecutive assignments to
+  fields of one record are one record update; a signed operation that a preceding test of the
+  same function keeps in range uses the plain operator. Anything else is a translation bug.
+  `docs/design/translation.md` shows an example of each.
 - Every undefined behaviour the C can reach raises `Fault.ub`. Unsigned arithmetic wraps. Signed
   arithmetic is checked.
 - Reading an uninitialised integer returns an arbitrary value, and a theorem must hold for every
