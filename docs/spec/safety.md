@@ -153,7 +153,8 @@ goal names it as removed, and no block can stay live unless the goal names it as
 | `inflateEnd`, `deflateEnd` | none | exactly the blocks the stream owned |
 | copy with `Z_OK` | the blocks the new state owns | none |
 | copy with `Z_MEM_ERROR` | none | none |
-| checksums, queries, refusals | the heap after is the heap before | |
+| a refused `NULL` or inconsistent stream | none | none |
+| checksums, queries | the heap after is the heap before | |
 
 Ownership (`StreamOwned`, `GzOwned`) is read from the actual pointers in the state, not chosen
 by a proof. So a block the library allocated and lost track of would be live, not owned, and
