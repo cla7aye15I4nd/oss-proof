@@ -64,6 +64,18 @@ theorem fast_len (views : FastViewsOpen) {c : Ctx} {f : LoopFrame} {h : Heap} {l
 
 /-! ## Premises of the steps -/
 
+/-- `at_state` for a fact that also names the state's record number. -/
+theorem at_state_id {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
+    {P : Nat → InflateState → Prop}
+    (st : c.st = some (.tab zs)) (hs : h.istates zs = some s) (p : P zs s) :
+    ∀ zs' s', c.st = some (.tab zs') → h.istates zs' = some s' → P zs' s' := by
+  intro zs' s' st' hs'
+  rw [st] at st'
+  cases st'
+  rw [hs] at hs'
+  cases hs'
+  exact p
+
 theorem code_wsize_bits {h : Heap} {s : InflateState} (w : WinInv h s) :
     s.wsize ≠ 0 → s.wsize.toNat = 2 ^ s.wbits.toNat := by
   intro ne
@@ -238,7 +250,7 @@ theorem len_start_fast (views : FastViewsOpen) {c : Ctx} {f : LoopFrame} {h : He
       (byte_view_get_setI h zs current) (byte_view_ro_setI h zs current)
   have loop1 : LoopMatches c f heap l := loop_len_start loop E.st E.hs mode
   obtain ⟨l', h', run, _, rest⟩ := fast_len views loop1 E.strm currentJ.good.live.hz fast
-    (at_state (P := fun s => s.mode = LEN ∧ Good heap r zs z s ∧ DataTablesSafe heap s ∧
+    (at_state_id (P := fun zs s => s.mode = LEN ∧ Good heap r zs z s ∧ DataTablesSafe heap s ∧
       DataPendingInvariant s) E.st (setI_istates_same h zs current)
       ⟨rfl, currentJ.good, currentJ.tables (by change DataTableMode LEN; unfold DataTableMode; decide),
         currentJ.pending⟩)
@@ -291,7 +303,7 @@ theorem trip_codes_of_fast_views (views : FastViewsOpen) : TripCodes := by
   · -- LEN
     by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
     · obtain ⟨l', h', run, _, rest⟩ := fast_len views loop E.strm E.hz fast
-        (at_state (P := fun s => s.mode = LEN ∧ Good h r zs z s ∧ DataTablesSafe h s ∧
+        (at_state_id (P := fun zs s => s.mode = LEN ∧ Good h r zs z s ∧ DataTablesSafe h s ∧
           DataPendingInvariant s) st E.hs
           ⟨m, j.good, j.tables (by rw [m]; unfold DataTableMode; decide), j.pending⟩)
         j.platform buffers rawWidth
