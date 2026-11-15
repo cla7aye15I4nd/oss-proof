@@ -39,7 +39,7 @@ flowchart TD
 关于导入，还有三点：
 
 - 旧路径 `ZlibF/Spec/Api*` 和 `ZlibF/Spec/Format*` 是只有一行的模块，它们再导出 `Spec/Functional/` 下的文件。检查把它们算作功能部分。
-- 安全目标需要的参数解码器（返回码、flush 值、窗口和包装的选择）在 `Public/Parameters.lean` 中，它不导入任何格式模块。
+- 安全目标需要的参数解码器（返回码、flush 值、窗口和封装的选择）在 `Public/Parameters.lean` 中，它不导入任何格式模块。
 - 检查只禁止功能方面的导入。`Spec/Public/` 中有四个模块导入了证明模块，检查允许这样做：`GzState` 导入 `Proof.«gzlib.c.base»`；`GzSafety` 导入 `Proof.«gz.inv-model»`，后者定义 `GzInv`、`ReadsFinite` 和 `GzStepPost`；`Initialisation` 和 `Utilities` 导入 `Proof.«inflate.c.base»` 和 `Proof.«deflate.c.base»`。所以一个目标的命题有一部分要到这些证明模块中去读。
 
 `ZlibF/Spec/` 顶层的文件（`Inflate*.lean`、`PlatformMemory.lean`、`ByteAddress.lean`、`Crc32ByteViews.lean`）是关于内部函数的命题，不是公开目标。其中三个导入了功能模块（`InflateDecodeTableSemantics`、`InflateFastBodyToken`、`InflateOutputInvariant`）。没有安全目标导入这三个；如果有，检查会失败。
