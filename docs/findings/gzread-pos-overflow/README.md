@@ -13,8 +13,10 @@ and judge it without reading anything else. The write-side twin is
   and in the `gzgetc()` macro of zlib.h, which runs in the caller's code. Inside the documented
   use.
 - Reported by UndefinedBehaviorSanitizer on x86_64 Linux (kernel 7.0, GCC 15.2), on the pinned
-  source `757f0527154291bcf6bfbd6396ecde6bedd2db95` with every patch of this repository except
-  0004. It does not reproduce on macOS, where `lseek` on `/dev/zero` does not accept such offsets.
+  source `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this repository except
+  0004. It did not reproduce in a run on arm64 macOS with Apple clang. There `lseek` on
+  `/dev/zero` accepted the offset and returned it, the reads delivered no byte past position
+  `INT64_MAX`, and the sanitizers reported nothing. No other system was tried.
 - Not submitted upstream. The verified source applies the local
   [patch 0004](../../../patches/README.md), approved by the project owner on 2026-11-12. A pull
   request text is drafted in [upstream-description.md](upstream-description.md).
@@ -39,9 +41,9 @@ gzgetc(f);                               /* the macro's (g)->pos++ overflows */
 ```
 
 Why the seek is accepted: `gzseek64` checks only that the target fits in `z_off64_t`. In
-transparent mode it then calls `lseek` on the descriptor. On Linux, `lseek` on `/dev/zero` (also
-`/dev/urandom` and `/dev/null`) returns 0 and does not fail, whatever the offset, and the device
-keeps delivering bytes.
+transparent mode it then calls `lseek` on the descriptor. On Linux, `lseek` on `/dev/zero` returns
+0 and does not fail, and the device keeps delivering bytes: the retained report shows the call
+with the offset `INT64_MAX - 1`. No other device was run.
 
 The complete program is [`devzero.c`](../../../tests/regression/gzread-pos-overflow/devzero.c).
 
@@ -82,7 +84,8 @@ device-like `lseek`. That run is not retained here.
 ## Scope and severity
 
 - **Who reaches it.** A transparent reader of a descriptor whose `lseek` succeeds without
-  bounding the offset and which then delivers data: character devices on Linux. The program must
+  bounding the offset and which then delivers data. `/dev/zero` on Linux is such a descriptor,
+  and the only one that was run. The program must
   seek to a position near `INT64_MAX`. For a gzip stream the same overflow needs about
   2^63 bytes of decompressed output, which is not practical.
 - **Effect.** Undefined behaviour on a signed counter. With the usual wrapping, `gztell` becomes
