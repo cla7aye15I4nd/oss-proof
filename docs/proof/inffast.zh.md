@@ -1,195 +1,166 @@
-<!-- source-sha256: 2c01e92e9a63dfa4caaac30466115d80ae63fa1e5ab661fa127aadc14da2d555 -->
-# 快速解码：余量、历史与源比特
+<!-- source-sha256: 0dc4011e3f24dc3cf10bfc50a4d7906029e2c859d8c741d9414cfeeb848c65c8 -->
+# 快速解码：`inflate_fast` 为什么是安全的
 
-快速路径把“读一个符号、恢复输出、再读下一个符号”的过程批量放进一个紧凑循环，减少反复检查空间的开销。例如长度 6、距离 2 的匹配，仍要把已有 `AB` 扩展成 `ABABABAB`；加速不能改变逐字节历史复制的规则。证明先建立每轮足够的空间，再把循环恢复出的字节接回独立格式含义。
+源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
 
-源文件：`zlib/inffast.c`；翻译：`ZlibF/Zlib/inffast.c.lean`。
-契约术语是[内部契约](../spec/internal-contracts.md)中的 `I-if-*`。
-表谓词来自[解码表构造](inftrees.md)。窗口不变量 W 见[流式解码](inflate.md)。
+`inflate_fast` 解码字面量和匹配时，并不在每次读写时检查输入和输出是否还有剩余。它之所以安全，是因为调用者只在至少有 6 个输入字节和 258 个输出字节时才进入它，而它的循环每一轮至多读 6 个字节、至多写 258 个字节。本页列出定理假设的入口条件，给出循环不变量，并解释这两个界。
 
-`inflate_fast` 是内部函数，没有自己的公开目标。它的定理在明确的入口条件下陈述安全性，两个调用者 `inflate` 和 `inflateBack` 负责建立这些条件。
+`inflate_fast` 是内部函数。调用它的是 `inflate`（[流式解码](inflate.md)）和 `inflateBack`（[回调解码器](callbacks.md)）。翻译怎样跟随 C 的细节，见[解码器的源码笔记](inflate-source-notes.md#inffastc)。
 
-## 已证明什么
+## 结论
 
-| 结果 | 类别 | 定理 | 模块 |
+| 结论 | 定理 | `ZlibF/Proof/` 下的模块 | 层级 |
 | --- | --- | --- | --- |
-| `Goal.fast_safe`（`ZlibF/Spec/InflateFast.lean`）：对每个入口环境 `Env`，调用会返回，后置条件 `FastPost` 给出帧、规范化的位缓冲区和准确的回写 | 安全，内部 | `inflate_fast_safe` | `ZlibF/Proof/inffast.c.final.lean` |
-| 一个循环体是安全的 | 安全，内部 | `inflate_fast_body_step_safe` | `ZlibF/Proof/inffast.c.body.lean` |
-| 不以 `TYPE` 或 `BAD` 结束的快速调用严格消耗输出空间（`FastProgress`） | 安全（`inflate` 的终止） | `inflate_fast_safe_progress` | `ZlibF/Proof/inffast.c.progress.lean` |
-| 不以 `TYPE` 或 `BAD` 结束的快速调用严格消耗输入位 | 安全（`inflateBack` 的终止） | `fast_consumes` | `ZlibF/Proof/inffast.c.consume.lean` |
-| 静态固定表具有表的形状 | 安全，内部 | `lenfix_tableSafe`、`distfix_tableSafe` | `ZlibF/Proof/inffast.c.tableok.lean` |
-| 源比特出处与记号细化：一个快速步骤恰好消耗一个格式记号的比特，一次匹配复制细化 LZ77 复制 | 功能性，保留 | `actual_body_refines_token`、`actual_body_preserves_origin`、`actual_distance_refines_lz77`、`actual_copy_match_refines_lz77`、`length_lookup_matches_format`、`distance_lookup_matches_format` 以及其他 `*_origin` 定理 | `ZlibF/Proof/inffast.c.body-token.lean`、`inffast.c.body-origin.lean` 及相邻模块 |
+| `Goal.fast_safe`（`ZlibF/Spec/InflateFast.lean`）：在入口条件下，调用返回且不出故障；后置条件 `FastPost` 准确说明了改动了什么 | `inflate_fast_safe` | `inffast.c.final.lean` | 已登记 |
+| 循环的一轮是安全的：至多读 6 个字节，至多写 258 个字节，循环继续时至少写了一个字节（`Goal.step_safe`） | `inflate_fast_body_step_safe` | `inffast.c.body.lean` | 已登记 |
+| 静态固定表具有表形状 | `lenfix_tableSafe`、`distfix_tableSafe` | `inffast.c.tableok.lean` | 已登记 |
+| 同样的安全性陈述，外加：结束时模式不是 `TYPE` 或 `BAD` 的调用，留下的输出空间比进入时少 | `inflate_fast_safe_progress` | `inffast.c.progress.lean` | 已检查 |
+| 同上，外加：一次调用绝不使 `bits + 8 * avail_in` 增加，并且除非结束于 `TYPE` 或 `BAD`，都使它减小 | `fast_consumes` | `inffast.c.consume.lean` | 已检查 |
 
-`inflate_fast_safe_progress` 和 `fast_consumes` 只是已检查，没有登记在 `tests/audit/theorems.txt` 中：它们分别位于已登记定理 `inflate_sequence_safety_public` 和 `Zlib.Infback.Safety.inflate_back_sequence_safety` 的证明之中。表中其余定理均已登记，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+已登记的定理在提交 `bde170e9` 上已验收（[层级](README.md#status-levels)）。两条已检查的定理本身不在登记清单里。它们用在已登记的序列定理 `inflate_sequence_safety_public` 和 `inflate_back_sequence_safety` 的证明内部，给出调用者循环的终止性。已登记的 `inflate_fast_safe` 是针对 `inflate` 的入口条件陈述的。两条已检查的定理是针对两个调用者的入口条件陈述的，所以从 `inflateBack` 发出的调用也是靠它们才安全。
 
-用到本页的必需结果，是 `inflate` 的序列安全（[流解码](inflate.md)）和 `inflateBack` 的序列安全（[回调解码器](callbacks.md)）。功能性的几行是早先证明的，继续保留。它们不是必需的。
+`FastPost` 说的是：流的 `next_in`、`avail_in`、`next_out`、`avail_out` 和 `msg`，以及状态的 `mode`、`hold` 和 `bits` 被写过；输出字节只在本次调用写入的范围内发生变化；`bits < 8` 和 `hold < 2^bits` 重新成立；模式不变，或者变成 `TYPE`（块结束），或者变成 `BAD`。堆里其他东西都没有变，也没有发生分配。
 
-下文中说明某一步“尚未完成”或“仍需证明”的段落，是对 C 源代码的解读，这里列出的定理没有以那种形式陈述它。定理是依据翻译检查的，而不是依据这段文字。
+关于 `inflate_fast` 也有功能结论，见[功能结论](#functional-results)。
 
-## 假设了什么
+## 假设
 
-入口环境（`Env`，`ZlibF/Proof/inffast.c.env.lean`；结构体是 `EnvG`，`Env` 即 `EnvG false`，对应 `inflateBack` 以外的每个调用者，此时窗口与输出不在同一个块中）把下面的前提 `I-if-pre-*` 与它们的见证打包在一起。输入和输出位于堆字节块中：两个不同的块，或同一个块中不相交的范围。[偏差记录](../deviations.md)中“快速解码辅助函数”一行记录了这一点。它是内部前提：调用者从自己的前提出发建立它。
+这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段（`ZlibF/Proof/inffast.c.env.lean`）。`Env` 是 `inflate` 的情形，这时窗口绝不是输出块；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：每个调用者在调用之前证明它们（`inflate.c.fast-entry.lean` 中的 `inflate_fast_raw_entry`；`infback.c.safety-fast.lean` 中的 `LEN_fast_p`）。
 
-## 入口视图与循环不变量
+- **流。** `strm` 指向一个可写的流记录，它的 `state` 是 inflate 状态。
+- **输入。** `next_in` 指向一个少于 `2^63` 字节的字节块内部。`avail_in ≥ 6`，这 `avail_in` 个字节都在块内。
+- **输出。** `next_out` 指向一个少于 `2^63` 字节的可写字节块内部。`avail_out ≥ 258`，这 `avail_out` 个字节都在块内。`start ≥ avail_out`，并且在同一个块里 `next_out` 之前有 `start - avail_out` 个字节；所以下面的 `beg` 是指向该块内部的指针。
+- **分离。** 输入和输出是不同的块，或者是同一个块里互不重叠的两段。
+- **位缓冲。** `bits < 8`，`hold < 2^bits`，`sane ≠ 0`。
+- **窗口。** `wsize ≤ 32768`，`whave ≤ wsize`，`wnext ≤ wsize`。如果 `whave ≠ 0`，`window` 指向某个块内的 `wsize` 个字节。对 `inflate`，这个块不是输出块。对 `inflateBack`，它可以就是输出块；这时 `wnext = 0`，并且窗口的末尾落在输出区域之内。
+- **表。** `lencode` 和 `distcode` 指向的表，对 `lenbits` 和 `distbits` 具有安全的形状（`LenTableSafe`、`DistTableSafe`；见[解码表](inftrees.md#the-table-shape)）。
 
-先给本轮游标和计数命名：`in` 指向下一个输入字节，`out` 指向下一个输出位置；`avail_in`、`avail_out` 分别计数剩余可读输入、可写输出，单位为字节。`hold` 暂存已读入的比特值，`bits` 是尚未消费的有效位数。查表要多少位，与匹配要复制多少字节，是不同的计数。
+[内部契约](../spec/internal-contracts.md)页面用 `I-if-pre-room`、`I-if-pre-bits`、`I-if-pre-tables` 和 `I-if-pre-window` 这些名字描述 `inflate_fast` 的入口。那里的描述比上面的清单说得更多的地方，安全定理假设的以上面的清单为准。
 
-`I-if-pre-room` 给出 `LEN` 模式、至少六个输入字节和 258 个输出字节的空间，
-以及外层 `inflate` 调用在同一输出对象中已经产生的、可读的输出前缀。
-输入与输出不相交。`I-if-pre-bits` 给出 `bits < 8`，并说明 `hold` 恰好保存这些低位缓冲比特。
-`I-if-pre-tables` 提供已初始化且具有正确含义的根表、子表项。
-`I-if-pre-window` 提供有效历史，以及默认的合理距离检查模式。
+没有哪条前提提到模式。也没有哪条前提说窗口里的字节是什么，或者说 `whave < wsize` 蕴含 `wnext = whave`。安全性只需要上面这些界；其余的属于[功能论证](#functional-results)。
 
-代码用两个停止界限减少循环内检查：`last` 配合严格小于条件保证下一轮仍有六个输入字节，`end` 保证仍有 258 个输出字节。`start` 是外层调用开始时的输出容量；`beg` 据此找回这次外层调用的输出起点。
+`fast_consumes` 多一条前提：每个字面量/长度叶子至少用掉一位（`LenLeavesPositive`）。对建出来的表，`inflate_table_len_leaves_positive` 证明了它；对固定表，`lenfix_leavesPositive` 证明了它。
 
-源代码形成以下表达式：
+## 循环及其不变量
+
+```c
+last = in + (strm->avail_in - 5);       /* 当 in  < last 时继续循环 */
+beg  = out - (start - strm->avail_out); /* 外层调用的输出起点 */
+end  = out + (strm->avail_out - 257);   /* 当 out < end  时继续循环 */
+do {
+    /* 解码一个字面量，或者一组长度和距离并完成复制 */
+} while (in < last && out < end);
+/* 把没用到的整字节还回去；把 in、out、hold、bits 写回 */
+```
+
+记 `in0` 和 `out0` 为入口处 `next_in` 和 `next_out` 的值。
 
 ```
-last = in + (avail_in - 5)
-end  = out + (avail_out - 257)
-beg  = out - (start - avail_out)
+输出块   beg ........ out0 ........ out ............ end ... out0 + avail_out
+         | 更早的输出  | 本次调用 |   空闲；进入循环时至少 258 字节
+输入块   in0 ........ in ............ last ... in0 + avail_in
+         | 已读      |   未读；进入循环时至少 6 字节
 ```
 
-这里 `beg` 是外层调用输出的起点，不一定是本次快速调用输出的起点。
-前置条件必须针对实际缓冲区视图，证明该指针减法有依据。
-用 `in0`、`out0` 表示快速调用的初始游标。
+每一轮开始时，下面各条成立（`inffast.c.step1.lean` 中的 `LS`，以及 `inffast.c.loop.lean` 中 `fast_loop_wp` 的循环不变量）。
 
-在每次循环体入口使用以下命名不变量：
-
-| 名称 | 内容 |
+| 名字 | 内容 |
 | --- | --- |
-| I1 | `in0 ≤ in ≤ in0 + avail_in`；循环余量保证游标处有六个可读字节。 |
-| I2 | `out0 ≤ out`；循环余量保证游标处有 258 个可写字节。 |
-| I3 | `hold < 2^bits`，循环体内的比特数至多为 30，入口比特数小于 8。 |
-| I4 | `beg ≤ out`；区间 `[beg, out)` 已由外层调用产生。 |
+| I1 | `in0 ≤ in`，并且 `in + 6 ≤ in0 + avail_in`：可以读六个字节 |
+| I2 | `out0 ≤ out`，并且 `out + 258 ≤ out0 + avail_out`：可以写 258 个字节 |
+| I3 | `bits ≤ 30` 且 `hold < 2^bits` |
+| I4 | `bits + 8 * in0 ≤ bits_entry + 8 * in`：手里的每一位要么来自入口，要么来自本次调用读入的字节 |
+| I5 | `[out0, out)` 之外的输出字节与入口时相同 |
 
-首个循环体由 `do` 循环直接进入，因此入口前提必须直接提供所需余量。
-后续循环体依靠 `in < last && out < end`。
+因为这是 `do` 循环，第一轮不经检查就进入。入口条件直接给出它的 I1 和 I2。之后各轮由循环条件得到它们。
 
-## 比特数与六字节界限
+## 每一轮为什么保持不变量
 
-长度／距离符号通常由码字和附加位组成。码字先确定一个基值，再读取指定数量的附加位来细化数值。下表的 `op` 在补充位置表示所需的附加位数；R1 到 R4 是本节给这四处补充操作起的编号。
+### 至多读六个字节
 
-一个长度／距离对有四个补充输入的位置。
+一轮里有四处读输入。
 
-| 位置 | 条件与读取数 | 有用的界限 |
+| 位置 | 条件与读取 | 之后 |
 | --- | --- | --- |
-| R1，长度查表之前 | `bits < 15`：读取两个字节 | 补充后剩余 16 到 30 位。 |
-| R2，长度附加位 | `bits < op`，`op ≤ 5`：读取一个字节 | 补充后至多剩余 12 位。 |
-| R3，距离查表之前 | `bits < 15`：读取两个字节 | 补充后剩余 16 到 30 位。 |
-| R4，距离附加位 | `bits < op`，`op ≤ 13`：至多读取两个字节 | 受条件保护的补充使位数至多为 28。 |
+| R1，查长度表之前 | `bits < 15`：读两个字节 | 16 到 30 位 |
+| R2，长度的附加位 | `bits < op`，其中 `op ≤ 5`：读一个字节 | 够 `op` 位 |
+| R3，查距离表之前 | `bits < 15`：读两个字节 | 16 到 30 位 |
+| R4，距离的附加位 | `bits < op`，其中 `op ≤ 13`：读一个字节；若仍有 `bits < op`，再读一个 | 够 `op` 位 |
 
-如果跳过 R1 或 R3，就已经有至少 15 位。表项含义保证完整码字连同可能的子表查找
-至多需要 15 位。R2 提供至多五个附加位所需的比特；R4 提供至多 13 个。
-所以，每次 `bits -= op` 都只移除已有比特。补充操作保持 I3，相应移位也不超出机器位宽。
+一个编码至多用 15 位，包括二级查表在内；这是表形状的一部分。所以在 R1 或 R3 之后，或者它们被跳过时，后面的编码都有足够的位。`op` 的界 5 和 13 也是表形状的一部分。因此每次 `bits -= op` 拿走的都是确实存在的位，每次移位的位数都小于操作数的宽度。
 
-分别取各处最大值似乎允许读取七个输入字节，但这种组合不可能出现。
-假设 R1、R2、R3、R4 分别读取 2、1、2、2 个字节。R1 之后再消费至多 15 位的长度码，
-至少留下一位。R2 之后再消费至多五个长度附加位，至少留下 `1 + 8 - 5 = 4` 位。
-R3 之后再消费至多 15 个距离码比特，至少留下 `4 + 16 - 15 = 5` 位。
-而 R4 要读取第二个字节，第一次补充前必须不足五位，因为第一次补充后仍不足 `op ≤ 13` 位。
-矛盾。
+把四处的最大值加起来是七个字节。七个字节不可能出现。假设 R1、R2、R3、R4 分别读了 2、1、2、2 个字节。
 
-因此每个循环体至多读取六个字节。这解释了 `last` 中减去五个字节的原因。
-字面量写一个字节；按照长度表的基值／附加位含义，匹配至多写 258 个字节。
-这解释了 `end` 中减去 257 个字节的原因。空间界限依赖表语义，不仅依赖已分配的表容量。
+1. R1 之后手里至少有 16 位。长度编码至多用 15 位：至少剩 1 位。
+2. R2 加上 8 位，长度的附加位至多用 5 位：至少剩 4 位。
+3. R3 加上 16 位，距离编码至多用 15 位：至少剩 5 位。
+4. R4 只有在读完第一个字节后手里的位数仍少于 `op ≤ 13` 时，才读第二个字节。那么 R4 之前手里的位数少于 5。这与第 3 步矛盾。
 
-## 表读取
+所以一轮至多读六个字节，这就是 `last` 比输入末尾提前五个字节的原因。一轮写一个字面量，或者一次至多 258 字节的匹配，这就是 `end` 比输出末尾提前 257 个字节的原因。258 这个界来自表形状：长度基值加上它最大的附加值至多是 258。`inflate_fast_body_step_safe` 陈述了这两个界。
 
-根表先用一小段低位比特查出叶子或子表链接。`rootbits` 是第一次查表使用的位数，因此表有 `2^rootbits` 项；掩码 `(1 << rootbits) - 1` 只保留这些低位。前文 T2 是成功解码表的语义契约，不只是“表已分配”。
+### 读表
 
-根索引 `hold & ((1 << rootbits) - 1)` 小于 `2^rootbits`。T2 提供对应的已初始化表项。
-链接项提供有界子表区间，掩码后的子索引位于其中。表谓词还必须建立表项的操作、码长、
-基值／附加位范围，并说明第二级表项不会再次成为链接。
-于是 `goto dolen`／`dodist` 路径至多经过一次链接查找就终止。
+根下标是 `hold & ((1 << lenbits) - 1)`，小于 `2^lenbits`；表形状保证数组里有 `2^lenbits` 个根表项。根表项是叶子或链接。链接指定一张二级表，它整个在数组之内，并且只含叶子，所以每个编码至多发生一次 `goto dolen` 或 `goto dodist`。
 
-保留符号必须到达正确的错误出口。块结束符必须到达调用者契约规定的模式转换。
-这些出口仍需准确的游标、位缓冲区和状态效果。
+无效编码设置 `msg` 和模式 `BAD`，然后离开循环。块结束符设置模式 `TYPE`，然后离开循环。两者经过的出口代码与正常结束相同。
 
-## 匹配复制：F3 与 F4
+### 匹配复制 {#match-copies-f3-and-f4}
 
-复制先判断来源在本次已写输出里，还是在先前调用保留的窗口里。`done` 是本次外层调用已产生的字节数，`dist` 是解出的回退距离，`len` 是此次需恢复的字节数；三者都按字节计数。历史窗口的 `wsize` 是容量，`whave` 是有效历史数量，`wnext` 是下次写入的环下标。
+设 `dist ≥ 1` 是解码出的距离，`len` 是长度，`3 ≤ len ≤ 258`。
 
-令 `done = out - beg`，解出的距离为 `dist ≥ 1`，匹配长度为 `3 ≤ len ≤ 258`。
+**从输出复制。** 如果 `dist ≤ out - beg`，源 `out - dist` 不早于 `beg`，在输出块里。复制逐字节向前进行。它读到的每个字节，要么在这一轮之前就写好了，要么是同一次复制中更早的一步写的；`dist < len`、两段区域重叠时也是如此。
 
-若 `dist ≤ done`，源起点为 `out - dist ≥ beg`。复制按顺序进行：第 k 步的源是
-相对位置 `k - dist` 处已经产生的字节。即使源、目标区间重叠，源字节也先于目标。
-这正是 DEFLATE 的重复规则；用不相交复制的论证替代循环会丢失该含义。
+**从窗口复制。** 否则有 `op = dist - (out - beg)` 个字节来自窗口。C 检查 `op > whave`，由于 `sane ≠ 0`，这时它报错离开。检查之后 `1 ≤ op ≤ whave ≤ wsize`。特别地 `whave ≠ 0`，所以窗口块存在。源位置有三种。
 
-例如本次已经写出 2 字节而回退距离为 5，还需要从旧窗口向前找 3 字节；这个差值就是下一个分支的 `op`。这里同名 `op` 已改为字节数，不再表示查表阶段的附加位数。
-
-若 `dist > done`，令 `op = dist - done`。合理距离检查拒绝 `op > whave`。
-检查通过后，`1 ≤ op ≤ whave ≤ wsize`，所以已分配窗口包含所需的先前历史。
-有三种源区间形状：
-
-| 条件 | 初始窗口索引 | 边界论证 |
+| 条件 | 窗口中的起始下标 | 为什么在 `[0, wsize)` 之内 |
 | --- | --- | --- |
-| `wnext == 0` | `wsize - op` | 一直复制到环形缓冲区末尾。 |
-| `0 < wnext < op` | `wsize + wnext - op` | 先复制 `op - wnext` 字节到末尾，再从索引 0 复制至多 `wnext` 字节。 |
-| `wnext ≥ op` | `wnext - op` | 在当前环形缓冲区游标之前复制。 |
+| `wnext == 0` | `wsize - op` | `1 ≤ op ≤ wsize` |
+| `0 < wnext < op` | `wsize + wnext - op` | `op ≤ wsize` 且 `wnext < op`。复制一直进行到环的末尾，再从下标 0 继续，至多 `wnext` 个字节 |
+| `wnext ≥ op` | `wnext - op` | `op ≤ wnext ≤ wsize` |
 
-每段只复制其历史字节数与剩余匹配长度中的较小者。如果窗口部分不足以覆盖整个匹配，
-剩余源位于本次调用已产生的输出中，可以应用顺序复制论证。
-必须证明展开循环的准确迭代数，包括每个 `do … while (--op)` 的初始计数为正。
+每一段复制的字节数，取窗口在那里所存的数量与匹配还需要的数量中较小的一个。如果匹配更长，剩下的部分从输出复制，如上所述。
 
-F4 说明，`whave < wsize` 蕴含 `wnext = whave`。环未填满时，只可能出现第三种形状，
-其源位于已初始化历史中。环已填满时，所有字节都属于历史，跨环末尾的形状也有效。
-更强的功能不变量必须把这些字节对应到逻辑输出与字典历史的后缀。
+对 `inflateBack`，窗口就是输出缓冲区本身。这时 `wnext = 0`，只有第一行适用；窗口末尾落在输出区域之内这条前提，保证读操作不出块。
 
-## 回退与最终写回
+### 归还字节与写回
 
-为快速查表，循环可能读入尚未消费的整字节。离开前要把这些字节归还给调用者，否则外层解码器会跳过它们。下面局部 `len` 计算可以归还多少完整字节；它在此处不再表示匹配长度。右移 3 位等价于对位数除以 8 后取整数部分。
-
-退出时归还预读但未使用的完整输入字节：
-
-```
-len = bits >> 3
-in -= len
-bits -= len << 3
-hold &= (1U << bits) - 1
+```c
+len = bits >> 3;
+in -= len;
+bits -= len << 3;
+hold &= (1U << bits) - 1;
 ```
 
-如果本次快速调用读取了 B 个字节，计数不变量给出
-`bits ≤ bits_entry + 8B < 8 + 8B`。因此 `len ≤ B`，回退不会越过 `in0`。
-结果保留的缓冲比特不足八位，所以最终掩码移位有效。
-随后函数把准确的剩余输入／输出计数和游标、`hold`、`bits`、到达的模式写回流。
+I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就得到 `len ≤ in - in0`：函数归还的只是它自己读入的字节，`in` 不会退到 `in0` 之前。之后 `bits < 8`，所以掩码的移位在合法范围内。入口条件 `bits < 8` 就用在这里。没有它，函数可能退过调用者已经消耗掉的字节。
 
-`bits_entry < 8` 至关重要。没有它，回退可能归还本次快速调用从未读取的字节。它是 `Env` 的一个前提。两个调用者在每次进入快速路径时都建立它：`inflate` 在 `ZlibF/Proof/inflate.c.fast-entry.lean` 中，`inflateBack` 在 `LEN_fast_p`（`ZlibF/Proof/infback.c.safety-fast.lean`）中。
+`inflate` 在选择快速路径的条件里自己检查了 `bits < 8`。`inflateBack` 不检查；它的不变量保证每次进入 `LEN` 模式时 `bits < 8`（`LEN_fast_p`）。
 
-## 从安全到解码含义
+随后函数用各自同一个块内的指针差算出新的 `avail_in` 和 `avail_out`，连同两个游标、`hold` 和 `bits` 一起存回（`fast_finish_wp`，`inffast.c.final.lean`）。
 
-本节是功能性的。它不是必需的；它描述的结果是早先证明的，继续保留。
+## 循环为什么会结束
 
-“源出处”回答每一段已消费比特来自原输入的哪里；“格式语义”回答这些比特表示哪个符号。二者要在同一次运行中连接起来。例如，距离码的几位来自正确输入位置，并不单独保证复制循环输出了正确的历史字节。
+主循环的度量是剩余的输出空间 `out0 + avail_out - out`（`fast_loop_wp`）。不离开循环的一轮至少写一个字节，所以度量下降。它小于 `2^63`，远小于 `2^64` 的循环燃料。
 
-功能循环不变量把已消费的低位比特对应到原始源比特流，并把发出的字面量／匹配对应到独立格式符号。该关系经过长度／距离选择、附加位读取、所有复制形状、链接表、结束与错误出口、回退及最终写回而保持。它对整个循环体和整个调用成立，而不只是对局部成功解出的一个符号成立。
+在一轮之内，复制循环跑 `op` 或 `len` 次并递减计数，一个编码至多多查一次表。
 
-源出处引理在其声明的定义域内确定所选比特的准确来源。把它们连接到所有合法调用者视图及独立输出语义，是 `inflate` 的功能性目标，不在计划内。解出一个符号所依赖的比特，并不能说明更远的推测性预读合理；其因果区别见 [inflate](inflate.md)。
+## 难点在哪里
 
-终止性方面，每个循环体至少写一个字节，或通过结束／错误出口退出。有限输出范围限制继续执行的循环体数量。复制循环与链接查找也各有有界度量。这些界限保持在燃料预算之内，并且帧性质在所有出口成立。这里不分配内存；现有状态和窗口的所有权不变。
+两个余量都很小，而且恰好够用。循环之所以安全，只是因为一轮绝不会读第七个字节，而这一点在任何单独一条语句里都看不出来：它来自四处补位与表所允许的位数之间的相互作用。证明在堆上、对每一张形状安全的表，照着上面论证里同样的分情形方式进行。
 
-## 与 C 的对应检查
+第二个难点是输出块。它在同一轮里既被读又被写，匹配的源可以与目的重叠，输入和输出还可能是同一个块里的两段（`tests/regression/inflate-shared-block`）。因此循环不变量跟踪的是整个输出数组，而不是分开的“旧”字节和“新”字节两个视图。
 
-### 快速解码器：余量、复制与回退
+## 没有定理陈述的 C 解读
 
-`inflate_fast` 在 `LEN` 模式进入，输入至少六个字节，输出空间至少 258 个字节，
-满足 `start ≥ avail_out`，缓冲比特少于八位。`inflate` 检查这些余量。
-`inflateBack` 检查字节余量，并依靠模式转换保证 `bits < 8`。分派证明把这一事实提供给 `LEN_fast_p`（`ZlibF/Proof/infback.c.safety-dispatch.lean`、`infback.c.safety-fast.lean`）。
+- 匹配从窗口读到的字节是先前写过的。对 `inflate`，这来自[流式解码](inflate.md#window-shape-w)的窗口形状 W.5：没有填满的窗口里 `wnext = whave`，所以只可能出现表的第三行，它读的位置在 `wnext` 之前。`EnvG` 不带 W.5，安全定理也不需要它：在模型里，读一个从未写过的字节会得到任意值，不算故障（[可信基础](../trusted-base.md)）。**尚未由证明确认**。
 
-`last = in + (avail_in - 5)` 与 `end = out + (avail_out - 257)` 使用无符号减法。
-其安全性依赖入口余量。每次迭代至多读六个字节、写 258 个字节。
-`beg = out - (start - avail_out)` 表示本次调用输出的起点。
-两个调用者分别把 `start` 设置为原始输出空间或回调窗口大小。
+## 功能结论
 
-这里 `here` 是表项指针，而慢速解码器会复制表项值。
-`dolen` 与 `dodist` 保留链接的向后跳转。有效表限制链接深度；翻译中的执行步数预算本身并不证明终止。
-错误和块结束时的 `break` 跳过循环条件。该条件及最终计数中的指针比较必须发生在同一对象内。
+这些结论说的是快速解码器算出了什么。它们已登记，但不是安全结论所必需的。
 
-从窗口和当前输出复制时，必须保留源代码展开后的循环以及读写顺序。
-输出匹配的重叠是有意的：新写字节可以被后续复制步骤读取。
-不能改成 `memcpy`，也不能改成初始源区间的快照。
-最小匹配长度为三。每个前置递减复制循环都需要正计数。
+| 结论 | 定理 | 模块 |
+| --- | --- | --- |
+| 一轮恰好消耗格式中一个记号的那些位，并且它消耗的位就是源中接下来的位 | `actual_body_refines_token`、`actual_body_preserves_origin` | `inffast.c.body-token.lean`、`inffast.c.body-origin.lean` |
+| 查长度表或距离表得到的是格式规定的符号 | `length_lookup_matches_format`、`distance_lookup_matches_format` | `inffast.c.length-semantics.lean`、`inffast.c.distance-semantics.lean` |
+| 匹配复制就是格式中的 LZ77 复制 | `actual_distance_refines_lz77`、`actual_copy_match_refines_lz77` | `inffast.c.distance-result.lean`、`inffast.c.match-history.lean` |
 
-每个出口，包括无效符号与距离过远的出口，都会在收尾阶段归还完整的未使用输入字节，
-只保留低 `bits mod 8` 位，并写回指针与剩余计数。
-语义证明必须跟踪该回退过程中准确的源比特前缀，不能只跟踪消费字节数。
+这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。没有定理把它们接到 `inflate` 的每一种调用者视图上；那将是 `inflate` 的功能正确性，而它不是安全结论所必需的。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。关于功能不变量需要携带什么，早先的一条笔记保存在[历史](../history/proof-functional-notes.md)中。

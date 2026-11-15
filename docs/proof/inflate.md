@@ -1,154 +1,132 @@
-# Stream decoding: modes, history and call composition
+# Stream decoding: why `inflate` is safe
 
-Source: `zlib/inflate.c`; translation: `ZlibF/Zlib/inflate.c.lean`.
-Public behavior is specified in [the API guide](../spec/api/README.md), the decoded
-stream in [the format guide](../spec/format/README.md), and window updates by
-`I-uw-*` in [internal contracts](../spec/internal-contracts.md).
+Source: `zlib/inflate.c`. Translation: `ZlibF/Zlib/inflate.c.lean`.
 
-`inflate` is safe on every input and every split of the buffers, also over its
-call sequences. This page explains how the proof is composed. It uses
-[decode tables](inftrees.md), [fast decoding](inffast.md),
-[Adler-32](adler32.md), [CRC-32](crc32.md) and [allocation](zutil.md).
+`inflate` and the other `inflate*` functions are safe on every input, for every split of the
+input and output buffers, over every permitted sequence of calls. The proof keeps one invariant
+of the decoder state. `inflateInit2_` establishes it, every call keeps it, and every memory
+access of the C is inside what the invariant describes. This page explains the invariant, why
+each step keeps it, and why the decoding loop ends.
 
-## What is proved
+It builds on [decode tables](inftrees.md) and [fast decoding](inffast.md). Notes on how the
+translation follows the C are in [source notes for the decoder](inflate-source-notes.md). The
+internal contract of `updatewindow` is `I-uw-*` in
+[internal contracts](../spec/internal-contracts.md).
 
-| Result | Kind | Theorem | Module |
+## Results
+
+All theorems below are registered in `tests/audit/theorems.txt` and accepted on commit
+`bde170e9`, unless the row says otherwise. The levels are defined in
+[the proof map](README.md#status-levels).
+
+| Goal | What it says | Theorem | Module under `ZlibF/Proof/` |
 | --- | --- | --- | --- |
-| `Goal.inflate_sequence_safety` (`ZlibF/Spec/Safety/Sequences.lean`): the invariant on every reachable history, a safe next call with an exact allocation ledger, and an `inflateEnd` that frees everything the stream owns | Safety, required | `inflate_sequence_safety_public`, from `inflate_sequence_safety` | `ZlibF/Proof/public-inflate-sequence-safety.lean`, `inflate.c.sequence-safety.lean` |
-| One safety goal per function: `inflate`, `inflateSetDictionary`, `inflateGetDictionary`, `inflateSync`, `inflateReset`, `inflateReset2`, `inflatePrime`, `inflateMark`, `inflateGetHeader`, `inflateEnd` (`ZlibF/Spec/Safety/Streams.lean`) | Safety, required | `inflate_safety` and the other `inflate*_safety` theorems | `ZlibF/Proof/public-stream-call-safety.lean` |
-| `Goal.inflateInit__safety`, `Goal.inflateInit2__safety` | Safety, required | `inflateInit__safety`, `inflateInit2__safety` | `ZlibF/Proof/public-init-safety.lean` |
-| `Goal.inflateCopy_safety` | Safety, required | `inflateCopy_safety` | `ZlibF/Proof/public-inflate-copy-safety.lean` |
-| `Goal.inflate_refusal`: `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateGetDictionary`, `inflateSetDictionary` and `inflateCopy` return `Z_STREAM_ERROR` without a fault on a refused stream (`RefusedInflate`: `NULL`, or a record the state check refuses). `inflate` leaves a frame with an unchanged ledger; `inflateCopy` clears the destination's state; the others leave the heap as it was. A record whose state field is a garbage pointer is outside the domain ([deviations](../deviations.md)). The other functions refuse in their functional goals or in registered lemmas that are not required goals (`inflateSync_check`) | Safety, required | `inflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
-| `Goal.inflate_initialisation_domain`: the premises of the sequence goal can be met | Non-vacuity, required | `inflate_initialisation_domain_public` | `ZlibF/Proof/public-inflate-init.lean` |
-| `Goal.inflate`: the full contract of one call, with progress, return codes, counters, frame and ownership | Functional, stays; the safety proofs of `uncompress*` and of the gzip reader use it | `inflate_public` | `ZlibF/Proof/public-inflate.lean` |
-| The full contracts of the other functions, such as `Goal.inflateCopy`, `Goal.inflateReset`, `Goal.inflateSetDictionary` | Functional, stays | `inflate_copy_public`, `reset_public`, `inflateSetDictionary_public` and others | `ZlibF/Proof/public-inflate-*.lean` |
+| `Goal.inflate_sequence_safety` | The sequence result; see below | `inflate_sequence_safety_public` | `public-inflate-sequence-safety.lean` |
+| Ten goals `Goal.inflate_safety`, `Goal.inflateSetDictionary_safety`, `Goal.inflateGetDictionary_safety`, `Goal.inflateSync_safety`, `Goal.inflateReset_safety`, `Goal.inflateReset2_safety`, `Goal.inflatePrime_safety`, `Goal.inflateMark_safety`, `Goal.inflateGetHeader_safety`, `Goal.inflateEnd_safety` | One call of that function on a reachable stream is safe | `inflate_safety` and the nine others of the same form | `public-stream-call-safety.lean` |
+| `Goal.inflateInit__safety`, `Goal.inflateInit2__safety` | Initialisation is safe for every argument `zlib.h` allows | `inflateInit__safety`, `inflateInit2__safety` | `public-init-safety.lean` |
+| `Goal.inflateCopy_safety` | `inflateCopy` is safe | `inflateCopy_safety` | `public-inflate-copy-safety.lean` |
+| `Goal.inflate_refusal` | See [Refusals](#refusals) | `inflate_refusal` | `public-stream-refusal.lean` |
+| `Goal.inflate_initialisation_domain` | The premises of the sequence goal can be met (non-vacuity) | `inflate_initialisation_domain_public` | `public-inflate-init.lean` |
 
-These theorems are registered in `tests/audit/theorems.txt` and accepted on
-commit `bde170e9` ([progress, Scope](../progress.md#scope)). One exception:
-`inflate_sequence_safety` is checked, not registered; the registered theorem
-`inflate_sequence_safety_public` is derived from it.
+The goals are stated in `ZlibF/Spec/Safety/`: `Sequences.lean`, `Streams.lean`,
+`Initialisation.lean`, `Copy.lean`, `Refusals.lean` and `Domains.lean`.
 
-The per-function safety theorems are corollaries of the sequence theorem. The
-sequence theorem rests on one invariant, `InflateInv`
-(`ZlibF/Proof/inflate.c.invariant.lean`). Initialization establishes it for every
-accepted `windowBits`, and a caller rebuffer, every stream operation and
-`inflateCopy` preserve it (`reachable_invariant_kind`,
-`ZlibF/Proof/inflate.c.reachable.lean`).
+**The sequence result** has three parts (`StreamSequenceSafety`,
+`ZlibF/Spec/Public/Sequences.lean`).
 
-Not required and not planned: that the output of `inflate` equals the format's
-meaning of the input. The sections below say where an argument is functional
-only.
+1. Every reachable stream satisfies the public invariant `StreamInvariant`.
+2. On a reachable stream, one more permitted call returns without a fault. Afterwards the
+   invariant holds again. The call changed only the stream record, the blocks the stream owns,
+   an attached `gz_header` record and the caller ranges it was given (the *frame*). The set of
+   live blocks changed exactly by the blocks the stream gained or released (the *allocation
+   ledger*): nothing leaks.
+3. `inflateEnd` on a reachable stream returns `Z_OK` and frees every block the stream owns.
 
-A paragraph marked **to confirm** is a reading of the C source that no theorem
-named here states in that form. The theorems are checked against the
-translation, not against this prose.
+A stream is *reachable* when it results from a successful `inflateInit2_` followed by any number
+of permitted calls, successful `inflateCopy` calls, and caller edits of the four buffer fields.
+The per-function theorems are part 2 for one function. They are corollaries of the sequence
+theorem.
 
-## What is assumed
+`inflate_sequence_safety_public` is derived from `inflate_sequence_safety`
+(`inflate.c.sequence-safety.lean`), which is checked and not registered.
 
-- Every byte object has fewer than `2^63` bytes (`ByteObjectsFit`).
-- The stream uses the default allocator.
-- The input and output ranges are separate and lie outside the storage the
-  stream owns (`StreamBuffers`). Dictionary buffers are separate from the
-  window.
-- While `inflate` reads a gzip header into an attached `gz_header`, the
-  record's `extra` buffer is separate from the unread input
-  (`InflateHeaderProgress`).
+Functional results also exist for this file. They are not required for the safety results and
+are listed in [Functional results](#functional-results).
 
-Each premise is explicit in the statement and has a row in
-[deviations](../deviations.md).
+## Refusals
 
-## Paths through the decoder
+A *refused* stream (`RefusedInflate`) is `NULL`, or a readable record that the state check
+`inflateStateCheck` rejects. `Goal.inflate_refusal` covers seven functions: `inflate`,
+`inflateEnd`, `inflateReset`, `inflateReset2`, `inflateGetDictionary`, `inflateSetDictionary`
+and `inflateCopy`. On a refused stream each returns `Z_STREAM_ERROR` without a fault.
 
-Available bytes, output room and held bits select the fast path. One call can
-take the fast and the slow path in turn. The theorem covers small buffers,
-partial input and dynamic Huffman blocks: table construction, dispatch and exit
-carry the same invariant through the heaps the calls return. The
-[input configurations](../spec/input-configurations.md#inflate-inputs) page
-names the parameter ranges.
+- `inflate` changes nothing outside its frame and allocates nothing.
+- `inflateCopy` sets the destination's `state` field to `NULL`.
+- The other five leave the heap as it was.
 
-## Memory and ownership
+A record whose `state` field holds a garbage pointer is outside this result; the row
+"Refused streams" of [deviations](../deviations.md) says why. The other `inflate*` functions
+refuse in their functional goals or in registered lemmas that are not required goals, for example
+`inflateSync_check`.
 
-```mermaid
-flowchart LR
-    Stream["Caller z_stream"] --> State["Owned inflate_state"]
-    State --> Window["Owned delayed window"]
-    State --> Codes["Embedded dynamic codes"]
-    State --> Fixed["Read-only fixed tables"]
-    State --> Header["Caller gz_header and buffers"]
-    Stream --> Input["Caller input view"]
-    Stream --> Output["Caller output view"]
+## Assumptions
+
+These are all the premises of the sequence goal and of the per-function goals
+(`StreamCallDomain`). Each has a row in [deviations](../deviations.md).
+
+| Premise | Says | Belongs to |
+| --- | --- | --- |
+| Reachable stream (`StreamReachable .inflate`) | The history starts with a successful `inflateInit2_` on a well-formed heap, with `zalloc` and `zfree` each `NULL` or the default function, a version string whose first character is `1`, and the structure size 112 | every goal |
+| Caller edits (`Rebuffer`) | Between calls the caller changes only `next_in`, `avail_in`, `next_out`, `avail_out` and memory the stream does not own | the history |
+| `ByteObjectsFit` | Every byte object has fewer than `2^63` bytes | every call |
+| `StreamBuffers` | The input range and the output range are readable and writable for their lengths, separate from each other, and outside the blocks the stream owns | `inflate` |
+| `ActiveHeader` | An attached `gz_header` record and its `extra`, `name` and `comment` buffers are live and writable for their stated capacities. While the header is being read, `extra` is separate from the unread input and `extra_len` is not below the length still to read (`InflateHeaderProgress`) | `inflate` |
+| Dictionary range (`CallerRange`) | The dictionary buffer is `NULL`, or readable (writable for `inflateGetDictionary`) and outside the blocks the stream owns | the two dictionary calls |
+| Sync input | `next_in` is `NULL` with `avail_in = 0`, or a readable range outside the stream's blocks | `inflateSync` |
+| Header record | The record given to `inflateGetHeader` is not `NULL` and its buffers are writable | `inflateGetHeader` |
+
+The default allocator is not a separate premise: it follows from the history, and the
+invariant carries it (clause `alloc`).
+
+`InflateHeaderProgress` exists because the C faults without it. In `EXTRA` the C copies to
+`head->extra + extra_len - length`. An `extra` buffer that overlaps the input is an overlapping
+`memcpy`, and a caller that lowers `extra_len` in mid-header makes the offset wrap
+(`tests/regression/inflate-gzip-extra`).
+
+## One call in outline
+
+```c
+int inflate(z_streamp strm, int flush) {
+    /* entry checks: state, next_out, next_in */
+    LOAD();                       /* copy next_in, avail_in, next_out, avail_out, hold, bits */
+    for (;;) switch (state->mode) {
+        case HEAD: ...            /* each case reads bits, writes output or changes mode */
+        case LEN:
+            if (have >= 6 && left >= 258 && bits < 8) {
+                RESTORE(); inflate_fast(strm, out); LOAD(); break;
+            }
+            ...                   /* otherwise decode one symbol here */
+        case DONE: ret = Z_STREAM_END; goto inf_leave;
+        ...
+    }
+  inf_leave:
+    RESTORE();                    /* write the local copies back */
+    updatewindow(...);            /* save the tail of the output as history */
+    ...
+}
 ```
 
-The stream owns its allocated state and any allocated window. `lens[320]`,
-`work[288]` and `codes[1444]` are embedded in the state. `lencode` and `distcode`
-select static fixed tables or regions of `codes`; `next` tracks table
-construction. `head` refers to caller-owned header storage. The invariant
-records those alternatives, initialized ranges and authorized byte views.
-
-Initialization establishes pointer fields before they are read. The runtime's
-fresh-null convention cannot prove that temporal fact; see
-[safety](../spec/safety.md#uninitialised-memory). Error modes also belong to the
-invariant so that cleanup remains safe after a refusal or data error.
-
-## Window invariant W and F4
-
-Use **W** for the ring-buffer shape:
-
-1. `wsize = 0` or `wsize = 2^wbits`.
-2. `window` is null or points to an allocated `2^wbits`-byte block;
-   `wsize > 0` implies non-null storage.
-3. `whave ≤ wsize`; if `wsize > 0`, `wnext < wsize`; otherwise `wnext = 0`.
-4. If `whave < wsize`, then `wnext = whave`.
-
-Initialization gives the empty window. Reset variants must be checked
-individually: resetting the counters, retaining existing storage and changing
-window size are different operations. Only the size-changing path that frees
-storage may remove its ownership claim.
-
-Functional only: for correctness, W is enriched with the ring contents. The
-valid `whave` bytes are the appropriate suffix of logical history in ring order.
-Preset dictionary bytes contribute history without becoming output. Shape W
-alone shows that a back-reference reads inside the window, not that it returns
-the right byte.
-
-### `updatewindow(strm, end, copy)`
-
-`I-uw-pre` provides a readable source interval `[end-copy, end)` and the
-non-overlap facts for each `memcpy`. The source may be recent output or a
-permitted dictionary range. A public caller must supply those facts; it cannot
-silently exclude an allowed view.
-
-If allocation is needed and fails, the function returns 1 without acquiring a
-window block. Prove its exact field/frame effects; do not infer a global
-unchanged-heap claim from the failure code. If `wsize` is zero after successful
-allocation, set it to `2^wbits` and initialize `wnext = whave = 0`.
-
-For `copy ≥ wsize`, retain only `[end-wsize, end)`, write the whole window and
-set `wnext = 0`, `whave = wsize`.
-
-For `copy < wsize`, let `dist = min(wsize-wnext, copy)`. The first copy writes
-`[wnext, wnext+dist)` from the source prefix. If bytes remain, then
-`dist = wsize-wnext`; the second copy writes `[0, copy-dist)` and the ring is
-full. Set `wnext = copy-dist`, `whave = wsize`.
-
-If no bytes remain, advance `wnext` by dist and wrap at `wsize`. If the old ring
-was partial, W.4 gives `whave = wnext`, so the same addition advances `whave` to
-at most `wsize` and restores W.4 when it remains partial. If it was full, it
-stays full. This proves the shape preservation argument. The content argument
-tracks the newest suffix through these same cases. Include zero-copy calls and
-exact pointer formation for their actual source views.
-
-## The mode proof
-
-Each real mode has one execution case over a common invariant. A grouped view
-shows the dataflow; it does not replace the source's individual modes or exits.
+One call can pass through many modes, and it can take the fast path and the slow path in turn.
+A call can also stop in the middle of anything: `NEEDBITS` leaves through `inf_leave` when the
+input runs out, and the next call resumes in the same mode. So the invariant has to describe the
+state at every mode, not only between blocks.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Header
     Header --> Dictionary: FDICT
     Header --> Type: header complete
-    Dictionary --> Type: accepted dictionary
+    Dictionary --> Type: dictionary set
     Type --> Stored: stored block
     Type --> Tables: dynamic block
     Type --> Symbols: fixed block
@@ -156,7 +134,7 @@ stateDiagram-v2
     Stored --> Type: block complete
     Symbols --> Symbols: literal or match
     Symbols --> Type: end of block
-    Type --> Check: final block complete
+    Type --> Check: last block complete
     Check --> Done
     Header --> Bad: malformed
     Tables --> Bad: malformed
@@ -165,212 +143,258 @@ stateDiagram-v2
     Bad --> [*]
 ```
 
-| Source group | Required execution fact |
-| --- | --- |
-| Entry checks | Invalid stream/arguments return the specified error with exactly the permitted effects. A blanket unchanged-heap claim applies only where the contract says so. |
-| `PULLBYTE` | `have == 0` leaves before the read; otherwise the read and cursor increment consume one valid byte. |
-| `NEEDBITS`, `BITS`, `DROPBITS` | Bound each actual requested count and establish enough bits before subtraction. A byte is shifted only at a valid count; the default 64-bit `hold` retains the pulled bits. |
-| `HEAD` through `HCRC` | Validate wrapper fields; write `extra`, `name`, `comment` only within caller-provided capacities. Bound `length` and progress counters before unsigned subtraction. |
-| `DICTID`, `DICT` | Preserve dictionary-required state and checksum effects; a dictionary refusal does not invent decoded output. |
-| `STORED`, `COPY` | `copy ≤ min(length, have, left)` bounds both views. Supply the API's justified non-overlap condition for `memcpy`. |
-| `TABLE` | Default checks give `nlen ≤ 286`, `ndist ≤ 30`, hence `nlen+ndist ≤ 316 < 320`. |
-| `LENLENS` | `have < ncode ≤ 19` bounds `order[have]`; zero-fill completes the 19-length input to the code-length table. |
-| `CODELENS` | Code 16 requires a previous length; repeat-count checks prevent writing beyond `nlen+ndist`. |
-| Table installation | Prove `inflate_table` execution, its entry meanings and total reservation `852+592 = 1444`; install the resulting table predicate. |
-| `LEN` through `DISTEXT` | Root/subtable reads use initialized entries and consume exactly the supporting code and extra bits. Prove the fast-path entry premises when that branch is selected. |
-| `MATCH`, `LIT` | Bound output writes and justify history/window sources, including overlap within sequential output. |
-| `CHECK`, `LENGTH` | Compare the right wrapper checksum/length against actual produced bytes with their defined widths. |
-| `inf_leave` | Write back exact cursors/counters/bits, update history when required and preserve the specified return behavior. |
+The diagram groups the modes. The proof has one case for each real mode of the C.
 
-For refill reasoning, if a requested `n ≤ 32`, pulling occurs only with
-`bits < n`; the byte shift is then at most 31 and the count after a pull at most
-39. Other masks and drops require their own source-specific bounds. It is not
-correct to treat every `BITS` use as a fixed small constant: dynamic table
-widths and linked entries obtain their bounds from the table predicate.
+## Memory and ownership
 
-The outer loop needs a mode-aware measure. Some transitions consume no input
-and produce no output. Bound those internal transitions between progress or
-return points, and combine that bound with finite input/output and copy
-measures. Per-mode termination alone does not establish the complete fuel bound.
+```mermaid
+flowchart LR
+    Stream["z_stream (caller)"] --> State["inflate_state (owned)"]
+    State --> Window["window, 2^wbits bytes (owned, allocated on first use)"]
+    State --> Codes["lens, work, codes (inside the state)"]
+    State --> Fixed["fixed tables (static, read-only)"]
+    State --> Header["gz_header and its buffers (caller)"]
+    Stream --> Input["input range (caller)"]
+    Stream --> Output["output range (caller)"]
+```
 
-## Causality and history across calls
+The stream owns two blocks: its state and, once allocated, its window. `lens[320]`, `work[288]`
+and `codes[1444]` are arrays inside the state. `lencode` and `distcode` point into `codes` or at
+the static fixed tables. `head` points at a record the caller owns.
 
-This section is functional. It is not required. It records why two earlier
-model statements were wrong, and what a correct functional statement needs.
+## The invariant
 
-Functional correctness must identify output independently of the implementation
-state. A decoded symbol needs a supporting prefix of source bits. The decoder
-may read beyond that prefix speculatively, and may return whole lookahead bytes
-before leaving the fast path. Relate the emitted symbol to the supporting bits;
-do not require its meaning to agree with all speculative lookahead.
+The invariant is `InflateInv` (`ZlibF/Proof/inflate.c.invariant.lean`). It has twelve clauses.
+The definitions named in the last column were read for this table.
 
-The earlier whole-lookahead consistency condition is false. The corrected
-supporting-bit-prefix relation addresses that distinction. Likewise, a fixed
-data-error detection lag of eight bytes has a counterexample. Increasing the
-constant without proof does not establish a causal error theorem. These are
-specification and model lessons, not upstream memory bugs. The corrected
-relation is registered as `inflate_deferred_distance` and
-`inflate_deferred_distance_rejects_legacy_consistency`, with the regression
+| Clause | In plain words | Definition |
+| --- | --- | --- |
+| `good` | The stream record is readable and its `state` is a live inflate state that points back to the stream. The state's arrays have the sizes of the C declaration. The window has shape W below. `bits ≤ 39`. `next` points into `codes` at an index of at most 1444. `lencode` and `distcode` both point into `codes`, or they are the two fixed tables. No block number names two objects | `Good` (`inflate.c.base.lean`) |
+| `alloc` | `zalloc` and `zfree` are the default functions | `DefAlloc` |
+| `tables` | In the modes `LEN_`, `LEN`, `LENEXT`, `DIST`, `DISTEXT`, `MATCH` and `LIT`: `lencode` and `distcode` point at tables of the safe shape for `lenbits` and `distbits` ([decode tables](inftrees.md#the-table-shape)), and every literal/length leaf uses at least one bit | `DataTableInvariant` |
+| `pending` | `sane = 1`. In `LENEXT`: at most 5 extra bits and `3 ≤ length`, `length + 2^extra ≤ 259`. In `DIST` and `DISTEXT`: `3 ≤ length ≤ 258` and `was = length`; in `DISTEXT` also at most 13 extra bits and `offset ≥ 1`. In `MATCH`: `0 < length ≤ was ≤ 258` and `offset > 0` | `DataPendingInvariant` |
+| `lengths` | In `CODELENS`: `lencode` is `codes[0]`, a code-length table of the safe shape; `nlen ≤ 286`, `ndist ≤ 30`, `have ≤ nlen + ndist`; the `have` lengths read so far are at most 15 | `CodeLengthInvariant` |
+| `headerLengths` | In `LENLENS`: `ncode ≤ 19`, `have ≤ ncode`, `nlen ≤ 286`, `ndist ≤ 30`; the `have` entries written so far are 3-bit values | `LengthHeaderInvariant` |
+| `held` | `hold < 2^bits`: no bit is set above the bit count | |
+| `config` | `wrap` and `reqwrap` are among 0, 1, 2, 3, 5, 6, 7. `wbits` is 8 to 15; or it is 0, there is no window, the header is unread and the mode is `HEAD`, `BAD`, `MEM` or `SYNC`. A `gz_header` is attached only when gzip decoding is allowed | `InflateConfig` |
+| `modes` | `HEAD ≤ mode ≤ SYNC` | |
+| `phase` | A block mode is reached only after a header was read, or in raw mode. The gzip header modes `FLAGS` to `HCRC` occur only when gzip decoding is allowed | `InflatePhase` |
+| `origin` | `lencode` is `codes[0]`, or `lencode` and `distcode` are the two fixed tables. No other shape is ever stored between calls | `CopyTableOrigin` |
+| `globals` | The static tables (fixed codes, CRC, the tables of `trees.c`) have their initial contents | `LibraryGlobals` |
+
+Three clauses describe a call that stopped part-way: `pending` (inside a match), `lengths`
+(inside the code-length sequence) and `headerLengths` (inside the code-length-code header).
+They are what lets the next call resume.
+
+One more fact holds between calls and is carried beside the invariant, `DecoderHeldBits`:
+outside `BAD`, `MEM` and `SYNC`, `bits ≤ 32`. Inside a call `bits` can reach 39: `NEEDBITS(n)`
+with `n ≤ 32` pulls a byte only while `bits < n`, so a pull happens at `bits ≤ 31` and leaves at
+most 39.
+
+The sequence goal states the smaller public predicate `StreamInvariant`, which is the clauses
+`good` and `alloc`. `InflateInv` implies it.
+
+### Window shape W
+
+W is the part of `good` about the sliding window (`WinInv`).
+
+1. `wbits ≤ 15`.
+2. `window` is `NULL`, or it points at the start of a writable block of exactly `2^wbits`
+   bytes. A `NULL` window has `wsize = 0`.
+3. `wsize` is 0 or `2^wbits`.
+4. `whave ≤ wsize`. `wnext < wsize`, or both are 0.
+5. If `whave < wsize` then `wnext = whave`: a window that is not yet full has been filled from
+   index 0.
+
+W says where reads and writes of the window land. It says nothing about the bytes in it.
+
+`updatewindow(strm, end, copy)` saves the last `copy` output bytes. It has three cases. With
+`wsize = 8`, `h` an old byte and `n` a new one:
+
+```
+copy >= wsize                 [ n n n n n n n n ]   wnext = 0   whave = 8
+
+copy <= wsize - wnext         [ h h h . . . . . ]   wnext = 3   whave = 3
+(copy = 2)                    [ h h h n n . . . ]   wnext = 5   whave = 5
+
+copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
+(copy = 4)                    [ n n h h h h n n ]   wnext = 2   whave = 8
+```
+
+- First case: one `memcpy` of `wsize` bytes fills the block.
+- Second case: one `memcpy` to `[wnext, wnext + copy)`, which ends at or before `wsize`. Then
+  `wnext` advances and wraps to 0 at `wsize`. If the window was not full, W.5 gives
+  `whave = wnext`, so adding the same count to `whave` keeps W.5.
+- Third case: a first `memcpy` of `wsize - wnext` bytes to the end of the block, then a second
+  of the rest to index 0. The window is full afterwards.
+
+`updatewindow_safe` (`inflate.c.uw.lean`, registered) proves that the call never faults and
+gives `Good` again. If the window has to be allocated and the allocation fails, the call returns
+1, the state is unchanged, and only the allocation counter moved.
+
+## Why each step keeps the invariant
+
+`reachable_invariant_kind` (`inflate.c.reachable.lean`) proves, by induction on the history,
+that every reachable stream has `InflateInv` and `DecoderHeldBits`. Each case of the induction
+is a theorem.
+
+| Step | Theorem | Why it holds |
+| --- | --- | --- |
+| `inflateInit2_` succeeds | `inflateInit2_invariant_of`, `inflateInit2_held` | The state is zeroed, then `inflateReset2` sets `wrap` and `wbits` and `inflateResetKeep` sets `mode = HEAD`, `hold = 0`, `bits = 0`, `lencode = distcode = next = codes`. The window is `NULL` with `wsize = 0` |
+| The caller edits the buffer fields | `rebuffer_invariant` | No clause mentions `next_in`, `avail_in`, `next_out` or `avail_out`, and the caller may not touch the owned blocks |
+| `inflate` | `inflate_preserves`, from `inflate_call` and `inflate_call_refused` | See below |
+| `inflateReset`, `inflateReset2`, `inflateResetKeep` | `inflateReset_preserves`, `inflateReset2_preserves`, `inflateResetKeep_preserves` | All three reset the mode and the bit buffer. `inflateReset` also clears the window counters and keeps the block. Only `inflateReset2` with a different `windowBits` frees the window; the ledger then records the release |
+| `inflatePrime` | `inflatePrime_preserves` | It refuses a count above 16 or a total above 32, so `bits ≤ 32` and `held` stay true |
+| `inflateSetDictionary`, `inflateGetDictionary` | `inflateSetDictionary_preserves`, `inflateGetDictionary_preserves` | The first goes through `updatewindow`; the second only reads the window |
+| `inflateSync` | `inflateSync_preserves` | It scans input and, on a match, resets through `inflateReset` |
+| `inflateGetHeader`, `inflateMark` and the undocumented queries | `inflateGetHeader_preserves`, `inflateMark_preserves`, and others | They write one or two fields that no clause restricts, or nothing |
+| `inflateCopy` succeeds | `inflateCopy_invariant` | The copy gets its own state and window blocks. Clause `origin` says what `lencode` can be, so the copy can point its own tables the same way |
+
+`operation_preserves` collects the rows for the stream calls. Part 2 of the sequence result
+also needs the frame and the ledger of each call. Those are `inflate_call_safe` and
+`operation_safe_other` (`inflate.c.sequence-safety.lean`). Part 3 is `inflateEnd_invariant`.
+
+### Inside one `inflate` call {#the-mode-proof}
+
+`inflate_call` (`inflate.c.call-default.lean`) covers a call whose entry checks pass.
+`inflate_call_refused` covers a call that returns `Z_STREAM_ERROR` at entry. The first proves,
+besides safety, the full list of return codes and counter updates; safety uses only part of it.
+
+The table says, for each group of modes, which access needs an argument and which fact supplies
+it.
+
+| Modes | Access that needs an argument | What makes it safe |
+| --- | --- | --- |
+| Every `NEEDBITS`, `PULLBYTE` | Read of `*next`; the shift `<< bits` | `have > 0` is tested before the read. The shift happens at `bits ≤ 31` |
+| `HEAD` to `HCRC` | Writes to `head->extra`, `head->name`, `head->comment` | Each write is guarded by the capacity `extra_max`, `name_max` or `comm_max`, which `ActiveHeader` makes writable. The `extra` offset uses `InflateHeaderProgress` |
+| `STORED`, `COPY` | `memcpy` from input to output | `copy = min(length, have, left)` bounds both ranges; `StreamBuffers` makes them separate |
+| `TABLE` | The later index `lens[have]` | The C rejects `nlen > 286` or `ndist > 30`, so `nlen + ndist ≤ 316 < 320` |
+| `LENLENS` | `lens[order[have]]`, the call of `inflate_table` | `have < ncode ≤ 19`. The 19 lengths are 3-bit values, which is the premise of [`inflate_table`](inftrees.md#assumptions) for `CODES` |
+| `CODELENS` | Table lookup, `lens[have++]`, `lens[have - 1]` | Clause `lengths`. A repeat that would pass `nlen + ndist` is rejected. Code 16 with `have = 0` is rejected before `lens[have - 1]` |
+| End of `CODELENS` | Two calls of `inflate_table` into `codes[1444]` | `852 + 592 = 1444`. `inflate_table_safe` gives no fault; `inflate_table_decoder_safe` gives the table shape that clause `tables` needs |
+| `LEN` to `DISTEXT` | Table lookups | Clause `tables`: a masked index is inside the table and the entry is a leaf or a link to leaves |
+| `LEN`, fast path | The call of `inflate_fast` | `inflate_fast_raw_entry` (`inflate.c.fast-entry.lean`) builds the entry conditions of [fast decoding](inffast.md#assumptions) from the invariant and `StreamBuffers` |
+| `MATCH` | Copy from the window or from earlier output | `offset > 0` (clause `pending`). A distance beyond the output of this call goes to the window, and `sane = 1` makes the C reject it when it exceeds `whave`. W bounds the window index |
+| `LIT` | One byte to `*put` | `left > 0` is tested first |
+| `CHECK`, `LENGTH` | Checksum over the output of this call | The bytes were written by this call, inside the output range |
+| `inf_leave` | `updatewindow` on the output of this call | The source is the output range, which `StreamBuffers` keeps apart from the window |
+
+<a id="table-and-trailer-statement-boundaries"></a>
+The run lemmas of the individual modes are registered, for example `inflate_TABLE_run`,
+`inflate_LENLENS_run` and `inflate_CHECK_run`. What the table and trailer lemmas assume is in
+the [source notes](inflate-source-notes.md#statements-of-the-table-and-trailer-lemmas).
+
+## Why the loops end
+
+The dispatch loop `for (;;) switch (state->mode)` has no bound in the C. It ends because a rank
+falls on every iteration that does not leave the loop
+(`ZlibF/Proof/inflate.c.dispatch-rank.lean`).
+
+```
+mass = bits + 8 * have + left
+rank = 64 * mass + credit(mode)
+```
+
+`mass` counts the input bits still available and the output bytes still free. `credit` is a
+fixed number below 64 for each mode: `HEAD` 60, `STORED` 48, `TABLE` 47, `LENLENS` 46,
+`CODELENS` 45, `LEN` 21, `LIT` 20, `TYPE` 8, `CHECK` 4, `DONE` 2, and so on.
+
+- No iteration creates mass: bits move from `have` to `bits`, and are then dropped
+  (`dispatchMass_advance`).
+- An iteration that writes output, or that drops input bits, lowers `mass` by at least one. One
+  unit of mass is worth 64, which is more than any change of credit.
+- An iteration that does neither moves to a mode of lower credit (`dispatchRank_advance`). Two
+  examples: `HEAD` (60) on a raw stream goes to `TYPEDO` (9) without reading anything, and
+  `COPY` (17) at the end of a stored block goes to `TYPE` (8).
+
+Each group of modes has a lemma that says "leaves, or the rank falls": `inflate_dispatch_data_rank`,
+`inflate_dispatch_type_rank`, `inflate_dispatch_stored_rank`,
+`inflate_dispatch_gzip_header_rank` and their relatives (`inflate.c.control-rank.lean` and the
+modules beside it). The fast path counts as one iteration: `inflate_fast_safe_progress` shows
+that a fast call that does not end the block uses output room.
+
+The translation's loops carry a fuel of `2^64` iterations, and running out is a fault. With
+`bits ≤ 39` and 32-bit `have` and `left`, the rank is below the fuel (`dispatchRank_fuel`), so
+that fault cannot happen.
+
+The inner loops are bounded directly: a stored copy by `copy`, the code-length loop by
+`nlen + ndist - have`, a match copy by `length`, `syncsearch` by the input length.
+
+## Where the hard part is
+
+The hard part is not one loop. It is that a call can stop and resume at any `NEEDBITS`, so the
+invariant must be strong enough in each of about thirty modes and still be re-established by
+every one of them. Three places needed the most work.
+
+- **The gzip header.** It is the only place where `inflate` writes into caller buffers other
+  than the output. The real C faults there for some caller layouts, which is why the premise
+  `InflateHeaderProgress` exists, with its sanitizer regression.
+- **Termination.** Several transitions use no input and write no output. A measure on input and
+  output alone does not fall there; the credit term of the rank handles them.
+- **The fast path.** `inflate_fast` has stricter entry conditions than the modes around it. They
+  are built from the same invariant on the heap that `RESTORE()` leaves, including the case in
+  which input and output are two ranges of one block.
+
+## Readings of the C that no theorem states
+
+- The bytes that a match reads from the window were written earlier. W.5 is the reason: in a
+  window that is not full, valid history is `[0, whave)` and the C rejects a distance beyond
+  `whave`. The theorems state only that the read is inside the block. In the model, reading a
+  byte that was never written returns an arbitrary value and is not a fault
+  ([trusted base](../trusted-base.md)). **to confirm**.
+- The window holds the most recent `whave` bytes of output and dictionary, in order. This is a
+  fact about meaning. It is not needed for safety and no safety theorem states it.
+  **to confirm**.
+
+- Every pointer field of the state is written before it is read. `inflateInit2_` and
+  `inflateCopy` clear the new state with `zmemzero` before they use it. The model cannot show
+  this by itself: a pointer field in fresh memory reads as `NULL` there without a fault
+  ([safety](../spec/safety.md#uninitialised-memory)). **to confirm**.
+
+More readings, about how the translation follows individual C statements, are in the
+[source notes](inflate-source-notes.md).
+
+## Functional results
+
+These say what the functions compute. They are registered, and they are not required for the
+safety results.
+
+| Result | Theorem | Module |
+| --- | --- | --- |
+| `Goal.inflate`: the full contract of one call, with progress, return codes, counters, frame and ownership. The safety proofs of `uncompress*` and of the gzip reader use it | `inflate_public` | `public-inflate.lean` |
+| The full contracts of the other functions, such as `Goal.inflateCopy`, `Goal.inflateReset`, `Goal.inflateSetDictionary` | `inflate_copy_public`, `reset_public`, `inflateSetDictionary_public` and others | `public-inflate-*.lean` |
+
+No theorem says that the output of `inflate` equals the meaning of the input in the DEFLATE
+format. `inflate_decodes` is a statement about the abstract model only.
+
+### Causality and history across calls
+
+This subsection records two corrections to earlier statements about meaning. Neither is a zlib
+bug.
+
+A decoded symbol is supported by a prefix of the input bits. The decoder may have read further:
+`inflate_fast` pulls whole bytes ahead and gives the unused ones back. An earlier statement
+required the output to agree with everything the decoder had read. That is false, because bytes
+read ahead can be malformed while the symbols already decoded are valid. The corrected relation
+ties each symbol to its supporting bits only. It is registered as `inflate_deferred_distance`
+and `inflate_deferred_distance_rejects_legacy_consistency`, with the regression
 `tests/regression/inflate-deferred-distance`.
 
-Across calls, preserve the accumulated bit prefix, output prefix, logical
-history, wrapper/checksum state and any dictionary requirement. Quantify over
-all permitted input splits, output-room splits and flush values. A later
-failure may follow actual output: delayed window allocation can return
-`Z_MEM_ERROR` after decompression has written bytes. Error contracts must retain
-those effects rather than require empty output.
+A second earlier statement said that a data error is detected within eight bytes of its cause.
+It has a counterexample, and a larger constant would not repair it. The model goal that rested
+on it, `Api.Goal.inflate_rejects_invalid`, is not planned
+([progress, Scope](../progress.md#scope)).
 
-A preset dictionary contributes a known checksum requirement and may provide
-history whose contents are not known until the caller supplies it. Distinguish
-that unknown history from output bytes. Raw dictionary replacement, header
-operations, priming and recovery require their exact API effects; an ordinary
-data-epoch refinement does not cover every such sequence automatically.
-Negative-value priming also requires the general bit-level bridge, beyond a
-finite execution matrix or model witness.
+An error can follow real output: the window is allocated at the end of a call, so `inflate` can
+return `Z_MEM_ERROR` after it has written bytes. `Goal.inflate` keeps that effect.
 
-## Lifecycle and auxiliary functions
+Earlier notes on what a functional statement across calls has to cover (dictionaries, priming,
+recovery) are kept in the [history](../history/proof-functional-notes.md).
 
-| Functions | What the proof must compose |
-| --- | --- |
-| `inflateInit_`, `inflateInit2_` | Version/size and parameter refusals, state allocation, initialization writes, success invariant and exact failure cleanup. |
-| `inflateReset`, `inflateResetKeep`, `inflateReset2` | Their distinct counter/history/header effects, permitted window-size changes and matching ownership transitions. |
-| `inflateEnd` | Free window and state once, clear the stream state and restore the caller's prior live-block set. |
-| `inflatePrime` | Negative-count reset and nonnegative bit insertion; shifts, low-bit interpretation and count-limit refusals. |
-| `inflateSetDictionary`, `inflateGetDictionary` | Documented dictionary modes, checksum decision and ring copies in chronological order; history differs from produced output. |
-| `inflateCopy` | Independent state/window allocations and failure cleanup; copy content, rebase dynamic `lencode`, `distcode`, `next`, preserve static pointers and prove future behavioral equivalence. |
-| `inflateSync`, `syncsearch` | Bounded scanning, recovery state changes and the relation of discarded input to the restarted decoder epoch. |
-| `inflateGetHeader` | Store permitted caller storage and preserve its lifetime/capacity requirements until header processing completes. |
-| `inflateMark`, `inflateSyncPoint`, `inflateCodesUsed` | Exact numeric/query behavior in every admitted mode, including refusal cases. |
-| `inflateValidate`, `inflateUndermine` | Exact state updates, supported/unsupported behavior and invariant preservation. |
+## A defect found in `inflateCopy`
 
-The unpatched `inflateCopy` compares pointers to the static fixed table and to
-the state's `codes` array with `>=` and `<=`. Those are different objects, so the
-comparison is undefined. Patch 0001 replaces it with pointer equality
-([finding](../findings/inflate-copy-fixed/README.md), `patches/README.md`). The
-translation and `inflateCopy_safety` are for the patched source.
-
-The sequence theorem uses the init result and each function's proved
-preservation, frame and ownership effects. It does not connect the internal
-history and table predicates to the independent format relation. That
-connection is functional and not planned; the abstract model theorem
-`inflate_decodes` is a statement about the model only.
-
-## C correspondence checks
-
-### Control flow and bit buffers
-
-`inflate` keeps its C registers in `IL`. Each mode is a helper in
-`ExceptT Ex (StateT IL M)`. A switch `break` returns to the dispatcher. `Ex.leave` jumps to
-`inf_leave` with the registers as they stand; it does not roll back prior reads or writes.
-`Ex.ret` is a direct C return. Fall-through calls the next mode body. The dispatcher reads
-`state->mode` from the heap on each iteration.
-
-The following details are observable and must survive helper boundaries:
-
-- `TYPE` falls into `TYPEDO` without writing `mode`. If reading the block header runs out of
-  input, the saved mode is still `TYPE`. This affects `data_type` and the next entry.
-- `PULLBYTE` checks for input before changing anything. A failing `NEEDBITS` preserves all
-  bytes pulled on earlier iterations. `DROPBITS` changes `hold` before subtracting from
-  `bits`; `BYTEBITS` uses the old bit count in both expressions.
-- `BITS(n)` casts `hold` to unsigned int before masking with `(1U << n) - 1`.
-  `hold` itself is unsigned long. Neither the cast nor the shift width may be simplified.
-- In `HEAD`, the header modulus expression adds an unsigned 32-bit shifted term to
-  `hold >> 8` in 64-bit arithmetic. Primed high bits participate in that expression.
-- `DICT` returns `Z_NEED_DICT` after `RESTORE` and the input-total update. It bypasses
-  the normal epilogue. `MEM` and `SYNC` also return directly.
-- `CHECK` updates output totals and the checksum, then resets the local output baseline.
-  The epilogue uses that changed baseline, avoiding a second count of the same bytes.
-- `inf_leave` restores registers before it updates the window. A window-allocation failure
-  returns `Z_MEM_ERROR` before later totals and checksum updates. Output already written
-  remains written; memory error does not imply empty output.
-
-The usual normalized bit-buffer facts are `bits ≤ 39` and `hold < 2^bits`.
-They are proof obligations, not assumptions valid for every arbitrary state record.
-`inflatePrime` clears the buffer for a negative bit count, refuses counts above 16 or a
-combined count above 32, and masks `value` using the signed-long expression before converting
-it to unsigned long. Negative values must follow that conversion order.
-
-`inflateMark` also needs its exact conversions: sign-extend `back`, convert to unsigned
-long, shift by 16, convert back to signed long, then add the unsigned conditional term.
-The default platform's out-of-range conversions are modular. The error result is `-65536`.
-
-### Window, dictionaries, copying and buffer views
-
-The retained history is chronological data, not just `whave` bytes of arbitrary storage.
-For an allocated window, `8 ≤ wbits ≤ 15`, `whave ≤ wsize`, and `wnext < wsize` when
-`wsize > 0`; a partly filled window has `wnext = whave`. A full ring's chronological order
-starts at `wnext`. Match proofs must connect that order to prior output and dictionaries.
-
-`updatewindow` allocates uninitialised bytes, then copies either the last full window or a
-split suffix around the ring boundary. Only written history may be read. `inflateGetDictionary`
-returns the tail from `window + wnext` followed by the prefix. `inflateSetDictionary` validates
-the Adler identifier in `DICT` and passes the dictionary end to `updatewindow`; raw replacement
-has different epoch semantics from one preset dictionary. `inflateResetKeep` retains history;
-`inflateReset` restores the requested settings and clears history, freeing a changed-size window.
-
-`inflateCopy` allocates through the source allocator, frees the new state if window allocation
-fails, and clears `dest->state` on its source-check and allocation failures. On success it
-copies both records, repairs the stream backlink, rebases internal table pointers and copies
-only `whave` window bytes. `next` always refers into the state's `codes` array.
-`lencode`/`distcode` either name that array or the shared fixed tables. The clause `origin` of
-`InflateInv` (`CopyTableOrigin`) carries part of this: `lencode` points at `codes[0]`, or
-`lencode` and `distcode` are the two fixed tables. The facts for `next` and for a dynamic
-`distcode` (offsets into `codes`; `next` may be one past its end) come from `Good`, clause `inv.ptr`
-(`CopyTableOrigin.dynamic_geometry`, `ZlibF/Proof/inflate.c.copy-origin.lean`). Source and
-destination records must not overlap.
-
-The pinned upstream source tests whether `lencode` lies within `codes` using `>=` and `<=`.
-With fixed tables these are different objects. Patch 0001 replaces the test with pointer
-equality, and the translation follows the patched source. The
-[reproduction](../findings/inflate-copy-fixed/README.md) shows the sanitizer report on the
-unpatched C.
-
-Byte input, output, header and dictionary ranges must meet their actual access requirements.
-The runtime now permits disjoint ranges in the same byte object for `memcpy`; the older
-claim that distinct blocks were required is obsolete. Overlap still faults. Local fast-decoder
-lemmas with distinct raw blocks do not cover every public buffer view; see
-[deviations](../deviations.md).
-
-### Initialization, recovery and pointer representation
-
-`inflateInit2_` zeroes its allocated state before setting fields and calling reset.
-Version checks inspect only the first version byte and the stream size, 112 in this build.
-`inflateReset2` rejects negative values below `-15` before negation, so `INT_MIN` cannot reach
-that operation. Custom allocators remain outside the represented default-allocator domain.
-
-`inflateStateCheck` preserves short-circuit checks before dereferences. A deflate-state cast
-faults in the object model; a numeric layout coincidence is not a proof of a valid inflate
-state. Initialization families must stay paired: `inflateBackInit_` is not interchangeable
-with `inflateInit2_`, and their end functions own different objects.
-
-`inflateGetHeader` retains a caller pointer and writes `head->done` unconditionally.
-It therefore needs a non-null record and live auxiliary buffers of their advertised capacities.
-Its documented timing matters to `extra_len - length`. Preserve the assignment inside
-`EXTRA`'s condition and the post-increments in `NAME` and `COMMENT`.
-
-`syncsearch` returns the updated scalar `have`; `inflateSync` stores it at the source call
-boundary. Recovery first searches buffered whole bytes, then caller input, and restores saved
-totals and wrapper facts after reset. Local four-byte arrays for recovery and header CRC
-have real temporary byte storage and are released on all returns.
-`inflateGetDictionary` represents its optional scalar length out-parameter as a returned
-value. This does not model arbitrary aliases of a caller scalar pointer; public-domain review
-must account for that representation choice.
-
-
-## Table and trailer statement boundaries
-
-These are the statements of the local run lemmas for the table and trailer
-modes. They are registered and serve the sequence theorem.
-
-`inflate_TABLE_run` describes the count extraction and the “too many length or distance symbols”
-exit. `inflate_LENLENS_run` uses `have <= ncode <= 19` and `Good3 lens have`. `TABLE` establishes
-the count bound; earlier loop iterations establish the written-prefix condition. The associated
-results `ll1_run`, `lz_run` and `llTail_run` expose the loop structure.
-
-The code-length constructor call uses `inflate_table_safe` and `inflate_table_correct_ret`.
-Those results establish execution safety and the return classification. The shape of the
-table entries comes from `inflate_table_decoder_safe`; see [decode tables](inftrees.md).
-
-`inflate_CHECK_run` uses `StaticsOK` for checksum tables and `PutAt` for the bytes written during
-this call. The one-byte Adler behaviour has its own relation when the previous checksum is
-not canonical ([Adler-32](adler32.md)). The public domain is not narrowed to a canonical seed.
+The unpatched `inflateCopy` tests whether `lencode` lies inside `codes` with `>=` and `<=`. When
+`lencode` points at the static fixed table, the two pointers belong to different objects and the
+comparison is undefined behaviour. Patch 0001 replaces the test with pointer equality
+(`patches/README.md`; [finding and sanitizer reproduction](../findings/inflate-copy-fixed/README.md)).
+The translation and `inflateCopy_safety` are for the patched source.
