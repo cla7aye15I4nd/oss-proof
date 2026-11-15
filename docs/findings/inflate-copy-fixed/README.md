@@ -1,6 +1,7 @@
 # `inflateCopy` compares pointers into unrelated objects
 
-`inflateCopy` on a stream that stopped inside a fixed-code block compares a pointer into a static
+`inflateCopy` on a stream that has decoded a fixed-code block, and no dynamic block after it,
+compares a pointer into a static
 table with a pointer into the heap-allocated inflate state, using `>=` and `<=`. C defines these
 operators only for pointers into the same object. This page lets a zlib maintainer reproduce the
 report and judge it without reading anything else.
@@ -45,8 +46,8 @@ if (state->lencode >= state->codes &&
     state->lencode <= state->codes + ENOUGH - 1) {
 ```
 
-`state->codes` is an array inside the inflate state, which `inflateInit` allocates. Inside a
-fixed block `state->lencode` points to `lenfix`, a static table.
+`state->codes` is an array inside the inflate state, which `inflateInit` allocates. From the
+start of a fixed block on, `state->lencode` points to `lenfix`, a static table.
 
 ## Run
 
@@ -85,9 +86,15 @@ same verdict at the same line.
 
 ## Scope and severity
 
-- **Who reaches it.** Any `inflateCopy` of a stream that is inside a fixed-code block: the
-  default `inflateInit` or any `inflateInit2`, any input that contains a fixed block, and an
-  `inflate` call that returns before the block ends.
+- **Who reaches it.** Any `inflateCopy` of a stream whose `lencode` is the static table: the
+  default `inflateInit` or any `inflateInit2`, and any input that contains a fixed block.
+  `inflate` points `lencode` at the static table when it meets a fixed block (`inflate_fixed`,
+  called at `inflate.c:736`). The pointer stays there until a dynamic block replaces it
+  (`inflate.c:820`) or the stream is reset (`inflateResetKeep`, `inflate.c:118`); a stored block
+  does not change it. So the copy can come inside the fixed block, after it, or after the stream
+  has ended. The retained reproduction copies inside the block. With its output buffer enlarged
+  to 4096 bytes, `inflate` returns `Z_STREAM_END` and `inflateCopy` gets the same report at the
+  same line (a run on arm64 macOS with Apple clang; that variant is not retained).
 - **Effect.** None was observed. On a platform with a flat address space the comparison is an
   address comparison, it is false for the static table, and the copy keeps the pointer to the
   static table, which is correct. The same holds for `distcode`. The risk is only that a compiler
