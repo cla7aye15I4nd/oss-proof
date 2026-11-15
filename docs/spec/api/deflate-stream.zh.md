@@ -1,4 +1,4 @@
-<!-- source-sha256: 55fd4118811b8a28245d840e47fd0692a82961c89120961c29a1817cf140d061 -->
+<!-- source-sha256: 4b61c3b6ad0a015f04813599643495edff7fd0df27f5906f17bbf5f4cd59611b -->
 
 # 流式压缩
 
@@ -470,7 +470,7 @@ int ZEXPORT deflateParams(z_streamp strm, int level, int strategy);
 
 **前置条件：** 有效且尚未开始完成操作的流，流缓冲区和任何正在使用的头部均有效；`level` 为 -1 或 0..9，`strategy` 为 0..4。要选择精确输入边界，持续完成 `deflate(Z_BLOCK)`，直到 `avail_out` 非零，并在此次调用前不提供新输入。
 
-**证明目标。** 必需的安全目标：`Goal.deflateParams_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`next_in` 为 NULL 或覆盖 `avail_in` 个可读字节，`next_out` 为 NULL 或覆盖 `avail_out` 个可写字节，两者都在流自有的块之外且互不重叠（`StreamBuffers`），并且 gzip 头的条件成立（`ActiveHeader`）。对 deflate 流，`ActiveHeader` 指：在写出 gzip 头期间，交给 `deflateSetHeader` 的头记录存活，其 `name` 和 `comment` 是以 NUL 结尾的字符串，头不被缩短到已写出部分以下，并且输入、输出、`extra`、`name`、`comment` 两两分离且在流自有的块之外。`level` 和 `strategy` 的每个取值都被覆盖。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块和输出范围，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.deflateParams`。
+**证明目标。** 必需的安全目标：`Goal.deflateParams_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`next_in` 为 NULL 或覆盖 `avail_in` 个可读字节，`next_out` 为 NULL 或覆盖 `avail_out` 个可写字节，两者都在流自有的块之外且互不重叠（`StreamBuffers`），并且 gzip 头的条件成立（`ActiveHeader`）。对 deflate 流，`ActiveHeader` 指：在写出 gzip 头期间，交给 `deflateSetHeader` 的头记录存活，其非 NULL 的 `extra` 在 `extra_len` 字节内可读，其 `name` 和 `comment` 是以 NUL 结尾的字符串，头不被缩短到已写出部分以下，正在写出的字段不会中途被置为 NULL，并且输入、输出、`extra`、`name`、`comment` 两两分离且在流自有的块之外。`level` 和 `strategy` 的每个取值都被覆盖。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块和输出范围，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.deflateParams`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateParams"><summary>完整返回条件与边界</summary>
 
@@ -656,7 +656,7 @@ int ZEXPORT deflate(z_streamp strm, int flush);
 
 **前置条件：** 有效流，缓冲区和任何正在使用的头部均有效。`next_out` 非 NULL，`avail_out > 0`；仅输入为零时 `next_in` 可为 NULL。`flush` 为 `Z_NO_FLUSH`、`Z_PARTIAL_FLUSH`、`Z_SYNC_FLUSH`、`Z_FULL_FLUSH`、`Z_FINISH` 或 `Z_BLOCK`。刷新期间输出填满时，以相同刷新请求和更多空间继续。开始完成操作后，不提供新输入，只以 `Z_FINISH` 继续。普通格式有效性要求从初始化/`deflateReset`（或该历史的副本）开始，使用合法字典/头部设置、标准调优，且不进行任意位预置。
 
-**证明目标。** 必需的安全目标：`Goal.deflate_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`next_in` 为 NULL 或覆盖 `avail_in` 个可读字节，`next_out` 为 NULL 或覆盖 `avail_out` 个可写字节，两者都在流自有的块之外且互不重叠（`StreamBuffers`），并且 gzip 头的条件成立（`ActiveHeader`）。对 deflate 流，`ActiveHeader` 指：在写出 gzip 头期间，交给 `deflateSetHeader` 的头记录存活，其 `name` 和 `comment` 是以 NUL 结尾的字符串，头不被缩短到已写出部分以下，并且输入、输出、`extra`、`name`、`comment` 两两分离且在流自有的块之外。`flush` 的每个取值都被覆盖。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块和输出范围，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.deflate`。
+**证明目标。** 必需的安全目标：`Goal.deflate_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）。前提（`StreamCallDomain`）：流可达（`StreamReachable`：由成功的初始化或复制，加上任意一段允许的调用和调用者编辑产生）；每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）；以及 `StreamArguments`：`next_in` 为 NULL 或覆盖 `avail_in` 个可读字节，`next_out` 为 NULL 或覆盖 `avail_out` 个可写字节，两者都在流自有的块之外且互不重叠（`StreamBuffers`），并且 gzip 头的条件成立（`ActiveHeader`）。对 deflate 流，`ActiveHeader` 指：在写出 gzip 头期间，交给 `deflateSetHeader` 的头记录存活，其非 NULL 的 `extra` 在 `extra_len` 字节内可读，其 `name` 和 `comment` 是以 NUL 结尾的字符串，头不被缩短到已写出部分以下，正在写出的字段不会中途被置为 NULL，并且输入、输出、`extra`、`name`、`comment` 两两分离且在流自有的块之外。`flush` 的每个取值都被覆盖。结论（`StreamCallSafe`）：调用返回，保持流不变量，只写流记录、流自有的块和输出范围，并且存活块的变化与账本完全一致。功能目标（非必需）：`Goal.deflate`。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflate"><summary>完整返回条件与边界</summary>
 
