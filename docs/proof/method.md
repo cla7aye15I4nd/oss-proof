@@ -107,7 +107,12 @@ an earlier `deflate` invariant allowed the state `EXTRA_STATE` with a `NULL` `gz
 pointer, and a `deflate(Z_BLOCK)` run from such a state faulted. The repair was a new clause,
 `HeaderInv.record`, which says the pointer is not `NULL` in the four header states that read
 it, together with a proof that every reachable state has it (`reachable_inv_of`,
-`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`).
+`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`). That theorem takes one hypothesis,
+`SequenceFacts`: three facts about one `deflate` call from a state with the invariant. The call
+returns and keeps `DInv` and the owned blocks; it keeps `HeaderInv`; it keeps `CallFacts`.
+The three facts are themselves proved: `sequence_facts`
+(`ZlibF/Proof/public-deflate-copy.lean`) has no hypothesis, and `deflate_copy_public` in that
+file applies `reachable_inv_of` to it. So the hypothesis is discharged, not assumed.
 
 Functional only: bounds do not say which bytes are decoded. A functional proof adds a relation
 between the state and the format, for the same executions, and shows how each step changes it.
