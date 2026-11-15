@@ -2500,17 +2500,17 @@ flowchart LR
 | 公开目标 | 图中所示证明工作 | 下一步与缺少的前置事项 |
 | --- | --- | --- |
 | `gzopen`, `gzopen64`, `gz_initialisation_domain` | 开始：打开与清理 | <a id="readiness-gzopen"></a> **命题已更正：**见 [gzip 打开路径长度](history/specification-review.md#gzip-open-path-length)。**开始：**`gz_open` 按路径打开的分支（`fsOpen` 的各种结果、追加定位和读取定位），复用已登记的 `gzdopen` 模式循环、分配和 `OpenState` 的组合。入口分支和失败分支已在上文经过本地检查。 |
-| `gztell64`, `gztell` | 需要：位置约束 | <a id="readiness-gztell64"></a> **组合：**从读取、写入、定位和字节回退推出 `PosInv`，再复用现有的算术执行证明。 |
-| `gzclose_r` | 需要：资源归属 | <a id="readiness-gzclose-r"></a> **开始：**已初始化缓冲区的清理，以及在历史上建立其所有权的证明。无缓冲的执行和帧性质已经过本地检查；单有 `inflateEnd` 还不够。 |
-| `gzclose_w`, `gzclose` | 需要：交付与清理 | <a id="readiness-gzclose-w"></a> **组合：**实际的补零、最终压缩和文件写入，所有清理路径和错误路径，然后用两个完整的关闭结果完成分派。 |
-| `gzseek64`, `gzseek` | 需要：定位与状态序列 | <a id="readiness-gzseek64"></a> **开始：**位置与指针的历史不变量、有缓冲的路径和透明路径、精确的错误帧性质。负位置的可达性和历史上的溢出报告**尚未由证明确认**。 |
+| `gztell64`, `gztell` | 需要：位置历史 | <a id="readiness-gztell64"></a> **组合：**从读取、写入、定位和字节回退推出 `PosInv`，再复用现有的算术执行证明。 |
+| `gzclose_r` | 需要：资源历史 | <a id="readiness-gzclose-r"></a> **开始：**已初始化缓冲区的清理，以及在历史上建立其所有权的证明。无缓冲的执行和帧性质已经过本地检查；单有 `inflateEnd` 还不够。 |
+| `gzclose_w`, `gzclose` | 需要：刷新与清理 | <a id="readiness-gzclose-w"></a> **组合：**实际的补零、最终压缩和文件写入，所有清理路径和错误路径，然后用两个完整的关闭结果完成分派。 |
+| `gzseek64`, `gzseek` | 需要：定位与历史 | <a id="readiness-gzseek64"></a> **开始：**位置与指针的历史不变量、有缓冲的路径和透明路径、精确的错误帧性质。负位置的可达性和历史上的溢出报告**尚未由证明确认**。 |
 | `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` | 需要：读取路径证明 | <a id="readiness-gzdirect"></a> **开始：**公共的延迟准备、透明读取，以及缓冲区与历史不变量。**组合：**压缩路径上实际的解码器执行，然后是 EOF、计数、字节回退和错误各子句。`gzdirect` 需要格式探测和初始化，不需要完整的数据解码循环。 |
 | `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams` | 需要：写入路径证明 | <a id="readiness-gzwrite"></a> **开始：**缓冲、格式化、透明写入和各种失败。**组合：**压缩输出和参数变更中实际的压缩器执行。 |
 | `deflatePrime` | 开始：压紧与位操作 | <a id="readiness-deflateprime"></a> **开始：**待输出字节的紧缩、带检查的移位、位的插入与刷新，以及不变量和帧性质的保持。拒绝分支已经过本地检查；被接受的位数情形仍未完成。 |
 | `deflateBound_z`, `deflateBound` | 开始：上界与头部审查 | <a id="readiness-deflatebound-z"></a> **开始：**把现有的执行公式与带饱和的数学上界联系起来，包括头部字符串和 extra 字段长度。extra 字段长度的报告已在固定的 C 上复现：`extra_len` 为 `2^32 - 2` 或 `2^32 - 1` 时，C 按 32 位计算 `2 + extra_len` 并发生回绕，而关于数值的目标照现在的写法没有回绕（[发现](findings/deflatebound-extra-len/README.md)）。开始证明之前，这两个目标的命题需要先更正。 |
 | `deflateSetDictionary` | 开始：窗口与哈希 | <a id="readiness-deflatesetdictionary"></a> **开始：**填充窗口、插入哈希链、恢复保存的输入，然后是校验和以及精确的状态效果和帧效果。已通过检查的校验和调用只覆盖校验和这一部分。 |
-| `deflateParams` | 需要：块交付与参数状态 | <a id="readiness-deflateparams"></a> **组合：**实际刷新旧块、处理返回码，以及更新规范的调参表行。在彻底完成之前，先核对拒绝时状态是否原样保持。 |
-| `inflateSync` | 需要：扫描与状态序列 | <a id="readiness-inflatesync"></a> **开始：**组合现有的首次扫描与恢复扫描、暂存的位、标记搜索、重置，以及记账结果和帧结果。从历史推出窗口与重置前提。 |
+| `deflateParams` | 需要：块刷新与参数状态 | <a id="readiness-deflateparams"></a> **组合：**实际刷新旧块、处理返回码，以及更新规范的调参表行。在彻底完成之前，先核对拒绝时状态是否原样保持。 |
+| `inflateSync` | 需要：扫描与历史 | <a id="readiness-inflatesync"></a> **开始：**组合现有的首次扫描与恢复扫描、暂存的位、标记搜索、重置，以及记账结果和帧结果。从历史推出窗口与重置前提。 |
 | `compress2_z`, `compress2`, `compress_z`, `compress` | 需要：压缩器执行 | <a id="readiness-compress2-z"></a> **开始：**参数、标量长度和清理。**组合：**实际的初始化、压缩和结束，连同精确的输出，然后是各包装函数。抽象的往返性质还不够。 |
 | `uncompress2_z`, `uncompress2`, `uncompress_z`, `uncompress` | 需要：解码器执行 | <a id="readiness-uncompress2-z"></a> **开始：**标量结果、空间不足和清理。**组合：**实际的初始化、解压和结束，精确的消耗量和输出，然后是各包装函数。 |
 | `inflate_sequence`, `deflate_sequence`, `inflate_back_sequence`, `gz_sequence` | 需要：执行与格式 | <a id="readiness-inflate-sequence"></a> **组合：**每次调用实际的安全性、历史的保持、独立的格式细化，以及跨输入输出切分的完成性质。 |
