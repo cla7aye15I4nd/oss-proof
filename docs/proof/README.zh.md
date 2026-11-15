@@ -1,4 +1,4 @@
-<!-- source-sha256: 3f35d7c38af0dc9cc6be5caa7fbecb6c126318b30646dee79109df86502b5299 -->
+<!-- source-sha256: 274d2e20cbe35a67540a69284a0f8706d01d07abb41061448cd07f84401ca962 -->
 # 证明参考：组件、页面、定理
 
 本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理，定理在哪里，处于哪个层级。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
@@ -60,12 +60,12 @@ deflateEnd(&strm);
 | `inflate.c` | [流式解码](inflate.md) | 序列定理：`inflate_sequence_safety_public`。每个函数一条：`inflate_safety` 和另外九条。此外有 `inflateInit__safety`、`inflateInit2__safety`、`inflateCopy_safety`、`inflate_refusal`，以及非空性定理 `inflate_initialisation_domain_public` | `public-inflate-sequence-safety.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-inflate-copy-safety.lean`、`public-stream-refusal.lean`、`public-inflate-init.lean` |
 | `deflate.c` | [流式压缩](deflate.md) | 序列定理：`deflate_sequence_safety`。每个函数一条：`deflate_safety` 和另外十二条。此外有 `deflateInit__safety`、`deflateInit2__safety`、`deflate_copy_safety`、`deflate_refusal`，以及非空性定理 `deflate_initialisation_domain_public` | `public-deflate-goals.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-deflate-copy.lean`、`public-stream-refusal.lean`、`public-deflate-init-domain.lean` |
 | `trees.c` | [树与块输出](trees.md) | 没有公开函数。它的引理服务于 `deflate_sequence_safety`。已登记的有：`tinyOverlayAt_256`、`tinyOverlayAt_128`（最小的两个 `memLevel` 下共用缓冲区的界）、`gen_bitlen_safe`、`pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`、`trees.c.heap.*.lean` |
-| `infback.c` | [回调解码器](callbacks.md) | 序列定理：`inflate_back_sequence_safety`。非空性：`back_init_domain_public` | `infback.c.safety-fast.lean`、`public-infback-init.lean` |
-| `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c` | [Gzip 文件](gzip.md) | 序列定理：`gz_sequence_safety_public`。`NULL` 句柄：`gz_refusal`。非空性：`gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`、`public-gz-refusal.lean`、`public-gz-sequence-nonvacuity.lean` |
+| `infback.c` | [回调解码器](callbacks.md) | 序列定理：`inflate_back_sequence_safety`。每个函数一条：`inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety`。非空性：`back_init_domain_public` | `infback.c.safety-fast.lean`、`public-back-safety.lean`、`public-infback-init.lean` |
+| `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c` | [Gzip 文件](gzip.md) | 序列定理：`gz_sequence_safety_public`。每个函数一条：`gzread_safety` 以及另外 31 条。`NULL` 句柄：`gz_refusal`。非空性：`gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`、`public-gz-call-safety.lean`、`public-gz-refusal.lean`、`public-gz-sequence-nonvacuity.lean` |
 | `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`；两个上界函数的定理与函数同名：`compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
 | `uncompr.c` | [`uncompress*` 的安全性](uncompress-safety.md) | `uncompress_safe`、`uncompress_z_safe`、`uncompress2_safe`、`uncompress2_z_safe` | `public-uncompress-safe.lean` |
 
-31 个 gz 函数和三个 `inflateBack` 函数的安全性，是通过各自的序列定理证明的。它们还没有单独的、针对一个函数的安全目标。这不是未完成的证明：序列目标覆盖了这些函数的每一次调用，清单文件 `tests/audit/public-api.json` 也把序列目标写作它们每一个的安全目标。
+31 个 gz 函数、`gzvprintf` 和三个 `inflateBack` 函数，也各有一条单函数的安全定理。它把所属一族的序列定理用到一个函数的调用上，并且包括这个函数的拒绝：对接受句柄的 gz 函数是 `NULL` 句柄；对 `inflateBack` 和 `inflateBackEnd` 是 `NULL` 流和状态为 `NULL` 的流记录，对 `inflateBackEnd` 还有 `zfree` 为 `NULL`。`inflateBackInit_` 的定理覆盖 `zlib.h` 允许的每一次调用，不需要历史。
 
 `trees.c` 页面解释的引理中，有一些已检查而未登记，其中包括 `memLevel` 为 3 到 9 时共用缓冲区的界（`dynamic_overlay_mid`、`dynamic_overlay_large`）。每条引理的层级见[树](trees.md#results)页面。
 

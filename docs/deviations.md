@@ -214,10 +214,10 @@ the state check tests the two allocator fields before it reads `state`.
 
 **Callback decoder: `inflateBackInit`, `inflateBack`, `inflateBackEnd`**
 
-- At `inflateBackInit`: `zalloc` and `zfree` are `Z_NULL` and the `state` field of the `z_stream`
-  is `NULL`; `windowBits` is 8 to 15; `window` is not `NULL`, is writable for `2^windowBits`
-  bytes, and is a byte array or part of one, not a byte field inside a structure (`InitDomain`,
-  `BackSafeReachable.init`).
+- At `inflateBackInit`: `zalloc` and `zfree` are `Z_NULL`; `windowBits` is 8 to 15; `window` is
+  not `NULL`, is writable for `2^windowBits` bytes, and is a byte array or part of one, not a
+  byte field inside a structure (`BackInitArguments`, `BackSafeReachable.init`). The `state`
+  field of the `z_stream` may hold any value.
 - At each `inflateBack` call, `strm->next_in` is `NULL`, or points to `avail_in` readable bytes
   that do not overlap the window and that are a byte array or part of one (`BackFirstChunk`).
 - Your `in` and `out` functions return, write only memory of your own, and do not write the
@@ -295,7 +295,7 @@ apart; the goals state the separation as a hypothesis.
 
 | Premise | What it asks | Goals | Outside the premise |
 | --- | --- | --- | --- |
-| Stream initialisation (`InitArguments`) | `strm` is `NULL`, or a readable record whose `zalloc` and `zfree` are each `NULL` or the default function (`DefaultOrNull`). `version` is `NULL` or readable for its first byte. The heap is well formed ([model limits](model-limits.md#conditions-on-the-model-that-goals-state)). The other fields of the record, `state` included, the first byte of `version` and `stream_size` are arbitrary. | `Goal.inflateInit2__safety`, `Goal.inflateInit__safety`, `Goal.deflateInit2__safety`, `Goal.deflateInit__safety` | Only `DefaultOrNull` is narrower than `zlib.h`. A wrong version, a wrong `stream_size` and a `NULL` stream are inside the goals: the call returns an error code and leaves no block behind (`InitResultSafe`). See [note 1](#note-1-init-and-unset-fields). |
+| Stream initialisation (`InitArguments`) | `strm` is `NULL`, or a readable record whose `zalloc` and `zfree` are each `NULL` or the default function (`DefaultOrNull`). `version` is `NULL` or readable for its first byte. The heap is well formed ([model limits](model-limits.md#conditions-on-the-model-that-goals-state)). The other fields of the record, `state` included, the first byte of `version` and `stream_size` are arbitrary. `Goal.inflateBackInit__safety` asks one thing more, which `zlib.h` asks as well: a non-`NULL` window with `windowBits` 8 to 15 is writable for `2^windowBits` bytes. | `Goal.inflateInit2__safety`, `Goal.inflateInit__safety`, `Goal.deflateInit2__safety`, `Goal.deflateInit__safety`, `Goal.inflateBackInit__safety` | Only `DefaultOrNull` is narrower than `zlib.h`. A wrong version, a wrong `stream_size` and a `NULL` stream are inside the goals: the call returns an error code and leaves no block behind (`InitResultSafe`). See [note 1](#note-1-init-and-unset-fields). |
 | First call of a history (`StreamReachable.inflateInit`, `.deflateInit`) | A history starts at an init call that returned `Z_OK`, on a readable record with `DefaultOrNull`, a `version` whose first byte is `'1'`, and `stream_size = 112`. | Both sequence goals, and every one-function stream goal through `StreamReachable` | Not a narrowing: these are the conditions under which the C returns `Z_OK`, apart from `DefaultOrNull`. There is no clause on `state`. |
 | Stream buffers (`StreamBuffers`) | The input range (`next_in`, `avail_in`) and the output range (`next_out`, `avail_out`) are separate, and neither lies in storage the stream owns. Each range is `NULL` or readable, and the output range is writable. | `Goal.inflate_safety`, `Goal.deflate_safety`, `Goal.deflateParams_safety`, and these calls in both sequence goals (`StreamArguments`). The functional `Goal.inflate` and `Goal.deflate` assume it too. | A call whose input overlaps its output, or whose buffers lie inside the stream's own state, is not covered. |
 | Caller edits between calls (`Rebuffer`) | Between two calls of a history the caller changes only `next_in`, `avail_in`, `next_out` and `avail_out` of the stream record, and memory the stream does not own. | Both sequence goals; every one-function stream goal through `StreamReachable` | This is `zlib.h`'s rule: the application updates the buffer fields, and all other fields "must not be updated by the application". A history in which the caller writes another field of the record, or a block the stream owns, is outside. |
@@ -327,17 +327,18 @@ apart; the goals state the separation as a hypothesis.
 In C, the fields that the caller of `inflateInit` leaves unset hold indeterminate values. The
 model has no such value. An unset integer field has an arbitrary value, and an unset pointer
 field has some value the model can express: `NULL` or a reference to a model object. The four
-init goals hold for every such value, because `InitArguments` constrains only `zalloc` and
-`zfree`. The C agrees with this reading: the init functions assign `strm->state` and do not read
+init goals and `Goal.inflateBackInit__safety` hold for every such value, because `InitArguments`
+constrains only `zalloc` and `zfree`. The C agrees with this reading: the init functions assign `strm->state` and do not read
 it. That the model has no "uninitialised pointer" value is a limit of the model
 ([trusted base](trusted-base.md), item 2).
 
-Two other statements keep a clause `state = NULL` before init, through the predicate
-`InitDomain`. The non-vacuity goals `Goal.inflate_initialisation_domain`,
+The three non-vacuity goals of the stream families keep a clause `state = NULL` before init,
+through the predicate `InitDomain`. `Goal.inflate_initialisation_domain`,
 `Goal.deflate_initialisation_domain` and `Goal.inflate_back_initialisation_domain` say that init
 returns `Z_OK` on every such heap when no allocation fails; the clause narrows no safety goal
-there. The first call of a callback-decoder history (`BackSafeReachable.init`) has it as a
-premise ([callback decoder](#callback-decoder)).
+there. The first call of a callback-decoder history (`BackSafeReachable.init`) does not have the
+clause: its premise is `BackInitArguments`, which is `InitDomain` without it
+([callback decoder](#callback-decoder)).
 
 ### Note 2: refused streams
 
@@ -395,11 +396,16 @@ with it when it lands.
 
 ## Callback decoder
 
-`Goal.inflate_back_sequence_safety` holds on the histories of `BackSafeReachable`.
+`Goal.inflate_back_sequence_safety` holds on the histories of `BackSafeReachable`. So do the
+history clauses of `Goal.inflateBack_safety` and `Goal.inflateBackEnd_safety`, which repeat
+clauses of the sequence goal: every row below that names the sequence goal holds for those two
+goals as well. `Goal.inflateBackInit__safety` has none of these premises. It covers every call
+`zlib.h` allows (`InitArguments`); its only premise that `zlib.h` does not state is the default
+allocator ([row "Initial configuration"](#build-and-platform)).
 
 | Premise | What it asks | Goals | Outside the premise |
 | --- | --- | --- | --- |
-| Callback decoder init (`InitDomain` in `BackSafeReachable.init`) | The stream record is readable; `zalloc` and `zfree` are each `NULL` or the default function; the record's `state` field is `NULL`; `version` points to a readable byte `'1'`; `stream_size = 112`; the call returned `Z_OK`. | `Goal.inflate_back_sequence_safety` | `zlib.h` does not ask for a `NULL` `state`, and the C overwrites `state` without reading it. A history whose `z_stream` had a non-`NULL` `state` before `inflateBackInit_` is outside the sequence goal. The registered functional goal `Goal.inflateBackInit_` has no such clause: it covers the init call for every `state`, with the refusals. |
+| Callback decoder init (`BackInitArguments` in `BackSafeReachable.init`) | The stream record is readable; `zalloc` and `zfree` are each `NULL` or the default function; `version` points to a readable byte `'1'`; `stream_size = 112`; the call returned `Z_OK`. The record's other fields, `state` included, may hold any value. | `Goal.inflate_back_sequence_safety` | Nothing that `zlib.h` allows, apart from a custom allocator. A call with another version byte or another `stream_size` returns `Z_VERSION_ERROR` (the registered functional goal `Goal.inflateBackInit_`), so it starts no history. An init call that fails or is refused is not a step of a history; its safety is `Goal.inflateBackInit__safety`. |
 | Callbacks (`CallbackProtocol`) | The caller supplies a protocol for its `in` and `out` functions; the list below gives its clauses. | `Goal.inflate_back_sequence_safety` | These are contracts of caller code, not assumed library contracts, and stay explicit. Descriptor objects may share the window allocation outside the slice. |
 | Caller edits between calls (`BackSafeReachable.caller`) | Between two calls a caller edit is a `Rebuffer` (row "Caller edits between calls") that keeps the window slice and the read-only flag of every block that stays live. | `Goal.inflate_back_sequence_safety` | C code cannot change a read-only flag, so that clause excludes no C caller. The window clause does exclude callers: a history in which the caller writes the window slice between two `inflateBack` calls is outside. When the window pointer is at offset 0 of its block, the stream owns that block in the model (`InflateOwned`), and `Rebuffer` then keeps the whole block between calls, not only the slice. `inflateBack` sets `state->whave = 0` at the start of each call, so the C appears not to read earlier window bytes (**to confirm**); `zlib.h` does not forbid such a write. |
 | Callback input total | `protocol.inputBound < 2^48`: one `inflateBack` call is offered fewer than `2^48` input bytes in all. The total counts the first chunk (`next_in`, `avail_in` at the call) and every chunk the `in` calls hand out. | `Goal.inflate_back_sequence_safety` | `zlib.h` puts no limit on the total input of one call. The runtime bounds every loop by `2^64` iterations ([model limits](model-limits.md#conditions-on-the-model-that-goals-state)), and each round of the decoding loop reads at least one bit, so a call offered more input could exhaust the fuel where C would continue. `2^48` bytes is far above any input a call can process in practice. The functional `Goal.inflateBack`, which is not planned and not proved, has no such premise. |
@@ -428,7 +434,10 @@ window, and the invariant holds on the heap on which `inflateBack` is called.
 ## Gzip file interface
 
 `Goal.gz_sequence_safety` holds on every history of one handle (`GzHistory`), for every
-file-system world. It is stated for the patched source ([patches](../patches/README.md) 0002 to
+file-system world. The safety goal of each gz function (`Goal.<function>_safety`) restricts one
+clause of it to that function, with the same premises: a row below that names
+`Goal.gz_sequence_safety` holds for the goals of the functions it is about. They are stated for
+the patched source ([patches](../patches/README.md) 0002 to
 0005). The gz world is trusted semantics beside the heap: the
 [external-I/O model](design/external-io.md) describes it, and the [trusted base](trusted-base.md)
 says what is assumed of it.

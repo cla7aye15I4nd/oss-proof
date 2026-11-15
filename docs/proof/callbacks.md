@@ -15,18 +15,28 @@ Terms: [glossary](../glossary.md).
 | --- | --- | --- |
 | `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Public/Sequences.lean`) | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
 | `Goal.inflate_back_initialisation_domain` (`ZlibF/Spec/Public/Domains.lean`) | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflateBackInit__safety`, `Goal.inflateBack_safety`, `Goal.inflateBackEnd_safety` (`ZlibF/Spec/Safety/Back.lean`) | `BackSafetyProof.inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
-Both are required: the first is the safety result, the second shows that its premises can be
-met. They are [registered](../checking/README.md) in `tests/audit/theorems.txt` and
-[accepted](../checking/README.md) on commit `bde170e9`.
+All five are required. The first is the safety result over histories, and the second shows that
+its premises can be met. The last three are the safety goals of the three functions. All five
+are [registered](../checking/README.md) in `tests/audit/theorems.txt`. The non-vacuity goal is
+[accepted](../checking/README.md) on commit `bde170e9`. The sequence goal is accepted there in
+an earlier form, whose histories asked for a `NULL` `state` field before `inflateBackInit_`. For
+its present form and for the three one-function goals, acceptance is pending
+([progress, Scope](../progress.md#scope)).
 
-The three functions `inflateBackInit_`, `inflateBack` and `inflateBackEnd` are proved safe
-through the sequence goal. None has a one-function safety goal: the manifest
-`tests/audit/public-api.json` names `Goal.inflate_back_sequence_safety` as the safety goal of
-each, and `tests/audit/goals.txt` lists no other safety goal for them
-([progress, Scope](../progress.md#scope)). Each also has a functional contract
-(`Goal.inflateBackInit_`, `Goal.inflateBack`, `Goal.inflateBackEnd`). These contracts are not
-required; [the last section](#functional-results-that-stay) says which are proved.
+The one-function goals follow from the results of this page:
+
+- `Goal.inflateBack_safety` is clauses 1 and 3 of the sequence goal, with one more refusal: a
+  stream record whose state is `NULL` (`inflateBack_nostate`).
+- `Goal.inflateBackEnd_safety` is clause 4 of the sequence goal, with the refusals of a `NULL`
+  stream and of a stream record whose state or `zfree` is `NULL` (from `back_end_public`).
+- `Goal.inflateBackInit__safety` is the init call on every argument `zlib.h` allows
+  (`InitArguments`), with no history. It follows from the functional theorem `back_init_public`.
+
+Each function also has a functional contract (`Goal.inflateBackInit_`, `Goal.inflateBack`,
+`Goal.inflateBackEnd`). These contracts are not required;
+[the last section](#functional-results-that-stay) says which are proved.
 
 `Goal.inflate_back_sequence_safety` has four clauses.
 
@@ -115,19 +125,20 @@ its own theorem.
 
 | Premise | Where | Row in [deviations](../deviations.md#callback-decoder) |
 | --- | --- | --- |
-| Before `inflateBackInit_`: the heap is well formed (`Fresh`, `Uniq`, `LibraryGlobals`); `version` points to a readable byte `'1'`; the stream record is readable; its `zalloc` and `zfree` are each `NULL` or the default function; its `state` field is `NULL`. The call has `stream_size = 112` and returned `Z_OK`. `zlib.h` does not ask for a `NULL` `state`, so this row is narrower than `zlib.h`. | `InitDomain` in `BackSafeReachable.init` | Callback decoder init |
+| Before `inflateBackInit_`: the heap is well formed (`Fresh`, `Uniq`, `LibraryGlobals`); `version` points to a readable byte `'1'`; the stream record is readable; its `zalloc` and `zfree` are each `NULL` or the default function. Its other fields, `state` included, may hold any value. The call has `stream_size = 112` and returned `Z_OK`; a call with another version byte or size does not return `Z_OK` (`back_init_public`). | `BackInitArguments` in `BackSafeReachable.init` | Callback decoder init |
 | The callbacks follow a `CallbackProtocol` (next section), and its invariant holds when `inflateBack` is called. | the `protocol` argument | Callbacks |
 | One call is offered fewer than `2^48` bytes in the caller's first chunk and all its `in` calls together. | `protocol.inputBound < 2^48`, with `bounded` | Callback input total |
 | `8 ≤ windowBits ≤ 15`, and the window is not `NULL`, is writable for `2^windowBits` bytes and is a slice of a heap byte block. | `BackSafeReachable.init` | Callback decoder window |
 | Every input chunk lies in a heap byte block: the caller's first chunk and each chunk `in` hands out. | `BackFirstChunk`, `BackPlatform` | Callback decoder input chunks |
 | Every byte object has fewer than `2^63` bytes at each call and after each callback step. | `ByteObjectsFit`, `BackPlatform` | Platform byte-object scope |
-| The stream uses the default allocator, or `NULL` allocator fields that init replaces. | `BackValid`, `InitDomain` | Initial configuration |
+| The stream uses the default allocator, or `NULL` allocator fields that init replaces. | `BackValid`, `BackInitArguments` | Initial configuration |
 | The caller's first input chunk is readable and separate from the window: `strm->avail_in` bytes at `strm->next_in`, or no bytes when `strm->next_in` is `NULL`. | `Bytes` and `Separate` in clause 3 | Callbacks |
 | Between two calls the caller changes only memory the stream does not own and the four buffer fields of the stream record. The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. | `BackSafeReachable.caller` | Caller edits between calls (`BackSafeReachable.caller`) |
 
-The complete list is the statement itself: `Goal.inflate_back_sequence_safety` and
-`BackSafeReachable` in `ZlibF/Spec/Public/Sequences.lean`, with `InitDomain` in
-`ZlibF/Spec/Public/Domains.lean`.
+The complete list is the statement itself: `Goal.inflate_back_sequence_safety`,
+`BackSafeReachable` and `BackInitArguments` in `ZlibF/Spec/Public/Sequences.lean`. The premises
+of this table are also those of the history clauses of `Goal.inflateBack_safety` and
+`Goal.inflateBackEnd_safety`.
 
 ### Why a bound on the input
 
@@ -179,7 +190,7 @@ the stream `r` with state block `i` over the caller's window of `n` bytes.
 
 | Constructor | Step |
 | --- | --- |
-| `init` | A successful `inflateBackInit_` from caller storage in `InitDomain` (the `state` field of the stream record is `NULL`), with `stream_size = 112`, `8 ≤ windowBits ≤ 15` and a non-`NULL` writable window in a heap byte block. |
+| `init` | A successful `inflateBackInit_` from caller storage in `BackInitArguments` (the `state` field of the stream record may hold any value), with `stream_size = 112`, `8 ≤ windowBits ≤ 15` and a non-`NULL` writable window in a heap byte block. |
 | `caller` | The caller changes memory the stream does not own and the four buffer fields of the stream record (`Rebuffer`). The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. |
 | `step` | An `inflateBack` call that returned. Its first chunk was readable and separate from the window, the protocol's invariant held at the call, and the platform premises held (`ByteObjectsFit` at the call, `BackPlatform`, `BackFirstChunk`). |
 
@@ -314,12 +325,14 @@ registered.
 
 - `Goal.inflateBackInit_` (`back_init_public`) and `Goal.inflateBackEnd` (`back_end_public`):
   the full contracts of the two lifecycle functions. Clause 4 of the safety goal uses
-  `back_end_public`.
+  `back_end_public`. The refusal clauses of `Goal.inflateBackEnd_safety` and the whole of
+  `Goal.inflateBackInit__safety` are derived from these two theorems.
 
 Registered theorems that are not goals:
 
 - Branch results of `inflateBack`: the `NULL` stream, the missing state, and input that ends
-  at once (`inflateBack_eof`, `ZlibF/Proof/infback.c.back.lean`).
+  at once (`inflateBack_eof`, `ZlibF/Proof/infback.c.back.lean`). The first two are also clauses
+  of `Goal.inflateBack_safety`.
 
 Not proved, and not needed by the safety results: `Goal.inflateBack` and
 `Goal.inflate_back_sequence`. They also state what reaches `out` (the decoding clauses).

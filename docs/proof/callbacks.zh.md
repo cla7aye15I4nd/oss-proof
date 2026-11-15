@@ -1,4 +1,4 @@
-<!-- source-sha256: 89a7b9a106ebedfdac70fa9ed21a1cdfe877e4deb1f13c9f12f703887109822e -->
+<!-- source-sha256: dd4305b2d85e4e6fdf54d0b17f9ee31784e6fa0234a263f2680774ddb71c85b0 -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -13,13 +13,20 @@
 | --- | --- | --- |
 | `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Public/Sequences.lean`） | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
 | `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Public/Domains.lean`） | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflateBackInit__safety`、`Goal.inflateBack_safety`、`Goal.inflateBackEnd_safety`（`ZlibF/Spec/Safety/Back.lean`） | `BackSafetyProof.inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
-两者都是必需的：第一个是安全结论，第二个表明它的前提可以被满足。它们[已登记](../checking/README.md)在
-`tests/audit/theorems.txt` 中，并已在提交 `bde170e9` 上[验收](../checking/README.md)。
+五个都是必需的。第一个是关于历史的安全结论，第二个表明它的前提可以被满足。后三个是三个函数各自的安全目标。
+五个都[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中。非空性目标已在提交 `bde170e9`
+上[验收](../checking/README.md)。序列目标在该提交上验收的是早先的形式，那时它的历史要求 `inflateBackInit_` 之前
+`state` 字段为 `NULL`。它的现行形式和三个单函数目标，验收待完成（[进度，范围](../progress.md#scope)）。
 
-`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 这三个函数的安全性由序列目标证明。它们都没有单函数的安全目标：清单文件
-`tests/audit/public-api.json` 把 `Goal.inflate_back_sequence_safety` 列为它们各自的安全目标，`tests/audit/goals.txt`
-也没有为它们列出别的安全目标（[进度，范围](../progress.md#scope)）。每个函数另有一个功能契约（`Goal.inflateBackInit_`、`Goal.inflateBack`、`Goal.inflateBackEnd`）。这些契约不是必需的；哪些已经证明，见[最后一节](#functional-results-that-stay)。
+单函数目标由本页的结论推出：
+
+- `Goal.inflateBack_safety` 是序列目标的子句 1 和子句 3，再加一种拒绝：状态为 `NULL` 的流记录（`inflateBack_nostate`）。
+- `Goal.inflateBackEnd_safety` 是序列目标的子句 4，再加对 `NULL` 流以及对状态或 `zfree` 为 `NULL` 的流记录的拒绝（来自 `back_end_public`）。
+- `Goal.inflateBackInit__safety` 是初始化调用在 `zlib.h` 允许的每组参数上的安全（`InitArguments`），不需要历史。它由功能定理 `back_init_public` 推出。
+
+每个函数另有一个功能契约（`Goal.inflateBackInit_`、`Goal.inflateBack`、`Goal.inflateBackEnd`）。这些契约不是必需的；哪些已经证明，见[最后一节](#functional-results-that-stay)。
 
 `Goal.inflate_back_sequence_safety` 有四个子句。
 
@@ -96,18 +103,19 @@ sequenceDiagram
 
 | 前提 | 位置 | [偏离记录](../deviations.md#callback-decoder)中的行 |
 | --- | --- | --- |
-| 在 `inflateBackInit_` 之前：堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`）；`version` 指向一个可读的字节 `'1'`；流记录可读；它的 `zalloc` 和 `zfree` 各自是 `NULL` 或默认函数；它的 `state` 字段是 `NULL`。这次调用的 `stream_size = 112`，并且返回了 `Z_OK`。`zlib.h` 不要求 `state` 为 `NULL`，所以这一行比 `zlib.h` 窄。 | `BackSafeReachable.init` 中的 `InitDomain` | 回调解码器的初始化 |
+| 在 `inflateBackInit_` 之前：堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`）；`version` 指向一个可读的字节 `'1'`；流记录可读；它的 `zalloc` 和 `zfree` 各自是 `NULL` 或默认函数。它的其他字段（包括 `state`）可以取任意值。这次调用的 `stream_size = 112`，并且返回了 `Z_OK`；版本字节或大小不同的调用不会返回 `Z_OK`（`back_init_public`）。 | `BackSafeReachable.init` 中的 `BackInitArguments` | 回调解码器的初始化 |
 | 回调遵守一个 `CallbackProtocol`（下一节），并且它的不变量在调用 `inflateBack` 时成立。 | 参数 `protocol` | 回调 |
 | 一次调用得到的字节，把调用者的第一个片段和它所有的 `in` 调用合在一起，总共少于 `2^48`。 | `protocol.inputBound < 2^48`，连同 `bounded` | 回调输入总量 |
 | `8 ≤ windowBits ≤ 15`，窗口不是 `NULL`，有 `2^windowBits` 个可写字节，并且是一个堆字节块的切片。 | `BackSafeReachable.init` | 回调解码器窗口 |
 | 每个输入片段都在一个堆字节块中：调用者的第一个片段，以及 `in` 交出的每个片段。 | `BackFirstChunk`、`BackPlatform` | 回调解码器输入片段 |
 | 在每次调用时和每个回调步骤之后，每个字节对象少于 `2^63` 字节。 | `ByteObjectsFit`、`BackPlatform` | 平台字节对象范围 |
-| 流使用默认分配器，或者分配器字段为 `NULL`，由初始化替换。 | `BackValid`、`InitDomain` | 初始配置 |
+| 流使用默认分配器，或者分配器字段为 `NULL`，由初始化替换。 | `BackValid`、`BackInitArguments` | 初始配置 |
 | 调用者的第一个输入片段可读，并且与窗口分离：它是 `strm->next_in` 处的 `strm->avail_in` 个字节；`strm->next_in` 为 `NULL` 时没有字节。 | 子句 3 中的 `Bytes` 和 `Separate` | 回调 |
 | 在两次调用之间，调用者只改动流不拥有的内存和流记录的四个缓冲区字段。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 | `BackSafeReachable.caller` | 调用之间调用者的修改（`BackSafeReachable.caller`） |
 
-完整的列表就是命题本身：`ZlibF/Spec/Public/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety` 和
-`BackSafeReachable`，以及 `ZlibF/Spec/Public/Domains.lean` 中的 `InitDomain`。
+完整的列表就是命题本身：`ZlibF/Spec/Public/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety`、
+`BackSafeReachable` 和 `BackInitArguments`。这张表里的前提，也是 `Goal.inflateBack_safety` 和
+`Goal.inflateBackEnd_safety` 中关于历史的子句的前提。
 
 ### 为什么要给输入设界
 
@@ -149,7 +157,7 @@ sequenceDiagram
 
 | 构造子 | 步骤 |
 | --- | --- |
-| `init` | 一次成功的 `inflateBackInit_`，出发的调用者存储满足 `InitDomain`（流记录的 `state` 字段是 `NULL`），其中 `stream_size = 112`，`8 ≤ windowBits ≤ 15`，窗口不是 `NULL`、可写，并且在一个堆字节块中。 |
+| `init` | 一次成功的 `inflateBackInit_`，出发的调用者存储满足 `BackInitArguments`（流记录的 `state` 字段可以取任意值），其中 `stream_size = 112`，`8 ≤ windowBits ≤ 15`，窗口不是 `NULL`、可写，并且在一个堆字节块中。 |
 | `caller` | 调用者改动流不拥有的内存和流记录的四个缓冲区字段（`Rebuffer`）。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 |
 | `step` | 一次已返回的 `inflateBack` 调用。它的第一个片段可读并且与窗口分离，协议的不变量在调用时成立，平台前提也成立（调用时的 `ByteObjectsFit`、`BackPlatform`、`BackFirstChunk`）。 |
 
@@ -253,11 +261,11 @@ flowchart TD
 把这四个中的两个列为已证明；它们的定理已登记。
 
 - `Goal.inflateBackInit_`（`back_init_public`）和
-  `Goal.inflateBackEnd`（`back_end_public`）：两个生命周期函数的完整契约。安全目标的子句 4 使用 `back_end_public`。
+  `Goal.inflateBackEnd`（`back_end_public`）：两个生命周期函数的完整契约。安全目标的子句 4 使用 `back_end_public`。`Goal.inflateBackEnd_safety` 的拒绝子句和整个 `Goal.inflateBackInit__safety` 都由这两条定理推出。
 
 已登记但不是目标的定理：
 
-- `inflateBack` 的分支结论：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`，`ZlibF/Proof/infback.c.back.lean`）。
+- `inflateBack` 的分支结论：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`，`ZlibF/Proof/infback.c.back.lean`）。前两个同时也是 `Goal.inflateBack_safety` 的子句。
 
 未证明，安全结论也用不到的：`Goal.inflateBack` 和 `Goal.inflate_back_sequence`。它们还说明到达 `out`
 的是什么（解码子句）。

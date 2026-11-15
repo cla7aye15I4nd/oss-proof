@@ -1,4 +1,4 @@
-<!-- source-sha256: 8f2576c4d49160a354a8155c3204d98911b64a0cdbecf8f09019e3817e0a296c -->
+<!-- source-sha256: 63ce9950cd1b83ca2cf4405613024eccec22e6e385571a5f5c6990ecd43ad27d -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -119,7 +119,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 **回调解码器：`inflateBackInit`、`inflateBack`、`inflateBackEnd`**
 
-- 调用 `inflateBackInit` 时：`zalloc` 和 `zfree` 是 `Z_NULL`，`z_stream` 的 `state` 字段是 `NULL`；`windowBits` 在 8 到 15 之间；`window` 不是 `NULL`，有 `2^windowBits` 个可写字节，并且是一个字节数组或其中一段，而不是结构体里的字节字段（`InitDomain`、`BackSafeReachable.init`）。
+- 调用 `inflateBackInit` 时：`zalloc` 和 `zfree` 是 `Z_NULL`；`windowBits` 在 8 到 15 之间；`window` 不是 `NULL`，有 `2^windowBits` 个可写字节，并且是一个字节数组或其中一段，而不是结构体里的字节字段（`BackInitArguments`、`BackSafeReachable.init`）。`z_stream` 的 `state` 字段可以取任意值。
 - 每次调用 `inflateBack` 时，`strm->next_in` 是 `NULL`，或者指向 `avail_in` 个可读字节；这些字节不与窗口重叠，并且是一个字节数组或其中一段（`BackFirstChunk`）。
 - 你的 `in` 和 `out` 函数会返回，只写你自己的内存，不写窗口、`z_stream` 和 zlib 的状态。`in` 交出的每个片段都可读，是一个字节数组或其中一段，不与窗口重叠，并且在下一次 `in` 调用之前保持可读（`CallbackProtocol`、`BackPlatform`）。
 - 一次 `inflateBack` 调用总共得到的输入少于 2^48 字节，第一个片段也算在内（`inputBound`）。
@@ -164,7 +164,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 | 前提 | 要求什么 | 目标 | 前提之外 |
 | --- | --- | --- | --- |
-| 流的初始化（`InitArguments`） | `strm` 是 `NULL`，或者是一个可读的记录，其 `zalloc` 与 `zfree` 各自是 `NULL` 或默认函数（`DefaultOrNull`）。`version` 是 `NULL`，或其第一个字节可读。堆是良构的（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)）。记录的其他字段（包括 `state`）、`version` 的第一个字节和 `stream_size` 都是任意的。 | `Goal.inflateInit2__safety`、`Goal.inflateInit__safety`、`Goal.deflateInit2__safety`、`Goal.deflateInit__safety` | 只有 `DefaultOrNull` 比 `zlib.h` 更窄。错误的版本、错误的 `stream_size` 和 `NULL` 流都在这些目标之内：调用返回错误码，不留下任何块（`InitResultSafe`）。见[注 1](#note-1-init-and-unset-fields)。 |
+| 流的初始化（`InitArguments`） | `strm` 是 `NULL`，或者是一个可读的记录，其 `zalloc` 与 `zfree` 各自是 `NULL` 或默认函数（`DefaultOrNull`）。`version` 是 `NULL`，或其第一个字节可读。堆是良构的（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)）。记录的其他字段（包括 `state`）、`version` 的第一个字节和 `stream_size` 都是任意的。`Goal.inflateBackInit__safety` 多一条要求，`zlib.h` 同样有这条要求：窗口非 `NULL` 且 `windowBits` 为 8 到 15 时，窗口有 `2^windowBits` 个可写字节。 | `Goal.inflateInit2__safety`、`Goal.inflateInit__safety`、`Goal.deflateInit2__safety`、`Goal.deflateInit__safety`、`Goal.inflateBackInit__safety` | 只有 `DefaultOrNull` 比 `zlib.h` 更窄。错误的版本、错误的 `stream_size` 和 `NULL` 流都在这些目标之内：调用返回错误码，不留下任何块（`InitResultSafe`）。见[注 1](#note-1-init-and-unset-fields)。 |
 | 历史的第一次调用（`StreamReachable.inflateInit`、`.deflateInit`） | 一段历史从一次返回 `Z_OK` 的初始化调用开始：记录可读并满足 `DefaultOrNull`，`version` 的第一个字节是 `'1'`，`stream_size = 112`。 | 两个序列目标，以及通过 `StreamReachable` 涉及的每个单函数流目标 | 这不是收窄：除 `DefaultOrNull` 外，这些正是 C 返回 `Z_OK` 的条件。其中没有关于 `state` 的子句。 |
 | 流缓冲区（`StreamBuffers`） | 输入范围（`next_in`、`avail_in`）与输出范围（`next_out`、`avail_out`）互相分离，且都不在流拥有的存储内。每个范围是 `NULL` 或可读，输出范围还须可写。 | `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.deflateParams_safety`，以及两个序列目标中的这些调用（`StreamArguments`）。功能目标 `Goal.inflate` 与 `Goal.deflate` 也假设它。 | 输入与输出重叠的调用，或缓冲区落在流自身状态内的调用，不被覆盖。 |
 | 调用之间调用者的修改（`Rebuffer`） | 在一段历史的两次调用之间，调用者只改变流记录的 `next_in`、`avail_in`、`next_out` 和 `avail_out`，以及流不拥有的内存。 | 两个序列目标；通过 `StreamReachable` 涉及的每个单函数流目标 | 这是 `zlib.h` 的规则：应用程序更新缓冲区字段，其余字段不得由应用程序更新。调用者写了记录的其他字段或流拥有的块，这样的历史在范围之外。 |
@@ -193,9 +193,9 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 ### 注 1：初始化与未设置的字段
 
-在 C 中，`inflateInit` 的调用者没有设置的字段，其值是不确定的。模型里没有这样的值。未设置的整数字段取一个任意的值；未设置的指针字段取模型能够表达的某个值：`NULL`，或对某个模型对象的引用。四个初始化目标对每一个这样的值都成立，因为 `InitArguments` 只约束 `zalloc` 和 `zfree`。C 的行为与这种解读一致：初始化函数给 `strm->state` 赋值，而不读取它。模型里没有“未初始化指针”这种值，这是模型的一处限制（[可信基础](trusted-base.md)第 2 项）。
+在 C 中，`inflateInit` 的调用者没有设置的字段，其值是不确定的。模型里没有这样的值。未设置的整数字段取一个任意的值；未设置的指针字段取模型能够表达的某个值：`NULL`，或对某个模型对象的引用。四个初始化目标和 `Goal.inflateBackInit__safety` 对每一个这样的值都成立，因为 `InitArguments` 只约束 `zalloc` 和 `zfree`。C 的行为与这种解读一致：初始化函数给 `strm->state` 赋值，而不读取它。模型里没有“未初始化指针”这种值，这是模型的一处限制（[可信基础](trusted-base.md)第 2 项）。
 
-另有两处命题通过谓词 `InitDomain` 保留了“初始化之前 `state = NULL`”这一子句。非空性目标 `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` 和 `Goal.inflate_back_initialisation_domain` 说：在每个这样的堆上，只要没有分配失败，初始化就返回 `Z_OK`；这一子句在那里不会收窄任何安全目标。回调解码器历史的第一次调用（`BackSafeReachable.init`）则把它当作前提（[回调解码器](#callback-decoder)）。
+三个流族的非空性目标通过谓词 `InitDomain` 保留了“初始化之前 `state = NULL`”这一子句。`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` 和 `Goal.inflate_back_initialisation_domain` 说：在每个这样的堆上，只要没有分配失败，初始化就返回 `Z_OK`；这一子句在那里不会收窄任何安全目标。回调解码器历史的第一次调用（`BackSafeReachable.init`）没有这一子句：它的前提是 `BackInitArguments`，也就是去掉这一子句的 `InitDomain`（[回调解码器](#callback-decoder)）。
 
 ### 注 2：被拒绝的流
 
@@ -224,11 +224,11 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 ## 回调解码器
 
-`Goal.inflate_back_sequence_safety` 在 `BackSafeReachable` 的历史上成立。
+`Goal.inflate_back_sequence_safety` 在 `BackSafeReachable` 的历史上成立。`Goal.inflateBack_safety` 和 `Goal.inflateBackEnd_safety` 中关于历史的子句也是如此，它们重复了序列目标的子句：下面每一行只要写了序列目标，对这两个目标同样成立。`Goal.inflateBackInit__safety` 没有这些前提。它覆盖 `zlib.h` 允许的每一次调用（`InitArguments`）；它唯一一条 `zlib.h` 没有写出的前提是默认分配器（[“初始配置”一行](#build-and-platform)）。
 
 | 前提 | 要求什么 | 目标 | 前提之外 |
 | --- | --- | --- | --- |
-| 回调解码器的初始化（`BackSafeReachable.init` 中的 `InitDomain`） | 流记录可读；`zalloc` 与 `zfree` 各自是 `NULL` 或默认函数；记录的 `state` 字段是 `NULL`；`version` 指向一个可读的字节 `'1'`；`stream_size = 112`；调用返回了 `Z_OK`。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 不要求 `state` 为 `NULL`，C 也是不读 `state` 就覆盖它。`z_stream` 在 `inflateBackInit_` 之前 `state` 不为 `NULL` 的历史，在这个序列目标之外。已登记的功能目标 `Goal.inflateBackInit_` 没有这一子句：它对每个 `state` 值覆盖初始化调用，连同各种拒绝。 |
+| 回调解码器的初始化（`BackSafeReachable.init` 中的 `BackInitArguments`） | 流记录可读；`zalloc` 与 `zfree` 各自是 `NULL` 或默认函数；`version` 指向一个可读的字节 `'1'`；`stream_size = 112`；调用返回了 `Z_OK`。记录的其他字段（包括 `state`）可以取任意值。 | `Goal.inflate_back_sequence_safety` | 除自定义分配器之外，`zlib.h` 允许的调用都不在前提之外。版本字节不同或 `stream_size` 不同的调用返回 `Z_VERSION_ERROR`（已登记的功能目标 `Goal.inflateBackInit_`），所以它不会开始一段历史。失败或被拒绝的初始化调用不是历史中的一步；它的安全性由 `Goal.inflateBackInit__safety` 给出。 |
 | 回调（`CallbackProtocol`） | 调用者为它的 `in` 和 `out` 函数提供一个协议；各子句见下面的列表。 | `Goal.inflate_back_sequence_safety` | 这些是调用者代码的契约，不是被假设的库契约，并且一直显式写出。描述符对象可以与窗口共用同一次分配中切片以外的部分。 |
 | 调用之间调用者的修改（`BackSafeReachable.caller`） | 两次调用之间，调用者的修改是一次 `Rebuffer`（“调用之间调用者的修改”一行），并且保持窗口切片，以及每个仍存活的块的只读标志。 | `Goal.inflate_back_sequence_safety` | C 代码无法改变只读标志，所以那一子句不排除任何 C 调用者。关于窗口的子句确实排除了一些调用者：调用者在两次 `inflateBack` 调用之间写窗口切片，这样的历史在范围之外。窗口指针位于所在块的偏移 0 处时，模型中这个块归流拥有（`InflateOwned`），于是 `Rebuffer` 在两次调用之间保持的是整个块，而不只是切片。`inflateBack` 在每次调用开始时置 `state->whave = 0`，所以 C 看来不会读取先前的窗口字节（**尚未由证明确认**）；`zlib.h` 并不禁止这样的写入。 |
 | 回调输入总量 | `protocol.inputBound < 2^48`：一次 `inflateBack` 调用总共得到的输入少于 `2^48` 字节。这个总量包括第一个片段（调用时的 `next_in`、`avail_in`）和各次 `in` 调用交出的每个片段。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代以内（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)），而解码循环每轮至少读一个比特，所以输入更多的调用可能在 C 还会继续运行时就耗尽燃料。`2^48` 字节远远超过一次调用实际能处理的输入。功能目标 `Goal.inflateBack`（不在计划内，未证明）没有这条前提。 |
@@ -248,7 +248,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 ## Gzip 文件接口
 
-`Goal.gz_sequence_safety` 在一个句柄的每段历史（`GzHistory`）上、对每个文件系统世界成立。它是针对打过补丁的源码陈述的（[补丁](../patches/README.md) 0002 至 0005）。gz 世界是堆之外的可信语义：[外部 I/O 模型](design/external-io.md)描述它，[可信基础](trusted-base.md)说明对它作了哪些假设。
+`Goal.gz_sequence_safety` 在一个句柄的每段历史（`GzHistory`）上、对每个文件系统世界成立。每个 gz 函数的安全目标（`Goal.<function>_safety`）把它的一个子句限制到这个函数上，前提相同：下面写了 `Goal.gz_sequence_safety` 的行，对该行所说的那些函数的目标同样成立。它们是针对打过补丁的源码陈述的（[补丁](../patches/README.md) 0002 至 0005）。gz 世界是堆之外的可信语义：[外部 I/O 模型](design/external-io.md)描述它，[可信基础](trusted-base.md)说明对它作了哪些假设。
 
 | 前提 | 要求什么 | 目标 | 前提之外 |
 | --- | --- | --- | --- |

@@ -15,19 +15,28 @@ Sources: `gzlib.c`, `gzread.c`, `gzwrite.c`, `gzclose.c`, `gzguts.h` and the `gz
 | `Goal.gz_sequence_safety` (`ZlibF/Spec/Public/GzSafety.lean`) | `gz_sequence_safety_public` | `ZlibF/Proof/public-gz-sequence-safety.lean` |
 | `Goal.gz_refusal` (`ZlibF/Spec/Public/GzRefusal.lean`) | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
 | `Goal.gz_sequence_nonvacuity` (`ZlibF/Spec/Public/GzSafety.lean`) | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
+| `Goal.<function>_safety`, 32 goals (`ZlibF/Spec/Safety/GzCalls.lean`) | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
 
-All three are safety results and are required. They are
-[registered](../checking/README.md) in `tests/audit/theorems.txt` and
-[accepted](../checking/README.md) on commit `bde170e9`.
+All are safety results and are required. They are [registered](../checking/README.md) in
+`tests/audit/theorems.txt`. The first three are [accepted](../checking/README.md) on commit
+`bde170e9`. For the 32 one-function goals, acceptance is pending
+([progress, Scope](../progress.md#scope)).
 
-The 31 documented gz functions are proved safe through the sequence goal. No gz function has a
-one-function safety goal: the manifest `tests/audit/public-api.json` names
-`Goal.gz_sequence_safety` as the safety goal of each of the 31, and `tests/audit/goals.txt`
-lists no other safety goal for them ([progress, Scope](../progress.md#scope)). `gzvprintf`,
-which `zlib.h` lists as undocumented, is also one of the calls the sequence goal covers
-(`GzOperation`); `gzprintf` goes through it. The manifest names no safety goal for it. Each
-function also has a functional contract `Goal.<function>`. These contracts are not required;
-[the last section](#functional-results-that-stay) says which are proved.
+Each of the 31 documented gz functions has its own safety goal, and so has `gzvprintf`, which
+`zlib.h` lists as undocumented and `gzprintf` goes through. Each goal is a clause of the
+sequence goal for the calls of one function:
+
+- a function that takes a handle and does not close it: clause 2, with that function's clause
+  of `Goal.gz_refusal`, so a `NULL` handle is refused with nothing changed.
+  `Goal.gzgetc_safety` also has clause 3, the macro; `Goal.gzerror_safety` also has clause 4,
+  the string it returns;
+- `gzclose`, `gzclose_r` and `gzclose_w`: clause 5, with the refusal of a `NULL` handle;
+- `gzopen` and `gzopen64`: clause 6. `gzdopen`: clause 7.
+
+The proofs apply `gz_sequence_safety_public`; the `NULL` refusals hold by evaluation. So the rest
+of this page, which is about the sequence goal, is also the proof of the one-function goals.
+Each function also has a functional contract `Goal.<function>`. These contracts are not
+required; [the last section](#functional-results-that-stay) says which are proved.
 
 The sequence goal covers a program such as this one. The comments name the clause of the goal
 that covers each call.

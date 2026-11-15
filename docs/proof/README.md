@@ -102,15 +102,17 @@ All modules are under `ZlibF/Proof/`. Every theorem named in this table is regis
 | `inflate.c` | [Stream decoding](inflate.md) | Sequence: `inflate_sequence_safety_public`. One per function: `inflate_safety` and nine more. Also `inflateInit__safety`, `inflateInit2__safety`, `inflateCopy_safety`, `inflate_refusal`, and the non-vacuity theorem `inflate_initialisation_domain_public` | `public-inflate-sequence-safety.lean`, `public-stream-call-safety.lean`, `public-init-safety.lean`, `public-inflate-copy-safety.lean`, `public-stream-refusal.lean`, `public-inflate-init.lean` |
 | `deflate.c` | [Stream compression](deflate.md) | Sequence: `deflate_sequence_safety`. One per function: `deflate_safety` and twelve more. Also `deflateInit__safety`, `deflateInit2__safety`, `deflate_copy_safety`, `deflate_refusal`, and the non-vacuity theorem `deflate_initialisation_domain_public` | `public-deflate-goals.lean`, `public-stream-call-safety.lean`, `public-init-safety.lean`, `public-deflate-copy.lean`, `public-stream-refusal.lean`, `public-deflate-init-domain.lean` |
 | `trees.c` | [Trees and block output](trees.md) | No public function. Its lemmas serve `deflate_sequence_safety`. Registered: `tinyOverlayAt_256`, `tinyOverlayAt_128` (the bound on the shared buffer for the two smallest `memLevel` values), `gen_bitlen_safe`, `pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`, `trees.c.heap.*.lean` |
-| `infback.c` | [Callback decoder](callbacks.md) | Sequence: `inflate_back_sequence_safety`. Non-vacuity: `back_init_domain_public` | `infback.c.safety-fast.lean`, `public-infback-init.lean` |
-| `gzlib.c`, `gzread.c`, `gzwrite.c`, `gzclose.c` | [Gzip files](gzip.md) | Sequence: `gz_sequence_safety_public`. `NULL` handle: `gz_refusal`. Non-vacuity: `gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`, `public-gz-refusal.lean`, `public-gz-sequence-nonvacuity.lean` |
+| `infback.c` | [Callback decoder](callbacks.md) | Sequence: `inflate_back_sequence_safety`. One per function: `inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety`. Non-vacuity: `back_init_domain_public` | `infback.c.safety-fast.lean`, `public-back-safety.lean`, `public-infback-init.lean` |
+| `gzlib.c`, `gzread.c`, `gzwrite.c`, `gzclose.c` | [Gzip files](gzip.md) | Sequence: `gz_sequence_safety_public`. One per function: `gzread_safety` and 31 more. `NULL` handle: `gz_refusal`. Non-vacuity: `gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`, `public-gz-call-safety.lean`, `public-gz-refusal.lean`, `public-gz-sequence-nonvacuity.lean` |
 | `compress.c` | [Safety of `compress*`](compress-safety.md) | `compress_safety`, `compress_z_safety`, `compress2_safety`, `compress2_z_safety`; for the two bound functions, the theorems named `compressBound` and `compressBound_z` like the functions | `public-compress-safe-mid.lean`, `public-compress-bound.lean` |
 | `uncompr.c` | [Safety of `uncompress*`](uncompress-safety.md) | `uncompress_safe`, `uncompress_z_safe`, `uncompress2_safe`, `uncompress2_z_safe` | `public-uncompress-safe.lean` |
 
-The 31 gz functions and the three `inflateBack` functions are proved safe through their
-sequence theorem. They have no separate one-function safety goal yet. This is not an open proof: the
-sequence goals cover every call of these functions, and the manifest
-`tests/audit/public-api.json` names the sequence goal as the safety goal of each of them.
+The 31 gz functions, `gzvprintf` and the three `inflateBack` functions each have a one-function
+safety theorem as well. It applies the sequence theorem of the family to the calls of one
+function, and it includes the refusals of that function: a `NULL` handle for a gz function that
+takes a handle; a `NULL` stream and a stream record with a `NULL` state for `inflateBack` and
+`inflateBackEnd`, and for `inflateBackEnd` also a `NULL` `zfree`. The theorem of
+`inflateBackInit_` covers every call `zlib.h` allows and needs no history.
 
 Some lemmas of `trees.c` that the page explains are checked and not registered, among them the
 bound on the shared buffer for `memLevel` 3 to 9 (`dynamic_overlay_mid`,

@@ -1,4 +1,4 @@
-<!-- source-sha256: 2ede01a9e3cf6cada25993aee14c273cfc609af1459185fb212ec425d94365a6 -->
+<!-- source-sha256: 85531dced0fd5c35ff0aa5e3b61f493f166ede728f8c55769121ff0fd444ce17 -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -14,15 +14,22 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 | `Goal.gz_sequence_safety`（`ZlibF/Spec/Public/GzSafety.lean`） | `gz_sequence_safety_public` | `ZlibF/Proof/public-gz-sequence-safety.lean` |
 | `Goal.gz_refusal`（`ZlibF/Spec/Public/GzRefusal.lean`） | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
 | `Goal.gz_sequence_nonvacuity`（`ZlibF/Spec/Public/GzSafety.lean`） | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
+| `Goal.<function>_safety`，共 32 个目标（`ZlibF/Spec/Safety/GzCalls.lean`） | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
 
-三者都是安全结论，都是必需的。它们[已登记](../checking/README.md)在
-`tests/audit/theorems.txt` 中，并已在提交 `bde170e9` 上[验收](../checking/README.md)。
+它们都是安全结论，都是必需的。它们[已登记](../checking/README.md)在 `tests/audit/theorems.txt` 中。
+前三个已在提交 `bde170e9` 上[验收](../checking/README.md)。32 个单函数目标的验收待完成
+（[进度，范围](../progress.md#scope)）。
 
-31 个有文档的 gz 函数的安全性由序列目标证明。没有哪个 gz 函数有单函数的安全目标：清单文件
-`tests/audit/public-api.json` 把 `Goal.gz_sequence_safety` 列为这 31 个函数各自的安全目标，`tests/audit/goals.txt`
-也没有为它们列出别的安全目标（[进度，范围](../progress.md#scope)）。`gzvprintf` 在 `zlib.h`
-中属于未文档化的函数，它也是序列目标覆盖的调用之一（`GzOperation`）；`gzprintf` 经由它实现。清单文件没有为它列出安全目标。每个函数另有一个功能契约
-`Goal.<function>`。这些契约不是必需的；哪些已经证明，见[最后一节](#functional-results-that-stay)。
+31 个有文档的 gz 函数各有自己的安全目标；`gzvprintf` 也有，它在 `zlib.h` 中属于未文档化的函数，而 `gzprintf` 经由它实现。
+每个目标是序列目标的一个子句，限制到一个函数的调用上：
+
+- 接受句柄而不关闭它的函数：子句 2，连同 `Goal.gz_refusal` 中属于该函数的子句，所以 `NULL` 句柄被拒绝，什么都不改变。
+  `Goal.gzgetc_safety` 还有子句 3（宏）；`Goal.gzerror_safety` 还有子句 4（它返回的字符串）；
+- `gzclose`、`gzclose_r` 和 `gzclose_w`：子句 5，连同对 `NULL` 句柄的拒绝；
+- `gzopen` 和 `gzopen64`：子句 6。`gzdopen`：子句 7。
+
+这些证明使用 `gz_sequence_safety_public`；对 `NULL` 的拒绝通过求值成立。所以本页余下讲序列目标的内容，同时也就是单函数目标的证明。
+每个函数另有一个功能契约 `Goal.<function>`。这些契约不是必需的；哪些已经证明，见[最后一节](#functional-results-that-stay)。
 
 序列目标覆盖下面这样的程序。注释指出覆盖每个调用的是目标的哪个子句。
 
