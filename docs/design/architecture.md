@@ -30,9 +30,20 @@ flowchart TD
 
 Only the path through *Execution proofs* is required for the safety results: no fault,
 termination, frame and ownership, composed over call sequences. The path through *Refinement
-proofs* gives functional correctness. It is not required for the safety results. The refinement
-results already proved stay; [scope](../progress.md#scope) says which functional results are
-planned.
+proofs* gives functional correctness. It is not required for the safety results.
+
+One functional result is planned after the safety results: the round trip of the default zlib
+stream. Its conditional form is checked. The theorem `deflate_inflate_roundtrip`
+(`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) is about two runs of the translated
+functions: `deflateInit_` at the default level followed by `deflate` calls with any flush values
+and any buffer changes between calls, and `inflateInit2_` with `windowBits` 15 followed by
+`inflate` calls, each with the platform premise `ByteObjectsFit`. When both runs have returned
+`Z_STREAM_END` and the bytes the decoder consumed
+are a prefix of the bytes the encoder wrote, the bytes the decoder wrote are the bytes the
+encoder consumed. The theorem is not registered and not accepted. Completeness (the runs do
+reach `Z_STREAM_END` when there is enough room) and the unconditional round trip are open. The
+other refinement results already proved stay; [scope](../progress.md#scope) says which
+functional results are planned.
 
 ## The model in a few definitions
 
@@ -155,33 +166,125 @@ The generated files are written by `scripts/gen_schema.py` from the C headers.
 [Runtime schema](../runtime-schema.md) lists every field.
 
 Some semantic helpers are not in `ZlibF/Runtime/`. They are defined in the translation files
-that use them, and they are trusted in the same way:
+that use them, and they are trusted in the same way. The tables below list them by kind.
 
-| Helper | Where | What it models |
+How the list was made: every top-level `def`, `abbrev`, `structure` and `inductive` of
+`ZlibF/Zlib/*.lean` was listed with its docstring (the files have no `instance`, `macro` or
+`notation`). Each one was put in a table unless it is the translation of a C function, of a part
+of one (a loop body, a loop condition, a `case` of a `switch`), of a C macro, of a C constant or
+of a C table, or a record that only groups a function's locals or arguments. A name that occurs
+in two files is defined in each of them separately; the definitions are not shared.
+
+**Checked arithmetic and shifts.** A result that C leaves undefined is `Fault.ub`.
+
+| File | Helpers | C semantics |
 | --- | --- | --- |
-| Checked signed arithmetic: `chkI32`, `chkI64`; `chk32`, `chk64`, `iadd`, `isub`, `ineg`, `ishl`; `ck`, `shl1`; `i64chk`, `i64add`, `i64sub`, `i64neg` | `inflate.c.lean`; `deflate_base.c.lean`, `inftrees.c.lean`, `inffast.c.lean`; `trees.c.lean`; `gzguts.h.lean` | A signed result outside its type is `Fault.ub` |
-| Checked shifts: `shl32`, `shr32`, `shl64`, `shr64`, `shl1i32`, `shlUs`, `shrUs` | `inflate.c.lean`, `inftrees.c.lean`, `inffast.c.lean`, `crc32.c.lean`, `trees.c.lean` | A shift count outside the operand width is `Fault.ub` |
-| The mode monad `X` and its loops `xwhileBrk`, `xwhile`, `xdoWhile`, `xloopBrk` | `inflate.c.lean` (also used by `infback.c.lean`) | `break`, `goto inf_leave` and `return` inside the big `switch` of `inflate`; built on `cwhile` |
-| `gwhile`, `gdoWhile` | `gzfs.lean` | `cwhile` and `cdoWhile` for computations that also carry the file-system world; same fuel |
-| Automatic storage: `allocLocalB`, `allocLocal`, `allocLocalZ` | `inflate.c.lean`, `gzguts.h.lean`, `compress.c.lean`, `uncompr.c.lean` | A local array or a local `z_stream`: a fresh object that does not consume a call of the allocation-failure oracle |
-| The external world: `Fs`, `open`, `read`, `write`, `lseek`, `close`, `snprintf`, `vsnprintf`, `strerror` | `gzfs.lean` | [External I/O](external-io.md) |
+| `inflate.c.lean` | `chkI32`, `chkI64` | An `int` or `long` result that does not fit is a fault |
+| `deflate_base.c.lean` | `chk32`, `chk64`, `iadd`, `isub`, `ineg`, `ladd`, `lsub` | The same, with `+`, `-` and unary `-` for `int` and `long` |
+| `inftrees.c.lean` | `chk32` | The same for `int` |
+| `inffast.c.lean` | `chk64` | The same for `long` |
+| `trees.c.lean` | `ck`, `iadd`, `isub` | The same for `int` |
+| `gzguts.h.lean` | `i64chk`, `i64add`, `i64sub`, `i64neg` | The same for `z_off64_t` |
+| `inflate.c.lean` | `shl32`, `shr32`, `shl64`, `shr64` | A shift of `unsigned` or `unsigned long`: a count not below the width is a fault |
+| `inftrees.c.lean` | `shl32`, `shr32`, `shl1i32` | The same for `unsigned`; `1 << n` for `int` faults from `n = 31` on |
+| `inffast.c.lean` | `shl32`, `shl64`, `shr64` | The same for `unsigned` and `unsigned long` |
+| `crc32.c.lean` | `shr64` | The same for `unsigned long` |
+| `deflate_base.c.lean` | `ishl`, `ushl` | `a << n` for `int` (count in 0..31, `a` not negative, result fits) and for `unsigned` |
+| `trees.c.lean` | `shl1`, `shlUs`, `shrUs` | `x << 1` for `int`; `(ush)val << c` and `(ush)val >> c` as `int` shifts with a count in 0..31 |
+
+**Integer conversions.**
+
+| File | Helpers | C semantics |
+| --- | --- | --- |
+| `inflate.c.lean` | `u2i`, `i2u`, `i2ul` | `(int)u`, `(unsigned)i`, `(unsigned long)i`: reduction modulo the width, with sign extension for the last |
+| `trees.c.lean` | `u16i`, `u8i`, `i2u`, `u2i`, `i2ul`, `i2us` | `ush` and `uch` to `int`; `int` to `unsigned`, `unsigned long` and `ush`; `unsigned` to `int` |
+| `gzguts.h.lean` | `u32ToI64` | `(z_off64_t)u` for an `unsigned` |
+
+**Loops and control flow.** All are built on `cwhile` and `cdoWhile`, with the same fuel.
+
+| File | Helpers | C semantics |
+| --- | --- | --- |
+| `inflate.c.lean` (also used by `infback.c.lean`) | The mode monad `X`, the exits `Ex` and `Stop`, the loops `xwhileBrk`, `xwhile`, `xdoWhile`, `xloopBrk`; `IL.init` | The locals of `inflate` as state; `break`, `goto inf_leave` and `return` inside the big `switch`. `IL.init` is the value of the locals before their first assignment: zero and NULL, where C leaves some of them uninitialised |
+| `gzfs.lean` | The monad `G`, `gub`, `gwhile`, `gdoWhile` | A computation that also carries the file-system world; a fault and the two loops in it |
+| `trees.c.lean` | `cfor` | `for (init; cond; step) body`; `continue` is the end of the body |
+| `deflate_strategies.c.lean` | `forever` | The condition of `for (;;)`: go on until `break` or `return` |
+
+**Pointers, fields and table indexing.**
+
+| File | Helpers | C semantics |
+| --- | --- | --- |
+| `deflate_base.c.lean` | `rd`, `wr`, `zrd`, `zwr`; `padd`, `psub`, `store_at`, `freq_inc`; `config_at` | `s->f` and `strm->f` as a load, and a field store as load, record update, store; `p + n`, `p - n`, `p[i] = v`, `tree[i].Freq++`; `configuration_table[level]`, a fault outside 0..9 |
+| `inflate.c.lean` | `rdS`, `wrS`, `rdZ`, `wrZ`, `setMode`; `lensP`, `workP`, `codesP`; `orderAt` | Field access to `*state` and `*strm`; pointers to the array fields `lens`, `work`, `codes`; `order[i]`, a fault outside the array |
+| `inffast.c.lean` | `subn` | `p - n` for an `unsigned` count |
+| `inftrees.c.lean` | `geta`, `seta`, `storeCode` | `a[i]` and `a[i] = v` for a local array, a fault outside it; `p[i] = v` for a `code` pointer |
+| `trees.c.lean` | `sid`, `rd`, `md`; `pLtree`, `pDtree`, `pBltree`, `pHeap`, `pDepth`, `pBlCount`, `pLdesc`, `pDdesc`, `pBldesc`; `setAt`, `heapAt`, `heapSet`, `getFc`, `getDl`, `setFc`, `setDl`, `blOrder` | Field access to `*s`; pointers to the arrays and tree descriptors inside the deflate state; element reads and writes of those arrays and of `bl_order` |
+| `gzguts.h.lean` | `castState`, `castFile`, `strmOf`; `ldS`, `updS`, `updX`, `ldZ`, `updZ` | `(gz_statep)file`, `(gzFile)state`, `&(state->strm)`; field access to the gz state, to `state->x` and to the stream |
+| `crc32.c.lean` | `crcTab`, `x2nTab`, `idx1`, `idx2`, `wordAt` | Indexing of the CRC tables, a fault outside the table; `words[i]` |
+| `compress.c.lean` | `ptrDiff` | `p - q`, with `NULL - NULL` allowed as 0 |
+| `deflate.c.lean` | `Z_NULL_strm` | `Z_NULL` at type `z_streamp` |
+
+**Scalar cells as bytes, and the CRC address and word load.**
+
+| File | Helpers | C semantics |
+| --- | --- | --- |
+| `gzguts.h.lean` | `load32`, `store32`, `load64`, `store64` | `*(int *)p` and `*(uint64_t *)p` over a byte block, little-endian |
+| `crc32.c.lean` | `addrOf` | `(z_size_t)buf`, known only in its low three bits |
+| `crc32.c.lean` | `loadWord` | `words[i]` for the `z_word_t` view of a byte buffer: eight bytes, little-endian |
+
+**Allocator dispatch and automatic storage.**
+
+| File | Helpers | C semantics |
+| --- | --- | --- |
+| `inflate.c.lean` | `ZALLOCB`, `ZALLOCS`, `ZFREEB`, `ZFREES` | `ZALLOC` and `ZFREE` through `strm->zalloc` and `strm->zfree`: the default functions run, any other function pointer is a fault |
+| `deflate_base.c.lean` | `zalloc_default`, `zfree_default`, `ZALLOC_bytes`, `ZALLOC_words`, `ZFREE_bytes`, `ZFREE_words` | The same for the deflate side, for byte blocks and blocks of 16-bit words |
+| `deflate_base.c.lean` | `CompressFunc` | The function pointer `config.func` as an enumeration of the local compression functions |
+| `inflate.c.lean`, `gzguts.h.lean` | `allocLocalB`, `allocLocal` | A local array: a fresh writable block with arbitrary content, outside the allocation-failure oracle |
+| `compress.c.lean`, `uncompr.c.lean` | `allocLocalZ` | A local `z_stream`, outside the oracle |
+
+**String literals, static data and library stand-ins.**
+
+| File | Helpers | C semantics |
+| --- | --- | --- |
+| `zutil.c.lean`, `gzfs.lean` | `strLit` | A string literal: a pointer into the read-only table of the source's literals |
+| `inflate.c.lean` | `setMsg` | `strm->msg = "..."` |
+| `gzfs.lean` | `strerrorText`, `libcStr`, `zstrerror` | `strerror(errno)`: a borrowed read-only text |
+| `crc32.c.lean`, `inftrees.c.lean`, `trees.c.lean` | `initStatics` (in the first two); `trees_statics`, `install_trees` | The contents of the static tables of the file, put into the heap's `Statics` |
+| `gzguts.h.lean` | `memchrB` | `memchr` |
+| `gzfs.lean` | `cstring`, `storeBytes`, `loadBytes`, `heapStr` | The bytes of a NUL-terminated string; a block store and a block load of bytes |
+| `gzfs.lean` | `snprintf`, `vsnprintf`, `formatBytes`, and their parts `VaArg`, `Spec`, `isDigit`, `readNumGo`, `readNum`, `parseFlags`, `parseSpec`, `natDigits`, `pad`, `fmtInt`, `argStr`, `formatGo` | The formatter ([external I/O](external-io.md)) |
+
+**The operating system and callbacks.**
+
+| File | Helpers | C semantics |
+| --- | --- | --- |
+| `gzfs.lean` | `Fs`, `OFile`, `Node`; `ReadChoice`, `WriteChoice`, `LseekChoice`; `fsOpen`, `fsRead`, `fsWrite`, `fsLseek`, `fsClose`, `fsFcntl` and the regular-file parts `fsOpenReg`, `fsReadReg`, `fsWriteReg`, `fsLseekReg`, `fsCloseReg`; `lowestFd`, `findName`, `tickW`, `okErrW`, `failErrno`, `readCap`, `debitW`, `relocateW` | The file system, the descriptor table and the system calls `open`, `read`, `write`, `lseek`, `close`, `fcntl`, with the oracle that chooses their outcomes ([external I/O](external-io.md)) |
+| `gzfs.lean` | `getErrno`, `setErrno`, `BLOCKED`, the `errno` values (`ENOENT`, …), the `open` flags (`O_WRONLY`, …) and `SEEK_SET`, `SEEK_CUR`, `SEEK_END` | `errno` and the Linux x86_64 values of the constants |
+| `gzfs.lean` | `Fs.put`, `Fs.mkdir`, `Fs.get?`, `Fs.posOf?` | Not C operations: they build and inspect a file system for statements and tests |
+| `infback.c.lean` | `InCb`, `OutCb` | The types of the `in_func` and `out_func` callbacks of `inflateBack`. A callback is a Lean function |
+
+[Trusted base](../trusted-base.md) names the runtime files and the gz file world. It does not
+list the helpers of the other translation files.
 
 Each translation file states its preprocessor choices and its modelling decisions in its header
 comment.
 
 ## Why an object heap
 
-A C struct is represented by a Lean record. A heap (`Heap` in `Schema.lean`) has:
+A C struct is represented by a Lean record. A heap (`Heap` in `Schema.lean`) has fifteen fields:
 
-- one table of byte blocks (`unsigned char` arrays: buffers, windows, strings), with a table of
-  read-only flags for them;
-- one table of blocks of 16-bit words (`head`, `prev`);
-- one table per struct kind: `z_stream`, `gz_header`, `deflate_state`, `inflate_state`,
-  `gz_state`;
-- the static tables;
-- the allocation state: the next unused block number, the number of allocation calls so far, the
-  failure oracle (`allocOk n` says whether call `n` succeeds) and the content of fresh memory
-  (`garbage`).
+- `bytes`: the table of byte blocks (`unsigned char` arrays: buffers, windows, strings);
+- `words`: the table of blocks of 16-bit words (`head`, `prev`);
+- `ro`: the table of read-only flags of the byte blocks;
+- `streams`, `gzheaders`, `dstates`, `istates`, `gzstates`: one table per struct kind, for
+  `z_stream`, `gz_header`, `deflate_state`, `inflate_state` and `gz_state`;
+- `static`: the static tables;
+- the allocation state: `nextBlk`, the next unused block number; `nalloc`, the number of
+  allocation calls so far; `allocOk`, the failure oracle (`allocOk n` says whether call `n`
+  succeeds); and `garbage`, the content of fresh memory;
+- `byteBase`: the low three bits of the origin address of each static or embedded byte array.
+  The CRC alignment test reads them through `Address.lean`;
+- `libcErrorBorrow`: which `strerror` text is currently borrowed, as a counter and an `errno`
+  value, or nothing. It is not a heap object.
 
 Other arrays are fields of a record or static tables. A pointer names a heap block, an array
 inside a record or a static array, plus an element index.
@@ -216,7 +319,7 @@ representation invariant.
 | Pointer difference and order | Require the same live array and valid offsets; a difference must fit `ptrdiff_t` |
 | Pointer equality | Structural equality; different reference constructors compare unequal |
 | Unsigned arithmetic | Wraps at the C width |
-| Signed arithmetic and shifts | Checked by the helpers of the table above, in the translation files |
+| Signed arithmetic and shifts | Checked by the helpers of the tables above, in the translation files. The plain operator is used for a signed operation under [normalisation 4](translation.md#the-accepted-normalisations) and for a shift by a literal count ([translation, form 4](translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)) |
 | Copy and fill | Check ranges and writability; `memcpy` also checks non-overlap |
 | Allocation | `malloc` asks the failure oracle and refuses a request of `2^63` bytes or more; success gives a fresh block number. It faults on a heap that is not `Fresh` |
 | Free | Accepts NULL; otherwise requires the start of a live writable block |
@@ -249,6 +352,9 @@ return. No proof repairs a representation gap by silently restricting the public
 ## Design decisions
 
 Older notes call these decisions D1 to D6. The table gives each decision and its consequence.
+The labels `D-4`, `D-5`, `D-6` and `D3` in comments of `compress.c.lean`, `uncompr.c.lean`,
+`deflate_base.c.lean` and `infback.c.lean` name decisions of those files. They are not rows of
+this table.
 
 | | Decision | Consequence |
 | --- | --- | --- |
