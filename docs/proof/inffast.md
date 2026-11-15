@@ -30,8 +30,8 @@ themselves. The registered `inflate_fast_safe` is stated for the entry condition
 
 How the callers use these theorems:
 
-- **`inflateBack`.** `LEN_fast_p` (`infback.c.safety-fast.lean`) proves the entry conditions and
-  applies `fast_consumes`. This is inside the proof of the registered
+- **`inflateBack`.** `fast_env` (`infback.c.safety-fast.lean`) proves the entry conditions.
+  `LEN_fast_p` in the same file takes them from it and applies `fast_consumes`. This is inside the proof of the registered
   `inflate_back_sequence_safety`. It is what makes the call from `inflateBack` safe, and it
   gives termination of that caller's loop.
 - **`inflate`, input and output in two different heap blocks.** `inflate_fast_raw_entry`
@@ -60,7 +60,7 @@ Functional results about `inflate_fast` also exist; see [Functional results](#fu
 The theorems assume the entry conditions below. In Lean they are the fields of the record
 `EnvG` (`ZlibF/Proof/inffast.c.env.lean`). `Env` is the case of `inflate`, in which the window
 is never the output object; `inflate_fast_safe` is stated for `Env`. These are
-internal premises: a caller proves them before it applies a theorem of this page. `LEN_fast_p`
+internal premises: a caller proves them before it applies a theorem of this page. `fast_env`
 (`infback.c.safety-fast.lean`) does so for `inflateBack`. `inflate_fast_raw_entry`
 (`inflate.c.fast-entry.lean`) does so for `inflate` when input and output are in two different
 heap blocks; it has that premise (`ib ≠ ob`). `inflate_fast_entry`

@@ -1,4 +1,4 @@
-<!-- source-sha256: 4b8d232652d8fa001e6d9c517dee29f319f39a2913b78d6812adcbac812e33a8 -->
+<!-- source-sha256: e6f2173effbc9a85366e5e30190ce4e3032f7cb449cdfaee7063b22edb2139ad -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -155,7 +155,7 @@ flowchart LR
 
 ## 不变量
 
-不变量是 `InflateInv`（`ZlibF/Proof/inflate.c.invariant.lean`），有十二个子句。写这张表时，最后一列里的定义都读过。“允许 gzip 解码”指 `wrap` 的第 1 位置位：`wrap` 是 2、3、6 或 7（`GzipAllowed`）。
+不变量是 `InflateInv`（`ZlibF/Proof/inflate.c.invariant.lean`），有十二个子句。“允许 gzip 解码”指 `wrap` 的第 1 位置位：`wrap` 是 2、3、6 或 7（`GzipAllowed`）。
 
 | 子句 | 白话说明 | 定义 |
 | --- | --- | --- |
@@ -250,9 +250,9 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 | `LEN`，快速路径 | 对 `inflate_fast` 的调用 | 这次调用是在 `RESTORE()` 留下的堆上，由不变量和 `StreamBuffers` 证明的，适用于 `StreamBuffers` 允许的每一种布局（`inflate_fast_default_view_buffers`，`inflate.c.fast-view-public-buffers.lean`）。`inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）只在输入和输出位于两个不同的堆块时，才建立[快速解码](inffast.md#assumptions)的入口条件；见[快速路径](#the-fast-path) |
 | `MATCH` | 从窗口或更早的输出复制 | `offset > 0`（子句 `pending`）。距离超出本次调用的输出时去读窗口；因为 `sane = 1`，距离超过 `whave` 时 C 会拒绝。W 限定了窗口下标 |
 | `LIT` | 往 `*put` 写一个字节 | 先检查 `left > 0` |
-| `CHECK` | 对 `put` 之前的 `out` 个字节计算校验和：这是从调用开始以来的输出，或者是同一次调用中上一次 `CHECK` 以来的输出 | 这些字节是本次调用写的，在输出区域之内 |
+| `CHECK` | 对 `put` 之前的 `out` 个字节计算校验和：这是从调用开始以来的输出。一次调用至多算一次：算过之后模式是 `LENGTH`、`DONE` 或 `BAD` | 这些字节是本次调用写的，在输出区域之内 |
 | `LENGTH` | 除 `NEEDBITS(32)` 之外没有：这个模式把 `hold` 与 `total` 的低 32 位比较 | |
-| `inf_leave` | 对本次调用的输出执行 `updatewindow`；第二次校验和，对 `next_out` 之前的 `out` 个字节计算 | 两者的源都是输出区域，`StreamBuffers` 保证它与窗口不重叠 |
+| `inf_leave` | 对本次调用的输出执行 `updatewindow`；第二次校验和，对 `next_out` 之前的 `out` 个字节计算：这是本次调用的输出中 `CHECK` 的校验和还没有算进去的部分 | 两者的源都是输出区域，`StreamBuffers` 保证它与窗口不重叠 |
 
 <a id="table-and-trailer-statement-boundaries"></a>
 各个模式的运行引理已登记，例如 `inflate_TABLE_run`、`inflate_LENLENS_run` 和 `inflate_CHECK_run`。表模式和尾部模式的引理假设了什么，见[源码笔记](inflate-source-notes.md#statements-of-the-table-and-trailer-lemmas)。

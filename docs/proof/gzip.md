@@ -96,7 +96,7 @@ over. The rows are in [deviations](../deviations.md#gzip-file-interface).
 | Premise | Where | Meaning |
 | --- | --- | --- |
 | Caller heap and world at an open | `GzHistory.open`, `open64`, `dopen`; `GzOpenSafe`, `GzDopenSafe` | The heap is well formed (`Fresh`, `Uniq`, `LibraryGlobals`), every byte object has fewer than `2^63` bytes (`ByteObjectsFit`), the world is well formed (`FileSystem`), and `path` and `mode` are NUL-terminated strings (or `NULL`, in clauses 6 and 7). |
-| Caller buffers | `GzArguments`, through `GzRange` | The buffers of `gzread`, `gzfread`, `gzwrite`, `gzfwrite`, `gzputs`, `gzgets` and `gzerror` are readable for the requested length, writable where the call stores into them, and lie apart from the blocks the handle owns. The argument of `gzputs` is a NUL-terminated string. A request of length 0, a request that the C refuses for its size, and a `NULL` `errnum` of `gzerror` carry no buffer premise. |
+| Caller buffers | `GzArguments`, through `GzRange` | The buffers of `gzread`, `gzfread`, `gzwrite`, `gzfwrite`, `gzputs`, `gzgets` and `gzerror` are readable for the requested length, writable where the call stores into them, and lie apart from the blocks the handle owns. The argument of `gzputs` is a NUL-terminated string. A request of length 0, a request that the C refuses for its size, a `gzgets` call with a `NULL` buffer or a length below 1, and a `NULL` `errnum` of `gzerror` carry no buffer premise. |
 | Arguments of `gzprintf` and `gzvprintf` | `GzArguments` | The format is one the model's formatter represents for its arguments (`Formatted`; the [format language](../design/external-io.md#formatted-output)). The format and every `%s` argument lie apart from the handle's blocks. |
 | Read budget | `ReadsFinite` | The handle's descriptor can still deliver fewer than `2^61` bytes. It is a premise of part (b) only, and only for the six reading calls. The premise also says that the descriptor number is not negative. Every handle the library returns has such a number: `GzOpenSafe` states it for `gzopen`, and `gzdopen` returns `NULL` for a negative descriptor. |
 | Caller step between two calls | `GzHistory.caller`: `GzCallerFrame`, `ByteObjectsFit` | The caller changes only blocks that the handle does not own. The heap after the change is well formed (`Fresh`, `Uniq`, `LibraryGlobals`), and every byte object in it has fewer than `2^63` bytes. |
@@ -114,8 +114,8 @@ model carry weight in the proof:
 
 ### The source is the patched source
 
-The statements are about the C with patches 0002 to 0005 applied. Without them the unpatched C
-has undefined behaviour on some histories: see
+The statements are about the C with patches 0002 to 0005 applied. The unpatched C has undefined
+behaviour on some histories: see
 [source reports and patches](#source-reports-and-patches).
 
 ### Why the read budget
@@ -198,10 +198,13 @@ The external calls fall into two groups.
   never changes the heap (`fsRead_pure`, `fsWrite_pure`, `fsLseek_pure`, `fsClose_pure`,
   `fsOpen_pure`, in `ZlibF/Proof/gzfs.oracle.lean`). `fsRead` returns the bytes it read as a
   value. The translation of `gz_load` then stores them at `buf` (`storeBytes`); that store is
-  an ordinary checked heap store, and it is a step of the translated C, not of the system call.
+  a checked heap copy, and it is a step of the translated C, not of the system call. The copy
+  goes through a temporary block that it creates and frees, so it also advances the heap's
+  block counter (`nextBlk`).
 - **Two library calls change the heap.** `vsnprintf` stores into its destination: the formatted
-  bytes and a NUL, or, when the oracle makes the call fail, bytes of the oracle's choice and a
-  NUL, in both cases inside the `size` bytes it was given. It faults when the format is not a
+  bytes and a NUL, or, when the call fails, bytes of the oracle's choice and a NUL, in both
+  cases inside the `size` bytes it was given. The call fails when the oracle says so, and also
+  when the formatted output is longer than `INT_MAX` bytes. It faults when the format is not a
   string or is one the model's formatter does not represent, or when the destination is not
   writable for those bytes. `vsnprintf_in` (`ZlibF/Proof/gzwrite.c.printf-run.lean`) shows that
   the call in `gzvprintf`, whose destination is in the handle's `in` buffer, returns for every
@@ -494,7 +497,8 @@ and strategy. It ignores the callee's result. The safety proof does not need tha
 
 ## Positions, seeking and error ownership
 
-`gztell64` reports the logical position plus a pending skip, unless `past` suppresses it.
+`gztell64` reports the logical position plus a pending skip; when `past` is set it leaves the
+skip out.
 `gzoffset64` queries the descriptor position and subtracts buffered compressed input in read
 mode. These are different positions.
 

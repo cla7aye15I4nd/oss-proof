@@ -1,4 +1,4 @@
-<!-- source-sha256: 652e07e3c8e3bd4115492b325044ed75ff0bebf1d127b1da50c93cc0b51d4841 -->
+<!-- source-sha256: 001b57799e274d18a0cfb15643a33d8408c06497ec2b5568741391b6603720a7 -->
 # `deflate` 的默认配置引擎
 
 本页介绍早先的一批结论，它们针对 `deflate` 的一种配置：由 `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` 创建的流（级别 6，zlib 封装，`windowBits` 为 15，`memLevel` 为 8，默认策略），并且只通过 `deflate` 调用来使用。对这种配置，结论说的不止是安全性：已完成的流能解码回它的输入。
@@ -75,7 +75,7 @@ flowchart LR
 | 尾部字节仍待输出、而输出空间多于待输出字节时，一次 `Z_FINISH` 调用把它们排空并返回 `Z_STREAM_END`，不写第二个尾部 | `public_finished_pending_drained` | `deflate.c.engine.public-finish-pending.lean` |
 | 在尚未结束的流上，待输出字节填满输出的调用返回 `Z_OK`，不碰输入 | `public_pending_exhausted` | `deflate.c.engine.public-pending.lean` |
 
-这四条定理都假设状态是良构的（`DGood`）、`StreamBuffers` 成立，并且输出指针指向一个堆上字节块的内部。它们其余的前提是：
+这四条定理都假设状态是良构的（`DGood`）、`StreamBuffers` 成立，并且输出指针指向一个堆上字节块的内部。前两条还假设树的状态是良构的（`TreesInvAt`）。它们其余的前提是：
 
 - `zlib_trailer_publish`：`wrap = 1`（尾部还没写的 zlib 流），待输出缓冲为空且游标在开头，缓冲里没有位。
 - `public_zlib_finish_ready`：各策略在最后一块之后留下的状态。也就是 `FINISH_STATE`，`wrap = 1`，没有输入，没有预读数据，待输出缓冲为空且游标在开头，缓冲里没有位，输出空间为正，`last_flush` 在 -2 到 5 之间。

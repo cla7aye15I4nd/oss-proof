@@ -69,11 +69,16 @@ premise of the Lean statement.
   the model; the strategies get the premise from `StreamBuffers` and a `next_out` that is not
   `NULL` (`output_reference`).
 - **The overlay room of the dynamic form** (`DynamicOverlay`, `trees.c.universal-block.lean`).
-  This premise is a hypothesis, not a fact about sizes: if the trees are built on this state
-  and the costs select the dynamic form, then the prepared state has the room `DynamicRoom` of
+  This premise is a hypothesis, not a fact about sizes. It has these conditions: the trees are
+  built on this state, and building them changes only the tree fields and the two costs; the
+  description of the trees has at most 2283 bits; the bits by which the symbol costs exceed 24
+  bits a symbol, summed over the `n` recorded symbols, satisfy
+  `1000 * bitExcess ≤ 6257 * (n + 3)`; and the costs select the dynamic form. Under them the
+  prepared state has the room `DynamicRoom` of
   [fact F9](#the-overlay-lemma-f9). The three overlay theorems of the Results table prove it
-  for every `B`. `FlushSafeAt` (`deflate.c.universal-strategies.lean`) is the statement of
-  `flush_block_only_safe` without this hypothesis, and it is what the strategies use.
+  for every `B`. `FlushSafeAt L` (`deflate.c.universal-strategies.lean`) is the statement of
+  `flush_block_only_safe` without this hypothesis, for the states whose `lit_bufsize` is `L`;
+  it is what the strategies use, each for its own buffer size.
 
 The theorem holds for both values of the argument `last`.
 
@@ -217,10 +222,10 @@ length between 1 and 15 and loops that many times (`bi_reverse_safe`).
 
 | Function | Why its accesses are in range |
 | --- | --- |
-| `scan_tree` | It runs on the two data trees. It writes a guard value `0xffff` at `tree[max_code + 1]`; that index is at most 286 or 30, inside the arrays of 573 and 61 entries. Real lengths are 0 to 15 and index `bl_tree` at 0 to 18; the guard is compared, never used as an index. `ws_scan_tree` (`trees.c.scan-tree.lean`) proves that the function returns. It assumes lengths of at most 15 up to `max_code` and nothing about the entry at `max_code + 1`. `scGuard_lengths` says that afterwards the array differs only in the length at `max_code + 1`, which is `0xffff`. These two theorems and `send_tree_emit` are not in the registry |
+| `scan_tree` | It runs on the two data trees. It writes a guard value `0xffff` at `tree[max_code + 1]`; that index is at most 286 or 30, inside the arrays of 573 and 61 entries. Real lengths are 0 to 15 and index `bl_tree` at 0 to 18; the guard is compared, never used as an index. `ws_scan_tree` (`trees.c.scan-tree.lean`) proves that the function returns. It assumes lengths of at most 15 up to `max_code` and nothing about the entry at `max_code + 1`. Its conclusion also says that afterwards the tree is the array `scGuard`: the old array with only the length at `max_code + 1` changed, to `0xffff`. `scGuard_lengths` is a lemma about the lengths of that array, not about the function. These two theorems and `send_tree_emit` are not in the registry |
 | `build_bl_tree` | It scans `bl_order[max_blindex]` down from 18 and stops at 3 at the latest |
 | `send_all_trees` | It sends `lcodes - 257`, `dcodes - 1` and `blcodes - 4` in 5, 5 and 4 bits, then `blcodes ≤ 19` three-bit lengths |
-| `send_tree` | It repeats the scan of `scan_tree` and reads the same entries, the guard included. `send_tree_emit` (`trees.c.send-tree.lean`) proves that it returns, for lengths of at most 15 up to `max_code` and any 16-bit value at `max_code + 1` |
+| `send_tree` | It repeats the scan of `scan_tree` and reads the same entries, the guard included. `send_tree_emit` (`trees.c.send-tree.lean`) proves that it returns, for lengths of at most 15 up to `max_code` and any 16-bit value at `max_code + 1`, given fitted codes for the bit-length symbols that occur and room in `pending_buf` for the bits |
 
 ### Bits and pending bytes
 

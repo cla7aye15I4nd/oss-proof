@@ -1,4 +1,4 @@
-<!-- source-sha256: 2f7e8b9abe41a35506e79ce727dc807608c68df3b49616c42ad2b8e7150095dc -->
+<!-- source-sha256: d500e443f9cb3696906afd6992b418c0d2aeb3275702e9fd0adeabae7af60389 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
@@ -205,7 +205,7 @@ stateDiagram-v2
 
 `reachable_inv_of`（`deflate.c.universal-sequence-safety.lean`）对历史做归纳，证明每个可达状态都满足 `DInv`、`HeaderInv` 和 `CallFacts`。`operation_step_of`（`deflate.c.universal-ops-dispatch.lean`）证明再做一次调用是安全的，并给出它的帧和账本。`end_from_inv`（`deflate.c.universal-end.lean`）对应 `deflateEnd`。
 
-前两条定理的命题带有假设。`reachable_inv_of` 取一个记录 `SequenceFacts`，里面是关于 `deflate` 本身的三条事实：一次调用是安全的并保持 `DInv`，它保持 `HeaderInv`，它保持 `CallFacts`。`operation_step_of` 取其中第一条，以及 `deflateSetDictionary` 和 `deflateParams` 的步骤定理。这三条事实就是定理 `deflate_call_of`、`deflate_header_of` 和 `deflate_calls_of`，它们各自带着一个假设：F9 对最小的两个缓冲区成立（`TinyOverlay`）。`sequence_facts`（`public-deflate-copy.lean`）用 `tinyOverlayAt_128` 和 `tinyOverlayAt_256` 提供这个假设，于是它不再带任何假设。已登记的定理 `deflate_sequence_safety` 就是把 `deflate_sequence_safety_of` 应用到它上面。
+前两条定理的命题带有假设。`reachable_inv_of` 取一个记录 `SequenceFacts`，里面是关于 `deflate` 本身的三条事实：一次调用是安全的并保持 `DInv`，它保持 `HeaderInv`，它保持 `CallFacts`。`operation_step_of` 取其中第一条，以及 `deflateSetDictionary` 和 `deflateParams` 的步骤定理。这三条事实就是定理 `deflate_call_of`、`deflate_header_of` 和 `deflate_calls_of`，它们各自带着一个假设：F9 对最小的两个缓冲区成立（`TinyOverlay`）。`sequence_facts_of` 在这个假设之下把三者收进这个记录。已登记的定理 `deflate_sequence_safety`（`public-deflate-goals.lean`）是把 `deflate_sequence_safety_of` 应用到 `sequence_facts_of` 上，假设由 `tinyOverlayAt_128` 和 `tinyOverlayAt_256` 这两条共用缓冲区定理提供；它不再带任何假设。`sequence_facts`（`public-deflate-copy.lean`）是由同样两条定理构造的同一个记录，`deflateCopy` 的证明用的是它。
 
 | 步骤 | 定理 | 为什么成立 |
 | --- | --- | --- |

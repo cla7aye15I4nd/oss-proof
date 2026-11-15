@@ -200,8 +200,8 @@ the static fixed tables. `head` points at a record the caller owns.
 ## The invariant
 
 The invariant is `InflateInv` (`ZlibF/Proof/inflate.c.invariant.lean`). It has twelve clauses.
-The definitions named in the last column were read for this table. "Gzip decoding is allowed"
-means that bit 1 of `wrap` is set: `wrap` is 2, 3, 6 or 7 (`GzipAllowed`).
+"Gzip decoding is allowed" means that bit 1 of `wrap` is set: `wrap` is 2, 3, 6 or 7
+(`GzipAllowed`).
 
 | Clause | In plain words | Definition |
 | --- | --- | --- |
@@ -323,9 +323,9 @@ it.
 | `LEN`, fast path | The call of `inflate_fast` | The call is proved from the invariant and `StreamBuffers`, on the heap that `RESTORE()` leaves, for every layout that `StreamBuffers` allows (`inflate_fast_default_view_buffers`, `inflate.c.fast-view-public-buffers.lean`). `inflate_fast_raw_entry` (`inflate.c.fast-entry.lean`) builds the entry conditions of [fast decoding](inffast.md#assumptions) only when input and output are in two different heap blocks; see [the fast path](#the-fast-path) |
 | `MATCH` | Copy from the window or from earlier output | `offset > 0` (clause `pending`). A distance beyond the output of this call goes to the window, and `sane = 1` makes the C reject it when it exceeds `whave`. W bounds the window index |
 | `LIT` | One byte to `*put` | `left > 0` is tested first |
-| `CHECK` | Checksum over the `out` bytes before `put`: the output since the start of the call, or since an earlier `CHECK` of the same call | The bytes were written by this call, inside the output range |
+| `CHECK` | Checksum over the `out` bytes before `put`: the output since the start of the call. A call computes it at most once: after it the mode is `LENGTH`, `DONE` or `BAD` | The bytes were written by this call, inside the output range |
 | `LENGTH` | None besides `NEEDBITS(32)`: the mode compares `hold` with the low 32 bits of `total` | |
-| `inf_leave` | `updatewindow` on the output of this call; a second checksum, over the `out` bytes before `next_out` | The source of both is the output range, which `StreamBuffers` keeps apart from the window |
+| `inf_leave` | `updatewindow` on the output of this call; a second checksum, over the `out` bytes before `next_out`: the output of this call that the checksum of `CHECK` has not already taken | The source of both is the output range, which `StreamBuffers` keeps apart from the window |
 
 <a id="table-and-trailer-statement-boundaries"></a>
 The run lemmas of the individual modes are registered, for example `inflate_TABLE_run`,

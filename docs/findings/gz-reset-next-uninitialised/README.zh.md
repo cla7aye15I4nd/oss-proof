@@ -1,4 +1,4 @@
-<!-- source-sha256: 2323a9bfd987ff4f41056c38cb52473df999dcb18057a7ddc8fb52e8c70d112c -->
+<!-- source-sha256: e31032041cc3b2307b43cbde1906aee561a271fdcf67272648ebbf3feb76ea6d -->
 # gz_reset 从不写入 x.next；gzseek 和 gzdirect 却读取它
 
 对一个新的读取者，`gz_open` 和 `gz_reset` 都不写入其状态中的指针 `x.next`。在还没有任何输出时调用 `gzseek` 和 `gzdirect`，会给这个从未写入的指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
@@ -15,7 +15,7 @@
 | --- | --- |
 | `gz_open` | `size`、`want`、`err`、`msg`、`mode`、`level`、`strategy`、`direct`、`path`、`fd`；读取者还有 `start` |
 | `gz_reset`（`gz_open` 最后调用它） | `x.have`、`x.pos`、`past`、`again`、`skip`、错误（`err`、`msg`）、`strm.avail_in`；读取者还有 `eof`、`how`、`junk`；写入者还有 `reset` |
-| 两者都不写 | `x.next`、缓冲区指针 `in` 和 `out`、`strm` 中除 `avail_in` 以外的每个字段 |
+| 两者都不写 | `x.next`、缓冲区指针 `in` 和 `out`、`strm` 中除 `avail_in` 以外的每个字段；读取者还有 `reset`；写入者还有 `eof`、`how`、`junk`、`start` |
 
 这份报告说的是 `x.next`：它在被写入之前就被计算。在读取者上，`x.next` 第一次被写入是在产生输出时（透明模式下的 `gz_look`、`gz_decomp`、`gz_fetch`、`gzungetc`）。有两个函数在此之前就计算它：
 

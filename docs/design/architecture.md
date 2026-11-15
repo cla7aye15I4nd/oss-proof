@@ -35,12 +35,22 @@ proofs* gives functional correctness. It is not required for the safety results.
 One functional result is planned after the safety results: the round trip of the default zlib
 stream. Its conditional form is checked. The theorem `deflate_inflate_roundtrip`
 (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) is about two runs of the translated
-functions: `deflateInit_` at the default level followed by `deflate` calls with any flush values
-and any buffer changes between calls, and `inflateInit2_` with `windowBits` 15 followed by
-`inflate` calls, each with the platform premise `ByteObjectsFit`. When both runs have returned
-`Z_STREAM_END` and the bytes the decoder consumed
-are a prefix of the bytes the encoder wrote, the bytes the decoder wrote are the bytes the
-encoder consumed. The theorem is not registered and not accepted. Completeness (the runs do
+functions. The encoder run is `deflateInit_` at the default level, then `deflate` calls with any
+flush values. The decoder run is `inflateInit2_` with `windowBits` 15, then `inflate` calls.
+Between two calls of a run the caller may change the buffer fields (`Rebuffer`). The premises
+of each run are these:
+
+- The init call starts in `InitDomain` (a well-formed heap, a `version` that points at `'1'`,
+  `zalloc` and `zfree` each `NULL` or the default function, a `NULL` `state` field) and it
+  returned `Z_OK`.
+- Every data call is a `DataStep`: it has `StreamBuffers` and `ActiveHeader`, and it returned.
+  The theorem assumes that these calls return; it does not prove it.
+- On the decoder run only, the heap of each `inflate` call and the heap after each caller edit
+  satisfy the platform premise `ByteObjectsFit`.
+
+When both runs have returned `Z_STREAM_END` and the bytes the decoder consumed are a prefix of
+the bytes the encoder wrote, the bytes the decoder wrote are the bytes the encoder consumed.
+The theorem is not registered and not accepted. Completeness (the runs do
 reach `Z_STREAM_END` when there is enough room) and the unconditional round trip are open. The
 other refinement results already proved stay; [scope](../progress.md#scope) says which
 functional results are planned.

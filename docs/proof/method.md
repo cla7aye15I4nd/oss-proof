@@ -108,8 +108,10 @@ pointer, and a `deflate(Z_BLOCK)` run from such a state faulted. The repair was 
 `HeaderInv.record`, which says the pointer is not `NULL` in the four header states that read
 it, together with a proof that every reachable state has it (`reachable_inv_of`,
 `ZlibF/Proof/deflate.c.universal-sequence-safety.lean`). That theorem takes one hypothesis,
-`SequenceFacts`: three facts about one `deflate` call from a state with the invariant. The call
-returns and keeps `DInv` and the owned blocks; it keeps `HeaderInv`; it keeps `CallFacts`.
+`SequenceFacts`: three facts about one `deflate` call. Each has the same premises: the state
+before the call has `DInv`, `HeaderInv` and `CallFacts`, and the call has the buffers and the
+header that the goal asks for (`StreamBuffers`, `ActiveHeader`). The call returns and keeps
+`DInv` and the owned blocks; it keeps `HeaderInv`; it keeps `CallFacts`.
 The three facts are themselves proved: `sequence_facts`
 (`ZlibF/Proof/public-deflate-copy.lean`) has no hypothesis, and `deflate_copy_public` in that
 file applies `reachable_inv_of` to it. So the hypothesis is discharged, not assumed.

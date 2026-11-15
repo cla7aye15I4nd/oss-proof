@@ -99,5 +99,6 @@ allocations shown; it is not a maximum for the gz functions or for other paths.
 overflow for an arbitrary `int`. The value 169 holds for this build only: other type widths or
 build options give other flags.
 
-A constant return is still an exact contract: a wrong version pointer or a changed flag bit
-fails the function's proof mutant ([proof mutants](../checking/proof-mutants.md)).
+A constant return is still an exact contract. The [proof mutants](../checking/proof-mutants.md)
+test it: a copy of the translation that returns a wrong version pointer, or one with a changed
+flag bit, no longer passes the proof of that function.
