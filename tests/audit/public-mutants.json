@@ -953,6 +953,10 @@
       {
         "list": "tests/proof-mutants/gz-refusal.tsv",
         "name": "gzclose_w-null-refusal"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzclose_w-descriptor-kept"
       }
     ],
     "ZlibF.Spec.Public.Goal.gzdirect_safety": [
@@ -979,6 +983,10 @@
       {
         "list": "tests/proof-mutants/public-gz-safety.tsv",
         "name": "gzeof-writer-result"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "gzeof-null-result"
       }
     ],
     "ZlibF.Spec.Public.Goal.gzerror_safety": [
@@ -1041,6 +1049,10 @@
       {
         "list": "tests/proof-mutants/gz-refusal.tsv",
         "name": "gzgetc-null-refusal"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzgetc-local-leak"
       }
     ],
     "ZlibF.Spec.Public.Goal.gzgetc__safety": [
@@ -1069,6 +1081,10 @@
       {
         "list": "tests/proof-mutants/public-gz-safety.tsv",
         "name": "gzoffset64-lseek-failure-dropped"
+      },
+      {
+        "list": "tests/proof-mutants/public-streams.tsv",
+        "name": "gzoffset64-null-handle"
       }
     ],
     "ZlibF.Spec.Public.Goal.gzopen_safety": [
@@ -1199,6 +1215,14 @@
       {
         "list": "tests/proof-mutants/gz-refusal.tsv",
         "name": "gzungetc-null-refusal"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzungetc-full-check"
+      },
+      {
+        "list": "tests/proof-mutants/public-gz-safety.tsv",
+        "name": "gzungetc-empty-offset"
       }
     ],
     "ZlibF.Spec.Public.Goal.gzwrite_safety": [
