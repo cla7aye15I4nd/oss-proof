@@ -4,7 +4,9 @@ A proof may change. The question it answers must not change to make a proof pass
 checks a term against its type. The acceptance suite also checks that the type is exactly a
 registered target.
 
-A successful build is not acceptance. [Progress](progress.md) records current status. The
+A successful build is not acceptance: it makes a theorem checked, and only the acceptance suite,
+green on a named commit, makes it accepted ([glossary](glossary.md)). [Progress](progress.md)
+records current status. The
 [checking guide](checking/README.md) says what each check establishes; the
 [trusted base](trusted-base.md) explains the judgments that automation cannot make.
 
@@ -16,6 +18,7 @@ A successful build is not acceptance. [Progress](progress.md) records current st
 | An unsupported assumption | Only `propext`, `Classical.choice` and `Quot.sound` are allowed. The declaration audit rejects other axioms and forbidden declaration kinds in the import closure. Missing, empty or duplicate registries fail. |
 | A proof term the kernel never saw | Compiled declarations are replayed in a fresh environment of the same Lean kernel. A cached trace is not a certificate. |
 | An unregistered goal | Every standalone `Goal` proposition in the audited closure must be registered. The inventory in `tests/audit/public-api.json` is checked against the pinned header, the translated entries and the manual sections. |
+| A required goal left out or quietly dropped | The required goals are computed from `tests/audit/public-api.json`: the safety goal of every documented function of the target build, and the non-vacuity goals. The auditor fails when one of them is open. A registered theorem or a proved goal may not disappear without an entry and a reason in `tests/audit/registry-removals.json`. |
 | A proof that does not depend on the translation | Proof mutants: a deliberately wrong translation, such as a dropped check, must fail to check, with the error in that function's proof. |
 | A translation that differs from the C | Differential tests run the real C and the translation on the same inputs, with and without sanitisers. They are evidence of fidelity, not proof. |
 | `sorry` and the other forbidden constructs | The fast gate rejects them on every push. |
