@@ -1,6 +1,6 @@
 # gz_reset never writes x.next; gzseek and gzdirect read it
 
-`gz_reset` initialises every field of a reader's state except the pointer `x.next`. `gzseek` and
+Neither `gz_open` nor `gz_reset` writes the pointer `x.next` of a new reader's state. `gzseek` and
 `gzdirect`, called before any output exists, add zero to that never-written pointer. That is
 undefined by the letter of C, and nothing else is known to go wrong.
 
@@ -15,9 +15,17 @@ Source pin: `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 000
 
 ## What goes wrong
 
-`gz_open` allocates the `gz_state` record with `malloc`, and `gz_reset` initialises its fields
-except `x.next`. On a reader, `x.next` is first written when output is produced (`gz_look` in
-transparent mode, `gz_decomp`, `gz_fetch`, `gzungetc`). Two functions evaluate it before that:
+`gz_open` allocates the `gz_state` record with `malloc` and writes some of its fields:
+
+| Written by | Fields |
+| --- | --- |
+| `gz_open` | `size`, `want`, `err`, `msg`, `mode`, `level`, `strategy`, `direct`, `path`, `fd`; for a reader also `start` |
+| `gz_reset`, which `gz_open` calls last | `x.have`, `x.pos`, `past`, `again`, `skip`, the error (`err`, `msg`), `strm.avail_in`; for a reader also `eof`, `how`, `junk`; for a writer also `reset` |
+| neither | `x.next`, the buffer pointers `in` and `out`, every field of `strm` except `avail_in` |
+
+This report is about `x.next`: it is evaluated before it is written. On a reader, `x.next` is
+first written when output is produced (`gz_look` in transparent mode, `gz_decomp`, `gz_fetch`,
+`gzungetc`). Two functions evaluate it before that:
 
 - `gzseek64`, when not in transparent mode: `n` is the part of the target that lies in the
   output buffer, 0 when the buffer is empty, and the code does `state->x.next += n` anyway
@@ -40,7 +48,8 @@ f = gzopen("data.gz", "rb");
 gzdirect(f);                      /* gz_look (gzip), then gz_skip_have: x.next += 0 */
 ```
 
-Both are documented uses; zlib.h even recommends `gzdirect` right after `gzopen` or `gzdopen`.
+Both are documented uses; zlib.h describes `gzdirect` "used immediately after gzopen() or
+gzdopen()" (`zlib.h:1743`).
 
 ## Evidence
 
@@ -56,17 +65,21 @@ ZLIB_SRC=$PWD/zlib bash docs/findings/gz-reset-next-uninitialised/run.sh
 ```
 
 Its last line on success is `ok: after the fix: x.next is never evaluated with n == 0`. Before
-the fix the probe prints the following; under AddressSanitizer fresh allocations are filled with
-`0xbe`:
+the fix the probe prints two lines. The retained [report.txt](report.txt) (x86_64 Linux, GCC 15.2)
+has them as follows; under AddressSanitizer fresh allocations are filled with `0xbe`:
 
 ```
 x.next + 0 at gzlib.c:435, x.next = 0xbebebebebebebebe
 x.next + 0 at gzread.c:313, x.next = 0xbebebebebebebebe
 ```
 
-Files: `unset.c`, `probe.h`, `run.sh`, [report.txt](report.txt) (x86_64 Linux, GCC 15.2). A run on
-arm64 macOS for this page gave the same result; the line numbers the probe prints depend on the
-version of patch 0004 that is applied. `run.sh` builds the source without and with 0005 under ASan and UBSan;
+The retained output was produced with the first version of patch 0004. The patch 0004 of this
+repository is its second version, which adds two lines to `gz_look` in `gzread.c`, so the same
+statement of `gz_skip_have` is line 315 of the source that `run.sh` builds. A run on arm64 macOS
+with Apple clang printed `gzlib.c:435` and `gzread.c:315`, and was otherwise the same.
+
+Files: `unset.c`, `probe.h`, `run.sh`, `report.txt`. `run.sh` builds the source without and with
+0005 under ASan and UBSan;
 before the fix the probe sees both evaluations, after it none, and neither build gets a sanitizer
 report. In the Lean model a fresh pointer field is NULL and `NULL + 0` passes, so the model does
 not see it either; the proof rule that a pointer field is written before it is read

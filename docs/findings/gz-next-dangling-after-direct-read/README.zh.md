@@ -1,13 +1,11 @@
-<!-- source-sha256: 91c0610bbea520a55db14283dae5cefd4a70b08ddf333ca39527a036715e4951 -->
+<!-- source-sha256: 1c9cac8018b4e04643682c85cf689cfb4db53119253de1b4e187143699368f95 -->
 # 直接读取之后 x.next 留在调用者的缓冲区中
 
 一次大的 `gzread` 直接解压到调用者的缓冲区之后，gz 状态里留着一个指向该缓冲区的指针。如果调用者释放了缓冲区，之后的 `gzseek` 或 `gzdirect` 会给这个悬空指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
 
-状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。验证对象中由本地补丁
-[0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁经项目所有者于
-2026-11-12 批准，没有提交上游。同一补丁也修复 [gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md)。[gz 证明说明](../../proof/gzip.md)把这份报告称为 R-4。
+状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。被验证的源码中由本地补丁 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁经项目所有者于 2026-11-12 批准，没有提交上游。同一补丁也修复 [gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md)。[gz 证明说明](../../proof/gzip.md)把这份报告称为 R-4。
 
-源码固定版本：`757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。
+固定的源码：`757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。
 
 ## 问题
 
@@ -21,7 +19,7 @@ C11 6.2.4p2：指针所指对象的生存期结束时，指针的值变为不确
 ## 调用序列
 
 ```c
-f = gzopen("data.gz", "rb");             /* 100000 字节压缩数据 */
+f = gzopen("data.gz", "rb");             /* 文件中有 100000 字节的数据 */
 buf = malloc(100000);
 gzread(f, buf, 100000);                  /* 直接解压：x.next 指向 buf 内 */
 free(buf);
@@ -39,18 +37,20 @@ gzseek(f, 1, SEEK_CUR);                  /* 对悬空指针执行 x.next += 0 */
 ZLIB_SRC=$PWD/zlib bash docs/findings/gz-next-dangling-after-direct-read/run.sh
 ```
 
-脚本在 AddressSanitizer 和 UndefinedBehaviorSanitizer 下把固定版本源码构建两次：一次用除 0005 以外的 `patches/*.patch`，一次用全部补丁。成功时最后一行是 `ok: after the fix: x.next is never evaluated with n == 0`。修复前探针打印：
+脚本在 AddressSanitizer 和 UndefinedBehaviorSanitizer 下把固定的源码构建两次：一次用除 0005 以外的 `patches/*.patch`，一次用全部补丁。成功时最后一行是 `ok: after the fix: x.next is never evaluated with n == 0`。修复前探针打印两行。保留下来的 [report.txt](report.txt)（x86_64 Linux，GCC 15.2）中是下面这样：
 
 ```
 x.next + 0 at gzread.c:313, x.next = inside the freed caller buffer
 x.next + 0 at gzlib.c:435, x.next = inside the freed caller buffer
 ```
 
-文件：`dangling.c`、`run.sh`、[report.txt](report.txt)（x86_64 Linux，GCC 15.2）。修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。为撰写本页在 arm64 macOS 上运行了一次，结果相同；探针打印的行号取决于所应用的补丁 0004 的版本。
+保留下来的输出是用补丁 0004 的第一版得到的。本仓库的补丁 0004 是它的第二版，在 `gzread.c` 的 `gz_look` 中多了两行，所以在 `run.sh` 构建的源码中，`gz_skip_have` 的同一条语句是第 315 行。在 arm64 macOS 上用 Apple clang 运行了一次，打印的是 `gzread.c:315` 和 `gzlib.c:435`，其余相同。
+
+文件：`dangling.c`、`run.sh`、`report.txt`。修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。
 
 ## 范围
 
-读取 gzip 文件、请求长度至少为缓冲区两倍、读入的内存在之后对同一文件调用 `gzseek` 或 `gzdirect` 之前已被释放的读取者。在常见平台上没有可观察的后果。
+这样的 gzip 文件读取者：读取请求至少是缓冲区大小的两倍，并且在之后对同一文件调用 `gzseek` 或 `gzdirect` 之前，已经释放了读入的那块内存。在常见平台上没有可观察的后果。
 
 ## zlib.h 的说法
 
@@ -60,4 +60,4 @@ x.next + 0 at gzlib.c:435, x.next = inside the freed caller buffer
 
 与 [gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md) 相同：[0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 只在 `n` 不为零时移动 `x.next`。`n` 不为零时，输出刚在库自己的缓冲区中产生，`x.next` 指向那里。在任何路径上，结果、返回值和状态都不变。
 
-PR 草稿（两者共用一个 PR）：[../gz-reset-next-uninitialised/upstream-description.md](../gz-reset-next-uninitialised/upstream-description.md)。
+拉取请求草稿（两者共用一个拉取请求）：[../gz-reset-next-uninitialised/upstream-description.md](../gz-reset-next-uninitialised/upstream-description.md)。

@@ -1,7 +1,7 @@
-<!-- source-sha256: 13b3e8487b6f305ddaad94b36ed7ff2fa17b561079514d2b94fbdc90c3cb079e -->
-# 上游 PR 草稿：x.next 前进零
+<!-- source-sha256: 4eaaccb53e23b4baaa31eceef506732f380e961c1c2e2df32ba50bac0ea3201d -->
+# 上游拉取请求草稿：x.next 前进零
 
-供所有者提交。一个 PR 覆盖 [gz-reset-next-uninitialised](README.md) 和 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)；改动是 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch)。尚未发送任何内容。向上游提交的是英文原文；下面是它的中文译文。
+供所有者提交。一个拉取请求覆盖 [gz-reset-next-uninitialised](README.md) 和 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)；改动是 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch)。尚未发送任何内容。（译注：向上游提交的是英文原文；下面是它的中文译文。）
 
 ---
 
@@ -24,7 +24,7 @@ gzseek(f, 3, SEEK_SET);                /* x.next += 0, x.next never written */
 ```
 
 ```c
-gzFile f = gzopen("data.gz", "rb");   /* 100000 bytes compressed */
+gzFile f = gzopen("data.gz", "rb");   /* holds 100000 bytes of data */
 unsigned char *buf = malloc(100000);
 gzread(f, buf, 100000);                /* x.next now points into buf */
 free(buf);

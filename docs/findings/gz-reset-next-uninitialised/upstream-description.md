@@ -35,7 +35,7 @@ gzseek(f, 3, SEEK_SET);                /* x.next += 0, x.next never written */
 ```
 
 ```c
-gzFile f = gzopen("data.gz", "rb");   /* 100000 bytes compressed */
+gzFile f = gzopen("data.gz", "rb");   /* holds 100000 bytes of data */
 unsigned char *buf = malloc(100000);
 gzread(f, buf, 100000);                /* x.next now points into buf */
 free(buf);

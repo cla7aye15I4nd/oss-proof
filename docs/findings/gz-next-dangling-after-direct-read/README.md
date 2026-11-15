@@ -34,7 +34,7 @@ the pointer is never dereferenced.
 ## Call sequence
 
 ```c
-f = gzopen("data.gz", "rb");             /* 100000 bytes compressed */
+f = gzopen("data.gz", "rb");             /* holds 100000 bytes of data */
 buf = malloc(100000);
 gzread(f, buf, 100000);                  /* direct decompression: x.next into buf */
 free(buf);
@@ -61,17 +61,21 @@ ZLIB_SRC=$PWD/zlib bash docs/findings/gz-next-dangling-after-direct-read/run.sh
 
 The script builds the pinned source under AddressSanitizer and UndefinedBehaviorSanitizer twice:
 with `patches/*.patch` except 0005, and with all of them. Its last line on success is
-`ok: after the fix: x.next is never evaluated with n == 0`. Before the fix the probe prints:
+`ok: after the fix: x.next is never evaluated with n == 0`. Before the fix the probe prints two
+lines. The retained [report.txt](report.txt) (x86_64 Linux, GCC 15.2) has them as follows:
 
 ```
 x.next + 0 at gzread.c:313, x.next = inside the freed caller buffer
 x.next + 0 at gzlib.c:435, x.next = inside the freed caller buffer
 ```
 
-Files: `dangling.c`, `run.sh`, [report.txt](report.txt) (x86_64 Linux, GCC 15.2). Before the fix
-the probe sees both evaluations, after it none, and neither build gets a sanitizer report. A run
-on arm64 macOS for this page gave the same result; the line numbers the probe prints depend on
-the version of patch 0004 that is applied.
+The retained output was produced with the first version of patch 0004. The patch 0004 of this
+repository is its second version, which adds two lines to `gz_look` in `gzread.c`, so the same
+statement of `gz_skip_have` is line 315 of the source that `run.sh` builds. A run on arm64 macOS
+with Apple clang printed `gzread.c:315` and `gzlib.c:435`, and was otherwise the same.
+
+Files: `dangling.c`, `run.sh`, `report.txt`. Before the fix the probe sees both evaluations,
+after it none, and neither build gets a sanitizer report.
 
 ## Scope
 
