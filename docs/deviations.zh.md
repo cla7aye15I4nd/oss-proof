@@ -1,4 +1,4 @@
-<!-- source-sha256: cc589fab1ffeb7884b4e7897ce75dafd3042de489b368c3cc1c85e42c59c9b2d -->
+<!-- source-sha256: 46e3daa595e24e9eadc8b93fc7334123c4845830dd77cbf713f19b31834aa6a9 -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -228,7 +228,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 | 回调解码器的初始化（`BackSafeReachable.init` 中的 `InitDomain`） | 流记录可读；`zalloc` 与 `zfree` 各自是 `NULL` 或默认函数；记录的 `state` 字段是 `NULL`；`version` 指向一个可读的字节 `'1'`；`stream_size = 112`；调用返回了 `Z_OK`。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 不要求 `state` 为 `NULL`，C 也是不读 `state` 就覆盖它。`z_stream` 在 `inflateBackInit_` 之前 `state` 不为 `NULL` 的历史，在这个序列目标之外。已登记的功能目标 `Goal.inflateBackInit_` 没有这一子句：它对每个 `state` 值覆盖初始化调用，连同各种拒绝。 |
 | 回调（`CallbackProtocol`） | 调用者为它的 `in` 和 `out` 函数提供一个协议；各子句见下面的列表。 | `Goal.inflate_back_sequence_safety` | 这些是调用者代码的契约，不是被假设的库契约，并且一直显式写出。描述符对象可以与窗口共用同一次分配中切片以外的部分。 |
 | 调用之间调用者的修改（`BackSafeReachable.caller`） | 两次调用之间，调用者的修改是一次 `Rebuffer`（“调用之间调用者的修改”一行），并且保持窗口切片，以及每个仍存活的块的只读标志。 | `Goal.inflate_back_sequence_safety` | C 代码无法改变只读标志，所以那一子句不排除任何 C 调用者。关于窗口的子句确实排除了一些调用者：调用者在两次 `inflateBack` 调用之间写窗口切片，这样的历史在范围之外。窗口指针位于所在块的偏移 0 处时，模型中这个块归流拥有（`InflateOwned`），于是 `Rebuffer` 在两次调用之间保持的是整个块，而不只是切片。`inflateBack` 在每次调用开始时置 `state->whave = 0`，所以 C 看来不会读取先前的窗口字节（**尚未由证明确认**）；`zlib.h` 并不禁止这样的写入。 |
-| 回调输入总量 | `protocol.inputBound < 2^48`：一次 `inflateBack` 调用在它所有的 `in` 调用中总共得到少于 `2^48` 字节。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代以内（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)），而解码循环每轮至少读一个比特，所以输入更多的调用可能在 C 还会继续运行时就耗尽燃料。`2^48` 字节远远超过一次调用实际能处理的输入。功能目标 `Goal.inflateBack`（不在计划内，未证明）没有这条前提。 |
+| 回调输入总量 | `protocol.inputBound < 2^48`：一次 `inflateBack` 调用总共得到的输入少于 `2^48` 字节。这个总量包括第一个片段（调用时的 `next_in`、`avail_in`）和各次 `in` 调用交出的每个片段。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代以内（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)），而解码循环每轮至少读一个比特，所以输入更多的调用可能在 C 还会继续运行时就耗尽燃料。`2^48` 字节远远超过一次调用实际能处理的输入。功能目标 `Goal.inflateBack`（不在计划内，未证明）没有这条前提。 |
 | 回调解码器窗口 | `8 ≤ windowBits ≤ 15`，窗口不是 `NULL` 并且有 `2^windowBits` 个可写字节，这是 `zlib.h` 的要求；另外还要求：窗口是某个堆字节块的切片。 | `Goal.inflate_back_sequence_safety`，通过 `BackSafeReachable.init` | `zlib.h` 只要求一个有 `2^windowBits` 个可写字节的窗口。模型中另外唯一一种可写的字节视图是 deflate 状态内部的 depth 数组，那是调用者无法指名的库内存储；窗口位于那里不在已证明的定义域内。 |
 | 回调解码器输入片段 | 每个输入片段都位于某个堆字节块中：调用者给出的第一个片段（`BackFirstChunk`），以及 `in` 交出的每个片段（`BackPlatform`）。 | `Goal.inflate_back_sequence_safety` | C 能处理位于任何可读存储中的片段。位于模型中其他存储里的输入片段，例如结构体的字段或静态数据，不在已证明的定义域内。这与 `inflate` 快速入口的限制相同（[模型的限制](model-limits.md#functional-and-model-statements)，“快速解码辅助函数”）：`inflate_fast` 就运行在这个片段上。把两个解码器推广到任意字节引用不在计划内；[回调解码器骨架记录](history/skeleton-inflate-back.md)把它列为候选工作。 |
 
