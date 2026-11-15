@@ -1,9 +1,9 @@
-<!-- source-sha256: f63722ce2445d1e39dd3be5ba1dcf0041b54c1cbef2df408097744fc95dded18 -->
+<!-- source-sha256: dcdf21c231d590011f20e41e674db8e87f366258035d2739ebbd7f82a5668951 -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean。证明表明：默认 x86_64 Linux 构建中每个有文档的公开函数，在任何调用序列里运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止；前提是每条定理自己写明的那些条件。
 
-**已证明。** 全部 63 个必需目标都有一个类型完全相同的[已登记](docs/glossary.md#status)定理。它们覆盖目标构建中 86 个有文档的函数：`inflate` 与 `deflate` 及其调用序列、其他流函数、校验和、`compress*` 与 `uncompress*`、gzip 文件接口，以及回调解码器 `inflateBack`。这 63 个目标是：52 个单函数安全目标、4 个序列安全目标、3 个拒绝目标和 4 个[非空性目标](docs/glossary.md#goals)。31 个 gz 函数共用一个序列目标，三个 `inflateBack` 函数共用另一个，所以 86 个函数用不到 86 个目标。[验收套件](docs/glossary.md#checking)曾在提交 `bde170e9` 上全部通过，当时 63 个目标都已登记。那个提交之后有什么变化，见[范围](docs/progress.md#scope)。
+**已证明。** 全部 63 个必需目标都有一个类型完全相同的[已登记](docs/glossary.md#status)定理。它们覆盖目标构建中 86 个有文档的函数：`inflate` 与 `deflate` 及其调用序列、其他流函数、校验和、`compress*` 与 `uncompress*`、gzip 文件接口，以及回调解码器 `inflateBack`。这 63 个目标是：52 个单函数安全目标、4 个序列安全目标、3 个拒绝目标和 4 个[非空性目标](docs/glossary.md#goals)。31 个 gz 函数共用一个序列目标，三个 `inflateBack` 函数共用另一个，所以 86 个函数用不到 86 个目标。[验收套件](docs/glossary.md#checking)曾在提交 `bde170e9` 上全部通过，当时 63 个目标都已登记，所以这些结论在该提交上已验收。有一处例外：四个 init 安全目标在那之后被放宽，放宽后的形式已登记，尚未验收。那个提交之后有什么变化，见[范围](docs/progress.md#scope)。
 
 **所作假设。** 内核对照 Lean 命题检查每个证明。有六件事是被信任而没有被证明的（[可信基础](docs/trusted-base.md)）：
 
@@ -82,7 +82,7 @@ scripts/check-sorry.sh
 
 ## 在 zlib 中发现的问题
 
-这项工作在固定版本的源码中发现了下列问题。每行给出复现、置信度和适用范围。最后两行是关于大小的承诺没有兑现，不是内存错误。[源码问题记录](docs/findings.md)有每个问题的完整说明和上游状态；[补丁说明](patches/README.md)描述每个补丁。
+这项工作在固定版本的源码中发现了下列问题。每行给出复现、置信度和适用范围。最后两行是关于大小的承诺没有兑现，不是内存错误。[发现](docs/findings.md)有每个问题的完整说明和上游状态；[补丁说明](patches/README.md)描述每个补丁。
 
 | 问题 | 是否在有文档的 API 之内 | 证据与置信度 | 被验证源码中的修复 |
 | --- | --- | --- | --- |

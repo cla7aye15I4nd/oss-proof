@@ -207,7 +207,7 @@ asks; the goals that state it; and what is known outside it.
 | Premise | What it asks | Goals | Outside the premise |
 | --- | --- | --- | --- |
 | Initial configuration | Default x86_64 Linux, LP64, static build and default allocator: `zalloc` and `zfree` are each `NULL` or the default function (`DefaultOrNull`, `DefAlloc`) | Every goal | Other build configurations are not planned ([scope](progress.md#scope)). A stream whose `zalloc` or `zfree` is a custom function is outside every goal. Failure of the default allocator is inside: the safety goals hold for every allocation outcome. |
-| Platform byte-object scope (`ByteObjectsFit`) | Each byte object has fewer than `2^63` bytes, including caller, static and embedded storage | See the list below | An accepted [system environment premise](spec/platform.md): the LP64 `PTRDIFF_MAX` object limit. It is per object, with no limit on total memory or stream length. Proving an operating-system limit is outside the zlib proof. |
+| Platform byte-object scope (`ByteObjectsFit`) | Each byte object has fewer than `2^63` bytes, including caller, static and embedded storage | See the list below | A stated [system environment premise](spec/platform.md): the LP64 `PTRDIFF_MAX` object limit. It is per object, with no limit on total memory or stream length. Proving an operating-system limit is outside the zlib proof. |
 
 Where the goals state `ByteObjectsFit`:
 

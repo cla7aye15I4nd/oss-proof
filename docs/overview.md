@@ -14,8 +14,10 @@ On every input that its premises admit, the translated call returns with no unde
 and no memory error, writes only the memory it is allowed to (its frame), leaks nothing, and
 terminates. This holds over call sequences: for every history of an inflate stream, a deflate
 stream, a callback decoder and a gzip file handle. The 63 required goals are registered. The
-acceptance suite was green on commit `bde170e9`; [Scope](progress.md#scope) records the level of
-each result and what changed after that commit.
+acceptance suite was green on commit `bde170e9`, so the results are accepted on that commit. One
+exception: the four init safety goals were widened after it, and in the wider form they are
+registered and not yet accepted. [Scope](progress.md#scope) records the level of each result and
+what changed after that commit.
 
 **Assumed.** The theorems are about a Lean translation that runs on a runtime model. Six things
 are trusted and not proved ([trusted base](trusted-base.md)):

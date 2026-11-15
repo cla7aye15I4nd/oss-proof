@@ -13,7 +13,9 @@ one-function safety goals, four sequence safety goals, three refusal goals and f
 [non-vacuity goals](docs/glossary.md#goals). The 31 gz functions share one sequence goal and the
 three `inflateBack` functions another, which is why 86 functions need fewer goals.
 The [acceptance suite](docs/glossary.md#checking) was green on commit `bde170e9`, with all 63
-registered. [Scope](docs/progress.md#scope) says what changed after that commit.
+registered, so the results are accepted on that commit. One exception: the four init safety
+goals were widened after it, and in the wider form they are registered and not yet accepted.
+[Scope](docs/progress.md#scope) says what changed after that commit.
 
 **Assumed.** The kernel checks each proof against its Lean statement. Six things are trusted and
 not proved ([trusted base](docs/trusted-base.md)):
