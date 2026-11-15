@@ -17,7 +17,7 @@ set_option autoImplicit false
 /-! ## Where the loop stops -/
 
 /-- The number of bytes the loop reads: through the first zero byte, or all bytes. -/
-def firstStop : List UInt8 → Nat
+noncomputable def firstStop : List UInt8 → Nat
   | [] => 0
   | b :: t => if b = 0 then 1 else firstStop t + 1
 
