@@ -56,16 +56,29 @@ A reading of the C that no theorem states is marked **to confirm**.
 
 ### The length cell of `compress*` is a value, not memory
 
-- **C.** `destLen` points to a caller cell. `compress2_z` reads it, and stores the output length
-  through it at the end.
+- **C.** `destLen` points to a caller cell. `compress2_z` writes it twice. After the argument
+  checks it reads the capacity and stores 0 at once (`left = *destLen; *destLen = 0;`). After
+  the loop it stores the output length. So a return after a failed `deflateInit` leaves 0 in the
+  cell, and a refused call does not write the cell. `compress2` copies the cell into a local,
+  passes the local to `compress2_z`, and copies it back on every return.
 - **Model.** The translation takes the value of `*destLen` (`none` for `NULL`) and returns the
-  stored value as a second result
+  value the cell holds at the return as a second result: the value passed in for a refused call,
+  0 after a failed `deflateInit`, and the output length otherwise
   ([translation](../design/translation.md#the-accepted-normalisations)). The cell is not memory.
 - **Status.** This limits the safety goals: a length cell that overlaps the source or the
   destination cannot be expressed, so such a call is outside the theorems. The row
-  "Whole-buffer compression" of [deviations](../deviations.md) records it. The length cells of
-  `uncompress*` are memory, eight-byte blocks, and their separation from the buffers and from
-  each other is an explicit premise (row "Counted decompression").
+  "Whole-buffer compression" of [deviations](../deviations.md) records it.
+
+### The length cells of `uncompress*` are memory
+
+- **C.** `uncompress2_z` reads `*sourceLen` and `*destLen` after the argument checks and writes
+  them once, after the loop (`*sourceLen -= len; *destLen -= left;`). A refused call and a
+  return after a failed `inflateInit` do not write them. `uncompress2` copies both cells into
+  locals and copies them back on every return.
+- **Model.** Each cell is an eight-byte block that holds the value in little-endian order.
+- **Status.** Covered by the safety theorems. That the cells are separate from the buffers and
+  from each other is an explicit premise of the goals (row "Counted decompression" of
+  [deviations](../deviations.md)).
 
 ### A `NULL` destination with zero capacity in `compress2_z`
 
