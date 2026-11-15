@@ -25,7 +25,8 @@ at `mid` (the call assembly). -/
 def NeedDictExit (c : Ctx) (f : LoopFrame) (result : Except Ex Unit) (h : Heap) (l : IL) : Prop :=
   result = .error (.ret Z_NEED_DICT) ∧
   ∃ (r : ZStreamRef) (z : ZStream) (zs : Nat) (s : InflateState) (mid : Heap),
-    c.strm = some r ∧ r.get mid = some z ∧ mid.istates zs = some s ∧ s.mode = DICT ∧
+    c.strm = some r ∧ c.st = some (.tab zs) ∧ r.get mid = some z ∧ mid.istates zs = some s ∧
+    s.mode = DICT ∧
     s.havedict = 0 ∧ LoopMatches c f mid l ∧
     h = setI (r.put mid (dictWaitStream z l)) zs (leaveState s l)
 
@@ -231,7 +232,7 @@ theorem dictid_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       exact ⟨dictId_swap holdValue, flags0, rfl, ⟨w1, w2, fun zero => ⟨fun g => (w3 zero).1 g,
         fun ng => (w3 zero).2 ng⟩⟩, last0, total0, fun _ => ⟨wsize0, whave0⟩,
         fun ne => absurd havedict0 ne⟩
-    exact ⟨_, _, _, cut.trans wait, Or.inr ⟨rfl, r, _, zs, _, _, strm, hz2, setI_istates_same _ _ _, rfl,
+    exact ⟨_, _, _, cut.trans wait, Or.inr ⟨rfl, r, _, zs, _, _, strm, st, hz2, setI_istates_same _ _ _, rfl,
       havedict0, loopMid, rfl⟩⟩
   · -- the input ran out
     subst leaveResult

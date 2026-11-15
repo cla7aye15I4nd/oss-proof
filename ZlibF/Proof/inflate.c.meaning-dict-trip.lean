@@ -202,7 +202,7 @@ theorem trip_dict : TripDict := by
   have dispatch := inflate_dispatch_DICT E l mode
   by_cases present : s.havedict = 0
   · exact ⟨_, _, _, dispatch.trans (inflate_DICT_wait_run E l present),
-      Or.inr ⟨rfl, r, z, zs, s, h, strm, E.hz, E.hs, mode, present, loop, rfl⟩⟩
+      Or.inr ⟨rfl, r, z, zs, s, h, strm, st, E.hz, E.hs, mode, present, loop, rfl⟩⟩
   -- the dictionary is installed: on to `TYPE` in the same dispatch
   let z1 : ZStream := { z with adler := 1 }
   let s1 : InflateState := { s with check := 1, mode := TYPE }
