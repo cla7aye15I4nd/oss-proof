@@ -174,7 +174,9 @@ class AuditTests(unittest.TestCase):
                  for goal, functions in verification.SHARED_SAFETY_GOALS.items() for f in functions]
         apis.append({"function": "compressBound", "functional_goal": p + "compressBound",
                      "safety_goal": p + "compressBound", "safety_note": "full contract", "scope": "lp64-linux"})
-        return {"apis": apis, "undocumented": {"functions": []}}
+        return {"apis": apis, "undocumented": {"functions": []},
+                "safety_goals": [p + "adler32_safety", p + "adler32_combine_safety"] +
+                list(verification.SHARED_SAFETY_GOALS)}
 
     def test_safety_goal_is_bound_to_its_function(self):
         # Defect 2: pointing adler32_combine at Goal.adler32_safety made both goals "shared" and
@@ -237,28 +239,117 @@ class AuditTests(unittest.TestCase):
             with self.assertRaisesRegex(verification.Rejected, "stale"):
                 verification.check_registries_shrink()
 
-    def test_chain_starts_at_the_merge_of_the_base(self):
-        # After main took a squash of dev and was merged back, the older dev commits are not compared.
+    def merged_repo(self, main, before, after):
+        """Batch 3's fourth reading, defect A: a dev line from the floor "base", one commit that
+        changes the registry files, then a content-free merge whose second parent is an old main
+        commit. The bd2afafd walk stopped at that merge and compared 2 revisions."""
         repo, git = self.repo()
         audit = repo / "tests/audit"
-        (audit / "theorems.txt").write_text("T.a\n")
-        (audit / "proved-goals.txt").write_text("Goal.a\n")
-        git("add", "-A"); git("commit", "-qm", "root")
-        git("checkout", "-q", "-b", "dev")
-        (audit / "theorems.txt").write_text("T.a\nT.x\n")
-        git("add", "-A"); git("commit", "-qm", "x")
-        (audit / "theorems.txt").write_text("T.a\nT.b\n")
-        git("add", "-A"); git("commit", "-qm", "x replaced by b")
-        git("checkout", "-q", "main")
-        (audit / "theorems.txt").write_text("T.a\nT.b\n")
-        git("add", "-A"); git("commit", "-qm", "squash of dev"); git("tag", "base")
-        git("checkout", "-q", "dev")
-        git("merge", "-q", "--no-ff", "-m", "merge main", "main")
+        def write(files):
+            for name, text in files.items():
+                (audit / name).write_text(text)
+        write(main)
+        (repo / "README").write_text("old main\n")
+        git("add", "-A"); git("commit", "-qm", "old main"); git("tag", "mainold")
+        write(before)
+        (repo / "README").write_text("dev\n")
+        git("add", "-A"); git("commit", "-qm", "floor"); git("tag", "base")
+        write(after)
+        git("add", "-A"); git("commit", "-qm", "deregister")
+        merge = subprocess.check_output(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit-tree",
+                                         "HEAD^{tree}", "-p", "HEAD", "-p", "mainold", "-m", "merge main"],
+                                        cwd=repo, text=True).strip()
+        git("reset", "-q", "--hard", merge)
+        return repo, audit
+
+    def test_merge_does_not_hide_a_deregistration(self):
+        # Cheat 1: drop a registered non-required goal, then merge an old main commit.
+        repo, audit = self.merged_repo({"theorems.txt": "T.a\n", "proved-goals.txt": "Goal.a\n"},
+                                       {"theorems.txt": "T.a\nT.copy\n", "proved-goals.txt": "Goal.a\nGoal.copy\n"},
+                                       {"theorems.txt": "T.a\n", "proved-goals.txt": "Goal.a\n"})
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "mainold"}):
+            with self.assertRaisesRegex(verification.Rejected, "T.copy"):
+                verification.check_registries_shrink()
+            self.assertGreaterEqual(len(verification.revision_chain()), 3)
+
+    def test_merge_does_not_hide_a_reopened_goal(self):
+        # Cheat 2: a required safety goal closed at the floor, reopened, then the merge.
+        repo, audit = self.merged_repo(
+            {"public-api.json": json.dumps(self.open_manifest("Goal.first_safety", "Goal.second_safety"))},
+            {"public-api.json": json.dumps(self.open_manifest("Goal.second_safety"))},
+            {"public-api.json": json.dumps(self.open_manifest("Goal.first_safety", "Goal.second_safety"))})
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "mainold"}):
+            with self.assertRaisesRegex(verification.Rejected, "first_safety"):
+                verification.check_open_safety_shrinks(self.open_manifest("Goal.first_safety", "Goal.second_safety"))
+
+    def test_history_without_a_floor_is_rejected(self):
+        # A HEAD whose history does not contain a pinned floor (rewritten history) is rejected.
+        repo, audit = self.merged_repo({"theorems.txt": "T.a\n", "proved-goals.txt": "Goal.a\n"},
+                                       {"theorems.txt": "T.a\n", "proved-goals.txt": "Goal.a\n"},
+                                       {"theorems.txt": "T.a\nT.b\n", "proved-goals.txt": "Goal.a\n"})
+        orphan = subprocess.check_output(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit-tree",
+                                          "HEAD^{tree}", "-m", "rewritten"], cwd=repo, text=True).strip()
+        subprocess.run(["git", "reset", "-q", "--hard", orphan], cwd=repo, check=True)
+        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "mainold"}):
+            with self.assertRaisesRegex(verification.Rejected, "no chain floor"):
+                verification.revision_chain()
+
+    def test_own_safety_goal_cannot_be_replaced_by_the_full_contract(self):
+        # Defect B, the inflate cheat: a function with its own pinned safety goal names its
+        # functional goal with a safety_note; the escape is pinned to compressBound(_z).
+        manifest = self.binding_manifest()
+        manifest["apis"][0]["safety_goal"] = manifest["apis"][0]["functional_goal"]
+        manifest["apis"][0]["safety_note"] = "full contract"
+        with self.assertRaisesRegex(verification.Rejected, "not its own goal"):
+            verification.check_safety_binding(manifest)
+        manifest = self.binding_manifest()
+        manifest["safety_goals"].remove("ZlibF.Spec.Public.Goal.adler32_safety")
+        manifest["apis"][0]["safety_goal"] = manifest["apis"][0]["functional_goal"]
+        manifest["apis"][0]["safety_note"] = "full contract"
+        with self.assertRaisesRegex(verification.Rejected, "adler32"):
+            verification.check_safety_binding(manifest)
+
+    def test_mutant_references_of_a_proved_goal_only_shrink(self):
+        # Defect B: deleting Goal.inflate_safety's key took its proof out of mutant replay.
+        repo, git = self.repo()
+        audit = repo / "tests/audit"
+        (repo / "tests/proof-mutants").mkdir()
+        rows = repo / "tests/proof-mutants/rows.tsv"
+        rows.write_text("# NAME\tFILE\tOLD\tNEW\tPROOF_MODULES\n"
+                        "first\tZ.lean\ta\tb\tM\nsecond\tZ.lean\tc\td\tM\n")
+        targets = {"Goal.s": [{"list": "tests/proof-mutants/rows.tsv", "name": "first"},
+                              {"list": "tests/proof-mutants/rows.tsv", "name": "second"}]}
+        (audit / "public-mutants.json").write_text(json.dumps({"version": 1, "targets": targets}))
+        (audit / "proved-goals.txt").write_text("Goal.s\n")
+        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
         (repo / "README").write_text("x\n")
-        git("add", "README"); git("commit", "-qm", "later")
+        git("add", "README"); git("commit", "-qm", "head")
+        def write(t):
+            (audit / "public-mutants.json").write_text(json.dumps({"version": 1, "targets": t}))
         with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
-            self.assertEqual(len(verification.revision_chain()), 3)
-            verification.check_registries_shrink()
+            verification.check_mutants_shrink()
+            write({})
+            with self.assertRaisesRegex(verification.Rejected, "Goal.s"):
+                verification.check_mutants_shrink()
+            write({"Goal.s": targets["Goal.s"][:1]})
+            with self.assertRaisesRegex(verification.Rejected, "second"):
+                verification.check_mutants_shrink()
+            write(targets)
+            rows.write_text(rows.read_text().replace("second\tZ.lean\tc\td", "second\tZ.lean\tc\te"))
+            with self.assertRaisesRegex(verification.Rejected, "second"):
+                verification.check_mutants_shrink()
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1, "theorems": [], "proved_goals": [],
+                "mutant_references": [{"goal": "Goal.s", "list": "tests/proof-mutants/rows.tsv", "name": "second",
+                                       "reason": "the translation line changed"}]}))
+            verification.check_mutants_shrink()
+            rows.write_text(rows.read_text().replace("second\tZ.lean\tc\te", "second\tZ.lean\tc\td"))
+            with self.assertRaisesRegex(verification.Rejected, "stale"):
+                verification.check_mutants_shrink()
+            # Once the goal is no longer proved (a reviewed deregistration), its key may go.
+            (audit / "registry-removals.json").unlink()
+            (audit / "proved-goals.txt").write_text("")
+            write({})
+            verification.check_mutants_shrink()
 
     def test_open_safety_reopened_on_the_branch_is_seen(self):
         repo, git = self.repo()
@@ -393,6 +484,10 @@ class AuditTests(unittest.TestCase):
 
 
     def setUp(self):
+        # Scratch repositories pin their own floor: the commit tagged "base".
+        floors = patch.object(verification, "CHAIN_FLOORS", ("base",))
+        floors.start()
+        self.addCleanup(floors.stop)
         self.temp = tempfile.TemporaryDirectory(prefix="declaration-audit-test-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)

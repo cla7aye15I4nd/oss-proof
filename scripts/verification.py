@@ -24,12 +24,18 @@ PROVED_GOALS = Path("tests/audit/proved-goals.txt")
 REMOVALS = Path("tests/audit/registry-removals.json")
 # The open list at the commit that introduced it: the floor while the base branch has no open list.
 OPEN_SAFETY_FLOOR = "ec860375"
+# The shrink-only checks compare every commit after these (dev at bd2afafd; main at 364790f5, whose
+# squash commits have no dev ancestry). Each run needs at least one of them as an ancestor of HEAD.
+CHAIN_FLOORS = ("bd2afafdc764914528953edfa148d6b18fdfada8", "364790f5f0cea98e6897be37a8aeaa0515cc1fec")
 # Proved per-function safety goals that have no function mutants of their own yet, each with its
 # reason. The list may only shrink: an entry whose goal is unproved or has mutants is rejected.
 MUTANT_COVERAGE_PENDING: dict[str, str] = {}
+# The functions that name their full contract as safety goal (with a safety_note): pure functions with
+# no own Goal.<function>_safety. No other function may.
+FULL_CONTRACT_SAFETY = ("compressBound", "compressBound_z")
 # The only safety goals that several functions share, each with exactly the functions that name it.
-# Every other documented function names its own Goal.<function>_safety (or _safe), or its full
-# contract with a safety_note.
+# Every other documented function names its own Goal.<function>_safety (or _safe), or is listed in
+# FULL_CONTRACT_SAFETY.
 SHARED_SAFETY_GOALS = {
     "ZlibF.Spec.Public.Goal.gz_sequence_safety": [
         "gzbuffer", "gzclearerr", "gzclose", "gzclose_r", "gzclose_w", "gzdirect", "gzdopen", "gzeof",
@@ -176,23 +182,24 @@ def show(revision: str, path: Path) -> str | None:
 
 
 def revision_chain() -> list[str]:
-    """The revisions the shrink-only checks compare with: the base, and every first-parent commit
-    from the base to HEAD. A run on dev compares with origin/main, so a name registered and then
-    removed on dev between two merges to main is still seen. The walk stops at the commit that merged
-    the base into this branch (main into dev after a squash): from there on the branch holds the base."""
+    """The revisions the shrink-only checks compare with: the base, the pinned floors that are
+    ancestors of HEAD, and every commit after them that HEAD contains (all parents, not only the
+    first, so no merge can hide what came before it). At least one floor must be an ancestor of
+    HEAD, or the check rejects: HEAD cannot drop the history these checks read. CHAIN_FLOORS moves
+    forward only by an edit to this script."""
     base = base_revision()
-    lines = subprocess.check_output(["git", "rev-list", "--first-parent", "--parents", f"{base}..HEAD"],
-                                    cwd=ROOT, text=True).split("\n")
-    chain = []
-    for line in lines:
-        if not line.strip():
-            continue
-        commit, *parents = line.split()
-        chain.append(commit)
-        if any(subprocess.run(["git", "merge-base", "--is-ancestor", parent, base], cwd=ROOT).returncode == 0
-               for parent in parents[1:]):
-            break
-    return [base] + chain[::-1]
+    floors = []
+    for floor in CHAIN_FLOORS:
+        if subprocess.run(["git", "cat-file", "-e", floor + "^{commit}"], cwd=ROOT,
+                          stderr=subprocess.DEVNULL).returncode != 0:
+            raise Rejected(f"chain floor {floor[:12]} is not available: fetch the full history")
+        if subprocess.run(["git", "merge-base", "--is-ancestor", floor, "HEAD"], cwd=ROOT).returncode == 0:
+            floors.append(floor)
+    if not floors:
+        raise Rejected("no chain floor is an ancestor of HEAD: " + ", ".join(f[:12] for f in CHAIN_FLOORS))
+    commits = subprocess.check_output(["git", "rev-list", "--reverse", "HEAD", "--not", *CHAIN_FLOORS],
+                                      cwd=ROOT, text=True).split()
+    return list(dict.fromkeys([base] + floors + commits))
 
 
 def check_open_safety_shrinks(manifest: dict) -> None:
@@ -238,13 +245,15 @@ def proved_goals() -> list[str]:
     return names
 
 
-def removals() -> dict[str, set[str]]:
-    """Reviewed removals: a registered theorem or a recorded proved goal that may disappear."""
+def removals() -> dict[str, set]:
+    """Reviewed removals: a registered theorem, a recorded proved goal, or a mutant reference of a
+    proved goal (goal, list, row name) that may disappear or change."""
     path = ROOT / REMOVALS
     data = json.loads(raw_text(path)) if path.is_file() else {"version": 1, "theorems": [], "proved_goals": []}
-    if set(data) != {"version", "theorems", "proved_goals"} or data["version"] != 1:
+    if not {"version", "theorems", "proved_goals"} <= set(data) <= \
+            {"version", "theorems", "proved_goals", "mutant_references"} or data["version"] != 1:
         raise Rejected(f"unknown {REMOVALS}")
-    result = {}
+    result: dict[str, set] = {}
     for key in ("theorems", "proved_goals"):
         names = set()
         for entry in data[key]:
@@ -254,6 +263,13 @@ def removals() -> dict[str, set[str]]:
                 raise Rejected(f"{REMOVALS} entries need one name and a reason: {entry}")
             names.add(entry["name"])
         result[key] = names
+    references = set()
+    for entry in data.get("mutant_references", []):
+        if not isinstance(entry, dict) or set(entry) != {"goal", "list", "name", "reason"} or \
+                not all(isinstance(entry[k], str) and entry[k].strip() for k in entry):
+            raise Rejected(f"{REMOVALS} mutant_references entries need a goal, a list, a name and a reason: {entry}")
+        references.add((entry["goal"], entry["list"], entry["name"]))
+    result["mutant_references"] = references
     return result
 
 
@@ -306,6 +322,53 @@ def check_waivers_shrink() -> None:
         added = sorted(set(MUTANT_COVERAGE_PENDING) - set(earlier))
         if added:
             raise Rejected(f"MUTANT_COVERAGE_PENDING grew against {revision[:12]}: " + ", ".join(added))
+
+
+def mutant_identities(text_at, targets: dict, goals: set[str]) -> set[tuple]:
+    """(goal, list, row name, file, old, new) of every reference of the given goals; text_at reads a list."""
+    rows: dict[str, dict[str, tuple]] = {}
+    found = set()
+    for goal, references in targets.items():
+        if goal not in goals or not isinstance(references, list):
+            continue
+        for reference in references:
+            path = reference["list"]
+            if path not in rows:
+                rows[path] = {}
+                for line in (text_at(path) or "").split("\n"):
+                    if line and not line.startswith("#"):
+                        fields = line.split("\t")
+                        rows[path].setdefault(fields[0], tuple(fields[1:4]))
+            found.add((goal, path, reference["name"]) + rows[path].get(reference["name"], ()))
+    return found
+
+
+def check_mutants_shrink() -> None:
+    """While a goal is proved, its mutant references only shrink with a reviewed entry: no reference
+    (list and row) of a proved goal at the base or a later commit of the chain disappears, and the
+    referenced row (file, old and new text) does not change. So a committer cannot drop a goal's
+    key, cut its rows to one, or swap a row for a weaker one without a reason in
+    tests/audit/registry-removals.json. An entry that excuses nothing is stale and rejected."""
+    proved = set(proved_goals())
+    allowed = removals()["mutant_references"]
+    path = Path("tests/audit/public-mutants.json")
+    current = mutant_identities(lambda p: raw_text(ROOT / p) if (ROOT / p).is_file() else None,
+                                json.loads(raw_text(ROOT / path))["targets"], proved)
+    earlier: dict[tuple, str] = {}
+    for revision in revision_chain():
+        text = show(revision, path)
+        if text is None:
+            continue
+        for identity in mutant_identities(lambda p: show(revision, Path(p)), json.loads(text)["targets"], proved):
+            earlier.setdefault(identity, revision)
+    missing = set(earlier) - current
+    lost = sorted(i for i in missing if i[:3] not in allowed)
+    if lost:
+        raise Rejected("mutant references of proved goals removed or changed without a reviewed entry in "
+                       f"{REMOVALS}: " + ", ".join(f"{i[0]}: {i[2]} (at {earlier[i][:12]})" for i in lost))
+    stale = sorted(a for a in allowed if not any(i[:3] == a for i in missing))
+    if stale:
+        raise Rejected(f"stale mutant_references entries in {REMOVALS}: " + ", ".join(map(str, stale)))
 
 
 def check_required_proved(manifest: dict) -> None:
@@ -727,7 +790,6 @@ def coverage() -> dict:
                 raise Rejected(f"a full contract used as safety goal needs a safety_note: {api['function']}")
         elif safety not in manifest.get("safety_goals", []):
             raise Rejected(f"safety goal is not a listed safety target: {api['function']}: {safety}")
-    check_safety_binding(manifest)
     groups = {
         "sequence_goals": ["inflate_sequence", "deflate_sequence", "inflate_back_sequence", "gz_sequence"],
         "nonvacuity_goals": ["inflate_initialisation_domain", "deflate_initialisation_domain",
@@ -755,6 +817,7 @@ def coverage() -> dict:
         goals.extend(manifest[group])
     if len(goals) != len(set(goals)):
         raise Rejected("public contracts must have distinct targets")
+    check_safety_binding(manifest)
     check_open_safety(manifest)
     public_mutants(manifest)
     check_imports()
@@ -770,21 +833,34 @@ def coverage() -> dict:
 
 
 def check_safety_binding(manifest: dict) -> None:
-    """Each documented function names its own safety goal: Goal.<function>_safety or _safe, its full
-    contract (with a safety_note), or a shared goal of SHARED_SAFETY_GOALS that lists it. A shared
-    goal is named by exactly its pinned functions. So no manifest edit can make a function's goal
-    shared and drop it from the mutant requirement."""
+    """Each documented function names exactly one safety goal, fixed by the script:
+    - its own Goal.<function>_safety (or _safe) when that goal is in the pinned safety_goals;
+    - else its full contract, only for the functions of FULL_CONTRACT_SAFETY;
+    - else a shared goal of SHARED_SAFETY_GOALS that lists it, named by exactly its pinned functions.
+    So no manifest edit can move a function off its own goal and drop that goal from the mutant
+    requirement while the goal stays required."""
     hidden = set(manifest.get("undocumented", {}).get("functions", []))
+    pinned = set(manifest.get("safety_goals", []))
     sharing: dict[str, list[str]] = {}
     for api in manifest["apis"]:
         if api["scope"] != "lp64-linux" or api["function"] in hidden:
             continue
         function, safety = api["function"], api.get("safety_goal")
-        own = {"ZlibF.Spec.Public.Goal." + function + suffix for suffix in ("_safety", "_safe")}
-        if safety in SHARED_SAFETY_GOALS:
+        own = [g for g in ("ZlibF.Spec.Public.Goal." + function + suffix for suffix in ("_safety", "_safe"))
+               if g in pinned]
+        shared = [g for g, functions in SHARED_SAFETY_GOALS.items() if function in functions]
+        if own:
+            if len(own) != 1 or safety != own[0]:
+                raise Rejected(f"safety goal of {function} is not its own goal {own[0]}: {safety}")
+        elif function in FULL_CONTRACT_SAFETY:
+            if safety != api["functional_goal"] or not api.get("safety_note"):
+                raise Rejected(f"{function} must name its full contract with a safety_note: {safety}")
+        elif shared:
+            if safety != shared[0]:
+                raise Rejected(f"safety goal of {function} is not its pinned shared goal {shared[0]}: {safety}")
             sharing.setdefault(safety, []).append(function)
-        elif safety not in own and safety != api["functional_goal"]:
-            raise Rejected(f"safety goal of {function} is not its own: {safety}")
+        else:
+            raise Rejected(f"{function} has no own safety goal, no pinned full contract and no shared goal")
     for goal, functions in SHARED_SAFETY_GOALS.items():
         if sorted(sharing.get(goal, [])) != sorted(functions):
             raise Rejected(f"shared safety goal {goal} is named by {sorted(sharing.get(goal, []))}, "
@@ -872,6 +948,7 @@ def main() -> int:
                 check_open_safety_shrinks(manifest)
                 check_registries_shrink()
                 check_waivers_shrink()
+                check_mutants_shrink()
             if args.mode == "final" and open_safety(manifest):
                 raise Rejected("final acceptance requires an empty open_safety: " +
                                ", ".join(open_safety(manifest)))

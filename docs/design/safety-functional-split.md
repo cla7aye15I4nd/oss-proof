@@ -142,16 +142,21 @@ As implemented (step 3):
 - The gzip functions name `Goal.gz_sequence_safety`, and `inflateBackInit_`, `inflateBack` and
   `inflateBackEnd` name `Goal.inflate_back_sequence_safety`, until step 4 states one goal per
   function. A shared safety goal does not key mutants. These two goals and their functions are
-  pinned in `SHARED_SAFETY_GOALS` in `scripts/verification.py`; every other documented function
-  names its own `Goal.<function>_safety` (or `_safe`), or its full contract with a `safety_note`.
+  pinned in `SHARED_SAFETY_GOALS` in `scripts/verification.py`. A function whose own
+  `Goal.<function>_safety` (or `_safe`) is in the pinned `safety_goals` must name exactly that goal.
+  Only the functions of `FULL_CONTRACT_SAFETY` (`compressBound`, `compressBound_z`) name their full
+  contract, with a `safety_note`.
 - `compressBound` and `compressBound_z` name their full contracts, with a `safety_note`: their
   translations are pure functions with no heap and no fault, so a separate safety goal would hold
   by definition.
-- `open_safety` is compared with the base branch (`ZLIBF_BASE_REF`, else the pull request's base,
-  else `origin/main`; on `main` itself, the first parent) and with every first-parent commit from
-  the base to `HEAD`. The walk stops at the commit that merged the base into the branch. A goal
-  that is required and not open at any of these revisions may not become open. A goal new to the
-  required set may enter the list.
+- The shrink-only checks compare with a chain of revisions: the base branch (`ZLIBF_BASE_REF`, else
+  the pull request's base, else `origin/main`; on `main` itself, the first parent), the pinned
+  floors of `CHAIN_FLOORS` that are ancestors of `HEAD`, and every commit after them that `HEAD`
+  contains, through all parents, so no merge hides what came before it. At least one floor must be
+  an ancestor of `HEAD`. The floors are bd2afafd for dev and 364790f5 for main (a squash commit on
+  main has no dev ancestry); they move only by an edit to the script.
+- `open_safety`: a goal that is required and not open at any revision of the chain may not become
+  open. A goal new to the required set may enter the list.
 - `open_safety` may not list a proved goal. `final` also requires it to be empty. The auditor's
   strict mode is no longer used: it would reject every unproved functional goal.
 - No decision reads the report text: a Lean name can hold a newline and forge a line.
@@ -167,10 +172,14 @@ As implemented (step 3):
   mutants. `MUTANT_COVERAGE_PENDING` in `scripts/verification.py` may name, with a reason, a proved
   safety goal still without rows; a stale entry is rejected, and no entry may be new against the
   revisions above. The acceptance batch emptied it.
-- No name registered in `theorems.txt` or recorded in `proved-goals.txt` at any of the revisions
-  above may disappear, unless `tests/audit/registry-removals.json` names it with a reason. An entry
+- No name registered in `theorems.txt` or recorded in `proved-goals.txt` at any revision of the
+  chain may disappear, unless `tests/audit/registry-removals.json` names it with a reason. An entry
   whose name was never registered there, or is registered now, is stale and rejected. While the
   base has no `open_safety`, the list at `ec860375` is the floor.
+- While a goal is proved, its mutant references in `tests/audit/public-mutants.json` only shrink:
+  no reference (list and row) at any revision of the chain may disappear, and the referenced row
+  (file, old and new text) may not change, unless `registry-removals.json` names the goal, list and
+  row under `mutant_references` with a reason. An entry that excuses nothing is stale.
 
 ## Progress view
 
