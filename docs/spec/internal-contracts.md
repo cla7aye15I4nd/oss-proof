@@ -156,10 +156,10 @@ Proof guide: [deflate](../proof/deflate.md).
 | Part / ID | Contract |
 | --- | --- |
 | Pre / Post `I-hc-inv` | `INSERT_STRING`, `slide_hash`, `CLEAR_HASH`, `fill_window` and `deflateSetDictionary` maintain heads naming inserted positions and reachable `prev[p mod w_size]` slots written with `NIL` or smaller same-hash positions. Positions agree with current window/lookahead. |
-| Pre `I-lm-pre` | `cur_match` is a nonzero head for the current string's hash, `cur_match < strstart`, and distance is at most `MAX_DIST`. `I-hc-inv` holds; `strstart ≤ window_size - MIN_LOOKAHEAD`, `1 ≤ prev_length ≤ MAX_MATCH`, and configured search settings give a positive chain budget after any reduction. |
+| Pre `I-lm-pre` | `cur_match` is a nonzero head for the current string's hash, `cur_match < strstart`, and distance is at most `MAX_DIST`. `I-hc-inv` holds; `strstart ≤ window_size - MIN_LOOKAHEAD`, and `1 ≤ prev_length ≤ MAX_MATCH`. There is no premise on the chain budget: `deflateTune` accepts `max_chain_length = 0`. |
 | Effects `I-lm-reads` | Reads window through `strstart + MAX_MATCH` inclusive, possibly past lookahead, and written reachable `prev` slots. Only `match_start` changes. The padding bytes past the lookahead never make a match valid. |
 | Post `I-lm-ret` | Returns at most `min(MAX_MATCH, lookahead)`. Improvement sets a valid `match_start`; otherwise it may retain `prev_length`, capped by lookahead, without a new `match_start` guarantee. |
-| Post `I-lm-term` | Ends within the chain budget; traversed nonzero positions strictly decrease. No global maximum is promised. |
+| Post `I-lm-term` | Ends because the traversed positions strictly decrease: the proof of the loop (`lm_loop_ok`, `deflate.c.engine.lmmain.lean`) uses `cur_match` as its measure, for any chain budget. The budget can end the walk earlier, but termination does not rest on it: with a budget of 0, `--chain_length` wraps to a large value. No global maximum is promised. |
 
 ## Construct and emit Huffman trees: `trees.c`
 
