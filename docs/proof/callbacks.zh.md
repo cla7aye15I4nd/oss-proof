@@ -1,9 +1,9 @@
-<!-- source-sha256: ddee1d52685676a679d34f79c3d1b6b482e77a0c35b9b75bc0cd0fae6e0bbdaa -->
+<!-- source-sha256: ca1a6585184a4aed98bd11150ba8ebcdb750c6464f746d0c51d84c4f90ac6c8b -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
 接收输出。所以它的安全性取决于这两个函数做什么。本页的结果是：对每一对遵守一个明确写出的协议、并且提供的输入量有界的回调，`inflateBack`
-及其调用序列是安全的。本页给出陈述、协议和证明的形状。
+及其调用序列是安全的。本页给出这个命题、协议和证明的形状。
 
 源文件：`infback.c`。[API 页面](../spec/api/inflate-back.md)陈述公开契约。术语见[术语表](../glossary.md)。
 
@@ -14,15 +14,18 @@
 | `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Public/Sequences.lean`） | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
 | `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Public/Domains.lean`） | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
 
-两者都是必需的：第一个是安全结果，第二个表明它的前提可以被满足。它们[已登记](../checking/README.md)在
-`tests/audit/theorems.txt` 中，并已在提交 `bde170e9` 上[验收](../checking/README.md)。`inflateBackInit_`、`inflateBack` 和
-`inflateBackEnd` 这三个函数的安全性由序列目标证明；它们没有单独的单函数目标（[进度，范围](../progress.md#scope)）。
+两者都是必需的：第一个是安全结论，第二个表明它的前提可以被满足。它们[已登记](../checking/README.md)在
+`tests/audit/theorems.txt` 中，并已在提交 `bde170e9` 上[验收](../checking/README.md)。
+
+`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 这三个函数的安全性由序列目标证明。它们都没有单函数的安全目标：清单文件
+`tests/audit/public-api.json` 把 `Goal.inflate_back_sequence_safety` 列为它们各自的安全目标，`tests/audit/goals.txt`
+也没有为它们列出别的安全目标（[进度，范围](../progress.md#scope)）。每个函数另有一个功能契约（`Goal.inflateBackInit_`、`Goal.inflateBack`、`Goal.inflateBackEnd`）。这些契约不是必需的；哪些已经证明，见[最后一节](#functional-results-that-stay)。
 
 `Goal.inflate_back_sequence_safety` 有四个子句。
 
 1. 在 `NULL` 流上，`inflateBack` 返回 `Z_STREAM_ERROR`，什么都不改。
-2. 每个可达的历史之后，流在调用者的窗口上有一个有效的状态（`BackValid`：流记录指向一个存活的 inflate
-   状态，使用默认分配器，`8 ≤ wbits ≤ 15`，`wsize = 2^wbits`，并且有一个 `wsize` 字节的可写窗口）。
+2. 每个可达的历史之后，流在调用者的窗口上有一个有效的状态（`BackValid`：堆是良构的，流记录指向一个存活的 inflate
+   状态，使用默认分配器，`8 ≤ wbits ≤ 15`，`wsize = 2^wbits`，窗口不是 `NULL`，并且有 `wsize` 个可写字节）。
 3. 对下文定义域中的每个调用者协议，再调用一次 `inflateBack` 会无故障地返回。它的结果是 `Z_STREAM_END`、`Z_DATA_ERROR` 或
    `Z_BUF_ERROR`。状态在同一个窗口上保持有效。调用只改动流记录、状态记录、回调自己的块和窗口切片（`CallbackFrame`）。回调自己的块之外的存活块不变，所以库不泄漏任何东西。
 4. 在每个可达的历史上，`inflateBackEnd` 返回 `Z_OK`，释放状态块而不释放别的，并清除流的状态指针。窗口仍归调用者。
@@ -39,18 +42,18 @@ int inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
                 out_func out, void FAR *out_desc);
 ```
 
-`infback.c` 在三个地方调用它们。下面的宏是压缩之后的形式：
+`infback.c` 在三个地方调用它们。下面的宏以精简后的形式列出：
 
 ```c
-/* PULL(): the current input chunk is used up */
+/* PULL()：当前的输入片段已用完 */
 have = in(in_desc, &next);
 if (have == 0) { next = Z_NULL; ret = Z_BUF_ERROR; goto inf_leave; }
 
-/* ROOM(): the window is full */
+/* ROOM()：窗口已满 */
 put = state->window; left = state->wsize; state->whave = left;
 if (out(out_desc, put, left)) { ret = Z_BUF_ERROR; goto inf_leave; }
 
-/* inf_leave: the last, partial window */
+/* inf_leave：最后的、不满的窗口 */
 if (left < state->wsize) {
     if (out(out_desc, state->window, state->wsize - left) && ret == Z_STREAM_END)
         ret = Z_BUF_ERROR;
@@ -93,13 +96,18 @@ sequenceDiagram
 
 | 前提 | 位置 | [偏离记录](../deviations.md#callback-decoder)中的行 |
 | --- | --- | --- |
+| 在 `inflateBackInit_` 之前：堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`）；`version` 指向一个可读的字节 `'1'`；流记录可读；它的 `zalloc` 和 `zfree` 各自是 `NULL` 或默认函数；它的 `state` 字段是 `NULL`。这次调用的 `stream_size = 112`，并且返回了 `Z_OK`。`zlib.h` 不要求 `state` 为 `NULL`，所以这一行比 `zlib.h` 窄。 | `BackSafeReachable.init` 中的 `InitDomain` | 回调解码器的初始化 |
 | 回调遵守一个 `CallbackProtocol`（下一节），并且它的不变量在调用 `inflateBack` 时成立。 | 参数 `protocol` | 回调 |
-| 一次调用在它所有的 `in` 调用中得到的字节总共少于 `2^48`。 | `protocol.inputBound < 2^48` | 回调输入总量 |
-| 窗口是一个堆字节块的切片。 | `BackSafeReachable.init` | 回调解码器的窗口 |
-| 每个输入片段都在一个堆字节块中：调用者的第一个片段，以及 `in` 交出的每个片段。 | `BackFirstChunk`、`BackPlatform` | 回调解码器的输入片段 |
-| 在每次调用时和每个回调步骤之后，每个字节对象少于 `2^63` 字节。 | `ByteObjectsFit`、`BackPlatform` | 平台字节对象的范围 |
+| 一次调用得到的字节，把调用者的第一个片段和它所有的 `in` 调用合在一起，总共少于 `2^48`。 | `protocol.inputBound < 2^48`，连同 `bounded` | 回调输入总量 |
+| `8 ≤ windowBits ≤ 15`，窗口不是 `NULL`，有 `2^windowBits` 个可写字节，并且是一个堆字节块的切片。 | `BackSafeReachable.init` | 回调解码器窗口 |
+| 每个输入片段都在一个堆字节块中：调用者的第一个片段，以及 `in` 交出的每个片段。 | `BackFirstChunk`、`BackPlatform` | 回调解码器输入块 |
+| 在每次调用时和每个回调步骤之后，每个字节对象少于 `2^63` 字节。 | `ByteObjectsFit`、`BackPlatform` | 平台字节对象范围 |
 | 流使用默认分配器，或者分配器字段为 `NULL`，由初始化替换。 | `BackValid`、`InitDomain` | 初始配置 |
-| 调用者的第一个输入片段（`strm->next_in`、`strm->avail_in`）可读，并且与窗口分离。 | 子句 3 中的 `Bytes` 和 `Separate` | 回调 |
+| 调用者的第一个输入片段可读，并且与窗口分离：它是 `strm->next_in` 处的 `strm->avail_in` 个字节；`strm->next_in` 为 `NULL` 时没有字节。 | 子句 3 中的 `Bytes` 和 `Separate` | 回调 |
+| 在两次调用之间，调用者只改动流不拥有的内存和流记录的四个缓冲区字段。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 | `BackSafeReachable.caller` | 回调 |
+
+完整的列表就是命题本身：`ZlibF/Spec/Public/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety` 和
+`BackSafeReachable`，以及 `ZlibF/Spec/Public/Domains.lean` 中的 `InitDomain`。
 
 ### 为什么要给输入设界
 
@@ -108,23 +116,29 @@ sequenceDiagram
 
 `2^48` 这个数字是模型的限制，不是 zlib 的。运行时把每个循环界定在 `2^64` 次迭代之内，而分派循环的度量数的是输入的位。
 
+这个界把这次调用的每个字节都算在内。已提供字节的日志从调用者的第一个片段（`strm->next_in`、`strm->avail_in`）开始，每次
+`in` 调用再向它追加。下面的要求 `bounded` 限制的就是这份日志的长度。
+
 ## 调用者协议
 
 `CallbackProtocol`（`ZlibF/Spec/Public/Back.lean`）说明两个回调可以做什么。它的各个部分由定理的调用者选择：
 
 - `own`：属于回调的堆块的集合。它不包含状态记录和流记录。
-- `invariant`：关于堆和一份日志的一个性质。日志（`BackLog`）记录 `in` 已经提供的字节和 `out` 已经收到的片段。它不是内存；它只存在于陈述中。
+- `invariant`：关于堆和一份日志的一个性质。日志（`BackLog`）记录到此为止提供的字节（先是调用者的第一个片段，然后是 `in`
+  返回的内容），以及 `out` 已经收到的片段。它不是内存；它只存在于命题中。
 - `inputBound`：一个数。
 
 协议随后对 `in` 和 `out` 提出五项要求。
 
 | 要求 | 含义，对照上面的 C 调用 |
 | --- | --- |
-| `local_` | 不变量只依赖回调自己的块。窗口切片的变化不影响它。`in_desc` 或 `out_desc` 背后的对象可以与窗口在同一次分配中，位于切片之外。 |
+| `local_` | 不变量只依赖两样东西：回调自己的块的内容，以及堆的分配器字段（下一个块编号、分配调用的次数、分配失败预言、新分配内存的内容，以及静态表）。在这些方面一致的两个堆（`ExternalAgreement`）同样地满足或不满足它。比较时不计窗口切片的字节，所以窗口切片的变化不影响它。`in_desc` 或 `out_desc` 背后的对象可以与窗口在同一次分配中，位于切片之外。 |
 | `inStep` | 从不变量出发，`in(in_desc, &next)` 无故障地返回一个计数和一个片段地址。它只改动自己的块（`ExternalFrame`），并保持窗口切片的字节。非空的片段在计数的长度内可读，与窗口分离，并且在状态记录和流记录之外。不变量再次成立，日志中追加了这个片段。 |
 | `outStep` | 从不变量出发，对任何不超过窗口容量的可读范围，`out(out_desc, buf, len)` 无故障地返回。它只改动自己的块，保持窗口切片的字节，并使当前的输入片段在下一次 `in` 调用之前保持可读。不变量再次成立，日志中追加了这个片段。 |
 | `liveInput` | 在不变量之下，当前的输入片段可读。 |
-| `bounded` | 在不变量之下，到此为止提供的字节数至多是 `inputBound`。 |
+| `bounded` | 在不变量之下，到此为止提供的字节数（包括调用者的第一个片段）至多是 `inputBound`。 |
+
+这张表是摘要。完整的命题是 `ZlibF/Spec/Public/Back.lean` 中的结构 `CallbackProtocol`。
 
 “只改动自己的块”（`ExternalFrame`）允许回调分配和释放它自己的块。它创建的每个块都是它自己的块，堆保持良构。它不能改变一个保持存活的块是否只读：C
 代码没有办法做到这一点。
@@ -135,9 +149,9 @@ sequenceDiagram
 
 | 构造子 | 步骤 |
 | --- | --- |
-| `init` | 一次成功的 `inflateBackInit_`，其中 `8 ≤ windowBits ≤ 15`，可写的窗口在一个堆字节块中。 |
-| `caller` | 调用者改动它自己的内存和流的四个缓冲区字段，并保持窗口切片。 |
-| `step` | 一次已返回的 `inflateBack` 调用，在一个带有平台前提的协议之下。 |
+| `init` | 一次成功的 `inflateBackInit_`，出发的调用者存储满足 `InitDomain`（流记录的 `state` 字段是 `NULL`），其中 `stream_size = 112`，`8 ≤ windowBits ≤ 15`，窗口不是 `NULL`、可写，并且在一个堆字节块中。 |
+| `caller` | 调用者改动流不拥有的内存和流记录的四个缓冲区字段（`Rebuffer`）。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 |
+| `step` | 一次已返回的 `inflateBack` 调用。它的第一个片段可读并且与窗口分离，协议的不变量在调用时成立，平台前提也成立（调用时的 `ByteObjectsFit`、`BackPlatform`、`BackFirstChunk`）。 |
 
 `step` 不要求输入的界。所以一个历史可以包含输入无界而碰巧返回了的调用。界只对下一次调用提出，目标正是在那里断言终止。
 
@@ -147,14 +161,20 @@ sequenceDiagram
 
 - 状态在调用者的窗口上有效，窗口在状态记录和流记录之外。
 - `put` 和 `left` 描述窗口中还没写的尾部：`put = window + (n - left)`。
-- `next` 和 `have` 描述 `in` 上一次返回的片段的剩余部分。这个片段保持可读，在窗口之外，也在两个记录之外。
-- 位缓冲是规范的：`bits ≤ 39`，`hold < 2^bits`。
+- `next` 和 `have` 描述正在使用的片段的剩余部分：这个片段是调用者的第一个片段，或者是 `in`
+  上一次返回的片段。它保持可读，在窗口之外，也在两个记录之外。
+- 位缓冲是规范化的：`bits ≤ 39`，`hold < 2^bits`。
 - 协议的不变量对当前的堆和日志成立。
 - 堆与调用时的堆相差一个 `CallbackFrame`，回调的块之外，存活情况不变。
 - 模式是 `TYPE`、`STORED`、`TABLE`、`LEN`、`DONE`、`BAD` 之一（`ModeOk`）。在 `LEN`
   中，解码表具有查表所需的形状（`TablesOk`）：每张表要么是静态的固定表，要么位于状态的 `codes`
   数组中，并满足[解码表](inftrees.md)的表谓词。
 - `sane ≠ 0`、`wnext = 0`、`whave ≤ wsize`（`StOk`）。`inflate_fast` 依赖它们，而 `inflateBack` 从不破坏它们。
+- 平台前提成立：协议的平台部分（`BackPlatform`），当前堆的每个字节对象少于 `2^63`
+  字节，正在使用的片段在一个堆字节块中。快速路径需要它们。
+
+这个列表是摘要。它略去了把循环同这次调用的流记录和状态块联系起来的两个子句（`cstrm`、`cst`）。完整的命题是
+`ZlibF/Proof/infback.c.safety-inv.lean` 中的结构 `PInv`。
 
 `inflateBackInit_` 分配一个状态，不把它清零。它写入窗口设置、窗口指针、历史计数器和 `sane`。`inflateBack` 的序言随后复位模式、`last` 和
 `whave`。表指针在通往 `LEN` 的路上写入，并且只在那里被读。`TablesOk` 只在 `LEN` 中要求。它排除了模型给新分配的指针字段的
@@ -210,7 +230,7 @@ flowchart TD
 ```
 
 第一项数的是还可读的输入位：已持有的，当前片段中的，以及 `in` 还可能交付的。`modeRank` 对 `DONE` 和 `BAD` 为 0，对 `TYPE` 为
-1，其他情况为 2。每一个继续下去的轮次都降低度量。有了 `inputBound < 2^48`，它从 `2^64` 即循环燃料以下开始。
+1，其他情况为 2。每一个继续下去的轮次都降低度量。有了 `inputBound < 2^48`，它的初值低于循环燃料 `2^64`。
 
 输出不出现在度量中，因为 `ROOM()` 会复位输出空间。所以对快速路径必须证明的是它消耗输入，而不是它产生输出。
 
@@ -228,10 +248,16 @@ flowchart TD
 
 ## 保留的功能结果
 
-这些结果不是安全结果所必需的。它们已登记。
+`tests/audit/goals.txt` 为这三个函数各列出一个功能契约，另有功能序列目标
+`Goal.inflate_back_sequence`。安全结论不需要其中任何一个。`tests/audit/proved-goals.txt`
+把这四个中的两个列为已证明；它们的定理已登记。
 
 - `Goal.inflateBackInit_`（`back_init_public`）和
   `Goal.inflateBackEnd`（`back_end_public`）：两个生命周期函数的完整契约。安全目标的子句 4 使用 `back_end_public`。
+
+已登记但不是目标的定理：
+
 - `inflateBack` 的分支结果：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`，`ZlibF/Proof/infback.c.back.lean`）。
 
-`Goal.inflateBack` 和 `Goal.inflate_back_sequence` 还陈述了到达 `out` 的是什么。那些解码子句未证明，安全结果也用不到它们。
+未证明，安全结论也用不到的：`Goal.inflateBack` 和 `Goal.inflate_back_sequence`。它们还说明到达 `out`
+的是什么（解码子句）。
