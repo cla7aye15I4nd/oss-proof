@@ -1,11 +1,34 @@
-<!-- source-sha256: e189868401411576c98e4feb99950e157b73402d85dfec7a286fe3cfd8e5da40 -->
+<!-- source-sha256: 9eb7adddfa2340e2a000b9fb42c3c1149589487ff8778f79151d3b84e0ed80f3 -->
 # 解码表：从码长到已初始化表项
 
 解压器拿到的是各符号的码长，随后需要一张能从比特前缀查出符号的表。例如长度为 2 的码字放在宽度为 3 的根表中时，剩余的一位还未属于当前码字；两个对应槽都应返回同一符号。建表证明要说明这种重复填充既不越界，也不会混淆符号。
 
 源文件为 `zlib/inftrees.c`，翻译为 `ZlibF/Zlib/inftrees.c.lean`。内部术语是[内部契约](../spec/internal-contracts.md)的 `I-it-*`；数学目标是[格式指南](../spec/format/README.md)的规范码关系 `F-code-*`。
 
-核心证明分三层：码长描述规范前缀码；构造写入有界表；实际堆表项实现该码，包括无效标记。只有最后一层才能支持 `inflate` 和 `inflate_fast` 使用的表谓词。下文是证明策略；[进度](../progress.md)记录各项执行连接的状态。
+`inflate_table` 是内部函数，没有自己的公开目标。它的定理给出解码器对一张表的两项需要：每次查找都留在表内并读到形状良好的表项，以及每次查找都消耗输入。
+
+证明分三层：码长描述规范前缀码；构造写入有界表；实际堆表项实现该码，包括无效标记。最后一层支持 `inflate` 和 `inflate_fast` 使用的表谓词。
+
+## 已证明什么
+
+| 结果 | 类别 | 定理 | 模块 |
+| --- | --- | --- | --- |
+| T1：对每次允许的调用，`inflate_table` 无故障地返回，只写 `work` 和表空间，返回 0、1 或 -1 | 安全，内部 | `inflate_table_safe`、`inflate_table_correct_ret` | `ZlibF/Proof/inftrees.c.lean` |
+| 成功调用留下的表具有解码器所依赖的形状，且出自同一次执行 | 安全，内部 | `inflate_table_decoder_safe`、`inflate_table_read_extent` | `ZlibF/Proof/inftrees.c.decoder-safe.lean`、`inftrees.c.read-extent.lean` |
+| T2，覆盖：每个根表和子表索引都存有已写入的叶子或链接 | 安全，内部 | `root_cover`、`group_cover` 及其他 `Cover.*` 定理 | `ZlibF/Proof/inftrees.c.cover.*.lean` |
+| `inflate_fixed` 安装静态表，只改变四个字段 | 安全，内部 | `inflate_fixed_ok` | `ZlibF/Proof/inftrees.c.fixed.lean` |
+| 已满足位数的查询在更多输入到达后保持其表项和长度 | 安全（回调解码器使用），内部 | `constructor_establishes_query_stability` | `ZlibF/Proof/inftrees.c.decode.stability.lean` |
+| T2，含义：写入的表项就是规范的叶子和链接，一次查找解出格式规定的符号 | 功能性，保留 | `inflate_table_content`、`constructor_establishes_decode_table_invariant`、`decode_table_matches_format`、`decode_table_leaf_sound`、`decode_table_classifies_input` | `ZlibF/Proof/inftrees.c.content.lean`、`inftrees.c.decode.*.lean` |
+
+这些定理登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+
+用到本页的必需结果，是 `inflate` 的序列安全（[流解码](inflate.md)）和 `inflateBack` 的序列安全（[回调解码器](callbacks.md)）。两个调用者在每次调用处建立下面的前提。关于含义的几行是功能性的：它们是早先证明的，继续保留，不是必需的。
+
+下文中说明某一步“尚未完成”或“仍需证明”的段落，是对 C 源代码的解读，这里列出的定理没有以那种形式陈述它。定理是依据翻译检查的，而不是依据这段文字。
+
+## 假设了什么
+
+这些前提是内部的。`inflate_table_safe` 陈述了它们：码长可读且不超过 15；`work` 和表空间可写，与码长数组不同，并且足够大；对 `CODES`，至多 19 个符号，每个码长不超过 7，根宽至少为 7；对 `LENS`，至多 288 个符号；对 `DISTS`，至多 32 个。不完整码和超额分配的码是允许的；它们返回 -1。
 
 ## 定义域与结果
 
@@ -13,7 +36,7 @@
 
 `I-it-pre-lens` 提供 `0..15` 范围内的可读码长。对 `CODES`，码长最多 7，请求根宽至少 7。`I-it-pre-codes` 对 `CODES`、`LENS`、`DISTS` 分别将符号数限制为 19、288、32。`I-it-pre-work` 提供可写且不相交的暂存区。`I-it-pre-table` 提供可写表／根宽单元，以及按类型分别容纳 128、852、592 项的不相交表区域。
 
-安全目标在旧笔记中叫 **T1**：在这些内部前提下，每次返回都终止且无故障；0 表示成功，-1 表示码长无效，1 表示表容量不足。准确契约必须描述各返回的部分写入和参数单元效果。失败不承诺堆不变。
+安全目标 **T1**：在这些内部前提下，每次返回都终止且无故障；0 表示成功，-1 表示码长无效，1 表示表容量不足。契约描述各返回的部分写入和参数单元效果。失败不承诺堆不变。
 
 成功表目标 **T2** 给出根表／子表项覆盖、有界链接，以及每个可达表项的含义。全零码长和允许的单符号不完整码需要明确分支。调用者还需要实际指针推进与返回根宽。
 
@@ -36,7 +59,7 @@ left_l = 2^l - B_l - c_l
 
 例如只有两个长度为 1 的符号，`c_1 = 2`，可用位置恰好是二进制 0 和 1，余量为零；若有三个这样的符号，就需要把三个符号塞进两个位置，余量变为负数，必须拒绝。这是下面 Kraft 检查的直观含义。
 
-有符号 Kraft 循环保持 `left_0 = 1` 与 `left_l = 2 left_(l-1) - c_l`。结果为负时拒绝。因此通过检查可得 `B_l + c_l ≤ 2^l`，每个分配的长度 l 编码都可放入 l 位。证明还必须界定有符号中间值。
+有符号 Kraft 循环保持 `left_0 = 1` 与 `left_l = 2 left_(l-1) - c_l`。结果为负时拒绝。因此通过检查可得 `B_l + c_l ≤ 2^l`，每个分配的长度 l 编码都可放入 l 位。证明也界定了有符号中间值。
 
 最终的不完整码检查仅在类型不是 `CODES` 且 `max = 1` 时允许正剩余。此时非空不完整码恰好只有一个长度 1 的符号。这个例外对覆盖论证必不可少；它并非完整 Kraft 划分。
 
@@ -100,7 +123,7 @@ huff + (2^root - 2^len), …, huff + 2^len, huff
 
 ## 其他局部条件
 
-下表把 T1 的安全要求和 T2 的表项含义落实到每一种实际操作。
+下表列出 T1 和 T2 的各个组成部分，落实到每一种实际操作。
 
 | 操作 | 所需事实 |
 | --- | --- |
@@ -154,4 +177,4 @@ huff + (2^root - 2^len), …, huff + 2^len, huff
 
 已取入输入与已检查输入不同。解码器已具有足够已检查位来证明字面量或匹配时，仍可能取入格式错误的未来位。要求每个已取字节都有有效续接是错误的。因果模型改用具有有效补全的已检查位前缀，并要求输出与每个兼容补全、每个仍允许的字典一致。未知包装字典不能被悄悄替换为空字典。这是规范区别，不授权改变补充顺序。见 [API 契约](../spec/api/README.md)和[证明说明](README.md)。
 
-更早固定八字节错误检测延迟也存在反例。不能把它当作源代码不变量，也不能仅增大常量来修复。当前状态属于[进度](../progress.md)。
+固定八字节错误检测延迟也存在反例。不能把它当作源代码不变量，也不能仅增大常量来修复。依赖它的模型陈述 `Api.Goal.inflate_rejects_invalid` 不在计划内（[进度，范围](../progress.md#scope)）。

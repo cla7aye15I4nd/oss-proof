@@ -6,11 +6,47 @@ The internal vocabulary is `I-it-*` in
 the canonical-code relation `F-code-*` in the
 [format guide](../spec/format/README.md).
 
-The central proof has three layers: code lengths describe a canonical prefix
-code; the construction writes a bounded table; the actual heap entries implement
-that code, including invalid markers. Only the last layer justifies the table
-predicates used by `inflate` and `inflate_fast`. The argument below is a proof
-strategy; [progress](../progress.md) records which connections are accepted.
+`inflate_table` is an internal function. It has no public goal of its own. Its
+theorems give the two things the decoders need from a table: every lookup stays
+inside the table and reads a well-shaped entry, and every lookup consumes input.
+
+The proof has three layers: code lengths describe a canonical prefix code; the
+construction writes a bounded table; the actual heap entries implement that
+code, including invalid markers. The last layer justifies the table predicates
+used by `inflate` and `inflate_fast`.
+
+## What is proved
+
+| Result | Kind | Theorem | Module |
+| --- | --- | --- | --- |
+| T1: for every admitted call, `inflate_table` returns without a fault, writes only `work` and the table space, and returns 0, 1 or -1 | Safety, internal | `inflate_table_safe`, `inflate_table_correct_ret` | `ZlibF/Proof/inftrees.c.lean` |
+| The table that a successful call leaves has the shape the decoders rely on, on the same execution | Safety, internal | `inflate_table_decoder_safe`, `inflate_table_read_extent` | `ZlibF/Proof/inftrees.c.decoder-safe.lean`, `inftrees.c.read-extent.lean` |
+| T2, coverage: every root and subtable index holds a written leaf or link | Safety, internal | `root_cover`, `group_cover` and the other `Cover.*` theorems | `ZlibF/Proof/inftrees.c.cover.*.lean` |
+| `inflate_fixed` installs the static tables and changes four fields | Safety, internal | `inflate_fixed_ok` | `ZlibF/Proof/inftrees.c.fixed.lean` |
+| A fitted query keeps its entry and length when more input arrives | Safety (used by the callback decoder), internal | `constructor_establishes_query_stability` | `ZlibF/Proof/inftrees.c.decode.stability.lean` |
+| T2, meaning: the written entries are the canonical leaves and links, and a lookup decodes the format's symbol | Functional, stays | `inflate_table_content`, `constructor_establishes_decode_table_invariant`, `decode_table_matches_format`, `decode_table_leaf_sound`, `decode_table_classifies_input` | `ZlibF/Proof/inftrees.c.content.lean`, `inftrees.c.decode.*.lean` |
+
+These theorems are registered in `tests/audit/theorems.txt` and accepted on
+commit `bde170e9` ([progress, Scope](../progress.md#scope)).
+
+The required results that use this page are sequence safety of `inflate`
+([stream decoding](inflate.md)) and of `inflateBack`
+([callback decoder](callbacks.md)). Both callers establish the premises below at
+each call. The meaning rows are functional: they were proved earlier and stay,
+and they are not required.
+
+A paragraph marked **to confirm** is a reading of the C source that no theorem
+named here states in that form. The theorems are checked against the
+translation, not against this prose.
+
+## What is assumed
+
+The premises are internal. `inflate_table_safe` states them: the lengths are
+readable and at most 15; `work` and the table space are writable, distinct from
+the lengths, and large enough; for `CODES`, at most 19 symbols, every length at
+most 7, and a root width of at least 7; for `LENS` at most 288 symbols; for
+`DISTS` at most 32. Incomplete and over-subscribed codes are admitted; they
+return -1.
 
 ## Domain and outcomes
 
@@ -21,11 +57,11 @@ symbol count by 19, 288 or 32 for `CODES`, `LENS` or `DISTS`.
 writable table/root-width cells and a disjoint table region of 128, 852 or 592
 entries for the respective types.
 
-The safety target, called **T1** in earlier notes, is termination and no fault
-under those internal premises, on every return: 0 for success, -1 for invalid
-lengths and 1 for insufficient table capacity. The exact contract must describe
-partial writes and parameter-cell effects on each return. A failure is not a
-promise that the heap is unchanged.
+The safety target, **T1**, is termination and no fault under those internal
+premises, on every return: 0 for success, -1 for invalid lengths and 1 for
+insufficient table capacity. The contract describes partial writes and
+parameter-cell effects on each return. A failure is not a promise that the heap
+is unchanged.
 
 The successful-table target, **T2**, gives coverage of root/subtable entries,
 bounded links and the meaning of each reached entry. All-zero lengths and the
@@ -50,7 +86,7 @@ left_l = 2^l - B_l - c_l
 The signed Kraft loop maintains `left_0 = 1` and
 `left_l = 2 left_(l-1) - c_l`. It rejects when the result is negative. Passing
 therefore gives `B_l + c_l ≤ 2^l`, so every assigned length-l code fits in l bits.
-The proof must bound the signed intermediates too.
+The proof bounds the signed intermediates too.
 
 The final incomplete-code check permits a positive remainder only when the type
 is not `CODES` and `max = 1`. Then a nonempty incomplete code has exactly one
@@ -151,7 +187,7 @@ invalid symbols.
 
 ## Other local side conditions
 
-These are the components of T1/T2, not a second progress register.
+These are the components of T1 and T2.
 
 | Operation | Fact required |
 | --- | --- |
@@ -242,6 +278,7 @@ completion and every still-permitted dictionary. An unknown wrapped dictionary c
 silently replaced by the empty dictionary. This is a specification distinction, not permission
 to alter refill order. See [API contracts](../spec/api/README.md) and [proof notes](README.md).
 
-The earlier fixed eight-byte error-detection lag also has a counterexample. It cannot be used
-as a source invariant or repaired by merely increasing the constant. Current status belongs
-in [progress](../progress.md).
+A fixed eight-byte error-detection lag also has a counterexample. It cannot be used
+as a source invariant or repaired by merely increasing the constant. The model statement
+that rested on it, `Api.Goal.inflate_rejects_invalid`, is not planned
+([progress, Scope](../progress.md#scope)).

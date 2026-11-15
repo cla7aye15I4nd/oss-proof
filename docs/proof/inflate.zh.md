@@ -1,4 +1,4 @@
-<!-- source-sha256: 520d6f164035579f4548792646342319a9b7419a42f2e200d6b9a48b147e59f7 -->
+<!-- source-sha256: 1f010a81a8e736d0e90651fd26a4fd8b5bf106e2151bc4e059e7daab51c9e08b -->
 # 流式解码：模式、历史与调用组合
 
 解压器的工作是从压缩比特中识别字面量和匹配，再按顺序恢复原文。例如，先恢复两个字面量 `AB`，再遇到“距离 2、长度 6”，就应继续产生 `ABABAB`，得到 `ABABABAB`。输出缓冲区可能在中途用完；本页的证明必须把读位、查表、历史复制和下一次调用连接成这同一个解码过程。
@@ -7,18 +7,41 @@
 公开行为见 [API 指南](../spec/api/README.md)，解出的流见[格式指南](../spec/format/README.md)，
 窗口更新见[内部契约](../spec/internal-contracts.md)中的 `I-uw-*`。
 
-证明使用[解码表](inftrees.md)、[快速解码](inffast.md)、[Adler-32](adler32.md)、
-[CRC-32](crc32.md)与[分配](zutil.md)。本页按实际调用顺序连接这些组件。各项结果与未完成的组合记录在[进度页](../progress.md)。
+`inflate` 在每个输入和缓冲区的每种切分上都是安全的，对它的调用序列也是如此。本页解释证明如何组合。它使用[解码表](inftrees.md)、[快速解码](inffast.md)、[Adler-32](adler32.md)、[CRC-32](crc32.md)与[分配](zutil.md)。
 
-## 输入范围与路径组合
+## 已证明什么
 
-[共用输入配置](../spec/input-configurations.md#inflate-inputs)定义严格嵌套的默认、常见及完整流参数范围。
-完整且范围明确的声明使用同一套覆盖颜色。精确入口契约保持其原有定义域。
-较小的分支引理仍是组合证明的依据，其前提必须明确。
+| 结果 | 类别 | 定理 | 模块 |
+| --- | --- | --- | --- |
+| `Goal.inflate_sequence_safety`（`ZlibF/Spec/Safety/Sequences.lean`）：每个可达历史上不变量成立；下一次调用安全，分配账目准确；`inflateEnd` 释放流拥有的一切 | 安全，必需 | `inflate_sequence_safety_public`，由 `inflate_sequence_safety` 得到 | `ZlibF/Proof/public-inflate-sequence-safety.lean`、`inflate.c.sequence-safety.lean` |
+| 逐函数的安全目标：`inflate`、`inflateSetDictionary`、`inflateGetDictionary`、`inflateSync`、`inflateReset`、`inflateReset2`、`inflatePrime`、`inflateMark`、`inflateGetHeader`、`inflateEnd`（`ZlibF/Spec/Safety/Streams.lean`） | 安全，必需 | `inflate_safety` 及其他 `inflate*_safety` 定理 | `ZlibF/Proof/public-stream-call-safety.lean` |
+| `Goal.inflateInit__safety`、`Goal.inflateInit2__safety` | 安全，必需 | `inflateInit__safety`、`inflateInit2__safety` | `ZlibF/Proof/public-init-safety.lean` |
+| `Goal.inflateCopy_safety` | 安全，必需 | `inflateCopy_safety` | `ZlibF/Proof/public-inflate-copy-safety.lean` |
+| `Goal.inflate_refusal`：每个函数都拒绝未初始化的流，并保持堆不变 | 安全，必需 | `inflate_refusal` | `ZlibF/Proof/public-stream-refusal.lean` |
+| `Goal.inflate_initialisation_domain`：序列目标的前提可以被满足 | 非空泛性，必需 | `inflate_initialisation_domain_public` | `ZlibF/Proof/public-inflate-init.lean` |
+| `Goal.inflate`：单次调用的完整契约，包括进展、返回码、计数器、帧和所有权 | 功能性，保留；`uncompress*` 和 gzip 读取侧的安全证明用到它 | `inflate_public` | `ZlibF/Proof/public-inflate.lean` |
+| 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | 功能性，保留 | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 | `ZlibF/Proof/public-inflate-*.lean` |
 
-这个解码器由可用输入字节、输出空间及已有缓冲比特选择快速路径。
-默认输入配置也需要同时处理快、慢两条路径。分派条件不能成为排除小缓冲区、部分输入或动态 Huffman 块的理由。
-表构造、分派与退出必须在实际返回堆之间传递同一不变量与历史。
+这些定理登记在 `tests/audit/theorems.txt` 中，并在提交 `bde170e9` 上被接受（[进度，范围](../progress.md#scope)）。
+
+逐函数的安全定理是序列定理的推论。序列定理建立在一个不变量 `InflateInv`（`ZlibF/Proof/inflate.c.invariant.lean`）之上。初始化对每个被接受的 `windowBits` 建立它；调用者更换缓冲区、每个流操作以及 `inflateCopy` 都保持它（`reachable_invariant_kind`，`ZlibF/Proof/inflate.c.reachable.lean`）。
+
+不是必需的、也不在计划内的是：`inflate` 的输出等于输入在格式下的含义。下面各节会指出哪些论证只属于功能性证明。
+
+下文中说明某一步“尚未完成”或“仍需证明”的段落，是对 C 源代码的解读，这里列出的定理没有以那种形式陈述它。定理是依据翻译检查的，而不是依据这段文字。
+
+## 假设了什么
+
+- 每个字节对象小于 `2^63` 字节（`ByteObjectsFit`）。
+- 流使用默认分配器。
+- 输入范围和输出范围相互分离，并且位于流所拥有的存储之外（`StreamBuffers`）。字典缓冲区与窗口分离。
+- `inflate` 把 gzip 头读入所附的 `gz_header` 时，该记录的 `extra` 缓冲区与未读输入分离（`InflateHeaderProgress`）。
+
+每个前提都明确写在陈述中，并在[偏差记录](../deviations.md)中各占一行。
+
+## 穿过解码器的各条路径
+
+可用输入字节、输出空间和已持有的位数决定是否走快速路径。一次调用可以交替走快速路径和慢速路径。定理覆盖小缓冲区、部分输入和动态 Huffman 块：表构造、分派和退出在各次调用返回的堆上传递同一个不变量。参数范围的名称见[输入配置](../spec/input-configurations.md#inflate-inputs)。
 
 ## 内存与所有权
 
@@ -38,8 +61,8 @@ flowchart LR
 几个数组有不同用途：`lens` 暂存符号码长，`work` 暂存按码长排列的符号，`codes` 保存实际解码表项。`lencode` 用来查字面量／长度，`distcode` 用来查距离；它们可能指向固定只读表，也可能指向当前状态中的动态表。
 
 流拥有其已分配状态及窗口。`lens[320]`、`work[288]` 和 `codes[1444]` 内嵌在状态中。
-`lencode` 与 `distcode` 选择静态固定表或 `codes` 的某个区域；`next` 跟踪表构造位置。
-`head` 指向调用者拥有的头部存储。不变量必须记录这些替代情形、已初始化范围及获准访问的字节视图。
+`lencode` 与 `distcode` 选择静态固定表或 `codes` 的区域；`next` 跟踪表构造。
+`head` 指向调用者拥有的头部存储。不变量记录这些替代情形、已初始化范围及获准访问的字节视图。
 
 初始化必须在指针字段读取前建立它们。运行时把新分配指针表示为空指针的约定，
 并不能证明这种先写后读的时序事实，见[安全规范](../spec/safety.md#uninitialised-memory)。
@@ -59,8 +82,8 @@ flowchart LR
 初始化建立空窗口。必须逐一检查各个重置变体：重置计数、保留已有存储、改变窗口大小是不同操作。
 只有实际释放存储的大小变更路径，才可移除相应所有权声明。
 
-功能正确性还要给 W 加上环中内容：有效的 `whave` 个字节按环顺序对应逻辑历史的适当后缀。
-预置字典字节贡献历史，但不成为输出。仅有 W 的形状不能证明向后引用返回正确字节。
+仅属于功能性证明：为了正确性，要给 W 加上环中内容。有效的 `whave` 个字节按环顺序对应逻辑历史的适当后缀。
+预置字典字节贡献历史，但不成为输出。仅有 W 的形状只能说明向后引用读在窗口之内，不能说明它返回正确字节。
 
 ### `updatewindow(strm, end, copy)`
 
@@ -155,6 +178,8 @@ stateDiagram-v2
 
 ## 因果关系与跨调用历史
 
+本节是功能性的，不是必需的。它记录早先两个模型陈述为什么是错的，以及正确的功能性陈述需要什么。
+
 需要区分“为确定当前符号已经检查的比特”和“为了快速查表提前读入的比特”。例如当前字面量只由前 3 位决定，寄存器可能已经读入整字节；后面 5 位不必已经构成一个合法的后续符号。当前输出的依据是前 3 位，证明不能把更远预读错误地当成已经解释完的输入。
 
 功能正确性必须独立于实现状态确定输出。解出的一个符号需要一段支撑它的源比特前缀。
@@ -163,8 +188,8 @@ stateDiagram-v2
 
 早期针对整个预读区间的一致性条件是错误的。修正后的支撑比特前缀关系区分了两者。
 同样，固定八字节的数据错误检测延迟存在反例。
-没有证明就增大常数，不能建立因果错误定理。这些是规范／模型方面的经验，
-并非已确认的上游内存问题。当前反例与验收记录见[进度](../progress.md)。
+没有证明就增大常数，不能建立因果错误定理。这些是规范和模型方面的经验，
+并非上游内存问题。修正后的关系登记为 `inflate_deferred_distance` 和 `inflate_deferred_distance_rejects_legacy_consistency`，对应的回归是 `tests/regression/inflate-deferred-distance`。
 
 跨调用应保持累计比特前缀、输出前缀、逻辑历史、包装／校验和状态及字典需求。
 应量化所有许可的输入拆分、输出空间拆分及刷新值。
@@ -191,12 +216,9 @@ stateDiagram-v2
 | `inflateMark`、`inflateSyncPoint`、`inflateCodesUsed` | 每个许可模式中的准确数值／查询行为，包括拒绝情形。 |
 | `inflateValidate`、`inflateUndermine` | 准确状态更新、支持／不支持的行为及不变量保持。 |
 
-在指针模型下，对动态表与静态表指针做关系比较，需要审阅源代码。
-历史上提及的 `inflateCopy` `ub.patch` 不构成补丁授权：选定补丁集只由 `patches/README.md` 定义。
+未打补丁的 `inflateCopy` 用 `>=` 和 `<=` 比较指向静态固定表的指针和指向状态 `codes` 数组的指针。它们是不同对象，所以这种比较是未定义的。补丁 0001 把它换成指针相等比较（[发现](../findings/inflate-copy-fixed/README.md)，`patches/README.md`）。翻译和 `inflateCopy_safety` 针对的是打过补丁的源代码。
 
-最终序列定理使用初始化结果，以及各函数已证明的保持、帧与所有权效果。
-它必须把内部历史、表谓词连接到独立格式关系。
-抽象的 `inflate_decodes` 模型定理或局部快速调用定理，都不能独自提供这一实现细化。
+序列定理使用初始化结果，以及各函数已证明的保持、帧与所有权效果。它并不把内部历史和表谓词连接到独立的格式关系。这种连接是功能性的，不在计划内；抽象的模型定理 `inflate_decodes` 只是关于模型的陈述。
 
 ## 与 C 的对应检查
 
@@ -252,12 +274,11 @@ stateDiagram-v2
 源检查或分配失败时清空 `dest->state`。成功时复制两个记录，修复流反向指针，
 重定位内部表指针，并只复制 `whave` 个窗口字节。
 `next` 始终指向状态的 `codes` 数组；`lencode`／`distcode` 指向该数组或共用固定表。
-这些事实必须来自初始化与保持，相应证明尚未完成。源、目标记录不得重叠。
+不变量携带这些事实（`InflateInv` 的子句 `origin`，即 `CopyTableOrigin`）。源、目标记录不得重叠。
 
-现有源代码用 `>=` 和 `<=` 检查 `lencode` 是否位于 `codes` 内。
-使用固定表时，它们是不同对象。翻译保留这些比较及其故障，不实现历史建议 `lencode == codes`。
-早期笔记记录了在固定块中暂停后复制流所触发的运行时检测器指针对报告，
-以及采用建议修改后的无报告运行。这是历史证据，不是本次文档修订执行的复现，也不是已应用补丁。
+固定版本的上游源代码用 `>=` 和 `<=` 检查 `lencode` 是否位于 `codes` 内。
+使用固定表时，它们是不同对象。补丁 0001 把这个检查换成指针相等比较，翻译遵循打过补丁的源代码。
+[复现](../findings/inflate-copy-fixed/README.md)展示了运行时检测器对未打补丁的 C 给出的报告。
 
 字节输入、输出、头部、字典范围必须满足各自实际访问要求。
 运行时现在允许 `memcpy` 在同一字节对象内使用不相交区间；早先要求不同块的说法已经过时。
@@ -291,15 +312,16 @@ stateDiagram-v2
 
 这一节区分“已经证明执行会怎样返回”与“已经证明结果表示什么”。`Good3 lens have` 说明码长数组前 `have` 项满足已写入的前缀条件；`StaticsOK` 说明静态校验表符合所需条件；`PutAt` 定位本次写出的字节。单有存储定位或容量界限，并不自动给出字节的格式含义。
 
+以下是表模式和尾部模式的局部运行引理的陈述。它们已登记，并服务于序列定理。
+
 `inflate_TABLE_run` 描述计数提取，以及“长度或距离符号过多”的出口。
 `inflate_LENLENS_run` 使用 `have <= ncode <= 19` 与 `Good3 lens have`。
 `TABLE` 建立计数界限；此前循环迭代建立已写前缀条件。
 相关结果 `ll1_run`、`lz_run`、`llTail_run` 展示循环结构。
 
 码长构造器调用使用 `inflate_table_safe` 与 `inflate_table_correct_ret`。
-这些结果建立执行安全及返回分类。`u <= 128` 这样的界限和返回根宽度 `lb`，
-还不能说明每个表项的含义。
+这些结果建立执行安全及返回分类。表项的形状来自 `inflate_table_decoder_safe`；见[解码表](inftrees.md)。
 
 `inflate_CHECK_run` 对校验表使用 `StaticsOK`，对本次调用写出的字节使用 `PutAt`。
-当先前校验和不规范化时，单字节 Adler 行为需要自己的关系。
-不能为掩盖这个情形而把公开定义域缩到规范化种子。
+当先前校验和不规范化时，单字节 Adler 行为有它自己的关系（[Adler-32](adler32.md)）。
+公开定义域没有缩到规范化种子。

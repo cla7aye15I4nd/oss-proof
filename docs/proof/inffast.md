@@ -6,10 +6,40 @@ The contract vocabulary is `I-if-*` in
 from [table construction](inftrees.md). Window invariant W is explained in
 [stream decoding](inflate.md).
 
-This is an internal function. A theorem under `I-if-pre-*` does not prove that
-all legal `inflate` calls establish those premises. A source-bit preservation
-result also needs a bridge to the independent format semantics. See
-[progress](../progress.md) for the current scope of those results.
+`inflate_fast` is an internal function. It has no public goal of its own. Its
+theorem states safety under explicit entry conditions, and the two callers,
+`inflate` and `inflateBack`, establish those conditions.
+
+## What is proved
+
+| Result | Kind | Theorem | Module |
+| --- | --- | --- | --- |
+| `Goal.fast_safe` (`ZlibF/Spec/InflateFast.lean`): for every entry environment `Env`, the call returns, and the post `FastPost` gives the frame, the normalised bit buffer and the exact writeback | Safety, internal | `inflate_fast_safe` | `ZlibF/Proof/inffast.c.final.lean` |
+| One loop body is safe | Safety, internal | `inflate_fast_body_step_safe` | `ZlibF/Proof/inffast.c.body.lean` |
+| A fast call that does not end in `TYPE` or `BAD` strictly consumes output room (`FastProgress`) | Safety (termination of `inflate`) | `inflate_fast_safe_progress` | `ZlibF/Proof/inffast.c.progress.lean` |
+| A fast call that does not end in `TYPE` or `BAD` strictly consumes input bits | Safety (termination of `inflateBack`) | `fast_consumes` | `ZlibF/Proof/inffast.c.consume.lean` |
+| The static fixed tables have the table shape | Safety, internal | `lenfix_tableSafe`, `distfix_tableSafe` | `ZlibF/Proof/inffast.c.tableok.lean` |
+| Source-bit origin and token refinement: a fast step consumes exactly the bits of one format token, and a match copy refines the LZ77 copy | Functional, stays | `actual_body_refines_token`, `actual_body_preserves_origin`, `actual_distance_refines_lz77`, `actual_copy_match_refines_lz77`, `length_lookup_matches_format`, `distance_lookup_matches_format` and the other `*_origin` theorems | `ZlibF/Proof/inffast.c.body-token.lean`, `inffast.c.body-origin.lean` and the modules beside them |
+
+The registered theorems are accepted on commit `bde170e9`
+([progress, Scope](../progress.md#scope)).
+
+The required result that uses this page is sequence safety of `inflate`
+([stream decoding](inflate.md)) and of `inflateBack`
+([callback decoder](callbacks.md)). The functional rows were proved earlier and
+stay. They are not required.
+
+A paragraph marked **to confirm** is a reading of the C source that no theorem
+named here states in that form. The theorems are checked against the
+translation, not against this prose.
+
+## What is assumed
+
+The entry environment (`Env`, `ZlibF/Proof/inffast.c.env.lean`) bundles the
+premises `I-if-pre-*` below with their witnesses. Input and output lie in heap
+byte blocks: distinct blocks, or disjoint ranges of one block. The row "Fast
+decoder helpers" in [deviations](../deviations.md) records this. It is an
+internal premise: the callers discharge it from their own premises.
 
 ## Entry views and loop invariant
 
@@ -139,32 +169,34 @@ valid. The function then writes exact remaining input/output counts and cursors,
 `hold`, `bits` and the reached mode back to the stream.
 
 `bits_entry < 8` is essential. Without it rollback could return bytes that this
-fast call never read. **to confirm**: the main decoder establishes that premise
-on every actual transition/call into this fast path, including resumed calls and
-fixed/dynamic table installation. A general observation about refill/drop
-macros is insufficient without checking those paths and buffer views.
+fast call never read. It is a premise of `Env`. Both callers establish it at
+every entry into the fast path: `inflate` in
+`ZlibF/Proof/inflate.c.fast-entry.lean`, and `inflateBack` in `LEN_fast_p`
+(`ZlibF/Proof/infback.c.safety-fast.lean`).
 
 ## From safety to decoding
 
-The functional loop invariant must identify the consumed low bits with the
+This section is functional. It is not required; the results it describes were
+proved earlier and stay.
+
+The functional loop invariant identifies the consumed low bits with the
 original source stream and relate emitted literals/matches to independent
-format symbols. Preserve that relation through length/distance selection,
+format symbols. The relation is kept through length and distance selection,
 extra-bit reads, all copy shapes, linked tables, end and error exits, rollback
-and final writeback. The source relation must survive whole-body and whole-call
-composition, rather than only a successful local token.
+and final writeback. It holds for the whole body and the whole call, not only
+for one successful token.
 
-Internal source-origin lemmas can establish exact selected bits for their
-stated domains. Connecting them to init-established state, installed tables,
-all legal caller views and independent output semantics is a separate
-refinement obligation. Speculative lookahead is not automatically justified by
-the bytes supporting a decoded symbol; the causal distinction is explained in
-[inflate](inflate.md).
+The source-origin lemmas establish the exact selected bits for their stated
+domains. Connecting them to every legal caller view and to the independent
+output semantics is the functional goal of `inflate`, which is not planned.
+Speculative lookahead is not justified by the bytes supporting a decoded
+symbol; the causal distinction is explained in [inflate](inflate.md).
 
-For termination, a body writes at least one byte or exits on end/error. The
+For termination, a body writes at least one byte or exits on end or error. The
 finite output range bounds the number of continuing bodies. Copy loops and
-linked lookups also have bounded measures. Translate those bounds into the
-actual fuel budget and preserve the frame on every exit. No allocation occurs
-here; ownership of the existing state/window remains unchanged.
+linked lookups also have bounded measures. These bounds stay below the fuel
+budget, and the frame holds on every exit. No allocation occurs here; ownership
+of the existing state and window is unchanged.
 
 ## C correspondence checks
 
@@ -172,8 +204,9 @@ here; ownership of the existing state/window remains unchanged.
 
 `inflate_fast` enters in `LEN`, with at least six input bytes, 258 output bytes,
 `start ≥ avail_out`, and fewer than eight buffered bits. `inflate` checks all these margins.
-`inflateBack` checks the byte margins but relies on its mode transitions for `bits < 8`:
-**to confirm**, including dynamic tables and stored blocks.
+`inflateBack` checks the byte margins and relies on its mode transitions for `bits < 8`.
+The dispatch proof supplies that fact to `LEN_fast_p`
+(`ZlibF/Proof/infback.c.safety-dispatch.lean`, `infback.c.safety-fast.lean`).
 
 `last = in + (avail_in - 5)` and `end = out + (avail_out - 257)` use unsigned subtraction.
 Their safety depends on the entry margins. Each iteration reads at most six bytes and writes
