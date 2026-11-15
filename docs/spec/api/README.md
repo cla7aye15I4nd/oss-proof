@@ -2,9 +2,18 @@
 
 [Documentation](../../README.md) / API manual
 
-Start here to find a zlib function, understand its caller obligations, or follow a stream's
-lifetime. Each entry gives the C signature, purpose, **Pre** (requirements), **Post**
-(result), **Effects** (permitted changes), and edge cases that affect use.
+This manual has 96 entries: one for each of the 95 functions of the default build, and one
+for the Windows-only `gzopen_w`. Use it to find
+a function, to see what a caller must provide and what the call returns or changes, and to see
+which Lean goal states its safety and under which conditions.
+
+Each entry has two layers:
+
+- the **contract**: the C signature, the purpose, **Pre** (what the caller provides), **Post**
+  (the result), **Effects** (what may change) and the edge cases. It is prose, read from the C
+  and `zlib.h`;
+- **Proof goals**: the safety goal of the function, the conditions of its Lean statement, and
+  what it guarantees. This is what is proved.
 
 ## Choose a starting point
 
@@ -19,22 +28,34 @@ lifetime. Each entry gives the C signature, purpose, **Pre** (requirements), **P
 | Compute or combine Adler-32 and CRC-32 checksums | [Checksums](checksums.md) |
 | Read, write, position or close a gzip file handle | [Gzip files](gz-file.md) |
 
-The manual follows the pinned source plus the listed patches, first for the default LP64
-Linux static build and default allocator. Entries state their additional limits. The Windows
-`gzopen_w` entry is separate from that build. These are focused documentary contracts;
-some preconditions are narrower than the public header. Outside a stated Pre is outside that
-contract, not automatically undefined C. See [scope deviations](../../deviations.md).
+## Scope and status
 
-The required goal of each function is its safety goal: no undefined behaviour, no memory
-error, no leak, and termination ([safety](../safety.md)). Each entry names that goal and its
-premises under **Proof goals**, and names its functional goal, which is not required. The
-behaviour read from C (return values, output bytes, state changes) is **to confirm** where no
-registered theorem states it; functional correctness is not a planned proof target.
+**Source and build.** The manual follows the pinned zlib source with the patches listed in
+[patches](../../../patches/README.md), for the default LP64 Linux static build with the default
+allocator. An entry states any further limit of its own. `gzopen_w` exists only on Windows and
+is listed separately.
+
+**The contracts are focused.** A focused contract describes ordinary correct use; its Pre can
+be narrower than what `zlib.h` allows. A call outside a stated Pre is outside that contract.
+It is not thereby undefined behaviour in C, and the safety goal often covers it
+([how to read a contract](contracts.md)).
+
+**What is proved.** The required goal of each documented function is its safety goal: no
+undefined behaviour, no memory error, no leak, and termination ([safety](../safety.md)). Each
+entry names it under **Proof goals**. The functions that `zlib.h` declares under "undocumented
+functions" have entries but no required goal. Conditions of a goal that are narrower than `zlib.h` are rows of
+[scope deviations](../../deviations.md).
+
+**What is not proved here.** The return values, output bytes and state changes that Post
+describes are functional behaviour. They are read from the C and are **to confirm** where no
+registered theorem states them. Each entry also names its functional goal; that goal is not
+required for the safety results.
+
 [Progress](../../progress.md) is the single record of proof status and remaining work.
 
 ## Find a function
 
-The following index links all 96 entries, grouped by how they are used. The function pages
+The index links all 96 entries, grouped by how they are used. The function pages
 retain C names, including trailing underscores supplied by initialization macros.
 
 ### Stream compression
