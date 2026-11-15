@@ -169,7 +169,7 @@ theorem strBody_run {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStrea
   rfl
 
 /-- The registers after the byte loop over `bs`. -/
-def loopRegs (l : IL) (bs : List UInt8) : IL :=
+noncomputable def loopRegs (l : IL) (bs : List UInt8) : IL :=
   { l with
     copy := UInt32.ofNat (firstStop bs)
     len := (bs.getD (firstStop bs - 1) 0).toUInt32 }
@@ -290,7 +290,7 @@ theorem hcrcOn_env {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream
   simp [bind_app, ldInflateState_tab E.hs]
 
 /-- The registers after the bytes of a string field are consumed. -/
-def strRegs (l : IL) (ref : BRef) (off : Nat) (bs : List UInt8) : IL :=
+noncomputable def strRegs (l : IL) (ref : BRef) (off : Nat) (bs : List UInt8) : IL :=
   { l with
     copy := UInt32.ofNat (firstStop bs)
     len := (bs.getD (firstStop bs - 1) 0).toUInt32
@@ -298,7 +298,7 @@ def strRegs (l : IL) (ref : BRef) (off : Nat) (bs : List UInt8) : IL :=
     next := .ref ref (off + firstStop bs) }
 
 /-- The state after the header CRC of a string field. -/
-def strState (s : InflateState) (on : Bool) (bs : List UInt8) : InflateState :=
+noncomputable def strState (s : InflateState) (on : Bool) (bs : List UInt8) : InflateState :=
   if on then { s with check := (ZlibF.Spec.crc32Update s.check.toUInt32 (bs.take (firstStop bs))).toUInt64 }
   else s
 
