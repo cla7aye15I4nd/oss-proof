@@ -52,7 +52,7 @@ real execution reaches that count.
 ## What is assumed
 
 Every premise is explicit in the statement. The rows are in
-[deviations](../deviations.md), sections "Caller buffer separation" and "Gz external world".
+[deviations](../deviations.md), section "Gzip file interface".
 
 | Premise | Where | Meaning |
 | --- | --- | --- |

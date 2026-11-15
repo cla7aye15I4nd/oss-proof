@@ -1,4 +1,4 @@
-<!-- source-sha256: 8e160d176fdbd7907dcfc536130415f39dc41a398c9b24dc31b5103d38938486 -->
+<!-- source-sha256: 160cbceeb12fcc24823c4ed14858de505c0f0924ec51cd2bb4a825d522403076 -->
 # Gzip 文件：不变量、历史与操作系统预言机
 
 源文件为 `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c`、`gzguts.h`，以及 `zlib.h` 中的 `gzgetc` 宏。[API 页面](../spec/api/gz-file.md)给出调用者可见的行为。[外部 I/O 模型](../design/external-io.md)定义翻译所调用的文件系统、`errno` 和 `vsnprintf`。
@@ -32,7 +32,7 @@ gzip 文件接口在句柄的每一个历史上、在每一个文件系统世界
 
 ## 假设了什么
 
-每个前提都明确写在陈述中。对应的行在[偏差记录](../deviations.md)的“调用者缓冲区的分离”和“Gz 外部世界”两节。
+每个前提都明确写在陈述中。对应的行在[偏差记录](../deviations.md)的“Gzip 文件接口”一节。
 
 | 前提 | 位置 | 含义 |
 | --- | --- | --- |

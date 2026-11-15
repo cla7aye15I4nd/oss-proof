@@ -45,7 +45,7 @@ its own theorem.
 | Every input chunk lies in a heap byte block: the caller's first chunk and each chunk `in` hands out. | `BackFirstChunk`, `BackPlatform` | Callback decoder input chunks |
 | Every byte object has fewer than `2^63` bytes at each call and after each callback step. | `ByteObjectsFit`, `BackPlatform` | Platform byte-object scope |
 | The stream uses the default allocator, or `NULL` allocator fields that init replaces. | `BackValid`, `InitDomain` | Initial configuration |
-| The caller's first input chunk is separate from the window. | `Separate` in the call clause | Not listed as its own row |
+| The caller's first input chunk is readable and separate from the window. | `Bytes` and `Separate` in the call clause | Callbacks |
 
 ### Why a bound on the input
 

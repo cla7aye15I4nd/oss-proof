@@ -1,4 +1,4 @@
-<!-- source-sha256: 05d2e4c94c75a352195b540d84428a4be4cb64cd6b143d19b4378d109f780689 -->
+<!-- source-sha256: c6305f9ad3f4bc26da8ba5b258726dc667cdd00c0430e08b515b0e1aa75d3bd9 -->
 # 回调解码器：调用者协议与有限输入
 
 源文件为 `infback.c`。窗口归调用者所有，调用者提供输入回调 `in` 和输出回调 `out`。[API 页面](../spec/api/inflate-back.md)陈述公开契约。
@@ -33,7 +33,7 @@
 | 每个输入块都位于堆字节块中：调用者的第一块，以及 `in` 交出的每一块。 | `BackFirstChunk`、`BackPlatform` | 回调解码器输入块 |
 | 每次调用时以及每个回调步骤之后，每个字节对象都小于 `2^63` 字节。 | `ByteObjectsFit`、`BackPlatform` | 平台字节对象范围 |
 | 流使用默认分配器，或者分配器字段为 `NULL` 并由初始化替换。 | `BackValid`、`InitDomain` | 初始配置 |
-| 调用者的第一块输入与窗口分离。 | 调用子句中的 `Separate` | 没有单独列为一行 |
+| 调用者的第一块输入可读，并且与窗口分离。 | 调用子句中的 `Bytes` 和 `Separate` | 回调 |
 
 ### 为什么要给输入设界
 
