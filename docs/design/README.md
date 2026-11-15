@@ -4,13 +4,17 @@ The project proves statements about an executable Lean translation of C. This se
 what that translation represents, how specifications describe it, and where the connection to C
 still depends on review. It is not a progress report; [progress](../progress.md) holds that record.
 
+The required results are safety results. Architecture, translation rules and external I/O describe
+what every safety proof rests on. The API-model page describes functional material: it is kept,
+and it is not required since 2026-11-11.
+
 Start with [architecture](architecture.md). Then use the page that answers your question:
 
 | Question | Read |
 | --- | --- |
 | How do C, the runtime, specifications and proofs fit together? | [Architecture](architecture.md) |
 | How must a C statement be translated? | [Translation rules](translation.md) |
-| What do the heap-free API relations describe? | [API model and concrete boundary](api-model.md) |
+| What do the heap-free API relations describe (functional, not required)? | [API model and concrete boundary](api-model.md) |
 | Where are internal helper preconditions specified? | [Internal-call specifications](../spec/internal-contracts.md) |
 | What file, formatting and error behaviors does the external world represent? | [External I/O](external-io.md) |
 | How are the safety goals separated from the functional ones? | [Safety and functional specifications](safety-functional-split.md) |

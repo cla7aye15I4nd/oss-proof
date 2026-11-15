@@ -1,8 +1,20 @@
 # Safety and functional specifications
 
-Status: design approved on 2026-11-13. It is applied in the steps listed under "Order of work". It
-says how `ZlibF/Spec/` is split so that the current target, the safety of every public function,
-can be read from one directory. Nothing here changes what a proved theorem means.
+This page says how `ZlibF/Spec/` is split so that the current target, the safety of every public
+function, can be read from one directory. Nothing here changes what a proved theorem means.
+
+**Status (2026-11-15).** The design was approved on 2026-11-13 and is applied in the steps listed
+under [Order of work](#order-of-work).
+
+- Done: steps 1 to 3. The directories, the layer check in the fast gate, the per-function safety
+  goals of the stateless, inflate and deflate families, and the manifest and audit rules are in
+  place. `open_safety` is empty, so a missing required theorem now fails the audit.
+- Partly done: step 4. The sequence safety goals of the gzip file interface and of `inflateBack`
+  are registered. Still open: one safety goal per gz and `inflateBack` function; moving the gz
+  and `inflateBack` goal definitions out of `Spec/Public/`; removing the one allowlisted import
+  edge (`Public/GzState` to `Api/Gz`).
+- Not done: the two-column summary of the progress view, and the `safety/` and `functional/`
+  sections of `docs/spec/`.
 
 ## What changes and what does not
 
@@ -102,8 +114,11 @@ The manifest agrees row by row with the table "No-fault coverage of zlib.h funct
 goal, End clause, or open).
 
 Non-vacuity: a stream goal of the second shape is only as strong as its reachable set. The four
-non-vacuity goals (`Goal.*_initialisation_domain`) give a reachable witness for each family. They
-are part of the required set. Each per-function goal's docstring names the witness it relies on.
+non-vacuity goals give a reachable witness for each family: `Goal.inflate_initialisation_domain`,
+`Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain` and
+`Goal.gz_sequence_nonvacuity`. They are part of the required set. `Goal.gz_initialisation_domain`
+is not: it states the functional contract of `gzopen` and is listed under `not_planned` in the
+manifest. Each per-function goal's docstring names the witness it relies on.
 
 Names: new goals are `Goal.<function>_safety`. The four existing `uncompress*_safe` names stay,
 because renaming a registered goal is a statement change with no gain. The manifest names the goal
@@ -121,7 +136,8 @@ Each entry of `apis` replaces `goal` by two fields:
 A top-level `open_safety` list names each required safety goal that has no registered theorem
 yet, with its owner. Moving a function in or out of the required set is a one-line change. The
 `undocumented` group stays as in 981aee5b. The gzip file interface and `inflateBack` are planned:
-their safety goals are required and listed as open until proved.
+their safety goals are required. Both sequence safety goals are now registered, and the list is
+empty.
 
 `scripts/verification.py`:
 
@@ -218,8 +234,11 @@ verification self tests. Each commit that touches protected paths says so.
 
 - A rename of `Spec/Public/` to `Spec/Common/`. It would be one mechanical commit; 104 modules
   import `Spec/Public` today. It is done only if the owner wants it.
-- The write frame of `Goal.gz_sequence_safety`: which caller regions a gz call may write. To be
-  agreed with batch C.
-- `Public/GzState`'s import of a proof module (`Proof.«gzlib.c.base»`).
+- The write frame of `Goal.gz_sequence_safety` is settled: `GzStepPost` states it with
+  `GzWriteRegions`.
+- Two modules of `Spec/Public/` import a proof module: `Public/GzState` imports
+  `Proof.«gzlib.c.base»`, and `Public/GzSafety` imports `Proof.«gz.inv-model»`, which defines
+  `GzInv`, `ReadsFinite` and `GzStepPost`. So part of the statement of the gz safety goal is
+  read from a proof module. The layer check allows it.
 
 [Design index](README.md)

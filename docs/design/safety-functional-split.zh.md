@@ -1,7 +1,13 @@
-<!-- source-sha256: 8b74fb592ebd13d103d2d6e7f4cbaf1f8f509f25a66ba80e1a2d8c3d35eb2081 -->
+<!-- source-sha256: 77a5054924e3d1799dbdba2ea4752ebb4df5218b09614486541b7a9525796db5 -->
 # 安全规范与功能规范
 
-状态：设计已于 2026-11-13 批准，按“工作顺序”中的步骤实施。本页说明怎样拆分 `ZlibF/Spec/`，使当前目标（每个公开函数的安全性）能从一个目录读出。这里的任何内容都不改变已证定理的含义。
+本页说明怎样拆分 `ZlibF/Spec/`，使当前目标（每个公开函数的安全性）能从一个目录读出。这里的任何内容都不改变已证定理的含义。
+
+**状态（2026-11-15）。** 设计已于 2026-11-13 批准，按[工作顺序](#order-of-work)中的步骤实施。
+
+- 已完成：第 1 至 3 步。目录、快速关卡中的分层检查、无状态族与 inflate、deflate 两族的逐函数安全目标，以及清单和审计规则都已就位。`open_safety` 为空，所以现在缺少必需的定理就会使审计失败。
+- 部分完成：第 4 步。gzip 文件接口和 `inflateBack` 的序列安全目标已登记。尚未完成的有：为每个 gz 函数和 `inflateBack` 函数各陈述一个安全目标；把 gz 与 `inflateBack` 的目标定义移出 `Spec/Public/`；去掉唯一一条仍在白名单中的导入边（`Public/GzState` 到 `Api/Gz`）。
+- 未完成：进度视图的两栏汇总，以及 `docs/spec/` 的 `safety/` 和 `functional/` 两节。
 
 ## 改变什么，不改变什么
 
@@ -59,7 +65,7 @@ flowchart TD
 
 清单与 `docs/progress.md` 中“No-fault coverage of zlib.h functions”一表逐行一致。该表按函数列出定理和路径（自身目标、序列目标、结束子句或待完成）。
 
-非空性：第二种形式的流目标只和它的可达集合一样强。四个非空性目标（`Goal.*_initialisation_domain`）为每一族给出可达的见证。它们属于必需集合。每个逐函数目标的文档注释写明它依赖的见证。
+非空性：第二种形式的流目标只和它的可达集合一样强。四个非空性目标为每一族给出可达的见证：`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain` 和 `Goal.gz_sequence_nonvacuity`。它们属于必需集合。`Goal.gz_initialisation_domain` 不属于：它陈述的是 `gzopen` 的功能契约，在清单中列于 `not_planned` 之下。每个逐函数目标的文档注释写明它依赖的见证。
 
 命名：新目标叫 `Goal.<function>_safety`。现有的四个 `uncompress*_safe` 名称保留，因为重命名已登记的目标是一次命题改动，没有收益。清单显式写出目标名，审计不再猜后缀。
 
@@ -72,7 +78,7 @@ flowchart TD
  "functional_goal": "ZlibF.Spec.Public.Goal.deflateCopy", ...}
 ```
 
-顶层的 `open_safety` 列表写出每个尚无已登记定理的必需安全目标及其负责人。把一个函数移入或移出必需集合只需改一行。`undocumented` 组保持 981aee5b 的样子。gzip 文件接口与 `inflateBack` 已在计划内：它们的安全目标属于必需集合，证明之前列为待完成。
+顶层的 `open_safety` 列表写出每个尚无已登记定理的必需安全目标及其负责人。把一个函数移入或移出必需集合只需改一行。`undocumented` 组保持 981aee5b 的样子。gzip 文件接口与 `inflateBack` 已在计划内：它们的安全目标属于必需集合。两个序列安全目标现在都已登记，该列表为空。
 
 `scripts/verification.py`：
 
@@ -115,7 +121,7 @@ flowchart TD
 ## 待决问题
 
 - 把 `Spec/Public/` 改名为 `Spec/Common/`。这会是一个机械提交；目前有 104 个模块导入 `Spec/Public`。只有所有者需要时才做。
-- `Goal.gz_sequence_safety` 的写帧：一次 gz 调用可以写哪些调用者区域。与 batch C 商定。
-- `Public/GzState` 导入了一个证明模块（`Proof.«gzlib.c.base»`）。
+- `Goal.gz_sequence_safety` 的写帧已经确定：`GzStepPost` 用 `GzWriteRegions` 陈述它。
+- `Spec/Public/` 中有两个模块导入了证明模块：`Public/GzState` 导入 `Proof.«gzlib.c.base»`，`Public/GzSafety` 导入 `Proof.«gz.inv-model»`，后者定义了 `GzInv`、`ReadsFinite` 和 `GzStepPost`。因此 gz 安全目标的一部分陈述要到证明模块中去读。分层检查允许这样做。
 
 [设计索引](README.md)
