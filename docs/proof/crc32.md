@@ -169,9 +169,10 @@ endian marker also depends on the target. Default execution cannot test its
 unreachable big-endian branch.
 
 `multmodp` scans bits 31 down to zero of its first operand. If its low word is
-zero, the mask reaches zero and the C loop never terminates. The real C hangs on
-`crc32_combine_op(1, 2, 1UL << 32)`, and `crc32_combine_op_diverges` states it for
-the translation. The documented operator comes from `crc32_combine_gen`; an
+zero, the mask reaches zero and the C loop never terminates. An earlier review
+reported that the real C does not return on `crc32_combine_op(1, 2, 1UL << 32)`; no
+reproduction is retained. `crc32_combine_op_diverges` proves that the translation
+runs out of fuel there. The documented operator comes from `crc32_combine_gen`; an
 arbitrary nonzero 64-bit value is not in the domain. `crc32_combine_op` handles
 zero before calling `multmodp`. Negative lengths are rejected before `x2nmodp`
 can arithmetic-shift a negative value forever. Its index is masked by 31.
