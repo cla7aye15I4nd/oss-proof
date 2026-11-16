@@ -13,15 +13,12 @@ specifies null buffers, wrappers and combination operations. Terms:
 
 ## What is proved
 
-| Result | Kind | Theorem | Module |
-| --- | --- | --- | --- |
-| `Goal.adler32_safety`, `Goal.adler32_z_safety`, `Goal.adler32_combine_safety`, `Goal.adler32_combine64_safety` (`ZlibF/Spec/Safety/Checksums.lean`) | Safety, required | `adler32_safety`, `adler32_z_safety`, `adler32_combine_safety`, `adler32_combine64_safety` | `ZlibF/Proof/public-stateless-safety.lean` |
-| `Goal.adler32`, `Goal.adler32_z` | Functional | `adler_public`, `adler_z_public` | `ZlibF/Proof/public-adler-update.lean` |
-| `Goal.adler32_combine`, `Goal.adler32_combine64` | Functional | `combine_public`, `combine64_public` | `ZlibF/Proof/public-adler-combine.lean` |
-| The local execution results behind them | Both | `adler32_z_safe`, `adler32_z_correct`, `adler32_z_correct_ne_one`, `adler32_combine_safe`, `adler32_combine_correct` | `ZlibF/Proof/adler32.c.lean` |
-
-All of these are listed in `tests/audit/theorems.txt`.
-[progress, Scope](../progress.md#scope) records the level of each result.
+| Result | Kind | Theorem |
+| --- | --- | --- |
+| `Goal.adler32_safety`, `Goal.adler32_z_safety`, `Goal.adler32_combine_safety`, `Goal.adler32_combine64_safety` | Safety, required | `adler32_safety`, `adler32_z_safety`, `adler32_combine_safety`, `adler32_combine64_safety` |
+| `Goal.adler32`, `Goal.adler32_z` | Functional | `adler_public`, `adler_z_public` |
+| `Goal.adler32_combine`, `Goal.adler32_combine64` | Functional | `combine_public`, `combine64_public` |
+| The theorems about the translated functions that they rest on | Both | `adler32_z_safe`, `adler32_z_correct`, `adler32_z_correct_ne_one`, `adler32_combine_safe`, `adler32_combine_correct` |
 
 A safety goal says that the call returns without a fault and leaves the heap
 exactly as it was. Each safety theorem is the full contract of the same function

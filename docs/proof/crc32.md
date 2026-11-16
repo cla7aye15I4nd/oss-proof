@@ -15,17 +15,14 @@ The [API page](../spec/api/checksums.md) gives the public domains; the
 
 ## What is proved
 
-| Result | Kind | Theorem | Module |
-| --- | --- | --- | --- |
-| `Goal.crc32_safety`, `Goal.crc32_z_safety`, `Goal.crc32_combine_safety`, `Goal.crc32_combine64_safety`, `Goal.crc32_combine_gen_safety`, `Goal.crc32_combine_gen64_safety`, `Goal.crc32_combine_op_safety` (`ZlibF/Spec/Safety/Checksums.lean`) | Safety, required | theorems of the same names without `Goal.` | `ZlibF/Proof/public-stateless-safety.lean` |
-| `Goal.crc32`, `Goal.crc32_z` | Functional | `crc32`, `crc32_z` | `ZlibF/Proof/public-crc-updates.lean` |
-| The five combination goals | Functional | `gen`, `gen64`, `op`, `combine`, `combine64` | `ZlibF/Proof/public-crc-combine.lean` |
-| The same for every byte array the model has (heap block, static array, array inside a record), at every alignment | Both | `crc32_z_all_byte_views`, `crc32_all_byte_views` | `ZlibF/Proof/crc32.c.views.lean` |
-| Heap byte blocks and the helpers | Both | `crc32_z_safe`, `crc32_z_correct`, `multmodp_safe`, `multmodp_correct`, `x2nmodp_safe`, `x2nmodp_correct`, and the combination results | `ZlibF/Proof/crc32.c.lean` |
-| `get_crc_table` | Not required: `zlib.h` lists it as undocumented | `get_crc_table` | `ZlibF/Proof/public-get-crc-table.lean` |
-
-All of these are listed in `tests/audit/theorems.txt`.
-[progress, Scope](../progress.md#scope) records the level of each result.
+| Result | Kind | Theorem |
+| --- | --- | --- |
+| `Goal.crc32_safety`, `Goal.crc32_z_safety`, `Goal.crc32_combine_safety`, `Goal.crc32_combine64_safety`, `Goal.crc32_combine_gen_safety`, `Goal.crc32_combine_gen64_safety`, `Goal.crc32_combine_op_safety` | Safety, required | theorems of the same names without `Goal.` |
+| `Goal.crc32`, `Goal.crc32_z` | Functional | `crc32`, `crc32_z` |
+| The five combination goals | Functional | `gen`, `gen64`, `op`, `combine`, `combine64` |
+| The same for every byte array the model has (heap block, static array, array inside a record), at every alignment | Both | `crc32_z_all_byte_views`, `crc32_all_byte_views` |
+| Heap byte blocks and the helpers | Both | `crc32_z_safe`, `crc32_z_correct`, `multmodp_safe`, `multmodp_correct`, `x2nmodp_safe`, `x2nmodp_correct`, and the combination results |
+| `get_crc_table` | Not required: `zlib.h` lists it as undocumented | `get_crc_table` |
 
 A safety goal says that the call returns without a fault and leaves the heap exactly as it
 was. Each safety theorem is the full contract of the same function with the value forgotten.
@@ -86,16 +83,17 @@ remaining block count, or the fixed row counter; each is far below the runtime's
 
 The C tests the alignment of `buf` through its address:
 `while (len && ((z_size_t)buf & (W - 1)) != 0)`. A pointer of the model has no
-address. The model supplies only the low three bits (`ZlibF/Runtime/Address.lean`):
+address. The model supplies only the low three bits:
 
 - a heap byte block starts at an aligned address, so the low bits of a pointer into it are
   those of its offset;
 - a static byte array, or a byte array inside a record, starts at an arbitrary residue modulo
   8. The residue is fixed for the heap and unknown to the proof.
 
-`ZlibF/Proof/ByteAddress.lean` relates these represented addresses to offsets, alignment and
-valid byte ranges, and shows that every assignment of residues is representable. The CRC goals
-therefore hold for every residue, and no alignment premise is added to them.
+A group of theorems relates these represented addresses to offsets and alignment
+(`mask_refines_base_plus_offset`, `pointer_advance_preserves_low_bits`, `first_aligned_offset`),
+and `every_layout_is_representable` shows that every assignment of residues is representable.
+The CRC goals therefore hold for every residue, and no alignment premise is added to them.
 
 The translated word read assembles eight bytes in little-endian order. In C the read is a load
 through a pointer cast to `z_word_t *`. That the two agree, including the strict-aliasing reading
@@ -105,7 +103,7 @@ this in the row "Address and layout model is partial". The C also reads the low 
 local endian marker to choose the branch; on this target it chooses the little-endian one, and
 the big-endian branch is not run. Of the big-endian helpers only `crc_word_big_safe` is proved.
 
-A [regression](../../tests/verification/regressions/crc-static-address.lean) checks a valid
+A [checked example](../../tests/verification/regressions/crc-static-address.lean) covers a valid
 47-byte read from a static table: both `crc32` and `crc32_z` return the independent checksum
 and leave the heap unchanged.
 
@@ -116,7 +114,7 @@ alignment of the offset, `crc32_z` returns `ZlibF.Spec.crc32Update` of the byte 
 the heap unchanged. `crc32_z_all_byte_views` extends it to static and embedded arrays. The
 specification `crc32Update` is a bit-at-a-time register and does not mention the translation.
 
-The argument, as proved in `ZlibF/Proof/crc32.c.lean`:
+The argument:
 
 - One step of the CRC register (`crcBit`) is linear over GF(2) (`crcBit_xor`). Write `pw m` for
   `m` steps; it is multiplication by `x^m` modulo the CRC polynomial.
@@ -159,13 +157,10 @@ reaches zero and the C loop never terminates. `crc32_combine_op` handles `op == 
 calls `multmodp`, and a generated operator has a nonzero low word, so the documented use
 terminates: that is the content of `Goal.crc32_combine_op_safety`. An arbitrary nonzero 64-bit
 value is not in the documented domain. For `crc32_combine_op(1, 2, 1UL << 32)`,
-`crc32_combine_op_diverges` proves that the translation runs out of fuel. An earlier report says
-that the real C did not return on that call in two runs with a timeout. The repository keeps no
-reproduction of it: there is no directory for it under `tests/regression/` or `docs/findings/`
-and no row in the [sanitizer reports](../sanitizer-reports.md).
-[Findings](../findings.md#earlier-library-observations) lists it among the earlier
-observations, with no retained reproduction. So the behaviour of the C on this call is a
-report, and the theorem is about the translation. The hang is a misuse outside the documented
+`crc32_combine_op_diverges` proves that the translation runs out of fuel. The real C was
+reported not to return on that call in two runs with a timeout. No reproduction of that report
+is kept ([findings](../findings.md#earlier-library-observations)). So the behaviour of the C on
+this call is a report, and the theorem is about the translation. The hang is a misuse outside the documented
 domain, not a defect within it.
 
 ## Evidence for the static tables

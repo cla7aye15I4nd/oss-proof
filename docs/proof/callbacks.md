@@ -11,20 +11,18 @@ Terms: [glossary](../glossary.md).
 
 ## The result
 
-| Goal | Theorem | Module |
-| --- | --- | --- |
-| `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Safety/Sequences.lean`) | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
-| `Goal.inflate_back_initialisation_domain` (`ZlibF/Spec/Safety/Domains.lean`) | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
-| `Goal.inflateBack_call_domain` (`ZlibF/Spec/Safety/Domains.lean`) | `BackCallDomainProof.inflateBack_call_domain` | `ZlibF/Proof/public-infback-call-domain.lean` |
-| `Goal.inflateBackInit__safety`, `Goal.inflateBack_safety`, `Goal.inflateBackEnd_safety` (`ZlibF/Spec/Safety/Back.lean`) | `BackSafetyProof.inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
+| Goal | Theorem |
+| --- | --- |
+| `Goal.inflate_back_sequence_safety` | `inflate_back_sequence_safety` |
+| `Goal.inflate_back_initialisation_domain` | `back_init_domain_public` |
+| `Goal.inflateBack_call_domain` | `BackCallDomainProof.inflateBack_call_domain` |
+| `Goal.inflateBackInit__safety`, `Goal.inflateBack_safety`, `Goal.inflateBackEnd_safety` | `BackSafetyProof.inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety` |
 
-All six are required. The first is the safety result over histories, and the second shows that
+All six are done. The first is the safety result over histories, and the second shows that
 init can succeed. The third shows that the premises of a call of `inflateBack` can be met, the
 callback protocol included ([the caller protocol](#the-caller-protocol)). The last three are
-the safety goals of the three functions. All six theorems are listed in
-`tests/audit/theorems.txt`. The histories of the sequence goal do not ask
+the safety goals of the three functions. The histories of the sequence goal do not ask
 for a `NULL` `state` field before `inflateBackInit_`.
-[progress, Scope](../progress.md#scope) records the level of each result.
 
 The one-function goals follow from the results of this page:
 
@@ -37,7 +35,7 @@ The one-function goals follow from the results of this page:
 
 Each function also has a functional contract (`Goal.inflateBackInit_`, `Goal.inflateBack`,
 `Goal.inflateBackEnd`). These contracts are not required;
-[the last section](#functional-results-that-stay) says which are proved.
+[the last section](#functional-results-that-stay) says which are done.
 
 `Goal.inflate_back_sequence_safety` has four clauses.
 
@@ -136,9 +134,8 @@ its own theorem.
 | The caller's first input chunk is readable and separate from the window: `strm->avail_in` bytes at `strm->next_in`, or no bytes when `strm->next_in` is `NULL`. | `Bytes` and `Separate` in clause 3 | Callbacks |
 | Between two calls the caller changes only memory the stream does not own and the four buffer fields of the stream record. The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. | `BackSafeReachable.caller` | Caller edits between calls (`BackSafeReachable.caller`) |
 
-The complete list is the statement itself: `Goal.inflate_back_sequence_safety` in
-`ZlibF/Spec/Safety/Sequences.lean`, with `BackSafeReachable` and `BackInitArguments` in
-`ZlibF/Spec/Common/Sequences.lean`. The premises
+The complete list is the statement itself: `Goal.inflate_back_sequence_safety`, with
+`BackSafeReachable` and `BackInitArguments`. The premises
 of this table are also those of the history clauses of `Goal.inflateBack_safety` and
 `Goal.inflateBackEnd_safety`.
 
@@ -158,7 +155,7 @@ requirement `bounded` below limits the length of that log.
 
 ## The caller protocol
 
-`CallbackProtocol` (`ZlibF/Spec/Common/Back.lean`) says what the two callbacks may do. The
+`CallbackProtocol` says what the two callbacks may do. The
 caller of the theorem chooses its parts:
 
 - `own`: the set of heap blocks that belong to the callbacks. It excludes the state record and
@@ -178,8 +175,7 @@ The protocol then requires five things of `in` and `out`.
 | `liveInput` | Under the invariant, the current input chunk is readable. |
 | `bounded` | Under the invariant, the bytes supplied so far, the caller's first chunk included, number at most `inputBound`. |
 
-The table is a summary. The complete statement is the structure `CallbackProtocol` in
-`ZlibF/Spec/Common/Back.lean`.
+The table is a summary. The complete statement is the structure `CallbackProtocol`.
 
 `inStep` and `outStep` are required only on a heap that satisfies `CallbackEntry`: the stream is
 a valid callback decoder over this window (`BackValid`). So the heap is a library heap and the
@@ -187,13 +183,12 @@ window is writable. This is what the library provides at each call of `in` and `
 premise is needed. Without it no protocol exists: `local_` makes the invariant insensitive to
 every block outside `own`, and `disjoint` puts the state block outside `own`. The invariant
 would then also hold on a heap whose state block holds two objects, and no step from that heap
-can end in a well-formed heap with that block unchanged. The statement had this form until the
-correction of 2026-11-16. `tests/verification/regressions/inflateback-protocol-vacuous.lean`
-keeps the evidence: no protocol of the former kind has a state that satisfies its invariant
-(`OldCallbackProtocol.invariant_empty`), and every protocol of the former kind is a protocol of
-the corrected kind (`OldCallbackProtocol.toNew`). So the correction makes the goals stronger.
+can end in a well-formed heap with that block unchanged. Both facts have Lean proofs: a
+protocol whose steps are required on every heap has an invariant that nothing satisfies, and
+every such protocol is also a protocol with the `CallbackEntry` premise. So the premise makes
+the goals stronger, not weaker.
 
-`Goal.inflateBack_call_domain` shows that the corrected premises can be met. It gives a concrete
+`Goal.inflateBack_call_domain` shows that the premises can be met. It gives a concrete
 history: `inflateBackInit_` on the witness heap, then a caller's edit of `next_in` and
 `avail_in`. The callbacks are concrete: `noInput` reports the end of input, and `takeOutput`
 accepts every chunk. The protocol `witnessProtocol` owns one block. The first chunk has two
@@ -224,7 +219,7 @@ claims termination.
 
 ## The invariant of the dispatch loop
 
-`PInv` (`ZlibF/Proof/infback.c.safety-inv.lean`) holds whenever
+`PInv` holds whenever
 `for (;;) switch (state->mode)` is about to read the mode. It is stated relative to the heap
 at the call, and it mentions the protocol's log.
 
@@ -250,7 +245,7 @@ at the call, and it mentions the protocol's log.
 
 The list is a summary. It leaves out the two clauses that tie the loop to the stream record
 and the state block of the call (`cstrm`, `cst`). The complete statement is the structure
-`PInv` in `ZlibF/Proof/infback.c.safety-inv.lean`.
+`PInv`.
 
 `inflateBackInit_` allocates a state and does not zero it. It writes the window settings,
 the window pointer, the history counters and `sane`. The prologue of `inflateBack` then
@@ -279,7 +274,7 @@ flowchart TD
     M --> F["LEN_fast_p: the fast path"]
 ```
 
-One call is three pieces (`ZlibF/Proof/infback.c.safety-call.lean`): the prologue
+One call is three pieces: the prologue
 (`entry_p`), the dispatch loop, and the tail (`tail_p`), which is the code at `inf_leave`
 above.
 
@@ -290,7 +285,7 @@ There are two loop rules.
   returned has kept the invariant. It serves a `step` of a history, whose input has no bound.
   It gives clause 2 by induction on the history (`back_reach_st_blk`).
 
-One round of the loop is `dispatch_p` (`ZlibF/Proof/infback.c.safety-dispatch.lean`). It
+One round of the loop is `dispatch_p`. It
 splits by mode. The default case of the `switch` is unreachable, because `ModeOk` names the
 six modes.
 
@@ -303,8 +298,7 @@ six modes.
 restarts at the window. `ROOM_p` applies `outStep`, with the same `valid` field as the
 `CallbackEntry` premise.
 
-After either callback the state is valid again (`backValid_callback`,
-`ZlibF/Proof/infback.c.safety-valid.lean`). The callback changed only its own blocks, which
+After either callback the state is valid again (`backValid_callback`). The callback changed only its own blocks, which
 exclude both records, and it kept the window slice.
 
 ### Termination
@@ -330,7 +324,7 @@ available. In `inflateBack` the output of that call is the window itself: the wi
 is the output block, `wnext = 0`, and the window ends where the output range ends. The lemma
 `fast_env` states these facts in the form the entry conditions of `inflate_fast` take.
 
-`fast_consumes` (`ZlibF/Proof/inffast.c.consume.lean`) gives the run, its frame and the
+`fast_consumes` gives the run, its frame and the
 strict consumption of input bits: the held bits plus eight times the bytes left never grow,
 and they fall strictly unless the call ends in `TYPE` or `BAD`. `LEN_fast_p` turns that into
 one round of the dispatch loop.
@@ -343,20 +337,20 @@ for the window premise.
 
 ## Functional results that stay
 
-`tests/audit/goals.txt` lists one functional contract for each of the three functions, and
-the functional sequence goal `Goal.inflate_back_sequence`. None is required for the safety
-results. Two of the four are proved (`tests/audit/proved-goals.txt`):
+Each of the three functions has a functional contract, and there is a functional sequence
+goal `Goal.inflate_back_sequence`. None is required for the safety results. Two of the four
+are done:
 
 - `Goal.inflateBackInit_` (`back_init_public`) and `Goal.inflateBackEnd` (`back_end_public`):
   the full contracts of the two lifecycle functions. Clause 4 of the safety goal uses
   `back_end_public`. The refusal clauses of `Goal.inflateBackEnd_safety` and the whole of
   `Goal.inflateBackInit__safety` are derived from these two theorems.
 
-Theorems of `tests/audit/theorems.txt` that are not goals:
+Further theorems that are not goals:
 
 - Branch results of `inflateBack`: the `NULL` stream, the missing state, and input that ends
-  at once (`inflateBack_eof`, `ZlibF/Proof/infback.c.back.lean`). The first two are also clauses
+  at once (`inflateBack_eof`). The first two are also clauses
   of `Goal.inflateBack_safety`.
 
-Not proved, and not needed by the safety results: `Goal.inflateBack` and
+Not done and not planned; the safety results do not need them: `Goal.inflateBack` and
 `Goal.inflate_back_sequence`. They also state what reaches `out` (the decoding clauses).

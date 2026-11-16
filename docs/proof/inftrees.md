@@ -13,26 +13,21 @@ arithmetic of canonical codes that they rest on.
 
 ## Results
 
-All theorems in this table are listed in `tests/audit/theorems.txt`. The level of each result
-is recorded in [progress, Scope](../progress.md#scope). Modules are under `ZlibF/Proof/`.
+| Result | Theorem |
+| --- | --- |
+| **T1.** For every call that meets the premises, `inflate_table` returns without a fault. Only `work` and the table space changed. The result is 0, 1 or -1 | `inflate_table_safe` |
+| The result is -1 exactly when the lengths are not an acceptable code; 1 only for `LENS` and `DISTS` | `inflate_table_correct_ret` |
+| **T2.** After a call that returns 0, the table has [the table shape](#the-table-shape) for the returned root width | `inflate_table_decoder_safe` |
+| After a call that returns 0, the returned pointer is `used` entries after `*table`, with `used` at most 128, 852 or 592. For `LENS` and `DISTS`, the root table and every second-level table that a link designates end at or before entry `used` (`TableReadExtent`), so a table built behind this one cannot be reached | `inflate_table_read_extent` |
+| Two lemmas about lists of code lengths, without the heap, that the proof of T2 uses. `root_cover`: for lengths that are not over-subscribed, each root index is filled by exactly one code of length at most `root`, or holds the link of one group of longer codes, or is not written; the last case needs a Kraft sum that does not reach the index, which a complete code excludes (`RootCell`). `group_cover`: for a complete code, each index of a second-level table wide enough for its group belongs to exactly one code of the group. The fact about the heap, that every entry a lookup can reach is a leaf or a link of the table shape, is T2 | `root_cover`, `group_cover` |
+| `inflate_fixed` points the state at the two static tables and changes four fields | `inflate_fixed_ok` |
+| For `LENS` and `DISTS`, after a call that returns 0: an entry that the slow decoder accepts with few bits held stays the same when more bits arrive | `constructor_establishes_query_stability` |
 
-| Result | Theorem | Module |
-| --- | --- | --- |
-| **T1.** For every call that meets the premises, `inflate_table` returns without a fault. Only `work` and the table space changed. The result is 0, 1 or -1 | `inflate_table_safe` | `inftrees.c.lean` |
-| The result is -1 exactly when the lengths are not an acceptable code; 1 only for `LENS` and `DISTS` | `inflate_table_correct_ret` | `inftrees.c.lean` |
-| **T2.** After a call that returns 0, the table has [the table shape](#the-table-shape) for the returned root width | `inflate_table_decoder_safe` | `inftrees.c.decoder-safe.lean` |
-| After a call that returns 0, the returned pointer is `used` entries after `*table`, with `used` at most 128, 852 or 592. For `LENS` and `DISTS`, the root table and every second-level table that a link designates end at or before entry `used` (`TableReadExtent`), so a table built behind this one cannot be reached | `inflate_table_read_extent` | `inftrees.c.read-extent.lean` |
-| Two lemmas about lists of code lengths, without the heap, that the proof of T2 uses. `root_cover`: for lengths that are not over-subscribed, each root index is filled by exactly one code of length at most `root`, or holds the link of one group of longer codes, or is not written; the last case needs a Kraft sum that does not reach the index, which a complete code excludes (`RootCell`). `group_cover`: for a complete code, each index of a second-level table wide enough for its group belongs to exactly one code of the group. The fact about the heap, that every entry a lookup can reach is a leaf or a link of the table shape, is T2 | `root_cover`, `group_cover` | `inftrees.c.cover.root.lean`, `inftrees.c.cover.group.lean` |
-| `inflate_fixed` points the state at the two static tables and changes four fields | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
-| For `LENS` and `DISTS`, after a call that returns 0: an entry that the slow decoder accepts with few bits held stays the same when more bits arrive | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
-
-One more theorem is a lemma and is not listed: `inflate_table_len_leaves_positive`
-(`inftrees.c.decoder-safe.lean`). It says that, after a `LENS` call that returns 0, every
-literal/length leaf of the table uses at least one bit. Both callers use it, inside the proofs
-of the two sequence theorems. `inflate` needs it for clause `tables` of
-[its invariant](inflate.md#the-invariant), which includes this fact
-(`inflate.c.dynamic-install.lean`). The callback decoder needs it for termination
-(`infback.c.safety-table-lens.lean`; [fast decoding](inffast.md#assumptions)).
+One more theorem is a lemma: `inflate_table_len_leaves_positive`. It says that, after a `LENS`
+call that returns 0, every literal/length leaf of the table uses at least one bit. Both callers
+use it, inside the proofs of the two sequence theorems. `inflate` needs it for clause `tables`
+of [its invariant](inflate.md#the-invariant), which includes this fact. The callback decoder
+needs it for termination ([fast decoding](inffast.md#assumptions)).
 
 Functional results about the meaning of the entries are listed under
 [Functional results](#functional-results).
@@ -40,8 +35,8 @@ Functional results about the meaning of the entries are listed under
 ## Assumptions
 
 `inflate_table(type, lens, codes, table, bits, work)` does not check its arguments. The theorems
-assume the following (`CallPre`, `ZlibF/Spec/Common/Inflate/TableBuild.lean`). These are internal
-premises: each caller proves them at each call. In
+assume the following (`CallPre`). These are internal premises: each caller proves them at each
+call. In
 [internal contracts](../spec/internal-contracts.md) they are `I-it-pre-lens`, `I-it-pre-codes`,
 `I-it-pre-work` and `I-it-pre-table`.
 
@@ -84,8 +79,7 @@ for (;;) {                                                 /* 4. one code per ro
 ## The table shape
 
 T2 says that a successful call leaves a table with the following shape. `LenTableSafe` and
-`DistTableSafe` (`ZlibF/Spec/Common/Inflate/FastTable.lean`) state it for a table that starts at index
-`o` of an array, with root width `R`.
+`DistTableSafe` state it for a table that starts at index `o` of an array, with root width `R`.
 
 - `R ≤ 15`, and the `2^R` root entries lie inside the array.
 - Each root entry is a leaf or a link.
@@ -163,7 +157,8 @@ and so `huff < 2^len`.
 For a complete code the last step wraps `huff` to 0. For the one-symbol code it leaves 1. The C
 uses `huff != 0` after the loop to decide whether to write the invalid marker of step 5.
 
-`ZlibF/Proof/inftrees.c.math.lean` proves the reversal and increment facts, without the heap.
+The reversal and increment facts are proved without the heap (`succ_rev`, `huff_step`,
+`huff_last`).
 
 ### Writing a root entry
 
@@ -231,7 +226,7 @@ never written.
 
 Give each code of length `l` the interval of 15-bit words that start with it. It has
 `2^(15-l)` words. For a complete code these intervals are disjoint and cover all `2^15` words
-(`inftrees.c.cover.tile.lean`). A root index stands for the words that start with its `root`
+(`tile_exists`, `tile_unique`). A root index stands for the words that start with its `root`
 bits. Either a code of length at most `root` is a prefix of those words, and its fill wrote the
 index; or longer codes share that prefix, and the first of them wrote a link there
 (`root_cover`). The same argument inside a second-level table gives `group_cover`.
@@ -251,8 +246,8 @@ The entry for symbol `w` takes `op` and `val` from the static arrays `lbase` and
 32 entries. For `CODES` the base and extra pointers are not used: every symbol is below 19 and
 takes the literal branch.
 
-`inftrees.c.cover.leaf.lean` checks, entry by entry, that every value in the four arrays gives
-a leaf of the shape above. `inflate_table_decoder_safe` puts coverage and leaf values together.
+`lext_lbase_shape` and `dext_dbase_shape` check, entry by entry, that every value in the four
+arrays gives a leaf of the shape above. `inflate_table_decoder_safe` puts coverage and leaf values together.
 
 ### Shifts
 
@@ -302,10 +297,10 @@ This and the other notes on how the translation follows `inftrees.c` are in the
 These results say what the entries mean. They are proved, and they are not required for the
 safety results.
 
-| Result | Theorems | Modules |
-| --- | --- | --- |
-| The written entries are the canonical leaves and links for the given lengths | `inflate_table_content`, `constructor_establishes_decode_table_invariant` | `inftrees.c.content.lean`, `inftrees.c.decode.invariant.lean` |
-| A lookup in the table decodes the symbol that the format assigns to the input bits | `decode_table_matches_format`, `decode_table_leaf_sound`, `decode_table_classifies_input` | `inftrees.c.decode.*.lean` |
+| Result | Theorems |
+| --- | --- |
+| The written entries are the canonical leaves and links for the given lengths | `inflate_table_content`, `constructor_establishes_decode_table_invariant` |
+| A lookup in the table decodes the symbol that the format assigns to the input bits | `decode_table_matches_format`, `decode_table_leaf_sound`, `decode_table_classifies_input` |
 
 The mathematical definition of a canonical code is `F-code-*` in the
 [format guide](../spec/format/README.md).

@@ -1,4 +1,4 @@
-<!-- source-sha256: 8a0b19cae747641f91d9293e8a16478e29edb84440a449e83605c1737c79387c -->
+<!-- source-sha256: bbd9da63f4990be6c2f29d594b0c38e7940ee963f2c4ec0df5f7d11d95651e6b -->
 # 解码器的源码笔记：`inflate.c`、`inffast.c`、`inftrees.c`
 
 本页记录 C 源码里的一些细节：在这些地方，翻译若走捷径，程序的行为就会改变。它们涉及求值顺序、整数转换、贯穿（fall-through），以及跨辅助函数保留的值。本页写给拿 `zlib/*.c` 与 `ZlibF/Zlib/*.c.lean` 对照的读者。
@@ -44,7 +44,7 @@ C 里这些细节是可以观察到的：
 
 `inflateResetKeep` 什么都不释放。窗口块和三个计数器保持原样。
 
-`inflateCopy` 通过源流的分配器分配。如果窗口分配失败，它释放新的状态。当状态检查拒绝源流时，以及两种分配失败时，它都把 `dest->state` 置为 `NULL`。成功时它复制两个记录并修复回指指针。如果 `lencode` 是状态自己的 `codes` 数组，它让 `lencode` 和 `distcode` 指向副本的数组；指向固定表的指针保持不变。它重新定位 `next`，并复制 `whave` 个窗口字节。指针修复的证明用到不变量子句 `origin`（`CopyTableOrigin`）和 `CopyTableOrigin.dynamic_geometry`（`ZlibF/Proof/inflate.c.copy-origin.lean`）：`next` 和动态的 `distcode` 是 `codes` 内的偏移，`next` 可以恰在它末尾之后一个位置。
+`inflateCopy` 通过源流的分配器分配。如果窗口分配失败，它释放新的状态。当状态检查拒绝源流时，以及两种分配失败时，它都把 `dest->state` 置为 `NULL`。成功时它复制两个记录并修复回指指针。如果 `lencode` 是状态自己的 `codes` 数组，它让 `lencode` 和 `distcode` 指向副本的数组；指向固定表的指针保持不变。它重新定位 `next`，并复制 `whave` 个窗口字节。指针修复的证明用到不变量子句 `origin`（`CopyTableOrigin`）和 `CopyTableOrigin.dynamic_geometry`：`next` 和动态的 `distcode` 是 `codes` 内的偏移，`next` 可以恰在它末尾之后一个位置。
 
 在模型里，同一个字节对象中两段不相交区域之间的 `memcpy` 是允许的。区域重叠则是故障。
 

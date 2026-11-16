@@ -10,20 +10,17 @@ Source: `compress.c`. [Buffer utilities](buffers.md) reads the C. Terms:
 
 ## What is proved
 
-| Goal (`ZlibF/Spec/Safety/Utilities.lean`) | Theorem | Module |
-| --- | --- | --- |
-| `Goal.compress2_z_safety` | `compress2_z_safety` | `ZlibF/Proof/public-compress-safe-mid.lean` |
-| `Goal.compress2_safety` | `compress2_safety` | same |
-| `Goal.compress_z_safety` | `compress_z_safety` | same |
-| `Goal.compress_safety` | `compress_safety` | same |
+| Goal | Theorem |
+| --- | --- |
+| `Goal.compress2_z_safety` | `compress2_z_safety` |
+| `Goal.compress2_safety` | `compress2_safety` |
+| `Goal.compress_z_safety` | `compress_z_safety` |
+| `Goal.compress_safety` | `compress_safety` |
 
-All four are safety results and are required. Each theorem proves its goal exactly as stated,
-with no hypothesis added; the premises below are part of the goal statements. The theorems are
-listed in `tests/audit/theorems.txt`.
-[progress, Scope](../progress.md#scope) records the level of each result.
+All four are safety results, are required, and are done. Each theorem proves its goal exactly
+as stated, with no hypothesis added; the premises below are part of the goal statements.
 
-Each goal is an instance of `CompressorSafety` (`ZlibF/Spec/Common/Utilities.lean`). For
-every input that meets the premises below:
+Each goal is an instance of `CompressorSafety`. For every input that meets the premises below:
 
 - the call runs without undefined behaviour and returns;
 - a rejected argument returns `Z_STREAM_ERROR` and changes nothing;
@@ -102,9 +99,8 @@ measure.
 ## The bound functions
 
 `compressBound` and `compressBound_z` read no memory. Their goals `Goal.compressBound` and
-`Goal.compressBound_z` give the exact value of the bound formula, and the manifest
-`tests/audit/public-api.json` uses these same goals as their safety goals. The theorems are
-`compressBound` and `compressBound_z` (`ZlibF/Proof/public-compress-bound.lean`).
+`Goal.compressBound_z` give the exact value of the bound formula, and these same goals are
+their safety goals. The theorems are `compressBound` and `compressBound_z`.
 
 Whether every compressor output fits the bound is a separate functional question. It is not
 required for the safety results; see [buffer utilities](buffers.md).

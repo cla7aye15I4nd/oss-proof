@@ -10,20 +10,18 @@ Source: `uncompr.c`. [Buffer utilities](buffers.md) reads the C. Terms:
 
 ## What is proved
 
-| Goal (`ZlibF/Spec/Safety/Utilities.lean`) | Theorem | Module |
-| --- | --- | --- |
-| `Goal.uncompress2_z_safe` | `uncompress2_z_safe` | `ZlibF/Proof/public-uncompress-safe.lean` |
-| `Goal.uncompress2_safe` | `uncompress2_safe` | same |
-| `Goal.uncompress_z_safe` | `uncompress_z_safe` | same |
-| `Goal.uncompress_safe` | `uncompress_safe` | same |
+| Goal | Theorem |
+| --- | --- |
+| `Goal.uncompress2_z_safe` | `uncompress2_z_safe` |
+| `Goal.uncompress2_safe` | `uncompress2_safe` |
+| `Goal.uncompress_z_safe` | `uncompress_z_safe` |
+| `Goal.uncompress_safe` | `uncompress_safe` |
 
-All four are safety results and are required. Each theorem proves its goal exactly as stated,
-with no hypothesis added; the premises below are part of the goal statements. The theorems are
-listed in `tests/audit/theorems.txt`.
-[progress, Scope](../progress.md#scope) records the level of each result.
+All four are safety results, are required, and are done. Each theorem proves its goal exactly
+as stated, with no hypothesis added; the premises below are part of the goal statements.
 
-The goals are instances of `UncompressCountedSafe` and `UncompressSingleSafe`
-(`ZlibF/Spec/Common/Utilities.lean`). For every input that meets the premises below:
+The goals are instances of `UncompressCountedSafe` and `UncompressSingleSafe`. For every input
+that meets the premises below:
 
 - the call runs without undefined behaviour and returns. In Lean: running the translated
   function on the heap gives `.ok` with a return code and a new heap, not a fault;
@@ -51,7 +49,7 @@ which is not required for the safety results.
 | Separation, `uncompress2` and `uncompress2_z` (`UtilitySeparation`) | Source, destination, the destination-length cell and the source-length cell are pairwise separate: six conditions. |
 | Separation, `uncompress` and `uncompress_z` | Three `Separate` premises of `UncompressSingleSafe`: source and destination; the destination-length cell and the destination; the destination-length cell and the source. |
 
-Two ranges are separate (`Separate`, `ZlibF/Spec/Common/Memory.lean`) when one of them is empty,
+Two ranges are separate (`Separate`) when one of them is empty,
 or one of the two pointers is `NULL`, or they lie in different blocks, or their byte ranges in
 one block do not overlap.
 

@@ -197,9 +197,9 @@ same holds for `block_start -= (long)wsize` in a slide and for the expression
 `(s->strstart - s->block_start) + s->lookahead` in `deflateParams`. The translation checks each
 of these for overflow. `block_start_low` gives `block_start ≥ -2^62` at a nonzero level, from
 the clause `blockSpan`; `block_start_slide_signed` and `flush_length_general` use it for the
-slide and for the block length. For the expression in `deflateParams`,
-`params_after_outcome` (`ZlibF/Proof/deflate.c.universal-ops-params-general.lean`) proves that
-the code after the inner `deflate` call returns from every state with the invariant. Its proof
+slide and for the block length. For the expression in `deflateParams`, `params_after_outcome`
+proves that the code after the inner `deflate` call returns from every state with the
+invariant. Its proof
 bounds the difference by the clauses `blockStart` and `blockSpan`, and at level 0 by
 `levelZero`.
 
@@ -221,7 +221,7 @@ an index. The limits of this model are in [safety](../spec/safety.md#uninitialis
 In `build_tree` the expression `(s->depth[n] >= s->depth[m] ? s->depth[n] : s->depth[m]) + 1`
 compares the depths of two nodes and then reads one of them again. The translation makes both
 reads. The
-[depth-read regression](../../tests/regression/trees-depth-read/README.md) checks this in the
+[depth-read test](../../tests/regression/trees-depth-read/README.md) checks this in the
 structure of the translation, because a test with initialised values cannot tell the two
 versions apart.
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: f665b18be77a1e974388a083b93c9cf83a740b535700b6f089a2630bb0d2a0af -->
+<!-- source-sha256: d58057d65b2c8eb1e4390dc6cf249f7c851574e47066365244cb1a1410bf6d41 -->
 # `compress*` 的安全性
 
 `compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -7,16 +7,16 @@
 
 ## 证明了什么
 
-| 目标（`ZlibF/Spec/Safety/Utilities.lean`） | 定理 | 模块 |
-| --- | --- | --- |
-| `Goal.compress2_z_safety` | `compress2_z_safety` | `ZlibF/Proof/public-compress-safe-mid.lean` |
-| `Goal.compress2_safety` | `compress2_safety` | 同上 |
-| `Goal.compress_z_safety` | `compress_z_safety` | 同上 |
-| `Goal.compress_safety` | `compress_safety` | 同上 |
+| 目标 | 定理 |
+| --- | --- |
+| `Goal.compress2_z_safety` | `compress2_z_safety` |
+| `Goal.compress2_safety` | `compress2_safety` |
+| `Goal.compress_z_safety` | `compress_z_safety` |
+| `Goal.compress_safety` | `compress_safety` |
 
-这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
+这四个都是安全结论，都是必需的，并且都已完成。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。
 
-每个目标都是 `CompressorSafety`（`ZlibF/Spec/Common/Utilities.lean`）的一个实例。对满足下列前提的每个输入：
+每个目标都是 `CompressorSafety` 的一个实例。对满足下列前提的每个输入：
 
 - 调用在没有未定义行为的情况下运行并返回；
 - 被拒绝的参数返回 `Z_STREAM_ERROR`，并且什么都不改变；
@@ -71,6 +71,6 @@ flowchart TD
 
 ## 上界函数
 
-`compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，清单文件 `tests/audit/public-api.json` 把这同样的两个目标用作它们的安全目标。定理是 `compressBound` 和 `compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）。
+`compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，这同样的两个目标也就是它们的安全目标。定理是 `compressBound` 和 `compressBound_z`。
 
 压缩器的每个输出是否都不超过上界，是另一个单独的功能问题。它不是安全结论所必需的；见[缓冲区工具函数](buffers.md)。

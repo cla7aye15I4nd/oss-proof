@@ -1,6 +1,6 @@
 # Stream compression: why `deflate` is safe
 
-Source: `zlib/deflate.c`. Translation: `ZlibF/Zlib/deflate.c.lean`.
+This page is about `zlib/deflate.c` and its translation `ZlibF/Zlib/deflate.c.lean`.
 
 `deflate` and the other `deflate*` functions are safe on every input, for every split of the
 buffers, for every level, `memLevel`, `windowBits`, strategy, tuning and header, over every
@@ -11,29 +11,25 @@ unread symbols; it is explained in [trees](trees.md#the-overlay-lemma-f9).
 
 Related pages: [source notes for the compressor](deflate-source-notes.md) on how the
 translation follows the C, and [the default-configuration engine](deflate-default-engine.md) on
-earlier results for one configuration. The internal contracts of this file are `I-fw-*`,
+functional results for one configuration. The internal contracts of this file are `I-fw-*`,
 `I-sh-*`, `I-hc-inv`, `I-lm-*` and `I-fp-*` in
 [internal contracts](../spec/internal-contracts.md); `I-pb-room` there covers the macro
 `put_byte` of `deflate.h`.
 
 ## Results
 
-All theorems below are listed in `tests/audit/theorems.txt`. The level of each result is
-recorded in [progress, Scope](../progress.md#scope). Modules are under `ZlibF/Proof/`.
+Every goal of this table is done.
 
-| Goal | What it says | Theorem | Module |
-| --- | --- | --- | --- |
-| `Goal.deflate_sequence_safety` | The sequence result; see below | `Zlib.Deflate.Universal.deflate_sequence_safety` | `public-deflate-goals.lean` |
-| Thirteen goals, one per function: `deflate`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateReset`, `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z`, `deflatePending`, `deflateUsed`, `deflatePrime`, `deflateSetHeader`, `deflateEnd` | The function refuses a refused stream ([Refusals](#refusals)), and one call of it on a reachable stream is safe | `StreamCallSafetyProof.deflate_safety` and the twelve others of the same form | `public-stream-call-safety.lean` |
-| `Goal.deflateInit__safety`, `Goal.deflateInit2__safety` | Initialisation is safe for every argument `zlib.h` allows, with the default allocator (`InitArguments`, see [Assumptions](#assumptions)) | `deflateInit__safety`, `deflateInit2__safety` | `public-init-safety.lean` |
-| `Goal.deflateCopy_safety` | `deflateCopy` refuses a `NULL` argument and a refused source, and a copy from a reachable source is safe | `deflate_copy_safety` | `public-deflate-copy.lean` |
-| `Goal.deflate_refusal` | The refusals of five functions in one statement; see [Refusals](#refusals) | `deflate_refusal` | `public-stream-refusal.lean` |
-| `Goal.deflate_initialisation_domain` | The premises of the sequence goal can be met (non-vacuity) | `deflate_initialisation_domain_public` | `public-deflate-init-domain.lean` |
+| Goal | What it says | Theorem |
+| --- | --- | --- |
+| `Goal.deflate_sequence_safety` | The sequence result; see below | `Zlib.Deflate.Universal.deflate_sequence_safety` |
+| Thirteen goals, one per function: `deflate`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateReset`, `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z`, `deflatePending`, `deflateUsed`, `deflatePrime`, `deflateSetHeader`, `deflateEnd` | The function refuses a refused stream ([Refusals](#refusals)), and one call of it on a reachable stream is safe | `StreamCallSafetyProof.deflate_safety` and the twelve others of the same form |
+| `Goal.deflateInit__safety`, `Goal.deflateInit2__safety` | Initialisation is safe for every argument `zlib.h` allows, with the default allocator (`InitArguments`, see [Assumptions](#assumptions)) | `deflateInit__safety`, `deflateInit2__safety` |
+| `Goal.deflateCopy_safety` | `deflateCopy` refuses a `NULL` argument and a refused source, and a copy from a reachable source is safe | `deflate_copy_safety` |
+| `Goal.deflate_refusal` | The refusals of five functions in one statement; see [Refusals](#refusals) | `deflate_refusal` |
+| `Goal.deflate_initialisation_domain` | The premises of the sequence goal can be met (non-vacuity) | `deflate_initialisation_domain_public` |
 
-The goals are stated in `ZlibF/Spec/Safety/`.
-
-**The sequence result** has three parts (`StreamSequenceSafety`,
-`ZlibF/Spec/Common/Sequences.lean`), the same as for
+**The sequence result** has three parts (`StreamSequenceSafety`), the same as for
 [`inflate`](inflate.md#results): every reachable stream has the public invariant; one more
 permitted call returns without a fault, keeps the invariant, changes only the stream record,
 the blocks the stream owns and the caller ranges it was given, and changes the set of live
@@ -73,8 +69,7 @@ A record with `zalloc` and `zfree` set whose `state` field holds a garbage point
 to a freed state or a pointer to an inflate state is outside these clauses; the row "Refused streams" of
 [deviations](../deviations.md) says why.
 
-How the refusal clauses are proved (`public-stream-call-safety.lean`,
-`public-deflate-copy.lean`). No clause needed a new lemma about the C. Five clauses are the
+How the refusal clauses are proved. Five clauses are the
 clauses of `deflate_refusal`. Those of `deflateTune`, `deflatePending`, `deflateUsed` and
 `deflateSetHeader` are the refusal clause of the function's functional goal (`CheckedDeflate`).
 Those of `deflateEnd`, `deflateReset`, `deflatePrime`, `deflateBound` and `deflateBound_z` come
@@ -86,11 +81,10 @@ refused stream is one.
 
 ## Assumptions
 
-The table lists the premises of the sequence goal and of the thirteen per-function goals. It is
-read from the Lean statements: `StreamReachable`, `StreamOperation` and `StreamArguments`
-(`ZlibF/Spec/Common/History.lean`), `StreamSequenceSafety` (`ZlibF/Spec/Common/Sequences.lean`)
-and `StreamCallDomain` (`ZlibF/Spec/Safety/Streams.lean`). Those definitions are the complete
-statement. Each premise has a row in [deviations](../deviations.md).
+The table lists the premises of the sequence goal and of the thirteen per-function goals. It
+summarises the Lean definitions `StreamReachable`, `StreamOperation`, `StreamArguments`,
+`StreamSequenceSafety` and `StreamCallDomain`. Those definitions are the complete statement.
+Each premise has a row in [deviations](../deviations.md).
 
 | Premise | Says | Belongs to |
 | --- | --- | --- |
@@ -114,11 +108,11 @@ The other goals of the Results table have their own premises:
 - `Goal.deflateCopy_safety`: the source is reachable, and the destination is a readable record
   that is not the source record. The statement also names the invariant and the default
   allocator of the source; every reachable stream has both.
-- The two initialisation goals (`InitArguments`, `ZlibF/Spec/Safety/Initialisation.lean`): the
+- The two initialisation goals (`InitArguments`): the
   heap is well formed; `strm` is `NULL`, or a readable record whose `zalloc` and `zfree` are each
   `NULL` or the default function; `version` is `NULL` or readable for one byte. Every other
   argument and every other field of the record is arbitrary. A custom allocator is outside.
-- `Goal.deflate_initialisation_domain` (`InitDomain`, `ZlibF/Spec/Common/Domains.lean`): as
+- `Goal.deflate_initialisation_domain` (`InitDomain`): as
   above with a record whose `state` field is `NULL` and a version string that starts with `'1'`;
   the parameters are ones `deflateInit2_` accepts, and the five allocations succeed.
 - `Goal.deflate_refusal`, and the refusal clause of each one-function goal and of
@@ -128,9 +122,9 @@ The other goals of the Results table have their own premises:
 
 `zlib.h` asks for `deflatePrime` and `deflateSetHeader` before the first `deflate` call. The C
 does not check it. On the real C, bits primed after symbols were recorded overwrite the symbol
-buffer, and a header pointer set to `NULL` while the header is being written is dereferenced
-(`tests/regression/deflate-history-domain`). The header premises have the same kind of reason
-(`tests/regression/deflate-gzip-name-output`).
+buffer, and a header pointer set to `NULL` while the header is being written is dereferenced.
+Both were reproduced with the real C under a sanitizer. The header premises have the same kind
+of reason, reproduced in the same way.
 
 ## Memory and sizes
 
@@ -147,8 +141,7 @@ flowchart LR
 ```
 
 The stream owns five blocks. The trees, the heap array and the depth array are inside the
-state. The clause `good` of the invariant fixes these sizes (`DStInv`,
-`ZlibF/Spec/Common/DeflateGood.lean`).
+state. The clause `good` of the invariant fixes these sizes (`DStInv`).
 
 | Field | Value |
 | --- | --- |
@@ -194,8 +187,7 @@ flowchart TD
     I -->|no| H["header, strategy, trailer"]
 ```
 
-`deflate_call_full` (`deflate.c.universal-call-assemble.lean`) has one case for each exit of
-this diagram. The header states form a chain:
+The theorem `deflate_call_full` has one case for each exit of this diagram. The header states form a chain:
 
 ```mermaid
 stateDiagram-v2
@@ -223,9 +215,8 @@ them. Each can also return early when the output fills, and the next call resume
 
 ## The invariant
 
-The invariant is `DInv` (`ZlibF/Proof/deflate.c.universal-invariant.lean`). It holds in every
-reachable state, for every parameter. Two smaller sets of facts, `HeaderInv` and `CallFacts` of
-the same file, hold beside it between calls.
+The invariant is `DInv`. It holds in every reachable state, for every parameter. Two smaller
+sets of facts, `HeaderInv` and `CallFacts`, hold beside it between calls.
 
 | Part | In plain words | Used by |
 | --- | --- | --- |
@@ -238,9 +229,8 @@ the same file, hold beside it between calls.
 | `CallFacts` (between calls) | While `last_flush = -2`, the value that a reset stores and that the next `deflate` call overwrites once it has passed its entry checks: no lookahead, no symbol, no pending literal, `match_length ≤ 2`, `prev_length ≤ 2`, and `block_start = strstart`. In `FINISH_STATE`: no symbol, no lookahead and no held bit | the entry cases of `deflate`, the trailer |
 
 This table and the two below are summaries. The complete statement is the Lean definition:
-`DInv`, `Shape`, `Hashing`, `Symbols`, `HeaderInv` and `CallFacts` in
-`ZlibF/Proof/deflate.c.universal-invariant.lean`, with `DGood` and `DStInv` in
-`ZlibF/Spec/Common/DeflateGood.lean` for the part `good`.
+`DInv`, `Shape`, `Hashing`, `Symbols`, `HeaderInv` and `CallFacts`, with `DGood` and `DStInv`
+for the part `good`.
 
 The sequence goal states the smaller public predicate `StreamInvariant`, which is `good` and
 `alloc`.
@@ -272,15 +262,14 @@ recorded symbols cover at least one byte of the block.
 `block_start` can be negative. `fill_window` subtracts `W` from it at every slide, also in the
 middle of a block. `blockSpan` bounds how far below `strstart` it can be: a block holds fewer
 than `B ≤ 32768` symbols of at most 258 bytes each. So at a nonzero level `block_start ≥ -2^62`
-(`block_start_low`, `deflate.c.universal-window.lean`), far inside the range of `long`, and the
-signed subtraction of the slide does not overflow (`block_start_slide_signed`, same file). At
+(`block_start_low`), far inside the range of `long`, and the signed subtraction of the slide
+does not overflow (`block_start_slide_signed`). At
 level 0 `block_start` is not negative (`levelZero`).
 
 ### `hashing`: chains that can be followed
 
 `deflateInit2_` does not initialise `prev`. The proof holds for every content of the slots that
-were never written. The clause is about what can be *reached* (`HashChains`,
-`ZlibF/Proof/deflate.c.engine.chains.lean`).
+were never written. The clause is about what can be *reached* (`HashChains`).
 
 Let the insertion frontier be `chainTop = min(strstart - insert, strstart + lookahead - 2)`: no
 position at or above it has been inserted. Start at `head[k]` and follow `p → prev[p & wmask]`.
@@ -294,7 +283,7 @@ below the frontier. Every nonzero position `p` met on the way whose slot is stil
 
 For a position met on the way whose slot may have been reused, the clause says nothing, and the
 walk does not go on from it. This is the invariant that the internal contract `I-hc-inv`
-describes; the Lean sources call it H. A slot that was never written is never followed, so its
+describes. A slot that was never written is never followed, so its
 content does not matter. The last line makes every walk strictly decreasing.
 
 `chains` is stated for `matches = 0`, which holds at every nonzero level (clause `slides`). At
@@ -309,10 +298,9 @@ and `Z_RLE`, whose strategies do not update `ins_h`.
 
 ## Why each step keeps the invariant
 
-`reachable_inv_of` (`deflate.c.universal-sequence-safety.lean`) proves by induction on the
-history that every reachable state has `DInv`, `HeaderInv` and `CallFacts`.
-`operation_step_of` (`deflate.c.universal-ops-dispatch.lean`) proves that one more call is safe
-with its frame and ledger. `end_from_inv` (`deflate.c.universal-end.lean`) is `deflateEnd`.
+`reachable_inv_of` proves by induction on the history that every reachable state has `DInv`,
+`HeaderInv` and `CallFacts`. `operation_step_of` proves that one more call is safe, with the
+memory it may change and the change of the set of live blocks. `end_from_inv` is `deflateEnd`.
 
 The first two are stated with hypotheses. `reachable_inv_of` takes a record `SequenceFacts` of
 three facts about `deflate` itself: one call is safe and keeps `DInv`, it keeps `HeaderInv`, and
@@ -320,11 +308,10 @@ it keeps `CallFacts`. `operation_step_of` takes the first of these and the step 
 `deflateSetDictionary` and `deflateParams`. The three facts are the theorems `deflate_call_of`,
 `deflate_header_of` and `deflate_calls_of`, each under the hypothesis that F9 holds for the two
 smallest buffers (`TinyOverlay`). `sequence_facts_of` collects the three into the record under
-that hypothesis. The theorem `deflate_sequence_safety` (`public-deflate-goals.lean`)
-is `deflate_sequence_safety_of` applied to `sequence_facts_of`, with the hypothesis supplied from
-the two overlay theorems `tinyOverlayAt_128` and `tinyOverlayAt_256`; it has no hypothesis left.
-`sequence_facts` (`public-deflate-copy.lean`) is the same record built from the same two
-theorems. The `deflateCopy` proof uses it.
+that hypothesis. The theorem `deflate_sequence_safety` is `deflate_sequence_safety_of` applied
+to `sequence_facts_of`, with the hypothesis supplied from the two overlay theorems
+`tinyOverlayAt_128` and `tinyOverlayAt_256`; it has no hypothesis left. `sequence_facts` is the
+same record built from the same two theorems. The `deflateCopy` proof uses it.
 
 | Step | Theorem | Why it holds |
 | --- | --- | --- |
@@ -351,15 +338,14 @@ theorems. The `deflateCopy` proof uses it.
   header (ten bytes, twelve with the length of `extra`), and the trailer (four bytes for zlib,
   eight for gzip). They fit because the pending buffer is empty when they are written, and it
   has at least 512 bytes. For the two headers this is the premise `pending = 0` of `init_stage`
-  and `t_gzip` (`deflate.c.universal-call-init.lean`, `-call-headerphase.lean`). It is the
-  field `fresh` of `HeaderEntry`, the entry condition of `header_phase`: in `INIT_STATE` or
-  `GZIP_STATE` the entry of `deflate` has drained the buffer or returned. For the trailer it is the premise of `trailer_step`
-  (`deflate.c.universal-call-trailerstep.lean`): with `Z_FINISH` the trailer is reached only on
-  a finished stream with nothing pending.
+  and `t_gzip`. It is the field `fresh` of `HeaderEntry`, the entry condition of
+  `header_phase`: in `INIT_STATE` or `GZIP_STATE` the entry of `deflate` has drained the buffer
+  or returned. For the trailer it is the premise of `trailer_step`: with `Z_FINISH` the trailer
+  is reached only on a finished stream with nothing pending.
 
 `HeaderInv` gives the non-`NULL` `gz_header` in the four states that dereference it.
 
-**`fill_window`** (`fill_window_inv`, `deflate.c.universal-window.lean`). D makes
+**`fill_window`** (`fill_window_inv`). D makes
 `more = window_size - lookahead - strstart` a true difference. If `strstart ≥ 2W - 262` the
 window slides: `W - more` bytes at `window + W` are copied to `window`, two ranges that do not
 overlap, and `W` is subtracted from `strstart`, `match_start`, `block_start` and every table
@@ -391,8 +377,7 @@ was inserted, with a chain head `cur` such that `1 ≤ cur < strstart` and
 of at most 255 and a distance between 1 and `W - 262`, so the lookups in `_length_code` and
 `_dist_code` are in range. The upper bound is kept by the clause `recorded` of `symbols`. The
 lower bound is not a clause of the invariant. It is a premise of the tally lemma
-`tally_match_run` (`deflate.c.engine.tally-match.lean`), and each strategy supplies it where it
-records a match: `deflate_rle` passes the constant 1; `deflate_fast` records
+`tally_match_run`, and each strategy supplies it where it records a match: `deflate_rle` passes the constant 1; `deflate_fast` records
 `strstart - match_start` for a match that `longest_match_inserted` found below `strstart`;
 `deflate_slow` records the match of the previous round, whose distance the clause
 `pendingMatch` keeps at 1 or more. When the buffer is full the strategy flushes.
@@ -400,23 +385,21 @@ records a match: `deflate_rle` passes the constant 1; `deflate_fast` records
 **Flushing a block.** `FLUSH_BLOCK_ONLY` computes the block length `strstart - block_start` in
 `long` and calls `_tr_flush_block`. It passes `window + block_start` as the source of a stored
 block, or `NULL` when `block_start` is negative; `_tr_flush_block` chooses the stored form only
-when the source is not `NULL`. `flush_arguments_general` (`trees.c.universal-flush.lean`) proves
-this evaluation for `-2^62 ≤ block_start ≤ strstart ≤ window_size`: the subtraction does not
+when the source is not `NULL`. `flush_arguments_general` proves this evaluation for `-2^62 ≤ block_start ≤ strstart ≤ window_size`: the subtraction does not
 overflow (`flush_length_general`), and the source is `NULL` or a readable range of the window,
 apart from `pending_buf`, of the block's length. `flush_block_only_safe` then proves the whole
 macro safe at a positive level, for every `memLevel`. Its premises are listed on the
 [trees](trees.md#assumptions) page; among them are the bounds on `block_start` just given, an
 empty pending buffer and `bi_valid ≤ 7` at entry, and the room of fact F9. The strategies
-provide them at every flush (`BlockReady`, `deflate.c.universal-strategies.lean`).
+provide them at every flush (`BlockReady`).
 
 **The five strategies.** `huff_spec_of`, `rle_spec_of`, `fast_spec_of`, `slow_spec_of` and
-`stored_spec` (`deflate.c.universal-strategies.lean`, `-slow.lean`, `-stored-tail.lean`) prove that
-each strategy returns and gives `DInv` back. At the head of every round of a strategy loop the
+`stored_spec` prove that each strategy returns and gives `DInv` back. At the head of every round of a strategy loop the
 state has `DInv` and an empty pending buffer.
 
 ## Why the loops end
 
-**Strategy loops** (`loopMeasure`, `deflate.c.universal-strategies.lean`). For `deflate_huff`,
+**Strategy loops** (`loopMeasure`). For `deflate_huff`,
 `deflate_rle`, `deflate_fast` and `deflate_slow` the measure is
 
 ```
@@ -428,10 +411,9 @@ bytes from the input to the lookahead and leaves the sum unchanged. The measure 
 far below the loop fuel of `2^64` (`loop_measure_bound`).
 
 **`deflate_stored`.** Its one loop writes stored blocks straight to the output; its measure
-is `avail_out` (`deflate.c.universal-stored-loop.lean`).
+is `avail_out`.
 
-**`longest_match`.** The measure is the current position `cur_match`
-(`lm_loop_ok`, `deflate.c.engine.lmmain.lean`). The walk ends because positions strictly decrease, whatever
+**`longest_match`.** The measure is the current position `cur_match` (`lm_loop_ok`). The walk ends because positions strictly decrease, whatever
 the chain budget is. This matters: `deflateTune` accepts `max_chain_length = 0`, and then
 `--chain_length` wraps to a large value instead of reaching 0.
 
@@ -469,26 +451,26 @@ More notes of this kind are in the [source notes](deflate-source-notes.md).
 
 ## Functional results
 
-These say what the functions compute. They are proved, and they are not required for the
-safety results.
+These say what the functions compute. The goals of the first two rows are done. They are not
+required for the safety results, and functional correctness beyond what has a theorem is not
+planned.
 
-| Result | Theorem | Module |
-| --- | --- | --- |
-| `Goal.deflate`: the full contract of one call, with progress, return codes, counters, frame and ownership. The safety proof of `compress*` uses it | `Zlib.Deflate.Universal.deflate_safety` | `public-deflate-goals.lean` |
-| The full contracts `Goal.deflateInit_`, `Goal.deflateInit2_`, `Goal.deflateCopy`, `Goal.deflateEnd`, `Goal.deflateReset` and those of the query functions | `deflateInit_proof`, `deflateInit2_proof`, `deflate_copy_public`, `deflate_end_public`, `deflate_reset_public` and others | `public-deflate-*.lean` |
-| Results for the default configuration only | see [the default-configuration engine](deflate-default-engine.md) | |
+| Result | Theorem |
+| --- | --- |
+| `Goal.deflate`: the full contract of one call, with progress, return codes, counters, frame and ownership. The safety proof of `compress*` uses it | `Zlib.Deflate.Universal.deflate_safety` |
+| The full contracts `Goal.deflateInit_`, `Goal.deflateInit2_`, `Goal.deflateCopy`, `Goal.deflateEnd`, `Goal.deflateReset` and those of the query functions | `deflateInit_proof`, `deflateInit2_proof`, `deflate_copy_public`, `deflate_end_public`, `deflate_reset_public` and others |
+| Results for the default configuration only | see [the default-configuration engine](deflate-default-engine.md) |
 
 For the default configuration, `DeflateCore.correct` says that a completed stream decodes, by
 the format specification, to the input that was accepted. For other configurations no theorem
-says that the output of `deflate` decodes to its input. Earlier notes on what such a proof has
-to cover are kept in the [history](../history/proof-functional-notes.md).
+says that the output of `deflate` decodes to its input.
 
-The round trip of the default zlib stream has a theorem for its conditional form:
-`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), which is not
-listed in `tests/audit/theorems.txt`. It takes a `deflate` history of the default configuration and an `inflate` history
-that starts with `inflateInit2_` at `windowBits` 15. Both consist of caller edits and calls with
-any flush value and any split of the buffers, and in both the last call returned
-`Z_STREAM_END`. If the input that `inflate` consumed is a prefix of the output of `deflate`,
-then the output of `inflate` is the input that `deflate` accepted. Two further parts are planned
-work: completeness (that the histories reach `Z_STREAM_END`, given enough output room), and with
-it the unconditional round trip. [progress, Scope](../progress.md#scope) says how far the round trip is.
+The round trip of the default zlib stream is not done. Its conditional form has a theorem,
+`deflate_inflate_roundtrip`. It takes a `deflate` history of the default configuration and an
+`inflate` history that starts with `inflateInit2_` at `windowBits` 15. Both consist of caller
+edits and calls with any flush value and any split of the buffers, and in both the last call
+returned `Z_STREAM_END`. If the input that `inflate` consumed is a prefix of the output of
+`deflate`, then the output of `inflate` is the input that `deflate` accepted. No theorem states
+completeness (that the histories reach `Z_STREAM_END`, given enough output room) or the
+unconditional round trip, which needs it. [Progress](../progress.md) says what is
+planned.
