@@ -24,9 +24,9 @@ the [trusted base](trusted-base.md), whose item 2 this page details.
 
 ## Conditions on the model that goals state
 
-The first two rows are premises of goals. A C program meets them without doing anything; they
+The first row holds premises of goals. A C program meets them without doing anything; they
 exist because a Lean statement quantifies over every model heap, including heaps no C program
-can produce. The other three rows are choices of the model that the goals are stated over.
+can produce. The other four rows are choices of the model that the goals are stated over.
 
 | Area | What the model does | What follows |
 | --- | --- | --- |
@@ -67,7 +67,7 @@ proved.
 | --- | --- |
 | Uninitialised pointers become NULL | Comparing, copying and freeing such a pointer can succeed in the model without a prior write. A claim about the C needs that every pointer is written before it is read; no theorem states this, and it is **to confirm** by source review. The init translations zero the two allocated stream-state records explicitly; this is not a general property of fresh records or of an automatic `z_stream`. |
 | One garbage value per cell | Integer theorems quantify over every `Heap.garbage`, indexed by allocation attempt and cell position. Repeated reads of one cell agree in the model; C does not guarantee that for an indeterminate value, and no program checks that no proof relies on it. |
-| Array extents are predicates | The length of an array is not part of its type: `WellFormed`, `Heap.RecordsWellFormed` and `Statics.WellFormed` state the C lengths, and generated lemmas show that operations keep them. No program compares the contents of the static tables with the C. |
+| Array extents are predicates | The length of an array is not part of its type: `WellFormed`, `Heap.RecordsWellFormed` and `Statics.WellFormed` state the C lengths, and generated lemmas show that operations keep them. The runtime does not compare the contents of the static tables with the C. |
 | Pointer equality is structural | Pointers to different objects compare unequal, and comparing a dangling pointer for equality does not fault. C guarantees neither, in particular not at the boundary of adjacent objects; no program checks that no proof relies on it. A relational comparison requires the same live array. |
 | Address and layout model is partial | There is no general model of ABI addresses, of effective types or of a record as bytes. For eight public functions the result cell is a value and not memory ([deviations](deviations.md#stream-calls-inflate-and-deflate), rows "Result cells" and "Whole-buffer compression"). `z_stream` records live in their own table, so a record that partly overlaps a buffer or another record cannot be expressed ([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Copy destination"). |
 | Read-only marking is partial | Byte blocks, named static tables and instances can be read-only. Word blocks and records in tables cannot represent that qualifier. |

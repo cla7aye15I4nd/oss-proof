@@ -93,7 +93,7 @@ just stored is used again without a read; an operand is evaluated before the sho
 that guards it in C; a field value is taken from a record loaded before a store; a shift by a
 constant count uses the plain operator; the locals of `inflate` that C leaves uninitialised
 start at fixed values; and a store is written after a call that follows it in C. That each of
-them computes the same value as the C is a reading of the code, not a proved fact.
+them computes what the C computes is trusted, not proved.
 [Translation](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations) lists
 the places known; the list is not complete.
 
