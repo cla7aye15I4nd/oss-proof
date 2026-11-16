@@ -12,7 +12,7 @@ SITE = Path(__file__).resolve().parent
 REPO = SITE.parents[1]
 HEADERS = {
     'en': ('Returned value', 'Meaning and conditions', 'Caller’s next step'),
-    'zh': ('返回值', '含义与出现条件', '调用者下一步'),
+    'zh': ('返回值', '含义与出现条件', '调用者接下来'),
 }
 VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'}
 
