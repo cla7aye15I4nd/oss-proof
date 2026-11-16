@@ -10,7 +10,7 @@ summarises what is trusted, it lists the same six.
 | 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The check of the axioms each theorem depends on, and a replay by the kernel in a fresh environment |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and semantic regression tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: the pin and six patches | The [patches page](../patches/README.md). Each patch has a sanitizer reproduction, except 0005 and one branch of 0004, which rest on a probe run and on the model, and 0006, which fixes a broken promise that no sanitizer reports |
+| 4 | The selected source: zlib 1.4 and six patches | The [patches page](../patches/README.md). Each patch has a sanitizer reproduction, with three exceptions: 0005 rests on a probe run and a reading of the C; one branch of 0004 rests on a reading of the C; 0006 fixes a broken promise that no sanitizer reports |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
 | 6 | The statements: that each goal says what it should | Review against `zlib.h`; the check that a theorem states exactly its goal |
 
@@ -80,16 +80,15 @@ read-only marking) and "Table updates".
 
 The translation is written by hand, statement by statement. The kernel does not
 check that it corresponds to the C. Review checks evaluation order, checks, arithmetic, storage
-lifetime and effects. A mismatch is a translation bug: it is corrected, with a differential test
-that catches it, and never hidden by changing a theorem.
+lifetime and effects. A mismatch is a translation bug: a theorem about a statement that is
+translated wrongly says nothing about the C.
 
 The translation differs from a literal statement-by-statement copy in four accepted ways, each
 equivalent to the C: an out-parameter of an internal function is passed by value and returned as
 a second result; two reads of one location with no store between them are one read; consecutive
 assignments to fields of one record are one record update; a signed operation that a preceding
 test of the same function keeps in range uses the plain operator. The
-[translation rules](design/translation.md) show an example of each and say what evidence each
-function needs.
+[translation rules](design/translation.md#the-accepted-normalisations) show an example of each.
 
 The translations also contain at least six forms that the four do not cover as worded: a value
 just stored is used again without a read; an operand is evaluated before the short-circuit test
@@ -97,8 +96,9 @@ that guards it in C; a field value is taken from a record loaded before a store;
 constant count uses the plain operator; the locals of `inflate` that C leaves uninitialised
 start at fixed values; and a store is written after a call that follows it in C. Whether each
 becomes an accepted normalisation or is changed is not decided.
-[Translation](design/translation.md) lists the places found; its tables are examples, not a complete inventory. No place was found to compute a different value from the C; that is a reading,
-not a proved fact.
+[Translation](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations) lists
+the places found; its tables are examples, not a complete inventory. No place was found to
+compute a different value from the C; that is a reading, not a proved fact.
 
 Three parts of this item are easy to miss:
 
@@ -126,8 +126,8 @@ has defined semantics.
 
 ## 4. Selected source
 
-The verified source is the pinned zlib (commit `99623ef7` of upstream `develop`, zlib 1.4) plus
-the patches, applied in name order. A patch fixes a zlib issue without whose fix a safety
+The verified source is zlib 1.4 (upstream commit `99623ef7`) plus the patches, applied in name
+order. A patch fixes a zlib issue without whose fix a safety
 statement cannot be proved, or a promise of `zlib.h` does not hold. It is as small as the fix
 allows, and it matches the fix submitted upstream where one was submitted. A patch marked local
 has not been submitted.
@@ -213,8 +213,9 @@ depend on the number `open` returns: the model's descriptor table is not the who
 
 Two OS facts are assumed and not checked: a nonempty `write` never returns 0, and `close`
 releases the descriptor even when it reports an error. Both hold on Linux. The first is needed
-for termination of `gz_comp`; by a reading of the code, the real C spins forever on a `write`
-that returns 0 forever.
+for termination of `gz_comp`. **To confirm**: by a reading of the C, a `write` that returned 0
+forever would make `gz_comp` loop forever, because neither write loop advances on a count of 0.
+No theorem states this: the model has no world with such a `write`.
 
 `strerror` (`C.libcErrnoText`) is total over every `Int32`. For a number outside its table it
 returns glibc's `"Unknown error N"` (glibc `string/strerror_l.c`, checked on glibc 2.43; glibc's
