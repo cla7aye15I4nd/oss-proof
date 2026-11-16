@@ -2672,10 +2672,12 @@ was green and what changed after it. What remains, in order:
    ([layout of the specifications](design/safety-functional-split.md)): only `Safety/`,
    `Functional/` and `Common/`; safety and common modules import no functional module, common
    modules import no safety module, and no specification module imports a proof module, also
-   through other modules. `scripts/check-spec-layers.py` checks this in the fast gate with no
-   exception. What remains is its list `MATH_PROOF_IMPORTS`: 36 imports of proof modules by 28
+   through other modules; no goal that `tests/audit/public-api.json` names is defined under
+   `Common/`. `scripts/check-spec-layers.py` checks this in the fast gate with no exception. What remains is its list `MATH_PROOF_IMPORTS`: 36 imports of proof modules by 28
    modules of `ZlibF/Math/`. The script records that they import lemmas, not definitions, and
-   that moving those lemmas is later work. The list may only shrink.
+   that moving those lemmas is later work. The list may only shrink. Also later work: 25
+   statements about internal functions, which the manifest does not name, are defined as
+   `Goal.<name>` under `Common/` (`ByteAddress.lean`, `Common/Inflate/`); they stay there for now.
 
 The groups that [Scope](#scope) lists as not planned get no work. The earlier ordered table (13
 rows, each registered or not planned) is in

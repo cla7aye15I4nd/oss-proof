@@ -1,4 +1,4 @@
-<!-- source-sha256: 936abd5200016dd4ce7fc36b804c86a9cd15360c656c49d8e11bdc95115017c2 -->
+<!-- source-sha256: 401aef43f8ed72490391f73ba4aec31eb02c2143091a5f076fb10fe5a73b001d -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)。某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)：那一页把每个函数对应到它的定理，不写层级。
@@ -2481,7 +2481,7 @@ flowchart LR
 4. **把本地补丁提交上游**：0004 和 0005（[补丁](../patches/README.md)）。补丁 0001 至 0003 与已经提交上游的拉取请求一致。
 5. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对八个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 3 项）。
 6. **可选的清理**：删除没有任何已登记定理使用的证明（[核心证明骨架](#core-proof-skeletons)）。
-7. **导入证明模块的 Math 模块。** `ZlibF/Spec/` 的布局已经定下来（[规格的布局](design/safety-functional-split.md)）：只有 `Safety/`、`Functional/` 和 `Common/`；安全模块和公共模块不导入功能模块，公共模块不导入安全模块，规格模块不导入证明模块，经由其他模块导入也不行。`scripts/check-spec-layers.py` 在快速关卡中检查这些，没有例外。剩下的是它的 `MATH_PROOF_IMPORTS` 列表：`ZlibF/Math/` 的 28 个模块对证明模块的 36 处导入。脚本记录说，它们导入的是引理，不是定义，移动这些引理是以后的工作。这张列表只能缩短。
+7. **导入证明模块的 Math 模块。** `ZlibF/Spec/` 的布局已经定下来（[规格的布局](design/safety-functional-split.md)）：只有 `Safety/`、`Functional/` 和 `Common/`；安全模块和公共模块不导入功能模块，公共模块不导入安全模块，规格模块不导入证明模块，经由其他模块导入也不行；`tests/audit/public-api.json` 列出的目标都不定义在 `Common/` 下。`scripts/check-spec-layers.py` 在快速关卡中检查这些，没有例外。剩下的是它的 `MATH_PROOF_IMPORTS` 列表：`ZlibF/Math/` 的 28 个模块对证明模块的 36 处导入。脚本记录说，它们导入的是引理，不是定义，移动这些引理是以后的工作。这张列表只能缩短。同样留到以后的还有：25 条关于内部函数的命题（清单文件不列它们）以 `Goal.<name>` 的形式定义在 `Common/` 下（`ByteAddress.lean`、`Common/Inflate/`）；它们暂时留在那里。
 
 [范围](#scope)列为不在计划内的各组不投入工作。早先的有序工作表（13 行，每一行不是已登记就是不在计划内）见[早先的工作顺序](history/next-work-and-readiness.md)。
 
