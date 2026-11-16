@@ -123,11 +123,12 @@ def render_home() -> None:
         other = OUT / ('index.html' if zh else 'index.zh.html')
         c = counts()
         body = (f'<section id="results"><h2>{t("三项核心结论", "Three core results")}</h2>'
-                f'<p>{t("安全性方面有三项结论，按此顺序验收。下面的状态直接取自登记记录。之后计划证明默认 zlib 流的往返性质（先压缩再解压得到原输入）：条件形式已证明、尚未登记，完备性和无条件形式尚未证明。", "There are three safety results, accepted in this order. The status below is read from the registry. Planned after them: the round trip of the default zlib stream (compressing and then decompressing gives back the input). Its conditional form is proved and not yet registered; completeness and the unconditional form are open.")}</p>'
+                f'<p>{t("安全性方面有三项结论，按此顺序验收。下面的状态直接取自登记记录。之后计划证明默认 zlib 流的往返性质（先压缩再解压得到原输入）：先是条件形式，然后是完备性和无条件形式。这项工作进行到哪一步，见进度记录的", "There are three safety results, accepted in this order. The status below is read from the registry. Planned after them: the round trip of the default zlib stream (compressing and then decompressing gives back the input): first its conditional form, then completeness and the unconditional form. How far that work is, is recorded in the progress record,")} '
+                f'<a href="{route_href("reference/docs/progress", current, lang, "scope")}">{t("“范围”一节", "Scope")}</a>{t("。", ".")}</p>'
                 + results_table(current, lang, False) +
                 f'<p>{t("翻译和运行时模型与 C 相符，这一点靠审阅和测试，不是靠证明：见", "That the translation and the runtime model match the C is reviewed and tested, not proved: see the")} '
                 f'<a href="{route_href("reference/docs/trusted-base", current, lang)}">{t("可信基础", "trusted base")}</a>{t("；调用必须满足的条件见", ". The conditions a call must meet are in the")} '
-                f'<a href="{route_href("reference/docs/deviations", current, lang)}">{t("偏离记录", "deviations")}</a>{t("。验收（在一个具名提交上全部审计通过）记录在", ". Acceptance (the full audit, green on a named commit) is recorded in")} '
+                f'<a href="{route_href("reference/docs/deviations", current, lang)}">{t("偏离记录", "deviations")}</a>{t("。验收（公理关卡、精确目标匹配、自测和差分测试在一个具名提交上全部通过；证明变异体是额外的证据，不属于验收）记录在", ". Acceptance (the axiom gate, the exact goal match, the self tests and the differential tests, green on a named commit; proof mutants are additional evidence and not part of it) is recorded in")} '
                 f'<a href="{route_href("reference/docs/progress", current, lang, "scope")}">{t("范围", "Scope")}</a>{t("。", ".")}</p>'
                 + levels_note(lang) +
                 f'<p><a href="{route_href("status", current, lang)}">{t("完整状态、计划内与不计划的范围、下一步工作", "Full status, planned and not-planned scope, next work")} →</a></p></section>')
