@@ -1,7 +1,6 @@
 # Overview: what is proved about zlib
 
-This page says what the project proves about zlib, what it assumes, where its status is
-recorded, and how the proof is built. The main point: every documented public function of the default x86_64 Linux
+This page says what the project proves about zlib, what it assumes, and how the proof is built. The main point: every documented public function of the default x86_64 Linux
 build is proved safe in every sequence of calls, for a Lean translation of the C, under premises
 that each theorem states. The words in bold type are defined in the [glossary](glossary.md).
 
@@ -14,16 +13,17 @@ On every input that its premises admit, the translated call returns with no unde
 and no memory error, writes only the memory it is allowed to (its frame), leaks nothing, and
 terminates. This holds over call sequences: for every history of an inflate stream, a deflate
 stream, a callback decoder and a gzip file handle. Each of these statements is a goal, proved by
-a theorem whose type is exactly the goal; [coverage by function](coverage.md) names the theorem
-of each function.
+a theorem whose type is exactly the goal, and each is done: the theorem exists and passes every
+check of the project. [Coverage by function](coverage.md) names the theorem of each function.
 
 **Assumed.** The theorems are about a Lean translation that runs on a runtime model. Six things
 are trusted and not proved ([trusted base](trusted-base.md)):
 
-1. the Lean kernel, three standard axioms, and the audit programs;
+1. the Lean kernel, three standard axioms, and the programs that check which axioms a proof uses
+   and that a theorem states exactly its goal;
 2. the runtime model of memory, pointers, faults and loops;
 3. the hand translation of the C;
-4. the selected source: the pinned `zlib/` plus the [patches](../patches/README.md);
+4. the selected source: the pinned zlib plus the [patches](../patches/README.md);
 5. the build configuration, and the model of allocation, files and formatting;
 6. the statements: that each goal says what it should.
 
@@ -31,18 +31,16 @@ Differential tests are evidence of fidelity, not proof. Compiler, operating-syst
 correctness are outside the proof. The premises that a theorem puts on the caller are in
 [deviations](deviations.md), as a checklist by function.
 
-**Status.** The level of each result (checked, registered or accepted), the commit of each
-acceptance run, the number of goals and the work that remains are recorded on one page only:
-[progress, Scope](progress.md#scope).
-
-**Not required.** Functional correctness is not required for the safety results. A functional
-fact is in scope when a planned safety proof depends on it; what is already proved stays. One
-functional result is planned work: the round trip of a default zlib stream through `deflate` and then `inflate`. Its conditional form says: when both call sequences reach `Z_STREAM_END`, the
-output equals the input. After it come completeness (both always finish with enough room) and the
-unconditional form. Model-only statements (theorems about the abstract API model, not
-about the translated C), other build configurations and the functions that `zlib.h` declares
-undocumented are not planned. [Scope](progress.md#scope) lists every group with its reason, and
-says how far the round trip is.
+**Not done.** Functional correctness: that the output of `inflate` equals the format, or that
+the output of `deflate` decodes to its input. The safety results do not need it; a functional
+fact is proved where a safety proof depends on it. One functional result is planned: the round
+trip of a default zlib stream through `deflate` and then `inflate`. A theorem exists for its
+conditional form: when both call sequences reach `Z_STREAM_END`, the output equals the input.
+Completeness (both always finish with enough room) and the unconditional form have no theorem.
+Model-only statements (theorems about the abstract API model, not about the translated C), other
+build configurations and the functions that `zlib.h` declares undocumented are not planned.
+[Progress](progress.md) lists every result as done or not done, and every group that is not
+planned with its reason.
 
 ## Contents
 
@@ -77,7 +75,7 @@ says how far the round trip is.
 
 The proof has four steps.
 
-1. **Translate.** The pinned C, with the registered patches, is translated to Lean by hand,
+1. **Translate.** The pinned C, with the patches, is translated to Lean by hand,
    statement by statement. Every undefined behaviour the C can reach becomes the fault `Fault.ub`
    in the translation.
 2. **Define an invariant.** For each kind of stream an invariant is defined: the facts about the
@@ -115,16 +113,16 @@ The [common method](proof/method.md) gives the induction in detail, and the
 <a id="82-follow-its-proof-and-evidence"></a>
 <a id="74-locate-the-exact-evidence"></a>
 
-A result has four parts: the goal, its premises, the theorem that proves it, and its level. Here
+A result has four parts: the goal, its premises, the theorem that proves it, and its state. Here
 they are for `inflate`.
 
 | Part | For `inflate` |
 | --- | --- |
-| Goal | `Goal.inflate_safety`, in `ZlibF/Spec/Safety/Streams.lean` |
+| Goal | `Goal.inflate_safety` |
 | What it says | Two clauses. The call: for every heap, every stream `r` and every `flush` value, if the premises hold, the call `inflate(r, flush)` returns without a fault, keeps the invariant, writes only the stream's own blocks, the stream record, an attached gzip header and the output range, and changes the set of live blocks exactly as its ledger says (`StreamCallSafe`). The refusal: on a `NULL` or inconsistent stream the call returns `Z_STREAM_ERROR`, writes no block that was live and leaves the set of live blocks as it was |
 | Premises | Of the call clause, `StreamCallDomain`: the stream is reachable (some history starting at a successful init produces it); every byte object has fewer than 2^63 bytes; the buffers are as [deviations](deviations.md#stream-calls-inflate-and-deflate) describes (`StreamArguments`). Of the refusal clause: the stream is refused (`RefusedInflate`, [deviations, note 2](deviations.md#note-2-refused-streams)), and the model heap has no live block at or above its next unused block number (`Fresh`) |
-| Theorem | `ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`, in `ZlibF/Proof/public-stream-call-safety.lean` |
-| Level | Checked, registered or accepted ([glossary](glossary.md#status)). [Scope](progress.md#scope) records the level and the commit of the acceptance run |
+| Theorem | `ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety` |
+| State | Done ([glossary](glossary.md#status)) |
 
 [Coverage by function](coverage.md) gives the same four parts for every function.
 
@@ -135,7 +133,7 @@ Three cautions apply when reading any result.
 - A finite run of differential tests checks examples. It does not prove a statement about all
   inputs.
 - The guide chapters below describe the implementation in prose. Those readings of the C are
-  **to confirm**: only a registered theorem settles one.
+  **to confirm**: only a theorem settles one.
 
 ## Guide chapters
 
@@ -213,11 +211,9 @@ creates. They explain the mechanism; the exact contracts are in the
 | Which limits of the model can a caller not act on? | [Model limits](model-limits.md) |
 | What is trusted and not proved? | [Trusted base](trusted-base.md) |
 | Which theorem covers a function? | [Coverage by function](coverage.md) |
-| What is the level of each result, and what work remains? | [Progress](progress.md#scope) |
-| How does a theorem become accepted? | [Checking](checking/README.md) |
+| Which results are done, and which are not? | [Progress](progress.md) |
+| Which checks stand behind the word "done"? | [What a done result rests on](checking/README.md) |
 
 A safety goal quantifies over every input, parameter, allocation outcome and history that its
 premises admit. The narrower ranges in [input configurations](spec/input-configurations.md)
-describe internal lemmas and the colours of the target graph; they do not limit a safety goal.
-Earlier narrative checkpoints of this page are kept, unchanged, in the
-[overview changelog](history/overview-changelog.md); they are historical.
+describe internal lemmas; they do not limit a safety goal.
