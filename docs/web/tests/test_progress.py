@@ -96,6 +96,12 @@ class Records(unittest.TestCase):
     def test_a_result_without_a_stated_goal_is_not_done(self):
         self.assertFalse(result_done(()))
 
+    def test_a_functional_contract_that_is_not_done_is_not_planned(self):
+        self.assertEqual(progress.functional_state(True, 'en'), 'done')
+        self.assertEqual(progress.functional_state(True, 'zh'), '完成')
+        self.assertEqual(progress.functional_state(False, 'en'), 'not done, not planned')
+        self.assertEqual(progress.functional_state(False, 'zh'), '未完成，不在计划内')
+
 
 if __name__ == '__main__':
     unittest.main()

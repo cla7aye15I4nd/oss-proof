@@ -52,6 +52,15 @@ def state(done: bool, lang: str) -> str:
     return STATE[done][lang == 'en']
 
 
+def functional_state(done: bool, lang: str) -> str:
+    """The state of the functional contract of one function. The only functional result that is
+    planned, the round trip of the default stream, is not the contract of one function; so a
+    functional contract that is not done is also not planned."""
+    if done:
+        return state(True, lang)
+    return state(False, lang) + (', not planned' if lang == 'en' else '，不在计划内')
+
+
 @lru_cache(maxsize=1)
 def functions() -> tuple[Function, ...]:
     data = manifest()

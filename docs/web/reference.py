@@ -5,7 +5,7 @@ from pathlib import Path
 from navigation import global_contents
 from pagekit import COMMIT, top_links, stamp, describe
 from syntax import color_blocks, color_code
-from progress import functions, goal_done, other_goals, state
+from progress import functional_state, functions, goal_done, other_goals, state
 from api_returns import parse_role, validate_sources, enhance_contract, enhance_manual
 from functools import lru_cache
 from hashlib import sha256
@@ -40,6 +40,9 @@ def href(target: Path, current: Path) -> str:
 
 
 def resolve_doc(source: Path) -> Path:
+    # An article has no unsuffixed file: its two language files are `<key>.en.md` and `<key>.zh.md`.
+    if source.is_relative_to(REPO/'docs/articles') and source.exists():
+        return source
     if source.name.endswith('.zh.md'):
         source=source.with_name(source.name.removesuffix('.zh.md')+'.md')
     if source.exists():
@@ -405,7 +408,7 @@ def render_api(manifest: dict) -> None:
                     raise ValueError(f"Public target not found: {goal}")
                 goal_source, line, code = excerpts[short]
                 context = source_path(goal_source, lang)
-                body += f'<section class="rf-formal" id="formal-target"><h2>{t("形式化契约","Formal contract") if safety == goal else t("功能契约（安全之外）","Functional contract (beyond safety)")}</h2><p><code>{html.escape(goal)}</code></p><p class="rf-proof-status">{t("状态：","State: ")}{state(goal_done(goal),lang)} · <a href="{status_page}">{t("结论的状态","Status of the results")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{context}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
+                body += f'<section class="rf-formal" id="formal-target"><h2>{t("形式化契约","Formal contract") if safety == goal else t("功能契约（安全之外）","Functional contract (beyond safety)")}</h2><p><code>{html.escape(goal)}</code></p><p class="rf-proof-status">{t("状态：","State: ")}{functional_state(goal_done(goal),lang)} · <a href="{status_page}">{t("结论的状态","Status of the results")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{context}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
             else:
                 body += f'<p class="rf-language-note">{t("此平台专用条目没有默认 LP64 构建目标。","This platform-specific entry has no default LP64 target.")}</p>'
             category = doc_path(source, lang)
@@ -506,6 +509,7 @@ def render_targets(manifest: dict) -> None:
         (('前提可以满足','The premises can be met'),[n for n in safety if n in domains]),
         (('完整的序列契约（安全之外）','Full sequence contracts (beyond safety)'),[goal.rsplit('.',1)[-1] for goal in manifest['sequence_goals']]),
     ]
+    full={goal.rsplit('.',1)[-1]:goal for goal in manifest['sequence_goals']}
     listed=[n for _,names in sections for n in names]
     if set(safety)-set(listed) or len(listed)!=len(set(listed)):
         raise ValueError('A goal about more than one function has no section, or two')
@@ -514,12 +518,15 @@ def render_targets(manifest: dict) -> None:
         current=OUT/'reference'/('targets'+suffix)
         other=current.with_name('targets.html' if zh else 'targets.zh.html')
         status=href(doc_path(REPO/'docs/progress.md',lang),current)
-        body='<p class="rf-scope-note">'+('这些目标说的不是单个函数：完整的调用序列、对无效流或句柄的拒绝，以及各目标的前提可以满足。每个函数自己的目标在该函数的页面上。哪些已经完成，见<a href="'+status+'">结论的状态</a>。' if zh else 'These goals are about more than one function: whole call sequences, the refusal of an invalid stream or handle, and that the premises of the goals can be met. The goal of each function is on the page of that function. Which are done is on the <a href="'+status+'">status page</a>.')+'</p>'
+        body='<p class="rf-scope-note">'+('这些目标说的不是单个函数：完整的调用序列、对无效流或句柄的拒绝，以及各目标的前提可以满足。每个函数自己的目标在该函数的页面上。哪些已经完成，见<a href="'+status+'">结论的状态</a>；完整的序列契约是功能目标，它们各自的状态写在下面每一条旁边。' if zh else 'These goals are about more than one function: whole call sequences, the refusal of an invalid stream or handle, and that the premises of the goals can be met. The goal of each function is on the page of that function. Which are done is on the <a href="'+status+'">status page</a>; the state of each full sequence contract, which is a functional goal, is shown with it below.')+'</p>'
         for title,names in sections:
             body+='<h2>'+title[0 if zh else 1]+'</h2>'
             for name in names:
                 source,line,code=excerpts[name]
-                body+=f'<section id="{name}"><h3>{name}</h3><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{source_path(source,lang)}#L{line}">{"完整上下文" if zh else "Complete context"} ↗</a></section>'
+                # The status page lists the goals of the safety results. A full sequence contract is
+                # a functional goal and is not listed there, so its state is shown here.
+                shown=f'<p class="rf-proof-status">{"状态：" if zh else "State: "}{functional_state(goal_done(full[name]),lang)}</p>' if name in full else ''
+                body+=f'<section id="{name}"><h3>{name}</h3>{shown}<pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{source_path(source,lang)}#L{line}">{"完整上下文" if zh else "Complete context"} ↗</a></section>'
         write(current,shell('目标的命题' if zh else 'Statements of the goals',body,current,lang,other=other))
 
 
