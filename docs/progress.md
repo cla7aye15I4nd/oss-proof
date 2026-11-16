@@ -140,8 +140,9 @@ Between `bde170e9` and this page, these things changed:
   acceptance run covers a commit that contains them. They are accepted on `bde170e9` only in the
   earlier form.
 - **Statements that are not required goals changed.** The specifications of the fast decoder take
-  the input and the output in any byte view, not only in a heap block (commit `4ed7315e`,
-  `ZlibF/Spec/InflateFast*.lean`); a regression derives each earlier statement from the present one
+  the input and the output in any byte view, not only in a heap block (commit `4ed7315e`;
+  the modules are now `InflateFast*.lean` under `ZlibF/Spec/Common/Inflate/` and
+  `ZlibF/Spec/Functional/Inflate/`); a regression derives each earlier statement from the present one
   (`tests/verification/regressions/inffast-byte-views-old-from-new.lean`). Two functional
   definitions were changed: `WrapperLength` (commit `ac0fccc5`) and `DeflateCompletes` (commit
   `a2cf8723`). Registered goals among these statements have, in their present form, no finished
@@ -2667,6 +2668,14 @@ was green and what changed after it. What remains, in order:
    ([coverage](#no-fault-coverage-of-zlibh-functions), item 3).
 6. **Optional cleanup** of proofs that no registered theorem uses
    ([Core proof skeletons](#core-proof-skeletons)).
+7. **Math modules that import proof modules.** The layout of `ZlibF/Spec/` is final
+   ([layout of the specifications](design/safety-functional-split.md)): only `Safety/`,
+   `Functional/` and `Common/`; safety and common modules import no functional module, common
+   modules import no safety module, and no specification module imports a proof module, also
+   through other modules. `scripts/check-spec-layers.py` checks this in the fast gate with no
+   exception. What remains is its list `MATH_PROOF_IMPORTS`: 36 imports of proof modules by 28
+   modules of `ZlibF/Math/`. The script records that they import lemmas, not definitions, and
+   that moving those lemmas is later work. The list may only shrink.
 
 The groups that [Scope](#scope) lists as not planned get no work. The earlier ordered table (13
 rows, each registered or not planned) is in
