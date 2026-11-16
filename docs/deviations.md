@@ -171,11 +171,17 @@ the state check tests the two allocator fields before it reads `state`.
 
 **A `NULL` or inconsistent stream**
 
-- These are refused with `Z_STREAM_ERROR`: a stream pointer that is `NULL`; a `z_stream` whose
-  `state` is `Z_NULL`, as after `End`; and a struct copy of a `z_stream` that is still live. This
-  is proved for the functions listed in [note 2](#note-2-refused-streams).
-- A refused call writes nothing and allocates nothing. One exception: `inflateCopy` and
-  `deflateCopy` from a refused source set `dest->state` to `Z_NULL`.
+- These are refused: a stream pointer that is `NULL`; a `z_stream` whose `state` is `Z_NULL`, as
+  after `End`; and a struct copy of a `z_stream` that is still live. The refusal is a clause of
+  the safety goal of every stream function except the four init functions
+  ([note 2](#note-2-refused-streams)).
+- The value returned is `Z_STREAM_ERROR`, with two exceptions that follow the C: `inflateMark`
+  returns `-65536`, and `deflateBound` and `deflateBound_z` return the bound they give for a
+  `NULL` stream, which is not an error value.
+- A refused call leaves memory as it was. One exception: `inflateCopy` and `deflateCopy` from a
+  refused source set `dest->state` to `Z_NULL`. For `inflate` and `inflateSync` the goal states
+  this in a weaker form: no block that was allocated before the call is written, and the same
+  blocks are allocated after it ([note 2](#note-2-refused-streams) says why).
 - Not covered: a `z_stream` with a set allocator whose `state` holds a stale or garbage pointer.
   This includes a struct copy used after the original was ended, and a `z_stream` whose init
   failed after it filled in the allocator fields and left an unset `state` in place (see the
@@ -307,7 +313,7 @@ apart; the goals state the separation as a hypothesis.
 | Inflate gzip extra field (`InflateHeaderProgress`) | While `inflate` reads a gzip header (`HEAD` .. `HCRC`) into an attached `gz_header`, its `extra` buffer (`extra_max` bytes) is separate from the unread input; in `EXTRA`, the record's `extra_len` is not below `state->length`. | `Goal.inflate_safety` and every `inflate` call of `Goal.inflate_sequence_safety`; also the functional `Goal.inflate` and `Goal.inflate_sequence` | Each excluded case is undefined behaviour of the real C in EXTRA's `zmemcpy` ([reproduction](../tests/regression/inflate-gzip-extra/README.md)): an overlapping copy, or a write past `extra_max` after a caller lowers `extra_len` inside the extra field. `zlib.h` does not say whether either layout is permitted. |
 | Deflate gzip header regions (`DeflateHeaderApart`) | While the status is `GZIP_STATE` .. `HCRC_STATE` and a `gz_header` is attached, at every `deflate`, `deflateParams`, `deflateBound` and `deflateBound_z` call: the input range, the output range, the extra field (`extra_len mod 2^16` bytes), the name and the comment (each through its NUL) are pairwise separate byte ranges, which may share a block; the extra field, name and comment lie outside the storage the stream owns. The input and output ranges are the ones the `z_stream` fields name at that call, also for `deflateBound` and `deflateBound_z`, which do not use them. | `Goal.deflate_safety`, `Goal.deflateParams_safety`, `Goal.deflateBound_safety`, `Goal.deflateBound_z_safety` and every such call of `Goal.deflate_sequence_safety`; also the functional `Goal.deflate` and `Goal.deflate_sequence` | These regions have no reason to overlap. Two excluded cases are undefined behaviour of the real C ([reproduction](../tests/regression/deflate-gzip-name-output/README.md)): a name in the output range or in `pending_buf` has its NUL overwritten by a flush or a header byte, and the name loop reads past the buffer. `zlib.h` does not say whether these layouts are permitted. |
 | Deflate gzip header progress (`DeflateHeaderProgress`) | At each call of the row above, when an earlier `deflate` call returned in the middle of a field of the attached `gz_header`, the caller has kept what was already written: a field still covers the part written (`gzindex`), and in `EXTRA_STATE`, `NAME_STATE` or `COMMENT_STATE` that field is not set to `NULL` part-way (`gzindex = 0` when it is `NULL`). | The same goals as the row above | The excluded edits are undefined behaviour of the real C ([reproduction](../tests/regression/deflate-history-domain/README.md)): a shortened field is read past its end; a field set to `NULL` part-way is skipped without resetting `gzindex`, and the next string is read from `gzindex` on, past its end. `zlib.h` asks the caller to provide the header before the first `deflate` call; it does not say whether the record may change while it is written. |
-| Refused streams (`RefusedInflate`, `RefusedDeflate`) | A refused stream is `NULL`, or a readable record whose state is `NULL`, whose `zalloc` or `zfree` is `NULL`, or whose state is a live state record the check refuses (a wrong back pointer, `mode` or `status`). | `Goal.inflate_refusal`, `Goal.deflate_refusal` | This covers a record after `End`, the destination of a failed copy, a struct copy of a live record, a record after an init that returned `Z_VERSION_ERROR` when its `zalloc` and `zfree` were `NULL` before the call, and a record after any other failed init when its `state` is `NULL`: the init stored `NULL` there, or the field was `NULL` before the call. Three kinds of record are outside: see [note 2](#note-2-refused-streams). |
+| Refused streams (`RefusedInflate`, `RefusedDeflate`) | A refused stream is `NULL`, or a readable record whose state is `NULL`, whose `zalloc` or `zfree` is `NULL`, or whose state is a live state record the check refuses (a wrong back pointer, `mode` or `status`). | The refusal clause of the safety goal of each stream function except the four init functions, and of `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety`; `Goal.inflate_refusal`, `Goal.deflate_refusal` | This covers a record after `End`, the destination of a failed copy, a struct copy of a live record, a record after an init that returned `Z_VERSION_ERROR` when its `zalloc` and `zfree` were `NULL` before the call, and a record after any other failed init when its `state` is `NULL`: the init stored `NULL` there, or the field was `NULL` before the call. Three kinds of record are outside: see [note 2](#note-2-refused-streams). |
 | Copy destination | The destination is a readable stream record that is not the source record (`source ≠ dest`). The source has the default allocator (`DefAlloc`). | `Goal.inflateCopy_safety`, `Goal.deflateCopy_safety`, and the functional `Goal.inflateCopy`, `Goal.deflateCopy` | With `dest == source`, the C `zmemcpy(dest, source, sizeof(z_stream))` copies an object onto itself, which is undefined behaviour; the case is not covered. A destination that partly overlaps the source record, a buffer or a state record cannot be expressed: the model keeps `z_stream` records in their own table ([model limits](model-limits.md#how-the-runtime-represents-c), address and layout model). `zlib.h` does not say whether such a layout is permitted. |
 | Direct `deflateResetKeep` | A deflate call history (`StreamOperation .deflate`) has no direct `deflateResetKeep` call; `deflateReset` and `deflateInit2_` stay. | `Goal.deflate_sequence_safety` and the one-function deflate goals through `StreamReachable` | Not a narrowing below `zlib.h`, which declares `deflateResetKeep` under "undocumented functions (not part of the zlib API)"; its goal is not a required public target ([progress](progress.md#scope)). The real C is unsafe there: after `deflateResetKeep`, `deflate(Z_BLOCK)`, `deflateCopy` and a `Z_RLE` or `Z_HUFFMAN_ONLY` flush on the copy, a later `deflate` follows an uninitialised `prev` slot and reads outside the window ([finding](findings/deflate-copy-pending-prev/README.md)); without the copy a later match can be wrong ([finding](findings/deflate-resetkeep-stale-hash/README.md)). Safety of the single call is still proved (no fault, termination); `deflateReset` goes through it. |
 
@@ -342,18 +348,37 @@ clause: its premise is `BackInitArguments`, which is `InitDomain` without it
 
 ### Note 2: refused streams
 
-`Goal.inflate_refusal` covers `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`,
-`inflateGetDictionary`, `inflateSetDictionary`, and `inflateCopy` from a refused source.
-`Goal.deflate_refusal` covers `deflate`, `deflateSetDictionary`, `deflateParams`,
-`deflateGetDictionary`, and `deflateCopy` from a refused source. [Coverage](coverage.md) names
-the refusal theorem of each other stream function.
+Where the refusal is stated. The safety goal of every documented inflate and deflate stream
+function except the four init functions has two clauses: the refusal of a refused stream
+(`RefusedInflate` or `RefusedDeflate`), and the call on a reachable stream. These are the ten
+inflate goals and thirteen deflate goals of `ZlibF/Spec/Safety/Streams.lean`, `inflateEnd` and
+`deflateEnd` included. `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety`
+(`ZlibF/Spec/Safety/Copy.lean`) have a clause for a refused source, beside their clauses for a
+`NULL` argument.
 
-What a refused call changes. For every function except `inflate` and the two copies, the heap
-after the call is the heap before it. A copy from a refused source stores `NULL` in the `state` field of the destination
-record, as the C does (`dest->state = Z_NULL`), and changes nothing else. The refusal of
-`inflate` is stated with a frame and an unchanged ledger, on a heap that is `Fresh`: every live
-block is as it was, and no block is created or freed. It is not stated as heap equality, because
-the translation allocates and frees the local four-byte array of `inflate`.
+Two further goals state refusals of several functions at once
+(`ZlibF/Spec/Safety/Refusals.lean`). `Goal.inflate_refusal` covers `inflate`, `inflateEnd`,
+`inflateReset`, `inflateReset2`, `inflateGetDictionary`, `inflateSetDictionary`, and `inflateCopy`
+from a refused source. `Goal.deflate_refusal` covers `deflate`, `deflateSetDictionary`,
+`deflateParams`, `deflateGetDictionary`, and `deflateCopy` from a refused source. Each of their
+clauses is also the refusal clause of that function's safety goal.
+
+What a refused call returns. `Z_STREAM_ERROR`, except that `inflateMark` returns `-65536`, and
+`deflateBound` and `deflateBound_z` return a bound: their goals state that the call on a refused
+stream returns the same value as the call on a `NULL` stream with the same `sourceLen`. The C
+does not treat a refused stream as an error in these two functions; it falls back to the
+conservative bound.
+
+What a refused call changes. For every function except `inflate`, `inflateSync` and the two
+copies, the heap after the call is the heap before it. A copy from a refused source stores `NULL`
+in the `state` field of the destination record, as the C does (`dest->state = Z_NULL`), and
+changes nothing else; the clause asks that the destination is a readable record and the source
+pointer is not `NULL`, and it does not ask that the two records differ. The refusals of `inflate`
+and `inflateSync` are stated with a frame and an unchanged ledger, on a heap that is `Fresh` (no
+live block at or above the next unused block number, a condition on the model's memory): the
+call writes no block that was live, every live block is as it was, and no block is created or
+freed. They are not stated as heap equality, because each of the two translations allocates and
+frees a local four-byte array, so the model's block counters may grow.
 
 A `z_stream` after a failed init is in the refusal domain when its `state` is `NULL`, or when
 its `zalloc` or `zfree` is `NULL`. `inflateInit2_` stores `NULL` in `state` when it rejects

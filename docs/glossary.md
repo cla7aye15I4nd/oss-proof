@@ -33,9 +33,18 @@ number of calls and caller edits. `StreamReachable` is the Lean predicate; a one
 goal of a stream function holds on every reachable stream.
 
 **Refusal.** A call that the C rejects with an error value, such as a call on a `NULL` or
-inconsistent stream. The refusal goals (`Goal.inflate_refusal`, `Goal.deflate_refusal`,
-`Goal.gz_refusal`) state the value and that the call changes nothing else; the one exception is a
-refused copy, which clears the destination's state pointer.
+inconsistent stream. A refusal is stated in two kinds of goal. First, the safety goal of a
+function has a refusal clause beside its clause for a valid call: this holds for every documented
+inflate and deflate stream function except the four init functions, for `inflateCopy` and
+`deflateCopy`, for the gzip file functions that take a handle, and for `inflateBack` and
+`inflateBackEnd`. Second, the refusal goals (`Goal.inflate_refusal`, `Goal.deflate_refusal`,
+`Goal.gz_refusal`) state the refusal of several functions in one statement. Both kinds state the
+value returned and what the call may change. For most functions the heap after the call is the
+heap before it. Three cases differ: `inflate` and `inflateSync` are stated to write no block that
+was live and to leave the set of live blocks as it was; a copy from a refused source clears the
+destination's state pointer and changes nothing else; `deflateBound` and `deflateBound_z` return
+the bound of a `NULL` stream, not an error value. Which streams count as refused is in
+[deviations](deviations.md#note-2-refused-streams).
 
 **Non-vacuity goal.** A goal that shows the premises of other goals can be met: a concrete heap on
 which init or open succeeds and gives a reachable stream or handle. Without it a sequence goal
