@@ -42,12 +42,22 @@ An entry whose function has no required goal says so in one sentence in their pl
 | **Applies when** | The conditions of the goal, in C terms, numbered. The Lean name of each is in parentheses. A call that breaks one is not covered: it is neither proved safe nor claimed to be unsafe. |
 | **Covered without condition** | What the goal quantifies over freely, for example every value of a scalar argument, every input byte sequence and every allocation outcome. |
 | **Guarantees** | What the goal concludes, always in this order: the call returns; the state after the call; what was written; the allocations. |
-| **Not in this goal** | Cases that another goal states, such as a refused `NULL` stream, and the functional goal of the function. |
+| **Not in this goal** | Cases that no clause of the goal covers: those that another goal states, those that no goal covers, and what the functional goal of the function states. |
 
-A goal can have more than one clause. The goals of the gzip file functions that take a handle,
-and those of `inflateBack` and `inflateBackEnd`, have a refusal clause beside the clause for a
-call on a handle or on a history. "Applies when" then says which clause each condition belongs
-to, and "Guarantees" keeps its order and names the case in each item.
+A goal can have more than one clause. The goals of the stream functions other than init, of the
+gzip file functions that take a handle, and of `inflateBack` and `inflateBackEnd`, have a refusal
+clause beside the clause for a call on a reachable stream, on a handle or on a history. "Applies
+when" then says which clause each condition belongs to, and "Guarantees" keeps its order and
+names the case in each item.
+
+A **refused stream** in these paragraphs is one that the stream check of the C rejects without
+reading through a bad pointer: `strm` is NULL, or it points to a readable stream record whose
+`zalloc`, `zfree` or `state` is NULL, or whose `state` points to a live state of the right kind
+that the check rejects (its back pointer is not this record; for inflate its mode is outside
+`HEAD` .. `SYNC`; for deflate its status is not one the check accepts). The Lean names are
+`RefusedInflate` and `RefusedDeflate`. A record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points
+to a freed state, or points to a state of the other kind is not a refused stream and not a reachable
+one: no goal covers a call on it ([deviations](../../deviations.md#note-2-refused-streams)).
 
 The paragraphs use the following phrases with a fixed meaning.
 

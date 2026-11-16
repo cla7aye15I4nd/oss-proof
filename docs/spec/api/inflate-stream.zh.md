@@ -1,4 +1,4 @@
-<!-- source-sha256: e7430b093643a5b6746701d7e4a7dc868c434cf3950eabab0611582d2479e8a9 -->
+<!-- source-sha256: aef79c3d20f84d4cd34981fed9d41e9934a7d119aa520571ecaada616b8f0c18 -->
 
 # 流式解压
 
@@ -125,17 +125,17 @@ int ZEXPORT inflateReset(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** `Goal.inflateReset_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
+- **目标。** `Goal.inflateReset_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。`Goal.inflate_refusal`（[Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)）也是必需目标，它陈述同一个拒绝。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
-- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录和流自己的块。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流（例如已经结束的流）：`Goal.inflate_refusal`。返回值和调用之后各字段的值：功能目标 `Goal.inflateReset`，安全结论不需要它。
+- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。拒绝子句中：每一个被拒绝的流。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和调用之后各字段的值：功能目标 `Goal.inflateReset`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset"><summary>完整返回条件与边界</summary>
 
@@ -178,17 +178,17 @@ int ZEXPORT inflateReset2(z_streamp strm, int windowBits);
 
 **证明目标。**
 
-- **目标。** `Goal.inflateReset2_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset2_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
+- **目标。** `Goal.inflateReset2_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset2_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。`Goal.inflate_refusal`（[Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)）也是必需目标，它陈述同一个拒绝。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
-- **无条件覆盖。** 每一个 `windowBits`，无论是否被接受。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录和流自己的块。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流（例如已经结束的流）：`Goal.inflate_refusal`。哪些 `windowBits` 被接受，以及调用之后各字段的值：功能目标 `Goal.inflateReset2`，安全结论不需要它。
+- **无条件覆盖。** 每一个 `windowBits`，无论是否被接受。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。哪些 `windowBits` 被接受，以及调用之后各字段的值：功能目标 `Goal.inflateReset2`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset2"><summary>完整返回条件与边界</summary>
 
@@ -350,17 +350,17 @@ int ZEXPORT inflatePrime(z_streamp strm, int bits, int value);
 
 **证明目标。**
 
-- **目标。** `Goal.inflatePrime_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflatePrime_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
+- **目标。** `Goal.inflatePrime_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflatePrime_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
-- **无条件覆盖。** 每一个 `bits` 和 `value`。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：前置条件要求裸流和特定的调用位置。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录和流自己的块。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数陈述这种拒绝；功能目标 `Goal.inflatePrime` 有一个子句陈述它。返回值和调用之后的位缓冲区：功能目标 `Goal.inflatePrime`，安全结论不需要它。
+- **无条件覆盖。** 每一个 `bits` 和 `value`。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：前置条件要求裸流和特定的调用位置。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和调用之后的位缓冲区：功能目标 `Goal.inflatePrime`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflatePrime"><summary>完整返回条件与边界</summary>
 
@@ -416,20 +416,20 @@ int ZEXPORT inflate(z_streamp strm, int flush);
 
 **证明目标。**
 
-- **目标。** `Goal.inflate_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`）：
+- **目标。** `Goal.inflate_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。`Goal.inflate_refusal`（[Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)）也是必需目标，它陈述同一个拒绝。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`），并要求模型的内存在下一个未用块号及其之后没有已分配的块（`Fresh`，这是对模型的条件，不是对调用者的要求）。对可达流的调用要求（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `next_in` 为 NULL，或指向 `avail_in` 个可读字节；`next_out` 为 NULL，或指向 `avail_out` 个可写字节；两个范围都不在流自己的块内，且互不重叠（`StreamBuffers`）；
     4. 如果挂接了头部记录（已交给 `inflateGetHeader`，此后没有被重置解除）：该记录存活，且不是流自己的块；它的 `extra`、`name`、`comment` 指针各自为 NULL，或分别指向 `extra_max`、`name_max`、`comm_max` 个可写字节，且这些字节在流自己的块之外（`HeaderMemory`）。本目标在每次调用时都要求这一点，头部读完之后也是如此；
     5. 在把 gzip 头读入该记录期间：`extra` 缓冲区与尚未读取的输入不重叠；在读取 extra 字段期间，调用者不把 `extra_len` 改得小于尚待读取的长度（`InflateHeaderProgress`）。条件 4 和 5 合起来就是 `ActiveHeader`。
-- **无条件覆盖。** 每一个 `flush` 值；每一种输入字节序列，无论格式是否正确；每一种分配结果。本目标比前置条件宽：`next_out` 可以为 NULL，`next_in` 也可以在 `avail_in` 非零时为 NULL。C 对这两种情况都返回 `Z_STREAM_ERROR` 拒绝。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录、流自己的块、已挂接的头部记录、`next_out` 处的 `avail_out` 个字节，以及头部的 `extra`、`name`、`comment` 缓冲区（分别为 `extra_max`、`name_max`、`comm_max` 个字节）。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流（例如已经结束的流）：`Goal.inflate_refusal`。返回哪个状态码、写出哪些字节：功能目标 `Goal.inflate`，安全结论不需要它。
+- **无条件覆盖。** 每一个 `flush` 值；每一种输入字节序列，无论格式是否正确；每一种分配结果。本目标比前置条件宽：`next_out` 可以为 NULL，`next_in` 也可以在 `avail_in` 非零时为 NULL。C 对这两种情况都返回 `Z_STREAM_ERROR` 拒绝。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流，不写调用前已分配的任何块（`Frame`）；这个子句没有写成“堆不变”，因为翻译会创建并释放一个四字节的局部数组。对可达流调用时，只写流记录、流自己的块、已挂接的头部记录、`next_out` 处的 `avail_out` 个字节，以及头部的 `extra`、`name`、`comment` 缓冲区（分别为 `extra_max`、`name_max`、`comm_max` 个字节）。
+    - *分配。* 对被拒绝的流，已分配的块与调用前相同（`LiveChange`）。对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码、写出哪些字节：功能目标 `Goal.inflate`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflate"><summary>完整返回条件与边界</summary>
 
@@ -470,15 +470,15 @@ int ZEXPORT inflateEnd(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** `Goal.inflateEnd_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateEnd_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件。** `strm` 是可达流（`StreamReachable`）。不要求平台大小上界。
-- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。
+- **目标。** `Goal.inflateEnd_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateEnd_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；可达流的结束。`Goal.inflate_refusal`（[Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)）也是必需目标，它陈述同一个拒绝。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。可达流的结束要求 `strm` 是可达流（`StreamReachable`）；不要求平台大小上界。
+- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。拒绝子句中：每一个被拒绝的流。
 - **保证。**
-    - *返回。* 调用返回，返回值为 `Z_OK`。
-    - *状态。* `strm->state` 为 NULL。
-    - *写入。* 只写流记录和流自己的块。
-    - *分配。* 精确的分配账本（`LiveChange`）：流自己的块被释放；除此之外不释放任何块，也不分配任何块。
-- **不在本目标内。** NULL 流或不一致的流（例如第二次 `inflateEnd`）：`Goal.inflate_refusal`。流的其他字段的值：功能目标 `Goal.inflateEnd`，安全结论不需要它。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回，返回值为 `Z_OK`。
+    - *状态。* 对可达流调用时，调用之后 `strm->state` 为 NULL。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）：流自己的块被释放；除此之外不释放任何块，也不分配任何块。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。流的其他字段的值：功能目标 `Goal.inflateEnd`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateEnd"><summary>完整返回条件与边界</summary>
 
@@ -521,18 +521,18 @@ int ZEXPORT inflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
 
 **证明目标。**
 
-- **目标。** `Goal.inflateGetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`）：
+- **目标。** `Goal.inflateGetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。`Goal.inflate_refusal`（[Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)）也是必需目标，它陈述同一个拒绝。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `dictionary` 为 NULL，或指向与窗口当前所存字节数相同的可写字节（`state->whave`，不超过 32768），且在流自己的块之外（`CallerRange`）。
-- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。在翻译中 `dictLength` 是一个值而不是内存（见[公共条件](#common-conditions)），所以本目标对这个指针没有要求，而前置条件要求它指向可写的 `uInt`。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录、流自己的块，以及 `dictionary` 起 32768 个字节范围内的字节。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流（例如已经结束的流）：`Goal.inflate_refusal`。复制出的字节和报告的长度：功能目标 `Goal.inflateGetDictionary`，安全结论不需要它。
+- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。在翻译中 `dictLength` 是一个值而不是内存（见[公共条件](#common-conditions)），所以本目标对这个指针没有要求，而前置条件要求它指向可写的 `uInt`。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`，长度值保持传入时的值。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块，以及 `dictionary` 起 32768 个字节范围内的字节。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。复制出的字节和报告的长度：功能目标 `Goal.inflateGetDictionary`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetDictionary"><summary>完整返回条件与边界</summary>
 
@@ -577,18 +577,18 @@ int ZEXPORT inflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt d
 
 **证明目标。**
 
-- **目标。** `Goal.inflateSetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateSetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`）：
+- **目标。** `Goal.inflateSetDictionary_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateSetDictionary_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。`Goal.inflate_refusal`（[Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)）也是必需目标，它陈述同一个拒绝。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `dictionary` 为 NULL，或指向 `dictLength` 个可读字节，且在流自己的块之外（`CallerRange`）。
-- **无条件覆盖。** 每一个 `dictLength` 和每一种字典内容；每一种分配结果。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：`dictionary` 可以为 NULL，流也不必正在等待字典。C 对这些调用返回 `Z_STREAM_ERROR` 拒绝。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录和流自己的块。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流（例如已经结束的流）：`Goal.inflate_refusal`。返回哪个状态码，以及调用之后的历史：功能目标 `Goal.inflateSetDictionary`，安全结论不需要它。
+- **无条件覆盖。** 每一个 `dictLength` 和每一种字典内容；每一种分配结果。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：`dictionary` 可以为 NULL，流也不必正在等待字典。C 对这些调用返回 `Z_STREAM_ERROR` 拒绝。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码，以及调用之后的历史：功能目标 `Goal.inflateSetDictionary`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSetDictionary"><summary>完整返回条件与边界</summary>
 
@@ -636,18 +636,18 @@ gzip 头可以带有 extra 字节、文件名和注释。调用者分别提供�
 
 **证明目标。**
 
-- **目标。** `Goal.inflateGetHeader_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetHeader_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`）：
+- **目标。** `Goal.inflateGetHeader_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetHeader_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `head` 不为 NULL，指向一个存活的头部记录，且该记录不是流自己的块；它的 `extra`、`name`、`comment` 指针各自为 NULL，或分别指向 `extra_max`、`name_max`、`comm_max` 个可写字节，且这些字节在流自己的块之外（`HeaderMemory`）。
-- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：流不必支持 gzip，解码也可以已经开始。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录、流自己的块和头部记录 `head`。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `head` 为 NULL：在所有目标之外；C 会通过这个指针写入（见[偏离记录](../../deviations.md)中“其他流参数”一行）。NULL 流或不一致的流：没有必需目标为这个函数覆盖它；引理 `Zlib.Inflate.Proofs.inflateGetHeader_check`（[inflate.c.hdr.lean](../../../ZlibF/Proof/inflate.c.hdr.lean)）陈述了这种拒绝。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`，安全结论不需要它。
+- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：流不必支持 gzip，解码也可以已经开始。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块和头部记录 `head`。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `head` 为 NULL：在所有目标之外；C 会通过这个指针写入（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>完整返回条件与边界</summary>
 
@@ -692,18 +692,18 @@ int ZEXPORT inflateSync(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** `Goal.inflateSync_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateSync_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`）：
+- **目标。** `Goal.inflateSync_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateSync_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`），并要求模型的内存在下一个未用块号及其之后没有已分配的块（`Fresh`，这是对模型的条件，不是对调用者的要求）。对可达流的调用要求（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `next_in` 指向 `avail_in` 个可读字节，且在流自己的块之外；或者为 NULL 且 `avail_in == 0`（`StreamArguments`）。
-- **无条件覆盖。** 每一种输入字节序列。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比上面的定义域宽：不要求此前出现过数据错误。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录和流自己的块。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数覆盖它；引理 `Zlib.Inflate.Proofs.inflateSync_check`（[inflate.c.sync2.lean](../../../ZlibF/Proof/inflate.c.sync2.lean)）陈述了这种拒绝。返回哪个状态码、消费多少输入：功能目标 `Goal.inflateSync`，安全结论不需要它。
+- **无条件覆盖。** 每一种输入字节序列。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比上面的定义域宽：不要求此前出现过数据错误。拒绝子句中：每一个被拒绝的流。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流，不写调用前已分配的任何块（`Frame`）；这个子句没有写成“堆不变”，因为翻译会创建并释放一个四字节的局部数组。对可达流调用时，只写流记录和流自己的块。
+    - *分配。* 对被拒绝的流，已分配的块与调用前相同（`LiveChange`）。对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码、消费多少输入：功能目标 `Goal.inflateSync`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSync"><summary>完整返回条件与边界</summary>
 
@@ -803,17 +803,17 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 
 **证明目标。**
 
-- **目标。** `Goal.inflateCopy_safety`（[Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)）；必需。定理：`ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`（[public-inflate-copy-safety.lean](../../../ZlibF/Proof/public-inflate-copy-safety.lean)）。
-- **适用条件**（主子句）：
+- **目标。** `Goal.inflateCopy_safety`（[Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)）；必需。定理：`ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`（[public-inflate-copy-safety.lean](../../../ZlibF/Proof/public-inflate-copy-safety.lean)）。这个目标有四个子句：对 NULL `dest` 的拒绝；对 NULL `source` 的拒绝；从可达的源复制（主子句）；对属于[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的 `source` 的拒绝。`Goal.inflate_refusal`（[Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)）也是必需目标，它同样陈述对被拒绝的源的拒绝。
+- **适用条件。** 对 NULL `dest` 的拒绝没有条件。对 NULL `source` 的拒绝要求 `dest` 指向一个可读的流记录。对被拒绝的 `source` 的拒绝要求 `dest` 指向一个可读的流记录，并要求 `source` 不是 NULL 且是被拒绝的流（`RefusedInflate`）；它不要求 `dest` 与 `source` 不同。主子句要求：
     1. `source` 是可达流（`StreamReachable`）。命题还把它的不变量和默认分配器作为假设（`Good`、`DefAlloc`）；每个可达流都满足它们（`Goal.inflate_sequence_safety` 的第一个子句）；
     2. `dest` 指向一个可读的流记录，且不是 `source` 记录（`source ≠ dest`）。不要求平台大小上界。
-- **无条件覆盖。** `dest` 记录的每一种内容；每一种分配结果。同一个目标中还有不带任何条件的子句：`dest` 为 NULL 时返回 `Z_STREAM_ERROR`，堆不变；`source` 为 NULL 而 `dest` 记录可读时返回 `Z_STREAM_ERROR`，且只把 `dest->state` 置为 NULL。本目标比前置条件宽：`dest` 的各字段可以是任意值。如果 `dest` 原本是一个存活流，它的旧状态仍处于已分配状态，而记录不再指向它。
+- **无条件覆盖。** `dest` 记录的每一种内容；每一种分配结果。拒绝子句中：`dest` 记录的每一种内容，每一个被拒绝的 `source`，以及 `dest` 为 NULL 时的每一个 `source` 指针。本目标比前置条件宽：`dest` 的各字段可以是任意值。如果 `dest` 原本是一个存活流，它的旧状态仍处于已分配状态，而记录不再指向它。
 - **保证。**
-    - *返回。* 调用返回，返回值为 `Z_OK` 或 `Z_MEM_ERROR`。只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
-    - *状态。* `source` 记录及其状态不变。返回 `Z_OK` 时，`dest` 是可达流。返回 `Z_MEM_ERROR` 时，`dest->state` 为 NULL，`dest` 的其他字段不变。
-    - *写入。* 只写 `dest` 记录和调用自己分配的块。
-    - *分配。* 返回 `Z_OK` 时，新块恰好是新状态记录的那些块：记录本身，以及它的窗口（如果有）。不释放任何块。安全目标没有说 `dest->state` 指向这个记录；功能目标 `Goal.inflateCopy` 说了这一点。返回 `Z_MEM_ERROR` 时，已分配的块与调用前相同。
-- **不在本目标内。** `source` 不一致（状态为 NULL、`zalloc` 或 `zfree` 为 NULL，或流检查拒绝其状态）：`Goal.inflate_refusal`。`dest == source`：在所有目标之外（见[偏离记录](../../deviations.md)中“复制的目的流”一行）。副本的内容：功能目标 `Goal.inflateCopy`，安全结论不需要它。
+    - *返回。* `dest` 为 NULL、`source` 为 NULL 或 `source` 被拒绝时，调用返回 `Z_STREAM_ERROR`。从可达的源复制时，调用返回，返回值为 `Z_OK` 或 `Z_MEM_ERROR`。只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
+    - *状态。* 从可达的源复制时：`source` 记录及其状态不变。返回 `Z_OK` 时，`dest` 是可达流。返回 `Z_MEM_ERROR` 时，`dest->state` 为 NULL，`dest` 的其他字段不变。
+    - *写入。* `dest` 为 NULL 时不写任何内容：堆不变。`source` 为 NULL 或被拒绝时，只写 `dest->state`，把它置为 NULL；`dest` 的其他字段和堆的其余部分不变。从可达的源复制时，只写 `dest` 记录和调用自己分配的块。
+    - *分配。* 三种拒绝都不分配也不释放任何块。从可达的源复制时：返回 `Z_OK` 时，新块恰好是新状态记录的那些块：记录本身，以及它的窗口（如果有）。不释放任何块。安全目标没有说 `dest->state` 指向这个记录；功能目标 `Goal.inflateCopy` 说了这一点。返回 `Z_MEM_ERROR` 时，已分配的块与调用前相同。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的 `source` 记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。`source` 可达而 `dest == source`：在所有目标之外（见[偏离记录](../../deviations.md)中“复制的目的流”一行）。副本的内容：功能目标 `Goal.inflateCopy`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCopy"><summary>完整返回条件与边界</summary>
 
@@ -962,17 +962,17 @@ long ZEXPORT inflateMark(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** `Goal.inflateMark_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateMark_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。
-- **适用条件**（`StreamCallDomain`；这个调用没有参数条件）：
+- **目标。** `Goal.inflateMark_safety`（[Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)）；必需。定理：`ZlibF.Spec.Public.StreamCallSafetyProof.inflateMark_safety`（[public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)）。这个目标有两个子句：对[被拒绝的流](contracts.md#reading-a-proof-goals-paragraph)的拒绝；对可达流的一次调用。
+- **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
-- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。
-- **保证**（`StreamCallSafe`）。
-    - *返回。* 调用返回。
-    - *状态。* 流保持其不变量（`StreamInvariant`）。
-    - *写入。* 只写流记录和流自己的块。
-    - *分配。* 精确的分配账本（`LiveChange`）。
-- **不在本目标内。** NULL 流或不一致的流：没有必需目标为这个函数陈述这种拒绝；功能目标 `Goal.inflateMark` 有一个子句陈述它。返回的值：功能目标 `Goal.inflateMark`，安全结论不需要它。
+- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。拒绝子句中：每一个被拒绝的流。
+- **保证**（对可达流的调用是 `StreamCallSafe`）。
+    - *返回。* 对被拒绝的流，调用返回 `-65536`。对可达流调用时，调用返回。
+    - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
+    - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值：功能目标 `Goal.inflateMark`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateMark"><summary>完整返回条件与边界</summary>
 

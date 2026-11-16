@@ -259,18 +259,18 @@ readable bytes and is separate from the window.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateSetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflateSetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream. `Goal.deflate_refusal` ([Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)), also required, states the same refusal.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `dictionary` is NULL or points to `dictLength` readable bytes outside the stream's own blocks (`CallerRange`).
-- **Covered without condition.** Every `dictLength` and every dictionary content. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre: `dictionary` may be NULL, the wrapper may be gzip, and the call may come at any point. The C refuses the cases listed in the return table.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream, for example one that was already ended: `Goal.deflate_refusal`. Which code is returned and the history after the call: functional goal `Goal.deflateSetDictionary`, not required for the safety results.
+- **Covered without condition.** Every `dictLength` and every dictionary content. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre: `dictionary` may be NULL, the wrapper may be gzip, and the call may come at any point. The C refuses the cases listed in the return table. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and the history after the call: functional goal `Goal.deflateSetDictionary`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -326,18 +326,18 @@ window; `dictLength` is NULL or a valid scalar output cell.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateGetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflateGetDictionary_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream. `Goal.deflate_refusal` ([Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)), also required, states the same refusal.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `dictionary` is NULL or points to `min(w_size, strstart + lookahead)` writable bytes, the number the call copies, outside the stream's own blocks (`CallerRange`).
-- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre, which asks for one whole window of room. `dictLength` is a value in the translation, not memory ([shared conventions](#shared-conventions)), so the goal asks nothing of that pointer.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record, the stream's own blocks, and bytes within the 32768 bytes at `dictionary`.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream, for example one that was already ended: `Goal.deflate_refusal`. The bytes copied and the length reported: functional goal `Goal.deflateGetDictionary`, not required for the safety results.
+- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre, which asks for one whole window of room. `dictLength` is a value in the translation, not memory ([shared conventions](#shared-conventions)), so the goal asks nothing of that pointer. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR` and stores no length. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks, and bytes within the 32768 bytes at `dictionary`.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The bytes copied and the length reported: functional goal `Goal.deflateGetDictionary`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateGetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -424,17 +424,17 @@ The result says whether the stream is ready for reuse with empty history. Succes
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateReset_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`; this call has no argument condition):
+- **Goal.** `Goal.deflateReset_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
-- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateReset_reject` ([deflate.c.life.reset.lean](../../../ZlibF/Proof/deflate.c.life.reset.lean)) states the refusal. The return value and the field values after the call: functional goal `Goal.deflateReset`, not required for the safety results.
+- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. In the refusal: every refused stream.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the field values after the call: functional goal `Goal.deflateReset`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateReset"><summary>Complete return conditions and boundaries</summary>
 
@@ -479,19 +479,19 @@ The result says whether the gzip header pointer was registered; success does not
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateSetHeader_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflateSetHeader_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `head` is NULL, or names a live header record that is not one of the stream's own blocks, whose `extra` is NULL or points to `extra_len` readable bytes outside the stream's own blocks, and whose `name` and `comment` are each NULL or a NUL-terminated string (`HeaderMemory`);
     4. no `deflate` call has started the stream since init or `deflateReset`: its status is still `INIT_STATE` or `GZIP_STATE` (`DeflateNotStarted`).
-- **Covered without condition.** Every wrapper: the stream need not be a gzip stream, which is wider than Pre. The call order is the same as in Pre.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A NULL or inconsistent stream: no required goal states the refusal for this function; the functional goal `Goal.deflateSetHeader` has it as a clause. The return value and the header bytes that `deflate` later writes: functional goal `Goal.deflateSetHeader`, not required for the safety results.
+- **Covered without condition.** Every wrapper: the stream need not be a gzip stream, which is wider than Pre. The call order is the same as in Pre. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the header bytes that `deflate` later writes: functional goal `Goal.deflateSetHeader`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetHeader"><summary>Complete return conditions and boundaries</summary>
 
@@ -540,17 +540,17 @@ The status says whether the requested values fit their output types; pending byt
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflatePending_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`; this call has no argument condition):
+- **Goal.** `Goal.deflatePending_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
-- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The result pointers are values in the translation, not memory ([shared conventions](#shared-conventions)): the goal asks nothing of them, while Pre asks for writable cells.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal states the refusal for this function; the functional goal `Goal.deflatePending` has it as a clause. The return value and the two counts: functional goal `Goal.deflatePending`, not required for the safety results.
+- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The result pointers are values in the translation, not memory ([shared conventions](#shared-conventions)): the goal asks nothing of them, while Pre asks for writable cells. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR` and stores neither count. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the two counts: functional goal `Goal.deflatePending`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePending"><summary>Complete return conditions and boundaries</summary>
 
@@ -595,17 +595,17 @@ The return value is query status; optional bits carries the bit use at the last 
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateUsed_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`; this call has no argument condition):
+- **Goal.** `Goal.deflateUsed_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
-- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The result pointers are values in the translation, not memory ([shared conventions](#shared-conventions)): the goal asks nothing of them, while Pre asks for writable cells.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal states the refusal for this function; the functional goal `Goal.deflateUsed` has it as a clause. The return value and the count: functional goal `Goal.deflateUsed`, not required for the safety results.
+- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The result pointers are values in the translation, not memory ([shared conventions](#shared-conventions)): the goal asks nothing of them, while Pre asks for writable cells. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR` and stores no count. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the count: functional goal `Goal.deflateUsed`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateUsed"><summary>Complete return conditions and boundaries</summary>
 
@@ -653,18 +653,18 @@ when interpreting the later compressed stream.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflatePrime_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflatePrime_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. no `deflate` call has started the stream since init or `deflateReset`: its status is still `INIT_STATE` or `GZIP_STATE` (`DeflateNotStarted`).
-- **Covered without condition.** Every `bits` and `value`; every wrapper. The goal is wider than Pre, which asks for a raw stream and `bits` in 0..16. The call order is the same as in Pre.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflatePrime_refused` ([deflate.c.prime.lean](../../../ZlibF/Proof/deflate.c.prime.lean)) states the refusal. Which code is returned and the pending bits after the call: functional goal `Goal.deflatePrime`, not required for the safety results.
+- **Covered without condition.** Every `bits` and `value`; every wrapper. The goal is wider than Pre, which asks for a raw stream and `bits` in 0..16. The call order is the same as in Pre. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and the pending bits after the call: functional goal `Goal.deflatePrime`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePrime"><summary>Complete return conditions and boundaries</summary>
 
@@ -717,18 +717,18 @@ The result says whether the new level and strategy were installed. Completing th
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateParams_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflateParams_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream. `Goal.deflate_refusal` ([Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)), also required, states the same refusal.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. conditions 3 to 6 of [deflate](#deflate) on the buffers and the gzip header (`StreamBuffers`, `ActiveHeader`): the call can run `deflate(strm, Z_BLOCK)`.
-- **Covered without condition.** Every `level` and `strategy`, valid or not. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre in the argument values, in the phase, and in the buffers (as for [deflate](#deflate)).
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record, the stream's own blocks and the `avail_out` bytes at `next_out`.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream, for example one that was already ended: `Goal.deflate_refusal`. Which code is returned, the settings installed and the bytes written: functional goal `Goal.deflateParams`, not required for the safety results.
+- **Covered without condition.** Every `level` and `strategy`, valid or not. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre in the argument values, in the phase, and in the buffers (as for [deflate](#deflate)). In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks and the `avail_out` bytes at `next_out`.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned, the settings installed and the bytes written: functional goal `Goal.deflateParams`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateParams"><summary>Complete return conditions and boundaries</summary>
 
@@ -793,17 +793,17 @@ The result only reports whether the four tuning fields were stored; it does not 
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateTune_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`; this call has no argument condition):
+- **Goal.** `Goal.deflateTune_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
-- **Covered without condition.** Every value of the four tuning arguments. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal states the refusal for this function; the functional goal `Goal.deflateTune` has it as a clause. The return value and the fields stored: functional goal `Goal.deflateTune`, not required for the safety results.
+- **Covered without condition.** Every value of the four tuning arguments. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the fields stored: functional goal `Goal.deflateTune`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateTune"><summary>Complete return conditions and boundaries</summary>
 
@@ -855,19 +855,19 @@ header and dictionary fixed; use standard tuning and no inserted prime bits.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateBound_z_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflateBound_z_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. conditions 4 to 6 of [deflate](#deflate) on the gzip header (`ActiveHeader`);
     4. a header record that was given to `deflateSetHeader` is live and readable at this call, not only while the header is being written: the record is live and is not one of the stream's own blocks, a non-NULL `extra` points to `extra_len` readable bytes outside the stream's own blocks, and a non-NULL `name` or `comment` is a NUL-terminated string (`DeflateHeaderLive`).
-- **Covered without condition.** Every `sourceLen`. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateBound_z_nostate` ([deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)) states the value returned and that the heap is unchanged. The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound_z`, not required for the safety results.
+- **Covered without condition.** Every `sourceLen`. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns the value it returns for a NULL `strm` with the same `sourceLen`: the conservative bound, not an error code. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound_z`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -929,19 +929,19 @@ This returns the uLong form of the deflateBound_z bound, still in bytes. ULONG_M
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateBound_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflateBound_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. conditions 4 to 6 of [deflate](#deflate) on the gzip header (`ActiveHeader`);
     4. a header record that was given to `deflateSetHeader` is live and readable at this call, not only while the header is being written: the record is live and is not one of the stream's own blocks, a non-NULL `extra` points to `extra_len` readable bytes outside the stream's own blocks, and a non-NULL `name` or `comment` is a NUL-terminated string (`DeflateHeaderLive`).
-- **Covered without condition.** Every `sourceLen`. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`.
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateBound_nostate` ([deflate.c.life.bound.lean](../../../ZlibF/Proof/deflate.c.life.bound.lean)) states the value returned and that the heap is unchanged. The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound`, not required for the safety results.
+- **Covered without condition.** Every `sourceLen`. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns the value it returns for a NULL `strm` with the same `sourceLen`: the conservative bound, not an error code. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>Complete return conditions and boundaries</summary>
 
@@ -999,21 +999,21 @@ use legal dictionary/header setup, standard tuning and no arbitrary priming.
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflate_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when** (`StreamCallDomain`):
+- **Goal.** `Goal.deflate_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and one call on a reachable stream. `Goal.deflate_refusal` ([Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)), also required, states the same refusal.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `next_in` is NULL or points to `avail_in` readable bytes, and `next_out` is NULL or points to `avail_out` writable bytes; neither range lies in the stream's own blocks, and the two ranges do not overlap (`StreamBuffers`);
     4. while the gzip header is being written (stream status `GZIP_STATE` to `HCRC_STATE`) and a header record was given to `deflateSetHeader`: the record is live and is not one of the stream's own blocks; a non-NULL `extra` points to `extra_len` readable bytes outside the stream's own blocks; a non-NULL `name` or `comment` is a NUL-terminated string (`HeaderMemory`);
     5. the caller has kept what is already written: the field being written (`extra`, `name` or `comment`) still covers the part already written, and was not set to NULL after part of it was written (`DeflateHeaderProgress`);
     6. while the header is being written: the input range, the output range, `extra` (`extra_len mod 2^16` bytes), `name` and `comment` (each through its NUL) do not overlap one another, and `extra`, `name` and `comment` lie outside the stream's own blocks (`DeflateHeaderApart`). Conditions 4 to 6 together are `ActiveHeader`.
-- **Covered without condition.** Every `flush` value, also one that is not a flush code; every sequence of input bytes. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre: `next_out` may be NULL, `avail_out` may be zero, `next_in` may be NULL with a nonzero `avail_in`, and `flush` may be any `int`. The C refuses or reports these cases (return table above).
-- **Guarantees** (`StreamCallSafe`).
-    - *Returns.* The call returns.
-    - *State.* The stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* Only the stream record, the stream's own blocks and the `avail_out` bytes at `next_out`.
-    - *Allocations.* Exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL or inconsistent stream, for example one that was already ended: `Goal.deflate_refusal`. Which code is returned and which bytes are written: functional goal `Goal.deflate`, not required for the safety results.
+- **Covered without condition.** Every `flush` value, also one that is not a flush code; every sequence of input bytes. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre: `next_out` may be NULL, `avail_out` may be zero, `next_in` may be NULL with a nonzero `avail_in`, and `flush` may be any `int`. The C refuses or reports these cases (return table above). In the refusal: every refused stream and every value of the other arguments.
+- **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
+    - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks and the `avail_out` bytes at `next_out`.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and which bytes are written: functional goal `Goal.deflate`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflate"><summary>Complete return conditions and boundaries</summary>
 
@@ -1084,15 +1084,15 @@ The result distinguishes the compression phase before release. Both Z_OK and Z_D
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateEnd_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)).
-- **Applies when.** `strm` is a reachable stream (`StreamReachable`). The platform size bound is not asked.
-- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`.
+- **Goal.** `Goal.deflateEnd_safety` ([Safety/Streams.lean](../../../ZlibF/Spec/Safety/Streams.lean)); required. Theorem: `ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety` ([public-stream-call-safety.lean](../../../ZlibF/Proof/public-stream-call-safety.lean)). The goal has two clauses: the refusal of a [refused stream](contracts.md#reading-a-proof-goals-paragraph), and the end of a reachable stream.
+- **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedDeflate`). The end of a reachable stream asks that `strm` is a reachable stream (`StreamReachable`); the platform size bound is not asked.
+- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. In the refusal: every refused stream.
 - **Guarantees.**
-    - *Returns.* The call returns, with `Z_OK` or `Z_DATA_ERROR`.
-    - *State.* `strm->state` is NULL.
-    - *Writes.* Only the stream record and the stream's own blocks.
-    - *Allocations.* Exact allocation account (`LiveChange`): the stream's own blocks are freed; nothing else is freed and nothing is allocated.
-- **Not in this goal.** A NULL or inconsistent stream: no required goal covers it for this function; the lemma `Zlib.Deflate.Proofs.deflateEnd_reject` ([deflate.c.life.end.lean](../../../ZlibF/Proof/deflate.c.life.end.lean)) states the refusal. Which of the two codes is returned, and the values of the other stream fields: functional goal `Goal.deflateEnd`, not required for the safety results.
+    - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns, with `Z_OK` or `Z_DATA_ERROR`.
+    - *State.* On a reachable stream, `strm->state` is NULL after the call.
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
+    - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`): the stream's own blocks are freed; nothing else is freed and nothing is allocated.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which of the two codes is returned, and the values of the other stream fields: functional goal `Goal.deflateEnd`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateEnd"><summary>Complete return conditions and boundaries</summary>
 
@@ -1142,17 +1142,17 @@ separate from the source's memory. Source buffers and any retained header satisf
 
 **Proof goals.**
 
-- **Goal.** `Goal.deflateCopy_safety` ([Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)); required. Theorem: `Zlib.Deflate.Universal.deflate_copy_safety` ([public-deflate-copy.lean](../../../ZlibF/Proof/public-deflate-copy.lean)).
-- **Applies when** (the main clause):
+- **Goal.** `Goal.deflateCopy_safety` ([Safety/Copy.lean](../../../ZlibF/Spec/Safety/Copy.lean)); required. Theorem: `Zlib.Deflate.Universal.deflate_copy_safety` ([public-deflate-copy.lean](../../../ZlibF/Proof/public-deflate-copy.lean)). The goal has four clauses: the refusal of a NULL `dest`; the refusal of a NULL `source`; the copy from a reachable source (the main clause); the refusal of a `source` that is a [refused stream](contracts.md#reading-a-proof-goals-paragraph). `Goal.deflate_refusal` ([Safety/Refusals.lean](../../../ZlibF/Spec/Safety/Refusals.lean)), also required, states the refusal of a refused source too.
+- **Applies when.** The refusal of a NULL `dest` has no condition. The refusal of a NULL `source` asks that `dest` points to a readable stream record. The refusal of a refused `source` asks that `dest` points to a readable stream record, and that `source` is not NULL and is a refused stream (`RefusedDeflate`); it does not ask that `dest` and `source` differ. The main clause asks:
     1. `source` is a reachable stream (`StreamReachable`). The statement also takes its invariant and default allocator as hypotheses (`DGood`, `DefAlloc`); every reachable stream has them (`Goal.deflate_sequence_safety`, first clause);
     2. `dest` points to a readable stream record that is not the `source` record (`source ≠ dest`). The platform size bound is not asked.
-- **Covered without condition.** Every content of the `dest` record; every allocation outcome. Without any condition, in the same goal: a NULL `dest` returns `Z_STREAM_ERROR` with the heap unchanged; a NULL `source` with a readable `dest` record returns `Z_STREAM_ERROR` and only sets `dest->state` to NULL. A `source` record whose `zalloc`, `zfree` or `state` is NULL is refused in the same way as a NULL `source`. The goal is wider than Pre: `dest` may hold any field values. If `dest` was a live stream, its old state stays allocated and the record no longer points to it.
+- **Covered without condition.** Every content of the `dest` record; every allocation outcome. In the refusals: every content of the `dest` record, every refused `source`, and, when `dest` is NULL, every `source` pointer. The goal is wider than Pre: `dest` may hold any field values. If `dest` was a live stream, its old state stays allocated and the record no longer points to it.
 - **Guarantees.**
-    - *Returns.* The call returns, with `Z_OK` or `Z_MEM_ERROR`. `Z_MEM_ERROR` is returned only after an allocation failed (`AllocationFailed`).
-    - *State.* The `source` record and its state are unchanged. With `Z_OK`, `dest` satisfies the stream invariant (`StreamInvariant`), and is a reachable stream by the definition of `StreamReachable`. With `Z_MEM_ERROR`, `dest->state` is NULL and the other fields of `dest` are unchanged.
-    - *Writes.* Only the `dest` record and blocks the call itself allocates.
-    - *Allocations.* With `Z_OK`, the new blocks are exactly five: the new state record and its four buffers (`window`, `prev`, `head`, `pending_buf`). Nothing is freed. The safety goal does not say that `dest->state` points to this record; the functional goal `Goal.deflateCopy` does. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
-- **Not in this goal.** A `source` whose state the stream check refuses (a wrong back pointer or status): `Goal.deflate_refusal`. `dest == source`: outside every goal ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.deflateCopy`, not required for the safety results.
+    - *Returns.* With a NULL `dest`, a NULL `source` or a refused `source`, the call returns `Z_STREAM_ERROR`. From a reachable source the call returns, with `Z_OK` or `Z_MEM_ERROR`. `Z_MEM_ERROR` is returned only after an allocation failed (`AllocationFailed`).
+    - *State.* From a reachable source: the `source` record and its state are unchanged. With `Z_OK`, `dest` satisfies the stream invariant (`StreamInvariant`), and is a reachable stream by the definition of `StreamReachable`. With `Z_MEM_ERROR`, `dest->state` is NULL and the other fields of `dest` are unchanged.
+    - *Writes.* With a NULL `dest`, nothing: the heap is unchanged. With a NULL or refused `source`, only `dest->state`, which is set to NULL; the other fields of `dest` and the rest of the heap are unchanged. From a reachable source, only the `dest` record and blocks the call itself allocates.
+    - *Allocations.* In the three refusals nothing is allocated and nothing is freed. From a reachable source: with `Z_OK`, the new blocks are exactly five: the new state record and its four buffers (`window`, `prev`, `head`, `pending_buf`). Nothing is freed. The safety goal does not say that `dest->state` points to this record; the functional goal `Goal.deflateCopy` does. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
+- **Not in this goal.** A `source` record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). `dest == source` with a reachable source: outside every goal ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.deflateCopy`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateCopy"><summary>Complete return conditions and boundaries</summary>
 
