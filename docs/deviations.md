@@ -350,9 +350,9 @@ clause: its premise is `BackInitArguments`, which is `InitDomain` without it
 
 Where the refusal is stated. The safety goal of every documented inflate and deflate stream
 function except the four init functions has two clauses: the refusal of a refused stream
-(`RefusedInflate` or `RefusedDeflate`), and the call on a reachable stream. These are the ten
-inflate goals and thirteen deflate goals of `ZlibF/Spec/Safety/Streams.lean`, `inflateEnd` and
-`deflateEnd` included. `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety`
+(`RefusedInflate` or `RefusedDeflate`), and the call on a reachable stream. These are the goals
+of `ZlibF/Spec/Safety/Streams.lean`, those of `inflateEnd` and `deflateEnd` included.
+`Goal.inflateCopy_safety` and `Goal.deflateCopy_safety`
 (`ZlibF/Spec/Safety/Copy.lean`) have a clause for a refused source, beside their clauses for a
 `NULL` argument.
 

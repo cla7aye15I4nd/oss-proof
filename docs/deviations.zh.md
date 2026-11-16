@@ -1,4 +1,4 @@
-<!-- source-sha256: ed29c0135eef81da3df264a125ddf86d8ee1276e60644b5885e8b5ab6ad6dbfc -->
+<!-- source-sha256: 5139db3e45de098247b0ef5de8d80e419dfea2f25c75d787de0236469dfd9c9b -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -200,7 +200,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 ### 注 2：被拒绝的流
 
-拒绝在哪里陈述。除四个初始化函数之外，每个有文档的 inflate 和 deflate 流函数的安全目标都有两个子句：对被拒绝的流（`RefusedInflate` 或 `RefusedDeflate`）的拒绝，以及对可达流的调用。这就是 `ZlibF/Spec/Safety/Streams.lean` 中的十个 inflate 目标和十三个 deflate 目标，包括 `inflateEnd` 和 `deflateEnd`。`Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety`（`ZlibF/Spec/Safety/Copy.lean`）在针对 `NULL` 参数的子句之外，还有一个针对被拒绝的源的子句。
+拒绝在哪里陈述。除四个初始化函数之外，每个有文档的 inflate 和 deflate 流函数的安全目标都有两个子句：对被拒绝的流（`RefusedInflate` 或 `RefusedDeflate`）的拒绝，以及对可达流的调用。这就是 `ZlibF/Spec/Safety/Streams.lean` 中的那些目标，包括 `inflateEnd` 和 `deflateEnd` 的目标。`Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety`（`ZlibF/Spec/Safety/Copy.lean`）在针对 `NULL` 参数的子句之外，还有一个针对被拒绝的源的子句。
 
 另有两个目标各用一个命题陈述若干函数的拒绝（`ZlibF/Spec/Safety/Refusals.lean`）。`Goal.inflate_refusal` 覆盖 `inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary`，以及源被拒绝时的 `inflateCopy`。`Goal.deflate_refusal` 覆盖 `deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary`，以及源被拒绝时的 `deflateCopy`。它们的每个子句同时也是相应函数安全目标的拒绝子句。
 
