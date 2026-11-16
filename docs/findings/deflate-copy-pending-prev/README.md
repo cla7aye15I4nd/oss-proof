@@ -13,8 +13,8 @@ and has not been sent.
 ## Status
 
 - A memory error: a read of an uninitialised table entry, then a heap read outside the window.
-- Reported by AddressSanitizer and by valgrind on the pinned source
-  (`757f0527154291bcf6bfbd6396ecde6bedd2db95`, upstream `develop`) on x86_64 Linux (GCC 14);
+- Reported by AddressSanitizer and by valgrind on upstream `develop` at commit
+  `757f0527154291bcf6bfbd6396ecde6bedd2db95`, on x86_64 Linux (GCC 14);
   the same AddressSanitizer report on arm64 macOS. The patches of this repository do not touch
   the deflate sources.
 - Outside the documented API: it needs a direct call of `deflateResetKeep`.
@@ -86,7 +86,7 @@ default allocator, valgrind in the same file:
 ==PID==    by 0x404C6F: deflateCopy (deflate.c:1362)
 ```
 
-A run on arm64 macOS for this page gave the same AddressSanitizer report at `deflate.c:1511`;
+A run on arm64 macOS gave the same AddressSanitizer report at `deflate.c:1511`;
 valgrind was not available there.
 
 ## Scope and severity
@@ -98,7 +98,7 @@ valgrind was not available there.
 - **Effect.** A read of uninitialised memory, then a read of up to 258 bytes at an offset of up to
   65535 from the window start. No write was observed. The compressed output may depend on the
   bytes read.
-- **Releases.** The report appears on zlib 1.4 and on the pinned `develop`, and not on 1.3.1 or
+- **Releases.** The report appears on zlib 1.4 and on that `develop` commit, and not on 1.3.1 or
   1.3.2 (AddressSanitizer, arm64 macOS, the same driver). The report draft names the two upstream
   commits that are both needed.
 - **Severity.** Moderate for a program that uses `deflateResetKeep` this way; none for a program
@@ -129,11 +129,9 @@ the report draft's mechanism:
   entry is below `strstart - insert`. For a state that satisfies the deflate invariant `DInv`,
   this is `DInv.heads_inserted` when no slide is pending (premise `matches = 0`). At level 0 with
   one pending slide (premise `matches = 1`) it is `DInv.slid_heads_inserted`, about the entries
-  as the pending slide will leave them. Both are in
-  `ZlibF/Proof/deflate.c.universal-heads.lean`. `DInv` holds in every state that a history of the
-  deflate stream domain reaches: theorem `reachable_inv_of`
-  (`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`), whose one premise `SequenceFacts` is
-  the theorem `sequence_facts` (`ZlibF/Proof/public-deflate-copy.lean`). With two or more pending
+  as the pending slide will leave them. `DInv` holds in every state that a history of the
+  deflate stream domain reaches: theorem `reachable_inv_of`, whose one premise `SequenceFacts` is
+  the theorem `sequence_facts`. With two or more pending
   slides (level 0) the invariant says nothing about the tables, and `deflateParams` clears them
   before a nonzero level runs.
 - Without step 4 (`deflateCopy`) the two entries hold the values written when the positions were
@@ -141,7 +139,7 @@ the report draft's mechanism:
 - Without step 5 (the `Z_RLE` flush) `fill_window` inserts the two positions, and so rewrites
   their entries, before any `longest_match`.
 
-The real-C checker of the project agrees with the first statement on 4.6 million sampled states.
+A checker run on the real C agrees with the first statement on 4.6 million sampled states.
 That is evidence, not proof.
 
 A positional hash-chain invariant that admits `deflateResetKeep` is false after step 5. The

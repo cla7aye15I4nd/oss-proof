@@ -8,11 +8,11 @@ wrong.
 Status: undefined by the letter of C. No sanitizer reports it, and no misbehaviour has been
 observed, so this is not listed as a confirmed issue. Fixed in the verified source by the local
 patch [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch),
-approved by the project owner on 2026-11-12 and not submitted upstream. The same patch fixes
-[gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md). The
-[gz proof notes](../../proof/gzip.md) call this report R-4.
+which has not been submitted upstream. The same patch fixes
+[gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md).
 
-Source pin: `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 0004.
+Source: upstream `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 0004.
+The [gzip proof page](../../proof/gzip.md) is about the source with all patches.
 
 ## What goes wrong
 
@@ -46,7 +46,7 @@ gzseek(f, 1, SEEK_CUR);                  /* x.next += 0 on the dangling pointer 
 
 Strength: by the letter of C only. No sanitizer reports it: there is no access, and `p + 0` does
 not overflow. The Lean model does report it: arithmetic on a pointer into a freed block is a fault
-there. With the patch, `gzseek64_dangling_next_ok` (`ZlibF/Proof/gzlib.c.seek.lean`) proves that a
+there. With the patch, the theorem `gzseek64_dangling_next_ok` proves that a
 forward seek with nothing buffered does not fault, whatever `x.next` holds.
 
 Because no sanitizer sees it, the reproduction routes every `x.next += n` of `gzlib.c` and
@@ -59,7 +59,7 @@ with the `zlib/` submodule checked out:
 ZLIB_SRC=$PWD/zlib bash docs/findings/gz-next-dangling-after-direct-read/run.sh
 ```
 
-The script builds the pinned source under AddressSanitizer and UndefinedBehaviorSanitizer twice:
+The script builds the zlib source under AddressSanitizer and UndefinedBehaviorSanitizer twice:
 with `patches/*.patch` except 0005, and with all of them. Its last line on success is
 `ok: after the fix: x.next is never evaluated with n == 0`. Before the fix the probe prints two
 lines. The retained [report.txt](report.txt) (x86_64 Linux, GCC 15.2) has them as follows:
@@ -69,9 +69,8 @@ x.next + 0 at gzread.c:313, x.next = inside the freed caller buffer
 x.next + 0 at gzlib.c:435, x.next = inside the freed caller buffer
 ```
 
-The retained output was produced with the first version of patch 0004. The patch 0004 of this
-repository is its second version, which adds two lines to `gz_look` in `gzread.c`, so the same
-statement of `gz_skip_have` is line 315 of the source that `run.sh` builds. A run on arm64 macOS
+The retained output was produced with a `gzread.c` whose `gz_look` was two lines shorter. In the
+source that `run.sh` builds, the same statement of `gz_skip_have` is line 315. A run on arm64 macOS
 with Apple clang printed `gzread.c:315` and `gzlib.c:435`, and was otherwise the same.
 
 Files: `dangling.c`, `run.sh`, `report.txt`. Before the fix the probe sees both evaluations,

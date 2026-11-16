@@ -1,10 +1,9 @@
-<!-- source-sha256: 0a66c18506e3897432cce2677884b15924e0d4a4b083cf2533151bba0cfa3c40 -->
+<!-- source-sha256: 11d96e8162e766b3cab3c891a60c74b6d75daadf529242b1f0d7787ac817d384 -->
 # 运行时结构：对象堆上的 zlib 结构体
 
-本页对应的英文结构说明由 `scripts/gen_schema.py` **自动生成**，同时生成
-`ZlibF/Runtime/Schema.lean`、`ZlibF/Runtime/Tables.lean` 和 `ZlibF/Runtime/LibcTables.lean`。
-不要手工修改生成的英文原文：应修改脚本并重新运行。脚本通过 clang 的 JSON AST 转储，
-读取已验证源代码（zlib 提交 `99623ef7097352da7993ba614161fd6a311e046e`）中的
+本页说明 zlib 的每个结构体在 Lean 模型中如何表示：每个字段一行，给出 C 类型、Lean 类型和原因。
+Lean 记录和本页的表格是一起生成的：生成器通过 clang 的 JSON AST 转储，
+读取被验证的源码（zlib 提交 `99623ef7097352da7993ba614161fd6a311e046e`）中的
 `zlib.h`、`zutil.h`、`inftrees.h`、`inflate.h`、`deflate.h`、`trees.h`、`gzguts.h` 和 `crc32.h`。
 采用默认 x86_64 Linux 构建（`./configure --static`、LP64、`-D_LARGEFILE64_SOURCE=1`）。
 
@@ -28,24 +27,24 @@
 ## 表示范围与限制
 
 * **指向指针的指针，以及标量字段的地址**（调用 `inflate_table` 时的 `&state->lenbits`、`&state->next`）。
-  翻译将这类输出参数作为返回结果传递。如果结构体字段的类型为指向指针的指针，脚本会停止。
-* **位字段，以及成员类型不同的联合体。** 脚本会停止；这些头文件中没有此类情况。
+  翻译将这类输出参数作为返回结果传递。生成器拒绝类型为指向指针的指针的结构体字段；这些头文件中没有这样的字段。
+* **位字段，以及成员类型不同的联合体。** 生成器拒绝它们；这些头文件中没有此类情况。
 * **指向调用者数据的不透明（`opaque`）指针**（`z_stream.opaque`、`voidpf`）表示为 `BPtr`；无法表示不属于字节块的调用者对象。
   zlib 从不解引用它。
 * **在 `.c` 文件中定义的结构体**（`deflate.c` 中的 `struct config_s`、C 标准库的 `FILE`）。
 * **未初始化的指针。** 新记录（`allocK`、`X.garbage`）的指针为空。C 中从未初始化内存读取的指针具有不确定值。
   模型中它是有效的 NULL：解引用会触发空指针解引用故障，但 `p == NULL`、`free(p)` 和复制该指针可以成功。
   因此，若函数在写入某指针字段前读取它，相关定理必须证明先前的写入；运行时不会检查这一点。
-  见 `trusted-base.md` 第 2 项。整数可以取任意值；见 `docs/spec/safety.md` 的未初始化内存部分。
+  见[可信基础](trusted-base.md)第 2 项。整数可以取任意值；见[安全性](spec/safety.md)的未初始化内存部分。
 * **数组字段的长度。** `Array` 字段可以具有任意长度。`X.WellFormed` 表示每个数组都具有声明的长度，
   `Heap.RecordsWellFormed` 表示堆中的每条记录都满足这一条件；定理将其作为假设
   （`Heap.WellFormed` 还加入静态表的条件）。`X.garbage` 和 `X.zeroed` 都是良构的，
   引理 `Heap.RecordsWellFormed.set_*`、`clear_*` 和 `*.put_*_wf` 证明写入保持良构性。
 * **静态表的内容。** `Statics` 保存数组；`Statics.WellFormed` 表示每个数组都具有声明的长度。
   数值由 `trees.c`、`inffixed.h`、`crc32.c` 的翻译确定（各自由读取 C 源码的生成器产生），
-  在此之前作为定理的假设。脚本不将这些值与 C 比较。
+  在此之前作为定理的假设。生成器不将这些值与 C 比较。
 * **表。** 堆中的表采用 `Tbl`（将 `Array` 看作块编号到元素的函数），使写入原语可以原地更新；
-  见 `trusted-base.md` 第 2 项。
+  见[可信基础](trusted-base.md)第 2 项。
 * **与枚举项重名的宏。** `COPY` 既是 `inflate.h` 中的枚举项（16195），又是 `gzguts.h` 中的宏（1）。
   枚举项保留名称 `COPY`；宏对应常量 `GZ_COPY`。
 * **分配。** 如果下一个块编号已被占用，`allocK` 会产生故障，因此堆必须满足 `Fresh`
@@ -53,8 +52,8 @@
   直接写入（`stK`）数组长度错误的记录不会产生故障。
 * **两类状态之间的转换**在转换时即产生故障；在 C 中，只有访问时才产生故障。
 
-头文件中未声明的静态对象由脚本列出
-（`EXTRA_STATIC_ARRAYS`、`EXTRA_STATIC_INSTANCES`）：`lenfix`、`distfix`、`extra_lbits`、`extra_dbits`、`extra_blbits`、`static_l_desc`、`static_d_desc`、`static_bl_desc`。
+头文件中未声明的静态对象有：
+`lenfix`、`distfix`、`extra_lbits`、`extra_dbits`、`extra_blbits`、`static_l_desc`、`static_d_desc`、`static_bl_desc`。
 
 ## 字段
 
@@ -74,7 +73,7 @@
 | `avail_out` | `uInt` | `UInt32` | 标量：LP64（`char` 有符号，`long` 为 64 位） |
 | `total_out` | `uLong` | `UInt64` | 标量：LP64（`char` 有符号，`long` 为 64 位） |
 | `msg` | `char *` | `BPtr` | 指向字节块内部：`BPtr`（堆中的块或数组、偏移）；空指针对应一个构造器 |
-| `state` | `struct internal_state *` | `Option StateRef` | 不透明的 `struct internal_state *`：压缩状态或解压状态（`StateRef`）；转换位于 `Tables.lean` |
+| `state` | `struct internal_state *` | `Option StateRef` | 不透明的 `struct internal_state *`：压缩状态或解压状态（`StateRef`） |
 | `zalloc` | `alloc_func` | `FnPtr` | 函数指针：空指针或函数名称（不对默认分配器以外的分配器建模） |
 | `zfree` | `free_func` | `FnPtr` | 函数指针：空指针或函数名称（不对默认分配器以外的分配器建模） |
 | `opaque` | `voidpf` | `BPtr` | 指向字节块内部：`BPtr`（堆中的块或数组、偏移）；空指针对应一个构造器 |
@@ -323,7 +322,7 @@
 
 ### 字符串字面量
 
-`strTable`（位于 `Schema.lean`）列出库源代码中的 178 个字符串字面量：已验证源代码顶层目录中的
+`strTable` 列出库源代码中的 178 个字符串字面量：被验证的源码顶层目录中的
 `*.c` 和 `*.h` 文件，排除注释、合并相邻字面量，并加入空字符串。
 它们包括错误消息（`zutil.c`、`inflate.c`、`inffast.c`、`inftrees.c`、`trees.c`、`deflate.c`、`gz*.c`）、
 `z_errmsg` 文本、`ZLIB_VERSION`、版权字符串和格式字符串。该集合是封闭的：对表中不存在的文本使用
@@ -531,7 +530,7 @@
 | `static_d_desc` | `static_tree_desc` | `StaticTreeDesc` | trees.c |
 | `static_bl_desc` | `static_tree_desc` | `StaticTreeDesc` | trees.c |
 
-脚本运行时从 `trees.c` 读取这三个描述符（将结构体声明与脚本的字段列表比较）。
+生成器从 `trees.c` 读取这三个描述符。
 其成员 `(static_tree, extra_bits, extra_base, elems, max_length)` 分别为：
 
 * `static_bl_desc` = (`(const ct_data *)0`, `extra_blbits`, 0, 19, 7)

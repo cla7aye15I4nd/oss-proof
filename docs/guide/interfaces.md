@@ -189,7 +189,7 @@ skip later. When the input is not gzip, the library seeks in the file directly.
 `SEEK_END` is not supported.
 **Functional:** the position already processed plus the pending skip equals the position the
 application observes. **Safety:** the offset arithmetic does not overflow the signed offset
-type. This holds for the patched source; the pinned source can overflow
+type. This holds for zlib with the project's patches; unpatched zlib can overflow
 ([findings](../findings.md)).
 
 **Writing.** Write `ABC`, seek to uncompressed offset 6, then write `D`: the three bytes in
@@ -219,11 +219,10 @@ integer arithmetic of both has no undefined behaviour. See the
 
 ## What the safety theorems say about this chapter
 
-Each goal below has a theorem of exactly its type, listed in
-`tests/audit/theorems.txt`; the goal is listed in `tests/audit/proved-goals.txt`. The full name of a
+The table names the safety goal of each function used in this chapter. The full name of a
 goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what the goals state,
 [deviations](../deviations.md) lists every premise narrower than `zlib.h`, and
-[progress](../progress.md#scope) records the level of each result.
+[progress](../progress.md) says which goals are done.
 
 | Function | Safety goal | Contract |
 | --- | --- | --- |
@@ -237,6 +236,5 @@ goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what t
 | `adler32_combine`, `crc32_combine` | `Goal.adler32_combine_safety`, `Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine), [crc32_combine](../spec/api/checksums.md#crc32_combine) |
 
 `Goal.gz_sequence_nonvacuity`, `Goal.inflate_back_initialisation_domain` and
-`Goal.inflateBack_call_domain` are required too: they show that the premises of the two
+`Goal.inflateBack_call_domain` show that the premises of the two
 sequence goals can be met, the callback protocol of `inflateBack` included.
-[Progress](../progress.md) holds the status of every goal.

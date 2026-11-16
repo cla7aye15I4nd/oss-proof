@@ -1,7 +1,7 @@
-<!-- source-sha256: 8c4db3840272a2679000f112259bfbb4bdb98a2131d8d2dc6c8a710fca481761 -->
+<!-- source-sha256: 7362eba122d1be294badd83595093e022f39f0a2627f4577f54a3bf4f1c28a3d -->
 # 上游拉取请求草稿：gz 位置溢出
 
-供所有者提交。一个拉取请求覆盖读写两侧（[gzread-pos-overflow](README.md)、[gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)）；改动是 [0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch)。尚未发送任何内容。（译注：向上游提交的是英文原文；下面是它的中文译文。）
+一个拉取请求覆盖读写两侧（[gzread-pos-overflow](README.md)、[gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)）；改动是 [0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch)。尚未发送任何内容。（译注：向上游提交的是英文原文；下面是它的中文译文。）
 
 ---
 

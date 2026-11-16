@@ -99,7 +99,7 @@ data roles, not proof status.*
 
 Cumulative `(total_in, total_out)` is `(9, 2)`, `(12, 5)`, then `(19, 8)`.
 Call 3 consumes three payload and four trailer bytes. Output joins to
-`ABABABAB`; `EE` remains unread. A finite run of the pinned C confirmed these
+`ABABABAB`; `EE` remains unread. A finite run of the real C confirmed these
 values. That is [example evidence, not a general proof](../overview.md#evidence).
 
 ### 3.2.1 Preserve the input that remains
@@ -225,11 +225,10 @@ illustrates this statement; it does not prove it.
 
 ## What the safety theorems say about this chapter
 
-Each goal below has a theorem of exactly its type, listed in
-`tests/audit/theorems.txt`; the goal is listed in `tests/audit/proved-goals.txt`. The full name of a
+The table names the safety goal of each function used in this chapter. The full name of a
 goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what the goals state,
 [deviations](../deviations.md) lists every premise narrower than `zlib.h`, and
-[progress](../progress.md#scope) records the level of each result.
+[progress](../progress.md) says which goals are done.
 
 | Function | Safety goal | Contract |
 | --- | --- | --- |

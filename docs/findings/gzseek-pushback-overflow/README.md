@@ -10,11 +10,11 @@ anything else. The test files are in
 
 - Undefined behaviour: signed integer overflow, at three statements of `gzlib.c`. Inside the
   documented use.
-- Reported by UndefinedBehaviorSanitizer on the unmodified pinned source
-  (`757f0527154291bcf6bfbd6396ecde6bedd2db95`, upstream `develop`), on x86_64 Linux (GCC 15.2) and
+- Reported by UndefinedBehaviorSanitizer on unmodified upstream `develop` at commit
+  `757f0527154291bcf6bfbd6396ecde6bedd2db95`, on x86_64 Linux (GCC 15.2) and
   on arm64 macOS (Apple clang 21).
 - Fix submitted upstream as [PR #1361](https://github.com/madler/zlib/pull/1361). The pull request
-  is open, and the maintainer had not answered when its state was read on 2026-11-14. The verified
+  was open, with no answer from the maintainer, on 2026-11-14. The verified
   source applies the `gzlib.c` part as [patch 0002](../../../patches/README.md).
 
 ## Call sequence
@@ -36,7 +36,7 @@ gzseek(f, LONG_MAX, SEEK_SET);      /* the range checks pass (pos is 0, then LON
                                        gzlib.c:403 (transparent), gzlib.c:424 (gzip) */
 ```
 
-The statements, in the pinned `gzlib.c`:
+The statements, in the unpatched `gzlib.c`:
 
 ```c
     if (offset > GZ_OFF_MAX - pos)                                           /* 395 */
@@ -54,7 +54,7 @@ From the repository root, with the `zlib/` submodule checked out:
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzseek-pushback-overflow/run.sh
 ```
 
-The script builds the pinned source twice with
+The script builds the zlib source twice with
 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1`: once without any patch, and
 once with `patches/*.patch`. It runs `seek.c` four times on each build (transparent and gzip input,
 `SEEK_CUR` and `SEEK_SET`). The unpatched build must report a signed overflow in every run. The
@@ -76,7 +76,7 @@ gzlib.c:403:36: runtime error: signed integer overflow: 9223372036854775807 - -1
 gzlib.c:424:12: runtime error: signed integer overflow: 9223372036854775807 - -1 cannot be represented in type 'long int'
 ```
 
-A run on arm64 macOS for this page gave the same three reports at the same lines; there the type
+A run on arm64 macOS gave the same three reports at the same lines; there the type
 is printed as `off_t` and the third report is at column 18.
 
 ## Scope and severity
@@ -109,10 +109,8 @@ says it returns -1 if the resulting position "would not be representable in the 
   returns -1.
 
 [Patch 0002](../../../patches/README.md) is that change. The `test/example.c` part of the pull
-request is not part of the verified source. The patch is removed when upstream contains the fix
-and the pin moves past it.
+request is not part of the verified source.
 
 ## Relation to the proofs
 
-The [gz proof notes](../../proof/gzip.md) call this report R-1. The safety proofs of `gzseek64`
-and `gzseek` are about the patched source.
+The [safety proofs of `gzseek64` and `gzseek`](../../proof/gzip.md) are about the patched source.
