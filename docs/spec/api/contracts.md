@@ -19,7 +19,7 @@ paragraph uses.
 | Post | The result and guarantees on each stated return path. |
 | Effects | Reads, writes, allocations, frees, file operations and borrowed storage. |
 | Edges or errors | Cases such as empty input, partial output and refusal that change how to use the result. |
-| Proof goals | The required safety goal with the conditions of its Lean statement, and the functional goal, which is not required. |
+| Proof goals | The required safety goal with the conditions of its Lean statement, and the functional goal, which is not planned. |
 
 The contracts are **focused**: a focused contract describes ordinary correct use, so its Pre
 is deliberately narrower than what the function accepts. A case outside Pre that the C still
@@ -38,11 +38,11 @@ An entry whose function has no required goal says so in one sentence in their pl
 
 | Item | Content |
 | --- | --- |
-| **Goal** | The name of the Lean goal, its file, and whether it is required; then the theorem whose type is the goal, which `tests/audit/theorems.txt` lists, and the proof file. |
+| **Goal** | The name of the Lean goal and whether it is required; then the theorem whose type is exactly the goal. Each name links to its Lean source. |
 | **Applies when** | The conditions of the goal, in C terms, numbered. The Lean name of each is in parentheses. A call that breaks one is not covered: it is neither proved safe nor claimed to be unsafe. |
 | **Covered without condition** | What the goal quantifies over freely, for example every value of a scalar argument, every input byte sequence and every allocation outcome. |
 | **Guarantees** | What the goal concludes, always in this order: the call returns; the state after the call; what was written; the allocations. |
-| **Not in this goal** | Cases that no clause of the goal covers: those that another goal states, those that no goal covers, and what the functional goal of the function states. |
+| **Not in this goal** | Cases that no clause of the goal covers: those that another goal states, those that no goal covers, and what the functional goal of the function states. A functional goal is marked "not planned", and then either "a theorem proves it" or "not done". |
 
 A goal can have more than one clause. The goals of the stream functions other than init, of the
 gzip file functions that take a handle, and of `inflateBack` and `inflateBackEnd`, have a refusal
@@ -76,15 +76,8 @@ The paragraphs use the following phrases with a fixed meaning.
 | **world** | What the gzip file functions see outside the process: the files, the open descriptors, `errno`, and the result of each system call. "In every world" includes every permitted result of every `open`, `read`, `write`, `lseek` and `close`. | `Fs`, well formed by `FileSystem` |
 
 [Safety](../safety.md) explains the four clauses behind "Guarantees", with an example. The
-[glossary](../../glossary.md) defines goal, history, refusal and the status levels.
-
-[Coverage by function](../../coverage.md) gives the theorem of every function in one table,
-[progress, Target evidence](../../progress.md#target-evidence) links each goal to the theorem that
-proves it, and `tests/audit/theorems.txt` lists the registered theorems. For example, the
-theorems for the calls on a live stream are in `ZlibF/Proof/public-stream-call-safety.lean`,
-those for the four init functions in `ZlibF/Proof/public-init-safety.lean`, those for the gzip
-file functions in `ZlibF/Proof/public-gz-call-safety.lean`, and those for the callback decoder in
-`ZlibF/Proof/public-back-safety.lean`.
+[glossary](../../glossary.md) defines goal, history and refusal.
+[Coverage by function](../../coverage.md) gives the theorem of every function in one table.
 
 ## Domain and effects are independent
 
@@ -146,7 +139,7 @@ listed there. The contract and the goal can differ:
 - Where the goal's conditions are narrower than `zlib.h`,
   [deviations](../../deviations.md) has a row.
 - Post describes functional behaviour: return values, output bytes, state changes. It is read
-  from the C. It is **to confirm** where no registered theorem states it, and it is not
+  from the C. It is **to confirm** where no theorem states it, and it is not
   required for the safety results.
 
-Proof status and remaining work are recorded only in [progress](../../progress.md).
+[Progress](../../progress.md) says which goals are done.

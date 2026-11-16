@@ -37,11 +37,11 @@ goal under **Proof goals**, in the five items and with the fixed phrases that
 applies, in the order of the Lean statement; what it covers for every value; what it guarantees
 (returns, state, writes, allocations); and what it leaves to another goal. The proof assumes the
 conditions listed there, not the documentary Pre. Post, the return tables and the notes describe
-functional behaviour. They are read from the C, are **to confirm** where no registered theorem
-states them, and are not required for the safety results. [Progress](../../progress.md) records the
-state of each goal.
+functional behaviour. They are read from the C, are **to confirm** where no theorem
+states them, and are not required for the safety results. [Progress](../../progress.md) says which
+goals are done.
 
-The safety goals are in [Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean). They
+The safety goals ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean))
 say that the call returns and the heap is unchanged; they say nothing about the value.
 
 The practical checksum contracts use actual byte sequences A and B. Each
@@ -107,7 +107,7 @@ reducing both seed halves modulo 65521. See the
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32_z`, not required for the safety results.
+- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32_z` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -168,7 +168,7 @@ The zero-length NULL query and forged-seed scope of `adler32_z` apply here too.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32`, not required for the safety results.
+- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32"><summary>Complete return conditions and boundaries</summary>
 
@@ -226,7 +226,7 @@ goal. No concatenation promise is made for an incorrect B length.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine"><summary>Complete return conditions and boundaries</summary>
 
@@ -281,7 +281,7 @@ The explicit width matters on other builds; this page does not cover them.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine64`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine64` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine64"><summary>Complete return conditions and boundaries</summary>
 
@@ -328,7 +328,7 @@ and must neither write through the pointer nor free it.
 only the byte table, not adjacent or braided tables. `z_crc_t` is unsigned
 32-bit here. Dynamic table generation is outside this build's scope.
 
-**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.get_crc_table` ([Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)), with the theorem `ZlibF.Spec.Public.Proofs.get_crc_table` ([public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)). On a heap that holds the library's CRC tables (`CrcGlobals`) it states that the call returns, that the heap is unchanged, and the table contents given under Post.
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A functional goal is stated for it: `Goal.get_crc_table` ([Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)) (not planned; a theorem proves it), with the theorem `ZlibF.Spec.Public.Proofs.get_crc_table` ([public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)). On a heap that holds the library's CRC tables (`CrcGlobals`) it states that the call returns, that the heap is unchanged, and the table contents given under Post.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>Complete return conditions and boundaries</summary>
 
@@ -391,7 +391,7 @@ the contract. The word-access model's limits are recorded in
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_z`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_z` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -452,7 +452,7 @@ it before the call; use `crc32_z` or multiple updates for larger ranges.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32"><summary>Complete return conditions and boundaries</summary>
 
@@ -507,7 +507,7 @@ any A and B with that B length. It is an operator, not a checksum.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen64`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen64` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen64"><summary>Complete return conditions and boundaries</summary>
 
@@ -561,7 +561,7 @@ The ordinary and explicit 64-bit length ranges coincide in LP64.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen"><summary>Complete return conditions and boundaries</summary>
 
@@ -623,7 +623,7 @@ not an unambiguous error code, since a valid CRC can also be zero.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** An `op` that no generator call returned: outside every goal ([deviations](../../deviations.md), row "CRC combination operator"). The value returned: functional goal `Goal.crc32_combine_op`, not required for the safety results.
+- **Not in this goal.** An `op` that no generator call returned: outside every goal ([deviations](../../deviations.md), row "CRC combination operator"). The value returned: functional goal `Goal.crc32_combine_op` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_op"><summary>Complete return conditions and boundaries</summary>
 
@@ -682,7 +682,7 @@ a possible valid CRC, so negative-length rejection has no distinct error code.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine64`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine64` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine64"><summary>Complete return conditions and boundaries</summary>
 
@@ -740,7 +740,7 @@ table executables. See [build and model scope](../../deviations.md).
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine"><summary>Complete return conditions and boundaries</summary>
 

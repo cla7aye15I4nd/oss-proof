@@ -28,7 +28,7 @@ Each entry has two layers:
 | Compute or combine Adler-32 and CRC-32 checksums | [Checksums](checksums.md) |
 | Read, write, position or close a gzip file handle | [Gzip files](gz-file.md) |
 
-## Scope and status
+## Scope {#scope-and-status}
 
 **Source and build.** The manual follows the pinned zlib source with the patches listed in
 [patches](../../../patches/README.md), for the default LP64 Linux static build with the default
@@ -49,10 +49,10 @@ through it, and its goal `Goal.gzvprintf_safety` is required. Conditions of a go
 
 **What is not proved here.** The return values, output bytes and state changes that Post
 describes are functional behaviour. They are read from the C and are **to confirm** where no
-registered theorem states them. Each entry also names its functional goal; that goal is not
-required for the safety results.
+theorem states them. Each entry also names its functional goal. Functional goals are not
+planned; the entry says whether a theorem proves the goal.
 
-[Progress](../../progress.md) is the single record of proof status and remaining work.
+[Progress](../../progress.md) says which goals are done.
 
 ## Find a function
 
