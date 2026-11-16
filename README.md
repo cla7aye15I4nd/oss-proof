@@ -36,9 +36,10 @@ patches are the fixes submitted upstream. The theorems are about the patched sou
 
 ## Not claimed
 
-Functional correctness: that the output of `inflate` equals what the format defines, or that the
-output of `deflate` decodes to its input. Also not covered: other build configurations, custom
-allocators, and the functions `zlib.h` lists as undocumented.
+Functional correctness. No theorem says that the output of `inflate` is what the format defines,
+and none is planned. No theorem yet says that the output of `deflate` decodes to its input: that
+round trip, for the default zlib stream, is planned and not done. Also not covered: other build
+configurations, custom allocators, and the functions `zlib.h` lists as undocumented.
 
 ## Check it yourself
 
