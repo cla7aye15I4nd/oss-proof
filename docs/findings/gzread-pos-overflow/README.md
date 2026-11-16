@@ -92,7 +92,7 @@ device-like `lseek`. That run is not retained here.
   negative and later seeks are computed from a wrong position.
 - **Memory safety.** No memory error is known to follow from the overflow. That is a reading of
   the unpatched C and it is **to confirm**. No proof of this project will confirm it: the
-  registered gz safety theorem (`gz_sequence_safety_public`, which proves
+  gz safety theorem (`gz_sequence_safety_public`, which proves
   `Goal.gz_sequence_safety`) is about the source with patch 0004, in which the overflow does not
   occur.
 - **Severity.** Low: it needs a position near 2^63 on a device.

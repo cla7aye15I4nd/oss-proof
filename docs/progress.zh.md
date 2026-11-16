@@ -1,7 +1,7 @@
-<!-- source-sha256: eb29fb864e3bdc1f822ce381f2efe67d7a5317010abe0569ec40397e027c5774 -->
+<!-- source-sha256: eaff165b8b12efc8265d75096194ff6404b0f871ce11d60cfe01d5913de4fe6f -->
 # 证明进度与剩余工作
 
-本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。[按函数查覆盖情况](coverage.md)把每个函数对应到它的定理；那一页不写层级。这些结论是什么意思，请读[总览](overview.md)；某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)。
+本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)。某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)：那一页把每个函数对应到它的定理，不写层级。
 
 ## 范围
 
@@ -19,6 +19,8 @@
 | 3d | 其余每个有文档的函数都安全：其他流调用（连同初始化、End 和 Copy）、校验和、`compressBound*`、`zlibVersion` 和 `zlibCompileFlags`。 | 它们的 42 个单函数安全目标、`Goal.inflate_refusal`、`Goal.deflate_refusal`、`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` |
 
 这六行包含了全部 98 个必需目标：2 + 2 + 8 + 5 + 35 + 46。这 98 个目标由 `scripts/verification.py` 根据 `tests/audit/public-api.json` 算出；每个目标的定理见[按函数查覆盖情况](coverage.md)。
+
+按种类分，它们是 87 个单函数安全目标、4 个序列安全目标、3 个拒绝目标和 4 个非空性目标。在清单文件中，92 个在分组 `safety_goals` 里，4 个在 `nonvacuity_goals` 里，另外 2 个是 `compressBound` 和 `compressBound_z` 的完整契约，它们代替这两个纯函数的安全目标。
 
 关于这张表有三点说明：
 
@@ -42,7 +44,7 @@
 **验收运行。** 每一条是工作流 `lean` 的一次运行，内容读自该次运行的记录。
 
 - **`bde170e9`，全部通过。** 2026-11-15 的手动运行 43671067586。每个作业都通过：`build`、`no-sorry`、`audit_core`、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `audit` 和 `difftest` 两项结果。当时必需的 63 个目标都已登记。`main` 上文件树与它相同的提交 `74a2097c`，在同一天的夜间运行 43735018381 中全部通过。
-- **`3fdbbc38`，已取消：不是已验收的提交。** 2026-11-15 的手动运行 43763696005，所在提交包含全部 98 个必需目标的现行形式。这次运行启动时，变异体分片还是 `audit` 的一部分；它在只剩这些分片还在运行时被取消。取消之前已经通过的有：`build`、`no-sorry`、`audit_core`、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `difftest` 这项结果。二十个变异体分片被取消，所以 `audit` 这项结果失败，整次运行记为已取消。没有任何结论凭这次运行算作已验收。
+- **`3fdbbc38`，已取消：不是已验收的提交。** 2026-11-15 的手动运行 43763696005，所在提交包含全部 98 个必需目标的现行形式。这次运行启动时，变异体分片还是 `audit` 的一部分；它在只剩这些分片还在运行时被取消。取消之前已经通过的有：`build`、`no-sorry`、`audit_core`、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `difftest` 这项结果。二十个变异体分片被取消，所以 `audit` 这项结果失败，整次运行记为已取消。现在组成验收套件的各部分，在这次运行中都通过了。它之所以不算数，是因为这次运行的 `audit` 结果是失败，而验收是按这项结果来读的。没有任何结论凭这次运行算作已验收。
 - **下一次运行：提交尚未指定。** <a id="next-acceptance-run"></a>在之后的某个提交上干净地运行一次验收套件，就会验收表中标为“已登记、未验收”的目标。这一行是记录它的唯一位置：提交、运行和日期。在填写之前，这些目标保持已登记。
 
 差分测试是忠实度的证据，不是证明。
@@ -52,7 +54,7 @@
 - **`bde170e9`，全部通过。** 运行 43671067586 的全部二十个变异体分片都通过。夜间运行 43735018381 的二十个分片也都通过，它所在的 `74a2097c` 是 `main` 上文件树相同的提交。
 - **在更晚的提交上，还没有结束的变异体运行。** `3fdbbc38` 上那次运行的分片被取消了。`bde170e9` 之后登记的 35 个目标的变异体行是存在的（`tests/audit/public-mutants.json`），审计在 `3fdbbc38` 上检查过这一点；还没有哪次结束的运行执行过它们。
 
-从那个提交到本页之间，有以下改动：
+从 `bde170e9` 到本页之间，有以下改动：
 
 - **每个 gz 函数和每个回调解码器函数都有了自己的安全目标。** 新增 35 个目标：31 个有文档的 gz 函数各一个，`gzvprintf` 一个，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 各一个（`ZlibF/Spec/Safety/GzCalls.lean`、`ZlibF/Spec/Safety/Back.lean`；证明在 `ZlibF/Proof/public-gz-call-safety.lean` 和 `ZlibF/Proof/public-back-safety.lean`）。它们在提交 `0cdd7bdd` 中登记：`tests/audit/` 下的登记表增加了这 35 个目标和它们的 35 条定理，清单文件为每个函数写明它自己的目标，`scripts/verification.py` 不再允许几个函数共用一个安全目标。必需目标从 63 个增加到 98 个。此前，gz 函数写的是 `Goal.gz_sequence_safety`，三个回调函数写的是 `Goal.inflate_back_sequence_safety`。这 35 个目标已登记、未验收：快速关卡在 `3fdbbc38` 上全部通过。
 - **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Public/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式已登记、未验收。

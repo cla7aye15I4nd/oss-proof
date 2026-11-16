@@ -1,4 +1,4 @@
-<!-- source-sha256: 8a7ee0fef07bd14ce4e85e82a393148da576fb85f347effbba840f101bbe89fc -->
+<!-- source-sha256: 2d7314238288242ff51cd8dae5d806207c79d65ec24606a022003831438d21f5 -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean。证明表明：默认 x86_64 Linux 构建中每个有文档的公开函数，在任何调用序列里运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止；前提是每条定理自己写明的那些条件。
@@ -78,7 +78,7 @@ lake build ZlibF
 scripts/check-sorry.sh
 ```
 
-这两条命令就是快速关卡。[参与贡献](docs/checking/contributing.md)列出每一步；[检查指南](docs/checking/README.md)说明每项检查能确立什么，以及一项结论怎样成为已验收。证明变异体是额外的证据，按需运行；它们不属于验收。
+这两条命令是快速关卡的头两步，不是全部。快速关卡是 `.github/workflows/lean.yml` 的 `build` 和 `no-sorry` 两个作业。它还构建审计工具和差分驱动程序，在源码中搜索禁用构造，对构建出的库运行 `tests/audit/PartialCheck.lean`，检查补丁可以应用到固定的 `zlib/` 上，并运行 `scripts/check-strlit.py` 和 `scripts/check-spec-layers.py`。[参与贡献](docs/checking/contributing.md)列出每一步；[检查指南](docs/checking/README.md)说明每项检查能确立什么，以及一项结论怎样成为已验收。证明变异体是额外的证据，按需运行；它们不属于验收。
 
 ## 在 zlib 中发现的问题
 

@@ -33,7 +33,7 @@ termination, frame and ownership, composed over call sequences. The path through
 proofs* gives functional correctness. It is not required for the safety results.
 
 One functional result is planned after the safety results: the round trip of the default zlib
-stream. Its conditional form is checked. The theorem `deflate_inflate_roundtrip`
+stream. Its conditional form has a theorem. The theorem `deflate_inflate_roundtrip`
 (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) is about two runs of the translated
 functions. The encoder run is `deflateInit_` at the default level, then `deflate` calls with any
 flush values. The decoder run is `inflateInit2_` with `windowBits` 15, then `inflate` calls.

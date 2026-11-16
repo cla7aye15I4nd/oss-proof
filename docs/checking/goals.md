@@ -58,7 +58,7 @@ flowchart LR
     N["nonvacuity_goals"] --> R
 ```
 
-The group `safety_goals` holds the 84 own goals, the sequence safety goals (`inflate`, `deflate`,
+The group `safety_goals` holds the own goals, the sequence safety goals (`inflate`, `deflate`,
 `inflateBack` and gz), the refusal goals and `Goal.gzvprintf_safety`. The two full contracts are
 not in any group. The command `python3 scripts/verification.py coverage` prints the size of each
 group and of the required set; [progress, Scope](../progress.md#scope) lists the set result by
@@ -92,7 +92,8 @@ one is audited in full. An unproved one is reported as open and fails nothing.
 ### `open_safety` and `not_planned`
 
 - `open_safety` lists the required goals that have no registered theorem, each with an owner.
-  [Progress](../progress.md#scope) says whether any goal is open. A required goal is PROVED or listed there; a listed goal is not PROVED.
+  [Progress](../progress.md#scope) says whether any goal is open. A required goal is PROVED or
+  listed in `open_safety`; a listed goal is not PROVED.
   `verification.py final` rejects a list that is not empty.
 - `not_planned` lists public goals that stay defined and stay in `goals.txt` as open goals, but
   that the project does not work on, each with a reason. It is not a way out of the required set:

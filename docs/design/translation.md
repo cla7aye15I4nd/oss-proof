@@ -341,7 +341,7 @@ of the stream embedded in the gz state that the function has already loaded. The
 others can fault in the model on a state for which the C does not evaluate the operand: the two
 rows with checked arithmetic (`deflate`, `deflateParams`) and the array read of
 `detect_data_type`. In `deflate`, only `RANK old_flush` can fault: `flush` has passed the range
-test at the start of the function, and `old_flush` is the stored field `last_flush`. The accepted safety theorems show that the translation does not fault in
+test at the start of the function, and `old_flush` is the stored field `last_flush`. The safety theorems show that the translation does not fault in
 their domain, so the difference lies outside it.
 
 Where the right operand is a call, or a read through a pointer that the left operand tests, the

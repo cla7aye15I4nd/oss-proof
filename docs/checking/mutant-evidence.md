@@ -9,8 +9,8 @@
 > named here. It says which mutant rows carried the evidence of each group of goals and where
 > they were killed. The times, memory peaks and counts are those of these runs. The authority
 > on which rows a goal needs is the lists and `tests/audit/public-mutants.json`; the terms and
-> the rules are in [proof mutants](proof-mutants.md). The acceptance suite runs the lists named
-> here; it is green on commit `bde170e9`.
+> the rules are in [proof mutants](proof-mutants.md). When this record was written the
+> acceptance suite ran the lists named here; that run was green on commit `bde170e9`.
 
 The record has one section per group of goals. "Structural", "restatement", "script row", "key"
 and "semantic list" are defined in [proof mutants, Terms](proof-mutants.md#terms).

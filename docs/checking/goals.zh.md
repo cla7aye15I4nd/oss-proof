@@ -1,4 +1,4 @@
-<!-- source-sha256: 7f719560f4b5a0b070a482eb9b4ad62af6873899f8566ba15228dd48d3fe1195 -->
+<!-- source-sha256: 5a44d58fe9408ced2c6765fe84e212c71c45f39e6ddcfcc7ee0e9a944f4890c1 -->
 
 # 公开验证目标
 
@@ -46,7 +46,7 @@ flowchart LR
     N["nonvacuity_goals"] --> R
 ```
 
-分组 `safety_goals` 包含 84 个函数自己的目标、序列安全目标（`inflate`、`deflate`、`inflateBack` 和 gz）、拒绝目标和 `Goal.gzvprintf_safety`。两个完整契约不在任何分组里。命令 `python3 scripts/verification.py coverage` 打印每个分组和必需集合的大小；[进度页的“范围”一节](../progress.md#scope)按结论逐项列出这个集合。
+分组 `safety_goals` 包含各函数自己的目标、序列安全目标（`inflate`、`deflate`、`inflateBack` 和 gz）、拒绝目标和 `Goal.gzvprintf_safety`。两个完整契约不在任何分组里。命令 `python3 scripts/verification.py coverage` 打印每个分组和必需集合的大小；[进度页的“范围”一节](../progress.md#scope)按结论逐项列出这个集合。
 
 非空性目标说明序列目标的前提可以被满足：初始化函数在它的参数定义域上建立表示不变量。
 
@@ -66,7 +66,7 @@ flowchart LR
 
 ### `open_safety` 和 `not_planned`
 
-- `open_safety` 列出还没有已登记定理的必需目标，每个都写明负责人。有没有未证明的目标，见[进度页](../progress.md#scope)。必需目标要么是 PROVED，要么列在这里；列在这里的目标不是 PROVED。列表不为空时，`verification.py final` 拒绝。
+- `open_safety` 列出还没有已登记定理的必需目标，每个都写明负责人。有没有未证明的目标，见[进度页](../progress.md#scope)。必需目标要么是 PROVED，要么列在 `open_safety` 中；列在其中的目标不是 PROVED。列表不为空时，`verification.py final` 拒绝。
 - `not_planned` 列出这样的公开目标：它们保留定义，仍作为未证明的目标留在 `goals.txt` 中，但项目不在它们上面投入工作；每个都写明理由。它不是离开必需集合的出口：什么是必需的，由固定的分组决定。其中的条目不在任何分组里，没有函数指定它，它也没有被证明。它只有一个条目：`Goal.gz_initialisation_domain`，即 `gzopen` 的功能契约。
 
 ## 登记需要什么

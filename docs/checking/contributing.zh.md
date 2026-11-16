@@ -1,11 +1,11 @@
-<!-- source-sha256: cde0aad4cc554fe265eb6eaf49afd227f76d9371b952cac852f37593f7021d4c -->
+<!-- source-sha256: ec0e9d3893137778a566cb87d2b94ba51bdf909cf7a8c0694aaf4123067a84d2 -->
 # 参与贡献
 
 本页列出四件事的步骤：做任何一次改动，登记一个已证明的目标，运行验收套件，按需运行证明变异体。每一步给出命令，以及命令成功时打印的最后一行。所有命令都在仓库根目录运行。
 
 规则在 `AGENTS.md` 中。每项检查能确立什么，以及已检查、已登记、已验收三个层级，见[检查指南](README.md#three-levels)。
 
-**哪些“最后一行”是原样的。**标有“（已运行）”的行，抄自在提交 `8642e435` 上对该命令的一次运行；其中的数字是该提交上的数字。标有“（取自脚本）”的行，是脚本成功时打印的文字，读自脚本源码；这条命令需要 Lean 构建，写本页时没有运行。
+**哪些“最后一行”是原样的。**标有“（已运行）”的行，抄自对该命令的一次运行。它是一个样例：其中的数字随仓库变化，这里写作 `N`；当前的数字见[进度](../progress.md#scope)。标有“（取自脚本）”的行，是脚本成功时打印的文字，读自脚本源码；这条命令需要 Lean 构建，写本页时没有运行。
 
 ## 每次改动
 
@@ -28,8 +28,8 @@
    | 命令 | 是否需要第 3 步的构建 | 成功时的最后一行 |
    | --- | --- | --- |
    | `scripts/check-sorry.sh` | 否 | `sorry count: 0`（已运行） |
-   | `python3 scripts/check-strlit.py` | 否 | `check-strlit: 19 literals used, all in strTable (178 entries)`（已运行） |
-   | `python3 scripts/check-spec-layers.py` | 否 | `specification layers: 35 safety and common modules import no functional module`（已运行） |
+   | `python3 scripts/check-strlit.py` | 否 | `check-strlit: N literals used, all in strTable (N entries)`（已运行） |
+   | `python3 scripts/check-spec-layers.py` | 否 | `specification layers: N safety and common modules import no functional module`（已运行） |
    | `lake env lean --run tests/audit/PartialCheck.lean` | 是 | 写本页时没有运行 |
 
    最后一项检查是一次搜索，成功时什么也不打印（已运行）：
@@ -136,7 +136,7 @@
    最后两行（已运行）：
 
    ```console
-   coverage: 96 public declarations, 95 default-build entries (86 documented, the rest undocumented in zlib.h), 4 sequence targets, 4 non-vacuity targets, 92 safety targets; 98 required goals, 0 open
+   coverage: N public declarations, N default-build entries (N documented, the rest undocumented in zlib.h), N sequence targets, N non-vacuity targets, N safety targets; N required goals, N open
    coverage is not specification readiness or proof completion
    ```
 

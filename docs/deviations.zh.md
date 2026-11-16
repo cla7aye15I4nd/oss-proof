@@ -1,4 +1,4 @@
-<!-- source-sha256: 63ce9950cd1b83ca2cf4405613024eccec22e6e385571a5f5c6990ecd43ad27d -->
+<!-- source-sha256: 9fef79489e1cf4110d6ef756f7f70031e89bc135278f82eefe936bb763e7761f -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -228,7 +228,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 | 前提 | 要求什么 | 目标 | 前提之外 |
 | --- | --- | --- | --- |
-| 回调解码器的初始化（`BackSafeReachable.init` 中的 `BackInitArguments`） | 流记录可读；`zalloc` 与 `zfree` 各自是 `NULL` 或默认函数；`version` 指向一个可读的字节 `'1'`；`stream_size = 112`；调用返回了 `Z_OK`。记录的其他字段（包括 `state`）可以取任意值。 | `Goal.inflate_back_sequence_safety` | 除自定义分配器之外，`zlib.h` 允许的调用都不在前提之外。版本字节不同或 `stream_size` 不同的调用返回 `Z_VERSION_ERROR`（已登记的功能目标 `Goal.inflateBackInit_`），所以它不会开始一段历史。失败或被拒绝的初始化调用不是历史中的一步；它的安全性由 `Goal.inflateBackInit__safety` 给出。 |
+| 回调解码器的初始化（`BackSafeReachable.init` 中的 `BackInitArguments`） | 流记录可读；`zalloc` 与 `zfree` 各自是 `NULL` 或默认函数；`version` 指向一个可读的字节 `'1'`；`stream_size = 112`；调用返回了 `Z_OK`。记录的其他字段（包括 `state`）可以取任意值。 | `Goal.inflate_back_sequence_safety` | 除自定义分配器之外，`zlib.h` 允许的调用都不在前提之外。版本字节不同或 `stream_size` 不同的调用返回 `Z_VERSION_ERROR`（功能目标 `Goal.inflateBackInit_`，它已被证明），所以它不会开始一段历史。失败或被拒绝的初始化调用不是历史中的一步；它的安全性由 `Goal.inflateBackInit__safety` 给出。 |
 | 回调（`CallbackProtocol`） | 调用者为它的 `in` 和 `out` 函数提供一个协议；各子句见下面的列表。 | `Goal.inflate_back_sequence_safety` | 这些是调用者代码的契约，不是被假设的库契约，并且一直显式写出。描述符对象可以与窗口共用同一次分配中切片以外的部分。 |
 | 调用之间调用者的修改（`BackSafeReachable.caller`） | 两次调用之间，调用者的修改是一次 `Rebuffer`（“调用之间调用者的修改”一行），并且保持窗口切片，以及每个仍存活的块的只读标志。 | `Goal.inflate_back_sequence_safety` | C 代码无法改变只读标志，所以那一子句不排除任何 C 调用者。关于窗口的子句确实排除了一些调用者：调用者在两次 `inflateBack` 调用之间写窗口切片，这样的历史在范围之外。窗口指针位于所在块的偏移 0 处时，模型中这个块归流拥有（`InflateOwned`），于是 `Rebuffer` 在两次调用之间保持的是整个块，而不只是切片。`inflateBack` 在每次调用开始时置 `state->whave = 0`，所以 C 看来不会读取先前的窗口字节（**尚未由证明确认**）；`zlib.h` 并不禁止这样的写入。 |
 | 回调输入总量 | `protocol.inputBound < 2^48`：一次 `inflateBack` 调用总共得到的输入少于 `2^48` 字节。这个总量包括第一个片段（调用时的 `next_in`、`avail_in`）和各次 `in` 调用交出的每个片段。 | `Goal.inflate_back_sequence_safety` | `zlib.h` 对一次调用的总输入没有限制。运行时把每个循环限制在 `2^64` 次迭代以内（[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)），而解码循环每轮至少读一个比特，所以输入更多的调用可能在 C 还会继续运行时就耗尽燃料。`2^48` 字节远远超过一次调用实际能处理的输入。功能目标 `Goal.inflateBack`（不在计划内，未证明）没有这条前提。 |

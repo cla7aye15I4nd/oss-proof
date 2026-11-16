@@ -109,7 +109,11 @@ lake build ZlibF
 scripts/check-sorry.sh
 ```
 
-These two are the fast gate. [Contributing](docs/checking/contributing.md) lists every step, and
+These two are the first steps of the fast gate, not all of it. The fast gate is the jobs `build`
+and `no-sorry` of `.github/workflows/lean.yml`. It also builds the audit tools and the
+differential drivers, searches the sources for forbidden constructs, runs
+`tests/audit/PartialCheck.lean` on the built library, checks that the patches apply to the pinned
+`zlib/`, and runs `scripts/check-strlit.py` and `scripts/check-spec-layers.py`. [Contributing](docs/checking/contributing.md) lists every step, and
 [checking](docs/checking/README.md) says what each check establishes and how a result becomes
 accepted. Proof mutants are additional evidence, run on request; they are not part of acceptance.
 

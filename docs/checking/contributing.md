@@ -7,8 +7,9 @@ success. Run every command from the repository root.
 The rules are in `AGENTS.md`. What each check establishes, and the three levels checked,
 registered and accepted, are in [the checking guide](README.md#three-levels).
 
-**Which last lines are exact.** A line marked "(run)" was copied from a run of the command on
-commit `8642e435`; the numbers in it are those of that commit. A line marked "(from the script)" is the text the script prints on success,
+**Which last lines are exact.** A line marked "(run)" was copied from a run of the command. It
+is a sample: a number in it changes with the repository and is written `N` here; the current
+numbers are in [progress](../progress.md#scope). A line marked "(from the script)" is the text the script prints on success,
 read in its source; the command needs a Lean build and was not run for this page.
 
 ## Every change
@@ -35,8 +36,8 @@ read in its source; the command needs a Lean build and was not run for this page
    | Command | Needs the build of step 3 | Last line on success |
    | --- | --- | --- |
    | `scripts/check-sorry.sh` | no | `sorry count: 0` (run) |
-   | `python3 scripts/check-strlit.py` | no | `check-strlit: 19 literals used, all in strTable (178 entries)` (run) |
-   | `python3 scripts/check-spec-layers.py` | no | `specification layers: 35 safety and common modules import no functional module` (run) |
+   | `python3 scripts/check-strlit.py` | no | `check-strlit: N literals used, all in strTable (N entries)` (run) |
+   | `python3 scripts/check-spec-layers.py` | no | `specification layers: N safety and common modules import no functional module` (run) |
    | `lake env lean --run tests/audit/PartialCheck.lean` | yes | not run for this page |
 
    The last check is a search that prints nothing on success (run):
@@ -174,7 +175,7 @@ named.
    Last two lines (run):
 
    ```console
-   coverage: 96 public declarations, 95 default-build entries (86 documented, the rest undocumented in zlib.h), 4 sequence targets, 4 non-vacuity targets, 92 safety targets; 98 required goals, 0 open
+   coverage: N public declarations, N default-build entries (N documented, the rest undocumented in zlib.h), N sequence targets, N non-vacuity targets, N safety targets; N required goals, N open
    coverage is not specification readiness or proof completion
    ```
 

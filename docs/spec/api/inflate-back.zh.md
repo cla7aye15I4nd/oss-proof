@@ -1,4 +1,4 @@
-<!-- source-sha256: 69cda1b67934added3f99fc97ec4d4bb6386f317a2607af32d6cfeeb235f11c7 -->
+<!-- source-sha256: babd9b3c5743a2d3ffae9e3c95529af918d24f675645a76ae8249cd0b5c9a9dc -->
 
 # 回调解压
 
@@ -196,7 +196,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
     - *状态。* 在历史上，流在同一个窗口上保持有效的回调解码器状态，窗口大小不变（`BackValid`），并且协议的不变量在调用后成立。于是流又有了一段历史，下一次调用的目标适用。
     - *写入。* 两种拒绝都不写任何内容：堆不变。在历史上，只写流记录、状态记录、回调自己的块和窗口所在的块；如果这个块不是回调自己的块，则只写其中窗口这一段（`CallbackFrame`）。
     - *分配。* 在历史上，回调自己的块之外的每个块，调用后是否已分配都与调用前相同：库不分配也不释放任何东西。
-- **不在本目标内。** 非 NULL 状态不是来自 `inflateBackInit_` 的流记录，例如来自 `inflateInit_` 的状态：没有目标覆盖它。什么数据到达 `out`，三个返回值中返回哪一个，以及调用后的 `next_in` 和 `avail_in`：功能目标 `Goal.inflateBack`，安全结论不需要它；它未证明，也不在计划内。条件 4 到 6、窗口必须在堆字节块中以及对调用者编辑的规定都比 `zlib.h` 窄：见[偏离记录](../../deviations.md#callback-decoder)中的行。
+- **不在本目标内。** 非 NULL 状态不是来自 `inflateBackInit_` 的流记录，例如来自 `inflateInit_` 的状态：没有目标覆盖它。什么数据到达 `out`，三个返回值中返回哪一个，以及调用后的 `next_in` 和 `avail_in`：功能目标 `Goal.inflateBack`，安全结论不需要它；它不在计划内。条件 4 到 6、窗口必须在堆字节块中以及对调用者编辑的规定都比 `zlib.h` 窄：见[偏离记录](../../deviations.md#callback-decoder)中的行。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBack"><summary>完整返回条件与边界</summary>
 

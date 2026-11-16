@@ -1,4 +1,4 @@
-<!-- source-sha256: 2b2ef4b09ee9bbad1bd71693e3abdc1413364d658f920d2cd265609a2a3ef0f3 -->
+<!-- source-sha256: 9d3d8423d8fbc9d4dd4f474130f0b96796d1b396aa607dd6495130b841ed8a1b -->
 # `gzread`：在设备上定位之后位置发生有符号溢出
 
 gz 读取函数把交付的字节数加到有符号的位置 `state->x.pos` 上，没有上界。在 Linux 上，对 `/dev/zero` 这样的字符设备做透明模式的 `gzseek`，可以把位置设为 `INT64_MAX`，下一次读取就让它溢出。zlib 的维护者只读本页，就能复现这份报告并作出判断。写入一侧的对应问题是 [gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)。测试文件在 [`tests/regression/gzread-pos-overflow`](../../../tests/regression/gzread-pos-overflow/README.md)。
@@ -60,7 +60,7 @@ gzread.c:539:21: runtime error: signed integer overflow: 9223372036854775807 + 1
 
 - **谁会遇到。** 透明模式的读取者，其描述符的 `lseek` 成功却不限制偏移，随后还提供数据。Linux 上的 `/dev/zero` 就是这样的描述符，也是唯一运行过的一个。程序必须定位到 `INT64_MAX` 附近。对 gzip 流，同样的溢出需要大约 2^63 字节的解压输出，不现实。
 - **后果。** 有符号计数器上的未定义行为。按通常的回绕，`gztell` 变为负数，之后的定位从错误的位置计算。
-- **内存安全。** 没有发现这个溢出会引起内存错误。这是对未打补丁的 C 的解读，**尚未由证明确认**。本项目的证明也不会确认它：已登记的 gz 安全定理（`gz_sequence_safety_public`，它证明 `Goal.gz_sequence_safety`）针对的是带补丁 0004 的源码，在那里溢出不会发生。
+- **内存安全。** 没有发现这个溢出会引起内存错误。这是对未打补丁的 C 的解读，**尚未由证明确认**。本项目的证明也不会确认它：gz 安全定理（`gz_sequence_safety_public`，它证明 `Goal.gz_sequence_safety`）针对的是带补丁 0004 的源码，在那里溢出不会发生。
 - **严重程度。** 低：它需要在设备上有接近 2^63 的位置。
 
 ## `zlib.h` 的说法

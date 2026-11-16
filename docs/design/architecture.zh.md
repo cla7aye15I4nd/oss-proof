@@ -1,4 +1,4 @@
-<!-- source-sha256: 67c2ee4f42b9caad4ba37744acba17ce7aa19dfaa22910c15b8b5a1a3d908f25 -->
+<!-- source-sha256: cbbe029c1d434782c6f13c84a31ef65ac8c69380b9f47ffb8598862729ec6729 -->
 # 从 C 到已检查的定理
 
 本项目的定理说的是一个 Lean 程序，不是 C 的文本。本页展示这个程序由什么构成，让读者能够判断内核不检查的两个联系：运行时表示了 C 的操作，翻译与选定的 C 源码一致。[可信基础](../trusted-base.md)列出所有依靠审查的东西。
@@ -28,7 +28,7 @@ flowchart TD
 
 安全结论只需要经过*执行证明*的那条路径：无故障、终止、帧性质和所有权，并在调用序列上组合。经过*细化证明*的路径给出功能正确性。它不是安全结论所必需的。
 
-安全结论之后计划做一项功能结果：默认 zlib 流的往返。它的条件形式已检查。定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）说的是翻译后函数的两次运行。编码器的运行是按默认级别调用 `deflateInit_`，随后是若干次 `deflate` 调用，flush 值任意。解码器的运行是以 `windowBits` 15 调用 `inflateInit2_`，随后是若干次 `inflate` 调用。同一次运行的两次调用之间，调用者可以改动缓冲区字段（`Rebuffer`）。每次运行的前提如下：
+安全结论之后计划做一项功能结果：默认 zlib 流的往返。它的条件形式有一条定理。定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）说的是翻译后函数的两次运行。编码器的运行是按默认级别调用 `deflateInit_`，随后是若干次 `deflate` 调用，flush 值任意。解码器的运行是以 `windowBits` 15 调用 `inflateInit2_`，随后是若干次 `inflate` 调用。同一次运行的两次调用之间，调用者可以改动缓冲区字段（`Rebuffer`）。每次运行的前提如下：
 
 - 初始化调用从 `InitDomain` 出发（堆良构，`version` 指向 `'1'`，`zalloc` 和 `zfree` 各自是 `NULL` 或默认函数，`state` 字段是 `NULL`），并且返回了 `Z_OK`。
 - 每次数据调用都是一个 `DataStep`：它满足 `StreamBuffers` 和 `ActiveHeader`，并且返回了。定理假设这些调用会返回，并不证明这一点。

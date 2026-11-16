@@ -4,9 +4,9 @@ This page records the level of every result and the work that remains. It is the
 does: the other pages say what a theorem states and link here for its level. Its first section,
 Scope, says what is planned, what is accepted and on which commit, and what is not planned. The
 long middle part is generated from the proof records: one entry for each goal, with its
-statement, proof and dependencies. [Coverage by function](coverage.md) is the map from each
-function to its theorem; it carries no level. For what the results mean, read [the overview](overview.md);
-for the theorem that covers one function, read [coverage by function](coverage.md).
+statement, proof and dependencies. For what the results mean, read [the overview](overview.md).
+For the theorem that covers one function, read [coverage by function](coverage.md): it is the
+map from each function to its theorem, and it carries no level.
 
 ## Scope
 
@@ -28,6 +28,11 @@ and termination. The third result has four parts.
 The six rows hold all 98 required goals: 2 + 2 + 8 + 5 + 35 + 46. The 98 are computed from
 `tests/audit/public-api.json` by `scripts/verification.py`; [coverage](coverage.md) names the
 theorem of each.
+
+By kind they are 87 one-function safety goals, 4 sequence safety goals, 3 refusal goals and 4
+non-vacuity goals. In the manifest, 92 are in the group `safety_goals`, 4 in `nonvacuity_goals`,
+and 2 are the full contracts of `compressBound` and `compressBound_z`, which stand for the safety
+goals of these two pure functions.
 
 Three notes on the table:
 
@@ -69,7 +74,9 @@ has finished green.
   Green before the cancellation: `build`, `no-sorry`, `audit_core`, both `audit_selftest`
   shards, `diff_core`, all eight `diff_harness` shards, and the result `difftest`. The twenty
   mutant shards were cancelled, so the result `audit` failed, and the run as a whole is recorded
-  as cancelled. No result is accepted on the strength of this run.
+  as cancelled. The parts that now make up the acceptance suite were all green in this run. It
+  is not counted because the result `audit` of the run is red and acceptance is read from that
+  result. No result is accepted on the strength of this run.
 - **Next run: commit not yet named.** <a id="next-acceptance-run"></a>A clean run of the
   acceptance suite on a later commit will accept the goals that the table marks "registered, not
   accepted". This line is the one place to record it: the commit, the run, and the date. Until it
@@ -88,7 +95,7 @@ nothing, and are reported here with their commit, apart from acceptance.
   (`tests/audit/public-mutants.json`), and the audit checked that on `3fdbbc38`; no finished run
   has executed them.
 
-Between that commit and this page, these things changed:
+Between `bde170e9` and this page, these things changed:
 
 - **Each gz function and each callback-decoder function has its own safety goal.** There are 35
   new goals: one for each of the 31 documented gz functions, one for `gzvprintf`, and one each for
