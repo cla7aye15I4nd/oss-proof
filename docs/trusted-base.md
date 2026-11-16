@@ -7,46 +7,43 @@ documentation lists the same six.
 
 | # | Trusted | Checked by |
 | --- | --- | --- |
-| 1 | The Lean kernel, three axioms, and the audit programs | The axiom gate and a fresh kernel replay |
+| 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The check of the axioms each theorem depends on, and a replay by the kernel in a fresh environment |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and semantic regression tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: the pin and five patches | The patch register. Each patch has a sanitizer reproduction, except 0005 and one branch of 0004, which rest on a probe run and on the model |
+| 4 | The selected source: the pin and six patches | The [patches page](../patches/README.md). Each patch has a sanitizer reproduction, except 0005 and one branch of 0004, which rest on a probe run and on the model, and 0006, which fixes a broken promise that no sanitizer reports |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
-| 6 | The statements: that each goal says what it should | Review against `zlib.h`; the exact-goal check |
+| 6 | The statements: that each goal says what it should | Review against `zlib.h`; the check that a theorem states exactly its goal |
 
 Compiler, operating-system and hardware correctness are outside the proof altogether.
 Differential tests are evidence of fidelity, not proof.
 
 Related pages: [safety](spec/safety.md) defines the claim; [deviations](deviations.md) lists the
 premises a caller must meet; [model limits](model-limits.md) details item 2;
-[verification policy](anti-cheating.md) gives the acceptance rules; [progress](progress.md#scope)
-has the level of each result.
+[why a green build is not enough](anti-cheating.md) says what protects a result;
+[progress](progress.md) has the state of each result.
 
 ## 1. Kernel and permitted axioms
 
-The Lean kernel and `propext`, `Classical.choice` and `Quot.sound` are trusted.
-The declaration audit permits only those axioms. Fresh kernel replay checks the compiled
-proof closure; execution tests do not replace it.
+The Lean kernel and `propext`, `Classical.choice` and `Quot.sound` are trusted. Every
+declaration that a theorem depends on is examined, and only those axioms are permitted. The
+compiled proofs are replayed by the kernel in a fresh environment; execution tests do not
+replace that.
 
-The audit itself is trusted code and trusted data. `tests/audit/Audit.lean` reads the compiled
-modules; it does not elaborate source or run code of the audited modules. `scripts/verification.py`
-decides which goals are required from `tests/audit/public-api.json`. The registries
-(`tests/audit/theorems.txt`, `goals.txt`, `proved-goals.txt`) and the manifest are edited by hand
-and tracked by git alone. `tests/audit/compiler-helpers.txt` lists the compiler-generated
-auxiliary declarations (such as `._unsafe_rec`) that the audit exempts from its `unsafe` and
-`partial` checks and does not take as roots of the axiom traversal. The
-[helper review](history/compiler-helper-review.md) of them is a historical record.
+The programs that do this are themselves trusted code, and they work from trusted data. The
+program that examines the proofs reads the compiled modules; it does not elaborate source or run
+code of the modules it examines. The list of goals, the list of theorems and the list of the
+functions of `zlib.h` that it works from are written by hand. The compiler-generated auxiliary
+declarations (such as `._unsafe_rec`) are exempt from the `unsafe` and `partial` checks and are
+not taken as roots of the axiom traversal.
 
 ## 2. Runtime and object schema
 
-`ZlibF/Runtime/` defines what a translated run means. `Space.lean` supplies object references
-and updates. `Monad.lean` supplies faults, sequencing and loops. `Ptr.lean` supplies pointer
-arithmetic, loads, stores and comparisons. `Libc.lean` models the required library operations;
-`Alloc.lean` imports it. `LibcStrings.lean` supplies the text that `strerror` returns
-(`libcErrnoText`). `Address.lean` supplies the low address bits of a byte pointer, which the CRC
-code observes. `Schema.lean`, `Tables.lean` and `LibcTables.lean` supply generated records,
-constants, heap tables and operations for each struct kind. Their generator and the
-[runtime schema](runtime-schema.md) are part of this item.
+The runtime defines what a translated run means. It supplies object references and updates;
+faults, sequencing and loops; pointer arithmetic, loads, stores and comparisons; models of the
+library operations zlib needs, allocation among them; the text that `strerror` returns
+(`libcErrnoText`); the low address bits of a byte pointer, which the CRC code observes; and
+records, constants, heap tables and operations for each struct kind. The last group is generated
+by a program; the generator and the [runtime schema](runtime-schema.md) are part of this item.
 
 A no-fault theorem is a statement about these definitions. The intended correspondence is that
 every undefined behaviour the C can reach becomes `Fault.ub`. Unsigned arithmetic is modular.
@@ -56,7 +53,7 @@ has limits, and four of them matter to every reader:
 
 - **Uninitialised pointers.** The model has no value for an uninitialised pointer: a pointer field
   in fresh memory reads as `NULL`. Comparing, copying and freeing it can succeed in the model
-  where C gives no guarantee. The working rules therefore ask that a pointer field is written
+  where C gives no guarantee. A proof about the C therefore needs that a pointer field is written
   before it is read. No theorem states this, and none can in this model: a missing write does
   not show, and the runtime does not check it. What the proofs show is narrower: the invariant
   of each kind of state (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream and on
@@ -81,7 +78,7 @@ read-only marking) and "Table updates".
 
 ## 3. Manual translation
 
-The translation in `ZlibF/Zlib/` is written by hand, statement by statement. The kernel does not
+The translation is written by hand, statement by statement. The kernel does not
 check that it corresponds to the C. Review checks evaluation order, checks, arithmetic, storage
 lifetime and effects. A mismatch is a translation bug: it is corrected, with a differential test
 that catches it, and never hidden by changing a theorem.
@@ -92,33 +89,31 @@ a second result; two reads of one location with no store between them are one re
 assignments to fields of one record are one record update; a signed operation that a preceding
 test of the same function keeps in range uses the plain operator. The
 [translation rules](design/translation.md) show an example of each and say what evidence each
-function needs. The test inventory is `tests/list.txt`.
+function needs.
 
 The translations also contain at least six forms that the four do not cover as worded: a value
 just stored is used again without a read; an operand is evaluated before the short-circuit test
 that guards it in C; a field value is taken from a record loaded before a store; a shift by a
 constant count uses the plain operator; the locals of `inflate` that C leaves uninitialised
-start at fixed values; and a store is written after a call that follows it in C. Whether each becomes an accepted normalisation or is changed is an open
-decision of the owner.
-[Translation](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)
-lists the places found; its tables are examples, not a complete inventory. No place was found to compute a different value from the C; that is a reading,
+start at fixed values; and a store is written after a call that follows it in C. Whether each
+becomes an accepted normalisation or is changed is not decided.
+[Translation](design/translation.md) lists the places found; its tables are examples, not a complete inventory. No place was found to compute a different value from the C; that is a reading,
 not a proved fact.
 
 Three parts of this item are easy to miss:
 
-- **Helpers defined in the translation files.** Not every semantic helper is in
-  `ZlibF/Runtime/`. The checked arithmetic and shifts, the integer conversions, the loop and
+- **Helpers defined in the translation files.** Not every semantic helper is part of the
+  runtime. The checked arithmetic and shifts, the integer conversions, the loop and
   control-flow forms, field and table access, the allocator dispatch, local storage, string
   literals and the library stand-ins are defined in the translation files that use them. They
   are trusted in the same way as the runtime.
-  [Architecture](design/architecture.md#where-the-trusted-semantics-is) lists them by kind and
-  file.
+  [Architecture](design/architecture.md) lists them by kind.
 - **The CRC word load.** `crc32.c` reads the buffer through a pointer cast to `z_word_t *`. The
-  translation (`loadWord` in `crc32.c.lean`) reads eight bytes and assembles them little-endian.
+  translation (`loadWord`) reads eight bytes and assembles them little-endian.
   That the two agree, and the aliasing semantics of the cast, are trusted
   ([model limits](model-limits.md#conditions-on-the-model-that-goals-state), row "CRC address
   and word access").
-- **Locals of `inflate`.** `IL.init` in `inflate.c.lean` gives the locals `copy`, `len`, `from`,
+- **Locals of `inflate`.** The translation (`IL.init`) gives the locals `copy`, `len`, `from`,
   `here` and `last`, which C leaves uninitialised, the values 0, NULL and a zero `code`.
   `inflateBack` uses the same record. The rule for an uninitialised integer is an arbitrary
   value; here the value is fixed. Whether `inflate` can read one of these locals before
@@ -131,24 +126,23 @@ has defined semantics.
 
 ## 4. Selected source
 
-The verified source is the pinned `zlib/` submodule plus `patches/*.patch` in name order.
-The submodule is never edited. A patch is permitted only for a confirmed zlib bug that blocks a
-proof; it must be minimal and match a fix submitted upstream. A patch that the owner approves may
-land before its submission; the register then marks it as local and pending. A patch is removed
-after upstream merges the fix and the pin moves past it.
+The verified source is the pinned zlib (commit `99623ef7` of upstream `develop`, zlib 1.4) plus
+the patches, applied in name order. A patch fixes a zlib issue without whose fix a safety
+statement cannot be proved, or a promise of `zlib.h` does not hold. It is as small as the fix
+allows, and it matches the fix submitted upstream where one was submitted. A patch marked local
+has not been submitted.
 
-Five patches are applied. Every theorem is about the patched source, so each patch is part
-of what a reader trusts. [The patch register](../patches/README.md) gives the evidence for each.
+Six patches are applied. Every theorem is about the patched source, so each patch is part
+of what a reader trusts. [Patches](../patches/README.md) gives the evidence for each.
 
 | Patch | Fixes | Upstream state |
 | --- | --- | --- |
 | 0001 | Relational comparison of unrelated pointers in `inflateCopy` | Matches upstream PR #1369; not yet on the upstream branch |
 | 0002 | Signed overflow in `gzseek64` after `gzungetc` | The `gzlib.c` part of upstream PR #1361, open |
 | 0003 | Stale `x.next` after a partial transparent read fails | Upstream PR #1363, open |
-| 0004 | Overflow of the gz position `x.pos` | Local, approved by the owner, not submitted |
-| 0005 | Arithmetic on an unwritten or dangling `x.next` with a zero advance | Local, approved by the owner, not submitted |
-
-Historical proposals are not part of the verified source merely because notes mention them.
+| 0004 | Overflow of the gz position `x.pos` | Local: not submitted |
+| 0005 | Arithmetic on an unwritten or dangling `x.next` with a zero advance | Local: not submitted |
+| 0006 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Local: not submitted |
 
 ## 5. Configuration and external world
 
@@ -160,7 +154,7 @@ inflate history states it on every heap on which a call runs and after every cal
 deflate history states it only at the call a goal is about.
 [Deviations](deviations.md#build-and-platform) lists where each goal states it.
 Allocation failure remains in scope. Other build configurations and custom allocators would
-need their own correspondence arguments; they are not planned ([scope](progress.md#scope)).
+need their own correspondence arguments; they are not planned ([progress](progress.md)).
 
 **Allocation size.** `malloc` returns NULL for a request above `PTRDIFF_MAX` (`2^63 − 1` bytes),
 whatever the allocation oracle says. The call still consumes one oracle number, and the heap
@@ -181,9 +175,9 @@ the only failure for `%s` with a `char *` and for `%d` (`stdio-common/vfprintf-p
 `form_string` and `form_integer`; `stdio-common/Xprintf_buffer_done.c`, `EOVERFLOW` past
 `INT_MAX`). Its `errno` is not modelled. That is a stated limitation. No caller reads `errno`
 before a system call sets it again: the model reads `errno` only in `zstrerror` and `getErrno`,
-in `gzwrite.c.lean` (`gz_comp`, after a failed `fsWrite` in an iteration that starts with
-`setErrno 0`) and in `gzread.c.lean` (`gz_load`, after a failed `fsRead`; `gzread`, when
-`again` was set by `gz_load` in the same call).
+in `gz_comp` (after a failed `fsWrite` in an iteration that starts with `setErrno 0`), in
+`gz_load` (after a failed `fsRead`) and in `gzread` (when `again` was set by `gz_load` in the
+same call).
 
 `GzFs.vsnprintf` models `gzvprintf`'s call with the caller's format. Any call may fail, through
 the world oracle `printfOk`. A failed call returns -1, sets a nonzero `errno` (`printfErrno`;
@@ -199,7 +193,7 @@ conversion faults: conservative. The defaults of the oracle fields (all calls su
 junk, `EOVERFLOW`) exist for the executable drivers only and carry no meaning for the proofs.
 Every goal quantifies over all worlds.
 
-**The gz file world.** `ZlibF/Zlib/gzfs.lean` has two parts. The regular-file part represents
+**The gz file world.** The model of the file system (`Fs`) has two parts. The regular-file part represents
 flat paths, regular files, directory markers, descriptor positions and a file-size limit. The
 OS-call oracle (fields of `Fs`, numbered by the call counter `nos`) decides for each `read`,
 `write`, `lseek`, `close` and `open` call whether it behaves as the regular file, fails with a
@@ -219,8 +213,8 @@ depend on the number `open` returns: the model's descriptor table is not the who
 
 Two OS facts are assumed and not checked: a nonempty `write` never returns 0, and `close`
 releases the descriptor even when it reports an error. Both hold on Linux. The first is needed
-for termination of `gz_comp`; the real C spins forever on a `write` that returns 0 forever
-([observation](progress.md#observations)).
+for termination of `gz_comp`; by a reading of the code, the real C spins forever on a `write`
+that returns 0 forever.
 
 `strerror` (`C.libcErrnoText`) is total over every `Int32`. For a number outside its table it
 returns glibc's `"Unknown error N"` (glibc `string/strerror_l.c`, checked on glibc 2.43; glibc's
@@ -251,7 +245,6 @@ confirms that init establishes the invariant and that the caller domain has not 
 [Deviations](deviations.md) is the list of the places where a goal asks more of the caller than
 `zlib.h` does.
 
-Nothing in the tooling fixes definitions and theorem types: git tracks them, and review decides
-whether their meaning is right. The [verification policy](anti-cheating.md) says what the
-acceptance suite still defends against. Current results and open work are only in
-[progress](progress.md).
+No program fixes definitions and theorem types: review decides whether their meaning is right.
+[Why a green build is not enough](anti-cheating.md) says what is still protected when a statement
+changes. The state of each result is in [progress](progress.md).
