@@ -158,8 +158,7 @@ the same offset range here. Other configurations need separate contracts.
 
 Every entry carries a domain label. “Full scalar range” applies only to the
 named scalar argument, under these pointer and lifetime requirements.
-Documentary restrictions do not excuse known failure paths. In particular,
-partial-read errors and negative positions created by pushback are inside the
+Partial-read errors and negative positions created by pushback are inside the
 safety goal.
 
 **Effects.** Read, write, open, seek, control and close operations are stateful,
@@ -211,6 +210,12 @@ the next data I/O call to retry. Seek and rewind still refuse that recorded
 `Z_ERRNO`. Constructing an error message can itself fail and replace the code
 with `Z_MEM_ERROR`. `errno` is meaningful for the associated system failure,
 not as a general explanation of every failed API call.
+
+What a retry or a recovery yields after a partial read, after a parameter change that the
+compressor did not apply, or after a failed finish (which bytes reach the file, which position
+is reported) is functional behaviour. It is **to confirm** and is not a planned proof target.
+That the next call is safe, after any call that returned with any result, is part of
+[the safety goal](#the-safety-goal).
 
 The source is [gzlib.c](../../../zlib/gzlib.c),
 [gzread.c](../../../zlib/gzread.c), [gzwrite.c](../../../zlib/gzwrite.c),
@@ -536,7 +541,7 @@ The status reports whether the parameter request reached the handle, including a
 
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
-| `Z_OK`<br>**Request accepted** | The request is unchanged, a fresh writer records it for lazy initialization, or an active writer reaches the parameter-update step after processing pending work. | Continue with valid parameters, while retaining the contract caveat: deflateParams returns are ignored, so the applied settings can differ from the recorded request. |
+| `Z_OK`<br>**Request accepted** | The request is unchanged, a fresh writer records it for lazy initialization, or an active writer reaches the parameter-update step after processing pending work. | Continue with valid parameters. |
 | `Z_STREAM_ERROR`<br>**Call refused** | The handle is NULL, a reader, a transparent writer, or has a pending hard error. | Use a live gzip writer. Inspect a live handle before closing it; do not assume clearing an error applies the requested settings. |
 | `Z_MEM_ERROR / Z_ERRNO / Z_STREAM_ERROR`<br>**Pending work failed** | Pending zero-fill or processing old buffered input fails and returns the recorded error code. | Inspect gzerror while the handle is live. Distinguish a would-block stall from a hard error; the request has not been completed and blind replay is not justified. |
 
@@ -573,10 +578,9 @@ the old parameters before requesting the change. A pending seek can write zeros.
 
 **Errors and edges:** NULL, reader, transparent writer or pending hard error
 returns `Z_STREAM_ERROR`. Seek/flush failure returns the recorded error.
-The source ignores `deflateParams`' return and can report `Z_OK` after recording
-parameters that the compressor did not apply. This is **to confirm** against
-the current pin, including valid requests; valid scalar restrictions do not
-remove it. Invalid parameters are not consistently rejected here and can cause
+The source ignores the return of `deflateParams`, so it can report `Z_OK` after
+recording parameters that the compressor did not apply, also for a valid
+request; this is **to confirm**. Invalid parameters are not consistently rejected here and can cause
 a later initialization failure to be reported as `Z_MEM_ERROR`.
 
 </details>
@@ -700,7 +704,7 @@ writable bytes and meets the shared separation rules.
 
 **Post:** Returns the number of complete items read. All bytes read are
 consumed and written, including a final partial item that is absent from the
-returned count. Shared read behavior and the `gzread` recovery caveat apply.
+returned count. Shared read behavior applies.
 
 **Errors and edges:** Zero `size` or `nitems` returns zero without consuming
 input. Product overflow returns zero and records `Z_STREAM_ERROR`, preserving
@@ -844,8 +848,7 @@ Success returns the original c, while pushing back only its low eight bits. The 
 
 **Effect:** stateful pushback, possible input inspection/allocation and skip.
 
-**Pre:** The shared reader requirements hold. Pushback is allowed immediately
-after open and can therefore make the logical position negative.
+**Pre:** The shared reader requirements hold.
 
 **Proof goals.**
 
@@ -873,7 +876,7 @@ unless preserving a serious error. With allocated room, pushback may succeed
 after a read error; it does not generally clear that error. Position -1 can
 be a successful state, so tell's -1 alone is ambiguous. Seeking from this
 state overflowed in the unpatched C; patch 0002 fixes it
-([caveats](#scope-and-source-caveats)). It is not forbidden here.
+([caveats](#scope-and-source-caveats)).
 
 </details>
 
@@ -996,7 +999,7 @@ failure or system write failure. `len > INT_MAX` returns zero and records
 `Z_DATA_ERROR`. A zero request does not write or execute a pending seek.
 A hard failure can consume a prefix despite returning zero. A would-block
 stall can return a short accepted count; retry the unaccepted suffix after
-handling the stall. Shared failed-finish recovery caveats still apply.
+handling the stall.
 
 </details>
 
@@ -1362,8 +1365,7 @@ without a gzip trailer. The handle remains live and must still be closed.
 0–`Z_FINISH` returns `Z_STREAM_ERROR`. Allocation, seek fill and system write
 failures return the recorded code. A valid writer clears a retryable error
 before validating `flush`, so invalid flush is not always a state-preserving
-refusal. A failed `Z_FINISH` is not a completed member; error clearing alone
-does not justify treating recovery as fresh output. See the caveat below.
+refusal. A failed `Z_FINISH` is not a completed member.
 
 </details>
 
@@ -1487,7 +1489,6 @@ Seeking past input EOF can initially succeed; the later read discovers the
 actual end. Tell excludes unfulfilled skip after a read passes EOF.
 For a negative position after pushback the range check overflowed in the
 unpatched C; patch 0002 fixes it ([caveats](#scope-and-source-caveats)).
-Pushback before the start is inside the safety goal.
 
 </details>
 
@@ -1996,8 +1997,7 @@ skip, buffered data and codec state; no file read or write occurs.
 **Errors and edges:** NULL is a no-op. Clearing an error does not repair the
 file or promise successful retry. It permits another attempt to read a growing
 file. A borrowed message can become invalid. What a retry yields after a failed
-finish or a partial read remains **to confirm** and is not settled by this reset;
-that the retry is safe is part of the safety goal.
+finish or a partial read is **to confirm**.
 
 </details>
 
@@ -2148,7 +2148,7 @@ The status reports final zero-fill/finish work and descriptor closing. Once a li
 
 **Reading the result.**
 
-- An unused gzip writer normally emits an empty member; an unused transparent writer emits no payload. Successful close does not resolve the contract caveat about earlier failed-finish recovery.
+- An unused gzip writer normally emits an empty member; an unused transparent writer emits no payload.
 
 ### Calling conditions and effects {#api-gzclose_w-contract}
 
@@ -2184,16 +2184,12 @@ finish failure returns its error, including `Z_MEM_ERROR`, `Z_ERRNO` or
 Earlier errors are not automatically returned if final work succeeds.
 NULL or reader returns `Z_STREAM_ERROR` without destroying the reader.
 A valid writer is destroyed even when its result is `Z_STREAM_ERROR`.
-Close success does not settle the failed-finish recovery caveat below.
 
 </details>
 
 ## Scope and source caveats
 
-A documented error code does not by itself establish safe retry or recovery. Safety of the
-continuation is what [the safety goal](#the-safety-goal) states: after any call that returned,
-with any result, the next call is again safe. Four source problems on these paths are fixed by
-patches. A sanitizer reports the first three on the real C; one path of the third, a
+Four source problems in the gz functions are fixed by patches. A sanitizer reports the first three on the real C; one path of the third, a
 transparent look near `GZ_OFF_MAX`, is confirmed only in the model and by reading the C. The
 fourth is undefined only by the letter of C, and no sanitizer reports it. The contracts and the
 goal are for the patched source ([patches](../../../patches/README.md) describes each problem
@@ -2205,10 +2201,6 @@ and its upstream state):
 | A transparent read where `read` supplies bytes and then fails | The readers consume the partial bytes through a stale buffer pointer: an out-of-bounds read. | 0003 |
 | A position that passes `GZ_OFF_MAX` while reading or writing | Signed overflow of the position. | 0004, local: not submitted upstream |
 | A zero advance of a buffer pointer that was never written or that dangles | Arithmetic on an indeterminate or dangling pointer. | 0005, local: not submitted upstream |
-
-What recovery yields after a partial read, after a parameter change that the compressor did not
-apply, or after a failed finish (which bytes reach the file, which position is reported) is
-functional behaviour. It remains **to confirm** and is not a planned proof target.
 
 Differential tests supply evidence of translation fidelity, not proof. Private helpers,
 the legacy fixed-argument `gzprintf`, and Windows error-string helpers have no additional
