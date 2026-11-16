@@ -1,7 +1,7 @@
-<!-- source-sha256: 48bfbbf3047d9e4690ad90592568d896beba1a7bf94b002b9c67aef17ce9abe4 -->
+<!-- source-sha256: b982b7829bc276d5a9f84eb5b0d4efb6a2516d7553e833289a3847c48e1c4b0c -->
 # 级别 1 到 3 下，Z_FIXED 的 deflateBound 偏小
 
-状态：已在本地打补丁。本地补丁 0006（`patches/0006-deflatebound-fixed-conservative.patch`）没有提交上游。在不带该补丁的真实 C 上已复现（上游 `develop` 757f052；补丁 0001 到 0005 不涉及 `deflate.c` 和 `trees.c`），带和不带 AddressSanitizer 与 UndefinedBehaviorSanitizer 都复现，在系统自带的 zlib 1.2.12 上也复现。尚未向上游报告；上游是否已经知道，尚未向上游核实。这是接口承诺不成立，不是内存错误：sanitizer 没有任何报告。
+状态：已在本地打补丁。本地补丁 0006（`patches/0006-deflatebound-fixed-conservative.patch`）没有提交上游。在不带该补丁的真实 C 上已复现（上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`；补丁 0001 到 0005 不涉及 `deflate.c` 和 `trees.c`），带和不带 AddressSanitizer 与 UndefinedBehaviorSanitizer 都复现，在系统自带的 zlib 1.2.12 上也复现。尚未向上游报告；上游是否已经知道，尚未向上游核实。这是接口承诺不成立，不是内存错误：sanitizer 没有任何报告。`deflate.c` 在该提交与 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）之间只有版权字符串不同，`trees.c` 逐字节相同；这里没有记录在该版本上的运行。
 
 zlib.h 关于 `deflateBound` 写道：“`If that first deflate() call is provided the sourceLen input bytes, an output buffer allocated to the size returned by deflateBound(), and the flush value Z_FINISH, then deflate() is guaranteed to return Z_STREAM_END.`”（如果第一次 deflate() 调用得到全部 sourceLen 个输入字节、一个大小为 deflateBound() 返回值的输出缓冲区，以及刷新值 Z_FINISH，那么 deflate() 保证返回 Z_STREAM_END。）
 

@@ -5,10 +5,14 @@ stream that `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` creates (level 6, z
 `windowBits` 15, `memLevel` 8, default strategy), used only through `deflate` calls. For that
 configuration the results say more than safety: a completed stream decodes to its input.
 
-Each result of this page has a theorem. They are not required for the safety results, and
-functional correctness beyond what has a theorem is not planned. The safety of `deflate` for
-every configuration is a separate proof, explained in [stream compression](deflate.md); it
-uses lemmas from here.
+The word *engine* in the title is the name the Lean sources give to this body of proofs (the
+namespace `Zlib.Deflate.Engine`). On this page "the engine proof" means the proof for the
+default configuration.
+
+Each result of this page has a theorem. None of them is required for the safety results. Apart
+from the round trip described below, further functional results are not planned. The safety of
+`deflate` for every configuration is a separate proof, explained in
+[stream compression](deflate.md); it uses lemmas from here.
 
 ## Results
 
@@ -54,17 +58,23 @@ safety result.
 
 ## The round trip built on these results
 
-The theorem `deflate_inflate_roundtrip` joins the completed-encoding result of this page with
-the matching result for `inflate`. Take a `deflate` history of the default configuration and an `inflate`
-history that starts with `inflateInit2_` at `windowBits` 15, each made of caller edits and
-calls with any flush value, and each ending with a call that returned `Z_STREAM_END`. If the
-input that `inflate` consumed is a prefix of the output of `deflate`, the output of `inflate`
-is the input that `deflate` accepted. The theorem is conditional: it assumes that both
-histories reach `Z_STREAM_END`. No theorem states completeness or the unconditional round trip
-that needs it, so the round trip is not done; [progress](../progress.md) says what
-is planned.
+The theorem `deflate_inflate_roundtrip` joins the completed-encoding fact of clause 3 with the
+matching fact for `inflate`. Take a `deflate` history that starts with `deflateInit_` at
+`Z_DEFAULT_COMPRESSION` and an `inflate` history that starts with `inflateInit2_` at
+`windowBits` 15. The `deflate` histories are those of this page, without the restriction on
+the output pointer. Each history is made of caller edits and of `deflate` (or `inflate`)
+calls with any flush value and any split of the buffers, and contains no dictionary, reset or
+other operation. If each ends with a call that returned `Z_STREAM_END`, and the input that
+`inflate` consumed is a prefix of the output of `deflate`, then the output of `inflate` is the
+input that `deflate` accepted.
 
-## What the universal proof reuses
+The theorem is conditional: it assumes that both histories reach `Z_STREAM_END`.
+`DeflateCore.completes` gives a finishing continuation for the `deflate` side alone, under the
+premises listed above. No theorem says that both histories reach `Z_STREAM_END`, and none
+states the round trip without that condition. So the round trip is not done;
+[progress](../progress.md) says what is planned.
+
+## What the proof for every configuration reuses
 
 The proof for every configuration ([stream compression](deflate.md)) uses these parts of the
 proof for the default configuration as they are:

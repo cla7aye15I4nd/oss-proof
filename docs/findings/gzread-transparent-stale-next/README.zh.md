@@ -1,4 +1,4 @@
-<!-- source-sha256: 28e2daced654fe94d8d94c9464558ba46399a14bc9d20eb3814f2f15fc190fe5 -->
+<!-- source-sha256: e901ba63a600865125c9a3826bc88164bbdf9481b677d9f77d867ab8447fbda6 -->
 # 部分读取之后出错时，`gzread` 从过时的 `x.next` 复制
 
 在透明模式下（输入不是 gzip），如果 `read()` 返回了一些字节而下一次 `read()` 失败，`gz_fetch` 会在设置 `state->x.next` 之前返回。读取函数随后从旧指针复制这些已读到的字节，而旧指针可能正好在输出缓冲区末尾之后一个位置：这是一次越界的堆读取。zlib 的维护者只读本页，就能复现这份报告并作出判断。测试文件在 [`tests/regression/gzread-transparent-stale-next`](../../../tests/regression/gzread-transparent-stale-next/README.md)。
@@ -6,7 +6,7 @@
 ## 状态
 
 - 内存错误：读到输出缓冲区之外的堆内存。在文档用法之内；它需要在读到部分数据之后发生 I/O 错误。
-- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上由 AddressSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
+- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上由 AddressSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。`gzread.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。
 - 修复已作为[拉取请求 #1363](https://github.com/madler/zlib/pull/1363) 提交上游。2026-11-14 时，该拉取请求处于打开状态，维护者还没有答复。被验证的源码把它作为[补丁 0003](../../../patches/README.md) 应用。
 
 ## 调用序列

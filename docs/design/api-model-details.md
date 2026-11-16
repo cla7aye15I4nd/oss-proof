@@ -1,10 +1,13 @@
 # API models: the families in detail
 
 This page continues [API models](api-model.md). Everything on it is functional material: it is
-not required for the safety results, and no safety goal uses these models. It describes, family
-by family, what the heap-free relations say and where they stop short of the C. A sentence with "must" on this page states what a refinement proof of a
-functional goal has to show; it does not say that the proof exists.
-[Progress](../progress.md) says which functional goals are done.
+not required for the safety results, and no safety goal uses these models, except that the goals
+of `compressBound` and `compressBound_z` name the model's bound formula. The page describes,
+family by family, what the heap-free relations say and where they stop short of the C. A
+sentence with "must" on this page states what a refinement proof of a functional goal has to
+show; it does not say that the proof exists. A theorem about a model relation is a statement
+about the model, not about the translated C. [Progress](../progress.md) says which functional
+goals are done.
 
 ## State, calls and histories
 

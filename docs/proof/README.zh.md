@@ -1,4 +1,4 @@
-<!-- source-sha256: cf7518b27ddb61ddd5d692c86c609fdbfc096532bffc1286636d43f6e3bbe243 -->
+<!-- source-sha256: 48ce9c5950fb6fb78e066c8a079df394cce7098cb95148cbc74e5c51d098e8dd -->
 # 证明参考：组件、页面、定理
 
 本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
@@ -13,7 +13,7 @@
 
 差分测试把翻译与编译出来的 C 做比较，是翻译忠实于 C 的证据，不是证明。
 
-这些页面上的文字是解释，不是被检查的对象。凡是页面给出了对 C 的某种解读、而没有定理陈述它的地方，都标有 **尚未由证明确认**。每个组件页面把这类内容集中在“没有定理陈述的 C 解读”一节。
+这些页面上的文字是解释，不是被检查的对象。凡是页面给出了对 C 的某种解读、而没有定理陈述它的地方，都标有 **尚未由证明确认**。按[同一个提纲](#the-shape-of-a-component-page)编排的页面把这类内容集中在“没有定理陈述的 C 解读”一节。
 
 ## 必需与非必需
 
@@ -21,7 +21,7 @@
 
 功能结论说的是函数算出了什么：校验和的值、解码出的字节。它们不是安全结论所必需的。其中许多有定理，每个页面都把它们单独列在一节里。其中两个，`Goal.inflate` 和 `Goal.deflate`，被其他函数的安全证明用到。
 
-其他构建配置，以及 `zlib.h` 列为未文档化的函数，都不是必需的；原因见[进度](../progress.md)。
+其他构建配置，以及 `zlib.h` 列为未文档化的函数，都不是必需的；原因见[进度](../progress.md#not-planned)。
 
 ## 序列定理覆盖什么
 
@@ -74,7 +74,7 @@ deflateEnd(&strm);
 
 ## 功能结论
 
-这些页面也解释了一些不是安全结论所必需的结论。每一项都有定理。
+这些页面也解释了一些不是安全结论所必需的结论。这张表里的每一项结论都有定理。
 
 | 页面 | 解释的功能结论 |
 | --- | --- |
@@ -82,7 +82,9 @@ deflateEnd(&strm);
 | [解码表](inftrees.md)、[快速解码](inffast.md) | 表项就是规范编码；快速循环的一轮解码出格式中的一个记号 |
 | [流式解码](inflate.md) | `Goal.inflate`，一次调用的完整契约（`inflate_public`） |
 | [流式压缩](deflate.md) | `Goal.deflate`，一次调用的完整契约（`Zlib.Deflate.Universal.deflate_safety`） |
-| [默认配置引擎](deflate-default-engine.md) | 在默认配置下：已完成的流能解码回它的输入（`DeflateCore.correct`） |
+| [默认配置引擎](deflate-default-engine.md) | 在默认配置下：按格式规格，已完成的流的输出是它的输入的一个合法 zlib 流，并且流能够被完成（`DeflateCore.correct`） |
+
+默认 zlib 流的往返（先 `deflate` 再 `inflate` 得回输入）未完成。有一条定理 `deflate_inflate_roundtrip` 证明了一个有条件的形式：如果两段历史都已到达 `Z_STREAM_END`，并且 `inflate` 消耗的输入是 `deflate` 写出的字节的前缀，那么 `inflate` 写出的字节就是 `deflate` 读入的字节。没有定理说两边都会到达 `Z_STREAM_END`。前提见[流式压缩](deflate.md#functional-results)。
 
 ## 组件页面的结构
 

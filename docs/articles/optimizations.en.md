@@ -2,7 +2,7 @@ The complete codec from the first article already replaces repetition with backw
 
 Those mechanisms answer a different question: how much work must the implementation do to obtain and execute the stream? We will derive them from a simple complete compressor and decoder. Assume the whole input is available and the destination has enough space. Buffer replacement, explicit flush requests, wrappers, dictionaries, and resource lifetime belong to the next article. Bounded internal work areas still matter: an arbitrarily long input cannot require an arbitrarily large temporary array.
 
-The source is the zlib revision that this project verifies, with the project's patches applied. Excerpts select the ordinary C implementation and packed instruction layout. Build alternatives are identified where they change a mechanism. Worked instruction sequences isolate decisions; they do not predict every compressor run or claim unmeasured speedups.
+The code excerpts link to upstream zlib commit `757f0527`. The source this project verifies is its child commit `99623ef7` (zlib 1.4) with the project's patches. In the library's `.c` and `.h` files the two commits differ only in version numbers and copyright strings and in the last two entries of the length extra-bit array in `inftrees.c`, which belong to the invalid length symbols 286 and 287. The patches change none of the linked lines. Excerpts select the ordinary C implementation and packed instruction layout. Build alternatives are identified where they change a mechanism. Worked instruction sequences isolate decisions; they do not predict every compressor run or claim unmeasured speedups.
 
 ## Start with the costs of a complete baseline {#costs}
 
@@ -78,7 +78,7 @@ Storage movement does not solve exhaustive search. Every match has at least thre
 
 Each bucket saves its newest position; each position links to its predecessor in the same bucket. The C arrays are `head` for bucket heads and `prev` for predecessor links. Search follows one chain from newer to older positions. Newer sources appear first and often have cheaper small-distance encodings.
 
-Bitwise XOR sets a result bit when its two input bits differ; retaining the low fifteen bits discards higher positions. Default indexing has 32768 buckets. Its fifteen-bit running hash shifts left five bits, XORs the next byte, then retains the low fifteen bits. The [update macro](https://github.com/madler/zlib/blob/757f0527154291bcf6bfbd6396ecde6bedd2db95/deflate.c#L147-L177) names the shift and mask `hash_shift` and `hash_mask`:
+Bitwise XOR sets a result bit when its two input bits differ; retaining the low fifteen bits discards higher positions. Default indexing has 32768 buckets. Its fifteen-bit running hash shifts left five bits, XORs the next byte, then retains the low fifteen bits. The [update macro](https://github.com/madler/zlib/blob/757f0527154291bcf6bfbd6396ecde6bedd2db95/deflate.c#L135-L141) names the shift and mask `hash_shift` and `hash_mask`:
 
 ```c
 #define UPDATE_HASH(s,h,c) (h = (((h) << s->hash_shift) ^ (c)) & s->hash_mask)

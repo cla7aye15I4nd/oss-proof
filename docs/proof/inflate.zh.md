@@ -1,11 +1,11 @@
-<!-- source-sha256: c0421756f182e0888dd903bd07044e3ce2d8896e5d8d54b7cfc1319d90b516c8 -->
+<!-- source-sha256: b5356ecbe0da4f60e992819cc4b243fb1b0146614f6b5ede6a4c1b3f0da4ad43 -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
 
 `inflate` 和其他 `inflate*` 函数，对任意输入、对输入输出缓冲区的任意切分、在任意一串被允许的调用上，都是安全的。证明维护解码器状态的一个不变量：`inflateInit2_` 确立它，每次调用保持它，而 C 代码的每一次内存访问都落在不变量描述的范围之内。本页解释这个不变量、每一步为什么保持它，以及解码循环为什么会结束。
 
-本页以[解码表](inftrees.md)和[快速解码](inffast.md)为基础。翻译怎样跟随 C 的细节，见[解码器的源码笔记](inflate-source-notes.md)。`updatewindow` 的内部契约见[内部契约](../spec/internal-contracts.md)。
+本页以[解码表](inftrees.md)和[快速解码](inffast.md)为基础。翻译怎样跟随 C 的细节，见[解码器的源码笔记](inflate-source-notes.md)。`updatewindow` 的内部契约见[内部契约](../spec/internal-contracts.md#preserve-decoder-history-updatewindow)。
 
 ## 结论
 
@@ -316,7 +316,7 @@ rank = 64 * mass + credit(mode)
 | `Goal.inflate`：一次调用的完整契约，包括进展、返回码、计数器、帧性质和所有权。`uncompress*` 和 gzip 读取端的安全证明用到它 | `inflate_public` |
 | 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 |
 
-有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes` 说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。带条件的往返定理 `deflate_inflate_roundtrip` 说的是：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都是带条件的：它们假设各次调用到达 `Z_STREAM_END`。完备性（各次调用确实会到达）和无条件的往返未完成（[进度](../progress.md)）。
+有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes` 说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。有条件的往返定理 `deflate_inflate_roundtrip` 说的是：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都是有条件的：它们假设各次调用到达 `Z_STREAM_END`。完备性（各次调用确实会到达）和无条件的往返未完成（[进度](../progress.md#scope)）。
 
 对其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置），没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
 
@@ -324,9 +324,9 @@ rank = 64 * mass + credit(mode)
 
 这一小节陈述关于含义的命题必须顾及的两条事实。两者都不是 zlib 的缺陷。
 
-一个解码出的符号由输入位的一段前缀支撑。解码器可能已经读得更远：`inflate_fast` 会提前取入整字节，再把没用到的还回去。要求输出与解码器读过的全部内容一致的命题是错的，因为提前读入的字节可能格式有误，而已经解码的符号是有效的。实际使用的关系只把每个符号与支撑它的那些位联系起来（`inflate_deferred_distance` 和 `inflate_deferred_distance_rejects_legacy_consistency`）。
+一个解码出的符号由输入位的一段前缀支撑。解码器可能已经读得更远：`inflate_fast` 会提前取入整字节，再把没用到的还回去。要求输出与解码器读过的全部内容一致的命题是错的，因为提前读入的字节可能格式有误，而已经解码的符号是有效的。`inflate` 的抽象模型里的关系只把每个符号与支撑它的那些位联系起来。有两条关于这个模型的定理在一个裸流上显示出这一差别，在这个流上解码器先写出一个字节，然后才遇到一个无效的距离：`inflate_deferred_distance` 说模型接受这次调用，`inflate_deferred_distance_rejects_legacy_consistency` 说那个针对读过的全部内容的条件对它不成立。
 
-数据错误并不总是在它的起因之后八个字节以内被发现。带这个界的命题有反例，把常数调大也修不好。依赖它的模型目标 `Api.Goal.inflate_rejects_invalid` 未完成，也不在计划内（[进度](../progress.md)）。
+数据错误并不总是在它的起因之后八个字节以内被发现。带这个界的命题有反例，把常数调大也修不好。依赖它的模型目标 `Api.Goal.inflate_rejects_invalid` 未完成，也不在计划内（[进度](../progress.md#not-planned)）。
 
 错误可能出现在真实的输出之后：窗口是在调用结束时分配的，所以 `inflate` 可能在写出一些字节之后返回 `Z_MEM_ERROR`。`Goal.inflate` 保留了这种效果。
 

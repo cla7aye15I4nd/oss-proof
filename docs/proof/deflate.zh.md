@@ -1,11 +1,11 @@
-<!-- source-sha256: 4b226ba6a11f3313fb1f372f6804d3a7292768d61ef4577f474466ed55af33d5 -->
+<!-- source-sha256: a19173ce691f979a46a9fad438ca63de6f04809047a0c51988c6aa8a3a353529 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 本页讲的是 `zlib/deflate.c` 和它的翻译 `ZlibF/Zlib/deflate.c.lean`。
 
-`deflate` 和其他 `deflate*` 函数，对任意输入、对缓冲区的任意切分、对任意的压缩级别、`memLevel`、`windowBits`、策略、调优参数和头部，在任意一串被允许的调用上，都是安全的。证明由压缩器状态的一个不变量和三条引理组成：每个可达状态都满足不变量；从这样的状态再做一次调用是安全的；`deflateEnd` 释放一切。最难的一步是待输出字节与未读符号共用的那个缓冲区，见[树](trees.md#the-overlay-lemma-f9)。
+`deflate` 和其他 `deflate*` 函数，对任意输入、对缓冲区的任意切分、对任意的压缩级别、`memLevel`、`windowBits`、策略、调优参数和头部，在任意一串被允许的调用上，都是安全的。证明由压缩器状态的一个不变量和三条引理组成：每个可达状态都满足不变量；从这样的状态再做一次调用是安全的；`deflateEnd` 释放一切。最难的一步是待输出字节与未读符号共用的那个缓冲区：写一个块时，输出绝不能追上还没读的符号。本页和[树](trees.md#the-overlay-lemma-f9)页面把这条事实叫作 F9；树页面证明它。
 
-相关页面：[压缩器的源码笔记](deflate-source-notes.md)说明翻译怎样跟随 C；[默认配置引擎](deflate-default-engine.md)说明针对一种配置的功能结论。这个文件的内部契约是[内部契约](../spec/internal-contracts.md)中的 `I-fw-*`、`I-sh-*`、`I-hc-inv`、`I-lm-*` 和 `I-fp-*`；那里的 `I-pb-room` 涵盖 `deflate.h` 的宏 `put_byte`。
+相关页面：[压缩器的源码笔记](deflate-source-notes.md)说明翻译怎样跟随 C；[默认配置](deflate-default-engine.md)一页说明针对一种配置的功能结论。这个文件的内部契约是[内部契约](../spec/internal-contracts.md)中的 `I-fw-*`、`I-sh-*`、`I-hc-inv`、`I-lm-*` 和 `I-fp-*`；那里的 `I-pb-room` 涵盖 `deflate.h` 的宏 `put_byte`。
 
 ## 结论
 
@@ -281,14 +281,14 @@ stateDiagram-v2
 
 ## 功能结论
 
-这些结论说的是函数算出了什么。前两行的目标已完成。它们不是安全结论所必需的；除了已有定理的部分，功能正确性不在计划内。
+这些结论说的是函数算出了什么。前两行列出的目标已完成。它们不是安全结论所必需的。除了下面讲的往返，更多的功能结论不在计划内。
 
 | 结论 | 定理 |
 | --- | --- |
 | `Goal.deflate`：一次调用的完整契约，包括进展、返回码、计数、帧和所有权。`compress*` 的安全证明用到它 | `Zlib.Deflate.Universal.deflate_safety` |
-| 完整契约 `Goal.deflateInit_`、`Goal.deflateInit2_`、`Goal.deflateCopy`、`Goal.deflateEnd`、`Goal.deflateReset`，以及各查询函数的完整契约 | `deflateInit_proof`、`deflateInit2_proof`、`deflate_copy_public`、`deflate_end_public`、`deflate_reset_public` 等 |
-| 只针对默认配置的结论 | 见[默认配置引擎](deflate-default-engine.md) |
+| 完整契约 `Goal.deflateInit_`、`Goal.deflateInit2_`、`Goal.deflateCopy`、`Goal.deflateEnd`、`Goal.deflateReset`、`Goal.deflateGetDictionary`、`Goal.deflatePending`、`Goal.deflateUsed`、`Goal.deflateTune` 和 `Goal.deflateSetHeader` | `deflateInit_proof`、`deflateInit2_proof`、`deflate_copy_public`、`deflate_end_public`、`deflate_reset_public`、`deflate_getdict_public`、`pending_public`、`used_public`、`tune_public`、`header_public` |
+| 只针对默认配置的结论 | 见[默认配置](deflate-default-engine.md)一页 |
 
 对默认配置，`DeflateCore.correct` 说明：已完成的流按格式规格解码，得到的就是被接受的输入。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。
 
-默认 zlib 流的往返未完成。它的有条件形式有一条定理 `deflate_inflate_roundtrip`。它取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和调用组成，刷新值任意，缓冲区的切分任意，并且最后一次调用都返回了 `Z_STREAM_END`。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。没有定理陈述完备性（给够输出空间时，这些历史会到达 `Z_STREAM_END`），也没有定理陈述需要它的无条件往返。哪些在计划内，见[进度](../progress.md)。
+默认 zlib 流的往返（用 `deflate` 压缩，用 `inflate` 解压，得回输入）未完成。有一条定理 `deflate_inflate_roundtrip` 证明了它的有条件形式。它取一段以 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_` 开始的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和 `deflate`（或 `inflate`）调用组成，刷新值任意，缓冲区的切分任意；其中没有字典、重置或别的操作。如果两段历史的最后一次调用都返回了 `Z_STREAM_END`，并且 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。没有定理说两段历史都会到达 `Z_STREAM_END`，也没有定理陈述不带这个条件的往返。哪些在计划内，见[进度](../progress.md)。

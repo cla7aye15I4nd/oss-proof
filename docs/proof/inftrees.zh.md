@@ -1,4 +1,4 @@
-<!-- source-sha256: 66dc32e352b4ada9d1eefe3653339fbb2090d83731d92298745604f390044cfc -->
+<!-- source-sha256: 640ec428636bbda3973902dc9d0f71993954a4013efb59514c2094cc59b21497 -->
 # 解码表：`inflate_table` 为什么安全，它建的表为什么可以放心读
 
 源文件：`zlib/inftrees.c`。翻译：`ZlibF/Zlib/inftrees.c.lean`。

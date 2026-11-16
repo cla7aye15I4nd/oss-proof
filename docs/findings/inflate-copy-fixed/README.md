@@ -12,7 +12,8 @@ report and judge it without reading anything else.
   different objects). Inside the documented use of `inflateCopy`.
 - Reported by AddressSanitizer's pointer-pair check on unmodified upstream `develop` at commit
   `757f0527154291bcf6bfbd6396ecde6bedd2db95`, on x86_64 Linux and on arm64
-  macOS.
+  macOS. `inflate.c` is byte-identical in zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies,
+  so the statement is the same there; no run on that revision is recorded here.
 - No wrong result was observed: without the pointer-pair check the same program returns `Z_OK`
   from `inflateCopy`.
 - Fix submitted upstream as [PR #1369](https://github.com/madler/zlib/pull/1369). The maintainer

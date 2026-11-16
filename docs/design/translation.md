@@ -15,7 +15,7 @@ fidelity, not proof.
 A translation keeps the statements of the C function in their order. It does not reorder
 checks, drop a read or a write, or replace an algorithm. A proof that is hard is not a reason to
 change a translation. A mismatch with the C is a translation bug, and it is corrected against the
-C. The domain of a theorem is not narrowed to hide a difficulty either: a defect of the C is
+C. The domain of a theorem is not narrowed to hide a difficulty either. A defect of the C is
 called a confirmed finding only with a concrete input and a reproduction under a sanitizer.
 
 Four normalisations are accepted. They are listed with examples
@@ -225,8 +225,10 @@ The same representation is used for the scalar out-parameters of some public fun
 model as well: the caller's cell is not memory, so a cell that overlaps one of the buffers
 cannot be expressed, and the safety goal of the function says nothing about the cell's memory.
 This use is not one of the four accepted normalisations, which are worded for internal
-functions; whether these translations change to take the cell as memory is not decided. [Deviations](../deviations.md#stream-calls-inflate-and-deflate) has the rows
-"Result cells" and "Whole-buffer compression". The length cells
+functions; whether these translations change to take the cell as memory is not decided.
+[Deviations](../deviations.md) has the rows
+["Result cells"](../deviations.md#stream-calls-inflate-and-deflate) and
+["Whole-buffer compression"](../deviations.md#whole-buffer-utilities-and-checksums). The length cells
 of `uncompress*` and the `errnum` cell of `gzerror` are memory: eight-byte blocks and a four-byte
 block.
 
@@ -282,20 +284,19 @@ Lean's `Int32` subtraction wraps; C's is undefined on overflow. The subtraction 
 A signed operation with no such test uses a checked helper (`chkI32` in the second example).
 The helpers are listed in [architecture](architecture.md#where-the-trusted-semantics-is).
 
-<a id="forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided"></a>
 ## Forms not covered by the four accepted normalisations
 
 The translations contain at least the six forms below. None of the four accepted normalisations
 covers them as worded. They are recorded here as observed facts. It is not decided whether each
 form becomes an accepted normalisation or is changed to follow the C.
 
-The instances were found by comparing these places with the C by hand: every `>>>` and `<<<`
-outside the definitions of the checked shift helpers; every condition with `&&` or `||` that has
-an operand with `->` in the C or a nested action `(← …)` in the Lean; and every record update
-that sets two or more fields. The tables below are examples, not a complete inventory: more
-instances, and more forms, may exist. Forms 3 and 6 have no textual mark. No instance below was
-found to compute a different value from the C. That is a reading of each place, not a proved
-fact.
+The instances were found by reading the translations beside the C by hand, in particular at
+these places: every `>>>` and `<<<` outside the definitions of the checked shift helpers; every
+condition with `&&` or `||` that has an operand with `->` in the C or a nested action `(← …)` in
+the Lean; and every record update that sets two or more fields. The tables below are examples,
+not a complete inventory: more instances, and more forms, may exist. Forms 3 and 6 have no
+textual mark, so no such search finds them. No instance below was found to compute a different
+value from the C. That is a reading of each place, not a proved fact.
 
 **1. A value just stored is used again instead of being read back.**
 
@@ -476,10 +477,16 @@ copied beyond the initialised part of `prev` or of the match lookahead. A transl
 replace those contents by zero.
 
 A fresh pointer field is NULL in this model. That is weaker than C, where it is indeterminate.
-For every pointer field that is read from a newly allocated record, a translation comment names
-the earlier statement that writes it, and the proof establishes that order. A NULL comparison, a
-copy and a `free(NULL)` do not detect an unwritten field. A proof does not assume that repeated
-reads of an uninitialised cell agree, although the model gives the cell one stable value.
+A NULL comparison, a copy and a `free(NULL)` do not detect an unwritten field, so a missing
+write of a pointer field does not show in the model. That the C writes each pointer field of a
+newly allocated record before it reads it is **to confirm** by source review: no theorem states
+it, and none can in this model. What the proofs show is narrower: the invariant of each kind of
+state (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream and on every gz handle
+with a history, and the invariant says what the pointer fields it names hold
+([trusted base](../trusted-base.md#2-runtime-and-object-schema)).
+
+A proof does not assume that repeated reads of an uninitialised cell agree, although the model
+gives the cell one stable value.
 
 For a record type `K` of the schema, `K.zeroed` is the record after an actual whole-record
 zeroing statement in the C, and `K.garbage` is a fresh record. They are not interchangeable.

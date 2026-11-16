@@ -15,8 +15,10 @@ and has not been sent.
 - A memory error: a read of an uninitialised table entry, then a heap read outside the window.
 - Reported by AddressSanitizer and by valgrind on upstream `develop` at commit
   `757f0527154291bcf6bfbd6396ecde6bedd2db95`, on x86_64 Linux (GCC 14);
-  the same AddressSanitizer report on arm64 macOS. The patches of this repository do not touch
-  the deflate sources.
+  the same AddressSanitizer report on arm64 macOS. `deflate.c` differs between that commit and
+  zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies,
+  only in the copyright string. Of the patches of this repository only 0006 touches `deflate.c`:
+  it adds two lines to `deflateBound_z`, which this sequence does not call.
 - Outside the documented API: it needs a direct call of `deflateResetKeep`.
 - Not reported upstream. No patch: the proofs exclude the call
   ([deviations](../../deviations.md), row "Direct `deflateResetKeep`").
@@ -88,6 +90,9 @@ default allocator, valgrind in the same file:
 
 A run on arm64 macOS gave the same AddressSanitizer report at `deflate.c:1511`;
 valgrind was not available there.
+
+The line numbers above are those of the unpatched `deflate.c`. The script applies the patches of
+this repository, and with patch 0006 each of these lines is two lines lower in the file.
 
 ## Scope and severity
 

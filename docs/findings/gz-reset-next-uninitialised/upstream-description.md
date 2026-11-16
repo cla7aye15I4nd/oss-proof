@@ -4,7 +4,8 @@ One pull request covers
 [gz-reset-next-uninitialised](README.md) and
 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md); the diff is
 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch). Nothing has
-been sent.
+been sent. Of the runs listed under Testing, only the probe runs have retained output (the
+`report.txt` of the two findings).
 
 ---
 

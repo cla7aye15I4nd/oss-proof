@@ -1,7 +1,7 @@
-<!-- source-sha256: 7362eba122d1be294badd83595093e022f39f0a2627f4577f54a3bf4f1c28a3d -->
+<!-- source-sha256: 11d6d317fe8b3415119a596b83a7e08fd4bf8e0bf1d595c3a75ee77826b034c1 -->
 # 上游拉取请求草稿：gz 位置溢出
 
-一个拉取请求覆盖读写两侧（[gzread-pos-overflow](README.md)、[gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)）；改动是 [0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch)。尚未发送任何内容。（译注：向上游提交的是英文原文；下面是它的中文译文。）
+一个拉取请求覆盖读写两侧（[gzread-pos-overflow](README.md)、[gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)）；改动是 [0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch)。尚未发送任何内容。“测试”一节列出的运行中，两个 `run.sh` 脚本的历史有保留下来的输出（两个发现各自的 `report.txt`），其他运行没有。
 
 ---
 
@@ -39,7 +39,7 @@ gzwrite(f, buf, sizeof buf);  /* gzwrite.c: signed integer overflow: 92233720368
 
 **修复**
 
-读取：辅助函数 `gz_room()` 给出在不超过 `GZ_OFF_MAX` 的前提下还能交付多少字节。`gz_fetch` 最多填入这么多（至少一个，以便仍能检测到文件结束），这保持 `x.pos + x.have <= GZ_OFF_MAX`，从而 `gzgetc()` 宏保持有定义。`gz_read` 和 `gzgets` 最多交付这么多；无法交付的数据被丢弃，并给出 `Z_DATA_ERROR` "position overflow"。写入：`gz_write`、`gzputc`（快速路径）和 `gzprintf` 以 `Z_DATA_ERROR` "position overflow" 拒绝会使 `x.pos` 超过 `GZ_OFF_MAX` 的写入。低于 `GZ_OFF_MAX - 2 * size` 的位置行为与以前完全相同；到达界限时，文件结束像以前一样报告。
+读取：辅助函数 `gz_room()` 给出在不超过 `GZ_OFF_MAX` 的前提下还能交付多少字节。`gz_fetch` 最多填入这么多（至少一个，以便仍能检测到文件结束），这保持 `x.pos + x.have <= GZ_OFF_MAX`，从而 `gzgetc()` 宏保持有定义。`gz_read` 和 `gzgets` 最多交付这么多；无法交付的数据被丢弃，并给出 `Z_DATA_ERROR` "position overflow"。`gz_look` 中的透明复制也最多缓冲这么多字节，输入超出时设置同样的错误。写入：`gz_write`、`gzputc`（快速路径）和 `gzprintf` 以 `Z_DATA_ERROR` "position overflow" 拒绝会使 `x.pos` 超过 `GZ_OFF_MAX` 的写入。低于 `GZ_OFF_MAX - 2 * size` 的位置行为与以前完全相同；到达界限时，文件结束像以前一样报告。
 
 **测试**
 

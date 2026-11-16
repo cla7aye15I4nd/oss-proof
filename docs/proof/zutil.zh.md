@@ -1,4 +1,4 @@
-<!-- source-sha256: af13816d16c481fa9d72ffaa1e6d61a73e85fea45d1b79a2d985aa6007ff99b1 -->
+<!-- source-sha256: 04e51ee090d7ddadcbb05098f0b6322aa4f77146ea363f417fe081934c5b7497 -->
 # 工具函数：分配与常量查询
 
 `zutil.c` 包含默认分配器（`zcalloc`、`zcfree`）和三个常量查询。两个有文档的查询 `zlibVersion` 和 `zlibCompileFlags` 是安全的。分配器包装函数有精确的所有权效果：成功的分配增加一个存活块，失败的分配不增加任何块，释放恰好移除它的那个块。本页给出这些结论，并说明流证明从中取用哪些事实，又自己证明哪些事实。
@@ -14,7 +14,7 @@
 | `Goal.zError` | 非必需：`zlib.h` 把 `zError` 列为未文档化的函数 | `zError` |
 | 分配器包装函数 `zcalloc` 和 `zcfree` | 内部，供每个流证明使用 | `zcalloc_safe`、`zcalloc_correct_some`、`zcalloc_correct_size`、`zcalloc_correct_none`、`zcfree_safe`、`zcfree_correct`、`zcfree_correct_null`、`zcalloc_zcfree_no_leak` |
 
-以上全部已完成。
+前三行的五个目标已完成。最后一行的分配器包装函数定理已被证明；它们是引理，不是目标。
 
 `zcalloc` 和 `zcfree` 不是公开函数。流的无泄漏性是 [inflate](inflate.md) 和 [deflate](deflate.md) 的序列安全定理中的一个子句，这些定理在每次分配和释放处使用这些包装函数的结论。
 
@@ -67,4 +67,4 @@
 
 `zError` 在计算 `2 - err` 之前测试 `err` 的范围；如果先做减法，对任意的 `int` 可能溢出。169 这个值只对这个构建成立：其他的类型宽度或构建选项给出其他的标志。
 
-常量返回值仍然是一个精确的契约：翻译的一份副本如果返回错误的版本指针，或者改动了一个标志位，就通不过这个函数的证明。
+常量返回值仍然是一个精确的契约：翻译的一份副本如果对版本返回 `NULL` 或另一个字符串，或者改动了一个标志位，就通不过这个函数的证明。

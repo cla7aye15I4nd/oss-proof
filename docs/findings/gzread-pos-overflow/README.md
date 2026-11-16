@@ -16,7 +16,9 @@ and judge it without reading anything else. The write-side twin is
   `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this
   repository except 0004. It did not reproduce in a run on arm64 macOS with Apple clang. There `lseek` on
   `/dev/zero` accepted the offset and returned it, the reads delivered no byte past position
-  `INT64_MAX`, and the sanitizers reported nothing. No other system was tried.
+  `INT64_MAX`, and the sanitizers reported nothing. No other system was tried. `gzread.c` and
+  `gzlib.c` are byte-identical in zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies,
+  and the `gzgetc()` macro of `zlib.h` is unchanged; no run on that revision is recorded here.
 - Not submitted upstream. The verified source applies the local
   [patch 0004](../../../patches/README.md). A pull
   request text is drafted in [upstream-description.md](upstream-description.md).
@@ -130,7 +132,9 @@ by its only callers there, `gz_read` and `gzgets`, before they return (`gz_skip`
 bytes one at a time (the `gzgetc` function, the `gzgetc()` macro) and `gz_skip_have` need no
 check. The reproduction's `fast` run exercises these paths at `INT64_MAX - 2`.
 
-Checks of the patch: [upstream-description.md](upstream-description.md), section Testing.
+Checks of the patch: [upstream-description.md](upstream-description.md), section Testing. Retained
+output exists for the histories of the two `run.sh` scripts (this finding and the write side), not
+for the other runs listed there.
 
 ## Relation to the proofs
 

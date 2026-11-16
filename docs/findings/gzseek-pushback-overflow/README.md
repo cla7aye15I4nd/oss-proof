@@ -12,7 +12,9 @@ anything else. The test files are in
   documented use.
 - Reported by UndefinedBehaviorSanitizer on unmodified upstream `develop` at commit
   `757f0527154291bcf6bfbd6396ecde6bedd2db95`, on x86_64 Linux (GCC 15.2) and
-  on arm64 macOS (Apple clang 21).
+  on arm64 macOS (Apple clang 21). `gzlib.c` is byte-identical in
+  zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies;
+  no run on that revision is recorded here.
 - Fix submitted upstream as [PR #1361](https://github.com/madler/zlib/pull/1361). The pull request
   was open, with no answer from the maintainer, on 2026-11-14. The verified
   source applies the `gzlib.c` part as [patch 0002](../../../patches/README.md).

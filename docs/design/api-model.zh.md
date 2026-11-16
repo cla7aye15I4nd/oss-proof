@@ -1,7 +1,7 @@
-<!-- source-sha256: f251d00b175f28178cdb9542db7da84863f08cfb0175b8e5d897f191faf96756 -->
+<!-- source-sha256: 8f1d0c88b73fb89112f5515a27ea0ae9bdbfa5cdd17ab6bf749bbef18cef15d4 -->
 # API 模型
 
-API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料。没有安全目标使用它们，它们也不是安全结论所必需的（[进度](../progress.md)）。[各族详解](api-model-details.md)逐个说明每个模型。
+API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料，不是安全结论所必需的（[进度](../progress.md)）。没有安全目标使用它们，只有一个例外：`compressBound` 和 `compressBound_z` 的目标说的是翻译后的函数返回模型的上界公式 `compressBound`（[安全目标与功能目标](safety-functional-split.md)）。[各族详解](api-model-details.md)逐个说明每个模型。
 
 ## 两类命题
 
@@ -10,7 +10,7 @@ API 模型不涉及堆，它们描述公开调用计算什么：它们是字节�
 | 模型关系 | 字节历史，以及一次调用可以给出的结果。没有堆。 |
 | 具体目标（安全目标或功能目标） | 在运行时堆上运行的一次翻译后的调用，以及它的效果。 |
 
-关于模型关系的定理不是关于 C 函数的定理。例如，`ZlibF.Spec.Api.Goal.roundtrip` 是一条已证明的命题，但它只关于模型。计划中的默认 zlib 流往返是另一条命题：它说的是翻译后的 `deflate` 和 `inflate` 的运行。它的条件形式 `deflate_inflate_roundtrip` 的内容见[架构](architecture.md#the-layers)；完备性和无条件形式未完成（[进度](../progress.md)）。
+关于模型关系的定理不是关于 C 函数的定理。例如，`ZlibF.Spec.Api.Goal.roundtrip` 是一条已证明的命题，但它只关于模型。计划中的默认 zlib 流往返是另一条命题：它说的是翻译后的 `deflate` 和 `inflate` 的运行，它未完成。它的条件形式有一条定理 `deflate_inflate_roundtrip`，内容见[架构](architecture.md#the-layers)；完备性和无条件形式没有定理（[进度](../progress.md)）。
 
 一个功能性的结论要对 C 有所断言，需要三个联系：
 

@@ -1,9 +1,9 @@
-<!-- source-sha256: b79491d3f1372b8173278ef7d8d37f623aed2e369b79f852fbbb19837a3edcad -->
+<!-- source-sha256: ed2f0a8c3994bf4ce568c112614572724ae6a5b34924c0879d3d5f3ad69a29ed -->
 # 外部 I/O：文件、格式化与局部存储
 
 gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`close`、`fcntl`、`strerror`、`snprintf` 和 `vsnprintf`。本页说明这些调用的模型：记录 [`Fs`](../../ZlibF/Zlib/gzfs.lean) 以及它上面的操作。这个模型是被信任的：内核对照它检查证明，但不对照 Linux 检查它本身（[可信基础](../trusted-base.md)）。
 
-要点是：每个系统调用都可以返回其 POSIX 契约允许的任何结果，由一个预言选择；gz 接口的安全性是对每一个预言证明的（`Goal.gz_sequence_safety`；[gzip 文件](../proof/gzip.md)）。这个结果的前提见[偏离记录](../deviations.md#gzip-file-interface)。
+要点是：每个系统调用都可以返回其 POSIX 契约允许的任何结果，由一个预言选择；gz 接口的安全性是对每一个预言证明的（`Goal.gz_sequence_safety`；[gzip 文件](../proof/gzip.md)）。这个结果的前提见[偏离记录](../deviations.md#gzip-file-interface)。其中一条与预言有关：只有在描述符的读取预算有限时，才证明了读取类调用会返回（[见下文](#the-os-oracle)）。
 
 ## 堆之外的世界
 
@@ -14,7 +14,7 @@ gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`cl
 - 描述符是 C 的 `int`。
 - `Fs` 还保存下文说明的预言。
 
-`FileSystem fs` 是世界的良构条件：描述符和名字指向存在的节点，位置和文件大小至多为 `2^63 - 1`，目录不会以写方式打开。它只约束文件部分；预言的每个取值都是允许的。
+`FileSystem fs` 是世界的良构条件：描述符和名字指向存在的节点，位置、文件大小和文件大小限制至多为 `2^63 - 1`，目录不会以写方式打开。它只约束文件部分；预言的每个取值都是允许的。
 
 ## 操作系统预言
 
@@ -35,7 +35,9 @@ gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`cl
 
 有两种结果被模型排除。它们是关于 Linux 的被信任的事实，不是某个定理的前提：对非空缓冲区的 `write` 从不返回 0；`close` 失败时也释放描述符。
 
-预言就是 `Fs` 的字段 `nos`、`readChoice`、`writeChoice`、`lseekChoice`、`closeFail`、`openFail`、`openFd`、`okErrno` 和 `readBudget`。它们的默认值给出普通文件行为，只供差分测试使用；每个目标都对所有世界量化。
+读取预算是用来说明读取何时结束的。`zlib.h` 对输入没有设上限，而一个永不结束的输入源在 C 里会让一次 `gzread` 调用永远运行下去。对那些一直读到输入结束的调用（`gzread`、`gzfread`、`gzgetc`、`gzgets`、`gzungetc`），gz 安全目标有两部分。在每个世界上，调用不发生故障，只可能有 `Fault.outOfFuel`。当描述符的读取预算低于 `2^61` 字节时（`ReadsFinite`），调用返回。其他每个 gz 调用都证明了在每个世界上返回（[偏离记录](../deviations.md#why-a-read-budget)）。
+
+预言就是 `Fs` 的字段 `nos`、`readChoice`、`writeChoice`、`lseekChoice`、`closeFail`、`openFail`、`openFd`、`okErrno` 和 `readBudget`。它们的默认值给出普通文件行为，只供差分测试使用；gz 接口的每个安全目标都对所有世界量化。
 
 ## 错误文本
 

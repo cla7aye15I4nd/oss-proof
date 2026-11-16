@@ -1,4 +1,4 @@
-<!-- source-sha256: 43f8cf20c9e85d2bf422703f6771fd78f2bbd50ff346d72087db00888d724af3 -->
+<!-- source-sha256: b3bd97ff3f31d3ef4413f1d345434782bfd0ce47a52d27289f01046b6844f9ab -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -108,21 +108,21 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 
 ## 源码报告与补丁
 
-不变量之所以是这个形式，是因为针对未打补丁的 C 的六份报告。标签 R-1 到 R-4、F-1 和 W7 是这些报告在
-`patches/README.md` 和[发现](../findings.md)中的名字。补丁以 `patches/README.md` 中的列表为准。
+不变量之所以是这个形式，是因为未打补丁的 C 有六处缺陷。下表每处一行。[发现](../findings.md)列出它们及其复现；补丁以
+`patches/README.md` 中的列表为准。
 
-- R-1 和 R-2 已在 sanitizer 下复现。它们的修复已提交上游，并作为补丁 0002 和 0003 应用。
-- F-1 和 W7 已在 sanitizer 下复现。R-3 和 R-4 按 C 的条文是未定义的，没有 sanitizer 报告它们。这四项的修复是本地补丁 0004 和
-  0005，它们没有提交上游。
+- 负的定位位置，以及部分读取之后出错，这两项已在 sanitizer 下复现。它们的修复已提交上游，并作为补丁 0002 和 0003 应用。
+- 两项位置溢出已在 sanitizer 下复现。未写入的指针和调用者缓冲区的生命期这两项，按 C 的条文是未定义的，没有 sanitizer
+  报告它们。这四项的修复是本地补丁 0004 和 0005，它们没有提交上游。
 
 | 情形 | 未打补丁的 C 的行为 | 修复与证据 |
 | --- | --- | --- |
-| R-1：负的定位位置 | 在一开始的 `gzungetc` 之后，`GZ_OFF_MAX - pos` 或者后来的位置差使有符号 64 位算术溢出。 | 已复现：[gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md)。上游 [PR 1361](https://github.com/madler/zlib/pull/1361)，作为补丁 0002 应用。该拉取请求处于打开状态。 |
-| R-2：部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已复现：[gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md)。上游 [PR 1363](https://github.com/madler/zlib/pull/1363)，作为补丁 0003 应用。该拉取请求处于打开状态。 |
-| R-3：未写入的指针 | `gz_reset` 没有写 `x.next`；`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-reset-next-uninitialised/README.md)，用探针展示。本地补丁 0005 只在计数非零时推进 `x.next`。初始化为 `NULL` 不行：`NULL + 0` 在 C 中是未定义的。 |
-| R-4：调用者缓冲区的生命期 | 直接读取把 `x.next` 指进调用者的缓冲区，并在 `x.have = 0` 时保留它。调用者释放缓冲区之后，`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-next-dangling-after-direct-read/README.md)，用探针展示。本地补丁 0005。`gzseek64_dangling_next_ok` 表明打过补丁的定位不使用这个指针。 |
-| F-1：读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已复现：[gzread-pos-overflow](../findings/gzread-pos-overflow/README.md)。本地补丁 0004 在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
-| W7：写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已复现：[gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md)。本地补丁 0004 拒绝会越过 `GZ_OFF_MAX` 的写入。 |
+| 负的定位位置 | 在一开始的 `gzungetc` 之后，`GZ_OFF_MAX - pos` 或者后来的位置差使有符号 64 位算术溢出。 | 已复现：[gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md)。上游 [PR 1361](https://github.com/madler/zlib/pull/1361)，作为补丁 0002 应用。该拉取请求处于打开状态。 |
+| 部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已复现：[gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md)。上游 [PR 1363](https://github.com/madler/zlib/pull/1363)，作为补丁 0003 应用。该拉取请求处于打开状态。 |
+| 未写入的指针 | `gz_reset` 没有写 `x.next`；`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-reset-next-uninitialised/README.md)，用探针展示。本地补丁 0005 只在计数非零时推进 `x.next`。初始化为 `NULL` 不行：`NULL + 0` 在 C 中是未定义的。 |
+| 调用者缓冲区的生命期 | 直接读取把 `x.next` 指进调用者的缓冲区，并在 `x.have = 0` 时保留它。调用者释放缓冲区之后，`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-next-dangling-after-direct-read/README.md)，用探针展示。本地补丁 0005。`gzseek64_dangling_next_ok` 表明打过补丁的定位不使用这个指针。 |
+| 读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已复现：[gzread-pos-overflow](../findings/gzread-pos-overflow/README.md)。本地补丁 0004 在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
+| 写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已复现：[gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md)。本地补丁 0004 拒绝会越过 `GZ_OFF_MAX` 的写入。 |
 
 ## 历史
 
@@ -182,7 +182,7 @@ flowchart TD
     M --> R
 ```
 
-一个调用的安全性只有一种形状，`GzCallSafe i call`：对每个堆、每个世界、每个满足 `GzInv`
+一个调用的安全性只有一种形状，`GzCallSafe i call`：对每个堆、每个良构的世界、每个满足 `GzInv`
 的记录和每个符合要求的参数，子句 2 的三部分成立。*叶引理*是为一个公开函数证明 `GzCallSafe` 的引理。
 
 组装 `gz_sequence_safety_of` 有两步。
@@ -274,7 +274,7 @@ flowchart TD
 ### 新分配的记录的指针字段
 
 `gz_open` 不写 `strm.state`、`strm.next_in` 和 `x.next`。在模型中，新分配的指针是 `NULL`。在 C
-中它是不确定的，读它是未定义的（[安全性，第 3 节](../spec/safety.md#uninitialised-memory)）。
+中它是不确定的，读它是未定义的（[安全性，未初始化内存](../spec/safety.md#uninitialised-memory)）。
 
 - `strm.state` 和 `strm.next_in`：不变量写明 `size = 0` 时 `strm.state = NULL`。证明表明的是翻译的安全性。它没有表明读取了不确定指针的
   C 代码会被发现：这是[可信基础](../trusted-base.md)第 2 节的模型缺口。**尚未确认**，须由源码审查确认：在 `gz_look` 或 `gz_init`
@@ -313,9 +313,9 @@ flowchart LR
 | --- | --- |
 | `gz_look_safe` | `gz_look` 是安全的。 |
 | `gz_decomp_safe_of` | `gz_decomp` 是安全的，条件是从模式 `BAD` 或 `MEM` 出发的 `inflate` 调用不移动两个缓冲区中的任何一个。这个事实是 `inflateStuckNoOutput_holds`。 |
-| `gz_fetch_safe_of` | `gz_fetch` 是安全的，条件是上面两条。 |
+| `gz_fetch_safe_of` | `gz_fetch` 是安全的，条件是 `gz_look` 和 `gz_decomp`。 |
 | `gzSkipRead_holds` | `gz_skip` 是安全的，条件是 `gz_fetch`。 |
-| `gz_read_safe_of` | `gz_read` 是安全的，条件是上面三条。 |
+| `gz_read_safe_of` | `gz_read` 是安全的，条件是 `gz_skip`、`gz_fetch` 和 `gz_decomp`。 |
 | `gzread_step`、`gzfread_step` | 公开调用，由 `gz_read` 得出。 |
 
 每个内嵌的 `inflate` 调用都使用[流式解码](inflate.md)中关于流的结论：内嵌的流是可达的，所以单次调用的完整契约适用。
@@ -376,9 +376,12 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 和 `gzclose_w_step`。它们使用 `gz_error` 的事实，这些事实由不变量推出。
 
 `gz_comp` 的循环在每个世界中都终止，不需要预算。写出循环以还要写的字节为度量，透明循环以待处理的输入为度量。两者都下降，因为对非空缓冲区的
-`write` 返回 `-1`，或者返回 1 到长度之间的一个计数。这就是[上文](#trusted-not-in-the-statement-the-world-model)关于 `write`
-的受信任事实。一个永远返回 0 的 `write` 会让 `gz_comp` 在 C 中空转。deflate
-循环有它自己的度量，只要循环继续，它就下降。
+`write` 返回 `-1`，或者返回 1 到长度之间的一个计数（`fsWrite_contract`）。这就是[上文](#trusted-not-in-the-statement-the-world-model)关于
+`write` 的受信任事实。deflate 循环有它自己的度量，只要循环继续，它就下降。
+
+模型中没有哪个世界的 `write` 会对非空缓冲区返回 0，所以对于有这种 `write` 的系统，目标什么都没有说。对模型中的世界，子句 2 的 (b)
+部分说每个写调用都会返回。**尚未由证明确认**：按对 C 的解读，一个永远返回 0 的 `write` 会让 `gz_comp`
+永远循环，因为两个写循环在计数为 0 时都不前进。没有定理陈述这一点。
 
 `gzvprintf` 在 `next[size - 1]` 处写一个哨兵，并以容量 `size` 做格式化。长度落在 `1..size-1` 之外，或者哨兵丢失，`gzvprintf` 就拒绝这个结果。
 
@@ -441,4 +444,4 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 - 其余 24 个功能契约：`Goal.gzopen`、`Goal.gzopen64`、`Goal.gzclose`、`Goal.gzclose_r`、`Goal.gzclose_w`、`Goal.gzread`、`Goal.gzfread`、`Goal.gzgetc`、`Goal.gzgetc_`、`Goal.gzungetc`、`Goal.gzgets`、`Goal.gzdirect`、`Goal.gzwrite`、`Goal.gzfwrite`、`Goal.gzputc`、`Goal.gzputs`、`Goal.gzprintf`、`Goal.gzvprintf`、`Goal.gzflush`、`Goal.gzsetparams`、`Goal.gzseek`、`Goal.gzseek64`、`Goal.gztell`
   和 `Goal.gztell64`；
 - 功能序列目标 `Goal.gz_sequence`；
-- `gzopen` 的功能契约 `Goal.gz_initialisation_domain`。
+- `Goal.gz_initialisation_domain`：模式串有效、世界的 `open` 成功且没有分配失败时，`gzopen` 返回一个处于初始状态的句柄；并且每个有效的模式都有一次具体的成功打开。

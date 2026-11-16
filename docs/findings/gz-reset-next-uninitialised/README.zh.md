@@ -1,11 +1,11 @@
-<!-- source-sha256: fdd553e54979add6bd6ab801ab2f43cc2483422b5457254b08cfb77423ab08f9 -->
+<!-- source-sha256: fb223620e3165fab4aef7cf90c0c7e5b5a14cb71159db42045d5571cc45fe307 -->
 # gz_reset 从不写入 x.next；gzseek 和 gzdirect 却读取它
 
 对一个新的读取者，`gz_open` 和 `gz_reset` 都不写入其状态中的指针 `x.next`。在还没有任何输出时调用 `gzseek` 和 `gzdirect`，会给这个从未写入的指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
 
 状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。被验证的源码中由本地补丁 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁没有提交上游。同一补丁也修复 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)。
 
-源码：上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。[gzip 证明页](../../proof/gzip.md)针对的是打上全部补丁的源码。
+源码：上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。`gzlib.c` 和 `gzread.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。[gzip 证明页](../../proof/gzip.md)针对的是打上全部补丁的源码。
 
 ## 问题
 

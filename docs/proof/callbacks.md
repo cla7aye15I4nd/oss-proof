@@ -46,7 +46,7 @@ Each function also has a functional contract (`Goal.inflateBackInit_`, `Goal.inf
    `NULL` and writable for `wsize` bytes).
 3. One more `inflateBack` call returns without a fault, for every caller protocol in the
    domain below. Its result is `Z_STREAM_END`, `Z_DATA_ERROR` or `Z_BUF_ERROR`. The state
-   stays valid over the same window. The call changes only the stream record, the state
+   stays valid over the same window, and the protocol's invariant holds again. The call changes only the stream record, the state
    record, the callbacks' own blocks and the window slice (`CallbackFrame`). The live blocks
    outside the callbacks' own are unchanged, so the library leaks nothing.
 4. `inflateBackEnd` on every reachable history returns `Z_OK`, frees the state block and
@@ -183,10 +183,11 @@ window is writable. This is what the library provides at each call of `in` and `
 premise is needed. Without it no protocol exists: `local_` makes the invariant insensitive to
 every block outside `own`, and `disjoint` puts the state block outside `own`. The invariant
 would then also hold on a heap whose state block holds two objects, and no step from that heap
-can end in a well-formed heap with that block unchanged. Both facts have Lean proofs: a
-protocol whose steps are required on every heap has an invariant that nothing satisfies, and
-every such protocol is also a protocol with the `CallbackEntry` premise. So the premise makes
-the goals stronger, not weaker.
+can end in a well-formed heap with that block unchanged. Both facts have Lean proofs, which
+are not among the theorems of the library. First, a protocol whose steps are required on every
+heap that satisfies its invariant has an invariant that no heap and log satisfy. Second, every
+such protocol is also a protocol with the `CallbackEntry` premise, with the same invariant. So
+the premise makes the goals stronger, not weaker.
 
 `Goal.inflateBack_call_domain` shows that the premises can be met. It gives a concrete
 history: `inflateBackInit_` on the witness heap, then a caller's edit of `next_in` and

@@ -8,7 +8,9 @@ part of the zlib API.
 ## Status
 
 - Reproduced on upstream `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95`,
-  on arm64 macOS, with no sanitizer.
+  on arm64 macOS, with no sanitizer. `deflate.c` differs between that commit and
+  zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies,
+  only in the copyright string; no run on that revision is recorded here.
 - Whether it is a zlib bug is not yet checked with upstream: zlib.h does not document the
   intended use of `deflateResetKeep`.
 - Not reported upstream. No patch: the proofs exclude a direct `deflateResetKeep`
@@ -48,7 +50,7 @@ cc -I zlib docs/findings/deflate-resetkeep-stale-hash/repro.c \
 ./stale-hash
 ```
 
-Output of a run on arm64 macOS (exit status 1):
+Output of a run on arm64 macOS (exit status 1). It is kept only on this page:
 
 ```
 MISMATCH seed 13 level 8 wb 15 mem 3 alpha 5 na 508 nb 1292 rc 1 got 1292 first diff 680

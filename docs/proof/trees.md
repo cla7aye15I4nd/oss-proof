@@ -40,14 +40,16 @@ The theorems of the table serve the proof of
 Functional theorems also exist (`gen_bitlen_correct`, `pqdownheap_correct`,
 `bi_reverse_correct` and others: the lengths form a complete prefix code, the bits written are
 the ones intended). They are proved, and they are not required for the safety results. No
-theorem says that the emitted block decodes to the recorded symbols.
+theorem for every configuration says that the emitted block decodes to the recorded symbols.
+For the default configuration, a completed stream is proved to be a valid zlib stream for its
+input; see [the default configuration](deflate-default-engine.md).
 
 ## Assumptions
 
 `flush_block_only_safe` is a theorem about an internal step of `deflate`, not about a public
-function. Its premises are facts about the compressor state, and the strategies prove them at every flush
-from the invariant `DInv` ([stream compression](deflate.md#the-invariant)). The list has every
-premise of the Lean statement.
+function. Its premises are facts about the compressor state, and the strategies prove them at
+every flush from the invariant `DInv` ([stream compression](deflate.md#the-invariant)). The
+list has every premise of the Lean statement.
 
 - The state is well formed (`DGood`, `TreesInvAt`): array sizes, tree descriptors, the block
   that holds `pending_buf` and `sym_buf`.
@@ -262,7 +264,8 @@ bytes each, and number `n ≤ B - 1`. Symbol `k` is at `[B + 3k, B + 3k + 3)`.
 
 and when the block is complete, with its end code and the final alignment, it fits in `4B`
 bytes (block room). The 15 bits of slack cover the bits held in `bi_buf` and the two-byte step
-of `send_bits`. In Lean this is `DynamicRoom` for the dynamic form; it is written with the entry state and the bit costs of the header and of each symbol.
+of `send_bits`. In Lean this is `DynamicRoom` for the dynamic form; it is written with the
+entry state and the bit costs of the header and of each symbol.
 
 A symbol frees 24 bits of buffer when it is read. So the question is how much more than 24
 bits a symbol's code can take, and how many bits the block header takes before the first
@@ -330,9 +333,9 @@ symbol and the up to two symbols that `build_tree` adds. With `n ≤ B - 1` the 
 node that deep forces a total weight of at least `F(16) + F(15) = 1597`. So `gen_bitlen` repairs
 nothing in the two data trees
 (`ws_gen_bitlen_fib_plus`), every length is the true depth, and each symbol satisfies
-`f * F(l + 1) + F(l) ≤ W`. Under that constraint the largest possible excess is 1777 bits for a
-weight of at most 514 and 3678 bits for a weight of at most 1026
-(`symbol_excess_from_fib_plus`).
+`f * F(l + 1) + F(l) ≤ W`. Under that constraint the excess is at most 1777 bits for a weight
+of at most 514 and at most 3678 bits for a weight of at most 1026 (`prepared_excess_small`,
+from `symbol_excess_from_fib_plus`).
 
 **`B = 256` and `128`.** The general header bound is too large here: `2283 > 2048`. The proof
 bounds the header of the block at hand. It is `14 + 3 (max_blindex + 1)` bits, at most 71, plus
@@ -357,8 +360,7 @@ exactly.
 
 The largest bound is that of `compress_block`: a block has at most `B - 1 ≤ 32767` symbols.
 The bounds of the other loops are a few hundred rounds at most. All are far below the loop
-fuel of `2^64`. The safety theorems
-named above include termination.
+fuel of `2^64`. The safety theorems named above include termination.
 
 ## Where the hard part is
 

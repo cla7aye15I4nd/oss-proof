@@ -10,7 +10,8 @@ each step keeps it, and why the decoding loop ends.
 
 It builds on [decode tables](inftrees.md) and [fast decoding](inffast.md). Notes on how the
 translation follows the C are in [source notes for the decoder](inflate-source-notes.md). The
-internal contract of `updatewindow` is in [internal contracts](../spec/internal-contracts.md).
+internal contract of `updatewindow` is in
+[internal contracts](../spec/internal-contracts.md#preserve-decoder-history-updatewindow).
 
 ## Results
 
@@ -75,11 +76,11 @@ it as its first clause, and `Goal.inflateCopy_safety` has a clause for a refused
   it was given: the translation passes that result cell as a value.
 
 A record with `zalloc` and `zfree` set whose `state` field holds a garbage pointer, a pointer
-to a freed state or a pointer to a deflate state is outside these clauses; the row "Refused streams" of
-[deviations](../deviations.md) says why.
+to a freed state or a pointer to a deflate state is outside these clauses; the row "Refused
+streams" of [deviations](../deviations.md) says why.
 
-How the refusal clauses are proved. No clause needs a lemma about the C of its own. Seven clauses are
-the clauses of `inflate_refusal`. Those of `inflatePrime` and `inflateMark` are the refusal
+How the refusal clauses are proved. No clause needs a lemma about the C of its own. Seven
+clauses are the clauses of `inflate_refusal`. Those of `inflatePrime` and `inflateMark` are the refusal
 clause of the function's functional goal (`CheckedInflate`). Those of `inflateSync` and
 `inflateGetHeader` come from the lemmas `inflateSync_check` and `inflateGetHeader_check`, which
 are stated for a stream that the check can read and that is not initialised (`StreamDom`,
@@ -274,14 +275,14 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 - Third case: a first `memcpy` of `wsize - wnext` bytes to the end of the block, then a second
   of the rest to index 0. The window is full afterwards.
 
-`updatewindow_safe` proves that the call never faults and gives `Good` again. If the window has to be allocated and the allocation fails, the call returns
-1, the state is unchanged, and only the allocation counter moved.
+`updatewindow_safe` proves that the call never faults and gives `Good` again. If the window has
+to be allocated and the allocation fails, the call returns 1, the state is unchanged, and only
+the allocation counter moved.
 
 ## Why each step keeps the invariant
 
-`reachable_invariant_kind` proves, by induction on the history,
-that every reachable stream has `InflateInv` and `DecoderHeldBits`. Each case of the induction
-is a theorem.
+`reachable_invariant_kind` proves, by induction on the history, that every reachable stream
+has `InflateInv` and `DecoderHeldBits`. Each case of the induction is a theorem.
 
 | Step | Theorem | Why it holds |
 | --- | --- | --- |
@@ -304,8 +305,8 @@ also needs the frame and the ledger of each call. Those are `inflate_call_safe` 
 
 ### Inside one `inflate` call {#the-mode-proof}
 
-`inflate_call` covers a call whose entry checks pass and whose
-mode is not `SYNC`. `inflate_call_refused` covers the calls that
+`inflate_call` covers a call whose entry checks pass and whose mode is not `SYNC`.
+`inflate_call_refused` covers the calls that
 return `Z_STREAM_ERROR` on a stream that passes the state check: `next_out` is `NULL`, or
 `next_in` is `NULL` with `avail_in != 0`, or the mode is `SYNC`. The first two are refused by
 the entry test. A stream in mode `SYNC` passes the entry test and is refused in the switch
@@ -386,9 +387,9 @@ Each group of modes has a lemma that says "leaves, or the rank falls":
 The fast path counts as one iteration. A fast call ends in one of three ways. It ends the block
 and sets mode `TYPE` (credit 8), or it finds an error and sets mode `BAD` (credit 1); both are
 below the credit of `LEN` (21), and a fast call creates no mass. Or it keeps the mode, and then
-it has written at least one byte. `inflate_fast_default_view_buffers_progress` states the three cases for every layout;
-`inflate_fast_safe_progress` states the same for the entry conditions of
-[fast decoding](inffast.md).
+it has written at least one byte. `inflate_fast_default_view_buffers_progress` states the
+three cases for every layout; `inflate_fast_safe_progress` states the same for the entry
+conditions of [fast decoding](inffast.md).
 
 The translation's loops carry a fuel of `2^64` iterations, and running out is a fault. With
 `bits ≤ 39` and 32-bit `have` and `left`, the rank is below the fuel (`dispatchRank_fuel`), so
@@ -453,7 +454,7 @@ round trip `deflate_inflate_roundtrip` says: when such a history and a
 default `deflate` history both end with `Z_STREAM_END`, and the decoder consumed a prefix of
 the bytes the encoder wrote, the decoder's output equals the encoder's input. Both theorems
 are conditional: they assume that the calls reach `Z_STREAM_END`. Completeness (that they do)
-and the unconditional round trip are not done ([progress](../progress.md)).
+and the unconditional round trip are not done ([progress](../progress.md#scope)).
 
 For the other configurations (raw and gzip streams, other window widths, preset dictionaries,
 resets) no theorem says that the output of `inflate` equals the meaning of the input.
@@ -467,14 +468,17 @@ zlib bug.
 A decoded symbol is supported by a prefix of the input bits. The decoder may have read further:
 `inflate_fast` pulls whole bytes ahead and gives the unused ones back. A statement that
 requires the output to agree with everything the decoder has read is false, because bytes
-read ahead can be malformed while the symbols already decoded are valid. The relation used
-ties each symbol to its supporting bits only (`inflate_deferred_distance` and
-`inflate_deferred_distance_rejects_legacy_consistency`).
+read ahead can be malformed while the symbols already decoded are valid. The relation of the
+abstract model of `inflate` ties each symbol to its supporting bits only. Two theorems about
+that model show the difference on one raw stream, in which the decoder writes a byte before it
+meets an invalid distance: `inflate_deferred_distance` says that the model admits that call,
+and `inflate_deferred_distance_rejects_legacy_consistency` says that the condition on
+everything read is false for it.
 
 A data error is not always detected within eight bytes of its cause. A statement with that
 bound has a counterexample, and a larger constant would not repair it. The model goal that
 rests on it, `Api.Goal.inflate_rejects_invalid`, is not done and not planned
-([progress](../progress.md)).
+([progress](../progress.md#not-planned)).
 
 An error can follow real output: the window is allocated at the end of a call, so `inflate` can
 return `Z_MEM_ERROR` after it has written bytes. `Goal.inflate` keeps that effect.

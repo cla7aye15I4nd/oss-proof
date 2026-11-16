@@ -1,4 +1,4 @@
-<!-- source-sha256: 6f1eb47f7ee0e60787d09302f2ae488f14d0dcee49cf45ef96eb46af20e656b4 -->
+<!-- source-sha256: d1434a77f28b5ed08aef2b87e58479f1ac83ea1b240a6db844d244412030733b -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -154,7 +154,7 @@ I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就
 
 两个余量都很小，而且恰好够用。循环之所以安全，只是因为一轮绝不会读第七个字节，而这一点在任何单独一条语句里都看不出来：它来自四处补位与表所允许的位数之间的相互作用。证明在堆上、对每一张形状安全的表，照着上面论证里同样的分情形方式进行。
 
-第二个难点是输出块。它在同一轮里既被读又被写，匹配的源可以与目的重叠，输入和输出还可能是同一个块里的两段：真实的 C 在这种布局下解码正确，sanitizer 没有任何报告。因此循环不变量跟踪的是整个输出数组，而不是分开的“旧”字节和“新”字节两个视图。
+第二个难点是输出块。它在同一轮里既被读又被写，匹配的源可以与目的重叠，输入和输出还可能是同一个块里的两段：在 sanitizer 下运行，真实的 C 在这种布局下解码正确，没有任何报告。因此循环不变量跟踪的是整个输出数组，而不是分开的“旧”字节和“新”字节两个视图。
 
 ## 没有定理陈述的 C 解读
 
@@ -170,4 +170,4 @@ I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就
 | 查长度表或距离表得到的是格式规定的符号 | `length_lookup_matches_format`、`distance_lookup_matches_format` |
 | 匹配复制就是格式中的 LZ77 复制 | `actual_distance_refines_lz77`、`actual_copy_match_refines_lz77` |
 
-这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning` 把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然能按格式的规定解析；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是带条件的往返定理的一步（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。
+这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning` 把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然能按格式的规定解析；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是有条件的往返定理的一步（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。
