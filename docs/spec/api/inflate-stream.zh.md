@@ -1,4 +1,4 @@
-<!-- source-sha256: 96f02b66f31a6660289fa586d57dc2967e533715e2e9d4579174849b743355bf -->
+<!-- source-sha256: 631a0c5e1d78bd317cbf3ebe1f8b74bf4671d2884c2904a0685c2f2cde7bee62 -->
 
 # 流式解压
 
@@ -640,14 +640,14 @@ gzip 头可以带有 extra 字节、文件名和注释。调用者分别提供�
 - **适用条件。** 拒绝子句要求 `strm` 是被拒绝的流（`RefusedInflate`）。对可达流的调用要求（`StreamCallDomain`）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
-    3. `head` 不为 NULL，指向一个存活的头部记录，且该记录不是流自己的块；它的 `extra`、`name`、`comment` 指针各自为 NULL，或分别指向 `extra_max`、`name_max`、`comm_max` 个可写字节，且这些字节在流自己的块之外（`HeaderMemory`）。
+    3. `head` 不为 NULL，指向一个存活的头部记录，且该记录不是流自己的块；它的 `extra`、`name`、`comment` 指针各自为 NULL，或分别指向 `extra_max`、`name_max`、`comm_max` 个可写字节，且这些字节在流自己的块之外（`HeaderMemory`；`head` 不为 NULL 这一条由 `StreamArguments` 另加）。
 - **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：流不必支持 gzip，解码也可以已经开始。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块和头部记录 `head`。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `head` 为 NULL：在所有目标之外；C 会通过这个指针写入（见[偏离记录](../../deviations.md)中“头部参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`（不在计划内；已有定理证明它）。
+- **不在本目标内。** 对可达流调用而 `head` 为 NULL：在所有安全目标之外（见[偏离记录](../../deviations.md)中“头部参数”一行）。流支持 gzip 时，C 会通过这个指针写入。流不支持 gzip 时，C 在用到 `head` 之前就返回 `Z_STREAM_ERROR`；功能目标 `Goal.inflateGetHeader` 陈述了这个返回值，而安全目标不覆盖这个调用。流被拒绝而 `head` 为 NULL 的调用由拒绝子句覆盖。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>完整返回条件与边界</summary>
 
