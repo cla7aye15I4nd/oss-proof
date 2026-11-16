@@ -58,7 +58,7 @@ fewer than `2^63` bytes, with its string arguments (`path`, `mode`) NUL-terminat
 | Invariant | Every history leaves a well-formed world and the handle in its invariant (`GzInv`). |
 | No fault | The next call, in every world, does not end in undefined behaviour or a memory error. The only error it can end in is running out of loop fuel. No premise beyond the arguments. |
 | Termination | The next call returns. `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets` and `gzungetc` need the read budget below for this. Every other call returns in every world. |
-| Frame and ledger | A call that returns keeps the set of open descriptors, keeps `GzInv`, the mode and the descriptor, writes only the handle's own blocks and the caller regions named below, and changes the live blocks exactly by the handle's ledger (`GzStepPost`). |
+| Frame and ledger | A call that returns keeps the set of open descriptors, keeps `GzInv`, the mode and the descriptor, writes only the handle's own blocks and the caller regions named below, and changes the live blocks exactly by the handle's ledger (`GzStepPost`). The ledger is the allocation account ([safety](../safety.md#the-leak-ledger)): every block the call allocates is owned by the handle afterwards, and every block it frees was owned by the handle before. |
 | `gzerror` | The pointer it returns is a readable NUL-terminated string in the heap after the call. In the C it is a literal or the handle's message; the goal states only that it is a readable string. |
 | Close | `gzclose`, `gzclose_r` and `gzclose_w` return in every world. A close of the wrong mode refuses and changes nothing. Otherwise the handle record and every owned block are freed, nothing else changes, and the descriptor is released, also when the system `close` fails. No return code is claimed. |
 | Open | `gzopen`, `gzopen64` and `gzdopen` return for every world and every allocation outcome and change no existing block. A NULL result leaves no new block; for `gzopen` and `gzopen64` it also leaves the same open descriptors. A handle is in `GzInv` and owns exactly the new blocks. `gzdopen` opens and closes no descriptor. |
@@ -123,13 +123,13 @@ system. They are not planned. Each entry says whether a theorem proves its funct
 
 ## Common handle conditions
 
-There are two positions. The **logical position** counts uncompressed bytes; ordinary reads and writes advance it by the amount consumed or accepted, and a seek can also record a forward move that is not yet carried out. The underlying file has a **physical offset**, which counts bytes of the file. `gztell` queries the first and `gzoffset` the second. The library reads ahead and buffers, so the two values usually differ; a compression ratio cannot convert one into the other.
+There are two positions. The **logical position** counts uncompressed bytes; ordinary reads and writes advance it by the amount consumed or accepted, and a seek can also record a forward move that is not yet carried out. The underlying file has a **physical offset**, which counts bytes of the file. `gztell` queries the first. `gzoffset` reports the second, less the compressed input that a reader has read from the file but not yet used. The library reads ahead and buffers, so the two values usually differ; a compression ratio cannot convert one into the other.
 
 For example, with no seek and no pushback, a reader that has delivered 1000 decompressed bytes to the application has logical position 1000; to produce them it may already have read compressed bytes that lie further on. In the other direction, a successful write means that the library accepted the input; it does not show that all of those bytes were written to the descriptor.
 
 The arguments below use these units: `len` and the buffer configuration `size` count bytes; in the item interfaces `size` is the number of bytes of one item and `nitems` the number of items, so the total request is `size * nitems` bytes. `offset` is a signed displacement in uncompressed bytes; `whence` says whether it is taken from the start (`SEEK_SET`) or from the current position (`SEEK_CUR`). `INT_MAX` is the largest value of a signed `int` in this build, `2^31 - 1`.
 
-This page describes a non-blocking stall, which can be retried directly, apart from the other recorded errors, called hard errors. The distinction says how the call returns; it does not remove the requirements on state, retry and cleanup after an error.
+This page keeps a non-blocking stall apart from a hard error. After a stall the next data call can retry directly. A hard error is a recorded error that a stall did not leave and that makes later data calls fail, for a reader once its buffered bytes are used up: any code for a writer, any code other than `Z_BUF_ERROR` (truncation) for a reader. The distinction says how the call returns; it does not remove the requirements on state, retry and cleanup after an error.
 
 This page uses the default x86_64 Linux build. `int` and `unsigned` have
 32 bits. `long`, `z_off_t`, `z_off64_t` and `z_size_t` have 64 bits.
@@ -180,7 +180,7 @@ stateDiagram-v2
 **Format and buffering.** Opening does no payload I/O. Buffers and codec state
 are allocated lazily, with a default requested buffer size of 8192 bytes.
 The requested size is a configuration value; the internal storage also includes the doubled
-buffers described below and the codec state.
+buffers described under [`gzbuffer`](#gzbuffer) and the codec state.
 Allocation can fail at first use or later in decompression. Closing releases
 owned allocations even when final I/O fails.
 
@@ -2193,16 +2193,18 @@ Close success does not settle the failed-finish recovery caveat below.
 A documented error code does not by itself establish safe retry or recovery. Safety of the
 continuation is what [the safety goal](#the-safety-goal) states: after any call that returned,
 with any result, the next call is again safe. Four source problems on these paths are fixed by
-patches. The first three were reproduced with the real C under a sanitizer; the fourth is
-undefined only by the letter of C. The contracts and the goal are for the patched source
-(`patches/README.md` describes each problem and its upstream state):
+patches. A sanitizer reports the first three on the real C; one path of the third, a
+transparent look near `GZ_OFF_MAX`, is confirmed only in the model and by reading the C. The
+fourth is undefined only by the letter of C, and no sanitizer reports it. The contracts and the
+goal are for the patched source ([patches](../../../patches/README.md) describes each problem
+and its upstream state):
 
 | Case | Unpatched C | Patch |
 | --- | --- | --- |
 | `gzseek` after an initial `gzungetc` (position -1) | Signed overflow in the range check. | 0002 |
 | A transparent read where `read` supplies bytes and then fails | The readers consume the partial bytes through a stale buffer pointer: an out-of-bounds read. | 0003 |
-| A position that passes `GZ_OFF_MAX` while reading or writing | Signed overflow of the position. | 0004, local and pending upstream |
-| A zero advance of a buffer pointer that was never written or that dangles | Arithmetic on an indeterminate or dangling pointer. | 0005, local and pending upstream |
+| A position that passes `GZ_OFF_MAX` while reading or writing | Signed overflow of the position. | 0004, local: not submitted upstream |
+| A zero advance of a buffer pointer that was never written or that dangles | Arithmetic on an indeterminate or dangling pointer. | 0005, local: not submitted upstream |
 
 What recovery yields after a partial read, after a parameter change that the compressor did not
 apply, or after a failed finish (which bytes reach the file, which position is reported) is
