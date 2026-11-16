@@ -2,7 +2,7 @@ The complete codec from the first article already replaces repetition with backw
 
 Those mechanisms answer a different question: how much work must the implementation do to obtain and execute the stream? We will derive them from a simple complete compressor and decoder. Assume the whole input is available and the destination has enough space. Buffer replacement, explicit flush requests, wrappers, dictionaries, and resource lifetime belong to the next article. Bounded internal work areas still matter: an arbitrarily long input cannot require an arbitrarily large temporary array.
 
-The source is the repository's pinned zlib revision plus its registered patches. Excerpts select the ordinary C implementation and packed instruction layout. Build alternatives are identified where they change a mechanism. Worked instruction sequences isolate decisions; they do not predict every compressor run or claim unmeasured speedups.
+The source is the zlib revision that this project verifies, with the project's patches applied. Excerpts select the ordinary C implementation and packed instruction layout. Build alternatives are identified where they change a mechanism. Worked instruction sequences isolate decisions; they do not predict every compressor run or claim unmeasured speedups.
 
 ## Start with the costs of a complete baseline {#costs}
 
