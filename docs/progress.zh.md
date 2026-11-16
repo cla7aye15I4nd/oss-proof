@@ -1,4 +1,4 @@
-<!-- source-sha256: 232b0242148759280c5301620a2ab46ba5c29268f029eaa0be626b7d66eaf57e -->
+<!-- source-sha256: 1b1ec454002ab8020b2c87629b48ed2242989cbe67c4ba432a7100ee1df867c5 -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)。某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)：那一页把每个函数对应到它的定理，不写层级。
@@ -32,12 +32,12 @@
 
 | # | 是否已登记 | 在哪个提交上已验收 |
 | ---: | --- | --- |
-| 1 | 是，两个目标都已登记 | `bde170e9` |
-| 2 | 是，两个目标都已登记 | `bde170e9` |
+| 1 | 是，两个目标都已登记 | 序列目标以及 `Goal.inflate_safety` 的早先形式：`bde170e9`。已登记、未验收：`Goal.inflate_safety` 的现行形式 |
+| 2 | 是，两个目标都已登记 | 序列目标以及 `Goal.deflate_safety` 的早先形式：`bde170e9`。已登记、未验收：`Goal.deflate_safety` 的现行形式 |
 | 3a | 是，八个都已登记 | `bde170e9` |
 | 3b | 是，五个都已登记 | 非空性目标以及序列目标的早先形式：`bde170e9`。已登记、未验收：三个单函数目标，以及序列目标的现行形式 |
 | 3c | 是，35 个都已登记 | 序列目标、拒绝目标和非空性目标：`bde170e9`。已登记、未验收：32 个单函数目标 |
-| 3d | 是，46 个都已登记 | `bde170e9`；四个 init 安全目标的现行形式除外，它们已登记、未验收 |
+| 3d | 是，46 个都已登记 | `bde170e9`；下列目标的现行形式除外，它们已登记、未验收：四个 init 安全目标；`ZlibF/Spec/Safety/Streams.lean` 中其余 21 个单函数流安全目标；`Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety` |
 
 “已登记、未验收”指：还没有哪次覆盖该目标现行形式的验收运行以全部通过结束。
 
@@ -60,6 +60,7 @@
 - **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Public/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式已登记、未验收。
 
 - **四个初始化安全目标扩大了范围。** `Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 对 `zlib.h` 允许的每次调用都成立（提交 `101c6ab3`，`ZlibF/Spec/Safety/Initialisation.lean`；证明在 `8642e435`，`ZlibF/Proof/public-init-safety.lean`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。范围扩大之后的四个目标已检查、已登记，尚未验收：快速关卡在 `8642e435` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是较窄的形式。
+- **流安全目标陈述了对 `NULL` 流或不一致的流的拒绝。** `ZlibF/Spec/Safety/Streams.lean` 中的 23 个单函数流安全目标各增加了一个拒绝子句：十个 inflate 目标和十三个 deflate 目标，其中包括 `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.inflateEnd_safety` 和 `Goal.deflateEnd_safety`。两个复制目标 `Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety`（`ZlibF/Spec/Safety/Copy.lean`）陈述了对每一个被拒绝的源的拒绝（提交 `71188823`；证明在 `0c45d863`，`ZlibF/Proof/public-stream-call-safety.lean`、`ZlibF/Proof/public-inflate-copy-safety.lean` 和 `ZlibF/Proof/public-deflate-copy.lean`）。此前，流目标只覆盖对可达流的调用；`Goal.inflateCopy_safety` 没有针对不一致的源的子句，`Goal.deflateCopy_safety` 的那个子句只覆盖 `zalloc`、`zfree` 或 `state` 为 `NULL` 的源。每个目标的现行形式都蕴含它的早先形式（`ZlibF/Proof/public-stream-refusal-strengthening.lean`）。目标及其定理的名字没有变，所以登记表没有变。现行形式的这 25 个目标已检查、已登记，尚未验收：快速关卡在 `2ef5694c` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是早先的形式。
 - **不是必需目标的命题有改动。** 快速解码器的规格允许输入和输出位于任意字节视图中，而不只是堆块中（提交 `4ed7315e`，`ZlibF/Spec/InflateFast*.lean`）；有一个回归文件从现行命题推出每个早先的命题（`tests/verification/regressions/inffast-byte-views-old-from-new.lean`）。两个功能定义有改动：`WrapperLength`（提交 `ac0fccc5`）和 `DeflateCompletes`（提交 `a2cf8723`）。这些命题中已登记的目标，其现行形式同样还没有结束的验收运行。
 - **功能方面工作的证明模块有改动。** 关于 `inflate` 输出含义的模块（`ZlibF/Proof/inflate.c.meaning*.lean`）有新增和修改。其中没有任何定理被登记。
 

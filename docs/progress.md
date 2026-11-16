@@ -51,12 +51,12 @@ recorded separately below.
 
 | # | Registered | Accepted on commit |
 | ---: | --- | --- |
-| 1 | Yes, both goals | `bde170e9` |
-| 2 | Yes, both goals | `bde170e9` |
+| 1 | Yes, both goals | `bde170e9` for the sequence goal, and for `Goal.inflate_safety` in its earlier form. Registered, not accepted: `Goal.inflate_safety` in its present form |
+| 2 | Yes, both goals | `bde170e9` for the sequence goal, and for `Goal.deflate_safety` in its earlier form. Registered, not accepted: `Goal.deflate_safety` in its present form |
 | 3a | Yes, all eight | `bde170e9` |
 | 3b | Yes, all five | `bde170e9` for the non-vacuity goal, and for the sequence goal in its earlier form. Registered, not accepted: the three one-function goals, and the sequence goal in its present form |
 | 3c | Yes, all 35 | `bde170e9` for the sequence, refusal and non-vacuity goals. Registered, not accepted: the 32 one-function goals |
-| 3d | Yes, all 46 | `bde170e9`, except the four init safety goals in their present form, which are registered, not accepted |
+| 3d | Yes, all 46 | `bde170e9`, except these goals in their present form, which are registered, not accepted: the four init safety goals; the 21 other one-function stream safety goals of `ZlibF/Spec/Safety/Streams.lean`; `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety` |
 
 "Registered, not accepted" means that no acceptance run that covers the goal in its present form
 has finished green.
@@ -122,6 +122,22 @@ Between `bde170e9` and this page, these things changed:
   goals are checked and registered, and not yet accepted: the fast gate is green on `8642e435`,
   and no acceptance run covers a commit that contains them. They are accepted on `bde170e9` only
   in the narrower form.
+- **The stream safety goals state the refusal of a `NULL` or inconsistent stream.** Each of the
+  23 one-function stream safety goals of `ZlibF/Spec/Safety/Streams.lean` gained a refusal
+  clause: the ten inflate goals and the thirteen deflate goals, among them `Goal.inflate_safety`,
+  `Goal.deflate_safety`, `Goal.inflateEnd_safety` and `Goal.deflateEnd_safety`. The two copy
+  goals `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety` (`ZlibF/Spec/Safety/Copy.lean`)
+  state the refusal of every refused source (commit `71188823`; proofs in `0c45d863`,
+  `ZlibF/Proof/public-stream-call-safety.lean`, `ZlibF/Proof/public-inflate-copy-safety.lean` and
+  `ZlibF/Proof/public-deflate-copy.lean`). Before, a stream goal covered only the call on a
+  reachable stream; `Goal.inflateCopy_safety` had no clause for an inconsistent source, and the
+  clause of `Goal.deflateCopy_safety` covered only a source whose `zalloc`, `zfree` or `state` is
+  `NULL`. Each goal in its present form implies its earlier form
+  (`ZlibF/Proof/public-stream-refusal-strengthening.lean`). The names of the goals and of their
+  theorems are unchanged, so the registries are unchanged. In the present form the 25 goals are
+  checked and registered, and not yet accepted: the fast gate is green on `2ef5694c`, and no
+  acceptance run covers a commit that contains them. They are accepted on `bde170e9` only in the
+  earlier form.
 - **Statements that are not required goals changed.** The specifications of the fast decoder take
   the input and the output in any byte view, not only in a heap block (commit `4ed7315e`,
   `ZlibF/Spec/InflateFast*.lean`); a regression derives each earlier statement from the present one
