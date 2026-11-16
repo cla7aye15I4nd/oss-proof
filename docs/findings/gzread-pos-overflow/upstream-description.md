@@ -3,7 +3,8 @@
 One pull request covers both sides
 ([gzread-pos-overflow](README.md), [gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md));
 the diff is [0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch).
-Nothing has been sent.
+Nothing has been sent. Of the runs listed under Testing, retained output exists for the histories
+of the two `run.sh` scripts (the `report.txt` of the two findings), not for the others.
 
 ---
 
@@ -54,7 +55,8 @@ Reading: a helper `gz_room()` gives how many more bytes can be delivered without
 `GZ_OFF_MAX`. `gz_fetch` fills at most that many (at least one, so that end of file is still
 detected), which keeps `x.pos + x.have <= GZ_OFF_MAX` and so keeps the `gzgetc()` macro defined.
 `gz_read` and `gzgets` deliver at most that many; data that cannot be delivered is discarded
-with `Z_DATA_ERROR` "position overflow". Writing: `gz_write`, `gzputc` (fast path) and
+with `Z_DATA_ERROR` "position overflow". The transparent copy in `gz_look` buffers at most that
+many bytes too, and sets the same error when its input goes past that. Writing: `gz_write`, `gzputc` (fast path) and
 `gzprintf` refuse with `Z_DATA_ERROR` "position overflow" a write that would carry `x.pos` past
 `GZ_OFF_MAX`. Positions below `GZ_OFF_MAX - 2 * size` behave exactly as before; at the limit, end
 of file is reported as before.

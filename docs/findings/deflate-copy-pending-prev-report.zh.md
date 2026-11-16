@@ -1,4 +1,4 @@
-<!-- source-sha256: 2e1c4c598b7025ba0b21d64b6da86c58e1c57b1decd06fb2f8f35339c3cb37e7 -->
+<!-- source-sha256: e25420c5ec8b03ec02576fcf1b4da99f229f2623e321ac778683f8d17b202670 -->
 # 报告：`deflateResetKeep` 与 `deflateCopy` 之后 `longest_match` 的越界读取
 
 写给 zlib 维护者的报告。尚未发送。
@@ -56,7 +56,7 @@
 ZLIB_SRC=$PWD/zlib bash tests/regression/deflate-copy-pending-prev/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -g -O1` 构建 zlib 源码，把 `copy.c` 与之链接并运行。脚本会应用本仓库的补丁，这些补丁不涉及 `deflate.c` 和 `trees.c`。AddressSanitizer 打印：
+脚本用 `-fsanitize=address,undefined -g -O1` 构建 zlib 源码，把 `copy.c` 与之链接并运行。脚本会应用本仓库的补丁。这些补丁都不涉及 `trees.c`，只有补丁 0006 涉及 `deflate.c`：它在 `deflateBound_z` 中增加两行。下面的输出用的是未打补丁文件的行号；打上补丁 0006 之后每个行号都大 2。AddressSanitizer 打印：
 
 ```
 ==ERROR: AddressSanitizer: heap-buffer-overflow ... READ of size 1

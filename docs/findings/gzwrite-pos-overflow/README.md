@@ -15,7 +15,9 @@ reproduce the report and judge it without reading anything else. The read-side t
   `/dev/null`, and in a faster mode on Linux and on arm64 macOS. The faster mode ran on upstream
   `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this
   repository except 0004, as `run.sh` builds it. The retained run with the real `/dev/null` used an
-  earlier copy of the program, on the same commit with patches 0001 to 0003.
+  earlier copy of the program, on the same commit with patches 0001 to 0003. `gzwrite.c` and
+  `gzlib.c` are byte-identical in zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies;
+  no run on that revision is recorded here.
 - Not submitted upstream. The verified source applies the local
   [patch 0004](../../../patches/README.md). One pull
   request text for both sides is drafted in

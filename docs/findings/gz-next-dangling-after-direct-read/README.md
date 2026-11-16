@@ -12,6 +12,8 @@ which has not been submitted upstream. The same patch fixes
 [gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md).
 
 Source: upstream `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 0004.
+`gzlib.c` and `gzread.c` are byte-identical in zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies;
+no run on that revision is recorded here.
 The [gzip proof page](../../proof/gzip.md) is about the source with all patches.
 
 ## What goes wrong

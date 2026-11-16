@@ -1,4 +1,4 @@
-<!-- source-sha256: aeb31ba95e0c8c54bbdf80ad268881cb0ae6d613ed84f727bb47dcba4b955c86 -->
+<!-- source-sha256: edc3743cac96a25011d953d61b5342a6054c5e2398667140d87ebd0daf043ad5 -->
 # 开头的 `gzungetc` 之后调用 `gzseek`：`gzseek64` 中有符号溢出
 
 `gzopen` 之后立即调用 `gzungetc`，会使位置 `state->x.pos` 等于 -1。随后的 `gzseek` 在 `gzseek64` 中让有符号 64 位运算溢出，溢出发生在一处范围检查里，或者在它计算的位移里。zlib 的维护者只读本页，就能复现这些报告并作出判断。测试文件在 [`tests/regression/gzseek-pushback-overflow`](../../../tests/regression/gzseek-pushback-overflow/README.md)。
@@ -6,7 +6,7 @@
 ## 状态
 
 - 未定义行为：有符号整数溢出，出现在 `gzlib.c` 的三条语句上。在文档用法之内。
-- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上由 UndefinedBehaviorSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
+- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上由 UndefinedBehaviorSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。`gzlib.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。
 - 修复已作为[拉取请求 #1361](https://github.com/madler/zlib/pull/1361) 提交上游。2026-11-14 时，该拉取请求处于打开状态，维护者还没有答复。被验证的源码把其中 `gzlib.c` 的部分作为[补丁 0002](../../../patches/README.md) 应用。
 
 ## 调用序列

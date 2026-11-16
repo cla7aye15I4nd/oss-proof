@@ -1,4 +1,4 @@
-<!-- source-sha256: 341003bf6a91170720788c9c9c7e7230f86831577001a9f63967739a5586ba89 -->
+<!-- source-sha256: 7b1bfc0a25fe395c3cf504979ebe24a4da9bf0d9c0de439f92edc999c9808666 -->
 # `gzwrite`：向前定位之后位置发生有符号溢出
 
 gz 写入函数把接受的字节数加到有符号的位置 `state->x.pos` 上，没有上界。透明模式的写入者向前定位到 `INT64_MAX` 附近之后，一旦接收端收下了定位所需的那些零，下一次写入就让位置溢出。zlib 的维护者只读本页，就能复现这份报告并作出判断。读取一侧的对应问题是 [gzread-pos-overflow](../gzread-pos-overflow/README.md)。测试文件在 [`tests/regression/gzwrite-pos-overflow`](../../../tests/regression/gzwrite-pos-overflow/README.md)。
@@ -6,7 +6,7 @@ gz 写入函数把接受的字节数加到有符号的位置 `state->x.pos` 上�
 ## 状态
 
 - 未定义行为：`x.pos` 的有符号整数溢出，出现在 `gz_write` 和 `gzputc` 的快速路径里。在文档用法之内。
-- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上用真实的 `/dev/null` 报告；用一种更快的模式，在 Linux 和 arm64 macOS 上也报告。较快的模式运行在上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁之上，即 `run.sh` 构建的源码。保留下来的那次使用真实 `/dev/null` 的运行，用的是程序较早的一份副本，源码是同一提交加补丁 0001 至 0003。
+- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上用真实的 `/dev/null` 报告；用一种更快的模式，在 Linux 和 arm64 macOS 上也报告。较快的模式运行在上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁之上，即 `run.sh` 构建的源码。保留下来的那次使用真实 `/dev/null` 的运行，用的是程序较早的一份副本，源码是同一提交加补丁 0001 至 0003。`gzwrite.c` 和 `gzlib.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。
 - 没有提交上游。被验证的源码应用本地[补丁 0004](../../../patches/README.md)。覆盖读写两侧的拉取请求文字草稿在 [../gzread-pos-overflow/upstream-description.md](../gzread-pos-overflow/upstream-description.md)。
 
 ## 调用序列

@@ -1,11 +1,11 @@
-<!-- source-sha256: 209528851a2fe62064b99074855f4d1344eaac3fb4e8a5f781d5c77f7cde2311 -->
+<!-- source-sha256: bf8aa13f5f2b624c314aa7d34008de0345c0b5d8aa232ed8a68f400a0587217c -->
 # 直接读取之后 x.next 留在调用者的缓冲区中
 
 一次大的 `gzread` 直接解压到调用者的缓冲区之后，gz 状态里留着一个指向该缓冲区的指针。如果调用者释放了缓冲区，之后的 `gzseek` 或 `gzdirect` 会给这个悬空指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
 
 状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。被验证的源码中由本地补丁 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁没有提交上游。同一补丁也修复 [gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md)。
 
-源码：上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。[gzip 证明页](../../proof/gzip.md)针对的是打上全部补丁的源码。
+源码：上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。`gzlib.c` 和 `gzread.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。[gzip 证明页](../../proof/gzip.md)针对的是打上全部补丁的源码。
 
 ## 问题
 

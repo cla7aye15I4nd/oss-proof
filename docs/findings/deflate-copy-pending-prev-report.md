@@ -85,8 +85,10 @@ ZLIB_SRC=$PWD/zlib bash tests/regression/deflate-copy-pending-prev/run.sh
 ```
 
 The script builds the zlib sources with `-fsanitize=address,undefined -g -O1`, links `copy.c`
-against them and runs it. The patches of this repository, which the script applies, do not touch
-`deflate.c` or `trees.c`. AddressSanitizer prints:
+against them and runs it. The script applies the patches of this repository. None touches
+`trees.c`, and only patch 0006 touches `deflate.c`: it adds two lines to `deflateBound_z`. The
+output below has the line numbers of the unpatched file; with patch 0006 each is two higher.
+AddressSanitizer prints:
 
 ```
 ==ERROR: AddressSanitizer: heap-buffer-overflow ... READ of size 1

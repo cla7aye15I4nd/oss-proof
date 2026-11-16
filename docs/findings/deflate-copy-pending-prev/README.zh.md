@@ -1,4 +1,4 @@
-<!-- source-sha256: 6706e038be08ffa8fad1de656040d2dc034bf85668032076eb1dfac0325438b7 -->
+<!-- source-sha256: 60308c8a7cd7a826703bbf16bbda3086ba9efca59ae8801c95ea3998e45e1aeb -->
 # `deflateResetKeep` 之后的 `deflateCopy`：`longest_match` 读到窗口之外
 
 直接调用 `deflateResetKeep` 之后，由 `deflateCopy` 得到的流可能在散列链表 `prev` 中带有两个未初始化的项。之后在副本上调用 `deflate` 会沿着其中一个走下去，`longest_match` 于是读到窗口之外。这个序列需要 `deflateResetKeep`，而 `zlib.h` 把它列为不属于 zlib API，所以这不是文档 API 的缺陷。
@@ -8,7 +8,7 @@
 ## 状态
 
 - 内存错误：先读取一个未初始化的表项，然后读到窗口之外的堆内存。
-- 在上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上，由 AddressSanitizer 和 valgrind 在 x86_64 Linux（GCC 14）上报告；arm64 macOS 上有同样的 AddressSanitizer 报告。本仓库的补丁不涉及 deflate 的源文件。
+- 在上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上，由 AddressSanitizer 和 valgrind 在 x86_64 Linux（GCC 14）上报告；arm64 macOS 上有同样的 AddressSanitizer 报告。`deflate.c` 在该提交与 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）之间只有版权字符串不同。本仓库的补丁中只有 0006 涉及 `deflate.c`：它在 `deflateBound_z` 中增加两行，而这个序列不调用该函数。
 - 在文档 API 之外：它需要直接调用 `deflateResetKeep`。
 - 没有报告给上游。没有补丁：证明排除了这个调用（[偏离记录](../../deviations.md)，“直接调用 `deflateResetKeep`”一行）。
 
@@ -67,6 +67,8 @@ READ of size 1 at 0x519000000e89 thread T0
 ```
 
 在 arm64 macOS 上运行了一次，在 `deflate.c:1511` 得到同样的 AddressSanitizer 报告；那里没有 valgrind。
+
+上面的行号是未打补丁的 `deflate.c` 中的行号。脚本会应用本仓库的补丁；打上补丁 0006 之后，这些行在文件中都靠后两行。
 
 ## 范围与严重程度
 

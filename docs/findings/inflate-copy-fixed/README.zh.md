@@ -1,4 +1,4 @@
-<!-- source-sha256: f644c6c30b40fa87c323b8a5177c8861c49cee1750b030489b97f27ebbfb8dfe -->
+<!-- source-sha256: 4fa82bd892ff22cd40a9cddc152d81c7d28633149a8c7ee9dbbeacd0173b61df -->
 # `inflateCopy` 比较指向无关对象的指针
 
 如果一个流已经解码过固定码块，而且之后没有解码过动态码块，对它调用 `inflateCopy` 时，它用 `>=` 和 `<=` 比较一个指向静态表的指针和一个指向堆上 inflate 状态的指针。C 只对指向同一对象的指针定义这两个运算符。zlib 的维护者只读本页，就能复现这份报告并作出判断。
@@ -6,7 +6,7 @@
 ## 状态
 
 - 按 C 标准是未定义行为（C11 6.5.8p5：对指向不同对象的指针做关系比较）。在 `inflateCopy` 的文档用法之内。
-- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上，由 AddressSanitizer 的指针对检查报告，平台为 x86_64 Linux 和 arm64 macOS。
+- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上，由 AddressSanitizer 的指针对检查报告，平台为 x86_64 Linux 和 arm64 macOS。`inflate.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同，所以那里的语句也一样；这里没有记录在该版本上的运行。
 - 没有观察到错误结果：不开指针对检查时，同一程序的 `inflateCopy` 返回 `Z_OK`。
 - 修复已作为[拉取请求 #1369](https://github.com/madler/zlib/pull/1369) 提交上游。维护者于 2026-11-06 答复“Applied”。2026-11-14 读取的上游 `develop` 最新提交（`99623ef7`）还不包含它。被验证的源码把所提交的那个提交作为[补丁 0001](../../../patches/README.md) 应用。
 

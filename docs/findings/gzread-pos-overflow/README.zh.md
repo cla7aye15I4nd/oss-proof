@@ -1,4 +1,4 @@
-<!-- source-sha256: a569e2a14754e264379be9150926728ea57d1da8f24a531f7d8136312b740278 -->
+<!-- source-sha256: 733142373aa3f27631761774dd50afe18294c02607a28549df0403f7e0cca99a -->
 # `gzread`：在设备上定位之后位置发生有符号溢出
 
 gz 读取函数把交付的字节数加到有符号的位置 `state->x.pos` 上，没有上界。在 Linux 上，对 `/dev/zero` 这样的字符设备做透明模式的 `gzseek`，可以把位置设为 `INT64_MAX`，下一次读取就让它溢出。zlib 的维护者只读本页，就能复现这份报告并作出判断。写入一侧的对应问题是 [gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)。测试文件在 [`tests/regression/gzread-pos-overflow`](../../../tests/regression/gzread-pos-overflow/README.md)。
@@ -6,7 +6,7 @@ gz 读取函数把交付的字节数加到有符号的位置 `state->x.pos` 上�
 ## 状态
 
 - 未定义行为：`x.pos` 的有符号整数溢出，出现在 `gz_read`、`gzgetc` 函数，以及在调用者代码中展开的 zlib.h 的 `gzgetc()` 宏里。在文档用法之内。
-- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上报告；源码是上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁。在 arm64 macOS 上用 Apple clang 运行了一次，没有复现：那里对 `/dev/zero` 的 `lseek` 接受这个偏移并把它返回，读取没有交付位置 `INT64_MAX` 之后的任何字节，sanitizer 也没有任何报告。没有试过别的系统。
+- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上报告；源码是上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁。在 arm64 macOS 上用 Apple clang 运行了一次，没有复现：那里对 `/dev/zero` 的 `lseek` 接受这个偏移并把它返回，读取没有交付位置 `INT64_MAX` 之后的任何字节，sanitizer 也没有任何报告。没有试过别的系统。`gzread.c` 和 `gzlib.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同，`zlib.h` 的 `gzgetc()` 宏也没有变；这里没有记录在该版本上的运行。
 - 没有提交上游。被验证的源码应用本地[补丁 0004](../../../patches/README.md)。拉取请求的文字草稿在 [upstream-description.md](upstream-description.md)。
 
 ## 调用序列
@@ -79,7 +79,7 @@ gzread.c:539:21: runtime error: signed integer overflow: 9223372036854775807 + 1
 
 `gz_fetch` 在 `GZ_OFF_MAX` 处为发现输入结束而加载的那一个字节，由它在那里仅有的调用者 `gz_read` 和 `gzgets` 在返回前丢弃（`gz_skip` 从不在 `GZ_OFF_MAX` 处取数据，因为 `x.pos + skip` 至多为 `GZ_OFF_MAX`）。因此逐字节取缓冲数据的快速路径（`gzgetc` 函数、`gzgetc()` 宏）以及 `gz_skip_have` 都无需检查。复现的 `fast` 运行在 `INT64_MAX - 2` 处检验了这些路径。
 
-补丁的检查：[upstream-description.md](upstream-description.md) 的“测试”一节。
+补丁的检查：[upstream-description.md](upstream-description.md) 的“测试”一节。两个 `run.sh` 脚本（本发现和写入一侧）的历史有保留下来的输出，那里列出的其他运行没有。
 
 ## 与证明的关系
 

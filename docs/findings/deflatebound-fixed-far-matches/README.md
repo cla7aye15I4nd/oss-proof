@@ -1,11 +1,13 @@
 # deflateBound is too small for Z_FIXED at levels 1 to 3
 
 Status: patched locally. Local patch 0006 (`patches/0006-deflatebound-fixed-conservative.patch`)
-has not been submitted upstream. Reproduced on the real C without that patch (upstream `develop`
-757f052; patches 0001 to 0005 do not touch `deflate.c` or
+has not been submitted upstream. Reproduced on the real C without that patch (upstream `develop` at commit
+`757f0527154291bcf6bfbd6396ecde6bedd2db95`; patches 0001 to 0005 do not touch `deflate.c` or
 `trees.c`), with and without AddressSanitizer and UndefinedBehaviorSanitizer, and on a system zlib
 1.2.12. Not yet reported upstream; whether upstream knows it is not yet checked with upstream.
 It is a broken API promise, not a memory error: the sanitizers report nothing.
+`deflate.c` differs between that commit and zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies, only in the
+copyright string, and `trees.c` is byte-identical; no run on that revision is recorded here.
 
 zlib.h, `deflateBound`: "If that first deflate() call is provided the sourceLen input bytes, an
 output buffer allocated to the size returned by deflateBound(), and the flush value Z_FINISH, then
