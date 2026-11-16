@@ -8,7 +8,8 @@ most the three root import files Safety.lean, Functional.lean and Common.lean.
    modules are ZlibF/Spec/Safety.lean and those under ZlibF/Spec/Safety/; the common modules are
    ZlibF/Spec/Common.lean and those under ZlibF/Spec/Common/; the functional modules are
    ZlibF/Spec/Functional.lean and those under ZlibF/Spec/Functional/. Then reading Spec/Safety and
-   what it imports tells a reader the whole current target.
+   what it imports tells a reader the safety target. The planned target also includes the two full
+   contracts Goal.compressBound and Goal.compressBound_z, which live under Spec/Functional by design.
 
 2. A common module does not import, even transitively, a safety module. Common lies below both.
 
@@ -21,6 +22,12 @@ most the three root import files Safety.lean, Functional.lean and Common.lean.
    MATH_PROOF_IMPORTS. The list may only shrink: a listed import that no longer exists is an error, so it
    is deleted when its import goes. Rule 3 still holds for every Spec module, also through these Math
    modules.
+
+5. No public goal is defined under ZlibF/Spec/Common/: a goal that tests/audit/public-api.json names
+   (as a safety, functional, sequence, non-vacuity or not-planned goal) is defined under Safety/ or
+   Functional/. The check reads each line that starts with `def Goal.` or `abbrev Goal.` in a
+   Common module, qualifies the name with the enclosing namespaces, and looks it up in the registry.
+   Internal component goals (those the registry does not name) are not public goals.
 
 There is no other allowlist.
 """
@@ -224,6 +231,43 @@ def check_modules(errors):
     return len(modules)
 
 
+def public_goals():
+    import json
+    names = set()
+
+    def walk(value):
+        if isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+        elif isinstance(value, str) and '.Goal.' in value:
+            names.add(value)
+
+    walk(json.loads((ROOT / 'tests/audit/public-api.json').read_text()))
+    return names
+
+
+def check_common_goals(errors):
+    registered = public_goals()
+    for path in sorted((SPEC / 'Common').rglob('*.lean')):
+        spaces = []
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            match = re.match(r'namespace\s+(\S+)', line)
+            if match:
+                spaces.append(match.group(1))
+            match = re.match(r'end\s+(\S+)\s*$', line)
+            if match and spaces and spaces[-1] == match.group(1):
+                spaces.pop()
+            match = re.match(r'(?:def|abbrev)\s+(Goal\.\S+)', line)
+            if match:
+                name = '.'.join(spaces + [match.group(1)])
+                if name in registered:
+                    errors.append(f'{path.relative_to(ROOT)}:{number}: the public goal {name} is defined '
+                                  'under Spec/Common: move it to Spec/Safety or Spec/Functional')
+
+
 def check_math(errors):
     allowed = {(src, plain(dst)) for src, dsts in MATH_PROOF_IMPORTS.items() for dst in dsts}
     found = set()
@@ -244,13 +288,14 @@ def main():
     check_layout(errors)
     count = check_modules(errors)
     remaining = check_math(errors)
+    check_common_goals(errors)
     if errors:
         print('Specification layer check failed (docs/design/safety-functional-split.md):')
         for error in errors:
             print('  ' + error)
         return 1
     print(f'specification layers: {count} modules under ZlibF/Spec; safety and common import no functional '
-          'module, common imports no safety module, and none imports a proof module; '
+          'module, common imports no safety module and defines no public goal, and none imports a proof module; '
           f'{remaining} listed Math -> Proof imports remain ({len(MATH_PROOF_IMPORTS)} modules)')
     return 0
 
