@@ -47,7 +47,7 @@ by a program; the generator and the [runtime schema](runtime-schema.md) are part
 A no-fault theorem is a statement about these definitions. The intended correspondence is that
 every undefined behaviour the C can reach becomes `Fault.ub`. Unsigned arithmetic is modular.
 Signed arithmetic, shifts and conversions are checked by each translation; item 3 names the
-accepted exception and the forms that are not yet decided. The correspondence
+accepted exception and the further forms the translations contain. The correspondence
 has limits, and four of them matter to every reader:
 
 - **Uninitialised pointers.** The model has no value for an uninitialised pointer: a pointer field
