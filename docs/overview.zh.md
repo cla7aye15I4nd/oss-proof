@@ -1,4 +1,4 @@
-<!-- source-sha256: 1d32f9c9e02dfda4df5ca2218e0a8584a75f7349e195373aef6def4de26b68d3 -->
+<!-- source-sha256: e2b21dbb54006c7b3d4bbb23f4a4439472bef45db78b7d5ea64b5c2ef4cd7cca -->
 # 总览：关于 zlib 证明了什么
 
 本页说明本项目关于 zlib 证明了什么、假设了什么、状态记录在哪里，以及证明是怎样搭起来的。要点是：默认 x86_64 Linux 构建中每个有文档的公开函数，都被证明在任何调用序列里是安全的；这是对 C 的一份 Lean 翻译证明的，前提是每条定理自己写明的条件。加粗的词在[术语表](glossary.md)中有定义。
@@ -89,8 +89,8 @@ flowchart LR
 | 部分 | 对 `inflate` 而言 |
 | --- | --- |
 | 目标 | `Goal.inflate_safety`，在 `ZlibF/Spec/Safety/Streams.lean` 中 |
-| 它说了什么 | 对每个堆、每个流 `r` 和每个 `flush` 值：只要前提成立，调用 `inflate(r, flush)` 就返回而不出故障，保持不变量，只写流自己的块、流记录、挂接的 gzip 头部和输出范围，并且存活块集合的变化与它的账本完全一致（`StreamCallSafe`） |
-| 前提 | `StreamCallDomain`：流是可达的（有一段从成功的初始化开始的历史产生了它）；每个字节对象都小于 2^63 字节；缓冲区符合[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的描述（`StreamArguments`） |
+| 它说了什么 | 两个子句。调用子句：对每个堆、每个流 `r` 和每个 `flush` 值，只要前提成立，调用 `inflate(r, flush)` 就返回而不出故障，保持不变量，只写流自己的块、流记录、挂接的 gzip 头部和输出范围，并且存活块集合的变化与它的账本完全一致（`StreamCallSafe`）。拒绝子句：对 `NULL` 流或不一致的流，调用返回 `Z_STREAM_ERROR`，不写原先存活的任何块，存活块的集合保持原样 |
+| 前提 | 调用子句的前提是 `StreamCallDomain`：流是可达的（有一段从成功的初始化开始的历史产生了它）；每个字节对象都小于 2^63 字节；缓冲区符合[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的描述（`StreamArguments`）。拒绝子句的前提是：流是被拒绝的流（`RefusedInflate`，见[偏离记录，注 2](deviations.md#note-2-refused-streams)），并且模型的堆在下一个未用块号及其之后没有存活的块（`Fresh`） |
 | 定理 | `ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`，在 `ZlibF/Proof/public-stream-call-safety.lean` 中 |
 | 层级 | 已检查、已登记或已验收（见[术语表](glossary.md#status)）。[范围](progress.md#scope)记录层级和验收运行所在的提交 |
 

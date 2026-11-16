@@ -121,8 +121,8 @@ they are for `inflate`.
 | Part | For `inflate` |
 | --- | --- |
 | Goal | `Goal.inflate_safety`, in `ZlibF/Spec/Safety/Streams.lean` |
-| What it says | For every heap, every stream `r` and every `flush` value: if the premises hold, the call `inflate(r, flush)` returns without a fault, keeps the invariant, writes only the stream's own blocks, the stream record, an attached gzip header and the output range, and changes the set of live blocks exactly as its ledger says (`StreamCallSafe`) |
-| Premises | `StreamCallDomain`: the stream is reachable (some history starting at a successful init produces it); every byte object has fewer than 2^63 bytes; the buffers are as [deviations](deviations.md#stream-calls-inflate-and-deflate) describes (`StreamArguments`) |
+| What it says | Two clauses. The call: for every heap, every stream `r` and every `flush` value, if the premises hold, the call `inflate(r, flush)` returns without a fault, keeps the invariant, writes only the stream's own blocks, the stream record, an attached gzip header and the output range, and changes the set of live blocks exactly as its ledger says (`StreamCallSafe`). The refusal: on a `NULL` or inconsistent stream the call returns `Z_STREAM_ERROR`, writes no block that was live and leaves the set of live blocks as it was |
+| Premises | Of the call clause, `StreamCallDomain`: the stream is reachable (some history starting at a successful init produces it); every byte object has fewer than 2^63 bytes; the buffers are as [deviations](deviations.md#stream-calls-inflate-and-deflate) describes (`StreamArguments`). Of the refusal clause: the stream is refused (`RefusedInflate`, [deviations, note 2](deviations.md#note-2-refused-streams)), and the model heap has no live block at or above its next unused block number (`Fresh`) |
 | Theorem | `ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety`, in `ZlibF/Proof/public-stream-call-safety.lean` |
 | Level | Checked, registered or accepted ([glossary](glossary.md#status)). [Scope](progress.md#scope) records the level and the commit of the acceptance run |
 

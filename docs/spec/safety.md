@@ -284,11 +284,13 @@ two kinds of stream.
    the stream is ended before it finished), sets the state pointer to `NULL`, writes only the
    record and the owned blocks, and removes exactly the owned blocks.
 
-The goal of one function, `Goal.<function>_safety`, is clause 2 restricted to calls of that
-function, or clause 3 for `inflateEnd` and `deflateEnd`. For clause 2 its premises are
-`StreamCallDomain`: the stream is reachable, every byte object has fewer than `2^63` bytes
-([platform](platform.md)), and `StreamArguments` holds. The two End goals have one premise
-only: the stream is reachable.
+The goal of one function, `Goal.<function>_safety`, has two parts. The first is the refusal of
+a `NULL` or inconsistent stream (A1 under [caller obligations](#4-caller-obligations)); it is
+not a clause of the sequence statement, because a refused stream has no history. The second is
+clause 2 restricted to calls of that function, or clause 3 for `inflateEnd` and `deflateEnd`.
+For clause 2 its premises are `StreamCallDomain`: the stream is reachable, every byte object has
+fewer than `2^63` bytes ([platform](platform.md)), and `StreamArguments` holds. For the two End
+goals this part has one premise only: the stream is reachable.
 
 **Non-vacuity.** A goal over "every reachable stream" would hold trivially if no stream were
 reachable. The non-vacuity goals exclude this: a concrete heap satisfies the premises of init,
@@ -349,7 +351,7 @@ obligation.
 
 | ID | Obligation or scope | Lean premise |
 | --- | --- | --- |
-| A1 | **Init.** The stream pointer is `NULL` or points to a `z_stream` whose `zalloc` and `zfree` are each `NULL` or the default allocator's function. The other fields, `state` included, may hold anything. The version pointer is `NULL` or has one readable byte. **Later calls.** The stream is reachable. A `NULL` or inconsistent stream is refused with `Z_STREAM_ERROR` by the functions the two refusal goals list ([appendix](#where-the-goals-are)). The refusal changes nothing, except that a copy from a refused source sets `dest->state` to `NULL`. | `InitArguments`; `StreamReachable`; `RefusedInflate`, `RefusedDeflate` |
+| A1 | **Init.** The stream pointer is `NULL` or points to a `z_stream` whose `zalloc` and `zfree` are each `NULL` or the default allocator's function. The other fields, `state` included, may hold anything. The version pointer is `NULL` or has one readable byte. **Later calls.** The stream is reachable. A `NULL` or inconsistent stream is refused: the safety goal of every stream function except the four init functions has a clause for it ([appendix](#where-the-goals-are)). The value returned is `Z_STREAM_ERROR`, except `-65536` for `inflateMark` and the bound of a `NULL` stream for `deflateBound` and `deflateBound_z`. The refusal changes nothing, except that a copy from a refused source sets `dest->state` to `NULL`; for `inflate` and `inflateSync` the clause says that no block that was live is written and that the live blocks stay as they were ([deviations](../deviations.md#note-2-refused-streams)). | `InitArguments`; `StreamReachable`; `RefusedInflate`, `RefusedDeflate` |
 | A2 | The caller provides the readable input and writable output ranges the call uses. | `StreamBuffers`, `CallerRange`, `Bytes`, `Writable` |
 | A3 | Caller regions with no reason to overlap are separate: input, output, dictionary, the gzip header record and its buffers, length cells. They may lie in one object. `zlib.h` does not state this for every pair; each such premise has a row in [deviations](../deviations.md). | `Separate`, `ActiveHeader`, `UtilitySeparation` |
 | A4 | Calls on the same stream are not concurrent. | The model is sequential. |
@@ -517,12 +519,12 @@ decoder from `ZlibF/Spec/Api/Gz.lean`. The functional gz and callback goals
 
 | Function | Safety goal | File |
 | --- | --- | --- |
-| `inflate`, `deflate` and the other calls on a live stream | `Goal.<function>_safety`: one more call on a reachable stream ([calls and sequences](#2-calls-and-sequences)) | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
-| `inflateEnd`, `deflateEnd` | `Goal.<function>_safety`: the stream frees what it owns | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
+| `inflate`, `deflate` and the other calls on a live stream | `Goal.<function>_safety`: the refusal of a `NULL` or inconsistent stream, and one more call on a reachable stream ([calls and sequences](#2-calls-and-sequences)) | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
+| `inflateEnd`, `deflateEnd` | `Goal.<function>_safety`: the refusal of a `NULL` or inconsistent stream, and on a reachable stream the stream frees what it owns | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
 | `inflateInit_`, `inflateInit2_`, `deflateInit_`, `deflateInit2_` | `Goal.<function>_safety`: every call that `zlib.h` allows, a `NULL` stream included | [Safety/Initialisation.lean](../../ZlibF/Spec/Safety/Initialisation.lean) |
-| `inflateCopy`, `deflateCopy` | `Goal.<function>_safety` | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
+| `inflateCopy`, `deflateCopy` | `Goal.<function>_safety`: the refusal of a `NULL` argument and of an inconsistent source, and the copy from a reachable source | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
 | every inflate or deflate call sequence | `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| a `NULL` or inconsistent stream | `Goal.inflate_refusal`, `Goal.deflate_refusal` (the functions each goal lists; the rest: [progress, No-fault coverage](../progress.md#no-fault-coverage-of-zlibh-functions)) | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
+| a `NULL` or inconsistent stream | A clause of each `Goal.<function>_safety` in the rows above for the calls on a live stream, for `inflateEnd` and `deflateEnd`, and for the two copies. `Goal.inflate_refusal` and `Goal.deflate_refusal` state it once more, in one statement each, for the functions they list ([deviations, note 2](../deviations.md#note-2-refused-streams)) | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
 | checksums | `Goal.<function>_safety`: the call returns and the heap is unchanged | [Safety/Checksums.lean](../../ZlibF/Spec/Safety/Checksums.lean) |
 | `zlibVersion`, `zlibCompileFlags` | `Goal.<function>_safety`: the call returns and the heap is unchanged | [Safety/Queries.lean](../../ZlibF/Spec/Safety/Queries.lean) |
 | `compress*`, `uncompress*` | `Goal.compress*_safety`, `Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |

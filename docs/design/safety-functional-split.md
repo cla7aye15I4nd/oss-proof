@@ -91,9 +91,10 @@ the safety goal and its file for every function. The safety goals have three sha
   `uncompress*`): on the documented domain the call returns without a fault, writes only the
   declared caller regions, and leaves the live blocks as they were.
 - **Stream functions** (the inflate and deflate families): one goal per function. It states one
-  more call of that function on every reachable history of a stream. The four init functions
-  need no history: their goals cover every call `zlib.h` allows (`InitArguments`). A `NULL` or
-  inconsistent stream is covered by `Goal.inflate_refusal` and `Goal.deflate_refusal`.
+  more call of that function on every reachable history of a stream, and the refusal of a `NULL`
+  or inconsistent stream. The four init functions need no history: their goals cover every call
+  `zlib.h` allows (`InitArguments`). `Goal.inflate_refusal` and `Goal.deflate_refusal` state the
+  refusals of several functions in one statement each.
 - **The gzip file interface and `inflateBack`**: one goal per function as well
   (`Safety/GzCalls.lean`, `Safety/Back.lean`). Each restricts a clause of the sequence goal of its
   family, `Goal.gz_sequence_safety` or `Goal.inflate_back_sequence_safety`, to one function. It

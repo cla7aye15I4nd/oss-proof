@@ -1,4 +1,4 @@
-<!-- source-sha256: 462bbf62337e1c84c9424a356ee67d9ea1f23ec4fea9ab6c85d36d5b9a6d0acf -->
+<!-- source-sha256: ec3b9a282c74dd21c6d23904680085dde17c1345fb05b5eb2224b7e93e0a6541 -->
 # 模型的限制
 
 本页列出模型的一类限制：zlib 的调用者对它们无法采取任何行动。它们分三类：目标作为前提陈述的、对模型中的堆的条件；运行时表示 C 的内存和库调用时所作的选择；以及功能定理和模型定理的限制，必需的安全目标都不依赖它们。调用者的义务在另一页：[偏离记录](deviations.md)。被信任的东西概括在[可信基础](trusted-base.md)中，本页是其中第 2 项的细节。
@@ -26,7 +26,7 @@
 
 | 领域 | 目标陈述了什么 | 后果 |
 | --- | --- | --- |
-| 堆的良构性（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`） |初始化、打开、`compress*` 或 `uncompress*` 调用开始时的堆，在 `nextBlk` 及以上没有存活的块（`Fresh`），每个块编号至多有一个对象（`Uniq`），并且带有所选构建的常量表（`LibraryGlobals`）。CRC 目标只要求两张 CRC 表（`CrcGlobals`），`inflate` 的拒绝只要求 `Fresh`。两次调用之间调用者的修改保持这三条（`Rebuffer`、`GzCallerFrame`）。 | 这些是对模型中的堆的条件，不是 `zlib.h` 加给调用者的义务，但它们仍然是前提。`Fresh` 并不说 `nextBlk` 以下的块编号在各表之间唯一；`Uniq` 才说这一点。 |
+| 堆的良构性（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`） |初始化、打开、`compress*` 或 `uncompress*` 调用开始时的堆，在 `nextBlk` 及以上没有存活的块（`Fresh`），每个块编号至多有一个对象（`Uniq`），并且带有所选构建的常量表（`LibraryGlobals`）。CRC 目标只要求两张 CRC 表（`CrcGlobals`），`inflate` 和 `inflateSync` 的拒绝只要求 `Fresh`。两次调用之间调用者的修改保持这三条（`Rebuffer`、`GzCallerFrame`）。 | 这些是对模型中的堆的条件，不是 `zlib.h` 加给调用者的义务，但它们仍然是前提。`Fresh` 并不说 `nextBlk` 以下的块编号在各表之间唯一；`Uniq` 才说这一点。 |
 | 循环燃料 | 翻译后的每个循环至多运行 `2^64` 次迭代；耗尽这个上界就是 `Fault.outOfFuel`。 | 结论为正常返回的安全目标证明了这个上界永远达不到。凡是 C 可能无界地循环、而证明又推不出上界的地方，目标都带有一条给出上界的前提：[回调输入总量](deviations.md#callback-decoder)和 [gz 读取预算](deviations.md#gzip-file-interface)。 |
 | CRC 地址与字访问 | `addrOf` 只观察地址的低位。堆字节块沿用起点对齐的约定；静态的和内嵌的字节对象有任意而稳定的余数。字的加载是按字节拼出来的。 | 通用的 ABI 布局、任意的原始块起点，以及 C 强制转换的别名语义，都不在这个抽象之内。公开的校验和定义域不受影响。[静态地址回归](../tests/verification/regressions/crc-static-address.lean)保留了模型早先一个反例的输入，作为正向检查。 |
 | NULL 指针算术 | `Ptr.add` 允许 NULL 加零；`Ptr.diff` 遇到 NULL 就出故障，而压缩器的辅助函数 `Compress.ptrDiff` 允许 NULL 减 NULL。 | 模型允许，不等于 C 有定义。[安全性规格](spec/safety.md#null-pointers-and-pointer-differences)区分了这些操作和语言规则。[分配回归](../tests/regression/compress-allocation/README.md)为零容量的 NULL 目的缓冲区保留了这一区别。 |

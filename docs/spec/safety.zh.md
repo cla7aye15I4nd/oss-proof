@@ -1,4 +1,4 @@
-<!-- source-sha256: d4176c1488413698b04439147e50833927a011bc19c42fdf8ae6c96cb66103bb -->
+<!-- source-sha256: 26ee4e74c6f81a78d8cfdf7ea6257aa3a2f5e733ba526fc6a40fed62cf64a628 -->
 
 # 安全性：目标陈述了什么
 
@@ -258,10 +258,12 @@ flowchart LR
 3. 在可达流上，End 调用返回 `Z_OK`（对 deflate 还可能是 `Z_DATA_ERROR`，即流在完成之前被结束），
    把状态指针置为 `NULL`，只写记录和流拥有的块，并且恰好移除流拥有的块。
 
-单个函数的目标 `Goal.<function>_safety` 是子句 2 限于该函数的调用；
-对 `inflateEnd` 和 `deflateEnd` 则是子句 3。对子句 2，它的前提是 `StreamCallDomain`：
+单个函数的目标 `Goal.<function>_safety` 有两部分。第一部分是对 `NULL` 流或不一致的流的拒绝
+（[调用者义务](#4-caller-obligations)中的 A1）；它不是序列命题的子句，因为被拒绝的流没有历史。
+第二部分是子句 2 限于该函数的调用；对 `inflateEnd` 和 `deflateEnd` 则是子句 3。
+对子句 2，它的前提是 `StreamCallDomain`：
 流可达，每个字节对象少于 `2^63` 字节（见[平台](platform.md)），并且 `StreamArguments` 成立。
-两个 End 目标只有一个前提：流可达。
+对两个 End 目标，这一部分只有一个前提：流可达。
 
 **非空性。** 如果没有任何流可达，针对“每个可达流”的目标就会平凡地成立。
 非空性目标排除了这种情况：有一个具体的堆满足初始化的前提，
@@ -312,7 +314,7 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 
 | 编号 | 义务或范围 | Lean 前提 |
 | --- | --- | --- |
-| A1 | **初始化。** 流指针是 `NULL`，或者指向一个 `z_stream`，其 `zalloc` 和 `zfree` 各自是 `NULL` 或默认分配器的函数。其他字段（包括 `state`）可以是任意值。版本指针是 `NULL` 或有一个可读字节。**之后的调用。** 流可达。`NULL` 流或不一致的流，由两个拒绝目标列出的那些函数拒绝，返回 `Z_STREAM_ERROR`（见[附录](#where-the-goals-are)）。拒绝什么也不改，只有一个例外：从被拒绝的源复制时，`dest->state` 被置为 `NULL`。 | `InitArguments`；`StreamReachable`；`RefusedInflate`、`RefusedDeflate` |
+| A1 | **初始化。** 流指针是 `NULL`，或者指向一个 `z_stream`，其 `zalloc` 和 `zfree` 各自是 `NULL` 或默认分配器的函数。其他字段（包括 `state`）可以是任意值。版本指针是 `NULL` 或有一个可读字节。**之后的调用。** 流可达。`NULL` 流或不一致的流会被拒绝：除四个初始化函数之外，每个流函数的安全目标都有一个针对它的子句（见[附录](#where-the-goals-are)）。返回的值是 `Z_STREAM_ERROR`；例外是 `inflateMark` 返回 `-65536`，`deflateBound` 和 `deflateBound_z` 返回 `NULL` 流的上界。拒绝什么也不改，只有一个例外：从被拒绝的源复制时，`dest->state` 被置为 `NULL`；对 `inflate` 和 `inflateSync`，这个子句说的是不写原先存活的任何块，且存活的块保持原样（见[偏离记录](../deviations.md#note-2-refused-streams)）。 | `InitArguments`；`StreamReachable`；`RefusedInflate`、`RefusedDeflate` |
 | A2 | 调用者提供这次调用要用的可读输入范围和可写输出范围。 | `StreamBuffers`、`CallerRange`、`Bytes`、`Writable` |
 | A3 | 没有理由重叠的调用者区域互不重叠：输入、输出、字典、gzip 头记录及其缓冲区、长度单元。它们可以位于同一个对象中。`zlib.h` 并没有对每一对都这样规定；每个这样的前提在[偏离记录](../deviations.md)中都有一行。 | `Separate`、`ActiveHeader`、`UtilitySeparation` |
 | A4 | 对同一个流的调用不并发。 | 模型是顺序的。 |
@@ -456,12 +458,12 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 
 | 函数 | 安全目标 | 文件 |
 | --- | --- | --- |
-| `inflate`、`deflate` 以及对存活流的其他调用 | `Goal.<function>_safety`：在可达流上再做一次调用（见[调用与调用序列](#2-calls-and-sequences)） | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
-| `inflateEnd`、`deflateEnd` | `Goal.<function>_safety`：流释放它拥有的块 | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
+| `inflate`、`deflate` 以及对存活流的其他调用 | `Goal.<function>_safety`：对 `NULL` 流或不一致的流的拒绝，以及在可达流上再做一次调用（见[调用与调用序列](#2-calls-and-sequences)） | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
+| `inflateEnd`、`deflateEnd` | `Goal.<function>_safety`：对 `NULL` 流或不一致的流的拒绝，以及在可达流上，流释放它拥有的块 | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
 | `inflateInit_`、`inflateInit2_`、`deflateInit_`、`deflateInit2_` | `Goal.<function>_safety`：`zlib.h` 允许的每一次调用，包括流为 `NULL` 的情况 | [Safety/Initialisation.lean](../../ZlibF/Spec/Safety/Initialisation.lean) |
-| `inflateCopy`、`deflateCopy` | `Goal.<function>_safety` | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
+| `inflateCopy`、`deflateCopy` | `Goal.<function>_safety`：对 `NULL` 参数和不一致的源的拒绝，以及从可达的源复制 | [Safety/Copy.lean](../../ZlibF/Spec/Safety/Copy.lean) |
 | 每个 inflate 或 deflate 调用序列 | `Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| `NULL` 流或不一致的流 | `Goal.inflate_refusal`、`Goal.deflate_refusal`（各目标列出的函数；其余见[进度，无故障覆盖](../progress.md#no-fault-coverage-of-zlibh-functions)） | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
+| `NULL` 流或不一致的流 | 上面三行（对存活流的调用、`inflateEnd` 和 `deflateEnd`、两个复制函数）中每个 `Goal.<function>_safety` 的一个子句。`Goal.inflate_refusal` 和 `Goal.deflate_refusal` 各用一个命题，对它们列出的函数再陈述一遍（见[偏离记录，注 2](../deviations.md#note-2-refused-streams)） | [Safety/Refusals.lean](../../ZlibF/Spec/Safety/Refusals.lean) |
 | 校验和 | `Goal.<function>_safety`：调用返回，堆不变 | [Safety/Checksums.lean](../../ZlibF/Spec/Safety/Checksums.lean) |
 | `zlibVersion`、`zlibCompileFlags` | `Goal.<function>_safety`：调用返回，堆不变 | [Safety/Queries.lean](../../ZlibF/Spec/Safety/Queries.lean) |
 | `compress*`、`uncompress*` | `Goal.compress*_safety`、`Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
