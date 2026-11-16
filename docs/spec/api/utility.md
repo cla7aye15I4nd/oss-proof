@@ -177,7 +177,7 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 **Reading the result.**
 
 - Before the call, `*destLen` is capacity; after return it is the written count except on early rejection. All internal allocations are released on every return path.
-- The ordinary adapter first reads a non-NULL destLen cell and copies the length back on every return; NULL destLen is outside this precondition.
+- `compress2` is a wrapper function around `compress2_z`: it reads the destLen cell first, without a NULL check, and copies the length back on every return. A NULL destLen is therefore outside this precondition.
 - Input, destination and length cells must be separate and cover the stated ranges. Empty input is valid. Level -1 selects level 6.
 
 ### Calling conditions and effects {#api-compress2-contract}
@@ -296,7 +296,7 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 **Reading the result.**
 
 - Before the call, `*destLen` is capacity; after return it is the written count except on early rejection. All internal allocations are released on every return path.
-- The ordinary adapter first reads a non-NULL destLen cell and copies the length back on every return; NULL destLen is outside this precondition.
+- `compress` calls the wrapper function `compress2`, which reads the destLen cell first, without a NULL check, and copies the length back on every return. A NULL destLen is therefore outside this precondition.
 - Input, destination and length cells must be separate and cover the stated ranges. Empty input is valid. Uses default level -1, selecting level 6.
 
 ### Calling conditions and effects {#api-compress-contract}
@@ -530,7 +530,7 @@ The status says whether the first zlib stream decoded completely. Length values 
 **Reading the result.**
 
 - After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- The ordinary adapter reads length cells first: destLen and sourceLen must both be non-NULL. Both are copied back on every return.
+- `uncompress2` is a wrapper function around `uncompress2_z`: it reads both length cells first, without a NULL check, so destLen and sourceLen must both be non-NULL. Both are copied back on every return.
 - Input, destination and length cells are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
 
 ### Calling conditions and effects {#api-uncompress2-contract}
@@ -658,7 +658,7 @@ The status says whether the first zlib stream decoded completely. Length values 
 **Reading the result.**
 
 - After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- The ordinary adapter reads the length cell first: destLen must be non-NULL and is copied back on every return.
+- `uncompress` calls the wrapper function `uncompress2`, which reads the length cell first, without a NULL check: destLen must be non-NULL, and it is copied back on every return.
 - Input, destination and the length cell are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
 
 ### Calling conditions and effects {#api-uncompress-contract}
@@ -822,7 +822,7 @@ Maps the supplied result code to text. The function itself always returns a non-
 No allocation, heap change or error return occurs. Values outside -6–2 are checked before
 index arithmetic, so both scalar extremes safely return empty text.
 
-**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it: functional goal `Goal.zError` (not planned; a theorem proves it), in [Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean), with the theorem `ZlibF.Spec.Public.Proofs.zError` ([public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)). For every heap and every `err` the goal states that the call returns, that the heap is unchanged, and that the result is the static text given under Post.
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it: functional goal `Goal.zError` (not planned; a theorem proves it), in [Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean), with the theorem `ZlibF.Spec.Public.Proofs.zError` ([public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)). It is called a functional goal because it fixes the returned text; it states the safety facts as well. For every heap and every `err` the goal states that the call returns, that the heap after the call is the heap before it (nothing is written, allocated or freed), and that the result points to read-only static storage that holds the text given under Post.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zError"><summary>Complete return conditions and boundaries</summary>
 
