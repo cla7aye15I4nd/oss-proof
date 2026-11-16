@@ -1,4 +1,4 @@
-<!-- source-sha256: d9f7afa3a7dddeb5867e81a79d86ddf6271f32ee8502cfdacaa062b9c2b7d02f -->
+<!-- source-sha256: 20a9a07153f8f6a4fb09ae5d1274f4c8ec937a17adf01782021a0056bfc0dfc8 -->
 
 # 4. 格式与完整性检查
 
@@ -184,10 +184,9 @@ sequenceDiagram
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
-`tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
+下表给出本章用到的每个函数的安全目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)记录每项结论的层级。
+[进度页](../progress.md)说明哪些目标已完成。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |

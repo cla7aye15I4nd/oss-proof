@@ -1,4 +1,4 @@
-<!-- source-sha256: 92e9a40d20dd71573951ba46abcc39419e8c1b47425d73858b5f9debc74f32a5 -->
+<!-- source-sha256: becdc2351e19a0b08a0f7458587e81f9b1f0d2f9312ef0973ad9020135fd0148 -->
 
 # 3. 流式处理
 
@@ -90,7 +90,7 @@ flowchart LR
 
 累计 `(total_in, total_out)` 依次为 `(9, 2)`、`(12, 5)`、`(19, 8)`。
 第三次调用消费三个载荷字节和四个尾部字节。输出拼接后为 `ABABABAB`，`EE` 仍未读取。
-对固定的 C 的一次有限运行确认了这些数值。
+对真实 C 的一次有限运行确认了这些数值。
 这是[示例证据，不是一般证明](../overview.md#evidence)。
 
 ### 3.2.1 保留剩余输入
@@ -212,10 +212,9 @@ stateDiagram-v2
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
-`tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
+下表给出本章用到的每个函数的安全目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)记录每项结论的层级。
+[进度页](../progress.md)说明哪些目标已完成。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |

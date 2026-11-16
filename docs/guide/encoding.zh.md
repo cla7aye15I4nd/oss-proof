@@ -1,4 +1,4 @@
-<!-- source-sha256: 837b5cae2eef38acab3f26aaa092be1ec1dace00d9d295ef578bf9df0dd9d6d1 -->
+<!-- source-sha256: efbad2829db7879a34bf4016c57370c13f453af9b589979bcb03b345256e7712 -->
 
 # 2. 重复、编码与数据块
 
@@ -206,10 +206,9 @@ flowchart TD
 本章的机制都在库内部：`longest_match`、`_tr_flush_block`、`inflate_table` 和 `inflate_fast` 不是公开函数。
 它们的安全性是到达它们的公开调用的安全性的一部分。
 
-下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
-`tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
+下表给出本章用到的每个函数的安全目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)记录每项结论的层级。
+[进度页](../progress.md)说明哪些目标已完成。
 
 | 函数 | 安全目标 | 契约与内部论证 |
 | --- | --- | --- |
