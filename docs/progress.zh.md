@@ -1,4 +1,4 @@
-<!-- source-sha256: 387c39b830ce58834a428f08380fca000deba4f43add8bc0b02bc441d51e243a -->
+<!-- source-sha256: 08cbe0be9c7bee33f03e65ab97b44f51c70457b5740f2515cc239adf5c4a8321 -->
 # 结论的状态
 
 本页说明每项结论、zlib 的每个公开函数是否已经完成。只有本页说明状态。要点是：三项安全结论都已完成，组成它们的 99 个目标全部完成。
@@ -19,7 +19,7 @@
 | 1 | `inflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.inflate_safety`、`Goal.inflate_sequence_safety` | 完成 |
 | 2 | `deflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.deflate_safety`、`Goal.deflate_sequence_safety` | 完成 |
 | 3 | 其余每个有文档的公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。 | [下文](#functions)各表中的其余全部目标 | 完成 |
-| 4 | 默认 zlib 流的往返：用默认级别的 `deflateInit` 压缩，再用 `inflateInit` 解压，得到原输入。 | 还没有写出目标 | 未完成 |
+| 4 | 默认 zlib 流的往返：用默认级别的 `deflateInit` 压缩，再用 `inflateInit` 解压，得到原输入。 | 没有写出目标 | 未完成 |
 
 关于第 4 项：有一条定理 `deflate_inflate_roundtrip`，它对翻译后的 C 证明了一个条件形式。它说的是一个从默认级别的 `deflateInit` 开始的 `deflate` 调用序列，和一个从 `inflateInit` 开始的 `inflate` 调用序列，两边都不用预设字典，并且 `inflate` 消耗的输入是 `deflate` 写出的输出的开头一段。当两个序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节。没有定理说明在输出空间足够、分配成功时两边都会到达 `Z_STREAM_END`，也没有定理陈述不带这个条件的往返，或者 `uncompress(compress(x)) = x`。
 

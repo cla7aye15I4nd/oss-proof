@@ -112,12 +112,11 @@ reads or copies each slice before it returns; the decoder may reuse the slice af
 callback copies each decoded slice to the application's storage.
 **Safety:** the decoder reads only the chunk the input callback last handed out, and writes only
 inside the window. This rests on premises about the callbacks, because a function-pointer type
-guarantees nothing. The main ones: each callback returns, changes only the caller's own storage,
-and hands out a readable chunk apart from the window; and one `inflateBack` call is offered fewer
-than `2^48` input bytes in all. These are not all of them. The goal also assumes that the window
-and every input chunk lie in heap byte blocks, that the input already in `next_in` is apart from
-the window, and that every byte object has fewer than `2^63` bytes. The complete premises are in
-[deviations](../deviations.md#callback-decoder).
+guarantees nothing: each callback returns, changes only the caller's own storage, and hands out
+a readable chunk apart from the window; one `inflateBack` call is offered fewer than `2^48` input
+bytes in all; the window and every input chunk lie in heap byte blocks; the input already in
+`next_in` is apart from the window; and every byte object has fewer than `2^63` bytes. The exact
+premises are in [deviations](../deviations.md#callback-decoder).
 
 `inflateBack` returns `Z_BUF_ERROR` when the input callback supplies nothing or the output
 callback reports a failure. It returns `Z_DATA_ERROR` for malformed data, possibly after some

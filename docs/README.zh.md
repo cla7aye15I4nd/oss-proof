@@ -1,4 +1,4 @@
-<!-- source-sha256: 118c7f2848a250580e227409a9e5a40dd64cad4b165e1aae5e018733984a3cf6 -->
+<!-- source-sha256: 04d4a3b06b16647645f854ddaf60cf23cbcd3f6410811decf28893616588f5ad -->
 # 文档
 
 本页是文档的索引：从哪里读起，每一部分讲什么。这份文档说明关于 zlib 形式化验证了什么、假设了什么，以及证明是怎样进行的。[文档网站](https://www.dataisland.org/zlib-f/index.zh.html)展示的是同样的页面。
@@ -28,5 +28,4 @@
 - [证明](proof/README.md)：验证方法，以及各个 C 组件的论证。
 - [为什么构建通过还不够](anti-cheating.md)：为什么证明能通过编译还不够，这些结论防范了什么。
 - [发现](findings.md)：已确认的关于 zlib 的报告及其范围。
-- [Sanitizer 报告](sanitizer-reports.md)：每个 sanitizer 复现，以及排除它的前提。
 - [运行时结构](runtime-schema.md)：模型中各记录的字段与类型参考。
