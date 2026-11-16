@@ -186,10 +186,14 @@ needs more than that, find out why before raising any limit.
 
 ## Findings
 
-Record a confirmed zlib issue in `README.md`: give a short description, link a reproduction under
-`docs/findings/`, and state the confidence and the scope. Keep an unconfirmed report out of `docs/`: it stays under
-`tests/regression/<name>/`, marked unconfirmed, until it is confirmed or withdrawn. Every new sanitizer reproduction goes under `tests/regression/<name>/` with
-`run.sh`, `report.txt` and a row in `docs/sanitizer-reports.md`.
+A finding is listed only if it is a defect of zlib itself, is reachable through documented use of
+the documented API, and is confirmed: by a run of the real C, or as undefined behaviour by the
+letter of C that a patch here fixes. List it in the table of `docs/findings.md`, with a page under
+`docs/findings/<name>/`: what is wrong, the documented calls that reach it, the evidence, the fix
+and the upstream state. `README.md` gives only the count and the link. Anything else (a defect
+that needs an undocumented function, an unconfirmed report, a documentation gap, a question about
+the caller's domain) stays out of `docs/`; its reproduction stays under `tests/regression/<name>/`.
+Every sanitizer reproduction goes under `tests/regression/<name>/` with `run.sh` and `report.txt`.
 
 ## Documents
 
@@ -208,6 +212,12 @@ Record a confirmed zlib issue in `README.md`: give a short description, link a r
   sanitizer) without describing how it is stored or run.
 - `docs/progress.md` is the only page that states a status: each result and each public function,
   done or not done, and what is not planned.
+- State each fact once, plainly. No claim followed by its own retraction, no open question, no
+  "not decided", no comparison with what a page or a goal used to say, no evidence bookkeeping. A
+  limit is a premise or one "not covered" sentence, not an argument. Premises, model limits,
+  trusted-base items and **to confirm** marks are not hedging and stay.
+- `README.md` is short: what is proved, what it rests on, what was found, what is not claimed, how
+  to check it.
 - Mark a reading of the C that the proof must still confirm with **to confirm**.
 - Use diagrams (mermaid) for structure and order. Do not use a diagram for a list.
 - Do not put machine names, addresses, user names, local paths or tool names in the repository.
