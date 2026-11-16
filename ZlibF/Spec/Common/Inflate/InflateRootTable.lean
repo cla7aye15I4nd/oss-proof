@@ -16,16 +16,4 @@ def Safe (ca : Array Code) (offset root : Nat) : Prop :=
       ∃ entry, ca[offset + i]? = some entry ∧
         1 ≤ entry.bits.toNat ∧ entry.bits.toNat ≤ root
 
-/-- Every successful actual table construction gives the root-entry bounds
-needed by lookup1. No validity of the compressed input is assumed. -/
-def Goal.constructor_root_bits : Prop :=
-  ∀ (h : Heap) (type : UInt32) (rl : WRef) (ol : Nat) (codes : UInt32)
-    (rc : CodeRef) (oc : Nat) (bits : UInt32) (rw : WRef) (ow : Nat)
-    (pre : CallPre h type rl ol codes rc oc bits rw ow),
-    ∃ r after,
-      C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h =
-        .ok (r, after) ∧
-      (r.1 = 0 → ∃ ca : Array Code,
-        Space.get after rc = some ca ∧ Safe ca oc r.2.2.toNat)
-
 end Zlib.Inftrees.Spec.RootTable

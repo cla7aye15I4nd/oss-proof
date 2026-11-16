@@ -1,6 +1,7 @@
 import ZlibF.Proof.«inffast.c.call-origin»
 import ZlibF.Proof.«inftrees.c.decode.fast-flags-frame»
 import ZlibF.Proof.«inffixed.h.fast-flags»
+import ZlibF.Spec.Safety.Inflate.FastOrigin
 
 /-! Documented registrations of existing supporting proofs.
 

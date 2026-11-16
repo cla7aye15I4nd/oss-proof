@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inftrees.c.decoder-safe»
 import ZlibF.Spec.Common.Inflate.InflateTableExtent
+import ZlibF.Spec.Safety.Inflate.Table
 
 namespace Zlib.Inftrees.Proofs
 open C Zlib.Inftrees Zlib.Inftrees.Spec Zlib.Inftrees.Canon Zlib.Inffast.Spec

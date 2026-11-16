@@ -184,6 +184,10 @@ import ZlibF.Spec.Safety.Queries
 import ZlibF.Spec.Safety.Utilities
 import ZlibF.Spec.Safety.GzCalls
 import ZlibF.Spec.Safety.Back
+import ZlibF.Spec.Safety.ByteAddress
+import ZlibF.Spec.Safety.Inflate.Fast
+import ZlibF.Spec.Safety.Inflate.FastOrigin
+import ZlibF.Spec.Safety.Inflate.Table
 import ZlibF.Spec.Functional.Api.Basic
 import ZlibF.Spec.Functional.Api.Compress
 import ZlibF.Spec.Functional.Api.Concrete

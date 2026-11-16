@@ -1,6 +1,7 @@
 import ZlibF.Proof.«inftrees.c.content.codes»
 import ZlibF.Math.InflateTableCoverage
 import ZlibF.Proof.«inftrees.c.cover.leaf»
+import ZlibF.Spec.Safety.Inflate.Table
 
 /-! The actual constructor's retained leaves and links establish decoder
 table safety for complete literal/length and distance alphabets. -/

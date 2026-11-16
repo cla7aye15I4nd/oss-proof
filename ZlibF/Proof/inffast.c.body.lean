@@ -2,6 +2,7 @@ import ZlibF.Spec.Common.Inflate.InflateFast
 import ZlibF.Proof.«inffast.c.frame»
 import ZlibF.Proof.«inffast.c.flags»
 import ZlibF.Proof.«inffast.c.advance»
+import ZlibF.Spec.Safety.Inflate.Fast
 
 /-!
 # inffast.c: one concrete fast-decoder iteration
