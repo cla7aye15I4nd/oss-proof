@@ -596,8 +596,7 @@ def run_replay(args: list[str], what: str) -> subprocess.CompletedProcess:
                 os.killpg(process.pid, 9)
     if over:
         raise Rejected(f"replay over budget ({REPLAY_RSS_LIMIT >> 20} MB): {what}: move this row to a "
-                       "source-level table if it edits a loop body or machine arithmetic "
-                       "(docs/checking/proof-mutants.md)")
+                       "source-level table if it edits a loop body or machine arithmetic")
     result = subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
     result.peak = peak
     return result
