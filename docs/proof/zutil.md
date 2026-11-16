@@ -50,19 +50,19 @@ unrestricted in all of them: the C ignores it.
 
 ## What the stream proofs prove themselves
 
-The wrapper theorems say nothing about the following. The init, copy and end theorems of
-[inflate](inflate.md) and [deflate](deflate.md) prove each of them.
+The wrapper theorems say nothing about the following four points. The init, copy and end
+theorems of [inflate](inflate.md) and [deflate](deflate.md) prove the first, third and fourth;
+the second is not proved for pointer fields.
 
 - **The product does not wrap.** `zcalloc(opaque, items, size)` computes `items * size` in
   32-bit `unsigned` arithmetic. A caller that relies on the ordinary product shows that it is
   below `2^32` and then uses `zcalloc_correct_size`. The table below gives the largest products
   of the stream allocations.
-- **Fields are written before they are read.** A fresh block has arbitrary integers, and a
-  fresh record has `NULL` pointers in the model
-  ([uninitialised memory](../spec/safety.md#uninitialised-memory)). An allocation does not make
-  a pointer field safe to read. For integers the theorems hold for every value. For pointer
-  fields this one item is not proved: a missing write does not show in the model, so it is
-  **to confirm** by source review.
+- **Fields are written before they are read.** A fresh block has arbitrary integers, and the
+  theorems hold for every value. A fresh record has `NULL` pointers in the model
+  ([uninitialised memory](../spec/safety.md#uninitialised-memory)), so a missing write of a
+  pointer field does not show in the model. **To confirm** by source review: every pointer
+  field is written before it is read.
 - **Each block is freed exactly once.** A non-null free needs the block to be live. The heap
   stores liveness; the proofs' `Owns` relation assigns the live blocks to a stream, and the end
   and failure-cleanup proofs free each owned block once.

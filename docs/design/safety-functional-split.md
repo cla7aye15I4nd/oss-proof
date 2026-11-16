@@ -17,10 +17,9 @@ this holds by construction: a module that states a safety goal, or a shared defi
 no module of the functional specifications, directly or through other modules. So a reader can
 read these safety goals without reading a functional specification.
 
-There is one exception: the goals of `compressBound` and `compressBound_z`
-([below](#two-goals-per-public-function)). They say that the translated function returns the
-value of `compressBound` of the API model, a five-line formula, and they are stated among the
-functional specifications.
+There is one exception: the goals of `compressBound` and `compressBound_z` name the formula
+`compressBound` of the API model, five lines long, and are stated among the functional
+specifications ([below](#two-goals-per-public-function)).
 
 The goals of both kinds are stated in the specifications, and no module of the specifications
 imports a proof module, directly or through other modules. So the statement of a goal is read in
@@ -68,7 +67,7 @@ Special cases:
   `Goal.compressBound_z`, as safety goals. Their translations are pure functions with no heap
   and no fault, so a separate safety goal would hold by definition. Each contract says that, for
   every 64-bit argument, the translated function returns the value of the API model's formula
-  `compressBound`. These two are the only safety goals that name a functional specification.
+  `compressBound`.
 - The functions that `zlib.h` lists as undocumented have no safety goal; `gzopen_w` among them
   is not in the default build and has no goal at all. The exception is `gzvprintf`, which has
   `Goal.gzvprintf_safety`.
@@ -103,10 +102,10 @@ states the functional contract of `gzopen`, and it is not planned.
   model is shared, not functional.
 
 The full contract `Goal.X` is the functional goal of `X`. The safety goal of `X` is a separate
-statement beside it; it is not a weakened form that replaces the contract.
+statement beside it.
 
-The round trip of the default zlib stream is planned and not done, and it has no goal
-definition yet. Its conditional form has a theorem, `deflate_inflate_roundtrip`, which
+The round trip of the default zlib stream is not done, and it has no goal definition. A
+conditional form has a theorem, `deflate_inflate_roundtrip`, which
 [architecture](architecture.md#the-layers) states.
 
 [Design](README.md) · [Documentation home](../README.md)

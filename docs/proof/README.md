@@ -171,10 +171,6 @@ Three families of identifiers appear on the pages.
 - `I-*` are internal contracts between functions
   ([internal contracts](../spec/internal-contracts.md)).
 
-They name obligations and facts. They are not a status.
-
 A bound that depends on the widths, tables or allocator of the default build holds for that
 build only. The integer and pointer rules of the model are in
 [translation semantics](../design/translation.md).
-
-[Progress](../progress.md) lists every goal and whether it is done.

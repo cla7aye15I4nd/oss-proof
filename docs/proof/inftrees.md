@@ -276,8 +276,7 @@ Safety of the writes is easy once `huff < 2^len` is known. The hard part is cove
 index of any table is left unwritten. It needs the whole theory of canonical codes (the
 intervals above), a model of which codes share a second-level table, and a proof that the
 sizing loop, which looks ahead in `count`, gives each group exactly the width its codes need.
-Coverage looks like a functional property, but the decoders' safety depends on it, since they
-do not check an entry before using it.
+The decoders' safety depends on coverage, since they do not check an entry before using it.
 
 ## Readings of the C that no theorem states
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 98f3d73a4b65cbdc5c45a634a2bfdda2ba45e20ffaae9e5dd08f036aa6effe30 -->
+<!-- source-sha256: b8679745920dbc07d48b36e59a870741770986b5277968dfbd015c8eebf05d56 -->
 # `deflate` 的默认配置引擎
 
 本页介绍关于 `deflate` 的一批功能结论，它们针对一种配置：由 `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` 创建的流（级别 6，zlib 封装，`windowBits` 为 15，`memLevel` 为 8，默认策略），并且只通过 `deflate` 调用来使用。对这种配置，结论说的不止是安全性：已完成的流能解码回它的输入。
@@ -31,7 +31,7 @@
 - 历史是带 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_`，随后是 `deflate` 调用和调用者对缓冲区字段的修改（`DeflateCore.Calls`、`DeflateCore.Trace`）。没有字典，没有 `deflateParams`，没有位预置，没有 gzip 头部。
 - 每次调用时 `StreamBuffers` 成立。
 - 输出指针是 `NULL`，或者指向一个堆上字节块的内部（`DeflateCore.Output`）。
-- 对完成性：上面给出的 `Completes` 的前提。后续调用的输入只有开始时已有的那段输入；处于 `FINISH_STATE` 的流得不到任何输入。
+- 对完成性：上面给出的 `Completes` 的前提。
 
 这些历史是序列目标所允许的历史的一个子集。本页的内容不会扩大任何一条安全结论的范围。
 
@@ -39,7 +39,7 @@
 
 定理 `deflate_inflate_roundtrip` 把第 3 个子句“已完成的编码”这条事实与 `inflate` 的对应事实接在一起。取一段以 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_` 开始的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。这里的 `deflate` 历史就是本页的历史，只是去掉了对输出指针的限制。每段历史都由调用者的修改和 `deflate`（或 `inflate`）调用组成，刷新值任意，缓冲区的切分任意，其中没有字典、重置或别的操作。如果每段历史都以一次返回 `Z_STREAM_END` 的调用结束，并且 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。
 
-这条定理是有条件的：它假设两段历史都到达 `Z_STREAM_END`。`DeflateCore.completes` 只对 `deflate` 一侧、在上面列出的前提下给出一串收尾的后续调用。没有定理说两段历史都会到达 `Z_STREAM_END`，也没有定理陈述不带这个条件的往返。所以往返未完成；哪些在计划内，见[进度](../progress.md)。
+不涵盖：两段历史都会到达 `Z_STREAM_END`。`DeflateCore.completes` 只对 `deflate` 一侧、在上面列出的前提下给出一串收尾的后续调用。不带这个条件的往返未完成。
 
 ## 针对每一种配置的证明复用了什么
 
