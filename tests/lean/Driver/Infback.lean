@@ -91,7 +91,7 @@ def runCase (wb : Int32) (inch : Nat) (opts : Nat) (input : Array UInt8) : M Str
   let strm ← allocZStream
   stZStream strm (ZStream.zeroed)
   let win ← allocB (if 0 ≤ wb.toInt && wb.toInt < 16 then 1 <<< wb.toInt.toNat else 1)
-  let ver ← allocBytesRO ("1.3.2.1-motley".toUTF8.data.push 0)
+  let ver ← allocBytesRO ("1.4".toUTF8.data.push 0)
   let init ← inflateBackInit_ strm wb win ver 112
   let mut line := s!"init={init.toInt}"
   if init == Z_OK then

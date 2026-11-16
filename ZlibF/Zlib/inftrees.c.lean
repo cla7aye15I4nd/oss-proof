@@ -72,7 +72,7 @@ def lbase : Array UInt16 :=
 /-- `static const unsigned short lext[31]` -/
 def lext : Array UInt16 :=
   #[16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18,
-    19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 68, 193]
+    19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 71, 77]
 /-- `static const unsigned short dbase[32]` -/
 def dbase : Array UInt16 :=
   #[1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
