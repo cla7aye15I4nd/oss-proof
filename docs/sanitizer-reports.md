@@ -18,8 +18,8 @@ output, and one of two things:
 The safety goals named here are of two kinds: one goal per function, such as
 `Goal.inflate_safety` and `Goal.deflate_safety`, and one goal per call sequence, such as
 `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety` and `Goal.gz_sequence_safety`. A
-premise of a function's goal is also a premise of the same call inside the sequence goal. All of
-these goals are done ([progress](progress.md)).
+premise of a function's goal is also a premise of the same call inside the sequence goal. The
+state of each goal is in [progress](progress.md).
 
 Platform and source of the reports:
 

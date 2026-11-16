@@ -32,8 +32,8 @@ verification has its own reference material below.
   internal helper contracts and the meaning of the compressed bytes.
 - [Model](design/README.md): the translation, memory semantics and external I/O.
 - [Proofs](proof/README.md): the verification method and the argument for each C component.
-- [Verification policy](anti-cheating.md): why a proof that compiles is not enough, and what
-  the results are guarded against.
+- [Why a green build is not enough](anti-cheating.md): why a proof that compiles is not enough,
+  and what the results are guarded against.
 - [Findings](findings.md): confirmed reports about zlib and their scope.
 - [Sanitizer reports](sanitizer-reports.md): every sanitizer reproduction and the premise that
   excludes it.

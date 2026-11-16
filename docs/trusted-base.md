@@ -2,8 +2,8 @@
 
 The kernel checks a proof against its Lean statement. That the statement says something true of
 the selected C source also depends on the six items below. They are reviewed and tested; they
-are not proved, and compiling the proofs does not discharge them. Every page of this
-documentation lists the same six.
+are not proved, and compiling the proofs does not discharge them. Wherever this documentation
+summarises what is trusted, it lists the same six.
 
 | # | Trusted | Checked by |
 | --- | --- | --- |

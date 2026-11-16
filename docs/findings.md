@@ -58,7 +58,7 @@ not patched.
 Each finding page says what the case means for the functional statements. Without patch 0006,
 the completeness statement `DeflateCompletes` is false for the first case, because it quantifies
 over every strategy. The value goals `Goal.deflateBound` and `Goal.deflateBound_z` are false for
-the two lengths of the second case; both are not done.
+the two lengths of the second case; both are not done and not planned.
 
 ## The position overflow through `gz_look`
 
@@ -117,8 +117,8 @@ here to a confirmed defect.
 ## Behaviour of zlib that a specification must respect
 
 These records are about the real C. They are not safety findings and not zlib bugs; each one
-is a behaviour that a specification of zlib has to allow. The linked tests ran the real C; they
-are evidence, not proof.
+is a behaviour that a specification of zlib has to allow. The linked tests ran the real C, and
+the linked model check ran the Lean model; they are evidence, not proof.
 
 | Behaviour | Evidence | Meaning |
 | --- | --- | --- |

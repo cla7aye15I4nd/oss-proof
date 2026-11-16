@@ -174,6 +174,6 @@ flowchart LR
 | 什么是被信任而没有被证明的？ | [可信基础](trusted-base.md) |
 | 哪条定理覆盖某个函数？ | [按函数查覆盖情况](coverage.md) |
 | 哪些结论完成了，哪些未完成？ | [进度](progress.md) |
-| “完成”二字背后有哪些检查？ | [“完成”的依据](checking/README.md) |
+| “完成”二字背后有哪些检查？ | [完成的结论依靠什么](checking/README.md) |
 
 安全目标的全称量词覆盖其前提所容许的每个输入、参数、分配结果和历史。[输入配置](spec/input-configurations.md)中那些较窄的范围描述的是内部引理，并不限制安全目标。

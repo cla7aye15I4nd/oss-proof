@@ -1,4 +1,4 @@
-<!-- source-sha256: de1e97ca49c7032c46d242cb65cb74c2ff741c0da10479f02914a8aae001b260 -->
+<!-- source-sha256: 29a8e0588ed65a99c419c22accff3f5411c02e99e31bc9d45a04134d594368d1 -->
 # 发现：本项目在 zlib 中发现了什么
 
 本页列出本项目在 zlib 本身发现的问题。它把三组分开：由 sanitizer 在真实 C 上确认的问题，仅按 C 标准字面规定属于未定义的问题，以及 `deflateBound` 的两处不属于内存错误的失信。每个问题都有自己的页面，给出调用序列、运行命令、输出、严重程度和修复。后面的几节保留未确认的观察，以及不属于 zlib 缺陷的行为。
@@ -40,7 +40,7 @@
 | [`Z_FIXED` 在级别 1 到 3 时 `deflateBound` 太小](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 为 15、`memLevel` 为 8、策略为 `Z_FIXED`、级别 1 到 3。对 1,000,000 字节的输入，界是 1,000,318，而流最多需要 1,008,570 字节。`compress`、`compress2` 和 `compressBound` 使用默认策略，不受影响。 | 固定的 C 上的复现，分别在启用和不启用 AddressSanitizer 与 UndefinedBehaviorSanitizer 的情况下运行。范围来自在真实 C 上对各参数检验这项承诺的测试。系统自带的 zlib 1.2.12 在级别 1 到 9 上全部失败。带补丁 0006 时，复现程序和对含远距离匹配的输入所做的搜索在每个级别都能结束。 | 没有报告。上游是否已经知道，尚未向上游核实。本仓库的本地补丁 0006：没有提交。 |
 | [gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`](findings/deflatebound-extra-len/README.md) | `deflateBound` 按 32 位计算 `2 + extra_len`，所以对这两个长度，和发生回绕，界大约小了 64 KiB。 | 固定的 C 上一个用这两个长度调用 `deflateBound` 的 C 驱动程序 | 上游已知（上游拉取请求 1360 中有讨论）。 |
 
-每个发现页面都说明了该情形对功能命题意味着什么。没有补丁 0006 时，完备性命题 `DeflateCompletes` 对第一种情形不成立，因为它对每一种策略全称量化。数值目标 `Goal.deflateBound` 和 `Goal.deflateBound_z` 对第二种情形的两个长度不成立；两者都未完成。
+每个发现页面都说明了该情形对功能命题意味着什么。没有补丁 0006 时，完备性命题 `DeflateCompletes` 对第一种情形不成立，因为它对每一种策略全称量化。数值目标 `Goal.deflateBound` 和 `Goal.deflateBound_z` 对第二种情形的两个长度不成立；两者都未完成，也不在计划内。
 
 ## 经由 `gz_look` 的位置溢出
 
@@ -87,7 +87,7 @@
 
 ## 规格必须容许的 zlib 行为
 
-这些记录说的是真实的 C。它们不是安全性发现，也不是 zlib 缺陷；每一项都是 zlib 的规格必须容许的行为。链接的测试运行了真实的 C；它们是证据，不是证明。
+这些记录说的是真实的 C。它们不是安全性发现，也不是 zlib 缺陷；每一项都是 zlib 的规格必须容许的行为。链接的测试运行了真实的 C，链接的模型检查运行的是 Lean 模型；它们是证据，不是证明。
 
 | 行为 | 证据 | 含义 |
 | --- | --- | --- |
