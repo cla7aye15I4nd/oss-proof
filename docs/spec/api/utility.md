@@ -714,7 +714,7 @@ Returns the version string of the linked library.
 
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
-| `ZLIB_VERSION`<br>**Library version string** | No arguments; returns a non-NULL, NUL-terminated 1.3.2.1-motley string. | Read this static string; do not write to or free it. |
+| `ZLIB_VERSION`<br>**Library version string** | No arguments; returns a non-NULL, NUL-terminated string, `1.4` in the pinned source. | Read this static string; do not write to or free it. |
 
 ### Calling conditions and effects {#api-zlibversion-contract}
 
@@ -737,7 +737,7 @@ the caller must neither write it nor free it. No allocation or heap change occur
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibVersion"><summary>Complete return conditions and boundaries</summary>
 
-**Post.** Returns a non-NULL pointer to NUL-terminated `ZLIB_VERSION` (`1.3.2.1-motley`).
+**Post.** Returns a non-NULL pointer to NUL-terminated `ZLIB_VERSION` (`1.4` in the pinned source).
 
 </details>
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: e243efe2b05c424c2c4d74a3b2c6eee8b60d586e68af95fad6cb733fe5389655 -->
+<!-- source-sha256: e62c84514bd33bc066bb971b0b84e776e7e4cecdf81cec9f0ef57087f401ab7c -->
 
 # 缓冲区工具与库信息
 
@@ -686,7 +686,7 @@ const char * ZEXPORT zlibVersion(void);
 
 | 返回值 | 含义与出现条件 | 调用者接下来 |
 | --- | --- | --- |
-| `ZLIB_VERSION`<br>**库版本字符串** | 无参数；返回非 NULL、以 NUL 结尾的 1.3.2.1-motley 字符串。 | 读取此静态字符串；不得写入或释放。 |
+| `ZLIB_VERSION`<br>**库版本字符串** | 无参数；返回非 NULL、以 NUL 结尾的字符串，在固定的源码中是 `1.4`。 | 读取此静态字符串；不得写入或释放。 |
 
 ### 调用条件与效果 {#api-zlibversion-contract}
 
@@ -709,7 +709,7 @@ const char * ZEXPORT zlibVersion(void);
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibVersion"><summary>完整返回条件与边界</summary>
 
-**后置条件。** 返回非 NULL 指针，指向以 NUL 结尾的 `ZLIB_VERSION`（`1.3.2.1-motley`）。
+**后置条件。** 返回非 NULL 指针，指向以 NUL 结尾的 `ZLIB_VERSION`（在固定的源码中是 `1.4`）。
 
 </details>
 

@@ -1,7 +1,7 @@
 {
   "kind": "actual-selected-c-webassembly-example",
   "source_repository": "https://github.com/madler/zlib",
-  "source_commit": "757f0527154291bcf6bfbd6396ecde6bedd2db95",
+  "source_commit": "99623ef7097352da7993ba614161fd6a311e046e",
   "source_patches": [
     {
       "path": "patches/0001-inflate-copy-pointer-equality.patch",
@@ -58,7 +58,7 @@
     },
     {
       "path": "deflate.c",
-      "sha256": "fb6eb5bd06a957350b6976ea21f21a2d0bb625ad48c4b894a2583dc806ca19fb"
+      "sha256": "f1d7780041bb7821cd6ddb3b95ae033b5e3b83cdb67c708973245932e42a316d"
     },
     {
       "path": "trees.c",
@@ -74,7 +74,7 @@
     },
     {
       "path": "inftrees.c",
-      "sha256": "64fc6aeea744510253a22f8b0611fcefa970458224a41a1649f5e0db340af8fe"
+      "sha256": "7ab9c04acc2e9888c8c1fddefc730a850f69a3d80a7a702433a35383e36efa9c"
     },
     {
       "path": "inffast.c",
@@ -91,8 +91,8 @@
       "bytes": 8216
     },
     "zlib-playground.wasm": {
-      "sha256": "b33c4fd589fae4e3683aca47fe2bf4b949ae824e2595938756a216f0cff42eb1",
-      "bytes": 60613
+      "sha256": "9530cb5580c277eccfa76923659555133285684a89ed30630d73dc8944baead2",
+      "bytes": 60604
     }
   },
   "configuration": {
@@ -145,7 +145,7 @@
     },
     {
       "path": "zlib.h",
-      "sha256": "f7d83ec1323652952abe06a2fadd8eb52afc5989537102532aa8ca5635e2a32a"
+      "sha256": "2c404dcaa08709c2a129aea18f3dad4fb5acc5cb52ef12b6223bf8e78c195801"
     },
     {
       "path": "zutil.h",

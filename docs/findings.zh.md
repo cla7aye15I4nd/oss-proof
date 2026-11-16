@@ -1,9 +1,9 @@
-<!-- source-sha256: 4ad8df45e790626fb513c2d47bee06529b71aadc5134512498f2ec1899b76461 -->
+<!-- source-sha256: 722c4d19e150f6c2c1ad31efd67bb008e941d8448e29f52e600978bc8ea8e886 -->
 # 发现与证据登记
 
 本页列出本项目在 zlib 本身发现的问题。它把四组分开：由 sanitizer 在真实 C 上确认的问题，仅按 C 标准字面规定属于未定义的问题，`deflateBound` 的两处不属于内存错误的失信，以及在本项目自己的补丁里发现的一个缺口。每个问题都有自己的页面，给出调用序列、运行命令、输出、严重程度和修复。后面的几节保留早期的、未确认的观察。
 
-固定的源码是上游 `develop` 的提交 `757f0527`。上游状态读取于 2026-11-14。[Sanitizer 报告](sanitizer-reports.md)列出所有保留的 sanitizer 复现，包括不属于 zlib 问题的调用者错误。[补丁](../patches/README.md)说明被验证的源码应用的五个补丁。未完成的调查只记在[进度](progress.md)中。
+固定的源码是上游 `develop` 的提交 `99623ef7`，即 zlib 1.4。上游状态读取于 2026-11-15。[Sanitizer 报告](sanitizer-reports.md)列出所有保留的 sanitizer 复现，包括不属于 zlib 问题的调用者错误。[补丁](../patches/README.md)说明被验证的源码应用的五个补丁。未完成的调查只记在[进度](progress.md)中。
 
 差分测试、sanitizer 运行和模型运行都是证据，不是关于 C 的证明。
 

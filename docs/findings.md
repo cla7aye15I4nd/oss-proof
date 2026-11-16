@@ -7,8 +7,8 @@ found in the project's own patch. Each issue has its own page with
 the call sequence, the run command, the output, the severity and the fix. Later sections keep
 older observations that are not confirmed.
 
-The pinned source is commit `757f0527` of upstream `develop`. Upstream state was read on
-2026-11-14. [Sanitizer reports](sanitizer-reports.md) lists every retained sanitizer reproduction,
+The pinned source is commit `99623ef7` of upstream `develop`, zlib 1.4. Upstream state was read on
+2026-11-15. [Sanitizer reports](sanitizer-reports.md) lists every retained sanitizer reproduction,
 including caller mistakes that are not zlib issues. [Patches](../patches/README.md) describes the
 five patches the verified source applies. Open investigations are only in [progress](progress.md).
 
