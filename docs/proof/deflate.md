@@ -100,7 +100,7 @@ Each premise has a row in [deviations](../deviations.md).
 | Dictionary range (`CallerRange`) | The dictionary buffer is `NULL`, or readable (writable for `deflateGetDictionary`) for the bytes the call reads or writes, and outside the stream's blocks | `deflateSetDictionary`, `deflateGetDictionary` |
 | `DeflateNotStarted` | No `deflate` call has started the stream since initialisation or reset: the status is `INIT_STATE` or `GZIP_STATE` | `deflatePrime`, `deflateSetHeader` |
 | Header argument (`HeaderMemory`) | The record passed in is `NULL`, or readable and not owned by the stream, with `extra` readable for `extra_len` bytes and `name` and `comment` ending in a NUL | `deflateSetHeader` |
-| No direct `deflateResetKeep` | It is not one of the permitted calls. `zlib.h` lists it as undocumented, and after it the hash entries of the last two positions are stale ([finding](../findings/deflate-resetkeep-stale-hash/README.md)) | the history |
+| No direct `deflateResetKeep` | It is not one of the permitted calls. `zlib.h` lists it as undocumented, and after it the hash entries of the last two positions are stale ([reproduction](../../tests/regression/deflate-resetkeep-stale-hash/README.md)) | the history |
 
 `deflateReset`, `deflateTune`, `deflatePending` and `deflateUsed` have no argument premise.
 `Goal.deflateEnd_safety` needs a reachable stream and nothing else.

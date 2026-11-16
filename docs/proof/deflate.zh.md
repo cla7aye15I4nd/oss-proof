@@ -1,4 +1,4 @@
-<!-- source-sha256: a19173ce691f979a46a9fad438ca63de6f04809047a0c51988c6aa8a3a353529 -->
+<!-- source-sha256: d9d8f6b4e0764e88b923ebd0e26d55b85f3531323df08afb8d31c2fea16a0d66 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 本页讲的是 `zlib/deflate.c` 和它的翻译 `ZlibF/Zlib/deflate.c.lean`。
@@ -54,7 +54,7 @@
 | 字典区域（`CallerRange`） | 字典缓冲区是 `NULL`，或者在这次调用读写的那些字节内可读（对 `deflateGetDictionary` 要可写），并且在流的块之外 | `deflateSetDictionary`、`deflateGetDictionary` |
 | `DeflateNotStarted` | 自初始化或重置以来，还没有 `deflate` 调用启动过这个流：状态值是 `INIT_STATE` 或 `GZIP_STATE` | `deflatePrime`、`deflateSetHeader` |
 | 头部参数（`HeaderMemory`） | 传入的记录是 `NULL`，或者可读且不归流所有，它的 `extra` 在 `extra_len` 个字节内可读，`name` 和 `comment` 以 NUL 结尾 | `deflateSetHeader` |
-| 不直接调用 `deflateResetKeep` | 它不在被允许的调用之列。`zlib.h` 把它列为未文档化的函数，而且在它之后，最后两个位置的哈希表项是过时的（[发现](../findings/deflate-resetkeep-stale-hash/README.md)） | 历史 |
+| 不直接调用 `deflateResetKeep` | 它不在被允许的调用之列。`zlib.h` 把它列为未文档化的函数，而且在它之后，最后两个位置的哈希表项是过时的（[复现](../../tests/regression/deflate-resetkeep-stale-hash/README.md)） | 历史 |
 
 `deflateReset`、`deflateTune`、`deflatePending` 和 `deflateUsed` 没有参数前提。`Goal.deflateEnd_safety` 只需要流是可达的。
 

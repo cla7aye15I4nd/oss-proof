@@ -172,7 +172,7 @@ terminates: that is the content of `Goal.crc32_combine_op_safety`. An arbitrary 
 value is not in the documented domain. For `crc32_combine_op(1, 2, 1UL << 32)`,
 `crc32_combine_op_diverges` proves that the translation runs out of fuel. The real C was
 reported not to return on that call in two runs with a timeout. No reproduction of that report
-is kept ([findings](../findings.md#unconfirmed-observations)). So the behaviour of the C on
+is kept. So the behaviour of the C on
 this call is a report, and the theorem is about the translation. The hang is a misuse outside
 the documented domain, not a defect within it.
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 81704426d5d45d54f2a25865e7b83ee08f3e2598e8815a9b30df3925fd569000 -->
+<!-- source-sha256: a0f2d18a65a92df5754a49ebd9f497c867ca34da19f6326d053a3312892563b6 -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后精确的 Lean 前提、陈述它的目标，以及真实的 C 在前提之外会怎样。
@@ -8,7 +8,7 @@
 - **列出了什么。** 安全目标中每一条比 `zlib.h` 更窄的前提，以及读者容易漏看的前提。只是重复 `zlib.h` 的前提写在目标的 Lean 命题里，以命题为准；每个函数对应哪个目标，见[按函数查覆盖情况](coverage.md)。
 - **结果单元。** 有八个函数通过指针写出结果，而翻译把这个指针表示成一个值，不是内存：四个 `compress*` 函数的 `destLen`，两个 `GetDictionary` 函数的 `dictLength`，以及 `deflatePending` 和 `deflateUsed` 的结果指针。它们的目标对这个单元没有前提，对它的内存也什么都没说。核对清单给出调用者必须遵守的那一行，并注明“没有 Lean 谓词”。细节见[“结果单元”](#stream-calls-inflate-and-deflate)和[“整缓冲区压缩”](#whole-buffer-utilities-and-checksums)两行。
 - **这里没有列什么。** 调用者无能为力的、对模型的条件，以及功能定理和模型定理的限制：它们在[模型的限制](model-limits.md)中。被信任而没有被证明的东西在[可信基础](trusted-base.md)中。
-- **证据。** 已知真实的 C 在某条前提之外会出错时，该行给出复现的链接；[sanitizer 报告](sanitizer-reports.md)列出全部复现。
+- **证据。** 已知真实的 C 在某条前提之外会出错时，该行给出复现的链接。
 
 比 `zlib.h` 更窄的前提，也写在陈述它的 Lean 定义的文档注释里。
 
@@ -179,7 +179,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 | deflate 的 gzip 头进度（`DeflateHeaderProgress`） | 在上一行所说的每次调用时，如果此前某次 `deflate` 调用在挂接的 `gz_header` 的某个字段写到一半时返回，调用者保留了已经写出的部分：字段仍覆盖已写出的部分（`gzindex`），并且在 `EXTRA_STATE`、`NAME_STATE` 或 `COMMENT_STATE` 中，该字段没有中途被置为 `NULL`（它为 `NULL` 时 `gzindex = 0`）。 | 与上一行相同的目标 | 被排除的修改是真实 C 的未定义行为（[复现](../tests/regression/deflate-history-domain/README.md)）：被缩短的字段会被读到末尾之外；中途置为 `NULL` 的字段会被跳过，而 `gzindex` 没有重置，下一个字符串就从 `gzindex` 处读起，越过它的末尾。`zlib.h` 要求调用者在第一次 `deflate` 调用之前提供头部；它没有说明记录在写出期间能否改变。 |
 | 被拒绝的流（`RefusedInflate`、`RefusedDeflate`） | 被拒绝的流是 `NULL`，或者是一个可读的记录：其状态为 `NULL`，或其 `zalloc` 或 `zfree` 为 `NULL`，或其状态是一个被检查拒绝的存活状态记录（回指指针、`mode` 或 `status` 字段有误）。 | 除四个初始化函数之外每个有文档的流函数的安全目标的拒绝子句，以及 `Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety` 的拒绝子句；`Goal.inflate_refusal`、`Goal.deflate_refusal` | 这涵盖 `End` 之后的记录、复制失败时的目的记录、存活记录的结构体副本，初始化返回 `Z_VERSION_ERROR` 之后的记录（只要它的 `zalloc` 和 `zfree` 在调用之前是 `NULL`），以及其他初始化失败之后 `state` 为 `NULL` 的记录：要么是初始化函数在那里写入了 `NULL`，要么是这个字段在调用之前就是 `NULL`。有三类记录在范围之外：见[注 2](#note-2-refused-streams)。 |
 | 复制的目的流 | 在“从可达的源复制”这个子句里：目的流是一个可读的流记录，并且不是源记录（`source ≠ dest`），源使用默认分配器（`DefAlloc`）。拒绝子句只要求目的记录可读，`dest` 为 `NULL` 时则没有要求；它们没有 `source ≠ dest` 这条前提。 | `Goal.inflateCopy_safety`、`Goal.deflateCopy_safety`，以及功能目标 `Goal.inflateCopy`、`Goal.deflateCopy` | 当 `dest == source` 且源可达时，C 的 `zmemcpy(dest, source, sizeof(z_stream))` 把一个对象复制到它自身上，这是未定义行为；这种情形不被覆盖。当 `dest == source` 而源被拒绝时，调用由拒绝子句覆盖：C 在复制之前就返回 `Z_STREAM_ERROR`，并把 `dest->state` 置为 `NULL`。目的记录与源记录、某个缓冲区或某个状态记录部分重叠的情形无法表达：模型把 `z_stream` 记录放在单独的表里（[模型的限制](model-limits.md#how-the-runtime-represents-c)，地址与布局模型）。`zlib.h` 没有说明是否允许这种布局。 |
-| 直接调用 `deflateResetKeep` | deflate 的调用历史（`StreamOperation .deflate`）中没有对 `deflateResetKeep` 的直接调用；`deflateReset` 和 `deflateInit2_` 仍在其中。 | `Goal.deflate_sequence_safety`，以及通过 `StreamReachable` 涉及的各个单函数 deflate 目标 | 这不是比 `zlib.h` 更窄的限制：`zlib.h` 把 `deflateResetKeep` 声明在 `undocumented functions (not part of the zlib API)` 之下，它的目标不在计划内（[进度](progress.md)）。真实的 C 在那里不安全：在 `deflateResetKeep`、`deflate(Z_BLOCK)`、`deflateCopy`，以及副本上的一次 `Z_RLE` 或 `Z_HUFFMAN_ONLY` 刷新之后，后续的 `deflate` 会沿着一个未初始化的 `prev` 槽走下去，读到窗口之外（[发现](findings/deflate-copy-pending-prev/README.md)）；不做复制时，后续的匹配可能出错（[发现](findings/deflate-resetkeep-stale-hash/README.md)）。单次调用的安全性（不出故障、终止）仍然得到了证明；`deflateReset` 要经过它。 |
+| 直接调用 `deflateResetKeep` | deflate 的调用历史（`StreamOperation .deflate`）中没有对 `deflateResetKeep` 的直接调用；`deflateReset` 和 `deflateInit2_` 仍在其中。 | `Goal.deflate_sequence_safety`，以及通过 `StreamReachable` 涉及的各个单函数 deflate 目标 | 这不是比 `zlib.h` 更窄的限制：`zlib.h` 把 `deflateResetKeep` 声明在 `undocumented functions (not part of the zlib API)` 之下，它的目标不在计划内（[进度](progress.md)）。真实的 C 在那里不安全：在 `deflateResetKeep`、`deflate(Z_BLOCK)`、`deflateCopy`，以及副本上的一次 `Z_RLE` 或 `Z_HUFFMAN_ONLY` 刷新之后，后续的 `deflate` 会沿着一个未初始化的 `prev` 槽走下去，读到窗口之外（[复现](../tests/regression/deflate-copy-pending-prev/README.md)）；不做复制时，后续的匹配可能出错（[复现](../tests/regression/deflate-resetkeep-stale-hash/README.md)）。单次调用的安全性（不出故障、终止）仍然得到了证明；`deflateReset` 要经过它。 |
 
 ### gzip 头部及其缓冲区何时必须有效
 
