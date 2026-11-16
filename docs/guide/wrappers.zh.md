@@ -1,4 +1,4 @@
-<!-- source-sha256: 077978280d767781e00a4a2d3498a2aca16ee960e9e12a9df13d8faba7e89319 -->
+<!-- source-sha256: 6c0a1df4a340f45f79d006fa5f6969b7d105b0f2c319bedbdd8fa6702879b016 -->
 
 # 4. 格式与完整性检查
 
@@ -99,7 +99,7 @@ Gzip 没有 zlib 式的预置字典请求。
 `inflateGetHeader()` 把调用者拥有的头部记录及其缓冲区交给解码器。之后的 `inflate()` 调用解析并写入它们。
 名称可能跨越多个输入缓冲区，所以解码器在调用之间保存解析进度。
 **安全：** `inflate` 向这三个缓冲区最多分别写入 `extra_max`、`name_max` 和 `comm_max` 个字节。
-这依赖一条前提：只要该记录还交在解码器手里，每次调用 `inflate` 时记录及其缓冲区都保持有效；并且在 `inflate` 读取头部期间，`extra` 缓冲区与未读输入互不重叠（见[偏离记录](../deviations.md#when-a-gzip-header-and-its-buffers-must-be-valid)）。
+这依赖一条前提：只要该记录还交在解码器手里，每次调用 `inflate` 时记录及其缓冲区都保持有效；并且在 `inflate` 读取头部期间，`extra` 缓冲区与未读输入互不重叠（见[偏离记录](../deviations.md#checklist-for-a-caller)）。
 [头部契约](../spec/api/inflate-stream.md#inflategetheader)同时定义这些内存效果和字节含义。
 
 可选的头部检查保存此前头部字节的 CRC-32 的低 16 位。
