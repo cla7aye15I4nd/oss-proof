@@ -326,8 +326,8 @@ def support_family(path):
     stem = Path(path).stem
     if '/Runtime/' in path: return 'runtime object and arithmetic lemmas'
     if '/Math/' in path: return 'heap-free mathematics'
-    if '/Spec/Functional/Format/' in path or '/Spec/Format/' in path: return 'format-model lemmas'
-    if '/Spec/Functional/Api/' in path or '/Spec/Api/' in path: return 'API-model lemmas'
+    if '/Spec/Functional/Format/' in path: return 'format-model lemmas'
+    if '/Spec/Functional/Api/' in path: return 'API-model lemmas'
     if '/Spec/' in path: return 'specification lemmas'
     if '/Proof/Api/' in path: return 'api-model proofs'
     if '/Proof/Format/' in path: return 'format proofs'
