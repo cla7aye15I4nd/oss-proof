@@ -5,7 +5,7 @@
 DEFLATE describes compressed bytes. The zlib and gzip formats put a header and a checksum
 around those bytes. This guide explains the data that `inflate` must interpret and `deflate`
 must produce. It states obligations, rather than claiming that the implementation meets them.
-Accepted results and remaining work are recorded in [progress](../../progress.md).
+[Progress](../../progress.md) says which goals are done.
 
 Read the layers and bit order first, then the block and symbol rules. The wrapper sections
 explain dictionaries and checksums. [The model reference](model.md) maps these rules to Lean.
@@ -193,8 +193,8 @@ least-significant-bit-first order.
 
 `F-length-284`: zlib also accepts symbol 284 with extra value 31 as length 258. The RFC table
 assigns length 258 to symbol 285 and leaves this combination unused. The format model retains
-zlib's accepted combination. A recorded real-library check used a literal `a`, then symbol
-284 with extra value 31 and distance 1, and obtained 259 bytes. This is evidence of fidelity,
+zlib's accepted combination. A run of the real C library on a literal `a`, then symbol
+284 with extra value 31 and distance 1, produced 259 bytes. This is evidence of fidelity,
 not a proof of the translated decoder.
 
 `F-distance-table`:
