@@ -105,11 +105,11 @@ facts.
 
 ## What is proved, what is assumed
 
-**Proved.** The required goals are the safety goal of each of the 86 documented functions, the
-sequence goals, the refusal goals, the goal of `gzvprintf`, and the non-vacuity goals. Each has
-a theorem of exactly its type: all of them are done. The
-[appendix](#where-the-goals-are) names them by function, and [progress](../progress.md) lists
-every goal.
+**Proved.** There are 99 required goals: the safety goal of each of the 86 documented functions,
+four sequence goals, three refusal goals, the goal of `gzvprintf`, and five non-vacuity goals.
+Each has a theorem of exactly its type: all of them are done. The
+[appendix](#where-the-goals-are) names them by function, and
+[progress](../progress.md#functions) lists every goal.
 
 **Assumed.**
 
@@ -363,7 +363,7 @@ obligation.
 | A8 | Every byte object has fewer than `2^63` bytes. This is a fact of the platform, not a duty of the caller. | `ByteObjectsFit` ([platform](platform.md)) |
 
 Three kinds of record are outside A1 for the calls after init, neither reachable nor refused
-([deviations](../deviations.md), row "Refused streams"): a record whose `state` field holds a
+([deviations](../deviations.md#stream-calls-inflate-and-deflate), row "Refused streams"): a record whose `state` field holds a
 garbage address, as in a `z_stream` that was never initialised; a record whose `state` points
 to a freed state; and a record whose `state` points to a state of the other kind (a deflate
 state passed to an inflate function). In C each of these calls reads through the bad pointer,
@@ -386,8 +386,8 @@ recorded in [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schem
 | U3 | No null dereference | Yes. |
 | U4 | No use after free or double free | Yes. A freed block number is never reused, so a dangling pointer faults. |
 | U5 | No invalid use of uninitialised data | Integers: every theorem holds for every value. Pointers: no; no theorem states it, and it is left to source review ([below](#uninitialised-memory)). |
-| U6 | No signed overflow | Yes, where the translation uses a checked signed operation. Where a preceding test in the same function keeps the operands in range, the translation uses the plain operator ([translation](../design/translation.md)); there the test excludes the overflow, and the model does not check it. |
-| U7 | No invalid shift | Yes, where the translation uses a checked shift operation. A shift by a literal count, and a few other shifts, are written with the plain operator, which the model does not check ([translation](../design/translation.md)). |
+| U6 | No signed overflow | Yes, where the translation uses a checked signed operation. Where a preceding test in the same function keeps the operands in range, the translation uses the plain operator ([translation, normalisation 4](../design/translation.md#the-accepted-normalisations)); there the test excludes the overflow, and the model does not check it. |
+| U7 | No invalid shift | Yes, where the translation uses a checked shift operation. A shift by a literal count, and a few other shifts, are written with the plain operator, which the model does not check ([translation, form 4](../design/translation.md#forms-not-covered-by-the-four-accepted-normalisations)). |
 | U8 | No write to a read-only object | Partly: byte objects and static tables carry a read-only flag; other objects do not. |
 | U9 | No overlapping `memcpy` | Yes, for every `memcpy` call. |
 | U10 | Accesses respect C type and alignment requirements | No. The model has no type tags, no alignment and no complete ABI layout ([below](#object-representation)). |
@@ -485,7 +485,7 @@ well-formedness" and "CRC address and word access", and
 ## Outside safety
 
 - **Functional correctness.** What the output bytes are and which code a call returns. It is
-  not required for the safety results; [progress](../progress.md) says which functional
+  not required for the safety results; [progress](../progress.md#not-planned) says which functional
   results are planned. Some functional goals have a theorem, and each
   [API entry](api/README.md) says whether its functional goal has one. A functional fact that
   a safety proof depends on is proved as part of that proof. The [format](format/README.md)
