@@ -1,4 +1,4 @@
-<!-- source-sha256: 26ee4e74c6f81a78d8cfdf7ea6257aa3a2f5e733ba526fc6a40fed62cf64a628 -->
+<!-- source-sha256: 5fc2d6cdc941b3bd54bb02c484a8ebefd06bcfb1e0a9d6820d0a066ae01b31f0 -->
 
 # 安全性：目标陈述了什么
 
@@ -314,7 +314,7 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 
 | 编号 | 义务或范围 | Lean 前提 |
 | --- | --- | --- |
-| A1 | **初始化。** 流指针是 `NULL`，或者指向一个 `z_stream`，其 `zalloc` 和 `zfree` 各自是 `NULL` 或默认分配器的函数。其他字段（包括 `state`）可以是任意值。版本指针是 `NULL` 或有一个可读字节。**之后的调用。** 流可达。`NULL` 流或不一致的流会被拒绝：除四个初始化函数之外，每个流函数的安全目标都有一个针对它的子句（见[附录](#where-the-goals-are)）。返回的值是 `Z_STREAM_ERROR`；例外是 `inflateMark` 返回 `-65536`，`deflateBound` 和 `deflateBound_z` 返回 `NULL` 流的上界。拒绝什么也不改，只有一个例外：从被拒绝的源复制时，`dest->state` 被置为 `NULL`；对 `inflate` 和 `inflateSync`，这个子句说的是不写原先存活的任何块，且存活的块保持原样（见[偏离记录](../deviations.md#note-2-refused-streams)）。 | `InitArguments`；`StreamReachable`；`RefusedInflate`、`RefusedDeflate` |
+| A1 | **初始化。** 流指针是 `NULL`，或者指向一个 `z_stream`，其 `zalloc` 和 `zfree` 各自是 `NULL` 或默认分配器的函数。其他字段（包括 `state`）可以是任意值。版本指针是 `NULL` 或有一个可读字节。**之后的调用。** 流可达。`NULL` 流或不一致的流会被拒绝：除四个初始化函数之外，每个有文档的流函数的安全目标都有一个针对它的子句（见[附录](#where-the-goals-are)）。返回的值是 `Z_STREAM_ERROR`；例外是 `inflateMark` 返回 `-65536`，`deflateBound` 和 `deflateBound_z` 返回 `NULL` 流的上界。拒绝什么也不改，只有一个例外：从被拒绝的源复制时，`dest->state` 被置为 `NULL`；对 `inflate` 和 `inflateSync`，这个子句说的是不写原先存活的任何块，且存活的块保持原样（见[偏离记录](../deviations.md#note-2-refused-streams)）。 | `InitArguments`；`StreamReachable`；`RefusedInflate`、`RefusedDeflate` |
 | A2 | 调用者提供这次调用要用的可读输入范围和可写输出范围。 | `StreamBuffers`、`CallerRange`、`Bytes`、`Writable` |
 | A3 | 没有理由重叠的调用者区域互不重叠：输入、输出、字典、gzip 头记录及其缓冲区、长度单元。它们可以位于同一个对象中。`zlib.h` 并没有对每一对都这样规定；每个这样的前提在[偏离记录](../deviations.md)中都有一行。 | `Separate`、`ActiveHeader`、`UtilitySeparation` |
 | A4 | 对同一个流的调用不并发。 | 模型是顺序的。 |

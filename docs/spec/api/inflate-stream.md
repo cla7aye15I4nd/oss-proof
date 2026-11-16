@@ -185,7 +185,7 @@ The result says whether the existing configuration is ready for a new independen
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the field values after the call: functional goal `Goal.inflateReset`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the field values after the call: functional goal `Goal.inflateReset`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset"><summary>Complete return conditions and boundaries</summary>
 
@@ -243,7 +243,7 @@ The result says whether a new wrapper and window configuration took effect for a
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which `windowBits` are accepted, and the field values after the call: functional goal `Goal.inflateReset2`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). Which `windowBits` are accepted, and the field values after the call: functional goal `Goal.inflateReset2`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateReset2"><summary>Complete return conditions and boundaries</summary>
 
@@ -439,7 +439,7 @@ reported block/header boundary; every signed `bits` and `value`.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the bit buffer after the call: functional goal `Goal.inflatePrime`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the bit buffer after the call: functional goal `Goal.inflatePrime`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflatePrime"><summary>Complete return conditions and boundaries</summary>
 
@@ -530,7 +530,7 @@ are borrowed static strings. Buffer and stream check refusals change nothing.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, no block that was allocated before the call (`Frame`); the clause is not stated as an unchanged heap, because the translation makes and frees a local four-byte array. On a reachable stream, only the stream record, the stream's own blocks, the attached header record, the `avail_out` bytes at `next_out`, and the header's `extra`, `name` and `comment` buffers (`extra_max`, `name_max` and `comm_max` bytes).
     - *Allocations.* On a refused stream, the allocated blocks are the same as before the call (`LiveChange`). On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and which bytes are written: functional goal `Goal.inflate`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and which bytes are written: functional goal `Goal.inflate`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflate"><summary>Complete return conditions and boundaries</summary>
 
@@ -592,7 +592,7 @@ allocation/data errors.
     - *State.* On a reachable stream, `strm->state` is NULL after the call.
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`): the stream's own blocks are freed; nothing else is freed and nothing is allocated.
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The values of the other stream fields: functional goal `Goal.inflateEnd`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The values of the other stream fields: functional goal `Goal.inflateEnd`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateEnd"><summary>Complete return conditions and boundaries</summary>
 
@@ -652,7 +652,7 @@ always enough. Non-NULL `dictLength` points to writable `uInt` storage.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks, and bytes within the 32768 bytes at `dictionary`.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The bytes copied and the length reported: functional goal `Goal.inflateGetDictionary`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The bytes copied and the length reported: functional goal `Goal.inflateGetDictionary`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -713,7 +713,7 @@ when the length is zero. For correct output it matches the compressor's dictiona
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and the history after the call: functional goal `Goal.inflateSetDictionary`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and the history after the call: functional goal `Goal.inflateSetDictionary`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSetDictionary"><summary>Complete return conditions and boundaries</summary>
 
@@ -787,7 +787,7 @@ the stream and its owned storage, and the input/output ranges of calls using the
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks and the header record `head`.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL `head`: outside every goal; the C stores through the pointer ([deviations](../../deviations.md), row "Other stream arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader`, not required for the safety results.
+- **Not in this goal.** A NULL `head`: outside every goal; the C stores through the pointer ([deviations](../../deviations.md), row "Other stream arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>Complete return conditions and boundaries</summary>
 
@@ -852,7 +852,7 @@ recovery search, with readable input.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, no block that was allocated before the call (`Frame`); the clause is not stated as an unchanged heap, because the translation makes and frees a local four-byte array. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a refused stream, the allocated blocks are the same as before the call (`LiveChange`). On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and how much input is consumed: functional goal `Goal.inflateSync`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and how much input is consumed: functional goal `Goal.inflateSync`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateSync"><summary>Complete return conditions and boundaries</summary>
 
@@ -976,7 +976,7 @@ caller lifetimes; give the streams separate writable destinations before use.
     - *State.* From a reachable source: the `source` record and its state are unchanged. With `Z_OK`, `dest` is a reachable stream. With `Z_MEM_ERROR`, `dest->state` is NULL and the other fields of `dest` are unchanged.
     - *Writes.* With a NULL `dest`, nothing: the heap is unchanged. With a NULL or refused `source`, only `dest->state`, which is set to NULL; the other fields of `dest` and the rest of the heap are unchanged. From a reachable source, only the `dest` record and blocks the call itself allocates.
     - *Allocations.* In the three refusals nothing is allocated and nothing is freed. From a reachable source: with `Z_OK`, the new blocks are exactly the blocks of the new state record: the record itself and its window, when it has one. Nothing is freed. The safety goal does not say that `dest->state` points to this record; the functional goal `Goal.inflateCopy` does. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
-- **Not in this goal.** A `source` record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). `dest == source` with a reachable source: outside every goal ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.inflateCopy`, not required for the safety results.
+- **Not in this goal.** A `source` record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers a copy from such a source ([deviations](../../deviations.md#note-2-refused-streams)). `dest == source` with a reachable source: no goal covers this call ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.inflateCopy`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateCopy"><summary>Complete return conditions and boundaries</summary>
 
@@ -1155,7 +1155,7 @@ This returns a packed position value rather than a zlib status code. Its error s
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: outside every goal ([deviations](../../deviations.md#note-2-refused-streams)). The value returned: functional goal `Goal.inflateMark`, not required for the safety results.
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The value returned: functional goal `Goal.inflateMark`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateMark"><summary>Complete return conditions and boundaries</summary>
 

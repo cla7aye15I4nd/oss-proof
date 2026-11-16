@@ -102,7 +102,7 @@ Which premises a goal has depends on the goal.
 | Part 2 of the sequence goal; the call clause of the nine one-function goals from `Goal.inflate_safety` to `Goal.inflateGetHeader_safety` (`StreamCallDomain`) | A reachable stream; `ByteObjectsFit` on the heap of the call; the argument premise of that call (`StreamArguments`) |
 | The two initialisation goals | `InitArguments`: a well-formed heap, and the conditions on the arguments given under [Results](#results) |
 | `Goal.inflateCopy_safety` | A reachable source; the destination is a readable stream record and is not the source record. The statement also names the source's `Good` and `DefAlloc` as premises; part 1 of the sequence result gives both for every reachable stream |
-| `Goal.inflate_refusal`; the refusal clause of each one-function goal and of `Goal.inflateCopy_safety` | A refused stream ([Refusals](#refusals)); for `inflate` and `inflateSync` also `Fresh`; for `inflateCopy` a readable destination record and a source pointer that is not `NULL` |
+| `Goal.inflate_refusal`; the refusal clause of each one-function goal and of `Goal.inflateCopy_safety` | A refused stream ([Refusals](#refusals)); for `inflate` and `inflateSync` also `Fresh`; for `inflateCopy` a readable destination record, and in the clause of `Goal.inflateCopy_safety` the source pointer is not `NULL` |
 
 A *well-formed heap* has three properties: no block number from the next unused one on is in
 use (`Fresh`), a block number holds one object only (`Uniq`), and the static tables have their

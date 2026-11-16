@@ -12,7 +12,8 @@ names the functional theorem, where one exists; functional theorems are kept and
 - **Assumed.** The six items of the [trusted base](trusted-base.md), and the premises in
   [deviations](deviations.md), which the column "domain" refers to.
 - **Narrower than `zlib.h`.** Where the domain of a row asks more than `zlib.h` does, the row
-  says so, and [deviations](deviations.md) has the premise.
+  or the section [Domains narrower than `zlib.h`](#domains-narrower-than-zlibh) says so, and
+  [deviations](deviations.md) has the premise.
 
 This page is a map, not a status page. It does not say at which level a result stands. The level
 of each result (checked, registered or accepted) and the commit of each acceptance run are in

@@ -57,7 +57,9 @@ that the check rejects (its back pointer is not this record; for inflate its mod
 `HEAD` .. `SYNC`; for deflate its status is not one the check accepts). The Lean names are
 `RefusedInflate` and `RefusedDeflate`. A record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points
 to a freed state, or points to a state of the other kind is not a refused stream and not a reachable
-one: no goal covers a call on it ([deviations](../../deviations.md#note-2-refused-streams)).
+one: no goal covers a call that takes it as its stream, or as the `source` of a copy
+([deviations](../../deviations.md#note-2-refused-streams)). The init functions and the `dest` of a
+copy do accept such a record.
 
 The paragraphs use the following phrases with a fixed meaning.
 

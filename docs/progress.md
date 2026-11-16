@@ -56,7 +56,7 @@ recorded separately below.
 | 3a | Yes, all eight | `bde170e9` |
 | 3b | Yes, all five | `bde170e9` for the non-vacuity goal, and for the sequence goal in its earlier form. Registered, not accepted: the three one-function goals, and the sequence goal in its present form |
 | 3c | Yes, all 35 | `bde170e9` for the sequence, refusal and non-vacuity goals. Registered, not accepted: the 32 one-function goals |
-| 3d | Yes, all 46 | `bde170e9`, except these goals in their present form, which are registered, not accepted: the four init safety goals; the 21 other one-function stream safety goals of `ZlibF/Spec/Safety/Streams.lean`; `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety` |
+| 3d | Yes, all 46 | `bde170e9`, except these goals in their present form, which are registered, not accepted: the four init safety goals; the 21 goals of `ZlibF/Spec/Safety/Streams.lean` other than `Goal.inflate_safety` and `Goal.deflate_safety` (rows 1 and 2); `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety` |
 
 "Registered, not accepted" means that no acceptance run that covers the goal in its present form
 has finished green.
@@ -2607,14 +2607,14 @@ Some rows of the archived tables still say "open". None of them is needed by a r
 
 The table with one row for each function that `zlib.h` documents is on its own page:
 [coverage by function](coverage.md). Each row names the safety goal, the registered theorem whose
-type is that goal, the proof file, the domain and the theorem that covers a `NULL` or
+type is that goal, the proof file, the domain, and what the goal states for a `NULL` or
 inconsistent stream. A separate column names the functional theorem.
 
 Every documented function has a registered safety theorem on the domain its row states. Three
 kinds of item are open or narrower than `zlib.h`:
 
 1. **Refusal clauses.** Nothing is open here. The refusal of a `NULL` or inconsistent stream is
-   a clause of the safety goal of every stream function except the four init functions, and of
+   a clause of the safety goal of every documented stream function except the four init functions, and of
    both copy goals (commit `71188823`). What the refusal domain leaves out is narrower than
    `zlib.h` only in the sense of [deviations, note 2](deviations.md#note-2-refused-streams): a
    record with set allocators whose `state` pointer is garbage, dangling or of the other stream
@@ -2654,7 +2654,9 @@ was green and what changed after it. What remains, in order:
 2. **Refusal clauses.** The statements and proofs are done: the 23 one-function stream safety
    goals and the two copy goals state the refusal
    ([coverage](#no-fault-coverage-of-zlibh-functions), item 1). Their theorems keep their
-   registered names. What remains for them is the acceptance run of item 1.
+   registered names. What remains for them is the acceptance run of item 1. No mutant row was
+   added for the new refusal clauses; the existing rows of these goals predate them. Mutants are
+   additional evidence and do not gate acceptance.
 3. **The round trip of the default zlib stream**, after the safety results ([Scope](#scope)).
 4. **Upstream submission of the local patches** 0004 and 0005
    ([patches](../patches/README.md)). Patches 0001 to 0003 match submitted upstream pull

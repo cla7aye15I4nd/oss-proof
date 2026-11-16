@@ -1,4 +1,4 @@
-<!-- source-sha256: 7d144d66316880b7aa2df9f790b22ac4b82e587986e5c19cfb60a17c9c2eb1de -->
+<!-- source-sha256: 61a10d15f1d45c31f37a8c4233ed6aed377bbc001e424ac144db7f99befcd23e -->
 
 # 流式压缩
 
@@ -195,7 +195,7 @@ int ZEXPORT deflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt d
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码，以及调用之后的历史：功能目标 `Goal.deflateSetDictionary`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码，以及调用之后的历史：功能目标 `Goal.deflateSetDictionary`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetDictionary"><summary>完整返回条件与边界</summary>
 
@@ -249,7 +249,7 @@ int ZEXPORT deflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块，以及 `dictionary` 起 32768 个字节范围内的字节。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。复制出的字节和报告的长度：功能目标 `Goal.deflateGetDictionary`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。复制出的字节和报告的长度：功能目标 `Goal.deflateGetDictionary`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateGetDictionary"><summary>完整返回条件与边界</summary>
 
@@ -337,7 +337,7 @@ int ZEXPORT deflateReset(z_streamp strm);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和调用之后各字段的值：功能目标 `Goal.deflateReset`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和调用之后各字段的值：功能目标 `Goal.deflateReset`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateReset"><summary>完整返回条件与边界</summary>
 
@@ -388,7 +388,7 @@ int ZEXPORT deflateSetHeader(z_streamp strm, gz_headerp head);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及此后由 `deflate` 写出的头部字节：功能目标 `Goal.deflateSetHeader`，安全结论不需要它。
+- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及此后由 `deflate` 写出的头部字节：功能目标 `Goal.deflateSetHeader`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetHeader"><summary>完整返回条件与边界</summary>
 
@@ -440,7 +440,7 @@ int ZEXPORT deflatePending(z_streamp strm, unsigned *pending, int *bits);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和两个计数：功能目标 `Goal.deflatePending`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和两个计数：功能目标 `Goal.deflatePending`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePending"><summary>完整返回条件与边界</summary>
 
@@ -491,7 +491,7 @@ int ZEXPORT deflateUsed(z_streamp strm, int *bits);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和计数：功能目标 `Goal.deflateUsed`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和计数：功能目标 `Goal.deflateUsed`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateUsed"><summary>完整返回条件与边界</summary>
 
@@ -545,7 +545,7 @@ int ZEXPORT deflatePrime(z_streamp strm, int bits, int value);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码，以及调用之后的待输出位：功能目标 `Goal.deflatePrime`，安全结论不需要它。
+- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码，以及调用之后的待输出位：功能目标 `Goal.deflatePrime`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePrime"><summary>完整返回条件与边界</summary>
 
@@ -600,7 +600,7 @@ int ZEXPORT deflateParams(z_streamp strm, int level, int strategy);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块和 `next_out` 处的 `avail_out` 个字节。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码、生效的设置和写出的字节：功能目标 `Goal.deflateParams`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码、生效的设置和写出的字节：功能目标 `Goal.deflateParams`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateParams"><summary>完整返回条件与边界</summary>
 
@@ -666,7 +666,7 @@ int ZEXPORT deflateTune(z_streamp strm, int good_length, int max_lazy, int nice_
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和存入的字段：功能目标 `Goal.deflateTune`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值和存入的字段：功能目标 `Goal.deflateTune`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateTune"><summary>完整返回条件与边界</summary>
 
@@ -719,7 +719,7 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound_z`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound_z`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound_z"><summary>完整返回条件与边界</summary>
 
@@ -782,7 +782,7 @@ uLong ZEXPORT deflateBound(z_streamp strm, uLong sourceLen);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>完整返回条件与边界</summary>
 
@@ -842,7 +842,7 @@ int ZEXPORT deflate(z_streamp strm, int flush);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块和 `next_out` 处的 `avail_out` 个字节。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码、写出哪些字节：功能目标 `Goal.deflate`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码、写出哪些字节：功能目标 `Goal.deflate`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflate"><summary>完整返回条件与边界</summary>
 
@@ -898,7 +898,7 @@ int ZEXPORT deflateEnd(z_streamp strm);
     - *状态。* 对可达流调用时，调用之后 `strm->state` 为 NULL。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）：流自己的块被释放；除此之外不释放任何块，也不分配任何块。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回两个状态码中的哪一个，以及流的其他字段的值：功能目标 `Goal.deflateEnd`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回两个状态码中的哪一个，以及流的其他字段的值：功能目标 `Goal.deflateEnd`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateEnd"><summary>完整返回条件与边界</summary>
 
@@ -951,7 +951,7 @@ int ZEXPORT deflateCopy(z_streamp dest, z_streamp source);
     - *状态。* 从可达的源复制时：`source` 记录及其状态不变。返回 `Z_OK` 时，`dest` 满足流不变量（`StreamInvariant`），并且按 `StreamReachable` 的定义是可达流。返回 `Z_MEM_ERROR` 时，`dest->state` 为 NULL，`dest` 的其他字段不变。
     - *写入。* `dest` 为 NULL 时不写任何内容：堆不变。`source` 为 NULL 或被拒绝时，只写 `dest->state`，把它置为 NULL；`dest` 的其他字段和堆的其余部分不变。从可达的源复制时，只写 `dest` 记录和调用自己分配的块。
     - *分配。* 三种拒绝都不分配也不释放任何块。从可达的源复制时：返回 `Z_OK` 时，新块恰好有五个：新的状态记录和它的四个缓冲区（`window`、`prev`、`head`、`pending_buf`）。不释放任何块。安全目标没有说 `dest->state` 指向这个记录；功能目标 `Goal.deflateCopy` 说了这一点。返回 `Z_MEM_ERROR` 时，已分配的块与调用前相同。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的 `source` 记录：在所有目标之外（见[偏离记录](../../deviations.md#note-2-refused-streams)）。`source` 可达而 `dest == source`：在所有目标之外（见[偏离记录](../../deviations.md)中“复制的目的流”一行）。副本的内容：功能目标 `Goal.deflateCopy`，安全结论不需要它。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的 `source` 记录：没有目标覆盖从这种源的复制（见[偏离记录](../../deviations.md#note-2-refused-streams)）。`source` 可达而 `dest == source`：没有目标覆盖这个调用（见[偏离记录](../../deviations.md)中“复制的目的流”一行）。副本的内容：功能目标 `Goal.deflateCopy`，安全结论不需要它。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateCopy"><summary>完整返回条件与边界</summary>
 

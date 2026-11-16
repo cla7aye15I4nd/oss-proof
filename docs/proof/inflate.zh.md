@@ -1,4 +1,4 @@
-<!-- source-sha256: 17cfeb237d5a9f71b45200ef72af59daae66ebbf7f2bf6fff1d7e13574784455 -->
+<!-- source-sha256: af27d47c02d130fc7b447ebf51d375eafde0fae450199946f6162d586f81668d -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -59,7 +59,7 @@
 | 序列目标的第 2 部分；从 `Goal.inflate_safety` 到 `Goal.inflateGetHeader_safety` 的九个单函数目标的调用子句（`StreamCallDomain`） | 可达的流；调用时的堆满足 `ByteObjectsFit`；该调用的参数前提（`StreamArguments`） |
 | 两个初始化目标 | `InitArguments`：良构的堆，以及[结论](#results)一节给出的对参数的条件 |
 | `Goal.inflateCopy_safety` | 源流可达；目的流是一个可读的流记录，并且不是源记录。命题还把源流的 `Good` 和 `DefAlloc` 列为前提；序列结论的第 1 部分对每个可达的流给出这两条 |
-| `Goal.inflate_refusal`；每个单函数目标的拒绝子句和 `Goal.inflateCopy_safety` 的拒绝子句 | 被拒绝的流（[拒绝](#refusals)）；对 `inflate` 和 `inflateSync` 还有 `Fresh`；对 `inflateCopy`，目的是一个可读的流记录，且源指针不是 `NULL` |
+| `Goal.inflate_refusal`；每个单函数目标的拒绝子句和 `Goal.inflateCopy_safety` 的拒绝子句 | 被拒绝的流（[拒绝](#refusals)）；对 `inflate` 和 `inflateSync` 还有 `Fresh`；对 `inflateCopy`，目的是一个可读的流记录，并且在 `Goal.inflateCopy_safety` 的子句里，源指针不是 `NULL` |
 
 *良构的堆*有三条性质：从下一个未用的块编号起，没有任何块编号在使用（`Fresh`）；一个块编号只对应一个对象（`Uniq`）；静态表保持初始内容（`LibraryGlobals`）。
 

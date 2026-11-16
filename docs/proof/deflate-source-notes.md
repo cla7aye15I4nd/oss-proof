@@ -27,7 +27,8 @@ model ([deviations](../deviations.md)).
 
 The version check reads the first byte of the version string, after its `NULL` test. The state
 check reads the state's back pointer and its status. `Goal.deflate_refusal` covers a `NULL`
-stream and a readable record that the check rejects. A `state` field that holds a garbage
+stream and a readable record that the check rejects, and the safety goal of each documented
+`deflate*` function except init states the same refusal ([refusals](deflate.md#refusals)). A `state` field that holds a garbage
 pointer, or a pointer to an inflate state, is outside it: in the model that is a fault, as it is
 undefined behaviour in C (row "Refused streams" of [deviations](../deviations.md)).
 

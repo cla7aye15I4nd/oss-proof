@@ -1,4 +1,4 @@
-<!-- source-sha256: 4f19bafb4db0ab5a93dd614ffaa7dee4d8b754dee0f9091439ab0f176ef2a9d9 -->
+<!-- source-sha256: 1e358d216a5be134c6eacf5601caca29da0c54adb1b38723e988b0818013d2bd -->
 # 术语表
 
 本页定义其他页面用到的术语，每个术语只定义一次，用一两句话说清。术语分为几组：目标、状态层级、模型、前提、gzip 文件世界和检查。状态层级背后的规则见[检查指南](checking/README.md)；每项结论处于哪个层级，见[进度页的“范围”一节](progress.md#scope)。
@@ -17,7 +17,7 @@
 
 **可达。** 一个流可达，是指有某段历史产生了它：一次成功的初始化，然后是任意多次调用和调用者修改。对应的 Lean 谓词是 `StreamReachable`；流函数的单函数安全目标在每个可达的流上成立。
 
-**拒绝。** C 以错误值驳回的调用，例如对 `NULL` 流或不一致的流的调用。拒绝在两种目标里陈述。第一种：函数的安全目标在针对合法调用的子句之外，还有一个拒绝子句；除四个初始化函数之外的每个有文档的 inflate 和 deflate 流函数、`inflateCopy` 和 `deflateCopy`、接受句柄的 gzip 文件函数，以及 `inflateBack` 和 `inflateBackEnd`，都是这样。第二种：拒绝目标（`Goal.inflate_refusal`、`Goal.deflate_refusal`、`Goal.gz_refusal`）用一个命题陈述若干函数的拒绝。两种目标都给出返回的值，并说明调用可以改变什么。对大多数函数，调用之后的堆就是调用之前的堆。有三种情况不同：对 `inflate` 和 `inflateSync`，陈述的是不写原先存活的任何块，且存活块的集合保持原样；源被拒绝的复制会清空目的流的状态指针，此外什么也不改；`deflateBound` 和 `deflateBound_z` 返回的是 `NULL` 流的上界，不是错误值。哪些流算作被拒绝的流，见[偏离记录](deviations.md#note-2-refused-streams)。
+**拒绝。** C 以错误值驳回的调用，例如对 `NULL` 流或不一致的流的调用。拒绝在两种目标里陈述。第一种：函数的安全目标在针对合法调用的子句之外，还有一个拒绝子句；除四个初始化函数之外的每个有文档的 inflate 和 deflate 流函数、`inflateCopy` 和 `deflateCopy`、接受句柄的 gzip 文件函数，以及 `inflateBack` 和 `inflateBackEnd`，都是这样。第二种：拒绝目标（`Goal.inflate_refusal`、`Goal.deflate_refusal`、`Goal.gz_refusal`）用一个命题陈述若干函数的拒绝。两种目标都给出返回的值，并说明调用可以改变什么。返回的值是 `Z_STREAM_ERROR`；例外是 `inflateMark` 返回 `-65536`，`deflateBound` 和 `deflateBound_z` 返回 `NULL` 流的上界。对大多数函数，调用之后的堆就是调用之前的堆。有两种情况不同：对 `inflate` 和 `inflateSync`，陈述的是不写原先存活的任何块，且存活块的集合保持原样；源被拒绝的复制会清空目的流的状态指针，此外什么也不改。哪些流算作被拒绝的流，见[偏离记录](deviations.md#note-2-refused-streams)。
 
 **非空性目标。** 这类目标说明其他目标的前提可以被满足：存在一个具体的堆，在它上面初始化或打开成功，并得到一个可达的流或句柄。没有它，序列目标就可能只是因为不存在任何历史才成立。
 

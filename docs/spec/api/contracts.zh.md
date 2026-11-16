@@ -1,4 +1,4 @@
-<!-- source-sha256: 210f678404d7d6e3ed93bbd79baf33d7e309286b495703a61950544636d5eb3f -->
+<!-- source-sha256: 8e3e0f883242bd7b0e978a04d1bf1d5c6e1a9df9b25d1068dc9a4088a790e916 -->
 
 # 如何阅读契约
 
@@ -48,10 +48,11 @@
 
 这些段落里说的**被拒绝的流**，是指 C 的流检查不必通过坏指针去读就会拒绝的流：`strm` 是 NULL；或者它指向一个可读的流记录，
 其 `zalloc`、`zfree` 或 `state` 是 NULL；或者其 `state` 指向一个类型相符的存活状态，而检查拒绝这个状态
-（它的回指针不指向这个记录；对 inflate，它的模式在 `HEAD` .. `SYNC` 之外；对 deflate，它的状态值不是检查接受的值）。
+（它的回指指针不指向这个记录；对 inflate，它的模式在 `HEAD` .. `SYNC` 之外；对 deflate，它的状态值不是检查接受的值）。
 Lean 中的名字是 `RefusedInflate` 和 `RefusedDeflate`。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、
 指向已释放的状态或指向另一种流的状态的记录，既不是被拒绝的流，也不是可达流：
-没有目标覆盖对它的调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。
+没有目标覆盖把它当作流、或当作复制的 `source` 的调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。
+初始化函数以及复制的 `dest` 则接受这样的记录。
 
 这些段落使用下列短语，含义固定。
 

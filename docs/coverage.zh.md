@@ -1,11 +1,11 @@
-<!-- source-sha256: 6e2378809d33f18eeb7c4c49d201c60d813c5ec94430c29f851d82a8db407f0d -->
+<!-- source-sha256: 10ced7e45ecc2dbe2272d1d8872def3eccd41fd4760815d8910947c1c3fb9318 -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的定理，以及证明所在的文件。安全一列提到的每条定理都列在 `tests/audit/theorems.txt` 中。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
 
 - **已证明。** 目标构建中每个有文档的函数，都在其所在行写明的定义域上有一条安全定理。表中的名字已与 `tests/audit/public-api.json`、`tests/audit/theorems.txt` 和证明文件核对。
 - **所作假设。** [可信基础](trusted-base.md)的六项，以及[偏离记录](deviations.md)中的前提；“定义域”一列指向的就是这些前提。
-- **比 `zlib.h` 更窄。** 某一行的定义域比 `zlib.h` 要求得更多时，该行会写明，相应的前提见[偏离记录](deviations.md)。
+- **比 `zlib.h` 更窄。** 某一行的定义域比 `zlib.h` 要求得更多时，该行或[比 `zlib.h` 更窄的定义域](#domains-narrower-than-zlibh)一节会写明，相应的前提见[偏离记录](deviations.md)。
 
 本页是一张地图，不是状态页。它不写一项结论处于哪个层级。每项结论的层级（已检查、已登记还是已验收）和每次验收运行所在的提交，见[进度页的“范围”一节](progress.md#scope)；针对上面这些事项计划做的工作，见[进度页的“zlib.h 函数的无故障覆盖”一节](progress.md#no-fault-coverage-of-zlibh-functions)。
 

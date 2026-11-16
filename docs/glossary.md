@@ -39,11 +39,12 @@ inflate and deflate stream function except the four init functions, for `inflate
 `deflateCopy`, for the gzip file functions that take a handle, and for `inflateBack` and
 `inflateBackEnd`. Second, the refusal goals (`Goal.inflate_refusal`, `Goal.deflate_refusal`,
 `Goal.gz_refusal`) state the refusal of several functions in one statement. Both kinds state the
-value returned and what the call may change. For most functions the heap after the call is the
-heap before it. Three cases differ: `inflate` and `inflateSync` are stated to write no block that
-was live and to leave the set of live blocks as it was; a copy from a refused source clears the
-destination's state pointer and changes nothing else; `deflateBound` and `deflateBound_z` return
-the bound of a `NULL` stream, not an error value. Which streams count as refused is in
+value returned and what the call may change. The value is `Z_STREAM_ERROR`, except `-65536` for
+`inflateMark` and the bound of a `NULL` stream for `deflateBound` and `deflateBound_z`. For most
+functions the heap after the call is the heap before it. Two cases differ: `inflate` and
+`inflateSync` are stated to write no block that was live and to leave the set of live blocks as
+it was; a copy from a refused source clears the destination's state pointer and changes nothing
+else. Which streams count as refused is in
 [deviations](deviations.md#note-2-refused-streams).
 
 **Non-vacuity goal.** A goal that shows the premises of other goals can be met: a concrete heap on
