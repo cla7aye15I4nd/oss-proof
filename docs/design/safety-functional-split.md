@@ -80,7 +80,7 @@ a reachable witness for each family: `Goal.inflate_initialisation_domain`,
 `Goal.gz_sequence_nonvacuity`. A fifth, `Goal.inflateBack_call_domain`, gives a witness for the
 callback protocol: a goal over every protocol is only as strong as the set of protocols. The
 five are required with the safety goals. `Goal.gz_initialisation_domain` is not one of them: it
-states the functional contract of `gzopen`, and it is not planned.
+states the functional contract of `gzopen`.
 
 ## What is functional
 

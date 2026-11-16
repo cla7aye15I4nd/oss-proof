@@ -32,8 +32,8 @@ Only the path through *Execution proofs* is required for the safety results: no 
 termination, frame and ownership, composed over call sequences. The path through *Refinement
 proofs* gives functional correctness.
 
-One functional result is planned: the round trip of the default zlib stream. It is not done.
-Its conditional form has a theorem. The theorem
+The round trip of the default zlib stream, a functional result, is not done. A conditional
+form has a theorem. The theorem
 [`deflate_inflate_roundtrip`](../../ZlibF/Proof/public-deflate-inflate-roundtrip.lean) is about
 two runs of the translated functions. The encoder run is `deflateInit_` at the default level
 (`Z_DEFAULT_COMPRESSION`), then `deflate` calls with any flush values. The decoder run is
@@ -52,10 +52,10 @@ these:
 
 When both runs have returned `Z_STREAM_END` and the bytes the decoder consumed are a prefix of
 the bytes the encoder wrote, the bytes the decoder wrote are the bytes the encoder consumed.
-Not covered: that the runs reach `Z_STREAM_END` (completeness: they do when there is enough
-room), the round trip without that condition, and `uncompress(compress(x)) = x` for the
-translated C. Other refinement results
-have theorems as well; [progress](../progress.md) says which functional results are planned.
+Not covered: completeness (that the runs reach `Z_STREAM_END` when there is enough room), the
+round trip without that condition, and `uncompress(compress(x)) = x` for the translated C.
+Other refinement results have theorems as well; [progress](../progress.md) says which
+functional results are planned.
 
 ## The model in a few definitions
 
@@ -138,7 +138,7 @@ line.
 
 The target is the default x86_64 Linux static build with LP64 widths and the default
 allocator. Allocation failure is in scope. Other build configurations and custom allocator
-implementations are not planned; [deviations](../deviations.md) records the limit.
+implementations are not covered; [deviations](../deviations.md) records the limit.
 The upstream source is never edited. A patch is permitted only for a confirmed upstream bug;
 the [patch register](../../patches/README.md) lists the patches.
 

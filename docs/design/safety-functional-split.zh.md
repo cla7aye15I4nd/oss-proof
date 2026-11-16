@@ -1,4 +1,4 @@
-<!-- source-sha256: e90399f1dbb931262d7216077d74278f1079a9a15ee6b450efc588eddaf09528 -->
+<!-- source-sha256: 1747b94fcd5bf9786348ecb366bb7e707ad90174a0fda5faa2cc37f3706b1e17 -->
 # 安全目标与功能目标
 
 一个目标是一个关于 zlib 的 Lean 命题。目标分两类。**安全目标**说的是一次调用返回时没有未定义行为、没有内存错误、没有泄漏，并且调用会终止，这些都是在文档规定的定义域上说的。**功能目标**说的是这次调用算出了什么。本项目必需的结果是安全目标。本页说明这两类目标怎样分开，每组函数的安全目标是什么形式，以及哪些命题属于功能部分。哪些目标已经完成，见[状态页](../progress.md)。
@@ -29,7 +29,7 @@
 - `zlib.h` 列为未文档化的函数没有安全目标；其中的 `gzopen_w` 不在默认构建中，它没有任何目标。例外是 `gzvprintf`，它有 `Goal.gzvprintf_safety`。
 - 四个 `uncompress*` 目标以 `_safe` 结尾；其他每个单函数安全目标都以 `_safety` 结尾。
 
-流目标的强度取决于它的可达历史集合。四个非空性目标为每一族给出一个可达的见证：`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain` 和 `Goal.gz_sequence_nonvacuity`。第五个目标 `Goal.inflateBack_call_domain` 为回调协议给出一个见证：针对每种协议的目标，强度取决于协议的集合。这五个目标与安全目标一样是必需的。`Goal.gz_initialisation_domain` 不在其中：它陈述的是 `gzopen` 的功能契约，不在计划内。
+流目标的强度取决于它的可达历史集合。四个非空性目标为每一族给出一个可达的见证：`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain` 和 `Goal.gz_sequence_nonvacuity`。第五个目标 `Goal.inflateBack_call_domain` 为回调协议给出一个见证：针对每种协议的目标，强度取决于协议的集合。这五个目标与安全目标一样是必需的。`Goal.gz_initialisation_domain` 不在其中：它陈述的是 `gzopen` 的功能契约。
 
 ## 哪些属于功能部分
 

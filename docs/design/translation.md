@@ -13,10 +13,13 @@ fidelity, not proof.
 ## The rule
 
 A translation keeps the statements of the C function in their order. It does not reorder
-checks, drop a read or a write, or replace an algorithm. A proof that is hard is not a reason to
+checks, drop a read or a write, or replace an algorithm, except in the four accepted
+normalisations and the six further forms listed below. A proof that is hard is not a reason to
 change a translation. A mismatch with the C is a translation bug, and it is corrected against the
 C. The domain of a theorem is not narrowed to hide a difficulty either. A defect of the C is
-called a confirmed finding only with a concrete input and a reproduction under a sanitizer.
+called a confirmed finding only when a run of the real C on a concrete input shows it (a
+sanitizer report, or a result that breaks a promise of `zlib.h`), or when it is undefined
+behaviour by the letter of the C standard that a patch fixes.
 
 Four normalisations are accepted. They are listed with examples
 in [the accepted normalisations](#the-accepted-normalisations):
@@ -30,9 +33,8 @@ in [the accepted normalisations](#the-accepted-normalisations):
 The translations also use six further forms: for example, a value just stored is used again
 without a read, and an operand is evaluated before the short-circuit test that guards it in C.
 [Forms not covered by the four accepted normalisations](#forms-not-covered-by-the-four-accepted-normalisations)
-says what the translation does in each form and gives instances with file and function. That
-the Lean agrees with the C in those places is trusted, not proved
-([trusted base, item 3](../trusted-base.md#3-manual-translation)).
+says what the translation does in each form, gives instances with file and function, and states
+what the agreement with the C rests on.
 
 ## The source that is translated
 
@@ -222,8 +224,9 @@ the `&next` of the `inflateBack` input callback.
 
 The same representation is used for the scalar out-parameters of some public functions:
 `destLen` of `compress*`, `dictLength` of `inflateGetDictionary` and `deflateGetDictionary`,
-`pending` and `bits` of `deflatePending`, and `bits` of `deflateUsed`. There it is a limit of the
-model as well: the caller's cell is not memory, so a cell that overlaps one of the buffers
+`pending` and `bits` of `deflatePending`, and `bits` of `deflateUsed`. Normalisation 1 is worded
+for internal functions only; for these public functions the representation is a limit of the
+model: the caller's cell is not memory, so a cell that overlaps one of the buffers
 cannot be expressed, and the safety goal of the function says nothing about the cell's memory.
 [Deviations](../deviations.md) has the rows
 ["Result cells"](../deviations.md#stream-calls-inflate-and-deflate) and
@@ -286,8 +289,8 @@ The helpers are listed in [architecture](architecture.md#where-the-trusted-seman
 ## Forms not covered by the four accepted normalisations
 
 The translations use the six forms below. None of the four accepted normalisations covers them
-as worded. These forms are part of the trusted base: that the Lean form computes what the C
-computes in each place rests on a reading of that place, and no theorem states it
+as worded. That the Lean agrees with the C in these places is trusted, not proved: it rests on
+a reading of each place, and no theorem states it
 ([trusted base, item 3](../trusted-base.md#3-manual-translation)). The tables below are
 examples, not a complete list: other instances, and other forms, may exist.
 
@@ -483,7 +486,7 @@ gives the cell one stable value.
 
 For a record type `K` of the schema, `K.zeroed` is the record after an actual whole-record
 zeroing statement in the C, and `K.garbage` is a fresh record. They are not interchangeable.
-See [safety, section 3](../spec/safety.md#3-faults-undefined-behaviour-and-model-gaps).
+See [safety, model limits](../spec/safety.md#3-faults-undefined-behaviour-and-model-gaps).
 
 ## Library operations
 
