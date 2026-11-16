@@ -1153,6 +1153,7 @@ import ZlibF.Proof.«inflate.c.meaning-trip-dynamic»
 import ZlibF.Proof.«inflate.c.meaning-call»
 import ZlibF.Proof.«inflate.c.meaning-zlib»
 import ZlibF.Proof.«public-deflate-inflate-roundtrip»
+import ZlibF.Proof.«public-inflate-completes»
 import ZlibF.Proof.«inflate.c.meaning-call-exit»
 import ZlibF.Proof.«inflate.c.config-source-observer»
 import ZlibF.Proof.«inflate.c.meaning-call-unstaged»
