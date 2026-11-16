@@ -122,10 +122,10 @@ of this table has a theorem.
 
 The round trip of the default zlib stream, `deflate` and then `inflate` giving back the input,
 is not done. One theorem, `deflate_inflate_roundtrip`, proves a conditional form: if both
-histories have reached `Z_STREAM_END` and the input `inflate` consumed is a prefix of the bytes
-`deflate` wrote, then the bytes `inflate` wrote are the bytes `deflate` read. No theorem says
-that both sides reach `Z_STREAM_END`. [Stream compression](deflate.md#functional-results)
-gives the premises.
+histories end with a call that returned `Z_STREAM_END` and the input `inflate` consumed is a
+prefix of the bytes `deflate` wrote, then the bytes `inflate` wrote are the bytes `deflate`
+read. No theorem says that both sides reach `Z_STREAM_END`.
+[Stream compression](deflate.md#functional-results) gives the premises.
 
 ## The shape of a component page
 

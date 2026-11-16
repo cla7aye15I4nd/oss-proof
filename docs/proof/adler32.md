@@ -45,8 +45,7 @@ of `adler32_z` treats a `NULL` buffer as follows:
 For a length other than 1 the C returns 1 without reading. For length 1 it reads
 `buf[0]` before it tests for `NULL`, which is undefined behaviour. The goals
 exclude `NULL` with every nonzero length. The narrowing has a row in
-[deviations](../deviations.md) ("Adler initialization queries"), which also
-records the upstream report.
+[deviations](../deviations.md) ("Adler initialization queries").
 
 The combination functions have no premise: they are safe for every argument, also
 forged checksums and negative lengths.

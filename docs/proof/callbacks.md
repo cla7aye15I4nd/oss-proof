@@ -33,8 +33,7 @@ The one-function goals follow from the results of this page:
   (`InitArguments`), with no history. It follows from the functional theorem `back_init_public`.
 
 Each function also has a functional contract (`Goal.inflateBackInit_`, `Goal.inflateBack`,
-`Goal.inflateBackEnd`). These contracts are not required;
-[the last section](#functional-results-that-stay) says which are done.
+`Goal.inflateBackEnd`). [The last section](#functional-results-that-stay) says which are done.
 
 `Goal.inflate_back_sequence_safety` has four clauses.
 
@@ -335,8 +334,7 @@ for the window premise.
 ## Functional results that stay
 
 Each of the three functions has a functional contract, and there is a functional sequence
-goal `Goal.inflate_back_sequence`. None is required for the safety results. Two of the four
-are done:
+goal `Goal.inflate_back_sequence`. Two of the four are done:
 
 - `Goal.inflateBackInit_` (`back_init_public`) and `Goal.inflateBackEnd` (`back_end_public`):
   the full contracts of the two lifecycle functions. Clause 4 of the safety goal uses

@@ -44,8 +44,8 @@ corollaries of the sequence theorem.
 
 `inflate_sequence_safety_public` is derived from the lemma `inflate_sequence_safety`.
 
-Functional results also exist for this file. They are not required for the safety results and
-are listed in [Functional results](#functional-results).
+Functional results also exist for this file. They are listed in
+[Functional results](#functional-results).
 
 ## Refusals
 
@@ -405,7 +405,7 @@ invariant must be strong enough in each of about thirty modes and still be re-es
 every one of them. Three places are the hardest.
 
 - **The gzip header.** It is the only place where `inflate` writes into caller buffers other
-  than the output. The offset of the `extra` write needs the premise `InflateHeaderProgress`.
+  than the output. The copy into `extra` needs the premise `InflateHeaderProgress`.
 - **Termination.** Several transitions use no input and write no output. A measure on input and
   output alone does not fall there; the credit term of the rank handles them.
 - **The fast path.** `inflate_fast` has stricter entry conditions than the modes around it. The
@@ -474,8 +474,9 @@ meets an invalid distance: `inflate_deferred_distance` says that the model admit
 and `inflate_deferred_distance_rejects_legacy_consistency` says that agreement with
 everything read is false for it.
 
-A data error is not always detected within eight bytes of its cause, and no larger constant
-gives a bound that holds. The model goal `Api.Goal.inflate_rejects_invalid` states the
+A data error is not always detected within eight bytes of its cause: in a dynamic block, the
+input can be impossible after 230 bytes while a call consumes 281 bytes and returns `Z_OK`.
+The model goal `Api.Goal.inflate_rejects_invalid` states the
 eight-byte bound; it is not done and not planned ([progress](../progress.md#not-planned)).
 
 An error can follow real output: the window is allocated at the end of a call, so `inflate` can

@@ -1,4 +1,4 @@
-<!-- source-sha256: 4996ff195d220c0182538ffff2968f47de1c4943712ad25582b464d568d1aaa1 -->
+<!-- source-sha256: aba764c5ee963cc0ec76c4f2449abdce00b8e90bd0ab9fb53987846432b6549b -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -27,7 +27,7 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 - `gzopen` 和 `gzopen64`：子句 6。`gzdopen`：子句 7。
 
 这些证明使用 `gz_sequence_safety_public`；对 `NULL` 的拒绝通过求值成立。所以本页余下讲序列目标的内容，同时也就是单函数目标的证明。
-每个函数另有一个功能契约 `Goal.<function>`。这些契约不是必需的；哪些已完成，见[最后一节](#functional-results-that-stay)。
+每个函数另有一个功能契约 `Goal.<function>`。这些契约不是必需的；哪些有定理，见[最后一节](#functional-results)。
 
 序列目标覆盖下面这样的程序。注释指出覆盖每个调用的是目标的哪个子句。
 
@@ -426,15 +426,15 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 所以子句 2，以及它对读调用的 (b) 部分，适用于一次长度非零的真实调用。
 
-## 保留的功能结论
+## 功能结论
 
 31 个有文档的 gz 函数和 `gzvprintf` 各有一个功能契约 `Goal.<function>`：共 32
-个目标。安全结论不需要其中任何一个。其中八个已完成：
+个目标。安全结论不需要其中任何一个。其中八个有定理：
 
-- `Goal.gzbuffer`、`Goal.gzeof`、`Goal.gzerror`、`Goal.gzclearerr`、`Goal.gzdopen`：单个函数的完整契约。
-- `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`：针对普通文件的世界表述（前提 `RegularOs fs`）。
+- `Goal.gzbuffer`、`Goal.gzeof`、`Goal.gzerror`、`Goal.gzclearerr`、`Goal.gzdopen`：各函数的完整契约：`gzbuffer` 存入的大小（至少为 8）及其拒绝，`gzeof` 的返回值，`gzerror` 的错误码和借用的消息，`gzclearerr` 复位的状态，以及 `gzdopen` 对描述符的拒绝或接管。
+- `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`：描述符的位置减去读句柄已缓冲的压缩输入，以及定位回起点并复位读句柄的状态。它们针对普通文件的世界表述（前提 `RegularOs fs`）。
 
-未完成，也不在计划内；安全结论用不到它们：
+没有定理陈述下面这些：
 
 - 其余 24 个功能契约：`Goal.gzopen`、`Goal.gzopen64`、`Goal.gzclose`、`Goal.gzclose_r`、`Goal.gzclose_w`、`Goal.gzread`、`Goal.gzfread`、`Goal.gzgetc`、`Goal.gzgetc_`、`Goal.gzungetc`、`Goal.gzgets`、`Goal.gzdirect`、`Goal.gzwrite`、`Goal.gzfwrite`、`Goal.gzputc`、`Goal.gzputs`、`Goal.gzprintf`、`Goal.gzvprintf`、`Goal.gzflush`、`Goal.gzsetparams`、`Goal.gzseek`、`Goal.gzseek64`、`Goal.gztell`
   和 `Goal.gztell64`；
