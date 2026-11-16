@@ -1,6 +1,6 @@
-import ZlibF.Spec.InflateFastBodyToken
-import ZlibF.Spec.InflateFastCallOrigin
-import ZlibF.Spec.InflateFastDistanceOrigin
+import ZlibF.Spec.Functional.Inflate.InflateFastBodyToken
+import ZlibF.Spec.Common.Inflate.InflateFastCallOrigin
+import ZlibF.Spec.Common.Inflate.InflateFastDistanceOrigin
 
 /-!
 # Fast decoder over byte views: every old goal follows from the new one

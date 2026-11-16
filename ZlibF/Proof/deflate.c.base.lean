@@ -1,7 +1,7 @@
 import ZlibF.Zlib.«deflate.c»
 import ZlibF.Proof.«zutil.c»
 import ZlibF.Proof.«trees.c.bits»
-import ZlibF.Spec.HeapUniq
+import ZlibF.Spec.Common.HeapUniq
 import ZlibF.Spec.Common.DeflateGood
 
 /-!

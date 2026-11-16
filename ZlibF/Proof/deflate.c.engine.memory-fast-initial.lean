@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.memory-fast-boundary»
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 import ZlibF.Spec.Functional.Api.Compress
 
 namespace Zlib.Deflate.Engine.Proofs

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Checksums
+import ZlibF.Spec.Common.Checksums
 import ZlibF.Proof.«crc32.c.views»
 import ZlibF.Spec.Functional.Checksums
 

@@ -1,5 +1,5 @@
 import ZlibF.Spec.Functional.GzControl
-import ZlibF.Spec.PlatformMemory
+import ZlibF.Spec.Common.PlatformMemory
 
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs

@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateDecodeTableStability
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableStability
 import ZlibF.Proof.«inftrees.c.decode.frame»
 import ZlibF.Proof.Format.Huffman
 

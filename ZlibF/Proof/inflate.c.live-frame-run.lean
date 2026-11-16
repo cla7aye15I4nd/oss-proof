@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.live-frame-modes»
-import ZlibF.Spec.Public.Initialisation
+import ZlibF.Spec.Common.Initialisation
 import ZlibF.Spec.Functional.Api.Basic
 
 namespace Zlib.Inflate.Proofs

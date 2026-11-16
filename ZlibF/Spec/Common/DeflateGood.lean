@@ -1,5 +1,5 @@
 import ZlibF.Zlib.«deflate.c»
-import ZlibF.Spec.HeapUniq
+import ZlibF.Spec.Common.HeapUniq
 import ZlibF.Spec.Common.TreesInv
 
 /-!

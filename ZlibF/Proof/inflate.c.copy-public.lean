@@ -1,6 +1,6 @@
 import ZlibF.Proof.«inflate.c.reachable»
 import ZlibF.Proof.«inflate.c.copy-source-origin»
-import ZlibF.Spec.Public.Copy
+import ZlibF.Spec.Common.Copy
 import ZlibF.Spec.Functional.Api.Compress
 
 /-!

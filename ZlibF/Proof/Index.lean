@@ -1759,7 +1759,7 @@ import ZlibF.Proof.«gzwrite.c.printf»
 import ZlibF.Proof.«gzwrite.c.printf-run»
 import ZlibF.Proof.«gzwrite.c.printf-error-string-regression»
 import ZlibF.Proof.«gz.inv-seek»
-import ZlibF.Spec.Public.GzSafety
+import ZlibF.Spec.Safety.GzSafety
 import ZlibF.Proof.«gz.inv-offset-rewind»
 import ZlibF.Proof.«gzwrite.c.safety»
 import ZlibF.Proof.«gz.inv-close»

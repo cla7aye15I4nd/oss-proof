@@ -1,5 +1,5 @@
 import ZlibF.Proof.«public-crc-updates»
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 
 /-!
 # Static-byte-view CRC regression

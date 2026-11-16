@@ -1,5 +1,5 @@
 import ZlibF.Zlib.«gzlib.c»
-import ZlibF.Spec.HeapUniq
+import ZlibF.Spec.Common.HeapUniq
 
 /-!
 # gzlib.c: the representation invariant of a gz handle and the rules that every proof of gzlib.c, gzread.c, gzwrite.c

@@ -1,5 +1,5 @@
 import ZlibF.Spec.Functional.GzState
-import ZlibF.Spec.Public.Queries
+import ZlibF.Spec.Common.Queries
 
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs

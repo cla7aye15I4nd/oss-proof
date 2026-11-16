@@ -1,5 +1,5 @@
 import ZlibF.Spec.Functional.GzClose
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 
 namespace ZlibF.Spec.Public
 open C Zlib.GzFs

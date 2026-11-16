@@ -3,7 +3,7 @@ import ZlibF.Proof.«inftrees.c.decode.prefix-query»
 import ZlibF.Math.«code-length-prefix»
 import ZlibF.Proof.«inffast.c.loop»
 import ZlibF.Proof.Format.Deflate
-import ZlibF.Spec.InflateFastOrigin
+import ZlibF.Spec.Common.Inflate.InflateFastOrigin
 
 /-!
 # inffast.c: a rejected token is rejected on the bits it consumed

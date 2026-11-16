@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Back
+import ZlibF.Spec.Common.Back
 import ZlibF.Spec.Functional.Format.Deflate
 
 /-!

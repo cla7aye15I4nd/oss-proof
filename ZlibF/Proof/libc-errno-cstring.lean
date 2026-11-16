@@ -1,7 +1,7 @@
 import ZlibF.Math.«libc-errno-text»
 import ZlibF.Proof.LibcBorrow
 import ZlibF.Proof.«gzfs.borrowed-error»
-import ZlibF.Spec.Public.History
+import ZlibF.Spec.Common.History
 import ZlibF.Spec.Functional.Api.Basic
 
 /-! The actual active libc error view satisfies the original CString predicate. -/

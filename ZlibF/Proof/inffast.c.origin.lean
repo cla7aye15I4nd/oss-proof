@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastOrigin
+import ZlibF.Spec.Common.Inflate.InflateFastOrigin
 import ZlibF.Proof.«inffast.c.final»
 
 /-!

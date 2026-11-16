@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.StreamQueries
+import ZlibF.Spec.Common.StreamQueries
 
 /-!
 # StreamQueries: functional goals and the definitions only they use

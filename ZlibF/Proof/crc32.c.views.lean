@@ -1,4 +1,4 @@
-import ZlibF.Spec.Crc32ByteViews
+import ZlibF.Spec.Functional.Crc32ByteViews
 
 /-!
 # CRC over all represented byte views

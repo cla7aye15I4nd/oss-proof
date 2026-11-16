@@ -1,6 +1,6 @@
 import ZlibF.Zlib.«inflate.c»
 import ZlibF.Proof.«zutil.c»
-import ZlibF.Spec.HeapUniq
+import ZlibF.Spec.Common.HeapUniq
 import ZlibF.Spec.Common.InflateGood
 
 /-!

@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inffast.c.sig»
-import ZlibF.Spec.InflateDecodeTableShort
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableShort
 
 set_option autoImplicit false
 namespace ZlibF.Math.InflateHeldBits

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 import ZlibF.Proof.«infback.c.end»
 import ZlibF.Spec.Functional.Api.Compress
 

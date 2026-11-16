@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzSafety
+import ZlibF.Spec.Safety.GzSafety
 
 /-!
 # gz: the `gzgetc()` macro with `x.have = 0`

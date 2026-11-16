@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.window-public-ring»
-import ZlibF.Spec.Public.Lifecycle
+import ZlibF.Spec.Common.Lifecycle
 import ZlibF.Spec.Functional.Api.Basic
 
 namespace Zlib.Inflate.Proofs

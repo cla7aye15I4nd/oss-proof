@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastDistanceSemantics
+import ZlibF.Spec.Functional.Inflate.InflateFastDistanceSemantics
 import ZlibF.Proof.«inftrees.c.decode.stability-rejection»
 
 /-!

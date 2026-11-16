@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateTableInvariant
+import ZlibF.Spec.Common.Inflate.InflateTableInvariant
 import ZlibF.Proof.«inftrees.c.fixed»
 import ZlibF.Proof.«inflate.c.platform»
 import ZlibF.Proof.«inflate.c.main.type»

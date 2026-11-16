@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Checksums
+import ZlibF.Spec.Common.Checksums
 import ZlibF.Spec.Functional.Checksums
 
 namespace ZlibF.Spec.Public.Proofs

@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.rebuffer»
-import ZlibF.Spec.Public.Streams
+import ZlibF.Spec.Common.Streams
 import ZlibF.Proof.LibcBorrow
 import ZlibF.Spec.Functional.Api.Compress
 

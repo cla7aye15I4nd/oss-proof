@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastMatchHistory
+import ZlibF.Spec.Functional.Inflate.InflateFastMatchHistory
 import ZlibF.Math.LZ77Copy
 import ZlibF.Math.LZ77History
 

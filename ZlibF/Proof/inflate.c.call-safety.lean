@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.copy-invariant»
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 import ZlibF.Proof.«inflate.c.default-record-resources»
 import ZlibF.Proof.«inflate.c.default-setdict-resources»
 import ZlibF.Proof.«inflate.c.default-public-frame»

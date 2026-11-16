@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzSafety
+import ZlibF.Spec.Safety.GzSafety
 
 /-!
 # gz file interface: one safety goal per function

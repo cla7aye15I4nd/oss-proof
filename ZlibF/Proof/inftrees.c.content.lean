@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateTableContent
+import ZlibF.Spec.Common.Inflate.InflateTableContent
 import ZlibF.Proof.«inftrees.c.content.geometry»
 
 /-!

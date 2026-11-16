@@ -1,5 +1,5 @@
-import ZlibF.Spec.InflateFastTableFlags
-import ZlibF.Spec.InflateSubtable
+import ZlibF.Spec.Functional.Inflate.InflateFastTableFlags
+import ZlibF.Spec.Common.Inflate.InflateSubtable
 
 set_option autoImplicit false
 namespace Zlib.Inftrees.Proofs

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Copy
+import ZlibF.Spec.Common.Copy
 
 /-!
 # Copy: safety goals

@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastBodyOrigin
+import ZlibF.Spec.Common.Inflate.InflateFastBodyOrigin
 import ZlibF.Proof.«inffast.c.origin»
 import ZlibF.Proof.«inffast.c.body»
 import ZlibF.Proof.«inffast.c.distance-origin»

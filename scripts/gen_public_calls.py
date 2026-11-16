@@ -8,7 +8,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT / "ZlibF/Spec/Public/Calls.lean"
+DEST = ROOT / "ZlibF/Spec/Common/Calls.lean"
 
 
 def generate() -> str:

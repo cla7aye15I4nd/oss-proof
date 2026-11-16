@@ -1,6 +1,6 @@
 import ZlibF.Proof.«inflate.c.misc»
 import ZlibF.Proof.«inflate.c.main.macros»
-import ZlibF.Spec.InflateTableInvariant
+import ZlibF.Spec.Common.Inflate.InflateTableInvariant
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec

@@ -8,7 +8,7 @@ import ZlibF.Proof.«gzwrite.c.write-calls»
 import ZlibF.Proof.«gzwrite.c.flush-params»
 import ZlibF.Proof.«gzwrite.c.close»
 import ZlibF.Proof.«gzwrite.c.printf»
-import ZlibF.Spec.Public.GzSafety
+import ZlibF.Spec.Safety.GzSafety
 
 /-!
 # gz write side: the skeleton write lemmas without the `gz_error` premises

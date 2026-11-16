@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateDecodeTableInvariant
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableInvariant
 import ZlibF.Proof.«inftrees.c.decode.short»
 
 namespace Zlib.Inftrees.Proofs.DecodeForward

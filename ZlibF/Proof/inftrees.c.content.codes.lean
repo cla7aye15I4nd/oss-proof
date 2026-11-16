@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inftrees.c.content»
-import ZlibF.Spec.InflateTableSafety
+import ZlibF.Spec.Common.Inflate.InflateTableSafety
 
 /-!
 # inftrees.c: the constructed code-length table is safe to decode

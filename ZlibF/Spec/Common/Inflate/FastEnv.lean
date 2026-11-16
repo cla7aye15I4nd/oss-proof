@@ -1,7 +1,7 @@
 import ZlibF.Zlib.«inffast.c»
 import ZlibF.Spec.Common.Inflate.FastTable
 import ZlibF.Spec.Common.InflateGood
-import ZlibF.Spec.Public.Bits
+import ZlibF.Spec.Common.Bits
 
 /-!
 # inffast.c: the situation of `inflate_fast`

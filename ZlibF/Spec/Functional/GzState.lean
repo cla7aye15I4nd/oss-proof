@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzState
+import ZlibF.Spec.Common.GzState
 import ZlibF.Spec.Functional.Api.Gz
 
 /-!

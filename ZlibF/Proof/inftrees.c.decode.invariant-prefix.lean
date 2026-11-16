@@ -1,6 +1,6 @@
 import ZlibF.Proof.«inftrees.c.decode.short»
 import ZlibF.Proof.«inftrees.c.decode.frame»
-import ZlibF.Spec.InflateDecodeTableInvariant
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableInvariant
 
 set_option autoImplicit false
 

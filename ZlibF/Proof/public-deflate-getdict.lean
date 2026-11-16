@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Lifecycle
+import ZlibF.Spec.Common.Lifecycle
 import ZlibF.Proof.«deflate.c.public-getdict»
 import ZlibF.Spec.Functional.Lifecycle
 import ZlibF.Spec.Functional.Api.Basic

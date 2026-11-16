@@ -1,5 +1,5 @@
 import ZlibF.Spec.Functional.GzTrace
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 
 /-!
 # gz file interface: the functional open and lifecycle goals

@@ -1,6 +1,6 @@
 import ZlibF.Proof.«gzlib.c.dopen-complete»
 import ZlibF.Proof.«gz.inv-seek»
-import ZlibF.Spec.Public.GzSafety
+import ZlibF.Spec.Safety.GzSafety
 
 /-!
 # gz file interface, safety: a fresh handle is in `GzInv`; `gzdopen`

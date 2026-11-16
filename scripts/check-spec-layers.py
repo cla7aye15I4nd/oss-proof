@@ -4,7 +4,7 @@
 Two rules.
 
 1. A safety or common module must not import, even transitively, a functional module. The safety and
-   common modules are those under ZlibF/Spec/Safety/, ZlibF/Spec/Public/ and ZlibF/Spec/Common/, and the common modules
+   common modules are those under ZlibF/Spec/Safety/ and ZlibF/Spec/Common/, and the common modules
    COMMON at the top of ZlibF/Spec/. The functional modules are those under ZlibF/Spec/Functional/.
    Then reading Spec/Safety and what it imports tells a reader the whole current target.
 
@@ -21,8 +21,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Common modules at the top of ZlibF/Spec/, checked like Spec/Safety and Spec/Public.
-COMMON = ('ZlibF.Spec.HeapUniq', 'ZlibF.Spec.PlatformMemory')
+# Common modules at the top of ZlibF/Spec/, checked like Spec/Safety and Spec/Common.
+COMMON = ('ZlibF.Spec.Common',)
 
 # importer -> (the Proof modules it still imports, reason). Each import is removed by a later batch.
 PROOF_IMPORTS = {}
@@ -67,7 +67,7 @@ def spec_modules():
 
 
 def check_layers(errors):
-    roots = sorted(module_name(p) for d in ('Safety', 'Public', 'Common')
+    roots = sorted(module_name(p) for d in ('Safety', 'Common')
                    for p in (ROOT / 'ZlibF/Spec' / d).rglob('*.lean'))
     roots += [m for m in COMMON if module_path(m).is_file()]
     for name in COMMON:

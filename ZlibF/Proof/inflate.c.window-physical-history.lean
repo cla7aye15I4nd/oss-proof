@@ -3,7 +3,7 @@ import ZlibF.Proof.«inflate.c.default-local-output-frame»
 import ZlibF.Proof.«inflate.c.window-public-ring»
 import ZlibF.Proof.«inflate.c.default-foundation»
 import ZlibF.Proof.«inflate.c.window-state-frame»
-import ZlibF.Spec.InflateFastMatchHistory
+import ZlibF.Spec.Functional.Inflate.InflateFastMatchHistory
 import ZlibF.Proof.«inflate.c.leave-default-public-accounting»
 import ZlibF.Proof.«inflate.c.leave-output-footprint»
 import ZlibF.Proof.«inflate.c.output-frame-footprint-compose»

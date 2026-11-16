@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastCallOrigin
+import ZlibF.Spec.Common.Inflate.InflateFastCallOrigin
 import ZlibF.Proof.«inffast.c.body-origin»
 import ZlibF.Proof.«inffast.c.origin»
 import ZlibF.Proof.«inffast.c.final»

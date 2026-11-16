@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Streams
+import ZlibF.Spec.Common.Streams
 
 /-!
 # deflateBound: the gzip extra length is added at 32 bits

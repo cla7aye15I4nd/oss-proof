@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Copy
+import ZlibF.Spec.Common.Copy
 
 namespace ZlibF.Spec.Public
 open C

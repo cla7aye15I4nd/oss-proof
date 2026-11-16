@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastMatchHistory
+import ZlibF.Spec.Functional.Inflate.InflateFastMatchHistory
 import ZlibF.Math.InflateFastMatchHistory
 
 namespace Zlib.Inffast.Proofs

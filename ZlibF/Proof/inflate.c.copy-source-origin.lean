@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.copy-window-content»
-import ZlibF.Spec.Public.Copy
+import ZlibF.Spec.Common.Copy
 import ZlibF.Proof.«inflate.c.origin-fields-memory-contract»
 import ZlibF.Proof.«inflate.c.dictionary-install-origin»
 import ZlibF.Proof.«inflate.c.default-readonly-controls»

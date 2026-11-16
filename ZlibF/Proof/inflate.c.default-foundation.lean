@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inflate.c.default-entry»
 import ZlibF.Proof.«inflate.c.main.table2»
-import ZlibF.Spec.InflatePendingInvariant
-import ZlibF.Spec.InflateCodeLengthInvariant
+import ZlibF.Spec.Common.Inflate.InflatePendingInvariant
+import ZlibF.Spec.Common.Inflate.InflateCodeLengthInvariant
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

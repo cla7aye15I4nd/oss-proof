@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 
 /-!
 # Domains: safety goals

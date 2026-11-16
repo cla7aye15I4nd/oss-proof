@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Utilities
+import ZlibF.Spec.Common.Utilities
 
 /-!
 # Utilities: safety goals

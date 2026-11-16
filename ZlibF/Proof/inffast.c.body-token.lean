@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastBodyToken
+import ZlibF.Spec.Functional.Inflate.InflateFastBodyToken
 import ZlibF.Proof.«inffast.c.length-trace»
 import ZlibF.Proof.«inffast.c.length-semantics»
 import ZlibF.Proof.«inffast.c.distance-result»

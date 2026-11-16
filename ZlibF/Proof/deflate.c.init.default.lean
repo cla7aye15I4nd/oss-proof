@@ -2,7 +2,7 @@ import ZlibF.Proof.«deflate.c.life.reset»
 import ZlibF.Proof.«deflate.c.life.end»
 import ZlibF.Proof.«deflate.c.init.memory»
 import ZlibF.Proof.«trees.c.monad»
-import ZlibF.Spec.Public.Initialisation
+import ZlibF.Spec.Common.Initialisation
 import ZlibF.Spec.Functional.Api.Basic
 
 /-! # deflate.c: direct proof of the default initialization entry

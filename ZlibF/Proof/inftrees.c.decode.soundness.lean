@@ -1,6 +1,6 @@
 import ZlibF.Math.InflateCanonicalDecode
 import ZlibF.Proof.«inftrees.c.decode.semantics»
-import ZlibF.Spec.InflateDecodeTableSoundness
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableSoundness
 
 set_option autoImplicit false
 

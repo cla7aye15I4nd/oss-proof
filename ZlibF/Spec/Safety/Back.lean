@@ -1,5 +1,5 @@
-import ZlibF.Spec.Public.Sequences
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Sequences
+import ZlibF.Spec.Common.Domains
 import ZlibF.Spec.Safety.Initialisation
 
 /-!

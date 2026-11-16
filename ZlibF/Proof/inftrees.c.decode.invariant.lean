@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inftrees.c.decode.bits»
 import ZlibF.Proof.«inftrees.c.decode.short»
 import ZlibF.Proof.«inftrees.c.read-extent»
-import ZlibF.Spec.InflateDecodeTableInvariant
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableInvariant
 
 set_option autoImplicit false
 

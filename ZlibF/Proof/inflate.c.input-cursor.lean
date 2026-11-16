@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.main.macros»
-import ZlibF.Spec.Public.Memory
+import ZlibF.Spec.Common.Memory
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate

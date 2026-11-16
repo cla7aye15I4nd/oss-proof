@@ -1,6 +1,6 @@
 import ZlibF.Proof.«deflate.c.universal-call-entry»
 import ZlibF.Proof.«zutil.c»
-import ZlibF.Spec.Public.Queries
+import ZlibF.Spec.Common.Queries
 import ZlibF.Spec.Functional.Api.Compress
 
 /-!

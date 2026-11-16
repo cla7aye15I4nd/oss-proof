@@ -2,7 +2,7 @@
 
 Four call histories on the real C. Each one is outside what zlib.h documents, and each one
 makes the C read memory it must not read. Before the correction, `StreamReachable`, `StreamArguments`
-and `ActiveHeader` (`ZlibF/Spec/Public/History.lean`) admitted all three, so `Goal.deflate` and
+and `ActiveHeader` (`ZlibF/Spec/Common/History.lean`) admitted all three, so `Goal.deflate` and
 `Goal.deflate_sequence` were false for the real C (the fourth until a later correction).
 
 | History | zlib.h | Sanitizer report |

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 
 /-!
 # Streams: one safety goal per inflate and deflate function

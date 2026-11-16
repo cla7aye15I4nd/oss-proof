@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Streams
+import ZlibF.Spec.Common.Streams
 import ZlibF.Proof.«deflate.c.engine.initial»
 import ZlibF.Proof.«deflate.c.engine.symbol-ledger»
 import ZlibF.Proof.«deflate.c.engine.block-initial»

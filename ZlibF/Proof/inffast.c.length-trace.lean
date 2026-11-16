@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastLengthTrace
+import ZlibF.Spec.Functional.Inflate.InflateFastLengthTrace
 import ZlibF.Proof.«inffast.c.body»
 
 /-!

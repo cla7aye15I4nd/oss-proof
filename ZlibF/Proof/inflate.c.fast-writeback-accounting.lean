@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.fast-view-epilogue-bridge»
-import ZlibF.Spec.Public.Streams
+import ZlibF.Spec.Common.Streams
 import ZlibF.Spec.Functional.Api.Compress
 
 namespace Zlib.Inflate.Proofs

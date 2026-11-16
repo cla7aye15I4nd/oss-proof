@@ -9,7 +9,7 @@ import ZlibF.Proof.«gz.inv-queries»
 import ZlibF.Proof.«gz.read-close»
 import ZlibF.Proof.«gzwrite.c.safety»
 import ZlibF.Proof.«zlib.h.gzgetc-macro»
-import ZlibF.Spec.Public.GzSafety
+import ZlibF.Spec.Safety.GzSafety
 
 /-!
 # gz file interface, safety: the assembly of the sequence goal

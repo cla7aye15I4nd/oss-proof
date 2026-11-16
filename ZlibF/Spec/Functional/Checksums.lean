@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Checksums
+import ZlibF.Spec.Common.Checksums
 import ZlibF.Spec.Functional.Format.Checksum
 
 /-!

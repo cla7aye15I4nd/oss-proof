@@ -2,7 +2,7 @@ import ZlibF.Proof.«deflate.c.universal-history»
 import ZlibF.Proof.«deflate.c.life.check»
 import ZlibF.Proof.«deflate.c.life.bound»
 import ZlibF.Proof.«deflate.c.life.getdict»
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Spec.Functional.Api.InflateAccepted
 

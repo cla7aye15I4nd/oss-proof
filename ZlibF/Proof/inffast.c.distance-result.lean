@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastDistanceResult
+import ZlibF.Spec.Functional.Inflate.InflateFastDistanceResult
 import ZlibF.Proof.«inffast.c.match-history»
 import ZlibF.Proof.«inffast.c.distance-semantics»
 import ZlibF.Proof.«inffast.c.advance»

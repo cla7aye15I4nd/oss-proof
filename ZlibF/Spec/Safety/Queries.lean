@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Queries
+import ZlibF.Spec.Common.Queries
 
 /-!
 # Library queries: safety goals

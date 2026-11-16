@@ -1,4 +1,4 @@
-import ZlibF.Spec.PlatformMemory
+import ZlibF.Spec.Common.PlatformMemory
 import ZlibF.Runtime.Libc
 import ZlibF.Proof.LibcBorrow
 import ZlibF.Zlib.«zutil.c»

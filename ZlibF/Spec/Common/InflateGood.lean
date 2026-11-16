@@ -1,5 +1,5 @@
 import ZlibF.Zlib.«inflate.c»
-import ZlibF.Spec.HeapUniq
+import ZlibF.Spec.Common.HeapUniq
 
 /-!
 # inflate.c: the stream invariant

@@ -1,5 +1,5 @@
 import ZlibF.Spec.Functional.Format
-import ZlibF.Spec.Public.Parameters
+import ZlibF.Spec.Common.Parameters
 
 /-!
 # API model: vocabulary

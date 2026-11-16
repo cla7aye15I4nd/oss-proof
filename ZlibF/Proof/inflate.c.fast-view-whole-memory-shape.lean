@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.fast-memory-shape-source»
-import ZlibF.Spec.Public.History
+import ZlibF.Spec.Common.History
 import ZlibF.Spec.Functional.Api.Basic
 
 namespace Zlib.Inflate.Proofs

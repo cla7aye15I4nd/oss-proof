@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inftrees.c.decode.prefix-query»
-import ZlibF.Spec.InflateDecodeTableInvariant
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableInvariant
 
 open C Zlib.Inftrees Zlib.Inftrees.Spec ZlibF.Spec Zlib.Inftrees.Proofs
 open Zlib.Inftrees.Spec.DecodeSemantics Zlib.Inftrees.Spec.DecodeSoundness
