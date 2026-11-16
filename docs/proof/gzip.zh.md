@@ -1,4 +1,4 @@
-<!-- source-sha256: fe0c780f557fd34c3e909ce693f58cda8ea595e6ac30de29a0090f1a3eb3f20c -->
+<!-- source-sha256: 713eff3777a3768ed1d0fd5f9d62bedf550ae67d0aadccef097ec513dc4d20cd -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -203,7 +203,7 @@ flowchart TD
 
 ## 不变量 `GzInv`
 
-`GzInv h i s`（`ZlibF/Proof/gz.inv-model.lean`）是记录为 `s` 的已打开句柄 `i`
+`GzInv h i s`（`ZlibF/Spec/Common/GzInv.lean`）是记录为 `s` 的已打开句柄 `i`
 的表示不变量。它有一个公共部分，每种模式各有一个部分。其他模块使用它的接口引理（`GzInv.common`、`GzInv.reader`、`GzInv.writer`、`GzInv.state_eq`、`GzInv.pos_lower`），不展开定义。
 
 它谈到的字段是 `gzguts.h` 中 `gz_state` 的字段：
@@ -263,7 +263,7 @@ flowchart TD
 - 对有缓冲区的压缩写句柄，`next_out = out + b`，`x.next = out + c`，其中 `c ≤ b ≤ size`，并且
   `avail_out = size - b`。内嵌的流在 deflate 历史中，没有 gzip 头记录。
 
-完整的命题是 `ZlibF/Proof/gz.inv-model.lean` 中的定义 `GzInv`，以及它的三个部分 `GzCommon`、`GzReadInv` 和
+完整的命题是 `ZlibF/Spec/Common/GzInv.lean` 中的定义 `GzInv`，以及它的三个部分 `GzCommon`、`GzReadInv` 和
 `GzWriteInv`；这份摘要与定义不一致的地方，以定义为准。
 
 每个子句之所以存在，是因为有某个调用需要它。下面三个例子说明这一点。

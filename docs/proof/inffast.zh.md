@@ -1,4 +1,4 @@
-<!-- source-sha256: 268faf6c1d9dcc8173a8d6eae92ce00e10e8c95d41c155025c767c3037a7d262 -->
+<!-- source-sha256: 56ec28319b26916cec2dc24e1d3883593f2c73b687e334681556bf4d9cc6b55a -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -32,7 +32,7 @@
 
 ## 假设
 
-这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段（`ZlibF/Proof/inffast.c.env.lean`）。`Env` 是 `inflate` 的情形，这时窗口绝不是输出对象；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：调用者在应用本页的定理之前证明它们。`fast_env`（`infback.c.safety-fast.lean`）为 `inflateBack` 做这件事。`inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在输入和输出位于两个不同的堆块时为 `inflate` 做这件事；它带有这条前提（`ib ≠ ob`）。`inflate_fast_entry`（`inflate.c.meaning-fast.lean`）为每一种布局下的 `inflate` 做这件事。
+这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段（`ZlibF/Spec/Common/Inflate/FastEnv.lean`）。`Env` 是 `inflate` 的情形，这时窗口绝不是输出对象；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：调用者在应用本页的定理之前证明它们。`fast_env`（`infback.c.safety-fast.lean`）为 `inflateBack` 做这件事。`inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在输入和输出位于两个不同的堆块时为 `inflate` 做这件事；它带有这条前提（`ib ≠ ob`）。`inflate_fast_entry`（`inflate.c.meaning-fast.lean`）为每一种布局下的 `inflate` 做这件事。
 
 - **流。** `strm` 指向一个可写的流记录，它的 `state` 是 inflate 状态。
 - **输入。** `next_in` 指向一个少于 `2^63` 字节的字节对象内部。`avail_in ≥ 6`，这 `avail_in` 个字节都在对象内。字节对象是一个堆块，或者模型里其他的字节数组，例如状态记录内部的数组。
@@ -69,7 +69,7 @@ do {
          | 已读      |   未读；进入循环时至少 6 字节
 ```
 
-每一轮开始时，下面各条成立（`inffast.c.step1.lean` 中的 `LS`，以及 `inffast.c.loop.lean` 中 `fast_loop_wp` 的循环不变量）。
+每一轮开始时，下面各条成立（`ZlibF/Spec/Common/Inflate/FastEnv.lean` 中的 `LS`，以及 `inffast.c.loop.lean` 中 `fast_loop_wp` 的循环不变量）。
 
 | 名字 | 内容 |
 | --- | --- |

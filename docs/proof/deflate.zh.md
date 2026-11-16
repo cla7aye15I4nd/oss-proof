@@ -1,4 +1,4 @@
-<!-- source-sha256: e0c58e641e4bb0777366b0d0c988de1aedc753d2f6db761f5e05b3050beac97d -->
+<!-- source-sha256: 79d9be738ad625f4ee322d5c66b9c24452283812348d25db82c4c9c99be977a7 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
@@ -83,7 +83,7 @@ flowchart LR
     State --> Tables["静态树（只读）"]
 ```
 
-流拥有五个块。树、堆数组和深度数组在状态内部。不变量的子句 `good` 固定了这些大小（`DStInv`，`ZlibF/Proof/deflate.c.base.lean`）。
+流拥有五个块。树、堆数组和深度数组在状态内部。不变量的子句 `good` 固定了这些大小（`DStInv`，`ZlibF/Spec/Common/DeflateGood.lean`）。
 
 | 字段 | 值 |
 | --- | --- |
@@ -165,7 +165,7 @@ stateDiagram-v2
 | `HeaderInv`（调用之间） | 在从 `INIT_STATE` 到 `HCRC_STATE` 的六个头部状态下，没有记录任何符号。在 `EXTRA_STATE`、`NAME_STATE`、`COMMENT_STATE` 和 `HCRC_STATE` 下，`gz_header` 指针不是 `NULL` | 头部各阶段 |
 | `CallFacts`（调用之间） | 只要 `last_flush = -2`（重置存入这个值，下一次 `deflate` 调用通过入口检查之后把它改掉）：没有预读数据，没有符号，没有待处理的字面量，`match_length ≤ 2`，`prev_length ≤ 2`，并且 `block_start = strstart`。在 `FINISH_STATE` 下：没有符号，没有预读数据，也没有留在缓冲里的位 | `deflate` 的入口情形、尾部 |
 
-这张表和下面两张表都是概要。完整的命题是 Lean 定义：`ZlibF/Proof/deflate.c.universal-invariant.lean` 中的 `DInv`、`Shape`、`Hashing`、`Symbols`、`HeaderInv` 和 `CallFacts`，以及 `good` 部分所用的、`ZlibF/Proof/deflate.c.base.lean` 中的 `DGood` 和 `DStInv`。
+这张表和下面两张表都是概要。完整的命题是 Lean 定义：`ZlibF/Proof/deflate.c.universal-invariant.lean` 中的 `DInv`、`Shape`、`Hashing`、`Symbols`、`HeaderInv` 和 `CallFacts`，以及 `good` 部分所用的、`ZlibF/Spec/Common/DeflateGood.lean` 中的 `DGood` 和 `DStInv`。
 
 序列目标陈述的是较小的公开谓词 `StreamInvariant`，也就是 `good` 和 `alloc`。
 

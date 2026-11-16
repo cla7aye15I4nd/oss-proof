@@ -40,7 +40,7 @@ Functional results about the meaning of the entries are listed under
 ## Assumptions
 
 `inflate_table(type, lens, codes, table, bits, work)` does not check its arguments. The theorems
-assume the following (`CallPre`, `ZlibF/Proof/inftrees.c.main.lean`). These are internal
+assume the following (`CallPre`, `ZlibF/Spec/Common/Inflate/TableBuild.lean`). These are internal
 premises: each caller proves them at each call. In
 [internal contracts](../spec/internal-contracts.md) they are `I-it-pre-lens`, `I-it-pre-codes`,
 `I-it-pre-work` and `I-it-pre-table`.
@@ -84,7 +84,7 @@ for (;;) {                                                 /* 4. one code per ro
 ## The table shape
 
 T2 says that a successful call leaves a table with the following shape. `LenTableSafe` and
-`DistTableSafe` (`ZlibF/Proof/inffast.c.tableok.lean`) state it for a table that starts at index
+`DistTableSafe` (`ZlibF/Spec/Common/Inflate/FastTable.lean`) state it for a table that starts at index
 `o` of an array, with root width `R`.
 
 - `R ≤ 15`, and the `2^R` root entries lie inside the array.

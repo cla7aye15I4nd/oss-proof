@@ -1,4 +1,4 @@
-<!-- source-sha256: 8f75eacfe5dff6d84d6ebe249873417cd7b20523d16ee28d5de3a04d692c0356 -->
+<!-- source-sha256: 4d2cf71220ae85386a6ea4818edc3b081ad0f236aa5dacb58611d51a475f6bab -->
 # 证明一个函数
 
 本页说明本项目里关于一个 C 函数的证明是怎样搭起来的，以及证明走不通时怎样诊断。它讲的是方法，本身不陈述任何结论；定理列在[地图](README.md)里，论证在各组件页面里。
@@ -67,7 +67,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | `inflate` | `InflateInv` | `ZlibF/Proof/inflate.c.invariant.lean` | [流式解码](inflate.md#the-invariant) |
 | `deflate` | `DInv`，调用之间另有 `HeaderInv` 和 `CallFacts` | `ZlibF/Proof/deflate.c.universal-invariant.lean` | [流式压缩](deflate.md#the-invariant) |
-| gzip 文件 | `GzInv` | `ZlibF/Proof/gz.inv-model.lean` | [gzip 文件](gzip.md) |
+| gzip 文件 | `GzInv` | `ZlibF/Spec/Common/GzInv.lean` | [gzip 文件](gzip.md) |
 | 回调解码器 | 调用之间是 `BackValid`，分派循环内部是 `PInv` | `ZlibF/Spec/Common/Back.lean`、`ZlibF/Proof/infback.c.safety-inv.lean` | [回调解码器](callbacks.md) |
 
 序列目标通过一个较小的公开谓词 `StreamInvariant`（`ZlibF/Spec/Common/Sequences.lean`）来陈述不变量。证明用的不变量蕴含它。

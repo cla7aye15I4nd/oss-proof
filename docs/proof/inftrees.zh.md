@@ -1,4 +1,4 @@
-<!-- source-sha256: 79df6ef9a16ff286bb072f019f024cbd16a3ef8f435c98a9185a953bfddc8ee8 -->
+<!-- source-sha256: fb3d2131520e4bcd3d94b74b74c74bcfd328abbbba3ab1ce7123470a5b440e5c -->
 # 解码表：`inflate_table` 为什么安全，它建的表为什么可以放心读
 
 源文件：`zlib/inftrees.c`。翻译：`ZlibF/Zlib/inftrees.c.lean`。
@@ -27,7 +27,7 @@
 
 ## 假设
 
-`inflate_table(type, lens, codes, table, bits, work)` 不检查自己的参数。定理假设下面这些条件（`CallPre`，`ZlibF/Proof/inftrees.c.main.lean`）。它们是内部前提：每个调用者在每次调用处证明它们。在[内部契约](../spec/internal-contracts.md)里，它们是 `I-it-pre-lens`、`I-it-pre-codes`、`I-it-pre-work` 和 `I-it-pre-table`。
+`inflate_table(type, lens, codes, table, bits, work)` 不检查自己的参数。定理假设下面这些条件（`CallPre`，`ZlibF/Spec/Common/Inflate/TableBuild.lean`）。它们是内部前提：每个调用者在每次调用处证明它们。在[内部契约](../spec/internal-contracts.md)里，它们是 `I-it-pre-lens`、`I-it-pre-codes`、`I-it-pre-work` 和 `I-it-pre-table`。
 
 | 前提 | `CODES` | `LENS` | `DISTS` |
 | --- | --- | --- | --- |
@@ -64,7 +64,7 @@ for (;;) {                                                 /* 4. 每轮处理一
 
 ## 表形状
 
-T2 说，成功的调用留下的表具有下面的形状。`LenTableSafe` 和 `DistTableSafe`（`ZlibF/Proof/inffast.c.tableok.lean`）针对从数组下标 `o` 开始、根宽度为 `R` 的表陈述它。
+T2 说，成功的调用留下的表具有下面的形状。`LenTableSafe` 和 `DistTableSafe`（`ZlibF/Spec/Common/Inflate/FastTable.lean`）针对从数组下标 `o` 开始、根宽度为 `R` 的表陈述它。
 
 - `R ≤ 15`，`2^R` 个根表项都在数组之内。
 - 每个根表项是叶子或链接。

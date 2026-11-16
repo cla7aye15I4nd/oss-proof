@@ -60,7 +60,7 @@ Functional results about `inflate_fast` also exist; see [Functional results](#fu
 ## Assumptions
 
 The theorems assume the entry conditions below. In Lean they are the fields of the record
-`EnvG` (`ZlibF/Proof/inffast.c.env.lean`). `Env` is the case of `inflate`, in which the window
+`EnvG` (`ZlibF/Spec/Common/Inflate/FastEnv.lean`). `Env` is the case of `inflate`, in which the window
 is never the output object; `inflate_fast_safe` is stated for `Env`. These are
 internal premises: a caller proves them before it applies a theorem of this page. `fast_env`
 (`infback.c.safety-fast.lean`) does so for `inflateBack`. `inflate_fast_raw_entry`
@@ -121,8 +121,9 @@ input block    in0 ........ in ............ last ... in0 + avail_in
                | read      |   unread; at least 6 bytes at loop entry
 ```
 
-At the start of every round the following hold (`LS` in `inffast.c.step1.lean`, and the loop
-invariant in `fast_loop_wp`, `inffast.c.loop.lean`).
+At the start of every round the following hold (`LS` in
+`ZlibF/Spec/Common/Inflate/FastEnv.lean`, and the loop invariant in `fast_loop_wp`,
+`inffast.c.loop.lean`).
 
 | Name | Says |
 | --- | --- |

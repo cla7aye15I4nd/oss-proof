@@ -148,7 +148,7 @@ flowchart LR
 
 The stream owns five blocks. The trees, the heap array and the depth array are inside the
 state. The clause `good` of the invariant fixes these sizes (`DStInv`,
-`ZlibF/Proof/deflate.c.base.lean`).
+`ZlibF/Spec/Common/DeflateGood.lean`).
 
 | Field | Value |
 | --- | --- |
@@ -240,7 +240,7 @@ the same file, hold beside it between calls.
 This table and the two below are summaries. The complete statement is the Lean definition:
 `DInv`, `Shape`, `Hashing`, `Symbols`, `HeaderInv` and `CallFacts` in
 `ZlibF/Proof/deflate.c.universal-invariant.lean`, with `DGood` and `DStInv` in
-`ZlibF/Proof/deflate.c.base.lean` for the part `good`.
+`ZlibF/Spec/Common/DeflateGood.lean` for the part `good`.
 
 The sequence goal states the smaller public predicate `StreamInvariant`, which is `good` and
 `alloc`.

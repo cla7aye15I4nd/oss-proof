@@ -265,7 +265,7 @@ six calls that need the read budget.) `gz_sequence_safety_of` takes the bundle a
 
 ## The invariant `GzInv`
 
-`GzInv h i s` (`ZlibF/Proof/gz.inv-model.lean`) is the representation invariant of an open
+`GzInv h i s` (`ZlibF/Spec/Common/GzInv.lean`) is the representation invariant of an open
 handle `i` with record `s`. It has a common part and a part per mode. Other modules use its
 interface lemmas (`GzInv.common`, `GzInv.reader`, `GzInv.writer`, `GzInv.state_eq`,
 `GzInv.pos_lower`) and do not unfold the definition.
@@ -340,7 +340,7 @@ the page uses them later.
   `c ≤ b ≤ size`, and `avail_out = size - b`. The embedded stream is in the deflate history,
   with no gzip header record.
 
-The complete statement is the definition `GzInv` in `ZlibF/Proof/gz.inv-model.lean`, with its
+The complete statement is the definition `GzInv` in `ZlibF/Spec/Common/GzInv.lean`, with its
 parts `GzCommon`, `GzReadInv` and `GzWriteInv`; where this summary and the definition differ,
 the definition holds.
 
