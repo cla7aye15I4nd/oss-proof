@@ -1,13 +1,12 @@
 # Glossary
 
 This page defines the terms the other pages use, each once, in one or two sentences. The terms
-are grouped: goals, status levels, the model, premises, the gzip file world, and checking. The
-rules behind the status levels are in [checking](checking/README.md); the level of each result is
-in [progress, Scope](progress.md#scope).
+are grouped: goals, the two states of a result, the model, premises, the gzip file world, and
+evidence. The state of each result is in [progress](progress.md).
 
 ## Goals
 
-**Goal.** A Lean proposition in `ZlibF/Spec/` about one C function or one call sequence. Its name
+**Goal.** A Lean proposition about one C function or one call sequence. Its name
 starts with `Goal.`. A goal is proved only by a theorem whose type is exactly the goal. **Target**
 means the same thing.
 
@@ -16,8 +15,8 @@ memory error, termination), writes only the memory it is allowed to (its frame),
 nothing. Most are named `Goal.<function>_safety`.
 
 **Functional goal.** A goal that says what the result of a call is: return values, output bytes,
-the relation to the data format. Functional goals are not required for the safety results; the
-ones already proved stay registered.
+the relation to the data format. The safety results do not depend on a functional goal that is
+not done.
 
 **Sequence goal.** A goal about every sequence of calls on one stream or handle, such as
 `Goal.inflate_sequence_safety`. It says that the invariant holds after every history and that one
@@ -52,63 +51,35 @@ which init or open succeeds and gives a reachable stream or handle. Without it a
 could hold only because no history exists.
 
 **Witness.** The concrete heap, and for gz the concrete file system, that a non-vacuity goal
-exhibits, for example `witnessHeap` in `ZlibF/Spec/Common/Domains.lean`.
+exhibits, for example `witnessHeap`.
 
 **Documented function.** A function that `zlib.h` declares before its comment "undocumented
 functions (not part of the zlib API)". The ten functions after that comment are undocumented, and
-a goal of their own is not required. The exception is `gzvprintf`: `gzprintf` goes through it, so
-its safety goal `Goal.gzvprintf_safety` is required and it is a call of the gz sequence goal.
+a goal of their own is not planned. The exception is `gzvprintf`: `gzprintf` goes through it, so
+it has the safety goal `Goal.gzvprintf_safety` and it is a call of the gz sequence goal.
 
-**Required goal.** A goal the acceptance audit insists on: the safety goal of every documented
-function of the target build, the listed safety goals (which add the sequence goals, the refusal
-goals and the goal of `gzvprintf`), and the non-vacuity goals.
-`scripts/verification.py` computes the set from the manifest.
+**Kinds of safety goal.** The target build has 86 documented functions. The safety results
+consist of goals of four kinds: one-function safety goals, sequence safety goals, refusal goals
+and non-vacuity goals. There is one one-function safety goal for each documented function and one
+for `gzvprintf`; for `compressBound` and `compressBound_z`, which are pure, the functional goal
+stands for the safety goal.
 
-**Manifest.** The file `tests/audit/public-api.json`. It has an entry for every exported
-function, with its manual entry and, when the target build compiles the function, its translated
-definition. For every documented function the entry names the functional goal and the safety
-goal. Of the ten undocumented functions only `gzvprintf` has a safety goal there, and one of
-them, `gzopen_w`, which the target build does not compile, has no functional goal. The manifest
-also lists the sequence goals, the required safety goals and the non-vacuity goals.
-
-**Registry.** One of three hand-edited lists under `tests/audit/`: `goals.txt` (every goal),
-`theorems.txt` (the theorems that make up the result) and `proved-goals.txt` (the goals that have
-a listed theorem of exactly their type).
-
-**Kinds of required goal.** The target build has 86 documented functions. The required goals are
-of four kinds: one-function safety goals, sequence safety goals, refusal goals and non-vacuity
-goals. There is one one-function safety goal for each documented function and one for
-`gzvprintf`; for `compressBound` and `compressBound_z`, which are pure, the functional goal
-stands for the safety goal. `goals.txt` also holds functional goals and internal goals that are
-not required, and the status page counts every goal of the file. How many goals there are of
-each kind, and how many have a theorem, is on the [progress page](progress.md#scope).
-
-**Model-only statement.** A theorem about the abstract API model in `ZlibF/Spec/Functional/`, not
+**Model-only statement.** A theorem about the abstract API model, not
 about the translated C. It says nothing about the implementation until a separate theorem relates
 the two.
 
 ## Status
 
-There are three levels, and each includes the one before it. These three definitions are the
-ones the other pages repeat; [checking](checking/README.md#three-levels) says which checks stand
-behind each level and where a reader sees it.
+A result, a goal or a function has one of two states.
 
-**Checked.** The theorem is on the integration branch `dev`, and the fast gate is green on that
-commit. Lean's kernel has checked the proof. The status page shows "checked" for a theorem that
-is checked and not registered.
+**Done.** A Lean theorem whose statement is exactly the goal exists and passes every check of the
+project. [What a done result rests on](checking/README.md) says what the checks are.
 
-**Registered.** The theorem is checked and its name is listed in `tests/audit/theorems.txt`. When
-it proves a goal, the goal is also listed in `tests/audit/proved-goals.txt`; a registered theorem
-need not prove a goal. The lines are a claim; the acceptance suite is the check that the
-theorem's type is exactly the goal.
+**Not done.** No such theorem exists. A goal of which only a part has a theorem is not done; a
+page may say in plain words which part has one.
 
-**Accepted.** The theorem is registered, and the acceptance suite is green on a named commit.
-Only an accepted result is reported as final, and always with that commit. Proof mutants are not
-part of acceptance.
-
-**Open.** A goal with no registered theorem of its type.
-
-**Not planned.** A goal the project does not work on. It is never called proved.
+**Not planned.** Said in addition to "not done" of a goal the project does not work on. It is
+never called proved.
 
 ## Model
 
@@ -118,11 +89,11 @@ theorem shows that no run raises either. The gz goals split the two: the gz sequ
 goals of the six reading calls, prove that no run raises `Fault.ub` in any world, and that the six
 reading calls return under a read budget.
 
-**Fuel.** The bound on the iterations of one translated loop: `2^64` (`ZlibF/Runtime/Monad.lean`).
+**Fuel.** The bound on the iterations of one translated loop: `2^64`.
 A theorem that concludes a normal return proves that the bound is never reached, which is the
 project's meaning of termination.
 
-**Heap.** The runtime model of memory in `ZlibF/Runtime/`: one table per kind of object (byte
+**Heap.** The runtime model of memory: one table per kind of object (byte
 arrays, word arrays, `z_stream` records, gzip headers, the three state records), the static
 tables, and the allocator's bookkeeping.
 
@@ -176,20 +147,19 @@ example `DGood` for a deflate stream, `Good` for an inflate stream and `GzInv` f
 The init or open function establishes it.
 
 **Trusted base.** What a proof depends on and the kernel does not check. It has six items: the
-Lean kernel with the audit programs; the runtime model; the hand translation; the selected source;
+Lean kernel with the programs that check axioms and statements; the runtime model; the hand translation; the selected source;
 the build configuration with the model of the outside world; and the statements themselves. See
 [trusted base](trusted-base.md).
 
-**Pin.** The commit of upstream zlib that the `zlib/` submodule points to. The verified source is
-the pin plus the files of `patches/`, applied in name order.
+**Pin.** The commit of upstream zlib that the proofs are about. The verified source is the pin
+plus the [patches](../patches/README.md), applied in name order.
 
 **Normalisation.** One of four ways in which a translation may differ from a literal
 statement-by-statement copy of the C, each with the same behaviour as the C.
-[Translation](design/translation.md#the-accepted-normalisations) lists them with an example of
-each. By the working rules any other difference is a translation bug. The translations contain
-five further forms that the four do not cover as worded; the owner has not decided whether each
-is accepted or changed
-([the list](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)).
+[Translation](design/translation.md) lists them with an example of each. Any other difference is
+a translation bug. The translations contain at least six further forms that the four do not cover
+as worded; it is not decided whether each is accepted as a normalisation or changed, and the same
+page lists them.
 
 ## Premises
 
@@ -221,8 +191,7 @@ goal assumes it.
 
 ## The gzip file world
 
-**World.** The model's state of the operating system for the gz functions (`Fs` in
-`ZlibF/Zlib/gzfs.lean`): files, open descriptors, `errno`, and two oracles, one for the OS calls
+**World.** The model's state of the operating system for the gz functions (`Fs`): files, open descriptors, `errno`, and two oracles, one for the OS calls
 and one for `vsnprintf`. The gz safety
 goal holds for every well-formed world.
 
@@ -233,42 +202,24 @@ chosen result inside the POSIX contract of the call.
 **Read budget.** The number of bytes a descriptor can still deliver (`readBudget`). The
 termination of the six gz reading calls is proved for a budget below `2^61` bytes (`ReadsFinite`).
 
-**Leaf.** A theorem about one function, or one group of calls, from which a sequence theorem is
-assembled. `GzReadLeaves` in `ZlibF/Proof/gz.sequence-safety.lean` bundles the leaves of the gz
-reading calls.
-
 ## Checking
 
 **Differential test.** A run of the real C and of the Lean translation on the same input, compared.
 It is evidence of fidelity, not proof.
 
-**Proof mutant.** A deliberately wrong translation, such as a dropped check. A sound proof must
-fail on it. Mutants are additional evidence, not part of acceptance: a mutant run starts only on
-request and is reported separately, with its commit. The words used for mutants (list, row, key, structural mutant, restatement, script
-row, semantic list, pinned evidence) are defined once, in
-[proof mutants, Terms](checking/proof-mutants.md#terms).
+**Sanitizer reproduction.** A small C program that makes the real zlib show an issue when it is
+built with AddressSanitizer or UndefinedBehaviorSanitizer. It is evidence about one run of the
+real C, not proof.
 
-**Fast gate.** The jobs `build` and `no-sorry`. They run on every push and pull request.
+**Proof mutant.** A deliberately wrong translation, such as a dropped check. Mutated translations
+were checked to break the proofs: a proof that still passed on one would not depend on the
+translation. This is additional evidence, not part of what "done" means.
 
-**Acceptance suite.** Axiom gate, exact goal match, self tests and differential tests. It runs
-nightly on `main` and on request.
+**Allowed axioms.** `propext`, `Classical.choice` and `Quot.sound`, the three standard axioms of
+Lean. A done result depends on no other axiom.
 
-**Axiom gate.** The part of the audit that walks every declaration a registered theorem depends
-on and rejects any axiom other than `propext`, `Classical.choice` and `Quot.sound`.
+**Exact statement.** The type of the theorem behind a done result is exactly the goal. A theorem
+with an extra premise does not count.
 
-**Exact goal match.** The part of the audit that requires the type of a registered theorem to be
-exactly the goal it is listed for. A theorem with an extra premise does not count.
-
-**Kernel replay.** The audit re-checks the compiled proofs in a fresh environment with Lean's
-kernel, so that a result of an earlier build is not taken on trust.
-
-**Coverage colour.** The colour of a node in the target graph of [progress](progress.md): gray,
-blue, yellow or green, for how much of the input range a target's theorem covers
-([input configurations](spec/input-configurations.md)). It is not a status level.
-
-**Milestone.** `inflate` proved, `deflate` proved, a sequence goal proved, or about twenty newly
-checked targets.
-
-**Skeleton.** The top-down plan of one core proof: the goal proved from named lemmas whose proofs
-are left open on a branch. Every skeleton is closed
-([progress](progress.md#core-proof-skeletons)).
+**Kernel replay.** The compiled proofs are checked again by Lean's kernel in a fresh environment,
+so that the result of an earlier build is not taken on trust.
