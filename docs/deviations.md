@@ -256,7 +256,8 @@ Where the goals state `ByteObjectsFit`:
 - for the callback decoder, on the heap of each `inflateBack` call and after each call-back step
   (`BackSafeReachable.step`, `BackPlatform`).
 
-The init, End, checksum and refusal goals do not state it. A concrete heap satisfies it
+The init, checksum and refusal goals do not state it. The End goals do not state it for the
+heap of the call; an inflate history carries it as the second item says. A concrete heap satisfies it
 (`inflate_default_witness_platform`).
 
 The conditions that goals put on the model's heap (`Fresh`, `Uniq`, `LibraryGlobals`,
@@ -330,14 +331,15 @@ or `zfree` is `NULL`. The table says what each failure leaves in the record.
 
 | Failure | `state` after the call | `zalloc`, `zfree` after the call |
 | --- | --- | --- |
-| `Z_VERSION_ERROR` | As before the call | As before the call: `NULL` if the init premise held, so the record is refused whatever `state` holds |
+| `Z_VERSION_ERROR`; `Z_STREAM_ERROR` of `inflateBackInit_` for a `NULL` window or a bad `windowBits` | As before the call | As before the call. When they were `NULL`, as the checklist asks, the record is refused whatever `state` holds |
 | `Z_MEM_ERROR` when the state record cannot be allocated | As before the call | Set to the default functions |
 | `Z_STREAM_ERROR` of `deflateInit2_` for a bad parameter | As before the call | Set to the default functions |
 | `Z_STREAM_ERROR` of `inflateInit2_` for a bad `windowBits` | `NULL` | Set to the default functions |
 | `Z_MEM_ERROR` of `deflateInit2_` when one of its four buffers cannot be allocated | `NULL` | Set to the default functions |
 
-In rows 2 and 3 the record is refused only if `state` was `NULL` before the call. Otherwise it
-is one of the three kinds below.
+In rows 1 to 3 `state` holds what the caller left there. With `zalloc` and `zfree` set, the
+record is refused if that value is `NULL`; if it is a stale or garbage pointer, the record is
+one of the three kinds below.
 
 **Not covered.** Three kinds of record are outside the refusal domain when `zalloc` and `zfree`
 are set. In C the state check reads through the pointer in each of them, which is undefined

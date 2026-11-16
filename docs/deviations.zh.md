@@ -1,4 +1,4 @@
-<!-- source-sha256: 50a48a0b2193dd42219f1e3232f59ea177f8432f550c4f3b4b227f7ff93c0e80 -->
+<!-- source-sha256: 25c299924a83f8c02b3030b18e37222593b1dec435ad569e323af67ec2890597 -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后的 Lean 前提、陈述它的目标，以及它的理由。
@@ -147,7 +147,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 - 每次 gz 打开所在的堆，以及 gz 历史中每次调用者修改之后的堆（`GzHistory`、`GzOpenSafe`、`GzDopenSafe`），这就覆盖了调用者的路径串和模式串（[回归](../tests/verification/regressions/gzopen-path-ptrdiff.lean)）；
 - 对回调解码器，是每次 `inflateBack` 调用所在的堆和每个回调步骤之后的堆（`BackSafeReachable.step`、`BackPlatform`）。
 
-初始化、End、校验和与拒绝目标不陈述它。有一个具体的堆满足它（`inflate_default_witness_platform`）。
+初始化、校验和与拒绝目标不陈述它。End 目标不对调用时的堆陈述它；inflate 的历史按上面第二条带有它。有一个具体的堆满足它（`inflate_default_witness_platform`）。
 
 目标对模型中的堆提出的条件（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`）、循环燃料、CRC 地址模型和 NULL 指针算术，都不是调用者的义务。它们在[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)中。
 
@@ -191,13 +191,13 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 | 失败 | 调用之后的 `state` | 调用之后的 `zalloc`、`zfree` |
 | --- | --- | --- |
-| `Z_VERSION_ERROR` | 与调用之前相同 | 与调用之前相同：初始化的前提成立时是 `NULL`，所以不论 `state` 里是什么，记录都被拒绝 |
+| `Z_VERSION_ERROR`；`inflateBackInit_` 因窗口为 `NULL` 或 `windowBits` 不合法而返回的 `Z_STREAM_ERROR` | 与调用之前相同 | 与调用之前相同。它们原先按检查清单的要求是 `NULL` 时，不论 `state` 里是什么，记录都被拒绝 |
 | 状态记录分配不出来时的 `Z_MEM_ERROR` | 与调用之前相同 | 已置为默认函数 |
 | `deflateInit2_` 因参数有误返回的 `Z_STREAM_ERROR` | 与调用之前相同 | 已置为默认函数 |
 | `inflateInit2_` 因 `windowBits` 有误返回的 `Z_STREAM_ERROR` | `NULL` | 已置为默认函数 |
 | `deflateInit2_` 的四个缓冲区之一分配不出来时的 `Z_MEM_ERROR` | `NULL` | 已置为默认函数 |
 
-在第 2、3 行中，只有调用之前 `state` 是 `NULL`，记录才被拒绝。否则它属于下面三类之一。
+在第 1 至 3 行中，`state` 里是调用者留下的值。`zalloc` 和 `zfree` 已设置时，这个值是 `NULL` 则记录被拒绝；它是过时指针或垃圾指针时，记录属于下面三类之一。
 
 **不被覆盖。** 在 `zalloc` 和 `zfree` 已设置的情况下，有三类记录在拒绝的定义域之外。在 C 中，状态检查对其中每一类都会经由这个指针读取，这是未定义行为。
 
