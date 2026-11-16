@@ -1,4 +1,4 @@
-<!-- source-sha256: aa656b876a1cf659368e960e7921944eefd059d9dfd68d0ce968dc2deb53872d -->
+<!-- source-sha256: 2c48daf02962b01010492f66803e32113d7e0b2ce6ebecac9f5edac43242ef21 -->
 
 # 校验和
 
@@ -25,9 +25,9 @@
 这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。
 超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。
 
-**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
+**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有定理陈述的，都**尚未由证明确认**；安全结论不需要它们。[进度](../../progress.md)说明哪些目标已完成。
 
-安全目标在 [Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean) 中。它们说的是调用返回、堆不变；
+安全目标（[Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)）说的是调用返回、堆不变；
 对返回的数值什么也没说。
 
 实用校验和契约使用真实字节序列 A 和 B。各校验和独立计算：Adler-32 从 1 开始，
@@ -89,7 +89,7 @@ NULL 配合非零长度不在本契约范围内。伪造种子仍不属于本实
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** `buf` 为 NULL 而 `len` 非零：在所有目标之外；这比 `zlib.h` 窄（见[偏离记录](../../deviations.md)中“Adler 初始化查询”一行）。返回的值：功能目标 `Goal.adler32_z`，安全结论不需要它。
+- **不在本目标内。** `buf` 为 NULL 而 `len` 非零：在所有目标之外；这比 `zlib.h` 窄（见[偏离记录](../../deviations.md)中“Adler 初始化查询”一行）。返回的值：功能目标 `Goal.adler32_z`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_z"><summary>完整返回条件与边界</summary>
 
@@ -149,7 +149,7 @@ uLong ZEXPORT adler32(uLong adler, const Bytef *buf, uInt len);
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** `buf` 为 NULL 而 `len` 非零：在所有目标之外；这比 `zlib.h` 窄（见[偏离记录](../../deviations.md)中“Adler 初始化查询”一行）。返回的值：功能目标 `Goal.adler32`，安全结论不需要它。
+- **不在本目标内。** `buf` 为 NULL 而 `len` 非零：在所有目标之外；这比 `zlib.h` 窄（见[偏离记录](../../deviations.md)中“Adler 初始化查询”一行）。返回的值：功能目标 `Goal.adler32`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32"><summary>完整返回条件与边界</summary>
 
@@ -205,7 +205,7 @@ Adler-32，且 `len2` 是 B 的长度。特别地，B 的校验和独立于 A，
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.adler32_combine`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.adler32_combine`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine"><summary>完整返回条件与边界</summary>
 
@@ -259,7 +259,7 @@ A 和 B 的 Adler-32，且 `len2` 是 B 的长度。负长度属于拒绝情形�
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.adler32_combine64`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.adler32_combine64`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine64"><summary>完整返回条件与边界</summary>
 
@@ -304,7 +304,7 @@ const z_crc_t FAR * ZEXPORT get_crc_table(void);
 `zlib.h` 把这个函数列在文档化 API 之外的函数中。它只公开字节表，不公开相邻表或
 编织表。此处 `z_crc_t` 为无符号 32 位类型。动态建表不属于本构建范围。
 
-**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标（非必需）：`Goal.get_crc_table`（[Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)），定理为 `ZlibF.Spec.Public.Proofs.get_crc_table`（[public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)）。在存有库的 CRC 表的堆上（`CrcGlobals`），它陈述：调用返回，堆不变，表的内容如后置条件所述。
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个功能目标：`Goal.get_crc_table`（[Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)）（不在计划内；已有定理证明它），定理为 `ZlibF.Spec.Public.Proofs.get_crc_table`（[public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)）。在存有库的 CRC 表的堆上（`CrcGlobals`），它陈述：调用返回，堆不变，表的内容如后置条件所述。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>完整返回条件与边界</summary>
 
@@ -364,7 +364,7 @@ uLong ZEXPORT crc32_z(uLong crc, const unsigned char FAR *buf, z_size_t len);
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_z`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_z`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_z"><summary>完整返回条件与边界</summary>
 
@@ -423,7 +423,7 @@ uLong ZEXPORT crc32(uLong crc, const unsigned char FAR *buf, uInt len);
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.crc32`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.crc32`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32"><summary>完整返回条件与边界</summary>
 
@@ -477,7 +477,7 @@ uLong ZEXPORT crc32_combine_gen64(z_off64_t len2);
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine_gen64`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine_gen64`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen64"><summary>完整返回条件与边界</summary>
 
@@ -529,7 +529,7 @@ LP64 下，普通长度和显式 64 位长度的范围相同。
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine_gen`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine_gen`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen"><summary>完整返回条件与边界</summary>
 
@@ -589,7 +589,7 @@ uLong ZEXPORT crc32_combine_op(uLong crc1, uLong crc2, uLong op);
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 不是由生成函数返回的 `op`：在所有目标之外（见[偏离记录](../../deviations.md)中“CRC 组合算子”一行）。返回的值：功能目标 `Goal.crc32_combine_op`，安全结论不需要它。
+- **不在本目标内。** 不是由生成函数返回的 `op`：在所有目标之外（见[偏离记录](../../deviations.md)中“CRC 组合算子”一行）。返回的值：功能目标 `Goal.crc32_combine_op`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_op"><summary>完整返回条件与边界</summary>
 
@@ -645,7 +645,7 @@ A 和 B 的 CRC-32，且 `len2` 是 B 的长度。固定 CRC 表存在。
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine64`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine64`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine64"><summary>完整返回条件与边界</summary>
 
@@ -701,7 +701,7 @@ LP64 下，普通长度和显式 64 位长度的范围相同。
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.crc32_combine`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine"><summary>完整返回条件与边界</summary>
 

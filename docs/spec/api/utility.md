@@ -27,17 +27,14 @@ goal under **Proof goals**, in the five items and with the fixed phrases that
 applies, in the order of the Lean statement; what it covers for every value; what it guarantees
 (returns, state, writes, allocations); and what it leaves to another goal. The proof assumes the
 conditions listed there, not the documentary Pre. Post, the return tables and the notes describe
-functional behaviour. They are read from the C, are **to confirm** where no registered theorem
-states them, and are not required for the safety results. [Progress](../../progress.md) records the
-state of each goal.
+functional behaviour. They are read from the C, are **to confirm** where no theorem
+states them, and are not required for the safety results. [Progress](../../progress.md) says which
+goals are done.
 
-The safety goals are in [Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean) and
-[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean); the statements they instantiate
-(`CompressorSafety`, `UncompressCountedSafe`, `UncompressSingleSafe`) are defined in
-[Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean). The functional goals are in
-[Functional/Utilities.lean](../../../ZlibF/Spec/Functional/Utilities.lean) and
-[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean).
-[Calls.lean](../../../ZlibF/Spec/Common/Calls.lean) fixes translated arguments and results.
+The safety goals of the buffer utilities instantiate three statements
+([Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean)): `CompressorSafety` for the
+four compression functions, `UncompressCountedSafe` for `uncompress2` and `uncompress2_z`, and
+`UncompressSingleSafe` for `uncompress` and `uncompress_z`.
 
 The buffer utilities create and release a local stream with the zlib wrapper and default settings.
 
@@ -139,7 +136,7 @@ with length zero before any allocation. Later returns store the number of bytes 
     - *State.* None is kept: no stream, state or buffer of the call exists afterwards.
     - *Writes.* Only bytes at `dest`, at most the `*destLen` given on entry; with refused arguments nothing, and the length value is unchanged. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress2_z`, not required for the safety results.
+- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress2_z` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -208,7 +205,7 @@ invalid level or allocation failure leaves it zero.
     - *State.* None is kept: no stream, state or buffer of the call exists afterwards.
     - *Writes.* Only bytes at `dest`, at most the `*destLen` given on entry; with refused arguments nothing, and the length value is unchanged. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress2`, not required for the safety results.
+- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress2` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2"><summary>Complete return conditions and boundaries</summary>
 
@@ -266,7 +263,7 @@ The status says whether the whole buffer became a complete zlib stream. The byte
     - *State.* None is kept: no stream, state or buffer of the call exists afterwards.
     - *Writes.* Only bytes at `dest`, at most the `*destLen` given on entry; with refused arguments nothing, and the length value is unchanged. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress_z`, not required for the safety results.
+- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress_z` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -324,7 +321,7 @@ The status says whether the whole buffer became a complete zlib stream. The byte
     - *State.* None is kept: no stream, state or buffer of the call exists afterwards.
     - *Writes.* Only bytes at `dest`, at most the `*destLen` given on entry; with refused arguments nothing, and the length value is unchanged. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress`, not required for the safety results.
+- **Not in this goal.** Overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Whole-buffer compression"). Which code is returned for accepted arguments, the bytes written and the length stored: functional goal `Goal.compress` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress"><summary>Complete return conditions and boundaries</summary>
 
@@ -491,7 +488,7 @@ in `*destLen`, including later memory failure. Output already written remains av
     - *State.* None is kept: no stream, state or window of the call exists afterwards.
     - *Writes.* With `Z_STREAM_ERROR` for the arguments just listed, nothing. Otherwise only: bytes at `dest`, at most the `*destLen` given on entry; `*sourceLen`, which receives a count not above its entry value; and `*destLen`, which receives the number of bytes written. With `Z_MEM_ERROR` it can also be that no byte is written and both cells keep their entry values. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** A length cell that overlaps a buffer or the other cell, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress2_z`, not required for the safety results.
+- **Not in this goal.** A length cell that overlaps a buffer or the other cell, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress2_z` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -563,7 +560,7 @@ return, including errors. Argument rejection and initialisation failure preserve
     - *State.* None is kept: no stream, state or window of the call exists afterwards.
     - *Writes.* With `Z_STREAM_ERROR` for the arguments just listed, nothing. Otherwise only: bytes at `dest`, at most the `*destLen` given on entry; `*sourceLen`, which receives a count not above its entry value; and `*destLen`, which receives the number of bytes written. With `Z_MEM_ERROR` it can also be that no byte is written and both cells keep their entry values. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** A length cell that overlaps a buffer or the other cell, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress2`, not required for the safety results.
+- **Not in this goal.** A length cell that overlaps a buffer or the other cell, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress2` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2"><summary>Complete return conditions and boundaries</summary>
 
@@ -626,7 +623,7 @@ The consumed count is local.
     - *State.* None is kept: no stream, state or window of the call exists afterwards.
     - *Writes.* With `Z_STREAM_ERROR` for the arguments just listed, nothing. Otherwise only: bytes at `dest`, at most the `*destLen` given on entry; and `*destLen`, which receives the number of bytes written. With `Z_MEM_ERROR` it can also be that no byte is written and the cell keeps its entry value. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** The length cell overlapping a buffer, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress_z`, not required for the safety results.
+- **Not in this goal.** The length cell overlapping a buffer, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress_z` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -690,7 +687,7 @@ cleanup as `uncompress2`.
     - *State.* None is kept: no stream, state or window of the call exists afterwards.
     - *Writes.* With `Z_STREAM_ERROR` for the arguments just listed, nothing. Otherwise only: bytes at `dest`, at most the `*destLen` given on entry; and `*destLen`, which receives the number of bytes written. With `Z_MEM_ERROR` it can also be that no byte is written and the cell keeps its entry value. Every other object is unchanged (`Store`, `SameObjectsUpToTableShape`).
     - *Allocations.* Every block the call allocated is freed before it returns, on every path: the allocated blocks are the same as before the call.
-- **Not in this goal.** The length cell overlapping a buffer, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress`, not required for the safety results.
+- **Not in this goal.** The length cell overlapping a buffer, and overlapping `source` and `dest`: outside every goal ([deviations](../../deviations.md), row "Counted decompression"). Which code is returned for which input, and the bytes written: functional goal `Goal.uncompress` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress"><summary>Complete return conditions and boundaries</summary>
 
@@ -733,7 +730,7 @@ the caller must neither write it nor free it. No allocation or heap change occur
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The string the result points to: functional goal `Goal.zlibVersion`, not required for the safety results.
+- **Not in this goal.** The string the result points to: functional goal `Goal.zlibVersion` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibVersion"><summary>Complete return conditions and boundaries</summary>
 
@@ -775,7 +772,7 @@ Returns encoded type sizes and compile options for this build. The value is not 
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.zlibCompileFlags`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.zlibCompileFlags` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibCompileFlags"><summary>Complete return conditions and boundaries</summary>
 
@@ -825,7 +822,7 @@ Maps the supplied result code to text. The function itself always returns a non-
 No allocation, heap change or error return occurs. Values outside -6–2 are checked before
 index arithmetic, so both scalar extremes safely return empty text.
 
-**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.zError` ([Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)), with the theorem `ZlibF.Spec.Public.Proofs.zError` ([public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)). For every heap and every `err` it states that the call returns, that the heap is unchanged, and that the result is the static text given under Post.
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it: functional goal `Goal.zError` (not planned; a theorem proves it), in [Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean), with the theorem `ZlibF.Spec.Public.Proofs.zError` ([public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)). For every heap and every `err` the goal states that the call returns, that the heap is unchanged, and that the result is the static text given under Post.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zError"><summary>Complete return conditions and boundaries</summary>
 
