@@ -1,11 +1,11 @@
-<!-- source-sha256: 9e4428c707c9d2e236e7deb417415fad9e913ae2ececc066bc9a9d86bac474b3 -->
+<!-- source-sha256: bdfebda7a9f1de25a6977ca6e3693cb2da197b5c2328495e9666024b322e8133 -->
 # 补丁
 
 被验证的源码是固定的 `zlib/` 子模块，加上本目录中按文件名顺序应用的 `*.patch` 文件。绝不直接修改子模块。
 
 只有确认的上游缺陷阻碍证明时才允许打补丁。补丁必须尽可能小、与提交给上游的修复一致，并列在本页。经所有者批准的补丁可以先于向上游提交而合入；其条目会注明它是本地补丁、等待提交，一旦有上游修复就用上游修复替换它。上游合入修复、固定的提交越过它之后，应删除相应补丁。
 
-| 补丁 | 修复什么 | 上游状态（2026-11-14 读取） |
+| 补丁 | 修复什么 | 上游状态（2026-11-15 读取） |
 | --- | --- | --- |
 | 0001 | [`inflateCopy` 中对无关指针的关系比较](../docs/findings/inflate-copy-fixed/README.md) | [拉取请求 #1369](https://github.com/madler/zlib/pull/1369)：维护者于 2026-11-06 答复“Applied”；尚未出现在 `develop` 上 |
 | 0002 | [开头调用 `gzungetc` 之后 `gzseek64` 中的有符号溢出](../docs/findings/gzseek-pushback-overflow/README.md) | [拉取请求 #1361](https://github.com/madler/zlib/pull/1361)，仍处于打开状态 |
@@ -19,7 +19,7 @@
 
 `inflateCopy` 不再对静态固定码表与状态内部码数组中的指针做关系比较。保留的[复现材料](../docs/findings/inflate-copy-fixed/README.md)诊断了未打补丁的 C。没有这个补丁，就无法对每个流证明 `inflateCopy` 的安全性。
 
-补丁与[上游拉取请求 #1369](https://github.com/madler/zlib/pull/1369) 中的提交 `300fea14353d2e2ca61210aca7c48861ded5788c` 完全一致。维护者于 2026 年 11 月 6 日答复“Applied”，该拉取请求已关闭。2026-11-14 时，公开可获取的 `develop` 和 `master` 分支的最新提交仍为 `99623ef7097352da7993ba614161fd6a311e046e`；其中的 `inflate.c` 仍保留旧的指针比较。因此，在修复提交出现在上游分支之前，继续使用当前固定的提交和这一已提交的修复。届时再把固定的提交向前移并删除补丁。
+补丁与[上游拉取请求 #1369](https://github.com/madler/zlib/pull/1369) 中的提交 `300fea14353d2e2ca61210aca7c48861ded5788c` 完全一致。维护者于 2026 年 11 月 6 日答复“Applied”，该拉取请求已关闭。2026-11-15 时，公开可获取的 `develop` 和 `master` 分支的最新提交为 `99623ef7097352da7993ba614161fd6a311e046e`（“zlib 1.4”），也就是固定的提交。其中的 `inflate.c` 仍保留旧的指针比较。因此，在修复提交出现在上游分支之前，继续使用这一已提交的修复。届时再把固定的提交向前移并删除补丁。
 
 ## 0002-gzseek-negative-position-overflow.patch
 
