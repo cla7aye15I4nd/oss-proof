@@ -18,10 +18,9 @@ see [compress and compress2](utility.md#compress2_z).
 
 The contracts follow `zlib.h` and `deflate.c` of the pinned zlib with the
 [patches](../../../patches/README.md) applied, in the default LP64 Linux build. Of the six patches
-only patch 0006 touches `deflate.c`. It changes one condition in `deflateBound_z`: with the
-strategy `Z_FIXED`, a stream with window 15 and memory level 8 gets one of the two conservative
-bounds, where the unpatched C returns the tight bound. `deflateBound` calls `deflateBound_z`, so
-its result changes in the same way. The patch changes no other function.
+only patch 0006 touches `deflate.c`. It changes one condition in `deflateBound_z`, and with it the
+result of `deflateBound`, which calls `deflateBound_z`; the entry [deflateBound_z](#deflatebound_z)
+states the change. The patch changes no other function.
 These are focused contracts: Pre describes ordinary correct use and is deliberately narrower than
 what the function accepts. Cases outside Pre that the C still handles appear under Errors or
 **Outside focused scope**. A call outside Pre is not thereby undefined, and it need not return an
@@ -131,7 +130,7 @@ initialised as above. `level` is -1 or 0..9. `version` has a readable first byte
     - *Returns.* The call returns. With a NULL `strm` the code is `Z_VERSION_ERROR` or `Z_STREAM_ERROR`.
     - *State.* With `Z_OK`, `strm` is a reachable stream.
     - *Writes.* With a NULL `strm`, nothing: the heap is unchanged. Otherwise only the stream record and blocks the call itself allocates.
-    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call. So no leak here means no leak of the call's own allocations: a state the record pointed to before the call stays allocated.
+    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call.
 - **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and each allocation failure returns, and the field values after the call: functional goal `Goal.deflateInit_` (not planned; a theorem proves it). That some call does return `Z_OK`: `Goal.deflate_initialisation_domain` ([Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)), required.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateInit_"><summary>Complete return conditions and boundaries</summary>
@@ -200,7 +199,7 @@ The result separates an established compressor from compatibility, argument and 
     - *Returns.* The call returns. With a NULL `strm` the code is `Z_VERSION_ERROR` or `Z_STREAM_ERROR`.
     - *State.* With `Z_OK`, `strm` is a reachable stream.
     - *Writes.* With a NULL `strm`, nothing: the heap is unchanged. Otherwise only the stream record and blocks the call itself allocates.
-    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call. So no leak here means no leak of the call's own allocations: a state the record pointed to before the call stays allocated.
+    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call.
 - **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and each allocation failure returns, and the field values after the call: functional goal `Goal.deflateInit2_` (not planned; a theorem proves it). That some call does return `Z_OK`: `Goal.deflate_initialisation_domain` ([Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)), required.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateInit2_"><summary>Complete return conditions and boundaries</summary>
@@ -379,8 +378,8 @@ The result says whether output progress was reset; success retains history that 
 
 **Domain:** Restricted domain. **Effect:** reset, retaining history and allocations.
 
-**Pre:** live stream in any phase. This is an undocumented entry; use `deflateReset`
-when the next compressed stream must start with empty history.
+**Pre:** live stream in any phase. Use `deflateReset` when the next compressed stream must start
+with empty history.
 
 **Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A direct call is not a step of the deflate sequence goal either: `StreamOperation` leaves it out ([deviations](../../deviations.md), row "Direct `deflateResetKeep`"). The single call has the functional goal `Goal.deflateResetKeep` ([Functional/Lifecycle.lean](../../../ZlibF/Spec/Functional/Lifecycle.lean)) (not planned; a theorem proves it): `ZlibF.Spec.Public.DeflateResetKeepProof.deflate_resetkeep_public` ([public-deflate-reset-keep.lean](../../../ZlibF/Proof/public-deflate-reset-keep.lean)).
 
@@ -564,7 +563,7 @@ The stream and its buffers are unchanged. Omitted results are not written.
 
 If a represented pending count exceeds `unsigned`, the requested byte count saturates
 and return is `Z_BUF_ERROR`; a requested bit result is still written. The functional
-goal includes this numerical refusal even though normal default-build buffers are smaller.
+goal includes this numerical refusal; the pending buffer of the default build is smaller.
 
 </details>
 
@@ -589,7 +588,7 @@ The return value is query status; optional bits carries the bit use at the last 
 
 **Reading the result.**
 
-- The functional goal returns the stored value for every checked state without imposing normal-history ranges on arbitrary represented states. It differs from the current pending bits from deflatePending.
+- The stored value differs from the current pending bits from deflatePending.
 
 ### Calling conditions and effects {#api-deflateused-contract}
 
@@ -679,9 +678,8 @@ to the logical pending bit sequence. Complete bytes join pending output and fewe
 Existing pending bytes may be compacted within their owned buffer before that refusal.
 
 **Outside focused scope:** counts outside 0..16 give `Z_BUF_ERROR` before compaction;
-a failed stream check gives `Z_STREAM_ERROR`. The implementation does not check wrapper
-or first-call timing. Its functional goal covers exact pending-bit effects there, without
-promising ordinary stream validity for arbitrary inserted fragments.
+a failed stream check gives `Z_STREAM_ERROR`. The functional goal covers the exact pending-bit
+effects for every wrapper and every call order.
 
 </details>
 
@@ -785,7 +783,7 @@ The result only reports whether the four tuning fields were stored; it does not 
 
 **Reading the result.**
 
-- The C recommends max_lazy >= 3 and max_chain >= 4; setter success alone establishes neither later safety nor compression bounds for every choice.
+- The C recommends max_lazy >= 3 and max_chain >= 4.
 
 ### Calling conditions and effects {#api-deflatetune-contract}
 
@@ -815,7 +813,7 @@ The result only reports whether the four tuning fields were stored; it does not 
 to unsigned, and `nice_length` as signed. No input is consumed, no output is delivered and
 no allocation occurs. A changed level in `deflateParams`, or `deflateReset`, restores
 standard tuning. This setter contract alone does not establish later compression bounds
-or safety for every tuning choice; the C recommends `max_lazy >= 3` and `max_chain >= 4`.
+for every tuning choice; the C recommends `max_lazy >= 3` and `max_chain >= 4`.
 
 </details>
 
@@ -1180,8 +1178,7 @@ fields and the source unchanged. There is no new live state to release.
 
 **Outside focused scope:** NULL destination gives `Z_STREAM_ERROR`; a failed source check
 also clears a non-NULL destination's state. The safety goal and the functional goal both
-assume distinct streams. Self-copy and overwriting an already live destination are excluded here and do not
-receive a leak-free contract.
+assume distinct streams.
 
 </details>
 
