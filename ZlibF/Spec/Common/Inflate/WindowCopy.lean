@@ -42,6 +42,16 @@ def matchArr (wsize wnext woff : Nat) (W : Array UInt8) (bg o dist len : Nat) (A
       else blitN W len (woff + wnext - op) o A
   else cpyN len (o - dist) o A
 
+/-- The output block after a match copy when the window is the output block itself (`inflateBack`,
+`wnext = 0`): the bytes before `o` are copied one at a time from the current block, first from the
+window's tail, then from `o + op - dist`. -/
+def matchArrA (wsize woff : Nat) (bg o dist len : Nat) (A : Array UInt8) : Array UInt8 :=
+  if o - bg < dist then
+    let op := dist - (o - bg)
+    if op < len then cpyN (len - op) (o + op - dist) (o + op) (cpyN op (woff + wsize - op) o A)
+    else cpyN len (woff + wsize - op) o A
+  else cpyN len (o - dist) o A
+
 end Zlib.Inffast.Proofs
 
 namespace Zlib.Inflate.Spec

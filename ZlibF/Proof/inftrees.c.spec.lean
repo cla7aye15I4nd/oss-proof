@@ -1,3 +1,4 @@
+import ZlibF.Spec.Functional.Inflate.InflateTableKind
 import ZlibF.Zlib.«inftrees.c»
 import ZlibF.Spec.Functional.Format.Huffman
 
@@ -14,10 +15,5 @@ open C
 
 /-- The first `n` code lengths of `lens` (the array `la` read from offset `ol`), as the specification sees them. -/
 def lensList (la : Array UInt16) (ol n : Nat) : List Nat := (List.range n).map (fun k => (la.getD (ol + k) 0).toNat)
-
-/-- The kind of code that `inflate_table` builds for each table type: `CODES` is the code-length code, `LENS` the
-literal/length code, `DISTS` the distance code. -/
-def kindOf (type : UInt32) : ZlibF.Spec.CodeKind :=
-  if type = CODES then .codeLength else if type = LENS then .litLen else .dist
 
 end Zlib.Inftrees.Spec

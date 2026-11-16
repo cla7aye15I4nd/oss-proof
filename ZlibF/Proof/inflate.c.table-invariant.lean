@@ -2,6 +2,8 @@ import ZlibF.Spec.Common.Inflate.InflateTableInvariant
 import ZlibF.Proof.«inftrees.c.fixed»
 import ZlibF.Proof.«inflate.c.platform»
 import ZlibF.Proof.«inflate.c.main.type»
+import ZlibF.Proof.«deflate.c.base»
+import ZlibF.Proof.«inffast.c.tableok»
 
 /-!
 # inflate.c: producers of the guarded data-table invariant

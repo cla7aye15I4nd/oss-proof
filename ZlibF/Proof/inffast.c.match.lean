@@ -10,24 +10,6 @@ theorem matchArr_size (wsize wnext woff : Nat) (W : Array UInt8) (bg o dist len 
   repeat' split
   all_goals simp [blitN_size, cpyN_size]
 
-/-- The output block after a match copy when the window is the output block itself (`inflateBack`,
-`wnext = 0`): the bytes before `o` are copied one at a time from the current block, first from the
-window's tail, then from `o + op - dist`. -/
-def matchArrA (wsize woff : Nat) (bg o dist len : Nat) (A : Array UInt8) : Array UInt8 :=
-  if o - bg < dist then
-    let op := dist - (o - bg)
-    if op < len then cpyN (len - op) (o + op - dist) (o + op) (cpyN op (woff + wsize - op) o A)
-    else cpyN len (woff + wsize - op) o A
-  else cpyN len (o - dist) o A
-
-/-- The match result of the situation: `matchArr` over the window array, or `matchArrA` when the
-window is the output block. -/
-def EnvG.mArr : {α : Bool} → EnvG α → Nat → Nat → Nat → Nat → Array UInt8 → Array UInt8
-  | false, e, bg, o, dist, len, A => matchArr e.s0.wsize.toNat e.s0.wnext.toNat e.woff e.W bg o dist len A
-  | true, e, bg, o, dist, len, A =>
-    if BRef.blk e.wb = e.ob then matchArrA e.s0.wsize.toNat e.woff bg o dist len A
-    else matchArr e.s0.wsize.toNat e.s0.wnext.toNat e.woff e.W bg o dist len A
-
 theorem EnvG.mArr_sep {α : Bool} (e : EnvG α) (sep : ¬ (α = true ∧ BRef.blk e.wb = e.ob)) (bg o dist len : Nat)
     (A : Array UInt8) :
     e.mArr bg o dist len A = matchArr e.s0.wsize.toNat e.s0.wnext.toNat e.woff e.W bg o dist len A := by

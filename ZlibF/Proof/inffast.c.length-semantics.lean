@@ -1,5 +1,8 @@
 import ZlibF.Spec.Functional.Inflate.InflateFastLengthSemantics
 import ZlibF.Proof.«inftrees.c.decode.stability-rejection»
+import ZlibF.Proof.«inffast.c.len»
+import ZlibF.Proof.«inftrees.c.main»
+import ZlibF.Proof.«deflate.c.base»
 
 /-!
 # Fast length lookup and independent decoding

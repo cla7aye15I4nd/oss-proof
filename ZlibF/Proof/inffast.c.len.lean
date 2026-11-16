@@ -5,12 +5,6 @@ open C Zlib.Inffast Zlib.Inffast.Spec ZlibF.Spec
 
 variable {α : Bool} {e : EnvG α} {c : Ctx}
 
-/-- `dodist:` reached from the length block: look up the distance code and run the distance block. -/
-def dolenDist (c : Ctx) (l : L) : M L := do
-  let __do_lift ← Ptr.add c.dcode ↑(l.hold &&& c.dmask.toUInt64).toNat
-  let l : L := { l with here := __do_lift }
-  cdoWhile (dodist c) (fun l => pure (l.againD, l)) l
-
 theorem dolenDist_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32) (l : L) (i o : Nat)
     (hts : DistTableSafe e.DCA e.od e.s0.distbits.toNat)
     (hls : LS e l i o) (hA : e.o0 + e.sm0.avail_out.toNat ≤ A.size) (ho : o + 258 ≤ e.o0 + e.sm0.avail_out.toNat)
@@ -43,12 +37,6 @@ def dolenRefill (c : Ctx) (l : L) : M L :=
     let __x ← pull __x
     dolenDist c __x
   else dolenDist c l
-
-/-- What follows the refill: the stream, and the lookup and the end of the distance block. -/
-def RefillPost {α : Bool} (e : EnvG α) (A : Array UInt8) (msg : BPtr) (m : UInt32) (S : List Bool) (i o len : Nat)
-    (l' : L) (h' : Heap) : Prop :=
-  ∃ i3 H3 b3 E cb, i ≤ i3 ∧ i3 ≤ i + 2 ∧ Sg e H3 b3 i3 = S ∧ H3 < 2 ^ b3 ∧ 15 ≤ b3 ∧ b3 ≤ 30 ∧ cb ≤ 15 ∧
-    DistLook e H3 (H3 % 2 ^ e.s0.distbits.toNat) E cb ∧ DistEnd e A msg m (S.drop cb) i3 o len E l' h'
 
 theorem dolenRefill_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32) (l : L) (i o s : Nat)
     (hts : DistTableSafe e.DCA e.od e.s0.distbits.toNat)

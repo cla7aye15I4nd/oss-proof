@@ -1,4 +1,4 @@
-import ZlibF.Spec.Common.Inflate.InflateFastDistanceOrigin
+import ZlibF.Spec.Functional.Inflate.InflateFastDistanceOrigin
 import ZlibF.Proof.«inffast.c.origin»
 import ZlibF.Proof.«inffast.c.advance»
 

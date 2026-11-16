@@ -1,4 +1,6 @@
 import ZlibF.Spec.Common.Inflate.InflateFast
+import ZlibF.Proof.«inffast.c.len»
+import ZlibF.Proof.«deflate.c.base»
 
 /-!
 # inffast.c: exact input advancement in the distance and length branches

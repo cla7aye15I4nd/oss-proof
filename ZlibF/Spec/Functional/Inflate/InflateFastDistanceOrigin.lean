@@ -1,5 +1,6 @@
 import ZlibF.Spec.Common.Inflate.InflateFast
 import ZlibF.Spec.Common.Inflate.InflateFastOrigin
+import ZlibF.Spec.Functional.Inflate.FastDistanceEnd
 
 /-!
 # Source-bit origin through the actual fast distance sub-block

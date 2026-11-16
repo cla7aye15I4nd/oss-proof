@@ -1,3 +1,4 @@
+import ZlibF.Spec.Functional.Inflate.FastDistanceEnd
 import ZlibF.Spec.Functional.Inflate.InflateFastDistanceSemantics
 import ZlibF.Spec.Functional.Inflate.InflateFastMatchHistory
 import ZlibF.Spec.Common.Inflate.InflateFast

@@ -23,10 +23,6 @@ open C
 @[simp] theorem cnt_none {α : Type} : cnt (none : Option α) = 0 := rfl
 @[simp] theorem cnt_some {α : Type} (a : α) : cnt (some a) = 1 := rfl
 
-/-- The stream functions can allocate and free: the allocator functions are the default ones (the only ones the model
-has; any other makes the translation fault). -/
-def DefAlloc (z : ZStream) : Prop := z.zalloc = .fn "zcalloc" ∧ z.zfree = .fn "zcfree"
-
 /-- The window block of the state, if there is one. -/
 def WinBlk (st : InflateState) (w : Nat) : Prop := st.window = .ref (.blk w) 0
 

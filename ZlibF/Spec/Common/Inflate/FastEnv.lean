@@ -2,6 +2,7 @@ import ZlibF.Zlib.«inffast.c»
 import ZlibF.Spec.Common.Inflate.FastTable
 import ZlibF.Spec.Common.InflateGood
 import ZlibF.Spec.Common.Bits
+import ZlibF.Spec.Common.Inflate.WindowCopy
 
 /-!
 # inffast.c: the situation of `inflate_fast`
@@ -173,5 +174,23 @@ def DistLook {α : Bool} (e : EnvG α) (H kidx : Nat) (E : Code) (cb : Nat) : Pr
   (∃ E0 j, e.DCA.getD (e.od + kidx) default = E0 ∧ DistLink E0 ∧ j < 2 ^ E0.op.toNat ∧
      j = (H / 2 ^ E0.bits.toNat) % 2 ^ E0.op.toNat ∧ e.DCA.getD (e.od + E0.val.toNat + j) default = E ∧
      cb = E0.bits.toNat + E.bits.toNat ∧ E0.bits.toNat + E.bits.toNat ≤ 15 ∧ ¬ DistLink E)
+
+/-- The match result of the situation: `matchArr` over the window array, or `matchArrA` when the
+window is the output block. -/
+def EnvG.mArr : {α : Bool} → EnvG α → Nat → Nat → Nat → Nat → Array UInt8 → Array UInt8
+  | false, e, bg, o, dist, len, A => matchArr e.s0.wsize.toNat e.s0.wnext.toNat e.woff e.W bg o dist len A
+  | true, e, bg, o, dist, len, A =>
+    if BRef.blk e.wb = e.ob then matchArrA e.s0.wsize.toNat e.woff bg o dist len A
+    else matchArr e.s0.wsize.toNat e.s0.wnext.toNat e.woff e.W bg o dist len A
+
+/-- `dodist:` reached from the length block: look up the distance code and run the distance block. -/
+def dolenDist (c : Ctx) (l : L) : M L := do
+  let __do_lift ← Ptr.add c.dcode ↑(l.hold &&& c.dmask.toUInt64).toNat
+  let l : L := { l with here := __do_lift }
+  cdoWhile (dodist c) (fun l => pure (l.againD, l)) l
+
+/-- `l` after `hold += (unsigned long)(*in++) << bits; bits += 8;` with the byte `x` and the new pointer `p`. -/
+def pullL (l : L) (x : UInt8) (p : BPtr) : L :=
+  { l with in_ := p, hold := l.hold + (x.toUInt64 <<< l.bits.toUInt64), bits := l.bits + 8 }
 
 end Zlib.Inffast.Proofs

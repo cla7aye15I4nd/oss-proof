@@ -34,10 +34,6 @@ open C
 /-- The heap with the deflate state record `ds` replaced. -/
 def setD (h : Heap) (ds : Nat) (d : DeflateState) : Heap := { h with dstates := upd h.dstates ds (some d) }
 
-/-- The stream functions can allocate and free: the allocator functions are the default ones (the only ones the model
-has; any other makes the translation fault). -/
-def DefAlloc (z : ZStream) : Prop := z.zalloc = .fn "zcalloc" ∧ z.zfree = .fn "zcfree"
-
 /-- The blocks a stream owns: its state record and the four buffers. -/
 def DOwned (d : DeflateState) (ds : Nat) (x : Nat) : Prop :=
   x = ds ∨ (∃ w, d.window = .ref (.blk w) 0 ∧ x = w) ∨ (∃ p, d.prev = .ref (.blk p) 0 ∧ x = p) ∨

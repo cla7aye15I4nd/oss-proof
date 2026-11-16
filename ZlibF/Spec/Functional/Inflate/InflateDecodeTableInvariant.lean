@@ -1,4 +1,5 @@
 import ZlibF.Spec.Common.Inflate.InflateSubtable
+import ZlibF.Spec.Functional.Inflate.InflateTableKind
 import ZlibF.Spec.Functional.Inflate.InflateDecodeTableShort
 import ZlibF.Spec.Functional.Inflate.InflateDecodeTableRejection
 import ZlibF.Spec.Functional.Inflate.InflateDecodeTableFrame

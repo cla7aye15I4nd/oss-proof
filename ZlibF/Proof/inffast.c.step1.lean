@@ -5,10 +5,6 @@ open C Zlib.Inffast Zlib.Inffast.Spec
 
 variable {α : Bool} (e : EnvG α)
 
-/-- `l` after `hold += (unsigned long)(*in++) << bits; bits += 8;` with the byte `x` and the new pointer `p`. -/
-def pullL (l : L) (x : UInt8) (p : BPtr) : L :=
-  { l with in_ := p, hold := l.hold + (x.toUInt64 <<< l.bits.toUInt64), bits := l.bits + 8 }
-
 theorem pullL_bits (l : L) (x p) (hb : l.bits.toNat ≤ 30) : (pullL l x p).bits.toNat = l.bits.toNat + 8 := by
   unfold pullL; exact u32_toNat_add (by simp [UInt32.toNat_ofNat]; omega)
 

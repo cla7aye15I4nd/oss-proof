@@ -18,7 +18,6 @@ import ZlibF.Spec.Common.Inflate.InflateCodeLengthInvariant
 import ZlibF.Spec.Common.Inflate.InflateFast
 import ZlibF.Spec.Common.Inflate.InflateFastBodyOrigin
 import ZlibF.Spec.Common.Inflate.InflateFastCallOrigin
-import ZlibF.Spec.Common.Inflate.InflateFastDistanceOrigin
 import ZlibF.Spec.Common.Inflate.InflateFastOrigin
 import ZlibF.Spec.Common.Inflate.InflateFastPlatform
 import ZlibF.Spec.Common.Inflate.InflateOutputInvariant

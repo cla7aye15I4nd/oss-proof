@@ -211,6 +211,8 @@ import ZlibF.Spec.Common.Copy
 import ZlibF.Spec.Safety.Refusals
 import ZlibF.Spec.Common.HeapUniq
 import ZlibF.Spec.Common
+import ZlibF.Spec.Functional.Inflate.FastDistanceEnd
+import ZlibF.Spec.Functional.Inflate.InflateTableKind
 import ZlibF.Spec.Common.InflateGood
 import ZlibF.Spec.Common.DeflateGood
 import ZlibF.Spec.Common.TreesInv

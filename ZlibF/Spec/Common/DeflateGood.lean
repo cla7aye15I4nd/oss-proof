@@ -99,6 +99,10 @@ structure DLive (h : Heap) (r : ZStreamRef) (ds : Nat) (z : ZStream) (d : Deflat
   zalloc : z.zalloc ≠ .null
   zfree : z.zfree ≠ .null
 
+/-- The stream functions can allocate and free: the allocator functions are the default ones (the only ones the model
+has; any other makes the translation fault). -/
+def DefAlloc (z : ZStream) : Prop := z.zalloc = .fn "zcalloc" ∧ z.zfree = .fn "zcfree"
+
 /-- Everything the stream functions assume of the heap around a live deflate stream. -/
 structure DGood (h : Heap) (r : ZStreamRef) (ds : Nat) (z : ZStream) (d : DeflateState) : Prop where
   live : DLive h r ds z d

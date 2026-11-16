@@ -1,3 +1,4 @@
+import ZlibF.Spec.Functional.Inflate.FastDistanceEnd
 import ZlibF.Proof.«inffast.c.sig»
 
 namespace Zlib.Inffast.Proofs
@@ -187,17 +188,6 @@ abbrev DistClass {α : Bool} (e : EnvG α) (E : Code) : Prop :=
   (E.op &&& 16 ≠ 0 ∧ (E.op &&& 15).toNat ≤ 13 ∧ 1 ≤ E.val.toNat) ∨
   (E.op &&& 16 = 0 ∧ E.op &&& 64 = 0 ∧ 1 ≤ E.op.toNat ∧ E.op.toNat ≤ 15 ∧ e.od + E.val.toNat + 2 ^ E.op.toNat ≤ e.DCA.size) ∨
   (E.op &&& 16 = 0 ∧ E.op &&& 64 ≠ 0)
-
-/-- A distance block that ended (no link): a match of length `len` was copied, or an error was found. `S` is the bit
-stream after the code of the distance symbol. -/
-def DistEnd {α : Bool} (e : EnvG α) (A : Array UInt8) (msg : BPtr) (m : UInt32) (S : List Bool) (i o len : Nat) (E : Code) (l' : L)
-    (h' : Heap) : Prop :=
-  ¬ DistLink E ∧ l'.againD = false ∧
-  ((∃ i' xv rest, i ≤ i' ∧ i' ≤ i + 2 ∧ readBits (E.op &&& 15).toNat S = some (xv, rest) ∧
-      l'.broke = false ∧ LS e l' i' (o + len) ∧ Sg e l'.hold.toNat l'.bits.toNat i' = rest ∧
-      h' = e.heap (e.mArr e.bg o (E.val.toNat + xv) len A) msg m) ∨
-   (∃ i' p, i ≤ i' ∧ i' ≤ i + 2 ∧ l'.broke = true ∧ LS e l' i' o ∧ h' = e.heap A p BAD))
-
 
 /-- After the distance base and the number `op` of extra bits are set: refill the bit buffer (at most twice) and copy. -/
 def dodistBase (c : Ctx) (l_2 : L) : M L := do

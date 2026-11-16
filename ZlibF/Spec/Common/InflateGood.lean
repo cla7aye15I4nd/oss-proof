@@ -60,6 +60,10 @@ structure Live (h : Heap) (r : ZStreamRef) (zs : Nat) (z : ZStream) (st : Inflat
   zalloc : z.zalloc ≠ .null
   zfree : z.zfree ≠ .null
 
+/-- The stream functions can allocate and free: the allocator functions are the default ones (the only ones the model
+has; any other makes the translation fault). -/
+def DefAlloc (z : ZStream) : Prop := z.zalloc = .fn "zcalloc" ∧ z.zfree = .fn "zcfree"
+
 /-- Everything the stream functions assume of the heap around a live stream. -/
 structure Good (h : Heap) (r : ZStreamRef) (zs : Nat) (z : ZStream) (st : InflateState) : Prop where
   live : Live h r zs z st

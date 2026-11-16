@@ -1,6 +1,9 @@
 import ZlibF.Spec.Functional.Inflate.InflateFastMatchHistory
 import ZlibF.Math.LZ77Copy
 import ZlibF.Math.LZ77History
+import ZlibF.Proof.«inflate.c.ring»
+import ZlibF.Proof.«inffast.c.match»
+import ZlibF.Proof.«deflate.c.base»
 
 /-!
 # The fast copier's physical pieces form one independent match

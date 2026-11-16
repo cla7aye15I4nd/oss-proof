@@ -1,4 +1,5 @@
 import ZlibF.Spec.Functional.Crc32ByteViews
+import ZlibF.Proof.«crc32.c»
 
 /-!
 # CRC over all represented byte views

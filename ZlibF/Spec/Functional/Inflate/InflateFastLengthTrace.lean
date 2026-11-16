@@ -1,3 +1,4 @@
+import ZlibF.Spec.Functional.Inflate.FastDistanceEnd
 import ZlibF.Spec.Functional.Inflate.InflateFastLengthSemantics
 
 /-!
