@@ -1,4 +1,4 @@
-<!-- source-sha256: ac8099d0035dc19365897985a940ee5bcbcfba737cf124fb778507a28c72a853 -->
+<!-- source-sha256: 99aaae4a299d2ce2d916c9a260f38f43a3b5f3c035ce622522b3006dc69ac489 -->
 
 # zlib API 手册
 
@@ -163,4 +163,4 @@
 | `deflateInit`, `deflateInit2`, `inflateInit`, `inflateInit2`, `inflateBackInit` | 它们是 `zlib.h` 中的宏；使用头文件自身的版本字符串和 `sizeof(z_stream)` 调用 `deflateInit_`, `deflateInit2_`, `inflateInit_`, `inflateInit2_`, `inflateBackInit_` |
 | 作为宏的 `gzgetc` | `zlib.h` 还把 `gzgetc` 定义为宏，直接读取缓冲区，缓冲区为空时调用函数 `gzgetc`；`gzgetc_` 是另一个导出函数，为向后兼容而保留 |
 
-索引包含全部 95 个默认构建条目，以及单独列出的 Windows 条目 `gzopen_w`。[内部辅助函数契约](../internal-contracts.md)描述库内部使用的例程。
+[内部辅助函数契约](../internal-contracts.md)描述库内部使用的例程。
