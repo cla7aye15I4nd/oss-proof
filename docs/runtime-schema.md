@@ -45,14 +45,14 @@ generated together from the headers
   `Heap.RecordsWellFormed.set_*`, `clear_*` and `*.put_*_wf` show that stores keep it.
 * **The content of the static tables.** `Statics` holds the arrays; `Statics.WellFormed` says that each has the
   declared length. Their values are fixed by the translation of `trees.c`, `inffixed.h`, `crc32.c` (each from a
-  generator that reads the C source) and are a hypothesis of a theorem until then. The generator does not compare
-  them with the C.
+  generator that reads the C source). A theorem that needs the values states them as a hypothesis. The generator
+  does not compare them with the C.
 * **Tables.** The tables of the heap are `Tbl`s (an `Array` read as a function of the block number), so that the
   primitives that write can update in place; see [trusted base](trusted-base.md), item 2.
 * **Macros that share a name with an enumerator.** `COPY` is both an enumerator of `inflate.h` (16195) and a macro of
   `gzguts.h` (1). The enumerator keeps the name `COPY`; the macro is the constant `GZ_COPY`.
 * **Allocation.** `allocK` faults if the next block number is already in use, so the heap must be `Fresh`
-  (`Fresh.slotUsed_next`; the tactic `fresh_slot` discharges the hypothesis of `allocK_some` from `Fresh h`).
+  (`Fresh.slotUsed_next` gives, from `Fresh h`, the hypothesis that the lemma `allocK_some` asks for).
   A direct store (`stK`) of a record whose arrays have the wrong length is not a fault.
 * **A cast between the two kinds of state** is a fault at the cast; in C it is a fault only at the access.
 
