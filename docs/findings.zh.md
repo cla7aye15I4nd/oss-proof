@@ -1,4 +1,4 @@
-<!-- source-sha256: 0047671e7c601983f023bdc7305462242c87d2ff5518e25717ff1dfab400af0d -->
+<!-- source-sha256: 98793ba34a128c85f8161915ac96991ef9143eddf74c45e0329fff3d4814f127 -->
 # 发现：在 zlib 中发现的问题
 
 这项工作在 zlib 中发现了九个问题。每一个都是 zlib 本身的缺陷，都能通过对 `zlib.h` 中有文档的函数的文档用法到达，并且要么由一次真实 C 的运行展示，要么按 C 标准的字面规定属于未定义行为并由某个[补丁](../patches/README.md)修复。其中七个是未定义行为或内存错误。另外两个是 `deflateBound` 的失信：界太小，但没有任何行为是未定义的。
@@ -13,7 +13,7 @@
 | [`gz_reset` 从不写入 `x.next`](findings/gz-reset-next-uninitialised/README.md) | `gzseek64` 和 `gz_skip_have` 对一个从未写入的指针字段执行 `x.next += 0`：按 C 标准的字面规定未定义。没有 sanitizer 报告它。 | 用 `gzopen` 打开 gzip 文件，然后 `gzseek` 或 `gzdirect` | C 标准；编译进真实 C 的探针展示了这次计算 | 补丁 0005 | 本地补丁，没有提交 |
 | [`x.next` 留在调用者的缓冲区中](findings/gz-next-dangling-after-direct-read/README.md) | 同样的 `x.next += 0`，作用在指向调用者已释放的缓冲区的指针上：按 C 标准的字面规定未定义。没有 sanitizer 报告它。 | 一次大的 `gzread`，`free` 该缓冲区，然后 `gzseek` 或 `gzdirect` | C 标准；编译进真实 C 的探针展示了这次计算 | 补丁 0005 | 本地补丁，没有提交 |
 | [`Z_FIXED` 时 `deflateBound` 太小](findings/deflatebound-fixed-far-matches/README.md) | 失信：一次带 `Z_FINISH` 的 `deflate` 调用，输出空间为 `deflateBound` 个字节，返回 `Z_OK`。对 1,000,000 字节的输入，界是 1,000,318，而流最多需要 1,008,570 字节。 | 以 `windowBits` 15、`memLevel` 8、`Z_FIXED`、级别 1 到 3 调用 `deflateInit2`；`deflateBound`；`deflate`。`compress`、`compress2` 和 `compressBound` 不受影响。 | 真实 C 的一次运行返回 `Z_OK` | 补丁 0006 | 本地补丁，没有提交 |
-| [gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`](findings/deflatebound-extra-len/README.md) | 失信：`2 + extra_len` 在 32 位上回绕，界大约小了 64 KiB，用这么多空间调用 `deflate(Z_FINISH)` 返回 `Z_OK`。 | 以这两个长度之一调用 `deflateSetHeader`，然后 `deflateBound`、`deflate` | 真实 C 的一次运行返回 `Z_OK` | 无 | 上游已知（[拉取请求 1360](https://github.com/madler/zlib/pull/1360)） |
+| [gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`](findings/deflatebound-extra-len/README.md) | 失信：`2 + extra_len` 在 32 位上回绕，界大约小了 64 KiB，用这么多空间调用 `deflate(Z_FINISH)` 返回 `Z_OK`。 | 以这两个长度之一调用 `deflateSetHeader`，然后 `deflateBound`、`deflate`。`zlib.h` 对 `extra_len` 没有规定上限；gzip 头部的 extra 字段最多容纳 65535 个字节。 | 真实 C 的一次运行返回 `Z_OK` | 无 | 上游已知（[拉取请求 1360](https://github.com/madler/zlib/pull/1360)） |
 
 被验证的源码是 zlib 1.4（上游提交 `99623ef7`）加六个补丁。真实 C 的运行是在上游提交 `757f0527` 上做的，它是 `99623ef7` 的直接父提交，运行时不带修复该问题的补丁。这两个提交之间，库的 C 源码只在版本和版权字符串以及 `inftrees.c` 中表 `lext` 的最后两项上不同。
 

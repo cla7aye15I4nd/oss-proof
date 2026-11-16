@@ -14,6 +14,10 @@ fewer: the bound is conservative, not wrong.
 
 ## Calls that reach it
 
+`zlib.h` asks that `extra_len` bytes are available at `extra` and puts no upper limit on
+`extra_len`. A gzip header holds at most 65535 bytes of extra field, so the two lengths are
+ones the format cannot store.
+
 ```c
 deflateInit2(&s, level, Z_DEFLATED, 31, 8, Z_DEFAULT_STRATEGY);   /* gzip */
 head.extra = extra;

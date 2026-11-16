@@ -1,4 +1,4 @@
-<!-- source-sha256: 0271ee747f7e9f6a8c09e6fe45f312b86d40d8c3708f9ab731df5b60bb8e9b51 -->
+<!-- source-sha256: c53e4d2ecce327dd53039c327fe3bfff15afbf1c858586eae0bbb84a4446ae1f -->
 # gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`
 
 对一个 gzip 流，如果它的头部由 `deflateSetHeader` 设置，且 `extra_len` 等于 2^32 − 2 或 2^32 − 1，`deflateBound` 返回的界大约小了 64 KiB。于是用这么多空间做一次 `deflate(Z_FINISH)` 调用会返回 `Z_OK`，违背了 `zlib.h` 关于这样的调用返回 `Z_STREAM_END` 的承诺。这是失信，不是内存错误。
@@ -8,6 +8,8 @@
 对 2^16 到 2^32 − 3 之间的 `extra_len`，界按 `extra_len` 个字节计，而 `deflate` 写得更少：界是保守的，不是错的。
 
 ## 到达它的调用
+
+`zlib.h` 要求 `extra` 处有 `extra_len` 个字节可用，对 `extra_len` 没有规定上限。gzip 头部的 extra 字段最多容纳 65535 个字节，所以这两个长度是格式存不下的长度。
 
 ```c
 deflateInit2(&s, level, Z_DEFLATED, 31, 8, Z_DEFAULT_STRATEGY);   /* gzip */
