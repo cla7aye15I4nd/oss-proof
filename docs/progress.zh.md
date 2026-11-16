@@ -1,4 +1,4 @@
-<!-- source-sha256: 2c4fd7d4d5f43673967e6da4014a3dba25782f97e79cf10a3cc38ea6b6723841 -->
+<!-- source-sha256: 387c39b830ce58834a428f08380fca000deba4f43add8bc0b02bc441d51e243a -->
 # 结论的状态
 
 本页说明每项结论、zlib 的每个公开函数是否已经完成。只有本页说明状态。要点是：三项安全结论都已完成，组成它们的 99 个目标全部完成。
@@ -21,7 +21,7 @@
 | 3 | 其余每个有文档的公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。 | [下文](#functions)各表中的其余全部目标 | 完成 |
 | 4 | 默认 zlib 流的往返：用默认级别的 `deflateInit` 压缩，再用 `inflateInit` 解压，得到原输入。 | 还没有写出目标 | 未完成 |
 
-关于第 4 项：有一条定理 `deflate_inflate_roundtrip`，它对翻译后的 C 证明了一个条件形式。当一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节。没有定理说明在输出空间足够、分配成功时两边都会到达 `Z_STREAM_END`，也没有定理陈述不带这个条件的往返，或者 `uncompress(compress(x)) = x`。
+关于第 4 项：有一条定理 `deflate_inflate_roundtrip`，它对翻译后的 C 证明了一个条件形式。它说的是一个从默认级别的 `deflateInit` 开始的 `deflate` 调用序列，和一个从 `inflateInit` 开始的 `inflate` 调用序列，两边都不用预设字典，并且 `inflate` 消耗的输入是 `deflate` 写出的输出的开头一段。当两个序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节。没有定理说明在输出空间足够、分配成功时两边都会到达 `Z_STREAM_END`，也没有定理陈述不带这个条件的往返，或者 `uncompress(compress(x)) = x`。
 
 ## 每个公开函数 {#functions}
 
@@ -169,8 +169,8 @@
 
 | 组 | 包含什么 | 理由 |
 | --- | --- | --- |
-| 功能正确性（第 4 项除外） | 函数在安全之外算出了什么：`inflate` 的输出等于格式规定的内容；其他压缩级别、策略、窗口大小和封装的往返，带预设字典的往返，经由 gzip 文件接口或 `inflateBack` 的往返；gzip 文件函数读出或写入的字节；`inflateBack` 交付的内容；只谈抽象模型的命题。 | 安全结论不需要它们。关于 gzip 文件接口的命题还要依靠一个手工建立的模型，包括文件系统、描述符和 `printf` 格式化。安全证明所依赖的功能性事实，在那个证明里一并证明。 |
+| 功能正确性（第 4 项除外） | 函数在安全之外算出了什么：`inflate` 的输出等于格式规定的内容；其他压缩级别、策略、窗口大小和封装的往返，带预设字典的往返，经由 gzip 文件接口或 `inflateBack` 的往返；gzip 文件函数读出或写入的字节；`inflateBack` 交付的内容；四类调用序列的完整契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`）；只谈抽象模型的命题。 | 安全结论不需要它们。关于 gzip 文件接口的命题还要依靠一个手工建立的模型，包括文件系统、描述符和 `printf` 格式化。安全证明所依赖的功能性事实，在那个证明里一并证明。 |
 | 其他构建配置 | 默认 x86_64 Linux 构建之外的每一种配置。 | 每一种配置都要针对不同的平台模型把整个证明重做一遍。 |
 | 未文档化函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w`：`zlib.h` 在 `undocumented functions (not part of the zlib API)`（未文档化函数，不属于 zlib API）之下声明了十个函数，这是其中九个。第十个是上文的 `gzvprintf`。 | 它们不属于 zlib API。没有为它们写出安全目标：未完成，不在计划内。 |
 
-尽管如此，许多函数的功能契约已有定理，九个未文档化函数中的八个也在其中（只有 `gzopen_w` 例外，它不在默认构建中）。[API 参考](spec/api/README.md)中每个函数的页面说明它的功能契约是否完成。
+尽管如此，许多函数的功能契约已有定理，九个未文档化函数中的八个也在其中（只有 `gzopen_w` 例外，它不在默认构建中）。[API 参考](spec/api/README.md)中每个函数的页面说明它的功能契约是否完成。未完成的功能契约都不在计划内：计划内的功能结论只有第 4 项，而它不是某一个函数的契约。

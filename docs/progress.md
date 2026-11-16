@@ -27,8 +27,11 @@ about the default x86_64 Linux build.
 | 4 | The round trip of the default zlib stream: compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input. | no goal is stated yet | not done |
 
 About result 4: one theorem, `deflate_inflate_roundtrip`, proves a conditional form for the
-translated C. When a `deflate` call sequence and an `inflate` call sequence both reach
-`Z_STREAM_END`, the bytes `inflate` writes are the bytes `deflate` read. No theorem says that
+translated C. It is about a `deflate` call sequence that starts at `deflateInit` with the default
+level and an `inflate` call sequence that starts at `inflateInit`, neither with a preset
+dictionary, where the input `inflate` consumes is the start of the output `deflate` wrote. When
+both sequences reach `Z_STREAM_END`, the bytes `inflate` writes are the bytes `deflate` read. No
+theorem says that
 both sides reach `Z_STREAM_END` when there is enough output room and allocation succeeds, and
 none states the round trip without that condition, or `uncompress(compress(x)) = x`.
 
@@ -181,11 +184,12 @@ No theorem is intended for these. Theorems that already exist for them stay.
 
 | Group | What it covers | Reason |
 | --- | --- | --- |
-| Functional correctness, except result 4 | What a function computes beyond safety: that the output of `inflate` is what the format says; the round trip for other levels, strategies, window sizes and wrappers, with preset dictionaries, through the gzip file interface or through `inflateBack`; the bytes the gzip file functions read or write; what `inflateBack` delivers; statements about the abstract models only. | The safety results do not need it. The statements about the gzip file interface would also rest on a hand-made model of the file system, of descriptors and of `printf` formatting. A functional fact that a safety proof depends on is proved as part of that proof. |
+| Functional correctness, except result 4 | What a function computes beyond safety: that the output of `inflate` is what the format says; the round trip for other levels, strategies, window sizes and wrappers, with preset dictionaries, through the gzip file interface or through `inflateBack`; the bytes the gzip file functions read or write; what `inflateBack` delivers; the full contracts of the four kinds of call sequence (`Goal.inflate_sequence`, `Goal.deflate_sequence`, `Goal.inflate_back_sequence`, `Goal.gz_sequence`); statements about the abstract models only. | The safety results do not need it. The statements about the gzip file interface would also rest on a hand-made model of the file system, of descriptors and of `printf` formatting. A functional fact that a safety proof depends on is proved as part of that proof. |
 | Other build configurations | Every configuration except the default x86_64 Linux build. | Each one repeats the whole proof for a different platform model. |
 | Undocumented functions | `zError`, `inflateSyncPoint`, `get_crc_table`, `inflateUndermine`, `inflateValidate`, `inflateCodesUsed`, `inflateResetKeep`, `deflateResetKeep`, `gzopen_w`: nine of the ten functions that `zlib.h` declares under "undocumented functions (not part of the zlib API)". The tenth is `gzvprintf`, above. | They are not part of the zlib API. No safety goal is stated for them: not done, not planned. |
 
 Many functions have a theorem for their functional contract all the same, among them eight of
 the nine undocumented functions (all but `gzopen_w`, which is not in the default build). The
 page of each function in the [API reference](spec/api/README.md) says whether its functional
-contract is done.
+contract is done. A functional contract that is not done is not planned: the only functional
+result that is planned is result 4, and it is not the contract of one function.
