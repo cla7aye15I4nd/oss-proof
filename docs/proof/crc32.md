@@ -10,7 +10,7 @@ Source: `zlib/crc32.c`; translation: `ZlibF/Zlib/crc32.c.lean`. The translated b
 default x86_64 Linux one: little-endian words, no hardware CRC instructions, and the "braided"
 word loop with the source's parameters `W = 8` (bytes per word) and `N = 5` (words per block).
 The [API page](../spec/api/checksums.md) gives the public domains; the
-[format guide](../spec/format/README.md) specifies the value (`F-crc-incremental`). Terms:
+[format guide](../spec/format/README.md) specifies the value (the clause named `F-crc-incremental` there). Terms:
 [glossary](../glossary.md).
 
 ## What is proved
@@ -90,10 +90,23 @@ address. The model supplies only the low three bits:
 - a static byte array, or a byte array inside a record, starts at an arbitrary residue modulo
   8. The residue is fixed for the heap and unknown to the proof.
 
-A group of theorems relates these represented addresses to offsets and alignment
-(`mask_refines_base_plus_offset`, `pointer_advance_preserves_low_bits`, `first_aligned_offset`),
-and `every_layout_is_representable` shows that every assignment of residues is representable.
-The CRC goals therefore hold for every residue, and no alignment premise is added to them.
+Four theorems state what this model gives. A *layout* here assigns a base address to every
+byte array.
+
+- `every_layout_is_representable`: for every layout in which each heap byte block starts at a
+  multiple of 8, some heap has the residues of that layout. No static or embedded array is
+  forced to be aligned.
+- `mask_refines_base_plus_offset`: in a heap whose residues agree with a layout, the low three
+  bits that the model gives for a pointer are those of its base address plus its offset. This
+  holds also when that sum does not fit 64 bits.
+- `pointer_advance_preserves_low_bits`: in every heap, advancing a pointer by `count` bytes
+  adds `count` to its low three bits modulo 8.
+- `first_aligned_offset`: in every heap and for every pointer with low bits `r`, the position
+  `(8 - r) mod 8` bytes ahead, at most 7, has low bits 0, and no earlier position has. This
+  is arithmetic on positions: it does not say that those bytes are inside the buffer.
+
+The CRC goals quantify over every heap, so they hold for every residue, and no alignment
+premise is added to them.
 
 The translated word read assembles eight bytes in little-endian order. In C the read is a load
 through a pointer cast to `z_word_t *`. That the two agree, including the strict-aliasing reading
@@ -160,8 +173,8 @@ value is not in the documented domain. For `crc32_combine_op(1, 2, 1UL << 32)`,
 `crc32_combine_op_diverges` proves that the translation runs out of fuel. The real C was
 reported not to return on that call in two runs with a timeout. No reproduction of that report
 is kept ([findings](../findings.md#earlier-library-observations)). So the behaviour of the C on
-this call is a report, and the theorem is about the translation. The hang is a misuse outside the documented
-domain, not a defect within it.
+this call is a report, and the theorem is about the translation. The hang is a misuse outside
+the documented domain, not a defect within it.
 
 ## Evidence for the static tables
 

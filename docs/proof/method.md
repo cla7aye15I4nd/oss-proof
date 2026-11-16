@@ -74,11 +74,14 @@ goal is wrong, and a permitted execution contradicts it; the translation differs
 example in evaluation order or a conversion; or the C itself faults on a permitted input. None
 of them is assumed in advance, and narrowing the caller's domain solves none of them.
 
-A wrong goal is corrected, and its counterexample is kept as a regression. A translation
-mismatch is corrected, and a differential test that catches the difference is added. A suspected
-zlib bug is settled on the real C: the input is built and the C is run under a sanitizer.
-[Findings](../findings.md) lists the confirmed ones. A confirmed zlib bug can justify a minimal
-patch that matches a fix submitted upstream. A limit of the model is not a zlib bug.
+Each cause other than the first has its own evidence. A wrong goal has a counterexample: a
+permitted execution for which the stated result is false. The goal is then corrected. A
+translation mismatch is a difference between the translation and the real C on some input, the
+kind of difference that a differential test detects. The translation is then corrected. A zlib
+bug is settled on the real C: on a concrete input, the C run under a sanitizer reports the
+fault. [Findings](../findings.md) lists the confirmed ones. A confirmed zlib bug can justify a
+minimal patch of the verified source; `patches/README.md` lists the patches and says which of
+them match a fix submitted upstream. A limit of the model is not a zlib bug.
 
 ## One representation invariant
 
@@ -116,8 +119,9 @@ between the state and the format, for the same executions, and shows how each st
 ## Initialisation, frame and ownership
 
 **Initialisation** establishes the invariant on success and accounts for every allocation
-failure. The default allocator does not zero memory, so the proof shows the write that
-initialises each field that is read later. For pointer fields the model is weaker than C: a
+failure. The default allocator does not zero memory: an integer field of fresh memory has an
+arbitrary value. So a clause of the invariant about such a field holds only because the proof
+shows the write that sets the field. For pointer fields the model is weaker than C: a
 pointer field in fresh memory reads as `NULL` without a fault. So a proof does not show that
 a pointer field is written before it is read: that is **to confirm** by source review; see
 [safety](../spec/safety.md#uninitialised-memory) and the [trusted base](../trusted-base.md).
@@ -214,6 +218,6 @@ and the runtime model agreeing with the C; the [trusted base](../trusted-base.md
 
 The tests bear on the last of these. Differential tests compare the translation with the real C
 on the same inputs; they are evidence of fidelity, not proof. Proof mutants are further
-evidence: the translation is changed in one place, for example by a dropped check, a changed
-return value, a wrong field or an index off by one, and the proof of the changed function must
-then fail.
+evidence of the same kind: a copy of the translation is changed in one place, for example by a
+dropped check, a changed return value, a wrong field or an index off by one, to see that the
+proof of the changed function then fails.

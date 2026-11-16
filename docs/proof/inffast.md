@@ -44,8 +44,8 @@ How the callers use these theorems:
   translated function, stated on the caller's ranges and the decoder invariant;
   it does not use `EnvG`. `fast_consumes` is not used for
   `inflate`. See [stream decoding](inflate.md#the-fast-path).
-- **`inflate`, functional results.** `inflate_fast_entry` proves the entry conditions for every layout. The functional
-  theorem `fast_call_meaning` uses it; the safety results do not.
+- **`inflate`, functional results.** `inflate_fast_entry` proves the entry conditions for every
+  layout. The functional theorem `fast_call_meaning` uses it; the safety results do not.
 
 `FastPost` says: the stream's `next_in`, `avail_in`, `next_out`, `avail_out` and `msg` and the
 state's `mode`, `hold` and `bits` were written; output bytes changed only in the range this
@@ -215,8 +215,9 @@ had consumed.
 
 `inflate` tests `bits < 8` in its own condition for taking the fast path. `inflateBack` does not
 test it. The proof of its dispatch loop carries the fact in the loop invariant: fewer than 8 bits
-are held whenever a round starts in mode `TYPE`, `TABLE` or `LEN` (`Short`). `LEN_fast_p` does not prove `bits < 8` at entry: it takes it as a
-premise, which that invariant supplies, and proves that it holds again after the call.
+are held whenever a round starts in mode `TYPE`, `TABLE` or `LEN` (`Short`). `LEN_fast_p` does
+not prove `bits < 8` at entry: it takes it as a premise, which that invariant supplies, and
+proves that it holds again after the call.
 
 The function then computes the new `avail_in` and `avail_out` from pointer differences inside
 one block each and stores them with the cursors, `hold` and `bits`
@@ -240,8 +241,9 @@ split as the argument above, on the heap, for every table of the safe shape.
 
 The second hard point is the output block. It is read and written in the same round, the source
 of a match can overlap its destination, and input and output may be two ranges of one block:
-the real C decodes correctly in that layout, with no sanitizer report. The loop invariant therefore tracks the whole output
-array, not a separate view of "old" and "new" bytes.
+run under sanitizers, the real C decodes correctly in that layout, with no report. The loop
+invariant therefore tracks the whole output array, not a separate view of "old" and "new"
+bytes.
 
 ## Readings of the C that no theorem states
 
@@ -264,9 +266,10 @@ required for the safety results.
 | A match copy is the LZ77 copy of the format | `actual_distance_refines_lz77`, `actual_copy_match_refines_lz77` |
 
 For these the invariant is larger: it relates the consumed bits to the source stream and the
-window contents to the earlier output. `fast_call_meaning` carries the meaning through the fast branch of `LEN` in `inflate`, for
-input and output in any byte objects: after the call the decoded tokens still parse as the
-format says, or the mode is `BAD` and the input read has no valid completion. It is a step of
-the conditional round trip
+window contents to the earlier output. `fast_call_meaning` carries the meaning through the
+fast branch of `LEN` in `inflate`, for input and output in any byte objects: after the call the
+decoded tokens still parse as the format says, or the mode is `BAD` and the input read has no
+valid completion. It is a step of the conditional round trip
 ([stream decoding](inflate.md#functional-results)). Bytes read ahead and given back play no
-part in the meaning of a decoded symbol; see [stream decoding](inflate.md#causality-and-history-across-calls).
+part in the meaning of a decoded symbol; see
+[stream decoding](inflate.md#causality-and-history-across-calls).

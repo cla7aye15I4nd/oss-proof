@@ -1,9 +1,9 @@
-<!-- source-sha256: 911253c0e99fe03189bc039993e08af6cec0b6cd21dfd7644da97919bb027ee5 -->
+<!-- source-sha256: 9fe92445e804a6ec732772f62fed154e5d125caed4a405ba4dfc766bdf110b1d -->
 # CRC-32：字节范围、编织与多项式含义
 
 CRC-32 函数在其文档给出的定义域上是安全的：它们会返回，只读调用者的缓冲区和静态表，并且让堆保持不变。它们还返回 CRC-32 的值；那一部分是功能性的，不是安全结论所必需的。本页解释为什么每次读取都在范围之内，对齐测试是怎样建模的，以及各个值定理陈述了什么。
 
-源文件：`zlib/crc32.c`；翻译：`ZlibF/Zlib/crc32.c.lean`。被翻译的分支是默认 x86_64 Linux 的那一个：小端字，没有硬件 CRC 指令，以及“编织”（braid）的字循环，参数取源码中的 `W = 8`（每个字的字节数）和 `N = 5`（每个块的字数）。[API 页](../spec/api/checksums.md)给出公开定义域；[格式指南](../spec/format/README.md)规定这个值（`F-crc-incremental`）。术语见[术语表](../glossary.md)。
+源文件：`zlib/crc32.c`；翻译：`ZlibF/Zlib/crc32.c.lean`。被翻译的分支是默认 x86_64 Linux 的那一个：小端字，没有硬件 CRC 指令，以及“编织”（braid）的字循环，参数取源码中的 `W = 8`（每个字的字节数）和 `N = 5`（每个块的字数）。[API 页](../spec/api/checksums.md)给出公开定义域；[格式指南](../spec/format/README.md)规定这个值（那里名为 `F-crc-incremental` 的子句）。术语见[术语表](../glossary.md)。
 
 ## 证明了什么
 
@@ -57,7 +57,14 @@ C 通过 `buf` 的地址测试它的对齐：`while (len && ((z_size_t)buf & (W 
 - 堆上的字节块从一个对齐的地址开始，所以指向它内部的指针的低位就是其偏移量的低位；
 - 静态字节数组，或者记录内的字节数组，从模 8 的任意余数处开始。这个余数对于给定的堆是固定的，证明并不知道它是多少。
 
-有一组定理把这些被表示的地址与偏移量和对齐联系起来（`mask_refines_base_plus_offset`、`pointer_advance_preserves_low_bits`、`first_aligned_offset`），`every_layout_is_representable` 则证明每一种余数指派都是可表示的。因此 CRC 目标对每一种余数都成立，也没有给它们添加对齐前提。
+有四条定理陈述这个模型给出了什么。这里的*布局*是指给每个字节数组指派一个基地址。
+
+- `every_layout_is_representable`：对每一种让每个堆字节块都起始于 8 的倍数的布局，都有某个堆具有这种布局的余数。没有哪个静态数组或内嵌数组被强制对齐。
+- `mask_refines_base_plus_offset`：在余数与某个布局一致的堆里，模型给一个指针的低三位，就是它的基地址加偏移量的低三位。这个和超出 64 位时也成立。
+- `pointer_advance_preserves_low_bits`：在每一个堆里，把指针前移 `count` 个字节，就是把它的低三位加上 `count` 再模 8。
+- `first_aligned_offset`：在每一个堆里，对每一个低三位为 `r` 的指针，向前 `(8 - r) mod 8` 个字节（至多 7 个）的位置低三位为 0，而更早的位置都不是。这是关于位置的算术：它没有说那些字节在缓冲区之内。
+
+CRC 目标对每一个堆做全称量化，所以它们对每一种余数都成立，也没有给它们添加对齐前提。
 
 翻译后的字读取按小端顺序拼接八个字节。在 C 中，这次读取是通过一个转换为 `z_word_t *` 的指针做的加载。两者一致（包括对这个转换按严格别名规则的解读），以及真实地址背后一般的 ABI 布局，都是受信任的；它们没有被证明。[模型的限制](../model-limits.md#representation-gaps-and-proof-obligations)在“地址与布局模型不完整”一行记录了这一点。C 还读取一个局部字节序标记的低字节来选择分支；在这个目标平台上它选择小端分支，大端分支不会运行。大端辅助函数中只证明了 `crc_word_big_safe`。
 

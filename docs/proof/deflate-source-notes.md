@@ -28,9 +28,10 @@ model ([deviations](../deviations.md)).
 The version check reads the first byte of the version string, after its `NULL` test. The state
 check reads the state's back pointer and its status. `Goal.deflate_refusal` covers a `NULL`
 stream and a readable record that the check rejects, and the safety goal of each documented
-`deflate*` function except init states the same refusal ([refusals](deflate.md#refusals)). A `state` field that holds a garbage
-pointer, or a pointer to an inflate state, is outside it: in the model that is a fault, as it is
-undefined behaviour in C (row "Refused streams" of [deviations](../deviations.md)).
+`deflate*` function except init states the same refusal ([refusals](deflate.md#refusals)). A
+`state` field that holds a garbage pointer, or a pointer to an inflate state, is outside it: in
+the model that is a fault, as it is undefined behaviour in C (row "Refused streams" of
+[deviations](../deviations.md)).
 
 There are five owned allocations: the state, the window, `prev`, `head` and the pending buffer.
 After the state is allocated the C makes all four buffer allocations and only then tests for
@@ -199,9 +200,8 @@ of these for overflow. `block_start_low` gives `block_start ≥ -2^62` at a nonz
 the clause `blockSpan`; `block_start_slide_signed` and `flush_length_general` use it for the
 slide and for the block length. For the expression in `deflateParams`, `params_after_outcome`
 proves that the code after the inner `deflate` call returns from every state with the
-invariant. Its proof
-bounds the difference by the clauses `blockStart` and `blockSpan`, and at level 0 by
-`levelZero`.
+invariant. Its proof bounds the difference by the clauses `blockStart` and `blockSpan`, and at
+level 0 by `levelZero`.
 
 The two unions in `ct_data` have two `unsigned short` members each. In the translation each
 union is one cell: `Freq` and `Code` name one, `Dad` and `Len` the other. Tree construction
@@ -260,7 +260,8 @@ a match: the constant 1 in `deflate_rle`, a match that `longest_match_inserted` 
 ([stream compression](deflate.md#inside-one-deflate-call)).
 
 The bit-output helpers do not check for room. That every write fits and stays below the unread
-symbols is fact F9 of [trees](trees.md#the-overlay-lemma-f9), proved for every `memLevel`.
+symbols is the overlay lemma of [trees](trees.md#the-overlay-lemma-f9), proved for every
+`memLevel`.
 
 `send_bits` promotes its `ush` operands to `int` for the shifts and narrows the result when it
 stores it. With at most 16 bits held and at most 15 sent, no shift is out of range

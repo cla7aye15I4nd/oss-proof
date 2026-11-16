@@ -18,7 +18,8 @@ contracts are in the [API page](../spec/api/utility.md). Terms: [glossary](../gl
 | `Goal.zError` | Not required: `zlib.h` lists `zError` as undocumented | `zError` |
 | The allocator wrappers `zcalloc` and `zcfree` | Internal, used by every stream proof | `zcalloc_safe`, `zcalloc_correct_some`, `zcalloc_correct_size`, `zcalloc_correct_none`, `zcfree_safe`, `zcfree_correct`, `zcfree_correct_null`, `zcalloc_zcfree_no_leak` |
 
-All of these are done.
+The five goals of the first three rows are done. The allocator wrapper theorems of the last row
+are proved; they are lemmas, not goals.
 
 `zcalloc` and `zcfree` are not public functions. Leak freedom of a stream is a clause of the
 sequence safety theorems of [inflate](inflate.md) and [deflate](deflate.md), which use these
@@ -44,7 +45,8 @@ for every oracle. `h.Owns S` says that the live blocks of the heap `h` are exact
 | `zcfree_correct_null` | None | Freeing `NULL` returns and leaves the heap unchanged. |
 | `zcalloc_zcfree_no_leak` | The heap is `Fresh` | `zcalloc` followed by `zcfree` of its result returns, also when the allocation failed, and the set of live blocks is the one before. |
 
-The premises column lists every hypothesis of each theorem. The `opaque` argument is unrestricted in all of them: the C ignores it.
+The premises column lists every hypothesis of each theorem. The `opaque` argument is
+unrestricted in all of them: the C ignores it.
 
 ## What the stream proofs prove themselves
 
@@ -96,5 +98,6 @@ allocations shown; it is not a maximum for the gz functions or for other paths.
 overflow for an arbitrary `int`. The value 169 holds for this build only: other type widths or
 build options give other flags.
 
-A constant return is still an exact contract: a copy of the translation that returns a wrong
-version pointer, or one with a changed flag bit, no longer passes the proof of that function.
+A constant return is still an exact contract: a copy of the translation that returns `NULL` or
+another string for the version, or one with a changed flag bit, no longer passes the proof of
+that function.

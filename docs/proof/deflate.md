@@ -7,10 +7,12 @@ buffers, for every level, `memLevel`, `windowBits`, strategy, tuning and header,
 permitted sequence of calls. The proof is one invariant of the compressor state and three
 lemmas: every reachable state has the invariant, one more call from such a state is safe, and
 `deflateEnd` frees everything. The hardest step is the buffer that pending output shares with
-unread symbols; it is explained in [trees](trees.md#the-overlay-lemma-f9).
+unread symbols: while a block is written, the output must never reach a symbol that is still to
+be read. This page and the [trees](trees.md#the-overlay-lemma-f9) page call that fact F9; the
+trees page proves it.
 
 Related pages: [source notes for the compressor](deflate-source-notes.md) on how the
-translation follows the C, and [the default-configuration engine](deflate-default-engine.md) on
+translation follows the C, and [the default configuration](deflate-default-engine.md) on
 functional results for one configuration. The internal contracts of this file are `I-fw-*`,
 `I-sh-*`, `I-hc-inv`, `I-lm-*` and `I-fp-*` in
 [internal contracts](../spec/internal-contracts.md); `I-pb-room` there covers the macro
@@ -187,7 +189,8 @@ flowchart TD
     I -->|no| H["header, strategy, trailer"]
 ```
 
-The theorem `deflate_call_full` has one case for each exit of this diagram. The header states form a chain:
+The theorem `deflate_call_full` has one case for each exit of this diagram. The header states
+form a chain:
 
 ```mermaid
 stateDiagram-v2
@@ -377,7 +380,8 @@ was inserted, with a chain head `cur` such that `1 ≤ cur < strstart` and
 of at most 255 and a distance between 1 and `W - 262`, so the lookups in `_length_code` and
 `_dist_code` are in range. The upper bound is kept by the clause `recorded` of `symbols`. The
 lower bound is not a clause of the invariant. It is a premise of the tally lemma
-`tally_match_run`, and each strategy supplies it where it records a match: `deflate_rle` passes the constant 1; `deflate_fast` records
+`tally_match_run`, and each strategy supplies it where it records a match: `deflate_rle` passes
+the constant 1; `deflate_fast` records
 `strstart - match_start` for a match that `longest_match_inserted` found below `strstart`;
 `deflate_slow` records the match of the previous round, whose distance the clause
 `pendingMatch` keeps at 1 or more. When the buffer is full the strategy flushes.
@@ -385,7 +389,8 @@ lower bound is not a clause of the invariant. It is a premise of the tally lemma
 **Flushing a block.** `FLUSH_BLOCK_ONLY` computes the block length `strstart - block_start` in
 `long` and calls `_tr_flush_block`. It passes `window + block_start` as the source of a stored
 block, or `NULL` when `block_start` is negative; `_tr_flush_block` chooses the stored form only
-when the source is not `NULL`. `flush_arguments_general` proves this evaluation for `-2^62 ≤ block_start ≤ strstart ≤ window_size`: the subtraction does not
+when the source is not `NULL`. `flush_arguments_general` proves this evaluation for
+`-2^62 ≤ block_start ≤ strstart ≤ window_size`: the subtraction does not
 overflow (`flush_length_general`), and the source is `NULL` or a readable range of the window,
 apart from `pending_buf`, of the block's length. `flush_block_only_safe` then proves the whole
 macro safe at a positive level, for every `memLevel`. Its premises are listed on the
@@ -394,8 +399,8 @@ empty pending buffer and `bi_valid ≤ 7` at entry, and the room of fact F9. The
 provide them at every flush (`BlockReady`).
 
 **The five strategies.** `huff_spec_of`, `rle_spec_of`, `fast_spec_of`, `slow_spec_of` and
-`stored_spec` prove that each strategy returns and gives `DInv` back. At the head of every round of a strategy loop the
-state has `DInv` and an empty pending buffer.
+`stored_spec` prove that each strategy returns and gives `DInv` back. At the head of every round
+of a strategy loop the state has `DInv` and an empty pending buffer.
 
 ## Why the loops end
 
@@ -413,8 +418,8 @@ far below the loop fuel of `2^64` (`loop_measure_bound`).
 **`deflate_stored`.** Its one loop writes stored blocks straight to the output; its measure
 is `avail_out`.
 
-**`longest_match`.** The measure is the current position `cur_match` (`lm_loop_ok`). The walk ends because positions strictly decrease, whatever
-the chain budget is. This matters: `deflateTune` accepts `max_chain_length = 0`, and then
+**`longest_match`.** The measure is the current position `cur_match` (`lm_loop_ok`). The walk
+ends because positions strictly decrease, whatever the chain budget is. This matters: `deflateTune` accepts `max_chain_length = 0`, and then
 `--chain_length` wraps to a large value instead of reaching 0.
 
 **Header loops** run over the bytes of `extra`, `name` and `comment`. The premises make these
@@ -451,26 +456,27 @@ More notes of this kind are in the [source notes](deflate-source-notes.md).
 
 ## Functional results
 
-These say what the functions compute. The goals of the first two rows are done. They are not
-required for the safety results, and functional correctness beyond what has a theorem is not
-planned.
+These say what the functions compute. The goals named in the first two rows are done. They are
+not required for the safety results. Apart from the round trip described below, further
+functional results are not planned.
 
 | Result | Theorem |
 | --- | --- |
 | `Goal.deflate`: the full contract of one call, with progress, return codes, counters, frame and ownership. The safety proof of `compress*` uses it | `Zlib.Deflate.Universal.deflate_safety` |
-| The full contracts `Goal.deflateInit_`, `Goal.deflateInit2_`, `Goal.deflateCopy`, `Goal.deflateEnd`, `Goal.deflateReset` and those of the query functions | `deflateInit_proof`, `deflateInit2_proof`, `deflate_copy_public`, `deflate_end_public`, `deflate_reset_public` and others |
-| Results for the default configuration only | see [the default-configuration engine](deflate-default-engine.md) |
+| The full contracts `Goal.deflateInit_`, `Goal.deflateInit2_`, `Goal.deflateCopy`, `Goal.deflateEnd`, `Goal.deflateReset`, `Goal.deflateGetDictionary`, `Goal.deflatePending`, `Goal.deflateUsed`, `Goal.deflateTune` and `Goal.deflateSetHeader` | `deflateInit_proof`, `deflateInit2_proof`, `deflate_copy_public`, `deflate_end_public`, `deflate_reset_public`, `deflate_getdict_public`, `pending_public`, `used_public`, `tune_public`, `header_public` |
+| Results for the default configuration only | see [the default configuration](deflate-default-engine.md) |
 
 For the default configuration, `DeflateCore.correct` says that a completed stream decodes, by
 the format specification, to the input that was accepted. For other configurations no theorem
 says that the output of `deflate` decodes to its input.
 
-The round trip of the default zlib stream is not done. Its conditional form has a theorem,
-`deflate_inflate_roundtrip`. It takes a `deflate` history of the default configuration and an
-`inflate` history that starts with `inflateInit2_` at `windowBits` 15. Both consist of caller
-edits and calls with any flush value and any split of the buffers, and in both the last call
-returned `Z_STREAM_END`. If the input that `inflate` consumed is a prefix of the output of
-`deflate`, then the output of `inflate` is the input that `deflate` accepted. No theorem states
-completeness (that the histories reach `Z_STREAM_END`, given enough output room) or the
-unconditional round trip, which needs it. [Progress](../progress.md) says what is
-planned.
+The round trip of the default zlib stream (compress with `deflate`, decompress with `inflate`,
+get the input back) is not done. One theorem, `deflate_inflate_roundtrip`, proves a conditional
+form. It takes a `deflate` history that starts with `deflateInit_` at `Z_DEFAULT_COMPRESSION`
+and an `inflate` history that starts with `inflateInit2_` at `windowBits` 15. Both consist of
+caller edits and of `deflate` (or `inflate`) calls with any flush value and any split of the
+buffers; they contain no dictionary, reset or other operation. If in both the last call
+returned `Z_STREAM_END`, and the input that `inflate` consumed is a prefix of the output of
+`deflate`, then the output of `inflate` is the input that `deflate` accepted. No theorem says
+that both histories reach `Z_STREAM_END`, and none states the round trip without that
+condition. [Progress](../progress.md) says what is planned.

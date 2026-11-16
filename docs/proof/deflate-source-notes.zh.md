@@ -1,4 +1,4 @@
-<!-- source-sha256: f4ce6c0b420245baccdc9d7b30efea5f0c3276ea7a247fc90e4b7e163aaa1190 -->
+<!-- source-sha256: 1ff2e5c13cf3e733c43fb1a98e7d326ad3925ab01b5dee70d0852d0ec343122b -->
 # 压缩器的源码笔记：`deflate.c`、`trees.c`
 
 本页记录 C 源码里的一些细节：在这些地方，翻译若走捷径，程序的行为就会改变。它们涉及求值顺序、整数转换、提前返回和宏展开。本页写给拿 `zlib/*.c` 与 `ZlibF/Zlib/*.c.lean` 对照的读者。
@@ -125,7 +125,7 @@ flowchart LR
 
 `sym_end = 3 * (lit_bufsize - 1)`。记录一个符号时，依次写距离的低字节、高字节，以及字面量或长度字节，然后统计频率。字面量的距离是 0。对匹配，宏在查表之前按 16 位把距离减一；距离若是 0，就会回绕成 65535，使 `d_code` 去读一张 512 项的表的下标 767。证明分两部分排除这种情况。上界在不变量里：每个记录下来的距离至多是 `w_size - 262`（子句 `recorded`），并且总还放得下一个符号（子句 `symRoom`）。下界不是不变量的子句，因为 `recorded` 也涵盖字面量，而字面量的距离是 0。它是符号记录引理 `tally_match_run` 的一个前提，各策略在记录匹配的地方提供它：`deflate_rle` 用常数 1；`deflate_fast` 记录的是 `longest_match_inserted` 在 `strstart` 之下找到的匹配；`deflate_slow` 用子句 `pendingMatch`（[流式压缩](deflate.md#inside-one-deflate-call)）。
 
-位输出的辅助函数不检查空间。每次写都放得下、并且落在未读符号之下，这是[树](trees.md#the-overlay-lemma-f9)的事实 F9，它对每一个 `memLevel` 都证明了。
+位输出的辅助函数不检查空间。每次写都放得下、并且落在未读符号之下，这是[树](trees.md#the-overlay-lemma-f9)页面的共用缓冲区引理，它对每一个 `memLevel` 都证明了。
 
 `send_bits` 做移位时把 `ush` 操作数提升为 `int`，存回时再截断。缓冲里至多留着 16 位、一次至多发送 15 位，所以没有哪次移位越界（`send_bits_spec`）。`bi_windup` 计算 `((bi_valid - 1) & 7) + 1`；缓冲里没有位时，这在本平台上是 8，`bi_used` 得到的就是这个值。
 

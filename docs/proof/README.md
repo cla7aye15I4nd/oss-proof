@@ -1,14 +1,14 @@
 # Proof reference: component, page, theorem
 
 The pages in this section explain, for one C file each, why the theorems about it hold. This
-page is the map: which page explains which theorem. A reader who knows the C should be able to follow each page with the matching file under
-`zlib/` open, without reading Lean.
+page is the map: which page explains which theorem. A reader who knows the C should be able to
+follow each page with the matching file under `zlib/` open, without reading Lean.
 
 Every safety goal named on these pages is done: it has a theorem of exactly its type, and
-Lean's kernel has checked the proof. [Progress](../progress.md) lists every result. What each theorem
-assumes is on its page and in
-[deviations](../deviations.md); what the model itself assumes is in the
-[trusted base](../trusted-base.md) and in [model limits](../model-limits.md).
+Lean's kernel has checked the proof. [Progress](../progress.md) lists every result. What each
+theorem assumes is on its page and in [deviations](../deviations.md); what the model itself
+assumes is in the [trusted base](../trusted-base.md) and in
+[model limits](../model-limits.md).
 
 For a first reading, follow the [overview](../overview.md). Terms are in the
 [glossary](../glossary.md).
@@ -23,8 +23,9 @@ Differential tests compare the translation with the compiled C. They are evidenc
 translation is faithful, not proof.
 
 The prose on these pages is an explanation, not a checked object. Where a page states a reading
-of the C that no theorem states, it marks it **to confirm**. Each component page collects these
-in a section "Readings of the C that no theorem states".
+of the C that no theorem states, it marks it **to confirm**. The pages that follow
+[one outline](#the-shape-of-a-component-page) collect these in a section "Readings of the C
+that no theorem states".
 
 ## Required and not required
 
@@ -34,12 +35,12 @@ call sequences. The two `compressBound` contracts state the value of the bound; 
 the safety goals of those two functions.
 
 Functional results say what a function computes: a checksum value, the decoded bytes. They are
-not required for the safety results. Many have theorems, and each page lists them
-in a section of their own. Two of them, `Goal.inflate` and `Goal.deflate`, are used by safety
-proofs of other functions.
+not required for the safety results. Many have theorems, and each page lists them in a section
+of their own. Two of them, `Goal.inflate` and `Goal.deflate`, are used by safety proofs of
+other functions.
 
 Other build configurations and the functions that `zlib.h` lists as undocumented are not
-required; [progress](../progress.md) gives the reasons.
+required; [progress](../progress.md#not-planned) gives the reasons.
 
 ## What a sequence theorem covers
 
@@ -108,8 +109,8 @@ each.
 
 ## Functional results
 
-These pages also explain results that are not required for the safety results. Each
-has a theorem.
+These pages also explain results that are not required for the safety results. Each result
+of this table has a theorem.
 
 | Page | Functional results explained |
 | --- | --- |
@@ -117,7 +118,14 @@ has a theorem.
 | [Decode tables](inftrees.md), [Fast decoding](inffast.md) | The table entries are the canonical code; a round of the fast loop decodes one token of the format |
 | [Stream decoding](inflate.md) | `Goal.inflate`, the full contract of one call (`inflate_public`) |
 | [Stream compression](deflate.md) | `Goal.deflate`, the full contract of one call (`Zlib.Deflate.Universal.deflate_safety`) |
-| [The default-configuration engine](deflate-default-engine.md) | For the default configuration: a completed stream decodes to its input (`DeflateCore.correct`) |
+| [The default-configuration engine](deflate-default-engine.md) | For the default configuration: the output of a completed stream is a valid zlib stream for its input by the format specification, and a stream can be completed (`DeflateCore.correct`) |
+
+The round trip of the default zlib stream, `deflate` and then `inflate` giving back the input,
+is not done. One theorem, `deflate_inflate_roundtrip`, proves a conditional form: if both
+histories have reached `Z_STREAM_END` and the input `inflate` consumed is a prefix of the bytes
+`deflate` wrote, then the bytes `inflate` wrote are the bytes `deflate` read. No theorem says
+that both sides reach `Z_STREAM_END`. [Stream compression](deflate.md#functional-results)
+gives the premises.
 
 ## The shape of a component page
 

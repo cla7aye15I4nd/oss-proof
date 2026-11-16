@@ -247,7 +247,8 @@ The entry for symbol `w` takes `op` and `val` from the static arrays `lbase` and
 takes the literal branch.
 
 `lext_lbase_shape` and `dext_dbase_shape` check, entry by entry, that every value in the four
-arrays gives a leaf of the shape above. `inflate_table_decoder_safe` puts coverage and leaf values together.
+arrays gives a leaf of the shape above. `inflate_table_decoder_safe` puts coverage and leaf
+values together.
 
 ### Shifts
 
