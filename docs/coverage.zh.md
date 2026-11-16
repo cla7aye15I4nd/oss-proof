@@ -1,11 +1,11 @@
-<!-- source-sha256: ebfa6b237e8fb99882c9055d0746d3a24446bac6ade4223d1802e1b5862b2243 -->
+<!-- source-sha256: 6e2378809d33f18eeb7c4c49d201c60d813c5ec94430c29f851d82a8db407f0d -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的定理，以及证明所在的文件。安全一列提到的每条定理都列在 `tests/audit/theorems.txt` 中。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
 
 - **已证明。** 目标构建中每个有文档的函数，都在其所在行写明的定义域上有一条安全定理。表中的名字已与 `tests/audit/public-api.json`、`tests/audit/theorems.txt` 和证明文件核对。
 - **所作假设。** [可信基础](trusted-base.md)的六项，以及[偏离记录](deviations.md)中的前提；“定义域”一列指向的就是这些前提。
-- **比函数本身更窄。** 有六个流函数对 `NULL` 流的拒绝是在功能目标里证明的，不在安全目标里；相应的行有说明。
+- **比 `zlib.h` 更窄。** 某一行的定义域比 `zlib.h` 要求得更多时，该行会写明，相应的前提见[偏离记录](deviations.md)。
 
 本页是一张地图，不是状态页。它不写一项结论处于哪个层级。每项结论的层级（已检查、已登记还是已验收）和每次验收运行所在的提交，见[进度页的“范围”一节](progress.md#scope)；针对上面这些事项计划做的工作，见[进度页的“zlib.h 函数的无故障覆盖”一节](progress.md#no-fault-coverage-of-zlibh-functions)。
 
@@ -13,7 +13,7 @@
 
 - **安全目标与定理。** 所有目标都在命名空间 `ZlibF.Spec.Public` 中，这里写作 `Goal.…`。定理名不带命名空间；每张表前面的说明给出命名空间和 `ZlibF/Proof/` 下的文件。
 - **定义域。** 目标在“流可达”之外还要求什么。“无”表示对参数没有前提。有三条前提是每个流函数行和实用函数行共有的，不再重复：默认分配器、良构的模型堆，以及字节对象小于 `2^63` 字节（[偏离记录](deviations.md#build-and-platform)）。
-- **`NULL` 流或不一致的流。** 流函数的单函数目标是针对可达的流陈述的。对 `NULL` 流，或对 `zlib.h` 称为不一致的记录的调用，是一次返回 `Z_STREAM_ERROR` 的拒绝；这一列写明证明这次拒绝的定理。
+- **`NULL` 流或不一致的流。** 对 `NULL` 流，或对 `zlib.h` 称为不一致的记录的调用，是一次拒绝。除四个初始化函数之外，每个流函数的安全目标在针对可达流的子句之外，都有一个针对它的子句。这一列写的是该子句陈述的内容：返回的值，以及堆的变化。该子句的定义域是 `RefusedInflate` 或 `RefusedDeflate`（[偏离记录，注 2](deviations.md#note-2-refused-streams)）：在 `zalloc` 和 `zfree` 已设置时，它不包括悬空的、属于另一种流的或垃圾的状态指针。这一列写有“`Goal.inflate_refusal` 也陈述”或“`Goal.deflate_refusal` 也陈述”的地方，是说那个目标把同一个拒绝又陈述了一遍；它的定理是 `public-stream-refusal.lean` 中的 `ZlibF.Spec.Public.RefusalProof.inflate_refusal` 或 `ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal`。
 - **序列目标。** 除初始化、End 和 Copy 之外，每个流调用除了自己的目标，还是所属那一类流的序列目标中的一种调用，所以它在任何历史的任何位置上也被覆盖：
   - `Goal.inflate_sequence_safety`：定理 `Zlib.Inflate.Proofs.inflate_sequence_safety_public`，`public-inflate-sequence-safety.lean`；
   - `Goal.deflate_sequence_safety`：定理 `Zlib.Deflate.Universal.deflate_sequence_safety`，`public-deflate-goals.lean`。
@@ -28,17 +28,17 @@
 | --- | --- | --- | --- | --- |
 | `inflateInit_`（宏 `inflateInit`） | `Goal.inflateInit__safety` | `zlib.h` 允许的每次调用（`InitArguments`）：`strm` 为 `NULL` 或使用默认分配器的记录；任意的 `state`、版本字节和 `stream_size`；每一种分配结果 | 在目标之内 | `Goal.inflateInit_`：`init15_public`，`public-inflate-init.lean` |
 | `inflateInit2_`（宏 `inflateInit2`） | `Goal.inflateInit2__safety` | 同上，并对每个 `windowBits` | 在目标之内 | `Goal.inflateInit2_`：`inflate_init2_public`，`public-inflate-init2.lean` |
-| `inflate` | `Goal.inflate_safety` | `StreamBuffers` 与 `ActiveHeader` | `Goal.inflate_refusal` | `Goal.inflate`：`Zlib.Inflate.Proofs.inflate_public`，`public-inflate.lean` |
-| `inflateEnd` | `Goal.inflateEnd_safety` | 无 | `Goal.inflate_refusal` | `Goal.inflateEnd`：`inflate_end_public`，`public-inflate-end.lean` |
-| `inflateSetDictionary` | `Goal.inflateSetDictionary_safety` | 字典缓冲区（`CallerRange`） | `Goal.inflate_refusal` | `Goal.inflateSetDictionary`：`inflateSetDictionary_public`，`public-inflate-setdict.lean` |
-| `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | 目的缓冲区（`CallerRange`）。结果单元 `*dictLength` 在模型中是一个值（见[说明](#result-cells)） | `Goal.inflate_refusal` | `Goal.inflateGetDictionary`：`inflate_getdict_public`，`public-inflate-getdict.lean` |
-| `inflateSync` | `Goal.inflateSync_safety` | 输入范围 | `Zlib.Inflate.Proofs.inflateSync_check`，这是一条不是目标的定理 | 没有：`Goal.inflateSync` 不在计划内 |
-| `inflateCopy` | `Goal.inflateCopy_safety`：`ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`，`public-inflate-copy-safety.lean` | `source ≠ dest`；目的流是一个可读的记录 | `NULL` 参数在目标之内；不一致的源在 `Goal.inflate_refusal` 中 | `Goal.inflateCopy`：`inflate_copy_public`，`public-inflate-copy.lean` |
-| `inflateReset` | `Goal.inflateReset_safety` | 无 | `Goal.inflate_refusal` | `Goal.inflateReset`：`reset_public`，`public-inflate-reset.lean` |
-| `inflateReset2` | `Goal.inflateReset2_safety` | 无；每个 `windowBits` | `Goal.inflate_refusal` | `Goal.inflateReset2`：`reset2_public`，`public-inflate-reset2.lean` |
-| `inflatePrime` | `Goal.inflatePrime_safety` | 无 | 只在功能目标中（见下文） | `Goal.inflatePrime`：`prime_public`，`public-inflate-prime.lean` |
-| `inflateMark` | `Goal.inflateMark_safety` | 无 | 只在功能目标中（见下文） | `Goal.inflateMark`：`mark_public`，`public-inflate-mark.lean` |
-| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` 不是 `NULL`；头部缓冲区（`HeaderMemory`） | `Zlib.Inflate.Proofs.inflateGetHeader_check`，这是一条不是目标的定理 | `Goal.inflateGetHeader`：`getheader_public`，`public-inflate-header.lean` |
+| `inflate` | `Goal.inflate_safety` | `StreamBuffers` 与 `ActiveHeader` | 在目标之内：`Z_STREAM_ERROR`；在满足 `Fresh` 的堆上，不写原先存活的任何块，存活的块保持原样；`Goal.inflate_refusal` 也陈述 | `Goal.inflate`：`Zlib.Inflate.Proofs.inflate_public`，`public-inflate.lean` |
+| `inflateEnd` | `Goal.inflateEnd_safety` | 无 | 在目标之内：`Z_STREAM_ERROR`，堆不变；`Goal.inflate_refusal` 也陈述 | `Goal.inflateEnd`：`inflate_end_public`，`public-inflate-end.lean` |
+| `inflateSetDictionary` | `Goal.inflateSetDictionary_safety` | 字典缓冲区（`CallerRange`） | 在目标之内：`Z_STREAM_ERROR`，堆不变；`Goal.inflate_refusal` 也陈述 | `Goal.inflateSetDictionary`：`inflateSetDictionary_public`，`public-inflate-setdict.lean` |
+| `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | 目的缓冲区（`CallerRange`）。结果单元 `*dictLength` 在模型中是一个值（见[说明](#result-cells)） | 在目标之内：`Z_STREAM_ERROR`，长度值按传入时的值原样返回，堆不变；`Goal.inflate_refusal` 也陈述 | `Goal.inflateGetDictionary`：`inflate_getdict_public`，`public-inflate-getdict.lean` |
+| `inflateSync` | `Goal.inflateSync_safety` | 输入范围 | 在目标之内：`Z_STREAM_ERROR`；在满足 `Fresh` 的堆上，不写原先存活的任何块，存活的块保持原样 | 没有：`Goal.inflateSync` 不在计划内 |
+| `inflateCopy` | `Goal.inflateCopy_safety`：`ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`，`public-inflate-copy-safety.lean` | `source ≠ dest`；目的流是一个可读的记录 | 在目标之内。`dest` 为 `NULL`：`Z_STREAM_ERROR`，堆不变。`source` 为 `NULL`，或源记录属于 `RefusedInflate`，而 `dest` 记录可读：`Z_STREAM_ERROR`，且只把 `dest->state` 置为 `NULL`。对被拒绝的源，`Goal.inflate_refusal` 也陈述 | `Goal.inflateCopy`：`inflate_copy_public`，`public-inflate-copy.lean` |
+| `inflateReset` | `Goal.inflateReset_safety` | 无 | 在目标之内：`Z_STREAM_ERROR`，堆不变；`Goal.inflate_refusal` 也陈述 | `Goal.inflateReset`：`reset_public`，`public-inflate-reset.lean` |
+| `inflateReset2` | `Goal.inflateReset2_safety` | 无；每个 `windowBits` | 在目标之内：`Z_STREAM_ERROR`，堆不变；`Goal.inflate_refusal` 也陈述 | `Goal.inflateReset2`：`reset2_public`，`public-inflate-reset2.lean` |
+| `inflatePrime` | `Goal.inflatePrime_safety` | 无 | 在目标之内：`Z_STREAM_ERROR`，堆不变 | `Goal.inflatePrime`：`prime_public`，`public-inflate-prime.lean` |
+| `inflateMark` | `Goal.inflateMark_safety` | 无 | 在目标之内：`-65536`，堆不变 | `Goal.inflateMark`：`mark_public`，`public-inflate-mark.lean` |
+| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` 不是 `NULL`；头部缓冲区（`HeaderMemory`） | 在目标之内：`Z_STREAM_ERROR`，堆不变 | `Goal.inflateGetHeader`：`getheader_public`，`public-inflate-header.lean` |
 
 ## Deflate 流
 
@@ -48,22 +48,20 @@
 | --- | --- | --- | --- | --- |
 | `deflateInit_`（宏 `deflateInit`） | `Goal.deflateInit__safety` | `zlib.h` 允许的每次调用（`InitArguments`），每个压缩级别 | 在目标之内 | `Goal.deflateInit_`：`deflateInit_proof`，`public-deflate-init.lean` |
 | `deflateInit2_`（宏 `deflateInit2`） | `Goal.deflateInit2__safety` | 同上，并对每个方法、`windowBits`、`memLevel` 和策略 | 在目标之内 | `Goal.deflateInit2_`：`deflateInit2_proof`，`public-deflate-init2.lean` |
-| `deflate` | `Goal.deflate_safety` | `StreamBuffers` 与 `ActiveHeader` | `Goal.deflate_refusal` | `Goal.deflate`：`Zlib.Deflate.Universal.deflate_safety`，`public-deflate-goals.lean` |
-| `deflateEnd` | `Goal.deflateEnd_safety` | 无 | `Zlib.Deflate.Proofs.deflateEnd_reject`，这是一条不是目标的定理 | `Goal.deflateEnd`：`deflate_end_public`，`public-deflate-end.lean` |
-| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | 字典缓冲区（`CallerRange`） | `Goal.deflate_refusal` | 没有：`Goal.deflateSetDictionary` 不在计划内 |
-| `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | 目的缓冲区（`CallerRange`）。结果单元 `*dictLength` 在模型中是一个值（见[说明](#result-cells)） | `Goal.deflate_refusal` | `Goal.deflateGetDictionary`：`deflate_getdict_public`，`public-deflate-getdict.lean` |
-| `deflateCopy` | `Goal.deflateCopy_safety`：`Zlib.Deflate.Universal.deflate_copy_safety`，`public-deflate-copy.lean` | `source ≠ dest`；目的流是一个可读的记录 | `NULL` 参数，以及分配器或状态为 `NULL` 的源，在目标之内；状态被检查拒绝的源在 `Goal.deflate_refusal` 中 | `Goal.deflateCopy`：`deflate_copy_public`，`public-deflate-copy.lean` |
-| `deflateReset` | `Goal.deflateReset_safety` | 无 | `Zlib.Deflate.Proofs.deflateReset_reject`，这是一条不是目标的定理 | `Goal.deflateReset`：`deflate_reset_public`，`public-deflate-reset.lean` |
-| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` 与 `ActiveHeader` | `Goal.deflate_refusal` | 没有：`Goal.deflateParams` 不在计划内 |
-| `deflateTune` | `Goal.deflateTune_safety` | 无 | 只在功能目标中（见下文） | `Goal.deflateTune`：`tune_public`，`public-deflate-small-queries.lean` |
-| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_nostate`，这是一条不是目标的定理 | 没有：`Goal.deflateBound` 不在计划内 |
-| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_z_nostate`，这是一条不是目标的定理 | 没有：`Goal.deflateBound_z` 不在计划内 |
-| `deflatePending` | `Goal.deflatePending_safety` | 无。结果单元 `*pending` 和 `*bits` 在模型中是值（见[说明](#result-cells)） | 只在功能目标中（见下文） | `Goal.deflatePending`：`pending_public`，`public-deflate-small-queries.lean` |
-| `deflateUsed` | `Goal.deflateUsed_safety` | 无。结果单元 `*bits` 在模型中是一个值（见[说明](#result-cells)） | 只在功能目标中（见下文） | `Goal.deflateUsed`：`used_public`，`public-deflate-small-queries.lean` |
-| `deflatePrime` | `Goal.deflatePrime_safety` | 在第一次 `deflate` 调用之前（`DeflateNotStarted`），这是 `zlib.h` 的规则 | `Zlib.Deflate.Proofs.deflatePrime_refused`，这是一条不是目标的定理 | 没有：`Goal.deflatePrime` 不在计划内 |
-| `deflateSetHeader` | `Goal.deflateSetHeader_safety` | 在第一次 `deflate` 调用之前；头部缓冲区（`HeaderMemory`） | 只在功能目标中（见下文） | `Goal.deflateSetHeader`：`header_public`，`public-deflate-small-queries.lean` |
-
-**只在功能目标中的拒绝。** 对 `inflatePrime`、`inflateMark`、`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader`，`_safety` 目标覆盖的是可达的流上的调用，对 `NULL` 流或不一致的流什么也没说。对这种流的拒绝，是同一函数的功能目标中的一个子句（`CheckedInflate`、`CheckedDeflate`），所以它是已证明的，但不属于必需目标。针对这六个安全目标计划做什么，见[进度](progress.md#ordered-next-work)。
+| `deflate` | `Goal.deflate_safety` | `StreamBuffers` 与 `ActiveHeader` | 在目标之内：`Z_STREAM_ERROR`，堆不变；`Goal.deflate_refusal` 也陈述 | `Goal.deflate`：`Zlib.Deflate.Universal.deflate_safety`，`public-deflate-goals.lean` |
+| `deflateEnd` | `Goal.deflateEnd_safety` | 无 | 在目标之内：`Z_STREAM_ERROR`，堆不变 | `Goal.deflateEnd`：`deflate_end_public`，`public-deflate-end.lean` |
+| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | 字典缓冲区（`CallerRange`） | 在目标之内：`Z_STREAM_ERROR`，堆不变；`Goal.deflate_refusal` 也陈述 | 没有：`Goal.deflateSetDictionary` 不在计划内 |
+| `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | 目的缓冲区（`CallerRange`）。结果单元 `*dictLength` 在模型中是一个值（见[说明](#result-cells)） | 在目标之内：`Z_STREAM_ERROR`，不存入长度，堆不变；`Goal.deflate_refusal` 也陈述 | `Goal.deflateGetDictionary`：`deflate_getdict_public`，`public-deflate-getdict.lean` |
+| `deflateCopy` | `Goal.deflateCopy_safety`：`Zlib.Deflate.Universal.deflate_copy_safety`，`public-deflate-copy.lean` | `source ≠ dest`；目的流是一个可读的记录 | 在目标之内。`dest` 为 `NULL`：`Z_STREAM_ERROR`，堆不变。`source` 为 `NULL`，或源记录属于 `RefusedDeflate`，而 `dest` 记录可读：`Z_STREAM_ERROR`，且只把 `dest->state` 置为 `NULL`。对被拒绝的源，`Goal.deflate_refusal` 也陈述 | `Goal.deflateCopy`：`deflate_copy_public`，`public-deflate-copy.lean` |
+| `deflateReset` | `Goal.deflateReset_safety` | 无 | 在目标之内：`Z_STREAM_ERROR`，堆不变 | `Goal.deflateReset`：`deflate_reset_public`，`public-deflate-reset.lean` |
+| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` 与 `ActiveHeader` | 在目标之内：`Z_STREAM_ERROR`，堆不变；`Goal.deflate_refusal` 也陈述 | 没有：`Goal.deflateParams` 不在计划内 |
+| `deflateTune` | `Goal.deflateTune_safety` | 无 | 在目标之内：`Z_STREAM_ERROR`，堆不变 | `Goal.deflateTune`：`tune_public`，`public-deflate-small-queries.lean` |
+| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | 在目标之内：返回对 `NULL` 流调用时返回的值（是上界，不是错误值），堆不变 | 没有：`Goal.deflateBound` 不在计划内 |
+| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` 与 `DeflateHeaderLive` | 在目标之内：返回对 `NULL` 流调用时返回的值（是上界，不是错误值），堆不变 | 没有：`Goal.deflateBound_z` 不在计划内 |
+| `deflatePending` | `Goal.deflatePending_safety` | 无。结果单元 `*pending` 和 `*bits` 在模型中是值（见[说明](#result-cells)） | 在目标之内：`Z_STREAM_ERROR`，两个计数都不存入，堆不变 | `Goal.deflatePending`：`pending_public`，`public-deflate-small-queries.lean` |
+| `deflateUsed` | `Goal.deflateUsed_safety` | 无。结果单元 `*bits` 在模型中是一个值（见[说明](#result-cells)） | 在目标之内：`Z_STREAM_ERROR`，不存入计数，堆不变 | `Goal.deflateUsed`：`used_public`，`public-deflate-small-queries.lean` |
+| `deflatePrime` | `Goal.deflatePrime_safety` | 在第一次 `deflate` 调用之前（`DeflateNotStarted`），这是 `zlib.h` 的规则 | 在目标之内：`Z_STREAM_ERROR`，堆不变 | 没有：`Goal.deflatePrime` 不在计划内 |
+| `deflateSetHeader` | `Goal.deflateSetHeader_safety` | 在第一次 `deflate` 调用之前；头部缓冲区（`HeaderMemory`） | 在目标之内：`Z_STREAM_ERROR`，堆不变 | `Goal.deflateSetHeader`：`header_public`，`public-deflate-small-queries.lean` |
 
 <a id="result-cells"></a>**结果单元。** `inflateGetDictionary`、`deflateGetDictionary`、`deflatePending` 和 `deflateUsed` 通过指针写出结果。翻译把这样的指针当作值，而不是内存，所以这四个函数的安全目标对结果单元的内存什么都没说：既没说它可写，也没说它与其他区域分开。模型表示的是哪些调用，见[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”一行。`compress*` 的长度单元也是如此（[整缓冲区实用函数](#whole-buffer-utilities)）。
 

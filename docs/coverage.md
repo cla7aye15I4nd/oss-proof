@@ -11,8 +11,8 @@ names the functional theorem, where one exists; functional theorems are kept and
   `tests/audit/public-api.json`, `tests/audit/theorems.txt` and the proof files.
 - **Assumed.** The six items of the [trusted base](trusted-base.md), and the premises in
   [deviations](deviations.md), which the column "domain" refers to.
-- **Narrower than the function.** Six stream functions have their `NULL`-stream refusal proved in
-  the functional goal and not in the safety goal; their rows say so.
+- **Narrower than `zlib.h`.** Where the domain of a row asks more than `zlib.h` does, the row
+  says so, and [deviations](deviations.md) has the premise.
 
 This page is a map, not a status page. It does not say at which level a result stands. The level
 of each result (checked, registered or accepted) and the commit of each acceptance run are in
@@ -28,9 +28,16 @@ of each result (checked, registered or accepted) and the commit of each acceptan
   arguments. Three premises are shared by every stream and utility row and are not repeated: the
   default allocator, a well-formed model heap, and byte objects below `2^63` bytes
   ([deviations](deviations.md#build-and-platform)).
-- **`NULL` or inconsistent stream.** A one-function stream goal is stated for a reachable stream.
-  The call on a `NULL` stream, or on a record that `zlib.h` calls inconsistent, is a refusal with
-  `Z_STREAM_ERROR`; this column names the theorem that proves the refusal.
+- **`NULL` or inconsistent stream.** The call on a `NULL` stream, or on a record that `zlib.h`
+  calls inconsistent, is a refusal. The safety goal of every stream function except the four
+  init functions has a clause for it, beside the clause for a reachable stream. The column gives
+  what that clause states: the value returned and what happens to the heap. The domain of the
+  clause is `RefusedInflate` or `RefusedDeflate`
+  ([deviations, note 2](deviations.md#note-2-refused-streams)): when `zalloc` and `zfree` are
+  set, it leaves out a state pointer that is dangling, of the other stream kind, or garbage.
+  Where the column adds "also `Goal.inflate_refusal`" or "also `Goal.deflate_refusal`", that
+  goal states the same refusal again; its theorem is `ZlibF.Spec.Public.RefusalProof.inflate_refusal` or
+  `ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal`, in `public-stream-refusal.lean`.
 - **Sequence goal.** Besides its own goal, every stream call except init, End and Copy is a call
   of the sequence goal of its stream kind, so it is also covered at any point of any history:
   - `Goal.inflate_sequence_safety`: theorem `Zlib.Inflate.Proofs.inflate_sequence_safety_public`,
@@ -50,17 +57,17 @@ Theorems of the safety column: `ZlibF.Spec.Public.StreamCallSafetyProof.<name>` 
 | --- | --- | --- | --- | --- |
 | `inflateInit_` (macro `inflateInit`) | `Goal.inflateInit__safety` | Every call `zlib.h` allows (`InitArguments`): `strm` `NULL` or a record with the default allocator; any `state`, version byte and `stream_size`; every allocation outcome | Inside the goal | `Goal.inflateInit_`: `init15_public`, `public-inflate-init.lean` |
 | `inflateInit2_` (macro `inflateInit2`) | `Goal.inflateInit2__safety` | As above, for every `windowBits` | Inside the goal | `Goal.inflateInit2_`: `inflate_init2_public`, `public-inflate-init2.lean` |
-| `inflate` | `Goal.inflate_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.inflate_refusal` | `Goal.inflate`: `Zlib.Inflate.Proofs.inflate_public`, `public-inflate.lean` |
-| `inflateEnd` | `Goal.inflateEnd_safety` | None | `Goal.inflate_refusal` | `Goal.inflateEnd`: `inflate_end_public`, `public-inflate-end.lean` |
-| `inflateSetDictionary` | `Goal.inflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | `Goal.inflate_refusal` | `Goal.inflateSetDictionary`: `inflateSetDictionary_public`, `public-inflate-setdict.lean` |
-| `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | `Goal.inflate_refusal` | `Goal.inflateGetDictionary`: `inflate_getdict_public`, `public-inflate-getdict.lean` |
-| `inflateSync` | `Goal.inflateSync_safety` | The input range | `Zlib.Inflate.Proofs.inflateSync_check`, a theorem that is not a goal | None: `Goal.inflateSync` is not planned |
-| `inflateCopy` | `Goal.inflateCopy_safety`: `ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`, `public-inflate-copy-safety.lean` | `source ≠ dest`; the destination is a readable record | `NULL` arguments inside the goal; an inconsistent source in `Goal.inflate_refusal` | `Goal.inflateCopy`: `inflate_copy_public`, `public-inflate-copy.lean` |
-| `inflateReset` | `Goal.inflateReset_safety` | None | `Goal.inflate_refusal` | `Goal.inflateReset`: `reset_public`, `public-inflate-reset.lean` |
-| `inflateReset2` | `Goal.inflateReset2_safety` | None; every `windowBits` | `Goal.inflate_refusal` | `Goal.inflateReset2`: `reset2_public`, `public-inflate-reset2.lean` |
-| `inflatePrime` | `Goal.inflatePrime_safety` | None | In the functional goal only (see below) | `Goal.inflatePrime`: `prime_public`, `public-inflate-prime.lean` |
-| `inflateMark` | `Goal.inflateMark_safety` | None | In the functional goal only (see below) | `Goal.inflateMark`: `mark_public`, `public-inflate-mark.lean` |
-| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` is not `NULL`; the header buffers (`HeaderMemory`) | `Zlib.Inflate.Proofs.inflateGetHeader_check`, a theorem that is not a goal | `Goal.inflateGetHeader`: `getheader_public`, `public-inflate-header.lean` |
+| `inflate` | `Goal.inflate_safety` | `StreamBuffers` and `ActiveHeader` | Inside the goal: `Z_STREAM_ERROR`; on a `Fresh` heap no block that was live is written and the live blocks stay as they were; also `Goal.inflate_refusal` | `Goal.inflate`: `Zlib.Inflate.Proofs.inflate_public`, `public-inflate.lean` |
+| `inflateEnd` | `Goal.inflateEnd_safety` | None | Inside the goal: `Z_STREAM_ERROR`, heap unchanged; also `Goal.inflate_refusal` | `Goal.inflateEnd`: `inflate_end_public`, `public-inflate-end.lean` |
+| `inflateSetDictionary` | `Goal.inflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | Inside the goal: `Z_STREAM_ERROR`, heap unchanged; also `Goal.inflate_refusal` | `Goal.inflateSetDictionary`: `inflateSetDictionary_public`, `public-inflate-setdict.lean` |
+| `inflateGetDictionary` | `Goal.inflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | Inside the goal: `Z_STREAM_ERROR`, the length value returned as it was passed, heap unchanged; also `Goal.inflate_refusal` | `Goal.inflateGetDictionary`: `inflate_getdict_public`, `public-inflate-getdict.lean` |
+| `inflateSync` | `Goal.inflateSync_safety` | The input range | Inside the goal: `Z_STREAM_ERROR`; on a `Fresh` heap no block that was live is written and the live blocks stay as they were | None: `Goal.inflateSync` is not planned |
+| `inflateCopy` | `Goal.inflateCopy_safety`: `ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety`, `public-inflate-copy-safety.lean` | `source ≠ dest`; the destination is a readable record | Inside the goal. A `NULL` `dest`: `Z_STREAM_ERROR`, heap unchanged. A `NULL` `source`, or a source record in `RefusedInflate`, with a readable `dest` record: `Z_STREAM_ERROR`, and only `dest->state` is set to `NULL`. The refused source is also in `Goal.inflate_refusal` | `Goal.inflateCopy`: `inflate_copy_public`, `public-inflate-copy.lean` |
+| `inflateReset` | `Goal.inflateReset_safety` | None | Inside the goal: `Z_STREAM_ERROR`, heap unchanged; also `Goal.inflate_refusal` | `Goal.inflateReset`: `reset_public`, `public-inflate-reset.lean` |
+| `inflateReset2` | `Goal.inflateReset2_safety` | None; every `windowBits` | Inside the goal: `Z_STREAM_ERROR`, heap unchanged; also `Goal.inflate_refusal` | `Goal.inflateReset2`: `reset2_public`, `public-inflate-reset2.lean` |
+| `inflatePrime` | `Goal.inflatePrime_safety` | None | Inside the goal: `Z_STREAM_ERROR`, heap unchanged | `Goal.inflatePrime`: `prime_public`, `public-inflate-prime.lean` |
+| `inflateMark` | `Goal.inflateMark_safety` | None | Inside the goal: `-65536`, heap unchanged | `Goal.inflateMark`: `mark_public`, `public-inflate-mark.lean` |
+| `inflateGetHeader` | `Goal.inflateGetHeader_safety` | `head` is not `NULL`; the header buffers (`HeaderMemory`) | Inside the goal: `Z_STREAM_ERROR`, heap unchanged | `Goal.inflateGetHeader`: `getheader_public`, `public-inflate-header.lean` |
 
 ## Deflate streams
 
@@ -72,27 +79,20 @@ Theorems of the safety column: `ZlibF.Spec.Public.StreamCallSafetyProof.<name>` 
 | --- | --- | --- | --- | --- |
 | `deflateInit_` (macro `deflateInit`) | `Goal.deflateInit__safety` | Every call `zlib.h` allows (`InitArguments`), every level | Inside the goal | `Goal.deflateInit_`: `deflateInit_proof`, `public-deflate-init.lean` |
 | `deflateInit2_` (macro `deflateInit2`) | `Goal.deflateInit2__safety` | As above, for every method, `windowBits`, `memLevel` and strategy | Inside the goal | `Goal.deflateInit2_`: `deflateInit2_proof`, `public-deflate-init2.lean` |
-| `deflate` | `Goal.deflate_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.deflate_refusal` | `Goal.deflate`: `Zlib.Deflate.Universal.deflate_safety`, `public-deflate-goals.lean` |
-| `deflateEnd` | `Goal.deflateEnd_safety` | None | `Zlib.Deflate.Proofs.deflateEnd_reject`, a theorem that is not a goal | `Goal.deflateEnd`: `deflate_end_public`, `public-deflate-end.lean` |
-| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | `Goal.deflate_refusal` | None: `Goal.deflateSetDictionary` is not planned |
-| `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | `Goal.deflate_refusal` | `Goal.deflateGetDictionary`: `deflate_getdict_public`, `public-deflate-getdict.lean` |
-| `deflateCopy` | `Goal.deflateCopy_safety`: `Zlib.Deflate.Universal.deflate_copy_safety`, `public-deflate-copy.lean` | `source ≠ dest`; the destination is a readable record | `NULL` arguments and a source with a `NULL` allocator or state inside the goal; a source whose state the check refuses in `Goal.deflate_refusal` | `Goal.deflateCopy`: `deflate_copy_public`, `public-deflate-copy.lean` |
-| `deflateReset` | `Goal.deflateReset_safety` | None | `Zlib.Deflate.Proofs.deflateReset_reject`, a theorem that is not a goal | `Goal.deflateReset`: `deflate_reset_public`, `public-deflate-reset.lean` |
-| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` and `ActiveHeader` | `Goal.deflate_refusal` | None: `Goal.deflateParams` is not planned |
-| `deflateTune` | `Goal.deflateTune_safety` | None | In the functional goal only (see below) | `Goal.deflateTune`: `tune_public`, `public-deflate-small-queries.lean` |
-| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_nostate`, a theorem that is not a goal | None: `Goal.deflateBound` is not planned |
-| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` and `DeflateHeaderLive` | `Zlib.Deflate.Proofs.deflateBound_z_nostate`, a theorem that is not a goal | None: `Goal.deflateBound_z` is not planned |
-| `deflatePending` | `Goal.deflatePending_safety` | None. The result cells `*pending` and `*bits` are values in the model ([note](#result-cells)) | In the functional goal only (see below) | `Goal.deflatePending`: `pending_public`, `public-deflate-small-queries.lean` |
-| `deflateUsed` | `Goal.deflateUsed_safety` | None. The result cell `*bits` is a value in the model ([note](#result-cells)) | In the functional goal only (see below) | `Goal.deflateUsed`: `used_public`, `public-deflate-small-queries.lean` |
-| `deflatePrime` | `Goal.deflatePrime_safety` | Before the first `deflate` call (`DeflateNotStarted`), `zlib.h`'s rule | `Zlib.Deflate.Proofs.deflatePrime_refused`, a theorem that is not a goal | None: `Goal.deflatePrime` is not planned |
-| `deflateSetHeader` | `Goal.deflateSetHeader_safety` | Before the first `deflate` call; the header buffers (`HeaderMemory`) | In the functional goal only (see below) | `Goal.deflateSetHeader`: `header_public`, `public-deflate-small-queries.lean` |
-
-**Refusal in the functional goal only.** For `inflatePrime`, `inflateMark`, `deflateTune`,
-`deflatePending`, `deflateUsed` and `deflateSetHeader`, the `_safety` goal covers the call on a
-reachable stream and says nothing about a `NULL` or inconsistent stream. The refusal of such a
-stream is a clause of the functional goal of the same function (`CheckedInflate`,
-`CheckedDeflate`), so it is proved, and it is not part of a required goal.
-[Progress](progress.md#ordered-next-work) says what is planned for these six safety goals.
+| `deflate` | `Goal.deflate_safety` | `StreamBuffers` and `ActiveHeader` | Inside the goal: `Z_STREAM_ERROR`, heap unchanged; also `Goal.deflate_refusal` | `Goal.deflate`: `Zlib.Deflate.Universal.deflate_safety`, `public-deflate-goals.lean` |
+| `deflateEnd` | `Goal.deflateEnd_safety` | None | Inside the goal: `Z_STREAM_ERROR`, heap unchanged | `Goal.deflateEnd`: `deflate_end_public`, `public-deflate-end.lean` |
+| `deflateSetDictionary` | `Goal.deflateSetDictionary_safety` | The dictionary buffer (`CallerRange`) | Inside the goal: `Z_STREAM_ERROR`, heap unchanged; also `Goal.deflate_refusal` | None: `Goal.deflateSetDictionary` is not planned |
+| `deflateGetDictionary` | `Goal.deflateGetDictionary_safety` | The destination buffer (`CallerRange`). The result cell `*dictLength` is a value in the model ([note](#result-cells)) | Inside the goal: `Z_STREAM_ERROR`, no length stored, heap unchanged; also `Goal.deflate_refusal` | `Goal.deflateGetDictionary`: `deflate_getdict_public`, `public-deflate-getdict.lean` |
+| `deflateCopy` | `Goal.deflateCopy_safety`: `Zlib.Deflate.Universal.deflate_copy_safety`, `public-deflate-copy.lean` | `source ≠ dest`; the destination is a readable record | Inside the goal. A `NULL` `dest`: `Z_STREAM_ERROR`, heap unchanged. A `NULL` `source`, or a source record in `RefusedDeflate`, with a readable `dest` record: `Z_STREAM_ERROR`, and only `dest->state` is set to `NULL`. The refused source is also in `Goal.deflate_refusal` | `Goal.deflateCopy`: `deflate_copy_public`, `public-deflate-copy.lean` |
+| `deflateReset` | `Goal.deflateReset_safety` | None | Inside the goal: `Z_STREAM_ERROR`, heap unchanged | `Goal.deflateReset`: `deflate_reset_public`, `public-deflate-reset.lean` |
+| `deflateParams` | `Goal.deflateParams_safety` | `StreamBuffers` and `ActiveHeader` | Inside the goal: `Z_STREAM_ERROR`, heap unchanged; also `Goal.deflate_refusal` | None: `Goal.deflateParams` is not planned |
+| `deflateTune` | `Goal.deflateTune_safety` | None | Inside the goal: `Z_STREAM_ERROR`, heap unchanged | `Goal.deflateTune`: `tune_public`, `public-deflate-small-queries.lean` |
+| `deflateBound` | `Goal.deflateBound_safety` | `ActiveHeader` and `DeflateHeaderLive` | Inside the goal: the value the call returns for a `NULL` stream (a bound, not an error value), heap unchanged | None: `Goal.deflateBound` is not planned |
+| `deflateBound_z` | `Goal.deflateBound_z_safety` | `ActiveHeader` and `DeflateHeaderLive` | Inside the goal: the value the call returns for a `NULL` stream (a bound, not an error value), heap unchanged | None: `Goal.deflateBound_z` is not planned |
+| `deflatePending` | `Goal.deflatePending_safety` | None. The result cells `*pending` and `*bits` are values in the model ([note](#result-cells)) | Inside the goal: `Z_STREAM_ERROR`, neither count stored, heap unchanged | `Goal.deflatePending`: `pending_public`, `public-deflate-small-queries.lean` |
+| `deflateUsed` | `Goal.deflateUsed_safety` | None. The result cell `*bits` is a value in the model ([note](#result-cells)) | Inside the goal: `Z_STREAM_ERROR`, no count stored, heap unchanged | `Goal.deflateUsed`: `used_public`, `public-deflate-small-queries.lean` |
+| `deflatePrime` | `Goal.deflatePrime_safety` | Before the first `deflate` call (`DeflateNotStarted`), `zlib.h`'s rule | Inside the goal: `Z_STREAM_ERROR`, heap unchanged | None: `Goal.deflatePrime` is not planned |
+| `deflateSetHeader` | `Goal.deflateSetHeader_safety` | Before the first `deflate` call; the header buffers (`HeaderMemory`) | Inside the goal: `Z_STREAM_ERROR`, heap unchanged | `Goal.deflateSetHeader`: `header_public`, `public-deflate-small-queries.lean` |
 
 <a id="result-cells"></a>**Result cells.** `inflateGetDictionary`, `deflateGetDictionary`,
 `deflatePending` and `deflateUsed` store a result through a pointer. The translation takes such a
