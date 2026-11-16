@@ -7,13 +7,13 @@ returns, it writes only the memory its statement names, and it leaks nothing.
 [Safety](safety.md) defines the four clauses and shows them on an example.
 
 A **goal** is a Lean proposition about one function or one call sequence. The pages here
-describe the goals. They do not record whether a goal is proved: a goal is checked, registered
-or accepted, the [glossary](../glossary.md#status) defines the three levels, and
-[progress](../progress.md#scope) is the single page for the status.
+describe the goals. A goal is **done** when a theorem whose statement is exactly the goal
+exists, and **not done** otherwise. Every required safety goal is done;
+[progress](../progress.md) lists each goal with its state.
 
 The API and format pages also describe what each function returns and what the bytes mean.
-That is functional behaviour. It is not required for the safety results; the functional
-theorems that are already proved stay.
+That is functional behaviour. It is not required for the safety results. Some functional
+goals have a theorem all the same; each API entry says whether its functional goal has one.
 
 ## Read in this order
 
@@ -23,25 +23,20 @@ theorems that are already proved stay.
 | 2 | [Platform assumptions](platform.md) | Which fact about the system do the goals take as a premise? (One: no object of `2^63` bytes or more.) |
 | 3 | [API contracts](api/README.md) | What may a caller pass to each function, and what does it return or change? Which goal is its safety goal, and under which premises? |
 | 4 | [Internal helper contracts](internal-contracts.md) | What does a helper inside the library need from the function that calls it? |
-| 5 | [Input ranges](input-configurations.md) | Which parameter ranges do internal lemmas and the colours of the progress graph refer to? The safety goals cover every input, so this page does not restrict them. |
+| 5 | [Input ranges](input-configurations.md) | Which parameter ranges do lemmas about a fixed configuration refer to? The safety goals cover every input, so this page does not restrict them. |
 | 6 | [Compressed-data format](format/README.md) | What do DEFLATE, zlib and gzip bytes mean, independently of the implementation? Functional; not required. |
 | 7 | [Format relations](format/model.md) | How is that byte meaning written as mathematical relations? Functional; not required. |
 
-## Where the exact statements are
+## The exact statements
 
-The exact statements are Lean propositions under `ZlibF/Spec/`:
+The exact statements are Lean propositions. The safety goal of a function is named
+`Goal.<function>_safety`. [Safety, appendix](safety.md#where-the-goals-are) names the goal of
+every function and links its Lean source, and each entry of the
+[API manual](api/README.md) names its goal, the premises and the theorem that proves it.
 
-| Directory | Content | Required |
-| --- | --- | --- |
-| `ZlibF/Spec/Safety/` | The safety goals of the stream functions, the checksums, the queries and the whole-buffer functions, and the safety goals of the gzip file interface and of the callback decoder: one per function, the sequence goals, the refusal goal and the non-vacuity goals. | Yes. |
-| `ZlibF/Spec/Common/` | The definitions that both kinds of goal use: calls, histories, frames, the allocation account, the invariants, the platform premise (`PlatformMemory.lean`). Also statements about internal helpers that do not use the format model. No goal about a public function is here. | None of its content is a required goal. |
-| `ZlibF/Spec/Functional/` | The result contracts, the format and API models (`Format/`, `Api/`), the round-trip statements, and statements about internal helpers that use the format model. | No, except `Goal.compressBound` and `Goal.compressBound_z` ([safety, appendix](safety.md#where-the-goals-are)). |
-
-Nothing else is directly under `ZlibF/Spec/`, except the import file `Common.lean`.
-[The split](../design/safety-functional-split.md) gives the reasons and the import rules.
-
-[Progress, Target evidence](../progress.md#target-evidence) links each goal to its exact
-statement and to the theorem that proves it.
+No safety goal uses a functional specification (a format model or a result contract), except
+`Goal.compressBound` and `Goal.compressBound_z`, which are the full contracts of two pure
+functions. [The split](../design/safety-functional-split.md) gives the reasons.
 
 ## Prose and Lean
 
@@ -61,4 +56,3 @@ The pages of this section are prose. They explain the goals; they are not the go
 - The [trusted base](../trusted-base.md) records what the proofs depend on and the kernel does
   not check.
 - The [proof guides](../proof/README.md) explain how the goals are proved.
-- The [checking guide](../checking/README.md) explains the checks behind each level.

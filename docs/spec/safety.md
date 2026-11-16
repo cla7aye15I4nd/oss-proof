@@ -27,7 +27,7 @@ malformed input or `Z_MEM_ERROR` after a failed `malloc`, is a normal return and
 The goals state this for every argument value, every input byte sequence and every outcome of
 every `malloc`, on every state that a sequence of calls can reach. What the output bytes are
 and which code is returned is functional behaviour. It is not part of safety and is not
-required for the safety results ([progress, Scope](../progress.md#scope)).
+required for the safety results.
 
 ## A worked example
 
@@ -105,13 +105,11 @@ facts.
 
 ## What is proved, what is assumed
 
-**Proved.** The required goals are named in `tests/audit/public-api.json`: the `safety_goal` of
-each of the 86 documented functions, the further goals of the list `safety_goals` (the sequence
-goals, the refusal goals and the goal of `gzvprintf`), and the `nonvacuity_goals`. Each has a
-theorem of exactly its type, listed in `tests/audit/theorems.txt`, and each goal is listed in
-`tests/audit/proved-goals.txt`. The level of each result, the commit of its acceptance run and
-the number of goals are recorded in [progress](../progress.md#scope); the
-[glossary](../glossary.md#status) defines the levels.
+**Proved.** The required goals are the safety goal of each of the 86 documented functions, the
+sequence goals, the refusal goals, the goal of `gzvprintf`, and the non-vacuity goals. Each has
+a theorem of exactly its type: all of them are done. The
+[appendix](#where-the-goals-are) names them by function, and [progress](../progress.md) lists
+every goal.
 
 **Assumed.**
 
@@ -145,7 +143,7 @@ An implementation-defined choice is stated for the selected build. An unspecifie
 needs a proof for every admitted outcome where it affects the result. Neither is UB.
 
 Some terms used below are in the [glossary](../glossary.md): goal, history, refusal,
-non-vacuity, registered. The others are defined where they first appear.
+non-vacuity. The others are defined where they first appear.
 
 ## One call {#1-what-a-function-theorem-must-say}
 
@@ -197,7 +195,7 @@ for every block b:
     b is live after  ⇔  (b is live before and not removed b) or created b
 ```
 
-The project also calls this the **ledger**. It is an equivalence, so it is exact in both
+These pages also call it the **ledger**. It is an equivalence, so it is exact in both
 directions. A block cannot disappear unless the goal names it as removed. No block can stay
 allocated unless it was allocated before or the goal names it as created. "No leak" is this
 second direction together with ownership:
@@ -388,8 +386,8 @@ recorded in [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schem
 | U3 | No null dereference | Yes. |
 | U4 | No use after free or double free | Yes. A freed block number is never reused, so a dangling pointer faults. |
 | U5 | No invalid use of uninitialised data | Integers: every theorem holds for every value. Pointers: no; no theorem states it, and it is left to source review ([below](#uninitialised-memory)). |
-| U6 | No signed overflow | Yes, where the translation uses a checked signed operation. Where a preceding test in the same function keeps the operands in range, the translation uses the plain operator ([working rules, Translation](../../AGENTS.md#translation)); there the test excludes the overflow, and the model does not check it. |
-| U7 | No invalid shift | Yes, where the translation uses a checked shift operation. A shift by a literal count, and a few other shifts, are written with the plain operator, which the model does not check ([translation, form 4](../design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)). |
+| U6 | No signed overflow | Yes, where the translation uses a checked signed operation. Where a preceding test in the same function keeps the operands in range, the translation uses the plain operator ([translation](../design/translation.md)); there the test excludes the overflow, and the model does not check it. |
+| U7 | No invalid shift | Yes, where the translation uses a checked shift operation. A shift by a literal count, and a few other shifts, are written with the plain operator, which the model does not check ([translation](../design/translation.md)). |
 | U8 | No write to a read-only object | Partly: byte objects and static tables carry a read-only flag; other objects do not. |
 | U9 | No overlapping `memcpy` | Yes, for every `memcpy` call. |
 | U10 | Accesses respect C type and alignment requirements | No. The model has no type tags, no alignment and no complete ABI layout ([below](#object-representation)). |
@@ -487,11 +485,11 @@ well-formedness" and "CRC address and word access", and
 ## Outside safety
 
 - **Functional correctness.** What the output bytes are and which code a call returns. It is
-  not required for the safety results; [progress, Scope](../progress.md#scope) says which
-  functional results are planned. The functional goals are in `ZlibF/Spec/Functional/`;
-  those already proved are kept, and a functional fact that a safety proof depends on
-  is in scope. The [format](format/README.md) and the [API contracts](api/README.md) describe
-  the intended behaviour.
+  not required for the safety results; [progress](../progress.md) says which functional
+  results are planned. Some functional goals have a theorem, and each
+  [API entry](api/README.md) says whether its functional goal has one. A functional fact that
+  a safety proof depends on is proved as part of that proof. The [format](format/README.md)
+  and the [API contracts](api/README.md) describe the intended behaviour.
 - **Other configurations.** Custom allocators and every build other than the default x86_64
   Linux LP64 static build.
 - **The environment.** Correctness of the compiler and the operating system, performance, stack
@@ -500,26 +498,16 @@ well-formedness" and "CRC address and word access", and
 
 Malformed input is inside the safety domain: an error return must not hide a fault.
 
-## Appendix: where the goals are {#where-the-goals-are}
+## Appendix: the safety goals by function {#where-the-goals-are}
 
-Every safety goal is a Lean definition `ZlibF.Spec.Public.Goal.<name>`. It is in
-`ZlibF/Spec/Safety/`, with two exceptions: `Goal.compressBound` and `Goal.compressBound_z` are
-in `ZlibF/Spec/Functional/Queries.lean` (row below).
-
-`ZlibF/Spec/Common/` holds the definitions the goals use, and no goal about a public function. The invariants and the gz premises
-are among them: `Good` in `ZlibF/Spec/Common/InflateGood.lean`, `DGood` in
-`ZlibF/Spec/Common/DeflateGood.lean`, and `GzInv`, `ReadsFinite` and `NeedsReadBound` in
-`ZlibF/Spec/Common/GzInv.lean`.
-
-No module of the two directories may import a functional specification
-(`ZlibF/Spec/Functional/`), and no module under `ZlibF/Spec/` may import a proof module. The fast
-gate runs `scripts/check-spec-layers.py`, which rejects such an import, direct or through other
-modules, and has no exception to these rules. The functional gz and callback goals
-(`Goal.gz_sequence`, `Goal.inflate_back_sequence`, the `Goal.gz*` result contracts) are in
-`ZlibF/Spec/Functional/`; they are not required
+Every safety goal is a Lean definition `ZlibF.Spec.Public.Goal.<name>`. The statement of a
+safety goal uses no functional specification: no format model and no result contract. The two
+exceptions are `Goal.compressBound` and `Goal.compressBound_z` (row below). The functional
+goals of the gzip file interface and of the callback decoder (`Goal.gz_sequence`,
+`Goal.inflate_back_sequence`, the `Goal.gz*` result contracts) are not required
 ([the split](../design/safety-functional-split.md)).
 
-| Function | Safety goal | File |
+| Function | Safety goal | Lean source |
 | --- | --- | --- |
 | `inflate`, `deflate` and the other calls on a live stream | `Goal.<function>_safety`: the refusal of a `NULL` or inconsistent stream, and one more call on a reachable stream ([calls and sequences](#2-calls-and-sequences)) | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
 | `inflateEnd`, `deflateEnd` | `Goal.<function>_safety`: the refusal of a `NULL` or inconsistent stream, and on a reachable stream the stream frees what it owns | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
@@ -537,9 +525,6 @@ modules, and has no exception to these rules. The functional gz and callback goa
 | every history of a callback decoder | `Goal.inflate_back_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
 | non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.inflateBack_call_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
-`tests/audit/public-api.json` is the list the audit uses. For each function it gives a
-`safety_goal` and a `functional_goal`. The required set is every `safety_goal`, the list
-`safety_goals` and the list `nonvacuity_goals`. The list `open_safety` names required goals
-that have no theorem yet ([progress](../progress.md#scope) says whether there is one). The functions that `zlib.h` declares under
-"undocumented functions" have no required goal, except `gzvprintf`: its goal
-`Goal.gzvprintf_safety` is in the list `safety_goals`.
+The functions that `zlib.h` declares under "undocumented functions" have no required goal,
+except `gzvprintf`: `gzprintf` goes through it, and its goal `Goal.gzvprintf_safety` is
+required.
