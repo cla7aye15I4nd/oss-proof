@@ -23,11 +23,9 @@ most the three root import files Safety.lean, Functional.lean and Common.lean.
    is deleted when its import goes. Rule 3 still holds for every Spec module, also through these Math
    modules.
 
-5. No public goal is defined under ZlibF/Spec/Common/: a goal that tests/audit/public-api.json names
-   (as a safety, functional, sequence, non-vacuity or not-planned goal) is defined under Safety/ or
-   Functional/. The check reads each line that starts with `def Goal.` or `abbrev Goal.` in a
-   Common module, qualifies the name with the enclosing namespaces, and looks it up in the registry.
-   Internal component goals (those the registry does not name) are not public goals.
+5. No goal is defined under ZlibF/Spec/Common/: every goal, public or internal, is defined under
+   Safety/ or Functional/. The check reads each line of a Common module that starts with `def Goal.`
+   or `abbrev Goal.`, and qualifies the name with the enclosing namespaces for the message.
 
 There is no other allowlist.
 """
@@ -231,26 +229,7 @@ def check_modules(errors):
     return len(modules)
 
 
-def public_goals():
-    import json
-    names = set()
-
-    def walk(value):
-        if isinstance(value, dict):
-            for item in value.values():
-                walk(item)
-        elif isinstance(value, list):
-            for item in value:
-                walk(item)
-        elif isinstance(value, str) and '.Goal.' in value:
-            names.add(value)
-
-    walk(json.loads((ROOT / 'tests/audit/public-api.json').read_text()))
-    return names
-
-
 def check_common_goals(errors):
-    registered = public_goals()
     for path in sorted((SPEC / 'Common').rglob('*.lean')):
         spaces = []
         for number, line in enumerate(path.read_text().splitlines(), 1):
@@ -263,9 +242,8 @@ def check_common_goals(errors):
             match = re.match(r'(?:def|abbrev)\s+(Goal\.\S+)', line)
             if match:
                 name = '.'.join(spaces + [match.group(1)])
-                if name in registered:
-                    errors.append(f'{path.relative_to(ROOT)}:{number}: the public goal {name} is defined '
-                                  'under Spec/Common: move it to Spec/Safety or Spec/Functional')
+                errors.append(f'{path.relative_to(ROOT)}:{number}: the goal {name} is defined '
+                              'under Spec/Common: move it to Spec/Safety or Spec/Functional')
 
 
 def check_math(errors):
@@ -295,7 +273,7 @@ def main():
             print('  ' + error)
         return 1
     print(f'specification layers: {count} modules under ZlibF/Spec; safety and common import no functional '
-          'module, common imports no safety module and defines no public goal, and none imports a proof module; '
+          'module, common imports no safety module and defines no goal, and none imports a proof module; '
           f'{remaining} listed Math -> Proof imports remain ({len(MATH_PROOF_IMPORTS)} modules)')
     return 0
 
