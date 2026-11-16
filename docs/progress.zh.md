@@ -1,4 +1,4 @@
-<!-- source-sha256: c229503337084b46687f302e0480437700437a6b70f911799a965625f89e99f9 -->
+<!-- source-sha256: 6ba9c4b54c5b3f9a3d43029354e117a626f6b211230493ef9d4cd30e960924bb -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)。某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)：那一页把每个函数对应到它的定理，不写层级。
@@ -2544,7 +2544,7 @@ flowchart LR
 
 **`gzerror` 返回的字符串会被下一次到达 `gz_error` 的调用释放。** 这是一条未确认的发现，属于文档缺口，不是代码缺陷。`zlib.h` 只说之后对 `gzerror` 的调用可能使返回的字符串失效。实际上 `gzerror` 返回的是 `state->msg`，而每个到达 `gz_error` 的调用都会释放它。写入的入口函数（`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams`）在检查模式和错误之后、使用参数之前，用 `gz_error(state, Z_OK, NULL)` 重置错误。读取的入口函数（`gzread`、`gzfread`、`gzgetc`、`gzungetc`、`gzgets`）只在上一次读取停滞时才这样做（表见[偏离记录](deviations.md#why-the-handles-own-strings-are-excluded)）。调用者把这个字符串再传回同一个句柄，就可能遇到释放后使用：写入停滞之后的 `gzprintf(f, "%s", gzerror(f, &e))` 在 `vsnprintf` 中读取已释放的内存（[复现](../tests/regression/gzprintf-error-string/README.md)，ASan）。没有补丁。已证明的定义域让调用者的字符串和缓冲区与句柄的块分开（`GzRange`，以及 `GzArguments` 中针对 `gzprintf` 和 `gzvprintf` 的分离子句；[偏离记录](deviations.md)）。
 
-**`deflateBound` 在两种情形下偏小。** 两者都是 `zlib.h` 关于大小的承诺没有兑现，不是内存错误，并且都在固定版本的 C 上复现了。`Z_FIXED` 策略、压缩级别 1 到 3、`windowBits` 为 15 且 `memLevel` 为 8 时，给出 `deflateBound` 字节的空间，一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`（[发现](findings/deflatebound-fixed-far-matches/README.md)）。gzip extra 字段长度为 `2^32 - 2` 或 `2^32 - 1` 时，`2 + extra_len` 这个和在 32 位上回绕（[发现](findings/deflatebound-extra-len/README.md)）。必需的安全目标都不依赖这个上界的数值。有两处功能命题依赖它，这两项发现的页面说它们在这些情形下按现在的写法是假的：对每种策略量化的 `DeflateCompletes`，以及关于数值的目标 `Goal.deflateBound` 和 `Goal.deflateBound_z`（它们未证明）。默认策略不受影响，所以计划中的默认流往返不受影响。这些功能命题怎样改正，还没有决定。
+**`deflateBound` 在两种情形下偏小。** 两者都是 `zlib.h` 关于大小的承诺没有兑现，不是内存错误，并且都在未打补丁的 C 上复现了。`Z_FIXED` 策略、压缩级别 1 到 3、`windowBits` 为 15 且 `memLevel` 为 8 时，给出 `deflateBound` 字节的空间，一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`（[发现](findings/deflatebound-fixed-far-matches/README.md)）。gzip extra 字段长度为 `2^32 - 2` 或 `2^32 - 1` 时，`2 + extra_len` 这个和在 32 位上回绕（[发现](findings/deflatebound-extra-len/README.md)）。必需的安全目标都不依赖这个上界的数值。有两处功能命题依赖它，这两项发现的页面说它们在这些情形下按现在的写法是假的：对每种策略量化的 `DeflateCompletes`，以及关于数值的目标 `Goal.deflateBound` 和 `Goal.deflateBound_z`（它们未证明）。默认策略不受影响，所以计划中的默认流往返不受影响。第一种情形已用本地补丁修正（补丁 0006，所有者 2026-11-15 的决定），所以 `DeflateCompletes` 不需要为它加前提。第二种情形下关于数值的目标怎样改正，还没有决定。
 
 ### 待复查的历史报告
 

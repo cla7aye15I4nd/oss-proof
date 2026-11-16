@@ -1,4 +1,4 @@
-<!-- source-sha256: bdfebda7a9f1de25a6977ca6e3693cb2da197b5c2328495e9666024b322e8133 -->
+<!-- source-sha256: 92aaae031009bced51b5db287638ba6b7fe6f79fccfca6f0f85c962a49d79d4d -->
 # 补丁
 
 被验证的源码是固定的 `zlib/` 子模块，加上本目录中按文件名顺序应用的 `*.patch` 文件。绝不直接修改子模块。
@@ -12,8 +12,9 @@
 | 0003 | [透明模式下部分读取后失败时过时的 `x.next`](../docs/findings/gzread-transparent-stale-next/README.md) | [拉取请求 #1363](https://github.com/madler/zlib/pull/1363)，仍处于打开状态 |
 | 0004 | gz 位置 `x.pos` 的有符号溢出，[读取](../docs/findings/gzread-pos-overflow/README.md)和[写入](../docs/findings/gzwrite-pos-overflow/README.md) | 本地补丁，等待提交：尚未提交 |
 | 0005 | 对[未写入](../docs/findings/gz-reset-next-uninitialised/README.md)或[悬空](../docs/findings/gz-next-dangling-after-direct-read/README.md)的 `x.next` 的零前进 | 本地补丁，等待提交：尚未提交 |
+| 0006 | [`Z_FIXED` 在级别 1 到 3 时 `deflateBound` 偏小](../docs/findings/deflatebound-fixed-far-matches/README.md) | 本地补丁，等待提交：尚未提交 |
 
-每个链接的页面给出调用序列、运行命令、sanitizer 的判定、范围和修复。[发现](../docs/findings.md)把它们列在一张表里。补丁 0001 至 0004 修复的是 sanitizer 在真实 C 上报告的问题。补丁 0005 修复的行为仅按 C 标准的字面规定未定义。下文的标签 R-1 至 R-4、F-1 和 W7 是 [gzip 证明说明](../docs/proof/gzip.md)中的标签。
+每个链接的页面给出调用序列、运行命令、sanitizer 的判定、范围和修复。[发现](../docs/findings.md)把它们列在一张表里。补丁 0001 至 0004 修复的是 sanitizer 在真实 C 上报告的问题。补丁 0005 修复的行为仅按 C 标准的字面规定未定义。补丁 0006 修复的是 `zlib.h` 的一项没有兑现的承诺，不是未定义行为。下文的标签 R-1 至 R-4、F-1 和 W7 是 [gzip 证明说明](../docs/proof/gzip.md)中的标签。
 
 ## 0001-inflate-copy-pointer-equality.patch
 
@@ -44,3 +45,9 @@
 本地补丁，等待提交上游：尚未提交。所有者于 2026-11-12 批准。
 
 在 `gzseek64` 和 `gz_skip_have` 中，只有当前进量 `n` 不为零时才移动 `state->x.next`。当 `n == 0` 时，该字段可能从未被写入（`gz_reset` 不设置它：R-3），也可能指向调用者在一次直接 `gzread` 之后已释放的缓冲区（R-4）；对这两种值做指针运算在 C 中都是未定义的。任何结果和状态都不变。发现：[gz-reset-next-uninitialised](../docs/findings/gz-reset-next-uninitialised/README.md)（R-3）和 [gz-next-dangling-after-direct-read](../docs/findings/gz-next-dangling-after-direct-read/README.md)（R-4）。证据：按 C 标准的字面规定未定义；没有任何 sanitizer 报告它们。复现中的探针显示了对从未写入的值和悬空值的零前进，以及打补丁后它们消失。没有这个补丁，“指针字段先写后读”的证明规则以及模型对悬空指针运算的故障会阻碍 gz 读取函数的证明。拉取请求草稿在 R-3 的发现中。
+
+## 0006-deflatebound-fixed-conservative.patch
+
+本地补丁，等待提交上游：尚未提交。所有者于 2026-11-15 批准。
+
+在 `deflateBound_z` 中，策略为 `Z_FIXED` 时也返回保守的上界之一，而不只是在 `windowBits` 或 `memLevel` 不是默认值时。较紧的默认上界假定每个块都能退回为存储块。跨过一次窗口滑动的块没有这条退路（`FLUSH_BLOCK_ONLY` 传入 `buf = NULL`），而 `deflate_fast`（级别 1 到 3）接受任意距离上的 3 字节匹配，用固定码时这样的匹配要 25 位。于是在 `Z_FIXED` 下输出会超过上界，给出这么多空间的一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`，违背 `zlib.h` 的承诺。此时适用的保守上界（级别 1 到 9 用 `fixedlen`，级别 0 用 `storelen`，与其他参数组合相同）允许每字节 9 位。其他策略和其他参数组合都不变。发现：[deflatebound-fixed-far-matches](../docs/findings/deflatebound-fixed-far-matches/README.md)。证据：复现程序在未打补丁的 C 上于级别 1 到 3 返回 `Z_OK`，打补丁后在每个级别都返回 `Z_STREAM_END`，开启和不开启 AddressSanitizer 与 UndefinedBehaviorSanitizer 都是如此；`tests/goals/deflate-bound` 的远距离匹配搜索在打补丁后没有发现失败。这是一项没有兑现的 API 承诺，不是内存错误。它阻碍往返的完备性目标 `DeflateCompletes` 和 `deflateBound` 的承诺，这两者对每种策略量化。

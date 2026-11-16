@@ -2793,7 +2793,7 @@ domain keeps caller strings and buffers apart from the handle's blocks (`GzRange
 separation clause of `GzArguments` for `gzprintf`/`gzvprintf`, [deviations](deviations.md)).
 
 **`deflateBound` is too small in two cases.** Both are broken promises of `zlib.h` about a size,
-not memory errors, and both are reproduced on the pinned C. With `Z_FIXED` at levels 1 to 3,
+not memory errors, and both are reproduced on the unpatched C. With `Z_FIXED` at levels 1 to 3,
 `windowBits` 15 and `memLevel` 8, one `deflate(Z_FINISH)` call with `deflateBound` bytes of room
 returns `Z_OK` ([finding](findings/deflatebound-fixed-far-matches/README.md)). With a gzip extra
 field of length `2^32 - 2` or `2^32 - 1`, the sum `2 + extra_len` wraps at 32 bits
@@ -2801,8 +2801,9 @@ field of length `2^32 - 2` or `2^32 - 1`, the sum `2 + extra_len` wraps at 32 bi
 value of the bound. Two functional statements do, and the finding pages say they are false as
 stated for these cases: `DeflateCompletes`, which quantifies over every strategy, and the value
 goals `Goal.deflateBound` and `Goal.deflateBound_z`, which are open. The default strategy is not
-affected, so the planned round trip of the default stream is not affected. How the functional
-statements are corrected is not decided.
+affected, so the planned round trip of the default stream is not affected. The first case is
+patched locally (patch 0006, owner's decision of 2026-11-15), so `DeflateCompletes` needs no
+premise for it. How the value goals are corrected for the second case is not decided.
 
 ### Historical reports to recheck
 

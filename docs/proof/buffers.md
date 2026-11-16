@@ -137,5 +137,6 @@ A reading of the C that no theorem states is marked **to confirm**.
   [upstream discussion](https://github.com/madler/zlib/pull/1360); no patch for it is applied
   (`patches/README.md` lists the patches). Whether the output fits the bound is a functional
   question, which the safety results do not need. A second finding shows a configuration in
-  which it does not: [`Z_FIXED` at levels 1 to 3](../findings/deflatebound-fixed-far-matches/README.md).
+  which the unpatched C does not: [`Z_FIXED` at levels 1 to 3](../findings/deflatebound-fixed-far-matches/README.md).
+  The local patch 0006 gives `Z_FIXED` the conservative bound.
   **To confirm**: that the output fits the bound on the rest of the source and header domain.

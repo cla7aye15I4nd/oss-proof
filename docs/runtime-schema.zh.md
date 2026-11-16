@@ -1,4 +1,4 @@
-<!-- source-sha256: 5131595e6a122cfe06bd0bb273bbbbd616c1ba166996c1d331620fda4e5e38f7 -->
+<!-- source-sha256: 0a66c18506e3897432cce2677884b15924e0d4a4b083cf2533151bba0cfa3c40 -->
 # 运行时结构：对象堆上的 zlib 结构体
 
 本页对应的英文结构说明由 `scripts/gen_schema.py` **自动生成**，同时生成
