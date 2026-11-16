@@ -1,4 +1,4 @@
-<!-- source-sha256: 401aef43f8ed72490391f73ba4aec31eb02c2143091a5f076fb10fe5a73b001d -->
+<!-- source-sha256: a3a9e60f03e218b2378c1f189347b1e54a60cab7803409e28b89abdd9a8b2218 -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)。某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)：那一页把每个函数对应到它的定理，不写层级。
@@ -32,41 +32,42 @@
 
 | # | 是否已登记 | 在哪个提交上已验收 |
 | ---: | --- | --- |
-| 1 | 是，两个目标都已登记 | 序列目标以及 `Goal.inflate_safety` 的早先形式：`bde170e9`。已登记、未验收：`Goal.inflate_safety` 的现行形式 |
-| 2 | 是，两个目标都已登记 | 序列目标以及 `Goal.deflate_safety` 的早先形式：`bde170e9`。已登记、未验收：`Goal.deflate_safety` 的现行形式 |
-| 3a | 是，八个都已登记 | `bde170e9` |
-| 3b | 是，五个都已登记 | 非空性目标以及序列目标的早先形式：`bde170e9`。已登记、未验收：三个单函数目标，以及序列目标的现行形式 |
-| 3c | 是，35 个都已登记 | 序列目标、拒绝目标和非空性目标：`bde170e9`。已登记、未验收：32 个单函数目标 |
-| 3d | 是，46 个都已登记 | `bde170e9`；下列目标的现行形式除外，它们已登记、未验收：四个 init 安全目标；`ZlibF/Spec/Safety/Streams.lean` 中除 `Goal.inflate_safety` 和 `Goal.deflate_safety`（第 1、2 行）之外的 21 个目标；`Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety` |
+| 1 | 是，两个目标都已登记 | `14d50567`。在它之前，序列目标以及 `Goal.inflate_safety` 的早先形式：`bde170e9` |
+| 2 | 是，两个目标都已登记 | `14d50567`。在它之前，序列目标以及 `Goal.deflate_safety` 的早先形式：`bde170e9` |
+| 3a | 是，八个都已登记 | `14d50567`。在它之前：`bde170e9` |
+| 3b | 是，五个都已登记 | `14d50567`。在它之前，非空性目标以及序列目标的早先形式：`bde170e9` |
+| 3c | 是，35 个都已登记 | `14d50567`。在它之前，序列目标、拒绝目标和非空性目标：`bde170e9` |
+| 3d | 是，46 个都已登记 | `14d50567`。在它之前：`bde170e9`，下列目标的现行形式除外：四个 init 安全目标；`ZlibF/Spec/Safety/Streams.lean` 中除 `Goal.inflate_safety` 和 `Goal.deflate_safety`（第 1、2 行）之外的 21 个目标；`Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety` |
 
-“已登记、未验收”指：还没有哪次覆盖该目标现行形式的验收运行以全部通过结束。
+全部 98 个必需目标的现行形式都在 `14d50567` 上已验收。没有未完成的。“在它之前”后面的内容是历史：它们说的是 `bde170e9` 上那次运行覆盖了什么。
 
 **验收运行。** 每一条是工作流 `lean` 的一次运行，内容读自该次运行的记录。
 
 - **`bde170e9`，全部通过。** 2026-11-15 的手动运行 43671067586。每个作业都通过：`build`、`no-sorry`、`audit_core`、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `audit` 和 `difftest` 两项结果。当时必需的 63 个目标都已登记。`main` 上文件树与它相同的提交 `74a2097c`，在同一天的夜间运行 43735018381 中全部通过。
 - **`3fdbbc38`，已取消：不是已验收的提交。** 2026-11-15 的手动运行 43763696005，所在提交包含全部 98 个必需目标在该提交时的形式；其中 25 个此后有改动（见下文的拒绝子句）。这次运行启动时，变异体分片还是 `audit` 的一部分；它在只剩这些分片还在运行时被取消。取消之前已经通过的有：`build`、`no-sorry`、`audit_core`、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `difftest` 这项结果。二十个变异体分片被取消，所以 `audit` 这项结果失败，整次运行记为已取消。现在组成验收套件的各部分，在这次运行中都通过了。它之所以不算数，是因为这次运行的 `audit` 结果是失败，而验收是按这项结果来读的。没有任何结论凭这次运行算作已验收。
-- **下一次运行：提交尚未指定。** <a id="next-acceptance-run"></a>在之后的某个提交上干净地运行一次验收套件，就会验收表中标为“已登记、未验收”的目标。这一行是记录它的唯一位置：提交、运行和日期。在填写之前，这些目标保持已登记。
+- **`e9f2c7d7`，失败：不是已验收的提交。** 2026-11-16 的手动运行 43816487962。它只在差分测试框架的预检中失败：框架自测的一个变异行写的仍是 zlib 1.4 之前 `lext` 表的表尾。`diff_harness` 的全部八个分片都停在那里，所以 `difftest` 这项结果失败。提交 `36d7bfc5` 更正了这一行。
+- **`14d50567`，全部通过。** <a id="next-acceptance-run"></a>2026-11-16 的手动运行 43830450537。每个作业都通过：`build`、`no-sorry`、`audit_core`（公理关卡和精确目标匹配）、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `audit` 和 `difftest` 两项结果。变异体作业被跳过。这次运行所在的提交是 `36d7bfc5`。它的文件树与 `14d50567` 的文件树完全相同，后者是 `main` 上压缩合并拉取请求 165 的提交，所以结果对 `14d50567` 成立。提交 `36d7bfc5` 保留在分支 `archive/dev-before-165` 上。这次运行验收了全部 98 个必需目标的现行形式。
 
 差分测试是忠实度的证据，不是证明。
 
 **证明变异体的运行。** 证明变异体是额外的证据。它们只按需运行，不构成任何关卡，连同提交在这里报告，与验收分开。
 
 - **`bde170e9`，全部通过。** 运行 43671067586 的全部二十个变异体分片都通过。夜间运行 43735018381 的二十个分片也都通过，它所在的 `74a2097c` 是 `main` 上文件树相同的提交。
-- **在更晚的提交上，还没有结束的变异体运行。** `3fdbbc38` 上那次运行的分片被取消了。`bde170e9` 之后登记的 35 个目标的变异体行是存在的（`tests/audit/public-mutants.json`），审计在 `3fdbbc38` 上检查过这一点；还没有哪次结束的运行执行过它们。
+- **在更晚的提交上，还没有结束的变异体运行。** `3fdbbc38` 上那次运行的分片被取消了，`14d50567` 上那次运行跳过了变异体作业。`bde170e9` 之后登记的 35 个目标的变异体行是存在的（`tests/audit/public-mutants.json`），审计在 `3fdbbc38` 上检查过这一点；还没有哪次结束的运行执行过它们。
 
-从 `bde170e9` 到本页之间，有以下改动：
+从 `bde170e9` 到 `14d50567` 之间，有以下改动。`14d50567` 上那次运行覆盖了全部这些改动：
 
-- **每个 gz 函数和每个回调解码器函数都有了自己的安全目标。** 新增 35 个目标：31 个有文档的 gz 函数各一个，`gzvprintf` 一个，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 各一个（`ZlibF/Spec/Safety/GzCalls.lean`、`ZlibF/Spec/Safety/Back.lean`；证明在 `ZlibF/Proof/public-gz-call-safety.lean` 和 `ZlibF/Proof/public-back-safety.lean`）。它们在提交 `0cdd7bdd` 中登记：`tests/audit/` 下的登记表增加了这 35 个目标和它们的 35 条定理，清单文件为每个函数写明它自己的目标，`scripts/verification.py` 不再允许几个函数共用一个安全目标。必需目标从 63 个增加到 98 个。此前，gz 函数写的是 `Goal.gz_sequence_safety`，三个回调函数写的是 `Goal.inflate_back_sequence_safety`。这 35 个目标已登记、未验收：快速关卡在 `3fdbbc38` 上全部通过。
-- **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Common/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式已登记、未验收。
+- **每个 gz 函数和每个回调解码器函数都有了自己的安全目标。** 新增 35 个目标：31 个有文档的 gz 函数各一个，`gzvprintf` 一个，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 各一个（`ZlibF/Spec/Safety/GzCalls.lean`、`ZlibF/Spec/Safety/Back.lean`；证明在 `ZlibF/Proof/public-gz-call-safety.lean` 和 `ZlibF/Proof/public-back-safety.lean`）。它们在提交 `0cdd7bdd` 中登记：`tests/audit/` 下的登记表增加了这 35 个目标和它们的 35 条定理，清单文件为每个函数写明它自己的目标，`scripts/verification.py` 不再允许几个函数共用一个安全目标。必需目标从 63 个增加到 98 个。此前，gz 函数写的是 `Goal.gz_sequence_safety`，三个回调函数写的是 `Goal.inflate_back_sequence_safety`。这 35 个目标在 `14d50567` 上已验收。
+- **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Common/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式在 `14d50567` 上已验收。
 
-- **四个初始化安全目标扩大了范围。** `Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 对 `zlib.h` 允许的每次调用都成立（提交 `101c6ab3`，`ZlibF/Spec/Safety/Initialisation.lean`；证明在 `8642e435`，`ZlibF/Proof/public-init-safety.lean`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。范围扩大之后的四个目标已检查、已登记，尚未验收：快速关卡在 `8642e435` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是较窄的形式。
-- **流安全目标陈述了对 `NULL` 流或不一致的流的拒绝。** `ZlibF/Spec/Safety/Streams.lean` 中的 23 个单函数流安全目标各增加了一个拒绝子句：十个 inflate 目标和十三个 deflate 目标，其中包括 `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.inflateEnd_safety` 和 `Goal.deflateEnd_safety`。两个复制目标 `Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety`（`ZlibF/Spec/Safety/Copy.lean`）陈述了对每一个被拒绝的源的拒绝（提交 `71188823`；证明在 `0c45d863`，`ZlibF/Proof/public-stream-call-safety.lean`、`ZlibF/Proof/public-inflate-copy-safety.lean` 和 `ZlibF/Proof/public-deflate-copy.lean`）。此前，流目标只覆盖对可达流的调用；`Goal.inflateCopy_safety` 没有针对不一致的源的子句，`Goal.deflateCopy_safety` 的那个子句只覆盖 `zalloc`、`zfree` 或 `state` 为 `NULL` 的源。每个目标的现行形式都蕴含它的早先形式（`ZlibF/Proof/public-stream-refusal-strengthening.lean`）。目标及其定理的名字没有变，所以登记表没有变。现行形式的这 25 个目标已检查、已登记，尚未验收：快速关卡在 `2ef5694c` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是早先的形式。
-- **不是必需目标的命题有改动。** 快速解码器的规格允许输入和输出位于任意字节视图中，而不只是堆块中（提交 `4ed7315e`；这些模块现在是 `ZlibF/Spec/Common/Inflate/` 和 `ZlibF/Spec/Functional/Inflate/` 下的 `InflateFast*.lean`）；有一个回归文件从现行命题推出每个早先的命题（`tests/verification/regressions/inffast-byte-views-old-from-new.lean`）。两个功能定义有改动：`WrapperLength`（提交 `ac0fccc5`）和 `DeflateCompletes`（提交 `a2cf8723`）。这些命题中已登记的目标，其现行形式同样还没有结束的验收运行。
+- **四个初始化安全目标扩大了范围。** `Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 对 `zlib.h` 允许的每次调用都成立（提交 `101c6ab3`，`ZlibF/Spec/Safety/Initialisation.lean`；证明在 `8642e435`，`ZlibF/Proof/public-init-safety.lean`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。范围扩大之后的四个目标在 `14d50567` 上已验收。它们在 `bde170e9` 上已验收的只是较窄的形式。
+- **流安全目标陈述了对 `NULL` 流或不一致的流的拒绝。** `ZlibF/Spec/Safety/Streams.lean` 中的 23 个单函数流安全目标各增加了一个拒绝子句：十个 inflate 目标和十三个 deflate 目标，其中包括 `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.inflateEnd_safety` 和 `Goal.deflateEnd_safety`。两个复制目标 `Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety`（`ZlibF/Spec/Safety/Copy.lean`）陈述了对每一个被拒绝的源的拒绝（提交 `71188823`；证明在 `0c45d863`，`ZlibF/Proof/public-stream-call-safety.lean`、`ZlibF/Proof/public-inflate-copy-safety.lean` 和 `ZlibF/Proof/public-deflate-copy.lean`）。此前，流目标只覆盖对可达流的调用；`Goal.inflateCopy_safety` 没有针对不一致的源的子句，`Goal.deflateCopy_safety` 的那个子句只覆盖 `zalloc`、`zfree` 或 `state` 为 `NULL` 的源。每个目标的现行形式都蕴含它的早先形式（`ZlibF/Proof/public-stream-refusal-strengthening.lean`）。目标及其定理的名字没有变，所以登记表没有变。现行形式的这 25 个目标在 `14d50567` 上已验收。它们在 `bde170e9` 上已验收的只是早先的形式。
+- **不是必需目标的命题有改动。** 快速解码器的规格允许输入和输出位于任意字节视图中，而不只是堆块中（提交 `4ed7315e`；这些模块现在是 `ZlibF/Spec/Common/Inflate/` 和 `ZlibF/Spec/Functional/Inflate/` 下的 `InflateFast*.lean`）；有一个回归文件从现行命题推出每个早先的命题（`tests/verification/regressions/inffast-byte-views-old-from-new.lean`）。两个功能定义有改动：`WrapperLength`（提交 `ac0fccc5`）和 `DeflateCompletes`（提交 `a2cf8723`）。`14d50567` 上那次运行也覆盖了这些命题中已登记的目标的现行形式。
 - **功能方面工作的证明模块有改动。** 关于 `inflate` 输出含义的模块（`ZlibF/Proof/inflate.c.meaning*.lean`）有新增和修改。其中没有任何定理被登记。
 
-`goals.txt`、`proved-goals.txt` 和 `theorems.txt` 这三份列表的改动只有第一条所说的 35 个目标和 35 条定理；`public-mutants.json` 增加了这 35 个目标的键。全部改动就是 `bde170e9` 与本提交之间在 `ZlibF/Spec/`、`tests/audit/` 和 `scripts/` 下的差异。
+`goals.txt`、`proved-goals.txt` 和 `theorems.txt` 这三份列表的改动只有第一条所说的 35 个目标和 35 条定理；`public-mutants.json` 增加了这 35 个目标的键。全部改动就是 `bde170e9` 与 `14d50567` 之间在 `ZlibF/Spec/`、`tests/audit/` 和 `scripts/` 下的差异。
 
-**未完成。** 安全结论所需要的东西没有缺口。每个必需目标都已登记。剩下的是表中标为“已登记、未验收”的目标的验收（[按顺序的下一步工作](#ordered-next-work)）。
+**未完成。** 安全结论所需要的东西没有缺口。每个必需目标都已登记，并在 `14d50567` 上已验收。剩下的工作见[按顺序的下一步工作](#ordered-next-work)。
 
 **安全结论之后的计划：默认 zlib 流的往返。** 默认流指默认压缩级别的 `deflateInit` 配上 `inflateInit`。顺序是：先证条件形式（当一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节）；再证完备性（输出空间足够且分配成功时，两边都到达 `Z_STREAM_END`）；最后是无条件的往返，以及 `uncompress(compress(x)) = x`。条件形式已在 `dev` 上对翻译后的 C 检查：定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`），它没有登记。完备性和无条件形式未证明。已登记的目标 `Api.Goal.roundtrip` 是仅关于模型的命题：它说的是抽象 API 模型。先前在往返的 deflate 一侧所做的工作（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分）保留着；默认流的往返需要其中哪些，本页不作定论。
 
@@ -2431,7 +2432,7 @@ flowchart LR
 
 ## 剩余工作
 
-98 个必需目标都已登记；每项结论的层级和各次验收运行见[范围](#scope)。没有任何目标存在记录在案的阻碍。剩下的工作列在[按顺序的下一步工作](#ordered-next-work)中。
+98 个必需目标都已登记、已验收；每项结论的层级和各次验收运行见[范围](#scope)。没有任何目标存在记录在案的阻碍。剩下的工作列在[按顺序的下一步工作](#ordered-next-work)中。
 
 以下各节只保留事实和未完成的事项。已经结束的工作记录原样保存在 `docs/history/` 下；其中的状态、工时和数字描述的是写作当时的情况：
 
@@ -2473,10 +2474,10 @@ flowchart LR
 
 ### 按顺序的下一步工作
 
-每个必需目标都已登记：98 个安全目标和非空性目标，没有未完成的（`tests/audit/public-api.json`）。验收套件在哪个提交上全部通过、此后有什么变化，见[范围](#scope)。剩下的工作按顺序是：
+每个必需目标都已登记、已验收：98 个安全目标和非空性目标，没有未完成的（`tests/audit/public-api.json`）。验收套件在哪个提交上全部通过、是哪一次运行，见[范围](#scope)。第 1 项和第 2 项已经完成；剩下的工作从第 3 项开始。
 
-1. **验收** `bde170e9` 之后登记或改动的目标：gz 函数和回调解码器的 35 个单函数安全目标、范围扩大后的初始化目标、回调解码器序列目标的现行形式，以及带拒绝子句的 25 个流目标和复制目标（第 2 项）。它们已经登记，只差验收套件在某个具名提交上全部通过：公理关卡、精确目标匹配、自测和差分测试。这不需要变异体运行。那个提交记入[范围](#next-acceptance-run)。
-2. **拒绝子句。** 命题和证明已经完成：23 个单函数流安全目标和两个复制目标都陈述了拒绝（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 1 项）。它们的定理沿用已登记的名字。对它们来说，剩下的是第 1 项的验收运行。没有为新的拒绝子句增加变异体行；这些目标现有的变异体行都早于拒绝子句。变异体是附加的证据，不是验收的条件。
+1. **验收：已完成。** 全部 98 个必需目标在 `14d50567` 上已验收：验收套件（公理关卡、精确目标匹配、自测和差分测试）在运行 43830450537 中全部通过（[范围](#next-acceptance-run)）。这覆盖了 `bde170e9` 之后登记或改动的目标：gz 函数和回调解码器的 35 个单函数安全目标、范围扩大后的初始化目标、回调解码器序列目标的现行形式，以及带拒绝子句的 25 个流目标和复制目标（第 2 项）。其中不包含变异体运行。
+2. **拒绝子句。** 命题和证明已经完成：23 个单函数流安全目标和两个复制目标都陈述了拒绝（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 1 项）。它们的定理沿用已登记的名字，这些目标随第 1 项一起已验收。没有为新的拒绝子句增加变异体行；这些目标现有的变异体行都早于拒绝子句。变异体是附加的证据，不是验收的条件。
 3. **默认 zlib 流的往返**，排在安全结论之后（[范围](#scope)）。
 4. **把本地补丁提交上游**：0004 和 0005（[补丁](../patches/README.md)）。补丁 0001 至 0003 与已经提交上游的拉取请求一致。
 5. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对八个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 3 项）。

@@ -51,15 +51,15 @@ recorded separately below.
 
 | # | Registered | Accepted on commit |
 | ---: | --- | --- |
-| 1 | Yes, both goals | `bde170e9` for the sequence goal, and for `Goal.inflate_safety` in its earlier form. Registered, not accepted: `Goal.inflate_safety` in its present form |
-| 2 | Yes, both goals | `bde170e9` for the sequence goal, and for `Goal.deflate_safety` in its earlier form. Registered, not accepted: `Goal.deflate_safety` in its present form |
-| 3a | Yes, all eight | `bde170e9` |
-| 3b | Yes, all five | `bde170e9` for the non-vacuity goal, and for the sequence goal in its earlier form. Registered, not accepted: the three one-function goals, and the sequence goal in its present form |
-| 3c | Yes, all 35 | `bde170e9` for the sequence, refusal and non-vacuity goals. Registered, not accepted: the 32 one-function goals |
-| 3d | Yes, all 46 | `bde170e9`, except these goals in their present form, which are registered, not accepted: the four init safety goals; the 21 goals of `ZlibF/Spec/Safety/Streams.lean` other than `Goal.inflate_safety` and `Goal.deflate_safety` (rows 1 and 2); `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety` |
+| 1 | Yes, both goals | `14d50567`. Before it, `bde170e9` for the sequence goal, and for `Goal.inflate_safety` in its earlier form |
+| 2 | Yes, both goals | `14d50567`. Before it, `bde170e9` for the sequence goal, and for `Goal.deflate_safety` in its earlier form |
+| 3a | Yes, all eight | `14d50567`. Before it, `bde170e9` |
+| 3b | Yes, all five | `14d50567`. Before it, `bde170e9` for the non-vacuity goal, and for the sequence goal in its earlier form |
+| 3c | Yes, all 35 | `14d50567`. Before it, `bde170e9` for the sequence, refusal and non-vacuity goals |
+| 3d | Yes, all 46 | `14d50567`. Before it, `bde170e9`, except these goals in their present form: the four init safety goals; the 21 goals of `ZlibF/Spec/Safety/Streams.lean` other than `Goal.inflate_safety` and `Goal.deflate_safety` (rows 1 and 2); `Goal.inflateCopy_safety` and `Goal.deflateCopy_safety` |
 
-"Registered, not accepted" means that no acceptance run that covers the goal in its present form
-has finished green.
+All 98 required goals are accepted in their present form on `14d50567`. None is open. The
+entries after "Before it" are history: they say what the run on `bde170e9` covered.
 
 **Acceptance runs.** Each line is a run of the workflow `lean`, read from the record of the run.
 
@@ -78,10 +78,18 @@ has finished green.
   as cancelled. The parts that now make up the acceptance suite were all green in this run. It
   is not counted because the result `audit` of the run is red and acceptance is read from that
   result. No result is accepted on the strength of this run.
-- **Next run: commit not yet named.** <a id="next-acceptance-run"></a>A clean run of the
-  acceptance suite on a later commit will accept the goals that the table marks "registered, not
-  accepted". This line is the one place to record it: the commit, the run, and the date. Until it
-  is filled in, those goals stay registered.
+- **`e9f2c7d7`, failed: not an accepted commit.** Manual run 43816487962 of 2026-11-16. It
+  failed only in the preflight of the differential harness: one mutation row of the harness self
+  test still named the tail of the `lext` table as it was before zlib 1.4. All eight
+  `diff_harness` shards stopped there, so the result `difftest` failed. Commit `36d7bfc5`
+  corrected that row.
+- **`14d50567`, green.** <a id="next-acceptance-run"></a>Manual run 43830450537 of 2026-11-16.
+  Every job was green: `build`, `no-sorry`, `audit_core` (axiom gate and exact goal match), both
+  `audit_selftest` shards, `diff_core`, all eight `diff_harness` shards, and the results `audit`
+  and `difftest`. The mutant job was skipped. The run was on commit `36d7bfc5`. Its tree is
+  identical to the tree of `14d50567`, the commit of `main` that squashes pull request 165, so
+  the result holds for `14d50567`. Commit `36d7bfc5` is kept on the branch
+  `archive/dev-before-165`. This run accepts all 98 required goals in their present form.
 
 The differential tests are evidence of fidelity, not proof.
 
@@ -92,11 +100,12 @@ nothing, and are reported here with their commit, apart from acceptance.
   twenty shards of the nightly run 43735018381 on `74a2097c`, the commit of `main` with the same
   tree.
 - **No mutant run has finished on a later commit.** The shards of the run on `3fdbbc38` were
-  cancelled. The mutant rows of the 35 goals registered after `bde170e9` exist
+  cancelled, and the run on `14d50567` skipped the mutant job. The mutant rows of the 35 goals registered after `bde170e9` exist
   (`tests/audit/public-mutants.json`), and the audit checked that on `3fdbbc38`; no finished run
   has executed them.
 
-Between `bde170e9` and this page, these things changed:
+Between `bde170e9` and `14d50567`, these things changed. The run on `14d50567` covers all of
+them:
 
 - **Each gz function and each callback-decoder function has its own safety goal.** There are 35
   new goals: one for each of the 31 documented gz functions, one for `gzvprintf`, and one each for
@@ -107,22 +116,19 @@ Between `bde170e9` and this page, these things changed:
   each function's own goal, and `scripts/verification.py` no longer lets functions share a safety
   goal. The required set grew from 63 goals to 98. Before, the gz functions named
   `Goal.gz_sequence_safety` and the three callback functions named
-  `Goal.inflate_back_sequence_safety`. The 35 goals are registered, not accepted: the
-  fast gate is green on `3fdbbc38`.
+  `Goal.inflate_back_sequence_safety`. The 35 goals are accepted on `14d50567`.
 - **The histories of the callback decoder were widened.** The first step of a history
   (`BackSafeReachable.init`) no longer asks for a `NULL` `state` field before `inflateBackInit_`
   (commit `874a9398`, `BackInitArguments` in `ZlibF/Spec/Common/Sequences.lean`). So
   `Goal.inflate_back_sequence_safety` covers more histories than it did on `bde170e9`. In this
-  form it is registered, not accepted.
+  form it is accepted on `14d50567`.
 
 - **The four init safety goals were widened.** `Goal.inflateInit__safety`,
   `Goal.inflateInit2__safety`, `Goal.deflateInit__safety` and `Goal.deflateInit2__safety` hold for
   every call `zlib.h` allows (commit `101c6ab3`, `ZlibF/Spec/Safety/Initialisation.lean`; proofs in
   `8642e435`, `ZlibF/Proof/public-init-safety.lean`). Before, they asked for a record with a
   `NULL` `state`, the matching version and the matching `stream_size`. In the wider form the four
-  goals are checked and registered, and not yet accepted: the fast gate is green on `8642e435`,
-  and no acceptance run covers a commit that contains them. They are accepted on `bde170e9` only
-  in the narrower form.
+  goals are accepted on `14d50567`. On `bde170e9` they were accepted only in the narrower form.
 - **The stream safety goals state the refusal of a `NULL` or inconsistent stream.** Each of the
   23 one-function stream safety goals of `ZlibF/Spec/Safety/Streams.lean` gained a refusal
   clause: the ten inflate goals and the thirteen deflate goals, among them `Goal.inflate_safety`,
@@ -136,29 +142,26 @@ Between `bde170e9` and this page, these things changed:
   `NULL`. Each goal in its present form implies its earlier form
   (`ZlibF/Proof/public-stream-refusal-strengthening.lean`). The names of the goals and of their
   theorems are unchanged, so the registries are unchanged. In the present form the 25 goals are
-  checked and registered, and not yet accepted: the fast gate is green on `2ef5694c`, and no
-  acceptance run covers a commit that contains them. They are accepted on `bde170e9` only in the
-  earlier form.
+  accepted on `14d50567`. On `bde170e9` they were accepted only in the earlier form.
 - **Statements that are not required goals changed.** The specifications of the fast decoder take
   the input and the output in any byte view, not only in a heap block (commit `4ed7315e`;
   the modules are now `InflateFast*.lean` under `ZlibF/Spec/Common/Inflate/` and
   `ZlibF/Spec/Functional/Inflate/`); a regression derives each earlier statement from the present one
   (`tests/verification/regressions/inffast-byte-views-old-from-new.lean`). Two functional
   definitions were changed: `WrapperLength` (commit `ac0fccc5`) and `DeflateCompletes` (commit
-  `a2cf8723`). Registered goals among these statements have, in their present form, no finished
-  acceptance run either.
+  `a2cf8723`). The run on `14d50567` also covers the registered goals among these statements in their
+  present form.
 - **Proof modules of functional work changed.** Modules about the meaning of the output of
   `inflate` (`ZlibF/Proof/inflate.c.meaning*.lean`) were added or changed. None of their theorems
   is registered.
 
 The lists `goals.txt`, `proved-goals.txt` and `theorems.txt` changed only by the 35 goals and 35
 theorems of the first item; `public-mutants.json` gained the keys of the 35 goals. The complete list
-of changes is the difference between `bde170e9` and this commit under `ZlibF/Spec/`,
+of changes is the difference between `bde170e9` and `14d50567` under `ZlibF/Spec/`,
 `tests/audit/` and `scripts/`.
 
-**Open.** Nothing that a safety result needs. Every required goal is registered. What remains
-is acceptance of the goals that the table marks "registered, not accepted"
-([Ordered next work](#ordered-next-work)).
+**Open.** Nothing that a safety result needs. Every required goal is registered and accepted on
+`14d50567`. The work that remains is in [Ordered next work](#ordered-next-work).
 
 **Planned after the safety results: the round trip of the default zlib stream.** The default
 stream is `deflateInit` at the default level with `inflateInit`. The order is: first the
@@ -2560,8 +2563,8 @@ link or a line anchor. Its links keep the revision they were generated at until 
 
 ## Remaining work
 
-All 98 required goals are registered; [Scope](#scope) gives the level of each result and the
-acceptance runs. No goal has a documented blocker. The work that remains is listed in
+All 98 required goals are registered and accepted; [Scope](#scope) gives the level of each
+result and the acceptance runs. No goal has a documented blocker. The work that remains is listed in
 [Ordered next work](#ordered-next-work).
 
 The sections below hold facts and open items only. Finished work logs are kept unchanged under
@@ -2641,21 +2644,20 @@ registered.
 
 ### Ordered next work
 
-Every required goal is registered: 98 safety and non-vacuity goals, none open
+Every required goal is registered and accepted: 98 safety and non-vacuity goals, none open
 (`tests/audit/public-api.json`). [Scope](#scope) names the commit on which the acceptance suite
-was green and what changed after it. What remains, in order:
+was green, and the run. Items 1 and 2 are done; what remains starts at item 3.
 
-1. **Acceptance** of the goals registered or changed after `bde170e9`: the 35 one-function safety
-   goals of the gz functions and of the callback decoder, the widened init goals, the
-   callback-decoder sequence goal in its present form, and the 25 stream and copy goals with a
-   refusal clause (item 2). They are registered and wait only for a
-   green acceptance suite on a named commit: axiom gate, exact goal match, self tests and
-   differential tests. A mutant run is not needed for it. The commit goes into
-   [Scope](#next-acceptance-run).
+1. **Acceptance: done.** All 98 required goals are accepted on `14d50567`: the acceptance suite
+   (axiom gate, exact goal match, self tests and differential tests) was green in run
+   43830450537 ([Scope](#next-acceptance-run)). This covers the goals registered or changed
+   after `bde170e9`: the 35 one-function safety goals of the gz functions and of the callback
+   decoder, the widened init goals, the callback-decoder sequence goal in its present form, and
+   the 25 stream and copy goals with a refusal clause (item 2). No mutant run was part of it.
 2. **Refusal clauses.** The statements and proofs are done: the 23 one-function stream safety
    goals and the two copy goals state the refusal
    ([coverage](#no-fault-coverage-of-zlibh-functions), item 1). Their theorems keep their
-   registered names. What remains for them is the acceptance run of item 1. No mutant row was
+   registered names, and the goals are accepted with item 1. No mutant row was
    added for the new refusal clauses; the existing rows of these goals predate them. Mutants are
    additional evidence and do not gate acceptance.
 3. **The round trip of the default zlib stream**, after the safety results ([Scope](#scope)).
