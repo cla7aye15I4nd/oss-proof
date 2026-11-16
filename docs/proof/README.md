@@ -102,6 +102,12 @@ takes a handle; a `NULL` stream and a stream record with a `NULL` state for `inf
 `inflateBackEnd`, and for `inflateBackEnd` also a `NULL` `zfree`. The theorem of
 `inflateBackInit_` covers every call `zlib.h` allows and needs no history.
 
+The one-function theorems of `inflate.c` and `deflate.c`, init apart, have the same two parts:
+the refusal of a `NULL` or inconsistent stream, and the call on a reachable stream. The two copy
+theorems add the refusal of an inconsistent source to that of a `NULL` argument. `inflate_refusal`
+and `deflate_refusal` state the refusals of several functions in one statement each
+([inflate](inflate.md#refusals), [deflate](deflate.md#refusals)).
+
 Other results of `trees.c` that the page explains are lemmas inside the proof of
 `deflate_sequence_safety`, among them the bound on the shared buffer for `memLevel` 3 to 9
 (`dynamic_overlay_mid`, `dynamic_overlay_large`). The [trees](trees.md#results) page names

@@ -24,10 +24,10 @@ recorded in [progress, Scope](../progress.md#scope). Modules are under `ZlibF/Pr
 | Goal | What it says | Theorem | Module |
 | --- | --- | --- | --- |
 | `Goal.deflate_sequence_safety` | The sequence result; see below | `Zlib.Deflate.Universal.deflate_sequence_safety` | `public-deflate-goals.lean` |
-| Thirteen goals, one per function: `deflate`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateReset`, `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z`, `deflatePending`, `deflateUsed`, `deflatePrime`, `deflateSetHeader`, `deflateEnd` | One call of that function on a reachable stream is safe | `StreamCallSafetyProof.deflate_safety` and the twelve others of the same form | `public-stream-call-safety.lean` |
+| Thirteen goals, one per function: `deflate`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateReset`, `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z`, `deflatePending`, `deflateUsed`, `deflatePrime`, `deflateSetHeader`, `deflateEnd` | The function refuses a refused stream ([Refusals](#refusals)), and one call of it on a reachable stream is safe | `StreamCallSafetyProof.deflate_safety` and the twelve others of the same form | `public-stream-call-safety.lean` |
 | `Goal.deflateInit__safety`, `Goal.deflateInit2__safety` | Initialisation is safe for every argument `zlib.h` allows, with the default allocator (`InitArguments`, see [Assumptions](#assumptions)) | `deflateInit__safety`, `deflateInit2__safety` | `public-init-safety.lean` |
-| `Goal.deflateCopy_safety` | `deflateCopy` is safe | `deflate_copy_safety` | `public-deflate-copy.lean` |
-| `Goal.deflate_refusal` | See [Refusals](#refusals) | `deflate_refusal` | `public-stream-refusal.lean` |
+| `Goal.deflateCopy_safety` | `deflateCopy` refuses a `NULL` argument and a refused source, and a copy from a reachable source is safe | `deflate_copy_safety` | `public-deflate-copy.lean` |
+| `Goal.deflate_refusal` | The refusals of five functions in one statement; see [Refusals](#refusals) | `deflate_refusal` | `public-stream-refusal.lean` |
 | `Goal.deflate_initialisation_domain` | The premises of the sequence goal can be met (non-vacuity) | `deflate_initialisation_domain_public` | `public-deflate-init-domain.lean` |
 
 The goals are stated in `ZlibF/Spec/Safety/`.
@@ -48,17 +48,41 @@ functional goal `Goal.deflate`; see [Functional results](#functional-results).
 
 ## Refusals
 
-A *refused* stream (`RefusedDeflate`) is `NULL`, or a readable record that the state check
-`deflateStateCheck` rejects. `Goal.deflate_refusal` covers five functions: `deflate`,
-`deflateSetDictionary`, `deflateParams`, `deflateGetDictionary` and `deflateCopy`. On a refused
-stream each returns `Z_STREAM_ERROR` without a fault. `deflateCopy` sets the destination's
-`state` field to `NULL`; the others leave the heap as it was.
+A *refused* stream (`RefusedDeflate`) is `NULL`, or a readable record of one of these kinds:
+its `zalloc`, `zfree` or `state` field is `NULL`; or its `state` is a live deflate state whose
+back pointer is not this record or whose status is not one of the eight the state check
+`deflateStateCheck` accepts (`INIT_STATE`, `GZIP_STATE`, `EXTRA_STATE`, `NAME_STATE`,
+`COMMENT_STATE`, `HCRC_STATE`, `BUSY_STATE`, `FINISH_STATE`).
 
-A record whose `state` field holds a garbage pointer is outside this result; the row "Refused
-streams" of [deviations](../deviations.md) says why. The other `deflate*` functions refuse in
-their functional goals or in lemmas that are not required goals:
-`deflatePrime_refused`, `deflateBound_nostate`, `deflateBound_z_nostate`, `deflateEnd_reject`,
-`deflateReset_reject`.
+The refusal is stated in two places. Each of the thirteen one-function goals has it as its
+first clause, and `Goal.deflateCopy_safety` has a clause for a refused source.
+`Goal.deflate_refusal` states it again, in one statement, for five functions: `deflate`,
+`deflateSetDictionary`, `deflateParams`, `deflateGetDictionary` and `deflateCopy`. On a refused
+stream every one of the fourteen functions returns without a fault.
+
+- `deflateCopy` with a refused source returns `Z_STREAM_ERROR`: the destination is a readable
+  record. Its `state` field becomes `NULL`, and nothing else changes.
+- `deflateBound` and `deflateBound_z` do not return an error. As in the C, a stream that fails
+  the check gets the conservative bound: the clause states that the call returns the value it
+  returns for a `NULL` stream with the same `sourceLen`, and that the heap is as it was.
+- The other eleven return `Z_STREAM_ERROR` and leave the heap exactly as it was. The three
+  that report through a pointer store nothing: `deflateGetDictionary` no length,
+  `deflatePending` neither count, `deflateUsed` no count.
+
+A record with `zalloc` and `zfree` set whose `state` field holds a garbage pointer, a pointer
+to a freed state or a pointer to an inflate state is outside these clauses; the row "Refused streams" of
+[deviations](../deviations.md) says why.
+
+How the refusal clauses are proved (`public-stream-call-safety.lean`,
+`public-deflate-copy.lean`). No clause needed a new lemma about the C. Five clauses are the
+clauses of `deflate_refusal`. Those of `deflateTune`, `deflatePending`, `deflateUsed` and
+`deflateSetHeader` are the refusal clause of the function's functional goal (`CheckedDeflate`).
+Those of `deflateEnd`, `deflateReset`, `deflatePrime`, `deflateBound` and `deflateBound_z` come
+from the lemmas `deflateEnd_reject`, `deflateReset_reject`, `deflatePrime_refused`,
+`deflateBound_nostate` and `deflateBound_z_nostate`. All but `deflatePrime_refused` are stated
+for a stream that the check can read and that is not initialised (`StreamDom`,
+`¬ DInitialised`); the deflate forms of `refused_dom` and `refused_not_initialised` show that a
+refused stream is one.
 
 ## Assumptions
 
@@ -97,8 +121,10 @@ The other goals of the Results table have their own premises:
 - `Goal.deflate_initialisation_domain` (`InitDomain`, `ZlibF/Spec/Public/Domains.lean`): as
   above with a record whose `state` field is `NULL` and a version string that starts with `'1'`;
   the parameters are ones `deflateInit2_` accepts, and the five allocations succeed.
-- `Goal.deflate_refusal`: the stream is refused; for `deflateCopy` the destination is a readable
-  record.
+- `Goal.deflate_refusal`, and the refusal clause of each one-function goal and of
+  `Goal.deflateCopy_safety`: the stream is refused; for `deflateCopy` the destination is a
+  readable record, and in the clause of `Goal.deflateCopy_safety` the source pointer is not
+  `NULL`.
 
 `zlib.h` asks for `deflatePrime` and `deflateSetHeader` before the first `deflate` call. The C
 does not check it. On the real C, bits primed after symbols were recorded overwrite the symbol

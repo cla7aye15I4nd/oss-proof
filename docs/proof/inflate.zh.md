@@ -1,4 +1,4 @@
-<!-- source-sha256: 077f8cea1db70169d159f51c822af38818284d2c76ef0ffd25f3613c70017e1b -->
+<!-- source-sha256: 17cfeb237d5a9f71b45200ef72af59daae66ebbf7f2bf6fff1d7e13574784455 -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -14,10 +14,10 @@
 | 目标 | 内容 | 定理 | `ZlibF/Proof/` 下的模块 |
 | --- | --- | --- | --- |
 | `Goal.inflate_sequence_safety` | 序列结论，见下 | `inflate_sequence_safety_public` | `public-inflate-sequence-safety.lean` |
-| 十个目标：`Goal.inflate_safety`、`Goal.inflateSetDictionary_safety`、`Goal.inflateGetDictionary_safety`、`Goal.inflateSync_safety`、`Goal.inflateReset_safety`、`Goal.inflateReset2_safety`、`Goal.inflatePrime_safety`、`Goal.inflateMark_safety`、`Goal.inflateGetHeader_safety`、`Goal.inflateEnd_safety` | 在可达的流上调用一次该函数是安全的 | `inflate_safety` 以及形式相同的另外九条 | `public-stream-call-safety.lean` |
+| 十个目标：`Goal.inflate_safety`、`Goal.inflateSetDictionary_safety`、`Goal.inflateGetDictionary_safety`、`Goal.inflateSync_safety`、`Goal.inflateReset_safety`、`Goal.inflateReset2_safety`、`Goal.inflatePrime_safety`、`Goal.inflateMark_safety`、`Goal.inflateGetHeader_safety`、`Goal.inflateEnd_safety` | 该函数拒绝被拒绝的流（[拒绝](#refusals)），并且在可达的流上调用一次该函数是安全的 | `inflate_safety` 以及形式相同的另外九条 | `public-stream-call-safety.lean` |
 | `Goal.inflateInit__safety`、`Goal.inflateInit2__safety` | 对每个 `strm`（包括 `NULL`）、每个 `windowBits`、每个 `version`（`NULL`，或者第一个字节可读）和每个 `stream_size`，只要 `zalloc` 和 `zfree` 字段各自是 `NULL` 或默认函数（`InitArguments`），初始化都是安全的。自定义分配器不在这个目标之内 | `inflateInit__safety`、`inflateInit2__safety` | `public-init-safety.lean` |
-| `Goal.inflateCopy_safety` | `inflateCopy` 是安全的 | `inflateCopy_safety` | `public-inflate-copy-safety.lean` |
-| `Goal.inflate_refusal` | 见[拒绝](#refusals) | `inflate_refusal` | `public-stream-refusal.lean` |
+| `Goal.inflateCopy_safety` | `inflateCopy` 拒绝 `NULL` 参数和被拒绝的源，并且从可达的源复制是安全的 | `inflateCopy_safety` | `public-inflate-copy-safety.lean` |
+| `Goal.inflate_refusal` | 用一个命题陈述七个函数的拒绝；见[拒绝](#refusals) | `inflate_refusal` | `public-stream-refusal.lean` |
 | `Goal.inflate_initialisation_domain` | 序列目标的前提可以被满足（非空性） | `inflate_initialisation_domain_public` | `public-inflate-init.lean` |
 
 这些目标写在 `ZlibF/Spec/Safety/` 中：`Sequences.lean`、`Streams.lean`、`Initialisation.lean`、`Copy.lean`、`Refusals.lean` 和 `Domains.lean`。
@@ -36,13 +36,18 @@
 
 ## 拒绝
 
-*被拒绝*的流（`RefusedInflate`）是 `NULL`，或者是下面几种可读的记录之一：它的 `zalloc`、`zfree` 或 `state` 字段是 `NULL`；或者它的 `state` 是一个存活的 inflate 状态，但这个状态的回指指针不指向这个记录，或者它的模式在 `HEAD` .. `SYNC` 之外。在这些情形下，状态检查 `inflateStateCheck` 返回 1，并且不会通过坏指针去读。`Goal.inflate_refusal` 覆盖七个函数：`inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary` 和 `inflateCopy`。在被拒绝的流上，它们都返回 `Z_STREAM_ERROR`，不出故障。
+*被拒绝*的流（`RefusedInflate`）是 `NULL`，或者是下面几种可读的记录之一：它的 `zalloc`、`zfree` 或 `state` 字段是 `NULL`；或者它的 `state` 是一个存活的 inflate 状态，但这个状态的回指指针不指向这个记录，或者它的模式在 `HEAD` .. `SYNC` 之外。在这些情形下，状态检查 `inflateStateCheck` 返回 1，并且不会通过坏指针去读。
 
-- `inflate`：翻译在检查之前创建四字节的局部数组 `hbuf`，返回时释放它。所以调用之后的堆与之前不是同一个值：它的块计数器前进了。目标说的是：原先存活的每个块都没有变，存活块的集合也没有变。这个子句多一条前提：从堆的下一个未用块编号起，没有任何块编号在使用（`Fresh`，堆良构性的一部分）。
-- 源流被拒绝时的 `inflateCopy`：目的流是一个可读的记录。它的 `state` 字段变成 `NULL`，其余都不变。
-- 其余五个函数让堆完全保持原样。
+拒绝在两处陈述。`Streams.lean` 的十个单函数目标各以它为第一个子句，`Goal.inflateCopy_safety` 有一个针对被拒绝的源的子句。`Goal.inflate_refusal` 用一个命题对七个函数再陈述一遍：`inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary` 和 `inflateCopy`。在被拒绝的流上，这十一个函数都返回，不出故障。
 
-`state` 字段里是垃圾指针的记录不在这个结论之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。其他 `inflate*` 函数的拒绝情形，由它们的功能目标给出，或者由不属于必需目标的引理给出，例如 `inflateSync_check`。
+- `inflate` 和 `inflateSync` 返回 `Z_STREAM_ERROR`。两个翻译各自在检查之前创建一个四字节的局部数组（`hbuf`、`buf`），返回时释放它。所以调用之后的堆与之前不是同一个值：它的块计数器可能增大了。这个子句说的是：不写原先存活的任何块，存活块的集合也没有变。它多一条前提：从堆的下一个未用块编号起，没有任何块编号在使用（`Fresh`，堆良构性的一部分）。
+- 源流被拒绝时的 `inflateCopy` 返回 `Z_STREAM_ERROR`：目的流是一个可读的记录。它的 `state` 字段变成 `NULL`，其余都不变。
+- `inflateMark` 返回 `-65536`，即 `zlib.h` 为不一致的流规定的值，并让堆完全保持原样。
+- 其余七个函数（`inflateEnd`、`inflateReset`、`inflateReset2`、`inflatePrime`、`inflateGetHeader`、`inflateSetDictionary`、`inflateGetDictionary`）返回 `Z_STREAM_ERROR`，并让堆完全保持原样。`inflateGetDictionary` 还原样返回传给它的长度值：翻译把这个结果单元当作值传递。
+
+`zalloc` 和 `zfree` 已设置、而 `state` 字段里是垃圾指针、指向已释放状态的指针或指向 deflate 状态的指针的记录，不在这些子句之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。
+
+拒绝子句是怎样证明的（`public-stream-call-safety.lean`、`public-inflate-copy-safety.lean`）。没有哪个子句需要关于 C 的新引理。七个子句就是 `inflate_refusal` 的各个子句。`inflatePrime` 和 `inflateMark` 的子句是该函数功能目标的拒绝子句（`CheckedInflate`）。`inflateSync` 和 `inflateGetHeader` 的子句来自引理 `inflateSync_check` 和 `inflateGetHeader_check`，这两条引理是针对检查能够读取、且未初始化的流陈述的（`StreamDom`、`¬ Initialised`）；`refused_dom` 和 `refused_not_initialised` 说明被拒绝的流就是这样的流。
 
 ## 假设
 
@@ -50,11 +55,11 @@
 
 | 目标 | 前提 |
 | --- | --- |
-| 序列目标的第 1 和第 3 部分；`Goal.inflateEnd_safety` | 可达的流，此外没有别的前提 |
-| 序列目标的第 2 部分；从 `Goal.inflate_safety` 到 `Goal.inflateGetHeader_safety` 的九个单函数目标（`StreamCallDomain`） | 可达的流；调用时的堆满足 `ByteObjectsFit`；该调用的参数前提（`StreamArguments`） |
+| 序列目标的第 1 和第 3 部分；`Goal.inflateEnd_safety` 的 End 子句 | 可达的流，此外没有别的前提 |
+| 序列目标的第 2 部分；从 `Goal.inflate_safety` 到 `Goal.inflateGetHeader_safety` 的九个单函数目标的调用子句（`StreamCallDomain`） | 可达的流；调用时的堆满足 `ByteObjectsFit`；该调用的参数前提（`StreamArguments`） |
 | 两个初始化目标 | `InitArguments`：良构的堆，以及[结论](#results)一节给出的对参数的条件 |
 | `Goal.inflateCopy_safety` | 源流可达；目的流是一个可读的流记录，并且不是源记录。命题还把源流的 `Good` 和 `DefAlloc` 列为前提；序列结论的第 1 部分对每个可达的流给出这两条 |
-| `Goal.inflate_refusal` | 被拒绝的流（[拒绝](#refusals)） |
+| `Goal.inflate_refusal`；每个单函数目标的拒绝子句和 `Goal.inflateCopy_safety` 的拒绝子句 | 被拒绝的流（[拒绝](#refusals)）；对 `inflate` 和 `inflateSync` 还有 `Fresh`；对 `inflateCopy`，目的是一个可读的流记录，且源指针不是 `NULL` |
 
 *良构的堆*有三条性质：从下一个未用的块编号起，没有任何块编号在使用（`Fresh`）；一个块编号只对应一个对象（`Uniq`）；静态表保持初始内容（`LibraryGlobals`）。
 

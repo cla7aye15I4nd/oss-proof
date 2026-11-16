@@ -1,4 +1,4 @@
-<!-- source-sha256: ad1d52a33d048d557241788624144469bdf13c4f9d7d3215f49c9dc5d451a258 -->
+<!-- source-sha256: f2ed989b75fe23a07074801dd83549812893cab69668e04dbeb4d0c9c22713a2 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
@@ -14,10 +14,10 @@
 | 目标 | 内容 | 定理 | 模块 |
 | --- | --- | --- | --- |
 | `Goal.deflate_sequence_safety` | 序列结论，见下 | `Zlib.Deflate.Universal.deflate_sequence_safety` | `public-deflate-goals.lean` |
-| 十三个目标，每个函数一个：`deflate`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateReset`、`deflateParams`、`deflateTune`、`deflateBound`、`deflateBound_z`、`deflatePending`、`deflateUsed`、`deflatePrime`、`deflateSetHeader`、`deflateEnd` | 在可达的流上调用一次该函数是安全的 | `StreamCallSafetyProof.deflate_safety` 以及形式相同的另外十二条 | `public-stream-call-safety.lean` |
+| 十三个目标，每个函数一个：`deflate`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateReset`、`deflateParams`、`deflateTune`、`deflateBound`、`deflateBound_z`、`deflatePending`、`deflateUsed`、`deflatePrime`、`deflateSetHeader`、`deflateEnd` | 该函数拒绝被拒绝的流（[拒绝](#refusals)），并且在可达的流上调用一次该函数是安全的 | `StreamCallSafetyProof.deflate_safety` 以及形式相同的另外十二条 | `public-stream-call-safety.lean` |
 | `Goal.deflateInit__safety`、`Goal.deflateInit2__safety` | 对 `zlib.h` 允许的每一组参数，在使用默认分配器时，初始化都是安全的（`InitArguments`，见[假设](#assumptions)） | `deflateInit__safety`、`deflateInit2__safety` | `public-init-safety.lean` |
-| `Goal.deflateCopy_safety` | `deflateCopy` 是安全的 | `deflate_copy_safety` | `public-deflate-copy.lean` |
-| `Goal.deflate_refusal` | 见[拒绝](#refusals) | `deflate_refusal` | `public-stream-refusal.lean` |
+| `Goal.deflateCopy_safety` | `deflateCopy` 拒绝 `NULL` 参数和被拒绝的源，并且从可达的源复制是安全的 | `deflate_copy_safety` | `public-deflate-copy.lean` |
+| `Goal.deflate_refusal` | 用一个命题陈述五个函数的拒绝；见[拒绝](#refusals) | `deflate_refusal` | `public-stream-refusal.lean` |
 | `Goal.deflate_initialisation_domain` | 序列目标的前提可以被满足（非空性） | `deflate_initialisation_domain_public` | `public-deflate-init-domain.lean` |
 
 这些目标写在 `ZlibF/Spec/Safety/` 中。
@@ -28,9 +28,17 @@
 
 ## 拒绝
 
-*被拒绝*的流（`RefusedDeflate`）是 `NULL`，或者是一个可读但被状态检查 `deflateStateCheck` 拒绝的记录。`Goal.deflate_refusal` 覆盖五个函数：`deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 和 `deflateCopy`。在被拒绝的流上，它们都返回 `Z_STREAM_ERROR`，不出故障。`deflateCopy` 把目的流的 `state` 字段置为 `NULL`；其余函数让堆保持原样。
+*被拒绝*的流（`RefusedDeflate`）是 `NULL`，或者是下面几种可读的记录之一：它的 `zalloc`、`zfree` 或 `state` 字段是 `NULL`；或者它的 `state` 是一个存活的 deflate 状态，但这个状态的回指指针不指向这个记录，或者它的状态值不是状态检查 `deflateStateCheck` 接受的八个值之一（`INIT_STATE`、`GZIP_STATE`、`EXTRA_STATE`、`NAME_STATE`、`COMMENT_STATE`、`HCRC_STATE`、`BUSY_STATE`、`FINISH_STATE`）。
 
-`state` 字段里是垃圾指针的记录不在这个结论之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。其他 `deflate*` 函数的拒绝情形，在它们的功能目标里，或者在不属于必需目标的引理里：`deflatePrime_refused`、`deflateBound_nostate`、`deflateBound_z_nostate`、`deflateEnd_reject`、`deflateReset_reject`。
+拒绝在两处陈述。十三个单函数目标各以它为第一个子句，`Goal.deflateCopy_safety` 有一个针对被拒绝的源的子句。`Goal.deflate_refusal` 用一个命题对五个函数再陈述一遍：`deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 和 `deflateCopy`。在被拒绝的流上，这十四个函数都返回，不出故障。
+
+- 源流被拒绝时的 `deflateCopy` 返回 `Z_STREAM_ERROR`：目的流是一个可读的记录。它的 `state` 字段变成 `NULL`，其余都不变。
+- `deflateBound` 和 `deflateBound_z` 不返回错误。与 C 一样，没有通过检查的流得到保守的上界：这个子句说的是，调用返回的值与 `sourceLen` 相同时对 `NULL` 流调用返回的值相同，并且堆保持原样。
+- 其余十一个函数返回 `Z_STREAM_ERROR`，并让堆完全保持原样。通过指针报告结果的三个函数什么也不存入：`deflateGetDictionary` 不存入长度，`deflatePending` 两个计数都不存入，`deflateUsed` 不存入计数。
+
+`zalloc` 和 `zfree` 已设置、而 `state` 字段里是垃圾指针、指向已释放状态的指针或指向 inflate 状态的指针的记录，不在这些子句之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。
+
+拒绝子句是怎样证明的（`public-stream-call-safety.lean`、`public-deflate-copy.lean`）。没有哪个子句需要关于 C 的新引理。五个子句就是 `deflate_refusal` 的各个子句。`deflateTune`、`deflatePending`、`deflateUsed` 和 `deflateSetHeader` 的子句是该函数功能目标的拒绝子句（`CheckedDeflate`）。`deflateEnd`、`deflateReset`、`deflatePrime`、`deflateBound` 和 `deflateBound_z` 的子句来自引理 `deflateEnd_reject`、`deflateReset_reject`、`deflatePrime_refused`、`deflateBound_nostate` 和 `deflateBound_z_nostate`。除 `deflatePrime_refused` 外，这些引理都是针对检查能够读取、且未初始化的流陈述的（`StreamDom`、`¬ DInitialised`）；`refused_dom` 和 `refused_not_initialised` 的 deflate 形式说明被拒绝的流就是这样的流。
 
 ## 假设
 
@@ -57,7 +65,7 @@
 - `Goal.deflateCopy_safety`：源是可达的，目的是一个可读的记录，并且不是源记录。命题里还写出了源的不变量和默认分配器；每个可达的流都具备这两点。
 - 两个初始化目标（`InitArguments`，`ZlibF/Spec/Safety/Initialisation.lean`）：堆是良构的；`strm` 是 `NULL`，或者是一个可读的记录，它的 `zalloc` 和 `zfree` 各自是 `NULL` 或默认函数；`version` 是 `NULL`，或者有一个字节可读。其余每个参数、记录的其余每个字段都是任意的。自定义分配器不在其内。
 - `Goal.deflate_initialisation_domain`（`InitDomain`，`ZlibF/Spec/Public/Domains.lean`）：同上，另外要求记录的 `state` 字段是 `NULL`，版本字符串以 `'1'` 开头；参数是 `deflateInit2_` 接受的参数，五次分配都成功。
-- `Goal.deflate_refusal`：流是被拒绝的；对 `deflateCopy`，目的是一个可读的记录。
+- `Goal.deflate_refusal`，以及每个单函数目标的拒绝子句和 `Goal.deflateCopy_safety` 的拒绝子句：流是被拒绝的；对 `deflateCopy`，目的是一个可读的记录，并且在 `Goal.deflateCopy_safety` 的子句里，源指针不是 `NULL`。
 
 `zlib.h` 要求 `deflatePrime` 和 `deflateSetHeader` 在第一次 `deflate` 调用之前使用。C 并不检查这一点。在真实的 C 上，记录了符号之后再预置的位会覆盖符号缓冲区；在写头部的中途把头部指针设成 `NULL`，这个指针会被解引用（`tests/regression/deflate-history-domain`）。头部的各条前提也有同类的理由（`tests/regression/deflate-gzip-name-output`）。
 

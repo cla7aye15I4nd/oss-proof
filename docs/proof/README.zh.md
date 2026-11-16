@@ -1,4 +1,4 @@
-<!-- source-sha256: 81711f282572a2e7cd1024d31b27bc8c8af19d973a16763dcced2f60e60fb801 -->
+<!-- source-sha256: cb52f6b3f8f0db09b24454ac0996e7b5126c5b429612138d2132e5f9f241d259 -->
 # 证明参考：组件、页面、定理
 
 本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理，定理在哪里。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
@@ -62,6 +62,8 @@ deflateEnd(&strm);
 | `uncompr.c` | [`uncompress*` 的安全性](uncompress-safety.md) | `uncompress_safe`、`uncompress_z_safe`、`uncompress2_safe`、`uncompress2_z_safe` | `public-uncompress-safe.lean` |
 
 31 个 gz 函数、`gzvprintf` 和三个 `inflateBack` 函数，也各有一条单函数的安全定理。它把所属一族的序列定理用到一个函数的调用上，并且包括这个函数的拒绝：对接受句柄的 gz 函数是 `NULL` 句柄；对 `inflateBack` 和 `inflateBackEnd` 是 `NULL` 流和状态为 `NULL` 的流记录，对 `inflateBackEnd` 还有 `zfree` 为 `NULL`。`inflateBackInit_` 的定理覆盖 `zlib.h` 允许的每一次调用，不需要历史。
+
+`inflate.c` 和 `deflate.c` 的单函数定理（初始化除外）同样有这两部分：对 `NULL` 流或不一致的流的拒绝，以及对可达流的调用。两条复制定理在对 `NULL` 参数的拒绝之外，还有对不一致的源的拒绝。`inflate_refusal` 和 `deflate_refusal` 各用一个命题陈述若干函数的拒绝（见 [inflate](inflate.md#refusals)、[deflate](deflate.md#refusals)）。
 
 `trees.c` 页面解释的其他结论，是 `deflate_sequence_safety` 的证明内部的引理，其中包括 `memLevel` 为 3 到 9 时共用缓冲区的界（`dynamic_overlay_mid`、`dynamic_overlay_large`）。每一条见[树](trees.md#results)页面。
 

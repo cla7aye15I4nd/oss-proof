@@ -21,10 +21,10 @@ recorded in [progress, Scope](../progress.md#scope).
 | Goal | What it says | Theorem | Module under `ZlibF/Proof/` |
 | --- | --- | --- | --- |
 | `Goal.inflate_sequence_safety` | The sequence result; see below | `inflate_sequence_safety_public` | `public-inflate-sequence-safety.lean` |
-| Ten goals `Goal.inflate_safety`, `Goal.inflateSetDictionary_safety`, `Goal.inflateGetDictionary_safety`, `Goal.inflateSync_safety`, `Goal.inflateReset_safety`, `Goal.inflateReset2_safety`, `Goal.inflatePrime_safety`, `Goal.inflateMark_safety`, `Goal.inflateGetHeader_safety`, `Goal.inflateEnd_safety` | One call of that function on a reachable stream is safe | `inflate_safety` and the nine others of the same form | `public-stream-call-safety.lean` |
+| Ten goals `Goal.inflate_safety`, `Goal.inflateSetDictionary_safety`, `Goal.inflateGetDictionary_safety`, `Goal.inflateSync_safety`, `Goal.inflateReset_safety`, `Goal.inflateReset2_safety`, `Goal.inflatePrime_safety`, `Goal.inflateMark_safety`, `Goal.inflateGetHeader_safety`, `Goal.inflateEnd_safety` | The function refuses a refused stream ([Refusals](#refusals)), and one call of it on a reachable stream is safe | `inflate_safety` and the nine others of the same form | `public-stream-call-safety.lean` |
 | `Goal.inflateInit__safety`, `Goal.inflateInit2__safety` | Initialisation is safe for every `strm` (also `NULL`), every `windowBits`, every `version` (`NULL`, or readable for its first byte) and every `stream_size`, when the `zalloc` and `zfree` fields are each `NULL` or the default function (`InitArguments`). A custom allocator is outside the goal | `inflateInit__safety`, `inflateInit2__safety` | `public-init-safety.lean` |
-| `Goal.inflateCopy_safety` | `inflateCopy` is safe | `inflateCopy_safety` | `public-inflate-copy-safety.lean` |
-| `Goal.inflate_refusal` | See [Refusals](#refusals) | `inflate_refusal` | `public-stream-refusal.lean` |
+| `Goal.inflateCopy_safety` | `inflateCopy` refuses a `NULL` argument and a refused source, and a copy from a reachable source is safe | `inflateCopy_safety` | `public-inflate-copy-safety.lean` |
+| `Goal.inflate_refusal` | The refusals of seven functions in one statement; see [Refusals](#refusals) | `inflate_refusal` | `public-stream-refusal.lean` |
 | `Goal.inflate_initialisation_domain` | The premises of the sequence goal can be met (non-vacuity) | `inflate_initialisation_domain_public` | `public-inflate-init.lean` |
 
 The goals are stated in `ZlibF/Spec/Safety/`: `Sequences.lean`, `Streams.lean`,
@@ -58,23 +58,39 @@ A *refused* stream (`RefusedInflate`) is `NULL`, or a readable record of one of 
 its `zalloc`, `zfree` or `state` field is `NULL`; or its `state` is a live inflate state whose
 back pointer is not this record or whose mode is outside `HEAD` .. `SYNC`. These are the cases
 in which the state check `inflateStateCheck` returns 1 without reading through a bad pointer.
-`Goal.inflate_refusal` covers seven functions: `inflate`, `inflateEnd`, `inflateReset`,
-`inflateReset2`, `inflateGetDictionary`, `inflateSetDictionary` and `inflateCopy`. On a refused
-stream each returns `Z_STREAM_ERROR` without a fault.
 
-- `inflate`: the translation creates the four-byte local array `hbuf` before the check and
-  frees it on return. So the heap afterwards is not the same value: its block counter moved.
-  The goal states that every block that was live is unchanged and that the set of live blocks
-  is the same. This clause has one premise more: no block number from the heap's next unused
-  number on is in use (`Fresh`, a part of heap well-formedness).
-- `inflateCopy` with a refused source: the destination is a readable record. Its `state` field
-  becomes `NULL`, and nothing else changes.
-- The other five leave the heap exactly as it was.
+The refusal is stated in two places. Each of the ten one-function goals of `Streams.lean` has
+it as its first clause, and `Goal.inflateCopy_safety` has a clause for a refused source.
+`Goal.inflate_refusal` states it again, in one statement, for seven functions: `inflate`,
+`inflateEnd`, `inflateReset`, `inflateReset2`, `inflateGetDictionary`, `inflateSetDictionary` and
+`inflateCopy`. On a refused stream every one of the eleven functions returns without a fault.
 
-A record whose `state` field holds a garbage pointer is outside this result; the row
-"Refused streams" of [deviations](../deviations.md) says why. The other `inflate*` functions
-refuse in their functional goals or in lemmas that are not required goals, for example
-`inflateSync_check`.
+- `inflate` and `inflateSync` return `Z_STREAM_ERROR`. Each translation creates a four-byte
+  local array (`hbuf`, `buf`) before the check and frees it on return. So the heap afterwards is
+  not the same value: its block counters may have grown. The clause states that no block that
+  was live is written and that the set of live blocks is the same. It has one premise more: no
+  block number from the heap's next unused number on is in use (`Fresh`, a part of heap
+  well-formedness).
+- `inflateCopy` with a refused source returns `Z_STREAM_ERROR`: the destination is a readable
+  record. Its `state` field becomes `NULL`, and nothing else changes.
+- `inflateMark` returns `-65536`, the value `zlib.h` gives for an inconsistent stream, and
+  leaves the heap exactly as it was.
+- The other seven (`inflateEnd`, `inflateReset`, `inflateReset2`, `inflatePrime`,
+  `inflateGetHeader`, `inflateSetDictionary`, `inflateGetDictionary`) return `Z_STREAM_ERROR`
+  and leave the heap exactly as it was. `inflateGetDictionary` also returns the length value
+  it was given: the translation passes that result cell as a value.
+
+A record with `zalloc` and `zfree` set whose `state` field holds a garbage pointer, a pointer
+to a freed state or a pointer to a deflate state is outside these clauses; the row "Refused streams" of
+[deviations](../deviations.md) says why.
+
+How the refusal clauses are proved (`public-stream-call-safety.lean`,
+`public-inflate-copy-safety.lean`). No clause needed a new lemma about the C. Seven clauses are
+the clauses of `inflate_refusal`. Those of `inflatePrime` and `inflateMark` are the refusal
+clause of the function's functional goal (`CheckedInflate`). Those of `inflateSync` and
+`inflateGetHeader` come from the lemmas `inflateSync_check` and `inflateGetHeader_check`, which
+are stated for a stream that the check can read and that is not initialised (`StreamDom`,
+`¬ Initialised`); `refused_dom` and `refused_not_initialised` show that a refused stream is one.
 
 ## Assumptions
 
@@ -82,11 +98,11 @@ Which premises a goal has depends on the goal.
 
 | Goal | Premises |
 | --- | --- |
-| Parts 1 and 3 of the sequence goal; `Goal.inflateEnd_safety` | A reachable stream, and nothing else |
-| Part 2 of the sequence goal; the nine one-function goals from `Goal.inflate_safety` to `Goal.inflateGetHeader_safety` (`StreamCallDomain`) | A reachable stream; `ByteObjectsFit` on the heap of the call; the argument premise of that call (`StreamArguments`) |
+| Parts 1 and 3 of the sequence goal; the End clause of `Goal.inflateEnd_safety` | A reachable stream, and nothing else |
+| Part 2 of the sequence goal; the call clause of the nine one-function goals from `Goal.inflate_safety` to `Goal.inflateGetHeader_safety` (`StreamCallDomain`) | A reachable stream; `ByteObjectsFit` on the heap of the call; the argument premise of that call (`StreamArguments`) |
 | The two initialisation goals | `InitArguments`: a well-formed heap, and the conditions on the arguments given under [Results](#results) |
 | `Goal.inflateCopy_safety` | A reachable source; the destination is a readable stream record and is not the source record. The statement also names the source's `Good` and `DefAlloc` as premises; part 1 of the sequence result gives both for every reachable stream |
-| `Goal.inflate_refusal` | A refused stream ([Refusals](#refusals)) |
+| `Goal.inflate_refusal`; the refusal clause of each one-function goal and of `Goal.inflateCopy_safety` | A refused stream ([Refusals](#refusals)); for `inflate` and `inflateSync` also `Fresh`; for `inflateCopy` a readable destination record and a source pointer that is not `NULL` |
 
 A *well-formed heap* has three properties: no block number from the next unused one on is in
 use (`Fresh`), a block number holds one object only (`Uniq`), and the static tables have their
