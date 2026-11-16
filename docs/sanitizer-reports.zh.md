@@ -1,4 +1,4 @@
-<!-- source-sha256: 422a0eb5988af48ae600fa8a5116559ecd91585210481cbcfc6266acffd62b1a -->
+<!-- source-sha256: 020bb091cadc0eb55048c3ee6394770b62c21612a187cf70e15e6c8ab529eb7c -->
 # Sanitizer 报告
 
 本页列出所有这样的复现：在这些复现中，sanitizer 报告真实 C 有未定义行为或内存错误。共有十一个。五个展示调用者的错误，安全定理用一条具名前提把它们排除在外；一个展示一个需要未文档化函数的调用序列；五个展示 zlib 本身的缺陷，被验证的源码为它们打了补丁。每个复现都有一个页面，给出 C 驱动程序、运行它的命令和原始 sanitizer 输出。
@@ -12,15 +12,15 @@
 
 这里说的安全目标有两种：每个函数一个目标，例如 `Goal.inflate_safety` 和 `Goal.deflate_safety`；每种调用序列一个目标，例如 `Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` 和 `Goal.gz_sequence_safety`。某个函数目标的前提，也是序列目标中同一调用的前提。每个目标的状态见[进度](progress.md)。
 
-各报告的平台和源码：
+各报告的平台和源码。本页的每份报告都记录于上游提交 `757f0527`，它是 zlib 1.4（提交 `99623ef7`，即被验证的源码）的直接父提交。这两个提交之间，库的 C 源码只在版本与版权字符串、以及 `inftrees.c` 中 `lext` 表的最后两项上不同；没有增加或删除任何一行，所以这些行号也是 zlib 1.4 的行号。这里没有记录在 zlib 1.4 本身上的运行。下面说的“不打补丁的源码”指这个提交不带本项目的任何补丁。
 
 | 报告 | 主机 | 所构建的源码 |
 | --- | --- | --- |
-| 除 `gzprintf-error-string` 之外的四个调用者错误复现 | x86_64 Linux；arm64 macOS 上判定相同，唯一的差异记在 `prime.c` 下 | 固定的源码加补丁 0001。行号是固定的源码的行号：补丁 0001 只改动 `inflate.c` 第 1383 行附近。 |
-| `gzprintf-error-string` | 只有 arm64 macOS（Apple clang） | 固定的源码加补丁 0001 至 0005。行号是这份打过补丁的源码的行号，与固定的源码不同。 |
-| `deflate-copy-pending-prev` | x86_64 Linux（GCC 14）；arm64 macOS 上有同样的 AddressSanitizer 报告 | 固定的源码；没有补丁涉及 deflate 的文件。 |
-| `inflate-copy-fixed`、`gzseek-pushback-overflow`、`gzread-transparent-stale-next` | x86_64 Linux（GCC 15.2）；arm64 macOS（Apple clang 21）上判定相同 | 不打任何补丁的固定的源码。行号是固定的源码的行号。 |
-| `gzread-pos-overflow`、`gzwrite-pos-overflow` | x86_64 Linux（内核 7.0，GCC 15.2）。写入一侧的报告在 arm64 macOS 上也能复现；读取一侧的报告在那里运行了一次，没有复现（观察到的情况见[它的页面](findings/gzread-pos-overflow/README.md)）。 | 固定的源码加除 0004 以外的补丁。用真实 `/dev/null` 的那次 `gzwrite-pos-overflow` 运行，用的是补丁 0001 至 0003。`gzread.c` 的行号比固定的源码大一；`gzwrite.c` 的行号与固定的源码相同。 |
+| 除 `gzprintf-error-string` 之外的四个调用者错误复现 | x86_64 Linux；arm64 macOS 上判定相同，唯一的差异记在 `prime.c` 下 | 该提交加补丁 0001。行号是不打补丁的源码的行号：补丁 0001 只改动 `inflate.c` 第 1383 行附近。在被验证的源码中，补丁 0006 使下面引用的 `deflate.c` 各行下移两行。 |
+| `gzprintf-error-string` | 只有 arm64 macOS（Apple clang） | 该提交加补丁 0001 至 0005。行号是这份打过补丁的源码的行号，与不打补丁的源码不同。 |
+| `deflate-copy-pending-prev` | x86_64 Linux（GCC 14）；arm64 macOS 上有同样的 AddressSanitizer 报告 | 该提交，构建时不带补丁 0006：所引用的行号是不打补丁的 `deflate.c` 的行号。六个补丁中只有 0006 涉及 deflate 的文件：它给 `deflateBound_z` 增加两行，而这个序列不调用该函数，所以在被验证的源码中，所引用的 `deflate.c` 各行要低两行。 |
+| `inflate-copy-fixed`、`gzseek-pushback-overflow`、`gzread-transparent-stale-next` | x86_64 Linux（GCC 15.2）；arm64 macOS（Apple clang 21）上判定相同 | 不打补丁的源码，行号也是它的行号。 |
+| `gzread-pos-overflow`、`gzwrite-pos-overflow` | x86_64 Linux（内核 7.0，GCC 15.2）。写入一侧的报告在 arm64 macOS 上也能复现；读取一侧的报告在那里运行了一次，没有复现（观察到的情况见[它的页面](findings/gzread-pos-overflow/README.md)）。 | 该提交加除 0004 以外的补丁。用真实 `/dev/null` 的那次 `gzwrite-pos-overflow` 运行，用的是补丁 0001 至 0003。`gzread.c` 的行号比不打补丁的源码大一；`gzwrite.c` 的行号与不打补丁的源码相同。 |
 
 一份 sanitizer 报告是关于真实 C 的一次运行的证据。它不是证明。
 
@@ -212,7 +212,7 @@ freed by thread T0 here:
     #2 0x0001025a9b1c in gzvprintf gzwrite.c:448
 ```
 
-在不打补丁的固定的源码中，这三条语句分别位于 `gzwrite.c:485`（`vsnprintf` 调用）、`gzlib.c:563`（`free`）和 `gzwrite.c:442`（`gz_error` 调用）。
+在不打补丁的源码中，这三条语句分别位于 `gzwrite.c:485`（`vsnprintf` 调用）、`gzlib.c:563`（`free`）和 `gzwrite.c:442`（`gz_error` 调用）。
 
 排除它的前提：[偏离记录，“Gz printf 字符串”一行](deviations.md#gzip-file-interface)（`GzArguments`）。`gzprintf` 和 `gzvprintf` 的格式串以及每个 `%s` 参数都位于句柄拥有的块之外。它是 `Goal.gz_sequence_safety` 中每个 `gzprintf` 和 `gzvprintf` 调用的前提。
 
@@ -271,5 +271,5 @@ READ of size 1 at 0x519000000e89 thread T0
 - sanitizer 构建保持无报告的差分回归测试：`inflate-copy`、`inflate-deferred-distance`、`inflate-prime`、`trees-depth-read`、`crc-byte-views`。
 - [deflate-resetkeep-stale-hash](findings/deflate-resetkeep-stale-hash/README.md) 中的数据错误，没有 sanitizer 报告它。
 - 本地补丁 0005 去掉的对 `x.next` 的加零（[未写入](findings/gz-reset-next-uninitialised/README.md)、[悬空](findings/gz-next-dangling-after-direct-read/README.md)）：按 C 标准的字面规定未定义，用探针展示；没有 sanitizer 报告它。
-- 经由 `gz_look` 的位置溢出，补丁 0004 也给它加了界限（[发现](findings/gz-position-copy-overflow.md)）：已在模型中确认，也已通过对 C 的解读确认，没有在 sanitizer 下复现。
+- 经由 `gz_look` 的位置溢出，补丁 0004 也给它加了界限（[发现](findings/gz-position-copy-overflow.md)）：这是对 C 的解读。没有任何一次真实 C 的运行展示它，不论是否在 sanitizer 下；关于一个构造出的状态的几条定理只表明，打过补丁的源码在那里保持在界限之内。
 - [inflate-configured-window](../tests/regression/inflate-configured-window/README.md)：在一个输入上对 C 的原生运行，不带 sanitizer，没有报告。

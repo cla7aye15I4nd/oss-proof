@@ -21,15 +21,20 @@ The safety goals named here are of two kinds: one goal per function, such as
 premise of a function's goal is also a premise of the same call inside the sequence goal. The
 state of each goal is in [progress](progress.md).
 
-Platform and source of the reports:
+Platform and source of the reports. Every report on this page was recorded on upstream commit
+`757f0527`, the direct parent of zlib 1.4 (commit `99623ef7`), which is the verified source.
+Between the two commits the C sources of the library differ only in the version and copyright
+strings and in the last two entries of the table `lext` of `inftrees.c`; no line is added or
+removed, so the line numbers are those of zlib 1.4 too. No run on zlib 1.4 itself is recorded
+here. "Unpatched" below means that commit with no patch of this project.
 
 | Reports | Host | Source built |
 | --- | --- | --- |
-| The four caller-mistake reproductions other than `gzprintf-error-string` | x86_64 Linux; the same verdicts on arm64 macOS, with one difference noted under `prime.c` | The pinned source with patch 0001. Their line numbers are those of the pinned source: patch 0001 changes only `inflate.c` near line 1383. |
-| `gzprintf-error-string` | arm64 macOS (Apple clang) only | The pinned source with patches 0001 to 0005. Its line numbers are those of that patched source and differ from the pinned source. |
-| `deflate-copy-pending-prev` | x86_64 Linux (GCC 14); the same AddressSanitizer report on arm64 macOS | The pinned source; no patch touches the deflate files. |
-| `inflate-copy-fixed`, `gzseek-pushback-overflow`, `gzread-transparent-stale-next` | x86_64 Linux (GCC 15.2); the same verdicts on arm64 macOS (Apple clang 21) | The pinned source without any patch. Line numbers are those of the pinned source. |
-| `gzread-pos-overflow`, `gzwrite-pos-overflow` | x86_64 Linux (kernel 7.0, GCC 15.2). The write report also reproduces on arm64 macOS; the read report did not reproduce in a run there ([its page](findings/gzread-pos-overflow/README.md) says what was observed). | The pinned source with the patches except 0004. The run of `gzwrite-pos-overflow` with the real `/dev/null` used patches 0001 to 0003. The `gzread.c` lines are one above those of the pinned source; the `gzwrite.c` lines are those of the pinned source. |
+| The four caller-mistake reproductions other than `gzprintf-error-string` | x86_64 Linux; the same verdicts on arm64 macOS, with one difference noted under `prime.c` | The commit with patch 0001. Their line numbers are those of the unpatched source: patch 0001 changes only `inflate.c` near line 1383. In the verified source, patch 0006 moves the `deflate.c` lines cited below two lines down. |
+| `gzprintf-error-string` | arm64 macOS (Apple clang) only | The commit with patches 0001 to 0005. Its line numbers are those of that patched source and differ from the unpatched source. |
+| `deflate-copy-pending-prev` | x86_64 Linux (GCC 14); the same AddressSanitizer report on arm64 macOS | The commit, built without patch 0006: the cited lines are those of the unpatched `deflate.c`. Of the six patches only 0006 touches a deflate file: it adds two lines to `deflateBound_z`, which this sequence does not call, so in the verified source the cited `deflate.c` lines are two lines lower. |
+| `inflate-copy-fixed`, `gzseek-pushback-overflow`, `gzread-transparent-stale-next` | x86_64 Linux (GCC 15.2); the same verdicts on arm64 macOS (Apple clang 21) | The unpatched source, with its line numbers. |
+| `gzread-pos-overflow`, `gzwrite-pos-overflow` | x86_64 Linux (kernel 7.0, GCC 15.2). The write report also reproduces on arm64 macOS; the read report did not reproduce in a run there ([its page](findings/gzread-pos-overflow/README.md) says what was observed). | The commit with the patches except 0004. The run of `gzwrite-pos-overflow` with the real `/dev/null` used patches 0001 to 0003. The `gzread.c` lines are one above those of the unpatched source; the `gzwrite.c` lines are those of the unpatched source. |
 
 A sanitizer report is evidence about one run of the real C. It is not a proof.
 
@@ -258,7 +263,7 @@ freed by thread T0 here:
     #2 0x0001025a9b1c in gzvprintf gzwrite.c:448
 ```
 
-In the pinned source without patches the three statements are at `gzwrite.c:485` (the
+In the unpatched source the three statements are at `gzwrite.c:485` (the
 `vsnprintf` call), `gzlib.c:563` (the `free`) and `gzwrite.c:442` (the `gz_error` call).
 
 Excluding premise: [deviations, row "Gz printf strings"](deviations.md#gzip-file-interface)
@@ -346,7 +351,8 @@ the proofs cover it.
   [dangling](findings/gz-next-dangling-after-direct-read/README.md)): undefined by the letter of C,
   shown with a probe; no sanitizer reports it.
 - The position overflow through `gz_look`, which patch 0004 also bounds
-  ([finding](findings/gz-position-copy-overflow.md)): confirmed in the model and by reading the C,
-  not reproduced under a sanitizer.
+  ([finding](findings/gz-position-copy-overflow.md)): a reading of the C. No run of the real C
+  shows it, under a sanitizer or otherwise; theorems about a constructed state show only that the
+  patched source stays within the bound there.
 - [inflate-configured-window](../tests/regression/inflate-configured-window/README.md): a native run
   of the C on one input, with no sanitizer and no report.
