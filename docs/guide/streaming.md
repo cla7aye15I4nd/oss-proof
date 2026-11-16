@@ -219,9 +219,10 @@ Compression uses `Z_NO_FLUSH`, then `Z_FINISH` until `Z_STREAM_END`, adding no
 new input after the first finish request. See [flushes](state-operations.md).
 
 **Safety:** the [sequence statement](../spec/safety.md#2-calls-and-sequences) composes the
-actual init, the calls, the changes of buffers between them and End. It includes the cleanup of
-a failed init and a safe End after a data error or a failed window allocation. The diagram
-illustrates this statement; it does not prove it.
+actual successful init, the calls, the changes of buffers between them and End. It includes a
+safe End after a data error or a failed window allocation. A failed init starts no sequence: its
+cleanup is part of the safety goal of the init function. The diagram illustrates these
+statements; it does not prove them.
 
 ## What the safety theorems say about this chapter
 

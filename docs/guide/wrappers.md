@@ -112,8 +112,9 @@ rules. Gzip has no zlib-style preset-dictionary request.
 `inflate()` calls parse into them. A name can span several input buffers, so the decoder saves
 its progress between calls. **Safety:** `inflate` writes at most `extra_max`, `name_max` and
 `comm_max` bytes into the three buffers. This rests on a premise: the record and its buffers
-stay valid for as long as `inflate` is called, and the `extra` buffer is separate from the
-unread input ([deviations](../deviations.md)). The
+stay valid at every `inflate` call for as long as the record is registered, and while `inflate`
+reads the header the `extra` buffer does not overlap the unread input
+([deviations](../deviations.md#when-a-gzip-header-and-its-buffers-must-be-valid)). The
 [header contract](../spec/api/inflate-stream.md#inflategetheader) defines these memory effects
 alongside the meaning of the bytes.
 

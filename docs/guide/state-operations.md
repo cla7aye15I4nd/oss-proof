@@ -203,7 +203,7 @@ The remaining entries read or adjust a small part of the state.
 | Supply a bit fragment | `inflatePrime` inserts bits into the input of a raw stream, to start in the middle of a byte. `deflatePrime` inserts bits into the output of a raw stream, before the first `deflate` call after init or reset. | **Functional:** the inserted bits are part of the stream the format relation describes. **Safety:** see the paragraph below the table. |
 | Inspect progress or buffering | `inflateMark`, `deflatePending`, `deflateUsed`; `inflateCodesUsed` is undocumented. | **Functional:** the reported number is the quantity `zlib.h` names. **Safety:** the call writes nothing except the result cells the caller passes, if any. |
 | Read the history | `inflateGetDictionary`, `deflateGetDictionary` | **Safety:** the copy stays inside the destination, whose required size the goal states ([deviations](../deviations.md)). **Functional:** the bytes are the current history, which may differ from the preset dictionary. |
-| Control validation | `inflateValidate` is undocumented. It turns the trailer check on or off. | No safety goal is planned. |
+| Control validation | `inflateValidate` is undocumented. It turns the trailer check on or off. | No safety goal is planned. Its functional contract, `Goal.inflateValidate`, has a theorem. |
 
 The C does not enforce every timing rule of the two Prime functions. A call outside such a rule
 is not thereby undefined behaviour, and not thereby a clean refusal; the
@@ -238,7 +238,7 @@ goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what t
 | `inflateMark` | `Goal.inflateMark_safety` | [inflateMark](../spec/api/inflate-stream.md#inflatemark) |
 | `deflatePending` | `Goal.deflatePending_safety` | [deflatePending](../spec/api/deflate-stream.md#deflatepending) |
 | `deflateUsed` | `Goal.deflateUsed_safety` | [deflateUsed](../spec/api/deflate-stream.md#deflateused) |
-| `inflateResetKeep`, `deflateResetKeep`, `inflateCodesUsed`, `inflateValidate` | Not planned: `zlib.h` lists them as undocumented. | [inflate](../spec/api/inflate-stream.md#inflateresetkeep), [deflate](../spec/api/deflate-stream.md#deflateresetkeep) |
+| `inflateResetKeep`, `deflateResetKeep`, `inflateCodesUsed`, `inflateValidate` | No safety goal: not planned, because `zlib.h` lists them as undocumented. The functional contract of each (`Goal.inflateResetKeep`, `Goal.deflateResetKeep`, `Goal.inflateCodesUsed`, `Goal.inflateValidate`) has a theorem. | [inflate](../spec/api/inflate-stream.md#inflateresetkeep), [deflate](../spec/api/deflate-stream.md#deflateresetkeep) |
 
 The sequence goals `Goal.inflate_sequence_safety` and `Goal.deflate_sequence_safety` state that
 these calls are safe in any order `zlib.h` permits, on every stream a call history can reach.
