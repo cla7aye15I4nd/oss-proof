@@ -14,10 +14,11 @@ fidelity, not proof.
 
 A translation keeps the statements of the C function in their order. It does not reorder
 checks, drop a read or a write, or replace an algorithm. A proof that is hard is not a reason to
-change a translation. A mismatch with the C is a translation bug: it is corrected against the C,
-and a differential test that catches it is added.
+change a translation. A mismatch with the C is a translation bug, and it is corrected against the
+C. The domain of a theorem is not narrowed to hide a difficulty either: a defect of the C is
+called a confirmed finding only with a concrete input and a reproduction under a sanitizer.
 
-Four normalisations are accepted (owner's decision of 2026-11-15). They are listed with examples
+Four normalisations are accepted. They are listed with examples
 in [the accepted normalisations](#the-accepted-normalisations):
 
 1. An out-parameter of an internal function is passed by value and returned as a second result.
@@ -28,15 +29,15 @@ in [the accepted normalisations](#the-accepted-normalisations):
 
 By the rule, anything outside these four is a translation bug. The current translations contain
 forms outside the four. The instances found so far are listed, with file and function, in
-[forms not covered by the four accepted normalisations](#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided).
-The owner has not decided whether each form becomes an accepted normalisation or is changed to
-follow the C.
+[forms not covered by the four accepted normalisations](#forms-not-covered-by-the-four-accepted-normalisations).
+It is not decided whether each form becomes an accepted normalisation or is changed to follow
+the C.
 
 ## The source that is translated
 
 One build is translated: default x86_64 Linux, static library, LP64. A runtime parameter never
-selects a different compiled branch. Preprocessor choices are resolved against `zlib/` with the
-patches of `patches/` applied in name order.
+selects a different compiled branch. Preprocessor choices are resolved against the pinned zlib
+source with the project's patches applied in name order.
 
 | Source family | Selected branches |
 | --- | --- |
@@ -49,7 +50,7 @@ Each translation file lists its preprocessor choices in its header comment. Thes
 readings of the source for this build. No proof checks them: **to confirm** by review against
 the preprocessed source.
 
-`zlib/X.c` is translated in `ZlibF/Zlib/X.c.lean`, and `zlib/X.h` in `ZlibF/Zlib/X.h.lean`.
+The translation of `zlib/X.c` is the file `X.c.lean`, and that of `zlib/X.h` is `X.h.lean`.
 (`deflate.c` is split over three files.) A translation file holds no proofs. Each function
 keeps its C name, and its docstring starts with the C signature. The C text of each block is
 quoted in a comment above the Lean lines that translate it.
@@ -81,7 +82,7 @@ local unsigned syncsearch(unsigned FAR *have, const unsigned char FAR *buf,
 }
 ```
 
-Its translation in `ZlibF/Zlib/inflate.c.lean`:
+Its translation:
 
 ```lean
 /-- `local unsigned syncsearch(unsigned FAR *have, const unsigned char FAR *buf, unsigned len)`.
@@ -224,8 +225,7 @@ The same representation is used for the scalar out-parameters of some public fun
 model as well: the caller's cell is not memory, so a cell that overlaps one of the buffers
 cannot be expressed, and the safety goal of the function says nothing about the cell's memory.
 This use is not one of the four accepted normalisations, which are worded for internal
-functions; whether these translations change to take the cell as memory is an open decision of
-the owner. [Deviations](../deviations.md#stream-calls-inflate-and-deflate) has the rows
+functions; whether these translations change to take the cell as memory is not decided. [Deviations](../deviations.md#stream-calls-inflate-and-deflate) has the rows
 "Result cells" and "Whole-buffer compression". The length cells
 of `uncompress*` and the `errnum` cell of `gzerror` are memory: eight-byte blocks and a four-byte
 block.
@@ -282,26 +282,20 @@ Lean's `Int32` subtraction wraps; C's is undefined on overflow. The subtraction 
 A signed operation with no such test uses a checked helper (`chkI32` in the second example).
 The helpers are listed in [architecture](architecture.md#where-the-trusted-semantics-is).
 
-## Forms not covered by the four accepted normalisations; the owner has not decided
+<a id="forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided"></a>
+## Forms not covered by the four accepted normalisations
 
-The translations in `ZlibF/Zlib/` contain at least the six forms below. None of the four accepted
-normalisations covers them as worded. They are recorded here as observed facts. Whether each
-form becomes an accepted normalisation or is changed to follow the C is an open decision of the
-owner.
+The translations contain at least the six forms below. None of the four accepted normalisations
+covers them as worded. They are recorded here as observed facts. It is not decided whether each
+form becomes an accepted normalisation or is changed to follow the C.
 
-How the list was made. Three searches over `ZlibF/Zlib/`, and each hit compared with the C by
-hand:
-
-- every `>>>` and `<<<` outside the definitions of the checked shift helpers;
-- every C comment whose condition has `&&` or `||` and an operand with `->`, and every Lean line
-  that has `&&` or `||` together with a nested action `(← …)`;
-- every record update that sets two or more fields.
-
-The tables below hold the instances these searches and later readings found. They are examples,
-not a complete inventory. A second reading found instances of forms 1 and 4 that the searches
-had missed, and form 6, which no search looks for; more instances, and more forms, may exist.
-Forms 3 and 6 have no textual mark. Form 5 was found in a file header. No instance below was found to
-compute a different value from the C. That is a reading of each place, not a proved fact.
+The instances were found by comparing these places with the C by hand: every `>>>` and `<<<`
+outside the definitions of the checked shift helpers; every condition with `&&` or `||` that has
+an operand with `->` in the C or a nested action `(← …)` in the Lean; and every record update
+that sets two or more fields. The tables below are examples, not a complete inventory: more
+instances, and more forms, may exist. Forms 3 and 6 have no textual mark. No instance below was
+found to compute a different value from the C. That is a reading of each place, not a proved
+fact.
 
 **1. A value just stored is used again instead of being read back.**
 
@@ -428,7 +422,7 @@ another. Normalisation 3 speaks of consecutive assignments to one record.
 Macros are expanded in source order. Reads, writes, branch conditions and early returns are
 kept. Short-circuit evaluation is kept where the right operand is a call or a read through a
 pointer that the left operand tests; the places where an operand is evaluated early are form 2
-of [the list above](#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided).
+of [the list above](#forms-not-covered-by-the-four-accepted-normalisations).
 Integer promotions and the usual arithmetic conversions are written out:
 `unsigned short + int` is computed as `int` on this target.
 
@@ -468,8 +462,7 @@ An enumerator has a `UInt32` name for unsigned state fields and an `Int32` name 
 | String literal | `strLitRef` into the closed, read-only table of the source's literals; no allocation |
 | `ZALLOC` and `ZFREE` | The default allocator with its failure oracle; a custom allocator is `Fault.ub` |
 
-The record types are generated from the C headers ([runtime schema](../runtime-schema.md)). A
-translator adds to the schema through the generator and does not write a second record layout.
+The record types are generated from the C headers ([runtime schema](../runtime-schema.md)).
 A generated array field does not carry its declared length in its type; proofs carry that fact.
 
 A local object does not consume a call of the allocation-failure oracle: giving it the
@@ -508,8 +501,7 @@ See [safety, section 3](../spec/safety.md#3-faults-undefined-behaviour-and-model
 
 `memcpy` copies arbitrary values as well as initialised ones. The runtime faults on NULL even
 for a zero-length copy. The modelled operations count elements, so a C byte count is converted.
-`Libc.lean` and the generated `LibcTables.lean` define them; [trusted base](../trusted-base.md)
-lists their differences from C.
+[Trusted base](../trusted-base.md) lists their differences from C.
 
 ## Control flow
 
@@ -525,19 +517,5 @@ The loop bound is not permission to stop early. Exhaustion is `Fault.outOfFuel`,
 termination proof excludes it. Every undefined operation the C can reach stays visible as
 `Fault.ub`, within the documented model differences: pointer bounds, liveness, read-only
 stores, invalid comparisons, signed arithmetic and overlapping copies.
-
-## What a new or changed translation comes with
-
-- The source module that mirrors the C file.
-- A function-level differential test.
-- Comments that record each translation decision beside the C lines it concerns.
-
-A change to `ZlibF/Runtime/` is its own commit, with the reason and the proofs it affects,
-because every function proof depends on it. The runtime changes only for a confirmed mismatch
-with C. [Checking](../checking/README.md) describes the audit and the proof mutants.
-
-When a proof exposes a possible upstream bug, the public domain stays as it is. The cause is one
-of four: the proof technique, a wrong specification, a translation mismatch, or a real C defect.
-The last is called a confirmed finding only with a concrete input and a sanitizer reproduction.
 
 [Design](README.md) · [Documentation home](../README.md)

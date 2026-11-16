@@ -1,4 +1,4 @@
-<!-- source-sha256: f44c7b5308f6f89cc0ecbc1324ed43ec0d6ad2d05e2e600d22f4f30372481b72 -->
+<!-- source-sha256: 9c57692da0454128873071775227615b5e1a1d47829bcd402dbc2fd949db6b24 -->
 # 树与块输出：块刷新为什么是安全的
 
 源文件：`zlib/trees.c`，符号布局在 `zlib/deflate.h` 中。翻译：`ZlibF/Zlib/trees.c.lean`。
@@ -9,25 +9,25 @@
 
 ## 结论
 
-模块在 `ZlibF/Proof/` 下。表中的定理服务于 `Zlib.Deflate.Universal.deflate_sequence_safety` 的证明，即 `deflate` 的序列定理。第五行和最后一行的定理列在 `tests/audit/theorems.txt` 中；其余的是那个证明内部的引理，本身没有列出。那项结论的层级记录在[进度，范围](../progress.md#scope)中。
+表中的定理服务于 `Zlib.Deflate.Universal.deflate_sequence_safety` 的证明，即 `deflate` 的序列定理。
 
-| 结论 | 定理 | 模块 |
-| --- | --- | --- |
-| 给定动态形式的共用缓冲区余量，`FLUSH_BLOCK_ONLY` 对每种块形式、每个 `memLevel` 都安全 | `flush_block_only_safe`，来自 `tr_flush_block_safe` | `trees.c.universal-flush.lean`、`trees.c.universal-block.lean` |
-| 三种块形式 | `stored_block_safe`、`fixed_block_safe`、`dynamic_block_safe` | `trees.c.universal-stored.lean`、`-fixed.lean`、`-dynamic.lean` |
-| 共用缓冲区余量 F9，`B ≥ 2048`（`memLevel ≥ 5`） | `dynamic_overlay_large` | `trees.c.universal-block.lean` |
-| 共用缓冲区余量 F9，`B = 512` 和 `1024`（`memLevel` 为 3 和 4） | `dynamic_overlay_mid` | `trees.c.universal-overlay-mid.lean` |
-| 共用缓冲区余量 F9，`B = 256` 和 `128`（`memLevel` 为 2 和 1） | `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay` | `deflate.c.engine.overlay-header-ref.lean` |
-| 对权重小于 1597 的树，`gen_bitlen` 不会缩短任何编码 | `ws_gen_bitlen_fib_plus` | `trees.c.universal-overlay-fibplus.lean` |
-| 堆操作、`gen_bitlen`、位输出和符号记录 | `pqdownheap_safe`、`pqremove_safe`、`gen_bitlen_safe`、`kraft_clamped`、`send_bits_spec`、`bi_flush_spec`、`bi_windup_spec`、`bi_reverse_safe`、`init_block_spec`、`tr_init_spec`、`tr_tally_spec` | `trees.c.heap.*.lean`、`trees.c.bits.lean`、`trees.c.tally.lean` 以及它们旁边的模块 |
+| 结论 | 定理 |
+| --- | --- |
+| 给定动态形式的共用缓冲区余量，`FLUSH_BLOCK_ONLY` 对每种块形式、每个 `memLevel` 都安全 | `flush_block_only_safe`，来自 `tr_flush_block_safe` |
+| 三种块形式 | `stored_block_safe`、`fixed_block_safe`、`dynamic_block_safe` |
+| 共用缓冲区余量 F9，`B ≥ 2048`（`memLevel ≥ 5`） | `dynamic_overlay_large` |
+| 共用缓冲区余量 F9，`B = 512` 和 `1024`（`memLevel` 为 3 和 4） | `dynamic_overlay_mid` |
+| 共用缓冲区余量 F9，`B = 256` 和 `128`（`memLevel` 为 2 和 1） | `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay` |
+| 对权重小于 1597 的树，`gen_bitlen` 不会缩短任何编码 | `ws_gen_bitlen_fib_plus` |
+| 堆操作、`gen_bitlen`、位输出和符号记录 | `pqdownheap_safe`、`pqremove_safe`、`gen_bitlen_safe`、`kraft_clamped`、`send_bits_spec`、`bi_flush_spec`、`bi_windup_spec`、`bi_reverse_safe`、`init_block_spec`、`tr_init_spec`、`tr_tally_spec` |
 
 `B` 是 `lit_bufsize = 2^(memLevel + 6)`。因为 F9 对 `memLevel` 的全部九个值都证明了，所以 `deflate` 的序列定理没有关于它的前提。
 
-也有功能定理（`gen_bitlen_correct`、`pqdownheap_correct`、`bi_reverse_correct` 等：码长构成完整的前缀码，写出的位就是想写的位）。它们已证明，但不是安全结论所必需的。没有定理说写出的块能解码回已记录的符号。关于这样的证明需要涵盖什么，早先的笔记保存在[历史](../history/proof-functional-notes.md)中。
+也有功能定理（`gen_bitlen_correct`、`pqdownheap_correct`、`bi_reverse_correct` 等：码长构成完整的前缀码，写出的位就是想写的位）。它们已证明，但不是安全结论所必需的。没有定理说写出的块能解码回已记录的符号。
 
 ## 假设
 
-`flush_block_only_safe`（`ZlibF/Proof/trees.c.universal-flush.lean`）是内部定理。它的前提是关于压缩器状态的事实，各策略在每次刷新处由不变量 `DInv` 证明它们（[流式压缩](deflate.md#the-invariant)）。下面列出 Lean 命题的每一条前提。
+`flush_block_only_safe` 是关于 `deflate` 内部一步的定理，不是关于公开函数的定理。它的前提是关于压缩器状态的事实，各策略在每次刷新处由不变量 `DInv` 证明它们（[流式压缩](deflate.md#the-invariant)）。下面列出 Lean 命题的每一条前提。
 
 - 状态是良构的（`DGood`、`TreesInvAt`）：数组大小、树描述符、存放 `pending_buf` 和 `sym_buf` 的那个块。
 - 窗口指针指向一个存活字节块的开头。
@@ -37,11 +37,11 @@
 - 代价字段 `opt_len` 和 `static_len` 以及码长的频率都是零（`BlockClear`）。
 - `-2^62 ≤ block_start ≤ strstart ≤ window_size`。第一个界使块长 `strstart - block_start` 落在 `long` 的范围内；窗口滑动之后 `block_start` 可以是负的。
 - `StreamBuffers` 成立，并且 `next_out` 指向堆上一个字节块的内部，或者指向某个 deflate 状态记录的 `depth` 数组内部。模型里可写的字节存储只有这两种；各策略由 `StreamBuffers` 和不为 `NULL` 的 `next_out` 得到这条前提（`output_reference`）。
-- **动态形式的共用缓冲区余量**（`DynamicOverlay`，`trees.c.universal-block.lean`）。这条前提是一个假设，不是关于大小的事实。它有这样几个条件：在这个状态上建树，并且建树只改变树的各字段和两个代价；树的描述至多 2283 位；各符号的代价超出每符号 24 位的部分，对已记录的 `n` 个符号求和，满足 `1000 * bitExcess ≤ 6257 * (n + 3)`；代价选中了动态形式。在这些条件下，准备好的状态具有[事实 F9](#the-overlay-lemma-f9) 的余量 `DynamicRoom`。“结论”表中的三条共用缓冲区定理对每一个 `B` 证明了它。`FlushSafeAt L`（`deflate.c.universal-strategies.lean`）是去掉这条假设之后、针对 `lit_bufsize` 为 `L` 的状态的 `flush_block_only_safe` 命题；各策略用的就是它，各自取自己的缓冲区大小。
+- **动态形式的共用缓冲区余量**（`DynamicOverlay`）。这条前提是一个假设，不是关于大小的事实。它有这样几个条件：在这个状态上建树，并且建树只改变树的各字段和两个代价；树的描述至多 2283 位；各符号的代价超出每符号 24 位的部分，对已记录的 `n` 个符号求和，满足 `1000 * bitExcess ≤ 6257 * (n + 3)`；代价选中了动态形式。在这些条件下，准备好的状态具有[事实 F9](#the-overlay-lemma-f9) 的余量 `DynamicRoom`。“结论”表中的三条共用缓冲区定理对每一个 `B` 证明了它。`FlushSafeAt L` 是去掉这条假设之后、针对 `lit_bufsize` 为 `L` 的状态的 `flush_block_only_safe` 命题；各策略用的就是它，各自取自己的缓冲区大小。
 
 这条定理对参数 `last` 的两个值都成立。
 
-H0 在每次刷新处都成立。`bi_valid ≤ 7` 是不变量的子句 `biValid`：每条发送位的路径都以 `bi_flush` 或 `bi_windup` 结束。`pending = 0` 是每种策略的循环状态的一部分（`BlockReady`，`ZlibF/Proof/deflate.c.universal-strategies.lean`）：`deflate` 只在待输出缓冲为空时才调用策略；刷新之后如果还有字节待输出，策略就返回，不再往下走。
+H0 在每次刷新处都成立。`bi_valid ≤ 7` 是不变量的子句 `biValid`：每条发送位的路径都以 `bi_flush` 或 `bi_windup` 结束。`pending = 0` 是每种策略的循环状态的一部分（`BlockReady`）：`deflate` 只在待输出缓冲为空时才调用策略；刷新之后如果还有字节待输出，策略就返回，不再往下走。
 
 ## 一次刷新做了什么
 
@@ -94,7 +94,7 @@ heap_max = HEAP_SIZE - 2t
 HEAP_SIZE - 2t - 2 > N - t      因为 N ≤ 286 且 t ≤ N - 2
 ```
 
-新结点的编号至多是 `elems + N - 2 ≤ 2 * elems - 2`：570、58 或 36。这在树数组（573、61、39）之内。最后一次写根，写的是 `heap[HEAP_SIZE - 2N + 1]`，下标至少是 2。这些界就是[方法](method.md#structural-facts-used-by-several-proofs)里的事实 **F7**。`pqdownheap_safe` 和 `pqremove_safe` 涵盖堆操作，`ws_build_tree_complete`（`trees.c.build.complete.lean`）涵盖整个函数。
+新结点的编号至多是 `elems + N - 2 ≤ 2 * elems - 2`：570、58 或 36。这在树数组（573、61、39）之内。最后一次写根，写的是 `heap[HEAP_SIZE - 2N + 1]`，下标至少是 2。这些界就是[方法](method.md#structural-facts-used-by-several-proofs)里的事实 **F7**。`pqdownheap_safe` 和 `pqremove_safe` 涵盖堆操作，`ws_build_tree_complete` 涵盖整个函数。
 
 `depth` 是 `unsigned char`，它的自增可能回绕。这是有定义的行为，对任何下标都没有影响。父结点的频率是叶子频率之和；一个块里的符号少于 `B ≤ 32768` 个，所以这些和放得进 16 位。
 
@@ -111,7 +111,7 @@ overflow          = Σ_v (2 m_v - 2)
 Σ_叶子 2^-Len     = 1 + (overflow / 2) * 2^-L
 ```
 
-所以 `overflow` 是偶数（`kraft_clamped`，`trees.c.heap.gbtree.lean`）。
+所以 `overflow` 是偶数（`kraft_clamped`）。
 
 **修复。** 只要 `overflow > 0`，C 就执行
 
@@ -133,7 +133,7 @@ overflow -= 2;
 
 **第二遍。** C 重新分发码长：有 `bl_count[bits]` 个叶子得到码长 `bits`，这些叶子取自 `heap[--h]`，内部结点被跳过。已存放的结点里有 `n` 个叶子，而 `Σ bl_count = n`，所以 `h` 不会降到 `heap_max` 之下。
 
-`gen_bitlen_safe`（`trees.c.heap.gbtop.lean`，列在 `tests/audit/theorems.txt` 中）涵盖整个函数。
+`gen_bitlen_safe` 涵盖整个函数。
 
 ### 编码与树的描述
 
@@ -141,10 +141,10 @@ overflow -= 2;
 
 | 函数 | 它的访问为什么不越界 |
 | --- | --- |
-| `scan_tree` | 它作用于两棵数据树。它在 `tree[max_code + 1]` 处写一个哨兵值 `0xffff`；这个下标至多是 286 或 30，在 573 项和 61 项的数组之内。真实的码长是 0 到 15，用来访问 `bl_tree` 的下标是 0 到 18；哨兵只参与比较，从不用作下标。`ws_scan_tree`（`trees.c.scan-tree.lean`）证明这个函数会返回。它假设到 `max_code` 为止的码长至多是 15，对 `max_code + 1` 处的表项不作任何假设。它的结论还说明：之后的树是数组 `scGuard`，即原数组只把 `max_code + 1` 处的码长改成 `0xffff`。`scGuard_lengths` 是关于这个数组的码长的引理，不是关于这个函数的。这两条定理和 `send_tree_emit` 不在登记表里 |
+| `scan_tree` | 它作用于两棵数据树。它在 `tree[max_code + 1]` 处写一个哨兵值 `0xffff`；这个下标至多是 286 或 30，在 573 项和 61 项的数组之内。真实的码长是 0 到 15，用来访问 `bl_tree` 的下标是 0 到 18；哨兵只参与比较，从不用作下标。`ws_scan_tree` 证明这个函数会返回。它假设到 `max_code` 为止的码长至多是 15，对 `max_code + 1` 处的表项不作任何假设。它的结论还说明：之后的树是数组 `scGuard`，即原数组只把 `max_code + 1` 处的码长改成 `0xffff`。`scGuard_lengths` 是关于这个数组的码长的引理，不是关于这个函数的 |
 | `build_bl_tree` | 它从 18 往下扫描 `bl_order[max_blindex]`，最迟在 3 处停下 |
 | `send_all_trees` | 它分别用 5、5、4 位发送 `lcodes - 257`、`dcodes - 1` 和 `blcodes - 4`，然后发送 `blcodes ≤ 19` 个三位码长 |
-| `send_tree` | 它重复 `scan_tree` 的扫描，读的是同样的表项，包括哨兵。`send_tree_emit`（`trees.c.send-tree.lean`）证明它会返回，条件是到 `max_code` 为止的码长至多是 15，`max_code + 1` 处可以是任意 16 位值，并且出现的位长符号都有合适的码，`pending_buf` 里有容纳这些位的空间 |
+| `send_tree` | 它重复 `scan_tree` 的扫描，读的是同样的表项，包括哨兵。`send_tree_emit` 证明它会返回，条件是到 `max_code` 为止的码长至多是 15，`max_code + 1` 处可以是任意 16 位值，并且出现的位长符号都有合适的码，`pending_buf` 里有容纳这些位的空间 |
 
 ### 位与待输出字节
 
@@ -172,7 +172,7 @@ pending ≤ base + 2 * floor((S + v) / 16)
 8 * pending + bi_valid + 15 ≤ 8 * (B + 3k)          （前缀余量）
 ```
 
-而且整个块连同它的结束符和最后的对齐，放得进 `4B` 字节（整块余量）。15 位的宽裕量涵盖 `bi_buf` 里留着的位，以及 `send_bits` 一次写两个字节的步长。在 Lean 里，对动态形式这就是 `DynamicRoom`（`trees.c.universal-dynamic.lean`）；它是用入口状态以及头部和每个符号的位代价写出来的。
+而且整个块连同它的结束符和最后的对齐，放得进 `4B` 字节（整块余量）。15 位的宽裕量涵盖 `bi_buf` 里留着的位，以及 `send_bits` 一次写两个字节的步长。在 Lean 里，对动态形式这就是 `DynamicRoom`；它是用入口状态以及头部和每个符号的位代价写出来的。
 
 读出一个符号，就腾出 24 位的缓冲空间。所以问题在于：一个符号的编码能比 24 位多出多少，以及第一个符号之前块头部占多少位。
 
@@ -213,15 +213,13 @@ header + excess + 25 ≤ 8B
 | 256 | 2048 | 2023 | 2048 |
 | 128 | 1024 | 999 | 1024 |
 
-**头部的界 2283。** 描述包括 14 个计数位、至多 19 个三位码长，以及至多 `286 + 30` 个码长各自一个至多 7 位的编码：`14 + 57 + 7 * 316 = 2283`（`build_bl_tree_header_budget`，`trees.c.header-budget.lean`）。
+**头部的界 2283。** 描述包括 14 个计数位、至多 19 个三位码长，以及至多 `286 + 30` 个码长各自一个至多 7 位的编码：`14 + 57 + 7 * 316 = 2283`（`build_bl_tree_header_budget`）。
 
-**`B ≥ 2048`。** 在 Huffman 树里，出现得多的符号编码短：频率为 `f`、深度为 `l` 的叶子，迫使总权重至少约为 `f` 乘以斐波那契数 `F(l + 1)`。把两个字母表的最坏情形连同附加位和码长修复的影响加起来，得到每个符号的多余位数至多是 6.257，按 `n + 3` 个计（`source_trees_symbol_excess_engine`，`deflate.c.engine.symbol-excess.lean`，来自 `ZlibF/Math/DeflateSymbolExcess.lean` 中的 `symbol_excess_from_fib`）。这 3 个是块结束符，以及 `build_tree` 至多补入的两个符号。由 `n ≤ B - 1`，预算从 `B = 1332` 起成立。在 `B = 1024` 时它不成立：`2283 + 6.257 * 1026 + 25 = 8728 > 8192`。
+**`B ≥ 2048`。** 在 Huffman 树里，出现得多的符号编码短：频率为 `f`、深度为 `l` 的叶子，迫使总权重至少约为 `f` 乘以斐波那契数 `F(l + 1)`。把两个字母表的最坏情形连同附加位和码长修复的影响加起来，得到每个符号的多余位数至多是 6.257，按 `n + 3` 个计（`source_trees_symbol_excess_engine`，来自 `symbol_excess_from_fib`）。这 3 个是块结束符，以及 `build_tree` 至多补入的两个符号。由 `n ≤ B - 1`，预算从 `B = 1332` 起成立。在 `B = 1024` 时它不成立：`2283 + 6.257 * 1026 + 25 = 8728 > 8192`。
 
-**`B = 512` 和 `1024`。** 树的权重至多是 `B + 2 ≤ 1026`。权重小于 `F(17) = 1597` 的树没有深度超过 15 的结点：这样的结点的父结点深度至少是 15，而这么深的结点迫使总权重至少是 `F(16) + F(15) = 1597`。所以 `gen_bitlen` 在两棵数据树里不做任何修复（`ws_gen_bitlen_fib_plus`），每个码长就是真实深度，每个符号都满足 `f * F(l + 1) + F(l) ≤ W`。在这个约束下，权重至多 514 时多余位数最大是 1777，权重至多 1026 时最大是 3678（`ZlibF/Math/DeflateOverlaySmall.lean`）。
+**`B = 512` 和 `1024`。** 树的权重至多是 `B + 2 ≤ 1026`。权重小于 `F(17) = 1597` 的树没有深度超过 15 的结点：这样的结点的父结点深度至少是 15，而这么深的结点迫使总权重至少是 `F(16) + F(15) = 1597`。所以 `gen_bitlen` 在两棵数据树里不做任何修复（`ws_gen_bitlen_fib_plus`），每个码长就是真实深度，每个符号都满足 `f * F(l + 1) + F(l) ≤ W`。在这个约束下，权重至多 514 时多余位数最大是 1777，权重至多 1026 时最大是 3678（`symbol_excess_from_fib_plus`）。
 
-**`B = 256` 和 `128`。** 一般的头部界在这里太大了：`2283 > 2048`。证明改为给眼前这个块的头部定界。它是 `14 + 3 (max_blindex + 1)` 位，至多 71 位，再加上各个码长符号的代价。在 `B = 256` 时每个数据编码至多 11 位，所以码长符号 12 到 15 不出现；在 `B = 128` 时每个编码至多 9 位。其余符号的代价对照一个固定的完整编码来定界（`deflate.c.engine.overlay-header-ref.lean`）。还用到一个不等式：选中的是动态形式，所以它取整后的代价小于固定形式的代价。一份不涉及堆的证书把这些事实合成 `header + excess ≤ 2023` 和 `≤ 999`（`deflate.c.engine.overlay-mem2c.lean`、`deflate.c.engine.overlay-mem1w.lean`）。两种情况下，证明出来的界都恰好等于预算。
-
-早先的一个开发用别的路线得到过同样的界，见[早先的证明笔记](../history/proof-earlier-notes.md#overlay-bound-earlier-routes)。
+**`B = 256` 和 `128`。** 一般的头部界在这里太大了：`2283 > 2048`。证明改为给眼前这个块的头部定界。它是 `14 + 3 (max_blindex + 1)` 位，至多 71 位，再加上各个码长符号的代价。在 `B = 256` 时每个数据编码至多 11 位，所以码长符号 12 到 15 不出现；在 `B = 128` 时每个编码至多 9 位。其余符号的代价对照一个固定的完整编码来定界（`header_ref_bound_256`、`header_ref_bound_128w`）。还用到一个不等式：选中的是动态形式，所以它取整后的代价小于固定形式的代价。一份不涉及堆的证书把这些事实合成 `header + excess ≤ 2023` 和 `≤ 999`（`header_excess_256c`、`header_excess_128_w`）。两种情况下，证明出来的界都恰好等于预算。
 
 ## 循环为什么会结束
 

@@ -1,5 +1,5 @@
-<!-- source-sha256: 6f0b3da763db96aac0d79846a10eb42e6ad71fa7306162b185ade1241269ddc4 -->
-# 从 C 到已检查的定理
+<!-- source-sha256: 401edb35f9ed80cc4126d96817a279842077e527d483eee16e4f99e0489f6292 -->
+# 从 C 到内核检查过的定理
 
 本项目的定理说的是一个 Lean 程序，不是 C 的文本。本页展示这个程序由什么构成，让读者能够判断内核不检查的两个联系：运行时表示了 C 的操作，翻译与选定的 C 源码一致。[可信基础](../trusted-base.md)列出所有依靠审查的东西。
 
@@ -20,25 +20,25 @@ flowchart TD
 
 | 层 | 它的职责 | 它的依据 |
 | --- | --- | --- |
-| 选定的 C | 确定被验证的是哪个程序 | 固定版本的 `zlib/` 子模块，加上按文件名顺序应用的 `patches/*.patch` |
+| 选定的 C | 确定被验证的是哪个程序 | 固定版本的上游 zlib 源码，加上按文件名顺序应用的本项目补丁 |
 | 运行时 | 给翻译后的操作以可执行的语义 | 审查和语义回归测试 |
 | 翻译 | 保留 C 的语句及其顺序 | 源码审查和差分测试；测试是证据，不是证明 |
 | 模型与规格 | 说明程序做什么，而不限定它的实现方式 | 审查各个定义、定义域，以及它们与 `zlib.h` 和数据格式的关系 |
-| 证明 | 把计算与这些命题联系起来 | Lean 内核的检查和[验收检查](../checking/README.md) |
+| 证明 | 把计算与这些命题联系起来 | Lean 内核的检查 |
 
 安全结论只需要经过*执行证明*的那条路径：无故障、终止、帧性质和所有权，并在调用序列上组合。经过*细化证明*的路径给出功能正确性。它不是安全结论所必需的。
 
-安全结论之后计划做一项功能结果：默认 zlib 流的往返。它的条件形式有一条定理。定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）说的是翻译后函数的两次运行。编码器的运行是按默认级别调用 `deflateInit_`，随后是若干次 `deflate` 调用，flush 值任意。解码器的运行是以 `windowBits` 15 调用 `inflateInit2_`，随后是若干次 `inflate` 调用。同一次运行的两次调用之间，调用者可以改动缓冲区字段（`Rebuffer`）。每次运行的前提如下：
+有一项功能结果在计划内：默认 zlib 流的往返。它的条件形式有一条定理。定理 [`deflate_inflate_roundtrip`](../../ZlibF/Proof/public-deflate-inflate-roundtrip.lean) 说的是翻译后函数的两次运行。编码器的运行是按默认级别调用 `deflateInit_`，随后是若干次 `deflate` 调用，flush 值任意。解码器的运行是以 `windowBits` 15 调用 `inflateInit2_`，随后是若干次 `inflate` 调用。同一次运行的两次调用之间，调用者可以改动缓冲区字段（`Rebuffer`）。每次运行的前提如下：
 
 - 初始化调用从 `InitDomain` 出发（堆良构，`version` 指向 `'1'`，`zalloc` 和 `zfree` 各自是 `NULL` 或默认函数，`state` 字段是 `NULL`），并且返回了 `Z_OK`。
 - 每次数据调用都是一个 `DataStep`：它满足 `StreamBuffers` 和 `ActiveHeader`，并且返回了。定理假设这些调用会返回，并不证明这一点。
 - 只在解码器的运行上，每次 `inflate` 调用时的堆和每次调用者修改之后的堆都满足平台前提 `ByteObjectsFit`。
 
-当两次运行都已返回 `Z_STREAM_END`，并且解码器消耗的字节是编码器写出的字节的前缀时，解码器写出的字节就是编码器消耗的字节。这条定理是带条件的：它假设两次运行都到达 `Z_STREAM_END`。完备性（空间足够时，两次运行确实到达 `Z_STREAM_END`）和无条件的往返排在它之后，在计划内。其他已经证明的细化结果保留；哪些功能结果在计划内、往返性质进行到哪一步，见[范围](../progress.md#scope)。
+当两次运行都已返回 `Z_STREAM_END`，并且解码器消耗的字节是编码器写出的字节的前缀时，解码器写出的字节就是编码器消耗的字节。这条定理是带条件的：它假设两次运行都到达 `Z_STREAM_END`。完备性（空间足够时，两次运行确实到达 `Z_STREAM_END`）和无条件的往返在计划内，未完成。其他一些细化结果也有定理；哪些功能结果在计划内，见[进度](../progress.md)。
 
 ## 用几个定义看模型
 
-每个翻译后的函数都由下面这些定义搭成。它们引自 `ZlibF/Runtime/Monad.lean` 和 `ZlibF/Runtime/Space.lean`，略去了 `deriving` 行。
+每个翻译后的函数都由下面这些定义搭成。它们引自运行时，略去了 `deriving` 行。
 
 ```lean
 /-- Why a C computation did not produce a value. -/
@@ -83,7 +83,7 @@ inductive Ptr (R : Type) where
   | ref (r : R) (off : Nat)
 ```
 
-通过这种指针的读取是带检查的（`ZlibF/Runtime/Ptr.lean`；`Space.get h r` 是 `r` 在堆 `h` 中所指的数组，前提是它还存活）：
+通过这种指针的读取是带检查的（`Space.get h r` 是 `r` 在堆 `h` 中所指的数组，前提是它还存活）：
 
 ```lean
 /-- `*p`. Faults if `p` is null, dangling, or outside its array (one past the end is not readable). -/
@@ -102,22 +102,16 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 
 ## 选定的源码与模块布局
 
-目标是默认的 x86_64 Linux 静态构建，使用 LP64 位宽和默认分配器。分配失败在范围内。其他构建配置和自定义分配器实现不在计划内；[偏离记录](../deviations.md)记有这一限制。源码子模块绝不改动。只有针对已确认的上游缺陷才允许打补丁，并须遵守仓库的 `AGENTS.md` 和 `patches/README.md` 中的规则。
+目标是默认的 x86_64 Linux 静态构建，使用 LP64 位宽和默认分配器。分配失败在范围内。其他构建配置和自定义分配器实现不在计划内；[偏离记录](../deviations.md)记有这一限制。上游源码绝不改动。只有针对已确认的上游缺陷才允许打补丁；[补丁登记表](../../patches/README.md)列出各个补丁。
 
-| 位置 | 职责 |
-| --- | --- |
-| `ZlibF/Runtime/` | 堆、指针、故障、循环，以及建模的 C 库操作 |
-| `ZlibF/Zlib/X.c.lean` | `zlib/X.c` 的翻译；其中没有证明。`deflate.c` 拆成 `deflate_base.c.lean`、`deflate_strategies.c.lean` 和 `deflate.c.lean` 三个文件 |
-| `ZlibF/Zlib/X.h.lean` | `zlib/X.h` 的翻译 |
-| `ZlibF/Zlib/gzfs.lean` | 供 gz 翻译使用的文件、`errno` 和格式化的模型（[外部 I/O](external-io.md)） |
-| `ZlibF/Spec/Safety/` | 必需的安全目标 |
-| `ZlibF/Spec/Functional/` | 功能目标，以及不涉及堆的格式模型和 API 模型；不是安全结论所必需的 |
-| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数、不变量；没有关于公开函数的目标（[规格的布局](safety-functional-split.md)） |
-| `ZlibF/Spec/Common/ByteAddress.lean`、`ZlibF/Spec/Common/Inflate/`、`ZlibF/Spec/Functional/Inflate/` | 关于内部函数的命题；用到格式模型的在 `Functional/` 下。每一条都先对翻译后的函数证明，调用者才使用它（[见下文](#composing-calls-without-assuming-their-answers)） |
-| `ZlibF/Proof/X.c.<topic>.lean` | 关于 `zlib/X.c` 的证明 |
-| `ZlibF/Proof/public-<name>.lean` | 公开目标的证明 |
-| `ZlibF/Math/` | 各证明共用的、不涉及堆的事实 |
-| `tests/` | 差分证据、回归和验收检查 |
+整个开发有四个部分：
+
+- 运行时：堆、指针、故障、循环，以及建模的 C 库操作；
+- 翻译：每个 C 文件对应一个 Lean 文件，`zlib/X.c` 对应 `X.c.lean`，`zlib/X.h` 对应 `X.h.lean`。`deflate.c` 拆成 `deflate_base.c.lean`、`deflate_strategies.c.lean` 和 `deflate.c.lean` 三个文件。翻译里没有证明。gz 翻译还使用 `gzfs.lean`，即文件、`errno` 和格式化的模型（[外部 I/O](external-io.md)）；
+- 规格：必需的安全目标；功能目标，连同不涉及堆的格式模型和 API 模型，它们不是安全结论所必需的；以及两类目标共用的定义（调用、历史、帧、参数、不变量）；
+- 证明，以及各证明共用的、不涉及堆的数学事实。
+
+关于内部函数的命题，先对翻译后的函数证明，调用者才使用它（[见下文](#composing-calls-without-assuming-their-answers)）。
 
 函数名就是 C 的名字。函数的文档字符串以它的 C 签名开头。
 
@@ -125,22 +119,18 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 
 本节中的一切都是被信任的：这里的错误内核发现不了。
 
-| `ZlibF/Runtime/` 中的文件 | 内容 |
-| --- | --- |
-| `Space.lean` | 堆的各张表、指针类型 `Ptr`、函数指针、未初始化整数的值 |
-| `Monad.lean` | `Fault`、`M`、`fuel`、`cwhile`、`cdoWhile` |
-| `Ptr.lean` | 指针算术、读取、写入、相减、比较 |
-| `Address.lean` | 字节指针地址的低三位，CRC 的对齐检验要读它 |
-| `Libc.lean`、`LibcStrings.lean` | `malloc`、`free`、`memcpy`、`memmove`、`memset`、`strlen`、字符串字面量、`strerror` 的文本 |
-| `Schema.lean`（生成） | 每个结构体的记录、引用类型、静态表、堆 |
-| `Tables.lean`、`LibcTables.lean`（生成） | 每种结构体的读取、写入、`malloc`、`free` 和整记录 `memcpy` |
-| `Alloc.lean` | `Libc.lean` 的再导出；没有内容 |
+运行时定义了：
 
-生成的文件由 `scripts/gen_schema.py` 根据 C 头文件写出。[运行时结构定义](../runtime-schema.md)列出每个字段。
+- 堆的各张表、指针类型 `Ptr`、函数指针，以及未初始化整数的值；
+- `Fault`、`M`、`fuel`、`cwhile` 和 `cdoWhile`；
+- 指针算术、读取、写入、相减和比较；
+- 字节指针地址的低三位，CRC 的对齐检验要读它；
+- `malloc`、`free`、`memcpy`、`memmove`、`memset`、`strlen`、字符串字面量和 `strerror` 的文本；
+- 每个结构体的记录、引用类型、静态表和堆，以及每种结构体的读取、写入、`malloc`、`free` 和整记录 `memcpy`。这些定义根据 C 头文件生成；[运行时结构定义](../runtime-schema.md)列出每个字段。
 
-有些语义辅助定义不在 `ZlibF/Runtime/` 里。它们定义在使用它们的翻译文件中，被信任的方式相同。下面各表按种类列出它们。
+有些语义辅助定义不属于运行时。它们定义在使用它们的翻译文件中，被信任的方式相同。下面各表按种类列出它们。
 
-这份列表是这样得到的：把 `ZlibF/Zlib/*.lean` 中每个顶层的 `def`、`abbrev`、`structure` 和 `inductive` 连同它的文档字符串列出来（这些文件里没有 `instance`、`macro` 或 `notation`）。其中每一个都放进某张表，除非它是某个 C 函数的翻译，是某个 C 函数的一部分（循环体、循环条件、`switch` 的一个 `case`）的翻译，是 C 宏、C 常量或 C 表的翻译，或者是只把某个函数的局部变量或参数归在一起的记录。出现在两个文件里的同一个名字，在两个文件里各自定义；这些定义并不共用。
+这些表收入翻译文件中每个顶层的 `def`、`abbrev`、`structure` 和 `inductive`（这些文件里没有 `instance`、`macro` 或 `notation`），但下面几类除外：某个 C 函数的翻译，某个 C 函数的一部分（循环体、循环条件、`switch` 的一个 `case`）的翻译，C 宏、C 常量或 C 表的翻译，以及只把某个函数的局部变量或参数归在一起的记录。出现在两个文件里的同一个名字，在两个文件里各自定义；这些定义并不共用。
 
 **带检查的算术和移位。** C 未定义的结果就是 `Fault.ub`。
 
@@ -229,13 +219,13 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 | `gzfs.lean` | `Fs.put`、`Fs.mkdir`、`Fs.get?`、`Fs.posOf?` | 不是 C 操作：它们为命题和测试构造并查看一个文件系统 |
 | `infback.c.lean` | `InCb`、`OutCb` | `inflateBack` 的回调 `in_func` 和 `out_func` 的类型。回调是一个 Lean 函数 |
 
-[可信基础](../trusted-base.md)指出了运行时的各个文件和 gz 文件世界。对其他翻译文件里的辅助定义，它的第 3 项引用上面这些表。
+[可信基础](../trusted-base.md)指出了运行时和 gz 文件世界。对其他翻译文件里的辅助定义，它的第 3 项引用上面这些表。
 
 每个翻译文件都在文件头注释里写明它的预处理选择和建模决定。
 
 ## 为什么用对象堆
 
-C 的结构体用 Lean 的记录表示。一个堆（`Schema.lean` 中的 `Heap`）有十五个字段：
+C 的结构体用 Lean 的记录表示。一个堆（`Heap`）有十五个字段：
 
 - `bytes`：字节块的表（`unsigned char` 数组：缓冲区、窗口、字符串）；
 - `words`：16 位字的块的表（`head`、`prev`）；
@@ -243,7 +233,7 @@ C 的结构体用 Lean 的记录表示。一个堆（`Schema.lean` 中的 `Heap`
 - `streams`、`gzheaders`、`dstates`、`istates`、`gzstates`：每种结构体各一张表，分别用于 `z_stream`、`gz_header`、`deflate_state`、`inflate_state` 和 `gz_state`；
 - `static`：静态表；
 - 分配状态：`nextBlk` 是下一个未用的块编号；`nalloc` 是到目前为止的分配调用次数；`allocOk` 是失败预言（`allocOk n` 说明第 `n` 次调用是否成功）；`garbage` 是新分配的内存的内容；
-- `byteBase`：每个静态字节数组或内嵌字节数组起点地址的低三位。CRC 的对齐检验通过 `Address.lean` 读它们；
+- `byteBase`：每个静态字节数组或内嵌字节数组起点地址的低三位。CRC 的对齐检验读它们；
 - `libcErrorBorrow`：当前借出的是哪一段 `strerror` 文本，用一个计数器和一个 `errno` 值表示，或者没有借出。它不是堆上的对象。
 
 其他数组是记录的字段或静态表。一个指针指明一个堆块、一个记录内的数组或一个静态数组，再加上元素下标。
@@ -272,7 +262,7 @@ flowchart LR
 | 指针相减和比较大小 | 要求同一个存活数组和有效的偏移；差值必须能放进 `ptrdiff_t` |
 | 指针相等 | 结构相等；不同的引用构造子比较结果为不相等 |
 | 无符号算术 | 按 C 的位宽回绕 |
-| 有符号算术和移位 | 由上面各表中的辅助定义检查，它们在翻译文件里。符合[规范化 4](translation.md#the-accepted-normalisations)的有符号运算，以及按字面量计数的移位（[翻译，形式 4](translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)），用普通运算符 |
+| 有符号算术和移位 | 由上面各表中的辅助定义检查，它们在翻译文件里。符合[规范化 4](translation.md#the-accepted-normalisations)的有符号运算，以及按字面量计数的移位（[翻译，形式 4](translation.md#forms-not-covered-by-the-four-accepted-normalisations)），用普通运算符 |
 | 复制和填充 | 检查范围和可写性；`memcpy` 还检查不重叠 |
 | 分配 | `malloc` 询问失败预言，并拒绝 `2^63` 字节或更大的请求；成功时给出一个新的块编号。在不满足 `Fresh` 的堆上它发生故障 |
 | 释放 | 接受 NULL；否则要求是一个存活可写块的起始位置 |
@@ -301,7 +291,7 @@ flowchart LR
 
 ## 设计决定
 
-较早的笔记把这些决定称为 D1 到 D6。下表给出每个决定及其后果。`compress.c.lean`、`uncompr.c.lean`、`deflate_base.c.lean` 和 `infback.c.lean` 的注释里的标签 `D-4`、`D-5`、`D-6` 和 `D3` 指的是这些文件各自的决定。它们不是下表中的行。
+下表给出每个决定及其后果。
 
 | | 决定 | 后果 |
 | --- | --- | --- |
@@ -316,6 +306,6 @@ flowchart LR
 
 辅助函数的定理说的是翻译后的辅助函数本身。它的调用者先证明该辅助函数的前置条件，再使用这条定理。辅助函数的契约都不是用来代替执行的假设。[内部义务](../spec/internal-contracts.md)列出调用者要建立的条件。
 
-每种状态记录有一个表示不变量，它带着边界、所有权和后续调用需要的历史。初始化函数建立它，后续调用保持它，结束函数释放所拥有的存储。因为初始化函数建立了它，这个不变量是能够成立的。序列定理把这些函数定理组合起来，包括拒绝和分配失败的情形。方法见[证明指南](../proof/README.md)，已检查、已登记和已验收这三个级别见[检查](../checking/README.md)。
+每种状态记录有一个表示不变量，它带着边界、所有权和后续调用需要的历史。初始化函数建立它，后续调用保持它，结束函数释放所拥有的存储。因为初始化函数建立了它，这个不变量是能够成立的。序列定理把这些函数定理组合起来，包括拒绝和分配失败的情形。方法见[证明指南](../proof/README.md)。
 
 [设计](README.md) · [文档首页](../README.md)

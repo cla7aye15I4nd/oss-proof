@@ -82,8 +82,7 @@ and on both allocation failures. On success it copies both records and repairs t
 If `lencode` is the state's own `codes` array, it points `lencode` and `distcode` into the
 copy's array; pointers at the fixed tables are kept. It rebases `next` and copies `whave` window
 bytes. The proof of the pointer repair uses the invariant
-clause `origin` (`CopyTableOrigin`) and `CopyTableOrigin.dynamic_geometry`
-(`ZlibF/Proof/inflate.c.copy-origin.lean`): `next` and a dynamic `distcode` are offsets into
+clause `origin` (`CopyTableOrigin`) and `CopyTableOrigin.dynamic_geometry`: `next` and a dynamic `distcode` are offsets into
 `codes`, and `next` may be one past its end.
 
 `memcpy` between two disjoint ranges of one byte object is allowed in the model. Overlapping

@@ -1,20 +1,20 @@
-<!-- source-sha256: 5f2633894f8da9696083a2a4497bc6ce07fec1e8b16816bc9a2301d464cef204 -->
+<!-- source-sha256: af13816d16c481fa9d72ffaa1e6d61a73e85fea45d1b79a2d985aa6007ff99b1 -->
 # 工具函数：分配与常量查询
 
 `zutil.c` 包含默认分配器（`zcalloc`、`zcfree`）和三个常量查询。两个有文档的查询 `zlibVersion` 和 `zlibCompileFlags` 是安全的。分配器包装函数有精确的所有权效果：成功的分配增加一个存活块，失败的分配不增加任何块，释放恰好移除它的那个块。本页给出这些结论，并说明流证明从中取用哪些事实，又自己证明哪些事实。
 
-源文件：`zlib/zutil.c` 和 `zlib/zutil.h`；翻译：`ZlibF/Zlib/zutil.c.lean`。公开契约在 [API 页](../spec/api/utility.md)中。术语见[术语表](../glossary.md)。
+源文件：`zlib/zutil.c` 和 `zlib/zutil.h`，以及它们的 Lean 翻译。公开契约在 [API 页](../spec/api/utility.md)中。术语见[术语表](../glossary.md)。
 
 ## 证明了什么
 
-| 结论 | 类别 | 定理 | 模块 |
-| --- | --- | --- | --- |
-| `Goal.zlibVersion_safety`、`Goal.zlibCompileFlags_safety`（`ZlibF/Spec/Safety/Queries.lean`） | 安全，必需 | `zlibVersion_safety`、`zlibCompileFlags_safety` | `ZlibF/Proof/public-stateless-safety.lean` |
-| `Goal.zlibVersion`、`Goal.zlibCompileFlags` | 功能 | `zlibVersion`、`zlibCompileFlags` | `ZlibF/Proof/public-zlib-version.lean`、`ZlibF/Proof/public-zlib-compile-flags.lean` |
-| `Goal.zError` | 非必需：`zlib.h` 把 `zError` 列为未文档化的函数 | `zError` | `ZlibF/Proof/public-zerror.lean` |
-| 分配器包装函数 `zcalloc` 和 `zcfree` | 内部，供每个流证明使用 | `zcalloc_safe`、`zcalloc_correct_some`、`zcalloc_correct_size`、`zcalloc_correct_none`、`zcfree_safe`、`zcfree_correct`、`zcfree_correct_null`、`zcalloc_zcfree_no_leak` | `ZlibF/Proof/zutil.c.lean` |
+| 结论 | 类别 | 定理 |
+| --- | --- | --- |
+| `Goal.zlibVersion_safety`、`Goal.zlibCompileFlags_safety` | 安全，必需 | `zlibVersion_safety`、`zlibCompileFlags_safety` |
+| `Goal.zlibVersion`、`Goal.zlibCompileFlags` | 功能 | `zlibVersion`、`zlibCompileFlags` |
+| `Goal.zError` | 非必需：`zlib.h` 把 `zError` 列为未文档化的函数 | `zError` |
+| 分配器包装函数 `zcalloc` 和 `zcfree` | 内部，供每个流证明使用 | `zcalloc_safe`、`zcalloc_correct_some`、`zcalloc_correct_size`、`zcalloc_correct_none`、`zcfree_safe`、`zcfree_correct`、`zcfree_correct_null`、`zcalloc_zcfree_no_leak` |
 
-以上全部列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
+以上全部已完成。
 
 `zcalloc` 和 `zcfree` 不是公开函数。流的无泄漏性是 [inflate](inflate.md) 和 [deflate](deflate.md) 的序列安全定理中的一个子句，这些定理在每次分配和释放处使用这些包装函数的结论。
 
@@ -35,7 +35,7 @@
 | `zcfree_correct_null` | 无 | 释放 `NULL` 会返回，并且堆保持不变。 |
 | `zcalloc_zcfree_no_leak` | 堆是 `Fresh` 的 | `zcalloc` 之后对其结果调用 `zcfree`，会返回，分配失败时也是如此，并且存活块的集合与之前相同。 |
 
-“前提”一列列出了每条定理的全部假设（`ZlibF/Proof/zutil.c.lean`）。在所有这些定理中，`opaque` 参数都不受限制：C 忽略它。
+“前提”一列列出了每条定理的全部假设。在所有这些定理中，`opaque` 参数都不受限制：C 忽略它。
 
 ## 流证明自己证明什么
 
@@ -67,4 +67,4 @@
 
 `zError` 在计算 `2 - err` 之前测试 `err` 的范围；如果先做减法，对任意的 `int` 可能溢出。169 这个值只对这个构建成立：其他的类型宽度或构建选项给出其他的标志。
 
-常量返回值仍然是一个精确的契约。这些函数的[证明变异体](../checking/proof-mutants.md)检验的就是这一点：翻译的一份副本如果返回错误的版本指针，或者改动了一个标志位，就通不过这个函数的证明。
+常量返回值仍然是一个精确的契约：翻译的一份副本如果返回错误的版本指针，或者改动了一个标志位，就通不过这个函数的证明。

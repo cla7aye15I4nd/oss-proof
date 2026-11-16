@@ -1,7 +1,7 @@
-<!-- source-sha256: b55adb19276cfb3e3435e0c6e761ecf1921da00dddacc0cfeaaf88e5a88347e0 -->
+<!-- source-sha256: b79491d3f1372b8173278ef7d8d37f623aed2e369b79f852fbbb19837a3edcad -->
 # 外部 I/O：文件、格式化与局部存储
 
-gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`close`、`fcntl`、`strerror`、`snprintf` 和 `vsnprintf`。本页说明这些调用的模型 [`ZlibF/Zlib/gzfs.lean`](../../ZlibF/Zlib/gzfs.lean)。这个模型是被信任的：内核对照它检查证明，但不对照 Linux 检查它本身（[可信基础](../trusted-base.md)）。
+gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`close`、`fcntl`、`strerror`、`snprintf` 和 `vsnprintf`。本页说明这些调用的模型：记录 [`Fs`](../../ZlibF/Zlib/gzfs.lean) 以及它上面的操作。这个模型是被信任的：内核对照它检查证明，但不对照 Linux 检查它本身（[可信基础](../trusted-base.md)）。
 
 要点是：每个系统调用都可以返回其 POSIX 契约允许的任何结果，由一个预言选择；gz 接口的安全性是对每一个预言证明的（`Goal.gz_sequence_safety`；[gzip 文件](../proof/gzip.md)）。这个结果的前提见[偏离记录](../deviations.md#gzip-file-interface)。
 
@@ -35,7 +35,7 @@ gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`cl
 
 有两种结果被模型排除。它们是关于 Linux 的被信任的事实，不是某个定理的前提：对非空缓冲区的 `write` 从不返回 0；`close` 失败时也释放描述符。
 
-预言就是 `Fs` 的字段 `nos`、`readChoice`、`writeChoice`、`lseekChoice`、`closeFail`、`openFail`、`openFd`、`okErrno` 和 `readBudget`。它们的默认值给出普通文件行为，只供可执行的测试驱动程序使用；每个目标都对所有世界量化。`gzfs.lean` 的注释给预言的各个子句编了号：M1 是 `read`，M2 是 `write`，M3 是 `lseek`，M4 是 `close`，M5 是 `open`，M7 是读取预算。没有 M6。[偏离记录](../deviations.md#gzip-file-interface)中“Gz 读取调用的终止”一行使用了 M7 这个标签。
+预言就是 `Fs` 的字段 `nos`、`readChoice`、`writeChoice`、`lseekChoice`、`closeFail`、`openFail`、`openFd`、`okErrno` 和 `readBudget`。它们的默认值给出普通文件行为，只供差分测试使用；每个目标都对所有世界量化。
 
 ## 错误文本
 
@@ -91,10 +91,10 @@ C 字符串字面量是另一回事：它们是库源码中各字面量组成的
 
 ## 差分证据
 
-gz 的差分用例由 [`tests/gen/gz.py`](../../tests/gen/gz.py)、[`tests/c/gz.c`](../../tests/c/gz.c) 和 [`tests/lean/Driver/Gz.lean`](../../tests/lean/Driver/Gz.lean) 定义。它们把每个操作在临时的真实文件上返回的结果，与在 `Fs` 上的运行相比较。同一组用例还比较 `uncompress2` 的字节和长度。
+gz 的差分测试把每个操作在临时的真实文件上返回的结果，与在 `Fs` 上的运行相比较。同一组测试还比较 `uncompress2` 的字节和长度。
 
-驱动程序从默认预言出发，也就是普通文件行为。一个测试用例可以让选定的一次 `read` 调用失败，也可以让一次使用调用者格式的 `vsnprintf` 调用失败。预言的其他每一种选择都只由证明覆盖。
+这些测试从默认预言出发，也就是普通文件行为。一个测试用例可以让选定的一次 `read` 调用失败，也可以让一次使用调用者格式的 `vsnprintf` 调用失败。预言的其他每一种选择都只由证明覆盖。
 
-结果一致，是把翻译和世界模型合在一起，对照选定的 C 执行做的测试。它是忠实性的证据。它不是编解码器正确性的证明，也不是所有错误路径、所有 POSIX 行为或无泄漏的证明。这些测试何时运行，见[检查](../checking/README.md)。
+结果一致，是把翻译和世界模型合在一起，对照选定的 C 执行做的测试。它是忠实性的证据。它不是编解码器正确性的证明，也不是所有错误路径、所有 POSIX 行为或无泄漏的证明。
 
 [设计](README.md) · [文档首页](../README.md)

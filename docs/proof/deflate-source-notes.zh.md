@@ -1,4 +1,4 @@
-<!-- source-sha256: ec3a50194a8faaefcae970c753b96d57373dc1521e57b5c2d7de9de5d9c5e416 -->
+<!-- source-sha256: f4ce6c0b420245baccdc9d7b30efea5f0c3276ea7a247fc90e4b7e163aaa1190 -->
 # 压缩器的源码笔记：`deflate.c`、`trees.c`
 
 本页记录 C 源码里的一些细节：在这些地方，翻译若走捷径，程序的行为就会改变。它们涉及求值顺序、整数转换、提前返回和宏展开。本页写给拿 `zlib/*.c` 与 `ZlibF/Zlib/*.c.lean` 对照的读者。
@@ -92,7 +92,7 @@ if ((strategy != s->strategy || func != configuration_table[level].func) &&
 
 ### 有符号的位置
 
-`strstart - block_start` 用 `long` 计算；在这个平台上 `long` 容得下每一个 `uInt`。滑动时的 `block_start -= (long)wsize`，以及 `deflateParams` 里的表达式 `(s->strstart - s->block_start) + s->lookahead` 也是如此。翻译对其中每一处都检查溢出。`block_start_low` 由子句 `blockSpan` 给出：级别非零时 `block_start ≥ -2^62`；`block_start_slide_signed` 和 `flush_length_general` 把它用于滑动和块长的计算。对 `deflateParams` 里的那个表达式，`params_after_outcome`（`ZlibF/Proof/deflate.c.universal-ops-params-general.lean`）证明：从满足不变量的每个状态出发，内层 `deflate` 调用之后的那段代码都会返回。它的证明用子句 `blockStart` 和 `blockSpan` 给这个差定界，级别为 0 时用 `levelZero`。
+`strstart - block_start` 用 `long` 计算；在这个平台上 `long` 容得下每一个 `uInt`。滑动时的 `block_start -= (long)wsize`，以及 `deflateParams` 里的表达式 `(s->strstart - s->block_start) + s->lookahead` 也是如此。翻译对其中每一处都检查溢出。`block_start_low` 由子句 `blockSpan` 给出：级别非零时 `block_start ≥ -2^62`；`block_start_slide_signed` 和 `flush_length_general` 把它用于滑动和块长的计算。对 `deflateParams` 里的那个表达式，`params_after_outcome` 证明：从满足不变量的每个状态出发，内层 `deflate` 调用之后的那段代码都会返回。它的证明用子句 `blockStart` 和 `blockSpan` 给这个差定界，级别为 0 时用 `levelZero`。
 
 `ct_data` 里的两个联合体各有两个 `unsigned short` 成员。在翻译里每个联合体是一个单元：`Freq` 和 `Code` 是同一个单元的两个名字，`Dad` 和 `Len` 是另一个的。建树时往同一个单元里先写父结点、后写码长，先写频率、后写编码。
 
@@ -102,7 +102,7 @@ if ((strategy != s->strategy || func != configuration_table[level].func) &&
 
 `slide_hash` 读 `prev` 的每一个表项，不管写没写过。`longest_match` 可能比较预读数据之后的字节。在模型里，从未写过的整数取任意值，定理对每一个这样的值都成立；定理说明垃圾的 `prev` 表项永远不会被用作下标。这个模型的限制见[安全性](../spec/safety.md#uninitialised-memory)和[可信基础](../trusted-base.md)。
 
-在 `build_tree` 中，表达式 `(s->depth[n] >= s->depth[m] ? s->depth[n] : s->depth[m]) + 1` 比较两个结点的深度，然后再读其中一个。翻译把两次读都做了。[深度读取回归测试](../../tests/regression/trees-depth-read/README.md)在翻译的结构上检查这一点，因为用初始化过的值做测试分辨不出这两种写法。
+在 `build_tree` 中，表达式 `(s->depth[n] >= s->depth[m] ? s->depth[n] : s->depth[m]) + 1` 比较两个结点的深度，然后再读其中一个。翻译把两次读都做了。[深度读取测试](../../tests/regression/trees-depth-read/README.md)在翻译的结构上检查这一点，因为用初始化过的值做测试分辨不出这两种写法。
 
 ### 本构建的常量
 

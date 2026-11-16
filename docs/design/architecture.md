@@ -1,4 +1,4 @@
-# From C to a checked theorem
+# From C to a kernel-checked theorem
 
 A theorem of this project is about a Lean program, not about the C text. This page shows what
 that program is made of, so that a reader can judge the two connections the kernel does not
@@ -22,20 +22,20 @@ flowchart TD
 
 | Layer | Its job | What justifies it |
 | --- | --- | --- |
-| Selected C | Fix the program being verified | The pinned `zlib/` submodule plus `patches/*.patch`, applied in name order |
+| Selected C | Fix the program being verified | The pinned upstream zlib source plus the project's patches, applied in name order |
 | Runtime | Give translated operations executable semantics | Review and semantic regression tests |
 | Translation | Preserve the C statements and their order | Source review and differential tests; tests are evidence, not proof |
 | Models and specifications | State what the program does without committing to its implementation | Review of definitions, domains and their relation to `zlib.h` and the data formats |
-| Proofs | Connect the computation to those statements | Lean kernel checking and the [acceptance checks](../checking/README.md) |
+| Proofs | Connect the computation to those statements | Lean kernel checking |
 
 Only the path through *Execution proofs* is required for the safety results: no fault,
 termination, frame and ownership, composed over call sequences. The path through *Refinement
 proofs* gives functional correctness. It is not required for the safety results.
 
-One functional result is planned after the safety results: the round trip of the default zlib
-stream. Its conditional form has a theorem. The theorem `deflate_inflate_roundtrip`
-(`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) is about two runs of the translated
-functions. The encoder run is `deflateInit_` at the default level, then `deflate` calls with any
+One functional result is planned: the round trip of the default zlib stream. Its conditional
+form has a theorem. The theorem
+[`deflate_inflate_roundtrip`](../../ZlibF/Proof/public-deflate-inflate-roundtrip.lean) is about
+two runs of the translated functions. The encoder run is `deflateInit_` at the default level, then `deflate` calls with any
 flush values. The decoder run is `inflateInit2_` with `windowBits` 15, then `inflate` calls.
 Between two calls of a run the caller may change the buffer fields (`Rebuffer`). The premises
 of each run are these:
@@ -52,14 +52,13 @@ When both runs have returned `Z_STREAM_END` and the bytes the decoder consumed a
 the bytes the encoder wrote, the bytes the decoder wrote are the bytes the encoder consumed.
 The theorem is conditional: it assumes that both runs reach `Z_STREAM_END`. Completeness (the
 runs do reach `Z_STREAM_END` when there is enough room) and the unconditional round trip are
-planned after it. The other refinement results already proved stay;
-[scope](../progress.md#scope) says which functional results are planned, and how far the round
-trip is.
+planned and not done. Other refinement results have theorems as well;
+[progress](../progress.md) says which functional results are planned.
 
 ## The model in a few definitions
 
 These are the definitions every translated function is built from. They are quoted from
-`ZlibF/Runtime/Monad.lean` and `ZlibF/Runtime/Space.lean`, without their `deriving` lines.
+the runtime, without their `deriving` lines.
 
 ```lean
 /-- Why a C computation did not produce a value. -/
@@ -110,8 +109,8 @@ inductive Ptr (R : Type) where
   | ref (r : R) (off : Nat)
 ```
 
-A read through such a pointer is checked (`ZlibF/Runtime/Ptr.lean`; `Space.get h r` is the
-array that `r` names in heap `h`, if it is live):
+A read through such a pointer is checked (`Space.get h r` is the array that `r` names in heap
+`h`, if it is live):
 
 ```lean
 /-- `*p`. Faults if `p` is null, dangling, or outside its array (one past the end is not readable). -/
@@ -138,23 +137,23 @@ line.
 The target is the default x86_64 Linux static build with LP64 widths and the default
 allocator. Allocation failure is in scope. Other build configurations and custom allocator
 implementations are not planned; [deviations](../deviations.md) records the limit.
-The source submodule is never edited. A patch is permitted only for a confirmed upstream bug,
-under the rules in the repository's `AGENTS.md` and `patches/README.md`.
+The upstream source is never edited. A patch is permitted only for a confirmed upstream bug;
+the [patch register](../../patches/README.md) lists the patches.
 
-| Location | Responsibility |
-| --- | --- |
-| `ZlibF/Runtime/` | Heap, pointers, faults, loops and modelled C library operations |
-| `ZlibF/Zlib/X.c.lean` | Translation of `zlib/X.c`; it holds no proofs. `deflate.c` is split over `deflate_base.c.lean`, `deflate_strategies.c.lean` and `deflate.c.lean` |
-| `ZlibF/Zlib/X.h.lean` | Translation of `zlib/X.h` |
-| `ZlibF/Zlib/gzfs.lean` | The model of files, `errno` and formatting for the gz translations ([external I/O](external-io.md)) |
-| `ZlibF/Spec/Safety/` | The required safety goals |
-| `ZlibF/Spec/Functional/` | Functional goals, and the heap-free format and API models; not required for the safety results |
-| `ZlibF/Spec/Common/` | Definitions both kinds of goal use: calls, histories, frames, parameters, invariants; no goal about a public function ([layout of the specifications](safety-functional-split.md)) |
-| `ZlibF/Spec/Common/ByteAddress.lean`, `ZlibF/Spec/Common/Inflate/`, `ZlibF/Spec/Functional/Inflate/` | Statements about internal functions; those that use the format model are under `Functional/`. Each is proved for the translated function before a caller uses it ([below](#composing-calls-without-assuming-their-answers)) |
-| `ZlibF/Proof/X.c.<topic>.lean` | Proofs about `zlib/X.c` |
-| `ZlibF/Proof/public-<name>.lean` | Proofs of public goals |
-| `ZlibF/Math/` | Heap-free facts shared by the proofs |
-| `tests/` | Differential evidence, regressions and acceptance checks |
+The development has four parts:
+
+- the runtime: heap, pointers, faults, loops and the modelled C library operations;
+- the translation: one Lean file per C file, `X.c.lean` for `zlib/X.c` and `X.h.lean` for
+  `zlib/X.h`. `deflate.c` is split over `deflate_base.c.lean`, `deflate_strategies.c.lean` and
+  `deflate.c.lean`. The translation holds no proofs. The gz translations also use `gzfs.lean`,
+  the model of files, `errno` and formatting ([external I/O](external-io.md));
+- the specifications: the required safety goals; the functional goals with the heap-free format
+  and API models, which are not required for the safety results; and the definitions both kinds
+  of goal use (calls, histories, frames, parameters, invariants);
+- the proofs, with the heap-free mathematical facts they share.
+
+A statement about an internal function is proved for the translated function before a caller
+uses it ([below](#composing-calls-without-assuming-their-answers)).
 
 Function names are the C names. A function's docstring begins with its C signature.
 
@@ -162,29 +161,28 @@ Function names are the C names. A function's docstring begins with its C signatu
 
 Everything in this section is trusted: a mistake here is not found by the kernel.
 
-| File in `ZlibF/Runtime/` | Content |
-| --- | --- |
-| `Space.lean` | Heap tables, the pointer type `Ptr`, function pointers, the value of an uninitialised integer |
-| `Monad.lean` | `Fault`, `M`, `fuel`, `cwhile`, `cdoWhile` |
-| `Ptr.lean` | Pointer arithmetic, load, store, difference, comparison |
-| `Address.lean` | The low three address bits of a byte pointer, which the CRC alignment test reads |
-| `Libc.lean`, `LibcStrings.lean` | `malloc`, `free`, `memcpy`, `memmove`, `memset`, `strlen`, string literals, the `strerror` texts |
-| `Schema.lean` (generated) | The record of every struct, the reference types, the static tables, the heap |
-| `Tables.lean`, `LibcTables.lean` (generated) | Load, store, `malloc`, `free` and whole-record `memcpy` for each struct kind |
-| `Alloc.lean` | A re-export of `Libc.lean`; no content |
+The runtime defines:
 
-The generated files are written by `scripts/gen_schema.py` from the C headers.
-[Runtime schema](../runtime-schema.md) lists every field.
+- the heap tables, the pointer type `Ptr`, function pointers and the value of an uninitialised
+  integer;
+- `Fault`, `M`, `fuel`, `cwhile` and `cdoWhile`;
+- pointer arithmetic, load, store, difference and comparison;
+- the low three address bits of a byte pointer, which the CRC alignment test reads;
+- `malloc`, `free`, `memcpy`, `memmove`, `memset`, `strlen`, string literals and the `strerror`
+  texts;
+- the record of every struct, the reference types, the static tables and the heap, and for each
+  struct kind its load, store, `malloc`, `free` and whole-record `memcpy`. These definitions are
+  generated from the C headers; [runtime schema](../runtime-schema.md) lists every field.
 
-Some semantic helpers are not in `ZlibF/Runtime/`. They are defined in the translation files
+Some semantic helpers are not part of the runtime. They are defined in the translation files
 that use them, and they are trusted in the same way. The tables below list them by kind.
 
-How the list was made: every top-level `def`, `abbrev`, `structure` and `inductive` of
-`ZlibF/Zlib/*.lean` was listed with its docstring (the files have no `instance`, `macro` or
-`notation`). Each one was put in a table unless it is the translation of a C function, of a part
-of one (a loop body, a loop condition, a `case` of a `switch`), of a C macro, of a C constant or
-of a C table, or a record that only groups a function's locals or arguments. A name that occurs
-in two files is defined in each of them separately; the definitions are not shared.
+The tables hold every top-level `def`, `abbrev`, `structure` and `inductive` of the translation
+files (the files have no `instance`, `macro` or `notation`), except those that are the
+translation of a C function, of a part of one (a loop body, a loop condition, a `case` of a
+`switch`), of a C macro, of a C constant or of a C table, or a record that only groups a
+function's locals or arguments. A name that occurs in two files is defined in each of them
+separately; the definitions are not shared.
 
 **Checked arithmetic and shifts.** A result that C leaves undefined is `Fault.ub`.
 
@@ -273,7 +271,7 @@ in two files is defined in each of them separately; the definitions are not shar
 | `gzfs.lean` | `Fs.put`, `Fs.mkdir`, `Fs.get?`, `Fs.posOf?` | Not C operations: they build and inspect a file system for statements and tests |
 | `infback.c.lean` | `InCb`, `OutCb` | The types of the `in_func` and `out_func` callbacks of `inflateBack`. A callback is a Lean function |
 
-[Trusted base](../trusted-base.md) names the runtime files and the gz file world. For the
+[Trusted base](../trusted-base.md) names the runtime and the gz file world. For the
 helpers of the other translation files its item 3 refers to the tables above.
 
 Each translation file states its preprocessor choices and its modelling decisions in its header
@@ -281,7 +279,7 @@ comment.
 
 ## Why an object heap
 
-A C struct is represented by a Lean record. A heap (`Heap` in `Schema.lean`) has fifteen fields:
+A C struct is represented by a Lean record. A heap (`Heap`) has fifteen fields:
 
 - `bytes`: the table of byte blocks (`unsigned char` arrays: buffers, windows, strings);
 - `words`: the table of blocks of 16-bit words (`head`, `prev`);
@@ -293,7 +291,7 @@ A C struct is represented by a Lean record. A heap (`Heap` in `Schema.lean`) has
   allocation calls so far; `allocOk`, the failure oracle (`allocOk n` says whether call `n`
   succeeds); and `garbage`, the content of fresh memory;
 - `byteBase`: the low three bits of the origin address of each static or embedded byte array.
-  The CRC alignment test reads them through `Address.lean`;
+  The CRC alignment test reads them;
 - `libcErrorBorrow`: which `strerror` text is currently borrowed, as a counter and an `errno`
   value, or nothing. It is not a heap object.
 
@@ -330,7 +328,7 @@ representation invariant.
 | Pointer difference and order | Require the same live array and valid offsets; a difference must fit `ptrdiff_t` |
 | Pointer equality | Structural equality; different reference constructors compare unequal |
 | Unsigned arithmetic | Wraps at the C width |
-| Signed arithmetic and shifts | Checked by the helpers of the tables above, in the translation files. The plain operator is used for a signed operation under [normalisation 4](translation.md#the-accepted-normalisations) and for a shift by a literal count ([translation, form 4](translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)) |
+| Signed arithmetic and shifts | Checked by the helpers of the tables above, in the translation files. The plain operator is used for a signed operation under [normalisation 4](translation.md#the-accepted-normalisations) and for a shift by a literal count ([translation, form 4](translation.md#forms-not-covered-by-the-four-accepted-normalisations)) |
 | Copy and fill | Check ranges and writability; `memcpy` also checks non-overlap |
 | Allocation | `malloc` asks the failure oracle and refuses a request of `2^63` bytes or more; success gives a fresh block number. It faults on a heap that is not `Fresh` |
 | Free | Accepts NULL; otherwise requires the start of a live writable block |
@@ -362,10 +360,7 @@ return. No proof repairs a representation gap by silently restricting the public
 
 ## Design decisions
 
-Older notes call these decisions D1 to D6. The table gives each decision and its consequence.
-The labels `D-4`, `D-5`, `D-6` and `D3` in comments of `compress.c.lean`, `uncompr.c.lean`,
-`deflate_base.c.lean` and `infback.c.lean` name decisions of those files. They are not rows of
-this table.
+The table gives each decision and its consequence.
 
 | | Decision | Consequence |
 | --- | --- | --- |
@@ -387,7 +382,6 @@ One representation invariant per state record carries bounds, ownership and the 
 later calls need. The init function establishes it, later calls preserve it, and the end
 function releases the owned storage. Because init establishes it, the invariant can hold.
 The sequence theorems compose these function theorems, including refusals and failed
-allocations. See the [proof guide](../proof/README.md) for the method and
-[checking](../checking/README.md) for the levels checked, registered and accepted.
+allocations. See the [proof guide](../proof/README.md) for the method.
 
 [Design](README.md) · [Documentation home](../README.md)

@@ -1,11 +1,10 @@
 # API models: the families in detail
 
 This page continues [API models](api-model.md). Everything on it is functional material: it is
-not required for the safety results, and no safety goal imports these models. It describes, family
-by family, what the heap-free relations in `ZlibF/Spec/Functional/Api/` say and where they stop
-short of the C. A sentence with "must" on this page states what a refinement proof of a
+not required for the safety results, and no safety goal uses these models. It describes, family
+by family, what the heap-free relations say and where they stop short of the C. A sentence with "must" on this page states what a refinement proof of a
 functional goal has to show; it does not say that the proof exists.
-[Progress](../progress.md) lists which functional goals have a registered theorem.
+[Progress](../progress.md) says which functional goals are done.
 
 ## State, calls and histories
 
@@ -70,8 +69,8 @@ restriction.
 The constant `detectLag = 8` does not describe actual inflate. A dynamic-table prefix can be
 impossible at byte 230 while a call consumes 281 bytes and returns `Z_OK`. Thus a theorem about
 `Goal.inflate_rejects_invalid` would establish a model property, not this implementation timing
-claim. [Progress, Scope](../progress.md#scope) records the discrepancy (row "Model-only
-statements"); the public input domain is not changed to hide it.
+claim. The public input domain is not changed to hide the discrepancy; model-only statements
+are not planned ([progress](../progress.md)).
 
 `InflRunOk` describes cursor progress, totals, return codes, stopping, format clauses, checksums
 and requested header fields. `InflRunMem` describes failure to allocate the history window at
@@ -136,7 +135,7 @@ actual successful run for every permitted initial heap, followed by the stated p
 The precondition must still be reachable; a function-level invariant is established by init,
 and a top-level claim needs a concrete permitted witness.
 
-Two useful distinctions are explicit in `Concrete.lean`:
+Two concrete goals make useful distinctions explicit:
 
 | Target | Scope |
 | --- | --- |
@@ -164,13 +163,13 @@ skip is realised. Transparent-mode seeks reposition the descriptor, can drop pus
 and can move beyond the file end. `GzHandle.CopyMode` distinguishes that case. `GzOffset` only
 constrains the result to nonnegative or -1; it is not an exact descriptor-position contract.
 These examples show why abstract gz relations cannot replace the concrete per-function targets.
-In addition, the erroneous-suffix clause of `GzDecoded` uses the older existential
+In addition, the erroneous-suffix clause of `GzDecoded` uses the existential
 `Layer.Consistent`, rather than the causal output-evidence relation used by `InflState`.
 It is not a complete operational specification of gzip reading.
 
 ## What the abstract interface must mean
 
-`HeapApi` in `Iface.lean` fixes the types for the refinement goals `*_refines` of `Goals.lean`. Its fields are not an
+`HeapApi` fixes the types for the refinement goals `*_refines`. Its fields are not an
 implementation of the runtime heap. Choosing an empty run relation or an impossible matching
 relation would not verify anything.
 

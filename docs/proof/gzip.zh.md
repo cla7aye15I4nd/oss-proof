@@ -1,4 +1,4 @@
-<!-- source-sha256: 5350a8e572756991b30dabcf93b1087705cdbc3355ec33c35eff63600ce47547 -->
+<!-- source-sha256: 43f8cf20c9e85d2bf422703f6771fd78f2bbd50ff346d72087db00888d724af3 -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -9,15 +9,14 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 
 ## 结论
 
-| 目标 | 定理 | 模块 |
-| --- | --- | --- |
-| `Goal.gz_sequence_safety`（`ZlibF/Spec/Safety/GzSafety.lean`） | `gz_sequence_safety_public` | `ZlibF/Proof/public-gz-sequence-safety.lean` |
-| `Goal.gz_refusal`（`ZlibF/Spec/Safety/GzRefusal.lean`） | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
-| `Goal.gz_sequence_nonvacuity`（`ZlibF/Spec/Safety/GzSafety.lean`） | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
-| `Goal.<function>_safety`，共 32 个目标（`ZlibF/Spec/Safety/GzCalls.lean`） | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
+| 目标 | 定理 |
+| --- | --- |
+| `Goal.gz_sequence_safety` | `gz_sequence_safety_public` |
+| `Goal.gz_refusal` | `gz_refusal` |
+| `Goal.gz_sequence_nonvacuity` | `gz_sequence_nonvacuity_public` |
+| `Goal.<function>_safety`，共 32 个目标 | `GzCallSafetyProof.<function>_safety` |
 
-它们都是安全结论，都是必需的。它们的定理列在 `tests/audit/theorems.txt` 中。
-每项结论的层级记录在[进度，范围](../progress.md#scope)中。
+它们都是安全结论，并且都已完成。
 
 31 个有文档的 gz 函数各有自己的安全目标；`gzvprintf` 也有，它在 `zlib.h` 中属于未文档化的函数，而 `gzprintf` 经由它实现。
 每个目标是序列目标的一个子句，限制到一个函数的调用上：
@@ -28,7 +27,7 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 - `gzopen` 和 `gzopen64`：子句 6。`gzdopen`：子句 7。
 
 这些证明使用 `gz_sequence_safety_public`；对 `NULL` 的拒绝通过求值成立。所以本页余下讲序列目标的内容，同时也就是单函数目标的证明。
-每个函数另有一个功能契约 `Goal.<function>`。这些契约不是必需的；哪些已经证明，见[最后一节](#functional-results-that-stay)。
+每个函数另有一个功能契约 `Goal.<function>`。这些契约不是必需的；哪些已完成，见[最后一节](#functional-results-that-stay)。
 
 序列目标覆盖下面这样的程序。注释指出覆盖每个调用的是目标的哪个子句。
 
@@ -110,11 +109,11 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 ## 源码报告与补丁
 
 不变量之所以是这个形式，是因为针对未打补丁的 C 的六份报告。标签 R-1 到 R-4、F-1 和 W7 是这些报告在
-`patches/README.md`、[发现](../findings.md)和 Lean 注释中的名字。补丁以 `patches/README.md` 中的列表为准。
+`patches/README.md` 和[发现](../findings.md)中的名字。补丁以 `patches/README.md` 中的列表为准。
 
 - R-1 和 R-2 已在 sanitizer 下复现。它们的修复已提交上游，并作为补丁 0002 和 0003 应用。
 - F-1 和 W7 已在 sanitizer 下复现。R-3 和 R-4 按 C 的条文是未定义的，没有 sanitizer 报告它们。这四项的修复是本地补丁 0004 和
-  0005，经所有者批准，没有提交上游。
+  0005，它们没有提交上游。
 
 | 情形 | 未打补丁的 C 的行为 | 修复与证据 |
 | --- | --- | --- |
@@ -124,8 +123,6 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 | R-4：调用者缓冲区的生命期 | 直接读取把 `x.next` 指进调用者的缓冲区，并在 `x.have = 0` 时保留它。调用者释放缓冲区之后，`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-next-dangling-after-direct-read/README.md)，用探针展示。本地补丁 0005。`gzseek64_dangling_next_ok` 表明打过补丁的定位不使用这个指针。 |
 | F-1：读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已复现：[gzread-pos-overflow](../findings/gzread-pos-overflow/README.md)。本地补丁 0004 在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
 | W7：写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已复现：[gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md)。本地补丁 0004 拒绝会越过 `GZ_OFF_MAX` 的写入。 |
-
-关于 `gzsetparams` 的一个尚未确认的实验保留在[早期证明笔记](../history/proof-earlier-notes.md#gzsetparams-experiment)中。
 
 ## 历史
 
@@ -146,7 +143,7 @@ C 中一样。这个步骤还可以替换预言。
 
 ## 世界及其预言
 
-世界是堆旁边的一个记录 `Fs`（`ZlibF/Zlib/gzfs.lean`）。一个 gz
+世界是堆旁边的一个记录 `Fs`。一个 gz
 计算接受一个世界和一个堆，返回一个值和这两者，或者返回一个故障。世界里有文件、描述符表、`errno`，还有一个预言：它在每个
 `read`、`write`、`lseek`、`close`、`open` 和调用者格式的 `vsnprintf` 的契约之内选择该调用的结果。预言可以选择什么，见[外部 I/O](../design/external-io.md#the-os-oracle)
 中的表。
@@ -157,18 +154,16 @@ C 中一样。这个步骤还可以替换预言。
 
 - **五个系统调用不碰堆。** 模型函数 `fsRead`、`fsWrite`、`fsLseek`、`fsClose` 和 `fsOpen`
   接受一个世界，返回一个结果和一个新的世界。对每个预言值，它们各自都是对一个只依赖世界的结果取
-  `pure`：从不产生故障，也从不改动堆（`fsRead_pure`、`fsWrite_pure`、`fsLseek_pure`、`fsClose_pure`、`fsOpen_pure`，在
-  `ZlibF/Proof/gzfs.oracle.lean` 中）。`fsRead` 把读到的字节作为一个值返回。随后 `gz_load` 的翻译把它们存到 `buf`
+  `pure`：从不产生故障，也从不改动堆（`fsRead_pure`、`fsWrite_pure`、`fsLseek_pure`、`fsClose_pure`、`fsOpen_pure`）。`fsRead` 把读到的字节作为一个值返回。随后 `gz_load` 的翻译把它们存到 `buf`
   处（`storeBytes`）；这次存入是一次受检查的堆复制，它是被翻译的 C 的一步，不是系统调用的一步。这次复制经过一个它自己创建并释放的临时块，所以它还会推进堆的块计数器（`nextBlk`）。
 - **两个库调用改动堆。** `vsnprintf` 向它的目的地址存入数据：格式化出的字节和一个 NUL；调用失败时，则是预言选择的字节和一个
-  NUL。两种情况下都在交给它的 `size` 个字节之内。预言让它失败时调用失败，格式化输出超过 `INT_MAX` 字节时调用也失败。格式串不是字符串，或者是模型的格式化器不能表示的格式，或者目的地址对这些字节不可写时，它产生故障。`vsnprintf_in`（`ZlibF/Proof/gzwrite.c.printf-run.lean`）表明：`gzvprintf`
+  NUL。两种情况下都在交给它的 `size` 个字节之内。预言让它失败时调用失败，格式化输出超过 `INT_MAX` 字节时调用也失败。格式串不是字符串，或者是模型的格式化器不能表示的格式，或者目的地址对这些字节不可写时，它产生故障。`vsnprintf_in` 表明：`gzvprintf`
   中的那次调用（目的地址在句柄的 `in` 缓冲区内）对每个预言值都会返回，保持 `GzInv`，并且只写句柄拥有的块。`zstrerror` 是
   `strerror(errno)` 的模型，它不分配任何东西，返回一个借用的字符串，这个字符串不是堆块。它改动堆的一个字段
-  `libcErrorBorrow`，这个字段记录当前借出的是哪一段错误文本；块、存活标志和分配器字段都不变（`zstrerror_run`、`zstrerror_no_malloc`，在
-  `ZlibF/Proof/gzfs.borrowed-error.lean` 中）。
+  `libcErrorBorrow`，这个字段记录当前借出的是哪一段错误文本；块、存活标志和分配器字段都不变（`zstrerror_run`、`zstrerror_no_malloc`）。
 
-`read` 的契约及其预算记账（`BudgetAcc`）在 `ZlibF/Proof/gzfs.read-contract.lean` 中。`write` 对每个预言值的契约在
-`ZlibF/Proof/gzwrite.c.comp.lean` 中。
+`read` 的契约是 `fsRead_contract`，连同它的预算记账（`BudgetAcc`、`fsRead_budget`）。`write`
+对每个预言值的契约是 `fsWrite_contract`。
 
 ## 证明结构
 
@@ -181,7 +176,7 @@ flowchart TD
     A --> E["gzerror_string"]
     A --> P["gzopen_safe, gzopen64_safe, gzdopen_safe"]
     O --> Q["查询、定位、倒回、clearerr"]
-    O --> W["写叶引理：gzwrite.c.safety"]
+    O --> W["写叶引理"]
     O --> R["六个读叶引理：GzReadLeaves"]
     A --> M["gzgetc_macro_safe"]
     M --> R
@@ -190,7 +185,7 @@ flowchart TD
 一个调用的安全性只有一种形状，`GzCallSafe i call`：对每个堆、每个世界、每个满足 `GzInv`
 的记录和每个符合要求的参数，子句 2 的三部分成立。*叶引理*是为一个公开函数证明 `GzCallSafe` 的引理。
 
-组装（`ZlibF/Proof/gz.sequence-safety.lean`）有两步。
+组装 `gz_sequence_safety_of` 有两步。
 
 - `history_inv` 对 `GzHistory` 归纳。打开的构造子使用打开引理。`step` 使用该调用的叶引理的 (c) 部分。`caller` 步骤使用
   `GzInv.caller`：不变量读的是句柄的块（这一步保持它们），以及整个堆的良构性和字节对象大小（这一步为新的堆提供它们）。`world`
@@ -203,8 +198,8 @@ flowchart TD
 
 ## 不变量 `GzInv`
 
-`GzInv h i s`（`ZlibF/Spec/Common/GzInv.lean`）是记录为 `s` 的已打开句柄 `i`
-的表示不变量。它有一个公共部分，每种模式各有一个部分。其他模块使用它的接口引理（`GzInv.common`、`GzInv.reader`、`GzInv.writer`、`GzInv.state_eq`、`GzInv.pos_lower`），不展开定义。
+`GzInv h i s` 是记录为 `s` 的已打开句柄 `i`
+的表示不变量。它有一个公共部分，每种模式各有一个部分。证明通过它的接口引理使用它（`GzInv.common`、`GzInv.reader`、`GzInv.writer`、`GzInv.state_eq`、`GzInv.pos_lower`）。
 
 它谈到的字段是 `gzguts.h` 中 `gz_state` 的字段：
 
@@ -263,7 +258,7 @@ flowchart TD
 - 对有缓冲区的压缩写句柄，`next_out = out + b`，`x.next = out + c`，其中 `c ≤ b ≤ size`，并且
   `avail_out = size - b`。内嵌的流在 deflate 历史中，没有 gzip 头记录。
 
-完整的命题是 `ZlibF/Spec/Common/GzInv.lean` 中的定义 `GzInv`，以及它的三个部分 `GzCommon`、`GzReadInv` 和
+完整的命题是定义 `GzInv`，以及它的三个部分 `GzCommon`、`GzReadInv` 和
 `GzWriteInv`；这份摘要与定义不一致的地方，以定义为准。
 
 每个子句之所以存在，是因为有某个调用需要它。下面三个例子说明这一点。
@@ -312,15 +307,15 @@ flowchart LR
 
 `gz_read` 有三条数据路径：消耗已缓冲的输出，把透明数据直接读进调用者的缓冲区，或者直接解压到足够大的调用者缓冲区中。
 
-读辅助函数在 `ZlibF/Proof/gz.read-assembly.lean` 中组合起来：
+读辅助函数按下面的顺序组合起来：
 
 | 引理 | 命题 |
 | --- | --- |
-| `gz_look_safe` | `gz_look` 是安全的（`gz.read-look.lean`）。 |
-| `gz_decomp_safe_of` | `gz_decomp` 是安全的，条件是从模式 `BAD` 或 `MEM` 出发的 `inflate` 调用不移动两个缓冲区中的任何一个（`gz.read-decomp.lean`）。这个事实是 `inflateStuckNoOutput_holds`（`inflate.c.stuck-no-output.lean`）。 |
-| `gz_fetch_safe_of` | `gz_fetch` 是安全的，条件是上面两条（`gz.read-fetch.lean`）。 |
-| `gzSkipRead_holds` | `gz_skip` 是安全的，条件是 `gz_fetch`（`gzread.c.skip-fetch.lean`）。 |
-| `gz_read_safe_of` | `gz_read` 是安全的，条件是上面三条（`gz.read-read.lean`）。 |
+| `gz_look_safe` | `gz_look` 是安全的。 |
+| `gz_decomp_safe_of` | `gz_decomp` 是安全的，条件是从模式 `BAD` 或 `MEM` 出发的 `inflate` 调用不移动两个缓冲区中的任何一个。这个事实是 `inflateStuckNoOutput_holds`。 |
+| `gz_fetch_safe_of` | `gz_fetch` 是安全的，条件是上面两条。 |
+| `gzSkipRead_holds` | `gz_skip` 是安全的，条件是 `gz_fetch`。 |
+| `gz_read_safe_of` | `gz_read` 是安全的，条件是上面三条。 |
 | `gzread_step`、`gzfread_step` | 公开调用，由 `gz_read` 得出。 |
 
 每个内嵌的 `inflate` 调用都使用[流式解码](inflate.md)中关于流的结论：内嵌的流是可达的，所以单次调用的完整契约适用。
@@ -329,10 +324,10 @@ flowchart LR
 
 每个读循环都有一个度量，它是由世界和句柄算出的一个自然数。有了 `ReadsFinite`，度量从 `2^64`
 以下开始，并在每一个继续下去的轮次下降。下表给出每个度量的形状；准确的定义是
-`fetchMeasure`（`gz.read-fetch.lean`）、`fetchRank`（`gz.read-fetch-specs.lean`）和 `readMeasure`（`gz.read-read.lean`）。
+`fetchMeasure`、`fetchRank` 和 `readMeasure`。
 
 把描述符的读取预算加上 `avail_in` 记作 `inputLeft`。`gz_avail` 读到多少字节，就把 `avail_in`
-提高多少，预算则下降同样多的字节（`gz_avail_budget`，`gz.read-budget.lean`）。所以 `inputLeft` 从不上升。
+提高多少，预算则下降同样多的字节（`gz_avail_budget`）。所以 `inputLeft` 从不上升。
 
 | 循环 | 度量 | 为什么下降 |
 | --- | --- | --- |
@@ -340,7 +335,7 @@ flowchart LR
 | `gz_fetch` | `4 · inputLeft + c`，其中 `c` 对 `LOOK` 为 2，对位于成员开头的 `GZIP` 为 1，对 `COPY` 为 0，其他情况为 3 | 它在每一个继续下去的轮次下降。空的 gzip 成员要耗费输入，所以预算排除了无穷多个空成员。 |
 | `gz_read` | `readMeasure`：令 `L = min(len, GZ_OFF_MAX - pos)`，它是 `L / 8 + Q + 2·E + 3·R + fetchRank`。`Q` 在没有已缓冲的输出时为 1；已缓冲的字节少于 16 个、`err = Z_OK` 且 `x.pos + x.have < GZ_OFF_MAX` 时为 2；其他情况为 0。`E` 在输入末尾为 0，在此之前为 1。`R` 在 `pos` 低于 `GZ_OFF_MAX` 时为 1。`fetchRank` 是 `4 · inputLeft`，加上读取预算，在一个 gzip 成员已过开头、正在进行时加 2，在 `how` 变成 `COPY` 之前再加 2 | 它在每一个继续下去的轮次下降。`gz_decomp` 和 `gz_fetch` 都不提高 `fetchRank`。 |
 | `gzgets` | 它的循环变量 `left` | 它在每一个继续下去的轮次下降。 |
-| `gz_skip` | `skipMeasureF` | `gzSkipTerminates_holds`（`gzread.c.skip-terminates.lean`），由 `GzInvUpToSkip` 得出。 |
+| `gz_skip` | `skipMeasureF` | `gzSkipTerminates_holds`，由 `GzInvUpToSkip` 得出。 |
 
 ### 读的包装函数
 
@@ -358,7 +353,7 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 ```
 
 它是应用程序调用 `gzgetc` 的默认方式，所以历史为它设了一个构造子（`GzHistory.getcMacro`），目标为它设了一个子句。翻译是
-`Zlib.ZlibH.gzgetc`；证明是 `gzgetc_macro_safe`（`ZlibF/Proof/zlib.h.gzgetc-macro.lean`）。
+`Zlib.ZlibH.gzgetc`；证明是 `gzgetc_macro_safe`。
 
 这个宏有两个分支。
 
@@ -377,13 +372,12 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 对透明输出直接写出输入，否则交替进行 `deflate` 调用和输出写入。`gz_write` 把小的输入复制进 `in`，或者把 `next_in`
 指向调用者的大缓冲区，事后再把它复位。`gz_zero` 通过写零来完成待处理的向前定位。`gz_vacate` 压缩待处理的数据，并把其余的移到前面。
 
-写叶引理在 `ZlibF/Proof/gzwrite.c.safety.lean`
-中：`gzwrite_step`、`gzfwrite_step`、`gzputc_step`、`gzputs_step`、`gzprintf_step`、`gzvprintf_step`、`gzflush_step`、`gzsetparams_step`
-和 `gzclose_w_step`。它们使用 `gz_error` 的事实，这些事实由不变量推出（`ZlibF/Proof/gzlib.c.error-inv-premises.lean`）。
+写叶引理是 `gzwrite_step`、`gzfwrite_step`、`gzputc_step`、`gzputs_step`、`gzprintf_step`、`gzvprintf_step`、`gzflush_step`、`gzsetparams_step`
+和 `gzclose_w_step`。它们使用 `gz_error` 的事实，这些事实由不变量推出。
 
-`gz_comp` 的循环在每个世界中都终止，不需要预算（`ZlibF/Proof/gzwrite.c.comp.lean`）。写出循环以还要写的字节为度量，透明循环以待处理的输入为度量。两者都下降，因为对非空缓冲区的
+`gz_comp` 的循环在每个世界中都终止，不需要预算。写出循环以还要写的字节为度量，透明循环以待处理的输入为度量。两者都下降，因为对非空缓冲区的
 `write` 返回 `-1`，或者返回 1 到长度之间的一个计数。这就是[上文](#trusted-not-in-the-statement-the-world-model)关于 `write`
-的受信任事实。一个永远返回 0 的 `write` 会让 `gz_comp` 在 C 中空转；[进度](../progress.md)的“观察记录”一节记录了对代码的这一解读。deflate
+的受信任事实。一个永远返回 0 的 `write` 会让 `gz_comp` 在 C 中空转。deflate
 循环有它自己的度量，只要循环继续，它就下降。
 
 `gzvprintf` 在 `next[size - 1]` 处写一个哨兵，并以容量 `size` 做格式化。长度落在 `1..size-1` 之外，或者哨兵丢失，`gzvprintf` 就拒绝这个结果。
@@ -394,7 +388,7 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 `gztell64` 报告逻辑位置加上待处理的跳过；`past` 置位时不加这段跳过。`gzoffset64` 查询描述符的位置，在读模式下再减去已缓冲的压缩输入。这是两个不同的位置。
 
-`gzseek64_step` 和 `gzseek_step`（`ZlibF/Proof/gz.inv-seek.lean`）对每个世界成立。路径有：
+`gzseek64_step` 和 `gzseek_step` 对每个世界成立。路径有：
 
 - 拒绝（严重错误、坏的 `whence`、目标落在补丁 0002 的范围之外）：返回 `-1`，什么都不变；
 - 写句柄：`skip` 变成那段距离；目标在 `x.pos` 之前时，调用返回 `-1`；
@@ -406,15 +400,15 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 `gz_error` 先释放旧的被拥有的消息。内存错误不分配新消息；其他任何消息都拥有 `path + ": " + text` 这次分配。`gzerror`
 返回内存错误的字面量、当前消息或者空字面量，并且可以把错误码存进调用者的四字节单元。`gzerror_step` 和
-`gzerror_string`（`ZlibF/Proof/gz.inv-frame.lean`）表明这次存入保持不变量，并且返回的指针是调用之后的堆中的一个字符串。这个字符串由下一个到达
+`gzerror_string` 表明这次存入保持不变量，并且返回的指针是调用之后的堆中的一个字符串。这个字符串由下一个到达
 `gz_error` 的调用释放；关于 `gzprintf` 参数的调用者前提排除了把它传回同一个句柄。
 
 ## 打开与关闭
 
 `gzopen_safe`、`gzopen64_safe` 和 `gzdopen_safe` 表明新打开的句柄满足
-`GzInv`（`ZlibF/Proof/gz.inv-open.lean`、`gz.inv-open-fresh.lean`）。打开给出 `size = 0`，所以每个关于缓冲区或已缓冲输出的子句都空洞地成立。
+`GzInv`。打开给出 `size = 0`，所以每个关于缓冲区或已缓冲输出的子句都空洞地成立。
 
-`gzclose` 读出模式，然后运行 `gzclose_r` 或 `gzclose_w`（`ZlibF/Proof/gz.inv-close.lean`）。满足 `GzInv` 的句柄是读句柄或写句柄，所以
+`gzclose` 读出模式，然后运行 `gzclose_r` 或 `gzclose_w`。满足 `GzInv` 的句柄是读句柄或写句柄，所以
 `gzclose` 从不拒绝。`gzclose_r` 在编解码器存在时结束它，释放缓冲区、消息、路径和记录，并关闭描述符。`gzclose_w`
 还要先写出待处理的零并完成输出。这些操作失败时，清理照样进行。成功的 `gzdopen` 接管描述符；失败的则把它留给调用者。
 
@@ -436,13 +430,13 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 ## 保留的功能结论
 
-`tests/audit/goals.txt` 为 31 个有文档的 gz 函数和 `gzvprintf` 各列出一个功能契约 `Goal.<function>`：共 32
-个目标。安全结论不需要其中任何一个。其中八个已证明（`tests/audit/proved-goals.txt`）：
+31 个有文档的 gz 函数和 `gzvprintf` 各有一个功能契约 `Goal.<function>`：共 32
+个目标。安全结论不需要其中任何一个。其中八个已完成：
 
 - `Goal.gzbuffer`、`Goal.gzeof`、`Goal.gzerror`、`Goal.gzclearerr`、`Goal.gzdopen`：单个函数的完整契约。
 - `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`：针对普通文件的世界表述（前提 `RegularOs fs`）。
 
-未证明，安全结论也用不到的：
+未完成，也不在计划内；安全结论用不到它们：
 
 - 其余 24 个功能契约：`Goal.gzopen`、`Goal.gzopen64`、`Goal.gzclose`、`Goal.gzclose_r`、`Goal.gzclose_w`、`Goal.gzread`、`Goal.gzfread`、`Goal.gzgetc`、`Goal.gzgetc_`、`Goal.gzungetc`、`Goal.gzgets`、`Goal.gzdirect`、`Goal.gzwrite`、`Goal.gzfwrite`、`Goal.gzputc`、`Goal.gzputs`、`Goal.gzprintf`、`Goal.gzvprintf`、`Goal.gzflush`、`Goal.gzsetparams`、`Goal.gzseek`、`Goal.gzseek64`、`Goal.gztell`
   和 `Goal.gztell64`；
