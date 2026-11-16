@@ -274,7 +274,8 @@ def write(path: Path, content: str) -> None:
 
 def goal_excerpts() -> dict[str, tuple[Path, int, str]]:
     result = {}
-    # Goals live in Spec/Safety, Spec/Functional and Spec/Common (docs/design/safety-functional-split.md).
+    # Public goals live in Spec/Safety and Spec/Functional; Spec/Common holds only internal component
+    # goals (docs/design/safety-functional-split.md, scripts/check-spec-layers.py rule 5).
     layers = ("Common", "Safety", "Functional")
     for source in sorted(s for layer in layers for s in (REPO / "ZlibF/Spec" / layer).glob("*.lean")):
         text = source.read_text()

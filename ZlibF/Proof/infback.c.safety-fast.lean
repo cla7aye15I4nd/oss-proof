@@ -1,3 +1,4 @@
+import ZlibF.Spec.Safety.Sequences
 import ZlibF.Proof.«infback.c.safety-reach»
 import ZlibF.Proof.«inffast.c.consume»
 

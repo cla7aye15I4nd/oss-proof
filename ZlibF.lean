@@ -222,7 +222,7 @@ import ZlibF.Spec.Common.Inflate.FastEnv
 import ZlibF.Spec.Common.Inflate.WindowCopy
 import ZlibF.Spec.Common.Inflate.TableCanon
 import ZlibF.Spec.Common.Inflate.TableBuild
-import ZlibF.Spec.Common.GzRefusal
+import ZlibF.Spec.Safety.GzRefusal
 import ZlibF.Spec.Common.GzState
 import ZlibF.Spec.Functional.GzState
 import ZlibF.Spec.Common.GzInv

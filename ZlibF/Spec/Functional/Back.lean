@@ -41,4 +41,44 @@ def Goal.inflateBack : Prop :=
       CallbackFrame protocol.own h after r i s.window s.wsize.toNat ∧
       (∀ b, ¬ protocol.own b → (after.live b ↔ h.live b)))
 
+/-- `int inflateBackInit_(z_streamp strm, int windowBits, unsigned char *window,
+const char *version, int stream_size)`.
+The caller retains the window. Only the state record is allocated; its other integer fields
+remain arbitrary. Refusal precedes allocation, and allocation failure retains the old state field. -/
+def Goal.inflateBackInit_ : Prop :=
+  (∀ h p wb window version head size, VersionValue h version head →
+    (head ≠ some 49 ∨ size ≠ 112) →
+    C.run (Zlib.Infback.inflateBackInit_ p wb window version size) h = .ok (Z_VERSION_ERROR, h)) ∧
+  (∀ h p wb window version, VersionValue h version (some 49) →
+    (p = none ∨ window = .null ∨ wb.toInt < 8 ∨ 15 < wb.toInt) →
+    C.run (Zlib.Infback.inflateBackInit_ p wb window version 112) h = .ok (Z_STREAM_ERROR, h)) ∧
+  (∀ h r z wb window version,
+    Fresh h → Zlib.Inflate.Spec.Uniq h → LibraryGlobals h → r.get h = some z →
+    DefaultOrNull z → VersionValue h version (some 49) →
+    8 ≤ wb.toInt → wb.toInt ≤ 15 → window ≠ .null → Writable h window (2 ^ wb.toInt.toNat) →
+    ∃ rc after,
+      C.run (Zlib.Infback.inflateBackInit_ (some r) wb window version 112) h = .ok (rc, after) ∧
+      after.nalloc = h.nalloc + 1 ∧
+      if h.allocOk h.nalloc = false then
+        rc = Z_MEM_ERROR ∧ SameObjects (r.put h (preparedStream z)) after
+      else rc = Z_OK ∧
+        let z' := { preparedStream z with state := some (.inflate h.nextBlk) }
+        let s := backInitialState (h.garbage h.nalloc) window wb
+        BackValid after r h.nextBlk z' s ∧
+        Frame h after (StreamRoot r) ∧
+        LiveChange h after (fun b => b = h.nextBlk) (fun _ => False))
+
+/-- `int inflateBackEnd(z_streamp strm)`.
+Free only the state record. The caller's window is retained, even when it is a slice of another object. -/
+def Goal.inflateBackEnd : Prop :=
+  (∀ h, C.run (Zlib.Infback.inflateBackEnd none) h = .ok (Z_STREAM_ERROR, h)) ∧
+  (∀ h r z, r.get h = some z → z.state = none ∨ z.zfree = .null →
+    C.run (Zlib.Infback.inflateBackEnd (some r)) h = .ok (Z_STREAM_ERROR, h)) ∧
+  (∀ h r i z s, BackValid h r i z s →
+    ∃ after, C.run (Zlib.Infback.inflateBackEnd (some r)) h = .ok (Z_OK, after) ∧
+      r.get after = some { z with state := none } ∧
+      LiveChange h after (fun _ => False) (fun b => b = i) ∧
+      Frame h after (fun b => StreamRoot r b ∨ b = i) ∧
+      after.nalloc = h.nalloc ∧ after.nextBlk = h.nextBlk)
+
 end ZlibF.Spec.Public

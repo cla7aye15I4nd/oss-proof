@@ -15,33 +15,6 @@ def backInitialState (garbage : Nat → UInt64) (window : BPtr) (bits : Int32) :
     dmax := 32768, wbits := bits.toUInt32, wsize := 1 <<< bits.toUInt32
     window := window, wnext := 0, whave := 0, sane := 1 }
 
-/-- `int inflateBackInit_(z_streamp strm, int windowBits, unsigned char *window,
-const char *version, int stream_size)`.
-The caller retains the window. Only the state record is allocated; its other integer fields
-remain arbitrary. Refusal precedes allocation, and allocation failure retains the old state field. -/
-def Goal.inflateBackInit_ : Prop :=
-  (∀ h p wb window version head size, VersionValue h version head →
-    (head ≠ some 49 ∨ size ≠ 112) →
-    C.run (Zlib.Infback.inflateBackInit_ p wb window version size) h = .ok (Z_VERSION_ERROR, h)) ∧
-  (∀ h p wb window version, VersionValue h version (some 49) →
-    (p = none ∨ window = .null ∨ wb.toInt < 8 ∨ 15 < wb.toInt) →
-    C.run (Zlib.Infback.inflateBackInit_ p wb window version 112) h = .ok (Z_STREAM_ERROR, h)) ∧
-  (∀ h r z wb window version,
-    Fresh h → Zlib.Inflate.Spec.Uniq h → LibraryGlobals h → r.get h = some z →
-    DefaultOrNull z → VersionValue h version (some 49) →
-    8 ≤ wb.toInt → wb.toInt ≤ 15 → window ≠ .null → Writable h window (2 ^ wb.toInt.toNat) →
-    ∃ rc after,
-      C.run (Zlib.Infback.inflateBackInit_ (some r) wb window version 112) h = .ok (rc, after) ∧
-      after.nalloc = h.nalloc + 1 ∧
-      if h.allocOk h.nalloc = false then
-        rc = Z_MEM_ERROR ∧ SameObjects (r.put h (preparedStream z)) after
-      else rc = Z_OK ∧
-        let z' := { preparedStream z with state := some (.inflate h.nextBlk) }
-        let s := backInitialState (h.garbage h.nalloc) window wb
-        BackValid after r h.nextBlk z' s ∧
-        Frame h after (StreamRoot r) ∧
-        LiveChange h after (fun b => b = h.nextBlk) (fun _ => False))
-
 structure BackLog where
   supplied : List UInt8
   chunks : List (List UInt8)
@@ -110,18 +83,5 @@ structure CallbackProtocol (r : ZStreamRef) (state : Nat) (window : BPtr) (capac
       SameBytePrefix h after window window capacity ∧
       (log.held ≠ [] → Bytes after log.active log.held.length log.held) ∧
       invariant after { log with chunks := log.chunks ++ [bytes], failed := log.failed || rc != 0 }
-
-/-- `int inflateBackEnd(z_streamp strm)`.
-Free only the state record. The caller's window is retained, even when it is a slice of another object. -/
-def Goal.inflateBackEnd : Prop :=
-  (∀ h, C.run (Zlib.Infback.inflateBackEnd none) h = .ok (Z_STREAM_ERROR, h)) ∧
-  (∀ h r z, r.get h = some z → z.state = none ∨ z.zfree = .null →
-    C.run (Zlib.Infback.inflateBackEnd (some r)) h = .ok (Z_STREAM_ERROR, h)) ∧
-  (∀ h r i z s, BackValid h r i z s →
-    ∃ after, C.run (Zlib.Infback.inflateBackEnd (some r)) h = .ok (Z_OK, after) ∧
-      r.get after = some { z with state := none } ∧
-      LiveChange h after (fun _ => False) (fun b => b = i) ∧
-      Frame h after (fun b => StreamRoot r b ∨ b = i) ∧
-      after.nalloc = h.nalloc ∧ after.nextBlk = h.nextBlk)
 
 end ZlibF.Spec.Public

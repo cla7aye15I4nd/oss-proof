@@ -8,7 +8,6 @@ import ZlibF.Spec.Common.Crc32Statics
 import ZlibF.Spec.Common.DeflateGood
 import ZlibF.Spec.Common.Domains
 import ZlibF.Spec.Common.GzInv
-import ZlibF.Spec.Common.GzRefusal
 import ZlibF.Spec.Common.GzState
 import ZlibF.Spec.Common.HeapUniq
 import ZlibF.Spec.Common.History
