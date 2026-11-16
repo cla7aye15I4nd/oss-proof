@@ -49,10 +49,10 @@ through it, and its goal `Goal.gzvprintf_safety` is required. Conditions of a go
 
 **What is not proved here.** The return values, output bytes and state changes that Post
 describes are functional behaviour. They are read from the C and are **to confirm** where no
-theorem states them. Each entry also names its functional goal. Functional goals are not
-planned; the entry says whether a theorem proves the goal.
+theorem states them. Each entry also names its functional goal. The functional goal of a
+single function is not planned; the entry says whether a theorem proves it.
 
-[Progress](../../progress.md) says which goals are done.
+[Progress](../../progress.md#functions) says which goals are done.
 
 ## Find a function
 
