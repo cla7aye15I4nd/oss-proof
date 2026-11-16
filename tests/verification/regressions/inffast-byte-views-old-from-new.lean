@@ -5,6 +5,8 @@ import ZlibF.Proof.«inffast.c.len»
 import ZlibF.Proof.«inflate.c.ring»
 import ZlibF.Proof.«inftrees.c.main»
 import ZlibF.Proof.«deflate.c.base»
+import ZlibF.Spec.Safety.Inflate.Fast
+import ZlibF.Spec.Safety.Inflate.FastOrigin
 
 /-!
 # Fast decoder over byte views: every old goal follows from the new one

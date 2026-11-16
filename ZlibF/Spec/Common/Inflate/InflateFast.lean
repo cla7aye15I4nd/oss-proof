@@ -38,14 +38,6 @@ def StepPost {α : Bool} (e : Proofs.EnvG α) (A : Array UInt8) (msg : BPtr) (mo
     (l'.broke = false → o < o' ∧ msg' = msg ∧ mode' = mode) ∧
     (l'.broke = true → mode' = TYPE ∨ mode' = BAD)
 
-/-- Safety and progress of the actual fast body on every concrete permitted state. -/
-def Goal.step_safe : Prop :=
-  ∀ (e : Proofs.Env) (c : Ctx) (A : Array UInt8) (msg : BPtr) (mode : UInt32)
-      (l : L) (i o : Nat),
-    StepPre e c A l i o →
-    ∃ l' h', C.run (inflate_fast_body c l) (e.heap A msg mode) = .ok (l', h') ∧
-      StepPost e A msg mode i o l' h'
-
 /-- The complete fast call restores normalized bits and exact remaining input/output counts.
 Only the produced output interval, stream buffer fields/message, and state bits/mode change.
 The internal `Env` table predicates must be established by the main decoder; they do not
@@ -64,11 +56,5 @@ def FastPost {α : Bool} (e : Proofs.EnvG α) (after : Heap) : Prop :=
     (mode ≠ TYPE → mode ≠ BAD →
       e.sm0.avail_in.toNat - inputUsed < 6 + bufferedBytes ∨
       e.sm0.avail_out.toNat - outputUsed < 258)
-
-/-- Safety, termination, frame and exact register writeback of the actual whole fast decoder.
-No body/callee contract is a hypothesis. The complete format-refinement goal is separate. -/
-def Goal.fast_safe : Prop :=
-  ∀ e : Proofs.Env, ∃ after,
-    C.run (inflate_fast e.strm e.start) e.h0 = .ok ((), after) ∧ FastPost e after
 
 end Zlib.Inffast.Spec

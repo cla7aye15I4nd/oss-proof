@@ -1,6 +1,7 @@
 import ZlibF.Spec.Common.Inflate.InflateTableContent
 import ZlibF.Proof.«inftrees.c.content.geometry»
 import ZlibF.Proof.«inftrees.c.main»
+import ZlibF.Spec.Safety.Inflate.Table
 
 /-!
 # inftrees.c: retain constructed contents through the actual wrappers

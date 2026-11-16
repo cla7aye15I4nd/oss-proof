@@ -1,4 +1,5 @@
 import ZlibF.Proof.«inffast.c.loop»
+import ZlibF.Spec.Safety.Inflate.Fast
 
 /-!
 # inffast.c: normalization and final writeback

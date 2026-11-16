@@ -1,5 +1,6 @@
 import ZlibF.Spec.Common.Inflate.InflateFastOrigin
 import ZlibF.Proof.«inffast.c.final»
+import ZlibF.Spec.Safety.Inflate.FastOrigin
 
 /-!
 # Exact origin of the fast decoder's remaining input

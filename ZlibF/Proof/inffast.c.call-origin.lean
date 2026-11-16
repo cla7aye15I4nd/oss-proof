@@ -2,6 +2,7 @@ import ZlibF.Spec.Common.Inflate.InflateFastCallOrigin
 import ZlibF.Proof.«inffast.c.body-origin»
 import ZlibF.Proof.«inffast.c.origin»
 import ZlibF.Proof.«inffast.c.final»
+import ZlibF.Spec.Safety.Inflate.FastOrigin
 
 namespace Zlib.Inffast.Proofs
 open C Zlib.Inffast Zlib.Inffast.Spec Zlib.Inffast.Spec.CallOrigin

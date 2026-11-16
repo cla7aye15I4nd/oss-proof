@@ -26,17 +26,4 @@ def TableContent (type : UInt32) (f : Nat → Nat) (n : Nat) (rc : CodeRef) (oc 
       e.c.type = type ∧ Space.get after rc = some ca ∧
       Written e e.m ca ∧ Links e e.m ca)
 
-/-- On every existing `CallPre`, the real translated function returns and retains both the
-safety result and its constructed table contents. Rejected and oversized tables are allowed.
-This is an internal table-builder obligation; it does not by itself establish decoder safety. -/
-def Goal.inflate_table_content : Prop :=
-  ∀ (h : Heap) (type : UInt32) (rl : WRef) (ol : Nat) (codes : UInt32)
-    (rc : CodeRef) (oc : Nat) (bits : UInt32) (rw : WRef) (ow : Nat)
-    (pre : CallPre h type rl ol codes rc oc bits rw ow),
-    ∃ r after,
-      C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h =
-        .ok (r, after) ∧
-      Result h rw rc ow oc (capOf type) codes.toNat pre.wa pre.ca (.ref rc oc) bits r after ∧
-      RetInfo type pre.f codes.toNat r ∧ TableContent type pre.f codes.toNat rc oc r after
-
 end Zlib.Inftrees.Spec
