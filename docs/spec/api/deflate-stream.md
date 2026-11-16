@@ -16,9 +16,12 @@ see [compress and compress2](utility.md#compress2_z).
 | Adjust or branch | [Parameters](#deflateparams), [tuning](#deflatetune), [priming](#deflateprime), [copy](#deflatecopy) |
 | Release storage | [End](#deflateend) |
 
-The contracts follow the pinned `deflate.c` with patch 0006 applied and `zlib.h`, in the default
-LP64 Linux build. Patch 0006 changes `deflateBound_z` only: with the strategy `Z_FIXED` it returns
-one of the conservative bounds ([patches](../../../patches/README.md)).
+The contracts follow `zlib.h` and `deflate.c` of the pinned zlib with the
+[patches](../../../patches/README.md) applied, in the default LP64 Linux build. Of the six patches
+only patch 0006 touches `deflate.c`. It changes one condition in `deflateBound_z`: with the
+strategy `Z_FIXED`, a stream with window 15 and memory level 8 gets one of the two conservative
+bounds, where the unpatched C returns the tight bound. `deflateBound` calls `deflateBound_z`, so
+its result changes in the same way. The patch changes no other function.
 These are focused contracts: Pre describes ordinary correct use and is deliberately narrower than
 what the function accepts. Cases outside Pre that the C still handles appear under Errors or
 **Outside focused scope**. A call outside Pre is not thereby undefined, and it need not return an
@@ -492,7 +495,7 @@ The result says whether the gzip header pointer was registered; success does not
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the header bytes that `deflate` later writes: functional goal `Goal.deflateSetHeader` (not planned; a theorem proves it).
+- **Not in this goal.** A call after `deflate` has started the stream: outside every safety goal ([deviations](../../deviations.md), row "Header arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and the header bytes that `deflate` later writes: functional goal `Goal.deflateSetHeader` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetHeader"><summary>Complete return conditions and boundaries</summary>
 
@@ -665,7 +668,7 @@ when interpreting the later compressed stream.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A call after `deflate` has started the stream: outside every goal ([deviations](../../deviations.md), row "Other stream arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and the pending bits after the call: functional goal `Goal.deflatePrime` (not planned; not done).
+- **Not in this goal.** A call after `deflate` has started the stream: outside every safety goal ([deviations](../../deviations.md), row "Other stream arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). Which code is returned and the pending bits after the call: functional goal `Goal.deflatePrime` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePrime"><summary>Complete return conditions and boundaries</summary>
 
@@ -838,7 +841,7 @@ The return is an output-capacity bound in bytes, not a zlib status code. It can 
 
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
-| `bound`<br>**Output byte bound** | For a live stream, the formula uses the current window, memory level, compression level and full wrapper size; NULL or a safely checkable invalid stream uses the larger fixed/stored formula plus 18. All results saturate at SIZE_MAX and leave the heap unchanged. | Apply the stated capacity guarantee only after init/setup and before compression, with fixed configuration/dictionary/header, standard tuning and no prime bits; buffer representability and avail_in/avail_out capacity conditions must also hold. |
+| `bound`<br>**Output byte bound** | For a live stream, the formula uses the current window, memory level, compression level, strategy and full wrapper size; NULL or a safely checkable invalid stream uses the larger fixed/stored formula plus 18. All results saturate at SIZE_MAX and leave the heap unchanged. | Apply the stated capacity guarantee only after init/setup and before compression, with fixed configuration/dictionary/header, standard tuning and no prime bits; buffer representability and avail_in/avail_out capacity conditions must also hold. |
 
 **Reading the result.**
 
@@ -868,17 +871,24 @@ header and dictionary fixed; use standard tuning and no inserted prime bits.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound_z` (not planned; not done).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The value returned: functional goal `Goal.deflateBound_z` (not planned; not done). That this much output room is enough: the clause `DeflateCompletes` of the functional goal `Goal.deflate_sequence` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound_z"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** the heap is unchanged. The numerical target is the following mathematical value,
 saturated at `SIZE_MAX`, where `n = sourceLen` and `w` is the full wrapper size:
 
-- Window 15, memory level 8 and a strategy other than `Z_FIXED` (patch 0006): `n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`.
+- Window 15, memory level 8 and a strategy other than `Z_FIXED`: `n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`.
 - Otherwise, if window bits are at most hash bits and level is nonzero:
   `n + floor(n/8) + floor(n/256) + floor(n/512) + 4 + w`.
 - Otherwise: `n + floor(n/32) + floor(n/128) + floor(n/2048) + 7 + w`.
+
+Hash bits are memory level plus 7. The words "and a strategy other than `Z_FIXED`" in the first
+case are the change of patch 0006: the unpatched C uses the first formula for every strategy. With
+`Z_FIXED`, window 15 and memory level 8, the patched function uses the second formula at levels 1
+to 9 and the third at level 0. The first formula is too small for `Z_FIXED` at levels 1 to 3: on
+the unpatched C, one `deflate(Z_FINISH)` call with that much output room can return `Z_OK`
+([finding](../../findings/deflatebound-fixed-far-matches/README.md), reproduced with the real C).
 
 `w` is 0 for raw, 6 for zlib plus 4 when preset history is present, or 18 for gzip plus
 its optional extra field (including two length bytes), terminated name/comment and header CRC.
@@ -942,11 +952,12 @@ This returns the uLong form of the deflateBound_z bound, still in bytes. ULONG_M
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record and the stream's own blocks.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The value returned, and whether that much output room is enough: functional goal `Goal.deflateBound` (not planned; not done).
+- **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The value returned: functional goal `Goal.deflateBound` (not planned; not done). That this much output room is enough: the clause `DeflateCompletes` of the functional goal `Goal.deflate_sequence` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>Complete return conditions and boundaries</summary>
 
-**Post:** return its numerical result if it fits `uLong`, otherwise `ULONG_MAX`.
+**Post:** return the `deflateBound_z` result, with the change of patch 0006, if it fits `uLong`,
+otherwise `ULONG_MAX`.
 On the default LP64 target both types have 64 bits and the results agree.
 The stream is unchanged. Output adequacy requires the separate schedule and capacity
 conditions of `deflateBound_z`, rather than following from the numerical equality alone.

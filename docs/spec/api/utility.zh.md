@@ -1,4 +1,4 @@
-<!-- source-sha256: e7efb6858af567e26381dfacc2cf47018505d5ab3138e8e7551d263f46a7bb92 -->
+<!-- source-sha256: 04c6e8b7eb97f0a314147dc9028125547965bdf8de2dbb2e2373bac3b2305847 -->
 
 # 缓冲区工具与库信息
 
@@ -154,7 +154,7 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
 **判读要点。**
 
 - 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- 普通适配器先读取非 NULL 的 destLen 单元，且每次返回都写回长度；NULL destLen 不在这个前置条件内。
+- `compress2` 是包在 `compress2_z` 外面的包装函数：它先读取 destLen 单元，不检查是否为 NULL，且每次返回都写回长度。因此 NULL destLen 不在这个前置条件内。
 - 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。-1 选择级别 6。
 
 ### 调用条件与效果 {#api-compress2-contract}
@@ -272,7 +272,7 @@ int ZEXPORT compress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong so
 **判读要点。**
 
 - 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- 普通适配器先读取非 NULL 的 destLen 单元，且每次返回都写回长度；NULL destLen 不在这个前置条件内。
+- `compress` 调用包装函数 `compress2`，后者先读取 destLen 单元，不检查是否为 NULL，且每次返回都写回长度。因此 NULL destLen 不在这个前置条件内。
 - 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。使用默认级别 -1，即级别 6。
 
 ### 调用条件与效果 {#api-compress-contract}
@@ -504,7 +504,7 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 **判读要点。**
 
 - 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- 普通适配器会先读取长度单元：destLen 和 sourceLen 均须非 NULL。两者每次返回都会写回。
+- `uncompress2` 是包在 `uncompress2_z` 外面的包装函数：它先读取两个长度单元，不检查是否为 NULL，所以 destLen 和 sourceLen 均须非 NULL。两者每次返回都会写回。
 - 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
 
 ### 调用条件与效果 {#api-uncompress2-contract}
@@ -631,7 +631,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 **判读要点。**
 
 - 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- 普通适配器会先读取长度单元：destLen 须非 NULL，且每次返回都会写回。
+- `uncompress` 调用包装函数 `uncompress2`，后者先读取长度单元，不检查是否为 NULL：destLen 须非 NULL，且每次返回都会写回。
 - 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
 
 ### 调用条件与效果 {#api-uncompress-contract}
@@ -794,7 +794,7 @@ const char * ZEXPORT zError(int err);
 没有分配、堆变化或错误返回。索引计算前会检查 -6–2 范围外的值，
 因此两个标量极值均安全返回空文本。
 
-**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标：功能目标 `Goal.zError`（不在计划内；已有定理证明它），在 [Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean) 中，定理为 `ZlibF.Spec.Public.Proofs.zError`（[public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)）。对每一个堆和每一个 `err`，这个目标陈述：调用返回，堆不变，结果是后置条件所述的静态文本。
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标：功能目标 `Goal.zError`（不在计划内；已有定理证明它），在 [Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean) 中，定理为 `ZlibF.Spec.Public.Proofs.zError`（[public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)）。称它为功能目标，是因为它确定了返回的文本；它同时也陈述了安全方面的事实。对每一个堆和每一个 `err`，这个目标陈述：调用返回，调用之后的堆就是调用之前的堆（没有写入、分配或释放），结果指向只读的静态存储，其中存放的是后置条件所述的文本。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zError"><summary>完整返回条件与边界</summary>
 

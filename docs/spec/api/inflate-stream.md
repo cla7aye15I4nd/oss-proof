@@ -780,14 +780,14 @@ the stream and its owned storage, and the input/output ranges of calls using the
 - **Applies when.** The refusal asks that `strm` is a refused stream (`RefusedInflate`). The call on a reachable stream asks (`StreamCallDomain`):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
-    3. `head` is not NULL and names a live header record that is not one of the stream's own blocks; each of its `extra`, `name` and `comment` pointers is NULL or points to `extra_max`, `name_max` or `comm_max` writable bytes outside the stream's own blocks (`HeaderMemory`).
+    3. `head` is not NULL and names a live header record that is not one of the stream's own blocks; each of its `extra`, `name` and `comment` pointers is NULL or points to `extra_max`, `name_max` or `comm_max` writable bytes outside the stream's own blocks (`HeaderMemory`; `StreamArguments` adds that `head` is not NULL).
 - **Covered without condition.** Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. The goal is wider than Pre: the stream need not support gzip, and decoding may have started. In the refusal: every refused stream and every value of the other arguments.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks and the header record `head`.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL `head`: outside every goal; the C stores through the pointer ([deviations](../../deviations.md), row "Header arguments"). A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader` (not planned; a theorem proves it).
+- **Not in this goal.** A NULL `head` on a reachable stream: outside every safety goal ([deviations](../../deviations.md), row "Header arguments"). On a stream with gzip support the C stores through the pointer. On a stream without gzip support the C returns `Z_STREAM_ERROR` before it uses `head`; the functional goal `Goal.inflateGetHeader` states that return, and the safety goals do not cover the call. A NULL `head` with a refused stream is covered by the refusal clause. A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>Complete return conditions and boundaries</summary>
 

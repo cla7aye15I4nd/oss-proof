@@ -1,4 +1,4 @@
-<!-- source-sha256: 0b7e188ef6450c2b9b086b4342021be69ada347875cdb6fbb7638a3b2e5600a3 -->
+<!-- source-sha256: e8c81cec9164a0f205b7da29166314735417f223466c7f289ab4857e47130928 -->
 
 # 流式压缩
 
@@ -14,7 +14,7 @@
 | 调整或分支 | [参数](#deflateparams)、[调优](#deflatetune)、[位预置](#deflateprime)、[复制](#deflatecopy) |
 | 释放存储 | [结束](#deflateend) |
 
-这些契约遵循固定版本的 `deflate.c`（已应用补丁 0006）和 `zlib.h`，采用默认 LP64 Linux 构建。补丁 0006 只改动 `deflateBound_z`：策略为 `Z_FIXED` 时，它返回保守上界之一（见[补丁说明](../../../patches/README.md)）。这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。前置条件之外、C 仍会处理的情况，写在“错误”或**聚焦范围之外**下。超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。定义域和效果标签的含义见[契约约定](contracts.md)。
+这些契约遵循固定版本的 zlib 在应用各[补丁](../../../patches/README.md)之后的 `zlib.h` 和 `deflate.c`，采用默认 LP64 Linux 构建。六个补丁中只有补丁 0006 改动 `deflate.c`。它修改 `deflateBound_z` 中的一个条件：策略为 `Z_FIXED` 时，窗口为 15、内存级别为 8 的流得到两个保守上界之一，而未打补丁的 C 在这种情况下返回紧的上界。`deflateBound` 调用 `deflateBound_z`，所以它的结果也随之改变。这个补丁不改动其他函数。这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。前置条件之外、C 仍会处理的情况，写在“错误”或**聚焦范围之外**下。超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。定义域和效果标签的含义见[契约约定](contracts.md)。
 
 **已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有定理陈述的，都**尚未由证明确认**；安全结论不需要它们。哪些目标已完成，见[进度](../../progress.md)。
 
@@ -388,7 +388,7 @@ int ZEXPORT deflateSetHeader(z_streamp strm, gz_headerp head);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及此后由 `deflate` 写出的头部字节：功能目标 `Goal.deflateSetHeader`（不在计划内；已有定理证明它）。
+- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有安全目标之外（见[偏离记录](../../deviations.md)中“头部参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及此后由 `deflate` 写出的头部字节：功能目标 `Goal.deflateSetHeader`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateSetHeader"><summary>完整返回条件与边界</summary>
 
@@ -545,7 +545,7 @@ int ZEXPORT deflatePrime(z_streamp strm, int bits, int value);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码，以及调用之后的待输出位：功能目标 `Goal.deflatePrime`（不在计划内；未完成）。
+- **不在本目标内。** 在 `deflate` 已经让流开始工作之后调用：在所有安全目标之外（见[偏离记录](../../deviations.md)中“其他流参数”一行）。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回哪个状态码，以及调用之后的待输出位：功能目标 `Goal.deflatePrime`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflatePrime"><summary>完整返回条件与边界</summary>
 
@@ -692,7 +692,7 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
 
 | 返回值 | 含义与出现条件 | 调用者接下来 |
 | --- | --- | --- |
-| `bound`<br>**输出字节数上界** | 存活流按当前窗口、内存级别、压缩级别和完整封装大小选择公式；NULL 或可安全检查的无效流采用固定/存储公式较大者加 18。结果均在 SIZE_MAX 处饱和，堆不变。 | 所述容量保证只在以下条件下适用：在初始化和各项设置之后、压缩之前调用；配置、字典和头部保持不变；使用标准调优；没有预置位。还须满足缓冲区可表示以及 avail_in/avail_out 的容量条件。 |
+| `bound`<br>**输出字节数上界** | 存活流按当前窗口、内存级别、压缩级别、策略和完整封装大小选择公式；NULL 或可安全检查的无效流采用固定/存储公式较大者加 18。结果均在 SIZE_MAX 处饱和，堆不变。 | 所述容量保证只在以下条件下适用：在初始化和各项设置之后、压缩之前调用；配置、字典和头部保持不变；使用标准调优；没有预置位。还须满足缓冲区可表示以及 avail_in/avail_out 的容量条件。 |
 
 **判读要点。**
 
@@ -719,15 +719,17 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound_z`（不在计划内；未完成）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值：功能目标 `Goal.deflateBound_z`（不在计划内；未完成）。这么多输出空间确实足够：功能目标 `Goal.deflate_sequence` 的子句 `DeflateCompletes`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound_z"><summary>完整返回条件与边界</summary>
 
 **后置条件：** 堆不变。要得到的数值是下述数学值，在 `SIZE_MAX` 处饱和，其中 `n = sourceLen`，`w` 为完整封装大小：
 
-- 窗口 15、内存级别 8 且策略不是 `Z_FIXED`（补丁 0006）：`n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`。
+- 窗口 15、内存级别 8 且策略不是 `Z_FIXED`：`n + floor(n/4096) + floor(n/16384) + floor(n/33554432) + 7 + w`。
 - 否则，若窗口位数不超过哈希位数且级别非零：`n + floor(n/8) + floor(n/256) + floor(n/512) + 4 + w`。
 - 否则：`n + floor(n/32) + floor(n/128) + floor(n/2048) + 7 + w`。
+
+哈希位数等于内存级别加 7。第一种情况里“且策略不是 `Z_FIXED`”这几个字就是补丁 0006 的改动：未打补丁的 C 对每一种策略都使用第一个公式。策略为 `Z_FIXED`、窗口 15、内存级别 8 时，打过补丁的函数在级别 1 到 9 使用第二个公式，在级别 0 使用第三个公式。对于级别 1 到 3 的 `Z_FIXED`，第一个公式偏小：在未打补丁的 C 上，一次 `deflate(Z_FINISH)` 调用即使得到这么多输出空间，也可能返回 `Z_OK`（见[发现](../../findings/deflatebound-fixed-far-matches/README.md)，已用真实的 C 复现）。
 
 裸流的 `w` 为 0；zlib 为 6，存在预置历史时再加 4；gzip 为 18，再加可选的 extra 字段（包括两个长度字节）、以零终止的名称/注释和头部 CRC。
 
@@ -782,11 +784,11 @@ uLong ZEXPORT deflateBound(z_streamp strm, uLong sourceLen);
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录和流自己的块。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值，以及这么多输出空间是否足够：功能目标 `Goal.deflateBound`（不在计划内；未完成）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回的值：功能目标 `Goal.deflateBound`（不在计划内；未完成）。这么多输出空间确实足够：功能目标 `Goal.deflate_sequence` 的子句 `DeflateCompletes`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>完整返回条件与边界</summary>
 
-**后置条件：** 如果数值结果能由 `uLong` 表示，则返回该结果，否则返回 `ULONG_MAX`。默认 LP64 目标中两种类型都是 64 位，结果相同。流不变。输出是否足够，仍要求 `deflateBound_z` 单独规定的调用安排和容量条件，不能只由数值相等推出。
+**后置条件：** 如果 `deflateBound_z` 的结果（含补丁 0006 的改动）能由 `uLong` 表示，则返回该结果，否则返回 `ULONG_MAX`。默认 LP64 目标中两种类型都是 64 位，结果相同。流不变。输出是否足够，仍要求 `deflateBound_z` 单独规定的调用安排和容量条件，不能只由数值相等推出。
 
 </details>
 

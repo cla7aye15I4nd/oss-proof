@@ -49,7 +49,8 @@ block that stays live, which no C code can change. The premises that are narrowe
 
 `inflateBack` decodes raw DEFLATE. The caller handles any zlib/gzip header, trailer and checksum.
 The caller owns a writable window of at least `2^windowBits` bytes. It is also the output buffer.
-Use 15 bits and 32768 bytes for general streams; smaller windows can reject valid long distances.
+`windowBits` is the base-two exponent of the window size in bytes: 15 means `2^15 = 32768` bytes.
+Use that value for general streams; smaller windows can reject valid long distances.
 
 ```mermaid
 flowchart LR
@@ -58,6 +59,13 @@ flowchart LR
     B -->|success or decode error| E["inflateBackEnd: free state"]
     I -->|no decode needed| E
 ```
+
+Through the callbacks the library calls application code when it needs data. The argument
+`in_desc` of the input callback is the application's own context; `buf` receives the pointer to
+the start of the next input chunk, and the return value is the number of bytes in that chunk.
+`out_desc` of the output callback is application context as well; `buf` and `len` give the output
+range the callback may read in this call, with `len` in bytes. The library hands the callback a
+pointer and a length; it does not transfer ownership of the window.
 
 The callbacks have these types:
 
