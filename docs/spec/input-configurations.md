@@ -14,16 +14,15 @@ The build is the same throughout: default x86_64 Linux, LP64, static library, de
 allocator, with the [platform assumption](platform.md) that no byte object has `2^63` bytes or
 more.
 
-## The three ranges {#the-three-ranges-and-the-colours}
+## The three ranges
 
 For each family of goals, the default inputs are contained in the common inputs, and those
 in all supported inputs. For the two stream engines each containment is strict. A function
 that ignores or fixes a parameter has fewer distinct ranges; no separate proof is needed for a
 range that coincides with another.
 
-A range is cumulative; it is not a percentage of work. A proof about a few examples does not
-cover a range: each range quantifies over the data, the buffers, the heap contents, the
-allocation failures and the histories its statement names.
+A proof about a few examples does not cover a range: each range quantifies over the data, the
+buffers, the heap contents, the allocation failures and the histories its statement names.
 
 A goal is done only when a theorem of exactly its type covers every input that its statement
 admits. A theorem for the default inputs or for the common inputs alone leaves the goal not
@@ -52,7 +51,7 @@ recorded symbols and the pending output. So a small memory level changes the arg
 the pending output never overwrites symbols not yet read
 ([trees](../proof/trees.md)).
 
-### Engine and helper ranges
+### What each part of the compressor depends on
 
 The table says which parameter each part of the compressor depends on. A lemma for one value
 of that parameter does not cover the others.
@@ -68,7 +67,7 @@ of that parameter does not cover the others.
 
 The table lists dependencies; it does not say what is proved. The
 [deflate proof guide](../proof/deflate.md) explains the invariants, and
-[progress](../progress.md) says which goals are done.
+[progress](../progress.md#functions) says which goals are done.
 
 ## Inflate inputs
 
@@ -107,16 +106,12 @@ between them.
 The [inflate proof guide](../proof/inflate.md) describes these parts. A lemma about one path
 assumes the invariant at its entry; it is not a result about a whole stream.
 
-## Entry inputs
+## Other functions
 
-For the checksums, the queries, the whole-buffer functions, the callback decoder, the gzip
-file functions and the internal goals, the input range is what the goal's statement says:
-its arguments and its premises. The stream parameters above apply only where the function or
-the state it works on depends on them.
-
-A theorem of exactly the goal's type proves the goal for the domain that the statement names,
-with its explicit premises. It does not prove the goal of a calling function
-and does not remove those premises.
+For the checksums, the queries, the whole-buffer functions, the callback decoder and the gzip
+file functions, the input range is what the goal's statement says: its arguments and its
+premises. The stream parameters above apply only where the function or the state it works on
+depends on them.
 
 Every range keeps the error returns, the allocation failures and the cleanup paths. A public
 goal also keeps the refusal of every invalid parameter value.
