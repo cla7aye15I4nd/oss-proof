@@ -1,4 +1,4 @@
-<!-- source-sha256: fb223620e3165fab4aef7cf90c0c7e5b5a14cb71159db42045d5571cc45fe307 -->
+<!-- source-sha256: ab12153fb5bc5da259e33677d0d7db0e2d2f51be540e8011efc21f1949016eb0 -->
 # gz_reset 从不写入 x.next；gzseek 和 gzdirect 却读取它
 
 对一个新的读取者，`gz_open` 和 `gz_reset` 都不写入其状态中的指针 `x.next`。在还没有任何输出时调用 `gzseek` 和 `gzdirect`，会给这个从未写入的指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
@@ -53,7 +53,7 @@ x.next + 0 at gzread.c:313, x.next = 0xbebebebebebebebe
 
 保留下来的输出来自一份 `gz_look` 少两行的 `gzread.c`。在 `run.sh` 构建的源码中，`gz_skip_have` 的同一条语句是第 315 行。在 arm64 macOS 上用 Apple clang 运行了一次，打印的是 `gzlib.c:435` 和 `gzread.c:315`，其余相同。
 
-文件：`unset.c`、`probe.h`、`run.sh`、`report.txt`。`run.sh` 在 ASan 和 UBSan 下分别构建不含和含 0005 的源码；修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。在 Lean 模型中，新分配的指针字段是 NULL，而 `NULL + 0` 能通过，所以模型也看不到它；暴露它的是证明规则“指针字段先写后读”（[安全性](../../spec/safety.md)第 3 节）。
+文件：`unset.c`、`probe.h`、`run.sh`、`report.txt`。`run.sh` 在 ASan 和 UBSan 下分别构建不含和含 0005 的源码；修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。在 Lean 模型中，新分配的指针字段是 NULL，而 `NULL + 0` 能通过，所以模型也看不到它；暴露它的是“指针字段先写后读”这项源码审查（[安全性](../../spec/safety.md)第 3 节）。
 
 ## 范围
 

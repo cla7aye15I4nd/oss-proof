@@ -83,7 +83,7 @@ Files: `unset.c`, `probe.h`, `run.sh`, `report.txt`. `run.sh` builds the source 
 0005 under ASan and UBSan;
 before the fix the probe sees both evaluations, after it none, and neither build gets a sanitizer
 report. In the Lean model a fresh pointer field is NULL and `NULL + 0` passes, so the model does
-not see it either; the proof rule that a pointer field is written before it is read
+not see it either; the source review that a pointer field is written before it is read
 ([safety](../../spec/safety.md), section 3) is what exposes it.
 
 ## Scope
