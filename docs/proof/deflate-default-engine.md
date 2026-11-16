@@ -57,7 +57,8 @@ safety result.
 
 ## The round trip built on these results
 
-`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`) joins the completed-encoding result of this page with the matching
+`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), which is not
+listed in `tests/audit/theorems.txt`, joins the completed-encoding result of this page with the matching
 result for `inflate`. Take a `deflate` history of the default configuration and an `inflate`
 history that starts with `inflateInit2_` at `windowBits` 15, each made of caller edits and
 calls with any flush value, and each ending with a call that returned `Z_STREAM_END`. If the
@@ -80,7 +81,7 @@ engine modules as they are:
 
 ## How three parts of the engine proof work
 
-The theorems named in this section are lemmas. They lie inside the proofs
+The theorems named in this section are lemmas, not listed themselves. They lie inside the proofs
 of the theorems above.
 
 ### Finishing the zlib wrapper

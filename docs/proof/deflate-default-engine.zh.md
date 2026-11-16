@@ -1,4 +1,4 @@
-<!-- source-sha256: 485b1370077808067fe412fd315e7b317a1bfbde9a8fd9f911c3b58352caee3e -->
+<!-- source-sha256: 0929bedb47a53054ea3a56f0d5280c03953a24ca893e919db200186fca7e1f34 -->
 # `deflate` 的默认配置引擎
 
 本页介绍早先的一批结论，它们针对 `deflate` 的一种配置：由 `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` 创建的流（级别 6，zlib 封装，`windowBits` 为 15，`memLevel` 为 8，默认策略），并且只通过 `deflate` 调用来使用。对这种配置，结论说的不止是安全性：已完成的流能解码回它的输入。
@@ -37,7 +37,7 @@
 
 ## 建立在这些结论之上的往返
 
-`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）把本页“已完成的编码”这条结论与 `inflate` 的对应结论接在一起。取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史；两者都由调用者的修改和带任意刷新值的调用组成，并且都以一次返回 `Z_STREAM_END` 的调用结束。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。这条定理是有条件的：它假设两段历史都到达 `Z_STREAM_END`。完备性，以及需要它的无条件往返，是计划内的工作；往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。
+`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）没有列在 `tests/audit/theorems.txt` 中。它把本页“已完成的编码”这条结论与 `inflate` 的对应结论接在一起。取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史；两者都由调用者的修改和带任意刷新值的调用组成，并且都以一次返回 `Z_STREAM_END` 的调用结束。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。这条定理是有条件的：它假设两段历史都到达 `Z_STREAM_END`。完备性，以及需要它的无条件往返，是计划内的工作；往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。
 
 ## 通用证明复用了什么
 
@@ -50,7 +50,7 @@
 
 ## 引擎证明中的三个部分是怎样做的
 
-本节提到的定理是引理。它们在上面那些定理的证明内部。
+本节提到的定理是引理，本身没有列出。它们在上面那些定理的证明内部。
 
 ### 结束 zlib 封装
 

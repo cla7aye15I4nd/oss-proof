@@ -47,7 +47,7 @@ The per-function theorems are part 2 for one function, and part 3 for `inflateEn
 corollaries of the sequence theorem.
 
 `inflate_sequence_safety_public` is derived from `inflate_sequence_safety`
-(`inflate.c.sequence-safety.lean`), a lemma.
+(`inflate.c.sequence-safety.lean`), a lemma that is not listed itself.
 
 Functional results also exist for this file. They are not required for the safety results and
 are listed in [Functional results](#functional-results).
@@ -266,7 +266,7 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 - Third case: a first `memcpy` of `wsize - wnext` bytes to the end of the block, then a second
   of the rest to index 0. The window is full afterwards.
 
-`updatewindow_safe` (`inflate.c.uw.lean`) proves that the call never faults and
+`updatewindow_safe` (`inflate.c.uw.lean`, listed in `tests/audit/theorems.txt`) proves that the call never faults and
 gives `Good` again. If the window has to be allocated and the allocation fails, the call returns
 1, the state is unchanged, and only the allocation counter moved.
 
@@ -326,13 +326,15 @@ it.
 | `inf_leave` | `updatewindow` on the output of this call; a second checksum, over the `out` bytes before `next_out`: the output of this call that the checksum of `CHECK` has not already taken | The source of both is the output range, which `StreamBuffers` keeps apart from the window |
 
 <a id="table-and-trailer-statement-boundaries"></a>
-Each mode has a run lemma, for example `inflate_TABLE_run`,
+The run lemmas of the individual modes are listed in `tests/audit/theorems.txt`, for example `inflate_TABLE_run`,
 `inflate_LENLENS_run` and `inflate_CHECK_run`. What the table and trailer lemmas assume is in
 the [source notes](inflate-source-notes.md#statements-of-the-table-and-trailer-lemmas).
 
 ### The fast path {#the-fast-path}
 
-The proofs reach the call of `inflate_fast` in three ways. The theorems below are lemmas.
+The proofs reach the call of `inflate_fast` in three ways. None of the theorems below is listed
+in `tests/audit/theorems.txt`: the first two are lemmas inside the safety proofs, and the third
+belongs to functional work.
 
 - `inflate_fast_raw_entry` (`inflate.c.fast-entry.lean`) builds the entry conditions of
   [fast decoding](inffast.md#assumptions) and so reuses the theorems of that page. It has the
@@ -447,7 +449,7 @@ stream made by `inflateInit2_` with `windowBits` 15, followed only by caller edi
 (`Zlib.Decodes`). The same module
 proves the conditional round trip `deflate_inflate_roundtrip`: when such a history and a
 default `deflate` history both end with `Z_STREAM_END`, and the decoder consumed a prefix of
-the bytes the encoder wrote, the decoder's output equals the encoder's input. Both theorems
+the bytes the encoder wrote, the decoder's output equals the encoder's input. Neither theorem is listed in `tests/audit/theorems.txt`. Both
 are conditional: they assume that the calls reach `Z_STREAM_END`. Completeness (that they do)
 and the unconditional round trip are planned work; [progress, Scope](../progress.md#scope) says how far the round
 trip is.

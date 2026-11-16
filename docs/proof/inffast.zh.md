@@ -1,4 +1,4 @@
-<!-- source-sha256: 2c860cd1c231dcb019b06465f6a73fc3786c8a0cee9561f5faab00f2fed14c52 -->
+<!-- source-sha256: b3744a4345e51b9a723aa91e335cae504dc77a8a194a2f6bb6ac1f68c986913e -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -17,14 +17,14 @@
 | 同样的安全性命题，外加：结束时模式不是 `TYPE` 或 `BAD` 的调用，留下的输出空间比进入时少 | `inflate_fast_safe_progress` | `inffast.c.progress.lean` |
 | 同上，外加：一次调用绝不使 `bits + 8 * avail_in` 增加，并且除非结束于 `TYPE` 或 `BAD`，都使它减小 | `fast_consumes` | `inffast.c.consume.lean` |
 
-`inflate_fast_safe` 是针对 `inflate` 的入口条件（`Env`）陈述的。表中最后两条定理 `inflate_fast_safe_progress` 和 `fast_consumes` 是针对两个调用者的入口条件（`EnvG`）陈述的；它们是调用者的证明内部的引理。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
+表中前三行的定理列在 `tests/audit/theorems.txt` 中。`inflate_fast_safe` 是针对 `inflate` 的入口条件（`Env`）陈述的。表中最后两条定理 `inflate_fast_safe_progress` 和 `fast_consumes` 是针对两个调用者的入口条件（`EnvG`）陈述的；它们是调用者的证明内部的引理，本身没有列出。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 调用者这样使用这些定理：
 
 - **`inflateBack`。** `fast_env`（`infback.c.safety-fast.lean`）证明入口条件。同一文件中的 `LEN_fast_p` 从它取得这些条件，并应用 `fast_consumes`。这在 `inflate_back_sequence_safety` 的证明内部。从 `inflateBack` 发出的调用靠它才安全，这个调用者的循环也靠它才终止。
 - **`inflate`，输入和输出位于两个不同的堆块。** `inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）在这条前提下证明入口条件，然后对它们应用 `inflate_fast_safe_progress`。
-- **`inflate`，每一种布局。** `inflate_sequence_safety_public` 允许输入和输出是同一个块里的两段。对快速调用，它的证明用的是 `inflate_fast_default_view_buffers_progress`（`inflate.c.fast-view-public-step.lean`），它是那个证明的一条引理。这条定理对块没有前提。它是对同一个翻译后的函数的第二个证明，针对调用者的区域和解码器不变量陈述（`inflate.c.fast-view-*.lean`）；它不使用 `EnvG`。`fast_consumes` 没有用于 `inflate`。见[流式解码](inflate.md#the-fast-path)。
-- **`inflate`，功能结论。** `inflate_fast_entry`（`inflate.c.meaning-fast.lean`）对每一种布局证明入口条件。功能定理 `fast_call_meaning` 用到它；安全结论不用它。
+- **`inflate`，每一种布局。** `inflate_sequence_safety_public` 允许输入和输出是同一个块里的两段。对快速调用，它的证明用的是 `inflate_fast_default_view_buffers_progress`（`inflate.c.fast-view-public-step.lean`），它是那个证明的一条引理，本身没有列出。这条定理对块没有前提。它是对同一个翻译后的函数的第二个证明，针对调用者的区域和解码器不变量陈述（`inflate.c.fast-view-*.lean`）；它不使用 `EnvG`。`fast_consumes` 没有用于 `inflate`。见[流式解码](inflate.md#the-fast-path)。
+- **`inflate`，功能结论。** `inflate_fast_entry`（`inflate.c.meaning-fast.lean`，功能方面工作的定理，没有列在 `tests/audit/theorems.txt` 中）对每一种布局证明入口条件。功能定理 `fast_call_meaning` 用到它；安全结论不用它。
 
 `FastPost` 说的是：流的 `next_in`、`avail_in`、`next_out`、`avail_out` 和 `msg`，以及状态的 `mode`、`hold` 和 `bits` 被写过；输出字节只在本次调用写入的范围内发生变化；`bits < 8` 和 `hold < 2^bits` 重新成立；模式不变，或者变成 `TYPE`（块结束），或者变成 `BAD`。堆里其他东西都没有变，也没有发生分配。
 
@@ -170,4 +170,4 @@ I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就
 | 查长度表或距离表得到的是格式规定的符号 | `length_lookup_matches_format`、`distance_lookup_matches_format` | `inffast.c.length-semantics.lean`、`inffast.c.distance-semantics.lean` |
 | 匹配复制就是格式中的 LZ77 复制 | `actual_distance_refines_lz77`、`actual_copy_match_refines_lz77` | `inffast.c.distance-result.lean`、`inffast.c.match-history.lean` |
 
-这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning`（`inflate.c.meaning-fast.lean`）把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然能按格式的规定解析；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是带条件的往返定理的一步（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。关于功能不变量需要携带什么，早先的一条笔记保存在[历史](../history/proof-functional-notes.md)中。
+这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning`（`inflate.c.meaning-fast.lean`，没有列在 `tests/audit/theorems.txt` 中）把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然能按格式的规定解析；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是带条件的往返定理的一步（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。关于功能不变量需要携带什么，早先的一条笔记保存在[历史](../history/proof-functional-notes.md)中。

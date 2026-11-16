@@ -458,7 +458,8 @@ says that the output of `deflate` decodes to its input. Earlier notes on what su
 to cover are kept in the [history](../history/proof-functional-notes.md).
 
 The round trip of the default zlib stream has a theorem for its conditional form:
-`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`). It takes a `deflate` history of the default configuration and an `inflate` history
+`deflate_inflate_roundtrip` (`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), which is not
+listed in `tests/audit/theorems.txt`. It takes a `deflate` history of the default configuration and an `inflate` history
 that starts with `inflateInit2_` at `windowBits` 15. Both consist of caller edits and calls with
 any flush value and any split of the buffers, and in both the last call returned
 `Z_STREAM_END`. If the input that `inflate` consumed is a prefix of the output of `deflate`,

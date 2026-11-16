@@ -22,8 +22,9 @@ a function of `deflate.c` that `FLUSH_BLOCK_ONLY` calls after `_tr_flush_block`.
 ## Results
 
 Modules are under `ZlibF/Proof/`. The theorems of the table serve the proof of
-`Zlib.Deflate.Universal.deflate_sequence_safety`, the sequence theorem of `deflate`: most are
-lemmas inside that proof. The level of that result is recorded in [progress, Scope](../progress.md#scope).
+`Zlib.Deflate.Universal.deflate_sequence_safety`, the sequence theorem of `deflate`. The
+theorems of the fifth and the last row are listed in `tests/audit/theorems.txt`; the others are
+lemmas inside that proof and are not listed themselves. The level of that result is recorded in [progress, Scope](../progress.md#scope).
 
 | Result | Theorem | Module |
 | --- | --- | --- |
@@ -210,7 +211,7 @@ One round lowers the Kraft sum by `2^-L` and `overflow` by 2, and keeps the numb
 taken from `heap[--h]` and skipping inner nodes. There are `n` leaves among the stored nodes
 and `Σ bl_count = n`, so `h` does not go below `heap_max`.
 
-`gen_bitlen_safe` (`trees.c.heap.gbtop.lean`) is the whole function.
+`gen_bitlen_safe` (`trees.c.heap.gbtop.lean`, listed in `tests/audit/theorems.txt`) is the whole function.
 
 ### Codes and the tree description
 

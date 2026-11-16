@@ -23,9 +23,11 @@ how the translation follows the C are in the
 | The same safety statement, and: a call that does not end in mode `TYPE` or `BAD` leaves less output room than it found | `inflate_fast_safe_progress` | `inffast.c.progress.lean` |
 | The same, and: a call never increases `bits + 8 * avail_in`, and lowers it unless it ends in `TYPE` or `BAD` | `fast_consumes` | `inffast.c.consume.lean` |
 
+The theorems of the first three rows are listed in `tests/audit/theorems.txt`.
 `inflate_fast_safe` is stated for the entry conditions of `inflate` (`Env`). The last two
 theorems of the table, `inflate_fast_safe_progress` and `fast_consumes`, are stated for the
-entry conditions of both callers (`EnvG`); they are lemmas inside the proofs of the callers.
+entry conditions of both callers (`EnvG`); they are lemmas inside the proofs of the callers and
+are not listed themselves.
 The level of each result is recorded in [progress, Scope](../progress.md#scope).
 
 How the callers use these theorems:
@@ -40,12 +42,12 @@ How the callers use these theorems:
 - **`inflate`, every layout.** `inflate_sequence_safety_public` allows the input
   and the output to be two ranges of one block. For the fast call its proof uses
   `inflate_fast_default_view_buffers_progress` (`inflate.c.fast-view-public-step.lean`), a lemma
-  of that proof. That theorem has no premise on the blocks. It is a second proof of the same
+  of that proof, not listed itself. That theorem has no premise on the blocks. It is a second proof of the same
   translated function, stated on the caller's ranges and the decoder invariant
   (`inflate.c.fast-view-*.lean`); it does not use `EnvG`. `fast_consumes` is not used for
   `inflate`. See [stream decoding](inflate.md#the-fast-path).
-- **`inflate`, functional results.** `inflate_fast_entry` (`inflate.c.meaning-fast.lean`)
-  proves the entry conditions for every layout. The functional
+- **`inflate`, functional results.** `inflate_fast_entry` (`inflate.c.meaning-fast.lean`,
+  a theorem of functional work, not listed in `tests/audit/theorems.txt`) proves the entry conditions for every layout. The functional
   theorem `fast_call_meaning` uses it; the safety results do not.
 
 `FastPost` says: the stream's `next_in`, `avail_in`, `next_out`, `avail_out` and `msg` and the
@@ -268,8 +270,8 @@ required for the safety results.
 | A match copy is the LZ77 copy of the format | `actual_distance_refines_lz77`, `actual_copy_match_refines_lz77` | `inffast.c.distance-result.lean`, `inffast.c.match-history.lean` |
 
 For these the invariant is larger: it relates the consumed bits to the source stream and the
-window contents to the earlier output. `fast_call_meaning` (`inflate.c.meaning-fast.lean`)
-carries the meaning through the fast branch of `LEN` in `inflate`, for
+window contents to the earlier output. `fast_call_meaning` (`inflate.c.meaning-fast.lean`, not
+listed in `tests/audit/theorems.txt`) carries the meaning through the fast branch of `LEN` in `inflate`, for
 input and output in any byte objects: after the call the decoded tokens still parse as the
 format says, or the mode is `BAD` and the input read has no valid completion. It is a step of
 the conditional round trip

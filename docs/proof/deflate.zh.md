@@ -1,4 +1,4 @@
-<!-- source-sha256: d9b3190a8deccba5d4cf760b2ab71a1b15649a4bc2890bf8cecc1b385b936c1a -->
+<!-- source-sha256: ad1d52a33d048d557241788624144469bdf13c4f9d7d3215f49c9dc5d451a258 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
@@ -285,4 +285,4 @@ stateDiagram-v2
 
 对默认配置，`DeflateCore.correct` 说明：已完成的流按格式规格解码，得到的就是被接受的输入。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。关于这样的证明需要涵盖什么，早先的笔记保存在[历史](../history/proof-functional-notes.md)中。
 
-默认 zlib 流的往返，其有条件的形式有一条定理：`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）。它取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和调用组成，刷新值任意，缓冲区的切分任意，并且最后一次调用都返回了 `Z_STREAM_END`。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。另有两部分是计划内的工作：完备性（给够输出空间时，这些历史会到达 `Z_STREAM_END`），以及依赖它的无条件往返。往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。
+默认 zlib 流的往返，其有条件的形式有一条定理：`deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`），它没有列在 `tests/audit/theorems.txt` 中。它取一段默认配置的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和调用组成，刷新值任意，缓冲区的切分任意，并且最后一次调用都返回了 `Z_STREAM_END`。如果 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。另有两部分是计划内的工作：完备性（给够输出空间时，这些历史会到达 `Z_STREAM_END`），以及依赖它的无条件往返。往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。

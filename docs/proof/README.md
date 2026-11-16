@@ -23,9 +23,12 @@ holds; [progress, Scope](../progress.md#scope) records the level of each result 
 of each acceptance run.
 
 Every theorem named on these pages is in the library, and Lean's kernel has checked its proof.
-The pages name two kinds. The theorem of a goal has exactly the goal as its type and is listed in
-`tests/audit/theorems.txt`. A lemma is a step inside such a proof; a page says so where it names
+The pages name three kinds. A listed theorem is named in `tests/audit/theorems.txt`: the theorem
+of a goal, which has exactly the goal as its type, and some further results. A lemma is a step
+inside the proof of a listed theorem and is not listed itself; a page says so where it names
 one. The axiom check of a listed theorem follows its dependencies, so it covers the lemmas too.
+A third kind is a theorem of functional work that is neither: the page says that it is not
+listed. That a theorem is listed is a fact about that file, not a level.
 
 Differential tests belong to the acceptance suite. They compare the translation with the
 compiled C. They are evidence that the translation is faithful, not proof.

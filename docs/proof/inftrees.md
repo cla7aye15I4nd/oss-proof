@@ -26,7 +26,7 @@ is recorded in [progress, Scope](../progress.md#scope). Modules are under `ZlibF
 | `inflate_fixed` points the state at the two static tables and changes four fields | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
 | For `LENS` and `DISTS`, after a call that returns 0: an entry that the slow decoder accepts with few bits held stays the same when more bits arrive | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
 
-One more theorem is a lemma: `inflate_table_len_leaves_positive`
+One more theorem is a lemma and is not listed: `inflate_table_len_leaves_positive`
 (`inftrees.c.decoder-safe.lean`). It says that, after a `LENS` call that returns 0, every
 literal/length leaf of the table uses at least one bit. Both callers use it, inside the proofs
 of the two sequence theorems. `inflate` needs it for clause `tables` of

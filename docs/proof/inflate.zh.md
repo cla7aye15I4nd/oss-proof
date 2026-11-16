@@ -1,4 +1,4 @@
-<!-- source-sha256: 67e24a1b14553053217e8e61c70f14ade1d90fa4eb8338a5e1a6e97310a43279 -->
+<!-- source-sha256: 077f8cea1db70169d159f51c822af38818284d2c76ef0ffd25f3613c70017e1b -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -30,7 +30,7 @@
 
 一个流是*可达*的，指它来自一次成功的 `inflateInit2_`，之后经过任意多次被允许的调用、成功的 `inflateCopy` 调用，以及调用者对四个缓冲区字段的修改。各函数的定理就是第 2 部分在一个函数上的情形，`inflateEnd` 的定理则是第 3 部分。它们是序列定理的推论。
 
-`inflate_sequence_safety_public` 由 `inflate_sequence_safety`（`inflate.c.sequence-safety.lean`）推出，后者是一条引理。
+`inflate_sequence_safety_public` 由 `inflate_sequence_safety`（`inflate.c.sequence-safety.lean`）推出，后者是一条引理，本身没有列出。
 
 这个文件也有功能结论。它们不是安全结论所必需的，列在[功能结论](#functional-results)一节。
 
@@ -208,7 +208,7 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 - 第二种情形：一次 `memcpy` 写到 `[wnext, wnext + copy)`，它的终点不超过 `wsize`。然后 `wnext` 前进，到 `wsize` 时回到 0。如果窗口原先没满，W.5 给出 `whave = wnext`，所以给 `whave` 加上同样的数，W.5 仍然成立。
 - 第三种情形：第一次 `memcpy` 把 `wsize - wnext` 字节写到块的末尾，第二次把剩下的写到下标 0 处。之后窗口是满的。
 
-`updatewindow_safe`（`inflate.c.uw.lean`）证明这个调用不会出故障，并且之后 `Good` 仍然成立。如果需要分配窗口而分配失败，调用返回 1，状态不变，只有分配计数器前进了。
+`updatewindow_safe`（`inflate.c.uw.lean`，列在 `tests/audit/theorems.txt` 中）证明这个调用不会出故障，并且之后 `Good` 仍然成立。如果需要分配窗口而分配失败，调用返回 1，状态不变，只有分配计数器前进了。
 
 ## 每一步为什么保持不变量
 
@@ -255,11 +255,11 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 | `inf_leave` | 对本次调用的输出执行 `updatewindow`；第二次校验和，对 `next_out` 之前的 `out` 个字节计算：这是本次调用的输出中 `CHECK` 的校验和还没有算进去的部分 | 两者的源都是输出区域，`StreamBuffers` 保证它与窗口不重叠 |
 
 <a id="table-and-trailer-statement-boundaries"></a>
-每个模式都有一条运行引理，例如 `inflate_TABLE_run`、`inflate_LENLENS_run` 和 `inflate_CHECK_run`。表模式和尾部模式的引理假设了什么，见[源码笔记](inflate-source-notes.md#statements-of-the-table-and-trailer-lemmas)。
+各个模式的运行引理列在 `tests/audit/theorems.txt` 中，例如 `inflate_TABLE_run`、`inflate_LENLENS_run` 和 `inflate_CHECK_run`。表模式和尾部模式的引理假设了什么，见[源码笔记](inflate-source-notes.md#statements-of-the-table-and-trailer-lemmas)。
 
 ### 快速路径 {#the-fast-path}
 
-证明通过三条途径到达对 `inflate_fast` 的调用。下面的定理都是引理。
+证明通过三条途径到达对 `inflate_fast` 的调用。下面的定理都没有列在 `tests/audit/theorems.txt` 中：前两条是安全证明内部的引理，第三条属于功能方面的工作。
 
 - `inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）建立[快速解码](inffast.md#assumptions)的入口条件，从而复用那一页的定理。它有一条前提：输入和输出位于两个不同的堆块。建立在它之上的引理带着同一条前提，名为 `RawFastIO`；`inflate_dispatch_data_rank` 就是其中之一。
 - `inflate_fast_default_view_buffers`（`inflate.c.fast-view-public-buffers.lean`）对块没有前提。它直接由解码器不变量和调用者的区域证明 `inflate_fast` 的运行，输入和输出是同一个块里的两段时也适用。这个证明在 `inflate.c.fast-view-*.lean` 这些模块里。`inflate_dispatch_data_view_state_rank`（`inflate.c.fast-view-dispatch-rank.lean`）对每一次快速调用都用它，`inflate_call` 的证明在数据模式上依靠的就是这条引理。安全结论走的是这条途径。
@@ -313,7 +313,7 @@ rank = 64 * mass + credit(mode)
 | `Goal.inflate`：一次调用的完整契约，包括进展、返回码、计数器、帧性质和所有权。`uncompress*` 和 gzip 读取端的安全证明用到它 | `inflate_public` | `public-inflate.lean` |
 | 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 | `public-inflate-*.lean` |
 
-有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes`（`public-deflate-inflate-roundtrip.lean`）说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。同一个模块证明了带条件的往返定理 `deflate_inflate_roundtrip`：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都是带条件的：它们假设各次调用到达 `Z_STREAM_END`。完备性（各次调用确实会到达）和无条件的往返是计划内的工作；往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。
+有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes`（`public-deflate-inflate-roundtrip.lean`）说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。同一个模块证明了带条件的往返定理 `deflate_inflate_roundtrip`：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都没有列在 `tests/audit/theorems.txt` 中。它们都是带条件的：它们假设各次调用到达 `Z_STREAM_END`。完备性（各次调用确实会到达）和无条件的往返是计划内的工作；往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。
 
 对其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置），没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
 

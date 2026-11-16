@@ -1,4 +1,4 @@
-<!-- source-sha256: 2a6a9519d1ce1b4c2b99a7425001804aebf8996b494fc0b0b244715f533227a1 -->
+<!-- source-sha256: 79df6ef9a16ff286bb072f019f024cbd16a3ef8f435c98a9185a953bfddc8ee8 -->
 # 解码表：`inflate_table` 为什么安全，它建的表为什么可以放心读
 
 源文件：`zlib/inftrees.c`。翻译：`ZlibF/Zlib/inftrees.c.lean`。
@@ -21,7 +21,7 @@
 | `inflate_fixed` 让状态指向两张静态表，改动四个字段 | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
 | 对 `LENS` 和 `DISTS`，在调用返回 0 之后：慢速解码器在手里位数还少时接受的表项，在更多的位到来之后不变 | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
 
-另有一条定理是引理：`inflate_table_len_leaves_positive`（`inftrees.c.decoder-safe.lean`）。它说，一次返回 0 的 `LENS` 调用之后，表里每个字面量/长度叶子至少用掉一位。两个调用者都用到它，都是在两条序列定理的证明内部。`inflate` 需要它来得到[它的不变量](inflate.md#the-invariant)的子句 `tables`，这个子句包含这条事实（`inflate.c.dynamic-install.lean`）。回调解码器的终止性需要它（`infback.c.safety-table-lens.lean`；[快速解码](inffast.md#assumptions)）。
+另有一条定理是引理，没有列出：`inflate_table_len_leaves_positive`（`inftrees.c.decoder-safe.lean`）。它说，一次返回 0 的 `LENS` 调用之后，表里每个字面量/长度叶子至少用掉一位。两个调用者都用到它，都是在两条序列定理的证明内部。`inflate` 需要它来得到[它的不变量](inflate.md#the-invariant)的子句 `tables`，这个子句包含这条事实（`inflate.c.dynamic-install.lean`）。回调解码器的终止性需要它（`infback.c.safety-table-lens.lean`；[快速解码](inffast.md#assumptions)）。
 
 关于表项含义的功能结论列在[功能结论](#functional-results)一节。
 

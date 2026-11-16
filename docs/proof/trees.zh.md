@@ -1,4 +1,4 @@
-<!-- source-sha256: 771b40e43c6d7e251e636841f9ab9d4efd6af0d2212b3275e87ffe961486779d -->
+<!-- source-sha256: f44c7b5308f6f89cc0ecbc1324ed43ec0d6ad2d05e2e600d22f4f30372481b72 -->
 # 树与块输出：块刷新为什么是安全的
 
 源文件：`zlib/trees.c`，符号布局在 `zlib/deflate.h` 中。翻译：`ZlibF/Zlib/trees.c.lean`。
@@ -9,7 +9,7 @@
 
 ## 结论
 
-模块在 `ZlibF/Proof/` 下。表中的定理服务于 `Zlib.Deflate.Universal.deflate_sequence_safety` 的证明，即 `deflate` 的序列定理：其中多数是那个证明内部的引理。那项结论的层级记录在[进度，范围](../progress.md#scope)中。
+模块在 `ZlibF/Proof/` 下。表中的定理服务于 `Zlib.Deflate.Universal.deflate_sequence_safety` 的证明，即 `deflate` 的序列定理。第五行和最后一行的定理列在 `tests/audit/theorems.txt` 中；其余的是那个证明内部的引理，本身没有列出。那项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 | 结论 | 定理 | 模块 |
 | --- | --- | --- |
@@ -133,7 +133,7 @@ overflow -= 2;
 
 **第二遍。** C 重新分发码长：有 `bl_count[bits]` 个叶子得到码长 `bits`，这些叶子取自 `heap[--h]`，内部结点被跳过。已存放的结点里有 `n` 个叶子，而 `Σ bl_count = n`，所以 `h` 不会降到 `heap_max` 之下。
 
-`gen_bitlen_safe`（`trees.c.heap.gbtop.lean`）涵盖整个函数。
+`gen_bitlen_safe`（`trees.c.heap.gbtop.lean`，列在 `tests/audit/theorems.txt` 中）涵盖整个函数。
 
 ### 编码与树的描述
 
