@@ -1,6 +1,7 @@
 import ZlibF.Proof.«inffast.c.base»
 import ZlibF.Proof.«inffast.c.tableok»
 import ZlibF.Proof.«inflate.c.byte-views»
+import ZlibF.Spec.Common.Inflate.FastEnv
 
 /-!
 # inffast.c: what `inflate_fast` needs of its situation
@@ -68,93 +69,6 @@ theorem put_bytes_comm (r : ZStreamRef) (h : Heap) (v : ZStream) (t : Tbl (Optio
   cases r <;> simp only [ZStreamRef.put] <;> split <;> rfl
 
 /-! ### The situation -/
-
-/-- How the window block relates to the output view. Without `alias` (every `Env`): another
-view. With `alias` (`inflateBack`, whose output is the window): the output view itself is
-allowed, and then `wnext = 0` and the window ends no later than the output range (`inside`). -/
-@[reducible] def WinRel : Bool → Nat → BRef → UInt32 → Prop → Prop
-  | false, wb, ob, _, _ => BRef.blk wb ≠ ob
-  | true, wb, ob, wnext, inside => BRef.blk wb = ob → wnext = 0 ∧ inside
-
-/-- Everything `inflate_fast` needs of the heap `h0` at entry, with the witnesses. These are the preconditions of
-`inflate_fast_safe` (`Zlib.Inffast.Proofs.Env.of_pre` builds one from the hypotheses of the theorem). -/
-structure EnvG (alias : Bool) where
-  h0 : Heap
-  strm : ZStreamPtr
-  start : UInt32
-  -- the stream record and the state
-  r : ZStreamRef
-  sm0 : ZStream
-  stid : Nat
-  s0 : InflateState
-  hstrm : strm = some r
-  hsm : r.get h0 = some sm0
-  hrw : r.isRo = false
-  hstate : sm0.state = some (StateRef.inflate stid)
-  hs0 : h0.istates stid = some s0
-  -- the input
-  ib : BRef
-  i0 : Nat
-  IN : Array UInt8
-  hnin : sm0.next_in = .ref ib i0
-  hIN : Space.get h0 ib = some IN
-  hai : 6 ≤ sm0.avail_in.toNat
-  hINsz : i0 + sm0.avail_in.toNat ≤ IN.size
-  hINbig : IN.size < 2 ^ 63
-  -- the output
-  ob : BRef
-  o0 : Nat
-  A0 : Array UInt8
-  hnout : sm0.next_out = .ref ob o0
-  hA0 : Space.get h0 ob = some A0
-  hro : Space.ro h0 ob = false
-  hao : 258 ≤ sm0.avail_out.toNat
-  hAsz : o0 + sm0.avail_out.toNat ≤ A0.size
-  hAbig : A0.size < 2 ^ 63
-  hstart : sm0.avail_out.toNat ≤ start.toNat
-  hbeg : start.toNat - sm0.avail_out.toNat ≤ o0
-  /-- Input and output are distinct byte views, or disjoint ranges of one view
-  (`tests/regression/inflate-shared-block`). -/
-  hsep : ib ≠ ob ∨ (ib = ob ∧
-    (i0 + sm0.avail_in.toNat ≤ o0 ∨ o0 + sm0.avail_out.toNat ≤ i0))
-  -- the bit buffer
-  hbits : s0.bits.toNat < 8
-  hhold : s0.hold.toNat < 2 ^ s0.bits.toNat
-  hsane : s0.sane ≠ 0
-  -- the window
-  hws : s0.wsize.toNat ≤ 32768
-  hwh : s0.whave.toNat ≤ s0.wsize.toNat
-  hwn : s0.wnext.toNat ≤ s0.wsize.toNat
-  wb : Nat
-  woff : Nat
-  W : Array UInt8
-  hwin : s0.whave ≠ 0 →
-    s0.window = .ref (BRef.blk wb) woff ∧
-      WinRel alias wb ob s0.wnext (woff + s0.wsize.toNat ≤ o0 + sm0.avail_out.toNat) ∧ h0.bytes wb = some W ∧
-      woff + s0.wsize.toNat ≤ W.size
-  -- the tables
-  rl : CodeRef
-  ol : Nat
-  LCA : Array Code
-  hlc : s0.lencode = .ref rl ol
-  hLCA : Space.get h0 rl = some LCA
-  hlt : LenTableSafe LCA ol s0.lenbits.toNat
-  rd : CodeRef
-  od : Nat
-  DCA : Array Code
-  hdc : s0.distcode = .ref rd od
-  hDCA : Space.get h0 rd = some DCA
-  hdt : DistTableSafe DCA od s0.distbits.toNat
-
-/-- The situation of every caller but `inflateBack`: the window is another block than the output. -/
-abbrev Env := EnvG false
-
-/-- The heap while `inflate_fast` runs: the output view is `A`, the message of the stream is `msg` and the mode of
-the state is `m`; nothing else differs from `h0`. -/
-def EnvG.heap {α : Bool} (e : EnvG α) (A : Array UInt8) (msg : BPtr) (m : UInt32) : Heap :=
-  ZStreamRef.put
-    (Space.put (Zlib.Inflate.Spec.setI e.h0 e.stid { e.s0 with mode := m }) e.ob A)
-    e.r { e.sm0 with msg := msg }
 
 /-- The heap of the loop before any `break`: the message and the mode are those of the entry. -/
 def EnvG.hp {α : Bool} (e : EnvG α) (A : Array UInt8) : Heap := e.heap A e.sm0.msg e.s0.mode
@@ -297,13 +211,6 @@ decoder writes only in the output range. -/
 
 /-- The array at the input view while the output view holds `A`. -/
 def EnvG.inArr (A : Array UInt8) : Array UInt8 := if e.ib = e.ob then A else e.IN
-
-/-- When input and output share a block, the output array `A` has the size of
-the block at entry and agrees with the input at entry from `i` to the end of
-the input. -/
-def EnvG.InputFrame (A : Array UInt8) (i : Nat) : Prop :=
-  e.ib = e.ob → A.size = e.A0.size ∧
-    ∀ k, i ≤ k → k < e.i0 + e.sm0.avail_in.toNat → A[k]? = e.IN[k]?
 
 theorem EnvG.heap_bytes_in (A msg m) : Space.get (e.heap A msg m) e.ib = some (e.inArr A) := by
   unfold EnvG.inArr

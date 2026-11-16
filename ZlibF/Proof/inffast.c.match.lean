@@ -3,46 +3,6 @@ import ZlibF.Proof.«inffast.c.copy»
 namespace Zlib.Inffast.Proofs
 open C Zlib.Inffast Zlib.Inffast.Spec
 
-/-- The offset of `beg` in the output block: `next_out - (start - avail_out)`. -/
-def EnvG.bg {α : Bool} (e : EnvG α) : Nat := e.o0 - (e.start.toNat - e.sm0.avail_out.toNat)
-
-/-- The context `c` that `inflate_fast` builds is the one the situation `e` describes. -/
-structure CtxOK {α : Bool} (e : EnvG α) (c : Ctx) : Prop where
-  strm : c.strm = e.strm
-  state : c.state = some (InflateStateRef.tab e.stid)
-  last : c.last = .ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5)
-  beg : c.beg = .ref e.ob e.bg
-  end_ : c.end_ = .ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257)
-  wsize : c.wsize = e.s0.wsize
-  whave : c.whave = e.s0.whave
-  wnext : c.wnext = e.s0.wnext
-  window : c.window = e.s0.window
-  lcode : c.lcode = e.s0.lencode
-  dcode : c.dcode = e.s0.distcode
-  lmask : c.lmask = ((1 : UInt32) <<< e.s0.lenbits) - 1
-  dmask : c.dmask = ((1 : UInt32) <<< e.s0.distbits) - 1
-
-/-- The output block after a match copy: `len` bytes, `dist` back, with `o - bg` bytes of the current call before `o`
-and the window (`W` at offset `woff`, ring of size `wsize`, next write position `wnext`) before that. This follows
-the case split of `copyMatch`. -/
-def matchArr (wsize wnext woff : Nat) (W : Array UInt8) (bg o dist len : Nat) (A : Array UInt8) : Array UInt8 :=
-  if o - bg < dist then
-    let op := dist - (o - bg)
-    if wnext = 0 then
-      if op < len then cpyN (len - op) (o + op - dist) (o + op) (blitN W op (woff + wsize - op) o A)
-      else blitN W len (woff + wsize - op) o A
-    else if wnext < op then
-      if op - wnext < len then
-        if wnext < len - (op - wnext) then
-          cpyN (len - (op - wnext) - wnext) (o + (op - wnext) + wnext - dist) (o + (op - wnext) + wnext)
-            (blitN W wnext woff (o + (op - wnext)) (blitN W (op - wnext) (woff + wsize + wnext - op) o A))
-        else blitN W (len - (op - wnext)) woff (o + (op - wnext)) (blitN W (op - wnext) (woff + wsize + wnext - op) o A)
-      else blitN W len (woff + wsize + wnext - op) o A
-    else
-      if op < len then cpyN (len - op) (o + op - dist) (o + op) (blitN W op (woff + wnext - op) o A)
-      else blitN W len (woff + wnext - op) o A
-  else cpyN len (o - dist) o A
-
 theorem matchArr_size (wsize wnext woff : Nat) (W : Array UInt8) (bg o dist len : Nat) (A : Array UInt8) :
     (matchArr wsize wnext woff W bg o dist len A).size = A.size := by
   unfold matchArr

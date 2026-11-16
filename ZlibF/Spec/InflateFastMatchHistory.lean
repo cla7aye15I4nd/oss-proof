@@ -1,5 +1,5 @@
-import ZlibF.Proof.«inffast.c.match»
-import ZlibF.Proof.«inflate.c.ring»
+import ZlibF.Spec.Common.Inflate.FastEnv
+import ZlibF.Spec.Common.Inflate.WindowCopy
 import ZlibF.Math.LZ77CopySpec
 
 /-!

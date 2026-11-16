@@ -47,7 +47,7 @@ def main():
             error = re.search(r"^error: ([^\n]+)", result.stdout, re.MULTILINE)
             if result.returncode == 0 or error is None or "maximum recursion depth" in error.group(1) or not (
                 (error.group(1).startswith("ZlibF/Proof/inflate.c.base.lean:") and
-                 305 <= int(error.group(1).split(":")[1]) < 316)
+                 255 <= int(error.group(1).split(":")[1]) < 266)
             ):
                 raise RuntimeError(label + " survived or failed elsewhere:\n" + result.stdout)
             print("KILLED " + label + ": " + error.group(1), flush=True)

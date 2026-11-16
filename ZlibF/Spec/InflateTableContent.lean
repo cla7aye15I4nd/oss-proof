@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inftrees.c.main»
+import ZlibF.Spec.Common.Inflate.TableBuild
 
 /-!
 # Contents of the table built by the actual `inflate_table`

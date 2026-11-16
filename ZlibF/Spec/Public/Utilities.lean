@@ -1,7 +1,6 @@
 import ZlibF.Spec.Public.Memory
 import ZlibF.Spec.PlatformMemory
-import ZlibF.Proof.«inflate.c.base»
-import ZlibF.Proof.«deflate.c.base»
+import ZlibF.Spec.HeapUniq
 
 namespace ZlibF.Spec.Public
 open C ZlibF.Spec

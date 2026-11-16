@@ -1,5 +1,5 @@
-import ZlibF.Proof.«inflate.c.base»
-import ZlibF.Proof.«inffast.c.tableok»
+import ZlibF.Zlib.«inflate.c»
+import ZlibF.Spec.Common.Inflate.FastTable
 
 /-!
 # The guarded table-safety clause of the decoder invariant

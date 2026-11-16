@@ -1,11 +1,7 @@
 import ZlibF.Proof.«inflate.c.uw»
+import ZlibF.Spec.Common.Inflate.WindowCopy
 
 namespace Zlib.Inflate.Spec
-
-/-- The slot of the ring buffer (of size `ws`, next write position `wn`, `wh` valid bytes) that holds the `j`-th oldest
-valid byte: the valid bytes end just before `wn` and wrap around the end of the buffer. -/
-def ringSlot (ws wn wh j : Nat) : Nat :=
-  if wh ≤ wn then wn - wh + j else if j < wh - wn then ws - (wh - wn) + j else j - (wh - wn)
 
 /-- The history the ring buffer `win` holds, oldest byte first: the last `wh` bytes written. -/
 def ringList (win : Array UInt8) (ws wn wh : Nat) : List UInt8 :=

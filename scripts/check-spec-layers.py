@@ -4,7 +4,7 @@
 Two rules.
 
 1. A safety or common module must not import, even transitively, a functional module. The safety and
-   common modules are those under ZlibF/Spec/Safety/ and ZlibF/Spec/Public/, and the common modules
+   common modules are those under ZlibF/Spec/Safety/, ZlibF/Spec/Public/ and ZlibF/Spec/Common/, and the common modules
    COMMON at the top of ZlibF/Spec/. The functional modules are those under ZlibF/Spec/Functional/.
    Then reading Spec/Safety and what it imports tells a reader the whole current target.
 
@@ -25,45 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COMMON = ('ZlibF.Spec.HeapUniq', 'ZlibF.Spec.PlatformMemory')
 
 # importer -> (the Proof modules it still imports, reason). Each import is removed by a later batch.
-LATER = 'it uses definitions of the proof module; a later batch of the split moves them under ZlibF/Spec'
-PROOF_IMPORTS = {
-    'ZlibF.Spec.Public.Initialisation': (
-        ('ZlibF.Proof.«inflate.c.base»', 'ZlibF.Proof.«deflate.c.base»'),
-        'Good, DGood and DefAlloc (with StInv and DStInv) are defined in the bases'),
-    'ZlibF.Spec.Public.Utilities': (
-        ('ZlibF.Proof.«inflate.c.base»', 'ZlibF.Proof.«deflate.c.base»'),
-        'Good, DGood and DefAlloc (with StInv and DStInv) are defined in the bases'),
-    'ZlibF.Spec.InflateTableSafety': (
-        ('ZlibF.Proof.«inffast.c.tableok»',),
-        LATER),
-    'ZlibF.Spec.InflateTableInvariant': (
-        ('ZlibF.Proof.«inflate.c.base»', 'ZlibF.Proof.«inffast.c.tableok»'),
-        LATER),
-    'ZlibF.Spec.InflateFastOrigin': (
-        ('ZlibF.Proof.«inffast.c.dist»',),
-        LATER),
-    'ZlibF.Spec.InflateFast': (
-        ('ZlibF.Proof.«inffast.c.len»',),
-        LATER),
-    'ZlibF.Spec.Crc32ByteViews': (
-        ('ZlibF.Proof.«crc32.c»',),
-        LATER),
-    'ZlibF.Spec.InflateCodeLengthInvariant': (
-        ('ZlibF.Proof.«inflate.c.base»',),
-        LATER),
-    'ZlibF.Spec.InflateTableContent': (
-        ('ZlibF.Proof.«inftrees.c.main»',),
-        LATER),
-    'ZlibF.Spec.InflateFastMatchHistory': (
-        ('ZlibF.Proof.«inffast.c.match»', 'ZlibF.Proof.«inflate.c.ring»'),
-        LATER),
-    'ZlibF.Spec.InflateFastDistanceSemantics': (
-        ('ZlibF.Proof.«inffast.c.lp»',),
-        LATER),
-    'ZlibF.Spec.Functional.Api.Examples': (
-        ('ZlibF.Proof.Format.Api', 'ZlibF.Proof.Api.InflateCausality'),
-        LATER),
-}
+PROOF_IMPORTS = {}
 
 
 def module_path(name):
@@ -105,7 +67,7 @@ def spec_modules():
 
 
 def check_layers(errors):
-    roots = sorted(module_name(p) for d in ('Safety', 'Public')
+    roots = sorted(module_name(p) for d in ('Safety', 'Public', 'Common')
                    for p in (ROOT / 'ZlibF/Spec' / d).rglob('*.lean'))
     roots += [m for m in COMMON if module_path(m).is_file()]
     for name in COMMON:

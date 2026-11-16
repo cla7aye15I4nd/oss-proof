@@ -1,6 +1,6 @@
 import ZlibF.Spec.InflateDecodeTableStability
 import ZlibF.Spec.InflateFastTableFlags
-import ZlibF.Proof.«inffast.c.lp»
+import ZlibF.Spec.Common.Inflate.FastEnv
 
 /-!
 # The fast distance lookup selects an independent Huffman symbol

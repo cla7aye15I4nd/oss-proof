@@ -1,5 +1,5 @@
 import ZlibF.Spec.InflateTableContent
-import ZlibF.Proof.«inffast.c.tableok»
+import ZlibF.Spec.Common.Inflate.FastTable
 
 /-!
 # Table predicates established by the actual constructor

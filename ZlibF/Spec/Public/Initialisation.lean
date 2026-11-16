@@ -1,7 +1,7 @@
 import ZlibF.Spec.Public.Parameters
 import ZlibF.Spec.Public.StreamQueries
-import ZlibF.Proof.«inflate.c.base»
-import ZlibF.Proof.«deflate.c.base»
+import ZlibF.Spec.Common.InflateGood
+import ZlibF.Spec.Common.DeflateGood
 
 namespace ZlibF.Spec.Public
 open C

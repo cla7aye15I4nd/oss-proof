@@ -188,7 +188,7 @@ import ZlibF.Spec.Functional.Api.Basic
 import ZlibF.Spec.Functional.Api.Compress
 import ZlibF.Spec.Functional.Api.Concrete
 import ZlibF.Spec.Functional.Api.Deflate
-import ZlibF.Spec.Functional.Api.Examples
+import ZlibF.Proof.Api.Examples
 import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Spec.Functional.Api.Gz
 import ZlibF.Spec.Functional.Api.Header
@@ -210,6 +210,15 @@ import ZlibF.Spec.Public.Streams
 import ZlibF.Spec.Public.Copy
 import ZlibF.Spec.Safety.Refusals
 import ZlibF.Spec.HeapUniq
+import ZlibF.Spec.Common.InflateGood
+import ZlibF.Spec.Common.DeflateGood
+import ZlibF.Spec.Common.TreesInv
+import ZlibF.Spec.Common.Crc32Statics
+import ZlibF.Spec.Common.Inflate.FastTable
+import ZlibF.Spec.Common.Inflate.FastEnv
+import ZlibF.Spec.Common.Inflate.WindowCopy
+import ZlibF.Spec.Common.Inflate.TableCanon
+import ZlibF.Spec.Common.Inflate.TableBuild
 import ZlibF.Spec.Public.GzRefusal
 import ZlibF.Spec.Public.GzState
 import ZlibF.Spec.Functional.GzState

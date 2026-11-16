@@ -1,5 +1,5 @@
 import ZlibF.Spec.InflateTableSafety
-import ZlibF.Proof.«inflate.c.base»
+import ZlibF.Zlib.«inflate.c»
 
 namespace Zlib.Inflate.Spec
 open C

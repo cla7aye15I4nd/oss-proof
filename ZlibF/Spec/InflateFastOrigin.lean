@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inffast.c.dist»
+import ZlibF.Spec.Common.Inflate.FastEnv
 
 /-!
 # Provenance of the fast decoder's bit buffer

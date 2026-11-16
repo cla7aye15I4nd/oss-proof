@@ -1,3 +1,5 @@
+import ZlibF.Spec.Common.Inflate.TableBuild
+
 /-!
 # inftrees.c: the arithmetic of canonical codes
 
@@ -9,11 +11,6 @@ the symbols sorted by length. Nothing here mentions the heap or the translation.
 namespace Zlib.Inftrees.Proofs
 
 /-! ### Bit reversal -/
-
-/-- The `n` low bits of `v` in reverse order. -/
-def rev : Nat → Nat → Nat
-  | 0, _ => 0
-  | n + 1, v => (v % 2) * 2 ^ n + rev n (v / 2)
 
 theorem rev_lt : ∀ n v, rev n v < 2 ^ n
   | 0, _ => by simp [rev]
@@ -159,34 +156,6 @@ theorem succ_rev : ∀ n v, v < 2 ^ (n + 1) →
 section Model
 variable (f : Nat → Nat) (n : Nat)
 
-/-- The symbols below `k` of length `l`, in increasing order. -/
-def fl (l k : Nat) : List Nat := (List.range k).filter (fun s => f s == l)
-
-/-- `count[l]` after the counting loop has looked at the symbols below `n`. -/
-def cnt (l : Nat) : Nat := (fl f l n).length
-
-/-- `work[0 ..]` after the sort loop, for the lengths `1 .. l`: the symbols sorted by (length, symbol). -/
-def wsAux : Nat → List Nat
-  | 0 => []
-  | l + 1 => wsAux l ++ fl f (l + 1) n
-
-/-- The number of symbols of length at most `l` (and at least 1). -/
-def Tc : Nat → Nat
-  | 0 => 0
-  | l + 1 => Tc l + cnt f n (l + 1)
-
-/-- Kraft: `K l = sum_{j <= l} cnt j 2^(l - j)`; `2^l - K l` is the C variable `left` after step `l`. -/
-def Kc : Nat → Nat
-  | 0 => 0
-  | l + 1 => 2 * Kc l + cnt f n (l + 1)
-
-/-- `lens[work[i]]` once the sort loop is done. -/
-def lenAt (i : Nat) : Nat := f ((wsAux f n 15).getD i 0)
-
-/-- The canonical code of the `i`-th symbol in the sorted order (RFC 1951, 3.2.2): the `k`-th of length `l` is
-`2 K(l-1) + k`. -/
-def val (i : Nat) : Nat := 2 * Kc f n (lenAt f n i - 1) + (i - Tc f n (lenAt f n i - 1))
-
 variable {f n}
 
 theorem mem_fl {l k x : Nat} : x ∈ fl f l k ↔ x < k ∧ f x = l := by
@@ -305,9 +274,6 @@ theorem Kc_gap : ∀ a d, Tc f n (a + d) = Tc f n a → Kc f n (a + d) = 2 ^ d *
     rw [h2, ih, Nat.pow_succ]
     have : 2 ^ d * 2 * Kc f n a = 2 * (2 ^ d * Kc f n a) := by rw [Nat.mul_comm (2 ^ d) 2, Nat.mul_assoc]
     omega
-
-/-- No code overflows its length (RFC 1951; `F-code-fits`). -/
-def Fits (f : Nat → Nat) (n : Nat) : Prop := ∀ l, 1 ≤ l → l ≤ 15 → Kc f n l ≤ 2 ^ l
 
 theorem val_lt (hfit : Fits f n) {i : Nat} (hi : i < Tc f n 15) : val f n i < 2 ^ lenAt f n i := by
   obtain ⟨b1, b2⟩ := lenAt_bounds (f := f) (n := n) hi
@@ -467,12 +433,6 @@ theorem sizeLoop_spec (r N : Nat → Nat) (R mx p d0 : Nat) (hN : ∀ d, d0 ≤ 
     · simp only [hc, ite_false]
       omega
 
-
-/-- The first `R` bits of the `j`-th code, when it is longer than `R` (the index of its root entry, before reversal). -/
-def pre (f : Nat → Nat) (n R j : Nat) : Nat := val f n j / 2 ^ (lenAt f n j - R)
-
-/-- `max`: the longest length. -/
-def mxl (f : Nat → Nat) (n : Nat) : Nat := lenAt f n (Tc f n 15 - 1)
 
 /-- The sub-table sized when the code `i0` (longer than `R` bits, and the first with its prefix) opens a table:
 `curr` after the loop. -/

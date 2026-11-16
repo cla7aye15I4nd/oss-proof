@@ -1,5 +1,5 @@
 import ZlibF.Spec.Functional.Format.Deflate
-import ZlibF.Proof.«inffast.c.copy»
+import ZlibF.Spec.Common.Inflate.WindowCopy
 
 /-!
 # Array copying and the independent LZ77 history operation

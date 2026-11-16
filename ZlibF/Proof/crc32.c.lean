@@ -1,5 +1,6 @@
 import ZlibF.Zlib.«crc32.c»
 import ZlibF.Spec.Functional.Format.Checksum
+import ZlibF.Spec.Common.Crc32Statics
 
 /-!
 # crc32.c: safety and correctness
@@ -352,11 +353,6 @@ theorem Xt_mod (k : Nat) (v : UInt32) : mulp (Xt (k % 32)) v = pw (2 ^ k) v := b
     · obtain ⟨m, rfl⟩ : ∃ m, k = m + 32 := ⟨k - 32, by omega⟩
       have := ih m (by omega)
       rw [show (m + 32) % 32 = m % 32 by omega, this, Nat.pow_add, Nat.mul_comm, pw_period]
-
-/-- `StaticsOK h`: the static tables `crc_table` and `x2n_table` of the heap hold the contents `crc32.h` gives them
-(`Zlib.Crc32.initStatics`). -/
-def StaticsOK (h : Heap) : Prop :=
-  h.static.crc_table = Crc32H.crc_table ∧ h.static.x2n_table = Crc32H.x2n_table
 
 /-! ### Bits of 64-bit values -/
 

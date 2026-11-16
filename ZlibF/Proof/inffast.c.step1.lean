@@ -5,19 +5,6 @@ open C Zlib.Inffast Zlib.Inffast.Spec
 
 variable {α : Bool} (e : EnvG α)
 
-/-- The locals are consistent with the situation: `in` is at offset `i` of the input block, `out` at offset `o` of the
-output block, both within their windows; the bit buffer holds `bits ≤ 30` bits; and the bits read so far account for
-the bytes consumed (`bits ≤ bits_at_entry + 8 * (i - i0)`). -/
-structure LS (l : L) (i o : Nat) : Prop where
-  hin : l.in_ = .ref e.ib i
-  hout : l.out = .ref e.ob o
-  hi0 : e.i0 ≤ i
-  hi1 : i ≤ e.i0 + e.sm0.avail_in.toNat
-  ho0 : e.o0 ≤ o
-  hb : l.bits.toNat ≤ 30
-  hH : l.hold.toNat < 2 ^ l.bits.toNat
-  hacc : l.bits.toNat + 8 * e.i0 ≤ e.s0.bits.toNat + 8 * i
-
 /-- `l` after `hold += (unsigned long)(*in++) << bits; bits += 8;` with the byte `x` and the new pointer `p`. -/
 def pullL (l : L) (x : UInt8) (p : BPtr) : L :=
   { l with in_ := p, hold := l.hold + (x.toUInt64 <<< l.bits.toUInt64), bits := l.bits + 8 }

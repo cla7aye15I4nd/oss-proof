@@ -1,4 +1,5 @@
-import ZlibF.Proof.«crc32.c»
+import ZlibF.Spec.Common.Crc32Statics
+import ZlibF.Spec.Functional.Format.Checksum
 
 /-!
 # CRC correctness on every represented byte-array view

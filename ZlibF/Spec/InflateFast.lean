@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inffast.c.len»
+import ZlibF.Spec.Common.Inflate.FastEnv
 
 /-!
 # Concrete obligations for one fast-decoder iteration

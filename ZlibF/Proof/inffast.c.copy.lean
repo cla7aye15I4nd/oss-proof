@@ -1,19 +1,10 @@
 import ZlibF.Proof.«inffast.c.step1»
+import ZlibF.Spec.Common.Inflate.WindowCopy
 
 namespace Zlib.Inffast.Proofs
 open C Zlib.Inffast Zlib.Inffast.Spec
 
 /-! ### Copying bytes: the pure array functions -/
-
-/-- `k` bytes copied from the fixed array `S` (offset `fo`) into `A` (offset `oo`), one at a time. -/
-def blitN (S : Array UInt8) : Nat → Nat → Nat → Array UInt8 → Array UInt8
-  | 0, _, _, A => A
-  | k + 1, fo, oo, A => blitN S k (fo + 1) (oo + 1) (A.set! oo (S.getD fo 0))
-
-/-- `k` bytes copied inside `A` from offset `fo` to offset `oo`, one at a time (the source may be written meanwhile). -/
-def cpyN : Nat → Nat → Nat → Array UInt8 → Array UInt8
-  | 0, _, _, A => A
-  | k + 1, fo, oo, A => cpyN k (fo + 1) (oo + 1) (A.set! oo (A.getD fo 0))
 
 theorem blitN_size (S : Array UInt8) : ∀ k fo oo A, (blitN S k fo oo A).size = A.size
   | 0, _, _, _ => rfl

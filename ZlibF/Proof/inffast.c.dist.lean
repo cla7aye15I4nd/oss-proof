@@ -27,9 +27,6 @@ theorem LS.congr {l l' : L} {i o : Nat} (hl : LS e l i o) (h1 : l'.in_ = l.in_) 
   exact ⟨by rw [h1]; exact a, by rw [h2]; exact b, c, d, f, by rw [h4]; exact g, by rw [h3, h4]; exact h,
     by rw [h4]; exact k⟩
 
-/-- `hold >>= k; bits -= k;` -/
-def dropL (l : L) (k : UInt32) : L := { l with hold := l.hold >>> k.toUInt64, bits := l.bits - k }
-
 theorem dropL_hold (l : L) (k : UInt32) (hk : k.toNat < 64) :
     (dropL l k).hold.toNat = l.hold.toNat / 2 ^ k.toNat := u64_shr hk
 
