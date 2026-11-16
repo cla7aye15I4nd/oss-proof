@@ -1,4 +1,4 @@
-<!-- source-sha256: e312b894eb01d7a6e8cf8719fbd281285071ed0489878a538c7affdf9e3dd531 -->
+<!-- source-sha256: f665b18be77a1e974388a083b93c9cf83a740b535700b6f089a2630bb0d2a0af -->
 # `compress*` 的安全性
 
 `compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -16,7 +16,7 @@
 
 这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
-每个目标都是 `CompressorSafety`（`ZlibF/Spec/Public/Utilities.lean`）的一个实例。对满足下列前提的每个输入：
+每个目标都是 `CompressorSafety`（`ZlibF/Spec/Common/Utilities.lean`）的一个实例。对满足下列前提的每个输入：
 
 - 调用在没有未定义行为的情况下运行并返回；
 - 被拒绝的参数返回 `Z_STREAM_ERROR`，并且什么都不改变；

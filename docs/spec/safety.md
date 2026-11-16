@@ -168,7 +168,7 @@ None of these holds by definition: each clause fails for a wrong translation or 
 
 A block is **live** when it is allocated: it holds an object and has not been freed.
 
-`Frame before after changed` ([Public/Initialisation.lean](../../ZlibF/Spec/Public/Initialisation.lean))
+`Frame before after changed` ([Common/Initialisation.lean](../../ZlibF/Spec/Common/Initialisation.lean))
 says that every block that was live before the call and is not in the set `changed` has the
 same content and the same read-only flag afterwards. It also says that three parts of the model
 are unchanged: the library's constant tables, the function that decides which future
@@ -176,7 +176,7 @@ allocations fail (the **allocation oracle**), and the function that gives uninit
 integers their values ([uninitialised memory](#uninitialised-memory)). New blocks are the
 subject of the allocation account, not of the frame.
 
-`BufferFrame before after changed regions` ([Public/History.lean](../../ZlibF/Spec/Public/History.lean))
+`BufferFrame before after changed regions` ([Common/History.lean](../../ZlibF/Spec/Common/History.lean))
 adds caller byte ranges. A region is a pointer and a length. Inside a region the call may
 write. Outside every region the bytes of the same object are unchanged, and the object keeps
 its size. This is how a goal says "`inflate` writes at most `avail_out` bytes at `next_out`".
@@ -190,7 +190,7 @@ The frame of one stream call (`StreamCallSafe`, [Safety/Streams.lean](../../Zlib
 
 ### The allocation account {#the-leak-ledger}
 
-`LiveChange before after created removed` ([Public/Initialisation.lean](../../ZlibF/Spec/Public/Initialisation.lean)) is
+`LiveChange before after created removed` ([Common/Initialisation.lean](../../ZlibF/Spec/Common/Initialisation.lean)) is
 
 ```text
 for every block b:
@@ -230,7 +230,7 @@ For `compress*` and `uncompress*` the goal says the same in another form. The he
 call is the heap before it with the output bytes written (for `uncompress*` also the length
 cells), and nothing else is changed. The temporary stream and its allocations are gone: no new
 live object remains (`SameObjectsUpToTableShape`,
-[Public/Memory.lean](../../ZlibF/Spec/Public/Memory.lean)). "Up to table shape" allows only
+[Common/Memory.lean](../../ZlibF/Spec/Common/Memory.lean)). "Up to table shape" allows only
 bookkeeping of the model to differ: an internal table may have grown by empty entries, and the
 next block number and the allocation counter may have advanced. An empty entry is not a live
 block, and no C operation observes the table length or either counter. The read-only flag is
@@ -257,7 +257,7 @@ A goal about one call must say which states the call can start from. The goals u
 **reachable** states: those that an actual sequence of calls produces. Such a sequence is a
 **history**.
 
-A stream is reachable (`StreamReachable`, [Public/History.lean](../../ZlibF/Spec/Public/History.lean))
+A stream is reachable (`StreamReachable`, [Common/History.lean](../../ZlibF/Spec/Common/History.lean))
 when it is the result of one of these steps:
 
 | Step | Condition |
@@ -272,7 +272,7 @@ For an inflate stream the caller edit and the call also carry the
 
 No specification of an earlier call is assumed: a history is a list of actual runs.
 
-`StreamSequenceSafety` ([Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean)) has
+`StreamSequenceSafety` ([Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean)) has
 three clauses. `Goal.inflate_sequence_safety` and `Goal.deflate_sequence_safety`
 ([Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean)) are this statement for the
 two kinds of stream.
@@ -298,8 +298,8 @@ and init succeeds on it and gives a reachable stream
 (`Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`).
 
 The gzip file interface and the callback decoder have the same structure with their own
-histories: `GzHistory` ([Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)) and
-`BackSafeReachable` ([Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean)). A gz
+histories: `GzHistory` ([Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)) and
+`BackSafeReachable` ([Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean)). A gz
 history also has a step for the outside world between calls: the file system and the
 descriptors (the **world**) may change to any well-formed state. Each function of the two
 families also has a goal of its own, which restricts one clause of the sequence goal to that
@@ -499,8 +499,8 @@ Malformed input is inside the safety domain: an error return must not hide a fau
 ## Appendix: where the goals are {#where-the-goals-are}
 
 Every safety goal is a Lean definition `ZlibF.Spec.Public.Goal.<name>`. It is in
-`ZlibF/Spec/Safety/`, or in `ZlibF/Spec/Public/` for the sequence, refusal and non-vacuity goals
-of the gzip file interface and of the callback decoder. `ZlibF/Spec/Public/` also holds the definitions the goals use. There are two
+`ZlibF/Spec/Safety/`, or in `ZlibF/Spec/Common/` for the sequence, refusal and non-vacuity goals
+of the gzip file interface and of the callback decoder. `ZlibF/Spec/Common/` also holds the definitions the goals use. There are two
 exceptions and one addition:
 
 - `Goal.compressBound` and `Goal.compressBound_z` are in `ZlibF/Spec/Functional/Queries.lean`
@@ -512,9 +512,9 @@ exceptions and one addition:
 No module of the two directories may import a functional specification
 (`ZlibF/Spec/Functional/`). The fast gate runs `scripts/check-spec-layers.py`, which rejects
 such an import. The script allows one import: `Public/GzState.lean` imports the gz mode
-decoder from `ZlibF/Spec/Api/Gz.lean`. The functional gz and callback goals
+decoder from `ZlibF/Spec/Functional/Api/Gz.lean`. The functional gz and callback goals
 (`Goal.gz_sequence`, `Goal.inflate_back_sequence`, the `Goal.gz*` result contracts) are also in
-`ZlibF/Spec/Public/`; they are not required
+`ZlibF/Spec/Common/`; they are not required
 ([the split](../design/safety-functional-split.md), step 4).
 
 | Function | Safety goal | File |
@@ -530,10 +530,10 @@ decoder from `ZlibF/Spec/Api/Gz.lean`. The functional gz and callback goals
 | `compress*`, `uncompress*` | `Goal.compress*_safety`, `Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
 | `compressBound`, `compressBound_z` | `Goal.compressBound`, `Goal.compressBound_z`: the full contract. The translation is a pure function with no heap and no fault, so a separate safety goal would hold by definition. | [Functional/Queries.lean](../../ZlibF/Spec/Functional/Queries.lean) |
 | the gzip file functions, and `gzvprintf` | `Goal.<function>_safety`: one call on a handle of any history, with the refusal of a `NULL` handle; for the three open functions, the open | [Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean) |
-| every history of a gzip file handle | `Goal.gz_sequence_safety`; a `NULL` handle: `Goal.gz_refusal` | [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean), [Public/GzRefusal.lean](../../ZlibF/Spec/Public/GzRefusal.lean) |
+| every history of a gzip file handle | `Goal.gz_sequence_safety`; a `NULL` handle: `Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean), [Common/GzRefusal.lean](../../ZlibF/Spec/Common/GzRefusal.lean) |
 | `inflateBackInit_`, `inflateBack`, `inflateBackEnd` | `Goal.<function>_safety`: for init, every call that `zlib.h` allows; for the other two, the call on a history and the refusals | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
-| every history of a callback decoder | `Goal.inflate_back_sequence_safety` | [Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean) |
-| non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Public/Domains.lean](../../ZlibF/Spec/Public/Domains.lean), [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean) |
+| every history of a callback decoder | `Goal.inflate_back_sequence_safety` | [Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean) |
+| non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Common/Domains.lean](../../ZlibF/Spec/Common/Domains.lean), [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
 `tests/audit/public-api.json` is the list the audit uses. For each function it gives a
 `safety_goal` and a `functional_goal`. The required set is every `safety_goal`, the list

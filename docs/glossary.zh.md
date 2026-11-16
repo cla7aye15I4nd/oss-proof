@@ -1,4 +1,4 @@
-<!-- source-sha256: 1e358d216a5be134c6eacf5601caca29da0c54adb1b38723e988b0818013d2bd -->
+<!-- source-sha256: 17f37572e840d333fe6a31893a8d493dfc52baa912eaf8eacd856a7b40549225 -->
 # 术语表
 
 本页定义其他页面用到的术语，每个术语只定义一次，用一两句话说清。术语分为几组：目标、状态层级、模型、前提、gzip 文件世界和检查。状态层级背后的规则见[检查指南](checking/README.md)；每项结论处于哪个层级，见[进度页的“范围”一节](progress.md#scope)。
@@ -21,7 +21,7 @@
 
 **非空性目标。** 这类目标说明其他目标的前提可以被满足：存在一个具体的堆，在它上面初始化或打开成功，并得到一个可达的流或句柄。没有它，序列目标就可能只是因为不存在任何历史才成立。
 
-**见证。** 非空性目标给出的那个具体的堆（对 gz 还有具体的文件系统），例如 `ZlibF/Spec/Public/Domains.lean` 中的 `witnessHeap`。
+**见证。** 非空性目标给出的那个具体的堆（对 gz 还有具体的文件系统），例如 `ZlibF/Spec/Common/Domains.lean` 中的 `witnessHeap`。
 
 **有文档的函数。** `zlib.h` 在注释 `undocumented functions (not part of the zlib API)` 之前声明的函数。该注释之后的十个函数是未文档化函数，不要求它们各有自己的目标。例外是 `gzvprintf`：`gzprintf` 要经过它，所以它的安全目标 `Goal.gzvprintf_safety` 是必需的，它也是 gz 序列目标里的一种调用。
 

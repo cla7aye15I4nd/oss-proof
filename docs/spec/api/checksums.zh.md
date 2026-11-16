@@ -1,4 +1,4 @@
-<!-- source-sha256: 8dd4d8a45e769fce8cdf35b8d4c51ff266757aca40fdc6b75ab26fe119f6d966 -->
+<!-- source-sha256: aa656b876a1cf659368e960e7921944eefd059d9dfd68d0ce968dc2deb53872d -->
 
 # 校验和
 
@@ -34,7 +34,7 @@
 CRC-32 从 0 开始。这些契约有意不对伪造校验和值作功能保证。
 [Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean) 中的功能目标还描述任意种子及精确标量结果。
 Adler 条目及其 Lean 目标（安全目标和功能目标）都要求 NULL 初始化查询的长度为零
-（[Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean) 中的 `AdlerBufferBytes`）。
+（[Common/Checksums.lean](../../../ZlibF/Spec/Common/Checksums.lean) 中的 `AdlerBufferBytes`）。
 见[偏离记录](../../deviations.md)。
 
 此构建中，`uLong` 和 `z_size_t` 是无符号 64 位类型；`uInt` 是无符号 32 位类型。
@@ -96,7 +96,7 @@ NULL 配合非零长度不在本契约范围内。伪造种子仍不属于本实
 **后置条件：** NULL、零长度查询对任意 `adler` 都返回 1，不读取字节。
 否则返回 A 后接 `buf[0..len-1]` 的 Adler-32。
 非 NULL、零长度范围返回 `adler` 的低 32 位，其中两个 16 位的半部各自对 65521 取模
-（[Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean) 中的 `adlerStart`）。
+（[Common/Checksums.lean](../../../ZlibF/Spec/Common/Checksums.lean) 中的 `adlerStart`）。
 对真实的 Adler-32，这就是传入的校验和，没有变化；种子 `0x0000FFFF` 返回 `0x0000000E`。
 
 </details>

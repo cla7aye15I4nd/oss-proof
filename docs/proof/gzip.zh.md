@@ -1,4 +1,4 @@
-<!-- source-sha256: 581f98d6653c1580f70538cbd97adbbb09ec35fabb25a87906c3c3cb1ab64fba -->
+<!-- source-sha256: fe0c780f557fd34c3e909ce693f58cda8ea595e6ac30de29a0090f1a3eb3f20c -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -11,9 +11,9 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 
 | 目标 | 定理 | 模块 |
 | --- | --- | --- |
-| `Goal.gz_sequence_safety`（`ZlibF/Spec/Public/GzSafety.lean`） | `gz_sequence_safety_public` | `ZlibF/Proof/public-gz-sequence-safety.lean` |
-| `Goal.gz_refusal`（`ZlibF/Spec/Public/GzRefusal.lean`） | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
-| `Goal.gz_sequence_nonvacuity`（`ZlibF/Spec/Public/GzSafety.lean`） | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
+| `Goal.gz_sequence_safety`（`ZlibF/Spec/Safety/GzSafety.lean`） | `gz_sequence_safety_public` | `ZlibF/Proof/public-gz-sequence-safety.lean` |
+| `Goal.gz_refusal`（`ZlibF/Spec/Common/GzRefusal.lean`） | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
+| `Goal.gz_sequence_nonvacuity`（`ZlibF/Spec/Safety/GzSafety.lean`） | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
 | `Goal.<function>_safety`，共 32 个目标（`ZlibF/Spec/Safety/GzCalls.lean`） | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
 
 它们都是安全结论，都是必需的。它们的定理列在 `tests/audit/theorems.txt` 中。

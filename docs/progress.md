@@ -111,7 +111,7 @@ Between `bde170e9` and this page, these things changed:
   fast gate is green on `3fdbbc38`.
 - **The histories of the callback decoder were widened.** The first step of a history
   (`BackSafeReachable.init`) no longer asks for a `NULL` `state` field before `inflateBackInit_`
-  (commit `874a9398`, `BackInitArguments` in `ZlibF/Spec/Public/Sequences.lean`). So
+  (commit `874a9398`, `BackInitArguments` in `ZlibF/Spec/Common/Sequences.lean`). So
   `Goal.inflate_back_sequence_safety` covers more histories than it did on `bde170e9`. In this
   form it is registered, not accepted.
 

@@ -11,7 +11,7 @@ already proved about them stay ([scope](../progress.md#scope)).
 | Kind | Where | About |
 | --- | --- | --- |
 | Model relation | `ZlibF/Spec/Functional/Api/` | Histories of bytes and the results a call may give. No heap. |
-| Concrete goal | `ZlibF/Spec/Safety/`, `ZlibF/Spec/Functional/`, `ZlibF/Spec/Public/` | A translated call run on the runtime heap, and its effects. |
+| Concrete goal | `ZlibF/Spec/Safety/`, `ZlibF/Spec/Functional/`, `ZlibF/Spec/Common/` | A translated call run on the runtime heap, and its effects. |
 
 A theorem about a model relation is not a theorem about a C function. For example,
 `ZlibF.Spec.Api.Goal.roundtrip` is a proved statement about the model only. The planned round
@@ -48,7 +48,7 @@ one-line modules that re-export these files.
 
 | Module | Content |
 | --- | --- |
-| `Basic.lean` | The decoding relation `Layer.Decodes` selected by the wrapper and window, and format viability. The parameter decoders (return codes, flush values, window and wrapper selection) are in `ZlibF/Spec/Public/Parameters.lean` |
+| `Basic.lean` | The decoding relation `Layer.Decodes` selected by the wrapper and window, and format viability. The parameter decoders (return codes, flush values, window and wrapper selection) are in `ZlibF/Spec/Common/Parameters.lean` |
 | `Header.lean` | Gzip header requests, output records and header bytes |
 | `Inflate.lean` | Inflate state, step relations, dictionaries, recovery and callback decoding |
 | `InflateAccepted.lean` | `Api.Layer.InflateAccepted`: the streams default `inflate` accepts, used by the functional sequence goal |

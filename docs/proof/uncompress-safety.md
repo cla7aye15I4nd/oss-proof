@@ -23,7 +23,7 @@ listed in `tests/audit/theorems.txt`.
 [progress, Scope](../progress.md#scope) records the level of each result.
 
 The goals are instances of `UncompressCountedSafe` and `UncompressSingleSafe`
-(`ZlibF/Spec/Public/Utilities.lean`). For every input that meets the premises below:
+(`ZlibF/Spec/Common/Utilities.lean`). For every input that meets the premises below:
 
 - the call runs without undefined behaviour and returns. In Lean: running the translated
   function on the heap gives `.ok` with a return code and a new heap, not a fault;
@@ -51,7 +51,7 @@ which is not required for the safety results.
 | Separation, `uncompress2` and `uncompress2_z` (`UtilitySeparation`) | Source, destination, the destination-length cell and the source-length cell are pairwise separate: six conditions. |
 | Separation, `uncompress` and `uncompress_z` | Three `Separate` premises of `UncompressSingleSafe`: source and destination; the destination-length cell and the destination; the destination-length cell and the source. |
 
-Two ranges are separate (`Separate`, `ZlibF/Spec/Public/Memory.lean`) when one of them is empty,
+Two ranges are separate (`Separate`, `ZlibF/Spec/Common/Memory.lean`) when one of them is empty,
 or one of the two pointers is `NULL`, or they lie in different blocks, or their byte ranges in
 one block do not overlap.
 

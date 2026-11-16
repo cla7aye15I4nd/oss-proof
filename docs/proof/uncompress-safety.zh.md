@@ -1,4 +1,4 @@
-<!-- source-sha256: 900dcde4f258b0b551d98329aeeef6fd8896a95e8f3ca8ad991af5c16e2a8aa9 -->
+<!-- source-sha256: 7264fcd159184f710fe165782c55e1aa17df8cb939f74d42e32485f66bec0dd5 -->
 # `uncompress*` 的安全性
 
 `uncompress`、`uncompress_z`、`uncompress2` 和 `uncompress2_z` 在满足下列前提的每个输入上都是安全的，不论源字节是什么：调用会返回，没有未定义行为，只写目的缓冲区和长度单元，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -16,7 +16,7 @@
 
 这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
-这些目标是 `UncompressCountedSafe` 和 `UncompressSingleSafe`（`ZlibF/Spec/Public/Utilities.lean`）的实例。对满足下列前提的每个输入：
+这些目标是 `UncompressCountedSafe` 和 `UncompressSingleSafe`（`ZlibF/Spec/Common/Utilities.lean`）的实例。对满足下列前提的每个输入：
 
 - 调用在没有未定义行为的情况下运行并返回。用 Lean 的话说：在堆上运行翻译后的函数，得到带有返回码和新堆的 `.ok`，而不是故障；
 - 参数错误返回 `Z_STREAM_ERROR`，并且什么都不改变；
@@ -37,7 +37,7 @@
 | 分离，`uncompress2` 和 `uncompress2_z`（`UtilitySeparation`） | 源缓冲区、目的缓冲区、目的长度单元和源长度单元两两分离：共六个条件。 |
 | 分离，`uncompress` 和 `uncompress_z` | `UncompressSingleSafe` 的三条 `Separate` 前提：源缓冲区与目的缓冲区；目的长度单元与目的缓冲区；目的长度单元与源缓冲区。 |
 
-两个范围分离（`Separate`，`ZlibF/Spec/Public/Memory.lean`）是指：其中一个为空，或者两个指针之一是 `NULL`，或者它们位于不同的块，或者它们在同一个块里的字节范围不重叠。
+两个范围分离（`Separate`，`ZlibF/Spec/Common/Memory.lean`）是指：其中一个为空，或者两个指针之一是 `NULL`，或者它们位于不同的块，或者它们在同一个块里的字节范围不重叠。
 
 这一分离在[偏离记录](../deviations.md)中有一行：“计数解压”。
 

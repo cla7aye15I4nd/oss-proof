@@ -11,7 +11,7 @@ checked. The plan that led to this layout, with its steps and status, is a
 | Directory | Content | Required |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | Safety goals: the call returns with no `Fault.ub` and no `Fault.outOfFuel`, writes only its frame, and leaks nothing, on the documented domain | Yes |
-| `ZlibF/Spec/Public/` | The definitions both kinds of goal use: calls, histories, frames, parameters. Also the sequence, refusal and non-vacuity goals of the gzip file interface and of `inflateBack`, and their functional goals | The safety goals in it: yes |
+| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters. Also the sequence, refusal and non-vacuity goals of the gzip file interface and of `inflateBack`, and their functional goals | The safety goals in it: yes |
 | `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), the format and API models with their goals (`Format/`, `Api/`), and the full sequence contracts `Goal.inflate_sequence` and `Goal.deflate_sequence`, which join the sequence safety with functional clauses | No |
 
 A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`, in each of
@@ -52,15 +52,15 @@ flowchart TD
   Safety -. "forbidden, checked" .-> Functional
 ```
 
-A module under `Spec/Safety/` or `Spec/Public/` does not import a module under
+A module under `Spec/Safety/` or `Spec/Common/` does not import a module under
 `Spec/Functional/`, directly or through other modules. So `Spec/Safety/`, the safety goals in
-`Spec/Public/`, and what they import are the whole required target.
+`Spec/Common/`, and what they import are the whole required target.
 
 The script `scripts/check-spec-layers.py` walks the imports and fails on such an edge. It runs
 in the fast gate (job `no-sorry`). It holds a list of the edges still allowed. The list may only
 shrink, and it has one entry:
 
-- `Public/GzState.lean` imports `ZlibF/Spec/Api/Gz.lean`, the old path of the gz model, for the
+- `Public/GzState.lean` imports `ZlibF/Spec/Functional/Api/Gz.lean`, the old path of the gz model, for the
   gz mode decoder and `GzLooksGzip`.
 
 Three more facts about imports:
@@ -69,7 +69,7 @@ Three more facts about imports:
   the files under `Spec/Functional/`. The check counts them as functional.
 - The parameter decoders that safety goals need (return codes, flush values, window and wrapper
   selection) are in `Public/Parameters.lean`, which imports no format module.
-- The check forbids only functional imports. Four modules of `Spec/Public/` import a proof
+- The check forbids only functional imports. Four modules of `Spec/Common/` import a proof
   module, and the check allows that: `GzState` imports `Proof.«gzlib.c.base»`; `GzSafety` imports
   `Proof.«gz.inv-model»`, which defines `GzInv`, `ReadsFinite` and `GzStepPost`; `Initialisation`
   and `Utilities` import `Proof.«inflate.c.base»` and `Proof.«deflate.c.base»`. So part of the
@@ -136,7 +136,7 @@ and the [rules against silent removal](../checking/goals.md#shrink-only-rules) i
 ## What is not separated
 
 - The sequence, refusal and non-vacuity goals of the gzip file interface and of `inflateBack`
-  are in `Spec/Public/`, not in `Spec/Safety/`: `Public/GzSafety.lean`, `Public/GzRefusal.lean`,
+  are in `Spec/Common/`, not in `Spec/Safety/`: `Public/GzSafety.lean`, `Public/GzRefusal.lean`,
   `Public/Sequences.lean` and `Public/Domains.lean` hold them; the `Public/Gz*.lean` files,
   `Public/Back.lean` and `Public/Sequences.lean` also hold the functional goals. Only the
   one-function goals of these two families are in `Spec/Safety/`.

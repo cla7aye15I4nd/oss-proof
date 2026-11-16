@@ -11,7 +11,7 @@ results. The safety of `deflate` for every configuration is a separate proof, ex
 
 ## Results
 
-Modules are under `ZlibF/Proof/`. The goals are in `ZlibF/Spec/Public/DeflateCore.lean`. The
+Modules are under `ZlibF/Proof/`. The goals are in `ZlibF/Spec/Functional/DeflateCore.lean`. The
 theorems of the table are listed in `tests/audit/theorems.txt`; the level of each result is
 recorded in [progress, Scope](../progress.md#scope).
 

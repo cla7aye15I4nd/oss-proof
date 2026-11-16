@@ -31,7 +31,7 @@ The goals are stated in `ZlibF/Spec/Safety/`: `Sequences.lean`, `Streams.lean`,
 `Initialisation.lean`, `Copy.lean`, `Refusals.lean` and `Domains.lean`.
 
 **The sequence result** has three parts (`StreamSequenceSafety`,
-`ZlibF/Spec/Public/Sequences.lean`).
+`ZlibF/Spec/Common/Sequences.lean`).
 
 1. Every reachable stream satisfies the public invariant `StreamInvariant`.
 2. On a reachable stream, one more permitted call returns without a fault. Afterwards the
@@ -112,7 +112,7 @@ The next table unfolds "reachable stream" and the argument premises. It lists ev
 `StreamReachable .inflate` and of `StreamArguments` for the `inflate*` calls. The Lean
 definitions are the complete statement: `StreamReachable`, `Rebuffer`, `StreamArguments`,
 `StreamBuffers`, `CallerRange`, `ActiveHeader`, `HeaderMemory` and `InflateHeaderProgress` in
-`ZlibF/Spec/Public/History.lean`, and `StreamCallDomain` in `ZlibF/Spec/Safety/Streams.lean`.
+`ZlibF/Spec/Common/History.lean`, and `StreamCallDomain` in `ZlibF/Spec/Safety/Streams.lean`.
 [Deviations](../deviations.md) goes through these premises row by row and says where each is
 narrower than `zlib.h`.
 
@@ -222,7 +222,7 @@ The invariant is `InflateInv` (`ZlibF/Proof/inflate.c.invariant.lean`). It has t
 | `good` | The stream record is readable, its `zalloc` and `zfree` are not `NULL`, and its `state` is a live inflate state that points back to the stream, with a mode from `HEAD` to `SYNC`. The state's arrays have the sizes of the C declaration. The window has shape W below. `reqbits ≤ 15`. `bits ≤ 39`. `next` points into `codes` at an index of at most 1444. `lencode` and `distcode` both point into `codes` at an index of at most 1443, or they are the two fixed tables. No block number names two objects (`Uniq`), and no block number from the next unused one on is in use (`Fresh`) | `Good` (`inflate.c.base.lean`) |
 | `alloc` | `zalloc` and `zfree` are the default functions | `DefAlloc` |
 | `tables` | In the modes `LEN_`, `LEN`, `LENEXT`, `DIST`, `DISTEXT`, `MATCH` and `LIT`: `lencode` and `distcode` point at tables of the safe shape for `lenbits` and `distbits` ([decode tables](inftrees.md#the-table-shape)), and every literal/length leaf uses at least one bit | `DataTableInvariant` |
-| `pending` | `sane = 1`. In `LENEXT`: at most 5 extra bits, `3 ≤ length`, `length + 2^extra ≤ 259`, and `0 ≤ back ≤ 15`. In `DIST` and `DISTEXT`: `3 ≤ length ≤ 258` and `was = length`. In `DIST` also `0 ≤ back ≤ 20`. In `DISTEXT` also at most 13 extra bits, `offset ≥ 1`, `offset + 2^extra ≤ 73727` and `0 ≤ back ≤ 35`. In `MATCH`: `0 < length ≤ was ≤ 258` and `offset > 0` | `DataPendingInvariant` (`ZlibF/Spec/InflatePendingInvariant.lean`) |
+| `pending` | `sane = 1`. In `LENEXT`: at most 5 extra bits, `3 ≤ length`, `length + 2^extra ≤ 259`, and `0 ≤ back ≤ 15`. In `DIST` and `DISTEXT`: `3 ≤ length ≤ 258` and `was = length`. In `DIST` also `0 ≤ back ≤ 20`. In `DISTEXT` also at most 13 extra bits, `offset ≥ 1`, `offset + 2^extra ≤ 73727` and `0 ≤ back ≤ 35`. In `MATCH`: `0 < length ≤ was ≤ 258` and `offset > 0` | `DataPendingInvariant` (`ZlibF/Spec/Common/Inflate/InflatePendingInvariant.lean`) |
 | `lengths` | In `CODELENS`: `lencode` is `codes[0]`, a code-length table of the safe shape; `nlen ≤ 286`, `ndist ≤ 30`, `have ≤ nlen + ndist`; the `have` lengths read so far are at most 15 | `CodeLengthInvariant` |
 | `headerLengths` | In `LENLENS`: `ncode ≤ 19`, `have ≤ ncode`, `nlen ≤ 286`, `ndist ≤ 30`; the `have` entries written so far are 3-bit values | `LengthHeaderInvariant` |
 | `held` | `hold < 2^bits`: no bit is set above the bit count | |

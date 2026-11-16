@@ -42,8 +42,8 @@ in a section "Readings of the C that no theorem states".
 The required results are safety results: no undefined behaviour, no memory error, no leak, and
 termination, for every documented public function of the default x86_64 Linux build, over its
 call sequences. The goals are in `ZlibF/Spec/Safety/`; for the gzip file interface and the
-callback decoder they are in `ZlibF/Spec/Public/GzSafety.lean`,
-`ZlibF/Spec/Public/GzRefusal.lean` and `ZlibF/Spec/Public/Sequences.lean`.
+callback decoder they are in `ZlibF/Spec/Safety/GzSafety.lean`,
+`ZlibF/Spec/Common/GzRefusal.lean` and `ZlibF/Spec/Common/Sequences.lean`.
 
 Functional results say what a function computes: a checksum value, the decoded bytes. They are
 not required for the safety results. Many are proved, and each page lists them

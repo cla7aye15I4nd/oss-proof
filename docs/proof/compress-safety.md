@@ -22,7 +22,7 @@ with no hypothesis added; the premises below are part of the goal statements. Th
 listed in `tests/audit/theorems.txt`.
 [progress, Scope](../progress.md#scope) records the level of each result.
 
-Each goal is an instance of `CompressorSafety` (`ZlibF/Spec/Public/Utilities.lean`). For
+Each goal is an instance of `CompressorSafety` (`ZlibF/Spec/Common/Utilities.lean`). For
 every input that meets the premises below:
 
 - the call runs without undefined behaviour and returns;

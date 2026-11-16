@@ -1,4 +1,4 @@
-<!-- source-sha256: babd9b3c5743a2d3ffae9e3c95529af918d24f675645a76ae8249cd0b5c9a9dc -->
+<!-- source-sha256: 9d417128109c384b885ae5d8530fe8c01d098b717782130476b75c739d58ab70 -->
 
 # 回调解压
 
@@ -16,10 +16,10 @@
 
 每个函数都有自己的必需安全目标：`Goal.inflateBackInit__safety`、`Goal.inflateBack_safety` 和
 `Goal.inflateBackEnd_safety`，在 [Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean) 中。
-[Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的序列目标 `Goal.inflate_back_sequence_safety`
+[Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean) 中的序列目标 `Goal.inflate_back_sequence_safety`
 同样是必需的。它多说一点：每段历史之后，解码器状态都是有效的；它的调用子句和结束子句，就是 `inflateBack` 和
 `inflateBackEnd` 的目标所重复的子句。功能目标 `Goal.inflateBackInit_`、`Goal.inflateBack`
-和 `Goal.inflateBackEnd` 在 [Back.lean](../../../ZlibF/Spec/Public/Back.lean) 中。
+和 `Goal.inflateBackEnd` 在 [Back.lean](../../../ZlibF/Spec/Common/Back.lean) 中。
 `Goal.inflateBack` 的解码子句（什么数据到达 `out`）不在计划内。
 
 <a id="callback-decoder-history"></a>
@@ -114,7 +114,7 @@ int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits, unsigned char FAR *
     - *状态。* 返回 `Z_OK` 时，流记录指向新块中一个有效的回调解码器状态，这个状态的窗口就是 `window`（`BackValid`）。
     - *写入。* `strm` 为 NULL 时不写任何内容：堆不变。否则只写流记录和调用自己分配的块（`Frame`）。
     - *分配。* 返回 `Z_OK` 时，恰好新增一个块，即状态记录，并且不释放任何块（`LiveChange`）。返回其他值时，已分配的块与调用前相同。
-- **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。每种拒绝和分配失败各返回哪个值，以及调用之后各字段的值：功能目标 `Goal.inflateBackInit_`，安全结论不需要它。合法的调用确实返回 `Z_OK`：`Goal.inflate_back_initialisation_domain`（[Public/Domains.lean](../../../ZlibF/Spec/Public/Domains.lean)），必需。
+- **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。每种拒绝和分配失败各返回哪个值，以及调用之后各字段的值：功能目标 `Goal.inflateBackInit_`，安全结论不需要它。合法的调用确实返回 `Z_OK`：`Goal.inflate_back_initialisation_domain`（[Common/Domains.lean](../../../ZlibF/Spec/Common/Domains.lean)），必需。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackInit_"><summary>完整返回条件与边界</summary>
 

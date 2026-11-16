@@ -34,7 +34,7 @@ The exact statements are Lean propositions under `ZlibF/Spec/`:
 | Directory | Content | Required |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | The safety goals of the stream functions, the checksums, the queries and the whole-buffer functions, and the one-function safety goals of the gzip file interface and of the callback decoder. | Yes. |
-| `ZlibF/Spec/Public/` | The definitions that both kinds of goal use: calls, histories, frames, the allocation account. Also the sequence, refusal and non-vacuity goals of the gzip file interface and of the callback decoder, and their functional goals. | The safety goals in it, yes. |
+| `ZlibF/Spec/Common/` | The definitions that both kinds of goal use: calls, histories, frames, the allocation account. Also the sequence, refusal and non-vacuity goals of the gzip file interface and of the callback decoder, and their functional goals. | The safety goals in it, yes. |
 | `ZlibF/Spec/Functional/` | The result contracts, the format and API models, and the round-trip statements. | No, except `Goal.compressBound` and `Goal.compressBound_z` ([safety, appendix](safety.md#where-the-goals-are)). |
 
 `ZlibF/Spec/Api/` and `ZlibF/Spec/Format/` only re-export the modules under

@@ -11,7 +11,7 @@ too small, and one `deflate(Z_FINISH)` with that room returns `Z_OK`
 For `extra_len` from 2^16 up to 2^32 - 3 the bound counts `extra_len` bytes and `deflate` writes
 fewer: the bound is conservative, not wrong.
 
-Effect on the statements: `WrapperLength` (`ZlibF/Spec/Public/Streams.lean`), used by
+Effect on the statements: `WrapperLength` (`ZlibF/Spec/Common/Streams.lean`), used by
 `Goal.deflateBound` and `Goal.deflateBound_z`, writes `2 + gh.extra_len.toNat` without the wrap,
 so these value goals are false for the two lengths; the translation wraps, as the C does. A
 promise goal that includes `deflateSetHeader` needs a premise excluding the two lengths.

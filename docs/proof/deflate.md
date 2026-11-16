@@ -33,7 +33,7 @@ recorded in [progress, Scope](../progress.md#scope). Modules are under `ZlibF/Pr
 The goals are stated in `ZlibF/Spec/Safety/`.
 
 **The sequence result** has three parts (`StreamSequenceSafety`,
-`ZlibF/Spec/Public/Sequences.lean`), the same as for
+`ZlibF/Spec/Common/Sequences.lean`), the same as for
 [`inflate`](inflate.md#results): every reachable stream has the public invariant; one more
 permitted call returns without a fault, keeps the invariant, changes only the stream record,
 the blocks the stream owns and the caller ranges it was given, and changes the set of live
@@ -88,7 +88,7 @@ refused stream is one.
 
 The table lists the premises of the sequence goal and of the thirteen per-function goals. It is
 read from the Lean statements: `StreamReachable`, `StreamOperation` and `StreamArguments`
-(`ZlibF/Spec/Public/History.lean`), `StreamSequenceSafety` (`ZlibF/Spec/Public/Sequences.lean`)
+(`ZlibF/Spec/Common/History.lean`), `StreamSequenceSafety` (`ZlibF/Spec/Common/Sequences.lean`)
 and `StreamCallDomain` (`ZlibF/Spec/Safety/Streams.lean`). Those definitions are the complete
 statement. Each premise has a row in [deviations](../deviations.md).
 
@@ -118,7 +118,7 @@ The other goals of the Results table have their own premises:
   heap is well formed; `strm` is `NULL`, or a readable record whose `zalloc` and `zfree` are each
   `NULL` or the default function; `version` is `NULL` or readable for one byte. Every other
   argument and every other field of the record is arbitrary. A custom allocator is outside.
-- `Goal.deflate_initialisation_domain` (`InitDomain`, `ZlibF/Spec/Public/Domains.lean`): as
+- `Goal.deflate_initialisation_domain` (`InitDomain`, `ZlibF/Spec/Common/Domains.lean`): as
   above with a record whose `state` field is `NULL` and a version string that starts with `'1'`;
   the parameters are ones `deflateInit2_` accepts, and the five allocations succeed.
 - `Goal.deflate_refusal`, and the refusal clause of each one-function goal and of

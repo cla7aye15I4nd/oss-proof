@@ -1,4 +1,4 @@
-<!-- source-sha256: daec8b538d3c44533183a89d69187d9c43894ff7eea16481f505d3abf56e7ac5 -->
+<!-- source-sha256: 0d644f2fcce55434c20e00f676d0a6a12de035687445c980e4d0f5495a90424b -->
 
 # 平台假设：对象大小
 
@@ -12,7 +12,7 @@
 
 模型中每个字节对象都少于 `2^63` 字节：调用者提供的缓冲区、库分配的块、静态数组，以及内嵌在记录里的字节数组。
 
-Lean 谓词是 [PlatformMemory.lean](../../ZlibF/Spec/PlatformMemory.lean) 中的
+Lean 谓词是 [PlatformMemory.lean](../../ZlibF/Spec/Common/PlatformMemory.lean) 中的
 `ZlibF.PlatformMemory.ByteObjectsFit`：
 
 ```text

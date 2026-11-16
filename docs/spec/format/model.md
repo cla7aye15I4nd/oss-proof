@@ -16,7 +16,7 @@ the local token relations in `ZlibF.Spec.Token`.
 
 | Module | Vocabulary |
 | --- | --- |
-| [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) | Numeric readers, big- and little-endian byte encodings. The byte-to-bit order (`byteBits`, `bytesToBits`) is in [`Public/Bits.lean`](../../../ZlibF/Spec/Public/Bits.lean) |
+| [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) | Numeric readers, big- and little-endian byte encodings. The byte-to-bit order (`byteBits`, `bytesToBits`) is in [`Common/Bits.lean`](../../../ZlibF/Spec/Common/Bits.lean) |
 | [`Checksum.lean`](../../../ZlibF/Spec/Functional/Format/Checksum.lean) | Bytewise Adler-32 and CRC-32, update functions and append laws |
 | [`Huffman.lean`](../../../ZlibF/Spec/Functional/Format/Huffman.lean) | Canonical codes, accepted length sets, fixed codes, length and distance tables |
 | [`Deflate.lean`](../../../ZlibF/Spec/Functional/Format/Deflate.lean) | Symbol and block relations, raw prefix and exact-stream relations |

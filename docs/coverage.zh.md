@@ -1,4 +1,4 @@
-<!-- source-sha256: 10ced7e45ecc2dbe2272d1d8872def3eccd41fd4760815d8910947c1c3fb9318 -->
+<!-- source-sha256: 0db5e4592fa37d552535855bc7fcf78455648970f1d850aeea81991ec58bd210 -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的定理，以及证明所在的文件。安全一列提到的每条定理都列在 `tests/audit/theorems.txt` 中。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
@@ -75,8 +75,8 @@
 | `inflateBack` | `Goal.inflateBack_safety` | `BackSafeReachable` 的一段历史；`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中；回调协议 | 在目标之内：`NULL` 流，以及状态为 `NULL` 的流记录 | 没有：`Goal.inflateBack` 不在计划内 |
 | `inflateBackEnd` | `Goal.inflateBackEnd_safety` | `BackSafeReachable` 的一段历史；没有别的要求 | 在目标之内：`NULL` 流，以及状态或 `zfree` 为 `NULL` 的流记录 | `Goal.inflateBackEnd`：`ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean` |
 
-- **序列目标。** `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Public/Sequences.lean`）：定理 `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。它多说一点：每段历史之后，调用者的窗口上都有一个有效的解码器状态。它的子句 1 和子句 3 是 `Goal.inflateBack_safety` 的第一个和第三个子句，它的子句 4 是 `Goal.inflateBackEnd_safety` 的第三个子句。历史从一次返回 `Z_OK` 的 `inflateBackInit_` 调用开始，调用之前 `state` 字段可以取任意值（`BackInitArguments`）。
-- **非空性。** `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Public/Domains.lean`）。
+- **序列目标。** `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Common/Sequences.lean`）：定理 `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。它多说一点：每段历史之后，调用者的窗口上都有一个有效的解码器状态。它的子句 1 和子句 3 是 `Goal.inflateBack_safety` 的第一个和第三个子句，它的子句 4 是 `Goal.inflateBackEnd_safety` 的第三个子句。历史从一次返回 `Z_OK` 的 `inflateBackInit_` 调用开始，调用之前 `state` 字段可以取任意值（`BackInitArguments`）。
+- **非空性。** `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Common/Domains.lean`）。
 - **证明变异体。** 序列定理有十一个证明变异体，针对 `inflateBack`、`inflateBackInit_` 和 `inflateBackEnd`（`tests/proof-mutants/infback-sequence.tsv`）。三个单函数目标在 `tests/audit/public-mutants.json` 中各有自己的键（[变异体指南](checking/proof-mutants.md)）。
 
 ## 校验和与查询
@@ -107,7 +107,7 @@
 
 31 个有文档的 gz 函数以及 `gzvprintf`，各有自己的安全目标 `Goal.<function>_safety`，在 `ZlibF/Spec/Safety/GzCalls.lean` 中。定理与目标同名：`public-gz-call-safety.lean` 中的 `ZlibF.Spec.Public.GzCallSafetyProof.<function>_safety`。每个目标是序列目标的一个子句，限制到一个函数的调用上。接受句柄的函数，其目标还带有对 `NULL` 句柄的拒绝。
 
-- **序列目标。** `Goal.gz_sequence_safety`（`ZlibF/Spec/Public/GzSafety.lean`）：定理 `ZlibF.Spec.Public.Proofs.gz_sequence_safety_public`，`public-gz-sequence-safety.lean`。它的定义域是一个句柄在每个文件系统世界中的每段历史（`GzHistory`）。
+- **序列目标。** `Goal.gz_sequence_safety`（`ZlibF/Spec/Safety/GzSafety.lean`）：定理 `ZlibF.Spec.Public.Proofs.gz_sequence_safety_public`，`public-gz-sequence-safety.lean`。它的定义域是一个句柄在每个文件系统世界中的每段历史（`GzHistory`）。
 - **非空性。** `Goal.gz_sequence_nonvacuity`：定理 `ZlibF.Spec.Public.Proofs.GzNonvacuity.gz_sequence_nonvacuity_public`，`public-gz-sequence-nonvacuity.lean`。
 - **`NULL` 句柄。** `Goal.gz_refusal`：定理 `ZlibF.Spec.Public.GzRefusalProof.gz_refusal`，`public-gz-refusal.lean`。接受句柄的 29 个 gz 函数（包括 `gzvprintf`）各自返回文档规定的值，堆和世界都不变。三个打开函数不接受句柄。这 29 个函数各自的目标都重复了属于它的那个子句。
 - **证明变异体。** 每一组 gz 函数，以及补丁 0002 至 0005 的每一处改动，都有变异体（`gz-sequence.tsv`、`gz-read.tsv`、`gz-refusal.tsv`）。32 个单函数目标在 `tests/audit/public-mutants.json` 中各有自己的键；随这些键新增的行在 `public-gz-safety.tsv` 中（[变异体指南](checking/proof-mutants.md)）。

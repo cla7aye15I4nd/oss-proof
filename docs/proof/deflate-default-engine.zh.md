@@ -1,4 +1,4 @@
-<!-- source-sha256: 0929bedb47a53054ea3a56f0d5280c03953a24ca893e919db200186fca7e1f34 -->
+<!-- source-sha256: a5e426bff6da0922e49df9fdea5bf2ca249fcbf82d9edec42feb2cbdbb7f67ac -->
 # `deflate` 的默认配置引擎
 
 本页介绍早先的一批结论，它们针对 `deflate` 的一种配置：由 `deflateInit_(strm, Z_DEFAULT_COMPRESSION, ...)` 创建的流（级别 6，zlib 封装，`windowBits` 为 15，`memLevel` 为 8，默认策略），并且只通过 `deflate` 调用来使用。对这种配置，结论说的不止是安全性：已完成的流能解码回它的输入。
@@ -7,7 +7,7 @@
 
 ## 结论
 
-模块在 `ZlibF/Proof/` 下。目标在 `ZlibF/Spec/Public/DeflateCore.lean` 中。表中的定理列在 `tests/audit/theorems.txt` 中；每项结论的层级记录在[进度，范围](../progress.md#scope)中。
+模块在 `ZlibF/Proof/` 下。目标在 `ZlibF/Spec/Functional/DeflateCore.lean` 中。表中的定理列在 `tests/audit/theorems.txt` 中；每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 | 结论 | 定理 | 模块 |
 | --- | --- | --- |

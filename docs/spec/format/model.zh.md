@@ -1,4 +1,4 @@
-<!-- source-sha256: 7dcb5370c1689cdaa7eb3f677e28449ef944dd8ae2059b1f584397311363247b -->
+<!-- source-sha256: 6e206afc74dd6b6cbca9d9c24ecddb712043b4c9c052186f8fb8b868e5c687d7 -->
 
 # Lean 中的格式模型
 
@@ -17,7 +17,7 @@
 
 | 模块 | 内容 |
 | --- | --- |
-| [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) | 数值读取函数、大端和小端的字节编码。字节到位的顺序（`byteBits`、`bytesToBits`）在 [`Public/Bits.lean`](../../../ZlibF/Spec/Public/Bits.lean) 中 |
+| [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) | 数值读取函数、大端和小端的字节编码。字节到位的顺序（`byteBits`、`bytesToBits`）在 [`Common/Bits.lean`](../../../ZlibF/Spec/Common/Bits.lean) 中 |
 | [`Checksum.lean`](../../../ZlibF/Spec/Functional/Format/Checksum.lean) | 逐字节的 Adler-32 和 CRC-32、更新函数和追加定律 |
 | [`Huffman.lean`](../../../ZlibF/Spec/Functional/Format/Huffman.lean) | 规范码、被接受的长度集合、固定码、长度表和距离表 |
 | [`Deflate.lean`](../../../ZlibF/Spec/Functional/Format/Deflate.lean) | 符号关系和块关系、裸流的前缀关系和精确流关系 |

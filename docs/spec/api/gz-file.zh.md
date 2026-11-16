@@ -1,4 +1,4 @@
-<!-- source-sha256: 35f249198aba73294d7823c5bb67f01b1c693a87dbf27614d31c49bb7867231e -->
+<!-- source-sha256: 70f58744ffbaf8e2e91ad0e0b663456df0468ba49288ca0b4dd64f5e3d650c5d -->
 
 # Gzip 文件
 
@@ -29,7 +29,7 @@
 （[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)），它的条目在**证明目标**下陈述这个目标。
 `gzopen_w` 只存在于 Windows 上，没有这样的目标。
 每个这样的目标都把序列目标 `Goal.gz_sequence_safety`
-（[GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)）的一个子句限制到一个函数的调用上。
+（[GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)）的一个子句限制到一个函数的调用上。
 接受句柄的函数，其目标还带有 `Goal.gz_refusal` 中属于该函数的子句，即对 NULL 句柄的拒绝。
 序列目标同样是必需的。它多出下表中的不变量子句，这个子句说的是历史，而不是某一次调用。
 
@@ -95,7 +95,7 @@
 `gzerror` 点名 `errnum` 处的 4 个字节。
 
 **NULL 句柄与非空性。** `Goal.gz_refusal`
-（[GzRefusal.lean](../../../ZlibF/Spec/Public/GzRefusal.lean)）说明：每个接受句柄的 gz 函数在句柄为 NULL 时返回文档规定的值，
+（[GzRefusal.lean](../../../ZlibF/Spec/Common/GzRefusal.lean)）说明：每个接受句柄的 gz 函数在句柄为 NULL 时返回文档规定的值，
 堆和世界都不变。每个这样的函数自己的目标都重复了属于它的那个子句。`Goal.gz_sequence_nonvacuity` 表明前提可以满足：一个带有限读取预算的 `gzopen` 读句柄加一次一字节的
 `gzread`，以及一个 `gzdopen` 写句柄加一次一字节的 `gzwrite`。
 
@@ -177,14 +177,14 @@ stateDiagram-v2
 
 源码为 [gzlib.c](../../../zlib/gzlib.c)、[gzread.c](../../../zlib/gzread.c)、
 [gzwrite.c](../../../zlib/gzwrite.c)、[gzclose.c](../../../zlib/gzclose.c) 和
-[zlib.h](../../../zlib/zlib.h)。序列安全目标位于 [GzSafety](../../../ZlibF/Spec/Public/GzSafety.lean)，
+[zlib.h](../../../zlib/zlib.h)。序列安全目标位于 [GzSafety](../../../ZlibF/Spec/Safety/GzSafety.lean)，
 各函数的安全目标位于 [GzCalls](../../../ZlibF/Spec/Safety/GzCalls.lean)，
-NULL 句柄目标位于 [GzRefusal](../../../ZlibF/Spec/Public/GzRefusal.lean)。
+NULL 句柄目标位于 [GzRefusal](../../../ZlibF/Spec/Common/GzRefusal.lean)。
 抽象契约位于 [Functional/Api/Gz.lean](../../../ZlibF/Spec/Functional/Api/Gz.lean)。
-功能目标位于 [GzOpen](../../../ZlibF/Spec/Public/GzOpen.lean)、
-[GzRead](../../../ZlibF/Spec/Public/GzRead.lean)、[GzWrite](../../../ZlibF/Spec/Public/GzWrite.lean)、
-[GzControl](../../../ZlibF/Spec/Public/GzControl.lean) 和
-[GzClose](../../../ZlibF/Spec/Public/GzClose.lean)。翻译在 `ZlibF/Zlib/` 中保留 C 名称。
+功能目标位于 [GzOpen](../../../ZlibF/Spec/Functional/GzOpen.lean)、
+[GzRead](../../../ZlibF/Spec/Functional/GzRead.lean)、[GzWrite](../../../ZlibF/Spec/Functional/GzWrite.lean)、
+[GzControl](../../../ZlibF/Spec/Functional/GzControl.lean) 和
+[GzClose](../../../ZlibF/Spec/Functional/GzClose.lean)。翻译在 `ZlibF/Zlib/` 中保留 C 名称。
 
 ## gzopen
 
@@ -218,7 +218,7 @@ gzFile ZEXPORT gzopen(const char *path, const char *mode);
 
 **证明目标。**
 
-- **目标。** `Goal.gzopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **目标。** `Goal.gzopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
 - **适用条件**（`GzOpenSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -282,7 +282,7 @@ gzFile ZEXPORT gzopen64(const char *path, const char *mode);
 
 **证明目标。**
 
-- **目标。** `Goal.gzopen64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **目标。** `Goal.gzopen64_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzOpenSafe`（[Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
 - **适用条件**（`GzOpenSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -342,7 +342,7 @@ gzFile ZEXPORT gzdopen(int fd, const char *mode);
 
 **证明目标。**
 
-- **目标。** `Goal.gzdopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzDopenSafe`（[Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
+- **目标。** `Goal.gzdopen_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。它的命题是 `GzDopenSafe`（[Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)），即[序列目标](#the-safety-goal)中针对这个函数的打开子句。
 - **适用条件**（`GzDopenSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；

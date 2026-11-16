@@ -52,7 +52,7 @@ which init or open succeeds and gives a reachable stream or handle. Without it a
 could hold only because no history exists.
 
 **Witness.** The concrete heap, and for gz the concrete file system, that a non-vacuity goal
-exhibits, for example `witnessHeap` in `ZlibF/Spec/Public/Domains.lean`.
+exhibits, for example `witnessHeap` in `ZlibF/Spec/Common/Domains.lean`.
 
 **Documented function.** A function that `zlib.h` declares before its comment "undocumented
 functions (not part of the zlib API)". The ten functions after that comment are undocumented, and

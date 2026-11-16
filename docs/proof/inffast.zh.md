@@ -1,4 +1,4 @@
-<!-- source-sha256: b3744a4345e51b9a723aa91e335cae504dc77a8a194a2f6bb6ac1f68c986913e -->
+<!-- source-sha256: 268faf6c1d9dcc8173a8d6eae92ce00e10e8c95d41c155025c767c3037a7d262 -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -11,7 +11,7 @@
 
 | 结论 | 定理 | `ZlibF/Proof/` 下的模块 |
 | --- | --- | --- |
-| `Goal.fast_safe`（`ZlibF/Spec/InflateFast.lean`）：在入口条件下，调用返回且不出故障；后置条件 `FastPost` 准确说明了改动了什么 | `inflate_fast_safe` | `inffast.c.final.lean` |
+| `Goal.fast_safe`（`ZlibF/Spec/Common/Inflate/InflateFast.lean`）：在入口条件下，调用返回且不出故障；后置条件 `FastPost` 准确说明了改动了什么 | `inflate_fast_safe` | `inffast.c.final.lean` |
 | 循环的一轮是安全的：至多读 6 个字节，至多写 258 个字节，循环继续时至少写了一个字节（`Goal.step_safe`） | `inflate_fast_body_step_safe` | `inffast.c.body.lean` |
 | 静态固定表具有表形状 | `lenfix_tableSafe`、`distfix_tableSafe` | `inffast.c.tableok.lean` |
 | 同样的安全性命题，外加：结束时模式不是 `TYPE` 或 `BAD` 的调用，留下的输出空间比进入时少 | `inflate_fast_safe_progress` | `inffast.c.progress.lean` |

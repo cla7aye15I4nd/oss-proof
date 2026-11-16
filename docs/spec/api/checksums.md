@@ -50,7 +50,7 @@ These contracts deliberately omit functional promises for forged checksums.
 The functional goals in [Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)
 also describe arbitrary seeds and exact scalar results. Both the Adler entries and their Lean
 goals, safety and functional, require zero length for NULL initialization queries
-(`AdlerBufferBytes` in [Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean)).
+(`AdlerBufferBytes` in [Common/Checksums.lean](../../../ZlibF/Spec/Common/Checksums.lean)).
 See [deviations](../../deviations.md).
 
 In this build, `uLong` and `z_size_t` are unsigned 64-bit types; `uInt` is
@@ -114,7 +114,7 @@ reducing both seed halves modulo 65521. See the
 **Post:** A NULL, zero-length query returns 1 for every `adler`, without reading
 bytes. Otherwise return the Adler-32 of A followed by `buf[0..len-1]`.
 A non-NULL zero-length range returns the low 32 bits of `adler` with each 16-bit half reduced
-modulo 65521 (`adlerStart` in [Public/Checksums.lean](../../../ZlibF/Spec/Public/Checksums.lean)).
+modulo 65521 (`adlerStart` in [Common/Checksums.lean](../../../ZlibF/Spec/Common/Checksums.lean)).
 For a genuine Adler-32 that is the incoming checksum unchanged; a seed of `0x0000FFFF` returns
 `0x0000000E`.
 

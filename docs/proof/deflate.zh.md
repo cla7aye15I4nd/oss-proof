@@ -1,4 +1,4 @@
-<!-- source-sha256: f2ed989b75fe23a07074801dd83549812893cab69668e04dbeb4d0c9c22713a2 -->
+<!-- source-sha256: e0c58e641e4bb0777366b0d0c988de1aedc753d2f6db761f5e05b3050beac97d -->
 # 流式压缩：`deflate` 为什么是安全的
 
 源文件：`zlib/deflate.c`。翻译：`ZlibF/Zlib/deflate.c.lean`。
@@ -22,7 +22,7 @@
 
 这些目标写在 `ZlibF/Spec/Safety/` 中。
 
-**序列结论**有三部分（`StreamSequenceSafety`，`ZlibF/Spec/Public/Sequences.lean`），与 [`inflate`](inflate.md#results) 的相同：每个可达的流都满足公开不变量；再做一次被允许的调用，调用返回且不出故障，保持不变量，只改动流记录、流拥有的块和交给它的调用者区域，存活块集合的变化恰好是流新得到或释放掉的块；`deflateEnd` 释放流拥有的每一个块。目标说 `deflateEnd` 返回 `Z_OK` 或 `Z_DATA_ERROR`，并且两种情况下它都释放了这些块。目标没有说返回的是哪一个；在 C 里，状态值原先是 `BUSY_STATE` 时结果是 `Z_DATA_ERROR`（`deflateEnd` 的最后一行）。
+**序列结论**有三部分（`StreamSequenceSafety`，`ZlibF/Spec/Common/Sequences.lean`），与 [`inflate`](inflate.md#results) 的相同：每个可达的流都满足公开不变量；再做一次被允许的调用，调用返回且不出故障，保持不变量，只改动流记录、流拥有的块和交给它的调用者区域，存活块集合的变化恰好是流新得到或释放掉的块；`deflateEnd` 释放流拥有的每一个块。目标说 `deflateEnd` 返回 `Z_OK` 或 `Z_DATA_ERROR`，并且两种情况下它都释放了这些块。目标没有说返回的是哪一个；在 C 里，状态值原先是 `BUSY_STATE` 时结果是 `Z_DATA_ERROR`（`deflateEnd` 的最后一行）。
 
 有两条定理都叫 `deflate_safety`。`StreamCallSafetyProof.deflate_safety` 证明安全目标 `Goal.deflate_safety`。`Zlib.Deflate.Universal.deflate_safety` 证明功能目标 `Goal.deflate`，见[功能结论](#functional-results)。
 
@@ -42,7 +42,7 @@
 
 ## 假设
 
-下表列出序列目标和十三个各函数目标的前提。它读自 Lean 命题：`StreamReachable`、`StreamOperation` 和 `StreamArguments`（`ZlibF/Spec/Public/History.lean`），`StreamSequenceSafety`（`ZlibF/Spec/Public/Sequences.lean`），以及 `StreamCallDomain`（`ZlibF/Spec/Safety/Streams.lean`）。完整的命题以这些定义为准。每条前提在[偏离记录](../deviations.md)中都有一行。
+下表列出序列目标和十三个各函数目标的前提。它读自 Lean 命题：`StreamReachable`、`StreamOperation` 和 `StreamArguments`（`ZlibF/Spec/Common/History.lean`），`StreamSequenceSafety`（`ZlibF/Spec/Common/Sequences.lean`），以及 `StreamCallDomain`（`ZlibF/Spec/Safety/Streams.lean`）。完整的命题以这些定义为准。每条前提在[偏离记录](../deviations.md)中都有一行。
 
 | 前提 | 内容 | 属于 |
 | --- | --- | --- |
@@ -64,7 +64,7 @@
 
 - `Goal.deflateCopy_safety`：源是可达的，目的是一个可读的记录，并且不是源记录。命题里还写出了源的不变量和默认分配器；每个可达的流都具备这两点。
 - 两个初始化目标（`InitArguments`，`ZlibF/Spec/Safety/Initialisation.lean`）：堆是良构的；`strm` 是 `NULL`，或者是一个可读的记录，它的 `zalloc` 和 `zfree` 各自是 `NULL` 或默认函数；`version` 是 `NULL`，或者有一个字节可读。其余每个参数、记录的其余每个字段都是任意的。自定义分配器不在其内。
-- `Goal.deflate_initialisation_domain`（`InitDomain`，`ZlibF/Spec/Public/Domains.lean`）：同上，另外要求记录的 `state` 字段是 `NULL`，版本字符串以 `'1'` 开头；参数是 `deflateInit2_` 接受的参数，五次分配都成功。
+- `Goal.deflate_initialisation_domain`（`InitDomain`，`ZlibF/Spec/Common/Domains.lean`）：同上，另外要求记录的 `state` 字段是 `NULL`，版本字符串以 `'1'` 开头；参数是 `deflateInit2_` 接受的参数，五次分配都成功。
 - `Goal.deflate_refusal`，以及每个单函数目标的拒绝子句和 `Goal.deflateCopy_safety` 的拒绝子句：流是被拒绝的；对 `deflateCopy`，目的是一个可读的记录，并且在 `Goal.deflateCopy_safety` 的子句里，源指针不是 `NULL`。
 
 `zlib.h` 要求 `deflatePrime` 和 `deflateSetHeader` 在第一次 `deflate` 调用之前使用。C 并不检查这一点。在真实的 C 上，记录了符号之后再预置的位会覆盖符号缓冲区；在写头部的中途把头部指针设成 `NULL`，这个指针会被解引用（`tests/regression/deflate-history-domain`）。头部的各条前提也有同类的理由（`tests/regression/deflate-gzip-name-output`）。

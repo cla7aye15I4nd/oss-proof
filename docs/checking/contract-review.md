@@ -5,7 +5,7 @@
 > the scope is safety only ([scope](../progress.md#scope)): the contracts described here are the
 > functional goals, which are not required. Those already proved stay registered. The
 > specification files have moved since: the format and API models are under
-> `ZlibF/Spec/Functional/`, the safety goals under `ZlibF/Spec/Safety/`, and `ZlibF/Spec/Public/`
+> `ZlibF/Spec/Functional/`, the safety goals under `ZlibF/Spec/Safety/`, and `ZlibF/Spec/Common/`
 > holds the common definitions ([split design](../design/safety-functional-split.md)). The module
 > names in the tables below are those of the review. The corrections and counterexamples remain
 > valid as evidence about the statements; whether each corrected statement is proved today is
@@ -18,7 +18,7 @@ independent approval of a semantic baseline.
 
 | Section | What a reader can rely on |
 | --- | --- |
-| Three specification layers | The layering stands under the moved paths of the note above. `ZlibF/Spec/Public/Calls.lean` fixes the translated entry that each public goal runs. |
+| Three specification layers | The layering stands under the moved paths of the note above. `ZlibF/Spec/Common/Calls.lean` fixes the translated entry that each public goal runs. |
 | Scope of the statement review | Which obligations the review read for each group of functional contracts. It is not a list of what is proved. |
 | Source-review corrections | Readings of the pinned C that the corrected functional contracts encode. A reading is confirmed only where a registered theorem proves the goal that states it. |
 | Counterexamples to the old statements | Three errors found in older statements, with their corrections. The first is kept as the regression `tests/regression/inflate-deferred-distance/`. The corrected goals of the other two, `Goal.gzclearerr` and `Goal.inflateCodesUsed`, are proved. |

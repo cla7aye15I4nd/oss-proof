@@ -168,4 +168,4 @@ These are the subject of other pages. The table gives the place of each part.
 | What is outside the claim? | Compiler and operating-system correctness, performance, constant-time behaviour, and resource bounds against decompression bombs. Malformed compressed data is inside the claim. | [Safety claims, outside safety](../spec/safety.md#outside-safety) |
 
 The goal definitions are in `ZlibF/Spec/Safety/` and, for the gz interface and `inflateBack`, in
-`ZlibF/Spec/Public/`; the layout is in [the split design](../design/safety-functional-split.md).
+`ZlibF/Spec/Common/`; the layout is in [the split design](../design/safety-functional-split.md).

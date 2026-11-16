@@ -1,4 +1,4 @@
-<!-- source-sha256: e62c84514bd33bc066bb971b0b84e776e7e4cecdf81cec9f0ef57087f401ab7c -->
+<!-- source-sha256: 757e1b41c5b50c83440b3f85820acc17c90b732a249fc88ca6acb524a618b607 -->
 
 # 缓冲区工具与库信息
 
@@ -25,10 +25,10 @@
 安全目标在 [Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean) 和
 [Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean) 中；它们所实例化的命题
 （`CompressorSafety`、`UncompressCountedSafe`、`UncompressSingleSafe`）定义在
-[Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中。功能目标在
+[Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中。功能目标在
 [Functional/Utilities.lean](../../../ZlibF/Spec/Functional/Utilities.lean) 和
 [Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean) 中。
-[Calls.lean](../../../ZlibF/Spec/Public/Calls.lean) 固定翻译后的参数和结果。
+[Calls.lean](../../../ZlibF/Spec/Common/Calls.lean) 固定翻译后的参数和结果。
 
 缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。
 
@@ -105,7 +105,7 @@ NULL 目的缓冲区，会在任何长度写入之前返回 `Z_STREAM_ERROR`。
 
 **证明目标。**
 
-- **目标。** `Goal.compress2_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress2_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -173,7 +173,7 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
 
 **证明目标。**
 
-- **目标。** `Goal.compress2_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress2_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress2_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -231,7 +231,7 @@ int ZEXPORT compress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_si
 
 **证明目标。**
 
-- **目标。** `Goal.compress_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress_z_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress_z_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -288,7 +288,7 @@ int ZEXPORT compress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong so
 
 **证明目标。**
 
-- **目标。** `Goal.compress_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
+- **目标。** `Goal.compress_safety`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `CompressorSafety`）；必需。定理：`ZlibF.Spec.Public.Proofs.Compress.compress_safety`（[public-compress-safe-mid.lean](../../../ZlibF/Proof/public-compress-safe-mid.lean)）。
 - **适用条件**（`CompressorSafety`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -451,7 +451,7 @@ int ZEXPORT uncompress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress2_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress2_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressCountedSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -522,7 +522,7 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress2_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress2_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `UncompressCountedSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressCountedSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -585,7 +585,7 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress_z_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_z_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressSingleSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
@@ -647,7 +647,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 
 **证明目标。**
 
-- **目标。** `Goal.uncompress_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Public/Utilities.lean](../../../ZlibF/Spec/Public/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
+- **目标。** `Goal.uncompress_safe`（[Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean)；其命题是 [Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中的 `UncompressSingleSafe`）；必需。定理：`ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe`（[public-uncompress-safe.lean](../../../ZlibF/Proof/public-uncompress-safe.lean)）。
 - **适用条件**（`UncompressSingleSafe`）：
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；

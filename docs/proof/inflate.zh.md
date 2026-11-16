@@ -1,4 +1,4 @@
-<!-- source-sha256: af27d47c02d130fc7b447ebf51d375eafde0fae450199946f6162d586f81668d -->
+<!-- source-sha256: 69a00bc52dbe3983c7d552e93836d123d82ab188347309bfdb4154c84f031c47 -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -22,7 +22,7 @@
 
 这些目标写在 `ZlibF/Spec/Safety/` 中：`Sequences.lean`、`Streams.lean`、`Initialisation.lean`、`Copy.lean`、`Refusals.lean` 和 `Domains.lean`。
 
-**序列结论**有三部分（`StreamSequenceSafety`，`ZlibF/Spec/Public/Sequences.lean`）。
+**序列结论**有三部分（`StreamSequenceSafety`，`ZlibF/Spec/Common/Sequences.lean`）。
 
 1. 每个可达的流都满足公开不变量 `StreamInvariant`。
 2. 在可达的流上，再做一次被允许的调用，调用会返回且不出故障。之后不变量仍然成立。调用只改动了流记录、流拥有的块、挂接的 `gz_header` 记录，以及交给它的调用者区域（这是*帧性质*）。存活块集合的变化，恰好是流新得到或释放掉的块（这是*分配账本*）：没有任何泄漏。
@@ -63,7 +63,7 @@
 
 *良构的堆*有三条性质：从下一个未用的块编号起，没有任何块编号在使用（`Fresh`）；一个块编号只对应一个对象（`Uniq`）；静态表保持初始内容（`LibraryGlobals`）。
 
-下一张表把“可达的流”和各个参数前提展开。它列出 `StreamReachable .inflate` 的每一条前提，以及 `StreamArguments` 对各个 `inflate*` 调用的每一条前提。完整的命题是这些 Lean 定义：`ZlibF/Spec/Public/History.lean` 中的 `StreamReachable`、`Rebuffer`、`StreamArguments`、`StreamBuffers`、`CallerRange`、`ActiveHeader`、`HeaderMemory` 和 `InflateHeaderProgress`，以及 `ZlibF/Spec/Safety/Streams.lean` 中的 `StreamCallDomain`。[偏离记录](../deviations.md)逐行讨论这些前提，并说明每一条在哪里比 `zlib.h` 更窄。
+下一张表把“可达的流”和各个参数前提展开。它列出 `StreamReachable .inflate` 的每一条前提，以及 `StreamArguments` 对各个 `inflate*` 调用的每一条前提。完整的命题是这些 Lean 定义：`ZlibF/Spec/Common/History.lean` 中的 `StreamReachable`、`Rebuffer`、`StreamArguments`、`StreamBuffers`、`CallerRange`、`ActiveHeader`、`HeaderMemory` 和 `InflateHeaderProgress`，以及 `ZlibF/Spec/Safety/Streams.lean` 中的 `StreamCallDomain`。[偏离记录](../deviations.md)逐行讨论这些前提，并说明每一条在哪里比 `zlib.h` 更窄。
 
 | 前提 | 内容 | 属于 |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ flowchart LR
 | `good` | 流记录可读，它的 `zalloc` 和 `zfree` 不是 `NULL`，它的 `state` 是一个存活的 inflate 状态，这个状态指回这个流，模式在 `HEAD` 到 `SYNC` 之间。状态里各数组的大小与 C 声明一致。窗口具有下面的形状 W。`reqbits ≤ 15`。`bits ≤ 39`。`next` 指向 `codes` 内部，下标不超过 1444。`lencode` 和 `distcode` 要么都指向 `codes` 内部，下标不超过 1443，要么就是那两张固定表。一个块编号不会同时表示两个对象（`Uniq`），从下一个未用的块编号起没有任何块编号在使用（`Fresh`） | `Good`（`inflate.c.base.lean`） |
 | `alloc` | `zalloc` 和 `zfree` 是默认函数 | `DefAlloc` |
 | `tables` | 在 `LEN_`、`LEN`、`LENEXT`、`DIST`、`DISTEXT`、`MATCH` 和 `LIT` 模式下：`lencode` 和 `distcode` 指向的表，对 `lenbits` 和 `distbits` 具有安全的表形状（[解码表](inftrees.md#the-table-shape)），并且每个字面量/长度叶子至少用掉一位 | `DataTableInvariant` |
-| `pending` | `sane = 1`。在 `LENEXT` 中：附加位至多 5 位，`3 ≤ length`，`length + 2^extra ≤ 259`，并且 `0 ≤ back ≤ 15`。在 `DIST` 和 `DISTEXT` 中：`3 ≤ length ≤ 258` 且 `was = length`。在 `DIST` 中还有 `0 ≤ back ≤ 20`。在 `DISTEXT` 中还有：附加位至多 13 位，`offset ≥ 1`，`offset + 2^extra ≤ 73727`，`0 ≤ back ≤ 35`。在 `MATCH` 中：`0 < length ≤ was ≤ 258` 且 `offset > 0` | `DataPendingInvariant`（`ZlibF/Spec/InflatePendingInvariant.lean`） |
+| `pending` | `sane = 1`。在 `LENEXT` 中：附加位至多 5 位，`3 ≤ length`，`length + 2^extra ≤ 259`，并且 `0 ≤ back ≤ 15`。在 `DIST` 和 `DISTEXT` 中：`3 ≤ length ≤ 258` 且 `was = length`。在 `DIST` 中还有 `0 ≤ back ≤ 20`。在 `DISTEXT` 中还有：附加位至多 13 位，`offset ≥ 1`，`offset + 2^extra ≤ 73727`，`0 ≤ back ≤ 35`。在 `MATCH` 中：`0 < length ≤ was ≤ 258` 且 `offset > 0` | `DataPendingInvariant`（`ZlibF/Spec/Common/Inflate/InflatePendingInvariant.lean`） |
 | `lengths` | 在 `CODELENS` 中：`lencode` 就是 `codes[0]`，是一张形状安全的码长表；`nlen ≤ 286`，`ndist ≤ 30`，`have ≤ nlen + ndist`；已经读到的 `have` 个码长都不超过 15 | `CodeLengthInvariant` |
 | `headerLengths` | 在 `LENLENS` 中：`ncode ≤ 19`，`have ≤ ncode`，`nlen ≤ 286`，`ndist ≤ 30`；已经写入的 `have` 项都是 3 位的值 | `LengthHeaderInvariant` |
 | `held` | `hold < 2^bits`：位计数以上没有置位的位 | |

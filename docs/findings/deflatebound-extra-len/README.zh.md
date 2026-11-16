@@ -1,4 +1,4 @@
-<!-- source-sha256: 50bb2f9a481098a6e685058ad2e531f397ee55ae79ea0045e62381e0455efc26 -->
+<!-- source-sha256: f92772742eb453dbfae456afc8b6070c18d93ef4cfa1640c36a93221a95334fe -->
 # gzip extra 字段长度为 2^32 - 2 或 2^32 - 1 时的 deflateBound
 
 状态：已在固定的 C 源码上复现。上游已知（上游拉取请求 1360 中的讨论）。
@@ -7,4 +7,4 @@
 
 `extra_len` 从 2^16 到 2^32 - 3 时，界按 `extra_len` 个字节计，而 `deflate` 写出的更少：这个界是保守的，不是错的。
 
-对命题的影响：`Goal.deflateBound` 和 `Goal.deflateBound_z` 使用的 `WrapperLength`（`ZlibF/Spec/Public/Streams.lean`）写的是不回绕的 `2 + gh.extra_len.toNat`，所以这两个数值目标对这两个长度不成立；翻译和 C 一样会回绕。包含 `deflateSetHeader` 的承诺目标需要一个排除这两个长度的前提。
+对命题的影响：`Goal.deflateBound` 和 `Goal.deflateBound_z` 使用的 `WrapperLength`（`ZlibF/Spec/Common/Streams.lean`）写的是不回绕的 `2 + gh.extra_len.toNat`，所以这两个数值目标对这两个长度不成立；翻译和 C 一样会回绕。包含 `deflateSetHeader` 的承诺目标需要一个排除这两个长度的前提。

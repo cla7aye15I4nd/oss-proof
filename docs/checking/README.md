@@ -58,7 +58,7 @@ It runs on every push to `dev` or `main` and on every pull request. It is the on
 | `build` | Patches apply | A file of `patches/` that does not apply to a copy of the pinned `zlib/`. |
 | `no-sorry` | `scripts/check-sorry.sh` | A `sorry` in `ZlibF.lean` or under `ZlibF/`. |
 | `no-sorry` | `scripts/check-strlit.py` | A string literal of a translation that is missing from the runtime's string table. |
-| `no-sorry` | `scripts/check-spec-layers.py` | A module under `ZlibF/Spec/Safety/` or `ZlibF/Spec/Public/` that imports, even transitively, a functional specification (`ZlibF/Spec/Functional/` or the old paths `ZlibF/Spec/Api*`, `ZlibF/Spec/Format*`). The script holds a list of the edges still allowed; an entry may be removed from that list and none may be added. |
+| `no-sorry` | `scripts/check-spec-layers.py` | A module under `ZlibF/Spec/Safety/` or `ZlibF/Spec/Common/` that imports, even transitively, a functional specification (`ZlibF/Spec/Functional/` or the old paths `ZlibF/Spec/Api*`, `ZlibF/Spec/Format*`). The script holds a list of the edges still allowed; an entry may be removed from that list and none may be added. |
 
 The fast gate does not read the registries. A green fast gate says nothing about which goals are proved.
 

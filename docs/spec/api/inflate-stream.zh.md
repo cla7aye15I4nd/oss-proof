@@ -1,4 +1,4 @@
-<!-- source-sha256: ade4fe5c758590a568ab56d9408a9592eab5c62f31e78c23feac99e826d52016 -->
+<!-- source-sha256: 2142dab155bce4b5bd225c1196ec9a5a2a5ba1874147890cdde39d34a3f8ae2e -->
 
 # 流式解压
 
@@ -72,7 +72,7 @@ int ZEXPORT inflateResetKeep(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
+- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
 - **适用条件**（该子句的前提；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -749,7 +749,7 @@ int ZEXPORT inflateSyncPoint(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
+- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
 - **适用条件**（该子句的前提；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -854,7 +854,7 @@ int ZEXPORT inflateUndermine(z_streamp strm, int subvert);
 
 **证明目标。**
 
-- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
+- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
 - **适用条件**（该子句的前提；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -907,7 +907,7 @@ int ZEXPORT inflateValidate(z_streamp strm, int check);
 
 **证明目标。**
 
-- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
+- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
 - **适用条件**（该子句的前提；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
@@ -1011,7 +1011,7 @@ unsigned long ZEXPORT inflateCodesUsed(z_streamp strm);
 
 **证明目标。**
 
-- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
+- **目标。** 不要求它有自己的目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。不过，对可达流的一次调用仍然被覆盖：它是必需的序列目标 `Goal.inflate_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)；其命题是 [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean) 中的 `StreamSequenceSafety`）第二个子句中的一步，因为 `StreamOperation` 列出了这个调用。定理：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（[public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)）。
 - **适用条件**（该子句的前提；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。

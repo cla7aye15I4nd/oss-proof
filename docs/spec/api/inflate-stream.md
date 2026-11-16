@@ -118,7 +118,7 @@ old window to remain usable by the next stream.
 
 **Proof goals.**
 
-- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
+- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
 - **Applies when** (the premises of that clause; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -907,7 +907,7 @@ This is a state query with an error code; distinguish 1, 0 and the negative erro
 
 **Proof goals.**
 
-- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
+- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
 - **Applies when** (the premises of that clause; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -1026,7 +1026,7 @@ In the default build, the return value reports refusal of permissive distance mo
 
 **Proof goals.**
 
-- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
+- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
 - **Applies when** (the premises of that clause; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -1083,7 +1083,7 @@ The result says whether wrapper validation settings were updated.
 
 **Proof goals.**
 
-- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
+- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
 - **Applies when** (the premises of that clause; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
@@ -1200,7 +1200,7 @@ This returns a count of embedded decoding-table entries, not bytes or a status c
 
 **Proof goals.**
 
-- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Public/Sequences.lean](../../../ZlibF/Spec/Public/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
+- **Goal.** None of its own is required: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A call on a reachable stream is covered all the same, as one step of the required sequence goal `Goal.inflate_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean); its statement is `StreamSequenceSafety` in [Common/Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean)), second clause: `StreamOperation` lists this call. Theorem: `Zlib.Inflate.Proofs.inflate_sequence_safety_public` ([public-inflate-sequence-safety.lean](../../../ZlibF/Proof/public-inflate-sequence-safety.lean)).
 - **Applies when** (the premises of that clause; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).

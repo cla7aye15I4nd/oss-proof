@@ -1,4 +1,4 @@
-<!-- source-sha256: 5fc2d6cdc941b3bd54bb02c484a8ebefd06bcfb1e0a9d6820d0a066ae01b31f0 -->
+<!-- source-sha256: fdcffb73f9df96b590fce7698ae744831d92b5cdf7708c18ab284642a69d66bc -->
 
 # 安全性：目标陈述了什么
 
@@ -154,13 +154,13 @@ flowchart LR
 
 一个块**存活**，指它处于已分配状态：它存有一个对象，并且没有被释放。
 
-`Frame before after changed`（[Public/Initialisation.lean](../../ZlibF/Spec/Public/Initialisation.lean)）说：
+`Frame before after changed`（[Common/Initialisation.lean](../../ZlibF/Spec/Common/Initialisation.lean)）说：
 调用前存活、且不在集合 `changed` 中的每个块，调用后内容相同，只读标志也相同。
 它还说模型的三个部分不变：库的常量表、决定以后哪些分配失败的函数（**分配预言**），
 以及给未初始化整数取值的函数（见[未初始化内存](#uninitialised-memory)）。
 新块归分配账本管，不归帧管。
 
-`BufferFrame before after changed regions`（[Public/History.lean](../../ZlibF/Spec/Public/History.lean)）
+`BufferFrame before after changed regions`（[Common/History.lean](../../ZlibF/Spec/Common/History.lean)）
 加上了调用者的字节范围。一个区域是一个指针加一个长度。调用可以写区域之内；
 同一对象中所有区域之外的字节不变，对象的大小也不变。
 目标就是这样表达“`inflate` 在 `next_out` 处至多写 `avail_out` 个字节”的。
@@ -174,7 +174,7 @@ flowchart LR
 
 ### 分配账本 {#the-leak-ledger}
 
-`LiveChange before after created removed`（[Public/Initialisation.lean](../../ZlibF/Spec/Public/Initialisation.lean)）是
+`LiveChange before after created removed`（[Common/Initialisation.lean](../../ZlibF/Spec/Common/Initialisation.lean)）是
 
 ```text
 对每个块 b：
@@ -210,7 +210,7 @@ flowchart LR
 对 `compress*` 和 `uncompress*`，目标用另一种形式表达同样的内容。
 调用后的堆等于调用前的堆写入输出字节之后的样子（对 `uncompress*` 还要写入长度单元），其他都不变。
 临时的流和它的分配都已消失：没有新的存活对象留下
-（`SameObjectsUpToTableShape`，[Public/Memory.lean](../../ZlibF/Spec/Public/Memory.lean)）。
+（`SameObjectsUpToTableShape`，[Common/Memory.lean](../../ZlibF/Spec/Common/Memory.lean)）。
 “除表形状外”只容许模型自己的簿记有所不同：内部的某张表可以多出一些空表项，
 下一个块编号和分配计数器可以已经前进。空表项不是存活的块，
 也没有任何 C 操作能观察到表的长度或这两个计数。只读标志只对调用前存活的块作比较。
@@ -235,7 +235,7 @@ flowchart LR
 关于一次调用的目标，必须说明这次调用可以从哪些状态开始。
 目标使用**可达**状态：由一段真实的调用序列产生的状态。这样一段序列叫作**历史**。
 
-一个流可达（`StreamReachable`，[Public/History.lean](../../ZlibF/Spec/Public/History.lean)），
+一个流可达（`StreamReachable`，[Common/History.lean](../../ZlibF/Spec/Common/History.lean)），
 指它是下面某一步的结果：
 
 | 步骤 | 条件 |
@@ -249,7 +249,7 @@ flowchart LR
 
 不假设之前任何调用的规格：历史是一串真实的执行。
 
-`StreamSequenceSafety`（[Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean)）有三个子句。
+`StreamSequenceSafety`（[Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean)）有三个子句。
 `Goal.inflate_sequence_safety` 和 `Goal.deflate_sequence_safety`
 （[Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean)）就是这个命题分别用于两种流。
 
@@ -271,8 +271,8 @@ flowchart LR
 （`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`）。
 
 gzip 文件接口和回调解码器的结构相同，各有自己的历史：
-`GzHistory`（[Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)）和
-`BackSafeReachable`（[Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean)）。
+`GzHistory`（[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)）和
+`BackSafeReachable`（[Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean)）。
 gz 历史在两次调用之间还有一步留给外部：文件系统和描述符（即**世界**）可以变成任何良构的状态。
 这两族的每个函数还各有自己的目标，它把序列目标的一个子句限制到这个函数上
 （[Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean)、[Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean)）。
@@ -442,8 +442,8 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 ## 附录：目标在哪里 {#where-the-goals-are}
 
 每个安全目标都是一个 Lean 定义 `ZlibF.Spec.Public.Goal.<name>`。它位于 `ZlibF/Spec/Safety/`；
-gzip 文件接口和回调解码器的序列目标、拒绝目标和非空性目标位于 `ZlibF/Spec/Public/`。
-`ZlibF/Spec/Public/` 还存放目标用到的定义。有两个例外和一点补充：
+gzip 文件接口和回调解码器的序列目标、拒绝目标和非空性目标位于 `ZlibF/Spec/Common/`。
+`ZlibF/Spec/Common/` 还存放目标用到的定义。有两个例外和一点补充：
 
 - `Goal.compressBound` 和 `Goal.compressBound_z` 在 `ZlibF/Spec/Functional/Queries.lean` 中（见下表中的那一行）。
 - 不变量和一些 gz 前提是与证明放在一起定义的：`Good` 在 `ZlibF/Proof/inflate.c.base.lean`，
@@ -452,9 +452,9 @@ gzip 文件接口和回调解码器的序列目标、拒绝目标和非空性目
 
 这两个目录中的模块都不得导入功能规格（`ZlibF/Spec/Functional/`）。
 快速关卡运行 `scripts/check-spec-layers.py`，它会拒绝这样的导入。
-脚本容许一处导入：`Public/GzState.lean` 从 `ZlibF/Spec/Api/Gz.lean` 导入 gz 模式解码器。
+脚本容许一处导入：`Public/GzState.lean` 从 `ZlibF/Spec/Functional/Api/Gz.lean` 导入 gz 模式解码器。
 gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`、各个 `Goal.gz*` 结果契约）
-也在 `ZlibF/Spec/Public/` 中；它们不是必需的（见[拆分设计](../design/safety-functional-split.md)第 4 步）。
+也在 `ZlibF/Spec/Common/` 中；它们不是必需的（见[拆分设计](../design/safety-functional-split.md)第 4 步）。
 
 | 函数 | 安全目标 | 文件 |
 | --- | --- | --- |
@@ -469,10 +469,10 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 | `compress*`、`uncompress*` | `Goal.compress*_safety`、`Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
 | `compressBound`、`compressBound_z` | `Goal.compressBound`、`Goal.compressBound_z`：完整契约。翻译是一个纯函数，不涉及堆，也不会出故障，所以单独的安全目标会按定义成立。 | [Functional/Queries.lean](../../ZlibF/Spec/Functional/Queries.lean) |
 | gzip 文件函数，以及 `gzvprintf` | `Goal.<function>_safety`：任意历史的句柄上的一次调用，连同对 `NULL` 句柄的拒绝；对三个打开函数，是打开本身 | [Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean) |
-| gzip 文件句柄的每段历史 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean)、[Public/GzRefusal.lean](../../ZlibF/Spec/Public/GzRefusal.lean) |
+| gzip 文件句柄的每段历史 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)、[Common/GzRefusal.lean](../../ZlibF/Spec/Common/GzRefusal.lean) |
 | `inflateBackInit_`、`inflateBack`、`inflateBackEnd` | `Goal.<function>_safety`：对初始化，是 `zlib.h` 允许的每一次调用；对另外两个，是历史上的调用和各种拒绝 | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
-| 回调解码器的每段历史 | `Goal.inflate_back_sequence_safety` | [Public/Sequences.lean](../../ZlibF/Spec/Public/Sequences.lean) |
-| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Public/Domains.lean](../../ZlibF/Spec/Public/Domains.lean)、[Public/GzSafety.lean](../../ZlibF/Spec/Public/GzSafety.lean) |
+| 回调解码器的每段历史 | `Goal.inflate_back_sequence_safety` | [Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean) |
+| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Common/Domains.lean](../../ZlibF/Spec/Common/Domains.lean)、[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
 `tests/audit/public-api.json` 是审计所用的清单。它为每个函数给出一个 `safety_goal` 和一个 `functional_goal`。
 必需集合是每个 `safety_goal`、`safety_goals` 列表和 `nonvacuity_goals` 列表。

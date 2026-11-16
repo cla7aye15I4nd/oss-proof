@@ -1,4 +1,4 @@
-<!-- source-sha256: cb52f6b3f8f0db09b24454ac0996e7b5126c5b429612138d2132e5f9f241d259 -->
+<!-- source-sha256: cbbeeadb8f94415f595a1847303af517aa637fd54a4a571195f67ec08b29b4d7 -->
 # 证明参考：组件、页面、定理
 
 本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理，定理在哪里。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
@@ -19,7 +19,7 @@
 
 ## 必需与非必需
 
-必需的结论是安全结论：对默认 x86_64 Linux 构建中每一个有文档的公开函数，在它的调用序列上，没有未定义行为，没有内存错误，没有泄漏，并且会终止。这些目标在 `ZlibF/Spec/Safety/` 中；gzip 文件接口和回调解码器的目标在 `ZlibF/Spec/Public/GzSafety.lean`、`ZlibF/Spec/Public/GzRefusal.lean` 和 `ZlibF/Spec/Public/Sequences.lean` 中。
+必需的结论是安全结论：对默认 x86_64 Linux 构建中每一个有文档的公开函数，在它的调用序列上，没有未定义行为，没有内存错误，没有泄漏，并且会终止。这些目标在 `ZlibF/Spec/Safety/` 中；gzip 文件接口和回调解码器的目标在 `ZlibF/Spec/Safety/GzSafety.lean`、`ZlibF/Spec/Common/GzRefusal.lean` 和 `ZlibF/Spec/Common/Sequences.lean` 中。
 
 功能结论说的是函数算出了什么：校验和的值、解码出的字节。它们不是安全结论所必需的。其中许多已经证明，每个页面都把它们单独列在一节里。其中两个，`Goal.inflate` 和 `Goal.deflate`，被其他函数的安全证明用到。见[安全与功能的划分](../design/safety-functional-split.md)。
 

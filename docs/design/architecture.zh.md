@@ -1,4 +1,4 @@
-<!-- source-sha256: cbbe029c1d434782c6f13c84a31ef65ac8c69380b9f47ffb8598862729ec6729 -->
+<!-- source-sha256: 40f0de032dff902a87095ae19612676ba832ab1766fc0f403de360c69a7f17b1 -->
 # 从 C 到已检查的定理
 
 本项目的定理说的是一个 Lean 程序，不是 C 的文本。本页展示这个程序由什么构成，让读者能够判断内核不检查的两个联系：运行时表示了 C 的操作，翻译与选定的 C 源码一致。[可信基础](../trusted-base.md)列出所有依靠审查的东西。
@@ -112,7 +112,7 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 | `ZlibF/Zlib/gzfs.lean` | 供 gz 翻译使用的文件、`errno` 和格式化的模型（[外部 I/O](external-io.md)） |
 | `ZlibF/Spec/Safety/` | 必需的安全目标 |
 | `ZlibF/Spec/Functional/` | 功能目标，以及不涉及堆的格式模型和 API 模型；不是安全结论所必需的 |
-| `ZlibF/Spec/Public/` | 两类目标共用的定义：调用、历史、帧、参数；gz 和 `inflateBack` 的序列目标、拒绝目标和非空性目标，以及它们的功能目标，也在这里（[规格的布局](safety-functional-split.md)） |
+| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数；gz 和 `inflateBack` 的序列目标、拒绝目标和非空性目标，以及它们的功能目标，也在这里（[规格的布局](safety-functional-split.md)） |
 | `ZlibF/Spec/*.lean` | 关于内部函数的命题。每一条都先对翻译后的函数证明，调用者才使用它（[见下文](#composing-calls-without-assuming-their-answers)） |
 | `ZlibF/Proof/X.c.<topic>.lean` | 关于 `zlib/X.c` 的证明 |
 | `ZlibF/Proof/public-<name>.lean` | 公开目标的证明 |

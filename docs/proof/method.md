@@ -93,10 +93,10 @@ theorem also proves that the invariant is reached.
 | `inflate` | `InflateInv` | `ZlibF/Proof/inflate.c.invariant.lean` | [stream decoding](inflate.md#the-invariant) |
 | `deflate` | `DInv`, with `HeaderInv` and `CallFacts` between calls | `ZlibF/Proof/deflate.c.universal-invariant.lean` | [stream compression](deflate.md#the-invariant) |
 | gzip files | `GzInv` | `ZlibF/Proof/gz.inv-model.lean` | [gzip files](gzip.md) |
-| callback decoder | `BackValid` between calls, `PInv` inside the dispatch loop | `ZlibF/Spec/Public/Back.lean`, `ZlibF/Proof/infback.c.safety-inv.lean` | [callback decoder](callbacks.md) |
+| callback decoder | `BackValid` between calls, `PInv` inside the dispatch loop | `ZlibF/Spec/Common/Back.lean`, `ZlibF/Proof/infback.c.safety-inv.lean` | [callback decoder](callbacks.md) |
 
 The sequence goals state the invariant through a smaller public predicate, `StreamInvariant`
-(`ZlibF/Spec/Public/Sequences.lean`). The proof invariants imply it.
+(`ZlibF/Spec/Common/Sequences.lean`). The proof invariants imply it.
 
 Other modules use a small set of interface lemmas of an invariant and do not unfold its
 definition. A change to the invariant then rebuilds its interface and not every module that

@@ -1,4 +1,4 @@
-<!-- source-sha256: a4b81880974b8ae398d691eccf985a1bc2f12d88856cbfd072dbaa9def847b58 -->
+<!-- source-sha256: 8cb265fe779a1dba9358a791b860b3fd686ed13ab9d315fec7ecc332534bbc31 -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -11,8 +11,8 @@
 
 | 目标 | 定理 | 模块 |
 | --- | --- | --- |
-| `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Public/Sequences.lean`） | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
-| `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Public/Domains.lean`） | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Common/Sequences.lean`） | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
+| `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Common/Domains.lean`） | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
 | `Goal.inflateBackInit__safety`、`Goal.inflateBack_safety`、`Goal.inflateBackEnd_safety`（`ZlibF/Spec/Safety/Back.lean`） | `BackSafetyProof.inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
 五个都是必需的。第一个是关于历史的安全结论，第二个表明它的前提可以被满足。后三个是三个函数各自的安全目标。
@@ -112,7 +112,7 @@ sequenceDiagram
 | 调用者的第一个输入片段可读，并且与窗口分离：它是 `strm->next_in` 处的 `strm->avail_in` 个字节；`strm->next_in` 为 `NULL` 时没有字节。 | 子句 3 中的 `Bytes` 和 `Separate` | 回调 |
 | 在两次调用之间，调用者只改动流不拥有的内存和流记录的四个缓冲区字段。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 | `BackSafeReachable.caller` | 调用之间调用者的修改（`BackSafeReachable.caller`） |
 
-完整的列表就是命题本身：`ZlibF/Spec/Public/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety`、
+完整的列表就是命题本身：`ZlibF/Spec/Common/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety`、
 `BackSafeReachable` 和 `BackInitArguments`。这张表里的前提，也是 `Goal.inflateBack_safety` 和
 `Goal.inflateBackEnd_safety` 中关于历史的子句的前提。
 
@@ -128,7 +128,7 @@ sequenceDiagram
 
 ## 调用者协议
 
-`CallbackProtocol`（`ZlibF/Spec/Public/Back.lean`）说明两个回调可以做什么。它的各个部分由定理的调用者选择：
+`CallbackProtocol`（`ZlibF/Spec/Common/Back.lean`）说明两个回调可以做什么。它的各个部分由定理的调用者选择：
 
 - `own`：属于回调的堆块的集合。它不包含状态记录和流记录。
 - `invariant`：关于堆和一份日志的一个性质。日志（`BackLog`）记录到此为止提供的字节（先是调用者的第一个片段，然后是 `in`
@@ -145,7 +145,7 @@ sequenceDiagram
 | `liveInput` | 在不变量之下，当前的输入片段可读。 |
 | `bounded` | 在不变量之下，到此为止提供的字节数（包括调用者的第一个片段）至多是 `inputBound`。 |
 
-这张表是摘要。完整的命题是 `ZlibF/Spec/Public/Back.lean` 中的结构 `CallbackProtocol`。
+这张表是摘要。完整的命题是 `ZlibF/Spec/Common/Back.lean` 中的结构 `CallbackProtocol`。
 
 “只改动自己的块”（`ExternalFrame`）允许回调分配和释放它自己的块。它创建的每个块都是它自己的块，堆保持良构。它不能改变一个保持存活的块是否只读：C
 代码没有办法做到这一点。

@@ -28,7 +28,7 @@ target. [Progress](../../progress.md) records the level of each goal.
 Every function on this page that the default build compiles has its own required safety goal,
 `Goal.<function>_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)). Its
 entry states it under **Proof goals**. `gzopen_w` is Windows-only and has none. Each of these goals restricts one clause of the sequence goal
-`Goal.gz_sequence_safety` ([GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)) to the calls
+`Goal.gz_sequence_safety` ([GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)) to the calls
 of one function. The goal of a function that takes a handle also has that function's clause of
 `Goal.gz_refusal`, the refusal of a NULL handle. The sequence goal is required as well. It adds
 the invariant clause of the table below, which is about histories and not about one call.
@@ -111,7 +111,7 @@ one into a block that the call frees. A frame that named `buf` would be false th
 when `len >= 1`, and `gzerror` names 4 bytes at `errnum`.
 
 **NULL handle and non-vacuity.** `Goal.gz_refusal`
-([GzRefusal.lean](../../../ZlibF/Spec/Public/GzRefusal.lean)) states that every gz function
+([GzRefusal.lean](../../../ZlibF/Spec/Common/GzRefusal.lean)) states that every gz function
 that takes a handle returns its documented value on NULL, with the heap and the world unchanged.
 The own goal of each such function repeats its clause. `Goal.gz_sequence_nonvacuity` shows that the premises can be met: a `gzopen` reader with a finite
 read budget and a one-byte `gzread`, and a `gzdopen` writer and a one-byte `gzwrite`.
@@ -203,15 +203,15 @@ not as a general explanation of every failed API call.
 The source is [gzlib.c](../../../zlib/gzlib.c),
 [gzread.c](../../../zlib/gzread.c), [gzwrite.c](../../../zlib/gzwrite.c),
 [gzclose.c](../../../zlib/gzclose.c) and [zlib.h](../../../zlib/zlib.h).
-The sequence safety goal is in [GzSafety](../../../ZlibF/Spec/Public/GzSafety.lean), the
+The sequence safety goal is in [GzSafety](../../../ZlibF/Spec/Safety/GzSafety.lean), the
 safety goal of each function in [GzCalls](../../../ZlibF/Spec/Safety/GzCalls.lean) and the
-NULL-handle goal in [GzRefusal](../../../ZlibF/Spec/Public/GzRefusal.lean).
+NULL-handle goal in [GzRefusal](../../../ZlibF/Spec/Common/GzRefusal.lean).
 The abstract contracts are in [Functional/Api/Gz.lean](../../../ZlibF/Spec/Functional/Api/Gz.lean).
-The functional goals are in [GzOpen](../../../ZlibF/Spec/Public/GzOpen.lean),
-[GzRead](../../../ZlibF/Spec/Public/GzRead.lean),
-[GzWrite](../../../ZlibF/Spec/Public/GzWrite.lean),
-[GzControl](../../../ZlibF/Spec/Public/GzControl.lean) and
-[GzClose](../../../ZlibF/Spec/Public/GzClose.lean).
+The functional goals are in [GzOpen](../../../ZlibF/Spec/Functional/GzOpen.lean),
+[GzRead](../../../ZlibF/Spec/Functional/GzRead.lean),
+[GzWrite](../../../ZlibF/Spec/Functional/GzWrite.lean),
+[GzControl](../../../ZlibF/Spec/Functional/GzControl.lean) and
+[GzClose](../../../ZlibF/Spec/Functional/GzClose.lean).
 The translations mirror the C names in `ZlibF/Zlib/`.
 
 ## gzopen
@@ -246,7 +246,7 @@ invalid strings. **Effect:** stateful open and ownership acquisition.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Goal.** `Goal.gzopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
 - **Applies when** (`GzOpenSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -312,7 +312,7 @@ The result tells you whether opening acquired a new gzip file handle.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzopen64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Goal.** `Goal.gzopen64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
 - **Applies when** (`GzOpenSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);
@@ -373,7 +373,7 @@ write, seek or close this descriptor while the handle owns it.
 
 **Proof goals.**
 
-- **Goal.** `Goal.gzdopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzDopenSafe` ([Public/GzSafety.lean](../../../ZlibF/Spec/Public/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Goal.** `Goal.gzdopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzDopenSafe` ([Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
 - **Applies when** (`GzDopenSafe`):
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. the platform size bound holds (`ByteObjectsFit`);

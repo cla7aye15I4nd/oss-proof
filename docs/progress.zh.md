@@ -1,4 +1,4 @@
-<!-- source-sha256: 6ba9c4b54c5b3f9a3d43029354e117a626f6b211230493ef9d4cd30e960924bb -->
+<!-- source-sha256: 9d3776a3a3c5dfc8a98828289f9ee1cc1bb1d37f4ac666fba58dd1eb17aa47b7 -->
 # 证明进度与剩余工作
 
 本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)。某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)：那一页把每个函数对应到它的定理，不写层级。
@@ -57,7 +57,7 @@
 从 `bde170e9` 到本页之间，有以下改动：
 
 - **每个 gz 函数和每个回调解码器函数都有了自己的安全目标。** 新增 35 个目标：31 个有文档的 gz 函数各一个，`gzvprintf` 一个，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 各一个（`ZlibF/Spec/Safety/GzCalls.lean`、`ZlibF/Spec/Safety/Back.lean`；证明在 `ZlibF/Proof/public-gz-call-safety.lean` 和 `ZlibF/Proof/public-back-safety.lean`）。它们在提交 `0cdd7bdd` 中登记：`tests/audit/` 下的登记表增加了这 35 个目标和它们的 35 条定理，清单文件为每个函数写明它自己的目标，`scripts/verification.py` 不再允许几个函数共用一个安全目标。必需目标从 63 个增加到 98 个。此前，gz 函数写的是 `Goal.gz_sequence_safety`，三个回调函数写的是 `Goal.inflate_back_sequence_safety`。这 35 个目标已登记、未验收：快速关卡在 `3fdbbc38` 上全部通过。
-- **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Public/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式已登记、未验收。
+- **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Common/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式已登记、未验收。
 
 - **四个初始化安全目标扩大了范围。** `Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 对 `zlib.h` 允许的每次调用都成立（提交 `101c6ab3`，`ZlibF/Spec/Safety/Initialisation.lean`；证明在 `8642e435`，`ZlibF/Proof/public-init-safety.lean`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。范围扩大之后的四个目标已检查、已登记，尚未验收：快速关卡在 `8642e435` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是较窄的形式。
 - **流安全目标陈述了对 `NULL` 流或不一致的流的拒绝。** `ZlibF/Spec/Safety/Streams.lean` 中的 23 个单函数流安全目标各增加了一个拒绝子句：十个 inflate 目标和十三个 deflate 目标，其中包括 `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.inflateEnd_safety` 和 `Goal.deflateEnd_safety`。两个复制目标 `Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety`（`ZlibF/Spec/Safety/Copy.lean`）陈述了对每一个被拒绝的源的拒绝（提交 `71188823`；证明在 `0c45d863`，`ZlibF/Proof/public-stream-call-safety.lean`、`ZlibF/Proof/public-inflate-copy-safety.lean` 和 `ZlibF/Proof/public-deflate-copy.lean`）。此前，流目标只覆盖对可达流的调用；`Goal.inflateCopy_safety` 没有针对不一致的源的子句，`Goal.deflateCopy_safety` 的那个子句只覆盖 `zalloc`、`zfree` 或 `state` 为 `NULL` 的源。每个目标的现行形式都蕴含它的早先形式（`ZlibF/Proof/public-stream-refusal-strengthening.lean`）。目标及其定理的名字没有变，所以登记表没有变。现行形式的这 25 个目标已检查、已登记，尚未验收：快速关卡在 `2ef5694c` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是早先的形式。

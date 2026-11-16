@@ -13,8 +13,8 @@ Terms: [glossary](../glossary.md).
 
 | Goal | Theorem | Module |
 | --- | --- | --- |
-| `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Public/Sequences.lean`) | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
-| `Goal.inflate_back_initialisation_domain` (`ZlibF/Spec/Public/Domains.lean`) | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Common/Sequences.lean`) | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
+| `Goal.inflate_back_initialisation_domain` (`ZlibF/Spec/Common/Domains.lean`) | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
 | `Goal.inflateBackInit__safety`, `Goal.inflateBack_safety`, `Goal.inflateBackEnd_safety` (`ZlibF/Spec/Safety/Back.lean`) | `BackSafetyProof.inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
 All five are required. The first is the safety result over histories, and the second shows that
@@ -134,7 +134,7 @@ its own theorem.
 | Between two calls the caller changes only memory the stream does not own and the four buffer fields of the stream record. The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. | `BackSafeReachable.caller` | Caller edits between calls (`BackSafeReachable.caller`) |
 
 The complete list is the statement itself: `Goal.inflate_back_sequence_safety`,
-`BackSafeReachable` and `BackInitArguments` in `ZlibF/Spec/Public/Sequences.lean`. The premises
+`BackSafeReachable` and `BackInitArguments` in `ZlibF/Spec/Common/Sequences.lean`. The premises
 of this table are also those of the history clauses of `Goal.inflateBack_safety` and
 `Goal.inflateBackEnd_safety`.
 
@@ -154,7 +154,7 @@ requirement `bounded` below limits the length of that log.
 
 ## The caller protocol
 
-`CallbackProtocol` (`ZlibF/Spec/Public/Back.lean`) says what the two callbacks may do. The
+`CallbackProtocol` (`ZlibF/Spec/Common/Back.lean`) says what the two callbacks may do. The
 caller of the theorem chooses its parts:
 
 - `own`: the set of heap blocks that belong to the callbacks. It excludes the state record and
@@ -175,7 +175,7 @@ The protocol then requires five things of `in` and `out`.
 | `bounded` | Under the invariant, the bytes supplied so far, the caller's first chunk included, number at most `inputBound`. |
 
 The table is a summary. The complete statement is the structure `CallbackProtocol` in
-`ZlibF/Spec/Public/Back.lean`.
+`ZlibF/Spec/Common/Back.lean`.
 
 "Changes only its own blocks" (`ExternalFrame`) allows a callback to allocate and free blocks
 of its own. Every block it creates is one of its own, and the heap stays well formed. It cannot

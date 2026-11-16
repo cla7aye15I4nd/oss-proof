@@ -14,7 +14,7 @@ Every byte object in the model has fewer than `2^63` bytes: buffers the caller p
 blocks the library allocates, static arrays, and byte arrays embedded in a record.
 
 The Lean predicate is `ZlibF.PlatformMemory.ByteObjectsFit` in
-[PlatformMemory.lean](../../ZlibF/Spec/PlatformMemory.lean):
+[PlatformMemory.lean](../../ZlibF/Spec/Common/PlatformMemory.lean):
 
 ```text
 for every byte object reference ref and array a:

@@ -17,7 +17,7 @@ how the translation follows the C are in the
 
 | Result | Theorem | Module under `ZlibF/Proof/` |
 | --- | --- | --- |
-| `Goal.fast_safe` (`ZlibF/Spec/InflateFast.lean`): under the entry conditions, the call returns without a fault; the postcondition `FastPost` says exactly what changed | `inflate_fast_safe` | `inffast.c.final.lean` |
+| `Goal.fast_safe` (`ZlibF/Spec/Common/Inflate/InflateFast.lean`): under the entry conditions, the call returns without a fault; the postcondition `FastPost` says exactly what changed | `inflate_fast_safe` | `inffast.c.final.lean` |
 | One round of the loop is safe: at most 6 bytes read, at most 258 written, at least one written if the loop continues (`Goal.step_safe`) | `inflate_fast_body_step_safe` | `inffast.c.body.lean` |
 | The static fixed tables have the table shape | `lenfix_tableSafe`, `distfix_tableSafe` | `inffast.c.tableok.lean` |
 | The same safety statement, and: a call that does not end in mode `TYPE` or `BAD` leaves less output room than it found | `inflate_fast_safe_progress` | `inffast.c.progress.lean` |
