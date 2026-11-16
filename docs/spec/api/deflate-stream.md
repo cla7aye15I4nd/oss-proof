@@ -106,10 +106,6 @@ The result separates an established compressor from compatibility, argument and 
 | `Z_MEM_ERROR`<br>**State allocation failed** | The initial state allocation fails; state retains its entry value and no newly allocated block remains live. | After addressing memory pressure, retry under the init preconditions; this failure needs no deflateEnd. |
 | `Z_MEM_ERROR`<br>**Buffer allocation failed and cleaned up** | After state allocation succeeds, all four buffer allocations are attempted. Any failure releases every new block, sets state to NULL and reports insufficient memory in msg. | Cleanup is complete for this call; address memory pressure before initializing again. |
 
-**Reading the result.**
-
-- No input is consumed and no output is written. Level -1 selects 6.
-
 ### Calling conditions and effects {#api-deflateinit_-contract}
 
 **Domain:** Restricted domain. **Effect:** allocate and initialise.
@@ -125,7 +121,7 @@ initialised as above. `level` is -1 or 0..9. `version` has a readable first byte
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. `version` is NULL or its first byte is readable (`VersionValue`);
     3. `strm` is NULL, or points to a readable stream record whose `zalloc` and `zfree` are each NULL or the default function (`DefaultOrNull`).
-- **Covered without condition.** Every `level`, valid or not; every `stream_size`; every value of the first byte of `version`; every value of the other fields of the record, `state` included; every allocation outcome. The goal is wider than Pre: it also covers a NULL `strm`, a wrong version or `stream_size`, and a record whose `state` is not NULL. If that record was a live stream, the call still returns, but the old state stays allocated and the record no longer points to it: the account records that leak, it does not exclude it.
+- **Covered without condition.** Every `level`, valid or not; every `stream_size`; every value of the first byte of `version`; every value of the other fields of the record, `state` included; every allocation outcome. If the record was a live stream, the call still returns, but the old state stays allocated and the record no longer points to it: the account records that leak, it does not exclude it.
 - **Guarantees** (`InitResultSafe`).
     - *Returns.* The call returns. With a NULL `strm` the code is `Z_VERSION_ERROR` or `Z_STREAM_ERROR`.
     - *State.* With `Z_OK`, `strm` is a reachable stream.
@@ -177,7 +173,7 @@ The result separates an established compressor from compatibility, argument and 
 
 **Reading the result.**
 
-- No input is consumed and no output is written. Level -1 selects 6.
+- Level -1 selects 6.
 
 ### Calling conditions and effects {#api-deflateinit2_-contract}
 
@@ -194,7 +190,7 @@ The result separates an established compressor from compatibility, argument and 
     1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
     2. `version` is NULL or its first byte is readable (`VersionValue`);
     3. `strm` is NULL, or points to a readable stream record whose `zalloc` and `zfree` are each NULL or the default function (`DefaultOrNull`).
-- **Covered without condition.** Every `level`, `method`, `windowBits`, `memLevel` and `strategy`, valid or not; every `stream_size`; every value of the first byte of `version`; every value of the other fields of the record, `state` included; every allocation outcome. The goal is wider than Pre: it also covers a NULL `strm`, a wrong version or `stream_size`, and a record whose `state` is not NULL. If that record was a live stream, the call still returns, but the old state stays allocated and the record no longer points to it: the account records that leak, it does not exclude it.
+- **Covered without condition.** Every `level`, `method`, `windowBits`, `memLevel` and `strategy`, valid or not; every `stream_size`; every value of the first byte of `version`; every value of the other fields of the record, `state` included; every allocation outcome. If the record was a live stream, the call still returns, but the old state stays allocated and the record no longer points to it: the account records that leak, it does not exclude it.
 - **Guarantees** (`InitResultSafe`).
     - *Returns.* The call returns. With a NULL `strm` the code is `Z_VERSION_ERROR` or `Z_STREAM_ERROR`.
     - *State.* With `Z_OK`, `strm` is a reachable stream.
@@ -247,10 +243,6 @@ The result says whether preset history was accepted; the dictionary is not emitt
 | --- | --- | --- |
 | `Z_OK`<br>**History loaded** | Dictionary and stream preconditions hold; history retains an available suffix of at most one window, while the zlib checksum covers the full dictionary. | Begin compression; a decoder requiring preset history must receive the same dictionary. next_in and avail_in are restored and no output is delivered. |
 | `Z_STREAM_ERROR`<br>**Dictionary conditions refused** | The stream check fails, or the request uses gzip, a NULL dictionary, zlib past its initial state, nonzero lookahead, or raw input outside a completed block boundary; no stream changes occur. | Establish legal dictionary-call conditions. If an existing live stream remains, use a legal operation or deflateEnd. |
-
-**Reading the result.**
-
-- The safety goal and the functional goal both cover a raw dictionary replaced at a legal block boundary and repeated zlib calls before the first deflate; repeated zlib calls accumulate Adler-32.
 
 ### Calling conditions and effects {#api-deflatesetdictionary-contract}
 
@@ -316,10 +308,6 @@ The status reports query success; optional output parameters carry the actual hi
 | `Z_OK`<br>**History query complete** | For a live stream, a non-NULL dictionary receives the last n bytes of the window region, and a non-NULL dictLength receives n, where n = min(strstart + lookahead, window size). | Use the requested results; either output may be omitted independently, and the unchanged stream can continue legally. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check fails before normal operation; neither the stream nor result cells are written. | Establish a live stream and the call preconditions; this result does not complete the operation. |
 
-**Reading the result.**
-
-- The byte count includes accepted lookahead; it need not contain a full window of all past input.
-
 ### Calling conditions and effects {#api-deflategetdictionary-contract}
 
 **Domain:** Restricted domain. **Effect:** query with optional output buffers.
@@ -334,7 +322,7 @@ window; `dictLength` is NULL or a valid scalar output cell.
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `dictionary` is NULL or points to `min(w_size, strstart + lookahead)` writable bytes, the number the call copies, outside the stream's own blocks (`CallerRange`).
-- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre, which asks for one whole window of room. `dictLength` is a value in the translation, not memory ([shared conventions](#shared-conventions)), so the goal asks nothing of that pointer. In the refusal: every refused stream and every value of the other arguments.
+- **Covered without condition.** Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. `dictLength` is a value in the translation, not memory ([shared conventions](#shared-conventions)), so the goal asks nothing of that pointer. In the refusal: every refused stream and every value of the other arguments.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR` and stores no length. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
@@ -369,10 +357,6 @@ The result says whether output progress was reset; success retains history that 
 | --- | --- | --- |
 | `Z_OK`<br>**Progress reset; history retained** | The stream is live in any phase. Counters, checksum and wrapper progress reset; pending output and unfinished lookahead are discarded, and the gzip header pointer is cleared. | Continue only with history retention accounted for; use deflateReset for empty history. The stream still owns its allocations. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check fails before normal operation; neither the stream nor result cells are written. | Establish a live stream and the call preconditions; this result does not complete the operation. |
-
-**Reading the result.**
-
-- This entry is undocumented. I/O pointers and available counts are unchanged; no allocation or free occurs, and level, strategy and tuning are retained.
 
 ### Calling conditions and effects {#api-deflateresetkeep-contract}
 
@@ -414,10 +398,6 @@ The result says whether the stream is ready for reuse with empty history. Succes
 | --- | --- | --- |
 | `Z_OK`<br>**Reset to empty history** | The stream is live in any phase, including after Z_STREAM_END. Counters, wrapper and pending progress reset; history and dictionary are forgotten, tuning returns to current-level defaults and the gzip header pointer is cleared. | Supply buffers for the new task and register its dictionary or gzip header if needed. Eventually call deflateEnd. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check fails before normal operation; neither the stream nor result cells are written. | Establish a live stream and the call preconditions; this result does not complete the operation. |
-
-**Reading the result.**
-
-- Unfinished input and undelivered output are discarded; I/O pointers and counts are unchanged, while level, strategy, wrapper and memory settings are retained.
 
 ### Calling conditions and effects {#api-deflatereset-contract}
 
@@ -468,10 +448,6 @@ The result says whether the gzip header pointer was registered; success does not
 | --- | --- | --- |
 | `Z_OK`<br>**Header pointer registered** | A live gzip stream accepts head; NULL selects defaults, while a non-NULL header remains caller-owned and no header bytes are copied or emitted yet. | Keep the record and optional fields alive and unchanged through header emission; continue with deflate. Either reset clears the pointer. |
 | `Z_STREAM_ERROR`<br>**Stream refuses gzip header** | The stream check fails or the wrapper is not gzip; nothing changes. | Register under the header-call preconditions on a live gzip stream; an existing live stream can still continue legally or end. |
-
-**Reading the result.**
-
-- Focused use registers before the first deflate; late registration is accepted but does not rewrite already emitted header bytes.
 
 ### Calling conditions and effects {#api-deflatesetheader-contract}
 
@@ -533,7 +509,7 @@ The status says whether the requested values fit their output types; pending byt
 
 **Reading the result.**
 
-- For normal compression history, bits is 0..7; it is the current pending bit count, not the last-flush count reported by deflateUsed.
+- bits is the current pending bit count, not the last-flush count reported by deflateUsed.
 
 ### Calling conditions and effects {#api-deflatepending-contract}
 
@@ -585,10 +561,6 @@ The return value is query status; optional bits carries the bit use at the last 
 | --- | --- | --- |
 | `Z_OK`<br>**Saved bit use read** | The stream is live; a non-NULL bits receives the stored value. In normal history it is 1..8 after a byte-boundary flush, or 0 if none occurred since init or reset. | Use the saved result, or omit it with NULL; the stream is unchanged and may continue legally. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check fails before normal operation; neither the stream nor result cells are written. | Establish a live stream and the call preconditions; this result does not complete the operation. |
-
-**Reading the result.**
-
-- The stored value differs from the current pending bits from deflatePending.
 
 ### Calling conditions and effects {#api-deflateused-contract}
 
@@ -644,7 +616,7 @@ The result says whether a bit fragment joined pending output. A buffer-space ref
 
 **Reading the result.**
 
-- The implementation does not check wrapper or first-call timing; accepting a fragment alone does not guarantee ordinary stream validity after arbitrary insertion. No allocation occurs.
+- The implementation does not check wrapper or first-call timing; accepting a fragment alone does not guarantee ordinary stream validity after arbitrary insertion.
 
 ### Calling conditions and effects {#api-deflateprime-contract}
 
@@ -661,7 +633,7 @@ when interpreting the later compressed stream.
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. no `deflate` call has started the stream since init or `deflateReset`: its status is still `INIT_STATE` or `GZIP_STATE` (`DeflateNotStarted`).
-- **Covered without condition.** Every `bits` and `value`; every wrapper. The goal is wider than Pre, which asks for a raw stream and `bits` in 0..16. The call order is the same as in Pre. In the refusal: every refused stream and every value of the other arguments.
+- **Covered without condition.** Every `bits` and `value`; every wrapper. The call order is the same as in Pre. In the refusal: every refused stream and every value of the other arguments.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
@@ -705,10 +677,6 @@ The result says whether the new level and strategy were installed. Completing th
 | `Z_STREAM_ERROR`<br>**Required flush refused** | The arguments are valid, but a required deflate(Z_BLOCK) returns Z_STREAM_ERROR, for example after finishing began or when buffer conditions fail; new settings are not installed. | Determine the stream phase and the buffer conditions the call started in. Once finishing began, follow the Z_FINISH protocol, or legally reset/end. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check fails before normal operation; neither the stream nor result cells are written. | Establish a live stream and the call preconditions; this result does not complete the operation. |
 
-**Reading the result.**
-
-- For an exact input boundary, first complete deflate(Z_BLOCK) until avail_out is nonzero, and supply no new input before changing parameters.
-
 ### Calling conditions and effects {#api-deflateparams-contract}
 
 **Domain:** Restricted domain. **Effect:** update settings; may consume input and emit output.
@@ -724,7 +692,7 @@ The result says whether the new level and strategy were installed. Completing th
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. conditions 3 to 6 of [deflate](#deflate) on the buffers and the gzip header (`StreamBuffers`, `ActiveHeader`): the call can run `deflate(strm, Z_BLOCK)`.
-- **Covered without condition.** Every `level` and `strategy`, valid or not. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. The goal is wider than Pre in the argument values, in the phase, and in the buffers (as for [deflate](#deflate)). In the refusal: every refused stream and every value of the other arguments.
+- **Covered without condition.** Every `level` and `strategy`, valid or not. Every reachable stream, in every phase: before the first `deflate`, mid-stream, while finishing, and after `Z_STREAM_END`. In the refusal: every refused stream and every value of the other arguments.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
@@ -774,16 +742,12 @@ the C rule given below.
 
 **Return type.** `int` — zlib status code
 
-The result only reports whether the four tuning fields were stored; it does not guarantee later compression properties for arbitrary values.
+The result only reports whether the four tuning fields were stored.
 
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
 | `Z_OK`<br>**Tuning stored** | A live stream accepts every int argument; good_length, max_lazy and max_chain convert to unsigned, while nice_length remains signed. No input is consumed or output delivered. | Choose tuning suitable for subsequent compression; deflateReset or a level change via deflateParams restores standard values. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check fails before normal operation; neither the stream nor result cells are written. | Establish a live stream and the call preconditions; this result does not complete the operation. |
-
-**Reading the result.**
-
-- The C recommends max_lazy >= 3 and max_chain >= 4.
 
 ### Calling conditions and effects {#api-deflatetune-contract}
 
@@ -812,8 +776,11 @@ The result only reports whether the four tuning fields were stored; it does not 
 **Post:** return `Z_OK`. Store `good_length`, `max_lazy` and `max_chain` after conversion
 to unsigned, and `nice_length` as signed. No input is consumed, no output is delivered and
 no allocation occurs. A changed level in `deflateParams`, or `deflateReset`, restores
-standard tuning. This setter contract alone does not establish later compression bounds
-for every tuning choice; the C recommends `max_lazy >= 3` and `max_chain >= 4`.
+standard tuning. A comment in `deflate.c` says that the `deflate()` code requires
+`max_lazy >= MIN_MATCH` (`MIN_MATCH` is 3) and `max_chain >= 4`; `deflateTune` does not check
+the four values. The call leaves a reachable stream, so the safety goals of later calls cover
+the stream after any tuning values. No goal states a compression bound for a stream after
+`deflateTune`.
 
 </details>
 
@@ -840,11 +807,6 @@ The return is an output-capacity bound in bytes, not a zlib status code. It can 
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
 | `bound`<br>**Output byte bound** | For a live stream, the formula uses the current window, memory level, compression level, strategy and full wrapper size; NULL or a safely checkable invalid stream uses the larger fixed/stored formula plus 18. All results saturate at SIZE_MAX and leave the heap unchanged. | Apply the stated capacity guarantee only after init/setup and before compression, with fixed configuration/dictionary/header, standard tuning and no prime bits; buffer representability and avail_in/avail_out capacity conditions must also hold. |
-
-**Reading the result.**
-
-- SIZE_MAX may be exact or saturated; it does not promise an addressable buffer of that size. There is no error code.
-- Under the capacity premises, giving all input and at least this much output room to one deflate(Z_FINISH) must yield Z_STREAM_END; a schedule of only Z_NO_FLUSH then Z_FINISH has the total-output bound, while other flushes may exceed it.
 
 ### Calling conditions and effects {#api-deflatebound_z-contract}
 
@@ -923,11 +885,6 @@ This returns the uLong form of the deflateBound_z bound, still in bytes. ULONG_M
 | --- | --- | --- |
 | `bound`<br>**uLong output byte bound** | The deflateBound_z value is returned if it fits uLong; otherwise the result is ULONG_MAX. NULL or a safely checkable invalid stream uses its conservative fallback formula too. The stream is unchanged. | For capacity planning, follow deflateBound_z conditions on setup timing, fixed settings, tuning, no prime bits, buffers and flush schedule. |
 
-**Reading the result.**
-
-- ULONG_MAX may be exact or capped; numerical equality alone adds no capacity guarantee.
-- On default LP64, uLong and z_size_t are both 64 bits, so the two queries agree.
-
 ### Calling conditions and effects {#api-deflatebound-contract}
 
 **Domain:** Restricted domain, as `deflateBound_z`; every `uLong sourceLen` is included.
@@ -992,8 +949,7 @@ The result separates continuation, completion of the whole compressed stream, an
 
 **Reading the result.**
 
-- The status is not a byte count; I/O pointers, avail_in/avail_out and total_in/total_out record actual progress. The call allocates and frees nothing.
-- A completed nonterminal flush still returns Z_OK, not stream completion; use output room and the flush protocol to determine boundary completion. Error returns can still change msg or the remembered flush.
+- A completed nonterminal flush still returns Z_OK, not stream completion; use output room and the flush protocol to determine boundary completion.
 
 ### Calling conditions and effects {#api-deflate-contract}
 
@@ -1082,10 +1038,6 @@ The result distinguishes the compression phase before release. Both Z_OK and Z_D
 | `Z_DATA_ERROR`<br>**Unfinished task released** | The live stream’s saved status is BUSY_STATE, reporting unfinished compression; all stream allocations are nevertheless freed and state is NULL. | Do not call deflateEnd again for cleanup; unfinished compression has been abandoned, and further compression requires initialization. |
 | `Z_STREAM_ERROR`<br>**End refused** | The stream check fails, including a second End; this call frees nothing. | Do not treat this result as successful release; establish the actual stream lifetime before any compression or attempted cleanup. |
 
-**Reading the result.**
-
-- The status depends on internal phase, not merely whether all output was delivered. Caller input, output and header storage remain caller-owned and are not freed.
-
 ### Calling conditions and effects {#api-deflateend-contract}
 
 **Domain:** Restricted domain. **Effect:** free owned state.
@@ -1139,10 +1091,6 @@ The result says whether the destination gained independent compression state. Fa
 | `Z_STREAM_ERROR`<br>**Null destination** | dest is NULL and copying does not begin. | Provide a writable destination distinct from the source and owning no state, then follow the copy preconditions. |
 | `Z_STREAM_ERROR`<br>**Source check failed** | The destination is non-NULL but the source check fails; dest->state is cleared and no copy allocations occur. | Establish a live source and use only a distinct destination owning no state; this result does not mean any arbitrary preexisting destination state was freed. |
 
-**Reading the result.**
-
-- The contract excludes self-copy and overwriting a live destination; those cases have no leak-free guarantee.
-
 ### Calling conditions and effects {#api-deflatecopy-contract}
 
 **Domain:** Restricted domain. **Effect:** allocate and copy owned state.
@@ -1156,13 +1104,13 @@ separate from the source's memory. Source buffers and any retained header satisf
 - **Applies when.** The refusal of a NULL `dest` has no condition. The refusal of a NULL `source` asks that `dest` points to a readable stream record. The refusal of a refused `source` asks that `dest` points to a readable stream record, and that `source` is not NULL and is a refused stream (`RefusedDeflate`); it does not ask that `dest` and `source` differ. The main clause asks:
     1. `source` is a reachable stream (`StreamReachable`). The statement also takes its invariant and default allocator as hypotheses (`DGood`, `DefAlloc`); every reachable stream has them (`Goal.deflate_sequence_safety`, first clause);
     2. `dest` points to a readable stream record that is not the `source` record (`source ≠ dest`). The platform size bound is not asked.
-- **Covered without condition.** Every content of the `dest` record; every allocation outcome. In the refusals: every content of the `dest` record, every refused `source`, and, when `dest` is NULL, every `source` pointer. The goal is wider than Pre: `dest` may hold any field values. If `dest` was a live stream, its old state stays allocated and the record no longer points to it.
+- **Covered without condition.** Every content of the `dest` record; every allocation outcome. In the refusals: every content of the `dest` record, every refused `source`, and, when `dest` is NULL, every `source` pointer. If `dest` was a live stream, its old state stays allocated and the record no longer points to it.
 - **Guarantees.**
     - *Returns.* With a NULL `dest`, a NULL `source` or a refused `source`, the call returns `Z_STREAM_ERROR`. From a reachable source the call returns, with `Z_OK` or `Z_MEM_ERROR`. `Z_MEM_ERROR` is returned only after an allocation failed (`AllocationFailed`).
     - *State.* From a reachable source: the `source` record and its state are unchanged. With `Z_OK`, `dest` satisfies the stream invariant (`StreamInvariant`), and is a reachable stream by the definition of `StreamReachable`. With `Z_MEM_ERROR`, `dest->state` is NULL and the other fields of `dest` are unchanged.
     - *Writes.* With a NULL `dest`, nothing: the heap is unchanged. With a NULL or refused `source`, only `dest->state`, which is set to NULL; the other fields of `dest` and the rest of the heap are unchanged. From a reachable source, only the `dest` record and blocks the call itself allocates.
     - *Allocations.* In the three refusals nothing is allocated and nothing is freed. From a reachable source: with `Z_OK`, the new blocks are exactly five: the new state record and its four buffers (`window`, `prev`, `head`, `pending_buf`). Nothing is freed. The safety goal does not say that `dest->state` points to this record; the functional goal `Goal.deflateCopy` does. With `Z_MEM_ERROR` the allocated blocks are the same as before the call.
-- **Not in this goal.** A `source` record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers a copy from such a source ([deviations](../../deviations.md#note-2-refused-streams)). `dest == source` with a reachable source: no goal covers this call ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.deflateCopy` (not planned; a theorem proves it).
+- **Not in this goal.** A `source` record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers a copy from such a source ([deviations](../../deviations.md#note-2-refused-streams)). `dest == source` with a reachable source: the C `zmemcpy(dest, source, sizeof(z_stream))` then copies the record onto itself, which is undefined behaviour, and no goal covers this call ([deviations](../../deviations.md), row "Copy destination"). What the copy contains: functional goal `Goal.deflateCopy` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateCopy"><summary>Complete return conditions and boundaries</summary>
 
@@ -1177,8 +1125,8 @@ room before continuing both. The header remains shared caller-owned storage.
 fields and the source unchanged. There is no new live state to release.
 
 **Outside focused scope:** NULL destination gives `Z_STREAM_ERROR`; a failed source check
-also clears a non-NULL destination's state. The safety goal and the functional goal both
-assume distinct streams.
+also clears a non-NULL destination's state. The functional goal `Goal.deflateCopy` has the
+same `source ≠ dest` premise for a reachable source.
 
 </details>
 

@@ -9,9 +9,8 @@ The word *engine* in the title is the name the Lean sources give to this body of
 namespace `Zlib.Deflate.Engine`). On this page "the engine proof" means the proof for the
 default configuration.
 
-Each result of this page has a theorem. None of them is required for the safety results. Apart
-from the round trip described below, further functional results are not planned. The safety of
-`deflate` for every configuration is a separate proof, explained in
+Each result of this page has a theorem. None of them is required for the safety results. The
+safety of `deflate` for every configuration is a separate proof, explained in
 [stream compression](deflate.md); it uses lemmas from here.
 
 ## Results

@@ -442,12 +442,9 @@ finite ranges: `extra_len` bytes, and a string up to its NUL.
 
 ## Readings of the C that no theorem states
 
-- **To confirm**: `deflateSetDictionary` goes through `read_buf`, which adds the dictionary
-  length to `total_in`. The translation keeps the update.
-- `deflateCopy` with the same record as source and destination is outside the goals: the copy
-  case of a history and `Goal.deflateCopy_safety` take two different records
-  (row "Copy destination" of [deviations](../deviations.md)). **To confirm**: that `zlib.h`
-  does not allow that call.
+- **To confirm**: `deflateSetDictionary` passes the dictionary (its last `w_size` bytes when it
+  is longer) through `fill_window`, whose `read_buf` adds the bytes it reads to `total_in`. So
+  after the call `total_in` includes the dictionary. The translation keeps the update.
 - The size of `deflate_state` is 5968 bytes in this build. No Lean file or test states the
   number. **to confirm**.
 
@@ -456,8 +453,7 @@ More notes of this kind are in the [source notes](deflate-source-notes.md).
 ## Functional results
 
 These say what the functions compute. The goals named in the first two rows are done. They are
-not required for the safety results. Apart from the round trip described below, further
-functional results are not planned.
+not required for the safety results.
 
 | Result | Theorem |
 | --- | --- |

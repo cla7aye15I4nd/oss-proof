@@ -1,4 +1,4 @@
-<!-- source-sha256: 2c8c4367fd99334e0536e795a252101aa30bcfa4881f67a4446a53a5dd714c66 -->
+<!-- source-sha256: dcb6b3d91c3958eec115ae9d2e32a56d8a1e150018f64797d0354c05da1d65e6 -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -30,7 +30,7 @@
 
 `inflate_sequence_safety_public` 由引理 `inflate_sequence_safety` 推出。
 
-这个文件也有功能结论。它们不是安全结论所必需的，列在[功能结论](#functional-results)一节。
+这个文件也有功能结论，列在[功能结论](#functional-results)一节。
 
 ## 拒绝
 
@@ -295,7 +295,7 @@ rank = 64 * mass + credit(mode)
 
 难点不在某一个循环。难在一次调用可以在任何一个 `NEEDBITS` 处停下再继续，所以不变量必须在大约三十个模式中的每一个里都足够强，同时又能被每一个模式重新确立。有三处最难。
 
-- **gzip 头部。** 这是 `inflate` 往输出之外的调用者缓冲区里写东西的唯一地方。写 `extra` 时的偏移需要前提 `InflateHeaderProgress`。
+- **gzip 头部。** 这是 `inflate` 往输出之外的调用者缓冲区里写东西的唯一地方。往 `extra` 的复制需要前提 `InflateHeaderProgress`。
 - **终止性。** 有几种转移既不用输入也不写输出。只看输入和输出的度量在这些地方不会下降；秩里的 credit 项处理的就是它们。
 - **快速路径。** `inflate_fast` 的入口条件比它周围的模式更严。这次调用要在 `RESTORE()` 留下的堆上，从同一个不变量证明出来，包括输入和输出是同一个块里两段区域的情形（[快速路径](#the-fast-path)）。
 
@@ -326,7 +326,7 @@ rank = 64 * mass + credit(mode)
 
 一个解码出的符号由输入位的一段前缀支撑。解码器可能已经读得更远：`inflate_fast` 会提前取入整字节，再把没用到的还回去。输出不必与解码器读过的全部内容一致：提前读入的字节可能格式有误，而已经解码的符号是有效的。`inflate` 的抽象模型里的关系只把每个符号与支撑它的那些位联系起来。有两条关于这个模型的定理说的是同一个裸流，在这个流上解码器先写出一个字节，然后才遇到一个无效的距离：`inflate_deferred_distance` 说模型接受这次调用，`inflate_deferred_distance_rejects_legacy_consistency` 说与读过的全部内容一致这一条件对它不成立。
 
-数据错误并不总是在它的起因之后八个字节以内被发现，换成更大的常数也得不到成立的界。模型目标 `Api.Goal.inflate_rejects_invalid` 陈述的是八字节的界；它未完成，也不在计划内（[进度](../progress.md#not-planned)）。
+数据错误并不总是在它的起因之后八个字节以内被发现：在一个动态块中，输入在第 230 字节处就已不可能成立，而一次调用可以消耗 281 字节并返回 `Z_OK`。模型目标 `Api.Goal.inflate_rejects_invalid` 陈述的是八字节的界；它未完成，也不在计划内（[进度](../progress.md#not-planned)）。
 
 错误可能出现在真实的输出之后：窗口是在调用结束时分配的，所以 `inflate` 可能在写出一些字节之后返回 `Z_MEM_ERROR`。`Goal.inflate` 保留了这种效果。
 

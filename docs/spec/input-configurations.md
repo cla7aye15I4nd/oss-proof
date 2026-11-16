@@ -61,8 +61,8 @@ of that parameter does not cover the others.
 | Default initialization | `deflateInit_` fixes method, window, memory level and strategy, and leaves the level free. Its goal is `Goal.deflateInit__safety`. |
 | General initialization | `deflateInit2_` takes all five parameters. `Goal.deflateInit2__safety` covers every value of each. |
 | Strategy dispatch | Level 0 selects the stored engine, levels 1 through 3 the fast engine, levels 4 through 9 the slow engine. For a nonzero level, Huffman-only and RLE replace that choice. |
-| Match search | The chain length, lazy-match length and nice length come from a table row selected by the level. A lemma about one row does not cover the others. |
-| Refill and sliding | The window size and the hash size set the array bounds, the ring positions and the slide. A lemma for a fixed window is not a lemma for every window. |
+| Match search | The chain length, lazy-match length and nice length come from a table row selected by the level. |
+| Refill and sliding | The window size and the hash size set the array bounds, the ring positions and the slide. |
 | Trees and block output | The symbol capacity, the pending buffer and the position of the first unread symbol depend on the memory level. A lemma about one tree or one symbol does not give the bound on the overlap. |
 
 The table lists dependencies; it does not say what is proved. The

@@ -33,7 +33,7 @@ sequence goal for the calls of one function:
 The proofs apply `gz_sequence_safety_public`; the `NULL` refusals hold by evaluation. So the rest
 of this page, which is about the sequence goal, is also the proof of the one-function goals.
 Each function also has a functional contract `Goal.<function>`. These contracts are not
-required; [the last section](#functional-results-that-stay) says which are done.
+required; [the last section](#functional-results) says which have a theorem.
 
 The sequence goal covers a program such as this one. The comments name the clause of the goal
 that covers each call.
@@ -552,18 +552,21 @@ of the opening constructor, with no allocation failure.
 
 So clause 2, and its part (b) for a reading call, apply to a real call with a nonzero length.
 
-## Functional results that stay
+## Functional results
 
 There is one functional contract `Goal.<function>` for each of the 31 documented gz functions
-and for `gzvprintf`: 32 goals. None is required for the safety results. Eight of them are
-done:
+and for `gzvprintf`: 32 goals. None is required for the safety results. Eight of them have a
+theorem:
 
-- `Goal.gzbuffer`, `Goal.gzeof`, `Goal.gzerror`, `Goal.gzclearerr`, `Goal.gzdopen`: full
-  contracts of single functions.
-- `Goal.gzoffset64`, `Goal.gzoffset` and `Goal.gzrewind`: stated for the regular-file world
-  (premise `RegularOs fs`).
+- `Goal.gzbuffer`, `Goal.gzeof`, `Goal.gzerror`, `Goal.gzclearerr`, `Goal.gzdopen`: the full
+  contract of each function: the size `gzbuffer` stores (at least 8) and its refusals, the
+  value of `gzeof`, the code and borrowed message of `gzerror`, the state `gzclearerr` resets,
+  and the refusal or ownership of the descriptor by `gzdopen`.
+- `Goal.gzoffset64`, `Goal.gzoffset` and `Goal.gzrewind`: the descriptor position minus the
+  compressed input a reader has buffered, and the seek back to the start with the reset of the
+  reader's state. They are stated for the regular-file world (premise `RegularOs fs`).
 
-Not done and not planned; the safety results do not need them:
+No theorem states these:
 
 - the other 24 functional contracts: `Goal.gzopen`, `Goal.gzopen64`, `Goal.gzclose`,
   `Goal.gzclose_r`, `Goal.gzclose_w`, `Goal.gzread`, `Goal.gzfread`, `Goal.gzgetc`,

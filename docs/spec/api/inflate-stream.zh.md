@@ -1,4 +1,4 @@
-<!-- source-sha256: c2c8ec3be948af7f84d598ba8db3a24d937a43fd1a974d859afe9ee2643f7601 -->
+<!-- source-sha256: 5f8016ab73cd81909198540d4c08fc21f5bb2562b3c7ede05fb22bd62f2527c9 -->
 
 # 流式解压
 
@@ -111,10 +111,6 @@ int ZEXPORT inflateReset(z_streamp strm);
 | `Z_OK`<br>**新流已就绪** | 存活流已重置；历史和头部挂接被清空，请求的封装及窗口大小被恢复。 | 设置新输入和输出范围后继续 inflate；最终仍须 inflateEnd。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流未通过公共流检查；内容不变。 | 先建立有效流并确定其所有权，再进行后续操作。 |
 
-**判读要点。**
-
-- 输入/输出指针及可用计数不变；inflateValidate 选择的校验设置会保留。
-
 ### 调用条件与效果 {#api-inflatereset-contract}
 
 **定义域。** 受限定义域：存活流，包括已完成或失败的流。
@@ -220,10 +216,6 @@ int ZEXPORT inflateInit2_(z_streamp strm, int windowBits, const char *version, i
 | `Z_VERSION_ERROR`<br>**版本或结构大小不匹配** | version 为 NULL、首字节不匹配或 stream_size 错误；在检查 strm 前返回，内容不变。 | 修正版本和结构大小后重新初始化；本次失败无需 inflateEnd。 |
 | `Z_STREAM_ERROR`<br>**流或窗口请求被拒绝** | 版本检查通过后 strm 为 NULL；或成功分配状态后发现 windowBits 无效，释放该状态并将 state 置为 NULL。 | 提供可写的、不是存活流的流和可接受的 windowBits 后重新初始化；本次失败无需结束。 |
 | `Z_MEM_ERROR`<br>**状态分配失败** | 状态分配失败，保留旧 state 字段；msg 已清空，所需默认分配器字段可能已设置。 | 在资源可用时可重新初始化；本次失败未保留新分配，无需 inflateEnd。 |
-
-**判读要点。**
-
-- 状态分配发生在 windowBits 检查之前；即使 windowBits 无效，也可能先返回 Z_MEM_ERROR。
 
 ### 调用条件与效果 {#api-inflateinit2_-contract}
 
@@ -336,10 +328,6 @@ int ZEXPORT inflatePrime(z_streamp strm, int bits, int value);
 | `Z_OK`<br>**位请求已生效** | bits 为负时清空缓冲；为零时不变；为 1..16 且能放入 32 位缓冲时追加 value 的低 bits 位。 | 在允许的裸流调用位置继续 inflate；补入的位先于 next_in。 |
 | `Z_STREAM_ERROR`<br>**位请求或流被拒绝** | bits 大于 16、剩余位空间不足或流检查失败；内容不变。 | 有效流上修正补位请求；流检查失败则先修正流的使用。 |
 
-**判读要点。**
-
-- 成功返回不验证裸模式或调用顺序；这些仍是调用者要满足的前置条件。
-
 ### 调用条件与效果 {#api-inflateprime-contract}
 
 **定义域。** 受限定义域：第一次解码前，或在已报告的块/头部边界处的存活裸流；覆盖每个有符号 `bits` 和 `value`。
@@ -364,7 +352,7 @@ int ZEXPORT inflatePrime(z_streamp strm, int bits, int value);
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflatePrime"><summary>完整返回条件与边界</summary>
 
-**后置条件。** 零位返回 `Z_OK`，不发生变化。负位数清空位缓冲区。1 至 16 位且能放入 32 位缓冲区时，返回 `Z_OK`，将 `value` 的低 `bits` 位追加到已有位之上。负的 `value` 保留其低位，不被当作零（[测试](../../../tests/regression/inflate-prime/README.md)）。这些位先于 `next_in` 使用。
+**后置条件。** 零位返回 `Z_OK`，不发生变化。负位数清空位缓冲区。1 至 16 位且能放入 32 位缓冲区时，返回 `Z_OK`，将 `value` 的低 `bits` 位追加到已有位之上。`value` 为负时，追加的是其二进制补码表示的低 `bits` 位（[测试](../../../tests/regression/inflate-prime/README.md)）。这些位先于 `next_in` 使用。
 
 **错误。** 超过 16 位、位缓冲区空间不足或流检查失败，返回 `Z_STREAM_ERROR`，不发生变化。不更新 `data_type`。C 不强制执行裸流限制或调用顺序限制。
 
@@ -395,11 +383,6 @@ int ZEXPORT inflate(z_streamp strm, int flush);
 | `Z_DATA_ERROR`<br>**检测到数据错误** | 检测到格式错误或启用的校验和/长度错误；可能已经产生输出。数据错误状态会保持。 | 使用 inflateReset 放弃当前流，或用 inflateSync 尝试恢复，或调用 inflateEnd。 |
 | `Z_MEM_ERROR`<br>**历史窗口分配失败** | 窗口分配失败；可能已经消费输入或写出数据，且错误状态会保持。 | 读取已更新的指针及可用计数；重置后再开始，或调用 inflateEnd。 |
 | `Z_STREAM_ERROR`<br>**流或缓冲条件不满足** | 流/缓冲检查失败，或 inflateSync 恢复搜索尚未完成。 | 流有效时修正缓冲区参数；恢复搜索未完成时继续 inflateSync；其他情况先建立有效流。 |
-
-**判读要点。**
-
-- 正常返回按实际消费/产生字节更新总计数和启用的校验和；Z_NEED_DICT 保留字典标识。
-- 正常返回的 data_type 是组合值：未用位数，再按状态加 64（最终块）、128（头部/块边界）或 256（块头之后）。
 
 ### 调用条件与效果 {#api-inflate-contract}
 
@@ -506,10 +489,6 @@ int ZEXPORT inflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
 | `Z_OK`<br>**历史查询成功** | 流检查通过；非 NULL dictionary 接收从旧到新的历史，非 NULL dictLength 接收其字节数。 | 使用所请求的目的地址中的结果；流可继续使用，历史为空也有效。 |
 | `Z_STREAM_ERROR`<br>**查询被拒绝** | 流检查失败；不写入任何目的地址。 | 不要把目的地址中的旧值当作本次结果；先建立有效流。 |
 
-**判读要点。**
-
-- 任一目的地址可为 NULL。没有分配过窗口的已完成流，即使产生过输出，也可能报告零字节历史。
-
 ### 调用条件与效果 {#api-inflategetdictionary-contract}
 
 **定义域。** 受限定义域：存活流，可带可写的字典和长度目的地址。
@@ -562,10 +541,6 @@ int ZEXPORT inflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt d
 | `Z_STREAM_ERROR`<br>**字典请求被拒绝** | dictionary 为 NULL、流检查失败，或带封装的流并未等待字典。 | 仅在有效的裸流或等待字典的 zlib 流上，按契约提供非 NULL 字典。 |
 | `Z_MEM_ERROR`<br>**窗口分配失败** | 历史窗口分配失败，流进入内存错误模式。 | 先重置再开始新的解码，或调用 inflateEnd 释放状态。 |
 
-**判读要点。**
-
-- 裸模式不检查字典标识；Z_OK 不保证给错字典时仍能得到正确输出。
-
 ### 调用条件与效果 {#api-inflatesetdictionary-contract}
 
 **定义域。** 受限定义域：在 `Z_NEED_DICT` 后等待的存活 zlib 流，或处于任意调用边界的存活裸流。
@@ -581,7 +556,7 @@ int ZEXPORT inflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt d
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `dictionary` 为 NULL，或指向 `dictLength` 个可读字节，且在流自己的块之外（`CallerRange`）。
-- **无条件覆盖。** 每一个 `dictLength` 和每一种字典内容；每一种分配结果。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：`dictionary` 可以为 NULL，流也不必正在等待字典。C 对这些调用返回 `Z_STREAM_ERROR` 拒绝。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **无条件覆盖。** 每一个 `dictLength` 和每一种字典内容；每一种分配结果。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
@@ -620,10 +595,6 @@ gzip 头可以带有 extra 字节、文件名和注释。调用者分别提供�
 | `Z_OK`<br>**头部目的存储已挂接** | 有效流支持 gzip，挂接 head 并将 head->done 置为 0；尚未解析头部。 | 保持所有已挂接的存储有效并调用 inflate；通过 done 查看后续结果。 |
 | `Z_STREAM_ERROR`<br>**挂接被拒绝** | 流检查失败或请求未启用 gzip 支持；内容不变。 | 先建立支持 gzip 的有效流，再在解码前挂接存储。 |
 
-**判读要点。**
-
-- 后续 done 为 1 表示 gzip 头完成，为 -1 表示自动检测到 zlib；这两个值不是本函数的返回码。
-
 ### 调用条件与效果 {#api-inflategetheader-contract}
 
 **定义域。** 受限定义域：初始化/重置后、解码前，支持 gzip 的存活流。
@@ -639,13 +610,13 @@ gzip 头可以带有 extra 字节、文件名和注释。调用者分别提供�
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `head` 不为 NULL，指向一个存活的头部记录，且该记录不是流自己的块；它的 `extra`、`name`、`comment` 指针各自为 NULL，或分别指向 `extra_max`、`name_max`、`comm_max` 个可写字节，且这些字节在流自己的块之外（`HeaderMemory`；`head` 不为 NULL 这一条由 `StreamArguments` 另加）。
-- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：流不必支持 gzip，解码也可以已经开始。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **无条件覆盖。** 每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：流不必支持 gzip。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块和头部记录 `head`。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对可达流调用而 `head` 为 NULL：在所有安全目标之外（见[偏离记录](../../deviations.md)中“头部参数”一行）。流支持 gzip 时，C 会通过这个指针写入；流不支持 gzip 时，C 在用到 `head` 之前就返回 `Z_STREAM_ERROR`。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`（不在计划内；已有定理证明它）。
+- **不在本目标内。** 对可达流调用而 `head` 为 NULL：在所有安全目标之外（见[偏离记录](../../deviations.md)中“头部参数”一行）。流不支持 gzip 时，C 在用到 `head` 之前就返回 `Z_STREAM_ERROR`；功能目标 `Goal.inflateGetHeader` 陈述了这个返回值。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>完整返回条件与边界</summary>
 
@@ -676,10 +647,6 @@ int ZEXPORT inflateSync(z_streamp strm);
 | `Z_BUF_ERROR`<br>**没有可搜索的字节** | 没有输入且缓冲位少于八位；内容不变。 | 提供更多输入后继续 inflateSync，或调用 inflateEnd 放弃。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流未通过公共流检查；内容不变。 | 先建立有效流并确定其所有权，再进行后续操作。 |
 
-**判读要点。**
-
-- 候选模式可能不是真正的完全刷新点，也可能仍依赖旧历史；恢复不承诺校验和检查。
-
 ### 调用条件与效果 {#api-inflatesync-contract}
 
 **定义域。** 受限定义域：数据错误后或恢复搜索期间的存活流，输入可读。
@@ -695,7 +662,7 @@ int ZEXPORT inflateSync(z_streamp strm);
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `next_in` 指向 `avail_in` 个可读字节，且在流自己的块之外；或者为 NULL 且 `avail_in == 0`（`StreamArguments`）。
-- **无条件覆盖。** 每一种输入字节序列。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比上面的定义域宽：不要求此前出现过数据错误。拒绝子句中：每一个被拒绝的流。
+- **无条件覆盖。** 每一种输入字节序列。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。拒绝子句中：每一个被拒绝的流。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
@@ -732,10 +699,6 @@ int ZEXPORT inflateSyncPoint(z_streamp strm);
 | `1`<br>**正在等待存储块长度** | 有效流正在等待存储块长度字节，且位缓冲区为空。 | 按此状态解释查询；继续使用有效流。 |
 | `0`<br>**不处于该状态** | 有效流不同时满足等待存储块长度和空位缓冲区。 | 按未到达此点处理；这不表示解码错误。 |
 | `Z_STREAM_ERROR`<br>**查询被拒绝** | 流检查失败；内容不变。 | 先建立有效流；不能把负错误码当作“是”。 |
-
-**判读要点。**
-
-- 使用 result == 1 判断命中；C 中负错误码也为真。本函数不搜索标记。
 
 ### 调用条件与效果 {#api-inflatesyncpoint-contract}
 
@@ -787,10 +750,6 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 | `Z_STREAM_ERROR`<br>**复制请求被拒绝** | dest 为 NULL 或源流检查失败；非 NULL dest 的 state 清空，其他字段不变，源不变。 | 修正源和目的流后再复制；本次失败未建立需结束的目的流。 |
 | `Z_MEM_ERROR`<br>**副本分配失败** | 状态或窗口分配失败；本次已分配存储全部释放，目的流的 state 为 NULL，源不变。 | 资源可用时可重新复制；本次失败的目的流无需 inflateEnd，源仍须正常结束。 |
 
-**判读要点。**
-
-- 调用者缓冲区、消息及已挂接的头部指针仍共享。
-
 ### 调用条件与效果 {#api-inflatecopy-contract}
 
 **定义域。** 受限定义域：存活的源流，以及与之不同、可写、不是存活流的目的流。
@@ -805,7 +764,7 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 - **适用条件。** 对 NULL `dest` 的拒绝没有条件。对 NULL `source` 的拒绝要求 `dest` 指向一个可读的流记录。对被拒绝的 `source` 的拒绝要求 `dest` 指向一个可读的流记录，并要求 `source` 不是 NULL 且是被拒绝的流（`RefusedInflate`）；它不要求 `dest` 与 `source` 不同。主子句要求：
     1. `source` 是可达流（`StreamReachable`）。命题还把它的不变量和默认分配器作为假设（`Good`、`DefAlloc`）；每个可达流都满足它们（`Goal.inflate_sequence_safety` 的第一个子句）；
     2. `dest` 指向一个可读的流记录，且不是 `source` 记录（`source ≠ dest`）。不要求平台大小上界。
-- **无条件覆盖。** `dest` 记录的每一种内容；每一种分配结果。拒绝子句中：`dest` 记录的每一种内容，每一个被拒绝的 `source`，以及 `dest` 为 NULL 时的每一个 `source` 指针。本目标比前置条件宽：`dest` 的各字段可以是任意值。如果 `dest` 原本是一个存活流，它的旧状态仍处于已分配状态，而记录不再指向它。
+- **无条件覆盖。** `dest` 记录的每一种内容；每一种分配结果。拒绝子句中：`dest` 记录的每一种内容，每一个被拒绝的 `source`，以及 `dest` 为 NULL 时的每一个 `source` 指针。本目标比前置条件宽：`dest` 可以是存活流；这时它的旧状态仍处于已分配状态，而记录不再指向它。
 - **保证。**
     - *返回。* `dest` 为 NULL、`source` 为 NULL 或 `source` 被拒绝时，调用返回 `Z_STREAM_ERROR`。从可达的源复制时，调用返回，返回值为 `Z_OK` 或 `Z_MEM_ERROR`。只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
     - *状态。* 从可达的源复制时：`source` 记录及其状态不变。返回 `Z_OK` 时，`dest` 是可达流。返回 `Z_MEM_ERROR` 时，`dest->state` 为 NULL，`dest` 的其他字段不变。
@@ -819,7 +778,7 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 
 **错误。** NULL `dest` 返回 `Z_STREAM_ERROR`。其他拒绝会清空非 NULL `dest` 的 `state`，除此以外不变。分配失败返回 `Z_MEM_ERROR`，并释放本次尝试的全部分配。源不变。
 
-**边界情况。** 源为存活流的自复制不在本契约范围内：C 会覆盖原来的状态指针，其所有权后果**尚未由证明确认**。未打补丁的 C 在这个函数里比较了互不相关的指针；补丁 0001 替换了这处比较（见[补丁说明](../../../patches/README.md)）。
+**边界情况。** 源为存活流而 `dest == source` 的调用不在本契约范围内。此时 C 先用 `zmemcpy(dest, source, sizeof(z_stream))` 把记录复制到它自身，这是未定义行为；随后把 `dest->state` 设为新状态。此后不再有指针指向原来的状态，这一点**尚未由证明确认**。源被拒绝时，C 在复制之前就返回 `Z_STREAM_ERROR`，与其他拒绝相同。未打补丁的 C 在这个函数里比较了互不相关的指针；补丁 0001 替换了这处比较（见[补丁说明](../../../patches/README.md)）。
 
 </details>
 
@@ -891,10 +850,6 @@ int ZEXPORT inflateValidate(z_streamp strm, int check);
 | `Z_OK`<br>**校验设置已更新** | 有效流在解码前接受设置：check 为零关闭校验，非零为带封装流启用校验；裸流仍是裸流。 | 按此设置继续 inflate；关闭校验时输出校验和不维护，坏尾部可能被接受。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流检查失败；内容不变。 | 先建立有效流并满足解码前的调用顺序，再进行设置。 |
 
-**判读要点。**
-
-- inflateReset 保留该选择；inflateReset2 会用新封装设置替换它。
-
 ### 调用条件与效果 {#api-inflatevalidate-contract}
 
 **定义域。** 受限定义域：解码前的存活流，以及每个有符号 `check`。
@@ -909,7 +864,7 @@ int ZEXPORT inflateValidate(z_streamp strm, int check);
 - **适用条件**（该子句的前提；这个调用没有参数条件）：
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）。
-- **无条件覆盖。** 每一个 `check`。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。本目标比前置条件宽：解码可以已经开始。
+- **无条件覆盖。** 每一个 `check`。每一个可达流，无论处于哪种模式：解码之前、块的中途、流结束处，以及数据错误或内存错误之后。
 - **保证**（该子句的结论，`StreamCallSafe` 重述了它）。
     - *返回。* 调用返回。
     - *状态。* 流保持其不变量（`StreamInvariant`）。
@@ -945,10 +900,6 @@ long ZEXPORT inflateMark(z_streamp strm);
 | --- | --- | --- |
 | `back * 65536 + progress`<br>**打包的码位置** | 有效流：back 是回到当前码起点的位数；码之间、头部或存储块中为 -1。progress 是剩余存储块字节数、已输出匹配字节数，其他情况为零。 | 按位数和字节数分别解释两部分；查询不改变流。 |
 | `-65536`<br>**流检查失败的哨兵** | 流检查失败时返回 -65536；有效流在 back 为 -1 且 progress 为零时也返回同一值。 | 仅凭此值无法区分错误；须根据流的有效性解释。 |
-
-**判读要点。**
-
-- 65536 是 2^16，用于把位置和进度放进一个整数；不表示窗口大小。
 
 ### 调用条件与效果 {#api-inflatemark-contract}
 

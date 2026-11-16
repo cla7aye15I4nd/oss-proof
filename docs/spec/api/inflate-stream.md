@@ -161,10 +161,6 @@ The result says whether the existing configuration is ready for a new independen
 | `Z_OK`<br>**Ready for a new stream** | The live stream was reset; history and header registration are discarded and the requested wrapper and window size restored. | Set up the new input and output ranges and continue with inflate; eventually call inflateEnd. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The common stream check failed; nothing changes. | Establish a valid stream and its ownership before further operations. |
 
-**Reading the result.**
-
-- Input/output pointers and available counts stay unchanged; the validation choice from inflateValidate is retained.
-
 ### Calling conditions and effects {#api-inflatereset-contract}
 
 **Domain.** Restricted domain: live streams, including completed or failed ones.
@@ -283,10 +279,6 @@ The result says whether a decoder with the requested format was created. Only su
 | `Z_VERSION_ERROR`<br>**Version or structure size mismatch** | version is NULL, its first byte mismatches, or stream_size is wrong; this returns before inspecting strm and changes nothing. | Correct the version and structure size before initializing again; this failed attempt needs no inflateEnd. |
 | `Z_STREAM_ERROR`<br>**Stream or window request refused** | After the version check, strm is NULL; or state allocation succeeds but windowBits is invalid, so that state is freed and state becomes NULL. | Provide a writable non-live stream and accepted windowBits before initializing again; this failed attempt needs no end call. |
 | `Z_MEM_ERROR`<br>**State allocation failed** | State allocation failed and the old state field is retained; msg is cleared and required default allocator fields may have been installed. | Initialization may be tried again when resources are available; this failure retained no new allocation and needs no inflateEnd. |
-
-**Reading the result.**
-
-- State allocation precedes the windowBits check; even an invalid windowBits can therefore first produce Z_MEM_ERROR.
 
 ### Calling conditions and effects {#api-inflateinit2_-contract}
 
@@ -414,10 +406,6 @@ The result says whether the bit buffer accepted a clear or append request.
 | `Z_OK`<br>**Bit request applied** | Negative bits clears the buffer; zero leaves it unchanged; 1..16 bits that fit in the 32-bit buffer appends the low bits of value. | At the permitted raw-stream call position, continue with inflate; the supplied bits precede next_in. |
 | `Z_STREAM_ERROR`<br>**Bit request or stream refused** | bits exceeds 16, bit-buffer space is insufficient, or the stream check failed; nothing changes. | For a valid stream, correct the bit request; otherwise resolve invalid stream use first. |
 
-**Reading the result.**
-
-- Success does not validate raw mode or call order; those remain caller preconditions.
-
 ### Calling conditions and effects {#api-inflateprime-contract}
 
 **Domain.** Restricted domain: live raw streams before first decoding or at a
@@ -445,8 +433,8 @@ reported block/header boundary; every signed `bits` and `value`.
 
 **Post.** Zero bits returns `Z_OK` unchanged. Negative bits empties the bit buffer.
 For 1 through 16 bits that fit within the 32-bit buffer, returns `Z_OK`, appending
-the low `bits` bits of `value` above existing bits. A negative `value` keeps its low bits; it is
-not treated as zero ([test](../../../tests/regression/inflate-prime/README.md)). These bits precede `next_in`.
+the low `bits` bits of `value` above existing bits. For a negative `value` these are the low
+`bits` bits of its two's-complement form ([test](../../../tests/regression/inflate-prime/README.md)). These bits precede `next_in`.
 
 **Errors.** More than 16 bits, insufficient bit-buffer space or a failed stream
 check returns `Z_STREAM_ERROR` unchanged. Does not update `data_type`. The C does
@@ -483,11 +471,6 @@ The result distinguishes progress, completion of one stream, a dictionary reques
 | `Z_DATA_ERROR`<br>**Data error detected** | A format error or enabled checksum/length error was detected, possibly after output; the data-error state is sticky. | Abandon the current stream with inflateReset, attempt recovery with inflateSync, or call inflateEnd. |
 | `Z_MEM_ERROR`<br>**History-window allocation failed** | Window allocation failed; input may already have been consumed or output written, and the error state is sticky. | Observe the updated pointers and available counts; reset before starting again, or call inflateEnd. |
 | `Z_STREAM_ERROR`<br>**Stream or buffer conditions failed** | A stream/buffer check failed, or an inflateSync recovery search remains unfinished. | Correct buffer arguments for a valid stream; continue inflateSync for an unfinished recovery search; otherwise establish a valid stream first. |
-
-**Reading the result.**
-
-- Normal returns account for consumed/produced bytes in totals and enabled checksums; Z_NEED_DICT retains the dictionary identifier.
-- On normal returns, data_type combines unused-bit count with 64 for the last block, 128 at a header/block boundary, or 256 after a block header.
 
 ### Calling conditions and effects {#api-inflate-contract}
 
@@ -627,10 +610,6 @@ The return value reports query status; the history size is written to dictLength
 | `Z_OK`<br>**History query succeeded** | The stream check passed; non-NULL dictionary receives oldest-to-newest history and non-NULL dictLength receives its byte count. | Use the requested destination results; the stream remains usable, and empty history is valid. |
 | `Z_STREAM_ERROR`<br>**Query refused** | The stream check failed; no destination is written. | Do not treat previous destination contents as this call’s result; establish a valid stream first. |
 
-**Reading the result.**
-
-- Either destination may be NULL. A completed stream that never allocated a window may report zero history bytes despite having produced output.
-
 ### Calling conditions and effects {#api-inflategetdictionary-contract}
 
 **Domain.** Restricted domain: live streams with optional writable dictionary
@@ -688,10 +667,6 @@ The result distinguishes successful dictionary installation, an identifier misma
 | `Z_STREAM_ERROR`<br>**Dictionary request refused** | dictionary is NULL, the stream check failed, or a wrapped stream is not awaiting a dictionary. | Provide a non-NULL dictionary under the contract only for a valid raw stream or a zlib stream awaiting one. |
 | `Z_MEM_ERROR`<br>**Window allocation failed** | History-window allocation failed and the stream enters memory-error mode. | Reset before starting a new decode, or call inflateEnd to release state. |
 
-**Reading the result.**
-
-- Raw mode does not check a dictionary identifier; Z_OK does not guarantee correct output when the wrong dictionary is supplied.
-
 ### Calling conditions and effects {#api-inflatesetdictionary-contract}
 
 **Domain.** Restricted domain: live zlib streams waiting after `Z_NEED_DICT`, or
@@ -709,7 +684,7 @@ when the length is zero. For correct output it matches the compressor's dictiona
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `dictionary` is NULL or points to `dictLength` readable bytes outside the stream's own blocks (`CallerRange`).
-- **Covered without condition.** Every `dictLength` and every dictionary content; every allocation outcome. Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. The goal is wider than Pre: `dictionary` may be NULL, and the stream need not be waiting for a dictionary. The C refuses those calls with `Z_STREAM_ERROR`. In the refusal: every refused stream and every value of the other arguments.
+- **Covered without condition.** Every `dictLength` and every dictionary content; every allocation outcome. Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. In the refusal: every refused stream and every value of the other arguments.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
@@ -758,10 +733,6 @@ The return value only says whether header storage was registered; head->done lat
 | `Z_OK`<br>**Header storage registered** | The valid stream supports gzip; head is registered and head->done is set to 0, without parsing the header yet. | Keep all registered storage valid and call inflate; inspect done for the later outcome. |
 | `Z_STREAM_ERROR`<br>**Registration refused** | The stream check failed or the request lacks gzip support; nothing changes. | Establish a valid gzip-capable stream, then register storage before decoding. |
 
-**Reading the result.**
-
-- Later, done is 1 for a completed gzip header or -1 when automatic detection identifies zlib; neither is this function’s return code.
-
 ### Calling conditions and effects {#api-inflategetheader-contract}
 
 **Domain.** Restricted domain: live gzip-capable streams after init/reset and
@@ -782,13 +753,13 @@ the stream and its owned storage, and the input/output ranges of calls using the
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `head` is not NULL and names a live header record that is not one of the stream's own blocks; each of its `extra`, `name` and `comment` pointers is NULL or points to `extra_max`, `name_max` or `comm_max` writable bytes outside the stream's own blocks (`HeaderMemory`; `StreamArguments` adds that `head` is not NULL).
-- **Covered without condition.** Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. The goal is wider than Pre: the stream need not support gzip, and decoding may have started. In the refusal: every refused stream and every value of the other arguments.
+- **Covered without condition.** Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. The goal is wider than Pre: the stream need not support gzip. In the refusal: every refused stream and every value of the other arguments.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks and the header record `head`.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL `head` on a reachable stream: outside every safety goal ([deviations](../../deviations.md), row "Header arguments"). On a stream with gzip support the C stores through the pointer; on a stream without it the C returns `Z_STREAM_ERROR` before it uses `head`. A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader` (not planned; a theorem proves it).
+- **Not in this goal.** A NULL `head` on a reachable stream: outside every safety goal ([deviations](../../deviations.md), row "Header arguments"). On a stream without gzip support the C returns `Z_STREAM_ERROR` before it uses `head`; the functional goal `Goal.inflateGetHeader` states that return. A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>Complete return conditions and boundaries</summary>
 
@@ -827,10 +798,6 @@ The result says whether recovery search found a candidate boundary; finding the 
 | `Z_BUF_ERROR`<br>**No searchable byte available** | There is no input and fewer than eight buffered bits; nothing changes. | Provide more input and continue inflateSync, or abandon with inflateEnd. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The common stream check failed; nothing changes. | Establish a valid stream and its ownership before further operations. |
 
-**Reading the result.**
-
-- The candidate may not be a real full-flush point and may still need old history; recovery does not promise checksum checking.
-
 ### Calling conditions and effects {#api-inflatesync-contract}
 
 **Domain.** Restricted domain: live streams after a data error or during a
@@ -847,7 +814,7 @@ recovery search, with readable input.
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`);
     3. `next_in` points to `avail_in` readable bytes outside the stream's own blocks, or is NULL with `avail_in == 0` (`StreamArguments`).
-- **Covered without condition.** Every input byte sequence. Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. The goal is wider than the Domain above: no earlier data error is needed. In the refusal: every refused stream.
+- **Covered without condition.** Every input byte sequence. Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. In the refusal: every refused stream.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR`. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
@@ -893,10 +860,6 @@ This is a state query with an error code; distinguish 1, 0 and the negative erro
 | `1`<br>**Waiting for stored-block lengths** | The valid stream is waiting for stored-block length bytes with an empty bit buffer. | Interpret the query as this state and continue using the valid stream. |
 | `0`<br>**Not at that state** | The valid stream is not both waiting for stored-block lengths and holding an empty bit buffer. | Treat this as not being at that point; it does not report a decode error. |
 | `Z_STREAM_ERROR`<br>**Query refused** | The stream check failed; nothing changes. | Establish a valid stream; do not treat the negative error code as “yes”. |
-
-**Reading the result.**
-
-- Test result == 1 for a match; negative error codes are also true in C. This function does not search for a marker.
 
 ### Calling conditions and effects {#api-inflatesyncpoint-contract}
 
@@ -950,10 +913,6 @@ The result says whether the destination acquired an independently endable decode
 | `Z_STREAM_ERROR`<br>**Copy request refused** | dest is NULL or the source stream check failed; a non-NULL dest has state cleared and other fields unchanged, and the source is unchanged. | Correct source and destination before copying again; this failure created no destination stream requiring end. |
 | `Z_MEM_ERROR`<br>**Copy allocation failed** | State or window allocation failed; all allocations from this attempt are freed, destination state is NULL, and source is unchanged. | Copy may be tried again when resources are available; the failed destination needs no inflateEnd, while the source still needs normal cleanup. |
 
-**Reading the result.**
-
-- Caller buffer, message and registered header pointers remain shared.
-
 ### Calling conditions and effects {#api-inflatecopy-contract}
 
 **Domain.** Restricted domain: live source, distinct writable non-live
@@ -971,7 +930,7 @@ caller lifetimes; give the streams separate writable destinations before use.
 - **Applies when.** The refusal of a NULL `dest` has no condition. The refusal of a NULL `source` asks that `dest` points to a readable stream record. The refusal of a refused `source` asks that `dest` points to a readable stream record, and that `source` is not NULL and is a refused stream (`RefusedInflate`); it does not ask that `dest` and `source` differ. The main clause asks:
     1. `source` is a reachable stream (`StreamReachable`). The statement also takes its invariant and default allocator as hypotheses (`Good`, `DefAlloc`); every reachable stream has them (`Goal.inflate_sequence_safety`, first clause);
     2. `dest` points to a readable stream record that is not the `source` record (`source ≠ dest`). The platform size bound is not asked.
-- **Covered without condition.** Every content of the `dest` record; every allocation outcome. In the refusals: every content of the `dest` record, every refused `source`, and, when `dest` is NULL, every `source` pointer. The goal is wider than Pre: `dest` may hold any field values. If `dest` was a live stream, its old state stays allocated and the record no longer points to it.
+- **Covered without condition.** Every content of the `dest` record; every allocation outcome. In the refusals: every content of the `dest` record, every refused `source`, and, when `dest` is NULL, every `source` pointer. The goal is wider than Pre: `dest` may be a live stream; its old state then stays allocated and the record no longer points to it.
 - **Guarantees.**
     - *Returns.* With a NULL `dest`, a NULL `source` or a refused `source`, the call returns `Z_STREAM_ERROR`. From a reachable source the call returns, with `Z_OK` or `Z_MEM_ERROR`. `Z_MEM_ERROR` is returned only after an allocation failed (`AllocationFailed`).
     - *State.* From a reachable source: the `source` record and its state are unchanged. With `Z_OK`, `dest` is a reachable stream. With `Z_MEM_ERROR`, `dest->state` is NULL and the other fields of `dest` are unchanged.
@@ -990,8 +949,11 @@ not deep-copied. No caller data is consumed or produced.
 `dest` has `state` cleared and is otherwise unchanged. Allocation failure returns
 `Z_MEM_ERROR` and frees all allocations made by this attempt. Source is unchanged.
 
-**Edges.** Self-copy from a live source is outside this contract: the C overwrites the
-original state pointer, and the ownership consequence is **to confirm**.
+**Edges.** `dest == source` with a live source is outside this contract. The C then copies the
+record onto itself with `zmemcpy(dest, source, sizeof(z_stream))`, which is undefined behaviour,
+and afterwards sets `dest->state` to the new state. **To confirm**: nothing then points to the
+original state.
+With a refused source the C returns `Z_STREAM_ERROR` before the copy, as in any other refusal.
 The unpatched C compares unrelated pointers in this function; patch 0001 replaces
 the comparison ([patches](../../../patches/README.md)).
 
@@ -1068,10 +1030,6 @@ The result says whether wrapper validation settings were updated.
 | `Z_OK`<br>**Validation setting updated** | The valid stream accepted the setting before decoding: zero check disables validation and nonzero enables it for wrapped streams; raw streams remain raw. | Continue inflate with this setting; disabling checks stops output checksum maintenance and may accept bad trailers. |
 | `Z_STREAM_ERROR`<br>**Stream check failed** | The stream check failed; nothing changes. | Establish a valid stream and the required pre-decode call order before configuring it. |
 
-**Reading the result.**
-
-- inflateReset preserves this choice; inflateReset2 replaces it with the new wrapper setting.
-
 ### Calling conditions and effects {#api-inflatevalidate-contract}
 
 **Domain.** Restricted domain: live streams before decoding and every signed
@@ -1087,7 +1045,7 @@ The result says whether wrapper validation settings were updated.
 - **Applies when** (the premises of that clause; this call has no argument condition):
     1. `strm` is a reachable stream (`StreamReachable`);
     2. the platform size bound holds (`ByteObjectsFit`).
-- **Covered without condition.** Every `check`. Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error. The goal is wider than Pre: decoding may have started.
+- **Covered without condition.** Every `check`. Every reachable stream, in every mode: before decoding, mid-block, at stream end, and after a data or memory error.
 - **Guarantees** (the conclusion of that clause, which `StreamCallSafe` restates).
     - *Returns.* The call returns.
     - *State.* The stream keeps its invariant (`StreamInvariant`).
@@ -1130,10 +1088,6 @@ This returns a packed position value rather than a zlib status code. Its error s
 | --- | --- | --- |
 | `back * 65536 + progress`<br>**Packed code position** | For a valid stream, back is the number of bits back to the current code; between codes, in a header or in a stored block it is -1. progress is remaining stored-block bytes, emitted match bytes, or zero otherwise. | Interpret the two parts in bits and bytes respectively; the query does not change the stream. |
 | `-65536`<br>**Stream-check failure sentinel** | A failed stream check returns -65536; a valid stream with back -1 and progress zero returns the same value. | This value alone cannot distinguish an error; interpret it using the stream’s validity. |
-
-**Reading the result.**
-
-- 65536 is 2^16 and combines position and progress in one integer; it is not a window size.
 
 ### Calling conditions and effects {#api-inflatemark-contract}
 

@@ -169,5 +169,3 @@ each error:
 | [Buffer utilities and library information](utility.md) | Whole-buffer operations, bounds, version, flags and errors |
 | [Checksums](checksums.md) | Adler-32, CRC-32 and combination |
 | [Gzip files](gz-file.md) | File handles, I/O, seeking and close |
-
-Custom allocators are outside this page's scope.

@@ -1,4 +1,4 @@
-<!-- source-sha256: a19d48605cb723344b1d61aaf1caa74da264ab78b91386efcd11943a65b0aca9 -->
+<!-- source-sha256: 4ea6be7d48ae4f13fc297363fabde18e69a04421ef006d07e54442798c63835e -->
 # 流式压缩：`deflate` 为什么是安全的
 
 本页讲的是 `zlib/deflate.c` 和它的翻译 `ZlibF/Zlib/deflate.c.lean`。
@@ -273,15 +273,14 @@ stateDiagram-v2
 
 ## 没有定理陈述的 C 解读
 
-- **尚未由证明确认**：`deflateSetDictionary` 经过 `read_buf`，后者把字典长度加到 `total_in` 上。翻译保留了这次更新。
-- 用同一个记录既作源又作目的调用 `deflateCopy`，不在目标之内：历史中的复制情形和 `Goal.deflateCopy_safety` 取的都是两个不同的记录（见[偏离记录](../deviations.md)中“复制的目的流”一行）。**尚未由证明确认**：`zlib.h` 不允许这种调用。
+- **尚未由证明确认**：`deflateSetDictionary` 让字典（字典更长时取它的最后 `w_size` 个字节）经过 `fill_window`，其中的 `read_buf` 把读到的字节数加到 `total_in` 上。所以调用之后 `total_in` 包含了字典。翻译保留了这次更新。
 - 在本构建中 `deflate_state` 的大小是 5968 字节。没有哪个 Lean 文件或测试陈述这个数。**尚未由证明确认**。
 
 更多这类笔记见[源码笔记](deflate-source-notes.md)。
 
 ## 功能结论
 
-这些结论说的是函数算出了什么。前两行列出的目标已完成。它们不是安全结论所必需的。除了下面讲的往返，更多的功能结论不在计划内。
+这些结论说的是函数算出了什么。前两行列出的目标已完成。它们不是安全结论所必需的。
 
 | 结论 | 定理 |
 | --- | --- |

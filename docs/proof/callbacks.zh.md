@@ -1,4 +1,4 @@
-<!-- source-sha256: 1da9a09d8d52ff24979ae182aa0d8f15e0645afab709112b9332403b0980e6a4 -->
+<!-- source-sha256: 48aed07ade58a1a92b78e78a84ccfd7e9f15ea7f2a7bdbb8b5344cfc036d3849 -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -25,7 +25,7 @@
 - `Goal.inflateBackEnd_safety` 是序列目标的子句 4，再加对 `NULL` 流以及对状态或 `zfree` 为 `NULL` 的流记录的拒绝（来自 `back_end_public`）。
 - `Goal.inflateBackInit__safety` 是初始化调用在 `zlib.h` 允许的每组参数上的安全（`InitArguments`），不需要历史。它由功能定理 `back_init_public` 推出。
 
-每个函数另有一个功能契约（`Goal.inflateBackInit_`、`Goal.inflateBack`、`Goal.inflateBackEnd`）。这些契约不是必需的；哪些已完成，见[最后一节](#functional-results-that-stay)。
+每个函数另有一个功能契约（`Goal.inflateBackInit_`、`Goal.inflateBack`、`Goal.inflateBackEnd`）。哪些已完成，见[最后一节](#functional-results-that-stay)。
 
 `Goal.inflate_back_sequence_safety` 有四个子句。
 
@@ -270,7 +270,7 @@ flowchart TD
 ## 保留的功能结论
 
 这三个函数各有一个功能契约，另有功能序列目标
-`Goal.inflate_back_sequence`。安全结论不需要其中任何一个。这四个中有两个已完成：
+`Goal.inflate_back_sequence`。这四个中有两个已完成：
 
 - `Goal.inflateBackInit_`（`back_init_public`）和
   `Goal.inflateBackEnd`（`back_end_public`）：两个生命周期函数的完整契约。安全目标的子句 4 使用 `back_end_public`。`Goal.inflateBackEnd_safety` 的拒绝子句和整个 `Goal.inflateBackInit__safety` 都由这两条定理推出。

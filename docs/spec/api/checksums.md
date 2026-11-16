@@ -142,7 +142,7 @@ Returns the updated Adler-32, or the initial value for a new checksum.
 
 **Reading the result.**
 
-- len is uInt, at most 2^32 - 1 bytes; use the _z form or multiple updates for larger counts.
+- len is uInt, at most 2^32 - 1 bytes; a larger count converted to uInt loses its high bits before the call. Use the _z form or multiple updates for larger counts.
 
 ### Calling conditions and effects {#api-adler32-contract}
 
@@ -194,8 +194,6 @@ Returns the concatenated Adler-32 without reading A or B; negative lengths have 
 
 **Reading the result.**
 
-- len2 must be the byte length of B; A and B checksums must be computed independently. A wrong length has no concatenation guarantee.
-- An empty B has checksum 1, so concatenation preserves the checksum of A.
 - 0xFFFFFFFF is not a valid Adler-32; ordinary and 64-bit entries have the same length range in this LP64 build.
 
 ### Calling conditions and effects {#api-adler32_combine-contract}
@@ -247,8 +245,6 @@ Returns the concatenated Adler-32 without reading A or B; negative lengths have 
 
 **Reading the result.**
 
-- len2 must be the byte length of B; A and B checksums must be computed independently. A wrong length has no concatenation guarantee.
-- An empty B has checksum 1, so concatenation preserves the checksum of A.
 - 0xFFFFFFFF is not a valid Adler-32; ordinary and 64-bit entries have the same length range in this LP64 build.
 
 ### Calling conditions and effects {#api-adler32_combine64-contract}
@@ -407,8 +403,7 @@ Returns the updated CRC-32, or the initial value for a new checksum.
 
 **Reading the result.**
 
-- The function handles complements; do not complement the running checksum.
-- len is uInt, at most 2^32 - 1 bytes; use the _z form or multiple updates for larger counts.
+- len is uInt, at most 2^32 - 1 bytes; a larger count converted to uInt loses its high bits before the call. Use the _z form or multiple updates for larger counts.
 
 ### Calling conditions and effects {#api-crc32-contract}
 
@@ -461,10 +456,6 @@ Generates a reusable operator for the byte length of B. The result is not a chec
 | `0`<br>**Negative length rejected** | len2 < 0. | Correct the length; do not treat this value as a valid generated operator. |
 | `0x80000000`<br>**Operator for empty B** | len2 == 0. | Keep the operator unchanged for crc32_combine_op with empty B. |
 | `op != 0`<br>**Operator for the given length** | len2 > 0; returns a nonzero 32-bit operator. | Keep it unchanged and reuse it only for pairs whose B length equals len2. |
-
-**Reading the result.**
-
-- Both entries accept all signed 64-bit lengths in this LP64 build.
 
 ### Calling conditions and effects {#api-crc32_combine_gen64-contract}
 
@@ -568,8 +559,7 @@ Applies a previously generated operator to two independent CRCs. A zero operator
 **Reading the result.**
 
 - A valid CRC can also be zero; the return value alone cannot distinguish rejection from a valid result.
-- Forged operators and operators for the wrong length have no functional guarantee; with a nonzero LP64 operator whose low 32 bits are zero the call does not return.
-- For empty B, use its CRC 0 and the corresponding empty-sequence operator to preserve the CRC of A.
+- Forged operators and operators for the wrong length have no functional guarantee.
 
 ### Calling conditions and effects {#api-crc32_combine_op-contract}
 
@@ -586,8 +576,9 @@ With a nonzero LP64 `op` whose low 32 bits are zero the call does not return:
 `uLong` has 64 bits, the loop in `multmodp` looks for a set bit only among bits 31 to 0 of `op`,
 and it has no other exit. `crc32_combine_op_diverges` proves this of the translation: the run
 ends in the model's out-of-fuel fault ([CRC-32 proof](../../proof/crc32.md)). For the C it is a
-reading of the source. Such an `op` is outside the generated-operator contract: a generated
-operator is below `2^32`, and it is zero or has a set bit.
+reading of the source. Such an `op` is outside the premise of the safety goal below, which covers
+only operators that a generator returned: a generated operator is below `2^32`, and it is zero or
+has a set bit.
 
 **Proof goals.**
 
@@ -629,8 +620,6 @@ Returns the concatenated CRC-32 without reading A or B; negative lengths have a 
 
 **Reading the result.**
 
-- len2 must be the byte length of B; A and B checksums must be computed independently. A wrong length has no concatenation guarantee.
-- An empty B has checksum 0, so concatenation preserves the checksum of A.
 - Zero can also be a valid CRC; a returned zero alone does not identify rejection.
 
 ### Calling conditions and effects {#api-crc32_combine64-contract}
@@ -687,8 +676,6 @@ Returns the concatenated CRC-32 without reading A or B; negative lengths have a 
 
 **Reading the result.**
 
-- len2 must be the byte length of B; A and B checksums must be computed independently. A wrong length has no concatenation guarantee.
-- An empty B has checksum 0, so concatenation preserves the checksum of A.
 - Zero can also be a valid CRC; a returned zero alone does not identify rejection.
 
 ### Calling conditions and effects {#api-crc32_combine-contract}

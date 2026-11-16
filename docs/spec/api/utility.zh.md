@@ -1,4 +1,4 @@
-<!-- source-sha256: 586c4e4f8eaeac4296b044c506563a944ca76166d99528214d063102710ee5e7 -->
+<!-- source-sha256: 13416d8ab99365561b6573ae3d7772eb469174fb5976cb6d4b1217438824a633 -->
 
 # 缓冲区工具与库信息
 
@@ -27,7 +27,7 @@
 `CompressorSafety`，`uncompress2` 和 `uncompress2_z` 用 `UncompressCountedSafe`，
 `uncompress` 和 `uncompress_z` 用 `UncompressSingleSafe`。
 
-缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。流记录是自动变量：它不占用任何一次分配尝试（[测试](../../../tests/regression/compress-allocation/README.md)）。
+缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。流记录是自动变量，不是堆块，所以它不占用任何一次分配尝试。一次调用的分配尝试都来自编解码器。`compress*` 调用至多尝试五次分配，全部在 `deflateInit` 中：状态、窗口、`prev`、`head` 和待输出缓冲区；当它拒绝参数或级别时，一次也不尝试。`uncompress*` 调用在 `inflateInit` 中尝试分配解码器状态，并在解码需要时于 `inflate` 内尝试分配窗口。一个差分[测试](../../../tests/regression/compress-allocation/README.md)把四个压缩函数的分配尝试与真实 C 进行比较。
 
 先说明长度的约定：`sourceLen` 指定可读输入的字节数；`*destLen` 在调用前是目的数组的可写容量，调用后改为实际写入量。例如目的缓冲区有 1000 字节容量、最终写入 120 字节，调用前应设置 `*destLen = 1000`，成功返回后读取到 120。这个长度单元自身也是需要保持存活、可读写的调用者存储。`uncompress2_z` 的 `*sourceLen` 同样在调用前给出可用的输入字节数，返回后报告已消费的字节数。
 
@@ -307,8 +307,8 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 
 **效果。** 纯计算。没有指针访问、分配、状态变化或错误返回。
 
-**范围。** 本契约规定数值。输出容量充分性是另一个性质，针对使用默认封装、
-窗口和内存设置的有效压缩调用。它不为任意裸流或 gzip 流的设置给出上界。
+**范围。** 本契约规定数值。这个上界是为使用默认封装、窗口和内存设置的压缩而设的，
+`compress` 正是这样使用的。它不为任意裸流或 gzip 流的设置给出上界。
 
 **证明目标。**
 
@@ -318,7 +318,7 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 - **保证。**
     - *返回。* 翻译是一个从参数到结果的全函数。它不接受堆，也没有故障分支，所以调用对每个参数都返回；本目标另外说明结果是后置条件中给出的饱和公式。
     - *状态、写入、分配。* 都没有：这个函数不访问内存。
-- **不在本目标内。** 这么大的目的缓冲区对 `compress` 是否足够：没有必需目标陈述这一点。
+- **不在本目标内。** 翻译后的 `compress` 的每个输出都能放进这么大的目的缓冲区。定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>完整返回条件与边界</summary>
 
@@ -352,7 +352,7 @@ uLong ZEXPORT compressBound(uLong sourceLen);
 
 **前置条件。** 完整类型定义域：每个 64 位 `sourceLen`。
 
-**效果。** 纯计算。没有内存访问或错误返回。输出容量充分性的范围也相同。
+**效果。** 纯计算。没有内存访问或错误返回。[compressBound_z](#compressbound_z) 的范围同样适用。
 
 **证明目标。**
 
@@ -362,7 +362,7 @@ uLong ZEXPORT compressBound(uLong sourceLen);
 - **保证。**
     - *返回。* 翻译是一个从参数到结果的全函数。它不接受堆，也没有故障分支，所以调用对每个参数都返回；本目标另外说明结果是后置条件中给出的饱和公式。
     - *状态、写入、分配。* 都没有：这个函数不访问内存。
-- **不在本目标内。** 这么大的目的缓冲区对 `compress` 是否足够：没有必需目标陈述这一点。
+- **不在本目标内。** 翻译后的 `compress` 的每个输出都能放进这么大的目的缓冲区。定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>完整返回条件与边界</summary>
 

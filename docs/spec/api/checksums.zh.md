@@ -1,4 +1,4 @@
-<!-- source-sha256: 203c22885270ff0bc00825b711dc19f470e0af27ec8da54caa81da7d2b84b369 -->
+<!-- source-sha256: 95fcfd65f3e6746565e6d108639c8dc6f5478f246eee48b732d86891d6c375cb -->
 
 # 校验和
 
@@ -123,7 +123,7 @@ uLong ZEXPORT adler32(uLong adler, const Bytef *buf, uInt len);
 
 **判读要点。**
 
-- len 是 uInt，最多 2^32 - 1 字节；更大的计数须用 _z 形式或多次更新。
+- len 是 uInt，最多 2^32 - 1 字节；更大的计数转换为 uInt 时，在调用之前就丢失了高位。更大的计数须用 _z 形式或多次更新。
 
 ### 调用条件与效果 {#api-adler32-contract}
 
@@ -175,8 +175,6 @@ uLong ZEXPORT adler32_combine(uLong adler1, uLong adler2, z_off_t len2);
 
 **判读要点。**
 
-- len2 必须是 B 的字节数；A、B 的校验和须各自独立计算。错误长度没有拼接保证。
-- 空 B 的校验和为 1，拼接结果保持 A 的校验和。
 - 0xFFFFFFFF 不是有效 Adler-32；本 LP64 构建中，普通条目与 64 位条目的长度范围相同。
 
 ### 调用条件与效果 {#api-adler32_combine-contract}
@@ -227,8 +225,6 @@ uLong ZEXPORT adler32_combine64(uLong adler1, uLong adler2, z_off64_t len2);
 
 **判读要点。**
 
-- len2 必须是 B 的字节数；A、B 的校验和须各自独立计算。错误长度没有拼接保证。
-- 空 B 的校验和为 1，拼接结果保持 A 的校验和。
 - 0xFFFFFFFF 不是有效 Adler-32；本 LP64 构建中，普通条目与 64 位条目的长度范围相同。
 
 ### 调用条件与效果 {#api-adler32_combine64-contract}
@@ -382,8 +378,7 @@ uLong ZEXPORT crc32(uLong crc, const unsigned char FAR *buf, uInt len);
 
 **判读要点。**
 
-- 取反处理由函数完成；调用者不要对运行中的校验和值取反。
-- len 是 uInt，最多 2^32 - 1 字节；更大的计数须用 _z 形式或多次更新。
+- len 是 uInt，最多 2^32 - 1 字节；更大的计数转换为 uInt 时，在调用之前就丢失了高位。更大的计数须用 _z 形式或多次更新。
 
 ### 调用条件与效果 {#api-crc32-contract}
 
@@ -433,10 +428,6 @@ uLong ZEXPORT crc32_combine_gen64(z_off64_t len2);
 | `0`<br>**负长度被拒绝** | len2 < 0。 | 先修正长度；不要把此值当作有效生成算子。 |
 | `0x80000000`<br>**空 B 的算子** | len2 == 0。 | 保持算子不变，用于 B 为空的 crc32_combine_op。 |
 | `op != 0`<br>**指定长度的算子** | len2 > 0；返回非零的 32 位算子。 | 保持算子不变，只为 B 长度等于 len2 的各对序列复用。 |
-
-**判读要点。**
-
-- 此 LP64 构建中，两个条目均接受所有有符号 64 位长度。
 
 ### 调用条件与效果 {#api-crc32_combine_gen64-contract}
 
@@ -536,8 +527,7 @@ uLong ZEXPORT crc32_combine_op(uLong crc1, uLong crc2, uLong op);
 **判读要点。**
 
 - 有效 CRC 也可能为 0，返回值本身不能区分拒绝与有效结果。
-- 伪造算子、错误长度的算子不在功能保证内；若 LP64 算子非零、但低 32 位全为零，调用不会返回。
-- B 为空时，使用其 CRC 0 和对应空序列算子，结果保持 A 的 CRC。
+- 伪造算子、错误长度的算子不在功能保证内。
 
 ### 调用条件与效果 {#api-crc32_combine_op-contract}
 
@@ -554,7 +544,7 @@ uLong ZEXPORT crc32_combine_op(uLong crc1, uLong crc2, uLong op);
 `multmodp` 中的循环只在 `op` 的第 31 位到第 0 位中寻找置位的位，此外没有别的出口。
 `crc32_combine_op_diverges` 对翻译证明了这一点：运行以模型的燃料耗尽故障结束
 （见 [CRC-32 证明](../../proof/crc32.md)）。对 C 而言，这是对源码的解读。
-这样的 `op` 不在生成算子契约内：生成的算子小于 `2^32`，并且要么为零，要么有置位的位。
+这样的 `op` 不在下面安全目标的前提之内；该前提只涵盖生成函数返回的算子：生成的算子小于 `2^32`，并且要么为零，要么有置位的位。
 
 **证明目标。**
 
@@ -596,8 +586,6 @@ uLong ZEXPORT crc32_combine64(uLong crc1, uLong crc2, z_off64_t len2);
 
 **判读要点。**
 
-- len2 必须是 B 的字节数；A、B 的校验和须各自独立计算。错误长度没有拼接保证。
-- 空 B 的校验和为 0，拼接结果保持 A 的校验和。
 - 0 也可能是有效 CRC，不能仅凭返回 0 判断长度被拒绝。
 
 ### 调用条件与效果 {#api-crc32_combine64-contract}
@@ -651,8 +639,6 @@ uLong ZEXPORT crc32_combine(uLong crc1, uLong crc2, z_off_t len2);
 
 **判读要点。**
 
-- len2 必须是 B 的字节数；A、B 的校验和须各自独立计算。错误长度没有拼接保证。
-- 空 B 的校验和为 0，拼接结果保持 A 的校验和。
 - 0 也可能是有效 CRC，不能仅凭返回 0 判断长度被拒绝。
 
 ### 调用条件与效果 {#api-crc32_combine-contract}
