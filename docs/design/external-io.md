@@ -2,7 +2,7 @@
 
 The gz functions call the operating system and the C library: `open`, `read`, `write`,
 `lseek`, `close`, `fcntl`, `strerror`, `snprintf` and `vsnprintf`. This page describes the model
-of those calls, [`ZlibF/Zlib/gzfs.lean`](../../ZlibF/Zlib/gzfs.lean). The model is trusted: the
+of those calls: the record [`Fs`](../../ZlibF/Zlib/gzfs.lean) and the operations on it. The model is trusted: the
 kernel checks the proofs against it and does not check it against Linux
 ([trusted base](../trusted-base.md)).
 
@@ -56,10 +56,8 @@ also when it fails.
 
 The oracle is the fields `nos`, `readChoice`, `writeChoice`, `lseekChoice`, `closeFail`,
 `openFail`, `openFd`, `okErrno` and `readBudget` of `Fs`. Their default values give the
-regular-file behaviour and serve the executable test drivers only; every goal quantifies over
-all worlds. The comments of `gzfs.lean` number the clauses of the oracle: M1 `read`, M2 `write`,
-M3 `lseek`, M4 `close`, M5 `open`, M7 the read budget. There is no M6. The row "Gz reading
-termination" of [deviations](../deviations.md#gzip-file-interface) uses the label M7.
+regular-file behaviour and serve the differential tests only; every goal quantifies over all
+worlds.
 
 ## Error texts
 
@@ -153,18 +151,15 @@ into the caller's buffer; patch 0005 removes the arithmetic on those values.
 
 ## Differential evidence
 
-The gz differential cases are defined by [`tests/gen/gz.py`](../../tests/gen/gz.py),
-[`tests/c/gz.c`](../../tests/c/gz.c) and
-[`tests/lean/Driver/Gz.lean`](../../tests/lean/Driver/Gz.lean). They compare what each operation
-returns on temporary real files with runs over `Fs`. The same family compares the bytes and
-lengths of `uncompress2`.
+The gz differential tests compare what each operation returns on temporary real files with runs
+over `Fs`. The same family of tests compares the bytes and lengths of `uncompress2`.
 
-The drivers start from the default oracle, the regular-file behaviour. A test case can make one
+The tests start from the default oracle, the regular-file behaviour. A test case can make one
 chosen `read` call fail, and one caller-format `vsnprintf` call fail. Every other oracle choice
 is covered only by the proofs.
 
 Agreement tests the translation and the world model together against selected C executions. It
 is evidence of fidelity. It is not a proof of codec correctness, of all error paths, of all
-POSIX behaviour or of leak freedom. [Checking](../checking/README.md) says when these tests run.
+POSIX behaviour or of leak freedom.
 
 [Design](README.md) · [Documentation home](../README.md)

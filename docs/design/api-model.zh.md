@@ -1,16 +1,16 @@
-<!-- source-sha256: f1b769eb4144570f87c75fe2a4be0771205d4dfb71f9d2c0aa76ab427be7a1ee -->
+<!-- source-sha256: f251d00b175f28178cdb9542db7da84863f08cfb0175b8e5d897f191faf96756 -->
 # API 模型
 
-API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料。没有安全目标使用它们，它们也不是安全结论所必需的；这些模型以及已经证明的关于它们的定理都保留（[范围](../progress.md#scope)）。[各族详解](api-model-details.md)逐个说明每个模型。
+API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料。没有安全目标使用它们，它们也不是安全结论所必需的（[进度](../progress.md)）。[各族详解](api-model-details.md)逐个说明每个模型。
 
 ## 两类命题
 
-| 种类 | 位置 | 讲的是什么 |
-| --- | --- | --- |
-| 模型关系 | `ZlibF/Spec/Functional/Api/` | 字节历史，以及一次调用可以给出的结果。没有堆。 |
-| 具体目标 | `ZlibF/Spec/Safety/`、`ZlibF/Spec/Functional/`；它们用到的定义在 `ZlibF/Spec/Common/` 中 | 在运行时堆上运行的一次翻译后的调用，以及它的效果。 |
+| 种类 | 讲的是什么 |
+| --- | --- |
+| 模型关系 | 字节历史，以及一次调用可以给出的结果。没有堆。 |
+| 具体目标（安全目标或功能目标） | 在运行时堆上运行的一次翻译后的调用，以及它的效果。 |
 
-关于模型关系的定理不是关于 C 函数的定理。例如，`ZlibF.Spec.Api.Goal.roundtrip` 是一条已证明的命题，但它只关于模型。计划中的默认 zlib 流往返是另一条命题：它说的是翻译后的 `deflate` 和 `inflate` 的运行。它的条件形式 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`）的内容见[架构](architecture.md#the-layers)；完备性和无条件形式排在它之后（这项工作进行到哪一步，见[进度，范围](../progress.md#scope)）。
+关于模型关系的定理不是关于 C 函数的定理。例如，`ZlibF.Spec.Api.Goal.roundtrip` 是一条已证明的命题，但它只关于模型。计划中的默认 zlib 流往返是另一条命题：它说的是翻译后的 `deflate` 和 `inflate` 的运行。它的条件形式 `deflate_inflate_roundtrip` 的内容见[架构](architecture.md#the-layers)；完备性和无条件形式未完成（[进度](../progress.md)）。
 
 一个功能性的结论要对 C 有所断言，需要三个联系：
 
@@ -27,28 +27,25 @@ flowchart TD
 
 细化定理是实质性的部分：每次实际执行都是模型允许的一步。单有模型定理，只说明模型的一个性质。
 
-快速关卡中的检查 `scripts/check-spec-layers.py` 拒绝 `ZlibF/Spec/Safety/` 或 `ZlibF/Spec/Common/` 的模块导入这些模型，不论是直接导入还是经由其他模块导入（[规格的布局](safety-functional-split.md)）。它没有例外：`Gz.lean` 的 gz 模式解码器由 `ZlibF/Spec/Functional/GzState.lean` 导入，不由公共模块导入。
+## 模型包含什么
 
-## 定义的位置
+这些模型在 Lean 命名空间 `ZlibF.Spec.Api` 中。
 
-路径相对于 `ZlibF/Spec/Functional/Api/`。这些模块的 Lean 命名空间是 `ZlibF.Spec.Api`；它不跟随目录。
-
-| 模块 | 内容 |
+| 部分 | 内容 |
 | --- | --- |
-| `Basic.lean` | 由封装和窗口选定的解码关系 `Layer.Decodes`，以及格式的可延续性。参数解码器（返回码、flush 值、窗口和封装的选择）在 `ZlibF/Spec/Common/Parameters.lean` 中 |
-| `Header.lean` | gzip 头请求、输出记录和头部字节 |
-| `Inflate.lean` | inflate 的状态、步进关系、字典、恢复和回调解码 |
-| `InflateAccepted.lean` | `Api.Layer.InflateAccepted`：默认的 `inflate` 接受的流，供功能序列目标使用 |
-| `Deflate.lean` | deflate 的状态、步进关系、刷新历史、字典和上界 |
-| `Compress.lean` | 单次调用的压缩和解压关系，以及数值上界 |
-| `Gz.lean` | 抽象文件内容上的文件句柄状态机 |
-| `Run.lean` | 操作的数据类型、按族分派和轨迹 |
-| `Iface.lean` | 抽象接口 `HeapApi`，细化目标以它为基础写出 |
-| `Concrete.lean` | 在运行时堆上的直接执行、成功运行的正确性，以及选定的压缩器目标 |
-| `Goals.lean` | 关于模型和关于细化的具名命题 |
-| `Examples.lean` | 小型的模型见证和可计算的检查 |
+| 格式层 | 由封装和窗口选定的解码关系 `Layer.Decodes`，以及格式的可延续性。参数解码器（返回码、flush 值、窗口和封装的选择）与安全目标共用，不属于这些模型 |
+| gzip 头 | gzip 头请求、输出记录和头部字节 |
+| inflate | inflate 的状态、步进关系、字典、恢复和回调解码；`Layer.InflateAccepted`，即默认的 `inflate` 接受的流，供功能序列目标使用 |
+| deflate | deflate 的状态、步进关系、刷新历史、字典和上界 |
+| 单次调用的工具函数 | 单次调用的压缩和解压关系，以及数值上界 |
+| gz 文件 | 抽象文件内容上的文件句柄状态机 |
+| 运行 | 操作的数据类型、按族分派和轨迹 |
+| `HeapApi` | 抽象接口，细化目标以它为基础写出 |
+| `Concrete` | 在运行时堆上的直接执行、成功运行的正确性，以及选定的压缩器目标 |
+| `Goal` | 关于模型和关于细化的具名命题 |
+| 例子 | 小型的模型见证和可计算的检查 |
 
-## 阅读 `Goals.lean` 中的目标名
+## 阅读目标名
 
 | 族 | 性质 |
 | --- | --- |
@@ -60,7 +57,7 @@ flowchart TD
 | `gz_roundtrip`, `gz_seek_read` | 抽象文件的往返，以及指定的位置情形 |
 | `*_refines` | 在 `HeapApi` 的一个具体实例之下，实际执行是模型允许的一步 |
 
-`Examples.lean` 给出小型见证和算术检查。见证说明某个例子是可能的。它不说明全称的正确性，也不说明细化。
+这些例子给出小型见证和算术检查。见证说明某个例子是可能的。它不说明全称的正确性，也不说明细化。
 
 [各族详解](api-model-details.md)讲述状态和历史、解码器在可以输出之前需要的证据、deflate 的历史标志、单次调用的工具函数、gz 的位置模型，以及 `HeapApi` 的一个实例必须表达什么（接口和具体边界）。
 

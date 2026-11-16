@@ -2,24 +2,22 @@
 
 The API models are heap-free descriptions of what the public calls compute: relations over
 histories of bytes, with no pointers and no memory. They are functional material. No safety goal
-uses them, and they are not required for the safety results; the models and the theorems
-already proved about them stay ([scope](../progress.md#scope)).
+uses them, and they are not required for the safety results ([progress](../progress.md)).
 [The families in detail](api-model-details.md) describes each model.
 
 ## Two kinds of statement
 
-| Kind | Where | About |
-| --- | --- | --- |
-| Model relation | `ZlibF/Spec/Functional/Api/` | Histories of bytes and the results a call may give. No heap. |
-| Concrete goal | `ZlibF/Spec/Safety/`, `ZlibF/Spec/Functional/`; the definitions they use are in `ZlibF/Spec/Common/` | A translated call run on the runtime heap, and its effects. |
+| Kind | About |
+| --- | --- |
+| Model relation | Histories of bytes and the results a call may give. No heap. |
+| Concrete goal (a safety goal or a functional goal) | A translated call run on the runtime heap, and its effects. |
 
 A theorem about a model relation is not a theorem about a C function. For example,
 `ZlibF.Spec.Api.Goal.roundtrip` is a proved statement about the model only. The planned round
 trip of the default zlib stream is a different statement: it is about runs of the translated
-`deflate` and `inflate`. Its conditional form, `deflate_inflate_roundtrip`
-(`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`), is stated in
-[architecture](architecture.md#the-layers); completeness and the unconditional form come after
-it ([progress, Scope](../progress.md#scope) says how far the work is).
+`deflate` and `inflate`. Its conditional form, `deflate_inflate_roundtrip`, is stated in
+[architecture](architecture.md#the-layers); completeness and the unconditional form are not done
+([progress](../progress.md)).
 
 To say something about the C, a functional claim needs three connections:
 
@@ -37,32 +35,25 @@ flowchart TD
 The refinement theorem is the substantive part: every actual execution is a step the model
 allows. A model theorem alone shows a property of the model.
 
-The check `scripts/check-spec-layers.py`, in the fast gate, rejects an import of these models by
-a module of `ZlibF/Spec/Safety/` or `ZlibF/Spec/Common/`, direct or through other modules
-([layout of the specifications](safety-functional-split.md)). It has no exception: the gz mode
-decoder of `Gz.lean` is imported by `ZlibF/Spec/Functional/GzState.lean`, not by a common module.
+## What the models contain
 
-## Where the definitions live
+The models are in the Lean namespace `ZlibF.Spec.Api`.
 
-Paths are relative to `ZlibF/Spec/Functional/Api/`. The Lean namespace of these modules is
-`ZlibF.Spec.Api`; it does not follow the directory.
-
-| Module | Content |
+| Part | Content |
 | --- | --- |
-| `Basic.lean` | The decoding relation `Layer.Decodes` selected by the wrapper and window, and format viability. The parameter decoders (return codes, flush values, window and wrapper selection) are in `ZlibF/Spec/Common/Parameters.lean` |
-| `Header.lean` | Gzip header requests, output records and header bytes |
-| `Inflate.lean` | Inflate state, step relations, dictionaries, recovery and callback decoding |
-| `InflateAccepted.lean` | `Api.Layer.InflateAccepted`: the streams default `inflate` accepts, used by the functional sequence goal |
-| `Deflate.lean` | Deflate state, step relations, flush history, dictionaries and bounds |
-| `Compress.lean` | One-call compression and decompression relations and numeric bounds |
-| `Gz.lean` | File-handle state machines over abstract file contents |
-| `Run.lean` | Operation datatypes, family dispatch and traces |
-| `Iface.lean` | The abstract interface `HeapApi` that the refinement goals are stated over |
-| `Concrete.lean` | Direct execution on the runtime heap, correctness of successful runs, and selected compressor goals |
-| `Goals.lean` | Named propositions about the models and about refinement |
-| `Examples.lean` | Small model witnesses and computable checks |
+| Format layer | The decoding relation `Layer.Decodes` selected by the wrapper and window, and format viability. The parameter decoders (return codes, flush values, window and wrapper selection) are shared with the safety goals and are not part of the models |
+| Gzip headers | Gzip header requests, output records and header bytes |
+| Inflate | Inflate state, step relations, dictionaries, recovery and callback decoding; `Layer.InflateAccepted`, the streams default `inflate` accepts, used by the functional sequence goal |
+| Deflate | Deflate state, step relations, flush history, dictionaries and bounds |
+| One-call utilities | One-call compression and decompression relations and numeric bounds |
+| Gz files | File-handle state machines over abstract file contents |
+| Runs | Operation datatypes, family dispatch and traces |
+| `HeapApi` | The abstract interface that the refinement goals are stated over |
+| `Concrete` | Direct execution on the runtime heap, correctness of successful runs, and selected compressor goals |
+| `Goal` | Named propositions about the models and about refinement |
+| Examples | Small model witnesses and computable checks |
 
-## Reading the goal names of `Goals.lean`
+## Reading the goal names
 
 | Family | Property |
 | --- | --- |
@@ -74,7 +65,7 @@ Paths are relative to `ZlibF/Spec/Functional/Api/`. The Lean namespace of these 
 | `gz_roundtrip`, `gz_seek_read` | Abstract file round trip and the specified position cases |
 | `*_refines` | Actual execution is an allowed model step, under a concrete instance of `HeapApi` |
 
-`Examples.lean` gives small witnesses and arithmetic checks. A witness shows that an example is
+The examples give small witnesses and arithmetic checks. A witness shows that an example is
 possible. It does not show universal correctness or refinement.
 
 [The families in detail](api-model-details.md) covers states and histories, the evidence a
