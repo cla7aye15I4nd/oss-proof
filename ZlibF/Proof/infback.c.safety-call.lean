@@ -459,7 +459,7 @@ theorem tail_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
       UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by omega))
     obtain ⟨xs, bytes⟩ := bytes_of_writable (writable_le wr (k := (s.wsize - l.left).toNat) (by omega))
     obtain ⟨rc, h4, run4, ext, winSame, held, inv'⟩ :=
-      pr.outStep h log s.window (s.wsize - l.left) xs I.proto bytes (by rw [subN, ← sz]; omega)
+      pr.outStep h log s.window (s.wsize - l.left) xs I.valid I.proto bytes (by rw [subN, ← sz]; omega)
     let log4 : BackLog := { log with chunks := log.chunks ++ [xs], failed := log.failed || rc != 0 }
     have I4 : PInv c pr h0 h4 l log4 := PInv.callback I ext winSame held inv' rfl rfl
       (I.platform.2 h log s.window (s.wsize - l.left) rc h4 I.proto I.fit run4)

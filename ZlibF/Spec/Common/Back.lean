@@ -56,9 +56,21 @@ def CallbackFrame (own : Nat → Prop) (h after : Heap) (r : ZStreamRef) (state 
   ((∀ b, ByteRoot window b → ¬ own b) →
     BufferFrame h after (fun b => StreamRoot r b ∨ b = state ∨ own b) [⟨window, capacity⟩])
 
+/-- What the library guarantees whenever it calls `in` or `out`: the stream is a valid callback
+decoder over this window (`BackValid`). In particular the heap is a library heap (`Fresh`, `Uniq`,
+`LibraryGlobals`) and the window is writable. A callback contract needs to hold only on such heaps. -/
+def CallbackEntry (h : Heap) (r : ZStreamRef) (state : Nat) (window : BPtr) (capacity : Nat) : Prop :=
+  ∃ z s, BackValid h r state z s ∧ s.window = window ∧ s.wsize.toNat = capacity
+
 /-- These are contracts of caller code, not assumed library callee contracts.
 The input may depend on previous output. A finite source has an explicit total-input bound.
-Output must preserve the current input until the next input callback. -/
+Output must preserve the current input until the next input callback.
+
+`inStep` and `outStep` are required only on a heap that satisfies `CallbackEntry`, which is what
+the library provides at each call of `in` and `out`. Without that premise no protocol exists:
+`local_` makes the invariant insensitive to every block outside `own`, so the invariant would also
+hold on a heap whose state block holds two objects, where no step can end in a `Uniq` heap
+(`tests/verification/regressions/inflateback-protocol-vacuous.lean`). -/
 structure CallbackProtocol (r : ZStreamRef) (state : Nat) (window : BPtr) (capacity : Nat)
     (input : InCb) (inDesc : BPtr) (output : OutCb) (outDesc : BPtr) where
   own : Nat → Prop
@@ -69,7 +81,8 @@ structure CallbackProtocol (r : ZStreamRef) (state : Nat) (window : BPtr) (capac
     (invariant h log ↔ invariant after log)
   bounded : ∀ h log, invariant h log → log.supplied.length ≤ inputBound
   liveInput : ∀ h log, invariant h log → log.held ≠ [] → Bytes h log.active log.held.length log.held
-  inStep : ∀ h log next, invariant h log → ∃ n pointer after bytes,
+  inStep : ∀ h log next, CallbackEntry h r state window capacity → invariant h log →
+    ∃ n pointer after bytes,
     input inDesc next h = .ok ((n, pointer), after) ∧
     bytes.length = n.toNat ∧ ExternalFrame own h after ∧
     SameBytePrefix h after window window capacity ∧
@@ -77,7 +90,7 @@ structure CallbackProtocol (r : ZStreamRef) (state : Nat) (window : BPtr) (capac
       ∀ b, ByteRoot pointer b → b ≠ state ∧ ¬ StreamRoot r b) ∧
     invariant after { log with
       supplied := log.supplied ++ bytes, active := pointer, held := bytes, exhausted := n == 0 }
-  outStep : ∀ h log pointer n bytes, invariant h log →
+  outStep : ∀ h log pointer n bytes, CallbackEntry h r state window capacity → invariant h log →
     Bytes h pointer n.toNat bytes → n.toNat ≤ capacity →
     ∃ rc after, output outDesc pointer n h = .ok (rc, after) ∧ ExternalFrame own h after ∧
       SameBytePrefix h after window window capacity ∧
