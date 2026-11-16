@@ -9,7 +9,7 @@ its upstream submission; its entry then says it is local and pending, and it is 
 upstream fix when one exists. Remove a patch once upstream incorporates the fix and the pin moves
 past it.
 
-| Patch | Fixes | Upstream state (read on 2026-11-14) |
+| Patch | Fixes | Upstream state (read on 2026-11-15) |
 | --- | --- | --- |
 | 0001 | [Relational comparison of unrelated pointers in `inflateCopy`](../docs/findings/inflate-copy-fixed/README.md) | [PR #1369](https://github.com/madler/zlib/pull/1369): the maintainer answered "Applied" on 2026-11-06; not yet on `develop` |
 | 0002 | [Signed overflow in `gzseek64` after an initial `gzungetc`](../docs/findings/gzseek-pushback-overflow/README.md) | [PR #1361](https://github.com/madler/zlib/pull/1361), open |
@@ -34,11 +34,11 @@ The patch exactly matches commit
 `300fea14353d2e2ca61210aca7c48861ded5788c` in
 [upstream PR #1369](https://github.com/madler/zlib/pull/1369).
 The maintainer answered "Applied" on 6 November 2026 and the pull request is
-closed. On 2026-11-14 the publicly fetchable `develop` and `master` heads still
-name `99623ef7097352da7993ba614161fd6a311e046e`, whose `inflate.c` retains the old
-comparison. Keep the current pin and this submitted fix until the applied
-commit is available on the upstream branch. Then advance the pin and remove
-the patch.
+closed. On 2026-11-15 the publicly fetchable `develop` and `master` heads
+name `99623ef7097352da7993ba614161fd6a311e046e` ("zlib 1.4"), which is the pin.
+Its `inflate.c` retains the old comparison. Keep this submitted fix until the
+applied commit is available on the upstream branch. Then advance the pin and
+remove the patch.
 
 ## 0002-gzseek-negative-position-overflow.patch
 
