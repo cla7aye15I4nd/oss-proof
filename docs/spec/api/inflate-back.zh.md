@@ -1,4 +1,4 @@
-<!-- source-sha256: 2b609f1f7c5b21964b029f2bc0de4428ad6ca08a377b7ab90fd3e216ddf4ffc5 -->
+<!-- source-sha256: 35395b236a4ef9bd9be7bd3120330b3a2571171b779541d88a6e60c3df928be3 -->
 
 # 回调解压
 
@@ -114,7 +114,7 @@ int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits, unsigned char FAR *
     - *状态。* 返回 `Z_OK` 时，流记录指向新块中一个有效的回调解码器状态，这个状态的窗口就是 `window`（`BackValid`）。
     - *写入。* `strm` 为 NULL 时不写任何内容：堆不变。否则只写流记录和调用自己分配的块（`Frame`）。
     - *分配。* 返回 `Z_OK` 时，恰好新增一个块，即状态记录，并且不释放任何块（`LiveChange`）。返回其他值时，已分配的块与调用前相同。
-- **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。每种拒绝和分配失败各返回哪个值，以及调用之后各字段的值：功能目标 `Goal.inflateBackInit_`，安全结论不需要它。合法的调用确实返回 `Z_OK`：`Goal.inflate_back_initialisation_domain`（[Common/Domains.lean](../../../ZlibF/Spec/Common/Domains.lean)），必需。
+- **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。每种拒绝和分配失败各返回哪个值，以及调用之后各字段的值：功能目标 `Goal.inflateBackInit_`，安全结论不需要它。合法的调用确实返回 `Z_OK`：`Goal.inflate_back_initialisation_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackInit_"><summary>完整返回条件与边界</summary>
 

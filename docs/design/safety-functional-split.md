@@ -11,20 +11,21 @@ checked. The plan that led to this layout, with its steps and status, is a
 | Directory | Content | Required |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | Safety goals: the call returns with no `Fault.ub` and no `Fault.outOfFuel`, writes only its frame, and leaks nothing, on the documented domain | Yes |
-| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters, the platform premise, and the invariants of the streams and of the gz handle (`Good`, `DGood`, `GzInv`). `Common/Inflate/` holds the invariants of the inflate tables and of the fast decoder. No goal about a public function is here | No goal of its own |
+| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters, the platform premise, and the invariants of the streams and of the gz handle (`Good`, `DGood`, `GzInv`). `Common/Inflate/` holds the invariants of the inflate tables and of the fast decoder. No goal about a public function is here | No required goal |
 | `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), those of the gzip file interface included; the format and API models with their goals (`Format/`, `Api/`); the full sequence contracts (`Goal.inflate_sequence`, `Goal.deflate_sequence`, `Goal.inflate_back_sequence`, `Goal.gz_sequence`), which join the sequence safety with functional clauses. `Functional/Inflate/` holds statements about the decode tables and the fast decoder that use the format model | No, except `Goal.compressBound` and `Goal.compressBound_z` ([below](#two-goals-per-public-function)) |
 
 Nothing else is directly under `ZlibF/Spec/`, except `Common.lean`, which imports every module
 of `Common/`.
 
-A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`, in each of
-the three directories. The directory shows the kind; the namespace is the same. The manifest
+A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`, in
+`Safety/` and in `Functional/` alike. The directory shows the kind; the namespace is the same. The manifest
 `tests/audit/public-api.json` names only goals of this namespace.
 
 A namespace does not follow its directory. `Public` was the name of the directory that is now
 `Common/`; its modules kept the namespace `ZlibF.Spec.Public`, so no goal and no theorem changed
-its name. The modules under `Functional/Api/` have the namespace `ZlibF.Spec.Api`, and so has
-`Common/Parameters.lean`, which came from the API model.
+its name. Most modules under `Functional/Api/` have the namespace `ZlibF.Spec.Api`, and so has
+`Common/Parameters.lean`, which came from the API model. A definition that moved from a proof
+module to `Common/` kept the namespace it had there: `Good` is still `Zlib.Inflate.Spec.Good`.
 
 Two groups of functional goals under `Spec/Functional/` have other namespaces. The first group
 is `ZlibF.Spec.Api.Goal.<name>`, for example `ZlibF.Spec.Api.Goal.roundtrip`.

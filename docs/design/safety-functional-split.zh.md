@@ -1,4 +1,4 @@
-<!-- source-sha256: b4a34c7247d0da9f5c2e55035c9ad9c6b04a821b89d17525de5ec273d20a564d -->
+<!-- source-sha256: e957530b69ed2df06952844810b68ff7b9c5d4c44898cd3a6806f0edde37e716 -->
 # 规格的布局：安全与功能
 
 必需的目标是安全目标。它们与功能目标分开存放，读者不读任何功能规格，就能看到全部必需的目标。本页说明每一类目标放在哪里，哪些导入规则把它们分开，以及这些规则怎样检查。形成这个布局的计划，连同它的步骤和状态，在一个[历史页面](../history/safety-functional-split-plan.md)中。
@@ -8,14 +8,14 @@
 | 目录 | 内容 | 是否必需 |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | 安全目标：在文档规定的定义域上，调用返回，没有 `Fault.ub`，没有 `Fault.outOfFuel`，只写自己的帧，不泄漏任何东西 | 是 |
-| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数、平台前提，以及流和 gz 句柄的不变量（`Good`、`DGood`、`GzInv`）。`Common/Inflate/` 存放 inflate 表和快速解码器的不变量。这里没有关于公开函数的目标 | 它自己没有目标 |
+| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数、平台前提，以及流和 gz 句柄的不变量（`Good`、`DGood`、`GzInv`）。`Common/Inflate/` 存放 inflate 表和快速解码器的不变量。这里没有关于公开函数的目标 | 没有必需的目标 |
 | `ZlibF/Spec/Functional/` | 结果契约（`Goal.<function>`），包括 gzip 文件接口的结果契约；格式模型和 API 模型及它们的目标（`Format/`、`Api/`）；完整的序列契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`），它们把序列安全与功能子句合在一起。`Functional/Inflate/` 存放关于解码表和快速解码器、并且用到格式模型的命题 | 否，例外是 `Goal.compressBound` 和 `Goal.compressBound_z`（[见下文](#two-goals-per-public-function)） |
 
 直接放在 `ZlibF/Spec/` 下的没有别的东西，只有 `Common.lean`，它导入 `Common/` 的每个模块。
 
-关于公开函数的目标，不论在三个目录中的哪一个，Lean 名字都是 `ZlibF.Spec.Public.Goal.<name>`。目录表明种类；命名空间相同。清单文件 `tests/audit/public-api.json` 只列这个命名空间里的目标。
+关于公开函数的目标，不论在 `Safety/` 还是在 `Functional/` 中，Lean 名字都是 `ZlibF.Spec.Public.Goal.<name>`。目录表明种类；命名空间相同。清单文件 `tests/audit/public-api.json` 只列这个命名空间里的目标。
 
-命名空间不跟随目录。`Public` 是现在的 `Common/` 目录原来的名字；其中的模块保留了命名空间 `ZlibF.Spec.Public`，所以没有目标或定理改名。`Functional/Api/` 下的模块的命名空间是 `ZlibF.Spec.Api`；来自 API 模型的 `Common/Parameters.lean` 也是这个命名空间。
+命名空间不跟随目录。`Public` 是现在的 `Common/` 目录原来的名字；其中的模块保留了命名空间 `ZlibF.Spec.Public`，所以没有目标或定理改名。`Functional/Api/` 下的大多数模块的命名空间是 `ZlibF.Spec.Api`；来自 API 模型的 `Common/Parameters.lean` 也是这个命名空间。从证明模块移到 `Common/` 的定义保留了它在那里的命名空间：`Good` 仍然是 `Zlib.Inflate.Spec.Good`。
 
 `Spec/Functional/` 下有两组功能目标用的是别的命名空间。第一组是 `ZlibF.Spec.Api.Goal.<name>`，例如 `ZlibF.Spec.Api.Goal.roundtrip`。`tests/audit/goals.txt` 列出其中 20 个目标，都定义在 `Functional/Api/` 下：`Goals.lean` 里 17 个，`Inflate.lean` 里 1 个，`Concrete.lean` 里 2 个。`Concrete.lean` 里的两个（`compress_bound_value`、`compress2_z_first_alloc_failure`）说的是翻译后的 `compress.c`；其余 18 个是关于 API 模型的命题，不是关于翻译后的 C 的命题。第二组是记号格式的目标 `ZlibF.Spec.Token.Goal.<name>`（`Functional/Format/Token.lean`），它们是关于格式模型的命题。`tests/audit/goals.txt` 按完整名字列出每个目标；它还列出关于内部函数和关于不涉及堆的数学的命题，这些命题各自在所属模块的命名空间里。
 

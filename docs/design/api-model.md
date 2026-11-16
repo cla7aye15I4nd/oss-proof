@@ -11,7 +11,7 @@ already proved about them stay ([scope](../progress.md#scope)).
 | Kind | Where | About |
 | --- | --- | --- |
 | Model relation | `ZlibF/Spec/Functional/Api/` | Histories of bytes and the results a call may give. No heap. |
-| Concrete goal | `ZlibF/Spec/Safety/`, `ZlibF/Spec/Functional/`, `ZlibF/Spec/Common/` | A translated call run on the runtime heap, and its effects. |
+| Concrete goal | `ZlibF/Spec/Safety/`, `ZlibF/Spec/Functional/`; the definitions they use are in `ZlibF/Spec/Common/` | A translated call run on the runtime heap, and its effects. |
 
 A theorem about a model relation is not a theorem about a C function. For example,
 `ZlibF.Spec.Api.Goal.roundtrip` is a proved statement about the model only. The planned round

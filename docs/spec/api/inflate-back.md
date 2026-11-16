@@ -123,7 +123,7 @@ The window remains caller-owned and is not allocated, cleared or freed here.
     - *State.* With `Z_OK`, the stream record points to a valid callback-decoder state in the new block, and that state's window is `window` (`BackValid`).
     - *Writes.* With a NULL `strm`, nothing: the heap is unchanged. Otherwise only the stream record and the block the call itself allocates (`Frame`).
     - *Allocations.* With `Z_OK`, exactly one block is new, the state record, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call.
-- **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and the allocation failure returns, and the field values after the call: functional goal `Goal.inflateBackInit_`, not required for the safety results. That a valid call does return `Z_OK`: `Goal.inflate_back_initialisation_domain` ([Common/Domains.lean](../../../ZlibF/Spec/Common/Domains.lean)), required.
+- **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and the allocation failure returns, and the field values after the call: functional goal `Goal.inflateBackInit_`, not required for the safety results. That a valid call does return `Z_OK`: `Goal.inflate_back_initialisation_domain` ([Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)), required.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackInit_"><summary>Complete return conditions and boundaries</summary>
 

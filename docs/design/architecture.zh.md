@@ -1,4 +1,4 @@
-<!-- source-sha256: 8627de8fc48aa0e0b392e92e6c9beb9418d68f3135fe222815d8516fddeba9e5 -->
+<!-- source-sha256: 6f0b3da763db96aac0d79846a10eb42e6ad71fa7306162b185ade1241269ddc4 -->
 # 从 C 到已检查的定理
 
 本项目的定理说的是一个 Lean 程序，不是 C 的文本。本页展示这个程序由什么构成，让读者能够判断内核不检查的两个联系：运行时表示了 C 的操作，翻译与选定的 C 源码一致。[可信基础](../trusted-base.md)列出所有依靠审查的东西。
@@ -113,7 +113,7 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 | `ZlibF/Spec/Safety/` | 必需的安全目标 |
 | `ZlibF/Spec/Functional/` | 功能目标，以及不涉及堆的格式模型和 API 模型；不是安全结论所必需的 |
 | `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数、不变量；没有关于公开函数的目标（[规格的布局](safety-functional-split.md)） |
-| `ZlibF/Spec/Common/Inflate/`、`ZlibF/Spec/Functional/Inflate/` | 关于内部函数的命题；用到格式模型的在 `Functional/` 下。每一条都先对翻译后的函数证明，调用者才使用它（[见下文](#composing-calls-without-assuming-their-answers)） |
+| `ZlibF/Spec/Common/ByteAddress.lean`、`ZlibF/Spec/Common/Inflate/`、`ZlibF/Spec/Functional/Inflate/` | 关于内部函数的命题；用到格式模型的在 `Functional/` 下。每一条都先对翻译后的函数证明，调用者才使用它（[见下文](#composing-calls-without-assuming-their-answers)） |
 | `ZlibF/Proof/X.c.<topic>.lean` | 关于 `zlib/X.c` 的证明 |
 | `ZlibF/Proof/public-<name>.lean` | 公开目标的证明 |
 | `ZlibF/Math/` | 各证明共用的、不涉及堆的事实 |

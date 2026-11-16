@@ -1,4 +1,4 @@
-<!-- source-sha256: 69a00bc52dbe3983c7d552e93836d123d82ab188347309bfdb4154c84f031c47 -->
+<!-- source-sha256: e81862616fdda817bcde5d382159a262b2b54bcf84495502cde63b1d841aa520 -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -164,7 +164,7 @@ flowchart LR
 
 | 子句 | 白话说明 | 定义 |
 | --- | --- | --- |
-| `good` | 流记录可读，它的 `zalloc` 和 `zfree` 不是 `NULL`，它的 `state` 是一个存活的 inflate 状态，这个状态指回这个流，模式在 `HEAD` 到 `SYNC` 之间。状态里各数组的大小与 C 声明一致。窗口具有下面的形状 W。`reqbits ≤ 15`。`bits ≤ 39`。`next` 指向 `codes` 内部，下标不超过 1444。`lencode` 和 `distcode` 要么都指向 `codes` 内部，下标不超过 1443，要么就是那两张固定表。一个块编号不会同时表示两个对象（`Uniq`），从下一个未用的块编号起没有任何块编号在使用（`Fresh`） | `Good`（`inflate.c.base.lean`） |
+| `good` | 流记录可读，它的 `zalloc` 和 `zfree` 不是 `NULL`，它的 `state` 是一个存活的 inflate 状态，这个状态指回这个流，模式在 `HEAD` 到 `SYNC` 之间。状态里各数组的大小与 C 声明一致。窗口具有下面的形状 W。`reqbits ≤ 15`。`bits ≤ 39`。`next` 指向 `codes` 内部，下标不超过 1444。`lencode` 和 `distcode` 要么都指向 `codes` 内部，下标不超过 1443，要么就是那两张固定表。一个块编号不会同时表示两个对象（`Uniq`），从下一个未用的块编号起没有任何块编号在使用（`Fresh`） | `Good`（`ZlibF/Spec/Common/InflateGood.lean`） |
 | `alloc` | `zalloc` 和 `zfree` 是默认函数 | `DefAlloc` |
 | `tables` | 在 `LEN_`、`LEN`、`LENEXT`、`DIST`、`DISTEXT`、`MATCH` 和 `LIT` 模式下：`lencode` 和 `distcode` 指向的表，对 `lenbits` 和 `distbits` 具有安全的表形状（[解码表](inftrees.md#the-table-shape)），并且每个字面量/长度叶子至少用掉一位 | `DataTableInvariant` |
 | `pending` | `sane = 1`。在 `LENEXT` 中：附加位至多 5 位，`3 ≤ length`，`length + 2^extra ≤ 259`，并且 `0 ≤ back ≤ 15`。在 `DIST` 和 `DISTEXT` 中：`3 ≤ length ≤ 258` 且 `was = length`。在 `DIST` 中还有 `0 ≤ back ≤ 20`。在 `DISTEXT` 中还有：附加位至多 13 位，`offset ≥ 1`，`offset + 2^extra ≤ 73727`，`0 ≤ back ≤ 35`。在 `MATCH` 中：`0 < length ≤ was ≤ 258` 且 `offset > 0` | `DataPendingInvariant`（`ZlibF/Spec/Common/Inflate/InflatePendingInvariant.lean`） |
