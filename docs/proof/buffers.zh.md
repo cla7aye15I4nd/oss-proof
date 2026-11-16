@@ -1,4 +1,4 @@
-<!-- source-sha256: 338307f8894726bf3ca974ee3a41ef538bff7a9c7b4d31fc9fa2db92c89cb12c -->
+<!-- source-sha256: b6b219c6d2e50df982c7ead7abcd4f5f5635ab6fd83d368f8c0765ea68723046 -->
 # 缓冲区工具函数：源码上的决定
 
 本页列出 `compress.c`、`uncompr.c` 以及 `deflate.c` 的上界函数中，C 的做法需要模型小心表示的地方。每一处都说明 C 做了什么，模型做了什么，以及是否有定理覆盖它。这些函数的安全证明在另外两页；本页是它们的源码阅读配套页。
@@ -30,7 +30,7 @@
 
 - **C。** `compress2` 在调用 `compress2_z` 之前执行 `z_size_t got = *destLen;`。`uncompress2` 以同样的方式读取 `*destLen` 和 `*sourceLen`。`_z` 函数内部的 `NULL` 测试来得太晚，保护不了这些读取：`NULL` 单元在包装函数里就是未定义行为。
 - **模型。** 在 `compress2`、`compress`、`uncompress2` 或 `uncompress` 中，`NULL` 单元是 `Fault.ub`。
-- **覆盖情况。** 这四个函数的安全目标要求单元非 `NULL`；`_z` 形式允许传入 `NULL`，并返回 `Z_STREAM_ERROR` 拒绝它。`zlib.h` 没有说包装函数可以接受 `NULL` 单元。有一个见证程序在真实的 C 上演示了这次读取；带 `NULL` 单元的调用不在与 C 的比较之内，因为它不是合法调用。
+- **覆盖情况。** 这四个函数的安全目标要求单元非 `NULL`；`_z` 形式允许传入 `NULL`，并返回 `Z_STREAM_ERROR` 拒绝它。`zlib.h` 没有说包装函数可以接受 `NULL` 单元。
 
 ### `compress*` 的长度单元是值，不是内存
 
@@ -48,7 +48,7 @@
 
 - **C。** `dest == NULL` 且 `*destLen == 0` 能通过参数检查。函数在结束时计算 `stream.next_out - dest`，两个指针都是 `NULL`。
 - **模型。** 一般的指针差 `Ptr.diff` 在 `NULL` 上产生故障。这一条语句的翻译使用 `ptrDiff`，它对 `NULL - NULL` 返回 0。
-- **覆盖情况。** 安全定理是对带有这一特许的翻译证明的。对于选定的构建，C 语言是否定义了 `NULL - NULL`，**尚未由证明确认**；结果相等和 sanitizer 没有报告都不能定论。它是可信基础中的一项，不是一个缺失的证明步骤（[安全，`NULL` 指针](../spec/safety.md#null-pointers-and-pointer-differences)）。
+- **覆盖情况。** 安全定理是对带有这一特许的翻译证明的。**尚未由证明确认**：对于选定的构建，C 语言定义了 `NULL - NULL`。它是可信基础中的一项（[安全，`NULL` 指针](../spec/safety.md#null-pointers-and-pointer-differences)）。
 
 ### `uncompress2_z` 的占位输出指针
 
@@ -66,10 +66,14 @@
 
 - **C。** 公式使用回绕的 `z_size_t` 加法，并在和发生回绕时返回最大值。
 - **模型。** `UInt64` 上的一个纯函数。
-- **覆盖情况。** `compressBound` 和 `compressBound_z` 对每个输入证明了精确值。压缩器的每个输出都不超过上界，是另一条单独的功能命题，安全结论用不到它。
+- **覆盖情况。** `compressBound` 和 `compressBound_z` 对每个输入证明了精确值。
 
 ### `deflateBound_z`：`2 + extra_len` 按 32 位计算
 
 - **C。** `deflateBound_z` 读取封装状态和可选的 gzip 头字符串；每次字符串扫描都包含结尾的 NUL。对于 extra 字段，它把按 32 位 `unsigned` 求值的 `2 + extra_len` 加到 64 位的封装开销上。当 `extra_len >= 0xfffffffe` 时这个和会回绕，而头部写入函数只输出 `extra_len & 0xffff` 个字节。
 - **模型。** 翻译计算同一个回绕的和。
-- **覆盖情况。** 安全性已覆盖（`deflateBound_safety`、`deflateBound_z_safety`）。这一点关系到上界的值，不关系到安全。当 `extra_len` 为 `2^32 - 2` 和 `2^32 - 1` 时上界偏小；这已在 C 上复现（[发现](../findings/deflatebound-extra-len/README.md)）。有人在一次[上游讨论](https://github.com/madler/zlib/pull/1360)中提出用 `2 + (z_size_t)(extra_len & 0xffff)` 来更正；没有为它应用补丁（`patches/README.md` 列出了各补丁）。输出是否不超过上界是功能问题，安全结论用不到它。另一项发现给出了一种在未打补丁的 C 上输出超过上界的配置：[级别 1 到 3 的 `Z_FIXED`](../findings/deflatebound-fixed-far-matches/README.md)。补丁 0006 尚未提交给上游，它让 `Z_FIXED` 使用保守的上界。**尚未由证明确认**：在源数据和头部定义域的其余部分上，输出不超过上界。
+- **覆盖情况。** 安全性已覆盖（`deflateBound_safety`、`deflateBound_z_safety`）。在上游 zlib 中，上界的值有两处缺陷。
+  - 当 `extra_len` 为 `2^32 - 2` 和 `2^32 - 1` 时上界偏小，对 C 的一次运行表明了这一点（[发现](../findings/deflatebound-extra-len/README.md)）。没有应用补丁。一次[上游讨论](https://github.com/madler/zlib/pull/1360)中提出了用 `2 + (z_size_t)(extra_len & 0xffff)` 的更正。
+  - 在级别 1 到 3 使用 `Z_FIXED` 时，输出可以超过上界（[发现](../findings/deflatebound-fixed-far-matches/README.md)）。本地补丁 0006 让 `Z_FIXED` 使用保守的上界。
+
+  **尚未由证明确认**：在源数据和头部定义域的其余部分上，输出不超过上界。

@@ -1,4 +1,4 @@
-<!-- source-sha256: d58057d65b2c8eb1e4390dc6cf249f7c851574e47066365244cb1a1410bf6d41 -->
+<!-- source-sha256: beee2abc0f6f31d7acdb6cccf4abe0cccb724e7b5f0b16e2b18f77cf2b50eb74 -->
 # `compress*` 的安全性
 
 `compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -73,4 +73,4 @@ flowchart TD
 
 `compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，这同样的两个目标也就是它们的安全目标。定理是 `compressBound` 和 `compressBound_z`。
 
-压缩器的每个输出是否都不超过上界，是另一个单独的功能问题。它不是安全结论所必需的；见[缓冲区工具函数](buffers.md)。
+不涵盖：压缩器的每个输出都不超过上界。那是一条功能命题，安全结论用不到它；见[缓冲区工具函数](buffers.md)。

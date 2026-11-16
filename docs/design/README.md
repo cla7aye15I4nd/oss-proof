@@ -1,15 +1,13 @@
 # Design: the model, the translation and the external world
 
 The project proves statements about an executable Lean translation of C. This section explains
-what that translation is made of and where its connection to C rests on review. It is not a
-status report; [progress](../progress.md) holds the status.
+what that translation is made of and where its connection to C rests on review.
 
 The required results are safety results. Architecture, translation and external I/O describe
 what every safety proof rests on. The two API-model pages describe functional material, which is
-not required for the safety results. One functional result is planned: the round trip of the
-default zlib stream. It is not done. Its conditional form has a theorem, which
-[architecture](architecture.md#the-layers) states; completeness and the unconditional form have
-none ([progress](../progress.md)).
+not required for the safety results. The round trip of the default zlib stream, a functional
+result, is not done. A conditional form has a theorem, which
+[architecture](architecture.md#the-layers) states. [Progress](../progress.md) holds the status.
 
 Start with [architecture](architecture.md). Then use the page that answers your question:
 

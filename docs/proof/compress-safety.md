@@ -102,5 +102,5 @@ measure.
 `Goal.compressBound_z` give the exact value of the bound formula, and these same goals are
 their safety goals. The theorems are `compressBound` and `compressBound_z`.
 
-Whether every compressor output fits the bound is a separate functional question. It is not
-required for the safety results; see [buffer utilities](buffers.md).
+Not covered: that every compressor output fits the bound. That is a functional statement, which
+the safety results do not need; see [buffer utilities](buffers.md).

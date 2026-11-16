@@ -50,8 +50,7 @@ of the remaining input that no call has accepted yet. The continuation ends with
   `deflateParams`, no priming, no gzip header.
 - `StreamBuffers` holds at each call.
 - The output pointer is `NULL` or points into a heap byte block (`DeflateCore.Output`).
-- For completion: the premises of `Completes` given above. The only input of the continuation
-  is the input present at its start; a stream in `FINISH_STATE` gets none.
+- For completion: the premises of `Completes` given above.
 
 These histories are a subset of those of the sequence goal. Nothing on this page widens a
 safety result.
@@ -68,11 +67,9 @@ other operation. If each ends with a call that returned `Z_STREAM_END`, and the 
 `inflate` consumed is a prefix of the output of `deflate`, then the output of `inflate` is the
 input that `deflate` accepted.
 
-The theorem is conditional: it assumes that both histories reach `Z_STREAM_END`.
-`DeflateCore.completes` gives a finishing continuation for the `deflate` side alone, under the
-premises listed above. No theorem says that both histories reach `Z_STREAM_END`, and none
-states the round trip without that condition. So the round trip is not done;
-[progress](../progress.md) says what is planned.
+Not covered: that both histories reach `Z_STREAM_END`. `DeflateCore.completes` gives a
+finishing continuation for the `deflate` side alone, under the premises listed above. The round
+trip without that condition is not done.
 
 ## What the proof for every configuration reuses
 

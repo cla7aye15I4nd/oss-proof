@@ -35,7 +35,7 @@ How the callers use these theorems:
   `inflate_back_sequence_safety`. It is what makes the call from `inflateBack` safe, and it
   gives termination of that caller's loop.
 - **`inflate`, input and output in two different heap blocks.** `inflate_fast_raw_entry`
-  proves the entry conditions under that premise, and
+  proves the entry conditions under that premise (`ib ≠ ob`), and
   `inflate_fast_safe_progress` is applied to them.
 - **`inflate`, every layout.** `inflate_sequence_safety_public` allows the input
   and the output to be two ranges of one block. For the fast call its proof uses
@@ -59,11 +59,8 @@ Functional results about `inflate_fast` also exist; see [Functional results](#fu
 The theorems assume the entry conditions below. In Lean they are the fields of the record
 `EnvG`. `Env` is the case of `inflate`, in which the window
 is never the output object; `inflate_fast_safe` is stated for `Env`. These are
-internal premises: a caller proves them before it applies a theorem of this page. `fast_env`
-does so for `inflateBack`. `inflate_fast_raw_entry`
-does so for `inflate` when input and output are in two different
-heap blocks; it has that premise (`ib ≠ ob`). `inflate_fast_entry`
-does so for `inflate` in every layout.
+internal premises: a caller proves them before it applies a theorem of this page; the lemmas
+that do so are named under [Results](#results).
 
 - **Stream.** `strm` points at a writable stream record whose `state` is an inflate state.
 - **Input.** `next_in` points into a byte object of fewer than `2^63` bytes. `avail_in ≥ 6`,
@@ -215,9 +212,9 @@ had consumed.
 
 `inflate` tests `bits < 8` in its own condition for taking the fast path. `inflateBack` does not
 test it. The proof of its dispatch loop carries the fact in the loop invariant: fewer than 8 bits
-are held whenever a round starts in mode `TYPE`, `TABLE` or `LEN` (`Short`). `LEN_fast_p` does
-not prove `bits < 8` at entry: it takes it as a premise, which that invariant supplies, and
-proves that it holds again after the call.
+are held whenever a round starts in mode `TYPE`, `TABLE` or `LEN` (`Short`). `LEN_fast_p` takes
+`bits < 8` at entry as a premise, which that invariant supplies, and proves that it holds
+again after the call.
 
 The function then computes the new `avail_in` and `avail_out` from pointer differences inside
 one block each and stores them with the cursors, `hold` and `bits`

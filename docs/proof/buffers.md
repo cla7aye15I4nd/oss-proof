@@ -48,8 +48,7 @@ A reading of the C that no theorem states is marked **to confirm**.
   `Fault.ub`.
 - **Coverage.** The safety goals of these four functions take a non-`NULL` cell; the `_z` forms
   admit `NULL` and refuse it with `Z_STREAM_ERROR`. `zlib.h` does not offer `NULL` cells for the
-  wrappers. A witness program shows the read on the real C; a call with a `NULL` cell is not
-  part of the comparison with the C, because it is not a valid call.
+  wrappers.
 
 ### The length cell of `compress*` is a value, not memory
 
@@ -83,9 +82,9 @@ A reading of the C that no theorem states is marked **to confirm**.
   computes `stream.next_out - dest`, with both pointers `NULL`.
 - **Model.** The general pointer difference `Ptr.diff` faults on `NULL`. The translation of
   this one statement uses `ptrDiff`, which returns 0 for `NULL - NULL`.
-- **Coverage.** The safety theorems are proved for the translation with this allowance. Whether
-  the C language defines `NULL - NULL` for the selected build is **to confirm**; equal results
-  and silent sanitizers do not settle it. It is a trusted-base item, not a missing proof step
+- **Coverage.** The safety theorems are proved for the translation with this allowance.
+  **To confirm**: that the C language defines `NULL - NULL` for the selected build. It is a
+  trusted-base item
   ([safety, null pointers](../spec/safety.md#null-pointers-and-pointer-differences)).
 
 ### The dummy output pointer of `uncompress2_z`
@@ -115,9 +114,7 @@ A reading of the C that no theorem states is marked **to confirm**.
 - **C.** The formula uses wrapping `z_size_t` additions and returns the maximum value when the
   sum wrapped.
 - **Model.** A pure function on `UInt64`.
-- **Coverage.** `compressBound` and `compressBound_z` prove the exact value for every input. That
-  every compressor output fits the bound is a separate, functional statement, which the safety
-  results do not need.
+- **Coverage.** `compressBound` and `compressBound_z` prove the exact value for every input.
 
 ### `deflateBound_z`: `2 + extra_len` is computed in 32 bits
 
@@ -126,14 +123,14 @@ A reading of the C that no theorem states is marked **to confirm**.
   evaluated as 32-bit `unsigned`, to the 64-bit wrapper cost. For `extra_len >= 0xfffffffe` that
   sum wraps, while the header writer emits only `extra_len & 0xffff` bytes.
 - **Model.** The translation computes the same wrapped sum.
-- **Coverage.** Safety is covered (`deflateBound_safety`, `deflateBound_z_safety`). The point
-  concerns the value of the bound, not safety. For `extra_len` of `2^32 - 2` and `2^32 - 1` the
-  bound is too small; this is reproduced on the C
-  ([finding](../findings/deflatebound-extra-len/README.md)). A correction with
-  `2 + (z_size_t)(extra_len & 0xffff)` was proposed in an
-  [upstream discussion](https://github.com/madler/zlib/pull/1360); no patch for it is applied
-  (`patches/README.md` lists the patches). Whether the output fits the bound is a functional
-  question, which the safety results do not need. A second finding shows a configuration in
-  which the unpatched C does not: [`Z_FIXED` at levels 1 to 3](../findings/deflatebound-fixed-far-matches/README.md).
-  Patch 0006, which is not yet submitted upstream, gives `Z_FIXED` the conservative bound.
+- **Coverage.** Safety is covered (`deflateBound_safety`, `deflateBound_z_safety`). The value of
+  the bound has two defects in upstream zlib.
+  - For `extra_len` of `2^32 - 2` and `2^32 - 1` the bound is too small, as a run of the C shows
+    ([finding](../findings/deflatebound-extra-len/README.md)). No patch is applied. A correction
+    with `2 + (z_size_t)(extra_len & 0xffff)` is proposed in an
+    [upstream discussion](https://github.com/madler/zlib/pull/1360).
+  - With `Z_FIXED` at levels 1 to 3 the output can exceed the bound
+    ([finding](../findings/deflatebound-fixed-far-matches/README.md)). The local patch 0006
+    gives `Z_FIXED` the conservative bound.
+
   **To confirm**: that the output fits the bound on the rest of the source and header domain.

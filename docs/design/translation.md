@@ -1,8 +1,8 @@
 # Translating C without changing its behaviour
 
 Each C function of the selected source is rewritten by hand as a Lean function, statement by
-statement. This page gives the rule, the four accepted normalisations, the forms found in the
-current translations that the four do not cover, and two functions shown with their C, so that a
+statement. This page gives the rule, the four accepted normalisations, the further forms in
+which the translations depart from the C text, and two functions shown with their C, so that a
 reader can compare a translation with its source. The kernel does not check a
 translation against C. Review and differential tests do; tests are evidence of
 fidelity, not proof.
@@ -27,11 +27,12 @@ in [the accepted normalisations](#the-accepted-normalisations):
 4. A signed operation that a preceding test of the same function keeps in range is written
    with the plain operator.
 
-By the rule, anything outside these four is a translation bug. The current translations contain
-forms outside the four. The instances found so far are listed, with file and function, in
-[forms not covered by the four accepted normalisations](#forms-not-covered-by-the-four-accepted-normalisations).
-It is not decided whether each form becomes an accepted normalisation or is changed to follow
-the C.
+The translations also use six further forms: for example, a value just stored is used again
+without a read, and an operand is evaluated before the short-circuit test that guards it in C.
+[Forms not covered by the four accepted normalisations](#forms-not-covered-by-the-four-accepted-normalisations)
+says what the translation does in each form and gives instances with file and function. That
+the Lean agrees with the C in those places is trusted, not proved
+([trusted base, item 3](../trusted-base.md#3-manual-translation)).
 
 ## The source that is translated
 
@@ -224,8 +225,6 @@ The same representation is used for the scalar out-parameters of some public fun
 `pending` and `bits` of `deflatePending`, and `bits` of `deflateUsed`. There it is a limit of the
 model as well: the caller's cell is not memory, so a cell that overlaps one of the buffers
 cannot be expressed, and the safety goal of the function says nothing about the cell's memory.
-This use is not one of the four accepted normalisations, which are worded for internal
-functions; whether these translations change to take the cell as memory is not decided.
 [Deviations](../deviations.md) has the rows
 ["Result cells"](../deviations.md#stream-calls-inflate-and-deflate) and
 ["Whole-buffer compression"](../deviations.md#whole-buffer-utilities-and-checksums). The length cells
@@ -286,17 +285,11 @@ The helpers are listed in [architecture](architecture.md#where-the-trusted-seman
 
 ## Forms not covered by the four accepted normalisations
 
-The translations contain at least the six forms below. None of the four accepted normalisations
-covers them as worded. They are recorded here as observed facts. It is not decided whether each
-form becomes an accepted normalisation or is changed to follow the C.
-
-The instances were found by reading the translations beside the C by hand, in particular at
-these places: every `>>>` and `<<<` outside the definitions of the checked shift helpers; every
-condition with `&&` or `||` that has an operand with `->` in the C or a nested action `(← …)` in
-the Lean; and every record update that sets two or more fields. The tables below are examples,
-not a complete inventory: more instances, and more forms, may exist. Forms 3 and 6 have no
-textual mark, so no such search finds them. No instance below was found to compute a different
-value from the C. That is a reading of each place, not a proved fact.
+The translations use the six forms below. None of the four accepted normalisations covers them
+as worded. These forms are part of the trusted base: that the Lean form computes what the C
+computes in each place rests on a reading of that place, and no theorem states it
+([trusted base, item 3](../trusted-base.md#3-manual-translation)). The tables below are
+examples, not a complete list: other instances, and other forms, may exist.
 
 **1. A value just stored is used again instead of being read back.**
 
@@ -309,8 +302,8 @@ value from the C. That is a reading of each place, not a proved fact.
 | `inflate.c.lean`, `updatewindow` | `state->wnext += dist; if (state->wnext == state->wsize) state->wnext = 0; if (state->whave < state->wsize) state->whave += dist;` | The sum is the local `wnext`, which is compared with `wsize` and set to 0 when equal. One update then stores `wnext` and `whave`: the field is not stored and read back in between. |
 | `deflate_base.c.lean`, `flush_pending` | `s->pending -= len; if (s->pending == 0)` | The difference is the local `pend`. It is stored, and the test uses `pend`, not the field. |
 
-Normalisation 3 does not cover the second and third rows as its example explains it: here a
-right side reads a field that an earlier statement of the group wrote.
+The second and third rows differ from normalisation 3: a right side reads a field that an
+earlier statement of the group wrote.
 
 **2. An operand is evaluated before the short-circuit test that guards it in C.** C evaluates
 the right operand of `&&` and `||` only when the left operand does not decide. In a Lean `do`
@@ -345,7 +338,7 @@ Z_NULL` in `inflateBack`, and `state->skip && gz_zero(state) == -1` in `gzvprint
 
 **3. A field value is taken from a record that was loaded before a store.** Normalisation 2
 covers two reads with no store between them. Here a store lies between the load and the use; it
-writes another field or another record. Examples, not a complete list:
+writes another field or another record.
 
 | File, function | What is reused |
 | --- | --- |

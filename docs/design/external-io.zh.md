@@ -1,4 +1,4 @@
-<!-- source-sha256: ed2f0a8c3994bf4ce568c112614572724ae6a5b34924c0879d3d5f3ad69a29ed -->
+<!-- source-sha256: a25145f968ac125fb328e60a706fb97d5086f59a176e8a622275165118dedcb5 -->
 # 外部 I/O：文件、格式化与局部存储
 
 gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`close`、`fcntl`、`strerror`、`snprintf` 和 `vsnprintf`。本页说明这些调用的模型：记录 [`Fs`](../../ZlibF/Zlib/gzfs.lean) 以及它上面的操作。这个模型是被信任的：内核对照它检查证明，但不对照 Linux 检查它本身（[可信基础](../trusted-base.md)）。
@@ -89,7 +89,7 @@ C 字符串字面量是另一回事：它们是库源码中各字面量组成的
 | 0004 | 位置 `x.pos` 保持在 `z_off64_t` 之内 |
 | 0005 | `x.next` 只按非零的量前进 |
 
-`gz_reset` 仍然不初始化 `x.next`，直接读取之后 `x.next` 仍然指向调用者的缓冲区；补丁 0005 去掉了在这些值上的运算。各补丁背后的报告见 [gzip 文件](../proof/gzip.md#source-reports-and-patches)。
+在打过补丁的源码中，`gz_reset` 不初始化 `x.next`，直接读取之后 `x.next` 指向调用者的缓冲区；补丁 0005 去掉了在这些值上的运算。各补丁背后的报告见 [gzip 文件](../proof/gzip.md#source-reports-and-patches)。
 
 ## 差分证据
 
