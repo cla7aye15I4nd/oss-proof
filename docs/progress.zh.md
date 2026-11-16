@@ -1003,7 +1003,7 @@ flowchart LR
 
 ## 目标证据
 
-<!-- proof-link-revision: 13bb6cc03ca13cc459ef09f58d422b7869db2266 -->
+<!-- proof-link-revision: ccb60084860b6440932a80cb77f39f388b9de47e -->
 
 [证明讲解](overview.md) · [全部目标图](#proof-progress-graph) · [输入配置](spec/input-configurations.md)
 

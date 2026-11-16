@@ -1122,7 +1122,7 @@ No documented blockers in this snapshot.
 
 ## Target evidence
 
-<!-- proof-link-revision: 13bb6cc03ca13cc459ef09f58d422b7869db2266 -->
+<!-- proof-link-revision: ccb60084860b6440932a80cb77f39f388b9de47e -->
 
 [Proof narrative](overview.md) · [All-target graph](#proof-progress-graph) · [Input configurations](spec/input-configurations.md)
 
