@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.History
+import ZlibF.Spec.Common.History
 import ZlibF.Proof.LibcBorrow
 import ZlibF.Spec.Functional.Api.Basic
 

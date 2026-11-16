@@ -654,7 +654,7 @@ theorem check_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
           exact agree)
         refine ⟨_, _, _, bad, Or.inl ⟨rfl, Or.inr ?_⟩⟩
         refine ⟨zs, { chkS s (l.out_ - l.left) v with mode := BAD }, st, setI_istates_same _ _ _, rfl,
-          retOk1, ⟨c1, c2, c3, c4, c5, show BAD ≠ SYNC by decide⟩, haveLe1, inLen1, ?_⟩
+          ⟨c1, c2, c3, c4, c5, show BAD ≠ SYNC by decide⟩, haveLe1, inLen1, ?_⟩
         intro source decoded valid _
         exact trailer_reject parsed1 bitsField (fun pre => agree (iff.mpr pre)) valid
     · -- zlib: the Adler-32 field ends the stream
@@ -705,7 +705,7 @@ theorem check_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
           exact agree)
         refine ⟨_, _, _, bad, Or.inl ⟨rfl, Or.inr ?_⟩⟩
         refine ⟨zs, { chkS s (l.out_ - l.left) v with mode := BAD }, st, setI_istates_same _ _ _, rfl,
-          retOk1, ⟨c1, c2, c3, c4, c5, show BAD ≠ SYNC by decide⟩, haveLe1, inLen1, ?_⟩
+          ⟨c1, c2, c3, c4, c5, show BAD ≠ SYNC by decide⟩, haveLe1, inLen1, ?_⟩
         intro source decoded valid _
         exact trailer_reject parsed1 bitsField (fun pre => agree (iff.mpr pre)) valid
   · -- the input ran out

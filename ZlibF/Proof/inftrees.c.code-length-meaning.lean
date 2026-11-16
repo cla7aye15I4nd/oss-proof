@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inftrees.c.content.codes»
 import ZlibF.Proof.«inftrees.c.decode.semantics»
 import ZlibF.Proof.Format.Huffman
-import ZlibF.Spec.InflateDecodeTableShort
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableShort
 import ZlibF.Proof.«inftrees.c.decode.short»
 
 namespace Zlib.Inftrees.Proofs

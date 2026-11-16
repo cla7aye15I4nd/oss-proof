@@ -101,7 +101,7 @@ theorem inflate_default_view_public_return_modes
 
 /-- One complete actual default public result: all returned codes and
 terminal modes, exact cursors/input totals, memory-error input timing,
-OK progress and FINISH exclusion. Output totals/frame/history stay open. -/
+OK progress and FINISH exclusion. Output totals/frame/history are not stated here. -/
 theorem inflate_default_view_public_results
     {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (invariant : DefaultStateJ h r zs z s) (allocator : DefAlloc z)

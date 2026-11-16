@@ -1,101 +1,171 @@
 # Public verification goals
 
-The claim is safety and documented behaviour for the public API. The first target is the
-default x86_64 Linux static build with the default allocator. Allocation failure is in scope.
-The project also targets every configuration built by upstream CI.
+A goal is a Lean proposition named `Goal.<something>`; a result exists when a registered theorem
+has exactly that proposition as its type. This page says which goals are required, what
+registering a proved goal needs, and which rules stop a registered result from disappearing.
 
-`tests/audit/public-api.json` fixes the public inventory against the pinned `zlib.h`. Each
-entry names a translated function, a manual section and its required final target. There are
-95 default-build entries and eight family obligations: four lifecycle contracts and four
-initialisation-domain contracts. Its `safety_goals` group lists the safety targets of the
-current scope: the `inflate`, `deflate` and `inflateBack` call sequences, `uncompress*` and
-`compress*`. The
-Windows-only `gzopen_w` is identified separately.
-An inventory entry is a requirement, not a proof.
+What a safety goal says is in [safety claims](../spec/safety.md). The status of each goal, and
+the number of goals in each group, are only in [progress](../progress.md).
 
-## A contract covers the whole call
+## The claim the goals add up to
 
-| Part | Required statement |
-| --- | --- |
-| Domain | Cover every call permitted by the public contract. Rejected scalar parameters have a specified error path. Establish internal helper bounds in the implementation; do not add them as caller requirements. |
-| Execution | The actual translated entry returns without a runtime fault, including fuel exhaustion. Quantify over every permitted initial heap and allocation-failure oracle. An empty execution relation cannot satisfy the contract. |
-| Result | Specify return codes, scalar outputs, output bytes and stream changes, including error ordering, partial output and counters. An error code alone does not imply an untouched buffer. |
-| Frame | Preserve caller storage outside permitted write ranges and unrelated live objects. |
-| Ownership | Init and copy establish ownership. Failed init and copy release partial allocations. End and close release owned resources exactly once. Ordinary errors preserve documented recovery or cleanup operations. |
+Every documented public function of zlib is safe: no undefined behaviour, no memory error, no
+leak, and termination, over call sequences. The target is the default x86_64 Linux static build
+with the default allocator. Allocation failure is in scope. Functional correctness and other
+build configurations are not required for this claim ([scope](../progress.md#scope)).
 
-The concrete targets are in `ZlibF/Spec/Public/`; `Domains.lean` and `Sequences.lean` add the
-family obligations. `Calls.lean` fixes actual translated execution. [The contract review](contract-review.md)
-explains the separation from heap-free API models and [the independent byte format](../spec/format/README.md).
-Neither kind of model theorem alone proves a concrete public contract.
+## The registries
 
-[The API manuals](../spec/api/README.md) explain signatures, parameters, effects, call order and
-ownership. Some short manuals describe restricted uses. Their documentary preconditions do
-not remove cases from registered targets. [The manual scope](../spec/api/contracts.md) and
-[deviations](../deviations.md) make those restrictions explicit. Formal target changes require
-separate review.
+All of them are under `tests/audit/`. The acceptance suite reads them; the fast gate does not.
 
-## Lifecycles and non-vacuity
+| File | Content | Who checks it |
+| --- | --- | --- |
+| `goals.txt` | Every goal: a definition of type `Prop` whose name contains `Goal`. | The auditor rejects a `Goal.*` proposition of the library that is not listed. |
+| `theorems.txt` | The registered theorems, one fully qualified name per line. | The auditor: each exists, is a theorem, has a doc string and depends only on the allowed axioms. |
+| `proved-goals.txt` | The goals that a registered theorem proves. | The auditor rejects any difference from the set it finds PROVED. So the scripts decide on this file, never on report text. |
+| `public-api.json` | The manifest: every exported function of the pinned `zlib.h` with its manual section, translated entry, functional goal and safety goal (`gzopen_w`, which exists only on Windows, has only its manual section and a reason); the goal groups; `open_safety`; `not_planned`. | `scripts/verification.py` (`coverage`). |
+| `public-mutants.json` | For each keyed goal, the mutant rows that its exact proof must reject. | `scripts/verification.py` checks that the rows exist; a mutant run, which is on request, runs them. See [proof mutants](proof-mutants.md). |
+| `registry-removals.json` | Reasoned removals from the registries and the mutant tables. | `scripts/verification.py`: a stale entry is rejected. |
 
-Four targets cover inflate, deflate, callback inflate and gz histories. Safety and cleanup
-quantify over finite legal histories, including reset, dictionary changes, copy, recovery,
-end and close where allowed. Copies own independent storage and preserve observable
-continuation behaviour.
+A goal is PROVED only when a theorem of `theorems.txt` has exactly the goal as its type. A theorem
+with extra premises, or about an abstract model, proves nothing here. An entry of the manifest is
+a requirement, not a proof.
 
-Ordinary data epochs connect accepted and produced bytes to the independent format. Completed
-compression produces valid data. Decompression recovers its input under compatible wrapper,
-window and dictionary settings. Checksums satisfy their mathematical definitions. Advanced
-operations retain their per-entry effects and unconditional sequence safety; the exact
-ordinary-epoch boundary is in [the contract review](contract-review.md#the-advanced-operation-boundary).
-It must not be mistaken for full refinement of every advanced combination.
+## The required set
 
-The four initialisation-domain targets require init to establish the representation invariant
-for every documented parameter combination on success, and to clean up on failure. This makes
-the domain nonempty through actual initialisation. One convenient witness does not replace
-universal parameter coverage. Concrete witnesses supplement the top-level results.
-No final theorem may assume an unproved library callee contract.
+The manifest has 96 functions: 95 of the default build and the Windows-only `gzopen_w`. zlib.h
+lists ten of the 96 as undocumented (nine of the default build, and `gzopen_w`); the manifest names
+them under `undocumented`, and the script compares that list with the header. Their goals are not
+required, with one exception: the safety goal of `gzvprintf` is in the group `safety_goals`,
+because `gzprintf` goes through that function. Their registered theorems stay audited. That
+leaves 86 documented functions.
+
+The required goals are computed by `required_public_goals` in `scripts/verification.py`. The set
+is the union of three parts:
+
+- the safety goal that each of the 86 documented functions names;
+- the goals of the group `safety_goals`;
+- the goals of the group `nonvacuity_goals`.
 
 ```mermaid
 flowchart LR
-    I["Init establishes invariant"] --> C["Per-call execution and effects"]
-    C --> P["Invariant preserved"]
-    P --> C
-    C --> E["End releases ownership"]
-    C --> S["Legal histories and byte-format correctness"]
+    D["86 documented functions"] --> O["84 name their own goal"]
+    D --> C["2 name their full contract: compressBound, compressBound_z"]
+    O --> G["safety_goals"]
+    Q["Goals that no documented function names: the sequence safety goals, the refusal goals, the goal of gzvprintf"] --> G
+    G --> R["Required goals"]
+    C --> R
+    N["nonvacuity_goals"] --> R
 ```
 
-## Caller assumptions and semantic limits
+The group `safety_goals` holds the own goals, the sequence safety goals (`inflate`, `deflate`,
+`inflateBack` and gz), the refusal goals and `Goal.gzvprintf_safety`. The two full contracts are
+not in any group. The command `python3 scripts/verification.py coverage` prints the size of each
+group and of the required set; [progress, Scope](../progress.md#scope) lists the set result by
+result.
 
-The caller supplies live objects and the readable or writable ranges required by the API.
-Calls on one stream are sequential. The caller does not modify library-owned state.
-Buffer-overlap conditions and scalar-pointer representation limits require review against
-the public contract. Every stronger restriction belongs in [deviations](../deviations.md).
-Undefined behaviour in a permitted library call is a blocker, not a new caller restriction.
+The non-vacuity goals show that the premises of the sequence goals can be met: the init
+function establishes the representation invariant on its parameter domain.
 
-Callbacks and system calls are external. Their documented memory contracts are assumptions.
-Termination also assumes that they return and that callback input is finite where an unlimited
-stream could otherwise continue forever. This is not a theorem about arbitrary caller code
-or the operating system.
+Two rules stop a manifest edit from making the set smaller.
 
-The claim excludes compiler and operating-system correctness, performance, constant-time
-behaviour and resource bounds against decompression bombs. Malformed compressed data remains
-in scope. The trusted semantic limits are in [the trusted base](../trusted-base.md).
+**The groups are pinned in the script.** `coverage` compares `sequence_goals`, `nonvacuity_goals`
+and `safety_goals` of the manifest with lists written in the script. A group that differs is
+rejected. So a goal leaves the required set only through a change to `scripts/`, which is reviewed.
 
-## Acceptance
+**Each function's safety goal is fixed by the script** (`check_safety_binding`). A documented
+function names exactly one of:
 
-[The checking guide](README.md) separates coverage, development checks, specification readiness
-and final proof acceptance. Each final target needs an exactly matching registered theorem,
-allowed axiom dependencies, init-established invariants, frame and ownership proofs, and
-function proof mutants. The acceptance suite must pass on the named commit. Finite differential tests support fidelity; they are
-not proof. Current proof progress and blockers appear only in [progress](../progress.md).
+1. its own goal `Goal.<function>_safety` (or `_safe`), when that goal is in the pinned group;
+2. its full contract, only for `compressBound` and `compressBound_z` (pure functions with no heap;
+   the manifest carries a `safety_note`);
+3. a shared goal, only for the functions the script lists for it (`SHARED_SAFETY_GOALS`). The
+   list is empty: no function shares a safety goal.
 
-The public mutants of `Goal.deflate` (`tests/proof-mutants/public-deflate.tsv`, keyed in
-`tests/audit/public-mutants.json`) are one-file edits of the body of `deflate`. Each is rejected first
-at `deflate_phases`, the `rfl` equation that splits `deflate` into its phases; any edit of the body
-fails there. So these rows show that the registered proof is tied to the translation, not that it
-depends on the mutated check. They are acceptable for the exact public replay only because the
-semantic kills are covered by the script-row tables that every mutant shard runs:
-`tests/proof-mutants/deflate-header.tsv` (header stages and `_tr_flush_block`),
-`tests/proof-mutants/deflate-strategies.tsv` (`fill_window`, `longest_match` and the strategies) and
-`tests/proof-mutants/deflate-ops.tsv` (the stream operations). Each script row makes the edit in the
-translation and in every proof restatement of it, and must be killed in its semantic lemma. A shard
-fails if any of these tables is missing or empty (`SAFETY_MUTANT_LISTS` in `scripts/verification.py`).
+An undocumented function names no safety goal, or exactly its own `Goal.<function>_safety` when
+that goal is in the pinned group (`check_api_safety_goal`). `gzvprintf` is the only one that
+names a goal.
+
+The functional goals (`Goal.<function>` and the group `sequence_goals`) are not required. A proved
+one is audited in full. An unproved one is reported as open and fails nothing.
+
+### `open_safety` and `not_planned`
+
+- `open_safety` lists the required goals that have no registered theorem, each with an owner.
+  [Progress](../progress.md#scope) says whether any goal is open. A required goal is PROVED or
+  listed in `open_safety`; a listed goal is not PROVED.
+  `verification.py final` rejects a list that is not empty.
+- `not_planned` lists public goals that stay defined and stay in `goals.txt` as open goals, but
+  that the project does not work on, each with a reason. It is not a way out of the required set:
+  the pinned groups decide what is required. An entry is in no group, is named by no function,
+  and is not proved. Its one entry is `Goal.gz_initialisation_domain`, the functional contract of
+  `gzopen`.
+
+## What a registration needs
+
+A goal is registered when all of these hold on one commit. [Contributing](contributing.md#register-a-result)
+gives the steps, with real registry lines and commands.
+
+1. The theorem has exactly the goal as its type, and it has a doc string. The doc string states
+   any precondition narrower than zlib.h; the same precondition has a row in
+   [deviations](../deviations.md).
+2. The theorem's name is in `tests/audit/theorems.txt`.
+3. The goal's name is in `tests/audit/proved-goals.txt`.
+4. The goal is not in `open_safety` of `tests/audit/public-api.json`.
+5. The goal has mutant rows: a key in `tests/audit/public-mutants.json`, or pinned evidence
+   for a goal that is not about one function ([proof mutants](proof-mutants.md#which-goals-need-which-evidence)).
+   The audit checks that the rows exist. Running them is not part of registration or of
+   acceptance.
+6. The progress view in `docs/progress.md` is regenerated. The audit fails on a stale view.
+
+A new goal also has a line in `goals.txt`. A new required goal has its name in the manifest
+group and in the pinned list of the script, in one reviewed change.
+
+Registered is not accepted. The result is accepted when the acceptance suite (axiom gate, exact
+goal match, self tests, differential tests) is green on that commit, and a report names the
+commit ([the three levels](README.md#three-levels)).
+
+## Rules against silent removal {#shrink-only-rules}
+
+A result that was registered once does not vanish quietly. The audit compares the present files
+with every earlier commit of a chain. The scripts call these the shrink-only rules: the list of
+open goals and the list of waivers may only shrink, and a registry or a frozen mutant table may
+only grow.
+
+**The chain.** It holds the base, the pinned floors, and every commit after the floors that `HEAD`
+contains, through all parents of a merge. The base is the pull request's base branch, or
+`origin/main`, or the first parent when `HEAD` is that commit; the environment variable
+`ZLIBF_BASE_REF` overrides it. The two floors are fixed commits written in the script
+(`CHAIN_FLOORS`), one on `dev` and one on `main`. At least one floor is an ancestor of `HEAD`, or
+the audit rejects the run. A floor moves forward only by an edit to the script.
+
+| Rule | What the audit rejects along the chain | Reviewed way out |
+| --- | --- | --- |
+| Open list | A required goal that was closed (required and not in `open_safety`) at some commit is in `open_safety` at `HEAD`. A goal that is new to the required set may enter the list. | None. |
+| Registries | A name of `theorems.txt` or `proved-goals.txt` at some commit is missing at `HEAD`. | An entry `{name, reason}` under `theorems` or `proved_goals`. |
+| Mutant references | A reference (goal, list, row) of a goal that is proved at `HEAD` is missing, or the referenced row has a different file, old text or new text. | An entry `{goal, list, name, reason}` under `mutant_references`. |
+| Frozen rows | A row of a frozen mutant list is missing or differs in any field, or the mutator script of a `script:` row has different content. | An entry `{list, name, reason}` under `mutant_rows`. |
+| Mutant waivers | The script's list of proved goals without function mutants (`MUTANT_COVERAGE_PENDING`, which is empty) has a new entry. | None. |
+
+The entries are in `tests/audit/registry-removals.json`. Each has a reason that is not empty. An
+entry that excuses nothing (the name was never registered on the chain, or is registered at
+`HEAD`) is stale, and the audit rejects it. An example: the file holds `mutant_rows` entries for
+rows of `api-boundary.tsv` whose specification file moved when the specifications were split into
+safety and functional parts.
+
+## What a safety goal says, and what it assumes
+
+These are the subject of other pages. The table gives the place of each part.
+
+| Question | Short answer | Full account |
+| --- | --- | --- |
+| Which calls does a goal cover? | Every call that zlib.h permits. A parameter the library rejects has a specified error path. Bounds of internal helpers are established by the implementation, not added as caller requirements. A premise narrower than zlib.h has a row in the deviations page. | [Deviations](../deviations.md) |
+| What does it say about the run? | The translated entry returns without a fault, fuel exhaustion included, for every permitted initial heap and every pattern of allocation failure. An empty execution relation cannot satisfy the goal. | [Safety claims, one call](../spec/safety.md#1-what-a-function-theorem-must-say) |
+| What about memory the call does not own? | Memory outside the call's footprint is unchanged, and unrelated live objects are kept. Init and copy establish ownership; a failed init or copy releases its partial allocations; end and close release owned storage exactly once. | [Safety claims, frames and the allocation account](../spec/safety.md#frames) |
+| How do calls compose? | The init function establishes the representation invariant, and every permitted call preserves it. No registered theorem assumes an unproved contract of a callee. | [Safety claims, calls and sequences](../spec/safety.md#2-calls-and-sequences) |
+| What does the caller owe? | Live objects with the ranges the API requires, sequential calls on one stream, no change to library-owned state, and disjoint buffers where the statement says so. Undefined behaviour in a permitted call is a defect to resolve, not a new restriction on the caller. | [Safety claims, caller obligations](../spec/safety.md#4-caller-obligations) |
+| What is assumed about callbacks and system calls? | Their documented memory contracts, that they return, and that callback input is finite where an unlimited stream could continue forever. The claim is not a theorem about arbitrary caller code or the operating system. | [Trusted base](../trusted-base.md) |
+| What is outside the claim? | Compiler and operating-system correctness, performance, constant-time behaviour, and resource bounds against decompression bombs. Malformed compressed data is inside the claim. | [Safety claims, outside safety](../spec/safety.md#outside-safety) |
+
+The goal definitions are in `ZlibF/Spec/Safety/`, and the two `compressBound` contracts in
+`ZlibF/Spec/Functional/`; the layout is in [the split design](../design/safety-functional-split.md).

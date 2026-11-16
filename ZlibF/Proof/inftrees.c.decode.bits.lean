@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inftrees.c.decode.stability»
-import ZlibF.Spec.InflateSubtable
+import ZlibF.Spec.Common.Inflate.InflateSubtable
 
 set_option autoImplicit false
 namespace Zlib.Inftrees.Proofs

@@ -1,7 +1,7 @@
 import ZlibF.Math.InflateDecodeBits
 import ZlibF.Proof.«inftrees.c.content.result»
 import ZlibF.Proof.«inftrees.c.decoder-safe»
-import ZlibF.Spec.InflateDecodeTableSemantics
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableSemantics
 
 set_option autoImplicit false
 

@@ -16,7 +16,7 @@ leaves of the skeleton, each proved with no premise and with exactly the skeleto
 namespace ZlibF.Spec.Public.Proofs
 open ZlibF.Spec.Public
 
-/-- The open read leaves of the gz skeleton, all proved. -/
+/-- The read leaves of the gz skeleton, all proved. -/
 theorem gz_read_leaves : GzSkeleton.GzReadLeaves :=
   ⟨GzRead.gzread_step, GzRead.gzfread_step, GzRead.gzgetc_step, GzRead.gzungetc_step, GzRead.gzgets_step,
     GzRead.gzdirect_step⟩

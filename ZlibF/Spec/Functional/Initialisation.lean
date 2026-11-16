@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Initialisation
+import ZlibF.Spec.Common.Initialisation
 
 /-!
 # Initialisation: functional goals and the definitions only they use

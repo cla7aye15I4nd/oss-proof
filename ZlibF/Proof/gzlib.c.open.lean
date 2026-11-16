@@ -1,5 +1,5 @@
 import ZlibF.Proof.«public-gz-offset»
-import ZlibF.Spec.Public.GzOpen
+import ZlibF.Spec.Functional.GzOpen
 import ZlibF.Spec.Functional.Api.Compress
 
 /-!

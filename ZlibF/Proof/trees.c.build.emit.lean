@@ -1,6 +1,6 @@
 import ZlibF.Proof.«trees.c.build.support»
 import ZlibF.Proof.«trees.c.emit»
-import ZlibF.Spec.Format.Bits
+import ZlibF.Spec.Functional.Format.Bits
 
 /-! # trees.c: transmitting the canonical values established by tree building -/
 

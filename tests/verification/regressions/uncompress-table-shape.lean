@@ -1,5 +1,5 @@
-import ZlibF.Spec.Public.Utilities
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Utilities
+import ZlibF.Spec.Common.Domains
 import ZlibF.Zlib.«uncompr.c»
 
 open C ZlibF.Spec.Public ZlibF.Spec

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Concrete
+import ZlibF.Spec.Functional.Api.Concrete
 
 namespace ZlibF.Spec.Api.Proofs
 

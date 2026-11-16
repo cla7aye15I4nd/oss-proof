@@ -1,39 +1,86 @@
-<!-- source-sha256: e69c7f313f494c723357b9e7524861ea47de455c6220319ca690eaf21df939fd -->
-# 固定块流复制比较了无关的指针
+<!-- source-sha256: c57cb53665d71bfd1fd75552fac73bb0bb4662f78328b175698824425e6fadbc -->
+# `inflateCopy` 比较指向无关对象的指针
 
-置信度：对诊断出的未修补 C 问题有较高把握。验证所用源码现已包含获接受的上游修复。这并非对所有复制历史的证明。
+如果一个流已经解码过固定码块，而且之后没有解码过动态码块，对它调用 `inflateCopy` 时，它用 `>=` 和 `<=` 比较一个指向静态表的指针和一个指向堆上 inflate 状态的指针。C 只对指向同一对象的指针定义这两个运算符。zlib 的维护者只读本页，就能复现这份报告并作出判断。
 
-源代码固定版本：`757f0527154291bcf6bfbd6396ecde6bedd2db95`。
-该复现程序编译未修改的解码器源代码。它调用默认的 `inflateInit`，提供一个包含固定块的有效 zlib 流，并提供一个输出字节。`inflate` 在生成 `A` 后返回 OK。随后，它调用 `inflateCopy`，并指定一个不同的已清零的目标。
+## 状态
 
-从仓库根目录运行：
+- 按 C 标准是未定义行为（C11 6.5.8p5：对指向不同对象的指针做关系比较）。在 `inflateCopy` 的文档用法之内。
+- 在未修改的固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上，由 AddressSanitizer 的指针对检查报告，平台为 x86_64 Linux 和 arm64 macOS。
+- 没有观察到错误结果：不开指针对检查时，同一程序的 `inflateCopy` 返回 `Z_OK`。
+- 修复已作为[拉取请求 #1369](https://github.com/madler/zlib/pull/1369) 提交上游。维护者于 2026-11-06 答复“Applied”。2026-11-14 读取的上游 `develop` 最新提交（`99623ef7`）还不包含它。被验证的源码把所提交的那个提交作为[补丁 0001](../../../patches/README.md) 应用。
+
+## 调用序列
+
+```c
+z_stream strm, copy;
+unsigned char out[1];
+memset(&strm, 0, sizeof strm);
+memset(&copy, 0, sizeof copy);
+inflateInit(&strm);                 /* 默认：zlib 封装，32K 窗口 */
+strm.next_in = encoded;             /* 一个 zlib 流，唯一的块是固定码块 */
+strm.avail_in = sizeof encoded;
+strm.next_out = out;
+strm.avail_out = 1;                 /* 只够放一个字节 */
+inflate(&strm, Z_NO_FLUSH);         /* 在固定码块内返回 Z_OK：state->lencode 是静态的 lenfix */
+inflateCopy(&copy, &strm);          /* inflate.c:1383：state->lencode >= state->codes */
+```
+
+`encoded` 有 23 个字节：一个 zlib 头和一个最终固定码块，解码为 2048 个字节 `A`。完整程序是 [`repro.c`](repro.c)。没有哪个缓冲区过小，也没有两个缓冲区重叠。
+
+固定的 `inflate.c` 中的语句（第 1383 和 1384 行）：
+
+```c
+if (state->lencode >= state->codes &&
+    state->lencode <= state->codes + ENOUGH - 1) {
+```
+
+`state->codes` 是 inflate 状态内部的数组，该状态由 `inflateInit` 分配。从固定码块开始起，`state->lencode` 指向静态表 `lenfix`。
+
+## 运行
+
+在仓库根目录，`zlib/` 子模块已检出：
+
 ```sh
 python3 docs/findings/inflate-copy-fixed/reproduce.py
 ```
-编译器与运行时必须支持地址检测和指针比较 sanitizer。
-设置 `CC` 以选择编译器。该脚本要求非零的执行退出码以及特定的指针配对诊断；编译错误或其他失败
-不计为复现。
 
-保留的复现在 LP64 构建上成功运行。诊断
-定位到 `inflate.c:1383` 处的 `inflateCopy`、静态 `lenfix` 对象，以及
-单独分配的 inflate 状态。这是源表达式
-`state->lencode >= state->codes`。两个调用者原始字节缓冲区均未超出大小或发生别名。
-默认的 LP64 Linux 构建尚未针对此发现重新运行。
+脚本把 `repro.c` 与未修改的 `zlib/` 中六个解码器源文件一起编译，选项为 `-O1 -g -fsanitize=address,pointer-compare,pointer-subtract -fno-omit-frame-pointer`，运行时设置 `ASAN_OPTIONS=detect_invalid_pointer_pairs=2:detect_leaks=0`。`CC` 选择编译器（默认是 `clang`）。只有运行以错误退出、并打印出点名 `inflateCopy` 和 `lenfix` 的指针对报告，脚本才算成功；编译错误不算。成功时最后一行是：
 
-旧翻译保留了该表达式，其指针模型拒绝比较这两个不同对象中的指针大小。未声称对 `Goal.inflateCopy` 进行了内核检查的反驳。
-一次触发故障的复制本身不足以证明 `StreamReachable` 中存在成功复制后的目标状态。
+```
+CONFIRMED: default-init fixed-block inflateCopy compares unrelated objects
+```
 
-## 已应用的修复
+## Sanitizer 判定
 
-[上游 PR #1369](https://github.com/madler/zlib/pull/1369) 包含该修复。
-维护者确认已于 2026 年 11 月 6 日应用。公开获取的
-`develop` 和 `master` 头仍指向
-`99623ef7097352da7993ba614161fd6a311e046e`，并保留旧的比较。
-[临时补丁](../../../patches/README.md) 与已提交的修复提交 `300fea14353d2e2ca61210aca7c48861ded5788c` 完全一致。
+摘自 [`report.txt`](report.txt)，x86_64 Linux：
 
-经过验证的 C 和 Lean 翻译现在使用指针相等性来区分
-内部表与固定表。内部 `lencode` 被设置为拷贝数组的基址；`distcode` 保留其偏移。指针语义和调用者
-域保持不变。上述历史复现有意构建
-未打补丁的源。[拷贝回归](../../../tests/regression/inflate-copy/README.md)
-则构建打了补丁的源，并将实际成功的拷贝调用
-与翻译进行对比。
+```
+inflate=0 produced=1 fixed_block=1
+==PID==ERROR: AddressSanitizer: invalid-pointer-pair: 0x5a0a568b10a0 0x78f4037e0668
+    #0 0x5a0a568ab70f in inflateCopy zlib/inflate.c:1383
+0x5a0a568b10a0 is located 0 bytes inside of global variable 'lenfix' defined in 'zlib/inffixed.h:10:19' (0x5a0a568b10a0) of size 2048
+0x78f4037e0668 is located 1384 bytes inside of 7176-byte region [0x78f4037e0100,0x78f4037e1d08)
+```
+
+这是报告中的五行；7176 字节的区域是 `inflateInit2_`（`inflate.c:206`）分配的 inflate 状态。为撰写本页在 arm64 macOS（Apple clang）上运行了一次，在同一行得到相同的判定。
+
+## 范围与严重程度
+
+- **谁会遇到。** 对任何 `lencode` 是静态表的流调用 `inflateCopy`：默认的 `inflateInit` 或任意 `inflateInit2`，以及任何含有固定码块的输入。`inflate` 遇到固定码块时让 `lencode` 指向静态表（`inflate_fixed`，在 `inflate.c:736` 调用）。这个指针一直留在那里，直到动态码块把它换掉（`inflate.c:820`），或者流被重置（`inflateResetKeep`，`inflate.c:118`）；存储块不改变它。所以复制可以发生在固定码块内部、在它之后，或者在流结束之后。保留的复现在块内部复制。把它的输出缓冲区扩大到 4096 字节后，`inflate` 返回 `Z_STREAM_END`，`inflateCopy` 在同一行得到同样的报告（在 arm64 macOS 上用 Apple clang 运行；这个变体没有保留）。
+- **后果。** 没有观察到后果。在平坦地址空间的平台上，这个比较就是地址比较；对静态表它为假，副本保留指向静态表的指针，这是正确的。`distcode` 同理。风险只在于编译器可以假定这是指向同一对象的两个指针之间的比较。
+- **严重程度。** 低：严格说是未定义行为，但没有内存错误，没有错误输出；压缩数据除了要用到固定码块之外，不能控制它。
+
+## `zlib.h` 的说法
+
+`inflateCopy` “`Sets the destination stream as a complete copy of the source stream`”（把目的流设置为源流的完整副本，`zlib.h:974`）。它对源流停在流中何处没有任何条件，所以上面的调用序列是文档用法。
+
+## 修复
+
+[拉取请求 #1369](https://github.com/madler/zlib/pull/1369)，提交 `300fea14353d2e2ca61210aca7c48861ded5788c`：用指针相等 `state->lencode == state->codes` 判断这张表是否属于状态自身，代替那两个关系比较。只要 `lencode` 指向状态自己的数组，它就指向数组开头：`inflate.c` 在 `state->next = state->codes` 之后紧接着用 `state->next` 给它赋值（第 118、820 和 898 行）。所以相等判断选出的情形与原来相同。随后 `copy->lencode` 被设为 `copy->codes`，`distcode` 保持原来的偏移。
+
+[补丁 0001](../../../patches/README.md) 正是这个提交。上游分支包含该修复、固定的提交越过它之后，补丁就会删除。
+
+## 与证明的关系
+
+Lean 翻译跟随打过补丁的源码。在指针模型中，对指向不同对象的两个指针比较大小是故障，所以未打补丁的语句无法被证明是安全的。本页的复现有意构建未打补丁的源码。[复制回归测试](../../../tests/regression/inflate-copy/README.md)构建打过补丁的源码，并把真实 C 中成功的 `inflateCopy` 调用与翻译比较；这种比较是忠实性的证据，不是证明。

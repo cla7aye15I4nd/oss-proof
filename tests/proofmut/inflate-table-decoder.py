@@ -12,10 +12,10 @@ def main():
     root = Path(__file__).resolve().parents[2]
     source = Path("ZlibF/Zlib/inftrees.c.lean")
     base = Path("ZlibF/Proof/inftrees.c.base.lean")
-    step = Path("ZlibF/Proof/inftrees.c.step.lean")
+    table = Path("ZlibF/Spec/Common/Inflate/TableBuild.lean")
     outer = Path("ZlibF/Proof/inftrees.c.main.lean")
     tail = Path("ZlibF/Proof/inftrees.c.content.tail.lean")
-    originals = {p: (root / p).read_text() for p in (source, base, step, outer, tail)}
+    originals = {p: (root / p).read_text() for p in (source, base, table, outer, tail)}
     env = os.environ.copy()
     env["LC_ALL"] = "C"
 
@@ -47,8 +47,8 @@ def main():
                 new = "s := { s with here := { s.here with op := 1 } }"
                 for path in (source, base):
                     (scratch / path).write_text(replace_once(originals[path], old, new))
-                text = replace_once(originals[step], "then ⟨0, bits, w⟩", "then ⟨1, bits, w⟩")
-                (scratch / step).write_text(text)
+                text = replace_once(originals[table], "then ⟨0, bits, w⟩", "then ⟨1, bits, w⟩")
+                (scratch / table).write_text(text)
                 expected = "ZlibF/Proof/inftrees.c.content.codes.lean"
             else:
                 old = "⟨64, (s.len - s.drop).toUInt8, 0⟩"

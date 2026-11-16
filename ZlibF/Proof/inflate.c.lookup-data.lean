@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.lookup-loop»
-import ZlibF.Spec.InflateTableInvariant
+import ZlibF.Spec.Common.Inflate.InflateTableInvariant
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec Zlib.Inffast.Spec

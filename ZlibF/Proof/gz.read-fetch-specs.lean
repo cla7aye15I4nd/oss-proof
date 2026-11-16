@@ -144,10 +144,10 @@ def GzDecompSpec : Prop :=
 /-- **`gz_fetch`** on a reader with no buffered output: the skeleton statement with the post `GzInvOut`, the kept
 fields, and its progress. The premise `err ≠ Z_STREAM_END` holds on every handle (`gz_error` never records that
 code); so does `how = GZ_COPY → avail_in = 0` (`gz_look` and `gzseek` zero `avail_in` when they set COPY), and so does
-`MsgLit` (the embedded stream's message is `NULL` or a literal). All three are to be discharged by clauses of the
-invariant (**open**). Its progress (`GzFetchProgress` as it holds: a `0` result leaves output, the end of the input, or
+`MsgLit` (the embedded stream's message is `NULL` or a literal). All three are discharged by clauses of the
+invariant (`GzReadInv`: `errEnd`, `copyIn`, `msgLit`). Its progress (`GzFetchProgress` as it holds: a `0` result leaves output, the end of the input, or
 `how = LOOK` after a stall of `gz_look` that lowered the read budget by at least one). The budget and the input left
-never rise. The last clauses serve `gz_read`'s termination and its return to `GzInv`: the record keeps the open
+never rise. The last clauses serve `gz_read`'s termination and its return to `GzInv`: the record keeps the three
 premises; a `-1` records an error; the buffered output passes `GZ_OFF_MAX` only by the one byte loaded at
 `x.pos = GZ_OFF_MAX` (patch 0004); the rank does not rise; a `0` with no output is at the end of the input or lowers
 the rank; and output is a full buffer (`2·size`) unless the call failed, the output reaches `GZ_OFF_MAX`, the input

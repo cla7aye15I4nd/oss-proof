@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inffast.c.match»
-import ZlibF.Spec.Format
+import ZlibF.Spec.Functional.Format
 
 /-!
 # inffast.c: the bit stream that the bit buffer and the input pointer stand for
@@ -14,9 +14,6 @@ namespace Zlib.Inffast.Proofs
 open C Zlib.Inffast Zlib.Inffast.Spec
 
 open ZlibF.Spec
-
-/-- The low `b` bits of `H`, least significant first. -/
-def bitsOfNat (H b : Nat) : List Bool := (List.range b).map fun j => H.testBit j
 
 theorem bitsOfNat_length (H b : Nat) : (bitsOfNat H b).length = b := by simp [bitsOfNat]
 
@@ -56,13 +53,6 @@ theorem readBits_bitsOfNat : ∀ (x b H : Nat) (r : List Bool), x ≤ b →
     rw [h1, h2, show b + 1 - (x + 1) = b - x by omega]
 
 variable {α : Bool} (e : EnvG α)
-
-/-- The bits of the input bytes from offset `i` to the end of the input range. -/
-def inBits (i : Nat) : List Bool :=
-  bytesToBits ((e.IN.toList.drop i).take (e.i0 + e.sm0.avail_in.toNat - i))
-
-/-- The bit sequence of a state: the bits of the buffer, then the bits of the unread input. -/
-def Sg (H b i : Nat) : List Bool := bitsOfNat H b ++ inBits e i
 
 theorem inBits_pull (i : Nat) (hi : i < e.i0 + e.sm0.avail_in.toNat) :
     inBits e i = byteBits (e.IN.getD i 0) ++ inBits e (i + 1) := by

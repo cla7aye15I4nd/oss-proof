@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 
 /-!
 # Domains: safety goals
@@ -38,5 +38,21 @@ def Goal.deflate_initialisation_domain : Prop :=
     ∃ after, C.run (Zlib.Deflate.deflateInit2_ (some (.tab 0)) level method wb mem strategy
       (.ref (.blk 1) 0) 112) witnessHeap = .ok (Z_OK, after) ∧
       DeflateInitial witnessHeap after (.tab 0) p)
+
+/-- All eight documented callback-window sizes, with an arbitrary valid caller window.
+Init establishes the back-decoder invariant and retains ownership of the window. -/
+def Goal.inflate_back_initialisation_domain : Prop :=
+  (∀ h r version wb window,
+    InitDomain h r version → 8 ≤ wb.toInt → wb.toInt ≤ 15 →
+    window ≠ .null → Writable h window (2 ^ wb.toInt.toNat) → h.allocOk h.nalloc = true →
+    ∃ after z s, C.run (Zlib.Infback.inflateBackInit_ (some r) wb window version 112) h =
+      .ok (Z_OK, after) ∧ BackValid after r h.nextBlk z s ∧ s.window = window ∧
+      s.wbits = wb.toUInt32 ∧ Frame h after (StreamRoot r) ∧
+      LiveChange h after (fun b => b = h.nextBlk) (fun _ => False)) ∧
+  InitDomain witnessHeap (.tab 0) (.ref (.blk 1) 0) ∧
+  (∀ wb : Int32, 8 ≤ wb.toInt → wb.toInt ≤ 15 →
+    ∃ after z s, C.run (Zlib.Infback.inflateBackInit_ (some (.tab 0)) wb (.ref (.blk 2) 0)
+      (.ref (.blk 1) 0) 112) witnessHeap = .ok (Z_OK, after) ∧
+      BackValid after (.tab 0) witnessHeap.nextBlk z s ∧ s.window = .ref (.blk 2) 0)
 
 end ZlibF.Spec.Public

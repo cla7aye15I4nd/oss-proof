@@ -1,40 +1,76 @@
-<!-- source-sha256: 1377591616d3f0251826691f9cfdbded8aa1d8881cca32b1d1ebc58191f8876b -->
+<!-- source-sha256: f665b18be77a1e974388a083b93c9cf83a740b535700b6f089a2630bb0d2a0af -->
 # `compress*` 的安全性
 
-目标是 `Goal.compress2_z_safety`、`Goal.compress2_safety`、`Goal.compress_z_safety` 和 `Goal.compress_safety`（`ZlibF/Spec/Public/Utilities.lean`，`CompressorSafety`）。它们在 `ZlibF/Proof/public-compress-safe*.lean` 中由两个显式假设证明：
+`compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
 
-- `Goal.deflate`，一次 `deflate` 调用的公开目标（未完成）；
-- `DeflateLoopFacts`，`Goal.deflate` 没有陈述的、关于一次 `deflate` 调用的四个事实（未完成，由 deflate 负责人处理）：
-  - 一次未被拒绝、有输入和空间并返回 `Z_OK` 的 `Z_NO_FLUSH` 调用会取得进展；
-  - 第一次 `Z_FINISH` 之后的新输入得到 `Z_BUF_ERROR`，或至少写出一个字节；
-  - 每次调用都保持 gzip 头指针；
-  - 每次调用都保持所拥有的块。
+源文件：`compress.c`。[缓冲区工具函数](buffers.md)一页解读这段 C。术语见[术语表](../glossary.md)。
 
-`deflateInit_` 和 `deflateEnd` 通过它们已证明的引理使用（`deflateInit_proof`、`deflateEnd_safe`、`deflate_end_public` 的组成部分）。
+## 证明了什么
 
-## 已证明的内容
+| 目标（`ZlibF/Spec/Safety/Utilities.lean`） | 定理 | 模块 |
+| --- | --- | --- |
+| `Goal.compress2_z_safety` | `compress2_z_safety` | `ZlibF/Proof/public-compress-safe-mid.lean` |
+| `Goal.compress2_safety` | `compress2_safety` | 同上 |
+| `Goal.compress_z_safety` | `compress_z_safety` | 同上 |
+| `Goal.compress_safety` | `compress_safety` | 同上 |
 
-对功能目标允许的每个输入（初始堆满足 `Uniq`）：
+这四个都是安全结论，都是必需的。每个定理证明的正是原样写出的目标，没有附加假设；下面的前提是目标命题的一部分。这些定理列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
-- 调用运行时没有未定义行为并且返回；
-- 被拒绝的参数返回 `Z_STREAM_ERROR`，且不改变任何东西；
-- 否则调用最多向输出缓冲区写入其容量大小的数据，不写其他任何地方；
-- 每条路径上都释放每次分配；
+每个目标都是 `CompressorSafety`（`ZlibF/Spec/Common/Utilities.lean`）的一个实例。对满足下列前提的每个输入：
+
+- 调用在没有未定义行为的情况下运行并返回；
+- 被拒绝的参数返回 `Z_STREAM_ERROR`，并且什么都不改变；
+- 否则，调用向输出缓冲区写入的字节数不超过容量，此外什么都不写；
+- 每次分配在每条路径上都被释放；
 - `Z_MEM_ERROR` 只在某次分配失败之后出现。
+
+关于写出的字节，这里什么都没有说。那是功能契约 `CompressorContract`，不是安全结论所必需的。
+
+## 假设了什么
+
+| 前提 | 含义 |
+| --- | --- |
+| `Fresh`、`Uniq`、`LibraryGlobals` | 调用者的堆是良构的，静态表是初始的那些表。 |
+| `ByteObjectsFit` | 每个字节对象少于 `2^63` 个字节。 |
+| `CompressArguments` | 参数要么被 C 自己的检查拒绝，要么源缓冲区可读、目的缓冲区在其容量范围内可写，并且两者不重叠。 |
+| 长度单元 | `compress` 和 `compress2` 要求 `destLen` 非 `NULL`。`_z` 形式允许传入 `NULL`，并拒绝它。在翻译中，这个单元是一个传入的值和一个返回的值，不是内存。所以与源缓冲区或目的缓冲区重叠的单元无法表达，这样的调用在定理之外。 |
+
+源缓冲区与目的缓冲区的分离，以及对长度单元的限制，在[偏离记录](../deviations.md)中有一行：“整缓冲区压缩”。
 
 ## 结构
 
 ```mermaid
 flowchart TD
-  args["参数检查：在创建任何对象之前拒绝"] --> init
+  args["参数检查：在建立任何对象之前拒绝"] --> init
   init["init_cases：deflateInit_ 失败（释放流）或成功"] --> loop
-  loop["loop_run：err == Z_OK 时继续的循环，每次迭代调用一次 deflate（step）"] --> epi
-  epi["结尾：输出长度、deflateEnd、释放流"] --> z["compress2_z_safety_of"]
-  z --> w["compress_z、compress2、compress"]
+  loop["loop_run：循环 do ... while (err == Z_OK)，每次迭代调用一次 deflate"] --> epi
+  epi["epilogue：输出长度、deflateEnd、释放流"] --> z["compress2_z_safety_gen"]
+  z --> w["compress_z, compress2, compress"]
 ```
 
-`CState` 是迭代之间的状态：解码器不变式 `DGood`、可达性、已消耗输入和已产生输出的计数，以及堆与写入输出后的调用者堆一致。
+`compress2_z` 驱动一个局部的 `z_stream`，依次经过 `deflateInit_`、一个由 `deflate` 调用组成的循环和 `deflateEnd`。每次调用 `deflate` 之前，循环用 64 位的剩余长度补充 32 位的 `avail_in` 和 `avail_out`。本页把这次补充称为流的*重新装填*（rebuffer）。
+
+`CState` 是两次迭代之间的状态：流不变量、可达性、已消耗输入和已产生输出的计数，以及这样一个事实：堆就是调用者的堆，只是目的缓冲区里写入了到此为止的输出。
+
+证明不依赖它所驱动的流有哪一类历史（`CompressReach`），对任意一类都适用。`compress2_z_safety_gen` 以关于这些历史的两个事实为前提：
+
+- 一次 `deflate` 调用的完整契约 `Goal.deflate`，限制在这些历史上；
+- `DeflateLoopFacts`，即 `Goal.deflate` 没有陈述的、关于一次 `deflate` 调用的四个事实：
+  - 一次 `Z_NO_FLUSH` 调用如果没有被拒绝，有输入也有空间，并且返回 `Z_OK`，就取得进展；
+  - 第一次 `Z_FINISH` 之后的新输入，要么得到 `Z_BUF_ERROR`，要么至少写出一个字节；
+  - 每次调用都保持 gzip 头指针；
+  - 每次调用都保持所拥有的块。
+
+`compress2_z` 以 `memLevel` 8 初始化它的流。所以这四条定理用 `DeflateReachMid` 实例化这个通用证明：这些历史以 `memLevel ≥ 3` 的 `deflateInit2_` 开始，之后只重新装填流并调用 `deflate`。沿着这些历史有 `lit_bufsize ≥ 512`，两个事实都无需假设即成立（`goalDeflate_mid`、`loopFacts_mid`）。`memLevel` 为 1 或 2 的历史还需要一个关于压缩器共用的待输出与符号缓冲区的界，见[树](trees.md#the-overlay-lemma-f9)。这里的定理不使用它。
+
+`deflateInit_` 和 `deflateEnd` 通过它们各自的定理使用（`deflateInit_proof`、`deflateEnd_safe`、`deflate_end_public`）。
 
 ## 终止
 
-度量是 `avail_in + sourceLen + avail_out + left`。它起初小于循环燃料 `2^64`。重新填充保持它不变。返回 `Z_OK` 的调用没有被拒绝且有空间（否则 `Goal.deflate` 给出 `Z_BUF_ERROR`）。在 `Z_NO_FLUSH` 下调用有输入（重新填充之后还有剩余源数据），所以 `DeflateLoopFacts` 给出进展。在 `Z_FINISH` 下，`Goal.deflate` 的进展条款给出进展，除非流已结束又有新输入；这种情况下 `DeflateLoopFacts` 给出 `Z_BUF_ERROR` 或一个写出的字节。进展使度量减小。
+度量是 `avail_in + sourceLen + avail_out + left`。这里的 `sourceLen` 和 `left` 是 C 的局部变量：尚未交给流的源字节数和目的空间。度量的初值低于循环燃料 `2^64`。补充保持度量不变。返回 `Z_OK` 的调用没有被拒绝，并且有空间；否则 `Goal.deflate` 给出 `Z_BUF_ERROR`。使用 `Z_NO_FLUSH` 时调用有输入，因为补充之后源数据还有剩余，所以 `DeflateLoopFacts` 给出进展。使用 `Z_FINISH` 时，`Goal.deflate` 的进展子句给出进展，除非流已经结束而又有新输入；在那种情况下 `DeflateLoopFacts` 给出 `Z_BUF_ERROR` 或一个写出的字节。进展使度量下降。
+
+## 上界函数
+
+`compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，清单文件 `tests/audit/public-api.json` 把这同样的两个目标用作它们的安全目标。定理是 `compressBound` 和 `compressBound_z`（`ZlibF/Proof/public-compress-bound.lean`）。
+
+压缩器的每个输出是否都不超过上界，是另一个单独的功能问题。它不是安全结论所必需的；见[缓冲区工具函数](buffers.md)。

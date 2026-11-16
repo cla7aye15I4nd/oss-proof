@@ -675,16 +675,14 @@ theorem fastPost_environment (e : Zlib.Inffast.Proofs.Env) {after : Heap}
     (strm : c.strm = e.strm) (state : c.st = some (.tab e.stid)) :
     ∃ z s, Env c after e.r e.stid z s := by
   obtain ⟨used, made, buffered, bytes, msg, mode, bits, hold, _, _, _, _, _, _, heapEq, _, _, _⟩ := post
-  let z := { e.sm0 with next_in := .ref (.blk e.ib) (e.i0 + used), next_out := .ref (.blk e.ob) (e.o0 + made), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - made), msg }
+  let z := { e.sm0 with next_in := .ref e.ib (e.i0 + used), next_out := .ref e.ob (e.o0 + made), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - made), msg }
   let s := { e.s0 with mode, bits, hold }
-  have baseGet : e.r.get { e.h0 with bytes := upd e.h0.bytes e.ob (some bytes), istates := upd e.h0.istates e.stid (some s) } = some e.sm0 := by
-    cases refEq : e.r with
-    | tab i => simpa only [refEq, ZStreamRef.get] using e.hsm
-    | in_gzstate_strm i => simpa only [refEq, ZStreamRef.get] using e.hsm
+  have baseGet : e.r.get (Space.put (Zlib.Inflate.Spec.setI e.h0 e.stid s) e.ob bytes) = some e.sm0 :=
+    e.stream_get_frame bytes s
   refine ⟨z, s, ⟨strm.trans e.hstrm, state, ?_, ?_⟩⟩
   · rw [heapEq, ZStreamRef.get_put, baseGet]
     rfl
-  · rw [heapEq, ZStreamRef.put_istates, upd_same]
+  · rw [heapEq, ZStreamRef.put_istates, Zlib.Inflate.Proofs.byte_view_put_istates]; exact upd_same _ _ _
 
 /-- The complete actual fast LEN branch returns in the distinct-raw-buffer
 case. Its caller premises are all established by the dispatch packet.
@@ -723,20 +721,17 @@ theorem fastPost_retained (e : Zlib.Inffast.Proofs.Env) {after : Heap}
     (good : Good e.h0 e.r e.stid e.sm0 e.s0) (pending : DataPendingInvariant e.s0)
     (leaves : ∀ ref offset ca, e.s0.lencode = .ref ref offset → Space.get e.h0 ref = some ca →
       Zlib.Inffast.Spec.LenLeavesPositive ca offset e.s0.lenbits.toNat)
-    (unowned : ∀ w, e.s0.window = .ref (.blk w) 0 → e.ob ≠ w)
+    (unowned : ∀ w, e.s0.window = .ref (.blk w) 0 → e.ob ≠ BRef.blk w)
     (post : Zlib.Inffast.Spec.FastPost e after) :
     ∃ z s, Good after e.r e.stid z s ∧ DataTableInvariant after s ∧ DataPendingInvariant s ∧
       s.hold.toNat < 2 ^ s.bits.toNat ∧ s.bits.toNat < 8 ∧ s.window = e.s0.window := by
   obtain ⟨used, made, buffered, bytes, msg, mode, bits, hold, _, _, _, size, bitCount,
     held, heapEq, _, classification, _⟩ := post
-  let stream := { e.sm0 with next_in := .ref (.blk e.ib) (e.i0 + used), next_out := .ref (.blk e.ob) (e.o0 + made), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - made), msg }
+  let stream := { e.sm0 with next_in := .ref e.ib (e.i0 + used), next_out := .ref e.ob (e.o0 + made), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - made), msg }
   let state := { e.s0 with mode, bits, hold }
-  let written : Heap := { e.h0 with bytes := upd e.h0.bytes e.ob (some bytes) }
-  have goodWritten : Good written e.r e.stid e.sm0 e.s0 := by
-    have result := good.byte_view_put (dest := .blk e.ob) e.hA0 e.hro (fun w hw => by
-      intro equal
-      exact unowned w hw (by cases equal; rfl)) bytes
-    simpa only [Space.put, Space.ro, e.hro, Bool.false_eq_true, ↓reduceIte] using result
+  let written : Heap := Space.put e.h0 e.ob bytes
+  have goodWritten : Good written e.r e.stid e.sm0 e.s0 :=
+    good.byte_view_put (dest := e.ob) e.hA0 e.hro unowned bytes
   have modeRange : HEAD ≤ mode ∧ mode ≤ SYNC := by
     rcases classification with same | type | bad
     · rw [same.1]; exact good.live.mode
@@ -745,9 +740,7 @@ theorem fastPost_retained (e : Zlib.Inffast.Proofs.Env) {after : Heap}
   have goodFinal : Good after e.r e.stid stream state := by
     have result := goodWritten.setZI (z' := stream) (st' := state) rfl good.live.zalloc good.live.zfree
       rfl modeRange (goodWritten.inv.of_fields rfl rfl rfl rfl rfl rfl rfl rfl rfl (by exact Nat.le_trans (Nat.le_of_lt bitCount) (by decide)) rfl rfl rfl)
-    rw [heapEq]
-    change Good (e.r.put (setI written e.stid state) stream) e.r e.stid stream state
-    rw [ZStreamRef.put_setI]
+    rw [heapEq, byte_view_put_setI, ZStreamRef.put_setI]
     exact result
   have pendingFinal : DataPendingInvariant state := by
     rcases classification with same | type | bad
@@ -770,9 +763,13 @@ theorem fastPost_retained (e : Zlib.Inffast.Proofs.Env) {after : Heap}
         simp only [Space.get, goodFinal.live.hs, e.hs0, Option.map_some]
         rfl
       · rw [heapEq]
-        simp only [Space.get, ZStreamRef.put_istates, upd_ne _ _ _ _ same]
-    | st_lenfix => rw [heapEq]; simp only [Space.get, ZStreamRef.put_static]
-    | st_distfix => rw [heapEq]; simp only [Space.get, ZStreamRef.put_static]
+        simp only [Space.get, ZStreamRef.put_istates, byte_view_put_istates, setI, upd_ne _ _ _ _ same]
+    | st_lenfix =>
+      rw [heapEq]
+      simp only [Space.get, ZStreamRef.put_static, Zlib.Inffast.Proofs.space_put_static, setI]
+    | st_distfix =>
+      rw [heapEq]
+      simp only [Space.get, ZStreamRef.put_static, Zlib.Inffast.Proofs.space_put_static, setI]
   have tablesFinal : DataTableInvariant after state := by
     intro _
     exact ⟨⟨e.rl, e.ol, e.LCA, e.hlc, by rw [views]; exact e.hLCA, e.hlt⟩,
@@ -782,7 +779,7 @@ theorem fastPost_retained (e : Zlib.Inffast.Proofs.Env) {after : Heap}
 
 /-- The actual raw-buffer fast branch now retains the same scalar/table
 clauses as the slow data dispatch. Its buffer and progress transport remain
-the next composition obligations; broader caller views are still open. -/
+the next composition obligations; broader caller views are not stated here. -/
 theorem inflate_LEN_fast_raw_retained {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8} {ib io ob oo : Nat}
     (E : Env c h r zs z s) (good : Good h r zs z s)
@@ -806,11 +803,10 @@ theorem inflate_LEN_fast_raw_retained {c : Ctx} {l : IL} {h : Heap} {r : ZStream
     exact good0
   have entryPending : DataPendingInvariant entry.toEnv.s0 := by change DataPendingInvariant entry.s0; rw [stateEq]; exact pending0
   have privateWindow := callerRange_private_window good buffers.output.range output
-  have window : ∀ w, entry.toEnv.s0.window = .ref (.blk w) 0 → entry.toEnv.ob ≠ w := by
-    change ∀ w, entry.s0.window = .ref (.blk w) 0 → entry.ob ≠ w
+  have window : ∀ w, entry.toEnv.s0.window = .ref (.blk w) 0 → entry.toEnv.ob ≠ BRef.blk w := by
+    change ∀ w, entry.s0.window = .ref (.blk w) 0 → BRef.blk entry.ob ≠ BRef.blk w
     rw [stateEq, outputEq]
-    intro w win equal
-    exact privateWindow w win (by rw [equal])
+    exact privateWindow
   obtain ⟨stream1, state1, good1, tables1, pending1, held1, bits1, _⟩ :=
     fastPost_retained entry.toEnv entryGood entryPending (by
       change ∀ ref offset ca, entry.s0.lencode = .ref ref offset → Space.get entry.h0 ref = some ca →

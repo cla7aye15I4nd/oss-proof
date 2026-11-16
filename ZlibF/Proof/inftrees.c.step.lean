@@ -4,56 +4,8 @@ import ZlibF.Proof.«inftrees.c.geom»
 namespace Zlib.Inftrees.Proofs
 open C Zlib.Inftrees
 
-/-- Everything the main loop of `inflate_table` reads and never changes. `hb` is the heap before the loop (after the
-sort); inside the loop the heap is `hb` with the table array replaced. -/
-structure Env where
-  c : Ctx
-  f : Nat → Nat
-  n : Nat
-  R : Nat
-  cap : Nat
-  rc : CodeRef
-  oc : Nat
-  rw : WRef
-  ow : Nat
-  rl : WRef
-  ol : Nat
-  hb : Heap
-  la : Array UInt16
-  wa : Array UInt16
-  h_table : c.table = .ref rc oc
-  h_lens : c.lens = .ref rl ol
-  h_work : c.work = .ref rw ow
-  h_ro : Space.ro hb rc = false
-  h_live : ∃ ca0, Space.get hb rc = some ca0
-  h_get_la : Space.get hb rl = some la
-  h_get_wa : Space.get hb rw = some wa
-  h_f : ∀ k, f k = (la.getD (ol + k) 0).toNat
-  h_la : ol + n ≤ la.size
-  h_f15 : ∀ k, k < n → f k ≤ 15
-  h_wa : ow + n ≤ wa.size
-  h_wcont : ∀ i, i < Tc f n 15 → wa[ow + i]? = some (UInt16.ofNat ((wsAux f n 15).getD i 0))
-  h_n : n ≤ 288
-  h_root : c.root.toNat = R
-  h_max : c.max.toNat = mxl f n
-  h_R1 : 1 ≤ R
-  h_Rmx : R ≤ mxl f n
-  h_R0 : lenAt f n 0 ≤ R
-  h_pos : 0 < Tc f n 15
-  h_fits : Fits f n
-  h_end : Kc f n 15 = 2 ^ 15 ∨ (mxl f n = 1 ∧ Tc f n 15 = 1 ∧ c.type ≠ CODES)
-  h_type : c.type = CODES ∨ c.type = LENS ∨ c.type = DISTS
-  h_cap : cap = (if c.type = CODES then 128 else if c.type = LENS then 852 else 592)
-  h_codes : c.type = CODES → mxl f n ≤ 7 ∧ R = mxl f n ∧ n ≤ 19 ∧ c.match_ = 20
-  h_lens' : c.type = LENS → n ≤ 288 ∧ c.base = lbase ∧ c.extra = lext ∧ c.match_ = 257
-  h_dists : c.type = DISTS → n ≤ 32 ∧ c.base = dbase ∧ c.extra = dext ∧ c.match_ = 0
-
 namespace Env
-def m (e : Env) : Nat := Tc e.f e.n 15
-def l (e : Env) (i : Nat) : Nat := lenAt e.f e.n i
-def v (e : Env) (i : Nat) : Nat := val e.f e.n i
 def p (e : Env) (i : Nat) : Nat := pre e.f e.n e.R i
-def mx (e : Env) : Nat := mxl e.f e.n
 /-- The heap inside the loop: the table array is `ca`. -/
 def hc (e : Env) (ca : Array Code) : Heap := Space.put e.hb e.rc ca
 end Env
@@ -112,25 +64,6 @@ def StepPost (e : Env) (i : Nat) (s' : TS) (ca' : Array Code) : Prop :=
 
 Cells are numbered from the start of the table (`oc` is added when the array is read). -/
 
-/-- The entry that the C builds for the symbol `w` with `bits` table bits. -/
-def hereC (c : Ctx) (w : UInt16) (bits : UInt8) : Code :=
-  if w.toUInt32 + 1 < c.match_ then ⟨0, bits, w⟩
-  else if w.toUInt32 ≥ c.match_ then
-    ⟨(c.extra[(w.toUInt32 - c.match_).toNat]!).toUInt8, bits, c.base[(w.toUInt32 - c.match_).toNat]!⟩
-  else ⟨96, bits, 0⟩
-
-/-- The table cell of the `m`-th copy of the entry of the code with allocation index `i`. -/
-def gAddr (ls : List Nat) (R mx i m : Nat) : Nat :=
-  (Canon.desc ls R mx i).base + Canon.H ls i / 2 ^ (Canon.desc ls R mx i).drop +
-    m * 2 ^ (Canon.L ls i - (Canon.desc ls R mx i).drop)
-
-/-- The number of copies of that entry. -/
-def gReps (ls : List Nat) (R mx i : Nat) : Nat :=
-  2 ^ ((Canon.desc ls R mx i).curr - (Canon.L ls i - (Canon.desc ls R mx i).drop))
-
-/-- The root cell of the link to the sub-table that starts at allocation index `a`. -/
-def gSlot (ls : List Nat) (R a : Nat) : Nat := Canon.rev R (Canon.grp ls R a)
-
 /-- The cells of different entries are different (the geometry of a complete or acceptable code). -/
 structure GeoOK (ls : List Nat) (R mx : Nat) : Prop where
   uniq : ∀ i j m m', i < Canon.nz ls → j < Canon.nz ls → m < gReps ls R mx i → m' < gReps ls R mx j →
@@ -141,23 +74,9 @@ structure GeoOK (ls : List Nat) (R mx : Nat) : Prop where
     Canon.startsAt ls R (b - 1) → gSlot ls R a = gSlot ls R b → a = b
 
 namespace Env
-def ls (e : Env) : List Nat := lensOf e.f e.n
-def D (e : Env) (i : Nat) : Canon.Desc := Canon.desc e.ls e.R e.mx i
-def here (e : Env) (j : Nat) : Code :=
-  hereC e.c (UInt16.ofNat ((wsAux e.f e.n 15).getD j 0)) (Canon.L e.ls j - (e.D j).drop).toUInt8
-def link (e : Env) (a : Nat) : Code :=
-  ⟨(Canon.width e.ls a e.R e.mx).toUInt8, e.R.toUInt8, (e.D a).base.toUInt16⟩
 /-- The geometry facts for this call. -/
 def Geo (e : Env) : Prop := GeoOK e.ls e.R e.mx
 end Env
-
-/-- The entries of the codes below `i` are in the table. -/
-def Written (e : Env) (i : Nat) (ca : Array Code) : Prop :=
-  ∀ j, j < i → ∀ m, m < gReps e.ls e.R e.mx j → ca[e.oc + gAddr e.ls e.R e.mx j m]? = some (e.here j)
-
-/-- The links of the sub-tables that start at allocation index at most `i` are in the table. -/
-def Links (e : Env) (i : Nat) (ca : Array Code) : Prop :=
-  ∀ a, 1 ≤ a → a ≤ i → a < e.m → Canon.startsAt e.ls e.R (a - 1) → ca[e.oc + gSlot e.ls e.R a]? = some (e.link a)
 
 /-- What the table array holds, given the geometry facts. -/
 def Cont (e : Env) (w l : Nat) (ca : Array Code) : Prop := e.Geo → Written e w ca ∧ Links e l ca

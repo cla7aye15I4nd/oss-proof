@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateCodeLengthInvariant
+import ZlibF.Spec.Common.Inflate.InflateCodeLengthInvariant
 import ZlibF.Proof.«inflate.c.lenlens-table-safe»
 import ZlibF.Proof.«inflate.c.default-entry»
 import ZlibF.Proof.«inflate.c.table-rebuffer»

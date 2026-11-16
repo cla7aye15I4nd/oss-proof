@@ -10,7 +10,7 @@ The actual complete public call returns and preserves the full initialized
 default relation and allocator on general public caller byte views. It
 covers entry refusals, every signed flush, malformed input and genuine window
 allocation failure. The actual four-byte local allocation is freed. The full
-public count/result/frame/ownership and all-history clauses remain open. -/
+public count/result/frame/ownership and all-history clauses are not stated here. -/
 theorem inflate_default_view_state_safe
     {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (invariant : DefaultStateJ h r zs z s) (allocator : DefAlloc z)

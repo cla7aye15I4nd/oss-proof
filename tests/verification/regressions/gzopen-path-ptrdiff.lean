@@ -2,7 +2,7 @@ import ZlibF.Proof.«gzlib.c.open-mode-entry»
 import ZlibF.Proof.«gzlib.c.open-files»
 import ZlibF.Proof.«gzfs.oracle»
 import ZlibF.Proof.PlatformMemory
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 
 /-!
 # gzopen path above PTRDIFF_MAX regression

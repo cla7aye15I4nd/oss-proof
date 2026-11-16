@@ -1,6 +1,6 @@
 import ZlibF.Proof.«deflate.c.universal-invariant»
-import ZlibF.Spec.Public.Streams
-import ZlibF.Spec.Public.Queries
+import ZlibF.Spec.Common.Streams
+import ZlibF.Spec.Common.Queries
 import ZlibF.Spec.Functional.Api.Compress
 
 /-!

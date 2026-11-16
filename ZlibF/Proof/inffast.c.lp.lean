@@ -53,14 +53,6 @@ theorem distClass_of (E : Code) (hl : DistLink E → LinkOK DistLeaf e.DCA e.od 
     · exact Or.inr (Or.inr h1)
 
 
-/-- The entry on which a distance lookup ends and the number of bits it consumes, for the hold value `H` and the root
-index `kidx`: a root leaf, or a root link and a leaf of its second level. -/
-def DistLook {α : Bool} (e : EnvG α) (H kidx : Nat) (E : Code) (cb : Nat) : Prop :=
-  (e.DCA.getD (e.od + kidx) default = E ∧ cb = E.bits.toNat ∧ ¬ DistLink E) ∨
-  (∃ E0 j, e.DCA.getD (e.od + kidx) default = E0 ∧ DistLink E0 ∧ j < 2 ^ E0.op.toNat ∧
-     j = (H / 2 ^ E0.bits.toNat) % 2 ^ E0.op.toNat ∧ e.DCA.getD (e.od + E0.val.toNat + j) default = E ∧
-     cb = E0.bits.toNat + E.bits.toNat ∧ E0.bits.toNat + E.bits.toNat ≤ 15 ∧ ¬ DistLink E)
-
 theorem dodistLoop_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32) (l : L) (i o kidx : Nat)
     (hts : DistTableSafe e.DCA e.od e.s0.distbits.toNat) (hk : kidx < 2 ^ e.s0.distbits.toNat)
     (hls : LS e l i o) (hA : e.o0 + e.sm0.avail_out.toNat ≤ A.size) (ho : o + 258 ≤ e.o0 + e.sm0.avail_out.toNat)

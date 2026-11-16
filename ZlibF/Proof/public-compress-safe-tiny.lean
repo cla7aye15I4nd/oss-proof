@@ -9,7 +9,8 @@ import ZlibF.Spec.Safety.Utilities
 `Goal.deflate` holds under `TinyOverlay` (`deflate_safety_of_tiny`). `DeflateLoopFacts`, the other
 hypothesis of `compress*_safety_of`, follows from the checked deflate call (`deflate_call_full`),
 the reachable invariant (`reachable_inv_of`), `finished_new_input`, and two facts about one
-`deflate` call that `deflate_call_full` does not state yet:
+`deflate` call, taken here as hypotheses and proved from `deflate_call_full` in
+`public-compress-safe-call` (`call_progress_of`, `call_keeps_gzhead_of`):
 
 * `CallProgress`: a `deflate` call that is not refused, with input and output room, before the
   stream is finished, that returns `Z_OK`, reads or writes a byte (the termination of the

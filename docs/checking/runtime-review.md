@@ -1,10 +1,34 @@
 # Trusted-runtime review record
 
-This is a historical source review. Findings describe the definitions and documents read at
-review time. They are not a current defect list or independent baseline approval. Some
-observations were later addressed; others describe deliberate semantic limits. Consult
-[progress](../progress.md) for current work and [the trusted base](../trusted-base.md) for
-the current account of assumptions.
+> **Dated record.** This is a source review of the runtime, written on 2026-11-06 about the
+> definitions and documents read then. It is not a current defect list and not an approval of the
+> runtime. The table below gives the state of each finding on 2026-11-14. The current account of
+> the model's limits is [the trusted base](../trusted-base.md); current work is in
+> [progress](../progress.md).
+
+## State of the findings on 2026-11-14
+
+"Fixed" means the reviewed defect is no longer in the source. "Model limit" means the runtime
+still behaves as the finding says, the trusted base states it, and proofs carry the obligation.
+The sources named were read for this table; nothing was built or run for it.
+
+| Finding | State | Where to read the current fact |
+| --- | --- | --- |
+| R1 fresh pointer fields are null | Model limit. A fresh pointer field is still NULL. Every proof must show that a pointer field is written before it is read. | [Model limits](../model-limits.md#representation-gaps-and-proof-obligations), "Representation gaps and proof obligations"; `AGENTS.md`, Translation |
+| R2 null pointer arithmetic | Model limit, by decision. `Ptr.add NULL 0` returns NULL. | Trusted base; [safety](../spec/safety.md#null-pointers-and-pointer-differences) |
+| R3 one name for two `COPY` constants | Fixed. The gz macro is `GZ_COPY` (value 1); `COPY` is the inflate enumerator. | `ZlibF/Runtime/Schema.lean` |
+| R4 enumerators typed unsigned | Fixed in the schema: each enumerator also exists with type `Int32` (`HEAD_i`, `CODES_i`, ...). Whether every translated comparison uses the right one was not rechecked here. | `ZlibF/Runtime/Schema.lean` |
+| R5 array extents and static contents | Addressed by predicates (`WellFormed`, `Heap.RecordsWellFormed`, `Statics.WellFormed`) that proofs establish and preserve. The runtime does not compare static contents with C. | Trusted base |
+| R6 allocation relied on freshness | Fixed. An allocator faults when the block number at `nextBlk` is in use. Uniqueness of block identities across tables in an initial heap is still a premise. | `ZlibF/Runtime/LibcTables.lean`; trusted base |
+| R7 read-only status is partial | Model limit. | Trusted base |
+| R8 pointer equality is structural | Model limit. | Trusted base |
+| R9 one garbage value per cell | Model limit, by decision. | Trusted base |
+| R10 whole-record copy without an overlap check | Fixed for `copyK`, which rejects copying an object onto itself. A bare load and store of a record still checks no overlap. | Trusted base, "Memory and library operations" |
+| R11 smaller primitive boundaries | Two rows are still model limits: `Ptr.add` checks only its result, and a block has no allocation-origin tag. The other rows were not rechecked. | Trusted base |
+| R12 documentation overstated the model | The trusted base and `AGENTS.md` now say that a fresh pointer field is NULL in the model, which is weaker than C. The other statements were not rechecked one by one. | Trusted base |
+| R13 static data missing from generation | `bl_order` and the three static descriptors are now written in the translation of `trees.c`, not generated. Their agreement with C rests on translation review and the differential tests. | `ZlibF/Zlib/trees.c.lean` |
+| U1 alignment, effective type, byte views | Open as a model limit: there is no general address or effective-type model. CRC byte views have their own proved goals. | Trusted base; [deviations](../deviations.md) |
+| U2 to U5 | Review obligations of every translation. They are not closed by a check. U5 is the obligation of R1. | Trusted base, "Manual translation" |
 
 ## Scope and evidence
 

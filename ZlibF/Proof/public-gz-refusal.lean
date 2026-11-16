@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzRefusal
+import ZlibF.Spec.Safety.GzRefusal
 
 /-!
 # `Goal.gz_refusal`

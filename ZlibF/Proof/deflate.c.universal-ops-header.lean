@@ -7,8 +7,11 @@ import ZlibF.Proof.«deflate.c.universal-header-inv»
 `HeaderInv` (beside `DInv`) after each operation of `StreamOperation .deflate`, case by case. The
 operations that do not write the stream record keep its state pointer, so the state after the
 call sits at the same block; batch C's lemmas (`deflate.c.universal-header-inv`) then give the
-header facts of that state. The operations whose header lemma is not yet a theorem are hypotheses
-of `operation_header_of`: `deflate` (its header phase), `deflateParams` and `deflateSetDictionary`.
+header facts of that state. Three operations are hypotheses of `operation_header_of`: `deflate`
+(its header phase), `deflateParams` and `deflateSetDictionary`. Each is a theorem:
+`deflate_header_of` (`deflate.c.universal-call-header-fact`, with `tinyOverlay`), `params_header`
+(`deflate.c.universal-ops-params-general`) and `setDictionary_header`
+(`deflate.c.universal-ops-dictionary-slid`); `deflate_sequence_safety_of` supplies them.
 A direct `deflateResetKeep` is not a stream operation (`StreamOperation`).
 -/
 
@@ -46,8 +49,9 @@ theorem header_unchanged {h : Heap} {r : ZStreamRef} {ds ds' : Nat} {z z' : ZStr
   rw [e]
   exact header
 
-/-- **`operation_header` from the open header lemmas.** Hypotheses (not yet theorems):
-`deflateHeader` (the header phase of `deflate`), `paramsHeader` and `setDictionaryHeader`.
+/-- **`operation_header` from the per-operation header lemmas.** Hypotheses, each proved elsewhere:
+`deflateHeader` (the header phase of `deflate`, `deflate_header_of`), `paramsHeader`
+(`params_header`) and `setDictionaryHeader` (`setDictionary_header`).
 Premise: the between-calls facts `calls` (which `params_header` reads). -/
 theorem operation_header_of
     (deflateHeader : ∀ {h after : Heap} {r : ZStreamRef} {ds ds' : Nat} {z z' : ZStream}

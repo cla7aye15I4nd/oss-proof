@@ -7,5 +7,4 @@ import ZlibF.Spec.Functional.Api.Gz
 import ZlibF.Spec.Functional.Api.Run
 import ZlibF.Spec.Functional.Api.Iface
 import ZlibF.Spec.Functional.Api.Goals
-import ZlibF.Spec.Functional.Api.Examples
 import ZlibF.Spec.Functional.Api.Concrete

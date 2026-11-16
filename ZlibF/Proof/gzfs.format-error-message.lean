@@ -1,5 +1,5 @@
 import ZlibF.Proof.gzfs
-import ZlibF.Spec.Public.History
+import ZlibF.Spec.Common.History
 import ZlibF.Spec.Functional.Api.Basic
 
 /-! Fixed error-message formatting. All heap reads are connected to the real

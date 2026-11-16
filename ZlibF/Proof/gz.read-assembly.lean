@@ -25,21 +25,21 @@ namespace ZlibF.Spec.Public.GzRead
 open C Zlib.GzFs Zlib.Gzguts Zlib.Gzlib.Spec Zlib.Gzlib.Proofs ZlibF.Spec.Public
 set_option autoImplicit false
 
-/-- `gz_fetch`, from the open fact on a stuck inflate stream. -/
+/-- `gz_fetch`, from the fact on a stuck inflate stream (`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`). -/
 theorem gz_fetch_safe_stuck (stuck : InflateStuckNoOutput) : GzFetchSafe :=
   gz_fetch_safe_of gz_look_safe (gz_decomp_safe_of stuck)
 
-/-- `gz_read`, from the open fact on a stuck inflate stream. -/
+/-- `gz_read`, from the fact on a stuck inflate stream (`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`). -/
 theorem gz_read_safe_stuck (stuck : InflateStuckNoOutput) : GzReadSafe :=
   gz_read_safe_of (gzSkipRead_holds (gz_fetch_safe_stuck stuck)) (gz_fetch_safe_stuck stuck)
     (gz_decomp_safe_of stuck)
 
-/-- **The leaf `gzread_step`**, from the open fact on a stuck inflate stream. -/
+/-- **The leaf `gzread_step`**, from the fact on a stuck inflate stream (`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`). -/
 theorem gzread_step_stuck (stuck : InflateStuckNoOutput) :
     ∀ (i : Nat) (buf : BPtr) (len : UInt32), GzCallSafe i (.gzread (some (.in_gzstate_x i)) buf len) :=
   gzread_step_of_read (gz_read_safe_stuck stuck)
 
-/-- **The leaf `gzfread_step`**, from the open fact on a stuck inflate stream. -/
+/-- **The leaf `gzfread_step`**, from the fact on a stuck inflate stream (`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`). -/
 theorem gzfread_step_stuck (stuck : InflateStuckNoOutput) :
     ∀ (i : Nat) (buf : BPtr) (size nitems : UInt64),
       GzCallSafe i (.gzfread buf size nitems (some (.in_gzstate_x i))) :=

@@ -1,6 +1,6 @@
-import ZlibF.Spec.Public.Sequences
-import ZlibF.Spec.Public.Streams
-import ZlibF.Spec.Public.Utilities
+import ZlibF.Spec.Common.Sequences
+import ZlibF.Spec.Common.Streams
+import ZlibF.Spec.Common.Utilities
 import ZlibF.Proof.«inflate.c.meaning»
 import ZlibF.Proof.«inflate.c.completes-premises»
 import ZlibF.Spec.Functional.Sequences

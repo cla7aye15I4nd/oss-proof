@@ -15,10 +15,111 @@ handle even if final I/O fails. Reading can also accept transparent, uncompresse
 | Inspect or clear status | [EOF](#gzeof), [transparent mode](#gzdirect), [error](#gzerror), [clear error](#gzclearerr) |
 | Close | [Any mode](#gzclose), [reader](#gzclose_r), [writer](#gzclose_w) |
 
-These focused contracts follow the pinned source and `zlib.h`. Source readings are
-**to confirm** by implementation proof. They do not assert full API verification or narrow
-the broader [registered public goals](../../checking/goals.md). See
-[progress](../../progress.md) for proof status and remaining work.
+These contracts follow the pinned source with the listed patches and `zlib.h`.
+
+**What is proved.** Safety of every history of a handle: no undefined behaviour, no memory
+error, no leak, and termination ([the safety goal](#the-safety-goal)). The return values,
+bytes and positions described in the entries are functional behaviour. They are read from the
+C and are **to confirm** where no registered theorem states them. They are not a planned proof
+target. [Progress](../../progress.md) records the level of each goal.
+
+## The safety goal
+
+Every function on this page that the default build compiles has its own required safety goal,
+`Goal.<function>_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)). Its
+entry states it under **Proof goals**. `gzopen_w` is Windows-only and has none. Each of these goals restricts one clause of the sequence goal
+`Goal.gz_sequence_safety` ([GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)) to the calls
+of one function. The goal of a function that takes a handle also has that function's clause of
+`Goal.gz_refusal`, the refusal of a NULL handle. The sequence goal is required as well. It adds
+the invariant clause of the table below, which is about histories and not about one call.
+
+This section describes the sequence goal, because the entries refer to its histories, its
+argument conditions and its read budget. Each of these goals has a theorem of exactly its type. They are about the
+patched source ([caveats](#scope-and-source-caveats)).
+
+**Histories (`GzHistory`).** The goal ranges over every history of one handle. A history starts
+with a successful `gzopen`, `gzopen64` or `gzdopen` on a well-formed heap whose byte objects have
+fewer than `2^63` bytes, with its string arguments (`path`, `mode`) NUL-terminated. It continues with any of:
+
+- a call of a non-closing gz function on the handle, with arguments as the table below asks,
+  that returned, with any result;
+- a use of the `gzgetc()` macro;
+- a caller edit: any change to storage the handle does not own. The caller may free its own
+  buffers, also the buffer of its last `gzread`;
+- a step of the outside world: the file system becomes any well-formed state. Another party may
+  close the handle's descriptor or open another file under its number. The next read or write then
+  gets an error or reaches the other file, as in C.
+
+**What the goal states.**
+
+| Clause | Statement |
+| --- | --- |
+| Invariant | Every history leaves a well-formed world and the handle in its invariant (`GzInv`). |
+| No fault | The next call, in every world, does not end in undefined behaviour or a memory error. The only error it can end in is running out of loop fuel. No premise beyond the arguments. |
+| Termination | The next call returns. `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets` and `gzungetc` need the read budget below for this. Every other call returns in every world. |
+| Frame and ledger | A call that returns keeps the set of open descriptors, keeps `GzInv`, the mode and the descriptor, writes only the handle's own blocks and the caller regions named below, and changes the live blocks exactly by the handle's ledger (`GzStepPost`). |
+| `gzerror` | The pointer it returns is a readable NUL-terminated string in the heap after the call. In the C it is a literal or the handle's message; the goal states only that it is a readable string. |
+| Close | `gzclose`, `gzclose_r` and `gzclose_w` return in every world. A close of the wrong mode refuses and changes nothing. Otherwise the handle record and every owned block are freed, nothing else changes, and the descriptor is released, also when the system `close` fails. No return code is claimed. |
+| Open | `gzopen`, `gzopen64` and `gzdopen` return for every world and every allocation outcome and change no existing block. A NULL result leaves no new block; for `gzopen` and `gzopen64` it also leaves the same open descriptors. A handle is in `GzInv` and owns exactly the new blocks. `gzdopen` opens and closes no descriptor. |
+
+**Argument conditions (`GzArguments`).** A caller range must lie outside the blocks the handle
+owns (`GzOwned`: the handle record, its path, its message, its buffers and its codec state).
+The string `gzerror` returns is the handle's message. An entry that clears the error frees that
+message before it touches its buffer: the writing entries do so on every call that passes their
+mode and error test, the reading entries only after a stalled read
+([the table](../../deviations.md#why-the-handles-own-strings-are-excluded)). Passing the string
+back can then be a use after free in the C
+([deviations](../../deviations.md), rows "Gz caller buffers" and "Gz printf strings").
+
+| Call | Condition |
+| --- | --- |
+| `gzread(file, buf, len)` | `len > INT_MAX`: none. Otherwise `len == 0`, or `buf` covers `len` writable bytes outside the handle's blocks. |
+| `gzwrite(file, buf, len)` | `len > INT_MAX`: none. Otherwise `len == 0`, or `buf` covers `len` readable bytes outside the handle's blocks. |
+| `gzfread`, `gzfwrite` | `size * nitems >= 2^64`: none. Otherwise the product is zero, or `buf` covers that many bytes (writable for `gzfread`, readable for `gzfwrite`) outside the handle's blocks. |
+| `gzgets(file, buf, len)` | `buf == NULL` or `len < 1`: none. Otherwise `buf` covers `len` writable bytes outside the handle's blocks. |
+| `gzputs(file, s)` | `s` is a NUL-terminated string outside the handle's blocks. |
+| `gzprintf`, `gzvprintf` | The format is a NUL-terminated string that the model's formatter can evaluate with the arguments (`Formatted`). The format string and every string argument lie outside the handle's blocks. |
+| `gzerror(file, errnum)` | `errnum` is NULL or covers 4 writable bytes outside the handle's blocks. |
+| every other call | none: every value of every scalar argument is covered. |
+
+The `gzprintf` condition is asked at every `gzprintf` step, also on a reader or a handle in
+error, where the C does not read the format. The formatter covers integer, character and string
+conversions. Floating conversions, `%p`, `%n`, the `h` and `hh` modifiers and `*` widths are
+outside the domain ([deviations](../../deviations.md), row "Formatting").
+
+**Read budget (`ReadsFinite`).** The termination clause for the six reading calls assumes that
+the handle's descriptor can still deliver fewer than `2^61` bytes. The premise is needed: a
+source that delivers empty gzip members forever keeps one `gzread` running forever in C. It goes
+by call name, so it is asked also where the C returns at once, for example on a writer or for a
+length of zero. `2^61` is the model's figure, not zlib's: it keeps the loop measures below the
+`2^64` iterations of loop fuel ([safety](../safety.md#2-calls-and-sequences)). The premise also
+says that the descriptor number is not negative (`HasBudget`); every handle the library returns
+has such a number, because `gzdopen` returns `NULL` for a negative descriptor. The no-fault
+clause and the frame and ledger clause do not use the premise.
+
+**The `gzgetc` macro.** `zlib.h` defines `gzgetc` as a macro, which is how an application
+normally calls it. The goal has a separate clause for the macro (`Zlib.ZlibH.gzgetc`). With
+buffered output (`have != 0`) the macro takes a byte from the buffer with no library call, and
+returns with no premise. With `have == 0` it calls the function `gzgetc`, and returns under the
+read budget. Its frame and ledger are those of the function, which writes no caller region. The
+macro on a NULL handle reads `file->have` and is undefined in C; only the function refuses NULL.
+
+**Zero-length reads name no region.** For `gzread` with `len == 0` and `gzfread` with a zero
+product, the frame names no caller region (`GzWriteRegions`), and `buf` may be any pointer, also
+one into a block that the call frees. A frame that named `buf` would be false there
+(`tests/verification/regressions/gz-read-empty-region.lean`). `gzgets` names `len` bytes at `buf`
+when `len >= 1`, and `gzerror` names 4 bytes at `errnum`.
+
+**NULL handle and non-vacuity.** `Goal.gz_refusal`
+([GzRefusal.lean](../../../ZlibF/Spec/Safety/GzRefusal.lean)) states that every gz function
+that takes a handle returns its documented value on NULL, with the heap and the world unchanged.
+The own goal of each such function repeats its clause. `Goal.gz_sequence_nonvacuity` shows that the premises can be met: a `gzopen` reader with a finite
+read budget and a one-byte `gzread`, and a `gzdopen` writer and a one-byte `gzwrite`.
+
+**Functional contracts.** The per-function goals `Goal.gzread`, `Goal.gzwrite` and the others
+state which bytes are read and written and which values are returned. They are stated for a
+regular file with no outside interference (`RegularOs`) and rest on a hand-made model of the file
+system. They are not required and not planned; those already proved stay.
 
 ## Common handle conditions
 
@@ -44,12 +145,14 @@ the same offset range here. Other configurations need separate contracts.
 - The descriptor belongs to the handle until close. No other operation changes
   its data or position during a call. OS failures and allocation failures remain
   possible; a successful open does not guarantee that later I/O succeeds.
+  The first two sentences are conditions of the functional contracts only. The
+  safety goal lets the outside world change any descriptor between calls.
 
 Every entry carries a domain label. “Full scalar range” applies only to the
 named scalar argument, under these pointer and lifetime requirements.
 Documentary restrictions do not excuse known failure paths. In particular,
-partial-read errors and pushback-created negative positions remain obligations
-of the unchanged public goals.
+partial-read errors and negative positions created by pushback are inside the
+safety goal.
 
 **Effects.** Read, write, open, seek, control and close operations are stateful,
 including operations without a caller output buffer. Tell, offset and EOF
@@ -100,12 +203,15 @@ not as a general explanation of every failed API call.
 The source is [gzlib.c](../../../zlib/gzlib.c),
 [gzread.c](../../../zlib/gzread.c), [gzwrite.c](../../../zlib/gzwrite.c),
 [gzclose.c](../../../zlib/gzclose.c) and [zlib.h](../../../zlib/zlib.h).
-The abstract contracts are in [Api/Gz.lean](../../../ZlibF/Spec/Api/Gz.lean).
-Concrete goals are in [GzOpen](../../../ZlibF/Spec/Public/GzOpen.lean),
-[GzRead](../../../ZlibF/Spec/Public/GzRead.lean),
-[GzWrite](../../../ZlibF/Spec/Public/GzWrite.lean),
-[GzControl](../../../ZlibF/Spec/Public/GzControl.lean) and
-[GzClose](../../../ZlibF/Spec/Public/GzClose.lean).
+The sequence safety goal is in [GzSafety](../../../ZlibF/Spec/Safety/GzSafety.lean), the
+safety goal of each function in [GzCalls](../../../ZlibF/Spec/Safety/GzCalls.lean) and the
+NULL-handle goal in [GzRefusal](../../../ZlibF/Spec/Safety/GzRefusal.lean).
+The abstract contracts are in [Functional/Api/Gz.lean](../../../ZlibF/Spec/Functional/Api/Gz.lean).
+The functional goals are in [GzOpen](../../../ZlibF/Spec/Functional/GzOpen.lean),
+[GzRead](../../../ZlibF/Spec/Functional/GzRead.lean),
+[GzWrite](../../../ZlibF/Spec/Functional/GzWrite.lean),
+[GzControl](../../../ZlibF/Spec/Functional/GzControl.lean) and
+[GzClose](../../../ZlibF/Spec/Functional/GzClose.lean).
 The translations mirror the C names in `ZlibF/Zlib/`.
 
 ## gzopen
@@ -137,6 +243,22 @@ The result tells you whether opening acquired a new gzip file handle.
 invalid strings. **Effect:** stateful open and ownership acquisition.
 
 **Pre:** Non-NULL `path` and `mode` are readable NUL-terminated strings.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Applies when** (`GzOpenSafe`):
+    1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
+    2. the platform size bound holds (`ByteObjectsFit`);
+    3. the world is a well-formed file system (`FileSystem`);
+    4. `path` is NULL or a NUL-terminated string, and so is `mode` (`CString`).
+- **Covered without condition.** A NULL `path` or `mode`; every path and every mode text, valid or not; every file-system world, including every failure of the system `open`; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* The call returns, with NULL or a handle.
+    - *State.* The world is well formed. With NULL the set of open descriptors is the same (`FdsKept`). A handle satisfies its invariant (`GzInv`); its descriptor number is not negative and was not open before the call, and every other descriptor is open exactly when it was before.
+    - *Writes.* No block that existed before the call is changed (`Frame`).
+    - *Allocations.* With NULL the allocated blocks are the same as before: a failed open leaves nothing behind. With a handle the new blocks are exactly the handle's own blocks, and nothing is freed (`LiveChange`).
+- **Not in this goal.** A `path` or `mode` that is not NUL-terminated inside its object: outside the goal, as in C. Which calls return a handle, and the mode, position and buffers of that handle: functional goal `Goal.gzopen`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzopen"><summary>Complete return conditions and boundaries</summary>
 
@@ -188,6 +310,22 @@ The result tells you whether opening acquired a new gzip file handle.
 
 **Pre:** The `gzopen` string and environment requirements hold.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzopen64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzOpenSafe` ([Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Applies when** (`GzOpenSafe`):
+    1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
+    2. the platform size bound holds (`ByteObjectsFit`);
+    3. the world is a well-formed file system (`FileSystem`);
+    4. `path` is NULL or a NUL-terminated string, and so is `mode` (`CString`).
+- **Covered without condition.** A NULL `path` or `mode`; every path and every mode text, valid or not; every file-system world, including every failure of the system `open`; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* The call returns, with NULL or a handle.
+    - *State.* The world is well formed. With NULL the set of open descriptors is the same (`FdsKept`). A handle satisfies its invariant (`GzInv`); its descriptor number is not negative and was not open before the call, and every other descriptor is open exactly when it was before.
+    - *Writes.* No block that existed before the call is changed (`Frame`).
+    - *Allocations.* With NULL the allocated blocks are the same as before: a failed open leaves nothing behind. With a handle the new blocks are exactly the handle's own blocks, and nothing is freed (`LiveChange`).
+- **Not in this goal.** A `path` or `mode` that is not NUL-terminated inside its object: outside the goal, as in C. Which calls return a handle, and the mode, position and buffers of that handle: functional goal `Goal.gzopen64`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzopen64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** The `gzopen` contract applies, including ownership, lazy allocation
@@ -232,6 +370,22 @@ The result tells you whether an existing descriptor has been transferred to a ne
 **Pre:** For ordinary success, `fd` is open with access matching the mode.
 Non-NULL `mode` meets `gzopen`'s string requirements. Other users do not read,
 write, seek or close this descriptor while the handle owns it.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzdopen_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). Its statement is `GzDopenSafe` ([Safety/GzSafety.lean](../../../ZlibF/Spec/Safety/GzSafety.lean)), the open clause of [the sequence goal](#the-safety-goal) for this function.
+- **Applies when** (`GzDopenSafe`):
+    1. the heap is a library heap (`Fresh`, `Uniq`, `LibraryGlobals`);
+    2. the platform size bound holds (`ByteObjectsFit`);
+    3. the world is a well-formed file system (`FileSystem`);
+    4. `mode` is NULL or a NUL-terminated string (`CString`).
+- **Covered without condition.** Every `fd`: open or not, negative or not; a NULL `mode`; every mode text, valid or not; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* The call returns, with NULL or a handle.
+    - *State.* The world is well formed and the set of open descriptors is the same (`FdsKept`): the call opens and closes no descriptor. A handle satisfies its invariant (`GzInv`), and its descriptor is `fd`.
+    - *Writes.* No block that existed before the call is changed (`Frame`).
+    - *Allocations.* With NULL the allocated blocks are the same as before: a failed open leaves nothing behind. With a handle the new blocks are exactly the handle's own blocks, and nothing is freed (`LiveChange`).
+- **Not in this goal.** A `mode` that is not NUL-terminated inside its object: outside the goal, as in C. Which calls return a handle, and the mode, position and buffers of that handle: functional goal `Goal.gzdopen`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzdopen"><summary>Complete return conditions and boundaries</summary>
 
@@ -281,6 +435,8 @@ The result tells you whether opening acquired a new gzip file handle. This entry
 **Pre:** Non-NULL `path` is a readable terminated wide string. Non-NULL `mode`
 meets `gzopen`'s mode requirements. The Windows file environment is available.
 
+**Proof goals.** None: this entry belongs to the Windows build only and is not part of the default build.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzopen_w"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** The `gzopen` lifetime, buffering and mode contract applies, using a
@@ -323,6 +479,19 @@ The result reports whether the requested future buffer size was recorded. This c
 **Effect:** stateful buffer configuration, without allocating buffers.
 
 **Pre:** A live reader or writer meets the shared handle requirements.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzbuffer_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzbuffer_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every `size`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap is unchanged. The translation of this function takes no world, so it cannot change one. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzbuffer`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzbuffer"><summary>Complete return conditions and boundaries</summary>
 
@@ -368,6 +537,19 @@ The status reports whether the parameter request reached the handle, including a
 
 **Pre:** A live gzip writer meets the shared requirements. A transparent
 writer is refused. Existing hard errors normally prevent the call.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzsetparams_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzsetparams_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every `level` and `strategy`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzsetparams`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzsetparams"><summary>Complete return conditions and boundaries</summary>
 
@@ -419,6 +601,20 @@ A positive result counts bytes delivered by this call. Zero can mean a zero-leng
 **Pre:** For `len <= INT_MAX`, `buf` covers `len` writable bytes under the
 shared separation rules. A zero extent needs no accessed bytes.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzread_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzread_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): `len > INT_MAX` asks nothing; otherwise `len == 0`, or `buf` covers `len` writable bytes outside the handle's own blocks (`GzRange`).
+- **Covered without condition.** Every `len`, also 0 and above `INT_MAX`, and with those two every `buf`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`, whatever the other arguments are. On a handle, in every world, the call does not end in undefined behaviour or a memory error: the only error the run can end in is running out of loop fuel. It returns when the read budget holds (`ReadsFinite`: the descriptor can still deliver fewer than `2^61` bytes). The budget is asked also where the C returns at once.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks and, when `0 < len <= INT_MAX`, the `len` bytes at `buf`. A zero-length read names no caller region.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzread`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzread"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A positive result `n <= len` gives the next `n` bytes and advances
@@ -432,8 +628,9 @@ A zero request normally returns zero, but existing error/stall state can still
 cause -1. Consult `gzerror`; truncation is `Z_BUF_ERROR`, not a successful
 complete gzip member. A later error does not erase delivered
 bytes. Blocking descriptors may wait to fill internal reads. Non-blocking
-stalls are retryable and are not EOF. Partial transparent-read recovery has a
-known **to confirm** caveat below; no unconditional safety claim is made here.
+stalls are retryable and are not EOF. A transparent read in which `read` supplied
+bytes and then failed was an out-of-bounds read in the unpatched C; patch 0003 fixes
+it ([caveats](#scope-and-source-caveats)). What the retry yields is **to confirm**.
 
 </details>
 
@@ -470,6 +667,20 @@ The result counts complete items of size bytes. Bytes of a final incomplete item
 
 **Pre:** When the product is representable, `buf` covers `size * nitems`
 writable bytes and meets the shared separation rules.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzfread_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzfread_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): `size * nitems >= 2^64` asks nothing; otherwise the product is zero, or `buf` covers that many writable bytes outside the handle's own blocks (`GzRange`).
+- **Covered without condition.** Every `size` and `nitems`, also a zero product and a product of `2^64` or more, and with those every `buf`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `0`, whatever the other arguments are. On a handle, in every world, the call does not end in undefined behaviour or a memory error: the only error the run can end in is running out of loop fuel. It returns when the read budget holds (`ReadsFinite`: the descriptor can still deliver fewer than `2^61` bytes). The budget is asked also where the C returns at once.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks and, when the product is nonzero and below `2^64`, the `size * nitems` bytes at `buf`. A zero-length read names no caller region.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzfread`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzfread"><summary>Complete return conditions and boundaries</summary>
 
@@ -514,6 +725,19 @@ Read one uncompressed byte as an unsigned value.
 
 **Pre:** The shared reader requirements hold.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzgetc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgetc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has three clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function); and the same for the `gzgetc()` macro of `zlib.h` (`Zlib.ZlibH.gzgetc`), the default way an application calls `gzgetc`.
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`. On a handle, in every world, the call does not end in undefined behaviour or a memory error: the only error the run can end in is running out of loop fuel. It returns when the read budget holds (`ReadsFinite`: the descriptor can still deliver fewer than `2^61` bytes). The budget is asked also where the C returns at once. The macro on a handle cannot end in undefined behaviour or a memory error either. With buffered output (`have != 0`) it returns with no premise; with `have == 0` it calls the function, and returns under the read budget.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`). The same holds after the macro.
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks. The macro writes no caller region either.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The macro on a NULL handle: it reads `file->have`, which is undefined in C; the refusal clause is about the function. The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzgetc`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgetc"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Returns a value in 0–255 and consumes one byte, advancing the
@@ -553,6 +777,19 @@ This exported single-byte wrapper has the same result as the gzgetc function.
 **Effect:** stateful read and possible allocation.
 
 **Pre:** The `gzgetc` handle requirements hold.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzgetc__safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgetc__safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`. On a handle, in every world, the call does not end in undefined behaviour or a memory error: the only error the run can end in is running out of loop fuel. It returns when the read budget holds (`ReadsFinite`: the descriptor can still deliver fewer than `2^61` bytes). The budget is asked also where the C returns at once.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzgetc_`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgetc_"><summary>Complete return conditions and boundaries</summary>
 
@@ -596,6 +833,19 @@ Success returns the original c, while pushing back only its low eight bits. The 
 **Pre:** The shared reader requirements hold. Pushback is allowed immediately
 after open and can therefore make the logical position negative.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzungetc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzungetc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every `c`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`, whatever the other arguments are. On a handle, in every world, the call does not end in undefined behaviour or a memory error: the only error the run can end in is running out of loop fuel. It returns when the read budget holds (`ReadsFinite`: the descriptor can still deliver fewer than `2^61` bytes). The budget is asked also where the C returns at once.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzungetc`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzungetc"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** On success, stores the low eight bits of `c`, returns the original
@@ -608,7 +858,8 @@ happen before negative `c` is refused. Full pushback records `Z_DATA_ERROR`
 unless preserving a serious error. With allocated room, pushback may succeed
 after a read error; it does not generally clear that error. Position -1 can
 be a successful state, so tell's -1 alone is ambiguous. Seeking from this
-state has a **to confirm** source caveat; it is not forbidden here.
+state overflowed in the unpatched C; patch 0002 fixes it
+([caveats](#scope-and-source-caveats)). It is not forbidden here.
 
 </details>
 
@@ -645,6 +896,20 @@ Returning buf means a NUL-terminated line fragment was written; NULL means no fr
 
 **Pre:** For non-NULL `buf` and `len > 0`, the destination covers `len`
 writable bytes under the shared separation rules.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzgets_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzgets_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): `buf == NULL` or `len < 1` asks nothing; otherwise `buf` covers `len` writable bytes outside the handle's own blocks (`GzRange`).
+- **Covered without condition.** Every `len`, also below 1, and a NULL `buf`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `NULL`, whatever the other arguments are. On a handle, in every world, the call does not end in undefined behaviour or a memory error: the only error the run can end in is running out of loop fuel. It returns when the read budget holds (`ReadsFinite`: the descriptor can still deliver fewer than `2^61` bytes). The budget is asked also where the C returns at once.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks and, when `len >= 1`, the `len` bytes at `buf`.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzgets`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzgets"><summary>Complete return conditions and boundaries</summary>
 
@@ -692,6 +957,20 @@ The result counts bytes accepted from this call, which may still be buffered. Ze
 **Pre:** For `len <= INT_MAX`, `buf` covers `len` readable bytes under the
 shared separation rules. The selected compression parameters are valid.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzwrite_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzwrite_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): `len > INT_MAX` asks nothing; otherwise `len == 0`, or `buf` covers `len` readable bytes outside the handle's own blocks (`GzRange`).
+- **Covered without condition.** Every `len`, also 0 and above `INT_MAX`, and with those two every `buf`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `0`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzwrite`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzwrite"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Normally returns `len` and advances position by that accepted count,
@@ -736,6 +1015,20 @@ The result counts complete items of size bytes, not bytes. Accepted bytes from a
 
 **Pre:** For a representable product, `buf` covers `size * nitems` readable
 bytes. The shared writer and separation requirements hold.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzfwrite_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzfwrite_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): `size * nitems >= 2^64` asks nothing; otherwise the product is zero, or `buf` covers that many readable bytes outside the handle's own blocks (`GzRange`).
+- **Covered without condition.** Every `size` and `nitems`, also a zero product and a product of `2^64` or more, and with those every `buf`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `0`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzfwrite`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzfwrite"><summary>Complete return conditions and boundaries</summary>
 
@@ -782,6 +1075,19 @@ A successful result is the byte value, not a count or zlib status. Every int inp
 
 **Pre:** The shared writer requirements and valid compression parameters hold.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzputc_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzputc_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every `c`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzputc`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzputc"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Returns `c & 0xff`, accepts one byte and advances position by one,
@@ -823,6 +1129,20 @@ The result counts accepted bytes before the string terminator. The NUL terminato
 
 **Pre:** `s` is a readable NUL-terminated string separate from owned state.
 The shared writer requirements and valid compression parameters hold.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzputs_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzputs_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): `s` is a NUL-terminated string, readable through its NUL, outside the handle's own blocks (`CString`, `GzRange`); a NULL `s` does not meet this.
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzputs`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzputs"><summary>Complete return conditions and boundaries</summary>
 
@@ -875,6 +1195,20 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 required by each conversion; referenced objects are valid. External formatting
 obeys the platform `vsnprintf` semantics. Any `%n` target is writable, properly
 separated and an allowed caller-visible effect. Valid compression parameters hold.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): the format is a NUL-terminated string that the model's formatter can evaluate with the given arguments (`Formatted`): integer, character and string conversions with the supported flags, widths, precisions and length modifiers; the format string and every string argument lie outside the handle's own blocks. The condition is asked also on a reader and on a handle in error, where the C does not read the format.
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** Floating conversions, `%p`, `%n`, the `h` and `hh` modifiers and `*` widths: outside the goal ([deviations](../../deviations.md), row "Formatting"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzprintf`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>Complete return conditions and boundaries</summary>
 
@@ -929,6 +1263,20 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 `va` is initialized for those arguments; its use follows the platform's
 `va_list` lifetime and copying rules.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzvprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required, although `zlib.h` lists this function as undocumented: `gzprintf` goes through it, so it is planned with the gzip file interface. The manifest keeps the function in its `undocumented` list and makes the goal required through the list `safety_goals`. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): the format is a NUL-terminated string that the model's formatter can evaluate with the given arguments (`Formatted`): integer, character and string conversions with the supported flags, widths, precisions and length modifiers; the format string and every string argument lie outside the handle's own blocks. The condition is asked also on a reader and on a handle in error, where the C does not read the format.
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** Floating conversions, `%p`, `%n`, the `h` and `hh` modifiers and `*` widths: outside the goal ([deviations](../../deviations.md), row "Formatting"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzvprintf`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzvprintf"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A positive result is the formatted byte count accepted without the
@@ -975,6 +1323,19 @@ The status reports the requested flush work, while the handle stays open. Z_FINI
 
 **Pre:** The shared writer requirements and valid compression parameters hold.
 Ordinary flush modes range from `Z_NO_FLUSH` through `Z_FINISH`.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzflush_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzflush_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every `flush` value; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzflush`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzflush"><summary>Complete return conditions and boundaries</summary>
 
@@ -1024,6 +1385,19 @@ Reset a reader to its saved descriptor start.
 **Pre:** A live reader meets the shared requirements. Its descriptor must be
 seekable for success. `Z_OK` and `Z_BUF_ERROR` permit the operation.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzrewind_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzrewind_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzrewind`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzrewind"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Returns 0, sets uncompressed position to zero, discards buffered
@@ -1071,6 +1445,19 @@ range checks, including pushback-created negative positions.
 **Pre:** The shared requirements hold. Ordinary origins are `SEEK_SET` and
 `SEEK_CUR`. `Z_OK` and `Z_BUF_ERROR` permit the operation.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzseek64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzseek64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every `offset` and `whence`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzseek64`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzseek64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A nonnegative result is the requested uncompressed position. A
@@ -1084,9 +1471,9 @@ hard error, before-start target, out-of-range target, writer backseek or failed
 required rewind/system seek. A seek can consume buffered bytes immediately.
 Seeking past input EOF can initially succeed; the later read discovers the
 actual end. Tell excludes unfulfilled skip after a read passes EOF.
-The negative-position overflow check is **to confirm**; pushback before the
-start is not excluded to hide that source issue. No full-range safety result
-is claimed by this documentary contract.
+For a negative position after pushback the range check overflowed in the
+unpatched C; patch 0002 fixes it ([caveats](#scope-and-source-caveats)).
+Pushback before the start is inside the safety goal.
 
 </details>
 
@@ -1121,6 +1508,19 @@ A nonnegative value is the requested logical uncompressed position. Accepting a 
 **Effect:** stateful seek and possible descriptor I/O.
 
 **Pre:** The `gzseek64` handle, origin and environment requirements hold.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzseek_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzseek_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every `offset` and `whence`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`, whatever the other arguments are. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzseek`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzseek"><summary>Complete return conditions and boundaries</summary>
 
@@ -1164,6 +1564,19 @@ The result includes consumed/accepted position and applicable pending forward sk
 **Effect:** read-only handle query; no descriptor I/O.
 
 **Pre:** The shared handle requirements hold and the reported sum is representable.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gztell64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gztell64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap is unchanged. The translation of this function takes no world, so it cannot change one. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gztell64`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gztell64"><summary>Complete return conditions and boundaries</summary>
 
@@ -1210,6 +1623,19 @@ This queries logical position without executing a pending seek or flush. Pushbac
 
 **Pre:** The `gztell64` handle and representability requirements hold.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gztell_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gztell_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap is unchanged. The translation of this function takes no world, so it cannot change one. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gztell`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gztell"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Returns the `gztell64` result converted to `z_off_t`, without
@@ -1251,6 +1677,19 @@ The result is the descriptor's current position, less unused compressed input wh
 **Effect:** read-only handle query and system position query; `errno` may change.
 
 **Pre:** The shared requirements hold. Successful offset arithmetic is representable.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzoffset64_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzoffset64_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzoffset64`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzoffset64"><summary>Complete return conditions and boundaries</summary>
 
@@ -1298,6 +1737,19 @@ This queries the underlying file position, subtracting unused compressed input w
 
 **Pre:** The `gzoffset64` handle, environment and arithmetic requirements hold.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzoffset_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzoffset_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `-1`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzoffset`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzoffset"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Returns its physical offset converted to `z_off_t`, with the same
@@ -1335,6 +1787,19 @@ This queries whether reading has been attempted beyond available data; it perfor
 **Effect:** read-only handle query.
 
 **Pre:** A non-NULL handle meets the shared requirements.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzeof_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzeof_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `0`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap is unchanged. The translation of this function takes no world, so it cannot change one. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzeof`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzeof"><summary>Complete return conditions and boundaries</summary>
 
@@ -1378,6 +1843,19 @@ The result is the current transparent-mode flag; 1 does not guarantee that forma
 **Effect:** stateful format inspection; may allocate, read and record errors.
 
 **Pre:** The shared handle requirements hold. Set any desired buffer size first.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzdirect_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzdirect_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `0`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzdirect`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzdirect"><summary>Complete return conditions and boundaries</summary>
 
@@ -1428,6 +1906,20 @@ The return is a message address; the current zlib error code is written through 
 **Pre:** Non-NULL `errnum` points to a writable `int` separate from owned state.
 The shared handle requirements hold.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzerror_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzerror_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has three clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function); and a clause about the string the call returns.
+- **Applies when.** The refusal has no condition. The call on a handle asks:
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
+    2. the argument condition (`GzArguments`): `errnum` is NULL, or covers 4 writable bytes outside the handle's own blocks (`GzRange`).
+- **Covered without condition.** A NULL `errnum`; every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `NULL`, whatever `errnum` is, and does not write `*errnum`. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`). The pointer the call returns is a readable NUL-terminated string in the heap after the call.
+    - *Writes.* On a NULL handle, nothing: the heap is unchanged. The translation of this function takes no world, so it cannot change one. On a handle, only the handle's own blocks and the 4 bytes at `errnum`.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzerror`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzerror"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Stores the current code when `errnum` is non-NULL. Returns a borrowed
@@ -1468,6 +1960,19 @@ This clears the saved error message and code; for a reader it also clears input 
 
 **Pre:** A non-NULL handle meets the shared requirements.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzclearerr_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclearerr_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
+- **Applies when.** The refusal has no condition. The call on a handle asks (this call has no argument condition):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns. On a handle the call returns, in every world.
+    - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
+    - *Writes.* On a NULL handle, nothing: the heap is unchanged. The translation of this function takes no world, so it cannot change one. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
+- **Not in this goal.** Which flags of the handle the call clears: functional goal `Goal.gzclearerr`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclearerr"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Sets the error to `Z_OK` and removes the old diagnostic message.
@@ -1476,8 +1981,9 @@ skip, buffered data and codec state; no file read or write occurs.
 
 **Errors and edges:** NULL is a no-op. Clearing an error does not repair the
 file or promise successful retry. It permits another attempt to read a growing
-file. A borrowed message can become invalid. Failed-finish recovery and prior
-partial-read recovery remain **to confirm** and are not resolved by this reset.
+file. A borrowed message can become invalid. What a retry yields after a failed
+finish or a partial read remains **to confirm** and is not settled by this reset;
+that the retry is safe is part of the safety goal.
 
 </details>
 
@@ -1515,6 +2021,19 @@ The status comes from the reader or writer close selected for this handle. A val
 **Effect:** stateful final I/O, deallocation and descriptor close.
 
 **Pre:** The shared handle requirements hold. No later call will use this handle.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzclose_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
+- **Applies when.** The refusal has no condition. The close of a handle asks (no argument condition and no read budget):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`. On a handle the call returns, in every world. No return code is claimed for a handle.
+    - *State.* On a handle, the handle is gone: its record is removed, the world is well formed, the handle's descriptor, when its number is not negative, is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`). `gzclose` accepts both modes, so it never refuses a handle.
+    - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
+    - *Allocations.* On a handle exactly the handle's own blocks are freed, the record included, and nothing is allocated (`LiveChange`).
+- **Not in this goal.** A use of the handle after the call that closed it: the history has ended, and no goal covers it. The return code, and which bytes reach the file before the close: functional goal `Goal.gzclose`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclose"><summary>Complete return conditions and boundaries</summary>
 
@@ -1562,6 +2081,19 @@ The status reports reader cleanup and descriptor closing, with a special result 
 **Effect:** stateful deallocation and descriptor close.
 
 **Pre:** A live reader meets the shared requirements and is closed once.
+
+**Proof goals.**
+
+- **Goal.** `Goal.gzclose_r_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_r_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
+- **Applies when.** The refusal has no condition. The close of a handle asks (no argument condition and no read budget):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`. On a handle the call returns, in every world. No return code is claimed for a handle.
+    - *State.* On a handle that is not a reader, the call refuses: the heap and the world are unchanged, and the handle stays as it was. Otherwise the handle is gone: its record is removed, the world is well formed, the handle's descriptor, when its number is not negative, is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`).
+    - *Writes.* On a NULL handle and in a refusal, nothing: the heap and the world are unchanged. Otherwise only the handle's own blocks.
+    - *Allocations.* In a refusal, none. Otherwise exactly the handle's own blocks are freed, the record included, and nothing is allocated (`LiveChange`).
+- **Not in this goal.** A use of the handle after the call that closed it: the history has ended, and no goal covers it. The return code, and which bytes reach the file before the close: functional goal `Goal.gzclose_r`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclose_r"><summary>Complete return conditions and boundaries</summary>
 
@@ -1612,6 +2144,19 @@ The status reports final zero-fill/finish work and descriptor closing. Once a li
 
 **Pre:** A live writer meets the shared requirements and is closed once.
 
+**Proof goals.**
+
+- **Goal.** `Goal.gzclose_w_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzclose_w_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; and a close of a handle (`GzCloseCallSafety`, the close clause of [the sequence goal](#the-safety-goal) for this function).
+- **Applies when.** The refusal has no condition. The close of a handle asks (no argument condition and no read budget):
+    1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal)).
+- **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world, including a system `close` that reports failure; every allocation outcome.
+- **Guarantees.**
+    - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`. On a handle the call returns, in every world. No return code is claimed for a handle.
+    - *State.* On a handle that is not a writer, the call refuses: the heap and the world are unchanged, and the handle stays as it was. Otherwise the handle is gone: its record is removed, the world is well formed, the handle's descriptor, when its number is not negative, is not open after the call, also when the system `close` reports failure, and every other descriptor is open exactly when it was before (`GzReleased`).
+    - *Writes.* On a NULL handle and in a refusal, nothing: the heap and the world are unchanged. Otherwise only the handle's own blocks.
+    - *Allocations.* In a refusal, none. Otherwise exactly the handle's own blocks are freed, the record included, and nothing is allocated (`LiveChange`).
+- **Not in this goal.** A use of the handle after the call that closed it: the history has ended, and no goal covers it. The return code, and which bytes reach the file before the close: functional goal `Goal.gzclose_w`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="gzclose_w"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Attempts pending zero fill and `Z_FINISH`, then releases owned
@@ -1631,13 +2176,22 @@ Close success does not settle the failed-finish recovery caveat below.
 
 ## Scope and source caveats
 
-A documented error code does not by itself establish safe retry or recovery. The affected
-entries above retain source caveats for partial-read errors, negative positions after pushback,
-parameter changes and failed finishing. Those cases remain **to confirm**; this manual does
-not exclude them from the broader goals or confirm a new upstream bug. Current evidence and
-remaining work are recorded in [progress](../../progress.md). Initial or exhausted buffered
-pointers and their zero-offset arithmetic are also **to confirm** under the pointer and
-initialization rules in [safety](../safety.md).
+A documented error code does not by itself establish safe retry or recovery. Safety of the
+continuation is what [the safety goal](#the-safety-goal) states: after any call that returned,
+with any result, the next call is again safe. Four source problems on these paths were confirmed
+on the real C and are fixed by patches. The contracts and the goal are for the patched source
+(`patches/README.md` gives the reproductions and the upstream state):
+
+| Case | Unpatched C | Patch |
+| --- | --- | --- |
+| `gzseek` after an initial `gzungetc` (position -1) | Signed overflow in the range check. | 0002 |
+| A transparent read where `read` supplies bytes and then fails | The readers consume the partial bytes through a stale buffer pointer: an out-of-bounds read. | 0003 |
+| A position that passes `GZ_OFF_MAX` while reading or writing | Signed overflow of the position. | 0004, local and pending upstream |
+| A zero advance of a buffer pointer that was never written or that dangles | Arithmetic on an indeterminate or dangling pointer. | 0005, local and pending upstream |
+
+What recovery yields after a partial read, after a parameter change that the compressor did not
+apply, or after a failed finish (which bytes reach the file, which position is reported) is
+functional behaviour. It remains **to confirm** and is not a planned proof target.
 
 Differential tests supply evidence of translation fidelity, not proof. Private helpers,
 the legacy fixed-argument `gzprintf`, and Windows error-string helpers have no additional

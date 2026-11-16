@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inffixed.h.input-meaning»
 import ZlibF.Proof.«inftrees.c.decode.short»
-import ZlibF.Spec.InflateDecodeTableInvariant
-import ZlibF.Spec.InflateDecodeTableStability
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableInvariant
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableStability
 import ZlibF.Proof.«inffast.c.tableok»
 import ZlibF.Proof.«inftrees.c.decode.prefix-query»
 import ZlibF.Proof.«inffixed.h.fast-flags»

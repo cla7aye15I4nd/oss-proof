@@ -1,52 +1,131 @@
-<!-- source-sha256: 1594d5f04b2724f20d2093a5234001e47b6226c2abeeacf4c0ee5e0345ac0478 -->
-# 实现证明参考
+<!-- source-sha256: 6c95bc0249c84bc7dba15ab4ff9e820263c62f1bd383b7d1d6f5e0384c6829a0 -->
+# 证明参考：组件、页面、定理
 
-压缩器把原文字节写成压缩流，解压器再把压缩流恢复为原文。这里要论证的是实际 C 执行如何完成这件事：每次读写都在许可范围内，暂停后能够继续，最终输出具有格式规定的含义。先沿一个组件理解算法，再沿同一组件的状态和内存变化阅读证明。
+本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理，定理在哪里。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
 
-首次阅读请从[图解导读](../overview.md)开始。各章把算法、API 用法与相应证明义务放在一起说明。本节按 C 组件给出详细论证。
+这些页面提到的每个安全目标，都有一条类型与它完全相同的定理。每项结论处于哪个层级，只记录在[进度，范围](../progress.md#scope)中。每条定理假设了什么，写在它自己的页面和[偏离记录](../deviations.md)里；模型本身假设了什么，写在[可信基础](../trusted-base.md)和[模型的限制](../model-limits.md)里。
 
-本指南按数学引理、实际内存执行和跨调用组合三层，解释翻译后的 C 如何满足 zlib 契约。每项论证标明所用前提、已建立的关系，以及实现连接中未完成的步骤。
+初次阅读请先看[总览](../overview.md)。术语见[术语表](../glossary.md)。
 
-[进度](../progress.md)是当前检查点和剩余工作的唯一记录。[安全规范](../spec/safety.md)定义所声称的性质，[检查指南](../checking/README.md)说明接受结果所需的证据。下文保留历史证明名称，便于定位其源代码版本和适用前提。
+## 状态层级
 
-## 选择阅读路线
+一项结论处于三个层级之一：已检查、已登记或已验收。[术语表](../glossary.md#status)给出定义，[检查](../checking/README.md#three-levels)说明每个层级背后有哪些检查。本节的页面不写定理的层级。它们说的是一条定理陈述了什么、为什么成立；每项结论的层级和每次验收运行所在的提交，记录在[进度，范围](../progress.md#scope)中。
 
-本节中的“契约”描述调用者必须提供什么、函数返回后保证什么；“不变量”描述处理过程中始终要成立的状态关系；“帧性质”说明未获授权的内存保持不变；“所有权”记录哪些分配块应由当前流最终释放。四者分别回答调用、执行、隔离和清理的问题。
+这些页面提到的每条定理都在库中，Lean 内核检查过它的证明。页面提到的定理有三种。列出的定理写在 `tests/audit/theorems.txt` 中：目标的定理（类型与目标完全相同），以及另外一些结论。引理是某条列出的定理的证明内部的一步，它本身没有列出；页面提到引理时会说明。对列出的定理的公理检查会沿着依赖关系往下查，所以也覆盖这些引理。第三种是功能方面工作的定理，它两者都不是：页面会说明它没有列出。一条定理是否列出，是关于那个文件的事实，不是层级。
 
-总体方法从[证明一个函数](method.md)开始，其中解释契约、不变量、帧性质、所有权和证明受阻时的诊断。随后按函数需要阅读 [API 契约](../spec/api/README.md)、[格式规范](../spec/format/README.md)和[设计指南](../design/README.md)。
+差分测试属于验收套件。它把翻译与编译出来的 C 做比较，是翻译忠实于 C 的证据，不是证明。
 
-解压方向先读校验和与分配器，再读建表、快速解码器和主解码器。主解码器必须建立快速路径的进入条件；建表必须建立两种解码器都要使用的谓词。
+这些页面上的文字是解释，不是被检查的对象。凡是页面给出了对 C 的某种解读、而没有定理陈述它的地方，都标有 **尚未由证明确认**。每个组件页面把这类内容集中在“没有定理陈述的 C 解读”一节。
 
-压缩方向先读校验和与分配器，再读 `deflate.c` 的窗口和哈希链论证。`trees.c` 涵盖建树、位输出以及共享的输出／符号缓冲区。共享存储的覆盖界限也是内存安全的一部分。
+## 必需与非必需
 
-| 源文件 | 指南 | 主要论证 |
-| --- | --- | --- |
-| `adler32.c` | [Adler-32](adler32.md) | 模和、有界批处理与准确的初值范围 |
-| `crc32.c` | [CRC-32](crc32.md) | 交织读取、地址语义与多项式细化 |
-| `zutil.c` | [工具与分配](zutil.md) | 分配大小、失败、所有权与常量查询 |
-| `inftrees.c` | [解码表](inftrees.md) | 规范码、表容量、覆盖与表项含义 |
-| `inffast.c` | [快速解码](inffast.md) | 输入／输出余量、复制、回退与源位 |
-| `inflate.c` | [流式解码](inflate.md) | 模式、历史、字典与跨调用组合 |
-| `deflate.c` | [流式压缩](deflate.md) | 窗口界限、已初始化链、策略与生命周期 |
-| `trees.c` | [树与块输出](trees.md) | 堆构造、码长修正、编码与共享存储前缀 |
-| `infback.c` | [回调解码器](callbacks.md) | 窗口所有权、有限输入与回调效果 |
-| `gz*.c` | [Gzip 文件](gzip.md) | 延迟分配、I/O 流水线、位置与清理 |
-| `compress.c`, `uncompr.c` | [缓冲区工具](buffers.md) | 自动局部变量、标量输出、界限与错误映射 |
+必需的结论是安全结论：对默认 x86_64 Linux 构建中每一个有文档的公开函数，在它的调用序列上，没有未定义行为，没有内存错误，没有泄漏，并且会终止。这些目标在 `ZlibF/Spec/Safety/` 中；两个充当安全目标的 `compressBound` 契约在 `ZlibF/Spec/Functional/Queries.lean` 中。
 
-唯一的[目标图](../progress.md#proof-progress-graph)用实线表示实际证明引用、虚线表示 C 调用。[证据索引](../progress.md)区分这些引用、C 调用和规范依赖。调用者建立实际被调用函数的每项前置条件，无须假定其完整的通用参数 API 目标。[输入范围指南](../spec/input-configurations.md)也区分了压缩策略选择与由缓冲区驱动的解码快慢路径分派。
+功能结论说的是函数算出了什么：校验和的值、解码出的字节。它们不是安全结论所必需的。其中许多已经证明，每个页面都把它们单独列在一节里。其中两个，`Goal.inflate` 和 `Goal.deflate`，被其他函数的安全证明用到。见[安全与功能的划分](../design/safety-functional-split.md)。
 
-## 阅读组件页面
+其他构建配置，以及 `zlib.h` 列为未文档化的函数，都不是必需的；原因见[进度，范围](../progress.md#scope)。
 
-每页先指出源文件和契约术语，再解释函数所需的不变量与引理。所述界限依赖其旁边明确写出的前提。公开定理必须从初始化、先前调用和文档中的调用者要求取得这些前提，不能假定被调用函数契约，也不能丢弃合法 API 情形。
+## 序列定理覆盖什么
 
-例如，一次历史复制既需要“距离不超过已有历史”的边界条件，也需要“历史中的那些字节正是此前恢复的内容”的数据关系。前者排除越界，后者说明复制结果正确。各组件页面会把这两类义务连接到同一段执行。
+*序列*定理说的是一个流上每一串被允许的调用，而不是某一次调用。例如：
 
-`U1`–`U12` 是安全要求的编号，`F1`–`F9` 是多个组件共用的结构事实，`I-*` 是内部函数契约。沿这些编号可以回到精确定义；每个未完成步骤会写明还缺少哪一段执行或组合论证。
+```c
+deflateInit(&strm, level);
+while (more_input) {
+    strm.next_in = in;   strm.avail_in = n;      /* 调用者修改四个字段 */
+    strm.next_out = out; strm.avail_out = m;
+    deflate(&strm, Z_NO_FLUSH);                  /* 返回值任意 */
+}
+deflate(&strm, Z_FINISH);
+deflateEnd(&strm);
+```
 
-区间 `[a, b)` 包含 `a`，不包含 `b`。可以构造指向数组末尾后一位置的指针，但不能读取该位置。无符号运算像 C 一样回绕。需要普通算术的证明必须说明回绕不会改变相关值。
+`deflate_sequence_safety` 覆盖这个程序在任意压缩级别、任意缓冲区大小、任意输入下的运行，也覆盖由 `deflateInit2_`、各个 `deflate*` 调用和这类字段修改组成的其他任何程序。它说：每次调用都返回且不出故障，调用改动的内存就是它有权改动的内存，并且在任何时刻调用 `deflateEnd` 都会释放全部内存。
 
-本指南先针对默认 x86_64 Linux 构建。由该构建的位宽、表或分配器分支推出的界限，在其他配置下必须重新审查。[信任边界](../trusted-base.md)和[偏差记录](../deviations.md)仍属于每项结果的范围。
+## 地图
 
-## 源代码对应与早期论证
+所有模块都在 `ZlibF/Proof/` 下。本表提到的每一条定理都列在 `tests/audit/theorems.txt` 中。
 
-各组件负责自己的 C 文件对应检查。共享的整数、对象和控制流规则保留在[翻译语义](../design/translation.md)中。gzip 外部世界只有一份[外部 I/O 定义指南](../design/external-io.md)。[参考附录](references.md)保留早期定理族映射与历史实验，并说明其证据边界；当前结果与未完成工作仍统一见[进度](../progress.md)。
+| C 文件 | 页面 | 必需的安全定理 | 模块 |
+| --- | --- | --- | --- |
+| `adler32.c` | [Adler-32](adler32.md) | `adler32_safety`、`adler32_z_safety`、`adler32_combine_safety`、`adler32_combine64_safety` | `public-stateless-safety.lean` |
+| `crc32.c` | [CRC-32](crc32.md) | `crc32_safety`、`crc32_z_safety`、`crc32_combine_safety`、`crc32_combine64_safety`、`crc32_combine_gen_safety`、`crc32_combine_gen64_safety`、`crc32_combine_op_safety` | `public-stateless-safety.lean` |
+| `zutil.c` | [工具函数与分配](zutil.md) | `zlibVersion_safety`、`zlibCompileFlags_safety` | `public-stateless-safety.lean` |
+| `inftrees.c` | [解码表](inftrees.md) | 没有公开函数。内部定理：`inflate_table_safe`、`inflate_table_decoder_safe` | `inftrees.c.lean`、`inftrees.c.decoder-safe.lean` |
+| `inffast.c` | [快速解码](inffast.md) | 没有公开函数。内部定理：`inflate_fast_safe` | `inffast.c.final.lean` |
+| `inflate.c` | [流式解码](inflate.md) | 序列定理：`inflate_sequence_safety_public`。每个函数一条：`inflate_safety` 和另外九条。此外有 `inflateInit__safety`、`inflateInit2__safety`、`inflateCopy_safety`、`inflate_refusal`，以及非空性定理 `inflate_initialisation_domain_public` | `public-inflate-sequence-safety.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-inflate-copy-safety.lean`、`public-stream-refusal.lean`、`public-inflate-init.lean` |
+| `deflate.c` | [流式压缩](deflate.md) | 序列定理：`deflate_sequence_safety`。每个函数一条：`deflate_safety` 和另外十二条。此外有 `deflateInit__safety`、`deflateInit2__safety`、`deflate_copy_safety`、`deflate_refusal`，以及非空性定理 `deflate_initialisation_domain_public` | `public-deflate-goals.lean`、`public-stream-call-safety.lean`、`public-init-safety.lean`、`public-deflate-copy.lean`、`public-stream-refusal.lean`、`public-deflate-init-domain.lean` |
+| `trees.c` | [树与块输出](trees.md) | 没有公开函数。它的引理服务于 `deflate_sequence_safety`。列出的定理有：`tinyOverlayAt_256`、`tinyOverlayAt_128`（最小的两个 `memLevel` 下共用缓冲区的界）、`gen_bitlen_safe`、`pqdownheap_safe` | `deflate.c.engine.overlay-header-ref.lean`、`trees.c.heap.*.lean` |
+| `infback.c` | [回调解码器](callbacks.md) | 序列定理：`inflate_back_sequence_safety`。每个函数一条：`inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety`。非空性：`back_init_domain_public` | `infback.c.safety-fast.lean`、`public-back-safety.lean`、`public-infback-init.lean` |
+| `gzlib.c`、`gzread.c`、`gzwrite.c`、`gzclose.c` | [Gzip 文件](gzip.md) | 序列定理：`gz_sequence_safety_public`。每个函数一条：`gzread_safety` 以及另外 31 条。`NULL` 句柄：`gz_refusal`。非空性：`gz_sequence_nonvacuity_public` | `public-gz-sequence-safety.lean`、`public-gz-call-safety.lean`、`public-gz-refusal.lean`、`public-gz-sequence-nonvacuity.lean` |
+| `compress.c` | [`compress*` 的安全性](compress-safety.md) | `compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`；两个上界函数的定理与函数同名：`compressBound`、`compressBound_z` | `public-compress-safe-mid.lean`、`public-compress-bound.lean` |
+| `uncompr.c` | [`uncompress*` 的安全性](uncompress-safety.md) | `uncompress_safe`、`uncompress_z_safe`、`uncompress2_safe`、`uncompress2_z_safe` | `public-uncompress-safe.lean` |
+
+31 个 gz 函数、`gzvprintf` 和三个 `inflateBack` 函数，也各有一条单函数的安全定理。它把所属一族的序列定理用到一个函数的调用上，并且包括这个函数的拒绝：对接受句柄的 gz 函数是 `NULL` 句柄；对 `inflateBack` 和 `inflateBackEnd` 是 `NULL` 流和状态为 `NULL` 的流记录，对 `inflateBackEnd` 还有 `zfree` 为 `NULL`。`inflateBackInit_` 的定理覆盖 `zlib.h` 允许的每一次调用，不需要历史。
+
+`inflate.c` 和 `deflate.c` 的单函数定理（初始化除外）同样有这两部分：对 `NULL` 流或不一致的流的拒绝，以及对可达流的调用。两条复制定理在对 `NULL` 参数的拒绝之外，还有对不一致的源的拒绝。`inflate_refusal` 和 `deflate_refusal` 各用一个命题陈述若干函数的拒绝（见 [inflate](inflate.md#refusals)、[deflate](deflate.md#refusals)）。
+
+`trees.c` 页面解释的其他结论，是 `deflate_sequence_safety` 的证明内部的引理，其中包括 `memLevel` 为 3 到 9 时共用缓冲区的界（`dynamic_overlay_mid`、`dynamic_overlay_large`）。每一条见[树](trees.md#results)页面。
+
+## 本节的其他页面
+
+| 页面 | 内容 |
+| --- | --- |
+| [证明一个函数](method.md) | 方法：一个证明要说明什么，不变量、帧性质、所有权，以及证明卡住时怎样诊断 |
+| [解码器的源码笔记](inflate-source-notes.md)、[压缩器的源码笔记](deflate-source-notes.md) | 翻译必须严格照做的 C 细节。它们是解读，不是定理 |
+| [默认配置引擎](deflate-default-engine.md) | 早先针对一种配置得到的 `deflate` 功能结论 |
+| [缓冲区工具函数](buffers.md) | 对 `compress.c`、`uncompr.c` 和上界函数的解读，两个安全性页面依赖它们 |
+| [早先的论证与参考来源](../history/references.md) | 从一个早先的开发到现有模块的对照表，保存在历史部分。它是复用记录，不提供任何证明 |
+
+更正过的命题的记录在 `docs/history/` 中。其中两份涉及早先关于 `deflate` 的功能目标 `DeflateCompletes`：[结束之后的输入](../history/deflate-completion-input.md)和[`NULL` 输出](../history/deflate-completion-null-output.md)。
+
+## 功能结论
+
+这些页面也解释了一些不是安全结论所必需的结论。它们都已证明。
+
+| 页面 | 解释的功能结论 |
+| --- | --- |
+| [Adler-32](adler32.md)、[CRC-32](crc32.md) | 校验和的值和合并公式 |
+| [解码表](inftrees.md)、[快速解码](inffast.md) | 表项就是规范编码；快速循环的一轮解码出格式中的一个记号 |
+| [流式解码](inflate.md) | `Goal.inflate`，一次调用的完整契约（`inflate_public`） |
+| [流式压缩](deflate.md) | `Goal.deflate`，一次调用的完整契约（`Zlib.Deflate.Universal.deflate_safety`） |
+| [默认配置引擎](deflate-default-engine.md) | 在默认配置下：已完成的流能解码回它的输入（`DeflateCore.correct`） |
+
+## 组件页面的结构
+
+`inflate.c`、`inffast.c`、`inftrees.c`、`deflate.c` 和 `trees.c` 的页面按同一个提纲编排。对某个文件没有内容的节，它的页面就不设；有些页面另有自己的节。
+
+1. **结论。** 定理、所在模块和层级。
+2. **假设。** 主定理的每一条前提。
+3. **不变量**，逐个子句用白话说明。
+4. **每一步为什么保持它**，并指出承担这一步的定理。
+5. **循环为什么会结束**：哪个度量在下降。
+6. **难点在哪里。**
+7. **没有定理陈述的 C 解读。**
+8. **功能结论**（如果有）。
+
+`inftrees.c` 和 `trees.c` 的页面没有不变量一节；它们的论证在“每一步为什么安全”一节里。`trees.c` 的页面没有功能结论一节。
+
+## 阅读顺序
+
+解压方向：先读[解码表](inftrees.md)，再读[快速解码](inffast.md)，最后读[流式解码](inflate.md)。建表给出两个解码器都依赖的表形状，流式解码器确立快速路径的入口条件。
+
+压缩方向：先读[流式压缩](deflate.md)，了解窗口和哈希链；再读[树](trees.md)，了解建树以及输出与符号共用的缓冲区。
+
+gzip 文件接口和回调解码器建立在这些之上，它们的页面放到最后读。
+
+## 约定
+
+区间 `[a, b)` 包含 `a`，不包含 `b`。指针可以指向数组末尾之后的一个位置，但不能读那个位置。无符号运算像 C 一样回绕。有符号运算是带检查的：溢出在模型中是故障。
+
+页面上出现三类标识符。
+
+- `U1` 到 `U12` 是安全义务：十类未定义行为，加上终止和泄漏（[安全性](../spec/safety.md)）。
+- `F1` 到 `F9` 是多个证明共用的结构性事实（[方法](method.md#structural-facts-used-by-several-proofs)）。
+- `I-*` 是函数之间的内部契约（[内部契约](../spec/internal-contracts.md)）。
+
+它们是义务和事实的名字，不是状态。
+
+依赖默认构建的位宽、表或分配器的界，只对该构建成立。模型的整数规则和指针规则见[翻译语义](../design/translation.md)。
+
+[证据索引](../progress.md)列出每一个目标的命题、定理和依赖。

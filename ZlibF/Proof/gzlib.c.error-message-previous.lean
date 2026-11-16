@@ -1,6 +1,7 @@
 import ZlibF.Proof.«gzlib.c.error»
 import ZlibF.Proof.«gzlib.c.error-message-refusal»
 import ZlibF.Proof.«gzlib.c.error-message-copy»
+import ZlibF.Spec.Functional.GzState
 
 /-! # Actual previous-message cleanup before an errno report
 

@@ -1,9 +1,23 @@
 # Heap-table review record
 
-This historical review covers the move from function tables to array-backed `Tbl` values and
-`Space.modify`. It found no incorrect primitive result in the inspected code. It identified
-important differences in table equality and evaluation cost. This is not independent baseline
-approval or a current defect list. Current work belongs in [progress](../progress.md).
+> **Dated record.** This review was written on 2026-11-06. It covers the move from function tables
+> to array-backed `Tbl` values and `Space.modify`. It found no incorrect primitive result in the
+> inspected code. It is not an approval of the runtime and not a current defect list. It mentions
+> lock files; those were removed later, and there are none now ([verification policy](../anti-cheating.md)).
+> Current work is in [progress](../progress.md).
+
+## State of the findings on 2026-11-14
+
+The sources named were read for this table; nothing was built or run for it.
+
+| Finding | State |
+| --- | --- |
+| F1 structural equality is stronger than entrywise agreement | Still true of `Tbl`. It is a property of the representation, stated in [model limits](../model-limits.md#table-updates), "Table updates". |
+| F2 large block numbers allocate large arrays | Still true. It is an evaluation cost, not a wrong result. |
+| F3 comments described function tables | Partly corrected. The doc comment of `Tbl` in `ZlibF/Runtime/Space.lean` describes the array. The list at the top of that file still calls a table "a function from block numbers". The driver comments were not rechecked. |
+| F4 the class law covers only live references | Unchanged: `Space.modify_eq` assumes a live reference, and there is no law for a dead one. |
+| F5 locks covered the definitions; no targeted negative self-test | The locks are gone. The audit self-test (`tests/audit/cheats/`) still has no case that changes `Tbl.get` or makes `modify` revive a dead block. The two cheats that section F5 calls runtime-touch and runtime-weakening (`touch_runtime.mut`, `weaken_runtime.mut`) were removed together with the lock files (commit `465281a4`); the nine files of `tests/audit/cheats/` do not touch the runtime. The runtime is protected by review of its diffs. |
+| F6 freed slots stay in the table | Still true of the never-reuse model. |
 
 ## Scope and method
 

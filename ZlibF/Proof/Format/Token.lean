@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Token
+import ZlibF.Spec.Functional.Format.Token
 
 /-!
 # Local tokens and the original Huffman-block grammar

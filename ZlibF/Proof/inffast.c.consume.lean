@@ -82,7 +82,7 @@ theorem dolenLen_step_led (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : U
     (hb2 : i = s + 2 → 1 ≤ l.bits.toNat)
     (hfr : e.InputFrame A i) :
     Wp (dolenLen c l) (e.heap A msg m) (fun l' h' => StepPost e A msg m s o l' h' ∧
-      (l'.broke = false → ∀ i', l'.in_ = .ref (BRef.blk e.ib) i' →
+      (l'.broke = false → ∀ i', l'.in_ = .ref e.ib i' →
         l'.bits.toNat + 8 * i ≤ l.bits.toNat + 8 * i')) := by
   have hA : e.o0 + e.sm0.avail_out.toNat ≤ A.size := by rw [hAsz]; exact e.hAsz
   have hAb : A.size < 2 ^ 63 := by rw [hAsz]; exact e.hAbig
@@ -128,7 +128,7 @@ theorem dolen_pass_led (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt
           l'.here = .ref e.rl (e.ol + (e.LCA.getD k default).val.toNat + j) ∧
           LS e l' i o ∧ l'.bits.toNat = l.bits.toNat - (e.LCA.getD k default).bits.toNat) ∨
       (StepPost e A msg m s o l' h' ∧ ¬ LenLink (e.LCA.getD k default) ∧
-        (l'.broke = false → ∀ i', l'.in_ = .ref (BRef.blk e.ib) i' →
+        (l'.broke = false → ∀ i', l'.in_ = .ref e.ib i' →
           l'.bits.toNat + 8 * i + (e.LCA.getD k default).bits.toNat ≤ l.bits.toNat + 8 * i'))) := by
   have hA : e.o0 + e.sm0.avail_out.toNat ≤ A.size := by rw [hAsz]; exact e.hAsz
   have hkE : e.LCA[k]'hk = e.LCA.getD k default := by simp [Array.getD_eq_getD_getElem?, hk]
@@ -155,7 +155,7 @@ theorem dolen_pass_led (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt
       rw [hls.hout, ← e.heap_put A (A.set! o E.val.toUInt8) msg m]
       exact Ptr.store_ok (e.heap_bytes_ob A msg m) (e.heap_ro_ob A msg m) (by omega)
     refine Wp.bindE hst ?_
-    refine Wp.bindO (x := Ptr.ref (BRef.blk e.ob) (o + 1)) ?_ ?_
+    refine Wp.bindO (x := Ptr.ref e.ob (o + 1)) ?_ ?_
     · rw [hls.hout]
       exact Ptr.add_nat_ok (e.heap_bytes_ob _ msg m) (by simp; omega)
     · refine Wp.pure' (Or.inr ⟨?_, fun hl => hl.1 hz0, ?_⟩)
@@ -262,7 +262,7 @@ theorem dolenLoop_step_led (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e.ol
     (hfr : e.InputFrame A i) :
     Wp (cdoWhile (dolen c) (fun l => pure (l.againL, l)) l) (e.heap A msg m)
       (fun l' h' => StepPost e A msg m s o l' h' ∧
-        (l'.broke = false → ∀ i', l'.in_ = .ref (BRef.blk e.ib) i' →
+        (l'.broke = false → ∀ i', l'.in_ = .ref e.ib i' →
           l'.bits.toNat + 8 * i < l.bits.toNat + 8 * i')) := by
   have hts := e.hlt
   obtain ⟨hR, hsz, hall⟩ := hts
@@ -329,7 +329,7 @@ theorem dolenRoot_step_led (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e.ol
       let here ← c.lcode.add (l.hold &&& c.lmask.toUInt64).toNat
       cdoWhile (dolen c) (fun l => pure (l.againL, l)) {l with here})
       (e.heap A msg m) (fun l' h' => StepPost e A msg m s o l' h' ∧
-        (l'.broke = false → ∀ i', l'.in_ = .ref (BRef.blk e.ib) i' →
+        (l'.broke = false → ∀ i', l'.in_ = .ref e.ib i' →
           l'.bits.toNat + 8 * i < l.bits.toNat + 8 * i')) := by
   have hlc : c.lcode = .ref e.rl e.ol := by rw [hc.lcode]; exact e.hlc
   have hR : e.s0.lenbits.toNat < 32 := by have := e.hlt.1; omega
@@ -349,7 +349,7 @@ theorem inflate_fast_body_consumes (e : EnvG α) (c : Ctx) (A : Array UInt8) (ms
     (m : UInt32) (l : L) (i o : Nat) (hp : StepPre e c A l i o)
     (hpos : LenLeavesPositive e.LCA e.ol e.s0.lenbits.toNat) :
     Wp (inflate_fast_body c l) (e.heap A msg m) (fun l' _ =>
-      l'.broke = false → ∀ i', l'.in_ = .ref (BRef.blk e.ib) i' →
+      l'.broke = false → ∀ i', l'.in_ = .ref e.ib i' →
         l'.bits.toNat + 8 * i < l.bits.toNat + 8 * i') := by
   have hfr := hp.inputFrame
   rcases hp with ⟨hc, hls, hAsz, hi6, ho258, hbroke⟩
@@ -360,14 +360,14 @@ theorem inflate_fast_body_consumes (e : EnvG α) (c : Ctx) (A : Array UInt8) (ms
     have hiin : i < e.i0 + e.sm0.avail_in.toNat := by omega
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl1 := hls.pullL (by omega) hiin
-    have hb1 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+    have hb1 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
     have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-    have hb1' : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+    have hb1' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
       simp only [pullL] at hb1 ⊢; omega
     refine Wp.bindO (pull_run e _ _ (i + 1) o hl1 hb1' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl2 := hl1.pullL hb1' hi2
-    have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)))
-      (e.IN.getD (i + 1) 0) (.ref (BRef.blk e.ib) (i + 1 + 1)) hl1.hb
+    have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1)))
+      (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1)) hl1.hb
     refine Wp.mono (dolenRoot_step_led hc hpos A msg m _ (i + 1 + 1) o i hl2 hAsz ho258 hbroke hi6 (by omega) (by omega)
       (by simp only [pullL] at hb1 hb2 ⊢; omega)
       (by intro _; simp only [pullL] at hb1 hb2 ⊢; omega) (hfr.mono (by omega))) ?_
@@ -505,18 +505,18 @@ theorem fast_finish_consumes_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg
       let bits := l.bits - (len <<< 3)
       let hold := l.hold &&& ((← shl32 1 bits) - 1).toUInt64
       let ai : Int64 ←
-        if ← Ptr.lt input (.ref (BRef.blk e.ib) (e.i0 + e.sm0.avail_in.toNat - 5)) then do
-          let d ← Ptr.diff (.ref (BRef.blk e.ib) (e.i0 + e.sm0.avail_in.toNat - 5)) input
+        if ← Ptr.lt input (.ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5)) then do
+          let d ← Ptr.diff (.ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5)) input
           chk64 (5 + d.toInt)
         else do
-          let d ← Ptr.diff input (.ref (BRef.blk e.ib) (e.i0 + e.sm0.avail_in.toNat - 5))
+          let d ← Ptr.diff input (.ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5))
           chk64 (5 - d.toInt)
       let ao : Int64 ←
-        if ← Ptr.lt l.out (.ref (BRef.blk e.ob) (e.o0 + e.sm0.avail_out.toNat - 257)) then do
-          let d ← Ptr.diff (.ref (BRef.blk e.ob) (e.o0 + e.sm0.avail_out.toNat - 257)) l.out
+        if ← Ptr.lt l.out (.ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257)) then do
+          let d ← Ptr.diff (.ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257)) l.out
           chk64 (257 + d.toInt)
         else do
-          let d ← Ptr.diff l.out (.ref (BRef.blk e.ob) (e.o0 + e.sm0.avail_out.toNat - 257))
+          let d ← Ptr.diff l.out (.ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257))
           chk64 (257 - d.toInt)
       let sm ← ldZStream e.strm
       stZStream e.strm { sm with next_in := input, next_out := l.out, avail_in := ai.toUInt64.toUInt32, avail_out := ao.toUInt64.toUInt32 }
@@ -543,9 +543,9 @@ theorem fast_finish_consumes_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg
   have hbits : bits.toNat < 8 := by rw [hres]; omega
   have hbufd : buf = l.bits.toNat / 8 := rfl
   have hinbuf : OkOn (e.heap A msg mode) (subn l.in_ (l.bits >>> 3))
-      (.ref (BRef.blk e.ib) (e.i0 + used)) := by
+      (.ref e.ib (e.i0 + used)) := by
     rw [hl.hin]
-    have hr := subn_ok (h := e.heap A msg mode) (r := BRef.blk e.ib) (a := e.inArr A) (e.heap_bytes_in A msg mode)
+    have hr := subn_ok (h := e.heap A msg mode) (r := e.ib) (a := e.inArr A) (e.heap_bytes_in A msg mode)
       (n := l.bits >>> 3) (off := i) (by rw [bits_whole]; have := hl.hi0; omega)
       (by have := hl.hi1; have := e.hINsz; have := e.inArr_size hfr; omega)
     simpa only [hio] using hr
@@ -555,7 +555,7 @@ theorem fast_finish_consumes_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg
   have ho32 : e.sm0.avail_out.toNat - produced < 2 ^ 32 := by have := UInt32.toNat_lt e.sm0.avail_out; omega
   have hei : e.i0 + e.sm0.avail_in.toNat - 5 + 5 - (e.i0 + used) = e.sm0.avail_in.toNat - used := by
     have := e.hai; omega
-  refine ptr_avail_wp (h := e.heap A msg mode) (r := BRef.blk e.ib) (A := e.inArr A)
+  refine ptr_avail_wp (h := e.heap A msg mode) (r := e.ib) (A := e.inArr A)
     (p := e.i0 + used) (q := e.i0 + e.sm0.avail_in.toNat - 5) (k := 5)
     (e.heap_bytes_in A msg mode) (by have := e.hINsz; have := e.inArr_size hfr; omega)
     (by have := e.hINsz; have := e.inArr_size hfr; omega)
@@ -564,20 +564,18 @@ theorem fast_finish_consumes_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg
   rw [hl.hout]
   have heo : e.o0 + e.sm0.avail_out.toNat - 257 + 257 - o = e.sm0.avail_out.toNat - produced := by
     have := e.hao; omega
-  refine ptr_avail_wp (h := e.heap A msg mode) (r := BRef.blk e.ob) (A := A)
+  refine ptr_avail_wp (h := e.heap A msg mode) (r := e.ob) (A := A)
     (p := o) (q := e.o0 + e.sm0.avail_out.toNat - 257) (k := 257)
     (e.heap_bytes_ob A msg mode) (by rw [hAsz]; have := e.hAsz; omega) (by rw [hAsz]; have := e.hAsz; omega)
     (by rw [hAsz]; exact e.hAbig) (by have := e.hao; omega) (by decide) (by rw [heo]; exact ho32) ?_
   rw [heo]
   rw [i64_to_u32_eq _ hu32, i64_to_u32_eq _ ho32]
-  refine Wp.of_eq (fast_stores_run e A msg mode (.ref (BRef.blk e.ib) (e.i0 + used)) (.ref (BRef.blk e.ob) o)
+  refine Wp.of_eq (fast_stores_run e A msg mode (.ref e.ib (e.i0 + used)) (.ref e.ob o)
     (UInt32.ofNat (e.sm0.avail_in.toNat - used)) (UInt32.ofNat (e.sm0.avail_out.toNat - produced)) hold bits) ?_
-  let stream := { e.sm0 with next_in := .ref (.blk e.ib) (e.i0 + used), next_out := .ref (.blk e.ob) o, avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - produced), msg }
+  let stream := { e.sm0 with next_in := .ref e.ib (e.i0 + used), next_out := .ref e.ob o, avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - produced), msg }
   let state := { e.s0 with mode, hold, bits }
-  have baseGet : e.r.get { e.h0 with bytes := upd e.h0.bytes e.ob (some A), istates := upd e.h0.istates e.stid (some state) } = some e.sm0 := by
-    cases refEq : e.r with
-    | tab k => simpa only [refEq, ZStreamRef.get] using e.hsm
-    | in_gzstate_strm k => simpa only [refEq, ZStreamRef.get] using e.hsm
+  have baseGet : e.r.get (Space.put (Zlib.Inflate.Spec.setI e.h0 e.stid state) e.ob A) = some e.sm0 :=
+    e.stream_get_frame A state
   have hin32 : (UInt32.ofNat (e.sm0.avail_in.toNat - used)).toNat = e.sm0.avail_in.toNat - used :=
     UInt32.toNat_ofNat_of_lt' (by simp only [UInt32.size]; exact hu32)
   refine ⟨?_, ?_, ?_⟩
@@ -591,7 +589,7 @@ theorem fast_finish_consumes_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg
       · exact Or.inl (by have := hl.hi0; omega)
       · exact Or.inr (by omega)
   · refine ⟨stream, state, put_get _ _ _ _ baseGet, ?_, ?_⟩
-    · rw [put_istates, upd_same]
+    · rw [put_istates, Zlib.Inflate.Proofs.byte_view_put_istates]; exact upd_same _ _ _
     · intro nonterminal nonbad
       have positive : 0 < produced := by
         dsimp only [produced]
@@ -601,7 +599,7 @@ theorem fast_finish_consumes_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg
       rw [UInt32.toNat_ofNat_of_lt' (by simp only [UInt32.size]; exact ho32)]
       omega
   · refine ⟨stream, state, put_get _ _ _ _ baseGet, ?_, ?_, ?_⟩
-    · rw [put_istates, upd_same]
+    · rw [put_istates, Zlib.Inflate.Proofs.byte_view_put_istates]; exact upd_same _ _ _
     · change bits.toNat + 8 * (UInt32.ofNat (e.sm0.avail_in.toNat - used)).toNat ≤
         e.s0.bits.toNat + 8 * e.sm0.avail_in.toNat
       rw [hin32, hres]
@@ -627,14 +625,14 @@ theorem fast_consumes {α : Bool} (e : EnvG α) (hpos : LenLeavesPositive e.LCA 
       (fun _ after => FastPost e after ∧ FastProgress e after ∧ FastConsumes e after) := by
     let c0 : Ctx := {
       strm := e.strm, state := some (.tab e.stid),
-      last := .ref (BRef.blk e.ib) (e.i0 + e.sm0.avail_in.toNat - 5),
-      beg := .ref (BRef.blk e.ob) e.bg,
-      end_ := .ref (BRef.blk e.ob) (e.o0 + e.sm0.avail_out.toNat - 257),
+      last := .ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5),
+      beg := .ref e.ob e.bg,
+      end_ := .ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257),
       wsize := e.s0.wsize, whave := e.s0.whave, wnext := e.s0.wnext, window := e.s0.window,
       lcode := e.s0.lencode, dcode := e.s0.distcode,
       lmask := ((1 : UInt32) <<< e.s0.lenbits) - 1, dmask := ((1 : UInt32) <<< e.s0.distbits) - 1 }
     let l0 : L := {
-      in_ := .ref (BRef.blk e.ib) e.i0, out := .ref (BRef.blk e.ob) e.o0,
+      in_ := .ref e.ib e.i0, out := .ref e.ob e.o0,
       hold := e.s0.hold, bits := e.s0.bits, here := default, op := 0, len := 0, dist := 0,
       from_ := default, broke := false, againL := false, againD := false }
     have hc0 : CtxOK e c0 := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
@@ -647,25 +645,25 @@ theorem fast_consumes {α : Bool} (e : EnvG α) (hpos : LenLeavesPositive e.LCA 
       · change e.s0.bits.toNat + 8 * e.i0 ≤ e.s0.bits.toNat + 8 * e.i0
         exact Nat.le_refl _
     have hlast : OkOn e.h0 (Ptr.add e.sm0.next_in (e.sm0.avail_in - 5).toNat)
-        (.ref (BRef.blk e.ib) (e.i0 + e.sm0.avail_in.toNat - 5)) := by
+        (.ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5)) := by
       rw [e.hnin, u32_toNat_sub (by change 5 ≤ e.sm0.avail_in.toNat; have := e.hai; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := BRef.blk e.ib) (a := e.IN)
+      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ib) (a := e.IN)
         (off := e.i0) (n := e.sm0.avail_in.toNat - 5) e.hIN (by have := e.hINsz; omega)
       have hoff : e.i0 + (e.sm0.avail_in.toNat - 5) = e.i0 + e.sm0.avail_in.toNat - 5 := by have := e.hai; omega
       simpa [hoff] using hr
     have hbeg : OkOn e.h0 (subn e.sm0.next_out (e.start - e.sm0.avail_out))
-        (.ref (BRef.blk e.ob) e.bg) := by
+        (.ref e.ob e.bg) := by
       rw [e.hnout]
       have hn : (e.start - e.sm0.avail_out).toNat = e.start.toNat - e.sm0.avail_out.toNat :=
         u32_toNat_sub e.hstart
-      have hr := subn_ok (h := e.h0) (r := BRef.blk e.ob) (a := e.A0)
+      have hr := subn_ok (h := e.h0) (r := e.ob) (a := e.A0)
         (off := e.o0) (n := e.start - e.sm0.avail_out) e.hA0 (by rw [hn]; exact e.hbeg)
         (by have := e.hAsz; omega)
       simpa only [hn, EnvG.bg] using hr
     have hend : OkOn e.h0 (Ptr.add e.sm0.next_out (e.sm0.avail_out - 257).toNat)
-        (.ref (BRef.blk e.ob) (e.o0 + e.sm0.avail_out.toNat - 257)) := by
+        (.ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257)) := by
       rw [e.hnout, u32_toNat_sub (by change 257 ≤ e.sm0.avail_out.toNat; have := e.hao; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := BRef.blk e.ob) (a := e.A0)
+      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ob) (a := e.A0)
         (off := e.o0) (n := e.sm0.avail_out.toNat - 257) e.hA0 (by have := e.hAsz; omega)
       have hoff : e.o0 + (e.sm0.avail_out.toNat - 257) = e.o0 + e.sm0.avail_out.toNat - 257 := by have := e.hao; omega
       simpa [hoff] using hr

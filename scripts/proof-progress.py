@@ -326,8 +326,8 @@ def support_family(path):
     stem = Path(path).stem
     if '/Runtime/' in path: return 'runtime object and arithmetic lemmas'
     if '/Math/' in path: return 'heap-free mathematics'
-    if '/Spec/Functional/Format/' in path or '/Spec/Format/' in path: return 'format-model lemmas'
-    if '/Spec/Functional/Api/' in path or '/Spec/Api/' in path: return 'API-model lemmas'
+    if '/Spec/Functional/Format/' in path: return 'format-model lemmas'
+    if '/Spec/Functional/Api/' in path: return 'API-model lemmas'
     if '/Spec/' in path: return 'specification lemmas'
     if '/Proof/Api/' in path: return 'api-model proofs'
     if '/Proof/Format/' in path: return 'format proofs'
@@ -468,10 +468,10 @@ def visible_dependencies(graph):
             for a,b in sorted(reduce(edges))]
 
 def diagram_url(graph, node):
-    # Click links carry the commit as a 12-digit prefix: the full hash on every node would
+    # Click links carry the commit as a 7-digit prefix: the full hash on every node would
     # take most of the renderer's 50000-character budget. GitHub resolves the prefix.
     revision = graph['links']['revision']
-    return target_url(graph, node).replace('/' + revision + '/', '/' + revision[:12] + '/', 1)
+    return target_url(graph, node).replace('/' + revision + '/', '/' + revision[:7] + '/', 1)
 
 def mermaid(graph):
     indexes = {n['id']: f'n{i}' for i, n in enumerate(graph['nodes'])}
@@ -496,7 +496,8 @@ def mermaid(graph):
             lines.append(f'  {indexes[source]} {arrow} {indexes[target]}')
     for node in graph['nodes']:
         if node['blocker']: lines.append(f'  class {indexes[node["id"]]} obstacle')
-        lines.append(f'  click {indexes[node["id"]]} href "{diagram_url(graph, node)}" _blank')
+        # Mermaid's short form `click id "url" _blank` (no `href`) saves five characters a node.
+        lines.append(f'  click {indexes[node["id"]]} "{diagram_url(graph, node)}" _blank')
     lines.extend(diagram_styles())
     diagram = '\n'.join(lines)
     if len(diagram) > 50000:
@@ -702,10 +703,10 @@ def detail_page_zh(graph):
 {chr(10).join(relations)}
 {chr(10).join(auxiliary)}
 
-## 更新记录
+## 重新生成
 
 证明或登记表发生变化后，需要重新生成本页。生成过程会编译并检查
-定理的精确类型，不会修改证明、目标或登记表。生成器同时写出英文页和本页。
+定理的精确类型，不会修改证明、目标或登记表。生成器只写本页的这一区域，以及英文页的对应区域。
 结果是否通过项目验收，仍须依据[检查规则](checking/README.md)。
 只有当本页展示的内容发生变化时（目标、登记、证明状态、链接或行锚点），本页才算过期。在此之前，
 链接保持生成时的修订版本。

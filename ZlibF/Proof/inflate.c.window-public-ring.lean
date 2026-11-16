@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.window-compose»
-import ZlibF.Spec.Public.Lifecycle
+import ZlibF.Spec.Common.Lifecycle
 import ZlibF.Proof.«adler32.c.public-block»
 import ZlibF.Spec.Functional.Api.Basic
 

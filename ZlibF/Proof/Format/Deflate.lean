@@ -1,5 +1,5 @@
 import ZlibF.Proof.Format.Huffman
-import ZlibF.Spec.Format.Deflate
+import ZlibF.Spec.Functional.Format.Deflate
 
 /-!
 # Format meta-theory: a deflate stream has one decoding, and it does not depend on what follows

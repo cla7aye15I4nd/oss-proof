@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Lifecycle
+import ZlibF.Spec.Common.Lifecycle
 import ZlibF.Spec.Functional.Checksums
 
 /-!

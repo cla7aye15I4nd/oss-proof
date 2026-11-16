@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastPlatform
+import ZlibF.Spec.Common.Inflate.InflateFastPlatform
 import ZlibF.Proof.PlatformMemory
 import ZlibF.Proof.«inffast.c.final»
 

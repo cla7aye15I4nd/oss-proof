@@ -1,51 +1,62 @@
-# Accepted platform assumptions
+# Platform assumption: object size
 
-The initial scope is the default x86_64 Linux/LP64 static build with the default
-allocator. This page states its environment assumptions. It does not ask zlib
-to prove properties of the operating system, compiler or hardware.
+The goals take one premise about the system: **no byte object has `2^63` bytes or more.** It
+is a fact of the target platform, the default x86_64 Linux LP64 build, where no allocator
+returns an object larger than `PTRDIFF_MAX`. It is not something a caller has to check. This
+page states the premise, says why it is needed, and lists the goals that carry it.
 
-## Byte-object size
+Properties of the operating system, the compiler and the hardware are not proved; the
+[trusted base](../trusted-base.md) lists them.
 
-Every represented byte object has fewer than `2^63` bytes. This bound is accepted
-as part of the system environment. It is the LP64 `PTRDIFF_MAX` object-size limit: no allocator
-returns a larger object. It holds on every heap of a call history (`StreamReachable`). It covers caller-provided storage, raw byte
-blocks, static arrays and embedded byte-array views.
+## The premise
 
-The exact predicate is `ZlibF.PlatformMemory.ByteObjectsFit` in
-[PlatformMemory.lean](../../ZlibF/Spec/PlatformMemory.lean):
+Every byte object in the model has fewer than `2^63` bytes: buffers the caller provides,
+blocks the library allocates, static arrays, and byte arrays embedded in a record.
+
+The Lean predicate is `ZlibF.PlatformMemory.ByteObjectsFit` in
+[PlatformMemory.lean](../../ZlibF/Spec/Common/PlatformMemory.lean):
 
 ```text
-for every represented byte reference ref and array a:
+for every byte object reference ref and array a:
     Space.get h ref = some a  implies  a.size < 2^63
 ```
 
-It bounds each object separately. It does not bound the sum of allocations or
-the total length processed across repeated calls. It is shared by the default,
-common and all-supported [input ranges](input-configurations.md); it is not an
-extra colour or a compression parameter.
+| The premise says | The premise does not say |
+| --- | --- |
+| Each single object is below `2^63` bytes. | Anything about the sum of all allocations, or about the total length a stream processes over many calls. |
+| | That a pointer is valid, initialised or in bounds. Those are separate [safety obligations](safety.md#the-obligations). |
 
-## Use in execution proofs
+**Why it is needed.** The difference of two pointers into one object is a `ptrdiff_t`, a
+signed 64-bit integer. In an object of `2^63` bytes or more that difference can overflow,
+which is undefined behaviour. With the premise, every such difference fits. The entry proofs
+of the fast decoder (`inflate_fast`) derive their size facts from it.
 
-A theorem may take this predicate as an explicit environment premise.
-`Goal.inflate` states it directly. Internal fast-decoder entry proofs derive
-their whole-input/output object-size facts from it. The bound gives a signed
-64-bit range for differences of valid offsets in the same object.
+**Where it holds without being assumed.** The model's allocator refuses a request of `2^63`
+bytes or more, so every block the library allocates fits (`ByteObjectsFit.allocB`,
+[Proof/PlatformMemory.lean](../../ZlibF/Proof/PlatformMemory.lean)). For the caller's memory,
+and for the heap a history starts from, the premise is assumed.
+[Deviations](../deviations.md) has the row "Platform byte-object scope".
 
-The zlib proofs must establish that their actual initialization, allocation and
-updates preserve the premise. A caller replacing buffers must supply storage
-within the accepted environment. The runtime allocator refuses requests above
-`PTRDIFF_MAX`, so library allocations preserve the predicate
-(`ByteObjectsFit.allocB`); it is not derived for caller storage or for an
-arbitrary mathematical heap.
+## Which goals carry it
 
-Each exact statement retains its written domain. Statements that do not need
-the bound may quantify over a larger mathematical domain. This page does not
-silently insert a new hypothesis into those statements.
+A goal that needs the premise states it explicitly, on the heap the call starts from and on
+each heap the caller hands back. A goal that does not state it holds without it.
 
-## Other pointer obligations
+| Goals | Where the premise is |
+| --- | --- |
+| One call on a stream: `Goal.<function>_safety`, `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety` | On the heap of the call (`StreamCallDomain`, and clause 2 of `StreamSequenceSafety`). |
+| An inflate history (`StreamReachable .inflate`) | Also at every earlier call of the history and after every caller edit. |
+| A deflate history (`StreamReachable .deflate`) | Not on earlier heaps. A deflate stream is reachable whether or not the earlier heaps had the bound. So the deflate goals cover more histories; they are not weaker for it. |
+| `compress*`, `uncompress*` | A premise of `CompressorSafety`, `UncompressCountedSafe` and `UncompressSingleSafe`. |
+| Gzip file interface | On the heap of each open and after every caller edit (`GzHistory`; also `GzOpenSafe` and `GzDopenSafe`). |
+| Callback decoder | On the heap of each `inflateBack` call (`BackSafeReachable`, `Goal.inflate_back_sequence_safety`). The callbacks must keep it (`BackPlatform`). |
+| Checksums, `zlibVersion`, `zlibCompileFlags`, init, End, copy, refusals | Not stated: these goals hold without it. `inflateEnd` and `inflateCopy` start from an inflate history, which carries it as the second row says. |
 
-The size bound does not establish that a pointer is live, initialized, in the
-same object as another pointer, or within valid offsets. Those are separate
-[safety obligations](safety.md). The runtime's null-arithmetic choices remain
-recorded in the [model comparison](safety.md#null-pointers-and-pointer-differences)
-and [trusted base](../trusted-base.md).
+The premise is the same for every [input range](input-configurations.md). It is not a
+compression parameter.
+
+## What the premise does not cover
+
+The model's treatment of null-pointer arithmetic is a separate limit. It is described in
+[safety, null pointers](safety.md#null-pointers-and-pointer-differences) and in the
+[trusted base](../trusted-base.md).

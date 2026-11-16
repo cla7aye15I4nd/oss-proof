@@ -64,7 +64,7 @@ theorem inflate_default_view_local_finish_code
 /-- `int inflate(z_streamp strm, int flush)`.
 The actual complete public default call preserves J and allocator, frees
 its local object, and cannot return Z_OK for Z_FINISH. This is one actual
-public result clause; full counts, results, frame and history remain open. -/
+public result clause; full counts, results, frame and history are not stated here. -/
 theorem inflate_default_view_finish_code
     {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (invariant : DefaultStateJ h r zs z s) (allocator : DefAlloc z)

@@ -26,18 +26,18 @@ def boundNoStateP (fx st : UInt64) : UInt64 :=
 
 def boundNoState (n : UInt64) : UInt64 := boundNoStateP (fixedLen n) (storeLen n)
 
-/-- The bound of a valid stream with the window bits, the hash bits, the level and the wrapper length `wl`, from the
-values `fx` (`fixedlen`) and `st` (`storelen`). -/
-def boundTailP (w_bits hash_bits : UInt32) (level : Int32) (wl : UInt64) (fx st n : UInt64) : UInt64 :=
-  if w_bits != 15 || hash_bits != 15 then
+/-- The bound of a valid stream with the window bits, the hash bits, the level, the strategy and the wrapper length
+`wl`, from the values `fx` (`fixedlen`) and `st` (`storelen`). -/
+def boundTailP (w_bits hash_bits : UInt32) (level strategy : Int32) (wl : UInt64) (fx st n : UInt64) : UInt64 :=
+  if w_bits != 15 || hash_bits != 15 || strategy == Z_FIXED then
     let bound := if w_bits ≤ hash_bits && level != 0 then fx else st
     if bound + wl < bound then 0xffffffffffffffff else bound + wl
   else
     let bound := n + (n >>> 12) + (n >>> 14) + (n >>> 25) + 13 - 6 + wl
     if bound < n then 0xffffffffffffffff else bound
 
-def boundTail (w_bits hash_bits : UInt32) (level : Int32) (wl : UInt64) (n : UInt64) : UInt64 :=
-  boundTailP w_bits hash_bits level wl (fixedLen n) (storeLen n) n
+def boundTail (w_bits hash_bits : UInt32) (level strategy : Int32) (wl : UInt64) (n : UInt64) : UInt64 :=
+  boundTailP w_bits hash_bits level strategy wl (fixedLen n) (storeLen n) n
 
 /-- The NUL-terminated string of length `len` starts at the pointer `p`: the bytes `p[0 .. len)` are not 0, `p[len]`
 is 0, all inside one live array (a heap block or a string literal). The length is below `2^64`, the loop fuel of the
@@ -176,7 +176,7 @@ def boundBody (strm : ZStreamPtr) (fixedlen storelen : UInt64) (sourceLen : UInt
       if gh.hcrc != 0 then wraplen := wraplen + 2
   else
     wraplen := 18
-  if d.w_bits != 15 || d.hash_bits != 15 then
+  if d.w_bits != 15 || d.hash_bits != 15 || d.strategy == Z_FIXED then
     let bound := if d.w_bits ≤ d.hash_bits && d.level != 0 then fixedlen else storelen
     return if bound + wraplen < bound then 0xffffffffffffffff else bound + wraplen
   let bound : UInt64 := sourceLen + (sourceLen >>> 12) + (sourceLen >>> 14) + (sourceLen >>> 25) + 13 - 6 + wraplen
@@ -204,32 +204,32 @@ theorem boundBody_nostate {h : Heap} {strm : ZStreamPtr} (hD : StreamDom h strm)
 
 theorem boundBody_raw {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hL : DLive h r ds z d) (hw : d.wrap = 0) (fx st n : UInt64) :
-    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level 0 fx st n, h) := by
+    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level d.strategy 0 fx st n, h) := by
   unfold boundBody
   dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw]
-  by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 <;> simp [boundTailP, c]
+  by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
 
 theorem boundBody_zlib {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hL : DLive h r ds z d) (hw : d.wrap = 1 ∨ d.wrap = -1) (fx st n : UInt64) :
     boundBody (some r) fx st n h =
-      .ok (boundTailP d.w_bits d.hash_bits d.level (6 + (if d.strstart != 0 then 4 else 0)) fx st n, h) := by
+      .ok (boundTailP d.w_bits d.hash_bits d.level d.strategy (6 + (if d.strstart != 0 then 4 else 0)) fx st n, h) := by
   unfold boundBody
   rcases hw with hw | hw
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, ineg_m1]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
 
 
 theorem boundBody_gz_nohead {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hL : DLive h r ds z d) (hw : d.wrap = 2 ∨ d.wrap = -2) (hg : d.gzhead = none) (fx st n : UInt64) :
-    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level 18 fx st n, h) := by
+    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level d.strategy 18 fx st n, h) := by
   unfold boundBody
   rcases hw with hw | hw
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
   · dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ineg_m2]
-    by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 <;> simp [boundTailP, c]
+    by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;> simp [boundTailP, c]
 
 theorem GzStr.ne_null {h : Heap} {p : BPtr} {len : Nat} (hs : GzStr h p len) : p ≠ .null := by
   obtain ⟨r, off, a, rfl, -⟩ := hs
@@ -248,18 +248,18 @@ theorem boundBody_gz_head {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
     (hL : DLive h r ds z d) (hw : d.wrap = 2 ∨ d.wrap = -2) {g : Nat} {gh : GzHeader}
     (hg : d.gzhead = some (.tab g)) (hgh : h.gzheaders g = some gh) {kn kc : UInt64}
     (hn : StrPart h gh.name kn) (hc : StrPart h gh.comment kc) (fx st n : UInt64) :
-    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level
+    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level d.strategy
       (18 + (if gh.extra = .null then 0 else ((2 : UInt32) + gh.extra_len).toUInt64) + kn + kc +
         (if gh.hcrc != 0 then 2 else 0)) fx st n, h) := by
   unfold boundBody
   rcases hw with hw | hw
   · rcases hn with ⟨hn0, rfl⟩ | ⟨ln, hs1, rfl⟩ <;> rcases hc with ⟨hc0, rfl⟩ | ⟨lc, hs2, rfl⟩ <;>
-      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 <;>
+      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;>
       (try have := GzStr.ne_null ‹GzStr h gh.name _›) <;> (try have := GzStr.ne_null ‹GzStr h gh.comment _›) <;>
       dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ldGzHeader_tab hgh] <;>
       simp (disch := assumption) [boundTailP, c, he, hh, *, strLoop_eq]
   · rcases hn with ⟨hn0, rfl⟩ | ⟨ln, hs1, rfl⟩ <;> rcases hc with ⟨hc0, rfl⟩ | ⟨lc, hs2, rfl⟩ <;>
-      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : ¬d.w_bits = 15 ∨ ¬d.hash_bits = 15 <;>
+      by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;>
       (try have := GzStr.ne_null ‹GzStr h gh.name _›) <;> (try have := GzStr.ne_null ‹GzStr h gh.comment _›) <;>
       dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ldGzHeader_tab hgh, ineg_m2] <;>
       simp (disch := assumption) [boundTailP, c, he, hh, *, strLoop_eq]
@@ -287,7 +287,7 @@ theorem _root_.Zlib.Deflate.Spec.DStInv.wrapLen {h : Heap} {ds : Nat} {d : Defla
 
 theorem boundBody_wl {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hL : DLive h r ds z d) {wl : UInt64} (hwl : WrapLen h d wl) (fx st n : UInt64) :
-    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level wl fx st n, h) := by
+    boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level d.strategy wl fx st n, h) := by
   rcases hwl with ⟨hw, rfl⟩ | ⟨hw, rfl⟩ | ⟨hw, ⟨hg, rfl⟩ | ⟨g, gh, kn, kc, hg, hgh, hn, hc, rfl⟩⟩
   · exact boundBody_raw hL hw fx st n
   · exact boundBody_zlib hL hw fx st n
@@ -297,12 +297,12 @@ theorem boundBody_wl {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
 /-- **deflateBound_z, safety and specification.** On an initialised stream with the invariant, and a user gzip header
 (if there is one) whose `name` and `comment` are `NULL` or NUL-terminated strings (`zlib.h` requires it; the
 precondition `HdrStrOk`), the call never faults and leaves the heap unchanged. Its value is the closed formula
-`boundTail` of `w_bits`, `hash_bits`, `level`, the wrapper length `wl` (`WrapLen`: 0 for raw, 6 or 10 for zlib, 18 and the
+`boundTail` of `w_bits`, `hash_bits`, `level`, `strategy` (patch 0006), the wrapper length `wl` (`WrapLen`: 0 for raw, 6 or 10 for zlib, 18 and the
 parts of the header for gzip) and the source length. -/
 theorem deflateBound_z_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hG : DGood h r ds z d) (hs : HdrStrOk h d) (n : UInt64) :
     ∃ wl, WrapLen h d wl ∧
-      C.run (deflateBound_z (some r) n) h = .ok (boundTail d.w_bits d.hash_bits d.level wl n, h) := by
+      C.run (deflateBound_z (some r) n) h = .ok (boundTail d.w_bits d.hash_bits d.level d.strategy wl n, h) := by
   obtain ⟨wl, hwl⟩ := hG.inv.wrapLen hs
   refine ⟨wl, hwl, ?_⟩
   rw [C.run, deflateBound_z_eq, boundBody_wl hG.live hwl]
@@ -319,7 +319,7 @@ theorem deflateBound_z_nostate {h : Heap} {strm : ZStreamPtr} (hD : StreamDom h 
 theorem deflateBound_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hG : DGood h r ds z d) (hs : HdrStrOk h d) (n : UInt64) :
     ∃ wl, WrapLen h d wl ∧
-      C.run (deflateBound (some r) n) h = .ok (boundTail d.w_bits d.hash_bits d.level wl n, h) := by
+      C.run (deflateBound (some r) n) h = .ok (boundTail d.w_bits d.hash_bits d.level d.strategy wl n, h) := by
   obtain ⟨wl, hwl, e⟩ := deflateBound_z_safe hG hs n
   refine ⟨wl, hwl, ?_⟩
   unfold deflateBound

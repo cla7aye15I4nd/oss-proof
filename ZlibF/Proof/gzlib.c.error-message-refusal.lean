@@ -1,6 +1,6 @@
 import ZlibF.Proof.«gzfs.format-error-message»
 import ZlibF.Proof.«gzlib.c.base»
-import ZlibF.Spec.Public.GzState
+import ZlibF.Spec.Common.GzState
 import ZlibF.Spec.Functional.Api.Compress
 
 /-! # Actual error-message allocation refusal

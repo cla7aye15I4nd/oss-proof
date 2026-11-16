@@ -122,7 +122,7 @@ def direct_status(text: str) -> str:
             if fence is None:fence=marker[1][0]
             elif fence==marker[1][0]:fence=None
         elif fence is None:
-            line=re.sub(r'\bto confirm\b','unfinished',line,flags=re.I)
+            line=re.sub(r'\bto confirm\b','not yet confirmed',line,flags=re.I)
         lines.append(line)
     return ''.join(lines)
 
@@ -274,8 +274,9 @@ def write(path: Path, content: str) -> None:
 
 def goal_excerpts() -> dict[str, tuple[Path, int, str]]:
     result = {}
-    # Goals live in Spec/Safety, Spec/Functional and Spec/Public (docs/design/safety-functional-split.md).
-    layers = ("Public", "Safety", "Functional")
+    # Public goals live in Spec/Safety and Spec/Functional; Spec/Common holds only internal component
+    # goals (docs/design/safety-functional-split.md, scripts/check-spec-layers.py rule 5).
+    layers = ("Common", "Safety", "Functional")
     for source in sorted(s for layer in layers for s in (REPO / "ZlibF/Spec" / layer).glob("*.lean")):
         text = source.read_text()
         for match in re.finditer(r"^def Goal\.(\w+)\b", text, re.M):
@@ -400,6 +401,16 @@ def render_api(manifest: dict) -> None:
             common = re.sub(r"<h2\b[^>]*>.*?</h2>\s*", "", common, count=1, flags=re.S)
             common = rewrite(common, source, target, lang)
             body += f'<details class="rf-common"><summary>{t("本组共同前提与范围","Shared conditions and scope")}</summary>{common}</details>'
+            safety = entry.get("safety_goal")
+            if safety and safety != entry.get("functional_goal"):
+                short = safety.rsplit(".", 1)[-1]
+                if short not in excerpts:
+                    raise ValueError(f"Safety target not found: {safety}")
+                goal_source, line, code = excerpts[short]
+                recorded=progress_targets().get(short)
+                status=(STATUS[recorded.status][0 if zh else 1] if recorded else t('未完成','Not completed'))
+                evidence=href(doc_path(REPO/'docs/progress.md',lang),target)+('#'+recorded.anchor if recorded else '')
+                body += f'<section class="rf-formal" id="safety-target"><h2>{t("安全目标（必需）","Safety goal (required)")}</h2><p><code>{html.escape(safety)}</code></p><p class="rf-proof-status">{t("证明状态：","Proof status: ")}{status} · <a href="{evidence}">{t("证明记录","Evidence")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{source_path(goal_source, lang)}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
             goal = entry.get("functional_goal")
             if goal:
                 short = goal.rsplit(".", 1)[-1]
@@ -410,7 +421,7 @@ def render_api(manifest: dict) -> None:
                 recorded=progress_targets().get(name)
                 status=(STATUS[recorded.status][0 if zh else 1] if recorded else t('未完成','Not completed'))
                 evidence=href(doc_path(REPO/'docs/progress.md',lang),target)+('#'+recorded.anchor if recorded else '')
-                body += f'<section class="rf-formal" id="formal-target"><h2>{t("形式化约定","Formal contract")}</h2><p><code>{html.escape(goal)}</code></p><p class="rf-proof-status">{t("证明状态：","Proof status: ")}{status} · <a href="{evidence}">{t("证明记录与剩余工作","Evidence and remaining work")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{context}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
+                body += f'<section class="rf-formal" id="formal-target"><h2>{t("形式化约定","Formal contract") if safety == goal else t("功能契约（不是必需目标）","Functional contract (not a required goal)")}</h2><p><code>{html.escape(goal)}</code></p><p class="rf-proof-status">{t("证明状态：","Proof status: ")}{status} · <a href="{evidence}">{t("证明记录与剩余工作","Evidence and remaining work")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{context}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
             else:
                 body += f'<p class="rf-language-note">{t("此平台专用条目没有默认 LP64 构建目标。","This platform-specific entry has no default LP64 target.")}</p>'
             category = doc_path(source, lang)

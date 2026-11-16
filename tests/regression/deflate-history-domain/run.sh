@@ -2,7 +2,7 @@
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/regression/deflate-history-domain/run.sh
 # Builds the patched zlib copy under ASan and UBSan and runs the three histories. Each must be
 # reported by a sanitizer: they are outside the documented use and outside the corrected
-# history domain (DeflateNotStarted, DeflateHeaderProgress in ZlibF/Spec/Public/History.lean).
+# history domain (DeflateNotStarted, DeflateHeaderProgress in ZlibF/Spec/Common/History.lean).
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}

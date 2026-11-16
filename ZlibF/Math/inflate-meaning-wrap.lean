@@ -1,5 +1,5 @@
 import ZlibF.Proof.Format.Wrapper
-import ZlibF.Spec.Api.Basic
+import ZlibF.Spec.Functional.Api.Basic
 
 /-!
 # The wrapper header as a prefix grammar

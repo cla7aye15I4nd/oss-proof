@@ -67,7 +67,7 @@ class ChineseDocuments(unittest.TestCase):
     def test_status_edit_leaves_source_code_untouched(self):
         text='This step is **to confirm**.\n```c\n/* to confirm */\n```\n'
         result=reference.direct_status(text)
-        self.assertIn('**unfinished**',result)
+        self.assertIn('**not yet confirmed**',result)
         self.assertIn('/* to confirm */',result)
 
 

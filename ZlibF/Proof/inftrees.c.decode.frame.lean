@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateDecodeTableFrame
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableFrame
 
 /-!
 # A later table preserves queries to an unchanged earlier extent

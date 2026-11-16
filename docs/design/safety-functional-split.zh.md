@@ -1,121 +1,84 @@
-<!-- source-sha256: 8b74fb592ebd13d103d2d6e7f4cbaf1f8f509f25a66ba80e1a2d8c3d35eb2081 -->
-# 安全规范与功能规范
+<!-- source-sha256: e957530b69ed2df06952844810b68ff7b9c5d4c44898cd3a6806f0edde37e716 -->
+# 规格的布局：安全与功能
 
-状态：设计已于 2026-11-13 批准，按“工作顺序”中的步骤实施。本页说明怎样拆分 `ZlibF/Spec/`，使当前目标（每个公开函数的安全性）能从一个目录读出。这里的任何内容都不改变已证定理的含义。
+必需的目标是安全目标。它们与功能目标分开存放，读者不读任何功能规格，就能看到全部必需的目标。本页说明每一类目标放在哪里，哪些导入规则把它们分开，以及这些规则怎样检查。形成这个布局的计划，连同它的步骤和状态，在一个[历史页面](../history/safety-functional-split-plan.md)中。
 
-## 改变什么，不改变什么
+## 三个目录
 
-- `ZlibF/Spec/Safety/` 存放安全目标：在文档规定的定义域上没有 `Fault.ub`、没有内存错误、没有泄漏，并且终止。验收审计要求这些目标。
-- `ZlibF/Spec/Functional/` 存放结果契约、格式与 API 模型（`Api/`、`Format/`）以及往返命题（`Goal.*_sequence`）。它们照常构建；已证明的仍完整审计。未证明的报告为待完成，不使任何检查失败。
-- `ZlibF/Spec/Public/` 保留，成为公共部分：两类目标共用的定义。只有目标定义和纯功能性的内容移出。以后是否把 `Public/` 改名为 `Common/` 是待决问题（见下文）。
-- 目标名称不变。每个目标仍是 `ZlibF.Spec.Public.Goal.<name>`。拆分体现在目录上，Lean 命名空间保持原样。因此 `tests/audit/theorems.txt`、`goals.txt`、变异表以及所有引用目标名的证明都继续有效。
-- **目前已登记的每个定理都保持登记并接受完整审计。** 拆分不删除、不削弱任何已验收或已登记的结果。
-- 移动时不改动任何命题文本。完整契约 `Goal.X` 不会被削弱或删除：它成为 `X` 的功能目标，安全目标写在它旁边。
-- 快速门禁增加一个导入检查。所要求内容的变化发生在验收 `audit` 作业中。
+| 目录 | 内容 | 是否必需 |
+| --- | --- | --- |
+| `ZlibF/Spec/Safety/` | 安全目标：在文档规定的定义域上，调用返回，没有 `Fault.ub`，没有 `Fault.outOfFuel`，只写自己的帧，不泄漏任何东西 | 是 |
+| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数、平台前提，以及流和 gz 句柄的不变量（`Good`、`DGood`、`GzInv`）。`Common/Inflate/` 存放 inflate 表和快速解码器的不变量。这里没有关于公开函数的目标 | 没有必需的目标 |
+| `ZlibF/Spec/Functional/` | 结果契约（`Goal.<function>`），包括 gzip 文件接口的结果契约；格式模型和 API 模型及它们的目标（`Format/`、`Api/`）；完整的序列契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`），它们把序列安全与功能子句合在一起。`Functional/Inflate/` 存放关于解码表和快速解码器、并且用到格式模型的命题 | 否，例外是 `Goal.compressBound` 和 `Goal.compressBound_z`（[见下文](#two-goals-per-public-function)） |
 
-## 布局与导入方向
+直接放在 `ZlibF/Spec/` 下的没有别的东西，只有 `Common.lean`，它导入 `Common/` 的每个模块。
+
+关于公开函数的目标，不论在 `Safety/` 还是在 `Functional/` 中，Lean 名字都是 `ZlibF.Spec.Public.Goal.<name>`。目录表明种类；命名空间相同。清单文件 `tests/audit/public-api.json` 只列这个命名空间里的目标。
+
+命名空间不跟随目录。`Public` 是现在的 `Common/` 目录原来的名字；其中的模块保留了命名空间 `ZlibF.Spec.Public`，所以没有目标或定理改名。`Functional/Api/` 下的大多数模块的命名空间是 `ZlibF.Spec.Api`；来自 API 模型的 `Common/Parameters.lean` 也是这个命名空间。从证明模块移到 `Common/` 的定义保留了它在那里的命名空间：`Good` 仍然是 `Zlib.Inflate.Spec.Good`。
+
+`Spec/Functional/` 下有两组功能目标用的是别的命名空间。第一组是 `ZlibF.Spec.Api.Goal.<name>`，例如 `ZlibF.Spec.Api.Goal.roundtrip`。`tests/audit/goals.txt` 列出其中 20 个目标，都定义在 `Functional/Api/` 下：`Goals.lean` 里 17 个，`Inflate.lean` 里 1 个，`Concrete.lean` 里 2 个。`Concrete.lean` 里的两个（`compress_bound_value`、`compress2_z_first_alloc_failure`）说的是翻译后的 `compress.c`；其余 18 个是关于 API 模型的命题，不是关于翻译后的 C 的命题。第二组是记号格式的目标 `ZlibF.Spec.Token.Goal.<name>`（`Functional/Format/Token.lean`），它们是关于格式模型的命题。`tests/audit/goals.txt` 按完整名字列出每个目标；它还列出关于内部函数和关于不涉及堆的数学的命题，这些命题各自在所属模块的命名空间里。
+
+默认 zlib 流的往返在这些目录里还没有目标定义。它的条件形式是一条定理，即 `ZlibF/Proof/public-deflate-inflate-roundtrip.lean` 中的 `deflate_inflate_roundtrip`。完备性和无条件的往返排在它之后（定理的内容见[架构](architecture.md#the-layers)；这项工作进行到哪一步，见[进度，范围](../progress.md#scope)）。
+
+功能规格仍然参加构建。有[已登记](../checking/README.md)定理的功能目标接受完整的审计。没有已登记定理的功能目标报告为未证明，不使任何检查失败。形成这个布局时，没有削弱或删除任何命题：完整契约 `Goal.X` 是 `X` 的功能目标，安全目标写在它旁边。
+
+## 导入规则
 
 ```mermaid
 flowchart TD
-  Safety["Spec/Safety：安全目标"] --> Public
-  Functional["Spec/Functional：契约、Api、Format、序列"] --> Public
-  Public["Spec/Public：调用、历史、帧、参数"] --> Base
-  Base["Zlib 翻译、Runtime、内部 Spec 模块"]
-  Safety -. "禁止，由检查保证" .-> Functional
+  Safety["Spec/Safety：安全目标"] --> Common
+  Functional["Spec/Functional：契约、Api、Format、序列"] --> Common
+  Common["Spec/Common：调用、历史、帧、参数、不变量"] --> Base
+  Base["Zlib 翻译、Runtime"]
+  Safety -. "禁止，有检查" .-> Functional
+  Common -. "禁止，有检查" .-> Safety
+  Common -. "禁止，有检查" .-> Functional
 ```
 
-`Spec/Safety/` 或 `Spec/Public/` 下的模块不得导入（包括间接导入）`Spec/Functional/` 下的模块。脚本 `scripts/check-spec-layers.py` 遍历导入闭包，遇到这样的边就失败。快速门禁运行它。这样，读者只读 `Spec/Safety/` 及其导入的内容，就能知道完整的当前目标。在 gzip 模块拆分（第 4 步）之前，脚本带有一个待移除边的允许列表。这个列表只能缩短。
+关于 `ZlibF/Spec/` 下的模块有三条规则。每一条对直接导入成立，对经由任意一串其他模块的导入也成立。
 
-旧模块路径 `ZlibF/Spec/Api/*` 和 `ZlibF/Spec/Format/*` 保留为一行的再导出模块，保留一个版本，使导入它们的分支仍能构建。检查把它们算作功能部分。
+1. `Spec/Safety/` 或 `Spec/Common/` 下的模块不导入 `Spec/Functional/` 下的模块。所以读必需目标的读者不用读任何功能规格。
+2. `Spec/Common/` 下的模块不导入 `Spec/Safety/` 下的模块。Common 位于两类目标之下。
+3. `ZlibF/Spec/` 下的模块不导入 `ZlibF/Proof/` 下的模块。所以一个目标的命题要在 `ZlibF/Spec/` 中读，也要在它提到的翻译、运行时和数学中读，但从不在证明模块中读。目标提到的、曾经放在证明模块里的定义现在在 `Spec/Common/` 中：`Good` 在 `InflateGood.lean`，`DGood` 在 `DeflateGood.lean`，`GzInv` 在 `GzInv.lean`。关于它们的引理留在证明模块里。
 
-`ZlibF/Spec/` 顶层的内部规范（`Inflate*.lean`、`PlatformMemory.lean`、`ByteAddress.lean`、`Crc32ByteViews.lean`）是供证明使用的被调用者契约，不是公开目标，保持原位。其中两个导入了 `Spec/Format`（`InflateDecodeTableSemantics`、`InflateFastBodyToken`）。目前没有安全目标导入它们，若将来有，检查会报告。
+第四条规则说的是定义，不是导入。
 
-## 现有模块的去向
+4. 清单文件 `tests/audit/public-api.json` 列出的目标都不定义在 `Spec/Common/` 下。这样的目标在 `Spec/Safety/` 或 `Spec/Functional/` 下。
 
-每个定义按以下规则处理：完整契约 `Goal.X` 进入 `Functional/`。安全目标（`Goal.X_safety`、现有的 `_safe` 名称、序列安全目标和非空性目标）进入 `Safety/`。其他定义若被某个安全目标使用则留在 `Public/`，否则进入 `Functional/`。
+脚本 `scripts/check-spec-layers.py` 遍历导入关系，遇到违反规则的导入就失败。对规则 4，它读公共模块中每一个以 `def Goal.` 或 `abbrev Goal.` 开头的行，并在清单文件中查找完整的名字。如果直接放在 `ZlibF/Spec/` 下的东西不是这三个目录及其根导入文件，它也失败。它在快速关卡中运行（作业 `no-sorry`）。对这四条规则，它没有例外列表。
 
-| 现在 | 拆分之后 |
-| --- | --- |
-| `Spec/Format/*`、`Spec/Format.lean` | `Functional/Format/*` |
-| 除参数解码器外的 `Spec/Api/*` | `Functional/Api/*` |
-| `Api/Basic` 中的参数解码器：返回码 `Api.Z`、`Flush`、`Wrap`、`inflWbits`、`DWrap`、`DeflParams`、`deflInit?` | `Public/Parameters.lean`，不再导入 `Format`，命名空间不变 |
-| `Public/Calls`、`Public/Memory`、`Public/History`（`StreamOwned`、`CallerRange`、`ActiveHeader`、`StreamOperation`、`StreamArguments`、`StreamReachable`、`Region`、各种帧） | 留在 `Public/` |
-| `Public/Initialisation`、`Public/Lifecycle`、`Public/StreamQueries`、`Public/Domains`（`InitDomain`、见证堆） | 定义留下；`Goal.*` 进入 `Functional/`，非空性目标进入 `Safety/` |
-| `Public/Sequences` 中的 `StreamInvariant`、`StreamWriteRegions`、`StreamHeaderRecord`、`StreamSequenceSafety`、`BackReachable`、`BackSafeReachable`、`BackPlatform` | 留在 `Public/Sequences.lean` |
-| `Public/Sequences` 中的 `DataLog`、各种轨迹、`DecodesFor`、`FlushedFor`、`InflateCompletes`、`DeflateCompletes`、`Goal.inflate_sequence`、`Goal.deflate_sequence` | `Functional/Sequences.lean` |
-| `Public/Sequences` 中的 `Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` | `Safety/Sequences.lean` |
-| `Public/Checksums`、`Public/Queries`、`Public/Streams`、`Public/Copy`、`Public/Utilities` | 定义留下；`Goal.*` 按规则进入 `Functional/` 或 `Safety/` |
-| `Public/GzState`、`Public/GzTrace`、`Public/Gz*`、`Public/Back`、`Goal.gz_sequence`、`Goal.inflate_back_sequence*` | 第 4 步，等 gzip 的命题改动落地之后 |
+脚本还有一条规则，是关于 `ZlibF/Math/` 的：那里的模块不直接导入证明模块，例外是脚本中 `MATH_PROOF_IMPORTS` 列表里的导入。脚本记录说，这些 Math 模块从证明模块导入的是引理，不是定义。这张列表只能缩短：遇到不在列表里的导入，或者列表里的某个导入已经不存在，脚本都失败。规则 3 也覆盖这些 Math 模块：`ZlibF/Spec/` 下没有模块导入其中任何一个。列表的大小见[进度](../progress.md#ordered-next-work)。
 
-`Public/GzState` 为了 `GzLooksGzip` 导入 `Api/Gz`，还导入了 `Proof.«gzlib.c.base»`。前者在第 4 步之前是允许列表中的边。后者为检查所允许（只禁止 `Functional/`），列为以后的清理项。
+关于导入，还有三点：
+
+- `Spec/Common/` 中没有模块导入 gz 模型。gz 模式解码器和 `GzLooksGzip` 在 `Functional/Api/Gz.lean` 中；导入它的是 `Functional/GzState.lean`，`Common/GzState.lean` 不导入它。
+- 安全目标需要的参数解码器（返回码、刷新值、窗口和封装的选择）在 `Common/Parameters.lean` 中，它什么也不导入。
+- `Functional/Crc32ByteViews.lean` 属于功能部分，因为它的命题提到格式模型的 `crc32Update`。
 
 ## 每个公开函数两个目标
 
-`tests/audit/public-api.json` 中的每个函数都有一个安全目标和一个功能目标。安全目标陈述：执行的调用返回 `.ok`，只写自己的帧，并按账本改变存活块。它是可以不成立的：没有哪个安全目标按定义就为真。安全目标有三种形式。
+清单文件 `tests/audit/public-api.json` 给 `zlib.h` 的每个函数一个 `safety_goal` 和一个 `functional_goal`。[安全性，“目标在哪里”](../spec/safety.md#where-the-goals-are)为每个函数列出安全目标及其所在文件。安全目标有三种形式。
 
-- **无状态调用**（校验和、`compressBound*`、`zlibVersion`、`zlibCompileFlags`、`compress*` 与 `uncompress*` 工具函数）：在文档规定的定义域上，调用不出故障地返回，只写声明的调用者区域，存活块不变。若完整契约已存在且已证明，安全定理是它的简短推论。
-- **流操作**（inflate 与 deflate 两族）：每个函数一个目标，是关于该函数在任意可达历史上的一次调用的真实命题。它是 `StreamSequenceSafety` 的第二个子句对该 `Call` 构造子的特化，再加上不变式。初始化函数从不需要历史的 `InitDomain` 出发陈述。`inflateEnd` 与 `deflateEnd` 取第三个子句。已有的目标直接使用，不重新陈述：`Goal.deflateCopy_safety`（dev `fb1b8a02`），以及 batch 3 的拒绝目标 `Goal.inflate_refusal` 与 `Goal.deflate_refusal`（空流或不一致的流以 `Z_STREAM_ERROR` 拒绝）。
-- **gzip 文件接口与 `inflateBack`**：形式相同，分别来自 `Goal.gz_sequence_safety` 和 `Goal.inflate_back_sequence_safety`。gz 调用的写帧在陈述之前与 batch C 在笔记中商定。
+- **不带流的调用**（校验和、`zlibVersion`、`zlibCompileFlags`、`compress*`、`uncompress*`）：在文档规定的定义域上，调用无故障地返回，只写声明的调用者区域，存活块保持原样。
+- **流函数**（inflate 族和 deflate 族）：每个函数一个目标。它陈述的是：在一个流的每个可达历史上，再调用一次这个函数；以及对 `NULL` 流或不一致的流的拒绝。四个初始化函数不需要历史：它们的目标覆盖 `zlib.h` 允许的每一次调用（`InitArguments`）。`Goal.inflate_refusal` 和 `Goal.deflate_refusal` 各用一个命题陈述若干函数的拒绝。
+- **gzip 文件接口和 `inflateBack`**：同样是每个函数一个目标（`Safety/GzCalls.lean`、`Safety/Back.lean`）。每个目标把所属一族的序列目标（`Goal.gz_sequence_safety` 或 `Goal.inflate_back_sequence_safety`）的一个子句限制到一个函数上。它还带有这个函数的拒绝：对接受句柄的 gz 函数是 `NULL` 句柄；对 `inflateBack` 和 `inflateBackEnd` 是 `NULL` 流和状态为 `NULL` 的流记录，对 `inflateBackEnd` 还有 `zfree` 为 `NULL`。`Goal.inflateBackInit__safety` 与其他初始化目标一样，覆盖 `zlib.h` 允许的每一次调用。两个序列目标仍然是必需的。没有函数与别的函数共用安全目标：`scripts/verification.py` 中的 `SHARED_SAFETY_GOALS` 列表是空的。
 
-清单与 `docs/progress.md` 中“No-fault coverage of zlib.h functions”一表逐行一致。该表按函数列出定理和路径（自身目标、序列目标、结束子句或待完成）。
+清单文件中的特殊情况：
 
-非空性：第二种形式的流目标只和它的可达集合一样强。四个非空性目标（`Goal.*_initialisation_domain`）为每一族给出可达的见证。它们属于必需集合。每个逐函数目标的文档注释写明它依赖的见证。
+- `compressBound` 和 `compressBound_z` 把它们的完整契约写作安全目标。它们的翻译是纯函数，没有堆，也没有故障，所以单独的安全目标会按定义成立。
+- 对 `zlib.h` 列为未文档化的函数，`safety_goal` 为 `null`；其中包括不在目标构建中的 `gzopen_w`。例外是 `gzvprintf`：它写的是 `Goal.gzvprintf_safety`，这个目标通过 `safety_goals` 列表成为必需。
+- 四个 `uncompress*` 目标以 `_safe` 结尾；其他每个单函数安全目标都以 `_safety` 结尾。清单文件写出每个目标的全名，所以任何检查都不必去猜后缀。
 
-命名：新目标叫 `Goal.<function>_safety`。现有的四个 `uncompress*_safe` 名称保留，因为重命名已登记的目标是一次命题改动，没有收益。清单显式写出目标名，审计不再猜后缀。
+流目标的强度取决于它的可达历史集合。四个非空性目标为每一族给出一个可达的见证，它们属于必需集合：`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain` 和 `Goal.gz_sequence_nonvacuity`。`Goal.gz_initialisation_domain` 不是必需的：它陈述的是 `gzopen` 的功能契约，清单文件把它列在 `not_planned` 之下。
 
-## 清单与审计
+## 必需集合怎样检查
 
-`apis` 的每一项用两个字段代替 `goal`：
+验收审计（`scripts/verification.py`）从清单文件读出必需集合：目标构建中每个有文档的函数的安全目标，加上 `safety_goals` 和 `nonvacuity_goals` 的各项。每个必需的目标都需要一个类型恰好是它的已登记定理，并且只用允许的公理。没有定理的必需目标必须写在清单文件的 `open_safety` 列表里，否则审计失败（有没有这样的目标，见[进度](../progress.md#scope)）。各登记表、必需集合和[防止悄悄删除的规则](../checking/goals.md#shrink-only-rules)，完整内容见[目标](../checking/goals.md)。
 
-```json
-{"function": "deflateCopy", "safety_goal": "ZlibF.Spec.Public.Goal.deflateCopy_safety",
- "functional_goal": "ZlibF.Spec.Public.Goal.deflateCopy", ...}
-```
+## 没有分开的部分
 
-顶层的 `open_safety` 列表写出每个尚无已登记定理的必需安全目标及其负责人。把一个函数移入或移出必需集合只需改一行。`undocumented` 组保持 981aee5b 的样子。gzip 文件接口与 `inflateBack` 已在计划内：它们的安全目标属于必需集合，证明之前列为待完成。
+- 清单文件把 `Goal.compressBound` 和 `Goal.compressBound_z` 写作安全目标，它们在 `Functional/Queries.lean` 中。这是有意的设计（[见上文](#two-goals-per-public-function)）。
+- 关于内部函数的命题不在清单文件里。其中不用格式模型的在 `Spec/Common/` 中（`ByteAddress.lean`、`Common/Inflate/`），用到格式模型的在 `Spec/Functional/` 中。它们也是 `Goal.<name>` 的形式，各自在所属模块的命名空间里。
 
-`scripts/verification.py`：
-
-- **必需**：每个不属于未文档化函数的 `lp64-linux` 函数的安全目标，以及 `safety_goals` 和 `nonvacuity_goals` 中的条目。在全部证明之前，审计检查：不在 `open_safety` 中的每个目标都有一个类型恰好相同、只用允许公理的已登记定理，并且 `open_safety` 只缩短。dev 不会因此变红。从 `open_safety` 为空的那个提交起，缺少定理就使审计失败。
-- **功能**：每个 `functional_goal` 和 `sequence_goals`。已登记的证明完整审计（公理、确切类型、重放、有键时的变异）。未证明的只报告，不使检查失败。
-- **变异**：功能目标已证明时以它为键，否则以安全目标为键。这取代 `mutation_apis` 中对 `_safe`／`_safety` 后缀的猜测。
-
-实际实现（第 3 步）：
-
-- 未文档化的函数，以及不属于目标构建的 `gzopen_w`，其 `safety_goal` 为 `null`。
-- 在第 4 步为每个函数陈述目标之前，gzip 函数指向 `Goal.gz_sequence_safety`，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 指向 `Goal.inflate_back_sequence_safety`。共享的安全目标不作为变异的键。这两个目标及其函数固定在 `scripts/verification.py` 的 `SHARED_SAFETY_GOALS` 中。如果函数自己的 `Goal.<function>_safety`（或 `_safe`）在固定的 `safety_goals` 中，它就必须恰好指向这个目标。只有 `FULL_CONTRACT_SAFETY` 中的函数（`compressBound`、`compressBound_z`）指向带 `safety_note` 的完整契约。
-- `compressBound` 和 `compressBound_z` 指向它们的完整契约，并带 `safety_note`：它们的翻译是不访问堆、不会出错的纯函数，单独的安全目标会按定义成立。
-- 只减不增的检查与一条修订链比较：基线分支（先取 `ZLIBF_BASE_REF`，否则取拉取请求的基线分支，否则取 `origin/main`；在 `main` 上则取第一个父提交）、`CHAIN_FLOORS` 中是 `HEAD` 祖先的固定下限提交，以及 `HEAD` 包含的、在它们之后的每个提交（经由所有父提交，所以任何合并都不能隐藏它之前的内容）。至少要有一个下限提交是 `HEAD` 的祖先。下限提交是 dev 的 bd2afafd 和 main 的 364790f5（main 上的压缩合并提交没有 dev 祖先）；只有修改脚本才能移动它们。
-- `open_safety`：在链上任何修订中属于必需且未列为待完成的目标，都不得重新列为待完成。新加入必需集合的目标可以进入该列表。
-- `open_safety` 不得列出已证明的目标。`final` 还要求它为空。不再使用审计工具的严格模式：它会拒绝每个未证明的功能目标。
-- 任何判定都不读取报告文本：Lean 名字可以含换行，从而伪造一行。`tests/audit/proved-goals.txt` 列出已证明的目标，审计工具的 `--proved` 检查拒绝它与审计工具得出的 PROVED 集合之间的任何差异。`specs` 和 `final` 还用 `--require` 传入未列为待完成的必需目标，所以其中任何一个为 OPEN 时由审计工具自己判定失败。`proved-goals.txt` 中的每个名字都必须是目标。审计工具拒绝含控制字符（C0、DEL、C1、U+2028、U+2029）的声明名。
-- 每个登记文件在审计工具和 `scripts/verification.py` 中遵循同一条行规则：行只以 `\n` 分隔，空行和以 `#` 开头的行被跳过，任何行不得含控制字符，名字行不得含空白。违反规则的行被拒绝。
-- 只属于一个函数的每个已证明目标（它的功能目标或它自己的安全目标）都需要函数变异。`scripts/verification.py` 中的 `MUTANT_COVERAGE_PENDING` 可以带理由列出尚无变异行的已证明安全目标；过时的条目会被拒绝，相对上述修订也不得新增条目。验收批已把它清空。
-- 在链上任何修订中登记于 `theorems.txt` 或记录于 `proved-goals.txt` 的名字都不得消失，除非 `tests/audit/registry-removals.json` 带理由列出。一个条目的名字如果从未在那里登记过，或者现在仍然登记，就是过时的，会被拒绝。在基线还没有 `open_safety` 时，以 `ec860375` 的列表为下限。
-- 目标已证明期间，它在 `tests/audit/public-mutants.json` 中的变异引用只减不增：链上任何修订中的引用（列表和行）都不得消失，被引用的行（文件、旧文本和新文本）也不得改变，除非 `registry-removals.json` 在 `mutant_references` 下带理由写出目标、列表和行。不豁免任何东西的条目是过时的。
-
-## 进度视图
-
-函数表增加两个状态列：安全与功能。`docs/progress.md` 顶部显示两张汇总表：“安全（必需）”按族列出已证明和待完成的数目；“功能（不要求）”列出同样的数目。两者都由生成器产生，生成器同时写出中文页。这要等 batch 3 对生成器过期检查的改动落地之后。
-
-## `docs/spec/`
-
-`docs/spec/` 增加 `safety/` 和 `functional/` 两节，对应两个目录，每族一页短文档，并配中文页。`docs/spec/safety.md` 成为安全一节的入口页。`docs/spec/api/` 下的 API 手册保留；每个函数的条目链接它的两个目标。
-
-## 工作顺序
-
-每个 Lean 切片都从 `worker/safety-split` 在完整 `lake build ZlibF` 和验证自检通过后落到 `dev`。每个触及受保护路径的提交都写明这一点。
-
-1. **目录，以及无状态族和流族。** 建立 `Spec/Safety/`、`Spec/Functional/`，在快速门禁中加入层次检查，移动 `Api/` 和 `Format/` 并保留再导出模块，建立 `Public/Parameters.lean`，把校验和、工具函数、inflate 和 deflate 各族的目标定义移出 `Public/`。引用被移动目标的模块改为导入它的新模块。不改命题文本。在共享笔记中通知。
-2. **新安全目标及其推论**，覆盖 inflate、deflate 和无状态各族。
-3. **清单、审计、进度视图。** 与 batch 3 协调。在 batch 3 的过期检查改动落地之前，`scripts/proof-progress.py` 由它负责；双列视图在此之后。
-4. **gzip 与 `inflateBack`。** 在读侧负责人和 batch C 表示他们的命题改动已落地之前，不移动也不编辑 `GzState`、`GzTrace` 和 gz 目标。gz 写帧先与 batch C 商定。
-5. **文档。** `docs/spec/` 各节、`AGENTS.md`（“What counts as proved”“Checking”）、`docs/overview.md`、`docs/checking/goals.md`，并配中文页。
-
-## 待决问题
-
-- 把 `Spec/Public/` 改名为 `Spec/Common/`。这会是一个机械提交；目前有 104 个模块导入 `Spec/Public`。只有所有者需要时才做。
-- `Goal.gz_sequence_safety` 的写帧：一次 gz 调用可以写哪些调用者区域。与 batch C 商定。
-- `Public/GzState` 导入了一个证明模块（`Proof.«gzlib.c.base»`）。
-
-[设计索引](README.md)
+[设计](README.md) · [文档首页](../README.md)

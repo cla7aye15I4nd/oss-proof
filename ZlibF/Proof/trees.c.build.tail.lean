@@ -49,7 +49,7 @@ theorem build_tree_eq_heap_codes (s : DeflateStatePtr) (desc : TreeDescPtr) :
 loop compose on one heap. Array capacity is an explicit internal storage
 condition. Every queue representation premise is established by the actual
 prefix, rather than assumed as a called function contract. Tree-layout,
-parent-link and inactive-symbol bridges to bit-length generation remain open. -/
+parent-link and inactive-symbol bridges to bit-length generation are not stated here. -/
 theorem ws_btMergedStart {h0 : Heap} {id : Nat} {tk dk : TK} {d : DeflateState}
     {sref : StaticTreeDescRef} {dd : TreeDesc} {sd : StaticTreeDesc} {sl : Option (Nat → UInt16)}
     (hdd : (dk.descRef id).get (setD h0 id d) = some dd)

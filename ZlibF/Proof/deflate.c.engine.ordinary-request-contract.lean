@@ -41,7 +41,7 @@ theorem DefaultFinishBoundary.ordinary_request_contract {h : Heap} {r : ZStreamR
   · intro impossible
     exact False.elim (impossible.elim lower upper)
 
-/-- The scoped ordinary public contract also includes every out-of-range signed flush refusal, with its exact unchanged heap. Other valid flags remain open. -/
+/-- The scoped ordinary public contract also includes every out-of-range signed flush refusal, with its exact unchanged heap. Other valid flags are not stated here. -/
 theorem DefaultFinishBoundary.ordinary_or_invalid_request_contract {h : Heap} {r : ZStreamRef} {ds : Nat}
     {z : ZStream} {d : DeflateState} {config : EngineConfig}
     (boundary : DefaultFinishBoundary h r ds z d config) (flush : Int32)

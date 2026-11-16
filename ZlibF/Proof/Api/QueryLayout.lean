@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.StreamQueries
+import ZlibF.Spec.Common.StreamQueries
 import ZlibF.Proof.«inflate.c.misc»
 import ZlibF.Spec.Functional.StreamQueries
 import ZlibF.Spec.Functional.Format.Checksum

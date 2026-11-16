@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Back
+import ZlibF.Spec.Common.Back
 
 open C ZlibF.Spec.Public
 

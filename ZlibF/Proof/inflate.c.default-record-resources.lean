@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inflate.c.origin-fields-memory-contract»
 import ZlibF.Proof.«inflate.c.dictionary-install-origin»
 import ZlibF.Proof.«inflate.c.default-readonly-controls»
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 import ZlibF.Proof.«inflate.c.slow-output-exact-frame»
 import ZlibF.Proof.«inflate.c.construction-record-read-tail»
 import ZlibF.Proof.«inflate.c.output-frame-footprint-compose»

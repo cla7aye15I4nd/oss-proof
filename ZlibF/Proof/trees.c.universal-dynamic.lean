@@ -12,9 +12,11 @@ constructed trees, `init_block` and the final `bi_windup`, with the output room 
 The room has two parts (fact F9 of `docs/proof/trees.md`): every prefix of the emitted header and
 symbols stays below the next unread symbol, and the whole block fits `pending_buf`. Both follow
 from the proved header bound (2283 bits) and symbol excess bound (6.257 bits per symbol above 24)
-when `lit_bufsize ≥ 2048`, that is `memLevel ≥ 5`. For `memLevel` 1 to 4 the prefix bound is open
-(`docs/progress.md`); the lemmas below that take a `DynamicRoom` premise are stated for every
-memLevel, and only `dynamic_room_large` needs `2048 ≤ lit_bufsize`.
+when `lit_bufsize ≥ 2048`, that is `memLevel ≥ 5`. For `memLevel` 1 to 4 the room is proved
+elsewhere: `dynamic_overlay_mid` (`trees.c.universal-overlay-mid`) for `memLevel` 3 and 4, and
+`tinyOverlay` (`deflate.c.engine.overlay-header-ref`) for `memLevel` 1 and 2. The lemmas below
+that take a `DynamicRoom` premise are stated for every memLevel, and only `dynamic_room_large`
+needs `2048 ≤ lit_bufsize`.
 -/
 
 namespace Zlib.Deflate.Universal.Block

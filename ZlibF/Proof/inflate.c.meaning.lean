@@ -1,15 +1,16 @@
 import ZlibF.Proof.«inflate.c.invariant»
 import ZlibF.Proof.«inflate.c.meaning-stream»
-import ZlibF.Spec.Format.Token
-import ZlibF.Spec.InflateDecodeTableInvariant
-import ZlibF.Spec.InflateDecodeTableStability
-import ZlibF.Spec.InflateFastTableFlags
+import ZlibF.Spec.Functional.Format.Token
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableInvariant
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableStability
+import ZlibF.Spec.Functional.Inflate.InflateFastTableFlags
 import ZlibF.Proof.«inftrees.c.decode.prefix-query»
 import ZlibF.Proof.«inftrees.c.code-length-meaning-state»
+import ZlibF.Proof.«inftrees.c.code-length-contents»
 import ZlibF.Math.«code-length-prefix»
-import ZlibF.Spec.Format.Wrapper
-import ZlibF.Spec.Api.Basic
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Functional.Format.Wrapper
+import ZlibF.Spec.Functional.Api.Basic
+import ZlibF.Spec.Common.Sequences
 import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Spec.Functional.Api.InflateAccepted
 
@@ -30,8 +31,8 @@ The grammar is closed under exactly the steps of `ZlibF/Spec/Format`, so a
 position reached on a prefix of a valid stream can be completed to that
 stream's decoding, and a rejected position has no valid completion.
 
-The proof obligations are listed in `docs/progress.md` (Core proof skeletons,
-inflate). Each component is separate:
+The proof obligations were listed in the inflate skeleton, archived in
+`docs/history/skeleton-inflate.md`. Each component is separate:
 
 * `TableMeaning`: an installed table decodes the canonical code of its lengths
   (`DecodeTableInvariant.Inv`), and its queries are stable, read only their
@@ -385,7 +386,7 @@ def DynamicMatches (h : Heap) (s : InflateState) (header : List Bool) : Prop :=
         (codes : Array Code),
       readCodeLenLens (hclen + 4) r3 = some (cl, r4) ∧
       s.lencode = .ref ref offset ∧ Space.get h ref = some codes ∧
-      Zlib.Inftrees.Proofs.CodeLengthMeaning codes offset s.lenbits.toNat cl ∧
+      Zlib.Inftrees.Proofs.CodeLengthContents codes offset s.lenbits.toNat cl ∧
       s.«have».toNat < hlit + 257 + (hdist + 1) ∧
       ZlibF.Math.CodeLengthPrefix.Trace cl (hlit + 257 + (hdist + 1)) [] r4 (lensPrefix s) ∧
       (∀ future rest lens, CodeLens cl (hlit + 257 + (hdist + 1)) [] (r4 ++ future) rest lens →
@@ -477,7 +478,7 @@ def WrapMatches (h : Heap) (s : InflateState) (wrap : Api.Wrap) (configured : Na
   | .header bytes => HeaderMatches s wrap configured bytes ∧ WindowMeaning h s dict [] ∧
       (dict = [] ∨ wrap = .raw)
   | .needDict header => s.check = dictId header ∧ s.flags = 0 ∧ s.bits = 0 ∧
-      HeaderWidth s configured header ∧
+      HeaderWidth s configured header ∧ s.last = 0 ∧ s.total = 0 ∧
       (s.havedict = 0 → s.wsize = 0 ∧ s.whave = 0) ∧
       (s.havedict ≠ 0 → be32 (adler32 dict).toNat = header.drop 2 ∧ WindowMeaning h s dict [])
   | .body header _ => FlagsMatch s wrap header ∧ HeaderWidth s configured header ∧

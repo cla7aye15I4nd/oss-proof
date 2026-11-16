@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Huffman
+import ZlibF.Spec.Functional.Format.Huffman
 
 /-!
 # Format meta-theory: canonical Huffman codes are prefix-free

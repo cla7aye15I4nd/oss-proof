@@ -1,8 +1,8 @@
 import ZlibF.Proof.«deflate.c.universal-ops-copy»
 import ZlibF.Proof.«deflate.c.init.storage»
 import ZlibF.Proof.«deflate.c.life.end»
-import ZlibF.Spec.Public.Memory
-import ZlibF.Spec.Public.Initialisation
+import ZlibF.Spec.Common.Memory
+import ZlibF.Spec.Common.Initialisation
 
 /-!
 # deflate.c: `deflateCopy` when an allocation fails (`copy_failure`)

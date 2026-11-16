@@ -11,7 +11,8 @@ header first: the registers, the monad `X`, `goto inf_leave` as `throw Ex.leave`
 `inflateBack` takes the caller's functions as parameters (they are caller code, not library code):
 
 * `in_func`: `unsigned (*)(void *in_desc, z_const unsigned char **buf)` is `InCb`. The C passes `&next`, the address of
-  the local `next`. A pointer to a scalar is passed by value (decision D3 of the notes): the call-back receives the
+  the local `next`. A pointer to a scalar is passed by value (a translation choice; see
+  `docs/model-limits.md#representation-gaps-and-proof-obligations`, row "Address and layout model is partial"): the call-back receives the
   current value of `next` and returns `(count, new value of *buf)`. A call-back that keeps the address and writes
   through it after it returned is not modelled.
 * `out_func`: `int (*)(void *out_desc, unsigned char *buf, unsigned len)` is `OutCb`.

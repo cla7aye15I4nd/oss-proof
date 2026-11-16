@@ -29,7 +29,7 @@ There are two kinds of session:
 | `Goal.inflate_sequence` | a finished single-dictionary epoch consumed a stream that `Api.Layer.InflateAccepted` accepts; on a prefix of a stream that `Api.Layer.Decodes` accepts with a full window: output prefix, no `Z_DATA_ERROR`, exact end | protocol |
 | `InflateCompletes` | a probe call with all the remaining source, enough room and flush `Z_NO_FLUSH`, `Z_SYNC_FLUSH` or `Z_FINISH` ends the stream or asks once for a missing zlib dictionary | protocol |
 
-The decoder in `check.py` follows `ZlibF/Spec/Format/*.lean` and `ZlibF/Spec/Api/Basic.lean`,
+The decoder in `check.py` follows `ZlibF/Spec/Functional/Format/*.lean` and `ZlibF/Spec/Functional/Api/Basic.lean`,
 not zlib. The second pass runs the C under ASan and UBSan; it checks memory safety of every
 history the driver makes. This is evidence about finitely many histories, not a proof.
 

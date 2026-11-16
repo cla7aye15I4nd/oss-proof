@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Domains
+import ZlibF.Spec.Common.Domains
 import ZlibF.Proof.«inflate.c.hdr»
 import ZlibF.Spec.Functional.Initialisation
 import ZlibF.Spec.Safety.Domains

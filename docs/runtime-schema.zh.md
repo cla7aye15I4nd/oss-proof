@@ -1,10 +1,10 @@
-<!-- source-sha256: 5131595e6a122cfe06bd0bb273bbbbd616c1ba166996c1d331620fda4e5e38f7 -->
+<!-- source-sha256: 0a66c18506e3897432cce2677884b15924e0d4a4b083cf2533151bba0cfa3c40 -->
 # 运行时结构：对象堆上的 zlib 结构体
 
 本页对应的英文结构说明由 `scripts/gen_schema.py` **自动生成**，同时生成
 `ZlibF/Runtime/Schema.lean`、`ZlibF/Runtime/Tables.lean` 和 `ZlibF/Runtime/LibcTables.lean`。
 不要手工修改生成的英文原文：应修改脚本并重新运行。脚本通过 clang 的 JSON AST 转储，
-读取已验证源代码（zlib 提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`）中的
+读取已验证源代码（zlib 提交 `99623ef7097352da7993ba614161fd6a311e046e`）中的
 `zlib.h`、`zutil.h`、`inftrees.h`、`inflate.h`、`deflate.h`、`trees.h`、`gzguts.h` 和 `crc32.h`。
 采用默认 x86_64 Linux 构建（`./configure --static`、LP64、`-D_LARGEFILE64_SOURCE=1`）。
 
@@ -323,7 +323,7 @@
 
 ### 字符串字面量
 
-`strTable`（位于 `Schema.lean`）列出库源代码中的 177 个字符串字面量：已验证源代码顶层目录中的
+`strTable`（位于 `Schema.lean`）列出库源代码中的 178 个字符串字面量：已验证源代码顶层目录中的
 `*.c` 和 `*.h` 文件，排除注释、合并相邻字面量，并加入空字符串。
 它们包括错误消息（`zutil.c`、`inflate.c`、`inffast.c`、`inftrees.c`、`trees.c`、`deflate.c`、`gz*.c`）、
 `z_errmsg` 文本、`ZLIB_VERSION`、版权字符串和格式字符串。该集合是封闭的：对表中不存在的文本使用
@@ -366,8 +366,8 @@
 " * Generated automatically by makefixed()."
 " */"
 " 3_6?"
-" deflate 1.3.2.1 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
-" inflate 1.3.2.1 Copyright 1995-2026 Mark Adler "
+" deflate 1.4 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
+" inflate 1.4 Copyright 1995-2026 Mark Adler "
 " l %2d v %4x "
 " start %u, match %d, length %d\n"
 "%1u%s"
@@ -387,7 +387,7 @@
 "/* crc32.h -- tables for rapid CRC calculation\n * Generated automatically by crc32.c\n */\n\nlocal const z_crc_t FAR crc_table[] = {\n    "
 "/* header created automatically with -DGEN_TREES_H */\n\n"
 "/* inffixed.h -- table for decoding fixed codes"
-"1.3.2.1-motley"
+"1.4"
 ": "
 "<fd:%d>"
 "C"
@@ -473,6 +473,7 @@
 "out of memory"
 "out of room to push characters"
 "pendingBuf overflow"
+"position overflow"
 "r"
 "request does not fit in a size_t"
 "request does not fit in an int"

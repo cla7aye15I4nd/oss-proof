@@ -18,8 +18,9 @@ open Zlib.Trees.Proofs.Out (TreesInvAt)
 open ZlibF.Math.DeflateSymbols
 set_option autoImplicit false
 
-/-- The dynamic-block room for the states with `lit_bufsize = L` (open for `L = 128` and
-`L = 256`, `memLevel` 1 and 2). -/
+/-- The dynamic-block room for the states with `lit_bufsize = L` (for `L = 128` and `L = 256`,
+`memLevel` 1 and 2, proved by `tinyOverlayAt_128` and `tinyOverlayAt_256`,
+`deflate.c.engine.overlay-header-ref`). -/
 def TinyOverlayAt (L : Nat) : Prop :=
   ∀ {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : DeflateState} {buf : Array UInt8}
     {xs : List Symbol},
@@ -43,7 +44,7 @@ theorem overlayAt_mid {L : Nat} (lower : 512 ≤ L) : OverlayAt L := fun small =
 theorem TinyOverlay.at (tiny : TinyOverlay) (L : Nat) : OverlayAt L :=
   fun small => tinyOverlay_iff.mp tiny L small
 
-/-- The overlay instance for every size from the two open sizes: `lit_bufsize` is
+/-- The overlay instance for every size from the two small sizes: `lit_bufsize` is
 `1 << (memLevel + 6)`, so below 512 it is 128 or 256 (`deflateInit2_`); the other sizes below
 512 never occur and are covered by the hypothesis only through `L = 128` and `L = 256`. -/
 theorem overlayAt_of_two (t128 : TinyOverlayAt 128) (t256 : TinyOverlayAt 256) {L : Nat}

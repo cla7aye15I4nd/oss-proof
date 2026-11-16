@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastTableFlags
+import ZlibF.Spec.Functional.Inflate.InflateFastTableFlags
 import ZlibF.Proof.«inftrees.c.decode.frame»
 
 set_option autoImplicit false

@@ -124,6 +124,9 @@ theorem table_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
     (∃ l' h', runX (inflate_TABLE c) l h = runX (inflate_LENLENS c) l' h' ∧
       loopRead l ≤ loopRead l' ∧
       (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LENLENS) ∧
+      r.get h' = some z ∧
+      ((∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → s.WellFormed) →
+        ∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.WellFormed) ∧
       LoopMatches c f h' l') := by
   obtain ⟨zs, s, callOut, consumed, held, stage, st, hs, retOk, config, haveLe, inLen, binv, leftLe,
     pendLe, putEq, outBytes, writable, sepIn, sepWin, sepOutIn, bitsEq, heldBits, parsed, stageM,
@@ -268,9 +271,13 @@ theorem table_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
               fun j lt => absurd lt (by show ¬ j < (0 : UInt32).toNat; simp)⟩⟩, last⟩
         (window_transfer (s := loopState s l) (s' := loopState s2 (tableRegs l1)) rfl rfl rfl rfl
           (fun q => byte_view_get_setI h zs s2 q) window) check wrapM outputEq
-      refine ⟨tableRegs l1, setI h zs s2, runGood, by rw [readT]; omega, ?_, moved⟩
-      intro zs' s' st' hs'
-      rw [setI_state s2 st zs' s' st' hs']
+      refine ⟨tableRegs l1, setI h zs s2, runGood, by rw [readT]; omega, ?_,
+        by rw [ZStreamRef.get_setI]; exact hz, ?_, moved⟩
+      · intro zs' s' st' hs'
+        rw [setI_state s2 st zs' s' st' hs']
+      · intro wfAll zs' s' st' hs'
+        rw [setI_state s2 st zs' s' st' hs']
+        exact wfAll zs s st hs
   · -- not enough input
     left
     obtain ⟨wait, _, _, runLeave⟩ := leaveFacts rfl
@@ -590,6 +597,9 @@ theorem lenlens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
     (∃ l' h', runX (inflate_LENLENS c) l h = runX (inflate_CODELENS c) l' h' ∧
       loopRead l ≤ loopRead l' ∧
       (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = CODELENS) ∧
+      r.get h' = some z ∧
+      (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s →
+        s.WellFormed ∧ CodeLengthInvariant zs s) ∧
       LoopMatches c f h' l') := by
   obtain ⟨zs, s, callOut, consumed, held, stage, st, hs, retOk, config, haveLe, inLen, binv, leftLe,
     pendLe, putEq, outBytes, writable, sepIn, sepWin, sepOutIn, bitsEq, heldBits, parsed, stageM,
@@ -784,7 +794,7 @@ theorem lenlens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
         ⟨Or.inr ⟨hlit, hdist, hclen, r1 ++ vb, r2 ++ vb, r3 ++ vb, read1', read2', read3', counts,
             nlenEq, ndistEq, ncodeEq,
             Or.inr ⟨rfl, cl, [], .istate_codes zs, 0, codes, readCL, rfl,
-              CodeRef.get_istate_codes (setI_istates_same h zs s3), contents.toCodeLengthMeaning,
+              CodeRef.get_istate_codes (setI_istates_same h zs s3), contents,
               by show (0 : UInt32).toNat < _; simp only [UInt32.toNat_zero]; omega,
               by
                 have e : lensPrefix (loopState s3 { l1 with ret := 0 }) = [] := by
@@ -801,10 +811,42 @@ theorem lenlens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
                 absurd inside (by show ¬ k < (0 : UInt32).toNat; simp)⟩,
               Or.inl bitsSmall⟩⟩, last⟩
         (window1 s3 _ rfl rfl rfl rfl) check wrapM outputEq
-      refine ⟨{ l1 with ret := 0 }, setI h zs s3, ?_, by show loopRead l ≤ loopRead l1; omega, ?_, moved⟩
+      obtain ⟨ret'', next'', root'', work'', codes'', workSize'', codeSize'', _, _, runInstall'', _⟩ :=
+        llInstall_code_length_contents (l := l1) st hs2 wf2 good2
+      have sameI2 := Except.ok.inj (runInstall.symm.trans runInstall'')
+      have workEq : work = work'' := by
+        have e := congrArg (fun p => ((p.2 : Heap).istates zs).map InflateState.work) sameI2
+        simpa using e
+      have codesEq : codes = codes'' := by
+        have e := congrArg (fun p => ((p.2 : Heap).istates zs).map InflateState.codes) sameI2
+        simpa using e
+      have wf3 : s3.WellFormed :=
+        ⟨wf2.1, by show work.size = 288; rw [workEq]; exact workSize'',
+          by show codes.size = 1444; rw [codesEq]; exact codeSize''⟩
+      have inv3 : CodeLengthInvariant zs s3 := by
+        intro _
+        refine ⟨rfl, contents.safe, ?_, ?_, ?_, ?_⟩
+        · show s.nlen.toNat ≤ 286
+          have := counts.1
+          omega
+        · show s.ndist.toNat ≤ 30
+          have := counts.2
+          omega
+        · show (0 : UInt32).toNat ≤ _
+          simp
+        · intro k inside
+          exact absurd inside (by show ¬ k < (0 : UInt32).toNat; simp)
+      refine ⟨{ l1 with ret := 0 }, setI h zs s3, ?_, by show loopRead l ≤ loopRead l1; omega, ?_,
+        by rw [ZStreamRef.get_setI]; exact hz, ?_, moved⟩
       · rw [runTail, runC, setI_setI]
       · intro zs' s' st' hs'
         rw [setI_state s3 st zs' s' st' hs']
+      · intro zs' s' st' hs'
+        have e := setI_state s3 st zs' s' st' hs'
+        rw [st] at st'
+        cases st'
+        rw [e]
+        exact ⟨wf3, inv3⟩
     · -- the code-length code is not acceptable
       left
       obtain ⟨ret, wa', ca', _, _, _, _, _, rejection, _, badRun⟩ :=
@@ -899,26 +941,25 @@ read, a missing end-of-block length or an unacceptable literal/length or
 distance code goes to `BAD`: the parse of the header is complete and is not
 a `DynamicHeader`. Otherwise both tables are installed with `Inv` and
 `StableQuery` (`DeflateParsed.dynamicDone`), and the call leaves for
-`Z_TREES` or falls through to `LEN_` with fewer than 8 held bits.
+`Z_TREES` or, for another flush, falls through to `LEN_` with fewer than 8
+held bits.
 
-The safety invariant of the decoder state supplies `wf` (array sizes),
+The safety invariant of the decoder state supplies `wf` (array sizes) and
 `lengths` (`CodeLengthInvariant`: the table is the state's `codes`, the
-counts, the initialized lengths) and `contents` (the installed table's
-content classification, `DefaultCodeLengthContentsState.codeContents`). -/
+counts, the initialized lengths). The installed table's content
+classification comes from `LoopMatches` (`DynamicMatches`). -/
 theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef} {z : ZStream}
     (loop : LoopMatches c f h l) (strm : c.strm = some r) (hz : r.get h = some z)
     (codelensMode : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → s.mode = CODELENS)
     (wf : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → s.WellFormed)
-    (lengths : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → CodeLengthInvariant zs s)
-    (contents : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s →
-      ∃ alphabet, Zlib.Inftrees.Proofs.CodeLengthContents s.codes 0 s.lenbits.toNat alphabet) :
+    (lengths : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → CodeLengthInvariant zs s) :
     (∃ result l' h', runX (inflate_CODELENS c) l h = .ok ((result, l'), h') ∧
       ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES) ∧
           LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
          LoopRefuted f l'))) ∨
-    (∃ l' h', runX (inflate_CODELENS c) l h = runX (inflate_LEN_ c) l' h' ∧
+    (c.flush ≠ Z_TREES ∧ ∃ l' h', runX (inflate_CODELENS c) l h = runX (inflate_LEN_ c) l' h' ∧
       loopRead l ≤ loopRead l' ∧
       (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_) ∧
       LoopMatches c f h' l') := by
@@ -941,7 +982,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
         ∃ (cl : List Nat) (r4 : List Bool) (ref : CodeRef) (offset : Nat) (codes : Array Code),
           readCodeLenLens (hclen + 4) r3 = some (cl, r4) ∧
           s.lencode = .ref ref offset ∧ Space.get h ref = some codes ∧
-          Zlib.Inftrees.Proofs.CodeLengthMeaning codes offset s.lenbits.toNat cl ∧
+          Zlib.Inftrees.Proofs.CodeLengthContents codes offset s.lenbits.toNat cl ∧
           s.«have».toNat < hlit + 257 + (hdist + 1) ∧
           ZlibF.Math.CodeLengthPrefix.Trace cl (hlit + 257 + (hdist + 1)) [] r4 (lensPrefix s) ∧
           (∀ future rest lens, CodeLens cl (hlit + 257 + (hdist + 1)) [] (r4 ++ future) rest lens →
@@ -969,7 +1010,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
   have ordinary : (¬ ∀ k, cl.getD k 0 = 0) → ∀ i, i < 2 ^ s.lenbits.toNat →
       ∃ e, s.codes[i]? = some e ∧ e.op = 0 := by
     intro ne
-    obtain ⟨alphabet, cont⟩ := contents zs s st hs
+    have cont := meaning0
     rcases cont.layout with ⟨root1, _, c0, c1⟩ | ord
     · exfalso
       obtain ⟨k, nzk⟩ := Classical.not_forall.mp ne
@@ -994,7 +1035,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
     exact heldB
   have more : s.«have».toNat < s.nlen.toNat + s.ndist.toNat := by omega
   obtain ⟨result, regs, after, lensA, haveA, used, consumed, runL, ub, keep, nxt, szA, hbA, valsA, res⟩ :=
-    cl_loop strm st hz hs wfS.1 mode invS meaning0 ordinary emptyCells more (fun e => (emptyF e).2) binv bound
+    cl_loop strm st hz hs wfS.1 mode invS meaning0.toCodeLengthMeaning ordinary emptyCells more (fun e => (emptyF e).2) binv bound
   have haveOld := binv.have_eq
   simp only [List.length_drop] at haveOld
   have ub' : used ≤ (f.inp.drop (loopRead l)).length := ub
@@ -1087,7 +1128,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
       obtain ⟨rfl, rfl⟩ := Ptr.ref.inj ptr''
       rw [CodeRef.get_istate_codes (setI_istates_same h zs _)] at get'
       cases get'
-      exact fullA (codeLenItem_meaning meaning0 m' item)
+      exact fullA (codeLenItem_meaning meaning0.toCodeLengthMeaning m' item)
     exact ⟨_, _, _, runW, Or.inl ⟨rfl, Or.inl ⟨have0, short⟩, moved⟩⟩
   · -- a bad repeat
     left
@@ -1191,7 +1232,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
         refine ⟨.error Ex.leave, { regs with ret := 0 }, setI h zs state', ?_, Or.inl ⟨rfl, Or.inr trees, moved⟩⟩
         rw [runC, tailRun, if_pos trees, setI_setI]
       · right
-        refine ⟨{ regs with ret := 0 }, setI h zs state', ?_, by show loopRead l ≤ loopRead regs; omega,
+        refine ⟨trees, { regs with ret := 0 }, setI h zs state', ?_, by show loopRead l ≤ loopRead regs; omega,
           fun zs' s' st' hs' => by rw [setI_state state' st zs' s' st' hs'], moved⟩
         rw [runC, tailRun, if_neg trees, setI_setI]
     · -- a header that the format rejects

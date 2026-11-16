@@ -1,5 +1,5 @@
 import ZlibF.Proof.«infback.c.safety-valid»
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 import ZlibF.Proof.«infback.c.pull»
 import ZlibF.Proof.«infback.c.wf»
 import ZlibF.Proof.«inffast.c.tableok»

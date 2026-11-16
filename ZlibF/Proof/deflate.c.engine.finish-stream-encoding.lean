@@ -15,7 +15,7 @@ block publication. The returned caller slice is exact on its final heap.
 An output stop retains composable independent block meaning; actual EOF
 completes a valid raw stream including any remaining pending bytes.
 Incoming prefix premises are mathematical encoding history, not callee
-contracts. This internal result leaves public wrappers and resumes open. -/
+contracts. This internal result does not state public wrappers or resumes. -/
 theorem deflate_slow_finish_stream_encoding {h : Heap} {r : ZStreamRef}
     {ds ob oo origin base : Nat} {z : ZStream} {d : DeflateState}
     {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}

@@ -20,7 +20,7 @@ The comment loop is the same code. The extra field needs no such clause: its rea
 by `extra_len`, so an overwrite only changes the bytes copied, which is defined.
 
 `Goal.deflate` states the caller domain as `DeflateHeaderApart`, a conjunct of `ActiveHeader`
-(`ZlibF/Spec/Public/History.lean`): while `deflate` writes an attached gzip header, the input, the
+(`ZlibF/Spec/Common/History.lean`): while `deflate` writes an attached gzip header, the input, the
 output, the extra field, the name and the comment (each string through its NUL) are pairwise
 separate byte ranges, and the extra field, name and comment lie outside the storage the stream
 owns. Both layouts above violate it. Listed in [deviations](../../../docs/deviations.md). The Lean

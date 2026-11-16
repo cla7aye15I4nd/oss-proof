@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inflate.c.default-entry»
 import ZlibF.Proof.«inflate.c.main.table2»
-import ZlibF.Spec.InflatePendingInvariant
-import ZlibF.Spec.InflateCodeLengthInvariant
+import ZlibF.Spec.Common.Inflate.InflatePendingInvariant
+import ZlibF.Spec.Common.Inflate.InflateCodeLengthInvariant
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public
@@ -37,7 +37,7 @@ representation, actual table contents, pending scalar bounds and the two
 construction phases. The configuration is explicit: any window width from
 8 to 15 bits (equal to the requested width), no gzip header, and raw
 recovery or zlib validation settings. A requested width of 0 and gzip
-wrapping are not yet covered. Full dispatch/history closure remains open. -/
+wrapping are not covered here. Full dispatch/history closure is not stated here. -/
 structure DefaultDecodeJ (h : Heap) (r : ZStreamRef) (zs : Nat) (z : ZStream) (s : InflateState) : Prop where
   good : Good h r zs z s
   tables : DataTableInvariant h s
@@ -142,7 +142,7 @@ theorem DefaultDecodeJ.head_none {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZSt
 /-- Default-history fields that reset and entry into CHECK need. An unread
 or rejected header may retain the initial flags. Active block decoding
 requires raw recovery or a completed zlib header. These fields supplement
-the checked decoder relation; full history closure is still open. -/
+the checked decoder relation; full history closure is not stated here. -/
 structure DefaultStateJ (h : Heap) (r : ZStreamRef) (zs : Nat) (z : ZStream) (s : InflateState)
     : Prop extends DefaultDecodeJ h r zs z s where
   requestedBits : RequestedBitsOK s.reqbits s.wbits s.reqwrap

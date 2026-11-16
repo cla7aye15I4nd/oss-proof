@@ -85,7 +85,7 @@ theorem inflate_default_view_public_accounting
 For all admitted default states and caller byte views, the complete actual
 call preserves J and local cleanup. OK, END, DATA_ERROR and BUF_ERROR have
 exact public byte accounting. OK cannot occur with Z_FINISH. Accounting for
-NEED_DICT, STREAM_ERROR and direct MEM exits remains open. -/
+NEED_DICT, STREAM_ERROR and direct MEM exits is not stated here. -/
 theorem inflate_default_view_ordinary_accounting
     {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (invariant : DefaultStateJ h r zs z s) (allocator : DefAlloc z)

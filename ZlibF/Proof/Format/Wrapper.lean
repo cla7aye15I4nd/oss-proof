@@ -1,5 +1,5 @@
 import ZlibF.Proof.Format.Deflate
-import ZlibF.Spec.Format.Wrapper
+import ZlibF.Spec.Functional.Format.Wrapper
 
 /-!
 # Format meta-theory: the wrappers are parsed in one way

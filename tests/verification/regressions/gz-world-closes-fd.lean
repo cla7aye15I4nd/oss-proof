@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzSafety
+import ZlibF.Spec.Safety.GzSafety
 
 /-!
 # gz: another party may close or reuse the handle's descriptor

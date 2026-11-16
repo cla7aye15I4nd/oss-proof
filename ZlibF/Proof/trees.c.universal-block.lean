@@ -11,7 +11,8 @@ level: the data-type hint, the three tree constructions, the cost comparison, an
 fixed and dynamic branches with the common tail. Every branch's output room is derived from the
 recorded symbols and `lit_bufsize`. The dynamic branch takes the overlay room of the prepared
 trees as a premise (`DynamicOverlay`); `dynamic_overlay_large` proves it for `memLevel ≥ 5`.
-For `memLevel` 1 to 4 it is the open lemma of fact F9 (`docs/progress.md`).
+For `memLevel` 3 and 4 it is `dynamic_overlay_mid` (`trees.c.universal-overlay-mid`), and for
+`memLevel` 1 and 2 it is `tinyOverlay` (`deflate.c.engine.overlay-header-ref`).
 -/
 
 namespace Zlib.Deflate.Universal.Block

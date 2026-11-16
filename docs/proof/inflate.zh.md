@@ -1,96 +1,114 @@
-<!-- source-sha256: 520d6f164035579f4548792646342319a9b7419a42f2e200d6b9a48b147e59f7 -->
-# 流式解码：模式、历史与调用组合
+<!-- source-sha256: e81862616fdda817bcde5d382159a262b2b54bcf84495502cde63b1d841aa520 -->
+# 流式解码：`inflate` 为什么是安全的
 
-解压器的工作是从压缩比特中识别字面量和匹配，再按顺序恢复原文。例如，先恢复两个字面量 `AB`，再遇到“距离 2、长度 6”，就应继续产生 `ABABAB`，得到 `ABABABAB`。输出缓冲区可能在中途用完；本页的证明必须把读位、查表、历史复制和下一次调用连接成这同一个解码过程。
+源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
 
-源文件：`zlib/inflate.c`；翻译：`ZlibF/Zlib/inflate.c.lean`。
-公开行为见 [API 指南](../spec/api/README.md)，解出的流见[格式指南](../spec/format/README.md)，
-窗口更新见[内部契约](../spec/internal-contracts.md)中的 `I-uw-*`。
+`inflate` 和其他 `inflate*` 函数，对任意输入、对输入输出缓冲区的任意切分、在任意一串被允许的调用上，都是安全的。证明维护解码器状态的一个不变量：`inflateInit2_` 确立它，每次调用保持它，而 C 代码的每一次内存访问都落在不变量描述的范围之内。本页解释这个不变量、每一步为什么保持它，以及解码循环为什么会结束。
 
-证明使用[解码表](inftrees.md)、[快速解码](inffast.md)、[Adler-32](adler32.md)、
-[CRC-32](crc32.md)与[分配](zutil.md)。本页按实际调用顺序连接这些组件。各项结果与未完成的组合记录在[进度页](../progress.md)。
+本页以[解码表](inftrees.md)和[快速解码](inffast.md)为基础。翻译怎样跟随 C 的细节，见[解码器的源码笔记](inflate-source-notes.md)。`updatewindow` 的内部契约是[内部契约](../spec/internal-contracts.md)中的 `I-uw-*`。
 
-## 输入范围与路径组合
+## 结论
 
-[共用输入配置](../spec/input-configurations.md#inflate-inputs)定义严格嵌套的默认、常见及完整流参数范围。
-完整且范围明确的声明使用同一套覆盖颜色。精确入口契约保持其原有定义域。
-较小的分支引理仍是组合证明的依据，其前提必须明确。
+下面的定理都列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
-这个解码器由可用输入字节、输出空间及已有缓冲比特选择快速路径。
-默认输入配置也需要同时处理快、慢两条路径。分派条件不能成为排除小缓冲区、部分输入或动态 Huffman 块的理由。
-表构造、分派与退出必须在实际返回堆之间传递同一不变量与历史。
+| 目标 | 内容 | 定理 | `ZlibF/Proof/` 下的模块 |
+| --- | --- | --- | --- |
+| `Goal.inflate_sequence_safety` | 序列结论，见下 | `inflate_sequence_safety_public` | `public-inflate-sequence-safety.lean` |
+| 十个目标：`Goal.inflate_safety`、`Goal.inflateSetDictionary_safety`、`Goal.inflateGetDictionary_safety`、`Goal.inflateSync_safety`、`Goal.inflateReset_safety`、`Goal.inflateReset2_safety`、`Goal.inflatePrime_safety`、`Goal.inflateMark_safety`、`Goal.inflateGetHeader_safety`、`Goal.inflateEnd_safety` | 该函数拒绝被拒绝的流（[拒绝](#refusals)），并且在可达的流上调用一次该函数是安全的 | `inflate_safety` 以及形式相同的另外九条 | `public-stream-call-safety.lean` |
+| `Goal.inflateInit__safety`、`Goal.inflateInit2__safety` | 对每个 `strm`（包括 `NULL`）、每个 `windowBits`、每个 `version`（`NULL`，或者第一个字节可读）和每个 `stream_size`，只要 `zalloc` 和 `zfree` 字段各自是 `NULL` 或默认函数（`InitArguments`），初始化都是安全的。自定义分配器不在这个目标之内 | `inflateInit__safety`、`inflateInit2__safety` | `public-init-safety.lean` |
+| `Goal.inflateCopy_safety` | `inflateCopy` 拒绝 `NULL` 参数和被拒绝的源，并且从可达的源复制是安全的 | `inflateCopy_safety` | `public-inflate-copy-safety.lean` |
+| `Goal.inflate_refusal` | 用一个命题陈述七个函数的拒绝；见[拒绝](#refusals) | `inflate_refusal` | `public-stream-refusal.lean` |
+| `Goal.inflate_initialisation_domain` | 序列目标的前提可以被满足（非空性） | `inflate_initialisation_domain_public` | `public-inflate-init.lean` |
 
-## 内存与所有权
+这些目标写在 `ZlibF/Spec/Safety/` 中：`Sequences.lean`、`Streams.lean`、`Initialisation.lean`、`Copy.lean`、`Refusals.lean` 和 `Domains.lean`。
 
-```mermaid
-flowchart LR
-    Stream["调用者的 z_stream"] --> State["自有 inflate_state"]
-    State --> Window["自有、延迟分配的窗口"]
-    State --> Codes["内嵌动态码表"]
-    State --> Fixed["只读固定表"]
-    State --> Header["调用者的 gz_header 与缓冲区"]
-    Stream --> Input["调用者输入视图"]
-    Stream --> Output["调用者输出视图"]
+**序列结论**有三部分（`StreamSequenceSafety`，`ZlibF/Spec/Common/Sequences.lean`）。
+
+1. 每个可达的流都满足公开不变量 `StreamInvariant`。
+2. 在可达的流上，再做一次被允许的调用，调用会返回且不出故障。之后不变量仍然成立。调用只改动了流记录、流拥有的块、挂接的 `gz_header` 记录，以及交给它的调用者区域（这是*帧性质*）。存活块集合的变化，恰好是流新得到或释放掉的块（这是*分配账本*）：没有任何泄漏。
+3. 在可达的流上调用 `inflateEnd`，返回 `Z_OK`，并释放流拥有的每一个块。
+
+一个流是*可达*的，指它来自一次成功的 `inflateInit2_`，之后经过任意多次被允许的调用、成功的 `inflateCopy` 调用，以及调用者对四个缓冲区字段的修改。各函数的定理就是第 2 部分在一个函数上的情形，`inflateEnd` 的定理则是第 3 部分。它们是序列定理的推论。
+
+`inflate_sequence_safety_public` 由 `inflate_sequence_safety`（`inflate.c.sequence-safety.lean`）推出，后者是一条引理，本身没有列出。
+
+这个文件也有功能结论。它们不是安全结论所必需的，列在[功能结论](#functional-results)一节。
+
+## 拒绝
+
+*被拒绝*的流（`RefusedInflate`）是 `NULL`，或者是下面几种可读的记录之一：它的 `zalloc`、`zfree` 或 `state` 字段是 `NULL`；或者它的 `state` 是一个存活的 inflate 状态，但这个状态的回指指针不指向这个记录，或者它的模式在 `HEAD` .. `SYNC` 之外。在这些情形下，状态检查 `inflateStateCheck` 返回 1，并且不会通过坏指针去读。
+
+拒绝在两处陈述。`Streams.lean` 的十个单函数目标各以它为第一个子句，`Goal.inflateCopy_safety` 有一个针对被拒绝的源的子句。`Goal.inflate_refusal` 用一个命题对七个函数再陈述一遍：`inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary` 和 `inflateCopy`。在被拒绝的流上，这十一个函数都返回，不出故障。
+
+- `inflate` 和 `inflateSync` 返回 `Z_STREAM_ERROR`。两个翻译各自在检查之前创建一个四字节的局部数组（`hbuf`、`buf`），返回时释放它。所以调用之后的堆与之前不是同一个值：它的块计数器可能增大了。这个子句说的是：不写原先存活的任何块，存活块的集合也没有变。它多一条前提：从堆的下一个未用块编号起，没有任何块编号在使用（`Fresh`，堆良构性的一部分）。
+- 源流被拒绝时的 `inflateCopy` 返回 `Z_STREAM_ERROR`：目的流是一个可读的记录。它的 `state` 字段变成 `NULL`，其余都不变。
+- `inflateMark` 返回 `-65536`，即 `zlib.h` 为不一致的流规定的值，并让堆完全保持原样。
+- 其余七个函数（`inflateEnd`、`inflateReset`、`inflateReset2`、`inflatePrime`、`inflateGetHeader`、`inflateSetDictionary`、`inflateGetDictionary`）返回 `Z_STREAM_ERROR`，并让堆完全保持原样。`inflateGetDictionary` 还原样返回传给它的长度值：翻译把这个结果单元当作值传递。
+
+`zalloc` 和 `zfree` 已设置、而 `state` 字段里是垃圾指针、指向已释放状态的指针或指向 deflate 状态的指针的记录，不在这些子句之内；原因见[偏离记录](../deviations.md)中“被拒绝的流”一行。
+
+拒绝子句是怎样证明的（`public-stream-call-safety.lean`、`public-inflate-copy-safety.lean`）。没有哪个子句需要关于 C 的新引理。七个子句就是 `inflate_refusal` 的各个子句。`inflatePrime` 和 `inflateMark` 的子句是该函数功能目标的拒绝子句（`CheckedInflate`）。`inflateSync` 和 `inflateGetHeader` 的子句来自引理 `inflateSync_check` 和 `inflateGetHeader_check`，这两条引理是针对检查能够读取、且未初始化的流陈述的（`StreamDom`、`¬ Initialised`）；`refused_dom` 和 `refused_not_initialised` 说明被拒绝的流就是这样的流。
+
+## 假设
+
+一个目标有哪些前提，要看是哪个目标。
+
+| 目标 | 前提 |
+| --- | --- |
+| 序列目标的第 1 和第 3 部分；`Goal.inflateEnd_safety` 的 End 子句 | 可达的流，此外没有别的前提 |
+| 序列目标的第 2 部分；从 `Goal.inflate_safety` 到 `Goal.inflateGetHeader_safety` 的九个单函数目标的调用子句（`StreamCallDomain`） | 可达的流；调用时的堆满足 `ByteObjectsFit`；该调用的参数前提（`StreamArguments`） |
+| 两个初始化目标 | `InitArguments`：良构的堆，以及[结论](#results)一节给出的对参数的条件 |
+| `Goal.inflateCopy_safety` | 源流可达；目的流是一个可读的流记录，并且不是源记录。命题还把源流的 `Good` 和 `DefAlloc` 列为前提；序列结论的第 1 部分对每个可达的流给出这两条 |
+| `Goal.inflate_refusal`；每个单函数目标的拒绝子句和 `Goal.inflateCopy_safety` 的拒绝子句 | 被拒绝的流（[拒绝](#refusals)）；对 `inflate` 和 `inflateSync` 还有 `Fresh`；对 `inflateCopy`，目的是一个可读的流记录，并且在 `Goal.inflateCopy_safety` 的子句里，源指针不是 `NULL` |
+
+*良构的堆*有三条性质：从下一个未用的块编号起，没有任何块编号在使用（`Fresh`）；一个块编号只对应一个对象（`Uniq`）；静态表保持初始内容（`LibraryGlobals`）。
+
+下一张表把“可达的流”和各个参数前提展开。它列出 `StreamReachable .inflate` 的每一条前提，以及 `StreamArguments` 对各个 `inflate*` 调用的每一条前提。完整的命题是这些 Lean 定义：`ZlibF/Spec/Common/History.lean` 中的 `StreamReachable`、`Rebuffer`、`StreamArguments`、`StreamBuffers`、`CallerRange`、`ActiveHeader`、`HeaderMemory` 和 `InflateHeaderProgress`，以及 `ZlibF/Spec/Safety/Streams.lean` 中的 `StreamCallDomain`。[偏离记录](../deviations.md)逐行讨论这些前提，并说明每一条在哪里比 `zlib.h` 更窄。
+
+| 前提 | 内容 | 属于 |
+| --- | --- | --- |
+| 第一次调用（`StreamReachable.inflateInit`） | 历史从一次返回 `Z_OK` 的 `inflateInit2_` 调用开始。这次调用运行在良构的堆上，针对一个可读的流记录，记录的 `zalloc` 和 `zfree` 各自是 `NULL` 或默认函数；版本字符串的第一个字节是 `'1'`，结构体大小是 112，`windowBits` 任意 | 历史 |
+| 调用者的修改（`Rebuffer`） | 两次调用之间，调用者只改 `next_in`、`avail_in`、`next_out`、`avail_out`，以及不属于流的内存。它交回的堆是良构的，并且满足 `ByteObjectsFit`。这次修改不改变模型的分配失败预言和垃圾值，也不使模型的块计数器和分配计数器变小（`Frame`） | 历史 |
+| 此前的调用（`StreamReachable.step`） | 此前的每次调用都是这个流上十四个 `inflate*` 流函数之一，满足它的参数前提和 `ByteObjectsFit`，并且返回了；返回码任意 | 历史 |
+| 复制（`StreamReachable.inflateCopy`） | 流也可以作为一次返回 `Z_OK` 的 `inflateCopy` 调用的目的流而可达：这次调用从可达的源流复制到另一个可读的记录 | 历史 |
+| `ByteObjectsFit` | 每个字节对象都少于 `2^63` 字节 | 每次调用 |
+| `StreamBuffers` | 输入区域（`next_in`、`avail_in`）和输出区域（`next_out`、`avail_out`）互不重叠。每个区域要么是 `NULL`，要么在它的长度内可读（输出区域还要可写），并且在流拥有的块之外 | `inflate` |
+| `ActiveHeader` 的第一部分（`HeaderMemory`） | 没有挂接 `gz_header` 记录；或者挂接的记录是存活的，不属于流，并且它的 `extra`、`name`、`comment` 缓冲区各自要么是 `NULL`，要么在 `extra_max`、`name_max`、`comm_max` 字节内可写，并且在流拥有的块之外 | `inflate` |
+| `ActiveHeader` 的第二部分（`InflateHeaderProgress`） | 在 `HEAD` 到 `HCRC` 这些模式下，并且挂接了记录时：它的 `extra` 缓冲区（`extra_max` 字节）与尚未读的输入互不重叠。在 `EXTRA` 模式下还有：`extra_len` 不小于还要读的长度 | `inflate` |
+| 字典区域（`CallerRange`） | 字典指针是 `NULL`；或者它在流拥有的块之外，并且在 `dictLength` 字节内可读（`inflateSetDictionary`），或在 `whave` 字节内可写（`inflateGetDictionary`） | 两个字典调用 |
+| 同步输入 | 如果 `next_in` 是 `NULL`，那么 `avail_in = 0`。输入区域是 `NULL`，或者可读并且在流的块之外 | `inflateSync` |
+| 头部记录（`HeaderMemory`） | 交给 `inflateGetHeader` 的记录不是 `NULL`。它是存活的，不属于流，它的缓冲区满足“`ActiveHeader` 的第一部分”一行的条件 | `inflateGetHeader` |
+
+其余的流调用（`inflateReset`、`inflateReset2`、`inflateResetKeep`、`inflatePrime`、`inflateMark`、`inflateSyncPoint`、`inflateCodesUsed`、`inflateValidate`、`inflateUndermine`）没有参数前提。
+
+默认分配器不是单独的前提：它由历史推出，并由不变量携带（子句 `alloc`）。
+
+有 `InflateHeaderProgress` 这条前提，是因为缺了它 C 会出故障。在 `EXTRA` 模式里，C 往 `head->extra + extra_len - length` 处复制。`extra` 缓冲区若与输入重叠，就是一次重叠的 `memcpy`；调用者若在读头部的中途把 `extra_len` 调小，这个偏移就会回绕（`tests/regression/inflate-gzip-extra`）。
+
+## 一次调用的轮廓
+
+```c
+int inflate(z_streamp strm, int flush) {
+    /* 入口检查：state、next_out、next_in */
+    LOAD();                       /* 取出 next_in、avail_in、next_out、avail_out、hold、bits 的本地副本 */
+    for (;;) switch (state->mode) {
+        case HEAD: ...            /* 每个 case 读若干位、写输出，或者改变模式 */
+        case LEN:
+            if (have >= 6 && left >= 258 && bits < 8) {
+                RESTORE(); inflate_fast(strm, out); LOAD(); break;
+            }
+            ...                   /* 否则在这里解码一个符号 */
+        case DONE: ret = Z_STREAM_END; goto inf_leave;
+        ...
+    }
+  inf_leave:
+    RESTORE();                    /* 把本地副本写回 */
+    updatewindow(...);            /* 把输出的末尾保存为历史 */
+    ...
+}
 ```
 
-状态块保存解码器处理到哪个阶段、还持有多少未消费比特，以及怎样查表。历史窗口保存较早恢复的字节，供后续匹配回引。调用者的输入与输出则只是本轮借给解码器的区间；换一个输出数组，并不表示解码任务重新开始。
-
-几个数组有不同用途：`lens` 暂存符号码长，`work` 暂存按码长排列的符号，`codes` 保存实际解码表项。`lencode` 用来查字面量／长度，`distcode` 用来查距离；它们可能指向固定只读表，也可能指向当前状态中的动态表。
-
-流拥有其已分配状态及窗口。`lens[320]`、`work[288]` 和 `codes[1444]` 内嵌在状态中。
-`lencode` 与 `distcode` 选择静态固定表或 `codes` 的某个区域；`next` 跟踪表构造位置。
-`head` 指向调用者拥有的头部存储。不变量必须记录这些替代情形、已初始化范围及获准访问的字节视图。
-
-初始化必须在指针字段读取前建立它们。运行时把新分配指针表示为空指针的约定，
-并不能证明这种先写后读的时序事实，见[安全规范](../spec/safety.md#uninitialised-memory)。
-不变量也应涵盖错误模式，以保证拒绝或数据错误后仍能安全清理。
-
-## 窗口不变量 W 与 F4
-
-先为环中的量命名，单位都是字节：`wsize` 是容量，`whave` 是已经保存的有效历史数量，`wnext` 是下一次写入的下标；`wbits` 是容量指数，容量为 `2^wbits`。下面的粗体 W 是这组形状条件的名字，不是容量本身。为直观理解，容量为 8 的教学环若只写入 `ABC`，就有 `whave = 3`、`wnext = 3`；写满后，游标才会循环复用旧位置。
-
-用 **W** 表示环形缓冲区的形状：
-
-1. `wsize = 0` 或 `wsize = 2^wbits`。
-2. `window` 为空指针，或指向已分配的 `2^wbits` 字节块；`wsize > 0` 蕴含存储非空。
-3. `whave ≤ wsize`；若 `wsize > 0`，则 `wnext < wsize`；否则 `wnext = 0`。
-4. 若 `whave < wsize`，则 `wnext = whave`。
-
-初始化建立空窗口。必须逐一检查各个重置变体：重置计数、保留已有存储、改变窗口大小是不同操作。
-只有实际释放存储的大小变更路径，才可移除相应所有权声明。
-
-功能正确性还要给 W 加上环中内容：有效的 `whave` 个字节按环顺序对应逻辑历史的适当后缀。
-预置字典字节贡献历史，但不成为输出。仅有 W 的形状不能证明向后引用返回正确字节。
-
-### `updatewindow(strm, end, copy)`
-
-这个辅助函数把一段最新数据加入历史。`strm` 指向公开流记录，`end` 指向源数据末尾的后一位置，`copy` 是要加入的字节数，所以源区间从 `end-copy` 开始。下文局部量 `dist` 表示第一次能连续写到环末尾的字节数；它不是压缩符号中的回退距离。
-
-`I-uw-pre` 提供可读源区间 `[end-copy, end)`，以及每次 `memcpy` 所需的不重叠事实。
-源可以是最近输出，也可以是获准的字典范围。公开调用者必须提供这些事实，不能默默排除合法视图。
-
-若需要分配但分配失败，函数返回 1，且不取得窗口块。
-必须证明准确的字段／帧效果，不能由失败码推断整个堆不变。
-如果成功分配后 `wsize` 为零，则把它设为 `2^wbits`，并初始化 `wnext = whave = 0`。
-
-对 `copy ≥ wsize`，只保留 `[end-wsize, end)`，写整个窗口，并设 `wnext = 0`、`whave = wsize`。
-
-对 `copy < wsize`，令 `dist = min(wsize-wnext, copy)`。
-第一次复制把源前缀写入 `[wnext, wnext+dist)`。
-若仍有字节，则 `dist = wsize-wnext`；第二次复制写 `[0, copy-dist)`，此时环已填满。
-设置 `wnext = copy-dist`、`whave = wsize`。
-
-若没有剩余字节，则把 `wnext` 增加 `dist`，并在 `wsize` 处回绕。
-若旧环未填满，W.4 给出 `whave = wnext`，同样的加法使 `whave` 增加到不超过 `wsize`；
-仍未满时恢复 W.4。若旧环已满，则保持已满。以上建立形状保持论证。
-内容论证要在同样的分支中跟踪最新后缀。
-还应涵盖零字节复制，以及实际源视图所对应的准确指针形成。
-
-## 模式证明
-
-“模式”说明接下来要识别什么：头部、块类型、码表、字面量／匹配，或尾部校验。输出空间不足时，模式和未完成的长度会保存在状态中。证明因此不能只检查一次成功循环，而要说明从每个暂停点恢复后，仍会接着完成同一个字段或复制。
-
-每个实际模式在共同不变量下有一个执行分支。分组图展示数据流，不能替代源代码中的各模式或出口。
+一次调用可以经过许多模式，快速路径和慢速路径可以交替出现。一次调用还可能在任何地方停下：输入用完时，`NEEDBITS` 经 `inf_leave` 离开，下一次调用从同一个模式继续。所以不变量必须描述每一个模式下的状态，而不只是块与块之间的状态。
 
 ```mermaid
 stateDiagram-v2
@@ -98,23 +116,23 @@ stateDiagram-v2
     state "字典" as Dictionary
     state "块类型" as Type
     state "存储块" as Stored
-    state "编码表" as Tables
+    state "建表" as Tables
     state "符号" as Symbols
     state "尾部校验" as Check
     state "完成" as Done
-    state "数据错误" as Bad
+    state "格式错误" as Bad
     [*] --> Header
     Header --> Dictionary: FDICT
-    Header --> Type: 头部完成
-    Dictionary --> Type: 字典已接受
+    Header --> Type: 头部读完
+    Dictionary --> Type: 字典已设置
     Type --> Stored: 存储块
     Type --> Tables: 动态块
     Type --> Symbols: 固定块
     Tables --> Symbols: 表已安装
-    Stored --> Type: 块完成
+    Stored --> Type: 块结束
     Symbols --> Symbols: 字面量或匹配
-    Symbols --> Type: 块结束
-    Type --> Check: 最后一个块完成
+    Symbols --> Type: 块结束符
+    Type --> Check: 最后一块结束
     Check --> Done
     Header --> Bad: 格式错误
     Tables --> Bad: 格式错误
@@ -123,183 +141,199 @@ stateDiagram-v2
     Bad --> [*]
 ```
 
-读取宏使用几个局部寄存器：`have` 是本轮剩余输入字节数，`left` 是本轮剩余可写输出字节数，`hold` 是装入的比特值，`bits` 是其中有效、尚未消费的位数。`length` 在复制模式中记录尚需复制的字节数。建表时，`nlen`、`ndist`、`ncode` 分别计数字面量／长度符号、距离符号与码长符号；同一个局部计数在其他模式可能承担不同任务，必须按实际模式解释。
+图里把模式分了组。证明对 C 中每个真实的模式各有一个情形。
 
-| 源代码分组 | 所需执行事实 |
-| --- | --- |
-| 入口检查 | 无效流／参数返回规定错误，效果恰好在许可范围内。只有契约明确规定时，才可断言整个堆不变。 |
-| `PULLBYTE` | `have == 0` 时在读取前离开；否则读取与游标增加消费一个有效字节。 |
-| `NEEDBITS`、`BITS`、`DROPBITS` | 为每个实际请求的位数建立界限，并在减法前保证已有足够比特。移入字节时位数必须有效；默认 64 位 `hold` 保留读入比特。 |
-| `HEAD` 到 `HCRC` | 验证包装字段；只在调用者提供容量内写 `extra`、`name`、`comment`。无符号减法前为 `length` 与进度计数建立界限。 |
-| `DICTID`、`DICT` | 保持需要字典的状态及校验和效果；拒绝字典不能凭空产生已解码输出。 |
-| `STORED`、`COPY` | `copy ≤ min(length, have, left)` 同时限制两个视图。为 `memcpy` 提供 API 中有依据的不重叠条件。 |
-| `TABLE` | 默认检查给出 `nlen ≤ 286`、`ndist ≤ 30`，因而 `nlen+ndist ≤ 316 < 320`。 |
-| `LENLENS` | `have < ncode ≤ 19` 限制 `order[have]`；补零完成提供给码长表的 19 个长度。 |
-| `CODELENS` | 码 16 需要先前长度；重复次数检查防止写到 `nlen+ndist` 之外。 |
-| 表安装 | 证明 `inflate_table` 的执行、表项含义及总预留量 `852+592 = 1444`，并安装所得表谓词。 |
-| `LEN` 到 `DISTEXT` | 根表／子表读取使用已初始化项，恰好消费支撑该码字和附加位的比特。选择快速分支时证明其入口前提。 |
-| `MATCH`、`LIT` | 限制输出写入，证明历史／窗口源有效，包括顺序输出内部的重叠。 |
-| `CHECK`、`LENGTH` | 按规定宽度，把正确的包装校验和／长度与实际产生字节比较。 |
-| `inf_leave` | 写回准确的游标／计数／比特，必要时更新历史，并保持规定的返回行为。 |
+## 内存与所有权
 
-这里请求量 `n` 按比特计数。例如还缺一个 12 位字段、当前仅有 5 位时，补入一个字节后有 13 位，足以消费字段并留下 1 位。下面的 39 位界限来自“至多缺 32 位时再补入一个字节”的具体读位顺序，而不是任意状态都自动满足的常量。
+```mermaid
+flowchart LR
+    Stream["z_stream（调用者的）"] --> State["inflate_state（流拥有）"]
+    State --> Window["窗口，2^wbits 字节（流拥有，首次使用时分配）"]
+    State --> Codes["lens、work、codes（在状态内部）"]
+    State --> Fixed["固定表（静态，只读）"]
+    State --> Header["gz_header 及其缓冲区（调用者的）"]
+    Stream --> Input["输入区域（调用者的）"]
+    Stream --> Output["输出区域（调用者的）"]
+```
 
-补充输入时，若请求 `n ≤ 32`，只有 `bits < n` 才会读入字节；
-所以字节移位至多为 31，读入后的位数至多为 39。
-其他掩码与丢弃操作需要各自与源代码对应的界限。
-不能把每个 `BITS` 用法都当成固定的小常数：动态表宽度及链接项的界限来自表谓词。
+流拥有两个块：它的状态，以及分配之后的窗口。`lens[320]`、`work[288]` 和 `codes[1444]` 是状态内部的数组。`lencode` 和 `distcode` 指向 `codes` 内部，或者指向静态的固定表。`head` 指向调用者拥有的记录。
 
-外层循环需要考虑模式的度量。有些转换既不消费输入，也不产生输出。
-应为进展点或返回点之间的内部转换建立界限，再与有限输入／输出及复制度量组合。
-每个模式分别终止，并不能单独建立完整的执行步数预算界限。
+## 不变量
 
-## 因果关系与跨调用历史
+不变量是 `InflateInv`（`ZlibF/Proof/inflate.c.invariant.lean`），有十二个子句。“允许 gzip 解码”指 `wrap` 的第 1 位置位：`wrap` 是 2、3、6 或 7（`GzipAllowed`）。
 
-需要区分“为确定当前符号已经检查的比特”和“为了快速查表提前读入的比特”。例如当前字面量只由前 3 位决定，寄存器可能已经读入整字节；后面 5 位不必已经构成一个合法的后续符号。当前输出的依据是前 3 位，证明不能把更远预读错误地当成已经解释完的输入。
+| 子句 | 白话说明 | 定义 |
+| --- | --- | --- |
+| `good` | 流记录可读，它的 `zalloc` 和 `zfree` 不是 `NULL`，它的 `state` 是一个存活的 inflate 状态，这个状态指回这个流，模式在 `HEAD` 到 `SYNC` 之间。状态里各数组的大小与 C 声明一致。窗口具有下面的形状 W。`reqbits ≤ 15`。`bits ≤ 39`。`next` 指向 `codes` 内部，下标不超过 1444。`lencode` 和 `distcode` 要么都指向 `codes` 内部，下标不超过 1443，要么就是那两张固定表。一个块编号不会同时表示两个对象（`Uniq`），从下一个未用的块编号起没有任何块编号在使用（`Fresh`） | `Good`（`ZlibF/Spec/Common/InflateGood.lean`） |
+| `alloc` | `zalloc` 和 `zfree` 是默认函数 | `DefAlloc` |
+| `tables` | 在 `LEN_`、`LEN`、`LENEXT`、`DIST`、`DISTEXT`、`MATCH` 和 `LIT` 模式下：`lencode` 和 `distcode` 指向的表，对 `lenbits` 和 `distbits` 具有安全的表形状（[解码表](inftrees.md#the-table-shape)），并且每个字面量/长度叶子至少用掉一位 | `DataTableInvariant` |
+| `pending` | `sane = 1`。在 `LENEXT` 中：附加位至多 5 位，`3 ≤ length`，`length + 2^extra ≤ 259`，并且 `0 ≤ back ≤ 15`。在 `DIST` 和 `DISTEXT` 中：`3 ≤ length ≤ 258` 且 `was = length`。在 `DIST` 中还有 `0 ≤ back ≤ 20`。在 `DISTEXT` 中还有：附加位至多 13 位，`offset ≥ 1`，`offset + 2^extra ≤ 73727`，`0 ≤ back ≤ 35`。在 `MATCH` 中：`0 < length ≤ was ≤ 258` 且 `offset > 0` | `DataPendingInvariant`（`ZlibF/Spec/Common/Inflate/InflatePendingInvariant.lean`） |
+| `lengths` | 在 `CODELENS` 中：`lencode` 就是 `codes[0]`，是一张形状安全的码长表；`nlen ≤ 286`，`ndist ≤ 30`，`have ≤ nlen + ndist`；已经读到的 `have` 个码长都不超过 15 | `CodeLengthInvariant` |
+| `headerLengths` | 在 `LENLENS` 中：`ncode ≤ 19`，`have ≤ ncode`，`nlen ≤ 286`，`ndist ≤ 30`；已经写入的 `have` 项都是 3 位的值 | `LengthHeaderInvariant` |
+| `held` | `hold < 2^bits`：位计数以上没有置位的位 | |
+| `config` | `wrap` 和 `reqwrap` 取 0、1、2、3、5、6、7 之一。`wbits` 是 8 到 15；或者是 0，这时没有窗口，头部还没读（`flags = -1`），模式是 `HEAD`、`BAD`、`MEM` 或 `SYNC`。`reqbits` 等于 `wbits`；或者 `reqbits = 0` 而 `wbits` 是 8 到 15（调用者要求使用 zlib 头部给出的宽度，而宽度此后已经设定）。裸流一定有宽度：`wrap = 0` 时 `wbits ≠ 0`，`reqwrap = 0` 时 `reqbits ≠ 0`。`wrap = 0`，或者 `wrap` 和 `reqwrap` 在是否允许 gzip 解码上一致。只有允许 gzip 解码时才会挂接 `gz_header` | `InflateConfig` |
+| `modes` | `HEAD ≤ mode ≤ SYNC` | |
+| `phase` | 块的解码只发生在头部之后：模式是 `HEAD`、`BAD`、`MEM`、`SYNC` 或 `FLAGS`，或者流是裸流（`wrap = 0`），或者头部已经读过（`flags ≠ -1`）。只有允许 gzip 解码时，`flags` 才会既不是 -1 也不是 0。gzip 头部模式 `FLAGS` 到 `HCRC` 只在允许 gzip 解码时出现，并且在 `FLAGS` 之后的这些模式里 `flags ≠ 0` | `InflatePhase` |
+| `origin` | `lencode` 是 `codes[0]`，或者 `lencode` 和 `distcode` 是那两张固定表。两次调用之间不会存下别的形状 | `CopyTableOrigin` |
+| `globals` | 静态表（固定编码、CRC、`trees.c` 的表）保持初始内容 | `LibraryGlobals` |
 
-功能正确性必须独立于实现状态确定输出。解出的一个符号需要一段支撑它的源比特前缀。
-解码器可能推测性地读到该前缀之后，也可能在离开快速路径前归还完整预读字节。
-应把发出的符号与支撑比特关联，不能要求符号含义与所有推测性预读都一致。
+这张表是用白话写的摘要。完整的命题是 `ZlibF/Proof/inflate.c.invariant.lean` 中的 Lean 定义 `InflateInv`，以及最后一列列出的各个定义。
 
-早期针对整个预读区间的一致性条件是错误的。修正后的支撑比特前缀关系区分了两者。
-同样，固定八字节的数据错误检测延迟存在反例。
-没有证明就增大常数，不能建立因果错误定理。这些是规范／模型方面的经验，
-并非已确认的上游内存问题。当前反例与验收记录见[进度](../progress.md)。
+有三个子句描述中途停下的调用：`pending`（停在一次匹配当中）、`lengths`（停在码长序列当中）和 `headerLengths`（停在码长编码的头部当中）。下一次调用靠它们才能继续。
 
-跨调用应保持累计比特前缀、输出前缀、逻辑历史、包装／校验和状态及字典需求。
-应量化所有许可的输入拆分、输出空间拆分及刷新值。
-后续失败可能发生在实际输出之后：延迟窗口分配可在解压已经写出字节后返回 `Z_MEM_ERROR`。
-错误契约必须保留这些效果，不能要求输出为空。
+还有一条事实在两次调用之间成立，它放在不变量旁边，叫 `DecoderHeldBits`：在 `BAD`、`MEM` 和 `SYNC` 之外，`bits ≤ 32`。在一次调用内部 `bits` 可以达到 39：`n ≤ 32` 的 `NEEDBITS(n)` 只在 `bits < n` 时才取一个字节，所以取字节时 `bits ≤ 31`，取完至多是 39。
 
-预置字典带来已知校验和要求，也可能提供在调用者给出字典前内容未知的历史。
-要把这种未知历史与输出字节区分开。裸 DEFLATE 字典替换、头部操作、位预置和恢复需要各自精确的 API 效果；
-普通数据阶段的细化不会自动涵盖所有此类序列。
-负值位预置也需要一般的比特级连接，不能只依靠有限执行矩阵或模型见证。
+序列目标陈述的是较小的公开谓词 `StreamInvariant`，也就是 `good` 和 `alloc` 两个子句。`InflateInv` 蕴含它。
 
-## 生命周期与辅助函数
+### 窗口形状 W
 
-| 函数 | 证明必须组合的内容 |
-| --- | --- |
-| `inflateInit_`、`inflateInit2_` | 版本／大小及参数拒绝、状态分配、初始化写入、成功不变量与准确的失败清理。 |
-| `inflateReset`、`inflateResetKeep`、`inflateReset2` | 各自不同的计数／历史／头部效果、许可的窗口大小变化及对应所有权转换。 |
-| `inflateEnd` | 窗口与状态各释放一次，清空流状态，并恢复调用者先前的存活块集合。 |
-| `inflatePrime` | 负计数重置与非负比特插入；移位、低位含义和计数上限拒绝。 |
-| `inflateSetDictionary`、`inflateGetDictionary` | 文档规定的字典模式、校验和判定，以及按时间顺序的环形复制；历史不等于已产生输出。 |
-| `inflateCopy` | 独立状态／窗口分配与失败清理；复制内容，重定位动态 `lencode`、`distcode`、`next`，保留静态指针，并证明未来行为等价。 |
-| `inflateSync`、`syncsearch` | 有界扫描、恢复状态变化，以及丢弃输入与重新开始的解码阶段之间的关系。 |
-| `inflateGetHeader` | 保存获准的调用者存储，并保持其生命周期／容量要求直到头处理完成。 |
-| `inflateMark`、`inflateSyncPoint`、`inflateCodesUsed` | 每个许可模式中的准确数值／查询行为，包括拒绝情形。 |
-| `inflateValidate`、`inflateUndermine` | 准确状态更新、支持／不支持的行为及不变量保持。 |
+W 是 `good` 中关于滑动窗口的部分（`WinInv`）。
 
-在指针模型下，对动态表与静态表指针做关系比较，需要审阅源代码。
-历史上提及的 `inflateCopy` `ub.patch` 不构成补丁授权：选定补丁集只由 `patches/README.md` 定义。
+1. `wbits ≤ 15`。
+2. `window` 是 `NULL`，或者指向一个恰好 `2^wbits` 字节的可写块的开头。`window` 为 `NULL` 时 `wsize = 0`。
+3. `wsize` 是 0 或 `2^wbits`。
+4. `whave ≤ wsize`。`wnext < wsize`，或者两者都是 0。
+5. 如果 `whave < wsize`，那么 `wnext = whave`：还没填满的窗口是从下标 0 开始填的。
 
-最终序列定理使用初始化结果，以及各函数已证明的保持、帧与所有权效果。
-它必须把内部历史、表谓词连接到独立格式关系。
-抽象的 `inflate_decodes` 模型定理或局部快速调用定理，都不能独自提供这一实现细化。
+W 说明对窗口的读写落在哪里，不涉及窗口里的字节是什么。
 
-## 与 C 的对应检查
+`updatewindow(strm, end, copy)` 保存最后 `copy` 个输出字节。它有三种情形。下面取 `wsize = 8`，`h` 表示旧字节，`n` 表示新字节：
 
-### 控制流与位缓冲区
+```
+copy >= wsize                 [ n n n n n n n n ]   wnext = 0   whave = 8
 
-翻译后的辅助函数需要保留 C 的跳转效果。`IL` 是当前局部寄存器的记录，`StateT` 表示寄存器随执行变化，`ExceptT` 用来区分跳出分派、统一离开及直接返回。下面的类型表达式只是实现这些控制转移的机制；它不额外证明循环会终止。
+copy <= wsize - wnext         [ h h h . . . . . ]   wnext = 3   whave = 3
+(copy = 2)                    [ h h h n n . . . ]   wnext = 5   whave = 5
 
-`inflate` 把 C 寄存器保存在 `IL` 中。每个模式是 `ExceptT Ex (StateT IL M)` 中的辅助函数。
-`switch` 的 `break` 返回分派器。`Ex.leave` 携带当前寄存器跳至 `inf_leave`，不回滚先前读写。
-`Ex.ret` 是直接的 C 返回。贯穿执行会调用下一个模式体。
-分派器每轮从堆读取 `state->mode`。
+copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
+(copy = 4)                    [ n n h h h h n n ]   wnext = 2   whave = 8
+```
 
-以下细节可被观察到，必须跨辅助函数边界保持：
+- 第一种情形：一次 `wsize` 字节的 `memcpy` 填满整个块。
+- 第二种情形：一次 `memcpy` 写到 `[wnext, wnext + copy)`，它的终点不超过 `wsize`。然后 `wnext` 前进，到 `wsize` 时回到 0。如果窗口原先没满，W.5 给出 `whave = wnext`，所以给 `whave` 加上同样的数，W.5 仍然成立。
+- 第三种情形：第一次 `memcpy` 把 `wsize - wnext` 字节写到块的末尾，第二次把剩下的写到下标 0 处。之后窗口是满的。
 
-- `TYPE` 不写 `mode` 就进入 `TYPEDO`。若读块头时输入耗尽，保存的模式仍是 `TYPE`。
-  这会影响 `data_type` 与下次入口。
-- `PULLBYTE` 在改变任何内容前检查输入。失败的 `NEEDBITS` 保留此前迭代已经读入的全部字节。
-  `DROPBITS` 先改变 `hold` 再从 `bits` 减去位数；`BYTEBITS` 的两个表达式都使用旧位数。
-- `BITS(n)` 在与 `(1U << n) - 1` 做掩码前把 `hold` 转为无符号 `int`。
-  `hold` 本身是无符号 `long`。该转换和移位宽度都不能简化。
-- `HEAD` 中头部取模表达式在 64 位算术中，将无符号 32 位移位项加到 `hold >> 8`。
-  位预置的高位参与该表达式。
-- `DICT` 在 `RESTORE` 和输入总数更新后返回 `Z_NEED_DICT`，绕过普通收尾。
-  `MEM` 与 `SYNC` 也直接返回。
-- `CHECK` 更新输出总数和校验和，再重置局部输出基线。
-  收尾使用已改变的基线，避免再次计算同一批字节。
-- `inf_leave` 先恢复寄存器，再更新窗口。窗口分配失败在后续总数／校验和更新前返回 `Z_MEM_ERROR`。
-  已写输出仍然存在；内存错误不意味着输出为空。
+`updatewindow_safe`（`inflate.c.uw.lean`，列在 `tests/audit/theorems.txt` 中）证明这个调用不会出故障，并且之后 `Good` 仍然成立。如果需要分配窗口而分配失败，调用返回 1，状态不变，只有分配计数器前进了。
 
-通常的规范化位缓冲区事实是 `bits ≤ 39`、`hold < 2^bits`。
-它们是证明义务，并非对任意状态记录都成立的假设。
-`inflatePrime` 在位数为负时清空缓冲区，拒绝超过 16 的计数或超过 32 的合计位数，
-并先用有符号 `long` 表达式对 `value` 做掩码，再转为无符号 `long`。负值必须遵循这个转换顺序。
+## 每一步为什么保持不变量
 
-`inflateMark` 也需要精确转换：对 `back` 符号扩展，转为无符号 `long`，左移 16 位，
-转回有符号 `long`，再加无符号条件项。默认平台上超出范围的转换按模进行。
-错误结果是 `-65536`。
+`reachable_invariant_kind`（`inflate.c.reachable.lean`）对历史做归纳，证明每个可达的流都满足 `InflateInv` 和 `DecoderHeldBits`。归纳的每个情形是一条定理。
 
-### 窗口、字典、复制与缓冲区视图
+| 步骤 | 定理 | 为什么成立 |
+| --- | --- | --- |
+| `inflateInit2_` 成功 | `inflateInit2_invariant_of`、`inflateInit2_held` | 状态先被清零，然后 `inflateReset2` 设置 `wrap` 和 `wbits`，`inflateResetKeep` 设置 `mode = HEAD`、`hold = 0`、`bits = 0`、`lencode = distcode = next = codes`。窗口是 `NULL`，`wsize = 0` |
+| 调用者修改缓冲区字段 | `rebuffer_invariant` | 没有哪个子句提到 `next_in`、`avail_in`、`next_out` 或 `avail_out`，调用者也不能碰流拥有的块 |
+| `inflate` | `inflate_preserves`，来自 `inflate_call` 和 `inflate_call_refused` | 见下 |
+| `inflateReset`、`inflateReset2`、`inflateResetKeep` | `inflateReset_preserves`、`inflateReset2_preserves`、`inflateResetKeep_preserves` | 三者都把模式置为 `HEAD` 并清空位缓冲。`inflateResetKeep` 什么都不释放，窗口和它的计数保持原样。`inflateReset` 把 `wsize`、`whave` 和 `wnext` 置为 0。当 `wbits != reqbits` 时它释放窗口，否则保留窗口块；按子句 `config`，两者只在 `reqbits = 0` 时才不相等。`inflateReset2` 先释放宽度与新 `windowBits` 所要求的宽度不同的窗口，然后调用 `inflateReset`。账本记下每一次释放 |
+| `inflatePrime` | `inflatePrime_preserves` | 位数大于 16 或合计大于 32 时它拒绝，所以 `bits ≤ 32` 和 `held` 仍然成立 |
+| `inflateSetDictionary`、`inflateGetDictionary` | `inflateSetDictionary_preserves`、`inflateGetDictionary_preserves` | 前者经过 `updatewindow`；后者只读窗口 |
+| `inflateSync` | `inflateSync_preserves` | 它扫描输入，匹配成功时通过 `inflateReset` 重置。重置之后，如果还没有读过头部，它把 `wrap` 置为 0，否则清掉 `wrap` 的第 2 位。之后如果 `wbits == 0`，它释放仍然存在的窗口，并置 `wbits = 15` |
+| `inflateGetHeader` | `inflateGetHeader_preserves` | 它把调用者的指针存进 `head`，并写 `head->done = 0`。子句 `config` 只在允许 gzip 解码时才允许挂接记录；当 `(wrap & 2) == 0` 时，C 在存指针之前就返回 `Z_STREAM_ERROR` |
+| `inflateMark`、`inflateSyncPoint`、`inflateCodesUsed` | `inflateMark_preserves`、`inflateSyncPoint_preserves`、`inflateCodesUsed_preserves` | 它们什么都不写 |
+| `inflateValidate` | `inflateValidate_preserves` | 它置位或清掉 `wrap` 和 `reqwrap` 的第 2 位。C 只在值非零时才置这一位，所以取值仍在子句 `config` 列出的那些值之中（1、2、3 变成 5、6、7，反之亦然；0 仍是 0）。第 1 位不变，所以两个字段在 gzip 上仍然一致 |
+| `inflateUndermine` | `inflateUndermine_preserves` | 在本构建中它写 `sane = 1`，这正是子句 `pending` 要求的值，并返回 `Z_DATA_ERROR` |
+| `inflateCopy` 成功 | `inflateCopy_invariant` | 副本得到自己的状态块和窗口块。子句 `origin` 说明了 `lencode` 可能是什么，所以副本可以照同样的方式指向自己的表 |
 
-保留历史是按时间顺序的数据，不只是任意存储中的 `whave` 个字节。
-对于已分配窗口，`8 ≤ wbits ≤ 15`、`whave ≤ wsize`，且 `wsize > 0` 时 `wnext < wsize`；
-未填满窗口满足 `wnext = whave`。完整环的时间顺序从 `wnext` 开始。
-匹配证明必须把这个顺序连接到先前输出与字典。
+`operation_preserves` 汇总了流调用的各行。序列结论的第 2 部分还需要每次调用的帧性质和账本，它们是 `inflate_call_safe` 和 `operation_safe_other`（`inflate.c.sequence-safety.lean`）。第 3 部分是 `inflateEnd_invariant`。
 
-`updatewindow` 分配未初始化字节，然后复制最后一个完整窗口，或绕环边界分成两段的后缀。
-只能读取已写入的历史。`inflateGetDictionary` 先返回 `window + wnext` 起的尾部，再返回前缀。
-`inflateSetDictionary` 在 `DICT` 验证 Adler 标识，并把字典末尾传给 `updatewindow`；
-裸 DEFLATE 替换的阶段语义不同于单个预置字典。
-`inflateResetKeep` 保留历史；`inflateReset` 恢复请求设置并清空历史，释放大小改变的窗口。
+### 一次 `inflate` 调用的内部 {#the-mode-proof}
 
-`inflateCopy` 通过源分配器分配；若窗口分配失败，则释放新状态；
-源检查或分配失败时清空 `dest->state`。成功时复制两个记录，修复流反向指针，
-重定位内部表指针，并只复制 `whave` 个窗口字节。
-`next` 始终指向状态的 `codes` 数组；`lencode`／`distcode` 指向该数组或共用固定表。
-这些事实必须来自初始化与保持，相应证明尚未完成。源、目标记录不得重叠。
+`inflate_call`（`inflate.c.call-default.lean`）处理通过了入口检查、并且模式不是 `SYNC` 的调用。`inflate_call_refused`（`inflate.c.call-refused.lean`）处理这样的调用：流通过了状态检查，而调用返回 `Z_STREAM_ERROR`，即 `next_out` 是 `NULL`，或者 `next_in` 是 `NULL` 而 `avail_in != 0`，或者模式是 `SYNC`。前两种由入口检查拒绝。处于 `SYNC` 模式的流通过入口检查，在 switch 里（`case SYNC`）被拒绝，流记录和状态都不变。`inflate_call` 除了安全性之外，还证明了返回码和各计数器更新的完整列表；安全性只用到其中一部分。
 
-现有源代码用 `>=` 和 `<=` 检查 `lencode` 是否位于 `codes` 内。
-使用固定表时，它们是不同对象。翻译保留这些比较及其故障，不实现历史建议 `lencode == codes`。
-早期笔记记录了在固定块中暂停后复制流所触发的运行时检测器指针对报告，
-以及采用建议修改后的无报告运行。这是历史证据，不是本次文档修订执行的复现，也不是已应用补丁。
+下表对每组模式说明：哪次访问需要论证，哪条事实提供了论证。
 
-字节输入、输出、头部、字典范围必须满足各自实际访问要求。
-运行时现在允许 `memcpy` 在同一字节对象内使用不相交区间；早先要求不同块的说法已经过时。
-重叠仍会触发故障。要求不同原始块的局部快速解码器引理，并不覆盖全部公开缓冲区视图，
-见[偏离与限制](../deviations.md)。
+| 模式 | 需要论证的访问 | 为什么安全 |
+| --- | --- | --- |
+| 每个 `NEEDBITS`、`PULLBYTE` | 读 `*next`；移位 `<< bits` | 读之前先检查 `have > 0`。移位发生在 `bits ≤ 31` 时 |
+| `HEAD` 到 `HCRC` | 写 `head->extra`、`head->name`、`head->comment` | 每次写都受容量 `extra_max`、`name_max` 或 `comm_max` 约束，而 `ActiveHeader` 保证这些容量内可写。`extra` 的偏移用到 `InflateHeaderProgress` |
+| `STORED`、`COPY` | 从输入到输出的 `memcpy` | `copy = min(length, have, left)` 限定了两段区域；`StreamBuffers` 保证它们不重叠 |
+| `TABLE` | 之后的下标 `lens[have]` | C 拒绝 `nlen > 286` 或 `ndist > 30`，所以 `nlen + ndist ≤ 316 < 320` |
+| `LENLENS` | `lens[order[have]]`，以及对 `inflate_table` 的调用 | `have < ncode ≤ 19`。19 个码长都是 3 位的值，这正是 [`inflate_table`](inftrees.md#assumptions) 对 `CODES` 的前提 |
+| `CODELENS` | 查表、`lens[have++]`、`lens[have - 1]` | 子句 `lengths`。会超过 `nlen + ndist` 的重复被拒绝。`have = 0` 时的代码 16 在访问 `lens[have - 1]` 之前被拒绝 |
+| `CODELENS` 的末尾 | 两次调用 `inflate_table`，写入 `codes[1444]` | `852 + 592 = 1444`。`inflate_table_safe` 给出无故障；`inflate_table_decoder_safe` 给出子句 `tables` 需要的表形状 |
+| `LEN` 到 `DISTEXT` | 查表 | 子句 `tables`：掩码后的下标在表内，表项是叶子，或是通向叶子的链接 |
+| `LEN`，快速路径 | 对 `inflate_fast` 的调用 | 这次调用是在 `RESTORE()` 留下的堆上，由不变量和 `StreamBuffers` 证明的，适用于 `StreamBuffers` 允许的每一种布局（`inflate_fast_default_view_buffers`，`inflate.c.fast-view-public-buffers.lean`）。`inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）只在输入和输出位于两个不同的堆块时，才建立[快速解码](inffast.md#assumptions)的入口条件；见[快速路径](#the-fast-path) |
+| `MATCH` | 从窗口或更早的输出复制 | `offset > 0`（子句 `pending`）。距离超出本次调用的输出时去读窗口；因为 `sane = 1`，距离超过 `whave` 时 C 会拒绝。W 限定了窗口下标 |
+| `LIT` | 往 `*put` 写一个字节 | 先检查 `left > 0` |
+| `CHECK` | 对 `put` 之前的 `out` 个字节计算校验和：这是从调用开始以来的输出。一次调用至多算一次：算过之后模式是 `LENGTH`、`DONE` 或 `BAD` | 这些字节是本次调用写的，在输出区域之内 |
+| `LENGTH` | 除 `NEEDBITS(32)` 之外没有：这个模式把 `hold` 与 `total` 的低 32 位比较 | |
+| `inf_leave` | 对本次调用的输出执行 `updatewindow`；第二次校验和，对 `next_out` 之前的 `out` 个字节计算：这是本次调用的输出中 `CHECK` 的校验和还没有算进去的部分 | 两者的源都是输出区域，`StreamBuffers` 保证它与窗口不重叠 |
 
-### 初始化、恢复与指针表示
+<a id="table-and-trailer-statement-boundaries"></a>
+各个模式的运行引理列在 `tests/audit/theorems.txt` 中，例如 `inflate_TABLE_run`、`inflate_LENLENS_run` 和 `inflate_CHECK_run`。表模式和尾部模式的引理假设了什么，见[源码笔记](inflate-source-notes.md#statements-of-the-table-and-trailer-lemmas)。
 
-`inflateInit2_` 在设置字段并调用重置前将已分配状态清零。
-版本检查只读取第一个版本字节及流大小；本构建中流大小为 112。
-`inflateReset2` 在取负前拒绝小于 `-15` 的负值，因此 `INT_MIN` 不会到达取负操作。
-自定义分配器不在所表示的默认分配器定义域内。
+### 快速路径 {#the-fast-path}
 
-`inflateStateCheck` 保留解引用前的短路检查。把 deflate 状态强转到这里会在对象模型中故障；
-布局数值巧合不能证明它是有效 inflate 状态。
-初始化家族必须成对使用：`inflateBackInit_` 不能与 `inflateInit2_` 互换，
-其结束函数拥有的对象也不同。
+证明通过三条途径到达对 `inflate_fast` 的调用。下面的定理都没有列在 `tests/audit/theorems.txt` 中：前两条是安全证明内部的引理，第三条属于功能方面的工作。
 
-`inflateGetHeader` 保存调用者指针，并无条件写 `head->done`。
-所以它需要非空记录，以及容量符合声明且仍存活的辅助缓冲区。
-文档规定的时机关系到 `extra_len - length`。
-应保留 `EXTRA` 条件内部的赋值，以及 `NAME`、`COMMENT` 中的后置递增。
+- `inflate_fast_raw_entry`（`inflate.c.fast-entry.lean`）建立[快速解码](inffast.md#assumptions)的入口条件，从而复用那一页的定理。它有一条前提：输入和输出位于两个不同的堆块。建立在它之上的引理带着同一条前提，名为 `RawFastIO`；`inflate_dispatch_data_rank` 就是其中之一。
+- `inflate_fast_default_view_buffers`（`inflate.c.fast-view-public-buffers.lean`）对块没有前提。它直接由解码器不变量和调用者的区域证明 `inflate_fast` 的运行，输入和输出是同一个块里的两段时也适用。这个证明在 `inflate.c.fast-view-*.lean` 这些模块里。`inflate_dispatch_data_view_state_rank`（`inflate.c.fast-view-dispatch-rank.lean`）对每一次快速调用都用它，`inflate_call` 的证明在数据模式上依靠的就是这条引理。安全结论走的是这条途径。
+- `inflate_fast_entry`（`inflate.c.meaning-fast.lean`）对每一种布局建立[快速解码](inffast.md#assumptions)的入口条件，对块没有前提。功能定理 `fast_call_meaning` 用到它（[功能结论](#functional-results)）。安全结论不用它。
 
-`syncsearch` 返回更新后的标量 `have`；`inflateSync` 在源调用边界保存它。
-恢复先搜索完整缓冲字节，再搜索调用者输入，并在重置后恢复保存的总数和包装事实。
-用于恢复及头部 CRC 的局部四字节数组有真实临时字节存储，所有返回路径都会释放。
-`inflateGetDictionary` 把可选标量长度输出参数表示为返回值。
-这并不建模调用者标量指针的任意别名；公开定义域审阅必须考虑这种表示选择。
+## 循环为什么会结束
 
-## 表与尾部语句边界
+分派循环 `for (;;) switch (state->mode)` 在 C 里没有界。它会结束，是因为每一轮只要不离开循环，就有一个秩在下降（`ZlibF/Proof/inflate.c.dispatch-rank.lean`）。
 
-这一节区分“已经证明执行会怎样返回”与“已经证明结果表示什么”。`Good3 lens have` 说明码长数组前 `have` 项满足已写入的前缀条件；`StaticsOK` 说明静态校验表符合所需条件；`PutAt` 定位本次写出的字节。单有存储定位或容量界限，并不自动给出字节的格式含义。
+```
+mass = bits + 8 * have + left
+rank = 64 * mass + credit(mode)
+```
 
-`inflate_TABLE_run` 描述计数提取，以及“长度或距离符号过多”的出口。
-`inflate_LENLENS_run` 使用 `have <= ncode <= 19` 与 `Good3 lens have`。
-`TABLE` 建立计数界限；此前循环迭代建立已写前缀条件。
-相关结果 `ll1_run`、`lz_run`、`llTail_run` 展示循环结构。
+`mass` 数的是还可用的输入位数和还空着的输出字节数。`credit` 对每个模式是一个小于 64 的固定数：`HEAD` 60，`STORED` 48，`TABLE` 47，`LENLENS` 46，`CODELENS` 45，`LEN` 21，`LIT` 20，`TYPE` 8，`CHECK` 4，`DONE` 2，等等。
 
-码长构造器调用使用 `inflate_table_safe` 与 `inflate_table_correct_ret`。
-这些结果建立执行安全及返回分类。`u <= 128` 这样的界限和返回根宽度 `lb`，
-还不能说明每个表项的含义。
+- 没有哪一轮会让 mass 增加：位从 `have` 移到 `bits`，然后被丢弃（`dispatchMass_advance`）。
+- 写了输出或丢弃了输入位的一轮，使 `mass` 至少减一。一个单位的 mass 值 64，比 credit 的任何变化都大。
+- 两样都没做的一轮，会转到 credit 更小的模式（`dispatchRank_advance`）。两个例子：裸流上的 `HEAD`（60）什么都不读就转到 `TYPEDO`（9）；存储块结束时的 `COPY`（17）转到 `TYPE`（8）。
 
-`inflate_CHECK_run` 对校验表使用 `StaticsOK`，对本次调用写出的字节使用 `PutAt`。
-当先前校验和不规范化时，单字节 Adler 行为需要自己的关系。
-不能为掩盖这个情形而把公开定义域缩到规范化种子。
+每组模式都有一条引理，说“要么离开，要么秩下降”：数据模式是 `inflate_dispatch_data_view_state_rank`，此外有 `inflate_dispatch_type_rank`、`inflate_dispatch_stored_rank`、`inflate_dispatch_gzip_header_rank` 以及同类的其他引理（`inflate.c.control-rank.lean` 和它旁边的模块）。
+
+快速路径算作一轮。一次快速调用有三种结束方式。它结束当前块并置模式 `TYPE`（credit 8），或者发现错误并置模式 `BAD`（credit 1）；两者都低于 `LEN` 的 credit（21），而快速调用不会让 mass 增加。或者它保持模式不变，这时它至少写了一个字节。`inflate_fast_default_view_buffers_progress`（`inflate.c.fast-view-public-step.lean`）对每一种布局陈述了这三种情形；`inflate_fast_safe_progress` 对[快速解码](inffast.md)的入口条件陈述了同样的内容。
+
+翻译里的循环带有 `2^64` 轮的燃料，燃料耗尽是故障。由于 `bits ≤ 39`，而 `have` 和 `left` 是 32 位的，秩小于燃料（`dispatchRank_fuel`），所以这种故障不会发生。
+
+内层循环直接有界：存储块的复制受 `copy` 约束，码长循环受 `nlen + ndist - have` 约束，匹配复制受 `length` 约束，`syncsearch` 受输入长度约束。
+
+## 难点在哪里
+
+难点不在某一个循环。难在一次调用可以在任何一个 `NEEDBITS` 处停下再继续，所以不变量必须在大约三十个模式中的每一个里都足够强，同时又能被每一个模式重新确立。有三处花的功夫最多。
+
+- **gzip 头部。** 这是 `inflate` 往输出之外的调用者缓冲区里写东西的唯一地方。对某些调用者布局，真实的 C 在这里会出故障，所以才有前提 `InflateHeaderProgress` 和它的 sanitizer 回归测试。
+- **终止性。** 有几种转移既不用输入也不写输出。只看输入和输出的度量在这些地方不会下降；秩里的 credit 项处理的就是它们。
+- **快速路径。** `inflate_fast` 的入口条件比它周围的模式更严。这次调用要在 `RESTORE()` 留下的堆上，从同一个不变量证明出来，包括输入和输出是同一个块里两段区域的情形（[快速路径](#the-fast-path)）。
+
+## 没有定理陈述的 C 解读
+
+- 匹配从窗口读到的字节是先前写过的。原因是 W.5：在没有填满的窗口里，有效历史是 `[0, whave)`，而 C 会拒绝超过 `whave` 的距离。定理只陈述了读落在块内。在模型里，读一个从未写过的字节会得到任意值，不算故障（[可信基础](../trusted-base.md)）。**尚未由证明确认**。
+- 窗口里按顺序存着输出和字典最近的 `whave` 个字节。这是关于含义的事实，安全性不需要它，也没有安全定理陈述它。**尚未由证明确认**。
+- 状态的每个指针字段在被读之前都写过。`inflateInit2_` 和 `inflateCopy` 在使用新状态之前先用 `zmemzero` 把它清零，翻译在同一位置有同样的语句。没有定理陈述这一事实，在这个模型里也不可能有：在模型里，新分配的内存中的指针字段读出来是 `NULL`，不出故障，所以漏掉一次写入是看不出来的（[安全性](../spec/safety.md#uninitialised-memory)）。**尚未确认**，须由源码审查确认。
+
+更多这类解读，即翻译怎样跟随 C 的各条语句，见[源码笔记](inflate-source-notes.md)。
+
+## 功能结论
+
+这些结论说的是函数算出了什么。它们已证明，但不是安全结论所必需的。
+
+| 结论 | 定理 | 模块 |
+| --- | --- | --- |
+| `Goal.inflate`：一次调用的完整契约，包括进展、返回码、计数器、帧性质和所有权。`uncompress*` 和 gzip 读取端的安全证明用到它 | `inflate_public` | `public-inflate.lean` |
+| 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 | `public-inflate-*.lean` |
+
+有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes`（`public-deflate-inflate-roundtrip.lean`）说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。同一个模块证明了带条件的往返定理 `deflate_inflate_roundtrip`：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都没有列在 `tests/audit/theorems.txt` 中。它们都是带条件的：它们假设各次调用到达 `Z_STREAM_END`。完备性（各次调用确实会到达）和无条件的往返是计划内的工作；往返性质进行到哪一步，见[进度，范围](../progress.md#scope)。
+
+对其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置），没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
+
+### 跨调用的因果关系与历史
+
+这一小节记录对早先两条关于含义的命题所做的更正。两者都不是 zlib 的缺陷。
+
+一个解码出的符号由输入位的一段前缀支撑。解码器可能已经读得更远：`inflate_fast` 会提前取入整字节，再把没用到的还回去。早先有一条命题要求输出与解码器读过的全部内容一致。这是错的，因为提前读入的字节可能格式有误，而已经解码的符号是有效的。更正后的关系只把每个符号与支撑它的那些位联系起来。它已被证明，定理是 `inflate_deferred_distance` 和 `inflate_deferred_distance_rejects_legacy_consistency`，回归测试是 `tests/regression/inflate-deferred-distance`。
+
+早先的第二条命题说，数据错误会在它的起因之后八个字节以内被发现。它有反例，把常数调大也修不好。依赖它的模型目标 `Api.Goal.inflate_rejects_invalid` 不在计划内（[进度，范围](../progress.md#scope)）。
+
+错误可能出现在真实的输出之后：窗口是在调用结束时分配的，所以 `inflate` 可能在写出一些字节之后返回 `Z_MEM_ERROR`。`Goal.inflate` 保留了这种效果。
+
+关于跨调用的功能命题需要涵盖什么（字典、位预置、恢复），早先的笔记保存在[历史](../history/proof-functional-notes.md)中。
+
+## 在 `inflateCopy` 中发现的缺陷
+
+未打补丁的 `inflateCopy` 用 `>=` 和 `<=` 来判断 `lencode` 是否落在 `codes` 之内。当 `lencode` 指向静态固定表时，这两个指针属于不同的对象，这种比较是未定义行为。补丁 0001 把它换成了指针相等的判断（`patches/README.md`；[发现与 sanitizer 复现](../findings/inflate-copy-fixed/README.md)）。翻译和 `inflateCopy_safety` 针对的都是打过补丁的源码。

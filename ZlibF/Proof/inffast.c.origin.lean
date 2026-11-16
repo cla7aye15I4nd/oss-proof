@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastOrigin
+import ZlibF.Spec.Common.Inflate.InflateFastOrigin
 import ZlibF.Proof.«inffast.c.final»
 
 /-!
@@ -126,7 +126,7 @@ theorem rollback_preserves_origin : Goal.rollback_preserves_origin := by
 the same exact source suffix as the natural-number pull equation. -/
 theorem actual_pull_preserves_origin : Goal.actual_pull_preserves_origin := by
   intro e bytes msg mode l i o used locals origin buffer available hfr
-  let next := pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1))
+  let next := pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))
   refine ⟨next, ?_, LS.pullL locals buffer available, ?_⟩
   · exact pull_run e (e.heap bytes msg mode) l i o locals buffer available
       (e.heap_bytes_in bytes msg mode) (hfr.get (Nat.le_refl _) available)
@@ -156,7 +156,7 @@ theorem actual_rollback_preserves_origin : Goal.actual_rollback_preserves_origin
       let input ← subn l.in_ returned
       let mask ← shl32 1 bits
       pure (input, l.hold &&& (mask - 1).toUInt64, bits)) (e.heap bytes msg mode) =
-      .ok ((.ref (.blk e.ib) (i - l.bits.toNat / 8), hold, bits), e.heap bytes msg mode) ∧
+      .ok ((.ref e.ib (i - l.bits.toNat / 8), hold, bits), e.heap bytes msg mode) ∧
     bits.toNat < 8 ∧ Inv e hold.toNat bits.toNat (i - l.bits.toNat / 8) used ∧
     Sg e hold.toNat bits.toNat (i - l.bits.toNat / 8) = Sg e l.hold.toNat l.bits.toNat i
   obtain ⟨rollbackBound, streamSame, rolledOrigin⟩ :=
@@ -170,9 +170,9 @@ theorem actual_rollback_preserves_origin : Goal.actual_rollback_preserves_origin
     dsimp only [hold]
     rw [u64_and_mask maskValue, bitValue]
   have pointer : subn l.in_ returned (e.heap bytes msg mode) =
-      .ok (.ref (.blk e.ib) (i - l.bits.toNat / 8), e.heap bytes msg mode) := by
+      .ok (.ref e.ib (i - l.bits.toNat / 8), e.heap bytes msg mode) := by
     rw [locals.hin]
-    have result := subn_ok (h := e.heap bytes msg mode) (r := BRef.blk e.ib) (a := e.inArr bytes)
+    have result := subn_ok (h := e.heap bytes msg mode) (r := e.ib) (a := e.inArr bytes)
       (e.heap_bytes_in bytes msg mode)
       (n := returned) (off := i)
       (by dsimp only [returned]; rw [bits_whole]; omega)

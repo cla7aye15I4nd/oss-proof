@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.History
+import ZlibF.Spec.Common.History
 
 open C ZlibF.Spec.Public
 

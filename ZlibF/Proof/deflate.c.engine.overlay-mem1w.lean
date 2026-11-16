@@ -40,7 +40,8 @@ def bitLengthCount (ready : DeflateState) : Nat :=
   mass (fun k => scanFreqUpTo (sendLengths ready .lit) (ready.l_desc.max_code.toInt.toNat + 1) k +
     scanFreqUpTo (sendLengths ready .dist) (ready.d_desc.max_code.toInt.toNat + 1) k) 19
 
-/-- **Batch 1's piece at `lit_bufsize = 128`, with the repair excess growing with `W` (open)**: the
+/-- **Batch 1's piece at `lit_bufsize = 128`, with the repair excess growing with `W`** (proved for `α = 29`:
+`header_ref_bound_128w`, `deflate.c.engine.overlay-header-ref`): the
 header is at most the `κ1` header plus `α + W/2`. -/
 def HeaderRefBound128W (α : Nat) : Prop :=
   ∀ {h : Heap} {ds : Nat} {d : DeflateState} {xs : List Symbol} {mb : Int32} {ready : DeflateState},

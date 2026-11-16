@@ -6,7 +6,8 @@ import ZlibF.Proof.«trees.c.universal-overlay-at»
 The strategy lemmas of `deflate.c.universal-strategies` take `FlushSafe`, the block flush of batch
 C for every memLevel. Batch C proves `FlushSafe` from `TinyOverlay`, the overlay of the pending
 and symbol buffers for `lit_bufsize < 512` (memLevel 1 and 2); memLevel 3 to 9 is proved. The
-lemmas here state the strategies with that single open premise.
+lemmas here state the strategies with that single premise, which `tinyOverlay`
+(`deflate.c.engine.overlay-header-ref`) proves.
 -/
 
 namespace Zlib.Deflate.Universal

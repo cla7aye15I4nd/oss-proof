@@ -1,6 +1,7 @@
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Spec.Functional.Api.InflateAccepted
+import ZlibF.Spec.Functional.Back
 
 /-!
 # Sequences: functional goals and the definitions only they use
@@ -129,13 +130,33 @@ def InflateCompletes : Prop :=
         (z.next_out = .null ∨ (z.next_in = .null ∧ z.avail_in ≠ 0)) ∧
         Zlib.Inflate.Spec.Good after r i z s))
 
-/-- The documented finish-only bound supplies enough space for completion. Eligibility is
-computed by the actual trace constructors; a proof cannot choose or reset that flag. -/
+/-- A data trace whose `deflate` calls all used `Z_NO_FLUSH` or `Z_FINISH`: the histories that
+`deflateBound` speaks of (`zlib.h`: "flush options other than Z_FINISH or Z_NO_FLUSH" may exceed
+it). As `DeflateDataTrace`, with the flush of each call restricted. -/
+inductive CleanDataTrace (level method wb mem strategy : Int32) (r : ZStreamRef) : Heap → DataLog → Prop
+  | init {h after version} : InitDomain h r version →
+      C.run (Zlib.Deflate.deflateInit2_ (some r) level method wb mem strategy version 112) h = .ok (Z_OK, after) →
+      CleanDataTrace level method wb mem strategy r after {}
+  | caller {h after log} : CleanDataTrace level method wb mem strategy r h log → Rebuffer h after r →
+      CleanDataTrace level method wb mem strategy r after log
+  | step {h after log flush rc input output used} : CleanDataTrace level method wb mem strategy r h log →
+      (flush = Z_NO_FLUSH ∨ flush = Z_FINISH) →
+      DataStep .deflate h after r flush rc input output used →
+      CleanDataTrace level method wb mem strategy r after (deflateLogStep log flush rc input output used)
+  | dictionary {h after log p n bytes rc} : CleanDataTrace level method wb mem strategy r h log →
+      log.input = [] → log.output = [] →
+      StreamArguments h r (.deflateSetDictionary (some r) p n) → Bytes h p n.toNat bytes →
+      C.run (Zlib.Deflate.deflateSetDictionary (some r) p n) h = .ok (rc, after) →
+      CleanDataTrace level method wb mem strategy r after
+        { log with dictionary := if rc = Z_OK then log.dictionary ++ bytes else log.dictionary }
+
+/-- The documented bound supplies enough space for completion, after a history of `Z_NO_FLUSH`
+and `Z_FINISH` calls (`CleanDataTrace`). -/
 def DeflateCompletes : Prop :=
   ∀ level method wb mem strategy p r h log input z i s,
     Api.deflInit? level.toInt method.toInt wb.toInt mem.toInt strategy.toInt = some p →
-    DeflateDataTrace level method wb mem strategy r h log →
-    log.boundEligible = true → log.finished = false →
+    CleanDataTrace level method wb mem strategy r h log →
+    log.finished = false →
     Zlib.Deflate.Spec.DGood h r i z s → StreamBuffers h r → ActiveHeader h r →
     z.next_out ≠ .null →
     (s.status = FINISH_STATE → z.avail_in = 0) →
@@ -203,5 +224,16 @@ def Goal.deflate_sequence : Prop :=
     C.run (Zlib.Deflate.deflateBound_z (some r) n) h = .ok (bound, h) ∧
     C.run (Zlib.Deflate.deflateBound (some r) n) h = .ok (bound, h)) ∧
   DeflateCompletes
+
+/-- Includes actual callback execution and raw-format delivery, re-use of the window, and
+complete end cleanup. Callback memory and returning/finite-input obligations remain explicit. -/
+def Goal.inflate_back_sequence : Prop :=
+  Goal.inflateBack ∧
+  (∀ h r i window n, BackReachable h r i window n →
+    (∃ z s, BackValid h r i z s ∧ s.window = window ∧ s.wsize.toNat = n) ∧
+    ∃ after z, C.run (Zlib.Infback.inflateBackEnd (some r)) h = .ok (Z_OK, after) ∧
+      r.get after = some z ∧ z.state = none ∧
+      Frame h after (fun b => StreamRoot r b ∨ b = i) ∧
+      LiveChange h after (fun _ => False) (fun b => b = i))
 
 end ZlibF.Spec.Public

@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Bits
+import ZlibF.Spec.Common.Bits
 
 /-!
 # Format: bits, bytes and numbers

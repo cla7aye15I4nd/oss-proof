@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.GzControl
+import ZlibF.Spec.Functional.GzControl
 import ZlibF.Proof.«gzlib.c.simple»
 import ZlibF.Proof.«gzfs.oracle»
 import ZlibF.Spec.Functional.Api.Compress

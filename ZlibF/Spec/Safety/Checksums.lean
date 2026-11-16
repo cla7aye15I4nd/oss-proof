@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Checksums
+import ZlibF.Spec.Common.Checksums
 
 /-!
 # Checksums: one safety goal per checksum function

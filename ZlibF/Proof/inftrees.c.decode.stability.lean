@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inftrees.c.decode.soundness»
-import ZlibF.Spec.InflateDecodeTableStability
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableStability
 
 set_option autoImplicit false
 

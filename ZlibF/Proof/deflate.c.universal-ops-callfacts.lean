@@ -7,9 +7,11 @@ import ZlibF.Proof.«deflate.c.universal-ops-header»
 and `HeaderInv` in every reachable state. This module shows it after each operation of
 `StreamOperation .deflate`, case by case, as `operation_header_of` does for `HeaderInv`.
 `deflateReset` leaves a fresh state; `deflatePrime`, `deflateTune` and `deflateSetHeader` change no
-field the facts read; the queries keep the state. The operations whose lemma is not yet a theorem
-are hypotheses of `operation_callfacts_of`: `deflate` (`deflate_call`), `deflateParams` and
-`deflateSetDictionary`.
+field the facts read; the queries keep the state. Three operations are hypotheses of
+`operation_callfacts_of`: `deflate` (`deflate_call`), `deflateParams` and `deflateSetDictionary`.
+Each is a theorem: `deflate_calls_of` (`deflate.c.universal-call-assemble`, with `tinyOverlay`),
+`params_callfacts` (`deflate.c.universal-ops-params-general`) and `setDictionary_callfacts`
+(`deflate.c.universal-ops-dictionary-slid`); `deflate_sequence_safety_of` supplies them.
 -/
 
 namespace Zlib.Deflate.Universal
@@ -152,8 +154,9 @@ theorem prime_callfacts {h after : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStrea
   exact ⟨calls.fresh, calls.freshStart, calls.finishSym, calls.finishLook,
     fun st => absurd st notFinished⟩
 
-/-- **`operation_callfacts` from the open lemmas.** Hypotheses (not yet theorems): `deflateCalls`
-(`deflate_call`, inflate batch 2), `paramsCalls` and `setDictionaryCalls` (inflate batch 1). -/
+/-- **`operation_callfacts` from the per-operation lemmas.** Hypotheses, each proved elsewhere:
+`deflateCalls` (`deflate_calls_of`), `paramsCalls` (`params_callfacts`) and `setDictionaryCalls`
+(`setDictionary_callfacts`). -/
 theorem operation_callfacts_of
     (deflateCalls : ∀ {h after : Heap} {r : ZStreamRef} {ds ds' : Nat} {z z' : ZStream}
       {d d' : DeflateState} {flush rc : Int32}, DInv h r ds z d → HeaderInv d → CallFacts d →

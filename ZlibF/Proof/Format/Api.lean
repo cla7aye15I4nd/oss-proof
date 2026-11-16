@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Goals
+import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Proof.Format.Wrapper
 
 /-!

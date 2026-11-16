@@ -11,7 +11,8 @@ The unpatched C faulted in two places (R-1, `docs/proof/gzip.md`): `SEEK_CUR` wh
 verified source applies the fix of upstream PR 1361 (patch 0002): the first check runs only for `pos > 0`, and a
 target whose displacement from a negative `x.pos` is not a `z_off64_t` is refused. `gzseek64_head_any` shows that the
 checks do not fault from any position and accept exactly the targets of `SeekOkAt`. The theorems that say what the
-seek then does carry the hypothesis `0 ≤ x.pos`; the negative case after the checks is still open.
+seek then does carry the hypothesis `0 ≤ x.pos`. The negative case after the checks is covered in
+`gz.inv-seek` (`gzseek64_step`, the forward seek from a negative `x.pos` after `gzungetc` at the start).
 -/
 
 namespace Zlib.Gzlib.Spec
@@ -924,7 +925,7 @@ theorem gzseek64_null (offset : Int64) (whence : Int32) (fs : Fs) (h : Heap) :
     gzseek64 none offset whence fs h = .ok ((-1, fs), h) := rfl
 
 /-- **gzseek64, safety and effect** (reachable states with `x.pos ≥ 0`: no `gzungetc` right after `gzopen`, whose
-checks `gzseek64_head_any` covers and whose later steps are still open; `NextOk`: `x.next` is not dangling; `hraw`: positions within `2^32` of `2^63`).
+checks `gzseek64_head_any` covers and whose later steps `gzseek64_step` (`gz.inv-seek`) covers; `NextOk`: `x.next` is not dangling; `hraw`: positions within `2^32` of `2^63`).
 The call does not fault; on success the handle satisfies the invariants again; the result is `-1` and nothing but the
 world changed, or it is the target `t` (the position `gztell64` reports is `t`, except after a read past the end). -/
 theorem gzseek64_safe {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (hP : PosInv s)

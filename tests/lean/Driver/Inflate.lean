@@ -132,7 +132,7 @@ def zeroStream : M ZStreamPtr := do
 def runCase (c : Cfg) : M String := do
   let s1 ← zeroStream
   let c := { c with z2 := ← zeroStream }
-  let ver ← allocBytesRO ("1.3.2.1-motley".toUTF8.data.push 0)
+  let ver ← allocBytesRO ("1.4".toUTF8.data.push 0)
   let init ← inflateInit2_ s1 c.wb ver 112
   let mut line := s!"init={init.toInt}"
   if init != Z_OK then return line

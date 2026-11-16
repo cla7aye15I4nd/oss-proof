@@ -34,17 +34,10 @@ MUTANT_COVERAGE_PENDING: dict[str, str] = {}
 # The functions that name their full contract as safety goal (with a safety_note): pure functions with
 # no own Goal.<function>_safety. No other function may.
 FULL_CONTRACT_SAFETY = ("compressBound", "compressBound_z")
-# The only safety goals that several functions share, each with exactly the functions that name it.
-# Every other documented function names its own Goal.<function>_safety (or _safe), or is listed in
-# FULL_CONTRACT_SAFETY.
-SHARED_SAFETY_GOALS = {
-    "ZlibF.Spec.Public.Goal.gz_sequence_safety": [
-        "gzbuffer", "gzclearerr", "gzclose", "gzclose_r", "gzclose_w", "gzdirect", "gzdopen", "gzeof",
-        "gzerror", "gzflush", "gzfread", "gzfwrite", "gzgetc", "gzgetc_", "gzgets", "gzoffset", "gzoffset64",
-        "gzopen", "gzopen64", "gzprintf", "gzputc", "gzputs", "gzread", "gzrewind", "gzseek", "gzseek64",
-        "gzsetparams", "gztell", "gztell64", "gzungetc", "gzwrite"],
-    "ZlibF.Spec.Public.Goal.inflate_back_sequence_safety": ["inflateBack", "inflateBackEnd", "inflateBackInit_"],
-}
+# The safety goals that several functions share, each with exactly the functions that name it. Empty
+# since step 4 gave the gz and inflateBack functions their own goals: every documented function names
+# its own Goal.<function>_safety (or _safe), or is listed in FULL_CONTRACT_SAFETY.
+SHARED_SAFETY_GOALS: dict[str, list[str]] = {}
 
 
 class Rejected(Exception):
@@ -108,6 +101,26 @@ def undocumented_names(header: str) -> set[str]:
     """The exported functions zlib.h declares after its undocumented-functions comment."""
     at = header.find(UNDOCUMENTED_MARK)
     return public_names(header[at:]) if at >= 0 else set()
+
+
+def check_api_safety_goal(api: dict, hidden: bool, safety_goals: list[str]) -> None:
+    """The safety goal an api entry names. A documented function names a listed safety target, or its
+    full contract with a safety_note. An undocumented function names nothing, or exactly its own
+    Goal.<function>_safety when that goal is in the pinned safety_goals: it is then required through
+    that list, as Scope plans for gzvprintf, and keyed for function mutants like any own goal."""
+    safety = api.get("safety_goal")
+    if hidden:
+        own = "ZlibF.Spec.Public.Goal." + api["function"] + "_safety"
+        if safety is not None and (safety != own or own not in safety_goals):
+            raise Rejected(f"undocumented function names a safety goal other than its own pinned goal: "
+                           f"{api['function']}: {safety}")
+    elif not isinstance(safety, str):
+        raise Rejected(f"missing safety goal: {api['function']}")
+    elif safety == api["functional_goal"]:
+        if not api.get("safety_note"):
+            raise Rejected(f"a full contract used as safety goal needs a safety_note: {api['function']}")
+    elif safety not in safety_goals:
+        raise Rejected(f"safety goal is not a listed safety target: {api['function']}: {safety}")
 
 
 def required_public_goals(manifest: dict) -> list[str]:
@@ -944,18 +957,7 @@ def coverage() -> dict:
         if api["functional_goal"] != "ZlibF.Spec.Public.Goal." + api["function"]:
             raise Rejected(f"wrong public contract target: {api['function']}")
         goals.append(api["functional_goal"])
-        hidden = api["function"] in listed
-        safety = api.get("safety_goal")
-        if hidden:
-            if safety is not None:
-                raise Rejected(f"undocumented function with a required safety goal: {api['function']}")
-        elif not isinstance(safety, str):
-            raise Rejected(f"missing safety goal: {api['function']}")
-        elif safety == api["functional_goal"]:
-            if not api.get("safety_note"):
-                raise Rejected(f"a full contract used as safety goal needs a safety_note: {api['function']}")
-        elif safety not in manifest.get("safety_goals", []):
-            raise Rejected(f"safety goal is not a listed safety target: {api['function']}: {safety}")
+        check_api_safety_goal(api, api["function"] in listed, manifest.get("safety_goals", []))
     groups = {
         "sequence_goals": ["inflate_sequence", "deflate_sequence", "inflate_back_sequence", "gz_sequence"],
         "nonvacuity_goals": ["inflate_initialisation_domain", "deflate_initialisation_domain",
@@ -973,7 +975,16 @@ def coverage() -> dict:
                          "adler32_safety", "adler32_z_safety", "adler32_combine_safety", "adler32_combine64_safety",
                          "crc32_safety", "crc32_z_safety", "crc32_combine_gen_safety", "crc32_combine_gen64_safety",
                          "crc32_combine_op_safety", "crc32_combine_safety", "crc32_combine64_safety", "zlibVersion_safety",
-                         "zlibCompileFlags_safety"],
+                         "zlibCompileFlags_safety",
+                         "gzbuffer_safety", "gzclearerr_safety", "gzclose_safety", "gzclose_r_safety",
+                         "gzclose_w_safety", "gzdirect_safety", "gzdopen_safety", "gzeof_safety",
+                         "gzerror_safety", "gzflush_safety", "gzfread_safety", "gzfwrite_safety",
+                         "gzgetc_safety", "gzgetc__safety", "gzgets_safety", "gzoffset_safety",
+                         "gzoffset64_safety", "gzopen_safety", "gzopen64_safety", "gzprintf_safety",
+                         "gzputc_safety", "gzputs_safety", "gzread_safety", "gzrewind_safety",
+                         "gzseek_safety", "gzseek64_safety", "gzsetparams_safety", "gztell_safety",
+                         "gztell64_safety", "gzungetc_safety", "gzvprintf_safety", "gzwrite_safety", "inflateBack_safety",
+                         "inflateBackEnd_safety", "inflateBackInit__safety"],
     }
     for group, suffixes in groups.items():
         expected = ["ZlibF.Spec.Public.Goal." + suffix for suffix in suffixes]

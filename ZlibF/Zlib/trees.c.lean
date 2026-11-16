@@ -2,7 +2,7 @@ import ZlibF.Runtime.Alloc
 import ZlibF.Runtime.Tables
 
 /-!
-# trees.c — faithful translation (draft)
+# trees.c — faithful translation
 
 Source: `zlib/trees.c` and `zlib/trees.h`, default build (LP64; `ZLIB_DEBUG`, `GEN_TREES_H`, `LIT_MEM`,
 `NO_INIT_GLOBAL_POINTERS`, `FORCE_STATIC`, `FORCE_STORED` undefined; `STDC` defined, so the tables come from

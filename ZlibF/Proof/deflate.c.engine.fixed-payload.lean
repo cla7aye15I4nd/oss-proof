@@ -142,7 +142,7 @@ followed by actual flush_pending. Real symbol data produce the publishing
 room; it is not an assumption of this composed execution. Arbitrary raw
 output capacity, including zero and partial copies, is included. Written
 bytes plus public PendingBits equal the exact fixed payload after the
-entry bits. Whole block selection, padding and public deflate remain open. -/
+entry bits. Whole block selection, padding and public deflate are not stated here. -/
 theorem fixed_payload_publish {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
     {z : ZStream} {d : DeflateState} {buf : Array UInt8} {xs : List Symbol}
     (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r)

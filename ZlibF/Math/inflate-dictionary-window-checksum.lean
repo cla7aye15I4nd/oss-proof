@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Checksum
+import ZlibF.Spec.Functional.Format.Checksum
 namespace ZlibF.Spec.ConfiguredWindowChecksum
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000

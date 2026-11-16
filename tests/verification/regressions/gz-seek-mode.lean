@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Examples
+import ZlibF.Proof.Api.Examples
 import ZlibF.Proof.Api.GzSeekRead
 
 /-!

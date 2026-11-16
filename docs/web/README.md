@@ -112,12 +112,17 @@ python3 -m http.server --directory dist
 
 The output is static HTML, CSS, fonts, JavaScript and WebAssembly. Interactions have
 no server runtime. Mermaid loads on demand using the vendored renderer and license.
-The source code views keep their original code and line anchors. Missing or stale
-Chinese reference companions stop the build.
+The source code views keep their original code and line anchors.
+
+Each Chinese companion starts with a comment `source-sha256: <hash>`, the SHA-256 of its English
+source file. A missing companion stops the build. A companion whose hash does not match gives a
+build warning and a notice on the Chinese page, so update the hash when you change both files.
+`check.py` rejects English prose left in a Chinese page.
 
 ## Publication
 
-The Pages workflow builds and checks `dist/`. Pull requests check without publishing;
-pushes to `dev` build and check; pushes to `main` publish through GitHub Actions, when `docs/`, the goal statements or
-the workflow change. Lean sources are linked on GitHub at the built commit; the site keeps no copy. Complete the local
+The site is published from `main` only. The Pages workflow builds and checks `dist/` when
+`docs/`, the goal statements (`ZlibF/Spec/`), `tests/audit/public-api.json` or the workflow
+change. Pull requests and pushes to `dev` are built and checked without publishing; pushes to
+`main` publish through GitHub Actions. So the published site can be behind `dev`. Lean sources are linked on GitHub at the built commit; the site keeps no copy. Complete the local
 reading review before publication when the user requests local iteration.

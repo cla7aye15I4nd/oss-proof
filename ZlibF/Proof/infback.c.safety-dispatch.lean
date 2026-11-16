@@ -6,7 +6,8 @@ import ZlibF.Proof.«infback.c.safety-len»
 `dispatch_p` is one round of `for (;;) switch (state->mode)`: `TYPE`, `STORED`, `TABLE` (with its
 fall-through into `LEN`), `LEN`, and the two exits `DONE` and `BAD`. The default case is
 unreachable: `ModeOk` names the six modes. The fast path of `case LEN` is the premise `LenFast`
-until its own lemma is checked; every other case is proved here.
+here; every other case is proved here. `LenFast` is proved for a window in a heap byte block by
+`lenFast_of_blk` (`infback.c.safety-fast`), which discharges it for the histories of the goal.
 -/
 
 namespace Zlib.Infback.Safety

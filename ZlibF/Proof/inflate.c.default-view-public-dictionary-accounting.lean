@@ -9,7 +9,7 @@ set_option autoImplicit false
 The complete public call returns with J and bounded byte counts on all
 public caller byte views. Every ordinary leave and direct dictionary return has full StreamAccounting.
 Direct MEM/STREAM returns remain explicit alternatives; public totals,
-frame, ownership and history are still open. -/
+frame, ownership and history are not stated here. -/
 theorem inflate_default_view_public_dictionary_accounting
     {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (invariant : DefaultStateJ h r zs z s) (allocator : DefAlloc z)

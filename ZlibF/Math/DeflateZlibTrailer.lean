@@ -1,4 +1,4 @@
-import ZlibF.Spec.Format.Wrapper
+import ZlibF.Spec.Functional.Format.Wrapper
 import ZlibF.Math.DeflateFixedBlock
 
 /-! # The default compressor's two trailer words encode big-endian Adler-32 -/

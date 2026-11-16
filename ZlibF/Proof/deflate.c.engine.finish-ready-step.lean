@@ -11,7 +11,7 @@ set_option autoImplicit false
 /-- Every actual FINISH body includes refill/sliding and all short/full
 strategy decisions. Its continuing rank decreases and retains publication readiness even
 with zero output capacity. A new loop break means true EOF with no input.
-This is one complete body step, not yet the whole FINISH loop. -/
+This is one complete body step, not the whole FINISH loop. -/
 theorem slow_finish_ready_step {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
     (boundary : StrategyBoundary h r ds z d input origin base xs config)

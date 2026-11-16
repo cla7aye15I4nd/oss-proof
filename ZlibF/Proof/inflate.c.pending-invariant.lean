@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflatePendingInvariant
+import ZlibF.Spec.Common.Inflate.InflatePendingInvariant
 import ZlibF.Proof.«inflate.c.default-entry»
 import ZlibF.Proof.«inflate.c.match-output»
 import ZlibF.Proof.«inflate.c.literal-step»

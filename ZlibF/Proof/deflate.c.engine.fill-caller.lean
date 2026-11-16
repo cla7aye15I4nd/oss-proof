@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.fill-history»
-import ZlibF.Spec.Public.Streams
+import ZlibF.Spec.Common.Streams
 import ZlibF.Spec.Functional.Checksums
 import ZlibF.Spec.Functional.Api.Compress
 

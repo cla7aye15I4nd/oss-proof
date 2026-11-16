@@ -1,6 +1,6 @@
 import ZlibF.Proof.«inflate.c.caller-buffers»
 import ZlibF.Proof.PlatformMemory
-import ZlibF.Spec.InflateOutputInvariant
+import ZlibF.Spec.Common.Inflate.InflateOutputInvariant
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

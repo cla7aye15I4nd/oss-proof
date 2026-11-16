@@ -1,5 +1,5 @@
 import ZlibF.Proof.«public-gz-offset»
-import ZlibF.Spec.Public.GzClose
+import ZlibF.Spec.Functional.GzClose
 import ZlibF.Proof.«gzfs.oracle»
 import ZlibF.Spec.Functional.Api.Compress
 
@@ -53,7 +53,8 @@ theorem gzclose_r_wrong_mode {h : Heap} {i : Nat} {s : GzState}
 
 /-- `int gzclose_r(gzFile file)` closes an unbuffered reader completely.
 This internal domain requires `GzGood` and `size = 0`; it is narrower than the public
-API. No callee specification is assumed. The initialized-reader path remains open. -/
+API. No callee specification is assumed. The initialized-reader path is covered by
+`gzclose_r_step_safe` (`gz.read-close`). -/
 theorem gzclose_r_unbuffered {h : Heap} {i : Nat} {s : GzState}
     (hg : GzGood h i s) (hm : s.mode = GZ_READ) (hz : s.size = 0) (fs : Fs) :
     Zlib.Gzread.gzclose_r (hnd i) fs h =

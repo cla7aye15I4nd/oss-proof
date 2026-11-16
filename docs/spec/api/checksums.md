@@ -4,7 +4,13 @@
 
 Compute a checksum a buffer at a time, or combine the checksums of independently processed
 byte sequences without rereading them. The byte sequences A and B below are ordinary data;
-the contracts use the Adler-32 or CRC-32 of those sequences.
+the contracts use the Adler-32 or CRC-32 of those sequences. For example, after processing A and
+then B, the checksum of A can be the starting value of the next update; if A and B were processed
+independently, the combination functions give the checksum of A followed by B.
+
+In the update functions, `buf` points to this batch of input, `len` is its byte count, and the
+incoming `adler` or `crc` is the value to continue from. In the combination functions, `len2` is
+the byte count of the second sequence B only, not the total length of the two.
 
 | Task | Entries |
 | --- | --- |
@@ -15,19 +21,37 @@ the contracts use the Adler-32 or CRC-32 of those sequences.
 | Reuse a CRC combination operator | [Generate](#crc32_combine_gen), [generate with 64-bit length](#crc32_combine_gen64), [apply](#crc32_combine_op) |
 | Inspect the byte table | [get_crc_table](#get_crc_table) |
 
-These focused contracts follow `adler32.c`, `crc32.c` and `zlib.h` in the default LP64 Linux
-static build, with the pinned source and listed patches. Source readings are **to confirm**
-by proof. No checksum entry writes state, allocates, frees or performs I/O. Exceptional
+The contracts follow the pinned `adler32.c`, `crc32.c` and `zlib.h` in the default LP64 Linux
+static build. No patch touches these two C files ([patches](../../../patches/README.md)). No
+checksum entry writes state, allocates, frees or performs I/O. Exceptional
 numeric results are ordinary values, rather than error codes. Domain and effects remain
 independent as explained in [contract conventions](contracts.md).
+These are focused contracts: Pre describes ordinary correct use and is deliberately narrower than
+what the function accepts. A call outside Pre is not thereby undefined, and it need not return an
+error code.
+
+**What is proved.** Safety only: each call returns without undefined behaviour or a memory error,
+writes only what its goal names, and leaks nothing ([safety](../safety.md)). Each entry gives its
+goal under **Proof goals**, in the five items and with the fixed phrases that
+[Reading a Proof goals paragraph](contracts.md#reading-a-proof-goals-paragraph) defines: the goal and its theorem; the conditions under which it
+applies, in the order of the Lean statement; what it covers for every value; what it guarantees
+(returns, state, writes, allocations); and what it leaves to another goal. The proof assumes the
+conditions listed there, not the documentary Pre. Post, the return tables and the notes describe
+functional behaviour. They are read from the C, are **to confirm** where no registered theorem
+states them, and are not required for the safety results. [Progress](../../progress.md) records the
+state of each goal.
+
+The safety goals are in [Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean). They
+say that the call returns and the heap is unchanged; they say nothing about the value.
 
 The practical checksum contracts use actual byte sequences A and B. Each
 checksum is computed independently, starting at 1 for Adler-32 or 0 for CRC-32.
 These contracts deliberately omit functional promises for forged checksums.
-The [Lean targets](../../../ZlibF/Spec/Public/Checksums.lean) also describe arbitrary
-seeds and exact scalar results. Both the Adler entries and their Lean targets
-require zero length for NULL initialization queries.
-See [scope deviations](../../deviations.md) and [public goals](../../checking/goals.md).
+The functional goals in [Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)
+also describe arbitrary seeds and exact scalar results. Both the Adler entries and their Lean
+goals, safety and functional, require zero length for NULL initialization queries
+(`AdlerBufferBytes` in [Common/Checksums.lean](../../../ZlibF/Spec/Common/Checksums.lean)).
+See [deviations](../../deviations.md).
 
 In this build, `uLong` and `z_size_t` are unsigned 64-bit types; `uInt` is
 unsigned 32-bit. `z_off_t` and `z_off64_t` are signed 64-bit. Input checksum bits
@@ -51,7 +75,7 @@ Returns the updated Adler-32, or the initial value for a new checksum.
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
 | `1`<br>**Initial value** | buf == NULL and len == 0, with any incoming checksum; no bytes are read. | Start a new sequence at 1. |
-| `low32(adler)`<br>**Empty range preserves value** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. | Keep this value for the next update. |
+| `reduce(adler)`<br>**Empty range reduces the seed** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. `reduce` takes the low 32 bits and reduces each 16-bit half modulo 65521. The result equals `low32(adler)` when `adler` is a genuine Adler-32, because both halves of a genuine Adler-32 are below 65521. | Keep this value for the next update. |
 | <code>Adler-32(A &#124;&#124; buf)</code><br>**Checksum after append** | buf covers len readable bytes, len > 0, and the low 32 bits of adler are the Adler-32 of A. | Use this value in later updates or compare it with the expected checksum. |
 
 **Reading the result.**
@@ -75,11 +99,24 @@ practical functional contract: the one-byte path need not agree with first
 reducing both seed halves modulo 65521. See the
 [Adler seed note](../../proof/adler32.md).
 
+**Proof goals.**
+
+- **Goal.** `Goal.adler32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_z_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** `buf` is NULL with `len == 0`, or `buf` points to `len` readable bytes (`AdlerBufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
+- **Covered without condition.** Every `adler`, also a value that is not a checksum; every content of the bytes; every heap, with or without the library's tables. The memory conditions are those of Pre; Pre asks in addition that `adler` is the checksum of A, which matters only for the value.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32_z`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_z"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A NULL, zero-length query returns 1 for every `adler`, without reading
 bytes. Otherwise return the Adler-32 of A followed by `buf[0..len-1]`.
-A non-NULL zero-length range returns the incoming checksum's low 32 bits.
+A non-NULL zero-length range returns the low 32 bits of `adler` with each 16-bit half reduced
+modulo 65521 (`adlerStart` in [Common/Checksums.lean](../../../ZlibF/Spec/Common/Checksums.lean)).
+For a genuine Adler-32 that is the incoming checksum unchanged; a seed of `0x0000FFFF` returns
+`0x0000000E`.
 
 </details>
 
@@ -100,7 +137,7 @@ Returns the updated Adler-32, or the initial value for a new checksum.
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
 | `1`<br>**Initial value** | buf == NULL and len == 0, with any incoming checksum; no bytes are read. | Start a new sequence at 1. |
-| `low32(adler)`<br>**Empty range preserves value** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. | Keep this value for the next update. |
+| `reduce(adler)`<br>**Empty range reduces the seed** | buf is non-NULL and len == 0; a one-past pointer is also allowed for the empty range. `reduce` takes the low 32 bits and reduces each 16-bit half modulo 65521. The result equals `low32(adler)` when `adler` is a genuine Adler-32, because both halves of a genuine Adler-32 are below 65521. | Keep this value for the next update. |
 | <code>Adler-32(A &#124;&#124; buf)</code><br>**Checksum after append** | buf covers len readable bytes, len > 0, and the low 32 bits of adler are the Adler-32 of A. | Use this value in later updates or compare it with the expected checksum. |
 
 **Reading the result.**
@@ -123,11 +160,21 @@ The length is at most `2^32 - 1`. Converting a larger length to `uInt` discards
 high bits before the call; use `adler32_z` or several calls for larger ranges.
 The zero-length NULL query and forged-seed scope of `adler32_z` apply here too.
 
+**Proof goals.**
+
+- **Goal.** `Goal.adler32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** `buf` is NULL with `len == 0`, or `buf` points to `len` readable bytes (`AdlerBufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
+- **Covered without condition.** Every `adler`, also a value that is not a checksum; every content of the bytes; every heap, with or without the library's tables. The memory conditions are those of Pre; Pre asks in addition that `adler` is the checksum of A, which matters only for the value.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return exactly the result of `adler32_z(adler, buf, len)`.
-A NULL, zero-length query returns 1. A non-NULL empty range preserves
-the checksum's low 32 bits.
+A NULL, zero-length query returns 1. A non-NULL empty range returns the low 32 bits of
+`adler` with each 16-bit half reduced modulo 65521, which preserves a genuine checksum.
 
 </details>
 
@@ -168,8 +215,18 @@ Negative lengths are included only for the rejection result below.
 **Effects:** Preserve all memory and ownership. Read no buffers or stream state.
 
 The sentinel is not a valid Adler-32. Arbitrary scalar arguments do not create
-memory accesses; their exact non-checksum results belong to the broader Lean
-contract. No concatenation promise is made for an incorrect B length.
+memory accesses; their exact non-checksum results belong to the functional
+goal. No concatenation promise is made for an incorrect B length.
+
+**Proof goals.**
+
+- **Goal.** `Goal.adler32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** Always: the statement has no premise.
+- **Covered without condition.** Every `adler1`, `adler2` and `len2`, also forged checksums and negative lengths; every heap. The goal is wider than Pre, which describes genuine checksums.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine"><summary>Complete return conditions and boundaries</summary>
 
@@ -216,6 +273,16 @@ length of B. Negative lengths are included for rejection.
 This has the same contract and length range as `adler32_combine` in LP64.
 The explicit width matters on other builds; this page does not cover them.
 
+**Proof goals.**
+
+- **Goal.** `Goal.adler32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** Always: the statement has no premise.
+- **Covered without condition.** Every `adler1`, `adler2` and `len2`, also forged checksums and negative lengths; every heap. The goal is wider than Pre, which describes genuine checksums.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine64`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return `0xFFFFFFFF` for a negative length. Otherwise return the
@@ -260,6 +327,8 @@ and must neither write through the pointer nor free it.
 `zlib.h` places this among functions outside the documented API. It exposes
 only the byte table, not adjacent or braided tables. `z_crc_t` is unsigned
 32-bit here. Dynamic table generation is outside this build's scope.
+
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.get_crc_table` ([Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)), with the theorem `ZlibF.Spec.Public.Proofs.get_crc_table` ([public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)). On a heap that holds the library's CRC tables (`CrcGlobals`) it states that the call returns, that the heap is unchanged, and the table contents given under Post.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>Complete return conditions and boundaries</summary>
 
@@ -312,6 +381,18 @@ the caller must not complement the running value. Alignment does not change
 the contract. The word-access model's limits are recorded in
 [the safety model](../safety.md) and [trusted base](../../trusted-base.md).
 
+**Proof goals.**
+
+- **Goal.** `Goal.crc32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_z_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when**:
+    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
+    2. `buf` is NULL, with any `len`, or `buf` points to `len` readable bytes (`BufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
+- **Covered without condition.** Every `crc`, also a value that is not a checksum; every content of the bytes; every alignment of `buf`. The memory conditions are those of Pre.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_z`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_z"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A NULL `buf` returns 0 for every `crc` and `len`, without reading the
@@ -361,6 +442,18 @@ and fixed library tables. A one-past pointer is allowed for an empty range.
 The length is at most `2^32 - 1`. Converting a larger count to `uInt` truncates
 it before the call; use `crc32_z` or multiple updates for larger ranges.
 
+**Proof goals.**
+
+- **Goal.** `Goal.crc32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when**:
+    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
+    2. `buf` is NULL, with any `len`, or `buf` points to `len` readable bytes (`BufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
+- **Covered without condition.** Every `crc`, also a value that is not a checksum; every content of the bytes; every alignment of `buf`. The memory conditions are those of Pre.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return exactly the result of `crc32_z(crc, buf, len)`.
@@ -406,6 +499,16 @@ present. `len2` may be any signed 64-bit value.
 The operator depends only on the length. Keep it unchanged and reuse it for
 any A and B with that B length. It is an operator, not a checksum.
 
+**Proof goals.**
+
+- **Goal.** `Goal.crc32_combine_gen64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Covered without condition.** Every `len2`, also negative lengths.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen64`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A negative length returns 0. A nonnegative length returns a nonzero
@@ -449,6 +552,16 @@ present. `len2` may be any representable signed value.
 **Effects:** Preserve all memory and ownership. Read no buffers or stream state.
 
 The ordinary and explicit 64-bit length ranges coincide in LP64.
+
+**Proof goals.**
+
+- **Goal.** `Goal.crc32_combine_gen_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Covered without condition.** Every `len2`, also negative lengths.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen"><summary>Complete return conditions and boundaries</summary>
 
@@ -500,6 +613,18 @@ In particular, a nonzero LP64 `op` with zero low 32 bits can fail to terminate;
 this is outside the generated-operator contract. Zero is a rejection value,
 not an unambiguous error code, since a valid CRC can also be zero.
 
+**Proof goals.**
+
+- **Goal.** `Goal.crc32_combine_op_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_op_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when**:
+    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
+    2. `op` is a value that `crc32_combine_gen` or `crc32_combine_gen64` returns for some `len2`. This is the domain `zlib.h` gives.
+- **Covered without condition.** Every `crc1` and `crc2`, also forged checksums; every `len2` the operator was generated for, also a negative one, for which the operator is 0. The goal is wider than Pre in the checksums and the same in `op`.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** An `op` that no generator call returned: outside every goal ([deviations](../../deviations.md), row "CRC combination operator"). The value returned: functional goal `Goal.crc32_combine_op`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_op"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** Return the CRC-32 of A followed by B. If `op == 0`, return 0.
@@ -549,6 +674,16 @@ For arbitrary checksums at length zero, the implementation returns the XOR of
 the low 32 bits. A wrong length has no concatenation guarantee. Zero is also
 a possible valid CRC, so negative-length rejection has no distinct error code.
 
+**Proof goals.**
+
+- **Goal.** `Goal.crc32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Covered without condition.** Every `crc1`, `crc2` and `len2`, also forged checksums and negative lengths. The goal is wider than Pre, which describes genuine checksums.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine64`, not required for the safety results.
+
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine64"><summary>Complete return conditions and boundaries</summary>
 
 **Post:** A negative length returns 0. Otherwise return the CRC-32 of A
@@ -597,7 +732,15 @@ The ordinary and explicit 64-bit length ranges coincide in LP64.
 This page excludes dynamic table generation, hardware CRC hooks and generated
 table executables. See [build and model scope](../../deviations.md).
 
-[Back to the API manual](README.md) · [Contract conventions](contracts.md)
+**Proof goals.**
+
+- **Goal.** `Goal.crc32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Covered without condition.** Every `crc1`, `crc2` and `len2`, also forged checksums and negative lengths. The goal is wider than Pre, which describes genuine checksums.
+- **Guarantees.**
+    - *Returns.* The call returns.
+    - *State, writes, allocations.* None: the heap after the call is the heap before it.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine`, not required for the safety results.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine"><summary>Complete return conditions and boundaries</summary>
 
@@ -605,3 +748,5 @@ table executables. See [build and model scope](../../deviations.md).
 Negative lengths return 0. A genuine empty B preserves A's checksum.
 
 </details>
+
+[Back to the API manual](README.md) · [Contract conventions](contracts.md)

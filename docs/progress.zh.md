@@ -1,44 +1,99 @@
-<!-- source-sha256: 2664cbb491ef0a583347de65c112b1ad221be14ce064700742a37baa4bb164ea -->
+<!-- source-sha256: 401aef43f8ed72490391f73ba4aec31eb02c2143091a5f076fb10fe5a73b001d -->
 # 证明进度与剩余工作
 
-本页集中记录证明证据和剩余工作。要了解目标陈述和证明的整体结构，请先读[总览](overview.md)。
+本页记录每项结论的层级和剩余的工作。只有本页记录这些：其他页面只说一条定理陈述了什么，层级则链接到这里。第一节“范围”说明什么在计划内、什么已验收以及在哪个提交上验收、什么不在计划内。中间很长的部分由证明记录生成：每个目标各有一个条目，给出它的命题、证明和依赖。这些结论是什么意思，请读[总览](overview.md)。某个函数由哪条定理覆盖，请读[按函数查覆盖情况](coverage.md)：那一页把每个函数对应到它的定理，不写层级。
 
 ## 范围
 
-下列计划内目标全部通过验收时，项目即告完成。其余部分不在计划内。
+下面三项安全结论按顺序全部验收之后，项目即告完成。列在“不在计划内”之下的一切都不投入工作。
 
-**计划内。** 只证安全（所有者 2026-11-11 的决定）：两项结论，按此顺序进行，然后是它们的直接组合。安全指没有未定义行为、没有内存错误、没有泄漏，并且一定终止。计划内的安全证明所依赖的功能性事实恰好在范围内；安全不需要的功能性结论不在计划内。
+**计划内：三项安全结论。** 安全指没有未定义行为、没有内存错误、没有泄漏，并且终止。第三项结论分成四个部分。
 
-| # | 结论 | 目标 |
+| # | 结论 | 必需目标 |
 | ---: | --- | --- |
-| 1 | `inflate` 对任何输入和任意缓冲区切分都安全，也包括它的调用序列。 | `inflate`，以及 `inflate_sequence` 的安全部分 |
-| 2 | `deflate` 对任何输入和任意缓冲区切分都安全，也包括它的调用序列。 | `deflateInit2_`、`deflate`、`deflate_sequence_safety` |
-| 3 | 第 1、2 项在完整缓冲区上的组合。 | `compress*`、`uncompress*` 的安全 |
-| 4 | 回调解码器对任何输入和任何调用者协议都安全，也包括它的调用序列（所有者 2026-11-12 的要求）。 | `inflate_back_sequence_safety` |
-| 5 | gzip 文件接口在一个句柄的每条调用历史上、对每个文件系统世界都安全（所有者 2026-11-12 的决定）。只证安全，不证功能正确性。 | `gzopen`、`gzopen64`、`gzdopen`、`gzbuffer`、`gzclose`、`gzclose_r`、`gzclose_w`、`gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets`、`gzdirect`、`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams`、`gzseek`、`gzseek64`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzeof`、`gzerror`、`gzclearerr`，经由 `gz_sequence_safety`；`NULL` 句柄经由 `gz_refusal`。终止：每个调用在每个世界中都终止，但 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 与 `gzungetc` 需要小于 `2^61` 的读取额度（`ReadsFinite`），即使 C 会立即返回也是如此 |
+| 1 | `inflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.inflate_safety`、`Goal.inflate_sequence_safety` |
+| 2 | `deflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.deflate_safety`、`Goal.deflate_sequence_safety` |
+| 3a | 整缓冲区函数是安全的：它们是第 1、2 项的组合。 | `Goal.compress_safety`、`Goal.compress2_safety`、`Goal.uncompress_safe`、`Goal.uncompress2_safe` 及其 `_z` 形式 |
+| 3b | 回调解码器对每个输入、每种调用者协议都安全，对它的调用序列也是如此。 | `Goal.inflateBackInit__safety`、`Goal.inflateBack_safety`、`Goal.inflateBackEnd_safety`、`Goal.inflate_back_sequence_safety`、`Goal.inflate_back_initialisation_domain` |
+| 3c | gzip 文件接口在一个句柄的每段历史上、对每个文件系统世界都安全。 | 31 个有文档的 gz 函数和 `gzvprintf` 的 32 个单函数安全目标；`Goal.gz_sequence_safety`；`Goal.gz_refusal`（`NULL` 句柄）；`Goal.gz_sequence_nonvacuity` |
+| 3d | 其余每个有文档的函数都安全：其他流调用（连同初始化、End 和 Copy）、校验和、`compressBound*`、`zlibVersion` 和 `zlibCompileFlags`。 | 它们的 42 个单函数安全目标、`Goal.inflate_refusal`、`Goal.deflate_refusal`、`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` |
 
-上述结论在证明中需要的目标，作为依赖仍在计划内。sequence 目标所涉及的其他流调用属于这种情况，例如 `inflateSync`、`inflateCopy`、`deflateCopy`、`deflateParams`、`deflatePrime` 和 `deflateSetDictionary`。`gzvprintf` 在 zlib.h 中未文档化，但 `gzprintf` 经过它，所以它随第 5 项结论一起在计划内。
+这六行包含了全部 98 个必需目标：2 + 2 + 8 + 5 + 35 + 46。这 98 个目标由 `scripts/verification.py` 根据 `tests/audit/public-api.json` 算出；每个目标的定理见[按函数查覆盖情况](coverage.md)。
 
-**不在计划内。** 不再为这些目标投入工作。已经登记的相关结果保留。
+按种类分，它们是 87 个单函数安全目标、4 个序列安全目标、3 个拒绝目标和 4 个非空性目标。在清单文件中，92 个在分组 `safety_goals` 里，4 个在 `nonvacuity_goals` 里，另外 2 个是 `compressBound` 和 `compressBound_z` 的完整契约，它们代替这两个纯函数的安全目标。
+
+关于这张表有三点说明：
+
+- 在 3c 中，每个调用在每个世界里的终止都已证明，只有 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc` 例外。这六个调用需要小于 `2^61` 的读取预算（`ReadsFinite`），即使在 C 立即返回的情形下也是如此。
+- `gzvprintf` 在 `zlib.h` 中是未文档化函数，但 `gzprintf` 要经过它，所以它随 3c 一起在计划内，它的目标 `Goal.gzvprintf_safety` 是必需的。
+- 一个功能性事实在范围内，当且仅当有计划内的证明依赖它。
+
+**每项结论的层级。** 已检查、已登记、已验收这三个层级的定义见[术语表](glossary.md#status)。定理已登记，并且验收套件在某个具名提交上全部通过，结论就是已验收的。验收套件包括公理关卡、精确目标匹配、自测和差分测试。证明变异体不属于它；它们的运行在下文单独记录。
+
+| # | 是否已登记 | 在哪个提交上已验收 |
+| ---: | --- | --- |
+| 1 | 是，两个目标都已登记 | 序列目标以及 `Goal.inflate_safety` 的早先形式：`bde170e9`。已登记、未验收：`Goal.inflate_safety` 的现行形式 |
+| 2 | 是，两个目标都已登记 | 序列目标以及 `Goal.deflate_safety` 的早先形式：`bde170e9`。已登记、未验收：`Goal.deflate_safety` 的现行形式 |
+| 3a | 是，八个都已登记 | `bde170e9` |
+| 3b | 是，五个都已登记 | 非空性目标以及序列目标的早先形式：`bde170e9`。已登记、未验收：三个单函数目标，以及序列目标的现行形式 |
+| 3c | 是，35 个都已登记 | 序列目标、拒绝目标和非空性目标：`bde170e9`。已登记、未验收：32 个单函数目标 |
+| 3d | 是，46 个都已登记 | `bde170e9`；下列目标的现行形式除外，它们已登记、未验收：四个 init 安全目标；`ZlibF/Spec/Safety/Streams.lean` 中除 `Goal.inflate_safety` 和 `Goal.deflate_safety`（第 1、2 行）之外的 21 个目标；`Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety` |
+
+“已登记、未验收”指：还没有哪次覆盖该目标现行形式的验收运行以全部通过结束。
+
+**验收运行。** 每一条是工作流 `lean` 的一次运行，内容读自该次运行的记录。
+
+- **`bde170e9`，全部通过。** 2026-11-15 的手动运行 43671067586。每个作业都通过：`build`、`no-sorry`、`audit_core`、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `audit` 和 `difftest` 两项结果。当时必需的 63 个目标都已登记。`main` 上文件树与它相同的提交 `74a2097c`，在同一天的夜间运行 43735018381 中全部通过。
+- **`3fdbbc38`，已取消：不是已验收的提交。** 2026-11-15 的手动运行 43763696005，所在提交包含全部 98 个必需目标在该提交时的形式；其中 25 个此后有改动（见下文的拒绝子句）。这次运行启动时，变异体分片还是 `audit` 的一部分；它在只剩这些分片还在运行时被取消。取消之前已经通过的有：`build`、`no-sorry`、`audit_core`、`audit_selftest` 的两个分片、`diff_core`、`diff_harness` 的全部八个分片，以及 `difftest` 这项结果。二十个变异体分片被取消，所以 `audit` 这项结果失败，整次运行记为已取消。现在组成验收套件的各部分，在这次运行中都通过了。它之所以不算数，是因为这次运行的 `audit` 结果是失败，而验收是按这项结果来读的。没有任何结论凭这次运行算作已验收。
+- **下一次运行：提交尚未指定。** <a id="next-acceptance-run"></a>在之后的某个提交上干净地运行一次验收套件，就会验收表中标为“已登记、未验收”的目标。这一行是记录它的唯一位置：提交、运行和日期。在填写之前，这些目标保持已登记。
+
+差分测试是忠实度的证据，不是证明。
+
+**证明变异体的运行。** 证明变异体是额外的证据。它们只按需运行，不构成任何关卡，连同提交在这里报告，与验收分开。
+
+- **`bde170e9`，全部通过。** 运行 43671067586 的全部二十个变异体分片都通过。夜间运行 43735018381 的二十个分片也都通过，它所在的 `74a2097c` 是 `main` 上文件树相同的提交。
+- **在更晚的提交上，还没有结束的变异体运行。** `3fdbbc38` 上那次运行的分片被取消了。`bde170e9` 之后登记的 35 个目标的变异体行是存在的（`tests/audit/public-mutants.json`），审计在 `3fdbbc38` 上检查过这一点；还没有哪次结束的运行执行过它们。
+
+从 `bde170e9` 到本页之间，有以下改动：
+
+- **每个 gz 函数和每个回调解码器函数都有了自己的安全目标。** 新增 35 个目标：31 个有文档的 gz 函数各一个，`gzvprintf` 一个，`inflateBackInit_`、`inflateBack` 和 `inflateBackEnd` 各一个（`ZlibF/Spec/Safety/GzCalls.lean`、`ZlibF/Spec/Safety/Back.lean`；证明在 `ZlibF/Proof/public-gz-call-safety.lean` 和 `ZlibF/Proof/public-back-safety.lean`）。它们在提交 `0cdd7bdd` 中登记：`tests/audit/` 下的登记表增加了这 35 个目标和它们的 35 条定理，清单文件为每个函数写明它自己的目标，`scripts/verification.py` 不再允许几个函数共用一个安全目标。必需目标从 63 个增加到 98 个。此前，gz 函数写的是 `Goal.gz_sequence_safety`，三个回调函数写的是 `Goal.inflate_back_sequence_safety`。这 35 个目标已登记、未验收：快速关卡在 `3fdbbc38` 上全部通过。
+- **回调解码器的历史扩大了范围。** 历史的第一步（`BackSafeReachable.init`）不再要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`（提交 `874a9398`，`ZlibF/Spec/Common/Sequences.lean` 中的 `BackInitArguments`）。因此 `Goal.inflate_back_sequence_safety` 覆盖的历史比它在 `bde170e9` 上覆盖的多。这一形式已登记、未验收。
+
+- **四个初始化安全目标扩大了范围。** `Goal.inflateInit__safety`、`Goal.inflateInit2__safety`、`Goal.deflateInit__safety` 和 `Goal.deflateInit2__safety` 对 `zlib.h` 允许的每次调用都成立（提交 `101c6ab3`，`ZlibF/Spec/Safety/Initialisation.lean`；证明在 `8642e435`，`ZlibF/Proof/public-init-safety.lean`）。此前它们要求记录的 `state` 为 `NULL`、版本相符、`stream_size` 相符。范围扩大之后的四个目标已检查、已登记，尚未验收：快速关卡在 `8642e435` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是较窄的形式。
+- **流安全目标陈述了对 `NULL` 流或不一致的流的拒绝。** `ZlibF/Spec/Safety/Streams.lean` 中的 23 个单函数流安全目标各增加了一个拒绝子句：十个 inflate 目标和十三个 deflate 目标，其中包括 `Goal.inflate_safety`、`Goal.deflate_safety`、`Goal.inflateEnd_safety` 和 `Goal.deflateEnd_safety`。两个复制目标 `Goal.inflateCopy_safety` 和 `Goal.deflateCopy_safety`（`ZlibF/Spec/Safety/Copy.lean`）陈述了对每一个被拒绝的源的拒绝（提交 `71188823`；证明在 `0c45d863`，`ZlibF/Proof/public-stream-call-safety.lean`、`ZlibF/Proof/public-inflate-copy-safety.lean` 和 `ZlibF/Proof/public-deflate-copy.lean`）。此前，流目标只覆盖对可达流的调用；`Goal.inflateCopy_safety` 没有针对不一致的源的子句，`Goal.deflateCopy_safety` 的那个子句只覆盖 `zalloc`、`zfree` 或 `state` 为 `NULL` 的源。每个目标的现行形式都蕴含它的早先形式（`ZlibF/Proof/public-stream-refusal-strengthening.lean`）。目标及其定理的名字没有变，所以登记表没有变。现行形式的这 25 个目标已检查、已登记，尚未验收：快速关卡在 `2ef5694c` 上全部通过，但还没有哪次验收运行覆盖了包含它们的提交。它们在 `bde170e9` 上已验收的只是早先的形式。
+- **不是必需目标的命题有改动。** 快速解码器的规格允许输入和输出位于任意字节视图中，而不只是堆块中（提交 `4ed7315e`；这些模块现在是 `ZlibF/Spec/Common/Inflate/` 和 `ZlibF/Spec/Functional/Inflate/` 下的 `InflateFast*.lean`）；有一个回归文件从现行命题推出每个早先的命题（`tests/verification/regressions/inffast-byte-views-old-from-new.lean`）。两个功能定义有改动：`WrapperLength`（提交 `ac0fccc5`）和 `DeflateCompletes`（提交 `a2cf8723`）。这些命题中已登记的目标，其现行形式同样还没有结束的验收运行。
+- **功能方面工作的证明模块有改动。** 关于 `inflate` 输出含义的模块（`ZlibF/Proof/inflate.c.meaning*.lean`）有新增和修改。其中没有任何定理被登记。
+
+`goals.txt`、`proved-goals.txt` 和 `theorems.txt` 这三份列表的改动只有第一条所说的 35 个目标和 35 条定理；`public-mutants.json` 增加了这 35 个目标的键。全部改动就是 `bde170e9` 与本提交之间在 `ZlibF/Spec/`、`tests/audit/` 和 `scripts/` 下的差异。
+
+**未完成。** 安全结论所需要的东西没有缺口。每个必需目标都已登记。剩下的是表中标为“已登记、未验收”的目标的验收（[按顺序的下一步工作](#ordered-next-work)）。
+
+**安全结论之后的计划：默认 zlib 流的往返。** 默认流指默认压缩级别的 `deflateInit` 配上 `inflateInit`。顺序是：先证条件形式（当一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节）；再证完备性（输出空间足够且分配成功时，两边都到达 `Z_STREAM_END`）；最后是无条件的往返，以及 `uncompress(compress(x)) = x`。条件形式已在 `dev` 上对翻译后的 C 检查：定理 `deflate_inflate_roundtrip`（`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`），它没有登记。完备性和无条件形式未证明。已登记的目标 `Api.Goal.roundtrip` 是仅关于模型的命题：它说的是抽象 API 模型。先前在往返的 deflate 一侧所做的工作（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分）保留着；默认流的往返需要其中哪些，本页不作定论。
+
+**不在计划内。** 这些不投入任何工作。已经为它们登记的结果保留。
 
 | 分组 | 目标 | 原因 |
 | --- | --- | --- |
-| gzip 文件接口的功能部分 | `gz_sequence`、`gz_initialisation_domain`，以及各 gz 调用的功能条款（读出或写入的字节、安全之外的返回值） | 功能性。这些定理依赖一个人工建立的文件系统、描述符和 `printf` 格式化模型。gz 调用的安全在计划内（第 5 项）。 |
-| 未文档化函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w` | zlib.h 把它们声明在 `/* undocumented functions (not part of the zlib API) */` 之下（`tests/audit/public-api.json` 的 `undocumented`）。它们不是必需的公开目标，直接调用其中之一也不是序列目标必需的操作；deflate 流定义域排除直接调用 `deflateResetKeep`（`docs/deviations.md`）。已登记的证明继续登记并接受审计。`gzvprintf` 已移入第 5 项（2026-11-12）。内部用法不变：`deflateReset` 和 `inflateReset` 经过 `ResetKeep` 引理。 |
-| 回调解码器的解码部分 | `inflateBack` 与 `inflate_back_sequence` 的解码条款（交给 `out` 的内容、`Decodes`） | 功能性。回调解码器的安全在计划内（第 4 项）。 |
-| 仅关于模型的陈述 | `Api.Goal.inflate_rejects_invalid`，以及未登记的 `*_refines` 目标 | 它们说的是抽象模型，不是 C 代码。前者还依赖八字节的检测延迟，而该延迟已被反例否定。对非法输入的拒绝已在第 2 项结论中针对 C 代码陈述。 |
-| 其他构建配置 | 默认 x86_64 Linux 构建之外的所有配置 | 每一种配置都要针对不同的平台模型重做整个证明。结论由默认构建承载。 |
-| 为查询函数增加证明变异体 | 取值函数和常量查询 | 变异体用来防止证明的设置有误。对只有一行的查询函数，它们不会为计划内的结论增加任何内容。 |
-| 功能正确性 | `inflate_sequence` 的格式部分（`inflate` 的输出等于格式：`ParseMeaning` 及其流侧与解码侧），`InflateCompletes` 背后的 `DecoderFacts` 格式事实与 `uncompress*` 的格式条款，以及 deflate 的往返（`Ledger`、`ledger_*`、`completes`、`bound_before_output`、`deflate_sequence` 的解码部分） | 所有者 2026-11-11 的决定，为了更快完成。计划内的安全证明所依赖的功能性事实仍在范围内。已经证明的部分保留并列为已检查；未完成的行在[核心证明骨架](#core-proof-skeletons)中标为不在计划内。 |
+| gzip 文件接口的功能部分 | `gz_sequence`、`gz_initialisation_domain`，以及各 gz 调用的功能子句（读出或写入的字节、安全之外的返回值） | 功能性。这些定理依赖一个人工建立的文件系统、描述符和 `printf` 格式化模型。gz 调用的安全性在计划内（3c）。 |
+| 未文档化函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w` | `zlib.h` 在 `undocumented functions (not part of the zlib API)` 之下声明了十个函数（`tests/audit/public-api.json` 的 `undocumented`），这是其中九个；第十个 `gzvprintf` 随 3c 在计划内。它们不是必需的公开目标，直接调用其中某一个也不是序列目标必需的操作；deflate 流的定义域排除了对 `deflateResetKeep` 的直接调用（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)）。它们已登记的证明保持登记并接受审计。内部用法不变：`deflateReset` 和 `inflateReset` 要经过 `ResetKeep` 的引理。 |
+| 回调解码器的解码部分 | `inflateBack` 与 `inflate_back_sequence` 的解码子句（交给 `out` 的内容、`Decodes`） | 功能性。回调解码器的安全性在计划内（3b）。 |
+| 仅关于模型的命题 | `Api.Goal.inflate_rejects_invalid`，以及未登记的 `*_refines` 目标 | 它们说的是抽象模型，不是 C。前者还依赖八字节的检测延迟，而这个延迟已被反例否定。对非法输入的拒绝，是在 `inflate_sequence` 的格式部分中针对 C 陈述的（见下面“功能正确性”一行）。 |
+| 其他构建配置 | 默认 x86_64 Linux 构建之外的每一种配置 | 每一种配置都要针对不同的平台模型把整个证明重做一遍。结论由默认构建承载。 |
+| 为查询函数增加证明变异体 | 取值函数和常量查询 | 变异体用来防备证明的设置有误。对只有一行的查询函数，它们不会给计划内的结论增加任何东西。 |
+| 功能正确性（上面的往返除外） | `inflate_sequence` 的格式部分（`inflate` 的输出等于格式：`ParseMeaning` 及其流侧与解码侧）、`InflateCompletes` 背后的 `DecoderFacts` 格式事实，以及 `uncompress*` 的格式子句；其他压缩级别、策略、窗口大小和封装的往返，带预设字典的往返，经由 gzip 文件接口或 `inflateBack` 的往返 | 安全结论不需要它们。计划内的证明所依赖的功能性事实仍在范围内。已经证明的部分保留，并列为已检查；归档的骨架表把未完成的行标为不在计划内（[inflate](history/skeleton-inflate.md)、[deflate](history/skeleton-deflate.md)）。 |
 
-`Goal.gz_initialisation_domain` 不是必需的非空性目标（所有者 2026-11-14 批准）。它陈述的是 `gzopen` 的功能契约
-（`OpenState`、`GzReachable`），上表 gzip 一行已列为不在计划内。没有计划内的安全证明依赖它：`Goal.gz_sequence_safety`
-从打开调用开始每段历史，并沿历史证明 `GzInv`；在已登记的 gz 安全定理（`gz_sequence_safety_public`、
-`gz_sequence_nonvacuity_public`、`gz_refusal`）的导入闭包中，该目标只出现在它自己的定义里，`GzReachable` 从不作为前提。
-gz 安全目标的前提可以满足，由已登记的 `Goal.gz_sequence_nonvacuity` 给出。该陈述仍留在 `tests/audit/goals.txt` 中，
-作为未证明、不在计划内的目标。
+`Goal.gz_initialisation_domain` 不是必需的非空性目标。它陈述的是 `gzopen` 的功能契约（`OpenState`、`GzReachable`），上表第一行已把它列为不在计划内。没有计划内的安全证明依赖它：`Goal.gz_sequence_safety` 让每段历史从打开调用开始，并沿着历史证明 `GzInv`。在已登记的 gz 安全定理（`gz_sequence_safety_public`、`gz_sequence_nonvacuity_public`、`gz_refusal`）的导入闭包中，这个目标只出现在它自己的定义里，`GzReachable` 从不充当前提。gz 安全目标的前提可以被满足，这一点由已登记的 `Goal.gz_sequence_nonvacuity` 给出。这个命题仍留在 `tests/audit/goals.txt` 中，是一个未证明、不在计划内的目标。
 
-不在计划内的目标不作任何声明。报告中写"不在计划内"，绝不写"已证明"。
+对不在计划内的目标不作任何断言。报告里写“不在计划内”，决不写“已证明”。
+
+**所有者的决定。** 这张表是带日期的记录；其他页面只陈述结果，不写日期。
+
+| 日期 | 决定 |
+| --- | --- |
+| 2026-11-11 | 范围只限安全，以便更快完成。在此之前，`inflate` 的功能正确性是第 2 项结论。 |
+| 2026-11-12 | 回调解码器（3b）和 gzip 文件接口（3c）在计划内，只证安全。`gzvprintf` 从未文档化函数一组移到 3c。补丁 0004 和 0005 可以先于上游提交落地。 |
+| 2026-11-14 | `Goal.gz_initialisation_domain` 不是必需目标。 |
+| 2026-11-15 | 默认 zlib 流的往返（含完备性）排在安全结论之后，在计划内。翻译的四种规范化写法被采纳（`AGENTS.md` 的“翻译”一节，原文标题为 Translation）。证明变异体是额外的证据，不再属于验收：完整运行一次需要几个小时。它们按需运行，不构成合并、验收或里程碑的关卡。状态只保存在本页：其他页面不写层级、验收所在的提交或目标的个数。 |
 
 ## 目录
 
@@ -59,8 +114,8 @@ gz 安全目标的前提可以满足，由已登记的 `Goal.gz_sequence_nonvacu
 <!-- proof-progress:start -->
 ## 证明进度图
 
-**共有 239 个固定目标：161 个公开目标，78 个支撑目标。**
-精确覆盖相应目标的证明中，193 个已登记，1 个仅在本地检查。
+**共有 274 个固定目标：196 个公开目标，78 个支撑目标。**
+精确覆盖相应目标的证明中，228 个已登记，1 个仅在本地检查。
 这些数字按目标计数，不表示验证工作量的完成百分比，也不代表最终 CI 结果。
 
 **输入覆盖范围的颜色：** ⬜ 未证明 · 🟦 默认输入 · 🟨 常见输入 · 🟩 目标陈述所允许的全部输入。
@@ -256,6 +311,9 @@ flowchart LR
     n36["inflateBackInit_"]:::all
     n37["inflateBack"]:::unproved
     n38["inflateBackEnd"]:::all
+    n271["inflateBack_safety"]:::all
+    n272["inflateBackEnd_safety"]:::all
+    n273["inflateBackInit__safety"]:::all
   end
   style back fill:#f9fafb,stroke:#9ca3af,color:#111827
   subgraph gzip["Gzip files"]
@@ -294,6 +352,38 @@ flowchart LR
     n131["gz_sequence_safety"]:::all
     n132["gz_refusal"]:::all
     n179["gz_sequence_nonvacuity"]:::all
+    n239["gzbuffer_safety"]:::all
+    n240["gzclearerr_safety"]:::all
+    n241["gzclose_safety"]:::all
+    n242["gzclose_r_safety"]:::all
+    n243["gzclose_w_safety"]:::all
+    n244["gzdirect_safety"]:::all
+    n245["gzdopen_safety"]:::all
+    n246["gzeof_safety"]:::all
+    n247["gzerror_safety"]:::all
+    n248["gzflush_safety"]:::all
+    n249["gzfread_safety"]:::all
+    n250["gzfwrite_safety"]:::all
+    n251["gzgetc_safety"]:::all
+    n252["gzgetc__safety"]:::all
+    n253["gzgets_safety"]:::all
+    n254["gzoffset_safety"]:::all
+    n255["gzoffset64_safety"]:::all
+    n256["gzopen_safety"]:::all
+    n257["gzopen64_safety"]:::all
+    n258["gzprintf_safety"]:::all
+    n259["gzvprintf_safety"]:::all
+    n260["gzputc_safety"]:::all
+    n261["gzputs_safety"]:::all
+    n262["gzread_safety"]:::all
+    n263["gzrewind_safety"]:::all
+    n264["gzseek_safety"]:::all
+    n265["gzseek64_safety"]:::all
+    n266["gzsetparams_safety"]:::all
+    n267["gztell_safety"]:::all
+    n268["gztell64_safety"]:::all
+    n269["gzungetc_safety"]:::all
+    n270["gzwrite_safety"]:::all
   end
   style gzip fill:#f9fafb,stroke:#9ca3af,color:#111827
   subgraph buffers["Whole-buffer operations"]
@@ -454,6 +544,15 @@ flowchart LR
   n84 --> n131
   n75 --> n158
   n158 --> n159
+  n95 --> n150
+  n98 --> n153
+  n97 --> n147
+  n96 --> n151
+  n130 --> n128
+  n130 --> n144
+  n130 --> n146
+  n130 --> n143
+  n130 --> n142
   n125 --> n148
   n125 --> n149
   n125 --> n155
@@ -467,6 +566,38 @@ flowchart LR
   n125 --> n147
   n125 --> n151
   n125 --> n142
+  n131 --> n239
+  n131 --> n240
+  n131 --> n242
+  n131 --> n241
+  n131 --> n243
+  n131 --> n244
+  n131 --> n245
+  n131 --> n246
+  n131 --> n247
+  n131 --> n248
+  n131 --> n249
+  n131 --> n250
+  n131 --> n252
+  n131 --> n251
+  n131 --> n253
+  n131 --> n255
+  n131 --> n254
+  n131 --> n257
+  n131 --> n256
+  n131 --> n258
+  n131 --> n260
+  n131 --> n261
+  n131 --> n262
+  n131 --> n263
+  n131 --> n265
+  n131 --> n264
+  n131 --> n266
+  n131 --> n268
+  n131 --> n267
+  n131 --> n269
+  n131 --> n259
+  n131 --> n270
   n45 --> n131
   n99 --> n131
   n99 --> n115
@@ -474,6 +605,7 @@ flowchart LR
   n99 --> n117
   n99 --> n116
   n38 --> n127
+  n36 --> n273
   n36 --> n177
   n36 --> n127
   n39 --> n160
@@ -483,7 +615,18 @@ flowchart LR
   n73 --> n156
   n73 --> n123
   n156 --> n157
+  n90 --> n140
+  n94 --> n139
   n87 --> n123
+  n127 --> n272
+  n127 --> n271
+  n129 --> n160
+  n129 --> n154
+  n129 --> n135
+  n129 --> n138
+  n129 --> n137
+  n129 --> n134
+  n129 --> n133
   n123 --> n154
   n123 --> n135
   n123 --> n141
@@ -573,245 +716,280 @@ flowchart LR
   n23 -.-> n100
   n23 -.-> n75
   n21 -.-> n106
-  click n0 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L42" _blank
-  click n1 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L47" _blank
-  click n2 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L58" _blank
-  click n3 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L69" _blank
-  click n4 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L84" _blank
-  click n5 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L99" _blank
-  click n6 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L106" _blank
-  click n7 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L116" _blank
-  click n8 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L134" _blank
-  click n9 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L143" _blank
-  click n10 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L162" _blank
-  click n11 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L180" _blank
-  click n12 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L189" _blank
-  click n13 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L196" _blank
-  click n14 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L203" _blank
-  click n15 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L214" _blank
-  click n16 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Goals.lean#L221" _blank
-  click n17 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Concrete.lean#L57" _blank
-  click n18 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Concrete.lean#L67" _blank
-  click n19 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Queries.lean#L16" _blank
-  click n20 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Queries.lean#L21" _blank
-  click n21 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Queries.lean#L27" _blank
-  click n22 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Queries.lean#L34" _blank
-  click n23 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Queries.lean#L40" _blank
-  click n24 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L41" _blank
-  click n25 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L36" _blank
-  click n26 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L61" _blank
-  click n27 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L65" _blank
-  click n28 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L92" _blank
-  click n29 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L84" _blank
-  click n30 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L101" _blank
-  click n31 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L115" _blank
-  click n32 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L118" _blank
-  click n33 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L125" _blank
-  click n34 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L137" _blank
-  click n35 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Checksums.lean#L140" _blank
-  click n36 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Back.lean#L22" _blank
-  click n37 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Back.lean#L118" _blank
-  click n38 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Back.lean#L145" _blank
-  click n39 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Copy.lean#L16" _blank
-  click n40 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Copy.lean#L46" _blank
-  click n41 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzClose.lean#L35" _blank
-  click n42 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzClose.lean#L40" _blank
-  click n43 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzClose.lean#L44" _blank
-  click n44 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L12" _blank
-  click n45 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L22" _blank
-  click n46 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L36" _blank
-  click n47 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L39" _blank
-  click n48 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L53" _blank
-  click n49 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L56" _blank
-  click n50 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L63" _blank
-  click n51 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L74" _blank
-  click n52 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L91" _blank
-  click n53 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L116" _blank
-  click n54 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzControl.lean#L119" _blank
-  click n55 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzOpen.lean#L65" _blank
-  click n56 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzOpen.lean#L70" _blank
-  click n57 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzOpen.lean#L75" _blank
-  click n58 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRead.lean#L22" _blank
-  click n59 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRead.lean#L37" _blank
-  click n60 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRead.lean#L58" _blank
-  click n61 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRead.lean#L61" _blank
-  click n62 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRead.lean#L66" _blank
-  click n63 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRead.lean#L80" _blank
-  click n64 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRead.lean#L103" _blank
-  click n65 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L28" _blank
-  click n66 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L43" _blank
-  click n67 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L59" _blank
-  click n68 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L71" _blank
-  click n69 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L108" _blank
-  click n70 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L112" _blank
-  click n71 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L117" _blank
-  click n72 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzWrite.lean#L134" _blank
-  click n73 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Initialisation.lean#L15" _blank
-  click n74 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Initialisation.lean#L20" _blank
-  click n75 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Initialisation.lean#L25" _blank
-  click n76 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Initialisation.lean#L32" _blank
-  click n77 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L16" _blank
-  click n78 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L23" _blank
-  click n79 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L34" _blank
-  click n80 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L51" _blank
-  click n81 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L61" _blank
-  click n82 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L71" _blank
-  click n83 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L82" _blank
-  click n84 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L92" _blank
-  click n85 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L102" _blank
-  click n86 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L105" _blank
-  click n87 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L109" _blank
-  click n88 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Lifecycle.lean#L131" _blank
-  click n89 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L15" _blank
-  click n90 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L24" _blank
-  click n91 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L35" _blank
-  click n92 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L43" _blank
-  click n93 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L51" _blank
-  click n94 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L62" _blank
-  click n95 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L75" _blank
-  click n96 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L86" _blank
-  click n97 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L94" _blank
-  click n98 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/StreamQueries.lean#L107" _blank
-  click n99 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Streams.lean#L28" _blank
-  click n100 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Streams.lean#L68" _blank
-  click n101 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Streams.lean#L105" _blank
-  click n102 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Streams.lean#L109" _blank
-  click n103 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Streams.lean#L114" _blank
-  click n104 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Streams.lean#L132" _blank
-  click n105 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Streams.lean#L151" _blank
-  click n106 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L43" _blank
-  click n107 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L48" _blank
-  click n108 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L55" _blank
-  click n109 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L60" _blank
-  click n110 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L101" _blank
-  click n111 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L105" _blank
-  click n112 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L133" _blank
-  click n113 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Utilities.lean#L137" _blank
-  click n114 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L34" _blank
-  click n115 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L37" _blank
-  click n116 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L40" _blank
-  click n117 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L43" _blank
-  click n118 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L14" _blank
-  click n119 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L18" _blank
-  click n120 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L24" _blank
-  click n121 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Utilities.lean#L28" _blank
-  click n122 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Sequences.lean#L152" _blank
-  click n123 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Sequences.lean#L28" _blank
-  click n124 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Sequences.lean#L172" _blank
-  click n125 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Sequences.lean#L19" _blank
-  click n126 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Sequences.lean#L164" _blank
-  click n127 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Sequences.lean#L185" _blank
-  click n128 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Copy.lean#L24" _blank
-  click n129 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Refusals.lean#L25" _blank
-  click n130 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Refusals.lean#L45" _blank
-  click n131 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzSafety.lean#L144" _blank
-  click n132 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzRefusal.lean#L39" _blank
-  click n133 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L45" _blank
-  click n134 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L53" _blank
-  click n135 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L61" _blank
-  click n136 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L69" _blank
-  click n137 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L77" _blank
-  click n138 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L85" _blank
-  click n139 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L93" _blank
-  click n140 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L101" _blank
-  click n141 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L109" _blank
-  click n142 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L117" _blank
-  click n143 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L125" _blank
-  click n144 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L133" _blank
-  click n145 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L141" _blank
-  click n146 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L149" _blank
-  click n147 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L157" _blank
-  click n148 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L165" _blank
-  click n149 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L173" _blank
-  click n150 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L181" _blank
-  click n151 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L189" _blank
-  click n152 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L197" _blank
-  click n153 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L205" _blank
-  click n154 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L214" _blank
-  click n155 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Streams.lean#L226" _blank
-  click n156 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Initialisation.lean#L34" _blank
-  click n157 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Initialisation.lean#L42" _blank
-  click n158 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Initialisation.lean#L52" _blank
-  click n159 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Initialisation.lean#L60" _blank
-  click n160 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Copy.lean#L57" _blank
-  click n161 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L20" _blank
-  click n162 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L27" _blank
-  click n163 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L35" _blank
-  click n164 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L41" _blank
-  click n165 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L48" _blank
-  click n166 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L55" _blank
-  click n167 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L62" _blank
-  click n168 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L68" _blank
-  click n169 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L75" _blank
-  click n170 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L83" _blank
-  click n171 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Checksums.lean#L89" _blank
-  click n172 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Queries.lean#L18" _blank
-  click n173 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Queries.lean#L23" _blank
-  click n174 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Sequences.lean#L214" _blank
-  click n175 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Domains.lean#L15" _blank
-  click n176 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Safety/Domains.lean#L28" _blank
-  click n177 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Domains.lean#L24" _blank
-  click n178 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/Domains.lean#L50" _blank
-  click n179 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Public/GzSafety.lean#L179" _blank
-  click n180 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Api/Inflate.lean#L267" _blank
-  click n181 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L39" _blank
-  click n182 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L43" _blank
-  click n183 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L50" _blank
-  click n184 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L57" _blank
-  click n185 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L65" _blank
-  click n186 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L70" _blank
-  click n187 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L77" _blank
-  click n188 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L83" _blank
-  click n189 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/ByteAddress.lean#L87" _blank
-  click n190 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Crc32ByteViews.lean#L17" _blank
-  click n191 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Crc32ByteViews.lean#L28" _blank
-  click n192 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastBodyOrigin.lean#L18" _blank
-  click n193 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastBodyToken.lean#L73" _blank
-  click n194 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastCallOrigin.lean#L24" _blank
-  click n195 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastDistanceOrigin.lean#L18" _blank
-  click n196 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastDistanceResult.lean#L101" _blank
-  click n197 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastDistanceSemantics.lean#L20" _blank
-  click n198 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFast.lean#L70" _blank
-  click n199 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFast.lean#L42" _blank
-  click n200 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastLengthSemantics.lean#L34" _blank
-  click n201 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastLengthTrace.lean#L51" _blank
-  click n202 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastMatchHistory.lean#L39" _blank
-  click n203 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastMatchHistory.lean#L25" _blank
-  click n204 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastOrigin.lean#L68" _blank
-  click n205 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastOrigin.lean#L57" _blank
-  click n206 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastOrigin.lean#L81" _blank
-  click n207 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastOrigin.lean#L38" _blank
-  click n208 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastOrigin.lean#L27" _blank
-  click n209 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastOrigin.lean#L32" _blank
-  click n210 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastOrigin.lean#L46" _blank
-  click n211 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableRejection.lean#L19" _blank
-  click n212 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableSemantics.lean#L51" _blank
-  click n213 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableShort.lean#L26" _blank
-  click n214 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableSoundness.lean#L31" _blank
-  click n215 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableFrame.lean#L20" _blank
-  click n216 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableInvariant.lean#L51" _blank
-  click n217 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableInvariant.lean#L68" _blank
-  click n218 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableStability.lean#L30" _blank
-  click n219 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableStability.lean#L43" _blank
-  click n220 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateDecodeTableStability.lean#L54" _blank
-  click n221 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastTableFlags.lean#L52" _blank
-  click n222 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastTableFlags.lean#L66" _blank
-  click n223 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastTableFlags.lean#L76" _blank
-  click n224 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateFastTableFlags.lean#L42" _blank
-  click n225 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateTableContent.lean#L32" _blank
-  click n226 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateTableSafety.lean#L28" _blank
-  click n227 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateTableExtent.lean#L28" _blank
-  click n228 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateRootTable.lean#L21" _blank
-  click n229 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/InflateSubtable.lean#L26" _blank
-  click n230 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Math/LZ77CopySpec.lean#L22" _blank
-  click n231 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Math/LZ77CopySpec.lean#L32" _blank
-  click n232 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Math/LZ77HistorySpec.lean#L21" _blank
-  click n233 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Math/LZ77HistorySpec.lean#L15" _blank
-  click n234 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Math/LZ77HistorySpec.lean#L29" _blank
-  click n235 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Math/LZ77HistorySpec.lean#L39" _blank
-  click n236 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Format/Token.lean#L84" _blank
-  click n237 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Format/Token.lean#L62" _blank
-  click n238 href "https://github.com/cla7aye15I4nd/zlib-f/blob/595ffeb7b42f/ZlibF/Spec/Functional/Format/Token.lean#L73" _blank
+  click n0 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L42" _blank
+  click n1 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L47" _blank
+  click n2 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L58" _blank
+  click n3 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L69" _blank
+  click n4 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L84" _blank
+  click n5 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L99" _blank
+  click n6 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L106" _blank
+  click n7 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L116" _blank
+  click n8 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L134" _blank
+  click n9 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L143" _blank
+  click n10 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L162" _blank
+  click n11 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L180" _blank
+  click n12 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L189" _blank
+  click n13 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L196" _blank
+  click n14 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L203" _blank
+  click n15 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L214" _blank
+  click n16 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Goals.lean#L221" _blank
+  click n17 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Concrete.lean#L57" _blank
+  click n18 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Concrete.lean#L67" _blank
+  click n19 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Queries.lean#L16" _blank
+  click n20 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Queries.lean#L21" _blank
+  click n21 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Queries.lean#L27" _blank
+  click n22 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Queries.lean#L34" _blank
+  click n23 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Queries.lean#L40" _blank
+  click n24 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L41" _blank
+  click n25 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L36" _blank
+  click n26 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L62" _blank
+  click n27 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L66" _blank
+  click n28 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L93" _blank
+  click n29 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L85" _blank
+  click n30 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L102" _blank
+  click n31 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L116" _blank
+  click n32 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L119" _blank
+  click n33 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L126" _blank
+  click n34 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L138" _blank
+  click n35 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Checksums.lean#L141" _blank
+  click n36 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Back.lean#L48" _blank
+  click n37 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Back.lean#L19" _blank
+  click n38 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Back.lean#L73" _blank
+  click n39 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Copy.lean#L16" _blank
+  click n40 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Copy.lean#L46" _blank
+  click n41 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzClose.lean#L35" _blank
+  click n42 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzClose.lean#L40" _blank
+  click n43 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzClose.lean#L44" _blank
+  click n44 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L9" _blank
+  click n45 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L19" _blank
+  click n46 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L33" _blank
+  click n47 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L36" _blank
+  click n48 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L50" _blank
+  click n49 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L53" _blank
+  click n50 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L60" _blank
+  click n51 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L71" _blank
+  click n52 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L88" _blank
+  click n53 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L113" _blank
+  click n54 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzControl.lean#L116" _blank
+  click n55 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzOpen.lean#L65" _blank
+  click n56 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzOpen.lean#L70" _blank
+  click n57 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzOpen.lean#L75" _blank
+  click n58 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzRead.lean#L22" _blank
+  click n59 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzRead.lean#L37" _blank
+  click n60 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzRead.lean#L58" _blank
+  click n61 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzRead.lean#L61" _blank
+  click n62 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzRead.lean#L66" _blank
+  click n63 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzRead.lean#L80" _blank
+  click n64 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzRead.lean#L103" _blank
+  click n65 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L28" _blank
+  click n66 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L43" _blank
+  click n67 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L59" _blank
+  click n68 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L71" _blank
+  click n69 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L108" _blank
+  click n70 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L112" _blank
+  click n71 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L117" _blank
+  click n72 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzWrite.lean#L134" _blank
+  click n73 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Initialisation.lean#L15" _blank
+  click n74 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Initialisation.lean#L20" _blank
+  click n75 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Initialisation.lean#L25" _blank
+  click n76 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Initialisation.lean#L32" _blank
+  click n77 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L16" _blank
+  click n78 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L23" _blank
+  click n79 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L34" _blank
+  click n80 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L51" _blank
+  click n81 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L61" _blank
+  click n82 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L71" _blank
+  click n83 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L82" _blank
+  click n84 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L92" _blank
+  click n85 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L102" _blank
+  click n86 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L105" _blank
+  click n87 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L109" _blank
+  click n88 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Lifecycle.lean#L131" _blank
+  click n89 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L15" _blank
+  click n90 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L24" _blank
+  click n91 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L35" _blank
+  click n92 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L43" _blank
+  click n93 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L51" _blank
+  click n94 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L62" _blank
+  click n95 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L75" _blank
+  click n96 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L86" _blank
+  click n97 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L94" _blank
+  click n98 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/StreamQueries.lean#L107" _blank
+  click n99 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Streams.lean#L28" _blank
+  click n100 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Streams.lean#L68" _blank
+  click n101 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Streams.lean#L105" _blank
+  click n102 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Streams.lean#L109" _blank
+  click n103 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Streams.lean#L114" _blank
+  click n104 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Streams.lean#L132" _blank
+  click n105 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Streams.lean#L151" _blank
+  click n106 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L43" _blank
+  click n107 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L48" _blank
+  click n108 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L55" _blank
+  click n109 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L60" _blank
+  click n110 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L101" _blank
+  click n111 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L105" _blank
+  click n112 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L133" _blank
+  click n113 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Utilities.lean#L137" _blank
+  click n114 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L34" _blank
+  click n115 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L37" _blank
+  click n116 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L40" _blank
+  click n117 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L43" _blank
+  click n118 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L14" _blank
+  click n119 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L18" _blank
+  click n120 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L24" _blank
+  click n121 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Utilities.lean#L28" _blank
+  click n122 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Sequences.lean#L173" _blank
+  click n123 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Sequences.lean#L28" _blank
+  click n124 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Sequences.lean#L193" _blank
+  click n125 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Sequences.lean#L19" _blank
+  click n126 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Sequences.lean#L230" _blank
+  click n127 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Sequences.lean#L42" _blank
+  click n128 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Copy.lean#L24" _blank
+  click n129 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Refusals.lean#L30" _blank
+  click n130 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Refusals.lean#L50" _blank
+  click n131 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzSafety.lean#L144" _blank
+  click n132 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzRefusal.lean#L39" _blank
+  click n133 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L48" _blank
+  click n134 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L60" _blank
+  click n135 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L71" _blank
+  click n136 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L84" _blank
+  click n137 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L96" _blank
+  click n138 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L106" _blank
+  click n139 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L117" _blank
+  click n140 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L128" _blank
+  click n141 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L138" _blank
+  click n142 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L149" _blank
+  click n143 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L160" _blank
+  click n144 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L171" _blank
+  click n145 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L183" _blank
+  click n146 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L193" _blank
+  click n147 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L204" _blank
+  click n148 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L217" _blank
+  click n149 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L229" _blank
+  click n150 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L240" _blank
+  click n151 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L252" _blank
+  click n152 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L263" _blank
+  click n153 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L274" _blank
+  click n154 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L286" _blank
+  click n155 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Streams.lean#L300" _blank
+  click n156 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Initialisation.lean#L52" _blank
+  click n157 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Initialisation.lean#L60" _blank
+  click n158 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Initialisation.lean#L70" _blank
+  click n159 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Initialisation.lean#L78" _blank
+  click n160 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Copy.lean#L58" _blank
+  click n161 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L20" _blank
+  click n162 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L27" _blank
+  click n163 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L35" _blank
+  click n164 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L41" _blank
+  click n165 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L48" _blank
+  click n166 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L55" _blank
+  click n167 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L62" _blank
+  click n168 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L68" _blank
+  click n169 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L75" _blank
+  click n170 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L83" _blank
+  click n171 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Checksums.lean#L89" _blank
+  click n172 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Queries.lean#L18" _blank
+  click n173 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Queries.lean#L23" _blank
+  click n174 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzSequence.lean#L48" _blank
+  click n175 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Domains.lean#L15" _blank
+  click n176 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Domains.lean#L28" _blank
+  click n177 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Domains.lean#L44" _blank
+  click n178 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/GzSequence.lean#L28" _blank
+  click n179 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzSafety.lean#L179" _blank
+  click n180 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Api/Inflate.lean#L267" _blank
+  click n181 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L39" _blank
+  click n182 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L43" _blank
+  click n183 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L50" _blank
+  click n184 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L57" _blank
+  click n185 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L65" _blank
+  click n186 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L70" _blank
+  click n187 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L77" _blank
+  click n188 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L83" _blank
+  click n189 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/ByteAddress.lean#L87" _blank
+  click n190 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Crc32ByteViews.lean#L18" _blank
+  click n191 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Crc32ByteViews.lean#L29" _blank
+  click n192 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastBodyOrigin.lean#L18" _blank
+  click n193 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastBodyToken.lean#L73" _blank
+  click n194 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastCallOrigin.lean#L24" _blank
+  click n195 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastDistanceOrigin.lean#L19" _blank
+  click n196 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastDistanceResult.lean#L102" _blank
+  click n197 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastDistanceSemantics.lean#L20" _blank
+  click n198 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFast.lean#L70" _blank
+  click n199 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFast.lean#L42" _blank
+  click n200 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastLengthSemantics.lean#L34" _blank
+  click n201 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastLengthTrace.lean#L52" _blank
+  click n202 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastMatchHistory.lean#L39" _blank
+  click n203 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastMatchHistory.lean#L25" _blank
+  click n204 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L68" _blank
+  click n205 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L57" _blank
+  click n206 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L81" _blank
+  click n207 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L38" _blank
+  click n208 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L27" _blank
+  click n209 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L32" _blank
+  click n210 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L46" _blank
+  click n211 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableRejection.lean#L19" _blank
+  click n212 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableSemantics.lean#L51" _blank
+  click n213 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableShort.lean#L26" _blank
+  click n214 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableSoundness.lean#L31" _blank
+  click n215 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableFrame.lean#L20" _blank
+  click n216 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableInvariant.lean#L52" _blank
+  click n217 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableInvariant.lean#L69" _blank
+  click n218 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableStability.lean#L30" _blank
+  click n219 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableStability.lean#L43" _blank
+  click n220 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateDecodeTableStability.lean#L54" _blank
+  click n221 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L52" _blank
+  click n222 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L66" _blank
+  click n223 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L76" _blank
+  click n224 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L42" _blank
+  click n225 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateTableContent.lean#L32" _blank
+  click n226 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateTableSafety.lean#L28" _blank
+  click n227 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateTableExtent.lean#L28" _blank
+  click n228 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateRootTable.lean#L21" _blank
+  click n229 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Common/Inflate/InflateSubtable.lean#L26" _blank
+  click n230 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Math/LZ77CopySpec.lean#L22" _blank
+  click n231 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Math/LZ77CopySpec.lean#L32" _blank
+  click n232 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Math/LZ77HistorySpec.lean#L21" _blank
+  click n233 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Math/LZ77HistorySpec.lean#L15" _blank
+  click n234 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Math/LZ77HistorySpec.lean#L29" _blank
+  click n235 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Math/LZ77HistorySpec.lean#L39" _blank
+  click n236 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Format/Token.lean#L84" _blank
+  click n237 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Format/Token.lean#L62" _blank
+  click n238 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Functional/Format/Token.lean#L73" _blank
+  click n239 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L45" _blank
+  click n240 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L52" _blank
+  click n241 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L252" _blank
+  click n242 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L260" _blank
+  click n243 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L268" _blank
+  click n244 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L59" _blank
+  click n245 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L286" _blank
+  click n246 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L66" _blank
+  click n247 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L239" _blank
+  click n248 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L73" _blank
+  click n249 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L81" _blank
+  click n250 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L89" _blank
+  click n251 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L224" _blank
+  click n252 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L97" _blank
+  click n253 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L104" _blank
+  click n254 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L111" _blank
+  click n255 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L118" _blank
+  click n256 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L276" _blank
+  click n257 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L281" _blank
+  click n258 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L125" _blank
+  click n259 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L134" _blank
+  click n260 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L142" _blank
+  click n261 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L149" _blank
+  click n262 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L156" _blank
+  click n263 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L163" _blank
+  click n264 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L170" _blank
+  click n265 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L178" _blank
+  click n266 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L186" _blank
+  click n267 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L194" _blank
+  click n268 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L201" _blank
+  click n269 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L208" _blank
+  click n270 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/GzCalls.lean#L215" _blank
+  click n271 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Back.lean#L46" _blank
+  click n272 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Back.lean#L72" _blank
+  click n273 "https://github.com/cla7aye15I4nd/zlib-f/blob/dd9f0e1/ZlibF/Spec/Safety/Back.lean#L30" _blank
   classDef unproved fill:#e5e7eb,color:#374151,stroke:#374151
   classDef default fill:#dbeafe,color:#1d4ed8,stroke:#1d4ed8
   classDef common fill:#fef3c7,color:#92400e,stroke:#92400e
@@ -819,17 +997,17 @@ flowchart LR
   classDef obstacle stroke:#b91c1c,stroke-width:3px
 ```
 
-展开组件后，再展开一个目标，即可查看它的输入范围、状态和双向依赖。[证据索引](progress.md)保留提交 `595ffeb` 的目标与证明链接。
+展开组件后，再展开一个目标，即可查看它的输入范围、状态和双向依赖。[证据索引](progress.md)保留提交 `dd9f0e1` 的目标与证明链接。
 
 这一快照中没有记录在案的阻碍。
 
 ## 目标证据
 
-<!-- proof-link-revision: 595ffeb7b42f3c254a5a4138b5dfca9a0c788f60 -->
+<!-- proof-link-revision: dd9f0e19214f046cb612f21003f95ecd93f11ccf -->
 
 [证明讲解](overview.md) · [全部目标图](#proof-progress-graph) · [输入配置](spec/input-configurations.md)
 
-本索引包含 **239 个固定目标**，分为公开接口执行、调用序列、初始化、实现层义务和抽象模型。每个目标分别列出输入范围、登记情况、证明正文和剩余工作。
+本索引包含 **274 个固定目标**，分为公开接口执行、调用序列、初始化、实现层义务和抽象模型。每个目标分别列出输入范围、登记情况、证明正文和剩余工作。
 抽象模型研究输入输出的数学关系；实现目标还要证明真实执行符合这些关系。一个本地证明完成后，仍需登记，并在具体提交上通过 CI 验收。所有证明都保留命题中写明的前置条件。
 依赖区展示记录中已经建立的联系。未完成目标还需要哪些证明，见本页后面的具体工作清单。出现不允许的公理时，生成过程会停止。
 
@@ -855,7 +1033,7 @@ flowchart LR
 | <a id="target-zlibf-spec-public-goal-zlibversion"></a>[zlibVersion](../ZlibF/Spec/Functional/Queries.lean#L27) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/utility.md#zlibversion); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.zlibVersion](../ZlibF/Proof/public-zlib-version.lean#L9) | — |
 | <a id="target-zlibf-spec-public-goal-zlibcompileflags"></a>[zlibCompileFlags](../ZlibF/Spec/Functional/Queries.lean#L34) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/utility.md#zlibcompileflags); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.zlibCompileFlags](../ZlibF/Proof/public-zlib-compile-flags.lean#L7) | — |
 | <a id="target-zlibf-spec-public-goal-zerror"></a>[zError](../ZlibF/Spec/Functional/Queries.lean#L40) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/utility.md#zerror); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.zError](../ZlibF/Proof/public-zerror.lean#L38) | — |
-| <a id="target-zlibf-spec-public-goal-get-crc-table"></a>[get_crc_table](../ZlibF/Spec/Functional/Checksums.lean#L101) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#get_crc_table); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.get_crc_table](../ZlibF/Proof/public-get-crc-table.lean#L14) | — |
+| <a id="target-zlibf-spec-public-goal-get-crc-table"></a>[get_crc_table](../ZlibF/Spec/Functional/Checksums.lean#L102) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#get_crc_table); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.get_crc_table](../ZlibF/Proof/public-get-crc-table.lean#L14) | — |
 
 <a id="group-checksums"></a>
 
@@ -865,15 +1043,15 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | <a id="target-zlibf-spec-public-goal-adler32"></a>[adler32](../ZlibF/Spec/Functional/Checksums.lean#L41) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#adler32); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.AdlerUpdateProof.adler_public](../ZlibF/Proof/public-adler-update.lean#L47) | — |
 | <a id="target-zlibf-spec-public-goal-adler32-z"></a>[adler32_z](../ZlibF/Spec/Functional/Checksums.lean#L36) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#adler32_z); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.AdlerUpdateProof.adler_z_public](../ZlibF/Proof/public-adler-update.lean#L37) | — |
-| <a id="target-zlibf-spec-public-goal-adler32-combine"></a>[adler32_combine](../ZlibF/Spec/Functional/Checksums.lean#L61) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#adler32_combine); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.AdlerCombineProof.combine_public](../ZlibF/Proof/public-adler-combine.lean#L119) | — |
-| <a id="target-zlibf-spec-public-goal-adler32-combine64"></a>[adler32_combine64](../ZlibF/Spec/Functional/Checksums.lean#L65) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#adler32_combine64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.AdlerCombineProof.combine64_public](../ZlibF/Proof/public-adler-combine.lean#L122) | — |
-| <a id="target-zlibf-spec-public-goal-crc32"></a>[crc32](../ZlibF/Spec/Functional/Checksums.lean#L92) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.crc32](../ZlibF/Proof/public-crc-updates.lean#L29) | — |
-| <a id="target-zlibf-spec-public-goal-crc32-z"></a>[crc32_z](../ZlibF/Spec/Functional/Checksums.lean#L84) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_z); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.crc32_z](../ZlibF/Proof/public-crc-updates.lean#L19) | — |
-| <a id="target-zlibf-spec-public-goal-crc32-combine-gen"></a>[crc32_combine_gen](../ZlibF/Spec/Functional/Checksums.lean#L115) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine_gen); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.gen](../ZlibF/Proof/public-crc-combine.lean#L77) | — |
-| <a id="target-zlibf-spec-public-goal-crc32-combine-gen64"></a>[crc32_combine_gen64](../ZlibF/Spec/Functional/Checksums.lean#L118) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine_gen64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.gen64](../ZlibF/Proof/public-crc-combine.lean#L83) | — |
-| <a id="target-zlibf-spec-public-goal-crc32-combine-op"></a>[crc32_combine_op](../ZlibF/Spec/Functional/Checksums.lean#L125) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine_op); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.op](../ZlibF/Proof/public-crc-combine.lean#L89) | — |
-| <a id="target-zlibf-spec-public-goal-crc32-combine"></a>[crc32_combine](../ZlibF/Spec/Functional/Checksums.lean#L137) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.combine](../ZlibF/Proof/public-crc-combine.lean#L95) | — |
-| <a id="target-zlibf-spec-public-goal-crc32-combine64"></a>[crc32_combine64](../ZlibF/Spec/Functional/Checksums.lean#L140) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.combine64](../ZlibF/Proof/public-crc-combine.lean#L101) | — |
+| <a id="target-zlibf-spec-public-goal-adler32-combine"></a>[adler32_combine](../ZlibF/Spec/Functional/Checksums.lean#L62) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#adler32_combine); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.AdlerCombineProof.combine_public](../ZlibF/Proof/public-adler-combine.lean#L119) | — |
+| <a id="target-zlibf-spec-public-goal-adler32-combine64"></a>[adler32_combine64](../ZlibF/Spec/Functional/Checksums.lean#L66) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#adler32_combine64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.AdlerCombineProof.combine64_public](../ZlibF/Proof/public-adler-combine.lean#L122) | — |
+| <a id="target-zlibf-spec-public-goal-crc32"></a>[crc32](../ZlibF/Spec/Functional/Checksums.lean#L93) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.crc32](../ZlibF/Proof/public-crc-updates.lean#L29) | — |
+| <a id="target-zlibf-spec-public-goal-crc32-z"></a>[crc32_z](../ZlibF/Spec/Functional/Checksums.lean#L85) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_z); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.crc32_z](../ZlibF/Proof/public-crc-updates.lean#L19) | — |
+| <a id="target-zlibf-spec-public-goal-crc32-combine-gen"></a>[crc32_combine_gen](../ZlibF/Spec/Functional/Checksums.lean#L116) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine_gen); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.gen](../ZlibF/Proof/public-crc-combine.lean#L77) | — |
+| <a id="target-zlibf-spec-public-goal-crc32-combine-gen64"></a>[crc32_combine_gen64](../ZlibF/Spec/Functional/Checksums.lean#L119) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine_gen64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.gen64](../ZlibF/Proof/public-crc-combine.lean#L83) | — |
+| <a id="target-zlibf-spec-public-goal-crc32-combine-op"></a>[crc32_combine_op](../ZlibF/Spec/Functional/Checksums.lean#L126) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine_op); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.op](../ZlibF/Proof/public-crc-combine.lean#L89) | — |
+| <a id="target-zlibf-spec-public-goal-crc32-combine"></a>[crc32_combine](../ZlibF/Spec/Functional/Checksums.lean#L138) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.combine](../ZlibF/Proof/public-crc-combine.lean#L95) | — |
+| <a id="target-zlibf-spec-public-goal-crc32-combine64"></a>[crc32_combine64](../ZlibF/Spec/Functional/Checksums.lean#L141) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/checksums.md#crc32_combine64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.CrcCombineProof.combine64](../ZlibF/Proof/public-crc-combine.lean#L101) | — |
 | <a id="target-zlibf-spec-public-goal-adler32-safety"></a>[adler32_safety](../ZlibF/Spec/Safety/Checksums.lean#L20) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.StatelessSafetyProof.adler32_safety](../ZlibF/Proof/public-stateless-safety.lean#L21) | — |
 | <a id="target-zlibf-spec-public-goal-adler32-z-safety"></a>[adler32_z_safety](../ZlibF/Spec/Safety/Checksums.lean#L27) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.StatelessSafetyProof.adler32_z_safety](../ZlibF/Proof/public-stateless-safety.lean#L25) | — |
 | <a id="target-zlibf-spec-public-goal-adler32-combine-safety"></a>[adler32_combine_safety](../ZlibF/Spec/Safety/Checksums.lean#L35) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.StatelessSafetyProof.adler32_combine_safety](../ZlibF/Proof/public-stateless-safety.lean#L29) | — |
@@ -892,15 +1070,15 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-c-byteaddress-spec-goal-address-read-is-pure"></a>[address_read_is_pure](../ZlibF/Spec/ByteAddress.lean#L39) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.address_read_is_pure](../ZlibF/Proof/ByteAddress.lean#L28) | — |
-| <a id="target-c-byteaddress-spec-goal-raw-block-unchanged"></a>[raw_block_unchanged](../ZlibF/Spec/ByteAddress.lean#L43) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.raw_block_unchanged](../ZlibF/Proof/ByteAddress.lean#L33) | — |
-| <a id="target-c-byteaddress-spec-goal-every-layout-is-representable"></a>[every_layout_is_representable](../ZlibF/Spec/ByteAddress.lean#L50) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.every_layout_is_representable](../ZlibF/Proof/ByteAddress.lean#L39) | — |
-| <a id="target-c-byteaddress-spec-goal-every-existing-heap-accepts-layout"></a>[every_existing_heap_accepts_layout](../ZlibF/Spec/ByteAddress.lean#L57) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.every_existing_heap_accepts_layout](../ZlibF/Proof/ByteAddress.lean#L94) | — |
-| <a id="target-c-byteaddress-spec-goal-mask-refines-base-plus-offset"></a>[mask_refines_base_plus_offset](../ZlibF/Spec/ByteAddress.lean#L65) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.mask_refines_base_plus_offset](../ZlibF/Proof/ByteAddress.lean#L54) | — |
-| <a id="target-c-byteaddress-spec-goal-pointer-advance-preserves-low-bits"></a>[pointer_advance_preserves_low_bits](../ZlibF/Spec/ByteAddress.lean#L70) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.pointer_advance_preserves_low_bits](../ZlibF/Proof/ByteAddress.lean#L60) | — |
-| <a id="target-c-byteaddress-spec-goal-first-aligned-offset"></a>[first_aligned_offset](../ZlibF/Spec/ByteAddress.lean#L77) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.first_aligned_offset](../ZlibF/Proof/ByteAddress.lean#L67) | — |
-| <a id="target-c-byteaddress-spec-goal-byte-stores-preserve-bases"></a>[byte_stores_preserve_bases](../ZlibF/Spec/ByteAddress.lean#L83) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.byte_stores_preserve_bases](../ZlibF/Proof/ByteAddress.lean#L81) | — |
-| <a id="target-c-byteaddress-spec-goal-byte-modifies-preserve-bases"></a>[byte_modifies_preserve_bases](../ZlibF/Spec/ByteAddress.lean#L87) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.byte_modifies_preserve_bases](../ZlibF/Proof/ByteAddress.lean#L88) | — |
+| <a id="target-c-byteaddress-spec-goal-address-read-is-pure"></a>[address_read_is_pure](../ZlibF/Spec/Common/ByteAddress.lean#L39) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.address_read_is_pure](../ZlibF/Proof/ByteAddress.lean#L28) | — |
+| <a id="target-c-byteaddress-spec-goal-raw-block-unchanged"></a>[raw_block_unchanged](../ZlibF/Spec/Common/ByteAddress.lean#L43) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.raw_block_unchanged](../ZlibF/Proof/ByteAddress.lean#L33) | — |
+| <a id="target-c-byteaddress-spec-goal-every-layout-is-representable"></a>[every_layout_is_representable](../ZlibF/Spec/Common/ByteAddress.lean#L50) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.every_layout_is_representable](../ZlibF/Proof/ByteAddress.lean#L39) | — |
+| <a id="target-c-byteaddress-spec-goal-every-existing-heap-accepts-layout"></a>[every_existing_heap_accepts_layout](../ZlibF/Spec/Common/ByteAddress.lean#L57) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.every_existing_heap_accepts_layout](../ZlibF/Proof/ByteAddress.lean#L94) | — |
+| <a id="target-c-byteaddress-spec-goal-mask-refines-base-plus-offset"></a>[mask_refines_base_plus_offset](../ZlibF/Spec/Common/ByteAddress.lean#L65) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.mask_refines_base_plus_offset](../ZlibF/Proof/ByteAddress.lean#L54) | — |
+| <a id="target-c-byteaddress-spec-goal-pointer-advance-preserves-low-bits"></a>[pointer_advance_preserves_low_bits](../ZlibF/Spec/Common/ByteAddress.lean#L70) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.pointer_advance_preserves_low_bits](../ZlibF/Proof/ByteAddress.lean#L60) | — |
+| <a id="target-c-byteaddress-spec-goal-first-aligned-offset"></a>[first_aligned_offset](../ZlibF/Spec/Common/ByteAddress.lean#L77) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.first_aligned_offset](../ZlibF/Proof/ByteAddress.lean#L67) | — |
+| <a id="target-c-byteaddress-spec-goal-byte-stores-preserve-bases"></a>[byte_stores_preserve_bases](../ZlibF/Spec/Common/ByteAddress.lean#L83) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.byte_stores_preserve_bases](../ZlibF/Proof/ByteAddress.lean#L81) | — |
+| <a id="target-c-byteaddress-spec-goal-byte-modifies-preserve-bases"></a>[byte_modifies_preserve_bases](../ZlibF/Spec/Common/ByteAddress.lean#L87) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [C.ByteAddress.Proofs.byte_modifies_preserve_bases](../ZlibF/Proof/ByteAddress.lean#L88) | — |
 
 <a id="group-inflate"></a>
 
@@ -925,23 +1103,23 @@ flowchart LR
 | <a id="target-zlibf-spec-public-goal-inflatevalidate"></a>[inflateValidate](../ZlibF/Spec/Functional/StreamQueries.lean#L51) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/inflate-stream.md#inflatevalidate); [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InflateQueryProof.validate_public](../ZlibF/Proof/public-inflate-small-queries.lean#L77) | — |
 | <a id="target-zlibf-spec-public-goal-inflateprime"></a>[inflatePrime](../ZlibF/Spec/Functional/StreamQueries.lean#L62) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/inflate-stream.md#inflateprime); [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InflatePrimeProof.prime_public](../ZlibF/Proof/public-inflate-prime.lean#L118) | — |
 | <a id="target-zlibf-spec-public-goal-inflate"></a>[inflate](../ZlibF/Spec/Functional/Streams.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/inflate-stream.md#inflate); [输入范围](spec/input-configurations.md#inflate-inputs) | [Zlib.Inflate.Proofs.inflate_public](../ZlibF/Proof/public-inflate.lean#L11) | — |
-| <a id="target-zlibf-spec-public-goal-inflatesync"></a>[inflateSync](../ZlibF/Spec/Functional/Streams.lean#L151) | 未证明 / 未证明 | [契约](../docs/spec/api/inflate-stream.md#inflatesync); [输入范围](spec/input-configurations.md#inflate-inputs) | — | [需要：扫描与状态序列](progress.md#readiness-inflatesync) |
+| <a id="target-zlibf-spec-public-goal-inflatesync"></a>[inflateSync](../ZlibF/Spec/Functional/Streams.lean#L151) | 未证明 / 未证明 | [契约](../docs/spec/api/inflate-stream.md#inflatesync); [输入范围](spec/input-configurations.md#inflate-inputs) | — | [需要：扫描与历史](progress.md#readiness-inflatesync) |
 | <a id="target-zlibf-spec-public-goal-inflate-sequence-safety"></a>[inflate_sequence_safety](../ZlibF/Spec/Safety/Sequences.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [Zlib.Inflate.Proofs.inflate_sequence_safety_public](../ZlibF/Proof/public-inflate-sequence-safety.lean#L11) | — |
-| <a id="target-zlibf-spec-public-goal-inflate-back-sequence-safety"></a>[inflate_back_sequence_safety](../ZlibF/Spec/Public/Sequences.lean#L185) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [Zlib.Infback.Safety.inflate_back_sequence_safety](../ZlibF/Proof/infback.c.safety-fast.lean#L437) | — |
-| <a id="target-zlibf-spec-public-goal-inflate-refusal"></a>[inflate_refusal](../ZlibF/Spec/Safety/Refusals.lean#L25) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.RefusalProof.inflate_refusal](../ZlibF/Proof/public-stream-refusal.lean#L46) | — |
-| <a id="target-zlibf-spec-public-goal-inflate-safety"></a>[inflate_safety](../ZlibF/Spec/Safety/Streams.lean#L45) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety](../ZlibF/Proof/public-stream-call-safety.lean#L17) | — |
-| <a id="target-zlibf-spec-public-goal-inflatesetdictionary-safety"></a>[inflateSetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L53) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateSetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L21) | — |
-| <a id="target-zlibf-spec-public-goal-inflategetdictionary-safety"></a>[inflateGetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L61) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L25) | — |
-| <a id="target-zlibf-spec-public-goal-inflatesync-safety"></a>[inflateSync_safety](../ZlibF/Spec/Safety/Streams.lean#L69) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateSync_safety](../ZlibF/Proof/public-stream-call-safety.lean#L29) | — |
-| <a id="target-zlibf-spec-public-goal-inflatereset-safety"></a>[inflateReset_safety](../ZlibF/Spec/Safety/Streams.lean#L77) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset_safety](../ZlibF/Proof/public-stream-call-safety.lean#L33) | — |
-| <a id="target-zlibf-spec-public-goal-inflatereset2-safety"></a>[inflateReset2_safety](../ZlibF/Spec/Safety/Streams.lean#L85) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset2_safety](../ZlibF/Proof/public-stream-call-safety.lean#L37) | — |
-| <a id="target-zlibf-spec-public-goal-inflateprime-safety"></a>[inflatePrime_safety](../ZlibF/Spec/Safety/Streams.lean#L93) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflatePrime_safety](../ZlibF/Proof/public-stream-call-safety.lean#L41) | — |
-| <a id="target-zlibf-spec-public-goal-inflatemark-safety"></a>[inflateMark_safety](../ZlibF/Spec/Safety/Streams.lean#L101) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateMark_safety](../ZlibF/Proof/public-stream-call-safety.lean#L45) | — |
-| <a id="target-zlibf-spec-public-goal-inflategetheader-safety"></a>[inflateGetHeader_safety](../ZlibF/Spec/Safety/Streams.lean#L109) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetHeader_safety](../ZlibF/Proof/public-stream-call-safety.lean#L49) | — |
-| <a id="target-zlibf-spec-public-goal-inflateend-safety"></a>[inflateEnd_safety](../ZlibF/Spec/Safety/Streams.lean#L214) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateEnd_safety](../ZlibF/Proof/public-stream-call-safety.lean#L101) | — |
-| <a id="target-zlibf-spec-public-goal-inflateinit2-safety"></a>[inflateInit2__safety](../ZlibF/Spec/Safety/Initialisation.lean#L34) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.inflateInit2__safety](../ZlibF/Proof/public-init-safety.lean#L70) | — |
-| <a id="target-zlibf-spec-public-goal-inflateinit-safety"></a>[inflateInit__safety](../ZlibF/Spec/Safety/Initialisation.lean#L42) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.inflateInit__safety](../ZlibF/Proof/public-init-safety.lean#L99) | — |
-| <a id="target-zlibf-spec-public-goal-inflatecopy-safety"></a>[inflateCopy_safety](../ZlibF/Spec/Safety/Copy.lean#L57) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety](../ZlibF/Proof/public-inflate-copy-safety.lean#L16) | — |
+| <a id="target-zlibf-spec-public-goal-inflate-back-sequence-safety"></a>[inflate_back_sequence_safety](../ZlibF/Spec/Safety/Sequences.lean#L42) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [Zlib.Infback.Safety.inflate_back_sequence_safety](../ZlibF/Proof/infback.c.safety-fast.lean#L439) | — |
+| <a id="target-zlibf-spec-public-goal-inflate-refusal"></a>[inflate_refusal](../ZlibF/Spec/Safety/Refusals.lean#L30) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.RefusalProof.inflate_refusal](../ZlibF/Proof/public-stream-refusal.lean#L46) | — |
+| <a id="target-zlibf-spec-public-goal-inflate-safety"></a>[inflate_safety](../ZlibF/Spec/Safety/Streams.lean#L48) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflate_safety](../ZlibF/Proof/public-stream-call-safety.lean#L65) | — |
+| <a id="target-zlibf-spec-public-goal-inflatesetdictionary-safety"></a>[inflateSetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L60) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateSetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L70) | — |
+| <a id="target-zlibf-spec-public-goal-inflategetdictionary-safety"></a>[inflateGetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L71) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L75) | — |
+| <a id="target-zlibf-spec-public-goal-inflatesync-safety"></a>[inflateSync_safety](../ZlibF/Spec/Safety/Streams.lean#L84) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateSync_safety](../ZlibF/Proof/public-stream-call-safety.lean#L80) | — |
+| <a id="target-zlibf-spec-public-goal-inflatereset-safety"></a>[inflateReset_safety](../ZlibF/Spec/Safety/Streams.lean#L96) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset_safety](../ZlibF/Proof/public-stream-call-safety.lean#L85) | — |
+| <a id="target-zlibf-spec-public-goal-inflatereset2-safety"></a>[inflateReset2_safety](../ZlibF/Spec/Safety/Streams.lean#L106) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateReset2_safety](../ZlibF/Proof/public-stream-call-safety.lean#L90) | — |
+| <a id="target-zlibf-spec-public-goal-inflateprime-safety"></a>[inflatePrime_safety](../ZlibF/Spec/Safety/Streams.lean#L117) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflatePrime_safety](../ZlibF/Proof/public-stream-call-safety.lean#L95) | — |
+| <a id="target-zlibf-spec-public-goal-inflatemark-safety"></a>[inflateMark_safety](../ZlibF/Spec/Safety/Streams.lean#L128) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateMark_safety](../ZlibF/Proof/public-stream-call-safety.lean#L100) | — |
+| <a id="target-zlibf-spec-public-goal-inflategetheader-safety"></a>[inflateGetHeader_safety](../ZlibF/Spec/Safety/Streams.lean#L138) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateGetHeader_safety](../ZlibF/Proof/public-stream-call-safety.lean#L105) | — |
+| <a id="target-zlibf-spec-public-goal-inflateend-safety"></a>[inflateEnd_safety](../ZlibF/Spec/Safety/Streams.lean#L286) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.inflateEnd_safety](../ZlibF/Proof/public-stream-call-safety.lean#L172) | — |
+| <a id="target-zlibf-spec-public-goal-inflateinit2-safety"></a>[inflateInit2__safety](../ZlibF/Spec/Safety/Initialisation.lean#L52) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.inflateInit2__safety](../ZlibF/Proof/public-init-safety.lean#L112) | — |
+| <a id="target-zlibf-spec-public-goal-inflateinit-safety"></a>[inflateInit__safety](../ZlibF/Spec/Safety/Initialisation.lean#L60) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.inflateInit__safety](../ZlibF/Proof/public-init-safety.lean#L132) | — |
+| <a id="target-zlibf-spec-public-goal-inflatecopy-safety"></a>[inflateCopy_safety](../ZlibF/Spec/Safety/Copy.lean#L58) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | [ZlibF.Spec.Public.InflateCopySafetyProof.inflateCopy_safety](../ZlibF/Proof/public-inflate-copy-safety.lean#L17) | — |
 
 <a id="group-fast"></a>
 
@@ -949,25 +1127,25 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-zlib-inffast-spec-bodyorigin-goal-actual-body-preserves-origin"></a>[actual_body_preserves_origin](../ZlibF/Spec/InflateFastBodyOrigin.lean#L18) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.BodyOriginProof.actual_body_preserves_origin](../ZlibF/Proof/inffast.c.body-origin.lean#L380); [Zlib.Inffast.Proofs.actual_body_preserves_origin](../ZlibF/Proof/inffast.c.body-origin.lean#L380) | — |
-| <a id="target-zlib-inffast-spec-bodytoken-goal-actual-body-refines-token"></a>[actual_body_refines_token](../ZlibF/Spec/InflateFastBodyToken.lean#L73) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.BodyTokenProof.actual_body_refines_token](../ZlibF/Proof/inffast.c.body-token.lean#L571); [Zlib.Inffast.Proofs.actual_body_refines_token](../ZlibF/Proof/inffast.c.body-token.lean#L571) | — |
-| <a id="target-zlib-inffast-spec-callorigin-goal-actual-fast-preserves-origin"></a>[actual_fast_preserves_origin](../ZlibF/Spec/InflateFastCallOrigin.lean#L24) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_fast_preserves_origin](../ZlibF/Proof/inffast.c.call-origin.lean#L180); [ZlibF.Proof.Registration.fast_call_origin](../ZlibF/Proof/proof-registrations.lean#L14) | — |
-| <a id="target-zlib-inffast-spec-distanceorigin-goal-actual-distance-block-preserves-origin"></a>[actual_distance_block_preserves_origin](../ZlibF/Spec/InflateFastDistanceOrigin.lean#L18) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_distance_block_preserves_origin](../ZlibF/Proof/inffast.c.distance-origin.lean#L327) | — |
-| <a id="target-zlib-inffast-spec-distanceresult-goal-actual-distance-refines-lz77"></a>[actual_distance_refines_lz77](../ZlibF/Spec/InflateFastDistanceResult.lean#L101) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_distance_refines_lz77](../ZlibF/Proof/inffast.c.distance-result.lean#L386) | — |
-| <a id="target-zlib-inffast-spec-distancesemantics-goal-distance-lookup-matches-format"></a>[distance_lookup_matches_format](../ZlibF/Spec/InflateFastDistanceSemantics.lean#L20) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.distance_lookup_matches_format](../ZlibF/Proof/inffast.c.distance-semantics.lean#L22) | — |
-| <a id="target-zlib-inffast-spec-goal-fast-safe"></a>[fast_safe](../ZlibF/Spec/InflateFast.lean#L70) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.inflate_fast_safe](../ZlibF/Proof/inffast.c.final.lean#L259) | — |
-| <a id="target-zlib-inffast-spec-goal-step-safe"></a>[step_safe](../ZlibF/Spec/InflateFast.lean#L42) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.inflate_fast_body_step_safe](../ZlibF/Proof/inffast.c.body.lean#L350) | — |
-| <a id="target-zlib-inffast-spec-lengthsemantics-goal-length-lookup-matches-format"></a>[length_lookup_matches_format](../ZlibF/Spec/InflateFastLengthSemantics.lean#L34) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.length_lookup_matches_format](../ZlibF/Proof/inffast.c.length-semantics.lean#L22) | — |
-| <a id="target-zlib-inffast-spec-lengthtrace-goal-actual-body-retains-selected-length"></a>[actual_body_retains_selected_length](../ZlibF/Spec/InflateFastLengthTrace.lean#L51) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.LengthTraceProof.actual_body_retains_selected_length](../ZlibF/Proof/inffast.c.length-trace.lean#L250); [Zlib.Inffast.Proofs.actual_body_retains_selected_length](../ZlibF/Proof/inffast.c.length-trace.lean#L250) | — |
-| <a id="target-zlib-inffast-spec-matchhistory-goal-actual-copy-match-refines-lz77"></a>[actual_copy_match_refines_lz77](../ZlibF/Spec/InflateFastMatchHistory.lean#L39) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_copy_match_refines_lz77](../ZlibF/Proof/inffast.c.match-history.lean#L329) | — |
-| <a id="target-zlib-inffast-spec-matchhistory-goal-match-array-refines-lz77"></a>[match_array_refines_lz77](../ZlibF/Spec/InflateFastMatchHistory.lean#L25) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.fast_match_array_refines_lz77](../ZlibF/Math/InflateFastMatchHistory.lean#L56) | — |
-| <a id="target-zlib-inffast-spec-origin-goal-actual-drop-preserves-origin"></a>[actual_drop_preserves_origin](../ZlibF/Spec/InflateFastOrigin.lean#L68) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_drop_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L138) | — |
-| <a id="target-zlib-inffast-spec-origin-goal-actual-pull-preserves-origin"></a>[actual_pull_preserves_origin](../ZlibF/Spec/InflateFastOrigin.lean#L57) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_pull_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L127) | — |
-| <a id="target-zlib-inffast-spec-origin-goal-actual-rollback-preserves-origin"></a>[actual_rollback_preserves_origin](../ZlibF/Spec/InflateFastOrigin.lean#L81) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_rollback_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L150) | — |
-| <a id="target-zlib-inffast-spec-origin-goal-drop-preserves-origin"></a>[drop_preserves_origin](../ZlibF/Spec/InflateFastOrigin.lean#L38) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.drop_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L41) | — |
-| <a id="target-zlib-inffast-spec-origin-goal-initial-origin"></a>[initial_origin](../ZlibF/Spec/InflateFastOrigin.lean#L27) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.initial_origin](../ZlibF/Proof/inffast.c.origin.lean#L16) | — |
-| <a id="target-zlib-inffast-spec-origin-goal-pull-preserves-origin"></a>[pull_preserves_origin](../ZlibF/Spec/InflateFastOrigin.lean#L32) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.pull_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L21) | — |
-| <a id="target-zlib-inffast-spec-origin-goal-rollback-preserves-origin"></a>[rollback_preserves_origin](../ZlibF/Spec/InflateFastOrigin.lean#L46) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.rollback_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L83) | — |
+| <a id="target-zlib-inffast-spec-bodyorigin-goal-actual-body-preserves-origin"></a>[actual_body_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastBodyOrigin.lean#L18) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.BodyOriginProof.actual_body_preserves_origin](../ZlibF/Proof/inffast.c.body-origin.lean#L380); [Zlib.Inffast.Proofs.actual_body_preserves_origin](../ZlibF/Proof/inffast.c.body-origin.lean#L380) | — |
+| <a id="target-zlib-inffast-spec-bodytoken-goal-actual-body-refines-token"></a>[actual_body_refines_token](../ZlibF/Spec/Functional/Inflate/InflateFastBodyToken.lean#L73) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.BodyTokenProof.actual_body_refines_token](../ZlibF/Proof/inffast.c.body-token.lean#L571); [Zlib.Inffast.Proofs.actual_body_refines_token](../ZlibF/Proof/inffast.c.body-token.lean#L571) | — |
+| <a id="target-zlib-inffast-spec-callorigin-goal-actual-fast-preserves-origin"></a>[actual_fast_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastCallOrigin.lean#L24) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_fast_preserves_origin](../ZlibF/Proof/inffast.c.call-origin.lean#L180); [ZlibF.Proof.Registration.fast_call_origin](../ZlibF/Proof/proof-registrations.lean#L14) | — |
+| <a id="target-zlib-inffast-spec-distanceorigin-goal-actual-distance-block-preserves-origin"></a>[actual_distance_block_preserves_origin](../ZlibF/Spec/Functional/Inflate/InflateFastDistanceOrigin.lean#L19) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_distance_block_preserves_origin](../ZlibF/Proof/inffast.c.distance-origin.lean#L327) | — |
+| <a id="target-zlib-inffast-spec-distanceresult-goal-actual-distance-refines-lz77"></a>[actual_distance_refines_lz77](../ZlibF/Spec/Functional/Inflate/InflateFastDistanceResult.lean#L102) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_distance_refines_lz77](../ZlibF/Proof/inffast.c.distance-result.lean#L386) | — |
+| <a id="target-zlib-inffast-spec-distancesemantics-goal-distance-lookup-matches-format"></a>[distance_lookup_matches_format](../ZlibF/Spec/Functional/Inflate/InflateFastDistanceSemantics.lean#L20) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.distance_lookup_matches_format](../ZlibF/Proof/inffast.c.distance-semantics.lean#L25) | — |
+| <a id="target-zlib-inffast-spec-goal-fast-safe"></a>[fast_safe](../ZlibF/Spec/Common/Inflate/InflateFast.lean#L70) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.inflate_fast_safe](../ZlibF/Proof/inffast.c.final.lean#L253) | — |
+| <a id="target-zlib-inffast-spec-goal-step-safe"></a>[step_safe](../ZlibF/Spec/Common/Inflate/InflateFast.lean#L42) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.inflate_fast_body_step_safe](../ZlibF/Proof/inffast.c.body.lean#L350) | — |
+| <a id="target-zlib-inffast-spec-lengthsemantics-goal-length-lookup-matches-format"></a>[length_lookup_matches_format](../ZlibF/Spec/Functional/Inflate/InflateFastLengthSemantics.lean#L34) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.length_lookup_matches_format](../ZlibF/Proof/inffast.c.length-semantics.lean#L25) | — |
+| <a id="target-zlib-inffast-spec-lengthtrace-goal-actual-body-retains-selected-length"></a>[actual_body_retains_selected_length](../ZlibF/Spec/Functional/Inflate/InflateFastLengthTrace.lean#L52) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.LengthTraceProof.actual_body_retains_selected_length](../ZlibF/Proof/inffast.c.length-trace.lean#L250); [Zlib.Inffast.Proofs.actual_body_retains_selected_length](../ZlibF/Proof/inffast.c.length-trace.lean#L250) | — |
+| <a id="target-zlib-inffast-spec-matchhistory-goal-actual-copy-match-refines-lz77"></a>[actual_copy_match_refines_lz77](../ZlibF/Spec/Functional/Inflate/InflateFastMatchHistory.lean#L39) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_copy_match_refines_lz77](../ZlibF/Proof/inffast.c.match-history.lean#L328) | — |
+| <a id="target-zlib-inffast-spec-matchhistory-goal-match-array-refines-lz77"></a>[match_array_refines_lz77](../ZlibF/Spec/Functional/Inflate/InflateFastMatchHistory.lean#L25) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.fast_match_array_refines_lz77](../ZlibF/Math/InflateFastMatchHistory.lean#L59) | — |
+| <a id="target-zlib-inffast-spec-origin-goal-actual-drop-preserves-origin"></a>[actual_drop_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L68) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_drop_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L138) | — |
+| <a id="target-zlib-inffast-spec-origin-goal-actual-pull-preserves-origin"></a>[actual_pull_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L57) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_pull_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L127) | — |
+| <a id="target-zlib-inffast-spec-origin-goal-actual-rollback-preserves-origin"></a>[actual_rollback_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L81) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.actual_rollback_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L150) | — |
+| <a id="target-zlib-inffast-spec-origin-goal-drop-preserves-origin"></a>[drop_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L38) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.drop_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L41) | — |
+| <a id="target-zlib-inffast-spec-origin-goal-initial-origin"></a>[initial_origin](../ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L27) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.initial_origin](../ZlibF/Proof/inffast.c.origin.lean#L16) | — |
+| <a id="target-zlib-inffast-spec-origin-goal-pull-preserves-origin"></a>[pull_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L32) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.pull_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L21) | — |
+| <a id="target-zlib-inffast-spec-origin-goal-rollback-preserves-origin"></a>[rollback_preserves_origin](../ZlibF/Spec/Common/Inflate/InflateFastOrigin.lean#L46) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inffast.Proofs.rollback_preserves_origin](../ZlibF/Proof/inffast.c.origin.lean#L83) | — |
 
 <a id="group-tables"></a>
 
@@ -975,25 +1153,25 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-zlib-inftrees-spec-decoderejection-goal-decode-table-classifies-input"></a>[decode_table_classifies_input](../ZlibF/Spec/InflateDecodeTableRejection.lean#L19) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_classifies_input](../ZlibF/Proof/inftrees.c.decode.short.lean#L62) | — |
-| <a id="target-zlib-inftrees-spec-decodesemantics-goal-decode-table-matches-format"></a>[decode_table_matches_format](../ZlibF/Spec/InflateDecodeTableSemantics.lean#L51) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_matches_format](../ZlibF/Proof/inftrees.c.decode.semantics.lean#L327) | — |
-| <a id="target-zlib-inftrees-spec-decodeshort-goal-short-decode-table-leaf-sound"></a>[short_decode_table_leaf_sound](../ZlibF/Spec/InflateDecodeTableShort.lean#L26) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.short_decode_table_leaf_sound](../ZlibF/Proof/inftrees.c.decode.short.lean#L33) | — |
-| <a id="target-zlib-inftrees-spec-decodesoundness-goal-decode-table-leaf-sound"></a>[decode_table_leaf_sound](../ZlibF/Spec/InflateDecodeTableSoundness.lean#L31) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_leaf_sound](../ZlibF/Proof/inftrees.c.decode.soundness.lean#L244) | — |
-| <a id="target-zlib-inftrees-spec-decodetableframe-goal-decode-table-read-preserved"></a>[decode_table_read_preserved](../ZlibF/Spec/InflateDecodeTableFrame.lean#L20) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_read_preserved](../ZlibF/Proof/inftrees.c.decode.frame.lean#L55) | — |
-| <a id="target-zlib-inftrees-spec-decodetableinvariant-goal-constructor-establishes-decode-table-invariant"></a>[constructor_establishes_decode_table_invariant](../ZlibF/Spec/InflateDecodeTableInvariant.lean#L51) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_establishes_decode_table_invariant](../ZlibF/Proof/inftrees.c.decode.invariant.lean#L13) | — |
-| <a id="target-zlib-inftrees-spec-decodetableinvariant-goal-decode-table-invariant-of-prefix"></a>[decode_table_invariant_of_prefix](../ZlibF/Spec/InflateDecodeTableInvariant.lean#L68) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_invariant_of_prefix](../ZlibF/Proof/inftrees.c.decode.invariant-prefix.lean#L22) | — |
-| <a id="target-zlib-inftrees-spec-decodetablestability-goal-constructor-establishes-query-stability"></a>[constructor_establishes_query_stability](../ZlibF/Spec/InflateDecodeTableStability.lean#L30) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_establishes_query_stability](../ZlibF/Proof/inftrees.c.decode.stability.lean#L190) | — |
-| <a id="target-zlib-inftrees-spec-decodetablestability-goal-query-stability-of-prefix"></a>[query_stability_of_prefix](../ZlibF/Spec/InflateDecodeTableStability.lean#L43) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.query_stability_of_prefix](../ZlibF/Proof/inftrees.c.decode.stability-rejection.lean#L20) | — |
-| <a id="target-zlib-inftrees-spec-decodetablestability-goal-short-rejected-leaf-stays-invalid"></a>[short_rejected_leaf_stays_invalid](../ZlibF/Spec/InflateDecodeTableStability.lean#L54) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.short_rejected_leaf_stays_invalid](../ZlibF/Proof/inftrees.c.decode.stability-rejection.lean#L31) | — |
-| <a id="target-zlib-inftrees-spec-fasttableflags-goal-constructor-establishes-fast-leaf-flags"></a>[constructor_establishes_fast_leaf_flags](../ZlibF/Spec/InflateFastTableFlags.lean#L52) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_establishes_fast_leaf_flags](../ZlibF/Proof/inftrees.c.decode.fast-flags.lean#L125) | — |
-| <a id="target-zlib-inftrees-spec-fasttableflags-goal-fast-leaf-flags-of-prefix"></a>[fast_leaf_flags_of_prefix](../ZlibF/Spec/InflateFastTableFlags.lean#L66) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.fast_leaf_flags_of_prefix](../ZlibF/Proof/inftrees.c.decode.fast-flags-frame.lean#L48); [ZlibF.Proof.Registration.fast_leaf_flags_of_prefix](../ZlibF/Proof/proof-registrations.lean#L20) | — |
-| <a id="target-zlib-inftrees-spec-fasttableflags-goal-fixed-tables-have-fast-leaf-flags"></a>[fixed_tables_have_fast_leaf_flags](../ZlibF/Spec/InflateFastTableFlags.lean#L76) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.fixed_tables_have_fast_leaf_flags](../ZlibF/Proof/inffixed.h.fast-flags.lean#L55); [ZlibF.Proof.Registration.fixed_tables_fast_leaf_flags](../ZlibF/Proof/proof-registrations.lean#L26) | — |
-| <a id="target-zlib-inftrees-spec-fasttableflags-goal-leaf-classification-agrees"></a>[leaf_classification_agrees](../ZlibF/Spec/InflateFastTableFlags.lean#L42) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.leaf_classification_agrees](../ZlibF/Proof/inftrees.c.decode.fast-flags-frame.lean#L9); [ZlibF.Proof.Registration.leaf_classification_agrees](../ZlibF/Proof/proof-registrations.lean#L32) | — |
-| <a id="target-zlib-inftrees-spec-goal-inflate-table-content"></a>[inflate_table_content](../ZlibF/Spec/InflateTableContent.lean#L32) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.inflate_table_content](../ZlibF/Proof/inftrees.c.content.lean#L327) | — |
-| <a id="target-zlib-inftrees-spec-goal-inflate-table-decoder-safe"></a>[inflate_table_decoder_safe](../ZlibF/Spec/InflateTableSafety.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.inflate_table_decoder_safe](../ZlibF/Proof/inftrees.c.decoder-safe.lean#L143) | — |
-| <a id="target-zlib-inftrees-spec-goal-inflate-table-read-extent"></a>[inflate_table_read_extent](../ZlibF/Spec/InflateTableExtent.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.inflate_table_read_extent](../ZlibF/Proof/inftrees.c.read-extent.lean#L139) | — |
-| <a id="target-zlib-inftrees-spec-roottable-goal-constructor-root-bits"></a>[constructor_root_bits](../ZlibF/Spec/InflateRootTable.lean#L21) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_root_bits](../ZlibF/Proof/inftrees.c.decode.bits.lean#L260) | — |
-| <a id="target-zlib-inftrees-spec-subtable-goal-constructor-subtable-bits"></a>[constructor_subtable_bits](../ZlibF/Spec/InflateSubtable.lean#L26) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_subtable_bits](../ZlibF/Proof/inftrees.c.decode.bits.lean#L221) | — |
+| <a id="target-zlib-inftrees-spec-decoderejection-goal-decode-table-classifies-input"></a>[decode_table_classifies_input](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableRejection.lean#L19) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_classifies_input](../ZlibF/Proof/inftrees.c.decode.short.lean#L62) | — |
+| <a id="target-zlib-inftrees-spec-decodesemantics-goal-decode-table-matches-format"></a>[decode_table_matches_format](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableSemantics.lean#L51) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_matches_format](../ZlibF/Proof/inftrees.c.decode.semantics.lean#L327) | — |
+| <a id="target-zlib-inftrees-spec-decodeshort-goal-short-decode-table-leaf-sound"></a>[short_decode_table_leaf_sound](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableShort.lean#L26) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.short_decode_table_leaf_sound](../ZlibF/Proof/inftrees.c.decode.short.lean#L33) | — |
+| <a id="target-zlib-inftrees-spec-decodesoundness-goal-decode-table-leaf-sound"></a>[decode_table_leaf_sound](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableSoundness.lean#L31) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_leaf_sound](../ZlibF/Proof/inftrees.c.decode.soundness.lean#L244) | — |
+| <a id="target-zlib-inftrees-spec-decodetableframe-goal-decode-table-read-preserved"></a>[decode_table_read_preserved](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableFrame.lean#L20) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_read_preserved](../ZlibF/Proof/inftrees.c.decode.frame.lean#L55) | — |
+| <a id="target-zlib-inftrees-spec-decodetableinvariant-goal-constructor-establishes-decode-table-invariant"></a>[constructor_establishes_decode_table_invariant](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableInvariant.lean#L52) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_establishes_decode_table_invariant](../ZlibF/Proof/inftrees.c.decode.invariant.lean#L13) | — |
+| <a id="target-zlib-inftrees-spec-decodetableinvariant-goal-decode-table-invariant-of-prefix"></a>[decode_table_invariant_of_prefix](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableInvariant.lean#L69) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.decode_table_invariant_of_prefix](../ZlibF/Proof/inftrees.c.decode.invariant-prefix.lean#L22) | — |
+| <a id="target-zlib-inftrees-spec-decodetablestability-goal-constructor-establishes-query-stability"></a>[constructor_establishes_query_stability](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableStability.lean#L30) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_establishes_query_stability](../ZlibF/Proof/inftrees.c.decode.stability.lean#L190) | — |
+| <a id="target-zlib-inftrees-spec-decodetablestability-goal-query-stability-of-prefix"></a>[query_stability_of_prefix](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableStability.lean#L43) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.query_stability_of_prefix](../ZlibF/Proof/inftrees.c.decode.stability-rejection.lean#L20) | — |
+| <a id="target-zlib-inftrees-spec-decodetablestability-goal-short-rejected-leaf-stays-invalid"></a>[short_rejected_leaf_stays_invalid](../ZlibF/Spec/Functional/Inflate/InflateDecodeTableStability.lean#L54) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.short_rejected_leaf_stays_invalid](../ZlibF/Proof/inftrees.c.decode.stability-rejection.lean#L31) | — |
+| <a id="target-zlib-inftrees-spec-fasttableflags-goal-constructor-establishes-fast-leaf-flags"></a>[constructor_establishes_fast_leaf_flags](../ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L52) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_establishes_fast_leaf_flags](../ZlibF/Proof/inftrees.c.decode.fast-flags.lean#L125) | — |
+| <a id="target-zlib-inftrees-spec-fasttableflags-goal-fast-leaf-flags-of-prefix"></a>[fast_leaf_flags_of_prefix](../ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L66) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.fast_leaf_flags_of_prefix](../ZlibF/Proof/inftrees.c.decode.fast-flags-frame.lean#L48); [ZlibF.Proof.Registration.fast_leaf_flags_of_prefix](../ZlibF/Proof/proof-registrations.lean#L20) | — |
+| <a id="target-zlib-inftrees-spec-fasttableflags-goal-fixed-tables-have-fast-leaf-flags"></a>[fixed_tables_have_fast_leaf_flags](../ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L76) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.fixed_tables_have_fast_leaf_flags](../ZlibF/Proof/inffixed.h.fast-flags.lean#L55); [ZlibF.Proof.Registration.fixed_tables_fast_leaf_flags](../ZlibF/Proof/proof-registrations.lean#L26) | — |
+| <a id="target-zlib-inftrees-spec-fasttableflags-goal-leaf-classification-agrees"></a>[leaf_classification_agrees](../ZlibF/Spec/Functional/Inflate/InflateFastTableFlags.lean#L42) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.leaf_classification_agrees](../ZlibF/Proof/inftrees.c.decode.fast-flags-frame.lean#L9); [ZlibF.Proof.Registration.leaf_classification_agrees](../ZlibF/Proof/proof-registrations.lean#L32) | — |
+| <a id="target-zlib-inftrees-spec-goal-inflate-table-content"></a>[inflate_table_content](../ZlibF/Spec/Common/Inflate/InflateTableContent.lean#L32) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.inflate_table_content](../ZlibF/Proof/inftrees.c.content.lean#L328) | — |
+| <a id="target-zlib-inftrees-spec-goal-inflate-table-decoder-safe"></a>[inflate_table_decoder_safe](../ZlibF/Spec/Common/Inflate/InflateTableSafety.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.inflate_table_decoder_safe](../ZlibF/Proof/inftrees.c.decoder-safe.lean#L143) | — |
+| <a id="target-zlib-inftrees-spec-goal-inflate-table-read-extent"></a>[inflate_table_read_extent](../ZlibF/Spec/Common/Inflate/InflateTableExtent.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.inflate_table_read_extent](../ZlibF/Proof/inftrees.c.read-extent.lean#L139) | — |
+| <a id="target-zlib-inftrees-spec-roottable-goal-constructor-root-bits"></a>[constructor_root_bits](../ZlibF/Spec/Common/Inflate/InflateRootTable.lean#L21) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_root_bits](../ZlibF/Proof/inftrees.c.decode.bits.lean#L260) | — |
+| <a id="target-zlib-inftrees-spec-subtable-goal-constructor-subtable-bits"></a>[constructor_subtable_bits](../ZlibF/Spec/Common/Inflate/InflateSubtable.lean#L26) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Inftrees.Proofs.constructor_subtable_bits](../ZlibF/Proof/inftrees.c.decode.bits.lean#L221) | — |
 
 <a id="group-copy"></a>
 
@@ -1014,7 +1192,7 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-zlibf-spec-public-goal-deflatecopy"></a>[deflateCopy](../ZlibF/Spec/Functional/Copy.lean#L46) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/deflate-stream.md#deflatecopy); [输入范围](spec/input-configurations.md#deflate-inputs) | [Zlib.Deflate.Universal.deflate_copy_public](../ZlibF/Proof/public-deflate-copy.lean#L67) | — |
+| <a id="target-zlibf-spec-public-goal-deflatecopy"></a>[deflateCopy](../ZlibF/Spec/Functional/Copy.lean#L46) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/deflate-stream.md#deflatecopy); [输入范围](spec/input-configurations.md#deflate-inputs) | [Zlib.Deflate.Universal.deflate_copy_public](../ZlibF/Proof/public-deflate-copy.lean#L68) | — |
 | <a id="target-zlibf-spec-public-goal-deflateinit2"></a>[deflateInit2_](../ZlibF/Spec/Functional/Initialisation.lean#L25) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/deflate-stream.md#deflateinit2_); [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.Proofs.DeflateInit2.deflateInit2_proof](../ZlibF/Proof/public-deflate-init2.lean#L18) | — |
 | <a id="target-zlibf-spec-public-goal-deflateinit"></a>[deflateInit_](../ZlibF/Spec/Functional/Initialisation.lean#L32) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/deflate-stream.md#deflateinit_); [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.Proofs.DeflateInit.deflateInit_proof](../ZlibF/Proof/public-deflate-init.lean#L162) | — |
 | <a id="target-zlibf-spec-public-goal-deflategetdictionary"></a>[deflateGetDictionary](../ZlibF/Spec/Functional/Lifecycle.lean#L82) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/deflate-stream.md#deflategetdictionary); [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.DeflateDictionaryProof.deflate_getdict_public](../ZlibF/Proof/public-deflate-getdict.lean#L12) | — |
@@ -1030,25 +1208,25 @@ flowchart LR
 | <a id="target-zlibf-spec-public-goal-deflatebound-z"></a>[deflateBound_z](../ZlibF/Spec/Functional/Streams.lean#L105) | 未证明 / 未证明 | [契约](../docs/spec/api/deflate-stream.md#deflatebound_z); [输入范围](spec/input-configurations.md#deflate-inputs) | — | [开始：上界与头部审查](progress.md#readiness-deflatebound-z) |
 | <a id="target-zlibf-spec-public-goal-deflatebound"></a>[deflateBound](../ZlibF/Spec/Functional/Streams.lean#L109) | 未证明 / 未证明 | [契约](../docs/spec/api/deflate-stream.md#deflatebound); [输入范围](spec/input-configurations.md#deflate-inputs) | — | [开始：上界与头部审查](progress.md#readiness-deflatebound-z) |
 | <a id="target-zlibf-spec-public-goal-deflateprime"></a>[deflatePrime](../ZlibF/Spec/Functional/Streams.lean#L114) | 未证明 / 未证明 | [契约](../docs/spec/api/deflate-stream.md#deflateprime); [输入范围](spec/input-configurations.md#deflate-inputs) | — | [开始：压紧与位操作](progress.md#readiness-deflateprime) |
-| <a id="target-zlibf-spec-public-goal-deflateparams"></a>[deflateParams](../ZlibF/Spec/Functional/Streams.lean#L132) | 未证明 / 未证明 | [契约](../docs/spec/api/deflate-stream.md#deflateparams); [输入范围](spec/input-configurations.md#deflate-inputs) | — | [需要：块交付与参数状态](progress.md#readiness-deflateparams) |
+| <a id="target-zlibf-spec-public-goal-deflateparams"></a>[deflateParams](../ZlibF/Spec/Functional/Streams.lean#L132) | 未证明 / 未证明 | [契约](../docs/spec/api/deflate-stream.md#deflateparams); [输入范围](spec/input-configurations.md#deflate-inputs) | — | [需要：块刷新与参数状态](progress.md#readiness-deflateparams) |
 | <a id="target-zlibf-spec-public-goal-deflate-sequence-safety"></a>[deflate_sequence_safety](../ZlibF/Spec/Safety/Sequences.lean#L19) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [Zlib.Deflate.Universal.deflate_sequence_safety](../ZlibF/Proof/public-deflate-goals.lean#L26) | — |
-| <a id="target-zlibf-spec-public-goal-deflatecopy-safety"></a>[deflateCopy_safety](../ZlibF/Spec/Safety/Copy.lean#L24) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [Zlib.Deflate.Universal.deflate_copy_safety](../ZlibF/Proof/public-deflate-copy.lean#L83) | — |
-| <a id="target-zlibf-spec-public-goal-deflate-refusal"></a>[deflate_refusal](../ZlibF/Spec/Safety/Refusals.lean#L45) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal](../ZlibF/Proof/public-stream-refusal.lean#L89) | — |
-| <a id="target-zlibf-spec-public-goal-deflate-safety"></a>[deflate_safety](../ZlibF/Spec/Safety/Streams.lean#L117) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety](../ZlibF/Proof/public-stream-call-safety.lean#L53) | — |
-| <a id="target-zlibf-spec-public-goal-deflatesetdictionary-safety"></a>[deflateSetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L125) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L57) | — |
-| <a id="target-zlibf-spec-public-goal-deflategetdictionary-safety"></a>[deflateGetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L133) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L61) | — |
-| <a id="target-zlibf-spec-public-goal-deflatereset-safety"></a>[deflateReset_safety](../ZlibF/Spec/Safety/Streams.lean#L141) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety](../ZlibF/Proof/public-stream-call-safety.lean#L65) | — |
-| <a id="target-zlibf-spec-public-goal-deflateparams-safety"></a>[deflateParams_safety](../ZlibF/Spec/Safety/Streams.lean#L149) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety](../ZlibF/Proof/public-stream-call-safety.lean#L69) | — |
-| <a id="target-zlibf-spec-public-goal-deflatetune-safety"></a>[deflateTune_safety](../ZlibF/Spec/Safety/Streams.lean#L157) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety](../ZlibF/Proof/public-stream-call-safety.lean#L73) | — |
-| <a id="target-zlibf-spec-public-goal-deflatebound-safety"></a>[deflateBound_safety](../ZlibF/Spec/Safety/Streams.lean#L165) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety](../ZlibF/Proof/public-stream-call-safety.lean#L77) | — |
-| <a id="target-zlibf-spec-public-goal-deflatebound-z-safety"></a>[deflateBound_z_safety](../ZlibF/Spec/Safety/Streams.lean#L173) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety](../ZlibF/Proof/public-stream-call-safety.lean#L81) | — |
-| <a id="target-zlibf-spec-public-goal-deflatepending-safety"></a>[deflatePending_safety](../ZlibF/Spec/Safety/Streams.lean#L181) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety](../ZlibF/Proof/public-stream-call-safety.lean#L85) | — |
-| <a id="target-zlibf-spec-public-goal-deflateused-safety"></a>[deflateUsed_safety](../ZlibF/Spec/Safety/Streams.lean#L189) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety](../ZlibF/Proof/public-stream-call-safety.lean#L89) | — |
-| <a id="target-zlibf-spec-public-goal-deflateprime-safety"></a>[deflatePrime_safety](../ZlibF/Spec/Safety/Streams.lean#L197) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety](../ZlibF/Proof/public-stream-call-safety.lean#L93) | — |
-| <a id="target-zlibf-spec-public-goal-deflatesetheader-safety"></a>[deflateSetHeader_safety](../ZlibF/Spec/Safety/Streams.lean#L205) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety](../ZlibF/Proof/public-stream-call-safety.lean#L97) | — |
-| <a id="target-zlibf-spec-public-goal-deflateend-safety"></a>[deflateEnd_safety](../ZlibF/Spec/Safety/Streams.lean#L226) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety](../ZlibF/Proof/public-stream-call-safety.lean#L111) | — |
-| <a id="target-zlibf-spec-public-goal-deflateinit2-safety"></a>[deflateInit2__safety](../ZlibF/Spec/Safety/Initialisation.lean#L52) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.deflateInit2__safety](../ZlibF/Proof/public-init-safety.lean#L103) | — |
-| <a id="target-zlibf-spec-public-goal-deflateinit-safety"></a>[deflateInit__safety](../ZlibF/Spec/Safety/Initialisation.lean#L60) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.deflateInit__safety](../ZlibF/Proof/public-init-safety.lean#L138) | — |
+| <a id="target-zlibf-spec-public-goal-deflatecopy-safety"></a>[deflateCopy_safety](../ZlibF/Spec/Safety/Copy.lean#L24) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [Zlib.Deflate.Universal.deflate_copy_safety](../ZlibF/Proof/public-deflate-copy.lean#L85) | — |
+| <a id="target-zlibf-spec-public-goal-deflate-refusal"></a>[deflate_refusal](../ZlibF/Spec/Safety/Refusals.lean#L50) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal](../ZlibF/Proof/public-stream-refusal.lean#L89) | — |
+| <a id="target-zlibf-spec-public-goal-deflate-safety"></a>[deflate_safety](../ZlibF/Spec/Safety/Streams.lean#L149) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflate_safety](../ZlibF/Proof/public-stream-call-safety.lean#L111) | — |
+| <a id="target-zlibf-spec-public-goal-deflatesetdictionary-safety"></a>[deflateSetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L160) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L116) | — |
+| <a id="target-zlibf-spec-public-goal-deflategetdictionary-safety"></a>[deflateGetDictionary_safety](../ZlibF/Spec/Safety/Streams.lean#L171) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateGetDictionary_safety](../ZlibF/Proof/public-stream-call-safety.lean#L121) | — |
+| <a id="target-zlibf-spec-public-goal-deflatereset-safety"></a>[deflateReset_safety](../ZlibF/Spec/Safety/Streams.lean#L183) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateReset_safety](../ZlibF/Proof/public-stream-call-safety.lean#L126) | — |
+| <a id="target-zlibf-spec-public-goal-deflateparams-safety"></a>[deflateParams_safety](../ZlibF/Spec/Safety/Streams.lean#L193) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateParams_safety](../ZlibF/Proof/public-stream-call-safety.lean#L132) | — |
+| <a id="target-zlibf-spec-public-goal-deflatetune-safety"></a>[deflateTune_safety](../ZlibF/Spec/Safety/Streams.lean#L204) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateTune_safety](../ZlibF/Proof/public-stream-call-safety.lean#L137) | — |
+| <a id="target-zlibf-spec-public-goal-deflatebound-safety"></a>[deflateBound_safety](../ZlibF/Spec/Safety/Streams.lean#L217) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_safety](../ZlibF/Proof/public-stream-call-safety.lean#L142) | — |
+| <a id="target-zlibf-spec-public-goal-deflatebound-z-safety"></a>[deflateBound_z_safety](../ZlibF/Spec/Safety/Streams.lean#L229) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateBound_z_safety](../ZlibF/Proof/public-stream-call-safety.lean#L147) | — |
+| <a id="target-zlibf-spec-public-goal-deflatepending-safety"></a>[deflatePending_safety](../ZlibF/Spec/Safety/Streams.lean#L240) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflatePending_safety](../ZlibF/Proof/public-stream-call-safety.lean#L152) | — |
+| <a id="target-zlibf-spec-public-goal-deflateused-safety"></a>[deflateUsed_safety](../ZlibF/Spec/Safety/Streams.lean#L252) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateUsed_safety](../ZlibF/Proof/public-stream-call-safety.lean#L157) | — |
+| <a id="target-zlibf-spec-public-goal-deflateprime-safety"></a>[deflatePrime_safety](../ZlibF/Spec/Safety/Streams.lean#L263) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflatePrime_safety](../ZlibF/Proof/public-stream-call-safety.lean#L162) | — |
+| <a id="target-zlibf-spec-public-goal-deflatesetheader-safety"></a>[deflateSetHeader_safety](../ZlibF/Spec/Safety/Streams.lean#L274) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateSetHeader_safety](../ZlibF/Proof/public-stream-call-safety.lean#L167) | — |
+| <a id="target-zlibf-spec-public-goal-deflateend-safety"></a>[deflateEnd_safety](../ZlibF/Spec/Safety/Streams.lean#L300) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.StreamCallSafetyProof.deflateEnd_safety](../ZlibF/Proof/public-stream-call-safety.lean#L183) | — |
+| <a id="target-zlibf-spec-public-goal-deflateinit2-safety"></a>[deflateInit2__safety](../ZlibF/Spec/Safety/Initialisation.lean#L70) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.deflateInit2__safety](../ZlibF/Proof/public-init-safety.lean#L175) | — |
+| <a id="target-zlibf-spec-public-goal-deflateinit-safety"></a>[deflateInit__safety](../ZlibF/Spec/Safety/Initialisation.lean#L78) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | [ZlibF.Spec.Public.InitSafetyProof.deflateInit__safety](../ZlibF/Proof/public-init-safety.lean#L195) | — |
 
 <a id="group-back"></a>
 
@@ -1056,9 +1234,12 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-zlibf-spec-public-goal-inflatebackinit"></a>[inflateBackInit_](../ZlibF/Spec/Public/Back.lean#L22) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/inflate-back.md#inflatebackinit_); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.InflateBackInitProof.back_init_public](../ZlibF/Proof/public-infback-init.lean#L136) | — |
-| <a id="target-zlibf-spec-public-goal-inflateback"></a>[inflateBack](../ZlibF/Spec/Public/Back.lean#L118) | 未证明 / 未证明 | [契约](../docs/spec/api/inflate-back.md#inflateback); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：表、窗口与回调](progress.md#readiness-inflateback) |
-| <a id="target-zlibf-spec-public-goal-inflatebackend"></a>[inflateBackEnd](../ZlibF/Spec/Public/Back.lean#L145) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/inflate-back.md#inflatebackend); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.InflateBackEndProof.back_end_public](../ZlibF/Proof/public-infback-end.lean#L21) | — |
+| <a id="target-zlibf-spec-public-goal-inflatebackinit"></a>[inflateBackInit_](../ZlibF/Spec/Functional/Back.lean#L48) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/inflate-back.md#inflatebackinit_); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.InflateBackInitProof.back_init_public](../ZlibF/Proof/public-infback-init.lean#L138) | — |
+| <a id="target-zlibf-spec-public-goal-inflateback"></a>[inflateBack](../ZlibF/Spec/Functional/Back.lean#L19) | 未证明 / 未证明 | [契约](../docs/spec/api/inflate-back.md#inflateback); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：表、窗口与回调](progress.md#readiness-inflateback) |
+| <a id="target-zlibf-spec-public-goal-inflatebackend"></a>[inflateBackEnd](../ZlibF/Spec/Functional/Back.lean#L73) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/inflate-back.md#inflatebackend); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.InflateBackEndProof.back_end_public](../ZlibF/Proof/public-infback-end.lean#L22) | — |
+| <a id="target-zlibf-spec-public-goal-inflateback-safety"></a>[inflateBack_safety](../ZlibF/Spec/Safety/Back.lean#L46) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.BackSafetyProof.inflateBack_safety](../ZlibF/Proof/public-back-safety.lean#L24) | — |
+| <a id="target-zlibf-spec-public-goal-inflatebackend-safety"></a>[inflateBackEnd_safety](../ZlibF/Spec/Safety/Back.lean#L72) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.BackSafetyProof.inflateBackEnd_safety](../ZlibF/Proof/public-back-safety.lean#L32) | — |
+| <a id="target-zlibf-spec-public-goal-inflatebackinit-safety"></a>[inflateBackInit__safety](../ZlibF/Spec/Safety/Back.lean#L30) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.BackSafetyProof.inflateBackInit__safety](../ZlibF/Proof/public-back-safety.lean#L47) | — |
 
 <a id="group-gzip"></a>
 
@@ -1066,41 +1247,73 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-zlibf-spec-public-goal-gzclose-r"></a>[gzclose_r](../ZlibF/Spec/Public/GzClose.lean#L35) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzclose_r); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：资源归属](progress.md#readiness-gzclose-r) |
-| <a id="target-zlibf-spec-public-goal-gzclose-w"></a>[gzclose_w](../ZlibF/Spec/Public/GzClose.lean#L40) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzclose_w); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：交付与清理](progress.md#readiness-gzclose-w) |
-| <a id="target-zlibf-spec-public-goal-gzclose"></a>[gzclose](../ZlibF/Spec/Public/GzClose.lean#L44) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzclose); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：交付与清理](progress.md#readiness-gzclose-w) |
-| <a id="target-zlibf-spec-public-goal-gzbuffer"></a>[gzbuffer](../ZlibF/Spec/Public/GzControl.lean#L12) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzbuffer); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gzbuffer_public](../ZlibF/Proof/public-gzbuffer.lean#L50) | — |
-| <a id="target-zlibf-spec-public-goal-gzeof"></a>[gzeof](../ZlibF/Spec/Public/GzControl.lean#L22) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzeof); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gzeof_public](../ZlibF/Proof/public-gzeof.lean#L19) | — |
-| <a id="target-zlibf-spec-public-goal-gztell64"></a>[gztell64](../ZlibF/Spec/Public/GzControl.lean#L36) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gztell64); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：位置约束](progress.md#readiness-gztell64) |
-| <a id="target-zlibf-spec-public-goal-gztell"></a>[gztell](../ZlibF/Spec/Public/GzControl.lean#L39) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gztell); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：位置约束](progress.md#readiness-gztell64) |
-| <a id="target-zlibf-spec-public-goal-gzoffset64"></a>[gzoffset64](../ZlibF/Spec/Public/GzControl.lean#L53) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzoffset64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.OffsetProof.gzoffset64_public_goal](../ZlibF/Proof/public-gz-offset.lean#L232) | — |
-| <a id="target-zlibf-spec-public-goal-gzoffset"></a>[gzoffset](../ZlibF/Spec/Public/GzControl.lean#L56) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzoffset); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.OffsetProof.gzoffset_public_goal](../ZlibF/Proof/public-gz-offset.lean#L245) | — |
-| <a id="target-zlibf-spec-public-goal-gzerror"></a>[gzerror](../ZlibF/Spec/Public/GzControl.lean#L63) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzerror); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzErrorProof.gzerror](../ZlibF/Proof/public-gz-error.lean#L207) | — |
-| <a id="target-zlibf-spec-public-goal-gzclearerr"></a>[gzclearerr](../ZlibF/Spec/Public/GzControl.lean#L74) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzclearerr); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gzclearerr](../ZlibF/Proof/gzlib.c.public-clearerr.lean#L29) | — |
-| <a id="target-zlibf-spec-public-goal-gzrewind"></a>[gzrewind](../ZlibF/Spec/Public/GzControl.lean#L91) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzrewind); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzRewindProof.rewind_public](../ZlibF/Proof/public-gz-rewind.lean#L76) | — |
-| <a id="target-zlibf-spec-public-goal-gzseek64"></a>[gzseek64](../ZlibF/Spec/Public/GzControl.lean#L116) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzseek64); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：定位与状态序列](progress.md#readiness-gzseek64) |
-| <a id="target-zlibf-spec-public-goal-gzseek"></a>[gzseek](../ZlibF/Spec/Public/GzControl.lean#L119) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzseek); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：定位与状态序列](progress.md#readiness-gzseek64) |
-| <a id="target-zlibf-spec-public-goal-gzopen"></a>[gzopen](../ZlibF/Spec/Public/GzOpen.lean#L65) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzopen); [输入范围](spec/input-configurations.md#entry-inputs) | — | [开始：打开与清理](progress.md#readiness-gzopen) |
-| <a id="target-zlibf-spec-public-goal-gzopen64"></a>[gzopen64](../ZlibF/Spec/Public/GzOpen.lean#L70) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzopen64); [输入范围](spec/input-configurations.md#entry-inputs) | — | [开始：打开与清理](progress.md#readiness-gzopen) |
-| <a id="target-zlibf-spec-public-goal-gzdopen"></a>[gzdopen](../ZlibF/Spec/Public/GzOpen.lean#L75) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzdopen); [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Gzlib.Proofs.gzdopen_complete](../ZlibF/Proof/gzlib.c.dopen-complete.lean#L28) | — |
-| <a id="target-zlibf-spec-public-goal-gzread"></a>[gzread](../ZlibF/Spec/Public/GzRead.lean#L22) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzread); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
-| <a id="target-zlibf-spec-public-goal-gzfread"></a>[gzfread](../ZlibF/Spec/Public/GzRead.lean#L37) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzfread); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
-| <a id="target-zlibf-spec-public-goal-gzgetc"></a>[gzgetc](../ZlibF/Spec/Public/GzRead.lean#L58) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzgetc); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
-| <a id="target-zlibf-spec-public-goal-gzgetc"></a>[gzgetc_](../ZlibF/Spec/Public/GzRead.lean#L61) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzgetc_); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
-| <a id="target-zlibf-spec-public-goal-gzungetc"></a>[gzungetc](../ZlibF/Spec/Public/GzRead.lean#L66) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzungetc); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
-| <a id="target-zlibf-spec-public-goal-gzgets"></a>[gzgets](../ZlibF/Spec/Public/GzRead.lean#L80) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzgets); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
-| <a id="target-zlibf-spec-public-goal-gzdirect"></a>[gzdirect](../ZlibF/Spec/Public/GzRead.lean#L103) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzdirect); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
-| <a id="target-zlibf-spec-public-goal-gzwrite"></a>[gzwrite](../ZlibF/Spec/Public/GzWrite.lean#L28) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzwrite); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gzfwrite"></a>[gzfwrite](../ZlibF/Spec/Public/GzWrite.lean#L43) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzfwrite); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gzputc"></a>[gzputc](../ZlibF/Spec/Public/GzWrite.lean#L59) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzputc); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gzputs"></a>[gzputs](../ZlibF/Spec/Public/GzWrite.lean#L71) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzputs); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gzvprintf"></a>[gzvprintf](../ZlibF/Spec/Public/GzWrite.lean#L108) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzvprintf); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gzprintf"></a>[gzprintf](../ZlibF/Spec/Public/GzWrite.lean#L112) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzprintf); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gzflush"></a>[gzflush](../ZlibF/Spec/Public/GzWrite.lean#L117) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzflush); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gzsetparams"></a>[gzsetparams](../ZlibF/Spec/Public/GzWrite.lean#L134) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzsetparams); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
-| <a id="target-zlibf-spec-public-goal-gz-sequence-safety"></a>[gz_sequence_safety](../ZlibF/Spec/Public/GzSafety.lean#L144) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gz_sequence_safety_public](../ZlibF/Proof/public-gz-sequence-safety.lean#L25) | — |
-| <a id="target-zlibf-spec-public-goal-gz-refusal"></a>[gz_refusal](../ZlibF/Spec/Public/GzRefusal.lean#L39) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzRefusalProof.gz_refusal](../ZlibF/Proof/public-gz-refusal.lean#L17) | — |
-| <a id="target-zlibf-spec-public-goal-gz-sequence-nonvacuity"></a>[gz_sequence_nonvacuity](../ZlibF/Spec/Public/GzSafety.lean#L179) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.GzNonvacuity.gz_sequence_nonvacuity_public](../ZlibF/Proof/public-gz-sequence-nonvacuity.lean#L268) | — |
+| <a id="target-zlibf-spec-public-goal-gzclose-r"></a>[gzclose_r](../ZlibF/Spec/Functional/GzClose.lean#L35) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzclose_r); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：资源历史](progress.md#readiness-gzclose-r) |
+| <a id="target-zlibf-spec-public-goal-gzclose-w"></a>[gzclose_w](../ZlibF/Spec/Functional/GzClose.lean#L40) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzclose_w); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：刷新与清理](progress.md#readiness-gzclose-w) |
+| <a id="target-zlibf-spec-public-goal-gzclose"></a>[gzclose](../ZlibF/Spec/Functional/GzClose.lean#L44) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzclose); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：刷新与清理](progress.md#readiness-gzclose-w) |
+| <a id="target-zlibf-spec-public-goal-gzbuffer"></a>[gzbuffer](../ZlibF/Spec/Functional/GzControl.lean#L9) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzbuffer); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gzbuffer_public](../ZlibF/Proof/public-gzbuffer.lean#L50) | — |
+| <a id="target-zlibf-spec-public-goal-gzeof"></a>[gzeof](../ZlibF/Spec/Functional/GzControl.lean#L19) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzeof); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gzeof_public](../ZlibF/Proof/public-gzeof.lean#L19) | — |
+| <a id="target-zlibf-spec-public-goal-gztell64"></a>[gztell64](../ZlibF/Spec/Functional/GzControl.lean#L33) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gztell64); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：位置历史](progress.md#readiness-gztell64) |
+| <a id="target-zlibf-spec-public-goal-gztell"></a>[gztell](../ZlibF/Spec/Functional/GzControl.lean#L36) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gztell); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：位置历史](progress.md#readiness-gztell64) |
+| <a id="target-zlibf-spec-public-goal-gzoffset64"></a>[gzoffset64](../ZlibF/Spec/Functional/GzControl.lean#L50) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzoffset64); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.OffsetProof.gzoffset64_public_goal](../ZlibF/Proof/public-gz-offset.lean#L232) | — |
+| <a id="target-zlibf-spec-public-goal-gzoffset"></a>[gzoffset](../ZlibF/Spec/Functional/GzControl.lean#L53) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzoffset); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.OffsetProof.gzoffset_public_goal](../ZlibF/Proof/public-gz-offset.lean#L245) | — |
+| <a id="target-zlibf-spec-public-goal-gzerror"></a>[gzerror](../ZlibF/Spec/Functional/GzControl.lean#L60) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzerror); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzErrorProof.gzerror](../ZlibF/Proof/public-gz-error.lean#L207) | — |
+| <a id="target-zlibf-spec-public-goal-gzclearerr"></a>[gzclearerr](../ZlibF/Spec/Functional/GzControl.lean#L71) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzclearerr); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gzclearerr](../ZlibF/Proof/gzlib.c.public-clearerr.lean#L29) | — |
+| <a id="target-zlibf-spec-public-goal-gzrewind"></a>[gzrewind](../ZlibF/Spec/Functional/GzControl.lean#L88) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzrewind); [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzRewindProof.rewind_public](../ZlibF/Proof/public-gz-rewind.lean#L76) | — |
+| <a id="target-zlibf-spec-public-goal-gzseek64"></a>[gzseek64](../ZlibF/Spec/Functional/GzControl.lean#L113) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzseek64); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：定位与历史](progress.md#readiness-gzseek64) |
+| <a id="target-zlibf-spec-public-goal-gzseek"></a>[gzseek](../ZlibF/Spec/Functional/GzControl.lean#L116) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzseek); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：定位与历史](progress.md#readiness-gzseek64) |
+| <a id="target-zlibf-spec-public-goal-gzopen"></a>[gzopen](../ZlibF/Spec/Functional/GzOpen.lean#L65) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzopen); [输入范围](spec/input-configurations.md#entry-inputs) | — | [开始：打开与清理](progress.md#readiness-gzopen) |
+| <a id="target-zlibf-spec-public-goal-gzopen64"></a>[gzopen64](../ZlibF/Spec/Functional/GzOpen.lean#L70) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzopen64); [输入范围](spec/input-configurations.md#entry-inputs) | — | [开始：打开与清理](progress.md#readiness-gzopen) |
+| <a id="target-zlibf-spec-public-goal-gzdopen"></a>[gzdopen](../ZlibF/Spec/Functional/GzOpen.lean#L75) | 陈述所允许的全部输入 / 已登记证明 | [契约](../docs/spec/api/gz-file.md#gzdopen); [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Gzlib.Proofs.gzdopen_complete](../ZlibF/Proof/gzlib.c.dopen-complete.lean#L28) | — |
+| <a id="target-zlibf-spec-public-goal-gzread"></a>[gzread](../ZlibF/Spec/Functional/GzRead.lean#L22) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzread); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
+| <a id="target-zlibf-spec-public-goal-gzfread"></a>[gzfread](../ZlibF/Spec/Functional/GzRead.lean#L37) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzfread); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
+| <a id="target-zlibf-spec-public-goal-gzgetc"></a>[gzgetc](../ZlibF/Spec/Functional/GzRead.lean#L58) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzgetc); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
+| <a id="target-zlibf-spec-public-goal-gzgetc"></a>[gzgetc_](../ZlibF/Spec/Functional/GzRead.lean#L61) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzgetc_); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
+| <a id="target-zlibf-spec-public-goal-gzungetc"></a>[gzungetc](../ZlibF/Spec/Functional/GzRead.lean#L66) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzungetc); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
+| <a id="target-zlibf-spec-public-goal-gzgets"></a>[gzgets](../ZlibF/Spec/Functional/GzRead.lean#L80) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzgets); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
+| <a id="target-zlibf-spec-public-goal-gzdirect"></a>[gzdirect](../ZlibF/Spec/Functional/GzRead.lean#L103) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzdirect); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：读取路径证明](progress.md#readiness-gzdirect) |
+| <a id="target-zlibf-spec-public-goal-gzwrite"></a>[gzwrite](../ZlibF/Spec/Functional/GzWrite.lean#L28) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzwrite); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gzfwrite"></a>[gzfwrite](../ZlibF/Spec/Functional/GzWrite.lean#L43) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzfwrite); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gzputc"></a>[gzputc](../ZlibF/Spec/Functional/GzWrite.lean#L59) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzputc); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gzputs"></a>[gzputs](../ZlibF/Spec/Functional/GzWrite.lean#L71) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzputs); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gzvprintf"></a>[gzvprintf](../ZlibF/Spec/Functional/GzWrite.lean#L108) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzvprintf); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gzprintf"></a>[gzprintf](../ZlibF/Spec/Functional/GzWrite.lean#L112) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzprintf); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gzflush"></a>[gzflush](../ZlibF/Spec/Functional/GzWrite.lean#L117) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzflush); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gzsetparams"></a>[gzsetparams](../ZlibF/Spec/Functional/GzWrite.lean#L134) | 未证明 / 未证明 | [契约](../docs/spec/api/gz-file.md#gzsetparams); [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：写入路径证明](progress.md#readiness-gzwrite) |
+| <a id="target-zlibf-spec-public-goal-gz-sequence-safety"></a>[gz_sequence_safety](../ZlibF/Spec/Safety/GzSafety.lean#L144) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.gz_sequence_safety_public](../ZlibF/Proof/public-gz-sequence-safety.lean#L25) | — |
+| <a id="target-zlibf-spec-public-goal-gz-refusal"></a>[gz_refusal](../ZlibF/Spec/Safety/GzRefusal.lean#L39) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzRefusalProof.gz_refusal](../ZlibF/Proof/public-gz-refusal.lean#L17) | — |
+| <a id="target-zlibf-spec-public-goal-gz-sequence-nonvacuity"></a>[gz_sequence_nonvacuity](../ZlibF/Spec/Safety/GzSafety.lean#L179) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.GzNonvacuity.gz_sequence_nonvacuity_public](../ZlibF/Proof/public-gz-sequence-nonvacuity.lean#L268) | — |
+| <a id="target-zlibf-spec-public-goal-gzbuffer-safety"></a>[gzbuffer_safety](../ZlibF/Spec/Safety/GzCalls.lean#L45) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzbuffer_safety](../ZlibF/Proof/public-gz-call-safety.lean#L26) | — |
+| <a id="target-zlibf-spec-public-goal-gzclearerr-safety"></a>[gzclearerr_safety](../ZlibF/Spec/Safety/GzCalls.lean#L52) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzclearerr_safety](../ZlibF/Proof/public-gz-call-safety.lean#L30) | — |
+| <a id="target-zlibf-spec-public-goal-gzclose-safety"></a>[gzclose_safety](../ZlibF/Spec/Safety/GzCalls.lean#L252) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzclose_safety](../ZlibF/Proof/public-gz-call-safety.lean#L130) | — |
+| <a id="target-zlibf-spec-public-goal-gzclose-r-safety"></a>[gzclose_r_safety](../ZlibF/Spec/Safety/GzCalls.lean#L260) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzclose_r_safety](../ZlibF/Proof/public-gz-call-safety.lean#L134) | — |
+| <a id="target-zlibf-spec-public-goal-gzclose-w-safety"></a>[gzclose_w_safety](../ZlibF/Spec/Safety/GzCalls.lean#L268) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzclose_w_safety](../ZlibF/Proof/public-gz-call-safety.lean#L138) | — |
+| <a id="target-zlibf-spec-public-goal-gzdirect-safety"></a>[gzdirect_safety](../ZlibF/Spec/Safety/GzCalls.lean#L59) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzdirect_safety](../ZlibF/Proof/public-gz-call-safety.lean#L34) | — |
+| <a id="target-zlibf-spec-public-goal-gzdopen-safety"></a>[gzdopen_safety](../ZlibF/Spec/Safety/GzCalls.lean#L286) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzdopen_safety](../ZlibF/Proof/public-gz-call-safety.lean#L147) | — |
+| <a id="target-zlibf-spec-public-goal-gzeof-safety"></a>[gzeof_safety](../ZlibF/Spec/Safety/GzCalls.lean#L66) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzeof_safety](../ZlibF/Proof/public-gz-call-safety.lean#L38) | — |
+| <a id="target-zlibf-spec-public-goal-gzerror-safety"></a>[gzerror_safety](../ZlibF/Spec/Safety/GzCalls.lean#L239) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzerror_safety](../ZlibF/Proof/public-gz-call-safety.lean#L126) | — |
+| <a id="target-zlibf-spec-public-goal-gzflush-safety"></a>[gzflush_safety](../ZlibF/Spec/Safety/GzCalls.lean#L73) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzflush_safety](../ZlibF/Proof/public-gz-call-safety.lean#L42) | — |
+| <a id="target-zlibf-spec-public-goal-gzfread-safety"></a>[gzfread_safety](../ZlibF/Spec/Safety/GzCalls.lean#L81) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzfread_safety](../ZlibF/Proof/public-gz-call-safety.lean#L46) | — |
+| <a id="target-zlibf-spec-public-goal-gzfwrite-safety"></a>[gzfwrite_safety](../ZlibF/Spec/Safety/GzCalls.lean#L89) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzfwrite_safety](../ZlibF/Proof/public-gz-call-safety.lean#L50) | — |
+| <a id="target-zlibf-spec-public-goal-gzgetc-safety"></a>[gzgetc_safety](../ZlibF/Spec/Safety/GzCalls.lean#L224) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzgetc_safety](../ZlibF/Proof/public-gz-call-safety.lean#L122) | — |
+| <a id="target-zlibf-spec-public-goal-gzgetc-safety"></a>[gzgetc__safety](../ZlibF/Spec/Safety/GzCalls.lean#L97) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzgetc__safety](../ZlibF/Proof/public-gz-call-safety.lean#L54) | — |
+| <a id="target-zlibf-spec-public-goal-gzgets-safety"></a>[gzgets_safety](../ZlibF/Spec/Safety/GzCalls.lean#L104) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzgets_safety](../ZlibF/Proof/public-gz-call-safety.lean#L58) | — |
+| <a id="target-zlibf-spec-public-goal-gzoffset-safety"></a>[gzoffset_safety](../ZlibF/Spec/Safety/GzCalls.lean#L111) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzoffset_safety](../ZlibF/Proof/public-gz-call-safety.lean#L62) | — |
+| <a id="target-zlibf-spec-public-goal-gzoffset64-safety"></a>[gzoffset64_safety](../ZlibF/Spec/Safety/GzCalls.lean#L118) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzoffset64_safety](../ZlibF/Proof/public-gz-call-safety.lean#L66) | — |
+| <a id="target-zlibf-spec-public-goal-gzopen-safety"></a>[gzopen_safety](../ZlibF/Spec/Safety/GzCalls.lean#L276) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzopen_safety](../ZlibF/Proof/public-gz-call-safety.lean#L141) | — |
+| <a id="target-zlibf-spec-public-goal-gzopen64-safety"></a>[gzopen64_safety](../ZlibF/Spec/Safety/GzCalls.lean#L281) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzopen64_safety](../ZlibF/Proof/public-gz-call-safety.lean#L144) | — |
+| <a id="target-zlibf-spec-public-goal-gzprintf-safety"></a>[gzprintf_safety](../ZlibF/Spec/Safety/GzCalls.lean#L125) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety](../ZlibF/Proof/public-gz-call-safety.lean#L70) | — |
+| <a id="target-zlibf-spec-public-goal-gzvprintf-safety"></a>[gzvprintf_safety](../ZlibF/Spec/Safety/GzCalls.lean#L134) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety](../ZlibF/Proof/public-gz-call-safety.lean#L74) | — |
+| <a id="target-zlibf-spec-public-goal-gzputc-safety"></a>[gzputc_safety](../ZlibF/Spec/Safety/GzCalls.lean#L142) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzputc_safety](../ZlibF/Proof/public-gz-call-safety.lean#L78) | — |
+| <a id="target-zlibf-spec-public-goal-gzputs-safety"></a>[gzputs_safety](../ZlibF/Spec/Safety/GzCalls.lean#L149) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzputs_safety](../ZlibF/Proof/public-gz-call-safety.lean#L82) | — |
+| <a id="target-zlibf-spec-public-goal-gzread-safety"></a>[gzread_safety](../ZlibF/Spec/Safety/GzCalls.lean#L156) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzread_safety](../ZlibF/Proof/public-gz-call-safety.lean#L86) | — |
+| <a id="target-zlibf-spec-public-goal-gzrewind-safety"></a>[gzrewind_safety](../ZlibF/Spec/Safety/GzCalls.lean#L163) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzrewind_safety](../ZlibF/Proof/public-gz-call-safety.lean#L90) | — |
+| <a id="target-zlibf-spec-public-goal-gzseek-safety"></a>[gzseek_safety](../ZlibF/Spec/Safety/GzCalls.lean#L170) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzseek_safety](../ZlibF/Proof/public-gz-call-safety.lean#L94) | — |
+| <a id="target-zlibf-spec-public-goal-gzseek64-safety"></a>[gzseek64_safety](../ZlibF/Spec/Safety/GzCalls.lean#L178) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzseek64_safety](../ZlibF/Proof/public-gz-call-safety.lean#L98) | — |
+| <a id="target-zlibf-spec-public-goal-gzsetparams-safety"></a>[gzsetparams_safety](../ZlibF/Spec/Safety/GzCalls.lean#L186) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzsetparams_safety](../ZlibF/Proof/public-gz-call-safety.lean#L102) | — |
+| <a id="target-zlibf-spec-public-goal-gztell-safety"></a>[gztell_safety](../ZlibF/Spec/Safety/GzCalls.lean#L194) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gztell_safety](../ZlibF/Proof/public-gz-call-safety.lean#L106) | — |
+| <a id="target-zlibf-spec-public-goal-gztell64-safety"></a>[gztell64_safety](../ZlibF/Spec/Safety/GzCalls.lean#L201) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gztell64_safety](../ZlibF/Proof/public-gz-call-safety.lean#L110) | — |
+| <a id="target-zlibf-spec-public-goal-gzungetc-safety"></a>[gzungetc_safety](../ZlibF/Spec/Safety/GzCalls.lean#L208) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzungetc_safety](../ZlibF/Proof/public-gz-call-safety.lean#L114) | — |
+| <a id="target-zlibf-spec-public-goal-gzwrite-safety"></a>[gzwrite_safety](../ZlibF/Spec/Safety/GzCalls.lean#L215) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.GzCallSafetyProof.gzwrite_safety](../ZlibF/Proof/public-gz-call-safety.lean#L118) | — |
 
 <a id="group-buffers"></a>
 
@@ -1160,14 +1373,14 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-zlibf-spec-public-goal-inflate-sequence"></a>[inflate_sequence](../ZlibF/Spec/Functional/Sequences.lean#L152) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
-| <a id="target-zlibf-spec-public-goal-deflate-sequence"></a>[deflate_sequence](../ZlibF/Spec/Functional/Sequences.lean#L172) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
-| <a id="target-zlibf-spec-public-goal-inflate-back-sequence"></a>[inflate_back_sequence](../ZlibF/Spec/Public/Sequences.lean#L164) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
-| <a id="target-zlibf-spec-public-goal-gz-sequence"></a>[gz_sequence](../ZlibF/Spec/Public/Sequences.lean#L214) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
+| <a id="target-zlibf-spec-public-goal-inflate-sequence"></a>[inflate_sequence](../ZlibF/Spec/Functional/Sequences.lean#L173) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#inflate-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
+| <a id="target-zlibf-spec-public-goal-deflate-sequence"></a>[deflate_sequence](../ZlibF/Spec/Functional/Sequences.lean#L193) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#deflate-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
+| <a id="target-zlibf-spec-public-goal-inflate-back-sequence"></a>[inflate_back_sequence](../ZlibF/Spec/Functional/Sequences.lean#L230) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
+| <a id="target-zlibf-spec-public-goal-gz-sequence"></a>[gz_sequence](../ZlibF/Spec/Functional/GzSequence.lean#L48) | 未证明 / 未证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | — | [需要：执行与格式](progress.md#readiness-inflate-sequence) |
 | <a id="target-zlibf-spec-public-goal-inflate-initialisation-domain"></a>[inflate_initialisation_domain](../ZlibF/Spec/Safety/Domains.lean#L15) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.InflateInit.inflate_initialisation_domain_public](../ZlibF/Proof/public-inflate-init.lean#L266) | — |
 | <a id="target-zlibf-spec-public-goal-deflate-initialisation-domain"></a>[deflate_initialisation_domain](../ZlibF/Spec/Safety/Domains.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.Proofs.DeflateInitDomain.deflate_initialisation_domain_public](../ZlibF/Proof/public-deflate-init-domain.lean#L39) | — |
-| <a id="target-zlibf-spec-public-goal-inflate-back-initialisation-domain"></a>[inflate_back_initialisation_domain](../ZlibF/Spec/Public/Domains.lean#L24) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.InflateBackInitProof.back_init_domain_public](../ZlibF/Proof/public-infback-init.lean#L231) | — |
-| <a id="target-zlibf-spec-public-goal-gz-initialisation-domain"></a>[gz_initialisation_domain](../ZlibF/Spec/Public/Domains.lean#L50) | 未证明 / 不在计划内 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | — | [不在计划内](#scope) |
+| <a id="target-zlibf-spec-public-goal-inflate-back-initialisation-domain"></a>[inflate_back_initialisation_domain](../ZlibF/Spec/Safety/Domains.lean#L44) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Public.InflateBackInitProof.back_init_domain_public](../ZlibF/Proof/public-infback-init.lean#L233) | — |
+| <a id="target-zlibf-spec-public-goal-gz-initialisation-domain"></a>[gz_initialisation_domain](../ZlibF/Spec/Functional/GzSequence.lean#L28) | 未证明 / 不在计划内 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | — | [不在计划内](#scope) |
 
 <a id="group-internal"></a>
 
@@ -1175,8 +1388,8 @@ flowchart LR
 
 | 目标陈述 | 覆盖范围／证据状态 | 契约／输入范围 | 证明证据 | 已审查的后续工作 |
 | --- | --- | --- | --- | --- |
-| <a id="target-zlib-crc32-spec-byteviews-goal-crc32-z-all-byte-views"></a>[crc32_z_all_byte_views](../ZlibF/Spec/Crc32ByteViews.lean#L17) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Crc32.Proofs.crc32_z_all_byte_views](../ZlibF/Proof/crc32.c.views.lean#L567) | — |
-| <a id="target-zlib-crc32-spec-byteviews-goal-crc32-all-byte-views"></a>[crc32_all_byte_views](../ZlibF/Spec/Crc32ByteViews.lean#L28) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Crc32.Proofs.crc32_all_byte_views](../ZlibF/Proof/crc32.c.views.lean#L573) | — |
+| <a id="target-zlib-crc32-spec-byteviews-goal-crc32-z-all-byte-views"></a>[crc32_z_all_byte_views](../ZlibF/Spec/Functional/Crc32ByteViews.lean#L18) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Crc32.Proofs.crc32_z_all_byte_views](../ZlibF/Proof/crc32.c.views.lean#L568) | — |
+| <a id="target-zlib-crc32-spec-byteviews-goal-crc32-all-byte-views"></a>[crc32_all_byte_views](../ZlibF/Spec/Functional/Crc32ByteViews.lean#L29) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [Zlib.Crc32.Proofs.crc32_all_byte_views](../ZlibF/Proof/crc32.c.views.lean#L574) | — |
 | <a id="target-zlibf-spec-token-goal-rejected-has-no-symbols"></a>[rejected_has_no_symbols](../ZlibF/Spec/Functional/Format/Token.lean#L84) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Token.rejected_has_no_symbols](../ZlibF/Proof/Format/Token.lean#L49) | — |
 | <a id="target-zlibf-spec-token-goal-step-composes-symbols"></a>[step_composes_symbols](../ZlibF/Spec/Functional/Format/Token.lean#L62) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Token.step_composes_symbols](../ZlibF/Proof/Format/Token.lean#L15) | — |
 | <a id="target-zlibf-spec-token-goal-symbols-exposes-step"></a>[symbols_exposes_step](../ZlibF/Spec/Functional/Format/Token.lean#L73) | 陈述所允许的全部输入 / 已登记证明 | 确切目标陈述; [输入范围](spec/input-configurations.md#entry-inputs) | [ZlibF.Spec.Token.symbols_exposes_step](../ZlibF/Proof/Format/Token.lean#L35) | — |
@@ -1330,6 +1543,15 @@ flowchart LR
 | [deflateEnd](#target-zlibf-spec-public-goal-deflateend) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [deflateInit2_](#target-zlibf-spec-public-goal-deflateinit2) | [deflateInit2__safety](#target-zlibf-spec-public-goal-deflateinit2-safety) |
 | [deflateInit2__safety](#target-zlibf-spec-public-goal-deflateinit2-safety) | [deflateInit__safety](#target-zlibf-spec-public-goal-deflateinit-safety) |
+| [deflatePending](#target-zlibf-spec-public-goal-deflatepending) | [deflatePending_safety](#target-zlibf-spec-public-goal-deflatepending-safety) |
+| [deflateSetHeader](#target-zlibf-spec-public-goal-deflatesetheader) | [deflateSetHeader_safety](#target-zlibf-spec-public-goal-deflatesetheader-safety) |
+| [deflateTune](#target-zlibf-spec-public-goal-deflatetune) | [deflateTune_safety](#target-zlibf-spec-public-goal-deflatetune-safety) |
+| [deflateUsed](#target-zlibf-spec-public-goal-deflateused) | [deflateUsed_safety](#target-zlibf-spec-public-goal-deflateused-safety) |
+| [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) | [deflateCopy_safety](#target-zlibf-spec-public-goal-deflatecopy-safety) |
+| [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) | [deflateGetDictionary_safety](#target-zlibf-spec-public-goal-deflategetdictionary-safety) |
+| [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) | [deflateParams_safety](#target-zlibf-spec-public-goal-deflateparams-safety) |
+| [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) | [deflateSetDictionary_safety](#target-zlibf-spec-public-goal-deflatesetdictionary-safety) |
+| [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) | [deflate_safety](#target-zlibf-spec-public-goal-deflate-safety) |
 | [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety) | [deflateBound_safety](#target-zlibf-spec-public-goal-deflatebound-safety) |
 | [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety) | [deflateBound_z_safety](#target-zlibf-spec-public-goal-deflatebound-z-safety) |
 | [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety) | [deflateEnd_safety](#target-zlibf-spec-public-goal-deflateend-safety) |
@@ -1343,13 +1565,47 @@ flowchart LR
 | [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety) | [deflateTune_safety](#target-zlibf-spec-public-goal-deflatetune-safety) |
 | [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety) | [deflateUsed_safety](#target-zlibf-spec-public-goal-deflateused-safety) |
 | [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety) | [deflate_safety](#target-zlibf-spec-public-goal-deflate-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzbuffer_safety](#target-zlibf-spec-public-goal-gzbuffer-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzclearerr_safety](#target-zlibf-spec-public-goal-gzclearerr-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzclose_r_safety](#target-zlibf-spec-public-goal-gzclose-r-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzclose_safety](#target-zlibf-spec-public-goal-gzclose-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzclose_w_safety](#target-zlibf-spec-public-goal-gzclose-w-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzdirect_safety](#target-zlibf-spec-public-goal-gzdirect-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzdopen_safety](#target-zlibf-spec-public-goal-gzdopen-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzeof_safety](#target-zlibf-spec-public-goal-gzeof-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzerror_safety](#target-zlibf-spec-public-goal-gzerror-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzflush_safety](#target-zlibf-spec-public-goal-gzflush-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzfread_safety](#target-zlibf-spec-public-goal-gzfread-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzfwrite_safety](#target-zlibf-spec-public-goal-gzfwrite-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzgetc__safety](#target-zlibf-spec-public-goal-gzgetc-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzgetc_safety](#target-zlibf-spec-public-goal-gzgetc-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzgets_safety](#target-zlibf-spec-public-goal-gzgets-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzoffset64_safety](#target-zlibf-spec-public-goal-gzoffset64-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzoffset_safety](#target-zlibf-spec-public-goal-gzoffset-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzopen64_safety](#target-zlibf-spec-public-goal-gzopen64-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzopen_safety](#target-zlibf-spec-public-goal-gzopen-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzprintf_safety](#target-zlibf-spec-public-goal-gzprintf-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzputc_safety](#target-zlibf-spec-public-goal-gzputc-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzputs_safety](#target-zlibf-spec-public-goal-gzputs-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzread_safety](#target-zlibf-spec-public-goal-gzread-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzrewind_safety](#target-zlibf-spec-public-goal-gzrewind-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzseek64_safety](#target-zlibf-spec-public-goal-gzseek64-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzseek_safety](#target-zlibf-spec-public-goal-gzseek-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzsetparams_safety](#target-zlibf-spec-public-goal-gzsetparams-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gztell64_safety](#target-zlibf-spec-public-goal-gztell64-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gztell_safety](#target-zlibf-spec-public-goal-gztell-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzungetc_safety](#target-zlibf-spec-public-goal-gzungetc-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzvprintf_safety](#target-zlibf-spec-public-goal-gzvprintf-safety) |
+| [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) | [gzwrite_safety](#target-zlibf-spec-public-goal-gzwrite-safety) |
 | [gzeof](#target-zlibf-spec-public-goal-gzeof) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [inflate](#target-zlibf-spec-public-goal-inflate) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [inflate](#target-zlibf-spec-public-goal-inflate) | [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe) |
 | [inflate](#target-zlibf-spec-public-goal-inflate) | [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe) |
 | [inflate](#target-zlibf-spec-public-goal-inflate) | [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe) |
 | [inflate](#target-zlibf-spec-public-goal-inflate) | [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [inflateBackEnd](#target-zlibf-spec-public-goal-inflatebackend) | [inflateBackEnd_safety](#target-zlibf-spec-public-goal-inflatebackend-safety) |
 | [inflateBackEnd](#target-zlibf-spec-public-goal-inflatebackend) | [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) |
+| [inflateBackInit_](#target-zlibf-spec-public-goal-inflatebackinit) | [inflateBackInit__safety](#target-zlibf-spec-public-goal-inflatebackinit-safety) |
 | [inflateBackInit_](#target-zlibf-spec-public-goal-inflatebackinit) | [inflate_back_initialisation_domain](#target-zlibf-spec-public-goal-inflate-back-initialisation-domain) |
 | [inflateBackInit_](#target-zlibf-spec-public-goal-inflatebackinit) | [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) |
 | [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy) | [inflateCopy_safety](#target-zlibf-spec-public-goal-inflatecopy-safety) |
@@ -1364,7 +1620,18 @@ flowchart LR
 | [inflateInit2_](#target-zlibf-spec-public-goal-inflateinit2) | [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe) |
 | [inflateInit2_](#target-zlibf-spec-public-goal-inflateinit2) | [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [inflateInit2__safety](#target-zlibf-spec-public-goal-inflateinit2-safety) | [inflateInit__safety](#target-zlibf-spec-public-goal-inflateinit-safety) |
+| [inflateMark](#target-zlibf-spec-public-goal-inflatemark) | [inflateMark_safety](#target-zlibf-spec-public-goal-inflatemark-safety) |
+| [inflatePrime](#target-zlibf-spec-public-goal-inflateprime) | [inflatePrime_safety](#target-zlibf-spec-public-goal-inflateprime-safety) |
 | [inflateSetDictionary](#target-zlibf-spec-public-goal-inflatesetdictionary) | [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety) |
+| [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) | [inflateBackEnd_safety](#target-zlibf-spec-public-goal-inflatebackend-safety) |
+| [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) | [inflateBack_safety](#target-zlibf-spec-public-goal-inflateback-safety) |
+| [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) | [inflateCopy_safety](#target-zlibf-spec-public-goal-inflatecopy-safety) |
+| [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) | [inflateEnd_safety](#target-zlibf-spec-public-goal-inflateend-safety) |
+| [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) | [inflateGetDictionary_safety](#target-zlibf-spec-public-goal-inflategetdictionary-safety) |
+| [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) | [inflateReset2_safety](#target-zlibf-spec-public-goal-inflatereset2-safety) |
+| [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) | [inflateReset_safety](#target-zlibf-spec-public-goal-inflatereset-safety) |
+| [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) | [inflateSetDictionary_safety](#target-zlibf-spec-public-goal-inflatesetdictionary-safety) |
+| [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) | [inflate_safety](#target-zlibf-spec-public-goal-inflate-safety) |
 | [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety) | [inflateEnd_safety](#target-zlibf-spec-public-goal-inflateend-safety) |
 | [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety) | [inflateGetDictionary_safety](#target-zlibf-spec-public-goal-inflategetdictionary-safety) |
 | [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety) | [inflateGetHeader_safety](#target-zlibf-spec-public-goal-inflategetheader-safety) |
@@ -1509,76 +1776,131 @@ flowchart LR
 | [crc32_z](#target-zlibf-spec-public-goal-crc32-z) | [crc32_z_all_byte_views](#target-zlib-crc32-spec-byteviews-goal-crc32-z-all-byte-views) |
 | [crc32_z](#target-zlibf-spec-public-goal-crc32-z) | [crc32_z_safety](#target-zlibf-spec-public-goal-crc32-z-safety) |
 | [deflate](#target-zlibf-spec-public-goal-deflate) | [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) |
+| [deflate](#target-zlibf-spec-public-goal-deflate) | [deflate_safety](#target-zlibf-spec-public-goal-deflate-safety) |
+| [deflateBound](#target-zlibf-spec-public-goal-deflatebound) | [deflateBound_safety](#target-zlibf-spec-public-goal-deflatebound-safety) |
 | [deflateBound](#target-zlibf-spec-public-goal-deflatebound) | [deflate_sequence](#target-zlibf-spec-public-goal-deflate-sequence) |
+| [deflateBound_z](#target-zlibf-spec-public-goal-deflatebound-z) | [deflateBound_z_safety](#target-zlibf-spec-public-goal-deflatebound-z-safety) |
 | [deflateBound_z](#target-zlibf-spec-public-goal-deflatebound-z) | [deflate_sequence](#target-zlibf-spec-public-goal-deflate-sequence) |
 | [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy) | [deflateCopy_safety](#target-zlibf-spec-public-goal-deflatecopy-safety) |
 | [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy) | [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) |
 | [deflateEnd](#target-zlibf-spec-public-goal-deflateend) | [deflateEnd_safety](#target-zlibf-spec-public-goal-deflateend-safety) |
+| [deflateGetDictionary](#target-zlibf-spec-public-goal-deflategetdictionary) | [deflateGetDictionary_safety](#target-zlibf-spec-public-goal-deflategetdictionary-safety) |
 | [deflateGetDictionary](#target-zlibf-spec-public-goal-deflategetdictionary) | [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) |
 | [deflateInit2_](#target-zlibf-spec-public-goal-deflateinit2) | [deflateInit2__safety](#target-zlibf-spec-public-goal-deflateinit2-safety) |
 | [deflateInit2_](#target-zlibf-spec-public-goal-deflateinit2) | [deflate_initialisation_domain](#target-zlibf-spec-public-goal-deflate-initialisation-domain) |
 | [deflateInit_](#target-zlibf-spec-public-goal-deflateinit) | [deflateInit__safety](#target-zlibf-spec-public-goal-deflateinit-safety) |
+| [deflateParams](#target-zlibf-spec-public-goal-deflateparams) | [deflateParams_safety](#target-zlibf-spec-public-goal-deflateparams-safety) |
 | [deflateParams](#target-zlibf-spec-public-goal-deflateparams) | [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) |
+| [deflatePending](#target-zlibf-spec-public-goal-deflatepending) | [deflatePending_safety](#target-zlibf-spec-public-goal-deflatepending-safety) |
+| [deflatePrime](#target-zlibf-spec-public-goal-deflateprime) | [deflatePrime_safety](#target-zlibf-spec-public-goal-deflateprime-safety) |
+| [deflateReset](#target-zlibf-spec-public-goal-deflatereset) | [deflateReset_safety](#target-zlibf-spec-public-goal-deflatereset-safety) |
+| [deflateSetDictionary](#target-zlibf-spec-public-goal-deflatesetdictionary) | [deflateSetDictionary_safety](#target-zlibf-spec-public-goal-deflatesetdictionary-safety) |
 | [deflateSetDictionary](#target-zlibf-spec-public-goal-deflatesetdictionary) | [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) |
+| [deflateSetHeader](#target-zlibf-spec-public-goal-deflatesetheader) | [deflateSetHeader_safety](#target-zlibf-spec-public-goal-deflatesetheader-safety) |
+| [deflateTune](#target-zlibf-spec-public-goal-deflatetune) | [deflateTune_safety](#target-zlibf-spec-public-goal-deflatetune-safety) |
+| [deflateUsed](#target-zlibf-spec-public-goal-deflateused) | [deflateUsed_safety](#target-zlibf-spec-public-goal-deflateused-safety) |
 | [gzbuffer](#target-zlibf-spec-public-goal-gzbuffer) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzbuffer](#target-zlibf-spec-public-goal-gzbuffer) | [gzbuffer_safety](#target-zlibf-spec-public-goal-gzbuffer-safety) |
 | [gzclearerr](#target-zlibf-spec-public-goal-gzclearerr) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzclearerr](#target-zlibf-spec-public-goal-gzclearerr) | [gzclearerr_safety](#target-zlibf-spec-public-goal-gzclearerr-safety) |
 | [gzclose](#target-zlibf-spec-public-goal-gzclose) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzclose](#target-zlibf-spec-public-goal-gzclose) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzclose](#target-zlibf-spec-public-goal-gzclose) | [gzclose_safety](#target-zlibf-spec-public-goal-gzclose-safety) |
 | [gzclose_r](#target-zlibf-spec-public-goal-gzclose-r) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzclose_r](#target-zlibf-spec-public-goal-gzclose-r) | [gzclose_r_safety](#target-zlibf-spec-public-goal-gzclose-r-safety) |
 | [gzclose_w](#target-zlibf-spec-public-goal-gzclose-w) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzclose_w](#target-zlibf-spec-public-goal-gzclose-w) | [gzclose_w_safety](#target-zlibf-spec-public-goal-gzclose-w-safety) |
 | [gzdirect](#target-zlibf-spec-public-goal-gzdirect) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzdirect](#target-zlibf-spec-public-goal-gzdirect) | [gzdirect_safety](#target-zlibf-spec-public-goal-gzdirect-safety) |
 | [gzdopen](#target-zlibf-spec-public-goal-gzdopen) | [gz_sequence_nonvacuity](#target-zlibf-spec-public-goal-gz-sequence-nonvacuity) |
 | [gzeof](#target-zlibf-spec-public-goal-gzeof) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzeof](#target-zlibf-spec-public-goal-gzeof) | [gzeof_safety](#target-zlibf-spec-public-goal-gzeof-safety) |
 | [gzerror](#target-zlibf-spec-public-goal-gzerror) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzerror](#target-zlibf-spec-public-goal-gzerror) | [gzerror_safety](#target-zlibf-spec-public-goal-gzerror-safety) |
 | [gzflush](#target-zlibf-spec-public-goal-gzflush) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzflush](#target-zlibf-spec-public-goal-gzflush) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzflush](#target-zlibf-spec-public-goal-gzflush) | [gzflush_safety](#target-zlibf-spec-public-goal-gzflush-safety) |
 | [gzfread](#target-zlibf-spec-public-goal-gzfread) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzfread](#target-zlibf-spec-public-goal-gzfread) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzfread](#target-zlibf-spec-public-goal-gzfread) | [gzfread_safety](#target-zlibf-spec-public-goal-gzfread-safety) |
 | [gzfwrite](#target-zlibf-spec-public-goal-gzfwrite) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzfwrite](#target-zlibf-spec-public-goal-gzfwrite) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzfwrite](#target-zlibf-spec-public-goal-gzfwrite) | [gzfwrite_safety](#target-zlibf-spec-public-goal-gzfwrite-safety) |
 | [gzgetc](#target-zlibf-spec-public-goal-gzgetc) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzgetc](#target-zlibf-spec-public-goal-gzgetc) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzgetc](#target-zlibf-spec-public-goal-gzgetc) | [gzgetc_safety](#target-zlibf-spec-public-goal-gzgetc-safety) |
 | [gzgetc_](#target-zlibf-spec-public-goal-gzgetc) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzgetc_](#target-zlibf-spec-public-goal-gzgetc) | [gzgetc__safety](#target-zlibf-spec-public-goal-gzgetc-safety) |
 | [gzgets](#target-zlibf-spec-public-goal-gzgets) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzgets](#target-zlibf-spec-public-goal-gzgets) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzgets](#target-zlibf-spec-public-goal-gzgets) | [gzgets_safety](#target-zlibf-spec-public-goal-gzgets-safety) |
 | [gzoffset](#target-zlibf-spec-public-goal-gzoffset) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzoffset](#target-zlibf-spec-public-goal-gzoffset) | [gzoffset_safety](#target-zlibf-spec-public-goal-gzoffset-safety) |
 | [gzoffset64](#target-zlibf-spec-public-goal-gzoffset64) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzoffset64](#target-zlibf-spec-public-goal-gzoffset64) | [gzoffset64_safety](#target-zlibf-spec-public-goal-gzoffset64-safety) |
 | [gzopen](#target-zlibf-spec-public-goal-gzopen) | [gz_initialisation_domain](#target-zlibf-spec-public-goal-gz-initialisation-domain) |
 | [gzopen](#target-zlibf-spec-public-goal-gzopen) | [gz_sequence_nonvacuity](#target-zlibf-spec-public-goal-gz-sequence-nonvacuity) |
 | [gzopen](#target-zlibf-spec-public-goal-gzopen) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [gzopen](#target-zlibf-spec-public-goal-gzopen) | [gzopen_safety](#target-zlibf-spec-public-goal-gzopen-safety) |
 | [gzopen64](#target-zlibf-spec-public-goal-gzopen64) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [gzopen64](#target-zlibf-spec-public-goal-gzopen64) | [gzopen64_safety](#target-zlibf-spec-public-goal-gzopen64-safety) |
 | [gzprintf](#target-zlibf-spec-public-goal-gzprintf) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzprintf](#target-zlibf-spec-public-goal-gzprintf) | [gzprintf_safety](#target-zlibf-spec-public-goal-gzprintf-safety) |
 | [gzputc](#target-zlibf-spec-public-goal-gzputc) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzputc](#target-zlibf-spec-public-goal-gzputc) | [gzputc_safety](#target-zlibf-spec-public-goal-gzputc-safety) |
 | [gzputs](#target-zlibf-spec-public-goal-gzputs) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzputs](#target-zlibf-spec-public-goal-gzputs) | [gzputs_safety](#target-zlibf-spec-public-goal-gzputs-safety) |
 | [gzread](#target-zlibf-spec-public-goal-gzread) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzread](#target-zlibf-spec-public-goal-gzread) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzread](#target-zlibf-spec-public-goal-gzread) | [gzread_safety](#target-zlibf-spec-public-goal-gzread-safety) |
 | [gzrewind](#target-zlibf-spec-public-goal-gzrewind) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzrewind](#target-zlibf-spec-public-goal-gzrewind) | [gzrewind_safety](#target-zlibf-spec-public-goal-gzrewind-safety) |
 | [gzseek](#target-zlibf-spec-public-goal-gzseek) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzseek](#target-zlibf-spec-public-goal-gzseek) | [gzseek_safety](#target-zlibf-spec-public-goal-gzseek-safety) |
 | [gzseek64](#target-zlibf-spec-public-goal-gzseek64) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzseek64](#target-zlibf-spec-public-goal-gzseek64) | [gzseek64_safety](#target-zlibf-spec-public-goal-gzseek64-safety) |
 | [gzsetparams](#target-zlibf-spec-public-goal-gzsetparams) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzsetparams](#target-zlibf-spec-public-goal-gzsetparams) | [gzsetparams_safety](#target-zlibf-spec-public-goal-gzsetparams-safety) |
 | [gztell](#target-zlibf-spec-public-goal-gztell) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gztell](#target-zlibf-spec-public-goal-gztell) | [gztell_safety](#target-zlibf-spec-public-goal-gztell-safety) |
 | [gztell64](#target-zlibf-spec-public-goal-gztell64) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gztell64](#target-zlibf-spec-public-goal-gztell64) | [gztell64_safety](#target-zlibf-spec-public-goal-gztell64-safety) |
 | [gzungetc](#target-zlibf-spec-public-goal-gzungetc) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzungetc](#target-zlibf-spec-public-goal-gzungetc) | [gzungetc_safety](#target-zlibf-spec-public-goal-gzungetc-safety) |
 | [gzvprintf](#target-zlibf-spec-public-goal-gzvprintf) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
+| [gzvprintf](#target-zlibf-spec-public-goal-gzvprintf) | [gzvprintf_safety](#target-zlibf-spec-public-goal-gzvprintf-safety) |
 | [gzwrite](#target-zlibf-spec-public-goal-gzwrite) | [gz_refusal](#target-zlibf-spec-public-goal-gz-refusal) |
 | [gzwrite](#target-zlibf-spec-public-goal-gzwrite) | [gz_sequence](#target-zlibf-spec-public-goal-gz-sequence) |
+| [gzwrite](#target-zlibf-spec-public-goal-gzwrite) | [gzwrite_safety](#target-zlibf-spec-public-goal-gzwrite-safety) |
 | [inflate](#target-zlibf-spec-public-goal-inflate) | [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) |
+| [inflate](#target-zlibf-spec-public-goal-inflate) | [inflate_safety](#target-zlibf-spec-public-goal-inflate-safety) |
+| [inflateBack](#target-zlibf-spec-public-goal-inflateback) | [inflateBack_safety](#target-zlibf-spec-public-goal-inflateback-safety) |
 | [inflateBack](#target-zlibf-spec-public-goal-inflateback) | [inflate_back_sequence](#target-zlibf-spec-public-goal-inflate-back-sequence) |
 | [inflateBack](#target-zlibf-spec-public-goal-inflateback) | [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) |
+| [inflateBackEnd](#target-zlibf-spec-public-goal-inflatebackend) | [inflateBackEnd_safety](#target-zlibf-spec-public-goal-inflatebackend-safety) |
 | [inflateBackEnd](#target-zlibf-spec-public-goal-inflatebackend) | [inflate_back_sequence](#target-zlibf-spec-public-goal-inflate-back-sequence) |
 | [inflateBackEnd](#target-zlibf-spec-public-goal-inflatebackend) | [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) |
+| [inflateBackInit_](#target-zlibf-spec-public-goal-inflatebackinit) | [inflateBackInit__safety](#target-zlibf-spec-public-goal-inflatebackinit-safety) |
 | [inflateBackInit_](#target-zlibf-spec-public-goal-inflatebackinit) | [inflate_back_initialisation_domain](#target-zlibf-spec-public-goal-inflate-back-initialisation-domain) |
 | [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy) | [inflateCopy_safety](#target-zlibf-spec-public-goal-inflatecopy-safety) |
 | [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy) | [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) |
 | [inflateEnd](#target-zlibf-spec-public-goal-inflateend) | [inflateEnd_safety](#target-zlibf-spec-public-goal-inflateend-safety) |
 | [inflateEnd](#target-zlibf-spec-public-goal-inflateend) | [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) |
+| [inflateGetDictionary](#target-zlibf-spec-public-goal-inflategetdictionary) | [inflateGetDictionary_safety](#target-zlibf-spec-public-goal-inflategetdictionary-safety) |
 | [inflateGetDictionary](#target-zlibf-spec-public-goal-inflategetdictionary) | [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) |
+| [inflateGetHeader](#target-zlibf-spec-public-goal-inflategetheader) | [inflateGetHeader_safety](#target-zlibf-spec-public-goal-inflategetheader-safety) |
 | [inflateInit2_](#target-zlibf-spec-public-goal-inflateinit2) | [inflateInit2__safety](#target-zlibf-spec-public-goal-inflateinit2-safety) |
 | [inflateInit2_](#target-zlibf-spec-public-goal-inflateinit2) | [inflate_initialisation_domain](#target-zlibf-spec-public-goal-inflate-initialisation-domain) |
 | [inflateInit_](#target-zlibf-spec-public-goal-inflateinit) | [inflateInit__safety](#target-zlibf-spec-public-goal-inflateinit-safety) |
+| [inflateMark](#target-zlibf-spec-public-goal-inflatemark) | [inflateMark_safety](#target-zlibf-spec-public-goal-inflatemark-safety) |
+| [inflatePrime](#target-zlibf-spec-public-goal-inflateprime) | [inflatePrime_safety](#target-zlibf-spec-public-goal-inflateprime-safety) |
+| [inflateReset](#target-zlibf-spec-public-goal-inflatereset) | [inflateReset_safety](#target-zlibf-spec-public-goal-inflatereset-safety) |
 | [inflateReset](#target-zlibf-spec-public-goal-inflatereset) | [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) |
+| [inflateReset2](#target-zlibf-spec-public-goal-inflatereset2) | [inflateReset2_safety](#target-zlibf-spec-public-goal-inflatereset2-safety) |
 | [inflateReset2](#target-zlibf-spec-public-goal-inflatereset2) | [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) |
+| [inflateSetDictionary](#target-zlibf-spec-public-goal-inflatesetdictionary) | [inflateSetDictionary_safety](#target-zlibf-spec-public-goal-inflatesetdictionary-safety) |
 | [inflateSetDictionary](#target-zlibf-spec-public-goal-inflatesetdictionary) | [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal) |
+| [inflateSync](#target-zlibf-spec-public-goal-inflatesync) | [inflateSync_safety](#target-zlibf-spec-public-goal-inflatesync-safety) |
 | [uncompress](#target-zlibf-spec-public-goal-uncompress) | [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe) |
 | [uncompress2](#target-zlibf-spec-public-goal-uncompress2) | [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe) |
 | [uncompress2_z](#target-zlibf-spec-public-goal-uncompress2-z) | [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe) |
@@ -1622,12 +1944,14 @@ flowchart LR
 | inflate_decodes | API 模型证明 |
 | crc32 | deflate 生命周期证明 |
 | deflateEnd | deflate 生命周期证明, 公开入口组合证明 |
+| deflateInit2_ | 公开入口组合证明 |
+| gz_sequence_safety | 公开入口组合证明 |
 | gzeof | gz.inv-queries 的证明 |
 | inflate | gz.read-decomp 的证明, 公开入口组合证明 |
 | inflateBackEnd | infback.c 的证明 |
 | inflateBackInit_ | infback.c 的证明, 公开入口组合证明 |
 | inflateEnd | inflate 存储与读位证明 |
-| inflateInit2_ | inflate 存储与读位证明 |
+| inflateInit2_ | inflate 存储与读位证明, 公开入口组合证明 |
 | inflateSetDictionary | inflate 存储与读位证明 |
 | adler32.c 的证明 | inflateSetDictionary, deflate 生命周期证明, inflate 入口组合证明, inflate 存储与读位证明, 公开入口组合证明 |
 | API 模型证明 | compress2_z_first_alloc_failure, compress_bound_adequate, compress_bound_value, compress_roundtrip, deflate_bound_adequate, deflate_completes, deflate_full_flush_resync, deflate_valid, dict_roundtrip, gz_roundtrip, gz_seek_read, header_roundtrip, inflate_completes, inflate_decodes, inflate_deferred_distance, roundtrip, roundtrip_completes, inflateCodesUsed, gzlib.c 的证明 |
@@ -1635,16 +1959,16 @@ flowchart LR
 | checksum.borrow-stable 的证明 | deflate 生命周期证明, inflate 存储与读位证明, 编码树构造与输出证明 |
 | crc32.c 的证明 | crc32_all_byte_views, crc32_z_all_byte_views, crc32, crc32_z, deflate 生命周期证明, inflate 存储与读位证明, 公开入口组合证明 |
 | deflate 状态构造证明 | deflateInit2_, deflateInit_, deflate_initialisation_domain, deflate 生命周期证明, deflate 窗口与匹配证明, gzwrite.c 的证明, 公开入口组合证明 |
-| deflate 入口组合证明 | deflate, deflateCopy, deflateCopy_safety, deflateEnd, deflateGetDictionary, deflatePending, deflateReset, deflateResetKeep, deflateSetHeader, deflateTune, deflateUsed, deflate_refusal, deflate_sequence_safety |
-| deflate 生命周期证明 | deflateCopy, deflateCopy_safety, deflateEnd, deflateGetDictionary, deflateInit2__safety, deflateInit_, deflatePending, deflateReset, deflateResetKeep, deflateSetHeader, deflateTune, deflateUsed, deflate_refusal, deflate 状态构造证明, deflate 入口组合证明, deflate 窗口与匹配证明, gzwrite.c 的证明, inffast.c 的证明, inflate 存储与读位证明, 公开入口组合证明, 编码树构造与输出证明 |
+| deflate 入口组合证明 | deflate, deflateCopy, deflateEnd, deflateEnd_safety, deflateGetDictionary, deflatePending, deflateReset, deflateResetKeep, deflateReset_safety, deflateSetHeader, deflateTune, deflateUsed, deflate_refusal, deflate_sequence_safety, deflate 生命周期证明, 公开入口组合证明 |
+| deflate 生命周期证明 | deflateCopy, deflateEnd, deflateEnd_safety, deflateGetDictionary, deflateInit_, deflatePending, deflatePrime_safety, deflateReset, deflateResetKeep, deflateReset_safety, deflateSetHeader, deflateTune, deflateUsed, deflate_refusal, deflate 状态构造证明, deflate 入口组合证明, deflate 窗口与匹配证明, gzwrite.c 的证明, inffast.c 的证明, inflate 存储与读位证明, 公开入口组合证明, 编码树构造与输出证明 |
 | deflate 窗口与匹配证明 | deflate, deflate_sequence_safety, deflate 状态构造证明, deflate 入口组合证明, deflate 生命周期证明, gz.read-read 的证明, gz.read-store 的证明, gzfs.error-message-store 的证明, gzfs.format-error-message 的证明, gzlib.c 的证明, gzwrite.c 的证明, inflate 存储与读位证明, 编码树构造与输出证明 |
-| deflate_base.c 的证明 | deflateBound_safety, deflateBound_z_safety, deflateEnd_safety, deflateGetDictionary_safety, deflateParams_safety, deflatePending_safety, deflatePrime_safety, deflateReset_safety, deflateSetDictionary_safety, deflateSetHeader_safety, deflateTune_safety, deflateUsed_safety, deflate_refusal, deflate_safety, gz_refusal, inflateEnd_safety, inflateGetDictionary_safety, inflateGetHeader_safety, inflateMark_safety, inflatePrime_safety, inflateReset2_safety, inflateReset_safety, inflateSetDictionary_safety, inflateSync_safety, inflate_safety, deflate 生命周期证明, gz.inv-clearerr 的证明, gz.inv-close 的证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-queries 的证明, gz.inv-seek 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-look 的证明, gz.sequence-safety 的证明, gzread.c 的证明, gzwrite.c 的证明, inflate 存储与读位证明, 公开入口组合证明, zlib.h.gzgetc-macro 的证明 |
+| deflate_base.c 的证明 | deflateBound_safety, deflateBound_z_safety, deflateCopy_safety, deflateEnd_safety, deflateGetDictionary_safety, deflateParams_safety, deflatePending_safety, deflatePrime_safety, deflateReset_safety, deflateSetDictionary_safety, deflateSetHeader_safety, deflateTune_safety, deflateUsed_safety, deflate_refusal, deflate_safety, gz_refusal, gzbuffer_safety, gzclearerr_safety, gzclose_r_safety, gzclose_safety, gzclose_w_safety, gzdirect_safety, gzdopen_safety, gzeof_safety, gzerror_safety, gzflush_safety, gzfread_safety, gzfwrite_safety, gzgetc__safety, gzgetc_safety, gzgets_safety, gzoffset64_safety, gzoffset_safety, gzopen64_safety, gzopen_safety, gzprintf_safety, gzputc_safety, gzputs_safety, gzread_safety, gzrewind_safety, gzseek64_safety, gzseek_safety, gzsetparams_safety, gztell64_safety, gztell_safety, gzungetc_safety, gzvprintf_safety, gzwrite_safety, inflateEnd_safety, inflateGetDictionary_safety, inflateGetHeader_safety, inflateMark_safety, inflatePrime_safety, inflateReset2_safety, inflateReset_safety, inflateSetDictionary_safety, inflateSync_safety, inflate_safety, deflate 生命周期证明, gz.inv-clearerr 的证明, gz.inv-close 的证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-queries 的证明, gz.inv-seek 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-look 的证明, gz.sequence-safety 的证明, gzread.c 的证明, gzwrite.c 的证明, inflate 存储与读位证明, 公开入口组合证明, zlib.h.gzgetc-macro 的证明 |
 | 格式证明 | short_decode_table_leaf_sound, short_rejected_leaf_stays_invalid, compress_roundtrip, format_deterministic, format_prefix_free, header_roundtrip, inflate_completes, rejected_has_no_symbols, API 模型证明, 不涉及堆的数学证明, infback.c 的证明, inffast.c 的证明, inffixed.h.input-meaning 的证明, inflate 存储与读位证明, inftrees.c 的证明, 编码树构造与输出证明 |
 | 格式模型引理 | inflate 存储与读位证明 |
 | gz.inv-clearerr 的证明 | gz.inv-seek 的证明, gz.read-store 的证明, gz.sequence-safety 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明 |
 | gz.inv-close 的证明 | gz.sequence-safety 的证明 |
 | gz.inv-frame 的证明 | gz.inv-clearerr 的证明, gz.read-decomp 的证明, gz.read-gzread 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gz.read-store 的证明, gz.sequence-safety 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明 |
-| gz.inv-model 的证明 | gz.inv-clearerr 的证明, gz.inv-close 的证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-open 的证明, gz.inv-put-scalars 的证明, gz.inv-queries 的证明, gz.inv-reset 的证明, gz.inv-seek 的证明, gz.read-avail 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-fetch 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gz.read-store 的证明, gz.sequence-safety 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明, 公开入口组合证明, zlib.h.gzgetc-macro 的证明 |
+| gz.inv-model 的证明 | gz.inv-clearerr 的证明, gz.inv-close 的证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-open 的证明, gz.inv-put-scalars 的证明, gz.inv-queries 的证明, gz.inv-reset 的证明, gz.inv-seek 的证明, gz.read-avail 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-fetch 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gz.read-store 的证明, gz.sequence-safety 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明, zlib.h.gzgetc-macro 的证明 |
 | gz.inv-offset-rewind 的证明 | gz.sequence-safety 的证明 |
 | gz.inv-open 的证明 | gz.inv-open-fresh 的证明, gz.sequence-safety 的证明, 公开入口组合证明 |
 | gz.inv-open-fd 的证明 | gz.inv-open-fresh 的证明 |
@@ -1658,9 +1982,9 @@ flowchart LR
 | gz.read-avail 的证明 | gz.read-budget 的证明, gz.read-decomp 的证明, gz.read-fetch 的证明, gz.read-look 的证明 |
 | gz.read-budget 的证明 | gz.read-decomp 的证明, gz.read-fetch 的证明, gz.read-look 的证明, gz.read-read 的证明 |
 | gz.read-close 的证明 | gz.inv-close 的证明, gz.sequence-safety 的证明, gzwrite.c 的证明 |
-| gz.read-decomp 的证明 | gz.read-assembly 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-read 的证明 |
+| gz.read-decomp 的证明 | gz.read-assembly 的证明, gz.read-fetch 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-read 的证明 |
 | gz.read-direct-step 的证明 | 公开入口组合证明 |
-| gz.read-fetch 的证明 | gz.read-assembly 的证明, gz.read-decomp 的证明, gz.read-gets-step 的证明, gz.read-leaf-common 的证明, gz.read-read 的证明 |
+| gz.read-fetch 的证明 | gz.read-assembly 的证明, gz.read-gets-step 的证明, gz.read-leaf-common 的证明, gz.read-read 的证明 |
 | gz.read-getc-step 的证明 | gz.read-direct-step 的证明, 公开入口组合证明 |
 | gz.read-gets-step 的证明 | 公开入口组合证明 |
 | gz.read-gzread 的证明 | gz.read-assembly 的证明, gzread.c 的证明 |
@@ -1681,20 +2005,20 @@ flowchart LR
 | gzread.c 的证明 | gz.inv-offset-rewind 的证明, gz.inv-seek 的证明, gz.read-assembly 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-fetch 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-read 的证明, gzwrite.c 的证明, zlib.h.gzgetc-macro 的证明 |
 | gzwrite.c 的证明 | gz.inv-close 的证明, gz.read-close 的证明, gz.read-gzread 的证明, gz.read-look 的证明, gz.sequence-safety 的证明, gzread.c 的证明 |
 | 不涉及堆的数学证明 | match_array_refines_lz77, output_copy_refines_lz77, window_copy_refines_lz77, copy_back_compose, retained_history_agrees, window_distance_check_agrees, API 模型证明, deflate 状态构造证明, deflate 生命周期证明, deflate 窗口与匹配证明, gzlib.c 的证明, infback.c 的证明, inffixed.h.input-meaning 的证明, inflate 存储与读位证明, inftrees.c 的证明, libc-errno-cstring 的证明, 编码树构造与输出证明 |
-| infback.c 的证明 | inflateBackEnd, inflateBackInit_, inflate_back_sequence_safety, gz.read-decomp 的证明, gz.read-read 的证明, gzlib.c 的证明, gzread.c 的证明, 公开入口组合证明 |
+| infback.c 的证明 | inflateBackEnd, inflateBackInit_, inflateBack_safety, inflate_back_sequence_safety, gz.read-decomp 的证明, gz.read-read 的证明, gzlib.c 的证明, gzread.c 的证明, 公开入口组合证明 |
 | inffast.c 的证明 | actual_body_preserves_origin, actual_body_refines_token, actual_fast_preserves_origin, actual_distance_block_preserves_origin, actual_distance_refines_lz77, distance_lookup_matches_format, fast_safe, step_safe, length_lookup_matches_format, actual_body_retains_selected_length, actual_copy_match_refines_lz77, match_array_refines_lz77, actual_drop_preserves_origin, actual_pull_preserves_origin, actual_rollback_preserves_origin, drop_preserves_origin, initial_origin, pull_preserves_origin, rollback_preserves_origin, output_copy_refines_lz77, gzfs.error-message-store 的证明, gzlib.c 的证明, 不涉及堆的数学证明, infback.c 的证明, inffixed.h.input-meaning 的证明, inflate 存储与读位证明, inftrees.c 的证明 |
 | inffixed.h.fast-flags 的证明 | fixed_tables_have_fast_leaf_flags |
 | inffixed.h.input-meaning 的证明 | inflate 存储与读位证明 |
 | inffixed.h.meaning 的证明 | inffixed.h.input-meaning 的证明 |
-| inflate 入口组合证明 | deflate_initialisation_domain, inflateCopy, inflateEnd, inflateGetDictionary, inflateGetHeader, inflateInit2_, inflateInit_, inflateMark, inflatePrime, inflateReset, inflateReset2, inflateSetDictionary, inflateSyncPoint, inflateUndermine, inflateValidate, inflate_initialisation_domain, inflate_refusal, gz.read-look 的证明, inflate 存储与读位证明, 公开入口组合证明 |
+| inflate 入口组合证明 | deflate_initialisation_domain, inflateCopy, inflateEnd, inflateGetDictionary, inflateGetHeader, inflateGetHeader_safety, inflateInit2_, inflateInit_, inflateMark, inflatePrime, inflateReset, inflateReset2, inflateSetDictionary, inflateSyncPoint, inflateUndermine, inflateValidate, inflate_initialisation_domain, inflate_refusal, gz.read-look 的证明, inflate 存储与读位证明, 公开入口组合证明 |
 | inflate 模式与退出证明 | gzlib.c 的证明, infback.c 的证明, inffast.c 的证明, inflate 存储与读位证明 |
-| inflate 存储与读位证明 | deflateReset, deflateResetKeep, inflate, inflateBackEnd, inflateBackInit_, inflateCopy, inflateCopy_safety, inflateEnd, inflateGetDictionary, inflateInit2_, inflateInit2__safety, inflateInit_, inflateMark, inflateReset, inflateReset2, inflateResetKeep, inflateSetDictionary, inflateSyncPoint, inflateUndermine, inflateValidate, inflate_refusal, inflate_sequence_safety, API 模型证明, deflate 生命周期证明, gz.inv-frame 的证明, gz.read-assembly 的证明, gz.read-avail 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明, infback.c 的证明, inffast.c 的证明, inflate 入口组合证明, inflate 模式与退出证明, inftrees.c 的证明, 公开入口组合证明 |
+| inflate 存储与读位证明 | inflate, inflateBackEnd, inflateBackInit_, inflateCopy, inflateEnd, inflateGetDictionary, inflateGetHeader_safety, inflateInit2_, inflateInit_, inflateMark, inflateReset, inflateReset2, inflateResetKeep, inflateSetDictionary, inflateSyncPoint, inflateUndermine, inflateValidate, inflate_refusal, inflate_sequence_safety, API 模型证明, deflate 生命周期证明, deflate 窗口与匹配证明, gz.inv-frame 的证明, gz.read-assembly 的证明, gz.read-avail 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明, infback.c 的证明, inffast.c 的证明, inflate 入口组合证明, inflate 模式与退出证明, inftrees.c 的证明, 公开入口组合证明 |
 | inflate.c 的证明 | inflate 模式与退出证明, inflate 存储与读位证明 |
 | inftrees.c 的证明 | decode_table_matches_format, short_decode_table_leaf_sound, decode_table_leaf_sound, decode_table_read_preserved, constructor_establishes_decode_table_invariant, decode_table_invariant_of_prefix, constructor_establishes_query_stability, short_rejected_leaf_stays_invalid, constructor_establishes_fast_leaf_flags, leaf_classification_agrees, inflate_table_content, inflate_table_decoder_safe, inflate_table_read_extent, constructor_root_bits, constructor_subtable_bits, 不涉及堆的数学证明, infback.c 的证明, inffixed.h.input-meaning 的证明, inflate 存储与读位证明, 编码树构造与输出证明 |
 | libc-errno-cstring 的证明 | gz.read-gzread 的证明, gz.read-load-error 的证明, gzwrite.c 的证明 |
-| 公开入口组合证明 | adler32_combine, adler32_combine64, adler32_z, compress2_safety, compress2_z_safety, compressBound, compressBound_z, compress_safety, compress_z_safety, crc32_combine, crc32_combine64, crc32_combine_gen, crc32_combine_gen64, crc32_combine_op, deflateInit2__safety, get_crc_table, gz_sequence_nonvacuity, gz_sequence_safety, gzbuffer, gzdopen, gzeof, gzerror, gzoffset, gzoffset64, gzrewind, inflateBackEnd, inflateBackInit_, inflateInit2__safety, inflate_back_initialisation_domain, inflate_refusal, uncompress2_safe, uncompress2_z_safe, uncompress_safe, uncompress_z_safe, zError, zlibVersion, adler32.c 的证明, deflate 生命周期证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-open 的证明, gz.inv-open-path 的证明, gz.inv-queries 的证明, gz.read-look 的证明, gz.read-store 的证明, gzfs.error-message-store 的证明, gzlib.c 的证明, gzread.c 的证明, inflate 存储与读位证明 |
-| 运行时对象与算术引理 | byte_modifies_preserve_bases, byte_stores_preserve_bases, every_layout_is_representable, LibcBorrow 的证明, LibcBorrowLoops 的证明, LibcBorrowPrimitives 的证明, PlatformMemory 的证明, crc32_all_byte_views, crc32_z_all_byte_views, actual_body_preserves_origin, actual_body_refines_token, actual_fast_preserves_origin, actual_distance_block_preserves_origin, actual_distance_refines_lz77, fast_safe, actual_body_retains_selected_length, actual_copy_match_refines_lz77, actual_pull_preserves_origin, actual_rollback_preserves_origin, decode_table_classifies_input, decode_table_matches_format, short_decode_table_leaf_sound, decode_table_leaf_sound, constructor_establishes_decode_table_invariant, constructor_establishes_query_stability, constructor_establishes_fast_leaf_flags, inflate_table_content, inflate_table_decoder_safe, inflate_table_read_extent, constructor_root_bits, constructor_subtable_bits, compress2_z_first_alloc_failure, adler32, adler32_safety, adler32_z, adler32_z_safety, crc32, crc32_combine64_safety, crc32_combine_gen64_safety, crc32_combine_gen_safety, crc32_combine_op_safety, crc32_combine_safety, crc32_safety, crc32_z, crc32_z_safety, deflateBound_safety, deflateBound_z_safety, deflateCopy, deflateCopy_safety, deflateEnd, deflateEnd_safety, deflateGetDictionary, deflateGetDictionary_safety, deflateInit2_, deflateInit2__safety, deflateInit_, deflateInit__safety, deflateParams_safety, deflatePending, deflatePending_safety, deflatePrime_safety, deflateReset, deflateResetKeep, deflateReset_safety, deflateSetDictionary_safety, deflateSetHeader, deflateSetHeader_safety, deflateTune, deflateTune_safety, deflateUsed, deflateUsed_safety, deflate_initialisation_domain, deflate_refusal, deflate_safety, get_crc_table, gz_refusal, gz_sequence_nonvacuity, gzclearerr, gzdopen, gzerror, gzoffset, gzoffset64, gzrewind, inflate, inflateBackEnd, inflateBackInit_, inflateCodesUsed, inflateCopy, inflateCopy_safety, inflateEnd, inflateEnd_safety, inflateGetDictionary, inflateGetDictionary_safety, inflateGetHeader, inflateGetHeader_safety, inflateInit2_, inflateInit2__safety, inflateInit_, inflateInit__safety, inflateMark, inflateMark_safety, inflatePrime, inflatePrime_safety, inflateReset, inflateReset2, inflateReset2_safety, inflateResetKeep, inflateReset_safety, inflateSetDictionary, inflateSetDictionary_safety, inflateSyncPoint, inflateSync_safety, inflateUndermine, inflateValidate, inflate_back_initialisation_domain, inflate_back_sequence_safety, inflate_initialisation_domain, inflate_refusal, inflate_safety, uncompress2_safe, uncompress2_z_safe, uncompress_safe, uncompress_z_safe, zError, zlibVersion, zlibVersion_safety, adler32.c 的证明, API 模型证明, borrowed-byte-frame 的证明, checksum.borrow-stable 的证明, crc32.c 的证明, deflate 状态构造证明, deflate 入口组合证明, deflate 生命周期证明, deflate 窗口与匹配证明, gz.inv-clearerr 的证明, gz.inv-close 的证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-open 的证明, gz.inv-open-fd 的证明, gz.inv-open-fresh 的证明, gz.inv-open-path 的证明, gz.inv-put-scalars 的证明, gz.inv-queries 的证明, gz.inv-reset 的证明, gz.inv-seek 的证明, gz.read-assembly 的证明, gz.read-avail 的证明, gz.read-budget 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-fetch 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gz.read-store 的证明, gz.sequence-safety 的证明, gzfs 的证明, gzfs.borrow-stable 的证明, gzfs.error-message-store 的证明, gzfs.format-error-message 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明, 不涉及堆的数学证明, infback.c 的证明, inffast.c 的证明, inflate 入口组合证明, inflate 模式与退出证明, inflate 存储与读位证明, inftrees.c 的证明, libc-errno-cstring 的证明, 公开入口组合证明, 规格引理, 编码树构造与输出证明, zlib.h.gzgetc-macro 的证明, zutil.c 的证明 |
-| 规格引理 | every_existing_heap_accepts_layout, actual_body_preserves_origin, actual_body_refines_token, distance_lookup_matches_format, length_lookup_matches_format, actual_body_retains_selected_length, drop_preserves_origin, pull_preserves_origin, rollback_preserves_origin, decode_table_invariant_of_prefix, short_rejected_leaf_stays_invalid, compress_bound_adequate, compress_roundtrip, deflate_bound_adequate, deflate_completes, deflate_full_flush_resync, deflate_valid, dict_roundtrip, header_roundtrip, inflate_completes, inflate_decodes, inflate_deferred_distance, roundtrip, roundtrip_completes, deflateInit2_, deflateInit2__safety, deflateInit_, deflate_initialisation_domain, gzdopen, API 模型证明, deflate 状态构造证明, deflate 生命周期证明, gz.inv-open 的证明, gzlib.c 的证明, gzwrite.c 的证明, infback.c 的证明, inffast.c 的证明, inflate 存储与读位证明 |
+| 公开入口组合证明 | adler32_combine, adler32_combine64, adler32_z, compress2_safety, compress2_z_safety, compressBound, compressBound_z, compress_safety, compress_z_safety, crc32_combine, crc32_combine64, crc32_combine_gen, crc32_combine_gen64, crc32_combine_op, deflateBound_safety, deflateBound_z_safety, deflateInit2__safety, get_crc_table, gz_sequence_nonvacuity, gz_sequence_safety, gzbuffer, gzbuffer_safety, gzclearerr_safety, gzclose_r_safety, gzclose_safety, gzclose_w_safety, gzdirect_safety, gzdopen, gzeof, gzeof_safety, gzerror, gzerror_safety, gzflush_safety, gzfread_safety, gzfwrite_safety, gzgetc__safety, gzgetc_safety, gzgets_safety, gzoffset, gzoffset64, gzoffset64_safety, gzoffset_safety, gzprintf_safety, gzputc_safety, gzputs_safety, gzread_safety, gzrewind, gzrewind_safety, gzseek64_safety, gzseek_safety, gzsetparams_safety, gztell64_safety, gztell_safety, gzungetc_safety, gzvprintf_safety, gzwrite_safety, inflateBackEnd, inflateBackInit_, inflateBackInit__safety, inflateInit2__safety, inflateSync_safety, inflate_back_initialisation_domain, inflate_refusal, uncompress2_safe, uncompress2_z_safe, uncompress_safe, uncompress_z_safe, zError, zlibVersion, adler32.c 的证明, deflate 生命周期证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-open 的证明, gz.inv-open-path 的证明, gz.inv-queries 的证明, gz.read-look 的证明, gz.read-store 的证明, gzfs.error-message-store 的证明, gzlib.c 的证明, gzread.c 的证明, inflate 存储与读位证明 |
+| 运行时对象与算术引理 | byte_modifies_preserve_bases, byte_stores_preserve_bases, every_layout_is_representable, LibcBorrow 的证明, LibcBorrowLoops 的证明, LibcBorrowPrimitives 的证明, PlatformMemory 的证明, crc32_all_byte_views, crc32_z_all_byte_views, actual_body_preserves_origin, actual_body_refines_token, actual_fast_preserves_origin, actual_distance_block_preserves_origin, actual_distance_refines_lz77, fast_safe, actual_body_retains_selected_length, actual_copy_match_refines_lz77, actual_pull_preserves_origin, actual_rollback_preserves_origin, decode_table_classifies_input, decode_table_matches_format, short_decode_table_leaf_sound, decode_table_leaf_sound, constructor_establishes_decode_table_invariant, constructor_establishes_query_stability, constructor_establishes_fast_leaf_flags, inflate_table_content, inflate_table_decoder_safe, inflate_table_read_extent, constructor_root_bits, constructor_subtable_bits, compress2_z_first_alloc_failure, adler32, adler32_safety, adler32_z, adler32_z_safety, crc32, crc32_combine64_safety, crc32_combine_gen64_safety, crc32_combine_gen_safety, crc32_combine_op_safety, crc32_combine_safety, crc32_safety, crc32_z, crc32_z_safety, deflateBound_safety, deflateBound_z_safety, deflateCopy, deflateCopy_safety, deflateEnd, deflateEnd_safety, deflateGetDictionary, deflateGetDictionary_safety, deflateInit2_, deflateInit2__safety, deflateInit_, deflateInit__safety, deflateParams_safety, deflatePending, deflatePending_safety, deflatePrime_safety, deflateReset, deflateResetKeep, deflateReset_safety, deflateSetDictionary_safety, deflateSetHeader, deflateSetHeader_safety, deflateTune, deflateTune_safety, deflateUsed, deflateUsed_safety, deflate_initialisation_domain, deflate_refusal, deflate_safety, get_crc_table, gz_refusal, gz_sequence_nonvacuity, gzbuffer_safety, gzclearerr, gzclearerr_safety, gzclose_r_safety, gzclose_safety, gzclose_w_safety, gzdirect_safety, gzdopen, gzdopen_safety, gzeof_safety, gzerror, gzerror_safety, gzflush_safety, gzfread_safety, gzfwrite_safety, gzgetc__safety, gzgetc_safety, gzgets_safety, gzoffset, gzoffset64, gzoffset64_safety, gzoffset_safety, gzopen64_safety, gzopen_safety, gzprintf_safety, gzputc_safety, gzputs_safety, gzread_safety, gzrewind, gzrewind_safety, gzseek64_safety, gzseek_safety, gzsetparams_safety, gztell64_safety, gztell_safety, gzungetc_safety, gzvprintf_safety, gzwrite_safety, inflate, inflateBackEnd, inflateBackEnd_safety, inflateBackInit_, inflateBackInit__safety, inflateBack_safety, inflateCodesUsed, inflateCopy, inflateCopy_safety, inflateEnd, inflateEnd_safety, inflateGetDictionary, inflateGetDictionary_safety, inflateGetHeader, inflateGetHeader_safety, inflateInit2_, inflateInit2__safety, inflateInit_, inflateInit__safety, inflateMark, inflateMark_safety, inflatePrime, inflatePrime_safety, inflateReset, inflateReset2, inflateReset2_safety, inflateResetKeep, inflateReset_safety, inflateSetDictionary, inflateSetDictionary_safety, inflateSyncPoint, inflateSync_safety, inflateUndermine, inflateValidate, inflate_back_initialisation_domain, inflate_back_sequence_safety, inflate_initialisation_domain, inflate_refusal, inflate_safety, uncompress2_safe, uncompress2_z_safe, uncompress_safe, uncompress_z_safe, zError, zlibVersion, zlibVersion_safety, adler32.c 的证明, API 模型证明, borrowed-byte-frame 的证明, checksum.borrow-stable 的证明, crc32.c 的证明, deflate 状态构造证明, deflate 入口组合证明, deflate 生命周期证明, deflate 窗口与匹配证明, gz.inv-clearerr 的证明, gz.inv-close 的证明, gz.inv-frame 的证明, gz.inv-offset-rewind 的证明, gz.inv-open 的证明, gz.inv-open-fd 的证明, gz.inv-open-fresh 的证明, gz.inv-open-path 的证明, gz.inv-put-scalars 的证明, gz.inv-queries 的证明, gz.inv-reset 的证明, gz.inv-seek 的证明, gz.read-assembly 的证明, gz.read-avail 的证明, gz.read-budget 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-fetch 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gz.read-store 的证明, gz.sequence-safety 的证明, gzfs 的证明, gzfs.borrow-stable 的证明, gzfs.error-message-store 的证明, gzfs.format-error-message 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明, 不涉及堆的数学证明, infback.c 的证明, inffast.c 的证明, inflate 入口组合证明, inflate 模式与退出证明, inflate 存储与读位证明, inftrees.c 的证明, libc-errno-cstring 的证明, 公开入口组合证明, 规格引理, 编码树构造与输出证明, zlib.h.gzgetc-macro 的证明, zutil.c 的证明 |
+| 规格引理 | every_existing_heap_accepts_layout, actual_body_preserves_origin, actual_body_refines_token, actual_fast_preserves_origin, actual_distance_block_preserves_origin, actual_distance_refines_lz77, distance_lookup_matches_format, fast_safe, length_lookup_matches_format, actual_body_retains_selected_length, actual_copy_match_refines_lz77, actual_drop_preserves_origin, actual_pull_preserves_origin, actual_rollback_preserves_origin, drop_preserves_origin, initial_origin, pull_preserves_origin, rollback_preserves_origin, decode_table_matches_format, short_decode_table_leaf_sound, decode_table_leaf_sound, constructor_establishes_decode_table_invariant, decode_table_invariant_of_prefix, constructor_establishes_query_stability, short_rejected_leaf_stays_invalid, constructor_establishes_fast_leaf_flags, inflate_table_decoder_safe, inflate_table_read_extent, constructor_root_bits, constructor_subtable_bits, compress_bound_adequate, compress_roundtrip, deflate_bound_adequate, deflate_completes, deflate_full_flush_resync, deflate_valid, dict_roundtrip, header_roundtrip, inflate_completes, inflate_decodes, inflate_deferred_distance, roundtrip, roundtrip_completes, deflateCopy_safety, deflateEnd, deflateGetDictionary, deflateInit2_, deflateInit2__safety, deflateInit_, deflateReset, deflateResetKeep, deflateSetHeader, deflateTune, deflateUsed, deflate_initialisation_domain, gzdopen, inflateCopy, inflateCopy_safety, inflateEnd, inflateGetDictionary, inflateSetDictionary, inflateSyncPoint, inflateUndermine, inflateValidate, API 模型证明, deflate 状态构造证明, deflate 入口组合证明, deflate 生命周期证明, deflate 窗口与匹配证明, gz.inv-clearerr 的证明, gz.inv-close 的证明, gz.inv-frame 的证明, gz.inv-model 的证明, gz.inv-offset-rewind 的证明, gz.inv-open 的证明, gz.inv-put-scalars 的证明, gz.inv-queries 的证明, gz.inv-reset 的证明, gz.inv-seek 的证明, gz.read-avail 的证明, gz.read-close 的证明, gz.read-decomp 的证明, gz.read-direct-step 的证明, gz.read-fetch 的证明, gz.read-getc-step 的证明, gz.read-gets-step 的证明, gz.read-gzread 的证明, gz.read-leaf-common 的证明, gz.read-load-error 的证明, gz.read-look 的证明, gz.read-read 的证明, gz.read-store 的证明, gzlib.c 的证明, gzread.c 的证明, gzwrite.c 的证明, infback.c 的证明, inffast.c 的证明, inflate 入口组合证明, inflate 存储与读位证明, inftrees.c 的证明, 公开入口组合证明, 编码树构造与输出证明, zlib.h.gzgetc-macro 的证明 |
 | 编码树构造与输出证明 | deflate 状态构造证明, deflate 入口组合证明, deflate 生命周期证明, deflate 窗口与匹配证明, gzwrite.c 的证明, 不涉及堆的数学证明, 公开入口组合证明 |
 | zlib.h.gzgetc-macro 的证明 | gz.sequence-safety 的证明 |
 | zutil.c 的证明 | inflate_table_content, deflate 状态构造证明, deflate 生命周期证明, gzfs.error-message-store 的证明, gzlib.c 的证明, gzwrite.c 的证明, infback.c 的证明, inflate 入口组合证明, inflate 模式与退出证明, inflate 存储与读位证明, inftrees.c 的证明 |
@@ -1714,42 +2038,42 @@ flowchart LR
 | [Zlib.Adler32.Proofs.adler32_z_correct](../ZlibF/Proof/adler32.c.lean#L786) | 未记录到固定目标的组合关系 |
 | [Zlib.Adler32.Proofs.adler32_z_correct_ne_one](../ZlibF/Proof/adler32.c.lean#L798) | 未记录到固定目标的组合关系 |
 | [Zlib.Adler32.Proofs.adler32_z_safe](../ZlibF/Proof/adler32.c.lean#L809) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.addrOf_safe](../ZlibF/Proof/crc32.c.lean#L2470) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.blockLittle_safe](../ZlibF/Proof/crc32.c.lean#L2464) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.braidTab_safe](../ZlibF/Proof/crc32.c.lean#L2460) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine64_correct](../ZlibF/Proof/crc32.c.lean#L2383) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine64_safe](../ZlibF/Proof/crc32.c.lean#L2377) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_correct](../ZlibF/Proof/crc32.c.lean#L2398) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_gen64_correct](../ZlibF/Proof/crc32.c.lean#L2334) | [crc32_combine_gen](#target-zlibf-spec-public-goal-crc32-combine-gen), [crc32_combine_gen64](#target-zlibf-spec-public-goal-crc32-combine-gen64), [crc32_combine_op](#target-zlibf-spec-public-goal-crc32-combine-op) |
-| [Zlib.Crc32.Proofs.crc32_combine_gen64_safe](../ZlibF/Proof/crc32.c.lean#L2324) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_gen_correct](../ZlibF/Proof/crc32.c.lean#L2353) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_gen_safe](../ZlibF/Proof/crc32.c.lean#L2347) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_op_correct](../ZlibF/Proof/crc32.c.lean#L2406) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_op_diverges](../ZlibF/Proof/crc32.c.lean#L2371) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_op_safe](../ZlibF/Proof/crc32.c.lean#L2362) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_combine_safe](../ZlibF/Proof/crc32.c.lean#L2393) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_correct](../ZlibF/Proof/crc32.c.lean#L2227) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Crc32.Proofs.crc32_null](../ZlibF/Proof/crc32.c.lean#L2223) | [crc32](#target-zlibf-spec-public-goal-crc32), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Crc32.Proofs.crc32_safe](../ZlibF/Proof/crc32.c.lean#L2236) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc32_z_correct](../ZlibF/Proof/crc32.c.lean#L2203) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Crc32.Proofs.crc32_z_null](../ZlibF/Proof/crc32.c.lean#L2190) | [crc32](#target-zlibf-spec-public-goal-crc32), [crc32_z](#target-zlibf-spec-public-goal-crc32-z), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Crc32.Proofs.crc32_z_safe](../ZlibF/Proof/crc32.c.lean#L2217) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crcByte_safe](../ZlibF/Proof/crc32.c.lean#L2448) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crcTab_safe](../ZlibF/Proof/crc32.c.lean#L2439) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc_word_big_safe](../ZlibF/Proof/crc32.c.lean#L2488) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc_word_correct](../ZlibF/Proof/crc32.c.lean#L2422) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.crc_word_safe](../ZlibF/Proof/crc32.c.lean#L2417) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.get_crc_table_correct](../ZlibF/Proof/crc32.c.lean#L2249) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.get_crc_table_safe](../ZlibF/Proof/crc32.c.lean#L2244) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.loadWord_safe](../ZlibF/Proof/crc32.c.lean#L2434) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.multmodp_correct](../ZlibF/Proof/crc32.c.lean#L2283) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.multmodp_diverges](../ZlibF/Proof/crc32.c.lean#L986) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.multmodp_safe](../ZlibF/Proof/crc32.c.lean#L2276) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.shr64_safe](../ZlibF/Proof/crc32.c.lean#L2474) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.wordAt_safe](../ZlibF/Proof/crc32.c.lean#L2455) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.x2nTab_safe](../ZlibF/Proof/crc32.c.lean#L2443) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.x2nmodp_correct](../ZlibF/Proof/crc32.c.lean#L2307) | 未记录到固定目标的组合关系 |
-| [Zlib.Crc32.Proofs.x2nmodp_safe](../ZlibF/Proof/crc32.c.lean#L2299) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.addrOf_safe](../ZlibF/Proof/crc32.c.lean#L2467) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.blockLittle_safe](../ZlibF/Proof/crc32.c.lean#L2461) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.braidTab_safe](../ZlibF/Proof/crc32.c.lean#L2457) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine64_correct](../ZlibF/Proof/crc32.c.lean#L2380) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine64_safe](../ZlibF/Proof/crc32.c.lean#L2374) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_correct](../ZlibF/Proof/crc32.c.lean#L2395) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_gen64_correct](../ZlibF/Proof/crc32.c.lean#L2330) | [crc32_combine_gen](#target-zlibf-spec-public-goal-crc32-combine-gen), [crc32_combine_gen64](#target-zlibf-spec-public-goal-crc32-combine-gen64), [crc32_combine_op](#target-zlibf-spec-public-goal-crc32-combine-op) |
+| [Zlib.Crc32.Proofs.crc32_combine_gen64_safe](../ZlibF/Proof/crc32.c.lean#L2320) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_gen_correct](../ZlibF/Proof/crc32.c.lean#L2349) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_gen_safe](../ZlibF/Proof/crc32.c.lean#L2343) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_op_correct](../ZlibF/Proof/crc32.c.lean#L2403) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_op_diverges](../ZlibF/Proof/crc32.c.lean#L2368) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_op_safe](../ZlibF/Proof/crc32.c.lean#L2359) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_combine_safe](../ZlibF/Proof/crc32.c.lean#L2390) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_correct](../ZlibF/Proof/crc32.c.lean#L2223) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Crc32.Proofs.crc32_null](../ZlibF/Proof/crc32.c.lean#L2219) | [crc32](#target-zlibf-spec-public-goal-crc32), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Crc32.Proofs.crc32_safe](../ZlibF/Proof/crc32.c.lean#L2232) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc32_z_correct](../ZlibF/Proof/crc32.c.lean#L2199) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Crc32.Proofs.crc32_z_null](../ZlibF/Proof/crc32.c.lean#L2186) | [crc32](#target-zlibf-spec-public-goal-crc32), [crc32_z](#target-zlibf-spec-public-goal-crc32-z), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Crc32.Proofs.crc32_z_safe](../ZlibF/Proof/crc32.c.lean#L2213) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crcByte_safe](../ZlibF/Proof/crc32.c.lean#L2445) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crcTab_safe](../ZlibF/Proof/crc32.c.lean#L2436) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc_word_big_safe](../ZlibF/Proof/crc32.c.lean#L2485) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc_word_correct](../ZlibF/Proof/crc32.c.lean#L2419) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.crc_word_safe](../ZlibF/Proof/crc32.c.lean#L2414) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.get_crc_table_correct](../ZlibF/Proof/crc32.c.lean#L2245) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.get_crc_table_safe](../ZlibF/Proof/crc32.c.lean#L2240) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.loadWord_safe](../ZlibF/Proof/crc32.c.lean#L2431) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.multmodp_correct](../ZlibF/Proof/crc32.c.lean#L2279) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.multmodp_diverges](../ZlibF/Proof/crc32.c.lean#L982) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.multmodp_safe](../ZlibF/Proof/crc32.c.lean#L2272) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.shr64_safe](../ZlibF/Proof/crc32.c.lean#L2471) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.wordAt_safe](../ZlibF/Proof/crc32.c.lean#L2452) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.x2nTab_safe](../ZlibF/Proof/crc32.c.lean#L2440) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.x2nmodp_correct](../ZlibF/Proof/crc32.c.lean#L2303) | 未记录到固定目标的组合关系 |
+| [Zlib.Crc32.Proofs.x2nmodp_safe](../ZlibF/Proof/crc32.c.lean#L2295) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Engine.Proofs.CommonInitializedDataTrace.cleanup](../ZlibF/Proof/deflate.c.engine.common-initialized-history-environment.lean) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Engine.Proofs.CommonInitializedDataTrace.completed](../ZlibF/Proof/deflate.c.engine.common-initialized-data-history.lean) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Engine.Proofs.CommonInitializedDataTrace.completes](../ZlibF/Proof/deflate.c.engine.common-initialized-history-completes.lean) | 未记录到固定目标的组合关系 |
@@ -1820,25 +2144,25 @@ flowchart LR
 | [Zlib.Deflate.Engine.Proofs.upd3_indep](../ZlibF/Proof/deflate.c.engine.hash.lean#L45) | [compress2_safety](#target-zlibf-spec-public-goal-compress2-safety), [compress2_z_safety](#target-zlibf-spec-public-goal-compress2-z-safety), [compress_safety](#target-zlibf-spec-public-goal-compress-safety), [compress_z_safety](#target-zlibf-spec-public-goal-compress-z-safety), [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Proofs.MemoryInit.public_valid_memory_init_lifecycle](../ZlibF/Proof/deflate.c.init.memory-lifecycle.lean#L13) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Proofs.MemoryInit.public_valid_memory_init_total](../ZlibF/Proof/deflate.c.init.memory-total.lean#L16) | 未记录到固定目标的组合关系 |
-| [Zlib.Deflate.Proofs.deflateBound_nostate](../ZlibF/Proof/deflate.c.life.bound.lean#L330) | 未记录到固定目标的组合关系 |
+| [Zlib.Deflate.Proofs.deflateBound_nostate](../ZlibF/Proof/deflate.c.life.bound.lean#L330) | [deflateBound_safety](#target-zlibf-spec-public-goal-deflatebound-safety) |
 | [Zlib.Deflate.Proofs.deflateBound_safe](../ZlibF/Proof/deflate.c.life.bound.lean#L319) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Proofs.deflateBound_z_nostate](../ZlibF/Proof/deflate.c.life.bound.lean#L312) | 未记录到固定目标的组合关系 |
+| [Zlib.Deflate.Proofs.deflateBound_z_nostate](../ZlibF/Proof/deflate.c.life.bound.lean#L312) | [deflateBound_safety](#target-zlibf-spec-public-goal-deflatebound-safety), [deflateBound_z_safety](#target-zlibf-spec-public-goal-deflatebound-z-safety) |
 | [Zlib.Deflate.Proofs.deflateBound_z_safe](../ZlibF/Proof/deflate.c.life.bound.lean#L302) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Proofs.deflateEnd_reject](../ZlibF/Proof/deflate.c.life.end.lean#L321) | 未记录到固定目标的组合关系 |
+| [Zlib.Deflate.Proofs.deflateEnd_reject](../ZlibF/Proof/deflate.c.life.end.lean#L321) | [deflateEnd_safety](#target-zlibf-spec-public-goal-deflateend-safety) |
 | [Zlib.Deflate.Proofs.deflateEnd_safe](../ZlibF/Proof/deflate.c.life.end.lean#L270) | [compress2_safety](#target-zlibf-spec-public-goal-compress2-safety), [compress2_z_safety](#target-zlibf-spec-public-goal-compress2-z-safety), [compress_safety](#target-zlibf-spec-public-goal-compress-safety), [compress_z_safety](#target-zlibf-spec-public-goal-compress-z-safety), [deflateEnd](#target-zlibf-spec-public-goal-deflateend), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Proofs.deflateGetDictionary_reject](../ZlibF/Proof/deflate.c.life.getdict.lean#L202) | [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal) |
 | [Zlib.Deflate.Proofs.deflatePending_reject](../ZlibF/Proof/deflate.c.life.check.lean#L173) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Proofs.deflatePending_safe](../ZlibF/Proof/deflate.c.life.check.lean#L146) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Proofs.deflatePrime_invalid_count](../ZlibF/Proof/deflate.c.prime.lean#L24) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Proofs.deflatePrime_refused](../ZlibF/Proof/deflate.c.prime.lean#L15) | 未记录到固定目标的组合关系 |
-| [Zlib.Deflate.Proofs.deflateResetKeep_reject](../ZlibF/Proof/deflate.c.life.reset.lean#L424) | 未记录到固定目标的组合关系 |
+| [Zlib.Deflate.Proofs.deflatePrime_refused](../ZlibF/Proof/deflate.c.prime.lean#L15) | [deflatePrime_safety](#target-zlibf-spec-public-goal-deflateprime-safety) |
+| [Zlib.Deflate.Proofs.deflateResetKeep_reject](../ZlibF/Proof/deflate.c.life.reset.lean#L424) | [deflateReset_safety](#target-zlibf-spec-public-goal-deflatereset-safety) |
 | [Zlib.Deflate.Proofs.deflateResetKeep_safe](../ZlibF/Proof/deflate.c.life.reset.lean#L367) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflateReset](#target-zlibf-spec-public-goal-deflatereset), [deflateResetKeep](#target-zlibf-spec-public-goal-deflateresetkeep), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Proofs.deflateReset_reject](../ZlibF/Proof/deflate.c.life.reset.lean#L430) | 未记录到固定目标的组合关系 |
+| [Zlib.Deflate.Proofs.deflateReset_reject](../ZlibF/Proof/deflate.c.life.reset.lean#L430) | [deflateReset_safety](#target-zlibf-spec-public-goal-deflatereset-safety) |
 | [Zlib.Deflate.Proofs.deflateReset_safe](../ZlibF/Proof/deflate.c.life.reset.lean#L401) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflateReset](#target-zlibf-spec-public-goal-deflatereset), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Proofs.deflateSetHeader_not_gzip](../ZlibF/Proof/deflate.c.life.check.lean#L92) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Proofs.deflateSetHeader_reject](../ZlibF/Proof/deflate.c.life.check.lean#L98) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Proofs.deflateSetHeader_safe](../ZlibF/Proof/deflate.c.life.check.lean#L83) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Proofs.deflateStateCheck_total](../ZlibF/Proof/deflate.c.base.lean#L731) | [deflateCopy_safety](#target-zlibf-spec-public-goal-deflatecopy-safety), [deflatePending](#target-zlibf-spec-public-goal-deflatepending), [deflateSetHeader](#target-zlibf-spec-public-goal-deflatesetheader), [deflateTune](#target-zlibf-spec-public-goal-deflatetune), [deflateUsed](#target-zlibf-spec-public-goal-deflateused), [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Deflate.Proofs.deflateStateCheck_total](../ZlibF/Proof/deflate.c.base.lean#L631) | [deflateBound_safety](#target-zlibf-spec-public-goal-deflatebound-safety), [deflateBound_z_safety](#target-zlibf-spec-public-goal-deflatebound-z-safety), [deflateEnd_safety](#target-zlibf-spec-public-goal-deflateend-safety), [deflatePending](#target-zlibf-spec-public-goal-deflatepending), [deflatePrime_safety](#target-zlibf-spec-public-goal-deflateprime-safety), [deflateReset_safety](#target-zlibf-spec-public-goal-deflatereset-safety), [deflateSetHeader](#target-zlibf-spec-public-goal-deflatesetheader), [deflateTune](#target-zlibf-spec-public-goal-deflatetune), [deflateUsed](#target-zlibf-spec-public-goal-deflateused), [deflate_refusal](#target-zlibf-spec-public-goal-deflate-refusal), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Proofs.deflateTune_reject](../ZlibF/Proof/deflate.c.life.check.lean#L54) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Proofs.deflateTune_safe](../ZlibF/Proof/deflate.c.life.check.lean#L44) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Proofs.deflateUsed_reject](../ZlibF/Proof/deflate.c.life.check.lean#L119) | 未记录到固定目标的组合关系 |
@@ -1848,17 +2172,17 @@ flowchart LR
 | [Zlib.Deflate.Universal.copy_callfacts](../ZlibF/Proof/deflate.c.universal-ops-copy.lean#L868) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.copy_header](../ZlibF/Proof/deflate.c.universal-ops-copy.lean#L857) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.copy_inv](../ZlibF/Proof/deflate.c.universal-ops-copy.lean#L848) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Universal.prime_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L97) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Deflate.Universal.prime_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L99) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.resetKeep_refuse](../ZlibF/Proof/deflate.c.universal-ops-resetkeep.lean#L64) | 未记录到固定目标的组合关系 |
 | [Zlib.Deflate.Universal.resetKeep_single](../ZlibF/Proof/deflate.c.universal-ops-resetkeep.lean#L31) | 未记录到固定目标的组合关系 |
-| [Zlib.Deflate.Universal.reset_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L41) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Deflate.Universal.reset_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L43) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.setDictionary_callfacts](../ZlibF/Proof/deflate.c.universal-ops-dictionary-slid.lean#L158) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.setDictionary_header](../ZlibF/Proof/deflate.c.universal-ops-dictionary-slid.lean#L135) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Universal.setHeader_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L75) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Deflate.Universal.setHeader_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L77) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.step_prime](../ZlibF/Proof/deflate.c.universal-ops-prime.lean#L565) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.step_reset](../ZlibF/Proof/deflate.c.universal-ops-reset.lean#L85) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Deflate.Universal.step_setDictionary](../ZlibF/Proof/deflate.c.universal-ops-dictionary-slid.lean#L121) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Deflate.Universal.tune_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L62) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Deflate.Universal.tune_callfacts](../ZlibF/Proof/deflate.c.universal-ops-callfacts.lean#L64) | [deflate](#target-zlibf-spec-public-goal-deflate), [deflateCopy](#target-zlibf-spec-public-goal-deflatecopy), [deflate_sequence_safety](#target-zlibf-spec-public-goal-deflate-sequence-safety), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Gzclose.Proofs.gzclose_dispatch](../ZlibF/Proof/gzclose.c.lean#L22) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzclose.Proofs.gzclose_null](../ZlibF/Proof/gzclose.c.lean#L17) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzlib.Proofs.GT_OFF_run](../ZlibF/Proof/gzlib.c.simple.lean#L46) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
@@ -1890,27 +2214,27 @@ flowchart LR
 | [Zlib.Gzlib.Proofs.gzopen_null](../ZlibF/Proof/gzlib.c.open.lean#L25) | [gz_sequence_nonvacuity](#target-zlibf-spec-public-goal-gz-sequence-nonvacuity), [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Gzlib.Proofs.gzrewind_null](../ZlibF/Proof/gzlib.c.rewind.lean#L73) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzlib.Proofs.gzrewind_spec](../ZlibF/Proof/gzlib.c.rewind.lean#L78) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzlib.Proofs.gzseek64_dangling_next_ok](../ZlibF/Proof/gzlib.c.seek.lean#L1052) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzlib.Proofs.gzseek64_head](../ZlibF/Proof/gzlib.c.seek.lean#L374) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Gzlib.Proofs.gzseek64_head_any](../ZlibF/Proof/gzlib.c.seek.lean#L231) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Gzlib.Proofs.gzseek64_null](../ZlibF/Proof/gzlib.c.seek.lean#L923) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzlib.Proofs.gzseek64_refuse](../ZlibF/Proof/gzlib.c.seek.lean#L955) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Gzlib.Proofs.gzseek64_safe](../ZlibF/Proof/gzlib.c.seek.lean#L930) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzlib.Proofs.gzseek64_set_negpos_refuse](../ZlibF/Proof/gzlib.c.seek.lean#L986) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzlib.Proofs.gzseek64_write_run](../ZlibF/Proof/gzlib.c.seek.lean#L387) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Gzlib.Proofs.gzseek_eq](../ZlibF/Proof/gzlib.c.seek.lean#L968) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.gzseek64_dangling_next_ok](../ZlibF/Proof/gzlib.c.seek.lean#L1053) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzlib.Proofs.gzseek64_head](../ZlibF/Proof/gzlib.c.seek.lean#L375) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.gzseek64_head_any](../ZlibF/Proof/gzlib.c.seek.lean#L232) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.gzseek64_null](../ZlibF/Proof/gzlib.c.seek.lean#L924) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzlib.Proofs.gzseek64_refuse](../ZlibF/Proof/gzlib.c.seek.lean#L956) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.gzseek64_safe](../ZlibF/Proof/gzlib.c.seek.lean#L931) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzlib.Proofs.gzseek64_set_negpos_refuse](../ZlibF/Proof/gzlib.c.seek.lean#L987) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzlib.Proofs.gzseek64_write_run](../ZlibF/Proof/gzlib.c.seek.lean#L388) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.gzseek_eq](../ZlibF/Proof/gzlib.c.seek.lean#L969) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Gzlib.Proofs.gztell64_null](../ZlibF/Proof/gzlib.c.simple.lean#L122) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzlib.Proofs.gztell64_spec](../ZlibF/Proof/gzlib.c.simple.lean#L143) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzlib.Proofs.gztell_null](../ZlibF/Proof/gzlib.c.simple.lean#L154) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzlib.Proofs.gztell_run](../ZlibF/Proof/gzlib.c.simple.lean#L148) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzlib.Proofs.seekTail_back](../ZlibF/Proof/gzlib.c.seek.lean#L592) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Gzlib.Proofs.seekTail_copy](../ZlibF/Proof/gzlib.c.seek.lean#L428) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Gzlib.Proofs.seekTail_copy_ub](../ZlibF/Proof/gzlib.c.seek.lean#L1063) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzlib.Proofs.seekTail_fwd](../ZlibF/Proof/gzlib.c.seek.lean#L490) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
-| [Zlib.Gzlib.Proofs.seekTail_fwd_empty](../ZlibF/Proof/gzlib.c.seek.lean#L1003) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzlib.Proofs.seekTail_back](../ZlibF/Proof/gzlib.c.seek.lean#L593) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.seekTail_copy](../ZlibF/Proof/gzlib.c.seek.lean#L429) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.seekTail_copy_ub](../ZlibF/Proof/gzlib.c.seek.lean#L1064) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzlib.Proofs.seekTail_fwd](../ZlibF/Proof/gzlib.c.seek.lean#L491) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
+| [Zlib.Gzlib.Proofs.seekTail_fwd_empty](../ZlibF/Proof/gzlib.c.seek.lean#L1004) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzread.Proofs.gzclose_r_null](../ZlibF/Proof/gzread.c.close.lean#L44) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzread.Proofs.gzclose_r_unbuffered](../ZlibF/Proof/gzread.c.close.lean#L57) | 未记录到固定目标的组合关系 |
-| [Zlib.Gzread.Proofs.gzclose_r_unbuffered_frame](../ZlibF/Proof/gzread.c.close.lean#L79) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzread.Proofs.gzclose_r_unbuffered](../ZlibF/Proof/gzread.c.close.lean#L58) | 未记录到固定目标的组合关系 |
+| [Zlib.Gzread.Proofs.gzclose_r_unbuffered_frame](../ZlibF/Proof/gzread.c.close.lean#L80) | 未记录到固定目标的组合关系 |
 | [Zlib.Gzread.Proofs.gzclose_r_wrong_mode](../ZlibF/Proof/gzread.c.close.lean#L48) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety) |
 | [Zlib.Infback.Proofs.NEEDBITS_run](../ZlibF/Proof/infback.c.macros.lean#L240) | 未记录到固定目标的组合关系 |
 | [Zlib.Infback.Proofs.PULLBYTE_run](../ZlibF/Proof/infback.c.macros.lean#L156) | 未记录到固定目标的组合关系 |
@@ -1928,10 +2252,10 @@ flowchart LR
 | [Zlib.Infback.Proofs.inflateBackInit__nullstream](../ZlibF/Proof/infback.c.init.lean#L239) | 未记录到固定目标的组合关系 |
 | [Zlib.Infback.Proofs.inflateBackInit__ok](../ZlibF/Proof/infback.c.init.lean#L147) | 未记录到固定目标的组合关系 |
 | [Zlib.Infback.Proofs.inflateBackInit__safe](../ZlibF/Proof/infback.c.init.lean#L203) | 未记录到固定目标的组合关系 |
-| [Zlib.Infback.Proofs.inflateBack_eof](../ZlibF/Proof/infback.c.back.lean#L133) | 未记录到固定目标的组合关系 |
-| [Zlib.Infback.Proofs.inflateBack_eof_witness](../ZlibF/Proof/infback.c.back.lean#L174) | 未记录到固定目标的组合关系 |
-| [Zlib.Infback.Proofs.inflateBack_nostate](../ZlibF/Proof/infback.c.back.lean#L123) | 未记录到固定目标的组合关系 |
-| [Zlib.Infback.Proofs.inflateBack_nullstream](../ZlibF/Proof/infback.c.back.lean#L118) | [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) |
+| [Zlib.Infback.Proofs.inflateBack_eof](../ZlibF/Proof/infback.c.back.lean#L134) | 未记录到固定目标的组合关系 |
+| [Zlib.Infback.Proofs.inflateBack_eof_witness](../ZlibF/Proof/infback.c.back.lean#L175) | 未记录到固定目标的组合关系 |
+| [Zlib.Infback.Proofs.inflateBack_nostate](../ZlibF/Proof/infback.c.back.lean#L124) | [inflateBack_safety](#target-zlibf-spec-public-goal-inflateback-safety) |
+| [Zlib.Infback.Proofs.inflateBack_nullstream](../ZlibF/Proof/infback.c.back.lean#L119) | [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) |
 | [Zlib.Infback.Proofs.order_inj](../ZlibF/Proof/infback.c.pure.lean#L17) | 未记录到固定目标的组合关系 |
 | [Zlib.Infback.Proofs.order_lt](../ZlibF/Proof/infback.c.pure.lean#L14) | 未记录到固定目标的组合关系 |
 | [Zlib.Infback.Proofs.order_surj](../ZlibF/Proof/infback.c.pure.lean#L21) | 未记录到固定目标的组合关系 |
@@ -1942,8 +2266,8 @@ flowchart LR
 | [Zlib.Infback.Proofs.stored_loop_run](../ZlibF/Proof/infback.c.stored.lean#L406) | 未记录到固定目标的组合关系 |
 | [Zlib.Infback.Proofs.stored_run](../ZlibF/Proof/infback.c.stored.lean#L459) | 未记录到固定目标的组合关系 |
 | [Zlib.Infback.Proofs.xwhileBrk_wf](../ZlibF/Proof/infback.c.wf.lean#L16) | [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety) |
-| [Zlib.Inffast.Proofs.distfix_tableSafe](../ZlibF/Proof/inffast.c.tableok.lean#L98) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Inffast.Proofs.lenfix_tableSafe](../ZlibF/Proof/inffast.c.tableok.lean#L84) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Inffast.Proofs.distfix_tableSafe](../ZlibF/Proof/inffast.c.tableok.lean#L43) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Inffast.Proofs.lenfix_tableSafe](../ZlibF/Proof/inffast.c.tableok.lean#L29) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.BITS_run](../ZlibF/Proof/inflate.c.main.macros.lean#L224) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.BITS_toNat](../ZlibF/Proof/inflate.c.main.macros.lean#L234) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.BYTEBITS_inv](../ZlibF/Proof/inflate.c.main.macros.lean#L293) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_back_sequence_safety](#target-zlibf-spec-public-goal-inflate-back-sequence-safety), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
@@ -1959,7 +2283,7 @@ flowchart LR
 | [Zlib.Inflate.Proofs.inflateCodesUsed_spec](../ZlibF/Proof/inflate.c.misc.lean#L180) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateEnd_safe](../ZlibF/Proof/inflate.c.end.lean#L119) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflateEnd](#target-zlibf-spec-public-goal-inflateend), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateGetDictionary_spec](../ZlibF/Proof/inflate.c.dict.lean#L82) | 未记录到固定目标的组合关系 |
-| [Zlib.Inflate.Proofs.inflateGetHeader_check](../ZlibF/Proof/inflate.c.hdr.lean#L54) | 未记录到固定目标的组合关系 |
+| [Zlib.Inflate.Proofs.inflateGetHeader_check](../ZlibF/Proof/inflate.c.hdr.lean#L54) | [inflateGetHeader_safety](#target-zlibf-spec-public-goal-inflategetheader-safety) |
 | [Zlib.Inflate.Proofs.inflateGetHeader_nogzip](../ZlibF/Proof/inflate.c.hdr.lean#L64) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateGetHeader_null_faults](../ZlibF/Proof/inflate.c.hdr.lean#L114) | 未记录到固定目标的组合关系 |
 | [Zlib.Inflate.Proofs.inflateGetHeader_ok](../ZlibF/Proof/inflate.c.hdr.lean#L80) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
@@ -1970,15 +2294,15 @@ flowchart LR
 | [Zlib.Inflate.Proofs.inflateMark_spec](../ZlibF/Proof/inflate.c.misc.lean#L140) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflatePrime_spec](../ZlibF/Proof/inflate.c.misc2.lean#L28) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateReset2_safe](../ZlibF/Proof/inflate.c.init.lean#L395) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Inflate.Proofs.inflateResetKeep_safe](../ZlibF/Proof/inflate.c.base.lean#L521) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Inflate.Proofs.inflateResetKeep_safe](../ZlibF/Proof/inflate.c.base.lean#L460) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateReset_safe](../ZlibF/Proof/inflate.c.reset.lean#L160) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateSetDictionary_dataerr](../ZlibF/Proof/inflate.c.dict.lean#L222) | 未记录到固定目标的组合关系 |
 | [Zlib.Inflate.Proofs.inflateSetDictionary_safe](../ZlibF/Proof/inflate.c.dict.lean#L146) | 未记录到固定目标的组合关系 |
 | [Zlib.Inflate.Proofs.inflateSetDictionary_streamerr](../ZlibF/Proof/inflate.c.dict.lean#L209) | 未记录到固定目标的组合关系 |
-| [Zlib.Inflate.Proofs.inflateStateCheck_total](../ZlibF/Proof/inflate.c.base.lean#L445) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflateCodesUsed](#target-zlibf-spec-public-goal-inflatecodesused), [inflateEnd](#target-zlibf-spec-public-goal-inflateend), [inflateMark](#target-zlibf-spec-public-goal-inflatemark), [inflatePrime](#target-zlibf-spec-public-goal-inflateprime), [inflateSyncPoint](#target-zlibf-spec-public-goal-inflatesyncpoint), [inflateUndermine](#target-zlibf-spec-public-goal-inflateundermine), [inflateValidate](#target-zlibf-spec-public-goal-inflatevalidate), [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
+| [Zlib.Inflate.Proofs.inflateStateCheck_total](../ZlibF/Proof/inflate.c.base.lean#L384) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflateCodesUsed](#target-zlibf-spec-public-goal-inflatecodesused), [inflateEnd](#target-zlibf-spec-public-goal-inflateend), [inflateGetHeader_safety](#target-zlibf-spec-public-goal-inflategetheader-safety), [inflateMark](#target-zlibf-spec-public-goal-inflatemark), [inflatePrime](#target-zlibf-spec-public-goal-inflateprime), [inflateSyncPoint](#target-zlibf-spec-public-goal-inflatesyncpoint), [inflateSync_safety](#target-zlibf-spec-public-goal-inflatesync-safety), [inflateUndermine](#target-zlibf-spec-public-goal-inflateundermine), [inflateValidate](#target-zlibf-spec-public-goal-inflatevalidate), [inflate_refusal](#target-zlibf-spec-public-goal-inflate-refusal), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateSyncPoint_spec](../ZlibF/Proof/inflate.c.misc.lean#L121) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateSync_buf_error](../ZlibF/Proof/inflate.c.sync2.lean#L131) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Inflate.Proofs.inflateSync_check](../ZlibF/Proof/inflate.c.sync2.lean#L113) | 未记录到固定目标的组合关系 |
+| [Zlib.Inflate.Proofs.inflateSync_check](../ZlibF/Proof/inflate.c.sync2.lean#L113) | [inflateSync_safety](#target-zlibf-spec-public-goal-inflatesync-safety) |
 | [Zlib.Inflate.Proofs.inflateUndermine_safe](../ZlibF/Proof/inflate.c.misc.lean#L109) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflateValidate_safe](../ZlibF/Proof/inflate.c.misc.lean#L95) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.inflate_CHECK_nowrap](../ZlibF/Proof/inflate.c.main.check.lean#L137) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
@@ -2009,7 +2333,7 @@ flowchart LR
 | [Zlib.Inflate.Proofs.lzBody_run](../ZlibF/Proof/inflate.c.main.table4.lean#L225) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.lz_run](../ZlibF/Proof/inflate.c.main.table4.lean#L244) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.noRet_NEEDBITS](../ZlibF/Proof/inflate.c.main.table2.lean#L321) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Inflate.Proofs.ring_spec](../ZlibF/Proof/inflate.c.ring.lean#L116) | [inflateSetDictionary](#target-zlibf-spec-public-goal-inflatesetdictionary) |
+| [Zlib.Inflate.Proofs.ring_spec](../ZlibF/Proof/inflate.c.ring.lean#L112) | [inflateSetDictionary](#target-zlibf-spec-public-goal-inflatesetdictionary) |
 | [Zlib.Inflate.Proofs.syncDone_good](../ZlibF/Proof/inflate.c.sync2.lean#L372) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.syncDone_owns](../ZlibF/Proof/inflate.c.sync2.lean#L423) | 未记录到固定目标的组合关系 |
 | [Zlib.Inflate.Proofs.syncDone_run](../ZlibF/Proof/inflate.c.sync2.lean#L248) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
@@ -2025,9 +2349,9 @@ flowchart LR
 | [Zlib.Inflate.Proofs.typedoTail_fixed_trees](../ZlibF/Proof/inflate.c.main.type.lean#L132) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.typedoTail_stored](../ZlibF/Proof/inflate.c.main.type.lean#L92) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
 | [Zlib.Inflate.Proofs.typedoTail_table](../ZlibF/Proof/inflate.c.main.type.lean#L104) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
-| [Zlib.Inflate.Proofs.updatewindow_ring](../ZlibF/Proof/inflate.c.ring.lean#L197) | 未记录到固定目标的组合关系 |
+| [Zlib.Inflate.Proofs.updatewindow_ring](../ZlibF/Proof/inflate.c.ring.lean#L193) | 未记录到固定目标的组合关系 |
 | [Zlib.Inflate.Proofs.updatewindow_safe](../ZlibF/Proof/inflate.c.uw.lean#L558) | 未记录到固定目标的组合关系 |
-| [Zlib.Inflate.Proofs.uwPost_counts](../ZlibF/Proof/inflate.c.ring.lean#L170) | [inflateSetDictionary](#target-zlibf-spec-public-goal-inflatesetdictionary) |
+| [Zlib.Inflate.Proofs.uwPost_counts](../ZlibF/Proof/inflate.c.ring.lean#L166) | [inflateSetDictionary](#target-zlibf-spec-public-goal-inflatesetdictionary) |
 | [Zlib.Inflate.Proofs.uw_null_ok](../ZlibF/Proof/inflate.c.uw.lean#L492) | 未记录到固定目标的组合关系 |
 | [Zlib.Inflate.Proofs.uw_post](../ZlibF/Proof/inflate.c.uw.lean#L423) | 未记录到固定目标的组合关系 |
 | [Zlib.Inflate.Proofs.xwhileBrk_run](../ZlibF/Proof/inflate.c.main.xloop.lean#L36) | [gz_sequence_safety](#target-zlibf-spec-public-goal-gz-sequence-safety), [inflate](#target-zlibf-spec-public-goal-inflate), [inflateCopy](#target-zlibf-spec-public-goal-inflatecopy), [inflate_sequence_safety](#target-zlibf-spec-public-goal-inflate-sequence-safety), [uncompress2_safe](#target-zlibf-spec-public-goal-uncompress2-safe), [uncompress2_z_safe](#target-zlibf-spec-public-goal-uncompress2-z-safe), [uncompress_safe](#target-zlibf-spec-public-goal-uncompress-safe), [uncompress_z_safe](#target-zlibf-spec-public-goal-uncompress-z-safe) |
@@ -2092,14 +2416,14 @@ flowchart LR
 | [ZlibF.Spec.Public.Proofs.DeflateCore.correct](../ZlibF/Proof/deflate.c.default-core-completes.lean#L140) | 未记录到固定目标的组合关系 |
 | [ZlibF.Spec.Public.Proofs.DeflateCore.safe_encoding_and_cleanup](../ZlibF/Proof/deflate.c.default-core.lean#L182) | 未记录到固定目标的组合关系 |
 | [ZlibF.Spec.Public.Proofs.DeflateInit.default_init_witness](../ZlibF/Proof/public-deflate-init.lean#L283) | 未记录到固定目标的组合关系 |
-| [ZlibF.Spec.Public.Proofs.free_writable_matches_dropWindow](../ZlibF/Proof/Api/HeapCleanup.lean#L56) | 未记录到固定目标的组合关系 |
+| [ZlibF.Spec.Public.Proofs.free_writable_matches_dropWindow](../ZlibF/Proof/Api/HeapCleanup.lean#L57) | 未记录到固定目标的组合关系 |
 | [ZlibF.Spec.Public.Proofs.legacy_codes_used_impossible](../ZlibF/Proof/Api/QueryLayout.lean#L125) | 未记录到固定目标的组合关系 |
 | [ZlibF.Spec.Zlib.ext](../ZlibF/Proof/Format/Wrapper.lean) | [compress_roundtrip](#target-zlibf-spec-api-goal-compress-roundtrip), [dict_roundtrip](#target-zlibf-spec-api-goal-dict-roundtrip), [format_deterministic](#target-zlibf-spec-api-goal-format-deterministic), [format_prefix_free](#target-zlibf-spec-api-goal-format-prefix-free), [inflate_completes](#target-zlibf-spec-api-goal-inflate-completes), [inflate_decodes](#target-zlibf-spec-api-goal-inflate-decodes), [inflate_deferred_distance](#target-zlibf-spec-api-goal-inflate-deferred-distance) |
 
-## 更新记录
+## 重新生成
 
 证明或登记表发生变化后，需要重新生成本页。生成过程会编译并检查
-定理的精确类型，不会修改证明、目标或登记表。生成器同时写出英文页和本页。
+定理的精确类型，不会修改证明、目标或登记表。生成器只写本页的这一区域，以及英文页的对应区域。
 结果是否通过项目验收，仍须依据[检查规则](checking/README.md)。
 只有当本页展示的内容发生变化时（目标、登记、证明状态、链接或行锚点），本页才算过期。在此之前，
 链接保持生成时的修订版本。
@@ -2107,626 +2431,136 @@ flowchart LR
 
 ## 剩余工作
 
-红色边框表示已经记录了阻碍证明的问题，下文给出证据和下一步。证明尝试耗时很长，本身不构成这种阻碍。灰色目标可以开始推进；它们缺少的内部引理和调用序列不变量并没有全部画在图中。
+98 个必需目标都已登记；每项结论的层级和各次验收运行见[范围](#scope)。没有任何目标存在记录在案的阻碍。剩下的工作列在[按顺序的下一步工作](#ordered-next-work)中。
+
+以下各节只保留事实和未完成的事项。已经结束的工作记录原样保存在 `docs/history/` 下；其中的状态、工时和数字描述的是写作当时的情况：
+
+- 证明骨架：[inflate](history/skeleton-inflate.md)、[deflate](history/skeleton-deflate.md)、[gz](history/skeleton-gz.md)、[inflateBack](history/skeleton-inflate-back.md)。
+- [早先的工作顺序与准备情况说明](history/next-work-and-readiness.md)。
+- [规格审查记录](history/specification-review.md)。
+- [覆盖情况：审查记录](history/coverage-review-record.md)和[覆盖情况：早先的未完成事项](history/coverage-open-items.md)。
+- [进度检查点](history/progress-checkpoints.md)和[总览变更记录](history/overview-changelog.md)：更早的叙述性记录。
 
 ### 核心证明骨架
 
-2026-11-11 的范围变更：只有安全在计划内（见[范围](#scope)）。仍未完成的功能性行标为"不在计划内"，不计工时；已检查的行保持不变。
+骨架是一项核心证明自顶向下的计划：用一组具名引理证明目标，引理本身的证明先在一个分支上空着。所有骨架都已完成。它们各自针对的目标都已登记，所以必需目标所需要的引理没有一条还空着。引理表、途中对命题所作的更正和工作记录都属于历史。
 
-#### inflate
-
-inflate 系列的安全性（所有者 2026-11-11 的决定）：在每个可达历史上，无未定义行为、无内存错误、无泄漏，并且会终止。终止是每一行的一部分：每个定理都断言调用返回 `.ok`，这排除了 `Fault.outOfFuel`（`docs/spec/safety.md`）。“已检查”指定理在 `dev` 上且快速门禁为绿；“已验收”还需要验收套件。估计以专注工作的小时数计，不确定度约为数值的一半，包含共享构建主机上的构建时间。格式含义的 `meaning_*` 各行不在计划内，已不再列出；它们已证明的部分仍保留在 `dev` 上。
-
-解码器不变量 `InflateInv`（`inflate.c.invariant`）：它把 `DefaultOriginState` 推广到 raw、zlib、gzip 与自动检测、windowBits 为 0，以及已附加的 gzip 头记录。`DecoderHeldBits`（在 `BAD`、`MEM` 与 `SYNC` 之外，至多持有 32 位）在每个可达历史上与它一起携带。
-
-| 引理 | 含义 | 状态 | 小时 |
-| --- | --- | --- | ---: |
-| `inflate_public`（`public-inflate`） | 类型为 `Goal.inflate` 的定理：从每个可达流、每种配置（包括 gzip 头记录）出发的一次调用。首次在 `dev` 上无 sorry 是 `8b12ff6a`；快速门禁在 `2dab2f5e` 上为绿。 | checked | 0 |
-| `inflate_reachable_invariant`（`inflate.c.reachable`） | 每个可达历史上的 `InflateInv` 与 `DecoderHeldBits`：初始化、重设缓冲区、每个流操作、`inflateCopy`。 | checked | 0 |
-| `inflate_call_held`（`inflate.c.held-history`） | 一次 `inflate` 调用保持 `DecoderHeldBits`。这是安全性所需的功能事实：位缓冲区 `hold` 宽 32 位，所以解码器绝不能持有更多位。 | checked | 0 |
-| `Goal.inflate` 的进展子句 | `rc = Z_OK → used ≠ 0 ∨ out ≠ []`。这是 `uncompress*` 循环的终止所需的功能事实；属于 `inflate_public`。 | checked | 0 |
-| `inflate_call_safe`、`operation_safe`（`inflate.c.sequence-safety`） | 从可达历史出发的每个流操作只写流记录、它自己的块、头记录以及 `StreamWriteRegions` 中的调用者区域，并且恰好按它自己的账目改变活动块。`inflate` 经由 `InflateCall.safe`；`inflateSync` 经由 `inflateSync_call_safe`（包括重新同步时释放的窗口）；其余 12 个经由 `inflate.c.call-safety`。 | checked | 0 |
-| `inflateEnd_invariant`（`inflate.c.call-safety`） | 对可达流调用 `inflateEnd` 返回 `Z_OK`，清除状态并释放流所拥有的每个块。 | checked | 0 |
-| `inflate_sequence_safety_public`（`public-inflate-sequence-safety`） | 类型为 `Goal.inflate_sequence_safety` 的定理（= `StreamSequenceSafety .inflate`，即 `Goal.inflate_sequence` 的安全性一半）。 | checked | 0 |
-| `inflateInit_`、`inflateInit2_`（`public-inflate-init`、`public-inflate-init2`） | 每个 windowBits 与每种分配结果，按源码中的错误顺序；无效宽度会释放其状态。`inflate_init2_public` 已证明；它还需要登记。 | checked | 0 |
-| 各种重置、`inflateEnd`、`inflateGetDictionary`、`inflateSetDictionary`、`inflateGetHeader`、`inflatePrime`、`inflateSyncPoint`、`inflateMark`、`inflateCodesUsed`、`inflateUndermine`、`inflateValidate` | 生命周期与查询目标，包括空流与无效流。 | 已登记 | 0 |
-| `inflateSync` | 每个可达历史上的安全性：`inflateSync_call_safe`，属于序列定理。`Goal.inflateSync` 的其余部分是精确的标记搜索（`Api.syncSearch`），这是任何安全证明都不需要的功能子句。 | checked (safety) | 0 |
-| `inflate_copy_public`（`public-inflate-copy`、`inflate.c.copy-public`） | 类型为 `Goal.inflateCopy` 的定理：空参数被拒绝；从每个可达源出发，两种分配失败都释放已分配的内容并清除 `dest->state`，成功则给出重定位后的状态、窗口前缀，以及账目中恰好新增的块。由 `inflate.c.copy-*` 的六个执行引理组合而成。 | checked | 0 |
-| 验收批次 | `inflate_public`、`inflate_init2_public`、`inflate_sequence_safety_public` 与 `inflate_copy_public` 已登记在 `tests/audit/theorems.txt`，`Goal.inflate_sequence_safety` 已登记在 `tests/audit/goals.txt`；`tests/proof-mutants/public-streams.tsv` 中有针对 `inflate`、`inflateCopy` 与 `inflateInit2_` 的九个函数体证明变异，每个都经本地运行在其所列模块中被杀死。验收套件尚未在某个指名的提交上运行。 | prepared | 0 |
-| 清理 | 删除没有任何已登记定理使用的快速路径与固定配置证明。 | open | 4 |
-| `uncompress*`（`public-uncompress*`） | 功能目标：四个都在 `dev` 上由 `DecoderFacts` 组合得到（`uncompress2_z_of_facts`、`uncompress2_of_facts`、`uncompress_z_of_facts`、`uncompress_of_facts`）。不计划：`DecoderFacts` 的格式事实不在范围内（只证安全）。 | 不在计划内 | 0 |
-| `uncompress*_safe`（batch 3） | `Goal.uncompress2_z_safe`、`uncompress2_safe`、`uncompress_z_safe`、`uncompress_safe`（`Spec/Public/Utilities`）：无未定义行为，会终止，只写输出缓冲区（不超过容量）与长度单元，每条返回路径都释放全部分配，返回文档规定的返回码，只在分配失败后返回 `Z_MEM_ERROR`。已在 `public-uncompress-safe` 中无前提证明（`uncompress2_z_safe`、`uncompress2_safe`、`uncompress_z_safe`、`uncompress_safe`）：每次 `inflate` 调用用 `inflate_public`，每个可达流都有解码器（`reachable_invariant_kind`）；不用格式事实，也不用功能事实。功能证明共用这段运行（`SafeState`、`SafeFinal`），另加它的格式事实（`NoOver`）。终止：循环的度量（未读源字节加未填空间）低于循环燃料，并在每次 `Z_OK` 调用后下降，依据 `Goal.inflate` 的进展子句（`rc = Z_OK → used ≠ 0 ∨ out ≠ []`），这是安全事实。陈述测试 `tests/goals/uncompress-safety`（ASan、UBSan、泄漏计数、分配失败；9000 次运行无子句被违反）。验收批次：四个定理和目标已登记（`tests/audit/theorems.txt`、`goals.txt`）；`uncompress2_z` 的四个翻译变异（`tests/proof-mutants/api-boundary.tsv`：去掉 `inflateEnd`、`destLen` 计数错误、补充量差一、初始化出错路径泄漏）都在 `public-uncompress-safe` 中被杀死，位置是运行与安全事实相遇之处。证明不再复述程序（删除了 `program`、`program_eq`）：它运行翻译本身，循环体由 `BodyOK` 描述，补充量写成最小值。 | checked | 0 |
-| **剩余合计** | | | **4** |
-
-批次 3 的陈述更正与公开目标的定义域。每一项只改变 `DecoderFacts` 的内部事实；没有公开目标（`Goal.inflate_completes`/`InflateCompletes`、四个 `uncompress*` 目标、格式目标）失去其定义域的任何部分，因此不需要 `docs/deviations.md` 条目。
-- `d23ce2d5` `NeedDictionaryCall` 增加 `log.singleDictionary = true` 与 `ByteObjectsFit h`；`InflateCompletes` 与 uncompress 循环已经假设二者。
-- `61995719` `TraceEvidence` 排除配置窗口大于头部窗口的 zlib 字典。其唯一用途 uncompress 循环不使用字典。被排除的情形是 C 解码了 RFC 1950（`Zlib.Decodes`）不允许的流，但这不是新发现：它是 zlib 在未定义 `INFLATE_STRICT` 时的默认行为，已由 `Api.Layer.InflateAccepted` 建模，并记录于 `tests/regression/inflate-configured-window`。
-- `0c56ca53` `ConsumesWithinStream` 第二个子句要求流有尾部，或有输出空间且 flush 不是 `Z_BLOCK`/`Z_TREES`。`InflateCompletes` 提供空间与这样的 flush；uncompress 解码 zlib。被排除的情形（原始数据、无空间）是 C 的正确行为，不是发现。
-- `ConsumesWithinStream` 第二个子句的结论由 `Z_STREAM_END ∨ Z_MEM_ERROR` 改为 `rc ≠ Z_OK ∧ rc ≠ Z_BUF_ERROR`：流结束后被拒绝的调用（`next_out` 为 NULL）在整个流已被消费时返回 `Z_STREAM_ERROR`。所有用途只排除 `Z_OK` 与 `Z_BUF_ERROR`。这是 C 的正确行为，不是发现。
-- `a974ea43` `ConsumesWithinStream` 与 `StopsWhenBlocked` 增加 `ByteObjectsFit h`；协议历史在每次调用前都记录它。
-- `ParseMeaning` 的请求子句由等价改为从令牌到 `havedict = 0` 的 `needDict` 阶段的蕴含：返回 `Z_NEED_DICT` 之后，一次 `next_out` 为 NULL 的调用被拒绝并返回 `Z_STREAM_ERROR`，令牌变为假而解码器仍在等待（`tests/verification/regressions/inflate-refused-dictionary-request.lean`）。所有使用处都只用蕴含方向。属内部修正；是正确的 C 行为，不是发现。
-
-对象大小上限：`StreamReachable` 在每次 inflate 调用之前和每次调用者编辑之后假设 LP64 的 `PTRDIFF_MAX` 上限，`StreamSequenceSafety` 在每次调用之前假设该上限（`408c1f04`）。
-
-##### inflate 第 1 批：格式含义的解码侧
-
-一次调用内 deflate 流的块体：块头、固定表与动态表的安装、码长表、慢速符号解码、存储块复制、整个
-`inflate_fast` 调用、从输出与窗口的匹配复制，以及 `inf_leave` 处的窗口更新。文件为
-`inflate.c.meaning-<topic>`。每个引理覆盖 8 到 15 的所有窗口宽度和所有封装，不固定配置。陈述测试：
-`tests/goals/inflate-meaning-body`（真实解码器在块体模式下的状态字段与解析位置对照：按下述修正后，
-3,200 个会话约 56,000 个状态无子句被违反）。
-
-与 inflate 负责人商定的接口修正（2026-11-10）。每一项都使 `meaning_step` 为假或无法证明；证据来自真实解码器或反例状态。
-
-- P1（`0696a247`）：zlib 对某些动态块头只在读完整一部分后才拒绝，因此 `dynamicBits` 去掉可补全前提（`tests/goals/inflate-meaning/late-rejection.c`：三个单次调用会话以 `Z_OK` 停在 `LENLENS` 或 `CODELENS`）。
-- P2（`0696a247`）：动态块头的 `BodyMatches` 增加 `DynamicMatches`（计数、码长码及其表、已读码长）。
-- P3（`0696a247`）：没有窗口时 `WindowMeaning` 要求历史为空。
-- P4（`0696a247`）：增加 `storedPad`，因为 `STORED` 在等待 `LEN` 之前先丢弃填充位；真实解码器：raw -15，块头结束于第 32805 位时，一次调用停在 `STORED` 且已消费 32808 位（回归测试 `tests/verification/regressions/inflate-stored-pad.lean`）。
-- P5（`0696a247`）：`TableMeaning` 包含 `StableQuery`，在保留位少于 15 时拒绝无效码需要它。
-- P6（`d9fa89d1`）：存储块不保留位，因此 `COPY` 跟随输入。
-- P7（`69b25ebe`）：每个等待位置都限定保留位数，使块边界处少于 8 位成为归纳性质；真实解码器：1,800 个会话约 32,000 个块体状态中数值上界无违反。
-- P8（`03c98f14`）：块体阶段中 `out - left` 等于本次调用的输出，`MATCH` 依赖于此。
-- P9（`03c98f14`）：`partialCopy` 携带记号的距离（`0 < dist ≤ |dict ++ out|`，`dist ≤ 32768`）。
-- P11：`BodyMatches` 在 `.storedHeader` 处保留少于 32 位。`STORED` 的补码检查会读到 32 位以上的位，没有这个上界 `stored_step` 为假：raw -15，输入 `01 01 00 FE FF 01`（一个合法的单字节最终存储块）全部读入，`STORED` 中保留 45 位，检查进入 `BAD`。zlib 在 `TYPEDO` 之后保留少于 8 位，在 `STORED` 中等待之后少于 32 位。
-- P12（`123722bb`）：`PendingParsed` 在 `.copy` 处接受一个尚未写出任何字节、没有历史界的完整匹配。`MATCH` 在检查距离之前就因没有输出空间而离开，因此过远的距离可以停在那里，而调用返回 `Z_OK`；真实解码器：raw -15，输入 `03 02`、没有输出空间时停在 `MATCH`，返回 `Z_OK`，offset 为 1，窗口为空，下一次调用报告 `invalid distance too far back`（`tests/goals/inflate-meaning-body/far-match.c`，回归测试 `tests/verification/regressions/inflate-unchecked-match.lean`）。
-- P13（`f88873e0`）：`.none` 与 `.distance` 处的保留位上界只排除去掉最后一个字节后的保留位中的有效符号（不超过 285、不超过 29）。`TableMeaning` 没有说明保留符号的表项消耗多少位（`fixedDistLens` 中的 30 和 31，`fixedLitLens` 中的 286 和 287），因此在因缺少输入而离开的查找处，对任意符号的上界无法证明；保留符号会导向 `BAD`。
-- P14：`DynamicMatches` 的 `CODELENS` 子句另含 `Trace` 的逆向：从零个码长开始对头部位的每个解析都经过已存的码长。仅有 `Trace` 不能确定头部各项在何处结束，因此 `codelens_step` 在重复错误处为假。反例状态：`HLIT = 0`、`HDIST = 3`（261 个码长）；码长码使符号 2、16、17、18 长度为 2（`00`、`01`、`10`、`11`）；`A = [2,2,2] ++ 0^253 ++ [2]` 由各项 `R` 读出；头部位为 `R ++ 01`（16 的编码，其附加位未读）；已存码长 `A ++ [2,2]`。`Trace` 成立（唯一补全是两个字面量 2，而 `R ++ 01 00 00` 也给出 `A ++ 2^4`）。源 `R ++ 01 10 ...` 有效（16 带附加值 1 给出 `A ++ 2^4`，字面量/长度码完整且含块结束，距离码完整），但解码器把 `10` 读作 17 并进入 `BAD`。
-- P15：`TableMeaning` 另含 `PrefixQuery`（适配的查询从其补零后的已消耗位选出同一表项）与 `QueryCompatible`（快速叶标志）。在 `BAD` 处，`inflate_fast` 只丢弃被拒记号的位，然后退还未用的整字节，因此已读输入可能止于查表看过的位之内；`Inv` 与 `StableQuery` 不确定被拒表项需要多少位。反例：一个固定块，其字面量/长度表对 286 和 287 的编码读到 `{op 64, bits 6}`，仍满足 `Inv`、`StableQuery` 与 `QueryCompatible`，快速调用读到 `110001` 为止，而 284 的编码（`11000100`）可有效地接续它。作为一张更小的、经内核检查的表保留：它满足 `Inv` 与 `StableQuery` 但不满足 `PrefixQuery`（`tests/verification/regressions/inflate-prefix-query.lean`）。构造函数建立该性质（`constructor_establishes_prefix_query`，后续构造保持它：`prefix_query_of_prefix`），固定表也满足（`lenfix_prefix`、`distfix_prefix`）。
-- 共用块（目标变更）。快速解码器的 `Env` 曾要求输入与输出位于不同的块（`hsep : ib ≠ ob`）。这过窄：输入与输出可以是同一块中互不重叠的范围，这是有定义的 C（[复现](../tests/regression/inflate-shared-block/README.md)）。`Env.hsep` 现为 `ib ≠ ob ∨ (ib = ob ∧ 输入范围 [i0, i0 + avail_in) 与输出范围 [o0, o0 + avail_out) 不相交)`。窗口块仍不同于输出块。循环中输出数组 `A` 任意的片段现在还假设 `Env.InputFrame A i`：块共用时，`A` 从游标 `i` 到输入末尾保留原输入。类型改变的已登记目标：所有基于 `Env` 的目标都容许共用块（`step_safe`、`fast_safe`、`actual_body_preserves_origin`、`actual_body_refines_token`、`actual_fast_preserves_origin`、`actual_distance_block_preserves_origin`、`actual_distance_refines_lz77`、`distance_lookup_matches_format`、`length_lookup_matches_format`、`actual_body_retains_selected_length`、`actual_copy_match_refines_lz77` 以及各 `Origin` 目标）。`StepPre`（因而 `step_safe`、各 `actual_body_*` 目标与 `actual_body_retains_selected_length`）新增字段 `inputFrame`；`actual_pull_preserves_origin`、`actual_rollback_preserves_origin`、`actual_distance_block_preserves_origin` 与 `actual_distance_refines_lz77` 新增前提 `InputFrame`。块不同时新前提空真，因此每个新类型都蕴含旧类型。整次调用的目标 `fast_safe` 与 `actual_fast_preserves_origin` 不带新前提：循环由分离性消去 `InputFrame`，因为解码器只在输出范围内写入（`Env.inputFrame_of_frame`、`Env.InputFrame.write`）。
-
-块体模式的子句由 `tests/goals/inflate-meaning-body` 在真实解码器上检查（3,200 个会话约 56,000 个状态，无违反）。
-
-| 引理 | 含义 | 状态 | 小时 |
-| --- | --- | --- | ---: |
-| `meaning_interface_body` | P1 到 P4、`DynamicMatches` 以及 `TableMeaning` 中的后缀稳定性（`inflate.c.meaning`，`0696a247`）。 | checked | 0 |
-| `LoopMatches`（`meaning-loop`、`meaning-write`、`meaning-frame`） | 一次调用内模式步之间的关系：寄存器、本次调用已消费输入、保留位、阶段、调用基点以来的输出、调用前输出的窗口与校验值。与第 2 批共用。已与第 2 批商定；含输出写入与框架引理。 | checked | 0 |
-| `lenfix_inv`、`distfix_inv`、`lenfix_stable`、`distfix_stable`（`meaning-fixed-tables`） | 静态固定表满足 `DecodeTableInvariant.Inv`，码长为固定码长，包括短查询，查询对后续输入稳定、只读其已消耗的位（`lenfix_prefix`、`distfix_prefix`），且叶标志相容。 | checked | 0 |
-| `lookup_meaning`（`meaning-lookup`、`meaning-length`、`meaning-distance`） | 带补充输入的慢速 `lookup1`/`lookup2` 作用于满足 `Inv` 的表：选中的叶子是保留位的符号（可用位少于 15 也成立），或输入没有有效符号。已并入各步引理（`fitted_leaf_meaning`、`lookupLoop_fail`、`lookup1_len_fail`、`lookup2_len_fail`）。 | checked | 0 |
-| `codes_lookup_meaning`（`meaning-codelens-items`） | 码长表（`CodeLengthMeaning`）的同一性质，包括空码长码（`cl_iter`）。 | checked | 0 |
-| `table_step`（`meaning-dynamic-steps`） | `TABLE`：等待、计数拒绝（`BAD`，无有效续写），或以 `LoopMatches` 进入 `LENLENS`。除流记录外无其他假设。 | checked | 0 |
-| `lenlens_step`（`meaning-dynamic-steps`） | `LENLENS`：跨调用读取码长码的码长；拒绝且无法补全，或带 `CodeLengthMeaning`、空码的表项和少于 8 个保留位进入 `CODELENS`。除流记录外的假设：`WellFormed`（数组大小）。 | checked | 0 |
-| `codelens_step`（`meaning-dynamic-steps`、`meaning-codelens-items`、`meaning-dynamic-tables`） | `CODELENS`：跨调用读取码长；重复（经解析的逆向得出 `BAD`）；块结束与编码检查（`BAD`：不存在 `DynamicHeader` 补全）；以 `Inv`、`StableQuery`、`PrefixQuery` 与 `QueryCompatible` 安装两张表；因 `Z_TREES` 离开或落入 `LEN_`。除流记录外的假设：`WellFormed`、`CodeLengthInvariant`、已安装表的内容分类。 | checked | 0 |
-| `typedo_step`、`type_step`（`meaning-block`） | 最后一块之前的 `TYPE`、`TYPEDO`：存储块、固定块（用 `lenfix_inv`）、动态块、类型 3（`BAD`，格式中没有类型 3 的块体）。静态表来自 `LibraryGlobals`。 | checked | 0 |
-| `stored_step`（`meaning-block`、`meaning-copy`） | `STORED`、`COPY_`、`COPY`：填充位、长度检查与跨调用的字节复制。除 `LoopMatches`、流记录与窗口界之外没有其他前提；保留位上界来自 `BodyMatches`（P11）。 | checked | 0 |
-| `len_slow_step`（`meaning-length`） | `LEN_`、慢速 `LEN`：字面量、块结束（保留位少于 8）、长度、无效码（`len_slow_step`、`len__step`，接入 `lenext_step`）。`match_step` 之外的前提：快速分支条件的否定与 `DataTablesSafe`。 | checked | 0 |
-| `distance_steps`（`meaning-distance`） | `LENEXT`、`DIST`、`DISTEXT`：额外位、距离符号、无效距离（`lenext_step`、`dist_step`、`distext_step`，接入 `match_step`）。`match_step` 之外的前提：`DataTablesSafe` 与 back 计数器上界（`DataPendingInvariant`）。 | checked | 0 |
-| `lit_step`（`meaning-lit`） | `LIT`：写出待写字面量。 | checked | 0 |
-| `match_step`（`meaning-match`） | `MATCH`：从输出和窗口复制、重叠、距离过远。 | checked | 0 |
-| `fast_call_meaning`（`meaning-fast-token`、`meaning-fast-loop`、`meaning-fast`、`inffast.c.body-token-reject`） | 从 `LEN` 进入的整个 `inflate_fast` 调用，标准步骤形状：块内更多记号或块结束给出 `LoopMatches`；被拒记号给出 `BAD` 与 `LoopDoomed`（P15：记号在其自身的位上被拒，`actual_body_rejects_prefix`；对已存窗口过远的距离，在完整窗口下对整个历史也过远，`Token.Rejected.rebase`）。输入与输出可以是 `DispatchBuffers` 容许的任何调用方字节视图，也包括同一块中互不重叠的范围（`inflate_fast_entry`，见上面的共用块目标变更）。窗口块不同于输出块由调用方输出范围得出（`callerRange_slow_output`），而非前提。`match_step` 之外的假设：`Good`、`DataTablesSafe`、`DataPendingInvariant`、`DispatchBuffers`、`ByteObjectsFit`。 | checked | 0 |
-| `leave_window_meaning`（`meaning-leave-window`） | `inf_leave` 处的 `updatewindow` 给出调用后输出的 `WindowMeaning`，包括首次分配窗口；分配失败时状态不变，旧的 `WindowMeaning` 保持。假设：`Good`、默认分配器、输出字节、输出缓冲区不是窗口块。 | checked | 0 |
-| 清理 | 已删除 33 个 `inflate.c.fast*` 模块：没有已登记定理、公开目标、含义模块或其他模块导入它们（早期的语义切片及建于其上的视图框架）。其余 `inflate.c.fast*` 模块由含义证明的快速路径导入。 | 已检查 | 0 |
-| **第 1 批剩余** | | | **0** |
-
-供第 3 批使用：ConsumesWithinStream 的界。
-
-| 名称 | 含义 | 状态 | 小时 |
+| 骨架 | 它完成的目标（均已登记） | 分支 | 记录 |
 | --- | --- | --- | --- |
-| `HeldWithin`（`heldWithin`，`meaning-held-within`） | 处于语法阶段的解码器状态，不持有超出与其位可比较的有效流末尾的位；没有阶段位于完整流之后。即第 3 批的陈述加一个前提 `(consumed ++ held).length % 8 = 0`，在使用处成立。没有其他前提。 | checked | 0 |
-| 批次 1 步骤引理中的 `LeaveShort`、`LoopRefuted`（`meaning-leave-short`） | 主体步骤每次因缺少输入（`have = 0`）离开时，所持有的位不足以构成其模式等待的字段（`LeaveShort`：少于 `NEEDBITS` 的位数，`COPY` 仍有剩余字节，在已安装表的任一含义下都没有完整的有效符号或码长项）。每次拒绝（`BAD`）时，已读输入不与任何满窗口有效流可比较（`LoopRefuted`，强于 `LoopDoomed`：有效流也不在已读位之内结束）。步骤：`TYPE`/`TYPEDO`、`STORED`、`COPY_`/`COPY`、`TABLE`、`LENLENS`、`CODELENS`、`LEN_`/`LEN`、`LENEXT`、`DIST`、`DISTEXT`、`MATCH`、`inflate_fast`。两者都先在真实解码器上检验（`tests/goals/inflate-meaning-body`：约 75,000 次缺输入离开，约 490 次损坏源上的数据错误，无违反）。`LoopBad`（批次 2）仍带 `LoopDoomed`（`LoopRefuted.doomed`）。 | checked | 0 |
-| `StopShort` | 恰好消耗整个有效流的调用不返回 `Z_OK` 或 `Z_BUF_ERROR`（raw：除非输出空间不足，或 flush 为 `Z_BLOCK`/`Z_TREES`）。单次调用部分已检查：缺少字段（`LeaveShort`）的循环趟次没有读完整个有效流（`LoopMatches.starved_not_end`，`meaning-stop-short`）。剩余：整次调用的组合（`loop_meaning`，批次 3），以及因空间不足或 `Z_BLOCK`/`Z_TREES` 的停止（`BlockedLeave`、`wrapParsed_due`）。 | 不在计划内 | — |
-| `FailWithin` | 停在 `BAD` 或 `MEM` 的调用，没有读过此前输入所开始的有效流的末尾。单次调用部分已检查：拒绝排除每个可比较的有效流（`LoopRefuted.not_comparable`，`meaning-stop-short`）；每个循环趟次中已读输入都是每个可比较有效流的开头（`LoopMatches.within`，`meaning-held-within`，用于 `MEM` 离开）。剩余：整次调用的组合（`loop_meaning`，批次 3）。 | 不在计划内 | — |
+| inflate | `Goal.inflate`、`Goal.inflate_sequence_safety`、`Goal.uncompress*_safe` | `skeleton/inflate` | [inflate 骨架](history/skeleton-inflate.md) |
+| deflate | `Goal.deflateInit2_`、`Goal.deflate`、`Goal.deflate_sequence_safety`、`Goal.compress*_safety` | `skeleton/deflate` | [deflate 骨架](history/skeleton-deflate.md) |
+| gz | `Goal.gz_sequence_safety`、`Goal.gz_sequence_nonvacuity`、`Goal.gz_refusal` | `skeleton/gz` | [gz 骨架](history/skeleton-gz.md) |
+| inflateBack | `Goal.inflate_back_sequence_safety` | `skeleton/inflate-back` | [inflateBack 骨架](history/skeleton-inflate-back.md) |
 
-##### inflate，第 2 批：格式含义的流侧
+归档的表格里仍有一些行写着“未完成”。必需目标都不需要它们：
 
-包装头、字典请求与安装、尾部、结束、把模式步组装成一次调用以及把调用组装成历史，以及 `meaning_init`、`meaning_rebuffer`、`meaning_dictionary`、`meaning_accepted`、`meaning_prefix`。文件为 `inflate.c.meaning-<topic>` 与 `ZlibF/Math/inflate-meaning-*`。每个引理覆盖 raw、zlib、gzip 与自动检测，以及每个被接受的 windowBits（含 0）。协议轨迹中不会挂接头记录（`inflateGetHeader` 不是轨迹步骤），所以不会发生头捕获；头模式在 `head = NULL` 下证明。陈述测试：`tests/goals/inflate-meaning`（真实解码器的状态字段对照解析位置；6000 个会话中没有事实被违反）。
-
-接口修正已与 inflate 负责人商定并在 `dev` 上（`bd0831d3`）：头阶段接纳首次调用前的 raw 数据；`ConfigMatches` 把解码器配置与轨迹联系起来；`needDict` 接纳任意 `DICTID`；块边界处持有少于 8 位（由第 1 批证明）；`MEM` 状态保留 `meaning_accepted` 与 `meaning_prefix` 的结论；`WrapMatches` 记录流侧的阶段字段（`inflate.c.meaning-stream`）。
-
-| 引理 | 含义 | 状态 | 小时 |
-| --- | --- | --- | ---: |
-| `ConfigMatches`、`WrapMatches` | 配置字段，以及头、`needDict`、尾部与结束阶段的逐阶段字段（`bd0831d3`）。 | defined | 0 |
-| `LoopMatches` | 第 1 批的行；第 2 批提供了草案并基于它组装。 | checked | 0 |
-| `wrap_header_grammar`（`Math/inflate-meaning-wrap`、`meaning-wrap-steps`） | zlib 与 gzip 头的字节步保持可补全的头前缀；解码器等待处不是完整的头；补全到主体或 `needDict`；`HEAD`、`FLAGS`、`HCRC` 的每种拒绝都没有补全。 | checked | 0 |
-| `wrap_trailer_grammar`（`meaning-wrap-steps`、`meaning-accept`） | 主体结束到尾部再到完成；尾部不匹配没有补全。 | checked | 0 |
-| `meaning_init`（`inflate.c.meaning-init`） | 每个被接受的 windowBits 下 `inflateInit2_` 给出无输入的头阶段。 | checked | 0 |
-| `meaning_rebuffer`（`meaning-rebuffer`） | 调用方换缓冲区保持状态、窗口与表；每个阶段的帧引理。 | checked | 0 |
-| `head_step` | `HEAD`：raw 进入 `TYPEDO`，zlib 头（宽度 0 时由头设定宽度），gzip 魔数，每种拒绝。 | 不在计划内 | — |
-| `dictid_step`、`dict_step`（`meaning-dictid`） | `DICTID` 保存标识并请求字典（`dictid_step`，已检查；`NeedDictExit`）；`DICT` 再次请求或进入主体（未完成；需要 P16，即 `needDict` 条款中的 `last = total = 0`，已向第 1 批提出）。 | 不在计划内 | — |
-| `gzip_fixed_steps` | `FLAGS`、`TIME`、`OS`、`EXLEN`，含头 CRC 累加器。 | 不在计划内 | — |
-| `gzip_field_steps` | `EXTRA`、`NAME`、`COMMENT`：跨调用的字节序列，对输入字节做 CRC。 | 不在计划内 | — |
-| `hcrc_step` | `HCRC`：头 CRC 检查并进入主体。 | 不在计划内 | — |
-| 共用循环引理（`meaning-bits`、`meaning-stuck`、`meaning-outcome`、`meaning-fields`） | `LoopMatches.needbits`；`LoopDoomed.of_stuck`；`LoopBad`、`TripOutcome`、`bad_trip`；持有位作为小端字节。 | checked | 0 |
-| `trailer_steps`（`meaning-trailer`、`meaning-check`） | `DONE` 与 gzip `LENGTH`（已检查）；zlib 与 gzip 的 `CHECK` 用本次调用输出更新 Adler-32 或 CRC-32，随后进入长度字段或结束（`check_step`，已检查）；raw `CHECK` 需要 P10（raw 数据在 `CHECK` 时处于结束阶段，已向第 1 批提议）。 | 不在计划内 | — |
-| `leave_meaning`（第 3 批，`meaning-leave`） | `inf_leave`：用本次调用输出更新计数与校验值；窗口更新用第 1 批的引理；`Z_MEM_ERROR`。带 `LoopMatches` 的循环出口由 `leave_meaning` 给出（`LeaveMeaning`），`BAD` 出口由 `leave_meaning_bad` 给出（`LeaveBad`），二者基于 `inflate_leave_values` 与 `checkMeaning_leave`。 | checked | 0 |
-| `loop_meaning`（第 3 批，`meaning-run`） | 一次调用的模式循环以 `LoopMatches` 进入，以 `LoopExit` 结束：带 `LoopMatches` 的离开、`Z_STREAM_END`、带 `LoopBad` 的 `Z_DATA_ERROR`，或字典请求。前提：`TripMeaning`（第 1、2 批逐模式的步）与 `SideKept`（各步所需的安全事实，每一趟都保持）。 | checked | 0 |
-| `meaning_step` 组装（第 3 批） | 入口、拒绝、运行与离开给出调用后的 `ParseMeaning`，含请求令牌。 | 不在计划内 | — |
-| `meaning_dictionary`（`meaning-dictionary`） | `inflateSetDictionary`：拒绝、标识不匹配、`Z_MEM_ERROR`、raw 安装、zlib 在 `DICT` 中安装。 | checked | 0 |
-| `deflate_prefix_order`（`meaning-prefix-order`、`meaning-accept`） | 有效流前缀上的解析位置位于它的解析上（输出前缀、精确结束），完成的解析就是规格解析，配置的 zlib 窗口与头声明的窗口解码相同，阶段的头就是流的头。 | checked | 0 |
-| `meaning_accepted`（`meaning-format`） | 完成的单字典阶段消费的是被接受的流。 | checked | 0 |
-| `meaning_prefix`（`meaning-format`） | 前缀、无数据错误、精确结束，`Z_MEM_ERROR` 之后亦然。 | checked | 0 |
-| 清理 | 推广或删除默认配置下的头、字典与包装模块。 | 不在计划内 | — |
-| **第 2 批剩余** | | | **0** |
-
-第 2 批，为 `inflate_call_gzip` 准备的 gzip 头模式。已在 `dev` 上检查：`inflate_dispatch_gzip_header_rank`（`inflate.c.gzip-header-dispatch`），与 inflate 负责人的接口陈述完全一致。从 `FLAGS` .. `HCRC` 出发的一次分派，对任意允许 gzip 的包装、有无挂接的头记录，都无故障地运行，并保持表示不变式、调用方数据包、头记录与足迹。有两个前提比 zlib.h 更窄（`docs/deviations.md`）：头记录的 `extra` 缓冲区与未读输入分离；在 `EXTRA` 中头记录的 `extra_len` 不小于剩余长度。两者都来自 EXTRA 的 `zmemcpy` 在真实 C 上的未定义行为（`tests/regression/inflate-gzip-extra`）。`Goal.inflate` 是否把它们作为调用方定义域条款保留，由负责人决定。name 与 comment 缓冲区可以与输入重叠。
-
-骨架条款`flags 字保持不变或是 16 位字`（skeleton/inflate 5d6f00e8）按原陈述为假：解码器在 `FLAGS` 中等待时，`inflatePrime` 可以在位缓冲区中留下 32 位，真实 C 随后写入 `flags = 65544`（`tests/regression/inflate-gzip-flags-prime`）。已证明的形式加上了入口位缓冲区的条件。`InflatePhase.flags` 对所有历史作出同样的 16 位断言；如何更正由负责人决定。
-
-| 引理 | 含义 | 状态 | 小时 |
-| --- | --- | --- | ---: |
-| `HeaderFoot`（`inflate.c.gzip-header-frame`） | 相对入口堆的逐点足迹；给出 `BufferFrame` 与 `LiveChange`。 | checked | 0 |
-| `GzInv`（`inflate.c.gzip-header-state`） | 步骤不变式：状态、流与头记录写入，`hbuf` 与区域存储，`NEEDBITS`，输入消耗。 | checked | 0 |
-| `gz_FLAGS` .. `gz_HCRC`（`inflate.c.gzip-header-modes`） | 每个模式运行到头模式中的离开、`TYPE` 或 `BAD`；`NAME`/`COMMENT` 字节循环；`CRC2`、`CRC4`；`EXTRA` 的复制。 | checked | 0 |
-| `inflate_dispatch_gzip_header_rank`（`inflate.c.gzip-header-dispatch`） | 接口定理。 | checked | 0 |
-| `inflate_dispatch_gzip_header_flags_leave_word`（`inflate.c.gzip-header-dispatch`） | 离开时没有剩余输入；flags 字保持不变，或在入口位缓冲区为 0、8 或 16 位时是 16 位字。 | checked | 0 |
-| **gzip 头模式** | | | **0** |
-
-#### deflate
-
-骨架位于分支 `skeleton/deflate`，文件为 `ZlibF/Proof/deflate.c.universal.lean`。它可以通过类型检查：`Goal.deflateInit2_`、`Goal.deflate` 和 `Goal.deflate_sequence` 在该分支上由下列未证引理证明。状态 open 表示该引理还没有证明，checked 表示它已在 `dev` 上证明。估计值是专注工作的小时数，误差约为数值的一半，包括共享构建主机上的构建时间。
-
-单一不变量 `DInv` 在每个可达状态下成立，适用于每个 level、`memLevel`、`windowBits`、策略、调优值和头部：`DGood`、默认分配器、窗口、块、惰性匹配、位和待输出状态的形状，散列状态（精确的散列链；level 0 下经过一次存储滑动后，是 `slide_hash` 将修复的链；有前瞻时的滚动散列），以及当前块的已记录符号及其叶频率（`SymbolLedger`）、已清零的块代价（`BlockClear`），且待输出字节位于这些符号之下。`DInv` 与共享的陈述部件（`StrategyEntry`、`CallFrame`、`WindowSide`、`Inserted`）在 `dev` 上的 `ZlibF/Proof/deflate.c.universal-invariant.lean` 中。标量字段由 `tests/goals/deflate/invariant.c` 在真实 C 的随机历史上检查（是证据，不是证明）。其他模块使用它的接口（`DInv.dgood`、`DInv.unique`、`DInv.owned`、`DInv.rebuffer`），不使用其字段。单一账目 `Ledger` 把一个数据段与流联系起来：头部和完整的块解码为输入的前缀，已记录的符号表示接下来的部分（`Trace`），窗口保存其余部分。
-
-范围（owner，2026-11-11）：deflate 只证明安全性。功能性的一半（账目、`completes`、`bound_before_output`、`Goal.deflate_sequence` 的功能条款）不计划；它在 `dev` 上的定义（`deflate.c.universal-ledger-defs`）和骨架上的陈述保持原样。序列目标是 `Goal.deflate_sequence_safety`（`StreamSequenceSafety .deflate`，即 `Goal.deflate_sequence` 的第一个合取项），与原目标并列陈述，不削弱原目标。
-
-三个组合还需要什么（2026-11-11）。`reachable_inv`：`init2_inv`、`DInv.rebuffer`、`copy_inv`（已检查）和 `operation_step`，以及 batch C 的 `HeaderInv` 引理。一旦以下各项成为定理，`operation_step` 即为 `operation_step_of`（已检查，batch 1）：带 `CallClauses` 的 `deflate_call`（inflate batch 2）、`step_setDictionary` 和 `step_params`（batch B）、`step_resetKeep`（inflate batch 1，在 `DInv` 散列链改为位置形式之后；该修正的陈述已写在共享说明中，并与 batch B 的策略返工一起落地）、这四个操作的 `HeaderInv` 引理，以及“`deflateGetDictionary` 的缓冲区是调用者字节块”的历史前提（inflate batch 1）。`deflate_proof`：`reachable_inv`、`DInv.unique`（已检查）和 `deflate_call`。`Goal.deflate_sequence_safety`：`reachable_inv`、`operation_step`、`end_from_inv`（已检查）。共同前提 `TinyOverlay`（`memLevel` 1 和 2 的动态块空间）自 09f19d3f 起是定理（`tinyOverlay`，`deflate.c.engine.overlay-header-ref`），因此这条路径上不再有前提。
-
-deflate 安全性目标尚未完成的工作（2026-11-12）。调用之间的不变量是 `DInv ∧ HeaderInv ∧ CallFacts`；对 `deflateResetKeep` 的直接调用不在定义域内（`docs/deviations.md`），其单次调用的安全性已证明（9b449103）。估计为专注小时。
-
-| 未完成项 | 负责人 | 小时 |
-| --- | --- | ---: |
-| `deflate_call` 的组装：在 `TinyOverlay` 之下已检查（`deflate_call_of`、`deflate_calls_of`、`deflate_call_header`、`deflate.c.universal-call-assemble`） | inflate batch 2 | 0 |
-| 策略导出 M5–M9、M13、M14、M16、M17 和 M19（`deflate_call_of` 的 `StrategyGaps`） | batch B | 10 |
-| `step_params`：消去 `deflateCall`、`DeflateHeaderFact`（`SlideRepair` 已去除：`SlidChains` 取 `chainTop` 已落地） | inflate batch 1、batch C | 2 |
-| `deflate` 的 `HeaderInv` 引理（头部阶段；`deflateParams`、`deflateSetDictionary`：已检查） | batch C | 8 |
-| `deflate` 保持 `CallFacts`（`deflateCalls`：`deflate_calls_of`，在 `TinyOverlay` 之下已检查；其余已检查：`setDictionary_callfacts`、`params_callfacts`） | inflate batch 2 | 0 |
-| 消去 `SequenceFacts`（`deflate.c.universal-sequence-safety`）并完成 `Goal.deflate_sequence_safety`。在 `TinyOverlay` 与 `FinishProgress` 之下每个字段都是定理：`sequence_facts_of`（`deflate.c.universal-call-header-fact`；`deflateHeader` 来自 `deflate_call_header`，批次 C）。已完成（09f19d3f）：`deflate_sequence_safety : Goal.deflate_sequence_safety` 和 `deflate_safety : Goal.deflate`，不带假设（`public-deflate-goals`，由 `deflate_sequence_safety_two` / `deflate_safety_two` 与 `tinyOverlayAt_128`、`tinyOverlayAt_256` 得到）。验收登记待办（`tests/audit/pending-deflate-safety.txt`，C 节）。 | inflate batch 1 | 0 |
-| `TinyOverlay`：`memLevel` 1 和 2 的动态块空间（各策略引理和 `deflate_call` 的前提）。已检查，不带假设（09f19d3f）：`tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay`（`deflate.c.engine.overlay-header-ref`），来自 `header_ref_bound_256 : HeaderRefBound 245` 和 `header_ref_bound_128w : HeaderRefBound128W 29`（见 `dynamic_overlay_small` 行） | inflate batch 1 | 0 |
-| `TinyOverlayAt` 的传递（inflate batch 2）：已在 `dev` 上分四片检查。`Keys.lit`（a0bdc974）；`FlushSafeAt L`、`Head.safe`，各策略引理取对应其自身 `lit_bufsize` 的实例（836987e5）；分派、缺口和调用引理以及 `deflate_call_full` 取 `OverlayAt d.lit_bufsize.toNat`（e88a305d）；`lit_cases`、`tinyOverlay_of_two` 和 `public-deflate-safety-two`：由 `TinyOverlayAt 128 ∧ TinyOverlayAt 256` 得到 `Goal.deflate`、`Goal.deflate_sequence_safety` 和四个 `compress*` 目标（4ebf31c7）。`TinyOverlay` 不变，等于 `∀ L < 512, TinyOverlayAt L`（`tinyOverlay_iff`）。不带假设的 `compress*`（4d70859a）：`compress2_z_safety`、`compress_z_safety`、`compress2_safety`、`compress_safety`，类型恰为目标类型（`public-compress-safe-mid`），基于 `DeflateReachMid`（`memLevel ≥ 3` 的 `deflateInit2_`，之后是重新设置缓冲区和 `deflate` 调用；`init2_lit`，`KeepRel` 保持 `lit_bufsize`）；`compress*` 的证明对可达性是泛型的（`CompressReach`）。另有 `goalDeflate_mid`：沿这些历史的 `Goal.deflate` 结论。`Goal.deflate` 和 `Goal.deflate_sequence_safety` 恰由 `TinyOverlayAt 128` 和 `TinyOverlayAt 256` 完成（`deflate_safety_two`、`deflate_sequence_safety_two`；公理已检查）；完成它们的提交写在 `tests/audit/pending-deflate-safety.txt` 的 C 节中。适用于所有操作的 `memLevel ≥ 3` 形式暂时搁置（监督者，2026-11-12），由 batch 1 组装这两个大小 | inflate batch 2 | 0 |
-| **合计（不含未定的研究项）** | | **45** |
-
-直接调用 `deflateResetKeep` 被排除的证据（是证据，不是证明）：inflate batch 1 的真实 C 检查器（不在仓库中；固定版本的 zlib，ASan 与 UBSan，分配块填入随机字节）在随机历史的每次调用之后检查 `dev` 上精确的 `Hashing`（`chainTop` 处的 `Chains`、`SlidChains`、滚动散列）。历史包含除直接 `deflateResetKeep` 之外的所有流操作（各种 flush 值的 `deflate`、`deflateParams`、`deflateSetDictionary`、`deflateReset`、`deflatePrime`、`deflateCopy`、`deflateTune`）。它在 461 万个状态上发现 0 次失败。操作中加入直接 `deflateResetKeep` 后，它会发现失败（300 个历史中 656 次）。检查器的运行是关于 C 的证据，不证明模型的任何性质。
-
-| 引理 | 含义 | 状态 | 小时 |
-| --- | --- | --- | ---: |
-| `DInv.dgood`、`DInv.defAlloc`、`DInv.unique`、`DInv.recorded`、`DInv.bi_valid_le` | 接口：不变量给出 `DGood`、分配器、符号账目和位数上界，并确定状态（`deflate.c.universal-invariant`）。 | checked | 0 |
-| `DInv.owned` | 调用历史拥有的块就是状态的五个块。 | checked | 0 |
-| `DInv.rebuffer` | 调用者重新设置缓冲区后不变量仍成立。 | checked | 0 |
-| `init2_version`、`init2_null` | 对每个参数的版本、流大小和 `NULL` 拒绝（`deflate.c.init.general`）。 | checked | 0 |
-| `init2_main` | 每组有符号参数：拒绝、五种分配结果及其清理、成功时的 `DeflateInitial`（`deflate.c.init.general-main`）。 | checked | 0 |
-| `init2_inv` | 成功的 `deflateInit2_` 建立 `DInv`（`deflate.c.universal-init`）。 | checked | 0 |
-| `deflateInit2_proof` | 类型为 `Goal.deflateInit2_` 的定理（`public-deflate-init2`）。 | checked | 0 |
-| `fill_window_inv` | `fill_window`：读取输入并计算校验和、滑动窗口和散列表、插入字符串、高水位边距；之后匹配器有空间，或没有输入。 | checked | 0 |
-| `longest_match_inserted` | 对每个调优值都不出故障且终止；返回前瞻范围内的真实匹配。 | checked | 0 |
-| `flush_block_spec` | 在非零 level、无待输出字节、输出缓冲区非 `NULL` 时的 `FLUSH_BLOCK_ONLY`：存储、固定或动态块，`send_all_trees`，在共享缓冲区内的 `compress_block`（F9），`flush_pending`，以及之后的 `DInv`。已在 `dev` 上检查：`memLevel` 3 到 9 不带前提（`flush_block_spec_mid`，`trees.c.universal-overlay-mid`；5 到 9 为 `flush_block_spec_large`），所有 `memLevel` 在 `TinyOverlay` 前提下（`flush_block_spec_of_tiny`）；一般形式以覆盖空间 `DynamicOverlay` 为前提（`flush_block_spec_of_overlay`）。`last` 是 `Bool`（0 或 1，与每个调用点一致）。在策略内部使用的显式前提形式是 `flush_block_only_safe` 和 `flush_block_dinv`；它们还给出输出总量、保持不变的输入总量以及输出的 `BufferFrame`，B 批的 `FlushSafe` 只由 `TinyOverlay` 推出（`flushSafeFrame_of_tiny`）。`TinyOverlay` 是定理（`tinyOverlay`，09f19d3f），因此 `flush_block_spec_of_tiny tinyOverlay` 对每个 `memLevel` 成立。 | checked for every `memLevel` | 0 |
-| `dynamic_overlay_small` | 小 `memLevel` 时动态块的 F9：树描述和符号编码的每个前缀都留在下一个未读符号之前（`DynamicOverlay`）。`memLevel` 5 到 9 已检查（`dynamic_overlay_large`），3 到 4 已检查（`dynamic_overlay_mid`，`trees.c.universal-overlay-mid`：树的权重低于 F(16)+F(15) = 1597，因此从不截断码长，从而限制每个码的超额）。`memLevel` 1 和 2 尚未完成（`TinyOverlay`；`smallOverlay_of_tiny`，`flushSafe_of_tiny`）。在那里按码计的超额上界（388 和 856 位）加上任何可证明的树描述上界都超过预算；证明需要位长树的最优代价上界和更紧的超额上界。`tests/goals/overlay` 没有找到违反（最小间隔 58 和 161 字节）。`TinyOverlay` 在块开始处带 `BlockClear` 前提，使 `opt_len` 和 `static_len` 等于编码长度（`dynamic_opt_len`、`dynamic_static_len`，已检查）。路线：由动态选择得 `H + bitExcess ≤ 5 + G`，其中增益 `G = Σ (s_i − min(d_i, 24))`（`choice_gain`，已检查），因此 `G + 30 ≤ 8 * lit_bufsize` 给出空间（`dynamic_overlay_of_gain`，已检查，`deflate.c.engine.overlay-gain`）。用实际频率的超额上界已对 `lit_bufsize ≤ 1024` 检查：至多 `excessFibActual (lit_bufsize + 2)`，每个长度码或距离码取其频率在 Fibonacci 界下允许的最大长度（`excess_fib_actual`，`deflate.c.engine.overlay-fib-actual`）。`TinyOverlay` 由两个未证明的假设推出，以树描述上界 `Hb` 为参数（`tiny_overlay_of`，已检查，`deflate.c.engine.overlay-tiny`）：`HeaderFibBound Hb`（树描述至多 `Hb`，针对带 zlib 修复的 7 位位长树）和 `LinkC Hb`（若 `G + 30 > 8 * lit_bufsize`，则 `Hb` 加实际频率下的超额再加 25 不超过 `8 * lit_bufsize`）。路线决定（2026-11-12，`tests/goals/overlay-adversarial`）：经消毒器检查的定向构造块中没有发现覆盖；最坏顺序下的最小空间在 `memLevel` 1 为 266 位（树描述 645，超额 88），在 `memLevel` 2 为 1023 位。按普通 Fibonacci 界的 `HeaderFibBound` 不成立：zlib 对位长树的 7 位修复比 Huffman 多花（第一次搜索为 57 位，频率 24 的符号得到长度 7；在权重 ≤ 316 的任意直方图上为 136 位），因此树描述上界的形式是 `cost_zlib ≤ Σ f·κ + Δ`，其中 `κ` 是固定的完备参考码，`Δ` 是修复超额（待证明；见下面的引理表）。于是 `memLevel` 2 不需要 `LinkC`，也不需要动态选择：码长直方图上的线性规划（Kraft、Fibonacci 频率界、符号数和零游程数、按出现计的超额）用一个参考码把树描述加超额限制在 1863（预算 2023），所以 `Δ ≤ 146` 曾经足够（`certificate/header_lp.py`）；下面批次 3 更紧的规划需要 `Δ ≤ 132`。`memLevel` 1 仍未完成：带动态选择的同一规划给出 1020（预算 999），对长度 1 的码分支后为 1013（富匹配分支）；需要更深的分支或更强的 Huffman 事实。按不同码的个数分情形没有帮助：选择一侧在 70 个码时失败，树描述一侧需要同样的位长树分析。引理表（2026-11-12）。证书使用 `(dynamicHeaderBits ready mb).length ≤ 71 + Δ + Σ_k blScanCount ready k · (κ0 k + blExtraBits k)`，其中 κ0 = [2,7,7,5,5,4,4,4,4,3,4,4,7,7,7,7,7,3,7]（完备）；批次 3 的证书留给 `Δ ≤ 171`（目标 `HeaderRefBound Δ`）。批次 1，树描述上界（`lit_bufsize` 256 时的 `HeaderRefBound Δ`，Δ ≤ 171，以及 128 时的对应形式，Δ ≤ 110，分别用于 `TinyOverlayAt 256` 和 `TinyOverlayAt 128`）：H1，`build_tree` 构造的位长树（7 位修复之前）的代价不超过任何 Kraft 和 ≤ 1 的参考码：在堆树上已检查（`PShape.depth_cost_le_kraft`，`deflate.c.engine.overlay-reference`；无堆部分 `ZlibF.Math.HuffmanReference`）；H1-link 与 H2a，对每个 `max_length ≤ 15` 已检查，特别是 7 位树：`build_tree` 返回堆树、它的权重和按秩的代价上界 `Σ_r w·len ≤ Σ_r w·δ + repairExtra`（`δ` 为真实深度；`repairExtra` 是各修复步加长的秩的权重之和）（`ws_build_tree_rank_initialized`、`BTRankOrigins`、`trees.c.build.rank-cost`；无堆部分 `HuffmanAbstract.repair_cost_le`，`ZlibF.Math.HuffmanRepairCost`），再加上 H1，在树的叶子上，对每个 Kraft 和 ≤ 1 的参考码 `ℓ` 有 `Σ w·len ≤ Σ w·ℓ + repairExtra`（`BTRankOrigins.cost_le_kraft`，`trees.c.build.rank-reference`）；H2b，常数上界，已检查：在截断深度上按秩的 Fibonacci 上限（`rank_cap`，`ZlibF.Math.HuffmanRepairCap`），加上对截断直方图的生成式情形分析（叶子至多 13 个时 164 个，至多 15 个时 535 个；`ZlibF/Math/RepairCap13*`、`RepairCap15*`，生成器 `tests/goals/overlay-adversarial/certificate/repair_caps.py`，测试 `regenerate-caps.sh`）：对权重 `W ≤ 316` 的树，叶子至多 13 个时 `repairExtra ≤ 29 + W/2`，至多 15 个时 `≤ 245`（`BTRankOrigins.cost_le_kraft_cap13`、`_cap15`，`trees.c.build.rank-cap`）；因此在 128 时 `Σ w·len ≤ Σ w·ℓ + 29 + W/2`，在批次 3 的 `71 + W/2` 之内；在 256 时为 `+ 245`，在 memLevel 2 证书改用区域行和选择行后的 642 之内（在当前的 171 之内则不成立）；位长树的权重最多约 316（真实 C 上一个 `memLevel` 1 的动态块为 274），所以先前由 `W ≤ 130` 得到的 `Δ ≤ 72` 是错的；两种大小的 H3，4–8 小时，包括使用符号少于两个的树中的虚叶子。测试结果（真实 `trees.c`，对抗性位长直方图）：在 256 时，位长符号 12 到 15 不出现时找到的最大 Δ 为 55，使用全部 19 个符号时为 136；在 128 时为 14（批次 3 找到 47）；在真实块上为 13（`memLevel` 2）和 4（`memLevel` 1）。批次 3：`lit_bufsize` 128 的 R1、R2、R4、R5、R6（见本行它的部分）。批次 3，已检查：扫描计数和证书重放。在 `lit_bufsize = 256` 时每个准备好的块满足 `71 + refHeaderCost + bitExcess ≤ 1852`（`ref_header_excess_256`，`deflate.c.engine.overlay-mem2`；与堆无关的证书 `DeflateOverlayCertificate.certificate`，由 `tests/goals/overlay-adversarial/certificate/overlay_cert.py` 生成；逐条目扫描界 `scan_cost_le`；强制叶子仅在下标 ≤ 2 以及 Kraft 等式来自 `build_tree`，`trees.c.build.dummy`），因此覆盖空间只依赖一个未证明的假设 `HeaderRefBound Δ`，`Δ ≤ 171`（`dynamic_overlay_256`）。`refHeaderCost` 是扫描所得位长符号在参考码 `κ0` 下的代价。`memLevel` 1，已检查（批次 3）：在 `lit_bufsize = 128` 时，由 `HeaderRefBound128 Δ`（`Δ ≤ 132`）得到 `H + bitExcess ≤ 999`（`header_excess_128`、`dynamic_overlay_128`，`deflate.c.engine.overlay-mem1`），用到区域扫描（`scan_cost_region`）、逐码的选择行（`choice_row`）、强制叶子的两叶事实（`trees.c.build.two-leaves`）以及生成的证书 `DeflateOverlayCertificate128`（三种情形，`overlay_cert128.py`）。memLevel 2 加上区域扫描和选择行后（`DeflateOverlayCertificate256`，`dynamic_overlay_256c`，`deflate.c.engine.overlay-mem2c`）只需 `Δ ≤ 640`。因此 `TinyOverlay` 由两个树描述上界推出（`tiny_overlay_of_headers`，`deflate.c.engine.overlay-tiny-headers`）：`HeaderRefBound Δ₂`（`Δ₂ ≤ 640`）和 `HeaderRefBound128 Δ₁`（`Δ₁ ≤ 132`），κ1 = [2,8,8,6,5,4,3,4,4,3 | 7,3,3]。或者，若 memLevel 1 的修复超额随位长符号个数 `W` 增长，则由 `HeaderRefBound128W α`（`α ≤ 60`，树描述至多为 `71 + α + W/2 + refHeaderCost128`）和 `HeaderRefBound Δ₂` 推出（`tiny_overlay_of_headers_w`，证书 `DeflateOverlayCertificate128W`，`deflate.c.engine.overlay-mem1w`）。小块的码长至多为 9（128）和 11（256），见 `prepared_lengths_128`/`_256`。H3 已检查（09f19d3f，batch 1）：`BTRankLeaves`（`trees.c.build.rank-leaves`）在 `BTRankOrigins` 之上加入实际 `build_tree` 的堆叶子、返回的码长、其 Kraft 和与两叶事实；`BTRankLeaves.cost_le_15` / `cost_le_13` 在允许的符号集合上用参考码界定扫描频率在 7 位码长下的代价（至多 15 个符号时 +245，至多 13 个时 +29 + W/2），根权重等于叶子之和（`SibTree.root_weight`，`ZlibF.Math.HuffmanRootWeight`）；含强制叶子的树只有两个长度为 1 的叶子，不需要修复项。符号 12..15（256）或 10..15（128）不出现（`scanFreq_absent`、`prepared_lengths_*`），且 `W ≤ 316`（`blScanCount_mass_le`）：`header_ref_bound_256 : HeaderRefBound 245`、`header_ref_bound_128w : HeaderRefBound128W 29`（`deflate.c.engine.overlay-header-ref`），从而得到 `tinyOverlayAt_256`、`tinyOverlayAt_128`、`tinyOverlay`。 | 对每个 `memLevel` 已检查（09f19d3f） | 0 |
-| `stored_spec` | `deflate_stored`：直接复制、窗口保留、缓冲的存储块；之后 `DInv`、调用者缓冲区和流记账成立（`deflate.c.universal-stored-tail`）。 | checked | 0 |
-| `fast_spec`、`slow_spec` | `deflate_fast`，以及带惰性匹配的 `deflate_slow`，含流记账（`deflate.c.universal-strategy-specs`、`deflate.c.universal-slow`）。与 `rle_spec`、`huff_spec` 一样，以 C 批的 `TinyOverlay` 为唯一前提检查通过。 | checked；`TinyOverlay` 是定理（`tinyOverlay`，09f19d3f） | 0 |
-| `rle_spec`、`huff_spec` | `deflate_rle` 和 `deflate_huff`，含流记账（`deflate.c.universal-strategy-specs`）。以 C 批的 `TinyOverlay` 为唯一前提检查通过（`dynamic_overlay_small` 中 `memLevel` 1、2 的未决情况）。 | checked；`TinyOverlay` 是定理（`tinyOverlay`，09f19d3f） | 0 |
-| `call_frame` | 一次 `deflate` 调用保持 level、`w_bits`、`hash_bits` 和 `gzhead`，只在有输出时改变 `wrap`；在 `INIT_STATE` 或 `GZIP_STATE` 的 zlib 或 gzip 流上，未被拒绝的调用至少交付一个字节（供 `bound_before_output` 使用）。 | open | 4 |
-| `deflate_header_trailer` | 一次 `deflate` 调用的组成部分，以针对翻译的配套引理形式给出，每个都对所有参数保持 `DGood`、`TreesInvAt` 与调用方缓冲区：入口刷新（`deflate.c.universal-call-entry`）；串成 `header_phase` 的头部各阶段（`deflate.c.universal-call-headerphase`），适用于每个入口状态，`HeaderEntry` 由 `ActiveHeader` 推出（`fresh_header_entry`、`resumed_header_entry`）；刷新标记（`marker_tail`）；尾部（`trailer_phase`）。每个部分还给出供 `deflate_call` 使用的堆框架：`StageFrame`（`deflate.c.universal-call-stageframe`：计数、总量、输出的 `BufferFrame`、堆形状，只有流根、状态记录、`pending_buf` 和输出块改变；`StageFrame.call_facts`），刷新标记用 `MarkerFrame`（`CLEAR_HASH` 之后 `head` 块可以改变），记录形状 `HeaderShape`，`HeaderInv d → HeaderInv d'`，以及提前返回 `Z_OK` 时 `last_flush = -1`。提升到 `DInv` 属于 `deflate_call`（`DInv.lift_empty`，2 号负责人）。 | checked | 0 |
-| `deflate_call` | 一次 `deflate` 调用（进出均为 `DInv ∧ HeaderInv ∧ CallFacts`）：拒绝、分派到各策略、各部分的组装、`Goal.deflate` 的每个条款（包括 `Z_FINISH` 进展条款），以及所拥有的块保持不变。`deflate_call_full`（`deflate.c.universal-call-assemble`）组合了 `KeepRel` 框架（`-call-keep-*`）、入口阶段（`-call-entry-all`）、提前返回（`-call-early`）、由调用前不变量得到的头部步骤（`-call-headerstep`）、策略、标记和尾部的收尾部分（`-call-tail`、`-call-tailstep`），以及两种入口情形（`cont_empty`、`cont_pending`）。推论：`deflate_call_of : DeflateCallFact`、`deflate_calls_of : DeflateCallsFact`、`deflate_call_header`（调用之后的 `HeaderInv`）。唯一假设：`TinyOverlay`（batch C）。 | checked given `TinyOverlay` | 0 |
-| `operation_step` | 其他每个流操作在其帧条件下保持不变量：`deflateParams`（内部的 `deflate(Z_BLOCK)`、滑动或清空）、`deflateSetDictionary`、`deflatePrime`、各种重置、`deflateSetHeader`、`deflateTune`、查询和上界。负责人：`deflateSetDictionary` 和 `deflateParams` 为 inflate 1 批（接自 B 批；`deflate.c.universal-ops-dictionary`、`-params` 为 B 批所写，`-dictionary-slid`、`-params-general`）；`deflatePrime`、各种重置和分派为 1 批（`-prime`、`-reset`、`-dispatch`）；其余为 deflate 负责人（`deflate.c.universal-ops`）。已作为 `operation_step_of` 检查（`deflate.c.universal-ops-dispatch`），即带以下假设的分情况组合：`deflate_call` 加上调用保持状态的五个所属块这一条款（骨架陈述缺少它；分配账需要它）、`step_setDictionary` 和 `step_params`（后者读取 `CallFacts`），头部事实 `HeaderInv` 与调用之间的事实 `CallFacts`。`deflateGetDictionary` 的缓冲区可以是任意可写的调用者范围：字节块，或另一个 deflate 状态记录的 `depth` 数组（`step_getDictionary`，`deflate.c.universal-ops-caller-view`，框架论证）。 | checked given hypotheses | 0 (dispatch) |
-| `step_params` | `deflateParams` 在每种情况下保持不变量（`deflate.c.universal-ops-params-general`；拒绝和无需冲刷的修改为 B 批所证，`-params`）：首次 `deflate` 调用之前的修改；先 `deflate(Z_BLOCK)`，再做冲刷检查（`Z_STREAM_ERROR`、`Z_BUF_ERROR` 时为该调用的堆）或修改；以及 level 0 的修复（一次待处理滑动用 `slide_hash`，更多用 `CLEAR_HASH`）。配套引理 `params_header`、`params_callfacts` 和 `params_body`。负责人：inflate 1 批。假设：与 `operation_step_of` 相同的 `deflate_call`（配套引理还需 `deflate` 的头部阶段或其 `CallFacts`），以及入口状态的 `CallFacts d`（首次 `deflate` 调用之前的 P1 和 P1b；P2、P3、P6 来自 `Shape`）。有一次待处理滑动时，`SlidChains` 在 `chainTop` 处成立（`DInv`），因此 `slide_hash` 之后的修复是同余（`slide_repair`）。 | checked given hypotheses | 0 |
-| `step_setDictionary` | `deflateSetDictionary` 在每种情况下保持不变量（`deflate.c.universal-ops-dictionary-slid`；`matches = 0` 时的主体为 B 批的 `setdict_body`）。头部配套引理 `setDictionary_header`（即 `SequenceFacts.setDictionaryHeader` 的陈述）和 `setDictionary_body`。负责人：inflate 1 批。level 0 且有待处理存储滑动（`matches` 为 1 或 2，B 批的 Finding 1）的情况为 `slid_body`：通过表视图运行主体（`setdict_body_v`，`deflate.c.universal-ops-dictionary-view`；`fill_window_input_v`，`deflate.c.universal-window-view`；`deflate.c.engine.view-chains`），一次滑动用滑动视图，两次滑动不需要链事实。插入的位置在滑动视图中为 `str - w_size` 或 `NIL`，永远不会被跟随（`chains_insert_slid`）。视图使用当前 `SlidChains` 的插入前沿 `strstart - insert`；若 `SlidChains` 改用 `chainTop`（Finding 2），结束时的前沿须随之调整。无前提。 | checked | 0 |
-| `resetKeep_single` | 从 `DInv` 直接调用一次 `deflateResetKeep`（不在序列定义域内，这是 deflate 负责人设定的偏差）：无故障，返回 `Z_OK`，写入恰为流记录和状态记录（`rkZ`、`rkPost`）；窗口、`prev`、`head`、`pending_buf` 不变，无分配；拒绝情况为 `resetKeep_refuse`（`deflate.c.universal-ops-resetkeep`）。负责人：inflate 1 批。 | checked | 0 |
-| `step_reset` | `deflateReset` 在其帧条件下保持不变量（`deflate.c.universal-ops-reset`）。`deflateResetKeep` 部分 `step_resetKeep` 受阻：`deflateResetKeep` 之后 `DInv.Hashing` 不成立（已报告）。该调用保留 `strstart`、`insert` 和散列表，但令 `lookahead = 0`，于是位于 `strstart - 1` 和 `strstart - 2` 的链头高于 `chainTop`。 | checked（`deflateReset`）；blocked（`deflateResetKeep`） | 2 |
-| `step_prime` | `deflatePrime` 在尚未开始的流上保持不变量：待输出字节的前移和位循环（`deflate.c.universal-ops-prime`）。它使用 `DInv` 之外的头部事实 `HeaderInv`（头部写出前没有已记录的符号）。 | checked | 0 |
-| `copy_inv` | `deflateCopy` 使目标满足不变量（`deflate.c.universal-ops-copy`）：成功路径（`copy_cut`；失败路径返回 `Z_STREAM_ERROR` 或 `Z_MEM_ERROR`）、新块、复制到 `high_water` 的窗口、`prev` 的部分复制（`chains_copy`；先在真实 C 上测试：21005 次复制中没有一个被跟随的链槽位于未复制部分）。 | checked | 0 |
-| `operation_header` | 头部事实 `HeaderInv`（头部状态下没有已记录的符号；从 `EXTRA_STATE` 到 `HCRC_STATE` 附有 gzip 记录）在每个流操作之后成立。已在 `dev` 上检查（`deflate.c.universal-header-inv`）：`init2_header`、`tune_header`、`setHeader_header`、`reset_header`、`prime_header`。未完成：`deflateSetDictionary`（需要 B 批 `setdict_body` 给出状态字段）、`deflateParams`，以及 `deflate` 本身（头部阶段）。已作为 `operation_header_of` 检查（`deflate.c.universal-ops-header`），即对每个操作分情况，带以下假设：`deflate`、`deflateParams`、`deflateSetDictionary` 的头部引理，以及前提 `CallFacts`（`params_header` 读取它）。对 `deflateResetKeep` 的直接调用不是流操作。 | checked given hypotheses | 0 (case split) |
-| `operation_callfacts` | 调用之间的事实 `CallFacts` 在每个流操作之后成立。已检查（`deflate.c.universal-ops-callfacts`，inflate 1 批）：`reset_callfacts`、`prime_callfacts`、`tune_callfacts`、`setHeader_callfacts`、各查询（状态不变）、`copy_callfacts`（`-ops-copy`）；初始化时由 `init2_inv` 给出。`setDictionary_callfacts`（`-ops-dictionary-slid`）、`params_callfacts`（`-ops-params-general`，在 `SlideRepair` 之下）。已作为 `operation_callfacts_of` 检查，带 `deflate` 的假设。 | checked given hypotheses | 2 |
-| `copy_header` | `deflateCopy` 复制状态记录，因此副本中 `HeaderInv` 成立（`deflate.c.universal-ops-copy`，骨架陈述）。 | checked | 0 |
-| `copy_failure` | 某次分配失败的 `deflateCopy`（状态记录失败，或四个缓冲区请求的任意子集失败，它们都在空指针检查之前执行）返回 `Z_MEM_ERROR`，释放它分配的每个块，清除 `dest->state`，并保持源与其他活跃块不变（`deflate.c.copy-failure`）。 | checked | 0 |
-| `copy_success` | 所有分配都成功时，`deflateCopy` 返回 `Z_OK`：目标满足 `DGood`，其状态为 `copiedDeflate`，窗口、`head`、`prev` 的已复制部分、待发字节和符号都被复制，账目恰好增加五个新块（`deflate.c.copy-success`，来自 `copy_tail_run`）。 | checked | 0 |
-| `deflate_copy_public`、`deflate_copy_safety`（`public-deflate-copy`） | 类型为 `Goal.deflateCopy` 与 `Goal.deflateCopy_safety` 的定理：空参数被拒绝；从可达源出发，由 `copy_failure` 或 `copy_success` 得出。陈述先在真实 C 上测试（`tests/goals/deflate-copy`：144000 种组合，五次分配的每个失败子集，无违例）。`Goal.deflateCopy_safety` 还包含 zlib.h 对不一致源的拒绝（`deflateCopy_refused`）。已登记，带五个结构性公开变异（`tests/proof-mutants/public-streams.tsv`），每个都被内核重放拒绝。 | checked | 0 |
-| `inflate_refusal`、`deflate_refusal`（`public-stream-refusal`） | 类型为 `Goal.inflate_refusal` 与 `Goal.deflate_refusal` 的定理：`NULL` 或不一致的流（state 为 `NULL`、`zalloc` 或 `zfree` 为 `NULL`，或检查拒绝的存活状态）被 `inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary`、`inflateCopy`、`deflate`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 与 `deflateCopy` 以 `Z_STREAM_ERROR` 拒绝，且不做任何改变（`inflate` 创建并释放其局部数组；复制会清除 `dest->state`）。陈述先在真实 C 上测试（`tests/goals/stream-refusal`：192 次调用，无违例）。已登记；拒绝变异在 `tests/proof-mutants/stream-refusal.tsv` 中。 | checked | 0 |
-| `reachable_inv` | 对 `StreamReachable` 归纳：每个可达状态都满足 `DInv`、`HeaderInv` 和 `CallFacts`（`reachable_inv_of`，`deflate.c.universal-sequence-safety`）。 | checked in skeleton | 0 |
-| `deflate_proof` | 类型为 `Goal.deflate` 的定理。已检查为 `deflate_proof_of (facts : SequenceFacts) : Goal.deflate`（`deflate.c.universal-deflate-proof`）：`reachable_inv_of`、`DInv.unique`、字段 `deflateCall`。一旦 `SequenceFacts` 的字段都成为定理，它就是 `Goal.deflate`。`CallFacts.finishBits`（M18）已检查。 | checked given hypotheses | 0 |
-| **小计 `Goal.deflateInit2_` 与 `Goal.deflate`** | | | **150** |
-| `end_from_inv` | 由不变量得到 `deflateEnd`（复用 `deflate_end_public`）。`deflate.c.universal-end`。 | checked | 0 |
-| `Ledger` | 账目的最终设计：头部、块前缀、当前块（符号或存储的窗口字节）、惰性字面量、窗口内容、已结束的流。 | 不计划（范围：安全性） | 0 |
-| `ledger_init`、`ledger_rebuffer` | 初始化建立账目；重新设置缓冲区保持它。 | 不计划（范围：安全性） | 0 |
-| `ledger_dictionary` | 数据之前的预置字典：窗口与 `DICTID`。 | 不计划（范围：安全性） | 0 |
-| `ledger_flush_pending` | 待输出刷新把待输出字节交给调用者；账目的含义不变。 | 不计划（范围：安全性） | 0 |
-| `ledger_header` | 头部阶段：带 `DICTID` 的 zlib 头部或 gzip 头部，可被中断；结束于尚无块的数据阶段。 | 不计划（范围：安全性） | 0 |
-| `ledger_fill_window` | `fill_window`：读入的字节并入已接受输入和前瞻；滑动保持窗口与数据的对应和块起点。 | 不计划（范围：安全性） | 0 |
-| `ledger_block_fixed` | 固定块（`FLUSH_BLOCK_ONLY`）解码为当前块的符号，非最终块或最终块。 | 不计划（范围：安全性） | 0 |
-| `ledger_block_dynamic` | 动态块解码为当前块的符号（树描述与编码）。 | 不计划（范围：安全性） | 0 |
-| `ledger_block_stored` | 来自窗口的存储块解码为该块的窗口字节。 | 不计划（范围：安全性） | 0 |
-| `ledger_fast` | `deflate_fast`：记录的符号表示其覆盖的输入，跨越填充和块刷新。 | 不计划（范围：安全性） | 0 |
-| `ledger_slow` | `deflate_slow`，含惰性字面量。 | 不计划（范围：安全性） | 0 |
-| `ledger_rle` | `deflate_rle`。 | 不计划（范围：安全性） | 0 |
-| `ledger_huff` | `deflate_huff`。 | 不计划（范围：安全性） | 0 |
-| `ledger_stored` | `deflate_stored`：缓冲的存储块和直接复制到调用者。 | 不计划（范围：安全性） | 0 |
-| `ledger_align` | `Z_PARTIAL_FLUSH`：`_tr_align` 追加一个空固定块。 | 不计划（范围：安全性） | 0 |
-| `ledger_empty_stored` | `Z_SYNC_FLUSH`/`Z_FULL_FLUSH`：一个空存储块；完全刷新后清空散列。 | 不计划（范围：安全性） | 0 |
-| `ledger_trailer` | 尾部由校验和与计数补全数据流。 | 不计划（范围：安全性） | 0 |
-| `ledger_step` | 沿 `deflate_phases` 组装以上各引理，含拒绝和 `Z_BUF_ERROR` 返回。 | 不计划（范围：安全性） | 0 |
-| `trace_ledger` | 对 `DeflateDataTrace` 归纳。 | 不计划（范围：安全性） | 0 |
-| `ledger_finished` | 已结束的数据段解码为其输入（`DecodesFor`）。 | 不计划（范围：安全性） | 0 |
-| `ledger_flush` | 完成的同步或完全刷新：输入已消耗、`FlushedFor`、完全刷新后可以重新开始。 | 不计划（范围：安全性） | 0 |
-| `ledger_adler` | `adler` 是已接受输入的校验和。 | 不计划（范围：安全性） | 0 |
-| `bound_before_output` | 输出之前，`deflateBound` 和 `deflateBound_z` 返回模型上界。已检查部分：每次返回的 `deflate` 调用都保持每个状态记录的 `level`、`w_bits`、`hash_bits`、`gzhead`、`strm`、`|wrap|` 和有效状态（`par_deflate`，`deflate.c.universal-params-deflate`）。尚未完成：`deflateSetDictionary` 的同一框架（及其对 `strstart` 的影响），以及在新的 zlib 或 gzip 流上被接受的调用会产生输出这一事实（已请批次 D 提供）。 | 不计划（范围：安全性） | 0 |
-| `completes` | `DeflateCompletes`：每种策略和块选择在最坏情况下的膨胀都不超过上界，多次 `Z_FINISH` 调用时也是如此。 | 不计划（范围：安全性） | 0 |
-| `deflate_sequence_proof` | 类型为 `Goal.deflate_sequence` 的定理。 | 不计划（范围：安全性） | 0 |
-| `deflate_sequence_safety_proof` | 类型为 `Goal.deflate_sequence_safety`（`StreamSequenceSafety .deflate`）的定理，由 `reachable_inv` 和 `operation_step` 得到。 | checked in skeleton | 0 |
-| **小计 `Goal.deflate_sequence_safety`** | | | **0** |
-| `compress*` | `Goal.compress*_safety`（`CompressorSafety`，即 `CompressorContract` 的安全性一半）：已在 `public-compress-safe*` 中证明（`compress2_z_safety_of`、`compress2_safety_of`、`compress_z_safety_of`、`compress_safety_of`），前提是两个显式假设 `Goal.deflate` 和 `DeflateLoopFacts`；`deflateInit_` 和 `deflateEnd` 经由其已证引理进入。终止：度量（未读源字节加未填空间）低于循环燃料，并在每次 `Z_OK` 调用后下降：`Z_NO_FLUSH` 时依据 `DeflateLoopFacts`（该调用有输入），否则依据 `Goal.deflate` 的 `Z_FINISH` 进展条款。`Goal.deflate` 和 `DeflateLoopFacts` 一经证明，每个定理一行即可完成。仅在 `TinyOverlay` 之下：`compress2_z_safety_tiny`、`compress2_safety_tiny`、`compress_z_safety_tiny`、`compress_safety_tiny`（`public-compress-safe-call`，已检查）。`compress*_safety_of_tiny` 的两个调用事实是 `deflate_call_full` 的条款：`CallProgress`（`call_progress_of`：处于 `FINISH_STATE` 之前、有输入和输出空间且被接受的调用会改变 `avail_in` 或 `avail_out`）和 `CallKeepsGzhead`（`call_keeps_gzhead_of`：`KeepRel.gz`，该调用的每次状态写入都保持 `gzhead`）。`compress` 的 `memLevel` 为 8，`TinyOverlay` 在那里从不适用，但 deflate 链把它作为全局假设。 | checked（有条件） | 0 |
-| `DeflateLoopFacts`（deflate 负责人） | `Goal.deflate` 未陈述的关于一次 `deflate` 调用的四个事实：有输入和空间的 `Z_NO_FLUSH` 调用有进展；第一次 `Z_FINISH` 之后的新输入返回 `Z_BUF_ERROR` 或写出至少一个字节；每次调用都保持 gzip 头指针和所拥有的块（`public-compress-safe-init`）。已在 `public-compress-loop-facts`（`deflate_loop_facts_of`）中由骨架陈述 `reachable_inv`、`deflate_call`（`CallClauses`）、`call_frame` 以及 `FinishedNewInput`（第一次 `Z_FINISH` 之后的新输入）推出；后者已在 `public-compress-finished` 中针对翻译证明（`finished_new_input`，依据入口阶段引理和 `flush_pending` 的框架）；`deflate_loop_facts` 只需三条骨架陈述。 | checked（有条件） | 0 |
-| **合计** | | | **150** |
-
-第 C 批，为 `call_frame` 与 `deflate_header_trailer` 准备的 gzip 头阶段。`Goal.deflate` 曾允许 gzip 头的 name 或 comment 与本次调用写入的字节重叠：输出范围，或流的 `pending_buf`。在真实 C 上，一次刷新或一个头字节会覆盖字符串的 NUL，name 循环越过缓冲区读取（`tests/regression/deflate-gzip-name-output`，两种布局都在 sanitizer 下复现）。zlib.h 没有说明这两种布局是否允许。目标现在通过 `ActiveHeader` 的合取项 `DeflateHeaderApart` 排除二者（`docs/deviations.md`）：写头期间，输入、输出、extra 字段、name 与 comment 两两为分离的字节范围，头区域位于流自身的存储之外。
-
-可交给其他负责人的独立批次。每个批次只依赖其他批次在 `skeleton/deflate` 上的引理陈述，而不依赖其证明，并且放在各自的文件中。不变量 `DInv` 及其接口属于批次 A；对 `DInv` 的改动要通知其他批次。
-
-| 批次 | 引理 | 文件 | 小时 |
-| --- | --- | --- | ---: |
-| A. 初始化与调用历史（操作：`deflateSetDictionary`、`deflateParams` 由 batch B 负责人负责；`deflatePrime`、重置、`copy_inv` 和 `operation_step` 的分情况组合由 inflate batch 1 负责人负责） | `init2_inv`、`DInv.owned`、`DInv.rebuffer`、`operation_step`、`copy_inv` | `deflate.c.init.general`、`deflate.c.universal-ops` | 67 |
-| B. 窗口与策略 | `fill_window_inv`、`longest_match_inserted`、`stored_spec`、`fast_spec`、`slow_spec`、`rle_spec`、`huff_spec` | `deflate.c.universal-window`、`deflate.c.universal-strategies` | 0 |
-| C. 块输出与上界 | `flush_block_spec`、`bound_before_output`、`completes`、`call_frame`、`end_from_inv`、`deflate_header_trailer` | `trees.c.universal-block`、`deflate.c.universal-bound` | 156 |
-| D. 调用与账目 | `deflate_call`、`Ledger`、`ledger_init`、`ledger_rebuffer`、`ledger_dictionary`、`ledger_step` 及其 14 个部分（`ledger_header` … `ledger_trailer`）、`ledger_finished`、`ledger_flush`、`ledger_adler` | `deflate.c.universal-call`、`deflate.c.universal-ledger` | 227 |
-
-`compress*`（12 小时）在 A 到 D 都检查通过后进行。
-
-批次 B 或 C 负责人的接口。从分支 `skeleton/deflate` 的文件 `ZlibF/Proof/deflate.c.universal.lean` 开始。
-
-- **陈述。** B：第 4 节，`stored_spec` 到 `huff_spec`（`fill_window_inv` 和 `longest_match_inserted` 已检查）。C：第 4 节的 `flush_block_spec`；第 7 节的 `bound_before_output` 和 `completes`（其陈述是 `ZlibF/Spec/Public/Sequences.lean` 中的 `DeflateCompletes`）。
-- **引理可以假设什么。** 不变量 `DInv` 和 `StrategyEntry`（在 `dev` 上，`deflate.c.universal-invariant`）、引理中写明的其他前提，以及 `dev` 上已检查的模块：`deflate.c.engine.chains`、`lmbody`、`macros`、`trees.c.*` 各模块和 `ZlibF/Math/Deflate*`。B 可以使用骨架中 `flush_block_spec` 的陈述；骨架中的其他内容都不是前提。
-- **修改 `DInv`。** `DInv` 属于批次 A。如果证明需要 `DInv` 没有携带的事实，把它写成该引理的前提并告知 A；由 A 把它加入 `DInv` 并证明每个操作都保持它。不要直接修改 `DInv` 或其他批次的陈述。
-- **文件。** 证明放在该批次自己在 `dev` 上的文件中（见上表）；之后骨架用已检查的定理替换其 `sorry`。
-
-需要注意的耦合：B 和 C 的陈述只涉及安全性。批次 D 还需要它们的功能内容（B：已记录符号的含义；C：输出的块解码为其符号）。D 会在 B 或 C 进行到那里之前，把这些配套引理写在安全引理旁边；证明某段执行的负责人最适合同时证明其配套引理。`completes` 需要每个块的输出大小（C）以及每种策略在多次 `Z_FINISH` 调用中的行为（B），因此是最不独立的引理；应在 `flush_block_spec` 和策略引理之后再开始。
-
-现有证明族与骨架的对照：
-
-| 证明族 | 决定 |
-| --- | --- |
-| `deflate.c.engine.chains`、`lmbody`、`macros` 以及滑动与插入引理 | 已经是参数化的（窗口 2^9 到 2^15，任意散列参数）。适用于 `fill_window_inv` 和 `longest_match_inserted`。保留。 |
-| `deflate.c.engine.*` 中的默认、common 和 generic-foreign 调用历史（`DefaultDataTrace`、`Common*DataTrace`、`EngineStart`） | 绑定于窗口 15、`memLevel` 8、策略 0 或 level 6，无法服务于通用引理。待这些引理检查通过后删除，但已登记定理需要的文件除外（约 60 个已登记的引擎定理）。 |
-| `deflate.c.init.*` | 固定的缓冲区大小。默认证明是 `init2_main` 的模板；推广它。保留 `deflateInit_proof` 需要的默认模块。 |
-| `trees.c.*` | 对块及其描述符参数化（`gen_codes`、`build_tree`、`scan_tree`、`build_bl_tree`、`send_tree`、`send_code` 已检查）。适用于 `flush_block_spec`；剩下 `send_all_trees`、`compress_block` 和 F9。保留。 |
-| `ZlibF/Math/Deflate*`、`Huffman*` | 与堆无关：符号及其含义、块前缀、重叠与预算上界、Huffman 深度上界。适用于账目和 F9。保留。 |
-
-#### gz
-
-gzip 文件接口的安全（第 5 项结论，所有者 2026-11-12 的决定）：在一个句柄的每条调用历史上，没有未定义行为、没有内存错误、不泄漏内存块或描述符，并且一定终止。目标 `Goal.gz_sequence_safety` 及其定义（`GzHistory`、`GzCloseSafe`、`GzOpenSafe`、`GzDopenSafe`）在 `dev` 的 `ZlibF/Spec/Public/GzSafety.lean` 中（`61fc2678`），建立在 `gz.inv-model` 的 `GzInv` 与 `GzCallSafe` 之上。组装已在 `dev` 上：`gz_sequence_safety_of`（`gz.sequence-safety`）的结论是 `Goal.gz_sequence_safety`，只有一个前提 `GzReadLeaves`：六个读取叶子 `gzread_step`、`gzfread_step`、`gzgetc_step`、`gzungetc_step`、`gzgets_step`、`gzdirect_step`，每个都取骨架中的原样陈述。六个都已在 `dev` 上无前提地检查，所以 `Goal.gz_sequence_safety` 已检查：`gz_sequence_safety_public`（`public-gz-sequence-safety`）。它已登记在 `tests/audit/theorems.txt` 中，带证明变异（`gz-sequence.tsv`、`gz-read.tsv`）；`Goal.gz_sequence_nonvacuity`（`gz_sequence_nonvacuity_public`）与 `Goal.gz_refusal`（`gz_refusal`）随之登记。审读 A1 把 `zlib.h` 的 `gzgetc()` 宏的内联路径加入了 `GzHistory`（`getcMacro`）和目标（一个合取项）；`GzMacro.gzgetc_macro_safe` 证明了它。目标更正（3c5292f7）：该步骤与合取项只覆盖 `x.have ≠ 0`，所以目标从不运行宏的 `have = 0` 分支（证明变异 `macro-have-guard-dropped` 存活）。现在两者覆盖每一次宏调用；`x.have = 0` 时宏即对 `gzgetc` 的调用，在 `ReadsFinite` 下返回（回归 `tests/verification/regressions/gz-macro-have-zero.lean`）。其余每个叶子都直接使用 `dev` 上的定理；没有使用循环规则。骨架在分支 `skeleton/gz` 的提交 `17770416` 上（合并 `dev` 之后），文件为 `gz.skeleton-model.lean`（只有两条循环规则）、`gz.skeleton-read.lean`（未完成的读取叶子）和 `gz.skeleton.lean`（把 `gz_sequence_safety_of` 应用于读取叶子）。它能通过类型检查：`Goal.gz_sequence_safety` 在其中由下列未完成引理证明。`dev` 以完全相同的陈述证明了的骨架叶子，从骨架中删除（或由 `dev` 定理关闭），并列为已检查。该目标涵盖每一种打开（`gzopen`、`gzopen64`、`gzdopen`）、`GzOperation` 的每个公开调用、每次关闭、句柄之外的调用者修改，以及两次调用之间文件系统世界的变化，对操作系统调用预言的每个取值都成立。
-
-只要 `dev` 的定理与骨架陈述不同，读取叶子就是未完成的。“差异”一栏写出不同之处，以便读取侧对齐陈述（带证据地更正骨架陈述），或添加一个适配引理。
-
-`GzInv` 相对于骨架文本的陈述更正。两者都削弱了一个子句，因为骨架原来的子句不成立；每项都有一个已检查的回归。目标的无故障子句和帧子句不变。
-- `GzCommon.next` 只在有缓冲输出时（`x.have ≠ 0`）约束 `x.next`（`7c32d275`；回归 `tests/verification/regressions/gz-next-caller.c`，带补丁 0005）。
-- `GzReadInv.copyDirect` 在 `how = COPY` 下允许 `direct = 0 ∨ direct = 1`（`a351cd66`；回归 `tests/verification/regressions/gz-copy-direct.c`）。
-
-| 引理 | 含义 | 状态 | 小时 | 负责人 |
-| --- | --- | --- | ---: | --- |
-| `GzInv.caller`、`GzInv.gz_error`、`GzInv.gz_reset`、`GzInv.put_scalars` | `GzInv` 的接口引理。 | 已检查：`gz.inv-frame`、`gzlib.c.error-inv-premises`、`gz.inv-reset`、`gz.inv-put-scalars` | 0 | batch 1、deflate 负责人 |
-| `gwhile_partial`、`gdoWhile_partial` | 部分正确性的循环规则（`gz.skeleton-model`）；目前没有证明使用它们。 | 未完成 | 2 | 未分配 |
-| `gzopen_safe` | `gzopen` 返回；NULL 不留下任何东西；句柄满足 `GzInv`，且只有它的描述符是新的。 | 已检查：`gzopen_safe`（`gz.inv-open-fresh`，`5252a412`） | 0 | batch C |
-| `gzopen64_safe` | `gzopen64` 即 `gzopen`。 | 已检查：`gzopen64_safe`（`gz.inv-open-fresh`，`5252a412`） | 0 | batch C |
-| `gzdopen_safe` | 同 `gzopen_safe`，不打开也不关闭任何描述符。 | 已检查：`gzdopen_safe`（`gz.inv-open`，`8c2bba51`） | 0 | batch C |
-| `gzclose_dispatch_inv` | `gzclose` 按模式即 `gzclose_r` 或 `gzclose_w`。 | 已检查：`gzclose_dispatch_inv`（`gz.inv-queries`） | 0 | batch 1 |
-| `gzclose_step` | 由分派和两个关闭步骤得出 `gzclose`。 | 已检查：`gzclose_step`（`gz.inv-close`，`fdb8c613`） | 0 | batch C |
-| `gzseek64_step`、`gzseek_step` | 在 `GzInv` 上定位是安全的。 | 已检查：`gzseek64_step`、`gzseek_step`（`gz.inv-seek`） | 0 | batch 1 |
-| `gztell64_step`、`gztell_step`、`gzeof_step`、`gzbuffer_step` | 位置查询、eof 和缓冲区设置；以及 `post_unchanged`、`safe_of_unchanged`。 | 已检查：同名（`gz.inv-queries`） | 0 | batch 1 |
-| `gzerror_step` | `gzerror` 把错误码存入调用者的单元。 | 已检查：`gzerror_step`（`gz.inv-frame`） | 0 | batch 1 |
-| `gzerror_string` | 调用之后，`gzerror` 返回的指针是一个 C 字符串（审读 C1 加入的目标合取项）。 | 已检查：`gzerror_string`（`gz.inv-frame`） | 0 | batch C |
-| `gzclearerr_step` | 经由 `gz_error` 的 `gzclearerr`。 | 已检查：`gzclearerr_step`（`gz.inv-clearerr`） | 0 | batch 1 |
-| `gzoffset64_step`、`gzoffset_step` | 一次 `lseek`（M3）；其他都不变。 | 已检查：同名（`gz.inv-offset-rewind`，`646b1ab6`） | 0 | batch C |
-| `gzrewind_step` | `lseek`（M3）与 `gz_reset`。 | 已检查：`gzrewind_step`（`gz.inv-offset-rewind`，`646b1ab6`） | 0 | batch C |
-| `history_inv`、`operation_safe`、`close_safe`、`gz_sequence_safety` | 组装，在 `dev` 的 `GzInv` 与 `GzSafety` 下重新检查。 | 已检查：`gz_sequence_safety_of`（`gz.sequence-safety`），前提 `GzReadLeaves`，六个字段都已证明（`gz_read_leaves`）；`Goal.gz_sequence_safety` 已无前提地检查为 `gz_sequence_safety_public`（`public-gz-sequence-safety`）；已登记在 `theorems.txt` 中 | 0 | batch C |
-| `gz_init_safe`、`gz_comp_safe`、`gz_zero_safe`、`gz_write_safe`、`gz_vacate_safe` | 写入侧的辅助函数。 | 已检查：同名（`gzwrite.c.safety`） | 0 | batch C |
-| `gzwrite_step`、`gzfwrite_step`、`gzputc_step`、`gzputs_step`、`gzvprintf_step`、`gzprintf_step`、`gzflush_step`、`gzsetparams_step` | 写入侧的公开调用。 | 已检查：同名（`gzwrite.c.safety`） | 0 | batch C |
-| `gzclose_w_step` | 收尾、`deflateEnd`、释放、交还描述符。 | 已检查：`gzclose_w_step`（`gzwrite.c.safety`，以 `GzCloseSafe` 陈述） | 0 | batch C |
-| `deflate_quiet` | 没有输入的 `deflate` 会停下（`DeflateQuiet`）。`dev` 上的写入证明直接使用它；骨架中不再有对应叶子。 | 已检查：`Zlib.Deflate.Universal.Quiet.deflate_quiet_holds` | 0 | batch 3 |
-| `gzclose_r_step` | `inflateEnd`、释放、交还描述符。 | 已检查：`GzRead.gzclose_r_step_safe`（`gz.read-close`），陈述完整写出；`GzRead.Close.Released` 按 `rfl` 即 `GzReleased` | 0 | 读取侧（deflate 负责人） |
-| `gz_skip_have_safe` | skip 消耗缓冲的字节。 | 已检查：`gz_skip_have_safe`（`gzread.c.skip-have`） | 0 | 读取侧（deflate 负责人） |
-| `gz_load_safe` | `read` 循环（M1）。差异：`GzRead.gz_load_safe`（`gz.read-load-error`）多出假设 `hm`（`mode = GZ_READ`）、`hsz`（`size ≠ 0`）、`hroot`（缓冲区是数据缓冲块或不属于句柄）和 `heofin`（`eof ≠ 0 → avail_in = 0`），结论更强。 | 未完成（对齐） | 1 | 读取侧（deflate 负责人） |
-| `gz_avail_safe` | 重新填充 `in`。差异：`GzRead.gz_avail_safe`（`gz.read-avail`）多出假设 `hm`（`mode = GZ_READ`），结论更强。 | 未完成（对齐） | 0.5 | 读取侧（deflate 负责人） |
-| `gz_look_safe` | 延迟分配的缓冲区、`inflateInit2`、COPY。差异：`GzRead.gz_look_safe : GzLookSpec` 取 `GzInvUpToOutput`（比 `GzInv` 弱）和前提 `how = LOOK` 与 `MsgLit s`；后置条件建立在 `GzInvOut` 而不是 `GzInv` 上。 | 未完成（对齐） | 2 | 读取侧（deflate 负责人） |
-| `gz_decomp_safe` | inflate 步骤。差异：`gz_decomp_safe_of` 需要一个前提 `InflateStuckNoOutput`（从 `BAD` 或 `MEM` 的一次调用返回错误，不产生输出，也不消耗输入），已由 batch 3 证明（`inflateStuckNoOutput_holds`，`inflate.c.stuck-no-output`）；HEAD 事实已证明（`inflateHeadUsesInputR_holds`，`inflate.c.head-uses-input`）；`GzDecompSpec` 加上前提 `MsgLit s` 和 `out.length ≠ 0`，替换了分离前提（`out` 不属于句柄，或 `out = s.out`），并在 `ReadsFinite` 下终止，而不是无条件终止。 | 未完成（对齐，一个前提） | 3 | 读取侧（deflate 负责人） |
-| `gz_fetch_safe` | 分派函数。差异：`gz_fetch_safe_of` 需要 `GzLookSpec` 和 `GzDecompSpec`；`GzFetchSafe` 取 `GzInvUpToOutput` 和前提 `err ≠ Z_STREAM_END`、`how = COPY → avail_in = 0`、`MsgLit s`；后置条件建立在 `GzInvOut` 上；在 `ReadsFinite` 下终止。其后置条件带有 `gz_read` 与 `gz_skip` 的燃料上界所需的进展条款（`fetchRank`：一次取数填满缓冲区，除非失败、输入结束、到达 `GZ_OFF_MAX`，或秩下降 2；严重错误保持；`Stuck` 的流不产生输出）。 | 未完成（对齐，被调用者前提） | 2 | 读取侧（deflate 负责人） |
-| `gz_skip_safe` | skip 循环。差异：`gz_skip_safe_of` 需要 `GzFetchSpec`、`GzFetchProgress`（以及已证明的 `GzErrorSpec`、`GzErrorOwn`）；它取 `GzInvUpToSkip`（比 `GzInv` 弱）。 | 未完成（被调用者前提） | 1 | 读取侧（deflate 负责人） |
-| `gz_read_safe` | 三条路径、调用者范围、`x.pos`（F-1）。已检查为 `gz_read_safe_of (skip : GzSkipRead) (fetch : GzFetchSafe) (decomp : GzDecompSpec) : GzReadSafe`（`gz.read-read`）。`GzReadSafe` 是骨架陈述加上前提 `err ≠ Z_STREAM_END`、`how = COPY → avail_in = 0` 和 `MsgLit s`（`GzReadInv` 的条款），这些在后置条件中保持。终止：度量 `min(len, GZ_OFF_MAX - pos)/8 + fetchRank + 阶段项` 在 `ReadsFinite` 下保持小于 `2^64`。`GzSkipRead` 即 `gzSkipRead_holds`（`gzread.c.skip-fetch`）。已无前提地关闭为 `gz_read_safe : GzReadSafe`（`gz.read-assembly`）。 | 已检查 | 0 | 读取侧（deflate 负责人） |
-| `gzread_step`、`gzfread_step` | `gz_read` 的包装函数。已作为 `gzread_step_of_read`（`gz.read-gzread`）与 `gzfread_step_of_read`（`gzread.c.fread`）从 `GzReadSafe` 检查，并无前提地关闭为 `gzread_step` 和 `gzfread_step`（`gz.read-assembly`）：即骨架叶子。 | 已检查 | 0 | 读取侧（deflate 负责人） |
-| `gzgetc_step`（`gzgetc__step` 由它得出） | 一个字节。 | 已检查：`GzRead.gzgetc_step`（`gz.read-getc-step`），无前提 | 0 | batch C |
-| `gzungetc_step` | 在 `out` 内回退。 | 已检查：`GzRead.gzungetc_step`（`gz.read-getc-step`），无前提：`GzSkipTerminates` 即 `gzSkipTerminates_holds`（`gzread.c.skip-terminates`） | 0 | batch C |
-| `gzgets_step` | 有界的 `memchr`、复制、NUL。 | 已检查：`GzRead.gzgets_step`（`gz.read-gets-step`），无前提 | 0 | batch C |
-| `gzdirect_step` | 一次 `gz_look` 和 `gz_skip_have`。 | 已检查：`GzRead.gzdirect_step`（`gz.read-direct-step`），无前提 | 0 | batch C |
-| `gzgetc_macro_safe` | 对 `zlib.h` 中 `gzgetc()` 宏（`Zlib.ZlibH.gzgetc`）的一次调用保持 `GzInv`：内联路径（`x.have ≠ 0`）无前提地返回，`x.have = 0` 时宏即函数，经由 `gzgetc_step`；即历史步骤 `GzHistory.getcMacro` 和审读 A1 加入的目标合取项，在 3c5292f7 中更正。 | 已检查：`GzMacro.gzgetc_macro_safe`（`zlib.h.gzgetc-macro`），用于 `history_inv` 与 `gz_sequence_safety_of` | 0 | batch C |
-| 合并 `deflate.c.quiet-*` 中重新陈述的副本 | 清理，不在关键路径上。 | 未完成 | 4 | 以后 |
-| **剩余总计** | batch C 0；读取侧 9.5（内部辅助陈述与骨架文本的对齐；目标已不再需要它们）；未分配 2；以后 4 | | **15.5** | |
+- 功能性的行：inflate 的格式含义、deflate 的账本、`completes` 和 `bound_before_output`。哪些功能性工作在计划内，见[范围](#scope)。
+- 清理类的行，是可选的，是否已经做完没有确认：删除没有任何已登记定理使用的 inflate 快速路径证明和固定配置证明，合并 `deflate.c.quiet-*` 中重述的副本。
+- gz 的辅助行：循环规则 `gwhile_partial` 和 `gdoWhile_partial`，以及内部读取辅助引理（`gz_load_safe` 到 `gz_skip_safe`）与骨架文本的对齐。目标是用 `dev` 上的辅助命题证明的，这两者都用不着。
+- 归档的 deflate 表“尚未完成的工作”为策略导出、`step_params` 和 `deflate` 的 `HeaderInv` 引理列着工时。`Goal.deflate_sequence_safety` 登记之后，这些行里哪些已经证明、哪些不再需要，归档里没有记录。
 
 ### zlib.h 函数的无故障覆盖
 
-zlib.h 文档化的每个函数占一行。每行给出表明该调用不会出错的已检查定理，以及所走的路线：它自己的目标、序列目标（该调用是一个 `StreamOperation`）、`StreamSequenceSafety` 的 End 子句，或 open。这是 `dev` 在 `6a097d3b`（2026-11-14）的快照。“已登记”指列入 `tests/audit/theorems.txt`，即验收候选，尚未验收。定理或目标变化时，需重新核对对应行。
+“`zlib.h` 中每个有文档的函数一行”的那张表，现在单独成页：[按函数查覆盖情况](coverage.md)。每行写明安全目标、类型就是该目标的已登记定理、证明文件、定义域，以及目标对 `NULL` 流或不一致的流陈述了什么。功能定理另占一列。
 
-每条流路线或工具函数路线共有的模型级前提，不在每行重复：默认分配器（`DefaultOrNull`/`DefAlloc`/`zfree = zcfree`；已声明的目标限制）、堆良构性（`Fresh`、`Uniq`、`LibraryGlobals`），以及对 inflate、工具函数和 inflateBack 而言的 `ByteObjectsFit`（`docs/deviations.md` 中的平台行）。
+每个有文档的函数，都在其所在行写明的定义域上有一条已登记的安全定理。有三类事项尚未完成，或比 `zlib.h` 更窄：
 
-缩写：
-- **SeqI** = `Goal.inflate_sequence_safety`：`Zlib.Inflate.Proofs.inflate_sequence_safety_public`（`public-inflate-sequence-safety.lean`，已登记）。
-- **SeqD** = `Goal.deflate_sequence_safety`：`Zlib.Deflate.Universal.deflate_sequence_safety`（`public-deflate-goals.lean`，已登记）。
-- 两者都只覆盖 `p = some r` 且 `StreamReachable r`（以及 `StreamArguments`）的情形。两者都不覆盖 NULL 流或不一致的流（zalloc/zfree 为 NULL、state 为 NULL，或检查拒绝的 state）。zlib.h 把这些情形文档化为 `Z_STREAM_ERROR` 拒绝，`docs/spec/safety.md` 的 A1 把文档化的空指针拒绝保留在范围内。“refusal”一列说明是否有定理覆盖该情形。
+1. **拒绝子句。** 这里没有未完成的事项。对 `NULL` 流或不一致的流的拒绝，是除四个初始化函数之外每个有文档的流函数的安全目标的子句，也是两个复制目标的子句（提交 `71188823`）。拒绝的定义域所不包括的情形，只在[偏离记录，注 2](deviations.md#note-2-refused-streams)所说的意义上比 `zlib.h` 更窄：分配器已设置、而 `state` 指针是垃圾指针、悬空指针或属于另一种流的记录。这些目标的层级见[范围](#scope)。
+2. **比 `zlib.h` 更窄的定义域**，每一条在[偏离记录](deviations.md)中都有对应的行：`inflateBack`（`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中）；`inflateCopy` 与 `deflateCopy`（`source ≠ dest`）；`adler32` 与 `adler32_z`（只有 `len = 0` 时 `buf` 才可以是 `NULL`：`len = 1` 是 C 中真实的故障，`buf` 为 `NULL` 且 `len ≥ 2` 在 C 中安全，但没有证明）。
+3. **作为值传递的结果单元。** 有八个公开函数的翻译把一个标量输出参数当作值接收，并把写入的值作为另一个结果返回：`compress`、`compress2` 及其 `_z` 形式的 `destLen`；`inflateGetDictionary` 和 `deflateGetDictionary` 的 `dictLength`；`deflatePending` 的 `pending` 和 `bits`；`deflateUsed` 的 `bits`。因此这些函数的安全目标对结果单元的内存什么都没说（[偏离记录](deviations.md#stream-calls-inflate-and-deflate)的“结果单元”和“整缓冲区压缩”两行）。工作规则只对内部函数的输出参数采纳这种表示。这些翻译是否改为像 `uncompress*` 和 `gzerror` 那样把单元当作内存，所有者尚未决定。
 
-#### 流：deflate
-
-| 函数 | 路线 | 定理（Lean 名称，文件） | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| deflateInit_（宏 deflateInit） | 自身目标 | `ZlibF.Spec.Public.Proofs.DeflateInit.deflateInit_proof`，`public-deflate-init.lean` | 是 | 完整：错误版本（`VersionValue`，NULL 或可读的首字节）、错误的 `stream_size`（任意 `p`）、NULL strm、每个 level、分配失败。 |
-| deflateInit2_（宏 deflateInit2） | 自身目标 | `ZlibF.Spec.Public.Proofs.DeflateInit2.deflateInit2_proof`，`public-deflate-init2.lean` | 是 | 完整，同 deflateInit_，另加每个 method/windowBits/memLevel/strategy。`Goal.deflate_initialisation_domain`（非空性）已登记（`DeflateInitDomain.deflate_initialisation_domain_public`）。 |
-| deflate | 自身目标 + SeqD | `Zlib.Deflate.Universal.deflate_safety`，`public-deflate-goals.lean` | 是 | 可达 + `DGood` + `StreamBuffers` + `ActiveHeader`（分离行）。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| deflateEnd | 自身目标 + SeqD 的 End 子句 | `ZlibF.Spec.Public.DeflateEndProof.deflate_end_public`，`public-deflate-end.lean`；SeqD 的第 3 子句 | 是 | 自身目标需要 `DGood`。Refusal：`Zlib.Deflate.Proofs.deflateEnd_reject`（`deflate.c.life.end.lean`，已登记）覆盖 NULL、zalloc/zfree 为 NULL、state 为 NULL，以及被拒绝的活动 state。因此已覆盖：从未初始化（模型指针为 NULL）、NULL、state 为 NULL，以及复制失败之后。它不是类型为目标的定理。 |
-| deflateSetDictionary | 安全目标 + SeqD | `Goal.deflateSetDictionary_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateSetDictionary`（不在计划内）：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| deflateGetDictionary | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateDictionaryProof.deflate_getdict_public`，`public-deflate-getdict.lean` | 是 | 自身目标需要 `DGood`，且目标缓冲区与窗口分离。Refusal：`Zlib.Deflate.Proofs.deflateGetDictionary_reject`（`deflate.c.life.getdict.lean`）已登记。 |
-| deflateCopy | 自身目标 | `Zlib.Deflate.Universal.deflate_copy_public` / `deflate_copy_safety`，`public-deflate-copy.lean` | 是 | 不是 `StreamOperation`；`StreamReachable.deflateCopy` 只为 SeqD 的第 1 子句提供输入。缺口：`source ≠ dest`（偏差行）。不一致的源由 `Goal.deflate_refusal`（checked）覆盖。 |
-| deflateReset | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateResetProof.deflate_reset_public`，`public-deflate-reset.lean` | 是 | Refusal：`Zlib.Deflate.Proofs.deflateReset_reject`（已登记）。 |
-| deflateParams | 安全目标 + SeqD | `Goal.deflateParams_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateParams`（不在计划内）：无定理。Refusal：`Goal.deflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| deflateTune | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.tune_public`，`public-deflate-small-queries.lean` | 是 | 完整（`CheckedDeflate` 包含各 refusal）。 |
-| deflateBound | 安全目标 + SeqD | `Goal.deflateBound_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflateBound`（不在计划内）：无定理。SeqD 需要 `ActiveHeader ∧ DeflateHeaderLive`。Refusal：`deflateBound_nostate`（已登记）。 |
-| deflateBound_z | 安全目标 + SeqD | `Goal.deflateBound_z_safety`（已登记）；SeqD | 是 | 同 deflateBound（`deflateBound_z_nostate`，已登记）。 |
-| deflatePending | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.pending_public` | 是 | 完整。 |
-| deflateUsed | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.used_public` | 是 | 完整。 |
-| deflatePrime | 安全目标 + SeqD | `Goal.deflatePrime_safety`（已登记）；SeqD | 是 | 自身的功能目标 `Goal.deflatePrime`（不在计划内）：无定理。SeqD 需要 `DeflateNotStarted`，这是 zlib.h 自己的次序规则。Refusal：`deflatePrime_refused`（已登记）。 |
-| deflateSetHeader | 自身目标 + SeqD | `ZlibF.Spec.Public.DeflateQueryProof.header_public` | 是 | 完整。SeqD 需要 `DeflateNotStarted`（zlib.h 的次序）。 |
-
-#### 流：inflate
-
-| 函数 | 路线 | 定理（Lean 名称，文件） | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| inflateInit_（宏 inflateInit） | 自身目标 | `ZlibF.Spec.Public.Proofs.InflateInit.init15_public`，`public-inflate-init.lean` | 是 | 完整：错误版本或大小、NULL strm、分配失败。 |
-| inflateInit2_（宏 inflateInit2） | 自身目标 | `ZlibF.Spec.Public.Proofs.InflateInit.inflate_init2_public`，`public-inflate-init2.lean` | 是 | 完整，每个 `windowBits`。 |
-| inflate | 自身目标 + SeqI | `Zlib.Inflate.Proofs.inflate_public`，`public-inflate.lean` | 是 | 可达 + `Good` + `ByteObjectsFit` + `StreamBuffers` + `ActiveHeader`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateEnd | 自身目标 + SeqI 的 End 子句 | `ZlibF.Spec.Public.InflateEndProof.inflate_end_public`，`public-inflate-end.lean`；SeqI 的第 3 子句 | 是 | 自身目标需要 `Good`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateSetDictionary | 自身目标 + SeqI | `ZlibF.Spec.Public.Proofs.inflateSetDictionary_public`，`public-inflate-setdict.lean` | 是 | 自身目标需要 `Good`、`zalloc = zcalloc`，以及与窗口分离的字典（偏差行）。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateGetDictionary | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateDictionaryProof.inflate_getdict_public` | 是 | 自身目标需要 `Good`，且目标缓冲区与窗口分离。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateSync | 安全目标 + SeqI | `Goal.inflateSync_safety`（已登记）；SeqI | 是 | 自身的功能目标 `Goal.inflateSync`（不在计划内）：无定理。Refusal：`inflateSync_check`（已登记）。 |
-| inflateCopy | 自身目标 | `Zlib.Inflate.Proofs.inflate_copy_public`，`public-inflate-copy.lean` | 是 | 不是 `StreamOperation`。缺口：`source ≠ dest`（偏差行）。不一致的源由 `Goal.inflate_refusal`（checked）覆盖。 |
-| inflateReset | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateResetProof.reset_public` | 是 | 自身目标需要 `InflateView`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflateReset2 | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateReset2Proof.reset2_public` | 是 | 每个 `windowBits`。Refusal：`Goal.inflate_refusal`（checked）覆盖 NULL 与不一致的流。 |
-| inflatePrime | 自身目标 + SeqI | `ZlibF.Spec.Public.InflatePrimeProof.prime_public` | 是 | 完整（`CheckedInflate`）。接受分支需要 `s.bits ≤ 39`，这是不变量的一个事实。 |
-| inflateMark | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateMarkProof.mark_public` | 是 | 完整。 |
-| inflateGetHeader | 自身目标 + SeqI | `ZlibF.Spec.Public.InflateHeaderProof.getheader_public` | 是 | 在 `InflateView` 上完整。支持 gzip 的流需要 `head ≠ NULL`：C 会解引用它，而 zlib.h 不提供 NULL。SeqI 还需要 `p ≠ none`。Refusal：`inflateGetHeader_check`（已登记）。 |
-
-#### 回调解码器
-
-| 函数 | 路线 | 定理（Lean 名称，文件） | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| inflateBackInit_（宏 inflateBackInit） | 自身目标 | `ZlibF.Spec.Public.InflateBackInitProof.back_init_public`，`public-infback-init.lean` | 是 | 完整：错误版本或大小、NULL strm、NULL 窗口、错误的 `windowBits`、分配失败。成功分支需要一个可写的 `2^wb` 字节窗口（zlib.h 自己的规则）。 |
-| inflateBack | 序列（`Goal.inflate_back_sequence_safety`） | `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`（已检查，c7169b54） | 是 | 已登记，带 `inflateBack`、`inflateBackInit_` 与 `inflateBackEnd` 的十一个结构性证明变异（`tests/proof-mutants/infback-sequence.tsv`），每个都被杀死，并被目标定理的内核重放拒绝。自身的 `Goal.inflateBack`（功能性）不在计划内。NULL strm 和 state 为 NULL 已覆盖（`inflateBack_nullstream`、`inflateBack_nostate`，已登记）。该目标还有收窄：`inputBound < 2^48`，窗口是堆字节块的一个切片，每个输入块都位于堆字节块内（偏差行）。 |
-| inflateBackEnd | 自身目标 | `ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean` | 是 | 完整：NULL、state 为 NULL 或 zfree 为 NULL，以及 `BackValid`。inflateBack 序列目标的第 4 子句在 `inflate_back_sequence_safety` 中得到证明（`back_end_blk`）。 |
-
-#### 校验和
-
-| 函数 | 路线 | 定理 | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| adler32 | 自身目标 | `ZlibF.Spec.Public.AdlerUpdateProof.adler_public`，`public-adler-update.lean` | 是 | **更窄**：NULL `buf` 只在 `len = 0` 时允许（`AdlerBufferBytes`，偏差行）。`len = 1` 时 C 会读 `buf[0]`，这是真实的错误（上游 PR #1364 已关闭，并宣布了 zlib.h 的限制）。`len ≥ 2` 的 NULL 在 C 中安全，但未证明。 |
-| adler32_z | 自身目标 | `...AdlerUpdateProof.adler_z_public` | 是 | 同 adler32。 |
-| adler32_combine / _combine64 | 自身目标 | `...AdlerCombineProof.combine_public` / `combine64_public` | 是 | 完整。 |
-| crc32 / crc32_z | 自身目标 | `ZlibF.Spec.Public.Proofs.crc32` / `crc32_z`，`public-crc-updates.lean` | 是 | 完整（`BufferBytes` 包含任意长度的 NULL）。`CrcGlobals` 是模型静态数据的前提。 |
-| crc32_combine / _combine64 | 自身目标 | `...CrcCombineProof.combine` / `combine64` | 是 | 完整。 |
-| crc32_combine_gen / _gen64 | 自身目标 | `...CrcCombineProof.gen` / `gen64` | 是 | 完整。 |
-| crc32_combine_op | 自身目标 | `...CrcCombineProof.op` | 是 | `op` 必须来自 `crc32_combine_gen`（与 zlib.h 一致）。 |
-| get_crc_table | 自身目标 | `ZlibF.Spec.Public.Proofs.get_crc_table` | 是 | zlib.h 中未文档化（不是必需的）。 |
-
-#### 工具函数
-
-| 函数 | 路线 | 定理 | 已登记？ | 定义域缺口或备注 |
-| --- | --- | --- | --- | --- |
-| compress / compress_z / compress2 / compress2_z | 安全目标 `Goal.compress*_safety` | `ZlibF.Spec.Public.Proofs.Compress.compress_safety`、`compress_z_safety`、`compress2_safety`、`compress2_z_safety`，`public-compress-safe-mid.lean` | 是 | 源与目标缓冲区分离（偏差行）。长度单元建模为 `Option` 标量，所以长度单元与数据别名在模型之外（偏差行）。每个 level。功能性的 `Goal.compress*`（不在计划内）没有定理。 |
-| uncompress / uncompress_z / uncompress2 / uncompress2_z | 安全目标 `Goal.uncompress*_safe` | `ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe` 等，`public-uncompress-safe.lean` | 是 | `UtilitySeparation`：数据单元与长度单元两两分离（偏差行）。功能性的 `Goal.uncompress*`（不在计划内）没有定理。 |
-| compressBound / compressBound_z | 自身目标 | `ZlibF.Spec.Public.Proofs.compressBound` / `compressBound_z` | 是 | 完整。 |
-| zlibVersion | 自身目标 | `ZlibF.Spec.Public.Proofs.zlibVersion` | 是 | 完整。 |
-| zlibCompileFlags | 自身目标 | `ZlibF.Spec.Public.Proofs.zlibCompileFlags` | 是 | 完整。 |
-| zError | 自身目标 | `ZlibF.Spec.Public.Proofs.zError` | 是 | 未文档化（不是必需的）。 |
-
-#### Gzip 文件接口
-
-`Goal.gz_sequence_safety`（`ZlibF/Spec/Public/GzSafety.lean`）是 gzip 接口的安全目标。它已登记在 `goals.txt`
-和 `safety_goals` 中，已无前提地检查（`gz_sequence_safety_public`，`public-gz-sequence-safety.lean`），并已登记在 `theorems.txt` 中，带每组 gz 函数以及补丁 0002 到 0005 每个补丁块的证明变异（`gz-sequence.tsv`、`gz-read.tsv`、`docs/checking/proof-mutants.md`）。它的非空性目标 `Goal.gz_sequence_nonvacuity`（`gz_sequence_nonvacuity_public`）也已登记。`gz_sequence_safety_of (L : GzReadLeaves)`（`gz.sequence-safety.lean`）从六个读取叶子证明它，六个都已证明。
-其他调用都直接证明：打开、关闭、写入和查询。`gzread_step` 与 `gzfread_step` 随读取侧的 `gz.read-assembly` 关闭。
-`gzgetc_step`、`gzungetc_step`、`gzgets_step` 与 `gzdirect_step` 属于 batch C。目标的定义域是单个句柄的每条历史（`GzHistory`）在每个 OS 世界中（`GzWorldStep`）。
-一次对抗性审读（2026-11-14）未发现错误的子句，发现三个缺口：`gzgetc` 宏的内联路径、`NULL` 句柄，以及一条未列出的 fd 规则（见下表）。三个都已关闭：宏步骤在目标中（A1），`NULL` 句柄有 `Goal.gz_refusal`（A2），fd 规则已从目标中删除（B1）。
-
-| 函数 | 途径 | 定理 | 已登记？ | 定义域缺口或说明 |
-| --- | --- | --- | --- | --- |
-| gzopen、gzopen64 | 打开叶子 | `gzopen_safe`（`gz.inv-open-fresh`）、`gzopen64_safe` | 经由 `gz_sequence_safety_public` | 每个路径、模式与世界。 |
-| gzdopen | 打开叶子 + 自身目标 | `gzdopen_safe`（`gz.inv-open`）；`gzdopen_complete`（`Goal.gzdopen`） | 是（自身目标） | 每个 `fd`。 |
-| gzbuffer、gzeof、gzerror、gzclearerr、gztell、gztell64、gzoffset、gzoffset64、gzrewind、gzseek、gzseek64 | 序列叶子 | `gzbuffer_step`、`gzeof_step`、`gzerror_step`、`gzclearerr_step`、`gztell*_step`、`gzoffset*_step`、`gzrewind_step`、`gzseek*_step`（`gz.inv-*`） | 经由 `gz_sequence_safety_public` | gzbuffer、gzeof、gzerror、gzclearerr、gzoffset 与 gzrewind 的自身功能目标另行登记。 |
-| gzwrite、gzfwrite、gzputc、gzputs、gzprintf、gzvprintf、gzflush、gzsetparams | 序列叶子 | `gzwrite.c.safety`（`gzwrite_step` …） | 经由 `gz_sequence_safety_public` | `gzprintf`/`gzvprintf`：`GzArguments` 在每次调用时都要求可表示的格式，读取者也不例外（审读 B3）。 |
-| gzclose、gzclose_w、gzclose_r | 关闭叶子 | `gzclose_step`、`gzclose_w_step`、`gzclose_r_step_safe` | 经由 `gz_sequence_safety_public` | |
-| gzread、gzfread | 读取叶子 | `GzRead.gzread_step`、`GzRead.gzfread_step`（`gz.read-assembly`） | 经由 `gz_sequence_safety_public` | |
-| gzgetc、gzgetc_、gzungetc、gzgets、gzdirect | 读取叶子 | `GzRead.gzgetc_step`、`GzRead.gzungetc_step`（`gz.read-getc-step`）、`GzRead.gzgets_step`、`GzRead.gzdirect_step` | 经由 `gz_sequence_safety_public` | |
-| zlib.h 的 `gzgetc()` 宏 | 历史步骤 + 目标合取项 | `GzMacro.gzgetc_macro_safe`（`zlib.h.gzgetc-macro`） | 经由 `gz_sequence_safety_public` | 已关闭（审读 A1；在证明变异 `macro-have-guard-dropped` 存活后于 3c5292f7 更正）：每一次宏调用都是 `GzHistory.getcMacro`；有缓冲输出时是内联路径，`x.have = 0` 时是对函数的调用，经由 `gzgetc_step` 在 `ReadsFinite` 下覆盖。差分测试：`tests/gen/gz.py` 的操作 `getcm`（也在 `x.have = 0` 时：刚打开之后、写入句柄上、空文件上）。 |
-| `NULL` 句柄上的所有 gz 函数 | 自身安全目标 | `ZlibF.Spec.Public.GzRefusalProof.gz_refusal`（`Goal.gz_refusal`，`public-gz-refusal.lean`） | 是，带证明变异（`gz-refusal.tsv`） | 已关闭（审读 A2）：29 个函数中的每一个都返回其文档化的值，堆和世界不变。C 测试 `tests/goals/gz-refusal`：204 次调用，无违例。`gzgetc` 宏用于 `NULL` 在 C 中是未定义行为；目标陈述的是函数。 |
-| 同一 fd 上的第二个句柄 | 世界步骤 | `GzHistory.world` | 否 | 已覆盖（审读 B1，已更正）：`GzWorldStep` 是任意良构的世界，另一方可以关闭或重用句柄的 fd（[回归](../tests/verification/regressions/gz-world-closes-fd.lean)）。 |
-
-#### 误计与未完成项
-
-对完整文档化定义域没有已检查无故障定理的已文档化函数：
-
-1. **inflateBack**：已登记（`inflate_back_sequence_safety`）。定义域按偏差行收窄：`inputBound < 2^48`，窗口与每个输入块都在堆字节块中。
-2. **deflateCopy**：已登记。假设 `source ≠ dest`（偏差行）。
-3. **inflateEnd**：已关闭。NULL、state 为 NULL、`End` 之后、初始化失败之后，以及复制失败的目标由 `Goal.inflate_refusal`（checked）覆盖。
-4. **inflateCopy**：已关闭。不一致的源由 `Goal.inflate_refusal`（checked）覆盖。
-5. **NULL 或不一致流的 refusal**：已关闭。`Goal.inflate_refusal` 与 `Goal.deflate_refusal`（checked）覆盖 `inflate`、`deflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateGetDictionary`、`inflateSetDictionary`、`inflateCopy`、`deflateSetDictionary`、`deflateParams`、`deflateGetDictionary` 与 `deflateCopy`。这些目标与 `deflateGetDictionary_reject` 已登记。
-6. **deflateParams、deflateSetDictionary、deflatePrime、deflateBound、deflateBound_z、inflateSync**：它们的逐函数安全目标（`Goal.*_safety`）已登记（dd73d9d2）。它们的功能性自身目标没有定理，不在计划内。
-7. **adler32、adler32_z**：定义域比 zlib.h 更窄（NULL 只在 `len = 0` 时允许）。`len = 1` 是真实的 C 错误（偏差行）。`len ≥ 2` 的 NULL 安全但未证明。
-8. **gz 函数**：`Goal.gz_sequence_safety` 已登记（`gz_sequence_safety_public`，无前提），连同其非空性目标。`gzgetc` 宏路径（审读 A1）和同一 fd 上的第二个句柄（审读 B1）都在目标之内。`NULL` 句柄由 `Goal.gz_refusal` 覆盖。
-9. 相关，但不是函数：`Goal.deflate_initialisation_domain`（非空性）已登记（`deflate_initialisation_domain_public`，06cbfd06；在 dd73d9d2 登记）。`Goal.gz_initialisation_domain` 不是必需目标（见[范围](#scope)）。
+`deflateParams`、`deflateSetDictionary`、`deflatePrime`、`deflateBound`、`deflateBound_z` 和 `inflateSync` 的功能目标没有定理，也不在计划内。它们的安全目标已登记。
 
 ### 按顺序的下一步工作
 
-每个必需目标都已登记（63 个必需目标，没有未完成的；2026-11-14）。计划内的第 9 至 12 行中，现已登记的目标是 `deflateInit2_`、`deflate_initialisation_domain`、`inflateCopy`、`deflateCopy`、`inflate`、`deflate`，以及所列其他调用的安全目标（`inflate_sequence_safety`、`deflate_sequence_safety`、`inflateSync_safety`、`deflateParams_safety`、`uncompress*_safe`、`compress*_safety`、`inflate_back_sequence_safety`）。其中剩下的都是功能性的，不在计划内：`inflate_sequence`、`deflate_sequence`、`uncompress*`、`compress*`、`inflateBack`、`inflate_back_sequence` 以及各功能性自身目标。第 1 至 5 行和第 13 行属于 gzip 文件接口：它们的安全在计划内（第 5 项），按 [gz 骨架](#gz) 进行，而不按本表；它们的功能契约不在计划内。第 6 至 8 行和第 10 行只在某个 sequence 目标需要时才做。
+每个必需目标都已登记：98 个安全目标和非空性目标，没有未完成的（`tests/audit/public-api.json`）。验收套件在哪个提交上全部通过、此后有什么变化，见[范围](#scope)。剩下的工作按顺序是：
 
-按顺序排列。“前提”是必须先证明的内容，绝不是假设的契约。“负责 PR”是承载该工作的拉取请求（如已存在）。
+1. **验收** `bde170e9` 之后登记或改动的目标：gz 函数和回调解码器的 35 个单函数安全目标、范围扩大后的初始化目标、回调解码器序列目标的现行形式，以及带拒绝子句的 25 个流目标和复制目标（第 2 项）。它们已经登记，只差验收套件在某个具名提交上全部通过：公理关卡、精确目标匹配、自测和差分测试。这不需要变异体运行。那个提交记入[范围](#next-acceptance-run)。
+2. **拒绝子句。** 命题和证明已经完成：23 个单函数流安全目标和两个复制目标都陈述了拒绝（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 1 项）。它们的定理沿用已登记的名字。对它们来说，剩下的是第 1 项的验收运行。没有为新的拒绝子句增加变异体行；这些目标现有的变异体行都早于拒绝子句。变异体是附加的证据，不是验收的条件。
+3. **默认 zlib 流的往返**，排在安全结论之后（[范围](#scope)）。
+4. **把本地补丁提交上游**：0004 和 0005（[补丁](../patches/README.md)）。补丁 0001 至 0003 与已经提交上游的拉取请求一致。
+5. **尚未结束的审查和决定**：[翻译审查](#translation-review)、[待复查的历史报告](#historical-reports-to-recheck)，以及所有者对八个公开函数结果单元的决定（[覆盖情况](#no-fault-coverage-of-zlibh-functions)第 3 项）。
+6. **可选的清理**：删除没有任何已登记定理使用的证明（[核心证明骨架](#core-proof-skeletons)）。
+7. **导入证明模块的 Math 模块。** `ZlibF/Spec/` 的布局已经定下来（[规格的布局](design/safety-functional-split.md)）：只有 `Safety/`、`Functional/` 和 `Common/`；安全模块和公共模块不导入功能模块，公共模块不导入安全模块，规格模块不导入证明模块，经由其他模块导入也不行；`tests/audit/public-api.json` 列出的目标都不定义在 `Common/` 下。`scripts/check-spec-layers.py` 在快速关卡中检查这些，没有例外。剩下的是它的 `MATH_PROOF_IMPORTS` 列表：`ZlibF/Math/` 的 28 个模块对证明模块的 36 处导入。脚本记录说，它们导入的是引理，不是定义，移动这些引理是以后的工作。这张列表只能缩短。同样留到以后的还有：25 条关于内部函数的命题（清单文件不列它们）以 `Goal.<name>` 的形式定义在 `Common/` 下（`ByteAddress.lean`、`Common/Inflate/`）；它们暂时留在那里。
 
-| # | 目标 | 前提 | 负责 PR |
-| ---: | --- | --- | --- |
-| 1 | `gzopen`、`gzopen64`、`gz_initialisation_domain` | 功能契约，不在计划内；`gz_initialisation_domain` 不是必需目标（见[范围](#scope)）。陈述已修正（见 [gzip 打开路径长度](#gzip-open-path-length)）。接下来是 `gz_open` 的路径打开（`fd = -1`）分支：`fsOpen` 的结果以及追加/读取定位，复用 `gzdopen` 的组合 | — |
-| 2 | `gztell`、`gztell64` | 从每个允许的 gz 调用历史（打开、读、写、定位、回退）推出 `PosInv` | — |
-| 3 | `gzclose_r` | 读端缓冲区在调用历史上的归属，然后是已初始化读端上的 `inflateEnd` | — |
-| 4 | `gzseek`、`gzseek64` | 第 2 项的 `PosInv` 和缓冲区不变式；透明路径与缓冲路径 | — |
-| 5 | `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets`、`gzungetc`、`gzdirect`、`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams` 的透明路径 | 延迟初始化与缓冲区不变式；压缩路径等待第 12–13 项 | — |
-| 6 | `deflatePrime` | 在 `DGood` 下的待输出字节压缩与位插入 | — |
-| 7 | `deflateBound`、`deflateBound_z` | 执行公式与饱和上界的对应，包括头部字符串 | — |
-| 8 | `deflateSetDictionary` | 在 `DGood` 下的窗口填充、散列插入与输入恢复 | — |
-| 9 | `deflateInit2_`、`deflate_initialisation_domain` | 已登记。原为：参数规范化、五次分配、清理，以及对每组参数建立 `DGood` | — |
-| 10 | `inflateCopy`、`deflateCopy` | 已登记。原为：分配失败、缓冲区复制、指针重定位、独立归属 | — |
-| 11 | `inflate` → `inflate_sequence` → `inflateSync`、`uncompress*`、`inflateBack`、`inflate_back_sequence` | 由实际 `inflate_table` 得到的表含义；覆盖所有模式的单一调度循环不变式 | — |
-| 12 | `deflate` → `deflate_sequence` → `deflateParams`、`compress*` | `fill_window` 与滑动；以级别、`memLevel`、`windowBits` 为参数的单一策略循环不变式；块输出 | — |
-| 13 | 压缩 gz 路径、`gzclose_w`、`gzclose`、`gz_sequence` | 第 11 和 12 项 | — |
-
-当陈述修正会改变需要证明的内容时，先做修正。尚未解决：依赖 `detectLag = 8` 的 `Api.Goal.inflate_rejects_invalid`（已检查的反例表明该常数有误；[API 模型](design/api-model.md)）。下文的 gzip 打开路径长度问题已修正。`inflateInit2_` 与 `Api.Goal.gz_seek_read` 已修正并通过检查，等待登记。
-
-早先的叙述性检查点（关于 inflate、deflate、树、CRC、差分框架和集成的分领域说明）保存在[进度检查点](history/progress-checkpoints.zh.md)中，属于历史记录，其中的数字不是当前数字。
+[范围](#scope)列为不在计划内的各组不投入工作。早先的有序工作表（13 行，每一行不是已登记就是不在计划内）见[早先的工作顺序](history/next-work-and-readiness.md)。
 
 ### 公开 API 的证明准备情况
 
-**灰色表示尚未证明，不表示无法推进。可以立即开展独立工作。** 被调用函数呈绿色，并不意味着调用者自身的前置条件、循环、返回结果和内存效果已经建立。一个能直接调用的 API，仍可能存在错误的契约或已确认的源码缺陷；只有这类证据才足以给目标加上阻碍边框。不能只凭图中缺少箭头判断证明准备情况。
+生成的索引把每个未登记的公开目标链接到下表中的一行。生成器要读这张表，所以表中的标签和锚点保持不变。表中的每个目标都是功能目标：未证明，也不在计划内（见[范围](#scope)）。同一批函数的安全性已经登记（[按函数查覆盖情况](coverage.md)）。
 
-[证据索引](progress.md)区分证明引用、C 调用和规格引用。下面列出需要组合的证明义务，这些义务与精确目标的连接尚未完成。它们不会引入新的公开调用假设，也不会赋予目标任何已检查的输入覆盖范围。
+表中的说明写的是：证明这个功能目标需要什么。其中大多数写于功能正确性还是计划内结论的时候，每一条与确切目标是否相符都**尚未由证明确认**。它们不是工作计划。任何一行都不授予“已检查”状态，也不假设被调用函数的规格。
 
-##### deflate，批次 B：位置形式的散列链（已停止，2026-11-12）
-
-这项工作原想用位置形式的散列链不变式取消对直接调用 `deflateResetKeep` 的排除（`docs/deviations.md`）。按所有者的决定已停止：在这样的历史上，真实 C 会读到窗口之外（`docs/findings/deflate-copy-pending-prev`）：`deflateResetKeep` 和 `deflate(Z_BLOCK)` 留下两个等待插入的链头，`deflateCopy` 只复制前沿以下的 `prev`，副本上的一次 `Z_RLE` 或 `Z_HUFFMAN_ONLY` 刷新以 `insert = 0` 结束，于是 `longest_match` 之后会沿一个未初始化的槽前进。因此任何允许直接调用 `deflateResetKeep` 的不变式都不可能成立。`DInv` 保持精确形式，排除保持不变。不打 zlib 补丁：这个缺陷不妨碍已证明定义域内的证明。
-
-保留在 `dev` 上的部分（切片 1，cc359062，已检查）：`PosChains`/`ReachS` 及其插入、滑动和 `longest_match` 的遍历（`deflate.c.engine.pos-chains`），只讲安全的 `longest_match_safe`（不需要字节一致；以 `chain_length` 终止，`deflate.c.engine.lm-safe`、`-lm-pos`），`insert_string_pos` 以及 `fill_window` 在位置形式散列链上的待插入循环（`-insert-pos`、`-fill-insert-pos`）。安全路径上没有用到它们。分支 `worker/poschains`（不变式、`fill_window`、刷新和重新设置缓冲区已切换；策略未切换）由 deflate 负责人关闭，不合入；位置形式的推广现在由 batch B 负责（2026-11-12），分片落地并保持 `dev` 可构建，精确散列链作为推论。`worker/slid-chaintop` 已关闭：其内容已在 `dev` 上（`SlidChains` 取 `chainTop`）。第一个位置形式分支按计划也无法完成的第二个原因：对 `deflate_huff` 和 `deflate_rle` 末尾的 `insert = 0`，位置形式的不变式给不出这一步，而精确不变式从它的前沿 `chainTop` 得到这一步。
-
-随这一发现一起检查的结论：在已证明的定义域内，没有链头在等待插入（`DInv.heads_inserted`、`DInv.slid_heads_inserted`，`deflate.c.universal-heads`）。
-
-#### 打开、查询与关闭操作的前提
-
-证明打开文件不需要先完成整个引擎。主要工作在公共辅助函数 `gz_open`：模式解析循环、真实分配、字符串复制、文件描述符效果，以及初始化不变量。位置查询尚缺的基础，是覆盖所有允许调用序列的位置不变量。关闭操作尚缺的基础，是覆盖这些调用序列的所有权事实，其中也包括分配失败。
-
-目前本地执行证明已覆盖：
-
-- [打开入口](../ZlibF/Proof/gzlib.c.open.lean)：NULL 参数、负文件描述符和第一次分配失败。结论给出未改变的文件系统和精确堆状态，也包括分配尝试计数器。
-- [读模式关闭](../ZlibF/Proof/gzread.c.close.lean)：NULL、模式不匹配，以及在 `GzGood` 条件下完整的未缓冲执行。范围包含文件描述符错误，释放消息、路径和句柄，以及无关分配保持不变的框架性质。
-- [位预置入口](../ZlibF/Proof/deflate.c.prime.lean)：在压紧待输出字节之前，拒绝流状态和非法位数的分支。
-
-这些是具有明确内部范围的结果，并不是完整公开目标的证明。特别是，仍须从允许的公开调用序列推出 `GzGood`。不能凭一个分支的结果，就把灰色公开节点改成绿色。
-
-#### inflateBack
-
-回调解码器的安全（所有者 2026-11-12 的要求）：`Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Public/Sequences.lean`），与未改动的 `Goal.inflate_back_sequence` 并列陈述。回调就是目标中的 `CallbackProtocol`：任意会返回的调用者代码，只修改自己的块和必须保持的窗口切片，交出位于窗口之外的可读输入，并提供有限的总输入（`inputBound`）。目标另加 `inputBound < 2^48`（循环额度；`docs/deviations.md`）。陈述测试：`tests/goals/infback-callbacks`（ASan/UBSan，30000 个用例，无报告）。骨架：分支 `skeleton/inflate-back`，`ZlibF/Proof/infback.c.safety-skeleton.lean`（类型检查通过；引理证明待完成）。早先的内部约定 `CbContract` 比协议窄，因此回调引理在 `PInv` 上重新陈述，其位代数可复用。
-问题（不在计划内的功能目标）：`Goal.inflateBack` 对 `inputBound` 没有上限，因此输入超过循环额度的协议在模型中使它为假。
-所需不变量：`inflate_fast` 假定入口处 `state->bits < 8`。`inflate.c` 在快速路径前检查它（上游 e7bb978）；`infback.c` 不检查，因此证明要说明每轮以 `TYPE`、`TABLE` 或 `LEN` 开始时持有的位少于 8（`BitsShort` 行）。若持有 8 位或更多，`inflate_fast` 可能把 `next` 退回到 `in` 给出的数据块之前。证据：`tests/goals/infback-callbacks/bits8.sh`（60000 个用例，未触发陷阱）。
-目标修正（46ce3a0a、200f80e1）：历史为 `BackSafeReachable`。窗口是一个堆字节块的切片；在每次调用所在的堆上以及每个回调步骤之后，每个字节对象都小于 `2^63` 字节（`BackPlatform`）；每个输入块都位于一个堆字节块中（`BackFirstChunk`、`BackPlatform`）；两次调用之间的调用者修改保持存活块的只读标志。偏差行："回调解码器窗口"、"回调解码器输入块"、平台行与"回调"。候选推广（现在不做）：让两个解码器 `inflate` 与 `inflateBack` 一起接受位于任意字节引用的输入块（调用者结构体字段、静态数据）；两者都依赖 `inflate_fast`，其入口要求原始字节块。
-组合：`inflate_back_sequence_safety`（c7169b54）用 `lenFast_of_blk`（窗口位于堆字节块时的快速路径）组合下列引理，没有未证前提；每个历史的窗口都在这样的块中（`back_reach_window`）。较早的组合 `inflate_back_sequence_safety_of` 以前提 `FastOk`（每个窗口上的快速路径）为条件，已删除；`docs/proof/callbacks.md` 说明该前提为何没有证明。已登记，带证明变异（`tests/proof-mutants/infback-sequence.tsv`）。
-
-| 引理 | 含义 | 状态 | 小时 |
-| --- | --- | --- | ---: |
-| `PInv` 框架 | 调用者协议上的循环不变量：`CallbackFrame` 与存活集合在回调调用和库写入之间可组合；状态或寄存器写入保持 `PInv` | 已检查（dd5f9e1e） | 0 |
-| `PULL_p` | `PULL()`：只在当前块为空时调用 `in`；由协议的 `inStep` 得到数据块和日志项；返回 0 时为 `Z_BUF_ERROR` | 已检查（dd5f9e1e） | 0 |
-| `PULLBYTE_p`、`NEEDBITS_p` | 向 `hold` 读入一个字节，以及 `k ≤ 32` 的 `NEEDBITS(k)`（`inflate.c.main.macros` 的位代数） | 已检查（52ae3999） | 0 |
-| `ROOM_p` | `ROOM()`：对满窗口调用 `out`（`outStep`），`whave = wsize`，从窗口开头重新写；拒绝时为 `Z_BUF_ERROR` | 已检查（7971d171） | 0 |
-| `TYPE_p` | `case TYPE`：最后块标志与块类型，最后一块之后进入 `DONE` | 已检查（472c8a15） | 0 |
-| `STORED_p` | `case STORED`：长度检查以及经 `PULL` 和 `ROOM` 的复制；数据块可与窗口同属一个块 | 已检查（eec477cd） | 0 |
-| `TABLE_p` | `case TABLE`：头部、码长码、解码出的码长、三次 `inflate_table` 调用，表已安装（`TablesOk`，含解码不变量与查询稳定性），以及转入 `LEN` | 已检查（650c8931） | 0 |
-| `BitsShort` | 每轮以 `TYPE`、`TABLE`、`LEN` 开始时持有的位少于 8（`Round` 中的 `Short`）：带读入见证的查表、由 `StableQuery` 与 `PrefixQuery` 得到的 `consumed_gt`、依据 `CodeLengthContents` 的 `TABLE` 码长解码 | 已检查（57c7fabd、9e93b576） | 0 |
-| `LEN_slow_p` | 不走快速路径的 `case LEN`：字面量、块结束、带距离检查并经 `ROOM` 复制的长度/距离对、无效码 | 已检查（06e4a17d） | 0 |
-| `fast_env` | 在 `RESTORE` 之后由 `LEN` 处的 `PInv` 得到 `start = wsize` 的 `EnvG true`；窗口与自身的别名由 c51943af 覆盖（`EnvG true`、`inflate_fast_safe_progress`）。负责人：batch C | 已检查（c7169b54） | 0 |
-| `fast_consumes` | 在长度表满足 `LenLeavesPositive` 的 `EnvG α` 上，`inflate_fast` 严格消耗位：除非结束于 `TYPE` 或 `BAD`，有 `bits' + 8·avail_in' < bits + 8·avail_in`（路线 (a) 的度量）。负责人：batch C | 已检查（02e8c222） | 0 |
-| `LEN_fast_p` | 走快速路径的 `case LEN`：`RESTORE`、在 `fast_env` 上调用 `inflate_fast`、`LOAD`；之后的 `PInv`、度量（由 `fast_consumes`）与 `Short`。负责人：batch C | 已检查（c7169b54） | 0 |
-| `dispatch_p` | 调度的一轮：`PInv` 可达的每种模式；度量下降，或调用以三种结果之一离开；在 `LEN_fast_p` 之前快速路径是前提 `LenFast` | 已检查（650c8931） | 0 |
-| `loop_p` | 调度循环在额度内结束（由 `inputBound < 2^48` 得 `backMeasure < 2^64`） | 已检查（650c8931） | 0 |
-| `back_call` | 一次调用：入口、`loop_p`、出口（把最后的部分窗口交给 `out`，写 `next_in`、`avail_in`）：`back_call_partial`（返回的调用，任意输入）与 `back_call_total`（输入少于 `2^48`） | 已检查（3a2a8753、f91f401d） | 0 |
-| `back_null`、`back_end_blk` | 空流；可达历史上的 `inflateBackEnd`（`back_end_public`） | 已检查（6f9575e7、c7169b54） | 0 |
-| `back_reach_valid_blk` | 每个可达历史都在调用者窗口上留下有效状态（初始化、换缓冲区、使用无度量循环规则的 `back_call_partial`） | 已检查（6f9575e7、c7169b54） | 0 |
-| **合计** | | | **0** |
+本节早先的内容已归入历史：已经停止的、按位置表述的哈希链工作（[deflate 骨架](history/skeleton-deflate.md)）、inflateBack 的引理表（[inflateBack 骨架](history/skeleton-inflate-back.md)），以及打开、查询与关闭操作的前置事项和后来已登记目标的各行（[准备情况说明](history/next-work-and-readiness.md)）。
 
 #### 每个未完成公开目标的下一步
 
-“开始”表示无需等待完整引擎定理就能开展的工作。“组合”列出完整收束目标所需的前提；其他独立分支仍可推进。表中任何一行都不授予已检查状态，也不把被调用函数的规格当作假设。
+“开始”表示不必等待完整的引擎定理就能着手的工作。“组合”指出彻底完成目标所需的前置事项。
 
 <!-- proof-readiness:start -->
-| 公开目标 | 图中所示证明工作 | 下一步与缺少的前提 |
+| 公开目标 | 图中所示证明工作 | 下一步与缺少的前置事项 |
 | --- | --- | --- |
-| `gzopen`, `gzopen64`, `gz_initialisation_domain` | 开始：打开与清理 | <a id="readiness-gzopen"></a> **陈述已修正：**见 [gzip 打开路径长度](#gzip-open-path-length)。**开始：**`gz_open` 的路径打开分支（`fsOpen` 结果、追加与读取定位），复用已登记的 `gzdopen` 模式循环、分配与 `OpenState` 组合。上文的入口与失败分支已经过本地检查。 |
-| `gztell64`, `gztell` | 需要：位置约束 | <a id="readiness-gztell64"></a> **组合：**从读取、写入、定位和回退字节的调用序列推出位置不变量 `PosInv`，再复用现有算术执行证明。 |
-| `gzclose_r` | 需要：资源归属 | <a id="readiness-gzclose-r"></a> **开始：**已初始化缓冲区的清理，以及从调用序列建立其所有权的证明。未缓冲执行及框架性质已有本地检查；仅有 `inflateEnd` 还不够。 |
-| `gzclose_w`, `gzclose` | 需要：交付与清理 | <a id="readiness-gzclose-w"></a> **组合：**实际补零、最终压缩和文件写入，全部清理与错误路径，再利用两个完整的关闭结果证明分派操作。 |
-| `gzseek64`, `gzseek` | 需要：定位与状态序列 | <a id="readiness-gzseek64"></a> **开始：**位置与指针的状态序列不变量、缓冲和透明模式路径，以及精确的错误框架性质。负位置的可达性与溢出复核复核尚未完成。 |
-| `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` | 需要：读取路径证明 | <a id="readiness-gzdirect"></a> **开始：**公共延迟准备、透明模式读取，以及缓冲区与状态序列不变量。**组合：**压缩路径中的实际解码执行，再建立 EOF、计数、字节回退和错误条款。`gzdirect` 需要格式探测与初始化，不需要完整的数据解码循环。 |
-| `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams` | 需要：写入路径证明 | <a id="readiness-gzwrite"></a> **开始：**缓冲、格式化、透明模式写入及失败情况。**组合：**压缩输出与参数变更中的实际压缩器执行。 |
-| `deflateInit2_`, `deflate_initialisation_domain` | 开始：初始化与分配 | <a id="readiness-deflateinit2"></a> **开始：**参数归一化、五次分配、全部失败清理、实际建立 `DGood` 和树状态，以及具体见证。重置证明要求不变量已经成立，并不会为新分配的存储建立它。 |
-| `deflatePrime` | 开始：压紧与位操作 | <a id="readiness-deflateprime"></a> **开始：**待输出字节的压紧、带检查的移位、位插入与交付，以及不变量和框架性质的保持。拒绝分支已有本地检查；接受的位数范围仍未完成。 |
-| `deflateBound_z`, `deflateBound` | 开始：上界与头部审查 | <a id="readiness-deflatebound-z"></a> **开始：**把现有执行公式连接到具有饱和语义的数学上界，包括头部字符串与额外字段长度。额外长度复核复核尚未完成，并不是新确认的阻碍。 |
-| `deflateSetDictionary` | 开始：窗口与哈希 | <a id="readiness-deflatesetdictionary"></a> **开始：**填充窗口、插入哈希链、恢复保存的输入，再处理校验和以及精确的状态和框架效果。绿色校验和调用只覆盖其中的校验和部分。 |
-| `inflateCopy`, `deflateCopy` | 开始：复制与重定位 | <a id="readiness-inflatecopy"></a> **开始：**分配失败、缓冲区复制、指针重定位及独立所有权。在声称覆盖完整定义域之前，解决已记录的复制与状态序列调查；不能悄悄增加前提。 |
-| `deflateParams` | 需要：块交付与参数状态 | <a id="readiness-deflateparams"></a> **组合：**实际交付旧块、处理返回码，并更新规范的调参表行。在完整收束之前，检查拒绝路径精确保持了哪些状态。 |
-| `inflateSync` | 需要：扫描与状态序列 | <a id="readiness-inflatesync"></a> **开始：**组合现有的首次扫描与恢复扫描、暂存位、标记搜索、重置，以及记账和框架结果。从调用序列推出窗口与重置前提。 |
-| `compress2_z`, `compress2`, `compress_z`, `compress` | 需要：压缩器执行 | <a id="readiness-compress2-z"></a> **开始：**参数、标量长度和清理。**组合：**实际初始化、压缩和结束操作及精确输出，再处理外层封装。抽象的往返性质还不够。 |
-| `uncompress2_z`, `uncompress2`, `uncompress_z`, `uncompress` | 需要：解码器执行 | <a id="readiness-uncompress2-z"></a> **开始：**标量结果、空间不足和清理。**组合：**实际初始化、解压和结束操作、精确消费量与输出，再处理外层封装。 |
-| `inflate`, `deflate` | 需要：分派不变量 | <a id="readiness-inflate"></a> **组合：**解码表或哈希链的含义、分派不变量、循环终止，以及输出和记账。绿色校验和目标不能建立这些前提。 |
-| `inflate_sequence`, `deflate_sequence`, `inflate_back_sequence`, `gz_sequence` | 需要：执行与格式 | <a id="readiness-inflate-sequence"></a> **组合：**每次实际调用的安全性、状态序列保持、向独立格式模型的精化，以及跨输入输出分块的完成性质。 |
-| `inflateBack` | 需要：表、窗口与回调 | <a id="readiness-inflateback"></a> **组合：**压缩块的 TABLE/LEN 执行、窗口内部的输出、公开回调所有权、循环终止和精确的输入输出记账。现有 stored 块和入口路径仍可独立推进。 |
+| `gzopen`, `gzopen64`, `gz_initialisation_domain` | 开始：打开与清理 | <a id="readiness-gzopen"></a> **命题已更正：**见 [gzip 打开路径长度](history/specification-review.md#gzip-open-path-length)。**开始：**`gz_open` 按路径打开的分支（`fsOpen` 的各种结果、追加定位和读取定位），复用已登记的 `gzdopen` 模式循环、分配和 `OpenState` 的组合。入口分支和失败分支已在上文经过本地检查。 |
+| `gztell64`, `gztell` | 需要：位置历史 | <a id="readiness-gztell64"></a> **组合：**从读取、写入、定位和字节回退推出 `PosInv`，再复用现有的算术执行证明。 |
+| `gzclose_r` | 需要：资源历史 | <a id="readiness-gzclose-r"></a> **开始：**已初始化缓冲区的清理，以及在历史上建立其所有权的证明。无缓冲的执行和帧性质已经过本地检查；单有 `inflateEnd` 还不够。 |
+| `gzclose_w`, `gzclose` | 需要：刷新与清理 | <a id="readiness-gzclose-w"></a> **组合：**实际的补零、最终压缩和文件写入，所有清理路径和错误路径，然后用两个完整的关闭结果完成分派。 |
+| `gzseek64`, `gzseek` | 需要：定位与历史 | <a id="readiness-gzseek64"></a> **开始：**位置与指针的历史不变量、有缓冲的路径和透明路径、精确的错误帧性质。负位置的可达性和历史上的溢出报告**尚未由证明确认**。 |
+| `gzdirect`, `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets`, `gzungetc` | 需要：读取路径证明 | <a id="readiness-gzdirect"></a> **开始：**公共的延迟准备、透明读取，以及缓冲区与历史不变量。**组合：**压缩路径上实际的解码器执行，然后是 EOF、计数、字节回退和错误各子句。`gzdirect` 需要格式探测和初始化，不需要完整的数据解码循环。 |
+| `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams` | 需要：写入路径证明 | <a id="readiness-gzwrite"></a> **开始：**缓冲、格式化、透明写入和各种失败。**组合：**压缩输出和参数变更中实际的压缩器执行。 |
+| `deflatePrime` | 开始：压紧与位操作 | <a id="readiness-deflateprime"></a> **开始：**待输出字节的紧缩、带检查的移位、位的插入与刷新，以及不变量和帧性质的保持。拒绝分支已经过本地检查；被接受的位数情形仍未完成。 |
+| `deflateBound_z`, `deflateBound` | 开始：上界与头部审查 | <a id="readiness-deflatebound-z"></a> **开始：**把现有的执行公式与带饱和的数学上界联系起来，包括头部字符串和 extra 字段长度。extra 字段长度的报告已在固定的 C 上复现：`extra_len` 为 `2^32 - 2` 或 `2^32 - 1` 时，C 按 32 位计算 `2 + extra_len` 并发生回绕，而关于数值的目标照现在的写法没有回绕（[发现](findings/deflatebound-extra-len/README.md)）。开始证明之前，这两个目标的命题需要先更正。 |
+| `deflateSetDictionary` | 开始：窗口与哈希 | <a id="readiness-deflatesetdictionary"></a> **开始：**填充窗口、插入哈希链、恢复保存的输入，然后是校验和以及精确的状态效果和帧效果。已通过检查的校验和调用只覆盖校验和这一部分。 |
+| `deflateParams` | 需要：块刷新与参数状态 | <a id="readiness-deflateparams"></a> **组合：**实际刷新旧块、处理返回码，以及更新规范的调参表行。在彻底完成之前，先核对拒绝时状态是否原样保持。 |
+| `inflateSync` | 需要：扫描与历史 | <a id="readiness-inflatesync"></a> **开始：**组合现有的首次扫描与恢复扫描、暂存的位、标记搜索、重置，以及记账结果和帧结果。从历史推出窗口与重置前提。 |
+| `compress2_z`, `compress2`, `compress_z`, `compress` | 需要：压缩器执行 | <a id="readiness-compress2-z"></a> **开始：**参数、标量长度和清理。**组合：**实际的初始化、压缩和结束，连同精确的输出，然后是各包装函数。抽象的往返性质还不够。 |
+| `uncompress2_z`, `uncompress2`, `uncompress_z`, `uncompress` | 需要：解码器执行 | <a id="readiness-uncompress2-z"></a> **开始：**标量结果、空间不足和清理。**组合：**实际的初始化、解压和结束，精确的消耗量和输出，然后是各包装函数。 |
+| `inflate_sequence`, `deflate_sequence`, `inflate_back_sequence`, `gz_sequence` | 需要：执行与格式 | <a id="readiness-inflate-sequence"></a> **组合：**每次调用实际的安全性、历史的保持、独立的格式细化，以及跨输入输出切分的完成性质。 |
+| `inflateBack` | 需要：表、窗口与回调 | <a id="readiness-inflateback"></a> **组合：**压缩块的 TABLE/LEN 执行、落在窗口之内的输出、公开回调的所有权、循环终止，以及精确的输入输出记账。现有的存储块路径和入口路径可以独立推进。 |
 <!-- proof-readiness:end -->
-
-近期顺序是：先推进独立的入口、清理和算术路径，再建立公共的打开、位置和所有权不变量，最后完成整函数组合。回调压缩块可以并行推进。如果某个前提尚不清楚，应在这里记录精确问题；不能凭空制造依赖，也不能把经过的时间当作存在阻碍的证据。
 
 ### 规格审查
 
-#### Gzip 定位模式
+本节的六条记录都已结束，保存在[规格审查记录](history/specification-review.md)中：gzip 定位模式、inflate 初始化的清理、解压实用函数的清理、gzip 打开路径的长度、带本地修复的 gzip 库问题，以及系统调用预言下的 gzip 偏移与倒回。两个 gz 位置溢出问题写在根目录的 `README.md` 中；补丁见[补丁说明](../patches/README.md)。
 
-已修正。原先的 `GzSeek` 允许成功的定位返回另一种模式的句柄，因此抽象目标 `gz_seek_read` 不成立。现在该关系保持模式不变。该目标已有[本地检查的证明](../ZlibF/Proof/Api/GzSeekRead.lean)，原反例已改为[回归检查](../tests/verification/regressions/gz-seek-mode.lean)。登记和指定提交上的 CI 尚未完成。这是模型问题，不是 zlib 问题。
+未完成，并且不在计划内，因为它们是仅关于模型的命题（见[范围](#scope)）：
 
-#### Inflate 初始化清理
+- `Api.Goal.inflate_rejects_invalid` 依赖 `detectLag = 8`。一个经过检查的反例表明这个常数是错的（[API 模型](design/api-model.md)）。
+- `Api.Goal.gz_seek_read` 已经改正，并已[在本地检查](../ZlibF/Proof/Api/GzSeekRead.lean)。它没有登记。
 
-已修正。窗口参数非法时，原 `inflateInit2_` 目标要求状态表在结构上完全不变，但分配后再释放会使该表变长。现在该分支逐项比较每个对象表（`SameObjectsUpToTableShape`）；没有任何 C 操作能观察到表的长度。该目标已有[本地检查的证明](../ZlibF/Proof/public-inflate-init2.lean)，原反例已改为[回归检查](../tests/verification/regressions/inflate-init2-table-shape.lean)。登记和指定提交上的 CI 尚未完成。这是契约问题，不是 zlib 问题。
-
-#### 解压工具函数的清理
-
-已修正。`UncompressCounted` 和 `UncompressSingle` 用 `SameObjects` 比较调用后的堆，它要求对象表相等，包括表的物理长度。`uncompress2_z` 在检查参数之前分配一个局部 `z_stream` 和一个 8 字节局部块，并在每条路径上释放二者；释放后的表项作为空项留在表中。因此连空参数拒绝路径也使四个解压目标不成立。现在它们逐项比较对象表（`SameObjectsUpToTableShape`，移到 `Spec/Public/Memory.lean`），与 `inflateInit2_` 的契约相同。反例保留为[回归](../tests/verification/regressions/uncompress-table-shape.lean)。这是契约问题，不是 zlib 问题。`CompressorContract` 曾有相同的模式（`compress2_z` 也释放一个局部 `z_stream`）。
-
-这四个契约还缺少堆的表示条件 `Uniq`（`nextBlk` 以下每个块标识只对应一个对象）。[可信基础](trusted-base.md)要求每个初始堆满足它，每个公开流历史也已假设它（`InitDomain`、`StreamReachable`）。现在它是前提。它不缩小 C 的定义域：每个 C 状态都有这样的表示。
-
-压缩函数的契约也已修正。`CompressorContract` 和 `CompressorSafety` 有这两个缺陷。`compress2_z` 在参数检查之后的每条路径上都释放局部 `z_stream`，它留下的空表项使目标不成立，即使 `deflateInit` 在分配之前就拒绝了压缩级别（公开调用者见证上的级别 10：[回归](../tests/verification/regressions/compress-table-shape.lean)）。现在它们用 `SameObjectsUpToTableShape`。它们也缺少 `Uniq`，而 `deflateInit` 的契约和 `deflate` 流历史（`StreamReachable.deflateInit`）都假设它；现在它是前提。`CompressorSafety` 的陈述测试：`tests/goals/compress-safety`（ASan、UBSan、泄漏计数、分配失败、无效级别；9000 次运行无违反）。
-
-独立审查已经修正的共享关系 `Uncompress2`。延迟距离处理和精确释放的修正，都有独立反例和经过检查的回归证明；实现精化仍未完成。原先在内存失败时要求输出为空的条款，以及在缓冲区错误时要求扩展输出的条款，已依据现有成对反例移除。在把较早的抽象 gz 和字典模型当作完整操作精化之前，还须完成它们；具体公开目标不会假设被调用函数的契约成立。
-
-#### Gzip 打开路径长度
-
-已于 2026-11-13 修正。`gz_open` 用 `malloc(len + 1)` 和 `snprintf(state->path, len + 1, "%s", path)` 复制调用者路径。分两部分：
-
-- `snprintf` 超过 `INT_MAX`：模型 `snprintf` 在此返回 -1，与 glibc 相同（[可信基础](trusted-base.zh.md)，格式化）。不出错，陈述不变。
-- `malloc` 超过 `PTRDIFF_MAX`：运行时分配器现在拒绝 `2^63` 字节及以上的请求，与 glibc 2.43 相同（[可信基础](trusted-base.zh.md)，分配大小）。于是长度为 `2^63 − 1` 字节的路径使 `gzopen` 在没有预言失败、也没有调用 `open` 的情况下返回 NULL。`OpenContract` 原来的第二条款接受该路径，并要求模式无效、预言失败或 `open` 失败三者之一，因此它对修正后的模型为假。经过检查的反例是该[回归](../tests/verification/regressions/gzopen-path-ptrdiff.lean)（`old_open_clause_false`）。`Goal.gz_initialisation_domain` 对同一路径也为假：它在 `NoAllocationFailure h` 下承诺返回句柄。复核：运行时修改（`6db5fca9`）、陈述更正（`b35b5523`）和字符串字面量 "position overflow"（`110d11cf`）已对照设计说明进行第二次阅读，没有异议。未完成：`malloc <n>` 差分测试行的 C 端尚未运行。
-
-修正在单独的提交中。`OpenContract`（`Goal.gzopen`、`Goal.gzopen64`）第二条款：原前提为 `Fresh h → Uniq h → LibraryGlobals h → FileSystem fs → CString h path name → CString h mode flags`；新前提在 `FileSystem fs` 之后加入 `ZlibF.PlatformMemory.ByteObjectsFit h`。`Goal.gz_initialisation_domain` 第一条款：原前提为 `... FileSystem fs → NoAllocationFailure h → CString h path name → ...`；新前提在 `NoAllocationFailure h` 之后加入 `ByteObjectsFit h`。有了它，路径及其 NUL 位于同一个小于 `2^63` 字节的对象中，因此复制不会因大小被拒绝，`len + 1` 也不会回绕。见证条款和 `Goal.gzdopen`（19 字节路径）不变。这三个目标都尚未证明或登记。该前提就是已接受的平台范围（[偏差](deviations.zh.md)，“平台字节对象范围”一行）。
-
-#### 带本地修复的 gzip 库发现
-
-2026-11-12 的库报告，在所有者决定 F-1 和 W7 是否作为已确认的发现移入 `README.md` 之前记录在这里。每一项都有本地补丁，经所有者于 2026-11-12 批准，尚未提交上游（[补丁](../patches/README.md)）。
-
-- F-1，[gzread 位置溢出](findings/gzread-pos-overflow/README.md)：在 Linux 的 `/dev/zero` 上透明 `gzseek` 到 `INT64_MAX` 之后，`gzread` 使有符号的 `x.pos` 溢出。在 x86_64 Linux 上由 UBSan 确认。补丁 0004。
-- W7，[gzwrite 位置溢出](findings/gzwrite-pos-overflow/README.md)：`/dev/null` 上的透明写入者定位到 `INT64_MAX - 10` 后，`gzwrite` 使 `x.pos` 溢出（在 `INT64_MAX` 处的 `gzputc` 也是）。在 x86_64 Linux 上用真实设备由 UBSan 确认。补丁 0004。
-- [gz look COPY 越过上限](findings/gz-position-copy-overflow.md)：`gz_look` 的 COPY 分支缓冲了全部待处理输入而没有空间上限，因此在一个 gzip 成员、尾随数据和 `gzclearerr` 之后、接近 `GZ_OFF_MAX` 的读取者返回时 `x.pos + x.have` 越过该上限。已在模型中确认（`gz.position-copy-overflow-regression`）并通过阅读 C 确认；实际上无法复现（约 2^63 个解码字节）。补丁 0004，于 2026-11-13 扩展。随之的陈述变化：`GzLookSpec` 的 COPY 析取项现为 `how = COPY ∧ avail_in = 0 ∧ (x.have ≠ 0 ∨ x.pos = GZ_OFF_MAX) ∧ x.pos + x.have ≤ GZ_OFF_MAX`（原为 `how = COPY ∧ x.have ≠ 0`）；`gz_fetch` 的 `BodyPost` 允许循环在 `avail_in = 0` 的 COPY 中继续，其度量把 COPY 记为 0。
-- R-3，[x.next 从未写入](findings/gz-reset-next-uninitialised/README.md)：`gzopen` 之后立即调用的 `gzseek` 和 `gzdirect` 把从未写入的 `x.next` 前进零。按 C 标准的字面规定未定义；没有 sanitizer 报告。补丁 0005。
-- R-4，[直接读取之后 x.next 悬空](findings/gz-next-dangling-after-direct-read/README.md)：大块 `gzread` 读入调用者随后释放的缓冲区之后，`gzseek` 和 `gzdirect` 在已释放的缓冲区内把 `x.next` 前进零。按 C 标准的字面规定未定义；没有 sanitizer 报告。补丁 0005。
-
-`gzread.c`、`gzwrite.c` 和 `gzlib.c` 的翻译跟上了两个补丁。只有 0005 有差分测试行（直接读入已释放的缓冲区，然后 `gzdirect` 和 `gzseek`）；0004 需要设备，文件模型无法表达。`tests/audit/theorems.txt` 仍列出已不存在的 `seekTail_dangling_ub` 和 `gzseek64_dangling_next_ub`；删除它们需由人来做。
-
-#### OS 调用预言下的 Gzip 偏移与回绕
-
-在 `caad9db4` 中经所有者授权修正；证据记录于此。OS 调用预言允许 `lseek` 返回 `[0, 2^63 - 1]` 中的任意值而不移动描述符（M3），某些 Linux 设备即如此。三个已登记目标陈述了 `lseek` 之后的描述符位置：
-
-- `Goal.gzoffset64` 与 `Goal.gzoffset`（`OffsetContract`，`Spec/Public/GzControl.lean`）。旧陈述：对每个可达且满足 `GzValid` 的句柄、每个满足 `FileSystem fs` 的世界，调用返回，堆不变，世界只有 `errno` 改变（`{ fs' with errno := fs.errno } = fs`），结果为描述符位置减去读取者已缓冲的输入（描述符无效时为 -1）。新陈述：相同，但增加前提 `RegularOs fs`，且世界只有 `errno` 与调用计数改变（`{ fs' with errno := fs.errno, nos := fs.nos } = fs`）。
-- `Goal.gzrewind`。旧陈述：对每个可达且满足 `GzValid` 的句柄，调用返回 -1 且堆不变，或返回 0、状态被重置且描述符位于保存的起点；写入者或严重错误返回 -1 且世界不变。新陈述：相同，但增加前提 `RegularOs fs`。
-
-原因。每次预言调用都使调用计数 `nos` 前进，因此偏移契约旧的世界子句对每个句柄都为假（由 `fsLseek` 的定义）。预言的 `lseek` 返回与描述符无关的值，因此结果值子句只在之后每次调用都是普通调用时成立：`RegularOs fs`（`Spec/Public/GzState.lean`）。经检查的反例：[回归](../tests/verification/regressions/gz-offset-regular-world.lean)。在一个 `FileSystem` 接受、其 `lseek` 返回 77 而不移动的世界中，`gzdopen(3, "r")` 记录起点 77；随后 `gzoffset64` 与 `gzoffset` 返回 77 而描述符位于 0，`gzrewind` 返回 0 而描述符仍位于 0。三条旧陈述为假，去掉 `RegularOs` 的修正后偏移契约也为假。这是模型变更，不是 zlib 问题。
-
-这三个目标现在是普通文件实例上的功能契约。它们在每个世界（每个预言）上的安全属于 `Goal.gz_sequence_safety`（`GzSafety.lean`），已在分支 `skeleton/gz` 上证明。其调用分派（`gz.skeleton.lean` 中的 `operation_safe`）经由 `gzoffset64_step`、`gzoffset_step` 和 `gzrewind_step` 把 `gzoffset64`、`gzoffset` 与 `gzrewind` 作为下一次调用。每个都是对每个 `fs` 的 `GzCallSafe`，无 `RegularOs`，也无读取额度：不出错，有结果，打开的描述符保持，`GzInv` 保持，只改变句柄自己的块。这三个步骤引理在骨架上尚未完成，`gzrewind_step` 还依赖 R-3 的本地补丁。在它们被检查之前，这些调用在非普通世界上的安全尚未证明。它们不能直接复用已登记的证明，因为那些证明现在假设 `RegularOs`。
+本节早先的文字里有两件事，是否已经做完没有确认：对改正后的共用关系 `Uncompress2` 的独立审查，以及补全较早的抽象 gz 模型和字典模型。具体的公开目标不假设这些模型中被调用函数的契约。
 
 ### 翻译审查
 
-审查所选构建采用的 C 语言版本和实现扩展。尤其需要确认可达的“空指针加零”和“空指针减空指针”操作是否具有定义。当前模型允许其中一些操作，而 `Ptr.diff` 的源码注释错误地把空指针相减归于 C23。[对照表](spec/safety.md#null-pointers-and-pointer-differences)记录了实际定义和语言依据。这次文档修改不会改变运行时，也不能证明存在可达的上游缺陷。
+对照 C 审查翻译的工作还没有做完。未完成的事项：
 
-在已修正压缩器自动存储的基础上，继续逐语句审查。压缩器的窗口滑动现在按源码顺序检查有符号减法。[内部状态回归](../tests/regression/deflate-slide/README.md)比较三个有定义的边界情形，并在 C 和 Lean 中都拒绝一个人为构造的溢出。恢复不受检查的减法，只会改变溢出情形的观察结果。这里没有声称该人为状态实际可达；仍须从合法调用序列推出有符号运算的边界。
-
-树合并中针对所选深度的源码级重新读取已经恢复，并有[六例回归](../tests/regression/trees-depth-read/README.md)和必需的结构检查；该检查会拒绝先前缓存表达式的写法。仍须证明内部深度读取之前的初始化时序。审查标量与指针的别名，以及压缩器指针相减时空指针减空指针的特殊情况；该项审查未完成。
+- **NULL 指针算术。** 所选构建依赖哪个 C 语言版本和哪些实现扩展，可达的“NULL 加零”和“NULL 减 NULL”操作是否有定义，都还没有确立。模型允许其中一些操作：`Ptr.add` 对 `NULL + 0` 返回 `NULL`，辅助函数 `Zlib.Compress.ptrDiff` 对 `NULL - NULL` 返回零。`Ptr.diff` 本身在 `NULL - NULL` 上产生故障；它在源码中的注释说，C17 和 C23 都没有定义这种减法，而 C++ 把它定义为 0。[对照表](spec/safety.md#null-pointers-and-pointer-differences)记录了实际的定义和语言依据。这里并不断言存在可达的上游缺陷。
+- **逐条语句的审查。** 压缩器的自动存储已经审查并改正。其余部分的审查有待继续。
+- **压缩器的窗口滑动。** 滑动按源码的顺序检查有符号减法。它的[内部状态回归](../tests/regression/deflate-slide/README.md)比较三个有定义的边界情形，并在 C 和 Lean 中都拒绝一个人为构造的溢出。恢复不带检查的减法，只会改变溢出情形下观察到的结果。这里不断言那个人为构造的状态是可达的；有符号运算的界还没有从合法的调用历史中推出来。
+- **树合并中对深度的重新读取。** 翻译像源码那样重新读取选中的深度，配有[六例回归](../tests/regression/trees-depth-read/README.md)和一项必需的结构检查，后者会拒绝缓存表达式的写法。内部深度读取之前的初始化先后关系还没有证明。
+- **标量与指针的别名，以及 NULL 减 NULL 的特殊情形**（在压缩器的指针相减中）**尚未由证明确认**。
 
 ### 观察记录
 
-**`write` 返回 0 时 `gz_comp` 会空转。** 在 `gz_comp` 的两个写循环中（`gzwrite.c`：透明写循环 `while (strm->avail_in)` 和写出循环 `while (strm->next_out > state->x.next)`），对非空缓冲区返回 0 的 `write` 不推进任何东西，也不算错误，所以循环重复同一调用。如果系统一直返回 0，C 永远不返回。这是对代码的阅读；没有运行过永远返回 0 的 `write`。目前不知道 Linux 会对普通文件、管道或套接字的非零计数返回 0（其他文件类型尚未核实），所以 gz 安全证明假设它不会发生（可信基础，“gz 操作系统事实”）。gz 安全研究的故障注入测试平台检查了另一面：当 `write` 对 10% 的非空调用返回 0 时（40 条历史，ASan 和 UBSan），每条历史都结束，没有报告也没有泄漏，因为每个循环最终都会得到正数结果。这是库的行为，不是安全发现；只有在已知某个平台会返回 0 时才值得向上游说明。范围：`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams`、`gzclose_w`。
+**`write` 返回 0 时 `gz_comp` 会空转。** 在 `gz_comp` 的两个写循环中（`gzwrite.c`：透明模式的循环 `while (strm->avail_in)` 和写出循环 `while (strm->next_out > state->x.next)`），对非空缓冲区返回 0 的 `write` 不推进任何东西，也不算错误，所以循环重复同一次调用。如果系统一直返回 0，C 就永远不返回。这是对代码的解读；没有实际运行过永远返回 0 的 `write`。目前不知道 Linux 会对普通文件、管道或套接字上的非零计数返回 0（其他文件类型尚未确认），所以 gz 安全证明假设它不会发生（[偏离记录](deviations.md#gzip-file-interface)，“Gz 操作系统事实”一行）。gz 安全研究的故障注入测试平台检查了另一面：让 `write` 对 10% 的非空调用返回 0（40 段历史，ASan 和 UBSan），每段历史结束时都没有报告，也没有泄漏，因为每个循环最终都会得到一个正的结果。这是库的行为，不是安全问题；只有在已知某个平台会返回 0 时，才值得向上游说明。范围：`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzflush`、`gzsetparams`、`gzclose_w`。
 
-**`gzerror` 返回的字符串会被下一次到达 `gz_error` 的调用释放。**
-未确认的发现，是文档缺口，不是代码缺陷。zlib.h 只说以后对 `gzerror` 的调用可能使返回的字符串失效。实际上 `gzerror` 返回 `state->msg`，而每个到达 `gz_error` 的调用都会释放它：`gzprintf`、`gzvprintf`、`gzputs`、`gzwrite`、`gzread` 等在使用参数之前先用 `gz_error(state, Z_OK, NULL)` 重置错误。把这个字符串交回同一句柄的调用者会遇到释放后使用：写入停滞之后的 `gzprintf(f, "%s", gzerror(f, &e))` 在 `vsnprintf` 中读取已释放的内存（[复现](../tests/regression/gzprintf-error-string/README.md)，ASan）。没有补丁。已证明的定义域让调用者的字符串和缓冲区与句柄的块分开（`GzRange`，以及 `gzprintf`/`gzvprintf` 的 `GzArguments` 中的分离子句，[偏差](deviations.zh.md)）。
+**`gzerror` 返回的字符串会被下一次到达 `gz_error` 的调用释放。** 这是一条未确认的发现，属于文档缺口，不是代码缺陷。`zlib.h` 只说之后对 `gzerror` 的调用可能使返回的字符串失效。实际上 `gzerror` 返回的是 `state->msg`，而每个到达 `gz_error` 的调用都会释放它。写入的入口函数（`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams`）在检查模式和错误之后、使用参数之前，用 `gz_error(state, Z_OK, NULL)` 重置错误。读取的入口函数（`gzread`、`gzfread`、`gzgetc`、`gzungetc`、`gzgets`）只在上一次读取停滞时才这样做（表见[偏离记录](deviations.md#why-the-handles-own-strings-are-excluded)）。调用者把这个字符串再传回同一个句柄，就可能遇到释放后使用：写入停滞之后的 `gzprintf(f, "%s", gzerror(f, &e))` 在 `vsnprintf` 中读取已释放的内存（[复现](../tests/regression/gzprintf-error-string/README.md)，ASan）。没有补丁。已证明的定义域让调用者的字符串和缓冲区与句柄的块分开（`GzRange`，以及 `GzArguments` 中针对 `gzprintf` 和 `gzvprintf` 的分离子句；[偏离记录](deviations.md)）。
 
-### 边界情况复核
+**`deflateBound` 在两种情形下偏小。** 两者都是 `zlib.h` 关于大小的承诺没有兑现，不是内存错误，并且都在未打补丁的 C 上复现了。`Z_FIXED` 策略、压缩级别 1 到 3、`windowBits` 为 15 且 `memLevel` 为 8 时，给出 `deflateBound` 字节的空间，一次 `deflate(Z_FINISH)` 调用返回 `Z_OK`（[发现](findings/deflatebound-fixed-far-matches/README.md)）。gzip extra 字段长度为 `2^32 - 2` 或 `2^32 - 1` 时，`2 + extra_len` 这个和在 32 位上回绕（[发现](findings/deflatebound-extra-len/README.md)）。必需的安全目标都不依赖这个上界的数值。有两处功能命题依赖它，这两项发现的页面说它们在这些情形下按现在的写法是假的：对每种策略量化的 `DeflateCompletes`，以及关于数值的目标 `Goal.deflateBound` 和 `Goal.deflateBound_z`（它们未证明）。默认策略不受影响，所以计划中的默认流往返不受影响。第一种情形已用本地补丁修正（补丁 0006，所有者 2026-11-15 的决定），所以 `DeflateCompletes` 不需要为它加前提。第二种情形下关于数值的目标怎样改正，还没有决定。
 
-对照当前固定版本，复查 gzip 额外长度算术、部分读取后的恢复、负位置定位、参数变更丢失、结束失败后的恢复，以及 EOF 之后的向前定位。带条件的定位故障引理，不能证明状态可达；须从实际调用序列建立有符号位置与借用指针条件。
+### 待复查的历史报告
 
-`inflateBack` 边界情况针对回调 API 的复核尚未完成；还需要该接口自身的复现，普通 inflate 的内存检查示例不足以完成这一步。在声称完整 gzip 所有权，或任意有限回调都会终止之前，还须审查外部字符串分配器和固定循环执行额度。怀疑存在缺陷，不等于可以把某种公开调用情形排除在外。
+早先的工作报告过六个事项。其中三个已经对照固定版本的源码重新检查，现在是带复现的发现：
 
-[发现记录](findings.md)保存证据和置信度；当前补丁见 [patches/README.md](../patches/README.md)。没有应用一揽子未定义行为补丁。
+- gzip extra 字段长度的算术：[extra 字段很长时的 `deflateBound`](findings/deflatebound-extra-len/README.md)；
+- 部分读取之后的恢复：[`gzread` 从过时的 `x.next` 复制](findings/gzread-transparent-stale-next/README.md)，补丁 0003；
+- 负位置的定位：[开头的 `gzungetc` 之后调用 `gzseek`](findings/gzseek-pushback-overflow/README.md)，补丁 0002。
 
-[架构指南](design/architecture.md#design-decisions)记录设计决策 D1–D6。[安全规格](spec/safety.md#uninitialised-memory)定义新分配内存的证明义务。
+另外三个还没有对照固定版本的源码重新检查（[发现，早期的库观察](findings.md#earlier-library-observations)）：
 
+- 参数变更的丢失；
+- 结束失败之后的恢复；
+- EOF 之后的向前定位。
+
+带条件的定位故障引理证明不了可达性：有符号位置的条件和借用指针的条件，还没有从实际的调用历史中推出来。`inflateBack` 的历史报告对该回调 API 而言仍未确认；普通 inflate 的 sanitizer 示例不能定论。[早先的证明笔记](history/proof-earlier-notes.md)保留了其中两份报告的原文：`inflateBack` 缺少 `whave` 的报告（“回调解码器：迁移来的定义域表”一节，原文标题为 `Callback decoder: the migrated domain table`），以及 `gzsetparams`“参数变更丢失”的实验（[该节](history/proof-earlier-notes.md#gzsetparams-experiment)）。外部字符串的分配器和固定的循环燃料还没有审查到这样的程度：足以断言完整的 gzip 所有权，或断言任意有限的回调都会终止。怀疑存在缺陷，并不是把某种公开情形排除在外的许可。[发现](findings.md)保存证据和置信度；补丁见 [patches/README.md](../patches/README.md)。没有应用笼统的未定义行为补丁。
+
+[架构指南](design/architecture.md#design-decisions)记录了设计决策 D1–D6。[安全性规格](spec/safety.md#uninitialised-memory)定义了新分配内存带来的证明义务。

@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.universal-invariant»
-import ZlibF.Spec.Public.Sequences
+import ZlibF.Spec.Common.Sequences
 import ZlibF.Math.DeflateEncodingPrefix
 import ZlibF.Math.DeflateSymbolTrace
 import ZlibF.Spec.Functional.Sequences

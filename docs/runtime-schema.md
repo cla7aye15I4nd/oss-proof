@@ -3,7 +3,7 @@
 This page is **generated** by `scripts/gen_schema.py` together with `ZlibF/Runtime/Schema.lean` and
 `ZlibF/Runtime/Tables.lean` and `ZlibF/Runtime/LibcTables.lean`. Do not edit it by hand: change the script and run it again. The script reads the headers
 `zlib.h`, `zutil.h`, `inftrees.h`, `inflate.h`, `deflate.h`, `trees.h`, `gzguts.h` and `crc32.h` of the verified source
-(zlib commit `757f0527154291bcf6bfbd6396ecde6bedd2db95`) through clang's JSON AST dump, in the default x86_64 Linux build
+(zlib commit `99623ef7097352da7993ba614161fd6a311e046e`) through clang's JSON AST dump, in the default x86_64 Linux build
 (`./configure --static`, LP64, `-D_LARGEFILE64_SOURCE=1`).
 
 ## How the script decides
@@ -302,7 +302,7 @@ Reference constructors (`StaticTreeDescRef`): `st_static_l_desc`, `st_static_d_d
 
 ### String literals
 
-`strTable` (in `Schema.lean`) lists the 177 string literals of the library sources: the `*.c` and `*.h` files of the
+`strTable` (in `Schema.lean`) lists the 178 string literals of the library sources: the `*.c` and `*.h` files of the
 top directory of the verified source, comments excluded, adjacent literals joined, plus the empty string. They are the
 error messages (`zutil.c`, `inflate.c`, `inffast.c`, `inftrees.c`, `trees.c`, `deflate.c`, `gz*.c`), the `z_errmsg`
 texts, `ZLIB_VERSION`, the copyright strings and the format strings. The set is closed: `strLitRef` of a text that is
@@ -345,8 +345,8 @@ not in the table is a fault. A literal is `BRef.str i`: read-only, always live, 
 " * Generated automatically by makefixed()."
 " */"
 " 3_6?"
-" deflate 1.3.2.1 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
-" inflate 1.3.2.1 Copyright 1995-2026 Mark Adler "
+" deflate 1.4 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
+" inflate 1.4 Copyright 1995-2026 Mark Adler "
 " l %2d v %4x "
 " start %u, match %d, length %d\n"
 "%1u%s"
@@ -366,7 +366,7 @@ not in the table is a fault. A literal is `BRef.str i`: read-only, always live, 
 "/* crc32.h -- tables for rapid CRC calculation\n * Generated automatically by crc32.c\n */\n\nlocal const z_crc_t FAR crc_table[] = {\n    "
 "/* header created automatically with -DGEN_TREES_H */\n\n"
 "/* inffixed.h -- table for decoding fixed codes"
-"1.3.2.1-motley"
+"1.4"
 ": "
 "<fd:%d>"
 "C"
@@ -452,6 +452,7 @@ not in the table is a fault. A literal is `BRef.str i`: read-only, always live, 
 "out of memory"
 "out of room to push characters"
 "pendingBuf overflow"
+"position overflow"
 "r"
 "request does not fit in a size_t"
 "request does not fit in an int"

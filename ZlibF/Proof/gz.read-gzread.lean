@@ -6,7 +6,7 @@ import ZlibF.Proof.«gzwrite.c.write-calls»
 # gz read side: the public call `gzread`
 
 `gzread_step_of`: the skeleton leaf `gzread_step` (`GzReadLeaves`, `gz.sequence-safety`), from the statement of
-`gz_read` (`GzReadSafe`) and the three open clauses of the reader invariant (`GzReadClauses`).
+`gz_read` (`GzReadSafe`) and the three clauses of the reader invariant (`GzReadClauses`, proved by `gzReadClauses_holds`).
 
 The pieces: the mode and error refusals (no change), the reset `gz_error(state, Z_OK, NULL)` when `again` is set
 (`clear_step`), the `int` check with `gz_error(Z_STREAM_ERROR, <literal>)` (`lit_step`), `gz_read` (computed for
@@ -284,7 +284,7 @@ theorem rdRest_run (read : GzReadSafe) (clauses : GzReadClauses) {i : Nat} {buf 
 end Rg
 
 open Rg in
-/-- **`gzread_step`**, from the statement of `gz_read` and the three open clauses of the reader invariant. -/
+/-- **`gzread_step`**, from the statement of `gz_read` and the three clauses of the reader invariant (`GzReadClauses`, proved by `gzReadClauses_holds`). -/
 theorem gzread_step_of (read : GzReadSafe) (clauses : GzReadClauses) :
     ∀ (i : Nat) (buf : BPtr) (len : UInt32), GzCallSafe i (.gzread (some (.in_gzstate_x i)) buf len) := by
   intro i buf len h fs s inv hfs harg

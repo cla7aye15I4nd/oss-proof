@@ -1,10 +1,31 @@
 # Public contract review record
 
-This record explains the source review and counterexamples behind the 95 default-build
-entry contracts and eight family targets. It is not independent approval of a semantic
-baseline. Statements about checked proofs below describe the recorded review evidence;
-current acceptance still requires the registry and CI on a named commit. Current remaining
-work is listed only in [progress](../progress.md).
+> **Dated record.** This review was written on 2026-11-06, when the project aimed at full
+> functional contracts for the 95 default-build entries and eight family targets. Since 2026-11-11
+> the scope is safety only ([scope](../progress.md#scope)): the contracts described here are the
+> functional goals, which are not required. Those already proved stay registered. The
+> specification files have moved since: the format and API models are under
+> `ZlibF/Spec/Functional/`, the safety goals under `ZlibF/Spec/Safety/`, and `ZlibF/Spec/Common/`
+> holds the common definitions ([split design](../design/safety-functional-split.md)). The module
+> names in the tables below are those of the review: `ZlibF/Spec/Format` is now
+> `ZlibF/Spec/Functional/Format`, `ZlibF/Spec/Api` is now `ZlibF/Spec/Functional/Api`, and the
+> files of `ZlibF/Spec/Public` are now in the three directories. The corrections and counterexamples remain
+> valid as evidence about the statements; whether each corrected statement is proved today is
+> answered only by the registries and [progress](../progress.md).
+
+This record explains the source review and counterexamples behind those contracts. It is not
+independent approval of a semantic baseline.
+
+## What each section still tells a reader
+
+| Section | What a reader can rely on |
+| --- | --- |
+| Three specification layers | The layering stands under the moved paths of the note above. `ZlibF/Spec/Common/Calls.lean` fixes the translated entry that each public goal runs. |
+| Scope of the statement review | Which obligations the review read for each group of functional contracts. It is not a list of what is proved. |
+| Source-review corrections | Readings of the pinned C that the corrected functional contracts encode. A reading is confirmed only where a registered theorem proves the goal that states it. |
+| Counterexamples to the old statements | Three errors found in older statements, with their corrections. The first is kept as the regression `tests/regression/inflate-deferred-distance/`. The corrected goals of the other two, `Goal.gzclearerr` and `Goal.inflateCodesUsed`, are proved. |
+| The advanced-operation boundary | The limits of the functional sequence goals. Those goals are not required for the safety results. |
+| Review and approval | The rule for correcting a statement. The binding text is `AGENTS.md`, "Correcting a specification, a goal or a translation". |
 
 ## Three specification layers
 
@@ -38,8 +59,8 @@ flowchart LR
 | Gz handles | `GzState`, `GzOpen`, `GzControl`, `GzRead`, `GzWrite`, `GzClose` | Lazy allocation, inactive dangling fields, recovery, positions, whole-item counts, borrowed messages, accepted bytes, seek zeros and descriptor cleanup. |
 | Lifecycles | `Sequences`, `GzTrace` | Every admitted next call returns, init-established invariants, exact allocation changes, cleanup, ordinary format epochs and complete writer output. |
 
-Source readings remain **to confirm** by implementation proofs outside the named checked
-results. [The API manuals](../spec/api/README.md) explain the operations. Historical execution
+Apart from the named checked results, each reading of the source is **to confirm** by an
+implementation proof. [The API manuals](../spec/api/README.md) explain the operations. Historical execution
 notes and proof-status prose never override the registry or required CI.
 
 ## Source-review corrections
@@ -124,7 +145,7 @@ specification, translation mismatch and upstream defect. An internal-invariant c
 does not justify narrowing a public precondition. Init and earlier calls must establish any
 replacement invariant. Callee contracts remain proved results.
 
-A confirmed specification error belongs in its own reviewed change with regression evidence
+A confirmed specification error is corrected in its own change, with its counterexample kept
 as a regression. Readiness checks presence, compilation and fresh replay;
 it cannot decide semantic completeness. Review must approve the public domains,
 representation limits and runtime.

@@ -1,5 +1,5 @@
 import ZlibF.Math.LZ77History
-import ZlibF.Spec.Api.Basic
+import ZlibF.Spec.Functional.Api.Basic
 
 namespace ZlibF.Spec.Proofs
 open ZlibF.Spec ZlibF.Math.LZ77History

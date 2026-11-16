@@ -1,225 +1,169 @@
-# Safety and functional specifications
+# Layout of the specifications: safety and functional
 
-Status: design approved on 2026-11-13. It is applied in the steps listed under "Order of work". It
-says how `ZlibF/Spec/` is split so that the current target, the safety of every public function,
-can be read from one directory. Nothing here changes what a proved theorem means.
+The required goals, the safety goals, are kept apart from the functional goals, so that a
+reader can see the whole required target without reading any functional specification. This
+page says where each kind of goal is, which import rules keep them apart, and how the rules are
+checked. The plan that led to this layout, with its steps and status, is a
+[history page](../history/safety-functional-split-plan.md).
 
-## What changes and what does not
+## The three directories
 
-- `ZlibF/Spec/Safety/` holds the safety goals: no `Fault.ub`, no memory error, no leak and
-  termination, on the documented domain. The acceptance audit requires these.
-- `ZlibF/Spec/Functional/` holds the result contracts, the format and API models (`Api/`,
-  `Format/`), and the round-trip statements (`Goal.*_sequence`). They are still built, and a proved
-  one is still fully audited. An unproved one is reported as open and fails nothing.
-- `ZlibF/Spec/Public/` stays and becomes the common part: the definitions both kinds of goal use.
-  Only goal definitions and purely functional material leave it. A later rename of `Public/` to
-  `Common/` is open (see below).
-- Goal names do not change. Every goal stays `ZlibF.Spec.Public.Goal.<name>`. The directory shows
-  the split; the Lean namespace stays as it is. So `tests/audit/theorems.txt`, `goals.txt`, the
-  mutant tables and every proof that names a goal stay valid.
-- **Every currently registered theorem stays registered and fully audited.** The split drops or
-  weakens no accepted or registered result.
-- No statement text changes in a move. A full contract `Goal.X` is not weakened or deleted: it
-  becomes the functional goal of `X`, and the safety goal is stated beside it.
-- The fast gate gains one import check. The change in what is required is in the acceptance
-  `audit` job.
+| Directory | Content | Required |
+| --- | --- | --- |
+| `ZlibF/Spec/Safety/` | Safety goals: the call returns with no `Fault.ub` and no `Fault.outOfFuel`, writes only its frame, and leaks nothing, on the documented domain | Yes |
+| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters, the platform premise, and the invariants of the streams and of the gz handle (`Good`, `DGood`, `GzInv`). `Common/Inflate/` holds the invariants of the inflate tables and of the fast decoder. No goal about a public function is here | No required goal |
+| `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), those of the gzip file interface included; the format and API models with their goals (`Format/`, `Api/`); the full sequence contracts (`Goal.inflate_sequence`, `Goal.deflate_sequence`, `Goal.inflate_back_sequence`, `Goal.gz_sequence`), which join the sequence safety with functional clauses. `Functional/Inflate/` holds statements about the decode tables and the fast decoder that use the format model | No, except `Goal.compressBound` and `Goal.compressBound_z` ([below](#two-goals-per-public-function)) |
 
-## Layout and import direction
+Nothing else is directly under `ZlibF/Spec/`, except `Common.lean`, which imports every module
+of `Common/`.
+
+A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`, in
+`Safety/` and in `Functional/` alike. The directory shows the kind; the namespace is the same. The manifest
+`tests/audit/public-api.json` names only goals of this namespace.
+
+A namespace does not follow its directory. `Public` was the name of the directory that is now
+`Common/`; its modules kept the namespace `ZlibF.Spec.Public`, so no goal and no theorem changed
+its name. Most modules under `Functional/Api/` have the namespace `ZlibF.Spec.Api`, and so has
+`Common/Parameters.lean`, which came from the API model. A definition that moved from a proof
+module to `Common/` kept the namespace it had there: `Good` is still `Zlib.Inflate.Spec.Good`.
+
+Two groups of functional goals under `Spec/Functional/` have other namespaces. The first group
+is `ZlibF.Spec.Api.Goal.<name>`, for example `ZlibF.Spec.Api.Goal.roundtrip`.
+`tests/audit/goals.txt` lists 20 goals of it, defined under `Functional/Api/`: 17 in
+`Goals.lean`, one in `Inflate.lean` and two in `Concrete.lean`. The two in `Concrete.lean`
+(`compress_bound_value`, `compress2_z_first_alloc_failure`) are about the translated
+`compress.c`; the other 18 are statements about the API model, not about the translated C. The
+second group, the goals of the token format, is `ZlibF.Spec.Token.Goal.<name>`
+(`Functional/Format/Token.lean`); they are statements about the format model.
+`tests/audit/goals.txt` lists every goal under its full
+name; it also lists the statements about internal functions and about heap-free mathematics,
+each in the namespace of its own module.
+
+The round trip of the default zlib stream has no goal definition in these directories yet. Its
+conditional form is a theorem, `deflate_inflate_roundtrip` in
+`ZlibF/Proof/public-deflate-inflate-roundtrip.lean`. Completeness and the unconditional round
+trip come after it ([architecture](architecture.md#the-layers) states the theorem;
+[progress, Scope](../progress.md#scope) says how far the work is).
+
+The functional specifications are still built. A functional goal that has a
+[registered](../checking/README.md) theorem is audited in full. A functional goal without one is
+reported as open and fails no check. No statement was weakened or deleted to make this layout: a
+full contract `Goal.X` is the functional goal of `X`, and the safety goal is stated beside it.
+
+## The import rules
 
 ```mermaid
 flowchart TD
-  Safety["Spec/Safety: safety goals"] --> Public
-  Functional["Spec/Functional: contracts, Api, Format, sequences"] --> Public
-  Public["Spec/Public: calls, histories, frames, parameters"] --> Base
-  Base["Zlib translations, Runtime, internal Spec modules"]
+  Safety["Spec/Safety: safety goals"] --> Common
+  Functional["Spec/Functional: contracts, Api, Format, sequences"] --> Common
+  Common["Spec/Common: calls, histories, frames, parameters, invariants"] --> Base
+  Base["Zlib translations, Runtime"]
   Safety -. "forbidden, checked" .-> Functional
+  Common -. "forbidden, checked" .-> Safety
+  Common -. "forbidden, checked" .-> Functional
 ```
 
-A module under `Spec/Safety/` or `Spec/Public/` must not import, even transitively, a module under
-`Spec/Functional/`. The script `scripts/check-spec-layers.py` walks the import closure and fails on
-such an edge. The fast gate runs it. Then reading `Spec/Safety/` and what it imports tells a reader
-the whole current target. Until the gzip modules are split (step 4), the script carries an
-allowlist of the edges still to remove. The allowlist may only shrink.
+There are three rules about the modules under `ZlibF/Spec/`. Each holds for direct imports and
+for imports through any chain of other modules.
 
-The old module paths `ZlibF/Spec/Api/*` and `ZlibF/Spec/Format/*` stay as one-line re-export
-modules for one release, so that branches that import them still build. They count as
-functional for the check.
+1. A module under `Spec/Safety/` or `Spec/Common/` does not import a module under
+   `Spec/Functional/`. So a reader of the required goals reads no functional specification.
+2. A module under `Spec/Common/` does not import a module under `Spec/Safety/`. Common lies
+   below both kinds of goal.
+3. No module under `ZlibF/Spec/` imports a module under `ZlibF/Proof/`. So the statement of a
+   goal is read in `ZlibF/Spec/` and in the translation, the runtime and the mathematics it
+   names, never in a proof module. The definitions that goals name and that were once in proof
+   modules are in `Spec/Common/`: `Good` in `InflateGood.lean`, `DGood` in `DeflateGood.lean`,
+   `GzInv` in `GzInv.lean`. The lemmas about them stay in the proof modules.
 
-The internal specifications at the top of `ZlibF/Spec/` (`Inflate*.lean`, `PlatformMemory.lean`,
-`ByteAddress.lean`, `Crc32ByteViews.lean`) are callee contracts for proofs, not public goals. They
-stay where they are. Two of them import `Spec/Format` (`InflateDecodeTableSemantics`,
-`InflateFastBodyToken`). No safety goal imports them today, and the check would report it if one
-did.
+A fourth rule is about definitions, not imports.
 
-## Mapping of today's modules
+4. No goal that the manifest `tests/audit/public-api.json` names is defined under
+   `Spec/Common/`. Such a goal is under `Spec/Safety/` or `Spec/Functional/`.
 
-The rule for each definition: a `Goal.X` full contract goes to `Functional/`. A safety goal
-(`Goal.X_safety`, the existing `_safe` names, the sequence safety goals and the non-vacuity goals)
-goes to `Safety/`. Any other definition stays in `Public/` if a safety goal uses it, else goes to
-`Functional/`.
+The script `scripts/check-spec-layers.py` walks the imports and fails on an import that breaks a
+rule. For rule 4 it reads each line of a common module that starts with `def Goal.` or
+`abbrev Goal.` and looks the full name up in the manifest. It also fails when anything other
+than the three directories and their root import files is directly under `ZlibF/Spec/`. It runs
+in the fast gate (job `no-sorry`). It has no list of exceptions to these four rules.
 
-| Today | After the split |
-| --- | --- |
-| `Spec/Format/*`, `Spec/Format.lean` | `Functional/Format/*` |
-| `Spec/Api/*` except the parameter decoders | `Functional/Api/*` |
-| Parameter decoders in `Api/Basic`: return codes `Api.Z`, `Flush`, `Wrap`, `inflWbits`, `DWrap`, `DeflParams`, `deflInit?` | `Public/Parameters.lean`, without the `Format` import, namespace unchanged |
-| `Public/Calls`, `Public/Memory`, `Public/History` (`StreamOwned`, `CallerRange`, `ActiveHeader`, `StreamOperation`, `StreamArguments`, `StreamReachable`, `Region`, frames) | stay in `Public/` |
-| `Public/Initialisation`, `Public/Lifecycle`, `Public/StreamQueries`, `Public/Domains` (`InitDomain`, witness heaps) | definitions stay; `Goal.*` to `Functional/`, non-vacuity goals to `Safety/` |
-| `Public/Sequences`: `StreamInvariant`, `StreamWriteRegions`, `StreamHeaderRecord`, `StreamSequenceSafety`, `BackReachable`, `BackSafeReachable`, `BackPlatform` | stay in `Public/Sequences.lean` |
-| `Public/Sequences`: `DataLog`, the traces, `DecodesFor`, `FlushedFor`, `InflateCompletes`, `DeflateCompletes`, `Goal.inflate_sequence`, `Goal.deflate_sequence` | `Functional/Sequences.lean` |
-| `Public/Sequences`: `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety` | `Safety/Sequences.lean` |
-| `Public/Checksums`, `Public/Queries`, `Public/Streams`, `Public/Copy`, `Public/Utilities` | definitions stay; `Goal.*` to `Functional/` or `Safety/` by the rule |
-| `Public/GzState`, `Public/GzTrace`, `Public/Gz*`, `Public/Back`, `Goal.gz_sequence`, `Goal.inflate_back_sequence*` | step 4, after the gzip statement changes have landed |
+The script has one more rule, about `ZlibF/Math/`: a module there does not import a proof
+module directly, except the imports in the list `MATH_PROOF_IMPORTS` of the script. The script
+records that those Math modules import lemmas from proof modules, not definitions. The list may
+only shrink: the script
+fails on an import that is not listed and on a listed import that no longer exists. Rule 3
+covers these Math modules too: no module under `ZlibF/Spec/` imports one of them.
+[Progress](../progress.md#ordered-next-work) gives the size of the list.
 
-`Public/GzState` imports `Api/Gz` for `GzLooksGzip` and `Proof.«gzlib.c.base»`. The first is an
-allowlisted edge until step 4. The second is allowed by the check (only `Functional/` is
-forbidden) and is listed as a later clean-up.
+Three more facts about imports:
+
+- No module of `Spec/Common/` imports the gz model. The gz mode decoder and `GzLooksGzip` are in
+  `Functional/Api/Gz.lean`; `Functional/GzState.lean` imports it, and `Common/GzState.lean`
+  does not.
+- The parameter decoders that safety goals need (return codes, flush values, window and wrapper
+  selection) are in `Common/Parameters.lean`, which imports nothing.
+- `Functional/Crc32ByteViews.lean` is functional because its statements name `crc32Update` of
+  the format model.
 
 ## Two goals per public function
 
-Every function in `tests/audit/public-api.json` gets a safety goal and a functional goal. A safety
-goal states that the executed call returns `.ok`, writes only its frame and changes the live
-blocks as the ledger says. It can fail: no safety goal is true by definition. The safety goals take
-three shapes.
+The manifest `tests/audit/public-api.json` gives each function of `zlib.h` a `safety_goal` and a
+`functional_goal`. [Safety, "Where the goals are"](../spec/safety.md#where-the-goals-are) lists
+the safety goal and its file for every function. The safety goals have three shapes.
 
-- **Stateless calls** (checksums, `compressBound*`, `zlibVersion`, `zlibCompileFlags`, the
-  `compress*` and `uncompress*` utilities): on the documented domain the call returns without a
-  fault, writes only the declared caller regions, and the live blocks are unchanged. Where a full
-  contract exists and is proved, the safety theorem is a short corollary of it.
-- **Stream operations** (the inflate and deflate families): one goal per function, a real
-  statement about one call of that function on every reachable history. It is the second clause
-  of `StreamSequenceSafety` specialised to that `Call` constructor, plus the invariant. Init
-  functions are stated from `InitDomain`, which needs no history. `inflateEnd` and `deflateEnd`
-  take the third clause. Goals that already exist are used, not restated: `Goal.deflateCopy_safety`
-  (dev `fb1b8a02`) and batch 3's refusal goals `Goal.inflate_refusal` and `Goal.deflate_refusal`
-  (NULL or inconsistent stream refused with `Z_STREAM_ERROR`).
-- **The gzip file interface and `inflateBack`**: the same, from `Goal.gz_sequence_safety` and
-  `Goal.inflate_back_sequence_safety`. The write frame of a gz call is agreed with batch C in the
-  notes before it is stated.
+- **Calls without a stream** (checksums, `zlibVersion`, `zlibCompileFlags`, `compress*`,
+  `uncompress*`): on the documented domain the call returns without a fault, writes only the
+  declared caller regions, and leaves the live blocks as they were.
+- **Stream functions** (the inflate and deflate families): one goal per function. It states one
+  more call of that function on every reachable history of a stream, and the refusal of a `NULL`
+  or inconsistent stream. The four init functions need no history: their goals cover every call
+  `zlib.h` allows (`InitArguments`). `Goal.inflate_refusal` and `Goal.deflate_refusal` state the
+  refusals of several functions in one statement each.
+- **The gzip file interface and `inflateBack`**: one goal per function as well
+  (`Safety/GzCalls.lean`, `Safety/Back.lean`). Each restricts a clause of the sequence goal of its
+  family, `Goal.gz_sequence_safety` or `Goal.inflate_back_sequence_safety`, to one function. It
+  also has the refusals of that function: a `NULL` handle for a gz function that takes a handle;
+  a `NULL` stream and a stream record with a `NULL` state for `inflateBack` and `inflateBackEnd`,
+  and for `inflateBackEnd` also a `NULL` `zfree`. `Goal.inflateBackInit__safety` covers every
+  call `zlib.h` allows, as the other init goals do. The two sequence goals stay required. No
+  function shares a safety goal with another: the list `SHARED_SAFETY_GOALS` of
+  `scripts/verification.py` is empty.
 
-The manifest agrees row by row with the table "No-fault coverage of zlib.h functions" in
-`docs/progress.md`. That table names, per function, the theorem and the route (own goal, sequence
-goal, End clause, or open).
+Special cases in the manifest:
 
-Non-vacuity: a stream goal of the second shape is only as strong as its reachable set. The four
-non-vacuity goals (`Goal.*_initialisation_domain`) give a reachable witness for each family. They
-are part of the required set. Each per-function goal's docstring names the witness it relies on.
+- `compressBound` and `compressBound_z` name their full contracts as safety goals. Their
+  translations are pure functions with no heap and no fault, so a separate safety goal would
+  hold by definition.
+- `safety_goal` is `null` for the functions `zlib.h` lists as undocumented, `gzopen_w` among
+  them, which is not in the target build. The exception is `gzvprintf`: it names
+  `Goal.gzvprintf_safety`, and that goal is required through the list `safety_goals`.
+- The four `uncompress*` goals end in `_safe`; every other one-function safety goal ends in
+  `_safety`. The manifest names each goal in full, so no check guesses a suffix.
 
-Names: new goals are `Goal.<function>_safety`. The four existing `uncompress*_safe` names stay,
-because renaming a registered goal is a statement change with no gain. The manifest names the goal
-explicitly, so the audit no longer guesses a suffix.
+A stream goal is only as strong as its set of reachable histories. Four non-vacuity goals give
+a reachable witness for each family and are part of the required set:
+`Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`,
+`Goal.inflate_back_initialisation_domain` and `Goal.gz_sequence_nonvacuity`.
+`Goal.gz_initialisation_domain` is not required: it states the functional contract of `gzopen`,
+and the manifest lists it under `not_planned`.
 
-## Manifest and audit
+## How the required set is checked
 
-Each entry of `apis` replaces `goal` by two fields:
+The acceptance audit (`scripts/verification.py`) reads the required set from the manifest: the
+safety goal of every documented function of the target build, plus the entries of
+`safety_goals` and `nonvacuity_goals`. Each required goal needs a registered theorem of exactly
+its type, with allowed axioms only. A required goal with no theorem must be named in the list
+`open_safety` of the manifest, or the audit fails ([progress](../progress.md#scope) says whether
+any is). [Goals](../checking/goals.md) gives the registries, the required set
+and the [rules against silent removal](../checking/goals.md#shrink-only-rules) in full.
 
-```json
-{"function": "deflateCopy", "safety_goal": "ZlibF.Spec.Public.Goal.deflateCopy_safety",
- "functional_goal": "ZlibF.Spec.Public.Goal.deflateCopy", ...}
-```
+## What is not separated
 
-A top-level `open_safety` list names each required safety goal that has no registered theorem
-yet, with its owner. Moving a function in or out of the required set is a one-line change. The
-`undocumented` group stays as in 981aee5b. The gzip file interface and `inflateBack` are planned:
-their safety goals are required and listed as open until proved.
+- `Goal.compressBound` and `Goal.compressBound_z`, which the manifest names as safety goals, are
+  in `Functional/Queries.lean`. That is by design ([above](#two-goals-per-public-function)).
+- Statements about internal functions, which the manifest does not name, are in `Spec/Common/`
+  (`ByteAddress.lean`, `Common/Inflate/`) when they do not use the format model, and in
+  `Spec/Functional/` when they do. They also have the form `Goal.<name>`, each in the namespace
+  of its own module.
 
-`scripts/verification.py`:
-
-- **Required**: the safety goal of every `lp64-linux` function that is not undocumented, plus the
-  entries of `safety_goals` and `nonvacuity_goals`. Until every one is proved, the audit checks
-  that each goal not in `open_safety` has a registered theorem of exactly that type with allowed
-  axioms only, and that `open_safety` only shrinks. dev does not turn red. From the commit where
-  `open_safety` is empty, a missing theorem fails the audit.
-- **Functional**: every `functional_goal` and `sequence_goals`. A registered proof is audited in
-  full (axioms, exact type, replay, mutants if keyed). An unproved one is reported and fails
-  nothing.
-- **Mutants**: keyed by the functional goal when it is proved, else by the safety goal. This
-  replaces the `_safe`/`_safety` suffix guess in `mutation_apis`.
-
-As implemented (step 3):
-
-- An undocumented function, and `gzopen_w` (not in the target build), has `safety_goal: null`.
-- The gzip functions name `Goal.gz_sequence_safety`, and `inflateBackInit_`, `inflateBack` and
-  `inflateBackEnd` name `Goal.inflate_back_sequence_safety`, until step 4 states one goal per
-  function. A shared safety goal does not key mutants. These two goals and their functions are
-  pinned in `SHARED_SAFETY_GOALS` in `scripts/verification.py`. A function whose own
-  `Goal.<function>_safety` (or `_safe`) is in the pinned `safety_goals` must name exactly that goal.
-  Only the functions of `FULL_CONTRACT_SAFETY` (`compressBound`, `compressBound_z`) name their full
-  contract, with a `safety_note`.
-- `compressBound` and `compressBound_z` name their full contracts, with a `safety_note`: their
-  translations are pure functions with no heap and no fault, so a separate safety goal would hold
-  by definition.
-- The shrink-only checks compare with a chain of revisions: the base branch (`ZLIBF_BASE_REF`, else
-  the pull request's base, else `origin/main`; on `main` itself, the first parent), the pinned
-  floors of `CHAIN_FLOORS` that are ancestors of `HEAD`, and every commit after them that `HEAD`
-  contains, through all parents, so no merge hides what came before it. At least one floor must be
-  an ancestor of `HEAD`. The floors are bd2afafd for dev and 364790f5 for main (a squash commit on
-  main has no dev ancestry); they move only by an edit to the script.
-- `open_safety`: a goal that is required and not open at any revision of the chain may not become
-  open. A goal new to the required set may enter the list.
-- `open_safety` may not list a proved goal. `final` also requires it to be empty. The auditor's
-  strict mode is no longer used: it would reject every unproved functional goal.
-- No decision reads the report text: a Lean name can hold a newline and forge a line.
-  `tests/audit/proved-goals.txt` lists the proved goals, and the auditor's `--proved` check rejects
-  any difference from the goals it finds PROVED. `specs` and `final` also pass `--require` with
-  the required goals not listed as open, so the auditor itself fails on one that is OPEN. Every
-  name in `proved-goals.txt` must be a goal. The auditor rejects a declaration name with a control
-  character (C0, DEL, C1, U+2028, U+2029).
-- Every registry file follows one line rule in both the auditor and `scripts/verification.py`:
-  lines are separated by `\n` only, an empty line or a `#` line is skipped, no line holds a control
-  character, and a name line holds no whitespace. A line that breaks the rule is rejected.
-- Every proved goal of one function (its functional goal, or its own safety goal) needs function
-  mutants. `MUTANT_COVERAGE_PENDING` in `scripts/verification.py` may name, with a reason, a proved
-  safety goal still without rows; a stale entry is rejected, and no entry may be new against the
-  revisions above. The acceptance batch emptied it.
-- No name registered in `theorems.txt` or recorded in `proved-goals.txt` at any revision of the
-  chain may disappear, unless `tests/audit/registry-removals.json` names it with a reason. An entry
-  whose name was never registered there, or is registered now, is stale and rejected. While the
-  base has no `open_safety`, the list at `ec860375` is the floor.
-- While a goal is proved, its mutant references in `tests/audit/public-mutants.json` only shrink:
-  no reference (list and row) at any revision of the chain may disappear, and the referenced row
-  (file, old and new text) may not change, unless `registry-removals.json` names the goal, list and
-  row under `mutant_references` with a reason. An entry that excuses nothing is stale.
-
-## Progress view
-
-The function table gets two status columns, Safety and Functional. The top of
-`docs/progress.md` shows two summary tables: "Safety (required)" with proved and open counts by
-family, and "Functional (not required)" with the same counts. Both come from the generator, which
-also writes the Chinese twin. This waits for batch 3's change to the generator's staleness check.
-
-## `docs/spec/`
-
-`docs/spec/` gets `safety/` and `functional/` sections that mirror the two directories, each with a
-short page per family and its Chinese twin. `docs/spec/safety.md` becomes the entry page of the
-safety section. The API manual under `docs/spec/api/` stays; each function's entry links its two
-goals.
-
-## Order of work
-
-Every Lean slice lands on `dev` from `worker/safety-split` after a full `lake build ZlibF` and the
-verification self tests. Each commit that touches protected paths says so.
-
-1. **Directories and the stateless and stream families.** `Spec/Safety/`, `Spec/Functional/`, the
-   layer check in the fast gate, `Api/` and `Format/` moved with re-export modules,
-   `Public/Parameters.lean`, and the goal definitions of the checksum, utility, inflate and deflate
-   families moved out of `Public/`. Importers that name a moved goal import its new module. No
-   statement text changes. Announced in the shared notes.
-2. **New safety goals and corollaries** for the inflate, deflate and stateless families.
-3. **Manifest, audit, progress view.** Coordinated with batch 3. Batch 3 owns
-   `scripts/proof-progress.py` until its staleness change lands; the two-column view comes after.
-4. **gzip and `inflateBack`.** `GzState`, `GzTrace` and the gz goals are not moved or edited until
-   the read-side owner and batch C say their statement changes have landed. The gz write frame is
-   agreed with batch C first.
-5. **Documents.** `docs/spec/` sections, `AGENTS.md` ("What counts as proved", "Checking"),
-   `docs/overview.md`, `docs/checking/goals.md`, with Chinese twins.
-
-## Open points
-
-- A rename of `Spec/Public/` to `Spec/Common/`. It would be one mechanical commit; 104 modules
-  import `Spec/Public` today. It is done only if the owner wants it.
-- The write frame of `Goal.gz_sequence_safety`: which caller regions a gz call may write. To be
-  agreed with batch C.
-- `Public/GzState`'s import of a proof module (`Proof.«gzlib.c.base»`).
-
-[Design index](README.md)
+[Design](README.md) · [Documentation home](../README.md)

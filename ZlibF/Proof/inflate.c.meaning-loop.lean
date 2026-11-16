@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inflate.c.meaning»
 import ZlibF.Proof.«inflate.c.main.macros»
 import ZlibF.Proof.«inflate.c.input-cursor»
-import ZlibF.Spec.Public.Memory
+import ZlibF.Spec.Common.Memory
 
 /-!
 # inflate.c: the format meaning inside one `inflate` call (interface)

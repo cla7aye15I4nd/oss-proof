@@ -16,7 +16,7 @@ flushes and NULL buffers. Each call is printed with the state the goals mention.
 | `Goal.deflate_sequence` | a finished stream decodes to the accepted input (`DecodesFor`); a completed sync or full flush consumed all input and ends at a flush point (`FlushedFor`); after a full flush the rest decodes without earlier data; `adler` after a successful call; `deflateBound` before data equals the model bound |
 | `DeflateCompletes` | a `Z_FINISH`-only history with bound room ends the stream |
 
-The decoder in `check.py` follows `ZlibF/Spec/Format/*.lean` (`Blocks`, `Body`, `Symbols`,
+The decoder in `check.py` follows `ZlibF/Spec/Functional/Format/*.lean` (`Blocks`, `Body`, `Symbols`,
 `CodeLens`, `Acceptable`, `OpenBlocks`), not zlib. This is evidence about finitely many histories,
 not a proof.
 

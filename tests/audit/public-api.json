@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source_pin": "757f0527154291bcf6bfbd6396ecde6bedd2db95",
+  "source_pin": "99623ef7097352da7993ba614161fd6a311e046e",
   "target": "default x86_64 Linux LP64 static build, default allocator",
   "required_properties": [
     "documented-domain",
@@ -350,8 +350,7 @@
       "implementation": "Zlib.Gzlib.gzbuffer",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzbuffer",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzbuffer_safety"
     },
     {
       "function": "gzclearerr",
@@ -360,8 +359,7 @@
       "implementation": "Zlib.Gzlib.gzclearerr",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzclearerr",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzclearerr_safety"
     },
     {
       "function": "gzclose",
@@ -370,8 +368,7 @@
       "implementation": "Zlib.Gzclose.gzclose",
       "source": "ZlibF/Zlib/gzclose.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzclose",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzclose_safety"
     },
     {
       "function": "gzclose_r",
@@ -380,8 +377,7 @@
       "implementation": "Zlib.Gzread.gzclose_r",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzclose_r",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzclose_r_safety"
     },
     {
       "function": "gzclose_w",
@@ -390,8 +386,7 @@
       "implementation": "Zlib.Gzwrite.gzclose_w",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzclose_w",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzclose_w_safety"
     },
     {
       "function": "gzdirect",
@@ -400,8 +395,7 @@
       "implementation": "Zlib.Gzread.gzdirect",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzdirect",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzdirect_safety"
     },
     {
       "function": "gzdopen",
@@ -410,8 +404,7 @@
       "implementation": "Zlib.Gzlib.gzdopen",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzdopen",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzdopen_safety"
     },
     {
       "function": "gzeof",
@@ -420,8 +413,7 @@
       "implementation": "Zlib.Gzlib.gzeof",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzeof",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzeof_safety"
     },
     {
       "function": "gzerror",
@@ -430,8 +422,7 @@
       "implementation": "Zlib.Gzlib.gzerror",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzerror",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzerror_safety"
     },
     {
       "function": "gzflush",
@@ -440,8 +431,7 @@
       "implementation": "Zlib.Gzwrite.gzflush",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzflush",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzflush_safety"
     },
     {
       "function": "gzfread",
@@ -450,8 +440,7 @@
       "implementation": "Zlib.Gzread.gzfread",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzfread",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzfread_safety"
     },
     {
       "function": "gzfwrite",
@@ -460,8 +449,7 @@
       "implementation": "Zlib.Gzwrite.gzfwrite",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzfwrite",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzfwrite_safety"
     },
     {
       "function": "gzgetc",
@@ -470,8 +458,7 @@
       "implementation": "Zlib.Gzread.gzgetc",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzgetc",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzgetc_safety"
     },
     {
       "function": "gzgetc_",
@@ -480,8 +467,7 @@
       "implementation": "Zlib.Gzread.gzgetc_",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzgetc_",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzgetc__safety"
     },
     {
       "function": "gzgets",
@@ -490,8 +476,7 @@
       "implementation": "Zlib.Gzread.gzgets",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzgets",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzgets_safety"
     },
     {
       "function": "gzoffset",
@@ -500,8 +485,7 @@
       "implementation": "Zlib.Gzlib.gzoffset",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzoffset",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzoffset_safety"
     },
     {
       "function": "gzoffset64",
@@ -510,8 +494,7 @@
       "implementation": "Zlib.Gzlib.gzoffset64",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzoffset64",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzoffset64_safety"
     },
     {
       "function": "gzopen",
@@ -520,8 +503,7 @@
       "implementation": "Zlib.Gzlib.gzopen",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzopen",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzopen_safety"
     },
     {
       "function": "gzopen64",
@@ -530,8 +512,7 @@
       "implementation": "Zlib.Gzlib.gzopen64",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzopen64",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzopen64_safety"
     },
     {
       "function": "gzopen_w",
@@ -546,8 +527,7 @@
       "implementation": "Zlib.Gzwrite.gzprintf",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzprintf",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzprintf_safety"
     },
     {
       "function": "gzputc",
@@ -556,8 +536,7 @@
       "implementation": "Zlib.Gzwrite.gzputc",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzputc",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzputc_safety"
     },
     {
       "function": "gzputs",
@@ -566,8 +545,7 @@
       "implementation": "Zlib.Gzwrite.gzputs",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzputs",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzputs_safety"
     },
     {
       "function": "gzread",
@@ -576,8 +554,7 @@
       "implementation": "Zlib.Gzread.gzread",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzread",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzread_safety"
     },
     {
       "function": "gzrewind",
@@ -586,8 +563,7 @@
       "implementation": "Zlib.Gzlib.gzrewind",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzrewind",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzrewind_safety"
     },
     {
       "function": "gzseek",
@@ -596,8 +572,7 @@
       "implementation": "Zlib.Gzlib.gzseek",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzseek",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzseek_safety"
     },
     {
       "function": "gzseek64",
@@ -606,8 +581,7 @@
       "implementation": "Zlib.Gzlib.gzseek64",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzseek64",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzseek64_safety"
     },
     {
       "function": "gzsetparams",
@@ -616,8 +590,7 @@
       "implementation": "Zlib.Gzwrite.gzsetparams",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzsetparams",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzsetparams_safety"
     },
     {
       "function": "gztell",
@@ -626,8 +599,7 @@
       "implementation": "Zlib.Gzlib.gztell",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gztell",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gztell_safety"
     },
     {
       "function": "gztell64",
@@ -636,8 +608,7 @@
       "implementation": "Zlib.Gzlib.gztell64",
       "source": "ZlibF/Zlib/gzlib.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gztell64",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gztell64_safety"
     },
     {
       "function": "gzungetc",
@@ -646,8 +617,7 @@
       "implementation": "Zlib.Gzread.gzungetc",
       "source": "ZlibF/Zlib/gzread.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzungetc",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzungetc_safety"
     },
     {
       "function": "gzvprintf",
@@ -656,7 +626,7 @@
       "implementation": "Zlib.Gzwrite.gzvprintf",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzvprintf",
-      "safety_goal": null
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzvprintf_safety"
     },
     {
       "function": "gzwrite",
@@ -665,8 +635,7 @@
       "implementation": "Zlib.Gzwrite.gzwrite",
       "source": "ZlibF/Zlib/gzwrite.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.gzwrite",
-      "safety_goal": "ZlibF.Spec.Public.Goal.gz_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.gzwrite_safety"
     },
     {
       "function": "inflate",
@@ -684,8 +653,7 @@
       "implementation": "Zlib.Infback.inflateBack",
       "source": "ZlibF/Zlib/infback.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.inflateBack",
-      "safety_goal": "ZlibF.Spec.Public.Goal.inflate_back_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.inflateBack_safety"
     },
     {
       "function": "inflateBackEnd",
@@ -694,8 +662,7 @@
       "implementation": "Zlib.Infback.inflateBackEnd",
       "source": "ZlibF/Zlib/infback.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.inflateBackEnd",
-      "safety_goal": "ZlibF.Spec.Public.Goal.inflate_back_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.inflateBackEnd_safety"
     },
     {
       "function": "inflateBackInit_",
@@ -704,8 +671,7 @@
       "implementation": "Zlib.Infback.inflateBackInit_",
       "source": "ZlibF/Zlib/infback.c.lean",
       "functional_goal": "ZlibF.Spec.Public.Goal.inflateBackInit_",
-      "safety_goal": "ZlibF.Spec.Public.Goal.inflate_back_sequence_safety",
-      "safety_note": "The sequence safety goal until per-function goals are stated (docs/design/safety-functional-split.md, step 4)."
+      "safety_goal": "ZlibF.Spec.Public.Goal.inflateBackInit__safety"
     },
     {
       "function": "inflateCodesUsed",
@@ -993,13 +959,48 @@
     "ZlibF.Spec.Public.Goal.crc32_combine_safety",
     "ZlibF.Spec.Public.Goal.crc32_combine64_safety",
     "ZlibF.Spec.Public.Goal.zlibVersion_safety",
-    "ZlibF.Spec.Public.Goal.zlibCompileFlags_safety"
+    "ZlibF.Spec.Public.Goal.zlibCompileFlags_safety",
+    "ZlibF.Spec.Public.Goal.gzbuffer_safety",
+    "ZlibF.Spec.Public.Goal.gzclearerr_safety",
+    "ZlibF.Spec.Public.Goal.gzclose_safety",
+    "ZlibF.Spec.Public.Goal.gzclose_r_safety",
+    "ZlibF.Spec.Public.Goal.gzclose_w_safety",
+    "ZlibF.Spec.Public.Goal.gzdirect_safety",
+    "ZlibF.Spec.Public.Goal.gzdopen_safety",
+    "ZlibF.Spec.Public.Goal.gzeof_safety",
+    "ZlibF.Spec.Public.Goal.gzerror_safety",
+    "ZlibF.Spec.Public.Goal.gzflush_safety",
+    "ZlibF.Spec.Public.Goal.gzfread_safety",
+    "ZlibF.Spec.Public.Goal.gzfwrite_safety",
+    "ZlibF.Spec.Public.Goal.gzgetc_safety",
+    "ZlibF.Spec.Public.Goal.gzgetc__safety",
+    "ZlibF.Spec.Public.Goal.gzgets_safety",
+    "ZlibF.Spec.Public.Goal.gzoffset_safety",
+    "ZlibF.Spec.Public.Goal.gzoffset64_safety",
+    "ZlibF.Spec.Public.Goal.gzopen_safety",
+    "ZlibF.Spec.Public.Goal.gzopen64_safety",
+    "ZlibF.Spec.Public.Goal.gzprintf_safety",
+    "ZlibF.Spec.Public.Goal.gzputc_safety",
+    "ZlibF.Spec.Public.Goal.gzputs_safety",
+    "ZlibF.Spec.Public.Goal.gzread_safety",
+    "ZlibF.Spec.Public.Goal.gzrewind_safety",
+    "ZlibF.Spec.Public.Goal.gzseek_safety",
+    "ZlibF.Spec.Public.Goal.gzseek64_safety",
+    "ZlibF.Spec.Public.Goal.gzsetparams_safety",
+    "ZlibF.Spec.Public.Goal.gztell_safety",
+    "ZlibF.Spec.Public.Goal.gztell64_safety",
+    "ZlibF.Spec.Public.Goal.gzungetc_safety",
+    "ZlibF.Spec.Public.Goal.gzvprintf_safety",
+    "ZlibF.Spec.Public.Goal.gzwrite_safety",
+    "ZlibF.Spec.Public.Goal.inflateBack_safety",
+    "ZlibF.Spec.Public.Goal.inflateBackEnd_safety",
+    "ZlibF.Spec.Public.Goal.inflateBackInit__safety"
   ],
   "open_safety": [],
   "not_planned": [
     {
       "goal": "ZlibF.Spec.Public.Goal.gz_initialisation_domain",
-      "reason": "The functional contract of gzopen (OpenState, GzReachable). Functional goals are not planned (owner, 2026-11-11); removed from the required set with the owner's approval on 2026-11-14. Non-vacuity of the gz safety premises is Goal.gz_sequence_nonvacuity. See docs/progress.md, Scope."
+      "reason": "The functional contract of gzopen (OpenState, GzReachable). Functional goals of the gz file interface are not planned: the only planned functional result is the round trip of the default zlib stream (owner, 2026-11-11 and 2026-11-15). Removed from the required set with the owner's approval on 2026-11-14. Non-vacuity of the gz safety premises is Goal.gz_sequence_nonvacuity. See docs/progress.md, Scope."
     }
   ]
 }

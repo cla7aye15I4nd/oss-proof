@@ -2,7 +2,7 @@
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/regression/deflate-gzip-name-output/run.sh
 # Builds the patched zlib copy under ASan and UBSan and runs the two gzip name layouts.
 # Each must be reported by a sanitizer: both are outside the domain of Goal.deflate
-# (DeflateHeaderApart, a conjunct of ActiveHeader, ZlibF/Spec/Public/History.lean).
+# (DeflateHeaderApart, a conjunct of ActiveHeader, ZlibF/Spec/Common/History.lean).
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}

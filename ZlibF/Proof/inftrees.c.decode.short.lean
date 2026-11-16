@@ -1,6 +1,6 @@
 import ZlibF.Proof.«inftrees.c.decode.soundness»
-import ZlibF.Spec.InflateDecodeTableShort
-import ZlibF.Spec.InflateDecodeTableRejection
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableShort
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableRejection
 
 set_option autoImplicit false
 

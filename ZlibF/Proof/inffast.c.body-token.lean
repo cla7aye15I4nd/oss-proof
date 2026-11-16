@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastBodyToken
+import ZlibF.Spec.Functional.Inflate.InflateFastBodyToken
 import ZlibF.Proof.«inffast.c.length-trace»
 import ZlibF.Proof.«inffast.c.length-semantics»
 import ZlibF.Proof.«inffast.c.distance-result»
@@ -122,20 +122,20 @@ private theorem refill_entry_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) 
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl3 := hls.pullL (by omega) hiin
     have hs3 := Sg_pullL hls (by omega) hiin
-    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+    have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
     have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-    have hb3' : (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+    have hb3' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
       simp only [pullL] at hb3 ⊢; omega
     refine Wp.bindO (pull_run e _ _ (i + 1) o hl3 hb3' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have hl4 := hl3.pullL hb3' hi2
     have hs4 := Sg_pullL hl3 hb3' hi2
-    have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1))) (e.IN.getD (i + 1) 0)
-      (.ref (BRef.blk e.ib) (i + 1 + 1)) hl3.hb
+    have hb4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (e.IN.getD (i + 1) 0)
+      (.ref e.ib (i + 1 + 1)) hl3.hb
     simp only [pullL] at hb3 hb4
     have pullRoom : i + 1 + 1 + 2 ≤ e.i0 + e.sm0.avail_in.toNat ∨
         (i + 1 + 1 + 1 ≤ e.i0 + e.sm0.avail_in.toNat ∧
-          20 ≤ (pullL (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)))
-            (e.IN.getD (i + 1) 0) (.ref (.blk e.ib) (i + 1 + 1))).bits.toNat) := by
+          20 ≤ (pullL (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1)))
+            (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1))).bits.toNat) := by
       by_cases hc3 : i = s + 3
       · right; have := hT3 hc3; simp only [pullL]; omega
       · left; omega
@@ -209,7 +209,7 @@ private theorem len_entry_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m 
       refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl3 := hls.pullL (by omega) hiin
       have hs3 := Sg_pullL hls (by omega) hiin
-      have hb3 := pullL_bits l (e.IN.getD i 0) (.ref (BRef.blk e.ib) (i + 1)) hls.hb
+      have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
       refine Wp.mono (ext_entry_wp hc A msg m _ (i + 1) o s hts hl3 hA ho hAb hbroke (by simp only [pullL]; omega)
         (by simp only [pullL] at hb3 ⊢; omega) (by simp only [pullL]; omega) hs6 (by omega)
         (by intro h3; simp only [pullL] at hb3 ⊢; have := hb2 (by omega); omega) (hfr.mono (by omega))) ?_
@@ -287,7 +287,7 @@ private theorem pass_entry_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m
       rw [hls.hout, ← e.heap_put A (A.set! o E.val.toUInt8) msg m]
       exact Ptr.store_ok (e.heap_bytes_ob A msg m) (e.heap_ro_ob A msg m) (by omega)
     refine Wp.bindE hst ?_
-    refine Wp.bindO (x := Ptr.ref (BRef.blk e.ob) (o + 1)) ?_ ?_
+    refine Wp.bindO (x := Ptr.ref e.ob (o + 1)) ?_ ?_
     · rw [hls.hout]
       exact Ptr.add_nat_ok (e.heap_bytes_ob _ msg m) (by simp; omega)
     · have hop : E.op = 0 := by rw [mask0] at hz; simpa using hz
@@ -521,15 +521,15 @@ theorem body_entry_wp (e : Env) (c : Ctx) (A : Array UInt8) (msg : BPtr) (m : UI
       refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl1 := hls.pullL (by omega) hiin
       have stream1 := Sg_pullL hls (by omega) hiin
-      have hb1 := pullL_bits l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)) hls.hb
+      have hb1 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
       have hi2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by omega
-      have hb1' : (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+      have hb1' : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
         simp only [pullL] at hb1 ⊢; omega
       refine Wp.bindO (pull_run e _ _ (i + 1) o hl1 hb1' hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have hl2 := hl1.pullL hb1' hi2
       have stream2 := Sg_pullL hl1 hb1' hi2
-      have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)))
-        (e.IN.getD (i + 1) 0) (.ref (.blk e.ib) (i + 1 + 1)) hl1.hb
+      have hb2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1)))
+        (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1)) hl1.hb
       refine Wp.mono (root_entry_wp hc A msg m _ (i + 1 + 1) o i hl2 hAsz ho258 hbroke hi6 (by omega) (by omega)
         (by simp only [pullL] at hb1 hb2 ⊢; omega)
         (by intro _; simp only [pullL] at hb1 hb2 ⊢; omega) (hfr.mono (by omega))) ?_
@@ -550,13 +550,13 @@ private theorem ready_locals (e : Env) (c : Ctx) (A : Array UInt8)
   · have bitsLt : l.bits.toNat < 15 := by simpa using UInt32.lt_iff_toNat_lt.mp short
     have in1 : i < e.i0 + e.sm0.avail_in.toNat := by have := pre.inputRoom; omega
     have first := pre.locals.pullL (by omega) in1
-    have bits1 := pullL_bits l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)) pre.locals.hb
-    have bound1 : (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1))).bits.toNat ≤ 22 := by
+    have bits1 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) pre.locals.hb
+    have bound1 : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat ≤ 22 := by
       simp only [pullL] at bits1 ⊢; omega
     have in2 : i + 1 < e.i0 + e.sm0.avail_in.toNat := by have := pre.inputRoom; omega
     have second := first.pullL bound1 in2
-    have bits2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i + 1)))
-      (e.IN.getD (i + 1) 0) (.ref (.blk e.ib) (i + 1 + 1)) first.hb
+    have bits2 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1)))
+      (e.IN.getD (i + 1) 0) (.ref e.ib (i + 1 + 1)) first.hb
     simp only [ready, short, ite_true]
     constructor
     · simpa only [Nat.add_assoc] using second

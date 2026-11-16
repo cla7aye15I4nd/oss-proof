@@ -25,12 +25,12 @@ theorem back_reach_window {h : Heap} {r : ZStreamRef} {i : Nat} {window : BPtr} 
 
 /-- `inflateBackInit_` leaves a valid state over the window. -/
 theorem reach_init {h after : Heap} {r : ZStreamRef} {version : BPtr} {wb : Int32} {window : BPtr}
-    (hd : InitDomain h r version) (lo : 8 ≤ wb.toInt) (hi : wb.toInt ≤ 15)
+    (hd : BackInitArguments h r version) (lo : 8 ≤ wb.toInt) (hi : wb.toInt ≤ 15)
     (wr : Writable h window (2 ^ wb.toInt.toNat)) (nn : window ≠ .null)
     (run : C.run (Zlib.Infback.inflateBackInit_ (some r) wb window version 112) h = .ok (Z_OK, after)) :
     ∃ z s, BackValid after r h.nextBlk z s ∧ s.window = window ∧ s.wsize.toNat = 2 ^ wb.toInt.toNat ∧
       (s.sane ≠ 0 ∧ s.wnext = 0) := by
-  obtain ⟨hf, hu, hg, hv, z, hz, hdz, -⟩ := hd
+  obtain ⟨hf, hu, hg, hv, z, hz, hdz⟩ := hd
   obtain ⟨rc, after', hrun, -, hs⟩ :=
     ZlibF.Spec.Public.InflateBackInitProof.back_init_public.2.2 h r z wb window version hf hu hg hz hdz hv lo hi nn wr
   rw [run] at hrun

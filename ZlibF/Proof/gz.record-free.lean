@@ -1,6 +1,6 @@
 import ZlibF.Proof.«deflate.c.base»
 import ZlibF.Proof.«inflate.c.base»
-import ZlibF.Spec.Public.History
+import ZlibF.Spec.Common.History
 import ZlibF.Spec.Functional.Api.Basic
 
 /-!

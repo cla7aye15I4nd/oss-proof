@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inftrees.c.decode.stability»
-import ZlibF.Spec.InflateFastTableFlags
+import ZlibF.Spec.Functional.Inflate.InflateFastTableFlags
 
 set_option autoImplicit false
 

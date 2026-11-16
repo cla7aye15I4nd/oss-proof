@@ -7,7 +7,7 @@ import ZlibF.Proof.«trees.c.build.forest»
 The translated selection really removes the two least-weight nodes. Parent
 creation uses their mathematical sum when its explicit 16-bit bound holds.
 These are the first operational links to the pure Fibonacci argument; they
-do not yet establish that argument for an entire translated build_tree run.
+do not establish that argument for an entire translated build_tree run.
 -/
 
 namespace Zlib.Trees.Proofs

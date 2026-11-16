@@ -1,214 +1,228 @@
 # Proving one function
 
-A function proof connects the statement-by-statement translation to its fixed
-contract. It must establish safety, termination, the frame and exact ownership
-effects. Functional correctness relates the same execution and state to the
-format or API model. [Safety](../spec/safety.md) defines those claims;
-[progress](../progress.md) records their current acceptance status.
+This page explains how a proof about one C function is built in this project, and how a proof
+that does not go through is diagnosed. It is a description of method. It states no result of its
+own; the [map](README.md) lists the theorems, and the component pages give the arguments.
 
-## Fix the question before proving it
+The required goals are safety goals: a call returns without undefined behaviour or a memory
+error, it terminates, it changes only the memory it is entitled to change, and it leaks nothing.
+[Safety](../spec/safety.md) defines these claims. A functional goal says in addition what the
+call computes. Functional goals are not required for the safety results. The method is the same
+for both kinds, and this page says where a step is functional only.
 
-Start with the selected C, including the patches listed in `patches/README.md`.
-Read its public requirements in [the API guide](../spec/api/README.md) and its internal
-conditions in [the design guide](../design/README.md). Identify the exact
-proposition the function must satisfy. Record all caller requirements, error
-cases, writable objects and allocation effects.
+## Fix the question first
 
-A public precondition must cover what `zlib.h` permits. An internal theorem may
-require table bounds or a mode-specific invariant, but its callers must prove
-those requirements. Any public restriction beyond `zlib.h` belongs in the
-theorem's docstring and [deviations](../deviations.md).
+A proof starts from three things that are fixed before it begins.
 
-Follow the C in order. Preserve each branch, read, write and arithmetic conversion.
-Unsigned arithmetic wraps. Signed arithmetic and invalid pointer operations must
-raise the modeled fault. Do not combine statements or replace a source expression
-with an equivalent-looking one to make the proof easier. Temporal reads matter:
-reading a field before another write can differ from caching its earlier value.
+- **The C.** The pinned `zlib/` source with the patches of `patches/README.md` applied.
+- **The translation.** `zlib/X.c` becomes `ZlibF/Zlib/X.c.lean`, statement by statement: each
+  branch, read, write and conversion of the C has its counterpart, in the same order. Unsigned
+  arithmetic wraps. Signed overflow, an invalid shift and an invalid pointer operation raise a
+  fault. A statement is not replaced by an equivalent-looking one to make a proof easier. Order
+  matters also for reads: reading a field before another write is not the same as using a value
+  cached earlier.
+- **The goal.** A Lean proposition in `ZlibF/Spec/` that names the caller's obligations, the
+  result for each return value, the memory the call may write, and its allocations.
+
+A public goal has to cover what `zlib.h` permits. Any premise narrower than `zlib.h` is written
+in the docstring of the goal and has a row in [deviations](../deviations.md). An internal
+theorem, about a function that only the library calls, may assume more, for example a table of
+a certain shape; then every caller proves that premise at every call.
 
 ## Build the argument
 
 ```mermaid
 flowchart TD
-    Source["Selected C and fixed contract"] --> Hazards["Accesses, arithmetic, calls, exits and loops"]
-    Hazards --> Local["Local invariants and verification conditions"]
-    Local --> Math["Heap-free lemmas"]
-    Math --> Execution["Execution, frame and ownership proof"]
+    Source["C source and fixed goal"] --> Hazards["every access, arithmetic step, call, exit and loop"]
+    Hazards --> Local["local invariants and conditions"]
+    Local --> Math["heap-free lemmas in ZlibF/Math"]
+    Math --> Execution["execution proof: no fault, frame, ownership"]
     Local --> Execution
-    Execution --> Init["Caller and initialization discharge premises"]
-    Init --> Acceptance["Registry, mutation checks and reviewed CI"]
+    Execution --> Init["callers and initialisation supply the premises"]
+    Init --> Acceptance["registry and acceptance suite"]
 ```
 
-For each access, show that the object is live, the pointer has the right form and
-the offset is inside the accessed range. For pointer arithmetic, include the
-one-past rule. For each shift or signed operation, establish its range. For each
-loop, give a measure and show that its execution fits the actual fuel bound. A
-finite mathematical loop does not by itself prove that the translated run avoids
-`Fault.outOfFuel`.
+What has to be shown at each kind of statement:
 
-Use a proved execution theorem for each callee. Supply its precondition from the
-current state, then use its result, frame and ownership effects. A hypothesis
-saying that the callee satisfies its specification is forbidden.
+| Statement | To show |
+| --- | --- |
+| Read or write through a pointer | The object is live, the pointer has the right kind, and the offset is inside the object |
+| Pointer arithmetic | The result is inside the object or one past its end |
+| Shift, signed operation | The operands are in the range where C defines the result |
+| Loop | An invariant, and a measure that falls on every round and is below the loop fuel |
+| Call | The premises of the callee's theorem hold in the current state |
 
-Keep arithmetic and combinatorial lemmas in `ZlibF/Math/` when they need no heap.
-Memory proofs instantiate them for the cells actually read and written. A pure
-table theorem, for example, becomes useful to the decoder only after a heap
-refinement proves that `inflate_table` installed those entries.
+Two points are easy to miss.
+
+**Loop fuel.** Every loop of the translation runs at most `2^64` rounds, and running out is the
+fault `outOfFuel`. So a termination argument has to do more than show that the loop is finite
+in the mathematical sense: it has to bound the number of rounds below the fuel.
+
+**No callee contracts as assumptions.** A call is handled with a theorem that was proved about
+the translated callee. A hypothesis of the form "the callee meets its specification" is not
+allowed.
+
+Arithmetic and combinatorial lemmas that need no heap are in `ZlibF/Math/`. A memory proof
+applies them to the cells that the C reads and writes. A theorem about canonical codes, for
+instance, serves the decoder only after a second theorem shows that `inflate_table` wrote those
+entries into the heap.
 
 ## Diagnose a stuck proof
 
-There are four possible causes. Investigate them without presuming that the
-program or the specification is right.
+A proof that does not go through has one of four causes. None of them is assumed in advance.
 
-| Cause | Evidence to seek | Response |
+| Cause | What the evidence looks like | What is done |
 | --- | --- | --- |
-| Proof technique | The statement and translation agree, but a missing structural lemma or invariant prevents the argument | Prove the lemma at the lowest layer. Establish and preserve any stronger invariant from initialization. |
-| Wrong specification | A legal execution contradicts the stated result or its error behavior | Explain the counterexample and stop the proof of that statement. Correcting it requires a separate reviewed specification change. |
-| Translation bug | The translation differs from the selected C, including evaluation order or conversions | Correct the translation through the reviewed workflow and add a differential regression. |
-| Real zlib bug | The selected C itself fails on a legal input | Construct the input, run the C under a sanitizer and record the reproduction and scope. |
+| Proof technique | Statement and translation agree, and a lemma or an invariant clause is missing | The lemma is proved at the lowest layer that can state it. A stronger invariant is established at initialisation and kept by every operation |
+| Wrong goal | A permitted execution contradicts the stated result | The counterexample is written down and kept as a regression under `tests/verification/regressions/`. The goal is corrected in a commit of its own |
+| Translation bug | The translation differs from the C, for example in evaluation order or a conversion | The translation is corrected, and a differential test that catches the difference is added |
+| zlib bug | The C itself faults on a permitted input | The input is built, the real C is run under a sanitizer, and the finding is recorded with its reproduction |
 
-Narrowing the caller domain does not resolve any of these causes. A confirmed
-upstream bug may justify a minimal patch matching a submitted upstream fix. A
-model limitation is not an upstream bug.
+Narrowing the caller's domain solves none of these. A confirmed zlib bug can justify a minimal
+patch that matches a fix submitted upstream. A limit of the model is not a zlib bug.
 
 ## One representation invariant
 
-`InflateOK` and `DeflateOK` name the intended stream invariants. The source may
-contain intermediate predicates or older names such as `DGood`; their
-relationship to the stream invariant needs an explicit theorem. A conditional
-result over such a predicate is not sequence safety.
+Each stateful component has one representation invariant: a property of the state that
+initialisation establishes and every operation keeps. So it holds after every permitted series
+of calls. A theorem that only *assumes* the invariant is not a sequence result; the sequence
+theorem also proves that the invariant is reached.
 
-| Invariant | Clauses that the proof must establish |
-| --- | --- |
-| `InflateOK` | Owned state/window blocks are live and distinct; modes and bit counts are valid; window indices obey W; table pointers select the right static or dynamic object; entries and initialized ranges support every reached read. |
-| `DeflateOK` | State, window, `prev`, `head` and pending storage are live and distinct; size equations hold; D bounds the window; H1/H2 describe meaningful hash chains; pending/symbol regions satisfy the overlay bound; trees and statuses support the reached operations. |
+| Component | Invariant | Module | Explained in |
+| --- | --- | --- | --- |
+| `inflate` | `InflateInv` | `ZlibF/Proof/inflate.c.invariant.lean` | [stream decoding](inflate.md#the-invariant) |
+| `deflate` | `DInv`, with `HeaderInv` and `CallFacts` between calls | `ZlibF/Proof/deflate.c.universal-invariant.lean` | [stream compression](deflate.md#the-invariant) |
+| gzip files | `GzInv` | `ZlibF/Spec/Common/GzInv.lean` | [gzip files](gzip.md) |
+| callback decoder | `BackValid` between calls, `PInv` inside the dispatch loop | `ZlibF/Spec/Common/Back.lean`, `ZlibF/Proof/infback.c.safety-inv.lean` | [callback decoder](callbacks.md) |
 
-Clause D7 ties gzip emission states `EXTRA`, `NAME`, `COMMENT` and `HCRC` to a
-non-null `gzhead`. An earlier invariant admitted `EXTRA` with a null header, so a
-conditional `deflate(Z_BLOCK)` execution faulted. This was an invariant
-counterexample. The sequence proof must establish that legal calls cannot reach
-that combination.
+The sequence goals state the invariant through a smaller public predicate, `StreamInvariant`
+(`ZlibF/Spec/Common/Sequences.lean`). The proof invariants imply it.
 
-The invariant carries the data relationships needed by correctness too. Bounds
-alone do not identify the decoded bytes. Add a history or format relation over
-the same state; prove how it changes at each step. Do not build a second,
-unconnected account of the stream for correctness.
+Other modules use a small set of interface lemmas of an invariant and do not unfold its
+definition. A change to the invariant then rebuilds its interface and not every module that
+uses it.
 
-## Initialization, frame and ownership
+An invariant that is too weak shows up as a counterexample, not as a hard proof. One example:
+an earlier `deflate` invariant allowed the state `EXTRA_STATE` with a `NULL` `gz_header`
+pointer, and a `deflate(Z_BLOCK)` run from such a state faulted. The repair was a new clause,
+`HeaderInv.record`, which says the pointer is not `NULL` in the four header states that read
+it, together with a proof that every reachable state has it (`reachable_inv_of`,
+`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`). That theorem takes one hypothesis,
+`SequenceFacts`: three facts about one `deflate` call. Each has the same premises: the state
+before the call has `DInv`, `HeaderInv` and `CallFacts`, and the call has the buffers and the
+header that the goal asks for (`StreamBuffers`, `ActiveHeader`). The call returns and keeps
+`DInv` and the owned blocks; it keeps `HeaderInv`; it keeps `CallFacts`.
+The three facts are themselves proved: `sequence_facts`
+(`ZlibF/Proof/public-deflate-copy.lean`) has no hypothesis, and `deflate_copy_public` in that
+file applies `reachable_inv_of` to it. So the hypothesis is discharged, not assumed.
 
-Initialization must establish the representation invariant on success. It must
-also account for every allocation failure. Default allocation is not a promise
-of zeroed storage: show the writes that initialize every field subsequently read.
-For a fresh pointer field, the runtime supplies null without detecting an
-uninitialized read. This is weaker than C. A proof must separately show a prior
-write before each such read; see [safety, section 3](../spec/safety.md#uninitialised-memory)
-and [trusted-base](../trusted-base.md).
+Functional only: bounds do not say which bytes are decoded. A functional proof adds a relation
+between the state and the format, for the same executions, and shows how each step changes it.
 
-Uninitialized integer reads range over arbitrary values. `slide_hash` may visit
-all of `prev`, including unwritten slots, but a chain traversal must reach only
-slots initialized for meaningful positions. The model fixes each garbage cell's
-value during a run. An argument that relies on repeated garbage reads agreeing
-needs review against the stronger C behavior.
+## Initialisation, frame and ownership
 
-The frame identifies the exact memory a function may change: its stream,
-stream-owned state and the caller ranges authorized for that call. Caller input,
-unrelated blocks and static read-only tables stay unchanged as required by the
-contract. Error cases have their own exact effects. Some refuse without writing;
-others update state or produce output before returning an error. Do not infer an
-unchanged heap from a negative return code.
+**Initialisation** establishes the invariant on success and accounts for every allocation
+failure. The default allocator does not zero memory, so the proof shows the write that
+initialises each field that is read later. For pointer fields the model is weaker than C: a
+pointer field in fresh memory reads as `NULL` without a fault. So a proof does not show that
+a pointer field is written before it is read: that is **to confirm** by source review; see
+[safety](../spec/safety.md#uninitialised-memory) and the [trusted base](../trusted-base.md).
 
-`Owns` tracks the stream's live allocated blocks. Allocation adds a fresh block;
-free removes it exactly once. Copy creates independent owned blocks and rebases
-interior pointers. End removes the owned blocks. Failed initialization or copy
-must free every block acquired by that attempt and preserve earlier ownership.
-Leak-freedom follows over a lifecycle from these transitions, including failure
-paths, rather than from the success path alone.
+**Uninitialised integers** have an arbitrary value, and a theorem holds for every such value.
+`slide_hash`, for example, reads every slot of `prev`, written or not; a chain walk reaches
+only slots that were written ([stream compression](deflate.md#hashing-chains-that-can-be-followed)).
+The model gives each never-written cell one value for a whole run, so two reads of it agree. C
+does not promise that. Whether any proof depends on such an agreement has not been checked
+systematically; the row "One garbage value per cell" of [model limits](../model-limits.md)
+records this limit.
+
+**The frame** of a call is the memory it may change: the stream record, the blocks the stream
+owns, and the caller ranges given to this call. Everything else is unchanged. Error returns have
+their own effects: some write nothing, others have updated the state or produced output before
+they return. A negative return code does not by itself mean an unchanged heap.
+
+**Ownership** (`Owns`) tracks the live blocks that belong to a stream. An allocation adds a
+block, and a free removes it exactly once. A copy creates new blocks and points the interior
+pointers at them. A failed initialisation or copy frees every block it had obtained and leaves
+earlier ownership as it was. Freedom from leaks follows from these steps over a whole history,
+failure paths included.
 
 ```mermaid
 flowchart LR
-    Before["Caller state and live blocks"] --> Init["Init"]
-    Init -->|success| Inv["Representation invariant and Owns"]
-    Init -->|failure cleanup| Before
+    Before["caller state, live blocks"] --> Init["init"]
+    Init -->|success| Inv["invariant holds; stream owns its blocks"]
+    Init -->|"failure: blocks freed"| Before
     Inv --> Call["API call"]
-    Call -->|preserves| Inv
-    Inv --> End["End"]
-    End --> Released["Original live-block set restored"]
+    Call -->|keeps| Inv
+    Inv --> End["end"]
+    End --> Released["live blocks as before init"]
 ```
 
 ## Non-vacuity and composition
 
-An init theorem shows that the representation invariant can hold. It must cover
-the permitted parameter domain and failure behavior; an inconsistent invariant
-cannot be accepted merely because conditional preservation is easy. Top-level
-claims also need a concrete witness. Existing model witnesses do not instantiate
-the translated heap API automatically.
+An invariant that no state satisfies would make every "if the invariant holds" theorem true and
+worthless. The initialisation theorem rules this out: it shows that the invariant is reached,
+for the whole permitted parameter range. A top-level goal also has a non-vacuity theorem, which
+exhibits a concrete heap and call that meet all its premises.
 
-Compose API calls by induction over legal call sequences. Initialization supplies
-the first invariant. Each call supplies the next invariant, frame and ownership
-transition. Reset, dictionaries, priming, recovery, copying and partial buffers
-belong in that induction whenever the public API permits them. The functional
-relation must also compose across arbitrary input and output splits.
+Calls are composed by induction over the permitted histories. Initialisation gives the
+invariant. Each call gives the next invariant, its frame and its ownership step. Reset,
+dictionaries, priming, recovery, copying and partly filled buffers are cases of that induction
+wherever the API permits them.
 
 ## Check each proof interface
 
-Before composing branch results, record the relation each producer establishes
-and each consumer requires on the same heap and registers. Matching theorem
-names do not establish that connection. A missing implication remains a proof
-obligation.
+Before two proved parts are joined, the relation that the first establishes and the relation
+that the second requires are compared, on the same heap and the same registers. Two theorems
+with matching names are not thereby connected.
 
-For a stream engine, check six interfaces: initialization establishes the
-persistent relation; entry derives the local dispatch relation; each mode
-preserves it or establishes an exact exit relation; continued dispatch decreases
-a bounded rank; every exit restores the public accounting, frame and ownership
-relation; and each admitted history operation preserves the persistent relation.
-Direct returns and the common leave path need their own exit arguments.
+For a stream engine there are six such interfaces.
 
-Table construction also has two distinct obligations. Bounded indices and valid
-leaf shapes justify safe lookup. Correspondence with independent canonical codes
-justifies decoding meaning. A safe write footprint alone proves neither complete
-consumer conclusion. Format refinement must follow the same executions as the
-safety argument.
+1. Initialisation establishes the invariant.
+2. The entry of a call derives the local relation of the dispatch loop from it.
+3. Each mode keeps that relation or establishes the exact relation of its exit.
+4. Each round of the dispatch loop lowers a bounded rank.
+5. Every exit restores the public accounting, the frame and the ownership relation. Direct
+   returns and the common exit path each need this.
+6. Every other permitted operation keeps the invariant.
+
+Table construction has two different obligations. Index bounds and valid leaf shapes make a
+lookup safe. Agreement with the canonical code makes a lookup mean the right symbol. A proof
+that the writes land in the table gives neither.
 
 ## Structural facts used by several proofs
 
-These identifiers are shared with the component pages. Each fact needs premises
-appropriate to the actual execution, rather than an assumed callee contract.
+The component pages refer to these facts by number.
 
-| ID | Required fact | Used by |
-| --- | --- | --- |
-| F1 | Canonical-table writes stay within reserved tables, and successful tables cover all reader indices | `inflate_table`, `inflate`, `inflate_fast` |
-| F2 | Counting offsets sort coded symbols into distinct, initialized `work` slots | `inflate_table` |
-| F3 | A reached window copy checks the distance against available history | `inflate`, `inflate_fast` |
-| F4 | In a partially filled ring, `whave < wsize` implies `wnext = whave` | `updatewindow`, decoder copies |
-| F5 | A hash walk reaches inserted positions and initialized `prev` links | `longest_match` |
-| F6 | Match comparisons through offset 258 fit in the window under the caller's room bound | `longest_match`, `deflate_rle` |
-| F7 | Active heap, stored nodes and tree indices stay within their arrays | `build_tree`, `pqdownheap` |
-| F8 | Overflow repair finds a nonempty class below the length limit and can decrement the final class | `gen_bitlen` |
-| F9 | Pending output never overwrites an unread symbol and fits in the shared buffer | Block writers and subsequent static-table lookups |
+| ID | Fact | Used by | Explained in |
+| --- | --- | --- | --- |
+| F1 | The writes of table construction stay inside the table space, and a finished table has an entry at every index a reader can form | `inflate_table`, `inflate`, `inflate_fast` | [decode tables](inftrees.md#every-index-is-covered) |
+| F2 | The counting offsets sort the coded symbols into distinct `work` slots, all written | `inflate_table` | [decode tables](inftrees.md#sorting-f2) |
+| F3 | A match copy that reaches into the window has tested its distance against `whave` | `inflate`, `inflate_fast` | [fast decoding](inffast.md#match-copies-f3-and-f4) |
+| F4 | In a window that is not full, `wnext = whave` | `updatewindow` | [stream decoding](inflate.md#window-shape-w), W.5 |
+| F5 | A hash-chain walk reaches only inserted positions, through `prev` slots that were written | `longest_match` | [stream compression](deflate.md#inside-one-deflate-call) |
+| F6 | The comparisons of a match, up to offset 258, are inside the window | `longest_match`, `deflate_rle` | [stream compression](deflate.md#inside-one-deflate-call) |
+| F7 | The active heap, the stored nodes and the tree indices stay inside their arrays | `build_tree`, `pqdownheap` | [trees](trees.md#building-a-tree-f7) |
+| F8 | The length repair finds a nonempty shorter class, and the count of the longest class does not go below zero | `gen_bitlen` | [trees](trees.md#limiting-the-code-lengths-f8) |
+| F9 | Pending output never overwrites an unread symbol, and a whole block fits the shared buffer | the block writers | [trees](trees.md#the-overlay-lemma-f9) |
 
-F1 uses Kraft and canonical-code arguments. F8 uses full binary trees and the
-clamped Kraft sum. F9 requires a prefix cost bound for actual constructed trees;
-a comparison of total block sizes is insufficient. The
-[table](inftrees.md) and [tree](trees.md) pages give those arguments and their scope.
+F3 and F4 do different work. F3 keeps a window read of a match inside the block. F4 lets
+`updatewindow` keep `whave ≤ wsize`. The match copies do not need F4 for their bounds; it also
+tells that the bytes they read were written, which is a reading that no safety theorem states.
 
-## Accept the result
+## From checked to accepted
 
-For a reviewable proof, record the source function, fixed goal, explicit domain,
-used invariant clauses, footprint, ownership changes, callee theorems, loop
-measures and mathematical lemmas. Include the pointer-initialization argument
-where the runtime cannot detect the missing write.
+A proof of a public function is recorded with: the C function, the goal, its premises, the
+invariant clauses used, the frame, the ownership changes, the callee theorems, the loop measures
+and the mathematical lemmas.
 
-Mutation checks must change the translated function and fail inside that
-function's proof. A source-equality lemma failing elsewhere is insufficient.
-Choose mutations that test the function's actual obligations, such as a dropped
-check, changed return, wrong field store or off-by-one index.
+Each newly proved public function gets proof mutants: the translation is changed in one place,
+for example a dropped check, a changed return value, a wrong field or an index off by one, and
+the proof of that function must then fail. A mutant that only breaks a lemma elsewhere does not
+count. The mutant rows are written when the function's theorem is registered. Running them is
+additional evidence and not part of acceptance: a mutant run starts only on request.
 
-The theorem must match a registered goal and pass the axiom audit. The full
-acceptance process also checks source/specification locks, mutation evidence,
-differential tests and all four CI jobs on the same named commit. Differential
-tests are evidence of fidelity, not proof. See
-[checking](../checking/README.md) and [anti-cheating](../anti-cheating.md).
-
-Earlier work measured proof size and explored shorter proofs through generated
-verification conditions. Those estimates motivate the method; they establish no
-bound on the difficulty or size of the present proofs. Neither a small proof nor
-a successful build substitutes for the acceptance conditions.
+The three levels, checked, registered and accepted, are defined in the
+[glossary](../glossary.md#status); [progress](../progress.md#scope) records the level of each
+result. A small proof or a green build is not acceptance. See
+[checking](../checking/README.md) and [verification policy](../anti-cheating.md).

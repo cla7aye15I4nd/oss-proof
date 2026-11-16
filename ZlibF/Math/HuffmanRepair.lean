@@ -10,7 +10,7 @@ project. No result here alone establishes refinement of the translated C.
 /-!
 # Dynamics of `gen_bitlen`'s overflow repair (`max_length = 15`)
 
-`docs/the reference overlay analysis` §7.2, Lemmas 4–5, on the count model `repairIter 15`. Write
+The overlay analysis of the zlib-formal reference (`docs/history/references.md`), §7.2, Lemmas 4–5, on the count model `repairIter 15`. Write
 `T_s = 2^(15−s) − 1`. Suppose levels `s+1 .. 14` are empty, `c s ≥ 1`, and level 15 has at
 least as many units as the number of moves made.
 

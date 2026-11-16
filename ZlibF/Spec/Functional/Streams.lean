@@ -1,4 +1,4 @@
-import ZlibF.Spec.Public.Streams
+import ZlibF.Spec.Common.Streams
 import ZlibF.Spec.Functional.Api.Inflate
 
 /-!

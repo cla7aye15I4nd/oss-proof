@@ -52,18 +52,14 @@ theorem fastPost_buffers (e : Zlib.Inffast.Proofs.Env) {after : Heap} {l : IL} {
   obtain ⟨used, made, buffered, bytes, msg, mode, bits, hold, usedBound, _, madeBound, size,
     bitCount, held, heapEq, _, _, _⟩ := post
   have privateWindow := callerRange_private_window good buffers.output.range (output.trans e.hnout)
-  have unowned : ∀ w, e.s0.window = .ref (.blk w) 0 → e.ob ≠ w := by
-    intro w win equal
-    exact privateWindow w win (by rw [equal])
+  have unowned : ∀ w, e.s0.window = .ref (.blk w) 0 → e.ob ≠ BRef.blk w := privateWindow
   obtain ⟨stream, state, current, _, _, _, _, window⟩ := fastPost_retained e good pending leaves unowned actualPost
-  let streamValue := { e.sm0 with next_in := .ref (.blk e.ib) (e.i0 + used), next_out := .ref (.blk e.ob) (e.o0 + made), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - made), msg }
+  let streamValue := { e.sm0 with next_in := .ref e.ib (e.i0 + used), next_out := .ref e.ob (e.o0 + made), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - made), msg }
   let stateValue := { e.s0 with mode, bits, hold }
-  have stateGet : after.istates e.stid = some stateValue := by rw [heapEq, ZStreamRef.put_istates, upd_same]
+  have stateGet : after.istates e.stid = some stateValue := by rw [heapEq, ZStreamRef.put_istates, Zlib.Inflate.Proofs.byte_view_put_istates]; exact upd_same _ _ _
   have stateEq : state = stateValue := Option.some.inj (current.live.hs.symm.trans stateGet)
-  have baseGet : e.r.get { e.h0 with bytes := upd e.h0.bytes e.ob (some bytes), istates := upd e.h0.istates e.stid (some stateValue) } = some e.sm0 := by
-    cases refEq : e.r with
-    | tab i => simpa only [refEq, ZStreamRef.get] using e.hsm
-    | in_gzstate_strm i => simpa only [refEq, ZStreamRef.get] using e.hsm
+  have baseGet : e.r.get (Space.put (Zlib.Inflate.Spec.setI e.h0 e.stid stateValue) e.ob bytes) = some e.sm0 :=
+    e.stream_get_frame bytes stateValue
   have streamGet : e.r.get after = some streamValue := by rw [heapEq, ZStreamRef.get_put, baseGet]; rfl
   have streamEq : stream = streamValue := Option.some.inj (current.live.hz.symm.trans streamGet)
   subst state
@@ -82,18 +78,16 @@ theorem fastPost_buffers (e : Zlib.Inffast.Proofs.Env) {after : Heap} {l : IL} {
     rw [UInt32.toNat_ofNat_of_lt' (by simp only [UInt32.size]; have := e.sm0.avail_out.toNat_lt; omega), outputCount]
     omega
   have sizes : ByteViewSizes e.h0 after := by
-    rw [heapEq]
-    have write := byte_view_sizes_put (dest := .blk e.ob) e.hA0 e.hro bytes size
+    rw [heapEq, byte_view_put_setI]
+    have write := byte_view_sizes_put (dest := e.ob) e.hA0 e.hro bytes size
     have step := (write.trans (byte_view_sizes_setI _ e.stid stateValue)).trans
       (byte_view_sizes_stream_put _ e.r streamValue)
     exact step
   have readonly : ∀ ref : BRef, Space.ro after ref = Space.ro e.h0 ref := by
     intro ref
-    rw [heapEq]
-    cases ref <;> simp only [Space.ro, ZStreamRef.put_ro]
-  have inputGet : Space.get after (BRef.blk e.ib) = some e.IN := by
-    rw [heapEq]
-    simp only [Space.get, ZStreamRef.put_bytes, upd_ne _ _ _ _ different]
+    rw [heapEq, byte_view_ro_stream_put, Zlib.Inffast.Proofs.space_ro_put, byte_view_ro_setI]
+  have inputGet : Space.get after e.ib = some e.IN := by
+    rw [heapEq, byte_view_get_stream_put, byte_view_get_put_ne _ different, byte_view_get_setI]
     exact e.hIN
   have inputContents : bs = (e.IN.toList.drop e.i0).take bs.length := by
     rcases buffers.bits.next with empty | ⟨ref, array, off, ptr, get, _, contents⟩
@@ -105,7 +99,7 @@ theorem fastPost_buffers (e : Zlib.Inffast.Proofs.Env) {after : Heap} {l : IL} {
       simpa only [same] using contents
   have finalBits : BitInv after regs (bs.drop used) := by
     refine ⟨by rw [List.length_drop, ← buffers.bits.have_eq]; omega, Or.inr ?_, held⟩
-    refine ⟨.blk e.ib, e.IN, e.i0 + used, rfl, inputGet, ?_, ?_⟩
+    refine ⟨e.ib, e.IN, e.i0 + used, rfl, inputGet, ?_, ?_⟩
     · rw [List.length_drop, ← buffers.bits.have_eq, inputCount]
       have := e.hINsz
       omega
@@ -138,7 +132,7 @@ theorem DispatchBuffers.byte_views {h after : Heap} {r : ZStreamRef} {zs : Nat}
 /-- The real fast LEN call retains the complete scalar/table/buffer packet
 for distinct raw input/output blocks. Input and output advances, remaining
 counts and normalized bits all come from the actual callee. General caller
-views, semantic bit consumption and whole-loop progress remain open. -/
+views, semantic bit consumption and whole-loop progress are not stated here. -/
 theorem inflate_LEN_fast_raw_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8} {ib io ob oo : Nat}
     (E : Env c h r zs z s) (good : Good h r zs z s)
@@ -185,13 +179,13 @@ theorem inflate_LEN_fast_raw_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamR
   have outCursor : l.put = entry.toEnv.sm0.next_out := by change l.put = entry.sm0.next_out; rw [streamEq]; rfl
   have outCount : l.left = entry.toEnv.sm0.avail_out := by change l.left = entry.sm0.avail_out; rw [streamEq]; rfl
   obtain ⟨used, made, regs, stream1, state1, usedBound, good1, packet1, sizes1, next, haveCount, put, left, regEq⟩ :=
-    fastPost_buffers entry.toEnv entryGood entryPacket entryPending entryLeaves inCursor inCount outCursor outCount post entry.hsep
+    fastPost_buffers entry.toEnv entryGood entryPacket entryPending entryLeaves inCursor inCount outCursor outCount post
+      (fun same => entry.hsep (BRef.blk.inj same))
   have privateWindow := callerRange_private_window good buffers.output.range output
-  have unowned : ∀ w, entry.toEnv.s0.window = .ref (.blk w) 0 → entry.toEnv.ob ≠ w := by
-    change ∀ w, entry.s0.window = .ref (.blk w) 0 → entry.ob ≠ w
+  have unowned : ∀ w, entry.toEnv.s0.window = .ref (.blk w) 0 → entry.toEnv.ob ≠ BRef.blk w := by
+    change ∀ w, entry.s0.window = .ref (.blk w) 0 → BRef.blk entry.ob ≠ BRef.blk w
     rw [stateEq, outputEq]
-    intro w win equal
-    exact privateWindow w win (by rw [equal])
+    exact privateWindow
   obtain ⟨stream2, state2, good2, tables2, pending2, held2, bits2, _⟩ :=
     fastPost_retained entry.toEnv entryGood entryPending entryLeaves unowned post
   have sameStream : stream2 = stream1 := Option.some.inj (good2.live.hz.symm.trans good1.live.hz)

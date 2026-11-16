@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.universal-ops-copy»
-import ZlibF.Spec.Public.Copy
+import ZlibF.Spec.Common.Copy
 import ZlibF.Spec.Functional.Api.Compress
 
 /-!

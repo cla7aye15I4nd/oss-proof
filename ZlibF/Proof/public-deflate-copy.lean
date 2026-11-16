@@ -1,7 +1,8 @@
 import ZlibF.Proof.«deflate.c.copy-failure»
 import ZlibF.Proof.«deflate.c.copy-success»
 import ZlibF.Proof.«public-deflate-goals»
-import ZlibF.Spec.Public.Copy
+import ZlibF.Proof.«public-stream-refusal»
+import ZlibF.Spec.Common.Copy
 import ZlibF.Spec.Functional.Copy
 import ZlibF.Spec.Safety.Copy
 
@@ -79,10 +80,12 @@ theorem deflate_copy_public : Goal.deflateCopy := by
   · obtain ⟨after, run, sg, st, fr, failed, dg, lc⟩ := copy_failure inv distinct destGet ok
     exact ⟨Z_MEM_ERROR, after, run, sg, st, fr, Or.inl ⟨rfl, failed, dg, lc⟩⟩
 
-/-- **Safety of `deflateCopy`**: the safety content of `Goal.deflateCopy`. -/
+/-- **Safety of `deflateCopy`**: the safety content of `Goal.deflateCopy`; the refusal of an inconsistent
+source is the copy clause of `Goal.deflate_refusal`. -/
 theorem deflate_copy_safety : Goal.deflateCopy_safety := by
   obtain ⟨c1, c2, c3⟩ := deflate_copy_public
-  refine ⟨c1, c2, ?_, fun h source dest zs oldDest sget dget bad => deflateCopy_refused sget dget bad⟩
+  refine ⟨c1, c2, ?_, fun h source dest oldDest dget hr =>
+    ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal.2.2.2.2 h dest oldDest (some source) dget hr⟩
   intro h source i z s dest oldDest reach good alloc distinct destGet
   obtain ⟨rc, after, run, sg, st, fr, res⟩ := c3 h source i z s dest oldDest reach good alloc distinct destGet
   refine ⟨rc, after, run, sg, st, fr, ?_⟩

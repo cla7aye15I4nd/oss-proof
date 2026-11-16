@@ -13,7 +13,7 @@ flushes its computed full block and preserves both loop frontiers and the
 independent byte meaning of that block. The initialized SearchBoundary
 covers short remaining input, including the two-byte insertion path. No
 encoding choice, caller capacity lower bound or callee contract is assumed.
-This is the full-tally decision cutpoint, not yet a complete strategy call. -/
+This is the full-tally decision cutpoint, not a complete strategy call. -/
 theorem slow_match_full_search_encoding {h : Heap} {r : ZStreamRef} {ds w ob oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {wa : Array UInt8} {xs : List Symbol} {input : Nat → UInt8}
     (cut : SearchBoundary h r ds z d input origin base xs w wa)

@@ -12,7 +12,7 @@ set_option autoImplicit false
 phase. The fixed configuration is explicit, so a subsequent iteration
 can reuse its level, memory and private ownership keys. Output-full exits
 may retain pending bytes; another iteration is permitted only with room.
-This boundary does not yet record the complete emitted-block history. -/
+This boundary does not record the complete emitted-block history. -/
 structure StrategyBoundary (h : Heap) (r : ZStreamRef) (ds : Nat) (z : ZStream) (d : DeflateState)
     (input : Nat → UInt8) (origin base : Nat) (xs : List Symbol) (config : EngineConfig) : Prop
     extends ContentBoundary h r ds z d input origin base xs where

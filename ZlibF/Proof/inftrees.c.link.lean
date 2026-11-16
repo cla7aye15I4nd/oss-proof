@@ -1,13 +1,10 @@
 import ZlibF.Proof.«inftrees.c.math»
-import ZlibF.Spec.Format.Huffman
+import ZlibF.Spec.Functional.Format.Huffman
 import ZlibF.Runtime.Schema
 import ZlibF.Proof.«inftrees.c.spec»
 
 namespace Zlib.Inftrees.Proofs
 open ZlibF.Spec
-
-/-- The list of lengths that the call looks at. -/
-def lensOf (f : Nat → Nat) (n : Nat) : List Nat := (List.range n).map f
 
 theorem count_lensOf (f : Nat → Nat) (n l : Nat) : ZlibF.Spec.count (lensOf f n) l = cnt f n l := by
   unfold ZlibF.Spec.count lensOf cnt fl
@@ -52,10 +49,6 @@ theorem Tc_eq_len (f : Nat → Nat) :
     by_cases h : f n = 0
     · simp [h]
     · simp [h]; omega
-
-/-- `inflate_table` accepts the lengths (the rule of `inftrees.c`, in the terms of the proofs). -/
-def Acc (type : UInt32) (f : Nat → Nat) (n : Nat) : Prop :=
-  Fits f n ∧ (Kc f n 15 = 2 ^ 15 ∨ Tc f n 15 = 0 ∨ (type ≠ C.CODES ∧ mxl f n = 1 ∧ Tc f n 15 = 1))
 
 theorem zero_iff (f : Nat → Nat) (n : Nat) (hf : ∀ s, s < n → f s ≤ 15) :
     (∀ x ∈ lensOf f n, x = 0) ↔ Tc f n 15 = 0 := by

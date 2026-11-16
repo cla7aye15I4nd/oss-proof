@@ -4,7 +4,7 @@ import ZlibF.Proof.«public-deflate-small-queries»
 # deflate.c: priming refusal before compaction
 
 The entry refuses an invalid stream and any bit count outside 0 through 16.
-The accepted-count path, pending-byte compaction and bit-output relation remain open.
+The accepted-count path, pending-byte compaction and bit-output relation are not stated here.
 The statements below cover refusal paths only, not the complete public prime target.
 -/
 

@@ -8,7 +8,8 @@ import ZlibF.Spec.Safety.Utilities
 `deflate_call_full`: the progress clause comes from the strategy returns (`StratMeaning.stop`, and
 `dispatch_stored_progress` at level 0), the header phase's full output and the entry flush; `gzhead`
 is kept by every state write of the call (`KeepRel.gz`). So the `compress*` goals hold under
-`TinyOverlay` alone.
+`TinyOverlay` alone. The goals with no hypothesis are proved in `public-compress-safe-mid`
+(`compress2_z_safety`, `compress_z_safety`, `compress2_safety`, `compress_safety`).
 -/
 
 namespace ZlibF.Spec.Public.Proofs.Compress

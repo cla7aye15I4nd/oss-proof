@@ -1,5 +1,8 @@
-import ZlibF.Spec.InflateFastDistanceSemantics
+import ZlibF.Spec.Functional.Inflate.InflateFastDistanceSemantics
 import ZlibF.Proof.«inftrees.c.decode.stability-rejection»
+import ZlibF.Proof.«inffast.c.lp»
+import ZlibF.Proof.«inftrees.c.main»
+import ZlibF.Proof.«deflate.c.base»
 
 /-!
 # Fast distance lookup and independent decoding

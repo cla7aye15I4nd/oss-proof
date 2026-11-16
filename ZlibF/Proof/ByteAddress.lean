@@ -1,4 +1,4 @@
-import ZlibF.Spec.ByteAddress
+import ZlibF.Spec.Common.ByteAddress
 
 /-!
 # Positive checks of the CRC low-address-bit interpretation

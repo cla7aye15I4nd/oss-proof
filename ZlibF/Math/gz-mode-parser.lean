@@ -1,4 +1,4 @@
-import ZlibF.Spec.Api.Gz
+import ZlibF.Spec.Functional.Api.Gz
 import Init.Data.SInt.Lemmas
 import Lean.Elab.Tactic.Omega
 

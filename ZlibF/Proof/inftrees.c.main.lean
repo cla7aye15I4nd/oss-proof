@@ -741,10 +741,6 @@ theorem ws_getD {f : Nat → Nat} {n i : Nat} (hi : i < Tc f n 15) :
     List.getElem?_append_right (by omega)]
   rw [hA, List.getElem?_append_left (show i - Tc f n m < (fl f (m + 1) n).length by omega)]
 
-/-- What the result code says about the lengths. -/
-def RetInfo (type : UInt32) (f : Nat → Nat) (n : Nat) (r : Int32 × CodePtr × UInt32) : Prop :=
-  (r.1 = 0 → Acc type f n) ∧ (r.1 = 1 → Acc type f n ∧ type ≠ CODES) ∧ (r.1 = -1 → ¬ Acc type f n)
-
 theorem incomplete_one {f : Nat → Nat} {n : Nat} (hpos : 0 < Tc f n 15) (hfit : Fits f n)
     (hlt : Kc f n 15 < 2 ^ 15) (hmx : mxl f n = 1) : Tc f n 15 = 1 := by
   have hl := lenAt_le_iff (f := f) (n := n) (i := Tc f n 15 - 1) (l := 1) (by omega) (by omega)
@@ -759,30 +755,6 @@ theorem incomplete_one {f : Nat → Nat} {n : Nat} (hpos : 0 < Tc f n 15) (hfit 
   have hfit1 := hfit 1 (by omega) (by omega)
   rw [hK1] at hfit1
   omega
-
-/-- The inputs of the call that `zlib.h` and `inflate.c` allow (the part that lives in the heap). -/
-structure CallPre (h : Heap) (type : UInt32) (rl : WRef) (ol : Nat) (codes : UInt32) (rc : CodeRef) (oc : Nat)
-    (bits : UInt32) (rw : WRef) (ow : Nat) where
-  la : Array UInt16
-  wa : Array UInt16
-  ca : Array Code
-  hty : type = CODES ∨ type = LENS ∨ type = DISTS
-  hgl : Space.get h rl = some la
-  hgw : Space.get h rw = some wa
-  hgc : Space.get h rc = some ca
-  hro : Space.ro h rc = false
-  hne : rw ≠ rl
-  hla : ol + codes.toNat ≤ la.size
-  hwa : ow + codes.toNat ≤ wa.size
-  hca : oc + capOf type ≤ ca.size
-  hf15 : ∀ k, k < codes.toNat → (la.getD (ol + k) 0).toNat ≤ 15
-  hcodes : type = CODES → codes.toNat ≤ 19 ∧ (∀ k, k < codes.toNat → (la.getD (ol + k) 0).toNat ≤ 7) ∧ 7 ≤ bits.toNat
-  hlens : type = LENS → codes.toNat ≤ 288
-  hdists : type = DISTS → codes.toNat ≤ 32
-
-def CallPre.f {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes : UInt32} {rc : CodeRef} {oc : Nat}
-    {bits : UInt32} {rw : WRef} {ow : Nat} (P : CallPre h type rl ol codes rc oc bits rw ow) (k : Nat) : Nat :=
-  (P.la.getD (ol + k) 0).toNat
 
 theorem Result.unchanged {h : Heap} {rw : WRef} {rc : CodeRef} {ow oc cap n : Nat} {wa : Array UInt16}
     {ca : Array Code} {table : CodePtr} {bits : UInt32} {r : Int32 × CodePtr × UInt32}

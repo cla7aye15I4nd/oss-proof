@@ -1,7 +1,7 @@
 import ZlibF.Proof.«inflate.c.lookup-subtable»
 import ZlibF.Proof.«inftrees.c.decode.stability-rejection»
-import ZlibF.Spec.InflateDecodeTableInvariant
-import ZlibF.Spec.InflateDecodeTableStability
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableInvariant
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableStability
 
 /-!
 # inflate.c: the meaning of a slow table lookup

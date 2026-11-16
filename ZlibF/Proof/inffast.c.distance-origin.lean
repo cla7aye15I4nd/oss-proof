@@ -1,4 +1,4 @@
-import ZlibF.Spec.InflateFastDistanceOrigin
+import ZlibF.Spec.Functional.Inflate.InflateFastDistanceOrigin
 import ZlibF.Proof.«inffast.c.origin»
 import ZlibF.Proof.«inffast.c.advance»
 
@@ -22,7 +22,7 @@ private theorem distCont_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPt
     (hlen : 3 ≤ l.len.toNat ∧ l.len.toNat ≤ 258) (hbroke : l.broke = false)
     (origin : Origin.Inv e l.hold.toNat l.bits.toNat i used) :
     Wp (distCont c l) (e.heap A msg m) (fun l' _ =>
-      l'.in_ = .ref (.blk e.ib) i ∧
+      l'.in_ = .ref e.ib i ∧
       Origin.Inv e l'.hold.toNat l'.bits.toNat i (used + l.op.toNat)) := by
   have hbgo : e.bg ≤ o := by have := e.bg_le; have := hls.ho0; omega
   have hoA : o ≤ A.size := by omega
@@ -42,7 +42,7 @@ private theorem distCont_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPt
   have hbeg := e.hbeg
   have hdiff : OkOn (e.heap A msg m) (Ptr.diff l.out c.beg) (Int64.ofInt (((o - e.bg : Nat)) : Int)) := by
     rw [hls.hout, hc.beg]
-    have := Ptr.diff_ok (r := BRef.blk e.ob) (a := A) (o1 := o) (o2 := e.bg) (e.heap_bytes_ob A msg m) hoA (by omega)
+    have := Ptr.diff_ok (r := e.ob) (a := A) (o1 := o) (o2 := e.bg) (e.heap_bytes_ob A msg m) hoA (by omega)
       ⟨by omega, by omega⟩
     have e1 : (o : Int) - (e.bg : Int) = ((o - e.bg : Nat) : Int) := by omega
     rw [e1] at this
@@ -69,8 +69,8 @@ private theorem distCont_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPt
 private theorem pullL_origin (l : L) (i o used : Nat)
     (hls : LS e l i o) (origin : Origin.Inv e l.hold.toNat l.bits.toNat i used)
     (available : i < e.i0 + e.sm0.avail_in.toNat) :
-    Origin.Inv e (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).hold.toNat
-      (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).bits.toNat (i+1) used := by
+    Origin.Inv e (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).hold.toNat
+      (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).bits.toNat (i+1) used := by
   have result := pull_preserves_origin e l.hold.toNat l.bits.toNat i used origin available
   simpa only [pullL_hold l _ _ hls.hb hls.hH, pullL_bits l _ _ hls.hb] using result
 
@@ -85,7 +85,7 @@ private theorem dodistBase_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : B
     (origin : Origin.Inv e l.hold.toNat l.bits.toNat i used)
     (hfr : e.InputFrame A i) :
     Wp (dodistBase c l) (e.heap A msg m) (fun l' _ =>
-      ∃ i', l'.in_ = .ref (.blk e.ib) i' ∧
+      ∃ i', l'.in_ = .ref e.ib i' ∧
         Origin.Inv e l'.hold.toNat l'.bits.toNat i' (used + l.op.toNat)) := by
   unfold dodistBase
   by_cases h1 : l.bits < l.op
@@ -95,21 +95,21 @@ private theorem dodistBase_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : B
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hi (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
     have locals3 := hls.pullL (by omega) hi
     have origin3 := pullL_origin l i o used hls origin hi
-    have bits3 := pullL_bits l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1)) hls.hb
-    by_cases h2 : (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).bits <
-        (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).op
+    have bits3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i+1)) hls.hb
+    by_cases h2 : (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).bits <
+        (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).op
     · simp only [h2, ite_true]
       have h2' : l.bits.toNat + 8 < l.op.toNat := by
         have := UInt32.lt_iff_toNat_lt.mp h2
         simp only [pullL] at this bits3 ⊢
         omega
       have hi2 : i+1 < e.i0 + e.sm0.avail_in.toNat := by omega
-      have bound3 : (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).bits.toNat ≤ 22 := by omega
+      have bound3 : (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).bits.toNat ≤ 22 := by omega
       refine Wp.bindO (pull_run e _ _ (i+1) o locals3 bound3 hi2 (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
       have locals4 := locals3.pullL bound3 hi2
       have origin4 := pullL_origin _ (i+1) o used locals3 origin3 hi2
-      have bits4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1)))
-        (e.IN.getD (i+1) 0) (.ref (.blk e.ib) (i+1+1)) locals3.hb
+      have bits4 := pullL_bits (pullL l (e.IN.getD i 0) (.ref e.ib (i+1)))
+        (e.IN.getD (i+1) 0) (.ref e.ib (i+1+1)) locals3.hb
       refine Wp.mono (distCont_origin_wp hc A msg m _ (i+1+1) o used locals4 hA ho hAb
         (by simp only [pullL]; omega) (by simp only [pullL] at bits3 bits4 ⊢; omega)
         (by simp only [pullL]; omega) (by simp only [pullL]; omega)
@@ -117,10 +117,10 @@ private theorem dodistBase_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : B
       intro l' h' result
       exact ⟨i+1+1, result⟩
     · simp only [h2, ite_false]
-      have fits3 : (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).op.toNat ≤
-          (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).bits.toNat := by
-        have : ¬ ((pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).bits.toNat <
-            (pullL l (e.IN.getD i 0) (.ref (.blk e.ib) (i+1))).op.toNat) :=
+      have fits3 : (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).op.toNat ≤
+          (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).bits.toNat := by
+        have : ¬ ((pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).bits.toNat <
+            (pullL l (e.IN.getD i 0) (.ref e.ib (i+1))).op.toNat) :=
           fun h => h2 (UInt32.lt_iff_toNat_lt.mpr h)
         omega
       refine Wp.mono (distCont_origin_wp hc A msg m _ (i+1) o used locals3 hA ho hAb
@@ -148,7 +148,7 @@ private theorem dodist_pass_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : 
     (origin : Origin.Inv e l.hold.toNat l.bits.toNat i used)
     (hfr : e.InputFrame A i) :
     Wp (dodist c l) (e.heap A msg m) (fun l' _ =>
-      ∃ i' used', l'.in_ = .ref (.blk e.ib) i' ∧
+      ∃ i' used', l'.in_ = .ref e.ib i' ∧
         Origin.Inv e l'.hold.toNat l'.bits.toNat i' used' ∧ used ≤ used') := by
   have hkE : e.DCA[k]'hk = e.DCA.getD k default := by simp [Array.getD_eq_getD_getElem?, hk]
   have hld : OkOn (e.heap A msg m) (Ptr.load l.here) (e.DCA.getD k default) := by
@@ -245,7 +245,7 @@ private theorem dodist_pass_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : 
       refine Wp.bindE hip (Wp.pure' ⟨i, used + E.bits.toNat, hls.hin, origin1, by omega⟩)
 
 private theorem origin_at_locals {l : L} {i o input used : Nat}
-    (locals : LS e l i o) (hin : l.in_ = .ref (.blk e.ib) input)
+    (locals : LS e l i o) (hin : l.in_ = .ref e.ib input)
     (origin : Origin.Inv e l.hold.toNat l.bits.toNat input used) :
     Origin.Inv e l.hold.toNat l.bits.toNat i used := by
   have hi : input = i := (Ptr.ref.inj (hin.symm.trans locals.hin)).2
