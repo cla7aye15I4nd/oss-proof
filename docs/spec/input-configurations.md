@@ -1,11 +1,10 @@
-# Input ranges for internal lemmas and the progress graph
+# Input ranges for lemmas about a fixed configuration
 
 **For safety there is one input range: every input.** The required goals quantify over every
 value of each parameter, and a value outside the supported range is a documented refusal,
 which the goal also covers. This page defines three narrower ranges: default, common and all
-supported. They matter for three things only: internal lemmas that are stated for a fixed
-configuration, functional targets (not required for the safety results), and the colour key
-of the target graph in [progress](../progress.md#proof-progress-graph).
+supported. They matter for two things only: internal lemmas that are stated for a fixed
+configuration, and functional goals (not required for the safety results).
 
 Examples of "every input": `Goal.deflateInit2__safety` holds for every level, method, window,
 memory level and strategy; `Goal.inflateInit2__safety` for every window value; the sequence
@@ -15,29 +14,20 @@ The build is the same throughout: default x86_64 Linux, LP64, static library, de
 allocator, with the [platform assumption](platform.md) that no byte object has `2^63` bytes or
 more.
 
-## The three ranges and the colours
+## The three ranges {#the-three-ranges-and-the-colours}
 
-For each family of targets, the default inputs are contained in the common inputs, and those
+For each family of goals, the default inputs are contained in the common inputs, and those
 in all supported inputs. For the two stream engines each containment is strict. A function
 that ignores or fixes a parameter has fewer distinct ranges; no separate proof is needed for a
 range that coincides with another.
-
-| Colour | Meaning |
-| --- | --- |
-| Gray | No checked theorem covers the default inputs completely. Lemmas about parts may exist. |
-| Blue | The default inputs are covered; the common inputs are not yet covered completely. |
-| Yellow | The common inputs are covered; all supported inputs are not yet covered completely. |
-| Green | Every input that the target's statement admits is covered. |
 
 A range is cumulative; it is not a percentage of work. A proof about a few examples does not
 cover a range: each range quantifies over the data, the buffers, the heap contents, the
 allocation failures and the histories its statement names.
 
-The progress graph marks a target green only when a theorem of exactly its goal type is
-checked, and gray otherwise. It does not assign blue or yellow (`coverage_level` in
-`scripts/proof-progress.py`). A red border on a node records a documented obstacle to the
-proof of that target. Whether a theorem is registered or accepted is shown separately from
-the colour.
+A goal is done only when a theorem of exactly its type covers every input that its statement
+admits. A theorem for the default inputs or for the common inputs alone leaves the goal not
+done.
 
 ## Deflate inputs
 
@@ -78,7 +68,7 @@ of that parameter does not cover the others.
 
 The table lists dependencies; it does not say what is proved. The
 [deflate proof guide](../proof/deflate.md) explains the invariants, and
-[progress](../progress.md) has the status.
+[progress](../progress.md) says which goals are done.
 
 ## Inflate inputs
 
@@ -120,12 +110,12 @@ assumes the invariant at its entry; it is not a result about a whole stream.
 ## Entry inputs
 
 For the checksums, the queries, the whole-buffer functions, the callback decoder, the gzip
-file functions and the internal targets, the input range is what the goal's statement says:
+file functions and the internal goals, the input range is what the goal's statement says:
 its arguments and its premises. The stream parameters above apply only where the function or
 the state it works on depends on them.
 
-A checked theorem of exactly the goal's type makes the target green for the domain that the
-statement names, with its explicit premises. It does not prove the goal of a calling function
+A theorem of exactly the goal's type proves the goal for the domain that the statement names,
+with its explicit premises. It does not prove the goal of a calling function
 and does not remove those premises.
 
 Every range keeps the error returns, the allocation failures and the cleanup paths. A public
