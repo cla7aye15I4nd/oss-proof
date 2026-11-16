@@ -32,13 +32,15 @@ Only the path through *Execution proofs* is required for the safety results: no 
 termination, frame and ownership, composed over call sequences. The path through *Refinement
 proofs* gives functional correctness. It is not required for the safety results.
 
-One functional result is planned: the round trip of the default zlib stream. Its conditional
-form has a theorem. The theorem
+One functional result is planned: the round trip of the default zlib stream. It is not done.
+Its conditional form has a theorem. The theorem
 [`deflate_inflate_roundtrip`](../../ZlibF/Proof/public-deflate-inflate-roundtrip.lean) is about
-two runs of the translated functions. The encoder run is `deflateInit_` at the default level, then `deflate` calls with any
-flush values. The decoder run is `inflateInit2_` with `windowBits` 15, then `inflate` calls.
-Between two calls of a run the caller may change the buffer fields (`Rebuffer`). The premises
-of each run are these:
+two runs of the translated functions. The encoder run is `deflateInit_` at the default level
+(`Z_DEFAULT_COMPRESSION`), then `deflate` calls with any flush values. The decoder run is
+`inflateInit2_` with `windowBits` 15, then `inflate` calls. Neither run has a dictionary, a
+reset or another operation. Between two calls of a run the caller may change the buffer fields
+(`Rebuffer`), so the buffers may be cut into chunks in any way. The premises of each run are
+these:
 
 - The init call starts in `InitDomain` (a well-formed heap, a `version` that points at `'1'`,
   `zalloc` and `zfree` each `NULL` or the default function, a `NULL` `state` field) and it
@@ -50,10 +52,12 @@ of each run are these:
 
 When both runs have returned `Z_STREAM_END` and the bytes the decoder consumed are a prefix of
 the bytes the encoder wrote, the bytes the decoder wrote are the bytes the encoder consumed.
-The theorem is conditional: it assumes that both runs reach `Z_STREAM_END`. Completeness (the
-runs do reach `Z_STREAM_END` when there is enough room) and the unconditional round trip are
-planned and not done. Other refinement results have theorems as well;
-[progress](../progress.md) says which functional results are planned.
+The theorem is conditional: it assumes that both runs reach `Z_STREAM_END`. No theorem says
+that they do (completeness: the runs reach `Z_STREAM_END` when there is enough room), none
+states the round trip without that condition, and none states `uncompress(compress(x)) = x` for
+the translated C. Completeness and the unconditional round trip are planned and not done. Other
+refinement results have theorems as well; [progress](../progress.md) says which functional
+results are planned.
 
 ## The model in a few definitions
 
@@ -132,7 +136,7 @@ is `none` for `NULL` or a reference to an entry of that struct's table.
 [Translation](translation.md) shows a C function beside its Lean text and reads it line by
 line.
 
-## Selected source and module layout
+## The selected source and the parts of the development
 
 The target is the default x86_64 Linux static build with LP64 widths and the default
 allocator. Allocation failure is in scope. Other build configurations and custom allocator
@@ -345,7 +349,7 @@ These are limits of the model, not extra claims about C. The authoritative detai
 | --- | --- |
 | Fresh integer cells have arbitrary values | A theorem quantifies over every `garbage` function; it never assumes zero |
 | Each fresh cell keeps one value throughout a run | A proof does not rely on repeated uninitialised reads agreeing |
-| Fresh pointer fields are NULL | A missing write of a pointer field does not show in the model, and a NULL comparison alone does not show that the field was written. That each pointer field is written before it is read is **to confirm** by source review; no theorem states it ([trusted base](../trusted-base.md#2-runtime-and-object-schema)) |
+| Fresh pointer fields are NULL | A missing write of a pointer field does not show in the model, and a NULL comparison alone does not show that the field was written. That the C writes each pointer field before it reads it is **to confirm** by source review: no theorem states it, and none can in this model. What the proofs show is narrower: the invariant of each kind of state (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream and on every gz handle with a history, and the invariant says what the pointer fields it names hold ([trusted base](../trusted-base.md#2-runtime-and-object-schema)) |
 | `NULL + 0` succeeds; the general `NULL - NULL` faults | The one translation that allows `NULL - NULL` is reviewed separately ([buffers](../proof/buffers.md)) |
 | Equality has no adjacent-object address cases | No C branch is justified by equality of pointers from different objects |
 | No general addresses, alignment or type tags | Casts and address-sensitive paths are reviewed explicitly; structs have no general byte view |
@@ -368,7 +372,7 @@ The table gives each decision and its consequence.
 | 2 | Proof automation is local | Every generated proof term is checked by the kernel; no assumed verification-condition generator replaces a proof |
 | 3 | The C is translated by hand, statement by statement | The correspondence rests on review; differential tests are evidence |
 | 4 | The compressor's overlapping pending and symbol storage is modelled as in C | Its lifetime and non-overwrite conditions are proved for every admitted memory level ([trees](../proof/trees.md)) |
-| 5 | Fresh integer cells have arbitrary values and fresh pointers are NULL | Theorems quantify over integer garbage; that pointers are written before they are read is left to source review, because no theorem can state it |
+| 5 | Fresh integer cells have arbitrary values and fresh pointers are NULL | Theorems quantify over integer garbage; that pointer fields are written before they are read is **to confirm** by source review, because no theorem can state it in this model |
 | 6 | Records have no ABI byte layout | A byte view of a record, and an alias between a scalar and a buffer, are outside the model |
 
 ## Composing calls without assuming their answers

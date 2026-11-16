@@ -1,8 +1,11 @@
 # API models
 
 The API models are heap-free descriptions of what the public calls compute: relations over
-histories of bytes, with no pointers and no memory. They are functional material. No safety goal
-uses them, and they are not required for the safety results ([progress](../progress.md)).
+histories of bytes, with no pointers and no memory. They are functional material, and they are
+not required for the safety results ([progress](../progress.md)). No safety goal uses them, with
+one exception: the goals of `compressBound` and `compressBound_z` say that the translated
+function returns the model's bound formula `compressBound`
+([safety goals and functional goals](safety-functional-split.md)).
 [The families in detail](api-model-details.md) describes each model.
 
 ## Two kinds of statement
@@ -15,9 +18,9 @@ uses them, and they are not required for the safety results ([progress](../progr
 A theorem about a model relation is not a theorem about a C function. For example,
 `ZlibF.Spec.Api.Goal.roundtrip` is a proved statement about the model only. The planned round
 trip of the default zlib stream is a different statement: it is about runs of the translated
-`deflate` and `inflate`. Its conditional form, `deflate_inflate_roundtrip`, is stated in
-[architecture](architecture.md#the-layers); completeness and the unconditional form are not done
-([progress](../progress.md)).
+`deflate` and `inflate`, and it is not done. Its conditional form has a theorem,
+`deflate_inflate_roundtrip`, which [architecture](architecture.md#the-layers) states;
+completeness and the unconditional form have none ([progress](../progress.md)).
 
 To say something about the C, a functional claim needs three connections:
 

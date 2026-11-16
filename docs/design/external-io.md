@@ -2,14 +2,16 @@
 
 The gz functions call the operating system and the C library: `open`, `read`, `write`,
 `lseek`, `close`, `fcntl`, `strerror`, `snprintf` and `vsnprintf`. This page describes the model
-of those calls: the record [`Fs`](../../ZlibF/Zlib/gzfs.lean) and the operations on it. The model is trusted: the
-kernel checks the proofs against it and does not check it against Linux
+of those calls: the record [`Fs`](../../ZlibF/Zlib/gzfs.lean) and the operations on it. The
+model is trusted: the kernel checks the proofs against it and does not check it against Linux
 ([trusted base](../trusted-base.md)).
 
 The main point: every system call may return any result its POSIX contract allows, chosen by an
 oracle, and the safety of the gz interface is proved for every oracle
 (`Goal.gz_sequence_safety`; [gzip files](../proof/gzip.md)). The premises of that result are in
-[deviations](../deviations.md#gzip-file-interface).
+[deviations](../deviations.md#gzip-file-interface). One of them is about the oracle: the reading
+calls are proved to return only when the read budget of the descriptor is finite
+([below](#the-os-oracle)).
 
 ## The world beside the heap
 
@@ -23,8 +25,9 @@ value with the new world and the new heap, or a fault.
 - `Fs` also holds the oracle described below.
 
 `FileSystem fs` is the well-formedness condition on a world: descriptors and names refer to
-existing nodes, positions and file sizes are at most `2^63 - 1`, and a directory is not open for
-writing. It constrains the file part only; every value of the oracle is allowed.
+existing nodes, positions, file sizes and the file-size limit are at most `2^63 - 1`, and a
+directory is not open for writing. It constrains the file part only; every value of the oracle
+is allowed.
 
 ## The OS oracle
 
@@ -54,10 +57,18 @@ Two results are excluded by the model and are trusted facts about Linux, not pre
 theorem: a `write` of a nonempty buffer never returns 0, and `close` releases the descriptor
 also when it fails.
 
+The read budget is there to state when reading ends. `zlib.h` puts no bound on the input, and a
+source that never ends keeps one `gzread` call running forever in C. For the calls that read
+until the input ends (`gzread`, `gzfread`, `gzgetc`, `gzgets`, `gzungetc`), the gz safety goal
+has two parts. On every world, the call does not fault, except possibly with
+`Fault.outOfFuel`. When the descriptor has a read budget below `2^61` bytes (`ReadsFinite`), the
+call returns. Every other gz call is proved to return on every world
+([deviations](../deviations.md#why-a-read-budget)).
+
 The oracle is the fields `nos`, `readChoice`, `writeChoice`, `lseekChoice`, `closeFail`,
 `openFail`, `openFd`, `okErrno` and `readBudget` of `Fs`. Their default values give the
-regular-file behaviour and serve the differential tests only; every goal quantifies over all
-worlds.
+regular-file behaviour and serve the differential tests only; every safety goal of the gz
+interface quantifies over all worlds.
 
 ## Error texts
 
