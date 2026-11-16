@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check the clauses of the inflate goals against records of the real C (driver.c).
 
-The decoder below is written from the format specification (ZlibF/Spec/Format/Deflate.lean,
-Huffman.lean, Wrapper.lean) and the API layer (ZlibF/Spec/Api/Basic.lean, InflateAccepted.lean),
+The decoder below is written from the format specification (ZlibF/Spec/Functional/Format/Deflate.lean,
+Huffman.lean, Wrapper.lean) and the API layer (ZlibF/Spec/Functional/Api/Basic.lean, InflateAccepted.lean),
 not from zlib. This is a test of the statements on finitely many histories, not a proof.
 
 Usage: check.py < records. Exits 1 on the first violated clause and prints the session.
@@ -14,7 +14,7 @@ Z_OK, Z_STREAM_END, Z_NEED_DICT = 0, 1, 2
 Z_STREAM_ERROR, Z_DATA_ERROR, Z_MEM_ERROR, Z_BUF_ERROR = -2, -3, -4, -5
 DICT, DONE, BAD, MEM, SYNC = 16190, 16208, 16209, 16210, 16211
 
-# ---------------------------------------------------------------- checksums (Spec/Format/Checksum)
+# ---------------------------------------------------------------- checksums (Spec/Functional/Format/Checksum)
 
 def adler32(data):
     s1, s2 = 1, 0
@@ -36,7 +36,7 @@ def crc32(data):
         c = _CRC[(c ^ b) & 0xFF] ^ (c >> 8)
     return c ^ 0xFFFFFFFF
 
-# ---------------------------------------------------------------- deflate (Spec/Format/Deflate)
+# ---------------------------------------------------------------- deflate (Spec/Functional/Format/Deflate)
 
 class Bad(Exception):
     pass
@@ -207,7 +207,7 @@ def le32(x):
 def tail_dict(d, n):
     return d[len(d) - min(len(d), n):]
 
-# ---------------------------------------------------------------- wrappers (Spec/Format/Wrapper)
+# ---------------------------------------------------------------- wrappers (Spec/Functional/Format/Wrapper)
 
 def raw_decodes(dict_, stream):
     out, tail = deflate_prefix(stream, dict_)
@@ -275,7 +275,7 @@ def attempt(f, *a):
     except (Bad, IndexError):
         return None
 
-# ---------------------------------------------------------------- API layer (Spec/Api)
+# ---------------------------------------------------------------- API layer (Spec/Functional/Api)
 
 def infl_wbits(w):
     """Api.inflWbits."""

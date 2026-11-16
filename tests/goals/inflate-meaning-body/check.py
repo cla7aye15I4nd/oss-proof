@@ -2,7 +2,7 @@
 """Check the decoding-side clauses of the inflate format meaning against the real C (driver.c).
 
 For every inflate call the driver prints zlib's internal state. This checker parses the source
-with a decoder written from ZlibF/Spec/Format (not from zlib) and lists the parse positions of
+with a decoder written from ZlibF/Spec/Functional/Format (not from zlib) and lists the parse positions of
 the grammar `DeflateParsed` (ZlibF/Proof/inflate.c.meaning.lean) with their bit offsets. A
 state in a body mode (TYPE .. LIT) must match one position at the consumed bit count:
 

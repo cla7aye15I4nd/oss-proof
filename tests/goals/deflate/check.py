@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the clauses of the deflate goals against records of the real C (driver.c).
 
-The decoder below is written from the format specification (ZlibF/Spec/Format/Deflate.lean,
+The decoder below is written from the format specification (ZlibF/Spec/Functional/Format/Deflate.lean,
 Huffman.lean, Wrapper.lean), not from zlib: it accepts exactly the derivations of Blocks, Body,
 Symbols and CodeLens, with Acceptable code lengths. The checksums are computed here as well.
 This is a test of the statements on finitely many histories, not a proof.
@@ -14,7 +14,7 @@ Z_NO_FLUSH, Z_PARTIAL_FLUSH, Z_SYNC_FLUSH, Z_FULL_FLUSH, Z_FINISH, Z_BLOCK, Z_TR
 Z_OK, Z_STREAM_END, Z_STREAM_ERROR, Z_BUF_ERROR = 0, 1, -2, -5
 INIT_STATE, BUSY_STATE, FINISH_STATE = 42, 113, 666
 
-# ---------------------------------------------------------------- checksums (Spec/Format/Checksum)
+# ---------------------------------------------------------------- checksums (Spec/Functional/Format/Checksum)
 
 def adler32_update(a, data):
     s1, s2 = a & 0xFFFF, a >> 16
@@ -39,7 +39,7 @@ def crc32_update(c, data):
         c = _CRC[(c ^ b) & 0xFF] ^ (c >> 8)
     return c ^ 0xFFFFFFFF
 
-# ---------------------------------------------------------------- the format (Spec/Format/Deflate)
+# ---------------------------------------------------------------- the format (Spec/Functional/Format/Deflate)
 
 class Bad(Exception):
     pass

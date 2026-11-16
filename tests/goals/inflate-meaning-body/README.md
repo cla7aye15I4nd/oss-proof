@@ -7,7 +7,7 @@ in `../inflate-meaning`.
 `driver.c` makes raw and zlib streams with the real deflate (every level and strategy, window
 widths 8 to 15, preset dictionaries, many and empty blocks) and inflates them with random input
 and output splits and flush values. After every call it prints zlib's internal decoder state.
-`check.py` parses the stream with a decoder written from `ZlibF/Spec/Format`, lists the parse
+`check.py` parses the stream with a decoder written from `ZlibF/Spec/Functional/Format`, lists the parse
 positions of `DeflateParsed` by bit offset, and checks each state in a body mode (`TYPE` to
 `LIT`) against them: `HeldBits`, `BodyMatches`, the proposed `DynamicMatches` (dynamic header
 fields and the code-length table), fewer than 8 held bits at a block boundary, `WindowMeaning`
