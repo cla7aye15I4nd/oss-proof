@@ -1,8 +1,8 @@
 # Patches
 
-The proofs are about the pinned zlib source (commit `99623ef7` of upstream `develop`, zlib 1.4)
-with the six patches of this directory applied in name order. This page says what each patch
-changes, why, and where it stands with upstream.
+The verified source is zlib 1.4 (upstream commit `99623ef7`) with the six patches of this
+directory applied in name order. Every theorem is about that patched source. This page says what
+each patch changes, why, and where it stands with upstream.
 
 Each patch fixes an issue of zlib without whose fix a safety statement cannot be proved, or a
 promise of `zlib.h` does not hold. Each is as small as the fix allows. A patch that was submitted
@@ -33,8 +33,8 @@ stream.
 The patch exactly matches commit `300fea14353d2e2ca61210aca7c48861ded5788c` in
 [upstream PR #1369](https://github.com/madler/zlib/pull/1369). The maintainer answered "Applied"
 on 6 November 2026 and the pull request is closed. On 2026-11-15 the publicly fetchable `develop`
-and `master` heads name `99623ef7097352da7993ba614161fd6a311e046e` ("zlib 1.4"), which is the
-pin. Its `inflate.c` retains the old comparison, so the patch is still needed.
+and `master` heads name `99623ef7097352da7993ba614161fd6a311e046e` ("zlib 1.4"), the commit
+the patches apply to. Its `inflate.c` retains the old comparison, so the patch is still needed.
 
 ## 0002-gzseek-negative-position-overflow.patch
 
@@ -80,9 +80,12 @@ past `GZ_OFF_MAX`, with the same error. Findings:
 [gzwrite-pos-overflow](../docs/findings/gzwrite-pos-overflow/README.md). Evidence:
 UndefinedBehaviorSanitizer reports the signed overflow on x86_64 Linux for both, with
 `/dev/zero` and the real `/dev/null`. The overflow after a transparent look, which the
-COPY-branch bound covers, is confirmed in the model and by reading the C; it is not reproduced
-under a sanitizer. Without the patch the safety of the gz readers and writers cannot be proved. A
-draft of an upstream pull request is in the read-side finding.
+COPY-branch bound covers, is a reading of the C. No run of the real C shows it: the history needs
+about 2^63 decoded bytes. For the patched source, theorems about a constructed reader state
+near `GZ_OFF_MAX` show that `gzread` leaves nothing buffered past the limit and that the next
+`gzgetc` does not fault; no theorem and no retained run shows the fault in a source without the
+bound. Without the patch the safety of the gz readers and writers cannot be proved. A draft of an
+upstream pull request is in the read-side finding.
 
 ## 0005-gz-next-zero-advance.patch
 
@@ -96,10 +99,11 @@ undefined in C. No result or state changes. Findings:
 [gz-next-dangling-after-direct-read](../docs/findings/gz-next-dangling-after-direct-read/README.md).
 Evidence: undefined by the letter of C; no sanitizer reports either. A probe in the
 reproductions shows the zero advance on the never-written and on the dangling value, and its
-absence with the patch. The model faults on arithmetic with a dangling pointer, and the proofs
-ask that a pointer field is written before it is read, so without the patch the gz reading calls
-cannot be proved safe. A draft of an upstream pull request is in the finding about the unset
-field.
+absence with the patch. The model faults on arithmetic with a dangling pointer, so without the
+patch the gz reading calls cannot be proved safe. The model does not see the never-written case:
+a pointer field in fresh memory is `NULL` there, and `NULL + 0` passes. That case rests on the
+reading of the C and on the probe. A draft of an upstream pull request is in the finding about
+the unset field.
 
 ## 0006-deflatebound-fixed-conservative.patch
 

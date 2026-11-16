@@ -1,7 +1,7 @@
-<!-- source-sha256: 084df5b9e8a57838f5dd8984aaed22d19f408eff3f6275bf495008f03331aef6 -->
+<!-- source-sha256: 404db9fa473ff21538b70d59ed5564fd781b25ca6c2b4e7a88587cdde1416fea -->
 # 补丁
 
-这些证明针对的是固定版本的 zlib 源码（上游 `develop` 的提交 `99623ef7`，zlib 1.4），加上本目录中按文件名顺序应用的六个补丁。本页说明每个补丁改了什么、为什么改，以及它在上游处于什么状态。
+被验证的源码是 zlib 1.4（上游提交 `99623ef7`），加上本目录中按文件名顺序应用的六个补丁。每条定理说的都是这份打过补丁的源码。本页说明每个补丁改了什么、为什么改，以及它在上游处于什么状态。
 
 每个补丁修复 zlib 的一个问题：不修复它，某个安全命题就无法证明，或者 `zlib.h` 的某项承诺不成立。每个补丁都只做修复所需的最小改动。已提交上游的补丁与所提交的修复一致。标为**本地**的补丁尚未提交上游。上游分支包含了相应修复之后，补丁就不再需要。
 
@@ -20,7 +20,7 @@
 
 `inflateCopy` 不再对静态固定码表与状态内部码数组中的指针做关系比较。[复现材料](../docs/findings/inflate-copy-fixed/README.md)诊断了未打补丁的 C。没有这个补丁，就无法对每个流证明 `inflateCopy` 的安全性。
 
-补丁与[上游拉取请求 #1369](https://github.com/madler/zlib/pull/1369) 中的提交 `300fea14353d2e2ca61210aca7c48861ded5788c` 完全一致。维护者于 2026 年 11 月 6 日答复“Applied”，该拉取请求已关闭。2026-11-15 时，公开可获取的 `develop` 和 `master` 分支的最新提交为 `99623ef7097352da7993ba614161fd6a311e046e`（“zlib 1.4”），也就是固定的提交。其中的 `inflate.c` 仍保留旧的指针比较，因此这个补丁仍然需要。
+补丁与[上游拉取请求 #1369](https://github.com/madler/zlib/pull/1369) 中的提交 `300fea14353d2e2ca61210aca7c48861ded5788c` 完全一致。维护者于 2026 年 11 月 6 日答复“Applied”，该拉取请求已关闭。2026-11-15 时，公开可获取的 `develop` 和 `master` 分支的最新提交为 `99623ef7097352da7993ba614161fd6a311e046e`（“zlib 1.4”），也就是这些补丁所针对的提交。其中的 `inflate.c` 仍保留旧的指针比较，因此这个补丁仍然需要。
 
 ## 0002-gzseek-negative-position-overflow.patch
 
@@ -38,13 +38,13 @@
 
 本地：尚未提交上游。
 
-使未压缩位置 `state->x.pos` 始终能用 `z_off64_t` 表示。读取：`gz_fetch` 只向输出缓冲区填入位置可表示的字节（至少一个，以便仍能发现输入结束），`gz_read` 和 `gzgets` 不交付超过 `GZ_OFF_MAX` 的字节；超出部分的数据给出 `Z_DATA_ERROR` "position overflow"。`gz_look` 的透明 COPY 分支也只缓冲剩余的空间，输入超出时记录同样的错误，因此每个读取调用返回时都有 `x.pos + x.have <= GZ_OFF_MAX`，这是 `gzgetc()` 宏所需要的（[gz-position-copy-overflow](../docs/findings/gz-position-copy-overflow.md)）。写入：`gz_write`、`gzputc` 的快速路径和 `gzprintf` 拒绝会使位置超过 `GZ_OFF_MAX` 的写入，给出同样的错误。发现：[gzread-pos-overflow](../docs/findings/gzread-pos-overflow/README.md) 和 [gzwrite-pos-overflow](../docs/findings/gzwrite-pos-overflow/README.md)。证据：在 x86_64 Linux 上用 `/dev/zero` 和真实的 `/dev/null`，UndefinedBehaviorSanitizer 对两者都报告有符号溢出。COPY 分支的界限所覆盖的、透明探测之后的溢出，已在模型中确认，也已通过对 C 的解读确认；它没有在 sanitizer 下复现。没有这个补丁，就无法证明 gz 读写函数的安全性。提交上游用的拉取请求草稿在读取一侧的发现中。
+使未压缩位置 `state->x.pos` 始终能用 `z_off64_t` 表示。读取：`gz_fetch` 只向输出缓冲区填入位置可表示的字节（至少一个，以便仍能发现输入结束），`gz_read` 和 `gzgets` 不交付超过 `GZ_OFF_MAX` 的字节；超出部分的数据给出 `Z_DATA_ERROR` "position overflow"。`gz_look` 的透明 COPY 分支也只缓冲剩余的空间，输入超出时记录同样的错误，因此每个读取调用返回时都有 `x.pos + x.have <= GZ_OFF_MAX`，这是 `gzgetc()` 宏所需要的（[gz-position-copy-overflow](../docs/findings/gz-position-copy-overflow.md)）。写入：`gz_write`、`gzputc` 的快速路径和 `gzprintf` 拒绝会使位置超过 `GZ_OFF_MAX` 的写入，给出同样的错误。发现：[gzread-pos-overflow](../docs/findings/gzread-pos-overflow/README.md) 和 [gzwrite-pos-overflow](../docs/findings/gzwrite-pos-overflow/README.md)。证据：在 x86_64 Linux 上用 `/dev/zero` 和真实的 `/dev/null`，UndefinedBehaviorSanitizer 对两者都报告有符号溢出。COPY 分支的界限所覆盖的、透明探测之后的溢出，是对 C 的解读。没有任何一次真实 C 的运行展示它：这段历史需要约 2^63 个解码字节。对打过补丁的源码，有几条定理说的是一个构造出的、位置接近 `GZ_OFF_MAX` 的读取端状态：`gzread` 不会留下任何超过该上限的缓冲字节，随后的 `gzgetc` 不出故障；没有定理、也没有保留下来的运行展示不带这个界限的源码中的故障。没有这个补丁，就无法证明 gz 读写函数的安全性。提交上游用的拉取请求草稿在读取一侧的发现中。
 
 ## 0005-gz-next-zero-advance.patch
 
 本地：尚未提交上游。
 
-在 `gzseek64` 和 `gz_skip_have` 中，只有当前进量 `n` 不为零时才移动 `state->x.next`。当 `n == 0` 时，该字段可能从未被写入（`gz_reset` 不设置它），也可能指向调用者在一次直接 `gzread` 之后已释放的缓冲区；对这两种值做指针运算在 C 中都是未定义的。任何结果和状态都不变。发现：[gz-reset-next-uninitialised](../docs/findings/gz-reset-next-uninitialised/README.md) 和 [gz-next-dangling-after-direct-read](../docs/findings/gz-next-dangling-after-direct-read/README.md)。证据：按 C 标准的字面规定未定义；没有任何 sanitizer 报告它们。复现中的探针显示了对从未写入的值和悬空值的零前进，以及打补丁后它们消失。模型在对悬空指针做运算时产生故障，证明又要求指针字段先写后读，所以没有这个补丁就无法证明 gz 读取调用是安全的。提交上游用的拉取请求草稿在关于未写入字段的那项发现中。
+在 `gzseek64` 和 `gz_skip_have` 中，只有当前进量 `n` 不为零时才移动 `state->x.next`。当 `n == 0` 时，该字段可能从未被写入（`gz_reset` 不设置它），也可能指向调用者在一次直接 `gzread` 之后已释放的缓冲区；对这两种值做指针运算在 C 中都是未定义的。任何结果和状态都不变。发现：[gz-reset-next-uninitialised](../docs/findings/gz-reset-next-uninitialised/README.md) 和 [gz-next-dangling-after-direct-read](../docs/findings/gz-next-dangling-after-direct-read/README.md)。证据：按 C 标准的字面规定未定义；没有任何 sanitizer 报告它们。复现中的探针显示了对从未写入的值和悬空值的零前进，以及打补丁后它们消失。模型在对悬空指针做运算时产生故障，所以没有这个补丁就无法证明 gz 读取调用是安全的。从未写入的那种情形，模型是看不到的：在模型里，新分配内存中的指针字段是 `NULL`，而 `NULL + 0` 可以通过。那种情形依据的是对 C 的解读和探针。提交上游用的拉取请求草稿在关于未写入字段的那项发现中。
 
 ## 0006-deflatebound-fixed-conservative.patch
 
