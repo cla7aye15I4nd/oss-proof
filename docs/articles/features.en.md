@@ -1,6 +1,6 @@
 A complete DEFLATE packet answers a compact question: which literals and backward copies recover these bytes, and which bits describe those instructions? An application needs more. Its file may be larger than memory. Its network peer may pause halfway through a code. It may need to publish a prefix now, begin with an agreed vocabulary, detect damage, or branch from a saved decoding position.
 
-These requirements determine how the compression algorithm’s work is divided, remembered, framed and delivered. We will derive those capabilities from application needs, then follow the objects and C operations that implement them. The running payload is the eight bytes `ABABABAB`. Its small size lets us inspect boundaries that also govern much larger streams.
+These requirements determine how the compression algorithm’s work is divided, remembered, framed and delivered. We will derive those capabilities from application needs, then follow the objects and C operations that implement them. C excerpts link to upstream zlib commit `757f0527`. The source this project verifies is its child commit `99623ef7` (zlib 1.4) with the project's patches; the linked lines are the same in both. The running payload is the eight bytes `ABABABAB`. Its small size lets us inspect boundaries that also govern much larger streams.
 
 ## Why complete buffers are not enough {#needs}
 
@@ -161,7 +161,7 @@ At the four-byte destination checkpoint in `ABABABAB`, the caller has `ABAB` and
 
 <div class="zl-demo-mount"><zlib-demo kind="checkpoint"><p>At the checkpoint, ABAB has been delivered and four match bytes remain. Continue replaces output room. Reset needs a fresh complete stream. Copy duplicates private state/history; bind separate caller destinations before advancing branches. Ending one private copy leaves the other live.</p></zlib-demo></div>
 
-[`inflateCopy`](/reference/functions/inflateCopy.html) allocates destination state/window, copies phase, bits and valid history, and repairs private pointers. Embedded decoding tables must point into destination state; immutable fixed tables remain shared. The selected source includes the registered correction for that distinction. Copying pointer values without relocating private targets would not create independence.
+[`inflateCopy`](/reference/functions/inflateCopy.html) allocates destination state/window, copies phase, bits and valid history, and repairs private pointers. Embedded decoding tables must point into destination state; immutable fixed tables remain shared. The source this project verifies carries a patch for that distinction: `inflateCopy` tests whether the table pointer equals the start of the state's own table array, where unpatched zlib uses a relational comparison between pointers into different objects, which C leaves undefined. Copying pointer values without relocating private targets would not create independence.
 
 [`deflateCopy`](/reference/functions/deflateCopy.html) duplicates window, indexes and pending/symbol storage and repairs internal positions. Allocation failure cleans up the new attempt without destroying the source. Each successful copy needs its own End.
 
@@ -216,7 +216,7 @@ The executable example below performs initialization, compression finish, decodi
 
 <div class="zl-demo-mount"><zlib-demo kind="playground"><p>Enter up to 256 KiB of original bytes and run the actual C round trip. Then inspect saved calls: input accepted, output delivered and completion. Equality covers the complete restored data even when byte previews are shortened.</p></zlib-demo></div>
 
-The [C calling program](/static/examples/codec-playground.c) and [artifact build record](/static/examples/codec-playground-provenance.json) identify source and settings. Try empty input, a short varied message and a long repetition. A wrapper can enlarge a small message. An empty input counter can precede final output; the return code marks completion. These are concrete runs, whereas the earlier stream/checkpoint scenes illustrate selected state transitions.
+The [C calling program](/static/examples/codec-playground.c) and the [build record](/static/examples/codec-playground-provenance.json) identify the source and settings: zlib 1.4 (upstream commit `99623ef7`) with this project's patches, compiled to WebAssembly with the listed compiler flags. Try empty input, a short varied message and a long repetition. A wrapper can enlarge a small message. An empty input counter can precede final output; the return code marks completion. These are concrete runs, whereas the earlier stream/checkpoint scenes illustrate selected state transitions.
 
 ## What an integrity check checks {#checksums}
 
