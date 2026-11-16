@@ -1,4 +1,4 @@
-<!-- source-sha256: 47eb9b41add11c69c5a5c1b2727bb7fe7b8ad8f12b1916e2ea1523ef2bbeeb50 -->
+<!-- source-sha256: 768b5d26b143d10d2c5e095f3d3f5dce91d79a571a614027c2da10ecc2409a1c -->
 
 # 共享流规则
 
@@ -43,7 +43,7 @@ stateDiagram-v2
 ## 规则标识符
 
 下面各表中的每条规则都有一个形如 `A-…` 的稳定标识符，供证明文档和 Lean 规格文件引用。
-标识符不带状态：一条规则有标识符，并不因此就是定理。
+一条规则有标识符，并不因此就是定理。
 
 ## 流的存储与所有权
 
@@ -136,7 +136,7 @@ zlib 字典在压缩开始之前设置。替换裸流的字典需要一个已完
 - 上界如果在其类型的最大值处饱和，并不说明存在这么大的缓冲区。
 - 有 gzip `extra` 字段时，C 先在 `unsigned` 宽度上计算 `2 + extra_len`，再把结果加到上界上，
   所以 `extra_len` 极大时这个和可能回绕。
-- 这些页面上的契约假设 `extra_len <= 65535`。功能目标 `Goal.deflateBound_z` 是对每个头部长度陈述的；它不是必需的。
+- 这些页面上的契约假设 `extra_len <= 65535`。功能目标 `Goal.deflateBound_z`（不在计划内；未完成）是对每个头部长度陈述的。
 
 安全目标 `Goal.deflateBound_safety` 和 `Goal.deflateBound_z_safety` 说的是这次调用本身是安全的。
 它们对之后的输出有多大什么也没说。

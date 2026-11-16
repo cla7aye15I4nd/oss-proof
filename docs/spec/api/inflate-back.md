@@ -16,18 +16,18 @@ memory error, no leak, and termination ([safety](../safety.md)). Each entry name
 **Proof goals**, with its premises. The proof assumes those premises, not the documentary Pre; where
 the two differ, the Lean statement counts. The return values, output bytes and state changes
 described here are functional behaviour. They are read from the C and are **to confirm** where no
-registered theorem states them. They are not a planned proof target.
-[Progress](../../progress.md) records the level of each goal.
+theorem states them. They are not a planned proof target.
+[Progress](../../progress.md) says which goals are done.
 
 Each function has its own required safety goal: `Goal.inflateBackInit__safety`,
-`Goal.inflateBack_safety` and `Goal.inflateBackEnd_safety` in
-[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean). The sequence goal
-`Goal.inflate_back_sequence_safety` in [Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)
+`Goal.inflateBack_safety` and `Goal.inflateBackEnd_safety`
+([Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)). The sequence goal
+`Goal.inflate_back_sequence_safety` ([Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean))
 is required as well. It adds that every history leaves a valid decoder state; its call clause and
 its end clause are the ones the goals of `inflateBack` and `inflateBackEnd` repeat. The functional
-goals `Goal.inflateBackInit_`, `Goal.inflateBack` and `Goal.inflateBackEnd` are in
-[Functional/Back.lean](../../../ZlibF/Spec/Functional/Back.lean). The decoding clauses of `Goal.inflateBack`
-(what reaches `out`) are not planned.
+goals `Goal.inflateBackInit_`, `Goal.inflateBack` and `Goal.inflateBackEnd`
+([Functional/Back.lean](../../../ZlibF/Spec/Functional/Back.lean)) are not planned; each entry
+says whether a theorem proves its functional goal.
 
 <a id="callback-decoder-history"></a>
 A **callback-decoder history** (`BackSafeReachable`) is what the goals of `inflateBack` and
@@ -123,7 +123,7 @@ The window remains caller-owned and is not allocated, cleared or freed here.
     - *State.* With `Z_OK`, the stream record points to a valid callback-decoder state in the new block, and that state's window is `window` (`BackValid`).
     - *Writes.* With a NULL `strm`, nothing: the heap is unchanged. Otherwise only the stream record and the block the call itself allocates (`Frame`).
     - *Allocations.* With `Z_OK`, exactly one block is new, the state record, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call.
-- **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and the allocation failure returns, and the field values after the call: functional goal `Goal.inflateBackInit_`, not required for the safety results. That a valid call does return `Z_OK`: `Goal.inflate_back_initialisation_domain` ([Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)), required.
+- **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and the allocation failure returns, and the field values after the call: functional goal `Goal.inflateBackInit_` (not planned; a theorem proves it). That a valid call does return `Z_OK`: `Goal.inflate_back_initialisation_domain` ([Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)), required.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackInit_"><summary>Complete return conditions and boundaries</summary>
 
@@ -206,7 +206,7 @@ The library allocates and frees nothing; callback allocations remain the caller'
     - *State.* On a history the stream keeps a valid callback-decoder state over the same window, with the same window size (`BackValid`), and the protocol's invariant holds after the call. The stream then has a history again, and the goal of the next call applies.
     - *Writes.* In the two refusals, nothing: the heap is unchanged. On a history, only the stream record, the state record, the callbacks' own blocks and the block of the window; when that block is not one of the callbacks' own, only the window slice of it (`CallbackFrame`).
     - *Allocations.* On a history, a block outside the callbacks' own is allocated after the call exactly when it was before: the library allocates and frees nothing.
-- **Not in this goal.** A stream record whose non-NULL state does not come from `inflateBackInit_`, for example one from `inflateInit_`: no goal covers it. What reaches `out`, which of the three codes is returned, and `next_in` and `avail_in` after the call: functional goal `Goal.inflateBack`, not required for the safety results, not planned. Conditions 4 to 6, the heap-block window and the rule for caller edits are narrower than `zlib.h`: rows of [deviations](../../deviations.md#callback-decoder).
+- **Not in this goal.** A stream record whose non-NULL state does not come from `inflateBackInit_`, for example one from `inflateInit_`: no goal covers it. What reaches `out`, which of the three codes is returned, and `next_in` and `avail_in` after the call: functional goal `Goal.inflateBack` (not planned; not done). Conditions 4 to 6, the heap-block window and the rule for caller edits are narrower than `zlib.h`: rows of [deviations](../../deviations.md#callback-decoder).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBack"><summary>Complete return conditions and boundaries</summary>
 
@@ -268,7 +268,7 @@ Cleanup is permitted after successful decoding and after any decode error.
     - *State.* On a history the `state` field of the stream record is NULL after the call. The history ends.
     - *Writes.* In the two refusals, nothing: the heap is unchanged. On a history, only the stream record and the state block (`Frame`).
     - *Allocations.* On a history exactly the state block is freed, and nothing is allocated (`LiveChange`).
-- **Not in this goal.** A stream record whose non-NULL state does not come from `inflateBackInit_`: no goal covers it. The other field values after the call: functional goal `Goal.inflateBackEnd`, not required for the safety results.
+- **Not in this goal.** A stream record whose non-NULL state does not come from `inflateBackInit_`: no goal covers it. The other field values after the call: functional goal `Goal.inflateBackEnd` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackEnd"><summary>Complete return conditions and boundaries</summary>
 
