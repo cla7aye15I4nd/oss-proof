@@ -1,4 +1,4 @@
-<!-- source-sha256: 631a0c5e1d78bd317cbf3ebe1f8b74bf4671d2884c2904a0685c2f2cde7bee62 -->
+<!-- source-sha256: c2c8ec3be948af7f84d598ba8db3a24d937a43fd1a974d859afe9ee2643f7601 -->
 
 # 流式解压
 
@@ -245,7 +245,7 @@ int ZEXPORT inflateInit2_(z_streamp strm, int windowBits, const char *version, i
     - *返回。* 调用返回。`strm` 为 NULL 时，返回值是 `Z_VERSION_ERROR` 或 `Z_STREAM_ERROR`。
     - *状态。* 返回 `Z_OK` 时，`strm` 是可达流。
     - *写入。* `strm` 为 NULL 时不写任何内容：堆不变。否则只写流记录和调用自己分配的块。
-    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。因此这里的“无泄漏”只针对调用自己的分配：调用前记录所指向的状态仍处于已分配状态。
+    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。
 - **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。各种拒绝和各种分配失败分别返回哪个状态码，以及调用之后各字段的值：功能目标 `Goal.inflateInit2_`（不在计划内；已有定理证明它）。确实存在返回 `Z_OK` 的调用：`Goal.inflate_initialisation_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit2_"><summary>完整返回条件与边界</summary>
@@ -306,7 +306,7 @@ int ZEXPORT inflateInit_(z_streamp strm, const char *version, int stream_size);
     - *返回。* 调用返回。`strm` 为 NULL 时，返回值是 `Z_VERSION_ERROR` 或 `Z_STREAM_ERROR`。
     - *状态。* 返回 `Z_OK` 时，`strm` 是可达流。
     - *写入。* `strm` 为 NULL 时不写任何内容：堆不变。否则只写流记录和调用自己分配的块。
-    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。因此这里的“无泄漏”只针对调用自己的分配：调用前记录所指向的状态仍处于已分配状态。
+    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。
 - **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。各种拒绝和各种分配失败分别返回哪个状态码，以及调用之后各字段的值：功能目标 `Goal.inflateInit_`（不在计划内；已有定理证明它）。确实存在返回 `Z_OK` 的调用：`Goal.inflate_initialisation_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit_"><summary>完整返回条件与边界</summary>
@@ -364,7 +364,7 @@ int ZEXPORT inflatePrime(z_streamp strm, int bits, int value);
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflatePrime"><summary>完整返回条件与边界</summary>
 
-**后置条件。** 零位返回 `Z_OK`，不发生变化。负位数清空位缓冲区。1 至 16 位且能放入 32 位缓冲区时，返回 `Z_OK`，将 `value` 的低 `bits` 位追加到已有位之上。这些位先于 `next_in` 使用。
+**后置条件。** 零位返回 `Z_OK`，不发生变化。负位数清空位缓冲区。1 至 16 位且能放入 32 位缓冲区时，返回 `Z_OK`，将 `value` 的低 `bits` 位追加到已有位之上。负的 `value` 保留其低位，不被当作零（[测试](../../../tests/regression/inflate-prime/README.md)）。这些位先于 `next_in` 使用。
 
 **错误。** 超过 16 位、位缓冲区空间不足或流检查失败，返回 `Z_STREAM_ERROR`，不发生变化。不更新 `data_type`。C 不强制执行裸流限制或调用顺序限制。
 
@@ -399,7 +399,6 @@ int ZEXPORT inflate(z_streamp strm, int flush);
 **判读要点。**
 
 - 正常返回按实际消费/产生字节更新总计数和启用的校验和；Z_NEED_DICT 保留字典标识。
-- 迟发 Z_MEM_ERROR 会跳过常规最终总计数、校验和及 data_type 记账，不能把它当作输出未变。
 - 正常返回的 data_type 是组合值：未用位数，再按状态加 64（最终块）、128（头部/块边界）或 256（块头之后）。
 
 ### 调用条件与效果 {#api-inflate-contract}
@@ -410,7 +409,7 @@ int ZEXPORT inflate(z_streamp strm, int flush);
 
 **前置条件。** `next_in` 描述 `avail_in` 个可读字节，仅在计数为零时可为 NULL。即使 `avail_out` 为零，`next_out` 也非 NULL，并描述该数量的可写字节。已挂接的头部及其缓冲区保持可写。调用可以提供更多输入/空间继续，可以提供请求的字典，也可以在成功重置/恢复之后继续。终止/错误状态下重复调用的行为见下文。
 
-**记账。** 正常返回，包括数据错误和缓冲区错误，按已消费/已产生字节数更新总计数，并更新已启用的输出校验和。`Z_NEED_DICT` 把已消费的头部字节计入总计数，并让 `adler` 保持为字典标识。迟发的窗口分配失败可能发生在消费输入和写入输出之后：指针/计数已经反映这些操作，但正常的最终总计数/校验和/`data_type` 记账被跳过。不能把 `Z_MEM_ERROR` 当作输出未变的结果。
+**记账。** 正常返回，包括数据错误和缓冲区错误，按已消费/已产生字节数更新总计数，并更新已启用的输出校验和。`Z_NEED_DICT` 把已消费的头部字节计入总计数，并让 `adler` 保持为字典标识。迟发的窗口分配失败可能发生在消费输入和写入输出之后：指针/计数已经反映这些操作，但正常的最终总计数/校验和/`data_type` 记账被跳过（[测试](../../../tests/regression/compress-allocation/README.md)）。一次调用已消费的输入不必全部属于某个有效的流：后一次调用可以拒绝该流而不再消费输入（[测试](../../../tests/regression/inflate-deferred-distance/README.md)）。
 
 **所有权。** 新窗口存储归流所有，仍可用于重置/结束，包括错误之后。一次调用的 `Z_FINISH` 完成可能无需窗口。拼接 gzip 成员要求成员之间重置。错误消息是借用的静态字符串。缓冲区和流检查的拒绝不改变任何内容。
 
@@ -624,7 +623,6 @@ gzip 头可以带有 extra 字节、文件名和注释。调用者分别提供�
 **判读要点。**
 
 - 后续 done 为 1 表示 gzip 头完成，为 -1 表示自动检测到 zlib；这两个值不是本函数的返回码。
-- 接受挂接时 head 必须非 NULL；NULL 不属于可保证返回错误的情况。
 
 ### 调用条件与效果 {#api-inflategetheader-contract}
 
@@ -647,13 +645,13 @@ gzip 头可以带有 extra 字节、文件名和注释。调用者分别提供�
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
     - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块和头部记录 `head`。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 对可达流调用而 `head` 为 NULL：在所有安全目标之外（见[偏离记录](../../deviations.md)中“头部参数”一行）。流支持 gzip 时，C 会通过这个指针写入。流不支持 gzip 时，C 在用到 `head` 之前就返回 `Z_STREAM_ERROR`；功能目标 `Goal.inflateGetHeader` 陈述了这个返回值，而安全目标不覆盖这个调用。流被拒绝而 `head` 为 NULL 的调用由拒绝子句覆盖。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`（不在计划内；已有定理证明它）。
+- **不在本目标内。** 对可达流调用而 `head` 为 NULL：在所有安全目标之外（见[偏离记录](../../deviations.md)中“头部参数”一行）。流支持 gzip 时，C 会通过这个指针写入；流不支持 gzip 时，C 在用到 `head` 之前就返回 `Z_STREAM_ERROR`。`zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。返回值，以及后续 `inflate` 调用在记录中存入的内容：功能目标 `Goal.inflateGetHeader`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>完整返回条件与边界</summary>
 
 **后置条件。** 返回 `Z_OK`，保留指针，将 `done` 置为 0。后续 `inflate` 调用填充标量字段和可用缓冲区前缀。存在 extra 字段时，`extra_len` 为实际长度；不存在时，`extra` 变为 NULL，`extra_len` 不变。只有终止符能放下时，名称/注释才以零终止。缺失的可选字段使对应指针变为 NULL。完成时将 `done` 置为 1；自动检测到 zlib 时置为 -1。
 
-**边界情况。** 不分配，也不转移所有权。重置清空挂接。流检查失败或请求不支持 gzip 时，返回 `Z_STREAM_ERROR`，不发生变化。对已接受的请求传入 NULL `head` 不在本契约范围内，C 会解引用它；这种情况下不保证干净地返回错误。
+**边界情况。** 不分配，也不转移所有权。重置清空挂接。流检查失败或请求不支持 gzip 时，返回 `Z_STREAM_ERROR`，不发生变化。对已接受的请求传入 NULL `head` 不在本契约范围内：C 会解引用它。
 
 </details>
 
@@ -791,7 +789,7 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 
 **判读要点。**
 
-- 调用者缓冲区、消息及已挂接的头部指针仍共享；自复制不在契约内。
+- 调用者缓冲区、消息及已挂接的头部指针仍共享。
 
 ### 调用条件与效果 {#api-inflatecopy-contract}
 
@@ -821,7 +819,7 @@ int ZEXPORT inflateCopy(z_streamp dest, z_streamp source);
 
 **错误。** NULL `dest` 返回 `Z_STREAM_ERROR`。其他拒绝会清空非 NULL `dest` 的 `state`，除此以外不变。分配失败返回 `Z_MEM_ERROR`，并释放本次尝试的全部分配。源不变。
 
-**边界情况。** 显式排除自复制：C 会覆盖原来的状态指针，其所有权后果**尚未由证明确认**，也不是一次干净的拒绝。未打补丁的 C 在这个函数里比较了互不相关的指针；补丁 0001 替换了这处比较（见[补丁说明](../../../patches/README.md)）。本契约和安全目标针对的是打过补丁的源码。
+**边界情况。** 源为存活流的自复制不在本契约范围内：C 会覆盖原来的状态指针，其所有权后果**尚未由证明确认**。未打补丁的 C 在这个函数里比较了互不相关的指针；补丁 0001 替换了这处比较（见[补丁说明](../../../patches/README.md)）。
 
 </details>
 

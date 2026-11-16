@@ -1,4 +1,4 @@
-<!-- source-sha256: 0d644f2fcce55434c20e00f676d0a6a12de035687445c980e4d0f5495a90424b -->
+<!-- source-sha256: c7d15b2690eff58fe57c9fb0026b5c90baee91bd19d17927636b568c6f9aa1ca -->
 
 # 平台假设：对象大小
 
@@ -43,7 +43,7 @@ Lean 谓词是 [PlatformMemory.lean](../../ZlibF/Spec/Common/PlatformMemory.lean
 | --- | --- |
 | 对流的一次调用：`Goal.<function>_safety`、`Goal.inflate_sequence_safety`、`Goal.deflate_sequence_safety` | 在这次调用的堆上（`StreamCallDomain`，以及 `StreamSequenceSafety` 的子句 2）。 |
 | inflate 历史（`StreamReachable .inflate`） | 还出现在历史中此前的每次调用上，以及调用者每次修改之后。 |
-| deflate 历史（`StreamReachable .deflate`） | 不出现在此前的堆上。不论此前的堆是否满足这个上界，deflate 流都可达。所以 deflate 目标覆盖的历史更多；它们并不因此更弱。 |
+| deflate 历史（`StreamReachable .deflate`） | 不出现在此前的堆上。不论此前的堆是否满足这个上界，deflate 流都可达。所以 deflate 目标覆盖的历史更多。 |
 | `compress*`、`uncompress*` | `CompressorSafety`、`UncompressCountedSafe` 和 `UncompressSingleSafe` 的一条前提。 |
 | gzip 文件接口 | 在每次打开时的堆上，以及调用者每次修改之后（`GzHistory`；`GzOpenSafe` 和 `GzDopenSafe` 也带有它）。 |
 | 回调解码器 | 在每次 `inflateBack` 调用的堆上（`BackSafeReachable`、`Goal.inflate_back_sequence_safety`）。回调必须保持它（`BackPlatform`）。 |

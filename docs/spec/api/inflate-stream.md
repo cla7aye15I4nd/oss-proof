@@ -310,7 +310,7 @@ Only the first version byte must be readable; a whole string is not inspected.
     - *Returns.* The call returns. With a NULL `strm` the code is `Z_VERSION_ERROR` or `Z_STREAM_ERROR`.
     - *State.* With `Z_OK`, `strm` is a reachable stream.
     - *Writes.* With a NULL `strm`, nothing: the heap is unchanged. Otherwise only the stream record and blocks the call itself allocates.
-    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call. So no leak here means no leak of the call's own allocations: a state the record pointed to before the call stays allocated.
+    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call.
 - **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and each allocation failure returns, and the field values after the call: functional goal `Goal.inflateInit2_` (not planned; a theorem proves it). That some call does return `Z_OK`: `Goal.inflate_initialisation_domain` ([Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)), required.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit2_"><summary>Complete return conditions and boundaries</summary>
@@ -382,7 +382,7 @@ The result says whether a zlib decoder with a maximum 32 KiB window was created.
     - *Returns.* The call returns. With a NULL `strm` the code is `Z_VERSION_ERROR` or `Z_STREAM_ERROR`.
     - *State.* With `Z_OK`, `strm` is a reachable stream.
     - *Writes.* With a NULL `strm`, nothing: the heap is unchanged. Otherwise only the stream record and blocks the call itself allocates.
-    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call. So no leak here means no leak of the call's own allocations: a state the record pointed to before the call stays allocated.
+    - *Allocations.* With `Z_OK`, every block the call allocated is one of the stream's own blocks, and nothing is freed (`LiveChange`). With any other code the allocated blocks are the same as before the call.
 - **Not in this goal.** A stream whose `zalloc` or `zfree` is a custom function: outside every goal ([deviations](../../deviations.md)). Which code each refusal and each allocation failure returns, and the field values after the call: functional goal `Goal.inflateInit_` (not planned; a theorem proves it). That some call does return `Z_OK`: `Goal.inflate_initialisation_domain` ([Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)), required.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateInit_"><summary>Complete return conditions and boundaries</summary>
@@ -445,7 +445,8 @@ reported block/header boundary; every signed `bits` and `value`.
 
 **Post.** Zero bits returns `Z_OK` unchanged. Negative bits empties the bit buffer.
 For 1 through 16 bits that fit within the 32-bit buffer, returns `Z_OK`, appending
-the low `bits` bits of `value` above existing bits. These bits precede `next_in`.
+the low `bits` bits of `value` above existing bits. A negative `value` keeps its low bits; it is
+not treated as zero ([test](../../../tests/regression/inflate-prime/README.md)). These bits precede `next_in`.
 
 **Errors.** More than 16 bits, insufficient bit-buffer space or a failed stream
 check returns `Z_STREAM_ERROR` unchanged. Does not update `data_type`. The C does
@@ -486,7 +487,6 @@ The result distinguishes progress, completion of one stream, a dictionary reques
 **Reading the result.**
 
 - Normal returns account for consumed/produced bytes in totals and enabled checksums; Z_NEED_DICT retains the dictionary identifier.
-- A late Z_MEM_ERROR skips normal final totals, checksum and data_type accounting; it does not mean output was unchanged.
 - On normal returns, data_type combines unused-bit count with 64 for the last block, 128 at a header/block boundary, or 256 after a block header.
 
 ### Calling conditions and effects {#api-inflate-contract}
@@ -508,7 +508,9 @@ consumed/produced bytes and update the enabled output checksum. `Z_NEED_DICT`
 accounts for consumed header bytes and leaves `adler` as the dictionary identifier.
 A late window-allocation failure can follow input consumption and output writes:
 pointers/counts already reflect them, but normal final total/checksum/`data_type`
-accounting is skipped. Do not treat `Z_MEM_ERROR` as an unchanged-output result.
+accounting is skipped ([test](../../../tests/regression/compress-allocation/README.md)).
+The input a call has consumed need not all belong to a valid stream: a later call can reject
+the stream without consuming more input ([test](../../../tests/regression/inflate-deferred-distance/README.md)).
 
 **Ownership.** New window storage belongs to the stream and remains available for
 reset/end, including after errors. A one-call `Z_FINISH` completion may need no
@@ -759,7 +761,6 @@ The return value only says whether header storage was registered; head->done lat
 **Reading the result.**
 
 - Later, done is 1 for a completed gzip header or -1 when automatic detection identifies zlib; neither is this function’s return code.
-- head must be non-NULL for an accepted registration; NULL is not a guaranteed clean-error case.
 
 ### Calling conditions and effects {#api-inflategetheader-contract}
 
@@ -787,7 +788,7 @@ the stream and its owned storage, and the input/output ranges of calls using the
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
     - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks and the header record `head`.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
-- **Not in this goal.** A NULL `head` on a reachable stream: outside every safety goal ([deviations](../../deviations.md), row "Header arguments"). On a stream with gzip support the C stores through the pointer. On a stream without gzip support the C returns `Z_STREAM_ERROR` before it uses `head`; the functional goal `Goal.inflateGetHeader` states that return, and the safety goals do not cover the call. A NULL `head` with a refused stream is covered by the refusal clause. A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader` (not planned; a theorem proves it).
+- **Not in this goal.** A NULL `head` on a reachable stream: outside every safety goal ([deviations](../../deviations.md), row "Header arguments"). On a stream with gzip support the C stores through the pointer; on a stream without it the C returns `Z_STREAM_ERROR` before it uses `head`. A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The return value and what later `inflate` calls store in the record: functional goal `Goal.inflateGetHeader` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateGetHeader"><summary>Complete return conditions and boundaries</summary>
 
@@ -800,8 +801,8 @@ Absent optional fields set the corresponding pointer to NULL. Completion sets
 
 **Edges.** No allocation or ownership transfer. Reset clears registration. A
 failed stream check or request without gzip support returns `Z_STREAM_ERROR`
-unchanged. NULL `head` on an accepted request is outside this contract and is
-dereferenced by the C; it is not a clean-error case.
+unchanged. NULL `head` on an accepted request is outside this contract: the C
+dereferences it.
 
 </details>
 
@@ -951,7 +952,7 @@ The result says whether the destination acquired an independently endable decode
 
 **Reading the result.**
 
-- Caller buffer, message and registered header pointers remain shared; self-copy is outside the contract.
+- Caller buffer, message and registered header pointers remain shared.
 
 ### Calling conditions and effects {#api-inflatecopy-contract}
 
@@ -989,11 +990,10 @@ not deep-copied. No caller data is consumed or produced.
 `dest` has `state` cleared and is otherwise unchanged. Allocation failure returns
 `Z_MEM_ERROR` and frees all allocations made by this attempt. Source is unchanged.
 
-**Edges.** Self-copy is excluded explicitly: the C overwrites the original state
-pointer, so the ownership consequence remains **to confirm**, not a clean refusal.
+**Edges.** Self-copy from a live source is outside this contract: the C overwrites the
+original state pointer, and the ownership consequence is **to confirm**.
 The unpatched C compares unrelated pointers in this function; patch 0001 replaces
-the comparison ([patches](../../../patches/README.md)). This contract and the
-safety goal are about the patched source.
+the comparison ([patches](../../../patches/README.md)).
 
 </details>
 

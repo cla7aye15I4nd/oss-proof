@@ -170,5 +170,4 @@ library:
 | `deflateInit`, `deflateInit2`, `inflateInit`, `inflateInit2`, `inflateBackInit` | these are macros in `zlib.h`; they call `deflateInit_`, `deflateInit2_`, `inflateInit_`, `inflateInit2_`, `inflateBackInit_` with the header's own release string and `sizeof(z_stream)` |
 | `gzgetc` as a macro | `zlib.h` also defines `gzgetc` as a macro that reads the buffer directly and calls the function `gzgetc` when the buffer is empty; `gzgetc_` is a separate exported function kept for backward compatibility |
 
-The index contains all 95 default-build entries and the separate Windows entry `gzopen_w`.
 [Internal helper contracts](../internal-contracts.md) describe routines used inside the library.
