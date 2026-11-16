@@ -116,7 +116,7 @@ dictionary; the other listed `Valid` predicates use no dictionary.
 **History and small windows.** `Symbols.copy` uses the full `dict ++ h` history, not an
 explicit saved-window state. The distance table caps a reference at 32768. The zlib header's
 window field limits the initial dictionary suffix, but does not add a distance premise to
-`Symbols.copy`. This keeps the existing model choice explicit: default decoding can use
+`Symbols.copy`. Default decoding can use
 current-call output beyond a small saved window, while a later call may lack those bytes.
 The C also has a separate `INFLATE_STRICT` check. Refinement for all configured windows and
 output-buffer boundaries is **to confirm**. The declarative relation alone does not establish

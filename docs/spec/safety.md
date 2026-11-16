@@ -425,9 +425,7 @@ define pointer arithmetic and subtraction only for pointers into an array, and a
 points to no array element. [N3261](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3261.pdf)
 proposes to define the two null operations in a later revision; a proposal is not a rule of
 this project's C target. A differential test that agrees and a silent sanitizer do not settle
-it either. The comment on `Ptr.diff` in the runtime says the same about the subtraction: C17 and
-C23 leave `NULL - NULL` undefined, since neither operand points into an array object, and C++
-defines it as 0.
+it either.
 
 ### Uninitialised memory
 

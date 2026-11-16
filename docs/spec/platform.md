@@ -46,7 +46,7 @@ each heap the caller hands back. A goal that does not state it holds without it.
 | --- | --- |
 | One call on a stream: `Goal.<function>_safety`, `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety` | On the heap of the call (`StreamCallDomain`, and clause 2 of `StreamSequenceSafety`). |
 | An inflate history (`StreamReachable .inflate`) | Also at every earlier call of the history and after every caller edit. |
-| A deflate history (`StreamReachable .deflate`) | Not on earlier heaps. A deflate stream is reachable whether or not the earlier heaps had the bound. So the deflate goals cover more histories; they are not weaker for it. |
+| A deflate history (`StreamReachable .deflate`) | Not on earlier heaps. A deflate stream is reachable whether or not the earlier heaps had the bound. So the deflate goals cover more histories. |
 | `compress*`, `uncompress*` | A premise of `CompressorSafety`, `UncompressCountedSafe` and `UncompressSingleSafe`. |
 | Gzip file interface | On the heap of each open and after every caller edit (`GzHistory`; also `GzOpenSafe` and `GzDopenSafe`). |
 | Callback decoder | On the heap of each `inflateBack` call (`BackSafeReachable`, `Goal.inflate_back_sequence_safety`). The callbacks must keep it (`BackPlatform`). |
