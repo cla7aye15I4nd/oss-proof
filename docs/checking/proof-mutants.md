@@ -238,7 +238,7 @@ proof coverage. What the acceptance suite does and does not defend against is in
 | --- | --- |
 | The functional goal `Goal.<function>` of a public function, when it is proved | A key in `public-mutants.json` with at least one row. |
 | A function's own safety goal (`Goal.<function>_safety` or `_safe`), when it is proved | A key of its own. |
-| A proved required goal that is not about one function: the four sequence safety goals, the three refusal goals and the four non-vacuity goals | Pinned evidence in `PINNED_EVIDENCE` of `scripts/verification.py`. |
+| A proved required goal that is not about one function: the four sequence safety goals, the three refusal goals and the five non-vacuity goals | Pinned evidence in `PINNED_EVIDENCE` of `scripts/verification.py`. |
 
 The audit requires that this evidence exists as rows and keys. It does not run a row.
 
@@ -251,7 +251,7 @@ their own. For each, the script
 pins the semantic lists that carry its evidence, each with a minimum number of rows that must be
 killed, and the keyed goals whose replay also checks it: their proofs are corollaries of this
 goal, or share its run lemmas. Every pinned list is a list that the mutant shards run. Each
-pinned keyed goal has at least one row. A pinned keyed goal may be a functional goal; the last two
+pinned keyed goal has at least one row. A pinned keyed goal may be a functional goal; the last three
 rows of the table name one each.
 
 | Goal | Pinned lists (minimum rows to kill) | Pinned keyed goals |
@@ -265,6 +265,7 @@ rows of the table name one each.
 | `Goal.inflate_initialisation_domain` | none | `Goal.inflateInit2__safety` |
 | `Goal.deflate_initialisation_domain` | none | `Goal.deflateInit2__safety` |
 | `Goal.inflate_back_initialisation_domain` | `infback-sequence.tsv` (11) | `Goal.inflateBackInit_` (functional) |
+| `Goal.inflateBack_call_domain` | `infback-sequence.tsv` (11) | `Goal.inflateBackInit_` (functional) |
 | `Goal.gz_sequence_nonvacuity` | `gz-sequence.tsv` (43) | `Goal.gzdopen` (functional) |
 
 All lists of the table are under `tests/proof-mutants/`.

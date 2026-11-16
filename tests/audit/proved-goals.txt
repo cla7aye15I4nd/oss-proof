@@ -211,6 +211,7 @@ ZlibF.Spec.Public.Goal.inflateSync_safety
 ZlibF.Spec.Public.Goal.inflateUndermine
 ZlibF.Spec.Public.Goal.inflateValidate
 ZlibF.Spec.Public.Goal.inflate_back_initialisation_domain
+ZlibF.Spec.Public.Goal.inflateBack_call_domain
 ZlibF.Spec.Public.Goal.inflate_back_sequence_safety
 ZlibF.Spec.Public.Goal.inflate_initialisation_domain
 ZlibF.Spec.Public.Goal.inflate_refusal

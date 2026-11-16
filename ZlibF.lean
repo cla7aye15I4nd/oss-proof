@@ -675,5 +675,6 @@ import ZlibF.Proof.«public-stream-refusal-strengthening»
 import ZlibF.Proof.«public-init-safety»
 import ZlibF.Proof.«public-gz-call-safety»
 import ZlibF.Proof.«public-back-safety»
+import ZlibF.Proof.«public-infback-call-domain»
 import ZlibF.Proof.«public-inflate-copy-safety»
 import ZlibF.Proof.«public-stateless-safety»

@@ -402,6 +402,7 @@ ZlibF.Spec.Public.Proofs.Uncompress.uncompress2_safe
 ZlibF.Spec.Public.Proofs.Uncompress.uncompress_z_safe
 ZlibF.Spec.Public.Proofs.Uncompress.uncompress_safe
 ZlibF.Spec.Public.InflateBackInitProof.back_init_domain_public
+ZlibF.Spec.Public.BackCallDomainProof.inflateBack_call_domain
 
 # Scoped open, close and priming branches; complete public targets remain open.
 Zlib.Gzlib.Proofs.gz_open_null

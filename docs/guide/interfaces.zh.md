@@ -210,6 +210,6 @@ flowchart LR
 | `crc32`、`crc32_z` | `Goal.crc32_safety`、`Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`、`crc32_combine` | `Goal.adler32_combine_safety`、`Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine)、[crc32_combine](../spec/api/checksums.md#crc32_combine) |
 
-`Goal.gz_sequence_nonvacuity` 和 `Goal.inflate_back_initialisation_domain` 也已证明：
-它们表明这两个序列目标的前提可以满足。
+`Goal.gz_sequence_nonvacuity`、`Goal.inflate_back_initialisation_domain` 和 `Goal.inflateBack_call_domain` 也是必需目标：
+它们表明这两个序列目标的前提可以满足，其中包括 `inflateBack` 的回调协议。
 [进度页](../progress.md)记录每个目标的状态。

@@ -269,6 +269,10 @@ flowchart LR
 非空性目标排除了这种情况：有一个具体的堆满足初始化的前提，
 初始化在它上面成功，并给出一个可达流
 （`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`）。
+如果不存在任何协议，针对“每种回调协议”的目标同样会平凡地成立。
+`Goal.inflateBack_call_domain` 排除了这种情况：有一个具体的历史、一对具体的回调和一个具体的协议，
+同时满足 `Goal.inflateBack_safety` 调用子句的每个前提
+（[回调](../proof/callbacks.md#the-caller-protocol)）。
 
 gzip 文件接口和回调解码器的结构相同，各有自己的历史：
 `GzHistory`（[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)）和
@@ -472,7 +476,7 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 | gzip 文件句柄的每段历史 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)、[Safety/GzRefusal.lean](../../ZlibF/Spec/Safety/GzRefusal.lean) |
 | `inflateBackInit_`、`inflateBack`、`inflateBackEnd` | `Goal.<function>_safety`：对初始化，是 `zlib.h` 允许的每一次调用；对另外两个，是历史上的调用和各种拒绝 | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
 | 回调解码器的每段历史 | `Goal.inflate_back_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
+| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.inflateBack_call_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
 `tests/audit/public-api.json` 是审计所用的清单。它为每个函数给出一个 `safety_goal` 和一个 `functional_goal`。
 必需集合是每个 `safety_goal`、`safety_goals` 列表和 `nonvacuity_goals` 列表。

@@ -13,10 +13,12 @@
 | --- | --- | --- |
 | `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Safety/Sequences.lean`） | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
 | `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Safety/Domains.lean`） | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflateBack_call_domain`（`ZlibF/Spec/Safety/Domains.lean`） | `BackCallDomainProof.inflateBack_call_domain` | `ZlibF/Proof/public-infback-call-domain.lean` |
 | `Goal.inflateBackInit__safety`、`Goal.inflateBack_safety`、`Goal.inflateBackEnd_safety`（`ZlibF/Spec/Safety/Back.lean`） | `BackSafetyProof.inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
-五个都是必需的。第一个是关于历史的安全结论，第二个表明它的前提可以被满足。后三个是三个函数各自的安全目标。
-五条定理都列在 `tests/audit/theorems.txt` 中。序列目标的历史不要求 `inflateBackInit_` 之前
+六个都是必需的。第一个是关于历史的安全结论，第二个表明初始化可以成功。第三个表明 `inflateBack` 一次调用的前提可以被满足，
+其中包括回调协议（[调用者协议](#the-caller-protocol)）。后三个是三个函数各自的安全目标。
+六条定理都列在 `tests/audit/theorems.txt` 中。序列目标的历史不要求 `inflateBackInit_` 之前
 `state` 字段为 `NULL`。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
 
 单函数目标由本页的结论推出：
@@ -140,12 +142,27 @@ sequenceDiagram
 | 要求 | 含义，对照上面的 C 调用 |
 | --- | --- |
 | `local_` | 不变量只依赖两样东西：回调自己的块的内容，以及堆的分配器字段（下一个块编号、分配调用的次数、分配失败预言、新分配内存的内容，以及静态表）。在这些方面一致的两个堆（`ExternalAgreement`）同样地满足或不满足它。比较时不计窗口切片的字节，所以窗口切片的变化不影响它。`in_desc` 或 `out_desc` 背后的对象可以与窗口在同一次分配中，位于切片之外。 |
-| `inStep` | 从不变量出发，`in(in_desc, &next)` 无故障地返回一个计数和一个片段地址。它只改动自己的块（`ExternalFrame`），并保持窗口切片的字节。非空的片段在计数的长度内可读，与窗口分离，并且在状态记录和流记录之外。不变量再次成立，日志中追加了这个片段。 |
-| `outStep` | 从不变量出发，对任何不超过窗口容量的可读范围，`out(out_desc, buf, len)` 无故障地返回。它只改动自己的块，保持窗口切片的字节，并使当前的输入片段在下一次 `in` 调用之前保持可读。不变量再次成立，日志中追加了这个片段。 |
+| `inStep` | 在满足 `CallbackEntry`（见下）的堆上，从不变量出发，`in(in_desc, &next)` 无故障地返回一个计数和一个片段地址。它只改动自己的块（`ExternalFrame`），并保持窗口切片的字节。非空的片段在计数的长度内可读，与窗口分离，并且在状态记录和流记录之外。不变量再次成立，日志中追加了这个片段。 |
+| `outStep` | 在满足 `CallbackEntry` 的堆上，从不变量出发，对任何不超过窗口容量的可读范围，`out(out_desc, buf, len)` 无故障地返回。它只改动自己的块，保持窗口切片的字节，并使当前的输入片段在下一次 `in` 调用之前保持可读。不变量再次成立，日志中追加了这个片段。 |
 | `liveInput` | 在不变量之下，当前的输入片段可读。 |
 | `bounded` | 在不变量之下，到此为止提供的字节数（包括调用者的第一个片段）至多是 `inputBound`。 |
 
 这张表是摘要。完整的命题是 `ZlibF/Spec/Common/Back.lean` 中的结构 `CallbackProtocol`。
+
+`inStep` 和 `outStep` 只在满足 `CallbackEntry` 的堆上才被要求：流是这个窗口上的一个有效回调解码器（`BackValid`）。
+因此堆是库的堆，窗口可写。库在每次调用 `in` 和 `out` 时提供的正是这样的堆。这个前提是必要的。
+没有它，就不存在任何协议：`local_` 使不变量对 `own` 之外的每个块都不敏感，而 `disjoint` 把状态块放在 `own` 之外。
+于是不变量在“状态块里放着两个对象”的堆上同样成立，而从这样的堆出发，没有任何一步能以一个良构且该块不变的堆结束。
+在 2026-11-16 的更正之前，命题就是这种形式。`tests/verification/regressions/inflateback-protocol-vacuous.lean`
+保存了证据：旧形式的协议没有任何状态满足它的不变量（`OldCallbackProtocol.invariant_empty`），
+并且每个旧形式的协议都是更正后形式的协议（`OldCallbackProtocol.toNew`）。所以这次更正使目标更强。
+
+`Goal.inflateBack_call_domain` 表明更正后的前提可以被满足。它给出一个具体的历史：在见证堆上调用
+`inflateBackInit_`，然后调用者修改 `next_in` 和 `avail_in`。回调是具体的：`noInput` 报告输入结束，`takeOutput`
+接受每个片段。协议 `witnessProtocol` 拥有一个块。第一个片段有两个字节，位于一个堆字节块中。
+`Goal.inflateBack_safety` 调用子句的每个前提在它们上面同时成立。这个见证有它的局限。它的输入回调不交付任何字节：
+见证调用的全部输入就是调用者的第一个片段。这两个字节不是合法的 deflate 流，所以见证调用以错误码结束。
+这个目标表明前提可以满足，并不表明每一类协议都可以满足。
 
 “只改动自己的块”（`ExternalFrame`）允许回调分配和释放它自己的块。它创建的每个块都是它自己的块，堆保持良构。它不能改变一个保持存活的块是否只读：C
 代码没有办法做到这一点。
@@ -222,9 +239,9 @@ flowchart TD
 
 ### 循环内部的回调
 
-`PULL()` 只在当前片段用尽时调用 `in`。`PULL_p` 应用协议的 `inStep`。
+`PULL()` 只在当前片段用尽时调用 `in`。`PULL_p` 应用协议的 `inStep`。它的 `CallbackEntry` 前提就是循环不变量的 `valid` 字段。
 
-`ROOM()` 在没有剩余空间时对满的窗口调用 `out`，设置 `whave = wsize`，并从窗口开头重新开始。`ROOM_p` 应用 `outStep`。
+`ROOM()` 在没有剩余空间时对满的窗口调用 `out`，设置 `whave = wsize`，并从窗口开头重新开始。`ROOM_p` 应用 `outStep`，同样以 `valid` 字段作为 `CallbackEntry` 前提。
 
 任何一个回调之后，状态再次有效（`backValid_callback`，`ZlibF/Proof/infback.c.safety-valid.lean`）。回调只改动了它自己的块，这些块不包含那两个记录，并且它保持了窗口切片。
 

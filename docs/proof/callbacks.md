@@ -15,11 +15,14 @@ Terms: [glossary](../glossary.md).
 | --- | --- | --- |
 | `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Safety/Sequences.lean`) | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
 | `Goal.inflate_back_initialisation_domain` (`ZlibF/Spec/Safety/Domains.lean`) | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflateBack_call_domain` (`ZlibF/Spec/Safety/Domains.lean`) | `BackCallDomainProof.inflateBack_call_domain` | `ZlibF/Proof/public-infback-call-domain.lean` |
 | `Goal.inflateBackInit__safety`, `Goal.inflateBack_safety`, `Goal.inflateBackEnd_safety` (`ZlibF/Spec/Safety/Back.lean`) | `BackSafetyProof.inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
-All five are required. The first is the safety result over histories, and the second shows that
-its premises can be met. The last three are the safety goals of the three functions. All five
-theorems are listed in `tests/audit/theorems.txt`. The histories of the sequence goal do not ask
+All six are required. The first is the safety result over histories, and the second shows that
+init can succeed. The third shows that the premises of a call of `inflateBack` can be met, the
+callback protocol included ([the caller protocol](#the-caller-protocol)). The last three are
+the safety goals of the three functions. All six theorems are listed in
+`tests/audit/theorems.txt`. The histories of the sequence goal do not ask
 for a `NULL` `state` field before `inflateBackInit_`.
 [progress, Scope](../progress.md#scope) records the level of each result.
 
@@ -170,13 +173,35 @@ The protocol then requires five things of `in` and `out`.
 | Requirement | Meaning, against the C calls above |
 | --- | --- |
 | `local_` | The invariant depends on two things only: the contents of the callbacks' own blocks, and the allocator fields of the heap (the next block number, the count of allocation calls, the allocation-failure oracle, the content of fresh memory, and the static tables). Two heaps that agree on these (`ExternalAgreement`) satisfy it equally. The bytes of the window slice are left out of the comparison, so a change of the window slice does not affect it. The object behind `in_desc` or `out_desc` may lie in the same allocation as the window, outside the slice. |
-| `inStep` | From the invariant, `in(in_desc, &next)` returns a count and a chunk address without a fault. It changes only its own blocks (`ExternalFrame`) and keeps the bytes of the window slice. A nonempty chunk is readable for the count, separate from the window, and outside the state and stream records. The invariant holds again, with the chunk appended to the log. |
-| `outStep` | From the invariant, `out(out_desc, buf, len)` returns without a fault for any readable range of at most the window capacity. It changes only its own blocks, keeps the bytes of the window slice, and keeps the current input chunk readable until the next `in` call. The invariant holds again, with the chunk appended to the log. |
+| `inStep` | On a heap that satisfies `CallbackEntry` (below), from the invariant, `in(in_desc, &next)` returns a count and a chunk address without a fault. It changes only its own blocks (`ExternalFrame`) and keeps the bytes of the window slice. A nonempty chunk is readable for the count, separate from the window, and outside the state and stream records. The invariant holds again, with the chunk appended to the log. |
+| `outStep` | On a heap that satisfies `CallbackEntry`, from the invariant, `out(out_desc, buf, len)` returns without a fault for any readable range of at most the window capacity. It changes only its own blocks, keeps the bytes of the window slice, and keeps the current input chunk readable until the next `in` call. The invariant holds again, with the chunk appended to the log. |
 | `liveInput` | Under the invariant, the current input chunk is readable. |
 | `bounded` | Under the invariant, the bytes supplied so far, the caller's first chunk included, number at most `inputBound`. |
 
 The table is a summary. The complete statement is the structure `CallbackProtocol` in
 `ZlibF/Spec/Common/Back.lean`.
+
+`inStep` and `outStep` are required only on a heap that satisfies `CallbackEntry`: the stream is
+a valid callback decoder over this window (`BackValid`). So the heap is a library heap and the
+window is writable. This is what the library provides at each call of `in` and `out`. The
+premise is needed. Without it no protocol exists: `local_` makes the invariant insensitive to
+every block outside `own`, and `disjoint` puts the state block outside `own`. The invariant
+would then also hold on a heap whose state block holds two objects, and no step from that heap
+can end in a well-formed heap with that block unchanged. The statement had this form until the
+correction of 2026-11-16. `tests/verification/regressions/inflateback-protocol-vacuous.lean`
+keeps the evidence: no protocol of the former kind has a state that satisfies its invariant
+(`OldCallbackProtocol.invariant_empty`), and every protocol of the former kind is a protocol of
+the corrected kind (`OldCallbackProtocol.toNew`). So the correction makes the goals stronger.
+
+`Goal.inflateBack_call_domain` shows that the corrected premises can be met. It gives a concrete
+history: `inflateBackInit_` on the witness heap, then a caller's edit of `next_in` and
+`avail_in`. The callbacks are concrete: `noInput` reports the end of input, and `takeOutput`
+accepts every chunk. The protocol `witnessProtocol` owns one block. The first chunk has two
+bytes in a heap byte block. Every premise of the call clause of `Goal.inflateBack_safety` holds
+on them together. The witness has limits. Its input callback delivers no bytes: all input of
+the witness call is the caller's first chunk. The two bytes are not a valid deflate stream, so
+the witness call ends with an error code. The goal shows that the premises are satisfiable. It
+does not show that every kind of protocol is.
 
 "Changes only its own blocks" (`ExternalFrame`) allows a callback to allocate and free blocks
 of its own. Every block it creates is one of its own, and the heap stays well formed. It cannot
@@ -272,10 +297,11 @@ six modes.
 ### The callbacks inside the loop
 
 `PULL()` calls `in` only when the current chunk is exhausted. `PULL_p` applies the protocol's
-`inStep`.
+`inStep`. Its `CallbackEntry` premise is the `valid` field of the loop invariant.
 
 `ROOM()` calls `out` on the full window when no room is left, sets `whave = wsize` and
-restarts at the window. `ROOM_p` applies `outStep`.
+restarts at the window. `ROOM_p` applies `outStep`, with the same `valid` field as the
+`CallbackEntry` premise.
 
 After either callback the state is valid again (`backValid_callback`,
 `ZlibF/Proof/infback.c.safety-valid.lean`). The callback changed only its own blocks, which

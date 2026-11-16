@@ -196,7 +196,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 在 C 中，`inflateInit` 的调用者没有设置的字段，其值是不确定的。模型里没有这样的值。未设置的整数字段取一个任意的值；未设置的指针字段取模型能够表达的某个值：`NULL`，或对某个模型对象的引用。四个初始化目标和 `Goal.inflateBackInit__safety` 对每一个这样的值都成立，因为 `InitArguments` 只约束 `zalloc` 和 `zfree`。C 的行为与这种解读一致：初始化函数给 `strm->state` 赋值，而不读取它。模型里没有“未初始化指针”这种值，这是模型的一处限制（[可信基础](trusted-base.md)第 2 项）。
 
-三个流族的非空性目标通过谓词 `InitDomain` 保留了“初始化之前 `state = NULL`”这一子句。`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` 和 `Goal.inflate_back_initialisation_domain` 说：在每个这样的堆上，只要没有分配失败，初始化就返回 `Z_OK`；这一子句在那里不会收窄任何安全目标。回调解码器历史的第一次调用（`BackSafeReachable.init`）没有这一子句：它的前提是 `BackInitArguments`，也就是去掉这一子句的 `InitDomain`（[回调解码器](#callback-decoder)）。
+有三个非空性目标（每个流族一个）通过谓词 `InitDomain` 保留了“初始化之前 `state = NULL`”这一子句。`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain` 和 `Goal.inflate_back_initialisation_domain` 说：在每个这样的堆上，只要没有分配失败，初始化就返回 `Z_OK`；这一子句在那里不会收窄任何安全目标。回调解码器历史的第一次调用（`BackSafeReachable.init`）没有这一子句：它的前提是 `BackInitArguments`，也就是去掉这一子句的 `InitDomain`（[回调解码器](#callback-decoder)）。这些流族的第四个非空性目标 `Goal.inflateBack_call_domain` 陈述的是一个具体的历史和一个具体的回调协议。它没有前提，所以不收窄任何东西。
 
 ### 注 2：被拒绝的流
 
@@ -243,13 +243,14 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 `CallbackProtocol` 的各个子句：
 
 - `in` 和 `out` 各自都会返回而不出故障，并且只改变调用者自己的块；这些块不包括状态和流记录。
+- 关于一次 `in` 或 `out` 调用的子句只在这样的堆上才被要求：流是这个窗口上的一个有效回调解码器（`CallbackEntry`）。库交给回调的只有这样的堆。没有这个前提，就不可能存在任何协议；在 2026-11-16 的更正之前，目标的调用子句是空洞成立的（[回调](proof/callbacks.md#the-caller-protocol)；`tests/verification/regressions/inflateback-protocol-vacuous.lean`）。
 - 两者都保持窗口切片中的字节。
 - `in` 交出的片段可读，并且与窗口、状态和流记录分离。`out` 保持当前的输入片段可读。
 - 总输入有一个有限的上界（`inputBound`）。
 - 每个回调都让堆保持良构（`Fresh`、`Uniq`），它新建的每个块都属于调用者自己（`ExternalFrame`）。
 - 协议带有一个不变量，说的是堆以及“已供给和已交付字节”的日志。每个回调都保持它。这个不变量只能依赖调用者自己的块和堆的分配器字段，不能依赖窗口切片中的字节（`CallbackProtocol.local_`）。
 
-关于同一次调用还有两条前提，它们是目标第三个子句的前提，不是 `CallbackProtocol` 的子句：第一个片段（`next_in`、`avail_in`）可读，并且与窗口分离；在调用 `inflateBack` 时的堆上，不变量成立。
+关于同一次调用还有两条前提，它们是目标第三个子句的前提，不是 `CallbackProtocol` 的子句：第一个片段（`next_in`、`avail_in`）可读，并且与窗口分离；在调用 `inflateBack` 时的堆上，不变量成立。`Goal.inflateBack_call_domain` 表明这些前提和一个协议可以在一次具体的调用上同时成立。
 
 ## Gzip 文件接口
 

@@ -70,7 +70,7 @@ flowchart TD
 - 对 `zlib.h` 列为未文档化的函数，`safety_goal` 为 `null`；其中包括不在目标构建中的 `gzopen_w`。例外是 `gzvprintf`：它写的是 `Goal.gzvprintf_safety`，这个目标通过 `safety_goals` 列表成为必需。
 - 四个 `uncompress*` 目标以 `_safe` 结尾；其他每个单函数安全目标都以 `_safety` 结尾。清单文件写出每个目标的全名，所以任何检查都不必去猜后缀。
 
-流目标的强度取决于它的可达历史集合。四个非空性目标为每一族给出一个可达的见证，它们属于必需集合：`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain` 和 `Goal.gz_sequence_nonvacuity`。`Goal.gz_initialisation_domain` 不是必需的：它陈述的是 `gzopen` 的功能契约，清单文件把它列在 `not_planned` 之下。
+流目标的强度取决于它的可达历史集合。四个非空性目标为每一族给出一个可达的见证，它们属于必需集合：`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain` 和 `Goal.gz_sequence_nonvacuity`。第五个必需的非空性目标 `Goal.inflateBack_call_domain` 为回调协议给出一个见证：针对每种协议的目标，其强度取决于协议的集合。`Goal.gz_initialisation_domain` 不是必需的：它陈述的是 `gzopen` 的功能契约，清单文件把它列在 `not_planned` 之下。
 
 ## 必需集合怎样检查
 

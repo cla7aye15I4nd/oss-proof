@@ -296,6 +296,10 @@ goals this part has one premise only: the stream is reachable.
 reachable. The non-vacuity goals exclude this: a concrete heap satisfies the premises of init,
 and init succeeds on it and gives a reachable stream
 (`Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`).
+A goal over "every callback protocol" would also hold trivially if no protocol existed.
+`Goal.inflateBack_call_domain` excludes that: a concrete history, a concrete pair of callbacks
+and a concrete protocol satisfy every premise of the call clause of `Goal.inflateBack_safety`
+together ([callbacks](../proof/callbacks.md#the-caller-protocol)).
 
 The gzip file interface and the callback decoder have the same structure with their own
 histories: `GzHistory` ([Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)) and
@@ -531,7 +535,7 @@ modules, and has no exception to these rules. The functional gz and callback goa
 | every history of a gzip file handle | `Goal.gz_sequence_safety`; a `NULL` handle: `Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean), [Safety/GzRefusal.lean](../../ZlibF/Spec/Safety/GzRefusal.lean) |
 | `inflateBackInit_`, `inflateBack`, `inflateBackEnd` | `Goal.<function>_safety`: for init, every call that `zlib.h` allows; for the other two, the call on a history and the refusals | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
 | every history of a callback decoder | `Goal.inflate_back_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
+| non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.inflateBack_call_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
 `tests/audit/public-api.json` is the list the audit uses. For each function it gives a
 `safety_goal` and a `functional_goal`. The required set is every `safety_goal`, the list

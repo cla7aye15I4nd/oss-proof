@@ -236,6 +236,7 @@ goal is `ZlibF.Spec.Public.Goal.<name>`. [Safety](../spec/safety.md) says what t
 | `crc32`, `crc32_z` | `Goal.crc32_safety`, `Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`, `crc32_combine` | `Goal.adler32_combine_safety`, `Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine), [crc32_combine](../spec/api/checksums.md#crc32_combine) |
 
-`Goal.gz_sequence_nonvacuity` and `Goal.inflate_back_initialisation_domain` are proved too:
-they show that the premises of the two sequence goals can be met.
+`Goal.gz_sequence_nonvacuity`, `Goal.inflate_back_initialisation_domain` and
+`Goal.inflateBack_call_domain` are required too: they show that the premises of the two
+sequence goals can be met, the callback protocol of `inflateBack` included.
 [Progress](../progress.md) holds the status of every goal.

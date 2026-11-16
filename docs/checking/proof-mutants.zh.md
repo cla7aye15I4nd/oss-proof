@@ -175,13 +175,13 @@ bash tests/audit/proofmut.sh tests/audit/proofmut/crc32.tsv '^combine'
 | --- | --- |
 | 公开函数的功能目标 `Goal.<function>`，在它已被证明时 | `public-mutants.json` 中的一个键，至少有一行。 |
 | 函数自己的安全目标（`Goal.<function>_safety` 或 `_safe`），在它已被证明时 | 它自己的键。 |
-| 不针对单个函数的已证明必需目标：四个序列安全目标、三个拒绝目标和四个非空性目标 | `scripts/verification.py` 的 `PINNED_EVIDENCE` 中的固定证据。 |
+| 不针对单个函数的已证明必需目标：四个序列安全目标、三个拒绝目标和五个非空性目标 | `scripts/verification.py` 的 `PINNED_EVIDENCE` 中的固定证据。 |
 
 审计要求这些证据以行和键的形式存在。它不运行任何一行。
 
 针对单个公开函数的已证明目标如果没有键，会被拒绝。脚本为此设有一个豁免列表（`MUTANT_COVERAGE_PENDING`）；它是空的，审计拒绝新增的条目。已证明的必需目标如果既没有键也没有固定证据，会被拒绝。
 
-**固定证据。**不针对单个函数的已证明必需目标没有自己的键。对其中每一个，脚本固定了承担其证据的语义列表，每个列表附有必须被杀死的最少行数；还固定了一些带键的目标，它们的重放同时也检查这个目标：它们的证明是这个目标的推论，或与它共用运行引理。每个固定的列表都是变异体分片会运行的列表。每个固定的带键目标至少有一行。固定的带键目标可以是功能目标；下表最后两行各指定了一个。
+**固定证据。**不针对单个函数的已证明必需目标没有自己的键。对其中每一个，脚本固定了承担其证据的语义列表，每个列表附有必须被杀死的最少行数；还固定了一些带键的目标，它们的重放同时也检查这个目标：它们的证明是这个目标的推论，或与它共用运行引理。每个固定的列表都是变异体分片会运行的列表。每个固定的带键目标至少有一行。固定的带键目标可以是功能目标；下表最后三行各指定了一个。
 
 | 目标 | 固定的列表（必须杀死的最少行数） | 固定的带键目标 |
 | --- | --- | --- |
@@ -194,6 +194,7 @@ bash tests/audit/proofmut.sh tests/audit/proofmut/crc32.tsv '^combine'
 | `Goal.inflate_initialisation_domain` | 无 | `Goal.inflateInit2__safety` |
 | `Goal.deflate_initialisation_domain` | 无 | `Goal.deflateInit2__safety` |
 | `Goal.inflate_back_initialisation_domain` | `infback-sequence.tsv`（11） | `Goal.inflateBackInit_`（功能目标） |
+| `Goal.inflateBack_call_domain` | `infback-sequence.tsv`（11） | `Goal.inflateBackInit_`（功能目标） |
 | `Goal.gz_sequence_nonvacuity` | `gz-sequence.tsv`（43） | `Goal.gzdopen`（功能目标） |
 
 表中的列表都在 `tests/proof-mutants/` 下。

@@ -338,13 +338,15 @@ constrains only `zalloc` and `zfree`. The C agrees with this reading: the init f
 it. That the model has no "uninitialised pointer" value is a limit of the model
 ([trusted base](trusted-base.md), item 2).
 
-The three non-vacuity goals of the stream families keep a clause `state = NULL` before init,
+Three non-vacuity goals, one for each stream family, keep a clause `state = NULL` before init,
 through the predicate `InitDomain`. `Goal.inflate_initialisation_domain`,
 `Goal.deflate_initialisation_domain` and `Goal.inflate_back_initialisation_domain` say that init
 returns `Z_OK` on every such heap when no allocation fails; the clause narrows no safety goal
 there. The first call of a callback-decoder history (`BackSafeReachable.init`) does not have the
 clause: its premise is `BackInitArguments`, which is `InitDomain` without it
-([callback decoder](#callback-decoder)).
+([callback decoder](#callback-decoder)). The fourth non-vacuity goal of these families,
+`Goal.inflateBack_call_domain`, states one concrete history and one concrete callback protocol.
+It has no premise, so it narrows nothing.
 
 ### Note 2: refused streams
 
@@ -442,6 +444,12 @@ The clauses of `CallbackProtocol`:
 
 - Each of `in` and `out` returns without a fault and changes only the caller's own blocks, which
   exclude the state and the stream record.
+- The clauses about a call of `in` or `out` are required only on a heap in which the stream is a
+  valid callback decoder over this window (`CallbackEntry`). The library hands only such heaps
+  to the callbacks. Without this premise no protocol could exist, and the call clause of the goal
+  was vacuous until the correction of 2026-11-16
+  ([callbacks](proof/callbacks.md#the-caller-protocol);
+  `tests/verification/regressions/inflateback-protocol-vacuous.lean`).
 - Each keeps the bytes of the window slice.
 - `in` hands out a readable chunk that is separate from the window, the state and the stream
   record. `out` keeps the current input chunk readable.
@@ -456,6 +464,8 @@ The clauses of `CallbackProtocol`:
 Two more premises about the same call are premises of the third clause of the goal, not clauses
 of `CallbackProtocol`: the first chunk (`next_in`, `avail_in`) is readable and separate from the
 window, and the invariant holds on the heap on which `inflateBack` is called.
+`Goal.inflateBack_call_domain` shows that these premises and a protocol can hold together on a
+concrete call.
 
 ## Gzip file interface
 

@@ -121,7 +121,11 @@ Theorems of the safety column: `ZlibF.Spec.Public.BackSafetyProof.<name>` in
   clause of `Goal.inflateBackEnd_safety`. A history starts at an `inflateBackInit_` call that
   returned `Z_OK`, with any `state` field before the call (`BackInitArguments`).
 - **Non-vacuity.** `Goal.inflate_back_initialisation_domain`
-  (`ZlibF/Spec/Safety/Domains.lean`).
+  (`ZlibF/Spec/Safety/Domains.lean`): init can succeed. `Goal.inflateBack_call_domain` (same
+  file): theorem `ZlibF.Spec.Public.BackCallDomainProof.inflateBack_call_domain`,
+  `public-infback-call-domain.lean`. It shows that every premise of the call clause of
+  `Goal.inflateBack_safety` holds together on a concrete history with a concrete callback
+  protocol.
 - **Proof mutants.** The sequence theorem has eleven proof mutants of `inflateBack`,
   `inflateBackInit_` and `inflateBackEnd` (`tests/proof-mutants/infback-sequence.tsv`). Each of the
   three one-function goals has a key of its own in `tests/audit/public-mutants.json`

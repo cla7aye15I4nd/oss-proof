@@ -186,7 +186,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 - **适用条件。** 第一个拒绝子句没有条件。第二个要求 `strm` 指向一个可读的流记录。历史上的调用要求：
     1. `strm` 有一段[回调解码器历史](#callback-decoder-history)（`BackSafeReachable`）；前提 `BackValid` 给它的记录和状态命名；
     2. `next_in` 为 NULL，或者覆盖 `avail_in` 个可读字节（`Bytes`）且不与窗口重叠（`Separate`）；
-    3. 回调遵守一个协议（`CallbackProtocol`），其不变量在调用时成立：`in` 和 `out` 各自返回，只改变回调自己的块，并且保持窗口这一段的字节不变；`in` 交出一个可读的、不与窗口重叠的片段；`out` 保持当前输入片段可读（全部子句见[偏离记录](../../deviations.md#callback-decoder)）；
+    3. 回调遵守一个协议（`CallbackProtocol`），其不变量在调用时成立：`in` 和 `out` 各自返回，只改变回调自己的块，并且保持窗口这一段的字节不变；`in` 交出一个可读的、不与窗口重叠的片段；`out` 保持当前输入片段可读（全部子句见[偏离记录](../../deviations.md#callback-decoder)）。关于两个回调的子句只在这样的堆上才被要求：流是这个窗口上的一个有效回调解码器（`CallbackEntry`），库交给 `in` 和 `out` 的就是这样的堆。这样的协议确实存在，并且全部六条前提在一次具体的调用上同时成立：`Goal.inflateBack_call_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需（[回调](../../proof/callbacks.md#the-caller-protocol)）；
     4. 协议的输入总量（包括第一个片段）少于 `2^48` 字节（`inputBound`）；
     5. 平台大小上界在调用时成立，并且每个回调步骤都保持它（`ByteObjectsFit`、`BackPlatform`）；
     6. 每个输入片段都位于堆字节块中：第一个片段（`BackFirstChunk`）和 `in` 交出的每一个片段（`BackPlatform`）。

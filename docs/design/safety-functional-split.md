@@ -144,6 +144,8 @@ A stream goal is only as strong as its set of reachable histories. Four non-vacu
 a reachable witness for each family and are part of the required set:
 `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`,
 `Goal.inflate_back_initialisation_domain` and `Goal.gz_sequence_nonvacuity`.
+A fifth required non-vacuity goal, `Goal.inflateBack_call_domain`, gives a witness for the
+callback protocol: a goal over every protocol is only as strong as the set of protocols.
 `Goal.gz_initialisation_domain` is not required: it states the functional contract of `gzopen`,
 and the manifest lists it under `not_planned`.
 
