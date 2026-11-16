@@ -1,0 +1,5 @@
+MISMATCH seed 13 level 8 wb 15 mem 3 alpha 5 na 508 nb 1292 rc 1 got 1292 first diff 680
+MISMATCH seed 35 level 6 wb 12 mem 6 alpha 4 na 2204 nb 1041 rc 1 got 1041 first diff 989
+MISMATCH seed 40 level 8 wb 11 mem 9 alpha 4 na 913 nb 1754 rc 1 got 1754 first diff 437
+tried 41 bad 3
+ok: after a direct deflateResetKeep, three streams decode to data different from the input
