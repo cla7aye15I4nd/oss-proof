@@ -1,22 +1,20 @@
-<!-- source-sha256: c6bf503c97eb2f0527e279097bfe8707c8a69ebf8044b06795b5234742aeebc3 -->
+<!-- source-sha256: 7e805837c9ae74a5fe1a267f49b360ffd3082d82c7e54766358af92e21068da4 -->
 # CRC-32：字节范围、编织与多项式含义
 
 CRC-32 函数在其文档给出的定义域上是安全的：它们会返回，只读调用者的缓冲区和静态表，并且让堆保持不变。它们还返回 CRC-32 的值；那一部分是功能性的，不是安全结论所必需的。本页解释为什么每次读取都在范围之内，对齐测试是怎样建模的，以及各个值定理陈述了什么。
 
-源文件：`zlib/crc32.c`；翻译：`ZlibF/Zlib/crc32.c.lean`。被翻译的分支是默认 x86_64 Linux 的那一个：小端字，没有硬件 CRC 指令，以及“编织”（braid）的字循环，参数取源码中的 `W = 8`（每个字的字节数）和 `N = 5`（每个块的字数）。[API 页](../spec/api/checksums.md)给出公开定义域；[格式指南](../spec/format/README.md)规定这个值（`F-crc-incremental`）。术语见[术语表](../glossary.md)。
+源文件：`zlib/crc32.c`；翻译：`ZlibF/Zlib/crc32.c.lean`。被翻译的分支是默认 x86_64 Linux 的那一个：小端字，没有硬件 CRC 指令，以及“编织”（braid）的字循环，参数取源码中的 `W = 8`（每个字的字节数）和 `N = 5`（每个块的字数）。[API 页](../spec/api/checksums.md)给出公开定义域；[格式指南](../spec/format/README.md)规定这个值（那里名为 `F-crc-incremental` 的子句）。术语见[术语表](../glossary.md)。
 
 ## 证明了什么
 
-| 结论 | 类别 | 定理 | 模块 |
-| --- | --- | --- | --- |
-| `Goal.crc32_safety`、`Goal.crc32_z_safety`、`Goal.crc32_combine_safety`、`Goal.crc32_combine64_safety`、`Goal.crc32_combine_gen_safety`、`Goal.crc32_combine_gen64_safety`、`Goal.crc32_combine_op_safety`（`ZlibF/Spec/Safety/Checksums.lean`） | 安全，必需 | 去掉 `Goal.` 之后的同名定理 | `ZlibF/Proof/public-stateless-safety.lean` |
-| `Goal.crc32`、`Goal.crc32_z` | 功能 | `crc32`、`crc32_z` | `ZlibF/Proof/public-crc-updates.lean` |
-| 五个合并目标 | 功能 | `gen`、`gen64`、`op`、`combine`、`combine64` | `ZlibF/Proof/public-crc-combine.lean` |
-| 同样的结论，针对模型拥有的每一种字节数组（堆块、静态数组、记录内的数组），在每一种对齐下 | 两者 | `crc32_z_all_byte_views`、`crc32_all_byte_views` | `ZlibF/Proof/crc32.c.views.lean` |
-| 堆上的字节块以及辅助函数 | 两者 | `crc32_z_safe`、`crc32_z_correct`、`multmodp_safe`、`multmodp_correct`、`x2nmodp_safe`、`x2nmodp_correct`，以及合并的各项结论 | `ZlibF/Proof/crc32.c.lean` |
-| `get_crc_table` | 非必需：`zlib.h` 把它列为未文档化的函数 | `get_crc_table` | `ZlibF/Proof/public-get-crc-table.lean` |
-
-以上全部列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
+| 结论 | 类别 | 定理 |
+| --- | --- | --- |
+| `Goal.crc32_safety`、`Goal.crc32_z_safety`、`Goal.crc32_combine_safety`、`Goal.crc32_combine64_safety`、`Goal.crc32_combine_gen_safety`、`Goal.crc32_combine_gen64_safety`、`Goal.crc32_combine_op_safety` | 安全，必需 | 去掉 `Goal.` 之后的同名定理 |
+| `Goal.crc32`、`Goal.crc32_z` | 功能 | `crc32`、`crc32_z` |
+| 五个合并目标 | 功能 | `gen`、`gen64`、`op`、`combine`、`combine64` |
+| 同样的结论，针对模型拥有的每一种字节数组（堆块、静态数组、记录内的数组），在每一种对齐下 | 两者 | `crc32_z_all_byte_views`、`crc32_all_byte_views` |
+| 堆上的字节块以及辅助函数 | 两者 | `crc32_z_safe`、`crc32_z_correct`、`multmodp_safe`、`multmodp_correct`、`x2nmodp_safe`、`x2nmodp_correct`，以及合并的各项结论 |
+| `get_crc_table` | 非必需：`zlib.h` 把它列为未文档化的函数 | `get_crc_table` |
 
 安全目标说的是：调用在没有故障的情况下返回，并且让堆与原来完全一样。每个安全定理都是同一个函数的完整契约去掉值之后的部分。
 
@@ -54,22 +52,29 @@ flowchart LR
 
 ## 对齐与被表示的地址
 
-C 通过 `buf` 的地址测试它的对齐：`while (len && ((z_size_t)buf & (W - 1)) != 0)`。模型中的指针没有地址。模型只提供低三位（`ZlibF/Runtime/Address.lean`）：
+C 通过 `buf` 的地址测试它的对齐：`while (len && ((z_size_t)buf & (W - 1)) != 0)`。模型中的指针没有地址。模型只提供低三位：
 
 - 堆上的字节块从一个对齐的地址开始，所以指向它内部的指针的低位就是其偏移量的低位；
 - 静态字节数组，或者记录内的字节数组，从模 8 的任意余数处开始。这个余数对于给定的堆是固定的，证明并不知道它是多少。
 
-`ZlibF/Proof/ByteAddress.lean` 把这些被表示的地址与偏移量、对齐和合法字节范围联系起来，并证明每一种余数指派都是可表示的。因此 CRC 目标对每一种余数都成立，也没有给它们添加对齐前提。
+有四条定理陈述这个模型给出了什么。这里的*布局*是指给每个字节数组指派一个基地址。
+
+- `every_layout_is_representable`：对每一种让每个堆字节块都起始于 8 的倍数的布局，都有某个堆具有这种布局的余数。没有哪个静态数组或内嵌数组被强制对齐。
+- `mask_refines_base_plus_offset`：在余数与某个布局一致的堆里，模型给一个指针的低三位，就是它的基地址加偏移量的低三位。这个和超出 64 位时也成立。
+- `pointer_advance_preserves_low_bits`：在每一个堆里，把指针前移 `count` 个字节，就是把它的低三位加上 `count` 再模 8。
+- `first_aligned_offset`：在每一个堆里，对每一个低三位为 `r` 的指针，向前 `(8 - r) mod 8` 个字节（至多 7 个）的位置低三位为 0，而更早的位置都不是。这是关于位置的算术：它没有说那些字节在缓冲区之内。
+
+CRC 目标对每一个堆做全称量化，所以它们对每一种余数都成立，也没有给它们添加对齐前提。
 
 翻译后的字读取按小端顺序拼接八个字节。在 C 中，这次读取是通过一个转换为 `z_word_t *` 的指针做的加载。两者一致（包括对这个转换按严格别名规则的解读），以及真实地址背后一般的 ABI 布局，都是受信任的；它们没有被证明。[模型的限制](../model-limits.md#representation-gaps-and-proof-obligations)在“地址与布局模型不完整”一行记录了这一点。C 还读取一个局部字节序标记的低字节来选择分支；在这个目标平台上它选择小端分支，大端分支不会运行。大端辅助函数中只证明了 `crc_word_big_safe`。
 
-一项[回归测试](../../tests/verification/regressions/crc-static-address.lean)检查从静态表做的一次合法的 47 字节读取：`crc32` 和 `crc32_z` 都返回独立计算的校验和，并且让堆保持不变。
+一个[经过检查的例子](../../tests/verification/regressions/crc-static-address.lean)涵盖从静态表做的一次合法的 47 字节读取：`crc32` 和 `crc32_z` 都返回独立计算的校验和，并且让堆保持不变。
 
 ## 值（功能）
 
 `crc32_z_correct` 对堆上的字节块陈述这个值：对每个种子、每个长度和偏移量的每一种对齐，`crc32_z` 返回字节列表的 `ZlibF.Spec.crc32Update`，并且让堆保持不变。`crc32_z_all_byte_views` 把它推广到静态数组和内嵌数组。规格 `crc32Update` 是一个逐位的寄存器，不提及翻译。
 
-`ZlibF/Proof/crc32.c.lean` 中所证明的论证如下：
+论证如下：
 
 - CRC 寄存器的一步（`crcBit`）在 GF(2) 上是线性的（`crcBit_xor`）。把 `m` 步记作 `pw m`；它就是在模 CRC 多项式的意义下乘以 `x^m`。
 - 表的内容是在内核中通过求值检查的，不是假设的：`crc_table[n] = pw 8 n`（`crc_table_eq`），`crc_braid_table[j][n] = pw (8 * (40 - j)) n`（`braid_eq`），以及 `x2n_table` 的平方链和 `x^(2^32) = x`（`Xt_sq`、`Xt_wrap`）。
@@ -97,7 +102,7 @@ C 通过 `buf` 的地址测试它的对齐：`while (len && ((z_size_t)buf & (W 
 
 ### `crc32_combine_op` 在定义域之外的挂起
 
-`multmodp` 扫描它第一个操作数的第 31 位到第 0 位。如果低位字为零，掩码会变成零，C 的循环永不终止。`crc32_combine_op` 在调用 `multmodp` 之前处理 `op == 0`，而生成出来的算子的低位字非零，所以文档规定的用法会终止：这就是 `Goal.crc32_combine_op_safety` 的内容。任意的非零 64 位值不在文档给出的定义域内。对于 `crc32_combine_op(1, 2, 1UL << 32)`，`crc32_combine_op_diverges` 证明翻译会耗尽燃料。一份早先的报告说，真实的 C 在两次带超时的运行中都没有从这个调用返回。仓库没有保留它的复现：`tests/regression/` 和 `docs/findings/` 下没有它的目录，[sanitizer 报告](../sanitizer-reports.md)中也没有它的行。[发现](../findings.md#earlier-library-observations)把它列在早先的观察之中，没有保留的复现。所以 C 在这个调用上的行为是一份报告，而定理说的是翻译。这个挂起是文档定义域之外的误用，不是定义域之内的缺陷。
+`multmodp` 扫描它第一个操作数的第 31 位到第 0 位。如果低位字为零，掩码会变成零，C 的循环永不终止。`crc32_combine_op` 在调用 `multmodp` 之前处理 `op == 0`，而生成出来的算子的低位字非零，所以文档规定的用法会终止：这就是 `Goal.crc32_combine_op_safety` 的内容。任意的非零 64 位值不在文档给出的定义域内。对于 `crc32_combine_op(1, 2, 1UL << 32)`，`crc32_combine_op_diverges` 证明翻译会耗尽燃料。有报告说，真实的 C 在两次带超时的运行中都没有从这个调用返回。这份报告没有保留复现（[发现](../findings.md#unconfirmed-observations)）。所以 C 在这个调用上的行为是一份报告，而定理说的是翻译。这个挂起是文档定义域之外的误用，不是定义域之内的缺陷。
 
 ## 静态表的证据
 

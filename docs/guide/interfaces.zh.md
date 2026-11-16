@@ -1,4 +1,4 @@
-<!-- source-sha256: 046f212efd6cd19a1dce9a68082a0ec31090701621fee4d0670642c4b2fa4cf4 -->
+<!-- source-sha256: 5394998ed3b5258752cf286888746bc76223b89e02587a2869c45e94fc2ba226 -->
 
 # 6. 应用接口
 
@@ -168,7 +168,7 @@ flowchart LR
 往前定位（朝文件末尾）会用掉已经缓冲的解码字节，或者记下稍后要跳过的字节数。
 输入不是 gzip 时，库直接在文件中定位。不支持 `SEEK_END`。
 **功能：** 已处理的位置加上待跳过的量，等于应用观察到的位置。
-**安全：** 偏移的算术不会溢出有符号偏移类型。这对打过补丁的源码成立；固定的源码可能溢出（见[发现](../findings.md)）。
+**安全：** 偏移的算术不会溢出有符号偏移类型。这对打过本项目补丁的 zlib 成立；未打补丁的 zlib 可能溢出（见[发现](../findings.md)）。
 
 **写入。** 写入 `ABC`，定位到未压缩偏移 6，再写入 `D`：中间的三个字节是零，按普通数据压缩。
 
@@ -194,10 +194,9 @@ flowchart LR
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
-`tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
+下表给出本章用到的每个函数的安全目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)记录每项结论的层级。
+[进度页](../progress.md)说明哪些目标已完成。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |
@@ -210,6 +209,5 @@ flowchart LR
 | `crc32`、`crc32_z` | `Goal.crc32_safety`、`Goal.crc32_z_safety` | [crc32](../spec/api/checksums.md#crc32) |
 | `adler32_combine`、`crc32_combine` | `Goal.adler32_combine_safety`、`Goal.crc32_combine_safety` | [adler32_combine](../spec/api/checksums.md#adler32_combine)、[crc32_combine](../spec/api/checksums.md#crc32_combine) |
 
-`Goal.gz_sequence_nonvacuity` 和 `Goal.inflate_back_initialisation_domain` 也已证明：
-它们表明这两个序列目标的前提可以满足。
-[进度页](../progress.md)记录每个目标的状态。
+`Goal.gz_sequence_nonvacuity`、`Goal.inflate_back_initialisation_domain` 和 `Goal.inflateBack_call_domain`
+表明这两个序列目标的前提可以满足，其中包括 `inflateBack` 的回调协议。

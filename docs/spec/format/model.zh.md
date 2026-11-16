@@ -1,4 +1,4 @@
-<!-- source-sha256: 6e206afc74dd6b6cbca9d9c24ecddb712043b4c9c052186f8fb8b868e5c687d7 -->
+<!-- source-sha256: 4ef2754e245b8b3022fcc876aef0a723003b1b69a7271414629104257549ab1c -->
 
 # Lean 中的格式模型
 
@@ -7,23 +7,22 @@
 格式模型描述压缩后的字节怎样决定未压缩的字节。它没有堆，也没有指针。
 它是一份有待细化的规格，不是流 API 的实现。
 规则见[格式指南](README.md)，调用、缓冲区和返回值见 [API 模型](../../design/api-model.md)。
-已验收的结果和剩余工作记录在[进度](../../progress.md)中。
+哪些目标已完成，见[进度](../../progress.md)。
 
-总模块是 [`ZlibF/Spec/Functional/Format.lean`](../../../ZlibF/Spec/Functional/Format.lean)。
-记号扩展需要另行导入。下面的定义都在命名空间 `ZlibF.Spec` 中，
+下面的定义都在命名空间 `ZlibF.Spec` 中，
 只有局部的记号关系在 `ZlibF.Spec.Token` 中。
 
-## 模块一览
+## 模型的各部分
 
-| 模块 | 内容 |
+| 内容 | Lean 源文件 |
 | --- | --- |
-| [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) | 数值读取函数、大端和小端的字节编码。字节到位的顺序（`byteBits`、`bytesToBits`）在 [`Common/Bits.lean`](../../../ZlibF/Spec/Common/Bits.lean) 中 |
-| [`Checksum.lean`](../../../ZlibF/Spec/Functional/Format/Checksum.lean) | 逐字节的 Adler-32 和 CRC-32、更新函数和追加定律 |
-| [`Huffman.lean`](../../../ZlibF/Spec/Functional/Format/Huffman.lean) | 规范码、被接受的长度集合、固定码、长度表和距离表 |
-| [`Deflate.lean`](../../../ZlibF/Spec/Functional/Format/Deflate.lean) | 符号关系和块关系、裸流的前缀关系和精确流关系 |
-| [`Wrapper.lean`](../../../ZlibF/Spec/Functional/Format/Wrapper.lean) | zlib 和 gzip 的头部、尾部和精确流关系 |
-| [`Token.lean`](../../../ZlibF/Spec/Functional/Format/Token.lean) | 单个记号的解码与拒绝，以及把它们与块语法联系起来的义务 |
-| [`Examples.lean`](../../../ZlibF/Spec/Functional/Format/Examples.lean) | 接受和拒绝的具体例子 |
+| 数值读取函数、大端和小端的字节编码。字节到位的顺序（`byteBits`、`bytesToBits`）在 [`Common/Bits.lean`](../../../ZlibF/Spec/Common/Bits.lean) 中 | [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) |
+| 逐字节的 Adler-32 和 CRC-32、更新函数和追加定律 | [`Checksum.lean`](../../../ZlibF/Spec/Functional/Format/Checksum.lean) |
+| 规范码、被接受的长度集合、固定码、长度表和距离表 | [`Huffman.lean`](../../../ZlibF/Spec/Functional/Format/Huffman.lean) |
+| 符号关系和块关系、裸流的前缀关系和精确流关系 | [`Deflate.lean`](../../../ZlibF/Spec/Functional/Format/Deflate.lean) |
+| zlib 和 gzip 的头部、尾部和精确流关系 | [`Wrapper.lean`](../../../ZlibF/Spec/Functional/Format/Wrapper.lean) |
+| 单个记号的解码与拒绝，以及把它们与块语法联系起来的义务 | [`Token.lean`](../../../ZlibF/Spec/Functional/Format/Token.lean) |
+| 接受和拒绝的具体例子 | [`Examples.lean`](../../../ZlibF/Spec/Functional/Format/Examples.lean) |
 
 ## 从字节到输出
 
@@ -158,8 +157,9 @@ extra 字段的长度小于 `2^16`，以及所取的名称和注释中不含零�
 | 解码表的分配和 `ENOUGH` 容量上界 | [表的证明指南](../../proof/inftrees.md) |
 | 翻译后的实现的内存安全、所有权和终止 | [安全性](../safety.md)和[证明方法](../../proof/method.md) |
 
-`Examples.lean` 给出对规格的具体正面检查和反面检查。
-它的证明使用内核求值，以及关系的构造子或反演。
+模型附有具体的正面例子和反面例子
+（[`Examples.lean`](../../../ZlibF/Spec/Functional/Format/Examples.lean)）。
+这些例子的证明使用内核求值，以及关系的构造子或反演。
 这些例子有助于审查定义；它们不能确立定义与 RFC 的每一种情况相符，也不能确立定义与翻译后的实现相符。
 差分测试同样只是忠实性的证据，不是证明。
-实现细化的验收状态见[进度](../../progress.md)。
+关于实现的哪些目标已完成，见[进度](../../progress.md)。

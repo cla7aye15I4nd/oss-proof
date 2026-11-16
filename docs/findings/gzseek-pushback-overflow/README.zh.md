@@ -1,4 +1,4 @@
-<!-- source-sha256: 244b6408dff657d5d0deacdcd45aaa1cc186523371d30d19cfcfdfdf6013440e -->
+<!-- source-sha256: edc3743cac96a25011d953d61b5342a6054c5e2398667140d87ebd0daf043ad5 -->
 # 开头的 `gzungetc` 之后调用 `gzseek`：`gzseek64` 中有符号溢出
 
 `gzopen` 之后立即调用 `gzungetc`，会使位置 `state->x.pos` 等于 -1。随后的 `gzseek` 在 `gzseek64` 中让有符号 64 位运算溢出，溢出发生在一处范围检查里，或者在它计算的位移里。zlib 的维护者只读本页，就能复现这些报告并作出判断。测试文件在 [`tests/regression/gzseek-pushback-overflow`](../../../tests/regression/gzseek-pushback-overflow/README.md)。
@@ -6,8 +6,8 @@
 ## 状态
 
 - 未定义行为：有符号整数溢出，出现在 `gzlib.c` 的三条语句上。在文档用法之内。
-- 在未修改的固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上由 UndefinedBehaviorSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
-- 修复已作为[拉取请求 #1361](https://github.com/madler/zlib/pull/1361) 提交上游。该拉取请求仍处于打开状态；2026-11-14 读取其状态时，维护者还没有答复。被验证的源码把其中 `gzlib.c` 的部分作为[补丁 0002](../../../patches/README.md) 应用。
+- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上由 UndefinedBehaviorSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。`gzlib.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。
+- 修复已作为[拉取请求 #1361](https://github.com/madler/zlib/pull/1361) 提交上游。2026-11-14 时，该拉取请求处于打开状态，维护者还没有答复。被验证的源码把其中 `gzlib.c` 的部分作为[补丁 0002](../../../patches/README.md) 应用。
 
 ## 调用序列
 
@@ -27,7 +27,7 @@ gzseek(f, LONG_MAX, SEEK_SET);      /* 范围检查通过（pos 先是 0，后�
                                        gzlib.c:403（透明），gzlib.c:424（gzip） */
 ```
 
-固定的 `gzlib.c` 中的语句：
+未打补丁的 `gzlib.c` 中的语句：
 
 ```c
     if (offset > GZ_OFF_MAX - pos)                                           /* 395 */
@@ -45,7 +45,7 @@ gzseek(f, LONG_MAX, SEEK_SET);      /* 范围检查通过（pos 先是 0，后�
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzseek-pushback-overflow/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把固定的源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。它在每个构建上运行 `seek.c` 四次（透明输入和 gzip 输入，`SEEK_CUR` 和 `SEEK_SET`）。未打补丁的构建每次运行都必须报告有符号溢出。打过补丁的构建不得有任何报告；这时 `SEEK_CUR` 返回 0，`SEEK_SET` 返回 -1。八项检查全部成立时脚本以状态 0 退出，最后一行是：
+脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把 zlib 源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。它在每个构建上运行 `seek.c` 四次（透明输入和 gzip 输入，`SEEK_CUR` 和 `SEEK_SET`）。未打补丁的构建每次运行都必须报告有符号溢出。打过补丁的构建不得有任何报告；这时 `SEEK_CUR` 返回 0，`SEEK_SET` 返回 -1。八项检查全部成立时脚本以状态 0 退出，最后一行是：
 
 ```
 ok: patched: seek set LONG_MAX = -1, no report
@@ -61,7 +61,7 @@ gzlib.c:403:36: runtime error: signed integer overflow: 9223372036854775807 - -1
 gzlib.c:424:12: runtime error: signed integer overflow: 9223372036854775807 - -1 cannot be represented in type 'long int'
 ```
 
-为撰写本页在 arm64 macOS 上运行了一次，在相同的行得到同样的三份报告；那里类型打印为 `off_t`，第三份报告在第 18 列。
+在 arm64 macOS 上运行了一次，在相同的行得到同样的三份报告；那里类型打印为 `off_t`，第三份报告在第 18 列。
 
 ## 范围与严重程度
 
@@ -80,8 +80,8 @@ gzlib.c:424:12: runtime error: signed integer overflow: 9223372036854775807 - -1
 - 上界检查只在 `pos > 0` 时求值，所以 `GZ_OFF_MAX - pos` 不会溢出；
 - 在 `pos += offset` 之后，如果位移 `pos - state->x.pos` 放不下，就拒绝从负位置出发的定位：`state->x.pos < 0 && pos > GZ_OFF_MAX + state->x.pos` 时返回 -1。
 
-[补丁 0002](../../../patches/README.md) 就是这一改动。该拉取请求中 `test/example.c` 的部分不属于被验证的源码。上游包含该修复、固定的提交越过它之后，补丁就会删除。
+[补丁 0002](../../../patches/README.md) 就是这一改动。该拉取请求中 `test/example.c` 的部分不属于被验证的源码。
 
 ## 与证明的关系
 
-[gz 证明说明](../../proof/gzip.md)把这份报告称为 R-1。`gzseek64` 和 `gzseek` 的安全证明针对的是打过补丁的源码。
+[`gzseek64` 和 `gzseek` 的安全证明](../../proof/gzip.md)针对的是打过补丁的源码。

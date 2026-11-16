@@ -1,4 +1,4 @@
-<!-- source-sha256: 92e9a40d20dd71573951ba46abcc39419e8c1b47425d73858b5f9debc74f32a5 -->
+<!-- source-sha256: 7790ef91d99543895c257905c62c41f7fd02c1d91a302ed131e7b66396c802e2 -->
 
 # 3. 流式处理
 
@@ -90,7 +90,7 @@ flowchart LR
 
 累计 `(total_in, total_out)` 依次为 `(9, 2)`、`(12, 5)`、`(19, 8)`。
 第三次调用消费三个载荷字节和四个尾部字节。输出拼接后为 `ABABABAB`，`EE` 仍未读取。
-对固定的 C 的一次有限运行确认了这些数值。
+对真实 C 的一次有限运行确认了这些数值。
 这是[示例证据，不是一般证明](../overview.md#evidence)。
 
 ### 3.2.1 保留剩余输入
@@ -206,16 +206,16 @@ stateDiagram-v2
 压缩先使用 `Z_NO_FLUSH`，再持续使用 `Z_FINISH` 直到 `Z_STREAM_END`，
 第一次结束请求之后不再添加新输入。见[刷新操作](state-operations.md)。
 
-**安全：** [序列命题](../spec/safety.md#2-calls-and-sequences)把实际的初始化、各次调用、调用之间更换缓冲区和 End 组合起来。
-它包括初始化失败时的清理，以及数据错误或窗口分配失败之后 End 的安全性。
-这张图只是说明这条命题，并不证明它。
+**安全：** [序列命题](../spec/safety.md#2-calls-and-sequences)把实际成功的初始化、各次调用、调用之间更换缓冲区和 End 组合起来。
+它包括数据错误或窗口分配失败之后 End 的安全性。
+失败的初始化不开始任何序列：它的清理属于初始化函数的安全目标。
+这张图只是说明这些命题，并不证明它们。
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
-`tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
+下表给出本章用到的每个函数的安全目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)记录每项结论的层级。
+[进度页](../progress.md)说明哪些目标已完成。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |

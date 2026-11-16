@@ -1,11 +1,11 @@
-<!-- source-sha256: 1c9cac8018b4e04643682c85cf689cfb4db53119253de1b4e187143699368f95 -->
+<!-- source-sha256: bf8aa13f5f2b624c314aa7d34008de0345c0b5d8aa232ed8a68f400a0587217c -->
 # 直接读取之后 x.next 留在调用者的缓冲区中
 
 一次大的 `gzread` 直接解压到调用者的缓冲区之后，gz 状态里留着一个指向该缓冲区的指针。如果调用者释放了缓冲区，之后的 `gzseek` 或 `gzdirect` 会给这个悬空指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
 
-状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。被验证的源码中由本地补丁 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁经项目所有者于 2026-11-12 批准，没有提交上游。同一补丁也修复 [gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md)。[gz 证明说明](../../proof/gzip.md)把这份报告称为 R-4。
+状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。被验证的源码中由本地补丁 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁没有提交上游。同一补丁也修复 [gz-reset-next-uninitialised](../gz-reset-next-uninitialised/README.md)。
 
-固定的源码：`757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。
+源码：上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。`gzlib.c` 和 `gzread.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。[gzip 证明页](../../proof/gzip.md)针对的是打上全部补丁的源码。
 
 ## 问题
 
@@ -29,7 +29,7 @@ gzseek(f, 1, SEEK_CUR);                  /* 对悬空指针执行 x.next += 0 */
 
 ## 证据
 
-强度：仅按 C 标准的字面规定。没有 sanitizer 报告它：没有访问，`p + 0` 也不溢出。Lean 模型会报告它：在模型中，对指向已释放块的指针做运算是故障。打补丁后，`gzseek64_dangling_next_ok`（`ZlibF/Proof/gzlib.c.seek.lean`）证明在没有缓冲数据时向前定位不会出故障，无论 `x.next` 持有什么。
+强度：仅按 C 标准的字面规定。没有 sanitizer 报告它：没有访问，`p + 0` 也不溢出。Lean 模型会报告它：在模型中，对指向已释放块的指针做运算是故障。打补丁后，定理 `gzseek64_dangling_next_ok` 证明在没有缓冲数据时向前定位不会出故障，无论 `x.next` 持有什么。
 
 因为没有 sanitizer 能看到它，复现让 `gzlib.c` 和 `gzread.c` 中每个 `x.next += n` 都经过一个探针（[../gz-reset-next-uninitialised/probe.h](../gz-reset-next-uninitialised/probe.h)；计算出的值不变），并打印每次 `n == 0` 的计算。在仓库根目录、`zlib/` 子模块已检出的情况下运行：
 
@@ -37,14 +37,14 @@ gzseek(f, 1, SEEK_CUR);                  /* 对悬空指针执行 x.next += 0 */
 ZLIB_SRC=$PWD/zlib bash docs/findings/gz-next-dangling-after-direct-read/run.sh
 ```
 
-脚本在 AddressSanitizer 和 UndefinedBehaviorSanitizer 下把固定的源码构建两次：一次用除 0005 以外的 `patches/*.patch`，一次用全部补丁。成功时最后一行是 `ok: after the fix: x.next is never evaluated with n == 0`。修复前探针打印两行。保留下来的 [report.txt](report.txt)（x86_64 Linux，GCC 15.2）中是下面这样：
+脚本在 AddressSanitizer 和 UndefinedBehaviorSanitizer 下把 zlib 源码构建两次：一次用除 0005 以外的 `patches/*.patch`，一次用全部补丁。成功时最后一行是 `ok: after the fix: x.next is never evaluated with n == 0`。修复前探针打印两行。保留下来的 [report.txt](report.txt)（x86_64 Linux，GCC 15.2）中是下面这样：
 
 ```
 x.next + 0 at gzread.c:313, x.next = inside the freed caller buffer
 x.next + 0 at gzlib.c:435, x.next = inside the freed caller buffer
 ```
 
-保留下来的输出是用补丁 0004 的第一版得到的。本仓库的补丁 0004 是它的第二版，在 `gzread.c` 的 `gz_look` 中多了两行，所以在 `run.sh` 构建的源码中，`gz_skip_have` 的同一条语句是第 315 行。在 arm64 macOS 上用 Apple clang 运行了一次，打印的是 `gzread.c:315` 和 `gzlib.c:435`，其余相同。
+保留下来的输出来自一份 `gz_look` 少两行的 `gzread.c`。在 `run.sh` 构建的源码中，`gz_skip_have` 的同一条语句是第 315 行。在 arm64 macOS 上用 Apple clang 运行了一次，打印的是 `gzread.c:315` 和 `gzlib.c:435`，其余相同。
 
 文件：`dangling.c`、`run.sh`、`report.txt`。修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。
 

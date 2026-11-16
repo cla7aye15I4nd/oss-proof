@@ -1,35 +1,40 @@
 # Sanitizer reports
 
-This page lists every retained reproduction in which a sanitizer reports undefined behaviour or a
-memory error in the real C. There are eleven directories. Five show caller mistakes that the
-safety theorems exclude by a named premise, one shows a call sequence that needs an undocumented
-function, and five show defects of zlib itself, which the verified source patches. Each directory
-has a runner, the C driver and the raw sanitizer output in `report.txt`.
+This page lists every reproduction in which a sanitizer reports undefined behaviour or a memory
+error in the real C. There are eleven. Five show caller mistakes that the safety theorems exclude
+by a named premise, one shows a call sequence that needs an undocumented function, and five show
+defects of zlib itself, which the verified source patches. Each reproduction has a page with the
+C driver, the command that runs it and the raw sanitizer output.
 
 ## How to read a section
 
-Each section gives the call sequence as C, the sanitizer's verdict lines copied from `report.txt`,
-and one of two things:
+Each section gives the call sequence as C, the sanitizer's verdict lines copied from the raw
+output, and one of two things:
 
 - for a caller mistake, the **excluding premise**: the assumption of a safety goal that the
   layout violates, as a link to its row in [deviations](deviations.md);
 - for a zlib defect, a link to its page in [findings](findings.md) and the patch that fixes it.
 
-The safety goals named here are those of `ZlibF/Spec/Safety/`: one goal per function, such as
+The safety goals named here are of two kinds: one goal per function, such as
 `Goal.inflate_safety` and `Goal.deflate_safety`, and one goal per call sequence, such as
 `Goal.inflate_sequence_safety`, `Goal.deflate_sequence_safety` and `Goal.gz_sequence_safety`. A
-premise of a function's goal is also a premise of the same call inside the sequence goal. All of
-these goals are proved; the level of each is in [progress](progress.md#scope).
+premise of a function's goal is also a premise of the same call inside the sequence goal. The
+state of each goal is in [progress](progress.md).
 
-Platform and source of the reports:
+Platform and source of the reports. Every report on this page was recorded on upstream commit
+`757f0527`, the direct parent of zlib 1.4 (commit `99623ef7`), which is the verified source.
+Between the two commits the C sources of the library differ only in the version and copyright
+strings and in the last two entries of the table `lext` of `inftrees.c`; no line is added or
+removed, so the line numbers are those of zlib 1.4 too. No run on zlib 1.4 itself is recorded
+here. "Unpatched" below means that commit with no patch of this project.
 
 | Reports | Host | Source built |
 | --- | --- | --- |
-| The four caller-mistake directories other than `gzprintf-error-string` | x86_64 Linux; the same verdicts on arm64 macOS, with one difference noted under `prime.c` | The pinned source with patch 0001. Their line numbers are those of the pinned source: patch 0001 changes only `inflate.c` near line 1383. |
-| `gzprintf-error-string` | arm64 macOS (Apple clang) only | The pinned source with patches 0001 to 0005. Its line numbers are those of that patched source and differ from the pinned source. |
-| `deflate-copy-pending-prev` | x86_64 Linux (GCC 14); the same AddressSanitizer report on arm64 macOS | The pinned source; no patch touches the deflate files. |
-| `inflate-copy-fixed`, `gzseek-pushback-overflow`, `gzread-transparent-stale-next` | x86_64 Linux (GCC 15.2); the same verdicts on arm64 macOS (Apple clang 21) | The pinned source without any patch. Line numbers are those of the pinned source. |
-| `gzread-pos-overflow`, `gzwrite-pos-overflow` | x86_64 Linux (kernel 7.0, GCC 15.2). The write report also reproduces on arm64 macOS; the read report did not reproduce in a run there ([its page](findings/gzread-pos-overflow/README.md) says what was observed). | The pinned source with the patches except 0004, as each `run.sh` builds it. The retained run of `gzwrite-pos-overflow` with the real `/dev/null` used patches 0001 to 0003. The `gzread.c` lines are one above those of the pinned source; the `gzwrite.c` lines are those of the pinned source. |
+| The four caller-mistake reproductions other than `gzprintf-error-string` | x86_64 Linux; the same verdicts on arm64 macOS, with one difference noted under `prime.c` | The commit with patch 0001. Their line numbers are those of the unpatched source: patch 0001 changes only `inflate.c` near line 1383. In the verified source, patch 0006 moves the `deflate.c` lines cited below two lines down. |
+| `gzprintf-error-string` | arm64 macOS (Apple clang) only | The commit with patches 0001 to 0005. Its line numbers are those of that patched source and differ from the unpatched source. |
+| `deflate-copy-pending-prev` | x86_64 Linux (GCC 14); the same AddressSanitizer report on arm64 macOS | The commit, built without patch 0006: the cited lines are those of the unpatched `deflate.c`. Of the six patches only 0006 touches a deflate file: it adds two lines to `deflateBound_z`, which this sequence does not call, so in the verified source the cited `deflate.c` lines are two lines lower. |
+| `inflate-copy-fixed`, `gzseek-pushback-overflow`, `gzread-transparent-stale-next` | x86_64 Linux (GCC 15.2); the same verdicts on arm64 macOS (Apple clang 21) | The unpatched source, with its line numbers. |
+| `gzread-pos-overflow`, `gzwrite-pos-overflow` | x86_64 Linux (kernel 7.0, GCC 15.2). The write report also reproduces on arm64 macOS; the read report did not reproduce in a run there ([its page](findings/gzread-pos-overflow/README.md) says what was observed). | The commit with the patches except 0004. The run of `gzwrite-pos-overflow` with the real `/dev/null` used patches 0001 to 0003. The `gzread.c` lines are one above those of the unpatched source; the `gzwrite.c` lines are those of the unpatched source. |
 
 A sanitizer report is evidence about one run of the real C. It is not a proof.
 
@@ -46,8 +51,8 @@ recorded as a documentation gap.
 
 ### `inflate-gzip-extra`: the gzip extra buffer during `inflate`
 
-[Directory](../tests/regression/inflate-gzip-extra/README.md),
-[report](../tests/regression/inflate-gzip-extra/report.txt). zlib.h is silent about both layouts.
+[Reproduction](../tests/regression/inflate-gzip-extra/README.md),
+[raw output](../tests/regression/inflate-gzip-extra/report.txt). zlib.h is silent about both layouts.
 
 `overlap.c`: the extra buffer overlaps the input that holds the extra field.
 
@@ -89,8 +94,8 @@ a premise of `Goal.inflate_safety` and of every `inflate` call of `Goal.inflate_
 
 ### `deflate-gzip-name-output`: the gzip name inside a buffer `deflate` writes
 
-[Directory](../tests/regression/deflate-gzip-name-output/README.md),
-[report](../tests/regression/deflate-gzip-name-output/report.txt). zlib.h is silent about both
+[Reproduction](../tests/regression/deflate-gzip-name-output/README.md),
+[raw output](../tests/regression/deflate-gzip-name-output/report.txt). zlib.h is silent about both
 layouts.
 
 `output.c`: the name is the caller's output buffer.
@@ -127,8 +132,8 @@ lie outside the storage the stream owns. It is a premise of `Goal.deflate_safety
 
 ### `deflate-history-domain`: late calls and edits of the header record
 
-[Directory](../tests/regression/deflate-history-domain/README.md),
-[report](../tests/regression/deflate-history-domain/report.txt). Four cases.
+[Reproduction](../tests/regression/deflate-history-domain/README.md),
+[raw output](../tests/regression/deflate-history-domain/report.txt). Four cases.
 
 `prime.c`: `deflatePrime` after `deflate` has started. zlib.h excludes it: `deflatePrime` "must
 be used before the first deflate() call" (`zlib.h:825`).
@@ -216,11 +221,9 @@ of `Goal.deflate_safety` and of every `deflate` call of `Goal.deflate_sequence_s
 
 ### `compress-allocation`: a `NULL` length cell
 
-[Directory](../tests/regression/compress-allocation/README.md), `ubwitness.c`,
-[report](../tests/regression/compress-allocation/report.txt). zlib.h describes `destLen` as the
-size of the destination buffer on entry; it does not mention `NULL`. `report.txt` holds only this
-witness step of `run.sh`; the rest of that runner is a comparison with the Lean translation and
-has no sanitizer report.
+[Reproduction](../tests/regression/compress-allocation/README.md), `ubwitness.c`,
+[raw output](../tests/regression/compress-allocation/report.txt). zlib.h describes `destLen` as the
+size of the destination buffer on entry; it does not mention `NULL`.
 
 ```c
 compress2(dst, NULL, src, 1, 6);    /* compress.c:70: z_size_t got = *destLen; */
@@ -238,8 +241,8 @@ Excluding premise: [deviations, row "Whole-buffer compression"](deviations.md#wh
 
 ### `gzprintf-error-string`: the handle's own error string as a `%s` argument
 
-[Directory](../tests/regression/gzprintf-error-string/README.md), `errstr.c`,
-[report](../tests/regression/gzprintf-error-string/report.txt). A documentation gap, not a zlib
+[Reproduction](../tests/regression/gzprintf-error-string/README.md), `errstr.c`,
+[raw output](../tests/regression/gzprintf-error-string/report.txt). A documentation gap, not a zlib
 bug: zlib.h says that later `gzerror` calls may invalidate the string and that closing the file
 makes it unavailable (`zlib.h:1793`); it does not mention `gzprintf`.
 
@@ -260,7 +263,7 @@ freed by thread T0 here:
     #2 0x0001025a9b1c in gzvprintf gzwrite.c:448
 ```
 
-In the pinned source without patches the three statements are at `gzwrite.c:485` (the
+In the unpatched source the three statements are at `gzwrite.c:485` (the
 `vsnprintf` call), `gzlib.c:563` (the `free`) and `gzwrite.c:442` (the `gz_error` call).
 
 Excluding premise: [deviations, row "Gz printf strings"](deviations.md#gzip-file-interface)
@@ -272,12 +275,12 @@ blocks the handle owns. It is a premise of every `gzprintf` and `gzvprintf` call
 
 ### `deflate-copy-pending-prev`: `deflateCopy` after `deflateResetKeep`
 
-[Directory](../tests/regression/deflate-copy-pending-prev/README.md), `copy.c`,
-[report](../tests/regression/deflate-copy-pending-prev/report.txt). This is not a caller layout:
+[Reproduction](../tests/regression/deflate-copy-pending-prev/README.md), `copy.c`,
+[raw output](../tests/regression/deflate-copy-pending-prev/report.txt). This is not a caller layout:
 every buffer is valid and separate, and every call is to an exported function. The sequence uses
 `deflateResetKeep`, which zlib.h declares under "undocumented functions (not part of the zlib
-API)". The full account is the [finding](findings/deflate-copy-pending-prev/README.md); a
-[report draft](findings/deflate-copy-pending-prev-report.md) exists and has not been sent.
+API)". The full account is the [finding](findings/deflate-copy-pending-prev/README.md). It is
+not reported upstream; a [report draft](findings/deflate-copy-pending-prev-report.md) exists.
 
 ```c
 deflateInit2(&a, 6, Z_DEFLATED, 9, 8, Z_DEFAULT_STRATEGY);
@@ -309,20 +312,20 @@ histories of `Goal.deflate_sequence_safety`.
 
 These five are defects of zlib inside the documented use. Each has a page under
 [findings](findings.md) with the call sequence, the run command, the verdict, the severity and the
-fix. The runners build the source without the fix on purpose; the gz runners also build it with
-the fix and check that the report is gone.
+fix. Each reproduction builds the source without the fix; the gz reproductions also build it with
+the fix, and the report is gone.
 
-| Directory | Verdict | Finding | Fix in the verified source |
+| Reproduction | Verdict | Finding | Fix in the verified source |
 | --- | --- | --- | --- |
-| [inflate-copy-fixed](findings/inflate-copy-fixed/README.md) ([report](findings/inflate-copy-fixed/report.txt)) | AddressSanitizer `invalid-pointer-pair`, `inflate.c:1383`, between the static `lenfix` and the inflate state | [`inflateCopy` compares unrelated pointers](findings/inflate-copy-fixed/README.md) | Patch 0001, upstream PR #1369 |
-| [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md) ([report](../tests/regression/gzseek-pushback-overflow/report.txt)) | UndefinedBehaviorSanitizer: signed integer overflow, `gzlib.c:395`, `403`, `424` | [`gzseek` after an initial `gzungetc`](findings/gzseek-pushback-overflow/README.md) | Patch 0002, upstream PR #1361 |
-| [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md) ([report](../tests/regression/gzread-transparent-stale-next/report.txt)) | AddressSanitizer `heap-buffer-overflow` READ of size 1, `gzread.c:369`, 0 bytes after the 32-byte output buffer | [`gzread` copies from a stale `x.next`](findings/gzread-transparent-stale-next/README.md) | Patch 0003, upstream PR #1363 |
-| [gzread-pos-overflow](../tests/regression/gzread-pos-overflow/README.md) ([report](../tests/regression/gzread-pos-overflow/report.txt)) | UndefinedBehaviorSanitizer: signed integer overflow in `gz_read` (`x.pos += n`), in the `gzgetc()` macro and in the `gzgetc` function | [gz position overflow, reading](findings/gzread-pos-overflow/README.md) | Patch 0004, local |
-| [gzwrite-pos-overflow](../tests/regression/gzwrite-pos-overflow/README.md) ([report](../tests/regression/gzwrite-pos-overflow/report.txt)) | UndefinedBehaviorSanitizer: signed integer overflow, `gzwrite.c:230` (`gz_write`) and `gzwrite.c:352` (`gzputc`) | [gz position overflow, writing](findings/gzwrite-pos-overflow/README.md) | Patch 0004, local |
+| [inflate-copy-fixed](findings/inflate-copy-fixed/README.md) ([raw output](findings/inflate-copy-fixed/report.txt)) | AddressSanitizer `invalid-pointer-pair`, `inflate.c:1383`, between the static `lenfix` and the inflate state | [`inflateCopy` compares unrelated pointers](findings/inflate-copy-fixed/README.md) | Patch 0001, upstream PR #1369 |
+| [gzseek-pushback-overflow](../tests/regression/gzseek-pushback-overflow/README.md) ([raw output](../tests/regression/gzseek-pushback-overflow/report.txt)) | UndefinedBehaviorSanitizer: signed integer overflow, `gzlib.c:395`, `403`, `424` | [`gzseek` after an initial `gzungetc`](findings/gzseek-pushback-overflow/README.md) | Patch 0002, upstream PR #1361 |
+| [gzread-transparent-stale-next](../tests/regression/gzread-transparent-stale-next/README.md) ([raw output](../tests/regression/gzread-transparent-stale-next/report.txt)) | AddressSanitizer `heap-buffer-overflow` READ of size 1, `gzread.c:369`, 0 bytes after the 32-byte output buffer | [`gzread` copies from a stale `x.next`](findings/gzread-transparent-stale-next/README.md) | Patch 0003, upstream PR #1363 |
+| [gzread-pos-overflow](../tests/regression/gzread-pos-overflow/README.md) ([raw output](../tests/regression/gzread-pos-overflow/report.txt)) | UndefinedBehaviorSanitizer: signed integer overflow in `gz_read` (`x.pos += n`), in the `gzgetc()` macro and in the `gzgetc` function | [gz position overflow, reading](findings/gzread-pos-overflow/README.md) | Patch 0004, local |
+| [gzwrite-pos-overflow](../tests/regression/gzwrite-pos-overflow/README.md) ([raw output](../tests/regression/gzwrite-pos-overflow/report.txt)) | UndefinedBehaviorSanitizer: signed integer overflow, `gzwrite.c:230` (`gz_write`) and `gzwrite.c:352` (`gzputc`) | [gz position overflow, writing](findings/gzwrite-pos-overflow/README.md) | Patch 0004, local |
 
 Upstream state of each fix is in [patches](../patches/README.md).
 
-## Clean runs, kept as evidence that a layout is defined
+## Clean runs, as evidence that a layout is defined
 
 These runs use the same sanitizers and report nothing. They show that a layout is defined C, so
 the proofs cover it.
@@ -347,14 +350,9 @@ the proofs cover it.
   ([unset](findings/gz-reset-next-uninitialised/README.md),
   [dangling](findings/gz-next-dangling-after-direct-read/README.md)): undefined by the letter of C,
   shown with a probe; no sanitizer reports it.
-- The position overflow after a transparent look, a gap of the first version of patch 0004
-  ([finding](findings/gz-position-copy-overflow.md)): confirmed in the model and by reading the C,
-  not reproduced under a sanitizer.
+- The position overflow through `gz_look`, which patch 0004 also bounds
+  ([finding](findings/gz-position-copy-overflow.md)): a reading of the C. No run of the real C
+  shows it, under a sanitizer or otherwise; theorems about a constructed state show only that the
+  patched source stays within the bound there.
 - [inflate-configured-window](../tests/regression/inflate-configured-window/README.md): a native run
   of the C on one input, with no sanitizer and no report.
-
-## Adding a reproduction
-
-A new sanitizer reproduction goes under `tests/regression/<name>/` with `run.sh`, `report.txt`
-and a section on this page. `report.txt` holds the raw output, with process ids replaced and paths
-made relative to the repository or the zlib root.

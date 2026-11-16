@@ -1,4 +1,4 @@
-<!-- source-sha256: 18c38813b03cec90c51bf0fb32e193afede29a48b7365709345f34d385857823 -->
+<!-- source-sha256: e2af8d48b03b35d593521a79038c9258b45b893841cebd3f41e233386bf4e860 -->
 # Adler-32：有界的和与模细化
 
 Adler-32 函数在下面给出的定义域上是安全的：它们会返回，只读调用者的缓冲区，并且让堆保持不变。它们还返回 Adler-32 的值；那一部分是功能性的，不是安全结论所必需的。本页解释 `adler32_z` 的论证，其他入口都归结到它。
@@ -7,14 +7,12 @@ Adler-32 函数在下面给出的定义域上是安全的：它们会返回，�
 
 ## 证明了什么
 
-| 结论 | 类别 | 定理 | 模块 |
-| --- | --- | --- | --- |
-| `Goal.adler32_safety`、`Goal.adler32_z_safety`、`Goal.adler32_combine_safety`、`Goal.adler32_combine64_safety`（`ZlibF/Spec/Safety/Checksums.lean`） | 安全，必需 | `adler32_safety`、`adler32_z_safety`、`adler32_combine_safety`、`adler32_combine64_safety` | `ZlibF/Proof/public-stateless-safety.lean` |
-| `Goal.adler32`、`Goal.adler32_z` | 功能 | `adler_public`、`adler_z_public` | `ZlibF/Proof/public-adler-update.lean` |
-| `Goal.adler32_combine`、`Goal.adler32_combine64` | 功能 | `combine_public`、`combine64_public` | `ZlibF/Proof/public-adler-combine.lean` |
-| 它们背后的局部执行结论 | 两者 | `adler32_z_safe`、`adler32_z_correct`、`adler32_z_correct_ne_one`、`adler32_combine_safe`、`adler32_combine_correct` | `ZlibF/Proof/adler32.c.lean` |
-
-以上全部列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。
+| 结论 | 类别 | 定理 |
+| --- | --- | --- |
+| `Goal.adler32_safety`、`Goal.adler32_z_safety`、`Goal.adler32_combine_safety`、`Goal.adler32_combine64_safety` | 安全，必需 | `adler32_safety`、`adler32_z_safety`、`adler32_combine_safety`、`adler32_combine64_safety` |
+| `Goal.adler32`、`Goal.adler32_z` | 功能 | `adler_public`、`adler_z_public` |
+| `Goal.adler32_combine`、`Goal.adler32_combine64` | 功能 | `combine_public`、`combine64_public` |
+| 它们所依赖的、关于翻译后函数的定理 | 两者 | `adler32_z_safe`、`adler32_z_correct`、`adler32_z_correct_ne_one`、`adler32_combine_safe`、`adler32_combine_correct` |
 
 安全目标说的是：调用在没有故障的情况下返回，并且让堆与原来完全一样。每个安全定理都是同一个函数的完整契约去掉值之后的部分。所以在下面关于值的论证中，只有“无故障”的部分是必需的。
 

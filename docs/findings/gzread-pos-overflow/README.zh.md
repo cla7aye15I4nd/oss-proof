@@ -1,4 +1,4 @@
-<!-- source-sha256: 9d3d8423d8fbc9d4dd4f474130f0b96796d1b396aa607dd6495130b841ed8a1b -->
+<!-- source-sha256: 733142373aa3f27631761774dd50afe18294c02607a28549df0403f7e0cca99a -->
 # `gzread`：在设备上定位之后位置发生有符号溢出
 
 gz 读取函数把交付的字节数加到有符号的位置 `state->x.pos` 上，没有上界。在 Linux 上，对 `/dev/zero` 这样的字符设备做透明模式的 `gzseek`，可以把位置设为 `INT64_MAX`，下一次读取就让它溢出。zlib 的维护者只读本页，就能复现这份报告并作出判断。写入一侧的对应问题是 [gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)。测试文件在 [`tests/regression/gzread-pos-overflow`](../../../tests/regression/gzread-pos-overflow/README.md)。
@@ -6,8 +6,8 @@ gz 读取函数把交付的字节数加到有符号的位置 `state->x.pos` 上�
 ## 状态
 
 - 未定义行为：`x.pos` 的有符号整数溢出，出现在 `gz_read`、`gzgetc` 函数，以及在调用者代码中展开的 zlib.h 的 `gzgetc()` 宏里。在文档用法之内。
-- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上报告；源码是固定的 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁。在 arm64 macOS 上用 Apple clang 运行了一次，没有复现：那里对 `/dev/zero` 的 `lseek` 接受这个偏移并把它返回，读取没有交付位置 `INT64_MAX` 之后的任何字节，sanitizer 也没有任何报告。没有试过别的系统。
-- 没有提交上游。被验证的源码应用本地[补丁 0004](../../../patches/README.md)，项目所有者于 2026-11-12 批准。拉取请求的文字草稿在 [upstream-description.md](upstream-description.md)。
+- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上报告；源码是上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁。在 arm64 macOS 上用 Apple clang 运行了一次，没有复现：那里对 `/dev/zero` 的 `lseek` 接受这个偏移并把它返回，读取没有交付位置 `INT64_MAX` 之后的任何字节，sanitizer 也没有任何报告。没有试过别的系统。`gzread.c` 和 `gzlib.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同，`zlib.h` 的 `gzgetc()` 宏也没有变；这里没有记录在该版本上的运行。
+- 没有提交上游。被验证的源码应用本地[补丁 0004](../../../patches/README.md)。拉取请求的文字草稿在 [upstream-description.md](upstream-description.md)。
 
 ## 调用序列
 
@@ -40,7 +40,7 @@ gzgetc(f);                               /* 宏中的 (g)->pos++ 溢出 */
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzread-pos-overflow/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把固定的源码构建两次：一次用除 0004 以外的 `patches/*.patch`，一次用全部补丁。它在每个构建上以三种模式运行 `devzero.c`。没有 0004 时，每次运行都必须报告位置的有符号溢出。有 0004 时不得有任何报告，并且读取必须以 `Z_DATA_ERROR`“position overflow”结束。六项检查全部成立时脚本以状态 0 退出；每项通过的检查打印一行以 `ok:` 开头的文字。在其他系统上，脚本打印 `skip: needs Linux (/dev/zero with a succeeding lseek)`，什么也不检查。
+脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把 zlib 源码构建两次：一次用除 0004 以外的 `patches/*.patch`，一次用全部补丁。它在每个构建上以三种模式运行 `devzero.c`。没有 0004 时，每次运行都必须报告位置的有符号溢出。有 0004 时不得有任何报告，并且读取必须以 `Z_DATA_ERROR`“position overflow”结束。六项检查全部成立时脚本以状态 0 退出；每项通过的检查打印一行以 `ok:` 开头的文字。在其他系统上，脚本打印 `skip: needs Linux (/dev/zero with a succeeding lseek)`，什么也不检查。
 
 ## Sanitizer 判定
 
@@ -52,9 +52,7 @@ devzero.c:73:17: runtime error: signed integer overflow: 9223372036854775807 + 1
 gzread.c:539:21: runtime error: signed integer overflow: 9223372036854775807 + 1 cannot be represented in type 'long int'
 ```
 
-第一行是 `gz_read` 中的 `state->x.pos += n`，在未打补丁的固定的文件中是第 413 行。第二行是在 `devzero.c` 中展开的 `gzgetc()` 宏。第三行是 `gzgetc` 函数。撰写本页时没有重新运行这份报告：它需要 Linux。
-
-本项目的故障注入测试框架在模拟设备式 `lseek` 时，2 000 个历史中有一个得到同样的报告。那次运行没有保留在这里。
+第一行是 `gz_read` 中的 `state->x.pos += n`，在未打补丁的文件中是第 413 行。第二行是在 `devzero.c` 中展开的 `gzgetc()` 宏。第三行是 `gzgetc` 函数。这份报告需要 Linux。
 
 ## 范围与严重程度
 
@@ -74,15 +72,15 @@ gzread.c:539:21: runtime error: signed integer overflow: 9223372036854775807 + 1
 补丁保持的不变量是：每次调用返回时 `x.pos + x.have <= GZ_OFF_MAX`。`x.have` 的每个产生者都保持它：
 
 - `gz_fetch` 最多加载 `GZ_OFF_MAX - x.pos` 个字节；
-- `gz_look` 在透明模式下最多缓冲 `gz_room(state, avail_in)` 个字节，输入超出时记录同样的错误。补丁的第一版没有这个界限：见 [gz-position-copy-overflow](../gz-position-copy-overflow.md)；
+- `gz_look` 在透明模式下最多缓冲 `gz_room(state, avail_in)` 个字节，输入超出时记录同样的错误。为什么需要这个界限：见 [gz-position-copy-overflow](../gz-position-copy-overflow.md)；
 - `gz_read` 的直接路径最多交付这么多字节；
 - `gzungetc` 加入一个字节时把 `x.pos` 减一；
 - 透明模式下的定位清空缓冲区。
 
 `gz_fetch` 在 `GZ_OFF_MAX` 处为发现输入结束而加载的那一个字节，由它在那里仅有的调用者 `gz_read` 和 `gzgets` 在返回前丢弃（`gz_skip` 从不在 `GZ_OFF_MAX` 处取数据，因为 `x.pos + skip` 至多为 `GZ_OFF_MAX`）。因此逐字节取缓冲数据的快速路径（`gzgetc` 函数、`gzgetc()` 宏）以及 `gz_skip_have` 都无需检查。复现的 `fast` 运行在 `INT64_MAX - 2` 处检验了这些路径。
 
-补丁的检查：[upstream-description.md](upstream-description.md) 的“测试”一节。
+补丁的检查：[upstream-description.md](upstream-description.md) 的“测试”一节。两个 `run.sh` 脚本（本发现和写入一侧）的历史有保留下来的输出，那里列出的其他运行没有。
 
 ## 与证明的关系
 
-[gz 证明说明](../../proof/gzip.md)把这份报告称为 F-1。证明针对的是打过补丁的源码。
+[gzip 证明](../../proof/gzip.md)针对的是打过补丁的源码。

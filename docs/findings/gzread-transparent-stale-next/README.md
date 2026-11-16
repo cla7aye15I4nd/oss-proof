@@ -11,11 +11,13 @@ reading anything else. The test files are in
 
 - A memory error: heap read outside the output buffer. Inside the documented use; it needs an I/O
   error after partial data.
-- Reported by AddressSanitizer on the unmodified pinned source
-  (`757f0527154291bcf6bfbd6396ecde6bedd2db95`, upstream `develop`), on x86_64 Linux (GCC 15.2) and
-  on arm64 macOS (Apple clang 21).
+- Reported by AddressSanitizer on unmodified upstream `develop` at commit
+  `757f0527154291bcf6bfbd6396ecde6bedd2db95`, on x86_64 Linux (GCC 15.2) and
+  on arm64 macOS (Apple clang 21). `gzread.c` is byte-identical in
+  zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies;
+  no run on that revision is recorded here.
 - Fix submitted upstream as [PR #1363](https://github.com/madler/zlib/pull/1363). The pull request
-  is open, and the maintainer had not answered when its state was read on 2026-11-14. The verified
+  was open, with no answer from the maintainer, on 2026-11-14. The verified
   source applies it as [patch 0003](../../../patches/README.md).
 
 ## Call sequence
@@ -29,7 +31,7 @@ for (int i = 0; i < 48; i++)
 gzread(f, buf, 1);                       /* gzread.c:369: memcpy(buf, state->x.next, n) */
 ```
 
-What happens in the last call, in the pinned `gzread.c`:
+What happens in the last call, in the unpatched `gzread.c`:
 
 1. `gz_read` finds no buffered output and calls `gz_fetch`.
 2. In `gz_fetch`, `case COPY`, `gz_load` stores the one byte it got, sets `x.have = 1`, and
@@ -50,7 +52,7 @@ From the repository root, with the `zlib/` submodule checked out:
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzread-transparent-stale-next/run.sh
 ```
 
-The script builds the pinned source twice with
+The script builds the zlib source twice with
 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g -O1`:
 once without any patch, and once with `patches/*.patch`. The unpatched build must report the
 read. The patched build must report nothing, and `gzread` must return 1 and keep the error
@@ -74,7 +76,7 @@ READ of size 1 at 0x7926271e0060 thread T0
 ```
 
 The 32-byte region is the output buffer allocated in `gz_look` (`gzread.c:100`). With GCC the
-`SUMMARY` line names the inlined fortified `memcpy`. A run on arm64 macOS for this page gave the
+`SUMMARY` line names the inlined fortified `memcpy`. A run on arm64 macOS gave the
 same report, with the summary `heap-buffer-overflow gzread.c:369 in gz_read`.
 
 ## Scope and severity
@@ -102,10 +104,8 @@ wrong bytes.
 `case COPY`, move `state->x.next = state->out;` before the `gz_load` call, so that it also holds
 when `gz_load` returns -1 with a partial count.
 
-[Patch 0003](../../../patches/README.md) is exactly that change. It is removed when upstream
-contains the fix and the pin moves past it.
+[Patch 0003](../../../patches/README.md) is exactly that change.
 
 ## Relation to the proofs
 
-The [gz proof notes](../../proof/gzip.md) call this report R-2. The safety proofs of the gz
-readers are about the patched source.
+The [safety proofs of the gz readers](../../proof/gzip.md) are about the patched source.

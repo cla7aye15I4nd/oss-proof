@@ -834,7 +834,7 @@ class Model:
         if k == "fn":
             return "FnPtr", "function pointer: null or the name of the function (an allocator other than the default is not modelled)", ("fn",)
         if k == "opaqueptr":
-            return ("Option " + OPAQUE[1], "opaque `struct internal_state *`: a deflate state or an inflate state (`%s`); the casts are in `Tables.lean`" % OPAQUE[1], ("ptr",))
+            return ("Option " + OPAQUE[1], "opaque `struct internal_state *`: a deflate state or an inflate state (`%s`)" % OPAQUE[1], ("ptr",))
         if k == "ptrptr":
             die("%s.%s: pointer to pointer is not modelled" % (owner, name))
         if k == "ptr":
@@ -1732,13 +1732,14 @@ def emit_tables(model):
 
 DOC_HEAD = """# Runtime schema: the structs of zlib on the object heap
 
-This page is **generated** by `scripts/gen_schema.py` together with `ZlibF/Runtime/Schema.lean` and
-`ZlibF/Runtime/Tables.lean` and `ZlibF/Runtime/LibcTables.lean`. Do not edit it by hand: change the script and run it again. The script reads the headers
+This page says how each struct of zlib is represented in the Lean model: one row per field, with
+the C type, the Lean type and the reason. The Lean records and the tables of this page are
+generated together from the headers
 `zlib.h`, `zutil.h`, `inftrees.h`, `inflate.h`, `deflate.h`, `trees.h`, `gzguts.h` and `crc32.h` of the verified source
 (zlib commit `{commit}`) through clang's JSON AST dump, in the default x86_64 Linux build
 (`./configure --static`, LP64, `-D_LARGEFILE64_SOURCE=1`).
 
-## How the script decides
+## How C types map to Lean types
 
 | C | Lean | Why |
 | --- | --- | --- |
@@ -1758,27 +1759,28 @@ This page is **generated** by `scripts/gen_schema.py` together with `ZlibF/Runti
 ## What the schema does not model
 
 * **Pointer to pointer, and the address of a scalar field** (`&state->lenbits`, `&state->next` in the call of
-  `inflate_table`). The translation passes such out-parameters as results. The script stops if a struct field has
-  type pointer to pointer.
-* **Bit-fields and unions with members of different types.** The script stops; there are none in the headers.
+  `inflate_table`). The translation passes such out-parameters as results. The generator rejects a struct field of
+  type pointer to pointer; the headers have none.
+* **Bit-fields and unions with members of different types.** The generator rejects them; there are none in the headers.
 * **`opaque` pointers to caller data** (`z_stream.opaque`, `voidpf`) are `BPtr`; a caller object that is not a byte
   block is not representable. zlib never dereferences it.
 * **Structs that are defined in `.c` files** (`struct config_s` in `deflate.c`, the `FILE` of the C library).
 * **Uninitialised pointers.** A fresh record (`allocK`, `X.garbage`) has null pointers. In C a pointer read from
   uninitialised memory is indeterminate. In the model it is a valid NULL: using it is a null dereference, but
-  `p == NULL`, `free(p)` and a copy of it succeed. A theorem about a function that reads a pointer field before the
-  field is written must therefore establish that write; the runtime does not check it. See `trusted-base.md`, item 2.
-  Integers are arbitrary; see `docs/spec/safety.md`, uninitialised memory.
+  `p == NULL`, `free(p)` and a copy of it succeed. So a missing write of a pointer field does not show in the model,
+  and the runtime does not check it. That the C writes each pointer field before it reads it is **to confirm** by
+  source review; no theorem states it. See [trusted base](trusted-base.md), item 2.
+  Integers are arbitrary; see [safety](spec/safety.md), uninitialised memory.
 * **The lengths of array fields.** `Array` fields have any length. `X.WellFormed` says that every array has the
   declared length, and `Heap.RecordsWellFormed` that every record of the heap does; a theorem carries it as a
   hypothesis (`Heap.WellFormed` adds the static tables). `X.garbage` and `X.zeroed` are well-formed, and the lemmas
   `Heap.RecordsWellFormed.set_*`, `clear_*` and `*.put_*_wf` show that stores keep it.
 * **The content of the static tables.** `Statics` holds the arrays; `Statics.WellFormed` says that each has the
   declared length. Their values are fixed by the translation of `trees.c`, `inffixed.h`, `crc32.c` (each from a
-  generator that reads the C source) and are a hypothesis of a theorem until then. The script does not compare
+  generator that reads the C source) and are a hypothesis of a theorem until then. The generator does not compare
   them with the C.
 * **Tables.** The tables of the heap are `Tbl`s (an `Array` read as a function of the block number), so that the
-  primitives that write can update in place; see `trusted-base.md`, item 2.
+  primitives that write can update in place; see [trusted base](trusted-base.md), item 2.
 * **Macros that share a name with an enumerator.** `COPY` is both an enumerator of `inflate.h` (16195) and a macro of
   `gzguts.h` (1). The enumerator keeps the name `COPY`; the macro is the constant `GZ_COPY`.
 * **Allocation.** `allocK` faults if the next block number is already in use, so the heap must be `Fresh`
@@ -1786,12 +1788,67 @@ This page is **generated** by `scripts/gen_schema.py` together with `ZlibF/Runti
   A direct store (`stK`) of a record whose arrays have the wrong length is not a fault.
 * **A cast between the two kinds of state** is a fault at the cast; in C it is a fault only at the access.
 
-The static objects that are not declared in a header are listed in the script
-(`EXTRA_STATIC_ARRAYS`, `EXTRA_STATIC_INSTANCES`): {extras}.
+The static objects that are not declared in a header are
+{extras}.
 
 ## Fields
 
+The tables below answer how one C field is stored in Lean. Each group opens with what the struct is for; the rows
+give the field name, the element type and the form of reference. A Lean type gives only the width: `UInt32` says a
+counter has 32 bits, and whether it counts bytes, bits or table entries follows from the role of the field in the
+algorithm.
+
 """
+
+# One paragraph per struct: what the struct is for and what its main fields count. Printed above its table.
+STRUCT_NOTES = {
+    "z_stream": "The call record shared by the application and the codec. `next_in` and `next_out` point at the next "
+                "byte to read and to write; `avail_in` and `avail_out` count, in bytes, what may still be read and "
+                "written in this call. After a call that was given five bytes of output room and wrote three, the "
+                "output pointer has advanced by three and `avail_out` has gone from 5 to 2. The running totals, the "
+                "check value and the pointer to the internal state are in this record too.",
+    "gz_header": "The optional header fields of gzip. `extra`, `name` and `comment` are data pointers; when a header "
+                 "is read, the matching `*_max` field is the capacity the caller supplies, in bytes. The actual "
+                 "length of a header field, the capacity that may be copied and the storage a pointer refers to are "
+                 "three separate conditions.",
+    "deflate_state": "The compressor's working storage, kept across calls. `window` holds the recent history and the "
+                     "input still to be processed; `strstart` is the array index of the current position and "
+                     "`lookahead` the number of unprocessed bytes from there. `head` and `prev` index earlier "
+                     "positions that may match; `sym_buf` holds the symbols already chosen; `pending_buf` holds "
+                     "compressed bytes not yet delivered. `bi_buf` holds bits that do not yet fill a byte, and "
+                     "`bi_valid` counts, in bits, how many of them are valid. Window and matching, symbol records and "
+                     "bit output are separate stages that follow one another.",
+    "inflate_state": "The decompressor's record for resuming. `mode` says whether it is reading a header, building "
+                     "tables, decoding, copying or finishing; `hold` and `bits` keep the bits read but not yet "
+                     "consumed. `length` and `offset` are the byte length and the backward distance of one copy from "
+                     "the history. For the history window, `wsize` is the capacity, `whave` the number of history "
+                     "bytes present and `wnext` the index of the next write. The table pointers and the code-length "
+                     "array let a call after a pause continue the same decoding.",
+    "gz_state": "The file layer keeps the descriptor and the codec in one handle. `fd` is the underlying file; `in` "
+                "and `out` are the internal buffers; `size` and `want` count, in bytes, the actual and the requested "
+                "base capacity. `strm` is the embedded stream record. The logical position is about the uncompressed "
+                "data and the descriptor position about the compressed bytes of the file; the two are not "
+                "interchangeable.",
+    "gzFile_s": "These three fields are the prefix of the handle that the public interface can see: `have` is the "
+                "number of bytes that can be read directly from the buffer, `next` points at the next byte, and `pos` "
+                "is the logical position in the uncompressed data. They share their storage with the `gz_state` that "
+                "contains them; they are not a second, independent buffer.",
+    "tree_desc": "A tree descriptor joins the dynamic working tree of one set of symbols with the static parameters "
+                 "of the format. `dyn_tree` points at the tree nodes, `max_code` is the largest symbol number in "
+                 "use, and `stat_desc` points at the parameters shared by that kind of symbol. Symbol numbers count "
+                 "table entries; code lengths count bits.",
+    "static_tree_desc": "These read-only parameters say, for one kind of code, how many symbols it allows, what its "
+                        "longest code length is, and which symbols carry extra bits. `elems` counts symbols and "
+                        "`max_length` counts bits; `extra_bits` and `extra_base` locate the number of extra bits.",
+    "ct_data": "One small node has different roles during construction. The same bits of `fc` are first the "
+               "frequency `freq` and later the code word `code`; `dl` is first the parent node number `dad` and later "
+               "the code length `len`. The representation stores the same bits; an invariant of the algorithm has to "
+               "say which reading applies at the current stage.",
+    "code": "One entry of a decoding table. `bits` is the number of bits consumed when the entry is selected, `op` "
+            "says whether it is a literal, a length or distance, a link to a subtable, or the end-of-block or "
+            "invalid class, and `val` holds the corresponding value or offset. The width of an entry does not give "
+            "its meaning; it is read according to the class in `op`.",
+}
 
 
 def emit_doc(model, commit):
@@ -1803,6 +1860,8 @@ def emit_doc(model, commit):
         w("### `%s` (Lean `%s`, %s)" % (cname, lean, {
             "table": "table `%s` of the heap" % table, "embedded": "only a field of another struct",
             "static": "static instances only", "elem": "element of arrays"}[role]))
+        w("")
+        w(STRUCT_NOTES[cname])
         w("")
         w("| Field | C type | Lean type | Why |")
         w("| --- | --- | --- | --- |")
@@ -1827,7 +1886,7 @@ def emit_doc(model, commit):
     w("")
     w("### String literals")
     w("")
-    w("`strTable` (in `Schema.lean`) lists the %d string literals of the library sources: the `*.c` and `*.h` files of the" % len(model.strs))
+    w("`strTable` lists the %d string literals of the library sources: the `*.c` and `*.h` files of the" % len(model.strs))
     w("top directory of the verified source, comments excluded, adjacent literals joined, plus the empty string. They are the")
     w("error messages (`zutil.c`, `inflate.c`, `inffast.c`, `inftrees.c`, `trees.c`, `deflate.c`, `gz*.c`), the `z_errmsg`")
     w("texts, `ZLIB_VERSION`, the copyright strings and the format strings. The set is closed: `strLitRef` of a text that is")
@@ -1845,8 +1904,7 @@ def emit_doc(model, commit):
     for (name, kind, lean, size, src, cname) in model.statics:
         w("| `%s` | `%s` | %s | %s |" % (name, cname, ("%d x `%s`" % (size, lean)) if kind == "array" else "`%s`" % lean, src))
     w("")
-    w("The three descriptors are read from `trees.c` when the script runs (the declaration of their struct is compared with")
-    w("the field list of the script). Their members `(static_tree, extra_bits, extra_base, elems, max_length)` are:")
+    w("The three descriptors are read from `trees.c` by the generator. Their members `(static_tree, extra_bits, extra_base, elems, max_length)` are:")
     w("")
     for name in sorted(model.descs):
         d = model.descs[name]

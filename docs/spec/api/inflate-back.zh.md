@@ -1,4 +1,4 @@
-<!-- source-sha256: 35395b236a4ef9bd9be7bd3120330b3a2571171b779541d88a6e60c3df928be3 -->
+<!-- source-sha256: 9430042e87b4d80698a07302c86cb2d4e05f5af01d277792107394511ba0f560 -->
 
 # 回调解压
 
@@ -12,15 +12,15 @@
 [zlib.h](../../../zlib/zlib.h)，针对默认 LP64 Linux 构建。
 定义域和效果标签见[契约约定](contracts.md)。
 
-**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**。它们不在计划的证明目标之内。每个目标的层级见[进度](../../progress.md)。
+**已证明的内容。** 每个函数的必需目标是它的安全目标：没有未定义行为、没有内存错误、没有泄漏，并且终止（见[安全性](../safety.md)）。各条目在“证明目标”下写出这个目标及其前提。证明所假设的是这些前提，而不是文档中的前置条件；两者不同时，以 Lean 陈述为准。这里描述的返回值、输出字节和状态变化属于功能行为：它们读自 C 源码，凡是没有定理陈述的，都**尚未由证明确认**。它们不在计划的证明目标之内。哪些目标已完成，见[进度](../../progress.md)。
 
 每个函数都有自己的必需安全目标：`Goal.inflateBackInit__safety`、`Goal.inflateBack_safety` 和
-`Goal.inflateBackEnd_safety`，在 [Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean) 中。
-[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean) 中的序列目标 `Goal.inflate_back_sequence_safety`
+`Goal.inflateBackEnd_safety`（[Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean)）。
+序列目标 `Goal.inflate_back_sequence_safety`（[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)）
 同样是必需的。它多说一点：每段历史之后，解码器状态都是有效的；它的调用子句和结束子句，就是 `inflateBack` 和
 `inflateBackEnd` 的目标所重复的子句。功能目标 `Goal.inflateBackInit_`、`Goal.inflateBack`
-和 `Goal.inflateBackEnd` 在 [Functional/Back.lean](../../../ZlibF/Spec/Functional/Back.lean) 中。
-`Goal.inflateBack` 的解码子句（什么数据到达 `out`）不在计划内。
+和 `Goal.inflateBackEnd`（[Functional/Back.lean](../../../ZlibF/Spec/Functional/Back.lean)）不在计划内；
+每个条目都说明它的功能目标有没有定理证明。
 
 <a id="callback-decoder-history"></a>
 `inflateBack` 和 `inflateBackEnd` 的目标所覆盖的，是**回调解码器历史**（`BackSafeReachable`）。
@@ -114,7 +114,7 @@ int ZEXPORT inflateBackInit_(z_streamp strm, int windowBits, unsigned char FAR *
     - *状态。* 返回 `Z_OK` 时，流记录指向新块中一个有效的回调解码器状态，这个状态的窗口就是 `window`（`BackValid`）。
     - *写入。* `strm` 为 NULL 时不写任何内容：堆不变。否则只写流记录和调用自己分配的块（`Frame`）。
     - *分配。* 返回 `Z_OK` 时，恰好新增一个块，即状态记录，并且不释放任何块（`LiveChange`）。返回其他值时，已分配的块与调用前相同。
-- **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。每种拒绝和分配失败各返回哪个值，以及调用之后各字段的值：功能目标 `Goal.inflateBackInit_`，安全结论不需要它。合法的调用确实返回 `Z_OK`：`Goal.inflate_back_initialisation_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需。
+- **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。每种拒绝和分配失败各返回哪个值，以及调用之后各字段的值：功能目标 `Goal.inflateBackInit_`（不在计划内；已有定理证明它）。合法的调用确实返回 `Z_OK`：`Goal.inflate_back_initialisation_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackInit_"><summary>完整返回条件与边界</summary>
 
@@ -186,7 +186,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
 - **适用条件。** 第一个拒绝子句没有条件。第二个要求 `strm` 指向一个可读的流记录。历史上的调用要求：
     1. `strm` 有一段[回调解码器历史](#callback-decoder-history)（`BackSafeReachable`）；前提 `BackValid` 给它的记录和状态命名；
     2. `next_in` 为 NULL，或者覆盖 `avail_in` 个可读字节（`Bytes`）且不与窗口重叠（`Separate`）；
-    3. 回调遵守一个协议（`CallbackProtocol`），其不变量在调用时成立：`in` 和 `out` 各自返回，只改变回调自己的块，并且保持窗口这一段的字节不变；`in` 交出一个可读的、不与窗口重叠的片段；`out` 保持当前输入片段可读（全部子句见[偏离记录](../../deviations.md#callback-decoder)）；
+    3. 回调遵守一个协议（`CallbackProtocol`），其不变量在调用时成立：`in` 和 `out` 各自返回，只改变回调自己的块，并且保持窗口这一段的字节不变；`in` 交出一个可读的、不与窗口重叠的片段；`out` 保持当前输入片段可读（全部子句见[偏离记录](../../deviations.md#callback-decoder)）。关于两个回调的子句只在这样的堆上才被要求：流是这个窗口上的一个有效回调解码器（`CallbackEntry`），库交给 `in` 和 `out` 的就是这样的堆。这样的协议确实存在，并且全部六条前提在一次具体的调用上同时成立：`Goal.inflateBack_call_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需（[回调](../../proof/callbacks.md#the-caller-protocol)）；
     4. 协议的输入总量（包括第一个片段）少于 `2^48` 字节（`inputBound`）；
     5. 平台大小上界在调用时成立，并且每个回调步骤都保持它（`ByteObjectsFit`、`BackPlatform`）；
     6. 每个输入片段都位于堆字节块中：第一个片段（`BackFirstChunk`）和 `in` 交出的每一个片段（`BackPlatform`）。
@@ -196,7 +196,7 @@ int ZEXPORT inflateBack(z_streamp strm, in_func in, void FAR *in_desc,
     - *状态。* 在历史上，流在同一个窗口上保持有效的回调解码器状态，窗口大小不变（`BackValid`），并且协议的不变量在调用后成立。于是流又有了一段历史，下一次调用的目标适用。
     - *写入。* 两种拒绝都不写任何内容：堆不变。在历史上，只写流记录、状态记录、回调自己的块和窗口所在的块；如果这个块不是回调自己的块，则只写其中窗口这一段（`CallbackFrame`）。
     - *分配。* 在历史上，回调自己的块之外的每个块，调用后是否已分配都与调用前相同：库不分配也不释放任何东西。
-- **不在本目标内。** 非 NULL 状态不是来自 `inflateBackInit_` 的流记录，例如来自 `inflateInit_` 的状态：没有目标覆盖它。什么数据到达 `out`，三个返回值中返回哪一个，以及调用后的 `next_in` 和 `avail_in`：功能目标 `Goal.inflateBack`，安全结论不需要它；它不在计划内。条件 4 到 6、窗口必须在堆字节块中以及对调用者编辑的规定都比 `zlib.h` 窄：见[偏离记录](../../deviations.md#callback-decoder)中的行。
+- **不在本目标内。** 非 NULL 状态不是来自 `inflateBackInit_` 的流记录，例如来自 `inflateInit_` 的状态：没有目标覆盖它。什么数据到达 `out`，三个返回值中返回哪一个，以及调用后的 `next_in` 和 `avail_in`：功能目标 `Goal.inflateBack`（不在计划内；未完成）。条件 4 到 6、窗口必须在堆字节块中以及对调用者编辑的规定都比 `zlib.h` 窄：见[偏离记录](../../deviations.md#callback-decoder)中的行。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBack"><summary>完整返回条件与边界</summary>
 
@@ -258,7 +258,7 @@ NULL 流、NULL 状态和 NULL 释放函数拒绝情形。
     - *状态。* 在历史上，调用之后流记录的 `state` 字段为 NULL。历史到此结束。
     - *写入。* 两种拒绝都不写任何内容：堆不变。在历史上，只写流记录和状态块（`Frame`）。
     - *分配。* 在历史上，恰好释放状态块，并且不分配任何块（`LiveChange`）。
-- **不在本目标内。** 非 NULL 状态不是来自 `inflateBackInit_` 的流记录：没有目标覆盖它。调用之后其他字段的值：功能目标 `Goal.inflateBackEnd`，安全结论不需要它。
+- **不在本目标内。** 非 NULL 状态不是来自 `inflateBackInit_` 的流记录：没有目标覆盖它。调用之后其他字段的值：功能目标 `Goal.inflateBackEnd`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflateBackEnd"><summary>完整返回条件与边界</summary>
 

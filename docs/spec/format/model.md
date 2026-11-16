@@ -5,24 +5,22 @@
 The format model describes how compressed bytes determine uncompressed bytes. It has no
 heap or pointers. It is a specification to refine, not an implementation of the streaming
 API. Read [the format guide](README.md) for the rules and [the API model](../../design/api-model.md)
-for calls, buffers and return values. Accepted results and remaining work live in
-[progress](../../progress.md).
+for calls, buffers and return values. [Progress](../../progress.md) says which goals are done.
 
-The umbrella module is [`ZlibF/Spec/Functional/Format.lean`](../../../ZlibF/Spec/Functional/Format.lean).
-The token extension is imported separately. Definitions below are in namespace `ZlibF.Spec`, except
-the local token relations in `ZlibF.Spec.Token`.
+The definitions below are in the namespace `ZlibF.Spec`, except the local token relations, which
+are in `ZlibF.Spec.Token`.
 
-## Module map
+## Parts of the model
 
-| Module | Vocabulary |
+| Vocabulary | Lean source |
 | --- | --- |
-| [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) | Numeric readers, big- and little-endian byte encodings. The byte-to-bit order (`byteBits`, `bytesToBits`) is in [`Common/Bits.lean`](../../../ZlibF/Spec/Common/Bits.lean) |
-| [`Checksum.lean`](../../../ZlibF/Spec/Functional/Format/Checksum.lean) | Bytewise Adler-32 and CRC-32, update functions and append laws |
-| [`Huffman.lean`](../../../ZlibF/Spec/Functional/Format/Huffman.lean) | Canonical codes, accepted length sets, fixed codes, length and distance tables |
-| [`Deflate.lean`](../../../ZlibF/Spec/Functional/Format/Deflate.lean) | Symbol and block relations, raw prefix and exact-stream relations |
-| [`Wrapper.lean`](../../../ZlibF/Spec/Functional/Format/Wrapper.lean) | Zlib and gzip headers, trailers and exact-stream relations |
-| [`Token.lean`](../../../ZlibF/Spec/Functional/Format/Token.lean) | One-token decoding and rejection, with obligations connecting them to the block grammar |
-| [`Examples.lean`](../../../ZlibF/Spec/Functional/Format/Examples.lean) | Concrete acceptance and rejection examples |
+| Numeric readers, big- and little-endian byte encodings. The byte-to-bit order (`byteBits`, `bytesToBits`) is in [`Common/Bits.lean`](../../../ZlibF/Spec/Common/Bits.lean) | [`Bits.lean`](../../../ZlibF/Spec/Functional/Format/Bits.lean) |
+| Bytewise Adler-32 and CRC-32, update functions and append laws | [`Checksum.lean`](../../../ZlibF/Spec/Functional/Format/Checksum.lean) |
+| Canonical codes, accepted length sets, fixed codes, length and distance tables | [`Huffman.lean`](../../../ZlibF/Spec/Functional/Format/Huffman.lean) |
+| Symbol and block relations, raw prefix and exact-stream relations | [`Deflate.lean`](../../../ZlibF/Spec/Functional/Format/Deflate.lean) |
+| Zlib and gzip headers, trailers and exact-stream relations | [`Wrapper.lean`](../../../ZlibF/Spec/Functional/Format/Wrapper.lean) |
+| One-token decoding and rejection, with obligations connecting them to the block grammar | [`Token.lean`](../../../ZlibF/Spec/Functional/Format/Token.lean) |
+| Concrete acceptance and rejection examples | [`Examples.lean`](../../../ZlibF/Spec/Functional/Format/Examples.lean) |
 
 ## From bytes to output
 
@@ -163,9 +161,9 @@ already returned by an API call.
 | Decode-table allocation and `ENOUGH` capacity bounds | [Table proof guide](../../proof/inftrees.md) |
 | Memory safety, ownership and termination of the translated implementation | [Safety](../safety.md) and [proof method](../../proof/method.md) |
 
-`Examples.lean` supplies concrete positive and negative checks of the specification. Its
+The model comes with concrete positive and negative examples
+([`Examples.lean`](../../../ZlibF/Spec/Functional/Format/Examples.lean)). Their
 proofs use kernel evaluation and relation constructors or inversion. Such examples help
 review the definitions; they do not establish their correspondence to every RFC case or to
 the translated implementation. Differential tests likewise provide evidence of fidelity,
-not proof. See [progress](../../progress.md) for the acceptance status of implementation
-refinements.
+not proof. [Progress](../../progress.md) says which goals about the implementation are done.

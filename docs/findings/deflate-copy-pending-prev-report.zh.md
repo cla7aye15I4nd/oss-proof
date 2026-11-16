@@ -1,15 +1,15 @@
-<!-- source-sha256: 4d0adff37918214a7e74edc0b01566d27052cfdc3a4154a30bc19ad946c04b5f -->
+<!-- source-sha256: e25420c5ec8b03ec02576fcf1b4da99f229f2623e321ac778683f8d17b202670 -->
 # 报告：`deflateResetKeep` 与 `deflateCopy` 之后 `longest_match` 的越界读取
 
-写给 zlib 维护者的草稿，供项目所有者使用。未发送，仅作记录保留。
+写给 zlib 维护者的报告。尚未发送。
 
-对本项目而言，`deflateResetKeep` 是 `deflateReset` 的内部步骤：zlib.h 声明它不属于 zlib API，因此已证明的 deflate 定义域排除对它的直接调用，对这项发现不计划进一步的工作。
+对本项目而言，`deflateResetKeep` 是 `deflateReset` 的内部步骤：zlib.h 声明它不属于 zlib API，因此 deflate 安全定理排除对它的直接调用。
 
 ## 摘要
 
 在 zlib `develop` 的提交 `757f0527`（`ZLIB_VERSION "1.3.2.1-motley"`）上，一串使用有效缓冲区的导出函数调用会使 `longest_match` 读到窗口之外。根本原因是读取了由 `deflateCopy` 生成的流中一个未初始化的 `prev` 项。AddressSanitizer 在 `deflate.c:1511` 报告 `heap-buffer-overflow READ of size 1`。
 
-这个序列需要直接调用 `deflateResetKeep`。`zlib.h` 把该函数声明在 `/* undocumented functions (not part of the zlib API) */` 之下：它是导出函数，但不属于 zlib API。所以这不是已文档化 API 的缺陷，而是一个导出但未文档化的函数使之可达的内存错误，并且它随两处近期修改出现（见受影响的版本）。在已文档化的 API 内我们没有找到这样的序列；对我们已证明的定义域，我们证明不存在这样的序列（见与证明的关系）。
+这个序列需要直接调用 `deflateResetKeep`。`zlib.h` 把该函数声明在 `/* undocumented functions (not part of the zlib API) */` 之下：它是导出函数，但不属于 zlib API。所以这不是已文档化 API 的缺陷，而是一个导出但未文档化的函数使之可达的内存错误，并且它随两处近期修改出现（见受影响的版本）。在已文档化的 API 内我们没有找到这样的序列；在 deflate 安全定理的定义域内，不存在这样的序列（见与证明的关系）。
 
 已在 x86_64 Linux（GCC 14）上用 AddressSanitizer 和 valgrind 确认，也在 arm64 macOS 上确认。受影响的是 zlib 1.4 和 `develop`，不包括 1.3.1 和 1.3.2。
 
@@ -56,7 +56,7 @@
 ZLIB_SRC=$PWD/zlib bash tests/regression/deflate-copy-pending-prev/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -g -O1` 构建固定的源码，把 `copy.c` 与之链接并运行。脚本会应用本仓库的补丁，这些补丁不涉及 `deflate.c` 和 `trees.c`。AddressSanitizer 打印：
+脚本用 `-fsanitize=address,undefined -g -O1` 构建 zlib 源码，把 `copy.c` 与之链接并运行。脚本会应用本仓库的补丁。这些补丁都不涉及 `trees.c`，只有补丁 0006 涉及 `deflate.c`：它在 `deflateBound_z` 中增加两行。下面的输出用的是未打补丁文件的行号；打上补丁 0006 之后每个行号都大 2。AddressSanitizer 打印：
 
 ```
 ==ERROR: AddressSanitizer: heap-buffer-overflow ... READ of size 1
@@ -96,6 +96,6 @@ Linux 输出见 [`report.txt`](../../tests/regression/deflate-copy-pending-prev/
 
 ## 与证明的关系
 
-deflate 安全定理把直接调用 `deflateResetKeep` 排除在流定义域之外（`docs/deviations.md`）。这不是比 `zlib.h` 更窄的限制，因为 `zlib.h` 声明该函数不属于 zlib API；这份报告也是不能取消这一排除的原因之一。
+deflate 安全定理把直接调用 `deflateResetKeep` 排除在流定义域之外（见[偏离记录](../deviations.md)）。这不是比 `zlib.h` 更窄的限制，因为 `zlib.h` 声明该函数不属于 zlib API；这份报告也是不能取消这一排除的原因之一。
 
-对于没有这一调用的历史，没有链头等待插入，因此 `deflateCopy` 对 `prev` 的部分复制覆盖了链遍历能到达的每一项。这是一个定理：`DInv.heads_inserted` 断言，在满足 deflate 不变量 `DInv` 且没有待执行滑动（`matches = 0`）的每个状态中，每个非零的 `head` 项都小于 `strstart - insert`。`DInv.slid_heads_inserted` 对级别 0、有一次待执行滑动（`matches = 1`）的状态断言同样的事，说的是这次滑动执行之后的各项。两者都在 `ZlibF/Proof/deflate.c.universal-heads.lean` 中。`DInv` 在流定义域的历史所到达的每个状态中都成立（`ZlibF/Proof/deflate.c.universal-sequence-safety.lean` 中的 `reachable_inv_of`，配合 `ZlibF/Proof/public-deflate-copy.lean` 中的 `sequence_facts`）。本项目的真实 C 检查器在 460 万个采样状态上与之一致（这是证据，不是证明）。
+对于没有这一调用的历史，没有链头等待插入，因此 `deflateCopy` 对 `prev` 的部分复制覆盖了链遍历能到达的每一项。这是一个定理：`DInv.heads_inserted` 断言，在满足 deflate 不变量 `DInv` 且没有待执行滑动（`matches = 0`）的每个状态中，每个非零的 `head` 项都小于 `strstart - insert`。`DInv.slid_heads_inserted` 对级别 0、有一次待执行滑动（`matches = 1`）的状态断言同样的事，说的是这次滑动执行之后的各项。`DInv` 在流定义域的历史所到达的每个状态中都成立（定理 `reachable_inv_of`，它唯一的前提 `SequenceFacts` 就是定理 `sequence_facts`）。在真实 C 上运行的检查器在 460 万个采样状态上与之一致（这是证据，不是证明）。

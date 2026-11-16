@@ -1,4 +1,4 @@
-<!-- source-sha256: d9f7afa3a7dddeb5867e81a79d86ddf6271f32ee8502cfdacaa062b9c2b7d02f -->
+<!-- source-sha256: 077978280d767781e00a4a2d3498a2aca16ee960e9e12a9df13d8faba7e89319 -->
 
 # 4. 格式与完整性检查
 
@@ -99,7 +99,7 @@ Gzip 没有 zlib 式的预置字典请求。
 `inflateGetHeader()` 把调用者拥有的头部记录及其缓冲区交给解码器。之后的 `inflate()` 调用解析并写入它们。
 名称可能跨越多个输入缓冲区，所以解码器在调用之间保存解析进度。
 **安全：** `inflate` 向这三个缓冲区最多分别写入 `extra_max`、`name_max` 和 `comm_max` 个字节。
-这依赖一条前提：只要还在调用 `inflate`，该记录及其缓冲区就保持有效，并且 `extra` 缓冲区与未读输入互不重叠（见[偏离记录](../deviations.md)）。
+这依赖一条前提：只要该记录还交在解码器手里，每次调用 `inflate` 时记录及其缓冲区都保持有效；并且在 `inflate` 读取头部期间，`extra` 缓冲区与未读输入互不重叠（见[偏离记录](../deviations.md#when-a-gzip-header-and-its-buffers-must-be-valid)）。
 [头部契约](../spec/api/inflate-stream.md#inflategetheader)同时定义这些内存效果和字节含义。
 
 可选的头部检查保存此前头部字节的 CRC-32 的低 16 位。
@@ -184,10 +184,9 @@ sequenceDiagram
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
-`tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
+下表给出本章用到的每个函数的安全目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)记录每项结论的层级。
+[进度页](../progress.md)说明哪些目标已完成。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |

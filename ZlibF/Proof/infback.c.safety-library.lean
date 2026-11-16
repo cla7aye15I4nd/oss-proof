@@ -253,7 +253,7 @@ theorem ROOM_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
       have x := valid1.2.2.2.2.2.2.2.2.2.2.1; rw [w1, sz1] at x; exact x
     obtain ⟨xs, bytes⟩ := bytes_of_writable writable
     obtain ⟨rc, after, run, ext, winSame, held, inv'⟩ :=
-      pr.outStep (setI h i s1) log s.window s.wsize xs I1'.proto (by rw [win, sz]; exact bytes) (by rw [sz]; exact Nat.le_refl _)
+      pr.outStep (setI h i s1) log s.window s.wsize xs I1'.valid I1'.proto (by rw [win, sz]; exact bytes) (by rw [sz]; exact Nat.le_refl _)
     let log2 : BackLog := { log with chunks := log.chunks ++ [xs], failed := log.failed || rc != 0 }
     have I2 : PInv c pr h0 after l1 log2 := PInv.callback I1' ext winSame held inv' rfl rfl
       (I1'.platform.2 _ log s.window s.wsize rc after I1'.proto I1'.fit run)

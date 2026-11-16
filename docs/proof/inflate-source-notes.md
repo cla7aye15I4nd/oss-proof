@@ -81,9 +81,8 @@ it frees the new state. It sets `dest->state` to `NULL` when the state check rej
 and on both allocation failures. On success it copies both records and repairs the back pointer.
 If `lencode` is the state's own `codes` array, it points `lencode` and `distcode` into the
 copy's array; pointers at the fixed tables are kept. It rebases `next` and copies `whave` window
-bytes. The proof of the pointer repair uses the invariant
-clause `origin` (`CopyTableOrigin`) and `CopyTableOrigin.dynamic_geometry`
-(`ZlibF/Proof/inflate.c.copy-origin.lean`): `next` and a dynamic `distcode` are offsets into
+bytes. The proof of the pointer repair uses the invariant clause `origin` (`CopyTableOrigin`)
+and `CopyTableOrigin.dynamic_geometry`: `next` and a dynamic `distcode` are offsets into
 `codes`, and `next` may be one past its end.
 
 `memcpy` between two disjoint ranges of one byte object is allowed in the model. Overlapping
@@ -163,7 +162,7 @@ The order in which the code-length code lengths arrive is
 | 1 to 15 | link to a second-level table; the low bits give its index width |
 | 16 + e | length or distance base with e extra bits |
 | 96 | end of block (bits 32 and 64 both set) |
-| 64, 68 or 193 | invalid code |
+| 64, 71 or 77 | invalid code |
 
 The decoders test these flags in a fixed order. The slow literal/length decoder tests end of
 block before invalid. The fast decoder tests literal, then length, then link, then end of block
@@ -173,9 +172,11 @@ stream then fails at the missing end-of-block code.
 
 The fixed tables are copies of `inffixed.h`: 512 literal/length entries with root 9 and 32
 distance entries with root 5. They are not the output of `inflate_table`. Building them with
-`inflate_table` would change four literal/length entries, at indices 99, 227, 355 and 483: the
-generated invalid flag is 68 or 193, and the header has 64. All three reject the reserved
-symbols. The translation uses the header's values.
+`inflate_table` would change four literal/length entries, the ones of the reserved symbols 286
+and 287: the generated invalid flag is 71 at indices 99 and 355 and 77 at indices 227 and 483
+(the last two entries of `lext`), and the header has 64. All three values reject the reserved
+symbols: each has bit 64 set and bits 16 and 32 clear. The translation uses the header's
+values.
 
 The base and extra arrays and the order array are constants. The error messages are read-only
 strings; callers can read them through `strm->msg`.

@@ -449,6 +449,12 @@
       "layout",
       "prefix"
     ],
+    "status": [
+      "core-results",
+      "evidence",
+      "next-work",
+      "scope"
+    ],
     "verification/checksums": [
       "combination",
       "connection",
@@ -974,6 +980,12 @@
       "example",
       "layout",
       "prefix"
+    ],
+    "status": [
+      "core-results",
+      "evidence",
+      "next-work",
+      "scope"
     ],
     "verification/checksums": [
       "combination",

@@ -5,15 +5,15 @@ the function that calls them and what they deliver. A helper is a function that 
 not declare, such as `inflate_table` or `longest_match`. The page is a reading aid for the
 proofs of the public functions. It is not a list of theorems, and no proof assumes a row.
 
-**Status.** Each row is a reading of the C, **to confirm** unless the proof guide of its
+**What is proved.** Each row is a reading of the C, **to confirm** unless the proof guide of its
 section names a theorem for it. What is proved about the helpers follows from the public
-goals: the safety goals of `inflate`, `deflate` and the other public functions are proved
-(their level is in [progress](../progress.md#scope)), and each is about the whole translated body, helper calls
+goals: the safety goals of `inflate`, `deflate` and the other public functions are done
+([progress](../progress.md#scope)), and each is about the whole translated body, helper calls
 included. So every helper call that a public call makes returns without a fault. A row's own
 wording, for example an exact postcondition, is not thereby a theorem. The
 [proof guides](../proof/README.md) list the theorems about each helper.
 
-**What a row is needed for.** The required target is safety. A row matters as far as the
+**What a row is needed for.** The required result is safety. A row matters as far as the
 safety proof of a public caller uses it: bounds, termination, frames, and the facts those rest
 on. A `Post` that only describes content, such as `I-it-canonical` or `I-uw-content`, is a
 functional fact. It is in scope only where a safety proof depends on it.

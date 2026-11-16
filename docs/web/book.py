@@ -89,6 +89,7 @@ def checksum_destination(anchor):
 
 
 def resolve_route(route,anchor=''):
+    if route=='status':return 'reference/docs/progress',('scope' if anchor in {'scope','core-results'} else '')
     if route=='algorithms/index':return destination(*OVERVIEW.get(anchor,('foundations','purpose')))
     if route=='verification/index':return 'reference/docs/proof/method',''
     if route.startswith('verification/') and route.split('/')[-1] in TOPICS:

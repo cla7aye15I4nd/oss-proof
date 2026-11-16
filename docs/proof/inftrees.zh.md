@@ -1,4 +1,4 @@
-<!-- source-sha256: fb3d2131520e4bcd3d94b74b74c74bcfd328abbbba3ab1ce7123470a5b440e5c -->
+<!-- source-sha256: 640ec428636bbda3973902dc9d0f71993954a4013efb59514c2094cc59b21497 -->
 # 解码表：`inflate_table` 为什么安全，它建的表为什么可以放心读
 
 源文件：`zlib/inftrees.c`。翻译：`ZlibF/Zlib/inftrees.c.lean`。
@@ -9,25 +9,23 @@
 
 ## 结论
 
-本表中的定理都列在 `tests/audit/theorems.txt` 中。每项结论的层级记录在[进度，范围](../progress.md#scope)中。模块在 `ZlibF/Proof/` 下。
+| 结论 | 定理 |
+| --- | --- |
+| **T1.** 对每一次满足前提的调用，`inflate_table` 返回且不出故障。只有 `work` 和表空间发生变化。返回值是 0、1 或 -1 | `inflate_table_safe` |
+| 返回 -1 当且仅当这组码长不是可接受的编码；返回 1 只出现在 `LENS` 和 `DISTS` | `inflate_table_correct_ret` |
+| **T2.** 调用返回 0 之后，表对返回的根宽度具有[表形状](#the-table-shape) | `inflate_table_decoder_safe` |
+| 调用返回 0 之后，返回的指针在 `*table` 之后 `used` 项处，`used` 至多是 128、852 或 592。对 `LENS` 和 `DISTS`，根表以及每个链接指定的二级表，都在第 `used` 项或之前结束（`TableReadExtent`），所以不会走到建在这张表后面的另一张表里 | `inflate_table_read_extent` |
+| T2 的证明用到的两条引理，它们说的是码长列表，不涉及堆。`root_cover`：对没有超额分配的码长，每个根下标要么恰好被一个码长不超过 `root` 的编码填充，要么存着一组更长编码的链接，要么没有被写；最后一种情形要求 Kraft 和够不到这个下标，完整的编码排除了它（`RootCell`）。`group_cover`：对完整的编码，如果二级表的宽度容得下它那一组编码，表里每个下标恰好属于这一组中的一个编码。关于堆的事实，即查表能到达的每个表项都是符合表形状的叶子或链接，是 T2 | `root_cover`、`group_cover` |
+| `inflate_fixed` 让状态指向两张静态表，改动四个字段 | `inflate_fixed_ok` |
+| 对 `LENS` 和 `DISTS`，在调用返回 0 之后：慢速解码器在手里位数还少时接受的表项，在更多的位到来之后不变 | `constructor_establishes_query_stability` |
 
-| 结论 | 定理 | 模块 |
-| --- | --- | --- |
-| **T1.** 对每一次满足前提的调用，`inflate_table` 返回且不出故障。只有 `work` 和表空间发生变化。返回值是 0、1 或 -1 | `inflate_table_safe` | `inftrees.c.lean` |
-| 返回 -1 当且仅当这组码长不是可接受的编码；返回 1 只出现在 `LENS` 和 `DISTS` | `inflate_table_correct_ret` | `inftrees.c.lean` |
-| **T2.** 调用返回 0 之后，表对返回的根宽度具有[表形状](#the-table-shape) | `inflate_table_decoder_safe` | `inftrees.c.decoder-safe.lean` |
-| 调用返回 0 之后，返回的指针在 `*table` 之后 `used` 项处，`used` 至多是 128、852 或 592。对 `LENS` 和 `DISTS`，根表以及每个链接指定的二级表，都在第 `used` 项或之前结束（`TableReadExtent`），所以不会走到建在这张表后面的另一张表里 | `inflate_table_read_extent` | `inftrees.c.read-extent.lean` |
-| T2 的证明用到的两条引理，它们说的是码长列表，不涉及堆。`root_cover`：对没有超额分配的码长，每个根下标要么恰好被一个码长不超过 `root` 的编码填充，要么存着一组更长编码的链接，要么没有被写；最后一种情形要求 Kraft 和够不到这个下标，完整的编码排除了它（`RootCell`）。`group_cover`：对完整的编码，如果二级表的宽度容得下它那一组编码，表里每个下标恰好属于这一组中的一个编码。关于堆的事实，即查表能到达的每个表项都是符合表形状的叶子或链接，是 T2 | `root_cover`、`group_cover` | `inftrees.c.cover.root.lean`、`inftrees.c.cover.group.lean` |
-| `inflate_fixed` 让状态指向两张静态表，改动四个字段 | `inflate_fixed_ok` | `inftrees.c.fixed.lean` |
-| 对 `LENS` 和 `DISTS`，在调用返回 0 之后：慢速解码器在手里位数还少时接受的表项，在更多的位到来之后不变 | `constructor_establishes_query_stability` | `inftrees.c.decode.stability.lean` |
-
-另有一条定理是引理，没有列出：`inflate_table_len_leaves_positive`（`inftrees.c.decoder-safe.lean`）。它说，一次返回 0 的 `LENS` 调用之后，表里每个字面量/长度叶子至少用掉一位。两个调用者都用到它，都是在两条序列定理的证明内部。`inflate` 需要它来得到[它的不变量](inflate.md#the-invariant)的子句 `tables`，这个子句包含这条事实（`inflate.c.dynamic-install.lean`）。回调解码器的终止性需要它（`infback.c.safety-table-lens.lean`；[快速解码](inffast.md#assumptions)）。
+另有一条定理是引理：`inflate_table_len_leaves_positive`。它说，一次返回 0 的 `LENS` 调用之后，表里每个字面量/长度叶子至少用掉一位。两个调用者都用到它，都是在两条序列定理的证明内部。`inflate` 需要它来得到[它的不变量](inflate.md#the-invariant)的子句 `tables`，这个子句包含这条事实。回调解码器的终止性需要它（[快速解码](inffast.md#assumptions)）。
 
 关于表项含义的功能结论列在[功能结论](#functional-results)一节。
 
 ## 假设
 
-`inflate_table(type, lens, codes, table, bits, work)` 不检查自己的参数。定理假设下面这些条件（`CallPre`，`ZlibF/Spec/Common/Inflate/TableBuild.lean`）。它们是内部前提：每个调用者在每次调用处证明它们。在[内部契约](../spec/internal-contracts.md)里，它们是 `I-it-pre-lens`、`I-it-pre-codes`、`I-it-pre-work` 和 `I-it-pre-table`。
+`inflate_table(type, lens, codes, table, bits, work)` 不检查自己的参数。定理假设下面这些条件（`CallPre`）。它们是内部前提：每个调用者在每次调用处证明它们。在[内部契约](../spec/internal-contracts.md)里，它们是 `I-it-pre-lens`、`I-it-pre-codes`、`I-it-pre-work` 和 `I-it-pre-table`。
 
 | 前提 | `CODES` | `LENS` | `DISTS` |
 | --- | --- | --- | --- |
@@ -64,7 +62,7 @@ for (;;) {                                                 /* 4. 每轮处理一
 
 ## 表形状
 
-T2 说，成功的调用留下的表具有下面的形状。`LenTableSafe` 和 `DistTableSafe`（`ZlibF/Spec/Common/Inflate/FastTable.lean`）针对从数组下标 `o` 开始、根宽度为 `R` 的表陈述它。
+T2 说，成功的调用留下的表具有下面的形状。`LenTableSafe` 和 `DistTableSafe` 针对从数组下标 `o` 开始、根宽度为 `R` 的表陈述它。
 
 - `R ≤ 15`，`2^R` 个根表项都在数组之内。
 - 每个根表项是叶子或链接。
@@ -120,7 +118,7 @@ huff = rev_len(B_len + i)      对码长为 len 的第 i 个编码
 
 对完整的编码，最后一步让 `huff` 回到 0。对只有一个符号的编码，它停在 1。循环之后 C 用 `huff != 0` 来决定是否写第 5 步的无效标记。
 
-`ZlibF/Proof/inftrees.c.math.lean` 证明了反转和加一的这些事实，不涉及堆。
+反转和加一的这些事实的证明不涉及堆（`succ_rev`、`huff_step`、`huff_last`）。
 
 ### 写根表项
 
@@ -166,7 +164,7 @@ val + 2^op = used ≤ 592   对 DISTS
 
 填充写和链接写合起来必须覆盖每一个下标，否则查表可能读到从未写过的表项。
 
-给每个码长为 `l` 的编码分配一个区间：以它开头的那些 15 位字，共 `2^(15-l)` 个。对完整的编码，这些区间互不相交，并且盖住全部 `2^15` 个字（`inftrees.c.cover.tile.lean`）。一个根下标代表以它那 `root` 位开头的字。要么有一个码长不超过 `root` 的编码是这些字的前缀，它的填充写了这个下标；要么有更长的编码共用这个前缀，其中第一个在这里写了链接（`root_cover`）。在二级表内做同样的论证，就得到 `group_cover`。
+给每个码长为 `l` 的编码分配一个区间：以它开头的那些 15 位字，共 `2^(15-l)` 个。对完整的编码，这些区间互不相交，并且盖住全部 `2^15` 个字（`tile_exists`、`tile_unique`）。一个根下标代表以它那 `root` 位开头的字。要么有一个码长不超过 `root` 的编码是这些字的前缀，它的填充写了这个下标；要么有更长的编码共用这个前缀，其中第一个在这里写了链接（`root_cover`）。在二级表内做同样的论证，就得到 `group_cover`。
 
 有两种情形不是完整编码，要单独处理。
 
@@ -177,7 +175,7 @@ val + 2^op = used ≤ 592   对 DISTS
 
 符号 `w` 的表项，其 `op` 和 `val` 取自静态数组 `lbase` 和 `lext`（对 `LENS`，从符号 257 起）或 `dbase` 和 `dext`（对 `DISTS`）。这些数组的下标是 `w - 257` 或 `w`。它不越界，因为 `codes ≤ 288` 或 `codes ≤ 32`；数组分别有 31 项和 32 项。对 `CODES`，基值指针和附加位指针用不到：每个符号都小于 19，走的是字面量分支。
 
-`inftrees.c.cover.leaf.lean` 逐项检查了四个数组里的每个值，确认它给出的叶子符合上面的形状。`inflate_table_decoder_safe` 把覆盖和叶子的取值合在一起。
+`lext_lbase_shape` 和 `dext_dbase_shape` 逐项检查了四个数组里的每个值，确认它给出的叶子符合上面的形状。`inflate_table_decoder_safe` 把覆盖和叶子的取值合在一起。
 
 ### 移位
 
@@ -209,9 +207,9 @@ val + 2^op = used ≤ 592   对 DISTS
 
 这些结论说的是表项的含义。它们已证明，但不是安全结论所必需的。
 
-| 结论 | 定理 | 模块 |
-| --- | --- | --- |
-| 写入的表项就是给定码长对应的规范叶子和链接 | `inflate_table_content`、`constructor_establishes_decode_table_invariant` | `inftrees.c.content.lean`、`inftrees.c.decode.invariant.lean` |
-| 在表中查找，解码出的是格式为这些输入位规定的符号 | `decode_table_matches_format`、`decode_table_leaf_sound`、`decode_table_classifies_input` | `inftrees.c.decode.*.lean` |
+| 结论 | 定理 |
+| --- | --- |
+| 写入的表项就是给定码长对应的规范叶子和链接 | `inflate_table_content`、`constructor_establishes_decode_table_invariant` |
+| 在表中查找，解码出的是格式为这些输入位规定的符号 | `decode_table_matches_format`、`decode_table_leaf_sound`、`decode_table_classifies_input` |
 
 规范编码的数学定义是[格式指南](../spec/format/README.md)中的 `F-code-*`。

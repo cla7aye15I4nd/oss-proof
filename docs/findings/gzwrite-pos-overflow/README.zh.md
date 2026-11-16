@@ -1,4 +1,4 @@
-<!-- source-sha256: a8c4d45354c31eb008e7a54fdd237cd15fe57c190370366cdfbca79fbd869eab -->
+<!-- source-sha256: 7b1bfc0a25fe395c3cf504979ebe24a4da9bf0d9c0de439f92edc999c9808666 -->
 # `gzwrite`：向前定位之后位置发生有符号溢出
 
 gz 写入函数把接受的字节数加到有符号的位置 `state->x.pos` 上，没有上界。透明模式的写入者向前定位到 `INT64_MAX` 附近之后，一旦接收端收下了定位所需的那些零，下一次写入就让位置溢出。zlib 的维护者只读本页，就能复现这份报告并作出判断。读取一侧的对应问题是 [gzread-pos-overflow](../gzread-pos-overflow/README.md)。测试文件在 [`tests/regression/gzwrite-pos-overflow`](../../../tests/regression/gzwrite-pos-overflow/README.md)。
@@ -6,8 +6,8 @@ gz 写入函数把接受的字节数加到有符号的位置 `state->x.pos` 上�
 ## 状态
 
 - 未定义行为：`x.pos` 的有符号整数溢出，出现在 `gz_write` 和 `gzputc` 的快速路径里。在文档用法之内。
-- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上用真实的 `/dev/null` 报告；用一种更快的模式，在 Linux 和 arm64 macOS 上也报告。较快的模式运行在固定的 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁之上，即 `run.sh` 构建的源码。保留下来的那次使用真实 `/dev/null` 的运行，用的是程序较早的一份副本，源码是固定的源码加补丁 0001 至 0003。
-- 没有提交上游。被验证的源码应用本地[补丁 0004](../../../patches/README.md)，项目所有者于 2026-11-12 批准。覆盖读写两侧的拉取请求文字草稿在 [../gzread-pos-overflow/upstream-description.md](../gzread-pos-overflow/upstream-description.md)。
+- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上用真实的 `/dev/null` 报告；用一种更快的模式，在 Linux 和 arm64 macOS 上也报告。较快的模式运行在上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁之上，即 `run.sh` 构建的源码。保留下来的那次使用真实 `/dev/null` 的运行，用的是程序较早的一份副本，源码是同一提交加补丁 0001 至 0003。`gzwrite.c` 和 `gzlib.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。
+- 没有提交上游。被验证的源码应用本地[补丁 0004](../../../patches/README.md)。覆盖读写两侧的拉取请求文字草稿在 [../gzread-pos-overflow/upstream-description.md](../gzread-pos-overflow/upstream-description.md)。
 
 ## 调用序列
 
@@ -39,7 +39,7 @@ gzputc(f, 'a');                          /* gzwrite.c:352：state->x.pos++ 溢�
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzwrite-pos-overflow/run.sh
 ```
 
-脚本用 `-fsanitize=undefined -fno-sanitize-recover=undefined -g -O2` 把固定的源码构建两次：一次用除 0004 以外的 `patches/*.patch`，一次用全部补丁。它在每个构建上运行这两个序列。没有 0004 时，每次运行都必须报告位置的有符号溢出。有 0004 时不得有任何报告，并且写入必须以 `Z_DATA_ERROR`“position overflow”失败。四项检查全部成立时脚本以状态 0 退出，最后一行是：
+脚本用 `-fsanitize=undefined -fno-sanitize-recover=undefined -g -O2` 把 zlib 源码构建两次：一次用除 0004 以外的 `patches/*.patch`，一次用全部补丁。它在每个构建上运行这两个序列。没有 0004 时，每次运行都必须报告位置的有符号溢出。有 0004 时不得有任何报告，并且写入必须以 `Z_DATA_ERROR`“position overflow”失败。四项检查全部成立时脚本以状态 0 退出，最后一行是：
 
 ```
 ok: with the fix: Z_DATA_ERROR position overflow, no report
@@ -56,7 +56,7 @@ gzwrite.c:230:26: runtime error: signed integer overflow: 9223372036854775797 + 
 gzwrite.c:352:25: runtime error: signed integer overflow: 9223372036854775807 + 1 cannot be represented in type 'long int'
 ```
 
-同一文件里还有一次使用真实 `/dev/null` 的运行给出的第一行，那次运行用了 17 分钟（程序较早的一份副本，源码带补丁 0001 至 0003）。为撰写本页在 arm64 macOS 上以默认模式运行了一次，在相同的行得到这两份报告，类型打印为 `off_t`。
+同一文件里还有一次使用真实 `/dev/null` 的运行给出的第一行，那次运行用了 17 分钟（程序较早的一份副本，源码带补丁 0001 至 0003）。在 arm64 macOS 上以默认模式运行了一次，在相同的行得到这两份报告，类型打印为 `off_t`。
 
 ## 范围与严重程度
 
@@ -74,4 +74,4 @@ gzwrite.c:352:25: runtime error: signed integer overflow: 9223372036854775807 + 
 
 ## 与证明的关系
 
-[gz 证明说明](../../proof/gzip.md)把这份报告称为 W7。证明针对的是打过补丁的源码。
+[gzip 证明](../../proof/gzip.md)针对的是打过补丁的源码。

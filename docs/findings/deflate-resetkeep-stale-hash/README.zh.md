@@ -1,11 +1,11 @@
-<!-- source-sha256: be4be52ff40f17a46f0f920748d3ffb714c186f6ec971ceba9e797dec70eb46b -->
+<!-- source-sha256: 728db1cb6c71990c272d498fd27bb362baa38526baac1ee4636fb29bfd8969ab -->
 # `deflateResetKeep`：过时的散列项可能产生错误的匹配
 
 在流的中途直接调用 `deflateResetKeep` 之后，下一个流里可能出现第三个字节不对的匹配，于是它解码出的数据与输入不同。这是数据错误，不是内存错误，没有 sanitizer 会报告它。`zlib.h` 把 `deflateResetKeep` 列为不属于 zlib API。
 
 ## 状态
 
-- 在固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上复现，平台为 arm64 macOS，不带 sanitizer。
+- 在上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上复现，平台为 arm64 macOS，不带 sanitizer。`deflate.c` 在该提交与 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）之间只有版权字符串不同；这里没有记录在该版本上的运行。
 - 它是不是 zlib 的缺陷，尚未向上游核实：zlib.h 没有说明 `deflateResetKeep` 的预期用法。
 - 没有报告给上游。没有补丁：证明排除了直接调用 `deflateResetKeep`（[偏离记录](../../deviations.md)，“直接调用 `deflateResetKeep`”一行）。
 
@@ -36,7 +36,7 @@ cc -I zlib docs/findings/deflate-resetkeep-stale-hash/repro.c \
 ./stale-hash
 ```
 
-为撰写本页在 arm64 macOS 上运行一次的输出（退出状态 1）：
+在 arm64 macOS 上运行一次的输出（退出状态 1）。这份输出只保留在本页：
 
 ```
 MISMATCH seed 13 level 8 wb 15 mem 3 alpha 5 na 508 nb 1292 rc 1 got 1292 first diff 680
@@ -49,7 +49,7 @@ tried 41 bad 3
 
 ## Sanitizer 判定
 
-没有。这些历史中既没有越界访问，也没有未定义的算术；错误出在数据上。没有保留 `report.txt`。
+没有。这些历史中既没有越界访问，也没有未定义的算术；错误出在数据上。
 
 ## 范围与严重程度
 
@@ -65,7 +65,7 @@ tried 41 bad 3
 
 ## 修复
 
-这里没有应用任何修复。`repro.c` 中记录了一次实验：在 `deflateResetKeep` 里 `s->lookahead = 0;` 之后加上 `CLEAR_HASH(s)`，200000 个历史中没有一个不同。撰写本页时没有重新做这个实验。
+这里没有应用任何修复。`repro.c` 中记录了一次实验：在 `deflateResetKeep` 里 `s->lookahead = 0;` 之后加上 `CLEAR_HASH(s)`，200000 个历史中没有一个不同。这个实验没有重复做过。
 
 ## 与证明的关系
 

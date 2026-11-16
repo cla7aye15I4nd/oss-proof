@@ -10,16 +10,14 @@ Sources: `gzlib.c`, `gzread.c`, `gzwrite.c`, `gzclose.c`, `gzguts.h` and the `gz
 
 ## The result
 
-| Goal | Theorem | Module |
-| --- | --- | --- |
-| `Goal.gz_sequence_safety` (`ZlibF/Spec/Safety/GzSafety.lean`) | `gz_sequence_safety_public` | `ZlibF/Proof/public-gz-sequence-safety.lean` |
-| `Goal.gz_refusal` (`ZlibF/Spec/Safety/GzRefusal.lean`) | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
-| `Goal.gz_sequence_nonvacuity` (`ZlibF/Spec/Safety/GzSafety.lean`) | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
-| `Goal.<function>_safety`, 32 goals (`ZlibF/Spec/Safety/GzCalls.lean`) | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
+| Goal | Theorem |
+| --- | --- |
+| `Goal.gz_sequence_safety` | `gz_sequence_safety_public` |
+| `Goal.gz_refusal` | `gz_refusal` |
+| `Goal.gz_sequence_nonvacuity` | `gz_sequence_nonvacuity_public` |
+| `Goal.<function>_safety`, 32 goals | `GzCallSafetyProof.<function>_safety` |
 
-All are safety results and are required. Their theorems are listed in
-`tests/audit/theorems.txt`.
-[progress, Scope](../progress.md#scope) records the level of each result.
+All are safety results, and all are done.
 
 Each of the 31 documented gz functions has its own safety goal, and so has `gzvprintf`, which
 `zlib.h` lists as undocumented and `gzprintf` goes through. Each goal is a clause of the
@@ -35,7 +33,7 @@ sequence goal for the calls of one function:
 The proofs apply `gz_sequence_safety_public`; the `NULL` refusals hold by evaluation. So the rest
 of this page, which is about the sequence goal, is also the proof of the one-function goals.
 Each function also has a functional contract `Goal.<function>`. These contracts are not
-required; [the last section](#functional-results-that-stay) says which are proved.
+required; [the last section](#functional-results-that-stay) says which are done.
 
 The sequence goal covers a program such as this one. The comments name the clause of the goal
 that covers each call.
@@ -142,28 +140,24 @@ and needs no budget. `gzseek` defers its skip and needs none either.
 
 ## Source reports and patches
 
-The invariant has its form because of six reports against the unpatched C. The labels R-1 to
-R-4, F-1 and W7 are the names these reports have in `patches/README.md`, in
-[findings](../findings.md) and in the Lean comments. `patches/README.md` is the authoritative
-list of patches.
+The invariant has its form because of six defects of the unpatched C. The table has one row for
+each. [Findings](../findings.md) lists them with their reproductions, and `patches/README.md` is
+the authoritative list of patches.
 
-- R-1 and R-2 are reproduced under sanitizers. Their fixes are submitted upstream and applied
-  as patches 0002 and 0003.
-- F-1 and W7 are reproduced under sanitizers. R-3 and R-4 are undefined by the letter of C,
-  and no sanitizer reports them. The fixes for these four are the local patches 0004 and 0005,
-  approved by the owner and not submitted upstream.
+- The negative seek position and the partial read followed by an error are reproduced under
+  sanitizers. Their fixes are submitted upstream and applied as patches 0002 and 0003.
+- The two position overflows are reproduced under sanitizers. The unwritten pointer and the
+  caller-buffer lifetime are undefined by the letter of C, and no sanitizer reports them. The
+  fixes for these four are the local patches 0004 and 0005, which are not submitted upstream.
 
 | Case | Behaviour of the unpatched C | Fix and evidence |
 | --- | --- | --- |
-| R-1: negative seek position | After an initial `gzungetc`, `GZ_OFF_MAX - pos` or a later position difference overflowed signed 64-bit arithmetic. | Reproduced: [gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md). Upstream [PR 1361](https://github.com/madler/zlib/pull/1361), applied as patch 0002. The pull request is open. |
-| R-2: partial read then error | In the `COPY` case of `gz_fetch`, `gz_load` could leave a nonzero `x.have` on error before `x.next = out` ran; `gz_read` then copied from a stale pointer. | Reproduced: [gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md). Upstream [PR 1363](https://github.com/madler/zlib/pull/1363), applied as patch 0003. The pull request is open. |
-| R-3: unwritten pointer | `gz_reset` leaves `x.next` unwritten; `gzseek64` and `gz_skip_have` added zero to it. | [Finding](../findings/gz-reset-next-uninitialised/README.md), shown with a probe. Local patch 0005 advances `x.next` only by a nonzero count. A `NULL` initialisation would not do: `NULL + 0` is undefined in C. |
-| R-4: caller-buffer lifetime | A direct read sets `x.next` into the caller's buffer and keeps it with `x.have = 0`. After the caller freed the buffer, `gzseek64` and `gz_skip_have` added zero to it. | [Finding](../findings/gz-next-dangling-after-direct-read/README.md), shown with a probe. Local patch 0005. `gzseek64_dangling_next_ok` shows that the patched seek does not use the pointer. |
-| F-1: read position overflow | A transparent seek on a device whose `lseek` succeeds without moving set `x.pos` to `GZ_OFF_MAX`; the next read overflowed it. | Reproduced: [gzread-pos-overflow](../findings/gzread-pos-overflow/README.md). Local patch 0004 keeps `x.pos + x.have ≤ GZ_OFF_MAX` on return from every call. |
-| W7: write position overflow | A forward seek of a transparent writer to near `GZ_OFF_MAX`, then a write, overflowed `x.pos`. | Reproduced: [gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md). Local patch 0004 refuses a write that would pass `GZ_OFF_MAX`. |
-
-An unconfirmed experiment on `gzsetparams` is kept in the
-[earlier proof notes](../history/proof-earlier-notes.md#gzsetparams-experiment).
+| Negative seek position | After an initial `gzungetc`, `GZ_OFF_MAX - pos` or a later position difference overflowed signed 64-bit arithmetic. | Reproduced: [gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md). Upstream [PR 1361](https://github.com/madler/zlib/pull/1361), applied as patch 0002. The pull request is open. |
+| Partial read, then an error | In the `COPY` case of `gz_fetch`, `gz_load` could leave a nonzero `x.have` on error before `x.next = out` ran; `gz_read` then copied from a stale pointer. | Reproduced: [gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md). Upstream [PR 1363](https://github.com/madler/zlib/pull/1363), applied as patch 0003. The pull request is open. |
+| Unwritten pointer | `gz_reset` leaves `x.next` unwritten; `gzseek64` and `gz_skip_have` added zero to it. | [Finding](../findings/gz-reset-next-uninitialised/README.md), shown with a probe. Local patch 0005 advances `x.next` only by a nonzero count. A `NULL` initialisation would not do: `NULL + 0` is undefined in C. |
+| Caller-buffer lifetime | A direct read sets `x.next` into the caller's buffer and keeps it with `x.have = 0`. After the caller freed the buffer, `gzseek64` and `gz_skip_have` added zero to it. | [Finding](../findings/gz-next-dangling-after-direct-read/README.md), shown with a probe. Local patch 0005. `gzseek64_dangling_next_ok` shows that the patched seek does not use the pointer. |
+| Read position overflow | A transparent seek on a device whose `lseek` succeeds without moving set `x.pos` to `GZ_OFF_MAX`; the next read overflowed it. | Reproduced: [gzread-pos-overflow](../findings/gzread-pos-overflow/README.md). Local patch 0004 keeps `x.pos + x.have ≤ GZ_OFF_MAX` on return from every call. |
+| Write position overflow | A forward seek of a transparent writer to near `GZ_OFF_MAX`, then a write, overflowed `x.pos`. | Reproduced: [gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md). Local patch 0004 refuses a write that would pass `GZ_OFF_MAX`. |
 
 ## Histories
 
@@ -187,7 +181,7 @@ are stated over a different predicate, `GzReachable`; the safety goal does not u
 
 ## The world and its oracle
 
-The world is a record `Fs` beside the heap (`ZlibF/Zlib/gzfs.lean`). A gz computation takes a
+The world is a record `Fs` beside the heap. A gz computation takes a
 world and a heap and returns a value and both, or a fault. The world holds files, the
 descriptor table, `errno`, and an oracle that chooses the result of every `read`, `write`,
 `lseek`, `close`, `open` and caller-format `vsnprintf` within the contract of that call.
@@ -204,7 +198,7 @@ The external calls fall into two groups.
   `fsLseek`, `fsClose` and `fsOpen` take a world and return a result and a new world. For every
   oracle value each is `pure` of a result that depends on the world only: it never faults and
   never changes the heap (`fsRead_pure`, `fsWrite_pure`, `fsLseek_pure`, `fsClose_pure`,
-  `fsOpen_pure`, in `ZlibF/Proof/gzfs.oracle.lean`). `fsRead` returns the bytes it read as a
+  `fsOpen_pure`). `fsRead` returns the bytes it read as a
   value. The translation of `gz_load` then stores them at `buf` (`storeBytes`); that store is
   a checked heap copy, and it is a step of the translated C, not of the system call. The copy
   goes through a temporary block that it creates and frees, so it also advances the heap's
@@ -214,17 +208,16 @@ The external calls fall into two groups.
   cases inside the `size` bytes it was given. The call fails when the oracle says so, and also
   when the formatted output is longer than `INT_MAX` bytes. It faults when the format is not a
   string or is one the model's formatter does not represent, or when the destination is not
-  writable for those bytes. `vsnprintf_in` (`ZlibF/Proof/gzwrite.c.printf-run.lean`) shows that
+  writable for those bytes. `vsnprintf_in` shows that
   the call in `gzvprintf`, whose destination is in the handle's `in` buffer, returns for every
   oracle value, keeps `GzInv` and writes only blocks the handle owns. `zstrerror`, the model
   of `strerror(errno)`, allocates nothing and returns a borrowed string that is not a heap
   block. It changes one heap field, `libcErrorBorrow`, which records which error text is on
   loan; no block, liveness flag or allocator field changes (`zstrerror_run`,
-  `zstrerror_no_malloc`, in `ZlibF/Proof/gzfs.borrowed-error.lean`).
+  `zstrerror_no_malloc`).
 
-The contract of `read` and its budget accounting (`BudgetAcc`) are in
-`ZlibF/Proof/gzfs.read-contract.lean`. The contract of `write` for every oracle value is in
-`ZlibF/Proof/gzwrite.c.comp.lean`.
+The contract of `read` is `fsRead_contract`, with its budget accounting (`BudgetAcc`,
+`fsRead_budget`). The contract of `write` for every oracle value is `fsWrite_contract`.
 
 ## Proof structure
 
@@ -237,17 +230,17 @@ flowchart TD
     A --> E["gzerror_string"]
     A --> P["gzopen_safe, gzopen64_safe, gzdopen_safe"]
     O --> Q["queries, seek, rewind, clearerr"]
-    O --> W["write leaves: gzwrite.c.safety"]
+    O --> W["write leaves"]
     O --> R["six read leaves: GzReadLeaves"]
     A --> M["gzgetc_macro_safe"]
     M --> R
 ```
 
-Safety of one call has one shape, `GzCallSafe i call`: for every heap, world and record in
+Safety of one call has one shape, `GzCallSafe i call`: for every heap, well-formed world and record in
 `GzInv` and every permitted argument, the three parts of clause 2 hold. A *leaf* is a lemma
 that proves `GzCallSafe` for one public function.
 
-The assembly (`ZlibF/Proof/gz.sequence-safety.lean`) has two steps.
+The assembly `gz_sequence_safety_of` has two steps.
 
 - `history_inv` goes by induction on `GzHistory`. The open constructors use the open
   lemmas. A `step` uses part (c) of the call's leaf. A `caller` step uses
@@ -265,10 +258,9 @@ six calls that need the read budget.) `gz_sequence_safety_of` takes the bundle a
 
 ## The invariant `GzInv`
 
-`GzInv h i s` (`ZlibF/Spec/Common/GzInv.lean`) is the representation invariant of an open
-handle `i` with record `s`. It has a common part and a part per mode. Other modules use its
-interface lemmas (`GzInv.common`, `GzInv.reader`, `GzInv.writer`, `GzInv.state_eq`,
-`GzInv.pos_lower`) and do not unfold the definition.
+`GzInv h i s` is the representation invariant of an open handle `i` with record `s`. It has a
+common part and a part per mode. The proofs use it through its interface lemmas
+(`GzInv.common`, `GzInv.reader`, `GzInv.writer`, `GzInv.state_eq`, `GzInv.pos_lower`).
 
 The fields it speaks about are those of `gz_state` in `gzguts.h`:
 
@@ -340,7 +332,7 @@ the page uses them later.
   `c ≤ b ≤ size`, and `avail_out = size - b`. The embedded stream is in the deflate history,
   with no gzip header record.
 
-The complete statement is the definition `GzInv` in `ZlibF/Spec/Common/GzInv.lean`, with its
+The complete statement is the definition `GzInv`, with its
 parts `GzCommon`, `GzReadInv` and `GzWriteInv`; where this summary and the definition differ,
 the definition holds.
 
@@ -361,7 +353,7 @@ while a skip is pending, and the caller consumes it before it returns.
 
 `gz_open` does not write `strm.state`, `strm.next_in` or `x.next`. In the model a fresh
 pointer is `NULL`. In C it is indeterminate, and reading it is undefined
-([safety, section 3](../spec/safety.md#uninitialised-memory)).
+([safety, uninitialised memory](../spec/safety.md#uninitialised-memory)).
 
 - `strm.state` and `strm.next_in`: the invariant states `strm.state = NULL` while `size = 0`.
   The proof shows safety for the translation. It does not show that C code which read an
@@ -402,15 +394,15 @@ concatenated members.
 `gz_read` has three data paths: consume buffered output, read transparent data directly into
 the caller's buffer, or inflate directly into a large enough caller buffer.
 
-The read helpers compose in `ZlibF/Proof/gz.read-assembly.lean`:
+The read helpers compose in this order:
 
 | Lemma | Statement |
 | --- | --- |
-| `gz_look_safe` | `gz_look` is safe (`gz.read-look.lean`). |
-| `gz_decomp_safe_of` | `gz_decomp` is safe, given that an `inflate` call from mode `BAD` or `MEM` moves neither buffer (`gz.read-decomp.lean`). That fact is `inflateStuckNoOutput_holds` (`inflate.c.stuck-no-output.lean`). |
-| `gz_fetch_safe_of` | `gz_fetch` is safe, given the two above (`gz.read-fetch.lean`). |
-| `gzSkipRead_holds` | `gz_skip` is safe, given `gz_fetch` (`gzread.c.skip-fetch.lean`). |
-| `gz_read_safe_of` | `gz_read` is safe, given the three above (`gz.read-read.lean`). |
+| `gz_look_safe` | `gz_look` is safe. |
+| `gz_decomp_safe_of` | `gz_decomp` is safe, given that an `inflate` call from mode `BAD` or `MEM` moves neither buffer. That fact is `inflateStuckNoOutput_holds`. |
+| `gz_fetch_safe_of` | `gz_fetch` is safe, given `gz_look` and `gz_decomp`. |
+| `gzSkipRead_holds` | `gz_skip` is safe, given `gz_fetch`. |
+| `gz_read_safe_of` | `gz_read` is safe, given `gz_skip`, `gz_fetch` and `gz_decomp`. |
 | `gzread_step`, `gzfread_step` | The public calls, from `gz_read`. |
 
 Each embedded `inflate` call uses the stream results of [stream decoding](inflate.md): the
@@ -420,13 +412,11 @@ embedded stream is reachable, so the full contract of one call applies.
 
 Every reading loop has a measure, a natural number computed from the world and the handle.
 With `ReadsFinite` the measure starts below `2^64` and falls on every trip that continues. The
-table gives the shape of each measure; the exact definitions are `fetchMeasure`
-(`gz.read-fetch.lean`), `fetchRank` (`gz.read-fetch-specs.lean`) and `readMeasure`
-(`gz.read-read.lean`).
+table gives the shape of each measure; the exact definitions are `fetchMeasure`,
+`fetchRank` and `readMeasure`.
 
 Write `inputLeft` for the read budget of the descriptor plus `avail_in`. `gz_avail` raises
-`avail_in` by the bytes it reads, and the budget falls by the same bytes (`gz_avail_budget`,
-`gz.read-budget.lean`). So `inputLeft` never rises.
+`avail_in` by the bytes it reads, and the budget falls by the same bytes (`gz_avail_budget`). So `inputLeft` never rises.
 
 | Loop | Measure | Why it falls |
 | --- | --- | --- |
@@ -434,7 +424,7 @@ Write `inputLeft` for the read budget of the descriptor plus `avail_in`. `gz_ava
 | `gz_fetch` | `4 · inputLeft + c`, with `c` = 2 for `LOOK`, 1 for `GZIP` at the head of a member, 0 for `COPY`, 3 otherwise | It falls on each trip that continues. An empty gzip member costs input, so endless empty members are excluded by the budget. |
 | `gz_read` | `readMeasure`: with `L = min(len, GZ_OFF_MAX - pos)`, it is `L / 8 + Q + 2·E + 3·R + fetchRank`. `Q` is 1 with no buffered output; 2 with fewer than 16 buffered bytes, `err = Z_OK` and `x.pos + x.have < GZ_OFF_MAX`; 0 otherwise. `E` is 0 at the end of the input and 1 before it. `R` is 1 while `pos` is below `GZ_OFF_MAX`. `fetchRank` is `4 · inputLeft`, plus the read budget, plus 2 while a gzip member is under way past its head, plus 2 until `how` is `COPY` | It falls on each trip that continues. Neither `gz_decomp` nor `gz_fetch` raises `fetchRank`. |
 | `gzgets` | Its loop variable `left` | It falls on each trip that continues. |
-| `gz_skip` | `skipMeasureF` | `gzSkipTerminates_holds` (`gzread.c.skip-terminates.lean`), from `GzInvUpToSkip`. |
+| `gz_skip` | `skipMeasureF` | `gzSkipTerminates_holds`, from `GzInvUpToSkip`. |
 
 ### Reader wrappers
 
@@ -456,7 +446,7 @@ and not `x.pos`.
 
 It is the default way an application calls `gzgetc`, so the history has a constructor for it
 (`GzHistory.getcMacro`) and the goal has a clause for it. The translation is
-`Zlib.ZlibH.gzgetc`; the proof is `gzgetc_macro_safe` (`ZlibF/Proof/zlib.h.gzgetc-macro.lean`).
+`Zlib.ZlibH.gzgetc`; the proof is `gzgetc_macro_safe`.
 
 The macro has two branches.
 
@@ -483,19 +473,22 @@ and the codec. `gz_comp` writes the input directly for transparent output, or al
 forward seek by writing zeros. `gz_vacate` compresses pending data and moves the rest to the
 front.
 
-The write leaves are in `ZlibF/Proof/gzwrite.c.safety.lean`: `gzwrite_step`, `gzfwrite_step`,
-`gzputc_step`, `gzputs_step`, `gzprintf_step`, `gzvprintf_step`, `gzflush_step`,
-`gzsetparams_step` and `gzclose_w_step`. They use the facts of `gz_error`, which follow from
-the invariant (`ZlibF/Proof/gzlib.c.error-inv-premises.lean`).
+The write leaves are `gzwrite_step`, `gzfwrite_step`, `gzputc_step`, `gzputs_step`,
+`gzprintf_step`, `gzvprintf_step`, `gzflush_step`, `gzsetparams_step` and `gzclose_w_step`.
+They use the facts of `gz_error`, which follow from the invariant.
 
-The loops of `gz_comp` terminate in every world, with no budget
-(`ZlibF/Proof/gzwrite.c.comp.lean`). The write-out loop is measured by the bytes still to
-write, and the transparent loop by the pending input. Both fall because a `write` of a
-nonempty buffer returns `-1` or a count between 1 and the length. That is the trusted fact
-about `write` [above](#trusted-not-in-the-statement-the-world-model). A `write` that returned 0
-forever would make `gz_comp` spin in the C; [progress](../progress.md), section "Observations",
-records that reading of the code. The deflate loop has its own measure, which falls whenever
-the loop continues.
+The loops of `gz_comp` terminate in every world, with no budget. The write-out loop is measured
+by the bytes still to write, and the transparent loop by the pending input. Both fall because a
+`write` of a nonempty buffer returns `-1` or a count between 1 and the length
+(`fsWrite_contract`). That is the trusted fact about `write`
+[above](#trusted-not-in-the-statement-the-world-model). The deflate loop has its own measure,
+which falls whenever the loop continues.
+
+No world of the model has a `write` that returns 0 for a nonempty buffer, so the goal says
+nothing about a system that has one. For the worlds of the model, part (b) of clause 2 states
+that every writing call returns. **To confirm**: by a reading of the C, a `write` that returned
+0 forever would make `gz_comp` loop forever, because neither write loop advances on a count
+of 0. No theorem states this.
 
 `gzvprintf` writes a sentinel at `next[size - 1]` and formats with capacity `size`. A length
 outside `1..size-1`, or a lost sentinel, makes `gzvprintf` refuse the result.
@@ -510,7 +503,7 @@ skip out.
 `gzoffset64` queries the descriptor position and subtracts buffered compressed input in read
 mode. These are different positions.
 
-`gzseek64_step` and `gzseek_step` (`ZlibF/Proof/gz.inv-seek.lean`) hold for every world. The
+`gzseek64_step` and `gzseek_step` hold for every world. The
 paths are:
 
 - a refusal (a serious error, a bad `whence`, a target outside the range of patch 0002):
@@ -529,19 +522,17 @@ So the world stays well formed and the open descriptors are kept.
 `gz_error` frees the old owned message first. A memory error allocates no new message; any
 other message owns the allocation `path + ": " + text`. `gzerror` returns the memory-error
 literal, the current message or the empty literal, and may store the code into the caller's
-four-byte cell. `gzerror_step` and `gzerror_string` (`ZlibF/Proof/gz.inv-frame.lean`) show
+four-byte cell. `gzerror_step` and `gzerror_string` show
 that the store keeps the invariant and that the returned pointer is a string in the heap
 after the call. The string is freed by the next call that reaches `gz_error`; the caller
 premise on `gzprintf` arguments excludes passing it back to the same handle.
 
 ## Open and close
 
-`gzopen_safe`, `gzopen64_safe` and `gzdopen_safe` show that a fresh handle is in `GzInv`
-(`ZlibF/Proof/gz.inv-open.lean`, `gz.inv-open-fresh.lean`). An open gives `size = 0`, so
+`gzopen_safe`, `gzopen64_safe` and `gzdopen_safe` show that a fresh handle is in `GzInv`. An open gives `size = 0`, so
 every clause about buffers or buffered output holds vacuously.
 
-`gzclose` reads the mode and runs `gzclose_r` or `gzclose_w`
-(`ZlibF/Proof/gz.inv-close.lean`). A handle in `GzInv` is a reader or a writer, so `gzclose`
+`gzclose` reads the mode and runs `gzclose_r` or `gzclose_w`. A handle in `GzInv` is a reader or a writer, so `gzclose`
 never refuses. `gzclose_r` ends the codec when it exists, frees the buffers, the message, the
 path and the record, and closes the descriptor. `gzclose_w` also resolves pending zeros and
 finishes the output first. Cleanup happens also when those operations fail. A successful
@@ -570,16 +561,16 @@ So clause 2, and its part (b) for a reading call, apply to a real call with a no
 
 ## Functional results that stay
 
-`tests/audit/goals.txt` lists one functional contract `Goal.<function>` for each of the 31
-documented gz functions and for `gzvprintf`: 32 goals. None is required for the safety
-results. Eight of them are proved (`tests/audit/proved-goals.txt`):
+There is one functional contract `Goal.<function>` for each of the 31 documented gz functions
+and for `gzvprintf`: 32 goals. None is required for the safety results. Eight of them are
+done:
 
 - `Goal.gzbuffer`, `Goal.gzeof`, `Goal.gzerror`, `Goal.gzclearerr`, `Goal.gzdopen`: full
   contracts of single functions.
 - `Goal.gzoffset64`, `Goal.gzoffset` and `Goal.gzrewind`: stated for the regular-file world
   (premise `RegularOs fs`).
 
-Not proved, and not needed by the safety results:
+Not done and not planned; the safety results do not need them:
 
 - the other 24 functional contracts: `Goal.gzopen`, `Goal.gzopen64`, `Goal.gzclose`,
   `Goal.gzclose_r`, `Goal.gzclose_w`, `Goal.gzread`, `Goal.gzfread`, `Goal.gzgetc`,
@@ -588,4 +579,6 @@ Not proved, and not needed by the safety results:
   `Goal.gzflush`, `Goal.gzsetparams`, `Goal.gzseek`, `Goal.gzseek64`, `Goal.gztell` and
   `Goal.gztell64`;
 - `Goal.gz_sequence`, the functional sequence goal;
-- `Goal.gz_initialisation_domain`, the functional contract of `gzopen`.
+- `Goal.gz_initialisation_domain`: `gzopen` returns a handle in its initial state when the mode
+  string is valid, the `open` of the world succeeds and no allocation fails; and every valid
+  mode has a concrete successful open.

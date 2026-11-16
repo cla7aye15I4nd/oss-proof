@@ -1,7 +1,7 @@
-<!-- source-sha256: 4eaaccb53e23b4baaa31eceef506732f380e961c1c2e2df32ba50bac0ea3201d -->
+<!-- source-sha256: c360f5653468bf4cd77b653aa1f3e86d7afbea8b469ee90d5c9e712c1bb87ab0 -->
 # 上游拉取请求草稿：x.next 前进零
 
-供所有者提交。一个拉取请求覆盖 [gz-reset-next-uninitialised](README.md) 和 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)；改动是 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch)。尚未发送任何内容。（译注：向上游提交的是英文原文；下面是它的中文译文。）
+一个拉取请求覆盖 [gz-reset-next-uninitialised](README.md) 和 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)；改动是 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch)。尚未发送任何内容。“测试”一节列出的运行中，只有探针的运行有保留下来的输出（两个发现各自的 `report.txt`）。
 
 ---
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: c57cb53665d71bfd1fd75552fac73bb0bb4662f78328b175698824425e6fadbc -->
+<!-- source-sha256: 4fa82bd892ff22cd40a9cddc152d81c7d28633149a8c7ee9dbbeacd0173b61df -->
 # `inflateCopy` 比较指向无关对象的指针
 
 如果一个流已经解码过固定码块，而且之后没有解码过动态码块，对它调用 `inflateCopy` 时，它用 `>=` 和 `<=` 比较一个指向静态表的指针和一个指向堆上 inflate 状态的指针。C 只对指向同一对象的指针定义这两个运算符。zlib 的维护者只读本页，就能复现这份报告并作出判断。
@@ -6,7 +6,7 @@
 ## 状态
 
 - 按 C 标准是未定义行为（C11 6.5.8p5：对指向不同对象的指针做关系比较）。在 `inflateCopy` 的文档用法之内。
-- 在未修改的固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上，由 AddressSanitizer 的指针对检查报告，平台为 x86_64 Linux 和 arm64 macOS。
+- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上，由 AddressSanitizer 的指针对检查报告，平台为 x86_64 Linux 和 arm64 macOS。`inflate.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同，所以那里的语句也一样；这里没有记录在该版本上的运行。
 - 没有观察到错误结果：不开指针对检查时，同一程序的 `inflateCopy` 返回 `Z_OK`。
 - 修复已作为[拉取请求 #1369](https://github.com/madler/zlib/pull/1369) 提交上游。维护者于 2026-11-06 答复“Applied”。2026-11-14 读取的上游 `develop` 最新提交（`99623ef7`）还不包含它。被验证的源码把所提交的那个提交作为[补丁 0001](../../../patches/README.md) 应用。
 
@@ -28,7 +28,7 @@ inflateCopy(&copy, &strm);          /* inflate.c:1383：state->lencode >= state-
 
 `encoded` 有 23 个字节：一个 zlib 头和一个最终固定码块，解码为 2048 个字节 `A`。完整程序是 [`repro.c`](repro.c)。没有哪个缓冲区过小，也没有两个缓冲区重叠。
 
-固定的 `inflate.c` 中的语句（第 1383 和 1384 行）：
+未打补丁的 `inflate.c` 中的语句（第 1383 和 1384 行）：
 
 ```c
 if (state->lencode >= state->codes &&
@@ -63,7 +63,7 @@ inflate=0 produced=1 fixed_block=1
 0x78f4037e0668 is located 1384 bytes inside of 7176-byte region [0x78f4037e0100,0x78f4037e1d08)
 ```
 
-这是报告中的五行；7176 字节的区域是 `inflateInit2_`（`inflate.c:206`）分配的 inflate 状态。为撰写本页在 arm64 macOS（Apple clang）上运行了一次，在同一行得到相同的判定。
+这是报告中的五行；7176 字节的区域是 `inflateInit2_`（`inflate.c:206`）分配的 inflate 状态。在 arm64 macOS（Apple clang）上运行了一次，在同一行得到相同的判定。
 
 ## 范围与严重程度
 
@@ -79,8 +79,8 @@ inflate=0 produced=1 fixed_block=1
 
 [拉取请求 #1369](https://github.com/madler/zlib/pull/1369)，提交 `300fea14353d2e2ca61210aca7c48861ded5788c`：用指针相等 `state->lencode == state->codes` 判断这张表是否属于状态自身，代替那两个关系比较。只要 `lencode` 指向状态自己的数组，它就指向数组开头：`inflate.c` 在 `state->next = state->codes` 之后紧接着用 `state->next` 给它赋值（第 118、820 和 898 行）。所以相等判断选出的情形与原来相同。随后 `copy->lencode` 被设为 `copy->codes`，`distcode` 保持原来的偏移。
 
-[补丁 0001](../../../patches/README.md) 正是这个提交。上游分支包含该修复、固定的提交越过它之后，补丁就会删除。
+[补丁 0001](../../../patches/README.md) 正是这个提交。
 
 ## 与证明的关系
 
-Lean 翻译跟随打过补丁的源码。在指针模型中，对指向不同对象的两个指针比较大小是故障，所以未打补丁的语句无法被证明是安全的。本页的复现有意构建未打补丁的源码。[复制回归测试](../../../tests/regression/inflate-copy/README.md)构建打过补丁的源码，并把真实 C 中成功的 `inflateCopy` 调用与翻译比较；这种比较是忠实性的证据，不是证明。
+Lean 翻译跟随打过补丁的源码。在指针模型中，对指向不同对象的两个指针比较大小是故障，所以未打补丁的语句无法被证明是安全的。本页的复现有意构建未打补丁的源码。一项差分测试构建打过补丁的源码，并把真实 C 中成功的 `inflateCopy` 调用与翻译比较；这种比较是忠实性的证据，不是证明。

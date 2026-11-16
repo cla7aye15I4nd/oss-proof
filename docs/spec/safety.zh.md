@@ -1,4 +1,4 @@
-<!-- source-sha256: a608fe3f0025fc746088383d8dcc079178d4925af873aac82ff0a6a087b2135e -->
+<!-- source-sha256: e39a47801ead55ee9a8780540b0390fff83e875aa9d5bb4ee03b12bcf4b51f06 -->
 
 # 安全性：目标陈述了什么
 
@@ -24,7 +24,7 @@ C 的错误码也是正常返回，同样在覆盖范围内，例如输入畸形
 
 这些目标对每个参数值、每个输入字节序列、每次 `malloc` 的每种结果都成立，并且覆盖调用序列能到达的每个状态。
 输出字节是什么、返回哪个码，属于功能行为。它不是安全性的一部分，
-也不是安全结论所必需的（见[进度，范围](../progress.md#scope)）。
+也不是安全结论所必需的。
 
 ## 一个完整的例子
 
@@ -96,12 +96,9 @@ flowchart LR
 
 ## 已证明的内容与所作的假设
 
-**已证明。** 必需目标写在 `tests/audit/public-api.json` 中：
-86 个有文档的函数各自的 `safety_goal`，`safety_goals` 列表里另外的目标（序列目标、拒绝目标和 `gzvprintf` 的目标），
-以及 `nonvacuity_goals`。每个目标都有一条类型与它完全相同的定理，列在 `tests/audit/theorems.txt` 中；
-目标本身列在 `tests/audit/proved-goals.txt` 中。
-每项结论的层级、它的验收运行所在的提交，以及目标的个数，记录在[进度](../progress.md#scope)中；
-各层级的定义见[术语表](../glossary.md#status)。
+**已证明。** 必需目标共 99 个：86 个有文档的函数各自的安全目标、四个序列目标、三个拒绝目标、`gzvprintf` 的目标，
+以及五个非空性目标。每个目标都有一条类型与它完全相同的定理：它们全部完成。
+[附录](#where-the-goals-are)按函数列出这些目标，[进度](../progress.md#functions)列出每一个目标。
 
 **假设。**
 
@@ -131,7 +128,7 @@ flowchart LR
 由实现定义的选择，按所选构建来陈述。未指明的结果，凡是影响调用结果的，都要对每一种容许的结果给出证明。
 这两类都不是 UB。
 
-下文用到的一些术语在[术语表](../glossary.md)中：目标、历史、拒绝、非空性、已登记。
+下文用到的一些术语在[术语表](../glossary.md)中：目标、历史、拒绝、非空性。
 其余术语在首次出现的地方定义。
 
 ## 一次调用 {#1-what-a-function-theorem-must-say}
@@ -269,6 +266,10 @@ flowchart LR
 非空性目标排除了这种情况：有一个具体的堆满足初始化的前提，
 初始化在它上面成功，并给出一个可达流
 （`Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`）。
+如果不存在任何协议，针对“每种回调协议”的目标同样会平凡地成立。
+`Goal.inflateBack_call_domain` 排除了这种情况：有一个具体的历史、一对具体的回调和一个具体的协议，
+同时满足 `Goal.inflateBack_safety` 调用子句的每个前提
+（[回调](../proof/callbacks.md#the-caller-protocol)）。
 
 gzip 文件接口和回调解码器的结构相同，各有自己的历史：
 `GzHistory`（[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)）和
@@ -324,7 +325,7 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 | A8 | 每个字节对象少于 `2^63` 字节。这是平台的事实，不是调用者的责任。 | `ByteObjectsFit`（见[平台](platform.md)） |
 
 对初始化之后的调用，有三种记录在 A1 之外，既不可达，也不被拒绝
-（见[偏离记录](../deviations.md)的“被拒绝的流”一行）：
+（见[偏离记录](../deviations.md#stream-calls-inflate-and-deflate)的“被拒绝的流”一行）：
 `state` 字段里是一个垃圾地址的记录，例如从未初始化的 `z_stream`；
 `state` 指向一个已释放状态的记录；
 `state` 指向另一种状态的记录（把 deflate 状态传给 inflate 函数）。
@@ -346,8 +347,8 @@ gz 历史在两次调用之间还有一步留给外部：文件系统和描述�
 | U3 | 不解引用空指针 | 能。 |
 | U4 | 不在释放后使用，不重复释放 | 能。已释放的块编号从不复用，所以悬空指针会出故障。 |
 | U5 | 不非法使用未初始化数据 | 整数：每条定理对每个取值都成立。指针：不能；没有定理陈述它，它留给源码审查（见[下文](#uninitialised-memory)）。 |
-| U6 | 没有有符号溢出 | 能，前提是翻译在该处用了带检查的有符号运算。如果同一函数中前面的一个判断已把操作数限制在范围之内，翻译就用普通运算符（见[工作规则的“翻译”一节](../../AGENTS.md#translation)）；这时排除溢出的是那个判断，模型不作检查。 |
-| U7 | 没有非法移位 | 翻译使用带检查的移位运算之处，能。按字面量计数的移位，以及少数其他移位，用普通运算符写成，模型不检查它们（[翻译，形式 4](../design/translation.md#forms-not-covered-by-the-four-accepted-normalisations-the-owner-has-not-decided)）。 |
+| U6 | 没有有符号溢出 | 能，前提是翻译在该处用了带检查的有符号运算。如果同一函数中前面的一个判断已把操作数限制在范围之内，翻译就用普通运算符（见[翻译，规范化 4](../design/translation.md#the-accepted-normalisations)）；这时排除溢出的是那个判断，模型不作检查。 |
+| U7 | 没有非法移位 | 翻译使用带检查的移位运算之处，能。按字面量计数的移位，以及少数其他移位，用普通运算符写成，模型不检查它们（见[翻译，形式 4](../design/translation.md#forms-not-covered-by-the-four-accepted-normalisations)）。 |
 | U8 | 不写只读对象 | 部分能：字节对象和静态表带有只读标志，其他对象没有。 |
 | U9 | `memcpy` 的范围不重叠 | 能，对每次 `memcpy` 调用都检查。 |
 | U10 | 访问遵守 C 的类型和对齐要求 | 不能。模型没有类型标签，没有对齐，也没有完整的 ABI 布局（见[下文](#object-representation)）。 |
@@ -429,9 +430,9 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 ## 安全性之外
 
 - **功能正确性。** 输出字节是什么，调用返回哪个码。它不是安全结论所必需的；
-  哪些功能结论在计划之内，见[进度，范围](../progress.md#scope)。
-  功能目标在 `ZlibF/Spec/Functional/` 中；已经证明的予以保留，
-  安全证明所依赖的功能性事实在范围之内。
+  哪些功能结论在计划之内，见[进度](../progress.md#not-planned)。
+  有些功能目标已有定理，每个 [API 条目](api/README.md)都说明它的功能目标有没有定理。
+  安全证明所依赖的功能性事实，作为该证明的一部分得到证明。
   预期的行为见[格式](format/README.md)和 [API 契约](api/README.md)。
 - **其他配置。** 自定义分配器，以及默认 x86_64 Linux LP64 静态构建之外的每一种构建。
 - **环境。** 编译器和操作系统的正确性、性能、栈深度，以及针对解压炸弹的限制。
@@ -439,24 +440,14 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 
 畸形输入在安全性的定义域之内：错误返回不得掩盖故障。
 
-## 附录：目标在哪里 {#where-the-goals-are}
+## 附录：按函数列出的安全目标 {#where-the-goals-are}
 
-每个安全目标都是一个 Lean 定义 `ZlibF.Spec.Public.Goal.<name>`。它位于 `ZlibF/Spec/Safety/`，
-有两个例外：`Goal.compressBound` 和 `Goal.compressBound_z` 在
-`ZlibF/Spec/Functional/Queries.lean` 中（见下表中的那一行）。
+每个安全目标都是一个 Lean 定义 `ZlibF.Spec.Public.Goal.<name>`。安全目标的命题不使用任何功能规格：
+既不用格式模型，也不用结果契约。只有两个例外：`Goal.compressBound` 和 `Goal.compressBound_z`（见下表中的那一行）。
+gzip 文件接口和回调解码器的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`、各个 `Goal.gz*` 结果契约）
+不是必需的（见[拆分设计](../design/safety-functional-split.md)）。
 
-`ZlibF/Spec/Common/` 存放目标用到的定义，不存放关于公开函数的目标。不变量和 gz 前提也在其中：
-`Good` 在 `ZlibF/Spec/Common/InflateGood.lean`，`DGood` 在 `ZlibF/Spec/Common/DeflateGood.lean`，
-`GzInv`、`ReadsFinite` 和 `NeedsReadBound` 在 `ZlibF/Spec/Common/GzInv.lean`。
-
-这两个目录中的模块都不得导入功能规格（`ZlibF/Spec/Functional/`），
-`ZlibF/Spec/` 下的模块都不得导入证明模块。
-快速关卡运行 `scripts/check-spec-layers.py`，它会拒绝这样的导入，不论是直接导入还是经由其他模块导入；
-对这些规则它没有例外。
-gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`、各个 `Goal.gz*` 结果契约）
-在 `ZlibF/Spec/Functional/` 中；它们不是必需的（见[拆分设计](../design/safety-functional-split.md)）。
-
-| 函数 | 安全目标 | 文件 |
+| 函数 | 安全目标 | Lean 源文件 |
 | --- | --- | --- |
 | `inflate`、`deflate` 以及对存活流的其他调用 | `Goal.<function>_safety`：对 `NULL` 流或不一致的流的拒绝，以及在可达流上再做一次调用（见[调用与调用序列](#2-calls-and-sequences)） | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
 | `inflateEnd`、`deflateEnd` | `Goal.<function>_safety`：对 `NULL` 流或不一致的流的拒绝，以及在可达流上，流释放它拥有的块 | [Safety/Streams.lean](../../ZlibF/Spec/Safety/Streams.lean) |
@@ -472,9 +463,7 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 | gzip 文件句柄的每段历史 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)、[Safety/GzRefusal.lean](../../ZlibF/Spec/Safety/GzRefusal.lean) |
 | `inflateBackInit_`、`inflateBack`、`inflateBackEnd` | `Goal.<function>_safety`：对初始化，是 `zlib.h` 允许的每一次调用；对另外两个，是历史上的调用和各种拒绝 | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
 | 回调解码器的每段历史 | `Goal.inflate_back_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
-| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
+| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.inflateBack_call_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
-`tests/audit/public-api.json` 是审计所用的清单。它为每个函数给出一个 `safety_goal` 和一个 `functional_goal`。
-必需集合是每个 `safety_goal`、`safety_goals` 列表和 `nonvacuity_goals` 列表。
-`open_safety` 列表列出还没有定理的必需目标（有没有这样的目标，见[进度](../progress.md#scope)）。
-`zlib.h` 在“undocumented functions”（未文档化的函数）注释之下声明的函数没有必需目标，只有 `gzvprintf` 例外：它的目标 `Goal.gzvprintf_safety` 在 `safety_goals` 列表里。
+`zlib.h` 在“undocumented functions”（未文档化的函数）注释之下声明的函数没有必需目标，只有 `gzvprintf` 例外：
+`gzprintf` 经由它实现，它的目标 `Goal.gzvprintf_safety` 是必需的。

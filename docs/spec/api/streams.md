@@ -35,7 +35,7 @@ state. A successful copy starts a second lifetime with its own End. The diagram 
 ordinary lifetimes; the function entries give the rules for finishing, memory errors, recovery
 and the advanced operations.
 
-The sequence rule (`A-sequence`): calls that satisfy their own Pre and the call-order rules
+The sequence rule: calls that satisfy their own Pre and the call-order rules
 keep the stream invariant, terminate without a fault, leave unrelated memory unchanged and
 account for every allocation. For safety this is the statement
 `StreamSequenceSafety`, for both kinds of stream. Init establishes the invariant; no call
@@ -43,9 +43,9 @@ assumes it.
 
 ## The rule identifiers
 
-Each rule in the tables below has a stable identifier of the form `A-…`, so that proof
-documents and the Lean specification files can cite it. The identifiers carry no status: a
-rule with an identifier is not thereby a theorem.
+Each rule in the tables below has an identifier of the form `A-…`. The comments of the Lean
+functional specifications cite a rule by it. A rule with an identifier is not thereby a
+theorem.
 
 ## Stream storage and ownership
 
@@ -151,7 +151,7 @@ safety results:
 - With a gzip `extra` field, the C computes `2 + extra_len` at `unsigned` width before it adds
   the result to the bound, so that sum can wrap for an extreme `extra_len`.
 - The contracts on these pages assume `extra_len <= 65535`. The functional goal
-  `Goal.deflateBound_z` is stated for every header length; it is not required.
+  `Goal.deflateBound_z` (not planned; not done) is stated for every header length.
 
 The safety goals `Goal.deflateBound_safety` and `Goal.deflateBound_z_safety` say that the
 call itself is safe. They say nothing about the size of the later output.

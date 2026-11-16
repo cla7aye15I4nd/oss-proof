@@ -161,7 +161,7 @@ theorem PULL_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
       h'.istates i = h.istates i ∧
       backMeasure pr h' l' log' ≤ backMeasure pr h l log := by
   by_cases hz : l.have_ = 0
-  · obtain ⟨k, pointer, after, bytes, run, len, ext, window', fresh, inv'⟩ := pr.inStep h log l.next I.proto
+  · obtain ⟨k, pointer, after, bytes, run, len, ext, window', fresh, inv'⟩ := pr.inStep h log l.next I.valid I.proto
     obtain ⟨fit', blk'⟩ := I.platform.1 h log l.next k pointer after I.proto I.fit run
     obtain ⟨z, s, valid, win, size⟩ := I.valid
     have stateOut := pr.disjoint.1

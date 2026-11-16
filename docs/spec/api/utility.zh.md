@@ -1,4 +1,4 @@
-<!-- source-sha256: 757e1b41c5b50c83440b3f85820acc17c90b732a249fc88ca6acb524a618b607 -->
+<!-- source-sha256: 04c6e8b7eb97f0a314147dc9028125547965bdf8de2dbb2e2373bac3b2305847 -->
 
 # 缓冲区工具与库信息
 
@@ -20,15 +20,12 @@
 这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。
 超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。
 
-**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有已登记定理陈述的，都**尚未由证明确认**；安全结论不需要它们。各目标的状态见[进度](../../progress.md)。
+**已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有定理陈述的，都**尚未由证明确认**；安全结论不需要它们。哪些目标已完成，见[进度](../../progress.md)。
 
-安全目标在 [Safety/Utilities.lean](../../../ZlibF/Spec/Safety/Utilities.lean) 和
-[Safety/Queries.lean](../../../ZlibF/Spec/Safety/Queries.lean) 中；它们所实例化的命题
-（`CompressorSafety`、`UncompressCountedSafe`、`UncompressSingleSafe`）定义在
-[Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean) 中。功能目标在
-[Functional/Utilities.lean](../../../ZlibF/Spec/Functional/Utilities.lean) 和
-[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean) 中。
-[Calls.lean](../../../ZlibF/Spec/Common/Calls.lean) 固定翻译后的参数和结果。
+缓冲区工具的安全目标实例化三个命题
+（[Common/Utilities.lean](../../../ZlibF/Spec/Common/Utilities.lean)）：四个压缩函数用
+`CompressorSafety`，`uncompress2` 和 `uncompress2_z` 用 `UncompressCountedSafe`，
+`uncompress` 和 `uncompress_z` 用 `UncompressSingleSafe`。
 
 缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。
 
@@ -116,7 +113,7 @@ NULL 目的缓冲区，会在任何长度写入之前返回 `Z_STREAM_ERROR`。
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和缓冲区都不存在。
     - *写入。* 只写 `dest` 处的字节，至多为进入时给出的 `*destLen` 个；参数被拒绝时不写任何内容，长度值也不变。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress2_z`，安全结论不需要它。
+- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress2_z`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2_z"><summary>完整返回条件与边界</summary>
 
@@ -157,7 +154,7 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
 **判读要点。**
 
 - 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- 普通适配器先读取非 NULL 的 destLen 单元，且每次返回都写回长度；NULL destLen 不在这个前置条件内。
+- `compress2` 是包在 `compress2_z` 外面的包装函数：它先读取 destLen 单元，不检查是否为 NULL，且每次返回都写回长度。因此 NULL destLen 不在这个前置条件内。
 - 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。-1 选择级别 6。
 
 ### 调用条件与效果 {#api-compress2-contract}
@@ -185,7 +182,7 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和缓冲区都不存在。
     - *写入。* 只写 `dest` 处的字节，至多为进入时给出的 `*destLen` 个；参数被拒绝时不写任何内容，长度值也不变。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress2`，安全结论不需要它。
+- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress2`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress2"><summary>完整返回条件与边界</summary>
 
@@ -242,7 +239,7 @@ int ZEXPORT compress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_si
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和缓冲区都不存在。
     - *写入。* 只写 `dest` 处的字节，至多为进入时给出的 `*destLen` 个；参数被拒绝时不写任何内容，长度值也不变。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress_z`，安全结论不需要它。
+- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress_z`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress_z"><summary>完整返回条件与边界</summary>
 
@@ -275,7 +272,7 @@ int ZEXPORT compress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong so
 **判读要点。**
 
 - 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- 普通适配器先读取非 NULL 的 destLen 单元，且每次返回都写回长度；NULL destLen 不在这个前置条件内。
+- `compress` 调用包装函数 `compress2`，后者先读取 destLen 单元，不检查是否为 NULL，且每次返回都写回长度。因此 NULL destLen 不在这个前置条件内。
 - 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。使用默认级别 -1，即级别 6。
 
 ### 调用条件与效果 {#api-compress-contract}
@@ -300,7 +297,7 @@ int ZEXPORT compress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong so
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和缓冲区都不存在。
     - *写入。* 只写 `dest` 处的字节，至多为进入时给出的 `*destLen` 个；参数被拒绝时不写任何内容，长度值也不变。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress`，安全结论不需要它。
+- **不在本目标内。** `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“整缓冲区压缩”一行）。参数被接受时返回哪个状态码、写出哪些字节、存入的长度：功能目标 `Goal.compress`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compress"><summary>完整返回条件与边界</summary>
 
@@ -465,7 +462,7 @@ int ZEXPORT uncompress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
     - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；`*sourceLen`，写入一个不超过其进入值的计数；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，两个单元都保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress2_z`，安全结论不需要它。
+- **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress2_z`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2_z"><summary>完整返回条件与边界</summary>
 
@@ -507,7 +504,7 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 **判读要点。**
 
 - 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- 普通适配器会先读取长度单元：destLen 和 sourceLen 均须非 NULL。两者每次返回都会写回。
+- `uncompress2` 是包在 `uncompress2_z` 外面的包装函数：它先读取两个长度单元，不检查是否为 NULL，所以 destLen 和 sourceLen 均须非 NULL。两者每次返回都会写回。
 - 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
 
 ### 调用条件与效果 {#api-uncompress2-contract}
@@ -537,7 +534,7 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
     - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；`*sourceLen`，写入一个不超过其进入值的计数；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，两个单元都保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress2`，安全结论不需要它。
+- **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress2`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress2"><summary>完整返回条件与边界</summary>
 
@@ -599,7 +596,7 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
     - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress_z`，安全结论不需要它。
+- **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress_z`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress_z"><summary>完整返回条件与边界</summary>
 
@@ -634,7 +631,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 **判读要点。**
 
 - 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- 普通适配器会先读取长度单元：destLen 须非 NULL，且每次返回都会写回。
+- `uncompress` 调用包装函数 `uncompress2`，后者先读取长度单元，不检查是否为 NULL：destLen 须非 NULL，且每次返回都会写回。
 - 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
 
 ### 调用条件与效果 {#api-uncompress-contract}
@@ -662,7 +659,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
     - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
-- **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress`，安全结论不需要它。
+- **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="uncompress"><summary>完整返回条件与边界</summary>
 
@@ -705,7 +702,7 @@ const char * ZEXPORT zlibVersion(void);
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 结果所指向的字符串：功能目标 `Goal.zlibVersion`，安全结论不需要它。
+- **不在本目标内。** 结果所指向的字符串：功能目标 `Goal.zlibVersion`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibVersion"><summary>完整返回条件与边界</summary>
 
@@ -747,7 +744,7 @@ uLong ZEXPORT zlibCompileFlags(void);
 - **保证。**
     - *返回。* 调用返回。
     - *状态、写入、分配。* 都没有：调用之后的堆就是调用之前的堆。
-- **不在本目标内。** 返回的值：功能目标 `Goal.zlibCompileFlags`，安全结论不需要它。
+- **不在本目标内。** 返回的值：功能目标 `Goal.zlibCompileFlags`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zlibCompileFlags"><summary>完整返回条件与边界</summary>
 
@@ -797,7 +794,7 @@ const char * ZEXPORT zError(int err);
 没有分配、堆变化或错误返回。索引计算前会检查 -6–2 范围外的值，
 因此两个标量极值均安全返回空文本。
 
-**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标（非必需）：`Goal.zError`（[Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean)），定理为 `ZlibF.Spec.Public.Proofs.zError`（[public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)）。对每一个堆和每一个 `err`，它陈述：调用返回，堆不变，结果是后置条件所述的静态文本。
+**证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。为它陈述了一个目标：功能目标 `Goal.zError`（不在计划内；已有定理证明它），在 [Functional/Queries.lean](../../../ZlibF/Spec/Functional/Queries.lean) 中，定理为 `ZlibF.Spec.Public.Proofs.zError`（[public-zerror.lean](../../../ZlibF/Proof/public-zerror.lean)）。称它为功能目标，是因为它确定了返回的文本；它同时也陈述了安全方面的事实。对每一个堆和每一个 `err`，这个目标陈述：调用返回，调用之后的堆就是调用之前的堆（没有写入、分配或释放），结果指向只读的静态存储，其中存放的是后置条件所述的文本。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="zError"><summary>完整返回条件与边界</summary>
 

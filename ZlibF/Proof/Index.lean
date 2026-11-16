@@ -1634,6 +1634,7 @@ import ZlibF.Proof.«public-gz-offset»
 import ZlibF.Proof.«public-gz-rewind»
 import ZlibF.Proof.«public-gzbuffer»
 import ZlibF.Proof.«public-gzeof»
+import ZlibF.Proof.«public-infback-call-domain»
 import ZlibF.Proof.«public-infback-end»
 import ZlibF.Proof.«public-infback-init»
 import ZlibF.Proof.«public-inflate-end»

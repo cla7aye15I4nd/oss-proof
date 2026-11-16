@@ -12,13 +12,15 @@ and judge it without reading anything else. The write-side twin is
 - Undefined behaviour: signed integer overflow of `x.pos`, in `gz_read`, in the `gzgetc` function
   and in the `gzgetc()` macro of zlib.h, which runs in the caller's code. Inside the documented
   use.
-- Reported by UndefinedBehaviorSanitizer on x86_64 Linux (kernel 7.0, GCC 15.2), on the pinned
-  source `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this repository except
-  0004. It did not reproduce in a run on arm64 macOS with Apple clang. There `lseek` on
+- Reported by UndefinedBehaviorSanitizer on x86_64 Linux (kernel 7.0, GCC 15.2), on upstream
+  `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this
+  repository except 0004. It did not reproduce in a run on arm64 macOS with Apple clang. There `lseek` on
   `/dev/zero` accepted the offset and returned it, the reads delivered no byte past position
-  `INT64_MAX`, and the sanitizers reported nothing. No other system was tried.
+  `INT64_MAX`, and the sanitizers reported nothing. No other system was tried. `gzread.c` and
+  `gzlib.c` are byte-identical in zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies,
+  and the `gzgetc()` macro of `zlib.h` is unchanged; no run on that revision is recorded here.
 - Not submitted upstream. The verified source applies the local
-  [patch 0004](../../../patches/README.md), approved by the project owner on 2026-11-12. A pull
+  [patch 0004](../../../patches/README.md). A pull
   request text is drafted in [upstream-description.md](upstream-description.md).
 
 ## Call sequence
@@ -55,7 +57,7 @@ On Linux, from the repository root, with the `zlib/` submodule checked out:
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzread-pos-overflow/run.sh
 ```
 
-The script builds the pinned source twice with
+The script builds the zlib source twice with
 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1`: with `patches/*.patch`
 except 0004, and with all of them. It runs `devzero.c` in three modes on each build. Without 0004
 every run must report a signed overflow of the position. With 0004 nothing may be reported, and
@@ -74,12 +76,9 @@ devzero.c:73:17: runtime error: signed integer overflow: 9223372036854775807 + 1
 gzread.c:539:21: runtime error: signed integer overflow: 9223372036854775807 + 1 cannot be represented in type 'long int'
 ```
 
-The first line is `state->x.pos += n` in `gz_read`, which is line 413 of the unpatched pinned
+The first line is `state->x.pos += n` in `gz_read`, which is line 413 of the unpatched
 file. The second is the `gzgetc()` macro, expanded in `devzero.c`. The third is the `gzgetc`
-function. This report was not rerun for this page: it needs Linux.
-
-The fault-injection harness of the project gave the same report in one history in 2 000 with a
-device-like `lseek`. That run is not retained here.
+function. The report needs Linux.
 
 ## Scope and severity
 
@@ -121,7 +120,7 @@ producer of `x.have` keeps it:
 
 - `gz_fetch` loads at most `GZ_OFF_MAX - x.pos` bytes;
 - `gz_look` buffers at most `gz_room(state, avail_in)` bytes in transparent mode and records the
-  same error when its input goes past that. The first version of the patch lacked this bound:
+  same error when its input goes past that. Why this bound is needed:
   see [gz-position-copy-overflow](../gz-position-copy-overflow.md);
 - the direct paths of `gz_read` deliver at most that many bytes;
 - `gzungetc` lowers `x.pos` by the byte it adds;
@@ -133,9 +132,10 @@ by its only callers there, `gz_read` and `gzgets`, before they return (`gz_skip`
 bytes one at a time (the `gzgetc` function, the `gzgetc()` macro) and `gz_skip_have` need no
 check. The reproduction's `fast` run exercises these paths at `INT64_MAX - 2`.
 
-Checks of the patch: [upstream-description.md](upstream-description.md), section Testing.
+Checks of the patch: [upstream-description.md](upstream-description.md), section Testing. Retained
+output exists for the histories of the two `run.sh` scripts (this finding and the write side), not
+for the other runs listed there.
 
 ## Relation to the proofs
 
-The [gz proof notes](../../proof/gzip.md) call this report F-1. The proofs are about the patched
-source.
+The [gzip proofs](../../proof/gzip.md) are about the patched source.

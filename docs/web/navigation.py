@@ -33,9 +33,10 @@ def global_contents(current,lang,title,toc=''):
         ('形式化验证参考','Formal verification references',[
             ('reference/docs/proof/method','验证方法','Verification method'),
             ('reference/proofs','实现论证','Implementation arguments'),
-            ('reference/targets','精确命题','Exact targets'),
+            ('reference/targets','目标的命题','Statements of the goals'),
             ('reference/sources','Lean 源码','Lean source'),
-            ('reference/docs/progress','证明进度','Proof progress')]),
+            ('reference/docs/progress','结论的状态','Status of the results'),
+            ('reference/docs/checking/README','完成的结论依靠什么','What a done result rests on')]),
     ]:
         body+=f'<details class="bk-global-section" data-toc-section><summary>{t(cn,en)}</summary><ul>'
         for route,cn,en in links:body+=f'<li data-toc-entry>{a(route,cn,en)}</li>'

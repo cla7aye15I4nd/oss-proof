@@ -11,7 +11,7 @@ Three long bilingual articles explain zlib itself:
 
 Formal verification has a separate reading track. The three algorithm articles do
 not introduce Lean, theorem inventories or formal invariants. Exact specifications,
-proof explanations and the single progress record remain available as reference.
+proof explanations and the single status page remain available as reference.
 All 96 public API entries per language retain their complete contracts.
 
 ## Writing for the reader
@@ -86,16 +86,18 @@ adjacent `.zh.md` companion once; the builder reads those exact files.
   Reviewed Chinese companions live beside their English content.
 - `content/repository/`: Chinese versions of repository metadata that also appears
   on the site; there is one source per language.
-- `progress.py`, `progress_graph.py`, `static/progress.*`: the separate proof inventory.
-- `home.py`: the landing page (`index`) and the status summary (`status`). Both read the
-  three core results and their level (open, checked, registered) from the progress data.
+- `progress.py`: done or not done, for every goal and every public function. A reader sees
+  these two states only. The status page itself is `../progress.md`, written by hand;
+  `tests/test_progress.py` compares its rows with what `progress.py` computes.
+- `home.py`: the landing page (`index`). It shows the results with their state, computed by
+  `progress.py`. The old route `status` redirects to the status page.
   `pagekit.py`: the build stamp, the fixed top navigation and the meta description.
 - `static/diagram-view.mjs`: natural diagram dimensions, scrolling and bounded zoom.
 
 `read/codec`, `read/optimizations` and `read/features` are the three articles. `index` redirects
 old article anchors to `read/codec`.
 Published chapter, topic and appendix links resolve to a corresponding article or
-formal reference. Source files for proofs and accepted status are not edited as part
+formal reference. Source files for proofs and the status page are not edited as part
 of article rewriting.
 
 ## Build and local preview

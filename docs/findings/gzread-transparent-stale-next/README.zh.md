@@ -1,4 +1,4 @@
-<!-- source-sha256: 0394eb863f55123e6dc2fdea339f7a3f51657ddc6be04fb7c554417910403b8d -->
+<!-- source-sha256: e901ba63a600865125c9a3826bc88164bbdf9481b677d9f77d867ab8447fbda6 -->
 # 部分读取之后出错时，`gzread` 从过时的 `x.next` 复制
 
 在透明模式下（输入不是 gzip），如果 `read()` 返回了一些字节而下一次 `read()` 失败，`gz_fetch` 会在设置 `state->x.next` 之前返回。读取函数随后从旧指针复制这些已读到的字节，而旧指针可能正好在输出缓冲区末尾之后一个位置：这是一次越界的堆读取。zlib 的维护者只读本页，就能复现这份报告并作出判断。测试文件在 [`tests/regression/gzread-transparent-stale-next`](../../../tests/regression/gzread-transparent-stale-next/README.md)。
@@ -6,8 +6,8 @@
 ## 状态
 
 - 内存错误：读到输出缓冲区之外的堆内存。在文档用法之内；它需要在读到部分数据之后发生 I/O 错误。
-- 在未修改的固定的源码（`757f0527154291bcf6bfbd6396ecde6bedd2db95`，上游 `develop`）上由 AddressSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。
-- 修复已作为[拉取请求 #1363](https://github.com/madler/zlib/pull/1363) 提交上游。该拉取请求仍处于打开状态；2026-11-14 读取其状态时，维护者还没有答复。被验证的源码把它作为[补丁 0003](../../../patches/README.md) 应用。
+- 在未修改的上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 上由 AddressSanitizer 报告，平台为 x86_64 Linux（GCC 15.2）和 arm64 macOS（Apple clang 21）。`gzread.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。
+- 修复已作为[拉取请求 #1363](https://github.com/madler/zlib/pull/1363) 提交上游。2026-11-14 时，该拉取请求处于打开状态，维护者还没有答复。被验证的源码把它作为[补丁 0003](../../../patches/README.md) 应用。
 
 ## 调用序列
 
@@ -20,7 +20,7 @@ for (int i = 0; i < 48; i++)
 gzread(f, buf, 1);                       /* gzread.c:369：memcpy(buf, state->x.next, n) */
 ```
 
-最后一个调用在固定的 `gzread.c` 中这样执行：
+最后一个调用在未打补丁的 `gzread.c` 中这样执行：
 
 1. `gz_read` 发现没有缓冲的输出，调用 `gz_fetch`。
 2. 在 `gz_fetch` 的 `case COPY` 中，`gz_load` 存下读到的那一个字节，设置 `x.have = 1`，然后返回 -1，因为下一次 `read()` 以 `EAGAIN` 以外的错误失败。
@@ -37,7 +37,7 @@ gzread(f, buf, 1);                       /* gzread.c:369：memcpy(buf, state->x.
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzread-transparent-stale-next/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g -O1` 把固定的源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。未打补丁的构建必须报告这次读取。打过补丁的构建不得有任何报告，并且 `gzread` 必须返回 1 并保留错误 `Z_ERRNO`。两项都成立时脚本以状态 0 退出，最后一行是：
+脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g -O1` 把 zlib 源码构建两次：一次不打任何补丁，一次打上 `patches/*.patch`。未打补丁的构建必须报告这次读取。打过补丁的构建不得有任何报告，并且 `gzread` 必须返回 1 并保留错误 `Z_ERRNO`。两项都成立时脚本以状态 0 退出，最后一行是：
 
 ```
 ok: patched: gzread returns the byte and keeps Z_ERRNO, no report
@@ -55,7 +55,7 @@ READ of size 1 at 0x7926271e0060 thread T0
 0x7926271e0060 is located 0 bytes after 32-byte region [0x7926271e0040,0x7926271e0060)
 ```
 
-32 字节的区域是 `gz_look`（`gzread.c:100`）分配的输出缓冲区。用 GCC 时，`SUMMARY` 行指向内联的加固版 `memcpy`。为撰写本页在 arm64 macOS 上运行了一次，得到同样的报告，摘要行为 `heap-buffer-overflow gzread.c:369 in gz_read`。
+32 字节的区域是 `gz_look`（`gzread.c:100`）分配的输出缓冲区。用 GCC 时，`SUMMARY` 行指向内联的加固版 `memcpy`。在 arm64 macOS 上运行了一次，得到同样的报告，摘要行为 `heap-buffer-overflow gzread.c:369 in gz_read`。
 
 ## 范围与严重程度
 
@@ -71,8 +71,8 @@ zlib.h 把这种情形说成是已处理的：“`If some data was read before a
 
 [拉取请求 #1363](https://github.com/madler/zlib/pull/1363)，最新提交 `37627fd3bb47`：在 `gz_fetch` 的 `case COPY` 中，把 `state->x.next = state->out;` 移到 `gz_load` 调用之前，这样当 `gz_load` 带着部分计数返回 -1 时它也成立。
 
-[补丁 0003](../../../patches/README.md) 正是这一改动。上游包含该修复、固定的提交越过它之后，补丁就会删除。
+[补丁 0003](../../../patches/README.md) 正是这一改动。
 
 ## 与证明的关系
 
-[gz 证明说明](../../proof/gzip.md)把这份报告称为 R-2。gz 读取函数的安全证明针对的是打过补丁的源码。
+[gz 读取函数的安全证明](../../proof/gzip.md)针对的是打过补丁的源码。

@@ -10,8 +10,8 @@ beyond what safety needs are not planned (owner's decision of 2026-11-11, to fin
 functional fact that a planned proof depends on is in scope. What is already proved stays. The
 functions that zlib.h lists under "undocumented
 functions (not part of the zlib API)" are not required. Read `docs/overview.md` first, then
-`docs/spec/safety.md`. Keep proof explanations in `docs/proof/`. Keep current status and
-remaining work only in `docs/progress.md`.
+`docs/spec/safety.md`. Keep proof explanations in `docs/proof/`. State the status only in
+`docs/progress.md`, as done or not done (section Documents).
 
 The project is finished when the safety results are accepted, in this order: `inflate` is safe on
 every input; `deflate` is safe on every input; then every other public function, including the
@@ -31,8 +31,8 @@ when the room is at least `compressBound`; and `inflate` reads every stream the 
 Other functional correctness (other levels, strategies, window sizes and wrappers, preset
 dictionaries, the gzip file interface and `inflateBack` as round-trip partners), model-only
 statements and other build configurations are not planned. The undocumented functions are not required public targets;
-proofs already registered for them stay. `docs/progress.md`, section Scope, lists every group with
-its reason. Do not work on a not-planned target unless a planned one needs it. Work as fast as
+proofs already registered for them stay. `docs/progress.md` lists what is not planned, with
+the reason. Do not work on a not-planned target unless a planned one needs it. Work as fast as
 honest work allows: process
 exists to keep the result honest, not to slow it down.
 
@@ -134,8 +134,9 @@ Each core result (`inflate`, `deflate`) has one owner. The owner works in this o
 2. **Build the skeleton top down.** On the branch `skeleton/<result>`, write the proof of the goal
    from named lemma statements, with the lemma proofs left open. `sorry` is allowed on a skeleton
    branch and nowhere else. The skeleton must type-check. It is the list of remaining work.
-3. **Publish the list.** Copy the open lemmas into `docs/progress.md`, section "Core proof
-   skeletons": name, one-line meaning, state (open, checked), estimate in hours. Keep it current.
+3. **Publish the list.** Keep the list of open lemmas in a comment at the head of the skeleton
+   file on the skeleton branch: name, one-line meaning, state (open, checked), estimate in hours.
+   Keep it current. It does not go into `docs/`.
 4. **Close lemmas on `dev`.** Prove one lemma at a time and push it to `dev`. Reuse existing
    proofs where they fit the lemma as stated. Do not prove what the skeleton does not need.
 5. **Hide large definitions behind an interface.** A representation invariant has a small set of
@@ -174,7 +175,7 @@ Work that belongs to acceptance is done in batches at a milestone, not for each 
 
 - registering theorems in `tests/audit/theorems.txt`;
 - proof mutant rows for each newly proved public function, so that a later mutant run covers it;
-- regenerating the progress view.
+- updating the rows of `docs/progress.md`.
 
 A milestone is one of: `inflate` proved, `deflate` proved, a stream sequence goal proved, or
 about twenty newly checked targets. Never report a check as passing unless it was run.
@@ -186,15 +187,27 @@ needs more than that, find out why before raising any limit.
 ## Findings
 
 Record a confirmed zlib issue in `README.md`: give a short description, link a reproduction under
-`docs/findings/`, and state the confidence and the scope. Keep unconfirmed reports in
-`docs/progress.md`. Every new sanitizer reproduction goes under `tests/regression/<name>/` with
+`docs/findings/`, and state the confidence and the scope. Keep an unconfirmed report out of `docs/`: it stays under
+`tests/regression/<name>/`, marked unconfirmed, until it is confirmed or withdrawn. Every new sanitizer reproduction goes under `tests/regression/<name>/` with
 `run.sh`, `report.txt` and a row in `docs/sanitizer-reports.md`.
 
 ## Documents
 
 - File names are lowercase, with hyphens: `method.md`. `README.md` and `AGENTS.md` keep their
   conventional names.
-- Write short sentences. Say what is proved, what is assumed, and what is open.
+- Write short sentences. Say what is proved, what is assumed, and what is not done.
+- The documentation is for a reader who wants to know what was verified. It is about the
+  specifications and the proofs. A result has one of two states there: **done** (a theorem whose
+  statement is exactly the goal exists and passes every check) or **not done**; add "not
+  planned" where it applies. The levels of the section "What counts as proved" are working terms
+  and do not appear in `docs/` or `README.md`.
+- Keep out of the documentation: commits, runs, pull requests, branches, dates of project
+  events, gates and suites, registry files, the folder layout as a subject, the history of how a
+  statement or a page changed, remaining-work lists and estimates, and any term that only has a
+  meaning inside the project. Evidence may be named (differential tests, a reproduction under a
+  sanitizer) without describing how it is stored or run.
+- `docs/progress.md` is the only page that states a status: each result and each public function,
+  done or not done, and what is not planned.
 - Mark a reading of the C that the proof must still confirm with **to confirm**.
 - Use diagrams (mermaid) for structure and order. Do not use a diagram for a list.
 - Do not put machine names, addresses, user names, local paths or tool names in the repository.

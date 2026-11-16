@@ -1,4 +1,4 @@
-<!-- source-sha256: 860aefd350713dab582f01b84cb28c899818a59d21dff7c82819a2dd64fade0e -->
+<!-- source-sha256: 658069dd6be256d9c83f5356ed69e258e4d36a534236998039ee5989a734c734 -->
 
 # 5. 状态操作
 
@@ -180,7 +180,7 @@ Sync 搜索进行期间，普通的 `inflate` 调用不能代替它：它返回 
 | 提供位片段 | `inflatePrime` 向裸流的输入插入若干位，以便从一个字节的中间开始。`deflatePrime` 在初始化或重置后的第一次 `deflate` 调用之前，向裸流的输出插入若干位。 | **功能：** 插入的位属于格式关系所描述的那条流。**安全：** 见表后的段落。 |
 | 查询进度或缓冲情况 | `inflateMark`、`deflatePending`、`deflateUsed`；`inflateCodesUsed` 未文档化。 | **功能：** 报告的数值就是 `zlib.h` 所说的那个量。**安全：** 除了调用者传入的结果单元（如果有），调用不写任何内存。 |
 | 读取历史 | `inflateGetDictionary`、`deflateGetDictionary` | **安全：** 复制不超出目的缓冲区，目标写明了它所需的大小（见[偏离记录](../deviations.md)）。**功能：** 得到的字节是当前历史，可能与预置字典不同。 |
-| 控制校验 | `inflateValidate` 未文档化。它打开或关闭尾部检查。 | 没有必需的目标。 |
+| 控制校验 | `inflateValidate` 未文档化。它打开或关闭尾部检查。 | 安全目标不在计划内。它的功能契约 `Goal.inflateValidate` 有一个定理。 |
 
 C 并不强制两个 Prime 函数的每一条时机规则。违反这类规则的调用并不因此就是未定义行为，也不因此就是干净的拒绝；
 [契约约定](../spec/api/contracts.md)说明每种情况怎样解读。
@@ -189,10 +189,9 @@ C 并不强制两个 Prime 函数的每一条时机规则。违反这类规则�
 
 ## 安全定理对本章说了什么
 
-下表中的每个目标都有一个类型恰好是该目标的定理，列在 `tests/audit/theorems.txt` 中；
-`tests/audit/proved-goals.txt` 列有该目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
+下表给出本章用到的每个函数的安全目标。目标的全名是 `ZlibF.Spec.Public.Goal.<name>`。
 [安全性](../spec/safety.md)说明这些目标陈述什么，[偏离记录](../deviations.md)列出每个比 `zlib.h` 更窄的前提，
-[进度页](../progress.md#scope)记录每项结论的层级。
+[进度页](../progress.md)说明哪些目标已完成。
 
 | 函数 | 安全目标 | 契约 |
 | --- | --- | --- |
@@ -213,7 +212,7 @@ C 并不强制两个 Prime 函数的每一条时机规则。违反这类规则�
 | `inflateMark` | `Goal.inflateMark_safety` | [inflateMark](../spec/api/inflate-stream.md#inflatemark) |
 | `deflatePending` | `Goal.deflatePending_safety` | [deflatePending](../spec/api/deflate-stream.md#deflatepending) |
 | `deflateUsed` | `Goal.deflateUsed_safety` | [deflateUsed](../spec/api/deflate-stream.md#deflateused) |
-| `inflateResetKeep`、`deflateResetKeep`、`inflateCodesUsed`、`inflateValidate` | 没有必需的目标：`zlib.h` 把它们列为未文档化函数。 | [inflate](../spec/api/inflate-stream.md#inflateresetkeep)、[deflate](../spec/api/deflate-stream.md#deflateresetkeep) |
+| `inflateResetKeep`、`deflateResetKeep`、`inflateCodesUsed`、`inflateValidate` | 没有安全目标：不在计划内，因为 `zlib.h` 把它们列为未文档化函数。它们各自的功能契约（`Goal.inflateResetKeep`、`Goal.deflateResetKeep`、`Goal.inflateCodesUsed`、`Goal.inflateValidate`）都有一个定理。 | [inflate](../spec/api/inflate-stream.md#inflateresetkeep)、[deflate](../spec/api/deflate-stream.md#deflateresetkeep) |
 
 序列目标 `Goal.inflate_sequence_safety` 和 `Goal.deflate_sequence_safety` 说的是：
 在调用历史能够到达的每个流上，这些调用按 `zlib.h` 允许的任何顺序都是安全的。

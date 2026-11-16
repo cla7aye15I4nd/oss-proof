@@ -7,11 +7,13 @@ undefined by the letter of C, and nothing else is known to go wrong.
 Status: undefined by the letter of C. No sanitizer reports it, and no misbehaviour has been
 observed, so this is not listed as a confirmed issue. Fixed in the verified source by the local
 patch [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch),
-approved by the project owner on 2026-11-12 and not submitted upstream. The same patch fixes
-[gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md). The
-[gz proof notes](../../proof/gzip.md) call this report R-3.
+which has not been submitted upstream. The same patch fixes
+[gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md).
 
-Source pin: `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 0004.
+Source: upstream `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95`, with patches 0001 to 0004.
+`gzlib.c` and `gzread.c` are byte-identical in zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies;
+no run on that revision is recorded here.
+The [gzip proof page](../../proof/gzip.md) is about the source with all patches.
 
 ## What goes wrong
 
@@ -73,17 +75,16 @@ x.next + 0 at gzlib.c:435, x.next = 0xbebebebebebebebe
 x.next + 0 at gzread.c:313, x.next = 0xbebebebebebebebe
 ```
 
-The retained output was produced with the first version of patch 0004. The patch 0004 of this
-repository is its second version, which adds two lines to `gz_look` in `gzread.c`, so the same
-statement of `gz_skip_have` is line 315 of the source that `run.sh` builds. A run on arm64 macOS
+The retained output was produced with a `gzread.c` whose `gz_look` was two lines shorter. In the
+source that `run.sh` builds, the same statement of `gz_skip_have` is line 315. A run on arm64 macOS
 with Apple clang printed `gzlib.c:435` and `gzread.c:315`, and was otherwise the same.
 
 Files: `unset.c`, `probe.h`, `run.sh`, `report.txt`. `run.sh` builds the source without and with
 0005 under ASan and UBSan;
 before the fix the probe sees both evaluations, after it none, and neither build gets a sanitizer
 report. In the Lean model a fresh pointer field is NULL and `NULL + 0` passes, so the model does
-not see it either; the proof rule that a pointer field is written before it is read
-(`docs/spec/safety.md`, section 3) is what exposes it.
+not see it either; the source review that a pointer field is written before it is read
+([safety](../../spec/safety.md), section 3) is what exposes it.
 
 ## Scope
 

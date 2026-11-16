@@ -124,7 +124,7 @@ def render_redirect(route,lang,ids=()):
         return link(target,current,lang,fragment)
     mapping={'':destination()}
     mapping.update({anchor:destination(anchor) for anchor in ids})
-    title='章节已合并' if lang=='zh' else 'Chapter merged'
+    title=('页面已移动' if lang=='zh' else 'Page moved') if route=='status' else ('章节已合并' if lang=='zh' else 'Chapter merged')
     anchors=''.join(f'<span id="{html.escape(anchor,quote=True)}" hidden></span>' for anchor in sorted(ids))
     script='''const map=JSON.parse(document.getElementById('bk-redirect-data').textContent);const dest=new URL(map[decodeURIComponent(location.hash.slice(1))]||map[''],location.href);for(const [key,value] of new URLSearchParams(location.search))if(!dest.searchParams.has(key))dest.searchParams.append(key,value);location.replace(dest.href);'''
     document=f'<!doctype html><html lang="{lang}" data-book-redirect><head><meta charset="utf-8"><title>{title}</title><link rel="canonical" href="{mapping[""]}"></head><body><h1>{title}</h1><p><a href="{mapping[""]}">{"继续阅读" if lang=="zh" else "Continue reading"} →</a></p>{anchors}<script type="application/json" id="bk-redirect-data">{json.dumps(mapping)}</script><script>{script}</script></body></html>'

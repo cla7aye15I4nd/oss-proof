@@ -1,11 +1,11 @@
-<!-- source-sha256: e31032041cc3b2307b43cbde1906aee561a271fdcf67272648ebbf3feb76ea6d -->
+<!-- source-sha256: ab12153fb5bc5da259e33677d0d7db0e2d2f51be540e8011efc21f1949016eb0 -->
 # gz_reset 从不写入 x.next；gzseek 和 gzdirect 却读取它
 
 对一个新的读取者，`gz_open` 和 `gz_reset` 都不写入其状态中的指针 `x.next`。在还没有任何输出时调用 `gzseek` 和 `gzdirect`，会给这个从未写入的指针加零。按 C 标准的字面规定这是未定义的；除此之外，没有发现别的问题。
 
-状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。被验证的源码中由本地补丁 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁经项目所有者于 2026-11-12 批准，没有提交上游。同一补丁也修复 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)。[gz 证明说明](../../proof/gzip.md)把这份报告称为 R-3。
+状态：按 C 标准的字面规定是未定义的。没有任何 sanitizer 报告它，也没有观察到错误行为，所以它不列为已确认的问题。被验证的源码中由本地补丁 [0005-gz-next-zero-advance.patch](../../../patches/0005-gz-next-zero-advance.patch) 修复；该补丁没有提交上游。同一补丁也修复 [gz-next-dangling-after-direct-read](../gz-next-dangling-after-direct-read/README.md)。
 
-固定的源码：`757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。
+源码：上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95`，加补丁 0001 至 0004。`gzlib.c` 和 `gzread.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同；这里没有记录在该版本上的运行。[gzip 证明页](../../proof/gzip.md)针对的是打上全部补丁的源码。
 
 ## 问题
 
@@ -51,9 +51,9 @@ x.next + 0 at gzlib.c:435, x.next = 0xbebebebebebebebe
 x.next + 0 at gzread.c:313, x.next = 0xbebebebebebebebe
 ```
 
-保留下来的输出是用补丁 0004 的第一版得到的。本仓库的补丁 0004 是它的第二版，在 `gzread.c` 的 `gz_look` 中多了两行，所以在 `run.sh` 构建的源码中，`gz_skip_have` 的同一条语句是第 315 行。在 arm64 macOS 上用 Apple clang 运行了一次，打印的是 `gzlib.c:435` 和 `gzread.c:315`，其余相同。
+保留下来的输出来自一份 `gz_look` 少两行的 `gzread.c`。在 `run.sh` 构建的源码中，`gz_skip_have` 的同一条语句是第 315 行。在 arm64 macOS 上用 Apple clang 运行了一次，打印的是 `gzlib.c:435` 和 `gzread.c:315`，其余相同。
 
-文件：`unset.c`、`probe.h`、`run.sh`、`report.txt`。`run.sh` 在 ASan 和 UBSan 下分别构建不含和含 0005 的源码；修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。在 Lean 模型中，新分配的指针字段是 NULL，而 `NULL + 0` 能通过，所以模型也看不到它；暴露它的是证明规则“指针字段先写后读”（`docs/spec/safety.md` 第 3 节）。
+文件：`unset.c`、`probe.h`、`run.sh`、`report.txt`。`run.sh` 在 ASan 和 UBSan 下分别构建不含和含 0005 的源码；修复前探针看到这两次计算，修复后一次也没有，两个构建都没有 sanitizer 报告。在 Lean 模型中，新分配的指针字段是 NULL，而 `NULL + 0` 能通过，所以模型也看不到它；暴露它的是“指针字段先写后读”这项源码审查（[安全性](../../spec/safety.md)第 3 节）。
 
 ## 范围
 

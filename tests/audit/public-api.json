@@ -900,6 +900,7 @@
     "ZlibF.Spec.Public.Goal.inflate_initialisation_domain",
     "ZlibF.Spec.Public.Goal.deflate_initialisation_domain",
     "ZlibF.Spec.Public.Goal.inflate_back_initialisation_domain",
+    "ZlibF.Spec.Public.Goal.inflateBack_call_domain",
     "ZlibF.Spec.Public.Goal.gz_sequence_nonvacuity"
   ],
   "safety_goals": [

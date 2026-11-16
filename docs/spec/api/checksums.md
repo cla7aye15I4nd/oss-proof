@@ -37,12 +37,21 @@ goal under **Proof goals**, in the five items and with the fixed phrases that
 applies, in the order of the Lean statement; what it covers for every value; what it guarantees
 (returns, state, writes, allocations); and what it leaves to another goal. The proof assumes the
 conditions listed there, not the documentary Pre. Post, the return tables and the notes describe
-functional behaviour. They are read from the C, are **to confirm** where no registered theorem
-states them, and are not required for the safety results. [Progress](../../progress.md) records the
-state of each goal.
+functional behaviour. They are read from the C, are **to confirm** where no theorem
+states them, and are not required for the safety results. [Progress](../../progress.md) says which
+goals are done.
 
-The safety goals are in [Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean). They
+The safety goals ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean))
 say that the call returns and the heap is unchanged; they say nothing about the value.
+
+The CRC goals have a premise on the model's heap: its two constant CRC tables, `crc_table` and
+`x2n_table`, equal the tables of the translated `crc32.h` (`CrcGlobals`). The premise is assumed
+of the heap the call starts on; no theorem derives it for an arbitrary heap. It is a condition on
+the model, not a duty of the caller
+([model limits](../../model-limits.md#conditions-on-the-model-that-goals-state)). Two facts are
+proved about it. A [library heap](contracts.md#reading-a-proof-goals-paragraph), which is what the
+stream goals start from, meets it (`crc_globals_of_library`). Each checksum goal returns the heap
+unchanged, so the premise still holds after the call.
 
 The practical checksum contracts use actual byte sequences A and B. Each
 checksum is computed independently, starting at 1 for Adler-32 or 0 for CRC-32.
@@ -51,7 +60,7 @@ The functional goals in [Functional/Checksums.lean](../../../ZlibF/Spec/Function
 also describe arbitrary seeds and exact scalar results. Both the Adler entries and their Lean
 goals, safety and functional, require zero length for NULL initialization queries
 (`AdlerBufferBytes` in [Common/Checksums.lean](../../../ZlibF/Spec/Common/Checksums.lean)).
-See [deviations](../../deviations.md).
+See [deviations](../../deviations.md#whole-buffer-utilities-and-checksums).
 
 In this build, `uLong` and `z_size_t` are unsigned 64-bit types; `uInt` is
 unsigned 32-bit. `z_off_t` and `z_off64_t` are signed 64-bit. Input checksum bits
@@ -97,7 +106,7 @@ A one-past pointer is allowed for a zero-length range.
 NULL with nonzero length is outside this contract. Forged seeds remain outside this
 practical functional contract: the one-byte path need not agree with first
 reducing both seed halves modulo 65521. See the
-[Adler seed note](../../proof/adler32.md).
+[Adler seed note](../../proof/adler32.md#exact-start-value-scope).
 
 **Proof goals.**
 
@@ -107,7 +116,7 @@ reducing both seed halves modulo 65521. See the
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32_z`, not required for the safety results.
+- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md#whole-buffer-utilities-and-checksums), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32_z` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -168,7 +177,7 @@ The zero-length NULL query and forged-seed scope of `adler32_z` apply here too.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32`, not required for the safety results.
+- **Not in this goal.** NULL `buf` with a nonzero `len`: outside every goal; this is narrower than `zlib.h` ([deviations](../../deviations.md#whole-buffer-utilities-and-checksums), row "Adler initialization queries"). The value returned: functional goal `Goal.adler32` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32"><summary>Complete return conditions and boundaries</summary>
 
@@ -226,7 +235,7 @@ goal. No concatenation promise is made for an incorrect B length.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine"><summary>Complete return conditions and boundaries</summary>
 
@@ -281,7 +290,7 @@ The explicit width matters on other builds; this page does not cover them.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine64`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.adler32_combine64` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="adler32_combine64"><summary>Complete return conditions and boundaries</summary>
 
@@ -328,7 +337,7 @@ and must neither write through the pointer nor free it.
 only the byte table, not adjacent or braided tables. `z_crc_t` is unsigned
 32-bit here. Dynamic table generation is outside this build's scope.
 
-**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A goal is stated for it, not required: `Goal.get_crc_table` ([Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)), with the theorem `ZlibF.Spec.Public.Proofs.get_crc_table` ([public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)). On a heap that holds the library's CRC tables (`CrcGlobals`) it states that the call returns, that the heap is unchanged, and the table contents given under Post.
+**Proof goals.** No required goal: `zlib.h` declares this function under "undocumented functions (not part of the zlib API)". A functional goal is stated for it: `Goal.get_crc_table` ([Functional/Checksums.lean](../../../ZlibF/Spec/Functional/Checksums.lean)) (not planned; a theorem proves it), with the theorem `ZlibF.Spec.Public.Proofs.get_crc_table` ([public-get-crc-table.lean](../../../ZlibF/Proof/public-get-crc-table.lean)). On a heap that holds the library's CRC tables (`CrcGlobals`) it states that the call returns, that the heap is unchanged, and the table contents given under Post.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="get_crc_table"><summary>Complete return conditions and boundaries</summary>
 
@@ -385,13 +394,13 @@ the contract. The word-access model's limits are recorded in
 
 - **Goal.** `Goal.crc32_z_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_z_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when**:
-    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
+    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). This is a premise on the model's heap, not a duty of the caller; every [library heap](contracts.md#reading-a-proof-goals-paragraph) meets it (`crc_globals_of_library`);
     2. `buf` is NULL, with any `len`, or `buf` points to `len` readable bytes (`BufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
 - **Covered without condition.** Every `crc`, also a value that is not a checksum; every content of the bytes; every alignment of `buf`. The memory conditions are those of Pre.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_z`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_z` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -446,13 +455,13 @@ it before the call; use `crc32_z` or multiple updates for larger ranges.
 
 - **Goal.** `Goal.crc32_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when**:
-    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
+    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). This is a premise on the model's heap, not a duty of the caller; every [library heap](contracts.md#reading-a-proof-goals-paragraph) meets it (`crc_globals_of_library`);
     2. `buf` is NULL, with any `len`, or `buf` points to `len` readable bytes (`BufferBytes`). For `len == 0` a pointer one past the end of an object is allowed.
 - **Covered without condition.** Every `crc`, also a value that is not a checksum; every content of the bytes; every alignment of `buf`. The memory conditions are those of Pre.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32"><summary>Complete return conditions and boundaries</summary>
 
@@ -502,12 +511,12 @@ any A and B with that B length. It is an operator, not a checksum.
 **Proof goals.**
 
 - **Goal.** `Goal.crc32_combine_gen64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
-- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). This is a premise on the model's heap, not a duty of the caller; every [library heap](contracts.md#reading-a-proof-goals-paragraph) meets it (`crc_globals_of_library`).
 - **Covered without condition.** Every `len2`, also negative lengths.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen64`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen64` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen64"><summary>Complete return conditions and boundaries</summary>
 
@@ -556,12 +565,12 @@ The ordinary and explicit 64-bit length ranges coincide in LP64.
 **Proof goals.**
 
 - **Goal.** `Goal.crc32_combine_gen_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_gen_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
-- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). This is a premise on the model's heap, not a duty of the caller; every [library heap](contracts.md#reading-a-proof-goals-paragraph) meets it (`crc_globals_of_library`).
 - **Covered without condition.** Every `len2`, also negative lengths.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine_gen` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_gen"><summary>Complete return conditions and boundaries</summary>
 
@@ -593,7 +602,7 @@ Applies a previously generated operator to two independent CRCs. A zero operator
 **Reading the result.**
 
 - A valid CRC can also be zero; the return value alone cannot distinguish rejection from a valid result.
-- Forged operators and operators for the wrong length have no functional guarantee; a nonzero LP64 operator with zero low 32 bits can even fail to terminate.
+- Forged operators and operators for the wrong length have no functional guarantee; with a nonzero LP64 operator whose low 32 bits are zero the call does not return.
 - For empty B, use its CRC 0 and the corresponding empty-sequence operator to preserve the CRC of A.
 
 ### Calling conditions and effects {#api-crc32_combine_op-contract}
@@ -609,21 +618,25 @@ The separate rejection case permits `op == 0` with any checksum arguments.
 The operator can be reused for any pairs with the same B length.
 
 There is no guarantee for a forged operator or one for the wrong B length.
-In particular, a nonzero LP64 `op` with zero low 32 bits can fail to terminate;
-this is outside the generated-operator contract. Zero is a rejection value,
+In particular, with a nonzero LP64 `op` whose low 32 bits are zero the call does not return:
+`uLong` has 64 bits, the loop in `multmodp` looks for a set bit only among bits 31 to 0 of `op`,
+and it has no other exit. `crc32_combine_op_diverges` proves this of the translation: the run
+ends in the model's out-of-fuel fault ([CRC-32 proof](../../proof/crc32.md)). For the C it is a
+reading of the source. Such an `op` is outside the generated-operator contract: a generated
+operator is below `2^32`, and it is zero or has a set bit. Zero is a rejection value,
 not an unambiguous error code, since a valid CRC can also be zero.
 
 **Proof goals.**
 
 - **Goal.** `Goal.crc32_combine_op_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_op_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
 - **Applies when**:
-    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does;
+    1. the heap holds the library's two constant CRC tables (`CrcGlobals`). This is a premise on the model's heap, not a duty of the caller; every [library heap](contracts.md#reading-a-proof-goals-paragraph) meets it (`crc_globals_of_library`);
     2. `op` is a value that `crc32_combine_gen` or `crc32_combine_gen64` returns for some `len2`. This is the domain `zlib.h` gives.
 - **Covered without condition.** Every `crc1` and `crc2`, also forged checksums; every `len2` the operator was generated for, also a negative one, for which the operator is 0. The goal is wider than Pre in the checksums and the same in `op`.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** An `op` that no generator call returned: outside every goal ([deviations](../../deviations.md), row "CRC combination operator"). The value returned: functional goal `Goal.crc32_combine_op`, not required for the safety results.
+- **Not in this goal.** An `op` that no generator call returned: outside every goal ([deviations](../../deviations.md#whole-buffer-utilities-and-checksums), row "CRC combination operator"). The premise is needed: without it the translated call does not return for a nonzero `op` whose low 32 bits are zero (`crc32_combine_op_diverges`). The value returned: functional goal `Goal.crc32_combine_op` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine_op"><summary>Complete return conditions and boundaries</summary>
 
@@ -677,12 +690,12 @@ a possible valid CRC, so negative-length rejection has no distinct error code.
 **Proof goals.**
 
 - **Goal.** `Goal.crc32_combine64_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine64_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
-- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). This is a premise on the model's heap, not a duty of the caller; every [library heap](contracts.md#reading-a-proof-goals-paragraph) meets it (`crc_globals_of_library`).
 - **Covered without condition.** Every `crc1`, `crc2` and `len2`, also forged checksums and negative lengths. The goal is wider than Pre, which describes genuine checksums.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine64`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine64` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine64"><summary>Complete return conditions and boundaries</summary>
 
@@ -730,17 +743,17 @@ rejection, with no checksum restriction.
 
 The ordinary and explicit 64-bit length ranges coincide in LP64.
 This page excludes dynamic table generation, hardware CRC hooks and generated
-table executables. See [build and model scope](../../deviations.md).
+table executables. See [build and platform](../../deviations.md#build-and-platform).
 
 **Proof goals.**
 
 - **Goal.** `Goal.crc32_combine_safety` ([Safety/Checksums.lean](../../../ZlibF/Spec/Safety/Checksums.lean)); required. Theorem: `ZlibF.Spec.Public.StatelessSafetyProof.crc32_combine_safety` ([public-stateless-safety.lean](../../../ZlibF/Proof/public-stateless-safety.lean)).
-- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). Every library heap does.
+- **Applies when.** The heap holds the library's two constant CRC tables (`CrcGlobals`). This is a premise on the model's heap, not a duty of the caller; every [library heap](contracts.md#reading-a-proof-goals-paragraph) meets it (`crc_globals_of_library`).
 - **Covered without condition.** Every `crc1`, `crc2` and `len2`, also forged checksums and negative lengths. The goal is wider than Pre, which describes genuine checksums.
 - **Guarantees.**
     - *Returns.* The call returns.
     - *State, writes, allocations.* None: the heap after the call is the heap before it.
-- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine`, not required for the safety results.
+- **Not in this goal.** The value returned: functional goal `Goal.crc32_combine` (not planned; a theorem proves it).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="crc32_combine"><summary>Complete return conditions and boundaries</summary>
 

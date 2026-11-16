@@ -1,10 +1,9 @@
 # Report: out-of-bounds read in `longest_match` after `deflateResetKeep` and `deflateCopy`
 
-Draft for the zlib maintainers, written for the project owner. Not sent; kept as a record.
+A report for the zlib maintainers. It has not been sent.
 
 For this project `deflateResetKeep` is an internal step of `deflateReset`: zlib.h declares it not
-part of the zlib API, so the proved deflate domain excludes direct calls, and no further work is
-planned on this finding.
+part of the zlib API, so the deflate safety theorems exclude direct calls.
 
 ## Summary
 
@@ -17,8 +16,8 @@ The sequence needs a direct call of `deflateResetKeep`. `zlib.h` declares that f
 `/* undocumented functions (not part of the zlib API) */`: it is exported, but not part of the zlib
 API. So this is not a bug of the documented API. It is a memory error that an exported, undocumented
 function makes reachable, and it appeared with two recent changes (see Affected releases). Inside the
-documented API we found no such sequence, and for our proved domain we show there is none (see
-Relation to the proofs).
+documented API we found no such sequence, and for the domain of the deflate safety theorems there
+is none (see Relation to the proofs).
 
 Confirmed on x86_64 Linux (GCC 14) with AddressSanitizer and with valgrind, and on arm64 macOS. It
 affects zlib 1.4 and `develop`, not 1.3.1 or 1.3.2.
@@ -85,9 +84,11 @@ Build and run, from the root of this repository:
 ZLIB_SRC=$PWD/zlib bash tests/regression/deflate-copy-pending-prev/run.sh
 ```
 
-The script builds the pinned sources with `-fsanitize=address,undefined -g -O1`, links `copy.c`
-against them and runs it. The patches of this repository, which the script applies, do not touch
-`deflate.c` or `trees.c`. AddressSanitizer prints:
+The script builds the zlib sources with `-fsanitize=address,undefined -g -O1`, links `copy.c`
+against them and runs it. The script applies the patches of this repository. None touches
+`trees.c`, and only patch 0006 touches `deflate.c`: it adds two lines to `deflateBound_z`. The
+output below has the line numbers of the unpatched file; with patch 0006 each is two higher.
+AddressSanitizer prints:
 
 ```
 ==ERROR: AddressSanitizer: heap-buffer-overflow ... READ of size 1
@@ -136,7 +137,7 @@ Each is a suggestion. Only the first was tried, on the one reproduction above.
 ## Relation to the proofs
 
 The deflate safety theorems exclude a direct `deflateResetKeep` call from the stream domain
-(`docs/deviations.md`). This is not a narrowing below `zlib.h`, which declares the function not part
+([deviations](../deviations.md)). This is not a narrowing below `zlib.h`, which declares the function not part
 of the zlib API, and this report is a reason the exclusion cannot be removed.
 
 For histories without that call, no chain head waits for insertion, so the partial copy of `prev`
@@ -144,9 +145,7 @@ in `deflateCopy` copies every entry a chain walk can reach. This is a theorem:
 `DInv.heads_inserted` states that every nonzero `head` entry is below `strstart - insert` in
 every state that satisfies the deflate invariant `DInv` with no pending slide (`matches = 0`).
 `DInv.slid_heads_inserted` states the same for one pending slide at level 0 (`matches = 1`),
-about the entries as the slide will leave them. Both are in
-`ZlibF/Proof/deflate.c.universal-heads.lean`. `DInv` holds in every state that a history of the
-stream domain reaches (`reachable_inv_of` in
-`ZlibF/Proof/deflate.c.universal-sequence-safety.lean`, with `sequence_facts` of
-`ZlibF/Proof/public-deflate-copy.lean`). The real-C checker of the project agrees on 4.6 million sampled
-states (evidence, not proof).
+about the entries as the slide will leave them. `DInv` holds in every state that a history of the
+stream domain reaches (theorem `reachable_inv_of`, whose one premise `SequenceFacts` is the theorem
+`sequence_facts`). A checker run on the real C agrees on 4.6 million sampled states (evidence, not
+proof).
