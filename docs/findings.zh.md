@@ -1,13 +1,13 @@
-<!-- source-sha256: 29a8e0588ed65a99c419c22accff3f5411c02e99e31bc9d45a04134d594368d1 -->
+<!-- source-sha256: deb07d0ed7d2e324407e40c3398b3a60e8792961b9fb69e69314a2849659cf3d -->
 # 发现：本项目在 zlib 中发现了什么
 
 本页列出本项目在 zlib 本身发现的问题。它把三组分开：由 sanitizer 在真实 C 上确认的问题，仅按 C 标准字面规定属于未定义的问题，以及 `deflateBound` 的两处不属于内存错误的失信。每个问题都有自己的页面，给出调用序列、运行命令、输出、严重程度和修复。后面的几节保留未确认的观察，以及不属于 zlib 缺陷的行为。
 
-固定的源码是上游 `develop` 的提交 `99623ef7`，即 zlib 1.4。上游状态截至 2026-11-15。[Sanitizer 报告](sanitizer-reports.md)列出所有 sanitizer 复现，包括不属于 zlib 问题的调用者错误。[补丁](../patches/README.md)说明被验证的源码应用的六个补丁。
+被验证的源码是 zlib 1.4（上游提交 `99623ef7`）加六个[补丁](../patches/README.md)。本页前三张表中每一个在真实 C 上的复现，都运行在上游提交 `757f0527` 上，并带有各自页面写明的补丁；`757f0527` 是 `99623ef7` 的直接父提交。这两个提交之间，库的 C 源码只在版本与版权字符串、以及 `inftrees.c` 中 `lext` 表的最后两项上不同；没有增加或删除任何一行。这里没有记录在 zlib 1.4 本身上的运行。上游状态截至 2026-11-15。[Sanitizer 报告](sanitizer-reports.md)列出所有 sanitizer 复现，包括不属于 zlib 问题的调用者错误。
 
 差分测试、sanitizer 运行和模型运行都是证据，不是关于 C 的证明。
 
-## 固定的源码中已确认的问题
+## 已确认的问题
 
 一个问题同时具备以下三项时才算**已确认**：调用序列、复现，以及一次 sanitizer 报告了它的真实 C 运行。
 
@@ -33,20 +33,20 @@
 
 ## `deflateBound` 的失信，不是内存错误
 
-`zlib.h` 承诺：一次带 `Z_FINISH` 的 `deflate` 调用，如果拿到全部输入，并且输出缓冲区的大小是 `deflateBound` 返回的值，就以 `Z_STREAM_END` 结束。下面两种情形已在固定的 C 上复现，这次调用返回的是 `Z_OK`：这个界太小。两者都不是未定义行为，sanitizer 也没有任何报告，所以它们不满足上面“已确认”的定义，那个定义要求有 sanitizer 报告。第一种已在本地打补丁（补丁 0006）；第二种没有打补丁。
+`zlib.h` 承诺：一次带 `Z_FINISH` 的 `deflate` 调用，如果拿到全部输入，并且输出缓冲区的大小是 `deflateBound` 返回的值，就以 `Z_STREAM_END` 结束。下面两种情形已在真实的 C 上复现，这次调用返回的是 `Z_OK`：这个界太小。两者都不是未定义行为，sanitizer 也没有任何报告，所以它们不满足上面“已确认”的定义，那个定义要求有 sanitizer 报告。第一种已在本地打补丁（补丁 0006）；第二种没有打补丁。
 
 | 问题 | 在哪里出问题 | 证据 | 上游状态 |
 | --- | --- | --- | --- |
-| [`Z_FIXED` 在级别 1 到 3 时 `deflateBound` 太小](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 为 15、`memLevel` 为 8、策略为 `Z_FIXED`、级别 1 到 3。对 1,000,000 字节的输入，界是 1,000,318，而流最多需要 1,008,570 字节。`compress`、`compress2` 和 `compressBound` 使用默认策略，不受影响。 | 固定的 C 上的复现，分别在启用和不启用 AddressSanitizer 与 UndefinedBehaviorSanitizer 的情况下运行。范围来自在真实 C 上对各参数检验这项承诺的测试。系统自带的 zlib 1.2.12 在级别 1 到 9 上全部失败。带补丁 0006 时，复现程序和对含远距离匹配的输入所做的搜索在每个级别都能结束。 | 没有报告。上游是否已经知道，尚未向上游核实。本仓库的本地补丁 0006：没有提交。 |
-| [gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`](findings/deflatebound-extra-len/README.md) | `deflateBound` 按 32 位计算 `2 + extra_len`，所以对这两个长度，和发生回绕，界大约小了 64 KiB。 | 固定的 C 上一个用这两个长度调用 `deflateBound` 的 C 驱动程序 | 上游已知（上游拉取请求 1360 中有讨论）。 |
+| [`Z_FIXED` 在级别 1 到 3 时 `deflateBound` 太小](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 为 15、`memLevel` 为 8、策略为 `Z_FIXED`、级别 1 到 3。对 1,000,000 字节的输入，界是 1,000,318，而流最多需要 1,008,570 字节。`compress`、`compress2` 和 `compressBound` 使用默认策略，不受影响。 | 不带补丁 0006 的 C 上的复现，分别在启用和不启用 AddressSanitizer 与 UndefinedBehaviorSanitizer 的情况下运行。范围来自在真实 C 上对各参数检验这项承诺的测试。系统自带的 zlib 1.2.12 在级别 1 到 9 上全部失败。带补丁 0006 时，复现程序和对含远距离匹配的输入所做的搜索在每个级别都能结束。 | 没有报告。上游是否已经知道，尚未向上游核实。本仓库的本地补丁 0006：没有提交。 |
+| [gzip extra 字段长度为 2^32 − 2 或 2^32 − 1 时的 `deflateBound`](findings/deflatebound-extra-len/README.md) | `deflateBound` 按 32 位计算 `2 + extra_len`，所以对这两个长度，和发生回绕，界大约小了 64 KiB。 | 一个 C 驱动程序：它设置这两个长度，调用 `deflateBound`，再用这么多空间调用带 `Z_FINISH` 的 `deflate`。这次运行的输出没有保留。 | 上游已知（上游拉取请求 1360 中有讨论）。 |
 
-每个发现页面都说明了该情形对功能命题意味着什么。没有补丁 0006 时，完备性命题 `DeflateCompletes` 对第一种情形不成立，因为它对每一种策略全称量化。数值目标 `Goal.deflateBound` 和 `Goal.deflateBound_z` 对第二种情形的两个长度不成立；两者都未完成，也不在计划内。
+每个发现页面都说明了该情形对功能命题意味着什么。没有补丁 0006 时，完备性命题 `DeflateCompletes` 对第一种情形不成立，因为它对每一种策略全称量化。第二种情形不会使任何目标不成立。数值目标 `Goal.deflateBound` 和 `Goal.deflateBound_z` 陈述的是 C 返回的值：它们的封装长度（`WrapperLength`）按 32 位计算 `2 + extra_len`，与 C 和翻译相同。这两个目标都未完成，也不在计划内。回绕破坏的是 `zlib.h` 的承诺：对头部由 `deflateSetHeader` 设置的流，陈述这项承诺的命题需要一条排除这两个长度的前提。没有目标陈述它：`DeflateCompletes` 的历史里没有 `deflateSetHeader` 调用。安全目标 `Goal.deflateBound_safety` 和 `Goal.deflateBound_z_safety` 不使用这个值。
 
 ## 经由 `gz_look` 的位置溢出
 
 这不是上游 zlib 的又一个缺陷。它说明位置溢出的修复（补丁 0004）为什么也给 `gz_look` 加了界限。只给读取函数加界限是不够的：`gz_look` 的透明分支也缓冲输入，那里没有界限时，读取者返回时可能有 `x.pos + x.have` 大于 `GZ_OFF_MAX`，随后 `gzgetc()` 宏溢出（[发现](findings/gz-position-copy-overflow.md)）。
 
-证据：Lean 模型在一个构造出的状态上的运行（[模型检查](../tests/verification/regressions/gz-position-copy-overflow.lean)），以及对 C 的解读。没有在 sanitizer 下复现：这段历史需要约 2^63 个解码字节。在不打任何补丁的固定的源码中，同一段历史更早就溢出了，溢出在 `gz_read` 里：那就是已确认的问题“gz 位置溢出，读取”。
+已知的情况：这条路径上的溢出是对 C 的解读。没有任何一次真实 C 的运行展示它，不论是否在 sanitizer 下：这段历史需要约 2^63 个解码字节。对打过补丁的源码，有三条定理说的是一个构造出的、位于 `GZ_OFF_MAX - 3` 的读取端状态（[模型检查](../tests/verification/regressions/gz-position-copy-overflow.lean)）：`gzread` 返回时没有缓冲任何超过 `GZ_OFF_MAX` 的字节，随后的 `gzgetc` 返回 -1 而不出故障。这个状态是构造出来的，不是由一段调用历史到达的。没有定理、也没有保留下来的运行展示不带这个界限的源码中的故障。该发现把它算作已确认的问题“gz 位置溢出，读取”的又一条路径。
 
 ## 不属于 zlib 缺陷的记录
 
@@ -56,8 +56,6 @@
 | --- | --- | --- |
 | 把 `gzerror` 返回的字符串传给 `gzprintf` | 文档缺口。把 `gzerror` 返回的字符串传给同一句柄上的 `gzprintf` 是释放后使用：`gzprintf` 在格式化之前就释放了句柄的消息。zlib.h 说之后的 `gzerror` 调用可能使该字符串失效，文件关闭后该字符串不再可用（`zlib.h:1793`）；它没有提到 `gzprintf`。gz 安全目标要求 `gzprintf` 的字符串与句柄自己的块分开（[偏离记录](deviations.md#gzip-file-interface)，“Gz printf 字符串”一行）。 | [gzprintf-error-string](../tests/regression/gzprintf-error-string/README.md) |
 | `deflateResetKeep` 与过时的散列项 | 直接调用 `deflateResetKeep` 之后出现的数据错误（错误的匹配），不是内存错误。它是不是 zlib 缺陷，尚未向上游核实：该函数不属于有文档的 API。 | [deflate-resetkeep-stale-hash](findings/deflate-resetkeep-stale-hash/README.md) |
-
-<a id="earlier-library-observations"></a>
 
 ## 未确认的观察
 
@@ -73,7 +71,7 @@
 
 ## 调用者定义域问题
 
-[压缩一侧的分析](proof/deflate.md)和 [inflate 分析](proof/inflate.md)记录了这些情形。它们怎样归类取决于公开 API 允许什么；这里没有把其中任何一项升格为已确认的缺陷。
+这些情形各自怎样归类，取决于公开 API 允许什么。这里没有把其中任何一项算作已确认的缺陷。
 
 | 情形 | 问题与证据的边界 |
 | --- | --- |

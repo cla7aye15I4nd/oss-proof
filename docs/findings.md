@@ -6,14 +6,18 @@ standard, and two broken promises of `deflateBound` that are not memory errors. 
 its own page with the call sequence, the run command, the output, the severity and the fix. Later
 sections keep observations that are not confirmed, and behaviour that is not a zlib bug.
 
-The pinned source is commit `99623ef7` of upstream `develop`, zlib 1.4. Upstream state is given
-as of 2026-11-15. [Sanitizer reports](sanitizer-reports.md) lists every sanitizer reproduction,
-including caller mistakes that are not zlib issues. [Patches](../patches/README.md) describes the
-six patches the verified source applies.
+The verified source is zlib 1.4 (upstream commit `99623ef7`) with six
+[patches](../patches/README.md). Every reproduction on the real C in the first three tables of
+this page ran on upstream commit `757f0527`, the direct parent of `99623ef7`, with the patches
+its page names. Between the two commits the C sources of the library differ only in the version
+and copyright strings and in the last two entries of the table `lext` of `inftrees.c`; no line is
+added or removed. No run on zlib 1.4 itself is recorded here. Upstream state is given as of
+2026-11-15. [Sanitizer reports](sanitizer-reports.md) lists every sanitizer reproduction,
+including caller mistakes that are not zlib issues.
 
 Differential tests, sanitizer runs and model runs are evidence, not proof about the C.
 
-## Confirmed issues in the pinned source
+## Confirmed issues
 
 An issue is **confirmed** when it has all three: a call sequence, a reproduction, and a run of
 the real C in which a sanitizer reports it.
@@ -45,20 +49,26 @@ the evaluation with a probe compiled into the real C.
 
 `zlib.h` promises that one `deflate` call with `Z_FINISH`, the whole input and an output buffer
 of the size `deflateBound` returned ends with `Z_STREAM_END`. In the two cases below, reproduced
-on the pinned C, that call returns `Z_OK`: the bound is too small. Neither is undefined
+on the real C, that call returns `Z_OK`: the bound is too small. Neither is undefined
 behaviour, and the sanitizers report nothing, so they do not meet the definition of confirmed
 above, which asks for a sanitizer report. The first is patched locally (patch 0006); the second is
 not patched.
 
 | Issue | Where it bites | Evidence | Upstream state |
 | --- | --- | --- | --- |
-| [`deflateBound` is too small for `Z_FIXED` at levels 1 to 3](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 15 with `memLevel` 8, strategy `Z_FIXED`, levels 1 to 3. For 1,000,000 input bytes the bound is 1,000,318 and the stream needs up to 1,008,570 bytes. `compress`, `compress2` and `compressBound` use the default strategy and are not affected. | A reproduction on the pinned C, with and without AddressSanitizer and UndefinedBehaviorSanitizer. The scope comes from a test of the promise on the real C over the parameters. A system zlib 1.2.12 fails at every level 1 to 9. With patch 0006 the reproduction and a search for inputs with far matches end at every level. | Not reported. Whether upstream knows it is not yet checked with upstream. Local patch 0006 here: not submitted. |
-| [`deflateBound` with a gzip extra field of length 2^32 − 2 or 2^32 − 1](findings/deflatebound-extra-len/README.md) | `deflateBound` computes `2 + extra_len` at 32 bits, so the sum wraps for these two lengths, and the bound is about 64 KiB too small. | A C driver that calls `deflateBound` with these lengths, on the pinned C | Known upstream (discussion in upstream PR 1360). |
+| [`deflateBound` is too small for `Z_FIXED` at levels 1 to 3](findings/deflatebound-fixed-far-matches/README.md) | `windowBits` 15 with `memLevel` 8, strategy `Z_FIXED`, levels 1 to 3. For 1,000,000 input bytes the bound is 1,000,318 and the stream needs up to 1,008,570 bytes. `compress`, `compress2` and `compressBound` use the default strategy and are not affected. | A reproduction on the C without patch 0006, with and without AddressSanitizer and UndefinedBehaviorSanitizer. The scope comes from a test of the promise on the real C over the parameters. A system zlib 1.2.12 fails at every level 1 to 9. With patch 0006 the reproduction and a search for inputs with far matches end at every level. | Not reported. Whether upstream knows it is not yet checked with upstream. Local patch 0006 here: not submitted. |
+| [`deflateBound` with a gzip extra field of length 2^32 − 2 or 2^32 − 1](findings/deflatebound-extra-len/README.md) | `deflateBound` computes `2 + extra_len` at 32 bits, so the sum wraps for these two lengths, and the bound is about 64 KiB too small. | A C driver that sets these lengths, calls `deflateBound` and then `deflate` with `Z_FINISH` and that much room. The output of its run is not retained. | Known upstream (discussion in upstream PR 1360). |
 
 Each finding page says what the case means for the functional statements. Without patch 0006,
 the completeness statement `DeflateCompletes` is false for the first case, because it quantifies
-over every strategy. The value goals `Goal.deflateBound` and `Goal.deflateBound_z` are false for
-the two lengths of the second case; both are not done and not planned.
+over every strategy. The second case does not make a goal false. The value goals
+`Goal.deflateBound` and `Goal.deflateBound_z` state the value the C returns: their wrapper length
+(`WrapperLength`) computes `2 + extra_len` at 32 bits, as the C and the translation do. Both
+goals are not done and not planned. What the wrap breaks is the promise of `zlib.h`: a statement
+of that promise for a stream whose header was set by `deflateSetHeader` needs a premise that
+excludes the two lengths. No goal states it: the histories of `DeflateCompletes` contain no
+`deflateSetHeader` call. The safety goals `Goal.deflateBound_safety` and `Goal.deflateBound_z_safety` do not
+use the value.
 
 ## The position overflow through `gz_look`
 
@@ -68,11 +78,14 @@ This is not a further defect of upstream zlib. It says why the fix of the positi
 with `x.pos + x.have` above `GZ_OFF_MAX`, after which the `gzgetc()` macro overflows
 ([finding](findings/gz-position-copy-overflow.md)).
 
-Evidence: a run of the Lean model on a constructed state
-([model check](../tests/verification/regressions/gz-position-copy-overflow.lean)), and a reading
-of the C. It is not reproduced under a sanitizer: the history needs about 2^63 decoded bytes. In
-the pinned source without any patch, the same history overflows earlier, in `gz_read`: that is
-the confirmed issue "gz position overflow, reading".
+What is known: the overflow on this path is a reading of the C. No run of the real C shows it,
+under a sanitizer or otherwise: the history needs about 2^63 decoded bytes. For the patched
+source, three theorems about a constructed reader state at `GZ_OFF_MAX - 3`
+([model check](../tests/verification/regressions/gz-position-copy-overflow.lean)) show that
+`gzread` returns with nothing buffered past `GZ_OFF_MAX` and that the next `gzgetc` returns -1
+without a fault. The state is constructed, not reached by a history of calls. No theorem and no
+retained run shows the fault in a source without the bound. The finding counts this as one more
+path of the confirmed issue "gz position overflow, reading".
 
 ## Records that are not zlib bugs
 
@@ -82,8 +95,6 @@ They are listed so that they are not mistaken for one.
 | --- | --- | --- |
 | `gzprintf` with the string returned by `gzerror` | A documentation gap. Passing the string that `gzerror` returned to `gzprintf` on the same handle is a use after free: `gzprintf` frees the handle's message before it formats. zlib.h says that later `gzerror` calls may invalidate the string and that closing the file makes it unavailable (`zlib.h:1793`); it does not mention `gzprintf`. The gz safety goal keeps the `gzprintf` strings apart from the handle's own blocks ([deviations](deviations.md#gzip-file-interface), row "Gz printf strings"). | [gzprintf-error-string](../tests/regression/gzprintf-error-string/README.md) |
 | `deflateResetKeep` and stale hash entries | A data error (a wrong match), not a memory error, after a direct `deflateResetKeep`. Whether it is a zlib bug is not yet checked with upstream: the function is not part of the documented API. | [deflate-resetkeep-stale-hash](findings/deflate-resetkeep-stale-hash/README.md) |
-
-<a id="earlier-library-observations"></a>
 
 ## Unconfirmed observations
 
@@ -100,9 +111,8 @@ of them. Readings of C that a proof has not confirmed are marked **to confirm**.
 
 ## Caller-domain questions
 
-The [compressor-side analysis](proof/deflate.md) and the [inflate analysis](proof/inflate.md)
-record these cases. Their classification depends on what the public API permits; none is promoted
-here to a confirmed defect.
+How each of these cases is classified depends on what the public API permits. None is counted
+here as a confirmed defect.
 
 | Case | Question and evidence boundary |
 | --- | --- |
