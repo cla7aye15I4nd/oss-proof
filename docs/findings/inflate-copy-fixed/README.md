@@ -10,8 +10,8 @@ report and judge it without reading anything else.
 
 - Undefined behaviour by the C standard (C11 6.5.8p5: relational comparison of pointers into
   different objects). Inside the documented use of `inflateCopy`.
-- Reported by AddressSanitizer's pointer-pair check on the unmodified pinned source
-  (`757f0527154291bcf6bfbd6396ecde6bedd2db95`, upstream `develop`), on x86_64 Linux and on arm64
+- Reported by AddressSanitizer's pointer-pair check on unmodified upstream `develop` at commit
+  `757f0527154291bcf6bfbd6396ecde6bedd2db95`, on x86_64 Linux and on arm64
   macOS.
 - No wrong result was observed: without the pointer-pair check the same program returns `Z_OK`
   from `inflateCopy`.
@@ -39,7 +39,7 @@ inflateCopy(&copy, &strm);          /* inflate.c:1383: state->lencode >= state->
 `encoded` is 23 bytes: a zlib header and one final fixed block that decodes to 2048 bytes `A`. The
 complete program is [`repro.c`](repro.c). No buffer is too small, and no two buffers overlap.
 
-The statement, in the pinned `inflate.c` (lines 1383 and 1384):
+The statement, in the unpatched `inflate.c` (lines 1383 and 1384):
 
 ```c
 if (state->lencode >= state->codes &&
@@ -81,7 +81,7 @@ inflate=0 produced=1 fixed_block=1
 ```
 
 These are five lines of the report; the 7176-byte region is the inflate state allocated by
-`inflateInit2_` (`inflate.c:206`). A run on arm64 macOS (Apple clang) for this page printed the
+`inflateInit2_` (`inflate.c:206`). A run on arm64 macOS (Apple clang) printed the
 same verdict at the same line.
 
 ## Scope and severity
@@ -118,13 +118,12 @@ equality test selects the same cases.
 `copy->lencode` is then set to `copy->codes`, and `distcode` keeps its offset.
 
 [Patch 0001](../../../patches/README.md) is exactly that
-commit. It is removed when the upstream branch contains the fix and the pin moves past it.
+commit.
 
 ## Relation to the proofs
 
 The Lean translation follows the patched source. In the pointer model, ordering two pointers into
 different objects is a fault, so the unpatched statement could not be proved safe. The reproduction
-on this page builds the unpatched source on purpose. The
-[copy regression](../../../tests/regression/inflate-copy/README.md) builds the patched source and
-compares successful `inflateCopy` calls of the real C with the translation; that comparison is
+on this page builds the unpatched source on purpose. A differential test builds the patched source
+and compares successful `inflateCopy` calls of the real C with the translation; that comparison is
 evidence of fidelity, not proof.

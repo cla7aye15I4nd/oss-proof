@@ -12,12 +12,12 @@ reproduce the report and judge it without reading anything else. The read-side t
 - Undefined behaviour: signed integer overflow of `x.pos` in `gz_write` and in the fast path of
   `gzputc`. Inside the documented use.
 - Reported by UndefinedBehaviorSanitizer on x86_64 Linux (kernel 7.0, GCC 15.2) with the real
-  `/dev/null`, and in a faster mode on Linux and on arm64 macOS. The faster mode ran on the pinned
-  `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this repository except 0004, as
-  `run.sh` builds it. The retained run with the real `/dev/null` used an earlier copy of the
-  program, on the pinned source with patches 0001 to 0003.
+  `/dev/null`, and in a faster mode on Linux and on arm64 macOS. The faster mode ran on upstream
+  `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this
+  repository except 0004, as `run.sh` builds it. The retained run with the real `/dev/null` used an
+  earlier copy of the program, on the same commit with patches 0001 to 0003.
 - Not submitted upstream. The verified source applies the local
-  [patch 0004](../../../patches/README.md), approved by the project owner on 2026-11-12. One pull
+  [patch 0004](../../../patches/README.md). One pull
   request text for both sides is drafted in
   [../gzread-pos-overflow/upstream-description.md](../gzread-pos-overflow/upstream-description.md).
 
@@ -55,7 +55,7 @@ From the repository root, with the `zlib/` submodule checked out:
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzwrite-pos-overflow/run.sh
 ```
 
-The script builds the pinned source twice with
+The script builds the zlib source twice with
 `-fsanitize=undefined -fno-sanitize-recover=undefined -g -O2`: with `patches/*.patch` except 0004,
 and with all of them. It runs both sequences on each build. Without 0004 each run must report a
 signed overflow of the position. With 0004 nothing may be reported, and the write must fail with
@@ -82,7 +82,7 @@ gzwrite.c:352:25: runtime error: signed integer overflow: 9223372036854775807 + 
 ```
 
 The same file holds the first line again from a run with the real `/dev/null`, which took 17
-minutes (an earlier copy of the program, source with patches 0001 to 0003). A run of the default mode on arm64 macOS for this page gave both reports at the same
+minutes (an earlier copy of the program, source with patches 0001 to 0003). A run of the default mode on arm64 macOS gave both reports at the same
 lines, with the type printed as `off_t`.
 
 ## Scope and severity
@@ -114,5 +114,4 @@ the I/O error.
 
 ## Relation to the proofs
 
-The [gz proof notes](../../proof/gzip.md) call this report W7. The proofs are about the patched
-source.
+The [gzip proofs](../../proof/gzip.md) are about the patched source.

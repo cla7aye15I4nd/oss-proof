@@ -1,6 +1,6 @@
 # Upstream pull request draft: gz position overflow
 
-For the owner to submit. One pull request covers both sides
+One pull request covers both sides
 ([gzread-pos-overflow](README.md), [gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md));
 the diff is [0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch).
 Nothing has been sent.
