@@ -114,8 +114,8 @@
     "path": "ZlibF/Proof/public-inflate-end.lean",
     "declaration": "inflate_end_public",
     "premise": {
-      "zh": "Goal.inflateEnd 要求状态满足 Good，并使用默认释放函数 zcfree。它使用已有的 Good 条件；所有公开调用历史是否都能建立该条件，仍要通过初始化和保持性结果连接。当前接受证据见项目进度。",
-      "en": "Good is the state-validity condition used by this entry. Goal.inflateEnd explicitly requires Good and the default zcfree. This theorem uses that state condition; it does not independently establish Good for every public call history. Acceptance status requires separate audit and commit evidence."
+      "zh": "Goal.inflateEnd 要求状态满足 Good，并使用默认释放函数 zcfree。它使用已有的 Good 条件；所有公开调用历史是否都能建立该条件，仍要通过初始化和保持性结果连接。",
+      "en": "Good is the state-validity condition used by this entry. Goal.inflateEnd explicitly requires Good and the default zcfree. This theorem uses that state condition; it does not independently establish Good for every public call history."
     }
   },
   {

@@ -136,9 +136,6 @@ jobs:
           python3 -O tests/verification/test_audit_shards.py
           python3 tests/verification/test_ci_build.py
           python3 -O tests/verification/test_ci_build.py
-          python3 tests/verification/test-proof-progress.py
-          python3 -O tests/verification/test-proof-progress.py
-          python3 scripts/proof-progress.py --check
 
   audit_selftest:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}

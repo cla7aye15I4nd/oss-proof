@@ -1,4 +1,4 @@
-"""Facts and fragments shared by every page: build stamp, top navigation, description."""
+"""Facts and fragments shared by every page: footer, top navigation, description."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,9 +16,8 @@ def _git(*args: str) -> str:
     return subprocess.check_output(['git', *args], cwd=REPO, text=True).strip()
 
 
+# Lean sources are linked at the revision the site was built from. It is never shown as text.
 COMMIT = _git('rev-parse', 'HEAD')
-DATE = _git('log', '-1', '--format=%cs')
-BRANCH = os.environ.get('GITHUB_REF_NAME') or _git('rev-parse', '--abbrev-ref', 'HEAD')
 
 
 def route_href(route: str, current: Path, lang: str, anchor: str = '') -> str:
@@ -31,7 +30,7 @@ def top_links(current: Path, lang: str) -> str:
     zh = lang == 'zh'
     entries = [
         ('index', 'articles', '文章', 'Articles'),
-        ('status', '', '结果与进度', 'Results'),
+        ('reference/docs/progress', '', '状态', 'Status'),
         ('reference/index', '', '规格', 'Specifications'),
         ('reference/proofs', '', '证明', 'Proofs'),
     ]
@@ -46,13 +45,9 @@ def top_links(current: Path, lang: str) -> str:
 
 def stamp(current: Path, lang: str) -> str:
     zh = lang == 'zh'
-    short = COMMIT[:10]
-    status = route_href('status', current, lang)
-    text = (f'构建自 <a href="{REPO_URL}/commit/{COMMIT}"><code>{short}</code></a>（{html.escape(BRANCH)} 分支），{DATE}。'
-            if zh else
-            f'Built from <a href="{REPO_URL}/commit/{COMMIT}"><code>{short}</code></a> (branch {html.escape(BRANCH)}), {DATE}.')
-    return (f'<footer class="site-stamp">{text} <a href="{status}">'
-            f'{"当前状态" if zh else "Current status"}</a></footer>')
+    status = route_href('reference/docs/progress', current, lang)
+    return (f'<footer class="site-stamp"><a href="{status}">'
+            f'{"结论的状态" if zh else "Status of the results"}</a></footer>')
 
 
 def describe(body: str, title: str) -> str:

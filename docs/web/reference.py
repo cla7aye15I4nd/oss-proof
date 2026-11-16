@@ -5,7 +5,7 @@ from pathlib import Path
 from navigation import global_contents
 from pagekit import COMMIT, top_links, stamp, describe
 from syntax import color_blocks, color_code
-from progress import render_progress, parse_progress, STATUS
+from progress import functions, goal_done, other_goals, state
 from api_returns import parse_role, validate_sources, enhance_contract, enhance_manual
 from functools import lru_cache
 from hashlib import sha256
@@ -14,7 +14,6 @@ import html
 import json
 import os
 import re
-import subprocess
 import shutil
 
 from markdown import Markdown
@@ -23,9 +22,9 @@ SITE = Path(__file__).resolve().parent
 REPO = SITE.parents[1]
 OUT = SITE / "dist"
 GITHUB = "https://github.com/cla7aye15I4nd/zlib-f/blob/"+COMMIT+"/"
-TRACKED = set(subprocess.check_output(['git','ls-files','ZlibF','ZlibF.lean','docs','README.md','AGENTS.md','patches/README.md'],cwd=REPO,text=True).splitlines())
-CHANGED = set(subprocess.check_output(['git','ls-files','-m','--others','--exclude-standard','ZlibF','ZlibF.lean','docs','README.md','AGENTS.md','patches/README.md'],cwd=REPO,text=True).splitlines())
-CHANGED.update(subprocess.check_output(['git','diff','--name-only','HEAD','--','ZlibF','ZlibF.lean','docs','README.md','AGENTS.md','patches/README.md'],cwd=REPO,text=True).splitlines())
+# Anchors of the earlier, longer status page that published pages still link to. They resolve to the top of the page.
+PROGRESS_ANCHORS = ['proof-progress-graph','target-evidence','remaining-work','core-proof-skeletons','ordered-next-work',
+                    'public-api-proof-readiness','no-fault-coverage-of-zlibh-functions','observations']
 GROUPS = {
     "deflate-stream": ("压缩流", "Compression streams"),
     "inflate-stream": ("解压流", "Decompression streams"),
@@ -89,6 +88,7 @@ def flatten(tokens: list[dict]) -> list[dict]:
 
 
 STALE: list[str] = []
+MISSING: list[str] = []
 NOTICE = '<p class="rf-stale-note" role="note"><strong>本页的英文原文已更新。</strong>中文译文可能落后；请以英文页为准。</p>'
 
 
@@ -125,11 +125,6 @@ def direct_status(text: str) -> str:
             line=re.sub(r'\bto confirm\b','not yet confirmed',line,flags=re.I)
         lines.append(line)
     return ''.join(lines)
-
-
-@lru_cache(maxsize=1)
-def progress_targets():
-    return {target.name:target for target in parse_progress((REPO/'docs/progress.md').read_text()).targets}
 
 
 def document_title(source: Path, lang: str) -> str:
@@ -183,7 +178,13 @@ def rewrite(body: str, source: Path, current: Path, lang: str) -> str:
             destination = (source.parent / unquote(url.path)).resolve() if url.path else source
         if destination.suffix=='.md' and destination.is_relative_to(REPO):
             destination=resolve_doc(destination)
-        extras={REPO/'README.md',REPO/'AGENTS.md',REPO/'patches/README.md'}
+        extras={REPO/'README.md',REPO/'patches/README.md'}
+        if destination.suffix=='.md' and destination.is_relative_to(REPO/'docs') and not destination.exists():
+            # The link would leave the site for a file that does not exist.
+            note=source.relative_to(REPO).as_posix()+' -> '+destination.relative_to(REPO).as_posix()
+            if note not in MISSING:
+                MISSING.append(note)
+                print('WARNING: link to a page that does not exist: '+note)
         if destination.suffix == ".md" and (destination.is_relative_to(REPO / "docs") or destination in extras) and destination.exists():
             result = href(doc_path(destination, lang), current)
         elif destination.suffix == '.lean' and destination.is_relative_to(REPO) and destination.exists():
@@ -209,7 +210,7 @@ def rewrite(body: str, source: Path, current: Path, lang: str) -> str:
     return re.sub(r'\b(href|src)="([^"]+)"', replace, body)
 
 
-def shell(title: str, body: str, current: Path, lang: str, *, toc: str = "", source: str = "",
+def shell(title: str, body: str, current: Path, lang: str, *, toc: str = "",
           other: Path | None = None, intro: str = "", title_id: str = "", eyebrow: str = "",
           description: str = "") -> str:
     zh = lang == "zh"
@@ -221,19 +222,8 @@ def shell(title: str, body: str, current: Path, lang: str, *, toc: str = "", sou
     proof = href(OUT / "reference" / ("proofs.zh.html" if zh else "proofs.html"), current)
     sources = href(OUT / "reference" / ("sources.zh.html" if zh else "sources.html"), current)
     language = f'<a data-language href="{href(other, current)}" hreflang="{t("en", "zh")}">{t("EN", "中文")}</a>' if other else ""
-    source_link=''
-    if source:
-        path=REPO/source
-        digest=sha256(path.read_bytes()).hexdigest()
-        source_link=f'<span>{t("此页源文件快照","Source snapshot")} · <code title="SHA-256 {digest}">{digest[:16]}</code></span>'
-        if source in TRACKED:
-            label=t('GitHub 基准版本','GitHub base version') if source in CHANGED else t('对应提交的原文','Source at the matching commit')
-            source_link+=f' · <a href="{GITHUB+source}">{label} ↗</a>'
-        if source in CHANGED:
-            source_link+=f'<span class="rf-working-copy">{t("含工作区修改；此页快照与基准提交不同。","Includes working-copy changes; this snapshot differs from the base commit.")}</span>'
-    revision = sha256(b''.join((SITE/'static'/name).read_bytes() for name in ['reference.js','reference.css','api-returns.css','diagram-view.mjs','navigation.js','navigation.css','syntax.css','progress.css','progress.js'])).hexdigest()[:12]
+    revision = sha256(b''.join((SITE/'static'/name).read_bytes() for name in ['reference.js','reference.css','api-returns.css','diagram-view.mjs','navigation.js','navigation.css','syntax.css'])).hexdigest()[:12]
     return_assets=f'<link rel="stylesheet" href="{asset("api-returns.css")}?v={revision}">' if 'data-return-guide=' in body or 'ar-index-role' in body else ''
-    progress_assets=(f'<link rel="stylesheet" href="{asset("progress.css")}?v={revision}"><script defer src="{asset("progress.js")}?v={revision}"></script>' if source=='docs/progress.md' else '')
     return f'''<!doctype html><html lang="{lang}"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}{"" if title=="zlib × Lean" else " · zlib × Lean"}</title>
@@ -243,12 +233,11 @@ def shell(title: str, body: str, current: Path, lang: str, *, toc: str = "", sou
 <link rel="stylesheet" href="{asset('navigation.css')}?v={revision}"><script defer src="{asset('navigation.js')}?v={revision}"></script>
 <link rel="stylesheet" href="{asset('syntax.css')}?v={revision}">
 {return_assets}
-{progress_assets}
 <script defer src="{asset('reference.js')}?v={revision}"></script></head><body>
 <a class="zl-skip" href="#content">{t('跳到正文','Skip to content')}</a>
 <main class="rf-page"><nav class="article-topbar"><a class="article-brand" href="{root}">zlib × Lean</a><div>{top_links(current,lang)}{language}</div></nav>
 
-<div class="rf-layout"><article class="rf-body" id="content"><header class="rf-hero"><div class="rf-eyebrow">{eyebrow or t('参考文档','REFERENCE')+' / ZLIB × LEAN'}</div><h1{(' id="'+html.escape(title_id,quote=True)+'"') if title_id else ''}>{html.escape(title)}</h1>{intro}<div class="rf-source">{source_link}</div></header>{body}</article>
+<div class="rf-layout"><article class="rf-body" id="content"><header class="rf-hero"><div class="rf-eyebrow">{eyebrow or t('参考文档','REFERENCE')+' / ZLIB × LEAN'}</div><h1{(' id="'+html.escape(title_id,quote=True)+'"') if title_id else ''}>{html.escape(title)}</h1>{intro}</header>{body}</article>
 </div>
 {stamp(current,lang)}</main>{global_contents(current,lang,title,toc)}</body></html>'''
 
@@ -274,8 +263,7 @@ def write(path: Path, content: str) -> None:
 
 def goal_excerpts() -> dict[str, tuple[Path, int, str]]:
     result = {}
-    # Public goals live in Spec/Safety and Spec/Functional; Spec/Common holds only internal component
-    # goals (docs/design/safety-functional-split.md, scripts/check-spec-layers.py rule 5).
+    # Public goals live in Spec/Safety and Spec/Functional; Spec/Common holds only internal component goals.
     layers = ("Common", "Safety", "Functional")
     for source in sorted(s for layer in layers for s in (REPO / "ZlibF/Spec" / layer).glob("*.lean")):
         text = source.read_text()
@@ -294,7 +282,7 @@ def goal_excerpts() -> dict[str, tuple[Path, int, str]]:
 
 
 def render_docs() -> None:
-    sources=documents()+[REPO/'README.md',REPO/'AGENTS.md',REPO/'patches/README.md']
+    sources=documents()+[REPO/'README.md',REPO/'patches/README.md']
     for source in sources:
         original = source.read_text()
         for lang in ("en", "zh"):
@@ -323,14 +311,15 @@ def render_docs() -> None:
             body = stale_note + body
             current = doc_path(source, lang)
             if source==REPO/'docs/progress.md':
-                body=re.sub(r'(<h2 id="proof-progress-graph">.*?</h2>).*?(</code></pre>)',lambda match:match[1]+render_progress(original,lang,current),body,count=1,flags=re.S)
+                present=set(re.findall(r'\bid="([^"]+)"',body))
+                body=''.join(f'<span id="{anchor}" hidden></span>' for anchor in PROGRESS_ANCHORS if anchor not in present)+body
             body = rewrite(body, source, current, lang)
             if source.parent==REPO/'docs/spec/api' and source.stem in GROUPS:
                 body=enhance_manual(body,body_lang)
             toc = rewrite(toc, source, current, lang) if body_lang == lang else ''
             other = doc_path(source, "en" if lang == "zh" else "zh")
             write(current, shell(title, body, current, lang, toc=toc,
-                                 source=source.relative_to(REPO).as_posix(), other=other,
+                                 other=other,
                                  title_id=headings[0]['id'] if headings else ''))
 
 
@@ -402,15 +391,13 @@ def render_api(manifest: dict) -> None:
             common = rewrite(common, source, target, lang)
             body += f'<details class="rf-common"><summary>{t("本组共同前提与范围","Shared conditions and scope")}</summary>{common}</details>'
             safety = entry.get("safety_goal")
+            status_page = href(doc_path(REPO/'docs/progress.md',lang),target)
             if safety and safety != entry.get("functional_goal"):
                 short = safety.rsplit(".", 1)[-1]
                 if short not in excerpts:
                     raise ValueError(f"Safety target not found: {safety}")
                 goal_source, line, code = excerpts[short]
-                recorded=progress_targets().get(short)
-                status=(STATUS[recorded.status][0 if zh else 1] if recorded else t('未完成','Not completed'))
-                evidence=href(doc_path(REPO/'docs/progress.md',lang),target)+('#'+recorded.anchor if recorded else '')
-                body += f'<section class="rf-formal" id="safety-target"><h2>{t("安全目标（必需）","Safety goal (required)")}</h2><p><code>{html.escape(safety)}</code></p><p class="rf-proof-status">{t("证明状态：","Proof status: ")}{status} · <a href="{evidence}">{t("证明记录","Evidence")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{source_path(goal_source, lang)}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
+                body += f'<section class="rf-formal" id="safety-target"><h2>{t("安全目标","Safety goal")}</h2><p><code>{html.escape(safety)}</code></p><p class="rf-proof-status">{t("状态：","State: ")}{state(goal_done(safety),lang)} · <a href="{status_page}">{t("结论的状态","Status of the results")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{source_path(goal_source, lang)}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
             goal = entry.get("functional_goal")
             if goal:
                 short = goal.rsplit(".", 1)[-1]
@@ -418,10 +405,7 @@ def render_api(manifest: dict) -> None:
                     raise ValueError(f"Public target not found: {goal}")
                 goal_source, line, code = excerpts[short]
                 context = source_path(goal_source, lang)
-                recorded=progress_targets().get(name)
-                status=(STATUS[recorded.status][0 if zh else 1] if recorded else t('未完成','Not completed'))
-                evidence=href(doc_path(REPO/'docs/progress.md',lang),target)+('#'+recorded.anchor if recorded else '')
-                body += f'<section class="rf-formal" id="formal-target"><h2>{t("形式化约定","Formal contract") if safety == goal else t("功能契约（不是必需目标）","Functional contract (not a required goal)")}</h2><p><code>{html.escape(goal)}</code></p><p class="rf-proof-status">{t("证明状态：","Proof status: ")}{status} · <a href="{evidence}">{t("证明记录与剩余工作","Evidence and remaining work")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{context}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
+                body += f'<section class="rf-formal" id="formal-target"><h2>{t("形式化契约","Formal contract") if safety == goal else t("功能契约（安全之外）","Functional contract (beyond safety)")}</h2><p><code>{html.escape(goal)}</code></p><p class="rf-proof-status">{t("状态：","State: ")}{state(goal_done(goal),lang)} · <a href="{status_page}">{t("结论的状态","Status of the results")}</a></p><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{context}#L{line}">{t("相关定义与源码","Related definitions and source")} ↗</a></section>'
             else:
                 body += f'<p class="rf-language-note">{t("此平台专用条目没有默认 LP64 构建目标。","This platform-specific entry has no default LP64 target.")}</p>'
             category = doc_path(source, lang)
@@ -431,10 +415,10 @@ def render_api(manifest: dict) -> None:
             if stale_api:
                 body = '<div lang="en">' + body + '</div>'
             write(target, shell(name, body, target, lang, toc=sidebar,
-                                source=entry["manual"].split("#")[0], other=opposite, intro=intro))
+                                other=opposite, intro=intro))
         default_count = sum(item["scope"] == "lp64-linux" for item in all_entries)
         controls = f'<div class="rf-search"><label for="api-search">{t("查找函数或约定","Find a function or contract")}</label><input id="api-search" type="search" autocomplete="off" placeholder="{t("函数名、Z_MEM_ERROR、字典、所有权…","Function, Z_MEM_ERROR, dictionary, ownership…")}"><div class="rf-filters"><label>{t("分组","Group")}<select id="api-group" aria-label="{t('分组','Group')}"><option value="">{t("全部分组","All groups")}</option>'+''.join(f'<option value="{key}">{value[0 if zh else 1]}</option>' for key,value in GROUPS.items())+f'</select></label><label>{t("配置","Build")}<select id="api-scope" aria-label="{t('配置','Build')}"><option value="">{t("全部条目","All entries")}</option><option value="lp64-linux">LP64 Linux</option><option value="windows">Windows</option></select></label><output id="api-count" aria-live="polite">{len(all_entries)} {t("个条目","entries")}</output></div></div>'
-        banner = f'<p class="rf-scope-note">{default_count} {t("个默认构建入口，另含 Windows gzopen_w。各条完整保留签名、定义域、前置条件、结果、内存效果和错误路径。文档契约与注册目标的范围可能不同，均原样呈现。","default-build entries, plus Windows gzopen_w. Every entry retains its signature, domain, preconditions, results, memory effects, and error paths. Documentary contracts and registered goals may have different scopes; both are preserved.")}</p>'
+        banner = f'<p class="rf-scope-note">{default_count} {t("个默认构建入口，另含 Windows gzopen_w。各条完整保留签名、定义域、前置条件、结果、内存效果和错误路径。文档中的契约与 Lean 目标的范围可能不同，两者都原样呈现。","default-build entries, plus Windows gzopen_w. Every entry retains its signature, domain, preconditions, results, memory effects, and error paths. The documented contract and the Lean goal may differ in scope; each is shown as it is.")}</p>'
         body = banner + controls + '<div class="rf-api-list">'+''.join(cards)+'</div><p id="api-empty" hidden>'+t('没有匹配项。试试函数名的一部分。','No matches. Try part of a function name.')+'</p>'
         write(current, shell(t("API 契约", "API contracts"), body, current, lang,
                              other=other, intro=f'<p>{t("完整公开接口索引","The complete public-interface index")}</p>'))
@@ -449,13 +433,13 @@ def render_portals() -> None:
         other = current.with_name("index.html" if zh else "index.zh.html")
         def link(file, label):
             return f'<a href="{href(doc_path(REPO/"docs"/file,lang),current)}">{label} ↗</a>'
-        body = f'<p class="rf-scope-note"><a href="{href(OUT/("status"+suffix),current)}">{t("当前状态","Current status")} →</a> {t("三项核心结论、范围与下一步。","The three core results, scope and next work.")}</p>'
-        body += f'<p class="rf-intro">{t("导读、完整接口契约和证明细节共用同一套文档。原始内容在构建时读入，没有删去长推导或错误路径。","The guide, complete interface contracts, and detailed proofs share one documentation system. Original material is read at build time, preserving long arguments and error paths.")}</p>'
+        body = f'<p class="rf-scope-note"><a href="{href(doc_path(REPO/"docs/progress.md",lang),current)}">{t("结论的状态","Status of the results")} →</a> {t("每项结论、每个公开函数是完成还是未完成，以及哪些不在计划内。","Done or not done, for each result and each public function, and what is not planned.")}</p>'
+        body += f'<p class="rf-intro">{t("这里是规格、接口契约和证明讲解的入口。长的推导和错误路径都完整保留。","The entry to the specifications, the interface contracts and the proof explanations. Long arguments and error paths are kept in full.")}</p>'
         body += f'<section class="rf-portal-section"><span>01 / ZLIB</span><h2>{t("算法与接口","Algorithms and interfaces")}</h2><a class="rf-portal-primary" href="api{suffix}">{t("全部公开 API 契约","All public API contracts")} ↗</a><div class="rf-link-grid">'+link('api/contracts.md',t('契约术语与定义域','Contract vocabulary and domains'))+link('api/streams.md',t('流、缓冲区与调用顺序','Streams, buffers, and call order'))+link('format/README.md',t('DEFLATE、zlib 与 gzip 格式','DEFLATE, zlib, and gzip formats'))+link('format/model.md',t('格式的 Lean 模型','The Lean format model'))+'</div></section>'
-        body += f'<section class="rf-portal-section"><span>02 / VERIFICATION</span><h2>{t("形式化验证","Formal verification")}</h2><a class="rf-portal-primary" href="proofs{suffix}">{t("inflate 与 deflate 的证明路线","Inflate and deflate proof routes")} ↗</a><div class="rf-link-grid">'+link('design/architecture.md',t('翻译与运行时架构','Translation and runtime architecture'))+link('design/internal-contracts.md',t('内部函数义务','Internal helper obligations'))+link('proof/method.md',t('单函数证明方法','Proving one function'))+link('proof/stream-composition.md',t('跨调用组合','Composition across calls'))+link('safety.md',t('安全目标与调用者义务','Safety goals and caller obligations'))+link('trusted-base.md',t('信任边界','Trusted base'))+link('deviations.md',t('范围限制','Scope restrictions'))+link('sanitizer-reports.md',t('Sanitizer 报告','Sanitizer reports'))+link('checking/README.md',t('审计、变异与检查','Audits, mutations, and checks'))+link('progress.md',t('证据索引：每个目标的证明与依赖','Evidence index: every target, proof and dependency'))+link('glossary.md',t('术语表','Glossary'))+link('checking/contributing.md',t('参与贡献：命令与步骤','Contributing: steps and commands'))+'</div></section>'
-        body += f'<details class="rf-common"><summary>{t("原有文档的完整目录","Complete original documentation tree")}</summary><ul>'
+        body += f'<section class="rf-portal-section"><span>02 / VERIFICATION</span><h2>{t("形式化验证","Formal verification")}</h2><a class="rf-portal-primary" href="proofs{suffix}">{t("inflate 与 deflate 的证明路线","Inflate and deflate proof routes")} ↗</a><div class="rf-link-grid">'+link('design/architecture.md',t('翻译与运行时架构','Translation and runtime architecture'))+link('design/internal-contracts.md',t('内部函数义务','Internal helper obligations'))+link('proof/method.md',t('单函数证明方法','Proving one function'))+link('proof/stream-composition.md',t('跨调用组合','Composition across calls'))+link('safety.md',t('安全目标与调用者义务','Safety goals and caller obligations'))+link('trusted-base.md',t('信任边界','Trusted base'))+link('deviations.md',t('范围限制','Scope restrictions'))+link('sanitizer-reports.md',t('Sanitizer 报告','Sanitizer reports'))+link('checking/README.md',t('完成的结论依靠什么','What a done result rests on'))+link('progress.md',t('结论的状态','Status of the results'))+link('glossary.md',t('术语表','Glossary'))+'</div></section>'
+        body += f'<details class="rf-common"><summary>{t("全部页面","All pages")}</summary><ul>'
         for file in documents():
-            body += '<li>'+link(file.relative_to(REPO/'docs').as_posix(),html.escape(document_title(file,lang)))+' <small><code>'+html.escape(file.relative_to(REPO/'docs').as_posix())+'</code></small></li>'
+            body += '<li>'+link(file.relative_to(REPO/'docs').as_posix(),html.escape(document_title(file,lang)))+'</li>'
         body += '</ul></details>'
         write(current,shell(t('规格与文档索引','Specifications and documentation'),body,current,lang,other=other))
         current=OUT/'reference'/('proofs'+suffix)
@@ -471,7 +455,7 @@ def render_portals() -> None:
         for file,label in [('inftrees.md',t('解码表构造','Decode-table construction')),('inffast.md',t('快速解码','Fast decoding')),('trees.md',t('树、位输出与共享缓冲区','Trees, bit emission, and shared storage')),('stream-composition.md',t('两个引擎的组合架构','Composition of the two engines')),('method.md',t('证明方法与不变量','Proof method and invariants')),('adler32.md','Adler-32'),('crc32.md','CRC-32'),('zutil.md',t('分配与工具函数','Allocation and utilities'))]:
             body+=link('proof/'+file,label)
         body+='</div>'
-        body+=f'<p><a href="targets{suffix}">{t("调用序列与初始化定义域的精确目标","Exact targets for call sequences and initialization domains")} →</a></p>'
+        body+=f'<p><a href="targets{suffix}">{t("调用序列、拒绝与前提可满足性的目标命题","Statements of the goals for call sequences, refusals and satisfiable premises")} →</a></p>'
         write(current,shell(t('证明细节','Proof details'),body,current,lang,other=other))
 
 
@@ -512,19 +496,31 @@ def render_sources() -> None:
 
 
 def render_targets(manifest: dict) -> None:
+    """The statements of the goals that are about more than one function."""
     excerpts=goal_excerpts()
+    safety=other_goals()
+    domains={goal.rsplit('.',1)[-1] for goal in manifest['nonvacuity_goals']}
+    sections=[
+        (('调用序列的安全','Safety of call sequences'),[n for n in safety if n.endswith('_sequence_safety')]),
+        (('拒绝','Refusals'),[n for n in safety if n.endswith('_refusal')]),
+        (('前提可以满足','The premises can be met'),[n for n in safety if n in domains]),
+        (('完整的序列契约（安全之外）','Full sequence contracts (beyond safety)'),[goal.rsplit('.',1)[-1] for goal in manifest['sequence_goals']]),
+    ]
+    listed=[n for _,names in sections for n in names]
+    if set(safety)-set(listed) or len(listed)!=len(set(listed)):
+        raise ValueError('A goal about more than one function has no section, or two')
     for lang in ('en','zh'):
         zh=lang=='zh';suffix='.zh.html' if zh else '.html'
         current=OUT/'reference'/('targets'+suffix)
         other=current.with_name('targets.html' if zh else 'targets.zh.html')
-        body='<p class="rf-scope-note">'+('这些约定描述完整调用序列，以及初始化能够建立的有效状态。每项都可以继续进入相关定义；证明进度见进度页。' if zh else 'These contracts describe whole call sequences and the valid states established by initialization. Follow each definition for its context; the progress page records proof work.')+'</p>'
-        for category in ('sequence_goals','nonvacuity_goals'):
-            body+='<h2>'+({'sequence_goals':('调用序列','Call sequences'),'nonvacuity_goals':('初始化定义域','Initialization domains')}[category][0 if zh else 1])+'</h2>'
-            for goal in manifest[category]:
-                name=goal.rsplit('.',1)[-1]
+        status=href(doc_path(REPO/'docs/progress.md',lang),current)
+        body='<p class="rf-scope-note">'+('这些目标说的不是单个函数：完整的调用序列、对无效流或句柄的拒绝，以及各目标的前提可以满足。每个函数自己的目标在该函数的页面上。哪些已经完成，见<a href="'+status+'">结论的状态</a>。' if zh else 'These goals are about more than one function: whole call sequences, the refusal of an invalid stream or handle, and that the premises of the goals can be met. The goal of each function is on the page of that function. Which are done is on the <a href="'+status+'">status page</a>.')+'</p>'
+        for title,names in sections:
+            body+='<h2>'+title[0 if zh else 1]+'</h2>'
+            for name in names:
                 source,line,code=excerpts[name]
                 body+=f'<section id="{name}"><h3>{name}</h3><pre><code class="language-lean">{html.escape(code)}</code></pre><a href="{source_path(source,lang)}#L{line}">{"完整上下文" if zh else "Complete context"} ↗</a></section>'
-        write(current,shell('精确证明目标' if zh else 'Exact proof targets',body,current,lang,other=other))
+        write(current,shell('目标的命题' if zh else 'Statements of the goals',body,current,lang,other=other))
 
 
 def render_proof_routes() -> None:
