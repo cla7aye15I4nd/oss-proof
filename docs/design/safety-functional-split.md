@@ -11,7 +11,7 @@ checked. The plan that led to this layout, with its steps and status, is a
 | Directory | Content | Required |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | Safety goals: the call returns with no `Fault.ub` and no `Fault.outOfFuel`, writes only its frame, and leaks nothing, on the documented domain | Yes |
-| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters, the platform premise, and the invariants of the streams and of the gz handle (`Good`, `DGood`, `GzInv`). `Common/Inflate/` holds the invariants of the inflate tables and of the fast decoder. Five goals about public functions are also here ([below](#what-is-not-separated)) | Three of those five goals: yes |
+| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters, the platform premise, and the invariants of the streams and of the gz handle (`Good`, `DGood`, `GzInv`). `Common/Inflate/` holds the invariants of the inflate tables and of the fast decoder. No goal about a public function is here | No goal of its own |
 | `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), those of the gzip file interface included; the format and API models with their goals (`Format/`, `Api/`); the full sequence contracts (`Goal.inflate_sequence`, `Goal.deflate_sequence`, `Goal.inflate_back_sequence`, `Goal.gz_sequence`), which join the sequence safety with functional clauses. `Functional/Inflate/` holds statements about the decode tables and the fast decoder that use the format model | No, except `Goal.compressBound` and `Goal.compressBound_z` ([below](#two-goals-per-public-function)) |
 
 Nothing else is directly under `ZlibF/Spec/`, except `Common.lean`, which imports every module
@@ -75,12 +75,18 @@ for imports through any chain of other modules.
    modules are in `Spec/Common/`: `Good` in `InflateGood.lean`, `DGood` in `DeflateGood.lean`,
    `GzInv` in `GzInv.lean`. The lemmas about them stay in the proof modules.
 
-The script `scripts/check-spec-layers.py` walks the imports and fails on an import that breaks a
-rule. It also fails when anything other than the three directories and their root import files
-is directly under `ZlibF/Spec/`. It runs in the fast gate (job `no-sorry`). It has no list of
-exceptions to these three rules.
+A fourth rule is about definitions, not imports.
 
-The script has a fourth rule, about `ZlibF/Math/`: a module there does not import a proof
+4. No goal that the manifest `tests/audit/public-api.json` names is defined under
+   `Spec/Common/`. Such a goal is under `Spec/Safety/` or `Spec/Functional/`.
+
+The script `scripts/check-spec-layers.py` walks the imports and fails on an import that breaks a
+rule. For rule 4 it reads each line of a common module that starts with `def Goal.` or
+`abbrev Goal.` and looks the full name up in the manifest. It also fails when anything other
+than the three directories and their root import files is directly under `ZlibF/Spec/`. It runs
+in the fast gate (job `no-sorry`). It has no list of exceptions to these four rules.
+
+The script has one more rule, about `ZlibF/Math/`: a module there does not import a proof
 module directly, except the imports in the list `MATH_PROOF_IMPORTS` of the script. The script
 records that those Math modules import lemmas from proof modules, not definitions. The list may
 only shrink: the script
@@ -152,13 +158,11 @@ and the [rules against silent removal](../checking/goals.md#shrink-only-rules) i
 
 ## What is not separated
 
-- Three required goals are in `Spec/Common/`, not in `Spec/Safety/`: `Goal.gz_refusal`
-  (`Common/GzRefusal.lean`), `Goal.inflate_back_sequence_safety` (`Common/Sequences.lean`) and
-  `Goal.inflate_back_initialisation_domain` (`Common/Domains.lean`). No module of `Spec/Safety/`
-  imports `Common/GzRefusal.lean`, so a reader of the required goals reads that file as well.
-- Two functional goals are in `Spec/Common/`: `Goal.inflateBackInit_` and `Goal.inflateBackEnd`
-  (`Common/Back.lean`).
 - `Goal.compressBound` and `Goal.compressBound_z`, which the manifest names as safety goals, are
-  in `Functional/Queries.lean`.
+  in `Functional/Queries.lean`. That is by design ([above](#two-goals-per-public-function)).
+- Statements about internal functions, which the manifest does not name, are in `Spec/Common/`
+  (`ByteAddress.lean`, `Common/Inflate/`) when they do not use the format model, and in
+  `Spec/Functional/` when they do. They also have the form `Goal.<name>`, each in the namespace
+  of its own module.
 
 [Design](README.md) · [Documentation home](../README.md)

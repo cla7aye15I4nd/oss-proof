@@ -499,13 +499,10 @@ Malformed input is inside the safety domain: an error return must not hide a fau
 ## Appendix: where the goals are {#where-the-goals-are}
 
 Every safety goal is a Lean definition `ZlibF.Spec.Public.Goal.<name>`. It is in
-`ZlibF/Spec/Safety/`, with five exceptions (rows below):
+`ZlibF/Spec/Safety/`, with two exceptions: `Goal.compressBound` and `Goal.compressBound_z` are
+in `ZlibF/Spec/Functional/Queries.lean` (row below).
 
-- `Goal.gz_refusal`, `Goal.inflate_back_sequence_safety` and
-  `Goal.inflate_back_initialisation_domain` are in `ZlibF/Spec/Common/`.
-- `Goal.compressBound` and `Goal.compressBound_z` are in `ZlibF/Spec/Functional/Queries.lean`.
-
-`ZlibF/Spec/Common/` holds the definitions the goals use. The invariants and the gz premises
+`ZlibF/Spec/Common/` holds the definitions the goals use, and no goal about a public function. The invariants and the gz premises
 are among them: `Good` in `ZlibF/Spec/Common/InflateGood.lean`, `DGood` in
 `ZlibF/Spec/Common/DeflateGood.lean`, and `GzInv`, `ReadsFinite` and `NeedsReadBound` in
 `ZlibF/Spec/Common/GzInv.lean`.
@@ -531,10 +528,10 @@ modules, and has no exception to these rules. The functional gz and callback goa
 | `compress*`, `uncompress*` | `Goal.compress*_safety`, `Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
 | `compressBound`, `compressBound_z` | `Goal.compressBound`, `Goal.compressBound_z`: the full contract. The translation is a pure function with no heap and no fault, so a separate safety goal would hold by definition. | [Functional/Queries.lean](../../ZlibF/Spec/Functional/Queries.lean) |
 | the gzip file functions, and `gzvprintf` | `Goal.<function>_safety`: one call on a handle of any history, with the refusal of a `NULL` handle; for the three open functions, the open | [Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean) |
-| every history of a gzip file handle | `Goal.gz_sequence_safety`; a `NULL` handle: `Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean), [Common/GzRefusal.lean](../../ZlibF/Spec/Common/GzRefusal.lean) |
+| every history of a gzip file handle | `Goal.gz_sequence_safety`; a `NULL` handle: `Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean), [Safety/GzRefusal.lean](../../ZlibF/Spec/Safety/GzRefusal.lean) |
 | `inflateBackInit_`, `inflateBack`, `inflateBackEnd` | `Goal.<function>_safety`: for init, every call that `zlib.h` allows; for the other two, the call on a history and the refusals | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
-| every history of a callback decoder | `Goal.inflate_back_sequence_safety` | [Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean) |
-| non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Common/Domains.lean](../../ZlibF/Spec/Common/Domains.lean), [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
+| every history of a callback decoder | `Goal.inflate_back_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
+| non-vacuity | `Goal.inflate_initialisation_domain`, `Goal.deflate_initialisation_domain`, `Goal.inflate_back_initialisation_domain`, `Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean), [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
 `tests/audit/public-api.json` is the list the audit uses. For each function it gives a
 `safety_goal` and a `functional_goal`. The required set is every `safety_goal`, the list

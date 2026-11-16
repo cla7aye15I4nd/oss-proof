@@ -1,4 +1,4 @@
-<!-- source-sha256: 70f58744ffbaf8e2e91ad0e0b663456df0468ba49288ca0b4dd64f5e3d650c5d -->
+<!-- source-sha256: ea8986a1c79fbeaa4e7b3a91b0fb9a3e50637c6a55e8a5c05bf94502b2568e0a -->
 
 # Gzip 文件
 
@@ -95,7 +95,7 @@
 `gzerror` 点名 `errnum` 处的 4 个字节。
 
 **NULL 句柄与非空性。** `Goal.gz_refusal`
-（[GzRefusal.lean](../../../ZlibF/Spec/Common/GzRefusal.lean)）说明：每个接受句柄的 gz 函数在句柄为 NULL 时返回文档规定的值，
+（[GzRefusal.lean](../../../ZlibF/Spec/Safety/GzRefusal.lean)）说明：每个接受句柄的 gz 函数在句柄为 NULL 时返回文档规定的值，
 堆和世界都不变。每个这样的函数自己的目标都重复了属于它的那个子句。`Goal.gz_sequence_nonvacuity` 表明前提可以满足：一个带有限读取预算的 `gzopen` 读句柄加一次一字节的
 `gzread`，以及一个 `gzdopen` 写句柄加一次一字节的 `gzwrite`。
 
@@ -179,7 +179,7 @@ stateDiagram-v2
 [gzwrite.c](../../../zlib/gzwrite.c)、[gzclose.c](../../../zlib/gzclose.c) 和
 [zlib.h](../../../zlib/zlib.h)。序列安全目标位于 [GzSafety](../../../ZlibF/Spec/Safety/GzSafety.lean)，
 各函数的安全目标位于 [GzCalls](../../../ZlibF/Spec/Safety/GzCalls.lean)，
-NULL 句柄目标位于 [GzRefusal](../../../ZlibF/Spec/Common/GzRefusal.lean)。
+NULL 句柄目标位于 [GzRefusal](../../../ZlibF/Spec/Safety/GzRefusal.lean)。
 抽象契约位于 [Functional/Api/Gz.lean](../../../ZlibF/Spec/Functional/Api/Gz.lean)。
 功能目标位于 [GzOpen](../../../ZlibF/Spec/Functional/GzOpen.lean)、
 [GzRead](../../../ZlibF/Spec/Functional/GzRead.lean)、[GzWrite](../../../ZlibF/Spec/Functional/GzWrite.lean)、

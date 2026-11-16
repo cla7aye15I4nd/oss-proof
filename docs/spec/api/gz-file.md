@@ -111,7 +111,7 @@ one into a block that the call frees. A frame that named `buf` would be false th
 when `len >= 1`, and `gzerror` names 4 bytes at `errnum`.
 
 **NULL handle and non-vacuity.** `Goal.gz_refusal`
-([GzRefusal.lean](../../../ZlibF/Spec/Common/GzRefusal.lean)) states that every gz function
+([GzRefusal.lean](../../../ZlibF/Spec/Safety/GzRefusal.lean)) states that every gz function
 that takes a handle returns its documented value on NULL, with the heap and the world unchanged.
 The own goal of each such function repeats its clause. `Goal.gz_sequence_nonvacuity` shows that the premises can be met: a `gzopen` reader with a finite
 read budget and a one-byte `gzread`, and a `gzdopen` writer and a one-byte `gzwrite`.
@@ -205,7 +205,7 @@ The source is [gzlib.c](../../../zlib/gzlib.c),
 [gzclose.c](../../../zlib/gzclose.c) and [zlib.h](../../../zlib/zlib.h).
 The sequence safety goal is in [GzSafety](../../../ZlibF/Spec/Safety/GzSafety.lean), the
 safety goal of each function in [GzCalls](../../../ZlibF/Spec/Safety/GzCalls.lean) and the
-NULL-handle goal in [GzRefusal](../../../ZlibF/Spec/Common/GzRefusal.lean).
+NULL-handle goal in [GzRefusal](../../../ZlibF/Spec/Safety/GzRefusal.lean).
 The abstract contracts are in [Functional/Api/Gz.lean](../../../ZlibF/Spec/Functional/Api/Gz.lean).
 The functional goals are in [GzOpen](../../../ZlibF/Spec/Functional/GzOpen.lean),
 [GzRead](../../../ZlibF/Spec/Functional/GzRead.lean),

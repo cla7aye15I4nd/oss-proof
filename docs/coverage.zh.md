@@ -1,4 +1,4 @@
-<!-- source-sha256: 0db5e4592fa37d552535855bc7fcf78455648970f1d850aeea81991ec58bd210 -->
+<!-- source-sha256: 413bcf692464f09b0a3900fbee76d3e45387d1aef8ceb74469d16272dbf5d973 -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标、类型恰好就是该目标的定理，以及证明所在的文件。安全一列提到的每条定理都列在 `tests/audit/theorems.txt` 中。另有一列写明功能定理（如果有）；功能定理保留着，但并非必需。
@@ -75,8 +75,8 @@
 | `inflateBack` | `Goal.inflateBack_safety` | `BackSafeReachable` 的一段历史；`inputBound < 2^48`；窗口和每个输入片段都在堆字节块中；回调协议 | 在目标之内：`NULL` 流，以及状态为 `NULL` 的流记录 | 没有：`Goal.inflateBack` 不在计划内 |
 | `inflateBackEnd` | `Goal.inflateBackEnd_safety` | `BackSafeReachable` 的一段历史；没有别的要求 | 在目标之内：`NULL` 流，以及状态或 `zfree` 为 `NULL` 的流记录 | `Goal.inflateBackEnd`：`ZlibF.Spec.Public.InflateBackEndProof.back_end_public`，`public-infback-end.lean` |
 
-- **序列目标。** `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Common/Sequences.lean`）：定理 `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。它多说一点：每段历史之后，调用者的窗口上都有一个有效的解码器状态。它的子句 1 和子句 3 是 `Goal.inflateBack_safety` 的第一个和第三个子句，它的子句 4 是 `Goal.inflateBackEnd_safety` 的第三个子句。历史从一次返回 `Z_OK` 的 `inflateBackInit_` 调用开始，调用之前 `state` 字段可以取任意值（`BackInitArguments`）。
-- **非空性。** `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Common/Domains.lean`）。
+- **序列目标。** `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Safety/Sequences.lean`）：定理 `Zlib.Infback.Safety.inflate_back_sequence_safety`，`infback.c.safety-fast.lean`。它多说一点：每段历史之后，调用者的窗口上都有一个有效的解码器状态。它的子句 1 和子句 3 是 `Goal.inflateBack_safety` 的第一个和第三个子句，它的子句 4 是 `Goal.inflateBackEnd_safety` 的第三个子句。历史从一次返回 `Z_OK` 的 `inflateBackInit_` 调用开始，调用之前 `state` 字段可以取任意值（`BackInitArguments`）。
+- **非空性。** `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Safety/Domains.lean`）。
 - **证明变异体。** 序列定理有十一个证明变异体，针对 `inflateBack`、`inflateBackInit_` 和 `inflateBackEnd`（`tests/proof-mutants/infback-sequence.tsv`）。三个单函数目标在 `tests/audit/public-mutants.json` 中各有自己的键（[变异体指南](checking/proof-mutants.md)）。
 
 ## 校验和与查询

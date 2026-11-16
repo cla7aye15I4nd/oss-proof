@@ -37,7 +37,7 @@ read in its source; the command needs a Lean build and was not run for this page
    | --- | --- | --- |
    | `scripts/check-sorry.sh` | no | `sorry count: 0` (run) |
    | `python3 scripts/check-strlit.py` | no | `check-strlit: N literals used, all in strTable (N entries)` (run) |
-   | `python3 scripts/check-spec-layers.py` | no | `specification layers: N modules under ZlibF/Spec; safety and common import no functional module, common imports no safety module, and none imports a proof module; N listed Math -> Proof imports remain (N modules)` (run) |
+   | `python3 scripts/check-spec-layers.py` | no | `specification layers: N modules under ZlibF/Spec; safety and common import no functional module, common imports no safety module and defines no public goal, and none imports a proof module; N listed Math -> Proof imports remain (N modules)` (run) |
    | `lake env lean --run tests/audit/PartialCheck.lean` | yes | not run for this page |
 
    The last check is a search that prints nothing on success (run):

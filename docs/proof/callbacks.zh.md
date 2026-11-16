@@ -1,4 +1,4 @@
-<!-- source-sha256: 8cb265fe779a1dba9358a791b860b3fd686ed13ab9d315fec7ecc332534bbc31 -->
+<!-- source-sha256: 7cf701463529663cded09dd0f28e1165abccb8d18cda2133ef3f62dbb6f5336b -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -11,8 +11,8 @@
 
 | 目标 | 定理 | 模块 |
 | --- | --- | --- |
-| `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Common/Sequences.lean`） | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
-| `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Common/Domains.lean`） | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflate_back_sequence_safety`（`ZlibF/Spec/Safety/Sequences.lean`） | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
+| `Goal.inflate_back_initialisation_domain`（`ZlibF/Spec/Safety/Domains.lean`） | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
 | `Goal.inflateBackInit__safety`、`Goal.inflateBack_safety`、`Goal.inflateBackEnd_safety`（`ZlibF/Spec/Safety/Back.lean`） | `BackSafetyProof.inflateBackInit__safety`、`inflateBack_safety`、`inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
 五个都是必需的。第一个是关于历史的安全结论，第二个表明它的前提可以被满足。后三个是三个函数各自的安全目标。
@@ -112,8 +112,8 @@ sequenceDiagram
 | 调用者的第一个输入片段可读，并且与窗口分离：它是 `strm->next_in` 处的 `strm->avail_in` 个字节；`strm->next_in` 为 `NULL` 时没有字节。 | 子句 3 中的 `Bytes` 和 `Separate` | 回调 |
 | 在两次调用之间，调用者只改动流不拥有的内存和流记录的四个缓冲区字段。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 | `BackSafeReachable.caller` | 调用之间调用者的修改（`BackSafeReachable.caller`） |
 
-完整的列表就是命题本身：`ZlibF/Spec/Common/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety`、
-`BackSafeReachable` 和 `BackInitArguments`。这张表里的前提，也是 `Goal.inflateBack_safety` 和
+完整的列表就是命题本身：`ZlibF/Spec/Safety/Sequences.lean` 中的 `Goal.inflate_back_sequence_safety`，
+以及 `ZlibF/Spec/Common/Sequences.lean` 中的 `BackSafeReachable` 和 `BackInitArguments`。这张表里的前提，也是 `Goal.inflateBack_safety` 和
 `Goal.inflateBackEnd_safety` 中关于历史的子句的前提。
 
 ### 为什么要给输入设界

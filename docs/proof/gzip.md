@@ -13,7 +13,7 @@ Sources: `gzlib.c`, `gzread.c`, `gzwrite.c`, `gzclose.c`, `gzguts.h` and the `gz
 | Goal | Theorem | Module |
 | --- | --- | --- |
 | `Goal.gz_sequence_safety` (`ZlibF/Spec/Safety/GzSafety.lean`) | `gz_sequence_safety_public` | `ZlibF/Proof/public-gz-sequence-safety.lean` |
-| `Goal.gz_refusal` (`ZlibF/Spec/Common/GzRefusal.lean`) | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
+| `Goal.gz_refusal` (`ZlibF/Spec/Safety/GzRefusal.lean`) | `gz_refusal` | `ZlibF/Proof/public-gz-refusal.lean` |
 | `Goal.gz_sequence_nonvacuity` (`ZlibF/Spec/Safety/GzSafety.lean`) | `gz_sequence_nonvacuity_public` | `ZlibF/Proof/public-gz-sequence-nonvacuity.lean` |
 | `Goal.<function>_safety`, 32 goals (`ZlibF/Spec/Safety/GzCalls.lean`) | `GzCallSafetyProof.<function>_safety` | `ZlibF/Proof/public-gz-call-safety.lean` |
 

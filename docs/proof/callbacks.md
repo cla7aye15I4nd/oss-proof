@@ -13,8 +13,8 @@ Terms: [glossary](../glossary.md).
 
 | Goal | Theorem | Module |
 | --- | --- | --- |
-| `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Common/Sequences.lean`) | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
-| `Goal.inflate_back_initialisation_domain` (`ZlibF/Spec/Common/Domains.lean`) | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
+| `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Safety/Sequences.lean`) | `inflate_back_sequence_safety` | `ZlibF/Proof/infback.c.safety-fast.lean` |
+| `Goal.inflate_back_initialisation_domain` (`ZlibF/Spec/Safety/Domains.lean`) | `back_init_domain_public` | `ZlibF/Proof/public-infback-init.lean` |
 | `Goal.inflateBackInit__safety`, `Goal.inflateBack_safety`, `Goal.inflateBackEnd_safety` (`ZlibF/Spec/Safety/Back.lean`) | `BackSafetyProof.inflateBackInit__safety`, `inflateBack_safety`, `inflateBackEnd_safety` | `ZlibF/Proof/public-back-safety.lean` |
 
 All five are required. The first is the safety result over histories, and the second shows that
@@ -133,8 +133,9 @@ its own theorem.
 | The caller's first input chunk is readable and separate from the window: `strm->avail_in` bytes at `strm->next_in`, or no bytes when `strm->next_in` is `NULL`. | `Bytes` and `Separate` in clause 3 | Callbacks |
 | Between two calls the caller changes only memory the stream does not own and the four buffer fields of the stream record. The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. | `BackSafeReachable.caller` | Caller edits between calls (`BackSafeReachable.caller`) |
 
-The complete list is the statement itself: `Goal.inflate_back_sequence_safety`,
-`BackSafeReachable` and `BackInitArguments` in `ZlibF/Spec/Common/Sequences.lean`. The premises
+The complete list is the statement itself: `Goal.inflate_back_sequence_safety` in
+`ZlibF/Spec/Safety/Sequences.lean`, with `BackSafeReachable` and `BackInitArguments` in
+`ZlibF/Spec/Common/Sequences.lean`. The premises
 of this table are also those of the history clauses of `Goal.inflateBack_safety` and
 `Goal.inflateBackEnd_safety`.
 

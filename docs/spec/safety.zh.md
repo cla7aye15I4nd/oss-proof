@@ -1,4 +1,4 @@
-<!-- source-sha256: 43853070eaf2949e41048a4b8baae9c7d5bfd90e2e69bd6c6ac249a10a161774 -->
+<!-- source-sha256: a608fe3f0025fc746088383d8dcc079178d4925af873aac82ff0a6a087b2135e -->
 
 # 安全性：目标陈述了什么
 
@@ -442,13 +442,10 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 ## 附录：目标在哪里 {#where-the-goals-are}
 
 每个安全目标都是一个 Lean 定义 `ZlibF.Spec.Public.Goal.<name>`。它位于 `ZlibF/Spec/Safety/`，
-有五个例外（见下表中的各行）：
+有两个例外：`Goal.compressBound` 和 `Goal.compressBound_z` 在
+`ZlibF/Spec/Functional/Queries.lean` 中（见下表中的那一行）。
 
-- `Goal.gz_refusal`、`Goal.inflate_back_sequence_safety` 和
-  `Goal.inflate_back_initialisation_domain` 在 `ZlibF/Spec/Common/` 中。
-- `Goal.compressBound` 和 `Goal.compressBound_z` 在 `ZlibF/Spec/Functional/Queries.lean` 中。
-
-`ZlibF/Spec/Common/` 存放目标用到的定义。不变量和 gz 前提也在其中：
+`ZlibF/Spec/Common/` 存放目标用到的定义，不存放关于公开函数的目标。不变量和 gz 前提也在其中：
 `Good` 在 `ZlibF/Spec/Common/InflateGood.lean`，`DGood` 在 `ZlibF/Spec/Common/DeflateGood.lean`，
 `GzInv`、`ReadsFinite` 和 `NeedsReadBound` 在 `ZlibF/Spec/Common/GzInv.lean`。
 
@@ -472,10 +469,10 @@ gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`�
 | `compress*`、`uncompress*` | `Goal.compress*_safety`、`Goal.uncompress*_safe` | [Safety/Utilities.lean](../../ZlibF/Spec/Safety/Utilities.lean) |
 | `compressBound`、`compressBound_z` | `Goal.compressBound`、`Goal.compressBound_z`：完整契约。翻译是一个纯函数，不涉及堆，也不会出故障，所以单独的安全目标会按定义成立。 | [Functional/Queries.lean](../../ZlibF/Spec/Functional/Queries.lean) |
 | gzip 文件函数，以及 `gzvprintf` | `Goal.<function>_safety`：任意历史的句柄上的一次调用，连同对 `NULL` 句柄的拒绝；对三个打开函数，是打开本身 | [Safety/GzCalls.lean](../../ZlibF/Spec/Safety/GzCalls.lean) |
-| gzip 文件句柄的每段历史 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)、[Common/GzRefusal.lean](../../ZlibF/Spec/Common/GzRefusal.lean) |
+| gzip 文件句柄的每段历史 | `Goal.gz_sequence_safety`；`NULL` 句柄：`Goal.gz_refusal` | [Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean)、[Safety/GzRefusal.lean](../../ZlibF/Spec/Safety/GzRefusal.lean) |
 | `inflateBackInit_`、`inflateBack`、`inflateBackEnd` | `Goal.<function>_safety`：对初始化，是 `zlib.h` 允许的每一次调用；对另外两个，是历史上的调用和各种拒绝 | [Safety/Back.lean](../../ZlibF/Spec/Safety/Back.lean) |
-| 回调解码器的每段历史 | `Goal.inflate_back_sequence_safety` | [Common/Sequences.lean](../../ZlibF/Spec/Common/Sequences.lean) |
-| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Common/Domains.lean](../../ZlibF/Spec/Common/Domains.lean)、[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
+| 回调解码器的每段历史 | `Goal.inflate_back_sequence_safety` | [Safety/Sequences.lean](../../ZlibF/Spec/Safety/Sequences.lean) |
+| 非空性 | `Goal.inflate_initialisation_domain`、`Goal.deflate_initialisation_domain`、`Goal.inflate_back_initialisation_domain`、`Goal.gz_sequence_nonvacuity` | [Safety/Domains.lean](../../ZlibF/Spec/Safety/Domains.lean)、[Safety/GzSafety.lean](../../ZlibF/Spec/Safety/GzSafety.lean) |
 
 `tests/audit/public-api.json` 是审计所用的清单。它为每个函数给出一个 `safety_goal` 和一个 `functional_goal`。
 必需集合是每个 `safety_goal`、`safety_goals` 列表和 `nonvacuity_goals` 列表。

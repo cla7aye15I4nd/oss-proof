@@ -1,4 +1,4 @@
-<!-- source-sha256: 9d417128109c384b885ae5d8530fe8c01d098b717782130476b75c739d58ab70 -->
+<!-- source-sha256: 2b609f1f7c5b21964b029f2bc0de4428ad6ca08a377b7ab90fd3e216ddf4ffc5 -->
 
 # 回调解压
 
@@ -16,10 +16,10 @@
 
 每个函数都有自己的必需安全目标：`Goal.inflateBackInit__safety`、`Goal.inflateBack_safety` 和
 `Goal.inflateBackEnd_safety`，在 [Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean) 中。
-[Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean) 中的序列目标 `Goal.inflate_back_sequence_safety`
+[Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean) 中的序列目标 `Goal.inflate_back_sequence_safety`
 同样是必需的。它多说一点：每段历史之后，解码器状态都是有效的；它的调用子句和结束子句，就是 `inflateBack` 和
 `inflateBackEnd` 的目标所重复的子句。功能目标 `Goal.inflateBackInit_`、`Goal.inflateBack`
-和 `Goal.inflateBackEnd` 在 [Back.lean](../../../ZlibF/Spec/Common/Back.lean) 中。
+和 `Goal.inflateBackEnd` 在 [Functional/Back.lean](../../../ZlibF/Spec/Functional/Back.lean) 中。
 `Goal.inflateBack` 的解码子句（什么数据到达 `out`）不在计划内。
 
 <a id="callback-decoder-history"></a>

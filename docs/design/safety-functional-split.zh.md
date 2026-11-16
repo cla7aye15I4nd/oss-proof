@@ -1,4 +1,4 @@
-<!-- source-sha256: 1c51d024cb9149382a9f210bdd29317a421fb8d159786b5dd45960518ddac851 -->
+<!-- source-sha256: b4a34c7247d0da9f5c2e55035c9ad9c6b04a821b89d17525de5ec273d20a564d -->
 # 规格的布局：安全与功能
 
 必需的目标是安全目标。它们与功能目标分开存放，读者不读任何功能规格，就能看到全部必需的目标。本页说明每一类目标放在哪里，哪些导入规则把它们分开，以及这些规则怎样检查。形成这个布局的计划，连同它的步骤和状态，在一个[历史页面](../history/safety-functional-split-plan.md)中。
@@ -8,7 +8,7 @@
 | 目录 | 内容 | 是否必需 |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | 安全目标：在文档规定的定义域上，调用返回，没有 `Fault.ub`，没有 `Fault.outOfFuel`，只写自己的帧，不泄漏任何东西 | 是 |
-| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数、平台前提，以及流和 gz 句柄的不变量（`Good`、`DGood`、`GzInv`）。`Common/Inflate/` 存放 inflate 表和快速解码器的不变量。还有五个关于公开函数的目标也在这里（[见下文](#what-is-not-separated)） | 这五个目标中的三个：是 |
+| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、参数、平台前提，以及流和 gz 句柄的不变量（`Good`、`DGood`、`GzInv`）。`Common/Inflate/` 存放 inflate 表和快速解码器的不变量。这里没有关于公开函数的目标 | 它自己没有目标 |
 | `ZlibF/Spec/Functional/` | 结果契约（`Goal.<function>`），包括 gzip 文件接口的结果契约；格式模型和 API 模型及它们的目标（`Format/`、`Api/`）；完整的序列契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`），它们把序列安全与功能子句合在一起。`Functional/Inflate/` 存放关于解码表和快速解码器、并且用到格式模型的命题 | 否，例外是 `Goal.compressBound` 和 `Goal.compressBound_z`（[见下文](#two-goals-per-public-function)） |
 
 直接放在 `ZlibF/Spec/` 下的没有别的东西，只有 `Common.lean`，它导入 `Common/` 的每个模块。
@@ -42,9 +42,13 @@ flowchart TD
 2. `Spec/Common/` 下的模块不导入 `Spec/Safety/` 下的模块。Common 位于两类目标之下。
 3. `ZlibF/Spec/` 下的模块不导入 `ZlibF/Proof/` 下的模块。所以一个目标的命题要在 `ZlibF/Spec/` 中读，也要在它提到的翻译、运行时和数学中读，但从不在证明模块中读。目标提到的、曾经放在证明模块里的定义现在在 `Spec/Common/` 中：`Good` 在 `InflateGood.lean`，`DGood` 在 `DeflateGood.lean`，`GzInv` 在 `GzInv.lean`。关于它们的引理留在证明模块里。
 
-脚本 `scripts/check-spec-layers.py` 遍历导入关系，遇到违反规则的导入就失败。如果直接放在 `ZlibF/Spec/` 下的东西不是这三个目录及其根导入文件，它也失败。它在快速关卡中运行（作业 `no-sorry`）。对这三条规则，它没有例外列表。
+第四条规则说的是定义，不是导入。
 
-脚本还有第四条规则，是关于 `ZlibF/Math/` 的：那里的模块不直接导入证明模块，例外是脚本中 `MATH_PROOF_IMPORTS` 列表里的导入。脚本记录说，这些 Math 模块从证明模块导入的是引理，不是定义。这张列表只能缩短：遇到不在列表里的导入，或者列表里的某个导入已经不存在，脚本都失败。规则 3 也覆盖这些 Math 模块：`ZlibF/Spec/` 下没有模块导入其中任何一个。列表的大小见[进度](../progress.md#ordered-next-work)。
+4. 清单文件 `tests/audit/public-api.json` 列出的目标都不定义在 `Spec/Common/` 下。这样的目标在 `Spec/Safety/` 或 `Spec/Functional/` 下。
+
+脚本 `scripts/check-spec-layers.py` 遍历导入关系，遇到违反规则的导入就失败。对规则 4，它读公共模块中每一个以 `def Goal.` 或 `abbrev Goal.` 开头的行，并在清单文件中查找完整的名字。如果直接放在 `ZlibF/Spec/` 下的东西不是这三个目录及其根导入文件，它也失败。它在快速关卡中运行（作业 `no-sorry`）。对这四条规则，它没有例外列表。
+
+脚本还有一条规则，是关于 `ZlibF/Math/` 的：那里的模块不直接导入证明模块，例外是脚本中 `MATH_PROOF_IMPORTS` 列表里的导入。脚本记录说，这些 Math 模块从证明模块导入的是引理，不是定义。这张列表只能缩短：遇到不在列表里的导入，或者列表里的某个导入已经不存在，脚本都失败。规则 3 也覆盖这些 Math 模块：`ZlibF/Spec/` 下没有模块导入其中任何一个。列表的大小见[进度](../progress.md#ordered-next-work)。
 
 关于导入，还有三点：
 
@@ -74,8 +78,7 @@ flowchart TD
 
 ## 没有分开的部分
 
-- 有三个必需的目标在 `Spec/Common/` 中，不在 `Spec/Safety/` 中：`Goal.gz_refusal`（`Common/GzRefusal.lean`）、`Goal.inflate_back_sequence_safety`（`Common/Sequences.lean`）和 `Goal.inflate_back_initialisation_domain`（`Common/Domains.lean`）。`Spec/Safety/` 中没有模块导入 `Common/GzRefusal.lean`，所以读必需目标的读者还要读这个文件。
-- 有两个功能目标在 `Spec/Common/` 中：`Goal.inflateBackInit_` 和 `Goal.inflateBackEnd`（`Common/Back.lean`）。
-- 清单文件把 `Goal.compressBound` 和 `Goal.compressBound_z` 写作安全目标，它们在 `Functional/Queries.lean` 中。
+- 清单文件把 `Goal.compressBound` 和 `Goal.compressBound_z` 写作安全目标，它们在 `Functional/Queries.lean` 中。这是有意的设计（[见上文](#two-goals-per-public-function)）。
+- 关于内部函数的命题不在清单文件里。其中不用格式模型的在 `Spec/Common/` 中（`ByteAddress.lean`、`Common/Inflate/`），用到格式模型的在 `Spec/Functional/` 中。它们也是 `Goal.<name>` 的形式，各自在所属模块的命名空间里。
 
 [设计](README.md) · [文档首页](../README.md)

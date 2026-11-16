@@ -1,4 +1,4 @@
-<!-- source-sha256: 0b5cf19ce8d0d629e1f484fa00ff0ba968d585dd6afb03b7a3817917b6743926 -->
+<!-- source-sha256: c22714b1716a01f6753d0103cb8ea8b40748a3637ac4632d089cc27ddc8e8a5d -->
 
 # 公开验证目标
 
@@ -114,4 +114,4 @@ flowchart LR
 | 对回调和系统调用假设了什么？ | 它们文档规定的内存契约，它们会返回，以及在无限的流可能永远继续的地方，回调提供的输入是有限的。这个结论不是关于任意调用者代码或操作系统的定理。 | [可信基础](../trusted-base.md) |
 | 结论之外有什么？ | 编译器和操作系统的正确性、性能、常数时间行为，以及针对解压炸弹的资源上界。畸形的压缩数据在结论之内。 | [安全结论：安全性之外](../spec/safety.md#outside-safety) |
 
-目标的定义在 `ZlibF/Spec/Safety/` 中；gz 接口的拒绝目标以及 `inflateBack` 的序列目标和非空性目标在 `ZlibF/Spec/Common/` 中。目录布局见[拆分设计](../design/safety-functional-split.md)。
+目标的定义在 `ZlibF/Spec/Safety/` 中，两个 `compressBound` 契约在 `ZlibF/Spec/Functional/` 中。目录布局见[拆分设计](../design/safety-functional-split.md)。

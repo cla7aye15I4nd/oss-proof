@@ -22,11 +22,11 @@ registered theorem states them. They are not a planned proof target.
 Each function has its own required safety goal: `Goal.inflateBackInit__safety`,
 `Goal.inflateBack_safety` and `Goal.inflateBackEnd_safety` in
 [Safety/Back.lean](../../../ZlibF/Spec/Safety/Back.lean). The sequence goal
-`Goal.inflate_back_sequence_safety` in [Sequences.lean](../../../ZlibF/Spec/Common/Sequences.lean)
+`Goal.inflate_back_sequence_safety` in [Safety/Sequences.lean](../../../ZlibF/Spec/Safety/Sequences.lean)
 is required as well. It adds that every history leaves a valid decoder state; its call clause and
 its end clause are the ones the goals of `inflateBack` and `inflateBackEnd` repeat. The functional
 goals `Goal.inflateBackInit_`, `Goal.inflateBack` and `Goal.inflateBackEnd` are in
-[Back.lean](../../../ZlibF/Spec/Common/Back.lean). The decoding clauses of `Goal.inflateBack`
+[Functional/Back.lean](../../../ZlibF/Spec/Functional/Back.lean). The decoding clauses of `Goal.inflateBack`
 (what reaches `out`) are not planned.
 
 <a id="callback-decoder-history"></a>

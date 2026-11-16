@@ -114,14 +114,14 @@ Theorems of the safety column: `ZlibF.Spec.Public.BackSafetyProof.<name>` in
 | `inflateBack` | `Goal.inflateBack_safety` | A history of `BackSafeReachable`; `inputBound < 2^48`; the window and every input chunk in a heap byte block; the callback protocol | Inside the goal: a `NULL` stream, and a stream record whose state is `NULL` | None: `Goal.inflateBack` is not planned |
 | `inflateBackEnd` | `Goal.inflateBackEnd_safety` | A history of `BackSafeReachable`; nothing more | Inside the goal: a `NULL` stream, and a stream record whose state or `zfree` is `NULL` | `Goal.inflateBackEnd`: `ZlibF.Spec.Public.InflateBackEndProof.back_end_public`, `public-infback-end.lean` |
 
-- **Sequence goal.** `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Common/Sequences.lean`):
+- **Sequence goal.** `Goal.inflate_back_sequence_safety` (`ZlibF/Spec/Safety/Sequences.lean`):
   theorem `Zlib.Infback.Safety.inflate_back_sequence_safety`, `infback.c.safety-fast.lean`. It
   adds that every history leaves a valid decoder state over the caller's window. Its clauses 1 and
   3 are the first and third clause of `Goal.inflateBack_safety`, and its clause 4 is the third
   clause of `Goal.inflateBackEnd_safety`. A history starts at an `inflateBackInit_` call that
   returned `Z_OK`, with any `state` field before the call (`BackInitArguments`).
 - **Non-vacuity.** `Goal.inflate_back_initialisation_domain`
-  (`ZlibF/Spec/Common/Domains.lean`).
+  (`ZlibF/Spec/Safety/Domains.lean`).
 - **Proof mutants.** The sequence theorem has eleven proof mutants of `inflateBack`,
   `inflateBackInit_` and `inflateBackEnd` (`tests/proof-mutants/infback-sequence.tsv`). Each of the
   three one-function goals has a key of its own in `tests/audit/public-mutants.json`
