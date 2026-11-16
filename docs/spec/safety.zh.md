@@ -1,4 +1,4 @@
-<!-- source-sha256: fdcffb73f9df96b590fce7698ae744831d92b5cdf7708c18ab284642a69d66bc -->
+<!-- source-sha256: 43853070eaf2949e41048a4b8baae9c7d5bfd90e2e69bd6c6ac249a10a161774 -->
 
 # 安全性：目标陈述了什么
 
@@ -441,20 +441,23 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 
 ## 附录：目标在哪里 {#where-the-goals-are}
 
-每个安全目标都是一个 Lean 定义 `ZlibF.Spec.Public.Goal.<name>`。它位于 `ZlibF/Spec/Safety/`；
-gzip 文件接口和回调解码器的序列目标、拒绝目标和非空性目标位于 `ZlibF/Spec/Common/`。
-`ZlibF/Spec/Common/` 还存放目标用到的定义。有两个例外和一点补充：
+每个安全目标都是一个 Lean 定义 `ZlibF.Spec.Public.Goal.<name>`。它位于 `ZlibF/Spec/Safety/`，
+有五个例外（见下表中的各行）：
 
-- `Goal.compressBound` 和 `Goal.compressBound_z` 在 `ZlibF/Spec/Functional/Queries.lean` 中（见下表中的那一行）。
-- 不变量和一些 gz 前提是与证明放在一起定义的：`Good` 在 `ZlibF/Proof/inflate.c.base.lean`，
-  `DGood` 在 `ZlibF/Proof/deflate.c.base.lean`，
-  `GzInv`、`ReadsFinite` 和 `NeedsReadBound` 在 `ZlibF/Proof/gz.inv-model.lean`。
+- `Goal.gz_refusal`、`Goal.inflate_back_sequence_safety` 和
+  `Goal.inflate_back_initialisation_domain` 在 `ZlibF/Spec/Common/` 中。
+- `Goal.compressBound` 和 `Goal.compressBound_z` 在 `ZlibF/Spec/Functional/Queries.lean` 中。
 
-这两个目录中的模块都不得导入功能规格（`ZlibF/Spec/Functional/`）。
-快速关卡运行 `scripts/check-spec-layers.py`，它会拒绝这样的导入。
-脚本容许一处导入：`Public/GzState.lean` 从 `ZlibF/Spec/Functional/Api/Gz.lean` 导入 gz 模式解码器。
+`ZlibF/Spec/Common/` 存放目标用到的定义。不变量和 gz 前提也在其中：
+`Good` 在 `ZlibF/Spec/Common/InflateGood.lean`，`DGood` 在 `ZlibF/Spec/Common/DeflateGood.lean`，
+`GzInv`、`ReadsFinite` 和 `NeedsReadBound` 在 `ZlibF/Spec/Common/GzInv.lean`。
+
+这两个目录中的模块都不得导入功能规格（`ZlibF/Spec/Functional/`），
+`ZlibF/Spec/` 下的模块都不得导入证明模块。
+快速关卡运行 `scripts/check-spec-layers.py`，它会拒绝这样的导入，不论是直接导入还是经由其他模块导入；
+对这些规则它没有例外。
 gz 和回调的功能目标（`Goal.gz_sequence`、`Goal.inflate_back_sequence`、各个 `Goal.gz*` 结果契约）
-也在 `ZlibF/Spec/Common/` 中；它们不是必需的（见[拆分设计](../design/safety-functional-split.md)第 4 步）。
+在 `ZlibF/Spec/Functional/` 中；它们不是必需的（见[拆分设计](../design/safety-functional-split.md)）。
 
 | 函数 | 安全目标 | 文件 |
 | --- | --- | --- |

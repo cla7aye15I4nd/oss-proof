@@ -499,23 +499,24 @@ Malformed input is inside the safety domain: an error return must not hide a fau
 ## Appendix: where the goals are {#where-the-goals-are}
 
 Every safety goal is a Lean definition `ZlibF.Spec.Public.Goal.<name>`. It is in
-`ZlibF/Spec/Safety/`, or in `ZlibF/Spec/Common/` for the sequence, refusal and non-vacuity goals
-of the gzip file interface and of the callback decoder. `ZlibF/Spec/Common/` also holds the definitions the goals use. There are two
-exceptions and one addition:
+`ZlibF/Spec/Safety/`, with five exceptions (rows below):
 
-- `Goal.compressBound` and `Goal.compressBound_z` are in `ZlibF/Spec/Functional/Queries.lean`
-  (row below).
-- The invariants and some gz premises are defined with the proofs: `Good` in
-  `ZlibF/Proof/inflate.c.base.lean`, `DGood` in `ZlibF/Proof/deflate.c.base.lean`, and `GzInv`,
-  `ReadsFinite` and `NeedsReadBound` in `ZlibF/Proof/gz.inv-model.lean`.
+- `Goal.gz_refusal`, `Goal.inflate_back_sequence_safety` and
+  `Goal.inflate_back_initialisation_domain` are in `ZlibF/Spec/Common/`.
+- `Goal.compressBound` and `Goal.compressBound_z` are in `ZlibF/Spec/Functional/Queries.lean`.
+
+`ZlibF/Spec/Common/` holds the definitions the goals use. The invariants and the gz premises
+are among them: `Good` in `ZlibF/Spec/Common/InflateGood.lean`, `DGood` in
+`ZlibF/Spec/Common/DeflateGood.lean`, and `GzInv`, `ReadsFinite` and `NeedsReadBound` in
+`ZlibF/Spec/Common/GzInv.lean`.
 
 No module of the two directories may import a functional specification
-(`ZlibF/Spec/Functional/`). The fast gate runs `scripts/check-spec-layers.py`, which rejects
-such an import. The script allows one import: `Public/GzState.lean` imports the gz mode
-decoder from `ZlibF/Spec/Functional/Api/Gz.lean`. The functional gz and callback goals
-(`Goal.gz_sequence`, `Goal.inflate_back_sequence`, the `Goal.gz*` result contracts) are also in
-`ZlibF/Spec/Common/`; they are not required
-([the split](../design/safety-functional-split.md), step 4).
+(`ZlibF/Spec/Functional/`), and no module under `ZlibF/Spec/` may import a proof module. The fast
+gate runs `scripts/check-spec-layers.py`, which rejects such an import, direct or through other
+modules, and has no exception to these rules. The functional gz and callback goals
+(`Goal.gz_sequence`, `Goal.inflate_back_sequence`, the `Goal.gz*` result contracts) are in
+`ZlibF/Spec/Functional/`; they are not required
+([the split](../design/safety-functional-split.md)).
 
 | Function | Safety goal | File |
 | --- | --- | --- |

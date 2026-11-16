@@ -149,8 +149,8 @@ under the rules in the repository's `AGENTS.md` and `patches/README.md`.
 | `ZlibF/Zlib/gzfs.lean` | The model of files, `errno` and formatting for the gz translations ([external I/O](external-io.md)) |
 | `ZlibF/Spec/Safety/` | The required safety goals |
 | `ZlibF/Spec/Functional/` | Functional goals, and the heap-free format and API models; not required for the safety results |
-| `ZlibF/Spec/Common/` | Definitions both kinds of goal use: calls, histories, frames, parameters; also the sequence, refusal and non-vacuity goals of gz and `inflateBack`, and their functional goals ([layout of the specifications](safety-functional-split.md)) |
-| `ZlibF/Spec/*.lean` | Statements about internal functions. Each is proved for the translated function before a caller uses it ([below](#composing-calls-without-assuming-their-answers)) |
+| `ZlibF/Spec/Common/` | Definitions both kinds of goal use: calls, histories, frames, parameters, invariants; also the refusal goal of gz and the sequence and non-vacuity goals of `inflateBack` ([layout of the specifications](safety-functional-split.md)) |
+| `ZlibF/Spec/Common/Inflate/`, `ZlibF/Spec/Functional/Inflate/` | Statements about internal functions; those that use the format model are under `Functional/`. Each is proved for the translated function before a caller uses it ([below](#composing-calls-without-assuming-their-answers)) |
 | `ZlibF/Proof/X.c.<topic>.lean` | Proofs about `zlib/X.c` |
 | `ZlibF/Proof/public-<name>.lean` | Proofs of public goals |
 | `ZlibF/Math/` | Heap-free facts shared by the proofs |

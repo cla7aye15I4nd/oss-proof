@@ -1,4 +1,4 @@
-<!-- source-sha256: 342214c74f9641058712f24e52666be8ac333cc04611844905f0be2f582245a9 -->
+<!-- source-sha256: 1f0abf550870fb2ecbbe97b99d9fb90eb5f9a891b0c6b3036eb22bf5c6883b42 -->
 
 # 规格：定理陈述了什么
 
@@ -32,14 +32,12 @@ API 页面和格式页面还描述每个函数返回什么、字节表示什么�
 
 | 目录 | 内容 | 是否必需 |
 | --- | --- | --- |
-| `ZlibF/Spec/Safety/` | 流函数、校验和、查询函数和整缓冲区函数的安全目标，以及 gzip 文件接口和回调解码器的单函数安全目标。 | 是。 |
-| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、分配账本。还有 gzip 文件接口和回调解码器的序列目标、拒绝目标和非空性目标，以及它们的功能目标。 | 其中的安全目标是必需的。 |
-| `ZlibF/Spec/Functional/` | 结果契约、格式模型和 API 模型，以及往返命题。 | 否；`Goal.compressBound` 和 `Goal.compressBound_z` 除外（见[安全性，附录](safety.md#where-the-goals-are)）。 |
+| `ZlibF/Spec/Safety/` | 流函数、校验和、查询函数和整缓冲区函数的安全目标，gzip 文件接口的安全目标（每个函数一个，加上序列目标及其非空性目标），以及回调解码器的单函数安全目标。 | 是。 |
+| `ZlibF/Spec/Common/` | 两类目标共用的定义：调用、历史、帧、分配账本、不变量、平台前提（`PlatformMemory.lean`）。还有 gzip 文件接口的拒绝目标、回调解码器的序列目标和非空性目标，以及关于内部辅助函数、不用格式模型的命题。 | 这三个目标是必需的。 |
+| `ZlibF/Spec/Functional/` | 结果契约、格式模型和 API 模型（`Format/`、`Api/`）、往返命题，以及关于内部辅助函数、用到格式模型的命题。 | 否；`Goal.compressBound` 和 `Goal.compressBound_z` 除外（见[安全性，附录](safety.md#where-the-goals-are)）。 |
 
-`ZlibF/Spec/Api/` 和 `ZlibF/Spec/Format/` 只是重新导出 `ZlibF/Spec/Functional/` 下的模块；请导入新路径。
+直接放在 `ZlibF/Spec/` 下的没有别的东西，只有导入文件 `Common.lean`。
 拆分的理由和导入规则见[拆分设计](../design/safety-functional-split.md)。
-直接放在 `ZlibF/Spec/` 下的其他文件存放平台前提（`PlatformMemory.lean`），
-以及证明用到的、关于内部辅助函数的命题。
 
 [进度，目标证据](../progress.md#target-evidence)把每个目标链接到它的确切命题和证明它的定理。
 

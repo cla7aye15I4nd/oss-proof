@@ -167,5 +167,5 @@ These are the subject of other pages. The table gives the place of each part.
 | What is assumed about callbacks and system calls? | Their documented memory contracts, that they return, and that callback input is finite where an unlimited stream could continue forever. The claim is not a theorem about arbitrary caller code or the operating system. | [Trusted base](../trusted-base.md) |
 | What is outside the claim? | Compiler and operating-system correctness, performance, constant-time behaviour, and resource bounds against decompression bombs. Malformed compressed data is inside the claim. | [Safety claims, outside safety](../spec/safety.md#outside-safety) |
 
-The goal definitions are in `ZlibF/Spec/Safety/` and, for the gz interface and `inflateBack`, in
-`ZlibF/Spec/Common/`; the layout is in [the split design](../design/safety-functional-split.md).
+The goal definitions are in `ZlibF/Spec/Safety/`; the refusal goal of the gz interface and the
+sequence and non-vacuity goals of `inflateBack` are in `ZlibF/Spec/Common/`; the layout is in [the split design](../design/safety-functional-split.md).

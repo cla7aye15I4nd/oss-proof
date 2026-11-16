@@ -38,13 +38,14 @@ The refinement theorem is the substantive part: every actual execution is a step
 allows. A model theorem alone shows a property of the model.
 
 The check `scripts/check-spec-layers.py`, in the fast gate, rejects an import of these models by
-a safety goal ([layout of the specifications](safety-functional-split.md)). One listed edge
-remains: `Public/GzState` imports the gz mode decoder.
+a module of `ZlibF/Spec/Safety/` or `ZlibF/Spec/Common/`, direct or through other modules
+([layout of the specifications](safety-functional-split.md)). It has no exception: the gz mode
+decoder of `Gz.lean` is imported by `ZlibF/Spec/Functional/GzState.lean`, not by a common module.
 
 ## Where the definitions live
 
-Paths are relative to `ZlibF/Spec/Functional/Api/`. The old paths under `ZlibF/Spec/Api/` are
-one-line modules that re-export these files.
+Paths are relative to `ZlibF/Spec/Functional/Api/`. The Lean namespace of these modules is
+`ZlibF.Spec.Api`; it does not follow the directory.
 
 | Module | Content |
 | --- | --- |

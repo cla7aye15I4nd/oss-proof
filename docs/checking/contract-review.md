@@ -7,7 +7,9 @@
 > specification files have moved since: the format and API models are under
 > `ZlibF/Spec/Functional/`, the safety goals under `ZlibF/Spec/Safety/`, and `ZlibF/Spec/Common/`
 > holds the common definitions ([split design](../design/safety-functional-split.md)). The module
-> names in the tables below are those of the review. The corrections and counterexamples remain
+> names in the tables below are those of the review: `ZlibF/Spec/Format` is now
+> `ZlibF/Spec/Functional/Format`, `ZlibF/Spec/Api` is now `ZlibF/Spec/Functional/Api`, and the
+> files of `ZlibF/Spec/Public` are now in the three directories. The corrections and counterexamples remain
 > valid as evidence about the statements; whether each corrected statement is proved today is
 > answered only by the registries and [progress](../progress.md).
 

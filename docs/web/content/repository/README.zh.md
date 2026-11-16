@@ -1,4 +1,4 @@
-<!-- source-sha256: a2f7e745aa43f5bb894fb129c0e9ca9d8ff1d32efabff1af95fde715201b4dbd -->
+<!-- source-sha256: 22bd85af3b6b9431e133dca7de40de065fdf3b647ab664dba580e1c0feace90a -->
 # zlib-f
 
 用 Lean 4 证明 zlib 是安全的，证明由内核检查。C 源码被逐条语句翻译成 Lean。证明表明：默认 x86_64 Linux 构建中每个有文档的公开函数，在任何调用序列里运行时都没有未定义行为、没有内存错误、没有泄漏，并且终止；前提是每条定理自己写明的那些条件。
@@ -35,8 +35,8 @@
 
 | 种类 | 说的是什么 | 位置 | 审计是否要求 |
 | --- | --- | --- | --- |
-| 安全目标 | 调用返回而没有未定义行为，只写它获准写的内存（它的帧），并且不泄漏 | `ZlibF/Spec/Safety/`；gz 的序列目标和拒绝目标以及 `inflateBack` 的序列目标在 `ZlibF/Spec/Common/` | 要求 |
-| 非空性目标 | 安全目标的前提可以被满足：有一个具体的堆，在它上面初始化或打开成功 | `ZlibF/Spec/Safety/Domains.lean`、`ZlibF/Spec/Common/` | 要求 |
+| 安全目标 | 调用返回而没有未定义行为，只写它获准写的内存（它的帧），并且不泄漏 | `ZlibF/Spec/Safety/`；gz 的拒绝目标和 `inflateBack` 的序列目标在 `ZlibF/Spec/Common/` | 要求 |
+| 非空性目标 | 安全目标的前提可以被满足：有一个具体的堆，在它上面初始化或打开成功 | `ZlibF/Spec/Safety/`；`inflateBack` 的在 `ZlibF/Spec/Common/Domains.lean` | 要求 |
 | 功能目标 | 结果是什么：返回值、输出字节 | `ZlibF/Spec/Functional/` | 不要求。已证明的会被完整审计；未证明的不会导致任何检查失败 |
 
 规则见[安全目标与功能目标的拆分](docs/design/safety-functional-split.md)。
@@ -66,7 +66,7 @@
 
 - `zlib/`：固定版本的上游源码；不直接修改，修复补丁放在 `patches/`。
 - `ZlibF/Zlib/`：逐条语句翻译的 C 实现。
-- `ZlibF/Spec/Safety/`：必需的安全目标。`ZlibF/Spec/Functional/`：功能契约、格式模型和 API 模型。`ZlibF/Spec/Common/`：两者共用的定义，以及 gz 接口和 `inflateBack` 的五个必需目标：它们的序列目标、拒绝目标和非空性目标。
+- `ZlibF/Spec/Safety/`：必需的安全目标。`ZlibF/Spec/Functional/`：功能契约、格式模型和 API 模型。`ZlibF/Spec/Common/`：两者共用的定义，以及三个必需目标：gz 接口的拒绝目标，`inflateBack` 的序列目标和非空性目标。
 - `ZlibF/Proof/` 和 `ZlibF/Math/`：实现证明和不涉及堆的数学推导。
 - `ZlibF/Runtime/`：内存、指针、算术和执行语义。
 - `tests/`：差分测试、证明审计和证明变异体。

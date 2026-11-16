@@ -64,8 +64,8 @@ the functional goal stands for it.
 
 | Kind | Says | Where | Required by the audit |
 | --- | --- | --- | --- |
-| Safety goal | The call returns without undefined behaviour, writes only the memory it is allowed to (its frame) and leaks nothing | `ZlibF/Spec/Safety/`; the sequence and refusal goals of gz and the sequence goal of `inflateBack` in `ZlibF/Spec/Common/` | Yes |
-| Non-vacuity goal | The premises of the safety goals can be met: a concrete heap on which init or open succeeds | `ZlibF/Spec/Safety/Domains.lean`, `ZlibF/Spec/Common/` | Yes |
+| Safety goal | The call returns without undefined behaviour, writes only the memory it is allowed to (its frame) and leaks nothing | `ZlibF/Spec/Safety/`; the refusal goal of gz and the sequence goal of `inflateBack` in `ZlibF/Spec/Common/` | Yes |
+| Non-vacuity goal | The premises of the safety goals can be met: a concrete heap on which init or open succeeds | `ZlibF/Spec/Safety/`; that of `inflateBack` in `ZlibF/Spec/Common/Domains.lean` | Yes |
 | Functional goal | What the result is: return values, output bytes | `ZlibF/Spec/Functional/` | No. A proved one is audited in full; an unproved one fails nothing |
 
 [The split](docs/design/safety-functional-split.md) gives the rules.
@@ -96,8 +96,9 @@ the functional goal stands for it.
 - `zlib/`: pinned upstream source, never edited in place; fixes are in `patches/`.
 - `ZlibF/Zlib/`: statement-by-statement C translation.
 - `ZlibF/Spec/Safety/`: the required safety goals. `ZlibF/Spec/Functional/`: functional contracts,
-  the format and API models. `ZlibF/Spec/Common/`: definitions both use, and five required
-  goals of the gz interface and of `inflateBack`: their sequence, refusal and non-vacuity goals.
+  the format and API models. `ZlibF/Spec/Common/`: definitions both use, and three required
+  goals: the refusal goal of the gz interface, and the sequence and non-vacuity goals of
+  `inflateBack`.
 - `ZlibF/Proof/` and `ZlibF/Math/`: implementation proofs and heap-free reasoning.
 - `ZlibF/Runtime/`: memory, pointer, arithmetic and execution semantics.
 - `tests/`: differential tests, the proof audit, and the proof mutants.

@@ -1,4 +1,4 @@
-<!-- source-sha256: b7172cdb0834cb2da45c238a9d3b6f7e6b072380ae2a0254e8c4456b796c2594 -->
+<!-- source-sha256: d4601632b775ef2fdd7023c3fbcecd4e07f66e10f5059a82c7a4295d20d10c9b -->
 # 检查一个验证结论
 
 构建全部通过，说明各模块能够编译，其中每个证明都经过了 Lean 内核的检查。它并不说明关于 zlib 的哪些命题已被证明。本页说明一个结果处于哪个层级，每项检查运行什么、能确立什么，以及它的局限在哪里。
@@ -48,7 +48,7 @@ flowchart LR
 | `build` | 补丁可以应用 | `patches/` 中有文件无法应用到固定的 `zlib/` 的副本上。 |
 | `no-sorry` | `scripts/check-sorry.sh` | `ZlibF.lean` 或 `ZlibF/` 下出现 `sorry`。 |
 | `no-sorry` | `scripts/check-strlit.py` | 翻译中的某个字符串字面量不在运行时的字符串表中。 |
-| `no-sorry` | `scripts/check-spec-layers.py` | `ZlibF/Spec/Safety/` 或 `ZlibF/Spec/Common/` 下的模块导入了功能规格（`ZlibF/Spec/Functional/`，或旧路径 `ZlibF/Spec/Api*`、`ZlibF/Spec/Format*`），间接导入也算。脚本保存一份仍被允许的导入边的列表；列表中的条目可以删除，不可以新增。 |
+| `no-sorry` | `scripts/check-spec-layers.py` | 直接放在 `ZlibF/Spec/` 下的东西不是 `Safety/`、`Functional/`、`Common/` 及其根导入文件。`ZlibF/Spec/Safety/` 或 `ZlibF/Spec/Common/` 下的模块导入了 `ZlibF/Spec/Functional/` 下的模块。`ZlibF/Spec/Common/` 下的模块导入了 `ZlibF/Spec/Safety/` 下的模块。`ZlibF/Spec/` 下的模块导入了 `ZlibF/Proof/` 下的模块。这三条对经由任意一串模块的导入也成立，并且没有例外列表。`ZlibF/Math/` 下的模块直接导入了证明模块，而这个导入不在脚本的 `MATH_PROOF_IMPORTS` 列表里；列表中的条目可以删除，不可以新增，条目所指的导入已经不存在时也失败（[规格的布局](../design/safety-functional-split.md)）。 |
 
 快速关卡不读登记表。快速关卡全部通过，并不说明哪些目标已被证明。
 

@@ -1,8 +1,8 @@
-<!-- source-sha256: 473152e7519756956f9b5667227f9fea567b07d20788104dcd303e8ebbacabea -->
+<!-- source-sha256: 163b6989cc81fa43e231b7ce96a906ed5798e01e6eab7f02f2012d9454092288 -->
 
 # 公开契约审查记录
 
-> **带日期的记录。** 这次审查写于 2026-11-06，当时项目的目标是为默认构建的 95 个入口和八个族级目标证明完整的功能契约。自 2026-11-11 起，范围只包括安全性（见[范围](../progress.md#scope)）：这里描述的契约是功能目标，不是必需的。其中已经证明的仍保持登记。规格文件后来移动过位置：格式模型和 API 模型在 `ZlibF/Spec/Functional/` 下，安全目标在 `ZlibF/Spec/Safety/` 下，`ZlibF/Spec/Common/` 存放公共定义（见[拆分设计](../design/safety-functional-split.md)）。下面各表中的模块名是审查当时的名字。这些更正和反例作为关于命题的证据仍然有效；每个更正后的命题今天是否已被证明，只由登记表和[进度页](../progress.md)回答。
+> **带日期的记录。** 这次审查写于 2026-11-06，当时项目的目标是为默认构建的 95 个入口和八个族级目标证明完整的功能契约。自 2026-11-11 起，范围只包括安全性（见[范围](../progress.md#scope)）：这里描述的契约是功能目标，不是必需的。其中已经证明的仍保持登记。规格文件后来移动过位置：格式模型和 API 模型在 `ZlibF/Spec/Functional/` 下，安全目标在 `ZlibF/Spec/Safety/` 下，`ZlibF/Spec/Common/` 存放公共定义（见[拆分设计](../design/safety-functional-split.md)）。下面各表中的模块名是审查当时的名字：`ZlibF/Spec/Format` 现在是 `ZlibF/Spec/Functional/Format`，`ZlibF/Spec/Api` 现在是 `ZlibF/Spec/Functional/Api`，`ZlibF/Spec/Public` 的文件现在分在这三个目录里。这些更正和反例作为关于命题的证据仍然有效；每个更正后的命题今天是否已被证明，只由登记表和[进度页](../progress.md)回答。
 
 这份记录说明这些契约背后的源码审查和反例。它不是对某个语义基线的独立批准。
 

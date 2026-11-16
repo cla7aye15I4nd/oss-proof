@@ -1,4 +1,4 @@
-<!-- source-sha256: ec0e9d3893137778a566cb87d2b94ba51bdf909cf7a8c0694aaf4123067a84d2 -->
+<!-- source-sha256: 468e61c994cbafa9a0a400759cc1c8778071ff253490cf70e46017fcf2f73bcd -->
 # 参与贡献
 
 本页列出四件事的步骤：做任何一次改动，登记一个已证明的目标，运行验收套件，按需运行证明变异体。每一步给出命令，以及命令成功时打印的最后一行。所有命令都在仓库根目录运行。
@@ -29,7 +29,7 @@
    | --- | --- | --- |
    | `scripts/check-sorry.sh` | 否 | `sorry count: 0`（已运行） |
    | `python3 scripts/check-strlit.py` | 否 | `check-strlit: N literals used, all in strTable (N entries)`（已运行） |
-   | `python3 scripts/check-spec-layers.py` | 否 | `specification layers: N safety and common modules import no functional module`（已运行） |
+   | `python3 scripts/check-spec-layers.py` | 否 | `specification layers: N modules under ZlibF/Spec; safety and common import no functional module, common imports no safety module, and none imports a proof module; N listed Math -> Proof imports remain (N modules)`（已运行） |
    | `lake env lean --run tests/audit/PartialCheck.lean` | 是 | 写本页时没有运行 |
 
    最后一项检查是一次搜索，成功时什么也不打印（已运行）：

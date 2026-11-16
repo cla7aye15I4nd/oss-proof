@@ -1,4 +1,4 @@
-<!-- source-sha256: 56ae227820c794246dba828a5fe267af624da1cd9ee9bb594bdfde26c6948fdb -->
+<!-- source-sha256: 93a4011773fb104f4bd6cd76c62eef0653649f483d3c46318c4a052fff12b18a -->
 # API 模型
 
 API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料。没有安全目标使用它们，它们也不是安全结论所必需的；这些模型以及已经证明的关于它们的定理都保留（[范围](../progress.md#scope)）。[各族详解](api-model-details.md)逐个说明每个模型。
@@ -27,11 +27,11 @@ flowchart TD
 
 细化定理是实质性的部分：每次实际执行都是模型允许的一步。单有模型定理，只说明模型的一个性质。
 
-快速关卡中的检查 `scripts/check-spec-layers.py` 拒绝安全目标导入这些模型（[规格的布局](safety-functional-split.md)）。还剩一条列出的边：`Public/GzState` 导入 gz 模式解码器。
+快速关卡中的检查 `scripts/check-spec-layers.py` 拒绝 `ZlibF/Spec/Safety/` 或 `ZlibF/Spec/Common/` 的模块导入这些模型，不论是直接导入还是经由其他模块导入（[规格的布局](safety-functional-split.md)）。它没有例外：`Gz.lean` 的 gz 模式解码器由 `ZlibF/Spec/Functional/GzState.lean` 导入，不由公共模块导入。
 
 ## 定义的位置
 
-路径相对于 `ZlibF/Spec/Functional/Api/`。`ZlibF/Spec/Api/` 下的旧路径是只有一行的模块，它们再导出这些文件。
+路径相对于 `ZlibF/Spec/Functional/Api/`。这些模块的 Lean 命名空间是 `ZlibF.Spec.Api`；它不跟随目录。
 
 | 模块 | 内容 |
 | --- | --- |

@@ -58,7 +58,7 @@ It runs on every push to `dev` or `main` and on every pull request. It is the on
 | `build` | Patches apply | A file of `patches/` that does not apply to a copy of the pinned `zlib/`. |
 | `no-sorry` | `scripts/check-sorry.sh` | A `sorry` in `ZlibF.lean` or under `ZlibF/`. |
 | `no-sorry` | `scripts/check-strlit.py` | A string literal of a translation that is missing from the runtime's string table. |
-| `no-sorry` | `scripts/check-spec-layers.py` | A module under `ZlibF/Spec/Safety/` or `ZlibF/Spec/Common/` that imports, even transitively, a functional specification (`ZlibF/Spec/Functional/` or the old paths `ZlibF/Spec/Api*`, `ZlibF/Spec/Format*`). The script holds a list of the edges still allowed; an entry may be removed from that list and none may be added. |
+| `no-sorry` | `scripts/check-spec-layers.py` | Anything directly under `ZlibF/Spec/` other than `Safety/`, `Functional/`, `Common/` and their root import files. A module under `ZlibF/Spec/Safety/` or `ZlibF/Spec/Common/` that imports a module under `ZlibF/Spec/Functional/`. A module under `ZlibF/Spec/Common/` that imports a module under `ZlibF/Spec/Safety/`. A module under `ZlibF/Spec/` that imports a module under `ZlibF/Proof/`. These three hold for an import through any chain of modules, and have no list of exceptions. A module under `ZlibF/Math/` that imports a proof module directly, unless the import is in the script's list `MATH_PROOF_IMPORTS`; an entry may be removed from that list and none may be added, and an entry whose import no longer exists also fails ([layout of the specifications](../design/safety-functional-split.md)). |
 
 The fast gate does not read the registries. A green fast gate says nothing about which goals are proved.
 

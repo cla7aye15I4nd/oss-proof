@@ -2,7 +2,7 @@
 
 The required goals, the safety goals, are kept apart from the functional goals, so that a
 reader can see the whole required target without reading any functional specification. This
-page says where each kind of goal is, which import rule keeps them apart, and how the rule is
+page says where each kind of goal is, which import rules keep them apart, and how the rules are
 checked. The plan that led to this layout, with its steps and status, is a
 [history page](../history/safety-functional-split-plan.md).
 
@@ -11,12 +11,20 @@ checked. The plan that led to this layout, with its steps and status, is a
 | Directory | Content | Required |
 | --- | --- | --- |
 | `ZlibF/Spec/Safety/` | Safety goals: the call returns with no `Fault.ub` and no `Fault.outOfFuel`, writes only its frame, and leaks nothing, on the documented domain | Yes |
-| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters. Also the sequence, refusal and non-vacuity goals of the gzip file interface and of `inflateBack`, and their functional goals | The safety goals in it: yes |
-| `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), the format and API models with their goals (`Format/`, `Api/`), and the full sequence contracts `Goal.inflate_sequence` and `Goal.deflate_sequence`, which join the sequence safety with functional clauses | No |
+| `ZlibF/Spec/Common/` | The definitions both kinds of goal use: calls, histories, frames, parameters, the platform premise, and the invariants of the streams and of the gz handle (`Good`, `DGood`, `GzInv`). `Common/Inflate/` holds the invariants of the inflate tables and of the fast decoder. Five goals about public functions are also here ([below](#what-is-not-separated)) | Three of those five goals: yes |
+| `ZlibF/Spec/Functional/` | Result contracts (`Goal.<function>`), those of the gzip file interface included; the format and API models with their goals (`Format/`, `Api/`); the full sequence contracts (`Goal.inflate_sequence`, `Goal.deflate_sequence`, `Goal.inflate_back_sequence`, `Goal.gz_sequence`), which join the sequence safety with functional clauses. `Functional/Inflate/` holds statements about the decode tables and the fast decoder that use the format model | No, except `Goal.compressBound` and `Goal.compressBound_z` ([below](#two-goals-per-public-function)) |
+
+Nothing else is directly under `ZlibF/Spec/`, except `Common.lean`, which imports every module
+of `Common/`.
 
 A goal about a public function has the Lean name `ZlibF.Spec.Public.Goal.<name>`, in each of
 the three directories. The directory shows the kind; the namespace is the same. The manifest
 `tests/audit/public-api.json` names only goals of this namespace.
+
+A namespace does not follow its directory. `Public` was the name of the directory that is now
+`Common/`; its modules kept the namespace `ZlibF.Spec.Public`, so no goal and no theorem changed
+its name. The modules under `Functional/Api/` have the namespace `ZlibF.Spec.Api`, and so has
+`Common/Parameters.lean`, which came from the API model.
 
 Two groups of functional goals under `Spec/Functional/` have other namespaces. The first group
 is `ZlibF.Spec.Api.Goal.<name>`, for example `ZlibF.Spec.Api.Goal.roundtrip`.
@@ -41,45 +49,54 @@ The functional specifications are still built. A functional goal that has a
 reported as open and fails no check. No statement was weakened or deleted to make this layout: a
 full contract `Goal.X` is the functional goal of `X`, and the safety goal is stated beside it.
 
-## The import rule
+## The import rules
 
 ```mermaid
 flowchart TD
-  Safety["Spec/Safety: safety goals"] --> Public
-  Functional["Spec/Functional: contracts, Api, Format, sequences"] --> Public
-  Public["Spec/Public: calls, histories, frames, parameters"] --> Base
-  Base["Zlib translations, Runtime, internal Spec modules"]
+  Safety["Spec/Safety: safety goals"] --> Common
+  Functional["Spec/Functional: contracts, Api, Format, sequences"] --> Common
+  Common["Spec/Common: calls, histories, frames, parameters, invariants"] --> Base
+  Base["Zlib translations, Runtime"]
   Safety -. "forbidden, checked" .-> Functional
+  Common -. "forbidden, checked" .-> Safety
+  Common -. "forbidden, checked" .-> Functional
 ```
 
-A module under `Spec/Safety/` or `Spec/Common/` does not import a module under
-`Spec/Functional/`, directly or through other modules. So `Spec/Safety/`, the safety goals in
-`Spec/Common/`, and what they import are the whole required target.
+There are three rules about the modules under `ZlibF/Spec/`. Each holds for direct imports and
+for imports through any chain of other modules.
 
-The script `scripts/check-spec-layers.py` walks the imports and fails on such an edge. It runs
-in the fast gate (job `no-sorry`). It holds a list of the edges still allowed. The list may only
-shrink, and it has one entry:
+1. A module under `Spec/Safety/` or `Spec/Common/` does not import a module under
+   `Spec/Functional/`. So a reader of the required goals reads no functional specification.
+2. A module under `Spec/Common/` does not import a module under `Spec/Safety/`. Common lies
+   below both kinds of goal.
+3. No module under `ZlibF/Spec/` imports a module under `ZlibF/Proof/`. So the statement of a
+   goal is read in `ZlibF/Spec/` and in the translation, the runtime and the mathematics it
+   names, never in a proof module. The definitions that goals name and that were once in proof
+   modules are in `Spec/Common/`: `Good` in `InflateGood.lean`, `DGood` in `DeflateGood.lean`,
+   `GzInv` in `GzInv.lean`. The lemmas about them stay in the proof modules.
 
-- `Public/GzState.lean` imports `ZlibF/Spec/Functional/Api/Gz.lean`, the old path of the gz model, for the
-  gz mode decoder and `GzLooksGzip`.
+The script `scripts/check-spec-layers.py` walks the imports and fails on an import that breaks a
+rule. It also fails when anything other than the three directories and their root import files
+is directly under `ZlibF/Spec/`. It runs in the fast gate (job `no-sorry`). It has no list of
+exceptions to these three rules.
+
+The script has a fourth rule, about `ZlibF/Math/`: a module there does not import a proof
+module directly, except the imports in the list `MATH_PROOF_IMPORTS` of the script. The script
+records that those Math modules import lemmas from proof modules, not definitions. The list may
+only shrink: the script
+fails on an import that is not listed and on a listed import that no longer exists. Rule 3
+covers these Math modules too: no module under `ZlibF/Spec/` imports one of them.
+[Progress](../progress.md#ordered-next-work) gives the size of the list.
 
 Three more facts about imports:
 
-- The old paths `ZlibF/Spec/Api*` and `ZlibF/Spec/Format*` are one-line modules that re-export
-  the files under `Spec/Functional/`. The check counts them as functional.
+- No module of `Spec/Common/` imports the gz model. The gz mode decoder and `GzLooksGzip` are in
+  `Functional/Api/Gz.lean`; `Functional/GzState.lean` imports it, and `Common/GzState.lean`
+  does not.
 - The parameter decoders that safety goals need (return codes, flush values, window and wrapper
-  selection) are in `Public/Parameters.lean`, which imports no format module.
-- The check forbids only functional imports. Four modules of `Spec/Common/` import a proof
-  module, and the check allows that: `GzState` imports `Proof.«gzlib.c.base»`; `GzSafety` imports
-  `Proof.«gz.inv-model»`, which defines `GzInv`, `ReadsFinite` and `GzStepPost`; `Initialisation`
-  and `Utilities` import `Proof.«inflate.c.base»` and `Proof.«deflate.c.base»`. So part of the
-  statement of a goal is read from those proof modules.
-
-The files at the top of `ZlibF/Spec/` (`Inflate*.lean`, `PlatformMemory.lean`,
-`ByteAddress.lean`, `Crc32ByteViews.lean`) are statements about internal functions, not public
-goals. Three of them import a functional module (`InflateDecodeTableSemantics`,
-`InflateFastBodyToken`, `InflateOutputInvariant`). No safety goal imports those three; the check
-would fail if one did.
+  selection) are in `Common/Parameters.lean`, which imports nothing.
+- `Functional/Crc32ByteViews.lean` is functional because its statements name `crc32Update` of
+  the format model.
 
 ## Two goals per public function
 
@@ -135,12 +152,13 @@ and the [rules against silent removal](../checking/goals.md#shrink-only-rules) i
 
 ## What is not separated
 
-- The sequence, refusal and non-vacuity goals of the gzip file interface and of `inflateBack`
-  are in `Spec/Common/`, not in `Spec/Safety/`: `Public/GzSafety.lean`, `Public/GzRefusal.lean`,
-  `Public/Sequences.lean` and `Public/Domains.lean` hold them; the `Public/Gz*.lean` files,
-  `Public/Back.lean` and `Public/Sequences.lean` also hold the functional goals. Only the
-  one-function goals of these two families are in `Spec/Safety/`.
-- The one allowed import edge above.
-- The imports of proof modules above.
+- Three required goals are in `Spec/Common/`, not in `Spec/Safety/`: `Goal.gz_refusal`
+  (`Common/GzRefusal.lean`), `Goal.inflate_back_sequence_safety` (`Common/Sequences.lean`) and
+  `Goal.inflate_back_initialisation_domain` (`Common/Domains.lean`). No module of `Spec/Safety/`
+  imports `Common/GzRefusal.lean`, so a reader of the required goals reads that file as well.
+- Two functional goals are in `Spec/Common/`: `Goal.inflateBackInit_` and `Goal.inflateBackEnd`
+  (`Common/Back.lean`).
+- `Goal.compressBound` and `Goal.compressBound_z`, which the manifest names as safety goals, are
+  in `Functional/Queries.lean`.
 
 [Design](README.md) · [Documentation home](../README.md)

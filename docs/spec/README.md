@@ -33,15 +33,12 @@ The exact statements are Lean propositions under `ZlibF/Spec/`:
 
 | Directory | Content | Required |
 | --- | --- | --- |
-| `ZlibF/Spec/Safety/` | The safety goals of the stream functions, the checksums, the queries and the whole-buffer functions, and the one-function safety goals of the gzip file interface and of the callback decoder. | Yes. |
-| `ZlibF/Spec/Common/` | The definitions that both kinds of goal use: calls, histories, frames, the allocation account. Also the sequence, refusal and non-vacuity goals of the gzip file interface and of the callback decoder, and their functional goals. | The safety goals in it, yes. |
-| `ZlibF/Spec/Functional/` | The result contracts, the format and API models, and the round-trip statements. | No, except `Goal.compressBound` and `Goal.compressBound_z` ([safety, appendix](safety.md#where-the-goals-are)). |
+| `ZlibF/Spec/Safety/` | The safety goals of the stream functions, the checksums, the queries and the whole-buffer functions, the safety goals of the gzip file interface (one per function, the sequence goal and its non-vacuity goal), and the one-function safety goals of the callback decoder. | Yes. |
+| `ZlibF/Spec/Common/` | The definitions that both kinds of goal use: calls, histories, frames, the allocation account, the invariants, the platform premise (`PlatformMemory.lean`). Also the refusal goal of the gzip file interface, the sequence and non-vacuity goals of the callback decoder, and statements about internal helpers that do not use the format model. | Those three goals, yes. |
+| `ZlibF/Spec/Functional/` | The result contracts, the format and API models (`Format/`, `Api/`), the round-trip statements, and statements about internal helpers that use the format model. | No, except `Goal.compressBound` and `Goal.compressBound_z` ([safety, appendix](safety.md#where-the-goals-are)). |
 
-`ZlibF/Spec/Api/` and `ZlibF/Spec/Format/` only re-export the modules under
-`ZlibF/Spec/Functional/`; import the new paths.
-[The split](../design/safety-functional-split.md) gives the reasons and the import rule. The
-other files directly in `ZlibF/Spec/` hold the platform premise (`PlatformMemory.lean`) and
-statements about internal helpers that the proofs use.
+Nothing else is directly under `ZlibF/Spec/`, except the import file `Common.lean`.
+[The split](../design/safety-functional-split.md) gives the reasons and the import rules.
 
 [Progress, Target evidence](../progress.md#target-evidence) links each goal to its exact
 statement and to the theorem that proves it.
