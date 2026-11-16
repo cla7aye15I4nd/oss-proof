@@ -69,7 +69,8 @@ has finished green.
   registered. The commit of `main` with the same tree, `74a2097c`, was green in the nightly run
   43735018381 of the same day.
 - **`3fdbbc38`, cancelled: not an accepted commit.** Manual run 43763696005 of 2026-11-15, on a
-  commit that holds all 98 required goals in their present form. It was started when the mutant
+  commit that holds all 98 required goals in the form they had at that commit; 25 of them were
+  changed afterwards (the refusal clauses, below). It was started when the mutant
   shards were still part of `audit`, and it was cancelled while only those shards were running.
   Green before the cancellation: `build`, `no-sorry`, `audit_core`, both `audit_selftest`
   shards, `diff_core`, all eight `diff_harness` shards, and the result `difftest`. The twenty
@@ -2612,10 +2613,12 @@ inconsistent stream. A separate column names the functional theorem.
 Every documented function has a registered safety theorem on the domain its row states. Three
 kinds of item are open or narrower than `zlib.h`:
 
-1. **Refusal clauses.** The safety goals of `inflatePrime`, `inflateMark`, `deflateTune`,
-   `deflatePending`, `deflateUsed` and `deflateSetHeader` cover the call on a reachable stream.
-   The refusal of a `NULL` or inconsistent stream is proved in the functional goal of the same
-   function, and is not yet a clause of the safety goal.
+1. **Refusal clauses.** Nothing is open here. The refusal of a `NULL` or inconsistent stream is
+   a clause of the safety goal of every stream function except the four init functions, and of
+   both copy goals (commit `71188823`). What the refusal domain leaves out is narrower than
+   `zlib.h` only in the sense of [deviations, note 2](deviations.md#note-2-refused-streams): a
+   record with set allocators whose `state` pointer is garbage, dangling or of the other stream
+   kind. The level of these goals is in [Scope](#scope).
 2. **Domains narrower than `zlib.h`**, each with a row in [deviations](deviations.md):
    `inflateBack` (`inputBound < 2^48`; the window and every input chunk in a heap byte block);
    `inflateCopy` and `deflateCopy`
@@ -2642,15 +2645,16 @@ Every required goal is registered: 98 safety and non-vacuity goals, none open
 was green and what changed after it. What remains, in order:
 
 1. **Acceptance** of the goals registered or changed after `bde170e9`: the 35 one-function safety
-   goals of the gz functions and of the callback decoder, the widened init goals, and the
-   callback-decoder sequence goal in its present form. They are registered and wait only for a
+   goals of the gz functions and of the callback decoder, the widened init goals, the
+   callback-decoder sequence goal in its present form, and the 25 stream and copy goals with a
+   refusal clause (item 2). They are registered and wait only for a
    green acceptance suite on a named commit: axiom gate, exact goal match, self tests and
    differential tests. A mutant run is not needed for it. The commit goes into
    [Scope](#next-acceptance-run).
-2. **Refusal clauses** in the safety goals of the six stream functions listed under
-   [coverage](#no-fault-coverage-of-zlibh-functions), item 1, and then their acceptance:
-   registration in `tests/audit/theorems.txt`, mutant rows, and a green acceptance suite on a
-   named commit.
+2. **Refusal clauses.** The statements and proofs are done: the 23 one-function stream safety
+   goals and the two copy goals state the refusal
+   ([coverage](#no-fault-coverage-of-zlibh-functions), item 1). Their theorems keep their
+   registered names. What remains for them is the acceptance run of item 1.
 3. **The round trip of the default zlib stream**, after the safety results ([Scope](#scope)).
 4. **Upstream submission of the local patches** 0004 and 0005
    ([patches](../patches/README.md)). Patches 0001 to 0003 match submitted upstream pull
