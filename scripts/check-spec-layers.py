@@ -1,31 +1,134 @@
 #!/usr/bin/env python3
 """Check the layers of the specification (docs/design/safety-functional-split.md).
 
-Two rules.
+Layout. Directly under ZlibF/Spec/ there are only the folders Safety/, Functional/ and Common/, and at
+most the three root import files Safety.lean, Functional.lean and Common.lean.
 
-1. A safety or common module must not import, even transitively, a functional module. The safety and
-   common modules are those under ZlibF/Spec/Safety/ and ZlibF/Spec/Common/, and the common modules
-   COMMON at the top of ZlibF/Spec/. The functional modules are those under ZlibF/Spec/Functional/.
-   Then reading Spec/Safety and what it imports tells a reader the whole current target.
+1. A safety or common module does not import, even transitively, a functional module. The safety
+   modules are ZlibF/Spec/Safety.lean and those under ZlibF/Spec/Safety/; the common modules are
+   ZlibF/Spec/Common.lean and those under ZlibF/Spec/Common/; the functional modules are
+   ZlibF/Spec/Functional.lean and those under ZlibF/Spec/Functional/. Then reading Spec/Safety and
+   what it imports tells a reader the whole current target.
 
-2. No module under ZlibF/Spec/ imports a module under ZlibF/Proof/. Then the statement of a goal is
-   read in ZlibF/Spec/ (and in the translation and the runtime it names), not in a proof module.
+2. A common module does not import, even transitively, a safety module. Common lies below both.
 
-PROOF_IMPORTS lists the Spec -> Proof imports that are still to be removed, each with its reason. The
-list may only shrink: an entry whose import no longer exists is an error, so it is deleted when its
-import goes.
+3. No module under ZlibF/Spec/ imports a module under ZlibF/Proof/, even transitively: the walk
+   follows every import (Spec, Math, Runtime, translation), so an edge hidden behind a Math module
+   or another Spec module is found. Then the statement of a goal is read in ZlibF/Spec/ (and in the
+   translation, the runtime and the mathematics it names), not in a proof module.
+
+4. No module under ZlibF/Math/ imports a module under ZlibF/Proof/, except the imports listed in
+   MATH_PROOF_IMPORTS. The list may only shrink: a listed import that no longer exists is an error, so it
+   is deleted when its import goes. Rule 3 still holds for every Spec module, also through these Math
+   modules.
+
+There is no other allowlist.
 """
+import functools
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SPEC = ROOT / 'ZlibF/Spec'
+LAYERS = ('Safety', 'Functional', 'Common')
 
-# Common modules at the top of ZlibF/Spec/, checked like Spec/Safety and Spec/Common.
-COMMON = ('ZlibF.Spec.Common',)
-
-# importer -> (the Proof modules it still imports, reason). Each import is removed by a later batch.
-PROOF_IMPORTS = {}
+# Math -> Proof imports that remain (shrink-only). These Math modules import proof lemmas, not definitions;
+# moving those lemmas is later work.
+MATH_PROOF_IMPORTS = {
+    'ZlibF.Math.DeflateDynamicBlock': (
+        'ZlibF.Proof.«trees.c.dynamic-header»',
+    ),
+    'ZlibF.Math.DeflateFixedPayload': (
+        'ZlibF.Proof.«trees.c.compress-match»',
+    ),
+    'ZlibF.Math.DeflateFlushMarkers': (
+        'ZlibF.Proof.«trees.c.stored-header»',
+    ),
+    'ZlibF.Math.DeflateForest': (
+        'ZlibF.Proof.«trees.c.heap.gbtree»',
+    ),
+    'ZlibF.Math.DeflateHeader': (
+        'ZlibF.Proof.«trees.c.runs»',
+    ),
+    'ZlibF.Math.DeflateHeap': (
+        'ZlibF.Proof.«trees.c.heap.ord»',
+        'ZlibF.Proof.«trees.c.heap.gbmath»',
+    ),
+    'ZlibF.Math.DeflateHeapRemove': (
+        'ZlibF.Proof.«trees.c.heap.pqrun»',
+    ),
+    'ZlibF.Math.DeflateHuffmanChain': (
+        'ZlibF.Proof.«trees.c.heap.gbclk»',
+    ),
+    'ZlibF.Math.DeflateKraft': (
+        'ZlibF.Proof.«trees.c.heap.gbsym»',
+        'ZlibF.Proof.«inftrees.c.link»',
+    ),
+    'ZlibF.Math.DeflateLeafRank': (
+        'ZlibF.Proof.«trees.c.heap.gbmath»',
+    ),
+    'ZlibF.Math.DeflatePayload': (
+        'ZlibF.Proof.«trees.c.tally»',
+        'ZlibF.Proof.«trees.c.runs»',
+    ),
+    'ZlibF.Math.DeflateRankedLengths': (
+        'ZlibF.Proof.«trees.c.heap.gbclk»',
+    ),
+    'ZlibF.Math.DeflateRunDecode': (
+        'ZlibF.Proof.«inffast.c.sig»',
+    ),
+    'ZlibF.Math.DeflateRunSupport': (
+        'ZlibF.Proof.«trees.c.runs»',
+    ),
+    'ZlibF.Math.DeflateZlibEncoding': (
+        'ZlibF.Proof.Format.Deflate',
+    ),
+    'ZlibF.Math.HuffmanCost': (
+        'ZlibF.Proof.«trees.c.heap.gbmath»',
+    ),
+    'ZlibF.Math.HuffmanReference': (
+        'ZlibF.Proof.«trees.c.heap.gbmath»',
+    ),
+    'ZlibF.Math.InflateCanonicalDecode': (
+        'ZlibF.Proof.Format.Huffman',
+    ),
+    'ZlibF.Math.InflateDecodeBits': (
+        'ZlibF.Proof.«inftrees.c.geom»',
+        'ZlibF.Proof.«inffast.c.sig»',
+    ),
+    'ZlibF.Math.InflateFastMatchHistory': (
+        'ZlibF.Proof.«inflate.c.ring»',
+        'ZlibF.Proof.«inffast.c.match»',
+        'ZlibF.Proof.«deflate.c.base»',
+    ),
+    'ZlibF.Math.InflateHeldBits': (
+        'ZlibF.Proof.«inffast.c.sig»',
+    ),
+    'ZlibF.Math.InflatePrefixes': (
+        'ZlibF.Proof.Format.Wrapper',
+        'ZlibF.Proof.«inffast.c.sig»',
+    ),
+    'ZlibF.Math.InflateTableCoverage': (
+        'ZlibF.Proof.«inftrees.c.cover.group»',
+    ),
+    'ZlibF.Math.InflateTableGeometry': (
+        'ZlibF.Proof.«inftrees.c.step»',
+        'ZlibF.Proof.«inftrees.c.cover.root»',
+    ),
+    'ZlibF.Math.code-length-prefix': (
+        'ZlibF.Proof.«inftrees.c.decode.semantics»',
+    ),
+    'ZlibF.Math.inflate-dictionary-window-token': (
+        'ZlibF.Proof.Format.Huffman',
+    ),
+    'ZlibF.Math.inflate-header-alphabet': (
+        'ZlibF.Proof.«inflate.c.main.table6»',
+    ),
+    'ZlibF.Math.inflate-meaning-wrap': (
+        'ZlibF.Proof.Format.Wrapper',
+    ),
+}
 
 
 def module_path(name):
@@ -36,6 +139,7 @@ def module_name(path):
     return '.'.join(path.relative_to(ROOT).with_suffix('').parts)
 
 
+@functools.lru_cache(maxsize=None)
 def imports(name):
     path = module_path(name)
     if not path.is_file():
@@ -47,15 +151,20 @@ def imports(name):
             found.append(match.group(1))
         elif line.strip() and not line.startswith('--') and not line.startswith('prelude'):
             break
-    return [m for m in found if m.startswith('ZlibF.')]
+    return tuple(m for m in found if m.startswith('ZlibF.'))
 
 
 def plain(name):
     return name.replace('«', '').replace('»', '')
 
 
-def functional(name):
-    return name.startswith('ZlibF.Spec.Functional.') or name == 'ZlibF.Spec.Functional'
+def layer(name):
+    """The layer of a Spec module (Safety, Functional, Common), else None."""
+    for part in LAYERS:
+        prefix = 'ZlibF.Spec.' + part
+        if name == prefix or name.startswith(prefix + '.'):
+            return part
+    return None
 
 
 def proof(name):
@@ -63,62 +172,86 @@ def proof(name):
 
 
 def spec_modules():
-    return sorted(module_name(p) for p in (ROOT / 'ZlibF/Spec').rglob('*.lean'))
+    return sorted(module_name(p) for p in SPEC.rglob('*.lean'))
 
 
-def check_layers(errors):
-    roots = sorted(module_name(p) for d in ('Safety', 'Common')
-                   for p in (ROOT / 'ZlibF/Spec' / d).rglob('*.lean'))
-    roots += [m for m in COMMON if module_path(m).is_file()]
-    for name in COMMON:
-        if not module_path(name).is_file():
-            errors.append(f'common module {name} does not exist: delete it from COMMON')
-    for root in roots:
-        parent = {root: None}
-        stack = [root]
-        while stack:
-            name = stack.pop()
-            for child in imports(name):
-                if child in parent:
-                    continue
+def closure(root):
+    """Every module the root imports, even transitively, with the importer that reached it first."""
+    parent = {root: None}
+    stack = [root]
+    while stack:
+        name = stack.pop()
+        for child in imports(name):
+            if child not in parent:
                 parent[child] = name
                 stack.append(child)
-        for name in sorted(n for n in parent if functional(n)):
-            chain = [name]
-            while parent[chain[-1]] is not None:
-                chain.append(parent[chain[-1]])
-            errors.append(f'{root} imports functional {name}: ' + ' <- '.join(chain))
-            break
-    return len(roots)
+    return parent
 
 
-def check_proof_imports(errors):
-    allowed = {(plain(src), plain(dst)) for src, (dsts, _) in PROOF_IMPORTS.items() for dst in dsts}
+def chain(parent, name):
+    names = [name]
+    while parent[names[-1]] is not None:
+        names.append(parent[names[-1]])
+    return ' <- '.join(names)
+
+
+def check_layout(errors):
+    allowed = set(LAYERS) | {part + '.lean' for part in LAYERS}
+    for entry in sorted(SPEC.iterdir()):
+        if entry.name not in allowed or (entry.is_dir() != (entry.suffix == '')):
+            errors.append(f'ZlibF/Spec/{entry.name}: only the folders Safety/, Functional/ and Common/ '
+                          'and their root import files may be directly under ZlibF/Spec')
+
+
+def check_modules(errors):
+    modules = spec_modules()
+    for root in modules:
+        if layer(root) is None:
+            continue
+        parent = closure(root)
+        reached = sorted(parent)
+        if layer(root) in ('Safety', 'Common'):
+            bad = [n for n in reached if layer(n) == 'Functional']
+            if bad:
+                errors.append(f'{root} imports functional {bad[0]}: ' + chain(parent, bad[0]))
+        if layer(root) == 'Common':
+            bad = [n for n in reached if layer(n) == 'Safety']
+            if bad:
+                errors.append(f'{root} imports safety {bad[0]}: ' + chain(parent, bad[0]))
+        bad = [n for n in reached if proof(plain(n))]
+        if bad:
+            errors.append(f'{root} imports the proof module {bad[0]}: ' + chain(parent, bad[0]))
+    return len(modules)
+
+
+def check_math(errors):
+    allowed = {(src, plain(dst)) for src, dsts in MATH_PROOF_IMPORTS.items() for dst in dsts}
     found = set()
-    for src in spec_modules():
+    for path in sorted((ROOT / 'ZlibF/Math').rglob('*.lean')):
+        src = module_name(path)
         for dst in imports(src):
-            if proof(dst):
-                found.add((plain(src), plain(dst)))
-                if (plain(src), plain(dst)) not in allowed:
-                    errors.append(f'{src} imports the proof module {dst}: a specification module may not')
-    for src, (dsts, reason) in PROOF_IMPORTS.items():
-        for dst in dsts:
-            if (plain(src), plain(dst)) not in found:
-                errors.append(f'listed import {src} -> {dst} no longer exists: delete it ({reason})')
+            if proof(plain(dst)):
+                found.add((src, plain(dst)))
+                if (src, plain(dst)) not in allowed:
+                    errors.append(f'{src} imports the proof module {dst}: a Math module may not')
+    for src, dst in sorted(allowed - found):
+        errors.append(f'listed import {src} -> {dst} no longer exists: delete it from MATH_PROOF_IMPORTS')
     return len(found)
 
 
 def main():
     errors = []
-    roots = check_layers(errors)
-    remaining = check_proof_imports(errors)
+    check_layout(errors)
+    count = check_modules(errors)
+    remaining = check_math(errors)
     if errors:
         print('Specification layer check failed (docs/design/safety-functional-split.md):')
         for error in errors:
             print('  ' + error)
         return 1
-    print(f'specification layers: {roots} safety and common modules import no functional module; '
-          f'{remaining} listed Spec -> Proof imports remain ({len(PROOF_IMPORTS)} modules)')
+    print(f'specification layers: {count} modules under ZlibF/Spec; safety and common import no functional '
+          'module, common imports no safety module, and none imports a proof module; '
+          f'{remaining} listed Math -> Proof imports remain ({len(MATH_PROOF_IMPORTS)} modules)')
     return 0
 
 
