@@ -37,8 +37,13 @@ four compression functions, `UncompressCountedSafe` for `uncompress2` and `uncom
 `UncompressSingleSafe` for `uncompress` and `uncompress_z`.
 
 The buffer utilities create and release a local stream with the zlib wrapper and default settings.
-The stream record is an automatic variable: it takes no allocation attempt
-([test](../../../tests/regression/compress-allocation/README.md)).
+The stream record is an automatic variable, not a heap block, so it takes no allocation attempt.
+The allocation attempts of a call are those of the codec. A `compress*` call attempts at most
+five, all in `deflateInit`: the state, the window, `prev`, `head` and the pending buffer; it
+attempts none when it refuses its arguments or the level. An `uncompress*` call attempts the
+decoder state in `inflateInit`, and the window inside `inflate` when decoding needs it.
+A differential [test](../../../tests/regression/compress-allocation/README.md) compares the
+allocation attempts of the four compression functions with the real C.
 
 First the convention for the lengths. `sourceLen` gives the number of readable input bytes.
 `*destLen` is the writable capacity of the destination array before the call, and the number of
@@ -333,9 +338,9 @@ Computes the capacity value used for default compression settings; allocates no 
 
 **Effects.** Pure. No pointer access, allocation, state change or error return.
 
-**Scope.** This contract specifies the number. Output adequacy is a separate property
-for valid compression calls with the default wrapper, window and memory settings.
-It gives no bound for arbitrary raw or gzip stream settings.
+**Scope.** This contract specifies the number. The bound is meant for compression with the
+default wrapper, window and memory settings, as `compress` uses them. It gives no bound for
+arbitrary raw or gzip stream settings.
 
 **Proof goals.**
 
@@ -345,7 +350,7 @@ It gives no bound for arbitrary raw or gzip stream settings.
 - **Guarantees.**
     - *Returns.* The translation is a total function from the argument to the result. It takes no heap and has no fault case, so the call returns for every argument; the goal adds that the result is the saturated formula given under Post.
     - *State, writes, allocations.* None: the function has no access to memory.
-- **Not in this goal.** That a destination of this size is enough for `compress`: no required goal states it.
+- **Not in this goal.** That every output of the translated `compress` fits in a destination of this size. The theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -379,7 +384,7 @@ Computes the capacity value used for default compression settings; allocates no 
 
 **Pre.** Full type domain: every 64-bit `sourceLen`.
 
-**Effects.** Pure. No memory access or error return. The same output-adequacy scope applies.
+**Effects.** Pure. No memory access or error return. The scope of [compressBound_z](#compressbound_z) applies.
 
 **Proof goals.**
 
@@ -389,7 +394,7 @@ Computes the capacity value used for default compression settings; allocates no 
 - **Guarantees.**
     - *Returns.* The translation is a total function from the argument to the result. It takes no heap and has no fault case, so the call returns for every argument; the goal adds that the result is the saturated formula given under Post.
     - *State, writes, allocations.* None: the function has no access to memory.
-- **Not in this goal.** That a destination of this size is enough for `compress`: no required goal states it.
+- **Not in this goal.** That every output of the translated `compress` fits in a destination of this size. The theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>Complete return conditions and boundaries</summary>
 

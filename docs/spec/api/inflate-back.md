@@ -16,7 +16,7 @@ memory error, no leak, and termination ([safety](../safety.md)). Each entry name
 **Proof goals**, with its premises. The proof assumes those premises, not the documentary Pre; where
 the two differ, the Lean statement counts. The return values, output bytes and state changes
 described here are functional behaviour. They are read from the C and are **to confirm** where no
-theorem states them. They are not a planned proof target.
+theorem states them. They are not required for the safety results.
 [Progress](../../progress.md) says which goals are done.
 
 Each function has its own required safety goal: `Goal.inflateBackInit__safety`,
@@ -101,10 +101,6 @@ The result says whether callback decoder state was created and attached to the c
 | `Z_STREAM_ERROR`<br>**Stream, window or bit count refused** | strm or window is NULL, or windowBits is outside 8..15. | Provide a valid inactive stream, window and bit count before initializing again; this failure needs no end call. |
 | `Z_MEM_ERROR`<br>**State allocation failed** | State allocation failed; msg and default allocator fields may change, while the old state field is retained. | Initialization may be tried again when resources are available; no new allocation was retained and this failure needs no inflateBackEnd. |
 
-**Reading the result.**
-
-- The window remains caller-owned; this function creates callback API state, not state for ordinary inflate.
-
 ### Calling conditions and effects {#api-inflatebackinit_-contract}
 
 **Domain.** Restricted domain: valid caller memory, an inactive stream and default allocation.
@@ -125,7 +121,7 @@ The window remains caller-owned and is not allocated, cleared or freed here.
     2. `version` is NULL or its first byte is readable (`VersionValue`);
     3. `strm` is NULL, or points to a readable stream record whose `zalloc` and `zfree` are each NULL or the default function (`DefaultOrNull`);
     4. when `window` is not NULL and `windowBits` is 8 to 15, `window` covers `2^windowBits` writable bytes (`Writable`).
-- **Covered without condition.** Every `windowBits`, also outside 8 to 15; a NULL `window`; every `stream_size`; every value of the first byte of `version`; every value of the other fields of the record, `state` included; every allocation outcome. The goal is wider than Pre: it also covers a NULL `strm`, a wrong version or `stream_size`, and a record whose `state` is not NULL. If that record was a live decoder and the call returns `Z_OK`, the old state stays allocated and the record no longer points to it: the account records that leak, it does not exclude it.
+- **Covered without condition.** Every `windowBits`, also outside 8 to 15; a NULL `window`; every `stream_size`; every value of the first byte of `version`; every value of the other fields of the record, `state` included; every allocation outcome. If the record held a live decoder and the call returns `Z_OK`, the old state stays allocated and the record no longer points to it: the account records that leak, it does not exclude it.
 - **Guarantees.**
     - *Returns.* The call returns. With a NULL `strm` the code is `Z_VERSION_ERROR` or `Z_STREAM_ERROR`.
     - *State.* With `Z_OK`, the stream record points to a valid callback-decoder state in the new block, and that state's window is `window` (`BackValid`).
@@ -172,8 +168,7 @@ The result covers callback decoding of one complete raw stream. This function ne
 
 **Reading the result.**
 
-- For Z_BUF_ERROR, distinguish input exhaustion from output failure by whether next_in is NULL; this is not ordinary inflate’s buffer-retry protocol.
-- The input callback returns a byte count, with zero meaning no input; the output callback returns zero for success. Output can be delivered before errors and on the final error path.
+- The input callback returns a byte count, with zero meaning no input.
 
 ### Calling conditions and effects {#api-inflateback-contract}
 

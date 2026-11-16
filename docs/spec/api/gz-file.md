@@ -213,7 +213,7 @@ not as a general explanation of every failed API call.
 
 What a retry or a recovery yields after a partial read, after a parameter change that the
 compressor did not apply, or after a failed finish (which bytes reach the file, which position
-is reported) is functional behaviour. It is **to confirm** and is not a planned proof target.
+is reported) is functional behaviour. It is **to confirm**.
 That the next call is safe, after any call that returned with any result, is part of
 [the safety goal](#the-safety-goal).
 
@@ -321,7 +321,6 @@ The result tells you whether opening acquired a new gzip file handle.
 **Reading the result.**
 
 - Opening does no payload I/O and does not validate the input format; buffers and codecs are initialized lazily.
-- gzopen64 has the same implementation and offset range as gzopen in the default LP64 build; its declaration can be gated on other builds.
 
 ### Calling conditions and effects {#api-gzopen64-contract}
 
@@ -374,11 +373,6 @@ The result tells you whether an existing descriptor has been transferred to a ne
 | --- | --- | --- |
 | `file != NULL`<br>**Descriptor transferred** | Handle and diagnostic-path allocation and mode parsing succeed for a nonnegative fd. The fresh logical position is zero, even when the descriptor position is not. | Let the handle exclusively own fd until close, which closes fd. Pass a duplicate instead if the original must stay open. |
 | `NULL`<br>**Caller retains descriptor** | fd is negative, mode is NULL or invalid, or allocation fails. | No handle exists to close. The caller retains ownership of any supplied descriptor and must manage it. |
-
-**Reading the result.**
-
-- A nonnegative closed or wrong-access descriptor can pass this entry and fail during later I/O; non-NULL does not validate fd.
-- Append attempts to seek to the end. e/N flag changes are attempted without reporting their system-call failures; x does not create or truncate an existing descriptor.
 
 ### Calling conditions and effects {#api-gzdopen-contract}
 
@@ -443,7 +437,6 @@ The result tells you whether opening acquired a new gzip file handle. This entry
 **Reading the result.**
 
 - Opening does no payload I/O and does not validate the input format; buffers and codecs are initialized lazily.
-- The diagnostic path uses the current multibyte locale; an unrepresentable wide name can leave an empty diagnostic name.
 
 ### Calling conditions and effects {#api-gzopen_w-contract}
 
@@ -486,10 +479,6 @@ The result reports whether the requested future buffer size was recorded. This c
 | --- | --- | --- |
 | `0`<br>**Request recorded** | The handle is a reader or writer, buffers are unallocated, and size < 2^31. The recorded request is max(size, 8). | Proceed to I/O or inspection; later buffer allocation can still fail. |
 | `-1`<br>**Request unchanged** | The handle is NULL or has the wrong mode, buffers already exist, or size >= 2^31. | For a size refusal, choose a smaller size before allocation. If buffers already exist, this handle cannot be resized by this call. |
-
-**Reading the result.**
-
-- Call before gzdirect, pushback and ordinary I/O, any of which can allocate buffers.
 
 ### Calling conditions and effects {#api-gzbuffer-contract}
 
@@ -544,10 +533,6 @@ The status reports whether the parameter request reached the handle, including a
 | `Z_OK`<br>**Request accepted** | The request is unchanged, a fresh writer records it for lazy initialization, or an active writer reaches the parameter-update step after processing pending work. | Continue with valid parameters. |
 | `Z_STREAM_ERROR`<br>**Call refused** | The handle is NULL, a reader, a transparent writer, or has a pending hard error. | Use a live gzip writer. Inspect a live handle before closing it; do not assume clearing an error applies the requested settings. |
 | `Z_MEM_ERROR / Z_ERRNO / Z_STREAM_ERROR`<br>**Pending work failed** | Pending zero-fill or processing old buffered input fails and returns the recorded error code. | Inspect gzerror while the handle is live. Distinguish a would-block stall from a hard error; the request has not been completed and blind replay is not justified. |
-
-**Reading the result.**
-
-- Ordinary requests use levels -1 through 9 and strategies Z_DEFAULT_STRATEGY through Z_FIXED. Invalid values are not consistently rejected here and can fail later initialization as Z_MEM_ERROR.
 
 ### Calling conditions and effects {#api-gzsetparams-contract}
 
@@ -606,10 +591,6 @@ A positive result counts bytes delivered by this call. Zero can mean a zero-leng
 | `0`<br>**EOF or truncation, no output** | A nonzero request has no bytes to deliver; both ordinary end of input and truncation recorded as Z_BUF_ERROR can return zero. | Query gzerror and gzeof; Z_BUF_ERROR does not mean a complete gzip member ended successfully. |
 | `-1`<br>**Failure or temporary stall** | NULL, wrong mode, len > INT_MAX, a hard error with no deliverable bytes, or a non-blocking stall with no output; existing error state can also reject a zero request. | For a valid handle, query gzerror. Retry only after identifying a retryable stall and handling the wait; handle hard errors according to their cause. |
 
-**Reading the result.**
-
-- The return counts bytes; it is not a zlib status code. An oversized request records Z_STREAM_ERROR while preserving an existing serious error.
-
 ### Calling conditions and effects {#api-gzread-contract}
 
 **Domain:** Restricted domain: reader and destination; full unsigned `len` refusal range.
@@ -648,7 +629,7 @@ complete gzip member. A later error does not erase delivered
 bytes. Blocking descriptors may wait to fill internal reads. Non-blocking
 stalls are retryable and are not EOF. A transparent read in which `read` supplied
 bytes and then failed was an out-of-bounds read in the unpatched C; patch 0003 fixes
-it ([caveats](#scope-and-source-caveats)). What the retry yields is **to confirm**.
+it ([caveats](#scope-and-source-caveats)).
 
 </details>
 
@@ -672,10 +653,6 @@ The result counts complete items of size bytes. Bytes of a final incomplete item
 | `0 < n < nitems`<br>**Some complete items read** | n complete items were read, possibly with a written and consumed partial tail; EOF, a stall or an error can stop the read. | Query gzerror and gzeof. Do not infer the actual bytes consumed or a safe continuation position from n * size alone. |
 | `0`<br>**Zero total request** | size or nitems is zero; no input is consumed and no pending seek is executed. | Use nonzero size and count when data is needed; zero does not establish EOF. |
 | `0`<br>**No complete item returned** | A nonzero request encounters NULL, wrong mode, EOF, a stall, a hard error or product overflow; a partial item may still have been consumed. Overflow records Z_STREAM_ERROR, preserving an existing serious error. | For a valid handle, query gzerror and gzeof; distinguish the cause before treating zero as no bytes consumed. |
-
-**Reading the result.**
-
-- The total request has no gzread INT_MAX limit; its product must still fit z_size_t.
 
 ### Calling conditions and effects {#api-gzfread-contract}
 
@@ -732,10 +709,6 @@ Read one uncompressed byte as an unsigned value.
 | --- | --- | --- |
 | `0 <= c <= 255`<br>**One byte read** | A buffered byte or subsequent read supplied one byte; the uncompressed position advances by one after any pending skip. An existing error can be deferred until buffered bytes are exhausted. | Use the byte; both 255 and zero are data values. |
 | `-1`<br>**No byte returned** | NULL, a writer, EOF, or an error/non-blocking stall with no deliverable byte. | For a valid reader, query gzerror and gzeof; wait and retry only for an identified retryable stall. |
-
-**Reading the result.**
-
-- The header's macro fast path also changes the same reader; it is not a read-only query.
 
 ### Calling conditions and effects {#api-gzgetc-contract}
 
@@ -1080,10 +1053,6 @@ A successful result is the byte value, not a count or zlib status. Every int inp
 | `c & 0xff`<br>**One byte accepted** | One byte is accepted after any pending zero-fill seek; the returned value lies in 0 through 255. | Continue with later input; this byte can remain buffered, so check flush or close. |
 | `-1`<br>**Byte not confirmed** | The handle is NULL, a reader, has a pending hard error, or allocation, pending seek or writing fails. | Inspect gzerror on a live handle before close. Pending work can already have changed output or position; do not infer an unchanged state. |
 
-**Reading the result.**
-
-- A negative c is data after conversion, not EOF; a successful byte value of 0 is not failure.
-
 ### Calling conditions and effects {#api-gzputc-contract}
 
 **Domain:** Restricted domain: writer; full `int c` range.
@@ -1197,11 +1166,6 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 | `Z_BUF_ERROR`<br>**Formatted call needs retry** | A non-blocking stall leaves insufficient buffer room and this formatted call must be retried. | Handle the stall, then retry the formatted call. Account for earlier pending output and any formatter effects; this is not an unchanged-state guarantee. |
 | `Z_MEM_ERROR / Z_ERRNO / Z_STREAM_ERROR`<br>**Initialization or output failed** | Buffer/codec initialization, pending zero fill, or writing before or after formatting fails and returns its error code. | Inspect gzerror before close; distinguish a system stall from a hard error. A negative result can follow state changes and is not a safe byte offset for retry. |
 
-**Reading the result.**
-
-- The default formatted length limit is strictly below 8192 bytes per call; gzbuffer changes it. Format arguments, including writable %n targets, must meet the full contract.
-- No negative return guarantees that position, buffers, output or formatter-visible memory stayed unchanged.
-
 ### Calling conditions and effects {#api-gzprintf-contract}
 
 **Domain:** Restricted domain: writer and well-typed C formatting arguments.
@@ -1266,9 +1230,7 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 
 **Reading the result.**
 
-- The default formatted length limit is strictly below 8192 bytes per call; gzbuffer changes it. Format arguments, including writable %n targets, must meet the full contract.
-- No negative return guarantees that position, buffers, output or formatter-visible memory stayed unchanged.
-- The va_list must be initialized for the format and used according to the platform lifetime and copying rules.
+- The default formatted length limit is strictly below 8192 bytes per call; gzbuffer changes it.
 
 ### Calling conditions and effects {#api-gzvprintf-contract}
 
@@ -1388,10 +1350,6 @@ Reset a reader to its saved descriptor start.
 | `0`<br>**Reset to saved start** | A valid reader has Z_OK or Z_BUF_ERROR and descriptor seeking succeeds; uncompressed position becomes zero, buffered contents, pending skip and error/EOF are cleared, and format inspection restarts. | Read again from the start; existing buffers remain owned by the handle, which still needs closing. |
 | `-1`<br>**Could not rewind** | NULL, a writer, a serious saved error, or failed system seeking, such as on a nonseekable pipe. | Check handle mode and the saved error; for system seeking failure inspect the associated errno. Do not continue as though rewind succeeded. |
 
-**Reading the result.**
-
-- A gzdopen reader returns to its initial descriptor offset, not necessarily physical offset zero; this is not always equivalent to gzseek(file, 0, SEEK_SET).
-
 ### Calling conditions and effects {#api-gzrewind-contract}
 
 **Domain:** Restricted domain: reader and descriptor environment.
@@ -1448,8 +1406,7 @@ The result is the requested logical uncompressed position, not the physical comp
 
 **Reading the result.**
 
-- Z_OK and Z_BUF_ERROR permit seeking; a saved retryable Z_ERRNO still prevents it. Seeking can immediately consume buffered bytes.
-- A beyond-EOF request can initially succeed; after a later read discovers the end, tell excludes the unfulfilled skip.
+- Z_OK and Z_BUF_ERROR permit seeking; a saved retryable Z_ERRNO still prevents it.
 
 ### Calling conditions and effects {#api-gzseek64-contract}
 
@@ -1513,7 +1470,7 @@ A nonnegative value is the requested logical uncompressed position. Accepting a 
 
 **Reading the result.**
 
-- The default LP64 build has the same signed 64-bit position range as gzseek64. Z_OK and Z_BUF_ERROR permit seeking; a saved retryable Z_ERRNO still prevents it.
+- Z_OK and Z_BUF_ERROR permit seeking; a saved retryable Z_ERRNO still prevents it.
 - Seeking beyond EOF can initially succeed. After a later read discovers the real end, tell excludes the unfulfilled skip.
 
 ### Calling conditions and effects {#api-gzseek-contract}
@@ -1567,10 +1524,6 @@ The result includes consumed/accepted position and applicable pending forward sk
 | `position != -1`<br>**Logical position value** | The live reader/writer's reported sum is representable; after a read passes EOF, pending unfulfilled skip is excluded. | Use it as an uncompressed byte position; use gzoffset64 for the physical compressed-file offset. |
 | `-1`<br>**May be real position -1** | A valid handle has pushed bytes back before the start and its logical position is -1. | Interpret using known handle validity and pushback history; do not decide failure from -1 alone. |
 | `-1`<br>**Query refused** | The handle is NULL or has the wrong mode. | Use a live reader/writer; the result alone does not distinguish this from valid position -1. |
-
-**Reading the result.**
-
-- An accepted beyond-EOF seek can be reported until a later read discovers the real end. This query performs no descriptor I/O and does not change the handle.
 
 ### Calling conditions and effects {#api-gztell64-contract}
 
@@ -1681,10 +1634,6 @@ The result is the descriptor's current position, less unused compressed input wh
 | `offset != -1`<br>**Physical file offset value** | The valid handle's system position query succeeds and offset arithmetic is representable; held unused compressed input is subtracted for a reader. | Use it as a physical offset; the query does not move the descriptor, flush writer buffers or execute a pending logical seek. |
 | `-1`<br>**Physical offset unavailable** | NULL, wrong mode or failed system position query, including a nonseekable descriptor. | Check the handle and descriptor seekability; inspect the associated errno for a system failure, without assuming gzerror records this query failure. |
 
-**Reading the result.**
-
-- A transparent reader's unread output buffer is not deducted, so the result can lead delivered bytes. A file prefix before a gzdopen start remains part of the offset.
-
 ### Calling conditions and effects {#api-gzoffset64-contract}
 
 **Domain:** Restricted domain: live reader/writer and descriptor environment.
@@ -1742,7 +1691,6 @@ This queries the underlying file position, subtracting unused compressed input w
 **Reading the result.**
 
 - A transparent reader's undelivered output buffer is not subtracted, so the result can lead delivered bytes; the offset also includes any file prefix before a gzdopen start.
-- The default build has the same position range as gzoffset64, with no extra narrowing.
 
 ### Calling conditions and effects {#api-gzoffset-contract}
 
@@ -1847,10 +1795,6 @@ The result is the current transparent-mode flag; 1 does not guarantee that forma
 | `1`<br>**Transparent flag set** | An ordinary reader detects non-gzip or empty input, or a writer uses T mode; an ordinary reader's initial flag can also remain 1 while detection is pending or inspection has failed. | Interpret the result with later reads and gzerror; do not infer completed format recognition or error-free inspection. |
 | `0`<br>**Transparent mode not reported** | The current transparent flag is unset, for example in gzip mode or a G reader; NULL also returns zero. | For a valid handle, query gzerror as needed; the mode flag itself does not report allocation or I/O failure during inspection. |
 
-**Reading the result.**
-
-- Set the desired size with gzbuffer first. Inspection can apply a pending skip to transparent buffered bytes, without delivering data to the caller.
-
 ### Calling conditions and effects {#api-gzdirect-contract}
 
 **Domain:** Restricted domain: live reader/writer.
@@ -1910,7 +1854,6 @@ The return is a message address; the current zlib error code is written through 
 **Reading the result.**
 
 - Common saved codes: Z_OK for no error, Z_DATA_ERROR for corruption, Z_BUF_ERROR for truncation, Z_MEM_ERROR for allocation failure, Z_ERRNO for system failure, and Z_STREAM_ERROR for a request error. A non-blocking stall can also record Z_ERRNO.
-- The query neither allocates nor clears errors. Once a valid handle is closed, querying it is invalid even if close reported failure.
 
 ### Calling conditions and effects {#api-gzerror-contract}
 
@@ -1996,8 +1939,7 @@ skip, buffered data and codec state; no file read or write occurs.
 
 **Errors and edges:** NULL is a no-op. Clearing an error does not repair the
 file or promise successful retry. It permits another attempt to read a growing
-file. A borrowed message can become invalid. What a retry yields after a failed
-finish or a partial read is **to confirm**.
+file. A borrowed message can become invalid.
 
 </details>
 
@@ -2023,10 +1965,6 @@ The status comes from the reader or writer close selected for this handle. A val
 | `Z_ERRNO`<br>**Final system operation failed** | Writer final output reports a system error, or the reader/writer descriptor close fails. Close failure takes precedence. | The handle has been destroyed. Do not query it, reuse it, or retry close. Address the system failure without using the old handle. |
 | `Z_STREAM_ERROR`<br>**Writer destroyed after finish failure** | A valid writer is selected and final work reports Z_STREAM_ERROR; descriptor close succeeds. | The handle has been destroyed. Do not query it, reuse it, or retry close. Do not mistake this result for a refusal that left the writer live. |
 | `Z_STREAM_ERROR`<br>**No handle supplied** | The argument is NULL. | No handle was acquired by this call and no cleanup or retry-close is needed. |
-
-**Reading the result.**
-
-- Read diagnostics must be inspected before closing. Once a valid handle is closed, gzerror is invalid even if close returned an error.
 
 ### Calling conditions and effects {#api-gzclose-contract}
 
@@ -2083,10 +2021,6 @@ The status reports reader cleanup and descriptor closing, with a special result 
 | `Z_BUF_ERROR`<br>**Released after truncation** | Z_BUF_ERROR is recorded when closing the reader and descriptor close succeeds. | The handle has been destroyed. Do not query it, reuse it, or retry close. Treat the recorded gzip truncation as incomplete input, not as a retryable live-reader status. |
 | `Z_ERRNO`<br>**Descriptor close failed** | The OS descriptor close fails; this takes precedence over recorded truncation. | The handle has been destroyed. Do not query it, reuse it, or retry close. Handle the associated system failure without calling gzip APIs on the old handle. |
 | `Z_STREAM_ERROR`<br>**No reader was closed** | The argument is NULL or is a live writer. No writer resources are released. | There is no handle to close for NULL. A live writer remains owned and must instead be closed with gzclose_w or gzclose. |
-
-**Reading the result.**
-
-- Inspect gzerror before closing if you need earlier read diagnostics. Close performs no final read or decompression to check unconsumed input.
 
 ### Calling conditions and effects {#api-gzclose_r-contract}
 
@@ -2146,10 +2080,6 @@ The status reports final zero-fill/finish work and descriptor closing. Once a li
 | `Z_STREAM_ERROR`<br>**Writer released after finish failure** | A valid writer reaches final compression work and that work reports Z_STREAM_ERROR; descriptor close succeeds. | The handle has been destroyed. Do not query it, reuse it, or retry close. This differs from rejecting a reader before cleanup. |
 | `Z_STREAM_ERROR`<br>**No writer was closed** | The argument is NULL or is a live reader. The reader is not destroyed. | NULL requires no cleanup. A live reader still needs exactly one gzclose_r or gzclose call. |
 
-**Reading the result.**
-
-- An unused gzip writer normally emits an empty member; an unused transparent writer emits no payload.
-
 ### Calling conditions and effects {#api-gzclose_w-contract}
 
 **Domain:** Restricted domain: writer; NULL and reader refusal included.
@@ -2189,9 +2119,10 @@ A valid writer is destroyed even when its result is `Z_STREAM_ERROR`.
 
 ## Scope and source caveats
 
-Four source problems in the gz functions are fixed by patches. A sanitizer reports the first three on the real C; one path of the third, a
-transparent look near `GZ_OFF_MAX`, is confirmed only in the model and by reading the C. The
-fourth is undefined only by the letter of C, and no sanitizer reports it. The contracts and the
+Four source problems in the gz functions are fixed by patches. A sanitizer reports the first
+three on the real C. Patch 0004 also bounds the transparent (`COPY`) branch of `gz_look`; no run
+of the real C shows an overflow there. The fourth is undefined only by the letter of C, and no
+sanitizer reports it. The contracts and the
 goal are for the patched source ([patches](../../../patches/README.md) describes each problem
 and its upstream state):
 
