@@ -8,9 +8,10 @@ sequences, the other public functions, the gzip file interface and the callback 
 completeness. Both are proved, as stated below. Other functional goals beyond what safety needs
 are not planned: a functional fact that a planned proof depends on is in scope. What is already proved stays. The
 functions that zlib.h lists under "undocumented
-functions (not part of the zlib API)" are not required. Read `docs/overview.md` first, then
-`docs/spec/safety.md`. Keep proof explanations in `docs/proof/`. State the status only in
-`docs/progress.md`, as done or not done (section Documents).
+functions (not part of the zlib API)" are not required. Read `docs/en/overview.md` first, then
+`docs/en/spec/safety.md`. Keep proof explanations in `docs/en/proof/` and `docs/zh/proof/`. State
+the status only in `docs/en/progress.md` and `docs/zh/progress.md`, as done or not done (section
+Documents).
 
 The safety results are proved: `inflate` is safe on every input; `deflate` is safe on every
 input; and so is every other public function, including the gzip file interface and
@@ -27,7 +28,7 @@ unconditional stream round trip; and `uncompress(compress(x)) = x`.
 Other functional correctness (other levels, strategies, window sizes and wrappers, preset
 dictionaries, the gzip file interface and `inflateBack` as round-trip partners), model-only
 statements and other build configurations are not planned. The undocumented functions are not required public targets;
-proofs already registered for them stay. `docs/progress.md` lists what is not planned, with
+proofs already registered for them stay. `docs/en/progress.md` lists what is not planned, with
 the reason. Do not work on a not-planned target unless a planned one needs it. Work as fast as
 honest work allows: process
 exists to keep the result honest, not to slow it down.
@@ -57,12 +58,12 @@ exists to keep the result honest, not to slow it down.
   two reads of one location with no store between them are one read; consecutive assignments to
   fields of one record are one record update; a signed operation that a preceding test of the
   same function keeps in range uses the plain operator. Anything else is a translation bug.
-  `docs/design/translation.md` shows an example of each.
+  `docs/en/design/translation.md` shows an example of each.
 - Every undefined behaviour the C can reach raises `Fault.ub`. Unsigned arithmetic wraps. Signed
   arithmetic is checked.
 - Reading an uninitialised integer returns an arbitrary value, and a theorem must hold for every
   value. A pointer in fresh memory is NULL in the model, which is weaker than C: the proof shows that a pointer
-  field was written before it is read (`docs/spec/safety.md`, section 3; `docs/trusted-base.md`, item 2).
+  field was written before it is read (`docs/en/spec/safety.md`, section 3; `docs/en/trusted-base.md`, item 2).
 - Never change a translation to make a proof easier. A mismatch with the C is a translation bug.
   Fix it, and add a differential test that catches it.
 - Every proof depends on the runtime. Change it only for a confirmed mismatch with C.
@@ -83,7 +84,7 @@ Rules that hold at both levels:
   `opaque`. Do not look for ways around the checks; report the obstacle.
 - A goal is proved only by a theorem whose type is exactly the goal.
 - A theorem states its precondition explicitly. A precondition narrower than `zlib.h` allows is
-  written in the theorem's docstring and listed in `docs/deviations.md`. Never shrink the domain
+  written in the theorem's docstring and listed in `docs/en/deviations.md`. Never shrink the domain
   silently.
 - **Disjoint caller regions.** Caller-supplied memory regions with no semantic reason to overlap
   may be assumed fully disjoint when that makes the proof simpler: input, output, window and
@@ -91,7 +92,7 @@ Rules that hold at both levels:
   cells. The premise is only that their byte ranges do not overlap: the regions may lie in one
   heap block. A caller string (the gzip `name` and `comment`) is assumed NUL-terminated, and its
   range is the string through its NUL. Each such premise stays explicit in the statement and gets
-  a row in `docs/deviations.md`; no sanitizer reproduction is needed first. This does not allow
+  a row in `docs/en/deviations.md`; no sanitizer reproduction is needed first. This does not allow
   narrowing by parameter value, or dropping a reachable case in which the regions do not alias.
 - **No callee contracts as assumptions.** A callee's specification is a theorem about the
   translated callee. A representation invariant is established by the init function, which also
@@ -159,9 +160,8 @@ exactly that type.
 
 A goal stated under `ZlibF/Spec/` must be entered in `ZlibF/Results.lean` in the same pull request
 that states it: with its theorem in `proved`, or in `notDone`. The build fails on a goal that is in
-neither list. The
-rows of `docs/progress.md` change in the pull request that registers the theorem. Never report a
-check as passing unless it was run.
+neither list. The rows of `docs/en/progress.md` and `docs/zh/progress.md` change in the pull request
+that registers the theorem. Never report a check as passing unless it was run.
 
 Full builds use a lot of memory. `ZlibF/Proof/crc32.c.lean` and `ZlibF/Proof/inftrees.c.lean`
 each need 8 to 9 GB. Build with at most four parallel jobs under a 16 GB limit. If one module
@@ -171,15 +171,19 @@ needs more than that, find out why before raising any limit.
 
 A finding is listed only if it is a defect of zlib itself, is reachable through documented use of
 the documented API, and is confirmed: by a run of the real C, or as undefined behaviour by the
-letter of C that a patch here fixes. List it in the table of `docs/findings.md`, with a page under
-`docs/findings/<name>/`: what is wrong, the documented calls that reach it, the evidence, the fix
-and the upstream state. `README.md` gives only the count and the link. Anything else (a defect
-that needs an undocumented function, an unconfirmed report, a documentation gap, a question about
-the caller's domain) stays out of `docs/`; its reproduction stays under `tests/regression/<name>/`.
-Every sanitizer reproduction goes under `tests/regression/<name>/` with `run.sh` and `report.txt`.
+letter of C that a patch here fixes. List it in the table of `docs/en/findings.md` (and
+`docs/zh/findings.md`): what is wrong, the documented calls that reach it, the evidence, the fix
+and the upstream state. `README.md` gives only the count and the link to the published site.
+Anything else (a defect that needs an undocumented function, an unconfirmed report, a documentation
+gap, a question about the caller's domain) stays out of `docs/`; its reproduction stays under
+`tests/regression/<name>/`. Every sanitizer reproduction goes under `tests/regression/<name>/` with
+`run.sh` and `report.txt`.
 
 ## Documents
 
+- English and Chinese site sources live under `docs/en/` and `docs/zh/` at mirrored relative paths,
+  with no `.en.md`, `.zh.md` or folder `README.md` files. Repository files outside `docs/` link
+  directly to `https://www.dataisland.org/zlib-f/en/...`.
 - File names are lowercase, with hyphens: `method.md`. `README.md` and `AGENTS.md` keep their
   conventional names.
 - Write short sentences. Say what is proved, what is assumed, and what is not done.
@@ -193,8 +197,8 @@ Every sanitizer reproduction goes under `tests/regression/<name>/` with `run.sh`
   statement or a page changed, remaining-work lists and estimates, and any term that only has a
   meaning inside the project. Evidence may be named (differential tests, a reproduction under a
   sanitizer) without describing how it is stored or run.
-- `docs/progress.md` is the only page that states a status: each result and each public function,
-  done or not done, and what is not planned.
+- `docs/en/progress.md` (paired with `docs/zh/progress.md`) is the only page that states a status:
+  each result and each public function, done or not done, and what is not planned.
 - State each fact once, plainly. No claim followed by its own retraction, no open question, no
   "not decided", no comparison with what a page or a goal used to say, no evidence bookkeeping. A
   limit is a premise or one "not covered" sentence, not an argument. Premises, model limits,
@@ -216,5 +220,5 @@ Every sanitizer reproduction goes under `tests/regression/<name>/` with `run.sh`
 - Commit messages describe the change. They carry no attribution lines for tools.
 - Report what is checked, what is accepted and what is open. Name the commit.
 
-[docs/anti-cheating.md](docs/anti-cheating.md) says why a green build can still be worthless,
-and what the acceptance suite defends against.
+[docs/en/anti-cheating.md](https://www.dataisland.org/zlib-f/en/anti-cheating.html) says why a green
+build can still be worthless, and what the acceptance suite defends against.

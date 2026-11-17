@@ -9,7 +9,7 @@ Reads the structs, the static tables and the constants of the headers (`zlib.h`,
   ZlibF/Runtime/Schema.lean   records, array/struct reference types, `Statics`, `Heap`, constants
   ZlibF/Runtime/Tables.lean   load and store per struct kind, with their rules
   ZlibF/Runtime/LibcTables.lean   malloc, free and memcpy per struct kind (the C library), with their rules
-  docs/runtime-schema.md      one row per struct field: C type, Lean type, reason
+  docs/en/runtime-schema.md   one row per struct field: C type, Lean type, reason
 
 The output depends only on the headers and on the explicit configuration below, so running the script
 again gives the same files. Nothing in the generated files is written by hand.
@@ -1938,7 +1938,7 @@ def main():
         "ZlibF/Runtime/Schema.lean": emit_schema(model, commit, consts),
         "ZlibF/Runtime/Tables.lean": tables_text,
         "ZlibF/Runtime/LibcTables.lean": libc_tables_text,
-        "docs/runtime-schema.md": emit_doc(model, commit),
+        "docs/en/runtime-schema.md": emit_doc(model, commit),
     }
     for rel, text in out.items():
         path = os.path.join(args.out, rel)

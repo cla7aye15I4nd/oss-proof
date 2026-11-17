@@ -20,22 +20,24 @@ every proof.
 Each theorem states its premises. Some go beyond `zlib.h`: caller buffers that do not overlap,
 the default allocator, a read budget below 2^61 bytes for the termination of the gz reading
 calls, fewer than 2^48 input bytes for one `inflateBack` call.
-[Deviations](docs/deviations.md) lists them by function.
+[Deviations](https://www.dataisland.org/zlib-f/en/deviations.html) lists them by function.
 
 ## What it rests on
 
 The C is translated to Lean statement by statement. Every undefined behaviour the C can reach is
 a fault in the translation, and the theorems say that no fault occurs. The translation, the model
 of memory and the statements themselves are trusted, not proved: the
-[trusted base](docs/trusted-base.md) has six items and names each one. Differential tests compare
-the translation with the real C; they are evidence that the two agree, not proof.
+[trusted base](https://www.dataisland.org/zlib-f/en/trusted-base.html) has six items and names
+each one. Differential tests compare the translation with the real C; they are evidence that the
+two agree, not proof.
 
 ## Found in zlib
 
 Nine issues, each reached through documented calls: seven are undefined behaviour or a memory
 error, two are a `deflateBound` that is too small. Six patches fix eight of them; three of the
 patches are the fixes submitted upstream. The theorems are about the patched source.
-[Findings](docs/findings.md) has the table, and [patches](patches/README.md) describes each patch.
+[Findings](https://www.dataisland.org/zlib-f/en/findings.html) has the table, and
+[patches](patches/README.md) describes each patch.
 
 ## Not claimed
 
@@ -58,8 +60,8 @@ of memory each.
 
 ## Read more
 
-- [Documentation site](https://www.dataisland.org/zlib-f/)
-- [Overview](https://www.dataisland.org/zlib-f/reference/docs/overview.html): how the proof is built
-- [Status](https://www.dataisland.org/zlib-f/reference/docs/progress.html): every result and function
-- [Coverage](https://www.dataisland.org/zlib-f/reference/docs/coverage.html): the theorem of each function
-- [Trusted base](https://www.dataisland.org/zlib-f/reference/docs/trusted-base.html): what is not checked
+- [Documentation site (English)](https://www.dataisland.org/zlib-f/en/) · [中文文档](https://www.dataisland.org/zlib-f/zh/)
+- [Overview](https://www.dataisland.org/zlib-f/en/overview.html): how the proof is built
+- [Status](https://www.dataisland.org/zlib-f/en/progress.html): every result and function
+- [Coverage](https://www.dataisland.org/zlib-f/en/coverage.html): the theorem of each function
+- [Trusted base](https://www.dataisland.org/zlib-f/en/trusted-base.html): what is not checked

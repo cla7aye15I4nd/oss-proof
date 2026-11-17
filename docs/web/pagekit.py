@@ -21,7 +21,7 @@ COMMIT = _git('rev-parse', 'HEAD')
 
 
 def route_href(route: str, current: Path, lang: str, anchor: str = '') -> str:
-    target = OUT / (route + ('.zh.html' if lang == 'zh' else '.html'))
+    target = OUT / lang / (route + '.html')
     return os.path.relpath(target, current.parent).replace(os.sep, '/') + ('#' + anchor if anchor else '')
 
 
@@ -30,22 +30,21 @@ def top_links(current: Path, lang: str) -> str:
     zh = lang == 'zh'
     entries = [
         ('index', 'articles', '文章', 'Articles'),
-        ('reference/docs/progress', '', '状态', 'Status'),
-        ('reference/index', '', '规格', 'Specifications'),
-        ('reference/proofs', '', '证明', 'Proofs'),
+        ('progress', '', '状态', 'Status'),
+        ('specifications', '', '规格', 'Specifications'),
+        ('proofs', '', '证明', 'Proofs'),
     ]
-    relative = current.relative_to(OUT).as_posix()
+    relative = current.relative_to(OUT / lang).as_posix()
     links = []
     for route, anchor, cn, en in entries:
-        suffix = '.zh.html' if zh else '.html'
-        mark = ' aria-current="page"' if relative == route + suffix and not anchor else ''
+        mark = ' aria-current="page"' if relative == route + '.html' and not anchor else ''
         links.append(f'<a href="{route_href(route, current, lang, anchor)}"{mark}>{cn if zh else en}</a>')
     return '<span class="site-links">' + ''.join(links) + '</span>'
 
 
 def stamp(current: Path, lang: str) -> str:
     zh = lang == 'zh'
-    status = route_href('reference/docs/progress', current, lang)
+    status = route_href('progress', current, lang)
     return (f'<footer class="site-stamp"><a href="{status}">'
             f'{"结论的状态" if zh else "Status of the results"}</a></footer>')
 

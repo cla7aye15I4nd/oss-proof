@@ -1,6 +1,6 @@
 # gzread position overflow after a seek on /dev/zero
 
-Finding: [docs/findings/gzread-pos-overflow](../../../docs/findings/gzread-pos-overflow/README.md).
+Finding: [findings](https://www.dataisland.org/zlib-f/en/findings.html).
 
 `devzero.c` opens `/dev/zero` with `gzdopen(fd, "r")`, reads one byte (transparent mode), seeks
 to `INT64_MAX` and reads 16 bytes. With the argument `near` it seeks to `INT64_MAX - 4` and reads

@@ -160,15 +160,15 @@ class ReturnGuideTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary)
             (repo / 'tests/audit').mkdir(parents=True)
-            (repo / 'docs/spec/api').mkdir(parents=True)
+            for lang in HEADERS:
+                (repo / 'docs' / lang / 'spec/api').mkdir(parents=True)
             names = ['fn' + str(index) for index in range(96)]
-            manifest = {'apis': [{'function': name, 'manual': 'docs/spec/api/group.md#' + name} for name in names]}
+            manifest = {'apis': [{'function': name, 'manual': 'docs/en/spec/api/group.md#' + name} for name in names]}
             (repo / 'tests/audit/public-api.json').write_text(json.dumps(manifest))
             for lang in HEADERS:
-                suffix = '.zh.md' if lang == 'zh' else '.md'
-                (repo / ('docs/spec/api/group' + suffix)).write_text('\n'.join(source(name, lang, rows=1) for name in names))
+                (repo / 'docs' / lang / 'spec/api/group.md').write_text('\n'.join(source(name, lang, rows=1) for name in names))
             self.assertEqual(validate_sources(repo), 96)
-            zh = repo / 'docs/spec/api/group.zh.md'
+            zh = repo / 'docs/zh/spec/api/group.md'
             original = zh.read_text()
             for broken in (original.replace('{#api-fn0-returns}', '{#missing}'),
                            original + '\n' + source('fn0', 'zh'),
@@ -186,7 +186,7 @@ class ReturnGuideTests(unittest.TestCase):
     def test_canonical_count_outputs_keep_literal_pointer_stars(self):
         root=Path(__file__).resolve().parents[3]
         for lang in ['en','zh']:
-            path=root/'docs/spec/api'/('utility.zh.md' if lang=='zh' else 'utility.md')
+            path=root/'docs'/lang/'spec/api/utility.md'
             source_text=path.read_text()
             for name in ['uncompress2','uncompress2_z']:
                 text=re.split(r'^## '+re.escape(name)+r'\s*$',source_text,flags=re.M)[1].split('\n## ',1)[0]
