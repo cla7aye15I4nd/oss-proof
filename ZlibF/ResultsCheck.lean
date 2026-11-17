@@ -15,7 +15,11 @@ A *goal* is a definition whose name has a component `Goal` and whose type is `Pr
 - each paired theorem depends on no axiom other than `propext`, `Classical.choice` and `Quot.sound`
   (`Lean.collectAxioms`, the facility behind `#print axioms`; it follows every dependency);
 - every required goal is proved;
-- every goal in scope is listed, and the number of goals in scope equals the number listed.
+- every goal in scope is listed, and the number of goals in scope equals the number listed;
+- every declaration in scope whose name has a component `Goal` is a goal, or belongs to one: a name
+  `….Goal.x` must be a goal, and a longer name `….Goal.x.y` (an equation lemma, an auxiliary) needs
+  `….Goal.x` to be one. So a goal cannot hide behind a type that is `Prop` only after unfolding, a
+  `structure`, an `axiom` or a `theorem` named like a goal.
 -/
 
 namespace ZlibF.Results
@@ -38,6 +42,20 @@ where
     | .forallE n t body bi, k => .forallE n t (go body (k + 1)) bi
     | _, k => mkAppN (.const g []) ((List.range k).reverse.map Expr.bvar).toArray
 
+/-- A definition that is a goal: `Prop` after its binders by syntax, no universe parameters. -/
+def isGoal (env : Environment) (n : Name) : Bool :=
+  match env.find? n with
+  | some (.defnInfo d) => isGoalType d.type && d.levelParams.isEmpty
+  | _ => false
+
+/-- For a name with a component `Goal`, the name up to the component after the first `Goal`
+(`A.Goal.x` for `A.Goal.x.eq_1`); `none` if `Goal` is the last component or absent. -/
+def goalHead (n : Name) : Option Name :=
+  let cs := n.components
+  match cs.findIdx? (· == `Goal) with
+  | some i => if i + 1 < cs.length then some ((cs.take (i + 2)).foldl (fun acc c => acc ++ c) .anonymous) else none
+  | none => none
+
 /-- The check. `inScope` says which constants of the environment are searched for goals. -/
 def checkWith (proved : List (Name × Name)) (notDone required : List Name)
     (inScope : Environment → Name → Bool) : CommandElabM Unit := do
@@ -59,9 +77,14 @@ def checkWith (proved : List (Name × Name)) (notDone required : List Name)
   for g in required do
     unless provedGoals.contains g do throwError m!"required goal {g} is not proved"
   let mut defined := 0
-  for (n, ci) in env.constants.toList do
-    if let .defnInfo d := ci then
-      if n.components.contains `Goal && isGoalType d.type && inScope env n then
+  for (n, _) in env.constants.toList do
+    unless n.components.contains `Goal && inScope env n do continue
+    match goalHead n with
+    | none => throwError m!"{n} is named like a goal but has no goal name after `Goal`"
+    | some h =>
+      unless isGoal env h do
+        throwError m!"{n} is named like a goal, but {h} is not a definition of type Prop after its binders"
+      if h == n then
         defined := defined + 1
         unless listed.contains n do throwError m!"goal {n} is neither proved nor listed as not done"
   logInfo m!"{defined} goals defined, {listed.length} listed: {provedGoals.length} proved, \
@@ -69,10 +92,11 @@ def checkWith (proved : List (Name × Name)) (notDone required : List Name)
   unless defined == listed.length do
     throwError m!"{defined} goals defined, {listed.length} listed"
 
-/-- The constants of the library: those of a module whose name starts with `ZlibF`. -/
+/-- The constants of the library: those of a module whose name starts with `ZlibF`, and those of the
+module being checked (`ZlibF/Results.lean` itself, whose constants have no module index yet). -/
 def inLibrary (env : Environment) (n : Name) : Bool :=
   match env.getModuleIdxFor? n with
   | some i => env.header.moduleNames[i]!.getRoot == `ZlibF
-  | none => false
+  | none => true
 
 end ZlibF.Results
