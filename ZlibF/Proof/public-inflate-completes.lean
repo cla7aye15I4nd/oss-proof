@@ -424,6 +424,7 @@ theorem stuck {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D output : Li
     simp only [List.length_append] at due
     omega
 
+/-- Progress of the default decoder on a valid stream (`Goal.default_inflate_progress`). -/
 theorem progress : Goal.default_inflate_progress := by
   intro r h log S D input z flush trace _ valid started fit noFail buffers hz out room bytes within
     nonempty flushes
@@ -467,6 +468,7 @@ theorem progress : Goal.default_inflate_progress := by
       · exact m u0
       · exact m o0
 
+/-- Completion of the default decoder in one call (`Goal.default_inflate_completes`). -/
 theorem completes : Goal.default_inflate_completes := by
   intro r h log S D z flush trace _ valid started fit noFail buffers hz out bytes room flushes
   have within : log.input ++ S.drop log.input.length <+: S := by
