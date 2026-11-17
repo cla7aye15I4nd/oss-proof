@@ -449,21 +449,39 @@ theorem stuck {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D output : Li
 theorem progress : Goal.default_inflate_progress := by
   intro r h log S D input z flush trace _ valid started fit noFail buffers hz out room bytes within
     nonempty flushes
-  obtain ⟨rc, after, output, used, z', step, hz', codes, buf, given, inLen, inLe, usedEq, _, _⟩ :=
+  obtain ⟨rc, after, output, used, z', step, hz', codes, buf, given0, inLen, inLe, usedEq, _, outLen⟩ :=
     call_codes trace fit noFail buffers valid hz out bytes within flushes
   obtain ⟨outPrefix, _, ends⟩ := prefix_after trace fit valid within step
+  -- with no room once all of `D` is written, a call that stops consumed input (`blocked_output_due`)
+  have given : (rc = Z_OK ∨ rc = Z_BUF_ERROR) → input ≠ [] → used ≠ 0 ∨ output ≠ [] := by
+    intro c ne
+    rcases room with r | done
+    · exact given0 c ne r
+    · by_cases u : used = 0
+      · exfalso
+        have left : z'.avail_in ≠ 0 := by
+          intro zero
+          apply ne
+          apply List.eq_nil_of_length_eq_zero
+          rw [zero] at usedEq
+          simp at usedEq
+          omega
+        have due := blocked_output_due trace fit valid within flushes step hz' c left
+        rw [List.length_append, done] at due
+        omega
+      · exact Or.inl u
   have inPrefix : log.input ++ input.take used <+: S :=
     ((List.prefix_append_right_inj log.input).mpr (List.take_prefix used input)).trans within
   refine ⟨rc, after, output, used, step, ?_⟩
   rcases codes with ok | en | nd | be
   · exact Or.inr (Or.inl ⟨Or.inl ok,
-      moves trace fit noFail valid flushes step (Or.inl ok) nonempty (fun ne => given (Or.inl ok) ne room),
+      moves trace fit noFail valid flushes step (Or.inl ok) nonempty (fun ne => given (Or.inl ok) ne),
       inPrefix, outPrefix⟩)
   · exact Or.inl ⟨en, ends en⟩
   · subst nd
     exact Or.inr (Or.inr ⟨rfl, need_dict_zlib trace fit within step⟩)
   · have moved := moves trace fit noFail valid flushes step (Or.inr be) nonempty
-      (fun ne => given (Or.inr be) ne room)
+      (fun ne => given (Or.inr be) ne)
     rcases buf be with fin | ⟨u0, o0⟩
     · exact Or.inr (Or.inl ⟨Or.inr ⟨be, fin⟩, moved, inPrefix, outPrefix⟩)
     · exfalso
