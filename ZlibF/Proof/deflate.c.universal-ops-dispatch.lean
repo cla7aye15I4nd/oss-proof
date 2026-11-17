@@ -4,23 +4,23 @@ import ZlibF.Spec.Common.Streams
 import ZlibF.Spec.Functional.Api.Compress
 
 /-!
-# deflate.c: the case split of `operation_step` (batch A)
+# deflate.c: the case split of `operation_step_of`
 
-`operation_step` of the deflate skeleton, case by case over `StreamOperation .deflate`. The
-operations whose lemma is checked use it: `deflateReset` (`step_reset`), `deflatePrime`
+One stream operation keeps the invariant, case by case over `StreamOperation .deflate`. These
+operations use their lemma directly: `deflateReset` (`step_reset`), `deflatePrime`
 (`step_prime`), `deflateSetHeader`, `deflateTune`, `deflateGetDictionary`, `deflatePending`,
 `deflateUsed`, `deflateBound`, `deflateBound_z` (`deflate.c.universal-ops`). The others are
-hypotheses of `operation_step_of`, with the statement their owner gives:
+hypotheses of `operation_step_of`:
 
-* `deflate`: the skeleton's `deflate_call` (owner 2), plus the clause that the call keeps the five
-  owned blocks of the state, which the skeleton statement does not give and the allocation ledger
-  of `StreamSequenceSafety` needs;
+* `deflate`: one call keeps the invariant with the clauses of `Goal.deflate` (`DeflateCallFact`),
+  plus the clause that the call keeps the five owned blocks of the state, which the allocation
+  ledger of `StreamSequenceSafety` needs;
 * `deflateSetDictionary`, `deflateParams`: `step_setDictionary`, `step_params` (the latter reads
   the between-calls facts `CallFacts`, a premise here).
 
-A direct `deflateResetKeep` is not a stream operation (`StreamOperation`, `docs/deviations.md`).
+A direct `deflateResetKeep` is not a stream operation (`StreamOperation`, `docs/en/deviations.md`).
 
-The header facts `HeaderInv` (beside `DInv`) are a premise, as in the skeleton's `reachable_inv`;
+The header facts `HeaderInv` (beside `DInv`) are a premise, as in `reachable_inv_of`;
 `step_prime` reads them. The buffer of `deflateGetDictionary` is any writable caller range: a byte
 block or the `depth` array of another deflate state record (`step_getDictionary`,
 `deflate.c.universal-ops-caller-view`).
@@ -31,7 +31,7 @@ open C ZlibF.Spec ZlibF.Spec.Public Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.
 open Zlib.Deflate.Proofs
 set_option autoImplicit false
 
-/-- The clauses of `Goal.deflate` after the run, as in the skeleton (`CallClauses`). -/
+/-- The clauses of `Goal.deflate` after the run, as in `CallClauses`. -/
 def DispatchCallClauses (h : Heap) (r : ZStreamRef) (i : Nat) (z : ZStream) (s : DeflateState) (flush : Int32)
     (rc : Int32) (after : Heap) (z' : ZStream) (s' : DeflateState) (used : Nat) (out : List UInt8) : Prop :=
   StreamAccounting z z' used out.length ∧
@@ -85,8 +85,8 @@ theorem bufferFrame_widen {h after : Heap} {c1 c2 : Nat → Prop} {p : BPtr} {n 
 
 /-- **`operation_step` from the per-operation lemmas.** Every operation of
 `StreamOperation .deflate` keeps the invariant, with the frame and the allocation ledger of
-`StreamSequenceSafety`. Hypotheses, each proved elsewhere: `deflateCall` (the skeleton's
-`deflate_call` with the owned-block clause, `deflate_call_of` with `tinyOverlay`),
+`StreamSequenceSafety`. Hypotheses, each proved elsewhere: `deflateCall` (one `deflate`
+call with the owned-block clause, `deflate_call_of` with `tinyOverlay`),
 `stepSetDictionary` (`step_setDictionary`) and `stepParams` (`step_params`). Premises: the header
 facts `header` and the between-calls facts `calls`. -/
 theorem operation_step_of

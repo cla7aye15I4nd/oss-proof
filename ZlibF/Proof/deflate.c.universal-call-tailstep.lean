@@ -4,8 +4,8 @@ import ZlibF.Proof.«deflate.c.universal-stored-progress»
 /-!
 # deflate.c: the strategy phase and the trailer of one call (the composition)
 
-Owner 2 of the deflate split (`deflate_call`). `tail_step` composes the dispatch (`dispatch_spec`),
-batch B's facts about the returned block state (`gaps_facts`), batch C's `dispatch_keeps` and
+`tail_step` composes the dispatch (`dispatch_spec`),
+the facts about the returned block state (`gaps_facts`), `dispatch_keeps` and
 `dispatch_range`, the stores after a strategy (`post_store`), the markers (`marker_step`) and the
 trailer (`tail_trailer`). It has no hypothesis beyond `TinyOverlay`: a finished stream holds no bits
 by `CallFacts.finishBits`.

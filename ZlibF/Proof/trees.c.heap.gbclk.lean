@@ -4,8 +4,7 @@ import ZlibF.Proof.«trees.c.heap.gbtree»
 # Pure facts for the first pass of `gen_bitlen`
 
 `clK H hm elems L k` is the clamped depth after `k` non-root positions were processed; `blP`, `ovP`, `costP` are
-the counts the first pass has accumulated. Copied from the earlier attempt (`GenBitlenBase.lean`,
-`GenBitlenPass1.lean`), unchanged except for the namespace.
+the counts the first pass has accumulated.
 -/
 
 namespace Zlib.Trees.Proofs.GB

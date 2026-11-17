@@ -843,8 +843,7 @@ theorem copy_result {h after : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd
     (by simp only [Array.size_ofFn, mB]) (by omega) (by omega),
     rfl, rfl, rfl, fun calls => ⟨calls.fresh, calls.freshStart, calls.finishSym, calls.finishLook, calls.finishBits⟩⟩
 
-/-- **`deflateCopy` into a distinct destination establishes the invariant there** (skeleton lemma
-`copy_inv`). -/
+/-- **`deflateCopy` into a distinct destination establishes the invariant there**. -/
 theorem copy_inv {h after : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : ZStream} {d : DeflateState}
     (inv : DInv h source ds z d) (distinct : source ≠ dest) (get : dest.get h = some zd)
     (run : C.run (Zlib.Deflate.deflateCopy (some dest) (some source)) h = .ok (Z_OK, after)) :
@@ -852,8 +851,7 @@ theorem copy_inv {h after : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : 
   obtain ⟨ds', z', d', inv', -⟩ := copy_result inv distinct get run
   exact ⟨ds', z', d', inv'⟩
 
-/-- **`deflateCopy` copies the state record, so the header facts hold in the copy** (skeleton lemma
-`copy_header`). -/
+/-- **`deflateCopy` copies the state record, so the header facts hold in the copy**. -/
 theorem copy_header {h after : Heap} {source dest : ZStreamRef} {ds ds' : Nat} {z zd z' : ZStream}
     {d d' : DeflateState}
     (inv : DInv h source ds z d) (header : HeaderInv d) (distinct : source ≠ dest) (get : dest.get h = some zd)

@@ -4,7 +4,7 @@ import ZlibF.Zlib.«deflate.c»
 /-!
 # deflate.c: the parameter frame for the primitive operations
 
-Batch C of the deflate skeleton. Every store primitive changes at most an array of a record
+Every store primitive changes at most an array of a record
 (`ExactM`); loads change nothing; a record update `wr s f` keeps the parameters in the sense of
 `ParRel` when `f` does (`par_wr`).
 -/

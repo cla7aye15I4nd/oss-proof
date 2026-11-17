@@ -2,7 +2,7 @@ import ZlibF.Proof.«trees.c.compress-source»
 
 /-! # trees.c: complete fixed-code literal payload execution
 
-This milestone covers every permitted symbol-buffer size, including the
+This file covers every permitted symbol-buffer size, including the
 default memLevel 8. The symbol buffer contains literals only. The entry
 pending count is zero and at most ten bits are buffered, allowing the usual
 seven entry bits plus a fixed-block header. No output-room or callee
@@ -162,7 +162,7 @@ set_option maxRecDepth 4096 in
 /-- `local void compress_block(deflate_state *s, const ct_data *ltree, const ct_data *dtree)`.
 The entire actual fixed-table call executes on literal-only buffered symbols,
 including the empty case and END_BLOCK. All output room and original-byte
-preservation facts are derived. This internal milestone assumes initialized
+preservation facts are derived. This theorem assumes initialized
 tree/output storage, pending = 0 and at most ten entry bits. It does not
 establish initialization, block selection or the public deflate theorem. -/
 theorem compress_block_fixed_literals_emit {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
@@ -239,7 +239,7 @@ theorem compress_block_fixed_literals_emit {h : Heap} {id b : Nat} {d : DeflateS
     show (7 : UInt16).toNat = 7 from rfl, Nat.add_assoc] using he
 
 /-- `local void compress_block(deflate_state *s, const ct_data *ltree, const ct_data *dtree)`.
-Concrete default-memory literal milestone: a complete fixed-table call,
+Concrete default-memory literal case: a complete fixed-table call,
 including END_BLOCK, writes at most 18433 pending bytes in its 65536-byte
 buffer. The explicit storage equation is the memLevel 8 configuration;
 successful initialization and the other deflate branches are separate. -/

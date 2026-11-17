@@ -4,7 +4,7 @@ import ZlibF.Zlib.«zutil.c»
 /-!
 # zutil.c: specification, safety and correctness
 
-Statements of `docs/proof/zutil.md`. Every function of the translation (`zError`, `zlibVersion`,
+Statements of `docs/en/proof/zutil.md`. Every function of the translation (`zError`, `zlibVersion`,
 `zlibCompileFlags`, `zcalloc`, `zcfree`) has a `_safe` theorem (no fault, on every input `zutil.h` and `zlib.h`
 allow, with the frame, ownership and `Fresh` facts the callers need) and a `_correct` theorem (the value, against
 the specification in `Zlib.Zutil.Spec`, which does not mention the translation).
@@ -258,7 +258,8 @@ theorem zcalloc_correct_some (h : Heap) (op : BPtr) (items sz : UInt32) (hok : h
     simp
 
 /-- **zcalloc, correctness without wrap.** If `items * size` fits in 32 bits (every call site of zlib, whose largest
-product is 131072: `docs/proof/zutil.md` section 1), the block has exactly `items * size` bytes. -/
+product is 131072: the allocation table of `docs/en/proof/zutil.md`), the block has exactly
+`items * size` bytes. -/
 theorem zcalloc_correct_size (h : Heap) (op : BPtr) (items sz : UInt32) (hok : h.allocOk h.nalloc = true)
     (hnw : items.toNat * sz.toNat < 2 ^ 32) (hF : Fresh h) :
     ∃ h' a, C.run (zcalloc op items sz) h = .ok (.ref (.blk h.nextBlk) 0, h') ∧

@@ -4,11 +4,11 @@ import ZlibF.Proof.«deflate.c.universal-params-accounting»
 /-!
 # gzwrite.c: the public calls `gzflush` and `gzsetparams`
 
-`gzflush_step_of`: the skeleton statement `gzflush_step` (branch `skeleton/gz`, `gz.skeleton-write.lean`), from the
+`gzflush_step_of`: `gzflush_step`, from the
 facts of `gz_error` (`GzErrorSpec`, `GzErrorOwn`). The callees are `zero_any` and `comp_any`
 (`gzwrite.c.write-calls`): `gz_zero` and `gz_comp` on a writer with or without buffers.
 
-`gzsetparams_step_of`: the skeleton statement `gzsetparams_step`, from the facts of `gz_error`. `gz_comp(state, Z_BLOCK)`
+`gzsetparams_step_of`: `gzsetparams_step`, from the facts of `gz_error`. `gz_comp(state, Z_BLOCK)`
 is `gz_comp_safe_shape_of'` at flush 5. `deflateParams`
 on the embedded stream is `params_step`, from `params_full` (`deflate.c.universal-params-accounting`): the accounting
 of the call keeps W4 and W5, and the call is a step of the deflate history. On a transparent writer (no codec) the
@@ -50,7 +50,7 @@ theorem flushTail_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
   unfold flushTail
   simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, run, hS2]
 
-/-- **`gzflush_step`** (skeleton statement), given the facts of `gz_error`. -/
+/-- **`gzflush_step`**, given the facts of `gz_error`. -/
 theorem gzflush_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (flush : Int32) :
     GzCallSafe i (.gzflush (some (.in_gzstate_x i)) flush) := by
   intro h fs s inv hfs _
@@ -472,7 +472,7 @@ theorem paramsT_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : G
     simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
       hszB, ↓reduceIte, hZ, havB, run2, beq_self_eq_true, hS2]
 
-/-- **`gzsetparams_step`** (skeleton statement), given the facts of `gz_error`. `gz_comp(state, Z_BLOCK)` is
+/-- **`gzsetparams_step`**, given the facts of `gz_error`. `gz_comp(state, Z_BLOCK)` is
 `gz_comp_safe_shape_of'` at flush 5; `deflateParams` is a step of the deflate history (`params_step`). -/
 theorem gzsetparams_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat)
     (level strategy : Int32) : GzCallSafe i (.gzsetparams (some (.in_gzstate_x i)) level strategy) := by

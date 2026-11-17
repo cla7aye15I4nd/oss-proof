@@ -7,8 +7,8 @@ import ZlibF.Proof.«gzread.c.close»
 `gzclose_r(file)` on a reader: with buffers (`size != 0`) it calls `inflateEnd` on the embedded stream and frees
 `out` and `in`; then `gz_error(state, Z_OK, NULL)` frees the message, `free(path)`, `close(fd)`, `free(state)`.
 
-The statement is the close step of the gz skeleton (`gzclose_r_step`, with `GzCloseSafe` and `GzReleased` of
-`gz.skeleton-model.lean` on the branch `skeleton/gz`; both are now in `ZlibF/Spec/Public/GzSafety.lean`). `Close.Released`
+The statement is the close step `gzclose_r_step`, with `GzCloseSafe` and `GzReleased` of
+`ZlibF/Spec/Safety/GzSafety.lean`. `Close.Released`
 below is a copy of `GzReleased`, and `gzclose_r_step_safe` is `GzCloseSafe i (.gzclose_r (some (.in_gzstate_x i)))`
 written out.
 
@@ -30,8 +30,8 @@ set_option autoImplicit false
 namespace Close
 
 /-- The handle is gone: the record and every owned block freed, nothing else changed, and the descriptor
-released also when `close` reports -1 (M4); no other descriptor changes. A copy of `GzReleased` of the gz
-skeleton (`gz.skeleton-model.lean`, branch `skeleton/gz`). -/
+released also when `close` reports -1 (M4); no other descriptor changes. A copy of `GzReleased`
+(`ZlibF/Spec/Safety/GzSafety.lean`). -/
 def Released (h after : Heap) (fs fs' : Fs) (i : Nat) (s : GzState) : Prop :=
   after.gzstates i = none ∧ Frame h after (GzOwned h i s) ∧
   LiveChange h after (fun _ => False) (GzOwned h i s) ∧ FileSystem fs' ∧
@@ -804,8 +804,7 @@ theorem gzclose_r_safe {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (h
 
 end Close
 
-/-- **`gzclose_r`, the close step of the skeleton** (`gzclose_r_step`, `GzCloseSafe` of `gz.skeleton-model.lean`
-written out): on any handle in `GzInv`, for every OS world, the call returns, and either refuses a writer with no
+/-- **`gzclose_r`, the close step** (`gzclose_r_step`, `GzCloseSafe` written out): on any handle in `GzInv`, for every OS world, the call returns, and either refuses a writer with no
 effect, or releases a reader (`Close.Released`). -/
 theorem gzclose_r_step_safe (i : Nat) :
     ∀ h fs s, GzInv h i s → FileSystem fs →

@@ -1,13 +1,13 @@
 import ZlibF.Proof.«deflate.c.universal-call-tail»
 
 /-!
-# deflate.c: the strategy facts `deflate_call` uses (batch B)
+# deflate.c: the strategy facts one `deflate` call uses
 
 The exports of the strategy specs that `tail_step` takes as `StrategyGaps`:
-the dispatch with any output room, including a full output after the header phase (M19), and
+the dispatch with any output room, including a full output after the header phase, and
 the meaning of the returned block state for the state after the strategy: no symbol after a block
-or a finishing return (M6), no lazy literal and nothing pending after `block_done`, which comes
-only without `Z_FINISH` (M9, M13, M20), and no lookahead after a finishing return (M14).
+or a finishing return, no lazy literal and nothing pending after `block_done`, which comes
+only without `Z_FINISH`, and no lookahead after a finishing return.
 -/
 
 namespace Zlib.Deflate.Universal.Call
@@ -67,7 +67,7 @@ theorem dispatch_spec_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     rcases values with e | e | e | e | e | e <;>
       simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
 
-/-- **M19**: the dispatch with a full output, in the form of `StrategyGaps.noRoom`. -/
+/-- The dispatch with a full output, in the form of `StrategyGaps.noRoom`. -/
 theorem gaps_noRoom {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     {d : DeflateState} (flush : Int32) (inv : DInv h r ds z d) (ov : Block.OverlayAt d.lit_bufsize.toNat) (buffers : StreamBuffers h r)
     (out : z.next_out ≠ .null) (input : z.avail_in ≠ 0 → z.next_in ≠ .null) (_full : z.avail_out = 0)
@@ -75,7 +75,7 @@ theorem gaps_noRoom {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     DispatchOut h r ds z d flush (dispatch (some (.tab ds)) flush d h) :=
   dispatch_spec_in inv ov ⟨buffers, out, input, pend⟩ flush
 
-/-- **M6, M9, M13, M20, M14**: what the returned block state says about the state after the
+/-- What the returned block state says about the state after the
 dispatch, for every run from the checks of `deflate` (any output room). -/
 theorem gaps_facts {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     {d : DeflateState} {flush : Int32} {bstate : block_state} {after : Heap} {z' : ZStream} {d' : DeflateState}
@@ -109,7 +109,7 @@ theorem gaps_facts {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     · obtain ⟨p, a0, f⟩ := m.blockDone bd
       exact ⟨a0, p, f⟩
 
-/-- **For M18**: a finishing return of the dispatch leaves no bits (the last block was flushed with
+/-- A finishing return of the dispatch leaves no bits (the last block was flushed with
 its windup), so `FINISH_STATE`, which `deflate` sets on such a return, starts with `bi_valid = 0`. -/
 theorem gaps_finishBits {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     {d : DeflateState} {flush : Int32} {bstate : block_state} {after : Heap} {d' : DeflateState}

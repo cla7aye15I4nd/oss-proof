@@ -5,7 +5,7 @@ open C Zlib.Inftrees Zlib.Inftrees.Spec ZlibF.Spec Zlib.Inftrees.Proofs
 open Zlib.Inftrees.Spec.DecodeSemantics Zlib.Inftrees.Spec.DecodeSoundness
 open Zlib.Inftrees.Spec.DecodeTableStability
 
-/-! The table meaning of the batch-1 interface was `Inv ∧ StableQuery` (P15).
+/-! The table meaning used to be `Inv ∧ StableQuery` (P15).
 `inflate_fast` looks up an entry on at least fifteen held bits, drops only
 the entry's bits and goes to `BAD` on an invalid entry, then returns the
 unused whole bytes. The input it reports as read can end inside the bits

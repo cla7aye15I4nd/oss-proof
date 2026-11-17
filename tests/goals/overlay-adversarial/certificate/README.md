@@ -28,7 +28,7 @@ The facts it uses:
 symbols that `scan_tree` counts, each at its `κ0` length plus extra bits, cost at most the entry
 costs of the lengths.
 
-So if the header is at most `71 + Δ + Σ_k f_k·(κ0_k + xbits_k)` (batch 1's reference-code bound,
+So if the header is at most `71 + Δ + Σ_k f_k·(κ0_k + xbits_k)` (the reference-code bound,
 `f` the bit-length frequencies), the header plus the excess is at most `1852 + Δ`. The budget is
 `8·256 − 25 = 2023`, so the room holds when Δ ≤ 171.
 
@@ -103,4 +103,4 @@ two header bounds `HeaderRefBound Δ₂` (memLevel 2, `Δ₂ ≤ 640`) and `Head
   blocks): memLevel 2 certificate `71 + entry costs + per-occurrence excess ≤ 1852`, 538 bits;
   assembly at Δ = 160 against 2023, 635 bits; memLevel 1, the largest header both rows allow at
   Δ = 115 plus the excess against 999, 203 bits. Set `DELTA1`, `DELTA2` to change the Δ used.
-- `header_lp.py`: batch 1's first programme over length histograms, kept for comparison.
+- `header_lp.py`: a first programme over length histograms, kept for comparison.

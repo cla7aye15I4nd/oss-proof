@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-extra»
 /-!
 # deflate.c: the gzip name and comment stages of one `deflate` call
 
-Batch C (`call_frame`, `deflate_header_trailer`). `gz_string_loop` copies the name or comment of
+`gz_string_loop` copies the name or comment of
 the caller's header record into `pending_buf` byte by byte, through its NUL, flushing whenever
 `pending_buf` is full. The string is a C string at the call (`HeaderMemory`) and lies apart from
 the output range and the stream's storage (`DeflateHeaderApart`), so the flushes keep it.

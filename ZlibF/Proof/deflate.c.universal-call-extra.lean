@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-strategies»
 /-!
 # deflate.c: the gzip extra-field stage of one `deflate` call
 
-Batch C (`call_frame`, `deflate_header_trailer`). The extra field is copied into `pending_buf`;
+The extra field is copied into `pending_buf`;
 while the rest does not fit, `pending_buf` is filled, the header CRC updated and the buffer
 flushed, and the stage returns `Z_OK` if the flush could not empty it.
 -/

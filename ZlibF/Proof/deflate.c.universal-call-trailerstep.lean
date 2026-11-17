@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-headerentry»
 /-!
 # deflate.c: the trailer phase of one `deflate` call on the invariant
 
-Batch C (`deflate_call` / `trailer_step`). After the strategies and the markers, `deflate` returns
+`trailer_step`. After the strategies and the markers, `deflate` returns
 `Z_OK` unless the flush is `Z_FINISH`; with `Z_FINISH` it returns `Z_STREAM_END` when no trailer is
 due (`wrap ≤ 0`), and otherwise writes the zlib or gzip trailer, flushes, negates `wrap` and
 reports whether bytes are left. The trailer runs only on a finished stream with nothing pending

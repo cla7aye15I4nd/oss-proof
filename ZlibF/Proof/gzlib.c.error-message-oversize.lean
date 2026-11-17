@@ -8,7 +8,7 @@ path: the state ends with `msg = NULL` and `err = Z_MEM_ERROR`, no block is crea
 counted. The heap is the one an allocation failure leaves (`MessageRefusal.refusedMessageHeap`).
 
 The proof unfolds the runtime allocator itself; it does not use the size lemmas of `PlatformMemory`, so a runtime
-mutant that drops the size test fails here on its own. Each string and its NUL are below `2^63` bytes, as the
+that drops the size test fails here on its own. Each string and its NUL are below `2^63` bytes, as the
 platform scope gives for a string in one byte object, so the `size_t` sum does not wrap (two strings of
 `2^63 − 1` bytes would wrap it to 1).
 -/

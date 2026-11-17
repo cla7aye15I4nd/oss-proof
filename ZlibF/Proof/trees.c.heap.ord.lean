@@ -3,7 +3,7 @@ import ZlibF.Proof.«trees.c.heap.base»
 /-!
 # Binary heaps ordered by `smaller` (pure)
 
-Migrated from the earlier attempt (its `Spec/trees/Build.lean`), unchanged except for the namespace. The heap is
+The heap is
 `heap[1 .. heap_len]` (children of `p` are `2p`, `2p+1`), ordered by zlib's `smaller` macro: `key a b` iff
 `Freq[a] < Freq[b]`, or equal frequencies and `depth[a] ≤ depth[b]` (a total preorder). `HeapOK key H len k`: the
 heap property holds for every parent `> k`; `HoleInv` is the invariant of the sift-down loop.

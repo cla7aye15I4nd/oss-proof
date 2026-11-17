@@ -266,7 +266,7 @@ theorem finished_new_input : FinishedNewInput := by
 
 #print axioms finished_new_input
 
-/-- `DeflateLoopFacts` from the three skeleton statements alone. -/
+/-- `DeflateLoopFacts` from the three statements `ReachableInv`, `DeflateCall` and `CallFrameFacts`. -/
 theorem deflate_loop_facts (reach : ReachableInv) (call : DeflateCall) (frame : CallFrameFacts) :
     DeflateLoopFacts :=
   deflate_loop_facts_of reach call frame finished_new_input

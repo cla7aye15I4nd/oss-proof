@@ -3,8 +3,8 @@ import ZlibF.Zlib.«gzwrite.c»
 /-!
 # gzprintf with the handle's own error string faults in the model
 
-The counterexample to the former argument domain of `gzprintf` and `gzvprintf` (`GzArguments`, which asked only
-that the format and its arguments format correctly on the heap before the call). A public history in a world whose
+A counterexample to an argument domain of `gzprintf` and `gzvprintf` that asks only that the format and its
+arguments format correctly on the heap before the call. A public history in a world whose
 `write` calls fail with `EAGAIN`:
 
 1. `gzopen("p", "wT")`, `gzbuffer(file, 8)`: a transparent writer;
@@ -15,8 +15,8 @@ that the format and its arguments format correctly on the heap before the call).
    which frees the message, and then passes `m` to `vsnprintf`: a fault (`Fault.ub`, a pointer argument into a freed
    block), where the C reads freed memory (`tests/regression/gzprintf-error-string`).
 
-So the old statement of `gzvprintf_step` was false. The corrected `GzArguments` asks that the format and every
-pointer argument lie apart from the blocks the handle owns.
+So `gzvprintf_step` is false over that domain. `GzArguments` asks that the format and every pointer argument lie
+apart from the blocks the handle owns.
 -/
 
 namespace Zlib.Gzwrite.PrintfErrorStringRegression

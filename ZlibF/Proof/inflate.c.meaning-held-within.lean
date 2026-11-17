@@ -529,7 +529,7 @@ theorem heldWithin_core : ∀ (wrap : Api.Wrap) (configured : Nat) (dict : List 
 
 #print axioms heldWithin_core
 
-/-- `HeldWithin` (batch 3, for `ConsumesWithinStream`): a decoder state at a
+/-- `HeldWithin` (for `ConsumesWithinStream`): a decoder state at a
 grammar stage does not hold bits past the end of a valid stream that its bits
 are comparable with. The premise `(consumed ++ held).length % 8 = 0` holds
 at the use, where `consumed ++ held` are the bits of the consumed input. -/

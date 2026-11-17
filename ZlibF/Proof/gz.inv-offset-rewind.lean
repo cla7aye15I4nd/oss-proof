@@ -4,7 +4,7 @@ import ZlibF.Proof.«public-gz-offset»
 /-!
 # gz safety: `gzoffset64`, `gzoffset` and `gzrewind` keep `GzInv`
 
-`gzoffset64_step`, `gzoffset_step` and `gzrewind_step` (skeleton statements, unchanged), for every world of the
+`gzoffset64_step`, `gzoffset_step` and `gzrewind_step`, for every world of the
 OS-call oracle.
 
 - `gzoffset64` calls `lseek(fd, 0, SEEK_CUR)` and reads the record (`gzoffset64_record`). The heap is unchanged; the

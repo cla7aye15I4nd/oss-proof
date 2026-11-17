@@ -8,13 +8,13 @@ import ZlibF.Proof.«deflate.c.universal-outframe»
 /-!
 # deflate.c, universal engine: the five compression functions
 
-Batch B of the deflate skeleton (`docs/progress.md`, Core proof skeletons): `deflate_huff`,
+`deflate_huff`,
 `deflate_rle`, `deflate_fast`, `deflate_slow` and `deflate_stored` under the invariant `DInv` and
 the strategy entry `StrategyEntry`, for every parameter tuple.
 
 **Loop invariant.** At the head of every iteration of a strategy loop the state satisfies `DInv`
 again, with an empty pending buffer and room in the caller's output buffer. Inside an iteration
-the symbol buffer may be full; `FLUSH_BLOCK` empties it (batch C, `flush_block_only_safe`).
+the symbol buffer may be full; `FLUSH_BLOCK` empties it (`flush_block_only_safe`).
 
 **Termination.** Every iteration either leaves the loop or consumes one byte of
 `avail_in + lookahead` (`fill_window` moves input to lookahead without changing the sum).
@@ -352,10 +352,10 @@ theorem clear_match_inv {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
 
 /-! ## A block flush inside a strategy
 
-`FlushSafe` is the statement of batch C's `Block.flush_block_only_safe` for every memLevel,
+`FlushSafe` is the statement of `Block.flush_block_only_safe` for every memLevel,
 with the lower bound on `block_start` that holds inside the strategies (`DInv.blockSpan`: a block
 may span many slides) and the reset of `matches` by `init_block`. The strategy lemmas take it as a
-hypothesis; the batch B theorems instantiate it with batch C's proof. It is not an assumed
+hypothesis; the strategy theorems instantiate it with that proof. It is not an assumed
 contract: it is a statement about the translated `FLUSH_BLOCK_ONLY`. -/
 
 def FlushSafe : Prop :=
@@ -1402,7 +1402,7 @@ theorem finish_tail_inv {kind : DeflateState → Prop} {h : Heap} {r : ZStreamRe
         simp [finish_tail, finishB, bind_app, rdSym, symbols, run']
 
 /-- **`deflate_huff` keeps the invariant** (`Z_HUFFMAN_ONLY` at a nonzero level), given the block
-flush of batch C. -/
+flush. -/
 theorem huff_spec_of {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     {d : DeflateState} (safe : FlushSafeAt d.lit_bufsize.toNat) (inv : DInv h r ds z d) (entry : StratIn h r z d) (flush : Int32)
     (level : d.level ≠ 0) (huff : d.strategy.toInt = 2) :
@@ -2244,8 +2244,8 @@ theorem rle_loop {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     start (loop_measure_bound r ds {} h)
   exact ⟨st, h', run, loop, exit⟩
 
-/-- **`deflate_rle` keeps the invariant** (`Z_RLE` at a nonzero level), given the block flush of
-batch C. -/
+/-- **`deflate_rle` keeps the invariant** (`Z_RLE` at a nonzero level), given the block
+flush. -/
 theorem rle_spec_of {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     {d : DeflateState} (safe : FlushSafeAt d.lit_bufsize.toNat) (inv : DInv h r ds z d) (entry : StratIn h r z d) (flush : Int32)
     (level : d.level ≠ 0) (rle : d.strategy.toInt = 3) :

@@ -6,7 +6,7 @@ import ZlibF.Spec.Functional.Checksums
 /-!
 # inflate.c: `CHECK` keeps the format meaning in the loop
 
-Batch 2, `trailer_steps`. In a zlib or gzip trailer stage with nothing of the
+`check_step`. In a zlib or gzip trailer stage with nothing of the
 trailer read, `case CHECK:` either leaves for more input, or adds this call's
 output since the check base to `total` and to the running check, compares
 the check field, and then falls through to `LENGTH`: a gzip trailer goes on
@@ -15,7 +15,7 @@ check field that differs from the check of the output enters `BAD`, and no
 valid stream continues the input read.
 
 Raw data reaches `CHECK` in the end stage (`wrap = 0` skips the check); that
-case waits for the end-stage interface change agreed with batch 1.
+case is `RawCheck` (`inflate.c.meaning-outcome`).
 -/
 
 namespace Zlib.Inflate.Proofs

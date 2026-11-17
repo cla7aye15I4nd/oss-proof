@@ -3,7 +3,7 @@ import ZlibF.Spec.Common.Inflate.TableCanon
 /-!
 # The canonical construction in the list model
 
-Pure mathematics about the lengths `ls`, migrated from an earlier development: the allocation order, the Kraft
+Pure mathematics about the lengths `ls`: the allocation order, the Kraft
 sums `K`, the canonical code values `cv`, `H = rev (L j) (cv j)` (the table index of the first entry of code `j`),
 the group widths of the sub-tables (`look`, `width`) and the closed form `desc` of the table geometry. The names are
 in the namespace `Zlib.Inftrees.Canon` so that they do not clash with the model used by the main proof.

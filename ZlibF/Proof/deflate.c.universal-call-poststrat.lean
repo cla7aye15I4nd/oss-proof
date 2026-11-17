@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-call-headerstep»
 /-!
 # deflate.c: the state stores after a strategy
 
-Owner 2 of the deflate split (`deflate_call`). After the strategy, `deflate` stores
+After the strategy, `deflate` stores
 `status := FINISH_STATE` on a finishing return and `last_flush := -1` on a full output. These
 lemmas give their frame and carry `DInv`, `HeaderInv`, `CallFacts` and the trees across them.
 -/

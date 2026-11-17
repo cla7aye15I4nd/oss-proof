@@ -6,8 +6,8 @@ import ZlibF.Spec.Functional.Api.Compress
 /-!
 # gzwrite.c: complete borrowed-error close regression
 
-The same legal zero-room history that exposed the old libc allocation residue
-now closes without a new live object. Every gzip allocation is released. The
+A legal zero-room history, in which a `strerror` modelled as a libc allocation
+would leave a live object, closes without a new live object. Every gzip allocation is released. The
 external borrow is metadata, with its own lifetime and no malloc identity.
 -/
 

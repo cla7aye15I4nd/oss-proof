@@ -3,7 +3,7 @@ import ZlibF.Proof.«public-deflate-init»
 
 /-! # deflate.c: `deflateInit2_` for every argument tuple and allocation outcome
 
-Skeleton lemma `init2_main`: for every signed level, method, window, memory level and strategy,
+`init2_main`: for every signed level, method, window, memory level and strategy,
 `deflateInit2_` refuses exactly the tuples `Api.deflInit?` refuses (with the prepared stream and no
 allocation), reports a failed state allocation, cleans up exactly when any of the four buffer
 allocations fails, and otherwise establishes `DeflateInitial` with the parameters of

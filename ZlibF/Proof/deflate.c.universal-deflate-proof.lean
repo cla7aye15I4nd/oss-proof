@@ -4,9 +4,9 @@ import ZlibF.Spec.Functional.Streams
 /-!
 # deflate.c: `Goal.deflate` from the invariant of every reachable history
 
-The skeleton lemma `deflate_proof`: a reachable stream satisfies `DInv` (`reachable_inv_of`), the
+`deflate_proof_of`: a reachable stream satisfies `DInv` (`reachable_inv_of`), the
 state the goal names is the invariant's (`DInv.unique`), and one call keeps `DInv` with every clause
-of `Goal.deflate` (`deflate_call`). The lemmas it takes are the fields of `SequenceFacts`, all
+of `Goal.deflate` (`SequenceFacts.deflateCall`). The lemmas it takes are the fields of `SequenceFacts`, all
 proved (`sequence_facts`, `public-deflate-copy`); `deflate_safety` (`public-deflate-goals`) is
 `Goal.deflate` with no hypothesis.
 -/

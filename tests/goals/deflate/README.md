@@ -1,6 +1,6 @@
 # Statement test of the deflate goals
 
-Step 1 of the proof workflow (`AGENTS.md`): check a goal against the real C before proving it.
+A statement test: check a goal against the real C before proving it.
 
 `driver.c` runs random histories on the real `libz.a` (the pinned `zlib/` plus `patches/`, built by
 `tests/build-zlib.sh`). A history has the shape of `DeflateDataTrace`: `deflateInit2_` with every

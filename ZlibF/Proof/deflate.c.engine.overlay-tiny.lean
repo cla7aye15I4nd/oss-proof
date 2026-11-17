@@ -3,9 +3,9 @@ import ZlibF.Math.DeflateOverlayFibActual
 import ZlibF.Proof.«trees.c.universal-overlay-mid»
 
 /-!
-# deflate.c: `TinyOverlay` from two named hypotheses
+# deflate.c: a second route to `TinyOverlay` (statements only)
 
-The assembly of the overlay room at `memLevel` 1 and 2 (`lit_bufsize < 512`). Split on the gain
+A route to the overlay room at `memLevel` 1 and 2 (`lit_bufsize < 512`). Split on the gain
 `G` of the block:
 
 * `G + 30 ≤ 8 * lit_bufsize`: the dynamic choice bounds the header and the excess (half A,
@@ -13,7 +13,7 @@ The assembly of the overlay room at `memLevel` 1 and 2 (`lit_bufsize < 512`). Sp
 * otherwise: a header bound `Hb` (`HeaderFibBound`), the excess at the actual frequencies (B3,
   `excess_fib_actual`) and the link `LinkC` give the budget.
 
-`HeaderFibBound` and `LinkC` are not proved, and `tiny_overlay_of` is not used. `TinyOverlay`
+`HeaderFibBound` and `LinkC` are not proved, and no theorem uses them. `TinyOverlay`
 itself is proved on another route: `tinyOverlay` (`deflate.c.engine.overlay-header-ref`) from the
 reference-code header bounds `header_ref_bound_256` and `header_ref_bound_128w`. Both hypotheses
 here take the header bound `Hb` as a parameter and are stated for every prepared dynamic block

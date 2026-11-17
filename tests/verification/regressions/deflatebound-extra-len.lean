@@ -9,7 +9,7 @@ added `2 + extra_len` as a natural number, which is `2^32` larger than what the 
 `extra_len = 2^32 - 1` and `2^32 - 2`. It is not a checked run of the translated `deflateBound_z`.
 
 Evidence on the real C: `tests/goals/deflate-bound/bound.c`, mode `extra`, prints bound 126 for
-100 input bytes and `extra_len = 2^32 - 1` (`docs/findings/deflatebound-extra-len`).
+100 input bytes and `extra_len = 2^32 - 1` (a finding, `docs/en/findings.md`).
 -/
 
 namespace DeflateBoundExtraLenRegression

@@ -3,7 +3,7 @@ import ZlibF.Runtime.Monad
 /-!
 # Runtime: pointers into arrays
 
-Trusted base of every translation; see `docs/trusted-base.md`.
+Trusted base of every translation; see `docs/en/trusted-base.md`.
 
 A pointer is `Ptr R`: null, or an array (where it lives is the reference `R`: a heap block, an array inside a struct,
 a static table) and an index. Every primitive is written once, for every `R`, through the class `Space`. Each one
@@ -18,7 +18,7 @@ section generic
 variable {R T : Type} [Space Heap R T]
 
 /-- `p + k`. Faults unless the result is an index of the array or one past its end. `NULL + 0` is `NULL` (allowed
-by decision, although C17 leaves it undefined; see `docs/model-limits.md#conditions-on-the-model-that-goals-state`,
+by decision, although C17 leaves it undefined; see `docs/en/model-limits.md#conditions-on-the-model-that-goals-state`,
 row "Null pointer arithmetic"); the pointer must point to a live array.
 It checks the result only: a pointer built by hand outside its array (`Ptr.ref r off` with `off` beyond the end) is
 not caught here. The translations obtain pointers from `Ptr.add` and from the schema, which never form one. -/

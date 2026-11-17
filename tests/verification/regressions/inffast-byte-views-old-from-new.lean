@@ -14,7 +14,7 @@ import ZlibF.Spec.Safety.Inflate.FastOrigin
 The commit "Fast decoder environment: input and output in any byte view" changed the situation
 of `inflate_fast` (`Zlib.Inffast.Proofs.EnvG`): its input and output were heap blocks (`ib ob :
 Nat`, read through `h0.bytes`), and are now byte views (`ib ob : BRef`, read through `Space.get`).
-The statements of the registered `Zlib.Inffast.Spec` goals changed with it.
+The statements of the `Zlib.Inffast.Spec` goals changed with it.
 
 This file restates the old definitions verbatim, from the parent of that commit (`4ed7315e^` on
 `dev`), under the

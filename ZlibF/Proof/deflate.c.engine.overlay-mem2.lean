@@ -246,7 +246,7 @@ theorem ref_header_excess_256 {h : Heap} {ds pb : Nat} {d : DeflateState} {buf :
   rw [exL, exD] at excess
   omega
 
-/-- **Batch 1's piece** (proved for `Δ = 245`: `header_ref_bound_256`,
+/-- **The header bound at `lit_bufsize = 256`** (proved for `Δ = 245`: `header_ref_bound_256`,
 `deflate.c.engine.overlay-header-ref`): the header of every prepared block at `lit_bufsize = 256` is at most
 the reference-code header plus `Δ`. -/
 def HeaderRefBound (Δ : Nat) : Prop :=

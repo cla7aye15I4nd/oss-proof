@@ -4,9 +4,8 @@ import ZlibF.Spec.Functional.Format.Deflate
 /-!
 # The callback decoder: the functional goal of `inflateBack`
 
-`Goal.inflateBack`, split from `ZlibF/Spec/Public/Back.lean` without a change of statement or name
-(`docs/design/safety-functional-split.md`): it states that the delivered output decodes the input
-(`Deflate.Decodes`). The namespace stays `ZlibF.Spec.Public`.
+`Goal.inflateBack` (`docs/en/design/safety-functional-split.md`): it states that the delivered output
+decodes the input (`Deflate.Decodes`). The namespace is `ZlibF.Spec.Public`.
 -/
 
 namespace ZlibF.Spec.Public

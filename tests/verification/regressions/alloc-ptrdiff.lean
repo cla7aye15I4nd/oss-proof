@@ -9,7 +9,7 @@ The runtime allocator used to return a fresh block of `n` bytes for every `n` wh
 yes. glibc 2.43 refuses every request above `PTRDIFF_MAX = 2^63 − 1` (`malloc/malloc.c`, `_int_malloc`:
 `if (bytes > PTRDIFF_MAX) { __set_errno (ENOMEM); return NULL; }`). Under the old model, `gz_error` on a state
 whose path and message are C strings of `2^62` bytes each (both inside the platform scope `ByteObjectsFit`) created
-a block of `2^63 + 3` bytes, which breaks `ByteObjectsFit` and so falsified `GzInv.gz_error` of the gz skeleton.
+a block of `2^63 + 3` bytes, which breaks `ByteObjectsFit` and so falsified the lemma `GzInv.gz_error`.
 The C does what the corrected model does: the request is refused and `gz_error` records `Z_MEM_ERROR`.
 
 Nothing here is evaluated: the heap is symbolic and every fact is proved.

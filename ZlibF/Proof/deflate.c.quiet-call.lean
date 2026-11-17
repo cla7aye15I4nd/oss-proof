@@ -8,8 +8,8 @@ import ZlibF.Proof.«deflate.c.engine.overlay-header-ref»
 `gz_comp`'s loop `do { deflate(strm, flush) } while (have)` with no input ends when its buffer has
 at least 8 bytes. `call_quiet` (from `call_quiet_of` and `strat_quiet`) is the per-call fact on the deflate invariant: a call from at least 8
 bytes of room that fills the output lowers the potential `phiD` lexicographically (`LexLt`), and a
-call that ends with room leaves `QuietD`. `deflate_quiet_holds` is `DeflateQuiet` (the statement of
-the gz skeleton, written out here) from `call_quiet`, `quiet_silent` and `stateOf_rebuffer`.
+call that ends with room leaves `QuietD`. `deflate_quiet_holds` is `DeflateQuiet` (the statement
+the gzip proofs use, written out here) from `call_quiet`, `quiet_silent` and `stateOf_rebuffer`.
 -/
 
 namespace Zlib.Deflate.Universal.Quiet
@@ -43,7 +43,7 @@ theorem run_of_execute {h after : Heap} {r : ZStreamRef} {flush value : Int32}
     obtain ⟨⟨rfl, -⟩, rfl⟩ := exec
     rfl
 
-/-- **`DeflateQuiet`** (the statement of the gz skeleton, `gz.skeleton-write.lean`), widened to `0 ≤ flush ≤ 5`
+/-- **`DeflateQuiet`** (the statement the gzip write proofs use), widened to `0 ≤ flush ≤ 5`
 so that it covers `Z_BLOCK`, as `gzsetparams` calls `gz_comp(state, Z_BLOCK)`. -/
 theorem deflate_quiet_holds :
     ∃ (Φ : Int32 → Heap → ZStreamRef → Nat) (Quiet : Int32 → Heap → ZStreamRef → Prop),

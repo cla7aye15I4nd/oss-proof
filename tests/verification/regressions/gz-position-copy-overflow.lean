@@ -7,7 +7,7 @@ Patch 0004 bounded `gz_fetch`'s loads by the room left before `GZ_OFF_MAX`, but 
 branch exposes. From a reader at `GZ_OFF_MAX - 3` after a gzip member with trailing data and `gzclearerr` (the
 shape of `gz-copy-direct.c`), `gzread(file, buf, 3)` returned 3 with `x.pos = GZ_OFF_MAX` and five bytes buffered,
 and a following `gzgetc` overflowed `x.pos`. Patch 0004 now bounds that branch; the theorems check the fixed runs. The runs are in `ZlibF/Proof/gz.position-copy-overflow-regression.lean`,
-built with the library; this file restates them. Finding: `docs/findings/gz-position-copy-overflow.md`.
+built with the library; this file restates them. Finding: the gz position overflow rows of `docs/en/findings.md`.
 -/
 open C Zlib.GzFs Zlib.Gzguts Zlib.Gzlib Zlib.Gzread Zlib.Gz.PositionCopyOverflowRegression
 

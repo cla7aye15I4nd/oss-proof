@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-params-checksum»
 /-!
 # deflate.c: record updates and the step tactic of the parameter frame
 
-Batch C of the deflate skeleton. `exact_wr`, `exact_md` and `exact_stTreeDesc` cover the record
+`exact_wr`, `exact_md` and `exact_stTreeDesc` cover the record
 updates that change no parameter; `exact_step` composes the primitives along the translated code.
 -/
 

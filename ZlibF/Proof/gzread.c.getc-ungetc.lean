@@ -4,9 +4,8 @@ import ZlibF.Proof.«gz.inv-clearerr»
 /-!
 # gzread.c: `gzungetc` and `gzgetc` on a handle in `GzInv`
 
-The `gzungetc` stages over a premise `GzSkipSpec'` (`gz_skip` from `GzInvUpToSkip`) were removed on 2026-11-14:
-that premise is false without `skip ≠ 0`. `gzungetc` is proved in `gz.read-getc-step` over the corrected `GzSkipSpecNZ`.
-`gzgetc_step_of`: the skeleton statement `gzgetc_step`, from the skeleton statements of `gz_read_safe` and
+`gzungetc` is proved in `gz.read-getc-step` over `GzSkipSpecNZ`.
+`gzgetc_step_of`: `gzgetc_step`, from the statements of `gz_read` (`GzReadSpec`) and
 `GzInv.gz_error` and `GzErrorOwn`. On the buffered path `GzReadInv.haveSkip` gives `skip = 0`, and `posHave` keeps
 `x.pos + 1` representable.
 
@@ -96,7 +95,7 @@ end run
 
 /-! ## The callees, as premises -/
 
-/-- The skeleton statement `GzInv.gz_error` (branch `skeleton/gz`, `gz.skeleton-model.lean`). -/
+/-- The statement of `GzInv.gz_error` (`GetcUngetc.gzErrorSpec_holds` proves it). -/
 def GzErrorSpec : Prop :=
   ∀ {h : Heap} {i : Nat} {s : GzState}, GzInv h i s → ∀ (err : Int32) (msg : BPtr),
     (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) → err ≠ Z_STREAM_END →
@@ -105,7 +104,7 @@ def GzErrorSpec : Prop :=
       Frame h after (fun b => b = i ∨ blkOf s.msg = some b) ∧
       LiveChange h after (fun b => blkOf s'.msg = some b ∧ ¬ h.live b) (fun b => blkOf s.msg = some b)
 
-/-- The no-grab fact on `gz_error` that the composition needs (not in the skeleton statement of `GzInv.gz_error`):
+/-- The no-grab fact on `gz_error` that the composition needs (not in `GzErrorSpec`):
 a block owned after the call that was live before was owned before. -/
 def GzErrorOwn : Prop :=
   ∀ (h : Heap) (i : Nat) (s : GzState) (err : Int32) (msg : BPtr) (after : Heap), GzInv h i s →
@@ -113,8 +112,7 @@ def GzErrorOwn : Prop :=
     C.run (Zlib.Gzlib.gz_error (gzSt i) err msg) h = .ok ((), after) →
     ∀ s', after.gzstates i = some s' → ∀ b, GzOwned after i s' b → h.live b → GzOwned h i s b
 
-/-- The skeleton statement `gz_look_safe`, strengthened by two clauses that `gzungetc` needs; the deflate owner
-(read side) is asked for this addition:
+/-- The statement of `gz_look`, strengthened by two clauses that `gzungetc` needs:
 - after the call, no buffers means a serious error (`gz_look` fails only with `Z_MEM_ERROR`), so the refusal
   `size == 0` of `gzungetc` fires;
 - the read budget of the descriptor stays finite (M7 is kept for the `gz_skip` that may follow).
@@ -126,7 +124,7 @@ def GzLookSpec' : Prop :=
       (∀ s', after.gzstates i = some s' → s'.size = 0 → s'.err ≠ Z_OK ∧ s'.err ≠ Z_BUF_ERROR) ∧
       (ReadsFinite fs s.fd → ReadsFinite fs' s.fd)
 
-/-- The skeleton statement `gz_read_safe` (branch `skeleton/gz`, `gz.skeleton-read.lean`). -/
+/-- The statement of `gz_read` (`GzRead.gzReadSpec_of` derives it from `GzReadSafe`). -/
 def GzReadSpec : Prop :=
   ∀ (i : Nat) (buf : BPtr) (len : UInt64) (h : Heap) (fs : Fs) (s : GzState), GzInv h i s → FileSystem fs →
     s.mode = GZ_READ → (len = 0 ∨ GzRange h i s buf len.toNat true) →
@@ -269,7 +267,7 @@ theorem post_same {i : Nat} {h1 h2 : Heap} {s1 s2 : GzState} {fs : Fs} (inv1 : G
     · exact hl
     · exact absurd (inv1.common.live b ho) hn
 
-/-- The post-condition of `GzInv.gz_error` (skeleton statement) and `GzErrorOwn` as a `GzPost` step. -/
+/-- The post-condition of `GzInv.gz_error` and `GzErrorOwn` as a `GzPost` step. -/
 theorem post_of_gz_error {h1 h2 : Heap} {i : Nat} {s1 s2 : GzState} {fs : Fs} (inv1 : GzInv h1 i s1)
     (inv2 : GzInv h2 i s2) (hs2 : s2 = { s1 with err := s2.err, msg := s2.msg })
     (fr : Frame h1 h2 (fun b => b = i ∨ blkOf s1.msg = some b))
@@ -1456,7 +1454,7 @@ theorem gTail_run (read : GzReadSpec) {i : Nat} {h : Heap} {s : GzState} {fs : F
     rintro r fs' h' ⟨rfl, rfl⟩
     exact RunSafe.bind_lift (Zlib.Gzlib.Proofs.freeB_blk_run g2 ro2) (RunSafe.pure' eF)
 
-/-- **`gzgetc_step`** (skeleton statement) from the skeleton statements of `gz_read` and `GzInv.gz_error` and the
+/-- **`gzgetc_step`** from the statements of `gz_read` and `GzInv.gz_error` and the
 no-grab fact of `gz_error`. -/
 theorem gzgetc_step_of (read : GzReadSpec) (gzerr : GzErrorSpec) (gzerrOwn : GzErrorOwn) (i : Nat) :
     GzCallSafe i (.gzgetc (some (.in_gzstate_x i))) := by

@@ -5,7 +5,7 @@ import ZlibF.Proof.«gzwrite.c.safety»
 /-!
 # gz file interface, safety: `gzclose`
 
-The skeleton leaf `gzclose_step` (`skeleton/gz`, `gz.skeleton.lean`): `gzclose` reads the mode
+`gzclose_step`: `gzclose` reads the mode
 (`gzclose_dispatch_inv`) and runs `gzclose_r` (`GzRead.gzclose_r_step_safe`) or `gzclose_w`
 (`gzclose_w_step`). A handle in `GzInv` is a reader or a writer, so `gzclose` never refuses: it
 releases the handle. No patch is needed beyond those of the two close lemmas.

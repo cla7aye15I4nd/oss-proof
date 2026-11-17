@@ -6,9 +6,8 @@ import ZlibF.Spec.Functional.Api.Compress
 /-!
 # deflate.c: the clauses of one `deflate` call (definition)
 
-`CallClauses` is the conclusion of the skeleton lemma `deflate_call` (owner of `deflate_call`,
-`docs/progress.md`) and the premise the `operation_step` case split uses for `.deflate`. Kept on
-`dev` so both use one definition.
+`CallClauses` is the conclusion of one `deflate` call (`DeflateCallFact`, `deflate_call_of`) and the
+premise the case split of `operation_step_of` uses for `.deflate`. Both use this one definition.
 -/
 
 namespace Zlib.Deflate.Universal
@@ -46,7 +45,7 @@ def GoalClauses (h : Heap) (r : ZStreamRef) (i : Nat) (z : ZStream) (s : Deflate
   BufferFrame h after (fun b => StreamRoot r b ∨ DeflateOwned i s b) [⟨z.next_out, out.length⟩] ∧
   LiveChange h after (fun _ => False) (fun _ => False) ∧ after.nalloc = h.nalloc
 
-/-- The conclusion of the skeleton lemma `deflate_call` beside `DInv`: the clauses of
+/-- The conclusion of one `deflate` call beside `DInv`: the clauses of
 `Goal.deflate`; that the call keeps the five owned blocks, which the ownership clauses of
 `StreamSequenceSafety` need; and that a call with input and output room that returns `Z_OK`
 reads or writes a byte, which the termination of the `compress*` loop needs (checked on the

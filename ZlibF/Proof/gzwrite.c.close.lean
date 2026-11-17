@@ -6,8 +6,8 @@ import ZlibF.Proof.«deflate.c.universal-sequence-safety»
 /-!
 # gzwrite.c: `gzclose_w` is safe
 
-`gzclose_w_step_of`: the skeleton statement `gzclose_w_step` (`GzCloseSafe`, branch `skeleton/gz`), from the facts of
-`gz_error` (`GzErrorSpec`, `GzErrorOwn`). `GzCloseSafe` and `GzReleased` are now in `ZlibF/Spec/Public/GzSafety.lean`; as for `gzclose_r`
+`gzclose_w_step_of`: `gzclose_w_step` (`GzCloseSafe`), from the facts of
+`gz_error` (`GzErrorSpec`, `GzErrorOwn`). `GzCloseSafe` and `GzReleased` are in `ZlibF/Spec/Safety/GzSafety.lean`; as for `gzclose_r`
 (`gz.read-close`), the statement is written out with `GzRead.Close.Released`, the copy of `GzReleased`.
 
 `gzclose_w(file)` refuses a reader with no effect. On a writer:
@@ -539,7 +539,7 @@ theorem compClose_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
     simp only [cbind_app, run, hr', Bool.false_eq_true, ↓reduceIte]
     exact run'
 
-/-- **`gzclose_w_step`** (skeleton statement `GzCloseSafe i (.gzclose_w (some (.in_gzstate_x i)))`, written out with
+/-- **`gzclose_w_step`** (`GzCloseSafe i (.gzclose_w (some (.in_gzstate_x i)))`, written out with
 `GzRead.Close.Released`, the copy of `GzReleased`), given the facts of `gz_error`: on any handle in `GzInv`, for every
 OS world, the call returns, and either refuses a reader with no effect, or releases the writer. -/
 theorem gzclose_w_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) :

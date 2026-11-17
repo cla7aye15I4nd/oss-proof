@@ -8,10 +8,10 @@ import ZlibF.Proof.«deflate.c.universal-strategy-frame»
 /-!
 # deflate.c: the dispatch to the strategies in one `deflate` call
 
-Owner 2 of the deflate split (`deflate_call`). The strategy phase of `deflate` chooses
+The strategy phase of `deflate` chooses
 `deflate_stored` at level 0, `deflate_huff` for `Z_HUFFMAN_ONLY`, `deflate_rle` for `Z_RLE`, and
 otherwise the function of the configuration table (`deflate_fast` for levels 1 to 3,
-`deflate_slow` for 4 to 9). With batch B's strategy specs, the dispatch keeps the invariant and
+`deflate_slow` for 4 to 9). With the strategy specs, the dispatch keeps the invariant and
 concludes the run frame `Fr` and the meaning of the returned state.
 -/
 
@@ -108,7 +108,7 @@ theorem keep_dispatch (s : DeflateStatePtr) (flush : Int32) (d : DeflateState) :
   · exact keep_deflate_fast _ _
   · exact keep_deflate_slow _ _
 
-/-- Batch B's run frame and `KeepRel` give the strategy frame batch C composes. -/
+/-- The run frame of a strategy and `KeepRel` give the strategy frame of the call phases. -/
 theorem Fr.strat {h after : Heap} {r : ZStreamRef} {ds : Nat} {d d' : DeflateState} {z z' : ZStream}
     (fr : Fr h r ds d z after z' d') (keep : Zlib.Deflate.Universal.Keep.KeepRel h after) :
     ∃ used produced, StratFrame h after r ds d z z' used produced ∧ Keys d d' := by

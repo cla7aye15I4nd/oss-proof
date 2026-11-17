@@ -4,10 +4,9 @@ import ZlibF.Spec.Common.PlatformMemory
 /-!
 # gz file interface, safety: the representation invariant `GzInv` and the post-state of a call
 
-The definitions of the gz safety goals that were in the proof module `gz.inv-model`, moved without a change of
-statement or name (`docs/design/safety-functional-split.md`): `ReadsFinite` and `NeedsReadBound` (the M7
+The definitions of the gz safety goals (`docs/en/design/safety-functional-split.md`): `ReadsFinite` and `NeedsReadBound` (the M7
 premise), the invariant `GzInv` with its parts `GzCommon`, `GzReadInv` and `GzWriteInv`, and the post-state
-`GzStepPost` of a call. `gz.inv-model` keeps the call shape `GzCallSafe`, the helper shapes and the interface
+`GzStepPost` of a call. The proof module `gz.inv-model` has the call shape `GzCallSafe`, the helper shapes and the interface
 lemmas.
 -/
 
@@ -28,7 +27,7 @@ def HasBudget (fs : Fs) (fd : Int32) : Prop := 0 ≤ fd.toInt ∧ fs.readBudget 
 
 /-- **M7, the finiteness premise.** The handle's descriptor has a read budget (`HasBudget`) below `2^61` bytes: the
 total the descriptor can still deliver. A premise of the termination half only, and only for the calls of
-`NeedsReadBound`; `docs/deviations.md`, "Gz reading termination". A finite budget is a real requirement: an endless
+`NeedsReadBound`; `docs/en/deviations.md`, "Gz reading termination". A finite budget is a real requirement: an endless
 source (an endless `FNAME`, or endless empty gzip members) makes one `gzread` call run forever in C. The figure `2^61`
 is the model's limit, not zlib's: a loop of the model has `2^64` trips of fuel, and the reading loops are bounded by
 measures built from the input left, the read budget and the bytes still to deliver (`fetchRank`, and the measures of
@@ -171,7 +170,7 @@ structure GzReadInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   /-- the embedded stream's message is `NULL` or a literal (`MsgLit`) -/
   msgLit : MsgLit s
 
-/-- The writer part (`s.mode = GZ_WRITE`): batch C's W1–W10. W1 and W9 are in `GzCommon`; W10 needs no fact;
+/-- The writer part (`s.mode = GZ_WRITE`): the clauses W1–W10. W1 and W9 are in `GzCommon`; W10 needs no fact;
 W7 is the position clause of `GzCommon` (relies on the local patch for W7). -/
 structure GzWriteInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   /-- the `gzgetc` macro reads `x.have` on any handle -/

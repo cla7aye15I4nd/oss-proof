@@ -4,7 +4,7 @@ import ZlibF.Proof.«trees.c.bits»
 import ZlibF.Proof.«deflate.c.prime»
 
 /-!
-# deflate.c: `deflatePrime` keeps the invariant (batch A, `operation_step`)
+# deflate.c: `deflatePrime` keeps the invariant (a case of `operation_step_of`)
 
 `deflatePrime(strm, bits, value)` on a stream that no `deflate` call has started
 (`DeflateNotStarted`, the domain of the history). Three parts:

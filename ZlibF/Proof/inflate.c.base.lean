@@ -6,8 +6,8 @@ import ZlibF.Spec.Common.InflateGood
 /-!
 # inflate.c: the stream invariant and the lemmas the stream functions share
 
-The statements of `docs/proof/inflate.md`, the window invariant W and of `docs/spec/api/inflate-stream.md`.
-The definitions of namespace `Zlib.Inflate.Spec` are part of what a theorem means (they are locked by the audit); the
+The statements of `docs/en/proof/inflate.md`, the window invariant W and of `docs/en/spec/api/inflate-stream.md`.
+The definitions of namespace `Zlib.Inflate.Spec` are part of what a theorem means; the
 lemmas of `Zlib.Inflate.Proofs` are not.
 
 * `Uniq`: a block number holds an object of at most one table (the allocator takes `nextBlk` for every kind).

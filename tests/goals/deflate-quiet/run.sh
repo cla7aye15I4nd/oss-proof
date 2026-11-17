@@ -2,7 +2,7 @@
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/goals/deflate-quiet/run.sh
 # Builds the patched zlib copy and replays gz_comp's deflate loop with no input (see driver.c).
 # Exit 0: every loop ends for an output buffer of at least 8 bytes, and the known 1-byte case cycles.
-# Evidence about the C behind DeflateQuiet (gz.skeleton-write.lean), not proof.
+# Evidence about the C behind DeflateQuiet (ZlibF/Proof/deflate.c.quiet-*.lean), not proof.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}

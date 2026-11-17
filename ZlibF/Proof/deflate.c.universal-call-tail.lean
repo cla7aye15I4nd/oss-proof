@@ -7,13 +7,13 @@ import ZlibF.Proof.«deflate.c.universal-call-strategy-range»
 /-!
 # deflate.c: the strategy phase and the trailer of one call
 
-Owner 2 of the deflate split (`deflate_call`). From the state after the header phase
+From the state after the header phase
 (`BUSY_STATE` or `FINISH_STATE`, nothing pending), the strategy phase and the trailer keep
 `DInv ∧ HeaderInv ∧ CallFacts`, give the call segment (`Seg`: the strategy frame and the owned
 blocks), return `Z_OK` or `Z_STREAM_END`, and give the `Z_STREAM_END` facts of `Goal.deflate`.
 
 This module holds the segment algebra (`Seg`), the result form (`TailOut`) and the trailer
-alone; `tail_step` is in `deflate.c.universal-call-tailstep`, after batch B's
+alone; `tail_step` is in `deflate.c.universal-call-tailstep`, after
 `deflate.c.universal-strategy-gaps`.
 -/
 

@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-call-markers»
 /-!
 # deflate.c: evaluating the strategy phase of one call
 
-Owner 2 of the deflate split (`deflate_call`). The strategy phase tests whether a strategy runs,
+The strategy phase tests whether a strategy runs,
 runs the dispatch, and then (`strategyAfter`) stores `FINISH_STATE` on a finishing return,
 returns `Z_OK` on `need_more` and `finish_started` (with `last_flush := -1` on a full output),
 runs the flush markers on `block_done`, and continues to the trailer otherwise. Each outcome is

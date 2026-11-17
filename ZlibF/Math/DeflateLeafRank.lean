@@ -3,7 +3,7 @@ import ZlibF.Math.HuffmanRank
 
 /-!
 Pure leaf-rank mathematics adapted from the pinned zlib-formal reference
-`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`; see docs/history/references.md.
+`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`.
 The proof bodies are retained. Imports and namespace use this project's
 finite sums. These facts do not assume execution of any translated callee.
 -/

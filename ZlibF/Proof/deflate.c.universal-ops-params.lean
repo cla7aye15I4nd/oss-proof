@@ -1,7 +1,7 @@
 import ZlibF.Proof.«deflate.c.universal-ops-dictionary»
 
 /-!
-# deflate.c: `deflateParams` keeps the invariant (batch B, part of `operation_step`)
+# deflate.c: `deflateParams` keeps the invariant (a case of `operation_step_of`)
 
 `deflateParams` normalizes and checks the level and the strategy. If the strategy or the
 compression function changes after the first `deflate` call, it first runs `deflate(Z_BLOCK)`

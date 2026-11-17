@@ -21,7 +21,7 @@ def setI (h : Heap) (zs : Nat) (s : InflateState) : Heap := { h with istates := 
 
 /-- The window of an inflate state `st`: `NULL` with nothing in use, or a writable byte block of `2^wbits` bytes.
 `wsize` is 0 or `2^wbits`; `whave` bytes are valid; `wnext` is the next write position, which equals `whave` while the
-window is not full (`docs/proof/inflate.md`, invariant W). -/
+window is not full (`docs/en/proof/inflate.md`, invariant W). -/
 structure WinInv (h : Heap) (st : InflateState) : Prop where
   wbits : st.wbits.toNat ≤ 15
   block : st.window = .null ∨

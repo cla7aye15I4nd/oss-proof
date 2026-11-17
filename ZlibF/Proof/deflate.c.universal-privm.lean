@@ -2,7 +2,7 @@ import ZlibF.Proof.«deflate.c.universal-outframe»
 import ZlibF.Proof.«deflate.c.engine.slow-source»
 
 /-!
-# deflate.c: runs that change only the stream's own state and hash arrays (batch B)
+# deflate.c: runs that change only the stream's own state and hash arrays
 
 `PrivM r ds d0 m`: every returning run of `m` from a heap whose state record `ds` has the keys of
 `d0` is a private step (`PrivStep`: the stream root and the stream's own blocks change, the heap

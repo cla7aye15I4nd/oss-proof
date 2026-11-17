@@ -21,7 +21,8 @@ separate from the unread input (`ExtraApart`) and that, in `EXTRA`, the record's
 not below the remaining length. Both are listed in [deviations](https://www.dataisland.org/zlib-f/en/deviations.html).
 `Goal.inflate` states both as caller-domain clauses: `InflateHeaderProgress`, a conjunct of
 `ActiveHeader` (`ZlibF/Spec/Common/History.lean`), required at every `inflate` call.
-Confidence: high (both reproduced with sanitizers on the pinned source). Scope: a caller
+Confidence: high (both reproduced with sanitizers on zlib commit 757f0527, the parent of the verified
+commit 99623ef7). Scope: a caller
 `gz_header` whose extra buffer overlaps `next_in`, or whose `extra_len` the caller lowers while
 inflate is inside the extra field. The name and comment buffers may overlap the input: they are
 written byte by byte, which is defined and is covered by the theorem.

@@ -9,7 +9,7 @@ set_option autoImplicit false
 /-- A real successful default-entry initialization implies that all five
 actual allocations succeeded. This derives the producer premise from the
 observed C run rather than adding it to a successful data epoch. The
-registered fixed-parameter init proof is used; universal Init2 correctness
+fixed-parameter init proof is used; universal Init2 correctness
 is not a premise or a dependency. -/
 theorem default_init_success_allocations {h after : Heap} {r : ZStreamRef} {z : ZStream} {version : BPtr}
     (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)

@@ -5,7 +5,7 @@ import ZlibF.Proof.«public-inflate-init2»
 # inflate.c: every successful initialization establishes the general invariant
 
 The premises are exactly those of `StreamReachable.inflateInit`. The
-returned state comes from the registered `Goal.inflateInit2_` result, so
+returned state comes from the `Goal.inflateInit2_` result, so
 this covers raw, zlib, gzip and automatic detection, every window width, and
 windowBits 0. No object-size premise is used.
 -/

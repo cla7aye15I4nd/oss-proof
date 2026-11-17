@@ -4,8 +4,8 @@ import ZlibF.Spec.Functional.Api.Gz
 /-!
 # gz file state: the definitions only the functional gz contracts use
 
-Split from `ZlibF/Spec/Public/GzState.lean` without a change of statement or name
-(`docs/design/safety-functional-split.md`). The namespace stays `ZlibF.Spec.Public`.
+The split into safety and functional modules: `docs/en/design/safety-functional-split.md`. The
+namespace is `ZlibF.Spec.Public`.
 -/
 
 namespace ZlibF.Spec.Public
@@ -13,7 +13,7 @@ open C Zlib.GzFs ZlibF.Spec
 
 /-- The regular-file instance of the OS-call oracle from the next call on: every later choice regular, no
 failure, no moved descriptor, no errno after a success, and no read budget. The functional gz contracts are stated
-for this instance (`docs/trusted-base.md`); the safety goals quantify over every world. -/
+for this instance (`docs/en/trusted-base.md`); the safety goals quantify over every world. -/
 def RegularOs (fs : Fs) : Prop :=
   (∀ n, fs.nos ≤ n → fs.readChoice n = .regular ∧ fs.writeChoice n = .regular ∧
     fs.lseekChoice n = .regular ∧ fs.closeFail n = none ∧ fs.openFail n = none ∧

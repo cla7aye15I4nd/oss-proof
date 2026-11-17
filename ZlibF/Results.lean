@@ -178,7 +178,7 @@ def proved : List (Name × Name) := [
   (``ZlibF.Spec.Public.Goal.inflate_completes_default, ``ZlibF.Spec.Public.Proofs.RoundTrip.inflate_completes_default),
   (``ZlibF.Spec.Public.Goal.default_inflate_progress, ``Zlib.Inflate.Proofs.DefaultCompletes.progress),
   (``ZlibF.Spec.Public.Goal.default_inflate_completes, ``Zlib.Inflate.Proofs.DefaultCompletes.completes),
-  -- Other registered functional goals
+  -- Other functional goals
   (``Zlib.Crc32.Spec.ByteViews.Goal.crc32_all_byte_views, ``Zlib.Crc32.Proofs.crc32_all_byte_views),
   (``Zlib.Crc32.Spec.ByteViews.Goal.crc32_z_all_byte_views, ``Zlib.Crc32.Proofs.crc32_z_all_byte_views),
   (``Zlib.Inffast.Spec.BodyToken.Goal.actual_body_refines_token, ``Zlib.Inffast.Proofs.actual_body_refines_token),

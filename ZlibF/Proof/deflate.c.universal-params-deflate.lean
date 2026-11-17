@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-params-strategies»
 /-!
 # deflate.c: `deflate` keeps the parameters of every deflate state and stream
 
-Batch C of the deflate skeleton (`bound_before_output`). `deflate` writes `status` (always one of
+`deflate` writes `status` (always one of
 the states `deflateStateCheck` accepts), `last_flush`, the header progress fields and, after the
 trailer, `wrap := -wrap`. It keeps `level`, `w_bits`, `hash_bits`, `gzhead`, `strm` and `|wrap|`
 of every state record and `state`, `zalloc`, `zfree` of every stream record (`ParM true`).

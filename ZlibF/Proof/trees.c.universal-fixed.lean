@@ -5,7 +5,7 @@ import ZlibF.Proof.«deflate.c.engine.block-clear-preserve»
 /-!
 # trees.c: the fixed-code branch of a block flush, for every memLevel
 
-Batch C of the deflate skeleton. `compress_block` with the static trees, then `init_block`
+`compress_block` with the static trees, then `init_block`
 and, for the last block, `bi_windup`. The output room is derived from the recorded symbols
 alone: at most 31 bits per symbol (`fixedPayloadPrefix_length`), three tag bits and the
 seven-bit end code. With `n ≤ lit_bufsize - 1` symbols and `4 * lit_bufsize` pending bytes this

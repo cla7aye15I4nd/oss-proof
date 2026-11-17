@@ -4,8 +4,8 @@ import ZlibF.Proof.«deflate.c.quiet-strat-def»
 # deflate.c: a strategy run with no input lowers the work term (`StratQuiet`)
 
 `strat_quiet` proves `StratQuiet` for every strategy that `deflate` dispatches to, from the
-invariant, the strategy entry and an empty input. The strategy loops of batch B are run again with
-a stronger loop state: besides batch B's loop head, the work term of the potential has not risen
+invariant, the strategy entry and an empty input. The strategy loops are run again with
+a stronger loop state: besides the loop head of the strategy proofs, the work term of the potential has not risen
 since the call, and if it is unchanged, no output byte was written and nothing is pending
 (`QDown`). Every iteration that consumes lookahead lowers the work term; `fill_window` with no
 input keeps it. At level 0 (`deflate_stored`) the work term is the window data not yet in a

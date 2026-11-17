@@ -9,8 +9,8 @@ import ZlibF.Proof.«trees.c.universal-flush»
 /-!
 # deflate.c: the heap frame of the header, marker and trailer parts of a call
 
-Batch C (`deflate_header_trailer`, for `deflate_call`). `StageFrame` is what a part of these
-phases does to the heap, from its entry: batch B's `StratFrame` (the counts, the totals, the
+`StageFrame` is what a part of these
+phases does to the heap, from its entry: the strategy frame `StratFrame` (the counts, the totals, the
 written interval of the caller's output, the heap shape) and the narrow block frame
 `OutputStorage` (only the stream root, the state record, `pending_buf` and the output block
 change). Parts compose with `StageFrame.trans`; the facts `deflate_call` needs of the window,

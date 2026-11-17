@@ -8,16 +8,16 @@ stated for an *abstract* `HeapApi`: a type of heaps, the relation `Matches` betw
 object and a model state, and the translated functions seen as relations from the heap before to
 the outcomes. Nothing here is defined from the runtime: the integration step instantiates
 `HeapApi` with the object heap of `ZlibF/Runtime` and the translations of `ZlibF/Zlib`, and
-`Matches` with the relation generated from the schema (`docs/runtime-schema.md`). Until then no
+`Matches` with the relation generated from the schema (`docs/en/runtime-schema.md`). Until then no
 goal that mentions `HeapApi` is proved.
 
-What each field must mean is written in `docs/design/api-model.md` (the interface and concrete-boundary sections), not here: the types only fix the shape that the goals use.
+What each field must mean is written in `docs/en/design/api-model-details.md` ("What the abstract interface must mean"), not here: the types only fix the shape that the goals use.
 -/
 
 namespace ZlibF.Spec.Api
 
 /-- The result of running a translated function: it faulted (undefined behaviour reached, or a
-missing allocation handled badly: `docs/spec/safety.md`), or it returned the heap after and a value. -/
+missing allocation handled badly: `docs/en/spec/safety.md`), or it returned the heap after and a value. -/
 inductive Outcome (H α : Type) where
   | fault : Outcome H α
   | ret (h : H) (a : α) : Outcome H α

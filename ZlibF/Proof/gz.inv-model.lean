@@ -6,21 +6,19 @@ import ZlibF.Proof.«gzlib.c.base»
 /-!
 # gz file interface, safety: the representation invariant `GzInv` and the shape of a safe call
 
-The shared definitions of the gz safety proof (skeleton branch `skeleton/gz`, file `gz.skeleton-model.lean`),
-over the OS-call oracle of `ZlibF/Zlib/gzfs.lean`:
+The shared definitions of the gz safety proof, over the OS-call oracle of `ZlibF/Zlib/gzfs.lean`:
 
-1. `GzInv` (`GzCommon`, `GzReadInv`, `GzWriteInv`): the representation invariant of an open handle, with batch
-   C's W1–W10 folded into the write part. Other modules use its interface lemmas, not the definition.
+1. `GzInv` (`GzCommon`, `GzReadInv`, `GzWriteInv`): the representation invariant of an open handle, with the
+   write clauses W1–W10 folded into the write part. Other modules use its interface lemmas, not the definition.
 2. `GzCallSafe`: safety of one public call on a handle in `GzInv`, for every world.
 3. `ReadsFinite`: the M7 premise of the termination half of the reading calls: the descriptor is non-negative and
    has a read budget below `2^61` bytes in the OS-call oracle (`Fs.readBudget`).
 
-Corrections against the skeleton at `7d896179` (strengthenings):
+Clauses that the proofs need:
 - `GzCommon.next` also excludes the message block (`blkOf s.msg ≠ some b`), as `NextOk` does. Without it `x.next`
   may point into the message block, which `gz_error` frees, so `GzInv` would not survive `gz_error`.
-- With no codec set up (`GzReadInv.unalloc`, W2, W8) `strm.state` is NULL, instead of "the codec owns no block".
-  The weaker form let `strm.state` name a block that is not live, which a caller may then allocate, so
-  `GzInv.caller` was false.
+- With no codec set up (`GzReadInv.unalloc`, W2, W8) `strm.state` is NULL. "The codec owns no block" would let
+  `strm.state` name a block that is not live, which a caller may then allocate, so `GzInv.caller` would be false.
 - `GzCommon.recordFree`: the codec does not own the record block, so that a write of the record (`put_scalars`,
   `gz_error`) is a rebuffer of the codec.
 - `GzReadInv.posHave`: `x.pos + x.have ≤ GZ_OFF_MAX` on return (patch 0004). Without it the buffered path of

@@ -26,7 +26,7 @@ The values, from `zlib.h` and the C:
 | `gzclearerr` | nothing |
 
 `gzvprintf` is declared by `zlib.h` under "undocumented functions"; the project's scope includes
-it (`docs/progress.md`, Scope, result 3c), and its refusal is the one of `gzprintf`.
+it, and its refusal is the one of `gzprintf`.
 -/
 
 /-- **Refusal of a `NULL` handle** by every gz function of the public interface: the documented

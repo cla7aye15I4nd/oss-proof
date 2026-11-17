@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-call-lift»
 /-!
 # deflate.c: the header phase's entry facts from the caller's domain
 
-Batch C (`deflate_header_trailer`). `ActiveHeader` gives, at the call, the caller's gzip header
+`ActiveHeader` gives, at the call, the caller's gzip header
 record (`HeaderMemory`) and the separation of its regions from the output (`DeflateHeaderApart`).
 This file turns them into the facts of `HeaderEntry` at a later heap of the same call.
 -/
@@ -241,7 +241,7 @@ theorem resumed_header_entry {h0 h1 : Heap} {r : ZStreamRef} {ds pb produced : N
       fun n => by rw [gzindex]; exact aName (by rw [← status]; exact e) n, commentLater⟩,
     fun e => commentReady (by rw [← status]; exact e)⟩
 
-/-- The record shape of the header stages is one of batch 2's `HeaderFields` (with `wrap` kept). -/
+/-- The record shape of the header stages satisfies `HeaderFields` (with `wrap` kept). -/
 theorem HeaderShape.fields {d d' : DeflateState} (shape : HeaderShape d d') : HeaderFields d d' := by
   obtain ⟨_, _, _, _, _, _, _, _, rfl⟩ := shape
   rfl

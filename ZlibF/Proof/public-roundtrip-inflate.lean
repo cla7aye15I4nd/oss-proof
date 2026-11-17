@@ -5,8 +5,8 @@ import ZlibF.Proof.«inflate.c.window-public-call-history»
 /-! # The default decoder on a default stream
 
 * `default_no_dictionary_request`: a default deflate stream does not ask for a preset dictionary.
-* `Goal.inflate_completes_default`: from the inflate owner's `completes`.
-* `Goal.inflate_chain_ends`: from the inflate owner's `progress`; the rest of the stream plus the
+* `Goal.inflate_completes_default`: from `DefaultCompletes.completes`.
+* `Goal.inflate_chain_ends`: from `DefaultCompletes.progress`; the rest of the stream plus the
   rest of the decoding falls by at least one at every unfinished call.
 -/
 
@@ -44,7 +44,7 @@ theorem ended_decodes {r : ZStreamRef} {h : Heap} {log : DataLog}
     Zlib.Decodes [] log.output log.input :=
   (history_generic history).exact_decodes ended
 
-/-- `Goal.inflate_completes_default` from the inflate owner's `completes`, with the dictionary
+/-- `Goal.inflate_completes_default` from `DefaultCompletes.completes`, with the dictionary
 case excluded by `default_no_dictionary_request`. -/
 theorem inflate_completes_default : Goal.inflate_completes_default := by
   intro rd hd encoded ri hi decoded z flush encoder ended decoder unfinished prefixIn get buffers output
@@ -87,7 +87,7 @@ theorem inflate_step_unique {h a1 a2 : Heap} {r : ZStreamRef} {flush rc1 rc2 : I
   exact ⟨rfl, rfl, used1.trans used2.symm,
     Zlib.Inflate.Proofs.WindowHistory.bytes_unique bytes1 bytes2⟩
 
-/-- `Goal.inflate_chain_ends` from the inflate owner's `progress`: the rest of the stream plus the
+/-- `Goal.inflate_chain_ends` from `DefaultCompletes.progress`: the rest of the stream plus the
 rest of the decoding falls by at least one at every unfinished call. -/
 theorem inflate_chain_ends : Goal.inflate_chain_ends := by
   intro rd hd encoded ri hi decoded encoder ended decoder unfinished prefixIn

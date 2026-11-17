@@ -7,7 +7,7 @@ import ZlibF.Proof.«infback.c.inv»
 `Round` is what one round of `for (;;) switch (state->mode)` leaves: the invariant with a smaller
 measure, or the way out with one of the three results. `PInv.regs` and `PInv.putMsg` move the
 invariant over a change of the bit registers and over a store of `strm->msg`. `TYPE_p` is
-`case TYPE` (ported from `TYPE_last`, `TYPE_more` of `infback.c.inv`).
+`case TYPE`.
 -/
 
 namespace Zlib.Infback.Safety

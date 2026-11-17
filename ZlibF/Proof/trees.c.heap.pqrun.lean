@@ -4,8 +4,8 @@ import ZlibF.Proof.«trees.c.heap.ord»
 /-!
 # trees.c: `pqdownheap` keeps the heap order
 
-The loop invariant and the hole lemmas (`HoleInv`, `hole_step`, ...) are those of the earlier attempt
-(`Proofs/trees/PqDownHeapOrd.lean`), restated for the record `d` of the new heap model.
+The loop invariant and the hole lemmas of `trees.c.heap.ord` (`HoleInv`, `hole_step`, ...) are
+stated here for the record `d` of the heap model.
 -/
 
 namespace Zlib.Trees.Proofs

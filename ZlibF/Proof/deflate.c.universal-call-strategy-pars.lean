@@ -4,8 +4,8 @@ import ZlibF.Proof.«deflate.c.universal-params-deflate»
 /-!
 # deflate.c: what the strategy dispatch keeps of the state record
 
-Batch C (owner 2's M5 and M17). Every strategy keeps the parameter fields of every state record
-exactly (`ExactM`, batch C's parameter frame), among them `status`, `last_flush` and `wrap`: the
+Every strategy keeps the parameter fields of every state record
+exactly (`ExactM`, the parameter frame), among them `status`, `last_flush` and `wrap`: the
 strategies never write them. So after the dispatch the record has the status, `last_flush` and
 `wrap` it had before.
 -/
@@ -24,7 +24,7 @@ theorem exact_dispatch (s : DeflateStatePtr) (flush : Int32) (d : DeflateState) 
   · exact exact_deflate_fast _ _
   · exact exact_deflate_slow _ _
 
-/-- **The dispatch keeps `status`, `last_flush` and `wrap`** (M5, M17) of the stream's record, and
+/-- **The dispatch keeps `status`, `last_flush` and `wrap`** of the stream's record, and
 the other parameters: `level`, `gzhead`. -/
 theorem dispatch_keeps {h after : Heap} {ds : Nat} {d d0 d' : DeflateState} {flush : Int32} {b : block_state}
     (run : dispatch (some (.tab ds)) flush d h = .ok (b, after)) (get : h.dstates ds = some d0)

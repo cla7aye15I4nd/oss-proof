@@ -5,7 +5,7 @@
 # read in longest_match of an uninitialised prev slot's candidate. When valgrind is installed, a
 # second build without sanitizers runs `copy plain` (default allocator) under memcheck, which must
 # report the use of the uninitialised slot in longest_match. The history is outside the proved
-# domain: a direct deflateResetKeep is not a deflate stream operation (docs/deviations.md).
+# domain: a direct deflateResetKeep is not a deflate stream operation (docs/en/deviations.md).
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}

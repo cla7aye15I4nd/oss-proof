@@ -8,7 +8,7 @@ import ZlibF.Proof.«deflate.c.engine.generic-foreign-pending-scalars»
 /-!
 # deflate.c: the zlib header stage of one `deflate` call
 
-Batch C (`call_frame`, `deflate_header_trailer`). For every level, strategy, window size and
+For every level, strategy, window size and
 memory level, with or without a preset dictionary and with any held bits: the stage writes the
 two header bytes (and the dictionary identifier), resets the checksum, enters `BUSY_STATE` and
 flushes. With output room it delivers at least one byte.

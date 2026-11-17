@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-hcrc»
 /-!
 # deflate.c: the trailer of one `deflate` call
 
-Batch C (`deflate_header_trailer`). On `Z_FINISH` with a positive `wrap`, the gzip trailer (CRC and
+On `Z_FINISH` with a positive `wrap`, the gzip trailer (CRC and
 input length, eight bytes) or the zlib trailer (Adler-32, four bytes) goes into `pending_buf`, is
 flushed, and `wrap` is negated so that the trailer is written once.
 -/

@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-params-deflate»
 /-!
 # deflate.c: the phases of one `deflate` call
 
-Batch C (hand-over from batch D, `docs/progress.md`). The phase functions below are the source of
+The phase functions below are the source of
 `deflate` cut in source order, without any change; each phase takes the rest of the call as a
 continuation, so that `deflate_phases` holds by unfolding.
 
@@ -11,7 +11,7 @@ continuation, so that `deflate_phases` holds by unfolding.
    return, the `Z_BUF_ERROR` no-progress refusal and the `FINISH_STATE` refusal.
 2. `headerPhase`: the zlib and gzip header states up to the flush on entering `BUSY_STATE`, with
    their early returns.
-3. `strategyPhase`: the dispatch to the strategies (batch B's lemmas) and the flush
+3. `strategyPhase`: the dispatch to the strategies and the flush
    markers after it (`_tr_align`, the empty stored block, `CLEAR_HASH`, `flush_pending`).
 4. `trailerPhase`: the zlib or gzip trailer and the final `wrap` negation.
 -/

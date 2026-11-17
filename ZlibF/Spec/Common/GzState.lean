@@ -50,7 +50,7 @@ def GzArguments (h : Heap) (i : Nat) (s : GzState) : Call → Prop
   | .gzputs _ p => ∃ xs, CString h p xs ∧ GzRange h i s p (xs.length + 1) false
   | .gzprintf _ p args | .gzvprintf _ p args =>
       -- past gzvprintf's mode test, vsnprintf reads the format and is passed the pointer arguments; that the call
-      -- is defined in C for this format and these arguments is the caller's (docs/trusted-base.md, vsnprintf)
+      -- is defined in C for this format and these arguments is the caller's (docs/en/trusted-base.md, vsnprintf)
       ((s.mode = GZ_WRITE ∧ (s.err = Z_OK ∨ s.again ≠ 0)) →
         (∃ fmt, CString h p fmt) ∧ ∀ q, VaArg.str q ∈ args → ∀ b o, q = .ref (.blk b) o → ∃ a, h.bytes b = some a) ∧
       (∀ b, ByteRoot p b → ¬ GzOwned h i s b) ∧

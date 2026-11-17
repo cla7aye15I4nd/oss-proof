@@ -1,32 +1,31 @@
 /-
-Skeleton: completion of the default zlib decoder (step 2c of the round trip).
+Completion of the default zlib decoder, for the round trip.
 Goals: `Goal.default_inflate_progress`, `Goal.default_inflate_completes`
 (`ZlibF/Spec/Functional/InflateCompletion.lean`).
 
-Lemmas (name — meaning — state — estimate):
-* `layer_of_zlib` — a valid zlib stream is valid for the configuration `inflateInit` makes — checked
+Lemmas (name — meaning):
+* `layer_of_zlib` — a valid zlib stream is valid for the configuration `inflateInit` makes
 * `trace_direct` — a default history is a decoder history of `deflate_inflate_roundtrip`
-  (`DirectRoundtrip.InflateTrace`): `inflateInit_` is `inflateInit2_` with 15 — checked
+  (`DirectRoundtrip.InflateTrace`): `inflateInit_` is `inflateInit2_` with 15
 * `trace_protocol` — a default history is a zlib protocol history with window 15, without a
-  dictionary — checked
-* `trace_not_mem` — no decoder of a default history is in `MEM` (every allocation succeeded) — checked
+  dictionary
+* `trace_not_mem` — no decoder of a default history is in `MEM` (every allocation succeeded)
 * `trace_state` — the decoder on a heap of a default history: reachable, invariant, header
-  attached, not `SYNC`, not `MEM` — checked
+  attached, not `SYNC`, not `MEM`
 * `prefix_after` — after a call on a prefix of the rest of a valid stream the output is a prefix
-  of `D`, the result is not `Z_DATA_ERROR`, and `Z_STREAM_END` means exactly `S` and `D` — checked
-* `need_dict_zlib` — `Z_NEED_DICT` only from a header with `FDICT`, before any output — checked
+  of `D`, the result is not `Z_DATA_ERROR`, and `Z_STREAM_END` means exactly `S` and `D`
+* `need_dict_zlib` — `Z_NEED_DICT` only from a header with `FDICT`, before any output
 * `call_codes` — the call runs; its code is `Z_OK`, `Z_STREAM_END`, `Z_NEED_DICT` or
-  `Z_BUF_ERROR`, with the progress clauses of `Goal.inflate` — checked
+  `Z_BUF_ERROR`, with the progress clauses of `Goal.inflate`
 * `blocked_output_due` — a call that returns `Z_OK` or `Z_BUF_ERROR` with input left filled the
-  output and has not written all of `D` (`blocked_leave` and the stage) — checked
+  output and has not written all of `D` (`blocked_leave` and the stage)
 * `stop_short_zlib` — a call that returns `Z_OK` or `Z_BUF_ERROR` after reading all of a valid
   zlib stream filled the output while output is still due (`call_stop`: the leave cause of the
-  last trip, `TripLeaveCause`, refuted by `starved_not_end` or by the due output) — checked
-* `moves`, `stuck` — the two case splits of the assemblies — checked
-* `progress`, `completes` — the two goals — checked (from the lemmas above)
+  last trip, `TripLeaveCause`, refuted by `starved_not_end` or by the due output)
+* `moves`, `stuck` — the two case splits of the assemblies
+* `progress`, `completes` — the two goals (from the lemmas above)
 * `witness` — a concrete heap, history and stream on which the premises of both goals hold
-  (non-vacuity: zlib's own stream for "a" after the actual `inflateInit`) — checked
-Total open: none.
+  (non-vacuity: zlib's own stream for "a" after the actual `inflateInit`)
 -/
 import ZlibF.Spec.Functional.InflateCompletion
 import ZlibF.Proof.«inflate.c.meaning-zlib»

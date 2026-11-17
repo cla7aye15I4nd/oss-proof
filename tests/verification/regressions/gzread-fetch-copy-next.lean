@@ -5,7 +5,7 @@ open C Zlib.Gzguts Zlib.GzFs Zlib.Gzread Zlib.Gzread.LoadErrno
 /-! Upstream PR 1363 (`patches/0003-gzread-partial-copy-read-error.patch`): in `gz_fetch`, `case COPY`, the unpatched source set
 `x.next = out` only after a successful `gz_load`. When `gz_load` failed after a partial read,
 `x.have` counted the partial bytes while `x.next` kept its old value, and the readers copied from
-there (R-2 in `docs/proof/gzip.md`; an out-of-bounds read on the real C). This regression separates the two orders on the translation: after a refused read in `COPY` mode, `x.next` is `out`. It is false for the
+there (R-2 in `docs/en/proof/gzip.md`; an out-of-bounds read on the real C). This regression separates the two orders on the translation: after a refused read in `COPY` mode, `x.next` is `out`. It is false for the
 unpatched order, where `x.next` keeps whatever it held before. -/
 namespace GzreadFetchCopyNextRegression
 

@@ -173,7 +173,7 @@ set_option maxRecDepth 4096 in
 /-- `local void compress_block(deflate_state *s, const ct_data *ltree, const ct_data *dtree)`.
 The entire actual fixed-table call executes on all legal buffered literals and matches,
 including the empty case and END_BLOCK. All output room and original-byte
-preservation facts are derived. This internal milestone assumes initialized
+preservation facts are derived. This theorem assumes initialized
 tree/output storage, pending = 0 and at most ten entry bits. It does not
 establish initialization, block selection or the public deflate theorem. -/
 theorem compress_block_fixed_emit {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}

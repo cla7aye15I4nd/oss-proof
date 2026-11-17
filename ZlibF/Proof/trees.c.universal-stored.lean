@@ -5,7 +5,7 @@ import ZlibF.Proof.«deflate.c.engine.block-reset»
 /-!
 # trees.c: the stored branch of a block flush, for every memLevel
 
-Batch C of the deflate skeleton (`docs/progress.md`, Core proof skeletons). The stored branch
+The stored branch
 of `_tr_flush_block` writes the stored header, copies `stored_len` source bytes into
 `pending_buf`, resets the block (`init_block`) and, for the last block, aligns the output
 (`bi_windup`). Nothing here depends on `lit_bufsize`: the caller supplies the room, which the

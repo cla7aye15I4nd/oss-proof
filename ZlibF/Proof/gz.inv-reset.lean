@@ -4,7 +4,7 @@ import ZlibF.Proof.«gz.inv-clearerr»
 # gz safety: `gz_reset` keeps `GzInv`
 
 `GzInv.drop_input`: setting `strm.avail_in = 0` keeps the invariant (a rebuffer of the codec). With
-`GzInv.clear_message` and `GzInv.put_scalars` it gives `GzInv.gz_reset` (skeleton statement, unchanged).
+`GzInv.clear_message` and `GzInv.put_scalars` it gives `GzInv.gz_reset`.
 -/
 
 namespace ZlibF.Spec.Public

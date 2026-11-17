@@ -61,12 +61,12 @@ def OpenContract (program : BPtr → BPtr → G GzFilePtr) : Prop :=
 Parse the complete mode string, open/truncate/append as requested, transfer descriptor ownership,
 initialize the handle, and release every allocation on a null result.
 The LP64 platform scope bounds each byte object below `2^63` bytes, including the caller's path
-(`docs/deviations.md`). -/
+(`docs/en/deviations.md`). -/
 def Goal.gzopen : Prop := OpenContract Zlib.Gzlib.gzopen
 
 /-- `gzFile gzopen64(const char *path, const char *mode)`.
 The LP64 entry uses the same open flags and position range as `gzopen`, and the same platform
-scope for the caller's path (`docs/deviations.md`). -/
+scope for the caller's path (`docs/en/deviations.md`). -/
 def Goal.gzopen64 : Prop := OpenContract Zlib.Gzlib.gzopen64
 
 /-- `gzFile gzdopen(int fd, const char *mode)`.

@@ -9,7 +9,7 @@ room left before `GZ_OFF_MAX`, so the record is in the invariant up to the pendi
 the skip or the buffered output, which gives `GzInv` back. `gzdirect` has no reading loop, so its termination needs no
 read budget (`NeedsReadBound` is false for it).
 
-`gzdirect_step` has the skeleton statement and no premise.
+`gzdirect_step` has no premise.
 -/
 
 namespace ZlibF.Spec.Public.GzRead
@@ -54,13 +54,13 @@ theorem gzdirect_run (look : LookFacts) (i : Nat) (h : Heap) (fs : Fs) (s : GzSt
     ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl hfs1
   exact direct_tail (GetcUngetc.EffI.trans good_skip good_inv e1 u1.cur p2 (fun _ => Iff.rfl))
 
-/-- **`gzdirect_step`** (skeleton statement) from `LookFacts`. -/
+/-- **`gzdirect_step`** from `LookFacts`. -/
 theorem gzdirect_step_of' (look : LookFacts) (i : Nat) : GzCallSafe i (.gzdirect (some (.in_gzstate_x i))) := by
   intro h fs s inv hfs _
   have R := gzdirect_run look i h fs s inv hfs
   exact ⟨R.1, fun _ => R.2.1 trivial, fun v fs' after he => GetcUngetc.Eff.post rfl (R.2.2 v fs' after he)⟩
 
-/-- **`gzdirect_step`**, the skeleton statement. -/
+/-- **`gzdirect_step`**, with no premise. -/
 theorem gzdirect_step (i : Nat) : GzCallSafe i (.gzdirect (some (.in_gzstate_x i))) :=
   gzdirect_step_of' (lookFacts_of readInvFacts_holds.msgLit gzLookFailEmpty_holds) i
 

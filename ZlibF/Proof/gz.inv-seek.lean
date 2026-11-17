@@ -6,7 +6,7 @@ import ZlibF.Proof.«gzlib.c.seek»
 /-!
 # gz safety: `gzseek64` and `gzseek` keep `GzInv`
 
-`gzseek64_step` and `gzseek_step` (skeleton statements, unchanged), for every world of the OS-call oracle.
+`gzseek64_step` and `gzseek_step`, for every world of the OS-call oracle.
 
 The run of `gzseek64` comes from the seek proofs (`gzseek64_head_any`, `seekTail_copy`, `seekTail_back`,
 `seekTail_fwd`, `gzseek64_write_run`), which need of the handle only `SeekGood` (`GzInv.seekGood`). The paths:

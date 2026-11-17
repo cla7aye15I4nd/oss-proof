@@ -100,7 +100,7 @@ def DataStep (kind : StreamKind) (h after : Heap) (r : ZStreamRef)
       (some r) flush) h = .ok (rc, after)
 
 /-- Every heap on which a call runs and every heap a caller edit leaves satisfies the LP64
-object-size limit, as in `StreamReachable` (docs/deviations.md).
+object-size limit, as in `StreamReachable` (docs/en/deviations.md).
 A data epoch begins with the actual init. Rebinding buffers changes no private state.
 Dictionary calls are recorded with their actual result; no earlier specification is assumed.
 Reset starts another epoch; its safety and ownership are covered by StreamSequenceSafety. -/
@@ -146,7 +146,7 @@ inductive BackReachable : Heap → ZStreamRef → Nat → BPtr → Nat → Prop
 /-- The platform side of a callback protocol, for the safety goal: a call-back step that starts
 on a heap whose byte objects fit (`ZlibF.PlatformMemory.ByteObjectsFit`, fewer than `2^63` bytes
 each) leaves one whose byte objects fit, and a chunk that `in` hands out lies in a heap byte block
-(`docs/deviations.md`, "Callback decoder input chunks"). -/
+(`docs/en/deviations.md`, "Callback decoder input chunks"). -/
 def BackPlatform {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat} {input : Zlib.Infback.InCb}
     {inDesc : BPtr} {output : Zlib.Infback.OutCb} {outDesc : BPtr}
     (protocol : CallbackProtocol r i window n input inDesc output outDesc) : Prop :=
@@ -173,7 +173,7 @@ def BackInitArguments (h : Heap) (r : ZStreamRef) (version : BPtr) : Prop :=
 
 /-- Callback histories of the safety goal: those of `BackReachable` whose window is a slice of a
 heap byte block, and whose calls start on a heap whose byte objects fit, with a protocol that
-keeps them fitting and hands out chunks in heap byte blocks (`docs/deviations.md`, "Callback
+keeps them fitting and hands out chunks in heap byte blocks (`docs/en/deviations.md`, "Callback
 decoder window" and "Callback decoder input chunks"). A caller's edit between calls keeps the
 read-only flag of every block that stays live, as `ExternalFrame` does for the call-backs: C code
 cannot make memory read-only, and `Rebuffer` alone lets a window at a nonzero offset (a block the

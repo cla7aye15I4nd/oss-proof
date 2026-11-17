@@ -26,7 +26,8 @@ separate byte ranges, and the extra field, name and comment lie outside the stor
 owns. Both layouts above violate it. Listed in [deviations](https://www.dataisland.org/zlib-f/en/deviations.html). The Lean
 regression `tests/verification/regressions/deflate-gzip-name-output.lean` checks that the
 layout of `output.c` violates the clause.
-Confidence: high (both reproduced with sanitizers on the pinned source). Scope: a caller
+Confidence: high (both reproduced with sanitizers on zlib commit 757f0527, the parent of the verified
+commit 99623ef7). Scope: a caller
 `gz_header` whose name or comment overlaps `next_out .. next_out + avail_out` or `pending_buf`
 while `deflate` still has to read it.
 

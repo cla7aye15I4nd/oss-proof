@@ -4,11 +4,11 @@ import ZlibF.Proof.«inflate.c.init-invariant»
 /-!
 # inflate.c: initialization establishes the format meaning
 
-`meaning_init` (skeleton `inflate.c.format-trace`): after a successful
+`meaning_init`: after a successful
 `inflateInit2_`, for every accepted windowBits (raw, zlib, gzip, automatic
 detection, 0 and 8 to 15), the decoder stands at the start of the wrapper
 header with nothing read and nothing held. The state comes from the
-registered `Goal.inflateInit2_` result; the invariant from
+`Goal.inflateInit2_` result; the invariant from
 `inflateInit2_invariant_of`.
 -/
 

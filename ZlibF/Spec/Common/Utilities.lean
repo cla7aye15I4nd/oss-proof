@@ -15,8 +15,7 @@ def CompressArguments (h : Heap) (dest : BPtr) (capacity : Option UInt64)
   ∃ c, capacity = some c ∧ Bytes h source n.toNat xs ∧ Writable h dest c.toNat ∧
     Separate source n.toNat dest c.toNat
 
-/-- **Safety of a compressor entry** (the safety half of `CompressorContract`, for the
-safety-only scope of `docs/progress.md`): the call returns without a fault, writes only the
+/-- **Safety of a compressor entry** (the safety half of `CompressorContract`): the call returns without a fault, writes only the
 destination within its capacity (`Store`, with exactly the same objects otherwise), releases
 every temporary allocation, reports an allocation failure only after one happened, and refuses
 the rejected arguments without a write. The data relation `Api.Compress2Z` of
@@ -37,7 +36,7 @@ def CompressorSafety
         rc = Z_STREAM_ERROR ∧ stored = capacity ∧ out = [] ∧ after = h)
 
 /-- Scalar cells are separate from data buffers and from each other. This is the explicit
-scalar-alias representation limit recorded in `docs/deviations.md`. -/
+scalar-alias representation limit recorded in `docs/en/deviations.md`. -/
 def UtilitySeparation (dest : BPtr) (capacity : Nat) (source : BPtr) (n : Nat)
     (destLen sourceLen : BPtr) : Prop :=
   Separate dest capacity source n ∧ Separate destLen 8 dest capacity ∧

@@ -8,7 +8,6 @@ drop buffered output when `x.pos` is at `GZ_OFF_MAX`. Before its extension, `gz_
 not bounded: it exposed all of `strm.avail_in` (up to `size` bytes) as `x.have`, and the drop in `gz_read` runs only
 on the next trip of its loop. So a reading call could return with `x.pos + x.have > GZ_OFF_MAX`, and the buffered
 path of `gzgetc` (the function, and the zlib.h macro, which does the same `(file)->pos++`) overflowed `x.pos`.
-Finding: `docs/findings/gz-position-copy-overflow.md`.
 
 The start state is the shape that `tests/verification/regressions/gz-copy-direct.c` reaches in the real C: a reader
 after a gzip member with trailing non-gzip data and a `gzclearerr`. Then `how = LOOK`, `direct = 0`, `junk = 1`,

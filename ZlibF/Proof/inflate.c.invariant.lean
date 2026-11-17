@@ -13,8 +13,7 @@ field: object sizes are a per-call premise of `Goal.inflate`, and
 Other modules use only the interface lemmas in this file, never the fields.
 The inflate proof that uses it is complete: `inflate_sequence_safety_public`
 (`public-inflate-sequence-safety`) proves `Goal.inflate_sequence_safety`, and `inflate_safety`
-(`public-stream-call-safety`) proves `Goal.inflate_safety`. The former skeleton's lemma list is
-kept in `docs/history/skeleton-inflate.md`.
+(`public-stream-call-safety`) proves `Goal.inflate_safety`.
 -/
 
 namespace Zlib.Inflate.Proofs

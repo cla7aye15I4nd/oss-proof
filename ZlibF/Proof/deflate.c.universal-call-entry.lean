@@ -5,7 +5,7 @@ import ZlibF.Proof.«trees.c.universal-spec»
 /-!
 # deflate.c: the entry phase of an accepted call
 
-Batch C (hand-over from batch D). `entryPhase` of an accepted call (`¬ DeflateRefuses`, output
+`entryPhase` of an accepted call (`¬ DeflateRefuses`, output
 space) on a stream still in `INIT_STATE` or `GZIP_STATE`: nothing is refused, `last_flush` is
 set, and pending output, if any, is flushed first.
 -/

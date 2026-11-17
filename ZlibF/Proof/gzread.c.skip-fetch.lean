@@ -5,14 +5,14 @@ import ZlibF.Proof.«gz.read-read»
 /-!
 # gzread.c: `gz_skip` from the statement of `gz_fetch`
 
-`gz_skip_run_fetch` and `gz_skip_safe_fetch`: the skeleton's `gz_skip_safe`, proved from `GzFetchSafe`
+`gz_skip_run_fetch` and `gz_skip_safe_fetch`: `gz_skip` is safe, proved from `GzFetchSafe`
 (`gz.read-fetch-specs`), with the closed facts on `gz_error` (`gzErrorSpec_holds`, `gzErrorOwn_holds`) and
 `gz_skip_have` (`gz_skip_have_run'`).
 
-Premises beyond the skeleton statement:
+Premises:
 - `msg`, `err`, `copy` on the record: `GzFetchSafe` asks for them at entry. They are clauses of `GzReadInv`
   (`msgLit`, `errEnd`, `copyIn`); the loop carries them from `GzFetchSafe`'s post.
-- `skip : s.skip ≠ 0`, a **statement correction** of the skeleton's `gz_skip_safe`, which is false without it. With
+- `skip : s.skip ≠ 0`: the statement is false without it. With
   `skip = 0`, `x.pos = GZ_OFF_MAX`, `x.have = 0` and input left, the do-while still calls `gz_fetch`; its COPY or GZIP
   branch has room 0 and loads or decodes one byte (`room ? room : 1`), and the loop ends with `x.have = 1`: then
   `x.pos + x.have > GZ_OFF_MAX`, against `GzReadInv.posHave`, so the post `GzInv` fails. Every caller (`gz_read`,
@@ -401,8 +401,8 @@ def SkipInvF (h : Heap) (i : Nat) (s : GzState) (fs : Fs) (fsc : Fs) (hc : Heap)
     (HasBudget fs s.fd → HasBudget fsc s.fd) ∧ (∀ sc, hc.gzstates i = some sc → SkipEnt sc)
 
 /-- **`gz_skip`, the three halves, from `GzFetchSafe`**, with no skip left on success, the size of the buffers kept,
-`ReadsFinite` and `HasBudget` kept, and the entry facts of `gz_fetch` kept on the final record (for `gz_read`). Premises beyond the skeleton statement: `fetch`; `msg`, `err`, `copy` (the entry facts of `gz_fetch`, which are
-clauses of `GzReadInv`); and `skip : s.skip ≠ 0`, a statement correction: without it the skeleton statement
+`ReadsFinite` and `HasBudget` kept, and the entry facts of `gz_fetch` kept on the final record (for `gz_read`). Premises: `fetch`; `msg`, `err`, `copy` (the entry facts of `gz_fetch`, which are
+clauses of `GzReadInv`); and `skip : s.skip ≠ 0`: without it the statement
 is false (with `skip = 0`, `x.pos = GZ_OFF_MAX`, nothing buffered and input left, the do-while fetches one byte and
 ends with `x.pos + x.have > GZ_OFF_MAX`, against `GzReadInv.posHave`). Every caller (`gz_read`, `gzgetc_`, `gzgets`)
 tests `skip != 0` before calling `gz_skip`. -/
@@ -588,8 +588,8 @@ theorem gz_skip_run_fetch (fetch : GzFetchSafe)
     exact RunSafe.pure' ⟨hr, si.1.1, skip_post_inv hr si.1 hend', fun h0 sc hsc => (hend' sc hsc).2 h0,
       fun sc hsc hs0 => si.2.2.1 hs0 sc hsc, si.2.1, si.2.2.2.1, fun sc hsc => si.2.2.2.2 sc hsc⟩
 
-/-- **`gz_skip_safe`** (skeleton statement, branch `skeleton/gz`) from `GzFetchSafe`, with the entry facts of
-`gz_fetch` (`msg`, `err`, `copy`, clauses of `GzReadInv`) and the statement correction `skip : s.skip ≠ 0` (see
+/-- **`gz_skip` is safe**, from `GzFetchSafe`, with the entry facts of
+`gz_fetch` (`msg`, `err`, `copy`, clauses of `GzReadInv`) and the premise `skip : s.skip ≠ 0` (see
 `gz_skip_run_fetch`). -/
 theorem gz_skip_safe_fetch (fetch : GzFetchSafe)
     (i : Nat) (h : Heap) (fs : Fs) (s : GzState) (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_READ)

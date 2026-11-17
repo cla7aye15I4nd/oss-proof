@@ -4,7 +4,7 @@ import ZlibF.Proof.«gzfs.error-message-store»
 import ZlibF.Proof.«gzlib.c.error-message-refusal»
 
 /-!
-# gz safety: `gz_error` keeps `GzInv` (the skeleton's interface lemma `GzInv.gz_error`)
+# gz safety: `gz_error` keeps `GzInv` (the interface lemma `GzInv.gz_error`)
 
 `gz_error(state, err, msg)` frees the old message (unless the code was `Z_MEM_ERROR`), clears the pointer and
 stores `err`. With a message and a code other than `Z_MEM_ERROR` it then allocates
@@ -28,7 +28,7 @@ The proof follows the source:
 Each string lies in one byte object below `2^63` bytes (`ByteObjectsFit`, carried by `GzInv`), so the `size_t`
 sum `strlen(path) + strlen(msg) + 3` does not wrap.
 
-The results: `GzInv.gz_error` (the skeleton statement) and `GzInv.gz_error_own` (no grab: a block the handle owns
+The results: `GzInv.gz_error` and `GzInv.gz_error_own` (no grab: a block the handle owns
 after the call that was live before was owned before).
 -/
 
@@ -630,7 +630,7 @@ theorem freeStr_get {h : Heap} {p : BPtr} {r : BRef} (hr : ∀ b, r = .blk b →
 theorem freeStr_nextBlk (h : Heap) (p : BPtr) : (freeStr h p).nextBlk = h.nextBlk := by
   unfold freeStr; split <;> rfl
 
-/-- The post-condition of `gz_error` on a handle in `GzInv`: the skeleton's clauses, the record of the result,
+/-- The post-condition of `gz_error` on a handle in `GzInv`: the clauses of `GzInv.gz_error`, the record of the result,
 and no grab. -/
 def ErrPost (h : Heap) (i : Nat) (s : GzState) (err : Int32) (after : Heap) (s' : GzState) : Prop :=
   GzInv after i s' ∧ s' = { s with err := s'.err, msg := s'.msg } ∧
@@ -865,7 +865,7 @@ theorem post_copied {h h1 : Heap} {i : Nat} {s s1 : GzState} {err : Int32} {msg 
     exact (ownB b).2 (Or.inl ((ownA b).2 ((c.own1 b).2 ⟨ho, hm⟩)))
 
 open GzErrorRun in
-/-- **`gz_error` keeps `GzInv`**, with the skeleton's post-condition, the record of the result and no grab. -/
+/-- **`gz_error` keeps `GzInv`**, with the post-condition of `GzInv.gz_error`, the record of the result and no grab. -/
 theorem GzInv.gz_error_full {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (err : Int32) (msg : BPtr)
     (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b)
     (he : err ≠ Z_STREAM_END) :

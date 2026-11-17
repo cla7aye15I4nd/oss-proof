@@ -18,4 +18,4 @@ unchanged and change only `dest->state`, to `NULL`.
 
 Result on 2026-11-13: 192 calls, no violation and no sanitizer report. This is evidence, not
 proof. A never-initialised record whose state field holds a garbage pointer is not tested: the
-check reads through that pointer, which is undefined behaviour (`docs/deviations.md`).
+check reads through that pointer, which is undefined behaviour (`docs/en/deviations.md`).

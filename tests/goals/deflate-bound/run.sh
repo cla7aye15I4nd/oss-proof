@@ -4,7 +4,7 @@
 # zlib.h, the compressBound promise of compress and compress2) on the patched real C: random
 # parameter grids, an exhaustive length sweep, compress at every level, the far-match search and the
 # gzip extra-length cases. Once plainly, once under ASan and UBSan. Exit 0: no failure except the two expected
-# extra-length cases (docs/findings/deflatebound-extra-len/README.md), which `extra` must still report.
+# extra-length cases (a finding, docs/en/findings.md), which `extra` must still report.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}
@@ -21,7 +21,7 @@ cc -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -I"$work/zs" "$
 "$work/bound" grid "$seed" "$n" | grep -v '^MIN\|^INFO'
 for slice in $(seq 0 23); do "$work/bound" sweep "$slice" 300 | grep '^FAIL \|^FAILURES [1-9]' && exit 1; done
 "$work/bound" compress "$seed" $((n * 500)) | grep -v '^MIN\|^INFO'
-# The far-match search (docs/findings/deflatebound-fixed-far-matches): no failure with patch 0006.
+# The far-match search (the `Z_FIXED` finding of docs/en/findings.md): no failure with patch 0006.
 for wb in 9 10 11 12 13 14 15; do "$work/bound" far "$wb" 120000 | grep '^FAIL \|^FAILURES [1-9]' && exit 1; done
 "$work/bound-san" far 15 120000 | grep '^FAIL \|^FAILURES [1-9]' && exit 1
 "$work/bound-san" grid "$((seed + 1))" 1 | grep -v '^MIN\|^INFO'

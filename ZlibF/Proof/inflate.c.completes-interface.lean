@@ -13,7 +13,7 @@ import ZlibF.Spec.Functional.Streams
 `Goal.inflate`, the safety part of `Goal.inflate_sequence` and its two format
 clauses, they need seven facts about the actual decoder that those goals do not
 state. Each is a statement about the translated `inflate` over the actual
-protocol histories of `Spec/Public/Sequences.lean`; none is a model step.
+protocol histories (`StreamReachable`, `ZlibF/Spec/Common/History.lean`); none is a model step.
 
 * `TraceEvidence`: after every admitted history the delivered output is
   justified and determined by the consumed input, also when the input is not
@@ -34,10 +34,9 @@ protocol histories of `Spec/Public/Sequences.lean`; none is a model step.
   was live and not its own before.
 
 These are proof obligations of the decoder's format meaning (`ParseMeaning`,
-`inflate.c.meaning`), not assumptions of a public goal. `MeaningStep`, the
-open `meaning_step` of the inflate skeleton, is the step of that meaning over
-one call. Theorems on `dev` take the open ones as explicit hypotheses until
-they are proved.
+`inflate.c.meaning`), not assumptions of a public goal. `MeaningStep` is the
+step of that meaning over one call. A theorem that uses one of these facts
+without proving it takes it as an explicit hypothesis.
 -/
 
 namespace Zlib.Inflate.Proofs
@@ -152,7 +151,7 @@ def CallKeepsControl : Prop :=
     (∀ b, InflateOwned i s b → InflateOwned i s' b) ∧
     ∀ b, InflateOwned i s' b → InflateOwned i s b ∨ ¬ h.live b
 
-/-- `meaning_step` of the inflate skeleton: one `inflate` call of a protocol
+/-- The step of the format meaning: one `inflate` call of a protocol
 history keeps the format meaning, with the dictionary request token. The call
 runs on a heap within the object-size limit, as the history records. -/
 def MeaningStep : Prop :=
@@ -167,8 +166,7 @@ def MeaningStep : Prop :=
       (rc == Z_NEED_DICT)
 
 /-- The output delivered so far is the output of a stage that the format grammar
-reaches on a prefix of the consumed input bits (heap-free; `TraceEvidence` follows
-from it, `inflate.c.completes-evidence`). -/
+reaches on a prefix of the consumed input bits (heap-free). -/
 def EvidenceInv (wb : Int32) (log : DataLog) : Prop :=
   log.singleDictionary = true →
     ∃ wrap bits consumed stage, Api.inflWbits wb.toInt = some (wrap, bits) ∧
@@ -179,7 +177,7 @@ def EvidenceInv (wb : Int32) (log : DataLog) : Prop :=
 `EvidenceInv`: the output it delivered before the error is the output of a stage
 reached on the bits it consumed. For every other call `EvidenceInv` follows from
 `ParseMeaning` after the call. This is part of the functional correctness of one
-call (the side of `meaning_step`), open. -/
+call, beside `MeaningStep`. -/
 def StepEvidence : Prop :=
   ∀ (wb : Int32) (r : ZStreamRef) (h after : Heap) (log : DataLog) (pending : Bool)
     (flush rc : Int32) (input output : List UInt8) (used i : Nat) (z : ZStream) (s : InflateState),
@@ -210,7 +208,7 @@ def BlockedLeave : Prop :=
       (s.mode = LIT ∨ s.mode = MATCH ∨ (s.mode = COPY ∧ s.length ≠ 0))
 
 /-- The held bits of a stage never pass the end of a valid stream that its bits are
-comparable with (heap-free over the stage clause of `ParseMeaning`; batch 1). -/
+comparable with (heap-free over the stage clause of `ParseMeaning`). -/
 def HeldWithin : Prop :=
   ∀ (wrap : Api.Wrap) (configured : Nat) (dict : List UInt8) (h : Heap) (s : InflateState)
     (consumed held : List Bool) (stage : WrapStage) (S decoded : List UInt8),
@@ -222,7 +220,7 @@ def HeldWithin : Prop :=
     consumed ++ held <+: bytesToBits S
 
 /-- A call that leaves `BAD` or `MEM` did not pass the end of a valid stream that the
-input before it began (per call; batch 1). -/
+input before it began (per call). -/
 def FailWithin : Prop :=
   ∀ (wb : Int32) (r : ZStreamRef) (h after : Heap) (log : DataLog) (pending : Bool)
     (flush rc : Int32) (input output : List UInt8) (used i : Nat) (z : ZStream) (s : InflateState)
@@ -237,7 +235,7 @@ def FailWithin : Prop :=
 
 /-- A call that returns `Z_OK` or `Z_BUF_ERROR` has not consumed a whole valid stream
 when the stream has a trailer, or when the output has room for the rest and the flush
-is not `Z_BLOCK`/`Z_TREES` (per call; batch 1). -/
+is not `Z_BLOCK`/`Z_TREES` (per call). -/
 def StopShort : Prop :=
   ∀ (wb : Int32) (r : ZStreamRef) (h after : Heap) (log : DataLog) (pending : Bool)
     (flush rc : Int32) (input output : List UInt8) (used : Nat)
@@ -250,8 +248,8 @@ def StopShort : Prop :=
       flush ≠ Z_BLOCK ∧ flush ≠ Z_TREES)) →
     (rc = Z_OK ∨ rc = Z_BUF_ERROR) → log.input ++ input.take used ≠ S
 
-/-- The format clauses of `Goal.inflate_sequence` (`inflate_sequence_format` on the
-skeleton branch). -/
+/-- The format clauses of `Goal.inflate_sequence` (`sequence_format` proves them
+from `MeaningStep`). -/
 def SequenceFormat : Prop :=
   ∀ (wb : Int32) wrap bits r h log, Api.inflWbits wb.toInt = some (wrap, bits) →
     AllowedInflateProtocol wb r h log →
@@ -262,19 +260,16 @@ def SequenceFormat : Prop :=
       log.output <+: decoded ∧ log.result ≠ Z_DATA_ERROR ∧
       (log.result = Z_STREAM_END → log.input = source ∧ log.output = decoded))
 
-/-- Everything the compositions of batch 3 take from the decoder proofs: the
-per-call goal, sequence safety, the step of the format meaning, its evidence
-part for a call that fails, the return codes of a leave of the decoder loop,
-and the three facts `ConsumesWithinStream` is proved from
-(`consumes_within_stream`, `inflate.c.completes-within`). Each field is a statement about the translated code that
-another lemma proves.
+/-- Everything the compositions take from the decoder proofs: the per-call goal,
+sequence safety, the step of the format meaning, its evidence part for a call that
+fails, the return codes of a leave of the decoder loop, and the facts `FailWithin`
+and `StopShort` about where a call stops. Each field is a statement about the
+translated code.
 `MemErrorAllocates`, `InflateKeepsObjectSize` and `CallKeepsControl` are theorems
 (`inflate.c.completes-percall`), and so are `SequenceFormat` (`sequence_format`,
-from `MeaningStep`), `NeedDictionaryCall` (`need_dictionary_call`, from
-`Goal.inflate` and `MeaningStep`), `TraceEvidence` (`trace_evidence`, from
-`MeaningStep` and `StepEvidence`) and `StopsWhenBlocked` (`stops_when_blocked`,
-from `MeaningStep`, `ConsumesWithinStream` and `BlockedLeave`, which `blocked_leave`
-proves from `LeaveRetCodes` and `gzip_field_leaves`). -/
+from `MeaningStep`) and `StopsWhenBlocked` (`stops_when_blocked`, from `MeaningStep`,
+`ConsumesWithinStream` and `BlockedLeave`, which `blocked_leave` proves from
+`LeaveRetCodes` and `gzip_field_leaves`). -/
 structure DecoderFacts : Prop where
   call : ZlibF.Spec.Public.Goal.inflate
   safety : StreamSequenceSafety .inflate

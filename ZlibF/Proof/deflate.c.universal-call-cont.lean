@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-tailstep»
 /-!
 # deflate.c: the rest of one call after the entry phase
 
-Owner 2 of the deflate split (`deflate_call`). After the entry phase of an accepted call with
+After the entry phase of an accepted call with
 output space, nothing pending and progress possible, the state is `{ d with last_flush := flush }`.
 From there the header phase (skipped in `BUSY_STATE` and `FINISH_STATE`), the strategy phase and
 the trailer run; this module gives their result from the state before the call (`TailOut`).
