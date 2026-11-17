@@ -112,11 +112,11 @@ theorem entry_none_LIT8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LIT9 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -131,11 +131,11 @@ theorem entry_none_LIT9 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_EOB (x f d r : Nat) (hx : x ≤ 15)
     (used : f = 1 ∧ 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130) (dummy : d = 0)
@@ -147,7 +147,7 @@ theorem entry_none_EOB (x f d r : Nat) (hx : x ≤ 15)
   simp only [isUsed]
   obtain ⟨one, pos, fit⟩ := used
   subst one dummy
-  rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+  rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN0S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -162,11 +162,11 @@ theorem entry_none_LEN0S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN1S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -181,11 +181,11 @@ theorem entry_none_LEN1S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN2S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -200,11 +200,11 @@ theorem entry_none_LEN2S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN3S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -219,11 +219,11 @@ theorem entry_none_LEN3S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN4S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -238,11 +238,11 @@ theorem entry_none_LEN4S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN4S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -257,11 +257,11 @@ theorem entry_none_LEN4S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN5S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -276,11 +276,11 @@ theorem entry_none_LEN5S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_LEN0S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -295,11 +295,11 @@ theorem entry_none_LEN0S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST0 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -314,11 +314,11 @@ theorem entry_none_DIST0 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST1 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -333,11 +333,11 @@ theorem entry_none_DIST1 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST2 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -352,11 +352,11 @@ theorem entry_none_DIST2 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST3 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -371,11 +371,11 @@ theorem entry_none_DIST3 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST4 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -390,11 +390,11 @@ theorem entry_none_DIST4 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST5 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -409,11 +409,11 @@ theorem entry_none_DIST5 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST6 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -428,11 +428,11 @@ theorem entry_none_DIST6 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -447,11 +447,11 @@ theorem entry_none_DIST7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -466,11 +466,11 @@ theorem entry_none_DIST8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST9 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -485,11 +485,11 @@ theorem entry_none_DIST9 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST10 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -504,11 +504,11 @@ theorem entry_none_DIST10 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST11 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -523,11 +523,11 @@ theorem entry_none_DIST11 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST12 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -542,11 +542,11 @@ theorem entry_none_DIST12 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_none_DIST13 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -561,11 +561,11 @@ theorem entry_none_DIST13 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 /-! ## Case `dist` -/
 
@@ -582,11 +582,11 @@ theorem entry_dist_LIT8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LIT9 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -601,11 +601,11 @@ theorem entry_dist_LIT9 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_EOB (x f d r : Nat) (hx : x ≤ 15)
     (used : f = 1 ∧ 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130) (dummy : d = 0)
@@ -617,7 +617,7 @@ theorem entry_dist_EOB (x f d r : Nat) (hx : x ≤ 15)
   simp only [isUsed]
   obtain ⟨one, pos, fit⟩ := used
   subst one dummy
-  rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+  rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN0S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -632,11 +632,11 @@ theorem entry_dist_LEN0S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN1S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -651,11 +651,11 @@ theorem entry_dist_LEN1S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN2S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -670,11 +670,11 @@ theorem entry_dist_LEN2S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN3S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -689,11 +689,11 @@ theorem entry_dist_LEN3S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN4S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -708,11 +708,11 @@ theorem entry_dist_LEN4S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN4S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -727,11 +727,11 @@ theorem entry_dist_LEN4S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN5S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -746,11 +746,11 @@ theorem entry_dist_LEN5S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_LEN0S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -765,11 +765,11 @@ theorem entry_dist_LEN0S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST0 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -784,12 +784,12 @@ theorem entry_dist_DIST0 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0
-      rcases zero rfl with h | h <;> subst h <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] <;> omega
+      rcases zero rfl with h | h <;> subst h <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] <;> omega
     · have hd := dummy x0 rfl
       subst hd
-      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at x0 hx ⊢ <;> omega
+      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] at x0 hx ⊢ <;> omega
   · obtain ⟨pos, fit⟩ := used hf
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST1 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -804,11 +804,11 @@ theorem entry_dist_DIST1 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST2 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -823,11 +823,11 @@ theorem entry_dist_DIST2 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST3 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -842,11 +842,11 @@ theorem entry_dist_DIST3 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST4 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -861,11 +861,11 @@ theorem entry_dist_DIST4 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST5 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -880,11 +880,11 @@ theorem entry_dist_DIST5 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST6 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -899,11 +899,11 @@ theorem entry_dist_DIST6 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -918,11 +918,11 @@ theorem entry_dist_DIST7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -937,11 +937,11 @@ theorem entry_dist_DIST8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST9 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -956,11 +956,11 @@ theorem entry_dist_DIST9 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST10 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -975,11 +975,11 @@ theorem entry_dist_DIST10 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST11 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -994,11 +994,11 @@ theorem entry_dist_DIST11 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST12 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1013,11 +1013,11 @@ theorem entry_dist_DIST12 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_dist_DIST13 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1032,11 +1032,11 @@ theorem entry_dist_DIST13 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 /-! ## Case `lit` -/
 
@@ -1053,12 +1053,12 @@ theorem entry_lit_LIT8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0
-      rcases zero rfl with h | h <;> subst h <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] <;> omega
+      rcases zero rfl with h | h <;> subst h <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] <;> omega
     · have hd := dummy x0 rfl
       subst hd
-      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at x0 hx ⊢ <;> omega
+      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] at x0 hx ⊢ <;> omega
   · obtain ⟨pos, fit⟩ := used hf
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LIT9 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1073,11 +1073,11 @@ theorem entry_lit_LIT9 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_EOB (x f d r : Nat) (hx : x ≤ 15)
     (used : f = 1 ∧ 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130) (dummy : d = 0)
@@ -1089,7 +1089,7 @@ theorem entry_lit_EOB (x f d r : Nat) (hx : x ≤ 15)
   simp only [isUsed]
   obtain ⟨one, pos, fit⟩ := used
   subst one dummy
-  rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+  rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN0S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1104,11 +1104,11 @@ theorem entry_lit_LEN0S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN1S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1123,11 +1123,11 @@ theorem entry_lit_LEN1S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN2S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1142,11 +1142,11 @@ theorem entry_lit_LEN2S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN3S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1161,11 +1161,11 @@ theorem entry_lit_LEN3S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN4S7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1180,11 +1180,11 @@ theorem entry_lit_LEN4S7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN4S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1199,11 +1199,11 @@ theorem entry_lit_LEN4S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN5S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1218,11 +1218,11 @@ theorem entry_lit_LEN5S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_LEN0S8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1237,11 +1237,11 @@ theorem entry_lit_LEN0S8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST0 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1256,12 +1256,12 @@ theorem entry_lit_DIST0 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0
-      rcases zero rfl with h | h <;> subst h <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] <;> omega
+      rcases zero rfl with h | h <;> subst h <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] <;> omega
     · have hd := dummy x0 rfl
       subst hd
-      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at x0 hx ⊢ <;> omega
+      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] at x0 hx ⊢ <;> omega
   · obtain ⟨pos, fit⟩ := used hf
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST1 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1276,11 +1276,11 @@ theorem entry_lit_DIST1 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST2 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1295,11 +1295,11 @@ theorem entry_lit_DIST2 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST3 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1314,11 +1314,11 @@ theorem entry_lit_DIST3 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST4 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1333,11 +1333,11 @@ theorem entry_lit_DIST4 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST5 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1352,11 +1352,11 @@ theorem entry_lit_DIST5 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST6 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1371,11 +1371,11 @@ theorem entry_lit_DIST6 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST7 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1390,11 +1390,11 @@ theorem entry_lit_DIST7 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST8 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1409,11 +1409,11 @@ theorem entry_lit_DIST8 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST9 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1428,11 +1428,11 @@ theorem entry_lit_DIST9 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST10 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1447,11 +1447,11 @@ theorem entry_lit_DIST10 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST11 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1466,11 +1466,11 @@ theorem entry_lit_DIST11 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST12 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1485,11 +1485,11 @@ theorem entry_lit_DIST12 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 theorem entry_lit_DIST13 (x f d r : Nat) (hx : x ≤ 15)
     (used : f ≠ 0 → 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ 130)
@@ -1504,11 +1504,11 @@ theorem entry_lit_DIST13 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
-    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [literalRegionCharge, otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
+    rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [otherRegionCharge, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
 /-- The share of literal/length entry `v` in case `none` (scaled). -/
 def literalAllow_none (v : Nat) : Nat :=
@@ -1542,11 +1542,11 @@ theorem literal_entry_none (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : 
   · subst c
     have ex : literalExcess 256 (ll 256) = 0 := by simp [literalExcess]
     simp (config := { decide := true }) only [literalCharge, staticLen, literalAllow_none, literalRate_none, ex,
-      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul, Nat.mul_one]
+      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul]
     have u := used (by omega)
     rw [eob] at u
     have q := entry_none_EOB (ll 256) 1 0 _ hx ⟨rfl, u⟩ rfl rfl
-    simp only [Nat.one_mul, Nat.mul_one, Nat.add_zero] at q ⊢
+    simp only [Nat.one_mul, Nat.add_zero] at q ⊢
     omega
   have nodummy : ll v ≠ 0 → fl v ≠ 0 := fun x0 f0 => by have := dummy x0 f0; omega
   have ex : literalExcess v (ll v) = ll v + lengthExtra (v - 257) - 9 := by
@@ -1558,7 +1558,7 @@ theorem literal_entry_none (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : 
   · have range : v = 257 ∨ v = 258 ∨ v = 259 ∨ v = 260 ∨ v = 261 ∨ v = 262 ∨ v = 263 ∨ v = 264 := by omega
     have q := entry_none_LEN0S7 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
     rcases range with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-      simp (config := { decide := true }) only [lengthExtra, ite_true, ite_false, Nat.reduceSub] at q ⊢ <;> omega
+      simp (config := { decide := true }) only [lengthExtra, ite_true, Nat.reduceSub] at q ⊢ <;> omega
   by_cases r265 : v ≤ 268
   · have range : v = 265 ∨ v = 266 ∨ v = 267 ∨ v = 268 := by omega
     have q := entry_none_LEN1S7 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
@@ -1593,7 +1593,7 @@ theorem literal_entry_none (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : 
   · have range : v = 285 := by omega
     have q := entry_none_LEN0S8 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
     rcases range with rfl <;>
-      simp (config := { decide := true }) only [lengthExtra, ite_true, ite_false, Nat.reduceSub] at q ⊢ <;> omega
+      simp (config := { decide := true }) only [lengthExtra, ite_false, Nat.reduceSub] at q ⊢ <;> omega
   omega
 
 set_option maxRecDepth 100000 in
@@ -1609,7 +1609,7 @@ theorem distance_entry_none (dl fd : Nat → Nat) (v : Nat) (hv : v < 30) (hx : 
   · have range : v = 0 ∨ v = 1 ∨ v = 2 ∨ v = 3 := by omega
     have q := entry_none_DIST0 (dl v) (fd v) 0 _ hx used (fun x0 f0 => absurd (dummy x0 f0) id) rfl rfl
     rcases range with rfl | rfl | rfl | rfl <;>
-      simp (config := { decide := true }) only [distanceExtra, distanceAllow_none, ite_true, ite_false,
+      simp (config := { decide := true }) only [distanceExtra, distanceAllow_none, ite_true,
         Nat.add_zero] at q ⊢ <;> omega
   by_cases r4 : v ≤ 5
   · have range : v = 4 ∨ v = 5 := by omega
@@ -1687,7 +1687,7 @@ theorem distance_entry_none (dl fd : Nat → Nat) (v : Nat) (hv : v < 30) (hx : 
   · have range : v = 28 ∨ v = 29 := by omega
     have q := entry_none_DIST13 (dl v) (fd v) 0 _ hx used (fun x0 f0 => absurd (dummy x0 f0) id) rfl rfl
     rcases range with rfl | rfl <;>
-      simp (config := { decide := true }) only [distanceExtra, distanceAllow_none, ite_true, ite_false,
+      simp (config := { decide := true }) only [distanceExtra, distanceAllow_none, ite_false,
         Nat.add_zero] at q ⊢ <;> omega
   omega
 
@@ -1696,19 +1696,19 @@ theorem literal_share_sum_none : mass literalAllow_none 286 = 4073589760 := by
     show 142 = 112 + 30 from rfl, mass_split]
   have c1 : mass (fun k => literalAllow_none (3 + k)) 141 = 141 * literalAllow_none 3 := by
     rw [← mass_const]; apply mass_congr; intro k lt
-    simp only [literalAllow_none, show 3 + k < 144 by omega, show ¬ (3 + k ≤ 2) by omega, ite_true, ite_false,
-      show (3 : Nat) < 144 by omega, show ¬ ((3 : Nat) ≤ 2) by omega]
+    simp only [literalAllow_none, show 3 + k < 144 by omega, ite_true,
+      show (3 : Nat) < 144 by omega]
   have c2 : mass (fun k => literalAllow_none (3 + (141 + k))) 112 = 112 * literalAllow_none 144 := by
     rw [← mass_const]; apply mass_congr; intro k lt
     simp only [literalAllow_none, show ¬ (3 + (141 + k) < 144) by omega, show 3 + (141 + k) < 256 by omega,
-      show ¬ (3 + (141 + k) ≤ 2) by omega, ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
-      show (144 : Nat) < 256 by omega, show ¬ ((144 : Nat) ≤ 2) by omega]
+      ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
+      show (144 : Nat) < 256 by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [mass, literalAllow_none, ite_true, ite_false, Nat.reduceAdd,
-    Nat.reduceMul]
+  simp (config := { decide := true }) only [
+    ]
 
 theorem distance_share_sum_none : mass distanceAllow_none 30 = 3088138112 := by
-  simp (config := { decide := true }) only [mass, distanceAllow_none, ite_true, ite_false, Nat.reduceAdd]
+  simp (config := { decide := true }) only []
 
 /-- **The memLevel 1 certificate, case `none`**: with `Δ ≤ 132`. -/
 theorem certificate_none (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ 132)
@@ -1810,11 +1810,11 @@ theorem literal_entry_dist (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : 
   · subst c
     have ex : literalExcess 256 (ll 256) = 0 := by simp [literalExcess]
     simp (config := { decide := true }) only [literalCharge, staticLen, literalAllow_dist, literalRate_dist, ex,
-      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul, Nat.mul_one]
+      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul]
     have u := used (by omega)
     rw [eob] at u
     have q := entry_dist_EOB (ll 256) 1 0 _ hx ⟨rfl, u⟩ rfl rfl
-    simp only [Nat.one_mul, Nat.mul_one, Nat.add_zero] at q ⊢
+    simp only [Nat.one_mul, Nat.add_zero] at q ⊢
     omega
   have nodummy : ll v ≠ 0 → fl v ≠ 0 := fun x0 f0 => by have := dummy x0 f0; omega
   have ex : literalExcess v (ll v) = ll v + lengthExtra (v - 257) - 9 := by
@@ -1826,7 +1826,7 @@ theorem literal_entry_dist (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : 
   · have range : v = 257 ∨ v = 258 ∨ v = 259 ∨ v = 260 ∨ v = 261 ∨ v = 262 ∨ v = 263 ∨ v = 264 := by omega
     have q := entry_dist_LEN0S7 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
     rcases range with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-      simp (config := { decide := true }) only [lengthExtra, ite_true, ite_false, Nat.reduceSub] at q ⊢ <;> omega
+      simp (config := { decide := true }) only [lengthExtra, ite_true, Nat.reduceSub] at q ⊢ <;> omega
   by_cases r265 : v ≤ 268
   · have range : v = 265 ∨ v = 266 ∨ v = 267 ∨ v = 268 := by omega
     have q := entry_dist_LEN1S7 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
@@ -1861,7 +1861,7 @@ theorem literal_entry_dist (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : 
   · have range : v = 285 := by omega
     have q := entry_dist_LEN0S8 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
     rcases range with rfl <;>
-      simp (config := { decide := true }) only [lengthExtra, ite_true, ite_false, Nat.reduceSub] at q ⊢ <;> omega
+      simp (config := { decide := true }) only [lengthExtra, ite_false, Nat.reduceSub] at q ⊢ <;> omega
   omega
 
 set_option maxRecDepth 100000 in
@@ -1972,7 +1972,7 @@ theorem distance_entry_dist (dl fd : Nat → Nat) (v : Nat) (hv : v < 30) (hx : 
   · have range : v = 28 ∨ v = 29 := by omega
     have q := entry_dist_DIST13 (dl v) (fd v) 0 _ hx used (fun x0 f0 => by have := dummy x0 f0; omega) rfl rfl
     rcases range with rfl | rfl <;>
-      simp (config := { decide := true }) only [distanceExtra, distanceAllow_dist, ite_true, ite_false,
+      simp (config := { decide := true }) only [distanceExtra, distanceAllow_dist, ite_false,
         Nat.add_zero] at q ⊢ <;> omega
   omega
 
@@ -1981,19 +1981,19 @@ theorem literal_share_sum_dist : mass literalAllow_dist 286 = 4004881920 := by
     show 142 = 112 + 30 from rfl, mass_split]
   have c1 : mass (fun k => literalAllow_dist (3 + k)) 141 = 141 * literalAllow_dist 3 := by
     rw [← mass_const]; apply mass_congr; intro k lt
-    simp only [literalAllow_dist, show 3 + k < 144 by omega, show ¬ (3 + k ≤ 2) by omega, ite_true, ite_false,
-      show (3 : Nat) < 144 by omega, show ¬ ((3 : Nat) ≤ 2) by omega]
+    simp only [literalAllow_dist, show 3 + k < 144 by omega, ite_true,
+      show (3 : Nat) < 144 by omega]
   have c2 : mass (fun k => literalAllow_dist (3 + (141 + k))) 112 = 112 * literalAllow_dist 144 := by
     rw [← mass_const]; apply mass_congr; intro k lt
     simp only [literalAllow_dist, show ¬ (3 + (141 + k) < 144) by omega, show 3 + (141 + k) < 256 by omega,
-      show ¬ (3 + (141 + k) ≤ 2) by omega, ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
-      show (144 : Nat) < 256 by omega, show ¬ ((144 : Nat) ≤ 2) by omega]
+      ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
+      show (144 : Nat) < 256 by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [mass, literalAllow_dist, ite_true, ite_false, Nat.reduceAdd,
-    Nat.reduceMul]
+  simp (config := { decide := true }) only [
+    ]
 
 theorem distance_share_sum_dist : mass distanceAllow_dist 30 = 1184563200 := by
-  simp (config := { decide := true }) only [mass, distanceAllow_dist, ite_true, ite_false, Nat.reduceAdd]
+  simp (config := { decide := true }) only []
 
 /-- **The memLevel 1 certificate, case `dist`**: with `Δ ≤ 201`. -/
 theorem certificate_dist (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ 201)
@@ -2098,11 +2098,11 @@ theorem literal_entry_lit (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : l
   · subst c
     have ex : literalExcess 256 (ll 256) = 0 := by simp [literalExcess]
     simp (config := { decide := true }) only [literalCharge, staticLen, literalAllow_lit, literalRate_lit, ex,
-      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul, Nat.mul_one]
+      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul]
     have u := used (by omega)
     rw [eob] at u
     have q := entry_lit_EOB (ll 256) 1 0 _ hx ⟨rfl, u⟩ rfl rfl
-    simp only [Nat.one_mul, Nat.mul_one, Nat.add_zero] at q ⊢
+    simp only [Nat.one_mul, Nat.add_zero] at q ⊢
     omega
   have nodummy : ll v ≠ 0 → fl v ≠ 0 := fun x0 f0 => by have := dummy x0 f0; omega
   have ex : literalExcess v (ll v) = ll v + lengthExtra (v - 257) - 9 := by
@@ -2115,7 +2115,7 @@ theorem literal_entry_lit (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : l
   · have range : v = 257 ∨ v = 258 ∨ v = 259 ∨ v = 260 ∨ v = 261 ∨ v = 262 ∨ v = 263 ∨ v = 264 := by omega
     have q := entry_lit_LEN0S7 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
     rcases range with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-      simp (config := { decide := true }) only [lengthExtra, ite_true, ite_false, Nat.reduceSub] at q ⊢ <;> omega
+      simp (config := { decide := true }) only [lengthExtra, ite_true, Nat.reduceSub] at q ⊢ <;> omega
   by_cases r265 : v ≤ 268
   · have range : v = 265 ∨ v = 266 ∨ v = 267 ∨ v = 268 := by omega
     have q := entry_lit_LEN1S7 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
@@ -2150,7 +2150,7 @@ theorem literal_entry_lit (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : l
   · have range : v = 285 := by omega
     have q := entry_lit_LEN0S8 (ll v) (fl v) 0 _ hx used nodummy rfl rfl
     rcases range with rfl <;>
-      simp (config := { decide := true }) only [lengthExtra, ite_true, ite_false, Nat.reduceSub] at q ⊢ <;> omega
+      simp (config := { decide := true }) only [lengthExtra, ite_false, Nat.reduceSub] at q ⊢ <;> omega
   omega
 
 set_option maxRecDepth 100000 in
@@ -2261,7 +2261,7 @@ theorem distance_entry_lit (dl fd : Nat → Nat) (v : Nat) (hv : v < 30) (hx : d
   · have range : v = 28 ∨ v = 29 := by omega
     have q := entry_lit_DIST13 (dl v) (fd v) 0 _ hx used (fun x0 f0 => by have := dummy x0 f0; omega) rfl rfl
     rcases range with rfl | rfl <;>
-      simp (config := { decide := true }) only [distanceExtra, distanceAllow_lit, ite_true, ite_false,
+      simp (config := { decide := true }) only [distanceExtra, distanceAllow_lit, ite_false,
         Nat.add_zero] at q ⊢ <;> omega
   omega
 
@@ -2278,11 +2278,11 @@ theorem literal_share_sum_lit : mass literalAllow_lit 286 = 6166233088 := by
       show ¬ (3 + (141 + k) ≤ 2) by omega, ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
       show (144 : Nat) < 256 by omega, show ¬ ((144 : Nat) ≤ 2) by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [mass, literalAllow_lit, ite_true, ite_false, Nat.reduceAdd,
-    Nat.reduceMul]
+  simp (config := { decide := true }) only [
+    ]
 
 theorem distance_share_sum_lit : mass distanceAllow_lit 30 = 9761627679 := by
-  simp (config := { decide := true }) only [mass, distanceAllow_lit, ite_true, ite_false, Nat.reduceAdd]
+  simp (config := { decide := true }) only []
 
 /-- **The memLevel 1 certificate, case `lit`**: with `Δ ≤ 343`. -/
 theorem certificate_lit (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ 343)
