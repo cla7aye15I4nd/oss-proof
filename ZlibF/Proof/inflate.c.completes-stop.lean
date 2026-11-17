@@ -209,8 +209,8 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
         have regsEq : ({ regs with ret := Z_OK } : IL) = regs := by rw [← ret0]
         have leaveM := leave_meaning (ret := Z_OK) loop rfl hzc sideFn bits allocator statics nonnull
           (by rw [regsEq]; exact leaveRun)
-        obtain ⟨zs', s0', sA, zA, callOut, consumed, held, stage, st', hsA, hzA, _, aIn, _, aOut, _,
-          inEq, _, _, _, _, _, _, _, _, _⟩ := leaveM
+        obtain ⟨zs', s0', sA, zA, callOut, consumed, held, stage, st', hsA, hzA, _, aIn, nOut, aOut, _,
+          inEq, putEqL, callBytes, bitsEqL, parsedL, outputEqL, _, _, _, restL⟩ := leaveM
         subst afterEq
         have zAEq : zA = z2 := by
           have g := get2
@@ -231,7 +231,62 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
         · exact absurd trees notTrees
         · -- no output room, holding output that is due
           refine ⟨by rw [aOut]; exact left0, ?_⟩
-          sorry
+          have zsI : zs' = i := by
+            have e : (some (InflateStateRef.tab i) : InflateStatePtr) = some (.tab zs') := st'
+            simp only [Option.some.injEq, InflateStateRef.tab.injEq] at e
+            exact e.symm
+          have hsA' : h2.istates i = some sA := zsI ▸ hsA
+          -- the call's output is the loop's
+          obtain ⟨zF, sF, u0, o0, invF, accounting, _⟩ := callExit_after inv fit buffers active run
+          have zFEq : zF = z2 := Option.some.inj (invF.good.live.hz.symm.trans get2)
+          subst zFEq
+          have outLen : z1.avail_out.toNat - zF.avail_out.toNat = callOut.length := by
+            obtain ⟨_, _, _, availO, _, nextO, _⟩ := accounting
+            obtain ⟨ref, off, hp⟩ : ∃ ref off, z1.next_out = .ref ref off := by
+              cases hq : z1.next_out with
+              | null => exact absurd hq nonnull
+              | ref ref off => exact ⟨ref, off, rfl⟩
+            have e := nextO.symm.trans (nOut.trans putEqL)
+            rw [hp] at e
+            simp [advance, inputAdvance] at e
+            omega
+          have outEq : output = callOut := by
+            rw [outLen] at outBytes
+            exact callExit_bytes_eq callBytes outBytes (fun _ _ g => callExit_freeWin_view g)
+          -- `inf_leave` keeps the mode and the length of the decoder record
+          have notMemRc : rc ≠ Z_MEM_ERROR := by rcases codes with e | e <;> rw [e] <;> decide
+          have frame := ModeLen.rcFrame_inflate_leave r c rfl regs h1 rc h2 leaveRun notMemRc
+          unfold ModeLen.WindowFrame ModeLen.decoderWindows at frame
+          have atI := congrFun frame i
+          obtain ⟨zs1, _, s1, _, st1, j1, _⟩ := side1
+          have e1 : zs1 = i := by
+            have e : (some (InflateStateRef.tab i) : InflateStatePtr) = some (.tab zs1) := st1
+            simp only [Option.some.injEq, InflateStateRef.tab.injEq] at e
+            exact e.symm
+          have hs1 : h1.istates i = some s1 := e1 ▸ j1.good.live.hs
+          rw [hsA', hs1] at atI
+          simp only [Option.map_some, Option.some.injEq, ModeLen.counts, Prod.mk.injEq] at atI
+          have holding1 := holds i s1 rfl hs1
+          have holdingA : sA.mode = LIT ∨ sA.mode = MATCH ∨ (sA.mode = COPY ∧ sA.length ≠ 0) := by
+            rw [atI.1, atI.2]
+            exact holding1
+          rcases restL with ⟨rcMem, _⟩ | ⟨_, _, smA, _⟩
+          · exact absurd rcMem notMemRc
+          have copies : ∀ header out final L D remaining dist,
+              stage = .body header ⟨out, final, .codes L D (.copy remaining dist)⟩ → 0 < remaining := by
+            intro header out final L D remaining dist e
+            subst e
+            obtain ⟨_, _, _, _, dparsed⟩ := parsedL
+            exact copy_remaining_pos dparsed
+          obtain ⟨header, pos, rfl, due⟩ := due_of_mode smA copies holdingA
+          have bitsS : bytesToBits S = consumed ++ held := by rw [← whole]; exact bitsEqL
+          have shorter := wrapParsed_due parsedL due bitsS valid' (List.prefix_refl S)
+          have lengths := congrArg List.length outputEqL
+          simp only [List.length_append, WrapStage.output] at lengths
+          rw [outEq, List.length_append]
+          have logOut : f.logOut = log.output := rfl
+          rw [logOut] at lengths
+          omega
         · exact (LoopMatches.starved_not_end loop short.2 valid' whole).elim
         · exact (lenstart_not_end loop lenMode small (show Api.Wrap.zlib ≠ .raw by decide) valid' whole).elim
       · exfalso
