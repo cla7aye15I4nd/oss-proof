@@ -221,8 +221,8 @@ theorem BTRankLeaves.cases {tk : TK} {N : Nat} {original result : DeflateState}
       intro v hv
       have iff := (lenUsed v hv).trans (uint16_toNat_ne_zero _)
       by_cases z : curL (tk.arr result) v ≠ 0
-      · rw [if_pos z, if_pos (iff.mp z)]
-      · rw [if_neg z, if_neg (fun nz => z (iff.mpr nz))]
+      · rw [ite_eq_left z, ite_eq_left (iff.mp z)]
+      · rw [ite_eq_right z, ite_eq_right (fun nz => z (iff.mpr nz))]
     have one := ZlibF.Math.HuffmanCost.len_one_of_two_within lenBound lenKraft countL
     intro v hv
     by_cases z : curL (tk.arr result) v = 0
@@ -264,8 +264,8 @@ theorem BTRankLeaves.cases {tk : TK} {N : Nat} {original result : DeflateState}
         apply rs_congr
         intro v hv
         by_cases t : T v
-        · rw [if_pos t]
-        · rw [if_neg t]
+        · rw [ite_eq_left t]
+        · rw [ite_eq_right t]
           have f0 : (btFreq tk original v).toNat = 0 := by
             by_cases f : (btFreq tk original v).toNat = 0
             · exact f
@@ -292,8 +292,8 @@ theorem BTRankLeaves.cases {tk : TK} {N : Nat} {original result : DeflateState}
       apply rs_congr
       intro v hv
       by_cases t : T v
-      · rw [if_pos t, if_pos t, if_pos ((TF v (by omega)).mp t)]
-      · rw [if_neg t, if_neg t]
+      · rw [ite_eq_left t, ite_eq_left t, ite_eq_left ((TF v (by omega)).mp t)]
+      · rw [ite_eq_right t, ite_eq_right t]
     -- the root weight
     have rootEq : frn (tk.arr built) (Hn built (574 - 2 * K)) = rs (fun v => (btFreq tk original v).toNat) N := by
       have sib := S.sibTree (frn (tk.arr built)) sums ordered
@@ -320,8 +320,8 @@ theorem BTRankLeaves.cases {tk : TK} {N : Nat} {original result : DeflateState}
         rw [← e] at kraft
         refine Nat.le_trans (Nat.le_of_eq (rs_congr fun v hv => ?_)) kraft
         by_cases t : T v
-        · rw [if_pos t, if_pos t, if_pos ((TF v (by omega)).mp t)]
-        · rw [if_neg t, if_neg t]
+        · rw [ite_eq_left t, ite_eq_left t, ite_eq_left ((TF v (by omega)).mp t)]
+        · rw [ite_eq_right t, ite_eq_right t]
       have main := S.cost_le_kraft (frn (tk.arr built)) (curL (tk.arr result)) _ sums ordered costM
         T hT B ℓ boundT kraftT
       have cap := S.repairExtra_cap13 (frn (tk.arr built)) sums ordered
@@ -337,8 +337,8 @@ theorem BTRankLeaves.cases {tk : TK} {N : Nat} {original result : DeflateState}
         rw [← e] at kraft
         refine Nat.le_trans (Nat.le_of_eq (rs_congr fun v hv => ?_)) kraft
         by_cases t : T v
-        · rw [if_pos t, if_pos t, if_pos ((TF v (by omega)).mp t)]
-        · rw [if_neg t, if_neg t]
+        · rw [ite_eq_left t, ite_eq_left t, ite_eq_left ((TF v (by omega)).mp t)]
+        · rw [ite_eq_right t, ite_eq_right t]
       have main := S.cost_le_kraft (frn (tk.arr built)) (curL (tk.arr result)) _ sums ordered costM
         T hT B ℓ boundT kraftT
       have cap := S.repairExtra_cap15 (frn (tk.arr built)) sums ordered
@@ -353,8 +353,8 @@ theorem rs_indicator_le (F : Nat → Nat) (A : Nat → Bool) (G : Nat → Nat) (
   apply rs_le
   intro v hv
   by_cases f : F v ≠ 0
-  · rw [if_pos f, if_pos (allowed v hv f)]; exact Nat.le_refl _
-  · rw [if_neg f]; exact Nat.zero_le _
+  · rw [ite_eq_left f, ite_eq_left (allowed v hv f)]; exact Nat.le_refl _
+  · rw [ite_eq_right f]; exact Nat.zero_le _
 
 /-- **The 7-bit tree, at most 15 allowed symbols.** For the original frequencies `F` of total
 `W ≤ 316`, every reference code `ℓ ≥ 1` with Kraft sum at most one over an allowed set `A` of at

@@ -110,8 +110,8 @@ theorem restoreRegions_bytes (before after : Heap) (regions : List Region) (b : 
     · have all : RegionRoot (⟨pointer, length⟩ :: rest) (.blk b) ∧ before.bytes b ≠ none := by
         obtain ⟨⟨region, member, off, ptr⟩, present⟩ := inRest
         exact ⟨⟨region, List.mem_cons_of_mem _ member, off, ptr⟩, present⟩
-      rw [if_pos inRest, if_pos all]
-    · rw [if_neg inRest]
+      rw [ite_eq_left inRest, ite_eq_left all]
+    · rw [ite_eq_right inRest]
       cases pointer with
       | null =>
         have absent : ¬ (RegionRoot (⟨.null, length⟩ :: rest) (.blk b) ∧ before.bytes b ≠ none) := by
@@ -119,19 +119,19 @@ theorem restoreRegions_bytes (before after : Heap) (regions : List Region) (b : 
           rcases List.mem_cons.mp member with head | tail
           · subst head; cases ptr
           · exact inRest ⟨⟨region, tail, off, ptr⟩, present⟩
-        rw [if_neg absent]
+        rw [ite_eq_right absent]
       | ref ref off =>
         simp only []
         by_cases here : ref = .blk b
         · subst here
           cases get : before.bytes b with
           | none =>
-            rw [if_neg (fun ⟨_, present⟩ => present rfl)]
+            rw [ite_eq_right (fun ⟨_, present⟩ => present rfl)]
             change (match (before.bytes b : Option (Array UInt8)) with
               | none => after | some a => Space.put after (BRef.blk b) a).bytes b = after.bytes b
             rw [get]
           | some a =>
-            rw [if_pos ⟨⟨_, List.mem_cons_self, off, rfl⟩, by simp⟩]
+            rw [ite_eq_left ⟨⟨_, List.mem_cons_self, off, rfl⟩, by simp⟩]
             change (match (before.bytes b : Option (Array UInt8)) with
               | none => after | some a => Space.put after (BRef.blk b) a).bytes b = some a
             rw [get]
@@ -143,7 +143,7 @@ theorem restoreRegions_bytes (before after : Heap) (regions : List Region) (b : 
               cases ptr
               exact here rfl
             · exact inRest ⟨⟨region, tail, off', ptr⟩, present⟩
-          rw [if_neg absent]
+          rw [ite_eq_right absent]
           cases (Space.get before ref : Option (Array UInt8)) with
           | none => rfl
           | some a =>
@@ -185,7 +185,7 @@ theorem restoreRegions_dstates (before after : Heap) (regions : List Region) (b 
         simp only []
         by_cases here : ref = .dstate_depth b
         · subst here
-          rw [if_pos ⟨off, rfl⟩]
+          rw [ite_eq_left ⟨off, rfl⟩]
           cases d0 : before.dstates b with
           | none => simp [Space.get, d0]
           | some d0v =>
@@ -196,7 +196,7 @@ theorem restoreRegions_dstates (before after : Heap) (regions : List Region) (b 
             rintro ⟨off', e⟩
             cases e
             exact here rfl
-          rw [if_neg absent]
+          rw [ite_eq_right absent]
           cases (Space.get before ref : Option (Array UInt8)) with
           | none => rfl
           | some a =>
@@ -210,23 +210,23 @@ theorem restoreRegions_dstates (before after : Heap) (regions : List Region) (b 
     · have all : RegionRoot (⟨pointer, length⟩ :: rest) (.dstate_depth b) := by
         obtain ⟨region, member, off, ptr⟩ := inRest
         exact ⟨region, List.mem_cons_of_mem _ member, off, ptr⟩
-      rw [if_pos inRest, if_pos all, step]
+      rw [ite_eq_left inRest, ite_eq_left all, step]
       by_cases here : ∃ off, pointer = .ref (.dstate_depth b) off
-      · rw [if_pos here]
+      · rw [ite_eq_left here]
         cases before.dstates b <;> cases after.dstates b <;> simp
-      · rw [if_neg here]
-    · rw [if_neg inRest, step]
+      · rw [ite_eq_right here]
+    · rw [ite_eq_right inRest, step]
       by_cases here : ∃ off, pointer = .ref (.dstate_depth b) off
       · obtain ⟨off, ptr⟩ := here
         have all : RegionRoot (⟨pointer, length⟩ :: rest) (.dstate_depth b) :=
           ⟨_, List.mem_cons_self, off, ptr⟩
-        rw [if_pos ⟨off, ptr⟩, if_pos all]
+        rw [ite_eq_left ⟨off, ptr⟩, ite_eq_left all]
       · have absent : ¬ RegionRoot (⟨pointer, length⟩ :: rest) (.dstate_depth b) := by
           rintro ⟨region, member, off, ptr⟩
           rcases List.mem_cons.mp member with head | tail
           · subst head; exact here ⟨off, ptr⟩
           · exact inRest ⟨region, tail, off, ptr⟩
-        rw [if_neg here, if_neg absent]
+        rw [ite_eq_right here, ite_eq_right absent]
 
 /-! ## The pointwise footprint relation -/
 

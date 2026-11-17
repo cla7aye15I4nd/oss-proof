@@ -93,9 +93,9 @@ theorem gz_open_fresh_run (h : Heap) (fs : Fs) (path modePtr : BPtr) (bs name : 
     (by rw [← hCn]; exact writerFormatted_private_bytes _ _ _ _)
     (by rw [← hCn]; exact writerFormatted_private_ro _ _ _ _)]
   by_cases hR : (openFsResult name.toArray (freshFlags ml mode) fs).1 = -1
-  · rw [if_pos hR, if_pos hR]
+  · rw [ite_eq_left hR, ite_eq_left hR]
     rfl
-  · rw [if_neg hR, if_neg hR]
+  · rw [ite_eq_right hR, ite_eq_right hR]
     unfold parsedOpenHeap modeSuppliedHeap modeCopiedRecord
     rw [hcounts.1]
 
@@ -239,11 +239,11 @@ theorem gzopen_safe_proof : ZlibF.Spec.Public.GzOpenSafe gzopen := by
           hf hu hc hmode hpm hlim ha ha1
         obtain ⟨hF, hK, hS⟩ := openFsResult_fds name.toArray oflag fs hfs
         by_cases hR : (openFsResult name.toArray oflag fs).1 = -1
-        · rw [if_pos hR] at hrun
+        · rw [ite_eq_left hR] at hrun
           obtain ⟨hframe, hledger⟩ := freshFail_ledger h fs flags name md level strategy direct hf hu hg hpm
             hc.2.1 hc.2.2
           exact ⟨none, _, _, hrun, hframe, hF, hledger, hK hR⟩
-        · rw [if_neg hR] at hrun
+        · rw [ite_eq_right hR] at hrun
           obtain ⟨hpos, hnot, hothers⟩ := hS hR
           have ho := parsedOpenHeap_OpenState h (openFsResult name.toArray oflag fs).2 flags name md level
             strategy direct (openFsResult name.toArray oflag fs).1 hf hu hg hpm hc.2.1 hc.2.2

@@ -215,8 +215,8 @@ def EnvG.inArr (A : Array UInt8) : Array UInt8 := if e.ib = e.ob then A else e.I
 theorem EnvG.heap_bytes_in (A msg m) : Space.get (e.heap A msg m) e.ib = some (e.inArr A) := by
   unfold EnvG.inArr
   by_cases same : e.ib = e.ob
-  · rw [if_pos same, same, e.heap_bytes_ob]
-  · rw [if_neg same, e.heap_get_ne A msg m same, e.hIN]
+  · rw [ite_eq_left same, same, e.heap_bytes_ob]
+  · rw [ite_eq_right same, e.heap_get_ne A msg m same, e.hIN]
 
 theorem EnvG.IN_eq_A0 (same : e.ib = e.ob) : e.IN = e.A0 := by
   have a := e.hIN
@@ -227,16 +227,16 @@ theorem EnvG.inArr_size {A : Array UInt8} {i : Nat} (frame : e.InputFrame A i) :
     (e.inArr A).size = e.IN.size := by
   unfold EnvG.inArr
   by_cases same : e.ib = e.ob
-  · rw [if_pos same, (frame same).1, e.IN_eq_A0 same]
-  · rw [if_neg same]
+  · rw [ite_eq_left same, (frame same).1, e.IN_eq_A0 same]
+  · rw [ite_eq_right same]
 
 theorem EnvG.InputFrame.get {α : Bool} {e : EnvG α} {A : Array UInt8} {s k : Nat} (frame : e.InputFrame A s)
     (le : s ≤ k) (lt : k < e.i0 + e.sm0.avail_in.toNat) : (e.inArr A)[k]? = e.IN[k]? := by
   unfold EnvG.inArr
   by_cases same : e.ib = e.ob
-  · rw [if_pos same]
+  · rw [ite_eq_left same]
     exact (frame same).2 k le lt
-  · rw [if_neg same]
+  · rw [ite_eq_right same]
 
 theorem EnvG.InputFrame.mono {α : Bool} {e : EnvG α} {A : Array UInt8} {s s' : Nat} (frame : e.InputFrame A s)
     (le : s ≤ s') : e.InputFrame A s' :=
@@ -278,7 +278,7 @@ theorem EnvG.inArr_size_of {A : Array UInt8} (size : A.size = e.A0.size) :
     (e.inArr A).size = e.IN.size := by
   unfold EnvG.inArr
   by_cases same : e.ib = e.ob
-  · rw [if_pos same, size, e.IN_eq_A0 same]
-  · rw [if_neg same]
+  · rw [ite_eq_left same, size, e.IN_eq_A0 same]
+  · rw [ite_eq_right same]
 
 end Zlib.Inffast.Proofs

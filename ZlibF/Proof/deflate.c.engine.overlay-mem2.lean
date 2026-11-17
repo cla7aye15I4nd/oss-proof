@@ -231,7 +231,7 @@ theorem ref_header_excess_256 {h : Heap} {ds pb : Nat} {d : DeflateState} {buf :
     simp only [ZlibF.Math.DeflatePush.literalExcess, ZlibF.Math.DeflateOverlayCertificate.literalExcess, fl, ll]
     by_cases low : v < 257
     · simp [low]
-    · simp only [low, if_false]
+    · simp only [low, ite_false]
       rw [tables.1 ⟨v - 257, by omega⟩]
   have exD : mass (fun v => distanceFrequency dcodeN xs v *
       ZlibF.Math.DeflatePush.distanceExcess (curL readyP.dyn_dtree) sourceDistanceExtra v) 30 =

@@ -32,11 +32,11 @@ theorem Symbol.Meaning.extend {input next : Nat → UInt8} {pos limit : Nat} {s 
   unfold Symbol.Meaning at meaning ⊢
   refine ⟨meaning.1, ?_⟩
   by_cases literal : s.distance = 0
-  · simp only [literal, if_true] at meaning ⊢
+  · simp only [literal, ite_true] at meaning ⊢
     have size : s.bytes = 1 := by simp [Symbol.bytes, literal]
     rw [agrees pos (by omega)]
     exact meaning.2
-  · simp only [literal, if_false] at meaning ⊢
+  · simp only [literal, ite_false] at meaning ⊢
     have size : s.bytes = s.value + 3 := by simp [Symbol.bytes, literal]
     refine ⟨meaning.2.1, ?_⟩
     intro j hj
@@ -105,8 +105,8 @@ theorem meaning_expands {input : Nat → UInt8} {pos : Nat} {s : Symbol}
     simp [expandSymbol, literal, Symbol.bytes, value, input_prefix_succ]
   · have copy : s.distance ≤ pos ∧ ∀ j, j < s.value + 3 →
         input (pos - s.distance + j) = input (pos + j) := by
-      simpa only [literal, if_false] using meaning.2
-    simpa only [expandSymbol, literal, if_false, Symbol.bytes] using
+      simpa only [literal, ite_false] using meaning.2
+    simpa only [expandSymbol, literal, ite_false, Symbol.bytes] using
       copy_back_input input s.distance (s.value + 3) (by omega) pos copy.1 copy.2
 
 /-- A stored-symbol trace decodes to the actual input prefix under the

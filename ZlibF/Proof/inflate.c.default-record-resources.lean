@@ -114,7 +114,7 @@ theorem reset2_public_resources {h after : Heap} {r : ZStreamRef} {zs : Nat}
     rw [before.streamOwned_iff, current.streamOwned_iff]
     unfold InflateOwned
     by_cases changes : s.wbits ≠ i2u wb
-    · rw [if_pos changes] at window
+    · rw [ite_eq_left changes] at window
       rw [window]
       constructor
       · rintro ⟨_, win⟩
@@ -127,7 +127,7 @@ theorem reset2_public_resources {h after : Heap} {r : ZStreamRef} {zs : Nat}
         rcases owner with same | win
         · exact False.elim (notAfter (Or.inl same))
         · exact win
-    · rw [if_neg changes] at window
+    · rw [ite_eq_right changes] at window
       rw [window]
       constructor
       · rintro ⟨different, _⟩
@@ -139,10 +139,10 @@ theorem reset2_public_resources {h after : Heap} {r : ZStreamRef} {zs : Nat}
     rcases (current.streamOwned_iff b).mp owner with same | win
     · exact (before.streamOwned_iff b).mpr (Or.inl same)
     · by_cases changes : s.wbits ≠ i2u wb
-      · rw [if_pos changes] at window
+      · rw [ite_eq_left changes] at window
         rw [window] at win
         cases win
-      · rw [if_neg changes] at window
+      · rw [ite_eq_right changes] at window
         exact (before.streamOwned_iff b).mpr (Or.inr (window ▸ win))
   rw [regions]
   refine ⟨⟨?_, ?_⟩, ?_⟩

@@ -24,11 +24,11 @@ theorem inflate_dispatch_metadata_record_frame
   · exact recordFrameX_inflate_DICT r c E.strm l h outcome regs after
       ((inflate_dispatch_DICT E l dictionary).symm.trans run)
   · have source := inflate_dispatch_block_type E l (Or.inl blockType)
-    rw [if_pos blockType] at source
+    rw [ite_eq_left blockType] at source
     exact recordFrameX_inflate_TYPE r c E.strm l h outcome regs after (source.symm.trans run)
   · have source := inflate_dispatch_block_type E l (Or.inr blockMore)
     have notType : s.mode ≠ TYPE := by rw [blockMore]; decide
-    rw [if_neg notType] at source
+    rw [ite_eq_right notType] at source
     exact recordFrameX_inflate_TYPEDO r c E.strm l h outcome regs after (source.symm.trans run)
   · exact recordFrameX_inflate_CHECK r c E.strm l h outcome regs after
       ((inflate_dispatch_CHECK E l check).symm.trans run)

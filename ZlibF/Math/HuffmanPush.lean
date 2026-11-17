@@ -64,8 +64,8 @@ theorem deepest_spec (c : Nat → Nat) : ∀ b,
   | b + 1 => by
     simp only [deepest]
     by_cases h : c (b + 1) ≠ 0
-    · rw [if_pos h]; left; exact ⟨h, Nat.le_refl _, fun j h1 h2 => by omega⟩
-    · rw [if_neg h]
+    · rw [ite_eq_left h]; left; exact ⟨h, Nat.le_refl _, fun j h1 h2 => by omega⟩
+    · rw [ite_eq_right h]
       have h' : c (b + 1) = 0 := by omega
       rcases deepest_spec c b with ⟨h1, h2, h3⟩ | ⟨h1, h2⟩
       · left; refine ⟨h1, by omega, fun j hj1 hj2 => ?_⟩
@@ -182,7 +182,7 @@ theorem push_cost : ∀ (M : Nat) (c : Nat → Nat), c 0 = 0 → krS c 15 = 2 ^ 
       intro r hr1 hr2
       rcases Nat.lt_trichotomy r K with h | h | h
       · rw [hlow c' hag hs' r hr1 h, pcost_self]; exact Nat.zero_le _
-      · rw [h, if_pos rfl, hlK]
+      · rw [h, ite_eq_left rfl, hlK]
         rcases Nat.lt_or_ge (2 ^ (14 - s)) M with hM | hM
         · have := pcost_le_kappa s (lenOfRank 15 c' K); omega
         · have hc1 := hp3 hM
@@ -192,7 +192,7 @@ theorem push_cost : ∀ (M : Nat) (c : Nat → Nat), c 0 = 0 → krS c 15 = 2 ^ 
             omega
           unfold pcost; split
           · exact Nat.zero_le _
-          · rw [if_pos (by omega)]; omega
+          · rw [ite_eq_left (by omega)]; omega
       · rw [hbig r h hr2, pcost_15 (lenOfRank_le c' r)]; exact Nat.zero_le _
     calc _ ≤ sumR (fun r => if r = K then M else 0) (cumC c 15) := sumR_le _ hpt
       _ ≤ M := sumR_single K M _
@@ -204,16 +204,16 @@ theorem push_cost : ∀ (M : Nat) (c : Nat → Nat), c 0 = 0 → krS c 15 = 2 ^ 
     have hcum : ∀ j, cumC c j + (if 15 ≤ j then 1 else 0) = cumC (fx c s) j + (if s ≤ j then 1 else 0) := by
       intro j; rw [cumC_eq_wsum, cumC_eq_wsum]; exact hshift (fun _ => 1) j
     have hkr1 := hshift (fun i => 2 ^ (15 - i)) 15
-    simp only [Nat.le_refl, if_true, show s ≤ 15 by omega, Nat.sub_self, Nat.pow_zero] at hkr1
+    simp only [Nat.le_refl, ite_true, show s ≤ 15 by omega, Nat.sub_self, Nat.pow_zero] at hkr1
     have hkr1' : krS (fx c s) 15 + 2 ^ (15 - s) = krS c 15 + 1 := by simp only [krS]; omega
     have hN1 : cumC (fx c s) 15 = cumC c 15 := by
-      have := hcum 15; simp only [Nat.le_refl, if_true, show s ≤ 15 by omega] at this; omega
+      have := hcum 15; simp only [Nat.le_refl, ite_true, show s ≤ 15 by omega] at this; omega
     have hP := Nat.one_le_two_pow (n := 15 - s)
     have hP2 : 2 ≤ 2 ^ (15 - s) := by
       rw [show 15 - s = (14 - s) + 1 by omega, Nat.pow_succ]; omega
     have ih' := ih (M - (2 ^ (15 - s) - 1)) (by omega) (fx c s)
-      (by simp only [fx]; rw [if_neg (by omega), if_neg (by omega)]; exact hc0)
-      (by omega) (by omega) (by simp only [fx]; rw [if_neg (by omega)]; simp; omega)
+      (by simp only [fx]; rw [ite_eq_right (by omega), ite_eq_right (by omega)]; exact hc0)
+      (by omega) (by omega) (by simp only [fx]; rw [ite_eq_right (by omega)]; simp; omega)
     rw [hN1] at ih'
     have hfin : repairIter 15 M c = repairIter 15 (M - (2 ^ (15 - s) - 1)) (fx c s) := by
       conv => lhs; rw [hsplit]
@@ -221,16 +221,16 @@ theorem push_cost : ∀ (M : Nat) (c : Nat → Nat), c 0 = 0 → krS c 15 = 2 ^ 
     rw [hfin]
     generalize hx : repairIter 15 (M - (2 ^ (15 - s) - 1)) (fx c s) = cf at ih'
     have hag : ∀ j, j < s → cumC (fx c s) j = cumC c j := by
-      intro j hj; have := hcum j; rw [if_neg (by omega), if_neg (by omega)] at this; omega
+      intro j hj; have := hcum j; rw [ite_eq_right (by omega), ite_eq_right (by omega)] at this; omega
     have hs' : cumC (fx c s) s + 1 = K := by
-      have := hcum s; rw [if_neg (by omega), if_pos (Nat.le_refl _)] at this; omega
+      have := hcum s; rw [ite_eq_right (by omega), ite_eq_left (Nat.le_refl _)] at this; omega
     have hpt : ∀ r, 1 ≤ r → r ≤ cumC c 15 →
         pcost (lenOfRank 15 c r) (lenOfRank 15 cf r) ≤
           pcost (lenOfRank 15 (fx c s) r) (lenOfRank 15 cf r) + (if r = K then 2 ^ (15 - s) - 1 else 0) := by
       intro r hr1 hr2
       rcases Nat.lt_trichotomy r K with h | h | h
       · rw [hlow (fx c s) hag hs' r hr1 h]; omega
-      · rw [h, if_pos rfl, hlK]
+      · rw [h, ite_eq_left rfl, hlK]
         have := pcost_le_T s (lenOfRank 15 cf K) hs14 (lenOfRank_le cf _); omega
       · rw [hbig r h hr2, pcost_15 (lenOfRank_le cf r)]; exact Nat.zero_le _
     calc _ ≤ sumR (fun r => pcost (lenOfRank 15 (fx c s) r) (lenOfRank 15 cf r) +
@@ -247,8 +247,8 @@ theorem push_count (c : Nat → Nat) (l : Nat → Nat) (hl : ∀ r, l r ≤ 15) 
   refine Nat.le_trans (sumR_le _ fun r hr1 hr2 => ?_) (countR_le_bound (cumC c 14) _)
   show (if pcost (lenOfRank 15 c r) (l r) = 0 then 0 else 1) ≤ (if r ≤ cumC c 14 then 1 else 0)
   by_cases h : pcost (lenOfRank 15 c r) (l r) = 0
-  · rw [if_pos h]; exact Nat.zero_le _
-  · rw [if_neg h]
+  · rw [ite_eq_left h]; exact Nat.zero_le _
+  · rw [ite_eq_right h]
     have hlt : lenOfRank 15 c r < l r := by
       unfold pcost at h; split at h
       · exact absurd rfl h
@@ -256,6 +256,6 @@ theorem push_count (c : Nat → Nat) (l : Nat → Nat) (hl : ∀ r, l r ≤ 15) 
     have := hl r
     have h1 := lenOfRank_found c r hr2
     have h2 := cumC_mono c (show lenOfRank 15 c r ≤ 14 by omega)
-    rw [if_pos (by omega)]; exact Nat.le_refl _
+    rw [ite_eq_left (by omega)]; exact Nat.le_refl _
 
 end Zlib.Trees.HuffmanAbstract

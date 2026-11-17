@@ -292,7 +292,7 @@ theorem gzread_step_of (read : GzReadSafe) (clauses : GzReadClauses) :
   have hrange : len.toNat < 2 ^ 31 → GzRange h i s buf len.toNat true := by
     intro hl
     simp only [GzArguments] at harg
-    rw [if_neg (by omega)] at harg
+    rw [ite_eq_right (by omega)] at harg
     exact harg
   have vw : Views i h s buf len := by
     rintro ⟨hp, hl⟩

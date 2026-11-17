@@ -88,7 +88,7 @@ theorem FastInputPacket.dolen_linked_base_four_byte_exact_frame
   have rootLink : LenLink codes[baseOff + rootSlice] := by
     simpa only [rootEq] using link
   have selected := safe.2.2 rootSlice root
-  rw [rootEq, if_pos rootLink] at selected
+  rw [rootEq, ite_eq_left rootLink] at selected
   rcases selected with ⟨rootWidthBound, _, opWidth,
     subtable, _⟩
   have rootFits : codes[baseOff + rootSlice].bits.toNat ≤

@@ -101,9 +101,9 @@ theorem readBits_natBits : ∀ (k v : Nat) (r : List Bool),
     have bit : (v % 2 == 1) = true ↔ v % 2 = 1 := by simp
     rw [Nat.pow_succ, Nat.mul_comm (2 ^ k) 2, split]
     by_cases odd : v % 2 = 1
-    · rw [if_pos (bit.mpr odd)]
+    · rw [ite_eq_left (bit.mpr odd)]
       omega
-    · rw [if_neg (by simpa [bit] using odd)]
+    · rw [ite_eq_right (by simpa [bit] using odd)]
       omega
 
 /-- The registers after the three header bits of a block are dropped. -/
@@ -707,12 +707,12 @@ theorem stored_step_bounded {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : Z
       · have run3 : runX (inflate_STORED c) l h =
             .ok ((.error Ex.leave, { l1 with hold := 0, bits := 0 }),
               setI h zs { s with length := l1.hold.toUInt32 &&& 0xffff, mode := COPY_ }) := by
-          rw [runOk, if_pos (show (c.flush == Z_TREES) = true by simp [trees]), runX_throw]
+          rw [runOk, ite_eq_left (show (c.flush == Z_TREES) = true by simp [trees]), runX_throw]
         exact ⟨_, _, _, run3, Or.inl ⟨rfl, Or.inr (Or.inl trees), moved⟩⟩
       · have run3 : runX (inflate_STORED c) l h =
             runX (inflate_COPY_ c) { l1 with hold := 0, bits := 0 }
               (setI h zs { s with length := l1.hold.toUInt32 &&& 0xffff, mode := COPY_ }) := by
-          rw [runOk, if_neg (show ¬ (c.flush == Z_TREES) = true by simp [trees])]
+          rw [runOk, ite_eq_right (show ¬ (c.flush == Z_TREES) = true by simp [trees])]
         have same : ∀ zs' s', c.st = some (.tab zs') →
             (setI h zs { s with length := l1.hold.toUInt32 &&& 0xffff, mode := COPY_ }).istates zs' =
               some s' → s' = { s with length := l1.hold.toUInt32 &&& 0xffff, mode := COPY_ } := by

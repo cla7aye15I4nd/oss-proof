@@ -25,7 +25,7 @@ theorem nodePosition_spec {H : Nat → Nat} {hm J v : Nat}
     (found : ∃ i, i < 2 * J ∧ H (hm + 1 + i) = v) :
     nodePosition H hm J v < 2 * J ∧ H (hm + 1 + nodePosition H hm J v) = v := by
   unfold nodePosition
-  rw [dif_pos found]
+  rw [dite_eq_left found]
   exact Classical.choose_spec found
 
 theorem mass_eq_rs (f : Nat → Nat) (n : Nat) : mass f n = rs f n := by
@@ -89,8 +89,8 @@ theorem SymbolFibPush.of_ranked_tree {H treeFrequency frequency length : Nat →
     have range (v : Nat) (bound : v < alphabet) : P v < ranks + alphabet := by
       dsimp only [P]
       by_cases zero : frequency v = 0
-      · rw [if_pos zero]; omega
-      · rw [if_neg zero]
+      · rw [ite_eq_left zero]; omega
+      · rw [ite_eq_right zero]
         have spec := rankSpec v bound zero
         have positiveAlphabet := shape.maxc_lt
         omega
@@ -114,10 +114,10 @@ theorem SymbolFibPush.of_ranked_tree {H treeFrequency frequency length : Nat →
       dsimp only [P, F]
       by_cases zero : frequency v = 0
       · simp only [zero, ite_true]
-        rw [if_neg (by omega)]
+        rw [ite_eq_right (by omega)]
       · simp only [zero, ite_false]
         have spec := rankSpec v bound zero
-        rw [if_pos (by omega), Nat.sub_add_cancel spec.1]
+        rw [ite_eq_left (by omega), Nat.sub_add_cancel spec.1]
     have transported : rs (fun v => F (P v)) alphabet ≤ rs F (ranks + alphabet) := by
       rw [rs_image P F alphabet (ranks + alphabet) range]
       apply rs_le
@@ -129,14 +129,14 @@ theorem SymbolFibPush.of_ranked_tree {H treeFrequency frequency length : Nat →
       apply rs_eq_zero
       intro i _bound
       dsimp only [F]
-      rw [if_neg (by omega)]
+      rw [ite_eq_right (by omega)]
     have allRanks : rs F (ranks + alphabet) = sumR (fun r => pushCostA (classes r) (origin r)) ranks := by
       rw [rs_split, zeros, Nat.add_zero]
       have points : rs F ranks = rs (fun i => pushCostA (classes (i + 1)) (origin (i + 1))) ranks := by
         apply rs_congr
         intro i bound
         dsimp only [F]
-        rw [if_pos bound]
+        rw [ite_eq_left bound]
       rw [points]
       exact rs_eq_sumR (fun r => pushCostA (classes r) (origin r)) ranks
     have original : mass (fun v => if frequency v = 0 then 0 else pushCostA (classes (rank v)) (origin (rank v))) alphabet =

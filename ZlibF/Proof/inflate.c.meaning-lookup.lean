@@ -43,9 +43,9 @@ theorem readBits_natBits_append : ∀ (k v : Nat) (r : List Bool),
     have bit : (v % 2 == 1) = true ↔ v % 2 = 1 := by simp
     rw [Nat.pow_succ, Nat.mul_comm (2 ^ k) 2, split]
     by_cases odd : v % 2 = 1
-    · rw [if_pos (bit.mpr odd)]
+    · rw [ite_eq_left (bit.mpr odd)]
       omega
-    · rw [if_neg (by simpa [bit] using odd)]
+    · rw [ite_eq_right (by simpa [bit] using odd)]
       omega
 
 theorem natBits_zero : ∀ k : Nat, natBits k 0 = List.replicate k false

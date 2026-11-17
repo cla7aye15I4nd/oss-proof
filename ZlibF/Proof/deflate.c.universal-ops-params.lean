@@ -170,7 +170,7 @@ theorem func_class {a b : Nat} (ha : a < 10) (hb : b < 10)
     (a = 0 ↔ b = 0) ∧ (a ≤ 3 ↔ b ≤ 3) := by
   rw [table_func a ha, table_func b hb] at e
   by_cases a0 : a = 0 <;> by_cases b0 : b = 0 <;> by_cases a3 : a ≤ 3 <;> by_cases b3 : b ≤ 3 <;>
-    simp only [a0, b0, a3, b3, if_true, if_false, reduceCtorEq] at e <;> omega
+    simp only [a0, b0, a3, b3, ite_true, ite_false, reduceCtorEq] at e <;> omega
 
 /-- The state after a level change that needs no table repair. -/
 def paramsState (d : DeflateState) (level strategy : Int32) (c : Config) : DeflateState :=

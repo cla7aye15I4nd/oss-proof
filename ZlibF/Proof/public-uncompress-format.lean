@@ -126,7 +126,7 @@ theorem uncompressed_final (facts : DecoderFacts) {r : ZStreamRef} {Hp H : Heap}
     rw [List.length_append] at full
     omega
   unfold Uncompressed Api.Uncompress2
-  rw [if_neg (by decide)]
+  rw [ite_eq_right (by decide)]
   refine ⟨hused, hout, ?_⟩
   rcases codes with rfl | rfl | rfl | rfl | rfl
   · -- Z_STREAM_END: Z_OK
@@ -191,7 +191,7 @@ theorem uncompressed_final (facts : DecoderFacts) {r : ZStreamRef} {Hp H : Heap}
 /-- The empty output with nothing consumed: initialization failed. -/
 theorem uncompressed_mem_init (src : List UInt8) (cap : Nat) : Uncompressed src cap Z_MEM_ERROR [] 0 := by
   unfold Uncompressed Api.Uncompress2
-  rw [if_neg (by decide)]
+  rw [ite_eq_right (by decide)]
   refine ⟨Nat.zero_le _, Nat.zero_le _, Or.inr (Or.inr (Or.inr (by decide))), fun h => absurd h (by decide),
     fun h => absurd h (by decide), fun _ _ _ _ => List.nil_prefix, ?_, ?_⟩
   · refine ⟨[], List.nil_prefix, ⟨[], Api.zA, [0x61], rfl, Or.inl List.nil_prefix, Api.zA_layer⟩, ?_⟩

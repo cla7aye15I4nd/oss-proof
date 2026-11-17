@@ -96,11 +96,11 @@ theorem inflate_dispatch_construction_after {c : Ctx} {h : Heap} {r : ZStreamRef
     · exact Or.inl bad
   · obtain ⟨nextMode, source⟩ := continued
     by_cases trees : c.flush = Z_TREES
-    · rw [if_pos trees] at source
+    · rw [ite_eq_left trees] at source
       obtain ⟨outcomeEq, _, _⟩ := runX_same run source
       rw [ok] at outcomeEq
       cases outcomeEq
-    · rw [if_neg trees] at source
+    · rw [ite_eq_right trees] at source
       have nextEnv : Env c after1 r zs stream1 state1 :=
         ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩
       have dataMode : DataTableMode state1.mode := by rw [nextMode]; unfold DataTableMode; decide

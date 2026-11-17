@@ -30,8 +30,8 @@ theorem dispatchCredit_bound (mode : UInt32) : dispatchCredit mode ≤ 63 := by
   have step (p : Prop) [Decidable p] (a b : Nat) (left : a ≤ 63) (right : b ≤ 63) :
       (if p then a else b) ≤ 63 := by
     by_cases selected : p
-    · simpa only [if_pos selected] using left
-    · simpa only [if_neg selected] using right
+    · simpa only [ite_eq_left selected] using left
+    · simpa only [ite_eq_right selected] using right
   unfold dispatchCredit
   repeat' (first | decide | apply step)
 

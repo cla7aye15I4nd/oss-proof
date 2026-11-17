@@ -37,7 +37,7 @@ theorem gz_avail_budget (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
   · obtain ⟨hf', b, b', hb, hb', hle'⟩ := fin hf
     refine ⟨hf', ?_⟩
     unfold inputLeft
-    rw [hfd, if_pos hf.1, if_pos hf.1, hb, hb']
+    rw [hfd, ite_eq_left hf.1, ite_eq_left hf.1, hb, hb']
     simp only [Option.getD_some]
     omega
   · obtain ⟨hf', b, b', hb0, hb', hle'⟩ := fin hb.1
@@ -75,7 +75,7 @@ theorem budOf_acc {fd : Int32} {fs fs' : Fs} {n : Nat} (acc : BudgetAcc fd fs fs
   obtain ⟨-, k⟩ := acc h0
   obtain ⟨b', hb', hle⟩ := k b hb
   unfold budOf
-  rw [if_pos h0, if_pos h0, hb, hb']
+  rw [ite_eq_left h0, ite_eq_left h0, hb, hb']
   simp only [Option.getD_some]
   omega
 
@@ -83,19 +83,19 @@ theorem flagF_le (h : Heap) (s : GzState) : flagF h s ≤ 2 := by
   unfold flagF; split <;> omega
 
 theorem flagF_ne {h : Heap} {s : GzState} (hg : s.how ≠ GZIP) : flagF h s = 0 := by
-  unfold flagF; rw [if_neg (fun hh => hg hh.1)]
+  unfold flagF; rw [ite_eq_right (fun hh => hg hh.1)]
 
 theorem flagF_head {h : Heap} {s : GzState} (hd : InflateAtHead h s) : flagF h s = 0 := by
-  unfold flagF; rw [if_neg (fun hh => hh.2 hd)]
+  unfold flagF; rw [ite_eq_right (fun hh => hh.2 hd)]
 
 theorem flagF_gzip {h : Heap} {s : GzState} (hg : s.how = GZIP) (hd : ¬ InflateAtHead h s) : flagF h s = 2 := by
-  unfold flagF; rw [if_pos ⟨hg, hd⟩]
+  unfold flagF; rw [ite_eq_left ⟨hg, hd⟩]
 
 theorem flagW_copy {s : GzState} (hc : s.how = GZ_COPY) : flagW s = 0 := by
-  unfold flagW; rw [if_pos hc]
+  unfold flagW; rw [ite_eq_left hc]
 
 theorem flagW_ne {s : GzState} (hc : s.how ≠ GZ_COPY) : flagW s = 2 := by
-  unfold flagW; rw [if_neg hc]
+  unfold flagW; rw [ite_eq_right hc]
 
 theorem flagW_le (s : GzState) : flagW s ≤ 2 := by
   unfold flagW; split <;> omega

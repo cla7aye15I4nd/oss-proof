@@ -41,7 +41,7 @@ theorem deepest_eq (c : Nat → Nat) (s : Nat) (hs : c s ≠ 0) :
   | b + 1, hsb, hz => by
     simp only [deepest]
     rcases Nat.lt_or_ge s (b + 1) with h | h
-    · rw [if_neg (by rw [hz (b + 1) h (Nat.le_refl _)]; simp)]
+    · rw [ite_eq_right (by rw [hz (b + 1) h (Nat.le_refl _)]; simp)]
       exact deepest_eq c s hs b (by omega) fun j h1 h2 => hz j h1 (by omega)
     · have : s = b + 1 := by omega
       subst this; simp [hs]

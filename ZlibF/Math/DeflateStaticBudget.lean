@@ -17,7 +17,7 @@ theorem fresh_weighted_cost {frequency coefficient : Nat → Nat} {n key : Nat}
     · subst v
       simp [fresh]
     · simp [same]
-  rw [point, mass_add, mass_single_value, if_pos fit]
+  rw [point, mass_add, mass_single_value, ite_eq_left fit]
 
 /-- The source may temporarily underflow while subtracting a dummy cost.
 The later identical contribution cancels in the unsigned word exactly. -/
@@ -40,7 +40,7 @@ theorem literal_frequency_cost (lengthCode : Nat → Nat) (xs : List Symbol)
     · subst v
       simp [Nat.add_mul]
     · simp [same]
-  rw [point, mass_add, mass_single_value, if_pos eob,
+  rw [point, mass_add, mass_single_value, ite_eq_left eob,
     weighted_count_key (xs := xs) (fun s : Symbol => s.literalKey lengthCode) n coefficient bounds]
 
 /-- Both code alphabets share one per-symbol fixed-bit budget. -/

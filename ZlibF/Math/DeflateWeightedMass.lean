@@ -41,7 +41,7 @@ theorem weighted_count_key {α : Type} (key : α → Nat) {xs : List α} (n : Na
       · subst k
         simp only [countKey, ite_true, Nat.add_mul, Nat.one_mul]
       · simp [countKey, same, Ne.symm same]
-    rw [point, mass_add, mass_single_value, if_pos first, rest]
+    rw [point, mass_add, mass_single_value, ite_eq_left first, rest]
     simp only [List.map_cons, List.sum_cons]
 
 /-- Pointwise code certificates add to a whole-tree cost bound. Zero-count
@@ -75,7 +75,7 @@ theorem count_key_positive {α : Type} (key : α → Option Nat) {xs : List α} 
     simp only [List.mem_cons] at member
     rcases member with same | rest
     · subst x
-      rw [countKey, selected, if_pos rfl]
+      rw [countKey, selected, ite_eq_left rfl]
       omega
     · have previous := ih rest
       rw [countKey]
@@ -108,7 +108,7 @@ theorem weighted_optional_key {α : Type} (key : α → Option Nat) {xs : List �
         · subst k
           simp only [countKey, selected, ite_true, Nat.add_mul, Nat.one_mul]
         · simp [countKey, selected, same, Ne.symm same]
-      rw [point, mass_add, mass_single_value, if_pos first, rest]
+      rw [point, mass_add, mass_single_value, ite_eq_left first, rest]
       simp only [List.map_cons, selected, List.sum_cons]
 
 theorem list_sum_le_split {α : Type} (xs : List α) (cost left right : α → Nat)

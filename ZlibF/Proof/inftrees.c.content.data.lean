@@ -321,11 +321,11 @@ theorem lenLeavesPositive_of_tableSafe {P : Nat → Code → Prop} {ca : Array C
   intro i inside
   have entry := safe.2.2 i inside
   by_cases link : LenLink (ca.getD (o + i) default)
-  · rw [if_pos link] at entry ⊢
+  · rw [ite_eq_left link] at entry ⊢
     obtain ⟨_, _, _, _, leaves⟩ := entry
     intro j bounded
     exact positive _ _ (leaves j bounded)
-  · rw [if_neg link] at entry ⊢
+  · rw [ite_eq_right link] at entry ⊢
     exact positive _ _ entry
 
 /-- For a complete length alphabet, every leaf that the actual constructor wrote reads at least one bit. -/

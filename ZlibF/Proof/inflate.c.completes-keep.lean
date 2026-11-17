@@ -476,10 +476,10 @@ theorem keeps_put_bytes {h : Heap} {r : BRef} {a a' : Array UInt8} (g : Space.ge
       rw [upd_apply] at gx
       by_cases e : c = b
       · subst e
-        rw [if_pos rfl] at gx
+        rw [ite_eq_left rfl] at gx
         cases gx
         exact ⟨a, g, size⟩
-      · rw [if_neg e] at gx
+      · rw [ite_eq_right e] at gx
         exact ⟨x, gx, rfl⟩
     | str i => exact absurd rfl (n i)
     | _ => exact ⟨x, gx, rfl⟩
@@ -507,10 +507,10 @@ theorem keeps_put_bytes {h : Heap} {r : BRef} {a a' : Array UInt8} (g : Space.ge
         rw [upd_apply] at gx
         by_cases e : c = id
         · subst e
-          rw [if_pos rfl] at gx
+          rw [ite_eq_left rfl] at gx
           cases gx
           exact ⟨d.depth, by rw [hd]; rfl, size⟩
-        · rw [if_neg e] at gx
+        · rw [ite_eq_right e] at gx
           exact ⟨x, gx, rfl⟩
       | str i => exact absurd rfl (n i)
       | _ => exact ⟨x, gx, rfl⟩
@@ -537,8 +537,8 @@ theorem keeps_put_words {h : Heap} {r : WRef} (a' : Array UInt16) : Keeps h (Spa
         simp only [getB]
         rw [upd_apply]
         by_cases e : c = id
-        · subst e; rw [if_pos rfl, hd]; rfl
-        · rw [if_neg e]
+        · subst e; rw [ite_eq_left rfl, hd]; rfl
+        · rw [ite_eq_right e]
       | str i => exact absurd rfl (n i)
       | _ => rfl
   | istate_lens id =>
@@ -560,10 +560,10 @@ theorem keeps_put_words {h : Heap} {r : WRef} (a' : Array UInt16) : Keeps h (Spa
         rw [upd_apply] at g'
         by_cases e : j = id
         · subst e
-          rw [if_pos rfl] at g'
+          rw [ite_eq_left rfl] at g'
           cases g'
           exact ⟨d, hs, Ctl.of_fields rfl rfl rfl rfl⟩
-        · rw [if_neg e] at g'
+        · rw [ite_eq_right e] at g'
           exact ⟨s', g', Ctl.refl h s'⟩
   | istate_work id =>
     show Keeps h (match h.istates id with
@@ -584,10 +584,10 @@ theorem keeps_put_words {h : Heap} {r : WRef} (a' : Array UInt16) : Keeps h (Spa
         rw [upd_apply] at g'
         by_cases e : j = id
         · subst e
-          rw [if_pos rfl] at g'
+          rw [ite_eq_left rfl] at g'
           cases g'
           exact ⟨d, hs, Ctl.of_fields rfl rfl rfl rfl⟩
-        · rw [if_neg e] at g'
+        · rw [ite_eq_right e] at g'
           exact ⟨s', g', Ctl.refl h s'⟩
 
 theorem keeps_put_codes {h : Heap} {r : CodeRef} (a' : Array Code) : Keeps h (Space.put h r a') := by
@@ -611,10 +611,10 @@ theorem keeps_put_codes {h : Heap} {r : CodeRef} (a' : Array Code) : Keeps h (Sp
         rw [upd_apply] at g'
         by_cases e : j = id
         · subst e
-          rw [if_pos rfl] at g'
+          rw [ite_eq_left rfl] at g'
           cases g'
           exact ⟨d, hs, Ctl.of_fields rfl rfl rfl rfl⟩
-        · rw [if_neg e] at g'
+        · rw [ite_eq_right e] at g'
           exact ⟨s', g', Ctl.refl h s'⟩
   | st_lenfix => exact Keeps.refl h
   | st_distfix => exact Keeps.refl h
@@ -690,10 +690,10 @@ theorem keep_allocBytes (a : Array UInt8) (small_a : a.size < small) : KeepM (al
         simp only [getB] at gx ⊢
         rw [upd_apply] at gx
         by_cases e : c = h.nextBlk
-        · rw [if_pos e] at gx
+        · rw [ite_eq_left e] at gx
           cases gx
           exact Or.inr small_a
-        · rw [if_neg e] at gx
+        · rw [ite_eq_right e] at gx
           exact Or.inl ⟨x, gx, rfl⟩
       | str i => exact absurd rfl (n i)
       | _ => exact Or.inl ⟨x, gx, rfl⟩
@@ -714,10 +714,10 @@ theorem keep_allocB (n : Nat) (small_n : n < small) : KeepM (allocB n) := by
           simp only [getB] at gx ⊢
           rw [upd_apply] at gx
           by_cases e : c = h.nextBlk
-          · rw [if_pos e] at gx
+          · rw [ite_eq_left e] at gx
             cases gx
             exact Or.inr (by simpa using small_n)
-          · rw [if_neg e] at gx
+          · rw [ite_eq_right e] at gx
             exact Or.inl ⟨x, gx, rfl⟩
         | str i => exact absurd rfl (k i)
         | _ => exact Or.inl ⟨x, gx, rfl⟩
@@ -796,10 +796,10 @@ theorem keep_wrS (p : InflateStatePtr) (f : InflateState → InflateState) (hf :
             rw [upd_apply] at gj
             by_cases e : j = i
             · subst e
-              rw [if_pos rfl] at gj
+              rw [ite_eq_left rfl] at gj
               cases gj
               exact ⟨s, g, hf.ctl h s⟩
-            · rw [if_neg e] at gj
+            · rw [ite_eq_right e] at gj
               exact ⟨s', gj, Ctl.refl h s'⟩
 
 /-- The same pattern written out, followed by more code. -/

@@ -47,7 +47,7 @@ theorem sumR_single (a v : Nat) : ∀ n, sumR (fun r => if r = a then v else 0) 
       · subst h1; simp; omega
       · by_cases h2 : 1 ≤ a ∧ a ≤ n
         · simp [h1, h2]; omega
-        · rw [if_neg h1, if_neg h2, if_neg (by omega)]
+        · rw [ite_eq_right h1, ite_eq_right h2, ite_eq_right (by omega)]
   rw [this]; split <;> omega
 
 theorem sumR_zero : ∀ n, sumR (fun _ => 0) n = 0
@@ -118,9 +118,9 @@ theorem wsum_shift (wt f g : Nat → Nat) (a b : Nat)
     have hi := h i
     by_cases ha : i = a <;> by_cases hb : i = b
     · subst ha; subst hb; simp at hi ⊢; rw [hi]
-    · subst ha; simp only [if_true, if_neg hb, Nat.add_zero] at hi ⊢; rw [← hi, Nat.add_mul, Nat.one_mul]
-    · subst hb; simp only [if_true, if_neg ha, Nat.add_zero] at hi ⊢; rw [hi, Nat.add_mul, Nat.one_mul]
-    · simp only [if_neg ha, if_neg hb] at hi ⊢; simp at hi; rw [hi]
+    · subst ha; simp only [ite_true, ite_eq_right hb, Nat.add_zero] at hi ⊢; rw [← hi, Nat.add_mul, Nat.one_mul]
+    · subst hb; simp only [ite_true, ite_eq_right ha, Nat.add_zero] at hi ⊢; rw [hi, Nat.add_mul, Nat.one_mul]
+    · simp only [ite_eq_right ha, ite_eq_right hb] at hi ⊢; simp at hi; rw [hi]
   intro j
   induction j with
   | zero =>
@@ -138,18 +138,18 @@ theorem wsum_shift (wt f g : Nat → Nat) (a b : Nat)
     by_cases ha : a = j + 1 <;> by_cases hb : b = j + 1
     · subst ha; subst hb; simp at ih this ⊢; omega
     · subst ha
-      rw [if_neg (by omega)] at ih; rw [if_pos (Nat.le_refl _)]
-      simp only [if_true, show ¬ (j + 1 = b) by omega, if_false] at this
+      rw [ite_eq_right (by omega)] at ih; rw [ite_eq_left (Nat.le_refl _)]
+      simp only [ite_true, show ¬ (j + 1 = b) by omega, ite_false] at this
       by_cases hb' : b ≤ j
-      · rw [if_pos hb'] at ih; rw [if_pos (by omega)]; omega
-      · rw [if_neg hb'] at ih; rw [if_neg (by omega)]; omega
+      · rw [ite_eq_left hb'] at ih; rw [ite_eq_left (by omega)]; omega
+      · rw [ite_eq_right hb'] at ih; rw [ite_eq_right (by omega)]; omega
     · subst hb
-      rw [if_neg (show ¬ (j + 1 ≤ j) by omega)] at ih; rw [if_pos (Nat.le_refl (j + 1))]
-      simp only [if_true, show ¬ (j + 1 = a) by omega, if_false] at this
+      rw [ite_eq_right (show ¬ (j + 1 ≤ j) by omega)] at ih; rw [ite_eq_left (Nat.le_refl (j + 1))]
+      simp only [ite_true, show ¬ (j + 1 = a) by omega, ite_false] at this
       by_cases ha' : a ≤ j
-      · rw [if_pos ha'] at ih; rw [if_pos (by omega)]; omega
-      · rw [if_neg ha'] at ih; rw [if_neg (by omega)]; omega
-    · simp only [show ¬ (j + 1 = a) by omega, show ¬ (j + 1 = b) by omega, if_false] at this
+      · rw [ite_eq_left ha'] at ih; rw [ite_eq_left (by omega)]; omega
+      · rw [ite_eq_right ha'] at ih; rw [ite_eq_right (by omega)]; omega
+    · simp only [show ¬ (j + 1 = a) by omega, show ¬ (j + 1 = b) by omega, ite_false] at this
       have e1 : (a ≤ j + 1) = (a ≤ j) := by apply propext; omega
       have e2 : (b ≤ j + 1) = (b ≤ j) := by apply propext; omega
       simp only [e1, e2]; omega

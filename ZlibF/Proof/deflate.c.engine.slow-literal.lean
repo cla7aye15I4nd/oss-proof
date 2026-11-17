@@ -79,9 +79,9 @@ theorem slow_literal_boundary {h : Heap} {r : ZStreamRef} {ds w top : Nat}
     simp only [zrd_eq, getter]
   refine ⟨after, ?_, advanced.1, advanced.2.1, advanced.2.2, ?_, literal_not_full trees c room flag⟩
   · unfold slowDecision
-    simp only [bind_app, ldDeflateState_tab good.live.hs, literalBranch, Bool.false_eq_true, if_false]
+    simp only [bind_app, ldDeflateState_tab good.live.hs, literalBranch, Bool.false_eq_true, ite_false]
     have hasLiteral : (d.match_available != 0) = true := by simpa using available
-    simp only [hasLiteral, if_true, bind_app, read, tally, Bool.false_eq_true, if_false]
+    simp only [hasLiteral, ite_true, bind_app, read, tally, Bool.false_eq_true, ite_false]
     change (do
       wr (some (.tab ds)) advanceOne
       if (← zrd d.strm (·.avail_out)) == 0 then

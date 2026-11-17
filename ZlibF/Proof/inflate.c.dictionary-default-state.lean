@@ -97,7 +97,7 @@ theorem inflate_DICT_default_state {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : N
     obtain ⟨outcome, regs, after, stream, state, _, _, run, final, _⟩ :=
       inflate_dispatch_type_state_rank E0 state0 packet0 (Or.inl rfl) incoming
     have selector : runX (inflate_dispatch c) l heap0 = runX (inflate_TYPE c) l heap0 := by
-      rw [inflate_dispatch_block_type E0 l (Or.inl rfl), if_pos rfl]
+      rw [inflate_dispatch_block_type E0 l (Or.inl rfl), ite_eq_left rfl]
     exact ⟨outcome, regs, after, stream, state,
       (inflate_DICT_ready_cut E l missing).trans (selector.symm.trans run), final⟩
 

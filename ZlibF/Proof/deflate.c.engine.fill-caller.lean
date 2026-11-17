@@ -84,6 +84,6 @@ theorem fill_window_resume_caller {h : Heap} {r : ZStreamRef} {ds w io top origi
     exact wrap
   · rw [fields]
   · intro i hi
-    simp only [extended, extendInput, hi, if_true]
+    simp only [extended, extendInput, hi, ite_true]
 
 end Zlib.Deflate.Engine.Proofs

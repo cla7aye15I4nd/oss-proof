@@ -64,47 +64,47 @@ theorem errno_bytes_lt64 (e : Int32) : (strBytes (libcErrnoText e)).size < 64 :=
   have hd := int32_decimal_bytes e
   unfold libcErrnoText
   by_cases h0 : (e == 0) = true
-  · rw [if_pos h0]; decide
-  rw [if_neg h0]
+  · rw [ite_eq_left h0]; decide
+  rw [ite_eq_right h0]
   by_cases h2 : (e == 2) = true
-  · rw [if_pos h2]; decide
-  rw [if_neg h2]
+  · rw [ite_eq_left h2]; decide
+  rw [ite_eq_right h2]
   by_cases h4 : (e == 4) = true
-  · rw [if_pos h4]; decide
-  rw [if_neg h4]
+  · rw [ite_eq_left h4]; decide
+  rw [ite_eq_right h4]
   by_cases h5 : (e == 5) = true
-  · rw [if_pos h5]; decide
-  rw [if_neg h5]
+  · rw [ite_eq_left h5]; decide
+  rw [ite_eq_right h5]
   by_cases h9 : (e == 9) = true
-  · rw [if_pos h9]; decide
-  rw [if_neg h9]
+  · rw [ite_eq_left h9]; decide
+  rw [ite_eq_right h9]
   by_cases h11 : (e == 11) = true
-  · rw [if_pos h11]; decide
-  rw [if_neg h11]
+  · rw [ite_eq_left h11]; decide
+  rw [ite_eq_right h11]
   by_cases h13 : (e == 13) = true
-  · rw [if_pos h13]; decide
-  rw [if_neg h13]
+  · rw [ite_eq_left h13]; decide
+  rw [ite_eq_right h13]
   by_cases h17 : (e == 17) = true
-  · rw [if_pos h17]; decide
-  rw [if_neg h17]
+  · rw [ite_eq_left h17]; decide
+  rw [ite_eq_right h17]
   by_cases h21 : (e == 21) = true
-  · rw [if_pos h21]; decide
-  rw [if_neg h21]
+  · rw [ite_eq_left h21]; decide
+  rw [ite_eq_right h21]
   by_cases h22 : (e == 22) = true
-  · rw [if_pos h22]; decide
-  rw [if_neg h22]
+  · rw [ite_eq_left h22]; decide
+  rw [ite_eq_right h22]
   by_cases h27 : (e == 27) = true
-  · rw [if_pos h27]; decide
-  rw [if_neg h27]
+  · rw [ite_eq_left h27]; decide
+  rw [ite_eq_right h27]
   by_cases h28 : (e == 28) = true
-  · rw [if_pos h28]; decide
-  rw [if_neg h28]
+  · rw [ite_eq_left h28]; decide
+  rw [ite_eq_right h28]
   by_cases h29 : (e == 29) = true
-  · rw [if_pos h29]; decide
-  rw [if_neg h29]
+  · rw [ite_eq_left h29]; decide
+  rw [ite_eq_right h29]
   by_cases h75 : (e == 75) = true
-  · rw [if_pos h75]; decide
-  rw [if_neg h75]
+  · rw [ite_eq_left h75]; decide
+  rw [ite_eq_right h75]
   simp only [strBytes, Array.size_push, ByteArray.size_data]
   change ("Unknown error " ++ toString e.toInt).utf8ByteSize + 1 < 64
   rw [String.utf8ByteSize_append]

@@ -79,7 +79,7 @@ theorem dec_psi {d d' : DeflateState} {a a' : Nat} (dec : DecIn d a d' a') (gh :
 theorem psi_lt {d : DeflateState} (none : d.gzhead = none) (w : work d < 2 ^ 18) (p : d.pending.toNat < 2 ^ 18) :
     psi d < 2 ^ 41 := by
   have r1 := rank_le d; have ph1 := phase_le d
-  unfold psi; rw [if_pos none]; unfold phiN; omega
+  unfold psi; rw [ite_eq_left none]; unfold phiN; omega
 
 /-- A call on the invariant, its `CallIn`, and the record kept. -/
 theorem call_in_gz {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {flush : Int32}

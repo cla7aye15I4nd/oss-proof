@@ -87,7 +87,7 @@ theorem slow_match_before_flush {h : Heap} {r : ZStreamRef} {ds w : Nat}
       hash_head ht = .ok (candidate, after) := advance
   dsimp only [distance, length] at tally
   unfold slowDecision
-  simp only [bind_app, ldDeflateState_tab good.live.hs, selected, if_true, tally]
+  simp only [bind_app, ldDeflateState_tab good.live.hs, selected, ite_true, tally]
   change (do
     let head ← slowMatchAdvance (some (.tab ds)) (d.strstart + d.lookahead - MIN_MATCH_u) hash_head
     pure { st with hash_head := head, bflush := false }) ht = _

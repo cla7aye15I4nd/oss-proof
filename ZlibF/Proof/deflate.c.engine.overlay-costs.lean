@@ -218,7 +218,7 @@ theorem dynamic_opt_len {h : Heap} {ds pb : Nat} {d : DeflateState}
   have small : ∀ (T : Array CtData) (M : Nat), (∀ i ≤ M, T[i]!.dl.toNat ≤ 15) →
       ∀ i, i < M + 1 → Zlib.Trees.Proofs.Out.guarded (fun n => T[n]!.dl.toNat) M i ≤ 15 := by
     intro T M fit i lt
-    simp only [Zlib.Trees.Proofs.Out.guarded, show i ≠ M + 1 by omega, if_false]
+    simp only [Zlib.Trees.Proofs.Out.guarded, show i ≠ M + 1 by omega, ite_false]
     exact fit i (by omega)
   have tl := Zlib.Trees.Proofs.Out.treeBits_length (Zlib.Trees.Proofs.Out.blWords ready) _ _
     (small readyP.dyn_ltree readyP.l_desc.max_code.toInt.toNat input.llen)
@@ -251,18 +251,18 @@ theorem dynamic_opt_len {h : Heap} {ds pb : Nat} {d : DeflateState}
     intro i le
     rw [rL]
     unfold Zlib.Trees.Proofs.scGuard
-    rw [Zlib.Trees.Proofs.getD_set _ _ _ _ (by omega), if_neg (by omega)]
+    rw [Zlib.Trees.Proofs.getD_set _ _ _ _ (by omega), ite_eq_right (by omega)]
   have agreeD : ∀ i ≤ readyP.d_desc.max_code.toInt.toNat, ready.dyn_dtree[i]! = readyP.dyn_dtree[i]! := by
     intro i le
     rw [rD]
     unfold Zlib.Trees.Proofs.scGuard
-    rw [Zlib.Trees.Proofs.getD_set _ _ _ _ (by omega), if_neg (by omega)]
+    rw [Zlib.Trees.Proofs.getD_set _ _ _ _ (by omega), ite_eq_right (by omega)]
   have costsSame := dynamicSymbolCosts_live_congr ledger facts agreeL agreeD
   have eobUsed : (d.dyn_ltree[256]!).fc ≠ 0 := by
     intro zero
     have freq := ledger.literal 256 (by decide)
     rw [zero] at freq
-    simp only [UInt16.toNat_zero, literalFrequency, if_pos] at freq
+    simp only [UInt16.toNat_zero, literalFrequency, ite_eq_left] at freq
     omega
   have eob : curL ready.dyn_ltree 256 = curL readyP.dyn_ltree 256 := by
     unfold curL

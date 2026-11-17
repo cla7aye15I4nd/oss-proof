@@ -121,16 +121,16 @@ theorem noflush_input {z : ZStream} {st : Loop} (h : cflush z st = Z_NO_FLUSH) :
     (crefilled z st).avail_in ≠ 0 := by
   unfold cflush at h
   by_cases r0 : (crest z st).2 = 0
-  · rw [if_pos r0] at h; exact absurd h (by decide)
+  · rw [ite_eq_left r0] at h; exact absurd h (by decide)
   · simp only [crefilled]
     by_cases zi : z.avail_in = 0
-    · rw [if_pos zi]
+    · rw [ite_eq_left zi]
       intro e
       have x0 := (refill_le st.2.2).2.1 e
       apply r0
-      simp only [crest, zi, if_true, x0]
+      simp only [crest, zi, ite_true, x0]
       rfl
-    · rw [if_neg zi]; exact zi
+    · rw [ite_eq_right zi]; exact zi
 
 /-- The owned blocks of a decoder with `DGood`. -/
 theorem good_owned {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
@@ -384,7 +384,7 @@ theorem step (cr : CompressReach R) (call : GoalDeflateFor R) (facts : DeflateLo
       · have nf : cflush z st = Z_NO_FLUSH := by
           unfold cflush at fl ⊢
           split
-          · rename_i h0; rw [if_pos h0] at fl; exact absurd rfl fl
+          · rename_i h0; rw [ite_eq_left h0] at fl; exact absurd rfl fl
           · rfl
         have ch := F.1 notRef nf (noflush_input nf) room rcOk z' good'.live.hz
         rcases ch with x | x

@@ -79,11 +79,11 @@ theorem inflateInit2_record {h : Heap} {r : ZStreamRef} {z : ZStream} {version :
     (ZlibF.Spec.Public.Proofs.InflateInit.inflate_init2_public wb).2.2 h r z version hf hu hg hz hd hv
   refine ⟨rc, after, hrun, ?_⟩
   by_cases ha : h.allocOk h.nalloc = false
-  · rw [if_pos ha] at hbr
+  · rw [ite_eq_left ha] at hbr
     obtain ⟨hrc, hsame⟩ := hbr
     obtain ⟨hfr, hl⟩ := frame_of_same hz (upToShape_of_same hsame)
     exact ⟨hfr, Or.inr ⟨by rw [hrc]; decide, hl⟩⟩
-  · rw [if_neg ha] at hbr
+  · rw [ite_eq_right ha] at hbr
     cases hw : Api.inflWbits wb.toInt with
     | none =>
       rw [hw] at hbr
@@ -153,21 +153,21 @@ theorem deflateInit2_record {h : Heap} {r : ZStreamRef} {z : ZStream} {version :
     rw [hp] at hbr
     dsimp only at hbr
     by_cases ha : h.allocOk h.nalloc = false
-    · rw [if_pos ha] at hbr
+    · rw [ite_eq_left ha] at hbr
       obtain ⟨hrc, -, hsame⟩ := hbr
       obtain ⟨hfr, hl⟩ := frame_of_same hz (upToShape_of_same hsame)
       exact ⟨hfr, Or.inr ⟨by rw [hrc]; decide, hl⟩⟩
-    · rw [if_neg ha] at hbr
+    · rw [ite_eq_right ha] at hbr
       obtain ⟨-, hbr⟩ := hbr
       by_cases hall : (List.range 5).all (fun j => h.allocOk (h.nalloc + j)) = true
-      · rw [if_pos hall] at hbr
+      · rw [ite_eq_left hall] at hbr
         obtain ⟨hrc, z', s', hgood, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hfr, hl, -⟩ := hbr
         subst hrc
         refine ⟨hfr, Or.inl ⟨rfl, StreamReachable.deflateInit hf hu hg hz hd hv hrun,
           DeflateOwned h.nextBlk s', ?_, hl⟩⟩
         intro b hb
         exact ⟨z', hgood.live.hz, Or.inr ⟨h.nextBlk, s', hgood.live.zst, hgood.live.hs, hb⟩⟩
-      · rw [if_neg hall] at hbr
+      · rw [ite_eq_right hall] at hbr
         obtain ⟨hrc, -, hl, hfr⟩ := hbr
         exact ⟨hfr, Or.inr ⟨by rw [hrc]; decide, hl⟩⟩
 

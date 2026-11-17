@@ -40,13 +40,13 @@ theorem len_one_of_two {len : Nat → Nat} {N L : Nat} (hL : ∀ n, len n ≤ L)
   have hTU : ∀ i, (if len i ≠ 0 then 2 ^ (L - len i) else 0) ≤ (if len i ≠ 0 then 2 ^ (L - 1) else 0) := by
     intro i
     by_cases e : len i ≠ 0
-    · rw [if_pos e, if_pos e]; exact pow_sub_le_half (by omega) (hL i)
-    · rw [if_neg e, if_neg e]; exact Nat.le_refl 0
+    · rw [ite_eq_left e, ite_eq_left e]; exact pow_sub_le_half (by omega) (hL i)
+    · rw [ite_eq_right e, ite_eq_right e]; exact Nat.le_refl 0
   have hU : rs (fun i => if len i ≠ 0 then 2 ^ (L - 1) else 0) N = 2 ^ L := by
     rw [rs_congr (G := fun i => 2 ^ (L - 1) * (if len i ≠ 0 then 1 else 0)) (fun i _ => by
       by_cases e : len i ≠ 0
-      · rw [if_pos e, if_pos e, Nat.mul_one]
-      · rw [if_neg e, if_neg e, Nat.mul_zero]), rs_mul, h2]
+      · rw [ite_eq_left e, ite_eq_left e, Nat.mul_one]
+      · rw [ite_eq_right e, ite_eq_right e, Nat.mul_zero]), rs_mul, h2]
     rw [show L = (L - 1) + 1 by omega, Nat.pow_succ]; simp only [Nat.add_sub_cancel]
   have hsum := rs_add (fun i => if len i ≠ 0 then 2 ^ (L - len i) else 0)
     (fun i => (if len i ≠ 0 then 2 ^ (L - 1) else 0) - (if len i ≠ 0 then 2 ^ (L - len i) else 0)) N
@@ -71,19 +71,19 @@ theorem len_one_of_two_within {len : Nat → Nat} {N L : Nat}
   have clippedBound : ∀ n, clipped n ≤ L := by
     intro n
     by_cases fit : n < N
-    · simpa only [clipped, if_pos fit] using bound n fit
+    · simpa only [clipped, ite_eq_left fit] using bound n fit
     · simp [clipped, fit]
   have clippedKraft : rs (fun n => if clipped n ≠ 0 then 2 ^ (L - clipped n) else 0) N = 2 ^ L := by
     rw [rs_congr (G := fun n => if len n ≠ 0 then 2 ^ (L - len n) else 0)
-      (fun n fit => by simp only [clipped, if_pos fit])]
+      (fun n fit => by simp only [clipped, ite_eq_left fit])]
     exact kraft
   have clippedCount : rs (fun n => if clipped n ≠ 0 then 1 else 0) N = 2 := by
     rw [rs_congr (G := fun n => if len n ≠ 0 then 1 else 0)
-      (fun n fit => by simp only [clipped, if_pos fit])]
+      (fun n fit => by simp only [clipped, ite_eq_left fit])]
     exact count
   intro n fit nonzero
   have one := len_one_of_two clippedBound clippedKraft clippedCount n fit
-  simpa only [clipped, if_pos fit] using one (by simpa only [clipped, if_pos fit] using nonzero)
+  simpa only [clipped, ite_eq_left fit] using one (by simpa only [clipped, ite_eq_left fit] using nonzero)
 
 /-- Fresh frequency-one dummy leaves contribute exactly the source
 repair count. When any repair occurs, the complete code has two leaves
@@ -119,12 +119,12 @@ theorem forced_dynamic_cost (original prepared length extra : Nat → Nat) (N L 
     apply rs_congr
     intro n fit
     by_cases dummy : original n = 0 ∧ prepared n ≠ 0
-    · rw [if_pos dummy, if_pos dummy]
+    · rw [ite_eq_left dummy, ite_eq_left dummy]
       by_cases zero : k = 0
       · have absent := rs_zero_of (forcedCount.trans zero) n fit
         simp [dummy] at absent
       · exact len_one_of_two_within bound kraft (lengthCount.trans (two zero)) n fit ((used n fit).mpr dummy.2)
-    · rw [if_neg dummy, if_neg dummy]
+    · rw [ite_eq_right dummy, ite_eq_right dummy]
   calc
     _ = rs (fun n => original n * (length n + extra n) +
         if original n = 0 ∧ prepared n ≠ 0 then length n else 0) N := by

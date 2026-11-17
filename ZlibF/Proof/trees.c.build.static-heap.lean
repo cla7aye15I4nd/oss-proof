@@ -101,7 +101,7 @@ theorem BTForest.tail_cost {tk : TK} {prepared merged : DeflateState} {N K : Nat
   have maxBounds := forest.max_leaf
   have root := forest.last_root (by omega)
   have rootOutside : N ≤ Hn merged 1 := by unfold Hn; omega
-  have rootCost : F (Hn merged 1) = 0 := by dsimp only [F]; rw [if_neg (by omega)]
+  have rootCost : F (Hn merged 1) = 0 := by dsimp only [F]; rw [ite_eq_right (by omega)]
   have firstCount : K - (K - 1) = 1 := by omega
   have tailStart : 573 - 2 * (K - 1) = 574 - 2 * K + 1 := by omega
   have reverseSum : GB.rs (fun i => F (Hn merged (572 - i))) (2 * (K - 1)) =
@@ -132,7 +132,7 @@ theorem BTForest.tail_cost {tk : TK} {prepared merged : DeflateState} {N K : Nat
         have valid := forest.initial.valid (i + 1) (by omega) (by have := forest.initial_len; omega)
         have fit : Hn prepared (i + 1) < N := by unfold Hn; omega
         dsimp only [F]
-        rw [if_pos fit]
+        rw [ite_eq_left fit]
         change (tk.arr merged)[Hn prepared (i + 1)]!.fc.toNat * _ = _
         rw [forest.leaf_freq _ fit]
         rfl
@@ -141,7 +141,7 @@ theorem BTForest.tail_cost {tk : TK} {prepared merged : DeflateState} {N K : Nat
     apply GB.rs_eq_zero
     intro i _
     dsimp only [F]
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
   have tail : GB.rs (fun i => F (Hn merged (574 - 2 * K + 1 + i))) (2 * (K - 1)) =
       GB.rs (fun i => if Hn merged (574 - 2 * K + 1 + i) ≤ mc.toInt.toNat then
         (btFreq tk merged (Hn merged (574 - 2 * K + 1 + i))).toNat *
@@ -151,8 +151,8 @@ theorem BTForest.tail_cost {tk : TK} {prepared merged : DeflateState} {N K : Nat
     have kind := forest.kind (574 - 2 * K + 1 + i) (Or.inr ⟨by omega, by omega⟩)
     dsimp only [F]
     by_cases leaf : Hn merged (574 - 2 * K + 1 + i) ≤ mc.toInt.toNat
-    · rw [if_pos leaf, if_pos (by omega)]
-    · rw [if_neg leaf, if_neg (by omega)]
+    · rw [ite_eq_left leaf, ite_eq_left (by omega)]
+    · rw [ite_eq_right leaf, ite_eq_right (by omega)]
   calc
     _ = GB.rs (fun i => F (Hn merged (574 - 2 * K + 1 + i))) (2 * (K - 1)) := tail.symm
     _ = GB.poolSum (Hn merged) (K - (K - 1)) (2 * (K - 1)) F := pool.symm

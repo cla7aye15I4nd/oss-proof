@@ -73,7 +73,7 @@ theorem lensRead_order_cell {a : Array UInt16} (size : 19 ≤ a.size) (input : L
     · subst i
       simp [inside]
     · have distinct : orderNat n ≠ orderNat i := fun equal => same (orderNat_injective (by omega) index equal)
-      rw [if_neg (fun both => distinct both.1), ih (by omega)]
+      rw [ite_eq_right (fun both => distinct both.1), ih (by omega)]
       have condition : (i < n) = (i < n + 1) := by apply propext; omega
       simp only [condition]
 
@@ -98,7 +98,7 @@ theorem lensZero_order_cell {a : Array UInt16} (size : 19 ≤ a.size)
       simp [inside]
     · have distinct : orderNat (start + n) ≠ orderNat i := fun equal =>
         same (orderNat_injective (by omega) index equal)
-      rw [if_neg (fun both => distinct both.1), ih (by omega)]
+      rw [ite_eq_right (fun both => distinct both.1), ih (by omega)]
       have condition : (start ≤ i ∧ i < start + n) = (start ≤ i ∧ i < start + (n + 1)) := by
         apply propext
         omega
@@ -111,11 +111,11 @@ theorem code_length_header_cell {a : Array UInt16} (size : 19 ≤ a.size) (input
   have readSize : 19 ≤ (lensRead a 0 input n).size := by rw [lensRead_size]; exact size
   rw [lensZero_order_cell readSize n (19 - n) i index (by omega)]
   by_cases before : i < n
-  · rw [if_neg (by omega), lensRead_order_cell size input n i index bound, if_pos before, if_pos before]
+  · rw [ite_eq_right (by omega), lensRead_order_cell size input n i index bound, ite_eq_left before, ite_eq_left before]
     have small := grp_le input i
     simp only [Nat.toUInt16_eq, UInt16.toNat_ofNat']
     omega
-  · rw [if_pos (by omega), if_neg before]
+  · rw [ite_eq_left (by omega), ite_eq_right before]
     rfl
 
 

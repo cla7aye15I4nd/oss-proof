@@ -29,7 +29,7 @@ def CallQ (r : ZStreamRef) (ds : Nat) (z : ZStream) (d : DeflateState) (flush : 
     (8 ≤ z.avail_out.toNat → z'.avail_out = 0 → LexLt d' d) ∧ (z'.avail_out ≠ 0 → QuietD flush d')
 
 theorem phase_not_finish {d : DeflateState} (nf : d.status ≠ FINISH_STATE) : phase d = 2 := by
-  unfold phase; rw [if_neg nf]
+  unfold phase; rw [ite_eq_right nf]
 
 theorem rank_pos_writing {d : DeflateState} (w : Writing d) : 0 < rank d := by
   unfold Writing at w
@@ -233,7 +233,7 @@ theorem call_pending_q {h : Heap} {r : ZStreamRef} {ds : Nat}
   · -- the entry flush filled the output
     have runE : C.run (deflate (some r) flush) h =
         .ok (Z_OK, setD after ds { d1 with status := d1.status, last_flush := -1 }) := by
-      rw [C.run, deflate_phases, entry, if_pos full1]
+      rw [C.run, deflate_phases, entry, ite_eq_left full1]
     have i := lift (-1) (by decide) (fun _ => Or.inr rfl)
     obtain ⟨s1, s2, s3, s4⟩ := same (-1)
     refine ⟨_, _, _, _, runE, i, fun _ _ => LexLt.pending s1 s2 s3 s4 ?_, fun nz => absurd full1 nz⟩
@@ -243,7 +243,7 @@ theorem call_pending_q {h : Heap} {r : ZStreamRef} {ds : Nat}
   have runE : C.run (deflate (some r) flush) h =
       headerPhase (some r) (some (.tab ds)) flush
         (strategyPhase (some r) (some (.tab ds)) flush (trailerPhase (some r) (some (.tab ds)) flush)) after := by
-    rw [C.run, deflate_phases, entry, if_neg full1, if_neg notFin]
+    rw [C.run, deflate_phases, entry, ite_eq_right full1, ite_eq_right notFin]
   rw [runE]
   have notFull : z1.avail_out ≠ 0 := full1
   have small : produced < z.avail_out.toNat := by

@@ -69,7 +69,7 @@ theorem fill_prime_pending_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
     refine ⟨after, result, ?_, goodA, ?_, bytesA, frame, countA, ?_,
       (byte_frame_setD h ds seeded).trans storageA⟩
     · rw [fill_prime_pending_source]
-      simp only [bind_app, ldDeflateState_tab good.live.hs, enter, if_true]
+      simp only [bind_app, ldDeflateState_tab good.live.hs, enter, ite_true]
       change (do
         fillInsertSeed (some (.tab ds)) d.window str
         let (_, _) ← cwhile (fillInsertCond (some (.tab ds))) (fillInsertBody (some (.tab ds))) (str, false)
@@ -96,7 +96,7 @@ theorem fill_prime_pending_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
       omega
     refine ⟨h, d, ?_, good, chains, rfl, rfl, ?_, ?_, ByteFrame.refl h _⟩
     · rw [fill_prime_pending_source]
-      simp only [bind_app, ldDeflateState_tab good.live.hs, enter, if_false, pure_app]
+      simp only [bind_app, ldDeflateState_tab good.live.hs, enter, ite_false, pure_app]
     · omega
     · intro large
       omega

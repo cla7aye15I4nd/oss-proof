@@ -120,7 +120,7 @@ theorem symLook_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
     by_cases lk : isLink l1.here = true
     · -- a link: the second level
       have Lh := codeL _ lk
-      rw [if_pos Lh] at cell1
+      rw [ite_eq_left Lh] at cell1
       have link := cell1
       obtain ⟨bitsR, -⟩ := inv.subtables _ _ idx1 getE (by rw [← linkEq]; exact lk)
       have I1' := I1.withLast l1.here
@@ -186,9 +186,9 @@ theorem symLook_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
           omega
     · -- a leaf of the root
       have nL : ¬ L l1.here := fun x => by
-        rw [if_pos x] at cell1
+        rw [ite_eq_left x] at cell1
         exact lk (Lcode _ x cell1.2.2.1)
-      rw [if_neg nL] at cell1
+      rw [ite_eq_right nL] at cell1
       have lk' : isLink l1.here = false := by simpa using lk
       have leaf : Zlib.Inftrees.Spec.Subtable.IsLink type (ca.getD (off + l1.hold.toNat % 2 ^ nb.toNat) default) =
           false := by rw [← here1, ← linkEq]; exact lk'

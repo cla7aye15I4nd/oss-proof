@@ -79,7 +79,7 @@ theorem GzInv.put_out {H : Heap} {i : Nat} {t : GzState} (inv : GzInv H i t) (hm
     obtain ⟨ob, arr, hout, hb, -, hsize⟩ := (r.bufs hsz).2
     have mem : t.out ∈ ownedPtrs t := by
       unfold ownedPtrs
-      rw [if_pos hsz, if_pos (Or.inl hm)]
+      rw [ite_eq_left hsz, ite_eq_left (Or.inl hm)]
       simp
     have hbk : blkOf t.out = some ob := by rw [hout]; rfl
     refine ⟨c0, ob, arr, by rw [hp, hout]; simp [padv], (c.distinct.2 _ mem ob hbk).1,
@@ -211,36 +211,36 @@ theorem skipPhase_le (h : Heap) (s : GzState) : skipPhase h s ≤ 4 := by
   all_goals omega
 
 theorem skipPhase_zero_le (hh : s.x.have = 0) : skipPhase h s ≤ 3 := by
-  unfold skipPhase; rw [if_pos hh]; repeat' split
+  unfold skipPhase; rw [ite_eq_left hh]; repeat' split
   all_goals omega
 
 theorem skipPhase_eof (hh : s.x.have = 0) (hE : SkipEof s) : skipPhase h s = 0 := by
-  unfold skipPhase; rw [if_pos hh, if_pos hE]
+  unfold skipPhase; rw [ite_eq_left hh, ite_eq_left hE]
 
 theorem skipPhase_dead (hh : s.x.have = 0) (hE : ¬ SkipEof s) (hD : SkipDead h s) : skipPhase h s = 1 := by
-  unfold skipPhase; rw [if_pos hh, if_neg hE, if_pos hD]
+  unfold skipPhase; rw [ite_eq_left hh, ite_eq_right hE, ite_eq_left hD]
 
 theorem skipPhase_fetch (hh : s.x.have = 0) (hE : ¬ SkipEof s) (hD : ¬ SkipDead h s) : skipPhase h s = 3 := by
-  unfold skipPhase; rw [if_pos hh, if_neg hE, if_neg hD]
+  unfold skipPhase; rw [ite_eq_left hh, ite_eq_right hE, ite_eq_right hD]
 
 theorem skipPhase_big (hh : s.x.have ≠ 0)
     (hb : 16 ≤ s.x.have.toNat ∨ s.skip.toInt ≤ (s.x.have.toNat : Int) ∨ SkipEof s ∨ SkipDead h s) :
     skipPhase h s = 2 := by
-  unfold skipPhase; rw [if_neg hh, if_pos hb]
+  unfold skipPhase; rw [ite_eq_right hh, ite_eq_left hb]
 
 theorem skipPhase_small (hh : s.x.have ≠ 0)
     (hb : ¬ (16 ≤ s.x.have.toNat ∨ s.skip.toInt ≤ (s.x.have.toNat : Int) ∨ SkipEof s ∨ SkipDead h s)) :
     skipPhase h s = 4 := by
-  unfold skipPhase; rw [if_neg hh, if_neg hb]
+  unfold skipPhase; rw [ite_eq_right hh, ite_eq_right hb]
 
 theorem skipGterm_le (s : GzState) : skipGterm s ≤ 2 := by
   unfold skipGterm; split <;> omega
 
 theorem skipGterm_good (g : SkipErrGood s) : skipGterm s = 2 := by
-  unfold skipGterm; rw [if_pos g]
+  unfold skipGterm; rw [ite_eq_left g]
 
 theorem skipGterm_bad (g : ¬ SkipErrGood s) : skipGterm s = 0 := by
-  unfold skipGterm; rw [if_neg g]
+  unfold skipGterm; rw [ite_eq_right g]
 
 theorem skipGterm_mono {s' : GzState}
     (f1 : s.err ≠ Z_OK → s.err ≠ Z_BUF_ERROR → s'.err ≠ Z_OK ∧ s'.err ≠ Z_BUF_ERROR) :

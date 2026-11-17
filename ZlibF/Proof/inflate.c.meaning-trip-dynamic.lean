@@ -71,9 +71,9 @@ theorem agree_ite {c : Ctx} {b : Prop} [Decidable b] {p1 p2 q1 q2 : X Unit}
     (h1 : Agree c p1 q1) (h2 : Agree c p2 q2) :
     Agree c (if b then p1 else p2) (if b then q1 else q2) := by
   by_cases hb : b
-  · rw [if_pos hb, if_pos hb]
+  · rw [ite_eq_left hb, ite_eq_left hb]
     exact h1
-  · rw [if_neg hb, if_neg hb]
+  · rw [ite_eq_right hb, ite_eq_right hb]
     exact h2
 
 /-- The `Z_TREES` test itself. -/
@@ -107,14 +107,14 @@ theorem agree_base (c : Ctx) :
 theorem finTail_leave {c : Ctx} (trees : c.flush = Z_TREES) (L : IL) (H : Heap) :
     runX (finTail c) L H = .ok ((.error Ex.leave, L), H) := by
   have cond : (c.flush == Z_TREES) = true := by rw [trees]; decide
-  simp only [finTail, runX_bind, if_pos cond, runX_throw]
+  simp only [finTail, runX_bind, ite_eq_left cond, runX_throw]
 
 theorem finTail_run {c : Ctx} (trees : c.flush ≠ Z_TREES) (L : IL) (H : Heap) :
     runX (finTail c) L H = runX (inflate_LEN_ c) L H := by
   have cond : ¬ (c.flush == Z_TREES) = true := by
     intro e
     exact trees (by simpa using e)
-  simp only [finTail, if_neg cond]
+  simp only [finTail, ite_eq_right cond]
 
 /-- One step of the walk over two copies of a mode body. -/
 macro "agree_step" : tactic => `(tactic| first
@@ -212,7 +212,7 @@ theorem boundary_at_leave {c : Ctx} {M : X Unit} {h : Heap} {r : ZStreamRef} {zs
     simp only [Except.ok.injEq, Prod.mk.injEq] at e
     obtain ⟨⟨_, rfl⟩, rfl⟩ := e
     exact ⟨stream, state, _, J, buf⟩
-  · rw [if_pos trees] at r2
+  · rw [ite_eq_left trees] at r2
     have e := run.symm.trans r2
     simp only [Except.ok.injEq, Prod.mk.injEq] at e
     obtain ⟨⟨_, rfl⟩, rfl⟩ := e

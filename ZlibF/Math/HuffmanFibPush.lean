@@ -174,7 +174,7 @@ theorem fibPush_rank (N W M : Nat) (w δ : Nat → Nat)
           rw [show 14 - lenOfRank 15 c r = (13 - lenOfRank 15 c r) + 1 by omega, Nat.pow_succ]
           have := Nat.one_le_two_pow (n := 13 - lenOfRank 15 c r); omega
         have hne1 : pcost (lenOfRank 15 c r) (lenOfRank 15 (repairIter 15 M c) r) ≠ 1 := by omega
-        simp only [hne0, hne1, if_false, pushCostA, show (2 : Nat) ≠ 0 by decide,
+        simp only [hne0, hne1, ite_false, pushCostA, show (2 : Nat) ≠ 0 by decide,
           show (2 : Nat) ≠ 1 by decide]
         omega
     dsimp only

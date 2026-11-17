@@ -87,9 +87,9 @@ theorem len_table_root_source_cases
   have selected := safe.2.2 rootIndex root
   by_cases link : LenLink
       (codes.getD (baseOff + rootIndex) default)
-  · rw [if_pos link] at selected
+  · rw [ite_eq_left link] at selected
     exact ⟨bound, Or.inl ⟨link, selected⟩⟩
-  · rw [if_neg link] at selected
+  · rw [ite_eq_right link] at selected
     have classified := len_leaf_source_cases selected
     exact ⟨bound, Or.inr ⟨link, classified⟩⟩
 

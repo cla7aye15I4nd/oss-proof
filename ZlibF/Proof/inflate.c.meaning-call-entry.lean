@@ -332,7 +332,7 @@ theorem call_entry : CallEntry := by
   have inputLen : input.length = z.avail_in.toNat := callEntry_bytes_length bytes
   have notType : s.mode = BAD → state0 = s := by
     intro isBad
-    rw [stateEq, if_neg (by rw [isBad]; decide)]
+    rw [stateEq, ite_eq_right (by rw [isBad]; decide)]
   by_cases isBad : s.mode = BAD
   · -- a decoder in `BAD`: the input so far has no valid completion
     right
@@ -366,12 +366,12 @@ theorem call_entry : CallEntry := by
           stage ∧ WrapMatches h0 state0 wrap configured log.dictionary stage ∧
         HeldBits state0 held ∧ ConfigMatches state0 wrap configured := by
       by_cases type : s.mode = TYPE
-      · rw [stateEq, if_pos type]
+      · rw [stateEq, ite_eq_left type]
         obtain ⟨stageNext, wrapNext⟩ := loopStage_typedo type loopStage wrap0
         refine ⟨stageNext, wrapNext, heldBits, ?_⟩
         obtain ⟨c1, c2, c3, c4, c5, _⟩ := config
         exact ⟨c1, c2, c3, c4, c5, by show TYPEDO ≠ SYNC; decide⟩
-      · rw [stateEq, if_neg type]
+      · rw [stateEq, ite_eq_right type]
         exact ⟨loopStage, wrap0, heldBits, config⟩
     -- the output room
     obtain ⟨_, writable, unowned⟩ : (∃ xs, Bytes h0 z.next_out z.avail_out.toNat xs) ∧

@@ -44,11 +44,11 @@ theorem inflate_dispatch_construction_exact_frame
     simpa only [DecoderRecordRoot] using preFrame.buffer [⟨l.put, 0⟩]
   · obtain ⟨nextMode, source⟩ := continued
     by_cases trees : c.flush = Z_TREES
-    · rw [if_pos trees] at source
+    · rw [ite_eq_left trees] at source
       refine ⟨.error Ex.leave, regs, after, stream, state, 0, source, nextJ.good,
         by rw [left]; omega, by rw [inputAdvance_zero]; exact put, ?_⟩
       simpa only [DecoderRecordRoot] using preFrame.buffer [⟨l.put, 0⟩]
-    · rw [if_neg trees] at source
+    · rw [ite_eq_right trees] at source
       have nextEnv : Env c after r zs stream state :=
         ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩
       obtain ⟨outcome, finalRegs, finalHeap, finalStream, finalState, made,

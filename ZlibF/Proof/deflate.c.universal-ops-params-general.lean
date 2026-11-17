@@ -304,7 +304,7 @@ theorem params_tail {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : De
       have hqW : hW.words q = some qa' := by simp [hW, upd_ne _ _ _ _ blocks.pq.symm]
       have tables : SlidTables h hW d :=
         ⟨w, p, q, wa, pa, qa, pa', qa', blocks.win, blocks.prev, blocks.head, hw, hw, hp, hq, hpW, hqW,
-          fun i hi => by rw [qv i, if_pos hi], fun i hi => by rw [pv i, if_pos hi]⟩
+          fun i hi => by rw [qv i, ite_eq_left hi], fun i hi => by rw [pv i, ite_eq_left hi]⟩
       have chains : Chains hW dF := slide_repair tables (by omega) rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
         (inv.hashing.slid one)
       have shapeW : Zlib.Deflate.Proofs.Shape h hW :=
@@ -708,7 +708,7 @@ theorem step_params (deflateCall : DeflateCallFact)
     have flushRun : ∀ v after, paramsAfter (some r) (some (.tab ds)) (if level == Z_DEFAULT_COMPRESSION then 6 else level) strategy rc after1 = .ok (v, after) →
         deflateParams (some r) level strategy h = .ok (v, after) := by
       intro v after e
-      rw [source, if_pos resetB, params_flush_split]
+      rw [source, ite_eq_left resetB, params_flush_split]
       simp only [bind_app, run1']
       exact e
     rcases params_after_outcome inv1 rc _ strategy lo hi slo shi with
@@ -899,7 +899,7 @@ theorem params_header (deflateCall : DeflateCallFact) (deflateHeader : DeflateHe
     have flushRun : ∀ v afterK, paramsAfter (some r) (some (.tab ds)) (if level == Z_DEFAULT_COMPRESSION then 6 else level) strategy rc1 after1 = .ok (v, afterK) →
         deflateParams (some r) level strategy h = .ok (v, afterK) := by
       intro v afterK e
-      rw [source, if_pos resetB, params_flush_split]
+      rw [source, ite_eq_left resetB, params_flush_split]
       simp only [bind_app, run1']
       exact e
     rcases params_after_outcome inv1 rc1 _ strategy lo hi slo shi with
@@ -991,7 +991,7 @@ theorem params_callfacts (deflateCall : DeflateCallFact) (deflateCalls : Deflate
     have flushRun : ∀ v afterK, paramsAfter (some r) (some (.tab ds)) (if level == Z_DEFAULT_COMPRESSION then 6 else level) strategy rc1 after1 = .ok (v, afterK) →
         deflateParams (some r) level strategy h = .ok (v, afterK) := by
       intro v afterK e
-      rw [source, if_pos resetB, params_flush_split]
+      rw [source, ite_eq_left resetB, params_flush_split]
       simp only [bind_app, run1']
       exact e
     rcases params_after_outcome inv1 rc1 _ strategy lo hi slo shi with

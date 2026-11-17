@@ -212,7 +212,7 @@ theorem header_excess_128 {Δ : Nat} (small : Δ ≤ 132) (headerBound : HeaderR
     (fun _ _ => ⟨rfl, rfl⟩) (readyP.d_desc.max_code.toInt.toNat + 1)
     (fun i hi => by rw [lowD i (by omega)]; exact facts.distance i (by omega))
   have endA : literalA (readyP.l_desc.max_code.toInt.toNat + 1) = 0 := by
-    unfold literalA; rw [if_neg (by omega)]
+    unfold literalA; rw [ite_eq_right (by omega)]
   rw [endA] at scanL
   have chargesL : mass (regionCharge (sendLengths ready .lit) otherRegionCharge literalA literalB)
       (readyP.l_desc.max_code.toInt.toNat + 1) ≤ mass (fun v => literalCharge v (ll v)) 286 := by
@@ -287,7 +287,7 @@ theorem header_excess_128 {Δ : Nat} (small : Δ ≤ 132) (headerBound : HeaderR
     simp only [ZlibF.Math.DeflatePush.literalExcess, ZlibF.Math.DeflateOverlayCertificate.literalExcess, fl, ll]
     by_cases low : v < 257
     · simp [low]
-    · simp only [low, if_false]
+    · simp only [low, ite_false]
       rw [tables.1 ⟨v - 257, by omega⟩]
   have exD : mass (fun v => distanceFrequency dcodeN xs v *
       ZlibF.Math.DeflatePush.distanceExcess (curL readyP.dyn_dtree) sourceDistanceExtra v) 30 =

@@ -83,8 +83,8 @@ theorem leaf_chain (S : PShape H hm J elems maxc) (C : Clamped H hm J elems 1000
       rw [c]; unfold dadP sibP
       rw [hsum _ hj]
       by_cases e : (572 - q) % 2 = 0
-      · rw [if_pos e, show 572 - 2 * ((572 - q) / 2) = q by omega, show 571 - 2 * ((572 - q) / 2) = q - 1 by omega]
-      · rw [if_neg e, show 572 - 2 * ((572 - q) / 2) = q + 1 by omega, show 571 - 2 * ((572 - q) / 2) = q by omega,
+      · rw [ite_eq_left e, show 572 - 2 * ((572 - q) / 2) = q by omega, show 571 - 2 * ((572 - q) / 2) = q - 1 by omega]
+      · rw [ite_eq_right e, show 572 - 2 * ((572 - q) / 2) = q + 1 by omega, show 571 - 2 * ((572 - q) / 2) = q by omega,
           Nat.add_comm]
     have hsib1 : 1 ≤ w (H (sibP q)) := hpos _ (by unfold sibP; split <;> omega) (by unfold sibP; split <;> omega)
     by_cases hq' : q' = hm
@@ -95,7 +95,7 @@ theorem leaf_chain (S : PShape H hm J elems maxc) (C : Clamped H hm J elems 1000
         fun _ => hsib1, fun i hi => by omega, rfl, fun _ => rfl⟩
       have : i = 0 := by omega
       subst this; dsimp only
-      rw [if_neg (show ¬ (0 + 1 = 0) by omega), if_pos rfl, ← hroot, hpar]
+      rw [ite_eq_right (show ¬ (0 + 1 = 0) by omega), ite_eq_left rfl, ← hroot, hpar]
     · obtain ⟨p', s', e0, est, es0, esm, ed, esib⟩ := ih q' (by omega) (by omega) hd'
       have hd1 : 0 < d := by
         rw [← hd']; rw [dl_step S C (by omega) (by omega)]; omega
@@ -103,21 +103,21 @@ theorem leaf_chain (S : PShape H hm J elems maxc) (C : Clamped H hm J elems 1000
         rfl, fun i hi => ?_, fun _ => hsib1, fun i hi => ?_, ?_, fun _ => rfl⟩
       · by_cases e : i = 0
         · subst e; dsimp only
-          rw [if_neg (show ¬ (0 + 1 = 0) by omega), if_pos rfl, if_pos rfl, show 0 + 1 - 1 = 0 from rfl, e0, hpar]
-        · simp only [if_neg (show ¬ (i + 1 = 0) by omega), if_neg e, show i + 1 - 1 = (i - 1) + 1 by omega]
+          rw [ite_eq_right (show ¬ (0 + 1 = 0) by omega), ite_eq_left rfl, ite_eq_left rfl, show 0 + 1 - 1 = 0 from rfl, e0, hpar]
+        · simp only [ite_eq_right (show ¬ (i + 1 = 0) by omega), ite_eq_right e, show i + 1 - 1 = (i - 1) + 1 by omega]
           exact est (i - 1) (by omega)
       · by_cases e : i = 0
         · subst e
           dsimp only
-          rw [if_neg (show ¬ (0 + 1 = 0) by omega), if_pos rfl, show 0 + 1 - 1 = 0 from rfl, esib hd1]
+          rw [ite_eq_right (show ¬ (0 + 1 = 0) by omega), ite_eq_left rfl, show 0 + 1 - 1 = 0 from rfl, esib hd1]
           -- the sibling of the parent was removed after the node
           have hs1 : hm + 1 ≤ sibP q' := by
             obtain ⟨-, -, -, -, hj'⟩ := parent_pos S (q := q') (by omega) (by omega)
             unfold sibP; split <;> omega
           exact hmono q (sibP q') hs1 (by unfold sibP; split <;> omega) h2
-        · simp only [if_neg e, if_neg (show ¬ (i + 1 = 0) by omega), show i + 1 - 1 = (i - 1) + 1 by omega]
+        · simp only [ite_eq_right e, ite_eq_right (show ¬ (i + 1 = 0) by omega), show i + 1 - 1 = (i - 1) + 1 by omega]
           exact esm (i - 1) (by omega)
-      · simp only [if_neg (show ¬ (d + 1 = 0) by omega), Nat.add_sub_cancel]; exact ed
+      · simp only [ite_eq_right (show ¬ (d + 1 = 0) by omega), Nat.add_sub_cancel]; exact ed
 
 end
 

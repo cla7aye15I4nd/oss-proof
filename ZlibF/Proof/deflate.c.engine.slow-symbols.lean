@@ -98,7 +98,7 @@ theorem slow_match_symbol_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
   have dataA : after.bytes b = some bytes := by rw [bytesFrame]; simp [ht]
   have emittedSize : (emittedMatch d).bytes = d.prev_length.toNat := by
     change (if distance.toNat = 0 then 1 else length.toNat + 3) = _
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
     have len : length.toNat = d.prev_length.toNat - 3 := bounds.2.2.1
     omega
   have balanceA : BlockBalance result (xs ++ [emittedMatch d]) (deferredCredit result) := by
@@ -125,7 +125,7 @@ theorem slow_match_symbol_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
       hash_head ht = .ok (candidate, after) := advance
   dsimp only [distance, length] at tally
   unfold slowDecision
-  simp only [bind_app, ldDeflateState_tab good.live.hs, selected, if_true, tally]
+  simp only [bind_app, ldDeflateState_tab good.live.hs, selected, ite_true, tally]
   change (do
     let head ← slowMatchAdvance (some (.tab ds)) (d.strstart + d.lookahead - MIN_MATCH_u) hash_head
     pure { st with hash_head := head, bflush := false }) ht = _
@@ -246,9 +246,9 @@ theorem slow_literal_symbol_storage {h : Heap} {r : ZStreamRef} {ds w top : Nat}
       ((byte_frame_setD ht ds (advanceOne (literalState d c))).weaken (fun _ equal => Or.inl equal))
   refine ⟨after, ?_, advanced.1, advanced.2.1, advanced.2.2, ?_, literal_not_full trees c room flag, symbolA, rfl, storageA⟩
   · unfold slowDecision
-    simp only [bind_app, ldDeflateState_tab good.live.hs, literalBranch, Bool.false_eq_true, if_false]
+    simp only [bind_app, ldDeflateState_tab good.live.hs, literalBranch, Bool.false_eq_true, ite_false]
     have hasLiteral : (d.match_available != 0) = true := by simpa using available
-    simp only [hasLiteral, if_true, bind_app, read, tally, Bool.false_eq_true, if_false]
+    simp only [hasLiteral, ite_true, bind_app, read, tally, Bool.false_eq_true, ite_false]
     change (do
       wr (some (.tab ds)) advanceOne
       if (← zrd d.strm (·.avail_out)) == 0 then

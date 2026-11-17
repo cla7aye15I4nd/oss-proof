@@ -50,7 +50,7 @@ theorem flush_length_general {d : DeflateState}
   refine ⟨?_, word, by rw [word]; omega⟩
   unfold lsub chk64
   rw [cast]
-  rw [if_pos (show -9223372036854775808 ≤ (d.strstart.toNat : Int) - d.block_start.toInt ∧
+  rw [ite_eq_left (show -9223372036854775808 ≤ (d.strstart.toNat : Int) - d.block_start.toInt ∧
     (d.strstart.toNat : Int) - d.block_start.toInt ≤ 9223372036854775807 by omega)]
 
 /-- The stored source the macro passes: a slice of the window from `block_start`, or `NULL`. -/
@@ -98,7 +98,7 @@ theorem flush_arguments_general {h : Heap} {r : ZStreamRef} {ds pb w : Nat}
         let source ← if d.block_start ≥ 0 then padd d.window d.block_start.toUInt64.toUInt32.toNat else pure Ptr.null
         let length ← lsub d.strstart.toUInt64.toInt64 d.block_start
         return (source, length.toUInt64)) h = _
-      rw [if_pos (show d.block_start ≥ 0 from by
+      rw [ite_eq_left (show d.block_start ≥ 0 from by
         simpa only [Int64.le_iff_toInt_le, Int64.toInt_zero] using nonnegative), win, bind_app, add]
       rw [difference.1]
       simp only [bind_app, pure_app, cast, Nat.zero_add, lenEq, flushSource, nonnegative, ite_true]
@@ -106,7 +106,7 @@ theorem flush_arguments_general {h : Heap} {r : ZStreamRef} {ds pb w : Nat}
         let source ← if d.block_start ≥ 0 then padd d.window d.block_start.toUInt64.toUInt32.toNat else pure Ptr.null
         let length ← lsub d.strstart.toUInt64.toInt64 d.block_start
         return (source, length.toUInt64)) h = _
-      rw [if_neg (show ¬ d.block_start ≥ 0 from by
+      rw [ite_eq_right (show ¬ d.block_start ≥ 0 from by
         simpa only [Int64.le_iff_toInt_le, Int64.toInt_zero] using nonnegative), difference.1]
       simp only [bind_app, pure_app, lenEq, flushSource, nonnegative, ite_false]
   · by_cases nonnegative : 0 ≤ d.block_start.toInt

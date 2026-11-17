@@ -120,9 +120,9 @@ theorem packed_symbols_write {buf after : Array UInt8} {base : Nat} {xs : List S
   apply packed_symbols_snoc packed
   · intro i bound
     rw [view]
-    simp only [if_neg (show base + i ≠ base + 3 * xs.length + 2 by omega),
-      if_neg (show base + i ≠ base + 3 * xs.length + 1 by omega),
-      if_neg (show base + i ≠ base + 3 * xs.length by omega)]
+    simp only [ite_eq_right (show base + i ≠ base + 3 * xs.length + 2 by omega),
+      ite_eq_right (show base + i ≠ base + 3 * xs.length + 1 by omega),
+      ite_eq_right (show base + i ≠ base + 3 * xs.length by omega)]
   · rw [view]
     simp
   · rw [view]

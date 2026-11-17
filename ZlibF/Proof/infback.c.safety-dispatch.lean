@@ -145,7 +145,7 @@ theorem loopM_spec {c : BCtx} {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Na
   have hI : ∃ m, LoopAt c pr h0 l h m := ⟨m, hm⟩
   have e : loopM c pr h0 l h =
       Classical.choose (exists_least _ (Classical.choose hI) (Classical.choose_spec hI)) := by
-    unfold loopM; rw [dif_pos hI]
+    unfold loopM; rw [dite_eq_left hI]
   rw [e]
   exact Classical.choose_spec (exists_least _ (Classical.choose hI) (Classical.choose_spec hI))
 
