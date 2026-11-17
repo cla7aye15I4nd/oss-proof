@@ -12,11 +12,11 @@ that the format and its arguments format correctly on the heap before the call).
    message `"p: Resource temporarily unavailable"`;
 3. `m = gzerror(file, NULL)`: the handle's own message, a valid C string on the heap before the next call;
 4. `gzprintf(file, "%s", m)`: `gzvprintf` passes its check (a stalled write), calls `gz_error(state, Z_OK, NULL)`,
-   which frees the message, and then formats `m`: a fault (`Fault.ub`), where the C reads freed memory
-   (`tests/regression/gzprintf-error-string`).
+   which frees the message, and then passes `m` to `vsnprintf`: a fault (`Fault.ub`, a pointer argument into a freed
+   block), where the C reads freed memory (`tests/regression/gzprintf-error-string`).
 
-So the old statement of `gzvprintf_step` was false. The corrected `GzArguments` asks that the format and every `%s`
-argument lie apart from the blocks the handle owns.
+So the old statement of `gzvprintf_step` was false. The corrected `GzArguments` asks that the format and every
+pointer argument lie apart from the blocks the handle owns.
 -/
 
 namespace Zlib.Gzwrite.PrintfErrorStringRegression

@@ -1,4 +1,4 @@
-<!-- source-sha256: 25c299924a83f8c02b3030b18e37222593b1dec435ad569e323af67ec2890597 -->
+<!-- source-sha256: ee6860c960f6a822357a08a10bf0d1a048a667343ef5c0c65a9302ca888462bd -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后的 Lean 前提、陈述它的目标，以及它的理由。
@@ -122,9 +122,9 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 - `path` 和 `mode` 是 `NULL` 或以 NUL 结尾的字符串（`GzOpenSafe`、`GzDopenSafe`）。
 - 传给 `gzread`、`gzfread` 或 `gzgets` 的缓冲区，在调用指明的长度内可写；传给 `gzwrite` 或 `gzfwrite` 的缓冲区，在调用指明的长度内可读。`gzerror` 的 `errnum` 指针是 `NULL`，或者指向你自己的一个 `int`（`GzRange`）。
-- 这些缓冲区、`gzerror` 的那个 `int`、`gzputs` 的参数，以及 `gzprintf` 和 `gzvprintf` 的格式串和每个 `%s` 参数，都是你自己的内存，不是 zlib 为这个文件分配的内存。尤其不要把 `gzerror` 返回的字符串再传回同一个文件上的调用（`GzRange`、`GzArguments`）。
+- 这些缓冲区、`gzerror` 的那个 `int`、`gzputs` 的参数，以及 `gzprintf` 和 `gzvprintf` 的格式串和每个指针参数，都是你自己的内存，不是 zlib 为这个文件分配的内存。尤其不要把 `gzerror` 返回的字符串再传回同一个文件上的调用（`GzRange`、`GzArguments`）。
 - `gzputs` 的参数是以 NUL 结尾的字符串，不能是 `NULL`（`CString`）。
-- `gzprintf` 或 `gzvprintf` 的格式串是以 NUL 结尾的字符串，各参数与其中的转换相符。它只用整数、字符和字符串转换；不用 `%f`、`%p`、`%n`、`h` 或 `hh` 修饰符，也不用 `*` 宽度（`Formatted`）。
+- `gzprintf` 或 `gzvprintf` 的调用是一次对其格式串和参数在 C 中有定义的 `vsnprintf` 调用，格式串中没有 `%n`。库不检查这一点，也没有前提陈述它。文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的内存（`GzArguments`）。
 - 两次调用之间，你不写 zlib 为这个文件分配的内存（`GzCallerFrame`）。
 - 关闭文件的那次调用之后，你不再使用这个文件：`gzclose`，或者在相应模式的文件上调用的 `gzclose_r` 或 `gzclose_w`。文件已被释放，C 中也是如此。
 - `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc` 的终止，是在文件描述符还能交付的字节少于 2^61 时证明的（`ReadsFinite`）。没有这个条件，证明仍然说明这些调用不会引起未定义行为。
@@ -247,8 +247,8 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 | --- | --- | --- | --- |
 | Gz 打开参数（`GzOpenSafe`、`GzDopenSafe`、`GzHistory.open`） | `path` 与 `mode` 各自是 `NULL`，或是短于 `2^64` 字节、以 NUL 结尾的字符串；堆是良构的，其字节对象都不超限；世界是一个良构的文件系统（`FileSystem`）。 | `Goal.gz_sequence_safety` | C 把每个字符串一直读到它的 NUL。被覆盖：每个描述符、每种模式文本和每个世界，包括每一种失败。不被覆盖：在自身对象之内没有以 NUL 结尾的路径或模式。 |
 | Gz 调用者缓冲区（`GzArguments` 中的 `GzRange`） | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 与 `gzerror` 的调用者缓冲区可读（读取调用的缓冲区和 `gzerror` 的 `errnum` 还须可写），并且与句柄拥有的块分开（`GzOwned`）。`gzputs` 的参数是以 NUL 结尾的字符串（`CString`），范围包含它的 NUL：没有 NUL 的可读字节，以及 `NULL`，都在范围之外。 | `Goal.gz_sequence_safety` | 库在调用期间会释放并改写它自己的块（[见下](#why-the-handles-own-strings-are-excluded)）。不被覆盖：位于句柄的块之内的缓冲区。 |
-| Gz printf 字符串（`GzArguments`） | `gzprintf` 与 `gzvprintf` 的格式串以及每个字符串参数（`%s`）都与句柄拥有的块分开（`GzOwned`）。 | `Goal.gz_sequence_safety` | 理由与上一行相同。 |
-| 格式化（`Formatted`） | 格式串是模型能够表示的：整数、字符和字符串参数，带受支持的标志、宽度、精度和长度修饰符。`GzArguments` 在每个 `gzprintf` 与 `gzvprintf` 步骤上都要求这一点，读取端句柄或处于错误状态的句柄也不例外，尽管 C 在那里根本不读格式串。 | `Goal.gz_sequence_safety` | `vsnprintf` 的模型只表示这些转换。不被覆盖：`%f` 及其他浮点转换、`%p`、`%n`、`h` 与 `hh` 长度修饰符（`%hd`、`%hhu`）、`*` 宽度与精度（`%*d`）、作用在没有 NUL 的数组上的 `%.3s`，以及给 `%c` 或 `%d` 传 `unsigned` 参数（值可表示时 `va_arg` 允许这样做）。 |
+| Gz printf 字符串（`GzArguments`） | `gzprintf` 与 `gzvprintf` 的格式串以及每个指针参数都与句柄拥有的块分开（`GzOwned`）。 | `Goal.gz_sequence_safety` | 理由与上一行相同。 |
+| Gz printf 调用（调用者的义务；`GzArguments`） | `vsnprintf` 的调用对格式串和参数在 C 中有定义，且格式串中没有 `%n`：没有前提陈述这一点，由调用者保证，和每次 printf 调用一样（[可信基础](trusted-base.md)）。文件以写方式打开且不处于错误状态时，`GzArguments` 要求格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块。随后 `gz_init`、`gz_zero` 或 `gz_vacate` 失败时它也这样要求，尽管 C 在调用 `vsnprintf` 之前就返回了。 | `Goal.gz_sequence_safety` | `vsnprintf` 是按契约建模的外部调用，所以每种有效格式都被覆盖，包括浮点和 `%p`。不被覆盖：通过参数写入的 `%n`，以及在 `vsnprintf` 之前返回、格式串又不是字符串的调用。 |
 | Gz 调用者步骤与世界步骤（`GzCallerFrame`、`GzWorldStep`） | 两次调用之间，调用者可以改变句柄不拥有的任何块，也可以释放自己的缓冲区；堆保持良构，其字节对象都不超限。世界可以变成任何良构的文件系统：别的参与者可以关闭或重用句柄的描述符。 | `Goal.gz_sequence_safety` | 句柄的块属于库。不被覆盖：调用者写了句柄拥有的块的历史。世界步骤容许的比真实系统更多。 |
 | Gz 读取调用的终止（`ReadsFinite`） | 对 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc`：句柄的描述符有一个小于 `2^61` 字节的有限读取预算（`fs.readBudget fd = some b` 且 `b < 2^61`），即该描述符还能交付的总字节数。这条前提还说描述符编号不为负（`HasBudget`）。 | `Goal.gz_sequence_safety` 中关于终止的那一半，且只针对这六个调用 | 在无穷无尽的来源上，C 有两个循环不会结束（[见下](#why-a-read-budget)）。这条前提不排除任何故障：无故障的那一半和后置条件对每个世界都成立，不需要预算。`gzdirect`、写入一侧和 `gzseek` 不需要它。 |
 | Gz 操作系统事实 | 非空的 `write` 从不返回 0；`close` 即使失败也会释放描述符。 | `Goal.gz_sequence_safety`，通过世界模型 | 这是 Linux 的行为，被信任，没有检查。第一条为 `gz_comp` 的写循环定界。**尚未由证明确认**：按对 C 的解读，一个永远返回 0 的 `write` 会让 `gz_comp` 永远循环。模型中没有带这种 `write` 的世界，所以没有定理陈述这一点。 |

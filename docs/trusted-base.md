@@ -173,16 +173,30 @@ in `gz_comp` (after a failed `fsWrite` in an iteration that starts with `setErrn
 `gz_load` (after a failed `fsRead`) and in `gzread` (when `again` was set by `gz_load` in the
 same call).
 
-`GzFs.vsnprintf` models `gzvprintf`'s call with the caller's format. Any call may fail, through
-the world oracle `printfOk`. A failed call returns -1, sets a nonzero `errno` (`printfErrno`;
-`EOVERFLOW` past `INT_MAX`) and leaves arbitrary bytes (`printfJunk`) and a NUL inside
-`[dst, dst + size)`. glibc writes the terminator on every path (`libio/vsnprintf.c`,
-`__printf_buffer_snprintf_init` and `__printf_buffer_snprintf_done`) and writes nothing outside
-the buffer. The oracle is not glibc: it may fail where glibc succeeds, which only adds
-behaviours, and it may succeed where glibc fails. So a goal clause conditioned on `printfOk`
-describes the model branch, not a claim that glibc succeeds on that format. The formatter runs
-before the oracle is consulted, so a conversion the model does not represent faults whatever
-the oracle says. Every goal quantifies over all worlds.
+The formatter of `snprintf` (`formatGo`) faults on every conversion specification that C17
+7.21.6.1 leaves undefined among those it reads: a length modifier on `%c` or `%s`, a modifier
+pair such as `zl`, anything between the two `%` of `%%`, the `0` flag on `%c` or `%s`, the `#`
+flag on `%d`, `%i`, `%u`, `%c` or `%s`, a precision on `%c`, a `NULL` `%s` argument, and a
+negative signed argument for an unsigned conversion. So the three library calls are shown
+defined. `VaArg.long` stands for the 64-bit type the conversion expects (`long`, `long long`,
+`intmax_t`, `ptrdiff_t` or `size_t`).
+
+**The caller's format.** `GzFs.vsnprintf` models `gzvprintf`'s call
+`vsnprintf(next, state->size, format, va)` as an external call, by its C contract (C17
+7.21.6.12), not by formatting. Assumed: the call is defined in C for the caller's format and
+arguments. This is the caller's obligation, as for every call of the printf family; no premise
+states it. In particular the format has no `%n`: a conversion that writes through an argument
+is outside the contract. The model reads the format as a string, and faults on a pointer
+argument into a freed block (an indeterminate value, C17 6.2.4p2). It does not read the
+conversions. The world oracle chooses the result `r` (`printfRet`), any `int`:
+
+- `r ≥ 0`: the length of the full output, possibly `size` or more. The call writes the first
+  `min(r, size - 1)` bytes of `printfOut` (padded with zeros) and a NUL after them.
+- `r < 0`: a failure. `errno` is nonzero (`printfErrno`; zero reads as `EOVERFLOW`), and the
+  buffer holds arbitrary bytes (at most `size` of `printfOut`), with no NUL promised.
+
+Nothing outside `[dst, dst + size)` is written. Every goal quantifies over all worlds, so every
+result the contract allows is covered, the failures of glibc included.
 
 **The gz file world.** The model of the file system (`Fs`) has two parts. The regular-file part represents
 flat paths, regular files, directory markers, descriptor positions and a file-size limit. The

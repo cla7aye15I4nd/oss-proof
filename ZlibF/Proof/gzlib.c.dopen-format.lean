@@ -45,7 +45,7 @@ theorem descriptor_formatBytes (h : Heap) (fd : Int32) (hn : 0 ≤ fd.toInt) :
     formatBytes #[60, 102, 100, 58, 37, 100, 62] [.int fd] h =
       .ok ((descriptorPath fd).toArray, h) := by
   have hneg : ¬ fd.toInt < 0 := by omega
-  simp [formatBytes, formatGo, Zlib.GzFs.Proofs.parse_fd, fmtInt,
+  simp [formatBytes, formatGo, Zlib.GzFs.Proofs.parse_fd, specDefined, Spec.long, fmtInt,
     natDigits, hneg, descriptorPath, List.append_toArray]
 
 /-- Actual nineteen-byte destination contents after copying and terminating. -/

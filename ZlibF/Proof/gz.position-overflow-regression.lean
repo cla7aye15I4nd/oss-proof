@@ -87,13 +87,17 @@ theorem gzwrite_refused (statics : Statics) :
   conv at e => rhs; cbv
   exact ⟨_, _, e, _, _, rfl, rfl, rfl, rfl⟩
 
+/-- The world of the writer, with a `vsnprintf` that returns the output of `"p"`: one byte, `p`. -/
+def printFs : Fs := { openedFs with printfRet := fun _ => 1, printfOut := fun _ => #[112] }
+
 set_option maxRecDepth 20000 in
-/-- `gzprintf(file, "p")` at `GZ_OFF_MAX`: `gzvprintf` formats one byte, refuses it, and returns `Z_DATA_ERROR`. -/
+/-- `gzprintf(file, "p")` at `GZ_OFF_MAX`: `vsnprintf` writes one byte, `gzvprintf` refuses it, and returns
+`Z_DATA_ERROR`. -/
 theorem gzprintf_refused (statics : Statics) :
-    ∃ fs' after, gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) [] openedFs (writerHeap statics) =
+    ∃ fs' after, gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) [] printFs (writerHeap statics) =
       .ok ((Z_DATA_ERROR, fs'), after) ∧ Refused after := by
-  have e : gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) [] openedFs (writerHeap statics) =
-      gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) [] openedFs (writerHeap statics) := rfl
+  have e : gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) [] printFs (writerHeap statics) =
+      gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) [] printFs (writerHeap statics) := rfl
   conv at e => rhs; cbv
   exact ⟨_, _, e, _, _, rfl, rfl, rfl, rfl⟩
 

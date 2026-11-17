@@ -1,4 +1,4 @@
-<!-- source-sha256: 225eb3d66a46a8133a56af9fff960fd2a49ef839f976b62f34d431fa1bb43d55 -->
+<!-- source-sha256: cc79c39e8bf5b282c86f242208dc197aa94ead15ff82ced28994813152a1a4f8 -->
 
 # Gzip 文件
 
@@ -69,7 +69,7 @@
 | `gzfread`、`gzfwrite` | `size * nitems >= 2^64`：无。否则乘积为零，或者 `buf` 覆盖这么多字节（`gzfread` 要求可写，`gzfwrite` 要求可读）且在句柄的块之外。 |
 | `gzgets(file, buf, len)` | `buf == NULL` 或 `len < 1`：无。否则 `buf` 覆盖 `len` 个可写字节且在句柄的块之外。 |
 | `gzputs(file, s)` | `s` 是以 NUL 结尾的字符串，且在句柄的块之外。 |
-| `gzprintf`、`gzvprintf` | 格式串是以 NUL 结尾的字符串，并且模型的格式化器能用这些参数对它求值（`Formatted`）。格式串和每个字符串参数都在句柄的块之外。 |
+| `gzprintf`、`gzvprintf` | 文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块。格式串和每个指针参数都在句柄的块之外。`vsnprintf` 调用在 C 中有定义、且没有 `%n`：这是调用者的义务。 |
 | `gzerror(file, errnum)` | `errnum` 为 NULL，或覆盖 4 个可写字节且在句柄的块之外。 |
 | 其他调用 | 无：每个标量参数的每个取值都被覆盖。 |
 
@@ -1110,7 +1110,7 @@ int ZEXPORTVA gzprintf(gzFile file, const char *format, ...);
 - **目标。** `Goal.gzprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
-    2. 参数条件（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定的参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串和每个字符串参数都在句柄自己的块之外。在读句柄和处于错误状态的句柄上也要求这个条件，尽管那时 C 并不读格式串。
+    2. 参数条件（`GzArguments`）：文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块；格式串和每个指针参数都在句柄自己的块之外。`vsnprintf` 调用对格式串和参数在 C 中有定义、且没有 `%n`，由调用者保证（[可信基础](../../trusted-base.md)）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
 - **保证。**
     - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。
@@ -1172,7 +1172,7 @@ int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va);
 - **目标。** `Goal.gzvprintf_safety`（[Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需，尽管 `zlib.h` 把这个函数列为未文档化：`gzprintf` 经由它实现。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety`（[public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
-    2. 参数条件（`GzArguments`）：格式串是以 NUL 结尾的字符串，并且模型的格式化器能用给定的参数对它求值（`Formatted`）：整数、字符和字符串转换，带受支持的标志、宽度、精度和长度修饰符；格式串和每个字符串参数都在句柄自己的块之外。在读句柄和处于错误状态的句柄上也要求这个条件，尽管那时 C 并不读格式串。
+    2. 参数条件（`GzArguments`）：文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块；格式串和每个指针参数都在句柄自己的块之外。`vsnprintf` 调用对格式串和参数在 C 中有定义、且没有 `%n`，由调用者保证（[可信基础](../../trusted-base.md)）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
 - **保证。**
     - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。

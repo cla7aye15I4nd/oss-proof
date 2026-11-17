@@ -550,9 +550,9 @@ theorem fmt_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzSta
   obtain ⟨run1, inv1, P1, hB1, hsz1, -, hbor1, -⟩ := in_store0 (fs := fs) inv hw hsz hin hB hro
     (n := a + v.strm.avail_in.toNat + (v.size - 1).toNat) (by omega) hfs
   have E1 := GetcUngetc.Eff.trans E inv P1 (fun _ => Iff.rfl)
-  obtain ⟨fmt, xs, hc, hx⟩ := A.at E1.2 (by rw [hbor1, hbor])
+  obtain ⟨⟨fmt, hc⟩, hlive⟩ := A.at E1.2 (by rw [hbor1, hbor])
   obtain ⟨len, fs2, H2, run2, E2, inv2, arr2, hB2, hsz2⟩ := vsnprintf_in E1 inv1 hw hsz hin hB1
-    (by rw [hsz1, hasz]) (o := a + v.strm.avail_in.toNat) (by omega) hc hx
+    (by rw [hsz1, hasz]) (o := a + v.strm.avail_in.toNat) (by omega) hc hlive
   by_cases hc1 : (len == 0 || decide (len.toUInt32 ≥ v.size)) = true
   · refine ⟨0, fs2, H2, ?_, E2⟩
     unfold pfFmt
@@ -764,11 +764,10 @@ end printf
 /-- **`gzvprintf_step`** (skeleton statement), given the facts of `gz_error`. Relies on the local patch for W7
 (patch 0004: the position check of `gzvprintf`). The argument domain puts the format and every `%s` string apart
 from the blocks the handle owns (`GzArguments`); without it the call can fault (`gzwrite.c.printf-error-string-
-regression`). -/
+regression`). Past the mode test the format is a string and the pointer arguments are live. -/
 theorem gzvprintf_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (format : BPtr) (va : List VaArg) :
     GzCallSafe i (.gzvprintf (some (.in_gzstate_x i)) format va) := by
   intro h fs s inv hfs harg
-  have A : PrintfArgs h i s format va := ⟨inv.common.fit, harg⟩
   have R : Ok (Zlib.Gzwrite.gzvprintf (some (.in_gzstate_x i)) format va) fs h
       (fun _ fs' after => GetcUngetc.Eff i h s fs fs' after) := by
     rw [gzvprintf_eq]
@@ -779,6 +778,14 @@ theorem gzvprintf_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (f
         hm, ↓reduceIte]
     have hm' := Bool.eq_false_iff.mpr hm
     have hw := mode_of hm'
+    -- past the mode test vsnprintf reads the format: the argument domain then gives it as a string
+    have hpass : s.mode = GZ_WRITE ∧ (s.err = Z_OK ∨ s.again ≠ 0) := by
+      rcases Bool.or_eq_false_iff.mp hm' with ⟨h1, h2⟩
+      refine ⟨by simpa using h1, ?_⟩
+      by_cases he : s.err = Z_OK
+      · exact Or.inl he
+      · exact Or.inr fun ha => by simp [he, ha] at h2
+    have A : PrintfArgs h i s format va := ⟨inv.common.fit, harg.1 hpass, harg.2⟩
     obtain ⟨run1, inv1, post1⟩ := clear_step (fs := fs) inv hfs
     have E1 : GetcUngetc.Eff i h s fs fs (okHeap h i s) :=
       GetcUngetc.Eff.trans (GetcUngetc.Eff.refl inv hfs) inv post1 (fun _ => Iff.rfl)

@@ -101,29 +101,21 @@ Variadic arguments are a list of values `VaArg`: signed and unsigned 32-bit and 
 and string pointers. `gzprintf` receives the list and delegates to `gzvprintf`. The ABI storage
 of a C `va_list` is not represented.
 
-The formatter supports the conversions `%%`, `%c`, `%s`, `%d`, `%i`, `%u`, `%x`, `%X` and `%o`,
-the flags `-`, `0`, `+`, space and `#`, a decimal width and precision, and the length modifiers
-`l`, `ll`, `z`, `j` and `t`. An unsigned conversion also accepts the signed argument kind of the
-same width and reinterprets its bits.
-
-Not supported: floating point, `%p`, `%n`, `*` for a width or precision, the modifiers `h` and
-`hh`, and `%ls`. An unsupported conversion, or an argument that is missing or of the wrong kind,
-is a model fault. There is no fallback that returns arbitrary bytes. The safety goal therefore
-asks for a represented format (`Formatted`); [deviations](../deviations.md#gzip-file-interface)
-has the row.
-
 The model has two functions, as the C has:
 
-- `snprintf` serves the fixed formats of `gz_error`, `gz_open` and `gzdopen`. It is
-  deterministic. It writes at most `capacity - 1` bytes of text and a NUL, and returns the
-  untruncated length, or `-1` when that length exceeds `INT_MAX`.
-- `vsnprintf` serves the caller's format in `gzvprintf`. It behaves the same, except that any
-  call may fail, chosen by a second oracle (`printfOk`). A failed call returns `-1`, sets a
-  nonzero `errno`, and leaves arbitrary bytes and a NUL inside the buffer.
-  [Trusted base](../trusted-base.md) gives the glibc evidence.
+- `snprintf` serves the fixed formats of `gz_error`, `gz_open` and `gzdopen`. It formats with
+  the model's formatter, which supports `%%`, `%c`, `%s`, `%d`, `%i`, `%u`, `%x`, `%X` and `%o`,
+  the flags `-`, `0`, `+`, space and `#`, a decimal width and precision, and the length
+  modifiers `l`, `ll`, `z`, `j` and `t`, where C defines them. Anything else is a model fault.
+  It writes at most `capacity - 1` bytes of text and a NUL, and returns the untruncated length,
+  or `-1` when that length exceeds `INT_MAX`.
+- `vsnprintf` serves the caller's format in `gzvprintf`. It is an external call modelled by its
+  C contract, like `read` and `write`: the world oracle chooses the result (`printfRet`) and the
+  bytes (`printfOut`). The caller ensures that the call is defined in C.
+  [Trusted base](../trusted-base.md) states the contract.
 
 `gzvprintf` still runs its own length test, its sentinel test, its buffer vacate and its error
-handling after the call. The formatting model does not replace those statements.
+handling after the call, for every result of the contract.
 
 ## Pointers and local storage in the gz translations
 
@@ -166,7 +158,8 @@ The gz differential tests compare what each operation returns on temporary real 
 over `Fs`. The same family of tests compares the bytes and lengths of `uncompress2`.
 
 The tests start from the default oracle, the regular-file behaviour. A test case can make one
-chosen `read` call fail, and one caller-format `vsnprintf` call fail. Every other oracle choice
+chosen `read` call fail, and one caller-format `vsnprintf` call fail. Each caller-format
+`vsnprintf` call gets the output glibc gives, computed with the model's formatter. Every other oracle choice
 is covered only by the proofs.
 
 Agreement tests the translation and the world model together against selected C executions. It

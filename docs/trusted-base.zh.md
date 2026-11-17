@@ -1,4 +1,4 @@
-<!-- source-sha256: 50e36ef5d64e906e87e0d92a21bb7b7be1963b6ceae0907a9f7dca7e835da82e -->
+<!-- source-sha256: f37a32f6ece4f206dcb988baf7987799750b0df31e77470574300fedfa9cdeb2 -->
 # 可信基础：内核不检查什么
 
 内核对照 Lean 命题检查证明。这个命题说的是不是选定的 C 源码的真实情况，还取决于下面六项。它们经过审查和测试，但没有被证明；把证明编译通过并不能免除它们。
@@ -74,7 +74,14 @@
 
 **格式化。** `GzFs.snprintf` 模拟 `gzlib.c` 的三个固定格式调用（`"%s%s%s"`、`"%s"`、`"<fd:%d>"`）。它在 `[dst, dst + size)` 内写入完整输出的至多 `size - 1` 个字节和一个 NUL，返回完整长度；超过 `INT_MAX` 时返回 -1。在 glibc 2.43 中，对带 `char *` 参数的 `%s`，以及对 `%d`，这是唯一的失败情形（`stdio-common/vfprintf-process-arg.c` 的 `form_string` 与 `form_integer`；`stdio-common/Xprintf_buffer_done.c`，超过 `INT_MAX` 时为 `EOVERFLOW`）。它的 `errno` 不建模。在系统调用再次设置 `errno` 之前，没有调用者读取它：模型只在 `zstrerror` 和 `getErrno` 中读取 `errno`，位于 `gz_comp`（在以 `setErrno 0` 开始的迭代中 `fsWrite` 失败之后）、`gz_load`（在 `fsRead` 失败之后）和 `gzread`（当 `again` 由同一次调用中的 `gz_load` 设置时）。
 
-`GzFs.vsnprintf` 模拟 `gzvprintf` 以调用者格式进行的调用。任何一次调用都可能经由世界预言 `printfOk` 失败。失败的调用返回 -1，设置非零的 `errno`（`printfErrno`；超过 `INT_MAX` 时为 `EOVERFLOW`），并在 `[dst, dst + size)` 内留下任意字节（`printfJunk`）和一个 NUL。glibc 在每条路径上都写入终止符（`libio/vsnprintf.c`，`__printf_buffer_snprintf_init` 与 `__printf_buffer_snprintf_done`），且不在缓冲区之外写入。这个预言不是 glibc：它可以在 glibc 成功之处失败，这只是增加行为；它也可以在 glibc 失败之处成功。因此以 `printfOk` 为条件的目标子句描述的是模型分支，而不是断言 glibc 对该格式成功。格式化器在查询预言之前运行，所以模型没有表示的转换不论预言怎么说都会出故障。每个目标都对所有世界量化。
+`snprintf` 的格式化函数（`formatGo`）在它读到的转换说明中，凡 C17 7.21.6.1 未定义的都出故障：`%c` 或 `%s` 上的长度修饰符、`zl` 这样的修饰符组合、`%%` 两个 `%` 之间的任何内容、`%c` 或 `%s` 上的 `0` 标志、`%d`、`%i`、`%u`、`%c` 或 `%s` 上的 `#` 标志、`%c` 上的精度、`NULL` 的 `%s` 参数，以及给无符号转换传负的有符号参数。所以库的三个调用都被证明是有定义的。`VaArg.long` 代表转换所期望的 64 位类型（`long`、`long long`、`intmax_t`、`ptrdiff_t` 或 `size_t`）。
+
+**调用者的格式串。** `GzFs.vsnprintf` 把 `gzvprintf` 的调用 `vsnprintf(next, state->size, format, va)` 作为外部调用，按其 C 契约（C17 7.21.6.12）建模，而不是格式化。假定：这个调用对调用者的格式串和参数在 C 中有定义。这是调用者的义务，和 printf 族的每次调用一样；没有前提陈述它。特别地，格式串中没有 `%n`：通过参数写入的转换在契约之外。模型把格式串当作字符串读取，并在指针参数指向已释放的块时出故障（不确定的值，C17 6.2.4p2）。它不读取转换。世界预言选择结果 `r`（`printfRet`），可以是任意 `int`：
+
+- `r ≥ 0`：完整输出的长度，可以是 `size` 或更大。调用写入 `printfOut` 的前 `min(r, size - 1)` 个字节（不足时补零），其后一个 NUL。
+- `r < 0`：失败。`errno` 非零（`printfErrno`；零按 `EOVERFLOW` 读），缓冲区中是任意字节（至多 `printfOut` 的 `size` 个），不保证有 NUL。
+
+不写 `[dst, dst + size)` 之外的任何内容。每个目标都对所有世界量化，所以契约允许的每个结果都被覆盖，glibc 的各种失败也在其中。
 
 **gz 文件世界。** 文件系统的模型（`Fs`）有两部分。普通文件部分表示扁平路径、普通文件、目录标记、描述符位置和文件大小上限。系统调用预言（`Fs` 的字段，由调用计数器 `nos` 编号）为每次 `read`、`write`、`lseek`、`close` 和 `open` 调用决定：按普通文件行为、以所选 errno 失败，或返回所选结果。每个预言值都被映射到该调用的 POSIX 契约之内：`read` 返回 -1 或至多请求的字节数；非空 `write` 返回 -1 或 1 到请求字节数之间的值；`lseek` 返回 -1 或 `[0, 2^63 - 1]` 中的值，可能与之后的读取无关；`close` 返回 0 或 -1，两种情况下都释放描述符；`open` 返回 -1 或任一此前未打开且小于 `2^31` 的描述符编号；当 `2^31` 以下没有空闲描述符时，以 `EMFILE` 失败。失败设置非零 errno，成功也可能改变 errno。安全目标对每个世界量化，因此对每个预言量化。
 

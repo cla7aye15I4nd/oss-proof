@@ -94,17 +94,18 @@ def PrintContract (program : GzFilePtr → BPtr → List VaArg → G Int32) : Pr
       (0 < rc.toInt → rc.toInt = text.length ∧ accepted = text.length) ∧
       (s.mode ≠ GZ_WRITE → rc = Z_STREAM_ERROR) ∧
       (NoAllocationFailure h → WriterReady s → WriteRoom fs s text.length →
-        fs.printfOk fs.nprintf = true → text.length ≤ 2147483647 →
+        fs.printfRet fs.nprintf = Int32.ofNat text.length → text.length ≤ 2147483647 →
         rc.toInt = if text.length < (if s.size = 0 then s.want.toNat else s.size.toNat) then text.length else 0) ∧
       (NoAllocationFailure h → WriterReady s → WriteRoom fs s text.length →
-        (fs.printfOk fs.nprintf = false ∨ 2147483647 < text.length) → rc = 0 ∧ accepted = 0))
+        fs.printfRet fs.nprintf < 0 → rc = 0 ∧ accepted = 0))
 
 /-- `int gzvprintf(gzFile file, const char *format, va_list va)`.
-The fixed external formatter supplies the formatted bytes. Wrong mode and serious errors
-return a negative zlib code; an empty or oversized formatted result returns zero. The C
-library may fail on any call (the world oracle `printfOk`; a length past `INT_MAX`): then
-`len = -1`, `(unsigned)len >= state->size`, and the call returns zero having accepted
-nothing. Safety (the run returns, the state stays valid, the frame) holds on both branches. -/
+`text` is the output of the model's formatter; `vsnprintf` is an external call whose result the
+world oracle chooses (`printfRet`, `printfOut`), so the bytes written are the ones vsnprintf
+produced, which are `text` when the oracle returns its length and writes it. Wrong mode and
+serious errors return a negative zlib code; an empty or oversized result returns zero. The C
+library may fail on any call (the oracle returns a negative value): then
+`(unsigned)len >= state->size`, and the call returns zero having accepted nothing. Safety (the run returns, the state stays valid, the frame) holds on both branches. -/
 def Goal.gzvprintf : Prop := PrintContract Zlib.Gzwrite.gzvprintf
 
 /-- `int gzprintf(gzFile file, const char *format, ...)`.

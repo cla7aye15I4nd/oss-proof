@@ -3,11 +3,11 @@ import ZlibF.Proof.«gzwrite.c.borrowed-error-regression»
 /-!
 # gzwrite.c: a failing `vsnprintf` inside the proved domain
 
-The `vsnprintf` of `gzvprintf` may fail on any call (the world oracle `printfOk`; glibc fails for large widths,
-positional arguments, wide conversions, a length past `INT_MAX`). This regression shows that the failure branch is
-reachable inside the domain the goals quantify over, so the oracle is not dead text: a real `gzopen("p", "wT")` in a
-world whose oracle fails, `gzbuffer(8)`, then `gzprintf` with the represented format `"p"`. As the C does with
-`len = -1` (`(unsigned)len >= state->size`), the call returns 0, and the history stays reachable.
+The `vsnprintf` of `gzvprintf` may fail on any call (the world oracle `printfRet` returns a negative value; glibc
+fails for large widths, positional arguments, wide conversions, a length past `INT_MAX`). This regression shows that
+the failure branch is reachable inside the domain the goals quantify over, so the oracle is not dead text: a real
+`gzopen("p", "wT")` in a world whose oracle fails, `gzbuffer(8)`, then `gzprintf` with the format `"p"`. As the C
+does with `len = -1` (`(unsigned)len >= state->size`), the call returns 0, and the history stays reachable.
 -/
 
 namespace Zlib.Gzwrite.PrintfOracleRegression
@@ -16,10 +16,10 @@ open ZlibF.Spec.Public
 open Zlib.Gzwrite.BorrowRegression
 
 /-- The empty zero-limit world of the borrowed-error regression, with a `vsnprintf` that fails on every call. -/
-def failFs : Fs := { initialFs with printfOk := fun _ => false }
+def failFs : Fs := { initialFs with printfRet := fun _ => -1 }
 
 /-- The world after the open: as in the borrowed-error regression, with the failing oracle. -/
-def failOpenedFs : Fs := { openedFs with printfOk := fun _ => false }
+def failOpenedFs : Fs := { openedFs with printfRet := fun _ => -1 }
 
 theorem fail_world_valid : FileSystem failFs := by
   refine ⟨by decide, ?_, ?_, ?_⟩
@@ -45,19 +45,17 @@ theorem fail_printf (statics : Statics) :
   conv at e => rhs; cbv
   exact ⟨_, _, e⟩
 
-/-- The format `"p"` is represented: it formats to the one byte `p`. -/
-theorem p_formatted (statics : Statics) :
-    Formatted (smallHeap statics) (.ref (.blk 0) 0) [] [112] := by
-  refine ⟨[112], ⟨Or.inr ⟨.blk 0, 0, #[112, 0], rfl, rfl, by decide, rfl⟩, by decide, by decide⟩, ?_⟩
-  rfl
+/-- The format `"p"` is a C string. -/
+theorem p_string (statics : Statics) : CString (smallHeap statics) (.ref (.blk 0) 0) [112] :=
+  ⟨Or.inr ⟨.blk 0, 0, #[112, 0], rfl, rfl, by decide, rfl⟩, by decide, by decide⟩
 
-/-- **The failure branch is reachable**: a reachable writer, a represented format, the oracle failing on this call,
+/-- **The failure branch is reachable**: a reachable writer, a format, the oracle failing on this call,
 and `gzprintf` returning 0 with the history still reachable. -/
 theorem printf_failure_reachable (statics : Statics) (hg : LibraryGlobals (callerHeap statics)) :
-    failOpenedFs.printfOk failOpenedFs.nprintf = false ∧
+    failOpenedFs.printfRet failOpenedFs.nprintf < 0 ∧
     ∃ fs' after, gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) [] failOpenedFs (smallHeap statics) =
       .ok ((0, fs'), after) ∧ GzReachable after fs' 2 := by
-  refine ⟨rfl, ?_⟩
+  refine ⟨by decide, ?_⟩
   have hc := caller_fresh_uniq statics
   have hp : CString (callerHeap statics) (.ref (.blk 0) 0) [112] :=
     ⟨Or.inr ⟨.blk 0, 0, #[112, 0], rfl, rfl, by decide, rfl⟩, by decide, by decide⟩
@@ -74,7 +72,7 @@ theorem printf_failure_reachable (statics : Statics) (hg : LibraryGlobals (calle
   refine ⟨fs', after, run, ?_⟩
   exact GzReachable.step hb (show (smallHeap statics).gzstates 2 = some smallState from rfl)
     (show GzOperation 2 (.gzprintf (some (.in_gzstate_x 2)) (.ref (.blk 0) 0) []) from rfl)
-    ⟨⟨[112], p_formatted statics⟩, fun b hb => by
+    ⟨fun _ => ⟨⟨[112], p_string statics⟩, fun q hq => nomatch hq⟩, fun b hb => by
       have e : b = 0 := hb
       subst e
       simp [GzOwned, smallState, openedState, GzState.zeroed, GzState.garbage]

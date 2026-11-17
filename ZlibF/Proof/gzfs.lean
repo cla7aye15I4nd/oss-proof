@@ -35,6 +35,6 @@ theorem formatBytes_s {h : Heap} {p : BPtr} {s : Array UInt8} (hp : p ≠ .null)
     formatBytes #[37, 115] [.str p] h = .ok (s, h) := by
   have hr := heapStr_of hs
   have hpb : (p == Ptr.null) = false := by simpa using hp
-  simp [formatBytes, formatGo, parse_s, argStr, hr, hpb, pad]
+  simp [formatBytes, formatGo, parse_s, specDefined, argStr, hr, hpb, pad]
 
 end Zlib.GzFs.Proofs

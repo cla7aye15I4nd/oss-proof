@@ -56,7 +56,7 @@ inductive LseekChoice where
   deriving Inhabited
 
 /-- The file system, the descriptor table, `errno` and the file size limit (`RLIMIT_FSIZE`). Paths are flat
-byte strings (no directory structure). The world also carries two oracles: the `vsnprintf` oracle (`printfOk` ..
+byte strings (no directory structure). The world also carries two oracles: the `vsnprintf` oracle (`printfRet` ..
 `nprintf`) and the OS-call oracle (`nos` .. `readBudget`), which choose each call's result within its contract
 (`docs/trusted-base.md`). -/
 structure Fs where
@@ -65,11 +65,13 @@ structure Fs where
   fds : Array (Option OFile) := #[]
   errno : Int32 := 0
   fsizeLimit : Nat := 2 ^ 62
-  /-- The `vsnprintf` oracle: the caller-format call number `n` succeeds iff `printfOk n`. The defaults of this and
-  the next two fields serve the executable drivers only; every goal quantifies over all worlds. -/
-  printfOk : Nat → Bool := fun _ => true
-  /-- The bytes a failed caller-format call `n` leaves before its NUL (cut below `size`). -/
-  printfJunk : Nat → Array UInt8 := fun _ => #[]
+  /-- The `vsnprintf` oracle: the value the caller-format call number `n` returns, any `int`: the length of its full
+  output, or a negative value for a failure. The defaults of this and the next two fields serve the executable
+  drivers only; every goal quantifies over all worlds. -/
+  printfRet : Nat → Int32 := fun _ => 0
+  /-- The bytes the caller-format call `n` writes into the buffer: the output on success (padded with zeros to the
+  length the call writes), the buffer contents on a failure (cut to `size`). -/
+  printfOut : Nat → Array UInt8 := fun _ => #[]
   /-- The `errno` a failed caller-format call `n` leaves (zero reads as `EOVERFLOW`: `errno` is nonzero after a
   failure). -/
   printfErrno : Nat → Int32 := fun _ => 75
@@ -449,7 +451,9 @@ where
 
 /-! ## printf -/
 
-/-- One variadic argument. `int`/`uint` are 32-bit, `long`/`ulong` 64-bit, `str` is a `char *`. -/
+/-- One variadic argument. `int`/`uint` are 32-bit, `str` is a `char *`. `long`/`ulong` are 64-bit and stand for the
+64-bit type the conversion expects: `long`, `long long`, `intmax_t`, `ptrdiff_t` or `size_t` (and their unsigned or
+signed counterparts); on x86_64 all of them are 64-bit. -/
 inductive VaArg where
   | int (v : Int32)
   | uint (v : UInt32)
@@ -465,9 +469,26 @@ structure Spec where
   alt : Bool := false
   width : Nat := 0
   prec : Option Nat := none
-  long : Bool := false
+  /-- the length modifier: 0 none, 1 `l`, 2 `ll`, 3 `z`, 4 `j`, 5 `t` -/
+  lmod : Nat := 0
   conv : UInt8 := 0
   deriving DecidableEq
+
+/-- A length modifier is present. On x86_64 every one the model reads (`l`, `ll`, `z`, `j`, `t`) names a 64-bit
+integer type, so `%ld` and `%lld` both take `VaArg.long`: `VaArg.long` stands for the 64-bit type the conversion
+expects. -/
+def Spec.long (sp : Spec) : Bool := sp.lmod != 0
+
+/-- The conversion specification is defined in C17 7.21.6.1 for the conversions the model formats: `%%` is the whole
+specification (p8); `c` and `s` take no length modifier (`l` is a wide conversion, not modelled; `ll`, `z`, `j`, `t`
+are undefined, p7), no `0` flag and no `#` flag (p6); `c` takes no precision (p4); `d`, `i`, `u` take no `#` flag
+(p6). Other conversions are checked where they are formatted. -/
+def specDefined (sp : Spec) : Bool :=
+  if sp.conv == 37 then sp == { conv := 37 }
+  else if sp.conv == 99 then sp.lmod == 0 && !sp.zero && !sp.alt && sp.prec.isNone
+  else if sp.conv == 115 then sp.lmod == 0 && !sp.zero && !sp.alt
+  else if sp.conv == 100 || sp.conv == 105 || sp.conv == 117 then !sp.alt
+  else true
 
 def isDigit (c : UInt8) : Bool := 48 ≤ c && c ≤ 57
 
@@ -505,8 +526,11 @@ def parseSpec (f : Array UInt8) (i : Nat) : Option (Spec × Nat) :=
       ({ sp with prec := some p }, j3)
     else (sp, j)
   let (sp, j) :=
-    if j < f.size && (f[j]! == 108 || f[j]! == 122 || f[j]! == 106 || f[j]! == 116) then
-      ({ sp with long := true }, if j + 1 < f.size && f[j + 1]! == 108 then j + 2 else j + 1)
+    if j < f.size && f[j]! == 108 then
+      if j + 1 < f.size && f[j + 1]! == 108 then ({ sp with lmod := 2 }, j + 2) else ({ sp with lmod := 1 }, j + 1)
+    else if j < f.size && f[j]! == 122 then ({ sp with lmod := 3 }, j + 1)
+    else if j < f.size && f[j]! == 106 then ({ sp with lmod := 4 }, j + 1)
+    else if j < f.size && f[j]! == 116 then ({ sp with lmod := 5 }, j + 1)
     else (sp, j)
   if j < f.size then some ({ sp with conv := f[j]! }, j + 1) else none
 
@@ -545,15 +569,18 @@ def fmtInt (sp : Spec) (neg : Bool) (mag : Nat) (base : Nat) (upper : Bool) (sig
     else if sp.zero && sp.prec.isNone then prefixB ++ Array.replicate n 48 ++ ds1
     else Array.replicate n 32 ++ prefixB ++ ds1
 
-/-- The text of a `%s` argument: `(null)` for a null pointer (as glibc), else what the heap resolver `res` gives. -/
+/-- The text of a `%s` argument: what the heap resolver `res` gives; none for a null pointer (C17 7.21.6.1p8: the
+argument is a pointer to an array; glibc's `(null)` is not C). -/
 def argStr (res : BPtr → Option (Array UInt8)) (p : BPtr) : Option (Array UInt8) :=
-  if p == .null then some "(null)".toUTF8.toList.toArray else res p
+  if p == .null then none else res p
 
 /-- The output of `printf(f, args)` from position `i` on, as bytes, appended to `out`; `res p` is the string at `p` in
 the heap (`none` if there is none). `fuel` is the number of steps left (`f.size + 1` suffices: each step consumes a
 character). Supports `%%`, `%c`, `%s`, `%d`, `%i`, `%u`, `%x`, `%X`, `%o` with the flags `-0+ #`, a width, a
-precision and the length modifiers `l`, `ll`, `z`, `j`, `t`. Anything else, an argument of the wrong kind, or too few
-arguments is an error (undefined in C). -/
+precision and the length modifiers `l`, `ll`, `z`, `j`, `t` on the integer conversions, where C17 7.21.6.1 defines
+them (`specDefined`). Anything else, an argument of the wrong kind, a negative signed argument for an unsigned
+conversion (p9), or too few arguments is an error: undefined in C, or not modelled (`%lc`, `%ls`, `h`, `hh`, `L`,
+`*`, `%n`, `%p`, floating point, positional arguments). -/
 def formatGo (f : Array UInt8) (res : BPtr → Option (Array UInt8)) :
     Nat → Nat → List VaArg → Array UInt8 → Except String (Array UInt8)
   | 0, _, _, out => .ok out
@@ -565,7 +592,8 @@ def formatGo (f : Array UInt8) (res : BPtr → Option (Array UInt8)) :
         | none => .error "printf: incomplete conversion"
         | some (sp, j) =>
           let cv := sp.conv
-          if cv == 37 then formatGo f res fuel j args (out.push 37)
+          if !specDefined sp then .error "printf: conversion specification undefined in C or not modelled"
+          else if cv == 37 then formatGo f res fuel j args (out.push 37)
           else if cv == 99 then
             match args with
             | .int v :: r => formatGo f res fuel j r (out ++ pad sp #[v.toUInt32.toUInt8] false)
@@ -577,7 +605,7 @@ def formatGo (f : Array UInt8) (res : BPtr → Option (Array UInt8)) :
               | some s =>
                 let s := match sp.prec with | some k => s.extract 0 k | none => s
                 formatGo f res fuel j r (out ++ pad sp s false)
-              | none => .error "printf: %s argument is not a NUL-terminated string"
+              | none => .error "printf: %s argument is NULL or not a NUL-terminated string"
             | _ => .error "printf: %s needs a pointer"
           else if cv == 100 || cv == 105 then
             match sp.long, args with
@@ -591,10 +619,12 @@ def formatGo (f : Array UInt8) (res : BPtr → Option (Array UInt8)) :
             match sp.long, args with
             | false, .uint v :: r => formatGo f res fuel j r (out ++ fmtInt sp false v.toNat base (cv == 88) false)
             | false, .int v :: r =>
-              formatGo f res fuel j r (out ++ fmtInt sp false v.toUInt32.toNat base (cv == 88) false)
+              if v < 0 then .error "printf: negative int for an unsigned conversion"
+              else formatGo f res fuel j r (out ++ fmtInt sp false v.toUInt32.toNat base (cv == 88) false)
             | true, .ulong v :: r => formatGo f res fuel j r (out ++ fmtInt sp false v.toNat base (cv == 88) false)
             | true, .long v :: r =>
-              formatGo f res fuel j r (out ++ fmtInt sp false v.toUInt64.toNat base (cv == 88) false)
+              if v < 0 then .error "printf: negative long for an unsigned conversion"
+              else formatGo f res fuel j r (out ++ fmtInt sp false v.toUInt64.toNat base (cv == 88) false)
             | _, _ => .error "printf: unsigned conversion argument of the wrong kind"
           else .error "printf: conversion not modelled"
     else .ok out
@@ -623,27 +653,41 @@ def snprintf (dst : BPtr) (size : UInt64) (fmt : BPtr) (args : List VaArg) : M I
     store8 q 0
   return if out.size > 2147483647 then -1 else Int32.ofNat out.size
 
-/-- `vsnprintf(dst, size, fmt, va)` with a caller's format (`gzvprintf`): as `snprintf`, except that any call may fail
-(the oracle `printfOk`; glibc fails for large widths, positional arguments, wide conversions, a length past
-`INT_MAX`, …). A failed call returns −1, sets `errno` (`EOVERFLOW` past `INT_MAX`, else the oracle's nonzero
-value) and leaves arbitrary bytes (zeros allowed) and a NUL inside `[dst, dst + size)`: glibc writes the terminator
-on every path (`libio/vsnprintf.c`). The formatter runs first, so an unrepresented conversion faults before the
-oracle is consulted: conservative. -/
+/-- A pointer argument whose block was freed: its value is indeterminate (C17 6.2.4p2), and passing it is undefined. -/
+def argDangling (h : Heap) : VaArg → Bool
+  | .str (.ref (.blk b) _) => (h.bytes b).isNone
+  | _ => false
+
+/-- The arguments of a caller-format call: none points into a freed block. -/
+def argsLive (args : List VaArg) : M Unit := fun h =>
+  if args.any (argDangling h) then .error (.ub "vsnprintf: a pointer argument into a freed block")
+  else .ok ((), h)
+
+/-- `vsnprintf(dst, size, fmt, va)` with a caller's format (`gzvprintf`): an external call, modelled by its C contract
+(C17 7.21.6.12), not by formatting. The caller guarantees that the call is defined for its format and arguments
+(`docs/trusted-base.md`). The model reads the format as a string and faults on a pointer argument into a freed
+block; it does not read the format's conversions. The world oracle chooses the result `r = printfRet n`, any `int`.
+If `r ≥ 0` (success, `r` the length of the full output, possibly `size` or more): the first `min(r, size - 1)` bytes
+of `printfOut n` (padded with zeros) and a NUL after them, nothing if `size` is 0. If `r < 0` (failure): `errno` is
+set nonzero (`printfErrno n`, zero reads as `EOVERFLOW`), and the buffer gets arbitrary bytes, the first `size` bytes
+of `printfOut n` at most, with no NUL promised. Nothing outside `[dst, dst + size)` is written. -/
 def vsnprintf (dst : BPtr) (size : UInt64) (fmt : BPtr) (args : List VaArg) : G Int32 := do
   let w ← get
   set { w with nprintf := w.nprintf + 1 }
-  let f ← cstring fmt
-  let out ← formatBytes f args
-  if w.printfOk w.nprintf && out.size ≤ 2147483647 then
-    snprintf dst size fmt args
+  let _ ← cstring fmt
+  argsLive args
+  let r := w.printfRet w.nprintf
+  if 0 ≤ r then
+    if size != 0 then
+      let k := min r.toInt.toNat (size.toNat - 1)
+      storeBytes dst ((w.printfOut w.nprintf ++ Array.replicate k 0).extract 0 k)
+      let q ← dst.add k
+      store8 q 0
+    return r
   else
     let e := w.printfErrno w.nprintf
-    setErrno (if out.size > 2147483647 || e == 0 then EOVERFLOW else e)
-    if size != 0 then
-      let junk := (w.printfJunk w.nprintf).extract 0 (size.toNat - 1)
-      storeBytes dst junk
-      let q ← dst.add junk.size
-      store8 q 0
-    return -1
+    setErrno (if e == 0 then EOVERFLOW else e)
+    storeBytes dst ((w.printfOut w.nprintf).extract 0 size.toNat)
+    return r
 
 end Zlib.GzFs
