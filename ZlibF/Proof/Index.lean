@@ -297,6 +297,34 @@ import ZlibF.Proof.«deflate.c.engine.flush-default-output»
 import ZlibF.Proof.«deflate.c.engine.flush-arguments»
 import ZlibF.Proof.«deflate.c.engine.flush-frame»
 import ZlibF.Proof.«deflate.c.engine.flush-default-frame»
+import ZlibF.Proof.«deflate.c.engine.flush-default-cost»
+import ZlibF.Proof.«deflate.c.engine.flush-macro-size»
+import ZlibF.Proof.«deflate.c.engine.decision-size»
+import ZlibF.Proof.«deflate.c.engine.body-size»
+import ZlibF.Proof.«deflate.c.engine.loop-size»
+import ZlibF.Proof.«deflate.c.engine.finish-size»
+import ZlibF.Proof.«deflate.c.engine.strategy-size»
+import ZlibF.Proof.«deflate.c.engine.call-size»
+import ZlibF.Proof.«deflate.c.engine.call-size-tail»
+import ZlibF.Proof.«deflate.c.engine.call-size-data»
+import ZlibF.Proof.«deflate.c.engine.call-size-busy»
+import ZlibF.Proof.«deflate.c.engine.call-size-finishing»
+import ZlibF.Proof.«deflate.c.engine.call-size-first»
+import ZlibF.Proof.«deflate.c.engine.call-size-step»
+import ZlibF.Proof.«deflate.c.engine.flush-macro-size-foreign»
+import ZlibF.Proof.«deflate.c.engine.decision-size-foreign»
+import ZlibF.Proof.«deflate.c.engine.search-ready-foreign»
+import ZlibF.Proof.«deflate.c.engine.body-size-foreign»
+import ZlibF.Proof.«deflate.c.engine.loop-size-foreign»
+import ZlibF.Proof.«deflate.c.engine.finish-size-foreign»
+import ZlibF.Proof.«deflate.c.engine.strategy-size-foreign»
+import ZlibF.Proof.«deflate.c.engine.call-size-tail-foreign»
+import ZlibF.Proof.«deflate.c.engine.call-size-data-foreign»
+import ZlibF.Proof.«deflate.c.engine.call-size-busy-foreign»
+import ZlibF.Proof.«deflate.c.engine.call-size-finishing-foreign»
+import ZlibF.Proof.«deflate.c.engine.call-size-first-foreign»
+import ZlibF.Proof.«deflate.c.engine.call-size-step-foreign»
+import ZlibF.Proof.«deflate.c.engine.default-bound-value»
 import ZlibF.Proof.«deflate.c.engine.flush-macro-frame»
 import ZlibF.Proof.«deflate.c.engine.flush-storage-frame»
 import ZlibF.Proof.«deflate.c.engine.flush-cut»
@@ -1136,6 +1164,12 @@ import ZlibF.Proof.«inflate.c.completes-observe-avail»
 import ZlibF.Proof.«inflate.c.completes-blocked»
 import ZlibF.Proof.«inflate.c.completes-gzip-fields»
 import ZlibF.Proof.«inflate.c.completes-within»
+import ZlibF.Proof.«inflate.c.meaning-holds»
+import ZlibF.Proof.«inflate.c.completes-cause»
+import ZlibF.Proof.«inflate.c.completes-cause-header»
+import ZlibF.Proof.«inflate.c.completes-cause-dynamic»
+import ZlibF.Proof.«inflate.c.completes-cause-zlib»
+import ZlibF.Proof.«inflate.c.completes-stop»
 import ZlibF.Proof.«inflate.c.meaning-run»
 import ZlibF.Proof.«inflate.c.meaning-side»
 import ZlibF.Proof.«inflate.c.meaning-trip»
@@ -1153,6 +1187,8 @@ import ZlibF.Proof.«inflate.c.meaning-trip-dynamic»
 import ZlibF.Proof.«inflate.c.meaning-call»
 import ZlibF.Proof.«inflate.c.meaning-zlib»
 import ZlibF.Proof.«public-deflate-inflate-roundtrip»
+import ZlibF.Proof.«public-roundtrip-bound»
+import ZlibF.Proof.«public-inflate-completes»
 import ZlibF.Proof.«inflate.c.meaning-call-exit»
 import ZlibF.Proof.«inflate.c.config-source-observer»
 import ZlibF.Proof.«inflate.c.meaning-call-unstaged»
@@ -1772,6 +1808,13 @@ import ZlibF.Proof.«zlib.h.gzgetc-macro»
 import ZlibF.Proof.«gz.sequence-safety»
 import ZlibF.Proof.«public-gz-sequence-safety»
 import ZlibF.Proof.«public-gz-sequence-nonvacuity»
+import ZlibF.Proof.«public-roundtrip-deflate»
+import ZlibF.Proof.«public-roundtrip-inflate»
+import ZlibF.Proof.«public-roundtrip-compress»
+import ZlibF.Proof.«public-roundtrip-uncompress»
+import ZlibF.Proof.«public-roundtrip-witness»
+import ZlibF.Proof.«deflate.c.engine.finish-progress-foreign»
+import ZlibF.Proof.«public-roundtrip-finish»
 
 /-!
 Proof-only import point. Add new proof modules here without changing the locked root.

@@ -81,7 +81,7 @@ theorem flush_stored_prepared {h : Heap} {r : ZStreamRef} {ds pb ob w origin bas
   have record := fields
   unfold TreePreparationFrame at record
   obtain ⟨after, result, next, body, run, goodA, treesA, buffersA, sizesA, storageA,
-    ledgerA, clearA, size, bound, cursorA, aligned, output, grammar⟩ :=
+    ledgerA, clearA, size, bound, cursorA, aligned, _bodyLength, output, grammar⟩ :=
     stored_block_ready (ob := ob) goodP treesP buffersP
       (by rw [record]; exact cursor) (by rw [record]; exact memory)
       (by rw [record]; exact pending) (by rw [record]; exact bits)

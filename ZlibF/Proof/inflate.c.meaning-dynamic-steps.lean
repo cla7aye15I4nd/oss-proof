@@ -941,7 +941,7 @@ read, a missing end-of-block length or an unacceptable literal/length or
 distance code goes to `BAD`: the parse of the header is complete and is not
 a `DynamicHeader`. Otherwise both tables are installed with `Inv` and
 `StableQuery` (`DeflateParsed.dynamicDone`), and the call leaves for
-`Z_TREES` or, for another flush, falls through to `LEN_` with fewer than 8
+`Z_TREES` (in `LEN_`, fewer than 8 bits held) or, for another flush, falls through to `LEN_` with fewer than 8
 held bits.
 
 The safety invariant of the decoder state supplies `wf` (array sizes) and
@@ -954,7 +954,9 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
     (wf : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → s.WellFormed)
     (lengths : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → CodeLengthInvariant zs s) :
     (∃ result l' h', runX (inflate_CODELENS c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES) ∧
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨
+          (c.flush = Z_TREES ∧ (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_) ∧
+            l'.bits.toNat < 8)) ∧
           LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -1229,7 +1231,7 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
         (window' _ _ rfl rfl rfl rfl) check wrapM outputEq
       by_cases trees : c.flush = Z_TREES
       · left
-        refine ⟨.error Ex.leave, { regs with ret := 0 }, setI h zs state', ?_, Or.inl ⟨rfl, Or.inr trees, moved⟩⟩
+        refine ⟨.error Ex.leave, { regs with ret := 0 }, setI h zs state', ?_, Or.inl ⟨rfl, Or.inr ⟨trees, fun zs' s' st' hs' => by rw [setI_state state' st zs' s' st' hs'], small⟩, moved⟩⟩
         rw [runC, tailRun, if_pos trees, setI_setI]
       · right
         refine ⟨trees, { regs with ret := 0 }, setI h zs state', ?_, by show loopRead l ≤ loopRead regs; omega,

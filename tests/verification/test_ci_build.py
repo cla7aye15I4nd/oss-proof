@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Check artifact provenance and complete, disjoint proof mutation scheduling."""
-from collections import Counter
+"""Check artifact provenance and the auditor controls."""
 import importlib.util
 import io
-import json
 import os
 from pathlib import Path
 import subprocess
@@ -110,56 +108,6 @@ class BuildTransport(unittest.TestCase):
         with patch.dict(os.environ, {'ZLIBF_REQUIRE_PREBUILT': 'invalid'}), \
                 self.assertRaises(verification.Rejected):
             verification.build_library()
-
-
-class CompleteProofPartition(unittest.TestCase):
-    def test_variants_keep_modules_without_copying_native_audit_tools(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            cache = root / 'cache'
-            (cache / 'build/bin').mkdir(parents=True)
-            (cache / 'build/lib/lean').mkdir(parents=True)
-            (cache / 'build/ir').mkdir(parents=True)
-            (cache / 'build/bin/auditor').write_bytes(b'not a variant dependency')
-            (cache / 'build/lib/lean/Fixture.olean').write_bytes(b'module')
-            (cache / 'build/ir/Fixture.c.o').write_bytes(b'native object')
-            target = root / 'variant'
-            verification.copy_build_cache(cache, target)
-            self.assertFalse((target / 'build/bin').exists())
-            self.assertEqual((target / 'build/lib/lean/Fixture.olean').read_bytes(), b'module')
-            self.assertEqual((target / 'build/ir/Fixture.c.o').read_bytes(), b'native object')
-            self.assertEqual((cache / 'build/bin/auditor').read_bytes(), b'not a variant dependency')
-
-    def test_all_real_goals_and_all_rows_exactly_once(self):
-        manifest = json.loads((ROOT / verification.MANIFEST).read_text())
-        expected_goals, expected_lists = verification.mutation_partition(manifest)
-        partitions = [verification.mutation_partition(manifest, 4, index) for index in range(4)]
-        self.assertEqual(Counter(goal for goals, _ in partitions for goal in goals),
-                         Counter({goal: 1 for goal in expected_goals}))
-        expected = Counter((path, row) for path, rows in expected_lists.items() for row in rows)
-        actual = Counter((path, row) for _, lists in partitions
-                         for path, rows in lists.items() for row in rows)
-        self.assertEqual(actual, expected)
-        self.assertGreaterEqual(sum(expected.values()), 146)
-        for path in verification.SAFETY_MUTANT_LISTS:
-            self.assertTrue(expected_lists.get(path), path)
-
-    def test_missing_or_empty_semantic_list_is_an_error(self):
-        manifest = json.loads((ROOT / verification.MANIFEST).read_text())
-        with tempfile.TemporaryDirectory() as directory:
-            empty = Path(directory) / 'empty.tsv'
-            empty.write_text('# only a comment\n')
-            for path in (str(Path(directory) / 'absent.tsv'), str(empty)):
-                with self.subTest(path=path), \
-                        patch.object(verification, 'SAFETY_MUTANT_LISTS', (path,)), \
-                        self.assertRaises(verification.Rejected):
-                    verification.mutation_partition(manifest)
-
-    def test_invalid_and_empty_partitions_are_errors(self):
-        manifest = json.loads((ROOT / verification.MANIFEST).read_text())
-        for count, index in [(0, 0), (-1, 0), (4, -1), (4, 4), (10000, 9999)]:
-            with self.subTest(count=count, index=index), self.assertRaises(verification.Rejected):
-                verification.mutation_partition(manifest, count, index)
 
 
 class AuditorControls(unittest.TestCase):

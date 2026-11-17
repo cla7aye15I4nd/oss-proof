@@ -37,7 +37,7 @@ theorem dynamic_block_publish {h : Heap} {r : ZStreamRef} {ds pb ob oo base : Na
       ∀ suffix, ZlibF.Spec.Body [] 2 (inputPrefix input base) (body ++ suffix) suffix
         (inputPrefix input (base + represented xs)) := by
   obtain ⟨readyHeap, emitted, outputBuf, body, padding, run, goodE, treesE, buffersE, sizesE, storageE,
-    ledgerE, clearE, _sizeE, boundE, cursorE, roomE, finalE, padBound, padNone, outputE, grammar⟩ :=
+    ledgerE, clearE, _sizeE, boundE, cursorE, roomE, finalE, padBound, padNone, _shape, outputE, grammar⟩ :=
     dynamic_prepared_block_ready (ob := ob) good trees buffers cursor memory pending bits ledger clear trace last
   obtain ⟨produced, after, z', result, written, remaining, flush, goodA, buffersA, account, sizesA, storageA,
     copied, left, low, validA, fieldsA, bytes, pendingA, outputA⟩ :=

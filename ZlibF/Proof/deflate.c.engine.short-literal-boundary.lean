@@ -26,7 +26,8 @@ theorem slow_literal_search_boundary {h : Heap} {r : ZStreamRef} {ds w origin ba
       EndFrontier after result ∧ StreamBuffers after r ∧ SlowRecordFrame d result ∧
       result.strstart.toNat = d.strstart.toNat + 1 ∧
       result.lookahead.toNat = d.lookahead.toNat - 1 ∧ fillEnd result = fillEnd d ∧
-      result.sym_next.toNat < result.sym_end.toNat ∧ ByteFrame h after (DeflateOwned ds d) := by
+      result.sym_next.toNat < result.sym_end.toNat ∧ ByteFrame h after (DeflateOwned ds d) ∧
+      result.match_length = d.match_length ∧ result.match_start = d.match_start := by
   let c := wa[d.strstart.toNat - 1]!
   let result := advanceOne (literalState d c)
   obtain ⟨after, run, goodA, frontierA, rangeA, bytesA, countA, symbolsA, frameA, storage⟩ :=
@@ -69,7 +70,7 @@ theorem slow_literal_search_boundary {h : Heap} {r : ZStreamRef} {ds w origin ba
   have position : base + represented xs = origin + d.strstart.toNat - 1 := by omega
   rw [← position] at meaning
   have traceA := cut.trace.snoc meaning
-  refine ⟨after, result, run, ?_, endA, buffersA, frameA, startA, lookA, endpoint, countA, storage⟩
+  refine ⟨after, result, run, ?_, endA, buffersA, frameA, startA, lookA, endpoint, countA, storage, rfl, rfl⟩
   refine ⟨⟨⟨goodA, chainsAt, rangeA, historyA, ?_, symbolsA, ?_⟩,
     ?_, frontierAt, ?_⟩, traceA, ?_⟩
   · intro _; rw [startA]; omega

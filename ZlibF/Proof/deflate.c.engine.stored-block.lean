@@ -10,6 +10,20 @@ open Zlib.Trees.Proofs.Out (TreesInvAt storedTag storedBodyBits sourceBytes)
 open ZlibF.Math.DeflateSymbols
 set_option autoImplicit false
 
+/-- The bits of a stored body: the alignment padding, `LEN` and `NLEN`, and eight bits per byte. -/
+theorem storedBodyBits_length (padding : Nat) (bytes : List UInt8) :
+    (storedBodyBits padding bytes).length = padding + 32 + 8 * bytes.length := by
+  have data : (ZlibF.Spec.bytesToBits bytes).length = 8 * bytes.length := by
+    induction bytes with
+    | nil => rfl
+    | cons x rest ih =>
+      simp only [ZlibF.Spec.bytesToBits, List.flatMap_cons, List.length_append] at ih ⊢
+      rw [ih]
+      simp [ZlibF.Spec.byteBits]
+      omega
+  simp only [storedBodyBits, List.length_append, List.length_replicate, data,
+    Zlib.Trees.Proofs.Out.natBits_length]
+
 /-- The actual stored branch and common flush tail restore an empty
 ledger and cleared block counters. Both final flags preserve the already
 aligned stored output, which independently decodes to the next accepted
@@ -33,6 +47,7 @@ theorem stored_block_ready {h : Heap} {r : ZStreamRef} {ds pb ob w origin base :
       ByteSizes h after ∧ OutputStorage h after r ds pb ob ∧ SymbolLedger next result [] ∧ BlockInit.BlockClear result ∧
       next.size = 65536 ∧ result.pending.toNat ≤ 63488 ∧ result.pending_out = result.pending_buf ∧
       result.bi_valid.toInt = 0 ∧
+      body.length = (8 - (d.bi_valid.toInt.toNat + 3) % 8) % 8 + 32 + 8 * represented xs ∧
       Zlib.Trees.Proofs.Out.outBits next result = Zlib.Trees.Proofs.Out.outBits buf d ++ (storedTag last ++ body) ∧
       ∀ suffix : List Bool, suffix.length % 8 = 0 →
         ZlibF.Spec.Body [] 0 (inputPrefix input base) (body ++ suffix) suffix
@@ -43,6 +58,10 @@ theorem stored_block_ready {h : Heap} {r : ZStreamRef} {ds pb ob w origin base :
       balance accounted view selectedRoom last
   let body := storedBodyBits ((8 - (d.bi_valid.toInt.toNat + 3) % 8) % 8)
     (sourceBytes window d.block_start.toInt.toNat (represented xs))
+  have bodyLength : body.length = (8 - (d.bi_valid.toInt.toNat + 3) % 8) % 8 + 32 + 8 * represented xs := by
+    have exact := storedBodyBits_length ((8 - (d.bi_valid.toInt.toNat + 3) % 8) % 8)
+      (sourceBytes window d.block_start.toInt.toNat (represented xs))
+    rwa [Zlib.Trees.Proofs.Out.sourceBytes_length] at exact
   obtain ⟨reset, resetRun, goodR, treesR, buffersR, sizesR, storageR, ledgerR, clearR, resetBits⟩ :=
     init_block_clear_engine (ob := ob) goodE treesE buffersE
   obtain ⟨a1, a2, a3, reset2, resetRun2, _good2, _trees2, _buffers2, _sizes2, _storage2,
@@ -64,7 +83,7 @@ theorem stored_block_ready {h : Heap} {r : ZStreamRef} {ds pb ob w origin base :
     change Zlib.Trees.«_tr_stored_block» (some (.tab ds)) (.ref (.blk w) d.block_start.toInt.toNat)
       (UInt64.ofNat (represented xs)) 0 h = .ok ((), _) at emitRun
     refine ⟨_, reset, emittedBuf, body, ?_, goodR, treesR, buffersR, sizes, storage,
-      ledgerR, clearR, sizeE, pendingR, cursorR, alignedR, outputR, grammar⟩
+      ledgerR, clearR, sizeE, pendingR, cursorR, alignedR, bodyLength, outputR, grammar⟩
     unfold Zlib.Trees.Proofs.flushBlockTail
     simp only [bind_app, emitRun, resetRun, show ((0 : Int32) != 0) = false from rfl,
       Bool.false_eq_true, ite_false, pure_app]
@@ -83,7 +102,7 @@ theorem stored_block_ready {h : Heap} {r : ZStreamRef} {ds pb ob w origin base :
     have bound : result.pending.toNat ≤ 63488 := by omega
     refine ⟨_, result, next, body, ?_, goodA, treesA, buffersA, sizes.trans sizesA, storage.trans storageA,
       empty_ledger_bits ledgerR diffA, clearR.bits diffA, sizeA.trans sizeE, bound, cursorA, zeroA,
-      unchanged.trans outputR, grammar⟩
+      bodyLength, unchanged.trans outputR, grammar⟩
     unfold Zlib.Trees.Proofs.flushBlockTail
     simp only [bind_app, emitRun, resetRun, show ((1 : Int32) != 0) = true from rfl, ite_true, windRun]
 

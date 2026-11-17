@@ -68,7 +68,7 @@ theorem flush_fixed_prepared {h : Heap} {r : ZStreamRef} {ds pb ob base : Nat}
   have record := fields
   unfold TreePreparationFrame at record
   obtain ⟨after, result, next, payload, padding, run, goodA, treesA, buffersA, sizesA, storageA,
-    ledger, frame, size, bound, _nonfinal, cursorA, _room, final, padBound, padNone, output, grammar⟩ :=
+    ledger, frame, size, bound, _nonfinal, cursorA, _room, final, padBound, padNone, _payloadLength, output, grammar⟩ :=
     fixed_block_ready_frame (ob := ob) goodP treesP buffersP
       (by rw [record]; exact cursor) (by rw [record]; exact memory)
       (by rw [record]; exact pending) (by rw [record]; exact bits)

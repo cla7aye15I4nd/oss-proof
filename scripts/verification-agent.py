@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Dispatch a separate read-only diagnosis session for a failed queue event."""
+"""Dispatch a separate read-only diagnosis session for a failed queue event.
+
+The executable that runs the session is named by the environment variable
+VERIFICATION_AGENT_COMMAND (a name on PATH or a path). It is called as
+`<command> exec --sandbox read-only --cd <source> --output-last-message <file> -`
+with the prompt on standard input.
+"""
 import json
 import os
 from pathlib import Path
@@ -8,13 +14,20 @@ import subprocess
 import sys
 
 
+COMMAND_VARIABLE = 'VERIFICATION_AGENT_COMMAND'
+
+
 def diagnose(event):
     record = json.loads(event.read_text())
     job = Path(record['result']).parent
     source = job / 'source'
-    binary = shutil.which('codex')
+    command = os.environ.get(COMMAND_VARIABLE, '').strip()
+    if not command:
+        raise RuntimeError(f'{COMMAND_VARIABLE} is not set: set it to the executable that runs the '
+                           'diagnosis session')
+    binary = shutil.which(command)
     if not binary:
-        raise RuntimeError('codex executable is not on PATH')
+        raise RuntimeError(f'{COMMAND_VARIABLE} names {command!r}, which is not an executable on PATH')
     prompt = (
         'Diagnose this failed verification job. Do not write proofs, edit source, regenerate '
         'locks, commit, merge, or start another validation run. Read the stage logs and '

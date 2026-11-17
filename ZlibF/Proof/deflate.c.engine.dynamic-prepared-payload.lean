@@ -34,6 +34,8 @@ theorem dynamic_prepared_payload_engine {h : Heap} {r : ZStreamRef} {ds pb ob : 
       DGood after r ds z result ∧ TreesInvAt after ds result pb next ∧ StreamBuffers after r ∧
       ByteSizes h after ∧ OutputStorage h after r ds pb ob ∧ TreePreparationFrame d ready ∧
       SourceCodeFacts d ready ∧ PreparedHeaderData ready mb ∧ SourceCodeFacts d result ∧
+      (do Zlib.Trees.Proofs.blPrepare (some (.tab ds)); Zlib.Trees.build_bl_tree (some (.tab ds))) h =
+        .ok (mb, setD h ds ready) ∧
       next.size = 65536 ∧ result.pending_out = result.pending_buf ∧
       8 * result.pending.toNat + result.bi_valid.toInt.toNat + 7 ≤ 8 * 63488 ∧
       Zlib.Trees.Proofs.Out.outBits next result = Zlib.Trees.Proofs.Out.outBits buf d ++
@@ -73,7 +75,7 @@ theorem dynamic_prepared_payload_engine {h : Heap} {r : ZStreamRef} {ds pb ob : 
     dynamic_payload_ready (ob := ob) goodH treesH buffersH cursorH memoryH ledger (codes.bitsDiff diffH) packedH roomH countH
   refine ⟨mb, ready, _, result, next, ?_, goodA, treesA, buffersA,
     (sizesR.trans sizesH).trans sizesA, (storageR.trans storageH).trans storageA,
-    frameR, codes, data.header, codesA, sizeA, cursorA, roomA, ?_⟩
+    frameR, codes, data.header, codesA, prepare, sizeA, cursorA, roomA, ?_⟩
   · unfold dynamicPreparedPayload
     rw [← M_bind_assoc, bind_app, prepare]
     simp only [bind_app, headerRun, Zlib.Trees.Proofs.Out.pLtree_run goodH.live.hs,

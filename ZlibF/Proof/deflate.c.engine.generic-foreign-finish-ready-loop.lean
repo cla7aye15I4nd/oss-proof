@@ -110,7 +110,7 @@ theorem default_foreign_slow_finish_ready_loop {h : Heap} {r : ZStreamRef} {ds o
           have afterRank : rank next after = result.lookahead.toNat + nextZ.avail_in.toNat + 1 := by
             simp [rank, nextRunning, nextBrk, stateA.good.live.hs, stateA.good.live.hz]
           rw [afterRank]
-          have less := decrease nextRunning nextBrk
+          have less := decrease running (Or.inl nextBrk)
           omega
       · simp [rank, returned]
   have initial : Inv {} h :=

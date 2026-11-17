@@ -69,16 +69,65 @@ def SingleWith (program : BPtr → BPtr → BPtr → UInt64 → M Int32) (nullab
           (got.toNat = out.length ∨ (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity)) ∧
           (rc = Z_MEM_ERROR → AllocationFailed h after))
 
+/-- `CountedWith` on the heaps that satisfy `Pre`. -/
+def CountedWithOn (Pre : Heap → Prop) (program : BPtr → BPtr → BPtr → BPtr → M Int32) (nullableLengths : Bool)
+    (Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop) : Prop :=
+  ∀ h dest destLen source sourceLen capacity n src,
+    Pre h → Fresh h → Zlib.Inflate.Spec.Uniq h → LibraryGlobals h → ZlibF.PlatformMemory.ByteObjectsFit h →
+    (destLen ≠ .null → LengthCell h destLen capacity) →
+    (sourceLen ≠ .null → LengthCell h sourceLen n) →
+    (nullableLengths = false → destLen ≠ .null ∧ sourceLen ≠ .null) →
+    (source ≠ .null → Bytes h source n.toNat src) →
+    (dest ≠ .null → Writable h dest capacity.toNat) →
+    UtilitySeparation dest capacity.toNat source n.toNat destLen sourceLen →
+    ∃ rc after, C.run (program dest destLen source sourceLen) h = .ok (rc, after) ∧
+      (sourceLen = .null ∨ destLen = .null ∨ (source = .null ∧ n ≠ 0) ∨
+        (dest = .null ∧ capacity ≠ 0) → rc = Z_STREAM_ERROR ∧ SameObjectsUpToTableShape h after) ∧
+      (sourceLen ≠ .null → destLen ≠ .null →
+        (source = .null → n = 0) → (dest = .null → capacity = 0) →
+        ∃ out used got consumed h₁ h₂ expected,
+          Store h dest out h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
+          Store h₂ destLen (lengthBytes got) expected ∧ SameObjectsUpToTableShape expected after ∧
+          Rel (if source = .null then [] else src) capacity.toNat rc out used ∧
+          ((got.toNat = out.length ∧ consumed.toNat = used) ∨
+            (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity ∧ consumed = n)) ∧
+          (rc = Z_MEM_ERROR → AllocationFailed h after))
+
+/-- `SingleWith` on the heaps that satisfy `Pre`. -/
+def SingleWithOn (Pre : Heap → Prop) (program : BPtr → BPtr → BPtr → UInt64 → M Int32) (nullableLength : Bool)
+    (Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop) : Prop :=
+  ∀ h dest destLen source capacity n src,
+    Pre h → Fresh h → Zlib.Inflate.Spec.Uniq h → LibraryGlobals h → ZlibF.PlatformMemory.ByteObjectsFit h →
+    (destLen ≠ .null → LengthCell h destLen capacity) →
+    (nullableLength = false → destLen ≠ .null) →
+    (source ≠ .null → Bytes h source n.toNat src) →
+    (dest ≠ .null → Writable h dest capacity.toNat) →
+    Separate source n.toNat dest capacity.toNat →
+    Separate destLen 8 dest capacity.toNat → Separate destLen 8 source n.toNat →
+    ∃ rc after, C.run (program dest destLen source n) h = .ok (rc, after) ∧
+      (destLen = .null ∨ (source = .null ∧ n ≠ 0) ∨ (dest = .null ∧ capacity ≠ 0) →
+        rc = Z_STREAM_ERROR ∧ SameObjectsUpToTableShape h after) ∧
+      (destLen ≠ .null → (source = .null → n = 0) → (dest = .null → capacity = 0) →
+        ∃ out used got h₁ expected,
+          Store h dest out h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
+          SameObjectsUpToTableShape expected after ∧
+          Rel (if source = .null then [] else src) capacity.toNat rc out used ∧
+          (got.toNat = out.length ∨ (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity)) ∧
+          (rc = Z_MEM_ERROR → AllocationFailed h after))
+
 theorem counted_with_uncompressed (P : BPtr → BPtr → BPtr → BPtr → M Int32) (nl : Bool) :
     CountedWith P nl Uncompressed = UncompressCounted P nl := rfl
 
 theorem single_with_uncompressed (P : BPtr → BPtr → BPtr → UInt64 → M Int32) (nl : Bool) :
     SingleWith P nl Uncompressed = UncompressSingle P nl := rfl
 
-theorem single_of_counted {P : BPtr → BPtr → BPtr → BPtr → M Int32} {nl : Bool}
+/-- The single-length wrapper on the heaps that satisfy `Pre`, a property that its length cell
+keeps. -/
+theorem single_of_counted_on {Pre : Heap → Prop} {P : BPtr → BPtr → BPtr → BPtr → M Int32} {nl : Bool}
     {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop}
-    (inner : CountedWith P nl Rel) : SingleWith (singleWrap P) nl Rel := by
-  intro h dest destLen source capacity n src fresh uniq globals fit dcell dnull srcB destW sep1 sep2 sep3
+    (preserve : ∀ h v, Pre h → Pre (cellHeap h v))
+    (inner : CountedWithOn Pre P nl Rel) : SingleWithOn Pre (singleWrap P) nl Rel := by
+  intro h dest destLen source capacity n src pre fresh uniq globals fit dcell dnull srcB destW sep1 sep2 sep3
   have kept := cellHeap_kept fresh n
   have agree := cellHeap_agree fresh n
   have k0 : ¬ h.live h.nextBlk := fresh h.nextBlk (Nat.le_refl _)
@@ -109,7 +158,7 @@ theorem single_of_counted {P : BPtr → BPtr → BPtr → BPtr → M Int32} {nl 
     ⟨separate_symm sep1, sep2, sep3, sepCell dest _ destK, sepCell source _ srcK,
       separate_symm (sepCell destLen 8 lenK)⟩
   obtain ⟨rc, after', run', bad', good'⟩ := inner (cellHeap h n) dest destLen source (cellPtr h) capacity n src
-    (cellHeap_fresh fresh n) (cellHeap_uniq fresh uniq n) (cellHeap_globals globals n) (cellHeap_fit fresh fit n)
+    (preserve h n pre) (cellHeap_fresh fresh n) (cellHeap_uniq fresh uniq n) (cellHeap_globals globals n) (cellHeap_fit fresh fit n)
     (fun dl => kept.cell_of (dcell dl)) (fun _ => cellHeap_cell h n)
     (fun e => ⟨dnull e, by simp [cellPtr]⟩) (fun sn => kept.bytes_of (srcB sn))
     (fun dn => kept.writable_of (destW dn)) sepU
@@ -236,6 +285,14 @@ theorem single_of_counted {P : BPtr → BPtr → BPtr → BPtr → M Int32} {nl 
     · intro hm
       obtain ⟨j, lo, hi, bad⟩ := mem' hm
       exact ⟨j, lo, hi, bad⟩
+
+theorem single_of_counted {P : BPtr → BPtr → BPtr → BPtr → M Int32} {nl : Bool}
+    {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop}
+    (inner : CountedWith P nl Rel) : SingleWith (singleWrap P) nl Rel := by
+  intro h dest destLen source capacity n src
+  exact single_of_counted_on (Pre := fun _ => True) (fun _ _ _ => trivial)
+    (fun h dest destLen source sourceLen capacity n src _ => inner h dest destLen source sourceLen capacity n src)
+    h dest destLen source capacity n src trivial
 
 theorem singleWrap_uncompress_z : uncompress_z = singleWrap uncompress2_z := rfl
 

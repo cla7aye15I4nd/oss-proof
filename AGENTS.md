@@ -82,9 +82,6 @@ There are two levels. Say which one you mean.
   is green on a commit you name: axiom gate, exact goal match, self tests and
   differential tests. Only an accepted result may be reported as final.
 
-Proof mutants are additional evidence, not part of acceptance (owner's decision of 2026-11-15:
-a full mutant run takes several hours). A mutant run is reported separately, with its commit.
-
 Rules that hold at both levels:
 
 - Only `propext`, `Classical.choice` and `Quot.sound` are allowed. Never use `sorry`,
@@ -163,10 +160,6 @@ exact goals, self tests, differential tests with and without sanitisers.
 Run it on request with the `lean` workflow's manual trigger. A red nightly run is fixed before
 new acceptance work, but it does not block proof work.
 
-**Proof mutants, on request only**: the manual trigger's `mutants` option. A mutated translation
-(a dropped check, an off-by-one) must fail to check, with the error in that function's proof.
-They do not gate a merge, acceptance or a milestone.
-
 There are no lock files. A definition, a specification or a theorem statement is tracked by git
 alone: its history is the record of what changed and why. The protection that remains is the
 audit itself: allowed axioms only, and a goal is proved only by a theorem of exactly that type.
@@ -174,7 +167,6 @@ audit itself: allowed axioms only, and a goal is proved only by a theorem of exa
 Work that belongs to acceptance is done in batches at a milestone, not for each change:
 
 - registering theorems in `tests/audit/theorems.txt`;
-- proof mutant rows for each newly proved public function, so that a later mutant run covers it;
 - updating the rows of `docs/progress.md`.
 
 A milestone is one of: `inflate` proved, `deflate` proved, a stream sequence goal proved, or

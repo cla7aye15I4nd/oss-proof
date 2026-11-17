@@ -5,9 +5,9 @@ import ZlibF.Spec.Safety.GzSafety
 
 `GzHistory.getcMacro` and conjunct 3 of `Goal.gz_sequence_safety` ran the `gzgetc()` macro of `zlib.h`
 (`Zlib.ZlibH.gzgetc`) only with buffered output (`x.have ≠ 0`). A call of the macro with `x.have = 0`, where the macro
-calls the function `gzgetc`, was outside the goal. So the macro's `have = 0` branch was never run by the goal: the
-proof mutant `macro-have-guard-dropped` (`tests/proof-mutants/gz-sequence.tsv`), which drops the `have` test so that
-the inline path runs with nothing buffered (`have--` wraps and `*next` is read), survived.
+calls the function `gzgetc`, was outside the goal. So the macro's `have = 0` branch was never run by the goal: a
+translation that drops the `have` test, so that the inline path runs with nothing buffered (`have--` wraps and `*next`
+is read), still satisfied it.
 
 The macro now steps a history in either branch, and the goal states it in either branch, with the termination split
 of the function it calls. Below: a history continues through a macro call with `x.have = 0`, and the goal's no-fault

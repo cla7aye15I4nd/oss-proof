@@ -24,14 +24,15 @@ theorem default_foreign_slow_finish_ready_step {h : Heap} {r : ZStreamRef} {ds o
       (next.ret=some need_more → st.ret=some need_more ∨ z'.avail_out=0) ∧
       (next.ret=st.ret ∨ next.ret=some need_more) ∧
       (next.ret=none → PublishReady result) ∧
-      (next.ret=none → next.brk=false → result.lookahead.toNat+z'.avail_in.toNat<d.lookahead.toNat+z.avail_in.toNat) ∧
+      (st.ret=none → (next.brk=false ∨ next.ret=some need_more) →
+        result.lookahead.toNat+z'.avail_in.toNat<d.lookahead.toNat+z.avail_in.toNat) ∧
       (next.brk=true → st.brk=true ∨ (result.lookahead=0 ∧ z'.avail_in=0)) := by
   obtain ⟨used,produced,next,after,z',result,base',ys,extended,nextOrigin,_before,_written,_remaining,
     run,stateA,endA,buffersA,accountA,_length,agrees,endpoint,baseLe,returns,_continues,decrease,breaks,reason,_rest⟩ :=
     default_foreign_slow_body_strategy_encoding boundary frontier buffers positive pointer memory wrap publish inputValid Z_FINISH st
   have ready := default_foreign_slow_body_run_ready_phase boundary frontier buffers positive pointer memory wrap publish inputValid run stateA.good.live.hs
   refine ⟨used,produced,next,after,z',result,base',ys,extended,nextOrigin,run,stateA,endA,buffersA,
-    accountA,agrees,endpoint,baseLe,?_,returns,ready,decrease,breaks⟩
+    accountA,agrees,endpoint,baseLe,?_,returns,ready,fun running cases => decrease (Or.inl rfl) running cases,breaks⟩
   intro returned
   rcases reason returned with old|(⟨impossible,_,_⟩ | empty)
   · exact Or.inl old

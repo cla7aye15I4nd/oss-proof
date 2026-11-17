@@ -69,7 +69,7 @@ theorem fill_window_content_boundary {h : Heap} {r : ZStreamRef} {ds origin base
       (∀ i, i < origin + fillEnd d → extended i = input i) ∧
       (262 ≤ result.lookahead.toNat ∨ z'.avail_in = 0) ∧ FillRecordFrame d result := by
   obtain ⟨used, after, z', result, extended, nextOrigin, run, pending, account,
-      start, look, wrapA, originA, agrees, stopped, frame⟩ :=
+      start, look, wrapA, originA, agrees, stopped, frame, _companion⟩ :=
     fill_window_pending_boundary_all_frame boundary.toPendingBoundary short wrap buffers inputValid
   have accounted := boundary.accounted
   have credit : pendingCredit result = pendingCredit d := by

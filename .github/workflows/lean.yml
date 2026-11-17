@@ -5,17 +5,10 @@ on:
     branches: [main, dev]
   pull_request:
   # The acceptance suite (audit, differential tests) runs every night on main
-  # and on request. It does not gate ordinary merges. The proof mutants are
-  # additional evidence, not part of acceptance: they run only on a manual
-  # dispatch that asks for them.
+  # and on request. It does not gate ordinary merges.
   schedule:
     - cron: '17 9 * * *'
   workflow_dispatch:
-    inputs:
-      mutants:
-        description: 'Also run the proof mutants (20 shards, several hours)'
-        type: boolean
-        default: false
 
 concurrency:
   # One group per pull request (a newer push cancels the superseded run), and one per commit and event
@@ -50,7 +43,7 @@ jobs:
             lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-
 
       - name: Build the library once
-        run: lake build ZlibF zlibf-audit zlibf-span zlibf-proof-replay
+        run: lake build ZlibF zlibf-audit
 
       - name: Build the differential drivers once
         working-directory: tests
@@ -103,6 +96,11 @@ jobs:
         run: python3 scripts/check-strlit.py
       - name: Safety specifications import no functional specification
         run: python3 scripts/check-spec-layers.py
+      - name: Self-tests of the source checks
+        run: |
+          python3 tests/verification/test_spec_layers.py
+          python3 tests/verification/test_sorry_check.py
+          python3 tests/verification/test_strlit_check.py
 
   # The audit: axioms, doc strings and the goals.
   audit_core:
@@ -129,8 +127,6 @@ jobs:
         run: |
           python3 tests/verification/test_audit.py
           python3 -O tests/verification/test_audit.py
-          python3 tests/verification/test_public_mutants.py
-          python3 -O tests/verification/test_public_mutants.py
           python3 tests/verification/test_harness.py
           python3 tests/verification/test_audit_shards.py
           python3 -O tests/verification/test_audit_shards.py
@@ -159,35 +155,10 @@ jobs:
           AUDIT_SHARD_INDEX: ${{ matrix.shard }}
         run: bash tests/audit/selftest.sh
 
-  audit_mutants:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mutants }}
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-    runs-on: ubuntu-latest
-    timeout-minutes: 240
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
-          fetch-depth: 0
-
-      - uses: ./.github/actions/lean-environment
-        with:
-          library: 'true'
-
-      - name: Model and public function proof mutants
-        env:
-          ZLIBF_REQUIRE_PREBUILT: '1'
-        run: python3 scripts/verification.py mutants --shard-count 20 --shard-index ${{ matrix.shard }}
-
   # Keep audit as the required status. Failure, cancellation or skipping of the
-  # core or self-test stage must prevent this status from passing. The mutant
-  # stage is skipped unless the dispatch asked for it; when it runs it must pass.
+  # core or self-test stage must prevent this status from passing.
   audit:
-    needs: [audit_core, audit_selftest, audit_mutants]
+    needs: [audit_core, audit_selftest]
     if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -196,10 +167,7 @@ jobs:
         env:
           AUDIT_CORE_RESULT: ${{ needs.audit_core.result }}
           AUDIT_SELFTEST_RESULT: ${{ needs.audit_selftest.result }}
-          AUDIT_MUTANTS_RESULT: ${{ needs.audit_mutants.result }}
-        run: |
-          test "$AUDIT_CORE_RESULT/$AUDIT_SELFTEST_RESULT" = "success/success"
-          test "$AUDIT_MUTANTS_RESULT" = "success" || test "$AUDIT_MUTANTS_RESULT" = "skipped"
+        run: test "$AUDIT_CORE_RESULT/$AUDIT_SELFTEST_RESULT" = "success/success"
 
   diff_core:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}

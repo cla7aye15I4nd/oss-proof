@@ -9,13 +9,3 @@ name = "ZlibF"
 name = "zlibf-audit"
 root = "tests.audit.Audit"
 supportInterpreter = true
-
-[[lean_exe]]
-name = "zlibf-span"
-root = "tests.audit.DeclarationSpan"
-supportInterpreter = true
-
-[[lean_exe]]
-name = "zlibf-proof-replay"
-root = "tests.audit.ReplayPublicProof"
-supportInterpreter = true

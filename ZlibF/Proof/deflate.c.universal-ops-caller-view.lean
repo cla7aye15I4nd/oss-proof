@@ -153,8 +153,8 @@ theorem caller_view_write {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
 
 /-- **`deflateGetDictionary` into any writable caller range** outside the stream, a byte block or
 the `depth` array of another deflate state record. The call returns `Z_OK`, keeps `DInv`, leaves
-the stream and its state record unchanged, writes only the destination range, and allocates and
-frees nothing. -/
+the stream and its state record unchanged, writes only the dictionary's bytes of the destination
+range (`StreamWriteRegions`), and allocates and frees nothing. -/
 theorem getDictionary_view {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (inv : DInv h r ds z d) (dictionary : BPtr) (hasDictLength : Bool)
     (range : CallerRange h r dictionary (min d.w_size.toNat (d.strstart.toNat + d.lookahead.toNat)) true)
@@ -162,7 +162,8 @@ theorem getDictionary_view {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
     ∃ after, C.run (deflateGetDictionary (some r) dictionary hasDictLength) h =
         .ok ((Z_OK, if hasDictLength then some (dictLen d) else none), after) ∧
       DInv after r ds z d ∧ r.get after = r.get h ∧ after.dstates ds = h.dstates ds ∧
-      BufferFrame h after changed [⟨dictionary, 32768⟩] ∧
+      BufferFrame h after changed
+        (StreamWriteRegions h r (.deflateGetDictionary (some r) dictionary hasDictLength)) ∧
       LiveChange h after (fun b => StreamOwned after r b ∧ ¬ h.live b)
         (fun b => StreamOwned h r b ∧ ¬ StreamOwned after r b) := by
   have hI := inv.good.inv
@@ -174,12 +175,17 @@ theorem getDictionary_view {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
     omega
   have hfill := inv.shape.room
   have hlen := dictLen_toNat hI.wsz hws hfill
+  have regionLen : DeflateDictionaryLength h r = (dictLen d).toNat := by
+    simp only [DeflateDictionaryLength, inv.good.live.hz, inv.good.live.zst, inv.good.live.hs]
+    rw [hlen]
+    exact Nat.min_comm _ _
   have hwsz' : wa.size = d.window_size.toNat := by have := hI.wsz; omega
   by_cases hn : dictionary = .null ∨ dictLen d = 0
-  · have restored : restoreRegions h h [⟨dictionary, 32768⟩] = h := by
+  · have restored : restoreRegions h h
+        (StreamWriteRegions h r (.deflateGetDictionary (some r) dictionary hasDictLength)) = h := by
       rcases dictionary with _ | ⟨q', o⟩
       · rfl
-      · simp only [restoreRegions, List.foldl_cons, List.foldl_nil]
+      · simp only [StreamWriteRegions, restoreRegions, List.foldl_cons, List.foldl_nil]
         cases g : Space.get h q' with
         | none => rfl
         | some a => exact caller_view_put_self g
@@ -213,13 +219,18 @@ theorem getDictionary_view {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
     have run := deflateGetDictionary_run_copy_general inv.good.live hB hfill dictionary hasDictLength
       pointer getD ro (by omega) hwa hlen hne hdis hwsz'
     have room' : off + (dictLen d).toNat ≤ da.size := by omega
-    obtain ⟨invA, str, dst, frame, live⟩ := caller_view_write (len := 32768) (n := (dictLen d).toNat)
+    obtain ⟨invA, str, dst, frame, live⟩ := caller_view_write (len := (dictLen d).toNat) (n := (dictLen d).toNat)
       (new := copyRange da wa off (d.strstart.toNat + d.lookahead.toNat - (dictLen d).toNat) (dictLen d).toNat)
       inv getD kind
       (size_copyRange _ _ _ _ _)
-      (fun j nin => by rw [getElem?_copyRange _ _ _ _ _ _ room', if_neg nin]) (by omega) changed
+      (fun j nin => by rw [getElem?_copyRange _ _ _ _ _ _ room', if_neg nin]) (Nat.le_refl _) changed
+    have regions : StreamWriteRegions h r (.deflateGetDictionary (some r) dictionary hasDictLength) =
+        [⟨.ref ref off, (dictLen d).toNat⟩] := by
+      rw [pointer]
+      simp only [StreamWriteRegions]
+      rw [regionLen]
     refine ⟨_, by rw [C.run]; exact run, invA, str, dst, ?_, live⟩
-    rw [pointer]; exact frame
+    rw [regions]; exact frame
 
 /-- `deflateGetDictionary` keeps the invariant, in the form of `operation_step`, for every
 destination the history admits (`CallerRange`). -/

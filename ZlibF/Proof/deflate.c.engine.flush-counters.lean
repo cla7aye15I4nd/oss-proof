@@ -84,7 +84,7 @@ theorem flush_default_counter_execution {h : Heap} {r : ZStreamRef} {ds pb ob w 
           defaultStoredSource d w != .null) := by
         simpa only [selectedCost, chooseFixed, ite_true] using chooseStored
       obtain ⟨after, result, next, body, padding, run, goodA, treesA, buffersA, _sizesA, _storageA,
-        _ledgerA, frameA, _size, _bound, _nonfinal, _cursorA, _room, _final, _padBound, _padNone, _output, _grammar⟩ :=
+        _ledgerA, frameA, _size, _bound, _nonfinal, _cursorA, _room, _final, _padBound, _padNone, _payloadLength, _output, _grammar⟩ :=
         fixed_block_ready_frame (ob := ob) goodP treesP buffersP cursorP memoryP pendingP bitsP
           countP packedP ledger.valid trace last
       have dispatch := flush_fixed_selected_dispatch good positive prepare goodP (defaultStoredSource d w)
