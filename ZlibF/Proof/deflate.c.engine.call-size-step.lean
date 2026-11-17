@@ -79,7 +79,8 @@ theorem SizeLedger.step_raw {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' :
     (raw : z.next_out = .null ∨ ∃ ob oo, z.next_out = .ref (.blk ob) oo)
     (step : DataStep .deflate h after r flush rc input output used)
     (getA : r.get after = some z') (stateA : after.dstates ds = some result) :
-    SizeLedger after r ds z' result config (accepted ++ input.take used) (observed ++ output) := by
+    SizeLedger after r ds z' result config (accepted ++ input.take used) (observed ++ output) ∧
+      (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) := by
   obtain ⟨z0, z1, get0, get1, buffers, _header, snapshot, usedEq, bytesOut, run⟩ := step
   have same0 : z0 = z := Option.some.inj (get0.symm.trans state.protocol.good.live.hz)
   subst same0
@@ -125,17 +126,18 @@ theorem SizeLedger.step_raw {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' :
           · exact False.elim (bad.2 (finish bad.1))
           · exact empty
         exact Or.inr (public_zero_output_refusal state.protocol.good flush flagLo flagHi out valid finish empty)
-    have refusedRun : ∃ message, deflate (some r) flush h = .ok (rc, r.put h { z0 with msg := message }) := by
+    have refusedRun : ∃ message, (rc = Z_STREAM_ERROR ∨ rc = Z_BUF_ERROR) ∧
+        deflate (some r) flush h = .ok (rc, r.put h { z0 with msg := message }) := by
       rcases source with stream | buffer
       · obtain ⟨message, err⟩ := err_return_run state.protocol.good.live.hz Z_STREAM_ERROR
         have tested := stream.trans err
         obtain ⟨rcs, _⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run'))
-        exact ⟨message, rcs ▸ tested⟩
+        exact ⟨message, Or.inl rcs.symm, rcs ▸ tested⟩
       · obtain ⟨message, err⟩ := err_return_run state.protocol.good.live.hz Z_BUF_ERROR
         have tested := buffer.trans err
         obtain ⟨rcs, _⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run'))
-        exact ⟨message, rcs ▸ tested⟩
-    obtain ⟨message, tested⟩ := refusedRun
+        exact ⟨message, Or.inr rcs.symm, rcs ▸ tested⟩
+    obtain ⟨message, codes, tested⟩ := refusedRun
     obtain ⟨_, heaps⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run'))
     subst heaps
     have keep := state.protocol.good
@@ -144,7 +146,11 @@ theorem SizeLedger.step_raw {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' :
     subst zEq dEq usedZero
     have nil : output = [] := List.eq_nil_of_length_eq_zero outZero
     subst nil
-    simpa only [List.take_zero, List.append_nil] using ledger.refused (message := message) state
+    refine ⟨by simpa only [List.take_zero, List.append_nil] using ledger.refused (message := message) state, ?_⟩
+    intro _ ok
+    rcases codes with c | c
+    · exact absurd (ok.symm.trans c) (by decide)
+    · exact absurd (ok.symm.trans c) (by decide)
   · have out : z0.next_out ≠ .null := fun eq => refused (Or.inl eq)
     have valid : z0.avail_in ≠ 0 → z0.next_in ≠ .null := fun count eq => refused (Or.inr (Or.inl ⟨count, eq⟩))
     have output0 : 0 < z0.avail_out.toNat := by
@@ -154,19 +160,20 @@ theorem SizeLedger.step_raw {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' :
     obtain ⟨ob, oo, pointer⟩ : ∃ ob oo, z0.next_out = .ref (.blk ob) oo := raw.resolve_left out
     have busyCase : ∀ input0 origin base xs, BufferedBoundary h r ds z0 d input0 origin base xs config →
         d.status = BUSY_STATE → inputPrefix input0 (origin + fillEnd d) = accepted →
-        SizeLedger after r ds z1 result config (accepted ++ input.take used) (observed ++ output) := by
+        SizeLedger after r ds z1 result config (accepted ++ input.take used) (observed ++ output) ∧
+          (flush = Z_FINISH → rc = Z_OK → z1.avail_out = 0) := by
       intro input0 origin base xs boundary status inputEq
       have level : d.level = 6 := (congrArg EngineConfig.level boundary.configuration).trans options.level
       have strategy : d.strategy = 0 := (congrArg EngineConfig.strategy boundary.configuration).trans options.strategy
       obtain ⟨companion, size⟩ := ledger.busy input0 origin base xs boundary status inputEq
-      obtain ⟨usedS, producedS, zS, resultS, gS, sS, account, outcome⟩ :=
+      obtain ⟨usedS, producedS, zS, resultS, gS, sS, account, roomS, outcome⟩ :=
         busy_call_size boundary buffers status level strategy pointer output0 options.memory options.wrap
           ledger.window valid state.protocol.lower state.protocol.upper companion clean run'
       obtain ⟨zEq, dEq, usedS', outS⟩ := identify usedS producedS zS resultS gS sS account
       subst zEq dEq usedS'
       have length := congrArg List.length inputEq
       rw [input_prefix_length] at length
-      refine ledger_of_outcome outcome ?_ size ledger.window outS
+      refine ⟨ledger_of_outcome outcome ?_ size ledger.window outS, roomS⟩
       rw [acceptedLen, length]
     rcases state.phase with ⟨emptyInput, emptyOutput, input0, start, boundary⟩ |
         ⟨_, _, _, _, status, _⟩ |
@@ -176,14 +183,14 @@ theorem SizeLedger.step_raw {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' :
       subst emptyInput emptyOutput
       have level : d.level = 6 := (congrArg EngineConfig.level boundary.configuration).trans options.level
       obtain ⟨_, _, companion⟩ := ledger.init start.status
-      obtain ⟨usedS, producedS, zS, resultS, gS, sS, account, outcome⟩ :=
+      obtain ⟨usedS, producedS, zS, resultS, gS, sS, account, roomS, outcome⟩ :=
         first_call_size start level boundary buffers pointer output0 options.memory ledger.window valid
           companion clean run'
       obtain ⟨zEq, dEq, usedS', outS⟩ := identify usedS producedS zS resultS gS sS account
       subst zEq dEq usedS'
       have fill : fillEnd d = 0 := by
         simp only [fillEnd, start.start, start.lookahead, UInt32.toNat_zero, Nat.add_zero]
-      refine ledger_of_outcome outcome ?_ (by simp) ledger.window outS
+      refine ⟨ledger_of_outcome outcome ?_ (by simp) ledger.window outS, roomS⟩
       rw [acceptedLen, fill]
       simp
     · obtain ⟨input0, origin, base, xs, boundary, inputEq⟩ := state.busy_data status
@@ -198,26 +205,30 @@ theorem SizeLedger.step_raw {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' :
       subst finish
       have finishing := ledger.finishing phase.status
       by_cases empty : z0.avail_in = 0
-      · obtain ⟨producedS, _rc, other, zS, resultS, tested, goodS, account, statusS, sizeS⟩ :=
+      · obtain ⟨producedS, rcE, other, zS, resultS, tested, goodS, account, roomS, statusS, sizeS⟩ :=
           public_finishing_size_execution state.protocol.good buffers phase pointer empty output0
             state.protocol.lower state.protocol.upper
-        obtain ⟨_, heaps⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run'))
+        obtain ⟨rcs, heaps⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run'))
         subst heaps
         obtain ⟨zEq, dEq, usedS', outS⟩ := identify 0 producedS zS resultS goodS.live.hz goodS.live.hs account
         subst zEq dEq usedS'
-        simpa only [List.take_zero, List.append_nil] using
-          ledger_of_finishing (after := other) (r := r) (ds := ds) (z' := zS) (config := config)
-            (accepted := accepted) (observed := observed) statusS sizeS finishing ledger.window outS
-      · obtain ⟨producedS, _rc, other, zS, resultS, tested, goodS, account, statusS, sizeS⟩ :=
+        have fin := ledger_of_finishing (after := other) (r := r) (ds := ds) (z' := zS) (config := config)
+          (accepted := accepted) (observed := observed) statusS sizeS finishing ledger.window outS
+        refine ⟨by simpa only [List.take_zero, List.append_nil] using fin, ?_⟩
+        intro _ ok
+        exact roomS (rcs.trans ok)
+      · obtain ⟨producedS, rcE, other, zS, resultS, tested, goodS, account, roomS, statusS, sizeS⟩ :=
           public_finishing_new_input_size_execution state.protocol.good buffers phase pointer valid empty output0
             state.protocol.lower state.protocol.upper
-        obtain ⟨_, heaps⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run'))
+        obtain ⟨rcs, heaps⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run'))
         subst heaps
         obtain ⟨zEq, dEq, usedS', outS⟩ := identify 0 producedS zS resultS goodS.live.hz goodS.live.hs account
         subst zEq dEq usedS'
-        simpa only [List.take_zero, List.append_nil] using
-          ledger_of_finishing (after := other) (r := r) (ds := ds) (z' := zS) (config := config)
-            (accepted := accepted) (observed := observed) statusS sizeS finishing ledger.window outS
+        have fin := ledger_of_finishing (after := other) (r := r) (ds := ds) (z' := zS) (config := config)
+          (accepted := accepted) (observed := observed) statusS sizeS finishing ledger.window outS
+        refine ⟨by simpa only [List.take_zero, List.append_nil] using fin, ?_⟩
+        intro _ ok
+        exact roomS (rcs.trans ok)
 
 /-- **The first output is strictly inside the ledger.** A `Z_FINISH` call with a raw output
 pointer from a stream that has written nothing, returning `Z_OK`, writes at most
@@ -280,7 +291,7 @@ theorem first_ok_raw {h after : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
     obtain ⟨ob, oo, pointer⟩ : ∃ ob oo, z0.next_out = .ref (.blk ob) oo := raw.resolve_left out
     have level : d.level = 6 := (congrArg EngineConfig.level boundary.configuration).trans options.level
     obtain ⟨_, _, companion⟩ := ledger.init start.status
-    obtain ⟨usedS, producedS, zS, resultS, gS, _sS, account, outcome⟩ :=
+    obtain ⟨usedS, producedS, zS, resultS, gS, _sS, account, _roomS, outcome⟩ :=
       first_call_size start level boundary buffers pointer output0 options.memory ledger.window valid
         companion (Or.inr rfl) run'
     have zEq : zS = z1 := Option.some.inj (gS.symm.trans getA)

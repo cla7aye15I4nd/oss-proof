@@ -29,6 +29,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
     (run : publicDataTail (some r) (some (.tab ds)) flush h = .ok (rc, after)) :
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
+      (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
       BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
   have positive : 0 < config.level.toInt := by
     have eq := congrArg EngineConfig.level boundary.configuration
@@ -41,6 +42,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
       publicStrategyReturn (some r) (some (.tab ds)) flush ret middle = .ok (rc, after) →
       ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
         StreamAccounting z z' used produced ∧
+        (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
         BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
     intro ret middle strategyRun returnRun
     obtain ⟨used, produced, zm, dm, getM, stateM, accountM, outcome⟩ :=
@@ -60,12 +62,12 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
       · subst finish
         exact (default_foreign_deflate_slow_finish_ready_run_controls strategyB boundary.end_frontier buffers positive pointer memory
           wrap publish inputValid strategyRun stateM).status
-    rcases outcome with ⟨more, input1, origin1, base1, ys1, state1, companion1, endpoint1, size1⟩ |
+    rcases outcome with ⟨more, roomOut, input1, origin1, base1, ys1, state1, companion1, endpoint1, size1⟩ |
         ⟨finishFlag, good2, buffers2, shape, bits2, ready2, wrap2, _covered, size2⟩
     · subst more
       obtain ⟨result, stateA, getA, boundaryA, heldA, statusA, fillA, companionA⟩ :=
         need_more_return_size state1 returnRun
-      refine ⟨used, produced, zm, result, getA, stateA, accountM, Or.inl ⟨?_, input1, origin1, base1, ys1,
+      refine ⟨used, produced, zm, result, getA, stateA, accountM, fun finish _ => roomOut finish, Or.inl ⟨?_, input1, origin1, base1, ys1,
         boundaryA.toContentBoundary, ?_, companionA companion1, ?_⟩⟩
       · rw [statusA, controls, status]
       · rw [fillA]; exact endpoint1
@@ -80,7 +82,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
         have owed : owedTrailer { dm with status := FINISH_STATE, last_flush := -1 } = 4 := by
           unfold owedTrailer
           simp [wrap2]
-        refine ⟨used, produced, zm, _, goodA.live.hz, goodA.live.hs, accountM, Or.inr ⟨rfl, ?_, ?_⟩⟩
+        refine ⟨used, produced, zm, _, goodA.live.hz, goodA.live.hs, accountM, fun _ _ => empty, Or.inr ⟨rfl, ?_, ?_⟩⟩
         · rw [owed]
           change produced + heldBytes dm + 4 + base + 5 * (base / 16383) ≤ _
           omega
@@ -96,10 +98,10 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
           rw [accountM.2.2.2.2.2.1, pointer]
           rfl
         have ready := ready2 remaining
-        obtain ⟨tailProduced, z3, d3, get3, state3, _good3, account3, size3, wrap3, status3, rc3⟩ :=
+        obtain ⟨tailProduced, z3, d3, get3, state3, _good3, account3, size3, wrap3, status3, rc3, room3⟩ :=
           foreign_trailer_run_size (finish_status_good good2) (finish_status_trees trees0)
             (finish_status_buffers good2 buffers2) pointerM wrap2 ready.1 ready.2.1 bits2 returnRun
-        refine ⟨used + 0, produced + tailProduced, z3, d3, get3, state3, stream_accounting_trans accountM account3,
+        refine ⟨used + 0, produced + tailProduced, z3, d3, get3, state3, stream_accounting_trans accountM account3, fun _ ok => room3 ok,
           Or.inr ⟨status3, ?_, ?_⟩⟩
         · have owed : owedTrailer d3 = 0 := by
             unfold owedTrailer
@@ -131,7 +133,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
       rw [public_default_empty_data boundary.good status empty look] at run
       obtain ⟨_, heaps⟩ := Prod.mk.inj (Except.ok.inj run)
       subst heaps
-      refine ⟨0, 0, z, d, boundary.good.live.hz, boundary.good.live.hs, stream_accounting_zero z,
+      refine ⟨0, 0, z, d, boundary.good.live.hz, boundary.good.live.hs, stream_accounting_zero z, fun f => absurd f (by decide),
         Or.inl ⟨status, input, origin, base, xs, boundary.toContentBoundary, rfl, companion, by omega⟩⟩
   · subst finish
     rw [public_busy_finish_slow_source boundary.good.live.hz boundary.good.live.hs status level strategy] at run

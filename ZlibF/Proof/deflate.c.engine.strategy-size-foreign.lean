@@ -28,7 +28,7 @@ theorem foreign_slow_strategy_run_size {h after : Heap} {r : ZStreamRef}
     (run : deflate_slow (some (.tab ds)) flush h = .ok (ret, after)) :
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
-      ((ret = need_more ∧ ∃ extended nextOrigin base' ys,
+      ((ret = need_more ∧ (flush = Z_FINISH → z'.avail_out = 0) ∧ ∃ extended nextOrigin base' ys,
           StrategyBoundary after r ds z' result extended nextOrigin base' ys config ∧
           SizeCompanion result ys ∧ nextOrigin + fillEnd result = origin + fillEnd d + used ∧
           produced + heldBytes result + base + 5 * (base / 16383) ≤
@@ -50,15 +50,16 @@ theorem foreign_slow_strategy_run_size {h after : Heap} {r : ZStreamRef}
         endpoint1, ready1, companion1, size1⟩ :=
       foreign_slow_loop_run_size boundary frontier buffers positive pointer memory wrap bits publish inputValid
         companion loopRun
-    have stopped : final.ret = some need_more ∨ (flush = Z_FINISH ∧ final.ret = none ∧
+    have stopped : (final.ret = some need_more ∧ (flush = Z_FINISH → z1.avail_out = 0)) ∨
+        (flush = Z_FINISH ∧ final.ret = none ∧
         d1.lookahead = 0 ∧ z1.avail_in = 0) := by
       rcases clean with noFlush | finish
       · subst noFlush
-        exact Or.inl (default_foreign_slow_no_flush_ready_loop_run_control boundary frontier buffers positive pointer memory wrap
-          publish inputValid loopRun)
+        exact Or.inl ⟨default_foreign_slow_no_flush_ready_loop_run_control boundary frontier buffers positive pointer memory wrap
+          publish inputValid loopRun, fun f => absurd f (by decide)⟩
       · subst finish
         obtain ⟨_used, _produced, otherFinal, other, otherZ, otherD, _base', _ys, _extended, _nextOrigin,
-            otherRun, otherState, _end, _buffers, _account, _agrees, _endpoint, _baseLe, stops, _needOut,
+            otherRun, otherState, _end, _buffers, _account, _agrees, _endpoint, _baseLe, stops, needOut,
             broke, _ready⟩ :=
           default_foreign_slow_finish_ready_loop boundary frontier buffers positive pointer memory wrap publish inputValid
         have pairs := Prod.mk.inj (Except.ok.inj (otherRun.symm.trans loopRun))
@@ -68,15 +69,15 @@ theorem foreign_slow_strategy_run_size {h after : Heap} {r : ZStreamRef}
         have sameD : otherD = d1 := Option.some.inj (otherState.good.live.hs.symm.trans state1.good.live.hs)
         subst sameZ sameD
         rcases stops with more | ⟨none, brk⟩
-        · exact Or.inl more
+        · exact Or.inl ⟨more, fun _ => needOut more⟩
         · exact Or.inr ⟨rfl, none, (broke brk).1, (broke brk).2⟩
-    rcases stopped with more | ⟨finish, none, empty, drained⟩
+    rcases stopped with ⟨more, roomOut⟩ | ⟨finish, none, empty, drained⟩
     · rw [more] at run
       simp only [pure_app] at run
       obtain ⟨rets, heaps⟩ := Prod.mk.inj (Except.ok.inj run)
       subst heaps
       refine ⟨used, produced, z1, d1, state1.good.live.hz, state1.good.live.hs, account1,
-        Or.inl ⟨rets.symm, input1, origin1, base1, ys1, state1, companion1, endpoint1, size1⟩⟩
+        Or.inl ⟨rets.symm, roomOut, input1, origin1, base1, ys1, state1, companion1, endpoint1, size1⟩⟩
     · rw [none] at run
       simp only [] at run
       subst finish

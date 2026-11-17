@@ -29,6 +29,7 @@ theorem foreign_busy_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo or
     (run : deflate (some r) flush h = .ok (rc, after)) :
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
+      (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
       BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
   have flagLo : 0 ≤ flush.toInt := by rcases clean with rfl | rfl <;> decide
   have flagHi : flush.toInt ≤ 5 := by rcases clean with rfl | rfl <;> decide
@@ -48,10 +49,10 @@ theorem foreign_busy_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo or
       have goodA := stream_control_good (z' := z') boundary0.good rfl boundary.good.live.zalloc
         boundary.good.live.zfree
       have stateA := stream_control_buffered boundary0 goodA
-      obtain ⟨_, heaps⟩ := Prod.mk.inj (Except.ok.inj ((source.trans refused).symm.trans run))
+      obtain ⟨rcs, heaps⟩ := Prod.mk.inj (Except.ok.inj ((source.trans refused).symm.trans run))
       subst heaps
       refine ⟨0, 0, z', { d with last_flush := flush }, goodA.live.hz, goodA.live.hs, stream_accounting_zero z,
-        Or.inl ⟨status, input, origin, base, xs, stateA.toContentBoundary, rfl, companion, ?_⟩⟩
+        fun _ ok => absurd (rcs.trans ok) (by decide), Or.inl ⟨status, input, origin, base, xs, stateA.toContentBoundary, rfl, companion, ?_⟩⟩
       change 0 + heldBytes d + base + 5 * (base / 16383) ≤ heldBytes d + base + 5 * (base / 16383)
       omega
     · rw [ite_eq_right duplicate] at source
@@ -60,13 +61,13 @@ theorem foreign_busy_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo or
   · obtain ⟨before, pendingBits⟩ := good_pending_bits boundary.good
     by_cases enough : z.avail_out.toNat ≤ d.pending.toNat
     · obtain ⟨_pb, other, z', result, _written, _remaining, _base, tested, stateA, _buffersA, accountA,
-          _sizes, _storage, _empty, _last, count, _low, frame, _bytes, _pendingA, _wire, _adler, _frameF⟩ :=
+          _sizes, _storage, emptyA, _last, count, _low, frame, _bytes, _pendingA, _wire, _adler, _frameF⟩ :=
         public_pending_buffered_exhausted_foreign_adler flush boundary buffers pointer inputValid flagLo flagHi
           (by intro finished; rw [status] at finished; cases finished) output enough pendingBits
       obtain ⟨_, heaps⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run))
       subst heaps
       refine ⟨0, z.avail_out.toNat, z', result, stateA.good.live.hz, stateA.good.live.hs, accountA,
-        Or.inl ⟨?_, input, origin, base, xs, stateA.toContentBoundary, ?_, ?_, ?_⟩⟩
+        fun _ _ => emptyA, Or.inl ⟨?_, input, origin, base, xs, stateA.toContentBoundary, ?_, ?_, ?_⟩⟩
       · rw [frame]; exact status
       · rw [frame]; rfl
       · rw [frame]; exact companion
@@ -93,7 +94,7 @@ theorem foreign_busy_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo or
         (by intro finished; rw [statusM] at finished; cases finished)
       rw [entry, public_busy_header_skip_next stateM.good statusM] at run
       have companionM : SizeCompanion dm xs := by rw [fields]; exact companion
-      obtain ⟨used, laterProduced, z', result, getA, stateA, accountA, outcome⟩ :=
+      obtain ⟨used, laterProduced, z', result, getA, stateA, accountA, roomA, outcome⟩ :=
         foreign_busy_data_tail_size stateM buffersM statusM levelM strategyM pointerM memory wrap bits (readyM left)
           (input_valid_accounting_output inputValid accountM) companionM clean run
       have fillM : fillEnd dm = fillEnd d := by rw [fields]; rfl
@@ -105,7 +106,7 @@ theorem foreign_busy_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo or
         omega
       rw [fillM] at outcome
       refine ⟨0 + used, produced + laterProduced, z', result, getA, stateA,
-        stream_accounting_trans accountM accountA, ?_⟩
+        stream_accounting_trans accountM accountA, roomA, ?_⟩
       rw [Nat.zero_add]
       exact outcome.prepend moved
 

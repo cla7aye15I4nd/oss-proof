@@ -324,6 +324,7 @@ import ZlibF.Proof.«deflate.c.engine.call-size-busy-foreign»
 import ZlibF.Proof.«deflate.c.engine.call-size-finishing-foreign»
 import ZlibF.Proof.«deflate.c.engine.call-size-first-foreign»
 import ZlibF.Proof.«deflate.c.engine.call-size-step-foreign»
+import ZlibF.Proof.«deflate.c.engine.default-bound-value»
 import ZlibF.Proof.«deflate.c.engine.flush-macro-frame»
 import ZlibF.Proof.«deflate.c.engine.flush-storage-frame»
 import ZlibF.Proof.«deflate.c.engine.flush-cut»
@@ -1807,6 +1808,7 @@ import ZlibF.Proof.«zlib.h.gzgetc-macro»
 import ZlibF.Proof.«gz.sequence-safety»
 import ZlibF.Proof.«public-gz-sequence-safety»
 import ZlibF.Proof.«public-gz-sequence-nonvacuity»
+import ZlibF.Proof.«public-roundtrip-deflate»
 
 /-!
 Proof-only import point. Add new proof modules here without changing the locked root.

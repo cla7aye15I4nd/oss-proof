@@ -28,6 +28,7 @@ theorem foreign_first_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo o
     (run : deflate (some r) flush h = .ok (rc, after)) :
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
+      (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
       BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base 2 produced := by
   have nonnull : z.next_out ≠ .null := by rw [pointer]; intro eq; cases eq
   have positive : z.avail_out ≠ 0 := by intro zero; rw [zero] at output; cases output
@@ -46,7 +47,7 @@ theorem foreign_first_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo o
   have strategyConfig : d.strategy = 0 := initial.strategy
   have bits0 : d.bi_valid.toInt = 0 := by rw [initial.bits]; rfl
   obtain ⟨produced, after1, z1, d1, _written, _remaining, header, state1, good1, buffers1, account1, _sizes,
-      _amount, left, status1, bits1, _last1, frame1, _rest⟩ :=
+      amount, left, status1, bits1, _last1, frame1, _rest⟩ :=
     foreign_zlib_header_buffered_joint_next (d := { d with last_flush := flush })
       (last_flush_buffered_boundary boundary flush) (last_flush_trees trees flush)
       (last_flush_buffers initial.good buffers flush) pointer initial.status initial.wrap initial.strategy
@@ -63,7 +64,16 @@ theorem foreign_first_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo o
   · rw [ite_eq_left queued] at run
     obtain ⟨_, heaps⟩ := Prod.mk.inj (Except.ok.inj run)
     subst heaps
-    refine ⟨0, produced, z1, d1, good1.live.hz, good1.live.hs, account1,
+    have room1 : z1.avail_out = 0 := by
+      have pendingPos : 0 < d1.pending.toNat := by
+        have nonzero : d1.pending ≠ 0 := by simpa using queued
+        have ne : d1.pending.toNat ≠ 0 := fun eq => nonzero (UInt64.toNat_inj.mp eq)
+        omega
+      have balance := account1.2.2.2.1
+      apply UInt32.toNat_inj.mp
+      change z1.avail_out.toNat = 0
+      omega
+    refine ⟨0, produced, z1, d1, good1.live.hz, good1.live.hs, account1, fun _ _ => room1,
       Or.inl ⟨status1, input, origin, base, [], state1.toContentBoundary, ?_, companion1, ?_⟩⟩
     · rw [fill1]; rfl
     · rw [held1]
@@ -77,7 +87,7 @@ theorem foreign_first_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo o
     have pointer1 : z1.next_out = .ref (.dstate_depth owner) (oo + produced) := by
       rw [account1.2.2.2.2.2.1, pointer]
       rfl
-    obtain ⟨used, laterProduced, z', result, getA, stateA, accountA, outcome⟩ :=
+    obtain ⟨used, laterProduced, z', result, getA, stateA, accountA, roomA, outcome⟩ :=
       foreign_busy_data_tail_size state1 buffers1 status1 level1 strategy1 pointer1 memory wrapConfig bits
         publish1 (input_valid_accounting_output valid account1) companion1 clean run
     have moved : produced + heldBytes d1 = 2 := by
@@ -85,7 +95,7 @@ theorem foreign_first_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo o
       omega
     rw [fill1] at outcome
     refine ⟨0 + used, produced + laterProduced, z', result, getA, stateA,
-      stream_accounting_trans account1 accountA, ?_⟩
+      stream_accounting_trans account1 accountA, roomA, ?_⟩
     rw [Nat.zero_add]
     exact outcome.prepend moved
 
