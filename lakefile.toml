@@ -12,4 +12,4 @@ name = "Regressions"
 # The counterexamples kept when a statement or the model was corrected. Each fails if the
 # correction is undone. CI builds them with the library (`lake build --wfail ZlibF Regressions`).
 srcDir = "tests/verification/regressions"
-roots = ["alloc-ptrdiff", "crc-static-address", "deflate-getdict-depth-view", "getdictionary-frame", "gz-macro-have-zero", "gz-offset-regular-world", "gz-open-emfile", "gz-read-budget-fuel", "gz-world-closes-fd", "gzopen-path-ptrdiff", "inflateback-protocol-vacuous", "printf-format-undefined"]
+roots = ["«alloc-ptrdiff»", "«crc-static-address»", "«deflate-getdict-depth-view»", "«getdictionary-frame»", "«gz-macro-have-zero»", "«gz-offset-regular-world»", "«gz-open-emfile»", "«gz-read-budget-fuel»", "«gz-world-closes-fd»", "«gzopen-path-ptrdiff»", "«inflateback-protocol-vacuous»", "«printf-format-undefined»"]
