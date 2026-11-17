@@ -252,7 +252,7 @@ theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wr
   have flags0 : s0.flags = 0 := by
     unfold FlagsMatch at flagsM
     rw [zlib] at flagsM
-    simpa [notGzip] using flagsM
+    simpa [notGzip, loopState] using flagsM
   have outNat : (l.out_ - l.left).toNat = loopPending l :=
     UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr leftLe0)
   have putAt : chkCond s0 (l.out_ - l.left) = true → ∃ ref off array, l.put = .ref ref off ∧
@@ -286,7 +286,7 @@ theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wr
       obtain ⟨have0, _, bits32, run1⟩ := leaveRun1 rfl
       obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun (dispatchEq.trans run1)
       refine Or.inr (Or.inr (Or.inr (Or.inr ⟨have0, LeaveShort.of_state st hs ?_⟩)))
-      have len : (natBits l'.bits.toNat l'.hold.toNat).length < 32 := by
+      have len : (natBits l1.bits.toNat l1.hold.toNat).length < 32 := by
         rw [natBits_length]; exact bits32
       unfold ShortAt
       exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
@@ -305,7 +305,7 @@ theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wr
         (s := { chkS s0 (l.out_ - l.left) v with mode := LENGTH })
         (h := setI (chkH h r zs0 z s0 (l.out_ - l.left) v) zs0
           { chkS s0 (l.out_ - l.left) v with mode := LENGTH })
-        (by simp [setI, upd]) (Or.inr (by simp [chkS, flags0]))
+        (setI_istates_same _ _ _) (Or.inr (by simp [chkS, flags0]))
       obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun ((dispatchEq.trans run1).trans skip)
       exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
 
