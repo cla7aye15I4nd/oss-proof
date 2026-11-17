@@ -110,7 +110,7 @@ theorem trace_not_mem {r : ZStreamRef} {h : Heap} {log : DataLog}
     obtain ⟨z1, inv1⟩ := rebuffer_invariant inv edit
     obtain ⟨-, -, es⟩ := good_same inv1.good good'
     subst es
-    exact ih i0 z0 s' inv.good
+    exact ih i0 z0 s0 inv.good
   | @step h after log flush rc input output used trace fit noFail dstep ih =>
     intro i z' s' good'
     obtain ⟨reach, i0, z0, s0, inv, _⟩ := trace_inv trace
@@ -123,10 +123,10 @@ theorem trace_not_mem {r : ZStreamRef} {h : Heap} {log : DataLog}
     obtain ⟨-, -, es⟩ := good_same good2 good'
     subst es
     intro memory
-    obtain ⟨_, memCause, _⟩ := call_keeps_control h r i0 z0 s0 flush rc after z2 s' reach inv.good run good2
+    obtain ⟨_, memCause, _⟩ := call_keeps_control h r i0 z0 s0 flush rc after z2 s2 reach inv.good run good2
     rcases memCause memory with e | e
     · subst e
-      obtain ⟨j, _, _, bad⟩ := mem_error_allocates h r i0 z0 s0 flush after z2 s' inv.good
+      obtain ⟨j, _, _, bad⟩ := mem_error_allocates h r i0 z0 s0 flush after z2 s2 inv.good
         (ih i0 z0 s0 inv.good) run good2 memory
       rw [noFail j] at bad
       cases bad
@@ -169,7 +169,7 @@ theorem prefix_after {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D inpu
   exact meaning_prefix params15 meaning lay' single full started
 
 /-- `Z_NEED_DICT` only from a header that asks for a dictionary, before any output. -/
-theorem need_dict_zlib {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D input output : List UInt8}
+theorem need_dict_zlib {r : ZStreamRef} {h after : Heap} {log : DataLog} {S input output : List UInt8}
     {flush : Int32} {used : Nat}
     (trace : DefaultInflateTrace r h log) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
     (within : log.input ++ input <+: S)
@@ -236,7 +236,11 @@ theorem call_codes {r : ZStreamRef} {h : Heap} {log : DataLog} {S D input : List
     _, _, _, memCl, _⟩ :=
     inflate_public h r i0 z0 s0 flush reach inv0.good fit inv0.alloc buffers active
   obtain ⟨aU, aO, aIn, aOut, -⟩ := acc
-  have inLen : input.length = z0.avail_in.toNat := bytes_length bytes
+  have inLen : input.length = z0.avail_in.toNat := by
+    rcases bytes with ⟨-, n0, rfl⟩ | ⟨ref, off, a, -, -, room, rfl⟩
+    · simp [n0]
+    · simp only [List.length_take, List.length_drop, Array.length_toList]
+      omega
   have dstep : DataStep .inflate h after r flush rc input o u :=
     ⟨z0, z', hz, good'.live.hz, buffers, active, bytes, by omega,
       by rw [show z0.avail_out.toNat - z'.avail_out.toNat = o.length by omega]; exact written, run⟩
@@ -248,13 +252,13 @@ theorem call_codes {r : ZStreamRef} {h : Heap} {log : DataLog} {S D input : List
     · exact Or.inr (Or.inl c)
     · exact Or.inr (Or.inr (Or.inl c))
     · exfalso
-      rcases sErr.1 c with x | ⟨_, x⟩ | x
+      rcases sErr.1 c with x | ⟨nin, ain⟩ | x
       · exact out x
       · have : z0.avail_in.toNat = 0 := by
           rcases bytes with ⟨_, n0, _⟩ | ⟨ref, off, a, eq, _⟩
           · exact n0
-          · rw [x] at eq; cases eq
-        exact x.2 (UInt32.toNat_inj.mp (by simpa using this))
+          · rw [nin] at eq; cases eq
+        exact ain (UInt32.toNat_inj.mp (by simpa using this))
       · exact notSync x
     · exact absurd c notData
     · exfalso
@@ -368,7 +372,7 @@ theorem moves {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D input outpu
     (valid : Zlib.Decodes [] S D) (flushes : OrdinaryFlush flush)
     (step : DataStep .inflate h after r flush rc input output used)
     (codes : rc = Z_OK ∨ rc = Z_BUF_ERROR) (nonempty : input ≠ [] ∨ log.input = S)
-    (given : input ≠ [] → used ≠ 0 ∨ output ≠ []) (usedLe : used ≤ input.length) :
+    (given : input ≠ [] → used ≠ 0 ∨ output ≠ []) :
     used ≠ 0 ∨ output ≠ [] := by
   rcases nonempty with ne | eq
   · exact given ne
@@ -414,17 +418,16 @@ theorem progress : Goal.default_inflate_progress := by
   obtain ⟨outPrefix, _, ends⟩ := prefix_after trace fit valid within step
   have inPrefix : log.input ++ input.take used <+: S :=
     ((List.prefix_append_right_inj log.input).mpr (List.take_prefix used input)).trans within
-  have usedLe : used ≤ input.length := by omega
   refine ⟨rc, after, output, used, step, ?_⟩
   rcases codes with ok | en | nd | be
   · exact Or.inr (Or.inl ⟨Or.inl ok,
-      moves trace fit valid flushes step (Or.inl ok) nonempty (fun ne => given (Or.inl ok) ne room) usedLe,
+      moves trace fit valid flushes step (Or.inl ok) nonempty (fun ne => given (Or.inl ok) ne room),
       inPrefix, outPrefix⟩)
   · exact Or.inl ⟨en, ends en⟩
   · subst nd
     exact Or.inr (Or.inr ⟨rfl, need_dict_zlib trace fit within step⟩)
   · have moved := moves trace fit valid flushes step (Or.inr be) nonempty
-      (fun ne => given (Or.inr be) ne room) usedLe
+      (fun ne => given (Or.inr be) ne room)
     rcases buf be with fin | ⟨u0, o0⟩
     · exact Or.inr (Or.inl ⟨Or.inr ⟨be, fin⟩, moved, inPrefix, outPrefix⟩)
     · exfalso
