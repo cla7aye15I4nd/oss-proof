@@ -71,6 +71,17 @@ jobs:
             echo "forbidden construct found"; exit 1
           fi
 
+      # Options that switch off or weaken checking: the kernel check (debug.skipKernelTC), proofs taken as
+      # sorry (debug.byAsSorry and the like), elaboration checks (bootstrap.*), and options passed by the
+      # lakefile. A declaration added without the kernel check looks like any other in the environment, so
+      # this source check is the guard.
+      - name: No option that weakens checking
+        run: |
+          if grep -rnE '\b(debug|bootstrap)\.[A-Za-z]|\b(allowUnsafeReducibility|warn\.sorry)\b' ZlibF.lean ZlibF \
+              || grep -nE 'leanOptions|moreLeanArgs|weakLeanArgs|moreServerArgs' lakefile.toml tests/lakefile.toml; then
+            echo "option that weakens checking found"; exit 1
+          fi
+
       # The audit's unsafe/partial rule on the built environment: a recursive def whose compiled code
       # needs an `_unsafe_rec` helper fails here, on every push.
       - name: No unsafe, partial, opaque or extern declaration and no extra axiom in the compiled library
@@ -78,6 +89,9 @@ jobs:
 
       - name: Coverage of the public API (every function of zlib.h has its goals, every required goal is proved)
         run: python3 scripts/verification.py
+
+      - name: The check of ZlibF/Results.lean rejects a wrong type, an extra axiom, an unlisted goal and an unproved required goal
+        run: bash tests/results-check/run.sh
 
       - name: Self-tests of the coverage check and of the build transport
         run: |
