@@ -1,4 +1,4 @@
-<!-- source-sha256: c15ddf772e129268507a3d93a23431795712ba50f2e33917d0d010f3a0a5e6ff -->
+<!-- source-sha256: ea66f69f7e0249ad244504d5f8044d93be377b438aa5731037556b4a1ec90bcc -->
 # API 模型
 
 API 模型不涉及堆，它们描述公开调用计算什么：它们是字节历史上的关系，没有指针，也没有内存。它们属于功能性材料，不是安全结论所必需的（[进度](../progress.md)）。没有安全目标使用它们，只有一个例外：`compressBound` 和 `compressBound_z` 的目标说的是翻译后的函数返回模型的上界公式 `compressBound`（[安全目标与功能目标](safety-functional-split.md)）。[各族详解](api-model-details.md)逐个说明每个模型。
@@ -10,7 +10,7 @@ API 模型不涉及堆，它们描述公开调用计算什么：它们是字节�
 | 模型关系 | 字节历史，以及一次调用可以给出的结果。没有堆。 |
 | 具体目标（安全目标或功能目标） | 在运行时堆上运行的一次翻译后的调用，以及它的效果。 |
 
-关于模型关系的定理不是关于 C 函数的定理。例如，`ZlibF.Spec.Api.Goal.roundtrip` 是一条已证明的命题，但它只关于模型。默认 zlib 流的往返是另一条命题：它说的是翻译后的 `deflate` 和 `inflate` 的运行，它未完成。它的一个有条件的形式有一条定理 `deflate_inflate_roundtrip`，内容见[架构](architecture.md#the-layers)。
+关于模型关系的定理不是关于 C 函数的定理。例如，`ZlibF.Spec.Api.Goal.roundtrip` 是一条已证明的命题，但它只关于模型。默认 zlib 流的往返是另一条命题：它说的是翻译后的 `deflate` 和 `inflate` 的运行。它的目标（其中有 `Goal.stream_roundtrip_total` 和 `Goal.compress_uncompress_roundtrip`）见[往返](../proof/roundtrip.md)。
 
 一个功能性的结论要对 C 有所断言，需要三个联系：
 

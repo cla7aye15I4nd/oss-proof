@@ -266,7 +266,7 @@ For these the invariant is larger: it relates the consumed bits to the source st
 window contents to the earlier output. `fast_call_meaning` carries the meaning through the
 fast branch of `LEN` in `inflate`, for input and output in any byte objects: after the call the
 decoded tokens still parse as the format says, or the mode is `BAD` and the input read has no
-valid completion. It is a step of the conditional round trip
-([stream decoding](inflate.md#functional-results)). Bytes read ahead and given back play no
+valid completion. It is a step of
+[the round trip of the default zlib stream](roundtrip.md). Bytes read ahead and given back play no
 part in the meaning of a decoded symbol; see
 [stream decoding](inflate.md#causality-and-history-across-calls).

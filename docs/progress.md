@@ -2,7 +2,8 @@
 
 This page says, for each result and for each public function of zlib, whether it is done. It is
 the only page that states a status. Its main point: the three safety results are done, for all
-99 goals that make them up.
+99 goals that make them up, and so is the round trip of the default zlib stream, with its 14
+goals.
 
 A result, a goal or a function has one of two states.
 
@@ -24,16 +25,12 @@ about the default x86_64 Linux build.
 | 1 | `inflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.inflate_safety`, `Goal.inflate_sequence_safety` | done |
 | 2 | `deflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.deflate_safety`, `Goal.deflate_sequence_safety` | done |
 | 3 | Every other documented public function is safe: `compress*` and `uncompress*`, the other stream functions, the checksums, the gzip file interface and the callback decoder `inflateBack`. | every other goal of the tables [below](#functions) | done |
-| 4 | The round trip of the default zlib stream: compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input. | no goal is stated | not done |
+| 4 | The round trip of the default zlib stream: `uncompress(compress(x)) = x` when `compress` has `compressBound` room; and compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input, under every call sequence. | `Goal.compress_uncompress_roundtrip`, `Goal.compress_uncompress_roundtrip_witness`, `Goal.compress_completes`, `Goal.compress_z_completes`, `Goal.uncompress_completes`, `Goal.stream_roundtrip_total`, `Goal.deflate_finish_ends`, `Goal.inflate_chain_ends`, `Goal.stream_roundtrip`, `Goal.deflate_completes_default`, `Goal.deflate_bound_default`, `Goal.inflate_completes_default`, `Goal.default_inflate_progress`, `Goal.default_inflate_completes` | done |
 
-About result 4: one theorem, `deflate_inflate_roundtrip`, proves a conditional form for the
-translated C. It is about a `deflate` call sequence that starts at `deflateInit` with the default
-level and an `inflate` call sequence that starts at `inflateInit`, neither with a preset
-dictionary, where the input `inflate` consumes is the start of the output `deflate` wrote. When
-both sequences reach `Z_STREAM_END`, the bytes `inflate` writes are the bytes `deflate` read. No
-theorem says that
-both sides reach `Z_STREAM_END` when there is enough output room and allocation succeeds, and
-none states the round trip without that condition, or `uncompress(compress(x)) = x`.
+Result 4 is a functional result. It is about the stream that `deflateInit` makes at the default
+level and `inflateInit` reads, with no preset dictionary, where every allocation succeeds.
+[The round trip](proof/roundtrip.md) states each goal with its premises, and
+[its table](#round-trip) below says what each goal is.
 
 ## Every public function {#functions}
 
@@ -178,13 +175,32 @@ no heap and no fault; they stand for the safety goals of these two functions.
 | The premises of an `inflateBack` call can be met together, with concrete callbacks and a concrete caller protocol. | `Goal.inflateBack_call_domain` | done |
 | The premises of the gzip file goals can be met: two concrete histories of a handle exist, one reading and one writing. | `Goal.gz_sequence_nonvacuity` | done |
 
+### The round trip of the default zlib stream {#round-trip}
+
+| Statement | Goal | State |
+| --- | --- | --- |
+| `uncompress(compress(x)) = x`: `compress` with `compressBound` room returns `Z_OK`, and `uncompress` of the bytes it wrote, with room for the source, returns `Z_OK` and gives back the source and its length. | `Goal.compress_uncompress_roundtrip` | done |
+| The premises of `Goal.compress_uncompress_roundtrip` can be met, on concrete heaps with a non-empty source. | `Goal.compress_uncompress_roundtrip_witness` | done |
+| `compress` with `compressBound` room returns `Z_OK`, and what it wrote is a zlib stream that decodes to the source and asks for no preset dictionary. | `Goal.compress_completes` | done |
+| The same for `compress_z`. | `Goal.compress_z_completes` | done |
+| `uncompress` of a zlib stream that asks for no preset dictionary, with room for its decoding, returns `Z_OK`, writes the decoding and stores its length. | `Goal.uncompress_completes` | done |
+| The stream round trip under every call sequence: `Goal.deflate_finish_ends` and `Goal.inflate_chain_ends` together. | `Goal.stream_roundtrip_total` | done |
+| After any `deflate` calls on a default stream, every continuation by `deflate(Z_FINISH)` calls with output room ends after a bounded number of calls, with all input consumed and an output that decodes to the input. | `Goal.deflate_finish_ends` | done |
+| A default decoder given a complete default stream, in any chunks and with output room, ends after a bounded number of `inflate` calls, having written exactly the input of the encoder. | `Goal.inflate_chain_ends` | done |
+| When a `deflate` call sequence and an `inflate` call sequence on default streams both reach `Z_STREAM_END`, and the decoder read a prefix of what the encoder wrote, the decoder wrote exactly the input of the encoder. | `Goal.stream_roundtrip` | done |
+| After `deflate` calls with `Z_NO_FLUSH` or `Z_FINISH` only, one `deflate(Z_FINISH)` call given all the remaining input and more room than the bound of the whole input leaves returns `Z_STREAM_END`, and the whole output decodes to the whole input. | `Goal.deflate_completes_default` | done |
+| On a new default stream, one `deflate(Z_FINISH)` call given all the input and at least `deflateBound` bytes of room returns `Z_STREAM_END` and writes a stream that decodes to the input. | `Goal.deflate_bound_default` | done |
+| A default decoder that has read part of a complete default stream, given the rest of it and room for the rest of the decoding, returns `Z_STREAM_END` and writes the rest of the input of the encoder. | `Goal.inflate_completes_default` | done |
+| A default decoder on any zlib stream the format accepts: each `inflate` call given more of the stream and output room ends the stream with exactly its decoding, or consumes input or writes output; a stream that asks for a preset dictionary gives `Z_NEED_DICT`. | `Goal.default_inflate_progress` | done |
+| A default decoder given the whole rest of a zlib stream the format accepts and room for the rest of its decoding ends the stream in one call, or returns `Z_NEED_DICT` for a stream that asks for a preset dictionary. | `Goal.default_inflate_completes` | done |
+
 ## Not planned {#not-planned}
 
 No theorem is intended for these. Theorems that already exist for them stay.
 
 | Group | What it covers | Reason |
 | --- | --- | --- |
-| Functional correctness, except result 4 | What a function computes beyond safety: that the output of `inflate` is what the format says; the round trip for other levels, strategies, window sizes and wrappers, with preset dictionaries, through the gzip file interface or through `inflateBack`; the bytes the gzip file functions read or write; what `inflateBack` delivers; the full contracts of the four kinds of call sequence (`Goal.inflate_sequence`, `Goal.deflate_sequence`, `Goal.inflate_back_sequence`, `Goal.gz_sequence`); statements about the abstract models only. | The safety results do not need it. The statements about the gzip file interface would also rest on a hand-made model of the file system, of descriptors and of `printf` formatting. A functional fact that a safety proof depends on is proved as part of that proof. |
+| Functional correctness, except result 4 | What a function computes beyond safety: the round trip, and that `inflate` reads a stream the format accepts to its end, in other configurations (other levels, strategies, window sizes and wrappers, preset dictionaries), through the gzip file interface or through `inflateBack`; what `inflate` does with a stream the format rejects; the bytes the gzip file functions read or write; what `inflateBack` delivers; the full contracts of the four kinds of call sequence (`Goal.inflate_sequence`, `Goal.deflate_sequence`, `Goal.inflate_back_sequence`, `Goal.gz_sequence`); statements about the abstract models only. | The safety results do not need it. The statements about the gzip file interface would also rest on a hand-made model of the file system and of descriptors, and on formatted output that the model takes from the C contract of `vsnprintf` without computing it. A functional fact that a safety proof depends on is proved as part of that proof. |
 | Other build configurations | Every configuration except the default x86_64 Linux build. | Each one repeats the whole proof for a different platform model. |
 | Undocumented functions | `zError`, `inflateSyncPoint`, `get_crc_table`, `inflateUndermine`, `inflateValidate`, `inflateCodesUsed`, `inflateResetKeep`, `deflateResetKeep`, `gzopen_w`: nine of the ten functions that `zlib.h` declares under "undocumented functions (not part of the zlib API)". The tenth is `gzvprintf`, above. | They are not part of the zlib API. No safety goal is stated for them: not done, not planned. |
 
@@ -192,4 +208,4 @@ Many functions have a theorem for their functional contract all the same, among 
 the nine undocumented functions (all but `gzopen_w`, which is not in the default build). The
 page of each function in the [API reference](spec/api/README.md) says whether its functional
 contract is done. A functional contract that is not done is not planned: the only functional
-result that is planned is result 4, and it is not the contract of one function.
+result is result 4, and it is not the contract of one function.

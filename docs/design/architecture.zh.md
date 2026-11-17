@@ -1,4 +1,4 @@
-<!-- source-sha256: 5d3f3dc85b25ac2d926e78eccbd6ec508619a46e50b37884e3b1d68952598924 -->
+<!-- source-sha256: ead1cf4bed87a43497c2253bf068a5bbfe7ffecd1b74a32c4da9f1aab9969d41 -->
 # 从 C 到内核检查过的定理
 
 本项目的定理说的是一个 Lean 程序，不是 C 的文本。本页展示这个程序由什么构成，让读者能够判断内核不检查的两个联系：运行时表示了 C 的操作，翻译与选定的 C 源码一致。[可信基础](../trusted-base.md)列出所有依靠审查的东西。
@@ -28,13 +28,7 @@ flowchart TD
 
 安全结论只需要经过*执行证明*的那条路径：无故障、终止、帧性质和所有权，并在调用序列上组合。经过*细化证明*的路径给出功能正确性。
 
-默认 zlib 流的往返是一项功能结果，它未完成。它的一个有条件的形式有一条定理。定理 [`deflate_inflate_roundtrip`](../../ZlibF/Proof/public-deflate-inflate-roundtrip.lean) 说的是翻译后函数的两次运行。编码器的运行是按默认级别（`Z_DEFAULT_COMPRESSION`）调用 `deflateInit_`，随后是若干次 `deflate` 调用，flush 值任意。解码器的运行是以 `windowBits` 15 调用 `inflateInit2_`，随后是若干次 `inflate` 调用。两次运行都没有字典、重置或其他操作。同一次运行的两次调用之间，调用者可以改动缓冲区字段（`Rebuffer`），所以缓冲区可以按任意方式分成片段。每次运行的前提如下：
-
-- 初始化调用从 `InitDomain` 出发（堆良构，`version` 指向 `'1'`，`zalloc` 和 `zfree` 各自是 `NULL` 或默认函数，`state` 字段是 `NULL`），并且返回了 `Z_OK`。
-- 每次数据调用都是一个 `DataStep`：它满足 `StreamBuffers` 和 `ActiveHeader`，并且返回了。定理假设这些调用会返回，并不证明这一点。
-- 只在解码器的运行上，每次 `inflate` 调用时的堆和每次调用者修改之后的堆都满足平台前提 `ByteObjectsFit`。
-
-当两次运行都已返回 `Z_STREAM_END`，并且解码器消耗的字节是编码器写出的字节的前缀时，解码器写出的字节就是编码器消耗的字节。不涵盖：完备性（空间足够时两次运行到达 `Z_STREAM_END`）、不带这个条件的往返，以及翻译后的 C 的 `uncompress(compress(x)) = x`。其他一些细化结果也有定理；哪些功能结果在计划内，见[进度](../progress.md)。
+有一项关于翻译后的 C 的功能结果经由这条路径得到证明：默认 zlib 流的往返。它的目标说的是翻译后函数的运行：一次从默认级别的 `deflateInit_` 开始的 `deflate` 运行，和一次从 `inflateInit_` 开始的 `inflate` 运行。同一次运行的两次调用之间，调用者可以改动缓冲区字段（`Rebuffer`），所以缓冲区可以按任意方式分成片段。`Goal.stream_roundtrip_total` 说的是：有输出空间并拿到其余数据时，两次运行都到达 `Z_STREAM_END`，解码器写出的就是编码器消耗的字节。`Goal.compress_uncompress_roundtrip` 说的是 `uncompress(compress(x)) = x`。[往返](../proof/roundtrip.md)一页给出这些目标及其前提。其他一些细化结果也有定理；哪些功能结果在计划内，见[进度](../progress.md)。
 
 ## 用几个定义看模型
 

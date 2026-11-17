@@ -56,19 +56,10 @@ safety result.
 
 ## The round trip built on these results
 
-The theorem `deflate_inflate_roundtrip` joins the completed-encoding fact of clause 3 with the
-matching fact for `inflate`. Take a `deflate` history that starts with `deflateInit_` at
-`Z_DEFAULT_COMPRESSION` and an `inflate` history that starts with `inflateInit2_` at
-`windowBits` 15. The `deflate` histories are those of this page, without the restriction on
-the output pointer. Each history is made of caller edits and of `deflate` (or `inflate`)
-calls with any flush value and any split of the buffers, and contains no dictionary, reset or
-other operation. If each ends with a call that returned `Z_STREAM_END`, and the input that
-`inflate` consumed is a prefix of the output of `deflate`, then the output of `inflate` is the
-input that `deflate` accepted.
-
-Not covered: that both histories reach `Z_STREAM_END`. `DeflateCore.completes` gives a
-finishing continuation for the `deflate` side alone, under the premises listed above. The round
-trip without that condition is not done.
+[The round trip of the default zlib stream](roundtrip.md) joins the completed-encoding fact of
+clause 3 with the matching fact for `inflate`. Its `deflate` histories are those of this page,
+without the restriction on the output pointer. It also proves that both sides reach
+`Z_STREAM_END`; for `deflate` it needs no bound on the output room.
 
 ## What the proof for every configuration reuses
 

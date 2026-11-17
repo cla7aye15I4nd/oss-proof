@@ -22,8 +22,8 @@ the C correctly.
 ## Evidence that is not proof
 
 The theorems are about a Lean translation of the C, made by hand, statement by statement.
-Differential tests compare the translation with the real C on many inputs, with and without
-sanitizers. They are evidence of fidelity, not proof.
+Differential tests compare the translation with the real C on many inputs, with the C built
+under AddressSanitizer and UndefinedBehaviorSanitizer. They are evidence of fidelity, not proof.
 
 ## What is trusted
 

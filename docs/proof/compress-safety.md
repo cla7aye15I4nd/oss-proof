@@ -104,7 +104,10 @@ their safety goals. The theorems are `compressBound` and `compressBound_z`.
 
 Not covered: that every output of the translated compressor fits the bound. That is a
 functional statement, which the safety results do not need; see
-[buffer utilities](buffers.md). The theorem `compress_bound_adequate` states it, and
+[buffer utilities](buffers.md). For `compress` and `compress_z`, when every allocation succeeds,
+`Goal.compress_completes` and `Goal.compress_z_completes` state it
+([the round trip](roundtrip.md)). For the other levels, the theorem `compress_bound_adequate`
+states it, and
 `deflate_bound_adequate` states the same for the bound of `deflateBound`, for the heap-free
 [API model](../design/api-model.md) only. No theorem says that the translated `compress2` or
 `deflate` follows that model.

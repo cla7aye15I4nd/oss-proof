@@ -448,14 +448,12 @@ format. `completed_inflate_decodes` is about a
 stream made by `inflateInit2_` with `windowBits` 15, followed only by caller edits and
 `inflate` calls, with no dictionary and no reset. When the last call of the history returned
 `Z_STREAM_END`, the input consumed is a zlib stream that decodes to the output written
-(`Zlib.Decodes`). The
-round trip `deflate_inflate_roundtrip` says: when such a history and a
-default `deflate` history both end with `Z_STREAM_END`, and the decoder consumed a prefix of
-the bytes the encoder wrote, the decoder's output equals the encoder's input. Both theorems
-have the premise that the calls reach `Z_STREAM_END`.
+(`Zlib.Decodes`). For a stream the format accepts, `Goal.default_inflate_progress` and
+`Goal.default_inflate_completes` say that a decoder made by `inflateInit` reaches
+`Z_STREAM_END` and writes exactly the decoding; [the round trip](roundtrip.md) states them and
+the round trip of the default zlib stream.
 
-Not covered: that the calls reach `Z_STREAM_END` (completeness), and the round trip without
-that premise ([progress](../progress.md#scope)). Not covered: the other configurations (raw
+Not covered: the other configurations (raw
 and gzip streams, other window widths, preset dictionaries, resets); for them no theorem says
 that the output of `inflate` equals the meaning of the input. `inflate_decodes` is a statement
 about the abstract model only.

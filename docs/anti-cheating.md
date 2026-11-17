@@ -19,7 +19,7 @@ The [trusted base](trusted-base.md) lists what no program checks at all.
 | A function of `zlib.h` is quietly left out | The list of functions is compared with the pinned `zlib.h`. Every documented function of the target build must have a safety goal with a theorem, and so must the sequence goals, the refusal goals and the non-vacuity goals. |
 | An invariant that no heap satisfies, so that a theorem holds of nothing | The non-vacuity goals: init, or open, succeeds on a concrete heap and gives a stream or handle the other goals speak about. |
 | A proof assumes the behaviour of a function it calls | No result assumes the contract of a library function that is not itself proved. Each callee has a theorem about its own translation. |
-| A translation that differs from the C | Differential tests run the real C and the translation on the same inputs, with and without sanitizers. They are evidence of fidelity, not proof. |
+| A translation that differs from the C | Differential tests run the real C and the translation on the same inputs, with the C built under AddressSanitizer and UndefinedBehaviorSanitizer. They are evidence of fidelity, not proof. |
 
 ## What no program checks
 

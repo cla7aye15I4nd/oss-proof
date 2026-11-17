@@ -13,6 +13,9 @@ every proof.
 - `deflate` is safe on every input, however the caller splits the buffers across calls.
 - Every other documented function is safe: `compress` and `uncompress`, the checksums, the gzip
   file interface from `gzopen` to `gzclose`, and the callback decoder `inflateBack`.
+- The round trip of the default zlib stream: `uncompress(compress(x)) = x` when `compress` has
+  `compressBound` room, and `deflate` followed by `inflate` gives back the input under every
+  sequence of calls, when every allocation succeeds.
 
 Each theorem states its premises. Some go beyond `zlib.h`: caller buffers that do not overlap,
 the default allocator, a read budget below 2^61 bytes for the termination of the gz reading
@@ -36,9 +39,10 @@ patches are the fixes submitted upstream. The theorems are about the patched sou
 
 ## Not claimed
 
-Functional correctness. No theorem says that the output of `inflate` is what the format defines,
-and none is planned. No theorem yet says that the output of `deflate` decodes to its input: that
-round trip, for the default zlib stream, is planned and not done. Also not covered: other build
+Functional correctness beyond that round trip. No round trip is proved in other configurations:
+other levels, strategies, window sizes or wrappers, preset dictionaries, the gzip file interface
+or `inflateBack`. No theorem says what `inflate` does with a stream the format rejects, beyond
+that the call is safe. None of this is planned. Also not covered: other build
 configurations, custom allocators, and the functions `zlib.h` lists as undocumented.
 
 ## Check it yourself

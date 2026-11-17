@@ -350,7 +350,7 @@ arbitrary raw or gzip stream settings.
 - **Guarantees.**
     - *Returns.* The translation is a total function from the argument to the result. It takes no heap and has no fault case, so the call returns for every argument; the goal adds that the result is the saturated formula given under Post.
     - *State, writes, allocations.* None: the function has no access to memory.
-- **Not in this goal.** That every output of the translated `compress` fits in a destination of this size. The theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
+- **Not in this goal.** That the output of a compressor fits in a destination of this size. For the translated `compress` and `compress_z`, when every allocation succeeds, `Goal.compress_completes` and `Goal.compress_z_completes` state it ([the round trip](../../proof/roundtrip.md)). For the other levels of `compress2`, the theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -394,7 +394,7 @@ Computes the capacity value used for default compression settings; allocates no 
 - **Guarantees.**
     - *Returns.* The translation is a total function from the argument to the result. It takes no heap and has no fault case, so the call returns for every argument; the goal adds that the result is the saturated formula given under Post.
     - *State, writes, allocations.* None: the function has no access to memory.
-- **Not in this goal.** That every output of the translated `compress` fits in a destination of this size. The theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
+- **Not in this goal.** That the output of a compressor fits in a destination of this size. For the translated `compress` and `compress_z`, when every allocation succeeds, `Goal.compress_completes` and `Goal.compress_z_completes` state it ([the round trip](../../proof/roundtrip.md)). For the other levels of `compress2`, the theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>Complete return conditions and boundaries</summary>
 

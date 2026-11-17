@@ -1,4 +1,4 @@
-<!-- source-sha256: dcb6b3d91c3958eec115ae9d2e32a56d8a1e150018f64797d0354c05da1d65e6 -->
+<!-- source-sha256: 71b5cab4cdeb4bdff1f25795393564627aa2cd1476a0ae6cb5188a6024e8fe3b -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -316,9 +316,9 @@ rank = 64 * mass + credit(mode)
 | `Goal.inflate`：一次调用的完整契约，包括进展、返回码、计数器、帧性质和所有权。`uncompress*` 和 gzip 读取端的安全证明用到它 | `inflate_public` |
 | 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 |
 
-有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes` 说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。往返定理 `deflate_inflate_roundtrip` 说的是：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都以各次调用到达 `Z_STREAM_END` 为前提。
+有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes` 说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。对格式接受的流，`Goal.default_inflate_progress` 和 `Goal.default_inflate_completes` 说明 `inflateInit` 建立的解码器会到达 `Z_STREAM_END`，写出的恰好是解码结果；[往返](roundtrip.md)一页给出这两个目标，以及默认 zlib 流的往返。
 
-不涵盖：各次调用会到达 `Z_STREAM_END`（完备性），以及不带这条前提的往返（[进度](../progress.md#scope)）。不涵盖：其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置）；对它们，没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
+不涵盖：其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置）；对它们，没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
 
 ### 跨调用的因果关系与历史
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 4ea6be7d48ae4f13fc297363fabde18e69a04421ef006d07e54442798c63835e -->
+<!-- source-sha256: 47a1ee906f9fbe0cef8cb44832a7539fd59582f850231c96dbfbf439573a5fab -->
 # 流式压缩：`deflate` 为什么是安全的
 
 本页讲的是 `zlib/deflate.c` 和它的翻译 `ZlibF/Zlib/deflate.c.lean`。
@@ -290,4 +290,4 @@ stateDiagram-v2
 
 对默认配置，`DeflateCore.correct` 说明：已完成的流按格式规格解码，得到的就是被接受的输入。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。
 
-默认 zlib 流的往返（用 `deflate` 压缩，用 `inflate` 解压，得回输入）未完成。有一条定理 `deflate_inflate_roundtrip` 证明了它的有条件形式。它取一段以 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_` 开始的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和 `deflate`（或 `inflate`）调用组成，刷新值任意，缓冲区的切分任意；其中没有字典、重置或别的操作。如果两段历史的最后一次调用都返回了 `Z_STREAM_END`，并且 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。不涵盖：两段历史都会到达 `Z_STREAM_END`。
+默认 zlib 流的往返（用 `deflate` 压缩，用 `inflate` 解压，得回输入）已经证明，两边的完成性也在其中：见[往返](roundtrip.md)。

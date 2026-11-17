@@ -119,13 +119,7 @@ of this table has a theorem.
 | [Stream decoding](inflate.md) | `Goal.inflate`, the full contract of one call (`inflate_public`) |
 | [Stream compression](deflate.md) | `Goal.deflate`, the full contract of one call (`Zlib.Deflate.Universal.deflate_safety`) |
 | [The default-configuration engine](deflate-default-engine.md) | For the default configuration: the output of a completed stream is a valid zlib stream for its input by the format specification, and a stream can be completed (`DeflateCore.correct`) |
-
-The round trip of the default zlib stream, `deflate` and then `inflate` giving back the input,
-is not done. One theorem, `deflate_inflate_roundtrip`, proves a conditional form: if both
-histories end with a call that returned `Z_STREAM_END` and the input `inflate` consumed is a
-prefix of the bytes `deflate` wrote, then the bytes `inflate` wrote are the bytes `deflate`
-read. No theorem says that both sides reach `Z_STREAM_END`.
-[Stream compression](deflate.md#functional-results) gives the premises.
+| [The round trip](roundtrip.md) | The round trip of the default zlib stream: `uncompress(compress(x)) = x`, and `deflate` then `inflate` gives back the input under every call sequence (`Goal.compress_uncompress_roundtrip`, `Goal.stream_roundtrip_total`) |
 
 ## The shape of a component page
 

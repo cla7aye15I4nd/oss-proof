@@ -5,9 +5,8 @@ what that translation is made of and where its connection to C rests on review.
 
 The required results are safety results. Architecture, translation and external I/O describe
 what every safety proof rests on. The two API-model pages describe functional material, which is
-not required for the safety results. The round trip of the default zlib stream, a functional
-result, is not done. A conditional form has a theorem, which
-[architecture](architecture.md#the-layers) states. [Progress](../progress.md) holds the status.
+not required for the safety results. The round trip of the default zlib stream is a functional
+result about the translated C; [the round trip](../proof/roundtrip.md) states it. [Progress](../progress.md) holds the status.
 
 Start with [architecture](architecture.md). Then use the page that answers your question:
 

@@ -83,10 +83,12 @@ back can then be a use after free in the C
 | `gzerror(file, errnum)` | `errnum` is NULL or covers 4 writable bytes outside the handle's blocks. |
 | every other call | none: every value of every scalar argument is covered. |
 
-The `gzprintf` condition is asked at every `gzprintf` step, also on a reader or a handle in
-error, where the C does not read the format. The formatter covers integer, character and string
-conversions. Floating conversions, `%p`, `%n`, the `h` and `hh` modifiers and `*` widths are
-outside the domain ([deviations](../../deviations.md), row "Formatting").
+The `gzprintf` condition is asked at every `gzprintf` step. On a reader or a handle in error the
+C returns before it reads the format, and the condition then asks only that the format pointer
+and the pointer arguments lie outside the handle's blocks. The model does not parse the format:
+every format for which the `vsnprintf` call is defined in C is covered, with floating
+conversions, `%p`, the `h` and `hh` modifiers and `*` widths. `%n` is not covered
+([deviations](../../deviations.md), row "Gz printf call").
 
 **Read budget (`ReadsFinite`).** The termination clause for the six reading calls assumes that
 the handle's descriptor can still deliver fewer than `2^61` bytes. The premise is needed: a
@@ -1189,7 +1191,7 @@ separated and an allowed caller-visible effect. Valid compression parameters hol
     - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
     - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
     - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
-- **Not in this goal.** Floating conversions, `%p`, `%n`, the `h` and `hh` modifiers and `*` widths: outside the goal ([deviations](../../deviations.md), row "Formatting"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzprintf` (not planned; not done).
+- **Not in this goal.** A format with `%n`, and a `vsnprintf` call that C does not define for the format and the arguments: outside the goal ([deviations](../../deviations.md), row "Gz printf call"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzprintf` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>Complete return conditions and boundaries</summary>
 
@@ -1254,7 +1256,7 @@ Positive values count accepted formatted bytes. Zero and negative values have di
     - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
     - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
     - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
-- **Not in this goal.** Floating conversions, `%p`, `%n`, the `h` and `hh` modifiers and `*` widths: outside the goal ([deviations](../../deviations.md), row "Formatting"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzvprintf` (not planned; not done).
+- **Not in this goal.** A format with `%n`, and a `vsnprintf` call that C does not define for the format and the arguments: outside the goal ([deviations](../../deviations.md), row "Gz printf call"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzvprintf` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzvprintf"><summary>Complete return conditions and boundaries</summary>
 

@@ -16,6 +16,12 @@ stream, a callback decoder and a gzip file handle. Each of these statements is a
 a theorem whose type is exactly the goal, and each is done: the theorem exists and passes every
 check of the project. [Coverage by function](coverage.md) names the theorem of each function.
 
+One functional result is proved as well: the round trip of the default zlib stream.
+`uncompress(compress(x)) = x` when `compress` has `compressBound` room; and a stream written by
+`deflate` after `deflateInit` at the default level, then read by `inflate` after `inflateInit`,
+gives back the input under every call sequence. Its premises include that every allocation
+succeeds and that no preset dictionary is used ([the round trip](proof/roundtrip.md)).
+
 **Assumed.** The theorems are about a Lean translation that runs on a runtime model. Six things
 are trusted and not proved ([trusted base](trusted-base.md)):
 
@@ -31,14 +37,12 @@ Differential tests are evidence of fidelity, not proof. Compiler, operating-syst
 correctness are outside the proof. The premises that a theorem puts on the caller are in
 [deviations](deviations.md), as a checklist by function.
 
-**Not done.** Functional correctness: that the output of `inflate` equals the format, or that
-the output of `deflate` decodes to its input. The safety results do not need it; a functional
-fact is proved where a safety proof depends on it. One functional result is planned: the round
-trip of a default zlib stream through `deflate` and then `inflate`. A theorem exists for its
-conditional form: when both call sequences reach `Z_STREAM_END`, the output equals the input.
-Completeness (both always finish with enough room) and the unconditional form have no theorem.
-Model-only statements (theorems about the abstract API model, not about the translated C), other
-build configurations and the functions that `zlib.h` declares undocumented are not planned.
+**Not done.** Functional correctness beyond that round trip: the round trip in other
+configurations, or what `inflate` does with a stream the format rejects. The safety
+results do not need it; a functional fact is proved where a safety proof depends on it.
+It is not planned, and neither are model-only statements (theorems about the abstract API model,
+not about the translated C), other build configurations and the functions that `zlib.h` declares
+undocumented.
 [Progress](progress.md) lists every result as done or not done, and every group that is not
 planned with its reason.
 

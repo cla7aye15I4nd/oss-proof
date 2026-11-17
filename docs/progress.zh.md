@@ -1,7 +1,7 @@
-<!-- source-sha256: 08cbe0be9c7bee33f03e65ab97b44f51c70457b5740f2515cc239adf5c4a8321 -->
+<!-- source-sha256: e8c0fcc43fbfc7097e9376c4f717802680938140d0cb9625100efcc28848dfc2 -->
 # 结论的状态
 
-本页说明每项结论、zlib 的每个公开函数是否已经完成。只有本页说明状态。要点是：三项安全结论都已完成，组成它们的 99 个目标全部完成。
+本页说明每项结论、zlib 的每个公开函数是否已经完成。只有本页说明状态。要点是：三项安全结论都已完成，组成它们的 99 个目标全部完成；默认 zlib 流的往返也已完成，它有 14 个目标。
 
 一项结论、一个目标或一个函数只有两种状态。
 
@@ -19,9 +19,9 @@
 | 1 | `inflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.inflate_safety`、`Goal.inflate_sequence_safety` | 完成 |
 | 2 | `deflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.deflate_safety`、`Goal.deflate_sequence_safety` | 完成 |
 | 3 | 其余每个有文档的公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。 | [下文](#functions)各表中的其余全部目标 | 完成 |
-| 4 | 默认 zlib 流的往返：用默认级别的 `deflateInit` 压缩，再用 `inflateInit` 解压，得到原输入。 | 没有写出目标 | 未完成 |
+| 4 | 默认 zlib 流的往返：给 `compress` 留出 `compressBound` 的空间时，`uncompress(compress(x)) = x`；用默认级别的 `deflateInit` 压缩，再用 `inflateInit` 解压，在每一种调用序列下都得到原输入。 | `Goal.compress_uncompress_roundtrip`、`Goal.compress_uncompress_roundtrip_witness`、`Goal.compress_completes`、`Goal.compress_z_completes`、`Goal.uncompress_completes`、`Goal.stream_roundtrip_total`、`Goal.deflate_finish_ends`、`Goal.inflate_chain_ends`、`Goal.stream_roundtrip`、`Goal.deflate_completes_default`、`Goal.deflate_bound_default`、`Goal.inflate_completes_default`、`Goal.default_inflate_progress`、`Goal.default_inflate_completes` | 完成 |
 
-关于第 4 项：有一条定理 `deflate_inflate_roundtrip`，它对翻译后的 C 证明了一个条件形式。它说的是一个从默认级别的 `deflateInit` 开始的 `deflate` 调用序列，和一个从 `inflateInit` 开始的 `inflate` 调用序列，两边都不用预设字典，并且 `inflate` 消耗的输入是 `deflate` 写出的输出的开头一段。当两个序列都到达 `Z_STREAM_END` 时，`inflate` 写出的字节就是 `deflate` 读入的字节。没有定理说明在输出空间足够、分配成功时两边都会到达 `Z_STREAM_END`，也没有定理陈述不带这个条件的往返，或者 `uncompress(compress(x)) = x`。
+第 4 项是一项功能结论。它说的是默认级别的 `deflateInit` 产生、`inflateInit` 读取的流，不用预设字典，并且每次分配都成功。[往返](proof/roundtrip.md)一页给出每个目标及其前提，下文[它的表](#round-trip)说明每个目标是什么。
 
 ## 每个公开函数 {#functions}
 
@@ -163,14 +163,33 @@
 | 一次 `inflateBack` 调用的各项前提可以同时满足，用的是具体的回调和具体的调用者协议。 | `Goal.inflateBack_call_domain` | 完成 |
 | gzip 文件各目标的前提可以满足：存在一个句柄的两段具体历史，一段读、一段写。 | `Goal.gz_sequence_nonvacuity` | 完成 |
 
+### 默认 zlib 流的往返 {#round-trip}
+
+| 命题 | 目标 | 状态 |
+| --- | --- | --- |
+| `uncompress(compress(x)) = x`：给 `compress` 留出 `compressBound` 的空间，它返回 `Z_OK`；把它写出的字节交给 `uncompress`，空间容得下源数据时，`uncompress` 返回 `Z_OK`，并交回源数据及其长度。 | `Goal.compress_uncompress_roundtrip` | 完成 |
+| `Goal.compress_uncompress_roundtrip` 的前提可以满足：在具体的堆上，源数据非空。 | `Goal.compress_uncompress_roundtrip_witness` | 完成 |
+| 给 `compress` 留出 `compressBound` 的空间，它返回 `Z_OK`，写出的是一个 zlib 流，解码得到源数据，并且不要求预设字典。 | `Goal.compress_completes` | 完成 |
+| `compress_z` 同样如此。 | `Goal.compress_z_completes` | 完成 |
+| 对一个不要求预设字典的 zlib 流调用 `uncompress`，空间容得下解码结果时，它返回 `Z_OK`，写出解码结果并存入其长度。 | `Goal.uncompress_completes` | 完成 |
+| 每一种调用序列下的流往返：`Goal.deflate_finish_ends` 与 `Goal.inflate_chain_ends` 合在一起。 | `Goal.stream_roundtrip_total` | 完成 |
+| 在默认流上做过任意 `deflate` 调用之后，只要每次都有输出空间，接下去的每一串 `deflate(Z_FINISH)` 调用都在有界次数内结束：全部输入被接受，输出解码得到输入。 | `Goal.deflate_finish_ends` | 完成 |
+| 把一个完整的默认流按任意分块交给默认解码器，只要有输出空间，它在有界次数的 `inflate` 调用内结束，写出的恰好是编码器的输入。 | `Goal.inflate_chain_ends` | 完成 |
+| 默认流上的一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END`，并且解码器读入的是编码器输出的前缀时，解码器写出的恰好是编码器的输入。 | `Goal.stream_roundtrip` | 完成 |
+| 在只用 `Z_NO_FLUSH` 或 `Z_FINISH` 的 `deflate` 调用之后，一次 `deflate(Z_FINISH)` 调用拿到全部剩余输入，并且空间多于整个输入的上界扣除已有输出后的余量时，返回 `Z_STREAM_END`，全部输出解码得到全部输入。 | `Goal.deflate_completes_default` | 完成 |
+| 在新建的默认流上，一次 `deflate(Z_FINISH)` 调用拿到全部输入和至少 `deflateBound` 字节的空间时，返回 `Z_STREAM_END`，写出的流解码得到输入。 | `Goal.deflate_bound_default` | 完成 |
+| 默认解码器已经读了一个完整默认流的一部分，再拿到其余部分和容得下其余解码结果的空间时，返回 `Z_STREAM_END`，写出编码器输入的其余部分。 | `Goal.inflate_completes_default` | 完成 |
+| 默认解码器面对格式接受的任意 zlib 流：每次 `inflate` 调用拿到流的后续部分和输出空间时，要么以恰好的解码结果结束这个流，要么消耗了输入或写出了输出；要求预设字典的流得到 `Z_NEED_DICT`。 | `Goal.default_inflate_progress` | 完成 |
+| 默认解码器拿到格式接受的 zlib 流的全部剩余部分，以及容得下其余解码结果的空间时，一次调用就结束这个流；要求预设字典的流则返回 `Z_NEED_DICT`。 | `Goal.default_inflate_completes` | 完成 |
+
 ## 不在计划内 {#not-planned}
 
 这些不打算给出定理。已经为它们证明的定理保留。
 
 | 组 | 包含什么 | 理由 |
 | --- | --- | --- |
-| 功能正确性（第 4 项除外） | 函数在安全之外算出了什么：`inflate` 的输出等于格式规定的内容；其他压缩级别、策略、窗口大小和封装的往返，带预设字典的往返，经由 gzip 文件接口或 `inflateBack` 的往返；gzip 文件函数读出或写入的字节；`inflateBack` 交付的内容；四类调用序列的完整契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`）；只谈抽象模型的命题。 | 安全结论不需要它们。关于 gzip 文件接口的命题还要依靠一个手工建立的模型，包括文件系统、描述符和 `printf` 格式化。安全证明所依赖的功能性事实，在那个证明里一并证明。 |
+| 功能正确性（第 4 项除外） | 函数在安全之外算出了什么：其他配置（其他压缩级别、策略、窗口大小和封装，预设字典）下的往返，以及 `inflate` 把格式接受的流读到结尾；经由 gzip 文件接口或 `inflateBack` 的往返；`inflate` 对格式拒绝的流做什么；gzip 文件函数读出或写入的字节；`inflateBack` 交付的内容；四类调用序列的完整契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`）；只谈抽象模型的命题。 | 安全结论不需要它们。关于 gzip 文件接口的命题还要依靠一个手工建立的文件系统和描述符模型，以及格式化输出：模型按 `vsnprintf` 的 C 契约取得它，并不计算它。安全证明所依赖的功能性事实，在那个证明里一并证明。 |
 | 其他构建配置 | 默认 x86_64 Linux 构建之外的每一种配置。 | 每一种配置都要针对不同的平台模型把整个证明重做一遍。 |
 | 未文档化函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w`：`zlib.h` 在 `undocumented functions (not part of the zlib API)`（未文档化函数，不属于 zlib API）之下声明了十个函数，这是其中九个。第十个是上文的 `gzvprintf`。 | 它们不属于 zlib API。没有为它们写出安全目标：未完成，不在计划内。 |
 
-尽管如此，许多函数的功能契约已有定理，九个未文档化函数中的八个也在其中（只有 `gzopen_w` 例外，它不在默认构建中）。[API 参考](spec/api/README.md)中每个函数的页面说明它的功能契约是否完成。未完成的功能契约都不在计划内：计划内的功能结论只有第 4 项，而它不是某一个函数的契约。
+尽管如此，许多函数的功能契约已有定理，九个未文档化函数中的八个也在其中（只有 `gzopen_w` 例外，它不在默认构建中）。[API 参考](spec/api/README.md)中每个函数的页面说明它的功能契约是否完成。未完成的功能契约都不在计划内：功能结论只有第 4 项，而它不是某一个函数的契约。

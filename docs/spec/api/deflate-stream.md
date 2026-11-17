@@ -326,7 +326,7 @@ window; `dictLength` is NULL or a valid scalar output cell.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR` and stores no length. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks, and bytes within the 32768 bytes at `dictionary`.
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks, and bytes within the `min(w_size, strstart + lookahead)` bytes at `dictionary`, the bytes the call copies; for a `NULL` `dictionary`, no caller memory.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
 - **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to an inflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The bytes copied and the length reported: functional goal `Goal.deflateGetDictionary` (not planned; a theorem proves it).
 

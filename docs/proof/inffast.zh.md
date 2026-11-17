@@ -1,4 +1,4 @@
-<!-- source-sha256: 022210dcba5c12351a9d025b59c77f31babb88dad07a815cdac0d41e1731cf75 -->
+<!-- source-sha256: 63887e962b90f081f3b218dadb2830857b411fca5119cde0115924a693e380dd -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -170,4 +170,4 @@ I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就
 | 查长度表或距离表得到的是格式规定的符号 | `length_lookup_matches_format`、`distance_lookup_matches_format` |
 | 匹配复制就是格式中的 LZ77 复制 | `actual_distance_refines_lz77`、`actual_copy_match_refines_lz77` |
 
-这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning` 把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然能按格式的规定解析；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是有条件的往返定理的一步（[流式解码](inflate.md#functional-results)）。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。
+这些结论用的不变量更大：它把已消耗的位与源数据流联系起来，把窗口内容与更早的输出联系起来。`fast_call_meaning` 把这层含义带过 `inflate` 中 `LEN` 的快速分支，输入和输出可以在任何字节对象里：调用之后，已解码的记号仍然能按格式的规定解析；或者模式是 `BAD`，并且已读的输入没有任何合法的续接。它是[默认 zlib 流的往返](roundtrip.md)的一步。提前读入又归还的字节，与已解码符号的含义无关；见[流式解码](inflate.md#causality-and-history-across-calls)。

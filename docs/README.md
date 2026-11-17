@@ -32,6 +32,8 @@ verification has its own reference material below.
   internal helper contracts and the meaning of the compressed bytes.
 - [Model](design/README.md): the translation, memory semantics and external I/O.
 - [Proofs](proof/README.md): the verification method and the argument for each C component.
+- [The round trip](proof/roundtrip.md): `uncompress(compress(x)) = x` and the round trip of the
+  default zlib stream, with their premises.
 - [Why a green build is not enough](anti-cheating.md): why a proof that compiles is not enough,
   and what the results are guarded against.
 - [Findings](findings.md): confirmed reports about zlib and their scope.
