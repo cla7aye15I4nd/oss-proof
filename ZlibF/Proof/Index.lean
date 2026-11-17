@@ -1808,6 +1808,7 @@ import ZlibF.Proof.«zlib.h.gzgetc-macro»
 import ZlibF.Proof.«gz.sequence-safety»
 import ZlibF.Proof.«public-gz-sequence-safety»
 import ZlibF.Proof.«public-gz-sequence-nonvacuity»
+import ZlibF.Proof.«public-roundtrip-deflate»
 
 /-!
 Proof-only import point. Add new proof modules here without changing the locked root.
