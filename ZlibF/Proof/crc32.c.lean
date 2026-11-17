@@ -121,9 +121,74 @@ theorem crc_table_eq : ∀ n : Fin 256, Crc32H.crc_table[n.val]! = pw 8 (UInt32.
 theorem braid_size : Crc32H.crc_braid_table.size = 8 ∧ ∀ j : Fin 8, Crc32H.crc_braid_table[j.val]!.size = 256 := by
   decide +kernel
 
+/-! `braid_eq` by linearity: `pw m` is linear (`pw_xor`), so on a byte it is the XOR of its values on the set bits
+(`byteLin_pw`, `byteLin_id`). The kernel then checks each row of the table against 8 values of `pw` instead of 256,
+one row at a time; checking the whole table against `pw` at once took 8 GB. -/
+
+/-- `f` applied bit by bit to the byte `n`: the XOR of `f (2 ^ b)` over the set bits `b` of `n`. -/
+def byteLin (f : UInt32 → UInt32) (n : Nat) : UInt32 :=
+  (List.range 8).foldl (fun acc b => if n.testBit b then acc ^^^ f (UInt32.ofNat (2 ^ b)) else acc) 0
+
+theorem byteLin_pw (m n : Nat) : byteLin (pw m) n = pw m (byteLin id n) := by
+  have : ∀ (l : List Nat) (acc : UInt32),
+      l.foldl (fun acc b => if n.testBit b then acc ^^^ pw m (UInt32.ofNat (2 ^ b)) else acc) (pw m acc) =
+        pw m (l.foldl (fun acc b => if n.testBit b then acc ^^^ id (UInt32.ofNat (2 ^ b)) else acc) acc) := by
+    intro l
+    induction l with
+    | nil => intro acc; rfl
+    | cons b l ih =>
+      intro acc
+      simp only [List.foldl_cons]
+      split
+      · rw [← pw_xor]; exact ih _
+      · exact ih _
+  have h := this (List.range 8) 0
+  rw [pw_zero] at h
+  exact h
+
 set_option maxRecDepth 100000 in
+theorem byteLin_id : ∀ n : Fin 256, byteLin id n.val = UInt32.ofNat n.val := by decide +kernel
+
+set_option maxRecDepth 100000 in
+theorem braid_row0 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[0]![n.val]! = byteLin (pw (8 * (40 - 0))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row1 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[1]![n.val]! = byteLin (pw (8 * (40 - 1))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row2 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[2]![n.val]! = byteLin (pw (8 * (40 - 2))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row3 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[3]![n.val]! = byteLin (pw (8 * (40 - 3))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row4 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[4]![n.val]! = byteLin (pw (8 * (40 - 4))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row5 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[5]![n.val]! = byteLin (pw (8 * (40 - 5))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row6 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[6]![n.val]! = byteLin (pw (8 * (40 - 6))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row7 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[7]![n.val]! = byteLin (pw (8 * (40 - 7))) n.val := by decide +kernel
+
 theorem braid_eq : ∀ j : Fin 8, ∀ n : Fin 256,
-    Crc32H.crc_braid_table[j.val]![n.val]! = pw (8 * (40 - j.val)) (UInt32.ofNat n.val) := by decide +kernel
+    Crc32H.crc_braid_table[j.val]![n.val]! = pw (8 * (40 - j.val)) (UInt32.ofNat n.val) := by
+  intro j n
+  have hrow : Crc32H.crc_braid_table[j.val]![n.val]! = byteLin (pw (8 * (40 - j.val))) n.val := by
+    match j with
+    | ⟨0, _⟩ => exact braid_row0 n
+    | ⟨1, _⟩ => exact braid_row1 n
+    | ⟨2, _⟩ => exact braid_row2 n
+    | ⟨3, _⟩ => exact braid_row3 n
+    | ⟨4, _⟩ => exact braid_row4 n
+    | ⟨5, _⟩ => exact braid_row5 n
+    | ⟨6, _⟩ => exact braid_row6 n
+    | ⟨7, _⟩ => exact braid_row7 n
+    | ⟨_ + 8, h⟩ => exact absurd h (by omega)
+  rw [hrow, byteLin_pw, byteLin_id]
 
 /-! ### Linear maps are determined by their values on the unit vectors -/
 
