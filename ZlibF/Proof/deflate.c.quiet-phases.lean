@@ -178,7 +178,7 @@ theorem marker_tail_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d
         fun _ => ⟨ssA, bsA, insA, slA, wordsA⟩, fun e => absurd e (by decide), ?_, ?_⟩
       have eq : markerTail (some r) (some (.tab ds)) Z_BLOCK k h = markerFlush (some r) (some (.tab ds)) k h := by
         unfold markerTail markerFlush
-        simp only [np, Bool.false_eq_true, ite_false, show (Z_BLOCK != Z_BLOCK) = false from rfl, bind_app, pure_app]
+        simp only [np, Bool.false_eq_true, ite_false, show (Z_BLOCK != Z_BLOCK) = false from rfl, bind_app]
       · rw [eq]; exact outcome
       · omega
     · have nb : (flush != Z_BLOCK) = true := bne_iff_ne.mpr isBlock
@@ -242,7 +242,7 @@ theorem marker_tail_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d
               Bool.false_eq_true, ite_false, ite_true, bind_app]
             rw [run1]; simp only []
             rw [run2]
-            simp only [rdD_eq, good2.live.hs, beq_eq_false_iff_ne.mpr look, Bool.false_eq_true, ite_false, pure_app]
+            simp only [rdD_eq, good2.live.hs, beq_eq_false_iff_ne.mpr look, Bool.false_eq_true, ite_false]
             rfl
           · rw [eq]; exact outcome
           · dsimp only at cnt; omega
@@ -654,7 +654,7 @@ theorem hcrc_stage_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d 
         rw [stageEq]
         simp only [crcT, ite_true]
         unfold hcrcBytes'
-        simp only [big, decide_true, ite_true, bind_app]
+        simp only [big, ite_true, bind_app]
         rw [run1]
         simp only [rdD_eq, good1.live.hs, zero, bne_self_eq_false, Bool.false_eq_true, ite_false]
         rw [run2]; exact outcome
@@ -675,7 +675,7 @@ theorem hcrc_stage_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d 
         · rw [stageEq]
           simp only [crcT, ite_true]
           unfold hcrcBytes'
-          simp only [big, decide_true, ite_true, bind_app]
+          simp only [big, ite_true, bind_app]
           rw [run1]
           simp [rdD_eq, good1.live.hs, zero, wrD_eq]
         · by_cases a0 : z.avail_out.toNat = 0
@@ -702,7 +702,7 @@ theorem hcrc_stage_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d 
       rw [stageEq]
       simp only [crcT, ite_true]
       unfold hcrcBytes'
-      simp only [big, decide_false, ite_false]
+      simp only [big, ite_false]
       rw [run2]; exact outcome
 
 
@@ -925,7 +925,7 @@ theorem extra_stage_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d
         simp only [wrD_eq, show (Zlib.Trees.Proofs.Out.setB H1 pb (copyRange buf1 ea1 d1.pending.toNat
           (eo + d1.gzindex.toNat) st1.left.toNat)).dstates ds = some d1 from good1.live.hs]
         rw [run3]
-        simp only [wrD_eq, good3.live.hs]
+        simp only [good3.live.hs]
         simp [setD_dstates_same]
       · change d2.pending.toNat ≤ buf.size; rw [count2]; omega
       · intro none

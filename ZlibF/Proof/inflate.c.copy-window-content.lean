@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.copy-both-origin»
+import ZlibF.Proof.«inflate.c.copy-origin-state»
+import ZlibF.Proof.«inflate.c.copy-window-failure»
 import ZlibF.Proof.«inflate.c.record-frame»
 namespace Zlib.Inflate.Proofs.CopyResource
 open C Zlib.Inflate Zlib.Inflate.Spec Zlib.Inflate.Proofs ZlibF.Spec.Public

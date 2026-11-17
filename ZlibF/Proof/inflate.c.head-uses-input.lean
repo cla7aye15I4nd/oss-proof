@@ -210,7 +210,7 @@ theorem headUses_dispatch_pulls {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
       refine Nat.lt_of_le_of_lt (key ?_ run) lt1
       have_le_mode
   · rw [inflate_dispatch_block_type E l (Or.inr typedo)] at run
-    rw [if_neg (by rw [typedo]; decide)] at run
+    rw [ite_eq_right (by rw [typedo]; decide)] at run
     unfold inflate_TYPEDO at run
     rw [runX_bind, runX_rdS E] at run
     simp only [last, bne_self_eq_false, Bool.false_eq_true, ↓reduceIte] at run
@@ -350,7 +350,7 @@ theorem headUses_run {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStre
     stateEq⟩ := inflate_run_default_view_entry E invariant buffers nonnull inputValid
   have entryLocal := inflate_run_entry_local invariant current entrySizes entryFrame entryHeapEq stateEq local_
   have notType : ¬ s.mode = TYPE := by rw [mode]; decide
-  rw [if_neg notType] at stateEq
+  rw [ite_eq_right notType] at stateEq
   subst entryState
   rw [cut] at run
   have positive : z.avail_in.toNat ≠ 0 := fun zero => pending (UInt32.toNat_inj.mp (by simp [zero]))

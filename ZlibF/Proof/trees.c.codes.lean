@@ -185,7 +185,7 @@ theorem gcAssign_run {h0 : Heap} {id : Nat} (d : DeflateState) (tk : TK)
       have hlenInt : (u16i orig[m]!.dl).toInt = len m := u16i_toInt _
       by_cases hz : orig[m]!.dl = 0
       · have hzero : (u16i orig[m]!.dl == 0) = true := by simp [hz, u16i]
-        simp only [hzero, Bool.true_eq, ite_true, M_pure_bind]
+        simp only [hzero, ite_true, M_pure_bind]
         refine WS.bind' (ws_iadd n 1 (by have : (1 : Int32).toInt = 1 := rfl; omega)
           (by have : (1 : Int32).toInt = 1 := rfl; omega)) fun n' e1 ⟨hn', he1⟩ => ?_
         subst e1

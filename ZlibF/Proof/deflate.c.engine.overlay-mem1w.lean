@@ -11,7 +11,7 @@ At `lit_bufsize = 128`, every prepared dynamic block satisfies `H + bitExcess �
 (`header_excess_128_w`), from the header hypothesis `HeaderRefBound128W α` with `α ≤ 60`: the
 header is at most `71 + α + W/2 + refHeaderCost128`, with `W` the number of bit-length symbols, the cost of the scanned bit-length symbols under the
 reference code `κ1`. The facts of the run feed the heap-free certificate
-(`DeflateOverlayCertificate128`): the region scan (`scan_cost_region`, charges by region), the
+(`DeflateOverlayCertificate128W`): the region scan (`scan_cost_region`, charges by region), the
 choice row (`choice_row`), Kraft and the forced leaves, which are split into three cases (none;
 only in the distance tree, which then has two nonzero lengths; in the literal/length tree, which
 then has two). The order-free budget follows (`overlay_budget_128_w`), and so the overlay room
@@ -60,12 +60,12 @@ theorem charges_128_w :
   have short : ∀ x, 1 ≤ x → x ≤ 15 → 2 * refWeight1 x + 1 ≤ distanceRegionCharge x := by
     intro x h1 h2
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
-      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128.refLen1, distanceRegionCharge,
+      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128W.refLen1, distanceRegionCharge,
         Zlib.Trees.Proofs.Out.blExtraBits] at h1 h2 ⊢
   have rep : ∀ x, 1 ≤ x → x ≤ 15 → 2 * refWeight1 16 + 1 ≤ 3 * distanceRegionCharge x := by
     intro x h1 h2
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
-      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128.refLen1, distanceRegionCharge,
+      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128W.refLen1, distanceRegionCharge,
         Zlib.Trees.Proofs.Out.blExtraBits] at h1 h2 ⊢
   have w0 : 2 * refWeight1 0 + 1 = 5 := by decide
   have w17 : 2 * refWeight1 17 + 1 = 13 := by decide
@@ -212,7 +212,7 @@ theorem header_excess_128_w {α : Nat} (small : α ≤ 60) (headerBound : Header
     (fun _ _ => ⟨rfl, rfl⟩) (readyP.d_desc.max_code.toInt.toNat + 1)
     (fun i hi => by rw [lowD i (by omega)]; exact facts.distance i (by omega))
   have endA : literalA_w (readyP.l_desc.max_code.toInt.toNat + 1) = 2 := by
-    unfold literalA_w; rw [if_neg (by omega)]
+    unfold literalA_w; rw [ite_eq_right (by omega)]
   rw [endA] at scanL
   have chargesL : mass (regionCharge (sendLengths ready .lit) distanceRegionCharge literalA_w literalB_w)
       (readyP.l_desc.max_code.toInt.toNat + 1) ≤ mass (fun v => literalCharge v (ll v)) 286 := by
@@ -289,7 +289,7 @@ theorem header_excess_128_w {α : Nat} (small : α ≤ 60) (headerBound : Header
     simp only [ZlibF.Math.DeflatePush.literalExcess, ZlibF.Math.DeflateOverlayCertificate.literalExcess, fl, ll]
     by_cases low : v < 257
     · simp [low]
-    · simp only [low, if_false]
+    · simp only [low, ite_false]
       rw [tables.1 ⟨v - 257, by omega⟩]
   have exD : mass (fun v => distanceFrequency dcodeN xs v *
       ZlibF.Math.DeflatePush.distanceExcess (curL readyP.dyn_dtree) sourceDistanceExtra v) 30 =

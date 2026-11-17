@@ -79,12 +79,12 @@ theorem preHeap_uniq {h : Heap} (fresh : Fresh h) (u : Uniq h) (source : BPtr) :
   simp only [Heap.live, not_or, ne_eq, Decidable.not_not] at n0 n1
   simp only [preHeap, localHeap, streamHeap, upd_apply]
   by_cases e0 : b = h.nextBlk
-  · subst e0; simp [n0.1, n0.2.1, n0.2.2.1, n0.2.2.2.1, n0.2.2.2.2.1, n0.2.2.2.2.2.1, n0.2.2.2.2.2.2]
+  · subst e0; simp [n0.1, n0.2.1, n0.2.2.2.1, n0.2.2.2.2.1, n0.2.2.2.2.2.1, n0.2.2.2.2.2.2]
   by_cases e1 : b = h.nextBlk + 1
-  · subst e1; simp [n1.1, n1.2.1, n1.2.2.1, n1.2.2.2.1, n1.2.2.2.2.1, n1.2.2.2.2.2.1, n1.2.2.2.2.2.2]
+  · subst e1; simp [n1.2.1, n1.2.2.1, n1.2.2.2.1, n1.2.2.2.2.1, n1.2.2.2.2.2.1, n1.2.2.2.2.2.2]
   simpa [e0, e1] using ub
 
-theorem preHeap_get {h : Heap} (fresh : Fresh h) (source : BPtr) (rr : BRef) :
+theorem preHeap_get {h : Heap} (_fresh : Fresh h) (source : BPtr) (rr : BRef) :
     Space.get (preHeap h source) rr = Space.get h rr ∨
       (rr = .blk (h.nextBlk + 1) ∧ Space.get (preHeap h source) rr = some (reservedBytes h)) := by
   cases rr with

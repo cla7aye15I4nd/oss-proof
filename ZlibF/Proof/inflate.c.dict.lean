@@ -38,10 +38,10 @@ theorem inflateGetDictionary_copy {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZS
     (h := H) hD ha hro hne (by omega) (by omega)
   simp only [Nat.zero_add] at hcp1 hn0'
   unfold inflateGetDictionary
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, stateCheck_live hL, bne_iff_ne, ne_eq, hpos,
-    not_false_eq_true, hw, hn0', hcp1, not_true_eq_false, ite_false, ite_true]
-  simp only [bind_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hw, hn0', hcp1, bne_iff_ne, ne_eq, hpos, not_false_eq_true,
-    ite_true, Bool.and_eq_true, hwh0, Ptr.noConfusion]
+  simp only [bind_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, stateCheck_live hL, bne_iff_ne, ne_eq,
+    hw, not_true_eq_false, ite_false]
+  simp only [bne_iff_ne, ne_eq,
+    Bool.and_eq_true, hwh0]
   have hnn : ¬ (Ptr.ref (BRef.blk db) off : BPtr) = Ptr.null := by simp
   simp only [true_and, hnn, not_false_eq_true, ite_true, bind_app, hn0', hcp1]
   have hA1sz : (copyRange D a off st.wnext.toNat (st.whave - st.wnext).toNat).size = D.size := size_copyRange ..
@@ -51,10 +51,10 @@ theorem inflateGetDictionary_copy {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZS
       = some a := by simp [upd_ne _ _ _ _ hne.symm, ha]
   have hd1 := Ptr.add_nat_ok (h := ({ H with bytes := upd H.bytes db (some (copyRange D a off st.wnext.toNat (st.whave - st.wnext).toNat)) } : Heap))
     (r := BRef.blk db) (off := off) (n := st.whave.toNat) (a := copyRange D a off st.wnext.toNat (st.whave - st.wnext).toNat)
-    (by simpa using hb1) (by omega)
+    (by simp) (by omega)
   have hd2 := Ptr.sub_nat_ok (h := ({ H with bytes := upd H.bytes db (some (copyRange D a off st.wnext.toNat (st.whave - st.wnext).toNat)) } : Heap))
     (r := BRef.blk db) (off := off + st.whave.toNat) (n := st.wnext.toNat) (a := copyRange D a off st.wnext.toNat (st.whave - st.wnext).toNat)
-    (by simpa using hb1) (by omega) (by omega)
+    (by simp) (by omega) (by omega)
   have hcp2 := memcpyB_blk_ok (nb := db) (no := off + st.whave.toNat - st.wnext.toNat) (pb := w) (po := 0) (n := st.wnext.toNat)
     (h := ({ H with bytes := upd H.bytes db (some (copyRange D a off st.wnext.toNat (st.whave - st.wnext).toNat)) } : Heap))
     hb1 hbw1 (by simpa using hro) hne (by omega) (by omega)
@@ -173,20 +173,20 @@ theorem inflateSetDictionary_safe {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZS
       have hck : ra = st.check := by
         apply UInt64.toNat_inj.mp; rw [hrv]; exact hadler hm
       have hmb : (st.mode == DICT) = true := by simpa using hm
-      simp only [hmb, adler32_init, hra, hck, bne_self_eq_false, hadd', hr1', ite_true, Bool.false_eq_true, ite_false, Bool.and_false, hmb, hm, beq_self_eq_true]
-      simp only [bind_app, adler32_init, hra, hck, bne_self_eq_false, hadd', hr1', Bool.false_eq_true, ite_false, setMode, wrI_eq, hs1]
+      simp only [bne_self_eq_false, ite_true, Bool.false_eq_true, ite_false, Bool.and_false, hm, beq_self_eq_true]
+      simp only [bind_app, adler32_init, hra, hck, bne_self_eq_false, hadd', hr1', Bool.false_eq_true, ite_false, setMode]
       by_cases hv0 : v0 = 0
       · simp only [hv0, bne_self_eq_false, Bool.false_eq_true, ite_false, ite_true, bind_app, wrI_eq, hs1, pure_app, setI]
       · have hb : (v0 != 0) = true := by simpa using hv0
-        simp only [hb, ite_true, hv0, ite_false, setMode, bind_app, wrI_eq, hs1, pure_app, setI]
+        simp only [hb, ite_true, hv0, ite_false, bind_app, wrI_eq, hs1, pure_app, setI]
     · have hw0 : st.wrap = 0 := by rcases hwrap with h | h; exact h; exact absurd h hm
       have hmb : (st.mode == DICT) = false := by simpa using hm
-      simp only [hmb, hw0, hadd', hr1', bne_self_eq_false, Bool.false_and, Bool.false_eq_true, ite_false, Bool.and_false]
-      simp only [bind_app, hadd', hr1', Bool.false_eq_true, ite_false, setMode, wrI_eq, hs1]
+      simp only [hmb, hw0, bne_self_eq_false, Bool.false_and, Bool.false_eq_true, ite_false]
+      simp only [bind_app, hadd', hr1', setMode]
       by_cases hv0 : v0 = 0
       · simp only [hv0, bne_self_eq_false, Bool.false_eq_true, ite_false, ite_true, bind_app, wrI_eq, hs1, pure_app, setI]
       · have hb : (v0 != 0) = true := by simpa using hv0
-        simp only [hb, ite_true, hv0, ite_false, setMode, bind_app, wrI_eq, hs1, pure_app, setI]
+        simp only [hb, ite_true, hv0, ite_false, bind_app, wrI_eq, hs1, pure_app, setI]
   have hs1 : H1.istates zs = some st1 := hG1.live.hs
   by_cases hv0 : v0 = 0
   · rcases hcase with ⟨-, hw1, hO⟩ | ⟨h1, -⟩
@@ -234,7 +234,7 @@ theorem inflateSetDictionary_dataerr {H : Heap} {r : ZStreamRef} {zs : Nat} {z :
   unfold inflateSetDictionary
   simp only [bind_app, stateCheck_live hL, ldZ_eq, ldI_eq, hL.hz, hL.zst, castI, hL.hs, hnn, bne_self_eq_false,
     Bool.or_self, Bool.false_eq_true, ite_false, hm, beq_self_eq_true, Bool.and_false, ite_true]
-  simp only [bind_app, adler32_init, hra, hne, ite_true]
+  simp only [adler32_init, hra, hne, ite_true]
   rfl
 
 end Zlib.Inflate.Proofs

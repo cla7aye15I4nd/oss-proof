@@ -113,8 +113,8 @@ theorem match_environment_published {h : Heap} {r : ZStreamRef} {ds w p q : Nat}
     {key : Nat} {candidate : UInt32}
     (good : DGood h r ds z d)
     (win : d.window = .ref (.blk w) 0) (prev : d.prev = .ref (.blk p) 0)
-    (head : d.head = .ref (.blk q) 0)
-    (hw : h.bytes w = some wa) (hp : h.words p = some pa) (hq : h.words q = some qa)
+    (_head : d.head = .ref (.blk q) 0)
+    (hw : h.bytes w = some wa) (hp : h.words p = some pa) (_hq : h.words q = some qa)
     (chains : HashChains (wfn qa) (wfn pa) (bfn wa) d.hash_size d.hash_shift d.hash_mask
       d.w_size.toNat (d.strstart.toNat + 1) (d.strstart.toNat + d.lookahead.toNat))
     (hash : (hkey d.hash_shift d.hash_mask (bfn wa) d.strstart.toNat).toNat = key)

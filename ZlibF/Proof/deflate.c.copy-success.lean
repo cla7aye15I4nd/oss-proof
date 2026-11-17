@@ -84,10 +84,10 @@ theorem copyS_at {T : Type} [Inhabited T] (a s : Array T) (o n i : Nat) (ha : o 
     (copyRange a s o o n)[i]? = if o ≤ i ∧ i < o + n then s[i]? else a[i]? := by
   rw [getElem?_copyRange _ _ _ _ _ _ ha]
   by_cases c : o ≤ i ∧ i < o + n
-  · rw [if_pos c, if_pos c, show o + (i - o) = i by omega,
+  · rw [ite_eq_left c, ite_eq_left c, show o + (i - o) = i by omega,
       Array.getElem?_eq_getElem (show i < s.size by omega)]
     exact congrArg some (getElem!_pos s i (by omega))
-  · rw [if_neg c, if_neg c]
+  · rw [ite_eq_right c, ite_eq_right c]
 
 /-- Two arrays that agree on a range give the same prefix lists. -/
 theorem copyS_prefix {T : Type} (x y : Array T) (o n : Nat)
@@ -97,7 +97,7 @@ theorem copyS_prefix {T : Type} (x y : Array T) (o n : Nat)
   intro j
   simp only [List.getElem?_take, List.getElem?_drop, Array.getElem?_toList]
   by_cases small : j < n
-  · simp only [small, if_true]
+  · simp only [small, ite_true]
     exact agree _ (by omega) (by omega)
   · simp [small]
 
@@ -115,7 +115,7 @@ theorem copyS_final_slot {T0 : Heap} {dest : ZStreamRef} {z : ZStream} {d : Defl
 
 /-- **When every allocation succeeds, `deflateCopy` reaches its success tail.** -/
 theorem copy_reach {h : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : ZStream} {d : DeflateState}
-    (inv : DInv h source ds z d) (get : dest.get h = some zd)
+    (inv : DInv h source ds z d) (_get : dest.get h = some zd)
     (ok : h.allocOk h.nalloc = true ∧ bytePtr (copyH0 h d) ≠ .null ∧ wordPtr (copyW (copyH0 h d) d) ≠ .null ∧
       wordPtr (copyP (copyH0 h d) d) ≠ .null ∧ bytePtr (copyQ (copyH0 h d) d) ≠ .null) :
     C.run (deflateCopy (some dest) (some source)) h =
@@ -296,18 +296,18 @@ theorem copy_pack {h : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : ZStre
   have gW : (copyB (copyH0 h d) d).bytes (h.nextBlk + 1) = some (Array.ofFn (n := (d.w_size * 2).toNat)
       fun i => Junk.of ((copyH0 h d).garbage (copyH0 h d).nalloc i.val)) := by
     rw [eB, eQ, eP, eW]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH]
   have roW : (copyB (copyH0 h d) d).ro (h.nextBlk + 1) = false := by
     rw [eB, eQ, eP, eW]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH]
   have gP : (copyB (copyH0 h d) d).words (h.nextBlk + 2) = some (Array.ofFn (n := (d.w_size * 2).toNat / 2)
       fun i => Junk.of ((copyW (copyH0 h d) d).garbage (copyW (copyH0 h d) d).nalloc i.val)) := by
     rw [eB, eQ, eP]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nW]
   have gQ : (copyB (copyH0 h d) d).words (h.nextBlk + 3) = some (Array.ofFn (n := (d.hash_size * 2).toNat / 2)
       fun i => Junk.of ((copyP (copyH0 h d) d).garbage (copyP (copyH0 h d) d).nalloc i.val)) := by
     rw [eB, eQ]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nP]
   have gB : (copyB (copyH0 h d) d).bytes (h.nextBlk + 4) = some (Array.ofFn (n := (d.lit_bufsize * 4).toNat)
       fun i => Junk.of ((copyQ (copyH0 h d) d).garbage (copyQ (copyH0 h d) d).nalloc i.val)) := by
     rw [eB]
@@ -344,7 +344,7 @@ theorem copy_pack {h : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : ZStre
     (by simpa [setD] using gW) (by simpa [setD] using gP) (by simpa [setD] using gQ) (by simpa [setD] using gB)
     (by simpa [setD] using roW) (by simpa [setD] using roB)
     (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
-    (by simp [mW]; omega) (by omega) (by simp [mP]; omega) (by omega) (by simp only [Array.size_ofFn, mQ, Nat.le_refl]) (by omega)
+    (by simp [mW]; omega) (by omega) (by simp; omega) (by omega) (by simp only [Array.size_ofFn, mQ, Nat.le_refl]) (by omega)
     (by simp [mB]; omega) (by omega) (by simp [mB]; omega) (by omega) (by omega)
   rw [runT] at reach
   -- the heap of the allocations
@@ -539,17 +539,17 @@ theorem copy_success {h : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : ZS
     refine copyS_same_bytes gw hWF (by omega) (by simp [copyWin, size_copyRange]; omega) ?_
     intro i _ h2
     simp only [copyWin]
-    rw [copyS_at aW wa 0 _ i (by omega) (by omega), if_pos ⟨by omega, h2⟩]
+    rw [copyS_at aW wa 0 _ i (by omega) (by omega), ite_eq_left ⟨by omega, h2⟩]
   · rw [eq]
     refine copyS_same_words gq hQF (by omega) (by simp [copyHead, size_copyRange]; omega) ?_
     intro i h2
     simp only [copyHead]
-    rw [copyS_at aQ qa 0 _ i (by omega) (by omega), if_pos ⟨by omega, by omega⟩]
+    rw [copyS_at aQ qa 0 _ i (by omega) (by omega), ite_eq_left ⟨by omega, by omega⟩]
   · rw [ep, cntEq]
     refine copyS_same_words gp hPF (by omega) (by simp [copyPrev, size_copyRange]; omega) ?_
     intro i h2
     simp only [copyPrev]
-    rw [copyS_at aP pa 0 _ i (by omega) (by omega), if_pos ⟨by omega, by omega⟩]
+    rw [copyS_at aP pa 0 _ i (by omega) (by omega), ite_eq_left ⟨by omega, by omega⟩]
   · rw [pout]
     refine copyS_same_bytes gb hBF (by omega) (by simp [copyPend, size_copyRange]; omega) ?_
     intro i h1 h2
@@ -557,12 +557,12 @@ theorem copy_success {h : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : ZS
     rw [copyS_at _ ba _ _ i (by rw [size_copyRange]; omega) (by omega)]
     split
     · rfl
-    · rw [copyS_at aB ba off _ i (by omega) (by omega), if_pos ⟨h1, h2⟩]
+    · rw [copyS_at aB ba off _ i (by omega) (by omega), ite_eq_left ⟨h1, h2⟩]
   · rw [sym]
     refine copyS_same_bytes gb hBF (by omega) (by simp [copyPend, size_copyRange]; omega) ?_
     intro i h1 h2
     simp only [copyPend]
-    rw [copyS_at _ ba _ _ i (by rw [size_copyRange]; omega) (by omega), if_pos ⟨h1, h2⟩]
+    rw [copyS_at _ ba _ _ i (by rw [size_copyRange]; omega) (by omega), ite_eq_left ⟨h1, h2⟩]
 
 #print axioms Zlib.Deflate.Universal.copy_success
 

@@ -97,7 +97,7 @@ theorem success_initial {h : Heap} {r : ZStreamRef} {z : ZStream}
   let zp := preparedStream z
   let hp := r.put h zp
   have shape := shape_put hz zp
-  have hfP : Fresh hp := shape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := shape.fresh (by simp) hf
   have huP : Uniq hp := shape.uniq hu
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha
@@ -132,7 +132,7 @@ theorem success_initial {h : Heap} {r : ZStreamRef} {z : ZStream}
   · simp [sf, resultState, finalState, lmD, resetState, rkPost, rkPost3, rkMid, absWrap,
       Zlib.Trees.Proofs.Out.ibRec, Zlib.Trees.Proofs.Out.trInitRec, readyState, allocatedState, baseState, settings]
   · intro x
-    simp only [LiveChange, not_false_eq_true, and_true] at *
+    simp only [not_false_eq_true, and_true] at *
     change after.live x ↔ h.live x ∨ DeflateOwned h.nextBlk sf x
     rw [owned]
     have live := hLive x
@@ -167,7 +167,7 @@ theorem deflateInit_proof : Goal.deflateInit_ := by
   let hp := r.put h zp
   let lev := levelValue level
   have hshape := shape_put hz zp
-  have hfP : Fresh hp := hshape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := hshape.fresh (by simp) hf
   have huP : Uniq hp := hshape.uniq hu
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha

@@ -47,7 +47,7 @@ theorem zError : Goal.zError := by
         rw [missing] at hi
         cases hi
     change staticStringBytes h i = some (strBytes (errorText err.toInt))
-    rw [staticStringBytes, if_pos bound, hi]
+    rw [staticStringBytes, ite_eq_left bound, hi]
     rfl
 
 #print axioms zError

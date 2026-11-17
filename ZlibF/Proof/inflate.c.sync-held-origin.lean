@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.copy-both-origin»
+import ZlibF.Proof.«inflate.c.copy-origin-state»
+import ZlibF.Proof.«inflate.c.copy-window-failure»
 import ZlibF.Proof.«inflate.c.sync4»
 
 namespace Zlib.Inflate.Proofs

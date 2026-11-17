@@ -147,7 +147,7 @@ theorem lookup2_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
           l1.last.bits.toNat + (subVal ca off l1.last l1.hold.toNat).bits.toNat := by
         rw [UInt32.toNat_add, UInt8.toNat_toUInt32, UInt8.toNat_toUInt32]; omega
       by_cases fit : l1.last.bits.toUInt32 + (subVal ca off l1.last l1.hold.toNat).bits.toUInt32 ≤ l1.bits
-      · rw [if_pos fit] at run
+      · rw [ite_eq_left fit] at run
         refine ⟨.ok true, _, h1, run, log1, I1.withHere _, ist1,
           fun _ => ⟨put1, left1, last1, by show _ = subVal ca off l.last l1.hold.toNat; rw [last1], ?_, ext1, pull1⟩,
           fun e x => (nomatch x), meas1⟩
@@ -155,7 +155,7 @@ theorem lookup2_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
         rw [addNat] at this
         rw [← last1]
         exact this
-      · rw [if_neg fit] at run
+      · rw [ite_eq_right fit] at run
         have fit1 : l1.bits.toNat < l1.last.bits.toNat + (subVal ca off l1.last l1.hold.toNat).bits.toNat := by
           have := mt UInt32.le_iff_toNat_le.mpr fit
           rw [addNat] at this

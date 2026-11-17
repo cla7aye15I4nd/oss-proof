@@ -102,7 +102,7 @@ theorem read_buf_any {h : Heap} {r : ZStreamRef} {ds w io bo : Nat}
       have run := ZlibF.Spec.Public.AdlerUpdateProof.adler_z_any_public
         (h := h2) (ref := .blk w) getW2 z.adler bo n.toUInt64 (by simpa [wa', size_copyRange] using windowBound)
       simpa only [C.run, Zlib.Adler32.adler32, UInt32.toNat_toUInt64, slices, a, checksumValue,
-        if_pos one] using run
+        ite_eq_left one] using run
     simp only [rbCore, nz, Bool.false_eq_true, ite_false, bind_app, dec, read, copy, state,
       castDeflateState_ok, wrapper, (show (d.wrap == 1) = true by simp [one]), ite_true,
       seed, checksum, setAdler, readNext, advance, writeNext, pure_app]
@@ -115,8 +115,8 @@ theorem read_buf_any {h : Heap} {r : ZStreamRef} {ds w io bo : Nat}
         have run := ZlibF.Spec.Public.Proofs.crc32 h2 z.adler (.ref (.blk w) bo) n
           ((wa'.toList.drop bo).take n.toNat) g2
           (Or.inr ⟨.blk w, bo, wa', rfl, getW2, by simpa [wa', size_copyRange] using windowBound, rfl⟩)
-        simpa only [C.run, reduceCtorEq, ite_false, slices, a, checksumValue, if_neg one,
-          if_pos two] using run
+        simpa only [C.run, reduceCtorEq, ite_false, slices, a, checksumValue, ite_eq_right one,
+          ite_eq_left two] using run
       simp only [rbCore, nz, Bool.false_eq_true, ite_false, bind_app, dec, read, copy, state,
         castDeflateState_ok, wrapper, (show (d.wrap == 1) = false by simpa using one),
         (show (d.wrap == 2) = true by simp [two]), ite_true,
@@ -189,10 +189,10 @@ theorem fill_after_slide_read_prefix_any {h : Heap} {r : ZStreamRef} {ds w io : 
       (show Space.get h (BRef.blk w) = some wa from get) (by omega : fillEnd d ≤ wa.size)
   have stateR : hr.dstates ds = some d := by simpa [hr] using good.live.hs
   have update : wr (some (.tab ds)) (fun state => { state with lookahead := state.lookahead + n }) hr =
-      .ok ((), hl) := by simp [wrD_eq, stateR, hl, pendingReadHeapAny, hr, pendingReadState, n, copied, z', good.live.hs]
+      .ok ((), hl) := by simp [wrD_eq, hl, pendingReadHeapAny, hr, pendingReadState, n, copied, z', good.live.hs]
   unfold fillAfterSlide
   simp only [bind_app, rdD_eq, good.live.hs, good.live.back, zrd_eq, good.live.hz,
-    beq_eq_false_iff_ne.mpr nonempty, Bool.false_eq_true, if_false, ldDeflateState_tab good.live.hs,
+    beq_eq_false_iff_ne.mpr nonempty, Bool.false_eq_true, ite_false, ldDeflateState_tab good.live.hs,
     first, second]
   rw [read]
   change (do
@@ -523,7 +523,7 @@ theorem block_start_slide_signed {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZSt
     omega
   unfold lsub chk64
   rw [cast]
-  simp only [valueLo, valueHi, and_self, if_true]
+  simp only [valueLo, valueHi, and_self, ite_true]
 
 
 /-! ## The complete `fill_window` for every parameter tuple -/
@@ -618,7 +618,7 @@ theorem fill_slide_pre {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
     refine ⟨?_, fun yes => ?_⟩
     · have small : ¬ d.insert > d.strstart - d.w_size := by
         simp [zero, UInt32.lt_iff_toNat_lt]
-      simp [slid, slideState, slideBeforeHash, small, zero]
+      simp [slideState, slideBeforeHash, zero]
     · obtain ⟨w0, wa0, win0, get0, form⟩ := rolled yes
       have wid : w0 = w := by simpa only [env.win, Ptr.ref.injEq, BRef.blk.injEq, and_true] using win0.symm
       subst w0

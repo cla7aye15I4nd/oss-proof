@@ -2,7 +2,11 @@ import ZlibF.Proof.«deflate.c.engine.public-nonfinal-data-interval»
 import ZlibF.Proof.«deflate.c.engine.valid-pending-entry»
 import ZlibF.Proof.«deflate.c.engine.public-header-resume-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-header-resume-checksum»
-import ZlibF.Proof.«deflate.c.engine.public-busy-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.public-pending-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.input-snapshot-controls»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 
 /-! # Actual split header resumption encodes the consumed original input -/
 

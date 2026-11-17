@@ -85,13 +85,13 @@ theorem slow_find_boundary_storage {h : Heap} {r : ZStreamRef} {ds w p q : Nat}
     have length : len.toNat ≤ 258 := by
       rw [lenEq]
       unfold lmResult
-      rw [if_pos (by omega)]
+      rw [ite_eq_left (by omega)]
       simp only [UInt32.toNat_ofNat', Nat.mod_eq_of_lt (show best < 2 ^ 32 by omega)]
       exact upper
     have exactLength : len.toNat = best := by
       rw [lenEq]
       unfold lmResult
-      rw [if_pos (by omega)]
+      rw [ite_eq_left (by omega)]
       simp only [UInt32.toNat_ofNat', Nat.mod_eq_of_lt (show best < 2 ^ 32 by omega)]
     have evidence : SearchEvidence d wa ms len := by
       rcases matching with same | improved
@@ -107,25 +107,25 @@ theorem slow_find_boundary_storage {h : Heap} {r : ZStreamRef} {ds w p q : Nat}
       have goodResult := matchState_good good heapChains ms 2
       refine ⟨setD h ds df, ms, 2, ?_, goodResult.1, goodResult.2, by decide, Or.inr (Or.inr (Or.inl (by decide))), rfl, byte_frame_setD h ds df⟩
       unfold slowFind
-      simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_true, run, write,
+      simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_true, run, write,
         ldDeflateState_tab state]
       change (if rejectShort dm then wr (some (.tab ds)) (fun d => { d with match_length := MIN_MATCH_u - 1 })
         else pure ()) hm = _
-      rw [if_pos reject]
-      simp [wrD_eq, state, hm, df, dm, matchState, setD_setD, MIN_MATCH_u]
+      rw [ite_eq_left reject]
+      simp [wrD_eq, hm, df, dm, matchState, setD_setD, MIN_MATCH_u]
     · have goodResult := matchState_good good heapChains ms len
       refine ⟨hm, ms, len, ?_, goodResult.1, goodResult.2, length, evidence, rfl, byte_frame_setD h ds dm⟩
       unfold slowFind
-      simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_true, run, write,
+      simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_true, run, write,
         ldDeflateState_tab state]
       change (if rejectShort dm then wr (some (.tab ds)) (fun d => { d with match_length := MIN_MATCH_u - 1 })
         else pure ()) hm = _
-      rw [if_neg reject]
+      rw [ite_eq_right reject]
       rfl
   · refine ⟨h, d.match_start, d.match_length, ?_, ?_, ?_, oldLength, Or.inl ⟨rfl, rfl⟩, rfl, ByteFrame.refl h _⟩
     · unfold slowFind
       simp only [bind_app, ldDeflateState_tab good.live.hs]
-      rw [if_neg active]
+      rw [ite_eq_right active]
       rfl
     · simpa only [matchState] using good
     · simpa only [matchState] using heapChains

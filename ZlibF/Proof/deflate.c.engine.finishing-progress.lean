@@ -49,7 +49,7 @@ theorem public_finishing_tail_progress {h : Heap} {r : ZStreamRef} {ds ob oo : N
     have balanceA : result.pending.toNat + produced = 4 := by omega
     have negative : result.wrap ≠ 1 := by rw [wrapT]; decide
     refine ⟨?_, fun _ => ?_⟩
-    · simpa only [wrap, if_true, if_neg negative, Nat.add_zero] using balanceA
+    · simpa only [wrap, ite_true, ite_eq_right negative, Nat.add_zero] using balanceA
     · rw [amountA]
       exact Nat.lt_min.mpr ⟨by decide, output⟩
   · have actual := public_finished_headers good phase.status empty phase.lookahead wrap
@@ -62,7 +62,7 @@ theorem public_finishing_tail_progress {h : Heap} {r : ZStreamRef} {ds ob oo : N
     subst z'
     have counts := (stream_accounting_counts_unique (stream_accounting_zero z) account).2
     have negative : d.wrap ≠ 1 := by rw [wrap]; decide
-    refine ⟨by simp only [pending, UInt64.toNat_zero, if_neg negative]; omega, ?_⟩
+    refine ⟨by simp only [pending, UInt64.toNat_zero, ite_eq_right negative]; omega, ?_⟩
     intro ok
     have code : Z_STREAM_END = Z_OK := sameRun.1.trans ok
     exact False.elim ((by decide : Z_STREAM_END ≠ Z_OK) code)

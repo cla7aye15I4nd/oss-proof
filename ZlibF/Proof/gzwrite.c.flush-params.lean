@@ -83,7 +83,7 @@ theorem gzflush_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (flu
     · have hkB : ((okRec s).skip != 0) = false := by simp [hk]
       obtain ⟨r, fs', h', run, E'⟩ := flushTail_ok err errOwn flush hf E1 inv1 hw
       refine ⟨r, fs', h', ?_, E'⟩
-      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
         hm', Bool.false_eq_true, ↓reduceIte, run1, hc', hS1, hkB]
       exact run
     · have hkB : ((okRec s).skip != 0) = true := by simpa using hk
@@ -93,7 +93,7 @@ theorem gzflush_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (flu
       rcases hr with rfl | rfl
       · obtain ⟨r, fs', h', run, E'⟩ := flushTail_ok err errOwn flush hf E2 inv2 (hm2.trans hw)
         refine ⟨r, fs', h', ?_, E'⟩
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
           hm', Bool.false_eq_true, ↓reduceIte, run1, hc', hS1, hkB, run2, int32_zero_ne_neg_one]
         exact run
       · have hS2 : ldS (gzSt i) H2 = .ok (s2, H2) := Zlib.Gzlib.Proofs.ldS_run inv2.common.record
@@ -414,13 +414,13 @@ theorem setDP_ok {h0 : Heap} {s0 : GzState} {fs0 fs : Fs} {H : Heap} {v : GzStat
     obtain ⟨r, fs', h', runT, E'⟩ := setTail_ok E2 inv2 (hm2.trans hw) level strategy
     refine ⟨r, fs', h', ?_, E'⟩
     unfold setDP
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, run']
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, run']
     exact runT
   · have hn : v.strm.state = none := (inv.writer hw).transparent hd
     obtain ⟨r, fs', h', runT, E'⟩ := setTail_ok E inv hw level strategy
     refine ⟨r, fs', h', ?_, E'⟩
     unfold setDP
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
       params_nostate hs hn level strategy]
     exact runT
 
@@ -436,7 +436,7 @@ theorem paramsT_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : G
     obtain ⟨r, fs', h', runT, E'⟩ := setTail_ok E inv hw level strategy
     refine ⟨r, fs', h', ?_, E'⟩
     unfold paramsT
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
       hszB, Bool.false_eq_true, ↓reduceIte]
     exact runT
   have hszB : (v.size != 0) = true := by simpa using hsz
@@ -445,7 +445,7 @@ theorem paramsT_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : G
     obtain ⟨r, fs', h', runT, E'⟩ := setDP_ok E inv hw hsz level strategy
     refine ⟨r, fs', h', ?_, E'⟩
     unfold paramsT
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
       hszB, ↓reduceIte, hZ, havB, Bool.false_eq_true]
     exact runT
   have havB : (v.strm.avail_in != 0) = true := by simpa using hav
@@ -464,7 +464,7 @@ theorem paramsT_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : G
   · obtain ⟨r, fs', h', runT, E'⟩ := setDP_ok E2 inv2 (hm2.trans hw) (by rw [q2.2.1.2.2.2.1]; exact hsz) level strategy
     refine ⟨r, fs', h', ?_, E'⟩
     unfold paramsT
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
       hszB, ↓reduceIte, hZ, havB, run2, int32_zero_ne_neg_one, Bool.false_eq_true]
     exact runT
   · refine ⟨s2.err, fs2, H2, ?_, E2⟩
@@ -503,7 +503,7 @@ theorem gzsetparams_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat)
     · have hkB : ((okRec s).skip != 0) = false := by simp [hk]
       obtain ⟨r, fs', h', run, E'⟩ := paramsT_ok err errOwn E1 inv1 hw level strategy
       refine ⟨r, fs', h', ?_, E'⟩
-      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
         hm', Bool.false_eq_true, ↓reduceIte, run1, hS1, hq', hkB]
       exact run
     · have hkB : ((okRec s).skip != 0) = true := by simpa using hk
@@ -513,7 +513,7 @@ theorem gzsetparams_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat)
       rcases hr with rfl | rfl
       · obtain ⟨r, fs', h', run, E'⟩ := paramsT_ok err errOwn E2 inv2 (hm2.trans hw) level strategy
         refine ⟨r, fs', h', ?_, E'⟩
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
           hm', Bool.false_eq_true, ↓reduceIte, run1, hS1, hq', hkB, run2, int32_zero_ne_neg_one]
         exact run
       · have hS2 : ldS (gzSt i) H2 = .ok (s2, H2) := Zlib.Gzlib.Proofs.ldS_run inv2.common.record

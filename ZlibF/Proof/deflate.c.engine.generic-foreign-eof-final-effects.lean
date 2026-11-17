@@ -77,7 +77,7 @@ theorem default_foreign_slow_eof_finish_run_adler {h after : Heap} {r : ZStreamR
     (pointer : z.next_out=.ref (.dstate_depth owner) oo) (cursor : d.pending_out=d.pending_buf)
     (memory : d.lit_bufsize.toNat=16384) (pending : d.pending=0) (wrap : d.wrap=1)
     (run : slowEofTail (some (.tab ds)) Z_FINISH h=.ok (ret,after)) (live : r.get after=some returned)
-    (account : StreamAccounting z returned 0 produced) : returned.adler=z.adler := by
+    (_account : StreamAccounting z returned 0 produced) : returned.adler=z.adler := by
   obtain ⟨_amount,_otherRet,other,otherZ,_otherD,actual,goodA,_accountA,_inputA,_outputA,checksumA⟩ :=
     default_foreign_slow_eof_finish_effect_execution boundary frontier buffers empty positive pointer cursor memory pending wrap
   have same:=actual_run_stream_unique actual run goodA.live.hz live

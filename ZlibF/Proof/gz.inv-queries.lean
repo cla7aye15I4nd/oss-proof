@@ -2,7 +2,8 @@ import ZlibF.Proof.«gz.inv-put-scalars»
 import ZlibF.Proof.«public-gzeof»
 import ZlibF.Proof.«public-gzbuffer»
 import ZlibF.Proof.«gzlib.c.simple»
-import ZlibF.Proof.«gzclose.c»
+import ZlibF.Proof.«gzlib.c.seek»
+import ZlibF.Zlib.«gzclose.c»
 
 /-!
 # gz safety: the queries that change nothing, `gzbuffer`, and the `gzclose` dispatch, on `GzInv`
@@ -147,7 +148,7 @@ theorem gzbuffer_step (i : Nat) (size : UInt32) : GzCallSafe i (.gzbuffer (some 
   by_cases hc : (s.mode ≠ GZ_READ ∧ s.mode ≠ GZ_WRITE) ∨ s.size ≠ 0 ∨ 2 ^ 31 ≤ size.toNat
   · have hr : Zlib.Gzlib.gzbuffer (some (.in_gzstate_x i)) size h = .ok (-1, h) := by
       have := hrec
-      rw [if_pos hc] at this
+      rw [ite_eq_left hc] at this
       exact this
     have e : Call.execute (.gzbuffer (some (.in_gzstate_x i)) size) fs h = .ok (((-1 : Int32), fs), h) := by
       show heapCall _ fs h = _
@@ -158,7 +159,7 @@ theorem gzbuffer_step (i : Nat) (size : UInt32) : GzCallSafe i (.gzbuffer (some 
     let s' : GzState := { s with want := UInt32.ofNat (max size.toNat 8) }
     have hr : Zlib.Gzlib.gzbuffer (some (.in_gzstate_x i)) size h = .ok (0, putGz h i s') := by
       have := hrec
-      rw [if_neg hc] at this
+      rw [ite_eq_right hc] at this
       exact this
     have e : Call.execute (.gzbuffer (some (.in_gzstate_x i)) size) fs h = .ok (((0 : Int32), fs), putGz h i s') := by
       show heapCall _ fs h = _

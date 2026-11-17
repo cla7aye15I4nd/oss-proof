@@ -182,7 +182,7 @@ theorem distSym_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
         lenCopy_p c pr I2 hw hs2 mode len1 (by omega) (B := B) (by omega)
       refine ⟨res6, l6, h6, ?_, T6⟩
       rw [pre2]
-      simp only [hex', Bool.false_eq_true, ↓reduceIte, runX_bind, runX_pure]
+      simp only [hex', Bool.false_eq_true, ↓reduceIte]
       exact run6
 
 /-- **The distance lookup and the rest of `case LEN` on the invariant.** -/
@@ -388,7 +388,7 @@ theorem lenSym_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
           refine ⟨res7, l7, h7, ?_, T7⟩
           unfold lenSym
           simp only [runX_bind, runX_get, hd1, runX_lift_ok wr2, lit', eob', bad', Bool.false_eq_true,
-            ↓reduceIte, runX_lift_ok wr3, hex', runX_pure]
+            ↓reduceIte, runX_lift_ok wr3, hex']
           exact run7
 
 set_option maxRecDepth 100000 in

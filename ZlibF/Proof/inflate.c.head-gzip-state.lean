@@ -90,7 +90,7 @@ theorem headGzipState_width {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
 /-- After the gzip magic bytes: the representation and the default relation
 hold on the heap with the two `hbuf` bytes and the new state. -/
 theorem headGzip_default_state {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
-    (invariant : DefaultStateJ h r zs z s) (mode : s.mode = HEAD) (gzip : GzipAllowed s.wrap)
+    (invariant : DefaultStateJ h r zs z s) (_mode : s.mode = HEAD) (gzip : GzipAllowed s.wrap)
     {b : Nat} {a : Array UInt8} (bytes : h.bytes b = some a) (writable : h.ro b = false) (word : UInt64) :
     let after := setI (Space.put h (BRef.blk b) (crc2Bytes a word)) zs (headGzipState s word)
     DefaultStateJ after r zs z (headGzipState s word) ∧ ByteViewSizes h after ∧
@@ -149,7 +149,7 @@ theorem headGzip_default_state {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStre
     by_cases zero : s.wbits = 0
     · exact Or.inr zero
     · left
-      simp only [state, headGzipState, zero, ↓reduceIte]
+      simp only [headGzipState, zero, ↓reduceIte]
   · refine Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨rfl, gzip, ?_⟩))))
     intro zero
     have low := width.1
@@ -195,7 +195,7 @@ theorem inflate_dispatch_HEAD_gzip_state_rank {c : Ctx} {h : Heap} {r : ZStreamR
     {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
     (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
     (buffers : DispatchBuffers h r l bs) (mode : s.mode = HEAD) (gzip : GzipAllowed s.wrap)
-    (local_ : GzipDispatchLocal c h r s l) (incoming : l.bits.toNat ≤ 39) :
+    (local_ : GzipDispatchLocal c h r s l) (_incoming : l.bits.toNat ≤ 39) :
     ∃ outcome regs after stream state used, used ≤ bs.length ∧
       runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) ∧
       DefaultStateJ after r zs stream state ∧

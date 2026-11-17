@@ -4,8 +4,5 @@ defaultTargets = ["ZlibF"]
 
 [[lean_lib]]
 name = "ZlibF"
-
-[[lean_exe]]
-name = "zlibf-audit"
-root = "tests.audit.Audit"
-supportInterpreter = true
+# ZlibF.Results is the registry of results; it imports the whole library and checks it.
+roots = ["ZlibF", "ZlibF.Results"]

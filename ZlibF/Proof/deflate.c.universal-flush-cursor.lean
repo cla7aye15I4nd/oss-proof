@@ -220,11 +220,11 @@ theorem flush_pending_cursor {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStr
     by_cases zero : (d.pending - n.toUInt64 == 0) = true
     · have e : d.pending - n.toUInt64 = 0 := beq_iff_eq.mp zero
       rw [e]
-      rw [zero, if_pos rfl, pbuf] at ptr
+      rw [zero, ite_eq_left rfl, pbuf] at ptr
       simp only [Ptr.ref.injEq, BRef.blk.injEq] at ptr
       rw [← ptr.2, UInt64.toNat_zero]
       omega
-    · rw [if_neg zero] at ptr
+    · rw [ite_eq_right zero] at ptr
       simp only [Ptr.ref.injEq, BRef.blk.injEq] at ptr
       omega
   have dinv := DInv.lift inv goodA alloc static shape' fields win prv hd bytes below

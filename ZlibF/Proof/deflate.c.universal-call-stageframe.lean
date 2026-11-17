@@ -123,7 +123,7 @@ theorem StageFrame.bytes {h : Heap} {r : ZStreamRef} {ds pb : Nat} {d : DeflateS
   intro x _ out
   have notDs : x ≠ ds := fun e => out (Or.inr (Or.inl e))
   have notPb : x ≠ pb := fun e => out (Or.inr (Or.inr e))
-  simp [Zlib.Deflate.Proofs.DefaultInit.SlotSame, setD, Zlib.Trees.Proofs.Out.setB, upd_ne _ _ _ _ notDs,
+  simp [setD, Zlib.Trees.Proofs.Out.setB, upd_ne _ _ _ _ notDs,
     upd_ne _ _ _ _ notPb]
 
 /-- Writing the stream record, with the same counts and totals, is a stage. -/

@@ -16,7 +16,7 @@ theorem StableX.pure {α : Type} (a : α) : StableX (pure a) := by
 theorem StableX.bind {α β : Type} {m : X α} {f : α → X β}
     (hm : StableX m) (hf : ∀ a, StableX (f a)) : StableX (m >>= f) := by
   intro l
-  simp only [ExceptT.run, ExceptT.bind, StateT.run, StateT.bind]
+  simp only [ExceptT.run, StateT.run]
   apply StableM.bind (hm l)
   rintro ⟨v, l'⟩
   cases v with
@@ -26,8 +26,8 @@ theorem StableX.bind {α β : Type} {m : X α} {f : α → X β}
 theorem StableX.lift {α : Type} {m : M α} (hm : StableM m) :
     StableX (monadLift m : X α) := by
   intro l
-  simp only [monadLift, MonadLift.monadLift, ExceptT.lift, StateT.lift,
-    StateT.run, ExceptT.run, ExceptT.mk, liftM, StateT.map]
+  simp only [monadLift, MonadLift.monadLift, ExceptT.lift,
+    StateT.run, ExceptT.run, ExceptT.mk]
   exact StableM.bind (StableM.bind hm (fun _ => StableM.pure _))
     (fun _ => StableM.pure _)
 

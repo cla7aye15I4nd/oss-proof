@@ -58,17 +58,17 @@ theorem copyRange_extract (da wa : Array UInt8) (off src n : Nat)
   have hs1 : min off da.size = off := Nat.min_eq_left (by omega)
   have hs2 : min (src+n) wa.size = src+n := Nat.min_eq_left hs
   by_cases h0 : i < off
-  · simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs1, hs2, h0, show ¬ off ≤ i by omega, show i < da.size by omega]
+  · simp [Array.getElem?_append, Array.size_extract, hs1, h0, show ¬ off ≤ i by omega, show i < da.size by omega]
   · by_cases h1 : i < off + n
     · have hsrc : src + (i - off) < wa.size := by omega
-      simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs1, hs2, h0, h1,
+      simp [Array.getElem?_append, Array.size_extract, hs1, hs2, h0, h1,
         show off ≤ i by omega, show i - off < n by omega, getElem!_pos wa (src + (i - off)) hsrc]
     · have hshift : off + n + (i - off - n) = i := by omega
       by_cases h2 : i < da.size
-      · simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs1, hs2, h0, h1, h2,
+      · simp [Array.getElem?_append, Array.size_extract, hs1, hs2, h0, h1, h2,
           show ¬ i - off < n by omega, show i - off - n < da.size - (off+n) by omega, hshift]
       · have hout : da[i]? = none := Array.getElem?_eq_none (by omega)
-        simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs1, hs2, h0, h1, h2,
-          show ¬ i - off < n by omega, show ¬ i - off - n < da.size - (off+n) by omega, hout]
+        simp [Array.getElem?_append, Array.size_extract, hs1, hs2, h0, h1, h2,
+          show ¬ i - off < n by omega, show ¬ i - off - n < da.size - (off+n) by omega]
 
 end Zlib.Deflate.Proofs

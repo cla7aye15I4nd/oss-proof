@@ -107,9 +107,6 @@ MATH_PROOF_IMPORTS = {
         'ZlibF.Proof.«inffast.c.match»',
         'ZlibF.Proof.«deflate.c.base»',
     ),
-    'ZlibF.Math.InflateHeldBits': (
-        'ZlibF.Proof.«inffast.c.sig»',
-    ),
     'ZlibF.Math.InflatePrefixes': (
         'ZlibF.Proof.Format.Wrapper',
         'ZlibF.Proof.«inffast.c.sig»',
@@ -123,9 +120,6 @@ MATH_PROOF_IMPORTS = {
     ),
     'ZlibF.Math.code-length-prefix': (
         'ZlibF.Proof.«inftrees.c.decode.semantics»',
-    ),
-    'ZlibF.Math.inflate-dictionary-window-token': (
-        'ZlibF.Proof.Format.Huffman',
     ),
     'ZlibF.Math.inflate-header-alphabet': (
         'ZlibF.Proof.«inflate.c.main.table6»',

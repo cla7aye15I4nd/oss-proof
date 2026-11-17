@@ -59,7 +59,7 @@ theorem fast_loop_wp_progress (hc : CtxOK e c) (l : L) (i o : Nat) (A : Array UI
     cases hstop : l1.broke with
     | true =>
       refine Or.inl ⟨l1, h1, ?_, i', o', A', msg', m', hl', hoend, hAsz, hh, hft, ?_, ?_, ?_, ?_⟩
-      · simp [hstop]
+      · simp
       · rcases hbreak hstop with hm | hm
         · exact Or.inr (Or.inl ⟨hm, htype' hm⟩)
         · exact Or.inr (Or.inr hm)

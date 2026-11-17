@@ -60,7 +60,7 @@ macro "record_frame_mode " r:term:max "," owner:term:max "," root:term:max : tac
     | rfl
     | split)
 
-theorem recordFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem recordFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     RecordFrameX r context.st (inflate_DONE context) := by
   unfold inflate_DONE
   try rw [root]

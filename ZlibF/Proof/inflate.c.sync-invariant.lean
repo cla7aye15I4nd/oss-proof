@@ -191,9 +191,9 @@ theorem InflateInv.sync_done {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream
   have width : 8 ≤ (syncOkState zs s).wbits.toNat ∧ (syncOkState zs s).wbits.toNat ≤ 15 := by
     rw [wbits]
     by_cases zero : s.reqbits = 0
-    · rw [if_pos zero]
+    · rw [ite_eq_left zero]
       decide
-    · rw [if_neg zero]
+    · rw [ite_eq_right zero]
       rcases current.config.reqbits with same | ⟨unset, _⟩
       · rw [same]
         rcases current.config.window with range | ⟨wzero, _⟩
@@ -219,9 +219,9 @@ theorem InflateInv.sync_done {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream
       · exact clearValidate_value current.config.reqwrap
     · rw [reqbits, wbits]
       by_cases zero : s.reqbits = 0
-      · rw [if_pos zero]
+      · rw [ite_eq_left zero]
         exact Or.inr ⟨zero, by decide, by decide⟩
-      · rw [if_neg zero]
+      · rw [ite_eq_right zero]
         exact Or.inl rfl
     · intro attached
       exact absurd head attached
@@ -238,11 +238,11 @@ theorem InflateInv.sync_done {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream
       fun _ high => absurd high (by rw [mode]; decide), fun _ high => absurd high (by rw [mode]; decide)⟩
     · by_cases unread : s.flags = -1
       · refine Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ?_))))
-        rw [wrap, if_pos unread]
+        rw [wrap, ite_eq_left unread]
       · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl (by rw [flags]; exact unread))))))
     · intro read zlib
       rw [flags] at read zlib
-      rw [wrap, if_neg read]
+      rw [wrap, ite_eq_right read]
       have gzip := current.phase.gzipFlags read zlib
       rcases current.config.pair with zero | same
       · rw [zero] at gzip
@@ -316,7 +316,7 @@ theorem syncTail_invariant_of_run {h after : Heap} {r : ZStreamRef} {zs block : 
     have same := syncsearch_heap_unchanged searchRun
     subst middle
     rw [searchRun] at actual
-    simp only [bind_app, wrI_eq, current.good.live.hs] at actual
+    simp only [wrI_eq, current.good.live.hs] at actual
     cases addRun : Ptr.add z.next_in (used.toNat : Int) (setI h zs { s with «have» := found }) with
     | error fault => rw [addRun] at actual; cases actual
     | ok pair =>
@@ -324,8 +324,8 @@ theorem syncTail_invariant_of_run {h after : Heap} {r : ZStreamRef} {zs block : 
       have same := sync_pointer_add_heap addRun
       subst middle
       rw [addRun] at actual
-      simp only [bind_app, wrZ_eq, ZStreamRef.get_setI, current.good.live.hz,
-        rdI_eq, ZStreamRef.put_istates, setI_istates_same, ZStreamRef.put_setI] at actual
+      simp only [wrZ_eq, ZStreamRef.get_setI, current.good.live.hz,
+        setI_istates_same, ZStreamRef.put_setI] at actual
       let stream := { z with avail_in := z.avail_in - used, next_in := next, total_in := z.total_in + used.toUInt64 }
       let state := syncHave s found
       let heap := setI (r.put h stream) zs state
@@ -415,7 +415,7 @@ theorem inflateSync_preserves (r : ZStreamRef) : InflatePreserves r (.inflateSyn
       ldZ_eq, initial.good.live.hz, initial.good.live.zst, castI, ldI_eq, initial.good.live.hs,
       Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq, empty] at run
     by_cases resumed : s.mode = SYNC
-    · simp only [bne_iff_ne, resumed, not_true_eq_false, ↓reduceIte, pure_app] at run
+    · simp only [bne_iff_ne, resumed, pure_app] at run
       obtain ⟨a, b, c, d⟩ := syncTail_cleanup_invariant_of_run initial resumed get size write run
       exact ⟨a, b, c, fun _ => d⟩
     · have separate := win_ne_buf current.good.fresh current.good.inv.win
@@ -423,7 +423,7 @@ theorem inflateSync_preserves (r : ZStreamRef) : InflatePreserves r (.inflateSyn
       have firstState := initial.sync_first get separate
       change syncFirst (some (.tab zs)) (syncBuf h) s (syncAlloc h) = _ at first
       simp only [bne_iff_ne] at run
-      rw [if_pos resumed] at run
+      rw [ite_eq_left resumed] at run
       simp only [bind_app, first] at run
       have currentGet : (syncFirstHeap (syncAlloc h) zs h.nextBlk s (syncJunk h)).bytes h.nextBlk =
           some (fillBuf (syncJunk h) (syncHold0 s) (syncNB s)) := by

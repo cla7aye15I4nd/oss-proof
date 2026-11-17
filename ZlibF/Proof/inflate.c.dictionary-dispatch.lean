@@ -66,7 +66,7 @@ theorem inflate_DICT_wait_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : N
   exact ⟨inflate_DICT_wait_run E l missing, nextGood,
     dataTableInvariant_inactive (by change ¬ DataTableMode s.mode; rw [mode]; unfold DataTableMode; decide),
     nextPending, buffers.byte_views good nextGood rfl views readonly,
-    by intro ref; rw [views], by simp only [after, setI, ZStreamRef.put_static], buffers.bits.hold_lt, rfl, rfl⟩
+    by intro ref; rw [views], by simp only [setI, ZStreamRef.put_static], buffers.bits.hold_lt, rfl, rfl⟩
 
 /-- Once a dictionary exists, the source initializes the checksum and
 continues through the actual TYPE mode. The continuation is the already

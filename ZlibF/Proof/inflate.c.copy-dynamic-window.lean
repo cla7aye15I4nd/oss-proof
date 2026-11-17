@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.copy-fixed-exec»
-import ZlibF.Proof.«inflate.c.copy-window-success»
+import ZlibF.Proof.«inflate.c.copy-window-prefix»
 import ZlibF.Proof.«inflate.c.copy-window-heap-def»
 
 namespace Zlib.Inflate.Proofs

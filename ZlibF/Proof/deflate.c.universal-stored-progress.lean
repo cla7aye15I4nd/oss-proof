@@ -116,7 +116,7 @@ theorem stored_refill_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStre
           have : wa' = wa := Option.some.inj (g'.symm.trans getW)
           subst this
           refine ⟨wa1, upd_same _ _ _, fun i lt => ?_⟩
-          rw [hwa1, bfn_copyRange _ _ _ _ _ _ (by omega), if_pos (by omega)]
+          rw [hwa1, bfn_copyRange _ _ _ _ _ _ (by omega), ite_eq_left (by omega)]
           congr 1; omega)
     have have1N : ((d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size).toNat =
         d.window_size.toNat - d.strstart.toNat + d.w_size.toNat := by
@@ -142,12 +142,12 @@ theorem stored_refill_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStre
     by_cases c2 : (d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size > z.avail_in
     · have c2N := UInt32.lt_iff_toNat_lt.mp c2
       rw [have1N] at c2N
-      simp only [c2, decide_true, ite_true]
+      simp only [c2, ite_true]
       exact finishA _ (Nat.le_refl _) (by omega) (by omega)
     · have c2N : ¬ z.avail_in.toNat < ((d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size).toNat :=
         fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
       rw [have1N] at c2N
-      simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      simp only [c2, ite_false]
       exact finishA _ (by rw [have1N]; omega) (by rw [have1N]; exact Nat.le_refl _) (by rw [have1N]; omega)
   · simp only [Bool.not_eq_true] at cond
     have farN : z.avail_in.toNat ≠ 0 → d.window_size.toNat - d.strstart.toNat = 0 →
@@ -195,7 +195,7 @@ theorem stored_refill_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStre
     by_cases c2 : (d.window_size - d.strstart.toUInt64).toUInt32 > z.avail_in
     · have c2N := UInt32.lt_iff_toNat_lt.mp c2
       rw [have0N] at c2N
-      simp only [c2, decide_true, ite_true]
+      simp only [c2, ite_true]
       refine finishB _ (Nat.le_refl _) (by omega) ?_
       by_cases a0 : z.avail_in = 0
       · exact Or.inr (Or.inl a0)
@@ -203,7 +203,7 @@ theorem stored_refill_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStre
     · have c2N : ¬ z.avail_in.toNat < ((d.window_size - d.strstart.toUInt64).toUInt32).toNat :=
         fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
       rw [have0N] at c2N
-      simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      simp only [c2, ite_false]
       refine finishB _ (by rw [have0N]; omega) (by rw [have0N]; exact Nat.le_refl _) ?_
       rw [have0N]
       by_cases full : d.window_size.toNat - d.strstart.toNat = 0
@@ -419,7 +419,7 @@ theorem stored_final_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStrea
   · simp only [Bool.not_eq_true] at l0
     refine ⟨need_more, after, z', ?_, hzA, moved⟩
     simp only [c, ite_true, bind_app, add, blk, lad, wrt, fl]
-    simp only [l0, Bool.false_eq_true, ite_false, bind_app, pure_app]
+    simp only [l0, Bool.false_eq_true, ite_false, pure_app]
 
 
 set_option maxHeartbeats 8000000 in

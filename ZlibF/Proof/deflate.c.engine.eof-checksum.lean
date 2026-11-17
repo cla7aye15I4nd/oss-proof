@@ -18,7 +18,7 @@ theorem finish_tail_run_adler {h after : Heap} {r : ZStreamRef} {ds ob oo origin
     (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (bits : d.bi_valid.toInt ≤ 7)
     (clear : BlockInit.BlockClear d) (available : d.match_available = 0) (wrap : d.wrap = 1)
     (run : finish_tail (some (.tab ds)) Z_FINISH h = .ok (ret, after))
-    (live : r.get after = some returned) (account : StreamAccounting z returned 0 produced) :
+    (live : r.get after = some returned) (_account : StreamAccounting z returned 0 produced) :
     returned.adler = z.adler := by
   obtain ⟨amount, other, otherZ, otherD, controlRun, boundaryA, _buffersA, accountA, _clearA, frameA, _lowA, _phaseA⟩ :=
     flush_final_loop_boundary boundary buffers positive pointer cursor memory pending bits clear available wrap
@@ -94,7 +94,7 @@ theorem slow_eof_finish_run_adler {h after : Heap} {r : ZStreamRef} {ds ob oo or
     (pointer : z.next_out = .ref (.blk ob) oo) (cursor : d.pending_out = d.pending_buf)
     (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (wrap : d.wrap = 1)
     (run : slowEofTail (some (.tab ds)) Z_FINISH h = .ok (ret, after))
-    (live : r.get after = some returned) (account : StreamAccounting z returned 0 produced) :
+    (live : r.get after = some returned) (_account : StreamAccounting z returned 0 produced) :
     returned.adler = z.adler := by
   obtain ⟨_produced, _ret, other, otherZ, _otherD, otherRun, goodA, _accountA, value⟩ :=
     slow_eof_finish_adler_execution boundary frontier buffers empty positive pointer cursor memory pending wrap

@@ -97,7 +97,7 @@ theorem foreign_pending_copy_sizes {h : Heap} {r : ZStreamRef} {ds pb po owner o
 
 theorem foreign_pending_copy_bits {h : Heap} {r : ZStreamRef} {ds pb owner oo : Nat}
     {z : ZStream} {d : DeflateState} {buf : Array UInt8} {foreign : DeflateState}
-    (trees : TreesInvAt h ds d pb buf) (cursor : d.pending_out = d.pending_buf)
+    (trees : TreesInvAt h ds d pb buf) (_cursor : d.pending_out = d.pending_buf)
     (pointer : z.next_out = .ref (.dstate_depth owner) oo) (different : owner ≠ ds)
     (outBound : oo + z.avail_out.toNat ≤ foreign.depth.size) :
     let n := pendingLen d.pending z.avail_out
@@ -139,7 +139,7 @@ theorem foreign_pending_copy_bits {h : Heap} {r : ZStreamRef} {ds pb owner oo : 
     · rename_i empty
       have zero : result.pending.toNat = 0 := by
         have value : d.pending - n.toUInt64 = 0 := beq_iff_eq.mp empty
-        simpa only [result, pendingState, value, UInt64.toNat_zero]
+        simp only [result, pendingState, value, UInt64.toNat_zero]
       simp only [zero, List.take_zero]
     · rfl
   have splitBytes : buf.toList.take d.pending.toNat = buf.toList.take n.toNat ++ remainingBytes := by

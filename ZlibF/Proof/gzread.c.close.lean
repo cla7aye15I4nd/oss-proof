@@ -71,8 +71,8 @@ theorem gzclose_r_unbuffered {h : Heap} {i : Nat} {s : GzState}
   simp only [hnd_isNone, Bool.false_eq_true, ↓reduceIte, castState_hnd]
   simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, G_bind_app, G_lift_app,
     ldS_run hg.hs, hm', hz', Bool.false_eq_true, ↓reduceIte, he, ldS_run hg'.hs, hf]
-  simp [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, G_bind_app, G_lift_app,
-    G_pure_app, fsClose_run, freeGzState, freeStr_setS, freeStr_gzstates, closedHeap, upd_upd, errNull]
+  simp [
+    G_pure_app, fsClose_run, freeGzState, freeStr_setS, closedHeap, errNull]
   simp [setS, upd_upd, freeStr_gzstates]
 
 /-- `int gzclose_r(gzFile file)` preserves unrelated allocations and does not allocate

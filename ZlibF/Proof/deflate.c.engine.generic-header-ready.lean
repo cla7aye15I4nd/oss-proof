@@ -13,7 +13,7 @@ view. No raw-output assumption enters before pending publication. -/
 theorem generic_zlib_header_ready_engine {h : Heap} {r : ZStreamRef} {ds pb : Nat}
     {z : ZStream} {d : DeflateState} {buf : Array UInt8}
     (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r)
-    (pending : d.pending = 0) (cursor : d.pending_out = d.pending_buf) :
+    (_pending : d.pending = 0) (cursor : d.pending_out = d.pending_buf) :
     let next := levelHeaderBytes d.level buf
     let result := levelHeaderState d
     let stream := {z with adler := 1}
@@ -35,8 +35,8 @@ theorem generic_zlib_header_ready_engine {h : Heap} {r : ZStreamRef} {ds pb : Na
   have fields : BitsDiff d emitted := ⟨2, d.bi_buf, d.bi_valid, d.bi_used, rfl⟩
   obtain ⟨goodA, buffersA⟩ := common_header_ready_good_buffers good trees buffers cursor
   have treesA : TreesInvAt after ds result pb next := by
-    refine ⟨⟨by simp [after, levelHeaderReady, result, next], trees.base.wf, (by simpa [after, levelHeaderReady] using trees.base.static), trees.base.pbuf,
-      by simp [after, levelHeaderReady, result, next], (by simpa [after, levelHeaderReady] using trees.base.rw), size.trans trees.base.size,
+    refine ⟨⟨by simp [after, levelHeaderReady, result], trees.base.wf, (by simpa [after, levelHeaderReady] using trees.base.static), trees.base.pbuf,
+      by simp [after, levelHeaderReady, next], (by simpa [after, levelHeaderReady] using trees.base.rw), size.trans trees.base.size,
       trees.base.psize.trans size.symm, trees.base.sym, trees.base.lit_lo,
       trees.base.lit_hi, trees.base.sym_end, ?_⟩,
       ⟨trees.run.ldyn, trees.run.lstat, trees.run.ddyn, trees.run.dstat,
@@ -75,7 +75,7 @@ theorem generic_zlib_header_ready_engine {h : Heap} {r : ZStreamRef} {ds pb : Na
   · intro i hi hj
     have range : i < 2 := by simpa [levelHeaderPrefix] using hj
     have cases : i = 0 ∨ i = 1 := by omega
-    rcases cases with rfl | rfl <;> simp [next, levelHeaderBytes, levelHeaderPrefix, room, Array.set!_eq_setIfInBounds]
+    rcases cases with rfl | rfl <;> simp [levelHeaderBytes, levelHeaderPrefix, Array.set!_eq_setIfInBounds]
 
 end Zlib.Deflate.Engine.Proofs
 #print axioms Zlib.Deflate.Engine.Proofs.generic_zlib_header_ready_engine

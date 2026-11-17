@@ -218,7 +218,7 @@ theorem FastInputPacket.dolenLen_default_state
     have run : C.run (Zlib.Inffast.Proofs.dolenLen c l) h =
         .ok (result, after) := by
       unfold Zlib.Inffast.Proofs.dolenLen
-      simp only [hasExtra, ite_false]
+      simp only [hasExtra]
       exact refillRun
     refine ⟨0, used, consumed, slowNext, result, after,
       by rw [opZero]; decide, by omega, by omega,

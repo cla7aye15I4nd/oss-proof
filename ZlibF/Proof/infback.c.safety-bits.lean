@@ -55,7 +55,7 @@ of `bp` bits `hp` needs more than `bp` bits, every query that extends those bits
 `B` bits held consumes more than `bp`. -/
 theorem consumed_gt {type : UInt32} {ca : Array Code} {off R : Nat}
     (stable : StableQuery type ca off R) (pfx : PrefixQuery type ca off R)
-    {bp hp B H : Nat} (bpB : bp ≤ B) (keep : H % 2 ^ bp = hp % 2 ^ bp)
+    {bp hp B H : Nat} (_bpB : bp ≤ B) (keep : H % 2 ^ bp = hp % 2 ^ bp)
     (needs : ∀ e c, tableRead type ca off R (Zlib.Inftrees.Spec.DecodeShort.padded (natBits bp hp)) =
       some (e, c) → bp < c)
     {e : Code} {c : Nat}

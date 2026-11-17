@@ -69,8 +69,8 @@ theorem FastInputPacket.copy3_default_loop_step
         else Zlib.Inffast.Proofs.blitN saved 3 sourceOff j output)
         else saved) := by
     by_cases same : source = dest
-    · simpa only [if_pos same] using sourceAfter
-    · simpa only [if_neg same] using sourceAfter
+    · simpa only [ite_eq_left same] using sourceAfter
+    · simpa only [ite_eq_right same] using sourceAfter
   exact ⟨result, after, run, packetAfter, invariantAfter,
     buffersAfter, sizes, heapEq, outputAfter, writable,
     sourceView, resultEq, frame⟩

@@ -58,9 +58,9 @@ theorem double_overflow_iff (size : UInt32) : (size <<< 1) < size ↔ 2 ^ 31 ≤
   simp only [UInt32.toNat_ofNat, Nat.reducePow] at *
   rcases Nat.lt_or_ge size.toNat (2 ^ 31) with h1 | h1
   · have : (1 : UInt32).toNat % 32 = 1 := rfl
-    simp [this]; omega
+    simp; omega
   · have : (1 : UInt32).toNat % 32 = 1 := rfl
-    simp [this]; omega
+    simp; omega
 
 /-- **gzbuffer.** `-1` and no change when buffers exist (`size ≠ 0`) or `size` cannot be doubled; otherwise `want` becomes
 `max(size, 8)` and the result is 0. -/

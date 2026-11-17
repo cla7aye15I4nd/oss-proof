@@ -113,7 +113,7 @@ theorem extra_body {H : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : 
     simp only [wrD_eq, show (Zlib.Trees.Proofs.Out.setB H pb (copyRange buf ea d.pending.toNat
       (eo + d.gzindex.toNat) (d.pending_buf_size - d.pending).toNat)).dstates ds = some d from good.live.hs]
     rw [run2]
-    simp only [wrD_eq, good2.live.hs]
+    simp only [good2.live.hs]
     rw [run4]
   have stageT : StageFrame H H4 r ds pb d z z4 produced := by
     have s03 : StageFrame H H3 r ds pb d z z2 0 :=
@@ -408,7 +408,7 @@ theorem extra_stage {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d :
         simp only [wrD_eq, show (Zlib.Trees.Proofs.Out.setB H1 pb (copyRange buf1 ea1 d1.pending.toNat
           (eo + d1.gzindex.toNat) st1.left.toNat)).dstates ds = some d1 from good1.live.hs]
         rw [run3]
-        simp only [wrD_eq, good3.live.hs]
+        simp only [good3.live.hs]
         simp [setD_dstates_same]
       · change d2.pending.toNat ≤ buf.size; rw [count2]; omega
       · intro none

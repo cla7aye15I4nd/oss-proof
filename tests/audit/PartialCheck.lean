@@ -4,12 +4,11 @@ open Lean
 /-!
 # Fast-gate check: no forbidden declaration in the library
 
-The audit's rule 1 (`tests/audit/Audit.lean`), and the part of its rule 2 that needs no closure.
 Every declaration of a `ZlibF` module is rejected when the compiled environment says it is
 
 - unsafe or partial, except the reviewed compiler auxiliaries of `tests/audit/compiler-helpers.txt`.
   A recursive `def` whose compiled code needs an `_unsafe_rec` helper is caught here, on every
-  push, instead of in the nightly audit; marking the definition `noncomputable` removes the helper
+  push; marking the definition `noncomputable` removes the helper
   and leaves kernel reduction unchanged;
 - an axiom or an opaque constant;
 - marked `@[implemented_by]` or `@[extern]`;
@@ -18,16 +17,16 @@ Every declaration of a `ZlibF` module is rejected when the compiled environment 
   `Lean.ofReduceBool` in the declaration that holds it, and that declaration is in the library, so
   both are found here. The reviewed compiler auxiliaries are not exempt from the last three rules.
 
-Not checked here: an axiom reached only through a declaration of another package. The audit
-computes the full axiom closure of every definition and theorem; this check reads each declaration
-of the library once.
+Not checked here: an axiom reached only through a declaration of another package. The check of
+`ZlibF/Results.lean` computes the full axiom closure (`Lean.collectAxioms`) of every theorem that
+proves a goal; this check reads each declaration of the library once.
 
 Run after the library build: `lake env lean --run tests/audit/PartialCheck.lean`.
 -/
 
 def allowedAxioms : List Name := [``propext, ``Classical.choice, ``Quot.sound]
 
-/-- The constants a declaration names: the same edges as `axiomDependencies` in `Audit.lean`. -/
+/-- The constants a declaration names: the same edges as `Lean.CollectAxioms`. -/
 def usedConstants (ci : ConstantInfo) : Array Name :=
   match ci with
   | .axiomInfo v => v.type.getUsedConstants

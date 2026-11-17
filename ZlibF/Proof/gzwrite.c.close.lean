@@ -289,13 +289,13 @@ theorem closeTail_ok {H : Heap} {v : GzState} (inv : GzInv H i v) (hw : v.mode =
         by_cases hc : ((Zlib.Gzread.Proofs.closeResult v.fd fs).1 == -1) = true
         · refine ⟨Z_ERRNO, ?_⟩
           unfold closeTail
-          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
             hS, hz, Bool.false_eq_true, ↓reduceIte, e4, e5, e6, Zlib.Gzread.Proofs.fsClose_run]
           simp only [Zlib.Gzlib.Spec.errNull, hc, ↓reduceIte, cbind_app, clift_app, cpure_app, e7]
         · refine ⟨ret0, ?_⟩
           have hc' := Bool.eq_false_iff.mpr hc
           unfold closeTail
-          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
             hS, hz, Bool.false_eq_true, ↓reduceIte, e4, e5, e6, Zlib.Gzread.Proofs.fsClose_run]
           simp only [Zlib.Gzlib.Spec.errNull, hc', Bool.false_eq_true, ↓reduceIte, cbind_app, clift_app, cpure_app, e7]
     obtain ⟨r, run⟩ := run
@@ -357,10 +357,10 @@ theorem closeTail_ok {H : Heap} {v : GzState} (inv : GzInv H i v) (hw : v.mode =
         · rcases List.mem_cons.mp hp with e | hp
           · subst e; exact hpo b hb
           · rw [List.mem_singleton] at hp; subst hp; exact hmo b hb
-        · rw [if_pos hsz] at hp
+        · rw [ite_eq_left hsz] at hp
           rcases List.mem_cons.mp hp with e | hp
           · subst e; exact hio b hb
-          · rw [if_pos (Or.inr hd), List.mem_singleton] at hp; subst hp; exact hoo b hb
+          · rw [ite_eq_left (Or.inr hd), List.mem_singleton] at hp; subst hp; exact hoo b hb
       exact (frE.2.2.2.2.2 b (c.live b ho) (fun x => x.elim hbi hbs)).1
     have hob1 : H1'.bytes ob = some oa := by rw [keepB _ memO ob (by rw [hout']; rfl)]; exact hoa
     have hro1 : H1'.ro = H.ro := hroE
@@ -406,13 +406,13 @@ theorem closeTail_ok {H : Heap} {v : GzState} (inv : GzInv H i v) (hw : v.mode =
         by_cases hc : ((Zlib.Gzread.Proofs.closeResult v.fd fs).1 == -1) = true
         · refine ⟨Z_ERRNO, ?_⟩
           unfold closeTail
-          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
             hS, hz, hd', ↓reduceIte, e1, e2, e3, e4, e5, e6, Zlib.Gzread.Proofs.fsClose_run]
           simp only [Zlib.Gzlib.Spec.errNull, hc, ↓reduceIte, cbind_app, clift_app, cpure_app, e7]
         · refine ⟨ret0, ?_⟩
           have hc' := Bool.eq_false_iff.mpr hc
           unfold closeTail
-          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
             hS, hz, hd', ↓reduceIte, e1, e2, e3, e4, e5, e6, Zlib.Gzread.Proofs.fsClose_run]
           simp only [Zlib.Gzlib.Spec.errNull, hc', Bool.false_eq_true, ↓reduceIte, cbind_app, clift_app, cpure_app, e7]
     obtain ⟨r, run⟩ := run
@@ -469,13 +469,13 @@ theorem closeTail_ok {H : Heap} {v : GzState} (inv : GzInv H i v) (hw : v.mode =
         by_cases hc : ((Zlib.Gzread.Proofs.closeResult v.fd fs).1 == -1) = true
         · refine ⟨Z_ERRNO, ?_⟩
           unfold closeTail
-          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
             hS, hz, hd', Bool.false_eq_true, ↓reduceIte, e3, e4, e5, e6, Zlib.Gzread.Proofs.fsClose_run]
           simp only [Zlib.Gzlib.Spec.errNull, hc, ↓reduceIte, cbind_app, clift_app, cpure_app, e7]
         · refine ⟨ret0, ?_⟩
           have hc' := Bool.eq_false_iff.mpr hc
           unfold closeTail
-          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+          simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
             hS, hz, hd', Bool.false_eq_true, ↓reduceIte, e3, e4, e5, e6, Zlib.Gzread.Proofs.fsClose_run]
           simp only [Zlib.Gzlib.Spec.errNull, hc', Bool.false_eq_true, ↓reduceIte, cbind_app, clift_app, cpure_app, e7]
     obtain ⟨r, run⟩ := run
@@ -558,7 +558,7 @@ theorem gzclose_w_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) :
       obtain ⟨r, fs', after, run', rel⟩ := compClose_ok err errOwn E0 inv hm Z_OK
       refine ⟨r, fs', after, run _ _ _ ?_, Or.inr ⟨fun x => x hm, rel⟩⟩
       rw [gzclose_w_eq]
-      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
         hm', hkB, Bool.false_eq_true, ↓reduceIte]
       exact run'
     · have hkB : (s.skip != 0) = true := by simpa using hk
@@ -570,13 +570,13 @@ theorem gzclose_w_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) :
       · obtain ⟨r, fs', after, run', rel⟩ := compClose_ok err errOwn E2 inv2 (hm2.trans hm) Z_OK
         refine ⟨r, fs', after, run _ _ _ ?_, Or.inr ⟨fun x => x hm, rel⟩⟩
         rw [gzclose_w_eq]
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
           hm', hkB, Bool.false_eq_true, ↓reduceIte, run2, int32_zero_ne_neg_one]
         exact run'
       · obtain ⟨r, fs', after, run', rel⟩ := compClose_ok err errOwn E2 inv2 (hm2.trans hm) s2.err
         refine ⟨r, fs', after, run _ _ _ ?_, Or.inr ⟨fun x => x hm, rel⟩⟩
         rw [gzclose_w_eq]
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
           hm', hkB, Bool.false_eq_true, ↓reduceIte, run2, beq_self_eq_true, hS2]
         exact run'
   · have hm' : (s.mode != GZ_WRITE) = true := by simpa using hm

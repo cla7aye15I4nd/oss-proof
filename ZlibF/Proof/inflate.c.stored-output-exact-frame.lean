@@ -74,7 +74,7 @@ theorem inflate_COPY_frame_of_run {c : Ctx} {l regs : IL} {h after : Heap}
         { s with length := s.length - n }
       intro j outside
       rw [copyRange_getElem? output input oo io n.toNat outputFit inputFit j]
-      exact if_neg (by omega)
+      exact ite_eq_right (by omega)
 
 /-- Complete COPY returns with its exact output prefix frame and the same
 produced count as its actual caller cursors and remaining-output field. -/

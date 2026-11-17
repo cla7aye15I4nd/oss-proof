@@ -236,7 +236,7 @@ theorem zlib_head_width {s : InflateState} {l : IL} {configured : Nat} {cmf flg 
   · have w : (headDefaultState s l).wbits = (headWindowRegs l).len := by
       show headWidth s l = _
       unfold headWidth
-      rw [if_pos z0]
+      rw [ite_eq_left z0]
     refine ⟨by rw [w]; omega, by rw [w]; omega,
       fun _ => ⟨fun g => absurd g (zlib_head_not_gzip ok), fun _ => ?_⟩⟩
     show 2 ^ (headDefaultState s l).wbits.toNat = 2 ^ (cmf.toNat / 16 + 8)
@@ -244,7 +244,7 @@ theorem zlib_head_width {s : InflateState} {l : IL} {configured : Nat} {cmf flg 
   · have w : (headDefaultState s l).wbits = s.wbits := by
       show headWidth s l = _
       unfold headWidth
-      rw [if_neg z0]
+      rw [ite_eq_right z0]
     have range := window.resolve_right (fun e => z0 e.1)
     exact ⟨by rw [w]; exact range.1, by rw [w]; exact range.2, fun cz => absurd (width0 cz) z0⟩
 
@@ -261,7 +261,7 @@ theorem zlib_head_config {s : InflateState} {l l2 : IL} {wrap : Api.Wrap} {confi
       exact nz (w.symm.trans rfl)
     show (headWidth s l).toNat = configured
     unfold headWidth
-    rw [if_neg sNZ]
+    rw [ite_eq_right sNZ]
     exact w
   · show headDefaultMode l ≠ SYNC
     unfold headDefaultMode
@@ -421,9 +421,9 @@ theorem zlib_head_run_ok {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : Z
   simp only []
   rw [runX_bind, runX_ldS E]
   simp only [nogzip, bne_self_eq_false, Bool.false_and,
-    Bool.false_eq_true, ↓reduceIte, head, beq_self_eq_true, Bool.not_true]
+    Bool.false_eq_true, ↓reduceIte, head]
   unfold headDefaultCheck
-  simp only [Bool.false_eq_true, ↓reduceIte]
+  simp only
 
 /-- With the zlib wrapper, `case HEAD:` leaves when `NEEDBITS(16)` runs out of input. -/
 theorem zlib_head_run_leave {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
@@ -521,7 +521,7 @@ theorem zlib_head_accepted {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZS
     rw [List.append_nil, input]
   have modeEq := zlib_head_mode (l := l) wire
   by_cases plain : flg.toNat / 32 % 2 = 0
-  · have modeT : headDefaultMode l = TYPE := by rw [modeEq, if_pos plain]
+  · have modeT : headDefaultMode l = TYPE := by rw [modeEq, ite_eq_left plain]
     refine ⟨zs, headDefaultState s l, [], bytesToBits [cmf, flg], [],
       .body [cmf, flg] ⟨[], false, .boundary⟩, E.st, setI_istates_same _ _ _, retOk,
       zlib_head_config config, haveLe, inLen, ⟨binv2.have_eq, binv2.next, by simp⟩, leftLe,
@@ -544,9 +544,9 @@ theorem zlib_head_accepted {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZS
     · show FlagsMatch _ f.wrap _
       rw [zlib]
       unfold FlagsMatch
-      rw [if_neg (show ¬ (Api.Wrap.zlib = Api.Wrap.raw) by decide), if_neg notGzip] <;> rfl
+      rw [ite_eq_right (show ¬ (Api.Wrap.zlib = Api.Wrap.raw) by decide), ite_eq_right notGzip] <;> rfl
   · have fdict : flg.toNat / 32 % 2 = 1 := by omega
-    have modeD : headDefaultMode l = DICTID := by rw [modeEq, if_neg plain]
+    have modeD : headDefaultMode l = DICTID := by rw [modeEq, ite_eq_right plain]
     refine ⟨zs, headDefaultState s l, [], bytesToBits [cmf, flg], [], .header [cmf, flg], E.st,
       setI_istates_same _ _ _, retOk, zlib_head_config config, haveLe, inLen,
       ⟨binv2.have_eq, binv2.next, by simp⟩, leftLe,

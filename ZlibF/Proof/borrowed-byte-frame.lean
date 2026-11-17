@@ -29,7 +29,7 @@ theorem get_put_other (h : Heap) {dest source : BRef}
   | str i => exact str_view_stable (Or.inr (put_borrow h dest a))
   | _ =>
     cases dest <;> simp_all [Space.get, Space.put, upd_ne]
-    all_goals split <;> simp_all [Space.get, Space.put, upd_ne]
+    all_goals split <;> simp_all [upd_ne]
 
 /-- Restoring output arrays for the allocation-frame check retains the
 actual returned heap's external-borrow observation. -/

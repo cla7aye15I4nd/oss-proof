@@ -220,17 +220,17 @@ theorem GzInv.headerMemory (inv : GzInv e l h z s used) (valid : e.Valid) :
       · intro nonnull
         have same : g.extra = g0.extra := xp.resolve_right nonnull
         have range := extra0 (by rw [← same]; exact nonnull)
-        simp only [if_true] at range ⊢
+        simp only [ite_true] at range ⊢
         rw [same, xm]; exact capacity range
       · intro nonnull
         have same : g.name = g0.name := np.resolve_right nonnull
         have range := name0 (by rw [← same]; exact nonnull)
-        simp only [if_true] at range ⊢
+        simp only [ite_true] at range ⊢
         rw [same, nm]; exact capacity range
       · intro nonnull
         have same : g.comment = g0.comment := cp.resolve_right nonnull
         have range := comment0 (by rw [← same]; exact nonnull)
-        simp only [if_true] at range ⊢
+        simp only [ite_true] at range ⊢
         rw [same, cm]; exact capacity range
 
 end final
@@ -254,7 +254,7 @@ theorem inflate_dispatch_gzip_header_rank {c : Ctx} {h : Heap} {r : ZStreamRef} 
     (extraApart : ExtraApart h s.head l)
     (extraLen : s.mode = EXTRA → ∀ i g, s.head = some (.tab i) → h.gzheaders i = some g →
       s.length ≤ g.extra_len)
-    (mode : FLAGS ≤ s.mode ∧ s.mode ≤ HCRC) (gzip : GzipAllowed s.wrap)
+    (mode : FLAGS ≤ s.mode ∧ s.mode ≤ HCRC) (_gzip : GzipAllowed s.wrap)
     (flags : FLAGS < s.mode → s.flags ≠ -1 ∧ s.flags ≠ 0)
     (incoming : l.bits.toNat ≤ 39) :
     ∃ outcome regs after stream state used, used ≤ bs.length ∧

@@ -33,7 +33,7 @@ theorem windowFrameM_inflate_fixed (r : ZStreamRef) (owner : InflateStatePtr) :
       | none => simp only [Zlib.Inftrees.inflate_fixed, bind_app, ldI_eq, get] at run; cases run
       | some state =>
         simp only [Zlib.Inftrees.inflate_fixed, bind_app, ldI_eq, stI_eq, get,
-          Option.isSome_some, ↓reduceIte, setI_istates_same, setI_setI] at run
+          setI_istates_same, setI_setI] at run
         cases run
         exact decoderWindows_setI get rfl
 

@@ -468,7 +468,7 @@ theorem bi_flush_16 {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Ar
   rw [bind_app, rd_run hb.dstate]
   simp only []
   rw [bind_app, put_short_run hb hroom]
-  simp (disch := simp [hb.dstate]) only [setD_setB, setD_setD, bind_app, rd_run', md_run', rdD_setD_same, rdD_setB,
+  simp (disch := simp [hb.dstate]) only [setD_setB, setD_setD, bind_app, md_run', rdD_setD_same, rdD_setB,
     setD_setB]
 
 
@@ -506,7 +506,7 @@ theorem bi_flush_low {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dstates id
     rw [i32_le_toInt, i32_8]; omega
   unfold bi_flush
   rw [bind_app, rd_run hd]
-  simp only [hc, hge, ite_true, ite_false, Bool.false_eq_true]
+  simp only [hc, hge, ite_false, Bool.false_eq_true]
   rfl
 
 

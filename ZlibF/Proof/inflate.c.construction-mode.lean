@@ -32,8 +32,8 @@ theorem inflate_CODELENS_default_J_boundary {c : Ctx} {h : Heap} {r : ZStreamRef
     · rw [inflate_CODELENS_eq, runX_bind, read]
     · intro impossible
       cases impossible
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (inflate_CODELENS c) l h = runX (clTail c) regs after := by
       rw [inflate_CODELENS_eq, runX_bind, read]
     have current : Env c after r zs stream state := ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩
@@ -76,7 +76,7 @@ theorem inflate_CODELENS_trees_default_J {c : Ctx} {h : Heap} {r : ZStreamRef} {
     intro normal
     exact why.resolve_left (fun impossible => impossible normal)
   · obtain ⟨_, run⟩ := continued
-    rw [if_pos flush] at run
+    rw [ite_eq_left flush] at run
     exact ⟨.error Ex.leave, regs, after, stream, state, used, bound, run, nextJ, packet, sizes,
       cursor, count, put, left, total, bits, budget, fun impossible => by cases impossible⟩
 

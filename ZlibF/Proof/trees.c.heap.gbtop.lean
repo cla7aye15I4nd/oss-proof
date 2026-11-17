@@ -136,7 +136,7 @@ theorem rctx_of {tk : TK} {d e2 ef : DeflateState} {hm J elems maxc L : Nat} {c'
   · rw [hef', tk_arr_mkP1, hTs]; exact htsz
 
 
-theorem curL_clK {tk : TK} {d : DeflateState} {hm J elems maxc L : Nat} (PS : PShape (Hn d) hm J elems maxc)
+theorem curL_clK {_tk : TK} {d : DeflateState} {hm J elems maxc L : Nat} (PS : PShape (Hn d) hm J elems maxc)
     {Tk : Array CtData} (hL15 : L ≤ 15)
     (hcl : ∀ q, hm ≤ q → q ≤ hm + 2 * J → (Tk[Hn d q]!).dl = UInt16.ofNat (clK (Hn d) hm elems L (2 * J) (Hn d q))) :
     ∀ i, i < 2 * J → curL Tk (Hn d (hm + 1 + i)) = clK (Hn d) hm elems L (2 * J) (Hn d (hm + 1 + i)) := by
@@ -151,7 +151,7 @@ theorem curL_clK {tk : TK} {d : DeflateState} {hm J elems maxc L : Nat} (PS : PS
 
 theorem reinit {tk : TK} {d e2 ef : DeflateState} {hm J elems maxc L : Nat} {xb : Nat → Nat}
     {slOpt : Option (Nat → Nat)} {c' : Nat → Nat} {ov : Int32}
-    (PS : PShape (Hn d) hm J elems maxc) (hL15 : L ≤ 15) (hsz : d.heap.size = 573)
+    (PS : PShape (Hn d) hm J elems maxc) (hL15 : L ≤ 15) (_hsz : d.heap.size = 573)
     (hP : P1State tk d hm J elems maxc L xb slOpt (2 * J) e2)
     (hfix : FixInvX L (nLeaves (Hn d) hm J maxc) 0 ov c' e2 ef) :
     ReSt tk ef hm J maxc L xb c' d.opt_len 573 L (c' L) ef := by
@@ -159,7 +159,7 @@ theorem reinit {tk : TK} {d e2 ef : DeflateState} {hm J elems maxc L : Nat} {xb 
   obtain ⟨Tk, Bk, O, S, he2, hO, hS, hTs, hBs, hcl, hdad, hfc, hout, hbl⟩ := hP
   obtain ⟨-, -, hc0, -, -, -, htot, Bc, hef⟩ := hfix
   have hef' : ef = mkP1 tk d Tk Bc O S := by rw [hef, he2, bl_mkP1]
-  have hcur := curL_clK (tk := tk) (elems := elems) (L := L) PS hL15 (fun q h1 h2 => hcl q h1 (by omega))
+  have hcur := curL_clK (_tk := tk) (elems := elems) (L := L) PS hL15 (fun q h1 h2 => hcl q h1 (by omega))
   have hfr : frn Tk = frn (tk.arr d) := by funext v; unfold frn; rw [hfc v]
   refine ⟨tk.arr ef, ef.opt_len, by cases tk <;> rfl, rfl, by omega, Nat.le_refl _, Nat.le_refl _, ?_, fun v => rfl,
     fun v hv => rfl, fun x => ?_, ?_⟩
@@ -186,7 +186,7 @@ theorem reinit {tk : TK} {d e2 ef : DeflateState} {hm J elems maxc L : Nat} {xb 
 /-- Overflow: the lengths after the reassignment. -/
 theorem done_ovf {tk : TK} {d e2 ef efin : DeflateState} {hm J elems maxc L : Nat} {xb : Nat → Nat}
     {slOpt : Option (Nat → Nat)} {c' : Nat → Nat} {ov : Int32} {hc : Nat}
-    (PS : PShape (Hn d) hm J elems maxc) (hL1 : 1 ≤ L) (hL15 : L ≤ 15)
+    (PS : PShape (Hn d) hm J elems maxc) (_hL1 : 1 ≤ L) (_hL15 : L ≤ 15)
     (hP : P1State tk d hm J elems maxc L xb slOpt (2 * J) e2)
     (hfix : FixInvX L (nLeaves (Hn d) hm J maxc) 0 ov c' e2 ef)
     (hre : ReSt tk ef hm J maxc L xb c' d.opt_len hc 0 0 efin) : GBDone tk d hm J maxc L xb slOpt efin := by

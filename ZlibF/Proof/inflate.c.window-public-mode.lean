@@ -286,7 +286,7 @@ theorem updatewindow_live_public {h after : Heap} {r : ZStreamRef} {zs : Nat} {z
       intro b
       have hl : after.live b ↔ h.live b ∨ b = h.nextBlk := ho b
       by_cases hb : h.live b
-      · simp [LiveChange, hb, hl.mpr (Or.inl hb)]
+      · simp [hb, hl.mpr (Or.inl hb)]
       · have hbi : b ≠ zs := fun he => hb (he ▸ hzs)
         have hwnd : InflateOwned zs s' b ↔ b = h.nextBlk := by
           simp [InflateOwned, hwin, hbi, eq_comm]
@@ -310,7 +310,7 @@ theorem updatewindow_live_public {h after : Heap} {r : ZStreamRef} {zs : Nat} {z
         simp [Heap.live, ha]
     intro b
     have hl : after.live b ↔ h.live b := by rw [he]; exact hlive b
-    simp only [LiveChange, not_false_eq_true, and_true]
+    simp only [not_false_eq_true, and_true]
     constructor
     · intro he; exact Or.inl (hl.mp he)
     · intro he

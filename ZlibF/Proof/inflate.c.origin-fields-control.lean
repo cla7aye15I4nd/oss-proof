@@ -83,9 +83,9 @@ theorem inflate_dispatch_type_origin_record {c : Ctx} {h after : Heap} {r : ZStr
     ∃ state, after.istates zs = some state ∧ state.flags = s.flags ∧ BlockHeaderPointers s state := by
   rw [inflate_dispatch_block_type E l mode] at actual
   by_cases type : s.mode = TYPE
-  · rw [if_pos type] at actual
+  · rw [ite_eq_left type] at actual
     exact inflate_TYPE_origin_record E buffers actual
-  · rw [if_neg type] at actual
+  · rw [ite_eq_right type] at actual
     exact inflate_TYPEDO_origin_record E buffers actual
 
 /-- Actual block-header origin alternatives upgrade the matching real J

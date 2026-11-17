@@ -91,8 +91,9 @@ theorem distfix_size : Zlib.InffixedH.distfix.size = 32 := by decide
 
 theorem lenfix_root_bits : ∀ i : Fin 512,
     1 ≤ (Zlib.InffixedH.lenfix.getD i.val default).bits.toNat ∧
-      (Zlib.InffixedH.lenfix.getD i.val default).bits.toNat ≤ 9 := by
-  decide +kernel
+      (Zlib.InffixedH.lenfix.getD i.val default).bits.toNat ≤ 9 := fun i =>
+  Zlib.InffixedH.Proofs.getD_of_toList_all (P := fun c : Code => 1 ≤ c.bits.toNat ∧ c.bits.toNat ≤ 9) (by decide +kernel)
+    (by rw [lenfix_size]; exact i.isLt)
 
 theorem distfix_root_bits : ∀ i : Fin 32,
     1 ≤ (Zlib.InffixedH.distfix.getD i.val default).bits.toNat ∧
@@ -100,16 +101,18 @@ theorem distfix_root_bits : ∀ i : Fin 32,
   decide +kernel
 
 theorem lenfix_no_len_link : ∀ i : Fin 512,
-    ¬ Zlib.Inffast.Spec.LenLink (Zlib.InffixedH.lenfix.getD i.val default) := by
-  decide +kernel
+    ¬ Zlib.Inffast.Spec.LenLink (Zlib.InffixedH.lenfix.getD i.val default) := fun i =>
+  Zlib.InffixedH.Proofs.getD_of_toList_all (P := fun c : Code => ¬ Zlib.Inffast.Spec.LenLink c) (by decide +kernel)
+    (by rw [lenfix_size]; exact i.isLt)
 
 theorem distfix_no_dist_link : ∀ i : Fin 32,
     ¬ Zlib.Inffast.Spec.DistLink (Zlib.InffixedH.distfix.getD i.val default) := by
   decide +kernel
 
 theorem lenfix_no_subtable : ∀ i : Fin 512,
-    Subtable.IsLink LENS (Zlib.InffixedH.lenfix.getD i.val default) = false := by
-  decide +kernel
+    Subtable.IsLink LENS (Zlib.InffixedH.lenfix.getD i.val default) = false := fun i =>
+  Zlib.InffixedH.Proofs.getD_of_toList_all (P := fun c : Code => Subtable.IsLink LENS c = false) (by decide +kernel)
+    (by rw [lenfix_size]; exact i.isLt)
 
 theorem distfix_no_subtable : ∀ i : Fin 32,
     Subtable.IsLink DISTS (Zlib.InffixedH.distfix.getD i.val default) = false := by
@@ -294,7 +297,40 @@ def distfixReplicated : Bool :=
       codeEq (Zlib.InffixedH.distfix.getD (i % 2 ^ b + k * 2 ^ b) default)
         (Zlib.InffixedH.distfix.getD i default)
 
-theorem lenfixReplicated_true : lenfixReplicated = true := by decide +kernel
+/-! `lenfixReplicated` is checked in four blocks of 128 cells: one check of all of them took 6.5 GB. -/
+
+theorem lenfixReplicated_part0 : (List.range' 0 128).all (fun i =>
+    let b := (Zlib.InffixedH.lenfix.getD i default).bits.toNat
+    (List.range (2 ^ (9 - b))).all fun k =>
+      codeEq (Zlib.InffixedH.lenfix.getD (i % 2 ^ b + k * 2 ^ b) default)
+        (Zlib.InffixedH.lenfix.getD i default)) = true := by decide +kernel
+
+theorem lenfixReplicated_part1 : (List.range' 128 128).all (fun i =>
+    let b := (Zlib.InffixedH.lenfix.getD i default).bits.toNat
+    (List.range (2 ^ (9 - b))).all fun k =>
+      codeEq (Zlib.InffixedH.lenfix.getD (i % 2 ^ b + k * 2 ^ b) default)
+        (Zlib.InffixedH.lenfix.getD i default)) = true := by decide +kernel
+
+theorem lenfixReplicated_part2 : (List.range' 256 128).all (fun i =>
+    let b := (Zlib.InffixedH.lenfix.getD i default).bits.toNat
+    (List.range (2 ^ (9 - b))).all fun k =>
+      codeEq (Zlib.InffixedH.lenfix.getD (i % 2 ^ b + k * 2 ^ b) default)
+        (Zlib.InffixedH.lenfix.getD i default)) = true := by decide +kernel
+
+theorem lenfixReplicated_part3 : (List.range' 384 128).all (fun i =>
+    let b := (Zlib.InffixedH.lenfix.getD i default).bits.toNat
+    (List.range (2 ^ (9 - b))).all fun k =>
+      codeEq (Zlib.InffixedH.lenfix.getD (i % 2 ^ b + k * 2 ^ b) default)
+        (Zlib.InffixedH.lenfix.getD i default)) = true := by decide +kernel
+
+theorem lenfixReplicated_true : lenfixReplicated = true := by
+  have e : List.range 512 =
+      List.range' 0 128 ++ List.range' 128 128 ++ List.range' 256 128 ++ List.range' 384 128 := by
+    decide +kernel
+  unfold lenfixReplicated
+  rw [e, List.all_append, List.all_append, List.all_append, lenfixReplicated_part0, lenfixReplicated_part1,
+    lenfixReplicated_part2, lenfixReplicated_part3]
+  rfl
 
 theorem distfixReplicated_true : distfixReplicated = true := by decide +kernel
 

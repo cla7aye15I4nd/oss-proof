@@ -108,7 +108,7 @@ theorem tabLensTail1_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n 
     have add := Ptr.add_nat_ok (off := 0) (n := s.nlen.toNat) lens (by omega : 0 + s.nlen.toNat ≤ s.lens.size)
     unfold OkOn at add
     simp only [Nat.zero_add, dsPre, next, setI_setI] at add actual
-    simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, dsPre, lensP, workP, codesP,
+    simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, dsPre, lensP, workP,
       next, add, actual, runX_modify, setI_setI, sE, dsSt]
   by_cases r0 : ret = 0
   · subst r0

@@ -32,7 +32,7 @@ theorem capped_histogram (H : Nat → Nat) (hm J elems maxc : Nat) :
   · have same := idxR_rank (selected H hm maxc) bound (by simp only [selected, leaf, decide_true])
     simp only [value, index, selected, leaf, decide_true, true_and] at same ⊢
     rw [same, clK_min H hm elems 15 (by omega)]
-    by_cases equal : min (clK H hm elems 1000 (2 * J) (H (hm + 1 + i))) 15 = b <;> simp [equal, leaf]
+    by_cases equal : min (clK H hm elems 1000 (2 * J) (H (hm + 1 + i))) 15 = b <;> simp [equal]
   · simp [selected, leaf]
 
 /-- Finite leaf-rank count cannot exceed the retained position count. -/

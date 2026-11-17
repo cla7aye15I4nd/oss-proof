@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inflate.c.origin-fields-tables»
+import ZlibF.Proof.«inflate.c.origin-fields-updates»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec

@@ -1,5 +1,6 @@
 # Compiler-generated execution auxiliaries of the pinned toolchain.
-# Their full definitions are locked; new entries require independent review.
+# tests/audit/PartialCheck.lean exempts these names from its unsafe/partial rule. Review a new entry
+# before adding it: it is code the compiler generates, never a declaration written in the library.
 C.cdoWhile.go._unsafe_rec
 C.cwhile.go._unsafe_rec
 C.strlenFrom._unsafe_rec

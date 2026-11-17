@@ -1,5 +1,7 @@
 import ZlibF.Math.DeflateMarkerPrefix
-import ZlibF.Proof.«deflate.c.engine.marker-encoding»
+import ZlibF.Math.DeflateFlushMarkers
+import ZlibF.Proof.«deflate.c.engine.partial-sync-publication»
+import ZlibF.Proof.«deflate.c.engine.full-marker-publication»
 import ZlibF.Proof.«deflate.c.engine.raw-prefix»
 import ZlibF.Proof.«deflate.c.engine.flush-block-prefix»
 

@@ -622,7 +622,7 @@ open Zlib.Inftrees.Spec.DecodeTableInvariant Zlib.Inftrees.Spec.DecodeTableStabi
 open Zlib.Inflate.Proofs.MeaningLookup
 
 /-- The held bits of a state on the same stream are a prefix of the stream. -/
-theorem held_take {h : Heap} {l cur : IL} {bs bs' : List UInt8} (inv : BitInv h cur bs')
+theorem held_take {h : Heap} {l cur : IL} {bs bs' : List UInt8} (_inv : BitInv h cur bs')
     (same : stream cur bs' = stream l bs) :
     natBits cur.bits.toNat cur.hold.toNat = (stream l bs).take cur.bits.toNat := by
   rw [← same, stream, List.take_left' (natBits_length _ _)]
@@ -661,16 +661,16 @@ theorem decode_take {lens : List Nat} (ext : Ext lens) {inp rest : List Bool} {s
 
 theorem distsValid {symbol : Nat} : ValidSymbol DISTS symbol ↔ symbol ≤ 29 := by
   unfold ValidSymbol
-  rw [if_neg (by decide)]
+  rw [ite_eq_right (by decide)]
 
 theorem distsAccepted {entry : Code} : LeafAccepted DISTS entry ↔ entry.op &&& 64 = 0 := by
   unfold LeafAccepted
-  rw [if_neg (by decide)]
+  rw [ite_eq_right (by decide)]
 
 theorem distsEntry {symbol : Nat} {entry : Code} (le : symbol ≤ 29) (meaning : SymbolEntry DISTS symbol entry) :
     entry.op.toNat = 16 + distExtras.getD symbol 0 ∧ entry.val.toNat = distBases.getD symbol 0 := by
   unfold SymbolEntry at meaning
-  rw [if_neg (by decide), if_pos le] at meaning
+  rw [ite_eq_right (by decide), ite_eq_left le] at meaning
   exact meaning
 
 /-- A query that does not fit the held bits: they hold no valid symbol. -/
@@ -707,7 +707,7 @@ theorem nofit_short {h : Heap} {s : InflateState} {ref : CodeRef} {offset : Nat}
 
 theorem slow_isLink {entry : Code} : Subtable.IsLink DISTS entry = true ↔ SlowDistLink entry := by
   unfold Subtable.IsLink SlowDistLink
-  rw [if_neg (by decide)]
+  rw [ite_eq_right (by decide)]
   simp
 
 theorem op_and_mask (o : UInt8) : (o.toUInt32 &&& 15).toNat = o.toNat % 16 := by
@@ -822,7 +822,7 @@ theorem chk_back (n m : Nat) (lt : n + m < 2147483648) (h : Heap) :
     exact this
   rw [e]
   unfold chkI32
-  rw [if_pos (by omega)]
+  rw [ite_eq_left (by omega)]
   rfl
 
 theorem dist_run_sub_ok {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}

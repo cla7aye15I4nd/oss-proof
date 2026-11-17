@@ -66,20 +66,20 @@ theorem inflateSetDictionary_success_public {H : Heap} {r : ZStreamRef} {zs : Na
     · have hra := adler32_dict_any hD L hfit
       have hck := hadler hm
       have hmb : (st.mode == DICT) = true := by simpa using hm
-      simp only [hmb, adler32_init, hra, hck, bne_self_eq_false, hadd', hr1', ite_true, Bool.false_eq_true, ite_false, Bool.and_false, hmb, hm, beq_self_eq_true]
-      simp only [bind_app, adler32_init, hra, hck, bne_self_eq_false, hadd', hr1', Bool.false_eq_true, ite_false, setMode, wrI_eq, hs1]
+      simp only [bne_self_eq_false, ite_true, Bool.false_eq_true, ite_false, Bool.and_false, hm, beq_self_eq_true]
+      simp only [bind_app, adler32_init, hra, hck, bne_self_eq_false, hadd', hr1', Bool.false_eq_true, ite_false, setMode]
       by_cases hv0 : v0 = 0
       · simp only [hv0, bne_self_eq_false, Bool.false_eq_true, ite_false, ite_true, bind_app, wrI_eq, hs1, pure_app, setI]
       · have hb : (v0 != 0) = true := by simpa using hv0
-        simp only [hb, ite_true, hv0, ite_false, setMode, bind_app, wrI_eq, hs1, pure_app, setI]
+        simp only [hb, ite_true, hv0, ite_false, bind_app, wrI_eq, hs1, pure_app, setI]
     · have hw0 : st.wrap = 0 := by rcases hwrap with h | h; exact h; exact absurd h hm
       have hmb : (st.mode == DICT) = false := by simpa using hm
-      simp only [hmb, hw0, hadd', hr1', bne_self_eq_false, Bool.false_and, Bool.false_eq_true, ite_false, Bool.and_false]
-      simp only [bind_app, hadd', hr1', Bool.false_eq_true, ite_false, setMode, wrI_eq, hs1]
+      simp only [hmb, hw0, bne_self_eq_false, Bool.false_and, Bool.false_eq_true, ite_false]
+      simp only [bind_app, hadd', hr1', setMode]
       by_cases hv0 : v0 = 0
       · simp only [hv0, bne_self_eq_false, Bool.false_eq_true, ite_false, ite_true, bind_app, wrI_eq, hs1, pure_app, setI]
       · have hb : (v0 != 0) = true := by simpa using hv0
-        simp only [hb, ite_true, hv0, ite_false, setMode, bind_app, wrI_eq, hs1, pure_app, setI]
+        simp only [hb, ite_true, hv0, ite_false, bind_app, wrI_eq, hs1, pure_app, setI]
   have hs1 : H1.istates zs = some st1 := hG1.live.hs
   by_cases hv0 : v0 = 0
   · rcases hcase with ⟨_, hdict⟩ | ⟨h1, _⟩

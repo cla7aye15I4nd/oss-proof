@@ -70,7 +70,7 @@ macro "stream_frame_mode " r:term:max "," root:term:max : tactic =>
 
 /-- The actual DONE mode preserves fixed stream fields on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem streamFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem streamFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     StreamFrameX r (inflate_DONE context) := by
   unfold inflate_DONE
   try rw [root]
@@ -96,7 +96,7 @@ theorem streamFrameX_inflate_CHECK (r : ZStreamRef) (context : Ctx) (root : cont
 
 /-- The actual LIT mode preserves fixed stream fields on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem streamFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem streamFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     StreamFrameX r (inflate_LIT context) := by
   unfold inflate_LIT
   try rw [root]
@@ -184,7 +184,7 @@ theorem streamFrameX_inflate_TABLE (r : ZStreamRef) (context : Ctx) (root : cont
 
 /-- The actual COPY mode preserves fixed stream fields on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem streamFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem streamFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     StreamFrameX r (inflate_COPY context) := by
   unfold inflate_COPY
   try rw [root]

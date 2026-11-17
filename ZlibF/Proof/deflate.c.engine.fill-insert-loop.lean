@@ -102,7 +102,7 @@ theorem fill_insert_loop_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
       exact ⟨state, goodS, chainsS, bytesS, frameS, by rw [startS] at cursorS; exact cursorS, count, formS, storageS⟩
     · intro continued
       have guard := continued
-      simp only [Bool.and_eq_true, bne_iff_ne, Bool.not_eq_true] at guard
+      simp only [Bool.and_eq_true, bne_iff_ne] at guard
       have positive : 1 ≤ state.insert.toNat := by
         have ne : state.insert.toNat ≠ 0 := by intro eq; exact guard.1 (UInt32.toNat_inj.mp eq)
         omega

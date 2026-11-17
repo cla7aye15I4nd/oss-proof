@@ -91,7 +91,7 @@ theorem leaveFinalize_values {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs 
       rw [cursor, outEq, ptr]
       simp only []
       rw [value]
-      simp only [bind_app, wrI_eq, env1.hs, wrZ_eq, ZStreamRef.get_setI, env1.hz, pure_app]
+      simp only [wrI_eq, env1.hs, wrZ_eq, ZStreamRef.get_setI, env1.hz]
       simp only [heap1, ZStreamRef.put_setI, ZStreamRef.put_put, setI_setI]
       have upd : ((s.wrap &&& 4) != 0 && out != 0) = true := update
       simp only [leaveValueState, leaveCheckValue, upd, ↓reduceIte, state1, leaveCountState, outEq]
@@ -295,13 +295,13 @@ theorem checkMeaning_leave {s : InflateState} {wrap : Api.Wrap} {configured : Na
     · have cond : ((s.wrap &&& 4) != 0 && p != 0) = true := by
         simp only [Bool.and_eq_true, bne_iff_ne, ne_eq]
         exact ⟨w4', zero⟩
-      rw [if_pos cond]
+      rw [ite_eq_left cond]
       rcases kind with ⟨_, flagsNZ, choice, _⟩ | ⟨flags0, choice, _⟩
       · simp only [choice, ite_true] at old ⊢
-        rw [inflateChecksumValue, if_neg (show s.flags ≠ 0 from flagsNZ), old, toUInt32_toUInt64,
+        rw [inflateChecksumValue, ite_eq_right (show s.flags ≠ 0 from flagsNZ), old, toUInt32_toUInt64,
           MeaningChecksum.crc_continue, joined]
       · simp only [choice, ite_false] at old ⊢
-        rw [inflateChecksumValue, if_pos (show s.flags = 0 from flags0), old, adlerValue_continue, joined]
+        rw [inflateChecksumValue, ite_eq_left (show s.flags = 0 from flags0), old, adlerValue_continue, joined]
 
 #print axioms checkMeaning_leave
 

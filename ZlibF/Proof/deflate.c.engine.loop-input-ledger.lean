@@ -1,5 +1,8 @@
 import ZlibF.Proof.«deflate.c.borrow-stable-strategies»
-import ZlibF.Proof.«deflate.c.engine.loop-prefix»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
 import ZlibF.Proof.«deflate.c.engine.input-slices»
 import ZlibF.Proof.«deflate.c.engine.caller-input-frame»
 import ZlibF.Proof.«deflate.c.engine.body-scalar-storage»

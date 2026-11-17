@@ -398,7 +398,7 @@ theorem moves {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D input outpu
 theorem stuck {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D output : List UInt8}
     {z z' : ZStream} {flush rc : Int32} {used : Nat}
     (trace : DefaultInflateTrace r h log) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
-    (noFail : NoAllocationFailure h)
+    (_noFail : NoAllocationFailure h)
     (valid : Zlib.Decodes [] S D) (flushes : OrdinaryFlush flush)
     (step : DataStep .inflate h after r flush rc (S.drop log.input.length) output used)
     (hz' : r.get after = some z') (codes : rc = Z_OK ∨ rc = Z_BUF_ERROR)
@@ -632,7 +632,7 @@ theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UI
   have getIn : Space.get (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 2) = some wInput.toArray := by
     simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
   have getOut : Space.get (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 3) = some #[0] := by
-    simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
+    simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, Space.get, wHeap]
   have roOut : Space.ro (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 3) = false := by
     simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, Space.ro, wHeap, Heap.empty]
   have inBytes : Bytes (initOkHeap wHeap (.tab 0) wStream 5 15) (.ref (.blk 2) 0) 9 wInput :=

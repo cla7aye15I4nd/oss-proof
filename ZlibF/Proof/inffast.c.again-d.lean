@@ -215,7 +215,7 @@ theorem dodist_invalid_againD_false
   rw [bind_ok load] at run
   rw [bind_ok shift] at run
   rw [bind_ok load] at run
-  simp only [notBase, notLink, ite_false] at run
+  simp only [notBase, notLink] at run
   simp only [Bool.false_eq_true, ite_false] at run
   cases badRun : badData c "invalid distance code" h with
   | error fault => simp [bind_app, badRun] at run

@@ -82,7 +82,7 @@ theorem PShape.internal_sum (S : PShape H hm J elems maxc) (F : Nat → Nat) :
 /-- Weight of one open child slot below a node of clamped depth `x` (scaled by `2^(L+1)`). -/
 def slot (L x : Nat) : Nat := if x < L then 2 ^ (L - x) else 1
 
-theorem local_leaf (L d : Nat) (hL : 1 ≤ L) (hd : d ≤ L) :
+theorem local_leaf (L d : Nat) (_hL : 1 ≤ L) (hd : d ≤ L) :
     2 * 2 ^ (L - min (d + 1) L) = slot L d + ind (d = L) := by
   by_cases e : d = L
   · rw [show min (d + 1) L = L by omega]
@@ -93,7 +93,7 @@ theorem local_leaf (L d : Nat) (hL : 1 ≤ L) (hd : d ≤ L) :
     rw [ite_eq_left (show d < L by omega), ite_eq_right e]
     rw [show L - d = (L - (d + 1)) + 1 by omega, Nat.pow_succ]; omega
 
-theorem local_int (L d : Nat) (hL : 1 ≤ L) (hd : d ≤ L) :
+theorem local_int (L d : Nat) (_hL : 1 ≤ L) (hd : d ≤ L) :
     2 * slot L (min (d + 1) L) = slot L d + ind (d = L) := by
   by_cases e : d = L
   · rw [show min (d + 1) L = L by omega]
@@ -113,7 +113,7 @@ def kraftC (H : Nat → Nat) (hm J maxc L : Nat) (cl : Nat → Nat) : Nat :=
   rs (fun i => if H (hm + 1 + i) ≤ maxc then 2 ^ (L - cl (H (hm + 1 + i))) else 0) (2 * J)
 
 /-- Number of nodes whose (clamped) parent depth is already `L`: `gen_bitlen`'s `overflow`. -/
-def ovfC (H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
+def ovfC (_H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
   rs (fun i => if cl (dadP elems (hm + 1 + i)) = L then 1 else 0) (2 * J)
 
 theorem PShape.internal_tail (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl) (F : Nat → Nat) :
@@ -164,7 +164,7 @@ theorem kraft_clamped (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L
   omega
 
 /-- Nodes at exact depth `L`: their parent has clamped depth `L - 1`. -/
-def exactC (H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
+def exactC (_H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
   rs (fun i => if cl (dadP elems (hm + 1 + i)) + 1 = L then 1 else 0) (2 * J)
 
 /-- Leaves of clamped depth `b` (`bl_count[b]` after the first pass). -/
@@ -249,7 +249,7 @@ theorem exactC_pos (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl
   unfold exactC; omega
 
 /-- No leaf has clamped depth `0`. -/
-theorem blC_zero (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl) (hL : 1 ≤ L) :
+theorem blC_zero (_S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl) (hL : 1 ≤ L) :
     blC H hm J maxc cl 0 = 0 := by
   unfold blC
   apply rs_eq_zero; intro i hi

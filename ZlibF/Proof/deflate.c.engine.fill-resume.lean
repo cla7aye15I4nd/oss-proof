@@ -70,11 +70,11 @@ theorem fill_window_resume_read {h : Heap} {r : ZStreamRef} {ds w io : Nat}
       have all : n = z.avail_in := UInt32.toNat_inj.mp (by omega)
       simp only [z', readStream, all, UInt32.sub_self]
     unfold fillCond
-    simp only [bind_app, ldDeflateState_tab goodR.live.hs, Bool.false_eq_true, if_false, goodR.live.back]
+    simp only [bind_app, ldDeflateState_tab goodR.live.hs, Bool.false_eq_true, ite_false, goodR.live.back]
     by_cases small : df.lookahead < MIN_LOOKAHEAD_u
-    · simp only [small, if_true, bind_app, zrd_eq, goodR.live.hz, exhausted small]
+    · simp only [small, ite_true, bind_app, zrd_eq, goodR.live.hz, exhausted small]
       rfl
-    · simp only [small, if_false]
+    · simp only [small, ite_false]
       rfl
   have body : fillBody (some (.tab ds)) d.w_size false h = .ok (false, hr) :=
     fill_body_resume_read good win get (window_writable good win) range short noSlide insert wrap
@@ -130,7 +130,7 @@ theorem fill_window_resume_complete {h : Heap} {r : ZStreamRef} {ds w io top : N
   refine ⟨fill_window_resume_read good win get range short noSlide insert wrap pointer input inputBound nonempty separate,
     padded_good goodR winR getR rangeR, padded_chains goodR chainsR winR getR rangeR,
     winR, ?_, rangeR, padded_initialized goodR winR getR rangeR, ?_⟩
-  · simp [resumedFillHeap, paddedHeap, dr, hr, n, copied]
+  · simp [resumedFillHeap, paddedHeap]
   · intro large
     apply padded_form goodR winR getR rangeR large
     change 3 ≤ dr.lookahead.toNat at large

@@ -50,11 +50,11 @@ theorem stuck_inflate_run_MEM {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {
   have exitEq : terminalExit s.mode = .error (Ex.ret Z_MEM_ERROR) := by
     rw [mem]
     unfold terminalExit
-    rw [if_neg (by decide), if_pos rfl]
+    rw [ite_eq_right (by decide), ite_eq_left rfl]
   have regsEq : terminalRegs s.mode (dispatchRegs z s) = dispatchRegs z s := by
     rw [mem]
     unfold terminalRegs
-    rw [if_neg (by decide), if_neg (by decide)]
+    rw [ite_eq_right (by decide), ite_eq_right (by decide)]
   rw [exitEq, regsEq] at step
   unfold inflate_run
   rw [runX_bind, runX_rdS E]

@@ -69,10 +69,10 @@ theorem inflate_dispatch_direct_terminal
     rcases terminal with done | bad | memory | sync
     · have impossible := xrun_outcome_eq source run
       rw [done] at impossible
-      simp [terminalExit, DONE, BAD, SYNC] at impossible
+      simp [terminalExit, DONE, BAD] at impossible
     · have impossible := xrun_outcome_eq source run
       rw [bad] at impossible
-      simp [terminalExit, DONE, BAD, MEM] at impossible
+      simp [terminalExit, DONE, BAD] at impossible
     · have exactSource : runX (inflate_dispatch c) l h = .ok ((.error (.ret Z_MEM_ERROR), l), h) := by
         simpa [memory, terminalExit, terminalRegs, DONE, BAD, MEM, SYNC] using source
       have same := Except.ok.inj (exactSource.symm.trans run)

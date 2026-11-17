@@ -123,7 +123,7 @@ theorem lm_loop_ok {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array U
         Chain.step hch1 rfl (by rw [← hlimit]; exact big)
       by_cases hcl0 : (st1.chain_length - 1 != 0) = true
       · refine ⟨st1, h1, true, lmStep st1 (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))) (st1.chain_length - 1), h1, hrun, ?_, by simp, ?_⟩
-        · simp only [lmCond, bind_app, pure_app, M_ite_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0, lmStep]
+        · simp only [lmCond, bind_app, pure_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0, lmStep]
         · intro _
           refine ⟨⟨hb1', ms1, b1, hh1, hscan1, hb, hpl, hb258, hse', ?_, hgood1⟩, ?_⟩
           · simpa [lmStep] using hch2
@@ -131,11 +131,11 @@ theorem lm_loop_ok {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array U
             simpa using hcmprev
       · have hcl0' : (st1.chain_length - 1 != 0) = false := by simpa using hcl0
         refine ⟨st1, h1, false, lmStep st1 (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))) (st1.chain_length - 1), h1, hrun, ?_, fun _ => hout, by simp⟩
-        simp only [lmCond, bind_app, pure_app, M_ite_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0', lmStep]
+        simp only [lmCond, bind_app, pure_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0', lmStep]
     · have hng : ¬ limit < (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))).toUInt32 := by
         rw [UInt32.lt_iff_toNat_lt]; simpa using big
       refine ⟨st1, h1, false, lmStep st1 (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))) st1.chain_length, h1, hrun, ?_, fun _ => hout, by simp⟩
-      simp only [lmCond, bind_app, pure_app, M_ite_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hng, lmStep]
+      simp only [lmCond, bind_app, pure_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hng, lmStep]
 
 theorem hAt_self (h0 : Heap) (sr : Nat) (d : DeflateState) (hd : h0.dstates sr = some d) :
     hAt h0 sr d d.match_start = h0 := by
@@ -283,6 +283,6 @@ theorem longest_match_ok {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : A
     simp only [hg, hn, ite_true, ite_false]; simp only [lmRest, bind_app, pure_app, M_ite_app] at hr; exact hr
   · obtain ⟨r, h', ms, best, hr, hrest⟩ := key d.max_chain_length d.nice_match
     refine ⟨r, h', ms, best, ?_, hrest⟩
-    simp only [hg, hn, ite_true, ite_false]; simp only [lmRest, bind_app, pure_app, M_ite_app] at hr; exact hr
+    simp only [hg, hn, ite_false]; simp only [lmRest, bind_app, pure_app, M_ite_app] at hr; exact hr
 
 end Zlib.Deflate.Engine.Proofs

@@ -48,7 +48,7 @@ theorem inflateBackEnd_ok {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {
   have hz1 : r.get (freeIst h zs) = some z := by simpa using hz
   refine ⟨_, by rw [C.run]; exact hrun, rfl, ?_, ?_, ?_, ?_⟩
   · exact (shape_put hz1 _).uniq hU1
-  · exact (shape_put hz1 _).fresh (by simp [backEndHeap]) (fresh_freeIst hG.fresh zs)
+  · exact (shape_put hz1 _).fresh (by simp) (fresh_freeIst hG.fresh zs)
   · simp [backEndHeap, hz]
   · intro S hO
     have hO1 := owns_freeIst hG.uniq hs hO

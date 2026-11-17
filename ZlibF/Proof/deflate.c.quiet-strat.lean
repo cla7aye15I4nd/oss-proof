@@ -70,7 +70,7 @@ theorem work_lt_noLazy {d d' : DeflateState} (lv : d.level ≠ 0) (lv' : d'.leve
     Quiet.work d' < Quiet.work d := by
   rw [work_nz lv, work_nz lv']
   have := sym_ind_le d'
-  simp only [ma', if_pos]
+  simp only [ma', ite_eq_left]
   omega
 
 /-- `fill_window` with no input keeps the work term, the counts and `gzindex`. -/
@@ -205,7 +205,7 @@ def QLoop (K : DeflateState → Prop) (r : ZStreamRef) (ds : Nat) (z0 : ZStream)
 
 /-- The outcome of one iteration from the head `z`, `d`: a continuing iteration lowers the work term. -/
 def QStep (K : DeflateState → Prop) (r : ZStreamRef) (ds : Nat) (flush : Int32) (z : ZStream)
-    (d : DeflateState) (st st' : LoopS) (h' : Heap) : Prop :=
+    (d : DeflateState) (_st st' : LoopS) (h' : Heap) : Prop :=
   ∃ z' d', Head K h' r ds z' d' ∧ QDown z d z' d' ∧
     ((st'.brk = false ∧ st'.ret = none ∧ d'.pending = 0 ∧ Quiet.work d' < Quiet.work d) ∨
      (st'.ret = some need_more ∧ (z'.avail_out = 0 ∨ (d'.pending = 0 ∧ flush = Z_NO_FLUSH))) ∨
@@ -310,12 +310,12 @@ theorem finish_tail_q {kind : DeflateState → Prop} {h : Heap} {r : ZStreamRef}
       · subst none'
         refine ⟨block_done, after, z', result, ?_, invA.good.live.hz, invA.good.live.hs,
           ⟨Nat.le_of_lt lt, fun e => absurd e (Nat.ne_of_lt lt), fun e => absurd e (by decide), gz⟩⟩
-        simp [finish_tail, finishB, bind_app, rdSym, symbolsB, symbols, run']
+        simp [finish_tail, finishB, bind_app, rdSym, symbols, run']
       · subst more
         refine ⟨need_more, after, z', result, ?_, invA.good.live.hz, invA.good.live.hs,
           ⟨Nat.le_of_lt lt, fun e => absurd e (Nat.ne_of_lt lt),
             fun _ room => absurd (fullOut (Option.some_ne_none _)) room, gz⟩⟩
-        simp [finish_tail, finishB, bind_app, rdSym, symbolsB, symbols, run']
+        simp [finish_tail, finishB, bind_app, rdSym, symbols, run']
 
 /-- `s->insert = 0` keeps the work term. -/
 theorem insert_down {z : ZStream} {d : DeflateState} (pending : d.pending = 0) (v : UInt32) :
@@ -429,14 +429,14 @@ theorem huff_body_q {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : De
         Or.inr (Or.inl ⟨rfl, Or.inr ⟨pending1, noFlush⟩⟩)⟩
       simp only [bind_app, rdLook, emptyB, ite_true]
       rw [show fill_window (some (.tab ds)) h = .ok ((), after1) from fillRun]
-      simp only [bind_app, rdLook1, empty1B, ite_true, noFlush, beq_self_eq_true]
+      simp only [rdLook1, empty1B, ite_true, noFlush, beq_self_eq_true]
       rfl
     · have noFlushB : (flush == Z_NO_FLUSH) = false := by simpa using noFlush
       refine ⟨{ st with brk := true }, after1, ?_, z1, d1, head1, down1,
         Or.inr (Or.inr ⟨rfl, ret, pending1, empty1⟩)⟩
       simp only [bind_app, rdLook, emptyB, ite_true]
       rw [show fill_window (some (.tab ds)) h = .ok ((), after1) from fillRun]
-      simp only [bind_app, rdLook1, empty1B, ite_true, noFlushB, Bool.false_eq_true, ite_false]
+      simp only [rdLook1, empty1B, ite_true, noFlushB, Bool.false_eq_true, ite_false]
       rfl
   · have emptyB : (d.lookahead == 0) = false := by simpa using emptyL
     have look : 1 ≤ d.lookahead.toNat := by
@@ -570,7 +570,7 @@ theorem rle_emit_iterQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
           wr (some (.tab ds)) (fun d => { d with lookahead := d.lookahead - 1, strstart := d.strstart + 1 })
           huffTail (some (.tab ds)) st bflush) (setD h ds d1) := by
       unfold rleEmit
-      simp only [bind_app, ld1, if_neg notBig]
+      simp only [bind_app, ld1, ite_eq_right notBig]
     refine ⟨st', h', ?_, brk', lift ?_ cases⟩
     · rw [bind_app, wrRun]
       simp only [bind_app, scanRun]
@@ -606,7 +606,7 @@ theorem rle_emit_iterQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
             { d with lookahead := d.lookahead - d.match_length, strstart := d.strstart + d.match_length, match_length := 0 })
           huffTail (some (.tab ds)) st bflush) (setD (setD h ds d1) ds { d1 with match_length := ml }) := by
       unfold rleEmit
-      simp only [bind_app, ld2, if_pos big]
+      simp only [bind_app, ld2, ite_eq_left big]
     exact emit.trans (run.trans tailRun)
 
 set_option maxHeartbeats 2400000 in
@@ -794,7 +794,7 @@ theorem fast_literal_emitQ {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStrea
     have := run
     simp only [bind_app, ld2] at this
     unfold fastEmit
-    simp only [bind_app, ld2, if_neg notBig]
+    simp only [bind_app, ld2, ite_eq_right notBig]
     exact this
   let d3 := literalStep d2 c
   have staticEq : h3.static = h.static := by rw [h3def]; exact search.static
@@ -818,11 +818,11 @@ theorem fast_literal_emitQ {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStrea
     change _ ≤ min (d3.strstart.toNat - d2.insert.toNat) (d3.strstart.toNat + d3.lookahead.toNat - 2)
     rw [ss3, la3, eIns]
     by_cases ready : 3 ≤ d.lookahead.toNat
-    · rw [if_pos ready]
+    · rw [ite_eq_left ready]
       have zero : d.insert = 0 := shape.insertDone ready
       have z0 : d.insert.toNat = 0 := by rw [zero]; rfl
       omega
-    · rw [if_neg ready]
+    · rw [ite_eq_right ready]
       omega
   have kind := head.kind
   have hashingA : Hashing h3 d3 := by
@@ -1014,7 +1014,7 @@ theorem fast_match_emitQ {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
   have emit : fastEmit (some (.tab ds)) st hh h2 = K (d2.sym_next + 3 == d2.sym_end) h4 := by
     have := recRun
     unfold fastEmit
-    simp only [bind_app, ld2, if_pos bigU]
+    simp only [bind_app, ld2, ite_eq_left bigU]
     exact this
   let d4 := matchRecorded d2
   have upd4 : d4.strstart = d.strstart := by change d2.strstart = _; exact search.strstart
@@ -1362,9 +1362,9 @@ theorem work_lt_mark {d d' : DeflateState} (lv : d.level ≠ 0) (lv' : d'.level 
 theorem work_lt_end {d d' : DeflateState} (lv : d.level ≠ 0) (lv' : d'.level ≠ 0)
     (la : d'.lookahead = d.lookahead) (ma' : d'.match_available = 0) (ma : d.match_available ≠ 0) :
     Quiet.work d' < Quiet.work d := by
-  rw [work_nz lv, work_nz lv', la, ma', if_neg ma]
+  rw [work_nz lv, work_nz lv', la, ma', ite_eq_right ma]
   have := sym_ind_le d'
-  simp only [if_pos]
+  simp only [ite_eq_left]
   omega
 
 set_option maxHeartbeats 16000000 in
@@ -1457,10 +1457,10 @@ theorem slow_pendingQ {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     unfold chainTop
     rw [fs, fl, fi]
     by_cases ready : 3 ≤ d.lookahead.toNat
-    · rw [if_pos ready]
+    · rw [ite_eq_left ready]
       have z0 : d.insert.toNat = 0 := by rw [shape.insertDone ready]; rfl
       omega
-    · rw [if_neg ready]; omega
+    · rw [ite_eq_right ready]; omega
   have formOk : ∀ (F : DeflateState) (hF : Heap), F.window = d.window → hF.bytes w = some wa →
       F.strstart.toNat = d.strstart.toNat + 1 → F.lookahead.toNat = d.lookahead.toNat - 1 →
       F.hash_shift = d.hash_shift → F.hash_mask = d.hash_mask → F.ins_h = d2.ins_h →
@@ -1802,8 +1802,8 @@ theorem slow_matchQ {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     change _ ≤ min (d2.strstart.toNat + 1) (d2.strstart.toNat + d2.lookahead.toNat - 2)
     rw [eSs, eLa]
     by_cases ready : 3 ≤ d.lookahead.toNat
-    · rw [if_pos ready]; omega
-    · rw [if_neg ready]; unfold chainTop; rw [insZero]
+    · rw [ite_eq_left ready]; omega
+    · rw [ite_eq_right ready]; unfold chainTop; rw [insZero]
       have z0 : (0 : UInt32).toNat = 0 := rfl
       rw [z0]; omega
   have form3 : d3.strstart.toNat + 1 ≤ d3.strstart.toNat + d3.lookahead.toNat - 3 →
@@ -2386,7 +2386,7 @@ theorem stored_restQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
       simp only [all, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at yes
       obtain ⟨fin, ge, eqIn⟩ := yes
       have dlEq : directLeft left len = left := by
-        unfold directLeft; rw [if_neg (by rw [GT.gt, UInt32.lt_iff_toNat_lt]; have := UInt32.le_iff_toNat_le.mp ge; omega)]
+        unfold directLeft; rw [ite_eq_right (by rw [GT.gt, UInt32.lt_iff_toNat_lt]; have := UInt32.le_iff_toNat_le.mp ge; omega)]
       refine ⟨fin, ?_, by show e.bi_valid.toInt = 0; exact bitsE⟩
       have a3 := account.2.2.1
       rw [dlEq, eqIn] at a3
@@ -2447,7 +2447,7 @@ theorem stored_iterationQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
   unfold storedBody
   simp only [bind_app, ldDeflateState_tab good.live.hs, ldZ_eq, good.live.hz]
   by_cases full : z.avail_out < (d.bi_valid.toUInt32 + 42) >>> 3
-  · refine ⟨_, h, z, d, by simp only [full, decide_true, ite_true]; rfl,
+  · refine ⟨_, h, z, d, by simp only [full, ite_true]; rfl,
       ⟨inv, buffers, pend0, out, input, StoredFields.refl d,
       Zlib.Deflate.Universal.Fr.refl inv.good buffers, ⟨fun _ a g => ⟨a, g, rfl⟩, fun _ => rfl⟩⟩,
       fun no => by simp at no, fun zero nz => by exact absurd zero nz, fun _ => ⟨rfl, rfl, rfl, fun _ => ?_⟩,
@@ -2476,7 +2476,7 @@ theorem stored_iterationQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
       rw [UInt64.toNat_toUInt32, word]
       apply Nat.mod_eq_of_lt
       omega
-    simp only [full, decide_false, Bool.false_eq_true, ite_false, bind_app, lsubRun, pure_app]
+    simp only [full, ite_false, bind_app, lsubRun, pure_app]
     obtain ⟨left, hleft⟩ : ∃ l, l = (Int64.ofInt ((d.strstart.toNat : Int) - d.block_start.toInt)).toUInt64.toUInt32 :=
       ⟨_, rfl⟩
     rw [← hleft]
@@ -2502,12 +2502,12 @@ theorem stored_iterationQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
         rw [UInt32.toNat_add]; omega
       simp only [c1, ite_true]
       by_cases c2 : left + z.avail_in > z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3
-      · simp only [c2, decide_true, ite_true]
+      · simp only [c2, ite_true]
         exact stored_restQ inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
           (Nat.le_refl _) (stored_len_input _ _ _ (by have := UInt32.lt_iff_toNat_lt.mp c2; omega)
             (fun _ => by have := UInt32.lt_iff_toNat_lt.mp c2; omega)) empty
           (by have := UInt32.lt_iff_toNat_lt.mp c2; rw [sumN] at this; omega) mbPos (Or.inr (Or.inl rfl)) mbLe mbW
-      · simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      · simp only [c2, ite_false]
         have c2N : ¬ (z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3).toNat < (left + z.avail_in).toNat :=
           fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
         exact stored_restQ inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
@@ -2522,7 +2522,7 @@ theorem stored_iterationQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
         rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by rw [maxN]; omega)), maxN]
         exact b
       by_cases c2 : MAX_STORED > z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3
-      · simp only [c2, decide_true, ite_true]
+      · simp only [c2, ite_true]
         exact stored_restQ inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
           (Nat.le_refl _) (stored_len_input _ _ _ (by have := UInt32.lt_iff_toNat_lt.mp c2; rw [maxN] at this; omega)
             (fun c => absurd c c1N)) empty
@@ -2530,7 +2530,7 @@ theorem stored_iterationQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
             have := UInt32.lt_iff_toNat_lt.mp c2; rw [maxN] at this
             have : ¬ left.toNat < 65535 := fun lt => c1N ⟨lt, by omega⟩
             omega) mbPos (Or.inr (Or.inl rfl)) mbLe mbW
-      · simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      · simp only [c2, ite_false]
         have c2N : ¬ (z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3).toNat < MAX_STORED.toNat :=
           fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
         rw [maxN] at c2N
@@ -2954,7 +2954,7 @@ theorem stored_finalQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
       have finF : flush = Z_FINISH := by
         by_cases cf : (flush == Z_FINISH && z.avail_in == 0 && MIN left Hv == left) = true
         · simp only [Bool.and_eq_true, beq_iff_eq] at cf; exact cf.1.1
-        · rw [if_neg cf] at l0; simp at l0
+        · rw [ite_eq_right cf] at l0; simp at l0
       exact ⟨finish_started, _, z', _, by simp only [l0, ite_true, bind_app, wrRun]; rfl, invB.good.live.hz,
         invB.good.live.hs, ⟨by show Zlib.Deflate.Universal.Quiet.work e ≤ _; omega, fun _ => Or.inl rfl,
           fun e => absurd e (by decide), gzA⟩, fun _ => fullFin finF⟩
@@ -2976,7 +2976,7 @@ theorem stored_finalQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
           rw [leftZ] at c h1
           simp [h1, nf] at c
         · exact p0
-      refine ⟨need_more, after, z', e, by simp only [l0, Bool.false_eq_true, ite_false, bind_app, pure_app],
+      refine ⟨need_more, after, z', e, by simp only [l0, Bool.false_eq_true, ite_false, pure_app],
         invA.good.live.hz, invA.good.live.hs,
         ⟨by omega, fun ew => absurd ew (by omega), fun _ room => ⟨?_, fun f => room (fullFin f)⟩, gzA⟩,
         fun e => absurd e (by decide)⟩
@@ -2987,7 +2987,7 @@ theorem stored_finalQ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
   · simp only [Bool.not_eq_true] at c
     simp only [c, Bool.false_eq_true, ite_false]
     subst lastZero
-    refine ⟨need_more, h, z, d, by simp [bind_app], good.live.hz, good.live.hs,
+    refine ⟨need_more, h, z, d, by simp, good.live.hz, good.live.hs,
       ⟨Nat.le_refl _, fun _ => Or.inr (Or.inr ⟨rfl, pend0⟩), fun _ _ => ⟨pend0, ?_⟩, rfl⟩,
       fun e => absurd e (by decide)⟩
     intro f
@@ -3014,7 +3014,7 @@ theorem stored_refill_empty {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     have := UInt32.lt_iff_toNat_lt.mp c
     simp at this
   unfold storedRefill storedRead
-  simp only [bind_app, rd0, gt0, Bool.false_and, Bool.false_eq_true, ite_false, pure_app]
+  simp only [bind_app, rd0, gt0, Bool.false_and, Bool.false_eq_true, ite_false]
   split
   · simp only [bne_self_eq_false, Bool.false_eq_true, ite_false]
     rw [wrD_eq, hs]
@@ -3166,7 +3166,7 @@ theorem dispatch_q_nz {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
     obtain ⟨b, a, z', d', run, hz, hs, q⟩ := rle_q safe inv entry.toIn flush l0 s3 empty
     refine ⟨b, a, z', d', ?_, hz, hs, q⟩
     simp only [C.run] at run
-    simp [dispatch, l0', hf', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
+    simp [dispatch, l0', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
   have rl' : (d.strategy == Z_RLE) = false := by simp [rl]
   have s3 : d.strategy.toInt ≠ 3 := fun e => rl (Int32.toInt_inj.mp (by rw [e]; rfl))
   by_cases fast : d.level.toInt ≤ 3
@@ -3178,7 +3178,7 @@ theorem dispatch_q_nz {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
   · obtain ⟨b, a, z', d', run, hz, hs, q⟩ := slow_q safe inv entry.toIn flush ⟨by omega, s2, s3⟩ empty
     refine ⟨b, a, z', d', ?_, hz, hs, q⟩
     simp only [C.run] at run
@@ -3188,7 +3188,7 @@ theorem dispatch_q_nz {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e | e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
 
 /-- **`StratQuiet` at a nonzero level** (`deflate_huff`, `deflate_rle`, `deflate_fast`,
 `deflate_slow`). -/
@@ -3228,7 +3228,7 @@ pending; `need_more` with output room leaves nothing pending and was not asked f
 `finish_started` leaves the output full; `gzindex` is kept. -/
 theorem strat_quiet {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {flush : Int32}
     (inv : DInv h r ds z d) (ov : Block.OverlayAt d.lit_bufsize.toNat) (entry : StrategyEntry h r z d)
-    (busy : d.status = BUSY_STATE) (empty : z.avail_in = 0)
+    (_busy : d.status = BUSY_STATE) (empty : z.avail_in = 0)
     {b : block_state} {after : Heap} {z1 : ZStream} {d1 : DeflateState}
     (run : dispatch (some (.tab ds)) flush d h = .ok (b, after))
     (hz1 : r.get after = some z1) (hs1 : after.dstates ds = some d1) :

@@ -74,15 +74,15 @@ theorem fill_window_pending_complete_end_frontier {h : Heap} {r : ZStreamRef} {d
     simp only [z', readStream, all, UInt32.sub_self]
   have condition : fillCond (some (.tab ds)) false hp = .ok ((false, false), hp) := by
     unfold fillCond
-    simp only [bind_app, ldDeflateState_tab goodP.live.hs, Bool.false_eq_true, if_false, goodP.live.back]
+    simp only [bind_app, ldDeflateState_tab goodP.live.hs, Bool.false_eq_true, ite_false, goodP.live.back]
     by_cases small : dp.lookahead < MIN_LOOKAHEAD_u
-    · simp only [small, if_true, bind_app, zrd_eq, goodP.live.hz, exhausted small]
+    · simp only [small, ite_true, bind_app, zrd_eq, goodP.live.hz, exhausted small]
       rfl
-    · simp only [small, if_false]
+    · simp only [small, ite_false]
       rfl
   have body : fillBody (some (.tab ds)) d.w_size false h = .ok (false, hp) := by
     rw [fill_body_slide_source]
-    simp only [bind_app, ldDeflateState_tab good.live.hs, noSlide, if_false]
+    simp only [bind_app, ldDeflateState_tab good.live.hs, noSlide, ite_false]
     rw [fill_after_slide_read_prefix good win get range short noSlide wrap pointer input inputBound nonempty separate]
     simp only [bind_app, primeRun, pure_app]
   have loop := do_once body condition
@@ -116,7 +116,7 @@ theorem fill_window_pending_complete_end_frontier {h : Heap} {r : ZStreamRef} {d
     exact countP
   · intro b different
     change (paddedHeap hp ds w dp copied).bytes b = _
-    simp only [paddedHeap, setD_bytes, upd_ne _ _ _ _ different, bytesP,
+    simp only [paddedHeap, setD_bytes, bytesP,
       hr, pendingReadHeap, setD_bytes, ZStreamRef.put_bytes, upd_ne _ _ _ _ different]
   · exact padded_prefix goodP winP getP rangeP
   · by_cases enough : 262 ≤ dp.lookahead.toNat

@@ -37,12 +37,12 @@ theorem dist_table_root_cases
        else DistLeaf 0 entry) := by
     simpa only [entry] using classified
   by_cases isLink : DistLink entry
-  · rw [if_pos isLink] at classified'
+  · rw [ite_eq_left isLink] at classified'
     rcases classified' with ⟨bits, opMin, opMax, bound, _⟩
     exact ⟨atBound, bits,
       Or.inr (Or.inl ⟨isLink.1, isLink.2,
         opMin, opMax, bound⟩)⟩
-  · rw [if_neg isLink] at classified'
+  · rw [ite_eq_right isLink] at classified'
     rcases classified' with ⟨bits, base | invalid⟩
     · exact ⟨atBound, bits, Or.inl base⟩
     · exact ⟨atBound, bits, Or.inr (Or.inr invalid)⟩
@@ -64,7 +64,7 @@ theorem dist_table_link_target
         entry.bits.toNat ≤ 15 := by
   rcases safe with ⟨_, _, entries⟩
   have selected := entries rootIndex root
-  rw [if_pos link] at selected
+  rw [ite_eq_left link] at selected
   rcases selected with ⟨_, _, _, size, leaves⟩
   have bound : baseOff +
       (codes.getD (baseOff + rootIndex) default).val.toNat +

@@ -1,6 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-header-buffered-joint-next»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-caller-input-frame»
-import ZlibF.Proof.«deflate.c.engine.public-first-one-byte-checksum»
+import ZlibF.Proof.«deflate.c.engine.initial-encoding-checksum»
+import ZlibF.Proof.«deflate.c.engine.header-pending-encoding»
 
 /-! # The actual first one-byte NO_FLUSH call establishes header-pending encoding -/
 

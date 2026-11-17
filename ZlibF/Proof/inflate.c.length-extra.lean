@@ -82,8 +82,8 @@ theorem inflate_LENEXT_boundary_bounded {c : Ctx} {l : IL} {h : Heap} {r : ZStre
         rw [runX_bind, run]
       · unfold SymbolRegShape
         rw [shape]
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       have available := enough rfl
       let bits := current.hold.toUInt32 &&& ((1 : UInt32) <<< s.extra - 1)
       have bitsNat : bits.toNat = current.hold.toNat % 2 ^ s.extra.toNat := BITS_toNat current s.extra (by omega)

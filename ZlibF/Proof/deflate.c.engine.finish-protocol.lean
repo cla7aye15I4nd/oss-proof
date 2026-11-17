@@ -129,7 +129,7 @@ theorem DefaultFinishBoundary.finish {h : Heap} {r : ZStreamRef} {ds ob oo : Nat
     apply StreamReachable.step (call := .deflate (some r) Z_FINISH) (value := rc) boundary.reachable (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, default_finish_active_header boundary.good boundary.no_header⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   have bounds : -2 ≤ result.last_flush.toInt ∧ result.last_flush.toInt ≤ 5 := by
     rcases last with eq | eq <;> rw [eq] <;> decide
   exact ⟨used, produced, rc, after, z', result, run,

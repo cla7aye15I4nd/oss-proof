@@ -26,7 +26,7 @@ theorem static_of_table (h : Heap) {i : Nat} {text : String} (hi : strTable[i]? 
   have bound : i < strTable.size := (Array.getElem?_eq_some_iff.mp hi).1
   refine ⟨i, rfl, ?_, rfl⟩
   change staticStringBytes h i = some (strBytes text)
-  rw [staticStringBytes, if_pos bound, hi]
+  rw [staticStringBytes, ite_eq_left bound, hi]
   rfl
 
 /-- `ERR_RETURN` stores the static text of the code in `msg` and returns the code. -/
@@ -108,7 +108,7 @@ theorem entry_refused {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
     · simp [null, pend]
     · simp [fin, ne]
   unfold entryPhase
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs, test, ite_true, err]
@@ -140,7 +140,7 @@ theorem entry_full {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : Def
         simp [out, empty, inp, st, this]
       · simp [out, empty, inp, st]
   unfold entryPhase
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs, test, full,
@@ -208,11 +208,11 @@ theorem entry_empty_all {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
       wrD_eq, good.live.hs, pending, show ((0 : UInt64) != 0) = false from rfl, rankF, rankO, rankLe]
     by_cases first : (z.avail_in == 0 && decide (deflateRank flush ≤ deflateRank d.last_flush) &&
         flush != Z_FINISH) = true
-    · simp only [first, ite_true, err, err']
-    · simp only [first, Bool.false_eq_true, ite_false, bind_app, pure_app, rdD_eq, setD_dstates_same, zrd_eq,
+    · simp only [first, ite_true, err']
+    · simp only [first, Bool.false_eq_true, ite_false, bind_app, rdD_eq, setD_dstates_same, zrd_eq,
         ZStreamRef.get_setD, good.live.hz]
       by_cases second : (d.status == FINISH_STATE && z.avail_in != 0) = true
-      · simp only [second, ite_true, err, err']
+      · simp only [second, ite_true, err']
       · simp only [second, Bool.false_eq_true, ite_false]
   have text' := text.trans (congrArg some buf_error_text)
   constructor
@@ -323,7 +323,7 @@ theorem entry_pending_all {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream
   have run' : flush_pending (some r) (setD h ds { d with last_flush := flush }) = .ok ((), after) := run
   refine ⟨produced, after, z', d', goodA, buffersA, account, one, statusA, run, fields, ?_⟩
   unfold entryPhase
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
@@ -334,7 +334,7 @@ theorem entry_pending_all {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream
   by_cases full : z'.avail_out = 0
   · left
     refine ⟨full, fun k => ?_⟩
-    simp [zrd_eq, zAfter, full, wrD_eq, dAfter, bind_app]
+    simp [zAfter, full, wrD_eq, dAfter, bind_app]
   · right
     have lt : produced < z.avail_out.toNat := by
       have : z'.avail_out.toNat ≠ 0 := fun e => full (UInt32.toNat_inj.mp (by simpa using e))

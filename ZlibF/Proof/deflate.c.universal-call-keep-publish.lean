@@ -94,10 +94,10 @@ theorem keep_flush_publish (strm : ZStreamPtr) (s : DeflateStatePtr) :
                     have dsEq : (r.put h1 zn).dstates = h1.dstates := by
                       cases r <;> simp only [ZStreamRef.put] <;> split <;> rfl
                     cases getd1 : h1.dstates i with
-                    | none => simp [stDeflateState, DeflateStateRef.get, getd1, dsEq] at run
+                    | none => simp [stDeflateState, DeflateStateRef.get, getd1] at run
                     | some d4 =>
                       have getd4 : (r.put h1 zn).dstates i = some d4 := by rw [dsEq]; exact getd1
-                      simp only [stDeflateState, DeflateStateRef.get, getd1, getd4, dsEq, DeflateStateRef.isRo,
+                      simp only [stDeflateState, DeflateStateRef.get, getd1, dsEq, DeflateStateRef.isRo,
                         Bool.false_eq_true, ite_false] at run
                       rw [DeflateStateRef.put_tab getd4] at run
                       have rel5 := KeepRel.upd_state getd4 { d with pending_out := po, pending := d.pending - len.toUInt64 }

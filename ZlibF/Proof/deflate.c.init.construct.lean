@@ -62,8 +62,9 @@ theorem final_inv {h : Heap} (ds : Nat) (r : ZStreamRef) (level : Int32) (w p q 
   constructor
   all_goals first
     | exact ⟨w, p, q, b, hb⟩
-    | simpa [finalState, resetState, lmD, rkPost, rkPost3, rkMid, ibRec, trInitRec,
-        readyState, allocatedState, baseState] using hl0
+    | exact hl0
+    | (simp [finalState, resetState, lmD, rkPost, rkPost3, rkMid, ibRec, trInitRec,
+        readyState, allocatedState, baseState]; done)
     | simpa [finalState, resetState, lmD, rkPost, rkPost3, rkMid, ibRec, trInitRec,
         readyState, allocatedState, baseState] using hl9
     | simp [finalState, resetState, lmD, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
@@ -127,21 +128,21 @@ theorem reset_construct {h : Heap} {r : ZStreamRef} {z : ZStream} {ds w p q b : 
     simp only [bind_app, zrd_eq, hzR, zr, rkZ, hl.zst, castD]
     rw [hlm]
     simp only [pure_app]
-    simp [after, hr, zr, rkZ, hl.zst, dr]
-  · refine ⟨⟨?_, by simp [after], ?_, ?_, ?_, ?_, ?_⟩, hI,
+    simp [hr, zr, rkZ, hl.zst, dr]
+  · refine ⟨⟨?_, by simp, ?_, ?_, ?_, ?_, ?_⟩, hI,
       shape.uniq hu, shape.fresh (by simp [after, hr, setW]) hf, ?_⟩
-    · simp only [after, ZStreamRef.get_setD, get_setW, hr, zr,
+    · simp only [ZStreamRef.get_setD, get_setW,
         ZStreamRef.get_put_same hl.hz]
     · simpa [zr, rkZ] using hl.zst
-    · simp [dr, lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec,
+    · simp [lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec,
         readyState, allocatedState, baseState]
     · left
-      simp [dr, lmD, resetState, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
+      simp [lmD, resetState, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
         readyState, allocatedState, baseState]
     · simpa [zr, rkZ] using hl.zalloc
     · simpa [zr, rkZ] using hl.zfree
     · refine ⟨lmD dr, b, (h.bytes b).getD #[], ?_, ?_⟩
-      · refine ⟨by simp only [after, setD_dstates_same]; rfl, hI.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · refine ⟨by simp only [setD_dstates_same]; rfl, hI.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
         · simpa [after, hr, setW] using ht.static
         · simpa [dr, lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec] using ht.pbuf
         · simpa [after, hr, setW] using ht.bytes

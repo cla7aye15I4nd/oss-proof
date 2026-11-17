@@ -122,7 +122,7 @@ theorem deflateEnd_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
       rw [this]; exact hpa⟩)
   have f4 := zfreeB_run (h := freeWords (freeWords (freeBytes h d.pending_buf) d.head) d.prev) (r := r) (z := z)
     (by simpa using hL.hz) hf (p := d.window) (Or.inr ⟨w, wa, hB.win, by
-      simp only [freeWords_bytes, freeBytes, hB.pbuf, hB.win]
+      simp only [freeWords_bytes, freeBytes, hB.pbuf]
       simp [upd_ne _ _ _ _ hbw.symm, hwa], by simpa using hB.wro⟩)
   simp only [hB.pbuf, hB.head, hB.prev, hB.win] at f1 f2 f3 f4
   unfold deflateEnd
@@ -130,7 +130,7 @@ theorem deflateEnd_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
   have hz' : ∀ h' : Heap, r.get h' = r.get h → zfree_default (some r) h' = .ok ((), h') := fun h' e =>
     zfree_default_run (by rw [e]; exact hL.hz) hf
   rw [hz']
-  · simp only [bind_app, pure_app]
+  · simp only
     rw [freeDeflateState_free_ok (d := d)]
     · simp only [ZStreamRef.get_dstates, ZStreamRef.get_freeBytes, ZStreamRef.get_freeWords, hL.hz,
         ZStreamRef.put_with_dstates, endHeap, hB.win, hB.prev, hB.head, hB.pbuf, freeBytes_dstates, freeWords_dstates]
@@ -173,7 +173,7 @@ theorem ZStreamRef.put_streams (r : ZStreamRef) (g : Heap) (v : ZStream) (x : Na
   cases r with
   | tab i => 
     have := hx i rfl
-    simp only [ZStreamRef.put]; split <;> simp [upd_apply, this]
+    simp only [ZStreamRef.put]; split <;> simp [this]
   | in_gzstate_strm i => simp only [ZStreamRef.put]; split <;> rfl
 
 theorem ZStreamRef.put_gzstates (r : ZStreamRef) (g : Heap) (v : ZStream) (x : Nat)
@@ -182,7 +182,7 @@ theorem ZStreamRef.put_gzstates (r : ZStreamRef) (g : Heap) (v : ZStream) (x : N
   | tab i => simp only [ZStreamRef.put]; split <;> rfl
   | in_gzstate_strm i =>
     have := hx i rfl
-    simp only [ZStreamRef.put]; split <;> simp [upd_apply, this]
+    simp only [ZStreamRef.put]; split <;> simp [this]
 
 theorem endHeap_tables {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {w p q b : Nat}
     (hB : DBlocks h d w p q b) (hz : r.get h = some z) (x : Nat) :
@@ -202,7 +202,7 @@ theorem endHeap_tables {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
     by_cases h1 : x = w <;> by_cases h2 : x = b <;> simp [h1, h2]
   · simp only [ZStreamRef.put_words]; simp only [upd_apply]
     by_cases h1 : x = p <;> by_cases h2 : x = q <;> simp [h1, h2]
-  · simp only [ZStreamRef.put_dstates]; simp only [upd_apply]
+  · simp only; simp only [upd_apply]
   · exact e4
   · exact e5
   · simp
@@ -300,9 +300,9 @@ theorem deflateEnd_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
   refine ⟨?_, by simp, by simp, by simp [hbw], by simp, by simp [hB.pq.symm], ?_, ?_, ?_, by simp, by simp, by simp, by simp,
     by simp, ?_, ?_, ?_, ?_, ?_⟩
   · rw [ZStreamRef.get_dstates, ZStreamRef.get_put, ZStreamRef.get_bw, hz]; rfl
-  · intro x hx; simp [upd_apply, hx]
-  · intro x h1 h2; simp [upd_apply, h1, h2]
-  · intro x h1 h2; simp [upd_apply, h1, h2]
+  · intro x hx; simp [hx]
+  · intro x h1 h2; simp [h1, h2]
+  · intro x h1 h2; simp [h1, h2]
   · intro x hx; simp [ZStreamRef.put_streams r _ _ x hx]
   · intro x hx; simp [ZStreamRef.put_gzstates r _ _ x hx]
   · rw [← endHeap_eq hB]; exact hUni

@@ -48,7 +48,7 @@ theorem header_complete_accounting {z : ZStream} {ob oo : Nat}
     change z.avail_out.toNat - 2 + 2 = z.avail_out.toNat
     omega
   · exact (advance_zero _).symm
-  · simp only [headerCompleteStream, pendingStream, pointer, advance]
+  · simp only [pointer, advance]
 
 /-- The raw default header's two output bytes preserve both public caller
 ranges, including two disjoint intervals in one caller allocation. -/
@@ -107,7 +107,7 @@ theorem public_default_header_complete {h : Heap} {r : ZStreamRef} {ds pb ob oo 
       show ((2 : UInt64) - (2 : UInt32).toUInt64) = 0 from rfl, BEq.rfl, ite_true]
     rw [← initial.pending, ← initial.pendingOut]
   have adler : { z with adler := 1 } = z := by rw [← initial.adler]
-  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, reset, adler, h0, d0,
+  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, adler, h0, d0,
     setD_bytes, ZStreamRef.put_bytes, setD_bytes_commute, ← stream_put_bytes, ZStreamRef.put_setD, setD_setD,
     headerCompleteHeap, headerCompleteBytes, headerCompleteStream,
     show ((2 : UInt32).toNat) = 2 from rfl, ZStreamRef.put_put, reset]

@@ -52,7 +52,7 @@ theorem symbolCost_split (ll dl : Nat → Nat) (s : Symbol) (valid : s.Valid) :
   have v := valid.2
   by_cases z : s.distance = 0
   · simp [symbolCost, keyCost, distKeyCost, Symbol.literalKey, Symbol.distanceKey, z, show s.value < 257 by omega]
-  · simp only [symbolCost, keyCost, distKeyCost, Symbol.literalKey, Symbol.distanceKey, z, if_false,
+  · simp only [symbolCost, keyCost, distKeyCost, Symbol.literalKey, Symbol.distanceKey, z, ite_false,
       show ¬ (symbolLengthCode s.value + 257 < 257) by omega, Nat.add_sub_cancel]
     omega
 

@@ -98,7 +98,7 @@ theorem cpy_step {h : Heap} {w eb : Nat} {a ebytes : Array UInt8} {eo n m d : Na
   intro α k
   have h2 : eo - n + m ≤ ebytes.size := by omega
   simp only [bind_app, PointerArithmetic.subNat_ok (r := BRef.blk eb) (by simpa using heb) hn hoff]
-  simp only [bind_app, memcpyB_blk_ok ha heb hro hne hd h2]
+  simp only [memcpyB_blk_ok ha heb hro hne hd h2]
 
 /-- `zmemcpy(w + d, e - n, m)` where `w + d` is computed first (the first copy of `uw_small`). -/
 theorem cpy_step_off {h : Heap} {w eb : Nat} {a ebytes : Array UInt8} {eo n m d : Nat}

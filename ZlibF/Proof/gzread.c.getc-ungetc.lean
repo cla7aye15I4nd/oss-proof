@@ -85,8 +85,8 @@ theorem RunSafe.ite {c : Prop} [Decidable c] {A B : G α} {P : α → Fs → Hea
     (ha : c → RunSafe A fs h fin P) (hb : ¬ c → RunSafe B fs h fin P) :
     RunSafe (if c then A else B) fs h fin P := by
   by_cases hc : c
-  · rw [if_pos hc]; exact ha hc
-  · rw [if_neg hc]; exact hb hc
+  · rw [ite_eq_left hc]; exact ha hc
+  · rw [ite_eq_right hc]; exact hb hc
 
 theorem RunSafe.fin_mono {m : G α} {P : α → Fs → Heap → Prop} {fin' : Prop} (hm : RunSafe m fs h fin P)
     (hf : fin' → fin) : RunSafe m fs h fin' P :=
@@ -363,12 +363,12 @@ theorem out_ptrs {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (hm : s.
   refine ⟨hi, hso, ?_, ?_, ?_⟩
   · rintro b hp rfl
     have hp' : blkOf s.path = some b := by rw [hp]; rfl
-    cases h1 : blkOf s.msg <;> cases h2 : blkOf s.«in» <;> simp [List.filterMap_cons, hp', h1, h2, bb] at nd
+    cases h1 : blkOf s.msg <;> cases h2 : blkOf s.«in» <;> simp [hp', h1, h2, bb] at nd
   · rintro b hp rfl
-    cases h1 : blkOf s.path <;> cases h2 : blkOf s.«in» <;> simp [List.filterMap_cons, h1, h2, hp, bb] at nd
+    cases h1 : blkOf s.path <;> cases h2 : blkOf s.«in» <;> simp [h1, h2, hp, bb] at nd
   · rintro b hp rfl
     have hp' : blkOf s.«in» = some b := by rw [hp]; rfl
-    cases h1 : blkOf s.path <;> cases h2 : blkOf s.msg <;> simp [List.filterMap_cons, hp', h1, h2, bb] at nd
+    cases h1 : blkOf s.path <;> cases h2 : blkOf s.msg <;> simp [hp', h1, h2, bb] at nd
 
 theorem out_owned {h : Heap} {i : Nat} {s : GzState} (hm : s.mode = GZ_READ) (hz : s.size ≠ 0)
     {ob : Nat} (hout : s.out = .ref (BRef.blk ob) 0) : GzOwned h i s ob :=
@@ -672,7 +672,7 @@ theorem slide_go (ob g : Nat) : ∀ (n k : Nat) (hh : Heap) (arr : Array UInt8),
     obtain ⟨arr', hsz', e6⟩ := slide_go ob g n k _ (arr.set! (k + g) (arr[k]'(by omega))) (by omega) hb1 hro (by rw [hsz1]; omega)
     refine ⟨arr', by rw [hsz', hsz1], ?_⟩
     rw [cwhile.go]
-    simp only [bind_app, pure_app, e1, e2, e3, e4, e5, if_true]
+    simp only [bind_app, pure_app, e1, e2, e3, e4, e5, ite_true]
     rw [e6, put_put_blk]
 
 /-! ## The stages of `gzungetc` (tails of the translation) -/

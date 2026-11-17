@@ -275,7 +275,7 @@ theorem inputLeft_budget {s s' : GzState} {fs fs' : Fs} {m n : Nat} (acc : Budge
   obtain ⟨-, k⟩ := acc h0
   obtain ⟨b', hb', hle⟩ := k b hb
   unfold inputLeft
-  rw [hfd, if_pos h0, if_pos h0, hb, hb']
+  rw [hfd, ite_eq_left h0, ite_eq_left h0, hb, hb']
   simp only [Option.getD_some]
   omega
 
@@ -291,7 +291,7 @@ theorem keeps_trans {a b c : GzState} (k1 : FetchKeeps a b) (k2 : FetchKeeps b c
 
 /-- The body of `gz_fetch`'s loop (source text). -/
 def fetchBody (i : Nat) : Option Int32 → G (Option Int32) :=
-    (fun (r : Option Int32) => do
+    (fun (_r : Option Int32) => do
       let s ← ldS (some (.tab i))
       if s.how == LOOK then
         if (← Zlib.Gzread.gz_look (some (.tab i))) == -1 then return some (-1)
@@ -346,17 +346,17 @@ noncomputable def fetchMeasure (i : Nat) (fs : Fs) (h : Heap) : Nat :=
   | none => 0
 
 theorem cOf_look {h : Heap} {s : GzState} (hl : s.how = LOOK) : cOf h s = 2 := by
-  unfold cOf; rw [if_pos hl]
+  unfold cOf; rw [ite_eq_left hl]
 
 theorem cOf_head {h : Heap} {s : GzState} (hg : s.how = GZIP) (hd : InflateAtHead h s) : cOf h s = 1 := by
-  unfold cOf; rw [if_neg (by rw [hg]; decide), if_pos ⟨hg, hd⟩]
+  unfold cOf; rw [ite_eq_right (by rw [hg]; decide), ite_eq_left ⟨hg, hd⟩]
 
 theorem cOf_gzip {h : Heap} {s : GzState} (hg : s.how = GZIP) (hd : ¬ InflateAtHead h s) : cOf h s = 3 := by
-  unfold cOf; rw [if_neg (by rw [hg]; decide), if_neg (fun hh => hd hh.2), if_neg (by rw [hg]; decide)]
+  unfold cOf; rw [ite_eq_right (by rw [hg]; decide), ite_eq_right (fun hh => hd hh.2), ite_eq_right (by rw [hg]; decide)]
 
 theorem cOf_copy {h : Heap} {s : GzState} (hc : s.how = GZ_COPY) : cOf h s = 0 := by
   unfold cOf
-  rw [if_neg (by rw [hc]; decide), if_neg (fun hh => absurd (hc.symm.trans hh.1) (by decide)), if_pos hc]
+  rw [ite_eq_right (by rw [hc]; decide), ite_eq_right (fun hh => absurd (hc.symm.trans hh.1) (by decide)), ite_eq_left hc]
 
 theorem cOf_le (h : Heap) (s : GzState) : cOf h s ≤ 3 := by
   unfold cOf; repeat' split
@@ -381,7 +381,7 @@ theorem fetch_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = s
   have hpg := s.x.pos.le_toInt
   have hml := max.toNat_lt
   unfold Zlib.Gzread.gz_room
-  simp only [gzSt, bind_app, pure_app, ldS_eq, hs]
+  simp only [gzSt, bind_app, ldS_eq, hs]
   by_cases hp : s.x.pos > 0
   · have hp' : 0 < s.x.pos.toInt := by have := (Int64.lt_iff_toInt_lt).1 hp; simpa using this
     have hsub := i64sub_run GZ_OFF_MAX s.x.pos (by rw [fetch_GZ_OFF_MAX_toInt]; omega)
@@ -405,14 +405,14 @@ theorem fetch_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = s
       rw [hv] at this
       simp at this
       omega
-    · simp only [hlt, Bool.false_eq_true, ite_false, pure_app]
+    · simp only [hlt, ite_false, pure_app]
       have hge : ¬ (9223372036854775807 - s.x.pos.toInt < (max.toNat : Int)) := by
         intro hh; apply hlt; rw [Int64.lt_iff_toInt_lt, hd, u32ToI64_toInt]; exact hh
       exact ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz, Or.inl rfl⟩
   · have hp' : s.x.pos.toInt ≤ 0 := by
       have : ¬ (0 : Int64).toInt < s.x.pos.toInt := fun hh => hp ((Int64.lt_iff_toInt_lt).2 hh)
       simp at this; omega
-    simp only [hp, Bool.false_eq_true, ite_false, pure_app, decide_false]
+    simp only [hp, ite_false, pure_app]
     exact ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz, Or.inl rfl⟩
 
 /-- What is buffered into a window of `room` (or 1 when `room = 0`) bytes stays within `GZ_OFF_MAX`, but for the
@@ -425,7 +425,7 @@ theorem room_pos {pos : Int} {room max hv : UInt32} (hmax : max ≠ 0)
   · subst h0
     have hle' : hv.toNat ≤ 1 := by simpa using hle
     exact Or.inr ⟨(hz0 rfl).resolve_left hmax, hle'⟩
-  · rw [if_pos (by simpa using h0)] at hle
+  · rw [ite_eq_left (by simpa using h0)] at hle
     left; omega
 
 /-- A window filled to its end is `max` bytes or reaches `GZ_OFF_MAX`. -/
@@ -438,7 +438,7 @@ theorem room_full {pos : Int} {room max hv : UInt32} (hmax : max ≠ 0)
   · subst h0
     have := (hz0 rfl).resolve_left hmax
     right; omega
-  · rw [if_pos (by simpa using h0)] at heq
+  · rw [ite_eq_left (by simpa using h0)] at heq
     rcases hfull with e | e
     · left; rw [heq, e]
     · right; omega
@@ -856,7 +856,7 @@ theorem fetch_gzip (decomp : GzDecompSpec) (i : Nat) (h : Heap) (fs : Fs) (s : G
   refine RunSafe.bind D ?_
   rintro r fs2 h2 ⟨hr, hk, post, rf, rb, bud, s', hs', keep, hml', hil, herr, hwin, hhow, hneg, hprog, rkA, rkB,
     dA, dB, dC, dD⟩
-  rw [if_pos rfl] at post
+  rw [ite_eq_left rfl] at post
   have P1 : GzPost h i s [] fs (putGz h i (gzipRec s (if room != 0 then room else 1))) GzInvUpToOutput :=
     post_put (post_refl hu hfs) hs hu1 (owned_set_strm hs _ rfl) rfl rfl
   have P := post_trans P1 (fun t ht => ht.1) hs1 post
@@ -974,14 +974,14 @@ theorem fetch_body (look : GzLookSpec) (decomp : GzDecompSpec) (i : Nat) (h : He
   try dsimp only
   have hhow : s.how = LOOK ∨ s.how = GZ_COPY ∨ s.how = GZIP := (hu.2.reader hm).how
   rcases hhow with hl | hc | hg
-  · rw [if_pos (show (s.how == LOOK) = true by rw [hl]; decide)]
+  · rw [ite_eq_left (show (s.how == LOOK) = true by rw [hl]; decide)]
     exact fetch_look look i h fs s hu hh hfs hm hl hml
-  · rw [if_neg (show ¬ (s.how == LOOK) = true by rw [hc]; decide),
-      if_pos (show (s.how == GZ_COPY) = true by rw [hc]; decide)]
+  · rw [ite_eq_right (show ¬ (s.how == LOOK) = true by rw [hc]; decide),
+      ite_eq_left (show (s.how == GZ_COPY) = true by rw [hc]; decide)]
     exact fetch_copy i h fs s hu hfs hm hc (hcopy hc) hml
-  · rw [if_neg (show ¬ (s.how == LOOK) = true by rw [hg]; decide),
-      if_neg (show ¬ (s.how == GZ_COPY) = true by rw [hg]; decide),
-      if_pos (show (s.how == GZIP) = true by rw [hg]; decide)]
+  · rw [ite_eq_right (show ¬ (s.how == LOOK) = true by rw [hg]; decide),
+      ite_eq_right (show ¬ (s.how == GZ_COPY) = true by rw [hg]; decide),
+      ite_eq_left (show (s.how == GZIP) = true by rw [hg]; decide)]
     exact fetch_gzip decomp i h fs s hu hfs hm hg hml herr0
 
 /-! ## The loop -/

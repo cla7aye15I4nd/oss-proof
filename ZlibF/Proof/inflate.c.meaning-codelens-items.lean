@@ -571,7 +571,7 @@ theorem cl_lit {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZS
     clAfterLookup_literal_run hc hs size haveBound literal width enough B initialized
   have kLit : codeLenExtra here.val.toNat = 0 := by
     simp only [codeLenExtra]
-    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+    rw [ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega)]
   have prefixEq := clWrite_lens_prefix (s := s) (value := here.val) haveBound (by omega)
   change actualLengthPrefix (clWrite s here.val) = actualLengthPrefix s ++ [here.val.toNat] at prefixEq
   refine ⟨.ok false, _, setI h zs (clWrite s here.val), 0, run, by omega,

@@ -135,7 +135,7 @@ theorem deflate_call_full {h : Heap} {r : ZStreamRef} {ds : Nat}
     · obtain ⟨inv2, header2, facts2, buffers2, seg2⟩ := fullK full1
       have run : C.run (Zlib.Deflate.deflate (some r) flush) h =
           .ok (Z_OK, setD after1 ds { d1 with status := d1.status, last_flush := -1 }) := by
-        rw [C.run, deflate_phases, entry, if_pos full1]
+        rw [C.run, deflate_phases, entry, ite_eq_left full1]
       have keep : Zlib.Deflate.Universal.Keep.KeepRel h (setD after1 ds { d1 with status := d1.status, last_flush := -1 }) :=
         keep1.trans (Zlib.Deflate.Universal.Keep.KeepRel.upd_state hs1 { d1 with status := d1.status, last_flush := -1 } ⟨rfl, rfl⟩)
       have hz2 : r.get (setD after1 ds { d1 with status := d1.status, last_flush := -1 }) = some z1 := by
@@ -151,7 +151,7 @@ theorem deflate_call_full {h : Heap} {r : ZStreamRef} {ds : Nat}
       obtain ⟨i, err, text⟩ := err_return_static hz1 Z_BUF_ERROR
       have run : C.run (Zlib.Deflate.deflate (some r) flush) h =
           .ok (Z_BUF_ERROR, r.put after1 { z1 with msg := .ref (.str i) 0 }) := by
-        rw [C.run, deflate_phases, entry, if_neg full1, if_pos finIn]; exact err
+        rw [C.run, deflate_phases, entry, ite_eq_right full1, ite_eq_left finIn]; exact err
       have seg := seg1.trans (seg_msg inv1.good buffers1 (.ref (.str i) 0)) inv.good buffers
       obtain ⟨u, p, ⟨⟨acc2, tin, tout, bframe, live, nalloc⟩, _⟩, own⟩ := seg
       have out0 : z.next_out ≠ .null := fun e => refuses (by unfold DeflateRefuses; exact Or.inr (Or.inr (Or.inl e)))
@@ -178,7 +178,7 @@ theorem deflate_call_full {h : Heap} {r : ZStreamRef} {ds : Nat}
         Zlib.Deflate.Universal.Keep.KeepRel.gz_eq keep1 hs hs1, Zlib.Deflate.Universal.Keep.KeepRel.lit_eq keep1 hs hs1⟩
     · obtain ⟨rc, after, z', d', run0, inv', header', facts', buffers', seg2, rcs, endF, prog, progIn⟩ := contK full1 finIn
       have run : C.run (Zlib.Deflate.deflate (some r) flush) h = .ok (rc, after) := by
-        rw [C.run, deflate_phases, entry, if_neg full1, if_neg finIn]; exact run0
+        rw [C.run, deflate_phases, entry, ite_eq_right full1, ite_eq_right finIn]; exact run0
       have keep : Zlib.Deflate.Universal.Keep.KeepRel h after :=
         keep1.trans (Zlib.Deflate.Universal.Keep.keep_after_entry _ _ _ _ _ _ run0)
       obtain ⟨used, out, cl, own⟩ := clauses_ok inv buffers refuses full seg2 keep inv'.good.live.hz rcs endF noBuf

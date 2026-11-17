@@ -42,7 +42,7 @@ def offOf : BPtr → Nat
   | .null => 0
 
 /-- `Ok none`: the tables were rejected (TABFAIL). -/
-def runCase (tab : String) (wsize whave wnext : Nat) (hold : UInt64) (bits avail_out : Nat)
+def runCase (_tab : String) (wsize whave wnext : Nat) (hold : UInt64) (bits avail_out : Nat)
     (window prior input : Array UInt8) (lit dist : Array UInt16) (fixed : Bool) : M String := do
   let inp ← allocBytes input
   let outBuf ← allocBytes (prior ++ Array.replicate avail_out 0xa5)

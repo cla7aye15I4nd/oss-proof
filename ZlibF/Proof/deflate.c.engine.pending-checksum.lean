@@ -16,7 +16,7 @@ theorem flush_pending_low_run_adler {h after : Heap} {r : ZStreamRef} {ds ob oo 
     (good : DGood h r ds z d) (buffers : StreamBuffers h r)
     (pointer : z.next_out = .ref (.blk ob) oo) (low : d.bi_valid.toInt < 8)
     (run : flush_pending (some r) h = .ok ((), after)) (live : r.get after = some z')
-    (account : StreamAccounting z z' 0 produced) :
+    (_account : StreamAccounting z z' 0 produced) :
     z'.adler = z.adler := by
   by_cases zero : pendingLen d.pending z.avail_out = 0
   · have run0 := flush_pending_low_zero good.live.hz good.live.zst good.live.hs low zero

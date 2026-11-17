@@ -74,7 +74,7 @@ theorem look_eq (f : Nat → Nat) (n a R mx : Nat) (hR1 : 1 ≤ R) :
       simp [hc]
 
 theorem width_eq (f : Nat → Nat) (n R : Nat) {a : Nat} (hR1 : 1 ≤ R) (ha : a < Tc f n 15)
-    (hmx : lenAt f n a ≤ mxl f n) (hRa : R < lenAt f n a) (h15 : mxl f n ≤ 15) :
+    (_hmx : lenAt f n a ≤ mxl f n) (_hRa : R < lenAt f n a) (h15 : mxl f n ≤ 15) :
     Canon.width (lensOf f n) a R (mxl f n) = currOf f n R a := by
   unfold Canon.width currOf
   rw [L_eq f n ha, look_eq f n a R (mxl f n) hR1 16 _ _ (by omega)]

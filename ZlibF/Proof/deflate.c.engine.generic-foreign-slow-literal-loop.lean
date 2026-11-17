@@ -123,7 +123,7 @@ theorem default_foreign_slow_literal_full_flush_loop {h : Heap} {r : ZStreamRef}
   have creditA : deferredCredit result = 1 := by
     unfold deferredCredit
     have availableA : result.match_available ≠ 0 := by change emitted.match_available ≠ 0; rw [frame]; exact available
-    exact if_neg availableA
+    exact ite_eq_right availableA
   have balanceA : BlockBalance result [] (deferredCredit result) := by
     rw [creditA]
     unfold BlockBalance

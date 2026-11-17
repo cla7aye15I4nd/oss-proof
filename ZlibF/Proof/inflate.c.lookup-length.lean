@@ -88,8 +88,8 @@ theorem lenSubLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateStat
       cases impossible
     · intro _
       exact ⟨rfl, empty rfl, sameStream⟩
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (lenSubLookup c root) l h =
         runX (do
           let last := (← get).last
@@ -196,7 +196,7 @@ theorem lenRootTail_leaf (c : Ctx) (here : Code) (leaf : ¬ SlowLenLink here) :
     lenRootTail c here = pure () := by
   unfold lenRootTail
   simp only [bne_iff_ne, beq_iff_eq, Bool.and_eq_true]
-  exact if_neg leaf
+  exact ite_eq_right leaf
 
 /-- Actual LEN suffix after root/link lookup and root-bit consumption. -/
 def lenFinish (c : Ctx) : X Unit := do
@@ -263,10 +263,10 @@ private theorem bindX_assoc {α β γ : Type} (x : X α) (f : α → X β) (g : 
   change runX ((x >>= f) >>= g) l h = runX (x >>= fun a => f a >>= g) l h
   simp only [runX_bind]
   cases run : runX x l h with
-  | error fault => simp only [run]
+  | error fault => simp only
   | ok pair =>
     rcases pair with ⟨⟨result, regs⟩, heap⟩
-    cases result <;> simp only [run]
+    cases result <;> simp only
 
 /-- The cut contains the actual slow source statements in source order. -/
 theorem inflate_LEN_slow_cut {c : Ctx} {l : IL} {h : Heap}
@@ -293,11 +293,11 @@ theorem LenTableLeaf.bits_pos {ca : Array Code} {offset root : Nat} {entry : Cod
   obtain ⟨i, inside, cell⟩ := leaf
   have bound := positive i inside
   by_cases link : LenLink (ca.getD (offset + i) default)
-  · rw [if_pos link] at cell bound
+  · rw [ite_eq_left link] at cell bound
     obtain ⟨j, inner, same⟩ := cell
     rw [same]
     exact bound j inner
-  · rw [if_neg link] at cell bound
+  · rw [ite_eq_right link] at cell bound
     rw [cell]
     exact bound
 
@@ -340,8 +340,8 @@ theorem lenLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       rw [runX_bind, run]
     · intro impossible
       cases impossible
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have cell : ca.getD (offset + current.hold.toNat % 2 ^ s.lenbits.toNat) default = current.here :=
       selected.symm
     have rootIndex : current.hold.toNat % 2 ^ s.lenbits.toNat < 2 ^ s.lenbits.toNat :=
@@ -352,7 +352,7 @@ theorem lenLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       simp only [runX_bind, runX_get]
     by_cases slow : SlowLenLink current.here
     · have link : LenLink current.here := slowLenLink_fast slow
-      rw [if_pos link] at classification
+      rw [ite_eq_left link] at classification
       obtain ⟨result, final, used2, after, subRun, usedTwo2, usedBound2, finalInv, finalShape,
         _, finalBound, kinds2, done, leave, subCursor, subLeaf⟩ :=
         lenSubLookup_run_cursor current.here hc hs pointer tableGet classification back inv
@@ -371,7 +371,7 @@ theorem lenLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
         obtain ⟨heapEq, leaf, fits, bits, finalCount⟩ := done success
         refine ⟨current.here.bits.toNat, entryBound, heapEq, leaf, fits, ?_, ?_⟩
         · simpa only [List.drop_drop, Nat.add_comm] using bits.trans (congrArg (List.drop current.here.bits.toNat) sameStream)
-        · simp only [count, Nat.mul_add] at finalCount
+        · simp only [count] at finalCount
           simpa only [Nat.mul_add, Nat.add_assoc] using finalCount
       · intro exhausted
         obtain ⟨heapEq, zero, bits⟩ := leave exhausted
@@ -380,14 +380,14 @@ theorem lenLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       · intro success
         obtain ⟨j, inner, same⟩ := subLeaf success
         refine ⟨current.hold.toNat % 2 ^ s.lenbits.toNat, rootIndex, ?_⟩
-        rw [cell, if_pos link]
+        rw [cell, ite_eq_left link]
         exact ⟨j, inner, same⟩
     · have notLink : ¬ LenLink current.here := by
         intro link
         have table := classification
-        rw [if_pos link] at table
+        rw [ite_eq_left link] at table
         exact slow (lenLink_slow link table)
-      rw [if_neg notLink] at classification
+      rw [ite_eq_right notLink] at classification
       refine ⟨.ok (), current, used, h, ?_, by omega, usedBound, inv, shape.symbol,
         bitBound, Or.inl rfl, ?_, ?_, cursor, ?_⟩
       · rw [prefixRun, lenRootTail_leaf c current.here slow, runX_pure]
@@ -404,7 +404,7 @@ theorem lenLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
         cases impossible
       · intro _
         refine ⟨current.hold.toNat % 2 ^ s.lenbits.toNat, rootIndex, ?_⟩
-        rw [cell, if_neg notLink]
+        rw [cell, ite_eq_right notLink]
 
 /-- Projection retaining the original complete length lookup. -/
 theorem lenLookup_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}

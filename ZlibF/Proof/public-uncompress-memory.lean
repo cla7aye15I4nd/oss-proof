@@ -89,7 +89,7 @@ theorem array_byte_of_window {a : Array UInt8} {i n k : Nat} {xs : List UInt8}
     xs[k]? = some a[i + k]! := by
   subst hx
   rw [getElem!_pos a (i + k) (by omega)]
-  simp [List.getElem?_take, hk, List.getElem?_drop]
+  simp [hk, List.getElem?_drop]
 
 /-- A length cell reads back its value. -/
 theorem load64_cell {h : Heap} {p : BPtr} {v : UInt64} (cell : LengthCell h p v) :
@@ -169,7 +169,7 @@ theorem store64_ref {h : Heap} {r : BRef} {i : Nat} {a : Array UInt8} {v : UInt6
   rw [add_at_put hg hro ?_ ?_]
   simp only []
   rw [store_at_put hg hro ?_ ?_]
-  simp only [bind_app, pure_app]
+  simp only [pure_app]
   · rw [byte_view_put_put hg hro]; rfl
   all_goals (try simp only [Array.size_set!]); (try omega)
 
@@ -188,15 +188,15 @@ theorem store64Array_eq (a : Array UInt8) (i : Nat) (v : UInt64) (hi : i + 8 ≤
     store64Array a i v = a.extract 0 i ++ (lengthBytes v).toArray ++ a.extract (i + 8) a.size := by
   apply Array.ext'
   simp only [store64Array, Array.set!_eq_setIfInBounds, Array.toList_setIfInBounds,
-    Array.toList_append, Array.toList_extract, List.toList_toArray]
+    Array.toList_append, Array.toList_extract]
   apply List.ext_getElem?
   intro j
   simp only [List.getElem?_set, List.getElem?_append, List.getElem?_take, List.getElem?_drop,
     List.length_set, Array.length_toList, List.length_append, List.length_take,
-    lengthBytes_length, List.drop_zero, Nat.sub_zero, Nat.zero_add,
+    lengthBytes_length, List.drop_zero, Nat.sub_zero,
     Nat.min_eq_left (show i ≤ a.size by omega)]
   by_cases lo : j < i
-  · simp [lo, show ¬ i + 0 = j by omega, show ¬ i + 1 = j by omega, show ¬ i + 2 = j by omega,
+  · simp [lo, show ¬ i + 1 = j by omega, show ¬ i + 2 = j by omega,
       show ¬ i + 3 = j by omega, show ¬ i + 4 = j by omega, show ¬ i + 5 = j by omega,
       show ¬ i + 6 = j by omega, show ¬ i + 7 = j by omega, show j < i + 8 by omega,
       show ¬ i = j by omega]
@@ -205,14 +205,14 @@ theorem store64Array_eq (a : Array UInt8) (i : Nat) (v : UInt64) (hi : i + 8 ≤
       show ¬ i + 3 = j by omega, show ¬ i + 4 = j by omega, show ¬ i + 5 = j by omega,
       show ¬ i + 6 = j by omega, show ¬ i + 7 = j by omega, show ¬ j < i + 8 by omega, ite_false]
     by_cases inside : j < a.size
-    · rw [if_pos (by omega), show i + 8 + (j - (i + 8)) = j by omega]
-    · rw [if_neg (by omega), List.getElem?_eq_none (by simp; omega)]
+    · rw [ite_eq_left (by omega), show i + 8 + (j - (i + 8)) = j by omega]
+    · rw [ite_eq_right (by omega), List.getElem?_eq_none (by simp; omega)]
   obtain ⟨k, hk, rfl⟩ : ∃ k, k < 8 ∧ j = i + k := ⟨j - i, by omega, by omega⟩
-  rw [if_pos (show i + k < i + 8 by omega), if_neg (show ¬ i + k < i by omega),
+  rw [ite_eq_left (show i + k < i + 8 by omega), ite_eq_right (show ¬ i + k < i by omega),
     show i + k - i = k by omega, lengthBytes_getElem? v k hk, ← byte_of_shift v k hk]
   have : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 := by omega
   rcases this with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-    simp [show i + 0 < a.size by omega, show i + 1 < a.size by omega, show i + 2 < a.size by omega,
+    simp [show i + 1 < a.size by omega, show i + 2 < a.size by omega,
       show i + 3 < a.size by omega, show i + 4 < a.size by omega, show i + 5 < a.size by omega,
       show i + 6 < a.size by omega, show i + 7 < a.size by omega, show i < a.size by omega]
 

@@ -131,7 +131,7 @@ theorem ws_gbTail1 {h0 : Heap} {id : Nat} (tk : TK) (e : DeflateState) (stree : 
       stree = Ptr.ref r 0 ∧
       (∀ e', Space.get (setD h0 id e') r = some st) ∧ n.toInt < st.size ∧ (st[n.toInt.toNat]!).dl.toNat ≤ 15 ∧
       slv = some ((st[n.toInt.toNat]!).dl.toNat)))
-    (hxsz : xbv ≤ 1000) :
+    (_hxsz : xbv ≤ 1000) :
     WS h0 id (gbTail1 (Sp id) (Ptr.ref (tk.ref id) 0) stree extra mc base h n bits ov) e (fun r e' =>
       r = (h, ov) ∧ (n.toInt ≤ mc.toInt → e' = leafEff tk e n.toInt.toNat bits.toInt.toNat xbv slv) ∧
         (¬ n.toInt ≤ mc.toInt → e' = e)) := by
@@ -493,7 +493,7 @@ theorem ws_gbPass1 {h0 : Heap} {id : Nat} {tk : TK} {d : DeflateState} {stree : 
     have hH : HEAP_SIZE.toInt = 573 := rfl
     by_cases hlt : k < 2 * J
     · refine Or.inr ⟨?_, ?_⟩
-      · simp only [gbCond1, decide_eq_true_eq]; omega
+      · simp only [decide_eq_true_eq]; omega
       · refine WS.bind' (ws_gbBody1 ctx k hlt h o hh ho e hs) fun r e1 ⟨h1, h2, h3⟩ => ?_
         have h1i : (1 : Int32).toInt = 1 := rfl
         refine WS.bind' (ws_iadd r.1 1 (by omega) (by omega)) fun h' e2 ⟨hh', he2⟩ => ?_
@@ -503,7 +503,7 @@ theorem ws_gbPass1 {h0 : Heap} {id : Nat} {tk : TK} {d : DeflateState} {stree : 
         · exact h2
         · show 573 - h'.toInt.toNat < 573 - h.toInt.toNat; omega
     · refine Or.inl ⟨?_, ?_⟩
-      · simp only [gbCond1, decide_eq_false_iff_not]; show ¬ h.toInt < 573; omega
+      · simp only [decide_eq_false_iff_not]; show ¬ h.toInt < 573; omega
       · have hk2 : k = 2 * J := by omega
         subst hk2
         exact ⟨by show h.toInt = 573; omega, ho, hs⟩

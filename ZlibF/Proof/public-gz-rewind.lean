@@ -57,8 +57,8 @@ theorem lseek_set_success_reg (fd : Int32) (off : Int64) (fs : Fs)
         · simp [lseekResReg, fsLseekReg, hn, hi, hget, hf, SEEK_SET, hneg, pure_app] at hok
         · have hup : ¬ 9223372036854775807 < off.toInt := by have := off.toInt_lt; omega
           refine ⟨{ f with pos := off.toInt.toNat }, ?_, rfl⟩
-          simp [lseekResReg, fsLseekReg, hn, hi, hget, hf, SEEK_SET, hneg, hup, pure_app,
-            Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, hidx]
+          simp [lseekResReg, fsLseekReg, hn, hi, hf, SEEK_SET, hneg, hup, pure_app,
+            Array.set!_eq_setIfInBounds, hidx]
 
 /-- On the regular instance, a successful `lseek(fd, off, SEEK_SET)` leaves the descriptor at `off`. -/
 theorem lseek_set_success (fd : Int32) (off : Int64) (fs : Fs)

@@ -36,33 +36,6 @@ theorem default_initialization_pending_boundary {h : Heap} {r : ZStreamRef} {z :
   · simp [start.insert]
   · simpa only [start.insert, show (0 : UInt32).toNat = 0 from rfl, Nat.sub_zero] using boundary.chains
 
-/-- The existing complete body proof preserves the stronger boundary.
-Ready lookahead supplies insert=0; the exact source frame retains it.
-The earlier body and boundary theorem statements need no change.
--/
-theorem slow_body_pending_boundary {h : Heap} {r : ZStreamRef} {ds origin : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {xs : List Symbol}
-    (boundary : PendingBoundary h r ds z d input origin xs)
-    (lookahead : 262 ≤ d.lookahead.toNat) (space : d.sym_next.toNat + 3 < d.sym_end.toNat)
-    (flush : Int32) (st : LoopS) :
-    ∃ next after result ys,
-      deflate_slow_body (some (.tab ds)) flush st h = .ok (next, after) ∧
-      PendingBoundary after r ds z result input origin ys ∧
-      SlowRecordFrame d result ∧ d.strstart.toNat < result.strstart.toNat ∧
-      result.lookahead.toNat < d.lookahead.toNat ∧ fillEnd result = fillEnd d ∧
-      (ys = xs ∨ ∃ symbol, ys = xs ++ [symbol]) ∧
-      result.sym_next.toNat < result.sym_end.toNat ∧ next.brk = st.brk ∧
-      (next.ret = st.ret ∨ next.ret = some need_more) := by
-  obtain ⟨next, after, result, ys, run, boundaryA, frame, startA, lookA, endpoint, symbols, countA, brkA, retA⟩ :=
-    slow_body_boundary boundary.toSlowBoundary lookahead space flush st
-  have insert : d.insert = 0 := boundary.ready (by omega)
-  have insertFrame : result.insert = d.insert := congrArg (·.insert) frame
-  have insertA : result.insert = 0 := insertFrame.trans insert
-  refine ⟨next, after, result, ys, run, ⟨boundaryA, ?_, ?_, fun _ => insertA⟩,
-    frame, startA, lookA, endpoint, symbols, countA, brkA, retA⟩
-  · simp [insertA]
-  · simpa only [insertA, show (0 : UInt32).toNat = 0 from rfl, Nat.sub_zero] using boundaryA.chains
-
 open ZlibF.Spec.Public.Proofs.DeflateInit in
 /-- The strengthened boundary is inhabited by an actual successful
 default entry on the existing concrete caller heap. -/

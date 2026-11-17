@@ -1,5 +1,6 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-public-pending-adler»
-import ZlibF.Proof.«deflate.c.engine.generic-foreign-header-pending-flush»
+import ZlibF.Proof.«deflate.c.engine.generic-foreign-pending-buffered-boundary»
+import ZlibF.Proof.«deflate.c.engine.header-pending-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-header-resume-checksum»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public

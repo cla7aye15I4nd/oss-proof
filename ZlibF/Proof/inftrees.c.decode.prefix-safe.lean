@@ -81,12 +81,12 @@ theorem lenLeavesPositive_of_prefix {before after : Array Code} {offset root use
   rw [same]
   have entry := positive i hi
   by_cases link : LenLink (before.getD (offset + i) default)
-  · rw [if_pos link] at entry ⊢
+  · rw [ite_eq_left link] at entry ⊢
     intro j hj
     have endBound := extent.2.2.2 i hi (Or.inl ⟨rfl, link⟩)
     rw [getD_eq_of_prefix cells (by omega) (by omega)]
     exact entry j hj
-  · rw [if_neg link] at entry ⊢
+  · rw [ite_eq_right link] at entry ⊢
     exact entry
 
 /-- `int inflate_table(codetype type, unsigned short *lens, unsigned codes,

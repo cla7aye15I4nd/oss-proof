@@ -38,7 +38,7 @@ theorem leaveChecksum_all_wrappers_safe {c : Ctx} {l : IL} {h : Heap} {r : ZStre
       rw [cursor, count, ptr]
       simp only []
       rw [checksum]
-      simp only [bind_app, E.st, wrI_eq, E.hs, wrZ_eq, ZStreamRef.get_setI, E.hz]
+      simp only [wrI_eq, E.hs, wrZ_eq, ZStreamRef.get_setI, E.hz]
       rw [ZStreamRef.put_setI]
     · intro ref
       rw [byte_view_get_setI, byte_view_get_stream_put]

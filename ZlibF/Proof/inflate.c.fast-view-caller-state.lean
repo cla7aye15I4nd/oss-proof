@@ -38,9 +38,9 @@ theorem inflateAfterFast_default_state_run
         next := z.next_in, have_ := z.avail_in, hold := s.hold, bits := s.bits } := by
   rw [inflateAfterFast_run E]
   by_cases type : s.mode = TYPE
-  · rw [if_pos type]
+  · rw [ite_eq_left type]
     exact ⟨_, _, _, rfl, invariant.type_set_back type (-1), rfl⟩
-  · rw [if_neg type]
+  · rw [ite_eq_right type]
     exact ⟨_, _, _, rfl, invariant, rfl⟩
 
 /-- The complete actual fast LEN branch preserves the initialized default

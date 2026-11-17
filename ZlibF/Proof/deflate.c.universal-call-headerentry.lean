@@ -75,8 +75,8 @@ theorem gzip_entry_facts {h0 h1 : Heap} {r : ZStreamRef} {ds pb produced : Nat} 
   obtain ⟨nxs, ncs⟩ := nameXs
   obtain ⟨cxs, ccs⟩ := commentXs
   obtain ⟨pw, owned⟩ := apart writing i g record getg nxs cxs ncs ccs
-  simp only [headerSpans, List.pairwise_cons, List.mem_cons, List.mem_singleton, List.not_mem_nil,
-    forall_eq_or_imp, forall_eq, List.Pairwise.nil, and_true, implies_true] at pw
+  simp only [headerSpans, List.pairwise_cons, List.mem_cons, List.not_mem_nil,
+    forall_eq_or_imp, List.Pairwise.nil, and_true] at pw
   obtain ⟨_, ⟨outExtra, outName, outComment, _⟩, _⟩ := pw
   have keysOf : ∀ p, p = g.extra ∨ p = g.name ∨ p = g.comment → ∀ b, ByteRoot p b → b ≠ pb ∧ b ≠ ds := by
     intro p mem
@@ -218,8 +218,8 @@ theorem resumed_header_entry {h0 h1 : Heap} {r : ZStreamRef} {ds pb produced : N
     intro present
     obtain ⟨ys, cs0, le⟩ := pName e present
     obtain ⟨pw, _⟩ := apart writing i g record getg0 ys cxs (fun _ => cs0) ccs
-    simp only [headerSpans, List.pairwise_cons, List.mem_cons, List.mem_singleton, List.not_mem_nil,
-      forall_eq_or_imp, forall_eq, List.Pairwise.nil, and_true, implies_true] at pw
+    simp only [headerSpans, List.pairwise_cons, List.mem_cons, List.not_mem_nil,
+      forall_eq_or_imp, List.Pairwise.nil, and_true] at pw
     obtain ⟨_, ⟨_, outName, _, _⟩, _⟩ := pw
     obtain ⟨_, _, _, keys⟩ := nameLater present
     exact ⟨ys, cs0, le, by simpa [present] using separate_comm outName, keys⟩
@@ -229,8 +229,8 @@ theorem resumed_header_entry {h0 h1 : Heap} {r : ZStreamRef} {ds pb produced : N
     intro present
     obtain ⟨ys, cs0, le⟩ := pComment e present
     obtain ⟨pw, _⟩ := apart writing i g record getg0 nxs ys ncs (fun _ => cs0)
-    simp only [headerSpans, List.pairwise_cons, List.mem_cons, List.mem_singleton, List.not_mem_nil,
-      forall_eq_or_imp, forall_eq, List.Pairwise.nil, and_true, implies_true] at pw
+    simp only [headerSpans, List.pairwise_cons, List.mem_cons, List.not_mem_nil,
+      forall_eq_or_imp, List.Pairwise.nil, and_true] at pw
     obtain ⟨_, ⟨_, _, outComment, _⟩, _⟩ := pw
     obtain ⟨_, _, _, keys⟩ := commentLater present
     exact ⟨ys, cs0, le, by simpa [present] using separate_comm outComment, keys⟩

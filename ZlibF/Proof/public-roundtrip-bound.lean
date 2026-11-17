@@ -17,6 +17,6 @@ theorem compressBound_eq_unsaturated (m : Nat) (small : unsaturatedBound m < 184
       if unsaturatedBound m ≥ 18446744073709551616 then 18446744073709551615 else unsaturatedBound m := by
     unfold Api.compressBound unsaturatedBound
     rfl
-  rw [unfolded, if_neg (by omega)]
+  rw [unfolded, ite_eq_right (by omega)]
 
 end ZlibF.Spec.Public.Proofs

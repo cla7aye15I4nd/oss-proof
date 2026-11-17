@@ -476,8 +476,8 @@ theorem windowFrameM_wrZ (r : ZStreamRef) (owner : InflateStatePtr) (update : ZS
       congr 1
       funext b
       by_cases e : b = k
-      · subst e; simp [upd_apply, g, window]
-      · simp [upd_apply, e]
+      · subst e; simp [g, window]
+      · simp [e]
     | in_gzstate_strm k =>
       cases g : h.gzstates k with
       | none => simp [ZStreamRef.get, g] at get
@@ -488,8 +488,8 @@ theorem windowFrameM_wrZ (r : ZStreamRef) (owner : InflateStatePtr) (update : ZS
         congr 1
         funext b
         by_cases e : b = k
-        · subst e; simp [upd_apply, g, window, gstrm]
-        · simp [upd_apply, e]
+        · subst e; simp [g, window, gstrm]
+        · simp [e]
 
 section pointers
 variable {R T : Type} [Space Heap R T]

@@ -37,13 +37,13 @@ theorem clTables_origin_fields {c : Ctx} {h after : Heap} {r : ZStreamRef} {zs :
     · rw [distOk] at distRun
       rw [clAfterDist_success E.st distGet] at distRun
       by_cases trees : c.flush = Z_TREES
-      · rw [if_pos trees] at distRun
+      · rw [ite_eq_left trees] at distRun
         have same : after = setI (setI h zs distState) zs { distState with mode := LEN_ } :=
           congrArg Prod.snd (Except.ok.inj (actual.symm.trans distRun))
         rw [same, setI_istates_same] at get
         cases Option.some.inj get
         exact ⟨rfl, rfl⟩
-      · rw [if_neg trees] at distRun
+      · rw [ite_eq_right trees] at distRun
         have source := distRun.symm.trans actual
         have fields := (originFieldFrameX_inflate_LEN_ r c E.strm _ _ _ _ _ source).state_fields
           (setI_istates_same (setI h zs distState) zs { distState with mode := LEN_ }) get
@@ -98,12 +98,12 @@ theorem clTail_origin_fields {c : Ctx} {h after : Heap} {r : ZStreamRef} {zs : N
         simp [clTail, runX_bind, runX_lift_ok modeRead, bad, runX_lift_ok read', zero]
     rw [cut] at actual
     by_cases zero : value = 0
-    · rw [if_pos zero] at actual
+    · rw [ite_eq_left zero] at actual
       have frame : OriginFieldFrameX r c.st (do badMode c "invalid code -- missing end-of-block"; pure ()) := by
         origin_fields_frame_mode r, c.st, E.strm
       obtain ⟨flags, lengths, distances⟩ := (frame _ _ _ _ _ actual).state_fields E.hs get
       exact ⟨flags, by simpa only [CopyTableOrigin, lengths, distances] using before.tableOrigin⟩
-    · rw [if_neg zero] at actual
+    · rw [ite_eq_right zero] at actual
       obtain ⟨flags, pointer⟩ := clTables_origin_fields E before.good.inv.wf nlen ndist lengths actual get
       exact ⟨flags, Or.inl pointer⟩
 

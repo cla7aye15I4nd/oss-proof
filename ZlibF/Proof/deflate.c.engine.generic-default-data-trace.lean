@@ -1,5 +1,6 @@
-import ZlibF.Proof.«deflate.c.engine.encoding-data-history»
-import ZlibF.Proof.«deflate.c.engine.encoding-ordinary-history»
+import ZlibF.Proof.«deflate.c.engine.encoding-init-observed»
+import ZlibF.Proof.«deflate.c.engine.encoded-state-finish»
+import ZlibF.Proof.«deflate.c.engine.encoded-state-ordinary-request»
 import ZlibF.Spec.Functional.Sequences
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
@@ -44,14 +45,6 @@ theorem GenericDefaultDataTrace.dictionary_empty {h : Heap} {r : ZStreamRef} {lo
   | init => exact ⟨rfl, rfl⟩
   | caller _ _ ih => exact ih
   | step _ _ _ ih => exact ih
-
-/-- Every old raw-output trace embeds with its exact unchanged observed log. -/
-theorem GenericDefaultDataTrace.of_raw {h : Heap} {r : ZStreamRef} {log : DataLog}
-    (history : DefaultDataTrace r h log) : GenericDefaultDataTrace r h log := by
-  induction history with
-  | init domain actual => exact .init domain actual
-  | caller _ edit ih => exact .caller ih edit
-  | step _ getZ _raw observed ih => exact .step ih getZ observed
 
 inductive GenericDefaultDataTrace.UsesFlush {r : ZStreamRef} (allowed : Int32 → Prop) :
     {h : Heap} → {log : DataLog} → GenericDefaultDataTrace r h log → Prop

@@ -32,8 +32,8 @@ theorem distance_code_run {h : Heap} (static : TreesStatic h.static)
       simp [Nat.shiftRight_eq_div_pow]
     unfold Zlib.Deflate.d_code
     by_cases small : dist.toNat < 256
-    · simpa only [small, if_true, i] using read
-    · simpa only [small, if_false, shift, i, Int.natCast_add] using read
+    · simpa only [small, ite_true, i] using read
+    · simpa only [small, ite_false, shift, i, Int.natCast_add] using read
   refine ⟨_, run, ?_, ?_⟩
   · unfold dcodeN i
     split <;> rfl
@@ -53,7 +53,7 @@ theorem increment_distance_frequency {h : Heap} {ds : Nat} {d : DeflateState} {i
     get (by rfl) bound
   unfold freq_inc
   rw [bind_app, add]
-  simp only [Nat.zero_add]
+  simp only
   rw [bind_app, load]
   simp only []
   rw [put, CtDataRef.put_dstate_dyn_dtree state]

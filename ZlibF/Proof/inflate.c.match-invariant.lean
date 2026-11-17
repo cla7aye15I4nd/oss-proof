@@ -18,8 +18,8 @@ theorem byte_view_put_shape {h : Heap} {dest : BRef} {output : Array UInt8}
       intro b
       by_cases same : b = id
       · subst b
-        simp [Shape, Space.put, state]
-      · simp [Shape, Space.put, state, upd_ne _ _ _ _ same]
+        simp [Space.put, state]
+      · simp [Space.put, state, upd_ne _ _ _ _ same]
   | st_dist_code => simp [Space.ro] at write
   | st_length_code => simp [Space.ro] at write
 

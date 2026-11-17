@@ -45,7 +45,7 @@ theorem default_stored_length {h : Heap} {ds pb : Nat}
   refine ⟨?_, word, by rw [word]; omega⟩
   unfold lsub chk64
   rw [cast]
-  rw [if_pos (show -9223372036854775808 ≤ (d.strstart.toNat : Int) - d.block_start.toInt ∧
+  rw [ite_eq_left (show -9223372036854775808 ≤ (d.strstart.toNat : Int) - d.block_start.toInt ∧
     (d.strstart.toNat : Int) - d.block_start.toInt ≤ 9223372036854775807 by omega)]
 
 /-- On the real signed length calculation, selecting stored implies

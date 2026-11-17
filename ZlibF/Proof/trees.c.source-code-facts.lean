@@ -91,7 +91,7 @@ theorem bl_prepare_code_facts {h : Heap} {id b : Nat} {d : DeflateState} {buf : 
     unfold blPrepare
     simp only [bind_app, ptrL, TK.descRef] at runL runD ⊢
     rw [runL]
-    simp only [bind_app, ptrD]
+    simp only [ptrD]
     simpa only [setD_setD] using runD
   exact ⟨result, run, facts⟩
 

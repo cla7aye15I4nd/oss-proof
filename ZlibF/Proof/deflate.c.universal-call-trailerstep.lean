@@ -83,7 +83,7 @@ theorem trailer_step {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d 
   · have run : trailerPhase (some r) (some (.tab ds)) flush h = .ok (Z_OK, h) := by
       rw [trailer_phase_split]
       unfold trailerPhase'
-      simp [bind_app, bne_iff_ne.mpr f, pure_app]
+      simp [bne_iff_ne.mpr f, pure_app]
     exact ⟨Z_OK, h, z, d, 0, run, inv, header, facts, buffers, ⟨buf, trees, rfl⟩, stream_accounting_zero z,
       StageFrame.refl inv.good buffers trees.base.pbuf, rfl, Or.inl rfl, fun e => absurd e (by decide),
       fun _ => ⟨rfl, rfl, rfl, rfl⟩, Or.inl rfl,

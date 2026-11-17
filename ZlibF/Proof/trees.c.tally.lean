@@ -10,7 +10,7 @@ open C Zlib.Trees
 /-- One `s->sym_buf[s->sym_next++] = v` of `_tr_tally`. -/
 theorem sym_put_run {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Array UInt8}
     (hb : TreesBase h id d b buf) (hlt : d.lit_bufsize.toNat + d.sym_next.toNat < buf.size) (v : UInt8)
-    (hsn : d.sym_next.toNat < 2 ^ 31) :
+    (_hsn : d.sym_next.toNat < 2 ^ 31) :
     (do let d ← rd (some (.tab id))
         setAt d.sym_buf d.sym_next.toNat v
         md (some (.tab id)) fun d => { d with sym_next := d.sym_next + 1 } : M Unit) h =
@@ -121,9 +121,9 @@ theorem tally_puts {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Arr
   rw [bind_app, sym_put_run hb (by omega) _ (by omega)]
   simp only []
   rw [bind_app, sym_put_run hb1 (by simp only [Array.size_set!]; rw [hsn1]; omega) _ (by simp only []; rw [hsn1]; omega)]
-  simp only [hsn1, Nat.add_assoc, setB_setD, setD_setD, setB_setB]
+  simp only [hsn1, setB_setD, setD_setD, setB_setB]
   rw [bind_app, sym_put_run hb2 (by simp only [Array.size_set!]; rw [hsn2]; omega) _ (by simp only []; rw [hsn2]; omega)]
-  simp only [hsn2, Nat.add_assoc, setB_setD, setD_setD, setB_setB]
+  simp only [hsn2, setB_setD, setD_setD, setB_setB]
 
 
 /-- The array with `Freq` of entry `i` incremented (`tree[i].Freq++`, modulo 2^16). -/
@@ -387,11 +387,11 @@ theorem tr_tally_spec {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : 
     have n1 : ¬ (d.lit_bufsize.toNat + (d.sym_next.toNat + 2) = d.lit_bufsize.toNat + d.sym_next.toNat) := by omega
     have n2 : ¬ (d.lit_bufsize.toNat + (d.sym_next.toNat + 1) = d.lit_bufsize.toNat + d.sym_next.toNat) := by omega
     have n3 : d.lit_bufsize.toNat + d.sym_next.toNat < buf.size := by omega
-    simp [n1, n2, n3]
+    simp [n3]
   · rw [getD_set_u8, getD_set_u8, getD_set_u8]
     have n1 : ¬ (d.lit_bufsize.toNat + (d.sym_next.toNat + 2) = d.lit_bufsize.toNat + d.sym_next.toNat + 1) := by omega
     have n3 : d.lit_bufsize.toNat + (d.sym_next.toNat + 1) < buf.size := by omega
-    simp [n1, n3, Nat.add_assoc]
+    simp [n3, Nat.add_assoc]
   · rw [getD_set_u8, getD_set_u8, getD_set_u8]
     have n3 : d.lit_bufsize.toNat + (d.sym_next.toNat + 2) < buf.size := by omega
     simp [n3, Nat.add_assoc]

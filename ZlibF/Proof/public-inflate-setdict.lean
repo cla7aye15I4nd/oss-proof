@@ -51,7 +51,7 @@ theorem setdict_allocation_failure_public
       · subst b
         simp [Heap.live, hg.live.hs]
       · simp [hw] at he
-    simp only [LiveChange, not_false_eq_true, and_true]
+    simp only [not_false_eq_true, and_true]
     constructor
     · intro ha; exact Or.inl (hl.mp ha)
     · intro ha
@@ -81,7 +81,7 @@ private theorem live_unchanged {h : Heap} {r : ZStreamRef} {i : Nat} {z : ZStrea
     (hg : Good h r i z s) :
     LiveChange h h (fun b => InflateOwned i s b ∧ ¬ h.live b) (fun _ => False) := by
   intro b
-  simp only [LiveChange, not_false_eq_true, and_true]
+  simp only [not_false_eq_true, and_true]
   constructor
   · exact Or.inl
   · intro hh

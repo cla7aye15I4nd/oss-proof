@@ -93,21 +93,21 @@ theorem parsedOpenRecord_inv_facts (h : Heap) (bs : List UInt8) (mode : ZlibF.Sp
   have tstrm : (suppliedRecord (modeCopiedRecord (modePreparedHeap h bs) (modePreparedRecord h bs) mode)
       mode fd fs).strm = (modePreparedRecord h bs).strm := by
     by_cases hc : mode = .read ∧ (modePreparedRecord h bs).direct = 0
-    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, if_pos hc]
-    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, if_neg hc]
+    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, ite_eq_left hc]
+    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, ite_eq_right hc]
   have tdir : (suppliedRecord (modeCopiedRecord (modePreparedHeap h bs) (modePreparedRecord h bs) mode)
       mode fd fs).direct =
       if mode = .read ∧ (modePreparedRecord h bs).direct = 0 then 1 else (modePreparedRecord h bs).direct := by
     by_cases hc : mode = .read ∧ (modePreparedRecord h bs).direct = 0
-    · rw [if_pos hc]
-      simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, if_pos hc]
-    · rw [if_neg hc]
-      simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, if_neg hc]
+    · rw [ite_eq_left hc]
+      simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, ite_eq_left hc]
+    · rw [ite_eq_right hc]
+      simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, ite_eq_right hc]
   have tmode : (suppliedRecord (modeCopiedRecord (modePreparedHeap h bs) (modePreparedRecord h bs) mode)
       mode fd fs).mode = if mode = .append then GZ_WRITE else (modePreparedRecord h bs).mode := by
     by_cases hc : mode = .read ∧ (modePreparedRecord h bs).direct = 0
-    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, if_pos hc]
-    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, if_neg hc]
+    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, ite_eq_left hc]
+    · simp only [suppliedRecord, modeCopiedRecord, checkedModeRecord, ite_eq_right hc]
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · rw [rs, tstrm, hst]
     rfl
@@ -119,9 +119,9 @@ theorem parsedOpenRecord_inv_facts (h : Heap) (bs : List UInt8) (mode : ZlibF.Sp
     decide
   · rw [rd, tdir]
     by_cases hc : mode = .read ∧ (modePreparedRecord h bs).direct = 0
-    · rw [if_pos hc]
+    · rw [ite_eq_left hc]
       exact Or.inr (Or.inr rfl)
-    · rw [if_neg hc]
+    · rw [ite_eq_right hc]
       exact hd0
   · intro hw
     have hnr : mode ≠ .read := by
@@ -129,7 +129,7 @@ theorem parsedOpenRecord_inv_facts (h : Heap) (bs : List UInt8) (mode : ZlibF.Sp
       subst hr
       rw [rm, tmode, hm] at hw
       simp [modeCode, GZ_READ, GZ_WRITE] at hw
-    rw [rd, tdir, if_neg (fun hc => hnr hc.1)]
+    rw [rd, tdir, ite_eq_right (fun hc => hnr hc.1)]
     rcases hd0 with e | e | e
     · exact absurd e (hwrite hnr)
     · exact Or.inl e
@@ -340,7 +340,7 @@ theorem open_inv {h : Heap} {i pb : Nat} {s : GzState} {mode : Api.GzMode} {leve
       by_cases hne : mode = .read
       · exact hne
       exfalso
-      rw [if_neg hne] at hmode
+      rw [ite_eq_right hne] at hmode
       rw [hmode] at hr
       exact absurd hr (by decide)
     obtain ⟨heof, hhow, hjunk⟩ := hread hmr

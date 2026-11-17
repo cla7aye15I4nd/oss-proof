@@ -1,6 +1,8 @@
 import ZlibF.Proof.«deflate.c.init.general-construct»
 import ZlibF.Proof.«deflate.c.init.general-failure»
-import ZlibF.Proof.«deflate.c.init.memory-success»
+import ZlibF.Proof.«deflate.c.init.default»
+import ZlibF.Proof.«deflate.c.init.construct»
+import ZlibF.Proof.«deflate.c.init.failure»
 import ZlibF.Math.DeflateMemoryBounds
 import ZlibF.Proof.«deflate.c.engine.initial»
 
@@ -124,7 +126,7 @@ theorem finish_to_reset (h : Heap) (ds : Nat) (r : ZStreamRef) (level strategy :
       omega)
     simpa only [OkOn, padd, Nat.zero_add] using add
   unfold finish
-  simp only [bind_app, Bool.or_false, Bool.false_or]
+  simp only
   change (do
     let sym_buf ← padd (.ref (.blk (h.nextBlk + 3)) 0 : BPtr) (2 ^ (mem + 6))
     wr (some (.tab ds)) (fun d => { d with sym_buf, sym_end := (UInt32.ofNat (2 ^ (mem + 6)) - 1) * 3 })
@@ -139,7 +141,7 @@ requests. pending_out and window_size are deliberately left for reset. -/
 theorem ready_storage {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat}
     (level strategy : Int32) (wbLow : 9 ≤ wb) (wbHigh : wb ≤ 15) (memoryLow : 1 ≤ mem) (memoryHigh : mem ≤ 9)
     (hf : Fresh h) (hu : Uniq h) (hz : r.get h = some z)
-    (hs : h.dstates ds = some (baseState r wrap wb mem)) (hds : ds < h.nextBlk)
+    (hs : h.dstates ds = some (baseState r wrap wb mem)) (_hds : ds < h.nextBlk)
     (halloc : DefAlloc z) (hzs : z.state = some (.deflate ds))
     (hstatic : TreesStatic h.static)
     (ha : ∀ j, j < 4 → h.allocOk (h.nalloc + j) = true) :
@@ -174,15 +176,15 @@ theorem ready_storage {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat}
       ?_, ?_, by omega, by omega, 0, rfl, ?_⟩
     all_goals simp [g, readyHeap, successfulBuffers, d, readyState, allocatedState, baseState,
       byteGarbage, wordGarbage, pendingGarbage, hashGarbage, DeflateState.zeroed, DeflateState.garbage, Junk.of, sizes.1, sizes.2.1, sizes.2.2.2,
-      wsizes.1, wsizes.2.1, wsizes.2.2.1]
+      wsizes.1, wsizes.2.1]
     all_goals first
       | omega
       | simpa using requests.1
       | simpa [ZlibF.Math.DeflateMemLevel.pendingBytes, ZlibF.Math.DeflateMemLevel.symbolSlots] using requests.2.1
-  refine ⟨⟨hgZ, by simp [g, readyHeap], hzs, rfl, Or.inl rfl,
+  refine ⟨⟨hgZ, by simp [readyHeap], hzs, rfl, Or.inl rfl,
     by rw [halloc.1]; decide, by rw [halloc.2]; decide⟩,
     ?_, hb, hsh.uniq huB, hsh.fresh (by rfl) hfB⟩
-  refine ⟨by simp [g, readyHeap], wf, ?_, rfl, ?_, hb.bro, ?_, ?_, (by
+  refine ⟨by simp [readyHeap], wf, ?_, rfl, ?_, hb.bro, ?_, ?_, (by
       change (.ref (.blk (h.nextBlk + 3)) (2 ^ (mem + 6)) : BPtr) =
         .ref (.blk (h.nextBlk + 3)) (UInt32.ofNat (2 ^ (mem + 6))).toNat
       rw [sizes.1]),
@@ -190,7 +192,7 @@ theorem ready_storage {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat}
     by change (UInt32.ofNat (2 ^ (mem + 6))).toNat ≤ 32768; rw [sizes.1]; exact geometry.2.1,
     by change ((UInt32.ofNat (2 ^ (mem + 6)) - 1) * 3).toNat = 3 * ((UInt32.ofNat (2 ^ (mem + 6))).toNat - 1); rw [sizes.1]; exact sizes.2.2.1, ?_⟩
   · simpa [g, readyHeap, successfulBuffers] using hstatic
-  · simp [g, readyHeap, successfulBuffers]
+  · simp [readyHeap, successfulBuffers]
   · obtain ⟨array, get, size⟩ := hb.ba
     change ((g.bytes (h.nextBlk + 3)).getD #[]).size = 4 * d.lit_bufsize.toNat
     rw [get]
@@ -199,7 +201,7 @@ theorem ready_storage {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat}
     change d.pending_buf_size.toNat = ((g.bytes (h.nextBlk + 3)).getD #[]).size
     rw [get]
     exact hb.psize.trans size.symm
-  · simp [d, readyState, allocatedState, baseState, DeflateState.zeroed, DeflateState.garbage, Junk.of, sizes.1, sizes.2.1, sizes.2.2.2]
+  · simp [readyState, allocatedState, baseState, DeflateState.zeroed, DeflateState.garbage, Junk.of, sizes.2.2.2]
 theorem slot_successfulBuffers_old (h : Heap) (x : Nat) (hx : x < h.nextBlk) :
     SlotSame h (successfulBuffers wb mem h) x := by
   have h0 : x ≠ h.nextBlk := by omega
@@ -358,7 +360,7 @@ theorem success_initial {h : Heap} {r : ZStreamRef} {z : ZStream}
   let zp := preparedStream z
   let hp := r.put h zp
   have shape := shape_put hz zp
-  have hfP : Fresh hp := shape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := shape.fresh (by simp) hf
   have huP : Uniq hp := shape.uniq hu
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha
@@ -396,13 +398,13 @@ theorem success_initial {h : Heap} {r : ZStreamRef} {z : ZStream}
         rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
     simp [sf, resultState, finalState, lmD, resetState, rkPost, rkPost3, rkMid,
       Zlib.Trees.Proofs.Out.ibRec, Zlib.Trees.Proofs.Out.trInitRec, readyState, allocatedState, baseState, settings,
-      this]
+      ]
     omega
   · subst hwrap
     cases dw <;> simp [sf, resultState, finalState, lmD, resetState, rkPost, rkPost3, rkMid, absWrap, wrapCode,
       Zlib.Trees.Proofs.Out.ibRec, Zlib.Trees.Proofs.Out.trInitRec, readyState, allocatedState, baseState, settings]
   · intro x
-    simp only [LiveChange, not_false_eq_true, and_true] at *
+    simp only [not_false_eq_true, and_true] at *
     change after.live x ↔ h.live x ∨ DeflateOwned h.nextBlk sf x
     rw [owned]
     have live := hLive x

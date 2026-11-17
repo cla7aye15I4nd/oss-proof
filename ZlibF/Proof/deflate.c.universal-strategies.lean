@@ -893,7 +893,7 @@ theorem flush_block_macro {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream
           (fun e => by cases e), (fun e => by cases e), (fun _ => Or.inr rfl), (fun _ e => by cases e), fun _ => full,
           totalA, bufferA, totalInA, shapeA, keysA, lastBits⟩
         unfold FLUSH_BLOCK
-        simp only [bind_app, show ((if true then 1 else 0 : Int32)) = 1 from rfl] at run ⊢
+        simp only [bind_app] at run ⊢
         simp only [run, ldDeflateState_tab stateA, back, zrd_eq, getA, full]
         simp only [busy]
         rfl
@@ -905,7 +905,7 @@ theorem flush_block_macro {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream
           (fun _ => ⟨idle, fun e => by cases e⟩), (fun e => by cases e), (fun _ => Or.inl rfl),
           (fun _ _ => lastBits rfl), fun e => absurd rfl e, totalA, bufferA, totalInA, shapeA, keysA, lastBits⟩
         unfold FLUSH_BLOCK
-        simp only [bind_app, show ((if true then 1 else 0 : Int32)) = 1 from rfl] at run ⊢
+        simp only [bind_app] at run ⊢
         simp only [run, ldDeflateState_tab stateA, back, zrd_eq, getA, full]
         simp only [busyF]
         rfl
@@ -1206,7 +1206,7 @@ theorem huff_body_step {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
       · refine ⟨{ st with ret := some need_more }, after1, ?_, ⟨z1, d1, head1, acc1, Or.inr (Or.inl ⟨rfl, Or.inr (⟨availZero, noFlush⟩)⟩)⟩, ?_⟩
         · simp only [bind_app, rdLook, emptyB, ite_true]
           rw [show fill_window (some (.tab ds)) h = .ok ((), after1) from fillRun]
-          simp only [bind_app, rdLook1, empty1B, ite_true, noFlush, beq_self_eq_true]
+          simp only [rdLook1, empty1B, ite_true, noFlush, beq_self_eq_true]
           rfl
         · rw [loop_measure_exit (Or.inr rfl), measure0]; omega
       · have noFlushB : (flush == Z_NO_FLUSH) = false := by simpa using noFlush
@@ -1214,7 +1214,7 @@ theorem huff_body_step {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
           ⟨z1, d1, head1, acc1, Or.inr (Or.inr ⟨rfl, ret, pending1, empty1, availZero⟩)⟩, ?_⟩
         · simp only [bind_app, rdLook, emptyB, ite_true]
           rw [show fill_window (some (.tab ds)) h = .ok ((), after1) from fillRun]
-          simp only [bind_app, rdLook1, empty1B, ite_true, noFlushB, Bool.false_eq_true, ite_false]
+          simp only [rdLook1, empty1B, ite_true, noFlushB, Bool.false_eq_true, ite_false]
           rfl
         · rw [loop_measure_exit (Or.inl rfl), measure0]; omega
     · have empty1B : (d1.lookahead == 0) = false := by simpa using empty1
@@ -1395,11 +1395,11 @@ theorem finish_tail_inv {kind : DeflateState → Prop} {h : Heap} {r : ZStreamRe
       · subst none'
         refine ⟨block_done, after, z', result, ?_, invA, buffersA, (Fr.flush account totalInF totalOutF bufferF shapeF keysF),
           doneMeaning inA keeps.symNext (idleF rfl).1 (keeps.matchAvailable.trans quiet)⟩
-        simp [finish_tail, finishB, bind_app, rdSym, symbolsB, symbols, run']
+        simp [finish_tail, finishB, bind_app, rdSym, symbols, run']
       · subst more
         refine ⟨need_more, after, z', result, ?_, invA, buffersA, (Fr.flush account totalInF totalOutF bufferF shapeF keysF),
           need_more_meaning (Or.inl (fullOut (Option.some_ne_none _)))⟩
-        simp [finish_tail, finishB, bind_app, rdSym, symbolsB, symbols, run']
+        simp [finish_tail, finishB, bind_app, rdSym, symbols, run']
 
 /-- **`deflate_huff` keeps the invariant** (`Z_HUFFMAN_ONLY` at a nonzero level), given the block
 flush of batch C. -/
@@ -1449,7 +1449,7 @@ noncomputable def rleCondR (prev : UInt32) (strend : BPtr) : Nat → BPtr → M 
 theorem rle_cond_eq (prev : UInt32) (strend scan : BPtr) :
     rleCond prev strend scan = rleCondR prev strend 8 scan := by
   unfold rleCond
-  simp [List.range', List.forIn'_cons, List.forIn'_nil, rleCondR, Zlib.Deflate.Engine.Proofs.M_bind_assoc,
+  simp [List.range', rleCondR, Zlib.Deflate.Engine.Proofs.M_bind_assoc,
     Zlib.Deflate.Engine.Proofs.M_pure_bind, Zlib.Deflate.Engine.Proofs.M_ite_bind]
 
 /-- The first of `n` positions after `t` whose byte differs from `prev`. -/
@@ -1568,7 +1568,7 @@ theorem rle_scan_loop {h : Heap} {wb : Nat} {wa : Array UInt8} (hw : h.bytes wb 
     | some k =>
       obtain ⟨hk1, hk2, hk3, hk4⟩ := runSteps_some 8 j k hcs
       refine ⟨_, h, false, Ptr.ref (BRef.blk wb) (S + k), h, rfl, ?_, ?_, ?_⟩
-      · simp only [bind_app, rle_cond_eq, hrun, hcs]
+      · simp only [rle_cond_eq, hrun, hcs]
         try rfl
       · intro _
         refine ⟨rfl, k, rfl, by omega, by omega, fun q hq1 hq2 => ?_, fun _ => hk3⟩
@@ -1580,7 +1580,7 @@ theorem rle_scan_loop {h : Heap} {wb : Nat} {wa : Array UInt8} (hw : h.bytes wb 
       have hn := runSteps_none 8 j hcs
       by_cases hlt : S + (j + 8) < S + 258
       · refine ⟨_, h, true, Ptr.ref (BRef.blk wb) (S + (j + 8)), h, rfl, ?_, ?_, ?_⟩
-        · simp [bind_app, rle_cond_eq, hrun, hcs, hlt]
+        · simp [rle_cond_eq, hrun, hcs, hlt]
         · intro hc; simp at hc
         · intro _
           refine ⟨⟨rfl, j + 8, by omega, by omega, by omega, rfl, ?_⟩, ?_⟩
@@ -1590,7 +1590,7 @@ theorem rle_scan_loop {h : Heap} {wb : Nat} {wa : Array UInt8} (hw : h.bytes wb 
             · exact hn k (by omega) (by omega)
           · simp only [μ]; omega
       · refine ⟨_, h, false, Ptr.ref (BRef.blk wb) (S + (j + 8)), h, rfl, ?_, ?_, ?_⟩
-        · simp [bind_app, rle_cond_eq, hrun, hcs, hlt]
+        · simp [rle_cond_eq, hrun, hcs, hlt]
         · intro _
           refine ⟨rfl, j + 8, rfl, by omega, by omega, fun q hq1 hq2 => ?_, fun big => by omega⟩
           by_cases hqj : q ≤ j
@@ -1614,7 +1614,7 @@ advance run; afterwards `DInv` holds when the symbol buffer is not full, and the
 when it is. -/
 theorem run_step_inv {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (inv : DInv h r ds z d) (level : d.level ≠ 0) (noRoll : d.strategy.toInt = 2 ∨ d.strategy.toInt = 3)
-    (noMatch : d.match_length = 0) (pending : d.pending = 0) (buffers : StreamBuffers h r)
+    (_noMatch : d.match_length = 0) (pending : d.pending = 0) (buffers : StreamBuffers h r)
     (out : z.next_out ≠ .null) (ml : UInt32) (lo : 3 ≤ ml.toNat) (hi : ml.toNat ≤ 258)
     (within : ml.toNat ≤ d.lookahead.toNat) {α : Type} (k : Bool → M α) :
     ∃ b buf' h3,
@@ -1880,7 +1880,7 @@ scan does not fault and only writes `match_length`: 0 when there is no run of 3,
 length capped by the lookahead, between 3 and 258. -/
 theorem rle_scan_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (good : DGood h r ds z d) (noMatch : d.match_length = 0)
-    (range : d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat)
+    (_range : d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat)
     (room : d.strstart.toNat + 258 < d.window_size.toNat) :
     ∃ ml : UInt32, rleScan (some (.tab ds)) h = .ok ((), setD h ds { d with match_length := ml }) ∧
       (ml = 0 ∨ (3 ≤ ml.toNat ∧ ml.toNat ≤ 258 ∧ ml.toNat ≤ d.lookahead.toNat)) := by
@@ -1946,7 +1946,7 @@ theorem rle_scan_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
           · unfold rleScan
             simp only [bind_app, ld, go, ite_true, M_ite_app, pw, ps, l0, p1, l1, b1, p2, l2, b2, p3, l3, b3, pe]
             rw [loopRun]
-            simp only [bind_app, df, mlEq, wrD_eq, good.live.hs, setD_dstates_same, setD_setD]
+            simp only [df, mlEq, wrD_eq, good.live.hs, setD_dstates_same, setD_setD]
             rfl
           · simp only [mlc]
             split
@@ -2082,7 +2082,7 @@ theorem rle_emit_iter {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
           wr (some (.tab ds)) (fun d => { d with lookahead := d.lookahead - 1, strstart := d.strstart + 1 })
           huffTail (some (.tab ds)) st bflush) (setD h ds d1) := by
       unfold rleEmit
-      simp only [bind_app, ld1, if_neg notBig]
+      simp only [bind_app, ld1, ite_eq_right notBig]
     refine ⟨st', h', ?_, brk', lift ?_ cases⟩
     · rw [bind_app, wrRun]
       simp only [bind_app, scanRun]
@@ -2118,7 +2118,7 @@ theorem rle_emit_iter {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
             { d with lookahead := d.lookahead - d.match_length, strstart := d.strstart + d.match_length, match_length := 0 })
           huffTail (some (.tab ds)) st bflush) (setD (setD h ds d1) ds { d1 with match_length := ml }) := by
       unfold rleEmit
-      simp only [bind_app, ld2, if_pos big]
+      simp only [bind_app, ld2, ite_eq_left big]
     exact emit.trans (run.trans tailRun)
 
 
@@ -2588,7 +2588,7 @@ set_option maxRecDepth 20000 in
 set_option maxHeartbeats 8000000 in
 /-- **The search of `deflate_fast`.** From a loop head with lookahead and matcher room. -/
 theorem fast_search_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (head : Head FastKind h r ds z d) (look : 1 ≤ d.lookahead.toNat)
+    (head : Head FastKind h r ds z d) (_look : 1 ≤ d.lookahead.toNat)
     (room : d.strstart.toNat + 262 ≤ d.window_size.toNat) :
     ∃ hh h2 d2, fastSearch (some (.tab ds)) h = .ok (hh, h2) ∧ SearchOut h h2 r ds z d d2 := by
   have inv := head.inv
@@ -2644,7 +2644,7 @@ theorem fast_search_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
             hash_head ← INSERT_STRING (some (.tab ds)) (← rd (some (.tab ds)) (·.strstart))
           k hash_head) h = k cand hi := by
       intro α k
-      simp only [bind_app, rdLook, M_ite_app, readyU, decide_true, ite_true, rdStart, insertRun]
+      simp only [bind_app, rdLook, M_ite_app, readyU, ite_true, rdStart, insertRun]
       rfl
     by_cases guard : (cand != 0 && di.strstart - cand ≤ di.w_size - MIN_LOOKAHEAD_u) = true
     · have conditions := guard
@@ -2674,11 +2674,11 @@ theorem fast_search_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
         rw [prefixRun]
         simp only [bind_app, ldI, M_ite_app, guard, ite_true]
         rw [show longest_match (some (.tab ds)) cand hi = .ok (len, hAt hi ds di ms) from lmRun]
-        simp only [bind_app, write, pure_app]
+        simp only [write, pure_app]
       · have mid : ByteFrame hi (hAt hi ds di ms) (fun i => i = ds) :=
           ⟨rfl, fun _ _ => rfl, fun i outside => by simp [hAt, upd_ne _ _ _ _ outside], fun _ _ => rfl⟩
         exact (frameI.trans mid).trans (byte_frame_setD _ ds d2)
-      · rw [if_pos ready]
+      · rw [ite_eq_left ready]
         obtain ⟨w', p', q', wa', pa'', qa'', win', prev', head', hw', hp', hq', H'⟩ := chainsL
         exact ⟨w', p', q', wa', pa'', qa'', win', prev', head', by simpa [h2] using hw', by simpa [h2] using hp',
           by simpa [h2] using hq', H'⟩
@@ -2705,7 +2705,7 @@ theorem fast_search_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
       · unfold fastSearch
         rw [prefixRun]
         simp only [bind_app, ldI, M_ite_app, guardF, Bool.false_eq_true, ite_false, pure_app]
-      · rw [if_pos ready]; exact chainsI
+      · rw [ite_eq_left ready]; exact chainsI
       · intro _; exact ⟨w, wa, env.win, env.wbytes, nextForm⟩
       · exact shape.matchLength
       · intro large
@@ -2721,7 +2721,7 @@ theorem fast_search_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
     · unfold fastSearch
       simp only [bind_app, rdLook, M_ite_app, notReady, ite_false, pure_app, ld0]
       rfl
-    · rw [if_neg ready]; exact inv.chains head.level
+    · rw [ite_eq_right ready]; exact inv.chains head.level
     · intro r3; exact absurd r3 ready
     · intro large
       have := lazyBound.1
@@ -2824,7 +2824,7 @@ theorem fast_literal_emit {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream
     have := run
     simp only [bind_app, ld2] at this
     unfold fastEmit
-    simp only [bind_app, ld2, if_neg notBig]
+    simp only [bind_app, ld2, ite_eq_right notBig]
     exact this
   let d3 := literalStep d2 c
   have staticEq : h3.static = h.static := by rw [h3def]; exact search.static
@@ -2848,11 +2848,11 @@ theorem fast_literal_emit {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream
     change _ ≤ min (d3.strstart.toNat - d2.insert.toNat) (d3.strstart.toNat + d3.lookahead.toNat - 2)
     rw [ss3, la3, eIns]
     by_cases ready : 3 ≤ d.lookahead.toNat
-    · rw [if_pos ready]
+    · rw [ite_eq_left ready]
       have zero : d.insert = 0 := shape.insertDone ready
       have z0 : d.insert.toNat = 0 := by rw [zero]; rfl
       omega
-    · rw [if_neg ready]
+    · rw [ite_eq_right ready]
       omega
   have kind := head.kind
   have hashingA : Hashing h3 d3 := by
@@ -3092,7 +3092,7 @@ theorem fast_match_record {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream
     rw [h3def]; exact tallyRun
   have good3 : DGood h3 r ds z d3 := by rw [h3def]; exact match_good_after search.good trees2 dist0 len0 roomT
   have chains2 : HeapChains h2 d2 (d.strstart.toNat + 1) := by
-    have := search.chains; rw [if_pos ready] at this; exact this
+    have := search.chains; rw [ite_eq_left ready] at this; exact this
   have chains3 : HeapChains h3 d3 (d.strstart.toNat + 1) := by
     rw [h3def]
     obtain ⟨w, p, q, wa, pa, qa, win, prev, hd, hw, hp, hq, H⟩ :=
@@ -3153,7 +3153,7 @@ theorem fast_match_final {h h2 h4 h7 : Heap} {r : ZStreamRef} {ds b : Nat} {z : 
     (good4 : DGood h4 r ds z (matchRecorded d2)) (ledger4 : SymbolLedger buf' (matchRecorded d2) xs)
     (dist4 : ∀ s ∈ xs, s.distance ≤ d.w_size.toNat - 262)
     (pbuf : d2.pending_buf = .ref (.blk b) 0) (bytes4 : h4.bytes b = some buf')
-    (buffers4 : StreamBuffers h4 r) (static4 : h4.static = h.static) (borrow4 : h4.libcErrorBorrow = h.libcErrorBorrow)
+    (buffers4 : StreamBuffers h4 r) (static4 : h4.static = h.static) (_borrow4 : h4.libcErrorBorrow = h.libcErrorBorrow)
     (count4 : (matchRecorded d2).sym_next.toNat = d.sym_next.toNat + 3)
     (la4 : (matchRecorded d2).lookahead.toNat = d.lookahead.toNat - d2.match_length.toNat)
     (good7 : DGood h7 r ds z d7)
@@ -3167,7 +3167,7 @@ theorem fast_match_final {h h2 h4 h7 : Heap} {r : ZStreamRef} {ds b : Nat} {z : 
     (chains7 : HeapChains h7 d7 t7)
     (form7 : 3 ≤ d.lookahead.toNat - d2.match_length.toNat → ∃ w wa, d.window = .ref (.blk w) 0 ∧
       h7.bytes w = some wa ∧ InsHForm d.hash_shift d.hash_mask (bfn wa) d7.strstart.toNat d7.ins_h)
-    (bflush : Bool) (flagEq : bflush = (d2.sym_next + 3 == d2.sym_end))
+    (bflush : Bool) (_flagEq : bflush = (d2.sym_next + 3 == d2.sym_end))
     (notFull4 : bflush = false → (matchRecorded d2).sym_next.toNat < (matchRecorded d2).sym_end.toNat) :
     StreamBuffers h7 r ∧ (bflush = true → ∃ pb buf xs, BlockReady h7 r ds z d7 pb buf xs) ∧
       (bflush = false → DInv h7 r ds z d7) ∧ d7.level ≠ 0 ∧ FastKind d7 ∧ d7.pending = 0 ∧
@@ -3364,7 +3364,7 @@ theorem fast_match_emit {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
   have emit : fastEmit (some (.tab ds)) st hh h2 = K (d2.sym_next + 3 == d2.sym_end) h4 := by
     have := recRun
     unfold fastEmit
-    simp only [bind_app, ld2, if_pos bigU]
+    simp only [bind_app, ld2, ite_eq_left bigU]
     exact this
   let d4 := matchRecorded d2
   have upd4 : d4.strstart = d.strstart := by change d2.strstart = _; exact search.strstart

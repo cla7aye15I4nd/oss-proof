@@ -32,15 +32,15 @@ theorem ReSt.processed_range {tk : TK} {e0 e : DeflateState} {hm J elems maxc L 
     (F := fun i => if hc ≤ hm + 1 + i ∧ Hn e0 (hm + 1 + i) ≤ maxc ∧
       curL T (Hn e0 (hm + 1 + i)) = curL T (Hn e0 q) then 1 else 0)
     (n := 2 * J) (i := q - hm - 1) (by omega)
-  rw [index, if_pos ⟨lower, leaf, rfl⟩] at atLeastOne
+  rw [index, ite_eq_left ⟨lower, leaf, rfl⟩] at atLeastOne
   change 1 ≤ scnt (Hn e0) hm maxc J hc (curL T) (curL T (Hn e0 q)) at atLeastOne
   rw [counts] at atLeastOne
   by_cases above : b < curL T (Hn e0 q) ∧ curL T (Hn e0 q) ≤ L
   · exact ⟨by omega, above.2⟩
-  · rw [if_neg above] at atLeastOne
+  · rw [ite_eq_right above] at atLeastOne
     by_cases same : curL T (Hn e0 q) = b
     · omega
-    · rw [if_neg same] at atLeastOne
+    · rw [ite_eq_right same] at atLeastOne
       omega
 
 /-- Skipping an internal node extends the scanned region without adding a
@@ -71,10 +71,10 @@ theorem ReOrdered.assign {H len next : Nat → Nat} {hm J elems maxc hc b : Nat}
     · rw [new, same]
       exact Nat.le_refl _
     · have oldLower : hc ≤ q' := by omega
-      rw [new, update, if_pos rfl, update, if_neg (old q' oldLower hi)]
+      rw [new, update, ite_eq_left rfl, update, ite_eq_right (old q' oldLower hi)]
       exact lower q' oldLower hi leaf'
   · have oldLower : hc ≤ q := by omega
-    rw [update, if_neg (old q oldLower (by omega)), update, if_neg (old q' (by omega) hi)]
+    rw [update, ite_eq_right (old q oldLower (by omega)), update, ite_eq_right (old q' (by omega) hi)]
     exact before q q' oldLower between hi leaf leaf'
 
 /-- At the end of reassignment every retained leaf has actually been
@@ -95,7 +95,7 @@ theorem ReSt.final_scanned {tk : TK} {e0 e : DeflateState} {hm J elems maxc L hc
     have positive := le_rs
       (F := fun i => if hm + 1 + i < hc ∧ Hn e0 (hm + 1 + i) ≤ maxc then 1 else 0)
       (n := 2 * J) (i := q - hm - 1) (by omega)
-    rw [index, if_pos ⟨by omega, leaf⟩] at positive
+    rw [index, ite_eq_left ⟨by omega, leaf⟩] at positive
     change 1 ≤ utot (Hn e0) hm maxc J hc at positive
     omega
 
@@ -133,11 +133,11 @@ theorem ReSt.final_counts {tk : TK} {e0 e : DeflateState} {hm J elems maxc L hc 
     · simp only [leaf, false_and, and_false, ite_false]
   rw [← same, counts]
   by_cases above : 0 < x ∧ x ≤ L
-  · rw [if_pos above, if_pos above]
-  · rw [if_neg above, if_neg above]
+  · rw [ite_eq_left above, ite_eq_left above]
+  · rw [ite_eq_right above, ite_eq_right above]
     by_cases zero : x = 0
     · subst x
-      rw [if_pos rfl, ctx.c0]
-    · rw [if_neg zero]
+      rw [ite_eq_left rfl, ctx.c0]
+    · rw [ite_eq_right zero]
 
 end Zlib.Trees.Proofs

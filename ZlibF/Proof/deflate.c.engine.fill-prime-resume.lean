@@ -51,13 +51,13 @@ theorem fill_prime_resume {h : Heap} {ds w : Nat} {d : DeflateState} {wa : Array
     unfold fillPrime
     rw [bind_app, ldDeflateState_tab state]
     simp only []
-    rw [if_pos enter]
+    rw [ite_eq_left enter]
     simp only [insert, UInt32.sub_zero, next, bind_app, read0, write0]
     change (do
       UPDATE_HASH (some (.tab ds)) (← index8 d.window (d.strstart.toNat + 1))
       let (_, _) ← cwhile _ _ (d.strstart, false)
       pure ()) h0 = _
-    simp only [bind_app, read1, update, loops, pure_app, resumePrimeState, large, if_true]
+    simp only [bind_app, read1, update, loops, pure_app, resumePrimeState, large, ite_true]
     rfl
   · simp [fillPrime, bind_app, ldDeflateState_tab state, insert, MIN_MATCH_u, large,
       resumePrimeState, setD_self state]

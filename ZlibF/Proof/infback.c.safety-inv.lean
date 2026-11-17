@@ -1,6 +1,6 @@
 import ZlibF.Proof.«infback.c.safety-valid»
 import ZlibF.Spec.Common.Sequences
-import ZlibF.Proof.«infback.c.pull»
+import ZlibF.Proof.«infback.c.inv»
 import ZlibF.Proof.«infback.c.wf»
 import ZlibF.Proof.«inffast.c.tableok»
 import ZlibF.Proof.«inftrees.c.decode.prefix-query»

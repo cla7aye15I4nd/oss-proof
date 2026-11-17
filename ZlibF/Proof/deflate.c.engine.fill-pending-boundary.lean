@@ -61,7 +61,7 @@ theorem fill_window_pending_boundary_read {h : Heap} {r : ZStreamRef} {ds origin
   have symbolsA := symbol_boundary_of_ledger goodA pendingA dataA ledgerA balanceA
   have historyOld : LazyHistory extended origin d := logical_history_extend boundary.history (by
     intro i before
-    simp only [extended, extendInput, before, if_true])
+    simp only [extended, extendInput, before, ite_true])
   have historyA : LazyHistory extended origin result := by
     rw [fieldsA]
     refine ⟨historyOld.1, ?_⟩
@@ -96,7 +96,7 @@ theorem fill_window_pending_boundary_read {h : Heap} {r : ZStreamRef} {ds origin
   · rw [fieldsA]
     exact wrap
   · intro i before
-    simp only [extended, extendInput, before, if_true]
+    simp only [extended, extendInput, before, ite_true]
   · rw [fieldsA]
 
 /-- Public buffer storage supplies the readable source and disjointness.

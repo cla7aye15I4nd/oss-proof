@@ -129,7 +129,7 @@ theorem slow_match_emit_search_boundary {h : Heap} {r : ZStreamRef} {ds w origin
   have getPacked : after.bytes b = some packed := by rw [bytesFrame]; simp [ht]
   have representedMatch : (emittedMatch d).bytes = d.prev_length.toNat := by
     change (if distance.toNat = 0 then 1 else length.toNat + 3) = _
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
     have exactLength : length.toNat = d.prev_length.toNat - 3 := bounds.2.2.1
     omega
   have balanceA : BlockBalance result (xs ++ [emittedMatch d]) (deferredCredit result) := by

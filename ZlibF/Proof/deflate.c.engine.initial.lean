@@ -214,7 +214,7 @@ theorem default_initialization_reachable {h : Heap} {r : ZStreamRef} {z : ZStrea
   have first : h.allocOk h.nalloc = true := by simpa using alloc 0 (by decide)
   have all : (List.range 5).all (fun j => h.allocOk (h.nalloc + j)) = true := by
     simpa only [List.all_eq_true, List.mem_range] using alloc
-  simp only [first, Bool.true_eq_false, if_false, all, if_true] at post
+  simp only [first, Bool.true_eq_false, ite_false, all, ite_true] at post
   rw [post.2.1] at hr
   refine ⟨after, hr, post.2.2, ?_⟩
   exact StreamReachable.deflateInit hf hu hg hz ha hv hr
@@ -238,7 +238,7 @@ theorem default_initialization_engine_bindings {h : Heap} {r : ZStreamRef} {z : 
   let hp := r.put h zp
   let lev := levelValue level
   have shape := shape_put hz zp
-  have hfP : Fresh hp := shape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := shape.fresh (by simp) hf
   have huP : Uniq hp := shape.uniq hu
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha
@@ -246,7 +246,7 @@ theorem default_initialization_engine_bindings {h : Heap} {r : ZStreamRef} {z : 
     intro hb
     have parsed := parameters_equiv level
     rw [params] at parsed
-    simp only [if_pos hb] at parsed
+    simp only [ite_eq_left hb] at parsed
     cases parsed
   have bounds : 0 ≤ lev.toInt ∧ lev.toInt ≤ 9 := by
     have bn := bad
@@ -257,7 +257,7 @@ theorem default_initialization_engine_bindings {h : Heap} {r : ZStreamRef} {z : 
     (by simpa [hp] using globals_trees hg) (by simpa [hp] using alloc) lev bounds.1 bounds.2
   have actual : C.run (deflateInit_ (some r) level version 112) h =
       .ok (Z_OK, successHeap hp r zp lev a1 a2 a3 qa) := by
-    rw [C.run, entry_run hz hv level, if_neg bad]
+    rw [C.run, entry_run hz hv level, ite_eq_right bad]
     exact run
   rw [actual] at hr
   cases hr

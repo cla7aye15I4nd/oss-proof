@@ -55,7 +55,7 @@ theorem matchSelect_output_cut {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} 
   simp only [inOutput, ↓reduceIte]
   rw [runX_bind, runX_lift_ok address]
   simp only []
-  split <;> simp only [runX_bind, runX_get, ↓reduceIte]
+  split <;> simp only [runX_bind, runX_get]
 
 /-- Source selection for the window segment before the ring's write cursor. -/
 theorem matchSelect_window_cut {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
@@ -72,10 +72,10 @@ theorem matchSelect_window_cut {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} 
   rw [runX_bind, runX_get]
   simp only [left, beq_iff_eq, ↓reduceIte]
   rw [runX_bind, runX_ldS E]
-  simp only [inWindow, history, linear, Bool.false_eq_true, ↓reduceIte]
+  simp only [inWindow, history, linear, ↓reduceIte]
   rw [runX_bind, runX_lift_ok address]
   simp only []
-  split <;> split <;> simp only [runX_bind, runX_get, ↓reduceIte]
+  split <;> split <;> simp only [runX_bind, runX_get]
 
 /-- Source selection for the window segment that reaches the ring's end. -/
 theorem matchSelect_wrap_cut {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
@@ -92,10 +92,10 @@ theorem matchSelect_wrap_cut {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z
   rw [runX_bind, runX_get]
   simp only [left, beq_iff_eq, ↓reduceIte]
   rw [runX_bind, runX_ldS E]
-  simp only [inWindow, history, wrap, Bool.false_eq_true, ↓reduceIte]
+  simp only [inWindow, history, wrap, ↓reduceIte]
   rw [runX_bind, runX_lift_ok address]
   simp only []
-  split <;> split <;> simp only [runX_bind, runX_get, ↓reduceIte]
+  split <;> split <;> simp only [runX_bind, runX_get]
 
 /-- With the normal sanity check enabled, insufficient history returns BAD
 before any window pointer is formed. -/
@@ -120,7 +120,7 @@ theorem matchSelect_wait (c : Ctx) (h : Heap) (l : IL) (left : l.left = 0) :
     runX (matchSelect c) l h = .ok ((.error Ex.leave, l), h) := by
   unfold matchSelect
   rw [runX_bind, runX_get]
-  simp only [left, beq_self_eq_true, ↓reduceIte, runX_throw]
+  simp only [left, beq_self_eq_true, ↓reduceIte]
   rw [runX_bind, runX_throw]
 
 end Zlib.Inflate.Proofs

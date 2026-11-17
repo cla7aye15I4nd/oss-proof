@@ -43,12 +43,12 @@ theorem copy_then_nul (a out : Array UInt8) (hlen : a.size = out.size + 1) :
   have hs : (copyRange a out 0 0 out.size).size = a.size := size_copyRange _ _ _ _ _
   by_cases hlt : i < out.size
   · have hne : out.size ≠ i := by omega
-    simp [Array.getElem?_push, hs, hlen, hlt, hne, Ne.symm hne, getElem!_pos out i hlt]
+    simp [Array.getElem?_push, hlt, hne, Ne.symm hne]
   · by_cases heq : i = out.size
     · subst i
-      simp [Array.getElem?_push, hs, hlen]
+      simp [hs, hlen]
     · have hbig : a.size ≤ i := by omega
-      simp [Array.getElem?_push, hs, hlen, hlt, heq, Ne.symm heq,
+      simp [Array.getElem?_push, hlt, heq, Ne.symm heq,
         Array.getElem?_eq_none hbig]
 
 private def temporaryHeap (h : Heap) (out : Array UInt8) : Heap :=
@@ -137,7 +137,7 @@ theorem stored_message_live {h : Heap} {b : Nat} {a out : Array UInt8}
   intro j
   by_cases hdest : j = b
   · subst j
-    simp [LiveChange, Heap.live, storedMessageHeap, temporaryFreedHeap, charactersHeap,
+    simp [Heap.live, storedMessageHeap, temporaryFreedHeap, charactersHeap,
       temporaryHeap, hb]
   · by_cases htemp : j = h.nextBlk
     · subst j

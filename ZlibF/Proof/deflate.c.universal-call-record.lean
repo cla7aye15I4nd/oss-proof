@@ -76,7 +76,7 @@ theorem HeaderFrame.bytes {h : Heap} {r : ZStreamRef} {ds : Nat} {d : DeflateSta
     exact setB_view h pb a ref ne
   · have notDs : x ≠ ds := fun e => out (Or.inr (Or.inl e))
     have notPb : x ≠ pb := fun e => out (Or.inr (Or.inr e))
-    simp [Zlib.Deflate.Proofs.DefaultInit.SlotSame, setD, Zlib.Trees.Proofs.Out.setB, upd_ne _ _ _ _ notDs,
+    simp [setD, Zlib.Trees.Proofs.Out.setB, upd_ne _ _ _ _ notDs,
       upd_ne _ _ _ _ notPb]
   · simpa [Zlib.Trees.Proofs.Out.setB, stream_get_bytes] using g
 
@@ -119,7 +119,7 @@ theorem record_crc {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : 
   by_cases crc : gh.hcrc = 0
   · refine ⟨h, z, good, trees, buffers, stream_accounting_zero z, HeaderFrame.refl h pb, ?_⟩
     unfold recordCrc
-    simp [crc, pure_app]
+    simp [crc]
   · have statics := globals_statics globals
     have value := Zlib.Crc32.Proofs.crc32_z_ok h statics z.adler pb 0 buf trees.base.bytes d.pending
       (by have := trees.base.pending_le; have := trees.base.psize; omega)
@@ -143,7 +143,7 @@ theorem record_len {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : 
   by_cases extra : gh.extra = .null
   · refine ⟨h, d, buf, good, trees, buffers, HeaderFrame.refl h pb, rfl, by simp [extra], rfl, ?_⟩
     unfold recordLen
-    simp [extra, pure_app]
+    simp [extra]
   · obtain ⟨runs, facts⟩ := header_byte_eq good trees buffers cursor (by omega)
     let c1 : UInt8 := (gh.extra_len &&& 0xff).toUInt8
     let c2 : UInt8 := ((gh.extra_len >>> 8) &&& 0xff).toUInt8

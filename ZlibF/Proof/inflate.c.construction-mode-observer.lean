@@ -48,11 +48,11 @@ theorem clTail_above_dict
     decide
   · obtain ⟨heap0, state, final, _frame, mode, packet, _sizes, _static, source⟩ := ready
     by_cases trees : c.flush = Z_TREES
-    · rw [if_pos trees] at source
+    · rw [ite_eq_left trees] at source
       have same := xrun_state_eq source actual final.good.live.hs get
       rw [← same, mode]
       decide
-    · rw [if_neg trees] at source
+    · rw [ite_eq_right trees] at source
       have nextEnv : Env c heap0 r zs z state := ⟨E.strm, E.st, final.good.live.hz, final.good.live.hs⟩
       exact LEN_start_above_dict nextEnv final packet mode (source.symm.trans actual) get
 
@@ -75,8 +75,8 @@ theorem CODELENS_above_dict
     have same := xrun_state_eq source actual nextJ.good.live.hs get
     rw [← same]
     rcases modes with selected | selected <;> rw [selected] <;> decide
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (inflate_CODELENS c) l h = runX (clTail c) readRegs readHeap := by
       rw [inflate_CODELENS_eq, runX_bind, read]
     have current : Env c readHeap r zs stream0 readState := ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩

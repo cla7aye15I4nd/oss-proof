@@ -109,7 +109,7 @@ theorem strLoop_run {h : Heap} {p : BPtr} {len : Nat} (hs : GzStr h p len) (w : 
         rw [UInt64.ofNat_add]; simp [UInt64.add_assoc]
       unfold OkOn
       simp [hb, e3, Nat.add_assoc]
-    · simp [Nat.add_assoc]
+    · simp
   · rintro s ⟨i, hi, rfl⟩
     have hi' : i = len := by omega
     subst hi'
@@ -257,12 +257,12 @@ theorem boundBody_gz_head {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
       by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;>
       (try have := GzStr.ne_null ‹GzStr h gh.name _›) <;> (try have := GzStr.ne_null ‹GzStr h gh.comment _›) <;>
       dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ldGzHeader_tab hgh] <;>
-      simp (disch := assumption) [boundTailP, c, he, hh, *, strLoop_eq]
+      simp (disch := assumption) [boundTailP, *, strLoop_eq]
   · rcases hn with ⟨hn0, rfl⟩ | ⟨ln, hs1, rfl⟩ <;> rcases hc with ⟨hc0, rfl⟩ | ⟨lc, hs2, rfl⟩ <;>
       by_cases he : gh.extra = .null <;> by_cases hh : gh.hcrc = 0 <;> by_cases c : (¬d.w_bits = 15 ∨ ¬d.hash_bits = 15) ∨ d.strategy = Z_FIXED <;>
       (try have := GzStr.ne_null ‹GzStr h gh.name _›) <;> (try have := GzStr.ne_null ‹GzStr h gh.comment _›) <;>
       dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, hw, hg, ldGzHeader_tab hgh, ineg_m2] <;>
-      simp (disch := assumption) [boundTailP, c, he, hh, *, strLoop_eq]
+      simp (disch := assumption) [boundTailP, *, strLoop_eq]
 
 
 
@@ -323,7 +323,7 @@ theorem deflateBound_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
   obtain ⟨wl, hwl, e⟩ := deflateBound_z_safe hG hs n
   refine ⟨wl, hwl, ?_⟩
   unfold deflateBound
-  simp [C.run, bind_app] at e ⊢
+  simp [C.run] at e ⊢
   simp [e]
 
 /-- **deflateBound on a stream the check refuses**: `boundNoState`, the heap unchanged. -/
@@ -331,7 +331,7 @@ theorem deflateBound_nostate {h : Heap} {strm : ZStreamPtr} (hD : StreamDom h st
     (n : UInt64) : C.run (deflateBound strm n) h = .ok (boundNoState n, h) := by
   have e := deflateBound_z_nostate hD hN n
   unfold deflateBound
-  simp [C.run, bind_app] at e ⊢
+  simp [C.run] at e ⊢
   simp [e]
 
 end Zlib.Deflate.Proofs

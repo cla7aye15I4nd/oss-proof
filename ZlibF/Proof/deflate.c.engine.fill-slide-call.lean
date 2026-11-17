@@ -58,7 +58,7 @@ theorem fill_window_slide_transfer {h : Heap} {r : ZStreamRef} {ds w p q : Nat}
   have more := slide_more_eq good env sizeP sizeH range taken
   have first : fillBody (some (.tab ds)) d.w_size false h = fillBody (some (.tab ds)) d.w_size false hs := by
     simp only [fill_body_slide_source, bind_app, ldDeflateState_tab good.live.hs,
-      ldDeflateState_tab afterGood.live.hs, wsize, taken, if_true, prefixRun, noSlide, if_false]
+      ldDeflateState_tab afterGood.live.hs, wsize, taken, ite_true, prefixRun, noSlide, ite_false]
     rw [more]
   have loop := do_first_body_eq (cond := fillCond (some (.tab ds))) first
   have stateS : (slideHeap h ds w p q d wa pa' qa').dstates ds = some (slideState d) := by simp [slideHeap]

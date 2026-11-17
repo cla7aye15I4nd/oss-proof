@@ -106,7 +106,7 @@ theorem flush_block_dynamic_header_source (s : DeflateStatePtr) (buf : BPtr) (st
   flushBlockTail s last) := by
   rw [flush_block_source]
   unfold dynamicBlockHeader atCall
-  simp only [M_bind_assoc, M_pure_bind, merge_ite_bind]
+  simp only [M_bind_assoc]
 
 /-- The real dynamic tag and all three count arguments precede the real
 header writer. Exact combined bit room is sufficient; no call contract is

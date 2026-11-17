@@ -60,15 +60,15 @@ theorem fill_high_water_first {h : Heap} {ds w : Nat} {d : DeflateState} {wa : A
   unfold fillHighWater
   simp only [bind_app, ldDeflateState_tab state]
   simp only [ss, hw, wsz, show (0 : UInt32).toUInt64 = 0 from rfl, UInt64.zero_add]
-  simp only [show (0 : UInt64) < 65536 from by decide, if_true]
-  rw [if_pos pos]
+  simp only [show (0 : UInt64) < 65536 from by decide, ite_true]
+  rw [ite_eq_left pos]
   have samePad : (if (65536 : UInt64) - d.lookahead.toUInt64 > WIN_INIT_u then WIN_INIT_u
       else 65536 - d.lookahead.toUInt64) = pad := rfl
   by_cases large : (65536 : UInt64) - d.lookahead.toUInt64 > WIN_INIT_u
-  all_goals simp only [large, if_true, if_false] at samePad ⊢
+  all_goals simp only [large, ite_true, ite_false] at samePad ⊢
   all_goals rw [samePad]
   all_goals simp only [UInt32.toNat_toUInt64, cast, bind_app, add, fill, wrD_eq, state]
   all_goals try { rw [add]; simp only []; rw [fill]; simp only [wrD_eq, state] }
-  all_goals simp only [ss, hw, wsz, n, pad]
+  all_goals simp only [ss, wsz, n, pad]
 
 end Zlib.Deflate.Engine.Proofs

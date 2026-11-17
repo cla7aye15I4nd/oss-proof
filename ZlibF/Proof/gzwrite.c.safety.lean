@@ -2,7 +2,6 @@ import ZlibF.Proof.«gzlib.c.error-inv-premises»
 import ZlibF.Proof.«gzwrite.c.init»
 import ZlibF.Proof.«gzwrite.c.comp»
 import ZlibF.Proof.«gzwrite.c.zero»
-import ZlibF.Proof.«gzwrite.c.vacate»
 import ZlibF.Proof.«gzwrite.c.write»
 import ZlibF.Proof.«gzwrite.c.write-calls»
 import ZlibF.Proof.«gzwrite.c.flush-params»
@@ -81,13 +80,6 @@ theorem gz_write_safe (i : Nat) (buf : BPtr) (len : UInt64) (h : Heap) (fs : Fs)
     RunSafe (Zlib.Gzwrite.gz_write (gzSt i) buf len) fs h True fun r fs' after =>
       r.toNat ≤ len.toNat ∧ FdsKept fs fs' ∧ GzPost h i s [] fs' after GzInv :=
   gz_write_safe_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i buf len h fs s inv hfs hm hbuf
-
-/-- **`gz_vacate`** (skeleton statement `gz_vacate_safe`); `gz_vacate_safe_of` has no `gz_error` premise. -/
-theorem gz_vacate_safe (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
-    (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size ≠ 0) :
-    RunSafe (Zlib.Gzwrite.gz_vacate (gzSt i)) fs h True fun r fs' after =>
-      (r = 0 ∨ r = 1) ∧ FdsKept fs fs' ∧ GzPost h i s [] fs' after GzInv :=
-  gz_vacate_safe_of i h fs s inv hfs hm hsz
 
 /-- **`gzwrite`** (skeleton statement `gzwrite_step`). Relies on the local patch for W7. -/
 theorem gzwrite_step (i : Nat) (buf : BPtr) (len : UInt32) :

@@ -56,7 +56,7 @@ theorem run_cost_le (cur : Nat) (prev : Int) (cnt mn : Nat) (small : cur ≤ 15)
         rw [← mass_add]
         apply mass_congr
         intro k _
-        simp only [runFreq, few, if_false, nz, newLen, ne_eq, not_false_eq_true, if_true, true_and]
+        simp only [runFreq, few, ite_false, nz, newLen, ne_eq, not_false_eq_true, ite_true, true_and]
         rw [Nat.add_mul]
       rw [split, mass_point refWeight cur 1 19 (by omega), mass_point refWeight 16 1 19 (by omega)]
       have w16 : refWeight 16 = 9 := by decide

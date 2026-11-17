@@ -82,12 +82,12 @@ theorem fill_body_first_read {h : Heap} {r : ZStreamRef} {ds w io : Nat}
   unfold fillBody
   simp only [bind_app, ldDeflateState_tab good.live.hs]
   simp only [ss, ws, MIN_LOOKAHEAD_u, la, wsz]
-  simp only [show ¬ ((0 : UInt32) ≥ 32768 + (32768 - 262)) from by decide, if_false]
+  simp only [show ¬ ((0 : UInt32) ≥ 32768 + (32768 - 262)) from by decide, ite_false]
   simp only [rdD_eq, good.live.hs, bind_app, good.live.back, zrd_eq, good.live.hz]
-  simp only [beq_eq_false_iff_ne.mpr nonempty, Bool.false_eq_true, if_false]
+  simp only [beq_eq_false_iff_ne.mpr nonempty, Bool.false_eq_true, ite_false]
   simp only [show ((65536 : UInt64) - (0 : UInt32).toUInt64 - (0 : UInt32).toUInt64).toUInt32 = 65536 from rfl,
     show (0 : UInt32).toNat = 0 from rfl, bind_app, ldDeflateState_tab good.live.hs,
-    ss, la, win, add', read, update]
+    ss, la, win, add', read]
   change (do
     wr (some (.tab ds)) (fun d => { d with lookahead := d.lookahead + n })
     fillPrime (some (.tab ds))

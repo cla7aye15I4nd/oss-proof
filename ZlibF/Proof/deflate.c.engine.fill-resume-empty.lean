@@ -24,7 +24,7 @@ theorem fill_body_no_input {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
     (good : DGood h r ds z d) (input : z.avail_in = 0)
     (noSlide : ¬ d.strstart ≥ d.w_size + (d.w_size - MIN_LOOKAHEAD_u)) :
     fillBody (some (.tab ds)) d.w_size false h = .ok (true, h) := by
-  simp only [fillBody, bind_app, ldDeflateState_tab good.live.hs, noSlide, if_false,
+  simp only [fillBody, bind_app, ldDeflateState_tab good.live.hs, noSlide, ite_false,
     rdD_eq, good.live.hs, good.live.back, zrd_eq, good.live.hz, input]
   rfl
 
@@ -56,9 +56,9 @@ theorem fill_high_water_retained {h : Heap} {ds : Nat} {d : DeflateState}
     have second : ¬ d.high_water < d.strstart.toUInt64 + d.lookahead.toUInt64 + WIN_INIT_u := by
       rw [UInt64.lt_iff_toNat_lt, extra]
       omega
-    simp only [less, if_true, first, if_false, second]
+    simp only [less, ite_true, first, ite_false, second]
     rfl
-  · simp only [less, if_false]
+  · simp only [less, ite_false]
     rfl
 
 /-- `local void fill_window(deflate_state *s)`.

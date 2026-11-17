@@ -332,7 +332,7 @@ theorem FastInputPacket.tailD_default_state
     · subst source
       have arrays : saved = output :=
         Option.some.inj (sourceGet.symm.trans outputGet)
-      simp only [srcMid, mid, if_pos rfl,
+      simp only [srcMid, mid, ite_eq_left rfl,
         Zlib.Inffast.Proofs.cpyN_size]
       rw [arrays] at sourceRoom
       omega

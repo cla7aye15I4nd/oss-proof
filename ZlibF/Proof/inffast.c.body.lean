@@ -112,7 +112,7 @@ theorem dolen_pass_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt3
     (l : L) (i o s d k : Nat) (hls : LS e l i o) (hAsz : A.size = e.A0.size)
     (ho : o + 258 ≤ e.o0 + e.sm0.avail_out.toNat) (hbroke : l.broke = false)
     (hs6 : s + 6 ≤ e.i0 + e.sm0.avail_in.toNat) (hsi : s ≤ i) (hT : i ≤ s + 2)
-    (hb15 : 15 ≤ l.bits.toNat + d) (hbi2 : i = s + 2 → 16 ≤ l.bits.toNat + d)
+    (_hb15 : 15 ≤ l.bits.toNat + d) (hbi2 : i = s + 2 → 16 ≤ l.bits.toNat + d)
     (hhere : l.here = .ref e.rl k) (hk : k < e.LCA.size)
     (hEb : (e.LCA.getD k default).bits.toNat ≤ l.bits.toNat)
     (hEd : (e.LCA.getD k default).bits.toNat + d ≤ 15)
@@ -131,7 +131,7 @@ theorem dolen_pass_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt3
   have hld : OkOn (e.heap A msg m) (Ptr.load l.here) (e.LCA.getD k default) := by
     rw [hhere, ← hkE]; exact Ptr.load_ok (e.heap_cget_LCA A msg m) hk
   have hEbn : (e.LCA.getD k default).bits.toUInt32.toNat = (e.LCA.getD k default).bits.toNat := toNat32 _
-  have hEb64 : (e.LCA.getD k default).bits.toUInt32.toUInt64.toNat = (e.LCA.getD k default).bits.toNat := by simp [toNat32]
+  have hEb64 : (e.LCA.getD k default).bits.toUInt32.toUInt64.toNat = (e.LCA.getD k default).bits.toNat := by simp
   have hls1 := hls.dropL (e.LCA.getD k default).bits.toUInt32 (by omega) (by omega)
   rw [dolen_eq_len]
   dsimp only

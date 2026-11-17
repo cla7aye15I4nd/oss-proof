@@ -1,5 +1,9 @@
 import ZlibF.Proof.«deflate.c.engine.body-size»
-import ZlibF.Proof.«deflate.c.engine.loop-ready-prefix»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
+import ZlibF.Proof.«deflate.c.engine.body-ready-phase»
 
 /-! # The size of the `deflate_slow` loop
 

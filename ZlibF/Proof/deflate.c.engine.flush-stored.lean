@@ -23,7 +23,7 @@ theorem flush_stored_dispatch {h : Heap} {r : ZStreamRef} {ds : Nat}
       (do Zlib.Trees.«_tr_stored_block» (some (.tab ds)) source stored last
           Zlib.Trees.Proofs.flushBlockTail (some (.tab ds)) last) (setD (r.put h z') ds prepared) := by
   rw [flush_block_prepare_source]
-  simp only [bind_app, pure_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
+  simp only [bind_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
     positive, ite_true, run, Zlib.Trees.Proofs.Out.rd_run after.live.hs]
   unfold selectedCost byteCost at selected
   split at selected <;> rename_i prefer <;>

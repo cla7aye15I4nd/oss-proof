@@ -38,9 +38,9 @@ theorem rkTail2_bl_zero {H : Heap} {r : ZStreamRef} {ds : Nat} {z' : ZStream} {d
   refine ⟨a1, a2, a3, ?_, s1, s2, s3, frequencies⟩
   rw [trSetD_eq] at e
   unfold rkTail2
-  simp only [bind_app, zwr_eq, hz, wrD_eq, rdD_eq, ldD_eq, ZStreamRef.put_dstates, hd, setD_dstates_same, ZStreamRef.get_setD, e, pure_app, setD_setD]
+  simp only [bind_app, zwr_eq, hz, wrD_eq, ldD_eq, ZStreamRef.put_dstates, hd, setD_dstates_same, e, pure_app, setD_setD]
   subst hd'
-  simp [rkPost3, setD_setD]
+  simp [rkPost3]
 
 theorem rkTail_bl_zero {H : Heap} {r : ZStreamRef} {ds : Nat} {z' : ZStream} {d2 : DeflateState} {b : Nat} {buf : Array UInt8}
     (hz : r.get H = some z') (hb : Zlib.Trees.Proofs.Out.TreesBase H ds d2 b buf) :
@@ -70,7 +70,7 @@ theorem rkTail_bl_zero {H : Heap} {r : ZStreamRef} {ds : Nat} {z' : ZStream} {d2
 
 theorem resetKeep_bl_zero {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {b : Nat}
     {buf : Array UInt8} (hL : DLive h r ds z d) (hB : Zlib.Trees.Proofs.Out.TreesBase h ds d b buf)
-    (hw1 : -2 ≤ d.wrap.toInt) (hw2 : d.wrap.toInt ≤ 2) :
+    (hw1 : -2 ≤ d.wrap.toInt) (_hw2 : d.wrap.toInt ≤ 2) :
     ∃ a1 a2 a3, deflateResetKeep (some r) h =
       .ok (Z_OK, setD (r.put h (rkZ z d)) ds (rkPost ds (rkMid d) a1 a2 a3)) ∧
       a1.size = 573 ∧ a2.size = 61 ∧ a3.size = 39 ∧ (∀ k, k < 19 → a3[k]!.fc = 0) := by
@@ -94,7 +94,7 @@ theorem resetKeep_bl_zero {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
     simp [rkZ, rkMid, absWrap, hw, ZStreamRef.put_setD, ZStreamRef.put_put, hL.zst]
   · simp only [bind_app, stateCheck_live hL, bne_self_eq_false, Bool.false_eq_true, ↓reduceIte, zwr_eq, hL.hz, zrd_eq,
       ZStreamRef.get_put_same hL.hz, hL.zst, castD, wrD_eq, ZStreamRef.put_dstates, hL.hs, setD_dstates_same, ldD_eq, hw,
-      pure_app, setD_setD]
+      ]
     simp only [rkMid, absWrap, hw, ↓reduceIte, hL.zst] at e
     rw [e]
     simp [rkZ, rkMid, absWrap, hw, ZStreamRef.put_setD, ZStreamRef.put_put, hL.zst]
@@ -153,21 +153,21 @@ theorem reset_construct_bl_zero {h : Heap} {r : ZStreamRef} {z : ZStream} {ds w 
     simp only [bind_app, zrd_eq, hzR, zr, rkZ, hl.zst, castD]
     rw [hlm]
     simp only [pure_app]
-    simp [after, hr, zr, rkZ, hl.zst, dr]
-  · refine ⟨⟨?_, by simp [after], ?_, ?_, ?_, ?_, ?_⟩, hI,
+    simp [hr, zr, rkZ, hl.zst, dr]
+  · refine ⟨⟨?_, by simp, ?_, ?_, ?_, ?_, ?_⟩, hI,
       shape.uniq hu, shape.fresh (by simp [after, hr, setW]) hf, ?_⟩
-    · simp only [after, ZStreamRef.get_setD, get_setW, hr, zr,
+    · simp only [ZStreamRef.get_setD, get_setW,
         ZStreamRef.get_put_same hl.hz]
     · simpa [zr, rkZ] using hl.zst
-    · simp [dr, lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec,
+    · simp [lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec,
         readyState, allocatedState, baseState]
     · left
-      simp [dr, lmD, resetState, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
+      simp [lmD, resetState, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
         readyState, allocatedState, baseState]
     · simpa [zr, rkZ] using hl.zalloc
     · simpa [zr, rkZ] using hl.zfree
     · refine ⟨lmD dr, b, (h.bytes b).getD #[], ?_, ?_⟩
-      · refine ⟨by simp only [after, setD_dstates_same]; rfl, hI.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · refine ⟨by simp only [setD_dstates_same]; rfl, hI.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
         · simpa [after, hr, setW] using ht.static
         · simpa [dr, lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec] using ht.pbuf
         · simpa [after, hr, setW] using ht.bytes
@@ -235,7 +235,7 @@ theorem default_initialization_block_clear {h : Heap} {r : ZStreamRef} {z : ZStr
   let hp := r.put h zp
   let lev := levelValue level
   have shape := shape_put hz zp
-  have hfP : Fresh hp := shape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := shape.fresh (by simp) hf
   have huP : Uniq hp := shape.uniq hu
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha
@@ -243,7 +243,7 @@ theorem default_initialization_block_clear {h : Heap} {r : ZStreamRef} {z : ZStr
     intro hb
     have parsed := parameters_equiv level
     rw [params] at parsed
-    simp only [if_pos hb] at parsed
+    simp only [ite_eq_left hb] at parsed
     cases parsed
   have bounds : 0 ≤ lev.toInt ∧ lev.toInt ≤ 9 := by
     have bn := bad
@@ -254,7 +254,7 @@ theorem default_initialization_block_clear {h : Heap} {r : ZStreamRef} {z : ZStr
     (by simpa [hp] using globals_trees hg) (by simpa [hp] using alloc) lev bounds.1 bounds.2
   have actual : C.run (deflateInit_ (some r) level version 112) h =
       .ok (Z_OK, successHeap hp r zp lev a1 a2 a3 qa) := by
-    rw [C.run, entry_run hz hv level, if_neg bad]
+    rw [C.run, entry_run hz hv level, ite_eq_right bad]
     exact run
   rw [actual] at hr
   cases hr

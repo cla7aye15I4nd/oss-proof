@@ -194,10 +194,10 @@ theorem entry_literal (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0
-      rcases zero rfl with h | h <;> subst h <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] <;> omega
+      rcases zero rfl with h | h <;> subst h <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] <;> omega
     · have hd := dummy x0 rfl
       subst hd
-      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at x0 hx ⊢ <;> omega
+      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] at x0 hx ⊢ <;> omega
   · obtain ⟨pos, fit⟩ := used hf
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
@@ -219,7 +219,7 @@ theorem entry_length0 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -234,7 +234,7 @@ theorem entry_length1 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -249,7 +249,7 @@ theorem entry_length2 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -264,7 +264,7 @@ theorem entry_length3 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -279,7 +279,7 @@ theorem entry_length4 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -294,7 +294,7 @@ theorem entry_length5 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -309,10 +309,10 @@ theorem entry_distance0 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0
-      rcases zero rfl with h | h <;> subst h <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] <;> omega
+      rcases zero rfl with h | h <;> subst h <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] <;> omega
     · have hd := dummy x0 rfl
       subst hd
-      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at x0 hx ⊢ <;> omega
+      rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul] at x0 hx ⊢ <;> omega
   · obtain ⟨pos, fit⟩ := used hf
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;> simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16] at fit pos hx ⊢ <;> omega
 
@@ -325,7 +325,7 @@ theorem entry_distance1 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -340,7 +340,7 @@ theorem entry_distance2 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -355,7 +355,7 @@ theorem entry_distance3 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -370,7 +370,7 @@ theorem entry_distance4 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -385,7 +385,7 @@ theorem entry_distance5 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -400,7 +400,7 @@ theorem entry_distance6 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -415,7 +415,7 @@ theorem entry_distance7 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -430,7 +430,7 @@ theorem entry_distance8 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -445,7 +445,7 @@ theorem entry_distance9 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -460,7 +460,7 @@ theorem entry_distance10 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -475,7 +475,7 @@ theorem entry_distance11 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -490,7 +490,7 @@ theorem entry_distance12 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -505,7 +505,7 @@ theorem entry_distance13 (x f d : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16]; omega
+      simp only [entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -546,12 +546,10 @@ theorem literal_share_sum : mass literalAllow 286 = 232530925 := by
     simp only [literalAllow, show 3 + k < 256 by omega, show ¬ (3 + k ≤ 2) by omega,
       show (3 : Nat) < 256 by omega, show ¬ ((3 : Nat) ≤ 2) by omega, ite_true, ite_false]
   rw [mid]
-  simp (config := { decide := true }) only [literalAllow, lengthAllow, lengthExtra, Nat.reduceAdd,
-    Nat.reduceSub, Nat.reduceMul, ite_true, ite_false]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum : mass distanceShare 30 = 93684833 := by
-  simp (config := { decide := true }) only [mass, distanceShare, distanceAllow, distanceExtra,
-    Nat.reduceAdd, Nat.reduceMul, ite_true, ite_false]
+  simp (config := { decide := true }) only []
 
 /-- Each literal/length entry costs at most its share. -/
 theorem literal_entry (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : ll v ≤ 15)

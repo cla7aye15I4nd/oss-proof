@@ -79,7 +79,7 @@ theorem block_data_type_engine {h : Heap} {r : ZStreamRef} {ds pb ob : Nat}
     refine ⟨{ z with data_type := kind }, ?_, goodA, treesA, buffersA, account, sizes, storage,
       rfl, fun _ => allowed, fun no => (no unknown).elim⟩
     unfold blockDataType
-    simp only [bind_app, pure_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
+    simp only [bind_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
       good.live.back, ldZStream_ok good.live.hz, unknown, BEq.rfl, ite_true, detector]
     exact stZStream_ok good.live.hz (by cases r <;> rfl)
   · obtain ⟨goodA, treesA, buffersA, account, sizes, storage⟩ :=

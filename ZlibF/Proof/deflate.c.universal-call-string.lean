@@ -107,7 +107,7 @@ theorem string_loop_split (strm : ZStreamPtr) (s : DeflateStatePtr) (sel : GzHea
   delta gz_string_loop strBody strRead strCond
   exact rfl
 
-theorem slice_head {a : Array UInt8} {i n : Nat} {ys : List UInt8} (fits : i + n ≤ a.size) (pos : 1 ≤ n)
+theorem slice_head {a : Array UInt8} {i n : Nat} {ys : List UInt8} (_fits : i + n ≤ a.size) (pos : 1 ≤ n)
     (slice : ys = (a.toList.drop i).take n) : ys[0]? = a[i]? := by
   subst slice
   simp only [List.getElem?_take, List.getElem?_drop, Array.getElem?_toList]

@@ -16,7 +16,7 @@ open Zlib.Inflate.Spec (setI)
 set_option autoImplicit false
 
 /-- Two arrays that agree on `[o, o + k)` give the same `k` bytes from `o`. -/
-theorem take_drop_congr {a a' : Array UInt8} {o k : Nat} (size : a'.size = a.size)
+theorem take_drop_congr {a a' : Array UInt8} {o k : Nat} (_size : a'.size = a.size)
     (same : ∀ j, o ≤ j → j < o + k → a'[j]? = a[j]?) :
     (a'.toList.drop o).take k = (a.toList.drop o).take k := by
   apply List.ext_getElem?
@@ -36,19 +36,19 @@ theorem restore_slice {a a' : Array UInt8} {off n : Nat} (size : a'.size = a.siz
   rw [Array.getElem?_append, Array.getElem?_append]
   simp only [Array.size_append, Array.size_extract]
   by_cases h1 : j < off
-  · rw [if_pos (by omega), if_pos (by omega), Array.getElem?_extract]
+  · rw [ite_eq_left (by omega), ite_eq_left (by omega), Array.getElem?_extract]
     simp only [Nat.zero_add]
-    rw [if_pos (by omega)]
+    rw [ite_eq_left (by omega)]
     exact outside j (Or.inl h1)
   · by_cases h2 : j < off + n
-    · rw [if_pos (by omega), if_neg (by omega), Array.getElem?_extract, if_pos (by omega)]
+    · rw [ite_eq_left (by omega), ite_eq_right (by omega), Array.getElem?_extract, ite_eq_left (by omega)]
       congr 1; omega
-    · rw [if_neg (by omega), Array.getElem?_extract]
+    · rw [ite_eq_right (by omega), Array.getElem?_extract]
       by_cases h3 : j < a.size
-      · rw [if_pos (by omega)]
+      · rw [ite_eq_left (by omega)]
         rw [show off + n + (j - (min off a'.size - 0 + (min (off + n) a.size - off))) = j by omega]
         exact outside j (Or.inr (by omega))
-      · rw [if_neg (by omega)]
+      · rw [ite_eq_right (by omega)]
         simp; omega
 
 /-- The heap after the decoder stores `a'` as the window's block. -/
@@ -122,15 +122,15 @@ theorem PInv.storeWindow {c : BCtx} {r : ZStreamRef} {i : Nat} {window : BPtr} {
       · exact if ref = .blk w then a' else b0
       · by_cases e : ref = .blk w
         · subst e; simp [Space.get, winHeap]
-        · rw [if_neg e, get_winHeap_ne e]; exact g
+        · rw [ite_eq_right e, get_winHeap_ne e]; exact g
       · by_cases e : ref = .blk w
-        · rw [if_pos e, size]
+        · rw [ite_eq_left e, size]
           subst e
           change h.bytes w = some b0 at g
           rw [get] at g; injection g with e; subst e; exact rm
-        · rw [if_neg e]; exact rm
+        · rw [ite_eq_right e]; exact rm
       · by_cases e : ref = .blk w
-        · rw [if_pos e]
+        · rw [ite_eq_left e]
           subst e
           change h.bytes w = some b0 at g
           rw [get] at g; injection g with e; subst e
@@ -146,7 +146,7 @@ theorem PInv.storeWindow {c : BCtx} {r : ZStreamRef} {i : Nat} {window : BPtr} {
           · omega
           · simp only [ne_eq, not_true_eq_false, false_or] at sep
             omega
-        · rw [if_neg e]; exact xs
+        · rw [ite_eq_right e]; exact xs
   have frame' : CallbackFrame pr.own h0 (winHeap h w a') r i window n := by
     refine CallbackFrame.trans I.frame ?_ (fun d => window_views (by rw [win, sz] at wr; exact wr) I.winRoot d)
     refine ⟨⟨rfl, rfl, rfl, Nat.le_refl _, Nat.le_refl _, fun b _ outside' => ?_⟩, fun _ => ?_⟩

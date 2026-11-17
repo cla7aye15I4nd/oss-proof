@@ -103,7 +103,7 @@ theorem fill_body_resume_read {h : Heap} {r : ZStreamRef} {ds w io : Nat}
         exact counts.2.2)
     (by simpa [copied, size_copyRange, extent.1] using extent.2) shift
   unfold fillBody
-  simp only [bind_app, ldDeflateState_tab good.live.hs, noSlide, if_false,
+  simp only [bind_app, ldDeflateState_tab good.live.hs, noSlide, ite_false,
     rdD_eq, good.live.hs, good.live.back, zrd_eq, good.live.hz,
     beq_eq_false_iff_ne.mpr nonempty, Bool.false_eq_true]
   change (do

@@ -64,7 +64,7 @@ theorem flush_default_ready_aligned {h : Heap} {r : ZStreamRef} {ds pb ob w orig
       · exact yes
       · have impossible := chooseStored.2
         simp only [defaultStoredSource, yes, ite_false, bne_self_eq_false, Bool.false_eq_true] at impossible
-    have source : defaultStoredSource d w = .ref (.blk w) d.block_start.toInt.toNat := if_pos nonnegative
+    have source : defaultStoredSource d w = .ref (.blk w) d.block_start.toInt.toNat := ite_eq_left nonnegative
     have end_ := trees.base.sym_end
     have symbols := ledger.count
     have countBound : xs.length ≤ 16383 := by have := trees.run.sym_next_le; omega

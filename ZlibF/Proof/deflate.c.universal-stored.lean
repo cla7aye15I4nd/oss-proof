@@ -1,4 +1,4 @@
-import ZlibF.Proof.«deflate.c.universal-strategy-specs»
+import ZlibF.Proof.«trees.c.universal-overlay-at»
 import ZlibF.Proof.«trees.c.stored-block»
 
 /-!

@@ -1,7 +1,10 @@
 import ZlibF.Proof.«deflate.c.engine.loop-input-ledger»
 import ZlibF.Proof.«deflate.c.engine.eof-checksum»
 import ZlibF.Proof.«deflate.c.engine.eof-stream-encoding»
-import ZlibF.Proof.«deflate.c.engine.loop-prefix»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
 import ZlibF.Proof.«deflate.c.engine.eof-output-interval»
 
 /-! # FINISH encoding retains the working logical input endpoint -/
@@ -143,7 +146,7 @@ theorem deflate_slow_finish_ready_stream_input_phase {h : Heap} {r : ZStreamRef}
       [], loopWritten ++ tailWritten, actual, stateA, buffersA, account,
       ?_, agreesL, inputLedgerL, checksumA.trans checksumL, Or.inr ⟨?_, tailBytes, pendingBytes, finalA, ?_⟩⟩
     · simpa only [List.length_append, tailLength, pointer] using bothBytes
-    · split <;> simp only [or_self, true_or, or_true]
+    · split <;> simp only [true_or, or_true]
     · simpa only [List.append_assoc] using validA
 
 end Zlib.Deflate.Engine.Proofs

@@ -171,7 +171,7 @@ theorem inflateBackInit__ok {h : Heap} {r : ZStreamRef} {z : ZStream} {wb : Int3
     refine ⟨?_, ?_, ?_, ?_, ?_, ⟨wf_backState _ _ _, ?_, ?_, ?_⟩, hUp2, hFp2⟩
     · simp [backOkHeap, hz]
     · simp [backOkHeap]
-    · simp [initStream2, StateRef.ofInflateState]
+    · simp [initStream2]
     · simpa [initStream2] using hza'
     · simpa [initStream2] using hzf'
     · simp [backState, i2u]; exact ⟨by simpa [i2u] using hr.1, by simpa [i2u] using hr.2⟩

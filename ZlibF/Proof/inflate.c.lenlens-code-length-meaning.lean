@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.code-length-meaning-state»
+import ZlibF.Proof.«inftrees.c.code-length-meaning-state»
+import ZlibF.Proof.«inflate.c.origin-fields-construction-tail»
 import ZlibF.Proof.«inflate.c.main.table5»
 
 namespace Zlib.Inflate.Proofs
@@ -93,7 +94,7 @@ theorem llTail_run_code_length_meaning {c : Ctx} {l : IL} {h : Heap} {r : ZStrea
       rw [hc]
       have hrun3 := hrun2
       simp [llPre] at hrun3
-      simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, lensP, workP, codesP, hrun3, hh3', h0, runX_modify, setMode]
+      simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, lensP, workP, codesP, hrun3, hh3', h0, runX_modify]
       subst hnx
       simp [llBadSt, llOkSt, llPre]
     · rw [h0] at h1; cases h1

@@ -184,7 +184,7 @@ theorem FastInputPacket.dolenLen_bits_default_state
       have run0 : C.run (Zlib.Inffast.Proofs.dolenLen c l) h =
           .ok (result0, after0) := by
         unfold Zlib.Inffast.Proofs.dolenLen
-        simp only [hasExtra, ite_false]
+        simp only [hasExtra]
         exact refillRun
       rw [run] at run0
       cases run0

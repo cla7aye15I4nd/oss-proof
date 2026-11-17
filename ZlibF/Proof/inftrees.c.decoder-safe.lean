@@ -96,11 +96,11 @@ private theorem two_cell_positive {ca : Array Code} {offset : Nat} {first second
   rcases cases with rfl | rfl
   · have entry : ca.getD (offset + 0) default = first := by
       simp only [Nat.add_zero, Array.getD_eq_getD_getElem?, one, Option.getD_some]
-    rw [entry, if_neg firstNotLink]
+    rw [entry, ite_eq_right firstNotLink]
     exact firstBits
   · have entry : ca.getD (offset + 1) default = second := by
       simp only [Array.getD_eq_getD_getElem?, two, Option.getD_some]
-    rw [entry, if_neg secondNotLink]
+    rw [entry, ite_eq_right secondNotLink]
     exact secondBits
 
 theorem invalid_two_cells_positive {ca : Array Code} {offset : Nat}

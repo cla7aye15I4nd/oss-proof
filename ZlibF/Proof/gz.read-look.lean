@@ -136,7 +136,7 @@ theorem GzInv.ptr_kept (inv : GzInv h i s) (hm : s.mode = GZ_READ) (hsz : s.size
     h'.bytes b = h.bytes b ∧ h'.ro b = h.ro b ∧ h.live b ∧ h'.live b := by
   have mem : p ∈ ownedPtrs s := by
     unfold ownedPtrs
-    rw [if_pos hsz, if_pos (Or.inl hm)]
+    rw [ite_eq_left hsz, ite_eq_left (Or.inl hm)]
     rcases hp with e | e | e | e <;> subst e <;> simp
   have hbk : blkOf p = some b := by rw [hb]; rfl
   obtain ⟨hbi, hso⟩ := inv.common.distinct.2 p mem b hbk
@@ -151,7 +151,7 @@ theorem GzInv.ptr_kept (inv : GzInv h i s) (hm : s.mode = GZ_READ) (hsz : s.size
 record and the codec's blocks, when the codec owns no new block, the input window is in `in` and the codec
 history continues. The record has no buffered output (`x.next = NULL`). -/
 theorem GzInv.rebuild (inv : GzInv h i s) (hm : s.mode = GZ_READ) (hsz : s.size ≠ 0) (hx0 : s.x.have = 0)
-    (hxn : s.x.next = .null) (rec : h'.gzstates i = some s')
+    (_hxn : s.x.next = .null) (rec : h'.gzstates i = some s')
     (same : s'.path = s.path ∧ s'.msg = s.msg ∧ s'.«in» = s.«in» ∧ s'.out = s.out ∧ s'.size = s.size ∧
       s'.mode = s.mode ∧ s'.want = s.want ∧ s'.err = s.err ∧ s'.x = s.x ∧ s'.skip = s.skip ∧
       s'.eof = s.eof ∧ s'.past = s.past ∧ s'.again = s.again)
@@ -435,7 +435,7 @@ theorem resetHeap_bytes (H : Heap) (st : InflateState) (b : Nat) :
   by_cases hw : st.wbits = st.reqbits
   · simp [hw]
   · have hb : (st.wbits != st.reqbits) = true := by simpa using hw
-    rw [if_pos hb]
+    rw [ite_eq_left hb]
     unfold freeWin
     split
     · rename_i w heq
@@ -577,15 +577,15 @@ theorem lookGzip_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
         · right
           rw [hw1] at e
           by_cases hw : st.wbits = st.reqbits
-          · rw [if_pos hw] at e; exact ⟨hw, e⟩
-          · rw [if_neg hw] at e; cases e
+          · rw [ite_eq_left hw] at e; exact ⟨hw, e⟩
+          · rw [ite_eq_right hw] at e; cases e
       · rw [gV] at hz; cases hz
         rw [z1in.2.2, hzst'] at hk0; cases hk0
     · intro ho
       refine ⟨z1, gV, Or.inl ⟨k, st1, by rw [z1in.2.2]; exact hzst', hkV, ?_⟩⟩
       rcases ho with e | ⟨hw, e⟩
       · exact Or.inl e
-      · exact Or.inr (by rw [hw1, if_pos hw]; exact e)
+      · exact Or.inr (by rw [hw1, ite_eq_left hw]; exact e)
   have soH : ∀ b, StreamOwned H (gzStrm i) b ↔ StreamOwned W (gzStrm i) b := by
     intro b
     have g1 : (gzStrm i).get H = (gzStrm i).get W := by
@@ -621,7 +621,7 @@ theorem lookGzip_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
   have memP : ∀ p, (p = t.path ∨ p = t.msg ∨ p = t.«in» ∨ p = t.out) → p ∈ ownedPtrs (clearOut t) := by
     intro p hp
     unfold ownedPtrs
-    rw [if_pos hszc, if_pos (Or.inl hmc)]
+    rw [ite_eq_left hszc, ite_eq_left (Or.inl hmc)]
     rcases hp with e | e | e | e <;> subst e <;> simp [clearOut]
   -- the new world keeps the invariant
   have frWV : Frame W V (fun b => b = i ∨ StreamOwned W (gzStrm i) b) := by
@@ -632,7 +632,7 @@ theorem lookGzip_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
     have hbw : ¬ st.window = .ref (.blk b) 0 := fun e => hno (Or.inr ((soW b).2 (Or.inr e)))
     refine ⟨?_, rfl, rfl, rfl, rfl, ?_, ?_, rfl⟩
     · show B b = H.bytes b
-      rw [hB b, if_neg (fun hc => hbw hc.2)]
+      rw [hB b, ite_eq_right (fun hc => hbw hc.2)]
     · show upd H.istates k (some st1) b = H.istates b
       rw [upd_ne _ _ _ _ hbk]
     · show upd (upd H.gzstates i (some t2)) i (some (clearOut t2)) b = upd H.gzstates i (some (clearOut t)) b
@@ -645,7 +645,7 @@ theorem lookGzip_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
       rw [hkV]; exact Option.some_ne_none _
     · refine ⟨(soW b).2 (Or.inr e), Or.inl ?_⟩
       show B b ≠ none
-      rw [hB b, if_neg (fun hc => hc.1 hw)]
+      rw [hB b, ite_eq_right (fun hc => hc.1 hw)]
       obtain ⟨a, ha⟩ := winBlk b e
       rw [ha]; exact Option.some_ne_none _
   obtain ⟨-, freshV, uniqV, globalsV, fitV⟩ := sub_heap (W := W) (V := V)
@@ -750,7 +750,7 @@ theorem lookGzip_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
     have hbw : ¬ st.window = .ref (.blk b) 0 := fun e => hso ((soW b).2 (Or.inr e))
     refine ⟨?_, rfl, rfl, rfl, rfl, ?_, ?_, rfl⟩
     · show B b = H.bytes b
-      rw [hB b, if_neg (fun hc => hbw hc.2)]
+      rw [hB b, ite_eq_right (fun hc => hbw hc.2)]
     · show upd H.istates k (some st1) b = H.istates b
       rw [upd_ne _ _ _ _ hbk]
     · show upd H.gzstates i (some t2) b = H.gzstates b
@@ -801,7 +801,7 @@ theorem lookGzip_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
       have u6' : H.gzstates b = none := by
         have : upd H.gzstates i (some (clearOut t)) b = none := u6
         rwa [upd_ne _ _ _ _ hbi] at this
-      have hBb : B b = none := by rw [hB b, if_pos hd]
+      have hBb : B b = none := by rw [hB b, ite_eq_left hd]
       have hl : ¬ Hx.live b := by
         show ¬ (B b ≠ none ∨ H.words b ≠ none ∨ H.streams b ≠ none ∨ H.gzheaders b ≠ none ∨ H.dstates b ≠ none ∨
           upd H.istates k (some st1) b ≠ none ∨ upd H.gzstates i (some t2) b ≠ none)
@@ -814,7 +814,7 @@ theorem lookGzip_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
         rw [v1, v2, v3, v4, v5, u6']
         simp
       exact ⟨fun x => absurd x hl, fun x => absurd hd x.2⟩
-    · have hBb : B b = H.bytes b := by rw [hB b, if_neg hd]
+    · have hBb : B b = H.bytes b := by rw [hB b, ite_eq_right hd]
       have i1 : (upd H.istates k (some st1) b ≠ none) ↔ (H.istates b ≠ none) := by
         by_cases e : b = k
         · subst e; rw [hkH]; simp
@@ -874,7 +874,7 @@ variable {h h' : Heap} {i : Nat} {s s' : GzState}
 /-- **A reader with no buffers keeps the invariant** under a change of the record that keeps what the invariant
 reads (the dangling `in`, `out` and a stream with no state are free), over a heap that changes only the record. -/
 theorem GzInv.size0_rebuild (inv : GzInv h i s) (hm : s.mode = GZ_READ) (hsz : s.size = 0)
-    (hxn : s.x.next = .null) (rec : h'.gzstates i = some s')
+    (_hxn : s.x.next = .null) (rec : h'.gzstates i = some s')
     (same : s'.path = s.path ∧ s'.msg = s.msg ∧ s'.size = s.size ∧ s'.mode = s.mode ∧ s'.want = s.want ∧
       s'.err = s.err ∧ s'.x = s.x ∧ s'.skip = s.skip ∧ s'.eof = s.eof ∧ s'.past = s.past ∧ s'.again = s.again ∧
       s'.how = s.how ∧ s'.direct = s.direct ∧ s'.junk = s.junk)
@@ -890,7 +890,7 @@ theorem GzInv.size0_rebuild (inv : GzInv h i s) (hm : s.mode = GZ_READ) (hsz : s
   have hsz' : s'.size = 0 := esize.trans hsz
   have hptrs : ownedPtrs s' = ownedPtrs s := by
     unfold ownedPtrs
-    rw [epath, emsg, esize, if_neg (fun x => x hsz), if_neg (fun x => x hsz)]
+    rw [epath, emsg, esize, ite_eq_right (fun x => x hsz), ite_eq_right (fun x => x hsz)]
   have kept : ∀ p, (p = s.path ∨ p = s.msg) → ∀ b, p = .ref (.blk b) 0 →
       h'.bytes b = h.bytes b ∧ h'.ro b = h.ro b ∧ h'.live b := by
     intro p hp b e
@@ -1057,7 +1057,7 @@ theorem look_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = so
   have hpg := s.x.pos.le_toInt
   have hml := max.toNat_lt
   unfold Zlib.Gzread.gz_room
-  simp only [gzSt, bind_app, pure_app, ldS_eq, hs]
+  simp only [gzSt, bind_app, ldS_eq, hs]
   by_cases hp : s.x.pos > 0
   · have hp' : 0 < s.x.pos.toInt := by have := (Int64.lt_iff_toInt_lt).1 hp; simpa using this
     have hsub := i64sub_run GZ_OFF_MAX s.x.pos (by rw [look_GZ_OFF_MAX_toInt]; omega)
@@ -1081,14 +1081,14 @@ theorem look_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = so
       rw [hv] at this
       simp at this
       omega
-    · simp only [hlt, Bool.false_eq_true, ite_false, pure_app]
+    · simp only [hlt, ite_false, pure_app]
       have hge : ¬ (9223372036854775807 - s.x.pos.toInt < (max.toNat : Int)) := by
         intro hh; apply hlt; rw [Int64.lt_iff_toInt_lt, hd, u32ToI64_toInt]; exact hh
       refine ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz⟩
   · have hp' : s.x.pos.toInt ≤ 0 := by
       have : ¬ (0 : Int64).toInt < s.x.pos.toInt := fun hh => hp ((Int64.lt_iff_toInt_lt).2 hh)
       simp at this; omega
-    simp only [hp, Bool.false_eq_true, ite_false, pure_app, decide_false]
+    simp only [hp, ite_false, pure_app]
     exact ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz⟩
 
 /-- The literal of the refusal of patch 0004 is a C string. -/
@@ -1269,7 +1269,7 @@ theorem lookCopy_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpT
   have hne : ob ≠ ib := by
     have nd := c.distinct.1
     have e : ownedPtrs (clearOut t) = [t.path, t.msg, t.«in», t.out] := by
-      unfold ownedPtrs; rw [if_pos hszc, if_pos (Or.inl hmc)]; rfl
+      unfold ownedPtrs; rw [ite_eq_left hszc, ite_eq_left (Or.inl hmc)]; rfl
     rw [e, hin', hout'] at nd
     intro x; subst x
     have := nd.sublist (List.Sublist.filterMap blkOf (List.Sublist.cons _ (List.Sublist.cons _ (List.Sublist.refl _))))
@@ -1497,7 +1497,7 @@ theorem lookMagic_eq {H : Heap} {i : Nat} {z : ZStream} {ib a : Nat} {arr : Arra
     ∃ g, lookMagic i z fs H = lookFinal i z g fs H := by
   unfold lookMagic
   by_cases h3 : z.avail_in > 3
-  · rw [if_pos h3]
+  · rw [ite_eq_left h3]
     have hl := hle h3
     have r0 : (StateT.lift (index8 z.next_in 0) : G UInt8) fs H = .ok ((arr[a + 0]'(by omega), fs), H) := by
       rw [g_lift_app, hq]
@@ -1524,7 +1524,7 @@ theorem lookMagic_eq {H : Heap} {i : Nat} {z : ZStream} {ib a : Nat} {arr : Arra
         · exact ⟨false, rfl⟩
       · exact ⟨false, rfl⟩
     · exact ⟨false, rfl⟩
-  · rw [if_neg h3]
+  · rw [ite_eq_right h3]
     exact ⟨false, rfl⟩
 
 /-! ## After the allocation -/
@@ -1623,7 +1623,7 @@ theorem lookAuto_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (P : LookPre H
     rw [g_lift_app, ldS_run ht1]
   simp only [show ((0 : Int32) == -1) = false from rfl, Bool.false_eq_true, ite_false, g_bind_app, hz1, hs1]
   by_cases c : (t1.strm.avail_in == 0 || (t1.again != 0 && t1.strm.avail_in < 4)) = true
-  · rw [if_pos c]
+  · rw [ite_eq_left c]
     -- no input at the end of the file, or a stall after a read that delivered at least one byte
     have prog : (t1.eof ≠ 0 ∧ t1.strm.avail_in = 0) ∨ BudgetAcc t.fd fs fs1 1 := by
       by_cases ha0 : t1.strm.avail_in = 0
@@ -1636,7 +1636,7 @@ theorem lookAuto_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (P : LookPre H
         exact afs1.1.mono (by omega)
     exact ⟨0, fs1, H1, rfl, lookPost_after_avail P hk1 post1 ht1 hrec1 bf1 bb1 be1 bud1 refl1 ht1 out1 ml1 same1
       (Nat.le_refl _) (Or.inl rfl) (fun e => absurd e (by decide)) afs1.2.2 (fun _ => Or.inl ⟨by rw [fhow]; exact P.look, hx1, prog⟩)⟩
-  rw [if_neg c]
+  rw [ite_eq_right c]
   have hav : t1.strm.avail_in ≠ 0 := by
     intro e; apply c; simp [e]
   have rd1 := hu1.2.reader hm1
@@ -1701,9 +1701,9 @@ theorem lookMain_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (P : LookPre H
   simp only [g_bind_app, hsH]
   by_cases c1 : (t.direct == -1 || t.junk == 0) = true
   rotate_left
-  · rw [if_neg c1]
+  · rw [ite_eq_right c1]
     exact lookAuto_run fs P hfs (fun e => c1 (by simp [e]))
-  rw [if_pos c1]
+  rw [ite_eq_left c1]
   have hzH : (StateT.lift (ldZ (strmOf (some (.tab i)))) : G ZStream) fs H = .ok ((t.strm, fs), H) := by
     rw [g_lift_app, strmOf_tab, ldZ_run hs]
   simp only [g_bind_app, hzH]
@@ -1714,7 +1714,7 @@ theorem lookMain_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (P : LookPre H
     · exact Or.inl rfl
   by_cases c2 : (t.junk == 0 && t.strm.avail_in == 0) = true
   rotate_left
-  · rw [if_neg c2]
+  · rw [ite_eq_right c2]
     -- straight to a gzip member
     obtain ⟨Hf, tf, run2, htf, post2, eqf, avf, -, head, hmsg⟩ :=
       lookGzip_run fs P.hu P.mode P.size hfs _ hf
@@ -1728,7 +1728,7 @@ theorem lookMain_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (P : LookPre H
       (fun e => absurd e (by decide)) (fun a b => by rw [eqf]; exact ⟨a, b⟩) (fun _ => Or.inr (Or.inl ⟨by rw [eqf], hxf, head⟩))
     intro hz
     exact absurd (by rw [eqf] at hz; exact hz) P.size
-  rw [if_pos c2]
+  rw [ite_eq_left c2]
   obtain ⟨r1, fs1, H1, t1, run1, hr1, hk1, post1, ht1, hrec1, bf1, bb1, be1, afs1, afl1⟩ :=
     avail_step fs P.hu P.mode P.size hfs (by rw [P.look]; decide)
   have bud1 : BudgetAcc t.fd fs fs1 0 := afs1.1.mono (Nat.zero_le _)
@@ -1763,12 +1763,12 @@ theorem lookMain_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (P : LookPre H
     rw [g_lift_app, strmOf_tab, ldZ_run ht1]
   simp only [show ((0 : Int32) == -1) = false from rfl, Bool.false_eq_true, ite_false, g_bind_app, hz1]
   by_cases c3 : (t1.strm.avail_in == 0) = true
-  · rw [if_pos c3]
+  · rw [ite_eq_left c3]
     have ha0 : t1.strm.avail_in = 0 := by simpa using c3
     exact ⟨0, fs1, H1, rfl, lookPost_after_avail P hk1 post1 ht1 hrec1 bf1 bb1 be1 bud1 refl1 ht1 out1 ml1 same1
       (Nat.le_refl _) (Or.inl rfl) (fun e => absurd e (by decide)) afs1.2.2
       (fun _ => Or.inl ⟨by rw [fhow]; exact P.look, hx1, Or.inl ⟨afl1.2.2.1 rfl ha0, ha0⟩⟩)⟩
-  rw [if_neg c3]
+  rw [ite_eq_right c3]
   obtain ⟨Hf, tf, run2, htf, post2, eqf, avf, -, head, hmsg⟩ := lookGzip_run fs1 hu1 hm1 hsz1 post1.1 _ hf
   refine ⟨0, fs1, Hf, run2, ?_⟩
   have same : tf.mode = t1.mode ∧ tf.fd = t1.fd ∧ tf.skip = t1.skip ∧ tf.x.pos = t1.x.pos ∧ tf.size = t1.size ∧
@@ -2021,11 +2021,11 @@ theorem init_success {H H5 : Heap} {i : Nat} {s : GzState} (fs : Fs) (hfs : File
     exact this
   -- the invariant
   have ownS : ownedPtrs (clearOut s) = [s.path, s.msg] := by
-    unfold ownedPtrs; rw [if_neg (show ¬ ((clearOut s).size ≠ 0) from fun x => x hsz)]; rfl
+    unfold ownedPtrs; rw [ite_eq_right (show ¬ ((clearOut s).size ≠ 0) from fun x => x hsz)]; rfl
   have own6 : ownedPtrs (clearOut s6) = [s.path, s.msg, .ref (.blk nb) 0, .ref (.blk (nb + 1)) 0] := by
     unfold ownedPtrs
-    rw [if_pos (show (clearOut s6).size ≠ 0 from hw0),
-      if_pos (show (clearOut s6).mode = GZ_READ ∨ (clearOut s6).direct = 0 from Or.inl hm)]
+    rw [ite_eq_left (show (clearOut s6).size ≠ 0 from hw0),
+      ite_eq_left (show (clearOut s6).mode = GZ_READ ∨ (clearOut s6).direct = 0 from Or.inl hm)]
     rfl
   have ltP : ∀ p, p ∈ [s.path, s.msg] → ∀ b, blkOf p = some b → b < nb := fun p hp b hb =>
     hlt b ((putGz_live hs b).1 (inv.ptr_live (by rw [ownS]; exact hp) hb))
@@ -2047,7 +2047,7 @@ theorem init_success {H H5 : Heap} {i : Nat} {s : GzState} (fs : Fs) (hfs : File
     show H5.bytes b ≠ none ∨ H5.words b ≠ none ∨ H5.streams b ≠ none ∨ H5.gzheaders b ≠ none ∨
       H5.dstates b ≠ none ∨ upd H5.istates ks (some st6) b ≠ none ∨ upd H5.gzstates i (some (clearOut s6)) b ≠ none
     rw [upd_ne _ _ _ _ hbks, upd_ne _ _ _ _ hbi, E5.bytes b hb, E5.words, E5.streams, E5.gzheaders, E5.dstates,
-      E5.istates, E5.gzstates, if_neg hbi]
+      E5.istates, E5.gzstates, ite_eq_right hbi]
     exact hl
   obtain ⟨a0, ha0, hsz0⟩ := hb0
   obtain ⟨a1, ha1, hsz1⟩ := hb1
@@ -2214,7 +2214,7 @@ theorem init_success {H H5 : Heap} {i : Nat} {s : GzState} (fs : Fs) (hfs : File
     · show upd H5.istates ks (some st6) b = H.istates b
       rw [upd_ne _ _ _ _ hbks]; exact E5.istates b
     · show upd H5.gzstates i (some s6) b = H.gzstates b
-      rw [upd_ne _ _ _ _ hbi, E5.gzstates, if_neg hbi]
+      rw [upd_ne _ _ _ _ hbi, E5.gzstates, ite_eq_right hbi]
   have post : GzPost H i s [] fs H6 GzInvUpToOutput := by
     refine post_step (D := fun _ => False) (C := fun b => b = nb ∨ b = nb + 1 ∨ b = ks) hu hu6 hfs rfl rfl frH
       (fun _ f => f.elim) ?_ ?_ ?_
@@ -2291,8 +2291,8 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
   · -- `in` allocated at block `H.nextBlk`
     have r1 : (StateT.lift (allocB s.want.toNat) : G BPtr) fs H =
         .ok ((.ref (.blk H.nextBlk) 0, fs), aHeap H s.want.toNat) := by
-      rw [g_lift_app, allocB_eq, if_pos (show H.allocOk H.nalloc = true ∧ s.want.toNat < mallocLimit from ⟨a1, lim1⟩),
-        if_neg slot0]
+      rw [g_lift_app, allocB_eq, ite_eq_left (show H.allocOk H.nalloc = true ∧ s.want.toNat < mallocLimit from ⟨a1, lim1⟩),
+        ite_eq_right slot0]
     let s1 : GzState := { s with «in» := .ref (.blk H.nextBlk) 0 }
     let H2 := Zlib.Gzlib.Spec.setS (aHeap H s.want.toNat) i s1
     have r2 : (StateT.lift (updS (some (.tab i)) fun s => { s with «in» := (.ref (.blk H.nextBlk) 0 : BPtr) }) :
@@ -2310,8 +2310,8 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
     · -- both allocated
       have r4 : (StateT.lift (allocB (s1.want <<< 1).toNat) : G BPtr) fs H2 =
           .ok ((.ref (.blk (H.nextBlk + 1)) 0, fs), aHeap H2 (s1.want <<< 1).toNat) := by
-        rw [g_lift_app, allocB_eq, if_pos (show H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit from
-          ⟨a2, by show (s.want <<< 1).toNat < mallocLimit; rw [eshift]; exact lim2⟩), if_neg slot2]
+        rw [g_lift_app, allocB_eq, ite_eq_left (show H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit from
+          ⟨a2, by show (s.want <<< 1).toNat < mallocLimit; rw [eshift]; exact lim2⟩), ite_eq_right slot2]
         rfl
       let s2 : GzState := { s1 with out := .ref (.blk (H.nextBlk + 1)) 0 }
       let H4 := Zlib.Gzlib.Spec.setS (aHeap H2 (s1.want <<< 1).toNat) i s2
@@ -2320,7 +2320,7 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
         rw [g_lift_app, updS_run (show (aHeap H2 (s1.want <<< 1).toNat).gzstates i = some s1 from h2)]
       have h4 : H4.gzstates i = some s2 := by simp [H4]
       simp only [g_bind_app, r1, r2, r3, r4, r5]
-      rw [if_neg (by simp only [ref_beq_null]; decide)]
+      rw [ite_eq_right (by simp only [ref_beq_null]; decide)]
       let s3 : GzState := { s2 with size := s2.want }
       let H5' := Zlib.Gzlib.Spec.setS H4 i s3
       let z4 : ZStream := { s3.strm with zalloc := .null, zfree := .null, «opaque» := .null, avail_in := 0, next_in := .null }
@@ -2365,8 +2365,8 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
         have r10 : (StateT.lift (Zlib.Inflate.inflateInit2_ (strmOf (some (.tab i))) 31 (.ref (.str 57) 0) 112) :
             G Int32) fs H5 = .ok ((Z_OK, fs), H6) := by
           rw [g_lift_app, strmOf_tab, run6]
-        simp only [g_bind_app, r10]
-        rw [if_neg (by simp)]
+        simp only [r10]
+        rw [ite_eq_right (by simp)]
         obtain ⟨r, fs', after, runM, LP⟩ := lookMain_run fs P6 hfs
         exact ⟨r, fs', after, runM, lookPost_transfer post6 hs6 hsz
           ⟨m6, fd6, sk6, x6, by rw [av6, hav0'], er6⟩ LP⟩
@@ -2407,8 +2407,8 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
           have hm5' : (dHeap (dHeap Hm (H.nextBlk + 1)) H.nextBlk).gzstates i = some s5 := by
             rw [dHeap_gz, dHeap_gz]; exact hm5
           rw [g_lift_app, updS_run hm5']
-        simp only [g_bind_app, r10]
-        rw [if_pos (by simp [Z_MEM_ERROR, Z_OK])]
+        simp only [r10]
+        rw [ite_eq_left (by simp [Z_MEM_ERROR, Z_OK])]
         simp only [g_bind_app, r11, r12, r13, r14]
         have Eq : Ext H Hq i s7 := ((((E5.setS s5).failed).drop _ (by omega)).drop _ (Nat.le_refl _)).setS s7
         obtain ⟨after, run, LP⟩ := fail_err fs hfs hu hm hsz hx0 Eq
@@ -2425,11 +2425,11 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
           (by show s.strm.state = none; exact hst0') rfl
         refine ⟨-1, fs, after, ?_, LP⟩
         simp only [g_bind_app, g_lift_app] at run
-        try simp only [g_bind_app, g_lift_app, look_freeB_null] at ⊢
+        try simp only [g_lift_app] at ⊢
         try exact run
     · -- `out` failed
       have r4 : (StateT.lift (allocB (s1.want <<< 1).toNat) : G BPtr) fs H2 = .ok ((.null, fs), fHeap H2) := by
-        rw [g_lift_app, allocB_eq, if_neg (show ¬ (H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit)
+        rw [g_lift_app, allocB_eq, ite_eq_right (show ¬ (H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit)
           from fun x => a2 x.1)]
       let s2 : GzState := { s1 with out := .null }
       let H4 := Zlib.Gzlib.Spec.setS (fHeap H2) i s2
@@ -2442,7 +2442,7 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
         rw [g_lift_app, look_freeB_run (by show H2.bytes _ = _; exact b2)
           (by show (aHeap H s.want.toNat).ro _ = _; rw [aHeap_ro]; exact upd_same _ _ _)]
       simp only [g_bind_app, r1, r2, r3, r4, r5]
-      rw [if_pos (by simp only [ref_beq_null, null_beq_null]; decide)]
+      rw [ite_eq_left (by simp only [ref_beq_null, null_beq_null]; decide)]
       simp only [g_bind_app, r6, r7]
       have Eq : Ext H (dHeap H4 H.nextBlk) i s2 := ((E2.failed).setS s2).drop _ (Nat.le_refl _)
       obtain ⟨after, run, LP⟩ := fail_err fs hfs hu hm hsz hx0 Eq
@@ -2455,11 +2455,11 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
         (p := .ref (.blk H.nextBlk) 0) (q := .null) (zq := s.strm) rfl hsz hst0' hav0'
       refine ⟨-1, fs, after, ?_, LP⟩
       simp only [g_bind_app, g_lift_app] at run
-      try simp only [g_bind_app, g_lift_app, look_freeB_null] at ⊢
+      try simp only [g_lift_app] at ⊢
       try exact run
   · -- `in` failed
     have r1 : (StateT.lift (allocB s.want.toNat) : G BPtr) fs H = .ok ((.null, fs), fHeap H) := by
-      rw [g_lift_app, allocB_eq, if_neg (show ¬ (H.allocOk H.nalloc = true ∧ s.want.toNat < mallocLimit)
+      rw [g_lift_app, allocB_eq, ite_eq_right (show ¬ (H.allocOk H.nalloc = true ∧ s.want.toNat < mallocLimit)
         from fun x => a1 x.1)]
     let s1 : GzState := { s with «in» := .null }
     let H2 := Zlib.Gzlib.Spec.setS (fHeap H) i s1
@@ -2476,8 +2476,8 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
     by_cases a2 : H.allocOk (H.nalloc + 1) = true
     · have r4 : (StateT.lift (allocB (s1.want <<< 1).toNat) : G BPtr) fs H2 =
           .ok ((.ref (.blk H.nextBlk) 0, fs), aHeap H2 (s1.want <<< 1).toNat) := by
-        rw [g_lift_app, allocB_eq, if_pos (show H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit from
-          ⟨a2, by show (s.want <<< 1).toNat < mallocLimit; rw [eshift]; exact lim2⟩), if_neg slot2]
+        rw [g_lift_app, allocB_eq, ite_eq_left (show H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit from
+          ⟨a2, by show (s.want <<< 1).toNat < mallocLimit; rw [eshift]; exact lim2⟩), ite_eq_right slot2]
         rfl
       let s2 : GzState := { s1 with out := .ref (.blk H.nextBlk) 0 }
       let H4 := Zlib.Gzlib.Spec.setS (aHeap H2 (s1.want <<< 1).toNat) i s2
@@ -2489,7 +2489,7 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
         rw [g_lift_app, look_freeB_run (by show (aHeap H2 (s1.want <<< 1).toNat).bytes _ = _; rw [aHeap_bytes]; exact upd_same _ _ _)
           (by show (aHeap H2 (s1.want <<< 1).toNat).ro _ = _; rw [aHeap_ro]; exact upd_same _ _ _)]
       simp only [g_bind_app, r1, r2, r3, r4, r5]
-      rw [if_pos (by simp only [ref_beq_null, null_beq_null]; decide)]
+      rw [ite_eq_left (by simp only [ref_beq_null, null_beq_null]; decide)]
       simp only [g_bind_app, r6, r7]
       have Eq : Ext H (dHeap H4 H.nextBlk) i s2 :=
         (((E2.alloc _ (by show (s.want <<< 1).toNat < _; rw [eshift]; exact olim2)).setS s2).drop _ (Nat.le_refl _))
@@ -2503,10 +2503,10 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
         (p := .null) (q := .ref (.blk H.nextBlk) 0) (zq := s.strm) rfl hsz hst0' hav0'
       refine ⟨-1, fs, after, ?_, LP⟩
       simp only [g_bind_app, g_lift_app] at run
-      try simp only [g_bind_app, g_lift_app, look_freeB_null] at ⊢
+      try simp only [g_lift_app] at ⊢
       try exact run
     · have r4 : (StateT.lift (allocB (s1.want <<< 1).toNat) : G BPtr) fs H2 = .ok ((.null, fs), fHeap H2) := by
-        rw [g_lift_app, allocB_eq, if_neg (show ¬ (H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit)
+        rw [g_lift_app, allocB_eq, ite_eq_right (show ¬ (H2.allocOk H2.nalloc = true ∧ (s1.want <<< 1).toNat < mallocLimit)
           from fun x => a2 x.1)]
       let s2 : GzState := { s1 with out := .null }
       let H4 := Zlib.Gzlib.Spec.setS (fHeap H2) i s2
@@ -2514,14 +2514,14 @@ theorem lookAlloc_run {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hu : GzInvUp
           .ok (((), fs), H4) := by
         rw [g_lift_app, updS_run (show (fHeap H2).gzstates i = some s1 from h2)]
       simp only [g_bind_app, r1, r2, r3, r4, r5]
-      rw [if_pos (by simp only [ref_beq_null, null_beq_null]; decide)]
+      rw [ite_eq_left (by simp only [null_beq_null]; decide)]
       simp only [g_bind_app, r6]
       have Eq : Ext H H4 i s2 := ((E2.failed).setS s2)
       obtain ⟨after, run, LP⟩ := fail_err fs hfs hu hm hsz hx0 Eq (fun x hx => none0 x hx)
         (p := .null) (q := .null) (zq := s.strm) rfl hsz hst0' hav0'
       refine ⟨-1, fs, after, ?_, LP⟩
       simp only [g_bind_app, g_lift_app] at run
-      try simp only [g_bind_app, g_lift_app, look_freeB_null] at ⊢
+      try simp only [g_lift_app] at ⊢
       try exact run
 
 end alloc
@@ -2542,9 +2542,9 @@ theorem gz_look_safe : GzLookSpec := by
       rw [g_lift_app, ldS_run hu.1]
     simp only [g_bind_app, hld]
     by_cases hz : s.size = 0
-    · rw [if_pos (by simp [hz])]
+    · rw [ite_eq_left (by simp [hz])]
       exact lookAlloc_run fs hu hm hz hx hfs
-    · rw [if_neg (by simpa using hz)]
+    · rw [ite_eq_right (by simpa using hz)]
       exact lookMain_run fs ⟨hu, hm, hz, hx, hlook, hml⟩ hfs
   obtain ⟨r, fs', after, run, post⟩ := key
   refine ⟨fun e he => ?_, fun _ => ⟨r, fs', after, run⟩, fun r' fs3 after' he => ?_⟩

@@ -195,7 +195,7 @@ buffered, else the bounded `memchr` and the copy. The `position overflow` refusa
 leaves room for the buffered bytes. -/
 theorem getsRest_inv {E : GetsEnv} (C : GetsCaller E) {fs : Fs} {h : Heap} {s : GzState}
     {l : Zlib.Gzread.GetsLoop} {fin : Prop}
-    (ok : E.Ok fs h) (inv : GzInv h E.i s) (hm : s.mode = GZ_READ) (hbrk : l.brk = false) (hleft : l.left ≠ 0)
+    (ok : E.Ok fs h) (inv : GzInv h E.i s) (hm : s.mode = GZ_READ) (_hbrk : l.brk = false) (hleft : l.left ≠ 0)
     (hl0 : l.left.toNat ≤ E.left0) (hbuf : l.buf = .ref E.r (E.off + (E.left0 - l.left.toNat))) :
     RunSafe (getsRest (gzSt E.i) l) fs h fin (GetsPost E fs l) := by
   have c := inv.common
@@ -287,7 +287,7 @@ theorem getsRest_max {E : GetsEnv} (C : GetsCaller E) {fs fs2 : Fs} {h h2 : Heap
     (ok : E.Ok fs h) (inv : GzInv h E.i s) (post : GzPost h E.i s [] fs2 h2 GzInvOut) (kept : FdsKept fs fs2)
     (hs2 : h2.gzstates E.i = some s2) (hm2 : s2.mode = GZ_READ) (hsk2 : s2.skip = 0)
     (hmax : s2.x.pos.toInt = 9223372036854775807) (hh2 : s2.x.have ≠ 0) (hleft : l.left ≠ 0)
-    (hl0 : l.left.toNat ≤ E.left0) (hbuf : l.buf = .ref E.r (E.off + (E.left0 - l.left.toNat))) :
+    (_hl0 : l.left.toNat ≤ E.left0) (_hbuf : l.buf = .ref E.r (E.off + (E.left0 - l.left.toNat))) :
     RunSafe (getsRest (gzSt E.i) l) fs2 h2 fin (fun l' fs' h' => l'.brk = true ∧ l'.left = l.left ∧
       l'.buf = l.buf ∧ E.Ok fs' h' ∧ fs' = fs2) := by
   have V := C.views
@@ -583,7 +583,7 @@ theorem gzgets_run (P : ReadInvFacts) (head : DecompFacts) (room : GzFetchRoom) 
       · omega
       · exact hbn hh
     have := hargs
-    simp only [GzArguments, if_neg hc'] at this
+    simp only [GzArguments, ite_eq_right hc'] at this
     exact this
   obtain ⟨r, off, a, rfl, hg, hro, hfit⟩ : ∃ r off a, buf = .ref r off ∧ Space.get h r = some a ∧
       Space.ro h r = false ∧ off + len.toInt.toNat ≤ a.size := by

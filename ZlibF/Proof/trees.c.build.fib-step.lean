@@ -131,7 +131,7 @@ theorem ws_btMakeParent_weight {h0 : Heap} {id : Nat}
   intro _ e eq
   subst e
   unfold btFreq
-  rw [btParentState_fc tk d n m node hn hm hp, if_pos rfl, UInt16.toNat_add]
+  rw [btParentState_fc tk d n m node hn hm hp, ite_eq_left rfl, UInt16.toNat_add]
   exact Nat.mod_eq_of_lt bound
 
 /-- Total mathematical frequency in the populated source queue. -/
@@ -188,10 +188,10 @@ theorem ws_btMergeBody_weight {h0 : Heap} {id : Nat} {tk : TK} {d0 d : DeflateSt
     rw [tree, btParentState_fc tk d n m node hn hm hnode]
   have unchanged (v : Int32) (vlo : 0 ≤ v.toInt) (vhi : v.toInt < node.toInt) :
       (btFreq tk e v.toInt.toNat).toNat = (btFreq tk d v.toInt.toNat).toNat := by
-    rw [frequencies, if_neg (by omega)]
+    rw [frequencies, ite_eq_right (by omega)]
   have parent_weight : (btFreq tk e node.toInt.toNat).toNat =
       (btFreq tk d n.toInt.toNat).toNat + (btFreq tk d m.toInt.toNat).toNat := by
-    rw [frequencies, if_pos rfl, UInt16.toNat_add, Nat.mod_eq_of_lt nowrap]
+    rw [frequencies, ite_eq_left rfl, UInt16.toNat_add, Nat.mod_eq_of_lt nowrap]
   have old_weight : GB.rs (fun i => (btFreq tk e d.heap[i + 1]!.toInt.toNat).toNat) (K - j) =
       btQueueWeight tk d (K - j) := by
     apply GB.rs_congr

@@ -43,7 +43,7 @@ theorem matchSelect_segment {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z 
       · exact live
     have distinct : (.blk w : BRef) ≠ dest := (separate w winPtr).symm
     have sourceGet : Space.get h (BRef.blk w) = some (if (.blk w : BRef) = dest then output else saved) := by
-      simpa only [if_neg distinct, Space.get] using savedGet
+      simpa only [ite_eq_right distinct, Space.get] using savedGet
     have wn : s.wnext.toNat < s.wsize.toNat := by rcases window.wn with lt | ⟨zero, _⟩; exact lt; omega
     have distSize : distance.toNat ≤ saved.size := by have := window.hv; omega
     by_cases wrap : distance > s.wnext
@@ -69,7 +69,7 @@ theorem matchSelect_segment {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z 
           (by exact savedGet) (by omega : 0 + start.toNat ≤ saved.size)
       refine ⟨copy, .blk w, start.toNat, saved, bounds.1, bounds.2.2,
         by omega, by omega, sourceGet, ?_, ?_⟩
-      · simp only [if_neg distinct]
+      · simp only [ite_eq_right distinct]
         omega
       · exact matchSelect_wrap_cut E l leftNe inWindow (history inWindow) wrap address
     · let start := s.wnext - distance
@@ -89,7 +89,7 @@ theorem matchSelect_segment {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z 
           (by exact savedGet) (by omega : 0 + start.toNat ≤ saved.size)
       refine ⟨copy, .blk w, start.toNat, saved, bounds.1, bounds.2.2,
         by omega, by omega, sourceGet, ?_, ?_⟩
-      · simp only [if_neg distinct]
+      · simp only [ite_eq_right distinct]
         omega
       · exact matchSelect_window_cut E l leftNe inWindow (history inWindow) wrap address
   · have inOutputNat : s.offset.toNat ≤ (l.out_ - l.left).toNat := by

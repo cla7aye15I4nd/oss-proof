@@ -72,7 +72,7 @@ theorem inflate_DICT_ret_bits {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
       (by rfl) (Or.inr rfl) invariant.held sizes0 static0
     have packet0 := buffers.byte_views invariant.good good0 rfl views readonly
     have selector : runX (inflate_dispatch c) l heap0 = runX (inflate_TYPE c) l heap0 := by
-      rw [inflate_dispatch_block_type E0 l (Or.inl rfl), if_pos rfl]
+      rw [inflate_dispatch_block_type E0 l (Or.inl rfl), ite_eq_left rfl]
     obtain ⟨_, _, _, _, _, _, _, run2, _, _, _, _, _, _, _, _, _, _, _, _, progress⟩ :=
       inflate_dispatch_type_state_rank E0 state0 packet0 (Or.inl rfl) incoming
     exact ordinary_not_ret progress
@@ -188,10 +188,10 @@ theorem inflate_dispatch_ret_held {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Na
     rcases terminal with done | bad | memory | sync
     · have impossible := xrun_outcome_eq source run
       rw [done] at impossible
-      simp [terminalExit, DONE, BAD, SYNC] at impossible
+      simp [terminalExit, DONE, BAD] at impossible
     · have impossible := xrun_outcome_eq source run
       rw [bad] at impossible
-      simp [terminalExit, DONE, BAD, MEM] at impossible
+      simp [terminalExit, DONE, BAD] at impossible
     · exact special (Or.inl memory)
     · exact special (Or.inr sync)
   · exfalso

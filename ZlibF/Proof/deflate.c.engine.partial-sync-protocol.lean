@@ -49,7 +49,7 @@ theorem DefaultFinishBoundary.partial_sync_active {h : Heap} {r : ZStreamRef} {d
     apply StreamReachable.step (call := .deflate (some r) flush) (value := rc) boundary.reachable (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, default_finish_active_header boundary.good boundary.no_header⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   have bounds : -2 ≤ result.last_flush.toInt ∧ result.last_flush.toInt ≤ 5 := by
     rcases lastA with eq | eq
     · rcases flag with rfl | rfl <;> rw [eq] <;> decide

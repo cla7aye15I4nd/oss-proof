@@ -42,21 +42,21 @@ theorem slow_find_short_quality {h after : Heap} {ds : Nat} {d : DeflateState} {
     | ok pair =>
       rcases pair with ⟨len, searched⟩
       cases found : searched.dstates ds with
-      | none => simp [search, bind_app, wrD_eq, found] at run
+      | none => simp [search, wrD_eq, found] at run
       | some old =>
         let dm : DeflateState := { old with match_length := len }
         have write : wr (some (.tab ds)) (fun d => { d with match_length := len }) searched =
             .ok ((), setD searched ds dm) := by simp [wrD_eq, found, dm]
         have read : ldDeflateState (some (.tab ds)) (setD searched ds dm) =
             .ok (dm, setD searched ds dm) := by simp [ldD_eq]
-        simp only [search, bind_app, write, read] at run
+        simp only [search, write, read] at run
         change (if rejectShort dm then wr (some (.tab ds)) (fun d => { d with match_length := MIN_MATCH_u - 1 })
           else pure ()) (setD searched ds dm) = _ at run
         by_cases rejected : rejectShort dm = true
         · rw [ite_eq_left rejected] at run
           simp only [wrD_eq, setD, upd_same, MIN_MATCH_u] at run
           cases run
-          refine ⟨{ dm with match_length := 3 - 1 }, by simp [setD], ?_⟩
+          refine ⟨{ dm with match_length := 3 - 1 }, by simp, ?_⟩
           intro impossible
           change (3 - 1 : UInt32) = 3 at impossible
           exact False.elim ((by decide : (3 - 1 : UInt32) ≠ 3) impossible)
@@ -86,14 +86,14 @@ theorem prepared_find_short_quality {h after : Heap} {ds : Nat} {d : DeflateStat
   cases find : slowFind (some (.tab ds)) candidate (setD h ds (lazyPrepare d)) with
   | error fault => simp [find] at run
   | ok pair =>
-    rcases pair with ⟨unit, found⟩
+    rcases pair with ⟨unitVal, found⟩
     have same : found = after :=
       (Prod.mk.inj (Except.ok.inj (by simpa only [find, bind_app, pure_app] using run))).2
     subst after
-    have unitEq : unit = () := Subsingleton.elim _ _
-    subst unit
+    have unitEq : unitVal = () := Subsingleton.elim _ _
+    subst unitVal
     exact slow_find_short_quality (d := lazyPrepare d) (by simp [setD])
-      (by simp [lazyPrepare, MIN_MATCH_u]) find
+      (by simp [lazyPrepare]) find
 
 /-- Every actual successful slowSearch, including no-search and failed
 lookup cases, establishes the unsigned three-byte-match distance bound. -/
@@ -192,32 +192,6 @@ theorem retained_match_short_quality (d : DeflateState)
     exact zero
   have short : d.match_length = 3 := UInt32.toNat_inj.mp (by change d.match_length.toNat = 3; omega)
   exact UInt32.le_iff_toNat_le.mp (quality short)
-
-/-- The source body value packet preserves the quality of every stored
-symbol under the prior pending-match quality. -/
-theorem slow_value_short_quality {d : DeflateState} {wa : Array UInt8}
-    {xs ys : List ZlibF.Math.DeflateSymbols.Symbol}
-    (previous : ∀ s ∈ xs, s.distance ≠ 0 → s.value = 0 → s.distance ≤ 4096)
-    (quality : d.match_length = 3 → d.strstart - 1 - d.match_start ≤ TOO_FAR)
-    (values : SlowSymbolValueStep d wa xs ys) :
-    ∀ s ∈ ys, s.distance ≠ 0 → s.value = 0 → s.distance ≤ 4096 := by
-  rcases values with same | ⟨_available, literal⟩ | ⟨large, matched⟩
-  · rw [same]
-    exact previous
-  · rw [literal]
-    intro s member nonzero zero
-    rcases List.mem_append.mp member with old | fresh
-    · exact previous s old nonzero zero
-    · have same : s = emittedLiteral d wa := List.mem_singleton.mp fresh
-      subst s
-      exact False.elim (nonzero rfl)
-  · rw [matched]
-    intro s member nonzero zero
-    rcases List.mem_append.mp member with old | fresh
-    · exact previous s old nonzero zero
-    · have same : s = retainedMatchSymbol d := List.mem_singleton.mp fresh
-      subst s
-      exact retained_match_short_quality d quality large nonzero zero
 
 /-- The actual default sliding guard leaves at least 32,506 bytes
 before the new cursor. -/

@@ -103,7 +103,7 @@ theorem dynamic_eob_length {h : Heap} {ds pb : Nat} {d : DeflateState} {buf : Ar
     intro zero
     have freq := ledger.literal 256 (by decide)
     rw [zero] at freq
-    simp only [UInt16.toNat_zero, literalFrequency, if_pos] at freq
+    simp only [UInt16.toNat_zero, literalFrequency, ite_eq_left] at freq
     omega
   obtain ⟨readyP, prepare, input, treesR, _, _⟩ := Zlib.Trees.Proofs.bl_prepare trees
   replace prepare : blPrepare (some (.tab ds)) h = .ok ((), setD h ds readyP) := prepare

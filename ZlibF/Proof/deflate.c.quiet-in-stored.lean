@@ -141,7 +141,7 @@ theorem stored_restS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
       simp only [all, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at yes
       obtain ⟨fin, ge, eqIn⟩ := yes
       have dlEq : directLeft left len = left := by
-        unfold directLeft; rw [if_neg (by rw [GT.gt, UInt32.lt_iff_toNat_lt]; have := UInt32.le_iff_toNat_le.mp ge; omega)]
+        unfold directLeft; rw [ite_eq_right (by rw [GT.gt, UInt32.lt_iff_toNat_lt]; have := UInt32.le_iff_toNat_le.mp ge; omega)]
       refine ⟨fin, ?_, by show e.bi_valid.toInt = 0; exact bitsE⟩
       have a3 := account.2.2.1
       rw [dlEq, eqIn] at a3
@@ -213,7 +213,7 @@ theorem stored_iterationS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
   · have fullN : z.avail_out.toNat < ((d.bi_valid.toUInt32 + 42) >>> 3).toNat := UInt32.lt_iff_toNat_lt.mp full
     rw [hvN] at fullN
     have bsHi := shape.blockStart
-    refine ⟨_, h, z, d, by simp only [full, decide_true, ite_true]; rfl,
+    refine ⟨_, h, z, d, by simp only [full, ite_true]; rfl,
       ⟨inv, buffers, pend0, out, input, StoredFields.refl d,
       Zlib.Deflate.Universal.Fr.refl inv.good buffers, ⟨fun _ a g => ⟨a, g, rfl⟩, fun _ => rfl⟩⟩,
       fun no => by simp at no, fun zero nz => by exact absurd zero nz,
@@ -235,7 +235,7 @@ theorem stored_iterationS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
       rw [UInt64.toNat_toUInt32, word]
       apply Nat.mod_eq_of_lt
       omega
-    simp only [full, decide_false, Bool.false_eq_true, ite_false, bind_app, lsubRun, pure_app]
+    simp only [full, ite_false, bind_app, lsubRun, pure_app]
     obtain ⟨left, hleft⟩ : ∃ l, l = (Int64.ofInt ((d.strstart.toNat : Int) - d.block_start.toInt)).toUInt64.toUInt32 :=
       ⟨_, rfl⟩
     rw [← hleft]
@@ -260,12 +260,12 @@ theorem stored_iterationS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
         rw [UInt32.toNat_add]; omega
       simp only [c1, ite_true]
       by_cases c2 : left + z.avail_in > z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3
-      · simp only [c2, decide_true, ite_true]
+      · simp only [c2, ite_true]
         exact stored_restS inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
           (Nat.le_refl _) (stored_len_input _ _ _ (by have := UInt32.lt_iff_toNat_lt.mp c2; omega)
             (fun _ => by have := UInt32.lt_iff_toNat_lt.mp c2; omega)) mbPos (Or.inr (Or.inl rfl)) mbW
           (by have := UInt32.lt_iff_toNat_lt.mp c2; rw [sumN] at this; omega)
-      · simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      · simp only [c2, ite_false]
         have c2N : ¬ (z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3).toNat < (left + z.avail_in).toNat :=
           fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
         exact stored_restS inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
@@ -279,12 +279,12 @@ theorem stored_iterationS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
         rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by rw [maxN]; omega)), maxN]
         exact b
       by_cases c2 : MAX_STORED > z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3
-      · simp only [c2, decide_true, ite_true]
+      · simp only [c2, ite_true]
         exact stored_restS inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
           (Nat.le_refl _) (stored_len_input _ _ _ (by have := UInt32.lt_iff_toNat_lt.mp c2; rw [maxN] at this; omega)
             (fun c => absurd c c1N)) mbPos (Or.inr (Or.inl rfl)) mbW
           (by have := UInt32.lt_iff_toNat_lt.mp c2; rw [maxN] at this; have := c1N; omega)
-      · simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      · simp only [c2, ite_false]
         have c2N : ¬ (z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3).toNat < MAX_STORED.toNat :=
           fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
         rw [maxN] at c2N
@@ -465,7 +465,7 @@ theorem stored_refillS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
           have : wa' = wa := Option.some.inj (g'.symm.trans getW)
           subst this
           refine ⟨wa1, upd_same _ _ _, fun i lt => ?_⟩
-          rw [hwa1, bfn_copyRange _ _ _ _ _ _ (by omega), if_pos (by omega)]
+          rw [hwa1, bfn_copyRange _ _ _ _ _ _ (by omega), ite_eq_left (by omega)]
           congr 1; omega)
     have have1N : ((d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size).toNat =
         d.window_size.toNat - d.strstart.toNat + d.w_size.toNat := by
@@ -497,14 +497,14 @@ theorem stored_refillS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
     by_cases c2 : (d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size > z.avail_in
     · have c2N := UInt32.lt_iff_toNat_lt.mp c2
       rw [have1N] at c2N
-      simp only [c2, decide_true, ite_true]
+      simp only [c2, ite_true]
       obtain ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, un⟩ := finishA _ (Nat.le_refl _) (by omega) (by omega)
       exact ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, fun nz => absurd (UInt32.toNat_inj.mp (by
         have := a5.2.2.1; rw [un] at this; show _ = 0; omega)) nz⟩
     · have c2N : ¬ z.avail_in.toNat < ((d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size).toNat :=
         fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
       rw [have1N] at c2N
-      simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      simp only [c2, ite_false]
       obtain ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, un⟩ :=
         finishA _ (by rw [have1N]; omega) (by rw [have1N]; exact Nat.le_refl _) (by rw [have1N]; omega)
       refine ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, fun _ => ?_⟩
@@ -543,14 +543,14 @@ theorem stored_refillS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
     by_cases c2 : (d.window_size - d.strstart.toUInt64).toUInt32 > z.avail_in
     · have c2N := UInt32.lt_iff_toNat_lt.mp c2
       rw [have0N] at c2N
-      simp only [c2, decide_true, ite_true]
+      simp only [c2, ite_true]
       obtain ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, un, _⟩ := finishB _ (Nat.le_refl _) (by omega)
       exact ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, fun nz => absurd (UInt32.toNat_inj.mp (by
         have := a5.2.2.1; rw [un] at this; show _ = 0; omega)) nz⟩
     · have c2N : ¬ z.avail_in.toNat < ((d.window_size - d.strstart.toUInt64).toUInt32).toNat :=
         fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
       rw [have0N] at c2N
-      simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      simp only [c2, ite_false]
       obtain ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, un, n0⟩ :=
         finishB _ (by rw [have0N]; omega) (by rw [have0N]; exact Nat.le_refl _)
       refine ⟨g, zF, eF, used, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, wk, fun nz => ?_⟩
@@ -701,7 +701,7 @@ theorem stored_finalS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
       have cf : (flush == Z_FINISH && z.avail_in == 0 && MIN left Hv == left) = true := by
         by_cases cf : (flush == Z_FINISH && z.avail_in == 0 && MIN left Hv == left) = true
         · exact cf
-        · rw [if_neg cf] at l0; simp at l0
+        · rw [ite_eq_right cf] at l0; simp at l0
       simp only [Bool.and_eq_true, beq_iff_eq] at cf
       obtain ⟨⟨f, a0⟩, ml⟩ := cf
       have o0 : z'.avail_out = 0 := fullA (by have := P4 f a0; rw [ml]; omega)
@@ -712,7 +712,7 @@ theorem stored_finalS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
         by_cases a0 : z.avail_in = 0
         · exact Or.inl (inA.trans a0)
         · exact Or.inr (bigA a0)
-      refine ⟨need_more, after, z', e, by simp only [l0, Bool.false_eq_true, ite_false, bind_app, pure_app],
+      refine ⟨need_more, after, z', e, by simp only [l0, Bool.false_eq_true, ite_false, pure_app],
         invA.good.live.hz, invA.good.live.hs, claim1, fun _ => ?_⟩
       by_cases o0 : z'.avail_out = 0
       · exact Or.inl o0
@@ -730,7 +730,7 @@ theorem stored_finalS {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
       intro ge; rw [decide_eq_true ge] at c; simp at c
     have a1 : ¬ (MIN Hv d.w_size).toNat ≤ left.toNat := fun x => h1 (UInt32.le_iff_toNat_le.mpr x)
     have a0 : z.avail_in = 0 := Classical.byContradiction fun nz => by have := P1 nz; omega
-    refine ⟨need_more, h, z, d, by simp [bind_app], good.live.hz, good.live.hs, Or.inl a0,
+    refine ⟨need_more, h, z, d, by simp, good.live.hz, good.live.hs, Or.inl a0,
       fun _ => Or.inr ⟨rfl, a0, fun f => ?_⟩⟩
     have h2 : ¬ (left ≤ Hv) := by
       intro le

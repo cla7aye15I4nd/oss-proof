@@ -64,17 +64,17 @@ theorem deflateBound_z_refused (h : Heap) (p : ZStreamPtr) (n : UInt64) (hr : Re
 /-- `Goal.inflate_safety`: one call of `inflate` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflate_safety : Goal.inflate_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.inflate_refusal.1,
-   fun h r flush d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _flush d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.inflateSetDictionary_safety`: one call of `inflateSetDictionary` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflateSetDictionary_safety : Goal.inflateSetDictionary_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.inflate_refusal.2.2.2.2.2.1,
-   fun h r dictionary dictLength d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _dictionary _dictLength d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.inflateGetDictionary_safety`: one call of `inflateGetDictionary` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflateGetDictionary_safety : Goal.inflateGetDictionary_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.inflate_refusal.2.2.2.2.1,
-   fun h r dictionary dictLength d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _dictionary _dictLength d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.inflateSync_safety`: one call of `inflateSync` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflateSync_safety : Goal.inflateSync_safety :=
@@ -89,12 +89,12 @@ theorem inflateReset_safety : Goal.inflateReset_safety :=
 /-- `Goal.inflateReset2_safety`: one call of `inflateReset2` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflateReset2_safety : Goal.inflateReset2_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.inflate_refusal.2.2.2.1,
-   fun h r windowBits d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _windowBits d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.inflatePrime_safety`: one call of `inflatePrime` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflatePrime_safety : Goal.inflatePrime_safety :=
   ⟨fun h p bits value hr => (ZlibF.Spec.Public.InflatePrimeProof.prime_public bits value).1 h p hr,
-   fun h r bits value d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _bits _value d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.inflateMark_safety`: one call of `inflateMark` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflateMark_safety : Goal.inflateMark_safety :=
@@ -103,70 +103,70 @@ theorem inflateMark_safety : Goal.inflateMark_safety :=
 
 /-- `Goal.inflateGetHeader_safety`: one call of `inflateGetHeader` on a stream that holds the inflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Inflate.Proofs.inflate_sequence_safety_public` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflateGetHeader_safety : Goal.inflateGetHeader_safety :=
-  ⟨fun h p head hr => Zlib.Inflate.Proofs.inflateGetHeader_check head
+  ⟨fun _h _p head hr => Zlib.Inflate.Proofs.inflateGetHeader_check head
     (ZlibF.Spec.Public.InflateQueryProof.refused_dom hr) (ZlibF.Spec.Public.InflateQueryProof.refused_not_initialised hr),
-   fun h r head d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _head d => Zlib.Inflate.Proofs.inflate_sequence_safety_public.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflate_safety`: one call of `deflate` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflate_safety : Goal.deflate_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal.1,
-   fun h r flush d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _flush d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateSetDictionary_safety`: one call of `deflateSetDictionary` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateSetDictionary_safety : Goal.deflateSetDictionary_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal.2.1,
-   fun h r dictionary dictLength d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _dictionary _dictLength d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateGetDictionary_safety`: one call of `deflateGetDictionary` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateGetDictionary_safety : Goal.deflateGetDictionary_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal.2.2.2.1,
-   fun h r dictionary hasDictLength d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _dictionary _hasDictLength d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateReset_safety`: one call of `deflateReset` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateReset_safety : Goal.deflateReset_safety :=
-  ⟨fun h p hr => Zlib.Deflate.Proofs.deflateReset_reject
+  ⟨fun _h _p hr => Zlib.Deflate.Proofs.deflateReset_reject
     (ZlibF.Spec.Public.DeflateQueryProof.refused_deflate_dom hr) (ZlibF.Spec.Public.DeflateQueryProof.refused_deflate_not_init hr),
    fun h r d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateParams_safety`: one call of `deflateParams` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateParams_safety : Goal.deflateParams_safety :=
   ⟨ZlibF.Spec.Public.RefusalProof.Deflate.deflate_refusal.2.2.1,
-   fun h r level strategy d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _level _strategy d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateTune_safety`: one call of `deflateTune` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateTune_safety : Goal.deflateTune_safety :=
   ⟨fun h p good lazy nice chain hr => (ZlibF.Spec.Public.DeflateQueryProof.tune_public good lazy nice chain).1 h p hr,
-   fun h r good_length max_lazy nice_length max_chain d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _good_length _max_lazy _nice_length _max_chain d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateBound_safety`: one call of `deflateBound` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateBound_safety : Goal.deflateBound_safety :=
   ⟨deflateBound_refused,
-   fun h r sourceLen d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _sourceLen d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateBound_z_safety`: one call of `deflateBound_z` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateBound_z_safety : Goal.deflateBound_z_safety :=
   ⟨deflateBound_z_refused,
-   fun h r sourceLen d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _sourceLen d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflatePending_safety`: one call of `deflatePending` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflatePending_safety : Goal.deflatePending_safety :=
   ⟨fun h p pending bits hr => (ZlibF.Spec.Public.DeflateQueryProof.pending_public pending bits).1 h p hr,
-   fun h r hasPending hasBits d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _hasPending _hasBits d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateUsed_safety`: one call of `deflateUsed` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateUsed_safety : Goal.deflateUsed_safety :=
   ⟨fun h p bits hr => (ZlibF.Spec.Public.DeflateQueryProof.used_public bits).1 h p hr,
-   fun h r hasBits d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _hasBits d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflatePrime_safety`: one call of `deflatePrime` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflatePrime_safety : Goal.deflatePrime_safety :=
-  ⟨fun h p bits value hr => Zlib.Deflate.Proofs.deflatePrime_refused hr bits value,
-   fun h r bits value d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+  ⟨fun _h _p bits value hr => Zlib.Deflate.Proofs.deflatePrime_refused hr bits value,
+   fun h r _bits _value d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.deflateSetHeader_safety`: one call of `deflateSetHeader` on a stream that holds the deflate sequence invariant is safe and keeps it; clause 2 of `Zlib.Deflate.Universal.deflate_sequence_safety` for this call. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem deflateSetHeader_safety : Goal.deflateSetHeader_safety :=
   ⟨fun h p head hr => (ZlibF.Spec.Public.DeflateQueryProof.header_public head).1 h p hr,
-   fun h r head d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
+   fun h r _head d => Zlib.Deflate.Universal.deflate_sequence_safety.2.1 h r _ d.1 d.2.1 ⟨rfl, rfl⟩ d.2.2⟩
 
 /-- `Goal.inflateEnd_safety`: `inflateEnd` is safe on a stream that holds the inflate sequence invariant; clause 3 (End) of the inflate sequence theorem. The refusal clause is a corollary of a registered refusal theorem. -/
 theorem inflateEnd_safety : Goal.inflateEnd_safety := by

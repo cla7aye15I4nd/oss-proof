@@ -215,10 +215,10 @@ theorem Keeps.put_state {h h2 : Heap} (k : Keeps h h2) (hi : h2.istates = h.ista
     rw [upd_apply] at g2
     by_cases e : j = i
     · subst e
-      rw [if_pos rfl] at g2
+      rw [ite_eq_left rfl] at g2
       cases g2
       exact ⟨s, hs, c⟩
-    · rw [if_neg e, hi] at g2
+    · rw [ite_eq_right e, hi] at g2
       exact ⟨s2, g2, Ctl.refl h s2⟩
 
 /-- Allocating the window into a decoder record whose window is null. -/
@@ -539,11 +539,11 @@ theorem CallM.window_exit (strm : ZStreamPtr) (e : BPtr) (copy : UInt32) (st : I
             rw [upd_apply] at g'
             by_cases ej : j = i
             · subst ej
-              rw [if_pos rfl] at g'
+              rw [ite_eq_left rfl] at g'
               cases g'
               obtain ⟨s0, g0, c0⟩ := k2.states j s2 hs
               refine ⟨s0, g0, c0.head, fun _ => (by decide : MEM ≠ SYNC), fun _ => Or.inr ⟨rfl, fail⟩, c0.win, c0.fresh, c0.dict⟩
-            · rw [if_neg ej] at g'
+            · rw [ite_eq_right ej] at g'
               obtain ⟨s0, g0, c0⟩ := k2.states j s' g'
               exact ⟨s0, g0, c0.head, c0.sync, fun m => Or.inl (c0.mem m), c0.win, c0.fresh, c0.dict⟩
 

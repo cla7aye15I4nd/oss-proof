@@ -178,7 +178,7 @@ theorem gAddr_unique {ls : List Nat} {root mx i j m n : Nat}
   exact Nat.eq_of_mul_eq_mul_right (Nat.two_pow_pos _) product
 
 theorem startsAt_group_strict {ls : List Nat} {root a b : Nat}
-    (ha : a < nz ls) (hb : b < nz ls) (ordered : a < b)
+    (_ha : a < nz ls) (hb : b < nz ls) (ordered : a < b)
     (long : root < L ls a) (positive : 1 ≤ b) (start : startsAt ls root (b - 1)) :
     grp ls root a < grp ls root b := by
   have monotone := grp_mono ls root (Nat.le_of_lt ordered)

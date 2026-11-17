@@ -155,7 +155,7 @@ theorem clTail_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
       · rfl
     refine Or.inl ⟨l.ret, h, z, s, ?_, good, bad, ?_, pending,
       by simpa only [self] using buffers, ByteViewSizes.refl h, rfl, update⟩
-    · simp [clTail, runX_bind, runX_lift_ok modeRead, bad, runX_pure, self]
+    · simp [clTail, runX_bind, runX_lift_ok modeRead, bad, runX_pure]
     · intro active
       rw [bad] at active
       exact False.elim ((by unfold DataTableMode; decide : ¬ DataTableMode BAD) active)
@@ -181,11 +181,11 @@ theorem clTail_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
       refine Or.inl ⟨l.ret, tcBadHeap h r zs z s i, { z with msg := .ref (.str i) 0 },
         { s with mode := BAD }, ?_, current, rfl, tables, nextPending,
         by rw [self]; exact packet, sizes, static, ?_⟩
-      · rw [tailRun, if_pos zero]
-        simpa [runX_bind, runX_lift_ok run, runX_pure, self]
+      · rw [tailRun, ite_eq_left zero]
+        simp [runX_bind, runX_lift_ok run, runX_pure]
       · exact ⟨rfl, rfl, by rfl⟩
     · have tables := clTables_buffers E good pending buffers pointer nlen ndist lengths
-      rw [tailRun, if_neg zero]
+      rw [tailRun, ite_eq_right zero]
       exact tables
 
 end Zlib.Inflate.Proofs

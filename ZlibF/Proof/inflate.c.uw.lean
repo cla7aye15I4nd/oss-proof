@@ -54,7 +54,7 @@ theorem uw_core_big {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : I
   have hcp := memcpyB_blk_ok (nb := w) (no := 0) (pb := eb) (po := eo - st.wsize.toNat) (n := st.wsize.toNat)
     (h := H) ha heb hro hne (by omega) (by omega)
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, wrI_eq, hz, hL.zst, castI, hs, hwn, hws0, Bool.false_eq_true, ite_false]
+  simp only [bind_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hwn, hws0, Bool.false_eq_true, ite_false]
   have hn1' : Ptr.add (Ptr.ref (BRef.blk eb) eo) (-(st.wsize.toNat : Int)) H = .ok (Ptr.ref (BRef.blk eb) (eo - st.wsize.toNat), H) := hn1
   simp only [ge_iff_le, hbig, ite_true, bind_app, hw, hn1']
   simp only [hcp, wrI_eq, pure_app, hs]
@@ -89,9 +89,9 @@ theorem uw_core_small1 {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st 
   have hn1' : Ptr.add (Ptr.ref (BRef.blk eb) eo) (-(copy.toNat : Int)) H = .ok (Ptr.ref (BRef.blk eb) (eo - copy.toNat), H) := hn1
   simp only [Nat.zero_add] at hcp hn0'
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hwnl, hws0, Bool.false_eq_true, ite_false]
+  simp only [bind_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hwnl, hws0, Bool.false_eq_true, ite_false]
   simp only [ge_iff_le, hlt, ite_false, hP, ite_true, bind_app, hw, hn0', hn1', UInt32.sub_self, bne_self_eq_false, Bool.false_eq_true]
-  simp only [hcp, wrI_eq, pure_app, hs]
+  simp only [hcp]
   by_cases c1 : st.wnext + copy = st.wsize <;> by_cases c2 : st.whave < st.wsize <;> simp [c1, c2, wrI_eq, hs, setI, hw]
 
 /-- `updatewindow`, `copy < wsize`, the copy reaches or passes the end of the window, it wraps (second piece). -/
@@ -135,7 +135,7 @@ theorem uw_core_small2 {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st 
   have hn1' : Ptr.add (Ptr.ref (BRef.blk eb) eo) (-(copy.toNat : Int)) H = .ok (Ptr.ref (BRef.blk eb) (eo - copy.toNat), H) := hn1
   simp only [Nat.zero_add] at hcp1 hn0'
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hwnl, hws0, Bool.false_eq_true, ite_false]
+  simp only [bind_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hwnl, hws0, Bool.false_eq_true, ite_false]
   simp only [ge_iff_le, hlt, ite_false, hQ, bind_app, hw, hn0', hn1', hcp1]
   have hne' : ¬ (copy - (st.wsize - st.wnext) = 0) := hR
   have hA1 : (copyRange a ebytes st.wnext.toNat (eo - copy.toNat) (st.wsize - st.wnext).toNat).size = a.size := size_copyRange ..
@@ -198,7 +198,7 @@ theorem uw_core_small3 {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st 
   have hn1' : Ptr.add (Ptr.ref (BRef.blk eb) eo) (-(copy.toNat : Int)) H = .ok (Ptr.ref (BRef.blk eb) (eo - copy.toNat), H) := hn1
   simp only [Nat.zero_add] at hcp hn0'
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hwnl, hws0, Bool.false_eq_true, ite_false]
+  simp only [bind_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hwnl, hws0, Bool.false_eq_true, ite_false]
   simp only [ge_iff_le, hlt, ite_false, hQ, bind_app, hw, hn0', hn1', hcp, hR, bne_self_eq_false, Bool.false_eq_true]
   have hsum' : st.wnext + (st.wsize - st.wnext) = st.wsize := by rw [← hcopy]; exact hsum
   by_cases c2 : st.whave < st.wsize <;> simp [c2, wrI_eq, hs, setI, hw, hsum']
@@ -231,10 +231,10 @@ theorem uw_init {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : Infla
       omega
     rw [hI]
     unfold updatewindow
-    simp only [bind_app, pure_app, ldI_eq, ldZ_eq, wrI_eq, hz, hL.zst, castI, hs, hwnl, hws0, hsh, hI,
+    simp only [bind_app, pure_app, ldI_eq, ldZ_eq, wrI_eq, hz, hL.zst, castI, hs, hwnl, hws0, hsh,
       Bool.false_eq_true, ite_false, ite_true, setI_istates_same, ZStreamRef.get_setI]
-    simp only [h0, beq_self_eq_true, ite_true, hpos, beq_iff_eq, ne_eq]
-    simp only [ite_false, ite_false, Bool.false_eq_true, ite_true, bind_app, pure_app, wrI_eq, ldI_eq, setI_istates_same]
+    simp only [hpos, beq_iff_eq]
+    simp only [ite_false, ite_false, bind_app, ldI_eq, setI_istates_same]
     done
   · have hws0 : (st.wsize == 0) = false := by simpa using h0
     have hI : initWinS st = st := by simp [initWinS, hws0]
@@ -285,7 +285,7 @@ theorem uw_alloc_ok {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : I
   unfold updatewindow
   simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hz, hL.zst, castI, hs, hw, beq_self_eq_true, ite_true, hsh,
     zallocb_run hz hza, hc, wrI_eq, hne, Bool.false_eq_true, ite_false, ZStreamRef.get_setI, setI_istates_same, hI]
-  simp only [bind_app, ldI_eq, ldZ_eq, wrI_eq, setI_istates_same, hnn, ZStreamRef.get_setI, ZStreamRef.get_allocHeap, ite_false, Bool.false_eq_true, beq_iff_eq, hz, hL.zst, castI, hne, hI, hsh]
+  simp only [bind_app, ldI_eq, setI_istates_same, ZStreamRef.get_allocHeap, ite_false, Bool.false_eq_true, beq_iff_eq, hz, hL.zst, castI, hne, hsh]
   done
 
 /-- `updatewindow` on a state whose window block exists: `wsize` is set if it was 0, then the ring buffer is filled
@@ -355,7 +355,7 @@ theorem uw_main {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : Infla
 
 /-- The ring-buffer indices after `updatewindow` (`uwPost`) keep the window invariant, and the other fields are kept. -/
 theorem uwPost_arith {st : InflateState} {a ebytes : Array UInt8} {eo : Nat} {copy : UInt32}
-    (hpos : st.wsize.toNat ≠ 0)
+    (_hpos : st.wsize.toNat ≠ 0)
     (hv : st.whave.toNat ≤ st.wsize.toNat) (hwn : st.wnext.toNat < st.wsize.toNat)
     (heq : st.whave.toNat < st.wsize.toNat → st.wnext.toNat = st.whave.toNat)
     (hcl : copy.toNat < 2 ^ 32) (hw32 : st.wsize.toNat ≤ 2 ^ 16) :
@@ -379,7 +379,7 @@ theorem uwPost_arith {st : InflateState} {a ebytes : Array UInt8} {eo : Nat} {co
     refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_⟩
   all_goals
     simp only [UInt32.lt_iff_toNat_lt, UInt32.le_iff_toNat_le, UInt32.toNat_add, UInt32.toNat_sub, gt_iff_lt, beq_iff_eq,
-      bne_iff_ne, ne_eq, ← UInt32.toNat_inj, UInt32.toNat_zero, Nat.not_lt, Nat.not_le] at *
+      ne_eq, ← UInt32.toNat_inj, UInt32.toNat_zero, Nat.not_lt, Nat.not_le] at *
     omega
 
 theorem initWinS_facts {st : InflateState} (hwb : st.wbits.toNat ≤ 15)

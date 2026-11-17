@@ -97,9 +97,9 @@ theorem recordFrameM_stS (r : ZStreamRef) (owner : InflateStatePtr) (state : Inf
     | tab zs =>
       rw [stI_eq] at run
       cases get : h.istates zs with
-      | none => simp only [get, Option.isSome_none, Bool.false_eq_true, ↓reduceIte] at run; cases run
+      | none => simp only [get] at run; cases run
       | some old =>
-        simp only [get, Option.isSome_some, ↓reduceIte] at run
+        simp only [get] at run
         cases run
         exact RecordFrame.setI r zs get state
 

@@ -102,12 +102,12 @@ theorem inflateSetDictionary_alloc_fail_any {H : Heap} {r : ZStreamRef} {zs : Na
   · have hra := adler32_dict_any hd len hf
     have hck := hcheck hm
     simp only [hm, beq_self_eq_true, Bool.and_false, ite_true, adler32_init, hra, hck,
-      bne_self_eq_false, Bool.false_eq_true, ite_false, hadd, hrun, bind_app, setMode, wrI_eq, hs, pure_app]
+      bne_self_eq_false, Bool.false_eq_true, ite_false, hadd, hrun, bind_app, setMode]
     simp only [show ((1 : Int32) != 0) = true by decide, ite_true, bind_app, wrI_eq, hs, pure_app]
   · have hw0 : st.wrap = 0 := hwrap.resolve_right hm
     have hmb : (st.mode == DICT) = false := by simpa using hm
     simp only [hmb, hw0, bne_self_eq_false, Bool.false_and, Bool.false_eq_true, ite_false,
-      Bool.and_false, hadd, hrun, bind_app, setMode, wrI_eq, hs, pure_app]
+      hadd, hrun, bind_app, setMode]
     simp only [show ((1 : Int32) != 0) = true by decide, ite_true, bind_app, wrI_eq, hs, pure_app]
     simp only [hw0]
 

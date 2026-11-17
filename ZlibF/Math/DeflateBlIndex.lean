@@ -53,7 +53,7 @@ theorem blMaxIdx_suffix (used : Nat → Bool) (m k : Nat)
 
 /-- A used rank at least three forces enough transmitted header entries. -/
 theorem blMaxIdx_ge_of_used (used : Nat → Bool) (m k : Nat)
-    (hk3 : 3 ≤ k) (hkm : k ≤ m) (hu : used k = true) : k ≤ blMaxIdx used m := by
+    (_hk3 : 3 ≤ k) (hkm : k ≤ m) (hu : used k = true) : k ≤ blMaxIdx used m := by
   by_cases hle : k ≤ blMaxIdx used m
   · exact hle
   · have hf := blMaxIdx_suffix used m k (by omega) hkm

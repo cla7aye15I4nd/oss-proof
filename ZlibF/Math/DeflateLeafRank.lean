@@ -34,15 +34,15 @@ theorem sum_reindex (g : Nat → Nat) : ∀ n,
   | n + 1 => by
     rw [rs_succ, sum_reindex g n, cntL_succ]
     by_cases e : lf n
-    · rw [if_pos e, if_pos e]; rfl
-    · rw [if_neg e, if_neg e]; rfl
+    · rw [ite_eq_left e, ite_eq_left e]; rfl
+    · rw [ite_eq_right e, ite_eq_right e]; rfl
 
 theorem cntL_mono {i i' : Nat} (h : i ≤ i') : cntL lf i ≤ cntL lf i' := by
   unfold cntL; rw [show i' = i + (i' - i) by omega, rs_split]; omega
 
 theorem cntL_lt {i i' : Nat} (hl : lf i' = true) (h : i < i') : cntL lf (i + 1) < cntL lf (i' + 1) := by
   have := cntL_mono lf (show i + 1 ≤ i' by omega)
-  rw [cntL_succ lf i', if_pos hl]; omega
+  rw [cntL_succ lf i', ite_eq_left hl]; omega
 
 theorem rank_inj {i i' : Nat} (hl : lf i = true) (hl' : lf i' = true) (e : cntL lf (i + 1) = cntL lf (i' + 1)) :
     i = i' := by
@@ -58,11 +58,11 @@ theorem rank_ex : ∀ n r, 1 ≤ r → r ≤ cntL lf n → ∃ i, i < n ∧ lf i
     by_cases hr : r ≤ cntL lf n
     · obtain ⟨i, a, b, c⟩ := rank_ex n r h1 hr; exact ⟨i, by omega, b, c⟩
     · by_cases e : lf n
-      · rw [if_pos e] at h2; exact ⟨n, by omega, e, by rw [cntL_succ, if_pos e]; omega⟩
-      · rw [if_neg e] at h2; omega
+      · rw [ite_eq_left e] at h2; exact ⟨n, by omega, e, by rw [cntL_succ, ite_eq_left e]; omega⟩
+      · rw [ite_eq_right e] at h2; omega
 
 theorem rank_bounds {n i : Nat} (hi : i < n) (hl : lf i = true) : 1 ≤ cntL lf (i + 1) ∧ cntL lf (i + 1) ≤ cntL lf n :=
-  ⟨by rw [cntL_succ, if_pos hl]; omega, cntL_mono lf (by omega)⟩
+  ⟨by rw [cntL_succ, ite_eq_left hl]; omega, cntL_mono lf (by omega)⟩
 
 open Classical in
 /-- The index of the leaf of rank `r`. -/
@@ -72,7 +72,7 @@ noncomputable def idxR (n r : Nat) : Nat :=
 theorem idxR_spec {n r : Nat} (h1 : 1 ≤ r) (h2 : r ≤ cntL lf n) :
     idxR lf n r < n ∧ lf (idxR lf n r) = true ∧ cntL lf (idxR lf n r + 1) = r := by
   have hx := rank_ex lf n r h1 h2
-  unfold idxR; rw [dif_pos hx]; exact Classical.choose_spec hx
+  unfold idxR; rw [dite_eq_left hx]; exact Classical.choose_spec hx
 
 theorem idxR_rank {n i : Nat} (hi : i < n) (hl : lf i = true) : idxR lf n (cntL lf (i + 1)) = i := by
   obtain ⟨b1, b2⟩ := rank_bounds lf hi hl

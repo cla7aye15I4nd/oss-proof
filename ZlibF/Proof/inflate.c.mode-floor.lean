@@ -48,7 +48,7 @@ theorem inflate_DICT_mode_floor {c : Ctx} {h after : Heap} {r : ZStreamRef} {zs 
     obtain ⟨_, _, _, _, state, _, _, run, final, control, _⟩ :=
       inflate_dispatch_type_state_rank env current packet (Or.inl rfl) incoming
     have selected := inflate_dispatch_block_type env l (Or.inl rfl)
-    rw [if_pos (show ready.mode = TYPE from rfl)] at selected
+    rw [ite_eq_left (show ready.mode = TYPE from rfl)] at selected
     have typeRun := selected.symm.trans run
     have same := xrun_state_eq typeRun source final.good.live.hs get
     rw [← same]

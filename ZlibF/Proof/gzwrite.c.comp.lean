@@ -1,6 +1,9 @@
 import ZlibF.Proof.«gzwrite.c.upto-input»
 import ZlibF.Proof.«gz.read-store»
-import ZlibF.Proof.«gz.record-free»
+import ZlibF.Proof.«deflate.c.base»
+import ZlibF.Proof.«inflate.c.base»
+import ZlibF.Spec.Common.History
+import ZlibF.Spec.Functional.Api.Basic
 import ZlibF.Proof.«deflate.c.quiet-call»
 import ZlibF.Proof.«deflate.c.quiet-in-stored»
 import ZlibF.Proof.«deflate.c.universal-params-gz»
@@ -183,32 +186,32 @@ theorem fsWriteReg_contract (fd : Int32) (bs : Array UInt8) (w : Fs) (hfs : File
             rw [arr_set_get] at hi
             by_cases e : fd.toInt.toNat = j
             · subst e
-              rw [if_pos rfl, if_pos hj] at hi
+              rw [ite_eq_left rfl, ite_eq_left hj] at hi
               simp only [Option.some.injEq] at hi
               subst hi
               refine ⟨by simpa using hnode, ?_, fun node hn hd => ?_⟩
               · show pos + k ≤ 2 ^ 63 - 1
                 omega
-              · rw [arr_set_get, if_pos rfl, if_pos hnode] at hn
+              · rw [arr_set_get, ite_eq_left rfl, ite_eq_left hnode] at hn
                 simp only [Option.some.injEq] at hn
                 subst hn
                 exact hwr _ hnd hd
-            · rw [if_neg e] at hi
+            · rw [ite_eq_right e] at hi
               obtain ⟨n1, n2, n3⟩ := hfds j file hi
               refine ⟨by simpa using n1, n2, fun node hn hd => ?_⟩
               rw [arr_set_get] at hn
               by_cases e2 : of.node = file.node
-              · rw [if_pos e2, if_pos hnode] at hn
+              · rw [ite_eq_left e2, ite_eq_left hnode] at hn
                 simp only [Option.some.injEq] at hn
                 subst hn
                 have hnd' : w.nodes[file.node]? = some w.nodes[of.node]! := e2 ▸ hnd
                 exact n3 _ hnd' hd
-              · rw [if_neg e2] at hn
+              · rw [ite_eq_right e2] at hn
                 exact n3 node hn hd
           · intro j node hn
             rw [arr_set_get] at hn
             by_cases e : of.node = j
-            · rw [if_pos e, if_pos hnode] at hn
+            · rw [ite_eq_left e, ite_eq_left hnode] at hn
               simp only [Option.some.injEq] at hn
               subst hn
               dsimp only
@@ -217,16 +220,16 @@ theorem fsWriteReg_contract (fd : Int32) (bs : Array UInt8) (w : Fs) (hfs : File
                 omega
               · simp only [hc, ↓reduceIte, Array.size_append, Array.size_extract]
                 omega
-            · rw [if_neg e] at hn
+            · rw [ite_eq_right e] at hn
               exact hnodes j node hn
           · intro j
             unfold GzOracle.FdOpen
             rw [arr_set_get]
             by_cases e : fd.toInt.toNat = j
             · subst e
-              rw [if_pos rfl, if_pos hj]
+              rw [ite_eq_left rfl, ite_eq_left hj]
               exact ⟨fun _ => ⟨of, hget⟩, fun _ => ⟨_, rfl⟩⟩
-            · rw [if_neg e]
+            · rw [ite_eq_right e]
 
 /-- **M2, the contract of `write`, for every oracle value**: `-1`, or `k` with `1 ≤ k ≤ bs.size` for a nonempty
 buffer. The heap is untouched, the file system stays well formed and no descriptor opens or closes. -/
@@ -922,7 +925,7 @@ theorem ptr_free {h : Heap} {s : GzState} (U : GzInvUpToInput h i s src) (hz : s
       simp [ownedPtrs, clearIn, hz, hd]
     rw [e] at nd
     have := nd.sublist (List.Sublist.filterMap blkOf
-      (List.Sublist.cons _ (List.Sublist.cons _ (List.Sublist.cons₂ _ (List.Sublist.cons₂ _
+      (List.Sublist.cons _ (List.Sublist.cons _ (List.Sublist.cons_cons _ (List.Sublist.cons_cons _
         (List.nil_sublist _))))))
     simp [hi, ho, blkOf] at this
 
@@ -1583,7 +1586,7 @@ theorem post_of_kept {h0 h : Heap} {s0 s : GzState} {fs : Fs} {P : Heap → Nat 
 
 /-- The `GzPost` of a path that ends with `gz_error` after steps that kept the handle. -/
 theorem post_of_error {h0 h1 h2 : Heap} {s0 s1 s2 : GzState} {fs : Fs} {P : Heap → Nat → GzState → Prop}
-    (K : KeptW i h0 s0 h1 s1) (own0 : ∀ b, GzOwned h0 i s0 b → h0.live b)
+    (K : KeptW i h0 s0 h1 s1) (_own0 : ∀ b, GzOwned h0 i s0 b → h0.live b)
     (rec1 : h1.gzstates i = some s1) (rec2 : h2.gzstates i = some s2)
     (e2 : s2 = { s1 with err := s2.err, msg := s2.msg })
     (fr : Frame h1 h2 (fun b => b = i ∨ blkOf s1.msg = some b))
@@ -1943,9 +1946,9 @@ theorem out_body (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 h1 : Heap} {s0 s1
       .ok ((r, w'), H) := fun H => by rw [hw]; rfl
   have hst := fun a' => out_state S1 K1 hop hno a' (c := c) (Nat.le_of_lt hcb)
   unfold outBody
-  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
     Zlib.GzFs.Proofs.stable_setErrno, updS_mkx_again, ldZ_put, ldS_put, mkx_strm, mkx_xnext, mkx_fd,
-    hno, hdiff, hput, hload, hwH, getErrno_run]
+    hno, hdiff, hput, hload, hwH]
   rcases hres with rfl | ⟨hr1, hr2⟩
   · by_cases hb : BLOCKED w'.errno = true
     · obtain ⟨St', K'⟩ := hst 1
@@ -2110,9 +2113,9 @@ theorem direct_body (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 h1 : Heap} {s0
       Kept i h0 s0 (putGz h1 i (mka s a)) (mka s a) := fun a =>
     dstep U K hd hz (shA a) rfl (by unfold BufOnly; rfl) rfl U.2.2.2.1 (InTrack.of_in rfl rfl)
   unfold directBody
-  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
     Zlib.GzFs.Proofs.stable_setErrno, updS_mka, ldZ_put, ldS_put, mka_strm, mka_fd, hni', hput, hload, hwH,
-    getErrno_run]
+    ]
   rcases hres with rfl | ⟨hr1, hr2⟩
   · by_cases hb : BLOCKED w'.errno = true
     · have st1 := dstep (stA 0).1 (stA 0).2 hd hz
@@ -2288,8 +2291,8 @@ theorem corrupt_cstring (H : Heap) {k : Nat} (hk : strIndex "internal error: def
 
 /-- **The deflate call and its report** (`compRest`), given the run of the call (`call_step`). -/
 theorem comp_rest (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 H after : Heap} {s0 s s' : GzState}
-    {fs0 fs : Fs} (S : St i src H s) (K : Kept i h0 s0 H s) (own0 : ∀ b, GzOwned h0 i s0 b → h0.live b)
-    (flush rc : Int32) (l : Zlib.Gzwrite.CompLoop) (hfs : FileSystem fs) (hk : FdsKept fs0 fs)
+    {fs0 fs : Fs} (S : St i src H s) (_K : Kept i h0 s0 H s) (own0 : ∀ b, GzOwned h0 i s0 b → h0.live b)
+    (flush rc : Int32) (l : Zlib.Gzwrite.CompLoop) (hfs : FileSystem fs) (_hk : FdsKept fs0 fs)
     (run : C.run (Zlib.Deflate.deflate (some (gzStrm i)) flush) H = .ok (rc, after))
     (hs' : after.gzstates i = some s') (S' : St i src after s') (K' : Kept i h0 s0 after s') :
     ∃ l' h', compRest i flush l fs H = .ok ((l', fs), h') ∧
@@ -2304,7 +2307,7 @@ theorem comp_rest (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 H after : Heap} 
     rw [show strmOf (gzSt i) = some (gzStrm i) from rfl]; exact run
   obtain ⟨k, hk'⟩ := strIndex_of_mem (s := "internal error: deflate stream corrupt") (by decide +kernel)
   unfold compRest
-  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
     hz1, run']
   by_cases he : rc = Z_STREAM_ERROR
   · subst he
@@ -2369,17 +2372,17 @@ theorem comp_prefix (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 h : Heap} {s0 
         refine Or.inl ⟨mkr s ob bo a, fs', Sr, Kx.step fr hl ho sh (InTrack.of_in rfl rfl) rfl, by unfold BufOnly; rfl, rfl, rfl, S.size,
           fun _ => rfl, fun e => absurd h0 e, gfs, gk, ?_⟩
         have hA0 : (s.strm.avail_out == 0) = true := by simp [h0]
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
           hz1, hA, ↓reduceIte, run, Option.isSome_none, Bool.false_eq_true]
-        simp only [cbind_app, clift_app, cpure_app, ldZ_put, mkx_strm, hA0, ↓reduceIte, ldS_put,
+        simp only [cbind_app, clift_app, ldZ_put, mkx_strm, hA0, ↓reduceIte, ldS_put,
           updZ_put, updX_put]
         rfl
       · refine Or.inl ⟨mkx s ob bo a, fs', Sx, Kx, by unfold BufOnly; rfl, rfl, rfl, h0, fun e => absurd e h0,
           fun _ => rfl, gfs, gk, ?_⟩
         have hA0 : (s.strm.avail_out == 0) = false := by simpa using h0
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
           hz1, hA, ↓reduceIte, run, Option.isSome_none, Bool.false_eq_true]
-        simp only [cbind_app, clift_app, cpure_app, ldZ_put, mkx_strm, hA0, Bool.false_eq_true, ↓reduceIte]
+        simp only [ldZ_put, mkx_strm, hA0, Bool.false_eq_true, ↓reduceIte]
     · refine Or.inr ⟨{ l with res := some (-1) }, fs', h', ?_, rfl, gfs, gk, gp⟩
       simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
         hz1, hA, ↓reduceIte, run, Option.isSome_some]
@@ -2389,7 +2392,7 @@ theorem comp_prefix (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 h : Heap} {s0 
       intro x; simp [x] at hA
     refine Or.inl ⟨s, fs, by rw [← e]; exact S, by rw [← e]; exact K, by unfold BufOnly; rfl, rfl, rfl, h0,
       fun x => absurd x h0, fun _ => rfl, hfs, hk, ?_⟩
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
       hz1, hA', Bool.false_eq_true, ↓reduceIte]
     rw [← e]
 
@@ -2520,9 +2523,9 @@ theorem comp_trip (err : GzErrorSpec) (errOwn : GzErrorOwn) {Φ : Int32 → Heap
         if s3.strm.avail_out.toNat = 0 then 2 + (Φ flush after (gzStrm i) + 2 ^ 30 * s3.strm.avail_in.toNat)
         else 3 + 2 ^ 63 := by
       intro sil
-      unfold muP PsiP; rw [if_neg sil, recOut_of hs3, recIn_of hs3]
+      unfold muP PsiP; rw [ite_eq_right sil, recOut_of hs3, recIn_of hs3]
     have muS : SilentP Quiet flush i after → muP Φ Quiet flush i after = 1 := by
-      intro sil; unfold muP; rw [if_pos sil]
+      intro sil; unfold muP; rw [ite_eq_left sil]
     have ai3' : s3.strm.avail_in.toNat ≤ s2.strm.avail_in.toNat := ai3.le
     by_cases hsil : SilentP Quiet flush i h
     · exfalso
@@ -2561,7 +2564,7 @@ theorem comp_trip (err : GzErrorSpec) (errOwn : GzErrorOwn) {Φ : Int32 → Heap
           rw [g] at get3
           simp only [Option.some.injEq] at get3
           exact hne (by rw [← get3])
-    · rw [muH, if_neg hsil]
+    · rw [muH, ite_eq_right hsil]
       by_cases h3 : s3.strm.avail_out = 0
       · -- the call filled the output buffer
         have nsil : SilentP Quiet flush i after → False := by
@@ -2571,9 +2574,9 @@ theorem comp_trip (err : GzErrorSpec) (errOwn : GzErrorOwn) {Φ : Int32 → Heap
           exact hao h3
         rw [muA nsil]
         have h3' : s3.strm.avail_out.toNat = 0 := by rw [h3]; rfl
-        rw [if_pos h3']
+        rw [ite_eq_left h3']
         by_cases h0 : s.strm.avail_out.toNat = 0
-        · rw [if_pos h0]
+        · rw [ite_eq_left h0]
           have hao2 : s2.strm.avail_out = s.size := hreset (UInt32.toNat_inj.mp (by rw [h0]; rfl))
           have room : 8 ≤ s2.strm.avail_out.toNat := by rw [hao2]; exact hsize8.1
           have hΦ := keep4.1
@@ -2587,7 +2590,7 @@ theorem comp_trip (err : GzErrorSpec) (errOwn : GzErrorOwn) {Φ : Int32 → Heap
               get2 nn2 hz room exec get3 h3
             rw [hai2] at lt
             omega
-        · rw [if_neg h0]
+        · rw [ite_eq_right h0]
           have := psi3
           unfold PsiP at this
           rw [recIn_of hs3] at this
@@ -2692,14 +2695,14 @@ theorem compPost_ok {h0 h : Heap} {s0 s : GzState} {fs0 fs : Fs} (K : Kept i h0 
     (own0 : ∀ b, GzOwned h0 i s0 b → h0.live b) (hfs : FileSystem fs) (hk : FdsKept fs0 fs)
     (U : GzInvUpToInput h i s src) {flush : Int32} (hin : flush = Z_NO_FLUSH → s.strm.avail_in = 0) :
     CompPost i src flush h0 s0 fs0 0 fs h :=
-  ⟨Or.inl rfl, hk, post_of_kept K own0 hfs ⟨by simp only [if_true]; exact U, CompShape.of_same K.2.2.2.1 K.2.2.2.2.1,
+  ⟨Or.inl rfl, hk, post_of_kept K own0 hfs ⟨by simp only [ite_true]; exact U, CompShape.of_same K.2.2.2.1 K.2.2.2.2.1,
     fun _ => hin, fun _ => K.2.2.2.2.2⟩⟩
 
 theorem compPost_err {h0 h : Heap} {s0 : GzState} {fs0 fs : Fs} (hk : FdsKept fs0 fs)
     (p : GzPost h0 i s0 [] fs h (WeakS src s0))
     {flush : Int32} : CompPost i src flush h0 s0 fs0 (-1) fs h :=
   ⟨Or.inr rfl, hk, GzPost.mono p fun h' i' s' w => by
-    exact ⟨by rw [if_neg (by decide)]; exact w.1, w.2, fun e => absurd e (by decide), fun e => absurd e (by decide)⟩⟩
+    exact ⟨by rw [ite_eq_right (by decide)]; exact w.1, w.2, fun e => absurd e (by decide), fun e => absurd e (by decide)⟩⟩
 
 theorem comp_tail (err : GzErrorSpec) (errOwn : GzErrorOwn) (hq : DeflateQuietIn) {flush : Int32}
     (hf : 0 ≤ flush.toInt ∧ flush.toInt ≤ 5) {h0 h : Heap} {s0 s : GzState} {fs0 fs : Fs}
@@ -2723,7 +2726,7 @@ theorem comp_tail (err : GzErrorSpec) (errOwn : GzErrorOwn) (hq : DeflateQuietIn
       exact ⟨_, _, _, rfl, compPost_ok (K'.step fr hl ho ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl,
         rfl⟩ (InTrack.of_in rfl rfl) rfl) own0 gfs gk S2.up (fun e => absurd e (by decide))⟩
     · have hfin' : (flush == Z_FINISH) = false := by simpa using hfin
-      simp only [hfin', Bool.false_eq_true, ↓reduceIte, cbind_app, cpure_app]
+      simp only [hfin', Bool.false_eq_true, ↓reduceIte, cpure_app]
       exact ⟨_, _, _, rfl, compPost_ok K' own0 gfs gk S'.up hin⟩
   · simp only [hr]
     exact ⟨_, _, _, rfl, compPost_err gk gp⟩
@@ -2760,7 +2763,7 @@ theorem gz_comp_safe_shape (err : GzErrorSpec) (errOwn : GzErrorOwn) (hq : Defla
     by_cases hr : s.reset = 0
     · have hr' : (s.reset != 0) = false := by simp [hr]
       obtain ⟨r, fs', h', run, post⟩ := comp_tail err errOwn hq hflush own0 S K0 hfs hk0
-      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
         hS, hz0, hd', hr', Bool.false_eq_true, ↓reduceIte, run]
       exact ⟨_, _, _, rfl, post⟩
     · have hr' : (s.reset != 0) = true := by simpa using hr
@@ -2785,7 +2788,7 @@ theorem gz_comp_safe_shape (err : GzErrorSpec) (errOwn : GzErrorOwn) (hq : Defla
           F'.out S'.up.2.2.2.1
         have K2 := K'.step fr hl ho ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (InTrack.of_in rfl rfl) rfl
         obtain ⟨r, fs', h', run2, post⟩ := comp_tail err errOwn hq hflush own0 S2 K2 hfs hk0
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app,
           hS, hz0, hd', hr', Bool.false_eq_true, ↓reduceIte, hZ, hq0', run', hu, run2]
         exact ⟨_, _, _, rfl, post⟩
   · have hd' : (s.direct != 0) = true := by simpa using hd

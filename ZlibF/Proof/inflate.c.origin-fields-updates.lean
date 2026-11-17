@@ -23,7 +23,7 @@ theorem originFieldFrameM_ldS_update {α : Type} (r : ZStreamRef) (owner pointer
       cases get : h.istates zs with
       | none => simp only [bind_app, ldI_eq, get] at run; cases run
       | some state =>
-        simp only [bind_app, ldI_eq, stI_eq, get, Option.isSome_some, ↓reduceIte] at run
+        simp only [bind_app, ldI_eq, stI_eq, get] at run
         exact (show OriginFieldFrame r owner h (setI h zs (update state)) from
           decoderOriginFields_setI get (window state)).trans
           (tailFrame state _ value after run)
@@ -42,7 +42,7 @@ theorem originFieldFrameM_ldS_store (r : ZStreamRef) (owner pointer : InflateSta
       cases get : h.istates zs with
       | none => simp only [bind_app, ldI_eq, get] at run; cases run
       | some state =>
-        simp only [bind_app, ldI_eq, stI_eq, get, Option.isSome_some, ↓reduceIte] at run
+        simp only [bind_app, ldI_eq, stI_eq, get] at run
         cases run
         exact decoderOriginFields_setI get (window state)
 

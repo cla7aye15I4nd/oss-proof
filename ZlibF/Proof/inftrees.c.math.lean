@@ -584,7 +584,7 @@ theorem pre_lt (hfit : Fits f n) {R j : Nat} (hj : j < Tc f n 15) (hR : R ≤ le
   exact (Nat.div_lt_iff_lt_mul (Nat.pow_pos (by omega))).mpr this
 
 /-- A new root prefix starts at an aligned code. -/
-theorem align_succ (hfit : Fits f n) {R i : Nat} (hi : i + 1 < Tc f n 15) (hR : R < lenAt f n (i + 1))
+theorem align_succ (_hfit : Fits f n) {R i : Nat} (hi : i + 1 < Tc f n 15) (hR : R < lenAt f n (i + 1))
     (hnew : lenAt f n i ≤ R ∨ (R < lenAt f n i ∧ pre f n R (i + 1) ≠ pre f n R i)) :
     val f n (i + 1) % 2 ^ (lenAt f n (i + 1) - R) = 0 := by
   have hi0 : i < Tc f n 15 := by omega
@@ -699,7 +699,7 @@ theorem fl_getD_new {l k : Nat} (hf : f k = l) :
     (fl f l (k + 1)).getD (cnt f k l) 0 = k := by
   rw [fl_succ, ite_eq_left hf]
   have : (fl f l k).length = cnt f k l := rfl
-  simp [List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_of_eq this), this]
+  simp [List.getD_eq_getElem?_getD, this]
 
 theorem fl_getD_old {l k j : Nat} (hf : f k = l) (hj : j < cnt f k l) :
     (fl f l (k + 1)).getD j 0 = (fl f l k).getD j 0 := by

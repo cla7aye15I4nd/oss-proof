@@ -287,7 +287,7 @@ public-view COPY boundary on that same heap. -/
 theorem inflate_COPY_start_boundary_frame {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
     (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = COPY_) :
+    (buffers : DispatchBuffers h r l bs) (_mode : s.mode = COPY_) :
     ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (state : InflateState) (made : Nat),
       made ≤ bs.length ∧ runX (inflate_COPY_ c) l h = .ok ((outcome, regs), after) ∧
       Good after r zs z state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧

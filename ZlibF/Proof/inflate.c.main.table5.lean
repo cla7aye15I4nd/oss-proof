@@ -109,7 +109,7 @@ theorem llTail_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat} {z 
       rw [hc]
       have hrun3 := hrun2
       simp [llPre] at hrun3
-      simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, lensP, workP, codesP, hrun3, hh3', h0, runX_modify, setMode]
+      simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, lensP, workP, codesP, hrun3, hh3', h0, runX_modify]
       subst hnx
       simp [llBadSt, llOkSt, llPre]
     · rw [h0] at h1; cases h1

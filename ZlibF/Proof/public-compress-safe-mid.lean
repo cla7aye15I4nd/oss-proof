@@ -1,4 +1,6 @@
-import ZlibF.Proof.«public-compress-safe-call»
+import ZlibF.Proof.«public-compress-safe»
+import ZlibF.Proof.«public-compress-finished»
+import ZlibF.Proof.«public-deflate-safety»
 import ZlibF.Proof.«deflate.c.universal-init-lit»
 import ZlibF.Spec.Safety.Utilities
 

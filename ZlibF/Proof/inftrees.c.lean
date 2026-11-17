@@ -111,6 +111,48 @@ def witHeap : Heap :=
   | .ok (_, h) => h
   | .error _ => Heap.empty
 
+/-! The kernel builds an `Array.ofFn` slowly: the 1444 entries of `codes` alone take gigabytes. `witHeap_eq` rewrites
+`witHeap` to the same heap with its arrays written by `Array.replicate`, which the kernel builds directly. -/
+
+/-- The inflate state of `witHeap`, its arrays written by `Array.replicate`. -/
+def witStateR : InflateState :=
+  { InflateState.garbage (fun _ => 0) with
+    lens := (((Array.replicate 320 (Junk.of 0 : UInt16)).set! 0 1).set! 1 2).set! 2 2
+    work := Array.replicate 288 (Junk.of 0 : UInt16)
+    codes := Array.replicate 1444 (Code.garbage (fun _ => 0)) }
+
+/-- `witHeap`, its arrays written by `Array.replicate`. -/
+def witHeapR : Heap :=
+  { Heap.empty with istates := upd Tbl.empty 0 (some witStateR), nextBlk := 1, nalloc := 1 }
+
+theorem array_ofFn_const {α : Type} (n : Nat) (c : α) : Array.ofFn (fun _ : Fin n => c) = Array.replicate n c := by
+  ext <;> simp
+
+/-- The run of `allocInflateState` and the three stores, step by step. -/
+theorem witHeap_eq : witHeap = witHeapR := by
+  have key : ∀ (H : Heap) (s : InflateState) (i : Nat) (v : UInt16), H.istates 0 = some s → i < s.lens.size →
+      Ptr.store (Ptr.ref (WRef.istate_lens 0) i) v H =
+        .ok ((), { H with istates := upd H.istates 0 (some { s with lens := s.lens.set! i v }) }) :=
+    fun H s i v e hi => by rw [Ptr.store_ok (WRef.get_istate_lens e) rfl hi, WRef.put_istate_lens e]
+  let s0 := InflateState.garbage (Heap.empty.garbage Heap.empty.nalloc)
+  have ha : allocInflateState Heap.empty = .ok (some (.tab 0),
+      { Heap.empty with istates := upd Heap.empty.istates 0 (some s0), nextBlk := 1, nalloc := 1 }) :=
+    allocInflateState_some rfl rfl
+  have hsz : s0.lens.size = 320 := by simp [s0, InflateState.garbage]
+  unfold witHeap
+  simp only [C.run, bind_app, ha]
+  rw [key _ s0 0 1 (upd_same _ _ _) (by omega)]
+  dsimp only
+  rw [key _ _ 1 2 (upd_same _ _ _) (by simp [hsz])]
+  dsimp only
+  rw [key _ _ 2 2 (upd_same _ _ _) (by simp [hsz])]
+  dsimp only
+  simp only [upd_upd]
+  have hs : { s0 with lens := ((s0.lens.set! 0 1).set! 1 2).set! 2 2 } = witStateR := by
+    simp [s0, witStateR, InflateState.garbage, array_ofFn_const, Heap.empty]
+  rw [hs, pure_app]
+  rfl
+
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 4000000 in
 /-- All hypotheses of `inflate_table_safe` hold on `witHeap`, for the call `inflate_table(DISTS, state->lens, 3,
@@ -121,7 +163,8 @@ example : ∃ r h', C.run (inflate_table DISTS (.ref (WRef.istate_lens 0) 0) 3 (
       (witHeap.istates 0).get!.work (witHeap.istates 0).get!.codes (.ref (CodeRef.istate_codes 0) 0) 5 r h' :=
   inflate_table_safe witHeap DISTS (WRef.istate_lens 0) 0 3 (CodeRef.istate_codes 0) 0 5 (WRef.istate_work 0) 0
     (witHeap.istates 0).get!.lens (witHeap.istates 0).get!.work (witHeap.istates 0).get!.codes
-    (Or.inr (Or.inr rfl)) rfl rfl rfl rfl (by decide) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
+    (Or.inr (Or.inr rfl)) rfl rfl rfl rfl (by decide) (by rw [witHeap_eq]; decide +kernel)
+    (by rw [witHeap_eq]; decide +kernel) (by rw [witHeap_eq]; decide +kernel) (by rw [witHeap_eq]; decide +kernel)
     (fun h => absurd h (by decide)) (fun h => absurd h (by decide)) (fun _ => by decide +kernel)
 
 set_option maxRecDepth 100000 in
@@ -130,6 +173,7 @@ set_option maxHeartbeats 4000000 in
 length) and `*bits` becomes 2. -/
 example : ((C.run (inflate_table DISTS (.ref (WRef.istate_lens 0) 0) 3 (.ref (CodeRef.istate_codes 0) 0) 5
       (.ref (WRef.istate_work 0) 0)) witHeap).toOption.map (fun p => (p.1.1, p.1.2.1, p.1.2.2))) =
-    some (0, .ref (CodeRef.istate_codes 0) 4, 2) := by decide +kernel
+    some (0, .ref (CodeRef.istate_codes 0) 4, 2) := by
+  rw [witHeap_eq]; decide +kernel
 
 end Zlib.Inftrees.Proofs

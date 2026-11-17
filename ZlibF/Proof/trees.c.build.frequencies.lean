@@ -24,7 +24,7 @@ theorem BTLeafInv.force_frequency {tk : TK} {N : Nat} {mc node hl : Int32}
     exact nonzero rfl
   rw [btForceState_freq tk d node hl sl fit]
   dsimp only
-  rw [if_neg different]
+  rw [ite_eq_right different]
 
 /-- The complete actual repair loop retains the exact original frequencies
 of all used symbols. Freshness is derived from each real short-queue state.

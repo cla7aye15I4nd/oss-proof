@@ -43,7 +43,7 @@ theorem FastInputPacket.dolen_root_base_loop_break_effect
     (distSafe : DistTableSafe distCodes distOff distWidth)
     (distMask : c.dmask.toUInt64.toNat = 2 ^ distWidth - 1)
     (bitsBound : slow.bits.toNat ≤ 30)
-    (held : 15 ≤ slow.bits.toNat)
+    (_held : 15 ≤ slow.bits.toNat)
     (left : slow.left ≠ 0)
     (avail : 258 ≤ slow.left.toNat)
     {dest : BRef} {output : Array UInt8} {oo bg j : Nat}

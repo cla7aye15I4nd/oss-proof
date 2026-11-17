@@ -116,7 +116,7 @@ theorem fill_window_run_logical_adler {h after : Heap} {r : ZStreamRef}
     (checksum : z.adler = (ZlibF.Spec.adler32 (inputPrefix input (origin + fillEnd d))).toUInt64)
     (run : fill_window (some (.tab ds)) h = .ok ((), after))
     (stateA : PendingBoundary after r ds z' result extended nextOrigin xs)
-    (account : StreamAccounting z z' used 0)
+    (_account : StreamAccounting z z' used 0)
     (start : nextOrigin + result.strstart.toNat = origin + d.strstart.toNat)
     (agree : ∀ i, i < origin + fillEnd d → extended i = input i) :
     z'.adler = (ZlibF.Spec.adler32 (inputPrefix extended (nextOrigin + fillEnd result))).toUInt64 := by

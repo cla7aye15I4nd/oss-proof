@@ -38,7 +38,7 @@ theorem output_bits_good {h : Heap} {r : ZStreamRef} {ds pb : Nat}
   have shape := shape_setD goodB.live.hs result
   refine ⟨?_, DStInv.congr (h := copied) (h' := setD copied ds result) rfl rfl rfl rfl inv,
     shape.uniq goodB.uniq, shape.fresh rfl goodB.fresh, ⟨result, pb, next, trees⟩⟩
-  exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp [result], good.live.zst,
+  exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp, good.live.zst,
     good.live.back, good.live.status, good.live.zalloc, good.live.zfree⟩
 
 /-- `local void flush_pending(z_streamp strm)` (bit prefix).

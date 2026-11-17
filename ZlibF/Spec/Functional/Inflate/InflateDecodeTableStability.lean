@@ -30,7 +30,7 @@ nothing about the validity of the compressed input. -/
 def Goal.constructor_establishes_query_stability : Prop :=
   ∀ (h : Heap) (type : UInt32) (rl : WRef) (ol : Nat) (codes : UInt32)
     (rc : CodeRef) (oc : Nat) (bits : UInt32) (rw : WRef) (ow : Nat)
-    (pre : CallPre h type rl ol codes rc oc bits rw ow),
+    (_pre : CallPre h type rl ol codes rc oc bits rw ow),
     (type = LENS ∨ type = DISTS) →
     ∃ (r : Int32 × CodePtr × UInt32) (after : Heap),
       C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h =

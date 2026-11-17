@@ -24,10 +24,10 @@ private theorem install_bind_assoc {α β γ : Type} (x : X α) (f : α → X β
   change runX ((x >>= f) >>= g) l h = runX (x >>= fun a => f a >>= g) l h
   simp only [runX_bind]
   cases run : runX x l h with
-  | error fault => simp only [run]
+  | error fault => simp only
   | ok pair =>
     obtain ⟨⟨value, regs⟩, after⟩ := pair
-    cases value <;> simp only [run, runX_bind]
+    cases value <;> simp only
 
 private theorem install_pure_bind {α β : Type} (value : α) (next : α → X β) :
     ((pure value : X α) >>= next) = next value := rfl

@@ -254,7 +254,7 @@ theorem call_pending_in {h : Heap} {r : ZStreamRef} {ds : Nat}
   · -- the entry flush filled the output
     have runE : C.run (deflate (some r) flush) h =
         .ok (Z_OK, setD after ds { d1 with status := d1.status, last_flush := -1 }) := by
-      rw [C.run, deflate_phases, entry, if_pos full1]
+      rw [C.run, deflate_phases, entry, ite_eq_left full1]
     have i := lift (-1) (by decide) (fun _ => Or.inr rfl)
     obtain ⟨s1, s2, s3, s4⟩ := same (-1)
     refine ⟨_, _, _, _, runE, i, fun _ _ => ⟨Nat.le_of_eq (by rw [ain1]), Or.inr ⟨s1, s2, s3, Nat.le_of_eq (by rw [s4, ain1]), fun _ => Or.inr ⟨s4, ?_⟩⟩⟩,
@@ -281,7 +281,7 @@ theorem call_pending_in {h : Heap} {r : ZStreamRef} {ds : Nat}
     obtain ⟨i, err, _⟩ := err_return_static good'.live.hz Z_BUF_ERROR
     have runE : C.run (deflate (some r) flush) h =
         .ok (Z_BUF_ERROR, r.put after { z1 with msg := .ref (.str i) 0 }) := by
-      rw [C.run, deflate_phases, entry, if_neg full1, if_pos finIn]; exact err
+      rw [C.run, deflate_phases, entry, ite_eq_right full1, ite_eq_left finIn]; exact err
     refine ⟨_, _, _, _, runE, inv1.message _, fun _ z0 => absurd z0 notFull, fun _ c => ?_,
       fun _ _ _ _ => ⟨ain1, finIn.1, pendZero⟩⟩
     rcases c with i0 | ⟨nf, _⟩
@@ -290,7 +290,7 @@ theorem call_pending_in {h : Heap} {r : ZStreamRef} {ds : Nat}
   have runE : C.run (deflate (some r) flush) h =
       headerPhase (some r) (some (.tab ds)) flush
         (strategyPhase (some r) (some (.tab ds)) flush (trailerPhase (some r) (some (.tab ds)) flush)) after := by
-    rw [C.run, deflate_phases, entry, if_neg full1, if_neg finIn]
+    rw [C.run, deflate_phases, entry, ite_eq_right full1, ite_eq_right finIn]
   rw [runE]
   have noFinIn : d.status = FINISH_STATE → z.avail_in ≠ 0 → False := fun s ne =>
     finIn ⟨stEq.trans s, by rw [ain1]; exact ne⟩

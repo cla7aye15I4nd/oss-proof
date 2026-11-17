@@ -128,7 +128,7 @@ theorem inv_of_clear {h : Heap} {v : GzState} (hs : h.gzstates i = some v)
   rwa [recI_unclear, putGz_putGz, putGz_self hs] at this
 
 /-- `GzInv` of a writer with buffers gives the invariant up to the pending input over its `in` region. -/
-theorem upTo_of_inv {h : Heap} {s : GzState} (inv : GzInv h i s) (hw : s.mode = GZ_WRITE) (hsz : s.size ≠ 0) :
+theorem upTo_of_inv {h : Heap} {s : GzState} (inv : GzInv h i s) (hw : s.mode = GZ_WRITE) (_hsz : s.size ≠ 0) :
     GzInvUpToInput h i s ⟨s.«in», s.size.toNat⟩ := by
   refine ⟨inv.common.record, clear_of_inv inv hw, hw, ?_, Or.inl ⟨rfl, by show s.size.toNat ≤ _; omega⟩⟩
   rcases (inv.writer hw).input with hn | ⟨-, a, ha, hle⟩
@@ -295,9 +295,9 @@ theorem cq_base {src : Region} {s : GzState} {h : Heap} {flush r : Int32} {h' : 
       NextInOk s' src := by
   obtain ⟨u, -⟩ := q
   by_cases hr : r = 0
-  · rw [if_pos hr] at u
+  · rw [ite_eq_left hr] at u
     exact ⟨u.1, u.2.1, u.2.2.1, u.2.2.2.1⟩
-  · rw [if_neg hr] at u
+  · rw [ite_eq_right hr] at u
     exact ⟨u.1, u.2.1, u.2.2.1, u.2.2.2.1⟩
 
 theorem good_cq (src : Region) (s : GzState) (h : Heap) (flush r : Int32) : GetcUngetc.Good (CQ src s h flush r) :=
@@ -341,7 +341,7 @@ theorem zeroN_toNat {s : GzState} (hp : 0 ≤ s.skip.toInt) :
   have hl := s.size.toNat_lt
   unfold zeroN
   by_cases hc : u32ToI64 s.size > s.skip
-  · rw [if_pos hc]
+  · rw [ite_eq_left hc]
     have hc' : s.skip.toInt < s.size.toNat := by
       have := Int64.lt_iff_toInt_lt.mp hc
       rwa [Zlib.Gzlib.Proofs.u32ToI64_toInt] at this
@@ -350,7 +350,7 @@ theorem zeroN_toNat {s : GzState} (hp : 0 ≤ s.skip.toInt) :
     have : s.skip.toInt.toNat < 2 ^ 32 := by omega
     rw [Nat.mod_eq_of_lt this]
     omega
-  · rw [if_neg hc]
+  · rw [ite_eq_right hc]
     have hc' : ¬ s.skip.toInt < s.size.toNat := fun x => hc (by
       rw [gt_iff_lt, Int64.lt_iff_toInt_lt, Zlib.Gzlib.Proofs.u32ToI64_toInt]; exact x)
     omega
@@ -441,7 +441,7 @@ local macro "zero_run_tac" : tactic => `(tactic| (
   simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
     gtoff_run, Bool.false_or]
   by_cases hc : u32ToI64 v.size > v.skip
-  · have hz : zeroN v = v.skip.toUInt64.toUInt32 := if_pos hc
+  · have hz : zeroN v = v.skip.toUInt64.toUInt32 := ite_eq_left hc
     simp only [hc, decide_true, ↓reduceIte, cbind_app, cpure_app]
     rw [← hz]
     cases hf : l.first
@@ -452,7 +452,7 @@ local macro "zero_run_tac" : tactic => `(tactic| (
     · simp only [cbind_app, clift_app, cpure_app, ↓reduceIte, hfill.1 hf, hU, hcomp, ldZ_put, ldS_put,
         updX_put, updS_put, updZ_put, ← hmdef, fpos, fsk, int32_zero_ne_neg_one, beq_self_eq_true]
       rfl
-  · have hz : zeroN v = v.size := if_neg hc
+  · have hz : zeroN v = v.size := ite_eq_right hc
     simp only [hc, decide_false, Bool.false_eq_true, ↓reduceIte, cbind_app, cpure_app]
     rw [← hz]
     cases hf : l.first

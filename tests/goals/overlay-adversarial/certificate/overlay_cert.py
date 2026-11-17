@@ -191,8 +191,11 @@ def lean(q, m, A, D, B):
     w(f'def literalRate (v : Nat) : Nat := if v < 256 then {scaled(m["LIT"])} else if v = 256 then 0 else {scaled(m["LEN"])}')
     w('')
     fibs = ', '.join(f'f{i}' for i in range(17))
+    # each call site lists only the lemmas its cases use (linter.unusedSimpArgs)
     simps = 'entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul, ' + \
         ', '.join(f'f{i}' for i in range(17))
+    simpsZero = 'entryCost, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul'
+    simpsDummy = 'entryCost, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul'
     rc = 'rcases x with ' + ' | '.join(['_'] * 16) + ' | x'
     def entry_lemma(name, kind, e, t, dum, allow, rate):
         th = 9 if kind == 'LEN' else 15
@@ -217,13 +220,13 @@ def lean(q, m, A, D, B):
         w('    by_cases x0 : x = 0')
         if dum:
             w('    · subst x0')
-            w(f'      rcases zero rfl with h | h <;> subst h <;> simp only [{simps}] <;> omega')
+            w(f'      rcases zero rfl with h | h <;> subst h <;> simp only [{simpsZero}] <;> omega')
             w('    · have hd := dummy x0 rfl')
             w('      subst hd')
-            w(f'      {rc} <;> simp only [{simps}] at x0 hx ⊢ <;> omega')
+            w(f'      {rc} <;> simp only [{simpsDummy}] at x0 hx ⊢ <;> omega')
         else:
             w('    · subst x0 zero')
-            w(f'      simp only [{simps}]; omega')
+            w(f'      simp only [{simpsZero}]; omega')
             w('    · exact absurd rfl (dummy x0)')
         w('  · obtain ⟨pos, fit⟩ := used hf')
         if not dum: w('    subst zero')
@@ -284,12 +287,10 @@ def tail(dt):
     w('    simp only [literalAllow, show 3 + k < 256 by omega, show ¬ (3 + k ≤ 2) by omega,')
     w('      show (3 : Nat) < 256 by omega, show ¬ ((3 : Nat) ≤ 2) by omega, ite_true, ite_false]')
     w('  rw [mid]')
-    w('  simp (config := { decide := true }) only [literalAllow, lengthAllow, lengthExtra, Nat.reduceAdd,')
-    w('    Nat.reduceSub, Nat.reduceMul, ite_true, ite_false]')
+    w('  simp (config := { decide := true }) only []')
     w('')
     w(f'theorem distance_share_sum : mass distanceShare 30 = {dt["dist_share_sum"]} := by')
-    w('  simp (config := { decide := true }) only [mass, distanceShare, distanceAllow, distanceExtra,')
-    w('    Nat.reduceAdd, Nat.reduceMul, ite_true, ite_false]')
+    w('  simp (config := { decide := true }) only []')
     w('')
     D0, D1 = dt['dummy']
     mu, muLen, nuD = dt['mu'], dt['muLen'], dt['nuD']

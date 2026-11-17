@@ -30,8 +30,13 @@ jobs:
       - uses: ./.github/actions/lean-environment
         id: lean
 
+      # The module cache is restored in every run and saved only by a push to main (the step after the
+      # builds). Lake trusts an .olean whose stored trace matches its inputs, and both come from the cache;
+      # so a pull request may only reuse what main built from merged sources, and cannot plant a cache
+      # that its own later runs, or anyone else's, would trust. Its changed modules are rebuilt.
       - name: Reuse unchanged module outputs across runs
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: module-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .lake
@@ -40,20 +45,19 @@ jobs:
           restore-keys: |
             lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-
 
+      # The library build also checks the registry of results, ZlibF/Results.lean: each theorem's type
+      # is exactly its goal, allowed axioms only, and every goal is proved or listed as not done.
       - name: Build the library once
-        run: lake build ZlibF zlibf-audit
+        run: lake build --wfail ZlibF
 
-      - name: Build the differential drivers once
-        working-directory: tests
-        run: |
-          cmp ../lean-toolchain lean-toolchain
-          mapfile -t names < <(grep -v '^[[:space:]]*\(#\|$\)' list.txt)
-          targets=()
-          for name in "${names[@]}"; do targets+=("difftest_$name"); done
-          lake build "${targets[@]}"
-
-      - name: No sorry in the sources
-        run: scripts/check-sorry.sh
+      - name: Save the module cache (pushes to main only)
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.module-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake
+            tests/.lake
+          key: ${{ steps.module-cache.outputs.cache-primary-key }}
 
       - name: Every string literal of the translations is in strTable
         run: python3 scripts/check-strlit.py
@@ -64,7 +68,6 @@ jobs:
       - name: Self-tests of the source checks
         run: |
           python3 tests/verification/test_spec_layers.py
-          python3 tests/verification/test_sorry_check.py
           python3 tests/verification/test_strlit_check.py
 
       - name: Forbidden constructs
@@ -73,10 +76,30 @@ jobs:
             echo "forbidden construct found"; exit 1
           fi
 
+      # Options that switch off or weaken checking: the kernel check (debug.skipKernelTC), proofs taken as
+      # sorry (debug.byAsSorry and the like), elaboration checks (bootstrap.*), and options passed by the
+      # lakefile. A declaration added without the kernel check looks like any other in the environment, so
+      # this source check is the guard.
+      - name: No option that weakens checking
+        run: |
+          if grep -rnE '\b(debug|bootstrap)\.[A-Za-z]|\b(allowUnsafeReducibility|warn\.sorry)\b' ZlibF.lean ZlibF \
+              || grep -nE 'leanOptions|moreLeanArgs|weakLeanArgs|moreServerArgs' lakefile.toml tests/lakefile.toml; then
+            echo "option that weakens checking found"; exit 1
+          fi
+
       # The audit's unsafe/partial rule on the built environment: a recursive def whose compiled code
       # needs an `_unsafe_rec` helper fails here, on every push.
       - name: No unsafe, partial, opaque or extern declaration and no extra axiom in the compiled library
         run: lake env lean --run tests/audit/PartialCheck.lean
+
+      - name: Coverage of the public API (every function of zlib.h has its goals, every required goal is proved)
+        run: python3 scripts/verification.py
+
+      - name: The check of ZlibF/Results.lean rejects a wrong type, an extra axiom, an unlisted goal and an unproved required goal
+        run: bash tests/results-check/run.sh
+
+      - name: Self-test of the coverage check
+        run: python3 tests/verification/test_coverage.py
 
       - name: Patches apply to the pinned zlib
         run: |
@@ -84,48 +107,6 @@ jobs:
           rm -rf /tmp/zlib-verified/.git
           shopt -s nullglob
           for p in patches/*.patch; do (cd /tmp/zlib-verified && git apply "$GITHUB_WORKSPACE/$p"); done
-
-      - name: Publish the immutable build for this run
-        run: python3 scripts/ci-build-artifact.py pack "$RUNNER_TEMP/lean-build.tar.gz"
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: lean-build
-          path: ${{ runner.temp }}/lean-build.tar.gz
-          compression-level: 0
-          retention-days: 2
-          if-no-files-found: error
-
-  # The final requirement of the project: no sorry anywhere. A work in progress may fail this job; a result may not
-  # be reported as final while it fails.
-  # The audit: axioms, doc strings and the goals.
-  # The audit: allowed axioms only, each registered theorem is exactly its goal, no goal without a
-  # registered theorem unless listed as not done, and the compiled proofs replayed by the kernel.
-  audit:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
-          fetch-depth: 0
-
-      - uses: ./.github/actions/lean-environment
-        with:
-          library: 'true'
-
-      - name: Audit
-        env:
-          ZLIBF_REQUIRE_PREBUILT: '1'
-        run: python3 scripts/verification.py specs
-
-      - name: Auditor acceptance and rejection tests
-        run: |
-          python3 tests/verification/test_audit.py
-          python3 -O tests/verification/test_audit.py
-          python3 tests/verification/test_ci_build.py
-          python3 -O tests/verification/test_ci_build.py
 
   # The differential test compares the translation with the C. It is needed only when one of the
   # two sides, the runtime they run on, or the test itself changes.
@@ -152,8 +133,10 @@ jobs:
           echo "run=$run" >> "$GITHUB_OUTPUT"
           echo "differential test needed: $run"
 
+  # The drivers import only the translation and the runtime, so this job builds those modules and the
+  # drivers itself and does not wait for the build job: the two run side by side.
   differential-test:
-    needs: [build, differential-test-scope]
+    needs: differential-test-scope
     if: ${{ needs.differential-test-scope.outputs.run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -168,14 +151,34 @@ jobs:
           sudo apt-get install -y --no-install-recommends build-essential patch python3
 
       - uses: ./.github/actions/lean-environment
+        id: lean
+
+      # The same read-only module cache as the build job: what main built from merged sources.
+      - name: Reuse unchanged module outputs across runs
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          library: 'true'
+          path: |
+            .lake
+            tests/.lake
+          key: lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-${{ hashFiles('ZlibF.lean', 'ZlibF/**/*.lean', 'tests/**/*.lean') }}
+          restore-keys: |
+            lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-
 
       # tests/ is a separate Lake project that requires the parent project ZlibF by path, so the
       # drivers call the same translation the proofs are about. The lean-toolchain of tests/ is a
       # copy of the root one; keep them equal.
       - name: Toolchains agree
         run: cmp lean-toolchain tests/lean-toolchain
+
+      # Builds the translation and runtime modules the drivers import, and the drivers, with warnings
+      # as errors. No proof module is built here.
+      - name: Build the differential drivers
+        working-directory: tests
+        run: |
+          mapfile -t names < <(grep -v '^[[:space:]]*\(#\|$\)' list.txt)
+          targets=()
+          for name in "${names[@]}"; do targets+=("difftest_$name"); done
+          lake build --wfail "${targets[@]}"
 
       # Copies zlib/ to tests/build/zlib, applies patches/*.patch there in name order, and builds
       # libz.a (./configure --static; make libz.a). The submodule is not modified.

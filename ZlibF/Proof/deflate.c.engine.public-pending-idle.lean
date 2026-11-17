@@ -56,7 +56,7 @@ theorem public_pending_drained_idle {h : Heap} {r : ZStreamRef} {ds ob oo : Nat}
   have tail : publicZlibHeader (some r) (some (.tab ds))
       (publicDataTail (some r) (some (.tab ds)) Z_NO_FLUSH) after = .ok (Z_OK, after) := by
     unfold publicZlibHeader
-    simp only [bind_app, pure_app, rdD_eq, goodA.live.hs, statusA,
+    simp only [bind_app, rdD_eq, goodA.live.hs, statusA,
       show (BUSY_STATE == INIT_STATE) = false from rfl, Bool.false_and, Bool.false_eq_true, ite_false, idle]
   obtain ⟨w, p, q, b, blocks⟩ := good.inv.blocks
   have baseD : d.pending_buf = .ref (.blk pb) 0 := base
@@ -78,12 +78,12 @@ theorem public_pending_drained_idle {h : Heap} {r : ZStreamRef} {ds ob oo : Nat}
       contradiction
     simp only [status] at run
     rw [public_deflate_source]
-    simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+    simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
       show (Z_NO_FLUSH > Z_BLOCK) = False from by decide,
       show (Z_NO_FLUSH < 0) = False from by decide, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
       zrd_eq, good.live.hz, good.live.zst, castDeflateState, ldZStream_ok good.live.hz,
       ldDeflateState_tab good.live.hs, empty, show ((0 : UInt32) != 0) = false from rfl,
-      BEq.rfl, Bool.not_true, Bool.false_and, Bool.or_false,
+      BEq.rfl, Bool.false_and, Bool.or_false,
       show (z.next_out == .null) = false from by rw [pointer]; rfl,
       status, show (BUSY_STATE == FINISH_STATE) = false from rfl,
       show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr outNonzero,

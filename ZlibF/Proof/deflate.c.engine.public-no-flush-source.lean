@@ -42,13 +42,13 @@ theorem public_need_more_return {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStr
     publicStrategyReturn (some r) (some (.tab ds)) flush need_more h =
       .ok (Z_OK, if z.avail_out == 0 then setD h ds { d with last_flush := -1 } else h) := by
   unfold publicStrategyReturn
-  simp only [bind_app, pure_app, zrd_eq, hz,
+  simp only [bind_app, zrd_eq, hz,
     show (need_more == finish_started) = false from rfl,
     show (need_more == finish_done) = false from rfl,
     show (need_more == need_more) = true from rfl,
     Bool.false_or, Bool.true_or, Bool.false_eq_true, ite_false, ite_true]
   by_cases empty : z.avail_out = 0
   · simp only [empty, BEq.rfl, ite_true, bind_app, wrD_eq, hs, pure_app]
-  · simp only [beq_eq_false_iff_ne.mpr empty, Bool.false_eq_true, ite_false, bind_app, pure_app]
+  · simp only [beq_eq_false_iff_ne.mpr empty, Bool.false_eq_true, ite_false, pure_app]
 
 end Zlib.Deflate.Engine.Proofs

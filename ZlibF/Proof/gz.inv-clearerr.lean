@@ -38,14 +38,14 @@ theorem GzInv.msg_separate (inv : GzInv h i s) {mb : Nat} (hm : blkOf s.msg = so
   refine ⟨hi, hpath, hso, fun hz => ⟨?_, fun hmo => ?_⟩⟩
   · intro e
     simp only [e, List.cons_append, List.nil_append] at nd
-    rw [if_pos hz] at nd
+    rw [ite_eq_left hz] at nd
     exact absurd (nd.sublist (List.Sublist.filterMap blkOf
-      (List.Sublist.cons _ (List.Sublist.cons₂ _ (List.Sublist.cons₂ _ (List.nil_sublist _)))))) (by simp [blkOf])
+      (List.Sublist.cons _ (List.Sublist.cons_cons _ (List.Sublist.cons_cons _ (List.nil_sublist _)))))) (by simp [blkOf])
   · intro e
     simp only [hmo, e, ite_true, List.cons_append, List.nil_append] at nd
-    rw [if_pos hz] at nd
+    rw [ite_eq_left hz] at nd
     exact absurd (nd.sublist (List.Sublist.filterMap blkOf
-      (List.Sublist.cons _ (List.Sublist.cons₂ _ (List.Sublist.cons _ (List.Sublist.cons₂ _
+      (List.Sublist.cons _ (List.Sublist.cons_cons _ (List.Sublist.cons _ (List.Sublist.cons_cons _
         (List.nil_sublist _))))))) (by simp [blkOf])
 
 end clear
@@ -238,7 +238,7 @@ theorem GzInv.clear_message {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i 
             show (s.path :: (Ptr.null : BPtr) :: L).filterMap blkOf = _
             simp only [List.filterMap_cons, hn]
           rw [h1]
-          exact List.Nodup.sublist (List.Sublist.filterMap blkOf ((List.sublist_cons_self s.msg L).cons₂ s.path)) nd
+          exact List.Nodup.sublist (List.Sublist.filterMap blkOf ((List.sublist_cons_self s.msg L).cons_cons s.path)) nd
         · have hp' : p ∈ ownedPtrs s := by
             rw [eL1] at hp
             rw [eL2]

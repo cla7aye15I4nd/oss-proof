@@ -193,13 +193,13 @@ theorem skipN_toNat {s : GzState} (hp : 0 ≤ s.skip.toInt) :
   have hl := s.x.have.toNat_lt
   unfold skipN
   by_cases hc : (s.x.have.toNat : Int) > s.skip.toInt
-  · rw [if_pos hc]
+  · rw [ite_eq_left hc]
     have h0 : (0 : Int64) ≤ s.skip := by rw [Int64.le_iff_toInt_le]; simpa using hp
     rw [UInt64.toNat_toUInt32, Int64.toNat_toUInt64_of_le h0, ← Int64.toNat_toInt]
     have : s.skip.toInt.toNat < 2 ^ 32 := by omega
     rw [Nat.mod_eq_of_lt this]
     omega
-  · rw [if_neg hc]
+  · rw [ite_eq_right hc]
     omega
 
 theorem skipN_le_have {s : GzState} (hp : 0 ≤ s.skip.toInt) : (skipN s).toNat ≤ s.x.have.toNat := by
@@ -276,28 +276,28 @@ theorem gz_skip_have_eq {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = 
     exact Ptr.add_nat_ok (R := BRef) hg (by omega)
   unfold Zlib.Gzread.gz_skip_have skipRec
   by_cases hc : (s.x.have.toNat : Int) > s.skip.toInt
-  · have e : skipN s = s.skip.toUInt64.toUInt32 := if_pos hc
+  · have e : skipN s = s.skip.toUInt64.toUInt32 := ite_eq_left hc
     have hc' : s.skip < u32ToI64 s.x.have := (skipN_lt_iff s).mpr hc
     simp only [C.run, gzSt, bind_app, pure_app, ldS_eq, hs, GT_OFF_false, Bool.false_or, decide_eq_true_eq,
-      gt_iff_lt, hc', if_true, ← e, updX_eq, setS_gz_same, setS_setS]
+      gt_iff_lt, hc', ite_true, ← e, updX_eq]
     by_cases hz : skipN s = 0
-    · rw [if_neg (show ¬ (skipN s != 0) = true by simp [hz]), if_pos hz]
-      simp only [bind_app, pure_app, ldS_eq, setS_gz_same, fpos, fsk, updX_eq, updS_eq, setS_setS, gzSt]
+    · rw [ite_eq_right (show ¬ (skipN s != 0) = true by simp [hz]), ite_eq_left hz]
+      simp only [bind_app, ldS_eq, setS_gz_same, fpos, fsk, updX_eq, updS_eq, setS_setS]
       rfl
-    · rw [if_pos (show (skipN s != 0) = true by simp [hz]), if_neg hz]
-      simp only [bind_app, pure_app, ldS_eq, setS_gz_same, fadd hz, fpos, fsk, updX_eq, updS_eq, setS_setS, gzSt]
+    · rw [ite_eq_left (show (skipN s != 0) = true by simp [hz]), ite_eq_right hz]
+      simp only [bind_app, ldS_eq, setS_gz_same, fadd hz, fpos, fsk, updX_eq, updS_eq, setS_setS]
       rfl
-  · have e : skipN s = s.x.have := if_neg hc
+  · have e : skipN s = s.x.have := ite_eq_right hc
     have hc' : ¬ s.skip < u32ToI64 s.x.have := fun x => hc ((skipN_lt_iff s).mp x)
     rw [e] at fpos fsk fadd ⊢
     simp only [C.run, gzSt, bind_app, pure_app, ldS_eq, hs, GT_OFF_false, Bool.false_or, decide_eq_true_eq,
-      gt_iff_lt, hc', if_false, updX_eq, setS_gz_same, setS_setS]
+      gt_iff_lt, hc', ite_false, updX_eq]
     by_cases hz : s.x.have = 0
-    · rw [if_neg (show ¬ (s.x.have != 0) = true by simp [hz]), if_pos hz]
-      simp only [bind_app, pure_app, ldS_eq, setS_gz_same, fpos, fsk, updX_eq, updS_eq, setS_setS, gzSt]
+    · rw [ite_eq_right (show ¬ (s.x.have != 0) = true by simp [hz]), ite_eq_left hz]
+      simp only [bind_app, ldS_eq, setS_gz_same, fpos, fsk, updX_eq, updS_eq, setS_setS]
       rfl
-    · rw [if_pos (show (s.x.have != 0) = true by simp [hz]), if_neg hz]
-      simp only [bind_app, pure_app, ldS_eq, setS_gz_same, fadd hz, fpos, fsk, updX_eq, updS_eq, setS_setS, gzSt]
+    · rw [ite_eq_left (show (s.x.have != 0) = true by simp [hz]), ite_eq_right hz]
+      simp only [bind_app, ldS_eq, setS_gz_same, fadd hz, fpos, fsk, updX_eq, updS_eq, setS_setS]
       rfl
 
 /-! ## The invariant up to the pending skip -/

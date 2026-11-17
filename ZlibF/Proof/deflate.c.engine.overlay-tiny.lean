@@ -1,5 +1,6 @@
 import ZlibF.Proof.«deflate.c.engine.overlay-gain»
-import ZlibF.Proof.«deflate.c.engine.overlay-fib-actual»
+import ZlibF.Math.DeflateOverlayFibActual
+import ZlibF.Proof.«trees.c.universal-overlay-mid»
 
 /-!
 # deflate.c: `TinyOverlay` from two named hypotheses
@@ -55,33 +56,5 @@ def LinkC (Hb : DeflateState → Int32 → List Symbol → Nat) : Prop :=
     TinyPrepared h ds d xs mb ready → 8 * d.lit_bufsize.toNat < dynamicGain ready xs + 30 →
     Hb ready mb xs + excessFibActual (d.lit_bufsize.toNat + 2) (literalFrequency symbolLengthCode xs)
       (distanceFrequency dcodeN xs) sourceLiteralExtra sourceDistanceExtra + 25 ≤ 8 * d.lit_bufsize.toNat
-
-/-- **`TinyOverlay` from the two hypotheses.** -/
-theorem tiny_overlay_of (Hb : DeflateState → Int32 → List Symbol → Nat) (headerBound : HeaderFibBound Hb)
-    (link : LinkC Hb) : TinyOverlay := by
-  intro h r ds pb z d buf xs _good trees ledger clear pending bits tiny z'
-  intro mb ready run frame header excess dynamic
-  have treesP := treesInvAt_put (r := r) (z' := z') trees
-  have capacity : xs.length + 1 ≤ d.lit_bufsize.toNat := by
-    have bound := trees.run.sym_next_le
-    rw [ledger.count, trees.base.sym_end] at bound
-    have low := trees.base.lit_lo
-    omega
-  have litR : ready.lit_bufsize = d.lit_bufsize := by rw [frame]
-  have prepared : TinyPrepared (r.put h z') ds d xs mb ready :=
-    ⟨⟨pb, buf, treesP, ledger⟩, clear, tiny, run, frame, header, excess, dynamic⟩
-  by_cases small : dynamicGain ready xs + 30 ≤ 8 * ready.lit_bufsize.toNat
-  · exact dynamic_room_of_budget frame pending bits capacity
-      (overlay_budget_of_gain treesP ledger clear run header excess dynamic small)
-  · have large : 8 * d.lit_bufsize.toNat < dynamicGain ready xs + 30 := by rw [← litR]; omega
-    have hb := headerBound prepared
-    have ex := excess_fib_actual treesP ledger (by omega) run
-    have joint := link prepared large
-    apply dynamic_room_of_budget frame pending bits capacity
-    unfold OverlayBudget
-    rw [litR]
-    omega
-
-#print axioms tiny_overlay_of
 
 end Zlib.Deflate.Engine.Proofs

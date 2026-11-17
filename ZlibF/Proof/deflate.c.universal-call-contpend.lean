@@ -44,7 +44,7 @@ theorem entry_pending_eval {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
   have checked := stateCheck_live good.live
   obtain ⟨high, low⟩ := entry_valid_flags flushLow flushHigh
   unfold entryPhase
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
@@ -53,10 +53,10 @@ theorem entry_pending_eval {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
     show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr avail,
     wrD_eq, good.live.hs, show (d.pending != 0) = true from bne_iff_ne.mpr pending, ite_true, run]
   by_cases full : z'.avail_out = 0
-  · simp [zrd_eq, hz, full, wrD_eq, hs, bind_app]
+  · simp [hz, full, wrD_eq, hs, bind_app]
   · by_cases c : d'.status = FINISH_STATE ∧ z'.avail_in ≠ 0
     · simp [zrd_eq, hz, full, rdD_eq, hs, bind_app, c.1, c.2]
-    · rw [if_neg full, if_neg c]
+    · rw [ite_eq_right full, ite_eq_right c]
       simp [zrd_eq, hz, full, rdD_eq, hs, bind_app]
       split
       · rename_i t

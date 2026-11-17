@@ -49,7 +49,7 @@ theorem foreign_pending_copy_cursor_bits {h : Heap} {r : ZStreamRef} {ds pb po o
     · rename_i empty
       have zero : result.pending.toNat = 0 := by
         have value : d.pending - n.toUInt64 = 0 := beq_iff_eq.mp empty
-        simpa only [result, pendingState, value, UInt64.toNat_zero]
+        simp only [result, pendingState, value, UInt64.toNat_zero]
       simp only [zero, List.take_zero]
     · rw [List.drop_drop]
   have splitBytes : (buf.toList.drop po).take d.pending.toNat =

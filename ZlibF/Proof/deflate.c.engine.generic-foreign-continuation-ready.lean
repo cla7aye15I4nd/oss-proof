@@ -136,7 +136,7 @@ theorem default_foreign_slow_body_run_ready_phase {h after : Heap} {r : ZStreamR
       · have notWaitZero : (decide ((0:UInt32)<MIN_LOOKAHEAD_u) && flush==Z_NO_FLUSH)=false := by simpa only [empty] using notWait
         have actual : deflate_slow_body (some (.tab ds)) flush st h=.ok ({st with brk:=true},filledHeap) := by
           rw [slow_body_search_decision_source]
-          simp only [bind_app,rdD_eq,boundary.good.live.hs,small,ite_true,fillRun,filledState.good.live.hs,notWait,Bool.false_eq_true,ite_false,
+          simp only [bind_app,rdD_eq,boundary.good.live.hs,small,ite_true,fillRun,filledState.good.live.hs,Bool.false_eq_true,ite_false,
             empty,notWaitZero,BEq.rfl,ite_true,pure_app]
         have heaps := (Prod.mk.inj (Except.ok.inj (actual.symm.trans run))).2
         have get := filledState.good.live.hs

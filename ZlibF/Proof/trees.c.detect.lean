@@ -79,7 +79,7 @@ theorem data_type_black_safe {h : Heap} {id : Nat} {d : DeflateState}
         · right
           refine ⟨(n, bm, none), h, (Int32.ofInt (n.toInt + 1), bm >>> 1, none), h, ?_, ?_, ?_, ?_⟩
           · simp only [pure_app, Option.isNone_none, enabled.2, decide_true, Bool.true_and]
-          · simp only [bind_app, pLtree_run state, read, hit, Bool.false_eq_true, ite_false, add, pure_app, show (1 : Int32).toInt = 1 from rfl]
+          · simp only [bind_app, pLtree_run state, read, hit, ite_false, add, pure_app, show (1 : Int32).toInt = 1 from rfl]
           · exact ⟨rfl, by rw [value]; omega, by rw [value]; omega, Or.inl rfl⟩
           · dsimp only [measure]
             simp only [Option.isNone_none, ite_true, value]
@@ -125,7 +125,7 @@ theorem data_type_text_safe {h : Heap} {id : Nat} {d : DeflateState}
         · right
           refine ⟨(n, none), h, (n, some Z_TEXT), h, ?_, ?_, ?_, ?_⟩
           · simp only [pure_app, Option.isNone_none, show LITERALS.toInt = 256 from rfl, enabled.2, decide_true, Bool.true_and]
-          · simp only [bind_app, pLtree_run state, read, hit, and_self, ite_true, pure_app]
+          · simp only [bind_app, pLtree_run state, read, hit, ite_true, pure_app]
           · exact ⟨rfl, lower, upper, Or.inr rfl⟩
           · dsimp only [measure]
             simp only [Option.isNone_some, Bool.false_eq_true, ite_false, Option.isNone_none, ite_true]
@@ -168,11 +168,11 @@ theorem detect_data_type_safe {h : Heap} {id : Nat} {d : DeflateState}
   rcases casesBlack with rfl | rfl
   · simp only [bind_app, black]
     by_cases white : d.dyn_ltree[9]!.fc != 0 ∨ d.dyn_ltree[10]!.fc != 0 ∨ d.dyn_ltree[13]!.fc != 0
-    · exact ⟨Z_TEXT, by simpa only [bind_app, pLtree_run state, nine, ten, thirteen, white, ite_true, pure_app], Or.inr rfl⟩
+    · exact ⟨Z_TEXT, by simp only [pLtree_run state, nine, ten, thirteen, white, ite_true, pure_app], Or.inr rfl⟩
     · obtain ⟨n2, result2, text, casesText⟩ := data_type_text_safe state extent
       rcases casesText with rfl | rfl
-      · exact ⟨Z_BINARY, by simpa only [bind_app, pLtree_run state, nine, ten, thirteen, white, ite_false, text, pure_app], Or.inl rfl⟩
-      · exact ⟨Z_TEXT, by simpa only [bind_app, pLtree_run state, nine, ten, thirteen, white, ite_false, text, pure_app], Or.inr rfl⟩
+      · exact ⟨Z_BINARY, by simp only [bind_app, pLtree_run state, nine, ten, thirteen, white, ite_false, text, pure_app], Or.inl rfl⟩
+      · exact ⟨Z_TEXT, by simp only [bind_app, pLtree_run state, nine, ten, thirteen, white, ite_false, text, pure_app], Or.inr rfl⟩
   · exact ⟨Z_BINARY, by simp only [bind_app, black, pure_app], Or.inl rfl⟩
 
 end Zlib.Trees.Proofs

@@ -188,8 +188,8 @@ theorem ws_build_tree_two {h0 : Heap} {id : Nat} {tk dk : TK} {d : DeflateState}
   apply ZlibF.Math.DeflateSymbols.mass_congr
   intro w hw
   by_cases z : (tk.arr e)[w]!.dl.toNat ≠ 0
-  · rw [if_pos z, if_pos ((iff w hw).mp z)]
-  · rw [if_neg z, if_neg (fun nz => z ((iff w hw).mpr nz))]
+  · rw [ite_eq_left z, ite_eq_left ((iff w hw).mp z)]
+  · rw [ite_eq_right z, ite_eq_right (fun nz => z ((iff w hw).mpr nz))]
 
 theorem ws_build_tree_two_initialized {h0 : Heap} {id : Nat} {d : DeflateState}
     (tk : TK) (hwf : d.WellFormed) (hs : Out.TreesStatic h0.static) (hr : Out.TreesRun0 id d) :
@@ -270,7 +270,7 @@ theorem bl_prepare_two_leaves {h : Heap} {id b : Nat} {d : DeflateState} {buf : 
     unfold blPrepare
     simp only [bind_app, ptrL, TK.descRef] at runL runD ⊢
     rw [runL]
-    simp only [bind_app, ptrD]
+    simp only [ptrD]
     simpa only [setD_setD] using runD
   refine ⟨result, run, ?_, ?_⟩
   · rw [literalTree]

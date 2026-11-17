@@ -91,7 +91,7 @@ theorem copy_loop (b : Nat) (a : Nat) :
           rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; simp; omega)]; simp; omega
         simp only [bne_iff_ne, ne_eq]
         intro e; rw [e] at this; simp at this; omega
-      rw [if_pos hn1]
+      rw [ite_eq_left hn1]
       have hn' : (n - 1).toNat = m := by
         rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; simp; omega)]; simp; omega
       obtain ⟨st, arr', run, hsz'⟩ := ih (k + 1) (n - 1) Z1 arr1 F' hb1 (by simp [Z1]; exact hro) hn' (by omega)
@@ -596,17 +596,17 @@ theorem gz_avail_safe (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
       rw [g_lift_app, ldS_eq, hs]
     simp only [g_bind_app, hld]
     by_cases herr : (s.err != Z_OK && s.err != Z_BUF_ERROR) = true
-    · rw [if_pos herr]
+    · rw [ite_eq_left herr]
       exact ⟨-1, fs, h, rfl, Or.inr rfl, fun _ => Iff.rfl, post_refl hu hfs, s, hs, by unfold AvailRec; rfl, AvailFs.refl s fs,
         ⟨(fun _ => ⟨fun e => by rw [e] at herr; revert herr; decide, fun e => by rw [e] at herr; revert herr; decide⟩), (fun h0 => absurd h0 (by decide)),
         (fun h0 => absurd h0 (by decide)), (fun h0 => absurd h0 (by decide))⟩, fun _ => rfl⟩
-    rw [if_neg herr]
+    rw [ite_eq_right herr]
     by_cases heof : ¬ (s.eof == 0) = true
-    · rw [if_neg heof]
+    · rw [ite_eq_right heof]
       exact ⟨0, fs, h, rfl, Or.inl rfl, fun _ => Iff.rfl, post_refl hu hfs, s, hs, by unfold AvailRec; rfl, AvailFs.refl s fs,
         ⟨(fun h0 => absurd h0 (by decide)), (fun _ => rfl), (fun _ _ e => heof (by simp [e])),
           (fun _ e => (heof (by simp [e])).elim)⟩, fun _ => rfl⟩
-    rw [if_pos (Classical.not_not.mp heof)]
+    rw [ite_eq_left (Classical.not_not.mp heof)]
     have heof0 : s.eof = 0 := by simpa using Classical.not_not.mp heof
     have hz : (StateT.lift (ldZ (strmOf (some (.tab i)))) : G ZStream) fs h = .ok ((s.strm, fs), h) := by
       rw [g_lift_app, show ldZ (strmOf (some (GzStateRef.tab i))) h = .ok (s.strm, h) from ldZ_run hs]
@@ -618,9 +618,9 @@ theorem gz_avail_safe (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
       · have hle' : a + s.strm.avail_in.toNat ≤ s.size.toNat := hle
         omega
     by_cases h1 : (s.strm.avail_in != 0) = true
-    · rw [if_pos h1]
+    · rw [ite_eq_left h1]
       by_cases h2 : (s.strm.next_in != s.«in») = true
-      · rw [if_pos h2]
+      · rw [ite_eq_left h2]
         have hav0 : s.strm.avail_in ≠ 0 := by simpa using h1
         obtain ⟨st, Z, crun, huZ, hliveZ, hownZ, frZ, -, -, -, histZ⟩ := copy_run hu hm hsz hav0
         have crun' : (StateT.lift (cdoWhile copyBody copyCond (s.«in», s.strm.next_in, s.strm.avail_in)) :
@@ -628,9 +628,9 @@ theorem gz_avail_safe (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
         simp only [g_bind_app, crun']
         obtain ⟨r, fs', after, run, hr, hk, post, s', hs', hrec, hfs', hfl, hist⟩ := availLoad_run huZ hm hsz hfs hav heof0 hnc
         exact ⟨r, fs', after, run, hr, hk, post_pre frZ hliveZ hownZ post, s', hs', hrec, hfs', hfl, fun k => (hist k).trans (by rw [histZ])⟩
-      · rw [if_neg h2]
+      · rw [ite_eq_right h2]
         exact availLoad_run hu hm hsz hfs hav heof0 hnc
-    · rw [if_neg h1]
+    · rw [ite_eq_right h1]
       exact availLoad_run hu hm hsz hfs hav heof0 hnc
   obtain ⟨r, fs', after, run, post⟩ := key
   refine ⟨fun e he => ?_, fun _ => ⟨r, fs', after, run⟩, fun r' fs3 after' he => ?_⟩

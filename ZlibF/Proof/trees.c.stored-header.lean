@@ -64,7 +64,7 @@ theorem stored_block_header_source (s : DeflateStatePtr) (buf : BPtr) (length : 
         memcpyB dst buf length.toNat
       md s fun d => { d with pending := d.pending + length }) := by
   unfold «_tr_stored_block» storedBlockHeader
-  simp only [M_bind_assoc, M_pure_bind]
+  simp only [M_bind_assoc]
 
 def storedHeaderBits (d : DeflateState) (length : UInt64) (last : Bool) : List Bool :=
   natBits (if last then 1 else 0) 3 ++
@@ -129,7 +129,7 @@ theorem stored_block_header_emit {h : Heap} {id b : Nat} {d : DeflateState} {buf
     ((diffT.trans diffW).trans diffF).trans diffR⟩
   · unfold storedBlockHeader
     rw [arith]
-    simp only [M_pure_bind, bind_app, pure_app, tagRun, windRun, firstRun, secondRun]
+    simp only [bind_app, pure_app, tagRun, windRun, firstRun, secondRun]
   · rw [outputR, outputF, outputW, outputT, countT]
     simp only [storedHeaderBits, List.append_assoc]
   · rw [pendingT] at upperW

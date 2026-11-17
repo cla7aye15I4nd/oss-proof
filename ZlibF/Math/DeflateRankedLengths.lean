@@ -36,7 +36,7 @@ theorem value_counts (H f : Nat → Nat) (hm J maxc x : Nat) :
   · have same := idxR_rank (selected H hm maxc) bound (by simp only [selected, leaf, decide_true])
     simp only [value, index, selected, leaf, decide_true, true_and] at same ⊢
     rw [same]
-    by_cases equal : f (H (hm + 1 + i)) = x <;> simp only [equal, beq_iff_eq, decide_eq_true_eq, and_true, and_false, ite_true, ite_false, true_and]
+    by_cases equal : f (H (hm + 1 + i)) = x <;> simp only [equal, beq_iff_eq, ite_true, ite_false]
   · simp [selected, leaf]
 
 /-- Heap-position order becomes rank order because the inverse index is

@@ -108,7 +108,7 @@ The fourteen source bits and exact input cursor are accounted on one run. -/
 theorem inflate_TABLE_default_J_entry {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
     (E : Env c h r zs z s) (invariant : DefaultDecodeJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = TABLE) :
+    (buffers : DispatchBuffers h r l bs) (_mode : s.mode = TABLE) :
     ∃ regs after stream state used, used ≤ bs.length ∧ DefaultDecodeJ after r zs stream state ∧
       DispatchBuffers after r regs (bs.drop used) ∧ ByteViewSizes h after ∧
       regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
@@ -226,7 +226,7 @@ theorem inflate_dispatch_TABLE {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC,
-    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS]
+    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE]
 
 /-- The real switch selects the LENLENS construction mode. -/
 theorem inflate_dispatch_LENLENS {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -235,7 +235,7 @@ theorem inflate_dispatch_LENLENS {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC,
-    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS]
+    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS]
 
 /-- The real switch selects the CODELENS construction mode. -/
 theorem inflate_dispatch_CODELENS {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -317,7 +317,7 @@ theorem inflate_dispatch_construction_trees_J_rank {c : Ctx} {h : Heap} {r : ZSt
         rw [bad]
         rcases mode with selected | selected | selected <;> rw [selected] <;> decide
   · obtain ⟨_, run⟩ := continued
-    rw [if_pos flush] at run
+    rw [ite_eq_left flush] at run
     exact ⟨.error Ex.leave, regs, after, stream, state, used, bound, run, nextJ, packet, sizes,
       cursor, count, put, left, total, by omega, Or.inl rfl⟩
 

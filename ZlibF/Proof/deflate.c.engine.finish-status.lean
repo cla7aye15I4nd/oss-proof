@@ -59,16 +59,16 @@ theorem public_strategy_finish_started {h : Heap} {r : ZStreamRef} {ds : Nat} {z
 /-- A completed final block records FINISH_STATE, then executes the
 actual public trailer statements without another strategy call. -/
 theorem public_strategy_finish_done {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (hz : r.get h = some z) (hs : h.dstates ds = some d) :
+    (_hz : r.get h = some z) (hs : h.dstates ds = some d) :
     publicStrategyReturn (some r) (some (.tab ds)) Z_FINISH finish_done h =
       publicFinishTail (some r) (some (.tab ds)) Z_FINISH
         (setD h ds { d with status := FINISH_STATE }) := by
   unfold publicStrategyReturn
-  simp only [bind_app, pure_app, BEq.rfl,
+  simp only [bind_app, BEq.rfl,
     show (finish_done == finish_started) = false from rfl,
     show (finish_done == need_more) = false from rfl,
     show (finish_done == block_done) = false from rfl,
-    Bool.true_or, Bool.or_true, Bool.false_or, Bool.false_eq_true, ite_false, ite_true,
+    Bool.or_true, Bool.false_or, Bool.false_eq_true, ite_false, ite_true,
     wrD_eq, hs]
 
 end Zlib.Deflate.Engine.Proofs

@@ -69,7 +69,7 @@ theorem crcBit_xor (x y : UInt32) : crcBit (x ^^^ y) = crcBit x ^^^ crcBit y := 
   unfold crcBit
   have e : (x ^^^ y) &&& 1 = (x &&& 1) ^^^ (y &&& 1) := and_xor32 _ _ _
   rcases and1_cases x with hx | hx <;> rcases and1_cases y with hy | hy <;>
-    simp [e, hx, hy, UInt32.shiftRight_xor, xor_pp32, xor_cancel32]
+    simp [e, hx, hy, UInt32.shiftRight_xor, xor_pp32]
   · ac_rfl
   · ac_rfl
 
@@ -121,9 +121,74 @@ theorem crc_table_eq : ∀ n : Fin 256, Crc32H.crc_table[n.val]! = pw 8 (UInt32.
 theorem braid_size : Crc32H.crc_braid_table.size = 8 ∧ ∀ j : Fin 8, Crc32H.crc_braid_table[j.val]!.size = 256 := by
   decide +kernel
 
+/-! `braid_eq` by linearity: `pw m` is linear (`pw_xor`), so on a byte it is the XOR of its values on the set bits
+(`byteLin_pw`, `byteLin_id`). The kernel then checks each row of the table against 8 values of `pw` instead of 256,
+one row at a time; checking the whole table against `pw` at once took 8 GB. -/
+
+/-- `f` applied bit by bit to the byte `n`: the XOR of `f (2 ^ b)` over the set bits `b` of `n`. -/
+def byteLin (f : UInt32 → UInt32) (n : Nat) : UInt32 :=
+  (List.range 8).foldl (fun acc b => if n.testBit b then acc ^^^ f (UInt32.ofNat (2 ^ b)) else acc) 0
+
+theorem byteLin_pw (m n : Nat) : byteLin (pw m) n = pw m (byteLin id n) := by
+  have : ∀ (l : List Nat) (acc : UInt32),
+      l.foldl (fun acc b => if n.testBit b then acc ^^^ pw m (UInt32.ofNat (2 ^ b)) else acc) (pw m acc) =
+        pw m (l.foldl (fun acc b => if n.testBit b then acc ^^^ id (UInt32.ofNat (2 ^ b)) else acc) acc) := by
+    intro l
+    induction l with
+    | nil => intro acc; rfl
+    | cons b l ih =>
+      intro acc
+      simp only [List.foldl_cons]
+      split
+      · rw [← pw_xor]; exact ih _
+      · exact ih _
+  have h := this (List.range 8) 0
+  rw [pw_zero] at h
+  exact h
+
 set_option maxRecDepth 100000 in
+theorem byteLin_id : ∀ n : Fin 256, byteLin id n.val = UInt32.ofNat n.val := by decide +kernel
+
+set_option maxRecDepth 100000 in
+theorem braid_row0 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[0]![n.val]! = byteLin (pw (8 * (40 - 0))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row1 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[1]![n.val]! = byteLin (pw (8 * (40 - 1))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row2 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[2]![n.val]! = byteLin (pw (8 * (40 - 2))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row3 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[3]![n.val]! = byteLin (pw (8 * (40 - 3))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row4 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[4]![n.val]! = byteLin (pw (8 * (40 - 4))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row5 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[5]![n.val]! = byteLin (pw (8 * (40 - 5))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row6 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[6]![n.val]! = byteLin (pw (8 * (40 - 6))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid_row7 : ∀ n : Fin 256,
+    Crc32H.crc_braid_table[7]![n.val]! = byteLin (pw (8 * (40 - 7))) n.val := by decide +kernel
+
 theorem braid_eq : ∀ j : Fin 8, ∀ n : Fin 256,
-    Crc32H.crc_braid_table[j.val]![n.val]! = pw (8 * (40 - j.val)) (UInt32.ofNat n.val) := by decide +kernel
+    Crc32H.crc_braid_table[j.val]![n.val]! = pw (8 * (40 - j.val)) (UInt32.ofNat n.val) := by
+  intro j n
+  have hrow : Crc32H.crc_braid_table[j.val]![n.val]! = byteLin (pw (8 * (40 - j.val))) n.val := by
+    match j with
+    | ⟨0, _⟩ => exact braid_row0 n
+    | ⟨1, _⟩ => exact braid_row1 n
+    | ⟨2, _⟩ => exact braid_row2 n
+    | ⟨3, _⟩ => exact braid_row3 n
+    | ⟨4, _⟩ => exact braid_row4 n
+    | ⟨5, _⟩ => exact braid_row5 n
+    | ⟨6, _⟩ => exact braid_row6 n
+    | ⟨7, _⟩ => exact braid_row7 n
+    | ⟨_ + 8, h⟩ => exact absurd h (by omega)
+  rw [hrow, byteLin_pw, byteLin_id]
 
 /-! ### Linear maps are determined by their values on the unit vectors -/
 
@@ -412,7 +477,7 @@ theorem and_pow_ne (n i : Nat) : (n &&& 2 ^ i ≠ 0) ↔ n.testBit i = true := b
     · simp [hk]
   · intro h h0
     have := congrArg (fun z => z.testBit i) h0
-    simp [Nat.testBit_and, Nat.testBit_two_pow, h] at this
+    simp [Nat.testBit_and, h] at this
 
 theorem and_mm_ne (a : UInt64) (j : Nat) (hj : j ≤ 31) :
     (a &&& mm j != 0) = decide (a.toUInt32.toNat.testBit (31 - j) = true) := by
@@ -429,7 +494,7 @@ theorem and_mm_ne (a : UInt64) (j : Nat) (hj : j ≤ 31) :
   · have : ¬ (a &&& mm j ≠ 0) := fun hh => h (h1.mp hh)
     simp [h]; simpa using this
 
-theorem and_mm_pred_eq (a : UInt64) (j : Nat) (hj : j ≤ 31) :
+theorem and_mm_pred_eq (a : UInt64) (j : Nat) (_hj : j ≤ 31) :
     (a &&& (mm j - 1) == 0) = decide (a.toNat % 2 ^ (31 - j) = 0) := by
   have h1 : (mm j - 1).toNat = 2 ^ (31 - j) - 1 := by
     rw [UInt64.toNat_sub_of_le, mm_toNat]; rfl
@@ -558,8 +623,8 @@ theorem multmodp_ok (h : Heap) (a b : UInt64) (ha : a.toUInt32 ≠ 0) (hb : b.to
         rw [← pw_succ'] at hb'
         have hm : mm j >>> 1 = mm (j + 1) := mm_shr j (by omega)
         cases hbit : bitAt a.toUInt32 j
-        · rw [ite_eq_right (by simp [hbit]), hm, hb']; simp [mulpAux, hbit]
-        · rw [ite_eq_left (by simp [hbit]), ite_eq_right hst', hm, hb']; simp [mulpAux, hbit, UInt32.toUInt64_xor]
+        · rw [ite_eq_right (by simp), hm, hb']; simp [mulpAux, hbit]
+        · rw [ite_eq_left (by simp), ite_eq_right hst', hm, hb']; simp [mulpAux, hbit, UInt32.toUInt64_xor]
     · intro s hP
       obtain ⟨m, p, bb, brk⟩ := s
       obtain ⟨h1, h2⟩ := hP
@@ -1044,7 +1109,7 @@ def wsteps : Nat → UInt64 → UInt64
   | 0, d => d
   | n + 1, d => wstep (wsteps n d)
 
-theorem toUInt32_ofNat_eq (x : UInt64) (h : x.toNat < 256) : UInt32.ofNat x.toNat = x.toUInt32 := by
+theorem toUInt32_ofNat_eq (x : UInt64) (_h : x.toNat < 256) : UInt32.ofNat x.toNat = x.toUInt32 := by
   apply UInt32.toNat_inj.mp
   rw [UInt32.toNat_ofNat', UInt64.toNat_toUInt32]
 
@@ -1118,10 +1183,10 @@ theorem bx_wob_0 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b
   unfold bx
   apply u32_ext
   intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
+  simp [wob, UInt64.toBitVec_shiftLeft]
   by_cases h8 : i < 8
   · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
+      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp
   · have : ¬ (255#32).getLsbD i = true := by rw [getLsbD_255 i (by omega)]; decide
     simp [this]
     intro _
@@ -1134,7 +1199,7 @@ theorem bx_wob_1 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b
   simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
   by_cases h8 : i < 8
   · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
+      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp
   · have : ¬ (255#32).getLsbD i = true := by rw [getLsbD_255 i (by omega)]; decide
     simp [this]
     intro _
@@ -1586,7 +1651,7 @@ theorem val_step (bs : Array UInt8) (c0 c1 c2 c3 c4 : UInt32) (o : Nat) :
     Val (pw 256 (rbFrom bs c0 o 8)) (pw 256 (rbFrom bs c1 (o + 8) 8)) (pw 256 (rbFrom bs c2 (o + 16) 8))
       (pw 256 (rbFrom bs c3 (o + 24) 8)) (pw 256 (rbFrom bs c4 (o + 32) 8)) = pw 320 (chain bs c0 c1 c2 c3 c4 o) := by
   unfold chain Val
-  simp only [rbFrom8_xor, pw_xor, Nat.reduceMul, ← pw_add, Nat.reduceAdd]
+  simp only [rbFrom8_xor, pw_xor, ← pw_add, Nat.reduceAdd]
   ac_rfl
 
 /-! ### One byte of the table-driven CRC -/
@@ -2027,7 +2092,7 @@ theorem loopBlk_ok (h : Heap) (blk o1 B : Nat) (bs : Array UInt8) (hb : h.bytes 
   · refine ⟨0, by omega, rfl, rfl, ?_⟩
     simp [Val, rbFrom_zero, pw_zero]
 
-theorem ofNat_div64 (n k : Nat) (hn : n < 2 ^ 64) (hk : 0 < k) (hk64 : k < 2 ^ 64) :
+theorem ofNat_div64 (n k : Nat) (hn : n < 2 ^ 64) (_hk : 0 < k) (hk64 : k < 2 ^ 64) :
     UInt64.ofNat n / UInt64.ofNat k = UInt64.ofNat (n / k) := by
   apply UInt64.toNat_inj.mp
   rw [UInt64.toNat_div, UInt64.toNat_ofNat', UInt64.toNat_ofNat', UInt64.toNat_ofNat',
@@ -2260,7 +2325,7 @@ theorem get_crc_table_correct (h : Heap) (hs : StaticsOK h) (i : Nat) (hi : i < 
     rw [h1, crcByte_eq, UInt32.zero_xor]
     congr 1
     apply UInt32.toNat_inj.mp
-    simp [UInt8.toNat_ofNat, UInt32.toNat_ofNat']
+    simp [UInt32.toNat_ofNat']
     omega
   rw [e]
 

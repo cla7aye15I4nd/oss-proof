@@ -186,7 +186,7 @@ theorem copyMatch_run (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt3
             rw [cpyG_id]
             unfold matchArrA
             have h1 : o - e.bg < l.dist.toNat := by omega
-            simp only [h1, hwsz, ite_true]
+            simp only [h1, ite_true]
             have h3 : op1.toNat = l.dist.toNat - (o - e.bg) := hop1
             have h4' : l.dist.toNat - (o - e.bg) < l.len.toNat := by omega
             have h5 : e.woff + (c.wsize.toNat - (l.dist.toNat - (o - e.bg))) =
@@ -260,7 +260,7 @@ theorem copyMatch_run (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt3
             unfold matchArr
             have h1 : o - e.bg < l.dist.toNat := by omega
             have h2 : e.s0.wnext.toNat = 0 := by rw [← hwnx]; rw [hn0]; rfl
-            simp only [h1, h2, hwsz, ite_true]
+            simp only [h1, h2, ite_true]
             have h3 : op1.toNat = l.dist.toNat - (o - e.bg) := hop1
             have h4 : op1.toNat < l.len.toNat := by omega
             have h4' : l.dist.toNat - (o - e.bg) < l.len.toNat := by omega
@@ -383,7 +383,7 @@ theorem copyMatch_run (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt3
                 simp only [h1, h2, h3, h4, h5, ite_true, ite_false]
                 rw [← hA1, hfo1]
                 have hop2' : op2.toNat = l.dist.toNat - (o - e.bg) - e.s0.wnext.toNat := by omega
-                simp only [hop2', hwnx]
+                simp only [hop2']
           · simp only [hlt, ite_false]
             have hlt' : l.len.toNat ≤ op2.toNat := by
               have h1 : ¬ (op2 < l.len) := hlt

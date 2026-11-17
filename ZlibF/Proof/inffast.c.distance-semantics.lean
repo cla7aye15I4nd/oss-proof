@@ -91,7 +91,7 @@ theorem distance_lookup_matches_format : Goal.distance_lookup_matches_format := 
       refine ⟨?_, ?_, by omega, leaf⟩
       · simp only [tableRead, rootRead, bind, Option.bind, firstCell]
         simp only [show DISTS ≠ LENS by decide, ite_false, opMask, BEq.rfl, ite_true]
-        simp only [secondRead, Option.bind_some, secondCell]
+        simp only [secondRead, secondCell]
         simp [hconsumed]
       · omega
   obtain ⟨query, positive, codeLe, leaf⟩ := selected

@@ -1,6 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-search-encoding»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-refill-encoding»
-import ZlibF.Proof.«deflate.c.engine.body-encoding»
+import ZlibF.Proof.«deflate.c.engine.refill-encoding»
+import ZlibF.Proof.«deflate.c.engine.finish-strategy-step»
 
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public

@@ -41,7 +41,7 @@ theorem public_busy_block_effect_execution {h : Heap} {r : ZStreamRef} {ds ob oo
   · obtain ⟨current, old, _rank, _oldRank, source⟩ := public_busy_valid_entry_choice boundary.good
       status queued nonnull positive inputValid lower upper Z_BLOCK (by decide) (by decide)
     by_cases duplicate : (z.avail_in == 0 && decide (current ≤ old) && Z_BLOCK != Z_FINISH) = true
-    · rw [if_pos duplicate] at source
+    · rw [ite_eq_left duplicate] at source
       obtain ⟨message, refused⟩ := err_return_run state0.good.live.hz Z_BUF_ERROR
       let z' := { z with msg := message }
       have goodA := stream_control_good (z' := z') state0.good rfl boundary.good.live.zalloc boundary.good.live.zfree
@@ -60,7 +60,7 @@ theorem public_busy_block_effect_execution {h : Heap} {r : ZStreamRef} {ds ob oo
       exact ⟨0, 0, Z_BUF_ERROR, _, z', _, source.trans refused, goodA, account,
         by simp [z'], by simp [z'], interval, shape, full_private_frame_add_output privateFrame,
         full_shape_live_change shape, allocE, nextE⟩
-    · rw [if_neg duplicate] at source
+    · rw [ite_eq_right duplicate] at source
       have ready : PublishReady { d with last_flush := Z_BLOCK } :=
         ⟨queued, boundary.empty_cursor queued, boundary.bits⟩
       obtain ⟨used, produced, after, z', result, run, goodA, _buffersA, accountA,

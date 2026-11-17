@@ -67,9 +67,9 @@ theorem ws_gen_bitlen_rank_trace {h0 : Heap} {id : Nat} {tk : TK} {d : DeflateSt
       rw [finalCounts]
       by_cases zero : j = 0
       · subst j
-        rw [if_neg (by omega)]
+        rw [ite_eq_right (by omega)]
         exact rctx.c0
-      · rw [if_pos (by omega)]
+      · rw [ite_eq_left (by omega)]
     have ranks := LeafRank.value_eq_lenOfRank (ordered nonzero)
       (by have := ctx.shape.hm_eq; omega) lengths histogram
     exact ⟨R + 1, by omega, rounds, ranks⟩

@@ -80,7 +80,7 @@ theorem u32_sub_one_eq {x : UInt32} (h : x.toNat = 1) : ((x - 1) != 0) = false :
   simp [h0]
 
 /-- `do { *out++ = *from++; } while (--op);` copying from a block `fb` other than the output block. -/
-theorem copyOp_win_go (A S : Array UInt8) (msg : BPtr) (m : UInt32) (fb : BRef) (hfb : fb ≠ e.ob)
+theorem copyOp_win_go (_A S : Array UInt8) (msg : BPtr) (m : UInt32) (fb : BRef) (hfb : fb ≠ e.ob)
     (hSg : Space.get e.h0 fb = some S) :
     ∀ n (l : L) (fo oo : Nat) (A : Array UInt8) (fu : Nat), l.op.toNat = n + 1 → n ≤ fu →
       l.from_ = .ref fb fo → l.out = .ref e.ob oo → fo + n + 1 ≤ S.size → oo + n + 1 ≤ A.size →
@@ -99,7 +99,7 @@ theorem copyOp_win_go (A S : Array UInt8) (msg : BPtr) (m : UInt32) (fb : BRef) 
     have h0 : l.op - 1 = 0 := by
       apply UInt32.toNat_inj.mp
       simp [u32_sub_one_toNat (x := l.op) (by omega), hop]
-    simp [h1, h0, blitN]
+    simp [h0, blitN]
   | succ n ih =>
     intro l fo oo A fu hop hfu hf ho hfo hoo
     obtain ⟨fu, rfl⟩ : ∃ fu', fu = fu' + 1 := ⟨fu - 1, by omega⟩
@@ -354,7 +354,7 @@ theorem whileTail_go {fb : BRef} {sel : Array UInt8 → Array UInt8} (hs : Src e
     rw [cwhile.go, bind_ok (cond3_false (by omega) _)]
     simp only [Bool.false_eq_true, ite_false, pure_app, cpyG, Nat.mul_zero, Nat.add_zero]
     have hlen : l.len = UInt32.ofNat r := by
-      apply UInt32.toNat_inj.mp; simp [UInt32.toNat_ofNat, Nat.mod_eq_of_lt (show r < 2 ^ 32 by omega)]; omega
+      apply UInt32.toNat_inj.mp; simp [Nat.mod_eq_of_lt (show r < 2 ^ 32 by omega)]; omega
     rcases l with ⟨i1, o1, h1, b1, he1, op1, ln1, d1, f1, br1, al1, ad1⟩
     simp only at hf ho hlen ⊢
     subst hf ho hlen
@@ -386,7 +386,7 @@ theorem tailW_run {fb : BRef} {sel : Array UInt8 → Array UInt8} (hs : Src e fb
   rw [fuel_pred] at key
   unfold tailW cwhile
   rw [bind_ok key]
-  have hr : (UInt32.ofNat (n % 3)).toNat = n % 3 := by simp [UInt32.toNat_ofNat]; omega
+  have hr : (UInt32.ofNat (n % 3)).toNat = n % 3 := by simp; omega
   have hn3 : n = 3 * (n / 3) + n % 3 := by omega
   rw [tailIf_run hs (cpyG sel (3 * (n / 3)) fo oo A) msg m _ (n % 3) (fo + 3 * (n / 3)) (oo + 3 * (n / 3)) hr
     (by omega) rfl rfl (by rw [hs.sel_cpyG]; omega) (by rw [cpyG_size]; omega)]
@@ -411,7 +411,7 @@ theorem doTail_go {fb : BRef} {sel : Array UInt8 → Array UInt8} (hs : Src e fb
     rw [bind_ok (cond3_false (l := { l with from_ := Ptr.ref fb (fo + 3), out := Ptr.ref e.ob (oo + 3), len := l.len - 3 }) (by simp; omega) _)]
     simp only [Bool.false_eq_true, ite_false, pure_app, cpyG]
     have hlen : l.len - 3 = UInt32.ofNat r := by
-      apply UInt32.toNat_inj.mp; simp [UInt32.toNat_ofNat, Nat.mod_eq_of_lt (show r < 2 ^ 32 by omega)]; omega
+      apply UInt32.toNat_inj.mp; simp [Nat.mod_eq_of_lt (show r < 2 ^ 32 by omega)]; omega
     simp [hlen]
   | succ q ih =>
     intro l fo oo A fu r hr hl hfu hf ho hfo hoo
@@ -440,7 +440,7 @@ theorem tailD_run {fb : BRef} {sel : Array UInt8 → Array UInt8} (hs : Src e fb
   rw [fuel_pred] at key
   unfold tailD cdoWhile
   rw [bind_ok key]
-  have hr : (UInt32.ofNat (n % 3)).toNat = n % 3 := by simp [UInt32.toNat_ofNat]; omega
+  have hr : (UInt32.ofNat (n % 3)).toNat = n % 3 := by simp; omega
   have hn3 : n = 3 * (q + 1) + n % 3 := by omega
   rw [tailIf_run hs (cpyG sel (3 * (q + 1)) fo oo A) msg m _ (n % 3) (fo + 3 * (q + 1)) (oo + 3 * (q + 1)) hr
     (by omega) rfl rfl (by rw [hs.sel_cpyG]; omega) (by rw [cpyG_size]; omega)]

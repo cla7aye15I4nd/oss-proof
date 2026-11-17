@@ -44,7 +44,7 @@ theorem finish_to_reset (h : Heap) (ds : Nat) (r : ZStreamRef) (level : Int32)
     have add := Ptr.add_nat_ok (off := 0) (n := 16384) hget (by simp [byteGarbage])
     simpa only [OkOn, padd, Nat.zero_add] using add
   unfold finish
-  simp only [bind_app, Bool.or_false, Bool.false_or]
+  simp only
   change (do
     let sym_buf ← padd (.ref (.blk (h.nextBlk + 3)) 0 : BPtr) 16384
     wr (some (.tab ds)) (fun d => { d with sym_buf, sym_end := 49149 })
@@ -58,7 +58,7 @@ theorem finish_to_reset (h : Heap) (ds : Nat) (r : ZStreamRef) (level : Int32)
 requests. pending_out and window_size are deliberately left for reset. -/
 theorem ready_storage {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat}
     (level : Int32) (hf : Fresh h) (hu : Uniq h) (hz : r.get h = some z)
-    (hs : h.dstates ds = some (baseState r)) (hds : ds < h.nextBlk)
+    (hs : h.dstates ds = some (baseState r)) (_hds : ds < h.nextBlk)
     (halloc : DefAlloc z) (hzs : z.state = some (.deflate ds))
     (hstatic : TreesStatic h.static)
     (ha : ∀ j, j < 4 → h.allocOk (h.nalloc + j) = true) :
@@ -89,18 +89,18 @@ theorem ready_storage {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat}
       ?_, ?_, by omega, by omega, 0, rfl, ?_⟩
     all_goals simp [g, readyHeap, successfulBuffers, d, readyState, allocatedState, baseState,
       byteGarbage, wordGarbage, DeflateState.zeroed, DeflateState.garbage, Junk.of]
-  refine ⟨⟨hgZ, by simp [g, readyHeap], hzs, rfl, Or.inl rfl,
+  refine ⟨⟨hgZ, by simp [readyHeap], hzs, rfl, Or.inl rfl,
     by rw [halloc.1]; decide, by rw [halloc.2]; decide⟩,
     ?_, hb, hsh.uniq huB, hsh.fresh (by rfl) hfB⟩
-  refine ⟨by simp [g, readyHeap], wf, ?_, rfl, ?_, hb.bro, ?_, ?_, rfl,
+  refine ⟨by simp [readyHeap], wf, ?_, rfl, ?_, hb.bro, ?_, ?_, rfl,
     by change 128 ≤ (16384 : UInt32).toNat; decide +kernel,
     by change (16384 : UInt32).toNat ≤ 32768; decide +kernel,
     by change (49149 : UInt32).toNat = 3 * ((16384 : UInt32).toNat - 1); decide +kernel, ?_⟩
   · simpa [g, readyHeap, successfulBuffers] using hstatic
-  · simp [g, readyHeap, successfulBuffers]
-  · simp [g, readyHeap, successfulBuffers, d, readyState, allocatedState,
+  · simp [readyHeap, successfulBuffers]
+  · simp [readyHeap, successfulBuffers, readyState, allocatedState,
       byteGarbage]
-  · simp [g, readyHeap, successfulBuffers, d, readyState, allocatedState, byteGarbage]
-  · simp [d, readyState, allocatedState, baseState, DeflateState.zeroed, DeflateState.garbage, Junk.of]
+  · simp [readyHeap, successfulBuffers, readyState, allocatedState, byteGarbage]
+  · simp [readyState, allocatedState, baseState, DeflateState.zeroed, DeflateState.garbage, Junk.of]
 
 end Zlib.Deflate.Proofs.DefaultInit

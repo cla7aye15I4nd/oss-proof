@@ -331,11 +331,11 @@ theorem clTail_run_good {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
         lit_missing_eob hr hc good.live.hz good.live.hs
       refine ⟨l.ret, tcBadHeap h r zs z s i, _, _, ?_, good_bad_mode good i,
         rfl, bad_dataTableInvariant _ _, ?_⟩
-      · rw [tailRun, if_pos zero]
-        simpa [runX_bind, runX_lift_ok badRun, runX_pure]
+      · rw [tailRun, ite_eq_left zero]
+        simp [runX_bind, runX_lift_ok badRun, runX_pure]
       · rw [self]
         exact (B.put_stream r { z with msg := .ref (.str i) 0 }).setI zs { s with mode := BAD }
-    · rw [tailRun, if_neg zero]
+    · rw [tailRun, ite_eq_right zero]
       exact clTables_run_good hr hc good pointer nlen ndist lengths B
 
 /-- The complete actual CODELENS mode reaches a checked exit or the actual
@@ -369,8 +369,8 @@ theorem inflate_CODELENS_boundary {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
       rw [inflate_CODELENS_eq, runX_bind, run]
     refine ⟨used, regs, usedBound, bits, Or.inl ?_⟩
     exact ⟨.error e, after, stream, state, source, nextGood, nextData, nextB, Or.inl (by intro eq; cases eq)⟩
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (inflate_CODELENS c) l h = runX (clTail c) regs after := by
       rw [inflate_CODELENS_eq, runX_bind, run]
     have done : state.mode = CODELENS → state.«have».toNat = state.nlen.toNat + state.ndist.toNat := by
@@ -414,7 +414,7 @@ theorem inflate_CODELENS_trees_safe {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRe
     intro ok
     exact why.resolve_left (fun unequal => unequal ok)
   · obtain ⟨after, stream, state, nextGood, _, data, nextB, run⟩ := continued
-    rw [if_pos flush] at run
+    rw [ite_eq_left flush] at run
     exact ⟨used, regs, .error Ex.leave, after, stream, state, usedBound, bits,
       run, nextGood, data, nextB, fun impossible => by cases impossible⟩
 

@@ -45,7 +45,7 @@ theorem BufferFrame.view_kept {b c : Heap} {changed : Nat → Prop} {regions : L
   · change b.bytes i = some y at get
     have live : b.live i := Or.inl (by rw [get]; simp)
     obtain ⟨bytes, _⟩ := slots i live unchanged
-    rw [restoreRegions_bytes, if_neg (fun both => outside both.1)] at bytes
+    rw [restoreRegions_bytes, ite_eq_right (fun both => outside both.1)] at bytes
     change c.bytes i = some y
     rw [bytes, get]
   · change (b.dstates i).map (·.depth) = some y at get
@@ -54,7 +54,7 @@ theorem BufferFrame.view_kept {b c : Heap} {changed : Nat → Prop} {regions : L
     | some d =>
       have live : b.live i := Or.inr (Or.inr (Or.inr (Or.inr (Or.inl (by rw [present]; simp)))))
       obtain ⟨_, _, _, _, dstates, _⟩ := slots i live unchanged
-      rw [restoreRegions_dstates, if_neg outside] at dstates
+      rw [restoreRegions_dstates, ite_eq_right outside] at dstates
       change (c.dstates i).map (·.depth) = some y
       rw [dstates, ← get]
 
@@ -133,7 +133,7 @@ theorem BufferFrame.trans_within {a b c : Heap} {changed : Nat → Prop} {R S : 
       split
       · rfl
       · next notBoth =>
-        rw [restoreRegions_bytes, if_neg notBoth] at bL
+        rw [restoreRegions_bytes, ite_eq_right notBoth] at bL
         rw [restoreRegions_bytes] at bR
         split at bR
         · next both =>
@@ -146,18 +146,18 @@ theorem BufferFrame.trans_within {a b c : Heap} {changed : Nat → Prop} {R S : 
     · rw [restoreRegions_dstates]
       rw [restoreRegions_dstates] at dL dR
       by_cases rootR : RegionRoot R (.dstate_depth x)
-      · rw [if_pos rootR]
-        rw [if_pos rootR] at dL
+      · rw [ite_eq_left rootR]
+        rw [ite_eq_left rootR] at dL
         change depthBack _ _ = _ at dL ⊢
         by_cases rootS : RegionRoot S (.dstate_depth x)
-        · rw [if_pos rootS] at dR
+        · rw [ite_eq_left rootS] at dR
           change depthBack _ _ = _ at dR
           exact depthBack_trans dL dR
-        · rw [if_neg rootS] at dR
+        · rw [ite_eq_right rootS] at dR
           exact depthBack_same dL dR
-      · rw [if_neg rootR]
-        rw [if_neg rootR] at dL
-        rw [if_neg (fun rootS => rootR (within.1 _ rootS))] at dR
+      · rw [ite_eq_right rootR]
+        rw [ite_eq_right rootR] at dL
+        rw [ite_eq_right (fun rootS => rootR (within.1 _ rootS))] at dR
         rw [dR, dL]
   · intro region member ref off x pointer get
     obtain ⟨y, getB, sizeY, sameY⟩ := cellsL region member ref off x pointer get
