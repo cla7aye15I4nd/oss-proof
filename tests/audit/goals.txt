@@ -276,3 +276,17 @@ ZlibF.Spec.Public.Goal.gzwrite_safety
 ZlibF.Spec.Public.Goal.inflateBack_safety
 ZlibF.Spec.Public.Goal.inflateBackEnd_safety
 ZlibF.Spec.Public.Goal.inflateBackInit__safety
+ZlibF.Spec.Public.Goal.default_inflate_progress
+ZlibF.Spec.Public.Goal.default_inflate_completes
+ZlibF.Spec.Public.Goal.stream_roundtrip
+ZlibF.Spec.Public.Goal.deflate_completes_default
+ZlibF.Spec.Public.Goal.deflate_bound_default
+ZlibF.Spec.Public.Goal.compress_completes
+ZlibF.Spec.Public.Goal.compress_z_completes
+ZlibF.Spec.Public.Goal.inflate_completes_default
+ZlibF.Spec.Public.Goal.inflate_chain_ends
+ZlibF.Spec.Public.Goal.deflate_finish_ends
+ZlibF.Spec.Public.Goal.stream_roundtrip_total
+ZlibF.Spec.Public.Goal.uncompress_completes
+ZlibF.Spec.Public.Goal.compress_uncompress_roundtrip
+ZlibF.Spec.Public.Goal.compress_uncompress_roundtrip_witness

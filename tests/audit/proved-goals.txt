@@ -229,3 +229,17 @@ ZlibF.Spec.Public.Goal.zlibVersion_safety
 ZlibF.Spec.Token.Goal.rejected_has_no_symbols
 ZlibF.Spec.Token.Goal.step_composes_symbols
 ZlibF.Spec.Token.Goal.symbols_exposes_step
+ZlibF.Spec.Public.Goal.default_inflate_progress
+ZlibF.Spec.Public.Goal.default_inflate_completes
+ZlibF.Spec.Public.Goal.stream_roundtrip
+ZlibF.Spec.Public.Goal.deflate_completes_default
+ZlibF.Spec.Public.Goal.deflate_bound_default
+ZlibF.Spec.Public.Goal.compress_completes
+ZlibF.Spec.Public.Goal.compress_z_completes
+ZlibF.Spec.Public.Goal.inflate_completes_default
+ZlibF.Spec.Public.Goal.inflate_chain_ends
+ZlibF.Spec.Public.Goal.deflate_finish_ends
+ZlibF.Spec.Public.Goal.stream_roundtrip_total
+ZlibF.Spec.Public.Goal.uncompress_completes
+ZlibF.Spec.Public.Goal.compress_uncompress_roundtrip
+ZlibF.Spec.Public.Goal.compress_uncompress_roundtrip_witness

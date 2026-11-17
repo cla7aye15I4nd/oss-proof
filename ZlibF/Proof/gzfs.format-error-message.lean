@@ -15,7 +15,7 @@ theorem formatGo_sss (res : BPtr → Option (Array UInt8)) (path sep msg : BPtr)
     (hm : argStr res msg = some es) :
     formatGo #[37,115,37,115,37,115] res 7 0 [.str path, .str sep, .str msg] #[] =
       .ok (xs ++ middle ++ es) := by
-  simp [formatGo, parse_sss1, parse_sss2, parse_sss3, hp, hs, hm, pad]
+  simp [formatGo, parse_sss1, parse_sss2, parse_sss3, specDefined, hp, hs, hm, pad]
 
 /-- A successful real CString read cannot have used NULL. -/
 theorem cstring_nonnull {h after : Heap} {p : BPtr} {a : Array UInt8}

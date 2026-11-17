@@ -79,7 +79,7 @@ back can then be a use after free in the C
 | `gzfread`, `gzfwrite` | `size * nitems >= 2^64`: none. Otherwise the product is zero, or `buf` covers that many bytes (writable for `gzfread`, readable for `gzfwrite`) outside the handle's blocks. |
 | `gzgets(file, buf, len)` | `buf == NULL` or `len < 1`: none. Otherwise `buf` covers `len` writable bytes outside the handle's blocks. |
 | `gzputs(file, s)` | `s` is a NUL-terminated string outside the handle's blocks. |
-| `gzprintf`, `gzvprintf` | The format is a NUL-terminated string that the model's formatter can evaluate with the arguments (`Formatted`). The format string and every string argument lie outside the handle's blocks. |
+| `gzprintf`, `gzvprintf` | On a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed. The format string and every pointer argument lie outside the handle's blocks. The `vsnprintf` call is defined in C, with no `%n`: the caller's obligation. |
 | `gzerror(file, errnum)` | `errnum` is NULL or covers 4 writable bytes outside the handle's blocks. |
 | every other call | none: every value of every scalar argument is covered. |
 
@@ -1182,7 +1182,7 @@ separated and an allowed caller-visible effect. Valid compression parameters hol
 - **Goal.** `Goal.gzprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
-    2. the argument condition (`GzArguments`): the format is a NUL-terminated string that the model's formatter can evaluate with the given arguments (`Formatted`): integer, character and string conversions with the supported flags, widths, precisions and length modifiers; the format string and every string argument lie outside the handle's own blocks. The condition is asked also on a reader and on a handle in error, where the C does not read the format.
+    2. the argument condition (`GzArguments`): on a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed; the format string and every pointer argument lie outside the handle's own blocks. That the `vsnprintf` call is defined in C for the format and the arguments, with no `%n`, is the caller's ([trusted base](../../trusted-base.md)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
 - **Guarantees.**
     - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.
@@ -1247,7 +1247,7 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 - **Goal.** `Goal.gzvprintf_safety` ([Safety/GzCalls.lean](../../../ZlibF/Spec/Safety/GzCalls.lean)); required, although `zlib.h` lists this function as undocumented: `gzprintf` goes through it. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety` ([public-gz-call-safety.lean](../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
-    2. the argument condition (`GzArguments`): the format is a NUL-terminated string that the model's formatter can evaluate with the given arguments (`Formatted`): integer, character and string conversions with the supported flags, widths, precisions and length modifiers; the format string and every string argument lie outside the handle's own blocks. The condition is asked also on a reader and on a handle in error, where the C does not read the format.
+    2. the argument condition (`GzArguments`): on a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed; the format string and every pointer argument lie outside the handle's own blocks. That the `vsnprintf` call is defined in C for the format and the arguments, with no `%n`, is the caller's ([trusted base](../../trusted-base.md)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
 - **Guarantees.**
     - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.

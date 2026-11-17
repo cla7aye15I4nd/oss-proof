@@ -47,6 +47,7 @@ theorem inflate_history_trace {r : ZStreamRef} {h : Heap} {log : DataLog}
   | caller _ edit fit ih => exact .caller ih edit fit
   | step _ fit actual ih => exact .step ih fit actual
 
+/-- The conditional stream round trip (`Goal.stream_roundtrip`), from `deflate_inflate_roundtrip`. -/
 theorem stream_roundtrip : Goal.stream_roundtrip := by
   intro rd ri hd hi encoded decoded encoder decoder encEnd decEnd same
   exact DirectRoundtrip.deflate_inflate_roundtrip (history_generic encoder)
@@ -268,6 +269,7 @@ theorem finish_completes_of {r : ZStreamRef} {h : Heap} {log : DataLog} {z : ZSt
     have decodes := (clean_generic next).exact_decodes (by simp [deflateLogStep])
     simpa [deflateLogStep, List.take_length] using decodes
 
+/-- After a clean default history, a `Z_FINISH` call with room for more than the rest of the bound ends the stream (`Goal.deflate_completes_default`). -/
 theorem deflate_completes_default : Goal.deflate_completes_default := by
   intro r h log z input history unfinished get buffers output snapshot protocol room enough
   have header := clean_active_header history
@@ -334,6 +336,7 @@ theorem unsaturated_le_of_compressBound_le {n room : Nat} (fits : room < 4294967
     rw [unfolded, ite_eq_left (by omega : unsaturatedBound n ≥ 18446744073709551616)] at le
     omega
 
+/-- One `deflate(Z_FINISH)` call from a fresh default stream with `deflateBound` room ends the stream (`Goal.deflate_bound_default`). -/
 theorem deflate_bound_default : Goal.deflate_bound_default := by
   intro r h log z input n b history noInput noOutput unfinished bound get buffers output
     snapshot length room

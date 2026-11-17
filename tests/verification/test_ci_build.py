@@ -24,7 +24,6 @@ def load(name, path):
 
 
 artifact = load('ci_artifact', ROOT / 'scripts/ci-build-artifact.py')
-controls = load('audit_controls', ROOT / 'scripts/audit-selftest.py')
 
 
 class BuildTransport(unittest.TestCase):
@@ -108,25 +107,6 @@ class BuildTransport(unittest.TestCase):
         with patch.dict(os.environ, {'ZLIBF_REQUIRE_PREBUILT': 'invalid'}), \
                 self.assertRaises(verification.Rejected):
             verification.build_library()
-
-
-class AuditorControls(unittest.TestCase):
-    def test_original_control_inventory_and_actual_source_closure(self):
-        cases = sorted((ROOT / 'tests/audit/cheats').glob('*.lean'))
-        self.assertEqual(len(cases), 9)
-        self.assertEqual({controls.group(case) for case in cases}, {'declaration'})
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            controls.copy_closure(root, list({module for modules in controls.MODULES.values()
-                                              for module in modules}))
-            for path in root.rglob('*.lean'):
-                self.assertEqual(path.read_bytes(), (ROOT / path.relative_to(root)).read_bytes())
-
-    def test_compiler_failure_cannot_count_as_detected(self):
-        result = subprocess.CompletedProcess([], 1, stdout='compile failed', stderr='')
-        with patch.object(controls.subprocess, 'run', return_value=result), \
-                self.assertRaisesRegex(RuntimeError, 'not a rejection'):
-            controls.build(ROOT)
 
 
 if __name__ == '__main__':

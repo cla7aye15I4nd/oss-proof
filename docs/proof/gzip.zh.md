@@ -1,4 +1,4 @@
-<!-- source-sha256: aba764c5ee963cc0ec76c4f2449abdce00b8e90bd0ab9fb53987846432b6549b -->
+<!-- source-sha256: f883126b3a01b0f28f8d07831514e93329be64777ba39c9c6474d0c6f160664e -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -77,7 +77,7 @@ gzclose(f);                         /* 子句 5：全部释放，close 失败时
 | --- | --- | --- |
 | 打开时的调用者堆和世界 | `GzHistory.open`、`open64`、`dopen`；`GzOpenSafe`、`GzDopenSafe` | 堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`），每个字节对象少于 `2^63` 字节（`ByteObjectsFit`），世界是良构的（`FileSystem`），`path` 和 `mode` 是以 NUL 结尾的字符串（在子句 6 和 7 中也可以是 `NULL`）。 |
 | 调用者缓冲区 | `GzArguments`，经由 `GzRange` | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 和 `gzerror` 的缓冲区在请求的长度内可读，在调用要向其中存入数据时可写，并且与句柄拥有的块不重叠。`gzputs` 的参数是以 NUL 结尾的字符串。长度为 0 的请求、C 因大小而拒绝的请求、缓冲区为 `NULL` 或长度小于 1 的 `gzgets` 调用，以及 `gzerror` 的 `errnum` 为 `NULL` 的情形，都没有缓冲区前提。 |
-| `gzprintf` 和 `gzvprintf` 的参数 | `GzArguments` | 格式串是模型的格式化器对这些参数能表示的一种（`Formatted`；见[格式语言](../design/external-io.md#formatted-output)）。格式串和每个 `%s` 参数都与句柄的块不重叠。 |
+| `gzprintf` 和 `gzvprintf` 的参数 | `GzArguments` | 文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块。格式串和每个指针参数都与句柄的块不重叠。`vsnprintf` 调用在 C 中有定义，由调用者保证（[可信基础](../trusted-base.md)）。 |
 | 读取预算 | `ReadsFinite` | 句柄的描述符还能交付的字节少于 `2^61`。它只是 (b) 部分的前提，并且只针对六个读调用。这个前提还说描述符的编号不为负。库返回的每个句柄都有这样的编号：`GzOpenSafe` 对 `gzopen` 写明了这一点，而 `gzdopen` 对负的描述符返回 `NULL`。 |
 | 两次调用之间的调用者步骤 | `GzHistory.caller`：`GzCallerFrame`、`ByteObjectsFit` | 调用者只改动句柄不拥有的块。改动之后的堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`），其中每个字节对象少于 `2^63` 字节。 |
 | 两次调用之间的世界步骤 | `GzHistory.world`：`GzWorldStep` | 新的世界是良构的（`FileSystem`）。此外没有别的要求。 |
