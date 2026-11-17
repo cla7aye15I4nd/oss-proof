@@ -570,7 +570,7 @@ theorem decision_size_step {d d' : DeflateState} {produced : Nat} {ys : List Sym
     · have negative : d.block_start.toInt < 0 := by
         unfold defaultStoredSource at present
         by_cases nonneg : 0 ≤ d.block_start.toInt
-        · rw [if_pos nonneg] at present
+        · rw [ite_eq_left nonneg] at present
           cases present
         · omega
       have floor := slid negative
@@ -601,7 +601,7 @@ theorem packed_symbols_unique {buf : Array UInt8} {b : Nat} {xs ys : List Symbol
   have low := congrArg UInt8.toNat b1
   have high := congrArg UInt8.toNat b2
   have value := congrArg UInt8.toNat b3
-  simp only [UInt16.toNat_toUInt8, UInt16.toNat_shiftRight, UInt16.toNat_ofNat, UInt8.toNat_ofNat] at low high value
+  simp only [UInt16.toNat_toUInt8, UInt16.toNat_shiftRight, UInt16.toNat_ofNat] at low high value
   unfold Symbol.Valid at vxi vyi
   cases hx : xs[i] with
   | mk dx vx' =>

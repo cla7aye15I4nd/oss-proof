@@ -13,7 +13,7 @@ view. No raw-output assumption enters before pending publication. -/
 theorem generic_zlib_header_ready_engine {h : Heap} {r : ZStreamRef} {ds pb : Nat}
     {z : ZStream} {d : DeflateState} {buf : Array UInt8}
     (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r)
-    (pending : d.pending = 0) (cursor : d.pending_out = d.pending_buf) :
+    (_pending : d.pending = 0) (cursor : d.pending_out = d.pending_buf) :
     let next := levelHeaderBytes d.level buf
     let result := levelHeaderState d
     let stream := {z with adler := 1}

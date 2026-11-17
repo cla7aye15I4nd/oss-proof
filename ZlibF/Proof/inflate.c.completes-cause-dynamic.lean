@@ -139,7 +139,7 @@ theorem dyn_cause_core {c : Ctx} {f : LoopFrame} {r : ZStreamRef} {h : Heap} {l 
         · have e := runLeave.symm.trans r1
           simp only [Except.ok.injEq, Prod.mk.injEq] at e
           exact ⟨e.1.2.symm, e.2.symm⟩
-        · rw [if_pos (show (treesCtx c).flush = Z_TREES from rfl)] at r2
+        · rw [ite_eq_left (show (treesCtx c).flush = Z_TREES from rfl)] at r2
           have e := runLeave.symm.trans r2
           simp only [Except.ok.injEq, Prod.mk.injEq] at e
           exact ⟨e.1.2.symm, e.2.symm⟩

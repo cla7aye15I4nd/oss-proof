@@ -182,7 +182,7 @@ theorem clTail_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
         { s with mode := BAD }, ?_, current, rfl, tables, nextPending,
         by rw [self]; exact packet, sizes, static, ?_⟩
       · rw [tailRun, ite_eq_left zero]
-        simp [runX_bind, runX_lift_ok run, runX_pure, self]
+        simp [runX_bind, runX_lift_ok run, runX_pure]
       · exact ⟨rfl, rfl, by rfl⟩
     · have tables := clTables_buffers E good pending buffers pointer nlen ndist lengths
       rw [tailRun, ite_eq_right zero]

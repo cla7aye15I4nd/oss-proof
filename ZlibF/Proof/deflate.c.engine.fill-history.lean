@@ -49,7 +49,7 @@ theorem resumed_input_view {d : DeflateState} {wa ia : Array UInt8} {input : Nat
     omega
 
 theorem resume_read_history {h : Heap} {r : ZStreamRef} {ds w io origin : Nat}
-    {z : ZStream} {d : DeflateState} {ref : BRef} {wa ia : Array UInt8} {input : Nat → UInt8}
+    {z : ZStream} {d : DeflateState} {_ref : BRef} {wa ia : Array UInt8} {input : Nat → UInt8}
     (good : DGood h r ds z d) (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
     (range : fillEnd d ≤ d.window_size.toNat) (history : LazyHistory input origin d) :
     let n := rbLen z.avail_in (fillMore d)
@@ -110,7 +110,7 @@ theorem resumed_fill_history {h : Heap} {r : ZStreamRef} {ds w io origin : Nat}
     dsimp only [fillEnd]
     omega
   have historyR : LazyHistory (extendInput input (origin + fillEnd d) ia io) origin dr :=
-    resume_read_history (ref := ref) good win get range history
+    resume_read_history (_ref := ref) good win get range history
   refine ⟨historyR, ?_, ?_⟩
   · change DeferredByte dr
     rw [fields]

@@ -412,7 +412,7 @@ theorem accepted_run_complete {h : Heap} {dest destLen source sourceLen : BPtr}
     have hz : (ZStreamRef.tab h.nextBlk).get H' = some z := fin.good.live.hz
     obtain ⟨H1, H2, H3, l1, s1, l2, s2, endRun, res1, res2, ⟨zz, hzz⟩, same, memF⟩ := epilogue ok cells fin
     have endRun' : inflateEnd (some (ZStreamRef.tab h.nextBlk)) H2 = .ok (Z_OK, H3) := endRun
-    simp only [ldZ, ldZStream_ok hz, bind_app, l1, s1, l2, s2, endRun', pure_app]
+    simp only [ldZ, ldZStream_ok hz, l1, s1, l2, s2, endRun', pure_app]
     rw [freeB_reserved_run (k := h.nextBlk) (H := H3) res1 res2]
     simp only []
     rw [freeZStream_local_run (k := h.nextBlk) (H := reservedFreed H3 h.nextBlk) hzz]
@@ -519,8 +519,8 @@ theorem uncompress2_z_with_complete : CountedWithOn NoAllocationFailure uncompre
       bad (Or.inr (Or.inr (Or.inr ⟨e, ne⟩)))
     have srcB' : Bytes h source n.toNat (if source = .null then [] else src) := by
       by_cases sn : source = .null
-      · rw [if_pos sn, sn, sN sn]; exact Or.inl ⟨rfl, rfl, rfl⟩
-      · rw [if_neg sn]; exact srcB sn
+      · rw [ite_eq_left sn, sn, sN sn]; exact Or.inl ⟨rfl, rfl, rfl⟩
+      · rw [ite_eq_right sn]; exact srcB sn
     obtain ⟨rc, after, run, rest⟩ := accepted_run_complete noFail fresh uniq globals fit (dcell dl) (scell sl) srcB'
       destW sep sl dl sN dN
     exact ⟨rc, after, run, fun b => absurd b bad, fun _ _ _ _ => rest⟩
@@ -554,7 +554,7 @@ theorem uncompress_completes : Goal.uncompress_completes := by
       (fun _ => cell) (fun _ => dl) (fun _ => srcB) (fun _ => destW) sep1 sep2 sep3
   obtain ⟨out, _used, got, h₁, expected, S1, S2, sm, rel, counts, _mem⟩ :=
     good dl (fun e => absurd e sn) (fun e => absurd e dn)
-  rw [if_neg sn] at rel
+  rw [ite_eq_right sn] at rel
   obtain ⟨rcOk, outEq⟩ := rel.2 xs decodes noDict room
   subst outEq
   have outLe := crel_le _ _ _ _ _ rel

@@ -136,7 +136,7 @@ theorem rctx_of {tk : TK} {d e2 ef : DeflateState} {hm J elems maxc L : Nat} {c'
   · rw [hef', tk_arr_mkP1, hTs]; exact htsz
 
 
-theorem curL_clK {tk : TK} {d : DeflateState} {hm J elems maxc L : Nat} (PS : PShape (Hn d) hm J elems maxc)
+theorem curL_clK {_tk : TK} {d : DeflateState} {hm J elems maxc L : Nat} (PS : PShape (Hn d) hm J elems maxc)
     {Tk : Array CtData} (hL15 : L ≤ 15)
     (hcl : ∀ q, hm ≤ q → q ≤ hm + 2 * J → (Tk[Hn d q]!).dl = UInt16.ofNat (clK (Hn d) hm elems L (2 * J) (Hn d q))) :
     ∀ i, i < 2 * J → curL Tk (Hn d (hm + 1 + i)) = clK (Hn d) hm elems L (2 * J) (Hn d (hm + 1 + i)) := by
@@ -159,7 +159,7 @@ theorem reinit {tk : TK} {d e2 ef : DeflateState} {hm J elems maxc L : Nat} {xb 
   obtain ⟨Tk, Bk, O, S, he2, hO, hS, hTs, hBs, hcl, hdad, hfc, hout, hbl⟩ := hP
   obtain ⟨-, -, hc0, -, -, -, htot, Bc, hef⟩ := hfix
   have hef' : ef = mkP1 tk d Tk Bc O S := by rw [hef, he2, bl_mkP1]
-  have hcur := curL_clK (tk := tk) (elems := elems) (L := L) PS hL15 (fun q h1 h2 => hcl q h1 (by omega))
+  have hcur := curL_clK (_tk := tk) (elems := elems) (L := L) PS hL15 (fun q h1 h2 => hcl q h1 (by omega))
   have hfr : frn Tk = frn (tk.arr d) := by funext v; unfold frn; rw [hfc v]
   refine ⟨tk.arr ef, ef.opt_len, by cases tk <;> rfl, rfl, by omega, Nat.le_refl _, Nat.le_refl _, ?_, fun v => rfl,
     fun v hv => rfl, fun x => ?_, ?_⟩

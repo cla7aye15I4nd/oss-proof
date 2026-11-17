@@ -168,7 +168,7 @@ theorem detect_data_type_safe {h : Heap} {id : Nat} {d : DeflateState}
   rcases casesBlack with rfl | rfl
   · simp only [bind_app, black]
     by_cases white : d.dyn_ltree[9]!.fc != 0 ∨ d.dyn_ltree[10]!.fc != 0 ∨ d.dyn_ltree[13]!.fc != 0
-    · exact ⟨Z_TEXT, by simp only [bind_app, pLtree_run state, nine, ten, thirteen, white, ite_true, pure_app], Or.inr rfl⟩
+    · exact ⟨Z_TEXT, by simp only [pLtree_run state, nine, ten, thirteen, white, ite_true, pure_app], Or.inr rfl⟩
     · obtain ⟨n2, result2, text, casesText⟩ := data_type_text_safe state extent
       rcases casesText with rfl | rfl
       · exact ⟨Z_BINARY, by simp only [bind_app, pLtree_run state, nine, ten, thirteen, white, ite_false, text, pure_app], Or.inl rfl⟩

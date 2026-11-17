@@ -22,7 +22,7 @@ set_option autoImplicit false
 
 /-- The cause of a leave from the trip start registers `l` to the leave registers `l'`, heap `h'`.
 The room cause (`left = 0`, holding output) is stated in the leave registers. -/
-def TripLeaveCause (c : Ctx) (h' : Heap) (l l' : IL) : Prop :=
+def TripLeaveCause (c : Ctx) (h' : Heap) (_l l' : IL) : Prop :=
   l'.ret ≠ Z_OK ∨ c.flush = Z_BLOCK ∨ c.flush = Z_TREES ∨ (l'.left = 0 ∧ HoldsOutput c h') ∨
     (l'.have_ = 0 ∧ LeaveShort c h' l') ∨
     ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_) ∧ l'.bits.toNat < 8)
@@ -348,7 +348,7 @@ theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wr
 
 /-- The leave that ends the mode loop of a wrapped stream has a cause in the trip it ends. -/
 theorem loop_cause {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
-    (trip : TripMeaning c f (CallSide c r)) (rawTrip : RawCheckTrip c f (CallSide c r))
+    (trip : TripMeaning c f (CallSide c r)) (_rawTrip : RawCheckTrip c f (CallSide c r))
     (cause : ∀ h l, CallSide c r l h → LoopMatches c f h l →
       ∀ l' h', runX (inflate_dispatch c) l h = .ok ((.error Ex.leave, l'), h') → TripLeaveCause c h' l l')
     (wrapped : f.wrap ≠ .raw) (strm : c.strm = some r)

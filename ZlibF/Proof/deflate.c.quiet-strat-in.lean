@@ -142,7 +142,7 @@ def QLoopI (K : DeflateState → Prop) (r : ZStreamRef) (ds : Nat) (z0 : ZStream
 
 /-- One iteration with input: a continuing iteration lowers the weighted work term. -/
 def QStepI (K : DeflateState → Prop) (r : ZStreamRef) (ds : Nat) (flush : Int32) (z : ZStream)
-    (d : DeflateState) (st st' : LoopS) (h' : Heap) : Prop :=
+    (d : DeflateState) (_st st' : LoopS) (h' : Heap) : Prop :=
   ∃ z' d', Head K h' r ds z' d' ∧ QDI z d z' d' ∧
     ((st'.brk = false ∧ st'.ret = none ∧ d'.pending = 0 ∧
         Quiet.work d' + z'.avail_in.toNat * 4 < Quiet.work d + z.avail_in.toNat * 4) ∨

@@ -163,7 +163,7 @@ theorem cause_type_final (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     obtain ⟨e, _, _⟩ := same_leave leaveRun (run.trans (inflate_TYPEDO_last E l last))
     cases e
   by_cases isType : s.mode = TYPE
-  · rw [ite_cond_eq_true _ _ (eq_true isType)] at dispatch
+  · rw [ite_eq_left_of_eq_true _ _ (eq_true isType)] at dispatch
     by_cases flush : c.flush = Z_BLOCK ∨ c.flush = Z_TREES
     · rcases flush with b | t
       · exact Or.inr (Or.inl b)
@@ -171,7 +171,7 @@ theorem cause_type_final (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     · have go : c.flush ≠ Z_BLOCK ∧ c.flush ≠ Z_TREES :=
         ⟨fun e => flush (Or.inl e), fun e => flush (Or.inr e)⟩
       exact (typedo (dispatch.trans (inflate_TYPE_go c l h go))).elim
-  · rw [ite_cond_eq_false _ _ (eq_false isType)] at dispatch
+  · rw [ite_eq_right_of_eq_false _ _ (eq_false isType)] at dispatch
     exact (typedo dispatch).elim
 
 open MeaningTrailer in

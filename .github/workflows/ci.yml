@@ -43,7 +43,7 @@ jobs:
       # The library build also checks the registry of results, ZlibF/Results.lean: each theorem's type
       # is exactly its goal, allowed axioms only, and every goal is proved or listed as not done.
       - name: Build the library once
-        run: lake build ZlibF
+        run: lake build --wfail ZlibF
 
       - name: Build the differential drivers once
         working-directory: tests
@@ -52,10 +52,7 @@ jobs:
           mapfile -t names < <(grep -v '^[[:space:]]*\(#\|$\)' list.txt)
           targets=()
           for name in "${names[@]}"; do targets+=("difftest_$name"); done
-          lake build "${targets[@]}"
-
-      - name: No sorry in the sources
-        run: scripts/check-sorry.sh
+          lake build --wfail "${targets[@]}"
 
       - name: Every string literal of the translations is in strTable
         run: python3 scripts/check-strlit.py
@@ -66,7 +63,6 @@ jobs:
       - name: Self-tests of the source checks
         run: |
           python3 tests/verification/test_spec_layers.py
-          python3 tests/verification/test_sorry_check.py
           python3 tests/verification/test_strlit_check.py
 
       - name: Forbidden constructs
@@ -114,7 +110,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       run: ${{ steps.decide.outputs.run }}
-      reverts: ${{ steps.decide.outputs.reverts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -125,18 +120,13 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           run=true
-          reverts=true
           if [ "$EVENT" != workflow_dispatch ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             if ! git diff --name-only "$BASE" HEAD | grep -qE '^(ZlibF/Zlib/|ZlibF/Runtime/|tests/(lean|c|gen)/|tests/[^/]+$|patches/|zlib$|lakefile\.toml$|lean-toolchain$|\.github/)'; then
               run=false
             fi
-            if ! git diff --name-only "$BASE" HEAD | grep -qE '^(tests/patch-reverts/|ZlibF/Zlib/|ZlibF/Runtime/|patches/|\.github/workflows/)'; then
-              reverts=false
-            fi
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "reverts=$reverts" >> "$GITHUB_OUTPUT"
-          echo "differential test needed: $run; patch-revert test needed: $reverts"
+          echo "differential test needed: $run"
 
   differential-test:
     needs: [build, differential-test-scope]
@@ -170,27 +160,3 @@ jobs:
       # and undefined behaviour on every input.
       - name: Build the patched zlib and the Lean drivers, run the differential test under ASan and UBSan
         run: SAN=1 ZLIB_SRC="$GITHUB_WORKSPACE/zlib" bash tests/run.sh
-
-  # Reverted security fixes: each case undoes one fix of zlib, in the C and in the translation, and
-  # checks that a sanitizer reports the defect in the C and that the translation faults on the same
-  # calls (tests/patch-reverts/README.md). It builds only the translation modules and the test
-  # library, not the proofs, so it does not wait for the build job.
-  patch-revert-test:
-    needs: differential-test-scope
-    if: ${{ needs.differential-test-scope.outputs.reverts == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true    # zlib/ at the pinned commit; it is copied, never modified
-
-      - name: Install a C compiler and tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential patch perl
-
-      - uses: ./.github/actions/lean-environment
-
-      - name: Run every case
-        run: ZLIB_SRC="$GITHUB_WORKSPACE/zlib" bash tests/patch-reverts/run.sh

@@ -627,7 +627,7 @@ theorem lit_run (str : String) (t : List UInt8) (hs : str ∈ strTable) (hb : st
 
 /-- `gz_room` gives `0` at `x.pos = GZ_OFF_MAX` for any nonzero request. -/
 theorem gz_room_zero {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = some s)
-    (hp : s.x.pos.toInt = 9223372036854775807) (max : UInt32) (hm : max ≠ 0) :
+    (hp : s.x.pos.toInt = 9223372036854775807) (max : UInt32) (_hm : max ≠ 0) :
     Zlib.Gzread.gz_room (gzSt i) max h = .ok (0, h) := by
   obtain ⟨n, hr, -, hb, -⟩ := gz_room_run hs max
   have : n.toNat = 0 := by omega

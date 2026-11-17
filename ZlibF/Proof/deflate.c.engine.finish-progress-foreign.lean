@@ -566,13 +566,13 @@ theorem DefaultFinishBoundary.foreign_finish_progress {h : Heap} {r : ZStreamRef
     refine ⟨?_, emptyP, startedA⟩
     have pendingA := default_memory_pending_count stateA.good phaseP boundary.configuration.memory
     intro _ok
-    rw [status, if_pos rfl]
+    rw [status, ite_eq_left rfl]
     rcases phaseP with ⟨_inputA, _originA, _baseA, _xsA, _stateA, statusA⟩ | phaseA
-    · rw [if_pos statusA]
+    · rw [ite_eq_left statusA]
       rcases progress statusA with less | ⟨equal, less⟩ <;> omega
     · have busyA : result.status ≠ BUSY_STATE := by rw [phaseA.status]; decide
       have emptyA := emptyP phaseA.status
-      rw [if_neg busyA, phaseA.lookahead, emptyA]
+      rw [ite_eq_right busyA, phaseA.lookahead, emptyA]
       simp only [UInt32.toNat_zero, Nat.zero_add, Nat.zero_mul, Nat.zero_add]
       split <;> omega
   · have empty := accepted finishing.status
@@ -611,7 +611,7 @@ theorem DefaultFinishBoundary.foreign_finish_progress {h : Heap} {r : ZStreamRef
       · exact absurd startA.status startedA
       · exact absurd busyA afterBusy
       · exact finishingA.lookahead
-    rw [if_neg beforeBusy, if_neg afterBusy, finishing.lookahead, empty, lookA, emptyA]
+    rw [ite_eq_right beforeBusy, ite_eq_right afterBusy, finishing.lookahead, empty, lookA, emptyA]
     unfold owedTrailer at sizeP
     simp only [UInt32.toNat_zero, Nat.zero_add, Nat.zero_mul]
     rw [heldD, heldA] at sizeP

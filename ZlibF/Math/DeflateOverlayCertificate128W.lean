@@ -2022,7 +2022,7 @@ theorem distance_share_sum_dist : mass distanceAllow_dist 30 = 1270579200 := by
 theorem certificate_dist (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ 138)
     (lenL : ∀ v, v < 286 → ll v ≤ 15) (lenD : ∀ v, v < 30 → dl v ≤ 15)
     (kraftL : mass (fun v => kraftTerm (ll v)) 286 ≤ 2 ^ 15)
-    (kraftD : mass (fun v => kraftTerm (dl v)) 30 ≤ 2 ^ 15)
+    (_kraftD : mass (fun v => kraftTerm (dl v)) 30 ≤ 2 ^ 15)
     (usedL : ∀ v, v < 286 → fl v ≠ 0 → 1 ≤ ll v ∧ fl v * fib (ll v + 1) + fib (ll v) ≤ 130)
     (usedD : ∀ v, v < 30 → fd v ≠ 0 → 1 ≤ dl v ∧ fd v * fib (dl v + 1) + fib (dl v) ≤ 130)
     (dummyL : ∀ v, v < 286 → ll v ≠ 0 → fl v = 0 → False)
@@ -2309,7 +2309,7 @@ theorem distance_share_sum_lit : mass distanceAllow_lit 30 = 10257571359 := by
 /-- **The memLevel 1 certificate, case `lit`**: with `Δ ≤ 325`. -/
 theorem certificate_lit (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ 325)
     (lenL : ∀ v, v < 286 → ll v ≤ 15) (lenD : ∀ v, v < 30 → dl v ≤ 15)
-    (kraftL : mass (fun v => kraftTerm (ll v)) 286 ≤ 2 ^ 15)
+    (_kraftL : mass (fun v => kraftTerm (ll v)) 286 ≤ 2 ^ 15)
     (kraftD : mass (fun v => kraftTerm (dl v)) 30 ≤ 2 ^ 15)
     (usedL : ∀ v, v < 286 → fl v ≠ 0 → 1 ≤ ll v ∧ fl v * fib (ll v + 1) + fib (ll v) ≤ 130)
     (usedD : ∀ v, v < 30 → fd v ≠ 0 → 1 ≤ dl v ∧ fd v * fib (dl v + 1) + fib (dl v) ≤ 130)

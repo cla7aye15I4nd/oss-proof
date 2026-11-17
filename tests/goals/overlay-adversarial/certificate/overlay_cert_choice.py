@@ -493,8 +493,10 @@ def tail128(certs):
         w(f'/-- **The memLevel 1 certificate, case `{case}`**: with `Δ ≤ {dmax}`. -/')
         w(f'theorem certificate_{case} (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ {dmax})')
         w('    (lenL : ∀ v, v < 286 → ll v ≤ 15) (lenD : ∀ v, v < 30 → dl v ≤ 15)')
-        w('    (kraftL : mass (fun v => kraftTerm (ll v)) 286 ≤ 2 ^ 15)')
-        w('    (kraftD : mass (fun v => kraftTerm (dl v)) 30 ≤ 2 ^ 15)')
+        # a Kraft hypothesis whose multiplier is 0 is not used by the proof (linter.unusedVariables)
+        lamL, lamD = cr['ints']['lam']
+        w(f'    ({"kraftL" if lamL else "_kraftL"} : mass (fun v => kraftTerm (ll v)) 286 ≤ 2 ^ 15)')
+        w(f'    ({"kraftD" if lamD else "_kraftD"} : mass (fun v => kraftTerm (dl v)) 30 ≤ 2 ^ 15)')
         w(f'    (usedL : ∀ v, v < 286 → fl v ≠ 0 → 1 ≤ ll v ∧ fl v * fib (ll v + 1) + fib (ll v) ≤ {W})')
         w(f'    (usedD : ∀ v, v < 30 → fd v ≠ 0 → 1 ≤ dl v ∧ fd v * fib (dl v + 1) + fib (dl v) ≤ {W})')
         w(f'    (dummyL : ∀ v, v < 286 → ll v ≠ 0 → fl v = 0 → {"v ≤ 2" if dumL else "False"})')

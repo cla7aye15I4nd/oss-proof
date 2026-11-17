@@ -329,7 +329,7 @@ theorem zcalloc_zcfree_no_leak (h : Heap) (op : BPtr) (items sz : UInt32) (hF : 
       have := Heap.not_live.mp (hF _ (Nat.le_refl _))
       obtain ⟨e0, e1, e2, e3, e4, e5, e6⟩ := this
       simp [Heap.live, allocHeap, e1, e2, e3, e4, e5, e6]
-      simp [Heap.live, e0, e1, e2, e3, e4, e5, e6]
+      simp [e0]
     · simp [Heap.live, allocHeap, upd_ne _ _ _ _ hbn]
   · rw [bind_app, zcalloc_fail_run h op items sz hok]
     exact ⟨_, freeB_null, fun b => Iff.rfl⟩

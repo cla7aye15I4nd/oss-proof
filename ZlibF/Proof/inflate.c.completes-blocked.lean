@@ -304,7 +304,7 @@ theorem blocked_leave (codesOK : LeaveRetCodes) (gz : GzipFieldLeaves) : Blocked
 `inflate_run_leave_ret_codes`. -/
 theorem leaveRetCodes_default {h : Heap} {r : ZStreamRef} {i : Nat} {z : ZStream} {s : InflateState}
     {flush : Int32} {regs : IL} {after : Heap}
-    (inv : InflateInv h r i z s) (config : DefaultConfig s) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
+    (inv : InflateInv h r i z s) (_config : DefaultConfig s) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
     (buffers : StreamBuffers h r) (_active : ActiveHeader h r) (nonnull : z.next_out ≠ .null)
     (inputValid : z.next_in = .null → z.avail_in = 0)
     (run : runX (inflate_run ⟨some r, some (.tab i), syncBuf h, flush⟩) IL.init (syncAlloc h) =

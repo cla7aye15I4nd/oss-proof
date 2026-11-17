@@ -205,7 +205,7 @@ def QLoop (K : DeflateState → Prop) (r : ZStreamRef) (ds : Nat) (z0 : ZStream)
 
 /-- The outcome of one iteration from the head `z`, `d`: a continuing iteration lowers the work term. -/
 def QStep (K : DeflateState → Prop) (r : ZStreamRef) (ds : Nat) (flush : Int32) (z : ZStream)
-    (d : DeflateState) (st st' : LoopS) (h' : Heap) : Prop :=
+    (d : DeflateState) (_st st' : LoopS) (h' : Heap) : Prop :=
   ∃ z' d', Head K h' r ds z' d' ∧ QDown z d z' d' ∧
     ((st'.brk = false ∧ st'.ret = none ∧ d'.pending = 0 ∧ Quiet.work d' < Quiet.work d) ∨
      (st'.ret = some need_more ∧ (z'.avail_out = 0 ∨ (d'.pending = 0 ∧ flush = Z_NO_FLUSH))) ∨

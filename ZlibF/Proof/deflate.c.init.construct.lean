@@ -62,8 +62,8 @@ theorem final_inv {h : Heap} (ds : Nat) (r : ZStreamRef) (level : Int32) (w p q 
   constructor
   all_goals first
     | exact ⟨w, p, q, b, hb⟩
-    | simpa [finalState, resetState, lmD, rkPost, rkPost3, rkMid, ibRec, trInitRec,
-        readyState, allocatedState, baseState] using hl0
+    | (simp [finalState, resetState, lmD, rkPost, rkPost3, rkMid, ibRec, trInitRec,
+        readyState, allocatedState, baseState]; done)
     | simpa [finalState, resetState, lmD, rkPost, rkPost3, rkMid, ibRec, trInitRec,
         readyState, allocatedState, baseState] using hl9
     | simp [finalState, resetState, lmD, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
