@@ -34,6 +34,18 @@ theorem counted_blocks_to_default_bound (n : Nat) :
   have overhead := stored_blocks_to_default_budget n
   omega
 
+/-- From `2^28` bytes on, the counted-block budget is strictly below the default bound formula.
+(Equality occurs below `2^25` only; the threshold `2^28` is where the comparison is linear.) -/
+theorem counted_blocks_below_default_bound (n : Nat) (large : 268435456 ≤ n) :
+    n + 5 * (n / 16383) + 11 < n + n / 4096 + n / 16384 + n / 33554432 + 13 := by
+  omega
+
+/-- A counted-block budget above `UINT_MAX` is strictly below the default bound formula. -/
+theorem counted_blocks_below_default_bound_of_wide (n : Nat)
+    (wide : 4294967295 < n + 5 * (n / 16383) + 11) :
+    n + 5 * (n / 16383) + 11 < n + n / 4096 + n / 16384 + n / 33554432 + 13 :=
+  counted_blocks_below_default_bound n (by omega)
+
 /-- Sliding both source positions preserves the lazy candidate distance
 in the actual unsigned machine arithmetic. -/
 theorem shifted_short_distance (start position window : UInt32) :
