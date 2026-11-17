@@ -11,8 +11,7 @@ sequence of steps, and the steps of `gz_skip` that `gzread.c.skip-fetch` compose
 progress premise `GzFetchProgress` that is false (a fetch may stall in LOOK without output), was removed on
 2026-11-14; `gz_skip` is proved in `gzread.c.skip-fetch` from the proved `gz_fetch` statement.
 
-`gzgets` needed `"position overflow"` in `strTable`, which now has it
-(`gz.position-overflow-regression`); `gzgets_step` is proved in `gz.read-gets-step`. Its loop pieces (`getsRest`, `getsCopy`, `getsBody`,
+`gzgets` needed `"position overflow"` in `strTable`, which now has it; `gzgets_step` is proved in `gz.read-gets-step`. Its loop pieces (`getsRest`, `getsCopy`, `getsBody`,
 `getsMain`, `memchrB_run`, `gz_room_run`, `Acc.region_put`, `GetsCaller.now`) are checked here.
 -/
 

@@ -49,8 +49,7 @@ checked bit prefix of the consumed input and determined by the consumed input,
 for the dictionary actually installed. This holds for every input, valid or not.
 A zlib dictionary with a configured window is excluded: zlib then keeps more of
 the dictionary than the window of the header, which `Zlib.Decodes` keeps, and
-can write bytes no valid stream decodes to
-(`tests/verification/regressions/inflate-dictionary-header-window.lean`). -/
+can write bytes no valid stream decodes to. -/
 def TraceEvidence : Prop :=
   ∀ (wb : Int32) wrap bits r h log pending,
     Api.inflWbits wb.toInt = some (wrap, bits) →

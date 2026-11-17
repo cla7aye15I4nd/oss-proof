@@ -26,4 +26,4 @@ ZLIB_SRC=$PWD/zlib bash tests/regression/inflate-gzip-flags-prime/run.sh
 
 The same history refutes `InflatePhase.flags`, which stated that `flags` is -1 or a 16-bit word on
 every reachable state. That clause and the 16-bit range of `FlagsOrigin` were removed; no proof
-used them (`tests/verification/regressions/inflate-gzip-flags-prime.lean`).
+used them.

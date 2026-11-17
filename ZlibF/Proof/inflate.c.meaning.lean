@@ -333,8 +333,7 @@ def HeldBits (s : InflateState) (held : List Bool) : Prop :=
 fits the held bits selects the same entry on every continuation (needed to
 reject an invalid code on fewer than 15 held bits) and from the bits it
 consumes alone (needed to reject the input `inflate_fast` read before an
-invalid code: it drops only the entry's bits, P15,
-`tests/verification/regressions/inflate-prefix-query.lean`); and no leaf is
+invalid code: it drops only the entry's bits, P15); and no leaf is
 both a length or distance and invalid, so the fast and slow branch orders
 agree (`QueryCompatible`). -/
 def TableMeaning (h : Heap) (pointer : CodePtr) (root : UInt32) (type : UInt32)

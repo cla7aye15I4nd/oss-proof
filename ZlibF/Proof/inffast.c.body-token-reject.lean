@@ -17,7 +17,7 @@ the bits after them. This file shows that the token is rejected on its own
 bits followed by any continuation (`actual_body_rejects_prefix`). An invalid
 code needs that the table entry depends on its consumed bits alone
 (`PrefixQuery`); the decode-table invariant and suffix stability do not give
-that (P15, `tests/verification/regressions/inflate-prefix-query.lean`).
+that (P15).
 -/
 
 set_option autoImplicit false

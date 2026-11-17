@@ -186,17 +186,17 @@ theorem reader_opened : ∃ fs' after i s,
     obtain ⟨rfl, -, -, -⟩ := hp
     obtain ⟨hv, hmode, hfd, -, -, -, -, -, -, herr, hmsg, -, -, -, -, -, havail, -⟩ := hst
     obtain ⟨opened, ⟨-, rfl⟩, hw2⟩ := hw
-    rw [if_neg (show ¬ ((3 : Int32) = -1) by decide),
-      if_neg (show ¬ (ZlibF.Spec.Api.GzMode.read = .append) by decide), if_pos rfl] at hw2
+    rw [ite_eq_right (show ¬ ((3 : Int32) = -1) by decide),
+      ite_eq_right (show ¬ (ZlibF.Spec.Api.GzMode.read = .append) by decide), ite_eq_left rfl] at hw2
     obtain ⟨position, hl, hstart⟩ := hw2
     rw [fsLseek_eq] at hl
     have hv77 : lseekRes 3 0 SEEK_CUR readerWorld = (V, tickW readerWorld) := rfl
     rw [hv77] at hl
     cases hl
-    rw [if_neg (show ¬ (V = -1) by decide)] at hstart
+    rw [ite_eq_right (show ¬ (V = -1) by decide)] at hstart
     exact ⟨tickW readerWorld, after, i, s,
       GzReachable.dopen reader_fresh reader_uniq reader_globals reader_filesystem reader_mode hrun,
-      hv, reader_filesystem, rfl, hfd, hmode.trans (if_pos rfl), herr, hmsg, havail, hstart⟩
+      hv, reader_filesystem, rfl, hfd, hmode.trans (ite_eq_left rfl), herr, hmsg, havail, hstart⟩
 
 /-! ## The old statements are false -/
 
@@ -210,15 +210,15 @@ theorem gzoffset64_every_world_false : ¬ OffsetContractEveryWorld Zlib.Gzlib.gz
   rw [hfd] at hrec
   have hl1 : (lseekRes 3 0 SEEK_CUR (tickW readerWorld)).1 = V := rfl
   have hl2 : (lseekRes 3 0 SEEK_CUR (tickW readerWorld)).2 = tickW (tickW readerWorld) := rfl
-  rw [hl1, hl2, if_neg (show ¬ (V = -1) by decide), if_pos hmode, havail] at hrec
+  rw [hl1, hl2, ite_eq_right (show ¬ (V = -1) by decide), ite_eq_left hmode, havail] at hrec
   have hrec' : Zlib.Gzlib.gzoffset64 (some (.in_gzstate_x i)) (tickW readerWorld) after = _ := hrec
   rw [hrec'] at hrun
   cases hrun
   have hf : (tickW readerWorld).fds[s.fd.toInt.toNat]? = some (some file0) := by rw [hfd]; rfl
-  rw [if_neg (show ¬ (s.fd.toInt < 0) by rw [hfd]; decide), hf] at hval
+  rw [ite_eq_right (show ¬ (s.fd.toInt < 0) by rw [hfd]; decide), hf] at hval
   have hv2 : (Int64.ofInt (V.toInt - ((0 : UInt32).toNat : Int))).toInt =
       (file0.pos : Int) - (if s.mode = GZ_READ then s.strm.avail_in.toNat else 0) := hval
-  rw [if_pos hmode, havail] at hv2
+  rw [ite_eq_left hmode, havail] at hv2
   exact absurd hv2 (by decide)
 
 /-- **`Goal.gzoffset64` before `caad9db4` is false.** -/
@@ -243,10 +243,10 @@ theorem old_gzrewind_false : ¬ OldGzrewind := by
   have hcond : ¬ (s.mode ≠ GZ_READ ∨ (s.err ≠ Z_OK ∧ s.err ≠ Z_BUF_ERROR)) := by
     rw [hmode, herr]
     decide
-  rw [if_neg hcond, hfd, hstart] at hrec
+  rw [ite_eq_right hcond, hfd, hstart] at hrec
   have hl1 : (lseekRes 3 V SEEK_SET (tickW readerWorld)).1 = V := rfl
   have hl2 : (lseekRes 3 V SEEK_SET (tickW readerWorld)).2 = tickW (tickW readerWorld) := rfl
-  rw [hl1, hl2, if_neg (show ¬ (V = -1) by decide)] at hrec
+  rw [hl1, hl2, ite_eq_right (show ¬ (V = -1) by decide)] at hrec
   have hrec' : Zlib.Gzlib.gzrewind (some (.in_gzstate_x i)) (tickW readerWorld) after = _ := hrec
   rw [hrec'] at hrun
   cases hrun
