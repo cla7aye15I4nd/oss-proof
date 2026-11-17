@@ -12,9 +12,11 @@ stated with explicit facts rather than `CallSide`, since the fall-through point 
 dispatch. It ends as the body steps do: a leave with `LoopMatches`, or `.ok` with `LoopMatches` or
 with `BAD` and the input read so far refuted.
 
-The slow path is `len__step`. The fast path (`inflate_fast`) is `fast_call_meaning`, which is proved
-for input and output in heap byte blocks (`RawFastIO`). For other caller byte views the fast step is
-the named proposition `FastLenMeaning` (open): `fast_call_meaning` without the block premises.
+The slow path is `len__step`. The fast path (`inflate_fast`) is `fast_call_meaning`, which takes
+input and output in any byte view the dispatch packet admits. `len_entry_step` takes the fast step
+either for separate heap byte blocks (`RawFastIO`) or as the proposition `FastLenMeaning`, which is
+`fast_call_meaning` stated without the pointer premises and is proved as `fast_len_meaning`
+(`inflate.c.meaning-trip-codes`).
 -/
 
 namespace Zlib.Inflate.Proofs.MeaningLenEntry
@@ -25,8 +27,8 @@ open Zlib.Inflate.Proofs.MeaningDistance Zlib.Inflate.Proofs.MeaningLength
 open ZlibF.Spec.Proofs Zlib.Inffast.Spec
 set_option autoImplicit false
 
-/-- `fast_call_meaning` for any caller byte views of input and output, not only heap byte blocks.
-Open: the fast decoder's meaning is proved for `RawFastIO` only (`fast_call_meaning`). -/
+/-- `fast_call_meaning` for any caller byte views of input and output, stated without the pointer
+premises. Proved as `fast_len_meaning` (`inflate.c.meaning-trip-codes`). -/
 def FastLenMeaning : Prop :=
   ∀ (c : Ctx) (f : LoopFrame) (h : Heap) (l : IL) (r : ZStreamRef) (z : ZStream),
     LoopMatches c f h l → c.strm = some r → r.get h = some z →

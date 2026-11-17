@@ -21,8 +21,9 @@ leave, `runX (M (treesCtx c)) l h = .ok ((.error .leave, L), H)`, and the two re
 test does not read `flush`, so the two runs are equal, or both reach the test at the same `(L, H)`
 with the state in `LEN_`.
 
-The fast path of `LEN_` on byte views other than heap blocks is the open `FastLenMeaning`, so the
-row is proved from it: `trip_dynamic_of`.
+The row is proved from the fast path of `LEN_` on any caller byte view, `FastLenMeaning`:
+`trip_dynamic_of`. `FastLenMeaning` is proved as `fast_len_meaning` (`inflate.c.meaning-trip-codes`),
+which closes the row.
 -/
 
 namespace Zlib.Inflate.Proofs.MeaningTripDynamic
