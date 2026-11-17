@@ -1810,6 +1810,7 @@ import ZlibF.Proof.«public-gz-sequence-safety»
 import ZlibF.Proof.«public-gz-sequence-nonvacuity»
 import ZlibF.Proof.«public-roundtrip-deflate»
 import ZlibF.Proof.«public-roundtrip-inflate»
+import ZlibF.Proof.«public-roundtrip-compress»
 
 /-!
 Proof-only import point. Add new proof modules here without changing the locked root.

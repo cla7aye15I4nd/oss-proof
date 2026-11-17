@@ -182,7 +182,14 @@ theorem step (cr : CompressReach R) (call : GoalDeflateFor R) (facts : DeflateLo
         (e.r.put H (crefilled z st)) = .ok ((rc, crest z st), H') ∧
       (∃ out' used' z' s', CState R e (rc, crest z st) H' out' used' z' s') ∧
       (rc = Z_OK → cmeasure e (rc, crest z st) H' < cmeasure e st H) ∧
-      (rc = Z_OK ∨ rc = Z_STREAM_END ∨ rc = Z_STREAM_ERROR ∨ rc = Z_BUF_ERROR) := by
+      (rc = Z_OK ∨ rc = Z_STREAM_END ∨ rc = Z_STREAM_ERROR ∨ rc = Z_BUF_ERROR) ∧
+      (∃ H1 o u z' s', Rebuffer H H1 e.r ∧ e.r.get H1 = some (crefilled z st) ∧
+        Zlib.Deflate.Spec.DGood H1 e.r (e.k + 1) (crefilled z st) s ∧ StreamBuffers H1 e.r ∧
+        ActiveHeader H1 e.r ∧ deflate (some e.r) (cflush z st) H1 = .ok (rc, H') ∧
+        Bytes H1 (crefilled z st).next_in (crefilled z st).avail_in.toNat
+          ((e.src.drop used).take (crefilled z st).avail_in.toNat) ∧
+        StreamAccounting (crefilled z st) z' u o.length ∧ Bytes H' (crefilled z st).next_out o.length o ∧
+        CState R e (rc, crest z st) H' (out ++ o) (used + u) z' s') := by
   let z1 := crefilled z st
   let H1 := e.r.put H z1
   have hz : H.streams e.k = some z := cs.good.live.hz
@@ -292,6 +299,7 @@ theorem step (cr : CompressReach R) (call : GoalDeflateFor R) (facts : DeflateLo
   obtain ⟨rc, after, z', s', u, o, run, good', acc, written, -, -, codes, refuseIff, -, -, -, noRoom, -,
       finProg, -, -, -, -, frame, live, nallocEq⟩ :=
     call H1 e.r (e.k + 1) z1 s (cflush z st) reach1 good1 buffers active
+  have accFull := acc
   obtain ⟨aU, aO, aIn, aOut, aNextIn, aNextOut, aState, -, aZfree, -, -⟩ := acc
   have F := facts H1 e.r (e.k + 1) z1 s (cflush z st) rc after reach1 good1 buffers active run
   have exec : Call.execute (.deflate (some e.r) (cflush z st)) default H1 = .ok ((rc, default), after) := by
@@ -299,10 +307,7 @@ theorem step (cr : CompressReach R) (call : GoalDeflateFor R) (facts : DeflateLo
     rw [run]
   have reach' : R after e.r := cr.step reach1 ⟨buffers, active⟩ exec
   have run' : deflate (some e.r) (cflush z st) H1 = .ok (rc, after) := run
-  refine ⟨rc, after, ?_, ?_, ?_, codes⟩
-  · show (deflate (some e.r) (cflush z st) >>= fun x => pure (x, crest z st)) H1 = _
-    simp only [bind_app, run', pure_app]
-  · -- the state after the call
+  have kept : CState R e (rc, crest z st) after (out ++ o) (used + u) z' s' := by
     have borrow : after.libcErrorBorrow = H1.libcErrorBorrow :=
       Zlib.Deflate.BorrowProofs.stable_deflate (some e.r) (cflush z st) H1 rc after run'
     have outside : ∀ b, e.h₀.live b → ¬ (StreamRoot e.r b ∨ DeflateOwned (e.k + 1) s b) := by
@@ -327,7 +332,6 @@ theorem step (cr : CompressReach R) (call : GoalDeflateFor R) (facts : DeflateLo
         rw [← writeOut_append W2, ← nextOut1]
         exact agreeE
     obtain ⟨gz', own'⟩ := F.2.2 z' s' good'
-    refine ⟨out ++ o, used + u, z', s', ?_⟩
     exact
       { reach := reach'
         good := good'
@@ -348,6 +352,12 @@ theorem step (cr : CompressReach R) (call : GoalDeflateFor R) (facts : DeflateLo
         nalloc := by
           rw [nallocEq, H1eq]
           exact cs.nalloc }
+  have inSnap : Bytes H1 z1.next_in z1.avail_in.toNat ((e.src.drop used).take z1.avail_in.toNat) := by
+    rw [nextIn1]; exact inH1
+  refine ⟨rc, after, ?_, ⟨out ++ o, used + u, z', s', kept⟩, ?_, codes,
+    ⟨H1, o, u, z', s', rb, hz1, good1, buffers, active, run', inSnap, accFull, written, kept⟩⟩
+  · show (deflate (some e.r) (cflush z st) >>= fun x => pure (x, crest z st)) H1 = _
+    simp only [bind_app, run', pure_app]
   · -- the measure falls
     intro rcOk
     have notRef : ¬ DeflateRefuses z1 s (cflush z st) := by
@@ -417,7 +427,7 @@ theorem loop_run (cr : CompressReach R) (call : GoalDeflateFor R) (facts : Defla
   refine cdoWhile_decreasing P P (cmeasure e) ?_ start (cmeasure_bound ok cs)
   rintro st H ⟨-, out, used, z, s, cs⟩
   have hz : e.r.get H = some z := cs.good.live.hz
-  obtain ⟨rc, H', run, kept, lt, codes⟩ := step cr call facts ok cs
+  obtain ⟨rc, H', run, kept, lt, codes, _observed⟩ := step cr call facts ok cs
   have bodyEq : body st H = .ok ((rc, crest z st), H') := by rw [hB st H z hz]; exact run
   refine ⟨_, H', rc == Z_OK, (rc, crest z st), H', bodyEq, hC _ _, ?_, ?_⟩
   · intro c
