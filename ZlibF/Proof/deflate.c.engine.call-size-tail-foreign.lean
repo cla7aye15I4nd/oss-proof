@@ -25,13 +25,13 @@ theorem foreign_trailer_run_size {h after : Heap} {r : ZStreamRef} {ds pb owner 
     ∃ produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       DGood after r ds z' result ∧ StreamAccounting z z' 0 produced ∧
       produced + heldBytes result = 4 ∧ result.wrap = -1 ∧ result.status = d.status ∧
-      rc = (if result.pending != 0 then Z_OK else Z_STREAM_END) := by
+      rc = (if result.pending != 0 then Z_OK else Z_STREAM_END) ∧ (rc = Z_OK → z'.avail_out = 0) := by
   let next := zlibTrailerBuffer buf z.adler
   let emitted := { d with pending := 4 }
   obtain ⟨write, goodE, treesE, buffersE, _sizesE, _storageE, _values⟩ :=
     zlib_trailer_write (ob := pb) good trees buffers pending cursor
   obtain ⟨produced, middle, z', result, _written, _remaining, flush, goodM, _buffersM, account, _sizesM,
-    _amount, left, fields, _bytesM, _pendingM, _outputM, _frameM⟩ :=
+    amount, left, fields, _bytesM, _pendingM, _outputM, _frameM⟩ :=
     flush_pending_low_foreign_caller_bits_frame goodE treesE buffersE (by change d.bi_valid.toInt < 8; omega)
       cursor pointer
   have wrapM : result.wrap = 1 := by rw [fields]; exact wrap
@@ -56,8 +56,23 @@ theorem foreign_trailer_run_size {h after : Heap} {r : ZStreamRef} {ds pb owner 
     rfl
   obtain ⟨rcs, heaps⟩ := Prod.mk.inj (Except.ok.inj (tested.symm.trans run))
   subst heaps
+  have roomF : rc = Z_OK → z'.avail_out = 0 := by
+    intro ok
+    have queued : result.pending ≠ 0 := by
+      intro zero
+      rw [← rcs, zero] at ok
+      cases ok
+    have positive : 0 < result.pending.toNat := by
+      have nonzero : result.pending.toNat ≠ 0 := fun eq => queued (UInt64.toNat_inj.mp eq)
+      omega
+    have count : result.pending.toNat + produced = 4 := left
+    change produced = min 4 z.avail_out.toNat at amount
+    have balance := account.2.2.2.1
+    apply UInt32.toNat_inj.mp
+    change z'.avail_out.toNat = 0
+    omega
   refine ⟨produced, z', { result with wrap := -1 }, goodF.live.hz, goodF.live.hs, goodF, account, ?_, rfl, statusM,
-    rcs.symm⟩
+    rcs.symm, roomF⟩
   have count : result.pending.toNat + produced = 4 := left
   unfold heldBytes
   change produced + (result.pending.toNat + (result.bi_valid.toInt.toNat + 7) / 8) = 4

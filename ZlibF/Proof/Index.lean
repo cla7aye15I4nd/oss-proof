@@ -324,6 +324,7 @@ import ZlibF.Proof.«deflate.c.engine.call-size-busy-foreign»
 import ZlibF.Proof.«deflate.c.engine.call-size-finishing-foreign»
 import ZlibF.Proof.«deflate.c.engine.call-size-first-foreign»
 import ZlibF.Proof.«deflate.c.engine.call-size-step-foreign»
+import ZlibF.Proof.«deflate.c.engine.default-bound-value»
 import ZlibF.Proof.«deflate.c.engine.flush-macro-frame»
 import ZlibF.Proof.«deflate.c.engine.flush-storage-frame»
 import ZlibF.Proof.«deflate.c.engine.flush-cut»

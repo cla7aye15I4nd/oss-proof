@@ -23,7 +23,7 @@ theorem foreign_public_finishing_tail_size_execution {h : Heap} {r : ZStreamRef}
     ∃ produced rc after z' result,
       publicZlibHeader (some r) (some (.tab ds))
         (publicDataTail (some r) (some (.tab ds)) Z_FINISH) h = .ok (rc, after) ∧
-      DGood after r ds z' result ∧ StreamAccounting z z' 0 produced ∧ result.status = FINISH_STATE ∧
+      DGood after r ds z' result ∧ StreamAccounting z z' 0 produced ∧ (rc = Z_OK → z'.avail_out = 0) ∧ result.status = FINISH_STATE ∧
       produced + heldBytes result + owedTrailer result = heldBytes d + owedTrailer d := by
   rcases phase.wrapper with wrap | wrap
   · obtain ⟨other, pb, buf, trees⟩ := good.trees
@@ -31,10 +31,10 @@ theorem foreign_public_finishing_tail_size_execution {h : Heap} {r : ZStreamRef}
     subst other
     obtain ⟨_produced, after, _z', _result, _written, _remaining, run, _rest⟩ :=
       foreign_zlib_trailer_publish_encoding good trees buffers pointer wrap pending (phase.cursor wrap pending) phase.bits
-    obtain ⟨produced, z', result, _get, _state, goodA, account, size, wrapA, statusA, _rcA⟩ :=
+    obtain ⟨produced, z', result, _get, _state, goodA, account, size, wrapA, statusA, _rcA, roomA⟩ :=
       foreign_trailer_run_size good trees buffers pointer wrap pending (phase.cursor wrap pending) phase.bits run
     have header := public_finishing_header_source good phase empty
-    refine ⟨produced, _, after, z', result, header.trans run, goodA, account, statusA.trans phase.status, ?_⟩
+    refine ⟨produced, _, after, z', result, header.trans run, goodA, account, roomA, statusA.trans phase.status, ?_⟩
     have held : heldBytes d = 0 := by
       unfold heldBytes
       rw [pending, phase.bits]
@@ -45,7 +45,7 @@ theorem foreign_public_finishing_tail_size_execution {h : Heap} {r : ZStreamRef}
     omega
   · exact ⟨0, Z_STREAM_END, h, z, d,
       public_finished_headers good phase.status empty phase.lookahead wrap,
-      good, stream_accounting_zero z, phase.status, by omega⟩
+      good, stream_accounting_zero z, fun ok => absurd ok (by decide), phase.status, by omega⟩
 
 /-- **The size of a `Z_FINISH` call in `FINISH_STATE`** with no new input. -/
 theorem foreign_public_finishing_size_execution {h : Heap} {r : ZStreamRef} {ds owner oo : Nat}
@@ -56,7 +56,7 @@ theorem foreign_public_finishing_size_execution {h : Heap} {r : ZStreamRef} {ds 
     (lower : -2 ≤ d.last_flush.toInt) (upper : d.last_flush.toInt ≤ 5) :
     ∃ produced rc after z' result,
       deflate (some r) Z_FINISH h = .ok (rc, after) ∧ DGood after r ds z' result ∧
-      StreamAccounting z z' 0 produced ∧ result.status = FINISH_STATE ∧
+      StreamAccounting z z' 0 produced ∧ (rc = Z_OK → z'.avail_out = 0) ∧ result.status = FINISH_STATE ∧
       produced + heldBytes result + owedTrailer result = heldBytes d + owedTrailer d := by
   have nonnull : z.next_out ≠ .null := by rw [pointer]; intro impossible; cases impossible
   have positive : z.avail_out ≠ 0 := by intro zero; rw [zero] at output; contradiction
@@ -65,11 +65,11 @@ theorem foreign_public_finishing_size_execution {h : Heap} {r : ZStreamRef} {ds 
   have phase0 : FinishingPhase { d with last_flush := Z_FINISH } config :=
     phase.control rfl (fun w p => phase.cursor w p)
   by_cases queued : d.pending = 0
-  · obtain ⟨produced, rc, after, z', result, tailRun, goodA, account, statusA, size⟩ :=
+  · obtain ⟨produced, rc, after, z', result, tailRun, goodA, account, roomA, statusA, size⟩ :=
       foreign_public_finishing_tail_size_execution good0 buffers0 phase0 pointer empty queued
     have entry := public_finish_entry good phase.status empty phase.lookahead queued nonnull positive lower upper
     have source := public_finishing_header_source good0 phase0 empty
-    exact ⟨produced, rc, after, z', result, entry.trans (source.symm.trans tailRun), goodA, account, statusA, size⟩
+    exact ⟨produced, rc, after, z', result, entry.trans (source.symm.trans tailRun), goodA, account, roomA, statusA, size⟩
   · obtain ⟨before, pending⟩ := good_pending_bits good
     have pending0 := last_flush_pending_bits good pending Z_FINISH
     have low : d.bi_valid.toInt < 8 := by rw [phase.bits]; decide
@@ -97,7 +97,7 @@ theorem foreign_public_finishing_size_execution {h : Heap} {r : ZStreamRef} {ds 
       exact count
     by_cases exhausted : zm.avail_out = 0
     · have run := public_pending_finish_exhausted good goodM nonnull positive (by simp [empty]) queued flushRun exhausted
-      refine ⟨produced, Z_OK, _, zm, _, run, last_flush_good goodM (-1), accountM, ?_, ?_⟩
+      refine ⟨produced, Z_OK, _, zm, _, run, last_flush_good goodM (-1), accountM, fun _ => exhausted, ?_, ?_⟩
       · change dm.status = FINISH_STATE
         rw [statusM]; exact phase.status
       · change produced + heldBytes dm + owedTrailer dm = heldBytes d + owedTrailer d
@@ -114,11 +114,11 @@ theorem foreign_public_finishing_size_execution {h : Heap} {r : ZStreamRef} {ds 
         omega
       have pointerM : zm.next_out = .ref (.dstate_depth owner) (oo + produced) := by
         rw [accountM.2.2.2.2.2.1, pointer]; rfl
-      obtain ⟨laterProduced, rc, after, z', result, tailRun, goodA, accountA, statusA, sizeA⟩ :=
+      obtain ⟨laterProduced, rc, after, z', result, tailRun, goodA, accountA, roomA, statusA, sizeA⟩ :=
         foreign_public_finishing_tail_size_execution goodM buffersM phaseM pointerM emptyM noPending
       have entry := public_pending_finish_continue good goodM nonnull positive (by simp [empty]) queued flushRun exhausted (fun _ => emptyM)
       refine ⟨produced + laterProduced, rc, after, z', result, entry.trans tailRun, goodA,
-        by simpa only [Nat.zero_add] using stream_accounting_trans accountM accountA, statusA, ?_⟩
+        by simpa only [Nat.zero_add] using stream_accounting_trans accountM accountA, roomA, statusA, ?_⟩
       omega
 
 /-- **The size of a `Z_FINISH` call in `FINISH_STATE`** offered new input: pending bytes move,
@@ -131,7 +131,7 @@ theorem foreign_public_finishing_new_input_size_execution {h : Heap} {r : ZStrea
     (lower : -2 ≤ d.last_flush.toInt) (upper : d.last_flush.toInt ≤ 5) :
     ∃ produced rc after z' result,
       deflate (some r) Z_FINISH h = .ok (rc, after) ∧ DGood after r ds z' result ∧
-      StreamAccounting z z' 0 produced ∧ result.status = FINISH_STATE ∧
+      StreamAccounting z z' 0 produced ∧ (rc = Z_OK → z'.avail_out = 0) ∧ result.status = FINISH_STATE ∧
       produced + heldBytes result + owedTrailer result = heldBytes d + owedTrailer d := by
   have nonnull : z.next_out ≠ .null := by rw [pointer]; intro impossible; cases impossible
   have positive : z.avail_out ≠ 0 := by intro zero; rw [zero] at output; contradiction
@@ -142,7 +142,7 @@ theorem foreign_public_finishing_new_input_size_execution {h : Heap} {r : ZStrea
     obtain ⟨message, refused⟩ := err_return_run good0.live.hz Z_BUF_ERROR
     let z' := { z with msg := message }
     have goodA := stream_control_good (z' := z') good0 rfl good.live.zalloc good.live.zfree
-    refine ⟨0, Z_BUF_ERROR, _, z', _, source.trans refused, goodA, stream_accounting_zero z, phase.status, ?_⟩
+    refine ⟨0, Z_BUF_ERROR, _, z', _, source.trans refused, goodA, stream_accounting_zero z, fun ok => absurd ok (by decide), phase.status, ?_⟩
     change 0 + heldBytes d + owedTrailer d = heldBytes d + owedTrailer d
     omega
   · obtain ⟨before, pending⟩ := good_pending_bits good
@@ -168,7 +168,7 @@ theorem foreign_public_finishing_new_input_size_execution {h : Heap} {r : ZStrea
       omega
     by_cases exhausted : zm.avail_out = 0
     · have run := public_pending_finish_exhausted good goodM nonnull positive valid queued flushRun exhausted
-      refine ⟨produced, Z_OK, _, zm, _, run, last_flush_good goodM (-1), accountM, statusD, ?_⟩
+      refine ⟨produced, Z_OK, _, zm, _, run, last_flush_good goodM (-1), accountM, fun _ => exhausted, statusD, ?_⟩
       change produced + heldBytes dm + owedTrailer dm = heldBytes d + owedTrailer d
       omega
     · have newInput : zm.avail_in ≠ 0 := by rw [inputM]; exact nonempty
@@ -179,6 +179,6 @@ theorem foreign_public_finishing_new_input_size_execution {h : Heap} {r : ZStrea
       have account : StreamAccounting zm z' 0 0 := stream_accounting_zero zm
       refine ⟨produced, Z_BUF_ERROR, _, z', dm, source.trans refused, goodA,
         by simpa only [Nat.zero_add, Nat.add_zero] using stream_accounting_trans accountM account,
-        statusD, by omega⟩
+        fun ok => absurd ok (by decide), statusD, by omega⟩
 
 end Zlib.Deflate.Engine.Proofs

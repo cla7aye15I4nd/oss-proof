@@ -27,6 +27,7 @@ theorem first_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base 
     (run : deflate (some r) flush h = .ok (rc, after)) :
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
+      (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
       BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base 2 produced := by
   obtain ⟨outputBytes, outGet, outRw, outBound, outside⟩ := caller_raw_output initial.good buffers pointer
   obtain ⟨oldD, pb, buf, trees⟩ := initial.good.trees
@@ -44,7 +45,7 @@ theorem first_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base 
     rfl
   by_cases one : z.avail_out.toNat = 1
   · have oneWord : z.avail_out = 1 := UInt32.toNat_inj.mp one
-    obtain ⟨other, z', result, finishRun, stateA, _buffersA, accountA, _emptyA, pendingA, statusA, _lastA⟩ :=
+    obtain ⟨other, z', result, finishRun, stateA, _buffersA, accountA, emptyA, pendingA, statusA, _lastA⟩ :=
       first_finish_one_buffered initial level boundary buffers pointer oneWord valid
     have finishSource := first_finish_one_source initial level trees.base.pbuf trees.base.bytes room trees.base.rw
       pointer outGet outRw separate outBound oneWord valid
@@ -72,7 +73,7 @@ theorem first_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base 
       unfold heldBytes
       rw [pendingA, bitsA, initial.bits]
       rfl
-    refine ⟨0, 1, z', result, stateA.good.live.hz, stateA.good.live.hs, accountA,
+    refine ⟨0, 1, z', result, stateA.good.live.hz, stateA.good.live.hs, accountA, fun _ _ => emptyA,
       Or.inl ⟨statusA, input, origin, base, [], stateA.toContentBoundary, ?_, companionA, ?_⟩⟩
     · rw [fillA]; rfl
     · rw [heldA]
@@ -95,12 +96,12 @@ theorem first_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base 
           fun _ => initial.pendingOut⟩
       have buffersH := header_complete_buffers initial.good buffers trees.base.bytes outGet separate pointer outputRoom
       have readyH : PublishReady (headerCompleteState d) := ⟨initial.pending, initial.pendingOut, boundary.bits⟩
-      obtain ⟨used, produced, z', result, getA, stateA, accountA, outcome⟩ :=
+      obtain ⟨used, produced, z', result, getA, stateA, accountA, roomA, outcome⟩ :=
         busy_data_tail_size (d := headerCompleteState d) stateH buffersH rfl level initial.strategy pointerH memory
           wrapConfig bits readyH valid companion (Or.inl rfl) (first.symm.trans run)
       have heldH : heldBytes (headerCompleteState d) = 0 := held0
       rw [heldH] at outcome
-      refine ⟨0 + used, 2 + produced, z', result, getA, stateA, stream_accounting_trans accountH accountA, ?_⟩
+      refine ⟨0 + used, 2 + produced, z', result, getA, stateA, stream_accounting_trans accountH accountA, roomA, ?_⟩
       rw [Nat.zero_add]
       exact outcome.prepend rfl
     · subst finish
@@ -112,12 +113,12 @@ theorem first_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base 
         (header_complete_good (oo := oo) initial.good trees.base.bytes outGet separate)
         (header_complete_buffers initial.good buffers trees.base.bytes outGet separate pointer outputRoom) Z_FINISH
       have stateH := stateS.buffered endS (fun _ => publishS.2.1)
-      obtain ⟨used, produced, z', result, getA, stateA, accountA, outcome⟩ :=
+      obtain ⟨used, produced, z', result, getA, stateA, accountA, roomA, outcome⟩ :=
         busy_data_tail_size (d := headerFinishState d) stateH buffersH rfl level initial.strategy pointerH memory
           wrapConfig bits publishS valid companion (Or.inr rfl) (first.symm.trans run)
       have heldH : heldBytes (headerFinishState d) = 0 := held0
       rw [heldH] at outcome
-      refine ⟨0 + used, 2 + produced, z', result, getA, stateA, stream_accounting_trans accountH accountA, ?_⟩
+      refine ⟨0 + used, 2 + produced, z', result, getA, stateA, stream_accounting_trans accountH accountA, roomA, ?_⟩
       rw [Nat.zero_add]
       exact outcome.prepend rfl
 
