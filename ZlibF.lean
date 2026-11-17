@@ -172,6 +172,7 @@ import ZlibF.Spec.Functional.InflateCompletion
 import ZlibF.Spec.Functional.Lifecycle
 import ZlibF.Spec.Functional.Queries
 import ZlibF.Spec.Functional.Sequences
+import ZlibF.Spec.Functional.RoundTrip
 import ZlibF.Spec.Functional.StreamQueries
 import ZlibF.Spec.Functional.Streams
 import ZlibF.Spec.Functional.Utilities
