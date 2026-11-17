@@ -25,7 +25,8 @@ theorem default_foreign_slow_body_strategy_encoding {h : Heap} {r : ZStreamRef} 
       nextOrigin + fillEnd result = origin + fillEnd d + used ∧ base ≤ base' ∧
       (next.ret = st.ret ∨ next.ret = some need_more) ∧
       (0 < z.avail_out.toNat → next.ret = none → 0 < z'.avail_out.toNat) ∧
-      (next.ret = none → next.brk = false → result.lookahead.toNat + z'.avail_in.toNat < d.lookahead.toNat + z.avail_in.toNat) ∧
+      ((flush = Z_FINISH ∨ next.ret = none) → st.ret = none → (next.brk = false ∨ next.ret = some need_more) →
+        result.lookahead.toNat + z'.avail_in.toNat < d.lookahead.toNat + z.avail_in.toNat) ∧
       (next.brk = true → st.brk = true ∨ (result.lookahead = 0 ∧ z'.avail_in = 0)) ∧
       (next.ret = some need_more → st.ret = some need_more ∨
         ((flush = Z_NO_FLUSH ∧ result.lookahead.toNat < 262 ∧ z'.avail_in = 0) ∨ z'.avail_out = 0)) ∧
@@ -61,7 +62,9 @@ theorem default_foreign_slow_body_strategy_encoding {h : Heap} {r : ZStreamRef} 
         simp only [bind_app, rdD_eq, boundary.good.live.hs, small, ite_true,
           fillRun, filledState.good.live.hs, wait, ite_true, pure_app]
       · intro _ impossible; cases impossible
-      · intro impossible; cases impossible
+      · rintro (finishFlag | impossible)
+        · rw [flushNo] at finishFlag; cases finishFlag
+        · cases impossible
       · intro broke; exact Or.inl broke
       · intro _; exact Or.inr (Or.inl ⟨flushNo, shortF, inputEmpty⟩)
     · have notWait : (filled.lookahead < MIN_LOOKAHEAD_u && flush == Z_NO_FLUSH) = false := Bool.eq_false_iff.mpr wait
@@ -77,7 +80,12 @@ theorem default_foreign_slow_body_strategy_encoding {h : Heap} {r : ZStreamRef} 
             fillRun, filledState.good.live.hs, notWait, Bool.false_eq_true, ite_false]
           simp only [empty, beq_self_eq_true, ite_true, pure_app]
         · intro output _; have count := fillAccount.2.2.2.1; omega
-        · intro _ impossible; cases impossible
+        · intro _ running cases
+          rcases cases with impossible | returned
+          · cases impossible
+          · change st.ret = some need_more at returned
+            rw [running] at returned
+            cases returned
       · have nonzero : 1 ≤ filled.lookahead.toNat := by
           have bound : filled.lookahead.toNat ≠ 0 := fun zero => empty (UInt32.toNat_inj.mp zero)
           omega
@@ -105,7 +113,7 @@ theorem default_foreign_slow_body_strategy_encoding {h : Heap} {r : ZStreamRef} 
         · rw [endpoint]; exact endpointF
         · intro output running
           apply continuesA (by have count := fillAccount.2.2.2.1; omega) running
-        · intro _ _
+        · intro _ _ _
           have beforeCount := fillAccount.2.2.1
           have afterCount := suffixAccount.2.2.1
           omega
@@ -143,7 +151,7 @@ theorem default_foreign_slow_body_strategy_encoding {h : Heap} {r : ZStreamRef} 
       simp only [bind_app, rdD_eq, boundary.good.live.hs, large, ite_false]
       exact suffixRun
     · rw [endpoint, Nat.add_zero]
-    · intro _ _; have count := accountA.2.2.1; omega
+    · intro _ _ _; have count := accountA.2.2.1; omega
     · intro broke; exact Or.inl (brkA.symm.trans broke)
     · intro returned
       rcases reasonA returned with old | outputEmpty
