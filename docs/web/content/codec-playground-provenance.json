@@ -16,15 +16,23 @@
       "sha256": "0b2c29c187797d2b1a3ad02f64b21eb3c00deaf6bd1db69518ef8570fc24ff4d"
     },
     {
-      "path": "patches/0004-gz-position-overflow.patch",
-      "sha256": "b7e4fded002d35c8f6b5341358d7170e35c63feb506e5e3d2a084ad64e6255af"
+      "path": "patches/0004-gzread-position-overflow.patch",
+      "sha256": "60059d10c6889b0974c4cfe58dd6ad8eb2bef4642edd44ef9535f8c14808d454"
     },
     {
-      "path": "patches/0005-gz-next-zero-advance.patch",
+      "path": "patches/0005-gzwrite-position-overflow.patch",
+      "sha256": "0050b88d8c87d1d7dd902f8f9f74ab5e024366184087b877e8b13851b76283e2"
+    },
+    {
+      "path": "patches/0006-gz-next-zero-advance.patch",
       "sha256": "d2524a6af61583e4007ed1367415e75f111eccc94c229bc50c1dd8ab6eba046b"
     },
     {
-      "path": "patches/0006-deflatebound-fixed-conservative.patch",
+      "path": "patches/0007-gzoffset-negative-lseek.patch",
+      "sha256": "2baf911b001f54731b09899b64382a4ce03fda0e0eb62b0d84a3db19c3732263"
+    },
+    {
+      "path": "patches/0008-deflatebound-fixed-conservative.patch",
       "sha256": "f04413d93d4ddaa4717ba5ac3a795acd913a2ff3b52c91c0552f3a4f984829b5"
     }
   ],
