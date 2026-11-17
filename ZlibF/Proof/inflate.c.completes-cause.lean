@@ -1,4 +1,5 @@
 import ZlibF.Proof.«inflate.c.meaning-trip-body»
+import ZlibF.Proof.«inflate.c.meaning-trip-codes»
 import ZlibF.Proof.«inflate.c.meaning-trip-trailer»
 import ZlibF.Proof.«inflate.c.meaning-stop-short»
 
@@ -110,5 +111,112 @@ theorem cause_done (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
   have run1 := (inflate_dispatch_DONE E l (mode zs s E.st E.hs)).trans (inflate_DONE_run c l h)
   obtain ⟨_, rfl, rfl⟩ := same_leave run run1
   exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
+
+theorem TripLeaveCause.of_short {c : Ctx} {h' : Heap} {l l' : IL}
+    (step : (l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) : TripLeaveCause c h' l l' := by
+  rcases step with s | s
+  · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl s)))
+
+/-- The cause from the ends of a decode step. -/
+theorem cause_of_ends {c : Ctx} {f : LoopFrame} {h' : Heap} {l l' : IL} {result : Except Ex Unit}
+    {B : Prop}
+    (ends : (result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧
+        LoopMatches c f h' l') ∨
+      (result = .ok () ∧ B)) (leave : result = .error Ex.leave) : TripLeaveCause c h' l l' := by
+  rcases ends with ⟨_, cause, _⟩ | ⟨e, _⟩
+  · exact TripLeaveCause.of_short cause
+  · rw [leave] at e; cases e
+
+/-- The Huffman codes (`LEN_` to `LIT`). -/
+theorem cause_codes (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
+    CauseAt c f r (fun s => LEN_ ≤ s.mode ∧ s.mode ≤ LIT) := by
+  intro h l side loop mode l' h' leaveRun
+  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, _, _⟩ := id side
+  have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
+  have m0 := mode zs s st E.hs
+  have bounds := at_state (P := fun s => s.wnext ≤ s.whave ∧ s.whave ≤ s.wsize) st E.hs
+    (window_bounds j.good.inv.win)
+  have sane := at_state (P := fun s => s.sane ≠ 0) st E.hs (by rw [j.pending.sane]; decide)
+  have wsizeBits := at_state (P := fun s => s.wsize ≠ 0 → s.wsize.toNat = 2 ^ s.wbits.toNat)
+    st E.hs (code_wsize_bits j.good.inv.win)
+  have ring := at_state (P := fun s => s.whave < s.wsize → s.wnext = s.whave) st E.hs
+    (code_ring j.good.inv.win)
+  have privateWindow := at_state
+    (P := fun s => ∀ w o d i, s.window = .ref w o → l.put = .ref d i → w ≠ d) st E.hs
+    (code_private_window j.good buf)
+  have rawWidth := code_raw_width j st E.hs loop
+  have binv : BitInv h l (f.inp.drop (loopRead l)) := by
+    obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, binv, _⟩ := loop
+    exact binv
+  have buffers : DispatchBuffers h r l (f.inp.drop (loopRead l)) :=
+    ⟨buf.input, buf.output, buf.separate, binv⟩
+  have tablesAt : DataTableMode s.mode → ∀ zs' s', c.st = some (.tab zs') →
+      h.istates zs' = some s' → DataTablesSafe h s' :=
+    fun dm => at_state (P := fun s => DataTablesSafe h s) st E.hs (j.tables dm)
+  rcases code_mode_cases m0 with m | m | m | m | m | m | m
+  · -- LEN_
+    by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
+    · obtain ⟨l1, h1, run, _⟩ := len_start_fast loop E j buffers m fast rawWidth
+      obtain ⟨e, _, _⟩ := same_leave leaveRun ((inflate_dispatch_LEN_start E l m).trans run)
+      cases e
+    · obtain ⟨result, l1, h1, run, ends⟩ := len__step loop E.strm E.hz fast
+        (at_state (P := fun s => s.mode = LEN_) st E.hs m)
+        (tablesAt (by rw [m]; unfold DataTableMode; decide))
+        bounds sane wsizeBits ring privateWindow rawWidth
+      obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_LEN_start E l m).trans run)
+      exact cause_of_ends ends e
+  · -- LEN
+    by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
+    · obtain ⟨l1, h1, run, _, _⟩ := fast_len_meaning _ _ _ _ _ _ loop E.strm E.hz fast
+        (at_state_id (P := fun zs s => s.mode = LEN ∧ Good h r zs z s ∧ DataTablesSafe h s ∧
+          DataPendingInvariant s) st E.hs
+          ⟨m, j.good, j.tables (by rw [m]; unfold DataTableMode; decide), j.pending⟩)
+        j.platform buffers rawWidth
+      obtain ⟨e, _, _⟩ := same_leave leaveRun ((inflate_dispatch_LEN E l m).trans run)
+      cases e
+    · obtain ⟨result, l1, h1, run, ends⟩ := len_slow_step loop E.strm E.hz fast
+        (at_state (P := fun s => s.mode = LEN ∨ s.mode = LEN_) st E.hs (Or.inl m))
+        (tablesAt (by rw [m]; unfold DataTableMode; decide))
+        bounds sane wsizeBits ring privateWindow rawWidth
+      obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_LEN E l m).trans run)
+      exact cause_of_ends ends e
+  · -- LENEXT
+    obtain ⟨result, l1, h1, run, ends⟩ := lenext_step loop E.strm E.hz
+      (at_state (P := fun s => s.mode = LENEXT) st E.hs m)
+      (tablesAt (by rw [m]; unfold DataTableMode; decide))
+      (at_state (P := fun s => BackBound s 15) st E.hs (j.pending.lenext m).2.2.2)
+      bounds sane wsizeBits ring privateWindow rawWidth
+    obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_LENEXT E l m).trans run)
+    exact cause_of_ends ends e
+  · -- DIST
+    obtain ⟨result, l1, h1, run, ends⟩ := dist_step loop E.strm E.hz
+      (at_state (P := fun s => s.mode = DIST) st E.hs m)
+      (tablesAt (by rw [m]; unfold DataTableMode; decide))
+      (at_state (P := fun s => BackBound s 20) st E.hs (j.pending.dist m).2)
+      bounds sane wsizeBits ring privateWindow rawWidth
+    obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_DIST E l m).trans run)
+    exact cause_of_ends ends e
+  · -- DISTEXT
+    obtain ⟨result, l1, h1, run, ends⟩ := distext_step loop E.strm E.hz
+      (at_state (P := fun s => s.mode = DISTEXT) st E.hs m)
+      bounds sane wsizeBits ring privateWindow rawWidth
+    obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_DISTEXT E l m).trans run)
+    exact cause_of_ends ends e
+  · -- MATCH
+    obtain ⟨result, l1, h1, run, ends⟩ := match_step loop E.strm E.hz
+      (at_state (P := fun s => s.mode = MATCH) st E.hs m)
+      bounds sane wsizeBits ring privateWindow rawWidth
+    obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_MATCH E l m).trans run)
+    rcases ends with ⟨_, left, _⟩ | ⟨e', _⟩
+    · exact Or.inr (Or.inr (Or.inr (Or.inl left)))
+    · rw [e] at e'; cases e'
+  · -- LIT
+    obtain ⟨result, l1, h1, run, ends⟩ := lit_step loop E.strm E.hz
+      (at_state (P := fun s => s.mode = LIT) st E.hs m) bounds
+    obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_LIT E l m).trans run)
+    rcases ends with ⟨_, left, _⟩ | ⟨e', _⟩
+    · exact Or.inr (Or.inr (Or.inr (Or.inl left)))
+    · rw [e] at e'; cases e'
 
 end Zlib.Inflate.Proofs
