@@ -218,7 +218,6 @@ separately; the definitions are not shared.
 | `trees.c.lean` | `sid`, `rd`, `md`; `pLtree`, `pDtree`, `pBltree`, `pHeap`, `pDepth`, `pBlCount`, `pLdesc`, `pDdesc`, `pBldesc`; `setAt`, `heapAt`, `heapSet`, `getFc`, `getDl`, `setFc`, `setDl`, `blOrder` | Field access to `*s`; pointers to the arrays and tree descriptors inside the deflate state; element reads and writes of those arrays and of `bl_order` |
 | `gzguts.h.lean` | `castState`, `castFile`, `strmOf`; `ldS`, `updS`, `updX`, `ldZ`, `updZ` | `(gz_statep)file`, `(gzFile)state`, `&(state->strm)`; field access to the gz state, to `state->x` and to the stream |
 | `crc32.c.lean` | `crcTab`, `x2nTab`, `idx1`, `idx2`, `wordAt` | Indexing of the CRC tables, a fault outside the table; `words[i]` |
-| `compress.c.lean` | `ptrDiff` | `p - q`, with `NULL - NULL` allowed as 0 |
 | `deflate.c.lean` | `Z_NULL_strm` | `Z_NULL` at type `z_streamp` |
 
 **Scalar cells as bytes, and the CRC address and word load.**
@@ -335,7 +334,7 @@ These are limits of the model, not extra claims about C. The authoritative detai
 | Fresh integer cells have arbitrary values | A theorem quantifies over every `garbage` function; it never assumes zero |
 | Each fresh cell keeps one value throughout a run | A proof does not rely on repeated uninitialised reads agreeing |
 | Fresh pointer fields are NULL | A missing write of a pointer field does not show in the model, and a NULL comparison alone does not show that the field was written. That the C writes each pointer field before it reads it is **to confirm** by source review: no theorem states it, and none can in this model. What the proofs show is narrower: the invariant of each kind of state (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream and on every gz handle with a history, and the invariant says what the pointer fields it names hold ([trusted base](../trusted-base.md#2-runtime-and-object-schema)) |
-| `NULL + 0` succeeds; the general `NULL - NULL` faults | The one translation that allows `NULL - NULL` is reviewed separately ([buffers](../proof/buffers.md)) |
+| Adding zero succeeds on every pointer value, null or dangling; `NULL - NULL` is 0 | A no-fault theorem does not show that the C avoids these operations. The places of the verified source that reach them are listed ([model limits](../model-limits.md#conditions-on-the-model-that-goals-state)) |
 | Equality has no adjacent-object address cases | No C branch is justified by equality of pointers from different objects |
 | No general addresses, alignment or type tags | Casts and address-sensitive paths are reviewed explicitly; structs have no general byte view |
 | CRC observes low address bits | Heap byte blocks have aligned origins; static and embedded byte arrays have arbitrary stable origin residues. General ABI layout and the strict-aliasing reading of the word cast are outside the model |

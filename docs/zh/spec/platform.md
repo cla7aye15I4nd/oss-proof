@@ -1,4 +1,4 @@
-<!-- source-sha256: 805cad7dfe9ebbbe379d43b63a8874e2c3698e59573864e4783ae6751c9bcc99 -->
+<!-- source-sha256: 31533f56fb046ed1d50332ef50e223de7a29e321cec5e7d28ee7707e4ea17c64 -->
 
 # 平台假设：对象大小
 
@@ -53,5 +53,5 @@ Lean 谓词是 [PlatformMemory.lean](../../../ZlibF/Spec/Common/PlatformMemory.l
 
 ## 这条前提不涵盖什么
 
-模型对 NULL 指针算术的处理是另一条限制，说明见
+模型对指针加零和 `NULL - NULL` 的处理是另一条限制，说明见
 [安全性，空指针与指针差](safety.md#null-pointers-and-pointer-differences)和[可信基础](../trusted-base.md)。

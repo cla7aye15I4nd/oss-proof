@@ -1,4 +1,4 @@
-<!-- source-sha256: 590eb9b03b3d94e399b4bcb06d877e38190d1d6721a9c0508be92b310be82f31 -->
+<!-- source-sha256: 20d8e1d1dfb448061510c2737e221ddab2ea9c04a981c46f65096ecfc5986d9f -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后的 Lean 前提、陈述它的目标，以及它的理由。
@@ -13,7 +13,7 @@
 
 **每一次调用**
 
-- 库是默认的 x86_64 Linux 构建：LP64、静态链接，由 zlib 1.4（上游提交 `99623ef7`）加六个[补丁](../../patches/README.md)编译而成。
+- 库是默认的 x86_64 Linux 构建：LP64、静态链接，由 zlib 1.4（上游提交 `99623ef7`）加七个[补丁](../../patches/README.md)编译而成。
 - 每个 `z_stream` 的 `zalloc` 和 `zfree` 都是 `Z_NULL`，于是 zlib 使用它的默认分配器（`DefaultOrNull`）。自定义分配器不被覆盖。`malloc` 失败是被覆盖的。
 - 内存中没有任何单个对象达到或超过 2^63 字节（`ByteObjectsFit`）。这是 LP64 下单个对象的上限 `PTRDIFF_MAX`；它不限制内存总量，也不限制流的长度。
 - 这些行对整段历史成立。一个流或一个文件上的某次调用被覆盖，前提是从它的初始化或打开算起，此前在它上面的每次调用也都满足各自的行；那些调用返回什么都可以（`StreamReachable`、`GzHistory`、`BackSafeReachable`）。
@@ -149,7 +149,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 初始化、校验和与拒绝目标不陈述它。End 目标不对调用时的堆陈述它；inflate 的历史按上面第二条带有它。有一个具体的堆满足它（`inflate_default_witness_platform`）。
 
-目标对模型中的堆提出的条件（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`）、循环燃料、CRC 地址模型和 NULL 指针算术，都不是调用者的义务。它们在[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)中。
+目标对模型中的堆提出的条件（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`）、循环燃料、CRC 地址模型以及指针加零与 `NULL - NULL` 的规则，都不是调用者的义务。它们在[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)中。
 
 ## 流调用：inflate 与 deflate
 
@@ -241,7 +241,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 ## Gzip 文件接口
 
-`Goal.gz_sequence_safety` 在一个句柄的每段历史（`GzHistory`）上、对每个文件系统世界成立。每个 gz 函数的安全目标（`Goal.<function>_safety`）把它的一个子句限制到这个函数上，前提相同：下面写了 `Goal.gz_sequence_safety` 的行，对该行所说的那些函数的目标同样成立。这些目标说的是打过补丁的源码（[补丁](../../patches/README.md) 0002 至 0005）。gz 世界是堆之外的可信语义：[外部 I/O 模型](design/external-io.md)描述它，[可信基础](trusted-base.md)说明对它作了哪些假设。
+`Goal.gz_sequence_safety` 在一个句柄的每段历史（`GzHistory`）上、对每个文件系统世界成立。每个 gz 函数的安全目标（`Goal.<function>_safety`）把它的一个子句限制到这个函数上，前提相同：下面写了 `Goal.gz_sequence_safety` 的行，对该行所说的那些函数的目标同样成立。这些目标说的是打过补丁的源码（[补丁](../../patches/README.md) 0002 至 0006）。gz 世界是堆之外的可信语义：[外部 I/O 模型](design/external-io.md)描述它，[可信基础](trusted-base.md)说明对它作了哪些假设。
 
 | 前提 | 要求什么 | 目标 | 理由，以及什么不被覆盖 |
 | --- | --- | --- | --- |
@@ -251,7 +251,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 | Gz printf 调用（调用者的义务；`GzArguments`） | `vsnprintf` 的调用对格式串和参数在 C 中有定义，且格式串中没有 `%n`：没有前提陈述这一点，由调用者保证，和每次 printf 调用一样（[可信基础](trusted-base.md)）。文件以写方式打开且不处于错误状态时，`GzArguments` 要求格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块。随后 `gz_init`、`gz_zero` 或 `gz_vacate` 失败时它也这样要求，尽管 C 在调用 `vsnprintf` 之前就返回了。 | `Goal.gz_sequence_safety` | `vsnprintf` 是按契约建模的外部调用，所以每种有效格式都被覆盖，包括浮点和 `%p`。模型不读取格式串中的转换，所以 C 没有定义的调用在模型中不是故障，目标对这样的调用在 C 中的行为什么也没说。不被覆盖：通过参数写入的 `%n`；与参数不匹配的格式串；以及在 `vsnprintf` 之前返回、格式串又不是字符串的调用。 |
 | Gz 调用者步骤与世界步骤（`GzCallerFrame`、`GzWorldStep`） | 两次调用之间，调用者可以改变句柄不拥有的任何块，也可以释放自己的缓冲区；堆保持良构，其字节对象都不超限。世界可以变成任何良构的文件系统：别的参与者可以关闭或重用句柄的描述符。 | `Goal.gz_sequence_safety` | 句柄的块属于库。不被覆盖：调用者写了句柄拥有的块的历史。世界步骤容许的比真实系统更多。 |
 | Gz 读取调用的终止（`ReadsFinite`） | 对 `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzgets` 和 `gzungetc`：句柄的描述符有一个小于 `2^61` 字节的有限读取预算（`fs.readBudget fd = some b` 且 `b < 2^61`），即该描述符还能交付的总字节数。这条前提还说描述符编号不为负（`HasBudget`）。 | `Goal.gz_sequence_safety` 中关于终止的那一半，且只针对这六个调用 | 在无穷无尽的来源上，C 有两个循环不会结束（[见下](#why-a-read-budget)）。这条前提不排除任何故障：无故障的那一半和后置条件对每个世界都成立，不需要预算。`gzdirect`、写入一侧和 `gzseek` 不需要它。 |
-| Gz 操作系统事实 | 非空的 `write` 从不返回 0；`close` 即使失败也会释放描述符；`lseek` 返回 -1 或非负的偏移。 | `Goal.gz_sequence_safety`，通过世界模型 | 这些是关于系统的假设，被信任，没有检查。前两条是 Linux 的行为。第三条并非对每个文件都成立：在 Linux 上，对偏移为无符号数的文件，`lseek` 可以返回 -1 以外的负值。不被覆盖：`lseek` 返回这种值的描述符。第一条为 `gz_comp` 的写循环定界。**尚未由证明确认**：按对 C 的解读，一个永远返回 0 的 `write` 会让 `gz_comp` 永远循环。模型中没有带这种 `write` 的世界，所以没有定理陈述这一点。 |
+| Gz 操作系统事实 | 非空的 `write` 从不返回 0；`close` 即使失败也会释放描述符。 | `Goal.gz_sequence_safety`，通过世界模型 | 这些是关于系统的假设，被信任，没有检查。两条都是 Linux 的行为。对 `lseek` 不加限制：成功的调用可以返回任意 64 位值。第一条为 `gz_comp` 的写循环定界。**尚未由证明确认**：按对 C 的解读，一个永远返回 0 的 `write` 会让 `gz_comp` 永远循环。模型中没有带这种 `write` 的世界，所以没有定理陈述这一点。 |
 
 `strerror` 的模型是模型的限制，不是调用者的义务：见[模型的限制](model-limits.md#conditions-on-the-model-that-goals-state)，“外部错误字符串”一行。
 

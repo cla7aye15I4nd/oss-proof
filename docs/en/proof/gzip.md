@@ -120,7 +120,7 @@ model carry weight in the proof:
 
 ### The source is the patched source
 
-The statements are about the C with patches 0002 to 0005 applied. The unpatched C has undefined
+The statements are about the C with patches 0002 to 0006 applied. The unpatched C has undefined
 behaviour on some histories: see
 [source reports and patches](#source-reports-and-patches).
 
@@ -140,19 +140,24 @@ and needs no budget. `gzseek` defers its skip and needs none either.
 
 ## Source reports and patches
 
-The invariant has its form because of six defects of the unpatched C. The table has one row for
+Patches 0002 to 0006 fix five defects of the unpatched C. The first table has one row for
 each. [Findings](../findings.md) lists them with their evidence, and `patches/README.md` is
-the authoritative list of patches. Patches 0002 and 0003 are submitted upstream; patches 0004
-and 0005 are local.
+the authoritative list of patches. Patches 0002 and 0003 are submitted upstream; patches 0004,
+0005 and 0006 are local. The invariant has its form because of the first four defects and
+because of the two cases of the second table, which no patch changes.
 
 | Case | Behaviour of the unpatched C | Evidence and fix |
 | --- | --- | --- |
 | Negative seek position | After an initial `gzungetc`, `GZ_OFF_MAX - pos` or a later position difference overflowed signed 64-bit arithmetic. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0002, upstream [PR 1361](https://github.com/madler/zlib/pull/1361). |
 | Partial read, then an error | In the `COPY` case of `gz_fetch`, `gz_load` could leave a nonzero `x.have` on error before `x.next = out` ran; `gz_read` then copied from a stale pointer. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0003, upstream [PR 1363](https://github.com/madler/zlib/pull/1363). |
-| Unwritten pointer | `gz_reset` leaves `x.next` unwritten; `gzseek64` and `gz_skip_have` added zero to it. | Undefined by the letter of C; no sanitizer reports it ([findings](../findings.md)). Patch 0005 advances `x.next` only by a nonzero count. |
-| Caller-buffer lifetime | A direct read sets `x.next` into the caller's buffer and keeps it with `x.have = 0`. After the caller freed the buffer, `gzseek64` and `gz_skip_have` added zero to it. | Undefined by the letter of C; no sanitizer reports it ([findings](../findings.md)). Patch 0005. `gzseek64_dangling_next_ok` shows that the patched seek does not use the pointer. |
 | Read position overflow | A transparent seek on a device whose `lseek` succeeds without moving set `x.pos` to `GZ_OFF_MAX`; the next read overflowed it. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0004 keeps `x.pos + x.have ≤ GZ_OFF_MAX` on return from every call. |
-| Write position overflow | A forward seek of a transparent writer to near `GZ_OFF_MAX`, then a write, overflowed `x.pos`. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0004 refuses a write that would pass `GZ_OFF_MAX`. |
+| Write position overflow | A forward seek of a transparent writer to near `GZ_OFF_MAX`, then a write, overflowed `x.pos`. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0005 refuses a write that would pass `GZ_OFF_MAX`. |
+| Negative descriptor offset | `gzoffset64` took only `-1` from `lseek` as a failure. Another negative result, less the buffered input of a reader, overflowed signed 64-bit arithmetic. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0006 returns `-1` for every negative result of `lseek`. |
+
+| Case | Behaviour of the C, patched or not | How the proof treats it |
+| --- | --- | --- |
+| Unwritten pointer | `gz_reset` leaves `x.next` unwritten; `gzseek64` and `gz_skip_have` add zero to it. | Undefined by the letter of C; no sanitizer reports it. The model accepts adding zero to every pointer value ([model limits](../model-limits.md#conditions-on-the-model-that-goals-state)). |
+| Caller-buffer lifetime | A direct read sets `x.next` into the caller's buffer and keeps it with `x.have = 0`. After the caller has freed the buffer, `gzseek64` and `gz_skip_have` add zero to it. | Undefined by the letter of C; no sanitizer reports it. The same rule of the model applies. `gzseek64_dangling_next_ok` shows that a forward seek of a reader with nothing buffered does not fault, whatever `x.next` holds. |
 
 ## Histories
 
@@ -355,8 +360,10 @@ pointer is `NULL`. In C it is indeterminate, and reading it is undefined
   indeterminate pointer would be caught: that is the model gap of
   [trusted base](../trusted-base.md), section 2. **To confirm** by source review: the C never
   reads `strm.state` or `strm.next_in` before `gz_look` or `gz_init` writes them.
-- `x.next`: the invariant claims nothing about it while `x.have = 0`, and with patch 0005
-  every read or advance of `x.next` happens with `x.have ≠ 0`.
+- `x.next`: the invariant claims nothing about it while `x.have = 0`. Every read through
+  `x.next` and every advance of it by a nonzero count happens with `x.have ≠ 0`. With
+  `x.have = 0`, `gzseek64` and `gz_skip_have` add zero to it, which the model accepts for
+  every pointer value ([model limits](../model-limits.md#conditions-on-the-model-that-goals-state)).
 
 ## Read side
 
@@ -494,7 +501,8 @@ and strategy. It ignores the callee's result. The safety proof does not need tha
 `gztell64` reports the logical position plus a pending skip; when `past` is set it leaves the
 skip out.
 `gzoffset64` queries the descriptor position and subtracts buffered compressed input in read
-mode. These are different positions.
+mode. It returns `-1` for every negative result of `lseek` (patch 0006), so the subtraction
+does not overflow. These are different positions.
 
 `gzseek64_step` and `gzseek_step` hold for every world. The
 paths are:

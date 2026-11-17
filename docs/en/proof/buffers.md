@@ -77,9 +77,9 @@ A reading of the C that no theorem states is marked **to confirm**.
 
 - **C.** `dest == NULL` with `*destLen == 0` passes the argument checks. At the end the function
   computes `stream.next_out - dest`, with both pointers `NULL`.
-- **Model.** The general pointer difference `Ptr.diff` faults on `NULL`. The translation of
-  this one statement uses `ptrDiff`, which returns 0 for `NULL - NULL`.
-- **Coverage.** The safety theorems are proved for the translation with this allowance.
+- **Model.** The pointer difference `Ptr.diff` returns 0 for `NULL - NULL`. It faults when
+  only one of the two pointers is `NULL`.
+- **Coverage.** The safety theorems are proved with this rule of the model.
   **To confirm**: that the selected build defines `NULL - NULL`; the C standard (C17, C23)
   leaves it undefined. It is a trusted-base item
   ([safety, null pointers](../spec/safety.md#null-pointers-and-pointer-differences)).
@@ -127,7 +127,7 @@ A reading of the C that no theorem states is marked **to confirm**.
       Upstream knows the case ([discussion](https://github.com/madler/zlib/pull/1360)).
     - With `windowBits` 15, `memLevel` 8, `Z_FIXED` and level 1 to 3 the output can exceed the
       bound, as a run of the C shows
-      ([finding](../findings.md)). The local patch 0006
+      ([finding](../findings.md)). The local patch 0007
       gives `Z_FIXED` the conservative bound.
 
     **To confirm**: that the output fits the bound on the rest of the source and header domain.
