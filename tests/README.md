@@ -124,13 +124,6 @@ after a data error, and at the end `inflateMark`, `inflateSyncPoint`, `inflateCo
   block boundaries), window sizes smaller and larger than the stream's, dictionaries (right, wrong, missing, longer than the
   window), `Z_SYNC_FLUSH` streams for `inflateSync`.
 
-## Benchmark of the runtime
-
-`bench_store` (`lean/Driver/Bench.lean`) is not a differential test. `bench_store N SIZE` makes `N` stores into a
-`SIZE`-byte block and prints the number of changed bytes; `bench_store checksums SIZE` runs `adler32_z` and `crc32_z`
-over `SIZE` bytes. Memory and time are read with `/usr/bin/time -f "%e s %M KB"`; the numbers are in
-https://www.dataisland.org/zlib-f/en/trusted-base.html, item 2.
-
 ## Platform
 
 The differential tests are run on Linux. The 64-bit entry points of zlib (`adler32_combine64`, `crc32_combine64`, `gzopen64` ...) are declared in `zlib.h` only when the C library defines `_LFS64_LARGEFILE`, which glibc does and some other systems do not; the C drivers define `_LARGEFILE64_SOURCE` but cannot add the declaration where the library does not provide it. A compile error for one of those functions on a non-Linux system is this, not a difference between C and Lean.

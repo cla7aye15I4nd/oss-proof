@@ -63,9 +63,3 @@ srcDir = "lean"
 name = "difftest_inffast"
 root = "Driver.Inffast"
 srcDir = "lean"
-
-# Benchmark of the runtime (memory and time of stores into a block); not a differential test.
-[[lean_exe]]
-name = "bench_store"
-root = "Driver.Bench"
-srcDir = "lean"
