@@ -255,7 +255,8 @@ theorem distext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
       rawWidth
     refine ⟨result, l', h', run, ?_⟩
     rcases rest with ⟨leave, left0, rfl, rfl⟩ | ⟨ok, read, rest⟩
-    · exact Or.inl ⟨leave, Or.inr (keep.2.2.1.symm.trans left0), loop2⟩
+    · exact Or.inl ⟨leave, Or.inr ⟨keep.2.2.1.symm.trans left0,
+        HoldsOutput.of_state st (setI_istates_same h zs s2) (Or.inr (Or.inl m2))⟩, loop2⟩
     · exact Or.inr ⟨ok, by omega, rest⟩
   by_cases zero : s.extra = 0
   · -- no extra bits
@@ -1194,7 +1195,7 @@ theorem dist_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
         exact runT
       refine ⟨result, l', h', runAll, ?_⟩
       rcases rest with ⟨leave, cause, m⟩ | ⟨ok, more, m⟩
-      · exact Or.inl ⟨leave, cause.imp id (fun e => keepT.2.2.1.symm.trans e), m⟩
+      · exact Or.inl ⟨leave, cause.imp id (fun e => ⟨keepT.2.2.1.symm.trans e.1, e.2⟩), m⟩
       · exact Or.inr ⟨ok, by rw [readD] at more; omega, m⟩
     · -- an invalid code: `BAD`
       obtain ⟨i, runB⟩ := leafTail_bad E' e rD good
@@ -1601,7 +1602,7 @@ theorem lenext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       rawWidth
     refine ⟨result, l', h', run, ?_⟩
     rcases rest with ⟨leave, cause, m⟩ | ⟨ok, read, rest⟩
-    · exact Or.inl ⟨leave, cause.imp id (fun e => keep.2.2.1.symm.trans e), m⟩
+    · exact Or.inl ⟨leave, cause.imp id (fun e => ⟨keep.2.2.1.symm.trans e.1, e.2⟩), m⟩
     · exact Or.inr ⟨ok, by omega, rest⟩
   by_cases zero : s.extra = 0
   · -- no extra bits
