@@ -60,6 +60,17 @@ theorem clean_encoding {r : ZStreamRef} {h : Heap} {log : DataLog} (history : De
   let ⟨ds, z, d, config, state, _⟩ := (clean_generic history).exact_encoding
   ⟨ds, z, d, config, state⟩
 
+/-- **The header clause of a default history.** A default stream has no gzip header
+(`DefaultFinishBoundary.no_header`), so `ActiveHeader` holds after every default history. -/
+theorem default_active_header {r : ZStreamRef} {h : Heap} {log : DataLog}
+    (history : DefaultDeflateHistory r h log) : ActiveHeader h r := by
+  obtain ⟨_ds, _z, _d, _config, state, _⟩ := (history_generic history).exact_encoding
+  exact default_finish_active_header state.protocol.good state.protocol.no_header
+
+theorem clean_active_header {r : ZStreamRef} {h : Heap} {log : DataLog}
+    (history : DefaultCleanHistory r h log) : ActiveHeader h r :=
+  default_active_header history.toDefault
+
 /-- A `Z_FINISH` call on a clean unfinished history is observed and returns `Z_OK` or
 `Z_STREAM_END`. -/
 theorem finish_call_outcome {r : ZStreamRef} {h : Heap} {log : DataLog} {z : ZStream}
