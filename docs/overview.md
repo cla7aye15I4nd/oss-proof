@@ -37,8 +37,8 @@ Differential tests are evidence of fidelity, not proof. Compiler, operating-syst
 correctness are outside the proof. The premises that a theorem puts on the caller are in
 [deviations](deviations.md), as a checklist by function.
 
-**Not done.** Functional correctness beyond that round trip: that the output of `inflate`
-equals the format for an arbitrary stream, or the round trip in other configurations. The safety
+**Not done.** Functional correctness beyond that round trip: the round trip in other
+configurations, or what `inflate` does with a stream the format rejects. The safety
 results do not need it; a functional fact is proved where a safety proof depends on it.
 It is not planned, and neither are model-only statements (theorems about the abstract API model,
 not about the translated C), other build configurations and the functions that `zlib.h` declares

@@ -54,8 +54,9 @@ writable for its capacity; source, destination and length cell do not overlap ea
 
 The premise that the stream does not ask for a preset dictionary (`¬ AsksDictionary`) is needed.
 The format specification with the empty dictionary also accepts a stream whose header sets
-`FDICT` and names the Adler-32 of the empty dictionary. `uncompress` returns `Z_DATA_ERROR` on
-such a stream, as it does on every stream that sets `FDICT`.
+`FDICT` and names the Adler-32 of the empty dictionary. `uncompress` turns the `Z_NEED_DICT` of
+`inflate` into `Z_DATA_ERROR` (`uncompr.c`). **To confirm**: `uncompress` returns `Z_DATA_ERROR`
+on every stream whose header sets `FDICT`; no theorem states it.
 
 ### Streams, one call
 
@@ -137,9 +138,9 @@ output of a default history that returned `Z_STREAM_END` is a zlib stream that d
 input accepted ([the default-configuration engine](deflate-default-engine.md)). For `inflate`:
 the input a default decoder consumed up to `Z_STREAM_END` is a zlib stream that decodes to the
 output written (`completed_inflate_decodes`, [stream decoding](inflate.md#functional-results)).
-The format decodes a stream in one way only, and bytes after the end of a stream do not change
-its decoding (`Zlib.ext`). So when the decoder consumed a prefix of the encoder's output, both
-decodings are the same bytes.
+A complete zlib stream has one decoding, and no longer sequence of bytes that starts with it is
+a complete stream (`Zlib.ext`). The decoder consumed a prefix of the encoder's output, and both
+are complete streams. So they are the same bytes, and the two decodings are equal.
 
 **The size ledger.** Along every clean history an invariant, `SizeLedger`, relates the output
 written, the bytes held back inside the stream and the input accepted. It gives
@@ -155,11 +156,12 @@ yet, a `Z_OK` return leaves output owed, so the output is strictly below the bou
 (`first_ok_output_lt`), and room equal to the bound is enough.
 
 **Every finishing schedule ends.** With no bound on the room, a natural number measures what is
-left to do: the unread input and the lookahead, weighted by 131078, plus the pending output and
-the trailer still owed. Before the first `deflate` call it is `(2^32 + unread) · 131078`. Every
-`Z_FINISH` call with positive room that returns `Z_OK` lowers it (`finish_progress`,
-`foreign_finish_progress`); a caller edit does not change it. So its value at the start bounds
-the number of unfinished calls. The stream that ends decodes to its input by the fact used in the
+left to do (`finishMeasure`). In `INIT_STATE` it is `(2^32 + unread) · 131078`. After that it is
+`(lookahead + unread) · 131078`, plus `65541 + pending` in `BUSY_STATE`, or plus `pending` and
+the 4 trailer bytes still owed once the last block is begun. Every `Z_FINISH` call with positive
+room that returns `Z_OK` lowers it (`finish_call_measure`, from `finish_progress` and
+`foreign_finish_progress`); a caller edit does not change it. Its value at the start is the `N`
+of `Goal.deflate_finish_ends` (`chain_progress`). The stream that ends decodes to its input by the fact used in the
 conditional round trip.
 
 **The decoder makes progress and ends.** On a prefix of a valid stream, with allocation
@@ -173,7 +175,8 @@ the whole stream was read, the output is full and output is still due as well
 short of the end. From these, a call given the rest of the stream and room for the rest of the
 decoding ends, and a call given a piece consumes input or writes output. In a chunked
 continuation the bytes of stream not yet consumed plus the bytes of decoding not yet written
-fall by at least one at every unfinished call, so their sum at the start bounds the number of
+fall by at least one at every unfinished call: after `k` calls of an unfinished continuation,
+`k` plus that sum is at most the sum at the start. So the sum at the start bounds the number of
 unfinished calls. A default stream never sets `FDICT`
 (`default_no_dictionary_request`), so the `Z_NEED_DICT` case does not occur for it.
 
@@ -191,9 +194,10 @@ the source.
 **`uncompress`.** The loop of `uncompress2_z` drives a default decoder; its refills are caller
 edits. By `Goal.default_inflate_progress` each call either returns `Z_OK` with an output that is
 still a prefix of `D`, or returns `Z_STREAM_END` with exactly `D` written. `Z_NEED_DICT` would
-need `FDICT`, and `Z_BUF_ERROR` needs `Z_FINISH`, which the loop does not use. The progress goal
-admits a call with no output room once all of `D` is written, so a destination with exactly
-`|D|` bytes is covered, and so is an empty `D` with a destination of zero bytes.
+need `FDICT`, and `Z_BUF_ERROR` needs `Z_FINISH`; the loop calls `inflate` with `Z_NO_FLUSH`.
+The goal asks only that the destination has at least `|D|` bytes. A destination with exactly
+`|D|` bytes is covered, and so is an empty `D` with a non-`NULL` destination of zero bytes: the
+progress goal admits a call with no output room once all of `D` is written.
 
 **`uncompress(compress(x)) = x`** follows from the two completion goals
 (`compress_uncompress_roundtrip_of`): the output of `compress` decodes to the source and does

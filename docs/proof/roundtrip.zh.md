@@ -1,4 +1,4 @@
-<!-- source-sha256: ed8623dfc7265de5601e50ee7e126536070b743a49ab9692d14739ef35420d97 -->
+<!-- source-sha256: c50ed3f5cb7d67dfa05abd0d15ad162eb3e69595a1dd32b5d32be37051bd7893 -->
 # 默认 zlib 流的往返
 
 用 zlib 按默认级别压缩，再解压，得到原输入。本页给出表达这件事的十四个目标及其前提，并说明证明的轮廓。这项结论已完成。它是一项功能结论：安全结论不依赖它。
@@ -37,7 +37,7 @@
 
 `Goal.uncompress_completes` 的前提：同样的堆前提和分配成功；`dest`、`source` 和 `destLen` 都不是 `NULL`；`*destLen` 存着容量；目的缓冲区在其容量内可写；源数据、目的缓冲区和长度单元两两不重叠。
 
-“流不要求预设字典”这条前提（`¬ AsksDictionary`）是必需的。取空字典时，格式规格也接受这样的流：头部设置了 `FDICT`，并且写的是空字典的 Adler-32。`uncompress` 对这样的流返回 `Z_DATA_ERROR`，它对每个设置了 `FDICT` 的流都是如此。
+“流不要求预设字典”这条前提（`¬ AsksDictionary`）是必需的。取空字典时，格式规格也接受这样的流：头部设置了 `FDICT`，并且写的是空字典的 Adler-32。`uncompress` 把 `inflate` 的 `Z_NEED_DICT` 变成 `Z_DATA_ERROR`（`uncompr.c`）。**尚未由证明确认**：对头部设置了 `FDICT` 的每个流，`uncompress` 都返回 `Z_DATA_ERROR`；没有定理陈述这一点。
 
 ### 流，一次调用
 
@@ -90,19 +90,19 @@ flowchart TD
   unc --> rt
 ```
 
-**条件形式的往返。** 关于已结束历史的两条事实在这里相遇。对 `deflate`：一段返回了 `Z_STREAM_END` 的默认历史，其输出是一个 zlib 流，解码得到被接受的输入（[默认配置的引擎](deflate-default-engine.md)）。对 `inflate`：默认解码器到 `Z_STREAM_END` 为止消耗的输入是一个 zlib 流，解码得到写出的输出（`completed_inflate_decodes`，[流解码](inflate.md#functional-results)）。按照格式，一个流只有一种解码结果，流结尾之后的字节不改变它的解码结果（`Zlib.ext`）。所以当解码器消耗的是编码器输出的前缀时，两个解码结果是同样的字节。
+**条件形式的往返。** 关于已结束历史的两条事实在这里相遇。对 `deflate`：一段返回了 `Z_STREAM_END` 的默认历史，其输出是一个 zlib 流，解码得到被接受的输入（[默认配置的引擎](deflate-default-engine.md)）。对 `inflate`：默认解码器到 `Z_STREAM_END` 为止消耗的输入是一个 zlib 流，解码得到写出的输出（`completed_inflate_decodes`，[流解码](inflate.md#functional-results)）。一个完整的 zlib 流只有一种解码结果，并且以它开头的更长的字节序列都不是完整的流（`Zlib.ext`）。解码器消耗的是编码器输出的前缀，而两者都是完整的流。所以它们是同样的字节，两个解码结果相等。
 
 **大小账本。** 沿着每一段干净的历史，有一个不变量 `SizeLedger`，它把已写出的输出、流内部暂存的字节和已接受的输入联系起来。对 `n` 个已接受的字节，它给出 `输出 ≤ n + 11 + 5·⌊n/16383⌋`，这不超过 `unsaturatedBound(n)`（`output_le_bound`）。每次 `Z_NO_FLUSH` 和 `Z_FINISH` 调用都保持这个账本，输出指针可以在任何内存中（`clean_size_ledger`）。
 
 **一次 `Z_FINISH` 调用要么结束，要么填满空间。** 一次返回 `Z_OK` 的 `deflate(Z_FINISH)` 调用用完了它的全部输出空间（`finish_ok_fills`）。空间多于上界的余量时，账本说明调用不可能用完全部空间，所以它返回了 `Z_STREAM_END`；这个返回值意味着所提供的输入全部被接受（`stream_end_consumes`）。对一个还没有输出的流上的一次调用，返回 `Z_OK` 说明还欠着输出，所以输出严格低于上界（`first_ok_output_lt`），空间等于上界就够了。
 
-**每一种收尾安排都会结束。** 不限制空间时，用一个自然数度量还剩多少事要做：未读的输入和预读，乘以 131078，再加上待输出的字节和还欠着的尾部。在第一次 `deflate` 调用之前，它是 `(2^32 + 未读) · 131078`。每次空间为正、返回 `Z_OK` 的 `Z_FINISH` 调用都使它下降（`finish_progress`、`foreign_finish_progress`）；调用者的修改不改变它。所以它在开始时的值就是未结束调用次数的上界。结束的流解码得到它的输入，用的是条件形式的往返中的那条事实。
+**每一种收尾安排都会结束。** 不限制空间时，用一个自然数度量还剩多少事要做（`finishMeasure`）。在 `INIT_STATE` 中它是 `(2^32 + 未读) · 131078`。此后它是 `(预读 + 未读) · 131078`，在 `BUSY_STATE` 中再加 `65541 + 待输出字节数`，最后一个块开始之后则再加待输出字节数和还欠着的 4 个尾部字节。每次空间为正、返回 `Z_OK` 的 `Z_FINISH` 调用都使它下降（`finish_call_measure`，由 `finish_progress` 和 `foreign_finish_progress` 得到）；调用者的修改不改变它。它在开始时的值就是 `Goal.deflate_finish_ends` 中的 `N`（`chain_progress`）。结束的流解码得到它的输入，用的是条件形式的往返中的那条事实。
 
-**解码器会推进并结束。** 在一个有效流的前缀上，分配成功时，一次 `inflate` 调用只会返回 `Z_OK`、`Z_STREAM_END`、`Z_NEED_DICT` 或 `Z_BUF_ERROR`（`call_codes`）：到目前为止的字节有一个有效的补全，所以不会有 `Z_DATA_ERROR`。`Z_NEED_DICT` 只来自设置了 `FDICT` 的头部（`need_dict_zlib`）。一次没有结束流就返回的调用，离开解码循环总有原因：没有输入，或者没有输出空间。如果还剩输入，那么输出已满，并且还有输出该写（`blocked_output_due`）。如果整个流都已读完，那么同样是输出已满，并且还有输出该写（`stop_short_zlib`）：读完了一个有效流、又有空间的解码器，不会在结尾之前停下。由此，拿到流的其余部分和容得下其余解码结果的空间的调用会结束，拿到一段的调用会消耗输入或写出输出。在分块的后续调用中，尚未消耗的流字节数加上尚未写出的解码字节数，在每次未结束的调用中至少下降一，所以它们在开始时的和就是未结束调用次数的上界。默认流从不设置 `FDICT`（`default_no_dictionary_request`），所以对它不会出现 `Z_NEED_DICT` 的情形。
+**解码器会推进并结束。** 在一个有效流的前缀上，分配成功时，一次 `inflate` 调用只会返回 `Z_OK`、`Z_STREAM_END`、`Z_NEED_DICT` 或 `Z_BUF_ERROR`（`call_codes`）：到目前为止的字节有一个有效的补全，所以不会有 `Z_DATA_ERROR`。`Z_NEED_DICT` 只来自设置了 `FDICT` 的头部（`need_dict_zlib`）。一次没有结束流就返回的调用，离开解码循环总有原因：没有输入，或者没有输出空间。如果还剩输入，那么输出已满，并且还有输出该写（`blocked_output_due`）。如果整个流都已读完，那么同样是输出已满，并且还有输出该写（`stop_short_zlib`）：读完了一个有效流、又有空间的解码器，不会在结尾之前停下。由此，拿到流的其余部分和容得下其余解码结果的空间的调用会结束，拿到一段的调用会消耗输入或写出输出。在分块的后续调用中，尚未消耗的流字节数加上尚未写出的解码字节数，在每次未结束的调用中至少下降一：一串未结束的后续调用做了 `k` 次之后，`k` 加上这个和不超过开始时的和。所以开始时的和就是未结束调用次数的上界。默认流从不设置 `FDICT`（`default_no_dictionary_request`），所以对它不会出现 `Z_NEED_DICT` 的情形。
 
 **`compress`。** `compress_z` 按默认级别运行 `deflateInit`，然后是 `compress2_z` 的循环：重新填好缓冲区字段，再做一次 `deflate` 调用，源数据还有剩余时用 `Z_NO_FLUSH`，之后用 `Z_FINISH`。它的局部流走的是一段干净的历史，历史的输入是到目前为止读入的源数据，输出是到目前为止写入目的缓冲区的内容。目的缓冲区在结束之前不会被填满。一次 `Z_NO_FLUSH` 调用之后，还有源数据未读，所以输出在一个更短输入的上界之内。一次返回 `Z_OK` 的 `Z_FINISH` 调用之后，输出严格低于上界：目的缓冲区至多 `UINT_MAX` 字节、并且这是第一次调用时，由 `first_ok_output_lt` 得到；其余情况由账本得到，输出超过 `UINT_MAX` 字节之后，账本严格低于上界。所以循环以 `Z_STREAM_END` 结束，输出解码得到源数据。
 
-**`uncompress`。** `uncompress2_z` 的循环驱动一个默认解码器；它重新填缓冲区字段的动作就是调用者的修改。由 `Goal.default_inflate_progress`，每次调用要么返回 `Z_OK`，输出仍是 `D` 的前缀；要么返回 `Z_STREAM_END`，写出的恰好是 `D`。`Z_NEED_DICT` 需要 `FDICT`，`Z_BUF_ERROR` 需要 `Z_FINISH`，而这个循环不用 `Z_FINISH`。推进目标允许在 `D` 全部写出之后做一次没有输出空间的调用，所以目的缓冲区恰好 `|D|` 字节的情形在范围内，`D` 为空、目的缓冲区为零字节的情形也在范围内。
+**`uncompress`。** `uncompress2_z` 的循环驱动一个默认解码器；它重新填缓冲区字段的动作就是调用者的修改。由 `Goal.default_inflate_progress`，每次调用要么返回 `Z_OK`，输出仍是 `D` 的前缀；要么返回 `Z_STREAM_END`，写出的恰好是 `D`。`Z_NEED_DICT` 需要 `FDICT`，`Z_BUF_ERROR` 需要 `Z_FINISH`；这个循环用 `Z_NO_FLUSH` 调用 `inflate`。目标只要求目的缓冲区至少有 `|D|` 字节。目的缓冲区恰好 `|D|` 字节的情形在范围内，`D` 为空、目的缓冲区非 `NULL` 且为零字节的情形也在范围内：推进目标允许在 `D` 全部写出之后做一次没有输出空间的调用。
 
 **`uncompress(compress(x)) = x`** 由两个完成性目标推出（`compress_uncompress_roundtrip_of`）：`compress` 的输出解码得到源数据，并且不要求字典，这正是 `Goal.uncompress_completes` 的前提。
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: faa604de41fcbd07ebdf1e9c922f281523ad6ffe4d00e7fb577fe3d0c97078f5 -->
+<!-- source-sha256: e8c0fcc43fbfc7097e9376c4f717802680938140d0cb9625100efcc28848dfc2 -->
 # 结论的状态
 
 本页说明每项结论、zlib 的每个公开函数是否已经完成。只有本页说明状态。要点是：三项安全结论都已完成，组成它们的 99 个目标全部完成；默认 zlib 流的往返也已完成，它有 14 个目标。
@@ -188,7 +188,7 @@
 
 | 组 | 包含什么 | 理由 |
 | --- | --- | --- |
-| 功能正确性（第 4 项除外） | 函数在安全之外算出了什么：对任意的流，`inflate` 的输出等于格式规定的内容；其他压缩级别、策略、窗口大小和封装的往返，带预设字典的往返，经由 gzip 文件接口或 `inflateBack` 的往返；gzip 文件函数读出或写入的字节；`inflateBack` 交付的内容；四类调用序列的完整契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`）；只谈抽象模型的命题。 | 安全结论不需要它们。关于 gzip 文件接口的命题还要依靠一个手工建立的模型，包括文件系统、描述符和 `printf` 格式化。安全证明所依赖的功能性事实，在那个证明里一并证明。 |
+| 功能正确性（第 4 项除外） | 函数在安全之外算出了什么：其他配置（其他压缩级别、策略、窗口大小和封装，预设字典）下的往返，以及 `inflate` 把格式接受的流读到结尾；经由 gzip 文件接口或 `inflateBack` 的往返；`inflate` 对格式拒绝的流做什么；gzip 文件函数读出或写入的字节；`inflateBack` 交付的内容；四类调用序列的完整契约（`Goal.inflate_sequence`、`Goal.deflate_sequence`、`Goal.inflate_back_sequence`、`Goal.gz_sequence`）；只谈抽象模型的命题。 | 安全结论不需要它们。关于 gzip 文件接口的命题还要依靠一个手工建立的文件系统和描述符模型，以及格式化输出：模型按 `vsnprintf` 的 C 契约取得它，并不计算它。安全证明所依赖的功能性事实，在那个证明里一并证明。 |
 | 其他构建配置 | 默认 x86_64 Linux 构建之外的每一种配置。 | 每一种配置都要针对不同的平台模型把整个证明重做一遍。 |
 | 未文档化函数 | `zError`、`inflateSyncPoint`、`get_crc_table`、`inflateUndermine`、`inflateValidate`、`inflateCodesUsed`、`inflateResetKeep`、`deflateResetKeep`、`gzopen_w`：`zlib.h` 在 `undocumented functions (not part of the zlib API)`（未文档化函数，不属于 zlib API）之下声明了十个函数，这是其中九个。第十个是上文的 `gzvprintf`。 | 它们不属于 zlib API。没有为它们写出安全目标：未完成，不在计划内。 |
 

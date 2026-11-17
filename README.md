@@ -39,10 +39,10 @@ patches are the fixes submitted upstream. The theorems are about the patched sou
 
 ## Not claimed
 
-Functional correctness beyond that round trip. No theorem says that the output of `inflate` is
-what the format defines for an arbitrary stream. No round trip is proved for other levels,
-strategies, window sizes or wrappers, with preset dictionaries, or through the gzip file
-interface or `inflateBack`. None of this is planned. Also not covered: other build
+Functional correctness beyond that round trip. No round trip is proved in other configurations:
+other levels, strategies, window sizes or wrappers, preset dictionaries, the gzip file interface
+or `inflateBack`. No theorem says what `inflate` does with a stream the format rejects, beyond
+that the call is safe. None of this is planned. Also not covered: other build
 configurations, custom allocators, and the functions `zlib.h` lists as undocumented.
 
 ## Check it yourself
