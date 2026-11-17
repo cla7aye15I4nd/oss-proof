@@ -393,12 +393,13 @@ theorem epilogue2_steps {h A : Heap} {sourceLen destLen : BPtr} {gotV usedV n ca
         some au := by simp only [upd_ne _ _ _ _ ne]; exact hu
     exact freeB_blk_run hu' ru
 
-/-- `uncompress2` from `uncompress2_z`, for every data relation that bounds the output
-by the capacity. -/
-theorem counted2_of_z {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop}
+/-- `uncompress2` from `uncompress2_z` on the heaps that satisfy `Pre`, a property that its two
+length cells keep. -/
+theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop}
+    (preserve : ∀ h cap n, Pre h → Pre (cells2 h cap n))
     (relLe : ∀ src cap rc out used, Rel src cap rc out used → out.length ≤ cap)
-    (inner : CountedWith uncompress2_z true Rel) : CountedWith uncompress2 false Rel := by
-  intro h dest destLen source sourceLen capacity n src fresh uniq globals fit dcellO scellO nn srcB destW sep
+    (inner : CountedWithOn Pre uncompress2_z true Rel) : CountedWithOn Pre uncompress2 false Rel := by
+  intro h dest destLen source sourceLen capacity n src pre fresh uniq globals fit dcellO scellO nn srcB destW sep
   obtain ⟨dl, sl⟩ := nn rfl
   have dcell := dcellO dl
   have scell := scellO sl
@@ -449,7 +450,7 @@ theorem counted2_of_z {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat
       sepCell _ dest _ destB (Nat.le_succ _), sepCell _ source _ srcBl (Nat.le_succ _),
       Or.inr (Or.inr (Or.inl (by simp [cellPtr, cellRaw])))⟩
   obtain ⟨rc, after', run', bad', good'⟩ := inner (cells2 h capacity n) dest (cellPtr h)
-    source (cellPtr (cellRaw h)) capacity n src (cells2_fresh fresh capacity n) (cells2_uniq fresh uniq capacity n)
+    source (cellPtr (cellRaw h)) capacity n src (preserve h capacity n pre) (cells2_fresh fresh capacity n) (cells2_uniq fresh uniq capacity n)
     (by simp only [LibraryGlobals] at globals ⊢; rw [(cells2_others h capacity n).2.2.2.2.2.2.1]; exact globals)
     (cells2_fit fresh fit capacity n) (fun _ => cells2_got h capacity n) (fun _ => cells2_used h capacity n)
     (fun e => absurd e (by decide)) (fun sn => kept.bytes_of (srcB sn)) (fun dn => kept.writable_of (destW dn)) sepU
@@ -602,6 +603,16 @@ theorem counted2_of_z {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat
       refine ⟨j, by rw [(cells2_others h capacity n).2.2.2.2.2.2.2.2.2.1] at lo; exact lo, ?_, ?_⟩
       · simp only [freed2, epiW, (writeOut_globals _ _ _).2.2.2.2.1]; exact hi
       · rw [(cells2_others h capacity n).2.2.2.2.2.2.2.1] at bad; exact bad
+
+/-- `uncompress2` from `uncompress2_z`, for every data relation that bounds the output
+by the capacity. -/
+theorem counted2_of_z {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop}
+    (relLe : ∀ src cap rc out used, Rel src cap rc out used → out.length ≤ cap)
+    (inner : CountedWith uncompress2_z true Rel) : CountedWith uncompress2 false Rel := by
+  intro h dest destLen source sourceLen capacity n src
+  exact counted2_of_z_on (Pre := fun _ => True) (fun _ _ _ _ => trivial) relLe
+    (fun h dest destLen source sourceLen capacity n src _ => inner h dest destLen source sourceLen capacity n src)
+    h dest destLen source sourceLen capacity n src trivial
 
 theorem singleWrap_uncompress : uncompress = singleWrap uncompress2 := rfl
 
