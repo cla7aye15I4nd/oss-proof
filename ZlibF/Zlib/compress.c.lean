@@ -15,11 +15,6 @@ consume a default-allocator call; it is freed before the returns.
 namespace Zlib.Compress
 open C Zlib.Deflate
 
-/-- Pointer difference `p - q` with the model's allowance for `NULL - NULL`, which C leaves undefined
-(`docs/model-limits.md#conditions-on-the-model-that-goals-state`, row "Null pointer arithmetic"). -/
-def ptrDiff (p q : BPtr) : M Int64 :=
-  if p == .null && q == .null then pure 0 else Ptr.diff p q
-
 /-- Automatic storage for the local `z_stream`. As in `uncompr.c`, the runtime creates a fresh
 record without consulting or advancing the allocation-failure oracle. Only the subsequent
 `deflateInit` allocations are default-allocator calls in the C. -/
@@ -75,7 +70,7 @@ def compress2_z (dest : BPtr) (destLen : Option UInt64) (source : BPtr) (sourceL
   sourceLen := sl
   -- *destLen = (z_size_t)(stream.next_out - dest);
   let no ← zrd strm (·.next_out)
-  let n ← ptrDiff no dest
+  let n ← Ptr.diff no dest
   -- deflateEnd(&stream);
   let _ ← deflateEnd strm
   freeZStream strm
