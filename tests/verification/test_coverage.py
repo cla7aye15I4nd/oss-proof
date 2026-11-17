@@ -35,6 +35,9 @@ class CoverageTests(unittest.TestCase):
         with self.changed("required", GOAL + "inflate_safety"):
             with self.assertRaisesRegex(verification.Rejected, "inflate_safety"):
                 verification.check_required_listed(self.manifest)
+        with self.changed("required", GOAL + "compress_uncompress_roundtrip"):
+            with self.assertRaisesRegex(verification.Rejected, "compress_uncompress_roundtrip"):
+                verification.check_required_listed(self.manifest)
 
     def test_not_planned_is_not_done(self):
         verification.check_not_planned(self.manifest)
