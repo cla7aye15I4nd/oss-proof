@@ -1,4 +1,5 @@
 import ZlibF
+import ZlibF.ResultsCheck
 
 /-!
 # Results
@@ -6,13 +7,13 @@ import ZlibF
 The registry of results, checked by Lean when the library is built.
 
 `proved` pairs each proved goal with the theorem that proves it. `notDone` lists the goals that are
-stated and have no theorem yet. The command at the end of this file fails the build unless:
-
-- each theorem's type is exactly its goal, a definition of type `Prop`;
-- each theorem depends on no axiom other than `propext`, `Classical.choice` and `Quot.sound`
-  (`Lean.collectAxioms`, the facility behind `#print axioms`; it follows every dependency);
-- every definition named `…Goal.…` of type `Prop` in the library is in exactly one of the two lists,
-  so a goal cannot be stated and forgotten.
+stated and have no theorem yet. `required` lists the goals the project must prove: the safety goal of
+every documented function of `zlib.h`, the safety goals of sequences and refusals, the non-vacuity
+goals, and the round trip of the default zlib stream. The command at the end of this file
+(`checkWith`, in `ZlibF/ResultsCheck.lean`) fails the build unless each theorem's type is exactly its
+goal, each theorem depends only on `propext`, `Classical.choice` and `Quot.sound`, every required goal
+is proved, and every goal of the library (every definition named `…Goal.…` whose type is `Prop` after
+its binders) is in exactly one of `proved` and `notDone`. It prints the counts.
 
 A theorem that only makes up a result needs no entry: the axiom check covers everything a goal's
 theorem depends on.
@@ -346,32 +347,145 @@ def notDone : List Name := [
   ``ZlibF.Spec.Public.Goal.inflate_back_sequence,
   -- ZlibF.Spec.Functional.GzSequence
   ``ZlibF.Spec.Public.Goal.gz_sequence,
-  ``ZlibF.Spec.Public.Goal.gz_initialisation_domain
+  ``ZlibF.Spec.Public.Goal.gz_initialisation_domain,
+  -- ZlibF.Spec.Functional.Api.Goals: refinement goals, parameterised by a HeapApi
+  ``ZlibF.Spec.Api.Goal.inflate_refines,
+  ``ZlibF.Spec.Api.Goal.inflate_init_refines,
+  ``ZlibF.Spec.Api.Goal.inflate_end_refines,
+  ``ZlibF.Spec.Api.Goal.inflate_copy_refines,
+  ``ZlibF.Spec.Api.Goal.inflate_back_refines,
+  ``ZlibF.Spec.Api.Goal.deflate_refines,
+  ``ZlibF.Spec.Api.Goal.deflate_init_refines,
+  ``ZlibF.Spec.Api.Goal.deflate_end_refines,
+  ``ZlibF.Spec.Api.Goal.deflate_copy_refines,
+  ``ZlibF.Spec.Api.Goal.compress2_refines,
+  ``ZlibF.Spec.Api.Goal.compress_refines,
+  ``ZlibF.Spec.Api.Goal.uncompress2_refines,
+  ``ZlibF.Spec.Api.Goal.uncompress_refines,
+  ``ZlibF.Spec.Api.Goal.gz_open_refines,
+  ``ZlibF.Spec.Api.Goal.gz_refines,
+  ``ZlibF.Spec.Api.Goal.gz_close_refines
 ]
 
-/-- The axioms a proof may use. -/
-def allowedAxioms : List Name := [``propext, ``Classical.choice, ``Quot.sound]
+/-- The goals the project must prove: the safety goal of every documented function of `zlib.h`, the
+safety goals of sequences and refusals, the non-vacuity goals, and the round trip of the default zlib
+stream. Each must be in `proved`; `scripts/verification.py` checks the list against `zlib.h`. -/
+def required : List Name := [
+  ``ZlibF.Spec.Public.Goal.adler32_safety,
+  ``ZlibF.Spec.Public.Goal.adler32_combine_safety,
+  ``ZlibF.Spec.Public.Goal.adler32_combine64_safety,
+  ``ZlibF.Spec.Public.Goal.adler32_z_safety,
+  ``ZlibF.Spec.Public.Goal.compress_safety,
+  ``ZlibF.Spec.Public.Goal.compress2_safety,
+  ``ZlibF.Spec.Public.Goal.compress2_z_safety,
+  ``ZlibF.Spec.Public.Goal.compressBound,
+  ``ZlibF.Spec.Public.Goal.compressBound_z,
+  ``ZlibF.Spec.Public.Goal.compress_z_safety,
+  ``ZlibF.Spec.Public.Goal.crc32_safety,
+  ``ZlibF.Spec.Public.Goal.crc32_combine_safety,
+  ``ZlibF.Spec.Public.Goal.crc32_combine64_safety,
+  ``ZlibF.Spec.Public.Goal.crc32_combine_gen_safety,
+  ``ZlibF.Spec.Public.Goal.crc32_combine_gen64_safety,
+  ``ZlibF.Spec.Public.Goal.crc32_combine_op_safety,
+  ``ZlibF.Spec.Public.Goal.crc32_z_safety,
+  ``ZlibF.Spec.Public.Goal.deflate_safety,
+  ``ZlibF.Spec.Public.Goal.deflateBound_safety,
+  ``ZlibF.Spec.Public.Goal.deflateBound_z_safety,
+  ``ZlibF.Spec.Public.Goal.deflateCopy_safety,
+  ``ZlibF.Spec.Public.Goal.deflateEnd_safety,
+  ``ZlibF.Spec.Public.Goal.deflateGetDictionary_safety,
+  ``ZlibF.Spec.Public.Goal.deflateInit2__safety,
+  ``ZlibF.Spec.Public.Goal.deflateInit__safety,
+  ``ZlibF.Spec.Public.Goal.deflateParams_safety,
+  ``ZlibF.Spec.Public.Goal.deflatePending_safety,
+  ``ZlibF.Spec.Public.Goal.deflatePrime_safety,
+  ``ZlibF.Spec.Public.Goal.deflateReset_safety,
+  ``ZlibF.Spec.Public.Goal.deflateSetDictionary_safety,
+  ``ZlibF.Spec.Public.Goal.deflateSetHeader_safety,
+  ``ZlibF.Spec.Public.Goal.deflateTune_safety,
+  ``ZlibF.Spec.Public.Goal.deflateUsed_safety,
+  ``ZlibF.Spec.Public.Goal.gzbuffer_safety,
+  ``ZlibF.Spec.Public.Goal.gzclearerr_safety,
+  ``ZlibF.Spec.Public.Goal.gzclose_safety,
+  ``ZlibF.Spec.Public.Goal.gzclose_r_safety,
+  ``ZlibF.Spec.Public.Goal.gzclose_w_safety,
+  ``ZlibF.Spec.Public.Goal.gzdirect_safety,
+  ``ZlibF.Spec.Public.Goal.gzdopen_safety,
+  ``ZlibF.Spec.Public.Goal.gzeof_safety,
+  ``ZlibF.Spec.Public.Goal.gzerror_safety,
+  ``ZlibF.Spec.Public.Goal.gzflush_safety,
+  ``ZlibF.Spec.Public.Goal.gzfread_safety,
+  ``ZlibF.Spec.Public.Goal.gzfwrite_safety,
+  ``ZlibF.Spec.Public.Goal.gzgetc_safety,
+  ``ZlibF.Spec.Public.Goal.gzgetc__safety,
+  ``ZlibF.Spec.Public.Goal.gzgets_safety,
+  ``ZlibF.Spec.Public.Goal.gzoffset_safety,
+  ``ZlibF.Spec.Public.Goal.gzoffset64_safety,
+  ``ZlibF.Spec.Public.Goal.gzopen_safety,
+  ``ZlibF.Spec.Public.Goal.gzopen64_safety,
+  ``ZlibF.Spec.Public.Goal.gzprintf_safety,
+  ``ZlibF.Spec.Public.Goal.gzputc_safety,
+  ``ZlibF.Spec.Public.Goal.gzputs_safety,
+  ``ZlibF.Spec.Public.Goal.gzread_safety,
+  ``ZlibF.Spec.Public.Goal.gzrewind_safety,
+  ``ZlibF.Spec.Public.Goal.gzseek_safety,
+  ``ZlibF.Spec.Public.Goal.gzseek64_safety,
+  ``ZlibF.Spec.Public.Goal.gzsetparams_safety,
+  ``ZlibF.Spec.Public.Goal.gztell_safety,
+  ``ZlibF.Spec.Public.Goal.gztell64_safety,
+  ``ZlibF.Spec.Public.Goal.gzungetc_safety,
+  ``ZlibF.Spec.Public.Goal.gzwrite_safety,
+  ``ZlibF.Spec.Public.Goal.inflate_safety,
+  ``ZlibF.Spec.Public.Goal.inflateBack_safety,
+  ``ZlibF.Spec.Public.Goal.inflateBackEnd_safety,
+  ``ZlibF.Spec.Public.Goal.inflateBackInit__safety,
+  ``ZlibF.Spec.Public.Goal.inflateCopy_safety,
+  ``ZlibF.Spec.Public.Goal.inflateEnd_safety,
+  ``ZlibF.Spec.Public.Goal.inflateGetDictionary_safety,
+  ``ZlibF.Spec.Public.Goal.inflateGetHeader_safety,
+  ``ZlibF.Spec.Public.Goal.inflateInit2__safety,
+  ``ZlibF.Spec.Public.Goal.inflateInit__safety,
+  ``ZlibF.Spec.Public.Goal.inflateMark_safety,
+  ``ZlibF.Spec.Public.Goal.inflatePrime_safety,
+  ``ZlibF.Spec.Public.Goal.inflateReset_safety,
+  ``ZlibF.Spec.Public.Goal.inflateReset2_safety,
+  ``ZlibF.Spec.Public.Goal.inflateSetDictionary_safety,
+  ``ZlibF.Spec.Public.Goal.inflateSync_safety,
+  ``ZlibF.Spec.Public.Goal.uncompress_safe,
+  ``ZlibF.Spec.Public.Goal.uncompress2_safe,
+  ``ZlibF.Spec.Public.Goal.uncompress2_z_safe,
+  ``ZlibF.Spec.Public.Goal.uncompress_z_safe,
+  ``ZlibF.Spec.Public.Goal.zlibCompileFlags_safety,
+  ``ZlibF.Spec.Public.Goal.zlibVersion_safety,
+  ``ZlibF.Spec.Public.Goal.inflate_sequence_safety,
+  ``ZlibF.Spec.Public.Goal.deflate_sequence_safety,
+  ``ZlibF.Spec.Public.Goal.inflate_back_sequence_safety,
+  ``ZlibF.Spec.Public.Goal.inflate_refusal,
+  ``ZlibF.Spec.Public.Goal.deflate_refusal,
+  ``ZlibF.Spec.Public.Goal.gz_sequence_safety,
+  ``ZlibF.Spec.Public.Goal.gz_refusal,
+  ``ZlibF.Spec.Public.Goal.gzvprintf_safety,
+  ``ZlibF.Spec.Public.Goal.inflate_initialisation_domain,
+  ``ZlibF.Spec.Public.Goal.deflate_initialisation_domain,
+  ``ZlibF.Spec.Public.Goal.inflate_back_initialisation_domain,
+  ``ZlibF.Spec.Public.Goal.inflateBack_call_domain,
+  ``ZlibF.Spec.Public.Goal.gz_sequence_nonvacuity,
+  ``ZlibF.Spec.Public.Goal.compress_uncompress_roundtrip,
+  ``ZlibF.Spec.Public.Goal.compress_uncompress_roundtrip_witness,
+  ``ZlibF.Spec.Public.Goal.compress_completes,
+  ``ZlibF.Spec.Public.Goal.compress_z_completes,
+  ``ZlibF.Spec.Public.Goal.uncompress_completes,
+  ``ZlibF.Spec.Public.Goal.stream_roundtrip_total,
+  ``ZlibF.Spec.Public.Goal.deflate_finish_ends,
+  ``ZlibF.Spec.Public.Goal.inflate_chain_ends,
+  ``ZlibF.Spec.Public.Goal.stream_roundtrip,
+  ``ZlibF.Spec.Public.Goal.deflate_completes_default,
+  ``ZlibF.Spec.Public.Goal.deflate_bound_default,
+  ``ZlibF.Spec.Public.Goal.inflate_completes_default,
+  ``ZlibF.Spec.Public.Goal.default_inflate_progress,
+  ``ZlibF.Spec.Public.Goal.default_inflate_completes
+]
 
-/-- The check of this file: exact goals, allowed axioms, and every goal in one of the two lists. -/
-def check : CommandElabM Unit := do
-  let env ← getEnv
-  let goals := proved.map (·.1) ++ notDone
-  if goals.eraseDups.length != goals.length then throwError "a goal is listed twice"
-  for g in goals do
-    let some (.defnInfo d) := env.find? g | throwError m!"{g} is not a definition"
-    unless d.type == .sort .zero do throwError m!"{g} is not a proposition"
-  for (g, t) in proved do
-    let some (.thmInfo ti) := env.find? t | throwError m!"{t} is not a theorem"
-    unless ti.type == .const g [] do throwError m!"the type of {t} is not exactly {g}"
-    let bad := (← collectAxioms t).filter (!allowedAxioms.contains ·)
-    unless bad.isEmpty do throwError m!"{t} depends on {bad}"
-  for (n, ci) in env.constants.map₁.toList do
-    if let .defnInfo d := ci then
-      if n.components.contains `Goal && d.type == .sort .zero && !goals.contains n then
-        if let some i := env.getModuleIdxFor? n then
-          if env.header.moduleNames[i]!.getRoot == `ZlibF then
-            throwError m!"goal {n} is neither proved nor listed as not done"
-
-#eval check
+#eval checkWith proved notDone required inLibrary
 
 end ZlibF.Results
