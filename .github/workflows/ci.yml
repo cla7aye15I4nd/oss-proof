@@ -1,4 +1,4 @@
-name: lean
+name: CI
 
 on:
   push:
@@ -52,6 +52,21 @@ jobs:
           for name in "${names[@]}"; do targets+=("difftest_$name"); done
           lake build "${targets[@]}"
 
+      - name: No sorry in the sources
+        run: scripts/check-sorry.sh
+
+      - name: Every string literal of the translations is in strTable
+        run: python3 scripts/check-strlit.py
+
+      - name: Safety specifications import no functional specification
+        run: python3 scripts/check-spec-layers.py
+
+      - name: Self-tests of the source checks
+        run: |
+          python3 tests/verification/test_spec_layers.py
+          python3 tests/verification/test_sorry_check.py
+          python3 tests/verification/test_strlit_check.py
+
       - name: Forbidden constructs
         run: |
           if grep -rnE '\b(native_decide|bv_decide|implemented_by)\b|^\s*axiom\b|^\s*(@\[[^]]*\]\s*)?(private\s+|protected\s+|noncomputable\s+)*((partial|unsafe)\s+(def|instance|theorem|abbrev|structure|inductive)\b|opaque\s+[A-Za-z_.]+\s*[:(\[{])|@\[[^]]*\bextern\b' ZlibF.lean ZlibF; then
@@ -60,7 +75,7 @@ jobs:
 
       # The audit's unsafe/partial rule on the built environment: a recursive def whose compiled code
       # needs an `_unsafe_rec` helper fails here, on every push.
-      - name: No unsafe or partial declaration
+      - name: No unsafe, partial, opaque or extern declaration and no extra axiom in the compiled library
         run: lake env lean --run tests/audit/PartialCheck.lean
 
       - name: Patches apply to the pinned zlib
@@ -83,23 +98,6 @@ jobs:
 
   # The final requirement of the project: no sorry anywhere. A work in progress may fail this job; a result may not
   # be reported as final while it fails.
-  no-sorry:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: No sorry
-        run: scripts/check-sorry.sh
-      - name: Every string literal of the translations is in strTable
-        run: python3 scripts/check-strlit.py
-      - name: Safety specifications import no functional specification
-        run: python3 scripts/check-spec-layers.py
-      - name: Self-tests of the source checks
-        run: |
-          python3 tests/verification/test_spec_layers.py
-          python3 tests/verification/test_sorry_check.py
-          python3 tests/verification/test_strlit_check.py
-
   # The audit: axioms, doc strings and the goals.
   # The audit: allowed axioms only, each registered theorem is exactly its goal, no goal without a
   # registered theorem unless listed as not done, and the compiled proofs replayed by the kernel.
@@ -131,7 +129,7 @@ jobs:
 
   # The differential test compares the translation with the C. It is needed only when one of the
   # two sides, the runtime they run on, or the test itself changes.
-  diff_changes:
+  differential-test-scope:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -154,9 +152,9 @@ jobs:
           echo "run=$run" >> "$GITHUB_OUTPUT"
           echo "differential test needed: $run"
 
-  diff_core:
-    needs: [build, diff_changes]
-    if: ${{ needs.diff_changes.outputs.run == 'true' }}
+  differential-test:
+    needs: [build, differential-test-scope]
+    if: ${{ needs.differential-test-scope.outputs.run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -186,22 +184,3 @@ jobs:
       # and undefined behaviour on every input.
       - name: Build the patched zlib and the Lean drivers, run the differential test under ASan and UBSan
         run: SAN=1 ZLIB_SRC="$GITHUB_WORKSPACE/zlib" bash tests/run.sh
-
-
-  # Required status: a failed, skipped or cancelled worker cannot pass.
-  difftest:
-    needs: [diff_changes, diff_core]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Require every differential stage
-        env:
-          NEEDED: ${{ needs.diff_changes.outputs.run }}
-          CORE_RESULT: ${{ needs.diff_core.result }}
-        run: |
-          if [ "$NEEDED" = false ]; then
-            test "$CORE_RESULT" = skipped
-          else
-            test "$NEEDED/$CORE_RESULT" = "true/success"
-          fi
