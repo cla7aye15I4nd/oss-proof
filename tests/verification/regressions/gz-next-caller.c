@@ -1,7 +1,7 @@
 /* Regression for the statement correction of GzCommon.next (ZlibF/Proof/gz.inv-model.lean).
  * The old clause "x.next is NULL, or inside an owned buffer" is false between calls: the direct path of gz_read
  * (gz_decomp into the caller's buffer) leaves x.next = next_out - have inside the caller's buffer, with x.have = 0,
- * and patch 0005 only guards `x.next += n` with n != 0. A gzread of 40000 bytes with the default want 8192 inflates
+ * and patch 0006 only guards `x.next += n` with n != 0. A gzread of 40000 bytes with the default want 8192 inflates
  * directly into buf; the last trip starts at buf + 16384 or later.
  * Build against zlib/ with patches/*.patch applied, from a patched copy of zlib/ (ASan and UBSan report nothing):
  *   cc -fsanitize=address,undefined -DHAVE_UNISTD_H -I. -o gz-next-caller gz-next-caller.c adler32.c crc32.c \

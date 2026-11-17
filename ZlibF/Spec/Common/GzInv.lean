@@ -99,8 +99,8 @@ structure GzCommon (h : Heap) (i : Nat) (s : GzState) : Prop where
     0 ≤ s.x.pos.toInt + s.x.have.toNat
   /-- With buffered output (`x.have ≠ 0`), `x.next` is inside an owned buffer other than the message with `x.have`
   bytes after it. With `x.have = 0` it says nothing: the direct path of `gz_read` (`gz_decomp` into the caller's
-  buffer) leaves `x.next = next_out - have` inside the caller's buffer with `x.have = 0`, and patch 0005 only guards
-  `x.next += n` with `n != 0` (regression `gz-next-caller.c`). After patch 0005 every read or advance of `x.next`
+  buffer) leaves `x.next = next_out - have` inside the caller's buffer with `x.have = 0`, and patch 0006 only guards
+  `x.next += n` with `n != 0` (regression `gz-next-caller.c`). After patch 0006 every read or advance of `x.next`
   happens with `x.have ≠ 0` (`gz_skip_have`, `gzseek64`, `gzgetc`, `gzgets`, the compare in `gzungetc`), so a stale
   or never-written `x.next` (R-3, R-4) is never used. -/
   next : s.x.have ≠ 0 → ∃ b off a, s.x.next = .ref (.blk b) off ∧ b ≠ i ∧ GzOwned h i s b ∧

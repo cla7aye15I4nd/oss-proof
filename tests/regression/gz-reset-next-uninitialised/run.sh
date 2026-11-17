@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/regression/gz-reset-next-uninitialised/run.sh
-# Builds the pinned zlib twice under ASan and UBSan: with patches/*.patch except 0005 (the
+# Builds the pinned zlib twice under ASan and UBSan: with patches/*.patch except 0006 (the
 # source before the fix), and with all of patches/*.patch. In each copy, the "x.next += n"
 # statements of gzlib.c and gzread.c are routed through the probe of probe.h (the value is
 # unchanged). Runs unset.c on each. Before the fix the probe must see x.next evaluated with
@@ -15,10 +15,11 @@ work=${WORK:-$root/tests/build/gz-reset-next-uninitialised}
 san="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1"
 prog=${PROG:-unset}
 progdir=${PROGDIR:-$here}
+rm -rf "$work/without"
 mkdir -p "$work/without/tests" "$work/without/patches"
 cp "$root/tests/build-zlib.sh" "$work/without/tests/"
 for p in "$root"/patches/*.patch; do
-  case "$(basename "$p")" in 0005-*) ;; *) cp "$p" "$work/without/patches/";; esac
+  case "$(basename "$p")" in 0006-*) ;; *) cp "$p" "$work/without/patches/";; esac
 done
 CFLAGS="$san" bash "$work/without/tests/build-zlib.sh" "$src" "$work/before" >/dev/null || exit 2
 CFLAGS="$san" bash "$root/tests/build-zlib.sh" "$src" "$work/after" >/dev/null || exit 2

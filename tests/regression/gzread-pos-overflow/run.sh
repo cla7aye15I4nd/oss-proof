@@ -13,6 +13,7 @@ src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}
 work=${WORK:-$here/../../build/gzread-pos-overflow}
 san="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1"
 [ "$(uname -s)" = Linux ] || { echo "skip: needs Linux (/dev/zero with a succeeding lseek)"; exit 0; }
+rm -rf "$work/without"
 mkdir -p "$work/without/tests" "$work/without/patches"
 cp "$here/../../build-zlib.sh" "$work/without/tests/"
 for p in "$here"/../../../patches/*.patch; do

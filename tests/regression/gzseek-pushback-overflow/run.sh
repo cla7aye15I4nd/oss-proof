@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/regression/gzseek-pushback-overflow/run.sh
-# Builds the pinned zlib twice under ASan and UBSan: once without any patch (the unpatched source)
-# and once with patches/*.patch (the verified source, which includes 0002). Runs seek.c on a
-# transparent file and on a gzip file, with SEEK_CUR and SEEK_SET after an initial gzungetc.
+# Builds the pinned zlib twice under ASan and UBSan: once with patches/*.patch except 0002 (the
+# source before the fix, "unpatched" below), and once with patches/*.patch (the verified source,
+# which includes 0002). Runs seek.c on a transparent file and on a gzip file, with SEEK_CUR and SEEK_SET after an initial gzungetc.
 # The unpatched build must report a signed overflow in gzseek64 for each of the four runs; the
 # patched build must report nothing, and every seek must return -1 (SEEK_SET) or 0 (SEEK_CUR).
 set -uo pipefail
@@ -11,9 +11,13 @@ src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}
 work=${WORK:-$here/../../build/gzseek-pushback-overflow}
 san="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1"
 mkdir -p "$work"
-# unpatched: an empty patch directory
+# unpatched: every patch but this fix
+rm -rf "$work/nopatch"
 mkdir -p "$work/nopatch/tests" "$work/nopatch/patches"
 cp "$here/../../build-zlib.sh" "$work/nopatch/tests/"
+for p in "$here"/../../../patches/*.patch; do
+  case "$(basename "$p")" in 0002-*) ;; *) cp "$p" "$work/nopatch/patches/";; esac
+done
 CFLAGS="$san" bash "$work/nopatch/tests/build-zlib.sh" "$src" "$work/unpatched" >/dev/null || exit 2
 CFLAGS="$san" bash "$here/../../build-zlib.sh" "$src" "$work/patched" >/dev/null || exit 2
 printf abc > "$work/raw.dat"

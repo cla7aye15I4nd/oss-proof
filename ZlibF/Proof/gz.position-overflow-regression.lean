@@ -2,9 +2,10 @@ import ZlibF.Zlib.«gzread.c»
 import ZlibF.Proof.«gzwrite.c.borrowed-error-regression»
 
 /-!
-# gz: the patch 0004 refusals run in the model
+# gz: the refusals of patches 0004 and 0005 run in the model
 
-Patch 0004 (`patches/0004-gz-position-overflow.patch`) refuses a read or a write that would carry `x.pos` past
+Patches 0004 (`patches/0004-gzread-position-overflow.patch`) and 0005 (`patches/0005-gzwrite-position-overflow.patch`)
+refuse a read or a write that would carry `x.pos` past
 `GZ_OFF_MAX`, with `gz_error(state, Z_DATA_ERROR, "position overflow")`. The runtime table of string literals
 (`strTable`) lacked that literal, so `strLit "position overflow"` was a fault and each refusal faulted in the model,
 where the C returns with `Z_DATA_ERROR`. This regression runs each of the four refusal sites on a concrete state at

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/regression/gzread-transparent-stale-next/run.sh
-# Builds the pinned zlib twice under ASan and UBSan: once without any patch (the unpatched source)
-# and once with patches/*.patch (the verified source, which includes 0003). Runs stale.c on a
-# 128-byte raw file with a read() that returns one byte and then fails with EIO. The unpatched build
+# Builds the pinned zlib twice under ASan and UBSan: once with patches/*.patch except 0003 and 0004
+# (0004 changes the lines that 0003 moves, so it does not apply without 0003; the source before the
+# fix, "unpatched" below), and once with patches/*.patch (the verified source, which includes 0003).
+# Runs stale.c on a 128-byte raw file with a read() that returns one byte and then fails with EIO. The unpatched build
 # must report a heap-buffer-overflow READ in gz_read; the patched build must report nothing, and
 # gzread must return 1 with err Z_ERRNO (-1).
 set -uo pipefail
@@ -11,9 +12,13 @@ src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}
 work=${WORK:-$here/../../build/gzread-transparent-stale-next}
 san="-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g -O1"
 mkdir -p "$work"
-# unpatched: an empty patch directory
+# unpatched: every patch but this fix
+rm -rf "$work/nopatch"
 mkdir -p "$work/nopatch/tests" "$work/nopatch/patches"
 cp "$here/../../build-zlib.sh" "$work/nopatch/tests/"
+for p in "$here"/../../../patches/*.patch; do
+  case "$(basename "$p")" in 0003-*|0004-*) ;; *) cp "$p" "$work/nopatch/patches/";; esac
+done
 CFLAGS="$san" bash "$work/nopatch/tests/build-zlib.sh" "$src" "$work/unpatched" >/dev/null || exit 2
 CFLAGS="$san" bash "$here/../../build-zlib.sh" "$src" "$work/patched" >/dev/null || exit 2
 head -c 128 /dev/zero > "$work/raw.dat"

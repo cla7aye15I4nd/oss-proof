@@ -3,8 +3,8 @@ import ZlibF.Proof.«gz.position-overflow-regression»
 /-!
 # `"position overflow"` regression
 
-Patch 0004 added the C literal `"position overflow"`, but the runtime table `strTable` lacked it. So
-`strLit "position overflow"` was a fault, and each patch-0004 refusal faulted in the model, where the C returns
+Patches 0004 and 0005 added the C literal `"position overflow"`, but the runtime table `strTable` lacked it. So
+`strLit "position overflow"` was a fault, and each of their refusals faulted in the model, where the C returns
 with `Z_DATA_ERROR`. The literal is now in the table. The four refusal sites run through their public entries
 (`ZlibF/Proof/gz.position-overflow-regression.lean`, built with the library); this file restates the results.
 `scripts/check-strlit.py` (fast gate) keeps every literal of the translations in the table.

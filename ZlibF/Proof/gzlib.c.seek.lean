@@ -997,9 +997,9 @@ theorem gzseek64_set_negpos_refuse {h : Heap} {gs : Nat} {s : GzState} (hG : See
   omega
 
 
-/-- **The dangling `x.next` (R-4, patch 0005).** A reader outside the raw area with nothing buffered (`x.have = 0`),
+/-- **The dangling `x.next` (R-4, patch 0006).** A reader outside the raw area with nothing buffered (`x.have = 0`),
 whose `x.next` may point to an object that no longer exists (the caller's buffer after a direct decompression, freed by
-the caller) or may never have been written (R-3): a forward seek does not fault. Without patch 0005 the translation
+the caller) or may never have been written (R-3): a forward seek does not fault. Without patch 0006 the translation
 computed `x.next + 0` here and faulted on a dangling `x.next`. No hypothesis on `x.next`. -/
 theorem seekTail_fwd_empty {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h gs s) (hm : s.mode = GZ_READ)
     (hhow : s.how ≠ GZ_COPY) {t : Int} (ht : SeekOk t)
@@ -1048,7 +1048,7 @@ theorem seekTail_fwd_empty {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h 
   ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero]
 
 /-- `gzseek64` forward on a reader outside the raw area with nothing buffered: no fault, whatever `x.next` holds
-(dangling after a direct read and a `free` by the caller, R-4, or never written, R-3). With patch 0005; before it,
+(dangling after a direct read and a `free` by the caller, R-4, or never written, R-3). With patch 0006; before it,
 the translation faulted on a dangling `x.next`. -/
 theorem gzseek64_dangling_next_ok {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h gs s) (hP : PosInv s)
     (hnn : 0 ≤ s.x.pos.toInt) (he : s.err = Z_OK ∨ s.err = Z_BUF_ERROR) {whence : Int32}

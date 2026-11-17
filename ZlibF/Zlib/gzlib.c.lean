@@ -4,7 +4,7 @@ import ZlibF.Zlib.«gzguts.h»
 # gzlib.c — faithful translation
 
 Source: `gzlib.c` of the verified source (with `patches/0002-gzseek-negative-position-overflow.patch` and
-`patches/0005-gz-next-zero-advance.patch` and `patches/0007-gzoffset-negative-lseek.patch`), default x86_64 Linux build: `LSEEK` is `lseek64`
+`patches/0006-gz-next-zero-advance.patch` and `patches/0007-gzoffset-negative-lseek.patch`), default x86_64 Linux build: `LSEEK` is `lseek64`
 (`_LARGEFILE64_SOURCE`, `_LFS64_LARGEFILE`), `O_CLOEXEC`, `O_NONBLOCK`, `O_EXCL`, `O_LARGEFILE` are defined
 (`O_LARGEFILE` is 0), `O_BINARY`, `WIDECHAR`, `UNDER_CE`, `NO_GZCOMPRESS` are not. So `gz_strwinerror`, the `-2`
 (wide path) branches and the `#ifndef O_EXCL` block are not compiled.
@@ -12,7 +12,7 @@ Source: `gzlib.c` of the verified source (with `patches/0002-gzseek-negative-pos
 `gzseek64` follows the patched C: the range checks no longer overflow after `gzungetc` at the start (R-1, upstream
 PR 1361, applied as patch 0002).
 
-`gz_reset` does not write `x.next` (R-3). With patch 0005 (local), `gzseek64` advances `x.next` only by a nonzero
+`gz_reset` does not write `x.next` (R-3). With patch 0006 (local), `gzseek64` advances `x.next` only by a nonzero
 count, so it never computes with a never-written or dangling `x.next` (R-3, R-4).
 
 File calls go through `Zlib.GzFs` (the model of `open`, `lseek`, `close`, `errno`, `snprintf`).
@@ -257,7 +257,7 @@ def gzrewind (file : GzFilePtr) : G Int32 := do
   return 0
 
 /-- `z_off64_t ZEXPORT gzseek64(gzFile file, z_off64_t offset, int whence)`. With patch 0002 (upstream PR 1361):
-the range checks are safe after a `gzungetc()` right after `gzopen()` (R-1). With patch 0005: `x.next` is advanced
+the range checks are safe after a `gzungetc()` right after `gzopen()` (R-1). With patch 0006: `x.next` is advanced
 only when `n != 0` (R-3, R-4). -/
 def gzseek64 (file : GzFilePtr) (offset : Int64) (whence : Int32) : G Int64 := do
   if file.isNone then return -1
@@ -308,7 +308,7 @@ def gzseek64 (file : GzFilePtr) (offset : Int64) (whence : Int32) : G Int64 := d
       else pure s.x.«have»
     -- state->x.have -= n;
     updX state fun x => { x with «have» := x.«have» - n }
-    -- if (n) state->x.next += n;   (patch 0005)
+    -- if (n) state->x.next += n;   (patch 0006)
     if n != 0 then
       let s ← ldS state
       let nx ← s.x.next.add n.toNat

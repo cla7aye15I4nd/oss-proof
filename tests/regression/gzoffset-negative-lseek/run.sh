@@ -12,6 +12,7 @@ src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}
 work=${WORK:-$here/../../build/gzoffset-negative-lseek}
 san="-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g -O1"
 [ "$(uname -s)" = Linux ] || { echo "skip: needs Linux (/proc/self/mem)"; exit 0; }
+rm -rf "$work/without"
 mkdir -p "$work/without/tests" "$work/without/patches"
 cp "$here/../../build-zlib.sh" "$work/without/tests/"
 for p in "$here"/../../../patches/*.patch; do

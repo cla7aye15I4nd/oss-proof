@@ -61,7 +61,7 @@ structure GzGood (h : Heap) (gs : Nat) (s : GzState) : Prop where
 
 /-- With buffered output (`x.have ≠ 0`), `x.next` can be advanced by up to `x.have` bytes: it points into a live array
 with `x.have` bytes after it, and not into the message block. With nothing buffered it says nothing: after a direct read
-`x.next` is left in the caller's buffer and can dangle (R-4), or it was never written (R-3); with patch 0005 nothing
+`x.next` is left in the caller's buffer and can dangle (R-4), or it was never written (R-3); with patch 0006 nothing
 reads or advances it then (`seekTail_fwd_empty`). -/
 def NextOk (h : Heap) (s : GzState) : Prop :=
   (s.x.«have» ≠ 0 →

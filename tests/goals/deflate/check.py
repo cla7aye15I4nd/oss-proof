@@ -280,7 +280,7 @@ def model_bound(p, dict_eff, n):
     fixedlen = n + n // 8 + n // 256 + n // 512 + 4
     storelen = n + n // 32 + n // 128 + n // 2048 + 7
     wraplen = {"raw": 0, "zlib": 6 + (4 if dict_eff else 0), "gzip": 18}[wrap]
-    if wbits != 15 or mem + 7 != 15 or strategy == 4:      # Z_FIXED: conservative bound (patch 0006)
+    if wbits != 15 or mem + 7 != 15 or strategy == 4:      # Z_FIXED: conservative bound (patch 0008)
         b = (fixedlen if wbits <= mem + 7 and level != 0 else storelen) + wraplen
     else:
         b = n + n // 4096 + n // 16384 + n // 2 ** 25 + 13 - 6 + wraplen

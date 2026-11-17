@@ -5,7 +5,7 @@ import ZlibF.Zlib.«gzread.c»
 # gzread.c: `gz_skip_have` keeps `GzInv`
 
 `gz_skip_have` consumes `n = min(x.have, skip)` buffered bytes: `x.have -= n`, `x.next += n` (only when `n != 0`,
-patch 0005), `x.pos += n`, `skip -= n`. It does not fault: `n ≤ x.have` keeps `x.next + n` inside its block
+patch 0006), `x.pos += n`, `skip -= n`. It does not fault: `n ≤ x.have` keeps `x.next + n` inside its block
 (`GzCommon.next`), and `n ≤ skip` with `x.pos + skip ≤ GZ_OFF_MAX` (`GzCommon.pos`) keeps both signed operations in
 range. `GT_OFF` is false on this platform.
 

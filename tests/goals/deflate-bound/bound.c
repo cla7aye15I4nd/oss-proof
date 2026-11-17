@@ -235,7 +235,7 @@ static void sweep(int slice, size_t count) {
  * distances for windowBits 9), with literals at a rate of
  * R percent between them. Every window (SEED selects one: 9 .. 15), memLevel, level 1 .. 9 and
  * strategy, L in 3 .. 5, R in {0, 10, 25, 50}, zlib wrapper, one deflate(Z_FINISH) with room
- * deflateBound(n), n = COUNT. Before patch 0006 the case windowBits 15, memLevel 8, Z_FIXED,
+ * deflateBound(n), n = COUNT. Before patch 0008 the case windowBits 15, memLevel 8, Z_FIXED,
  * levels 1 to 3 fails here. */
 static void far(int wb, size_t n) {
     size_t wsize = (size_t)1 << wb, hi = wsize - 262, lo = wsize / 2 + 1 <= hi ? wsize / 2 + 1 : hi / 2 + 1;

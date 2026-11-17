@@ -256,7 +256,7 @@ def pfV2 (i : Nat) (len : Int32) : G Int32 := do
   if s.err != 0 && s.again == 0 then return s.err
   return len
 
-/-- `gzvprintf` from the position check (patch 0004) on. -/
+/-- `gzvprintf` from the position check (patch 0005) on. -/
 def pfPos (i : Nat) (len : Int32) : G Int32 := do
   if (← i64sub GZ_OFF_MAX (← ldS (gzSt i)).x.pos) < len.toInt64 then
     Zlib.Gzlib.gz_error (gzSt i) Z_DATA_ERROR (← Zlib.GzFs.strLit "position overflow")
@@ -433,7 +433,7 @@ theorem v2_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzStat
       simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, run,
         h10, ↓reduceIte, hU, ldS_put, hsub, hX, hS3, ha', Bool.false_eq_true]
 
-/-- **`gzvprintf` from the position check on** (patch 0004), with `0 < len < size` bytes formatted after the
+/-- **`gzvprintf` from the position check on** (patch 0005), with `0 < len < size` bytes formatted after the
 pending input, which lies in the first half of `in`. -/
 theorem pos_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzState} {fs0 fs : Fs} {H : Heap}
     {v : GzState} (len : Int32) (E : GetcUngetc.Eff i h0 s0 fs0 fs H) (inv : GzInv H i v) (hw : v.mode = GZ_WRITE)
@@ -457,7 +457,7 @@ theorem pos_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzSta
   have hd : (Int64.ofInt (9223372036854775807 - v.x.pos.toInt)).toInt = 9223372036854775807 - v.x.pos.toInt :=
     Zlib.Gzlib.Proofs.i64_toInt_ofInt (by omega) (by omega)
   by_cases hc : Int64.ofInt (9223372036854775807 - v.x.pos.toInt) < len.toInt64
-  · -- the refusal of patch 0004
+  · -- the refusal of patch 0005
     obtain ⟨k, hk⟩ := strIndex_of_mem (s := "position overflow") (by decide +kernel)
     obtain ⟨after, run2, post2⟩ := lit_step err errOwn inv hfs Z_DATA_ERROR (posov_cstring H hk) (by decide)
     obtain ⟨-, s4, inv4, -⟩ := id post2
@@ -762,7 +762,7 @@ theorem init_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzSt
 end printf
 
 /-- **`gzvprintf_step`** (skeleton statement), given the facts of `gz_error`. Relies on the local patch for W7
-(patch 0004: the position check of `gzvprintf`). The argument domain puts the format and every `%s` string apart
+(patch 0005: the position check of `gzvprintf`). The argument domain puts the format and every `%s` string apart
 from the blocks the handle owns (`GzArguments`); without it the call can fault (`gzwrite.c.printf-error-string-
 regression`). Past the mode test the format is a string and the pointer arguments are live. -/
 theorem gzvprintf_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (format : BPtr) (va : List VaArg) :

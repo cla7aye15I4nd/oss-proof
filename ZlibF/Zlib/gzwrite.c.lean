@@ -4,7 +4,7 @@ import ZlibF.Zlib.«deflate.c»
 /-!
 # gzwrite.c — faithful translation
 
-Source: `gzwrite.c` of the verified source (with `patches/0004-gz-position-overflow.patch`: `gz_write`, the fast
+Source: `gzwrite.c` of the verified source (with `patches/0005-gzwrite-position-overflow.patch`: `gz_write`, the fast
 path of `gzputc` and `gzvprintf` refuse a write that would carry `x.pos` past `GZ_OFF_MAX`; W7), default x86_64
 Linux build. `STDC` is defined, so
 `gz_vacate`, `gzvprintf` and the `va_list` version of `gzprintf` are compiled; `HAVE_VSNPRINTF` is defined and
@@ -228,7 +228,7 @@ def gz_write (state : GzStatePtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   if (← ldS state).skip != 0 then
     if (← gz_zero state) == -1 then return 0
   -- if (GZ_OFF_MAX - state->x.pos < len) { gz_error(state, Z_DATA_ERROR, "position overflow"); return 0; }
-  -- (patch 0004; the long difference converts to the unsigned long of len)
+  -- (patch 0005; the long difference converts to the unsigned long of len)
   if (← i64sub GZ_OFF_MAX (← ldS state).x.pos).toUInt64 < len then
     gz_error state Z_DATA_ERROR (← strLit "position overflow")
     return 0
@@ -350,7 +350,7 @@ def gzputc (file : GzFilePtr) (c : Int32) : G Int32 := do
     let s ← ldS state
     let tp ← z.next_in.add z.avail_in.toNat
     let hv : UInt32 := (← Ptr.diff tp s.«in»).toUInt64.toUInt32
-    -- if (have < state->size && state->x.pos < GZ_OFF_MAX) { ... }   (patch 0004)
+    -- if (have < state->size && state->x.pos < GZ_OFF_MAX) { ... }   (patch 0005)
     if hv < s.size && s.x.pos < GZ_OFF_MAX then
       store8 (← s.«in».add hv.toNat) c.toUInt32.toUInt8
       updZ strm fun z => { z with avail_in := z.avail_in + 1 }
@@ -445,7 +445,7 @@ def gzvprintf (file : GzFilePtr) (format : BPtr) (va : List VaArg) : G Int32 := 
   if len == 0 || len.toUInt32 ≥ s.size then return 0
   if (← index8 next (s.size - 1).toNat) != 0 then return 0
   -- if (GZ_OFF_MAX - state->x.pos < len) { gz_error(state, Z_DATA_ERROR, "position overflow"); return state->err; }
-  -- (patch 0004; the int len converts to long)
+  -- (patch 0005; the int len converts to long)
   if (← i64sub GZ_OFF_MAX (← ldS state).x.pos) < len.toInt64 then
     gz_error state Z_DATA_ERROR (← strLit "position overflow")
     return (← ldS state).err

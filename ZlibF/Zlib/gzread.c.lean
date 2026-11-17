@@ -5,7 +5,7 @@ import ZlibF.Zlib.«inflate.c»
 # gzread.c — faithful translation
 
 Source: `gzread.c` of the verified source (with `patches/0003-gzread-partial-copy-read-error.patch` and
-`patches/0004-gz-position-overflow.patch`), default x86_64 Linux build (`errno`, `EAGAIN == EWOULDBLOCK`,
+`patches/0004-gzread-position-overflow.patch`), default x86_64 Linux build (`errno`, `EAGAIN == EWOULDBLOCK`,
 `STDC`). Reads go through `Zlib.GzFs`.
 
 Patch 0004 (local, F-1): `gz_room` bounds what `gz_look`'s COPY branch buffers, what `gz_fetch` loads and what
@@ -16,7 +16,7 @@ Patch 0004 (local, F-1): `gz_room` bounds what `gz_look`'s COPY branch buffers, 
 before `gz_load`, so a failing `read` that returned some bytes leaves `x.have != 0` with `x.next` at the new bytes.
 
 `gz_read` leaves `x.next` pointing into the user's buffer after a direct decompression (R-4), and `gz_reset` never
-writes it (R-3). With patch 0005 (local), `gz_skip_have` and `gzseek64` advance `x.next` only by a nonzero count, so
+writes it (R-3). With patch 0006 (local), `gz_skip_have` and `gzseek64` advance `x.next` only by a nonzero count, so
 neither value is used.
 
 Decisions: `unsigned *have` of `gz_load` is returned (the caller stores it right after the call; nothing in `gz_load`
@@ -300,7 +300,7 @@ def gz_fetch (state : GzStatePtr) : G Int32 := do
     none
   return r.getD 0
 
-/-- `local void gz_skip_have(gz_statep state)`. With patch 0005: `x.next` is advanced only when `n != 0` (R-3,
+/-- `local void gz_skip_have(gz_statep state)`. With patch 0006: `x.next` is advanced only when `n != 0` (R-3,
 R-4). -/
 def gz_skip_have (state : GzStatePtr) : M Unit := do
   let s ← ldS state
@@ -309,7 +309,7 @@ def gz_skip_have (state : GzStatePtr) : M Unit := do
     else pure s.x.«have»
   -- state->x.have -= n;
   updX state fun x => { x with «have» := x.«have» - n }
-  -- if (n) state->x.next += n;   (patch 0005)
+  -- if (n) state->x.next += n;   (patch 0006)
   if n != 0 then
     let s ← ldS state
     let nx ← s.x.next.add n.toNat
@@ -357,7 +357,7 @@ structure ReadLoop where
   brk : Bool
 
 /-- `local z_size_t gz_read(gz_statep state, voidp buf, z_size_t len)`. The direct decompression into the user's
-buffer leaves `x.next` pointing into it (R-4; harmless with patch 0005). -/
+buffer leaves `x.next` pointing into it (R-4; harmless with patch 0006). -/
 def gz_read (state : GzStatePtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   let strm := strmOf state
   -- if (len == 0) return 0;
