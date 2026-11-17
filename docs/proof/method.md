@@ -216,7 +216,4 @@ being right. It rests on the kernel, on the goal saying what was meant, and on t
 and the runtime model agreeing with the C; the [trusted base](../trusted-base.md) lists these.
 
 The tests bear on the last of these. Differential tests compare the translation with the real C
-on the same inputs; they are evidence of fidelity, not proof. Proof mutants are further
-evidence of the same kind: a copy of the translation is changed in one place, for example by a
-dropped check, a changed return value, a wrong field or an index off by one, to see that the
-proof of the changed function then fails.
+on the same inputs; they are evidence of fidelity, not proof.
