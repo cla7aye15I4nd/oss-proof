@@ -14,7 +14,7 @@ The cause of the leave that ends the call (`loop_cause`, `zlib_cause_rows`) excl
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec ZlibF.Spec.Public
-open HeldWithinBounds MeaningDistance
+open HeldWithinBounds MeaningDistance MeaningLit MeaningTypeFinal
 set_option autoImplicit false
 
 /-- A stage in `LEN_` is a Huffman-code position before a symbol. -/
@@ -78,7 +78,7 @@ theorem lenstart_not_end {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
     body_on_source wh valid (List.prefix_refl S) (rest := held) (by rw [bitsEq])
   have moreEq : more = held := by
     rw [srcEq, List.append_assoc] at bitsEq
-    exact (List.append_cancel_left (List.append_cancel_left bitsEq)).symm
+    exact List.append_cancel_left (List.append_cancel_left bitsEq)
   subst moreEq
   have resid := deflateParsed_resid dparsed more tail decoded aligned blocks
   obtain ⟨_, _, r, h', symbols, cont⟩ := resid
