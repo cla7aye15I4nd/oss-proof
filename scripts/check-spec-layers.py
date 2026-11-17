@@ -124,9 +124,6 @@ MATH_PROOF_IMPORTS = {
     'ZlibF.Math.code-length-prefix': (
         'ZlibF.Proof.«inftrees.c.decode.semantics»',
     ),
-    'ZlibF.Math.inflate-dictionary-window-token': (
-        'ZlibF.Proof.Format.Huffman',
-    ),
     'ZlibF.Math.inflate-header-alphabet': (
         'ZlibF.Proof.«inflate.c.main.table6»',
     ),
