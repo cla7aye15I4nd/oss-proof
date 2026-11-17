@@ -19,17 +19,19 @@ Lemmas (name — meaning — state — estimate):
   `Z_BUF_ERROR`, with the progress clauses of `Goal.inflate` — checked
 * `blocked_output_due` — a call that returns `Z_OK` or `Z_BUF_ERROR` with input left filled the
   output and has not written all of `D` (`blocked_leave` and the stage) — checked
+* `consumed_all_state` — with all of a valid stream consumed, the decoder is in `CHECK` holding
+  the 32 trailer bits, or in `DONE` (heap-free counting over the stage of `ParseMeaning`, the
+  held-bit bounds of `BodyMatches` and `DecoderHeldBits`) — open — 10 h
+* `ok_leave_mode` — a call that returns `Z_OK` or `Z_BUF_ERROR` under an ordinary flush does not
+  end in `DONE`, and in `CHECK` holds fewer than 32 bits (control flow: which dispatch can leave
+  in these modes) — open — 16 h
 * `stop_short_zlib` — a call that returns `Z_OK` or `Z_BUF_ERROR` has not consumed a whole valid
-  zlib stream (zlib case of `StopShort`). Plan: with input left, `blocked_output_due`; with no
-  input left and no output room, the same stage argument; with no input left and output room, a
-  new control-flow lemma `starved_leave` (as `blocked_leave`: the leave was a `NEEDBITS` or
-  `PULLBYTE` with no input, short of the bits the mode needs) and a heap-free lemma (a stage that
-  has consumed all of `S` holds the bits every mode needs) — open — 24 h
+  zlib stream (zlib case of `StopShort`) — checked (from the two above)
 * `moves`, `stuck` — the two case splits of the assemblies — checked
 * `progress`, `completes` — the two goals — checked (from the lemmas above)
 * `witness` — a concrete heap, history and stream on which the premises of both goals hold
   (non-vacuity) — open — 8 h
-Total open: about 32 h.
+Total open: about 34 h.
 -/
 import ZlibF.Spec.Functional.InflateCompletion
 import ZlibF.Proof.«inflate.c.meaning-zlib»
@@ -354,21 +356,52 @@ theorem blocked_output_due {r : ZStreamRef} {h after : Heap} {log : DataLog} {S 
   simp only [List.length_append, WrapStage.output] at lengths ⊢
   omega
 
+/-- After all of a valid stream is consumed, the decoder is in `CHECK` holding the 32 trailer
+bits, or in `DONE`: every other stage still has at least 33 bits to come, or holds fewer bits
+than the rest of the stream (`BodyMatches`), while a live decoder holds at most 32
+(`DecoderHeldBits`). Heap-free counting over the stage of `ParseMeaning`. -/
+theorem consumed_all_state {r : ZStreamRef} {h : Heap} {log : DataLog} {S D : List UInt8}
+    (trace : DefaultInflateTrace r h log) (valid : Zlib.Decodes [] S D) (all : log.input = S)
+    {i : Nat} {z : ZStream} {s : InflateState} (good : Zlib.Inflate.Spec.Good h r i z s) :
+    (s.mode = CHECK ∧ s.bits.toNat = 32) ∨ s.mode = DONE := by
+  sorry
+
+/-- A call that returns `Z_OK` or `Z_BUF_ERROR` under an ordinary flush does not end in `DONE`,
+and in `CHECK` it holds fewer than 32 bits: `DONE` returns `Z_STREAM_END`, and the only leave in
+`CHECK` is its `NEEDBITS(32)` with no input. Control flow of one call. -/
+theorem ok_leave_mode {r : ZStreamRef} {h after : Heap} {log : DataLog} {flush rc : Int32}
+    {input output : List UInt8} {used : Nat}
+    (trace : DefaultInflateTrace r h log) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
+    (flushes : OrdinaryFlush flush) (step : DataStep .inflate h after r flush rc input output used)
+    (codes : rc = Z_OK ∨ rc = Z_BUF_ERROR)
+    {i : Nat} {z' : ZStream} {s' : InflateState} (good' : Zlib.Inflate.Spec.Good after r i z' s') :
+    s'.mode ≠ DONE ∧ (s'.mode = CHECK → s'.bits.toNat < 32) := by
+  sorry
+
 /-- A call that returns `Z_OK` or `Z_BUF_ERROR` has not consumed a whole valid zlib stream. -/
 theorem stop_short_zlib {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D input output : List UInt8}
     {flush rc : Int32} {used : Nat}
     (trace : DefaultInflateTrace r h log) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
+    (noFail : NoAllocationFailure h)
     (valid : Zlib.Decodes [] S D) (flushes : OrdinaryFlush flush)
     (step : DataStep .inflate h after r flush rc input output used)
     (codes : rc = Z_OK ∨ rc = Z_BUF_ERROR) :
     log.input ++ input.take used ≠ S := by
-  sorry
+  intro all
+  have trace' := DefaultInflateTrace.step trace fit noFail step
+  obtain ⟨_, _, i, z', s', inv', _⟩ := trace_state trace'
+  obtain ⟨notDone, checkShort⟩ := ok_leave_mode trace fit flushes step codes inv'.good
+  rcases consumed_all_state trace' valid all inv'.good with ⟨check, bits⟩ | done
+  · have := checkShort check
+    omega
+  · exact notDone done
 
 /-- A call that returns `Z_OK` or `Z_BUF_ERROR` with room, given input when some of `S` is left,
 consumed input or wrote output. -/
 theorem moves {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D input output : List UInt8}
     {flush rc : Int32} {used : Nat}
     (trace : DefaultInflateTrace r h log) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
+    (noFail : NoAllocationFailure h)
     (valid : Zlib.Decodes [] S D) (flushes : OrdinaryFlush flush)
     (step : DataStep .inflate h after r flush rc input output used)
     (codes : rc = Z_OK ∨ rc = Z_BUF_ERROR) (nonempty : input ≠ [] ∨ log.input = S)
@@ -378,7 +411,7 @@ theorem moves {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D input outpu
   · exact given ne
   · by_cases ne : input = []
     · exfalso
-      apply stop_short_zlib trace fit valid flushes step codes
+      apply stop_short_zlib trace fit noFail valid flushes step codes
       rw [ne, eq]
       simp
     · exact given ne
@@ -388,6 +421,7 @@ theorem moves {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D input outpu
 theorem stuck {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D output : List UInt8}
     {z z' : ZStream} {flush rc : Int32} {used : Nat}
     (trace : DefaultInflateTrace r h log) (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
+    (noFail : NoAllocationFailure h)
     (valid : Zlib.Decodes [] S D) (flushes : OrdinaryFlush flush)
     (step : DataStep .inflate h after r flush rc (S.drop log.input.length) output used)
     (hz' : r.get after = some z') (codes : rc = Z_OK ∨ rc = Z_BUF_ERROR)
@@ -397,7 +431,7 @@ theorem stuck {r : ZStreamRef} {h after : Heap} {log : DataLog} {S D output : Li
     (usedEq : used = z.avail_in.toNat - z'.avail_in.toNat)
     (outLen : output.length = z.avail_out.toNat - z'.avail_out.toNat) : False := by
   by_cases left : z'.avail_in = 0
-  · apply stop_short_zlib trace fit valid flushes step codes
+  · apply stop_short_zlib trace fit noFail valid flushes step codes
     have all : used = (S.drop log.input.length).length := by
       rw [left] at usedEq
       simp at usedEq
@@ -421,12 +455,12 @@ theorem progress : Goal.default_inflate_progress := by
   refine ⟨rc, after, output, used, step, ?_⟩
   rcases codes with ok | en | nd | be
   · exact Or.inr (Or.inl ⟨Or.inl ok,
-      moves trace fit valid flushes step (Or.inl ok) nonempty (fun ne => given (Or.inl ok) ne room),
+      moves trace fit noFail valid flushes step (Or.inl ok) nonempty (fun ne => given (Or.inl ok) ne room),
       inPrefix, outPrefix⟩)
   · exact Or.inl ⟨en, ends en⟩
   · subst nd
     exact Or.inr (Or.inr ⟨rfl, need_dict_zlib trace fit within step⟩)
-  · have moved := moves trace fit valid flushes step (Or.inr be) nonempty
+  · have moved := moves trace fit noFail valid flushes step (Or.inr be) nonempty
       (fun ne => given (Or.inr be) ne room)
     rcases buf be with fin | ⟨u0, o0⟩
     · exact Or.inr (Or.inl ⟨Or.inr ⟨be, fin⟩, moved, inPrefix, outPrefix⟩)
@@ -446,7 +480,7 @@ theorem completes : Goal.default_inflate_completes := by
   have dropLen : (S.drop log.input.length).length = S.length - log.input.length := by simp
   refine ⟨rc, after, output, used, step, ?_⟩
   rcases codes with ok | en | nd | be
-  · exact (stuck trace fit valid flushes step hz' (Or.inl ok) started within room inLen usedEq outLen).elim
+  · exact (stuck trace fit noFail valid flushes step hz' (Or.inl ok) started within room inLen usedEq outLen).elim
   · obtain ⟨inEq, outEq⟩ := ends en
     refine Or.inl ⟨en, ?_, outEq⟩
     have l := congrArg List.length inEq
@@ -454,7 +488,7 @@ theorem completes : Goal.default_inflate_completes := by
     omega
   · subst nd
     exact Or.inr ⟨rfl, need_dict_zlib trace fit within step⟩
-  · exact (stuck trace fit valid flushes step hz' (Or.inr be) started within room inLen usedEq outLen).elim
+  · exact (stuck trace fit noFail valid flushes step hz' (Or.inr be) started within room inLen usedEq outLen).elim
 
 /-- Non-vacuity: a concrete heap, history and stream on which the premises of both goals hold. -/
 theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UInt8) (z : ZStream),
