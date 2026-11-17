@@ -123,7 +123,7 @@ theorem u16_add_k (a k : Nat) : UInt16.ofNat a + (UInt16.ofNat k) = UInt16.ofNat
 theorem BcIs_set {e : DeflateState} {c : Nat → Nat} (hB : BcIs e c) (i : Nat) (hi : i < 16) (f : UInt16 → UInt16)
     (v : Nat) (hf : f (UInt16.ofNat (c i)) = UInt16.ofNat v) :
     BcIs { e with bl_count := e.bl_count.set! i (f e.bl_count[i]!) } (updN c i v) := by
-  refine ⟨by simp [size_set!, hB.1], fun b hb => ?_⟩
+  refine ⟨by simp [hB.1], fun b hb => ?_⟩
   show (e.bl_count.set! i (f e.bl_count[i]!))[b]! = _
   rw [getD_set _ _ _ _ (by rw [hB.1]; exact hi)]
   by_cases eb : b = i

@@ -180,7 +180,7 @@ theorem argsLive_ok {H : Heap} {va : List VaArg}
 a string and live pointer arguments: it returns, keeps `GzInv` and the size of `in`, and changes only `in`. -/
 theorem vsnprintf_in {h0 : Heap} {s0 : GzState} {fs0 fs : Fs} {H : Heap} {v : GzState}
     (E : GetcUngetc.Eff i h0 s0 fs0 fs H) (inv : GzInv H i v) (hw : v.mode = GZ_WRITE) (hsz : v.size ≠ 0)
-    {B : Nat} {arr : Array UInt8} (hin : v.«in» = .ref (.blk B) 0) (hB : H.bytes B = some arr)
+    {B : Nat} {arr : Array UInt8} (hin : ite_false«in» = .ref (.blk B) 0) (hB : H.bytes B = some arr)
     (hasz : arr.size = 2 * v.size.toNat) {o : Nat} (ho : o ≤ v.size.toNat)
     {format : BPtr} {va : List VaArg} {fmt : List UInt8} (hc : CString H format fmt)
     (live : ∀ q, VaArg.str q ∈ va → ∀ b o, q = .ref (.blk b) o → ∃ a, H.bytes b = some a) :

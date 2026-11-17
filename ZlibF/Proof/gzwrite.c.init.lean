@@ -331,7 +331,7 @@ theorem rec_lt (hs : h.gzstates i = some s) (fr : Fresh h) : i < h.nextBlk :=
   Fresh.lt fr (live_of_gz hs)
 
 theorem Ext.recd (E : Ext h X i t) : X.gzstates i = some t := by
-  rw [E.gzstates, if_pos rfl]
+  rw [E.gzstates, ite_eq_left rfl]
 
 theorem Ext.live_iff (E : Ext h X i t) (hs : h.gzstates i = some s) (fr : Fresh h) (x : Nat) :
     X.live x ↔ h.live x ∨ (h.nextBlk ≤ x ∧ X.bytes x ≠ none) := by
@@ -341,14 +341,14 @@ theorem Ext.live_iff (E : Ext h X i t) (hs : h.gzstates i = some s) (fr : Fresh 
     have xi : x ≠ i := by omega
     have hl : ¬ h.live x := fr x hx
     simp only [Heap.live, E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates,
-      if_neg xi, w, st, gh, d, is, g] at hl ⊢
+      ite_eq_right xi, w, st, gh, d, is, g] at hl ⊢
     simp [hx, b]
   · have xl : x < h.nextBlk := by omega
     by_cases xi : x = i
     · subst xi
       exact ⟨fun _ => Or.inl (live_of_gz hs), fun _ => live_of_gz E.recd⟩
     · simp only [Heap.live, E.bytes x xl, E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates,
-        if_neg xi]
+        ite_eq_right xi]
       simp [hx]
 
 theorem Ext.frame (E : Ext h X i t) (fr : Fresh h) : Frame h X (fun x => x = i) := by
@@ -356,7 +356,7 @@ theorem Ext.frame (E : Ext h X i t) (fr : Fresh h) : Frame h X (fun x => x = i) 
   intro x hx hn
   have xl : x < h.nextBlk := Fresh.lt fr hx
   exact ⟨E.bytes x xl, E.words x, E.streams x, E.gzheaders x, E.dstates x, E.istates x,
-    by rw [E.gzstates, if_neg hn], E.ro x xl hx hn⟩
+    by rw [E.gzstates, ite_eq_right hn], E.ro x xl hx hn⟩
 
 theorem Ext.fresh' (E : Ext h X i t) (hs : h.gzstates i = some s) (fr : Fresh h) : Fresh X := by
   intro x hx hl
@@ -372,16 +372,16 @@ theorem Ext.uniq (E : Ext h X i t) (hs : h.gzstates i = some s) (fr : Fresh h)
   by_cases hx : h.nextBlk ≤ x
   · obtain ⟨_, w, st, gh, d, is, g⟩ := fresh_none fr hx
     have xi : x ≠ i := by omega
-    rw [E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates, if_neg xi, w, st, gh, d, is, g]
+    rw [E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates, ite_eq_right xi, w, st, gh, d, is, g]
     cases X.bytes x <;> simp [Zlib.Gzlib.Spec.cnt]
   · have xl : x < h.nextBlk := by omega
     have hu := u x
     by_cases xi : x = i
     · subst xi
-      rw [E.bytes x xl, E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates, if_pos rfl]
+      rw [E.bytes x xl, E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates, ite_eq_left rfl]
       rw [hs] at hu
       simpa using hu
-    · rw [E.bytes x xl, E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates, if_neg xi]
+    · rw [E.bytes x xl, E.words, E.streams, E.gzheaders, E.dstates, E.istates, E.gzstates, ite_eq_right xi]
       exact hu
 
 theorem Ext.fit (E : Ext h X i t) (fit : ZlibF.PlatformMemory.ByteObjectsFit h) :
@@ -424,8 +424,8 @@ theorem Ext.base (hs : h.gzstates i = some s) (fr : Fresh h) : Ext h h i s where
   istates _ := rfl
   gzstates x := by
     by_cases e : x = i
-    · rw [if_pos e, e, hs]
-    · rw [if_neg e]
+    · rw [ite_eq_left e, e, hs]
+    · rw [ite_eq_right e]
   static := rfl
   allocOk := rfl
   garbage := rfl
@@ -447,7 +447,7 @@ theorem Ext.setS (E : Ext h X i t) (t' : GzState) : Ext h (Zlib.Gzlib.Spec.setS 
     by_cases e : x = i
     · subst e
       simp
-    · rw [if_neg e, Zlib.Gzlib.Proofs.setS_gz_ne X i x t' e, E.gzstates, if_neg e]
+    · rw [ite_eq_right e, Zlib.Gzlib.Proofs.setS_gz_ne X i x t' e, E.gzstates, ite_eq_right e]
   static := E.static
   allocOk := E.allocOk
   garbage := E.garbage
@@ -588,8 +588,8 @@ theorem Ext.ofFail {h X A : Heap} {i : Nat} {s t t' : GzState} (E : Ext h X i t)
   istates x := (F.1 x).2.2.2.2.2.1.trans (E.istates x)
   gzstates x := by
     by_cases e : x = i
-    · rw [if_pos e, e, hA]
-    · rw [if_neg e, (F.1 x).2.2.2.2.2.2.1 e, E.gzstates, if_neg e]
+    · rw [ite_eq_left e, e, hA]
+    · rw [ite_eq_right e, (F.1 x).2.2.2.2.2.2.1 e, E.gzstates, ite_eq_right e]
   static := F.2.1.trans E.static
   allocOk := F.2.2.1.trans E.allocOk
   garbage := F.2.2.2.1.trans E.garbage
@@ -672,7 +672,7 @@ theorem gz_strm_init_run {H : Heap} {i : Nat} {g : GzState} {version : BPtr}
   let zp := preparedStream g.strm
   let hp := (ZStreamRef.in_gzstate_strm i).put H zp
   have hshape := shape_put hz zp
-  have hfP : Fresh hp := hshape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := hshape.fresh (by simp) hf
   have huP : Uniq hp := hshape.uniq hu
   have hzP : (ZStreamRef.in_gzstate_strm i).get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha
@@ -1225,14 +1225,14 @@ theorem heap3_next : (heap3 h i s).nextBlk = h.nextBlk + 2 := rfl
 theorem heap3_b0 (hW : 8 ≤ s.want.toNat ∧ s.want.toNat < 2 ^ 31) :
     ∃ a, (heap3 h i s).bytes h.nextBlk = some a ∧ a.size = 2 * s.want.toNat := by
   have hnn : h.nextBlk ≠ h.nextBlk + 1 := by omega
-  simp [heap3, Zlib.Gzlib.Spec.setS, aHeap, hnn, shift_eq hW]
+  simp [heap3, Zlib.Gzlib.Spec.setS, aHeap, shift_eq hW]
 
 theorem heap3_b1 : ∃ a, (heap3 h i s).bytes (h.nextBlk + 1) = some a ∧ a.size = s.want.toNat := by
   simp [heap3, Zlib.Gzlib.Spec.setS, aHeap]
 
 theorem heap3_r0 : (heap3 h i s).ro h.nextBlk = false := by
   have hnn : h.nextBlk ≠ h.nextBlk + 1 := by omega
-  simp [heap3, Zlib.Gzlib.Spec.setS, aHeap, hnn]
+  simp [heap3, Zlib.Gzlib.Spec.setS, aHeap]
 
 theorem heap3_r1 : (heap3 h i s).ro (h.nextBlk + 1) = false := by
   simp [heap3, Zlib.Gzlib.Spec.setS, aHeap]
@@ -1538,7 +1538,7 @@ theorem deflate_final {h A : Heap} {i : Nat} {s : GzState} {z' : ZStream} {p : Z
           exact Or.inr ⟨q, cstring_transport hmb e.1 c, malloc_transport hmb e.1 e.2 m⟩
     · have hp : ownedPtrs (sf h s zA) =
           [s.path, s.msg, .ref (.blk h.nextBlk) 0, .ref (.blk (h.nextBlk + 1)) 0] := by
-        simp [ownedPtrs, sf, s3, hW0, hd]
+        simp [ownedPtrs, sf, hW0, hd]
       rw [hp]
       refine ⟨?_, ?_⟩
       · have lt1 := Fresh.lt fr lpb
@@ -1577,9 +1577,9 @@ theorem deflate_final {h A : Heap} {i : Nat} {s : GzState} {z' : ZStream} {p : Z
         exact live_of_gz Fgz
       · exact growF b ((live3' b).2 (Or.inl (cm.live b ((owned0 hsz b).2 (Or.inr (Or.inl e))))))
       · exact growF b ((live3' b).2 (Or.inl (cm.live b ((owned0 hsz b).2 (Or.inr (Or.inr e))))))
-      · simp [sf, s3] at e
+      · simp [sf] at e
         exact growF b ((live3' b).2 (Or.inr (Or.inl e.symm)))
-      · simp [sf, s3] at e
+      · simp [sf] at e
         exact growF b ((live3' b).2 (Or.inr (Or.inr e.symm)))
       · exact (liveF b).2 ((liveA b).2 (Or.inr ((soF b).1 e)))
     · have hnm : blkOf (sf h s zA).msg ≠ some (h.nextBlk + 1) := by
@@ -1588,9 +1588,9 @@ theorem deflate_final {h A : Heap} {i : Nat} {s : GzState} {z' : ZStream} {p : Z
         omega
       exact fun _ => ⟨h.nextBlk + 1, 0, a1, rfl, by omega,
         Or.inr (Or.inr (Or.inr ⟨hW0, Or.inr ⟨mode0, Or.inl rfl⟩⟩)), hnm, Fb1, by simp [sf, wr.have0]⟩
-    · simp [sf, s3, padv]
+    · simp [sf, padv]
     · simp [sf]
-    · simp [sf, s3, padv]
+    · simp [sf, padv]
     · have run3' : C.run (Zlib.Deflate.deflateInit2_ (some (gzStrm i)) s.level Z_DEFLATED (MAX_WBITS + 16)
           DEF_MEM_LEVEL s.strategy (.ref (.str 57) 0) 112) (heap3 h i s) = .ok (Z_OK, A) := by
         unfold C.run
@@ -1755,7 +1755,7 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
               obtain ⟨p, initA⟩ := okA rfl
               gzsimp [recA', eq_true hd]
               exact ⟨0, _, ⟨rfl, rfl⟩, Or.inl rfl,
-                deflate_final fs hfs inv hm hsz hd hrun' initA recA avA libcA (by simp [sf, s3, zs3]),
+                deflate_final fs hfs inv hm hsz hd hrun' initA recA avA libcA (by simp [sf]),
                 fun _ => ⟨⟨_, Zlib.Gzlib.Proofs.setS_gz_same _ _ _, hwant⟩, libcA⟩⟩
             · have F := failA hrc
               have l0 : (heap3 h i s).live h.nextBlk := (heap3_live hs fr hW _).2 (Or.inr (Or.inl rfl))

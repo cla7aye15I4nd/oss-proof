@@ -247,13 +247,13 @@ theorem ldS_eq (h : Heap) (gs : Nat) : ldS (some (.tab gs)) h = match h.gzstates
     | some v => .ok (v, h) | none => .error (.ub "access through a dangling pointer (gz_state)") := by
   cases hh : h.gzstates gs with
   | none => simp [ldS, ldGzState, GzStateRef.get, hh]
-  | some v => simp [ldS_run hh, hh]
+  | some v => simp [ldS_run hh]
 
 theorem updS_eq (h : Heap) (gs : Nat) (f : GzState → GzState) : updS (some (.tab gs)) f h = match h.gzstates gs with
     | some v => .ok ((), setS h gs (f v)) | none => .error (.ub "access through a dangling pointer (gz_state)") := by
   cases hh : h.gzstates gs with
   | none => simp [updS, ldGzState, GzStateRef.get, hh, bind_app]
-  | some v => simp [updS_run hh, hh]
+  | some v => simp [updS_run hh]
 
 theorem updX_eq (h : Heap) (gs : Nat) (f : GzFile → GzFile) : updX (some (.tab gs)) f h = match h.gzstates gs with
     | some v => .ok ((), setS h gs { v with x := f v.x }) | none => .error (.ub "access through a dangling pointer (gz_state)") := by
@@ -263,13 +263,13 @@ theorem ldZ_eq (h : Heap) (gs : Nat) : ldZ (some (.in_gzstate_strm gs)) h = matc
     | some v => .ok (v.strm, h) | none => .error (.ub "access through a dangling pointer (z_stream)") := by
   cases hh : h.gzstates gs with
   | none => simp [ldZ, ldZStream, ZStreamRef.get, hh]
-  | some v => simp [ldZ_run hh, hh]
+  | some v => simp [ldZ_run hh]
 
 theorem updZ_eq (h : Heap) (gs : Nat) (f : ZStream → ZStream) : updZ (some (.in_gzstate_strm gs)) f h = match h.gzstates gs with
     | some v => .ok ((), setS h gs { v with strm := f v.strm }) | none => .error (.ub "access through a dangling pointer (z_stream)") := by
   cases hh : h.gzstates gs with
-  | none => simp [updZ, ldZ, ldZStream, ZStreamRef.get, hh, bind_app]
-  | some v => simp [updZ_run hh, hh]
+  | none => simp [updZ, ldZStream, ZStreamRef.get, hh, bind_app]
+  | some v => simp [updZ_run hh]
 
 /-- Evaluate a straight-line sequence of accesses to a `gz_state` record and its embedded stream. -/
 macro "gsimp" "[" ts:Lean.Parser.Tactic.simpLemma,* "]" : tactic =>

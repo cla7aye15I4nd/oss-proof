@@ -211,7 +211,7 @@ no bit is held, and only the bit fields and the pending cursor of the state chan
 theorem stored_emit {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (good : DGood h r ds z d) (buffers : StreamBuffers h r) (out : z.next_out ≠ .null)
     (pending : d.pending = 0) (cursor : d.pending_out = d.pending_buf)
-    (bits : d.bi_valid.toInt ≤ 7) (strm : d.strm = some r)
+    (bits : d.bi_valid.toInt ≤ 7) (_strm : d.strm = some r)
     (room : (d.bi_valid.toInt.toNat + 42) / 8 ≤ z.avail_out.toNat) (len : UInt32) (last : Bool) :
     ∃ after z' e, storedEmit (some (.tab ds)) (some r) len (if last then 1 else 0) h = .ok ((), after) ∧
       DGood after r ds z' e ∧ StreamBuffers after r ∧
@@ -433,13 +433,13 @@ theorem stored_direct_source (s : DeflateStatePtr) (strm : ZStreamPtr) (left len
 theorem ladd_value (a b : Int64) (h : Heap) (lo : -(2 : Int) ^ 62 ≤ a.toInt + b.toInt)
     (hi : a.toInt + b.toInt ≤ 2 ^ 62) : ladd a b h = .ok (Int64.ofInt (a.toInt + b.toInt), h) := by
   unfold ladd chk64
-  rw [if_pos (by omega)]
+  rw [ite_eq_left (by omega)]
   rfl
 
 theorem lsub_value (a b : Int64) (h : Heap) (lo : -(2 : Int) ^ 62 ≤ a.toInt - b.toInt)
     (hi : a.toInt - b.toInt ≤ 2 ^ 62) : lsub a b h = .ok (Int64.ofInt (a.toInt - b.toInt), h) := by
   unfold lsub chk64
-  rw [if_pos (by omega)]
+  rw [ite_eq_left (by omega)]
   rfl
 
 theorem int64_ofInt_toInt (x : Int) (lo : -(2 : Int) ^ 62 ≤ x) (hi : x ≤ 2 ^ 62) : (Int64.ofInt x).toInt = x := by
@@ -838,7 +838,7 @@ theorem stored_rest {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : De
       simp only [all, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at yes
       obtain ⟨fin, ge, eqIn⟩ := yes
       have dlEq : directLeft left len = left := by
-        unfold directLeft; rw [if_neg (by rw [GT.gt, UInt32.lt_iff_toNat_lt]; have := UInt32.le_iff_toNat_le.mp ge; omega)]
+        unfold directLeft; rw [ite_eq_right (by rw [GT.gt, UInt32.lt_iff_toNat_lt]; have := UInt32.le_iff_toNat_le.mp ge; omega)]
       refine ⟨fin, ?_, by show e.bi_valid.toInt = 0; exact bitsE⟩
       have a3 := account.2.2.1
       rw [dlEq, eqIn] at a3
@@ -891,7 +891,7 @@ theorem stored_iteration {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d
   unfold storedBody
   simp only [bind_app, ldDeflateState_tab good.live.hs, ldZ_eq, good.live.hz]
   by_cases full : z.avail_out < (d.bi_valid.toUInt32 + 42) >>> 3
-  · refine ⟨_, h, z, d, by simp only [full, decide_true, ite_true]; rfl,
+  · refine ⟨_, h, z, d, by simp only [full, ite_true]; rfl,
       ⟨inv, buffers, pend0, out, input, StoredFields.refl d,
       Zlib.Deflate.Universal.Fr.refl inv.good buffers, ⟨fun _ a g => ⟨a, g, rfl⟩, fun _ => rfl⟩⟩,
       fun no => by simp at no, fun zero nz => by exact absurd zero nz⟩
@@ -911,7 +911,7 @@ theorem stored_iteration {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d
       rw [UInt64.toNat_toUInt32, word]
       apply Nat.mod_eq_of_lt
       omega
-    simp only [full, decide_false, Bool.false_eq_true, ite_false, bind_app, lsubRun, pure_app]
+    simp only [full, ite_false, bind_app, lsubRun, pure_app]
     obtain ⟨left, hleft⟩ : ∃ l, l = (Int64.ofInt ((d.strstart.toNat : Int) - d.block_start.toInt)).toUInt64.toUInt32 :=
       ⟨_, rfl⟩
     rw [← hleft]
@@ -936,11 +936,11 @@ theorem stored_iteration {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d
         rw [UInt32.toNat_add]; omega
       simp only [c1, ite_true]
       by_cases c2 : left + z.avail_in > z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3
-      · simp only [c2, decide_true, ite_true]
+      · simp only [c2, ite_true]
         exact stored_rest inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
           (Nat.le_refl _) (stored_len_input _ _ _ (by have := UInt32.lt_iff_toNat_lt.mp c2; omega)
             (fun _ => by have := UInt32.lt_iff_toNat_lt.mp c2; omega))
-      · simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      · simp only [c2, ite_false]
         have c2N : ¬ (z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3).toNat < (left + z.avail_in).toNat :=
           fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
         exact stored_rest inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
@@ -954,11 +954,11 @@ theorem stored_iteration {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d
         rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by rw [maxN]; omega)), maxN]
         exact b
       by_cases c2 : MAX_STORED > z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3
-      · simp only [c2, decide_true, ite_true]
+      · simp only [c2, ite_true]
         exact stored_rest inv buffers pend0 out input level0 flush min_block _ _ left _ haveN leftEq
           (Nat.le_refl _) (stored_len_input _ _ _ (by have := UInt32.lt_iff_toNat_lt.mp c2; rw [maxN] at this; omega)
             (fun c => absurd c c1N))
-      · simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      · simp only [c2, ite_false]
         have c2N : ¬ (z.avail_out - (d.bi_valid.toUInt32 + 42) >>> 3).toNat < MAX_STORED.toNat :=
           fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
         rw [maxN] at c2N

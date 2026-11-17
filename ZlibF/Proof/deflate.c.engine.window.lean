@@ -61,7 +61,7 @@ theorem slide_more {ws ss la : Nat} (hws : 512 ≤ ws) (hD : ss + la ≤ 2 * ws)
     2 * ws - la - ss + ws = 2 * ws - la - (ss - ws) := by omega
 
 /-- The slide test in `unsigned` arithmetic: no wrap in `wsize + (w_size - MIN_LOOKAHEAD)`. -/
-theorem slide_test_nat {ws ss : Nat} (hws : 512 ≤ ws) (hle : ws ≤ 32768) :
+theorem slide_test_nat {ws _ss : Nat} (hws : 512 ≤ ws) (hle : ws ≤ 32768) :
     ws + (ws - 262) = 2 * ws - 262 ∧ ws + (ws - 262) < 2 ^ 32 := by
   constructor <;> omega
 
@@ -108,7 +108,7 @@ theorem caller_margin {ws ss la : Nat} (hD : ss + la ≤ 2 * ws) (hla : 262 ≤ 
 /-- `limit = strstart > MAX_DIST ? strstart - MAX_DIST : NIL`: every chain position above `limit` is within
 `MAX_DIST` of `strstart`. -/
 theorem limit_dist {ws ss p : Nat} (hlim : (if ss > ws - 262 then ss - (ws - 262) else 0) < p) (hp : p ≤ ss)
-    (hws : 512 ≤ ws) : ss - p ≤ ws - 262 := by
+    (_hws : 512 ≤ ws) : ss - p ≤ ws - 262 := by
   split at hlim <;> omega
 
 end Zlib.Deflate.Engine.Proofs

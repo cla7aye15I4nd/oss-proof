@@ -24,7 +24,7 @@ theorem bitsOfNat_succ (H b : Nat) : bitsOfNat H (b + 1) = H.testBit 0 :: bitsOf
 
 theorem bitsOfNat_zero (H : Nat) : bitsOfNat H 0 = [] := rfl
 
-theorem bitsOfNat_drop (H b k : Nat) (hk : k ≤ b) : bitsOfNat (H / 2 ^ k) (b - k) = (bitsOfNat H b).drop k := by
+theorem bitsOfNat_drop (H b k : Nat) (_hk : k ≤ b) : bitsOfNat (H / 2 ^ k) (b - k) = (bitsOfNat H b).drop k := by
   apply List.ext_getElem
   · simp [bitsOfNat_length]
   · intro n h1 h2

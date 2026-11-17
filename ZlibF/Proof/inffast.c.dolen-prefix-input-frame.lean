@@ -32,9 +32,9 @@ theorem dolen_length_prefix_cursor (l : L) :
           result.in_ = inputAdvance l.in_ used)
        first
        | solve | refine ⟨0, by omega, ?_⟩; simp_all [inputAdvance_zero, inputAdvance_add]
-       | solve | refine ⟨1, by omega, ?_⟩; simp_all [inputAdvance_zero, inputAdvance_add]
-       | solve | refine ⟨2, by omega, ?_⟩; simp_all [inputAdvance_zero, inputAdvance_add]
-       | solve | refine ⟨3, by omega, ?_⟩; simp_all [inputAdvance_zero, inputAdvance_add])
+       | solve | refine ⟨1, by omega, ?_⟩; simp_all [inputAdvance_add]
+       | solve | refine ⟨2, by omega, ?_⟩; simp_all [inputAdvance_add]
+       | solve | refine ⟨3, by omega, ?_⟩; simp_all [inputAdvance_add])
     | apply valuePost_ite (α := L)
         (post := fun result => ∃ used, used ≤ 3 ∧
           result.in_ = inputAdvance l.in_ used)

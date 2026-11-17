@@ -52,7 +52,7 @@ theorem tail_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : Deflat
     (inv : DInv h r ds z d) (ov : Block.OverlayAt d.lit_bufsize.toNat) (header : HeaderInv d) (facts : CallFacts d)
     (buffers : StreamBuffers h r) (out : z.next_out ≠ .null) (input : z.avail_in ≠ 0 → z.next_in ≠ .null)
     (pend : d.pending = 0) (busy : d.status = BUSY_STATE ∨ d.status = FINISH_STATE) (lf : d.last_flush = flush)
-    (lower : 0 ≤ flush.toInt) (upper : flush.toInt ≤ 5) (finIn : d.status = FINISH_STATE → z.avail_in = 0)
+    (lower : 0 ≤ flush.toInt) (_upper : flush.toInt ≤ 5) (finIn : d.status = FINISH_STATE → z.avail_in = 0)
     (sstop : StoredStop) :
     ∃ rc after z' d' u p,
       strategyPhase (some r) (some (.tab ds)) flush (trailerPhase (some r) (some (.tab ds)) flush) h =
@@ -129,7 +129,7 @@ theorem tail_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : Deflat
         · exact absurd full room
         · refine ⟨a0, Or.inl ⟨M1 rfl room, Or.inl ⟨?_, nf⟩⟩⟩
           show (if z1.avail_out = 0 then (-1 : Int32) else d1.last_flush) = flush
-          rw [if_neg room, lfEq, lf]
+          rw [ite_eq_right room, lfEq, lf]
     · -- block_done: the markers, then the trailer without Z_FINISH
       subst bd
       rw [after_block]

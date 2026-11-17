@@ -72,12 +72,12 @@ theorem public_finished_pending_drained {h : Heap} {r : ZStreamRef} {ds ob oo : 
       contradiction
     simp only [status] at run
     rw [public_deflate_source]
-    simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+    simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
       show (Z_FINISH > Z_BLOCK) = False from by decide,
-      show (Z_FINISH < 0) = False from by decide, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
+      show (Z_FINISH < 0) = False from by decide, decide_false, Bool.false_eq_true, ite_false,
       zrd_eq, good.live.hz, good.live.zst, castDeflateState, ldZStream_ok good.live.hz,
       ldDeflateState_tab good.live.hs, empty, show ((0 : UInt32) != 0) = false from rfl,
-      BEq.rfl, Bool.not_true, Bool.and_false, Bool.false_and, Bool.or_false,
+      BEq.rfl, Bool.and_false, Bool.false_and, Bool.or_false,
       show (z.next_out == .null) = false from by rw [pointer]; rfl,
       status, show (Z_FINISH != Z_FINISH) = false from rfl,
       show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr outNonzero,

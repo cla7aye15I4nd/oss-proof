@@ -31,12 +31,12 @@ theorem dodist_pass (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32)
   have hld : OkOn (e.heap A msg m) (Ptr.load l.here) (e.DCA.getD k default) := by
     rw [hhere, ← hkE]; exact Ptr.load_ok (e.heap_cget_DCA A msg m) hk
   have hEb64 : (((e.DCA.getD k default).bits.toUInt32).toUInt64).toNat = (e.DCA.getD k default).bits.toNat := by
-    simp [toNat32]
+    simp
   have hEbn : ((e.DCA.getD k default).bits.toUInt32).toNat = (e.DCA.getD k default).bits.toNat := toNat32 _
   have hls1 : LS e (dropL l (e.DCA.getD k default).bits.toUInt32) i o :=
     hls.dropL _ (by omega) (by omega)
   have hEb64 : (((e.DCA.getD k default).bits.toUInt32).toUInt64).toNat = (e.DCA.getD k default).bits.toNat := by
-    simp [toNat32]
+    simp
   have hEbn : ((e.DCA.getD k default).bits.toUInt32).toNat = (e.DCA.getD k default).bits.toNat := toNat32 _
   have hls1 : LS e (dropL l (e.DCA.getD k default).bits.toUInt32) i o :=
     hls.dropL _ (by omega) (by omega)

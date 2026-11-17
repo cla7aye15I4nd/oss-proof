@@ -1372,34 +1372,34 @@ theorem TableWF.clear {K : Type} {P : K → Prop} {t : Tbl (Option K)} (ht : Tab
   · rw [upd_ne _ _ _ _ hj] at hw; exact ht j w hw
 
 /-- The array fields of a `z_stream` have the lengths of the C declaration. -/
-def ZStream.WellFormed (v : ZStream) : Prop := True
+def ZStream.WellFormed (_v : ZStream) : Prop := True
 
 theorem ZStream.garbage_wf (g : Nat → UInt64) : (ZStream.garbage g).WellFormed := by
-  simp [ZStream.garbage, ZStream.WellFormed]
+  simp [ZStream.WellFormed]
 
 theorem ZStream.zeroed_wf : ZStream.zeroed.WellFormed := ZStream.garbage_wf _
 
 /-- The array fields of a `gz_header` have the lengths of the C declaration. -/
-def GzHeader.WellFormed (v : GzHeader) : Prop := True
+def GzHeader.WellFormed (_v : GzHeader) : Prop := True
 
 theorem GzHeader.garbage_wf (g : Nat → UInt64) : (GzHeader.garbage g).WellFormed := by
-  simp [GzHeader.garbage, GzHeader.WellFormed]
+  simp [GzHeader.WellFormed]
 
 theorem GzHeader.zeroed_wf : GzHeader.zeroed.WellFormed := GzHeader.garbage_wf _
 
 /-- The array fields of a `ct_data` have the lengths of the C declaration. -/
-def CtData.WellFormed (v : CtData) : Prop := True
+def CtData.WellFormed (_v : CtData) : Prop := True
 
 theorem CtData.garbage_wf (g : Nat → UInt64) : (CtData.garbage g).WellFormed := by
-  simp [CtData.garbage, CtData.WellFormed]
+  simp [CtData.WellFormed]
 
 theorem CtData.zeroed_wf : CtData.zeroed.WellFormed := CtData.garbage_wf _
 
 /-- The array fields of a `tree_desc` have the lengths of the C declaration. -/
-def TreeDesc.WellFormed (v : TreeDesc) : Prop := True
+def TreeDesc.WellFormed (_v : TreeDesc) : Prop := True
 
 theorem TreeDesc.garbage_wf (g : Nat → UInt64) : (TreeDesc.garbage g).WellFormed := by
-  simp [TreeDesc.garbage, TreeDesc.WellFormed]
+  simp [TreeDesc.WellFormed]
 
 theorem TreeDesc.zeroed_wf : TreeDesc.zeroed.WellFormed := TreeDesc.garbage_wf _
 
@@ -1412,10 +1412,10 @@ theorem DeflateState.garbage_wf (g : Nat → UInt64) : (DeflateState.garbage g).
 theorem DeflateState.zeroed_wf : DeflateState.zeroed.WellFormed := DeflateState.garbage_wf _
 
 /-- The array fields of a `code` have the lengths of the C declaration. -/
-def Code.WellFormed (v : Code) : Prop := True
+def Code.WellFormed (_v : Code) : Prop := True
 
 theorem Code.garbage_wf (g : Nat → UInt64) : (Code.garbage g).WellFormed := by
-  simp [Code.garbage, Code.WellFormed]
+  simp [Code.WellFormed]
 
 theorem Code.zeroed_wf : Code.zeroed.WellFormed := Code.garbage_wf _
 
@@ -1428,26 +1428,26 @@ theorem InflateState.garbage_wf (g : Nat → UInt64) : (InflateState.garbage g).
 theorem InflateState.zeroed_wf : InflateState.zeroed.WellFormed := InflateState.garbage_wf _
 
 /-- The array fields of a `gzFile_s` have the lengths of the C declaration. -/
-def GzFile.WellFormed (v : GzFile) : Prop := True
+def GzFile.WellFormed (_v : GzFile) : Prop := True
 
 theorem GzFile.garbage_wf (g : Nat → UInt64) : (GzFile.garbage g).WellFormed := by
-  simp [GzFile.garbage, GzFile.WellFormed]
+  simp [GzFile.WellFormed]
 
 theorem GzFile.zeroed_wf : GzFile.zeroed.WellFormed := GzFile.garbage_wf _
 
 /-- The array fields of a `gz_state` have the lengths of the C declaration. -/
-def GzState.WellFormed (v : GzState) : Prop := True
+def GzState.WellFormed (_v : GzState) : Prop := True
 
 theorem GzState.garbage_wf (g : Nat → UInt64) : (GzState.garbage g).WellFormed := by
-  simp [GzState.garbage, GzState.WellFormed]
+  simp [GzState.WellFormed]
 
 theorem GzState.zeroed_wf : GzState.zeroed.WellFormed := GzState.garbage_wf _
 
 /-- The array fields of a `static_tree_desc` have the lengths of the C declaration. -/
-def StaticTreeDesc.WellFormed (v : StaticTreeDesc) : Prop := True
+def StaticTreeDesc.WellFormed (_v : StaticTreeDesc) : Prop := True
 
 theorem StaticTreeDesc.garbage_wf (g : Nat → UInt64) : (StaticTreeDesc.garbage g).WellFormed := by
-  simp [StaticTreeDesc.garbage, StaticTreeDesc.WellFormed]
+  simp [StaticTreeDesc.WellFormed]
 
 theorem StaticTreeDesc.zeroed_wf : StaticTreeDesc.zeroed.WellFormed := StaticTreeDesc.garbage_wf _
 
@@ -1567,7 +1567,7 @@ instance : Space Heap IRef Int32 where
         have ha : s.heap = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.dstates id (fun s => { s with heap := f s.heap }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with dstates := t } : Heap)) hm
     | st_base_dist =>
       dsimp only at hg ⊢
@@ -1647,7 +1647,7 @@ instance : Space Heap WRef UInt16 where
         have ha : s.bl_count = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.dstates id (fun s => { s with bl_count := f s.bl_count }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with dstates := t } : Heap)) hm
     | istate_lens id =>
       dsimp only at hg ⊢
@@ -1657,7 +1657,7 @@ instance : Space Heap WRef UInt16 where
         have ha : s.lens = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.istates id (fun s => { s with lens := f s.lens }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with istates := t } : Heap)) hm
     | istate_work id =>
       dsimp only at hg ⊢
@@ -1667,7 +1667,7 @@ instance : Space Heap WRef UInt16 where
         have ha : s.work = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.istates id (fun s => { s with work := f s.work }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with istates := t } : Heap)) hm
 
 theorem WRef.get_dstate_bl_count {h : Heap} {id : Nat} {s : DeflateState} (e : h.dstates id = some s) :
@@ -1805,7 +1805,7 @@ instance : Space Heap BRef UInt8 where
         have ha : s.depth = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.dstates id (fun s => { s with depth := f s.depth }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with dstates := t } : Heap)) hm
     | st_dist_code =>
       dsimp only at hg ⊢
@@ -1871,7 +1871,7 @@ instance : Space Heap CodeRef Code where
         have ha : s.codes = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.istates id (fun s => { s with codes := f s.codes }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with istates := t } : Heap)) hm
     | st_lenfix =>
       dsimp only at hg ⊢
@@ -1937,7 +1937,7 @@ instance : Space Heap CtDataRef CtData where
         have ha : s.dyn_ltree = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.dstates id (fun s => { s with dyn_ltree := f s.dyn_ltree }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with dstates := t } : Heap)) hm
     | dstate_dyn_dtree id =>
       dsimp only at hg ⊢
@@ -1947,7 +1947,7 @@ instance : Space Heap CtDataRef CtData where
         have ha : s.dyn_dtree = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.dstates id (fun s => { s with dyn_dtree := f s.dyn_dtree }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with dstates := t } : Heap)) hm
     | dstate_bl_tree id =>
       dsimp only at hg ⊢
@@ -1957,7 +1957,7 @@ instance : Space Heap CtDataRef CtData where
         have ha : s.bl_tree = a := by simpa [hs] using hg
         subst ha
         have hm := Tbl.modify_opt h.dstates id (fun s => { s with bl_tree := f s.bl_tree }) s hs
-        simp only [hs]
+        simp only
         exact congrArg (fun t => ({ h with dstates := t } : Heap)) hm
     | st_static_dtree =>
       dsimp only at hg ⊢

@@ -67,7 +67,7 @@ theorem public_default_finish_initial_entry {h : Heap} {r : ZStreamRef} {ds : Na
     start.status, show (INIT_STATE == FINISH_STATE) = false from by decide,
     Bool.false_and, show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr positive,
     wrD_eq, start.good.live.hs, start.pending, show ((0 : UInt64) != 0) = false from rfl,
-    start.lastFlush, rank0, rankOld, show ((8 : Int32) ≤ -4) = False from by decide,
+    start.lastFlush, rank0, rankOld,
     show (Z_FINISH != Z_FINISH) = false from rfl, Bool.and_false, rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
 
 /-- `int ZEXPORT deflate(z_streamp strm, int flush)` (first header).
@@ -111,7 +111,7 @@ theorem public_default_finish_header_complete {h : Heap} {r : ZStreamRef} {ds pb
       show ((2 : UInt64) - (2 : UInt32).toUInt64) = 0 from rfl, BEq.rfl, ite_true]
     rw [← initial.pending, ← initial.pendingOut]
   have adler : { z with adler := 1 } = z := by rw [← initial.adler]
-  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, reset, adler, h0, d0,
+  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, adler, h0, d0,
     setD_bytes, ZStreamRef.put_bytes, setD_bytes_commute, ← stream_put_bytes, ZStreamRef.put_setD, setD_setD,
     headerFinishHeap, headerCompleteHeap, headerCompleteBytes, headerCompleteStream,
     show ((2 : UInt32).toNat) = 2 from rfl, ZStreamRef.put_put, reset]

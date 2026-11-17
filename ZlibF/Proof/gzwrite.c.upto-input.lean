@@ -87,9 +87,9 @@ theorem strmAt_isSome (g : Tbl (Option GzState)) (b : Nat) : (strmAt i z g b).is
   rw [upd_apply]
   by_cases hb : b = i
   · subst hb
-    rw [if_pos rfl]
+    rw [ite_eq_left rfl]
     cases g b <;> rfl
-  · simp only [hb, if_false]
+  · simp only [hb, ite_false]
 
 theorem slotUsed_setStrm (h : Heap) (b : Nat) : (setStrm i z h).slotUsed b = h.slotUsed b := by
   simp only [Heap.slotUsed, setStrm, strmAt_isSome]
@@ -196,8 +196,8 @@ theorem comm_freeB (p : BPtr) : Comm i z (freeB p) := by
         | some a =>
           dsimp only
           by_cases hro : h.ro b = true
-          · simp only [hro, if_true]; rfl
-          · simp only [hro, if_false]; rfl
+          · simp only [hro, ite_true]; rfl
+          · simp only [hro]; rfl
       | succ k => rfl
     | str _ => rfl
     | dstate_depth _ => rfl
@@ -209,8 +209,8 @@ theorem comm_add (p : BPtr) (k : Int) : Comm i z (p.add k) := by
   cases p with
   | null =>
     by_cases hk : k = 0
-    · simp only [Ptr.add, hk, if_true]; rfl
-    · simp only [Ptr.add, hk, if_false]; rfl
+    · simp only [Ptr.add, hk, ite_true]; rfl
+    · simp only [Ptr.add, hk, ite_false]; rfl
   | ref r off =>
     simp only [Ptr.add, get_setStrm]
     cases Space.get h r with
@@ -218,8 +218,8 @@ theorem comm_add (p : BPtr) (k : Int) : Comm i z (p.add k) := by
     | some a =>
       dsimp only
       by_cases hk : 0 ≤ (off : Int) + k ∧ (off : Int) + k ≤ (a.size : Int)
-      · simp only [hk, and_self, if_true]; rfl
-      · simp only [hk, if_false]; rfl
+      · simp only [hk, and_self, ite_true]; rfl
+      · simp only [hk, ite_false]; rfl
 
 theorem comm_load (p : BPtr) : Comm i z (Ptr.load p : M UInt8) := by
   intro h
@@ -253,8 +253,8 @@ theorem comm_store8 (p : BPtr) (v : UInt8) : Comm i z (store8 p v) := by
       | true => rfl
       | false =>
         by_cases hk : off < a.size
-        · simp only [hk, if_true, Bool.false_eq_true, if_false]; rfl
-        · simp only [hk, if_false, Bool.false_eq_true]; rfl
+        · simp only [hk, ite_true, Bool.false_eq_true, ite_false]; rfl
+        · simp only [hk, ite_false, Bool.false_eq_true]; rfl
 
 theorem comm_memcpyB (dst src : BPtr) (n : Nat) : Comm i z (memcpyB dst src n) := by
   intro h
@@ -273,14 +273,14 @@ theorem comm_memcpyB (dst src : BPtr) (n : Nat) : Comm i z (memcpyB dst src n) :
         | some sa =>
           dsimp only
           by_cases c1 : (Space.ro h rd && decide (n ≠ 0)) = true
-          · simp only [c1, if_true]; rfl
-          · simp only [c1, if_false]
+          · simp only [c1, ite_true]; rfl
+          · simp only [c1]
             by_cases c2 : od + n ≤ da.size ∧ os + n ≤ sa.size
-            · simp only [c2, and_self, if_true]
+            · simp only [c2, and_self, ite_true]
               by_cases c3 : rd ≠ rs ∨ od + n ≤ os ∨ os + n ≤ od
-              · simp only [c3, if_true]; rfl
-              · simp only [c3, if_false]; rfl
-            · simp only [c2, if_false]; rfl
+              · simp only [c3, ite_true]; rfl
+              · simp only [c3, ite_false]; rfl
+            · simp only [c2, ite_false]; rfl
 
 theorem comm_cstring (p : BPtr) : Comm i z (cstring p) := by
   unfold cstring

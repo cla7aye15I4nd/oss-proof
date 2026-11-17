@@ -109,7 +109,7 @@ theorem uniq_allocIst {h : Heap} (hU : Uniq h) (hF : Fresh h) (st : InflateState
   · have := hU b
     simpa only [allocIstHeap, upd_ne _ _ _ _ hb] using this
 
-theorem owns_allocIst {h : Heap} (hF : Fresh h) (st : InflateState) {S : Nat → Prop} (hO : h.Owns S) :
+theorem owns_allocIst {h : Heap} (_hF : Fresh h) (st : InflateState) {S : Nat → Prop} (hO : h.Owns S) :
     (allocIstHeap h st).Owns (fun b => S b ∨ b = h.nextBlk) := by
   intro b
   by_cases hb : b = h.nextBlk
@@ -131,7 +131,7 @@ theorem inflateInit2_success {h : Heap} {r : ZStreamRef} {z : ZStream} {w : Int3
   all_goals (
     rw [inflateReset2_ok_of (zs := h.nextBlk) (hp := hp)]
     rotate_left
-    · exact ⟨by simp [hz]; rfl, allocIstHeap_istates_eq _ _ _ (by simp), by simp [StateRef.ofInflateState], by simp, by simp [HEAD, SYNC], by simp [initStream, hza], by simp [initStream, hza]⟩
+    · exact ⟨by simp [hz]; rfl, allocIstHeap_istates_eq _ _ _ (by simp), by simp [StateRef.ofInflateState], by simp, by simp [HEAD, SYNC], by simp, by simp⟩
     · simp
     · exact Or.inl rfl
     · simp [initOkHeap, initStream2, initState, initStream, hza, hzf, reset2Heap, freeWin_null, StateRef.ofInflateState])
@@ -157,7 +157,7 @@ theorem inflateInit2_nullstream (w : Int32) (version : BPtr) (h : Heap)
   simp [inflateInit2_, hv, hc]
 
 theorem inflateInit2_memfail {h : Heap} {r : ZStreamRef} {z : ZStream} {w : Int32} {version : BPtr}
-    (hz : r.get h = some z) (hF : Fresh h) (hok : ¬ h.allocOk h.nalloc = true)
+    (hz : r.get h = some z) (_hF : Fresh h) (hok : ¬ h.allocOk h.nalloc = true)
     (hza : z.zalloc = .null ∨ z.zalloc = .fn "zcalloc") (hzf : z.zfree = .null ∨ z.zfree = .fn "zcfree")
     (hv : version ≠ .null) (hv0 : OkOn h (index8 version 0) 49) :
     inflateInit2_ (some r) w version 112 h = .ok (Z_MEM_ERROR, initMemHeap h r z) := by
@@ -179,7 +179,7 @@ theorem inflateInit2_badbits {h : Heap} {r : ZStreamRef} {z : ZStream} {w : Int3
   all_goals (
     rw [inflateReset2_err_of (zs := h.nextBlk) (hp := hp)]
     rotate_left
-    · exact ⟨by simp [hz]; rfl, allocIstHeap_istates_eq _ _ _ (by simp), by simp [StateRef.ofInflateState], by simp, by simp [HEAD, SYNC], by simp [initStream, hza], by simp [initStream, hza]⟩
+    · exact ⟨by simp [hz]; rfl, allocIstHeap_istates_eq _ _ _ (by simp), by simp [StateRef.ofInflateState], by simp, by simp [HEAD, SYNC], by simp, by simp⟩
     · simp
     · exact Or.inl rfl
     · isimp [initBadHeap, initStream2, initState, initStream, hza, hzf, reset2Heap, freeWin_null, StateRef.ofInflateState, zfrees_run2, freeI_eq, Z_STREAM_ERROR, Z_OK, hz])
@@ -221,7 +221,7 @@ theorem reset2Params_bits {w wrap wb : Int32} (hp : reset2Params w = some (wrap,
       · simp only [hb, Bool.false_eq_true, ite_false, Option.some.injEq, Prod.mk.injEq] at hp
         obtain ⟨-, rfl⟩ := hp
         simpa using hb
-    · simp only [h1, h2, ite_true, ite_false] at hp
+    · simp only [h1, h2, ite_false] at hp
       by_cases hb : badBits w = true
       · simp [hb] at hp
       · simp only [hb, Bool.false_eq_true, ite_false, Option.some.injEq, Prod.mk.injEq] at hp

@@ -59,7 +59,7 @@ theorem output_state_segment_buffer_frame
 full. Both paths have an exact frame using their actual produced count. -/
 theorem inflate_LIT_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (tables : DataTablesSafe h s)
+    (E : Env c h r zs z s) (good : Good h r zs z s) (_tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) :
     ∃ outcome regs after state made,
       runX (inflate_LIT c) l h = .ok ((outcome, regs), after) ∧

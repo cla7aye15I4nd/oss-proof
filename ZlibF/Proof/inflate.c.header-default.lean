@@ -72,9 +72,9 @@ theorem inflate_HEAD_zlib_window_prefix_count {c : Ctx} {h : Heap} {r : ZStreamR
     simp only []
     rw [runX_bind, runX_ldS E]
     simp only [nogzip, bne_self_eq_false, Bool.false_and,
-      Bool.false_eq_true, ↓reduceIte, header, beq_self_eq_true, Bool.not_true]
+      Bool.false_eq_true, ↓reduceIte, header]
     unfold headDefaultCheck
-    simp only [Bool.false_eq_true, ↓reduceIte]
+    simp only
   · rfl
 
 /-- Projection retaining the original zlib header prefix. -/
@@ -548,7 +548,7 @@ theorem head_accept_packet {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} 
     rcases mode with type | dictionary
     · rw [type]; decide
     · rw [dictionary]; decide
-  · simp only [after, setI, ZStreamRef.put_static]
+  · simp only [setI, ZStreamRef.put_static]
 
 /-- All actual default-header checks retain the same boundary packet. The
 only exits are BAD, dictionary-id and block parsing. Bit-count premises are

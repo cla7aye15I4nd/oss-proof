@@ -94,7 +94,7 @@ theorem FastInputPacket.literal_write_default_state
       updated[k]? = output[k]? := by
     intro k exterior
     have different : j ≠ k := by omega
-    simp [updated, Array.set!, different]
+    simp [updated, different]
   have frame : BufferFrame h after (fun _ => False)
       [⟨slow.put, slow.left.toNat⟩] :=
     output_view_buffer_frame outputPtr outputGet outputWrite

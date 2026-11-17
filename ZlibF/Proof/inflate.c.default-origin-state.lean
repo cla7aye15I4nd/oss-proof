@@ -32,7 +32,7 @@ theorem inflate_default_origin_initial (h : Heap) (r : ZStreamRef) (version : BP
 three source fields. This is a record lemma, not a callee assumption. -/
 theorem DefaultOriginState.of_fields {h after : Heap} {r : ZStreamRef} {zs : Nat}
     {z stream : ZStream} {s state : InflateState} (before : DefaultOriginState h r zs z s)
-    (current : DefaultStateJ after r zs stream state) (flags : state.flags = s.flags)
+    (current : DefaultStateJ after r zs stream state) (_flags : state.flags = s.flags)
     (lengths : state.lencode = s.lencode) (distances : state.distcode = s.distcode) :
     DefaultOriginState after r zs stream state :=
   ⟨current, by simpa only [CopyTableOrigin, lengths, distances] using before.tableOrigin⟩
@@ -63,7 +63,7 @@ theorem DefaultOriginState.window_update {h after : Heap} {r : ZStreamRef} {zs :
 paired fixed tables, so it preserves the table origin. -/
 theorem DefaultOriginState.block_update {h after : Heap} {r : ZStreamRef} {zs : Nat}
     {z stream : ZStream} {s state : InflateState} (before : DefaultOriginState h r zs z s)
-    (current : DefaultStateJ after r zs stream state) (frame : BlockHeaderFrame s state)
+    (current : DefaultStateJ after r zs stream state) (_frame : BlockHeaderFrame s state)
     (pointers : BlockHeaderPointers s state) : DefaultOriginState after r zs stream state := by
   refine ⟨current, ?_⟩
   rcases pointers with ⟨lengths, distances⟩ | fixed

@@ -24,7 +24,7 @@ theorem common_level_four_trace_witness :
   have oldGet : (ZStreamRef.tab 0).get enlarged = some (default : ZStream) := by
     simp [ZStreamRef.get, enlarged, ZlibF.Spec.Public.Proofs.DeflateInit.witnessHeap]
   have shape := shapeB.trans (shape_put oldGet publicWitnessStream)
-  have fresh : Fresh publicWitnessHeap := shape.fresh (by simp [publicWitnessHeap, enlarged]) witness_fresh
+  have fresh : Fresh publicWitnessHeap := shape.fresh (by simp [enlarged]) witness_fresh
   have uniq : Uniq publicWitnessHeap := shape.uniq witness_uniq
   have get : (ZStreamRef.tab 0).get publicWitnessHeap = some publicWitnessStream :=
     ZStreamRef.get_put_same oldGet _

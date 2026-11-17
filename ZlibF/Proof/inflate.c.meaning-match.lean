@@ -112,7 +112,7 @@ theorem slice_getD {A : Array UInt8} {o0 : Nat} {cur : List UInt8}
   obtain ⟨k, hk⟩ : ∃ k, cur.length = k := ⟨_, rfl⟩
   rw [hk] at view lt
   subst view
-  simp [List.getD_eq_getElem?_getD, List.getElem?_take, Array.getD_eq_getD_getElem?, lt]
+  simp [List.getD_eq_getElem?_getD, Array.getD_eq_getD_getElem?, lt]
 
 /-- Storing one byte right after a written slice extends the slice. -/
 theorem slice_set_end {A : Array UInt8} {o0 : Nat} {cur : List UInt8} (v : UInt8)
@@ -188,7 +188,7 @@ theorem ring_near (a : List UInt8) (off wn wh d n : Nat) (h1 : wn ≤ wh) (fit :
   split
   · split
     · omega
-    · rw [if_pos (by omega)]
+    · rw [ite_eq_left (by omega)]
       congr 1
       omega
   · rfl
@@ -205,7 +205,7 @@ theorem ring_far (a : List UInt8) (off wn ws d n : Nat) (h1 : wn ≤ ws) (fit : 
     List.length_drop, List.getElem?_append]
   split
   · split
-    · rw [if_pos (by omega)]
+    · rw [ite_eq_left (by omega)]
       congr 1
       omega
     · omega
@@ -460,14 +460,14 @@ theorem zlib_window {wrap : Api.Wrap} {configured : Nat} {dict header bodyDict :
     (six : header.length = 6) (config : ConfigMatches s wrap configured)
     (width : HeaderWidth s configured header) :
     2 ^ s.wbits.toNat = window ∧ bodyDict = bodyDictionary window dict := by
-  rw [if_neg (by omega)] at eq
+  rw [ite_eq_right (by omega)] at eq
   refine ⟨?_, eq⟩
   have notGz := zlibHeader_not_gzip zh
   obtain ⟨cmf, flg, _, _, wnd, shape⟩ := zh
   by_cases c0 : configured = 0
-  · rw [wnd, if_pos c0, (width.2.2 c0).2 notGz]
+  · rw [wnd, ite_eq_left c0, (width.2.2 c0).2 notGz]
     rcases shape with ⟨_, rfl⟩ | ⟨_, rfl⟩ <;> rfl
-  · rw [wnd, if_neg c0, config.2.2.2.2.1 c0]
+  · rw [wnd, ite_eq_right c0, config.2.2.2.2.1 c0]
 
 /-- The window holds at most the body dictionary and the output before the
 call: the epoch's dictionary is in the window only when the body may use it
@@ -981,7 +981,7 @@ theorem match_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
       have privW := priv wr off winPtr'
       have dfalse : decide (wr = dest) = false := decide_eq_false privW
       have sourceGet : Space.get h wr = some (if wr = dest then output else a) := by
-        rw [if_neg privW]
+        rw [ite_eq_right privW]
         exact getW
       by_cases wrap : s.offset - (l.out_ - l.left) > s.wnext
       · -- the segment before the ring's end
@@ -1018,7 +1018,7 @@ theorem match_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
         rw [nDef] at sel
         have run := matchEmit_run (c := c) E (l := l) (source := wr) (saved := a) (copy := n)
           (sourceOffset := off + (s.wsize - (s.offset - (l.out_ - l.left) - s.wnext)).toNat)
-          put get write sourceGet (by omega) (by rw [if_neg privW, startNat]; omega) (by omega)
+          put get write sourceGet (by omega) (by rw [ite_eq_right privW, startNat]; omega) (by omega)
         refine ⟨_, _, _, (sel.trans run),
           Or.inr ⟨rfl, rfl, Or.inl ?_⟩⟩
         refine emit st hs retOk config haveLe inLen binv leftLe pendBase startEq outBytes get write room
@@ -1057,7 +1057,7 @@ theorem match_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
         rw [nDef] at sel
         have run := matchEmit_run (c := c) E (l := l) (source := wr) (saved := a) (copy := n)
           (sourceOffset := off + (s.wnext - (s.offset - (l.out_ - l.left))).toNat)
-          put get write sourceGet (by omega) (by rw [if_neg privW, startNat]; omega) (by omega)
+          put get write sourceGet (by omega) (by rw [ite_eq_right privW, startNat]; omega) (by omega)
         refine ⟨_, _, _, (sel.trans run),
           Or.inr ⟨rfl, rfl, Or.inl ?_⟩⟩
         refine emit st hs retOk config haveLe inLen binv leftLe pendBase startEq outBytes get write room
@@ -1088,7 +1088,7 @@ theorem match_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
     rw [nDef] at sel
     have run := matchEmit_run (c := c) E (l := l) (source := dest) (saved := output) (copy := n)
       (sourceOffset := o0 + callOut.length - s.offset.toNat)
-      put get write (by rw [if_pos rfl]; exact get) (by omega) (by rw [if_pos rfl]; omega) (by omega)
+      put get write (by rw [ite_eq_left rfl]; exact get) (by omega) (by rw [ite_eq_left rfl]; omega) (by omega)
     refine ⟨_, _, _, (sel.trans run),
       Or.inr ⟨rfl, rfl, Or.inl ?_⟩⟩
     refine emit st hs retOk config haveLe inLen binv leftLe pendBase startEq outBytes get write room

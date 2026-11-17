@@ -90,8 +90,8 @@ theorem match_environment_room {h : Heap} {r : ZStreamRef} {ds w p q : Nat}
     {key : Nat} {candidate : UInt32}
     (good : DGood h r ds z d)
     (win : d.window = .ref (.blk w) 0) (prev : d.prev = .ref (.blk p) 0)
-    (head : d.head = .ref (.blk q) 0)
-    (hw : h.bytes w = some wa) (hp : h.words p = some pa) (hq : h.words q = some qa)
+    (_head : d.head = .ref (.blk q) 0)
+    (hw : h.bytes w = some wa) (hp : h.words p = some pa) (_hq : h.words q = some qa)
     (chains : HashChains (wfn qa) (wfn pa) (bfn wa) d.hash_size d.hash_shift d.hash_mask
       d.w_size.toNat (d.strstart.toNat + 1) (d.strstart.toNat + d.lookahead.toNat))
     (hash : (hkey d.hash_shift d.hash_mask (bfn wa) d.strstart.toNat).toNat = key)
@@ -229,27 +229,27 @@ theorem slow_find_room_storage {h : Heap} {r : ZStreamRef} {ds w p q : Nat}
       refine ⟨setD h ds df, ms, 2, ?_, goodResult.1, goodResult.2, by decide, Or.inr (Or.inr (Or.inl (by decide))), rfl, byte_frame_setD h ds df, fun enough _ => by change 2 ≤ d.lookahead.toNat; omega,
         Or.inr ⟨df, rfl⟩⟩
       unfold slowFind
-      simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_true, run, write,
+      simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_true, run, write,
         ldDeflateState_tab state]
       change (if rejectShort dm then wr (some (.tab ds)) (fun d => { d with match_length := MIN_MATCH_u - 1 })
         else pure ()) hm = _
-      rw [if_pos reject]
-      simp [wrD_eq, state, hm, df, dm, matchState, setD_setD, MIN_MATCH_u]
+      rw [ite_eq_left reject]
+      simp [wrD_eq, hm, df, dm, matchState, setD_setD, MIN_MATCH_u]
     · have goodResult := matchState_good good heapChains ms len
       refine ⟨hm, ms, len, ?_, goodResult.1, goodResult.2, length, evidence, rfl, byte_frame_setD h ds dm, fun _ _ => lookBound,
         Or.inr ⟨dm, rfl⟩⟩
       unfold slowFind
-      simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_true, run, write,
+      simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_true, run, write,
         ldDeflateState_tab state]
       change (if rejectShort dm then wr (some (.tab ds)) (fun d => { d with match_length := MIN_MATCH_u - 1 })
         else pure ()) hm = _
-      rw [if_neg reject]
+      rw [ite_eq_right reject]
       rfl
   · refine ⟨h, d.match_start, d.match_length, ?_, ?_, ?_, oldLength, Or.inl ⟨rfl, rfl⟩, rfl, ByteFrame.refl h _, fun _ oldBound => oldBound,
       Or.inl rfl⟩
     · unfold slowFind
       simp only [bind_app, ldDeflateState_tab good.live.hs]
-      rw [if_neg active]
+      rw [ite_eq_right active]
       rfl
     · simpa only [matchState] using good
     · simpa only [matchState] using heapChains

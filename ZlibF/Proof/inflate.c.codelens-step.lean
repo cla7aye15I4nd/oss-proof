@@ -131,9 +131,9 @@ theorem clWrite_initialized {s : InflateState} {value : UInt16}
   change ((s.lens.set! s.«have».toNat value).getD k 0).toNat ≤ 15
   rw [Zlib.Inftrees.Proofs.getD_set!]
   by_cases current : s.«have».toNat = k
-  · rw [if_pos ⟨current, by omega⟩]
+  · rw [ite_eq_left ⟨current, by omega⟩]
     exact small
-  · rw [if_neg (fun both => current both.1)]
+  · rw [ite_eq_right (fun both => current both.1)]
     exact initialized k (by omega)
 
 /-- A literal code length executes its bit drop and actual bounded store.
@@ -169,7 +169,7 @@ theorem clAfterLookup_literal_run {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
     .ok ((), setI h zs { s with lens := s.lens.set! s.«have».toNat here.val }) at store
   have test : here.val < 16 := by apply UInt16.lt_iff_toNat_lt.mpr; exact literal
   unfold clAfterLookup
-  rw [if_pos test, hc]
+  rw [ite_eq_left test, hc]
   simp [runX_bind, DROPBITS_run l h here.bits.toUInt32 bits, runX_lift, ldI_eq, hs,
     lensP, add, store, wrI_eq, setI_setI, clWrite, runX_pure]
 
@@ -247,10 +247,10 @@ private theorem xbind_assoc {α β γ : Type} (x : X α) (f : α → X β) (g : 
   change runX ((x >>= f) >>= g) l h = runX (x >>= fun a => f a >>= g) l h
   simp only [runX_bind]
   cases run : runX x l h with
-  | error fault => simp only [run]
+  | error fault => simp only
   | ok pair =>
     obtain ⟨⟨value, regs⟩, after⟩ := pair
-    cases value <;> simp only [run, runX_bind]
+    cases value <;> simp only
 
 theorem clAfterLookup_zero17 (c : Ctx) (here : Code) (symbol : here.val = 17) :
     clAfterLookup c here = (do clZeroSetup here 3 3; clRepeatFinish c) := by

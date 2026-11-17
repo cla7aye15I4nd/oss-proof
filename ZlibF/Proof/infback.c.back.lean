@@ -37,11 +37,11 @@ theorem xwhile_leave {cond : X Bool} {body : X Unit} {l l' : IL} {h h' : Heap}
   obtain ⟨n, hn⟩ := fuel_succ
   rw [hn]
   simp [cwhile.go, ExceptT.run, ExceptT.mk, StateT.run, bind, ExceptT.bind, ExceptT.bindCont, StateT.bind, pure,
-    ExceptT.pure, StateT.pure] at *
+    ExceptT.pure] at *
   erw [hc]
   simp only [↓reduceIte]
   erw [hb]
-  simp [StateT.pure, cwhile.go]
+  simp [StateT.pure]
 
 /-! ### Running the monad `X` -/
 
@@ -55,8 +55,8 @@ theorem xrun_bind {α β : Type} (m : X α) (f : α → X β) (l : IL) (h : Heap
   | error e => simp [bind, ExceptT.bind, ExceptT.bindCont, StateT.bind, ExceptT.run, ExceptT.mk, StateT.run] at hm ⊢; simp [hm]
   | ok p =>
     obtain ⟨⟨r, l'⟩, h'⟩ := p
-    cases r <;> simp [bind, ExceptT.bind, ExceptT.bindCont, StateT.bind, ExceptT.run, ExceptT.mk, StateT.run, StateT.pure,
-      pure, ExceptT.pure] at hm ⊢ <;> simp [hm, StateT.pure]
+    cases r <;> simp [bind, ExceptT.bind, ExceptT.bindCont, StateT.bind, ExceptT.run, ExceptT.mk, StateT.run,
+      pure] at hm ⊢ <;> simp [hm, StateT.pure]
 
 theorem xrun_get (l : IL) (h : Heap) : StateT.run (ExceptT.run (get : X IL)) l h = .ok ((.ok l, l), h) := rfl
 theorem xrun_set (l l0 : IL) (h : Heap) : StateT.run (ExceptT.run (set l0 : X PUnit)) l h = .ok ((.ok ⟨⟩, l0), h) := rfl
@@ -70,13 +70,13 @@ theorem xrun_lift {α : Type} (m : M α) (l : IL) (h : Heap) :
     StateT.run (ExceptT.run (liftM m : X α)) l h =
       match m h with | .ok (a, h') => .ok ((.ok a, l), h') | .error e => .error e := by
   cases hm : m h <;> simp [liftM, monadLift, MonadLift.monadLift, ExceptT.lift, StateT.lift, ExceptT.run, ExceptT.mk,
-    StateT.run, bind, ExceptT.bind, ExceptT.bindCont, StateT.bind, pure, ExceptT.pure, StateT.pure, Functor.map, StateT.map, hm]
+    StateT.run, bind, pure, Functor.map, StateT.map, hm]
 
 theorem PULL_eof {c : BCtx} {l : IL} {h h3 : Heap} {nx : BPtr} (h0 : l.have_ = 0)
     (hin : c.inCb c.inDesc l.next h = .ok ((0, nx), h3)) :
     StateT.run (ExceptT.run (PULL c)) l h =
       .ok ((Except.error Ex.leave, { l with have_ := 0, next := .null, ret := Z_BUF_ERROR }), h3) := by
-  simp [PULL, xrun_bind, xrun_get, xrun_set, xrun_throw, xrun_pure, xrun_lift, hin, h0]
+  simp [PULL, xrun_bind, xrun_get, xrun_set, xrun_lift, hin, h0]
 
 theorem PULLBYTE_eof {c : BCtx} {l : IL} {h h3 : Heap} {nx : BPtr} (h0 : l.have_ = 0)
     (hin : c.inCb c.inDesc l.next h = .ok ((0, nx), h3)) :
@@ -90,7 +90,7 @@ theorem NEEDBITS_eof {c : BCtx} {l : IL} {h h3 : Heap} {nx : BPtr} {n : UInt32} 
       .ok ((Except.error Ex.leave, { l with have_ := 0, next := .null, ret := Z_BUF_ERROR }), h3) := by
   unfold NEEDBITS
   apply xwhile_leave
-  · simp [xrun_bind, xrun_get, xrun_pure, hb]
+  · simp [xrun_bind, xrun_get, hb]
   · exact PULLBYTE_eof h0 hin
 
 theorem back_TYPE_eof {c : BCtx} {zs : Nat} {s : InflateState} {l : IL} {h h3 : Heap} {nx : BPtr}
@@ -154,7 +154,7 @@ theorem inflateBack_eof {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st
       (s := { st with mode := TYPE, last := 0, whave := 0 })
       (l := entryIL .null 0 st.window st.wsize)
       (h := backEntryHeap h r z zs st) (h3 := h3) (nx := nx') rfl (by simp [backEntryHeap]) rfl rfl rfl (by show (0 : UInt32) < 3; decide) he
-  have hloop := xwhile_leave (cond := pure true) (by simp [xrun_pure]) hdisp
+  have hloop := xwhile_leave (cond := pure true) (by simp) hdisp
   have hzst := hG.zst
   have hz3 : r.get h3 = some { z with msg := .null } := by
     rw [CbFrame.zget fr r]; simp [backEntryHeap, hz]

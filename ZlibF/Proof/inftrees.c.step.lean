@@ -556,7 +556,7 @@ def incrCond : TS → M (Bool × TS) := fun s => pure (s.huff &&& s.incr != 0, s
 def incrBody : TS → M TS := fun s => pure { s with incr := s.incr >>> 1 }
 
 /-- `while (huff & incr) incr >>= 1;` started at `incr = 2^e`. -/
-theorem incr_loop (s3 : TS) (e : Nat) (he : e < 32) (hi : s3.incr.toNat = 2 ^ e) (h : Heap) :
+theorem incr_loop (s3 : TS) (e : Nat) (_he : e < 32) (hi : s3.incr.toNat = 2 ^ e) (h : Heap) :
     Wp (cwhile incrCond incrBody s3) h (fun s' h' => h' = h ∧
       ∃ X : UInt32, s' = { s3 with incr := X } ∧ X.toNat = incrLoop s3.huff.toNat e) := by
   refine Wp.cwhile
@@ -590,7 +590,7 @@ theorem incr_loop (s3 : TS) (e : Nat) (he : e < 32) (hi : s3.incr.toNat = 2 ^ e)
             refine ⟨e' - 1, by omega, ?_, ?_⟩
             · rw [u32_shr (by decide), hX]
               obtain ⟨r, rfl⟩ : ∃ r, e' = r + 1 := ⟨e' - 1, by omega⟩
-              simp [Nat.pow_succ, Nat.mul_div_cancel]
+              simp [Nat.pow_succ]
             · rw [← hT]
               obtain ⟨r, rfl⟩ : ∃ r, e' = r + 1 := ⟨e' - 1, by omega⟩
               simp [incrLoop, hb]
@@ -632,7 +632,7 @@ theorem i64_u16 (n : Nat) : (Int64.ofInt (n : Int)).toUInt64.toUInt16 = n.toUInt
 
 theorem u32_toUInt8 (x : UInt32) : x.toUInt8 = x.toNat.toUInt8 := by
   apply UInt8.toNat_inj.mp
-  rw [UInt32.toNat_toUInt8]; simp [Nat.toUInt8, UInt8.toNat_ofNat']
+  rw [UInt32.toNat_toUInt8]; simp [Nat.toUInt8]
 
 /-- Three updates of the same cell, each setting one field, leave the three fields set. -/
 theorem triple_entry {ca ca1 ca2 ca3 : Array Code} {idx : Nat} (hidx : idx < ca.size) (hs1 : idx < ca1.size)

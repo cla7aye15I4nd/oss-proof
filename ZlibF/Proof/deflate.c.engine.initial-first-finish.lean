@@ -80,7 +80,7 @@ theorem default_init_then_first_finish {h : Heap} {r : ZStreamRef} {z : ZStream}
     apply StreamReachable.step (call := .deflate (some r) Z_FINISH) (value := rc) reachableG (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, active⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   exact ⟨used, produced, rc, after, z', result, run, goodA, buffersA, accountA, reachableA, allowed, bits, ended⟩
 
 end Zlib.Deflate.Engine.Proofs

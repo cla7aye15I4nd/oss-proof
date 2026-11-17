@@ -64,7 +64,7 @@ theorem common_initialization_then_split_finish {h : Heap} {r : ZStreamRef} {z :
     apply StreamReachable.step (call := .deflate (some r) Z_FINISH) (value := Z_OK) reachableG (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, active⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   exact ⟨after, z', result, run, stateA, buffersA, accountA, reachableA,
     emptyA, pendingA, statusA, lastA⟩
 

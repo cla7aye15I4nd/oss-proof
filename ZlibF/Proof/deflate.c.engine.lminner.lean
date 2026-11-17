@@ -28,7 +28,7 @@ theorem M_ite_bind {α β : Type} (c : Prop) [Decidable c] (a b : M α) (f : α 
 
 theorem lm_cond_eq (strend scan m : BPtr) : lm_cond strend scan m = lmCondR strend 8 scan m := by
   unfold lm_cond
-  simp [List.range', List.forIn'_cons, List.forIn'_nil, lmCondR, M_bind_assoc, M_pure_bind, M_ite_bind]
+  simp [List.range', lmCondR, M_bind_assoc, M_pure_bind, M_ite_bind]
 
 /-- **The inner loop.** In a byte block `wa` with `S + 258 < wa.size` and `C <= S`, the loop started at offsets 2
 does not fault, leaves the heap as it is, and ends with `scan = S + r`, `match = C + r`, `r = matchLen` (the first

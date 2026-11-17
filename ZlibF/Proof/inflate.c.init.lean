@@ -120,7 +120,7 @@ theorem reset2_okB {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : In
       · exact Or.inl rfl
       · have e : reset2Heap h (-w) st = h := by simp [reset2Heap, hne, hw, freeWin_null]
         rw [e]
-        simp [resetHeap, resetPre, reset2Pre, hne, hw, resetKeepState, resetKeepStream]
+        simp [resetHeap, resetPre, reset2Pre, hne, resetKeepState, resetKeepStream]
     · obtain ⟨b, a, hb0, hba, hro⟩ : ∃ b a, st.window = .ref (.blk b) 0 ∧ h.bytes b = some a ∧ h.ro b = false := by
         rcases hwo with hn | hb
         · exact absurd hn hw
@@ -131,7 +131,7 @@ theorem reset2_okB {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : In
       · exact ⟨by simp [hz], by first | exact setI_istates_same _ _ _ | (rw [freeWin_istates]; exact setI_istates_same _ _ _), hL.zst, by simp [hL.back], by simpa using hL.mode, hL.zalloc, hL.zfree⟩
       · exact hf
       · exact Or.inl rfl
-      · simp [resetHeap, resetPre, reset2Pre, reset2Heap, hne, hw, resetKeepState, resetKeepStream]
+      · simp [resetHeap, resetPre, reset2Pre, reset2Heap, hne, resetKeepState, resetKeepStream]
 
 theorem reset2_okC1 {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState}
     (hL : Live h r zs z st) (hf : z.zfree = .fn "zcfree") (hwo : WindowOk h st.window) {w : Int32}
@@ -161,7 +161,7 @@ theorem reset2_okC1 {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : I
       · exact Or.inl rfl
       · have e : reset2Heap h (w &&& 15) st = h := by simp [reset2Heap, hne, hw, freeWin_null]
         rw [e]
-        simp [resetHeap, resetPre, reset2Pre, hne, hw, resetKeepState, resetKeepStream]
+        simp [resetHeap, resetPre, reset2Pre, hne, resetKeepState, resetKeepStream]
     · obtain ⟨b, a, hb0, hba, hro⟩ : ∃ b a, st.window = .ref (.blk b) 0 ∧ h.bytes b = some a ∧ h.ro b = false := by
         rcases hwo with hn | hb
         · exact absurd hn hw
@@ -172,7 +172,7 @@ theorem reset2_okC1 {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : I
       · exact ⟨by simp [hz], by first | exact setI_istates_same _ _ _ | (rw [freeWin_istates]; exact setI_istates_same _ _ _), hL.zst, by simp [hL.back], by simpa using hL.mode, hL.zalloc, hL.zfree⟩
       · exact hf
       · exact Or.inl rfl
-      · simp [resetHeap, resetPre, reset2Pre, reset2Heap, hne, hw, resetKeepState, resetKeepStream]
+      · simp [resetHeap, resetPre, reset2Pre, reset2Heap, hne, resetKeepState, resetKeepStream]
 
 theorem reset2_okC2 {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState}
     (hL : Live h r zs z st) (hf : z.zfree = .fn "zcfree") (hwo : WindowOk h st.window) {w : Int32}
@@ -202,7 +202,7 @@ theorem reset2_okC2 {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : I
       · exact Or.inl rfl
       · have e : reset2Heap h (w) st = h := by simp [reset2Heap, hne, hw, freeWin_null]
         rw [e]
-        simp [resetHeap, resetPre, reset2Pre, hne, hw, resetKeepState, resetKeepStream]
+        simp [resetHeap, resetPre, reset2Pre, hne, resetKeepState, resetKeepStream]
     · obtain ⟨b, a, hb0, hba, hro⟩ : ∃ b a, st.window = .ref (.blk b) 0 ∧ h.bytes b = some a ∧ h.ro b = false := by
         rcases hwo with hn | hb
         · exact absurd hn hw
@@ -213,7 +213,7 @@ theorem reset2_okC2 {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : I
       · exact ⟨by simp [hz], by first | exact setI_istates_same _ _ _ | (rw [freeWin_istates]; exact setI_istates_same _ _ _), hL.zst, by simp [hL.back], by simpa using hL.mode, hL.zalloc, hL.zfree⟩
       · exact hf
       · exact Or.inl rfl
-      · simp [resetHeap, resetPre, reset2Pre, reset2Heap, hne, hw, resetKeepState, resetKeepStream]
+      · simp [resetHeap, resetPre, reset2Pre, reset2Heap, hne, resetKeepState, resetKeepStream]
 
 
 theorem reset2_errA {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState}
@@ -262,7 +262,7 @@ theorem inflateReset2_run {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {
         (resetKeepStream z (resetPre (reset2Pre wrap wb st)))) zs (resetKeepState zs (resetPre (reset2Pre wrap wb st)))) := by
   cases hp : reset2Params w with
   | none =>
-    simp only [hp]
+    simp only
     unfold reset2Params at hp
     by_cases h1 : w < 0
     · by_cases h2 : w < -15
@@ -281,7 +281,7 @@ theorem inflateReset2_run {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {
           · exact hb
           · simp [hb] at hp
         exact reset2_errC1 hL h1 h2 hb
-      · simp only [h1, h2, ite_true, ite_false] at hp
+      · simp only [h1, h2, ite_false] at hp
         have hb : badBits w = true := by
           by_cases hb : badBits w = true
           · exact hb
@@ -289,7 +289,7 @@ theorem inflateReset2_run {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {
         exact reset2_errC2 hL h1 h2 hb
   | some p =>
     obtain ⟨wrap, wb⟩ := p
-    simp only [hp]
+    simp only
     unfold reset2Params at hp
     by_cases h1 : w < 0
     · by_cases h2 : w < -15
@@ -312,7 +312,7 @@ theorem inflateReset2_run {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {
         simp only [hb, Bool.false_eq_true, ite_false, Option.some.injEq, Prod.mk.injEq] at hp
         obtain ⟨rfl, rfl⟩ := hp
         exact ⟨hb, reset2_okC1 hL hf hwo h1 h2 hb⟩
-      · simp only [h1, h2, ite_true, ite_false] at hp
+      · simp only [h1, h2, ite_false] at hp
         have hb : badBits w = false := by
           by_cases hb : badBits w = true
           · simp [hb] at hp

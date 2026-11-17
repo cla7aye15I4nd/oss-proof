@@ -35,10 +35,10 @@ theorem refill_code (x : UInt64) :
   apply UInt32.toNat_inj.mp
   rw [refill_toNat]
   by_cases big : x > (0xFFFFFFFF : UInt32).toUInt64
-  · rw [if_pos big]
+  · rw [ite_eq_left big]
     have : (4294967295 : Nat) < x.toNat := by simpa [UInt64.lt_iff_toNat_lt] using big
     simp; omega
-  · rw [if_neg big]
+  · rw [ite_eq_right big]
     have : x.toNat ≤ 4294967295 := by simp [UInt64.lt_iff_toNat_lt] at big; omega
     simp; omega
 
@@ -177,7 +177,7 @@ theorem refill_le (x : UInt64) : (refill x).toUInt64.toNat ≤ x.toNat ∧ ((ref
     have small : x.toNat ≤ 4294967295 := by
       simp [UInt64.lt_iff_toNat_lt] at big; omega
     have rt : x.toUInt32.toUInt64.toNat = x.toNat := by
-      simp [UInt64.toNat_toUInt32]; omega
+      simp; omega
     refine ⟨by rw [rt]; exact Nat.le_refl _, ?_⟩
     constructor
     · intro e
@@ -205,7 +205,7 @@ theorem put_tab_eq {H : Heap} {k : Nat} {z v : ZStream} (hz : H.streams k = some
     (ZStreamRef.tab k).put H v = { H with streams := upd H.streams k (some v) } := by
   simp [ZStreamRef.put, hz]
 
-theorem put_tab_same {H : Heap} {k : Nat} {z : ZStream} (hz : H.streams k = some z) (v : ZStream) (b : Nat) :
+theorem put_tab_same {H : Heap} {k : Nat} {z : ZStream} (_hz : H.streams k = some z) (v : ZStream) (b : Nat) :
     SameAt H { H with streams := upd H.streams k (some v) } b ∨ b = k := by
   by_cases e : b = k
   · exact Or.inr e

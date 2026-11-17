@@ -31,7 +31,7 @@ private theorem strlenB_setS (h : Heap) (i : Nat) (s : GzState) (p : BPtr) :
     | none => rfl
     | some a =>
       dsimp only
-      cases hl : strlenFrom a off <;> simp only [hl]
+      cases hl : strlenFrom a off <;> simp only
 
 private theorem cstring_nonnull {h : Heap} {p : BPtr} {xs : List UInt8} (hc : CString h p xs) : p ≠ .null := by
   intro hp

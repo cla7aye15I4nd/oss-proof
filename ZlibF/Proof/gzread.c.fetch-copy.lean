@@ -83,8 +83,8 @@ theorem fetch_copy_refusal_next (h : Heap) (fs : Fs) (i : Nat) (s : GzState) (r 
     g_pure_app, ldS_eq, hs, err, hz, Bool.false_and, Bool.false_eq_true, ite_false] at run
   unfold gdoWhile at run
   rw [show fuel = 18446744073709551615 + 1 by rfl, gdoWhile.go] at run
-  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_lift_app,
-    g_pure_app, ldS_eq, updX, updS_eq, hs, hlook, hcopy, hroom, setS_gz_same, Bool.false_eq_true,
+  simp only [g_bind_app, g_lift_app,
+    ldS_eq, updX, updS_eq, hs, hlook, hcopy, hroom, setS_gz_same, Bool.false_eq_true,
     ite_false, ite_true] at run
   rw [load] at run
   cases hg : gz_error (some (.tab i)) Z_ERRNO
@@ -96,8 +96,8 @@ theorem fetch_copy_refusal_next (h : Heap) (fs : Fs) (i : Nat) (s : GzState) (r 
   | ok result =>
     rcases result with ⟨u, h3⟩
     obtain ⟨s3, hs3, x3⟩ := gz_error_keepsX i i _ _ _ _ _ hg _ hs2
-    simp only [hg, hs3, g_pure_app, g_bind_app, g_lift_app, ldS_eq, setS_gz_same] at run
-    simp (config := { decide := true }) only [ite_true, g_pure_app, Option.isSome_some, Bool.true_eq_false,
+    simp only [hg, hs3] at run
+    simp (config := { decide := true }) only [ite_true, g_pure_app,
       ite_false, Option.getD_some] at run
     simp only [Except.ok.injEq, Prod.mk.injEq] at run
     obtain ⟨⟨rfl, -⟩, rfl⟩ := run

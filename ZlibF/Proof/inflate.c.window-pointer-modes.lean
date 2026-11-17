@@ -70,7 +70,7 @@ macro "window_pointer_frame_mode " r:term:max "," owner:term:max "," root:term:m
 
 /-- The actual DONE mode preserves decoder window pointers on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem windowFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem windowFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     WindowFrameX r context.st (inflate_DONE context) := by
   unfold inflate_DONE
   try rw [root]
@@ -96,7 +96,7 @@ theorem windowFrameX_inflate_CHECK (r : ZStreamRef) (context : Ctx) (root : cont
 
 /-- The actual LIT mode preserves decoder window pointers on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem windowFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem windowFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     WindowFrameX r context.st (inflate_LIT context) := by
   unfold inflate_LIT
   try rw [root]
@@ -185,7 +185,7 @@ theorem windowFrameX_inflate_TABLE (r : ZStreamRef) (context : Ctx) (root : cont
 
 /-- The actual COPY mode preserves decoder window pointers on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem windowFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem windowFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     WindowFrameX r context.st (inflate_COPY context) := by
   unfold inflate_COPY
   try rw [root]

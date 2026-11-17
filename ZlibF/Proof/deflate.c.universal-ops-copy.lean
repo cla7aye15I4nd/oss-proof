@@ -145,18 +145,18 @@ theorem copy_buffers_run {H : Heap} {r : ZStreamRef} {z : ZStream} {n : Nat} {d 
   have runQ := words_run hf2 (r := r) (z := z) (by simpa [H2, copyP, copyW] using hz) ha d.hash_size
   have runB := bytes_run hf3 (r := r) (z := z) (by simpa [H3, copyQ, copyP, copyW] using hz) ha d.lit_bufsize 4
   change ZALLOC_bytes (some r) d.w_size 2 H = .ok (bytePtr H, copyW H d) at runW
-  simp only [H1, H2, H3, copyP, copyQ, copyB, copyW, wordPtr_setD, bytePtr_setD, wordResult_setD,
+  simp only [H1, H2, H3, copyP, copyQ, copyW, wordPtr_setD, bytePtr_setD, wordResult_setD,
     byteResult_setD] at runP runQ runB
   dsimp only [d1, d2, d3, copyP, copyQ, copyW] at runP runQ runB
   unfold copyBuffers
   rw [bind_app, runW]
-  simp only [bind_app, wrD_eq, copyW, byteResult_dstates, hs, d1, d2, d3]
+  simp only [bind_app, wrD_eq, copyW, byteResult_dstates, hs]
   rw [runP]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, d1, d2, d3]
+  simp only [setD_dstates_same, setD_setD]
   rw [runQ]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, d1, d2, d3]
+  simp only [setD_dstates_same, setD_setD]
   rw [runB]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, pure_app, copyB, copyQ, copyP, copyW, copyBufState]
+  simp only [setD_dstates_same, setD_setD, pure_app, copyB, copyQ, copyP, copyW, copyBufState]
 
 /-- The buffer requests inside `deflateCopy`, as `copyBuffers` followed by the rest. -/
 theorem copyBuffers_bind (source : ZStreamPtr) (ds : DeflateStatePtr) (dd : DeflateState)
@@ -228,7 +228,7 @@ def copyH0 (h : Heap) (d : DeflateState) : Heap :=
 /-- **A `deflateCopy` that returns `Z_OK` ran its success path**: every allocation succeeded and
 the tail ran from the heap after the buffer requests. -/
 theorem copy_cut {h after : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd : ZStream} {d : DeflateState}
-    (inv : DInv h source ds z d) (distinct : source ≠ dest) (get : dest.get h = some zd)
+    (inv : DInv h source ds z d) (_distinct : source ≠ dest) (_get : dest.get h = some zd)
     (run : C.run (deflateCopy (some dest) (some source)) h = .ok (Z_OK, after)) :
     h.allocOk h.nalloc = true ∧ bytePtr (copyH0 h d) ≠ .null ∧ wordPtr (copyW (copyH0 h d) d) ≠ .null ∧
       wordPtr (copyP (copyH0 h d) d) ≠ .null ∧ bytePtr (copyQ (copyH0 h d) d) ≠ .null ∧
@@ -385,21 +385,21 @@ theorem copy_tail_run {T0 : Heap} {source dest : ZStreamRef} {z zd : ZStream} {d
   -- head
   rw [bind_app, hd]
   rw [Ptr.memcpy_ok (rd := WRef.blk Q) (rs := WRef.blk q) (da := aQ) (sa := qa)
-    (by show (_ : Heap).words Q = _; simp [setD, Space_put_words, setW, upd_ne _ _ _ _ (Ne.symm PQ), gQ])
-    (by show (_ : Heap).words q = _; simp [setD, Space_put_words, setW, upd_ne _ _ _ _ (Ne.symm Pq), gq]) rfl
+    (by show (_ : Heap).words Q = _; simp [setD, upd_ne _ _ _ _ (Ne.symm PQ), gQ])
+    (by show (_ : Heap).words q = _; simp [setD, upd_ne _ _ _ _ (Ne.symm Pq), gq]) rfl
     (by simpa using sQ) (by simpa using sq) (Or.inl (fun e => Qq (WRef.blk.inj e)))]
   simp only []
   -- the offset of pending_out
   rw [bind_app, pout, pb]
   rw [Ptr.diff_ok (r := BRef.blk b) (a := ba)
-    (by show (_ : Heap).bytes b = _; simp [setD, Space_put_words, setW, upd_ne _ _ _ _ (Ne.symm Wb), gb])
+    (by show (_ : Heap).bytes b = _; simp [setD, upd_ne _ _ _ _ (Ne.symm Wb), gb])
     (by omega) (by omega) (by omega)]
   simp only []
   rw [bind_app]
   have offInt : (Int64.ofInt ((off : Int) - ((0 : Nat) : Int))).toInt = (off : Int) := by
     rw [Int64.toInt_ofInt_of_le (by omega) (by omega)]; omega
   rw [offInt, Ptr.add_ok (r := BRef.blk B) (a := aB)
-    (by show (_ : Heap).bytes B = _; simp [setD, Space_put_words, setW, upd_ne _ _ _ _ (Ne.symm WB), gB])
+    (by show (_ : Heap).bytes B = _; simp [setD, upd_ne _ _ _ _ (Ne.symm WB), gB])
     (by omega) (by omega)]
   simp only [show ((0 : Nat) : Int) + (off : Int) = (off : Int) by omega, Int.toNat_natCast]
   -- pending_out
@@ -408,9 +408,9 @@ theorem copy_tail_run {T0 : Heap} {source dest : ZStreamRef} {z zd : ZStream} {d
   -- the pending bytes
   try rw [bind_app]
   rw [memcpyB_blk_ok (ob := aB) (pbuf := ba)
-    (by simp [setD, Space_put_words, setW, upd_ne _ _ _ _ (Ne.symm WB), gB])
-    (by simp [setD, Space_put_words, setW, upd_ne _ _ _ _ (Ne.symm Wb), gb])
-    (by simp [setD, Space_put_words, setW, roB]) Bb (by omega) (by omega)]
+    (by simp [setD, setW, upd_ne _ _ _ _ (Ne.symm WB), gB])
+    (by simp [setD, setW, upd_ne _ _ _ _ (Ne.symm Wb), gb])
+    (by simp [setD, setW, roB]) Bb (by omega) (by omega)]
   simp only []
   -- sym_buf
   have sizeB1 : (copyRange aB ba off off d.pending.toNat).size = aB.size := size_copyRange _ _ _ _ _
@@ -430,14 +430,14 @@ theorem copy_tail_run {T0 : Heap} {source dest : ZStreamRef} {z zd : ZStream} {d
   try rw [bind_app]
   rw [sym]
   rw [memcpyB_blk_ok (ob := copyRange aB ba off off d.pending.toNat) (pbuf := ba)
-    (by simp [setD]) (by simp [setD, Space_put_words, setW, upd_ne _ _ _ _ (Ne.symm Bb), upd_ne _ _ _ _ (Ne.symm Wb), gb])
-    (by simp [setD, Space_put_words, setW, roB]) Bb (by omega) (by omega)]
+    (by simp [setD]) (by simp [setD, setW, upd_ne _ _ _ _ (Ne.symm Bb), upd_ne _ _ _ _ (Ne.symm Wb), gb])
+    (by simp [setD, setW, roB]) Bb (by omega) (by omega)]
   simp only []
   -- the tree descriptors
   try rw [bind_app]
   rw [wrD_eq]
   simp only [setD_dstates_same, pure_app]
-  simp only [copyFinal, copyState, copyWin, copyPrev, copyHead, copyPend, setD, setB, setW, Space_put_words,
+  simp only [copyFinal, copyState, copyWin, copyPrev, copyHead, copyPend, setD, setB, setW,
     upd_upd, copyCnt]
 
 
@@ -447,14 +447,14 @@ theorem getD_copy_in {T : Type} [Inhabited T] (a s : Array T) (o n i : Nat) (z0 
     (hi2 : i < o + n) (ha : o + n ≤ a.size) (hs : o + n ≤ s.size) :
     (copyRange a s o o n).getD i z0 = s.getD i z0 := by
   have e : o + (i - o) = i := by omega
-  simp only [Array.getD_eq_getD_getElem?, getElem?_copyRange _ _ _ _ _ _ ha, if_pos (And.intro hi1 hi2), e,
+  simp only [Array.getD_eq_getD_getElem?, getElem?_copyRange _ _ _ _ _ _ ha, ite_eq_left (And.intro hi1 hi2), e,
     Array.getElem?_eq_getElem (show i < s.size by omega), Option.getD_some]
   all_goals exact getElem!_pos s i (by omega)
 
 theorem getD_copy_out {T : Type} [Inhabited T] (a s : Array T) (o n i : Nat) (z0 : T)
     (hi : i < o ∨ o + n ≤ i) (ha : o + n ≤ a.size) :
     (copyRange a s o o n).getD i z0 = a.getD i z0 := by
-  simp only [Array.getD_eq_getD_getElem?, getElem?_copyRange _ _ _ _ _ _ ha, if_neg (show ¬ (o ≤ i ∧ i < o + n) by omega)]
+  simp only [Array.getD_eq_getD_getElem?, getElem?_copyRange _ _ _ _ _ _ ha, ite_eq_right (show ¬ (o ≤ i ∧ i < o + n) by omega)]
 
 theorem get_setB' (X : Heap) (r : ZStreamRef) (b : Nat) (a : Array UInt8) : r.get (setB X b a) = r.get X := by
   cases r <;> rfl
@@ -766,18 +766,18 @@ theorem copy_result {h after : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd
   have gW : (copyB (copyH0 h d) d).bytes (h.nextBlk + 1) = some (Array.ofFn (n := (d.w_size * 2).toNat)
       fun i => Junk.of ((copyH0 h d).garbage (copyH0 h d).nalloc i.val)) := by
     rw [eB, eQ, eP, eW]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH]
   have roW : (copyB (copyH0 h d) d).ro (h.nextBlk + 1) = false := by
     rw [eB, eQ, eP, eW]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH]
   have gP : (copyB (copyH0 h d) d).words (h.nextBlk + 2) = some (Array.ofFn (n := (d.w_size * 2).toNat / 2)
       fun i => Junk.of ((copyW (copyH0 h d) d).garbage (copyW (copyH0 h d) d).nalloc i.val)) := by
     rw [eB, eQ, eP]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nW]
   have gQ : (copyB (copyH0 h d) d).words (h.nextBlk + 3) = some (Array.ofFn (n := (d.hash_size * 2).toNat / 2)
       fun i => Junk.of ((copyP (copyH0 h d) d).garbage (copyP (copyH0 h d) d).nalloc i.val)) := by
     rw [eB, eQ]
-    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nH, nW, nP, nQ]
+    simp [byteHeap, wordHeap, Zlib.Zutil.Proofs.allocHeap, nP]
   have gB : (copyB (copyH0 h d) d).bytes (h.nextBlk + 4) = some (Array.ofFn (n := (d.lit_bufsize * 4).toNat)
       fun i => Junk.of ((copyQ (copyH0 h d) d).garbage (copyQ (copyH0 h d) d).nalloc i.val)) := by
     rw [eB]
@@ -814,7 +814,7 @@ theorem copy_result {h after : Heap} {source dest : ZStreamRef} {ds : Nat} {z zd
     (by simpa [setD] using gW) (by simpa [setD] using gP) (by simpa [setD] using gQ) (by simpa [setD] using gB)
     (by simpa [setD] using roW) (by simpa [setD] using roB)
     (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
-    (by simp [mW]; omega) (by omega) (by simp [mP]; omega) (by omega) (by simp only [Array.size_ofFn, mQ, Nat.le_refl]) (by omega)
+    (by simp [mW]; omega) (by omega) (by simp; omega) (by omega) (by simp only [Array.size_ofFn, mQ, Nat.le_refl]) (by omega)
     (by simp [mB]; omega) (by omega) (by simp [mB]; omega) (by omega) (by omega)
   rw [runT] at tail
   cases tail

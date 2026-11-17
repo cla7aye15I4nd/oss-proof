@@ -72,21 +72,21 @@ theorem reset_construct_block_clear {h : Heap} {r : ZStreamRef} {z : ZStream} {d
     simp only [bind_app, zrd_eq, hzR, zr, rkZ, hl.zst, castD]
     rw [hlm]
     simp only [pure_app]
-    simp [after, hr, zr, rkZ, hl.zst, dr]
-  · refine ⟨⟨?_, by simp [after], ?_, ?_, ?_, ?_, ?_⟩, hI,
+    simp [hr, zr, rkZ, hl.zst, dr]
+  · refine ⟨⟨?_, by simp, ?_, ?_, ?_, ?_, ?_⟩, hI,
       shape.uniq hu, shape.fresh (by simp [after, hr, setW]) hf, ?_⟩
-    · simp only [after, ZStreamRef.get_setD, get_setW, hr, zr,
+    · simp only [ZStreamRef.get_setD, get_setW,
         ZStreamRef.get_put_same hl.hz]
     · simpa [zr, rkZ] using hl.zst
-    · simp [dr, lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec,
+    · simp [lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec,
         readyState, allocatedState, baseState]
     · left
-      simp [dr, lmD, resetState, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
+      simp [lmD, resetState, rkPost, rkPost3, rkMid, absWrap, ibRec, trInitRec,
         readyState, allocatedState, baseState]
     · simpa [zr, rkZ] using hl.zalloc
     · simpa [zr, rkZ] using hl.zfree
     · refine ⟨lmD dr, b, (h.bytes b).getD #[], ?_, ?_⟩
-      · refine ⟨by simp only [after, setD_dstates_same]; rfl, hI.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · refine ⟨by simp only [setD_dstates_same]; rfl, hI.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
         · simpa [after, hr, setW] using ht.static
         · simpa [dr, lmD, resetState, rkPost, rkPost3, rkMid, ibRec, trInitRec] using ht.pbuf
         · simpa [after, hr, setW] using ht.bytes
@@ -160,7 +160,7 @@ theorem public_success_engine_block_clear {h : Heap} {r : ZStreamRef} {z : ZStre
   let zp := preparedStream z
   let hp := r.put h zp
   have shape := shape_put stream zp
-  have freshP : Fresh hp := shape.fresh (by simp [hp]) fresh
+  have freshP : Fresh hp := shape.fresh (by simp) fresh
   have uniqueP : Uniq hp := shape.uniq unique
   have streamP : r.get hp = some zp := ZStreamRef.get_put_same stream _
   have callbacksP : DefAlloc zp := prepared_allocators callbacks

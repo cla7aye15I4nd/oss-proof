@@ -253,9 +253,9 @@ theorem zcalloc_correct_some (h : Heap) (op : BPtr) (items sz : UInt32) (hok : h
       (∀ i (hi : i < a.size), a[i] = Junk.of (h.garbage h.nalloc i)) ∧ AllocFrame h h' := by
   refine ⟨_, Array.ofFn (n := (items * sz).toNat) fun i => Junk.of (h.garbage h.nalloc i.val),
     zcalloc_ok_run h op items sz hok hF, by simp [allocHeap], by simp [allocHeap], ?_, ?_, allocHeap_frame h _⟩
-  · simp [allocHeap, UInt32.toNat_mul]
+  · simp [UInt32.toNat_mul]
   · intro i hi
-    simp [allocHeap]
+    simp
 
 /-- **zcalloc, correctness without wrap.** If `items * size` fits in 32 bits (every call site of zlib, whose largest
 product is 131072: `docs/proof/zutil.md` section 1), the block has exactly `items * size` bytes. -/
@@ -329,7 +329,7 @@ theorem zcalloc_zcfree_no_leak (h : Heap) (op : BPtr) (items sz : UInt32) (hF : 
       have := Heap.not_live.mp (hF _ (Nat.le_refl _))
       obtain ⟨e0, e1, e2, e3, e4, e5, e6⟩ := this
       simp [Heap.live, allocHeap, e1, e2, e3, e4, e5, e6]
-      simpa [Heap.live, e0, e1, e2, e3, e4, e5, e6] using hF _ (Nat.le_refl _)
+      simp [Heap.live, e0, e1, e2, e3, e4, e5, e6]
     · simp [Heap.live, allocHeap, upd_ne _ _ _ _ hbn]
   · rw [bind_app, zcalloc_fail_run h op items sz hok]
     exact ⟨_, freeB_null, fun b => Iff.rfl⟩

@@ -252,7 +252,7 @@ theorem hcrc_stage {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : 
         rw [stageEq]
         simp only [crcT, ite_true]
         unfold hcrcBytes'
-        simp only [big, decide_true, ite_true, bind_app]
+        simp only [big, ite_true, bind_app]
         rw [run1]
         simp only [rdD_eq, good1.live.hs, zero, bne_self_eq_false, Bool.false_eq_true, ite_false]
         rw [run2]; exact outcome
@@ -271,7 +271,7 @@ theorem hcrc_stage {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : 
         · rw [stageEq]
           simp only [crcT, ite_true]
           unfold hcrcBytes'
-          simp only [big, decide_true, ite_true, bind_app]
+          simp only [big, ite_true, bind_app]
           rw [run1]
           simp [rdD_eq, good1.live.hs, zero, wrD_eq]
         · by_cases a0 : z.avail_out.toNat = 0
@@ -298,7 +298,7 @@ theorem hcrc_stage {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : 
       rw [stageEq]
       simp only [crcT, ite_true]
       unfold hcrcBytes'
-      simp only [big, decide_false, ite_false]
+      simp only [big, ite_false]
       rw [run2]; exact outcome
 
 

@@ -64,10 +64,10 @@ theorem fill_after_slide_read_prefix {h : Heap} {r : ZStreamRef} {ds w io : Nat}
       (show Space.get h (BRef.blk w) = some wa from get) (by omega : fillEnd d ≤ wa.size)
   have stateR : hr.dstates ds = some d := by simpa [hr] using good.live.hs
   have update : wr (some (.tab ds)) (fun state => { state with lookahead := state.lookahead + n }) hr =
-      .ok ((), hl) := by simp [wrD_eq, stateR, hl, pendingReadHeap, hr, pendingReadState, n, copied, z', good.live.hs]
+      .ok ((), hl) := by simp [wrD_eq, hl, pendingReadHeap, hr, pendingReadState, n, copied, z', good.live.hs]
   unfold fillAfterSlide
   simp only [bind_app, rdD_eq, good.live.hs, good.live.back, zrd_eq, good.live.hz,
-    beq_eq_false_iff_ne.mpr nonempty, Bool.false_eq_true, if_false, ldDeflateState_tab good.live.hs,
+    beq_eq_false_iff_ne.mpr nonempty, Bool.false_eq_true, ite_false, ldDeflateState_tab good.live.hs,
     first, second]
   rw [read]
   change (do

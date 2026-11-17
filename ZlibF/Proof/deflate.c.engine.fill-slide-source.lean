@@ -38,7 +38,7 @@ theorem fill_body_slide_source (s : DeflateStatePtr) (wsize : UInt32) (brk : Boo
         fillAfterSlide s (more + wsize)
       else fillAfterSlide s more) := by
   unfold fillBody fillSlide fillAfterSlide fillMore
-  simp only [M_bind_assoc, M_pure_bind, fill_ite_bind]
+  simp only [M_bind_assoc]
 
 def slideBeforeHash (d : DeflateState) : DeflateState :=
   { d with

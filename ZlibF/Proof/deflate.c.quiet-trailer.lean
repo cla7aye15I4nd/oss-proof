@@ -40,7 +40,7 @@ theorem trailer_end_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d
     intro e
     by_cases p : d1.pending = 0
     · exact p
-    · rw [if_pos (bne_iff_ne.mpr p)] at e; exact absurd e (by decide)
+    · rw [ite_eq_left (bne_iff_ne.mpr p)] at e; exact absurd e (by decide)
   have endIff : (if d1.pending != 0 then Z_OK else Z_STREAM_END) = Z_STREAM_END ↔ d1.pending = 0 :=
     ⟨endZero, fun p => by rw [p]; rfl⟩
   have okFull : (if d1.pending != 0 then Z_OK else Z_STREAM_END) = Z_OK → z1.avail_out = 0 := by
@@ -63,7 +63,7 @@ theorem trailer_end_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d
     simp only [bind_app]
     rw [run1]
     simp only [rdD_eq, good1.live.hs, wrap1, pos, ite_true, ineg, chk32, range, and_self, pure_app, bind_app]
-    simp only [wrD_eq, good1.live.hs, rdD_eq, setD_dstates_same, pure_app]
+    simp only [wrD_eq, good1.live.hs, setD_dstates_same]
     rfl
   · refine ⟨if d1.pending != 0 then Z_OK else Z_STREAM_END, H1, z1, d1, produced, ?_, good1, ⟨buf1, trees1, size1⟩,
       buffers1, account1, by split <;> simp, by rw [fields1], ?_, stage1, empty1, endIff,
@@ -173,7 +173,7 @@ theorem trailer_phase_q {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} 
       fun _ => ⟨rfl, rfl, rfl⟩, Or.inl rfl,
       ⟨fun e => absurd e (by decide), fun e => by rcases e with ⟨_, _, g⟩ | ⟨_, g, _⟩ <;> exact absurd g fin⟩,
       fun _ g => absurd g fin, fun _ g => absurd g fin, by omega⟩
-    simp [bind_app, bne_iff_ne.mpr fin, pure_app]
+    simp [bne_iff_ne.mpr fin, pure_app]
 
 /-- What the trailer step leaves (`TrailerOut`), with the negated `wrap` of a written trailer and the
 bytes of the trailer phase. -/
@@ -248,7 +248,7 @@ theorem trailer_quiet {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d
   · have run : trailerPhase (some r) (some (.tab ds)) flush h = .ok (Z_OK, h) := by
       rw [trailer_phase_split]
       unfold trailerPhase'
-      simp [bind_app, bne_iff_ne.mpr f, pure_app]
+      simp [bne_iff_ne.mpr f, pure_app]
     exact ⟨Z_OK, h, z, d, 0, run, inv, header, facts, buffers, ⟨buf, trees, rfl⟩, stream_accounting_zero z,
       StageFrame.refl inv.good buffers trees.base.pbuf, rfl, Or.inl rfl, fun e => absurd e (by decide),
       fun _ => ⟨rfl, rfl, rfl, rfl⟩, Or.inl rfl,

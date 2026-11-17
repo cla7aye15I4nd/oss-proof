@@ -94,7 +94,7 @@ private theorem btForce_writes {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateStat
   refine WS.bind' (ws_md _) fun _ e1 he1 => ?_
   subst e1
   rcases hs with ⟨rfl, rfl⟩ | ⟨r, T, f, rfl, rfl, hr, hf⟩
-  · simp only [bne_self_eq_false, Bool.false_eq_true, ite_false, M_pure_bind]
+  · simp only [bne_self_eq_false, Bool.false_eq_true, ite_false]
     refine WS.pure' ⟨hl, by omega, rfl, ?_⟩
     unfold btForceState
     rw [ht]
@@ -134,7 +134,7 @@ theorem btForceBody_run {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateState)
   have hi1 : (1 : Int32).toInt = 1 := rfl
   unfold btForceBody
   by_cases hsmall : mc.toInt < 2
-  · simp only [hsmall, ite_true, M_bind_assoc, M_pure_bind]
+  · simp only [hsmall, ite_true]
     refine WS.bind' (ws_iadd mc 1 (by omega) (by omega)) fun mc' e1 ⟨hmc', he1⟩ => ?_
     subst e1
     refine WS.mono (btForce_writes tk d mc' mc' N stree sl hs (by omega) (by omega)
@@ -144,7 +144,7 @@ theorem btForceBody_run {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateState)
     refine ⟨mc', hl, ?_, ?_, hhl, he⟩
     · simp only [Math.forceNode, ite_eq_left hsmall]; omega
     · simp only [Math.forceMax, ite_eq_left hsmall]; omega
-  · simp only [hsmall, ite_false, M_bind_assoc, M_pure_bind]
+  · simp only [hsmall, ite_false]
     refine WS.mono (btForce_writes tk d 0 mc N stree sl hs (by decide +kernel) (by change (0 : Int) < N; omega)
       hT hD hl0 hl2 hH) ?_
     intro r e ⟨hl, hhl, hr, he⟩

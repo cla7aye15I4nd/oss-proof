@@ -61,11 +61,11 @@ theorem inflate_leave_split (c : Ctx) (l : IL) :
   unfold inflate_leave leaveRestore leaveAfterRestore
   simp only [bind_app]
   cases first : wrZ c.strm (fun z => { z with next_out := l.put, avail_out := l.left, next_in := l.next, avail_in := l.have_ }) h with
-  | error fault => simp only [first]
+  | error fault => simp only
   | ok result =>
     obtain ⟨unit, current⟩ := result
     cases unit
-    simp only [first]
+    simp only
 
 /-- The actual prefix writes the exposed cursors and private bit buffer. -/
 theorem leaveRestore_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -86,7 +86,7 @@ theorem inflate_leave_restore_cut {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
 count and held-bit premises come from the actual dispatch relation. -/
 theorem leave_restore_invariant {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
+    (_E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
     (B : BitInv h l bs) (bits : l.bits.toNat ≤ 39) :
     Good (setI (r.put h (leaveStream z l)) zs (leaveState s l)) r zs (leaveStream z l) (leaveState s l) ∧
       DataPendingInvariant (leaveState s l) ∧

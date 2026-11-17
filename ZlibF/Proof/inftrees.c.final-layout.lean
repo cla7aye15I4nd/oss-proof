@@ -73,7 +73,7 @@ private theorem jp1_last_layout {c : Ctx} {s result : TS} {h after : Heap}
   simp only [geta_eq inside, bind_app, pure_app, last] at run
   try dsimp only at run
   rw [seta_eq inside] at run
-  simp only [bind_app, pure_app, UInt16.sub_self, beq_self_eq_true, ite_true] at run
+  simp only [pure_app, UInt16.sub_self, beq_self_eq_true, ite_true] at run
   simp only [max, beq_self_eq_true, ite_true, pure_app] at run
   cases run
   simp only [layout, max]
@@ -85,7 +85,7 @@ private theorem jp1_last_huff {c : Ctx} {s result : TS} {h after : Heap}
   unfold jp1 at run
   simp only [geta_eq inside, bind_app, pure_app, last] at run
   rw [seta_eq inside] at run
-  simp only [bind_app, pure_app, UInt16.sub_self, beq_self_eq_true, ite_true] at run
+  simp only [pure_app, UInt16.sub_self, beq_self_eq_true, ite_true] at run
   simp only [max, beq_self_eq_true, ite_true, pure_app] at run
   cases run
   rfl

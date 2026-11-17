@@ -57,7 +57,7 @@ private theorem loop_origin_wp (hc : CtxOK e c) (l : L) (i o : Nat) (A : Array U
     | true =>
       refine Or.inl ⟨l1, h1, ?_, i', o', A', msg', mode', cursor', hl',
         hoend, hAsz, hh, resultOrigin, hused', hfr'⟩
-      simp [hstop]
+      simp
     | false =>
       obtain ⟨progress, _, _⟩ := hcont hstop
       have hcnd := fast_cond_live hc A' msg' mode' l1 i' o' hl' hAsz hoend hstop

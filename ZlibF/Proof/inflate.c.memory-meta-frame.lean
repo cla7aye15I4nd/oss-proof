@@ -92,7 +92,7 @@ theorem memoryMetaFrameM_wrS (r : ZStreamRef) (zs : Nat) (update : InflateState 
 
 /-- A checked partial stream write retains read-only flags and the allocation frontier. -/
 theorem memoryMetaFrameM_wrZ (r : ZStreamRef) (update : ZStream → ZStream)
-    (fixed : ∀ z, streamProtected (update z) = streamProtected z) :
+    (_fixed : ∀ z, streamProtected (update z) = streamProtected z) :
     MemoryMetaFrameM r (wrZ (some r) update) := by
   intro h value after run
   rw [wrZ_eq] at run

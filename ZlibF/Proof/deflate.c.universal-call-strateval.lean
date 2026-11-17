@@ -43,7 +43,7 @@ theorem strategy_phase_eval {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
           | ok p =>
             obtain ⟨c, h1⟩ := p
             dsimp only
-            cases hf : c.func <;> simp only [hf, bind_app]
+            cases hf : c.func <;> simp only [bind_app]
   · rfl
 
 /-- `strategyAfter` on `need_more`. -/
@@ -53,9 +53,9 @@ theorem after_need_more {a : Heap} {r : ZStreamRef} {ds : Nat} {z1 : ZStream} {d
       .ok (Z_OK, setD a ds { d1 with status := d1.status, last_flush := if z1.avail_out = 0 then -1 else d1.last_flush }) := by
   unfold strategyAfter
   by_cases full : z1.avail_out = 0
-  · simp [bind_app, pure_app, zrd_eq, hz, wrD_eq, hs, full, need_more, finish_started, finish_done, block_done]
+  · simp [bind_app, pure_app, zrd_eq, hz, wrD_eq, hs, full, need_more, finish_started, finish_done]
   · have self : setD a ds { d1 with status := d1.status, last_flush := d1.last_flush } = a := setD_self hs
-    simp [bind_app, pure_app, zrd_eq, hz, full, need_more, finish_started, finish_done, block_done, self]
+    simp [bind_app, pure_app, zrd_eq, hz, full, need_more, finish_started, finish_done, self]
 
 /-- `strategyAfter` on `finish_started`. -/
 theorem after_started {a : Heap} {r : ZStreamRef} {ds : Nat} {z1 : ZStream} {d1 : DeflateState}
@@ -64,16 +64,16 @@ theorem after_started {a : Heap} {r : ZStreamRef} {ds : Nat} {z1 : ZStream} {d1 
       .ok (Z_OK, setD a ds { d1 with status := FINISH_STATE, last_flush := if z1.avail_out = 0 then -1 else d1.last_flush }) := by
   unfold strategyAfter
   by_cases full : z1.avail_out = 0
-  · simp [bind_app, pure_app, zrd_eq, hz, wrD_eq, hs, full, need_more, finish_started, finish_done, block_done,
+  · simp [bind_app, pure_app, zrd_eq, hz, wrD_eq, hs, full, need_more, finish_started, finish_done,
       ZStreamRef.get_setD]
-  · simp [bind_app, pure_app, zrd_eq, hz, wrD_eq, hs, full, need_more, finish_started, finish_done, block_done,
+  · simp [bind_app, pure_app, zrd_eq, hz, wrD_eq, hs, full, need_more, finish_started, finish_done,
       ZStreamRef.get_setD]
 
 /-- `strategyAfter` on `block_done`: the flush markers. -/
 theorem after_block {a : Heap} {r : ZStreamRef} {ds : Nat} (flush : Int32) (k : M Int32) :
     strategyAfter (some r) (some (.tab ds)) flush block_done k a = markerTail (some r) (some (.tab ds)) flush k a := by
   unfold strategyAfter
-  simp [bind_app, pure_app, need_more, finish_started, finish_done, block_done]
+  simp [need_more, finish_started, finish_done, block_done]
 
 /-- `strategyAfter` on `finish_done`: `FINISH_STATE`, then the trailer. -/
 theorem after_done {a : Heap} {r : ZStreamRef} {ds : Nat} {d1 : DeflateState}
@@ -81,6 +81,6 @@ theorem after_done {a : Heap} {r : ZStreamRef} {ds : Nat} {d1 : DeflateState}
     strategyAfter (some r) (some (.tab ds)) flush finish_done k a =
       k (setD a ds { d1 with status := FINISH_STATE, last_flush := d1.last_flush }) := by
   unfold strategyAfter
-  simp [bind_app, pure_app, wrD_eq, hs, need_more, finish_started, finish_done, block_done]
+  simp [bind_app, wrD_eq, hs, need_more, finish_started, finish_done, block_done]
 
 end Zlib.Deflate.Universal.Call

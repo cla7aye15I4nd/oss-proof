@@ -74,7 +74,7 @@ theorem flush_macro_run_adler {h after : Heap} {r : ZStreamRef} {ds pb ob oo w o
     (accounted : base + represented xs = origin + d.strstart.toNat)
     (view : ∀ i, i < fillEnd d → bfn window i = input (origin + i)) (last : Bool)
     (run : FLUSH_BLOCK_ONLY (some (.tab ds)) (if last then 1 else 0) h = .ok ((), after))
-    (live : r.get after = some z') (account : StreamAccounting z z' 0 produced) :
+    (live : r.get after = some z') (_account : StreamAccounting z z' 0 produced) :
     z'.adler = z.adler := by
   obtain ⟨amount, other, ze, _stateE, runE, goodE, accountE, checksumE⟩ :=
     flush_macro_adler_execution good trees buffers positive pointer cursor memory pending bits ledger clear trace
@@ -92,7 +92,7 @@ theorem flush_control_run_adler {h after : Heap} {r : ZStreamRef} {ds ob oo orig
     (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (bits : d.bi_valid.toInt ≤ 7)
     (clear : BlockInit.BlockClear d) (available : d.match_available = 0) (last : Bool)
     (run : FLUSH_BLOCK (some (.tab ds)) (if last then 1 else 0) h = .ok (ret, after))
-    (live : r.get after = some z') (account : StreamAccounting z z' 0 produced) :
+    (live : r.get after = some z') (_account : StreamAccounting z z' 0 produced) :
     z'.adler = z.adler := by
   obtain ⟨pb, buf, trees, ledger, balance⟩ := boundary.symbols
   obtain ⟨w, wa, win, get, view, _form⟩ := boundary.data

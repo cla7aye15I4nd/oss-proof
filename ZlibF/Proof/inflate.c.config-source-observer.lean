@@ -834,7 +834,7 @@ theorem windowFrameM_inflate_fixed (r : ZStreamRef) (owner : InflateStatePtr) :
       | none => simp only [Zlib.Inftrees.inflate_fixed, bind_app, ldI_eq, get] at run; cases run
       | some state =>
         simp only [Zlib.Inftrees.inflate_fixed, bind_app, ldI_eq, stI_eq, get,
-          Option.isSome_some, ↓reduceIte, setI_istates_same, setI_setI] at run
+          setI_istates_same, setI_setI] at run
         cases run
         exact decoderWindows_setI get rfl
 
@@ -1169,7 +1169,7 @@ theorem windowFrameM_ldS_update {α : Type} (r : ZStreamRef) (owner pointer : In
       cases get : h.istates zs with
       | none => simp only [bind_app, ldI_eq, get] at run; cases run
       | some state =>
-        simp only [bind_app, ldI_eq, stI_eq, get, Option.isSome_some, ↓reduceIte] at run
+        simp only [bind_app, ldI_eq, stI_eq, get] at run
         exact (show WindowFrame r owner h (setI h zs (update state)) from
           decoderWindows_setI get (window state)).trans
           (tailFrame state _ value after run)
@@ -1188,7 +1188,7 @@ theorem windowFrameM_ldS_store (r : ZStreamRef) (owner pointer : InflateStatePtr
       cases get : h.istates zs with
       | none => simp only [bind_app, ldI_eq, get] at run; cases run
       | some state =>
-        simp only [bind_app, ldI_eq, stI_eq, get, Option.isSome_some, ↓reduceIte] at run
+        simp only [bind_app, ldI_eq, stI_eq, get] at run
         cases run
         exact decoderWindows_setI get (window state)
 
@@ -1678,7 +1678,7 @@ macro "config_frame_mode " r:term:max "," owner:term:max "," root:term:max : tac
 
 /-- The actual DONE mode preserves decoder configuration fields on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem windowFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem windowFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     WindowFrameX r context.st (inflate_DONE context) := by
   unfold inflate_DONE
   try rw [root]
@@ -1704,7 +1704,7 @@ theorem windowFrameX_inflate_CHECK (r : ZStreamRef) (context : Ctx) (root : cont
 
 /-- The actual LIT mode preserves decoder configuration fields on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem windowFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem windowFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     WindowFrameX r context.st (inflate_LIT context) := by
   unfold inflate_LIT
   try rw [root]
@@ -1793,7 +1793,7 @@ theorem windowFrameX_inflate_TABLE (r : ZStreamRef) (context : Ctx) (root : cont
 
 /-- The actual COPY mode preserves decoder configuration fields on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem windowFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem windowFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     WindowFrameX r context.st (inflate_COPY context) := by
   unfold inflate_COPY
   try rw [root]

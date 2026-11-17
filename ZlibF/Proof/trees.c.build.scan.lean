@@ -59,7 +59,7 @@ theorem btScanBody_used {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateState) (n m
   refine WS.bind' (ws_getFc tk n.toInt hn0 hnT) fun v e1 ⟨hv, he1⟩ => ?_
   subst e1; subst v
   have hb : (((tk.arr d)[n.toInt.toNat]!).fc != 0) = true := by simpa using hf
-  simp only [hb, Bool.true_eq, ite_true]
+  simp only [hb, ite_true]
   refine WS.bind' ws_rd fun dz e1 ⟨hdz, he1⟩ => ?_
   subst e1; subst dz
   have hi1 : (1 : Int32).toInt = 1 := rfl

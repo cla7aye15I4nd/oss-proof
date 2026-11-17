@@ -113,7 +113,7 @@ theorem DefaultFinishBoundary.foreign_no_flush_resuming {h : Heap} {r : ZStreamR
     apply StreamReachable.step (call := .deflate (some r) Z_NO_FLUSH) (value := Z_OK) boundary.reachable (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, default_finish_active_header boundary.good boundary.no_header⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   have bounds : -2 ≤ result.last_flush.toInt ∧ result.last_flush.toInt ≤ 5 := by
     rcases lastA with eq | eq <;> rw [eq] <;> decide
   exact ⟨used, produced, after, z', result, run,
@@ -165,7 +165,7 @@ theorem DefaultFinishBoundary.foreign_finish {h : Heap} {r : ZStreamRef} {ds own
     apply StreamReachable.step (call := .deflate (some r) Z_FINISH) (value := rc) boundary.reachable (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, default_finish_active_header boundary.good boundary.no_header⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   have bounds : -2 ≤ result.last_flush.toInt ∧ result.last_flush.toInt ≤ 5 := by
     rcases last with eq | eq <;> rw [eq] <;> decide
   exact ⟨used, produced, rc, after, z', result, run,

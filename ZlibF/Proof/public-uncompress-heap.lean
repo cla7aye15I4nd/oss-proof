@@ -175,11 +175,11 @@ theorem written_array {a a' : Array UInt8} {i : Nat} {xs : List UInt8}
     (outside : ∀ j, j < a.size → ¬ (i ≤ j ∧ j < i + xs.length) → a'[j]? = a[j]?) :
     a' = a.extract 0 i ++ xs.toArray ++ a.extract (i + xs.length) a.size := by
   apply Array.ext'
-  simp only [Array.toList_append, Array.toList_extract, List.toList_toArray]
+  simp only [Array.toList_append, Array.toList_extract]
   apply List.ext_getElem?
   intro j
   simp only [List.getElem?_append, List.getElem?_take, List.getElem?_drop, List.length_append,
-    List.length_take, List.length_drop, Array.length_toList, List.drop_zero, Nat.sub_zero, Nat.zero_add,
+    List.length_take, Array.length_toList, List.drop_zero, Nat.sub_zero,
     Nat.min_eq_left (show i ≤ a.size by omega)]
   by_cases lo : j < i
   · have := outside j (by omega) (by omega)
@@ -189,12 +189,12 @@ theorem written_array {a a' : Array UInt8} {i : Nat} {xs : List UInt8}
   · simp only [lo, show ¬ j < i + xs.length by omega, ite_false]
     by_cases inb : j < a.size
     · have := outside j inb (by omega)
-      rw [if_pos (by omega), show i + xs.length + (j - (i + xs.length)) = j by omega]
+      rw [ite_eq_left (by omega), show i + xs.length + (j - (i + xs.length)) = j by omega]
       simpa only [Array.getElem?_toList] using this
-    · rw [if_neg (by omega)]
+    · rw [ite_eq_right (by omega)]
       simp only [Array.getElem?_toList]
       rw [Array.getElem?_eq_none (by omega)]
-  · rw [if_pos (by omega), if_neg lo]
+  · rw [ite_eq_left (by omega), ite_eq_right lo]
     have e := congrArg (fun l => l[j - i]?) inside
     simp only [List.getElem?_take, List.getElem?_drop, show j - i < xs.length by omega, ite_true,
       show i + (j - i) = j by omega] at e

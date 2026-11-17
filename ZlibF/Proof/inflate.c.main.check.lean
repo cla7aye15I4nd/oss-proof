@@ -71,7 +71,7 @@ theorem inflate_LENGTH_skip {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : Inflat
     rcases hno with e | e <;> simp [e]
   unfold inflate_LENGTH
   rw [hc]
-  simp [runX_bind, runX_lift, ldI_eq, hs, hb, runX_pure, setMode, wrI_eq, inflate_DONE, runX_modify, runX_throw]
+  simp [runX_bind, runX_lift, ldI_eq, hs, hb, setMode, wrI_eq, inflate_DONE, runX_modify, runX_throw]
 
 /-- `case LENGTH:` with a length to check (`wrap ≠ 0`, `flags ≠ 0`): `NEEDBITS(32)`; if the input ran out, `goto inf_leave` with
 the registers of that moment; else, when `(wrap & 4)` is set and `hold` differs from the low 32 bits of `total`, the error
@@ -100,7 +100,7 @@ theorem inflate_LENGTH_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : 
     refine ⟨h2, h1, h3, ?_⟩
     unfold inflate_LENGTH
     rw [hc]
-    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hf', hrun, e, runX_throw]
+    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hf', hrun, e]
   · intro e
     refine ⟨hok e, ?_, ?_⟩
     · intro h4 hne
@@ -113,7 +113,7 @@ theorem inflate_LENGTH_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : 
       unfold inflate_LENGTH
       rw [hc]
       have hn' : ¬ (¬ s.wrap &&& 4 = 0 ∧ ¬ l'.hold = s.total &&& 4294967295) := hn
-      simp [runX_bind, runX_lift, ldI_eq, hs, hw', hf', hrun, e, runX_get, hn', runX_pure, runX_INITBITS, setMode, wrI_eq,
+      simp [runX_bind, runX_lift, ldI_eq, hs, hw', hf', hrun, e, runX_get, hn', runX_INITBITS, setMode, wrI_eq,
         inflate_DONE, runX_modify, runX_throw]
 
 /-! ### `case CHECK:` -/
@@ -139,7 +139,7 @@ theorem inflate_CHECK_nowrap {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : Infla
     runX (inflate_CHECK c) l h = runX (inflate_LENGTH c) l (setI h zs { s with mode := LENGTH }) := by
   unfold inflate_CHECK
   rw [hc]
-  simp [runX_bind, runX_lift, ldI_eq, hs, hw, setMode, wrI_eq, runX_pure]
+  simp [runX_bind, runX_lift, ldI_eq, hs, hw, setMode, wrI_eq]
 
 /-- `put` addresses the byte `off` of the block `blk` (bytes `a`), and the `out` bytes before it are inside the block. -/
 def PutAt (h : Heap) (put : BPtr) (out : UInt32) (blk off : Nat) (a : Array UInt8) : Prop :=
@@ -187,7 +187,7 @@ theorem inflate_CHECK_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
     refine ⟨h2, h1, h3, ?_⟩
     unfold inflate_CHECK
     rw [hc]
-    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, runX_throw]
+    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e]
   · intro e
     refine ⟨hok e, ?_⟩
     by_cases hcond : chkCond s out = true
@@ -242,7 +242,7 @@ theorem inflate_CHECK_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
         have hs2 : (chkH h r zs z s out v).istates zs = some (chkS s out v) := by simp [chkH]
         obtain ⟨i, hi, hbm⟩ := tcBadMode_run (c := c) "incorrect data check" lit_data_check hr hc hz2 hs2
         refine ⟨i, hi, ?_⟩
-        simp [chkH, chkZ, chkS, tcBadHeap, hcond, hct', hout] at hbm
+        simp [chkH, chkZ, chkS, tcBadHeap, hct', hout] at hbm
         have hbad2 : (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = v) := by
           refine ⟨hbad, ?_⟩
           simp only [chkS, hcond, ↓reduceIte] at hne
@@ -256,7 +256,7 @@ theorem inflate_CHECK_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hct3, hct', hbad2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcond, hbm, chkCond,
+          hout, hout', hleft', runX_pure, hct3, hbad2, setMode, chkH, chkZ, chkS, hbm, chkCond,
           hput', hptr2, hv2]
         simp [tcBadHeap]
       · intro hn
@@ -279,7 +279,7 @@ theorem inflate_CHECK_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hct3, hct', hn3, setMode, runX_INITBITS, chkH, chkZ, chkS, hcond, chkCond,
+          hout, hout', hleft', hct3, hn3, setMode, runX_INITBITS, chkH, chkZ, chkS, chkCond,
           hput', hptr2, hv2]
     · have hcf : chkCond s out = false := by simpa using hcond
       have hcf' : chkCond s (l.out_ - l.left) = false := by rw [← hout]; exact hcf
@@ -298,10 +298,10 @@ theorem inflate_CHECK_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
           by_cases hz0 : l.out_ - l.left = 0
           · exact hz0
           · exact absurd ⟨hbad, hz0⟩ hcf3
-        simp [chkH, chkZ, chkS, tcBadHeap, hcf, hcf', hout, hcf4, chkCond] at hbm
+        simp [chkH, chkZ, chkS, tcBadHeap, hout, hcf4, chkCond] at hbm
         have hbad2 : (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = s.check) := by
           refine ⟨hbad, ?_⟩
-          simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte, ite_self] at hne
+          simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte] at hne
           by_cases hf0 : s.flags = 0
           · rw [ite_eq_left hf0]
             rw [ite_eq_right (by simpa using hf0)] at hne
@@ -312,7 +312,7 @@ theorem inflate_CHECK_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hcf3, hcf4, hcf', hbad2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcf, hbm, chkCond]
+          hout, hout', hleft', runX_pure, hcf4, hbad2, setMode, chkH, chkZ, chkS, hbm, chkCond]
         simp [tcBadHeap]
       · intro hn
         have hn2 : ¬ (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = s.check) := by
@@ -329,7 +329,7 @@ theorem inflate_CHECK_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
             exact hb
         unfold inflate_CHECK
         rw [hc]
-        simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz, hcf2,
-          hout, hout', hleft', runX_pure, hcf3, hcf', hn2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcf]
+        simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
+          hout, hout', hleft', hcf3, hcf', hn2, setMode, runX_INITBITS, chkH, chkZ, chkS]
 
 end Zlib.Inflate.Proofs

@@ -189,7 +189,7 @@ theorem stI_eq (h : Heap) (i : Nat) (v : InflateState) : stInflateState (some (.
     | none => .error (.ub "access through a dangling pointer (inflate_state)") := by
   cases hh : h.istates i with
   | none => simp [stInflateState, InflateStateRef.get, hh]
-  | some w => simp [stInflateState_tab hh, setI, hh]
+  | some w => simp [stInflateState_tab hh, setI]
 
 theorem stZ_eq (h : Heap) (r : ZStreamRef) (v : ZStream) : stZStream (some r) v h =
     match r.get h with
@@ -198,7 +198,7 @@ theorem stZ_eq (h : Heap) (r : ZStreamRef) (v : ZStream) : stZStream (some r) v 
   have hro : r.isRo = false := by cases r <;> rfl
   cases hh : r.get h with
   | none => simp [stZStream, hh]
-  | some w => simp [stZStream_ok hh hro, hh]
+  | some w => simp [stZStream_ok hh hro]
 
 /-- Evaluate a straight-line sequence of accesses to a stream and its state. -/
 macro "isimp" "[" ts:Lean.Parser.Tactic.simpLemma,* "]" : tactic =>

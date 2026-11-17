@@ -80,7 +80,7 @@ theorem slow_search_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
         shape.matchLength form
     have borrowA : after.libcErrorBorrow = h.libcErrorBorrow := stable_slowSearch ds h _ after run
     refine ⟨_, after, _, run, ⟨goodA, rfl, rfl, rfl, rfl, rfl, rfl, rfl, bytesA, frameA, borrowA,
-      by rw [if_pos ready]; exact chainsA, fun _ => ⟨w, wa, env.win, env.wbytes, nextForm⟩, lenBound,
+      by rw [ite_eq_left ready]; exact chainsA, fun _ => ⟨w, wa, env.win, env.wbytes, nextForm⟩, lenBound,
       Or.inl lenLook, fun large longer => ⟨w, wa, env.win, env.wbytes, evidence large longer⟩, ?_⟩⟩
     obtain ⟨e, rfl⟩ := heapA
     exact (priv_inserted key good.live.hs env).trans
@@ -88,7 +88,7 @@ theorem slow_search_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
         simp [insertedHeap]))
   · obtain ⟨run, goodA, chainsA, frameA⟩ := slow_search_fewer_three good (inv.chains head.level) (by omega)
     refine ⟨0, _, lazyPrepare d, run, ⟨goodA, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, frameA, rfl,
-      by rw [if_neg ready]; exact chainsA, fun r3 => absurd r3 ready, by show (2 : UInt32).toNat ≤ 258; decide,
+      by rw [ite_eq_right ready]; exact chainsA, fun r3 => absurd r3 ready, by show (2 : UInt32).toNat ≤ 258; decide,
       Or.inr rfl, fun (large : 3 ≤ (2 : UInt32).toNat) => absurd large (by decide),
       priv_setD h r ds d _ good.live.hs⟩⟩
 
@@ -116,7 +116,7 @@ theorem slow_decision_source (s : DeflateStatePtr) (flush : Int32) (st : LoopS) 
         wr s (fun d => { d with match_available := 1, strstart := d.strstart + 1, lookahead := d.lookahead - 1 })
         return { st with hash_head, bflush := false }) := by
   unfold slowDecision slowPending lazyTail
-  simp only [Zlib.Deflate.Engine.Proofs.M_bind_assoc, Zlib.Deflate.Engine.Proofs.M_pure_bind, fill_ite_bind]
+  simp only
   rfl
 
 
@@ -257,10 +257,10 @@ theorem slow_mark {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d d2 
         ((markState d2).strstart.toNat + (markState d2).lookahead.toNat - 2)
       rw [ss3, la3, eIns]
       by_cases ready : 3 ≤ d.lookahead.toNat
-      · rw [if_pos ready]
+      · rw [ite_eq_left ready]
         have z0 : d.insert.toNat = 0 := by rw [shape.insertDone ready]; rfl
         omega
-      · rw [if_neg ready]; unfold chainTop; omega
+      · rw [ite_eq_right ready]; unfold chainTop; omega
     · have zero := shape.slides.2 head.level
       change d2.«matches» = 1 at one
       rw [show d2.«matches» = d.«matches» by rw [upd], zero] at one; cases one
@@ -372,7 +372,7 @@ theorem slow_dist {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d d2 
     (out : SlowOut h h2 r ds z d d2) (look : 1 ≤ d.lookahead.toNat)
     (noMatch : ¬ (3 ≤ d2.prev_length.toNat ∧ d2.match_length.toNat ≤ d2.prev_length.toNat))
     (eSs : F.strstart = d2.strstart + 1) (eMs : F.match_start = d2.match_start) (eW : F.w_size = d.w_size)
-    (eLa : F.lookahead.toNat = d.lookahead.toNat - 1) (ssLt : d.strstart.toNat + 1 < 2 ^ 32) :
+    (eLa : F.lookahead.toNat = d.lookahead.toNat - 1) (_ssLt : d.strstart.toNat + 1 < 2 ^ 32) :
     3 ≤ d2.match_length.toNat → 1 ≤ (F.strstart - 1 - F.match_start).toNat ∧
       (F.strstart - 1 - F.match_start).toNat ≤ F.w_size.toNat - 262 ∧
       d2.match_length.toNat ≤ F.lookahead.toNat + 1 := by
@@ -535,10 +535,10 @@ theorem slow_pending {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     unfold chainTop
     rw [fs, fl, fi]
     by_cases ready : 3 ≤ d.lookahead.toNat
-    · rw [if_pos ready]
+    · rw [ite_eq_left ready]
       have z0 : d.insert.toNat = 0 := by rw [shape.insertDone ready]; rfl
       omega
-    · rw [if_neg ready]; omega
+    · rw [ite_eq_right ready]; omega
   have formOk : ∀ (F : DeflateState) (hF : Heap), F.window = d.window → hF.bytes w = some wa →
       F.strstart.toNat = d.strstart.toNat + 1 → F.lookahead.toNat = d.lookahead.toNat - 1 →
       F.hash_shift = d.hash_shift → F.hash_mask = d.hash_mask → F.ins_h = d2.ins_h →
@@ -878,8 +878,8 @@ theorem slow_match {h h2 : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     change _ ≤ min (d2.strstart.toNat + 1) (d2.strstart.toNat + d2.lookahead.toNat - 2)
     rw [eSs, eLa]
     by_cases ready : 3 ≤ d.lookahead.toNat
-    · rw [if_pos ready]; omega
-    · rw [if_neg ready]; unfold chainTop; rw [insZero]
+    · rw [ite_eq_left ready]; omega
+    · rw [ite_eq_right ready]; unfold chainTop; rw [insZero]
       have z0 : (0 : UInt32).toNat = 0 := rfl
       rw [z0]; omega
   have form3 : d3.strstart.toNat + 1 ≤ d3.strstart.toNat + d3.lookahead.toNat - 3 →

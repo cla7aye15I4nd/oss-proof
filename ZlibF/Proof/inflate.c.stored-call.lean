@@ -21,7 +21,7 @@ theorem inflate_CHECK_raw_skip {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : Inf
     runX (inflate_CHECK c) l h = runX (inflate_LENGTH c) l (setI h zs { s with mode := LENGTH }) := by
   unfold inflate_CHECK
   rw [hc]
-  simp [runX_bind, runX_lift, ldI_eq, hs, hw, setMode, wrI_eq, runX_pure]
+  simp [runX_bind, runX_lift, ldI_eq, hs, hw, setMode, wrI_eq]
 
 /-- `case LENGTH:` in a raw stream reaches the actual DONE exit directly. -/
 theorem inflate_LENGTH_raw_skip {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : InflateState}
@@ -30,7 +30,7 @@ theorem inflate_LENGTH_raw_skip {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : In
       .ok ((.error Ex.leave, { l with ret := Z_STREAM_END }), setI h zs { s with mode := DONE }) := by
   unfold inflate_LENGTH
   rw [hc]
-  simp [runX_bind, runX_lift, ldI_eq, hs, hw, runX_pure, setMode, wrI_eq,
+  simp [runX_bind, runX_lift, ldI_eq, hs, hw, setMode, wrI_eq,
     inflate_DONE, runX_modify, runX_throw]
 
 /-- A finite sequence of actual mode executions, ending in an exception,
@@ -415,6 +415,6 @@ theorem inflate_raw_copy_finish_safe {h : Heap} {r zs z s}
     simp [show od ≤ od + j ∧ od + j < od + s.length.toNat by omega]
   · intro j hj
     rw [copyRange_getElem? da sa od os s.length.toNat h1 h2]
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
 
 end Zlib.Inflate.Proofs

@@ -17,7 +17,7 @@ theorem dolen_loop_one
       (fun current => pure (current.againL, current)) l) h =
       .ok (result, after) := by
   apply Zlib.Inffast.Proofs.cdoWhile_one run
-  simp only [againL, C.run, pure]
+  simp only [againL, pure]
 
 /-- A root literal leaf executes the actual one-pass `dolen` loop,
 including its output byte and caller buffer frame. -/

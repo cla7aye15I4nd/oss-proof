@@ -67,7 +67,7 @@ theorem default_foreign_finish_tail_run_adler {h after : Heap} {r : ZStreamRef} 
     (memory : d.lit_bufsize.toNat=16384) (pending : d.pending=0) (bits : d.bi_valid.toInt≤7)
     (clear : BlockInit.BlockClear d) (available : d.match_available=0) (wrap : d.wrap=1)
     (run : finish_tail (some (.tab ds)) Z_FINISH h=.ok (ret,after)) (live : r.get after=some returned)
-    (account : StreamAccounting z returned 0 produced) : returned.adler=z.adler := by
+    (_account : StreamAccounting z returned 0 produced) : returned.adler=z.adler := by
   obtain ⟨_amount,_otherRet,other,otherZ,_otherD,actual,goodA,_accountA,_inputA,_outputA,checksumA⟩ :=
     default_foreign_finish_tail_effect_execution boundary frontier buffers positive pointer cursor memory pending bits clear available wrap
   have same := actual_run_stream_unique actual run goodA.live.hz live

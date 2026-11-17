@@ -142,7 +142,7 @@ theorem accepted_run_safe {h : Heap} {dest destLen source sourceLen : BPtr}
     have hz : (ZStreamRef.tab h.nextBlk).get H' = some z := fin.good.live.hz
     obtain ⟨H1, H2, H3, l1, s1, l2, s2, endRun, res1, res2, ⟨zz, hzz⟩, same, memF⟩ := epilogue ok cells fin
     have endRun' : inflateEnd (some (ZStreamRef.tab h.nextBlk)) H2 = .ok (Z_OK, H3) := endRun
-    simp only [ldZ, ldZStream_ok hz, bind_app, l1, s1, l2, s2, endRun', pure_app]
+    simp only [ldZ, ldZStream_ok hz, l1, s1, l2, s2, endRun', pure_app]
     rw [freeB_reserved_run (k := h.nextBlk) (H := H3) res1 res2]
     simp only []
     rw [freeZStream_local_run (k := h.nextBlk) (H := reservedFreed H3 h.nextBlk) hzz]
@@ -258,8 +258,8 @@ theorem uncompress2_z_with_safe : CountedWith uncompress2_z true SafeRel := by
       bad (Or.inr (Or.inr (Or.inr ⟨e, ne⟩)))
     have srcB' : Bytes h source n.toNat (if source = .null then [] else src) := by
       by_cases sn : source = .null
-      · rw [if_pos sn, sn, sN sn]; exact Or.inl ⟨rfl, rfl, rfl⟩
-      · rw [if_neg sn]; exact srcB sn
+      · rw [ite_eq_left sn, sn, sN sn]; exact Or.inl ⟨rfl, rfl, rfl⟩
+      · rw [ite_eq_right sn]; exact srcB sn
     obtain ⟨rc, after, run, rest⟩ := accepted_run_safe fresh uniq globals fit (dcell dl) (scell sl) srcB'
       destW sep sl dl sN dN
     exact ⟨rc, after, run, fun b => absurd b bad, fun _ _ _ _ => rest⟩
@@ -274,8 +274,8 @@ theorem safe_of_counted {P : BPtr → BPtr → BPtr → BPtr → M Int32} {nl : 
     good sl dl sN dN
   have srcLe : (if source = .null then [] else src).length ≤ n.toNat := by
     by_cases sn : source = .null
-    · rw [if_pos sn]; exact Nat.zero_le _
-    · rw [if_neg sn, bytes_length (srcB sn)]; exact Nat.le_refl _
+    · rw [ite_eq_left sn]; exact Nat.zero_le _
+    · rw [ite_eq_right sn, bytes_length (srcB sn)]; exact Nat.le_refl _
   refine ⟨out, got, consumed, h₁, h₂, expected, S1, S2, S3, sm, outLe, ?_, codes, ?_, mem⟩
   · rcases counts with ⟨-, c⟩ | ⟨-, -, -, c⟩
     · omega

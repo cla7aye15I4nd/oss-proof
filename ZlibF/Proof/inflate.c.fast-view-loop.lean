@@ -55,7 +55,7 @@ theorem FastInputPacket.while3_distinct_go
     have lenEq : l.len = UInt32.ofNat r := by
       apply UInt32.toNat_inj.mp
       rw [count]
-      simp [UInt32.toNat_ofNat]
+      simp
       omega
     have exactResult : l = { l with
         from_ := .ref source (fo + 3 * 0),
@@ -109,7 +109,7 @@ theorem FastInputPacket.while3_distinct_go
         len := UInt32.ofNat r } := by
       rw [resultEq, nextEq]
       simp [Nat.mul_succ, Nat.add_assoc, Nat.add_comm,
-        Nat.add_left_comm]
+        ]
     have finalOutput : Space.get after dest = some
         (Zlib.Inffast.Proofs.blitN saved (3 * (q + 1))
           fo j output) := by
@@ -165,7 +165,7 @@ theorem FastInputPacket.while3_same_go
     have lenEq : l.len = UInt32.ofNat r := by
       apply UInt32.toNat_inj.mp
       rw [count]
-      simp [UInt32.toNat_ofNat]
+      simp
       omega
     have exactResult : l = { l with
         from_ := .ref dest (fo + 3 * 0),
@@ -220,7 +220,7 @@ theorem FastInputPacket.while3_same_go
         len := UInt32.ofNat r } := by
       rw [resultEq, nextEq]
       simp [Nat.mul_succ, Nat.add_assoc, Nat.add_comm,
-        Nat.add_left_comm]
+        ]
     have finalOutput : Space.get after dest = some
         (Zlib.Inffast.Proofs.cpyN (3 * (q + 1))
           fo j output) := by
@@ -373,7 +373,7 @@ theorem FastInputPacket.tailW_view
       simpa only [Nat.add_assoc] using sourceRoom
   have tailCount : loop.len.toNat = r := by
     rw [loopEq]
-    simp [UInt32.toNat_ofNat]
+    simp
     omega
   obtain ⟨result, after, tailRun, resultPacket, fromFinal,
       outFinal, tailOutput, resultWritable, tailEq⟩ :=

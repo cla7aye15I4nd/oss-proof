@@ -30,32 +30,32 @@ theorem slow_word_view_put_memory_meta (h : Heap) (ref : WRef) (old array : Arra
     | blk id =>
       intro b
       by_cases same : b = id
-      · subst b; simp [Shape, Space.put, Space.get] at get ⊢; simp [get]
-      · simp [Shape, Space.put, upd_ne _ _ _ _ same]
+      · subst b; simp [Space.put, Space.get] at get ⊢; simp [get]
+      · simp [Space.put, upd_ne _ _ _ _ same]
     | dstate_bl_count id =>
       cases state : h.dstates id with
       | none => simp [Space.get, state] at get
       | some s =>
         intro b
         by_cases same : b = id
-        · subst b; simp [Shape, Space.put, state]
-        · simp [Shape, Space.put, state, upd_ne _ _ _ _ same]
+        · subst b; simp [Space.put, state]
+        · simp [Space.put, state, upd_ne _ _ _ _ same]
     | istate_lens id =>
       cases state : h.istates id with
       | none => simp [Space.get, state] at get
       | some s =>
         intro b
         by_cases same : b = id
-        · subst b; simp [Shape, Space.put, state]
-        · simp [Shape, Space.put, state, upd_ne _ _ _ _ same]
+        · subst b; simp [Space.put, state]
+        · simp [Space.put, state, upd_ne _ _ _ _ same]
     | istate_work id =>
       cases state : h.istates id with
       | none => simp [Space.get, state] at get
       | some s =>
         intro b
         by_cases same : b = id
-        · subst b; simp [Shape, Space.put, state]
-        · simp [Shape, Space.put, state, upd_ne _ _ _ _ same]
+        · subst b; simp [Space.put, state]
+        · simp [Space.put, state, upd_ne _ _ _ _ same]
   unfold fastMemoryMeta
   rw [fastMemoryMeta_live_eq_of_shape shape]
   cases ref <;> simp only [Space.put] <;> repeat' first | rfl | split
@@ -71,8 +71,8 @@ theorem slow_code_view_put_memory_meta (h : Heap) (ref : CodeRef) (_old array : 
       | some s =>
         intro b
         by_cases same : b = id
-        · subst b; simp [Shape, Space.put, state]
-        · simp [Shape, Space.put, state, upd_ne _ _ _ _ same]
+        · subst b; simp [Space.put, state]
+        · simp [Space.put, state, upd_ne _ _ _ _ same]
     | st_lenfix => exact Shape.refl h
     | st_distfix => exact Shape.refl h
   unfold fastMemoryMeta
@@ -145,8 +145,8 @@ theorem fastMemoryMetaFrameM_stHeader (r : ZStreamRef) (pointer : GzHeaderPtr) (
         have shape : Shape h (GzHeaderRef.put h (.tab id) header) := by
           intro b
           by_cases same : b = id
-          · subst b; simp [Shape, GzHeaderRef.put, get]
-          · simp [Shape, GzHeaderRef.put, get, upd_ne _ _ _ _ same]
+          · subst b; simp [GzHeaderRef.put, get]
+          · simp [GzHeaderRef.put, get, upd_ne _ _ _ _ same]
         simp only [FastMemoryMetaFrame, fastMemoryMeta]
         rw [fastMemoryMeta_live_eq_of_shape shape]
         simp only [GzHeaderRef.put, get]

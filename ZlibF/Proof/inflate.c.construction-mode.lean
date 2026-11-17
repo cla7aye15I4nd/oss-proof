@@ -76,7 +76,7 @@ theorem inflate_CODELENS_trees_default_J {c : Ctx} {h : Heap} {r : ZStreamRef} {
     intro normal
     exact why.resolve_left (fun impossible => impossible normal)
   · obtain ⟨_, run⟩ := continued
-    rw [if_pos flush] at run
+    rw [ite_eq_left flush] at run
     exact ⟨.error Ex.leave, regs, after, stream, state, used, bound, run, nextJ, packet, sizes,
       cursor, count, put, left, total, bits, budget, fun impossible => by cases impossible⟩
 

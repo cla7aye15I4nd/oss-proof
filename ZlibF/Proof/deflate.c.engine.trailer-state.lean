@@ -84,6 +84,6 @@ theorem zlib_trailer_write {h : Heap} {r : ZStreamRef} {ds pb ob : Nat}
       have range : i < 4 := by simpa [zlibTrailerWord] using hright
       have cases : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 := by omega
       rcases cases with rfl | rfl | rfl | rfl <;>
-        simp [next, zlibTrailerBuffer, zlibTrailerWord, room, Array.set!_eq_setIfInBounds]
+        simp [next, zlibTrailerBuffer, zlibTrailerWord, Array.set!_eq_setIfInBounds]
 
 end Zlib.Deflate.Engine.Proofs

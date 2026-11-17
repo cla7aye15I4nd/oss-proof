@@ -19,7 +19,7 @@ theorem while_once {α : Type} {cond : α → M (Bool × α)} {body : α → M �
   unfold cwhile
   change cwhile.go cond body (18446744073709551614 + 2) a h = _
   rw [cwhile.go, bind_app, begin]
-  simp only [if_true]
+  simp only [ite_true]
   rw [bind_app, step]
   simp only []
   rw [cwhile.go, bind_app, stop]
@@ -35,9 +35,9 @@ theorem slow_first_body {h after : Heap} {ds : Nat} {d df : DeflateState} (st : 
       .ok ({ st with ret := some need_more }, after) := by
   unfold deflate_slow_body
   simp only [bind_app, rdD_eq, state, empty]
-  simp only [show (0 : UInt32) < MIN_LOOKAHEAD_u from by decide, if_true]
-  simp only [bind_app, fill, rdD_eq, result, short, Z_NO_FLUSH, Bool.true_and,
-    show ((0 : Int32) == 0) = true from rfl, if_true]
+  simp only [show (0 : UInt32) < MIN_LOOKAHEAD_u from by decide, ite_true]
+  simp only [bind_app, fill, rdD_eq, result, short, Z_NO_FLUSH,
+    show ((0 : Int32) == 0) = true from rfl]
   rfl
 
 /-- `local block_state deflate_slow(deflate_state *s, int flush)`.

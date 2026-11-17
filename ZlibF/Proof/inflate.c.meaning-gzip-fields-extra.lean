@@ -24,7 +24,7 @@ theorem extra_after {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {zs : Nat} {s 
     {six e : List UInt8} (sixLen : six.length = 6) (fe : (bytes.getD 3 0).toNat / 4 % 2 = 1)
     (lim : e.length + s.length.toNat < 2 ^ 16)
     (bytesEq : bytes = [31, 139, 8, bytes.getD 3 0] ++ six ++ le16 (e.length + s.length.toNat) ++ e)
-    (small : (bytes.getD 3 0).toNat < 32) (hold0 : l.hold = 0) (l0 : l.bits = 0)
+    (small : (bytes.getD 3 0).toNat < 32) (_hold0 : l.hold = 0) (_l0 : l.bits = 0)
     (flagsEq : s.flags = flagsWord (bytes.getD 3 0))
     {m : Nat} (mle : m ≤ l.have_.toNat) (mlen : m ≤ s.length.toNat)
     {h1 : Heap} {s1 : InflateState} (hs1 : h1.istates zs = some s1) (keep : InputKept h h1 l)

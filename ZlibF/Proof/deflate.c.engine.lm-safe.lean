@@ -40,7 +40,7 @@ structure LMEnvS (h0 : Heap) (sr : Nat) (d : DeflateState) (wb pb : Nat) (wa : A
   chain : ∀ p, Chain (wfn pa) (d.w_size.toNat - 1) (lmLimit d.strstart.toNat (d.w_size.toNat - 262)) c.toNat p →
     1 ≤ p ∧ p < d.strstart.toNat
 
-def LMInvS (h0 : Heap) (sr : Nat) (d : DeflateState) (wb pb : Nat) (wa : Array UInt8) (pa : Array UInt16)
+def LMInvS (h0 : Heap) (sr : Nat) (d : DeflateState) (wb _pb : Nat) (wa : Array UInt8) (pa : Array UInt16)
     (c : UInt32) (st : LMState) (h : Heap) : Prop :=
   ∃ (ms : UInt32) (b : Nat), h = hAt h0 sr d ms ∧
     st.scan = .ref (.blk wb) d.strstart.toNat ∧ st.best_len.toInt = (b : Int) ∧ d.prev_length.toNat ≤ b ∧ b ≤ 258 ∧
@@ -128,23 +128,23 @@ theorem lm_body_safe {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array
   by_cases T1 : bfn wa (st.cur_match.toNat + b) = bfn wa (d.strstart.toNat + b)
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1]
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse]
     simp [T1]
   by_cases T2 : bfn wa (st.cur_match.toNat + b - 1) = bfn wa (d.strstart.toNat + b - 1)
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1]
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1]
     simp [T2]
   by_cases T3 : bfn wa st.cur_match.toNat = bfn wa d.strstart.toNat
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
       hscan, f8]
     simp [T3]
   by_cases T4 : bfn wa (st.cur_match.toNat + 1) = bfn wa (d.strstart.toNat + 1)
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
       hscan, f8, T3, f9, f10, f11]
     simp [T4]
   obtain ⟨r, hr⟩ : ∃ r, r = matchLen (bfn wa) d.strstart.toNat st.cur_match.toNat := ⟨_, rfl⟩
@@ -176,7 +176,7 @@ theorem lm_body_safe {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array
     refine ⟨{ st with scan := Ptr.ref (BRef.blk wb) d.strstart.toNat }, hAt h0 sr d ms, ?_, ?_, rfl, rfl, rfl⟩
     · simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2,
         f7, hscan, f8, T3, f9, f10, f11, T4, f12, f13, f14, f15, hmm, hloop, fd, fl, f16, hngt]
-      simp [T1, T2, T3, T4, hngt]
+      simp
     · exact ⟨ms, b, rfl, rfl, hb, hpl, hb258, fun _ => ⟨hse1, hse⟩, hch, hgood⟩
   -- an improvement
   have hgt' : Int32.ofInt (r : Int) > st.best_len := by
@@ -206,18 +206,18 @@ theorem lm_body_safe {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array
       hAt h0 sr d st.cur_match, ?_, ?_, rfl, rfl, rfl⟩
     · simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2,
         f7, hscan, f8, T3, f9, f10, f11, T4, f12, f13, f14, f15, hmm, hloop, fd, fl, f16, hgt', f17]
-      simp [T1, T2, T3, T4, hgt', hnice]
+      simp [hnice]
     · exact ⟨st.cur_match, r, rfl, rfl, hlen, by omega, hr258, fun h => by simp at h, hch, Or.inr ⟨by omega, hgm'⟩⟩
   · refine ⟨{ st with scan := Ptr.ref (BRef.blk wb) d.strstart.toNat, best_len := Int32.ofInt (r : Int), scan_end1 := bfn wa (d.strstart.toNat + r - 1), scan_end := bfn wa (d.strstart.toNat + r) }, hAt h0 sr d st.cur_match, ?_, ?_, rfl, rfl, rfl⟩
     · simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2,
         f7, hscan, f8, T3, f9, f10, f11, T4, f12, f13, f14, f15, hmm, hloop, fd, fl, f16, hgt', f17, g1, g1', g2, hlen, g3]
-      simp [T1, T2, T3, T4, hgt', hnice]
+      simp [hnice]
     · exact ⟨st.cur_match, r, rfl, rfl, hlen, by omega, hr258, fun _ => ⟨rfl, rfl⟩, hch, Or.inr ⟨by omega, hgm'⟩⟩
 
 
 
 /-- What the loop guarantees at its end (or at `break`). -/
-def LMOutS (h0 : Heap) (sr : Nat) (d : DeflateState) (wa : Array UInt8) (st : LMState) (h : Heap) : Prop :=
+def LMOutS (h0 : Heap) (sr : Nat) (d : DeflateState) (_wa : Array UInt8) (st : LMState) (h : Heap) : Prop :=
   ∃ (ms : UInt32) (b : Nat), h = hAt h0 sr d ms ∧ st.best_len.toInt = (b : Int) ∧ d.prev_length.toNat ≤ b ∧ b ≤ 258 ∧
     ((b = d.prev_length.toNat ∧ ms = d.match_start) ∨
      (d.prev_length.toNat < b ∧ SafeMatch d.strstart.toNat d.w_size.toNat ms.toNat b))
@@ -279,7 +279,7 @@ theorem lm_loop_safe {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array
         Chain.step hch1 rfl (by rw [← hlimit]; exact big)
       by_cases hcl0 : (st1.chain_length - 1 != 0) = true
       · refine ⟨st1, h1, true, lmStep st1 (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))) (st1.chain_length - 1), h1, hrun, ?_, by simp, ?_⟩
-        · simp only [lmCond, bind_app, pure_app, M_ite_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0, lmStep]
+        · simp only [lmCond, bind_app, pure_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0, lmStep]
         · intro _
           refine ⟨⟨hb1', ms1, b1, hh1, hscan1, hb, hpl, hb258, hse', ?_, hgood1⟩, ?_⟩
           · simpa [lmStep] using hch2
@@ -292,11 +292,11 @@ theorem lm_loop_safe {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array
             omega
       · have hcl0' : (st1.chain_length - 1 != 0) = false := by simpa using hcl0
         refine ⟨st1, h1, false, lmStep st1 (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))) (st1.chain_length - 1), h1, hrun, ?_, fun _ => hout, by simp⟩
-        simp only [lmCond, bind_app, pure_app, M_ite_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0', lmStep]
+        simp only [lmCond, bind_app, pure_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hgt, hcl0', lmStep]
     · have hng : ¬ limit < (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))).toUInt32 := by
         rw [UInt32.lt_iff_toNat_lt]; simpa using big
       refine ⟨st1, h1, false, lmStep st1 (wfn pa (st1.cur_match.toNat &&& (d.w_size.toNat - 1))) st1.chain_length, h1, hrun, ?_, fun _ => hout, by simp⟩
-      simp only [lmCond, bind_app, pure_app, M_ite_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hng, lmStep]
+      simp only [lmCond, bind_app, pure_app, hb1', Bool.false_eq_true, ↓reduceIte, hrd, GT.gt, hng, lmStep]
 
 
 /-- The initial state of the loop satisfies the invariant, whatever `chain_length` and `nice_match` are. -/
@@ -422,6 +422,6 @@ theorem longest_match_safe {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa :
     simp only [hg, hn, ite_true, ite_false]; simp only [lmRest, bind_app, pure_app, M_ite_app] at hr; exact hr
   · obtain ⟨r, h', ms, best, hr, hrest⟩ := key d.max_chain_length d.nice_match
     refine ⟨r, h', ms, best, ?_, hrest⟩
-    simp only [hg, hn, ite_true, ite_false]; simp only [lmRest, bind_app, pure_app, M_ite_app] at hr; exact hr
+    simp only [hg, hn, ite_false]; simp only [lmRest, bind_app, pure_app, M_ite_app] at hr; exact hr
 
 end Zlib.Deflate.Engine.Proofs

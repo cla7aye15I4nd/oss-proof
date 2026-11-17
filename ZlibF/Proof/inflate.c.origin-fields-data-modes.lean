@@ -69,7 +69,7 @@ macro "origin_fields_frame_mode " r:term:max "," owner:term:max "," root:term:ma
 
 /-- The actual DONE mode preserves header flags and both table pointers on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem originFieldFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem originFieldFrameX_inflate_DONE (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     OriginFieldFrameX r context.st (inflate_DONE context) := by
   unfold inflate_DONE
   try rw [root]
@@ -101,7 +101,7 @@ theorem originFieldFrameX_inflate_CHECK (r : ZStreamRef) (context : Ctx) (root :
 
 /-- The actual LIT mode preserves header flags and both table pointers on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem originFieldFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem originFieldFrameX_inflate_LIT (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     OriginFieldFrameX r context.st (inflate_LIT context) := by
   unfold inflate_LIT
   try rw [root]
@@ -177,7 +177,7 @@ theorem originFieldFrameX_inflate_LEN_ (r : ZStreamRef) (context : Ctx) (root : 
 
 /-- The actual COPY mode preserves header flags and both table pointers on every successful
 run, including its source fallthrough and explicit control exits. -/
-theorem originFieldFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (root : context.strm = some r) :
+theorem originFieldFrameX_inflate_COPY (r : ZStreamRef) (context : Ctx) (_root : context.strm = some r) :
     OriginFieldFrameX r context.st (inflate_COPY context) := by
   unfold inflate_COPY
   try rw [root]

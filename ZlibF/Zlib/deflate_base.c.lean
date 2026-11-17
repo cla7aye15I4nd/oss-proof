@@ -360,7 +360,7 @@ def fill_window (s : DeflateStatePtr) : M Unit := do
           (fun (str, brk) => do
             let ins ← rd s (·.insert)
             pure (ins != 0 && !brk, (str, brk)))
-          (fun (str, brk) => do
+          (fun (str, _brk) => do
             let d ← ldDeflateState s
             -- UPDATE_HASH(s, s->ins_h, s->window[str + MIN_MATCH-1]);
             UPDATE_HASH s (← index8 d.window (str + (MIN_MATCH_u - 1)).toNat)

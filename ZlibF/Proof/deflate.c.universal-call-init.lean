@@ -185,7 +185,7 @@ theorem init_stage_word {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} 
   rw [init_stage_split]
   unfold initStage'
   simp only [bind_app, rdD_eq, good.live.hs, status, show (INIT_STATE == INIT_STATE) = true from rfl,
-    ite_true, ldDeflateState_tab good.live.hs, runs1]
+    ite_true, ldDeflateState_tab good.live.hs]
   by_cases dict : d.strstart = 0
   · simp only [dict, bne_self_eq_false, Bool.false_eq_true, ite_false, bind_app, runs1]
     exact ⟨_, rfl⟩

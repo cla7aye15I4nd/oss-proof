@@ -117,10 +117,10 @@ theorem lm_init_run {h : Heap} {ds : Nat} {d : DeflateState} {w p q b : Nat} {qa
   unfold lm_init
   simp only [wrD_eq, bind_app, hs]
   rw [hc]
-  simp only [wrD_eq, rdD_eq, bind_app, setD_dstates_same, setW_dstates, setD_setD]
+  simp only [rdD_eq, setD_dstates_same, setD_setD]
   rw [config_at_run _ hl0 hl1]
-  simp only [wrD_eq, rdD_eq, bind_app, setD_dstates_same, setW_dstates, setD_setD]
-  simp [lmD, setD, setW, clearHead, hs, upd_upd]
+  simp only [setD_dstates_same, setD_setD]
+  simp [lmD, setD, setW, clearHead, upd_upd]
 
 theorem toNat_two_mul_toUInt64 (x : UInt32) : (2 * x.toUInt64).toNat = 2 * x.toNat := by
   rw [UInt64.toNat_mul]
@@ -223,9 +223,9 @@ theorem rkTail2_run {H : Heap} {r : ZStreamRef} {ds : Nat} {z' : ZStream} {d3 : 
   refine ⟨a1, a2, a3, ?_, s1, s2, s3⟩
   rw [trSetD_eq] at e
   unfold rkTail2
-  simp only [bind_app, zwr_eq, hz, wrD_eq, rdD_eq, ldD_eq, ZStreamRef.put_dstates, hd, setD_dstates_same, ZStreamRef.get_setD, e, pure_app, setD_setD]
+  simp only [bind_app, zwr_eq, hz, wrD_eq, ldD_eq, ZStreamRef.put_dstates, hd, setD_dstates_same, e, pure_app, setD_setD]
   subst hd'
-  simp [rkPost3, setD_setD]
+  simp [rkPost3]
 
 theorem rkTail_run {H : Heap} {r : ZStreamRef} {ds : Nat} {z' : ZStream} {d2 : DeflateState} {b : Nat} {buf : Array UInt8}
     (hz : r.get H = some z') (hb : Zlib.Trees.Proofs.Out.TreesBase H ds d2 b buf) :
@@ -269,7 +269,7 @@ theorem ineg_neg {w : Int32} (h1 : -2 ≤ w.toInt) (h2 : w.toInt < 0) : ineg w =
 
 theorem resetKeep_run' {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {b : Nat}
     {buf : Array UInt8} (hL : DLive h r ds z d) (hB : Zlib.Trees.Proofs.Out.TreesBase h ds d b buf)
-    (hw1 : -2 ≤ d.wrap.toInt) (hw2 : d.wrap.toInt ≤ 2) :
+    (hw1 : -2 ≤ d.wrap.toInt) (_hw2 : d.wrap.toInt ≤ 2) :
     ∃ a1 a2 a3, deflateResetKeep (some r) h =
       .ok (Z_OK, setD (r.put h (rkZ z d)) ds (rkPost ds (rkMid d) a1 a2 a3)) ∧
       a1.size = 573 ∧ a2.size = 61 ∧ a3.size = 39 := by
@@ -293,7 +293,7 @@ theorem resetKeep_run' {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
     simp [rkZ, rkMid, absWrap, hw, ZStreamRef.put_setD, ZStreamRef.put_put, hL.zst]
   · simp only [bind_app, stateCheck_live hL, bne_self_eq_false, Bool.false_eq_true, ↓reduceIte, zwr_eq, hL.hz, zrd_eq,
       ZStreamRef.get_put_same hL.hz, hL.zst, castD, wrD_eq, ZStreamRef.put_dstates, hL.hs, setD_dstates_same, ldD_eq, hw,
-      pure_app, setD_setD]
+      ]
     simp only [rkMid, absWrap, hw, ↓reduceIte, hL.zst] at e
     rw [e]
     simp [rkZ, rkMid, absWrap, hw, ZStreamRef.put_setD, ZStreamRef.put_put, hL.zst]

@@ -42,14 +42,14 @@ theorem resumed_input_view {d : DeflateState} {wa ia : Array UInt8} {input : Nat
   intro i hi
   by_cases before : i < fillEnd d
   · rw [copy_range_prefix wa ia (fillEnd d) io n fit i before, view i before]
-    simp only [extendInput, show origin + i < origin + fillEnd d from by omega, if_true]
+    simp only [extendInput, show origin + i < origin + fillEnd d from by omega, ite_true]
   · rw [copy_range_inside wa ia (fillEnd d) io n i fit (by omega) (by omega)]
-    simp only [extendInput, show ¬ origin + i < origin + fillEnd d from by omega, if_false]
+    simp only [extendInput, show ¬ origin + i < origin + fillEnd d from by omega, ite_false]
     congr 2
     omega
 
 theorem resume_read_history {h : Heap} {r : ZStreamRef} {ds w io origin : Nat}
-    {z : ZStream} {d : DeflateState} {ref : BRef} {wa ia : Array UInt8} {input : Nat → UInt8}
+    {z : ZStream} {d : DeflateState} {_ref : BRef} {wa ia : Array UInt8} {input : Nat → UInt8}
     (good : DGood h r ds z d) (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
     (range : fillEnd d ≤ d.window_size.toNat) (history : LazyHistory input origin d) :
     let n := rbLen z.avail_in (fillMore d)
@@ -58,7 +58,7 @@ theorem resume_read_history {h : Heap} {r : ZStreamRef} {ds w io origin : Nat}
   let n := rbLen z.avail_in (fillMore d)
   let copied := copyRange wa ia (fillEnd d) io n.toNat
   have old := logical_history_extend history (extended := extendInput input (origin + fillEnd d) ia io)
-    (by intro i hi; simp only [extendInput, hi, if_true])
+    (by intro i hi; simp only [extendInput, hi, ite_true])
   have counts := resume_read_counts good win get range
   have add : (d.lookahead + n).toNat = d.lookahead.toNat + n.toNat := counts.2.1
   obtain ⟨key, fields⟩ := resume_read_record d n copied

@@ -76,7 +76,7 @@ theorem FastInputPacket.copyMatch_view_output_bound
           windowBranch invalidBack outputGet outputWrite
       refine ⟨{ l with op := l.dist - l.op, broke := true },
         after, output, j, run, ?_, by omega, by omega, bytes, rfl⟩
-      simpa only [outPtr]
+      simp only [outPtr]
     · obtain ⟨result, after, array, run, _, out, _, _, _, bytes, size, _⟩ :=
         packet.copyMatch_valid_view separate left length
           whaveBound wnextBound wsizeBound outPtr outputPtr
@@ -721,7 +721,7 @@ theorem FastInputPacket.dodist_linked_leaf_output_bound
   have rootLink : DistLink codes[baseOff + rootSlice] := by
     simpa only [rootEq] using link
   have selected := safe.2.2 rootSlice root
-  rw [rootEq, if_pos rootLink] at selected
+  rw [rootEq, ite_eq_left rootLink] at selected
   rcases selected with ⟨rootWidthBound, _, opWidth,
     subtable, _⟩
   have rootFits : codes[baseOff + rootSlice].bits.toNat ≤
@@ -1561,7 +1561,7 @@ theorem FastInputPacket.dolenLen_output_bound
     have run : C.run (Zlib.Inffast.Proofs.dolenLen c l) h =
         .ok (result, after) := by
       unfold Zlib.Inffast.Proofs.dolenLen
-      simp only [hasExtra, ite_false]
+      simp only [hasExtra]
       exact refillRun
     exact ⟨result, after, array, next, run, out,
       lower, upper, bytes, size⟩
@@ -1679,7 +1679,7 @@ theorem FastInputPacket.dolen_base_leaf_output_bound
     simpa only [baseLocal, entry] using extraWidth
   have baseLength : 3 ≤ baseLocal.len.toNat ∧
       baseLocal.len.toNat + 2 ^ baseLocal.op.toNat ≤ 259 := by
-    simp only [baseLocal, Zlib.Inffast.Proofs.toNat32]
+    simp only [baseLocal]
     rw [Zlib.Inffast.Proofs.mask15]
     simpa only [entry, UInt16.toNat_toUInt32] using lengthBase
   have baseOut : baseLocal.out = .ref dest j := outPtr
@@ -1791,7 +1791,7 @@ theorem FastInputPacket.dolen_root_literal_loop_output_bound
     exact room
   have jsize : j < output.size := by omega
   have arraySize : (output.set! j entry.val.toUInt8).size =
-      output.size := by simp [Array.size_set!]
+      output.size := by simp
   exact ⟨result, after, output.set! j entry.val.toUInt8,
     j + 1, loopRun, rfl, by omega, inside,
     finalGet, arraySize⟩
@@ -1902,9 +1902,9 @@ theorem FastInputPacket.dolen_root_end_loop_output_bound
     (endCode : (codes[index].op.toUInt32 &&& 32 != 0) = true)
     {dest : BRef} {output : Array UInt8} {oo j : Nat}
     (outPtr : l.out = .ref dest j)
-    (outputPtr : slow.put = .ref dest oo)
+    (_outputPtr : slow.put = .ref dest oo)
     (outputGet : Space.get h dest = some output)
-    (outputSize : oo + slow.left.toNat ≤ output.size)
+    (_outputSize : oo + slow.left.toNat ≤ output.size)
     (cursorBound : j ≤ oo + slow.left.toNat) :
     ∃ result after array next,
       C.run (cdoWhile (Zlib.Inffast.dolen c)
@@ -1948,9 +1948,9 @@ theorem FastInputPacket.dolen_root_invalid_loop_output_bound
     (notEnd : (codes[index].op.toUInt32 &&& 32 != 0) = false)
     {dest : BRef} {output : Array UInt8} {oo j : Nat}
     (outPtr : l.out = .ref dest j)
-    (outputPtr : slow.put = .ref dest oo)
+    (_outputPtr : slow.put = .ref dest oo)
     (outputGet : Space.get h dest = some output)
-    (outputSize : oo + slow.left.toNat ≤ output.size)
+    (_outputSize : oo + slow.left.toNat ≤ output.size)
     (cursorBound : j ≤ oo + slow.left.toNat) :
     ∃ result after array next,
       C.run (cdoWhile (Zlib.Inffast.dolen c)
@@ -1995,7 +1995,7 @@ theorem FastInputPacket.dolen_root_nonlink_output_bound
     {codeRef : CodeRef} {codes : Array Code}
     {baseOff rootWidth rootSlice : Nat}
     (herePtr : l.here = .ref codeRef (baseOff + rootSlice))
-    (lcodePtr : c.lcode = .ref codeRef baseOff)
+    (_lcodePtr : c.lcode = .ref codeRef baseOff)
     (codesGet : Space.get h codeRef = some codes)
     (safe : LenTableSafe codes baseOff rootWidth)
     (root : rootSlice < 2 ^ rootWidth)
@@ -2248,7 +2248,7 @@ theorem FastInputPacket.dolen_linked_base_output_bound
   have rootLink : LenLink codes[baseOff + rootSlice] := by
     simpa only [rootEq] using link
   have selected := safe.2.2 rootSlice root
-  rw [rootEq, if_pos rootLink] at selected
+  rw [rootEq, ite_eq_left rootLink] at selected
   rcases selected with ⟨rootWidthBound, _, opWidth,
     subtable, _⟩
   have rootFits : codes[baseOff + rootSlice].bits.toNat ≤
@@ -2449,7 +2449,7 @@ theorem FastInputPacket.dolen_linked_literal_output_bound
   have rootLink : LenLink codes[baseOff + rootSlice] := by
     simpa only [rootEq] using link
   have selected := safe.2.2 rootSlice root
-  rw [rootEq, if_pos rootLink] at selected
+  rw [rootEq, ite_eq_left rootLink] at selected
   rcases selected with ⟨rootWidthBound, _, opWidth,
     subtable, _⟩
   have rootFits : codes[baseOff + rootSlice].bits.toNat ≤
@@ -2547,7 +2547,7 @@ theorem FastInputPacket.dolen_linked_literal_output_bound
     simpa only [result, after, slowFinal, count]
       using second.1
   have secondAgain : result.againL = false := by
-    simpa only [result] using second.2.1
+    simp only [result]
   have loopRun : C.run
       (cdoWhile (Zlib.Inffast.dolen c)
         (fun current => pure (current.againL, current)) l) h =
@@ -3445,7 +3445,7 @@ theorem FastInputPacket.dodist_linked_leaf_one_byte_output_bound
   have rootLink : DistLink codes[baseOff + rootSlice] := by
     simpa only [rootEq] using link
   have selected := safe.2.2 rootSlice root
-  rw [rootEq, if_pos rootLink] at selected
+  rw [rootEq, ite_eq_left rootLink] at selected
   rcases selected with ⟨rootWidthBound, _, opWidth,
     subtable, _⟩
   have rootFits : codes[baseOff + rootSlice].bits.toNat ≤
@@ -4315,7 +4315,7 @@ theorem FastInputPacket.dolenLen_four_byte_output_bound
     have run : C.run (Zlib.Inffast.Proofs.dolenLen c l) h =
         .ok (result, after) := by
       unfold Zlib.Inffast.Proofs.dolenLen
-      simp only [hasExtra, ite_false]
+      simp only [hasExtra]
       exact refillRun
     exact ⟨result, after, array, next, run,
       out, lower, upper, bytes, size⟩
@@ -4438,7 +4438,7 @@ theorem FastInputPacket.dolen_base_leaf_four_byte_output_bound
     simpa only [baseLocal, entry] using extraWidth
   have baseLength : 3 ≤ baseLocal.len.toNat ∧
       baseLocal.len.toNat + 2 ^ baseLocal.op.toNat ≤ 259 := by
-    simp only [baseLocal, Zlib.Inffast.Proofs.toNat32]
+    simp only [baseLocal]
     rw [Zlib.Inffast.Proofs.mask15]
     simpa only [entry, UInt16.toNat_toUInt32] using lengthBase
   have baseOut : baseLocal.out = .ref dest j := outPtr
@@ -4651,7 +4651,7 @@ theorem FastInputPacket.dolen_linked_base_four_byte_output_bound
   have rootLink : LenLink codes[baseOff + rootSlice] := by
     simpa only [rootEq] using link
   have selected := safe.2.2 rootSlice root
-  rw [rootEq, if_pos rootLink] at selected
+  rw [rootEq, ite_eq_left rootLink] at selected
   rcases selected with ⟨rootWidthBound, _, opWidth,
     subtable, _⟩
   have rootFits : codes[baseOff + rootSlice].bits.toNat ≤
@@ -4987,7 +4987,7 @@ theorem FastInputPacket.dolen_root_nonlink_four_byte_output_bound
     {codeRef : CodeRef} {codes : Array Code}
     {baseOff rootWidth rootSlice : Nat}
     (herePtr : l.here = .ref codeRef (baseOff + rootSlice))
-    (lcodePtr : c.lcode = .ref codeRef baseOff)
+    (_lcodePtr : c.lcode = .ref codeRef baseOff)
     (codesGet : Space.get h codeRef = some codes)
     (safe : LenTableSafe codes baseOff rootWidth)
     (root : rootSlice < 2 ^ rootWidth)

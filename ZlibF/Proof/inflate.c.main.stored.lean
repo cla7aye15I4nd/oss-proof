@@ -54,7 +54,7 @@ theorem inflate_COPY_split {c : Ctx} {h : Heap} {r zs z s} (E : Env c h r zs z s
   unfold copyAmt
   by_cases c1 : s.length > l.have_ <;> by_cases c2 : l.have_ > l.left <;> by_cases c3 : s.length > l.left <;>
     simp [c1, c2, c3, copyTail]
-  all_goals (split <;> simp_all [runX_bind, runX_set, runX_throw, runX_get, copyTail])
+  all_goals (split <;> simp_all [runX_bind, runX_set, runX_throw, runX_get])
 
 theorem copyTail_stall (c : Ctx) (l : IL) (h : Heap) :
     runX (copyTail c 0) l h = .ok ((.error Ex.leave, { l with copy := 0 }), h) := by

@@ -25,7 +25,7 @@ theorem flush_fixed_dispatch {h : Heap} {r : ZStreamRef} {ds : Nat}
       (do Zlib.Trees.Proofs.fixedBlockPayload (some (.tab ds)) last
           Zlib.Trees.Proofs.flushBlockTail (some (.tab ds)) last) (setD (r.put h z') ds prepared) := by
   rw [flush_block_prepare_source]
-  simp only [bind_app, pure_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
+  simp only [bind_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
     positive, ite_true, run, Zlib.Trees.Proofs.Out.rd_run after.live.hs,
     prefer, true_or, avoid, ite_false, BEq.rfl]
 

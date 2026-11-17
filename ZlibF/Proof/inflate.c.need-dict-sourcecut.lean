@@ -109,31 +109,31 @@ theorem entry_exact {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   have finalTables : DataTableInvariant after state := by
     by_cases type : s.mode = TYPE
     · intro active
-      rw [stateEq, if_pos type] at active
+      rw [stateEq, ite_eq_left type] at active
       change DataTableMode TYPEDO at active
       rcases active with eq | eq | eq | eq | eq | eq | eq <;> contradiction
-    · have sameState : state = s := by rw [stateEq, if_neg type]
+    · have sameState : state = s := by rw [stateEq, ite_eq_right type]
       have sameHeap : after = h := by rw [heapEq, sameState]; simp [setI, upd_self _ _ _ good.live.hs]
       rwa [sameHeap, sameState]
   have finalPending : DataPendingInvariant state := by
     by_cases type : s.mode = TYPE
     · apply dataPendingInvariant_idle (by rw [frame]; exact pending.sane)
-      rw [stateEq, if_pos type]
+      rw [stateEq, ite_eq_left type]
       change TYPEDO ≠ LENEXT ∧ TYPEDO ≠ DIST ∧ TYPEDO ≠ DISTEXT ∧ TYPEDO ≠ MATCH
       decide
-    · rw [stateEq, if_neg type]
+    · rw [stateEq, ite_eq_right type]
       exact pending
   have finalJ : DefaultStateJ after r zs z state := by
     by_cases type : s.mode = TYPE
-    · have blockFrame : BlockHeaderFrame s state := by rw [stateEq, if_pos type]; rfl
+    · have blockFrame : BlockHeaderFrame s state := by rw [stateEq, ite_eq_left type]; rfl
       have modes : BlockControlMode state.mode := by
-        rw [stateEq, if_pos type]
+        rw [stateEq, ite_eq_left type]
         exact Or.inr (Or.inl rfl)
       have format := invariant.block_format (Or.inl type)
       have base := invariant.toDefaultDecodeJ.block_update finalGood finalTables finalPending blockFrame modes format sizes
         (by rw [heapEq]; rfl)
       exact invariant.config_update base frame.default_config format
-    · have sameState : state = s := by rw [stateEq, if_neg type]
+    · have sameState : state = s := by rw [stateEq, ite_eq_right type]
       have sameHeap : after = h := by rw [heapEq, sameState]; simp [setI, upd_self _ _ _ good.live.hs]
       rwa [sameHeap, sameState]
   exact ⟨after, state, bs, run, finalJ, env, ⟨input, output, separate, inv⟩,
@@ -170,7 +170,7 @@ theorem run_active_base
     · by_cases type : s.mode = TYPE
       · rw [type]
         decide
-      · simpa only [stateEq, if_neg type] using entryActive
+      · simpa only [stateEq, ite_eq_right type] using entryActive
     · rfl
   have step : ∀ before heap outcome nextRegs nextHeap, P before heap →
       runX (inflate_dispatch c) before heap = .ok ((outcome, nextRegs), nextHeap) →

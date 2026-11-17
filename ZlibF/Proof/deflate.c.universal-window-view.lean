@@ -259,7 +259,7 @@ theorem fill_slide_pre_v {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d
     refine ⟨?_, fun yes => ?_⟩
     · have small : ¬ d.insert > d.strstart - d.w_size := by
         simp [zero, UInt32.lt_iff_toNat_lt]
-      simp [slid, slideState, slideBeforeHash, small, zero]
+      simp [slideState, slideBeforeHash, zero]
     · obtain ⟨w0, wa0, win0, get0, form⟩ := rolled yes
       have wid : w0 = w := by simpa only [env.win, Ptr.ref.injEq, BRef.blk.injEq, and_true] using win0.symm
       subst w0

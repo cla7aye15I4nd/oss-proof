@@ -39,7 +39,7 @@ def blFinish (s : DeflateStatePtr) : M Int32 := do
 theorem build_bl_tree_eq (s : DeflateStatePtr) :
     build_bl_tree s = (do blBuild s; blFinish s) := by
   unfold build_bl_tree blBuild blScanPair blFinish blIndexLoop blIndexBody
-  simp only [M_bind_assoc, M_pure_bind]
+  simp only [M_bind_assoc]
 
 /-- Literal and distance data needed by the actual scans. This is a state
 representation; it contains no callee specification or execution premise. -/

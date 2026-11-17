@@ -37,7 +37,7 @@ private theorem before_wrap (ws wn wh back i : Nat)
   omega
 
 private theorem after_wrap (ws wn wh back i : Nat)
-    (hb : back ≤ wh) (hw : wn < back) (hi : i < wn) :
+    (hb : back ≤ wh) (hw : wn < back) (_hi : i < wn) :
     ringSlot ws wn wh (wh - wn + i) = i := by
   have hfull : ¬ wh ≤ wn := by omega
   have hindex : ¬ wh - wn + i < wh - wn := by omega
@@ -45,7 +45,7 @@ private theorem after_wrap (ws wn wh back i : Nat)
   omega
 
 private theorem no_wrap (ws wn wh back i : Nat)
-    (hb : back ≤ wh) (hw : back ≤ wn) (hi : i < back) :
+    (hb : back ≤ wh) (hw : back ≤ wn) (_hi : i < back) :
     ringSlot ws wn wh (wh - back + i) = wn - back + i := by
   by_cases hfull : wh ≤ wn
   · simp only [ringSlot, hfull, ite_true]

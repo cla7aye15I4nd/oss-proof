@@ -43,7 +43,7 @@ theorem ws_gbInner_order {h0 : Heap} {id : Nat} {tk : TK} {e0 : DeflateState} {h
     by_cases hx : hm + 2 ≤ hc
     · exact hx
     · exfalso
-      have : utot (Hn e0) hm maxc J hc = 0 := rs_eq_zero (fun i _ => by rw [if_neg (fun h => by omega)])
+      have : utot (Hn e0) hm maxc J hc = 0 := rs_eq_zero (fun i _ => by rw [ite_eq_right (fun h => by omega)])
       omega
   have hp573 : hc - 1 < 573 := by omega
   have hnn := ctx.hnn (hc - 1) (by omega) hp573
@@ -86,15 +86,15 @@ theorem ws_gbInner_order {h0 : Heap} {id : Nat} {tk : TK} {e0 : DeflateState} {h
       have hs := scnt_step (Hn e0) hm maxc J hc (curL Tc) (curL Tn) x hcp hcJ (fun i hi h1 => by
         rw [hcur]; simp [hinj i hi h1])
       rw [hs, hsc x, hcur]
-      simp only [if_true, hleaf]
+      simp only [ite_true, hleaf]
       by_cases e1 : b < x ∧ x ≤ L
-      · rw [if_pos e1, if_pos e1]; have : x ≠ b := by omega
-        simp [this, Ne.symm this]
-      · rw [if_neg e1, if_neg e1]
+      · rw [ite_eq_left e1, ite_eq_left e1]; have : x ≠ b := by omega
+        simp [Ne.symm this]
+      · rw [ite_eq_right e1, ite_eq_right e1]
         by_cases e2 : x = b
         · subst e2; simp; omega
         · simp [e2, Ne.symm e2]
-    · rw [stot_step (Hn e0) hm maxc J hc hcp hcJ, hst, if_pos hleaf]; omega
+    · rw [stot_step (Hn e0) hm maxc J hc hcp hcJ, hst, ite_eq_left hleaf]; omega
     · simpa only [tk_arr_mkP2] using ReOrdered.assign PS hcp hc2 ordered
         (fun q lo hi leaf => (range q lo hi leaf).1) (fun v => congrFun hcur v)
   have hmt : m.toInt.toNat = Hn e0 (hc - 1) := by omega
@@ -145,7 +145,7 @@ theorem ws_gbInner_order {h0 : Heap} {id : Nat} {tk : TK} {e0 : DeflateState} {h
         · subst e; simp [hfc]
         · simp [e, hfc v]
       · intro v hv
-        unfold setLen; rw [getD_set Tc _ v _ hvT, if_neg]
+        unfold setLen; rw [getD_set Tc _ v _ hvT, ite_eq_right]
         · exact hout v hv
         · intro e; exact hv (hc - 1) (by omega) hp573 e.symm
     · have heq : lm.toNat = b := by
@@ -166,8 +166,8 @@ theorem ws_gbInner_order {h0 : Heap} {id : Nat} {tk : TK} {e0 : DeflateState} {h
     · intro x
       have hs := scnt_step (Hn e0) hm maxc J hc (curL Tc) (curL Tc) x hcp hcJ (fun i hi h1 => rfl)
       have hz : ¬ (Hn e0 (hc - 1) ≤ maxc ∧ curL Tc (Hn e0 (hc - 1)) = x) := fun h => hleaf h.1
-      rw [hs, hsc x, if_neg hz, Nat.add_zero]
-    · rw [stot_step (Hn e0) hm maxc J hc hcp hcJ, hst, if_neg hleaf]; rfl
+      rw [hs, hsc x, ite_eq_right hz, Nat.add_zero]
+    · rw [stot_step (Hn e0) hm maxc J hc hcp hcJ, hst, ite_eq_right hleaf]; rfl
     · simpa only [tk_arr_mkP2] using ReOrdered.skip ordered (by omega)
 
 

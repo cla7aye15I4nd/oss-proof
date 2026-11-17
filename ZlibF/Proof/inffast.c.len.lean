@@ -183,7 +183,7 @@ theorem dolenLen_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt32)
       intro l' h' hq
       obtain ⟨lx, S1, hr, hrp⟩ := hq
       exact ⟨i, lx, S1, by omega, by omega, hr, hrp⟩
-  · simp only [h0, ite_false]
+  · simp only [h0]
     have h0' : l.op.toNat = 0 := by
       have : l.op = 0 := by simpa using h0
       rw [this]; rfl

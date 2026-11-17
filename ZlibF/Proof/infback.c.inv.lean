@@ -100,7 +100,7 @@ theorem TYPE_last {c : BCtx} {win : Nat} {ownI ownO : Nat → Prop} {R : Heap �
     rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (and7_le l))]; omega
   refine ⟨bs, ?_, ?_, ?_⟩
   · unfold back_TYPE
-    simp [runX_bind, runX_lift_ok (rdS_ok I.cst I.hs _), hne, hl, BYTEBITS_run, runX_lift_ok (setMode_ok I.cst I.hs DONE), runX_pure]
+    simp [runX_bind, runX_lift_ok (rdS_ok I.cst I.hs _), hl, BYTEBITS_run, runX_lift_ok (setMode_ok I.cst I.hs DONE), runX_pure]
   · have := I.bits
     exact Zlib.Infback.Proofs.LInv.regs I1 rfl rfl
       (@BIn.congr ownI h (setI h zs { s with mode := DONE }) (bytebits l) bs (fun _ _ => rfl) ⟨B1, I.bin.own⟩) (by omega)

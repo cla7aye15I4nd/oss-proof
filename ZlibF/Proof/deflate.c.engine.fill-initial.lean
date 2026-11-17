@@ -94,7 +94,7 @@ theorem fill_window_empty_initial {h : Heap} {r : ZStreamRef} {ds : Nat}
     rw [fill_window_source]
     simp only [bind_app, rdD_eq, good.live.hs]
     rw [ws]
-    simp only [bind_app, loop]
+    simp only [loop]
     exact fill_high_water_empty good.live.hs blocks.win get blocks.wro size' ss la hw wsz
   · have H := heap_chains_window_write chains blocks.win get (wa' := a) (by
       intro i hi

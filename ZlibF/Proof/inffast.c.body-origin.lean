@@ -18,7 +18,7 @@ variable {e : Env} {c : Ctx}
 
 private theorem pull_origin {l : L} {i o used : Nat}
     (hl : LS e l i o) (origin : Origin.Inv e l.hold.toNat l.bits.toNat i used)
-    (buffer : l.bits.toNat ≤ 22) (available : i < e.i0 + e.sm0.avail_in.toNat) :
+    (_buffer : l.bits.toNat ≤ 22) (available : i < e.i0 + e.sm0.avail_in.toNat) :
     Origin.Inv e (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).hold.toNat
       (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat (i + 1) used := by
   have next := pull_preserves_origin e l.hold.toNat l.bits.toNat i used origin available
@@ -133,7 +133,7 @@ private theorem len_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m
         omega
       exact ext_origin_wp hc A msg m l i o s used hls hA ho hAb hbroke hx h1' hlen hs6 (by omega)
         (by intro h3; omega) origin (hfr.mono (by omega))
-  · simp only [h0, ite_false]
+  · simp only [h0]
     exact refill_origin_wp hc A msg m l i o s used hls hA ho hAb hbroke ⟨hlen.1, by
       have : 0 < 2 ^ l.op.toNat := Nat.pow_pos (by omega)
       omega⟩ hs6 (by omega) (by intro h3; omega) origin (hfr.mono (by omega))
@@ -145,7 +145,7 @@ private theorem pass_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (
     (l : L) (i o s d k used : Nat) (hls : LS e l i o) (hAsz : A.size = e.A0.size)
     (ho : o + 258 ≤ e.o0 + e.sm0.avail_out.toNat) (hbroke : l.broke = false)
     (hs6 : s + 6 ≤ e.i0 + e.sm0.avail_in.toNat) (hsi : s ≤ i) (hT : i ≤ s + 2)
-    (hb15 : 15 ≤ l.bits.toNat + d) (hbi2 : i = s + 2 → 16 ≤ l.bits.toNat + d)
+    (_hb15 : 15 ≤ l.bits.toNat + d) (hbi2 : i = s + 2 → 16 ≤ l.bits.toNat + d)
     (hhere : l.here = .ref e.rl k) (hk : k < e.LCA.size)
     (hEb : (e.LCA.getD k default).bits.toNat ≤ l.bits.toNat)
     (hEd : (e.LCA.getD k default).bits.toNat + d ≤ 15)
@@ -167,7 +167,7 @@ private theorem pass_origin_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (
   have hld : OkOn (e.heap A msg m) (Ptr.load l.here) (e.LCA.getD k default) := by
     rw [hhere, ← hkE]; exact Ptr.load_ok (e.heap_cget_LCA A msg m) hk
   have hEbn : (e.LCA.getD k default).bits.toUInt32.toNat = (e.LCA.getD k default).bits.toNat := toNat32 _
-  have hEb64 : (e.LCA.getD k default).bits.toUInt32.toUInt64.toNat = (e.LCA.getD k default).bits.toNat := by simp [toNat32]
+  have hEb64 : (e.LCA.getD k default).bits.toUInt32.toUInt64.toNat = (e.LCA.getD k default).bits.toNat := by simp
   have hls1 := hls.dropL (e.LCA.getD k default).bits.toUInt32 (by omega) (by omega)
   have origin1 := drop_origin (e.LCA.getD k default).bits.toUInt32 hls origin (by omega)
   rw [dolen_eq_len]

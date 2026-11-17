@@ -173,15 +173,15 @@ theorem dict_ready_loop {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStre
         rintro (g | ⟨_, g⟩)
         · rcases zlibLike with w | w <;> rw [w] at g <;> cases g
         · exact notGzip g
-      rw [if_neg notG]
+      rw [ite_eq_right notG]
       simp only [List.append_nil, List.take_nil]
       decide
   · show FlagsMatch _ f.wrap _
     have notRaw : f.wrap ≠ .raw := by rcases zlibLike with w | w <;> rw [w] <;> decide
     unfold FlagsMatch
-    rw [if_neg notRaw, if_neg notGzip]
+    rw [ite_eq_right notRaw, ite_eq_right notGzip]
     exact flags0
-  · exact Or.inr (Or.inr (by simp [List.length_append]; omega))
+  · exact Or.inr (Or.inr (by simp; omega))
 
 end Zlib.Inflate.Proofs.MeaningDictTrip
 

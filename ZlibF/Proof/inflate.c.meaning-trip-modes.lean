@@ -41,11 +41,11 @@ theorem loop_mode_cases : LoopModeCases := by
     ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   obtain ⟨k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11, k12, k13, k14, k15, k16, k17, k18, k19⟩ := k
   by_cases hl : s.last = 0
-  · simp only [hl, ne_eq, not_true_eq_false, and_true, and_false, or_false]
+  · simp only [hl, ne_eq, not_true_eq_false, and_true, and_false]
     simp only [UInt32.le_iff_toNat_le, u32_eq_iff, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10,
       k11, k12, k13, k14, k15, k16, k17, k18] at range ⊢
     omega
-  · simp only [hl, ne_eq, not_false_eq_true, and_true, and_false, or_false, false_or]
+  · simp only [hl, ne_eq, not_false_eq_true, and_true, and_false, false_or]
     simp only [UInt32.le_iff_toNat_le, u32_eq_iff, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10,
       k11, k12, k13, k14, k15, k16, k17, k18] at range ⊢
     omega

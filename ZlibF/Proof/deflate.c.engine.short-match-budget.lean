@@ -42,21 +42,21 @@ theorem slow_find_short_quality {h after : Heap} {ds : Nat} {d : DeflateState} {
     | ok pair =>
       rcases pair with ⟨len, searched⟩
       cases found : searched.dstates ds with
-      | none => simp [search, bind_app, wrD_eq, found] at run
+      | none => simp [search, wrD_eq, found] at run
       | some old =>
         let dm : DeflateState := { old with match_length := len }
         have write : wr (some (.tab ds)) (fun d => { d with match_length := len }) searched =
             .ok ((), setD searched ds dm) := by simp [wrD_eq, found, dm]
         have read : ldDeflateState (some (.tab ds)) (setD searched ds dm) =
             .ok (dm, setD searched ds dm) := by simp [ldD_eq]
-        simp only [search, bind_app, write, read] at run
+        simp only [search, write, read] at run
         change (if rejectShort dm then wr (some (.tab ds)) (fun d => { d with match_length := MIN_MATCH_u - 1 })
           else pure ()) (setD searched ds dm) = _ at run
         by_cases rejected : rejectShort dm = true
         · rw [ite_eq_left rejected] at run
           simp only [wrD_eq, setD, upd_same, MIN_MATCH_u] at run
           cases run
-          refine ⟨{ dm with match_length := 3 - 1 }, by simp [setD], ?_⟩
+          refine ⟨{ dm with match_length := 3 - 1 }, by simp, ?_⟩
           intro impossible
           change (3 - 1 : UInt32) = 3 at impossible
           exact False.elim ((by decide : (3 - 1 : UInt32) ≠ 3) impossible)
@@ -93,7 +93,7 @@ theorem prepared_find_short_quality {h after : Heap} {ds : Nat} {d : DeflateStat
     have unitEq : unit = () := Subsingleton.elim _ _
     subst unit
     exact slow_find_short_quality (d := lazyPrepare d) (by simp [setD])
-      (by simp [lazyPrepare, MIN_MATCH_u]) find
+      (by simp [lazyPrepare]) find
 
 /-- Every actual successful slowSearch, including no-search and failed
 lookup cases, establishes the unsigned three-byte-match distance bound. -/

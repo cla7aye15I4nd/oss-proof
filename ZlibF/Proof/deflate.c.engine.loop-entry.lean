@@ -59,7 +59,7 @@ theorem default_slow_loop_witness :
   have oldGet : (ZStreamRef.tab 0).get witnessHeap = some (default : ZStream) := by
     simp [ZStreamRef.get, witnessHeap]
   have shape := shape_put oldGet loopWitnessStream
-  have fresh : Fresh loopWitnessHeap := shape.fresh (by simp [loopWitnessHeap]) witness_fresh
+  have fresh : Fresh loopWitnessHeap := shape.fresh (by simp) witness_fresh
   have uniq : Uniq loopWitnessHeap := shape.uniq witness_uniq
   have get : (ZStreamRef.tab 0).get loopWitnessHeap = some loopWitnessStream := ZStreamRef.get_put_same oldGet _
   have version : VersionValue loopWitnessHeap (.ref (.blk 1) 0) (some 49) := by

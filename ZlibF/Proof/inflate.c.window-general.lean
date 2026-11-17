@@ -106,7 +106,7 @@ theorem uw_core_big_any {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
       .ok ((), { h with bytes := upd h.bytes w (some (copyRange a bytes 0 (eo - st.wsize.toNat) st.wsize.toNat)) }) := by
     simpa [Space.put] using hcp
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, wrI_eq, hl.hz, hl.zst, castI, hl.hs,
+  simp only [bind_app, ldI_eq, ldZ_eq, hl.hz, hl.zst, castI, hl.hs,
     hwn, hws0, Bool.false_eq_true, ite_false]
   simp only [ge_iff_le, hbig, ite_true, bind_app, hw, hsub]
   simp only [hcp', wrI_eq, pure_app, hl.hs, hw]
@@ -132,7 +132,7 @@ theorem uw_core_big_public {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
 /-- Public input/window separation implies separation of any fitting single
 copy into the initialized window, including the zero-length case. -/
 theorem uw_small_public_separation {w eo wn size copy : Nat} {source : BRef}
-    (hfit : copy ≤ eo) (hwindow : wn + copy ≤ size)
+    (_hfit : copy ≤ eo) (hwindow : wn + copy ≤ size)
     (hsep : ZlibF.Spec.Public.Separate (.ref source (eo - copy)) copy (.ref (.blk w) 0) size) :
     BRef.blk w ≠ source ∨ wn + copy ≤ eo - copy ∨ (eo - copy) + copy ≤ wn := by
   simp only [ZlibF.Spec.Public.Separate] at hsep
@@ -183,11 +183,11 @@ theorem uw_core_small1_public {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStrea
       .ok ((), { h with bytes := upd h.bytes w (some (copyRange a bytes st.wnext.toNat (eo - copy.toNat) copy.toNat)) }) := by
     simpa [Space.put] using hcp
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hl.hz, hl.zst, castI, hl.hs, hwnl, hws0,
+  simp only [bind_app, ldI_eq, ldZ_eq, hl.hz, hl.zst, castI, hl.hs, hwnl, hws0,
     Bool.false_eq_true, ite_false]
   simp only [ge_iff_le, hlt, ite_false, hp, ite_true, bind_app, hw, hadd, hsub,
     UInt32.sub_self, bne_self_eq_false, Bool.false_eq_true]
-  simp only [hcp', wrI_eq, pure_app, hl.hs]
+  simp only [hcp']
   by_cases c1 : st.wnext + copy = st.wsize <;> by_cases c2 : st.whave < st.wsize <;>
     simp [c1, c2, wrI_eq, hl.hs, setI, hw]
 
@@ -251,7 +251,7 @@ theorem uw_core_small3_public {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStrea
         (st.wsize - st.wnext).toNat)) }) := by
     simpa [Space.put, ← hcopy] using hcp
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hl.hz, hl.zst, castI, hl.hs, hwnl, hws0,
+  simp only [bind_app, ldI_eq, ldZ_eq, hl.hz, hl.zst, castI, hl.hs, hwnl, hws0,
     Bool.false_eq_true, ite_false]
   simp only [ge_iff_le, hlt, ite_false, hq, bind_app, hw, hadd, hsub, hcp', hr,
     bne_self_eq_false, Bool.false_eq_true]
@@ -260,7 +260,7 @@ theorem uw_core_small3_public {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStrea
 /-- A positive source range separated from a nonempty window either belongs
 to another object or begins beyond the window. -/
 theorem uw_positive_public_separation {w eo size copy : Nat} {source : BRef}
-    (hfit : copy ≤ eo) (hc : 0 < copy) (hs : 0 < size)
+    (_hfit : copy ≤ eo) (hc : 0 < copy) (hs : 0 < size)
     (hsep : ZlibF.Spec.Public.Separate (.ref source (eo - copy)) copy (.ref (.blk w) 0) size) :
     BRef.blk w ≠ source ∨ size ≤ eo - copy := by
   simp only [ZlibF.Spec.Public.Separate] at hsep
@@ -378,11 +378,11 @@ theorem uw_core_small2_public {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStrea
       · simp [secondsrc, heq]
     simpa [Space.put, heq] using he
   unfold updatewindow
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hl.hz, hl.zst, castI, hl.hs, hwnl, hws0,
+  simp only [bind_app, ldI_eq, ldZ_eq, hl.hz, hl.zst, castI, hl.hs, hwnl, hws0,
     Bool.false_eq_true, ite_false]
   simp only [ge_iff_le, hlt, ite_false, hq, bind_app, hw, hadd, hsub, hcp1]
   have hr' : (copy - (st.wsize - st.wnext) != 0) = true := by simpa using hr
-  simp only [hr', ite_true, bind_app, hsub2, hcp2, wrI_eq, pure_app, hl.hs, hw]
+  simp only [hr', ite_true, bind_app, hsub2, hcp2, wrI_eq, pure_app]
   simp [mid, first, setI, upd_upd, hl.hs, hw]
 
 #print axioms uw_core_big_any

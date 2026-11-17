@@ -29,7 +29,7 @@ remaining public PendingBits. Concatenating both reproduces its input bits.
 The pending cursor may reset only when its remaining count is zero. -/
 theorem pending_copy_bits {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
     {z : ZStream} {d : DeflateState} {buf output : Array UInt8}
-    (trees : TreesInvAt h ds d pb buf) (cursor : d.pending_out = d.pending_buf)
+    (trees : TreesInvAt h ds d pb buf) (_cursor : d.pending_out = d.pending_buf)
     (pointer : z.next_out = .ref (.blk ob) oo) (separate : ob ≠ pb)
     (outBound : oo + z.avail_out.toNat ≤ output.size) :
     let n := pendingLen d.pending z.avail_out
@@ -70,7 +70,7 @@ theorem pending_copy_bits {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
     · rename_i empty
       have zero : result.pending.toNat = 0 := by
         have value : d.pending - n.toUInt64 = 0 := beq_iff_eq.mp empty
-        simpa only [result, pendingState, value, UInt64.toNat_zero]
+        simp only [result, pendingState, value, UInt64.toNat_zero]
       simp only [zero, List.take_zero]
     · rfl
   have splitBytes : buf.toList.take d.pending.toNat = buf.toList.take n.toNat ++ remainingBytes := by

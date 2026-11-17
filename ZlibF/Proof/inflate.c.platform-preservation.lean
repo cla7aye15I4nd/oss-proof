@@ -336,7 +336,7 @@ theorem syncTail_platform_of_run {h after : Heap} {r : ZStreamRef} {zs : Nat}
     have same := syncsearch_heap_unchanged searchRun
     subst middle
     rw [searchRun] at actual
-    simp only [bind_app, wrI_eq, current.good.live.hs] at actual
+    simp only [wrI_eq, current.good.live.hs] at actual
     cases addRun : Ptr.add z.next_in (used.toNat : Int) (setI h zs { s with «have» := found }) with
     | error fault => rw [addRun] at actual; cases actual
     | ok pair =>
@@ -344,8 +344,8 @@ theorem syncTail_platform_of_run {h after : Heap} {r : ZStreamRef} {zs : Nat}
       have same := sync_pointer_add_heap addRun
       subst middle
       rw [addRun] at actual
-      simp only [bind_app, wrZ_eq, ZStreamRef.get_setI, current.good.live.hz,
-        rdI_eq, ZStreamRef.put_istates, setI_istates_same, ZStreamRef.put_setI] at actual
+      simp only [wrZ_eq, ZStreamRef.get_setI, current.good.live.hz,
+        setI_istates_same, ZStreamRef.put_setI] at actual
       let stream := { z with avail_in := z.avail_in - used, next_in := next, total_in := z.total_in + used.toUInt64 }
       let state := syncHave s found
       let heap := setI (r.put h stream) zs state
@@ -419,14 +419,14 @@ theorem inflateSync_platform (r : ZStreamRef) : PlatformPreserves r (.inflateSyn
         rw [← finalEq]
         exact freeB_platform middleFit freed
   by_cases resumed : s.mode = SYNC
-  · simp only [bne_iff_ne, resumed, not_true_eq_false, ↓reduceIte, pure_app] at run
+  · simp only [bne_iff_ne, resumed, pure_app] at run
     exact finishTail initial resumed fit0 run
   · have separate := win_ne_buf current.good.fresh current.good.inv.win
     have first := syncFirst_run (initial.good.live.hs) get size write initial.good.inv.bits
     have firstState := initial.sync_first get separate
     change syncFirst (some (.tab zs)) (syncBuf h) s (syncAlloc h) = _ at first
     simp only [bne_iff_ne] at run
-    rw [if_pos resumed] at run
+    rw [ite_eq_left resumed] at run
     simp only [bind_app, first] at run
     have bound : (fillBuf (syncJunk h) (syncHold0 s) (syncNB s)).size <
         ZlibF.PlatformMemory.byteObjectLimit := by

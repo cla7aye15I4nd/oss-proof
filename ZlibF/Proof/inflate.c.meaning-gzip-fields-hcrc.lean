@@ -143,7 +143,7 @@ theorem magic_prefix {b t : List UInt8} (gz : IsGzipHeader b) : [31, 139] <+: b 
 theorem toUInt8_of {x : UInt8} {k : Nat} (e : x.toNat = k % 256) : x = (k % 256).toUInt8 := by
   apply UInt8.toNat_inj.mp
   rw [e]
-  simp [Nat.toUInt8, UInt8.toNat_ofNat]
+  simp [Nat.toUInt8]
 
 theorem le16_of_value {x y : UInt8} {n : Nat} (small : n < 2 ^ 16)
     (value : x.toNat + 256 * y.toNat = n) : [x, y] = le16 n := by
@@ -157,7 +157,7 @@ theorem value_of_le16 {x y : UInt8} {n : Nat} (small : n < 2 ^ 16) (e : [x, y] =
   simp only [le16, List.cons.injEq, and_true] at e
   obtain ⟨ex, ey⟩ := e
   rw [ex, ey]
-  simp [Nat.toUInt8, UInt8.toNat_ofNat]
+  simp [Nat.toUInt8]
   omega
 
 /-! ## `HCRC` -/
@@ -267,7 +267,7 @@ theorem hcrc_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
           ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl rfl rfl
           (Kept.update s TYPE s.flags 0 s.length) rfl ?_ ?_ rfl
         · refine ⟨bytes.getD 3 0, mt, xfl, os, ex, nm, cm, small, mtLength, exLimit, nmOk, cmOk, ?_⟩
-          rw [if_pos fh, ← bytesEq, xyEq]
+          rw [ite_eq_left fh, ← bytesEq, xyEq]
         · show s.flags = _
           rw [flagsEq, getD_append (by omega)]
     · have below := (leaveFacts rfl).2
@@ -300,7 +300,7 @@ theorem hcrc_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
       ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ hold0 bits0 rfl
       (Kept.update s TYPE s.flags 0 s.length) rfl ?_ ?_ rfl
     · refine ⟨bytes.getD 3 0, mt, xfl, os, ex, nm, cm, small, mtLength, exLimit, nmOk, cmOk, ?_⟩
-      rw [if_neg (by omega), List.append_nil, List.append_nil, ← bytesEq]
+      rw [ite_eq_right (by omega), List.append_nil, List.append_nil, ← bytesEq]
     · show s.flags = _
       simp [flagsEq]
 

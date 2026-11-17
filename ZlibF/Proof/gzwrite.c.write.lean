@@ -344,7 +344,7 @@ theorem smallRest_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
         · show len'.toNat ≤ put.toNat; omega
         · show len'.toNat < s2.size.toNat; rw [sh2size, hsz3]; omega
         · show s2.x.pos.toInt + len'.toNat ≤ _; rw [sh2pos, hpos3, hnpv]; omega
-      · have hb2 : availBit i (putGz H2 i s2) = 0 := by rw [availBit_put, if_pos hai0]
+      · have hb2 : availBit i (putGz H2 i s2) = 0 := by rw [availBit_put, ite_eq_left hai0]
         simp only [smallMu, hbl, hrl, Bool.not_false, Option.isNone_none, Bool.and_self, ↓reduceIte, hb2]
         have hc0 : c.toNat = 0 → v1.strm.avail_in ≠ 0 := by
           intro e e'
@@ -354,7 +354,7 @@ theorem smallRest_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
           omega
         by_cases hc1 : c.toNat = 0
         · have := hc0 hc1
-          rw [if_neg this]
+          rw [ite_eq_right this]
           omega
         · split <;> omega
     · -- the call failed
@@ -420,9 +420,9 @@ theorem smallMid_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : 
       hl1 hlp hls hpos hbuf hsa hos hrs cb hbl hrl
     refine ⟨z, fs', h', ?_, sj, mu⟩
     unfold smallMid
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hZ, hS,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hZ, hS,
       hadd, hdiff, ← hhvdef]
-    rw [if_pos hgt]
+    rw [ite_eq_left hgt]
     exact run
   · have hc : (v1.size - hv).toNat = min (v1.size.toNat - (a1 + v1.strm.avail_in.toNat)) l.len.toNat := by
       have : ¬ l.len.toNat < (v1.size - hv).toNat := by
@@ -433,9 +433,9 @@ theorem smallMid_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : 
       hl1 hlp hls hpos hbuf hsa hos hrs cb hbl hrl
     refine ⟨z, fs', h', ?_, sj, mu⟩
     unfold smallMid
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hZ, hS,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hZ, hS,
       hadd, hdiff, ← hhvdef]
-    rw [if_neg hgt]
+    rw [ite_eq_right hgt]
     exact run
 
 /-- **A trip of the copy loop.** -/
@@ -477,7 +477,7 @@ theorem smallBody_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
       hl1 hlp (by rw [hv1]; exact hls) (by rw [hv1]; exact hpos) hbuf hsa' hos hrs (cb_rec cb ho1) hbl hrl
     refine ⟨z, fs', h', ?_, sj, by rw [hav1] at mu; exact mu⟩
     unfold smallBody
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hZ, hav',
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hZ, hav',
       ↓reduceIte, ldS_put, hU1]
     exact run
   · have hav' : (v.strm.avail_in == 0) = false := by simpa using hav
@@ -489,7 +489,7 @@ theorem smallBody_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
       hasz (by rw [ha1, hin, padv_ref_zero]) hle (fun e => absurd e hav) hl1 hlp hls hpos hbuf hsa' hos hrs cb hbl hrl
     refine ⟨z, fs', h', ?_, sj, mu⟩
     unfold smallBody
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hZ, hav',
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hZ, hav',
       Bool.false_eq_true, ↓reduceIte]
     exact run
 
@@ -658,7 +658,7 @@ theorem largeRest_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
   · -- all the offered input was compressed
     have hai0 : s2.strm.avail_in = 0 := q2.2.2.1 rfl rfl
     have hused' : used = n.toNat := by rw [hai0] at hsum; simpa using hsum
-    have u : GzInvUpToInput H2 i s2 ⟨buf, put.toNat⟩ := by have := q2.1; rwa [if_pos rfl] at this
+    have u : GzInvUpToInput H2 i s2 ⟨buf, put.toNat⟩ := by have := q2.1; rwa [ite_eq_left rfl] at this
     obtain ⟨U3, ho3⟩ := upTo_recW (src := ⟨buf, put.toNat⟩) hs2 invC2 hw2 s2.strm.next_in s2.strm.avail_in np s2.skip
       pos3 (Or.inr ⟨put.toNat - l.len.toNat + n.toNat, by
         show s2.strm.next_in = padv buf (put.toNat - l.len.toNat + n.toNat)
@@ -718,7 +718,7 @@ theorem largeBody_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
     refine ⟨z, fs', h', ?_, res⟩
     show (if (0xFFFFFFFF : UInt32).toUInt64 > l.len then largeRest i put l l.len.toUInt32
       else largeRest i put l 0xFFFFFFFF) fs (putGz Hx i w) = _
-    rw [if_pos hgt]; exact run
+    rw [ite_eq_left hgt]; exact run
   · have hgt' : 4294967295 ≤ l.len.toNat := by
       have : ¬ (0xFFFFFFFF : UInt32).toUInt64.toNat > l.len.toNat := fun x => hgt (UInt64.lt_iff_toNat_lt.mpr x)
       simp at this
@@ -728,7 +728,7 @@ theorem largeBody_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 :
     refine ⟨z, fs', h', ?_, res⟩
     show (if (0xFFFFFFFF : UInt32).toUInt64 > l.len then largeRest i put l l.len.toUInt32
       else largeRest i put l 0xFFFFFFFF) fs (putGz Hx i w) = _
-    rw [if_neg hgt]; exact run
+    rw [ite_eq_right hgt]; exact run
 
 /-- **The direct loop.** -/
 theorem large_loop (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzState} {fs0 fs : Fs}
@@ -856,7 +856,7 @@ theorem large_tail (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : G
     refine ⟨len, fs', putGz Hx i (recW w w.«in» w.strm.avail_in w.x.pos w.skip), ?_, Nat.le_refl _, E5⟩
     unfold largeTail
     simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hU0, run,
-      hy, ldS_put, updZ_put, putGz_putGz]
+      hy, ldS_put, updZ_put]
     rfl
   · refine ⟨r, fs', h', ?_, hle, E'⟩
     unfold largeTail
@@ -889,18 +889,18 @@ theorem write_t3 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
     · refine ⟨len, fs', h', ?_, Nat.le_refl _, E'⟩
       unfold writeT3 smallTail
       simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS, hsm,
-        decide_true, ↓reduceIte, run, hy]
+        ↓reduceIte, run, hy]
     · refine ⟨r, fs', h', ?_, hle, E'⟩
       unfold writeT3 smallTail
       simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS, hsm,
-        decide_true, ↓reduceIte, run, hy]
+        ↓reduceIte, run, hy]
   · by_cases hav : v.strm.avail_in = 0
     · have hav' : (v.strm.avail_in != 0) = false := by simp [hav]
       obtain ⟨r, fs', h', run, post⟩ := large_tail err errOwn E inv hw hsz hsk hav hin hl1 hpos cb
       refine ⟨r, fs', h', ?_, post⟩
       unfold writeT3
-      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS, hsm,
-        decide_false, Bool.false_eq_true, ↓reduceIte, hZ, hav', run]
+      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS, hsm,
+        Bool.false_eq_true, ↓reduceIte, hZ, hav', run]
     · have hav' : (v.strm.avail_in != 0) = true := by simpa using hav
       obtain ⟨r, fs2, H2, run, hr, hk2, p2⟩ := comp_run (src := ⟨v.«in», v.size.toNat⟩) err errOwn
         (upTo_of_inv inv hw hsz) hfs hsz
@@ -918,12 +918,12 @@ theorem write_t3 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
           (by rw [sh2pos]; exact hpos) cb2
         refine ⟨r, fs', h', ?_, post⟩
         unfold writeT3
-        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
-          hsm, decide_false, Bool.false_eq_true, ↓reduceIte, hZ, hav', run, int32_zero_ne_neg_one, run2]
+        simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
+          hsm, Bool.false_eq_true, ↓reduceIte, hZ, hav', run, int32_zero_ne_neg_one, run2]
       · refine ⟨0, fs2, H2, ?_, by simp, Eff2⟩
         unfold writeT3
         simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
-          hsm, decide_false, Bool.false_eq_true, ↓reduceIte, hZ, hav', run, beq_self_eq_true]
+          hsm, ↓reduceIte, hZ, hav', run, beq_self_eq_true]
 
 theorem write_t2 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzState} {fs0 fs : Fs}
     {buf : BPtr} {len : UInt64} {H : Heap} {v : GzState}
@@ -967,7 +967,7 @@ theorem write_t2 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
     obtain ⟨r, fs', h', run, post⟩ := write_t3 err errOwn E inv hw hsz hsk hl1 hpos cb
     refine ⟨r, fs', h', ?_, post⟩
     unfold writeT2
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS, hsub,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS, hsub,
       hc, ↓reduceIte, run]
 
 theorem write_t1 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzState} {fs0 fs : Fs}
@@ -983,7 +983,7 @@ theorem write_t1 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
     obtain ⟨r, fs', h', run, post⟩ := write_t2 err errOwn E inv hw hsz hsk hl1 cb
     refine ⟨r, fs', h', ?_, post⟩
     unfold writeT1
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS, hsk',
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS, hsk',
       Bool.false_eq_true, ↓reduceIte, run]
   · have hsk' : (v.skip != 0) = true := by simpa using hsk
     have R := gz_zero_safe_shape err errOwn i H fs v inv hfs hw hsz
@@ -1000,7 +1000,7 @@ theorem write_t1 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
       obtain ⟨r2, fs', h', run2, post⟩ := write_t2 err errOwn E1 inv1 hw1 (by rw [hsz1]; exact hsz) (hq1 rfl).1 hl1 cb1
       refine ⟨r2, fs', h', ?_, post⟩
       unfold writeT1
-      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
         hsk', ↓reduceIte, run, int32_zero_ne_neg_one, Bool.false_eq_true, run2]
     · refine ⟨0, fs1, H1, ?_, by simp, E1⟩
       unfold writeT1
@@ -1046,7 +1046,7 @@ theorem gz_write_safe_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (bu
       have hw1 : s1.mode = GZ_WRITE := (post_mode post (fun s' q => q.common.record) inv1.common.record).trans hm
       obtain ⟨r, fs', h', run2, wp⟩ := write_t1 err errOwn ⟨fun _ => Iff.rfl, post⟩ inv1 hw1 hsz1 hl1 cb1
       refine ⟨r, fs', h', ?_, wp⟩
-      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hl0',
+      simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hl0',
         Bool.false_eq_true, ↓reduceIte, hS, hz, run, int32_zero_ne_neg_one, run2]
     · refine ⟨0, fs, after, ?_, by simp, ⟨fun _ => Iff.rfl, post⟩⟩
       simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hl0',
@@ -1054,7 +1054,7 @@ theorem gz_write_safe_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (bu
   · have hz : (s.size == 0) = false := by simpa using hsz
     obtain ⟨r, fs', h', run, wp⟩ := write_t1 err errOwn E0 inv hm hsz hl1 cb
     refine ⟨r, fs', h', ?_, wp⟩
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hl0',
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hl0',
       Bool.false_eq_true, ↓reduceIte, hS, hz, run]
 
 end write

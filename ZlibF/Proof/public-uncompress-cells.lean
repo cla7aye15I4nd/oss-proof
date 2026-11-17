@@ -98,7 +98,7 @@ theorem cellHeap_kept {h : Heap} (fresh : Fresh h) (v : UInt64) : ByteViewsKept 
   static := rfl
   borrow := rfl
 
-theorem cellHeap_fit {h : Heap} (fresh : Fresh h) (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (v : UInt64) :
+theorem cellHeap_fit {h : Heap} (_fresh : Fresh h) (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (v : UInt64) :
     ZlibF.PlatformMemory.ByteObjectsFit (cellHeap h v) := by
   intro rr a g
   cases rr with
@@ -119,7 +119,7 @@ theorem cellHeap_cell (h : Heap) (v : UInt64) : LengthCell (cellHeap h v) (cellP
   refine ⟨Or.inr ⟨.blk h.nextBlk, 0, (lengthBytes v).toArray, rfl, by simp [Space.get, cellHeap],
     by simp [lengthBytes_length], ?_⟩, Or.inr ⟨.blk h.nextBlk, 0, (lengthBytes v).toArray, rfl,
     by simp [Space.get, cellHeap], by simp [Space.ro, cellHeap], by simp [lengthBytes_length]⟩⟩
-  simp only [List.toList_toArray, List.drop_zero]
+  simp only [List.drop_zero]
   rw [List.take_of_length_le (by rw [lengthBytes_length]; exact Nat.le_refl _)]
   rfl
 
@@ -140,7 +140,7 @@ theorem separate_cell {h : Heap} {p : BPtr} {n : Nat}
     exact blockOf i (by rw [e])
 
 /-- The caller heap and the heap with the cell agree off the cell's block. -/
-theorem cellHeap_agree {h : Heap} (fresh : Fresh h) (v : UInt64) :
+theorem cellHeap_agree {h : Heap} (_fresh : Fresh h) (v : UInt64) :
     Agree (· ≠ h.nextBlk) h (cellHeap h v) := by
   refine ⟨fun b ne => ⟨by simp [cellHeap, upd_ne _ _ _ _ ne], rfl, rfl, rfl, rfl, rfl, rfl,
     by simp [cellHeap, upd_ne _ _ _ _ ne]⟩, rfl, rfl, rfl, rfl⟩

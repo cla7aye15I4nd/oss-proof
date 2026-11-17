@@ -27,9 +27,9 @@ theorem gzbuffer_record {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = 
     simp only [UInt32.toNat_ofNat, Nat.reducePow] at *
     rcases Nat.lt_or_ge size.toNat (2 ^ 31) with h1 | h1
     · have : (1 : UInt32).toNat % 32 = 1 := rfl
-      simp [this]; omega
+      simp; omega
     · have : (1 : UInt32).toNat % 32 = 1 := rfl
-      simp [this]; omega
+      simp; omega
   unfold C.run gzbuffer
   by_cases hm : s.mode ≠ GZ_READ ∧ s.mode ≠ GZ_WRITE
   · gsimp [hs, hm.1, hm.2]

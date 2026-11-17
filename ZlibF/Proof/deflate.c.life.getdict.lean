@@ -177,7 +177,7 @@ theorem deflateGetDictionary_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZS
       rfl, rfl, rfl, ?_, ?_⟩
     · intro y hy
       have hyx : y ≠ x := fun e => hy off (by rw [hd, e])
-      simp [upd_apply, hyx]
+      simp [hyx]
     · intro w' wa' hw' hwa' x' off' da' hd' hda'
       rw [hd] at hd'
       cases hd'

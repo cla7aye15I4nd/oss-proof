@@ -150,7 +150,7 @@ theorem FastInputPacket.dolen_base_leaf_four_byte_default_state
     simpa only [baseLocal, entry] using extraWidth
   have baseLength : 3 ≤ baseLocal.len.toNat ∧
       baseLocal.len.toNat + 2 ^ baseLocal.op.toNat ≤ 259 := by
-    simp only [baseLocal, Zlib.Inffast.Proofs.toNat32]
+    simp only [baseLocal]
     rw [Zlib.Inffast.Proofs.mask15]
     simpa only [entry, UInt16.toNat_toUInt32] using lengthBase
   have baseOut : baseLocal.out = .ref dest j := outPtr

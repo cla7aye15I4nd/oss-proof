@@ -177,7 +177,7 @@ theorem FastInputPacket.dodistBase_frame_default_state
         by simp only [slowAfter, slow1Eq, pulled],
         by simp only [slowAfter, slow1Eq, pulled],
         by simp only [slowAfter, slow1Eq, pulled, next1Eq,
-          inputAdvance_add]⟩
+          ]⟩
   · have fits0 : l.op.toNat ≤ slow.bits.toNat := by
       have notLess : ¬ slow.bits.toNat < l.op.toNat := by
         intro hlt

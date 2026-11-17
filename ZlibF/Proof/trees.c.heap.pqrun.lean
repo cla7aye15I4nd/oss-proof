@@ -123,7 +123,7 @@ theorem ws_pqdownheap {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateState) (kk : 
             refine ⟨⟨K, hpc, rfl, hsz', hfr, hK, hK1, hK2, fun e => by simp at e, hp, hhole,
               fun _ => ⟨J, hm, ?_⟩⟩, ?_⟩
             · simpa [wh, hJK] using hsm
-            · simp only [μ, ite_true, Bool.false_eq_true, ite_false, Int32.toNatClampNeg]; omega
+            · simp only [μ, ite_true, Bool.false_eq_true, ite_false]; omega
           · have hkK : kk'.toInt.toNat = K := by omega
             simp only [hjtn, hkK] at he2
             subst he2
@@ -145,7 +145,7 @@ theorem ws_pqdownheap {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateState) (kk : 
             · rw [hsw]; exact hp.swap ⟨hK1', hK2⟩ hJ1
             · rw [hsw]
               exact hole_step kOK ⟨hk1, hK1⟩ hhole hm hkey
-            · simp only [μ, hst3, ite_true, Bool.false_eq_true, ite_false, Int32.toNatClampNeg]
+            · simp only [μ, hst3, Bool.false_eq_true, ite_false]
               have := hm.1
               have h1 : st.2.1.toInt = 2 * (J : Int) := by omega
               omega

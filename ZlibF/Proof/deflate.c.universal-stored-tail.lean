@@ -172,7 +172,7 @@ theorem bfn_copyRange (d s : Array UInt8) (doff soff n i : Nat) (hfit : doff + n
 
 /-- The shape after the window side moved at level 0. -/
 theorem shape_keep {d : DeflateState} (shape : Shape d) (level0 : d.level = 0) (ss ins m : UInt32) (bs : Int64)
-    (hw : UInt64) (room : ss.toNat ≤ d.window_size.toNat) (insert : ins.toNat ≤ ss.toNat)
+    (hw : UInt64) (_room : ss.toNat ≤ d.window_size.toNat) (insert : ins.toNat ≤ ss.toNat)
     (low : 0 ≤ bs.toInt) (high : bs.toInt ≤ ss.toNat) (available : d.match_available ≠ 0 → 1 ≤ ss.toNat)
     (water : hw.toNat ≤ d.window_size.toNat) (slides : m.toNat ≤ 2) (init : ss.toNat ≤ hw.toNat) :
     Shape (keepState d ss ins m bs hw) := by
@@ -280,7 +280,7 @@ theorem water_wr (X : Heap) (ds : Nat) (e : DeflateState) :
   rfl
 
 theorem water_facts {d : DeflateState} (e : DeflateState) (high : e.high_water.toNat ≤ d.window_size.toNat)
-    (room : e.strstart.toNat ≤ d.window_size.toNat) (small : d.window_size.toNat < 2 ^ 32) :
+    (room : e.strstart.toNat ≤ d.window_size.toNat) (_small : d.window_size.toNat < 2 ^ 32) :
     (waterState e).high_water.toNat ≤ d.window_size.toNat ∧ e.strstart.toNat ≤ (waterState e).high_water.toNat := by
   unfold waterState
   dsimp only
@@ -466,7 +466,7 @@ theorem stored_keep {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : De
             subst this
             refine ⟨wa1, upd_same _ _ _, fun i lt => ?_⟩
             rw [hwa1, bfn_copyRange _ _ _ _ _ _ (by omega)]
-            rw [if_pos (by omega)]
+            rw [ite_eq_left (by omega)]
             congr 1; omega)
       have hash2 : LevelHash (setD { h with bytes := upd h.bytes w (some wa2) } ds e3) e3 :=
         level_hash_write hash1 zero.2.1 zero.2.1 ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl
@@ -576,7 +576,7 @@ theorem dinv_stream_put {g : Heap} {r : ZStreamRef} {ds : Nat} {z z' : ZStream} 
 
 theorem setD_put_comm (h : Heap) (r : ZStreamRef) (z : ZStream) (ds : Nat) (d : DeflateState) :
     setD (r.put h z) ds d = r.put (setD h ds d) z := by
-  cases r <;> simp only [ZStreamRef.put, setD] <;> split <;> rename_i heq <;> simp only [heq] <;> rfl
+  cases r <;> simp only [ZStreamRef.put, setD] <;> split <;> rename_i heq <;> simp only <;> rfl
 
 
 /-! ## The refill -/
@@ -634,7 +634,7 @@ theorem stored_read_run {H : Heap} {r : ZStreamRef} {ds w : Nat} {z : ZStream} {
         rw [upd_self _ _ _ get]; exact ZStreamRef.put_self hz
       rw [keep]
       unfold storedRead
-      simp only [bne_self_eq_false, Bool.false_eq_true, ite_false, bind_app, pure_app, wrD_eq, state]
+      simp only [bne_self_eq_false, Bool.false_eq_true, ite_false, wrD_eq, state]
       have e0 : refillRead e 0 = { e with high_water := if e.high_water < e.strstart.toUInt64 then e.strstart.toUInt64 else e.high_water } := by
         unfold refillRead MIN
         simp
@@ -707,7 +707,7 @@ theorem canonical_step {h : Heap} {r : ZStreamRef} {ds w : Nat} {z zF : ZStream}
       StreamBuffers (setD (r.put { h with bytes := upd h.bytes w (some waF) } zF) ds eF) r ∧
       ByteSizes h (setD (r.put { h with bytes := upd h.bytes w (some waF) } zF) ds eF) := by
   have hash0 : LevelHash (setD { h with bytes := upd h.bytes w (some waF) } ds eF) eF :=
-    level_hash_congr hash (by simp) (by simp [stream_put_words])
+    level_hash_congr hash (by simp) (by simp)
   obtain ⟨inv0, buffers0, sizes0⟩ := window_state_step inv buffers level0 win get waF size eF fields shape hash0
   obtain ⟨inv1, buffers1, sizes1⟩ := dinv_stream_put inv0 buffers0 account
   rw [← setD_put_comm] at inv1 buffers1 sizes1
@@ -810,7 +810,7 @@ theorem refill_finish {h : Heap} {r : ZStreamRef} {ds w : Nat} {z : ZStream} {d 
       (by show ss.toNat ≤ (ss + n).toNat; omega)
       (by show ss.toNat - ins.toNat ≤ (ss + n).toNat - (ins + MIN n (d.w_size - ins)).toNat
           omega)
-      (fun _ _ => by simp [stream_put_words])
+      (fun _ _ => by simp)
       (fun w' wa' e g' => by
         have e' : d.window = .ref (.blk w') 0 := e
         have : w' = w := by simpa only [win, Ptr.ref.injEq, BRef.blk.injEq, and_true] using e'.symm
@@ -820,7 +820,7 @@ theorem refill_finish {h : Heap} {r : ZStreamRef} {ds w : Nat} {z : ZStream} {d 
         exact ⟨waF, by simp, keepF⟩)
   obtain ⟨invG, buffersG, sizesG⟩ := canonical_step inv buffers level0 win getW waF (sizeF.trans sizeB) accF
     (refillRead (keepState d ss ins m bs hw) n) ⟨_, _, _, _, _, rfl⟩ shapeF hashF
-  exact ⟨_, zF, run, invG, buffersG, sizesG, accF, by simp, by simp [ZStreamRef.put]; cases r <;> simp only [ZStreamRef.put] <;> split <;> rfl,
+  exact ⟨_, zF, run, invG, buffersG, sizesG, accF, by simp, by simp [ZStreamRef.put]; cases r <;> simp only <;> split <;> rfl,
     totF, canonical_priv good win getW _ _⟩
 
 
@@ -912,7 +912,7 @@ theorem stored_refill {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
           have : wa' = wa := Option.some.inj (g'.symm.trans getW)
           subst this
           refine ⟨wa1, upd_same _ _ _, fun i lt => ?_⟩
-          rw [hwa1, bfn_copyRange _ _ _ _ _ _ (by omega), if_pos (by omega)]
+          rw [hwa1, bfn_copyRange _ _ _ _ _ _ (by omega), ite_eq_left (by omega)]
           congr 1; omega)
     have have1N : ((d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size).toNat =
         d.window_size.toNat - d.strstart.toNat + d.w_size.toNat := by
@@ -938,12 +938,12 @@ theorem stored_refill {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
     by_cases c2 : (d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size > z.avail_in
     · have c2N := UInt32.lt_iff_toNat_lt.mp c2
       rw [have1N] at c2N
-      simp only [c2, decide_true, ite_true]
+      simp only [c2, ite_true]
       exact finishA _ (Nat.le_refl _) (by omega) (by omega)
     · have c2N : ¬ z.avail_in.toNat < ((d.window_size - d.strstart.toUInt64).toUInt32 + d.w_size).toNat :=
         fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
       rw [have1N] at c2N
-      simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      simp only [c2, ite_false]
       exact finishA _ (by rw [have1N]; omega) (by rw [have1N]; exact Nat.le_refl _) (by rw [have1N]; omega)
   · simp only [Bool.not_eq_true] at cond
     simp only [cond, Bool.false_eq_true, ite_false, bind_app, readAvail h hz]
@@ -968,12 +968,12 @@ theorem stored_refill {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
     by_cases c2 : (d.window_size - d.strstart.toUInt64).toUInt32 > z.avail_in
     · have c2N := UInt32.lt_iff_toNat_lt.mp c2
       rw [have0N] at c2N
-      simp only [c2, decide_true, ite_true]
+      simp only [c2, ite_true]
       exact finishB _ (Nat.le_refl _) (by omega)
     · have c2N : ¬ z.avail_in.toNat < ((d.window_size - d.strstart.toUInt64).toUInt32).toNat :=
         fun c => c2 (UInt32.lt_iff_toNat_lt.mpr c)
       rw [have0N] at c2N
-      simp only [c2, decide_false, Bool.false_eq_true, ite_false]
+      simp only [c2, ite_false]
       exact finishB _ (by rw [have0N]; omega) (by rw [have0N]; exact Nat.le_refl _)
 
 
@@ -1273,7 +1273,7 @@ theorem stored_final {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
         Zlib.Deflate.Engine.Proofs.stream_accounting_self z, fun e => by subst e; simp at l0, Totals.refl z,
         Fr.priv good buffers (priv_setD h r ds d _ good.live.hs) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩⟩
     · simp only [Bool.not_eq_true] at l0
-      exact ⟨need_more, h, z, d, 0, by simp only [l0, Bool.false_eq_true, ite_false, bind_app, pure_app], inv,
+      exact ⟨need_more, h, z, d, 0, by simp only [l0, Bool.false_eq_true, ite_false, pure_app], inv,
         buffers, Zlib.Deflate.Engine.Proofs.stream_accounting_self z, fun _ => rfl, Totals.refl z, Fr.refl good buffers⟩
   by_cases c : (decide (left ≥ MIN Hv d.w_size) || ((left != 0 || flush == Z_FINISH) && flush != Z_NO_FLUSH &&
       z.avail_in == 0 && decide (left ≤ Hv))) = true
@@ -1294,13 +1294,13 @@ theorem stored_final {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
       have fin : flush = Z_FINISH := by
         by_cases cf : (flush == Z_FINISH && z.avail_in == 0 && MIN left Hv == left) = true
         · simp only [Bool.and_eq_true, beq_iff_eq] at cf; exact cf.1.1
-        · rw [if_neg cf] at l0; simp at l0
+        · rw [ite_eq_right cf] at l0; simp at l0
       exact ⟨finish_started, _, z', _, produced, by simp only [l0, ite_true, bind_app, wrRun]; rfl, invB, buffersB, accA,
         fun _ => fin, by decide, by decide, totA,
         Fr.trans good buffers frA (Fr.priv invA.good buffersA (priv_setD after r ds e _ invA.good.live.hs) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩),
         Or.inr rfl, fun _ => bvA⟩
     · simp only [Bool.not_eq_true] at l0
-      exact ⟨need_more, after, z', e, produced, by simp only [l0, Bool.false_eq_true, ite_false, bind_app, pure_app],
+      exact ⟨need_more, after, z', e, produced, by simp only [l0, Bool.false_eq_true, ite_false, pure_app],
         invA, buffersA, accA, fun e => absurd e (by decide), by decide, by decide, totA, frA, Or.inl rfl,
         fun e => absurd e (by decide)⟩
   · simp only [Bool.not_eq_true] at c

@@ -215,7 +215,7 @@ theorem bytes_length {h : Heap} {p : BPtr} {k : Nat} {xs : List UInt8} (b : Byte
 theorem entry_state_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
     (pr : Proto c r i window n) (cs : c.strm = some r) (ct : c.st = some (.tab i))
     {h : Heap} {z : ZStream} {s : InflateState} (valid : BackValid h r i z s)
-    (win : s.window = window) (size : s.wsize.toNat = n) {w woff : Nat} (hw : window = .ref (.blk w) woff)
+    (win : s.window = window) (size : s.wsize.toNat = n) {w woff : Nat} (_hw : window = .ref (.blk w) woff)
     {first : List UInt8}
     (firstB : if z.next_in = .null then first = [] else Bytes h z.next_in z.avail_in.toNat first)
     (sep : Separate z.next_in first.length window n)
@@ -237,15 +237,15 @@ theorem entry_state_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n :
         z.next_in = advance z.next_in (first.length - (if z.next_in != .null then z.avail_in else 0).toNat)) := by
     by_cases e : z.next_in = .null
     · simp [e]
-    · rw [if_neg e] at firstB
+    · rw [ite_eq_right e] at firstB
       have len := bytes_length firstB
       have ne : (z.next_in != .null) = true := by simpa using e
       simp [ne, len, advance_zero]
   have held : ChunkOk (setI h i (entryState s)) r i window n z.next_in first := by
     intro ne
     by_cases e : z.next_in = .null
-    · rw [if_pos e] at firstB; exact absurd firstB ne
-    · rw [if_neg e] at firstB
+    · rw [ite_eq_left e] at firstB; exact absurd firstB ne
+    · rw [ite_eq_right e] at firstB
       have len := bytes_length firstB
       refine ⟨?_, sep, ?_⟩
       · rw [len]
@@ -389,7 +389,7 @@ theorem call_prologue {h : Heap} {r : ZStreamRef} {i : Nat} {z : ZStream} {s : I
   unfold backBody
   rw [bind_ok (show ldZStream (some r) h = .ok (z, h) by rw [ldZ_eq, hz])]
   simp only [zst]
-  rw [if_neg (by simp)]
+  rw [ite_eq_right (by simp)]
   rw [bind_ok (show castInflateState (some (StateRef.inflate i)) h = .ok (some (.tab i), h) from castI)]
   rw [bind_ok (show wrZ (some r) (fun z => { z with msg := .null }) h = .ok ((), r.put h { z with msg := .null }) by
     rw [wrZ_eq, hz])]
@@ -484,7 +484,7 @@ theorem tail_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
     refine ⟨l.ret, after, ?_, post⟩
     unfold backTail
     rw [bind_ok hld]
-    simp only [lt, Bool.false_eq_true, ↓reduceIte]
+    simp only [lt, ↓reduceIte]
     exact run5
 
 /-- **The invariant after the prologue.** -/

@@ -54,7 +54,7 @@ theorem cwhile_test_inv {σ : Type} {cond : σ → M (Bool × σ)} {body : σ �
 theorem uint32_succ_toNat' {a b : UInt32} (lt : a.toNat < b.toNat) : (a + 1).toNat = a.toNat + 1 := by
   rw [UInt32.toNat_add]
   have := b.toNat_lt
-  simp only [UInt32.toNat_one, UInt32.size] at *
+  simp only [UInt32.toNat_one] at *
   omega
 
 /-- The condition of the string loops. -/
@@ -369,7 +369,7 @@ theorem roomP_wrS_len {β : Type} {flush : Int32} {q p : InflateStatePtr} {n C :
     have eq := wrS_eq get s
     subst eq
     exact fun result regs after run e leave =>
-      hn _ result regs after ⟨i, { st0 with length := st0.length - C }, rfl, by simp [upd_apply], by simp [len]⟩
+      hn _ result regs after ⟨i, { st0 with length := st0.length - C }, rfl, by simp, by simp [len]⟩
         run e leave
 
 /-- After `have -= copy`: the field goes on only if the input ran out. -/

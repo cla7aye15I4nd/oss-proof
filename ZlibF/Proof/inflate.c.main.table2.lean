@@ -93,8 +93,8 @@ theorem Good3.set {a : Array UInt16} {u : Nat} (H : Good3 a u) (v : UInt16) (hv 
   · rw [he]
     have hlt := order_lt u hu
     by_cases hsz : orderNat u < a.size
-    · simp [Array.getD_eq_getD_getElem?, Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, hsz]; exact hv
-    · simp [Array.getD_eq_getD_getElem?, Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, hsz]
+    · simp [Array.getD_eq_getD_getElem?, Array.set!_eq_setIfInBounds, hsz]; exact hv
+    · simp [Array.getD_eq_getD_getElem?, Array.set!_eq_setIfInBounds, hsz]
   · have hne : i < u := by
       rcases Nat.lt_succ_iff_lt_or_eq.mp hi with h | h
       · exact h
@@ -310,7 +310,7 @@ theorem noRet_PULLBYTE : NoRet PULLBYTE := by
   by_cases h0 : l.have_ == 0
   · simp only [h0, ite_true]
     exact noRet_leave
-  · simp only [h0, ite_false]
+  · simp only [h0]
     refine noRet_bind (noRet_set _) fun _ => ?_
     refine noRet_bind (noRet_lift _) fun _ => ?_
     refine noRet_bind (noRet_lift _) fun _ => ?_

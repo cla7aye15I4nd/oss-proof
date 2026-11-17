@@ -372,7 +372,7 @@ theorem ll1_run_short {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : InflateState
               omega
             refine ⟨j + jn, by omega, rfl, ?_, ?_, ?_, fun _ => ⟨rfl, h1, hjl, h3⟩, (fun hh => by omega), nextCursor, nextBits, fun _ => by omega⟩
             · simpa [tcDrop_drop] using B'.tc_of_heap (h' := h) rfl rfl rfl rfl
-            · rw [← hS1, ← hS']; simp [tcDrop_drop]
+            · rw [← hS1, ← hS']; simp
             · exact hsh1.trans hshape
         | ret v => exact absurd rfl (noRet_NEEDBITS 3 l1 _ _ l' _ hrun v)
       | ok u =>
@@ -1232,11 +1232,11 @@ theorem codelens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
       by_cases trees : c.flush = Z_TREES
       · left
         refine ⟨.error Ex.leave, { regs with ret := 0 }, setI h zs state', ?_, Or.inl ⟨rfl, Or.inr ⟨trees, fun zs' s' st' hs' => by rw [setI_state state' st zs' s' st' hs'], small⟩, moved⟩⟩
-        rw [runC, tailRun, if_pos trees, setI_setI]
+        rw [runC, tailRun, ite_eq_left trees, setI_setI]
       · right
         refine ⟨trees, { regs with ret := 0 }, setI h zs state', ?_, by show loopRead l ≤ loopRead regs; omega,
           fun zs' s' st' hs' => by rw [setI_state state' st zs' s' st' hs'], moved⟩
-        rw [runC, tailRun, if_neg trees, setI_setI]
+        rw [runC, tailRun, ite_eq_right trees, setI_setI]
     · -- a header that the format rejects
       left
       obtain ⟨l'', h'', tailRun, in'', have'', badAll⟩ :=

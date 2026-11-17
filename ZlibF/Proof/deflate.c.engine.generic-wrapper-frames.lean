@@ -63,8 +63,8 @@ theorem generic_wrapper_foreign_setD_frame {before middle : Heap} {ds owner off 
     have other : x ≠ ds := fun same => outside (same ▸ privateFrame)
     by_cases own : x = owner
     · subst x
-      simp [SlotSame,restoredMiddle,restoredAfter,setD,upd_apply,different]
-    · simp [SlotSame,restoredMiddle,restoredAfter,setD,upd_apply,own,other]
+      simp [restoredMiddle,restoredAfter,setD]
+    · simp [restoredMiddle,restoredAfter,setD,own,other]
   refine ⟨?_,?_⟩
   · rw [afterRestore]
     have first := precise.1

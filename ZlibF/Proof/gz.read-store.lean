@@ -175,14 +175,14 @@ theorem GzInv.data_separate (inv : GzInv h i s) {b : Nat} (hb : DataBuf s b) :
   refine ⟨hi, hso, ?_, ?_⟩
   · intro e
     have nd := c.distinct.1
-    simp only [ownedPtrs, if_pos hz, List.cons_append, List.nil_append] at nd
+    simp only [ownedPtrs, ite_eq_left hz, List.cons_append, List.nil_append] at nd
     rcases hio with hin | ⟨hm, hout⟩
     · exact absurd (nd.sublist (List.Sublist.filterMap blkOf
-        (List.Sublist.cons₂ _ (List.Sublist.cons _ (List.Sublist.cons₂ _ (List.nil_sublist _))))))
+        (List.Sublist.cons_cons _ (List.Sublist.cons _ (List.Sublist.cons_cons _ (List.nil_sublist _))))))
         (by simp [e, hin, blkOf])
-    · rw [if_pos hm] at nd
+    · rw [ite_eq_left hm] at nd
       exact absurd (nd.sublist (List.Sublist.filterMap blkOf
-        (List.Sublist.cons₂ _ (List.Sublist.cons _ (List.Sublist.cons _ (List.Sublist.cons₂ _
+        (List.Sublist.cons_cons _ (List.Sublist.cons _ (List.Sublist.cons _ (List.Sublist.cons_cons _
           (List.nil_sublist _)))))))
         (by simp [e, hout, blkOf])
   · intro e
@@ -610,7 +610,7 @@ theorem LoadHeap.store {h1 hk H : Heap} {r : BRef} {off len k : Nat} {ak x bs : 
     obtain ⟨a1, ha1, hs1, hk1⟩ := lh.view a ha
     rw [hg] at ha1; cases ha1
     refine ⟨x, st.view, by rw [hx, size_copyRange, hs1], fun j hj hout => ?_⟩
-    rw [hx, Zlib.Deflate.Engine.Proofs.getElem?_copyRange _ _ _ _ _ _ hroom, if_neg (by omega)]
+    rw [hx, Zlib.Deflate.Engine.Proofs.getElem?_copyRange _ _ _ _ _ _ hroom, ite_eq_right (by omega)]
     exact hk1 j hj hout
 
 /-! ## `gz_load`: one trip of the loop -/
@@ -710,7 +710,7 @@ theorem loadTrip_step (i : Nat) (buf : BPtr) (len : UInt32) (s1 : GzState) (h1 :
       obtain ⟨ak, hak, hsz, -⟩ := (glh r off rfl).view a ha
       refine ⟨.ref r (off + l.«have».toNat), ?_, ?_, ?_⟩
       · simp only [Ptr.add, hak]
-        rw [if_pos (by constructor <;> omega)]
+        rw [ite_eq_left (by constructor <;> omega)]
         simp only [Except.ok.injEq, Prod.mk.injEq, Ptr.ref.injEq, true_and, and_true]
         omega
       · intro e; cases e
@@ -728,7 +728,7 @@ theorem loadTrip_step (i : Nat) (buf : BPtr) (len : UInt32) (s1 : GzState) (h1 :
   obtain ⟨⟨⟨-, hbs⟩, hfse⟩, -⟩ := heq
   rw [hbs, hfse] at hbud
   unfold loadTrip
-  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_lift_app, g_pure_app,
+  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_lift_app,
     ldS_run hrec, hp]
   rw [show fsRead s1.fd g.toUInt64 fsk hk = .ok (((rr, bs), fs'), hk) from by rw [hread]; rfl]
   dsimp only
@@ -741,7 +741,7 @@ theorem loadTrip_step (i : Nat) (buf : BPtr) (len : UInt32) (s1 : GzState) (h1 :
       · rw [e]; exact ret_fail.1
       · exact ((ret_count rr 0 (by rw [e, hz]) (by omega)).2.1).2 rfl
     simp only [hs]
-    rw [if_pos hret]
+    rw [ite_eq_left hret]
     exact ⟨_, _, _, rfl, ⟨hle, hrec, ginv, gown, glive, hfs', hkept2, glh, gnull,
       (gbud.trans hbud).mono (by show l.«have».toNat ≤ l.«have».toNat + bs.size; omega)⟩, Or.inl ⟨rfl, rfl, hret⟩⟩
   · have hne : bs.isEmpty = false := by simpa using hbe
@@ -785,7 +785,7 @@ theorem loadTrip_step (i : Nat) (buf : BPtr) (len : UInt32) (s1 : GzState) (h1 :
     obtain ⟨hr1, hr2, hr3⟩ := ret_count rr bs.size hcnt (by omega)
     have hnot : ¬ rr.toInt32 ≤ 0 := fun x => by have := hr2.1 x; omega
     simp only [hst]
-    rw [if_neg hnot]
+    rw [ite_eq_right hnot]
     have hlen := len.toNat_lt
     have hsum : (l.«have» + rr.toInt32.toUInt32).toNat = l.«have».toNat + bs.size := by
       rw [UInt32.toNat_add, hr3]; omega
@@ -1116,20 +1116,20 @@ theorem gz_load_paths (i : Nat) (buf : BPtr) (len : UInt32) (h : Heap) (fs : Fs)
   · have hb : BLOCKED fs'.errno = true ∧ l.«have» ≠ 0 :=
       Classical.byContradiction fun hc => hok ⟨hr, hc⟩
     have hne : (l.«have» != 0) = true := by simpa using hb.2
-    rw [if_pos hr]
+    rw [ite_eq_left hr]
     dsimp only
     have hge : getErrno fs' H = .ok ((fs'.errno, fs'), H) := rfl
     simp only [g_bind_app, g_lift_app, liftM, monadLift, MonadLift.monadLift,
-      MonadLiftT.monadLift, hge, hb.1, updS_run hrecH, hne, g_pure_app, ite_true, if_true]
-    exact ⟨fs', _, rfl, rfl, hkept, hist, post 1 s.eof (Or.inr rfl) heof (fun _ he => heofin he), 1, s.eof, (by first | rfl | (simp only [Zlib.Gzlib.Spec.setS, putGz, upd_same]; rfl) | simp only [Zlib.Gzlib.Spec.setS, putGz, upd_same]),
+      MonadLiftT.monadLift, hge, hb.1, updS_run hrecH, hne, g_pure_app, ite_true]
+    exact ⟨fs', _, rfl, rfl, hkept, hist, post 1 s.eof (Or.inr rfl) heof (fun _ he => heofin he), 1, s.eof, (by first | rfl | (simp only [Zlib.Gzlib.Spec.setS, upd_same]; rfl) | simp only [Zlib.Gzlib.Spec.setS, putGz, upd_same]),
       fun h0 => absurd h0 hb.2, fun _ => rfl⟩
-  · rw [if_neg hr]
+  · rw [ite_eq_right hr]
     by_cases hz : (l.ret == 0) = true
     · simp only [hz, ite_true, g_bind_app, g_lift_app, liftM, monadLift, MonadLift.monadLift,
         MonadLiftT.monadLift, updS_run hrecH, g_pure_app]
-      exact ⟨fs', _, rfl, rfl, hkept, hist, post 0 1 (Or.inl rfl) (Or.inr rfl) (fun h0 _ => absurd rfl h0), 0, 1, (by first | rfl | (simp only [Zlib.Gzlib.Spec.setS, putGz, upd_same]; rfl) | simp only [Zlib.Gzlib.Spec.setS, putGz, upd_same]),
+      exact ⟨fs', _, rfl, rfl, hkept, hist, post 0 1 (Or.inl rfl) (Or.inr rfl) (fun h0 _ => absurd rfl h0), 0, 1, (by first | rfl | (simp only [Zlib.Gzlib.Spec.setS, upd_same]; rfl) | simp only [Zlib.Gzlib.Spec.setS, putGz, upd_same]),
         fun _ => rfl, fun h0 => absurd rfl h0⟩
-    · simp only [hz, Bool.false_eq_true, ite_false, g_bind_app, g_pure_app]
+    · simp only [hz, Bool.false_eq_true, ite_false, g_pure_app]
       have hself : putGz H i { s1 with again := 0, eof := s.eof } = H := upd_self_heap hrecH
       -- `ret > 0`: the loop left without `brk`, after a trip that counted bytes
       have hbf : l.brk = false := by

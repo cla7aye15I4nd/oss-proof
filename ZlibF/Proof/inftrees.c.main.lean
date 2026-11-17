@@ -45,7 +45,7 @@ def itB (type : UInt32) (lens : WPtr) (codes : UInt32) (table : CodePtr) (bits :
       let a ← geta offs len.toNat
       let b ← geta count len.toNat
       pure (len + 1, ← seta offs (len + 1).toNat (a + b))) ((1 : UInt32), offs)
-  let (_, offs) ← cwhile (fun (sym, offs) => pure (sym < codes, (sym, offs)))
+  let (_, _offs) ← cwhile (fun (sym, offs) => pure (sym < codes, (sym, offs)))
     (fun (sym, offs) => do
       let l ← lens.index sym.toNat
       if l != 0 then
@@ -101,7 +101,7 @@ def itTop (type : UInt32) (lens : WPtr) (codes : UInt32) (table : CodePtr) (bits
   if root > max then root := max
   itA type lens codes table bits work count max root
 
-theorem gaddr0 (e : Env) (hm : e.m = 1) (hR : e.R = 1) {mm : Nat} (hmm : mm < gReps e.ls e.R e.mx 0) :
+theorem gaddr0 (e : Env) (_hm : e.m = 1) (hR : e.R = 1) {mm : Nat} (hmm : mm < gReps e.ls e.R e.mx 0) :
     gAddr e.ls e.R e.mx 0 mm = 0 := by
   have hpos := e.h_pos
   obtain ⟨b1, b2⟩ := lenAt_bounds (f := e.f) (n := e.n) hpos
@@ -715,7 +715,7 @@ theorem sort_loop (f : Nat → Nat) (n : Nat) (hn : n ≤ 288) (rl rw : WRef) (h
       refine ⟨(sym, offs), _, ?_, ⟨hsn', wak, rfl, by have := hinv; rw [hsn'] at this; exact this⟩⟩
       show (pure (decide (sym < codes), (sym, offs)) : M _) _ = _
       simp [hlt]
-  · refine ⟨by simp [hcodes], wa, ?_, ?_⟩
+  · refine ⟨by simp, wa, ?_, ?_⟩
     · rw [wput_self hgw]
     · refine ⟨ho, fun l hl1 hl2 => ?_, rfl, fun _ _ => rfl, fun l j _ _ hj => ?_⟩
       · show (offs0.getD l 0).toNat = Tc f n (l - 1) + cnt f 0 l
@@ -985,7 +985,7 @@ theorem zero_loop (h : Heap) :
       show (pure (decide (len ≤ MAXBITS), (len, count)) : M _) h' = _
       simp [hle]
   · refine ⟨rfl, by decide, by simp, fun l hl => ?_⟩
-    simp [Array.getD_eq_getD_getElem?, Array.getElem?_replicate, hl]
+    simp [Array.getD_eq_getD_getElem?, hl]
   · exact lt_fuel (by simp)
 
 def countCond (codes : UInt32) : UInt32 × Array UInt16 → M (Bool × (UInt32 × Array UInt16)) :=
@@ -1314,7 +1314,7 @@ theorem itA_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes : UInt32
       fun _ => hacc, fun h => absurd (show (0 : Int32) = 1 from h) (by decide),
       fun h => absurd (show (0 : Int32) = -1 from h) (by decide)⟩
     · rw [wput_self P.hgw]
-    · simp [Array.size_set!]
+    · simp
     · intro x hx
       have h1 : oc + 1 ≠ x := by omega
       have h2 : oc ≠ x := by omega

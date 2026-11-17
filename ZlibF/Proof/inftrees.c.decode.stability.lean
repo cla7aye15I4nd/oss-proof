@@ -105,7 +105,7 @@ theorem one_bit_query {type : UInt32} {ca : Array Code} {offset : Nat}
     tableRead type ca offset 1 (bit :: tail) = some ((if bit then second else first), 1) := by
   cases bit
   · simp only [tableRead, readBits, Bool.false_eq_true, ite_false, bind, Option.bind,
-      Nat.zero_add, Nat.mul_zero, Nat.add_zero, firstGet, firstLeaf, firstBits]
+      Nat.mul_zero, Nat.add_zero, firstGet, firstLeaf, firstBits]
     rfl
   · simp only [tableRead, readBits, ite_true, bind, Option.bind,
       Nat.mul_zero, Nat.add_zero, secondGet, secondLeaf, secondBits]

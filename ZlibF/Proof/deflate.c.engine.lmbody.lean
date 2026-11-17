@@ -52,7 +52,7 @@ structure LMEnv (h0 : Heap) (sr : Nat) (d : DeflateState) (wb pb : Nat) (wa : Ar
     (bfn wa p = bfn wa d.strstart.toNat → bfn wa (p + 1) = bfn wa (d.strstart.toNat + 1) →
       bfn wa (p + 2) = bfn wa (d.strstart.toNat + 2))
 
-def LMInv (h0 : Heap) (sr : Nat) (d : DeflateState) (wb pb : Nat) (wa : Array UInt8) (pa : Array UInt16)
+def LMInv (h0 : Heap) (sr : Nat) (d : DeflateState) (wb _pb : Nat) (wa : Array UInt8) (pa : Array UInt16)
     (c : UInt32) (st : LMState) (h : Heap) : Prop :=
   ∃ (ms : UInt32) (b : Nat), h = hAt h0 sr d ms ∧
     st.scan = .ref (.blk wb) d.strstart.toNat ∧ st.best_len.toInt = (b : Int) ∧ d.prev_length.toNat ≤ b ∧ b ≤ 258 ∧
@@ -165,23 +165,23 @@ theorem lm_body_ok {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array U
   by_cases T1 : bfn wa (st.cur_match.toNat + b) = bfn wa (d.strstart.toNat + b)
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1]
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse]
     simp [T1]
   by_cases T2 : bfn wa (st.cur_match.toNat + b - 1) = bfn wa (d.strstart.toNat + b - 1)
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1]
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1]
     simp [T2]
   by_cases T3 : bfn wa st.cur_match.toNat = bfn wa d.strstart.toNat
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
       hscan, f8]
     simp [T3]
   by_cases T4 : bfn wa (st.cur_match.toNat + 1) = bfn wa (d.strstart.toNat + 1)
   rotate_left
   · refine ⟨st, hAt h0 sr d ms, ?_, hI0, rfl, rfl, rfl⟩
-    simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
+    simp only [lm_body, bind_app, pure_app, M_ite_app, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2, f7,
       hscan, f8, T3, f9, f10, f11]
     simp [T4]
   -- the candidate agrees on three bytes
@@ -219,7 +219,7 @@ theorem lm_body_ok {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array U
     refine ⟨{ st with scan := Ptr.ref (BRef.blk wb) d.strstart.toNat }, hAt h0 sr d ms, ?_, ?_, rfl, rfl, rfl⟩
     · simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2,
         f7, hscan, f8, T3, f9, f10, f11, T4, f12, f13, f14, f15, hmm, hloop, fd, fl, f16, hngt]
-      simp [T1, T2, T3, T4, hngt]
+      simp
     · exact ⟨ms, b, rfl, rfl, hb, hpl, hb258, fun _ => ⟨hse1, hse⟩, hch, hgood⟩
   -- an improvement
   have hgt' : Int32.ofInt (r : Int) > st.best_len := by
@@ -249,12 +249,12 @@ theorem lm_body_ok {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array U
       hAt h0 sr d st.cur_match, ?_, ?_, rfl, rfl, rfl⟩
     · simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2,
         f7, hscan, f8, T3, f9, f10, f11, T4, f12, f13, f14, f15, hmm, hloop, fd, fl, f16, hgt', f17]
-      simp [T1, T2, T3, T4, hgt', hnice]
+      simp [hnice]
     · exact ⟨st.cur_match, r, rfl, rfl, hlen, by omega, hr258, fun h => by simp at h, hch, Or.inr ⟨by omega, hgm'⟩⟩
   · refine ⟨{ st with scan := Ptr.ref (BRef.blk wb) d.strstart.toNat, best_len := Int32.ofInt (r : Int), scan_end1 := bfn wa (d.strstart.toNat + r - 1), scan_end := bfn wa (d.strstart.toNat + r) }, hAt h0 sr d st.cur_match, ?_, ?_, rfl, rfl, rfl⟩
     · simp only [lm_body, bind_app, pure_app, M_ite_app, ↓reduceIte, e_ld, E.win, f2, hb, f3, hse, T1, f4, f5, f6, hse1, T2,
         f7, hscan, f8, T3, f9, f10, f11, T4, f12, f13, f14, f15, hmm, hloop, fd, fl, f16, hgt', f17, g1, g1', g2, hlen, g3]
-      simp [T1, T2, T3, T4, hgt', hnice]
+      simp [hnice]
     · exact ⟨st.cur_match, r, rfl, rfl, hlen, by omega, hr258, fun _ => ⟨rfl, rfl⟩, hch, Or.inr ⟨by omega, hgm'⟩⟩
 
 end Zlib.Deflate.Engine.Proofs

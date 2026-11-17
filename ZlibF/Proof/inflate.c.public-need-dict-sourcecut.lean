@@ -27,9 +27,9 @@ theorem run_dictionary_origin
     refine ⟨z, entryState, bs, current, packet, entryLocal, bits, ?_⟩
     intro entryLow
     by_cases type : s.mode = TYPE
-    · rw [stateEq, if_pos type] at entryLow
+    · rw [stateEq, ite_eq_left type] at entryLow
       exact False.elim ((by decide : ¬ TYPEDO ≤ DICT) entryLow)
-    · simpa only [stateEq, if_neg type] using entryLow
+    · simpa only [stateEq, ite_eq_right type] using entryLow
   have step : ∀ before heap outcome nextRegs nextHeap, P before heap →
       runX (inflate_dispatch c) before heap = .ok ((outcome, nextRegs), nextHeap) →
       match outcome with

@@ -53,7 +53,7 @@ theorem common_initialization_valid_split_boundary {h : Heap} {r : ZStreamRef} {
       (StreamReachable.rebuffer reachable edit (fun k => nomatch k)) (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, default_finish_active_header startG.good header⟩
-    · simpa only [Call.execute, heapCall, actual]
+    · simp only [Call.execute, heapCall, actual]
   exact ⟨after, z', result, actual, { stateA with reachable := reachableA }, buffersA, accountA⟩
 
 end Zlib.Deflate.Engine.Proofs

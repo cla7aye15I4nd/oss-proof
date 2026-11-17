@@ -203,7 +203,7 @@ theorem stD_eq (h : Heap) (i : Nat) (v : DeflateState) : stDeflateState (some (.
     | none => .error (.ub "access through a dangling pointer (deflate_state)") := by
   cases hh : h.dstates i with
   | none => simp [stDeflateState, DeflateStateRef.get, hh]
-  | some w => simp [stDeflateState_tab hh, setD, hh]
+  | some w => simp [stDeflateState_tab hh, setD]
 
 theorem wrD_eq (h : Heap) (i : Nat) (f : DeflateState → DeflateState) : wr (some (.tab i)) f h =
     match h.dstates i with
@@ -220,7 +220,7 @@ theorem stZ_eq (h : Heap) (r : ZStreamRef) (v : ZStream) : stZStream (some r) v 
   have hro : r.isRo = false := by cases r <;> rfl
   cases hh : r.get h with
   | none => simp [stZStream, hh]
-  | some w => simp [stZStream_ok hh hro, hh]
+  | some w => simp [stZStream_ok hh hro]
 
 theorem zwr_eq (h : Heap) (r : ZStreamRef) (f : ZStream → ZStream) : zwr (some r) f h =
     match r.get h with
@@ -497,7 +497,7 @@ theorem TreesInv.bytes_set {h : Heap} {id : Nat} (hT : Zlib.Trees.Proofs.Out.Tre
     subst this
     exact ⟨d, x, a, ⟨hB.dstate, hB.wf, hB.static, hB.pbuf, by simp, hB.rw, by rw [hsz]; exact hB.size,
       by rw [hsz]; exact hB.psize, hB.sym, hB.lit_lo, hB.lit_hi, hB.sym_end, hB.pending_le⟩, hR⟩
-  · exact ⟨d, b, buf, ⟨hB.dstate, hB.wf, hB.static, hB.pbuf, by simp [upd_apply, Ne.symm hxb, hB.bytes], hB.rw, hB.size,
+  · exact ⟨d, b, buf, ⟨hB.dstate, hB.wf, hB.static, hB.pbuf, by simp [Ne.symm hxb, hB.bytes], hB.rw, hB.size,
       hB.psize, hB.sym, hB.lit_lo, hB.lit_hi, hB.sym_end, hB.pending_le⟩, hR⟩
 
 theorem _root_.Zlib.Deflate.Spec.DStInv.pending_le {h : Heap} {ds : Nat} {d : DeflateState} (hI : DStInv h ds d) :
@@ -543,13 +543,13 @@ theorem _root_.Zlib.Deflate.Spec.DBlocks.words_set {h : Heap} {d : DeflateState}
       have : pa = a0 := Option.some.inj (hpa.symm.trans hx)
       subst this
       exact ⟨a, by simp, by omega⟩
-    · exact ⟨pa, by simp [upd_apply, Ne.symm hxp, hpa], pz⟩
+    · exact ⟨pa, by simp [Ne.symm hxp, hpa], pz⟩
   · by_cases hxq : x = q
     · subst hxq
       have : qa = a0 := Option.some.inj (hqa.symm.trans hx)
       subst this
       exact ⟨a, by simp, by omega⟩
-    · exact ⟨qa, by simp [upd_apply, Ne.symm hxq, hqa], qz⟩
+    · exact ⟨qa, by simp [Ne.symm hxq, hqa], qz⟩
 
 /-- Replacing a byte block by an array of the same size keeps the four buffers. -/
 theorem _root_.Zlib.Deflate.Spec.DBlocks.bytes_set {h : Heap} {d : DeflateState} {w p q b : Nat}
@@ -562,13 +562,13 @@ theorem _root_.Zlib.Deflate.Spec.DBlocks.bytes_set {h : Heap} {d : DeflateState}
       have : wa = a0 := Option.some.inj (hwa.symm.trans hx)
       subst this
       exact ⟨a, by simp, by omega⟩
-    · exact ⟨wa, by simp [upd_apply, Ne.symm hxw, hwa], wz⟩
+    · exact ⟨wa, by simp [Ne.symm hxw, hwa], wz⟩
   · by_cases hxb : x = b
     · subst hxb
       have : ba = a0 := Option.some.inj (hba.symm.trans hx)
       subst this
       exact ⟨a, by simp, by omega⟩
-    · exact ⟨ba, by simp [upd_apply, Ne.symm hxb, hba], bz⟩
+    · exact ⟨ba, by simp [Ne.symm hxb, hba], bz⟩
 
 theorem _root_.Zlib.Deflate.Spec.DStInv.words_set {h : Heap} {ds : Nat} {d : DeflateState} (hI : DStInv h ds d)
     (x : Nat) (a a0 : Array UInt16) (hx : h.words x = some a0) (hsz : a.size = a0.size) :
@@ -578,7 +578,7 @@ theorem _root_.Zlib.Deflate.Spec.DStInv.words_set {h : Heap} {ds : Nat} {d : Def
 
 theorem _root_.Zlib.Deflate.Spec.DStInv.bytes_set {h : Heap} {ds : Nat} {d : DeflateState} (hI : DStInv h ds d)
     (x : Nat) (a a0 : Array UInt8) (hx : h.bytes x = some a0) (hsz : a.size = a0.size)
-    (hro : ∀ y, y = x → h.ro y = h.ro y) :
+    (_hro : ∀ y, y = x → h.ro y = h.ro y) :
     DStInv { h with bytes := upd h.bytes x (some a) } ds d := by
   obtain ⟨w, p, q, b, hB⟩ := hI.blocks
   exact { hI with blocks := ⟨w, p, q, b, hB.bytes_set x a a0 hx hsz⟩ }

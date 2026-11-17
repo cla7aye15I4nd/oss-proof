@@ -55,7 +55,7 @@ theorem gzread_zero_retry_source (h : Heap) (fs : Fs) (i : Nat) (s : GzState) (b
   have hc : castState (some (.in_gzstate_x i)) = some (.tab i) := rfl
   unfold gzread
   simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift,
-    retry_bind_app, retry_lift_app, retry_pure_app, hc,
+    retry_bind_app, retry_lift_app, hc,
     Option.isNone_some, Bool.false_eq_true, ite_false, ldS_eq, hs]
   have hagain : (s.again != 0) = true := by simp [ha]
   have hnotagain : (s.again == 0) = false := by simp [ha]
@@ -65,7 +65,7 @@ theorem gzread_zero_retry_source (h : Heap) (fs : Fs) (i : Nat) (s : GzState) (b
     Bool.false_and, Bool.false_eq_true, ite_false, ite_true, hzero, hwiden,
     retry_bind_app, retry_lift_app, retry_pure_app, read_zero]
   rw [clear_error h i s hs hm]
-  simp [hr, ha, read_zero, retryReport, liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift,
+  simp [hr, ha, retryReport, liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift,
     retry_bind_app, retry_lift_app, retry_pure_app, clearRetryHeap, ldS_eq,
     setS_gz_same, Z_OK, Z_BUF_ERROR]
 

@@ -223,7 +223,7 @@ theorem distLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       simp only [runX_bind, runX_get]
     by_cases slow : SlowDistLink current.here
     · have link : DistLink current.here := slowDistLink_fast slow
-      rw [if_pos link] at classification
+      rw [ite_eq_left link] at classification
       obtain ⟨result, final, used2, after, subRun, usedTwo2, usedBound2, finalInv, finalShape,
         _, finalBound, kinds2, done, leave, subCursor⟩ :=
         distSubLookup_run_cursor current.here hc hs pointer tableGet classification before back backBound inv
@@ -242,7 +242,7 @@ theorem distLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
         obtain ⟨heapEq, leaf, fits, bits, finalCount⟩ := done success
         refine ⟨current.here.bits.toNat, entryBound, heapEq, leaf, fits, ?_, ?_⟩
         · simpa only [List.drop_drop, Nat.add_comm] using bits.trans (congrArg (List.drop current.here.bits.toNat) sameStream)
-        · simp only [count, Nat.mul_add] at finalCount
+        · simp only [count] at finalCount
           simpa only [Nat.mul_add, Nat.add_assoc] using finalCount
       · intro exhausted
         obtain ⟨heapEq, zero, bits⟩ := leave exhausted
@@ -251,9 +251,9 @@ theorem distLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
     · have notLink : ¬ DistLink current.here := by
         intro link
         have table := classification
-        rw [if_pos link] at table
+        rw [ite_eq_left link] at table
         exact slow (distLink_slow table)
-      rw [if_neg notLink] at classification
+      rw [ite_eq_right notLink] at classification
       refine ⟨.ok (), current, used, h, ?_, by omega, usedBound, inv, shape.symbol,
         bitBound, Or.inl rfl, ?_, ?_, cursor⟩
       · rw [prefixRun, distRootTail_leaf c current.here slow, runX_pure]
@@ -316,10 +316,10 @@ private theorem bindX_assoc {α β γ : Type} (x : X α) (f : α → X β) (g : 
   change runX ((x >>= f) >>= g) l h = runX (x >>= fun a => f a >>= g) l h
   simp only [runX_bind]
   cases run : runX x l h with
-  | error fault => simp only [run]
+  | error fault => simp only
   | ok pair =>
     rcases pair with ⟨⟨result, regs⟩, heap⟩
-    cases result <;> simp only [run]
+    cases result <;> simp only
 
 private theorem bindX_ite {α β : Type} (p : Prop) [Decidable p] (a b : X α) (f : α → X β) :
     ((if p then a else b) >>= f) = (if p then a >>= f else b >>= f) := by

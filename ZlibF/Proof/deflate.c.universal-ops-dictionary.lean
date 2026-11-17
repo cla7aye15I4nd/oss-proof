@@ -84,7 +84,7 @@ theorem dict_insert_step {h : Heap} {r : ZStreamRef} {ds w : Nat} {z : ZStream} 
     have eq := (Prod.mk.inj (Except.ok.inj (expected.symm.trans run))).2
     intro i ne
     rw [← eq]
-    simp [setD, setW, upd_ne _ _ _ _ ne]
+    simp [upd_ne _ _ _ _ ne]
   have borrowA : after.libcErrorBorrow = h.libcErrorBorrow :=
     Zlib.Deflate.BorrowProofs.stable_INSERT_STRING _ _ _ _ _ run
   refine ⟨key, after, ?_, goodA, chainsA, formA, bytesA,
@@ -767,7 +767,7 @@ theorem setdict_tail {h0 hA : Heap} {r : ZStreamRef} {ds : Nat} {z0 zA : ZStream
     (chainsA : HeapChains hA dA (chainTop dA)) (zeroM : d0.«matches» = 0)
     (laA : dA.lookahead = 0) (insA : dA.insert.toNat ≤ dA.strstart.toNat)
     (roomA : dA.strstart.toNat ≤ dA.window_size.toNat)
-    (waterA : dA.strstart.toNat ≤ dA.high_water.toNat)
+    (_waterA : dA.strstart.toNat ≤ dA.high_water.toNat)
     (spanA : (dA.strstart.toNat : Int) - dA.block_start.toInt ≤ X0) (small : X0 + len.toNat ≤ 2 ^ 61)
     (input : CallerRange hA r dict len.toNat false) (valid : len ≠ 0 → dict ≠ .null)
     (allocA : DefAlloc zA)
@@ -775,7 +775,7 @@ theorem setdict_tail {h0 hA : Heap} {r : ZStreamRef} {ds : Nat} {z0 zA : ZStream
     (nallocA : hA.nalloc = h0.nalloc) (nextA : hA.nextBlk = h0.nextBlk)
     (borrowA : hA.libcErrorBorrow = h0.libcErrorBorrow)
     (bytesA : ∀ w b, d0.window = .ref (.blk w) 0 → b ≠ w → hA.bytes b = h0.bytes b)
-    (staticA : hA.static = h0.static) (sym0 : d0.sym_next = 0) :
+    (_staticA : hA.static = h0.static) (sym0 : d0.sym_next = 0) :
     ∃ after zF dF, setdictTail (some r) (some (.tab ds)) dict len d0.wrap hA = .ok (Z_OK, after) ∧
       DInv after r ds zF dF ∧ Zlib.Deflate.Proofs.Shape h0 after ∧
       Frame h0 after (fun b => StreamRoot r b ∨ DeflateOwned ds d0 b) ∧
@@ -1147,7 +1147,7 @@ theorem setdict_body {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
         Zlib.Deflate.BorrowProofs.stable_zwr _ _ _ _ _ putRun
       refine ⟨z1, r.put h z1, ?_, good1, ⟨rfl, rfl, rfl⟩, ?_, stream_store_full_frame h r z1,
         shape_put good.live.hz z1, borrow1, by simp, by simp, by simp, by simp, by simp⟩
-      · rw [if_pos w1B, bind_app, zrdRun]
+      · rw [ite_eq_left w1B, bind_app, zrdRun]
         simp only []
         rw [bind_app, ptr, adler]
         simp only []
@@ -1158,7 +1158,7 @@ theorem setdict_body {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
           (stream_owned_keys good good1 rfl rfl rfl rfl) (by omega) borrow1
         rwa [advance_zero] at this
     · have w1B : (d.wrap == 1) = false := by simp [w1]
-      refine ⟨z, h, by rw [if_neg (by simp [w1B])]; rfl, good, ⟨rfl, rfl, rfl⟩, args, by simp [Frame],
+      refine ⟨z, h, by rw [ite_eq_right (by simp [w1B])]; rfl, good, ⟨rfl, rfl, rfl⟩, args, by simp [Frame],
         Zlib.Deflate.Proofs.Shape.refl h, rfl, rfl, rfl, rfl, rfl, rfl⟩
   obtain ⟨bytes1, words1, static1, nalloc1, next1⟩ := byteFrame1
   -- `s->wrap = 0`
@@ -1248,7 +1248,7 @@ theorem setdict_body {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
           by show (0 : UInt32).toNat ≤ d.high_water.toNat; exact Nat.zero_le _,
           by show ((0 : UInt32).toNat : Int) - (0 : Int64).toInt ≤ 2 ^ 40; decide, shape2.trans shapeAll, full_frame_trans_shape frame2 frameAll shape2,
           by simp [cleared, setW, h2def, nalloc1], by simp [cleared, setW, h2def, next1], ?_, ?_, ?_, ?_, ?_, ?_⟩
-        · rw [if_pos w0B, bind_app, clearRun]
+        · rw [ite_eq_left w0B, bind_app, clearRun]
           simp only []
           exact wrA
         · obtain ⟨w', p', q', wa', pa', qa', win', prev', hd', hw', hp', hq', _⟩ := chains2
@@ -1272,7 +1272,7 @@ theorem setdict_body {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
         · intro i ne; simp [cleared, setW, setD, upd_ne _ _ _ _ ne]
         · rfl
       · have w0B : (d.wrap == 0) = false := by simp [w0]
-        refine ⟨h2, dW, by rw [if_neg (by simp [w0B])]; rfl, good2, by unfold DictFields; rfl, chains2, la0,
+        refine ⟨h2, dW, by rw [ite_eq_right (by simp [w0B])]; rfl, good2, by unfold DictFields; rfl, chains2, la0,
           shape.insert, room0, water0, span0, shape2, frame2, by rw [h2def]; exact nalloc1, by rw [h2def]; exact next1,
           borrow2, bytesH2, by rw [h2def]; exact static1, rfl, fun _ _ => rfl, rfl⟩
     -- the pointer to the last `w_size` bytes
@@ -1311,7 +1311,7 @@ theorem setdict_body {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
     simp only []
     rw [bind_app, wrRun]
     simp only []
-    rw [if_pos big, bind_app, prepRun]
+    rw [ite_eq_left big, bind_app, prepRun]
     simp only []
     rw [bind_app, paddRun]
     exact tailRun
@@ -1327,7 +1327,7 @@ theorem setdict_body {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
     simp only []
     rw [bind_app, wrRun]
     simp only []
-    rw [if_neg big]
+    rw [ite_eq_right big]
     exact tailRun
 
 /-- `StepOk` from a run that changes only the stream root and the stream's own blocks, writes no

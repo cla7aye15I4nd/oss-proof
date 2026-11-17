@@ -62,12 +62,12 @@ theorem FastInputPacket.do3_distinct_go
         Zlib.Inffast.Proofs.cond3 (fu + 1) l h =
           .ok (next, after) := by
       unfold cdoWhile.go
-      simp only [bind_app, copied, condition, ite_false, pure_app]
+      simp only [bind_app, copied, condition]
       rfl
     have lenEq : l.len - 3 = UInt32.ofNat r := by
       apply UInt32.toNat_inj.mp
       rw [Zlib.Inffast.Proofs.len_sub3 (by omega)]
-      simp [UInt32.toNat_ofNat]
+      simp
       omega
     have exactResult : next = { l with
         from_ := .ref source (fo + 3 * (0 + 1)),
@@ -188,7 +188,7 @@ theorem FastInputPacket.do3_same_go
     have lenEq : l.len - 3 = UInt32.ofNat r := by
       apply UInt32.toNat_inj.mp
       rw [Zlib.Inffast.Proofs.len_sub3 (by omega)]
-      simp [UInt32.toNat_ofNat]
+      simp
       omega
     have exactResult : next = { l with
         from_ := .ref dest (fo + 3 * (0 + 1)),

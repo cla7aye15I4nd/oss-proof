@@ -470,10 +470,10 @@ theorem inflate_dispatch_construction_default_state_rank {c : Ctx} {h : Heap} {r
         rcases mode with selected | selected | selected <;> rw [selected] <;> decide
   · obtain ⟨nextMode, source⟩ := continued
     by_cases trees : c.flush = Z_TREES
-    · rw [if_pos trees] at source
+    · rw [ite_eq_left trees] at source
       exact ⟨.error Ex.leave, regs, after, stream, state, used, 0, bound, source, nextJ, packet, sizes,
         cursor, count, by rw [put, inputAdvance_zero], by rw [left]; omega, by omega, Or.inl rfl⟩
-    · rw [if_neg trees] at source
+    · rw [ite_eq_right trees] at source
       have nextEnv : Env c after r zs stream state :=
         ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩
       have dataMode : DataTableMode state.mode := by rw [nextMode]; unfold DataTableMode; decide

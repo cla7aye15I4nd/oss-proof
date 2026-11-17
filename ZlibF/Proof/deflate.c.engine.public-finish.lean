@@ -42,7 +42,7 @@ theorem public_finish_entry {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
         .ok (d.wrap, setD h ds { d with last_flush := Z_FINISH }) := by
       simp only [rdD_eq, setD_dstates_same]
     unfold publicZlibHeader
-    simp only [bind_app, pure_app, getStatus, getWrap,
+    simp only [bind_app, getStatus, getWrap,
       show (FINISH_STATE == INIT_STATE) = false from rfl, Bool.false_and,
       Bool.false_eq_true, ite_false, tail]
   obtain ⟨rank, ranked⟩ := rank_legal_last_flush d.last_flush lower upper
@@ -51,7 +51,7 @@ theorem public_finish_entry {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
   rw [public_deflate_source]
   simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
     show (Z_FINISH > Z_BLOCK) = False from by decide, show (Z_FINISH < 0) = False from by decide,
-    decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
+    decide_false, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
     show (z.next_out == .null) = false from beq_eq_false_iff_ne.mpr out,
@@ -121,7 +121,7 @@ theorem public_finished_headers {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStr
       Bool.false_eq_true, ite_false, rdD_eq, good.live.hs, wrap,
       show (-1 : Int32) ≤ 0 from by decide, ite_true]
   unfold publicZlibHeader
-  simp only [bind_app, pure_app, rdD_eq, good.live.hs, status,
+  simp only [bind_app, rdD_eq, good.live.hs, status,
     show (FINISH_STATE == INIT_STATE) = false from rfl,
     Bool.false_and, Bool.false_eq_true, ite_false, tail]
 

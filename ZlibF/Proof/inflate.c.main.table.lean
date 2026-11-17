@@ -72,7 +72,7 @@ theorem inflate_TABLE_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
     obtain ⟨h1, h2, h3⟩ := hleave e
     refine ⟨h2, h1, h3, ?_⟩
     unfold inflate_TABLE
-    simp [runX_bind, hrun, e, runX_throw]
+    simp [runX_bind, hrun, e]
   · intro e
     have h14 : 14 ≤ l'.bits.toNat := hok e
     obtain ⟨hB1, hS1, hsub⟩ := DROPBITS_inv B' 14 h14 (by decide)
@@ -85,7 +85,7 @@ theorem inflate_TABLE_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
       refine ⟨i, hi, ?_⟩
       have hbm2 : badMode c "too many length or distance symbols" (setI h zs (tableCounts s l'.hold)) =
           .ok ((), tcBadHeap h r zs z (tableCounts s l'.hold) i) := by
-        rw [hbm]; simp [tcBadHeap, hz]
+        rw [hbm]; simp [tcBadHeap]
       unfold inflate_TABLE
       rw [hc, hdrop]
       have hbad' : (286 : UInt32) < (l'.hold.toUInt32 &&& 31) + 257 ∨ (30 : UInt32) < ((l'.hold >>> 5).toUInt32 &&& 31) + 1 := by
@@ -99,6 +99,6 @@ theorem inflate_TABLE_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : N
       unfold inflate_TABLE
       rw [hc, hdrop]
       simp [runX_bind, runX_lift, ldI_eq, hs, hrun, e, tcBITS5_run, tcBITS4_run, tcDROP5_run, tcDROP4_run, wrI_eq, tableCounts,
-        hn', runX_pure, setI_setI]
+        hn', setI_setI]
 
 end Zlib.Inflate.Proofs

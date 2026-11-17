@@ -139,8 +139,8 @@ theorem gz_error_errno_copy_run {h : Heap} {i : Nat} {s : GzState} {msg : BPtr}
   have hn := cstring_nonnull he
   unfold gz_error
   simp [bind_app, ldS_eq, updS_eq, hs, hm, hn, hpLen, heLen, hpLenReady, heLenReady,
-    hsum, hnum, hxs, hes, hlenmod, hmalloc, hready, error_format_literal, error_separator_literal,
-    hprint, copiedMessageHeap, messageChars, copiedMessageState, preMessageHeap,
+    hsum, hxs, hes, hlenmod, hmalloc, error_format_literal, error_separator_literal,
+    copiedMessageHeap, messageChars, copiedMessageState, preMessageHeap,
     mallocMessageHeap, messageReadyHeap, Z_ERRNO, Z_MEM_ERROR, setS, upd_upd]
   dsimp only [messageLength]
   rw [hprint]
@@ -149,7 +149,7 @@ theorem gz_error_errno_copy_run {h : Heap} {i : Nat} {s : GzState} {msg : BPtr}
 /-- Actual message malloc preserves every original live allocation. Only its
 new message root is created; the existing gzip record remains the same object. -/
 theorem ready_message_live {h : Heap} {i : Nat} {s : GzState} {xs es : List UInt8}
-    (hs : h.gzstates i = some s) (hf : Fresh h) :
+    (hs : h.gzstates i = some s) (_hf : Fresh h) :
     LiveChange h (messageReadyHeap h i s xs es) (fun b => b = h.nextBlk) (fun _ => False) := by
   intro j
   by_cases ht : j = h.nextBlk

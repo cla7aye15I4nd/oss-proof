@@ -87,10 +87,10 @@ theorem common_header_one_output_encoding {h : Heap} {r : ZStreamRef} {ds pb ob 
   have first : (levelHeaderBytes d.level buf)[0]? = some (120 : UInt8) := by
     have msb : (levelHeaderWord d.level >>> 8).toUInt8 = 120 := by
       rcases level_header_word_cases d.level with eq | eq | eq | eq <;> rw [eq] <;> rfl
-    simp [levelHeaderBytes, Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds,
+    simp [levelHeaderBytes, Array.set!_eq_setIfInBounds,
       show 0 < buf.size by omega, msb]
   have second : (levelHeaderBytes d.level buf)[1]? = some ((levelHeaderWord d.level &&& 0xff).toUInt8) := by
-    simp [levelHeaderBytes, Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds,
+    simp [levelHeaderBytes, Array.set!_eq_setIfInBounds,
       show 1 < buf.size by omega]
   have getOutput : (levelHeaderOneHeap h r ds pb ob oo z d buf output).bytes ob =
       some (copyRange output (levelHeaderBytes d.level buf) oo 0 1) := by

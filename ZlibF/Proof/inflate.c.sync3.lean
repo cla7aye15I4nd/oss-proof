@@ -61,7 +61,7 @@ theorem syncOkHeap_bytes_ne (H : Heap) (r : ZStreamRef) (zs : Nat) (z : ZStream)
   · have := freeWin_bytes_ne (setI (r.put (resetHeap H s) (syncOkStream z s)) zs (syncOkState zs s)) (syncC zs s).window
       (by rw [(syncC_field zs s).2.1]; exact hrp)
     simpa [hrh.1, hrh.2] using this
-  · simpa [hrh.1, hrh.2]
+  · simp [hrh.1, hrh.2]
 
 theorem good_freeBuf {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState} {nb : Nat}
     (hG : Good H r zs z st) (hn : ∀ w, st.window = .ref (.blk w) 0 → w ≠ nb) :

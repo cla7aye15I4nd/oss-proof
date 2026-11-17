@@ -42,7 +42,7 @@ theorem dispatch_spec_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     obtain ⟨b, a, z', d', run, i', bu, fr, m⟩ := rle_spec_of safe inv entry flush l0 s3
     refine ⟨b, a, z', d', ?_, i', bu, fr, Or.inr ⟨l0, m⟩⟩
     simp only [C.run] at run
-    simp [dispatch, l0', hf', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
+    simp [dispatch, l0', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
   have rl' : (d.strategy == Z_RLE) = false := by simp [rl]
   have s3 : d.strategy.toInt ≠ 3 := fun e => rl (Int32.toInt_inj.mp (by rw [e]; rfl))
   have nz : d.level.toInt ≠ 0 := fun e => l0 (Int32.toInt_inj.mp (by simpa using e))
@@ -55,7 +55,7 @@ theorem dispatch_spec_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
   · obtain ⟨b, a, z', d', run, i', bu, fr, m⟩ := slow_spec_of safe inv entry flush ⟨by omega, s2, s3⟩
     refine ⟨b, a, z', d', ?_, i', bu, fr, Or.inr ⟨l0, m⟩⟩
     simp only [C.run] at run
@@ -65,7 +65,7 @@ theorem dispatch_spec_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e | e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
 
 /-- **M19**: the dispatch with a full output, in the form of `StrategyGaps.noRoom`. -/
 theorem gaps_noRoom {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}

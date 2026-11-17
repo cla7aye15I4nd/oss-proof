@@ -163,7 +163,7 @@ theorem FastInputPacket.dolenLen_four_byte_exact_frame
     have run : C.run (Zlib.Inffast.Proofs.dolenLen c l) h =
         .ok (result, after) := by
       unfold Zlib.Inffast.Proofs.dolenLen
-      simp only [hasExtra, ite_false]
+      simp only [hasExtra]
       exact refillRun
     exact ⟨result, after, k, run, out, lower, frame⟩
 

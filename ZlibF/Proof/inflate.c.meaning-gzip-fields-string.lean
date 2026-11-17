@@ -131,7 +131,7 @@ theorem byteAt_eq {A : Array UInt8} {i : Nat} (lt : i < A.size) : A[i] = byteAt 
 
 theorem input_getD {A : Array UInt8} {off n i : Nat} (lt : i < n) :
     ((A.toList.drop off).take n).getD i 0 = byteAt A (off + i) := by
-  simp [byteAt, List.getD_eq_getElem?_getD, List.getElem?_take, lt, List.getElem?_drop]
+  simp [byteAt, List.getD_eq_getElem?_getD, lt, List.getElem?_drop]
 
 theorem uint8_toUInt32_ne {b : UInt8} : (b.toUInt32 != 0) = (b != 0) := by
   have : b.toUInt32 = 0 ↔ b = 0 := by
@@ -238,7 +238,7 @@ theorem strLoop_run {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStrea
       have lt : l'.copy.toNat < l.have_.toNat := by omega
       have succ : (l'.copy + 1).toNat = l'.copy.toNat + 1 := by
         rw [UInt32.toNat_add]
-        simp only [UInt32.toNat_one, UInt32.size]
+        simp only [UInt32.toNat_one]
         omega
       refine ⟨.ok false,
         { l' with len := (byteAt A (off + l'.copy.toNat)).toUInt32, copy := l'.copy + 1 }, h', ?_,

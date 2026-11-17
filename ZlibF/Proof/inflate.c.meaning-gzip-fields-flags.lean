@@ -15,7 +15,7 @@ open C Zlib.Inflate Zlib.Inflate.Proofs Zlib.Inflate.Spec ZlibF.Spec ZlibF.Spec.
 open Zlib.Inflate.Proofs.MeaningFields
 set_option autoImplicit false
 
-theorem flags_word {hold : UInt64} {n : Nat} (v : hold.toNat = n) (small : n < 65536) :
+theorem flags_word {hold : UInt64} {n : Nat} (v : hold.toNat = n) (_small : n < 65536) :
     hold.toUInt32.toInt32 = Int32.ofNat n := by
   apply Int32.toBitVec_inj.mp
   simp [UInt32.toBitVec_toInt32]

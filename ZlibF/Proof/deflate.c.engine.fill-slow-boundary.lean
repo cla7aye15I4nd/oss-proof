@@ -72,7 +72,7 @@ theorem fill_window_resume_slow_read {h : Heap} {r : ZStreamRef} {ds origin io :
   · rw [fields]
     exact wrap
   · intro i before
-    simp only [extended, extendInput, before, if_true]
+    simp only [extended, extendInput, before, ite_true]
   · by_cases enough : 262 ≤ result.lookahead.toNat
     · exact Or.inl enough
     · right
@@ -180,7 +180,7 @@ theorem slide_slow_boundary {h : Heap} {r : ZStreamRef} {ds origin : Nat}
   have symbolS := symbol_boundary_of_ledger goodS pendingS dataS (slide_ledger ledger) balanceS
   refine ⟨w, p, q, wa, pa, qa, pa', qa', env, sizeP, sizeH, run, goodS, chainsS, rangeS,
     slide_lazy_history boundary.good env.win env.wbytes boundary.range taken boundary.history,
-    ?_, symbolS, w, slideWindow d wa, env.win, by simp [hs, slideHeap], ?_, ?_⟩
+    ?_, symbolS, w, slideWindow d wa, env.win, by simp [slideHeap], ?_, ?_⟩
   · intro _
     change 1 ≤ (slideState d).strstart.toNat
     omega

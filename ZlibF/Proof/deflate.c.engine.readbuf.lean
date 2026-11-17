@@ -172,7 +172,7 @@ theorem read_buf_ok {h : Heap} {zr dsid ib bb io bo : Nat} {z : ZStream} {d : De
     unfold zwr
     simp only [bind_app, ldZStream_tab hs3]
     rw [stZStream_tab hs3]
-    simp [rbAdv, rbAdvF, hn3]
+    simp [rbAdv, rbAdvF]
   have f0 : zrd (some (.tab zr)) (·.avail_in) h = .ok (z.avail_in, h) := by simp [zrd, e1]
   have f7 : zrd (some (.tab zr)) (·.adler) H2 = .ok (z.adler, H2) := by simp [zrd, ldZStream_tab hs2, hz1]
   have hLle32 : L.toNat < 2 ^ 32 := L.toNat_lt
@@ -188,7 +188,7 @@ theorem read_buf_ok {h : Heap} {zr dsid ib bb io bo : Nat} {z : ZStream} {d : De
         bytes := upd h.bytes bb (some (copyRange ba ia bo io L.toNat)),
         streams := upd h.streams zr (some (rbStream z L ib io adler')) } := by
     intro adler' H3 hH3
-    simp [hH3, hH2, hH1, hz1, upd_upd, rbStream, rbAdv, rbDec, rbSetAd]
+    simp [hH3, hH2, hH1, hz1, upd_upd, rbStream, rbAdv]
   have htail : ∀ (adler' : UInt64) (H3 : Heap), H3 = { H2 with streams := upd H2.streams zr (some { z1 with adler := adler' }) } →
       zrd (some (.tab zr)) (·.next_in) H3 = .ok (Ptr.ref (BRef.blk ib) io, H3) ∧
       padd (Ptr.ref (BRef.blk ib) io) L.toNat H3 = .ok (Ptr.ref (BRef.blk ib) (io + L.toNat), H3) ∧
@@ -208,7 +208,7 @@ theorem read_buf_ok {h : Heap} {zr dsid ib bb io bo : Nat} {z : ZStream} {d : De
     refine ⟨r, ?_, ?_, ?_, ?_⟩
     · rw [read_buf_eq (Ptr.ref (BRef.blk bb) bo) size hz, ← hLd]; unfold rbCore
       have hb1t : (d.wrap == 1) = true := by simpa using hw1
-      simp only [bind_app, pure_app, hL0b, M_ite_app, Bool.false_eq_true, ↓reduceIte, e2, e3, e4, e5,
+      simp only [bind_app, pure_app, hL0b, Bool.false_eq_true, ↓reduceIte, e2, e3, e4, e5,
         castDeflateState_ok, e6, hb1t, f7, e7, hcheck r H3 hH3, (htail r H3 hH3).1, (htail r H3 hH3).2.1, (htail r H3 hH3).2.2]
     · intro _ hc
       have hv : Zlib.Adler32.Proofs.seg (copyRange ba ia bo io L.toNat) bo L.toNat = Zlib.Adler32.Proofs.seg ia io L.toNat :=
@@ -244,7 +244,7 @@ theorem read_buf_ok {h : Heap} {zr dsid ib bb io bo : Nat} {z : ZStream} {d : De
       · rw [read_buf_eq (Ptr.ref (BRef.blk bb) bo) size hz, ← hLd]; unfold rbCore
         have hb1 : (d.wrap == 1) = false := by simpa using hw1
         have hb2t : (d.wrap == 2) = true := by simpa using hw2
-        simp only [bind_app, pure_app, hL0b, M_ite_app, Bool.false_eq_true, ↓reduceIte, e2, e3, e4, e5,
+        simp only [bind_app, pure_app, hL0b, Bool.false_eq_true, ↓reduceIte, e2, e3, e4, e5,
           castDeflateState_ok, e6, hb1, hb2t, f7, e7, hcheck r H3 hH3, (htail r H3 hH3).1, (htail r H3 hH3).2.1, (htail r H3 hH3).2.2]
       · intro h1; exact absurd h1 hw1
       · intro _; rw [hrd, hseg]
@@ -256,7 +256,7 @@ theorem read_buf_ok {h : Heap} {zr dsid ib bb io bo : Nat} {z : ZStream} {d : De
         have hH3 : H2 = { H2 with streams := upd H2.streams zr (some { z1 with adler := z.adler }) } := by
           have : ({ z1 with adler := z.adler } : ZStream) = z1 := by rw [hz1]
           rw [this, upd_self _ _ _ hs2]
-        simp only [bind_app, pure_app, hL0b, M_ite_app, Bool.false_eq_true, ↓reduceIte, e2, e3, e4, e5,
+        simp only [bind_app, pure_app, hL0b, Bool.false_eq_true, ↓reduceIte, e2, e3, e4, e5,
           castDeflateState_ok, e6, hb1, hb2]
         have ht := htail z.adler H2 hH3
         simp only [ht.1, ht.2.1, ht.2.2]

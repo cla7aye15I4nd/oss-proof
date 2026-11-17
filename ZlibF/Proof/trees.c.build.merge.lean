@@ -512,7 +512,7 @@ theorem btParentState_sm (tk : TK) (d : DeflateState) (n m node a b : Int32)
     (hn : NV (tk.arr d) d.depth n) (hm : NV (tk.arr d) d.depth m)
     (hp : NV (tk.arr d) d.depth node)
     (ha : 0 ≤ a.toInt) (hap : a.toInt < node.toInt)
-    (hb : 0 ≤ b.toInt) (hbp : b.toInt < node.toInt) :
+    (_hb : 0 ≤ b.toInt) (hbp : b.toInt < node.toInt) :
     sm (tk.arr (btParentState tk d n m node)) (btParentState tk d n m node).depth a b =
       sm (tk.arr d) d.depth a b := by
   have han : a.toInt.toNat ≠ node.toInt.toNat := by omega
@@ -845,7 +845,7 @@ theorem btParentState_dad (tk : TK) (d : DeflateState) (n m node : Int32)
   dsimp only
   rw [merge_setDad_dad _ _ _ _ (by simp only [size_set!]; exact hnT),
     merge_setDad_dad _ _ _ _ (by simp only [size_set!]; exact hmT), merge_setFreq_dad _ _ _ _ hpT]
-  by_cases hin : i = n.toInt.toNat <;> by_cases him : i = m.toInt.toNat <;> simp only [hin, him, ite_true, ite_false, or_self, true_or, false_or, or_true, ite_self]
+  by_cases hin : i = n.toInt.toNat <;> by_cases him : i = m.toInt.toNat <;> simp only [hin, him, ite_true, ite_false, or_self, true_or, or_true, ite_self]
 
 /-- The queue representation leaves room for the final checked root store.
 This includes the largest admitted alphabet and leaf count. -/

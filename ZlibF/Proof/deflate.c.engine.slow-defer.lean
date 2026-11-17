@@ -38,8 +38,8 @@ theorem slow_defer_run {h : Heap} {ds : Nat} {d : DeflateState}
       .ok ({ st with hash_head := candidate, bflush := false }, setD h ds (deferOne d)) := by
   unfold slowDecision
   simp only [bind_app, ldDeflateState_tab state, previous,
-    show ((2 : UInt32) ≥ MIN_MATCH_u) = False from by decide, Bool.false_and,
-    Bool.false_eq_true, if_false, available]
+    show ((2 : UInt32) ≥ MIN_MATCH_u) = False from by decide,
+    available]
   change (wr (some (.tab ds)) deferOne >>= fun _ =>
     pure { st with hash_head := candidate, bflush := false }) h = _
   simp [wrD_eq, state, deferOne, advanceOne]
@@ -51,7 +51,7 @@ theorem slow_defer_branch {h : Heap} {ds : Nat} {d : DeflateState}
     slowDecision (some (.tab ds)) flush st candidate h =
       .ok ({ st with hash_head := candidate, bflush := false }, setD h ds (deferOne d)) := by
   unfold slowDecision
-  simp only [bind_app, ldDeflateState_tab state, branch, Bool.false_eq_true, if_false, available]
+  simp only [bind_app, ldDeflateState_tab state, branch, Bool.false_eq_true, ite_false, available]
   change (wr (some (.tab ds)) deferOne >>= fun _ =>
     pure { st with hash_head := candidate, bflush := false }) h = _
   simp [wrD_eq, state, deferOne, advanceOne]
@@ -95,7 +95,7 @@ theorem slow_body_first_defer {h : Heap} {r : ZStreamRef} {ds w p q top : Nat}
     change ¬ d.lookahead.toNat < 262
     omega
   rw [slow_body_source]
-  simp only [bind_app, rdD_eq, good.live.hs, enough, if_false, search]
+  simp only [bind_app, rdD_eq, good.live.hs, enough, ite_false, search]
   exact slow_defer_run goodF.live.hs previous avail flush st _
 
 end Zlib.Deflate.Engine.Proofs

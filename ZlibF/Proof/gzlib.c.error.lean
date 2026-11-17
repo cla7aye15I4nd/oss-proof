@@ -181,6 +181,6 @@ theorem gz_reset_safe {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) :
     have := Shape.owns (shape_setS (h := ({ h with bytes := upd h.bytes mb none } : Heap)) (gs := gs) (s0 := s) hG.hs (resetRec s)) hO1
     intro b
     rw [this b]
-    simp [hm, eq_comm]
+    simp [eq_comm]
 
 end Zlib.Gzlib.Proofs

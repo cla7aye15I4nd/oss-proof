@@ -176,7 +176,7 @@ theorem init_cases {h : Heap} (fresh : Fresh h) (uniq : Uniq h) (globals : Libra
   let hp := r.put H zp
   let lev := levelValue level
   have hshape := shape_put hz zp
-  have hfP : Fresh hp := hshape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := hshape.fresh (by simp) hf
   have huP : Uniq hp := hshape.uniq hu
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha

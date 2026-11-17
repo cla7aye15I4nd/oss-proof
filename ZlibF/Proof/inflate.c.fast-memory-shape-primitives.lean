@@ -79,8 +79,8 @@ theorem fast_byte_view_put_shape {h : Heap} {ref : BRef} {old array : Array UInt
     | some s =>
       intro b
       by_cases same : b = id
-      · subst b; simp [Shape, Space.put, state]
-      · simp [Shape, Space.put, state, upd_ne _ _ _ _ same]
+      · subst b; simp [Space.put, state]
+      · simp [Space.put, state, upd_ne _ _ _ _ same]
   | st_dist_code => simp [Space.ro] at write
   | st_length_code => simp [Space.ro] at write
 

@@ -114,7 +114,7 @@ theorem dolen_pass_led (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt
     (l : L) (i o s d k : Nat) (hls : LS e l i o) (hAsz : A.size = e.A0.size)
     (ho : o + 258 ≤ e.o0 + e.sm0.avail_out.toNat) (hbroke : l.broke = false)
     (hs6 : s + 6 ≤ e.i0 + e.sm0.avail_in.toNat) (hsi : s ≤ i) (hT : i ≤ s + 2)
-    (hb15 : 15 ≤ l.bits.toNat + d) (hbi2 : i = s + 2 → 16 ≤ l.bits.toNat + d)
+    (_hb15 : 15 ≤ l.bits.toNat + d) (hbi2 : i = s + 2 → 16 ≤ l.bits.toNat + d)
     (hhere : l.here = .ref e.rl k) (hk : k < e.LCA.size)
     (hEb : (e.LCA.getD k default).bits.toNat ≤ l.bits.toNat)
     (hEd : (e.LCA.getD k default).bits.toNat + d ≤ 15)
@@ -135,7 +135,7 @@ theorem dolen_pass_led (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : UInt
   have hld : OkOn (e.heap A msg m) (Ptr.load l.here) (e.LCA.getD k default) := by
     rw [hhere, ← hkE]; exact Ptr.load_ok (e.heap_cget_LCA A msg m) hk
   have hEbn : (e.LCA.getD k default).bits.toUInt32.toNat = (e.LCA.getD k default).bits.toNat := toNat32 _
-  have hEb64 : (e.LCA.getD k default).bits.toUInt32.toUInt64.toNat = (e.LCA.getD k default).bits.toNat := by simp [toNat32]
+  have hEb64 : (e.LCA.getD k default).bits.toUInt32.toUInt64.toNat = (e.LCA.getD k default).bits.toNat := by simp
   have hls1 := hls.dropL (e.LCA.getD k default).bits.toUInt32 (by omega) (by omega)
   have hsub : (l.bits - (e.LCA.getD k default).bits.toUInt32).toNat =
       l.bits.toNat - (e.LCA.getD k default).bits.toNat := by
@@ -293,7 +293,7 @@ theorem dolenLoop_step_led (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e.ol
         · exact False.elim (h.2 hlink.2.2)
     have hleaf := hlk.2.2.2.2 j hjlt
     have hpj : 1 ≤ (e.LCA.getD (e.ol + E0.val.toNat + j) default).bits.toNat := by
-      rw [if_pos hlink] at hp0; exact hp0 j hjlt
+      rw [ite_eq_left hlink] at hp0; exact hp0 j hjlt
     have hk2 : e.ol + E0.val.toNat + j < e.LCA.size := by have := hlk.2.2.2.1; omega
     obtain ⟨l2, h2, e2, hq2⟩ := dolen_pass_led hc A msg m l1 i o s E0.bits.toNat (e.ol + E0.val.toNat + j)
       hls1 hAsz ho hbr hs6 hsi hT (by omega) (by intro hi; have := hbi2 hi; omega)
@@ -312,7 +312,7 @@ theorem dolenLoop_step_led (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e.ol
       omega
   · have c1 : (fun l : L => (pure (l.againL, l) : M (Bool × L))) l1 h1 =
         .ok ((false, l1), h1) := by simp [StepPost.againL hend]
-    have hpE : 1 ≤ E0.bits.toNat := by rw [if_neg hnl] at hp0; exact hp0
+    have hpE : 1 ≤ E0.bits.toNat := by rw [ite_eq_right hnl] at hp0; exact hp0
     refine Wp.of_eq (cdoWhile_one e1 c1) ⟨hend, fun hnb i' hi' => ?_⟩
     have := hled hnb i' hi'
     omega
@@ -439,7 +439,7 @@ theorem fast_loop_wp_consumes (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e
     cases hstop : l1.broke with
     | true =>
       refine Or.inl ⟨l1, h1, ?_, i', o', A', msg', m', hl', hoend, hAsz, hh, hft, ?_, ?_, ?_, ?_, ?_⟩
-      · simp [hstop]
+      · simp
       · rcases hbreak hstop with hm | hm
         · exact Or.inr (Or.inl ⟨hm, htype' hm⟩)
         · exact Or.inr (Or.inr hm)

@@ -152,7 +152,7 @@ theorem init2_inv {h after : Heap} {r : ZStreamRef} {z : ZStream} {version : BPt
   let zp := preparedStream z
   let hp := r.put h zp
   have hshape := shape_put get zp
-  have hfP : Fresh hp := hshape.fresh (by simp [hp]) fresh
+  have hfP : Fresh hp := hshape.fresh (by simp) fresh
   have huP : Uniq hp := hshape.uniq uniq
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same get _
   have haP : DefAlloc zp := prepared_allocators allocators
@@ -175,7 +175,7 @@ theorem init2_inv {h after : Heap} {r : ZStreamRef} {z : ZStream} {version : BPt
     by_cases first : h.allocOk h.nalloc = false
     · simp only [first, ite_true] at facts
       exact absurd facts.1 (by decide)
-    · simp only [first, ite_false, Bool.false_eq_true] at facts
+    · simp only [first] at facts
       by_cases all : (List.range 5).all (fun j => h.allocOk (h.nalloc + j)) = true
       · have allok : ∀ j, j < 5 → h.allocOk (h.nalloc + j) = true := by
           simpa only [List.all_eq_true, List.mem_range] using all

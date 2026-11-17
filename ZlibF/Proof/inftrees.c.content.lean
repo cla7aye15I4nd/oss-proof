@@ -248,7 +248,7 @@ theorem itA_content_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes 
         fun _ => hacc, fun h => absurd (show (0 : Int32) = 1 from h) (by decide),
         fun h => absurd (show (0 : Int32) = -1 from h) (by decide)⟩
       · rw [wput_self P.hgw]
-      · simp [Array.size_set!]
+      · simp
       · intro x hx
         have h1 : oc + 1 ≠ x := by omega
         have h2 : oc ≠ x := by omega

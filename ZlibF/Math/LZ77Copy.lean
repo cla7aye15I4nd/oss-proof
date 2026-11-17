@@ -35,15 +35,15 @@ private theorem written_set_append (bytes : Array UInt8) (offset count : Nat)
   by_cases hi : i < count
   · have hne : offset ≠ offset - count + i := by omega
     simp [hi, show i < count + 1 by omega, written_get, Array.set!_eq_setIfInBounds,
-      Array.getElem?_setIfInBounds, hne]
+      hne]
   · by_cases he : i = count
     · subst i
       have hs : offset - count + count = offset := by omega
       simp [show ¬ count < count by omega, show count < count + 1 by omega, hs,
-        Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, hb]
+        Array.set!_eq_setIfInBounds, hb]
     · have hn : ¬ i < count + 1 := by omega
       have hz : i - count ≠ 0 := by omega
-      simp [hi, hn, List.getElem?_singleton, hz]
+      simp [hi, hn, hz]
 
 private theorem output_source (dict : List UInt8) (bytes : Array UInt8)
     (offset count dist : Nat) (hc : count ≤ offset) (hb : offset ≤ bytes.size)

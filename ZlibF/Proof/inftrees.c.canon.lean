@@ -433,7 +433,7 @@ theorem count_take_lt (ls : List Nat) {s l : Nat} (hs : s < ls.length) (hls : ls
   rw [List.drop_eq_getElem_cons hs] at hsplit
   have : ls[s] = l := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hs] at hls; exact hls
-  simp [this, List.count_cons] at hsplit
+  simp [this] at hsplit
   omega
 
 /-- Counting sort position: symbol `s` of length `l` sits at
@@ -923,7 +923,7 @@ theorem H_mod_root (ls : List Nat) {root j : Nat} (hj : j < nz ls) (hr : root �
   congr 2; omega
 
 /-- `huff >> root` of a long code. -/
-theorem H_div_root (ls : List Nat) {root j : Nat} (hj : j < nz ls) (hr : root ≤ L ls j) :
+theorem H_div_root (ls : List Nat) {root j : Nat} (_hj : j < nz ls) (hr : root ≤ L ls j) :
     H ls j / 2 ^ root = rev (L ls j - root) (cv ls j % 2 ^ (L ls j - root)) := by
   unfold H
   have hs := rev_split root (L ls j - root) (cv ls j)

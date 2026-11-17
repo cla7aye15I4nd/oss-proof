@@ -50,7 +50,7 @@ def clSet (s : InflateState) (v : UInt16) : InflateState :=
   { s with «have» := s.«have» + 1, lens := s.lens.set! (orderNat s.«have».toNat) v }
 
 /-- `lens[order[have++]]` on the state record: inside `lens`. -/
-theorem lens_store {i : Nat} {h : Heap} {s : InflateState} (hs : h.istates i = some s)
+theorem lens_store {i : Nat} {h : Heap} {s : InflateState} (_hs : h.istates i = some s)
     (hlt : s.«have».toNat < 19) (size : s.lens.size = 320) (v : UInt16) :
     OkOn (setI h i { s with «have» := s.«have» + 1 })
       (Ptr.add (Ptr.ref (WRef.istate_lens i) 0) ((order[s.«have».toNat]!).toNat : Int))

@@ -67,10 +67,10 @@ theorem inflateGetDictionary_copy_general {h : Heap} {r : ZStreamRef} {zs : Nat}
   have hc : (st.whave != 0 && (Ptr.ref rd off : BPtr) != .null) = true := by simp [hpos]
   unfold OkOn at hadd hsub'
   unfold inflateGetDictionary
-  simp only [bind_app, pure_app, ldI_eq, ldZ_eq, hL.hz, hL.zst, castI, hL.hs, stateCheck_live hL,
-    bne_iff_ne, ne_eq, hpos, not_false_eq_true, not_true_eq_false, ite_false, hc, hw, hfirst, hmem1, Ptr.noConfusion, true_and,
-    ite_true, hadd, hsub', hmem2, hput]
-  cases dl <;> simp [hsub] <;> exact (show _ from hput)
+  simp only [bind_app, ldI_eq, ldZ_eq, hL.hz, hL.zst, castI, hL.hs, stateCheck_live hL,
+    bne_iff_ne, ne_eq, not_true_eq_false, ite_false, hc, hw, hfirst, hmem1,
+    ite_true, hadd, hsub', hmem2]
+  cases dl <;> simp <;> exact (show _ from hput)
 
 theorem ring_copy_extract (D a : Array UInt8) (off wn wh : Nat)
     (hwn : wn ≤ wh) (ha : wh ≤ a.size) (hd : off + wh ≤ D.size) :
@@ -87,33 +87,33 @@ theorem ring_copy_extract (D a : Array UInt8) (off wn wh : Nat)
   have hs2 : min wh a.size = wh := Nat.min_eq_left ha
   have hs3 : min wn a.size = wn := Nat.min_eq_left (by omega)
   by_cases h0 : i < off
-  · simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs0, hs2, hs3,
+  · simp [Array.getElem?_append, Array.size_extract, hs0,
       h0, show ¬ off + wh - wn ≤ i by omega, show ¬ off ≤ i by omega, show i < D.size by omega]
   · by_cases h1 : i < off + (wh - wn)
     · have hx : wn + (i-off) < a.size := by omega
-      simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs0, hs2, hs3,
+      simp [Array.getElem?_append, Array.size_extract, hs0, hs2,
         h0, h1, show off ≤ i by omega, show ¬ off + wh - wn ≤ i by omega,
         show i - off < wh - wn by omega, getElem!_pos a (wn + (i-off)) hx]
     · by_cases h2 : i < off + wh
       · have hx : i - (off + (wh - wn)) < a.size := by omega
-        simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs0, hs2, hs3,
-          h0, h1, h2, show off ≤ i by omega, show off + wh - wn ≤ i by omega,
+        simp [Array.getElem?_append, Array.size_extract, hs0, hs2, hs3,
+          h0, show off + wh - wn ≤ i by omega,
           show i < off + wh - wn + wn by omega, show ¬ i - off < wh - wn by omega,
           show i - off - (wh - wn) < wn by omega,
           show i - (off + wh - wn) = i - off - (wh - wn) by omega,
           getElem!_pos a (i - off - (wh - wn)) (by omega)]
       · by_cases h3 : i < D.size
-        · simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs0, hs2, hs3,
-            h0, h1, h2, h3, show ¬ i < off + wh - wn + wn by omega,
+        · simp [Array.getElem?_append, Array.size_extract, hs0, hs2, hs3,
+            h0, h1, h3, show ¬ i < off + wh - wn + wn by omega,
             show ¬ i - off < wh - wn by omega,
             show ¬ i - off - (wh - wn) < wn by omega,
             show i - off - (wh - wn) - wn < D.size - (off + wh) by omega,
             show off + wh + (i - off - (wh - wn) - wn) = i by omega]
         · have hout : D[i]? = none := Array.getElem?_eq_none (by omega)
-          simp [Array.getElem?_append, Array.getElem?_extract, Array.size_extract, hs0, hs2, hs3,
-            h0, h1, h2, h3, show ¬ i < off + wh - wn + wn by omega,
+          simp [Array.getElem?_append, Array.size_extract, hs0, hs2, hs3,
+            h0, h1, h3, show ¬ i < off + wh - wn + wn by omega,
             show ¬ i - off < wh - wn by omega,
             show ¬ i - off - (wh - wn) < wn by omega,
-            show ¬ i - off - (wh - wn) - wn < D.size - (off + wh) by omega, hout]
+            show ¬ i - off - (wh - wn) - wn < D.size - (off + wh) by omega]
 
 end Zlib.Inflate.Proofs

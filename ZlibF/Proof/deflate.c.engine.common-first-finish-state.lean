@@ -49,7 +49,7 @@ theorem public_common_first_finish_encoding_state {h : Heap} {r : ZStreamRef} {d
     apply StreamReachable.step (call := .deflate (some r) Z_FINISH) (value := rc) reachable (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, default_finish_active_header boundary.good noHeader⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   have lower : -2 ≤ result.last_flush.toInt := by rcases lastP with eq | eq <;> rw [eq] <;> decide
   have upper : result.last_flush.toInt ≤ 5 := by rcases lastP with eq | eq <;> rw [eq] <;> decide
   have protocolA : CommonSlowFinishBoundary after r ds z' result config :=

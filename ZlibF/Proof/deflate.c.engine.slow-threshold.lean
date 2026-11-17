@@ -18,8 +18,8 @@ theorem slow_resume_short_body {h : Heap} {r : ZStreamRef} {ds : Nat}
       .ok ({ st with ret := some need_more }, h) := by
   have fill := fill_window_resume_no_input good input noSlide range padded
   rw [slow_body_source]
-  simp only [bind_app, rdD_eq, good.live.hs, short, if_true, fill, Z_NO_FLUSH,
-    show ((0 : Int32) == 0) = true from rfl, Bool.true_and]
+  simp only [bind_app, rdD_eq, good.live.hs, short, ite_true, fill, Z_NO_FLUSH,
+    show ((0 : Int32) == 0) = true from rfl]
   rfl
 
 set_option maxHeartbeats 1000000 in
@@ -105,8 +105,8 @@ theorem slow_call_prepend_fill {h after : Heap} {ds : Nat} {d df : DeflateState}
       deflate_slow_body (some (.tab ds)) flush {} after := by
     rw [slow_body_source]
     simp only [bind_app, rdD_eq, state, empty,
-      show (0 : UInt32) < MIN_LOOKAHEAD_u from by decide, if_true, fill,
-      result, ready, if_false, decide_false, Bool.false_and, Bool.false_eq_true,
+      show (0 : UInt32) < MIN_LOOKAHEAD_u from by decide, ite_true, fill,
+      result, ready, ite_false, decide_false, Bool.false_and, Bool.false_eq_true,
       show ¬ (df.lookahead == 0) = true from by
         simp only [beq_iff_eq]
         intro zero

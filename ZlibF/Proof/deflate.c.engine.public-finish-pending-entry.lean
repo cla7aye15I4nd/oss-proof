@@ -37,9 +37,9 @@ theorem public_pending_finish_continue {h middle : Heap} {r : ZStreamRef} {ds : 
     · simp [status]
   have checked := stateCheck_live good.live
   rw [public_deflate_source]
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     show (Z_FINISH > Z_BLOCK) = False from by decide, show (Z_FINISH < 0) = False from by decide,
-    decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
+    decide_false, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
     show (z.next_out == .null) = false from beq_eq_false_iff_ne.mpr out,
@@ -67,7 +67,7 @@ theorem public_pending_finish_exhausted {h middle : Heap} {r : ZStreamRef} {ds :
   rw [public_deflate_source]
   simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
     show (Z_FINISH > Z_BLOCK) = False from by decide, show (Z_FINISH < 0) = False from by decide,
-    decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
+    decide_false, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
     show (z.next_out == .null) = false from beq_eq_false_iff_ne.mpr out,
@@ -83,7 +83,7 @@ theorem public_busy_header_skip {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStr
       (publicDataTail (some r) (some (.tab ds)) Z_FINISH) h =
       publicDataTail (some r) (some (.tab ds)) Z_FINISH h := by
   unfold publicZlibHeader
-  simp only [bind_app, pure_app, rdD_eq, good.live.hs, status,
+  simp only [bind_app, rdD_eq, good.live.hs, status,
     show (BUSY_STATE == INIT_STATE) = false from rfl, Bool.false_and, Bool.false_eq_true, ite_false]
 
 end Zlib.Deflate.Engine.Proofs

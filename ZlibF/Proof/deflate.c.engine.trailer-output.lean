@@ -44,22 +44,22 @@ theorem public_finish_source {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream
     publicDataTail (some r) (some (.tab ds)) Z_FINISH h =
       publicFinishTail (some r) (some (.tab ds)) Z_FINISH h := by
   unfold publicDataTail publicFinishTail zlibTrailer
-  simp only [bind_app, pure_app, rdD_eq, hd, status,
+  simp only [bind_app, rdD_eq, hd, status,
     show (FINISH_STATE == GZIP_STATE) = false from rfl,
     show (FINISH_STATE == EXTRA_STATE) = false from rfl,
     show (FINISH_STATE == NAME_STATE) = false from rfl,
     show (FINISH_STATE == COMMENT_STATE) = false from rfl,
     show (FINISH_STATE == HCRC_STATE) = false from rfl,
     Bool.false_eq_true, ite_false, ldDeflateState_tab hd, zrd_eq, hz,
-    empty, look, show ((0 : UInt32) != 0) = false from rfl, BEq.rfl, Bool.not_true,
+    empty, look, show ((0 : UInt32) != 0) = false from rfl,
     show (FINISH_STATE != FINISH_STATE) = false from rfl,
     show (Z_FINISH != Z_FINISH) = false from rfl, Bool.and_false, Bool.false_or]
-  simp only [M_bind_assoc, M_pure_bind, Zlib.Trees.Proofs.merge_ite_bind, bind_app, pure_app, rdD_eq, hd]
+  simp only [M_bind_assoc]
 
 /-- After the real trailer is queued, the wrapper changes from 1 to -1.
 Its record update retains every representation and caller-buffer fact. -/
 theorem trailer_wrap_good {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (good : DGood h r ds z d) (wrap : d.wrap = 1) :
+    (good : DGood h r ds z d) (_wrap : d.wrap = 1) :
     DGood (setD h ds { d with wrap := -1 }) r ds z { d with wrap := -1 } := by
   have inv : DStInv h ds { d with wrap := -1 } :=
     { good.inv with
@@ -160,7 +160,7 @@ theorem zlib_trailer_publish {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
       show ¬ (1 : Int32) ≤ 0 from by decide, show ((1 : Int32) == 2) = false from rfl,
       write, flush, getWM, show (1 : Int32) > 0 from by decide,
       ite_true, negative, wrD_eq, goodM.live.hs]
-    simp only [bind_app, pure_app, rdD_eq, setD_dstates_same]
+    simp only [rdD_eq, setD_dstates_same]
     rfl
   exact ⟨produced, final, z', { result with wrap := -1 }, written, remaining, run,
     goodF, buffersF, account, (sizesE.trans sizesM).trans sizesF,

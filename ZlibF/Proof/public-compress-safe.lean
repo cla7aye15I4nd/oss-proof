@@ -118,7 +118,7 @@ theorem compress2_z_safety_gen (cr : CompressReach R) (call : GoalDeflateFor R) 
       let z0 : ZStream := { z with next_in := source, avail_in := 0, next_out := dest, avail_out := 0 }
       have globalsA : LibraryGlobals after := by
         have := frameI.1
-        simp only [LibraryGlobals, cHeap] at globals ⊢
+        simp only [LibraryGlobals] at globals ⊢
         rw [← this]; exact globals
       have notOwnK : ¬ DeflateOwned (h.nextBlk + 1) s h.nextBlk := by
         intro o; have := (ownedI h.nextBlk).1 o; simp only [cHeap] at this; omega
