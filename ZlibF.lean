@@ -91,7 +91,6 @@ import ZlibF.Proof.«inftrees.c.cover.root»
 import ZlibF.Proof.«inftrees.c.cover.group»
 import ZlibF.Proof.«inftrees.c.cover.fn»
 import ZlibF.Proof.«inftrees.c.cover.leaf»
-import ZlibF.Proof.«inftrees.c.cover.stmt»
 import ZlibF.Proof.«infback.c.macros»
 import ZlibF.Proof.«infback.c.room»
 import ZlibF.Proof.«infback.c.inv»
@@ -135,11 +134,6 @@ import ZlibF.Proof.«deflate.c.engine.lmcond»
 import ZlibF.Proof.«deflate.c.engine.lminner»
 import ZlibF.Proof.«deflate.c.engine.lmbody»
 import ZlibF.Proof.«deflate.c.engine.lmmain»
-import ZlibF.Proof.«deflate.c.engine.pos-chains»
-import ZlibF.Proof.«deflate.c.engine.lm-safe»
-import ZlibF.Proof.«deflate.c.engine.lm-pos»
-import ZlibF.Proof.«deflate.c.engine.insert-pos»
-import ZlibF.Proof.«deflate.c.engine.fill-insert-pos»
 import ZlibF.Proof.«deflate.c.engine.readbuf»
 import ZlibF.Proof.«infback.c.pure»
 import ZlibF.Proof.«infback.c.wf»
@@ -152,7 +146,6 @@ import ZlibF.Proof.gzfs
 import ZlibF.Proof.Api.Compress
 import ZlibF.Proof.Api.Deflate
 import ZlibF.Proof.Api.Concrete
-import ZlibF.Proof.Api.CompressBoundary
 import ZlibF.Proof.Api.CompressFailure
 import ZlibF.Proof.Api.Inflate
 
@@ -335,9 +328,7 @@ import ZlibF.Proof.«deflate.c.engine.block-protocol»
 
 import ZlibF.Proof.«deflate.c.engine.ordinary-block-history»
 
-import ZlibF.Proof.«deflate.c.engine.ordinary-block-next-request»
 
-import ZlibF.Proof.«deflate.c.engine.ordinary-block-ordinary-contract»
 
 import ZlibF.Proof.«deflate.c.engine.public-busy-block-effects»
 
@@ -353,7 +344,6 @@ import ZlibF.Proof.«deflate.c.engine.block-request-contract»
 
 import ZlibF.Proof.«deflate.c.engine.ordinary-block-request-contract»
 
-import ZlibF.Proof.«deflate.c.engine.ordinary-block-full-contract»
 import ZlibF.Proof.«trees.c.empty-stored-marker»
 import ZlibF.Proof.«deflate.c.engine.empty-bits-boundary»
 import ZlibF.Proof.«deflate.c.engine.empty-output-prepared»
@@ -441,7 +431,6 @@ import ZlibF.Proof.«deflate.c.engine.no-flush-stream-encoding»
 import ZlibF.Proof.«deflate.c.engine.raw-prefix»
 import ZlibF.Proof.«deflate.c.engine.public-no-flush-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-busy-no-flush-encoding»
-import ZlibF.Proof.«deflate.c.engine.public-pending-encoding»
 import ZlibF.Proof.«deflate.c.engine.body-ready-phase»
 import ZlibF.Proof.«deflate.c.engine.loop-ready-prefix»
 import ZlibF.Proof.«deflate.c.engine.finish-ready-stream-encoding»
@@ -449,11 +438,8 @@ import ZlibF.Proof.«deflate.c.engine.no-flush-ready-stream-encoding»
 import ZlibF.Proof.«deflate.c.engine.raw-prefix-ready»
 import ZlibF.Proof.«deflate.c.engine.public-no-flush-ready-encoding»
 import ZlibF.Proof.«deflate.c.engine.header-encoding»
-import ZlibF.Proof.«deflate.c.engine.public-first-no-flush-encoding»
 import ZlibF.Math.DeflateByteEncoding
 import ZlibF.Proof.«deflate.c.engine.header-pending-encoding»
-import ZlibF.Proof.«deflate.c.engine.public-first-one-byte-encoding»
-import ZlibF.Proof.«deflate.c.engine.public-first-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-header-resume-encoding»
 import ZlibF.Math.DeflateChecksum
 import ZlibF.Proof.«deflate.c.engine.fill-checksum»
@@ -474,9 +460,7 @@ import ZlibF.Proof.«deflate.c.engine.raw-prefix-checksum»
 import ZlibF.Proof.«deflate.c.engine.public-no-flush-checksum»
 import ZlibF.Proof.«deflate.c.engine.public-busy-no-flush-checksum»
 import ZlibF.Proof.«deflate.c.engine.public-pending-checksum»
-import ZlibF.Proof.«deflate.c.engine.public-first-complete-checksum»
 import ZlibF.Proof.«deflate.c.engine.public-first-one-byte-checksum»
-import ZlibF.Proof.«deflate.c.engine.public-first-checksum»
 import ZlibF.Proof.«deflate.c.engine.public-header-resume-checksum»
 import ZlibF.Proof.«deflate.c.engine.refusal-checksum»
 import ZlibF.Proof.«deflate.c.engine.fill-input-ledger»
@@ -552,13 +536,8 @@ import ZlibF.Proof.«deflate.c.engine.public-first-nonfinal-complete-input»
 import ZlibF.Proof.«deflate.c.engine.public-first-nonfinal-input»
 import ZlibF.Proof.«deflate.c.engine.public-first-valid-one-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-header-nonfinal-input»
-import ZlibF.Proof.«deflate.c.engine.completion-protocol»
 import ZlibF.Proof.«deflate.c.engine.observed-history-contract»
-import ZlibF.Proof.«deflate.c.engine.empty-finish-strategy»
-import ZlibF.Proof.«deflate.c.engine.public-empty-finish»
-import ZlibF.Proof.«deflate.c.engine.finishing-budget»
 import ZlibF.Proof.«deflate.c.universal-window»
-import ZlibF.Proof.«deflate.c.universal-heads»
 import ZlibF.Proof.«trees.c.universal-stored»
 import ZlibF.Proof.«trees.c.universal-fixed»
 import ZlibF.Proof.«trees.c.universal-dynamic»
@@ -622,7 +601,6 @@ import ZlibF.Proof.«deflate.c.universal-call-markerstep»
 import ZlibF.Proof.«deflate.c.universal-call-strategy-pars»
 import ZlibF.Proof.«deflate.c.universal-call-strategy-range»
 import ZlibF.Proof.«deflate.c.universal-header-inv»
-import ZlibF.Proof.«deflate.c.universal-header-ops»
 import ZlibF.Proof.«deflate.c.universal-call-keep-base»
 import ZlibF.Proof.«deflate.c.universal-call-keep-checksum»
 import ZlibF.Proof.«deflate.c.universal-call-keep-steps»
@@ -632,7 +610,6 @@ import ZlibF.Proof.«deflate.c.universal-call-keep-publish»
 import ZlibF.Proof.«deflate.c.universal-call-keep-strategies»
 import ZlibF.Proof.«deflate.c.universal-call-keep-phases»
 import ZlibF.Proof.«deflate.c.universal-call-entry-all»
-import ZlibF.Proof.«deflate.c.universal-call-returns»
 import ZlibF.Proof.«deflate.c.universal-call-early»
 import ZlibF.Proof.«deflate.c.universal-call-bytes»
 import ZlibF.Proof.«deflate.c.universal-call-lift»
