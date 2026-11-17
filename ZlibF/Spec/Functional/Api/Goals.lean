@@ -4,8 +4,8 @@ import ZlibF.Spec.Functional.Api.Iface
 # API model: the proof goals
 
 Goals about the heap-free API models, as `def ... : Prop`. Concrete implementation targets
-are in `ZlibF/Spec/Public/`. A goal is proved when a theorem listed in
-`tests/audit/theorems.txt` has exactly the registered goal as its type.
+are in `ZlibF/Spec/Public/`. A goal is proved when `ZlibF/Results.lean` pairs it with a theorem
+whose type is exactly the goal.
 
 *Model goals* (`Goal.format_*`, `Goal.inflate_decodes`, ..., `Goal.gz_roundtrip`) do not mention the
 heap: they say that the model of `Inflate.lean`, `Deflate.lean`, `Compress.lean`, `Gz.lean` has
