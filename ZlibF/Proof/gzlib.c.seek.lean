@@ -103,10 +103,9 @@ def seekTail (file : GzFilePtr) (s : GzState) (pos : Int64) : G Int64 := do
     let n : UInt32 ← if (← GT_OFF s.x.«have») || u32ToI64 s.x.«have» > offset then pure offset.toUInt64.toUInt32
       else pure s.x.«have»
     updX state fun x => { x with «have» := x.«have» - n }
-    if n != 0 then
-      let s ← ldS state
-      let nx ← s.x.next.add n.toNat
-      updX state fun x => { x with next := nx }
+    let s ← ldS state
+    let nx ← s.x.next.add n.toNat
+    updX state fun x => { x with next := nx }
     let s ← ldS state
     let np ← i64add s.x.pos (u32ToI64 n)
     updX state fun x => { x with pos := np }
@@ -545,12 +544,12 @@ theorem seekTail_fwd {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h gs s) 
   · rw [ite_eq_left hc, ← hA hc]
     by_cases hz : nU = 0
     · subst hz
-      ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero]
+      ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero, Ptr.add_zero]
     · ggsimp [hs, hz, fn hz, fpos, fsk, skipFwd, ← hnU]
   · rw [ite_eq_right hc, ← hB hc]
     by_cases hz : nU = 0
     · subst hz
-      ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero]
+      ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero, Ptr.add_zero]
     · ggsimp [hs, hz, fn hz, fpos, fsk, skipFwd, ← hnU]
 
 
@@ -631,7 +630,7 @@ theorem seekTail_back {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h gs s)
       simp [i64add, i64chk, u32ToI64]
     have hGT : ¬ (u32ToI64 0 > q) := by rw [i64_gt_iff, u32ToI64_toInt, hqi']; simp; omega
     have hnt : ¬ t < 0 := by omega
-    ggsimp [hs, hm, hhow, c6, hrw, hl, fa0, fb0, fc0, hGT, skipFwd, fwdN, resetRec, padv_zero, GT_OFF_run, hnt, ← hqd]
+    ggsimp [hs, hm, hhow, c6, hrw, hl, fa0, fb0, fc0, hGT, skipFwd, fwdN, resetRec, padv_zero, GT_OFF_run, hnt, ← hqd, Ptr.add_zero]
 
 
 /-! ### The invariants after a seek -/
@@ -1045,7 +1044,7 @@ theorem seekTail_fwd_empty {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h 
   ggsimp [hs, hm, hhow, fa, c6, GT_OFF_run]
   rw [← hnUd, ite_eq_right hc]
   subst hz
-  ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero]
+  ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero, Ptr.add_zero]
 
 /-- `gzseek64` forward on a reader outside the raw area with nothing buffered: no fault, whatever `x.next` holds
 (dangling after a direct read and a `free` by the caller, R-4, or never written, R-3): the runtime accepts
