@@ -1,0 +1,13 @@
+--- a/ZlibF/Zlib/gzwrite.c.lean
++++ b/ZlibF/Zlib/gzwrite.c.lean
+@@ -384,9 +384,8 @@
+ /-- `local int gz_vacate(gz_statep state)` -/
+ def gz_vacate (state : GzStatePtr) : G Int32 := do
+   let strm := strmOf state
+-  -- if (strm->next_in == NULL || strm->next_in + strm->avail_in <= state->in + state->size) return 0;
++  -- if (strm->next_in + strm->avail_in <= state->in + state->size) return 0;
+   let z ← ldZ strm
+-  if z.next_in == .null then return 0
+   let s ← ldS state
+   let a ← z.next_in.add z.avail_in.toNat
+   let b ← s.«in».add s.size.toNat

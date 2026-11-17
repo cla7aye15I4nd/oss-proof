@@ -1,0 +1,14 @@
+--- a/ZlibF/Zlib/infback.c.lean
++++ b/ZlibF/Zlib/infback.c.lean
+@@ -75,9 +75,9 @@
+   wrZ strm fun z => { z with state := StateRef.ofInflateState state }
+   -- state->dmax = 32768U; state->wbits = (uInt)windowBits; state->wsize = 1U << windowBits;
+   let ws ← shl32 1 (i2u windowBits)
+-  -- state->window = window; state->wnext = 0; state->whave = 0; state->sane = 1;
++  -- state->window = window; state->wnext = 0; state->whave = 0;
+   wrS state fun s => { s with
+-    dmax := 32768, wbits := i2u windowBits, wsize := ws, window := window, wnext := 0, whave := 0, sane := 1 }
++    dmax := 32768, wbits := i2u windowBits, wsize := ws, window := window, wnext := 0, whave := 0 }
+   return Z_OK
+ 
+ /-! ## The macros of `infback.c` that differ from `inflate.c` -/

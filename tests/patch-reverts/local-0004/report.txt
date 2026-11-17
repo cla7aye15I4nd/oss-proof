@@ -1,0 +1,23 @@
+Raw output of tests/patch-reverts/local-0004/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file gzread.c
+patching file gzwrite.c
+== reverted
+gzread.c:414:22: runtime error: signed integer overflow: 9223372036854775807 + 16 cannot be represented in type 'long int'
+    #0 0x5ce73c981976 in gz_read local-0004/reverted/gzread.c:414
+    #1 0x5ce73c981b4b in gzread local-0004/reverted/gzread.c:455
+    #2 0x5ce73c97d7b4 in main tests/patch-reverts/local-0004/trigger.c:19
+    #3 0x75629362a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #4 0x75629362a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #5 0x5ce73c97d5e4 in _start (local-0004/trigger-reverted+0x4a5e4) (BuildId: c20c3315a4fd14fa016edd298464d6942be07409)
+exit status 1
+ok: with the revert: runtime error: signed integer overflow
+== fixed
+read1=1 seek=9223372036854775807 read16=-1 err=-3 close=0
+exit status 0
+ok: verified source: no report

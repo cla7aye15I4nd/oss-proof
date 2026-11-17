@@ -1,0 +1,21 @@
+--- a/ZlibF/Zlib/gzlib.c.lean
++++ b/ZlibF/Zlib/gzlib.c.lean
+@@ -271,16 +271,12 @@
+   -- pos = whence == SEEK_SET ? 0 : state->x.pos + (state->past ? 0 : state->skip);
+   let mut pos : Int64 ← if whence == SEEK_SET then pure 0
+     else i64add s.x.pos (if s.past != 0 then 0 else s.skip)
+-  -- if (pos > 0 && offset > GZ_OFF_MAX - pos) return -1;
+-  if pos > 0 then
+-    if offset > (← i64sub GZ_OFF_MAX pos) then return -1
++  -- if (offset > GZ_OFF_MAX - pos) return -1;
++  if offset > (← i64sub GZ_OFF_MAX pos) then return -1
+   -- if (offset < -pos) return -1;
+   if offset < (← i64neg pos) then return -1
+   -- pos += offset;
+   pos ← i64add pos offset
+-  -- if (state->x.pos < 0 && pos > GZ_OFF_MAX + state->x.pos) return -1;
+-  if s.x.pos < 0 then
+-    if pos > (← i64add GZ_OFF_MAX s.x.pos) then return -1
+   -- if (state->mode == GZ_READ && state->how == COPY) { ... }
+   if s.mode == GZ_READ && s.how == GZ_COPY then
+     let d ← i64sub (← i64sub pos s.x.pos) (u32ToI64 s.x.«have»)

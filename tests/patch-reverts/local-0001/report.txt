@@ -1,0 +1,37 @@
+Raw output of tests/patch-reverts/local-0001/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file inflate.c
+== reverted
+=================================================================
+==1806127==ERROR: AddressSanitizer: invalid-pointer-pair: 0x59618ea39920 0x7a85527e0668
+    #0 0x59618ea2f834 in inflateCopy local-0001/reverted/inflate.c:1383
+    #1 0x59618ea256bd in main tests/patch-reverts/local-0001/trigger.c:22
+    #2 0x7c455382a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #3 0x7c455382a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #4 0x59618ea25444 in _start (local-0001/trigger-reverted+0x16444) (BuildId: 2a079e9230d51f03fe8a1fc4e5cc9a41b7002ab8)
+
+0x59618ea39920 is located 0 bytes inside of global variable 'lenfix' defined in 'inffixed.h:10:19' (0x59618ea39920) of size 2048
+0x7a85527e0668 is located 1384 bytes inside of 7176-byte region [0x7a85527e0100,0x7a85527e1d08)
+allocated by thread T0 here:
+    #0 0x7c455452b60f in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:67
+    #1 0x59618ea32532 in zcalloc local-0001/reverted/zutil.c:305
+    #2 0x59618ea26f43 in inflateInit2_ local-0001/reverted/inflate.c:206
+    #3 0x59618ea271e5 in inflateInit_ local-0001/reverted/inflate.c:224
+    #4 0x59618ea255ed in main tests/patch-reverts/local-0001/trigger.c:18
+    #5 0x7c455382a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #6 0x7c455382a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #7 0x59618ea25444 in _start (local-0001/trigger-reverted+0x16444) (BuildId: 2a079e9230d51f03fe8a1fc4e5cc9a41b7002ab8)
+
+SUMMARY: AddressSanitizer: invalid-pointer-pair local-0001/reverted/inflate.c:1383 in inflateCopy
+==1806127==ABORTING
+exit status 1
+ok: with the revert: ERROR: AddressSanitizer: invalid-pointer-pair
+== fixed
+init=0 inflate=0 copy=0 finish=1 output ok
+exit status 0
+ok: verified source: no report

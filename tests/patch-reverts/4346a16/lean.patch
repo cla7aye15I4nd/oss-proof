@@ -1,0 +1,11 @@
+--- a/ZlibF/Zlib/deflate.c.lean
++++ b/ZlibF/Zlib/deflate.c.lean
+@@ -346,8 +346,6 @@
+   let mut value := value
+   if (← deflateStateCheck strm) != 0 then return Z_STREAM_ERROR
+   let s ← castDeflateState (← zrd strm (·.state))
+-  -- if (bits < 0 || bits > 16) return Z_BUF_ERROR;
+-  if bits < 0 || bits > 16 then return Z_BUF_ERROR
+   -- if (s->pending_out != s->pending_buf) { ... move partially flushed pending output to buffer start }
+   let d ← ldDeflateState s
+   if d.pending_out != d.pending_buf then

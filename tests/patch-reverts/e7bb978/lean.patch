@@ -1,0 +1,13 @@
+--- a/ZlibF/Zlib/inflate.c.lean
++++ b/ZlibF/Zlib/inflate.c.lean
+@@ -733,8 +733,8 @@
+ /-- `case LEN:` -/
+ def inflate_LEN (c : Ctx) : X Unit := do
+   let l ← get
+-  -- if (have >= 6 && left >= 258 && bits < 8) { RESTORE(); inflate_fast(strm, out); LOAD(); ...; break; }
+-  if l.have_ >= 6 && l.left >= 258 && l.bits < 8 then
++  -- if (have >= 6 && left >= 258) { RESTORE(); inflate_fast(strm, out); LOAD(); ...; break; }
++  if l.have_ >= 6 && l.left >= 258 then
+     RESTORE c.strm c.st
+     inflate_fast c.strm l.out_
+     LOAD c.strm c.st

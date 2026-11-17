@@ -1,0 +1,16 @@
+--- a/ZlibF/Zlib/inflate.c.lean
++++ b/ZlibF/Zlib/inflate.c.lean
+@@ -1553,13 +1553,6 @@
+     -- if (flags == -1) state->wrap = 0; else state->wrap &= ~4;
+     if flags == -1 then wrS st fun s => { s with wrap := 0 }
+     else wrS st fun s => { s with wrap := s.wrap &&& ~~~4 }
+-    -- if (state->wbits == 0) {
+-    let s ← ldInflateState st
+-    if s.wbits == 0 then
+-      if s.window != .null then
+-        ZFREEB strm s.window
+-        wrS st fun s => { s with window := .null }
+-      wrS st fun s => { s with wbits := 15 }
+     -- state->mode = TYPE; return Z_OK;
+     setMode st TYPE
+     return Z_OK)

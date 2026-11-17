@@ -1,0 +1,13 @@
+--- a/ZlibF/Zlib/gzwrite.c.lean
++++ b/ZlibF/Zlib/gzwrite.c.lean
+@@ -285,9 +285,9 @@
+         let np ← i64add s.x.pos (u32ToI64 n)
+         updX state fun x => { x with pos := np }
+         let len := l.len - n.toUInt64
++        -- if (ret == -1) return state->again ? put - len : 0;
+         if ret == -1 then
+           let s ← ldS state
+-          updZ strm fun z => { z with avail_in := 0, next_in := s.«in» }
+           return { l with len, res := some (if s.again != 0 then put - len else 0) }
+         return { l with len })
+       (fun l => pure (l.res.isNone && l.len != 0, l))

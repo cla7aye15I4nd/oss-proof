@@ -1,0 +1,31 @@
+Raw output of tests/patch-reverts/a9e14e8/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file deflate.c
+patching file inflate.c
+== reverted
+inflate.c:155:20: runtime error: negation of -2147483648 cannot be represented in type 'int'; cast to an unsigned type to negate this value to itself
+    #0 0x58447cd9631f in inflateReset2 a9e14e8/reverted/inflate.c:155
+    #1 0x58447cd965d2 in inflateInit2_ a9e14e8/reverted/inflate.c:212
+    #2 0x58447cd8174d in main tests/patch-reverts/a9e14e8/trigger.c:19
+    #3 0x703213c2a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #4 0x703213c2a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #5 0x58447cd814a4 in _start (a9e14e8/trigger-reverted+0x424a4) (BuildId: 3bb7f5420cf3fbfdf8e17f01616beacd433dd47d)
+
+deflate.c:424:20: runtime error: negation of -2147483648 cannot be represented in type 'int'; cast to an unsigned type to negate this value to itself
+    #0 0x58447cd93da3 in deflateInit2_ a9e14e8/reverted/deflate.c:424
+    #1 0x58447cd81686 in main tests/patch-reverts/a9e14e8/trigger.c:24
+    #2 0x703213c2a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #3 0x703213c2a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #4 0x58447cd814a4 in _start (a9e14e8/trigger-reverted+0x424a4) (BuildId: 3bb7f5420cf3fbfdf8e17f01616beacd433dd47d)
+exit status 1
+ok: with the revert: in inflateReset2 && in deflateInit2_ && runtime error: negation of -2147483648
+== fixed
+inflateInit2=-2
+deflateInit2=-2
+exit status 0
+ok: verified source: no report

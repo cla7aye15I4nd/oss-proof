@@ -1,0 +1,39 @@
+Raw output of tests/patch-reverts/e3dc0a8/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file gzwrite.c
+== reverted
+=================================================================
+==1810781==ERROR: AddressSanitizer: invalid-pointer-pair: 0x000000000000 0x6feeffbe2200
+    #0 0x606400586ba8 in gz_vacate e3dc0a8/reverted/gzwrite.c:408
+    #1 0x6064005877ff in gzvprintf e3dc0a8/reverted/gzwrite.c:460
+    #2 0x606400587f22 in gzprintf e3dc0a8/reverted/gzwrite.c:529
+    #3 0x60640057f798 in main tests/patch-reverts/e3dc0a8/trigger.c:12
+    #4 0x715f00c2a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #5 0x715f00c2a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #6 0x60640057f624 in _start (e3dc0a8/trigger-reverted+0x4a624) (BuildId: bbf934fa77594f76914a85f681330a61a8bc54c7)
+
+Address 0x000000000000 is a wild pointer inside of access range of size 0x000000000001.
+0x6feeffbe2200 is located 8192 bytes inside of 16384-byte region [0x6feeffbe0200,0x6feeffbe4200)
+allocated by thread T0 here:
+    #0 0x715f0192b60f in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:67
+    #1 0x60640058543a in gz_init e3dc0a8/reverted/gzwrite.c:16
+    #2 0x606400587b50 in gzvprintf e3dc0a8/reverted/gzwrite.c:450
+    #3 0x606400587f22 in gzprintf e3dc0a8/reverted/gzwrite.c:529
+    #4 0x60640057f798 in main tests/patch-reverts/e3dc0a8/trigger.c:12
+    #5 0x715f00c2a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #6 0x715f00c2a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #7 0x60640057f624 in _start (e3dc0a8/trigger-reverted+0x4a624) (BuildId: bbf934fa77594f76914a85f681330a61a8bc54c7)
+
+SUMMARY: AddressSanitizer: invalid-pointer-pair e3dc0a8/reverted/gzwrite.c:408 in gz_vacate
+==1810781==ABORTING
+exit status 1
+ok: with the revert: ERROR: AddressSanitizer: invalid-pointer-pair && in gz_vacate
+== fixed
+printf=5 close=0 read=5:hello
+exit status 0
+ok: verified source: no report

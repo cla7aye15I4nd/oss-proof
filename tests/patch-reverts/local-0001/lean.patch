@@ -1,0 +1,24 @@
+--- a/ZlibF/Zlib/inflate.c.lean
++++ b/ZlibF/Zlib/inflate.c.lean
+@@ -1610,11 +1610,17 @@
+   copyInflateState copy state
+   -- copy->strm = dest;
+   wrS copy fun s => { s with strm := dest }
+-  -- if (state->lencode == state->codes) {
++  -- if (state->lencode >= state->codes &&
++  --     state->lencode <= state->codes + ENOUGH - 1) {
+   let s ← ldInflateState state
+-  if s.lencode == codesP state then
+-    -- copy->lencode = copy->codes;
+-    wrS copy fun s => { s with lencode := codesP copy }
++  let inCodes ← if !(← Ptr.lt s.lencode (codesP state)) then do
++      Ptr.le s.lencode (← (← (codesP state).add ENOUGH.toInt).add (-1))
++    else pure false
++  if inCodes then
++    -- copy->lencode = copy->codes + (state->lencode - state->codes);
++    let d1 ← Ptr.diff s.lencode (codesP state)
++    let lc ← (codesP copy).add d1.toInt
++    wrS copy fun s => { s with lencode := lc }
+     -- copy->distcode = copy->codes + (state->distcode - state->codes);
+     let d2 ← Ptr.diff s.distcode (codesP state)
+     let dc ← (codesP copy).add d2.toInt

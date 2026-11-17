@@ -1,0 +1,12 @@
+--- a/ZlibF/Zlib/gzread.c.lean
++++ b/ZlibF/Zlib/gzread.c.lean
+@@ -501,9 +501,6 @@
+   let state := castState file
+   let s ← ldS state
+   if s.mode != GZ_READ then return -1
+-  -- if (state->how == LOOK && state->x.have == 0) (void)gz_look(state);
+-  if s.how == LOOK && s.x.«have» == 0 then
+-    let _ ← gz_look state
+   -- if (state->err != Z_OK && state->err != Z_BUF_ERROR && !state->again && state->size == 0) return -1;
+   let s ← ldS state
+   if s.err != Z_OK && s.err != Z_BUF_ERROR && s.again == 0 && s.size == 0 then return -1

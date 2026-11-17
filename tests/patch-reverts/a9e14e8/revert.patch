@@ -1,0 +1,22 @@
+--- a/deflate.c
++++ b/deflate.c
+@@ -421,8 +421,6 @@
+ 
+     if (windowBits < 0) { /* suppress zlib wrapper */
+         wrap = 0;
+-        if (windowBits < -15)
+-            return Z_STREAM_ERROR;
+         windowBits = -windowBits;
+     }
+ #ifdef GZIP
+--- a/inflate.c
++++ b/inflate.c
+@@ -151,8 +151,6 @@
+ 
+     /* extract wrap request from windowBits parameter */
+     if (windowBits < 0) {
+-        if (windowBits < -15)
+-            return Z_STREAM_ERROR;
+         wrap = 0;
+         windowBits = -windowBits;
+     }

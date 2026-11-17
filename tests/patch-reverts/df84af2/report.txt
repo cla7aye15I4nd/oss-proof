@@ -1,0 +1,69 @@
+Raw output of tests/patch-reverts/df84af2/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file gzwrite.c
+== reverted
+=================================================================
+==1808018==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x715dfc1e00a4 at pc 0x74adfde840ec bp 0x7fff52daf850 sp 0x7fff52daf018
+READ of size 101 at 0x715dfc1e00a4 thread T0
+    #0 0x74adfde840eb in write ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors.inc:1137
+    #1 0x5a59320e3762 in write tests/patch-reverts/df84af2/trigger.c:25
+    #2 0x5a59320e9c03 in gz_comp df84af2/reverted/gzwrite.c:80
+    #3 0x5a59320ec596 in gzclose_w df84af2/reverted/gzwrite.c:735
+    #4 0x5a59320e39d3 in gzclose df84af2/reverted/gzclose.c:19
+    #5 0x5a59320e388e in main tests/patch-reverts/df84af2/trigger.c:37
+    #6 0x74adfd22a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #7 0x74adfd22a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #8 0x5a59320e3664 in _start (df84af2/trigger-reverted+0x4a664) (BuildId: 3a57e28855c2c117be7933dc75cef68c8f418382)
+
+0x715dfc1e00a4 is located 0 bytes after 100-byte region [0x715dfc1e0040,0x715dfc1e00a4)
+allocated by thread T0 here:
+    #0 0x74adfdf2b60f in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:67
+    #1 0x5a59320e3834 in main tests/patch-reverts/df84af2/trigger.c:32
+    #2 0x74adfd22a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #3 0x74adfd22a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #4 0x5a59320e3664 in _start (df84af2/trigger-reverted+0x4a664) (BuildId: 3a57e28855c2c117be7933dc75cef68c8f418382)
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow tests/patch-reverts/df84af2/trigger.c:25 in write
+Shadow bytes around the buggy address:
+  0x715dfc1dfe00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x715dfc1dfe80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x715dfc1dff00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x715dfc1dff80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x715dfc1e0000: fa fa fa fa fa fa fa fa 00 00 00 00 00 00 00 00
+=>0x715dfc1e0080: 00 00 00 00[04]fa fa fa fa fa fa fa fa fa fa fa
+  0x715dfc1e0100: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x715dfc1e0180: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x715dfc1e0200: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x715dfc1e0280: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x715dfc1e0300: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==1808018==ABORTING
+exit status 1
+ok: with the revert: ERROR: AddressSanitizer: heap-buffer-overflow
+== fixed
+buffer=0 write100=0 write1=1 close=0 file=1
+exit status 0
+ok: verified source: no report

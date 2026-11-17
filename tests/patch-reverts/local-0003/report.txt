@@ -1,0 +1,72 @@
+Raw output of tests/patch-reverts/local-0003/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file gzread.c
+== reverted
+=================================================================
+==1806744==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x78ce899e0060 at pc 0x7c9e8b72901f bp 0x7ffd59526530 sp 0x7ffd59525cd8
+READ of size 1 at 0x78ce899e0060 thread T0
+    #0 0x7c9e8b72901e in memcpy ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:117
+    #1 0x57493d5a28c2 in memcpy /usr/include/x86_64-linux-gnu/bits/string_fortified.h:29
+    #2 0x57493d5a28c2 in gz_read local-0003/reverted/gzread.c:393
+    #3 0x57493d5a2f3f in gzread local-0003/reverted/gzread.c:478
+    #4 0x57493d59ea18 in main tests/patch-reverts/local-0003/trigger.c:40
+    #5 0x7c9e8aa2a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #6 0x7c9e8aa2a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #7 0x57493d59e664 in _start (local-0003/trigger-reverted+0x4a664) (BuildId: 26ae22f7bf250dbbc9435948123956414b28de66)
+
+0x78ce899e0060 is located 0 bytes after 32-byte region [0x78ce899e0040,0x78ce899e0060)
+allocated by thread T0 here:
+    #0 0x7c9e8b72b60f in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:67
+    #1 0x57493d5a18c8 in gz_look local-0003/reverted/gzread.c:108
+    #2 0x57493d5a2111 in gz_fetch local-0003/reverted/gzread.c:277
+    #3 0x57493d5a2c61 in gz_read local-0003/reverted/gzread.c:412
+    #4 0x57493d5a368b in gzgetc local-0003/reverted/gzread.c:567
+    #5 0x57493d59e9c7 in main tests/patch-reverts/local-0003/trigger.c:38
+    #6 0x7c9e8aa2a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #7 0x7c9e8aa2a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #8 0x57493d59e664 in _start (local-0003/trigger-reverted+0x4a664) (BuildId: 26ae22f7bf250dbbc9435948123956414b28de66)
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow /usr/include/x86_64-linux-gnu/bits/string_fortified.h:29 in memcpy
+Shadow bytes around the buggy address:
+  0x78ce899dfd80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x78ce899dfe00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x78ce899dfe80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x78ce899dff00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x78ce899dff80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+=>0x78ce899e0000: fa fa fd fd fd fa fa fa 00 00 00 00[fa]fa fd fd
+  0x78ce899e0080: fd fa fa fa 00 00 00 04 fa fa fa fa fa fa fa fa
+  0x78ce899e0100: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x78ce899e0180: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x78ce899e0200: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x78ce899e0280: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==1806744==ABORTING
+exit status 1
+ok: with the revert: ERROR: AddressSanitizer: heap-buffer-overflow
+== fixed
+buffer=0 getc=48 read=1 err=-1 close=0
+exit status 0
+ok: verified source: no report

@@ -1,0 +1,34 @@
+Raw output of tests/patch-reverts/2333419/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file infback.c
+== reverted
+AddressSanitizer:DEADLYSIGNAL
+=================================================================
+==1809607==ERROR: AddressSanitizer: SEGV on unknown address 0x7a83ab7dfe98 (pc 0x64c08be1cf41 bp 0x7ffd30a0af10 sp 0x7ffd30a0ae60 T0)
+==1809607==The signal is caused by a READ memory access.
+    #0 0x64c08be1cf41 in inflate_fast 2333419/reverted/inffast.c:238
+    #1 0x64c08be1a03d in inflateBack 2333419/reverted/infback.c:425
+    #2 0x64c08be17676 in main tests/patch-reverts/2333419/trigger.c:37
+    #3 0x7d32ac82a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #4 0x7d32ac82a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #5 0x64c08be173e4 in _start (2333419/trigger-reverted+0xd3e4) (BuildId: 90cb72e0879350236c16d1ec9558bd26c04da1ab)
+
+==1809607==Register values:
+rax = 0x00007a82ab7e0082  rbx = 0x00007a83ab7dfe99  rcx = 0x0000000000000000  rdx = 0x00007a83ab7dfe9a  
+rdi = 0x0000000000000000  rsi = 0x00007a83ab7dfe98  rbp = 0x00007ffd30a0af10  rsp = 0x00007ffd30a0ae60  
+ r8 = 0x00007a82ab7e0081   r9 = 0x00007a83ab7dfe99  r10 = 0x0000000000000003  r11 = 0x0000000000000011  
+r12 = 0x00007a82ab7e0081  r13 = 0x000064c08be21360  r14 = 0x000064c08be240a5  r15 = 0x00007a82ab7e0080  
+AddressSanitizer can not provide additional info.
+SUMMARY: AddressSanitizer: SEGV 2333419/reverted/inffast.c:238 in inflate_fast
+==1809607==ABORTING
+exit status 1
+ok: with the revert: The signal is caused by a READ memory access && in inflate_fast
+== fixed
+init=0 back=-3 out=0 msg=invalid distance too far back end=0
+exit status 0
+ok: verified source: no report

@@ -1,0 +1,13 @@
+--- a/gzread.c
++++ b/gzread.c
+@@ -581,10 +581,6 @@
+     state = (gz_statep)file;
+     if (state->mode != GZ_READ)
+         return -1;
+-
+-    /* in case this was just opened, set up the input buffer */
+-    if (state->how == LOOK && state->x.have == 0)
+-        (void)gz_look(state);
+ 
+     /* check that there was no (serious) error -- a character can still be
+        pushed back after one, since it is data that was read before the

@@ -1,0 +1,21 @@
+Raw output of tests/patch-reverts/4346a16/run.sh (trigger.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e with patches/*.patch
+(fixed), and the same with revert.patch applied (reverted).
+Build: GCC 15.2, the sanitizer options of run.sh and c-check.sh.
+Host: x86_64 Linux, the project's target. Paths are relative to the work directory or to the
+repository root; addresses and process ids vary from run to run.
+
+patching file deflate.c
+== reverted
+deflate.c:781:41: runtime error: shift exponent -1 is negative
+    #0 0x60335ad92a89 in deflatePrime 4346a16/reverted/deflate.c:781
+    #1 0x60335ad8860e in main tests/patch-reverts/4346a16/trigger.c:15
+    #2 0x7f630462a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #3 0x7f630462a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #4 0x60335ad88464 in _start (4346a16/trigger-reverted+0x31464) (BuildId: 9a8c8666e5926d62cc2f542dec23bd5f8aaa2f48)
+exit status 1
+ok: with the revert: runtime error: shift exponent -1 is negative && in deflatePrime
+== fixed
+init=0 prime1=0 prime-1=-5 end=0
+exit status 0
+ok: verified source: no report

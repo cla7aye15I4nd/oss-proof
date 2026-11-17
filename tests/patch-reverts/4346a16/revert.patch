@@ -1,0 +1,11 @@
+--- a/deflate.c
++++ b/deflate.c
+@@ -763,8 +763,6 @@
+ 
+     if (deflateStateCheck(strm)) return Z_STREAM_ERROR;
+     s = strm->state;
+-    if (bits < 0 || bits > 16)
+-        return Z_BUF_ERROR;
+     if (s->pending_out != s->pending_buf) {
+         /* move partially flushed pending output to buffer start */
+         Bytef *to = s->pending_buf, *from = s->pending_out;
