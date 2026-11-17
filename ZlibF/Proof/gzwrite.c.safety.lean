@@ -2,7 +2,6 @@ import ZlibF.Proof.«gzlib.c.error-inv-premises»
 import ZlibF.Proof.«gzwrite.c.init»
 import ZlibF.Proof.«gzwrite.c.comp»
 import ZlibF.Proof.«gzwrite.c.zero»
-import ZlibF.Proof.«gzwrite.c.vacate»
 import ZlibF.Proof.«gzwrite.c.write»
 import ZlibF.Proof.«gzwrite.c.write-calls»
 import ZlibF.Proof.«gzwrite.c.flush-params»

@@ -1,7 +1,14 @@
 import ZlibF.Proof.«inflate.c.dynamic-semantics»
-import ZlibF.Proof.«inflate.c.code-length-classified»
+import ZlibF.Proof.«inflate.c.code-length-repeat-contents»
+import ZlibF.Proof.«inflate.c.code-length-zero-repeat»
+import ZlibF.Proof.«inflate.c.code-length-previous-repeat»
+import ZlibF.Math.«code-length-prefix»
+import ZlibF.Proof.«inflate.c.codelens-loop»
+import ZlibF.Proof.«inflate.c.code-length-previous-prefix»
+import ZlibF.Proof.«inflate.c.code-length-install»
 import ZlibF.Proof.«inftrees.c.default-budget»
-import ZlibF.Proof.«inflate.c.code-length-completion»
+import ZlibF.Proof.«inffast.c.sig»
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableShort
 
 namespace Zlib.Inflate.Proofs.PayloadTables
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec Zlib.Inftrees

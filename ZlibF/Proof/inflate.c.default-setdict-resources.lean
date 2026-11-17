@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.origin-fields-memory-contract»
-import ZlibF.Proof.«inflate.c.dictionary-install-origin»
+import ZlibF.Proof.«inflate.c.default-origin-state»
 import ZlibF.Proof.«inflate.c.default-readonly-controls»
 import ZlibF.Proof.«public-inflate-setdict»
 import ZlibF.Spec.Common.Sequences

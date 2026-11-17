@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.completes-within»
+import ZlibF.Proof.«inflate.c.completes-meaning»
+import ZlibF.Proof.«inflate.c.meaning-held-within»
 import ZlibF.Proof.«public-uncompress-step»
 import ZlibF.Proof.«inflate.c.borrow-stable-run»
 import ZlibF.Proof.«inflate.c.completes-percall»

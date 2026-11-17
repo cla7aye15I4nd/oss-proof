@@ -1,4 +1,9 @@
-import ZlibF.Proof.«deflate.c.engine.encoded-state-no-flush»
+import ZlibF.Proof.«deflate.c.engine.encoded-state-refusals»
+import ZlibF.Proof.«deflate.c.engine.public-pending-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.input-snapshot-controls»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 import ZlibF.Proof.«deflate.c.engine.finishing-new-input-encoding»
 import ZlibF.Proof.«deflate.c.engine.encoded-state-finish»
 

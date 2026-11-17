@@ -1,6 +1,15 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-no-flush-raw-prefix-input»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-no-flush-buffered-ready»
-import ZlibF.Proof.«deflate.c.engine.public-no-flush-ready-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-encoding»
+import ZlibF.Proof.«deflate.c.engine.raw-prefix»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
+import ZlibF.Proof.«deflate.c.engine.body-ready-phase»
+import ZlibF.Proof.«deflate.c.engine.eof-stream-encoding»
+import ZlibF.Proof.«deflate.c.engine.eof-output-interval»
+import ZlibF.Proof.«deflate.c.engine.no-flush-loop-control»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 open ZlibF.Math.DeflateSymbols

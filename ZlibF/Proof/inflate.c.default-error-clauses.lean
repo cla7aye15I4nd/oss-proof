@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inflate.c.entry-header»
-import ZlibF.Proof.«inflate.c.default-view-public-progress»
+import ZlibF.Proof.«inflate.c.default-view-input-progress»
+import ZlibF.Proof.«inflate.c.default-view-finish-code»
 import ZlibF.Proof.«inflate.c.default-view-return-codes»
 import ZlibF.Proof.«inflate.c.direct-terminal-loop»
 import ZlibF.Proof.«inflate.c.leave-cause-run»

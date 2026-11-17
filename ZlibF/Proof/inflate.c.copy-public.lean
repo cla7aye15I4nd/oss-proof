@@ -1,5 +1,10 @@
 import ZlibF.Proof.«inflate.c.reachable»
-import ZlibF.Proof.«inflate.c.copy-source-origin»
+import ZlibF.Proof.«inflate.c.copy-window-content»
+import ZlibF.Proof.«inflate.c.origin-fields-memory-contract»
+import ZlibF.Proof.«inflate.c.default-origin-state»
+import ZlibF.Proof.«inflate.c.default-readonly-controls»
+import ZlibF.Proof.«inflate.c.copy-origin-state»
+import ZlibF.Proof.«inflate.c.copy-window-failure»
 import ZlibF.Spec.Common.Copy
 import ZlibF.Spec.Functional.Api.Compress
 

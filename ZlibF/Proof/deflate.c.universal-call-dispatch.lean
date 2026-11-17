@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.universal-call-lift»
-import ZlibF.Proof.«deflate.c.universal-strategy-specs»
+import ZlibF.Proof.«trees.c.universal-overlay-at»
 import ZlibF.Proof.«deflate.c.universal-slow»
 import ZlibF.Proof.«deflate.c.universal-stored-tail»
 import ZlibF.Proof.«deflate.c.universal-call-keep-phases»

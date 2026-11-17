@@ -1,4 +1,6 @@
-import ZlibF.Proof.«infback.c.callbacks»
+import ZlibF.Proof.«infback.c.end»
+import ZlibF.Zlib.«crc32.c»
+import ZlibF.Zlib.«trees.c»
 
 /-!
 # infback.c: `inflateBack`, the entry checks and the end-of-input exit

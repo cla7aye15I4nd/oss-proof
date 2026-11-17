@@ -1,5 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-no-flush-data-joint-input»
-import ZlibF.Proof.«deflate.c.engine.public-busy-no-flush-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-encoding»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 open ZlibF.Math.DeflateSymbols

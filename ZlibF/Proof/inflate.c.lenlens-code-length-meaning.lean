@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.code-length-meaning-state»
+import ZlibF.Proof.«inftrees.c.code-length-meaning-state»
+import ZlibF.Proof.«inflate.c.origin-fields-construction-tail»
 import ZlibF.Proof.«inflate.c.main.table5»
 
 namespace Zlib.Inflate.Proofs

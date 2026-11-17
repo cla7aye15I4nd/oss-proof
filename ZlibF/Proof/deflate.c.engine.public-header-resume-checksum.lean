@@ -1,5 +1,19 @@
 import ZlibF.Proof.«deflate.c.engine.public-header-resume-encoding»
-import ZlibF.Proof.«deflate.c.engine.public-busy-no-flush-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-pending-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-encoding»
+import ZlibF.Proof.«deflate.c.engine.raw-prefix»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
+import ZlibF.Proof.«deflate.c.engine.body-logical-checksum»
+import ZlibF.Proof.«deflate.c.engine.body-ready-phase»
+import ZlibF.Proof.«deflate.c.engine.eof-checksum»
+import ZlibF.Proof.«deflate.c.engine.eof-stream-encoding»
+import ZlibF.Proof.«deflate.c.engine.eof-output-interval»
+import ZlibF.Proof.«deflate.c.engine.no-flush-loop-control»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 
 /-! # Actual split header resumption retains encoding and checksum together -/
 

@@ -1,6 +1,8 @@
 import ZlibF.Proof.«deflate.c.init.general-construct»
 import ZlibF.Proof.«deflate.c.init.general-failure»
-import ZlibF.Proof.«deflate.c.init.memory-success»
+import ZlibF.Proof.«deflate.c.init.default»
+import ZlibF.Proof.«deflate.c.init.construct»
+import ZlibF.Proof.«deflate.c.init.failure»
 import ZlibF.Math.DeflateMemoryBounds
 import ZlibF.Proof.«deflate.c.engine.initial»
 

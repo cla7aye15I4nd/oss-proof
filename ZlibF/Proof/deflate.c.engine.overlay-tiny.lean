@@ -1,5 +1,6 @@
 import ZlibF.Proof.«deflate.c.engine.overlay-gain»
-import ZlibF.Proof.«deflate.c.engine.overlay-fib-actual»
+import ZlibF.Math.DeflateOverlayFibActual
+import ZlibF.Proof.«trees.c.universal-overlay-mid»
 
 /-!
 # deflate.c: `TinyOverlay` from two named hypotheses

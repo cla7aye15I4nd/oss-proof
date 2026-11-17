@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inflate.c.sync-invariant»
-import ZlibF.Proof.«inflate.c.copy-both-origin»
+import ZlibF.Proof.«inflate.c.copy-origin-state»
+import ZlibF.Proof.«inflate.c.copy-window-failure»
 
 /-!
 # inflate.c: an `inflateCopy` destination satisfies the general invariant

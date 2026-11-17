@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inflate.c.sync-search-origin»
+import ZlibF.Proof.«inflate.c.sync-done-origin»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

@@ -1,5 +1,6 @@
 import ZlibF.Proof.«trees.c.universal-overlay-fibplus»
-import ZlibF.Proof.«trees.c.universal-flushsafe»
+import ZlibF.Proof.«trees.c.universal-flush»
+import ZlibF.Proof.«deflate.c.universal-strategies»
 import ZlibF.Proof.«trees.c.universal-spec»
 
 /-!

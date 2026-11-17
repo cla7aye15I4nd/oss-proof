@@ -2,7 +2,8 @@ import ZlibF.Proof.«gz.inv-put-scalars»
 import ZlibF.Proof.«public-gzeof»
 import ZlibF.Proof.«public-gzbuffer»
 import ZlibF.Proof.«gzlib.c.simple»
-import ZlibF.Proof.«gzclose.c»
+import ZlibF.Proof.«gzlib.c.seek»
+import ZlibF.Zlib.«gzclose.c»
 
 /-!
 # gz safety: the queries that change nothing, `gzbuffer`, and the `gzclose` dispatch, on `GzInv`

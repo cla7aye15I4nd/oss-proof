@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.origin-fields-data-modes»
-import ZlibF.Proof.«inflate.c.fast-view-dispatch-state»
+import ZlibF.Proof.«inflate.c.fast-view-caller-start»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

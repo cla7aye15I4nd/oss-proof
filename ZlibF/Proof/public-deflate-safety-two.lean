@@ -1,4 +1,6 @@
-import ZlibF.Proof.«public-compress-safe-call»
+import ZlibF.Proof.«public-compress-safe»
+import ZlibF.Proof.«public-compress-finished»
+import ZlibF.Proof.«public-deflate-safety»
 import ZlibF.Spec.Functional.Streams
 import ZlibF.Spec.Safety.Sequences
 import ZlibF.Spec.Safety.Utilities

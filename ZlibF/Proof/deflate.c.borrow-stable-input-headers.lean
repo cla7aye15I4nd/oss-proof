@@ -1,6 +1,8 @@
 import ZlibF.Proof.«deflate.c.borrow-stable-base»
-import ZlibF.Proof.«deflate.c.engine.common-header-buffered»
-import ZlibF.Proof.«deflate.c.engine.common-header-boundary»
+import ZlibF.Proof.«deflate.c.engine.header-buffered»
+import ZlibF.Proof.«deflate.c.engine.common-first-header»
+import ZlibF.Proof.«deflate.c.engine.header-boundary»
+import ZlibF.Proof.«deflate.c.engine.common-header»
 
 /-! # Actual header heap updates retain borrowed libc text -/
 

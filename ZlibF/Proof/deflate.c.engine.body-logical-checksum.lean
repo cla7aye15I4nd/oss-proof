@@ -1,6 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.fill-checksum-boundary»
 import ZlibF.Proof.«deflate.c.engine.body-checksum»
-import ZlibF.Proof.«deflate.c.engine.body-encoding»
+import ZlibF.Proof.«deflate.c.engine.refill-encoding»
+import ZlibF.Proof.«deflate.c.engine.finish-strategy-step»
 
 /-! # Actual body checksums refer to the same input as raw block encoding -/
 

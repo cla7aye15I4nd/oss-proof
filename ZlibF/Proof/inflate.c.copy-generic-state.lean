@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inflate.c.copy-relocation»
+import ZlibF.Proof.«inflate.c.copy-origin»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

@@ -1,5 +1,10 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-decision-encoding»
-import ZlibF.Proof.«deflate.c.engine.search-decision-encoding»
+import ZlibF.Proof.«deflate.c.engine.match-search-encoding»
+import ZlibF.Proof.«deflate.c.engine.strategy-encoding-cut»
+import ZlibF.Proof.«deflate.c.engine.short-literal-full-boundary»
+import ZlibF.Proof.«deflate.c.engine.nonpublishing-decision-encoding»
+import ZlibF.Proof.«deflate.c.engine.short-decisions»
+import ZlibF.Proof.«deflate.c.engine.short-strategy-step»
 
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public

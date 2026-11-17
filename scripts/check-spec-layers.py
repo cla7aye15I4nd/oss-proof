@@ -107,9 +107,6 @@ MATH_PROOF_IMPORTS = {
         'ZlibF.Proof.«inffast.c.match»',
         'ZlibF.Proof.«deflate.c.base»',
     ),
-    'ZlibF.Math.InflateHeldBits': (
-        'ZlibF.Proof.«inffast.c.sig»',
-    ),
     'ZlibF.Math.InflatePrefixes': (
         'ZlibF.Proof.Format.Wrapper',
         'ZlibF.Proof.«inffast.c.sig»',

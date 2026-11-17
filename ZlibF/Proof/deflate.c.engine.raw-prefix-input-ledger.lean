@@ -1,5 +1,12 @@
 import ZlibF.Proof.«deflate.c.engine.raw-prefix»
-import ZlibF.Proof.«deflate.c.engine.finish-input-ledger»
+import ZlibF.Proof.«deflate.c.engine.loop-input-ledger»
+import ZlibF.Proof.«deflate.c.engine.eof-checksum»
+import ZlibF.Proof.«deflate.c.engine.eof-stream-encoding»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
+import ZlibF.Proof.«deflate.c.engine.eof-output-interval»
 import ZlibF.Proof.«deflate.c.engine.no-flush-input-ledger»
 
 /-! # Raw encoding and checksum describe the exact consumed caller input -/

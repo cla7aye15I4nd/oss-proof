@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inflate.c.origin-fields-header-macros»
+import ZlibF.Proof.«inflate.c.origin-fields-fast»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec

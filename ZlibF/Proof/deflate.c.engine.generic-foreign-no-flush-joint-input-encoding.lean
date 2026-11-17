@@ -1,7 +1,17 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-loop-input-ledger»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-no-flush-ready-call»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-ordinary-physical»
-import ZlibF.Proof.«deflate.c.engine.generic-foreign-loop-logical-checksum»
+import ZlibF.Proof.«deflate.c.engine.generic-foreign-continuation-ready»
+import ZlibF.Proof.«deflate.c.engine.generic-foreign-body-logical-checksum»
+import ZlibF.Proof.«deflate.c.engine.generic-foreign-body-all-scalar-interval»
+import ZlibF.Proof.«deflate.c.engine.generic-foreign-body-composable»
+import ZlibF.Proof.«deflate.c.engine.generic-output-append»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
+import ZlibF.Proof.«deflate.c.engine.body-logical-checksum»
+import ZlibF.Proof.«deflate.c.engine.body-ready-phase»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-loop-controls»
 import ZlibF.Proof.«deflate.c.engine.buffered-boundary»
 

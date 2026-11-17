@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.init.general»
-import ZlibF.Proof.«deflate.c.init.memory-source»
+import ZlibF.Proof.«deflate.c.init.default»
 
 /-! # deflate.c: the allocation of `deflateInit2_` for every parameter tuple
 

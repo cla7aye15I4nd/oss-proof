@@ -2,7 +2,15 @@ import ZlibF.Proof.«deflate.c.engine.generic-foreign-header-buffered-joint-next
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-no-flush-data-joint-input»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-no-flush-data-effects»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-caller-input-frame»
-import ZlibF.Proof.«deflate.c.engine.public-first-complete-input»
+import ZlibF.Proof.«deflate.c.borrow-stable-input-headers»
+import ZlibF.Proof.«deflate.c.engine.initial-encoding-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.input-snapshot-controls»
+import ZlibF.Proof.«deflate.c.engine.header-full-storage»
+import ZlibF.Proof.«deflate.c.engine.public-output-interval-prefix»
+import ZlibF.Proof.«deflate.c.engine.header-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-first-no-flush-buffered»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 open ZlibF.Math.DeflateSymbols ZlibF.Math.DeflateEncoding

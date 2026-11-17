@@ -1,4 +1,4 @@
-import ZlibF.Proof.«gzwrite.c.vacate»
+import ZlibF.Proof.«gzwrite.c.zero»
 
 /-!
 # gzwrite.c: safety of `gz_write`

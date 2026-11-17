@@ -1,4 +1,4 @@
-import ZlibF.Proof.«infback.c.pull»
+import ZlibF.Proof.«infback.c.inv»
 import ZlibF.Proof.«infback.c.pure»
 import ZlibF.Proof.«infback.c.wf»
 import ZlibF.Proof.«inflate.c.main.stored»

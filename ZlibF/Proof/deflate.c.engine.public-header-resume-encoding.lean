@@ -1,5 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.header-pending-encoding»
-import ZlibF.Proof.«deflate.c.engine.public-busy-no-flush-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-encoding»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 
 /-! # The next actual public request completes a split initial header -/
 

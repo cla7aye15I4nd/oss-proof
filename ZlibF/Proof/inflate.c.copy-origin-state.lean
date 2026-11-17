@@ -1,5 +1,5 @@
-import ZlibF.Proof.«inflate.c.dictionary-install-origin»
-import ZlibF.Proof.«inflate.c.copy-both-J»
+import ZlibF.Proof.«inflate.c.default-origin-state»
+import ZlibF.Proof.«inflate.c.copy-window-heap»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

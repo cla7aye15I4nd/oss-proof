@@ -1,7 +1,15 @@
 import ZlibF.Proof.«deflate.c.engine.public-first-valid-one-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-first-nonfinal-complete-input»
-import ZlibF.Proof.«deflate.c.engine.public-first-one-byte-checksum»
-import ZlibF.Proof.«deflate.c.engine.public-first-complete-input»
+import ZlibF.Proof.«deflate.c.engine.initial-encoding-checksum»
+import ZlibF.Proof.«deflate.c.engine.header-pending-encoding»
+import ZlibF.Proof.«deflate.c.borrow-stable-input-headers»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.input-snapshot-controls»
+import ZlibF.Proof.«deflate.c.engine.header-full-storage»
+import ZlibF.Proof.«deflate.c.engine.public-output-interval-prefix»
+import ZlibF.Proof.«deflate.c.engine.header-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-first-no-flush-buffered»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 
 /-! # Every positive first nonfinal call encodes its consumed original input -/
 

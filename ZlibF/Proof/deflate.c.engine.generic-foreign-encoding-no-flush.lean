@@ -2,7 +2,12 @@ import ZlibF.Proof.«deflate.c.engine.generic-ordinary-protocol»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-no-flush-observed-api»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-first-no-flush-input»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-header-no-flush-input»
-import ZlibF.Proof.«deflate.c.engine.encoded-state-no-flush»
+import ZlibF.Proof.«deflate.c.engine.encoded-state-refusals»
+import ZlibF.Proof.«deflate.c.engine.public-pending-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.input-snapshot-controls»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 open ZlibF.Math.DeflateSymbols

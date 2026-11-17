@@ -1,6 +1,11 @@
-import ZlibF.Proof.«inflate.c.completes-within»
-import ZlibF.Proof.«inflate.c.completes-needdict»
-import ZlibF.Proof.«inflate.c.completes-evidence»
+import ZlibF.Proof.«inflate.c.completes-meaning»
+import ZlibF.Proof.«inflate.c.meaning-held-within»
+import ZlibF.Spec.Functional.Streams
+import ZlibF.Proof.«inflate.c.meaning-accept»
+import ZlibF.Proof.«inflate.c.meaning-init»
+import ZlibF.Proof.Format.Huffman
+import ZlibF.Proof.Format.Api
+import ZlibF.Proof.Api.InflateCausality
 import ZlibF.Proof.«inflate.c.completes-stops»
 import ZlibF.Proof.«inflate.c.completes-blocked»
 import ZlibF.Proof.«inflate.c.completes-gzip-fields»

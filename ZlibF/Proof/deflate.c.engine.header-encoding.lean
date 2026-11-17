@@ -1,4 +1,13 @@
-import ZlibF.Proof.«deflate.c.engine.public-no-flush-ready-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-encoding»
+import ZlibF.Proof.«deflate.c.engine.raw-prefix»
+import ZlibF.Proof.«deflate.c.engine.body-prefix-step»
+import ZlibF.Proof.«deflate.c.engine.encoding-output-slices»
+import ZlibF.Proof.«deflate.c.engine.body-all-scalar-output»
+import ZlibF.Proof.«deflate.c.engine.finish-loop-controls»
+import ZlibF.Proof.«deflate.c.engine.body-ready-phase»
+import ZlibF.Proof.«deflate.c.engine.eof-stream-encoding»
+import ZlibF.Proof.«deflate.c.engine.eof-output-interval»
+import ZlibF.Proof.«deflate.c.engine.no-flush-loop-control»
 import ZlibF.Proof.«deflate.c.engine.header-buffered»
 
 /-! # Completed real wrapper headers retain the initial raw encoding phase -/

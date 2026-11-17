@@ -1,5 +1,17 @@
-import ZlibF.Proof.«deflate.c.default-core»
-import ZlibF.Proof.«deflate.c.engine.finish-input-progress»
+import ZlibF.Spec.Common.Sequences
+import ZlibF.Spec.Functional.Format.Wrapper
+import ZlibF.Proof.«deflate.c.engine.encoding-init-observed»
+import ZlibF.Proof.«deflate.c.engine.encoded-state-finish»
+import ZlibF.Spec.Functional.Sequences
+import ZlibF.Proof.«deflate.c.engine.encoded-state-scalar-request»
+import ZlibF.Proof.«public-deflate-end»
+import ZlibF.Proof.«deflate.c.engine.all-scalar-request-contract»
+import ZlibF.Proof.«deflate.c.engine.all-scalar-request»
+import ZlibF.Proof.«deflate.c.borrow-stable»
+import ZlibF.Proof.«deflate.c.engine.public-finish-progress»
+import ZlibF.Proof.«deflate.c.engine.public-request-buffer-frame»
+import ZlibF.Proof.«deflate.c.engine.caller-input-frame»
+import ZlibF.Proof.«deflate.c.engine.input-slices»
 
 /-! # Actual FINISH observations retain the fixed remaining source -/
 

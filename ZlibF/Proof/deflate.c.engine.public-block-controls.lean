@@ -1,4 +1,5 @@
-import ZlibF.Proof.«deflate.c.engine.public-block-buffer-frame»
+import ZlibF.Proof.«deflate.c.engine.public-block-effects»
+import ZlibF.Proof.«deflate.c.engine.public-output-bytes»
 
 /-! # Public BLOCK return retains the caller-independent empty cursor -/
 

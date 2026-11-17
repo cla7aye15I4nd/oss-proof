@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.public-slow-marker-effects»
-import ZlibF.Proof.«deflate.c.engine.all-scalar-history»
+import ZlibF.Proof.«deflate.c.engine.all-scalar-request»
 import ZlibF.Proof.«deflate.c.engine.public-pending-output-interval»
 import ZlibF.Proof.«deflate.c.engine.public-refusal-full-storage»
 

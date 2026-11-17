@@ -1,6 +1,6 @@
 import ZlibF.Proof.«deflate.c.init.general-alloc»
 import ZlibF.Proof.«deflate.c.init.failure»
-import ZlibF.Proof.«deflate.c.init.memory-failure»
+import ZlibF.Proof.«deflate.c.init.default»
 
 namespace Zlib.Deflate.Proofs.GeneralInit
 open C Zlib.Deflate Zlib.Deflate.Spec ZlibF.Spec.Public

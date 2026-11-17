@@ -1,6 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.fill-input-ledger»
 import ZlibF.Proof.«deflate.c.engine.body-checksum»
-import ZlibF.Proof.«deflate.c.engine.body-encoding»
+import ZlibF.Proof.«deflate.c.engine.refill-encoding»
+import ZlibF.Proof.«deflate.c.engine.finish-strategy-step»
 
 /-! # Actual bodies append precisely their consumed caller bytes to logical input -/
 

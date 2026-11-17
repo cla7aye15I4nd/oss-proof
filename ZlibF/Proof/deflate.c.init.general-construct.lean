@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.init.general-alloc»
-import ZlibF.Proof.«deflate.c.init.memory-construct»
+import ZlibF.Proof.«deflate.c.init.default»
 import ZlibF.Math.DeflateMemoryBounds
 import ZlibF.Proof.«deflate.c.init.construct»
 import ZlibF.Proof.«deflate.c.engine.block-initial»

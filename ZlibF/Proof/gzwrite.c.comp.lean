@@ -1,6 +1,9 @@
 import ZlibF.Proof.«gzwrite.c.upto-input»
 import ZlibF.Proof.«gz.read-store»
-import ZlibF.Proof.«gz.record-free»
+import ZlibF.Proof.«deflate.c.base»
+import ZlibF.Proof.«inflate.c.base»
+import ZlibF.Spec.Common.History
+import ZlibF.Spec.Functional.Api.Basic
 import ZlibF.Proof.«deflate.c.quiet-call»
 import ZlibF.Proof.«deflate.c.quiet-in-stored»
 import ZlibF.Proof.«deflate.c.universal-params-gz»

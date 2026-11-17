@@ -1,4 +1,10 @@
-import ZlibF.Proof.«deflate.c.engine.generic-request-birth-cleanup»
+import ZlibF.Proof.«deflate.c.engine.generic-all-scalar-protocol»
+import ZlibF.Proof.«deflate.c.engine.encoding-init-observed»
+import ZlibF.Proof.«deflate.c.engine.encoded-state-finish»
+import ZlibF.Spec.Functional.Sequences
+import ZlibF.Proof.«deflate.c.engine.encoded-state-scalar-request»
+import ZlibF.Proof.«public-deflate-end»
+import ZlibF.Proof.«deflate.c.engine.generic-default-data-trace»
 import ZlibF.Proof.«deflate.c.engine.all-scalar-request-contract»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public

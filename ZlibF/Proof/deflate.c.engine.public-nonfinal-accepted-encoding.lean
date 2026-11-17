@@ -1,6 +1,10 @@
 import ZlibF.Proof.«deflate.c.engine.public-nonfinal-ready-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-nonfinal-data-interval»
-import ZlibF.Proof.«deflate.c.engine.public-busy-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.public-pending-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.input-snapshot-controls»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
 import ZlibF.Proof.«deflate.c.engine.valid-pending-entry»
 
 /-! # Every accepted BUSY nonfinal request encodes its actual input and output -/

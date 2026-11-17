@@ -1,5 +1,8 @@
 import ZlibF.Proof.«inflate.c.codelens-step»
-import ZlibF.Proof.«inflate.c.code-length-query-meaning»
+import ZlibF.Proof.«inflate.c.lookup-codes»
+import ZlibF.Proof.«inftrees.c.code-length-contents»
+import ZlibF.Proof.«inffast.c.sig»
+import ZlibF.Spec.Functional.Inflate.InflateDecodeTableShort
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec

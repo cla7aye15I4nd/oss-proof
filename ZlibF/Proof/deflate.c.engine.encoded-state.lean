@@ -1,8 +1,20 @@
 import ZlibF.Proof.«deflate.c.engine.public-first-finish-encoding»
 import ZlibF.Proof.«deflate.c.engine.public-header-finish-encoding»
-import ZlibF.Proof.«deflate.c.engine.public-first-input»
-import ZlibF.Proof.«deflate.c.engine.public-header-resume-input»
-import ZlibF.Proof.«deflate.c.engine.all-scalar-history»
+import ZlibF.Proof.«deflate.c.engine.initial-encoding-checksum»
+import ZlibF.Proof.«deflate.c.engine.header-pending-encoding»
+import ZlibF.Proof.«deflate.c.borrow-stable-input-headers»
+import ZlibF.Proof.«deflate.c.engine.public-no-flush-input»
+import ZlibF.Proof.«deflate.c.engine.input-snapshot-controls»
+import ZlibF.Proof.«deflate.c.engine.header-full-storage»
+import ZlibF.Proof.«deflate.c.engine.public-output-interval-prefix»
+import ZlibF.Proof.«deflate.c.engine.header-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-first-no-flush-buffered»
+import ZlibF.Proof.«deflate.c.engine.public-data-output-interval»
+import ZlibF.Proof.«deflate.c.engine.public-header-resume-encoding»
+import ZlibF.Proof.«deflate.c.engine.public-header-resume-checksum»
+import ZlibF.Proof.«deflate.c.engine.public-pending-checksum»
+import ZlibF.Proof.«deflate.c.engine.no-flush-resume»
+import ZlibF.Proof.«deflate.c.engine.all-scalar-request»
 
 /-! # Actual initialized states carry the observed input and output history -/
 

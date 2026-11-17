@@ -1,5 +1,6 @@
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-header-buffered»
-import ZlibF.Proof.«deflate.c.engine.generic-foreign-zlib-header»
+import ZlibF.Proof.«deflate.c.engine.generic-wrapper-transfer»
+import ZlibF.Proof.«deflate.c.engine.generic-foreign-pending-scalars»
 import ZlibF.Proof.«deflate.c.borrow-stable-publish»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
