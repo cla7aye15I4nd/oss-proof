@@ -20,7 +20,7 @@ set_option autoImplicit false
 
 /-- The two outcomes of a `BUSY_STATE` call part for the size ledger. -/
 def BusySizeOutcome (after : Heap) (r : ZStreamRef) (ds : Nat) (z' : ZStream) (result : DeflateState)
-    (rc : Int32) (start base held produced : Nat) : Prop :=
+    (flush rc : Int32) (start base held produced : Nat) : Prop :=
   (result.status = BUSY_STATE ∧ ∃ input' origin' base' xs',
       ContentBoundary after r ds z' result input' origin' base' xs' ∧
       origin' + fillEnd result = start ∧ SizeCompanion result xs' ∧
@@ -28,7 +28,8 @@ def BusySizeOutcome (after : Heap) (r : ZStreamRef) (ds : Nat) (z' : ZStream) (r
   (result.status = FINISH_STATE ∧
       produced + heldBytes result + owedTrailer result + base + 5 * (base / 16383) ≤
         held + start + 5 * (start / 16383) + 9 ∧
-      (heldBytes result = 0 → owedTrailer result = 0 → rc = Z_STREAM_END))
+      (heldBytes result = 0 → owedTrailer result = 0 → rc = Z_STREAM_END) ∧
+      flush = Z_FINISH ∧ z'.avail_in = 0)
 
 /-- After `need_more`, the return only records an exhausted output; the boundary and the ledger
 stay. -/
@@ -66,7 +67,7 @@ theorem busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin b
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
       (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-      BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
+      BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base (heldBytes d) produced := by
   have positive : 0 < config.level.toInt := by
     have eq := congrArg EngineConfig.level boundary.configuration
     change d.level = config.level at eq
@@ -79,7 +80,7 @@ theorem busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin b
       ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
         StreamAccounting z z' used produced ∧
         (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-        BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
+        BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base (heldBytes d) produced := by
     intro ret middle strategyRun returnRun
     obtain ⟨used, produced, zm, dm, getM, stateM, accountM, outcome⟩ :=
       slow_strategy_run_size strategyB boundary.end_frontier buffers positive pointer memory wrap bits publish
@@ -99,7 +100,7 @@ theorem busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin b
         exact (deflate_slow_finish_run_controls strategyB boundary.end_frontier buffers positive pointer memory
           wrap publish inputValid strategyRun stateM).status
     rcases outcome with ⟨more, roomOut, input1, origin1, base1, ys1, state1, companion1, endpoint1, size1⟩ |
-        ⟨finishFlag, good2, buffers2, shape, bits2, ready2, wrap2, _covered, size2⟩
+        ⟨finishFlag, good2, buffers2, shape, bits2, ready2, wrap2, _covered, size2, drained2⟩
     · subst more
       obtain ⟨result, stateA, getA, boundaryA, heldA, statusA, fillA, companionA⟩ :=
         need_more_return_size state1 returnRun
@@ -118,7 +119,7 @@ theorem busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin b
         have owed : owedTrailer { dm with status := FINISH_STATE, last_flush := -1 } = 4 := by
           unfold owedTrailer
           simp [wrap2]
-        refine ⟨used, produced, zm, _, goodA.live.hz, goodA.live.hs, accountM, fun _ _ => empty, Or.inr ⟨rfl, ?_, ?_⟩⟩
+        refine ⟨used, produced, zm, _, goodA.live.hz, goodA.live.hs, accountM, fun _ _ => empty, Or.inr ⟨rfl, ?_, ?_, rfl, drained2⟩⟩
         · rw [owed]
           change produced + heldBytes dm + 4 + base + 5 * (base / 16383) ≤ _
           omega
@@ -138,7 +139,7 @@ theorem busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin b
           trailer_run_size (finish_status_good good2) (finish_status_trees trees0)
             (finish_status_buffers good2 buffers2) pointerM wrap2 ready.1 ready.2.1 bits2 returnRun
         refine ⟨used + 0, produced + tailProduced, z3, d3, get3, state3, stream_accounting_trans accountM account3, fun _ ok => room3 ok,
-          Or.inr ⟨status3, ?_, ?_⟩⟩
+          Or.inr ⟨status3, ?_, ?_, rfl, ?_⟩⟩
         · have owed : owedTrailer d3 = 0 := by
             unfold owedTrailer
             rw [wrap3]
@@ -151,6 +152,11 @@ theorem busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin b
           have zero : d3.pending = 0 := UInt64.toNat_inj.mp pendingZero
           rw [rc3, zero]
           rfl
+        · have count := account3.2.2.1
+          have drainedN : zm.avail_in.toNat = 0 := by rw [drained2]; rfl
+          apply UInt32.toNat_inj.mp
+          change z3.avail_in.toNat = 0
+          omega
   rcases clean with noFlush | finish
   · subst noFlush
     by_cases active : z.avail_in ≠ 0 ∨ d.lookahead ≠ 0

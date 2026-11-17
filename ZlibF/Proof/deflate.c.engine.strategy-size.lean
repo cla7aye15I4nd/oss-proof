@@ -40,7 +40,8 @@ theorem slow_strategy_run_size {h after : Heap} {r : ZStreamRef}
           result.wrap = 1 ∧
           base ≤ origin + fillEnd d + used ∧
           produced + heldBytes result + base + 5 * (base / 16383) ≤
-            heldBytes d + (origin + fillEnd d + used) + 5 * ((origin + fillEnd d + used) / 16383) + 5)) := by
+            heldBytes d + (origin + fillEnd d + used) + 5 * ((origin + fillEnd d + used) / 16383) + 5 ∧
+          z'.avail_in = 0)) := by
   rw [deflate_slow_eof_tail_source, bind_app] at run
   cases loopRun : cwhile forever (deflate_slow_body (some (.tab ds)) flush) {} h with
   | error e => simp only [loopRun] at run; cases run
@@ -96,13 +97,18 @@ theorem slow_strategy_run_size {h after : Heap} {r : ZStreamRef}
           (boundary_window state1 bits) companion1 run
       have account := stream_accounting_trans account1 account2
       refine ⟨used + 0, produced + tailProduced, z2, d2, get2, state2, account, Or.inr ⟨rfl, good2, buffers2,
-        shape, bits2, ready2, wrap2.trans (wrapL.trans wrap), ?_, ?_⟩⟩
+        shape, bits2, ready2, wrap2.trans (wrapL.trans wrap), ?_, ?_, ?_⟩⟩
       · have accounted := boundary.accounted
         have credit : 0 ≤ pendingCredit d := Nat.zero_le _
         have fill : d.strstart.toNat ≤ fillEnd d := by unfold fillEnd; omega
         omega
       · have grow : base1 / 16383 ≤ (origin + fillEnd d + used) / 16383 :=
           Nat.div_le_div_right (by omega)
+        omega
+      · have count := account2.2.2.1
+        have drainedN : z1.avail_in.toNat = 0 := by rw [drained]; rfl
+        apply UInt32.toNat_inj.mp
+        change z2.avail_in.toNat = 0
         omega
 
 end Zlib.Deflate.Engine.Proofs

@@ -174,9 +174,9 @@ theorem finish_ok_fills {r : ZStreamRef} {h after : Heap} {log : DataLog} {z : Z
   have dA := stateA.protocol.good.live.hs
   have room : zA.avail_out = 0 := by
     rcases caller_output_storage_cases state.protocol.good buffers with null | raw | ⟨owner, oo, pointer⟩
-    · exact (ledger.step_raw state (Or.inr rfl) (Or.inl null) step getA dA).2 rfl rfl
-    · exact (ledger.step_raw state (Or.inr rfl) (Or.inr raw) step getA dA).2 rfl rfl
-    · exact (ledger.step_foreign state (Or.inr rfl) pointer step getA dA).2 rfl rfl
+    · exact (ledger.step_raw state (Or.inr rfl) (Or.inl null) step getA dA).2.1 rfl rfl
+    · exact (ledger.step_raw state (Or.inr rfl) (Or.inr raw) step getA dA).2.1 rfl rfl
+    · exact (ledger.step_foreign state (Or.inr rfl) pointer step getA dA).2.1 rfl rfl
   have length := public_bytes_length bytes
   rw [room] at length
   simpa using length

@@ -23,14 +23,14 @@ set_option autoImplicit false
 
 /-- An outcome after delivering `first` pending bytes first. -/
 theorem BusySizeOutcome.prepend {after : Heap} {r : ZStreamRef} {ds : Nat} {z' : ZStream}
-    {result : DeflateState} {rc : Int32} {start base held heldM first produced : Nat}
-    (outcome : BusySizeOutcome after r ds z' result rc start base heldM produced)
+    {result : DeflateState} {flush rc : Int32} {start base held heldM first produced : Nat}
+    (outcome : BusySizeOutcome after r ds z' result flush rc start base heldM produced)
     (moved : first + heldM = held) :
-    BusySizeOutcome after r ds z' result rc start base held (first + produced) := by
+    BusySizeOutcome after r ds z' result flush rc start base held (first + produced) := by
   rcases outcome with ⟨status, input', origin', base', xs', boundary, endpoint, companion, size⟩ |
-      ⟨status, size, ended⟩
+      ⟨status, size, ended, entry⟩
   · exact Or.inl ⟨status, input', origin', base', xs', boundary, endpoint, companion, by omega⟩
-  · exact Or.inr ⟨status, by omega, ended⟩
+  · exact Or.inr ⟨status, by omega, ended, entry⟩
 
 /-- **The size of a `BUSY_STATE` call.** -/
 theorem busy_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
@@ -47,7 +47,7 @@ theorem busy_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base :
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
       (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-      BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
+      BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base (heldBytes d) produced := by
   have flagLo : 0 ≤ flush.toInt := by rcases clean with rfl | rfl <;> decide
   have flagHi : flush.toInt ≤ 5 := by rcases clean with rfl | rfl <;> decide
   have nonnull : z.next_out ≠ .null := by rw [pointer]; intro eq; cases eq

@@ -24,7 +24,8 @@ theorem SizeLedger.step_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo :
     (step : DataStep .deflate h after r flush rc input output used)
     (getA : r.get after = some z') (stateA : after.dstates ds = some result) :
     SizeLedger after r ds z' result config (accepted ++ input.take used) (observed ++ output) ∧
-      (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) := by
+      (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
+      (d.status ≠ FINISH_STATE → result.status = FINISH_STATE → flush = Z_FINISH ∧ z'.avail_in = 0) := by
   obtain ⟨z0, z1, get0, get1, buffers, _header, snapshot, usedEq, bytesOut, run⟩ := step
   have same0 : z0 = z := Option.some.inj (get0.symm.trans state.protocol.good.live.hz)
   subst same0
@@ -90,7 +91,8 @@ theorem SizeLedger.step_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo :
     subst zEq dEq usedZero
     have nil : output = [] := List.eq_nil_of_length_eq_zero outZero
     subst nil
-    refine ⟨by simpa only [List.take_zero, List.append_nil] using ledger.refused (message := message) state, ?_⟩
+    refine ⟨by simpa only [List.take_zero, List.append_nil] using ledger.refused (message := message) state, ?_,
+      fun notFinished finished => absurd finished notFinished⟩
     intro _ ok
     rcases codes with c | c
     · exact absurd (ok.symm.trans c) (by decide)
@@ -105,7 +107,8 @@ theorem SizeLedger.step_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo :
     have busyCase : ∀ input0 origin base xs, BufferedBoundary h r ds z0 d input0 origin base xs config →
         d.status = BUSY_STATE → inputPrefix input0 (origin + fillEnd d) = accepted →
         SizeLedger after r ds z1 result config (accepted ++ input.take used) (observed ++ output) ∧
-          (flush = Z_FINISH → rc = Z_OK → z1.avail_out = 0) := by
+          (flush = Z_FINISH → rc = Z_OK → z1.avail_out = 0) ∧
+          (d.status ≠ FINISH_STATE → result.status = FINISH_STATE → flush = Z_FINISH ∧ z1.avail_in = 0) := by
       intro input0 origin base xs boundary status inputEq
       have level : d.level = 6 := (congrArg EngineConfig.level boundary.configuration).trans options.level
       have strategy : d.strategy = 0 := (congrArg EngineConfig.strategy boundary.configuration).trans options.strategy
@@ -117,7 +120,7 @@ theorem SizeLedger.step_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo :
       subst zEq dEq usedS'
       have length := congrArg List.length inputEq
       rw [input_prefix_length] at length
-      refine ⟨ledger_of_outcome outcome ?_ size ledger.window outS, roomS⟩
+      refine ⟨ledger_of_outcome outcome ?_ size ledger.window outS, roomS, fun _ finished => outcome.finish_entry finished⟩
       rw [acceptedLen, length]
     rcases state.phase with ⟨emptyInput, emptyOutput, input0, start, boundary⟩ |
         ⟨_, _, _, _, status, _⟩ |
@@ -134,7 +137,7 @@ theorem SizeLedger.step_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo :
       subst zEq dEq usedS'
       have fill : fillEnd d = 0 := by
         simp only [fillEnd, start.start, start.lookahead, UInt32.toNat_zero, Nat.add_zero]
-      refine ⟨ledger_of_outcome outcome ?_ (by simp) ledger.window outS, roomS⟩
+      refine ⟨ledger_of_outcome outcome ?_ (by simp) ledger.window outS, roomS, fun _ finished => outcome.finish_entry finished⟩
       rw [acceptedLen, fill]
       simp
     · obtain ⟨input0, origin, base, xs, boundary, inputEq⟩ := state.busy_data status
@@ -158,7 +161,8 @@ theorem SizeLedger.step_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo :
         subst zEq dEq usedS'
         have fin := ledger_of_finishing (after := other) (r := r) (ds := ds) (z' := zS) (config := config)
           (accepted := accepted) (observed := observed) statusS sizeS finishing ledger.window outS
-        refine ⟨by simpa only [List.take_zero, List.append_nil] using fin, ?_⟩
+        refine ⟨by simpa only [List.take_zero, List.append_nil] using fin, ?_,
+          fun notFinished _ => absurd phase.status notFinished⟩
         intro _ ok
         exact roomS (rcs.trans ok)
       · obtain ⟨producedS, rcE, other, zS, resultS, tested, goodS, account, roomS, statusS, sizeS⟩ :=
@@ -170,7 +174,8 @@ theorem SizeLedger.step_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo :
         subst zEq dEq usedS'
         have fin := ledger_of_finishing (after := other) (r := r) (ds := ds) (z' := zS) (config := config)
           (accepted := accepted) (observed := observed) statusS sizeS finishing ledger.window outS
-        refine ⟨by simpa only [List.take_zero, List.append_nil] using fin, ?_⟩
+        refine ⟨by simpa only [List.take_zero, List.append_nil] using fin, ?_,
+          fun notFinished _ => absurd phase.status notFinished⟩
         intro _ ok
         exact roomS (rcs.trans ok)
 
@@ -247,7 +252,7 @@ theorem first_ok_foreign {h after : Heap} {r : ZStreamRef} {ds owner oo : Nat} {
       simp only [fillEnd, start.start, start.lookahead, UInt32.toNat_zero, Nat.add_zero]
     rw [fill] at outcome
     rcases outcome with ⟨_status, input', origin', base', xs', known, endpoint, _companion, size⟩ |
-        ⟨_status, size, ended⟩
+        ⟨_status, size, ended, _⟩
     · have covered := content_base_le known
       have grow : base' / 16383 ≤ used / 16383 := Nat.div_le_div_right (by omega)
       omega

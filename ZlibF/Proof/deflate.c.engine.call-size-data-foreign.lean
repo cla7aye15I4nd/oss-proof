@@ -30,7 +30,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
       (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-      BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
+      BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base (heldBytes d) produced := by
   have positive : 0 < config.level.toInt := by
     have eq := congrArg EngineConfig.level boundary.configuration
     change d.level = config.level at eq
@@ -43,7 +43,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
       ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
         StreamAccounting z z' used produced ∧
         (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-        BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
+        BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base (heldBytes d) produced := by
     intro ret middle strategyRun returnRun
     obtain ⟨used, produced, zm, dm, getM, stateM, accountM, outcome⟩ :=
       foreign_slow_strategy_run_size strategyB boundary.end_frontier buffers positive pointer memory wrap bits publish
@@ -63,7 +63,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
         exact (default_foreign_deflate_slow_finish_ready_run_controls strategyB boundary.end_frontier buffers positive pointer memory
           wrap publish inputValid strategyRun stateM).status
     rcases outcome with ⟨more, roomOut, input1, origin1, base1, ys1, state1, companion1, endpoint1, size1⟩ |
-        ⟨finishFlag, good2, buffers2, shape, bits2, ready2, wrap2, _covered, size2⟩
+        ⟨finishFlag, good2, buffers2, shape, bits2, ready2, wrap2, _covered, size2, drained2⟩
     · subst more
       obtain ⟨result, stateA, getA, boundaryA, heldA, statusA, fillA, companionA⟩ :=
         need_more_return_size state1 returnRun
@@ -82,7 +82,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
         have owed : owedTrailer { dm with status := FINISH_STATE, last_flush := -1 } = 4 := by
           unfold owedTrailer
           simp [wrap2]
-        refine ⟨used, produced, zm, _, goodA.live.hz, goodA.live.hs, accountM, fun _ _ => empty, Or.inr ⟨rfl, ?_, ?_⟩⟩
+        refine ⟨used, produced, zm, _, goodA.live.hz, goodA.live.hs, accountM, fun _ _ => empty, Or.inr ⟨rfl, ?_, ?_, rfl, drained2⟩⟩
         · rw [owed]
           change produced + heldBytes dm + 4 + base + 5 * (base / 16383) ≤ _
           omega
@@ -102,7 +102,7 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
           foreign_trailer_run_size (finish_status_good good2) (finish_status_trees trees0)
             (finish_status_buffers good2 buffers2) pointerM wrap2 ready.1 ready.2.1 bits2 returnRun
         refine ⟨used + 0, produced + tailProduced, z3, d3, get3, state3, stream_accounting_trans accountM account3, fun _ ok => room3 ok,
-          Or.inr ⟨status3, ?_, ?_⟩⟩
+          Or.inr ⟨status3, ?_, ?_, rfl, ?_⟩⟩
         · have owed : owedTrailer d3 = 0 := by
             unfold owedTrailer
             rw [wrap3]
@@ -115,6 +115,11 @@ theorem foreign_busy_data_tail_size {h after : Heap} {r : ZStreamRef} {ds owner 
           have zero : d3.pending = 0 := UInt64.toNat_inj.mp pendingZero
           rw [rc3, zero]
           rfl
+        · have count := account3.2.2.1
+          have drainedN : zm.avail_in.toNat = 0 := by rw [drained2]; rfl
+          apply UInt32.toNat_inj.mp
+          change z3.avail_in.toNat = 0
+          omega
   rcases clean with noFlush | finish
   · subst noFlush
     by_cases active : z.avail_in ≠ 0 ∨ d.lookahead ≠ 0

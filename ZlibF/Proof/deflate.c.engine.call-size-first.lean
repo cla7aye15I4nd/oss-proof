@@ -28,7 +28,7 @@ theorem first_call_size {h after : Heap} {r : ZStreamRef} {ds ob oo origin base 
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
       (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-      BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base 2 produced := by
+      BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base 2 produced := by
   obtain ⟨outputBytes, outGet, outRw, outBound, outside⟩ := caller_raw_output initial.good buffers pointer
   obtain ⟨oldD, pb, buf, trees⟩ := initial.good.trees
   have sameD : oldD = d := Option.some.inj (trees.base.dstate.symm.trans initial.good.live.hs)

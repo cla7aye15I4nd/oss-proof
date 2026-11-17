@@ -30,7 +30,7 @@ theorem foreign_busy_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo or
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
       (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-      BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base (heldBytes d) produced := by
+      BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base (heldBytes d) produced := by
   have flagLo : 0 ≤ flush.toInt := by rcases clean with rfl | rfl <;> decide
   have flagHi : flush.toInt ≤ 5 := by rcases clean with rfl | rfl <;> decide
   have nonnull : z.next_out ≠ .null := by rw [pointer]; intro eq; cases eq

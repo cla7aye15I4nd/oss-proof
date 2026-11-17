@@ -29,7 +29,7 @@ theorem foreign_first_call_size {h after : Heap} {r : ZStreamRef} {ds owner oo o
     ∃ used produced z' result, r.get after = some z' ∧ after.dstates ds = some result ∧
       StreamAccounting z z' used produced ∧
       (flush = Z_FINISH → rc = Z_OK → z'.avail_out = 0) ∧
-      BusySizeOutcome after r ds z' result rc (origin + fillEnd d + used) base 2 produced := by
+      BusySizeOutcome after r ds z' result flush rc (origin + fillEnd d + used) base 2 produced := by
   have nonnull : z.next_out ≠ .null := by rw [pointer]; intro eq; cases eq
   have positive : z.avail_out ≠ 0 := by intro zero; rw [zero] at output; cases output
   have entry : deflate (some r) flush h =
