@@ -221,4 +221,92 @@ theorem cause_codes (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     · exact Or.inr (Or.inr (Or.inr (Or.inl left)))
     · rw [e] at e'; cases e'
 
+open MeaningCheck MeaningTrailer in
+/-- `CHECK` of a zlib stream: the only leave with `ret = Z_OK` is its `NEEDBITS(32)`; past it
+`LENGTH` (no length field: `flags = 0`) ends the stream with `Z_STREAM_END`. -/
+theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wrap = .zlib) :
+    CauseAt c f r (fun s => s.mode = CHECK) := by
+  intro h l side loop check l' h' leaveRun
+  obtain ⟨zs, z, s, E, j⟩ := side.env
+  have statics : Zlib.Crc32.Proofs.StaticsOK h := by
+    have globals := j.globals
+    unfold LibraryGlobals at globals
+    rw [Zlib.Crc32.Proofs.StaticsOK, globals]
+    exact ⟨rfl, rfl⟩
+  obtain ⟨zs0, s0, callOut0, consumed0, held0, stage0, st, hs, _, config0, _, _, binv0, leftLe0, pend0,
+    putEq0, outBytes0, _, _, _, _, bitsEq0, heldBits0, parsed0, stageM0, wrapM0, _⟩ := loop
+  have e0 : zs0 = zs := by rw [E.st] at st; cases st; rfl
+  subst e0
+  have e1 : s0 = s := Option.some.inj (hs.symm.trans E.hs)
+  subst e1
+  have mode : s0.mode = CHECK := check zs0 s0 st hs
+  obtain ⟨header0, out0, bytes0, rfl⟩ := stage_of_check stageM0 mode
+  obtain ⟨flagsM, _, ⟨checkFacts0, _, _⟩⟩ := wrapM0
+  have wrapped : f.wrap ≠ .raw := by rw [zlib]; decide
+  have wrapNZ : s0.wrap ≠ 0 := fun zero => wrapped (wrapCode_zero (config0.1.symm.trans zero))
+  have notGzip : ¬ IsGzipHeader header0 := by
+    obtain ⟨_, _, _, wh, _⟩ := parsed0
+    rw [zlib] at wh
+    obtain ⟨window, zh, _⟩ := wh
+    exact zlibHeader_not_gzip zh
+  have flags0 : s0.flags = 0 := by
+    unfold FlagsMatch at flagsM
+    rw [zlib] at flagsM
+    simpa [notGzip] using flagsM
+  have outNat : (l.out_ - l.left).toNat = loopPending l :=
+    UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr leftLe0)
+  have putAt : chkCond s0 (l.out_ - l.left) = true → ∃ ref off array, l.put = .ref ref off ∧
+      Space.get h ref = some array ∧ (l.out_ - l.left).toNat ≤ off ∧ off ≤ array.size := by
+    intro cond
+    have nonzero : (l.out_ - l.left) ≠ 0 := by
+      simp only [chkCond, Bool.and_eq_true, bne_iff_ne, ne_eq] at cond
+      exact cond.2
+    have pos : 0 < (l.out_ - l.left).toNat :=
+      Nat.pos_of_ne_zero (fun zero => nonzero (UInt32.toNat_inj.mp (by simpa using zero)))
+    rcases outBytes0 with ⟨_, len0, _⟩ | ⟨r0, i0, a0, ptr0, get0, fit0, _⟩
+    · have := pend0.1
+      omega
+    · refine ⟨r0, i0 + callOut0.length, a0, by rw [putEq0, ptr0]; rfl, get0, ?_, fit0⟩
+      have := pend0.1
+      omega
+  obtain ⟨rr, l1, _, needRun, _, _, _, leaveRun1, okRun⟩ :=
+    inflate_CHECK_value_run (l.out_ - l.left) rfl E.strm st E.hz hs wrapNZ binv0 statics putAt
+  have rrKinds : rr = .ok () ∨ rr = .error Ex.leave := by
+    obtain ⟨result, l2, _, run2, _, _, _, _, _, _, _, _, _, kinds, _⟩ :=
+      NEEDBITS_run_cursor binv0 32 (by decide)
+    have same := needRun.symm.trans run2
+    simp only [Except.ok.injEq, Prod.mk.injEq] at same
+    rw [same.1.1]
+    exact kinds
+  have dispatchEq := inflate_dispatch_CHECK E l mode
+  cases rr with
+  | error x =>
+    cases x with
+    | leave =>
+      obtain ⟨have0, _, bits32, run1⟩ := leaveRun1 rfl
+      obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun (dispatchEq.trans run1)
+      refine Or.inr (Or.inr (Or.inr (Or.inr ⟨have0, LeaveShort.of_state st hs ?_⟩)))
+      have len : (natBits l'.bits.toNat l'.hold.toNat).length < 32 := by
+        rw [natBits_length]; exact bits32
+      unfold ShortAt
+      exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
+        (Or.inr (Or.inr (Or.inr (Or.inl ⟨mode, wrapNZ, len⟩)))))))))))))
+    | ret v => rcases rrKinds with e | e <;> cases e
+  | ok u =>
+    obtain ⟨_, v, _, badRun, matchRun⟩ := okRun rfl
+    by_cases bad : (s0.wrap &&& 4) ≠ 0 ∧
+        (if s0.flags ≠ 0 then l1.hold else ZSWAP32 l1.hold) ≠ (chkS s0 (l.out_ - l.left) v).check
+    · obtain ⟨i, _, run1⟩ := badRun bad.1 bad.2
+      obtain ⟨e, _, _⟩ := same_leave leaveRun (dispatchEq.trans run1)
+      cases e
+    · have run1 := matchRun bad
+      have skip := inflate_LENGTH_skip (c := c)
+        (l := { l1 with out_ := l.left, hold := 0, bits := 0 }) st
+        (s := { chkS s0 (l.out_ - l.left) v with mode := LENGTH })
+        (h := setI (chkH h r zs0 z s0 (l.out_ - l.left) v) zs0
+          { chkS s0 (l.out_ - l.left) v with mode := LENGTH })
+        (by simp [setI, upd]) (Or.inr (by simp [chkS, flags0]))
+      obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun ((dispatchEq.trans run1).trans skip)
+      exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
+
 end Zlib.Inflate.Proofs
