@@ -103,7 +103,7 @@ over. The rows are in [deviations](../deviations.md#gzip-file-interface).
 | --- | --- | --- |
 | Caller heap and world at an open | `GzHistory.open`, `open64`, `dopen`; `GzOpenSafe`, `GzDopenSafe` | The heap is well formed (`Fresh`, `Uniq`, `LibraryGlobals`), every byte object has fewer than `2^63` bytes (`ByteObjectsFit`), the world is well formed (`FileSystem`), and `path` and `mode` are NUL-terminated strings (or `NULL`, in clauses 6 and 7). |
 | Caller buffers | `GzArguments`, through `GzRange` | The buffers of `gzread`, `gzfread`, `gzwrite`, `gzfwrite`, `gzputs`, `gzgets` and `gzerror` are readable for the requested length, writable where the call stores into them, and lie apart from the blocks the handle owns. The argument of `gzputs` is a NUL-terminated string. A request of length 0, a request that the C refuses for its size, a `gzgets` call with a `NULL` buffer or a length below 1, and a `NULL` `errnum` of `gzerror` carry no buffer premise. |
-| Arguments of `gzprintf` and `gzvprintf` | `GzArguments` | On a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed. The format and every pointer argument lie apart from the handle's blocks. That the `vsnprintf` call is defined in C is the caller's ([trusted base](../trusted-base.md)). |
+| Arguments of `gzprintf` and `gzvprintf` | `GzArguments` | On a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed. The format and every pointer argument lie apart from the handle's blocks. That the `vsnprintf` call is defined in C for the format and the arguments, with no `%n`, is the caller's: no premise states it, and the model does not read the conversions of the format ([trusted base](../trusted-base.md)). |
 | Read budget | `ReadsFinite` | The handle's descriptor can still deliver fewer than `2^61` bytes. It is a premise of part (b) only, and only for the six reading calls. The premise also says that the descriptor number is not negative. Every handle the library returns has such a number: `GzOpenSafe` states it for `gzopen`, and `gzdopen` returns `NULL` for a negative descriptor. |
 | Caller step between two calls | `GzHistory.caller`: `GzCallerFrame`, `ByteObjectsFit` | The caller changes only blocks that the handle does not own. The heap after the change is well formed (`Fresh`, `Uniq`, `LibraryGlobals`), and every byte object in it has fewer than `2^63` bytes. |
 | World step between two calls | `GzHistory.world`: `GzWorldStep` | The new world is well formed (`FileSystem`). Nothing else is asked. |
@@ -183,7 +183,7 @@ descriptor table, `errno`, and an oracle that chooses the result of every `read`
 [External I/O](../design/external-io.md#the-os-oracle) has the table of what the oracle may
 choose.
 
-The oracle is wider than any real system: for example, a read may succeed whatever the
+The oracle is wider than a regular file: for example, a read may succeed whatever the
 descriptor's state. Every clause quantifies over all worlds, so no proof step can depend on the
 file being a regular file.
 

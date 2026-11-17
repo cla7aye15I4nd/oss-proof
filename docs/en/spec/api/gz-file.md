@@ -85,7 +85,8 @@ The `gzprintf` condition is asked at every `gzprintf` step. On a reader or a han
 C returns before it reads the format, and the condition then asks only that the format pointer
 and the pointer arguments lie outside the handle's blocks. The model does not parse the format:
 every format for which the `vsnprintf` call is defined in C is covered, with floating
-conversions, `%p`, the `h` and `hh` modifiers and `*` widths. `%n` is not covered
+conversions, `%p`, the `h` and `hh` modifiers and `*` widths. `%n` is not covered. A format that
+does not match its arguments is not covered either, and the model does not detect one
 ([deviations](../../deviations.md), row "Gz printf call").
 
 **Read budget (`ReadsFinite`).** The termination clause for the six reading calls assumes that
@@ -1182,14 +1183,14 @@ separated and an allowed caller-visible effect. Valid compression parameters hol
 - **Goal.** `Goal.gzprintf_safety` ([Safety/GzCalls.lean](../../../../ZlibF/Spec/Safety/GzCalls.lean)); required. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety` ([public-gz-call-safety.lean](../../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
-    2. the argument condition (`GzArguments`): on a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed; the format string and every pointer argument lie outside the handle's own blocks. That the `vsnprintf` call is defined in C for the format and the arguments, with no `%n`, is the caller's ([trusted base](../../trusted-base.md)).
+    2. the argument condition (`GzArguments`): on a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed; the format string and every pointer argument lie outside the handle's own blocks. That the `vsnprintf` call is defined in C for the format and the arguments, with no `%n`, is the caller's: no premise states it, and the model, which does not read the conversions of the format, does not detect a call that C does not define ([trusted base](../../trusted-base.md)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
 - **Guarantees.**
     - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.
     - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
     - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
     - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
-- **Not in this goal.** A format with `%n`, and a `vsnprintf` call that C does not define for the format and the arguments: outside the goal ([deviations](../../deviations.md), row "Gz printf call"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzprintf` (not planned; not done).
+- **Not in this goal.** A format with `%n`, and a `vsnprintf` call that C does not define for the format and the arguments, such as a conversion that does not match its argument: the goal says nothing about the C for these ([deviations](../../deviations.md), row "Gz printf call"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzprintf` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>Complete return conditions and boundaries</summary>
 
@@ -1247,14 +1248,14 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 - **Goal.** `Goal.gzvprintf_safety` ([Safety/GzCalls.lean](../../../../ZlibF/Spec/Safety/GzCalls.lean)); required, although `zlib.h` lists this function as undocumented: `gzprintf` goes through it. Theorem: `ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety` ([public-gz-call-safety.lean](../../../../ZlibF/Proof/public-gz-call-safety.lean)). The goal has two clauses: the refusal of a NULL handle; one call on a handle (`GzCallSafety`, the call clause of [the sequence goal](#the-safety-goal) for the calls of this function).
 - **Applies when.** The refusal has no condition. The call on a handle asks:
     1. `file` is a handle with a history (`GzHistory`, described under [the safety goal](#the-safety-goal));
-    2. the argument condition (`GzArguments`): on a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed; the format string and every pointer argument lie outside the handle's own blocks. That the `vsnprintf` call is defined in C for the format and the arguments, with no `%n`, is the caller's ([trusted base](../../trusted-base.md)).
+    2. the argument condition (`GzArguments`): on a file open for writing and not in error, the format is a NUL-terminated string and every pointer argument points into a block that is not freed; the format string and every pointer argument lie outside the handle's own blocks. That the `vsnprintf` call is defined in C for the format and the arguments, with no `%n`, is the caller's: no premise states it, and the model, which does not read the conversions of the format, does not detect a call that C does not define ([trusted base](../../trusted-base.md)).
 - **Covered without condition.** Every state a history can leave the handle in, reader or writer, with or without a pending error; every file-system world; every allocation outcome.
 - **Guarantees.**
     - *Returns.* On a NULL handle the call returns `Z_STREAM_ERROR`, whatever the other arguments are. On a handle the call returns, in every world.
     - *State.* On a handle, after a call that returned: the world is well formed, the set of open descriptors is the same (`FdsKept`), and the handle keeps its invariant, its mode and its descriptor (`GzStepPost`, `GzInv`).
     - *Writes.* On a NULL handle, nothing: the heap and the world are unchanged. On a handle, only the handle's own blocks.
     - *Allocations.* On a handle, the exact allocation account of the handle (`LiveChange`).
-- **Not in this goal.** A format with `%n`, and a `vsnprintf` call that C does not define for the format and the arguments: outside the goal ([deviations](../../deviations.md), row "Gz printf call"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzvprintf` (not planned; not done).
+- **Not in this goal.** A format with `%n`, and a `vsnprintf` call that C does not define for the format and the arguments, such as a conversion that does not match its argument: the goal says nothing about the C for these ([deviations](../../deviations.md), row "Gz printf call"). The value the call returns on a handle, and the bytes, the position and the flags that result: functional goal `Goal.gzvprintf` (not planned; not done).
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzvprintf"><summary>Complete return conditions and boundaries</summary>
 

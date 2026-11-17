@@ -1,8 +1,8 @@
 # Overview: what is proved about zlib
 
 This page says what the project proves about zlib, what it assumes, and how the proof is built. The main point: every documented public function of the default x86_64 Linux
-build is proved safe in every sequence of calls, for a Lean translation of the C, under premises
-that each theorem states. The words in bold type are defined in the [glossary](glossary.md).
+build is proved safe over every history of calls on one stream, file or decoder, for a Lean
+translation of the C, under premises that each theorem states. The words in bold type are defined in the [glossary](glossary.md).
 
 ## The claim
 
@@ -14,11 +14,37 @@ stream, a callback decoder and a gzip file handle. Each of these statements is a
 a theorem whose type is exactly the goal, and each is done: the theorem exists and passes every
 check of the project. [Coverage by function](coverage.md) names the theorem of each function.
 
+The premises, in short ([deviations](deviations.md) has them by function):
+
+- The source is zlib 1.4 with the six [patches](../../patches/README.md). Unpatched zlib 1.4
+  has the defects that [findings](findings.md) lists.
+- `zalloc` and `zfree` are `Z_NULL`: zlib uses its default allocator. A custom allocator is
+  outside every goal. A failing `malloc` is covered.
+- A history is about one object: one stream from its init, one gzip file handle from its open,
+  or one callback decoder from its init. Every call in it meets the premises on its arguments,
+  whatever it returns. Between two calls the caller changes only the four buffer fields of the
+  stream record and memory that the object does not own. Each goal states which memory a call
+  may write (its frame). No goal states how the histories of two objects in one program combine.
+- The caller's buffers of one call overlap neither one another nor memory the object owns, and
+  no byte object has 2^63 bytes or more.
+- `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets` and `gzungetc` are proved to return when
+  the descriptor can deliver fewer than 2^61 more bytes. Without that premise they are still
+  proved to cause no undefined behaviour. The gz writing calls are proved to return in a model
+  whose `write` never returns 0 for a non-empty request.
+- One `inflateBack` call is offered fewer than 2^48 input bytes, and the `in` and `out`
+  functions follow the protocol the goal states.
+- A `gzprintf` or `gzvprintf` call is one that C defines for its format and arguments, and the
+  format has no `%n`. The model does not read the caller's format, so it does not detect a
+  format that does not match its arguments.
+
 One functional result is proved as well: the round trip of the default zlib stream.
-`uncompress(compress(x)) = x` when `compress` has `compressBound` room; and a stream written by
-`deflate` after `deflateInit` at the default level, then read by `inflate` after `inflateInit`,
-gives back the input under every call sequence. Its premises include that every allocation
-succeeds and that no preset dictionary is used ([the round trip](proof/roundtrip.md)).
+`uncompress(compress(x)) = x` when `compress` has `compressBound` room. For streams: after
+`deflateInit` at the default level, `deflate` calls with any flush value and any split of the
+buffers, finished by `deflate(Z_FINISH)` calls with output room, write a stream that `inflate`
+calls after `inflateInit`, in any split and with output room, read back to exactly the input.
+Its premises include that every allocation succeeds and that no preset dictionary is used.
+`deflateParams`, resets and other levels are not part of it
+([the round trip](proof/roundtrip.md)).
 
 **Assumed.** The theorems are about a Lean translation that runs on a runtime model. Six things
 are trusted and not proved ([trusted base](trusted-base.md)):

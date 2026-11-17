@@ -6,7 +6,7 @@ are not proved, and compiling the proofs does not discharge them.
 
 | # | Trusted | Checked by |
 | --- | --- | --- |
-| 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The check of the axioms each theorem depends on, and a replay by the kernel in a fresh environment |
+| 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The build: the kernel checks every proof, and a check of the results examines the type of each theorem and the axioms it depends on. A replay by the kernel in a fresh environment is a command a reader can run |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and semantic regression tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
 | 4 | The selected source: zlib 1.4 and six patches | The [patches page](../../patches/README.md). Each patch has a sanitizer reproduction, with three exceptions: 0005 rests on a probe run and a reading of the C; one branch of 0004 rests on a reading of the C; 0006 fixes a broken promise that no sanitizer reports |
@@ -23,17 +23,22 @@ premises a caller must meet; [model limits](model-limits.md) details item 2;
 
 ## 1. Kernel and permitted axioms
 
-The Lean kernel and `propext`, `Classical.choice` and `Quot.sound` are trusted. Every
-declaration that a theorem depends on is examined, and only those axioms are permitted. The
-compiled proofs are replayed by the kernel in a fresh environment; execution tests do not
-replace that.
+The Lean kernel and `propext`, `Classical.choice` and `Quot.sound` are trusted. The kernel
+checks every proof when the library is built. In the same build a check of the results examines
+every declaration that a theorem depends on, and permits only those axioms. Execution tests do
+not replace the kernel check.
+
+An independent replay is a command a reader can run: `lake env leanchecker --fresh ZlibF.Results`
+has the kernel check the compiled results, and everything they depend on, again in a fresh
+environment. It is not run on every change.
 
 The programs that do this are themselves trusted code, and they work from trusted data. The
-program that examines the proofs reads the compiled modules; it does not elaborate source or run
-code of the modules it examines. The list of goals, the list of theorems and the list of the
-functions of `zlib.h` that it works from are written by hand. The compiler-generated auxiliary
-declarations (such as `._unsafe_rec`) are exempt from the `unsafe` and `partial` checks and are
-not taken as roots of the axiom traversal.
+check of the results is Lean code that runs in the build, on the declarations the build has
+just checked. The pairs of goal and theorem and the list of required goals are written by hand;
+the check finds the goals themselves, and fails on a goal that is in no list. The list of the
+functions of `zlib.h` that the required goals are compared with is written by hand and compared
+with the pinned `zlib.h`. The compiler-generated auxiliary declarations (such as `._unsafe_rec`)
+are exempt from the `unsafe` and `partial` checks.
 
 ## 2. Runtime and object schema
 
@@ -48,7 +53,7 @@ A no-fault theorem is a statement about these definitions. The intended correspo
 every undefined behaviour the C can reach becomes `Fault.ub`. Unsigned arithmetic is modular.
 Signed arithmetic, shifts and conversions are checked by each translation; item 3 names the
 accepted exception and the further forms the translations contain. The correspondence
-has limits, and four of them matter to every reader:
+has limits, and five of them matter to every reader:
 
 - **Uninitialised pointers.** The model has no value for an uninitialised pointer: a pointer field
   in fresh memory reads as `NULL`, so a missing write does not show. Comparing, copying and
@@ -68,6 +73,14 @@ has limits, and four of them matter to every reader:
 - **In-place table updates.** The primitives that write change a heap table in place
   (`Space.modify`). A lemma (`modify_eq`) states that this equals the functional update the
   proofs reason with; the review of that lemma and of the table type is part of this item.
+- **Null pointer arithmetic.** The model defines two operations that C17 leaves undefined:
+  `NULL + 0`, and `NULL - NULL` at one place, the stored length `stream.next_out - dest` of
+  `compress2_z` (`Compress.ptrDiff`), where it gives 0. A `compress` call with a `NULL`
+  destination of capacity 0 is inside the goal, and reaches that place when its `deflateInit`
+  succeeds. A no-fault theorem does
+  not show that the C avoids these two operations
+  ([model limits](model-limits.md#conditions-on-the-model-that-goals-state), row "Null pointer
+  arithmetic").
 
 [Model limits](model-limits.md#how-the-runtime-represents-c) has the full lists under three
 headings: "Memory and library operations" (what `memcpy`, `malloc`, `free` and the other modelled
@@ -188,7 +201,10 @@ arguments. This is the caller's obligation, as for every call of the printf fami
 states it. In particular the format has no `%n`: a conversion that writes through an argument
 is outside the contract. The model reads the format as a string, and faults on a pointer
 argument into a freed block (an indeterminate value, C17 6.2.4p2). It does not read the
-conversions. The world oracle chooses the result `r` (`printfRet`), any `int`:
+conversions. So a format that does not match its arguments, which is undefined behaviour in C,
+is no fault in the model: for such a call `Goal.gzprintf_safety` and `Goal.gzvprintf_safety`
+hold of the model and say nothing about the C. The world oracle chooses the result `r`
+(`printfRet`), any `int`:
 
 - `r ≥ 0`: the length of the full output, possibly `size` or more. The call writes the first
   `min(r, size - 1)` bytes of `printfOut` (padded with zeros) and a NUL after them.
@@ -202,23 +218,26 @@ result the contract allows is covered, the failures of glibc included.
 flat paths, regular files, directory markers, descriptor positions and a file-size limit. The
 OS-call oracle (fields of `Fs`, numbered by the call counter `nos`) decides for each `read`,
 `write`, `lseek`, `close` and `open` call whether it behaves as the regular file, fails with a
-chosen errno, or returns a chosen result. Every oracle value is mapped into the POSIX contract of
-the call: `read` returns -1 or at most the requested count; a nonempty `write` returns -1 or
+chosen errno, or returns a chosen result. Every oracle value is mapped into the range the model
+gives the call: `read` returns -1 or at most the requested count; a nonempty `write` returns -1 or
 between 1 and the count; `lseek` returns -1 or a value in `[0, 2^63 - 1]`, possibly unrelated to
 later reads; `close` returns 0 or -1 and releases the descriptor in both cases; `open` returns -1
 or any descriptor number below `2^31` that was not open, and fails with `EMFILE` when no
 descriptor below `2^31` is free. A failure sets a nonzero errno, and a success may
 change errno. The safety goals quantify over every world, hence over every oracle.
 
-The oracle admits more than any real system does: an oracle read or write succeeds whatever
+Inside these ranges the oracle admits more than a real system does: an oracle read or write succeeds whatever
 the descriptor's state (closed, wrong access mode); an oracle write does not change the file; an
 oracle `lseek` does not move the descriptor; read data is arbitrary; a regular read is still cut
 by the read budget. These choices only add behaviours. The number `open` returns is not
 constrained further, because the model's descriptor table is not the whole process.
 
-Two OS facts are assumed and not checked: a nonempty `write` never returns 0, and `close`
-releases the descriptor even when it reports an error. Both hold on Linux. The first is needed
-for termination of `gz_comp`. **To confirm**: by a reading of the C, a `write` that returned 0
+Three facts about the system are assumed and not checked: a nonempty `write` never returns 0;
+`close` releases the descriptor even when it reports an error; and `lseek` returns -1 or a
+non-negative offset. The first two hold on Linux. The third does not hold for every file:
+on Linux, `lseek` on a file with unsigned offsets can return a negative value other than -1.
+The model has no world with such a result, so the gz goals say nothing about a descriptor
+on which `lseek` returns one. The first is needed for termination of `gz_comp`. **To confirm**: by a reading of the C, a `write` that returned 0
 forever would make `gz_comp` loop forever, because neither write loop advances on a count of 0.
 No theorem states this: the model has no world with such a `write`.
 

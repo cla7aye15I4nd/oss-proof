@@ -190,7 +190,7 @@ goal holds for every well-formed world.
 
 **OS-call oracle.** Fields of the world that decide, for each `open`, `read`, `write`, `lseek` and
 `close` call, whether it behaves as a regular file, fails with a chosen `errno`, or returns a
-chosen result inside the POSIX contract of the call.
+chosen result inside the range the model gives the call.
 
 **Read budget.** The number of bytes a descriptor can still deliver (`readBudget`). The
 termination of the six gz reading calls is proved for a budget below `2^61` bytes (`ReadsFinite`).
@@ -210,5 +210,7 @@ Lean. A done result depends on no other axiom.
 **Exact statement.** The type of the theorem behind a done result is exactly the goal. A theorem
 with an extra premise does not count.
 
-**Kernel replay.** The compiled proofs are checked again by Lean's kernel in a fresh environment,
-so that the result of an earlier build is not taken on trust.
+**Kernel replay.** An independent check that a reader can run: Lean's kernel checks the compiled
+results, and everything they depend on, again in a fresh environment
+(`lake env leanchecker --fresh ZlibF.Results`). It is not run on every change; the kernel check
+that every change gets is the one of the build.

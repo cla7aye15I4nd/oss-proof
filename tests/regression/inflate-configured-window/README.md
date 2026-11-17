@@ -15,12 +15,10 @@ cc -O1 -I zlib tests/regression/inflate-configured-window/check.c zlib/inflate.c
 ./inflate-configured-window-check
 ```
 
-The native execution is finite evidence of C behavior. Independent Lean
-proofs in `ZlibF/Math/inflate-dictionary-window-rejection.lean` exclude every
-output under the unchanged RFC relation. The corresponding acceptance
-module proves that the configured-window relation accepts exactly this
-input and output, including dictionary identifier and trailer checksum.
-Neither mathematical proof executes the translated C.
+The native execution is finite evidence of C behavior. A related stream, whose
+match reaches a dictionary byte outside the window that its header announces,
+is kept as a checked example in
+`tests/verification/regressions/inflate-dictionary-header-window.lean`.
 
 The approved specification repair changes only the arbitrary-input END
 acceptance clause. The RFC format, valid-input prefixes and completion

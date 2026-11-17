@@ -1,4 +1,4 @@
-<!-- source-sha256: c9c95d1e3cb69990399d0671663dd7837f3dc4747ffa45930eafc61d5a2d43aa -->
+<!-- source-sha256: fb215ce10f06e012a08910afd3b6f0d4bf5d0223e060e765916f78cb7afc7d15 -->
 # 按函数查覆盖情况
 
 本页回答一个问题：`zlib.h` 的函数 X 的安全性是由哪条定理证明的，定义域是什么？每个有文档的函数占一行。每行写明安全目标，以及类型恰好就是该目标的定理。另有一列写明该函数的功能目标，以及它完成时的定理；安全结论不依赖未完成的功能目标。
@@ -117,7 +117,7 @@
 | `gzopen`、`gzopen64` | 打开子句（`GzOpenSafe`） | 每个路径、模式和世界，包括每一种失败 |
 | `gzdopen` | 打开子句（`GzDopenSafe`） | 每个 `fd`。功能目标 `Goal.gzdopen` 也已完成（`Zlib.Gzlib.Proofs.gzdopen_complete`）。 |
 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzrewind`、`gzseek`、`gzseek64` | 调用子句；`gzerror` 还有关于它所返回字符串的子句 | `gzbuffer`、`gzeof`、`gzerror`、`gzclearerr`、`gzoffset`、`gzoffset64` 和 `gzrewind` 的功能目标也已完成。 |
-| `gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams` | 调用子句 | `gzprintf` 和 `gzvprintf` 的每次调用都需要可表示的格式串，读句柄上也一样。`zlib.h` 把 `gzvprintf` 列为未文档化；它仍然有安全目标，因为 `gzprintf` 经由它实现。 |
+| `gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams` | 调用子句 | `gzprintf` 和 `gzvprintf`：调用是 C 对其格式串和参数有定义的调用，没有 `%n`；没有前提陈述这一点，而模型不读取格式串（[偏离记录](deviations.md#gzip-file-interface)，“Gz printf 调用”一行）。`zlib.h` 把 `gzvprintf` 列为未文档化；它仍然有安全目标，因为 `gzprintf` 经由它实现。 |
 | `gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets` | 调用子句；终止需要 `ReadsFinite`。`gzgetc` 还有宏子句 | 在每个世界中都不出故障；读取预算小于 `2^61` 时正常返回 |
 | `gzdirect` | 调用子句 | 在每个世界中都终止 |
 | `gzclose`、`gzclose_r`、`gzclose_w` | 关闭子句 | 模式不对的关闭被拒绝，什么也不改变；否则释放拥有的每个块，并释放描述符 |

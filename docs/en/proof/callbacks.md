@@ -343,9 +343,8 @@ goal `Goal.inflate_back_sequence`. Two of the four are done:
 
 Further theorems that are not goals:
 
-- Branch results of `inflateBack`: the `NULL` stream, the missing state, and input that ends
-  at once (`inflateBack_eof`). The first two are also clauses
-  of `Goal.inflateBack_safety`.
+- Branch results of `inflateBack`: the `NULL` stream (`inflateBack_nullstream`) and the missing
+  state (`inflateBack_nostate`). Both are also clauses of `Goal.inflateBack_safety`.
 
 Not done and not planned; the safety results do not need them: `Goal.inflateBack` and
 `Goal.inflate_back_sequence`. They also state what reaches `out` (the decoding clauses).

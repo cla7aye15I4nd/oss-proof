@@ -6,7 +6,7 @@ public function, for the default x86_64 Linux build: `inflate` and `deflate` wit
 sequences, the other public functions, the gzip file interface and the callback decoder
 `inflateBack`; and one functional result, the round trip of the default zlib stream, with
 completeness. Both are proved, as stated below. Other functional goals beyond what safety needs
-are not planned: a functional fact that a planned proof depends on is in scope. What is already proved stays. The
+are not planned: a functional fact that a planned proof depends on is in scope. A theorem that no goal listed in `ZlibF/Results.lean` depends on is deleted, proved or not; it remains in the git history. The
 functions that zlib.h lists under "undocumented
 functions (not part of the zlib API)" are not required. Read `docs/en/overview.md` first, then
 `docs/en/spec/safety.md`. Keep proof explanations in `docs/en/proof/` and `docs/zh/proof/`. State
@@ -28,7 +28,7 @@ unconditional stream round trip; and `uncompress(compress(x)) = x`.
 Other functional correctness (other levels, strategies, window sizes and wrappers, preset
 dictionaries, the gzip file interface and `inflateBack` as round-trip partners), model-only
 statements and other build configurations are not planned. The undocumented functions are not required public targets;
-proofs already registered for them stay. `docs/en/progress.md` lists what is not planned, with
+proofs that no listed goal depends on are deleted like any other unused code. `docs/en/progress.md` lists what is not planned, with
 the reason. Do not work on a not-planned target unless a planned one needs it. Work as fast as
 honest work allows: process
 exists to keep the result honest, not to slow it down.
@@ -150,7 +150,7 @@ time: wait for the other owner's build to end before starting yours.
 `differential-test` of the `CI` workflow): all modules build, no forbidden construct, patches apply to the pinned `zlib/`, no
 `sorry`; the check of `ZlibF/Results.lean` and the coverage of `zlib.h`; the differential tests, with the
 C side under sanitisers, when the translation, the runtime, the patches or the test changed. There is no nightly run and no second suite: what is on
-`main` has passed all of it. The manual trigger of the `lean` workflow runs the same jobs on any
+`main` has passed all of it. The manual trigger of the `CI` workflow runs the same jobs on any
 branch.
 
 There are no lock files. A definition, a specification or a theorem statement is tracked by git
@@ -221,4 +221,4 @@ gap, a question about the caller's domain) stays out of `docs/`; its reproductio
 - Report what is checked, what is accepted and what is open. Name the commit.
 
 [docs/en/anti-cheating.md](https://www.dataisland.org/zlib-f/en/anti-cheating.html) says why a green
-build can still be worthless, and what the acceptance suite defends against.
+build can still be worthless, and what the gate defends against.

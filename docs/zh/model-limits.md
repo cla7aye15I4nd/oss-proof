@@ -1,4 +1,4 @@
-<!-- source-sha256: 1ca22ad557cf57c20173500a7929e220fdfec09bc1496e4f7eb2cbf870450d0b -->
+<!-- source-sha256: 67567f0866da83631240a1e8c96f90ba3a8557a80edea27fe2072bfe6aa9f3fa -->
 # 模型的限制
 
 本页列出模型的一类限制：zlib 的调用者对它们无法采取任何行动。它们分三类：目标作为前提陈述的、对模型中的堆的条件；运行时表示 C 的内存和库调用时所作的选择；以及功能定理和模型定理的限制，安全目标都不依赖它们。每一条限制都是模型可能与 C 不同的地方。调用者的义务在另一页：[偏离记录](deviations.md)。被信任的东西概括在[可信基础](trusted-base.md)中，本页是其中第 2 项的细节。
@@ -27,7 +27,7 @@
 | 堆的良构性（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`） | 初始化、打开、`compress*` 或 `uncompress*` 调用开始时的堆，在 `nextBlk` 及以上没有存活的块（`Fresh`），每个块编号至多有一个对象（`Uniq`），并且带有所选构建的常量表（`LibraryGlobals`）。CRC 目标只要求两张 CRC 表（`CrcGlobals`），`inflate` 和 `inflateSync` 的拒绝只要求 `Fresh`。两次调用之间调用者的修改保持这三条（`Rebuffer`、`GzCallerFrame`）。 | 这些是关于模型自身记账的前提。`zlib.h` 没有把这样的义务加给调用者，C 的调用者也破坏不了它们。 |
 | 循环燃料 | 翻译后的每个循环至多运行 `2^64` 次迭代；耗尽这个上界就是 `Fault.outOfFuel`。 | 结论为正常返回的安全目标证明了这个上界永远达不到。凡是 C 可能无界地循环、而证明又推不出上界的地方，目标都有一条给出上界的前提：[回调输入总量](deviations.md#callback-decoder)和 [gz 读取预算](deviations.md#gzip-file-interface)。 |
 | CRC 地址与字访问 | `addrOf` 只观察地址的低位。堆字节块从对齐的地址开始；静态的或内嵌的字节对象有一个任意而稳定的余数，它是堆的元数据，任何写入都不改变它。字的加载由八个字节拼成。 | 没有建模：通用的 ABI 布局、原始块的任意起点，以及 C 中转换为 `z_word_t *` 的别名语义。校验和目标的定义域不因此变窄。一个[经过检查的例子](../../tests/verification/regressions/crc-static-address.lean)经由两个 CRC 入口读取一张 47 字节的静态表。 |
-| NULL 指针算术 | `Ptr.add NULL 0` 返回 `NULL`。`Ptr.diff` 遇到 NULL 参数就出故障；压缩器的辅助函数 `Compress.ptrDiff` 对两个 NULL 返回零。 | 模型允许某个操作，并不说明 C 有定义：C17 和 C23 都没有定义 `NULL - NULL`。[安全性规格](spec/safety.md#null-pointers-and-pointer-differences)把这些操作与语言规则作了对照，一个[回归](../../tests/regression/compress-allocation/README.md)覆盖零容量的 `NULL` 目的缓冲区。 |
+| NULL 指针算术 | `Ptr.add NULL 0` 返回 `NULL`。`Ptr.diff` 遇到 NULL 参数就出故障；压缩器的辅助函数 `Compress.ptrDiff` 对两个 NULL 返回零。 | 模型允许某个操作，并不说明 C 有定义：C17 和 C23 都没有定义 `NULL - NULL`。[安全性规格](spec/safety.md#null-pointers-and-pointer-differences)把这些操作与语言规则作了对照，一个[回归](../../tests/regression/compress-allocation/README.md)覆盖零容量的 `NULL` 目的缓冲区：`dest` 为 `NULL`、`*destLen == 0` 的 `compress` 调用在它的目标之内，它的 `deflateInit` 成功时，`compress2_z` 计算 `stream.next_out - dest`，两个指针都是 `NULL`。 |
 | 外部错误字符串 | `strerror` 返回一个只读视图，视图上带有一个代次，每次 `strerror` 调用都会改变这个代次。它不消耗分配尝试，也不占用库拥有的存活块。下一次 `strerror` 调用使先前的视图失效。 | 模型说的是固定区域设置下的顺序调用。没有建模：并发调用、区域设置的改变，以及旧指针身份的再次使用。 |
 
 ## 运行时怎样表示 C
