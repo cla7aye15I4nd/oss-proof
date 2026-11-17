@@ -655,9 +655,43 @@ theorem compress_completes : Goal.compress_completes := by
       .ok ((Z_OK, some stored), after) := run
   simp [C.run, Zlib.Compress.compress, Zlib.Compress.compress2, run']
 
+/-- **`uncompress(compress(x)) = x` from its two halves**: `Goal.compress_completes` and
+`Goal.uncompress_completes`. -/
+theorem compress_uncompress_roundtrip_of (compressed : Goal.compress_completes)
+    (uncompressed : Goal.uncompress_completes) : Goal.compress_uncompress_roundtrip := by
+  intro h dest c source n xs fresh uniq globals fit noFail srcB destW sep rej room
+  obtain ⟨stored, after, out, run, _le, outLen, bytes, decodes, noDict⟩ :=
+    compressed h dest c source n xs fresh uniq globals fit noFail srcB destW sep rej room
+  have xsLen : xs.length = n.toNat := public_bytes_length srcB
+  have direct : C.run (Zlib.Compress.compress dest (some c) source n) h = .ok ((Z_OK, stored), after) := by
+    simp only [C.run] at run ⊢
+    rw [bind_app] at run
+    cases result : Zlib.Compress.compress dest (some c) source n h with
+    | error err =>
+      rw [result] at run
+      cases run
+    | ok pair =>
+      obtain ⟨⟨rc, size⟩, final⟩ := pair
+      rw [result] at run
+      have same : (rc = Z_OK ∧ size = stored) ∧ final = after := by simpa [pure_app] using run
+      obtain ⟨⟨rcEq, sizeEq⟩, heapEq⟩ := same
+      rw [rcEq, sizeEq, heapEq]
+  refine ⟨stored, after, out, direct, outLen, bytes, ?_⟩
+  intro h₂ dest₂ destLen₂ source₂ capacity₂ fresh₂ uniq₂ globals₂ fit₂ noFail₂ cell nnLen nnSrc nnDest
+    srcB₂ destW₂ sep₂ sepLen₁ sepLen₂ enough
+  obtain ⟨after₂, run₂, written, cell₂⟩ :=
+    uncompressed h₂ dest₂ destLen₂ source₂ capacity₂ stored out xs fresh₂ uniq₂ globals₂ fit₂ noFail₂ cell
+      nnLen nnSrc nnDest srcB₂ destW₂ sep₂ sepLen₁ sepLen₂ decodes noDict (by omega)
+  refine ⟨after₂, run₂, ?_, ?_⟩
+  · rw [← xsLen]
+    exact written
+  · rw [xsLen, UInt64.ofNat_toNat] at cell₂
+    exact cell₂
+
 end Loop
 
 end ZlibF.Spec.Public.Proofs.RoundTrip
 
 #print axioms ZlibF.Spec.Public.Proofs.RoundTrip.compress_z_completes_core
 #print axioms ZlibF.Spec.Public.Proofs.RoundTrip.compress_completes
+#print axioms ZlibF.Spec.Public.Proofs.RoundTrip.compress_uncompress_roundtrip_of
