@@ -191,11 +191,10 @@ theorem cause_length_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.w
     · have hi : s0.mode ≤ DICTID := stageM0.2
       rw [mode] at hi; exact absurd hi (by decide)
     · have m : s0.mode = DICT := stageM0; rw [mode] at m; exact absurd m (by decide)
-    · exact absurd stageM0.1.1 (by
-        intro bm
-        exact (MeaningTrailer.body_mode_range bm |> fun x => by
-          rw [show (loopState s0 l).mode = LENGTH from mode] at x
-          revert x; decide))
+    · have range := MeaningTrailer.body_mode_range (s := loopState s0 l) stageM0.1
+      have m : (loopState s0 l).mode = LENGTH := mode
+      rw [m] at range
+      exact absurd range (by decide)
     · exact ⟨header, out, bytes, rfl⟩
     · have m : s0.mode = DONE := stageM0; rw [mode] at m; exact absurd m (by decide)
   obtain ⟨flagsM, _, _⟩ := wrapM0
