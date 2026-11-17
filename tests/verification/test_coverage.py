@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Self-tests of scripts/verification.py: the lists of ZlibF/Results.lean and the required goals."""
+"""Self-tests of scripts/verification.py: the lists of ZlibF/Results.lean and the required goals.
+Needs the built library (the lists are read as Lean evaluates them)."""
 
 import sys
 import unittest
@@ -15,27 +16,29 @@ GOAL = "ZlibF.Spec.Public.Goal."
 class CoverageTests(unittest.TestCase):
     def setUp(self):
         self.manifest = verification.coverage()
+        self.lists = verification.results()
+
+    def changed(self, kind, drop):
+        lists = dict(self.lists)
+        lists[kind] = [g for g in lists[kind] if g != drop]
+        return patch.object(verification, "results", return_value=lists)
 
     def test_results_lists(self):
-        proved, not_done = verification.results()
+        proved, not_done, required = self.lists["proved"], self.lists["notDone"], self.lists["required"]
         self.assertIn(GOAL + "inflate_safety", proved)
         self.assertIn(GOAL + "gz_sequence", not_done)
         self.assertFalse(set(proved) & set(not_done))
-        self.assertEqual(len(proved), len(set(proved)))
+        self.assertLessEqual(set(required), set(proved))
 
-    def test_required_goals_are_proved(self):
-        verification.check_required_proved(self.manifest)
-        proved, not_done = verification.results()
-        without = [g for g in proved if g != GOAL + "inflate_safety"]
-        with patch.object(verification, "results", return_value=(without, not_done)):
+    def test_required_goals_are_listed(self):
+        verification.check_required_listed(self.manifest)
+        with self.changed("required", GOAL + "inflate_safety"):
             with self.assertRaisesRegex(verification.Rejected, "inflate_safety"):
-                verification.check_required_proved(self.manifest)
+                verification.check_required_listed(self.manifest)
 
     def test_not_planned_is_not_done(self):
         verification.check_not_planned(self.manifest)
-        proved, not_done = verification.results()
-        planned = [g for g in not_done if g != GOAL + "gz_initialisation_domain"]
-        with patch.object(verification, "results", return_value=(proved, planned)):
+        with self.changed("notDone", GOAL + "gz_initialisation_domain"):
             with self.assertRaisesRegex(verification.Rejected, "not listed as not done"):
                 verification.check_not_planned(self.manifest)
 

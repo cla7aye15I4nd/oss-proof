@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Coverage of the public API: every function of zlib.h has its goals, and every required goal is proved.
+"""Coverage of the public API: the part of the checking that needs `zlib.h`.
 
-The goals proved and not done are read from `ZlibF/Results.lean`, which Lean checks when the library is
-built (each theorem's type is exactly its goal, allowed axioms only, every goal in one of its two lists).
-This script checks the rest against `tests/audit/public-api.json` and `zlib/zlib.h`.
+`ZlibF/Results.lean` is checked by Lean when the library is built: exact goals, allowed axioms, every
+goal listed, every goal of its list `required` proved. This script checks that `required` contains the
+goals that `zlib/zlib.h` and `tests/audit/public-api.json` call for (the safety goal of every documented
+function and the pinned groups). It reads the lists as Lean evaluates them (`scripts/results-lists.lean`),
+so it needs the built library.
 """
 
 from __future__ import annotations
@@ -35,16 +37,21 @@ def run(args: list[str], *, stdout=None) -> subprocess.CompletedProcess:
     return subprocess.run(args, cwd=ROOT, text=True, stdout=stdout, check=True)
 
 
-def results() -> tuple[list[str], list[str]]:
-    """The goals of `proved` and of `notDone` in ZlibF/Results.lean, in order."""
-    text = (ROOT / RESULTS).read_text()
-    lists = {}
-    for name in ("proved", "notDone"):
-        block = re.search(r"^def " + name + r" : [^\n]*:= \[\n(.*?)^\]", text, re.S | re.M)
-        if not block:
-            raise Rejected(f"{RESULTS} has no list {name}")
-        lists[name] = re.findall(r"^\s*\(?``([^\s,]+)", block[1], re.M)
-    return lists["proved"], lists["notDone"]
+def results() -> dict[str, list[str]]:
+    """The lists `proved`, `notDone` and `required` of ZlibF/Results.lean as Lean evaluates them (comments
+    and layout of the source play no part). Needs the built library."""
+    global _RESULTS
+    if _RESULTS is None:
+        out = subprocess.run(["lake", "env", "lean", "--run", "scripts/results-lists.lean"], cwd=ROOT,
+                             text=True, capture_output=True, check=True).stdout
+        _RESULTS = {"proved": [], "notDone": [], "required": []}
+        for line in out.splitlines():
+            kind, name = line.split(" ", 1)
+            _RESULTS[kind].append(name)
+    return _RESULTS
+
+
+_RESULTS: dict[str, list[str]] | None = None
 
 
 UNDOCUMENTED_MARK = "/* undocumented functions (not part of the zlib API) */"
@@ -115,7 +122,8 @@ def check_not_planned(manifest: dict) -> None:
     entries = manifest.get("not_planned", [])
     if not isinstance(entries, list):
         raise Rejected("not_planned must be a list")
-    _, not_done = results()
+    lists = results()
+    not_done, lean_required = lists["notDone"], set(lists["required"])
     grouped = set(required_public_goals(manifest)) | set(manifest.get("sequence_goals", [])) | \
         set(manifest.get("nonvacuity_goals", [])) | set(manifest.get("safety_goals", []))
     named = {a.get(k) for a in manifest["apis"] for k in ("functional_goal", "safety_goal")}
@@ -130,39 +138,19 @@ def check_not_planned(manifest: dict) -> None:
         seen.add(goal)
         if goal not in not_done:
             raise Rejected(f"not_planned goal is not listed as not done in {RESULTS}: {goal}")
-        if goal in grouped or goal in named:
+        if goal in grouped or goal in named or goal in lean_required:
             raise Rejected(f"not_planned goal is required, grouped or named by an api: {goal}")
 
 
-def check_open_safety(manifest: dict) -> None:
-    """`open_safety` names required goals that have no registered theorem yet, each with an owner."""
-    entries = manifest.get("open_safety")
-    if not isinstance(entries, list):
-        raise Rejected("open_safety must be a list")
-    required = set(required_public_goals(manifest))
-    names = []
-    for entry in entries:
-        if not isinstance(entry, dict) or set(entry) != {"goal", "owner"} or \
-                not isinstance(entry["owner"], str) or not entry["owner"].strip():
-            raise Rejected(f"open_safety entries need a goal and an owner: {entry}")
-        if entry["goal"] not in required:
-            raise Rejected(f"open_safety names a goal that is not required: {entry['goal']}")
-        names.append(entry["goal"])
-    if len(names) != len(set(names)):
-        raise Rejected("duplicate open_safety entry")
-
-
-def check_required_proved(manifest: dict) -> None:
-    """Every required goal that is not listed as open is proved, and no listed goal is proved."""
-    proved, _ = results()
-    opened = set(open_safety(manifest))
-    missing = [g for g in required_public_goals(manifest) if g not in proved and g not in opened]
+def check_required_listed(manifest: dict) -> None:
+    """Every goal that zlib.h and the manifest require is in `required` of ZlibF/Results.lean, whose check
+    (in the library build) fails unless each of them is proved. No goal may be exempted."""
+    if open_safety(manifest):
+        raise Rejected("open_safety must be empty: every required goal is proved (ZlibF/Results.lean)")
+    lean_required = set(results()["required"])
+    missing = [g for g in required_public_goals(manifest) if g not in lean_required]
     if missing:
-        raise Rejected("required goals without a theorem in ZlibF/Results.lean and not listed in open_safety: " +
-                       ", ".join(missing))
-    listed_proved = sorted(opened & set(proved))
-    if listed_proved:
-        raise Rejected("open_safety lists proved goals; remove them: " + ", ".join(listed_proved))
+        raise Rejected("required goals missing from `required` in ZlibF/Results.lean: " + ", ".join(missing))
 
 
 def check_imports() -> None:
@@ -296,7 +284,6 @@ def coverage() -> dict:
     if len(goals) != len(set(goals)):
         raise Rejected("public contracts must have distinct targets")
     check_safety_binding(manifest)
-    check_open_safety(manifest)
     check_not_planned(manifest)
     check_imports()
     run([sys.executable, "scripts/gen_public_calls.py", "--check"])
@@ -348,7 +335,7 @@ def main() -> int:
     argparse.ArgumentParser(description=__doc__).parse_args()
     try:
         manifest = coverage()
-        check_required_proved(manifest)
+        check_required_listed(manifest)
         print("coverage passed")
         return 0
     except (Rejected, OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
