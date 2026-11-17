@@ -497,6 +497,11 @@ The caller heap of the witness: the stream record 0 (no state yet) points at the
 own stream for "a" (block 2) and at a 1-byte output buffer (block 3); block 1 holds the version
 string "1". Every allocation succeeds. `inflateInit` keeps the four buffer fields. -/
 
+theorem w_reset2Heap (X : Heap) (r : ZStreamRef) (wb : Int32) :
+    reset2Heap X wb (initState r) = X := by
+  unfold reset2Heap
+  split <;> rfl
+
 def wStream : ZStream :=
   { (default : ZStream) with
     next_in := .ref (.blk 2) 0
@@ -615,22 +620,22 @@ theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UI
     have e : ZStreamRef.get (initOkHeap wHeap (.tab 0) wStream 5 15) (.tab 0) =
         some (resetKeepStream (initStream2 wStream wHeap.nextBlk)
           (resetPre (reset2Pre 5 15 (initState (.tab 0))))) := by
-      simp [initOkHeap, allocIstHeap, init_reset2Heap, setI, ZStreamRef.put, ZStreamRef.get]
+      simp [initOkHeap, allocIstHeap, w_reset2Heap, setI, ZStreamRef.put, ZStreamRef.get]
     rw [e] at hz
     exact (Option.some.inj hz).symm
   have sEq : s = resetKeepState wHeap.nextBlk (resetPre (reset2Pre 5 15 (initState (.tab 0)))) := by
     have e : (initOkHeap wHeap (.tab 0) wStream 5 15).istates wHeap.nextBlk =
         some (resetKeepState wHeap.nextBlk (resetPre (reset2Pre 5 15 (initState (.tab 0))))) := by
-      simp [initOkHeap, allocIstHeap, init_reset2Heap, setI, ZStreamRef.put]
+      simp [initOkHeap, allocIstHeap, w_reset2Heap, setI, ZStreamRef.put]
     rw [e] at hs
     exact (Option.some.inj hs).symm
   subst zEq sEq
   have getIn : Space.get (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 2) = some wInput.toArray := by
-    simp [initOkHeap, setI, allocIstHeap, init_reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
+    simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
   have getOut : Space.get (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 3) = some #[0] := by
-    simp [initOkHeap, setI, allocIstHeap, init_reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
+    simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
   have roOut : Space.ro (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 3) = false := by
-    simp [initOkHeap, setI, allocIstHeap, init_reset2Heap, ZStreamRef.put, Space.ro, wHeap, Heap.empty]
+    simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, Space.ro, wHeap, Heap.empty]
   have inBytes : Bytes (initOkHeap wHeap (.tab 0) wStream 5 15) (.ref (.blk 2) 0) 9 wInput :=
     Or.inr ⟨.blk 2, 0, wInput.toArray, rfl, getIn, by decide, by decide⟩
   have outBytes : Bytes (initOkHeap wHeap (.tab 0) wStream 5 15) (.ref (.blk 3) 0) 1 [0] :=
@@ -653,7 +658,7 @@ theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UI
   refine ⟨.tab 0, _, {}, wInput, [0x61], _, .init w_domain run, rfl, w_decodes, by simp,
     List.nil_prefix, fit, ?_, ?_, hz, ?_, ?_, ?_, by simp [wInput], by simp⟩
   · intro n
-    simp [initOkHeap, setI, allocIstHeap, init_reset2Heap, ZStreamRef.put, wHeap, Heap.empty]
+    simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, wHeap, Heap.empty]
   · refine ⟨_, hz, Or.inr ⟨⟨wInput, ?_⟩, fun e => absurd e (by decide), ?_⟩,
       Or.inr ⟨⟨[0], ?_⟩, fun _ => Or.inr ⟨.blk 3, 0, #[0], ?_, getOut, roOut, ?_⟩, ?_⟩, ?_⟩
     · simpa [resetKeepStream, initStream2, initStream, wStream] using inBytes
