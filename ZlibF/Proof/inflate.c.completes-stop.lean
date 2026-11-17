@@ -238,7 +238,7 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
           have hsA' : h2.istates i = some sA := zsI ▸ hsA
           -- the call's output is the loop's
           obtain ⟨zF, sF, u0, o0, invF, accounting, _⟩ := callExit_after inv fit buffers active run
-          have zFEq : zF = z' := Option.some.inj (invF.good.live.hz.symm.trans get2)
+          have zFEq : zF = zA := Option.some.inj (invF.good.live.hz.symm.trans get2)
           subst zFEq
           have outLen : z1.avail_out.toNat - zF.avail_out.toNat = callOut.length := by
             obtain ⟨_, _, _, availO, _, nextO, _⟩ := accounting
