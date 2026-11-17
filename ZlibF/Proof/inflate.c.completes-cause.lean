@@ -20,10 +20,23 @@ namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec ZlibF.Spec.Public
 set_option autoImplicit false
 
-/-- The cause of a leave from the trip start registers `l` to the leave registers `l'`, heap `h'`. -/
+/-- The cause of a leave from the trip start registers `l` to the leave registers `l'`, heap `h'`.
+The room cause (`left = 0`, holding output) is stated in the leave registers. -/
 def TripLeaveCause (c : Ctx) (h' : Heap) (l l' : IL) : Prop :=
-  l'.ret ≠ Z_OK ∨ c.flush = Z_BLOCK ∨ c.flush = Z_TREES ∨ (l.left = 0 ∧ HoldsOutput c h') ∨
-    (l'.have_ = 0 ∧ LeaveShort c h' l')
+  l'.ret ≠ Z_OK ∨ c.flush = Z_BLOCK ∨ c.flush = Z_TREES ∨ (l'.left = 0 ∧ HoldsOutput c h') ∨
+    (l'.have_ = 0 ∧ LeaveShort c h' l') ∨
+    (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_)
+
+/-- A leave for want of input, short of the field the mode waits for. -/
+theorem TripLeaveCause.short {c : Ctx} {h' : Heap} {l l' : IL}
+    (short : l'.have_ = 0 ∧ LeaveShort c h' l') : TripLeaveCause c h' l l' :=
+  Or.inr (Or.inr (Or.inr (Or.inr (Or.inl short))))
+
+/-- A leave in `LEN_`: the dynamic header is complete (the `Z_TREES` stop of `CODELENS`). -/
+theorem TripLeaveCause.lenStart {c : Ctx} {h' : Heap} {l l' : IL}
+    (len : ∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_) :
+    TripLeaveCause c h' l l' :=
+  Or.inr (Or.inr (Or.inr (Or.inr (Or.inr len))))
 
 /-- Every trip from a state with `P` that leaves states its cause. -/
 def CauseAt (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (P : InflateState → Prop) : Prop :=
@@ -31,13 +44,22 @@ def CauseAt (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (P : InflateState → Pro
     (∀ zs s, c.st = some (.tab zs) → h.istates zs = some s → P s) →
     ∀ l' h', runX (inflate_dispatch c) l h = .ok ((.error Ex.leave, l'), h') → TripLeaveCause c h' l l'
 
+/-- No room at the trip start leaves no room at its end. -/
+theorem left_zero_of_le {l l' : IL} (le : l'.left.toNat ≤ l.left.toNat) (zero : l.left = 0) :
+    l'.left = 0 := by
+  apply UInt32.toNat_inj.mp
+  rw [zero] at le
+  simp only [UInt32.toNat_zero] at le ⊢
+  omega
+
 theorem TripLeaveCause.of_step {c : Ctx} {h' : Heap} {l l' : IL}
-    (step : (l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES ∨ (l.left = 0 ∧ HoldsOutput c h')) :
+    (step : (l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES ∨ (l.left = 0 ∧ HoldsOutput c h'))
+    (le : l'.left.toNat ≤ l.left.toNat) :
     TripLeaveCause c h' l l' := by
   rcases step with s | s | s
-  · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
+  · exact TripLeaveCause.short s
   · exact Or.inr (Or.inr (Or.inl s))
-  · exact Or.inr (Or.inr (Or.inr (Or.inl s)))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨left_zero_of_le le s.1, s.2⟩)))
 
 /-- A run that is equal to a known one ends the same way. -/
 theorem same_leave {p : X Unit} {l l' l1 : IL} {h h' h1 : Heap} {result : Except Ex Unit}
@@ -46,6 +68,19 @@ theorem same_leave {p : X Unit} {l l' l1 : IL} {h h' h1 : Heap} {result : Except
   have same := run1.symm.trans run
   simp only [Except.ok.injEq, Prod.mk.injEq] at same
   exact ⟨same.1.1, same.1.2, same.2⟩
+
+/-- `left` only decreases in a trip. -/
+theorem trip_left_le {c : Ctx} {r : ZStreamRef} {l l' : IL} {h h' : Heap} {outcome : Except Ex Unit}
+    (side : CallSide c r l h) (run : runX (inflate_dispatch c) l h = .ok ((outcome, l'), h')) :
+    l'.left.toNat ≤ l.left.toNat := by
+  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits, _⟩ := side
+  have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
+  obtain ⟨outcome2, regs, after, _, _, _, made, _, run2, _, _, _, _, _, _, leftEq, _⟩ :=
+    inflate_dispatch_default_view_state_rank E j buf loc bits
+  have same := run.symm.trans run2
+  simp only [Except.ok.injEq, Prod.mk.injEq] at same
+  obtain ⟨⟨_, rfl⟩, rfl⟩ := same
+  omega
 
 /-- Stored blocks (`STORED`, `COPY_`, `COPY`). -/
 theorem cause_stored (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
@@ -60,25 +95,21 @@ theorem cause_stored (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
         bounds
     obtain ⟨e, rfl, rfl⟩ := same_leave run ((inflate_dispatch_STORED E l m).trans run1)
     rcases ends with ⟨_, cause, _⟩ | ⟨e', _⟩
-    · exact TripLeaveCause.of_step cause
+    · exact TripLeaveCause.of_step cause (trip_left_le side run)
     · rw [e] at e'; cases e'
   · obtain ⟨result, l1, h1, run1, ends⟩ :=
       MeaningCopy.copy_start_step loop E.strm E.hz (at_state (P := fun s => s.mode = COPY_) E.st E.hs m)
         bounds
     obtain ⟨e, rfl, rfl⟩ := same_leave run ((inflate_dispatch_COPY_start E l m).trans run1)
     rcases ends with ⟨_, cause, _⟩ | ⟨e', _⟩
-    · rcases cause with s | s
-      · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
-      · exact Or.inr (Or.inr (Or.inr (Or.inl s)))
+    · exact TripLeaveCause.of_short cause (trip_left_le side run)
     · rw [e] at e'; cases e'
   · obtain ⟨result, l1, h1, run1, ends⟩ :=
       MeaningCopy.copy_step loop E.strm E.hz (at_state (P := fun s => s.mode = COPY) E.st E.hs m)
         bounds
     obtain ⟨e, rfl, rfl⟩ := same_leave run ((inflate_dispatch_COPY E l m).trans run1)
     rcases ends with ⟨_, cause, _⟩ | ⟨e', _⟩
-    · rcases cause with s | s
-      · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
-      · exact Or.inr (Or.inr (Or.inr (Or.inl s)))
+    · exact TripLeaveCause.of_short cause (trip_left_le side run)
     · rw [e] at e'; cases e'
 
 /-- `TYPE`/`TYPEDO` before the last block. -/
@@ -92,7 +123,7 @@ theorem cause_type_open (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     obtain ⟨e, rfl, rfl⟩ := same_leave run ((inflate_dispatch_TYPE E l m).trans run1)
     rcases ends with ⟨_, cause, _⟩ | ⟨e', _⟩
     · rcases cause with s | s | s
-      · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
+      · exact TripLeaveCause.short s
       · exact Or.inr (Or.inl s)
       · exact Or.inr (Or.inr (Or.inl s))
     · rw [e] at e'; cases e'
@@ -100,7 +131,7 @@ theorem cause_type_open (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     obtain ⟨e, rfl, rfl⟩ := same_leave run ((inflate_dispatch_TYPEDO E l m).trans run1)
     rcases ends with ⟨_, cause, _⟩ | ⟨e', _⟩
     · rcases cause with s | s
-      · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
+      · exact TripLeaveCause.short s
       · exact Or.inr (Or.inr (Or.inl s))
     · rw [e] at e'; cases e'
 
@@ -114,20 +145,22 @@ theorem cause_done (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
   exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
 
 theorem TripLeaveCause.of_short {c : Ctx} {h' : Heap} {l l' : IL}
-    (step : (l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) :
+    (step : (l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h'))
+    (le : l'.left.toNat ≤ l.left.toNat) :
     TripLeaveCause c h' l l' := by
   rcases step with s | s
-  · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
-  · exact Or.inr (Or.inr (Or.inr (Or.inl s)))
+  · exact TripLeaveCause.short s
+  · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨left_zero_of_le le s.1, s.2⟩)))
 
 /-- The cause from the ends of a decode step. -/
 theorem cause_of_ends {c : Ctx} {f : LoopFrame} {h' : Heap} {l l' : IL} {result : Except Ex Unit}
     {B : Prop}
     (ends : (result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧
         LoopMatches c f h' l') ∨
-      (result = .ok () ∧ B)) (leave : result = .error Ex.leave) : TripLeaveCause c h' l l' := by
+      (result = .ok () ∧ B)) (leave : result = .error Ex.leave) (le : l'.left.toNat ≤ l.left.toNat) :
+    TripLeaveCause c h' l l' := by
   rcases ends with ⟨_, cause, _⟩ | ⟨e, _⟩
-  · exact TripLeaveCause.of_short cause
+  · exact TripLeaveCause.of_short cause le
   · rw [leave] at e; cases e
 
 open Zlib.Inflate.Proofs.MeaningLit Zlib.Inflate.Proofs.MeaningMatch
@@ -169,7 +202,7 @@ theorem cause_codes (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
         (tablesAt (by rw [m]; unfold DataTableMode; decide))
         bounds sane wsizeBits ring privateWindow rawWidth
       obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_LEN_start E l m).trans run)
-      exact cause_of_ends ends e
+      exact cause_of_ends ends e (trip_left_le side leaveRun)
   · -- LEN
     by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
     · obtain ⟨l1, h1, run, _, _⟩ := fast_len_meaning _ _ _ _ _ _ loop E.strm E.hz fast
@@ -184,7 +217,7 @@ theorem cause_codes (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
         (tablesAt (by rw [m]; unfold DataTableMode; decide))
         bounds sane wsizeBits ring privateWindow rawWidth
       obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_LEN E l m).trans run)
-      exact cause_of_ends ends e
+      exact cause_of_ends ends e (trip_left_le side leaveRun)
   · -- LENEXT
     obtain ⟨result, l1, h1, run, ends⟩ := lenext_step loop E.strm E.hz
       (at_state (P := fun s => s.mode = LENEXT) st E.hs m)
@@ -192,7 +225,7 @@ theorem cause_codes (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
       (at_state (P := fun s => BackBound s 15) st E.hs (j.pending.lenext m).2.2.2)
       bounds sane wsizeBits ring privateWindow rawWidth
     obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_LENEXT E l m).trans run)
-    exact cause_of_ends ends e
+    exact cause_of_ends ends e (trip_left_le side leaveRun)
   · -- DIST
     obtain ⟨result, l1, h1, run, ends⟩ := dist_step loop E.strm E.hz
       (at_state (P := fun s => s.mode = DIST) st E.hs m)
@@ -200,13 +233,13 @@ theorem cause_codes (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
       (at_state (P := fun s => BackBound s 20) st E.hs (j.pending.dist m).2)
       bounds sane wsizeBits ring privateWindow rawWidth
     obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_DIST E l m).trans run)
-    exact cause_of_ends ends e
+    exact cause_of_ends ends e (trip_left_le side leaveRun)
   · -- DISTEXT
     obtain ⟨result, l1, h1, run, ends⟩ := distext_step loop E.strm E.hz
       (at_state (P := fun s => s.mode = DISTEXT) st E.hs m)
       bounds sane wsizeBits ring privateWindow rawWidth
     obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun ((inflate_dispatch_DISTEXT E l m).trans run)
-    exact cause_of_ends ends e
+    exact cause_of_ends ends e (trip_left_le side leaveRun)
   · -- MATCH
     obtain ⟨result, l1, h1, run, ends⟩ := match_step loop E.strm E.hz
       (at_state (P := fun s => s.mode = MATCH) st E.hs m)
@@ -287,7 +320,7 @@ theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wr
     | leave =>
       obtain ⟨have0, _, bits32, run1⟩ := leaveRun1 rfl
       obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun (dispatchEq.trans run1)
-      refine Or.inr (Or.inr (Or.inr (Or.inr ⟨have0, LeaveShort.of_state st hs ?_⟩)))
+      refine TripLeaveCause.short ⟨have0, LeaveShort.of_state st hs ?_⟩
       have len : (natBits l1.bits.toNat l1.hold.toNat).length < 32 := by
         rw [natBits_length]; exact bits32
       unfold ShortAt
@@ -310,19 +343,6 @@ theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wr
         (setI_istates_same _ _ _) (Or.inr (by simp [chkS, flags0]))
       obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun ((dispatchEq.trans run1).trans skip)
       exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
-
-/-- `left` only decreases in a trip. -/
-theorem trip_left_le {c : Ctx} {r : ZStreamRef} {l l' : IL} {h h' : Heap} {outcome : Except Ex Unit}
-    (side : CallSide c r l h) (run : runX (inflate_dispatch c) l h = .ok ((outcome, l'), h')) :
-    l'.left.toNat ≤ l.left.toNat := by
-  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits, _⟩ := side
-  have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
-  obtain ⟨outcome2, regs, after, _, _, _, made, _, run2, _, _, _, _, _, _, leftEq, _⟩ :=
-    inflate_dispatch_default_view_state_rank E j buf loc bits
-  have same := run.symm.trans run2
-  simp only [Except.ok.injEq, Prod.mk.injEq] at same
-  obtain ⟨⟨_, rfl⟩, rfl⟩ := same
-  omega
 
 /-- The leave that ends the mode loop of a wrapped stream has a cause in the trip it ends. -/
 theorem loop_cause {c : Ctx} {f : LoopFrame} {r : ZStreamRef}

@@ -44,7 +44,7 @@ theorem cause_head_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wra
   · obtain ⟨_, have0, below⟩ := leaveFacts rfl
     have run1 := dispatch.trans (zlib_head_run_leave E wrap5 needRun)
     obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun run1
-    refine Or.inr (Or.inr (Or.inr (Or.inr ⟨have0, LeaveShort.of_state st E.hs ?_⟩)))
+    refine TripLeaveCause.short ⟨have0, LeaveShort.of_state st E.hs ?_⟩
     have len : (natBits l1.bits.toNat l1.hold.toNat).length < 16 := by
       rw [natBits_length]; exact below
     have wrapNZ : s.wrap ≠ 0 := by rw [wrap5]; decide
@@ -94,7 +94,7 @@ theorem cause_dictid (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     cases e
   · obtain ⟨_, have0, below⟩ := leaveFacts rfl
     obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun (dispatch.trans (inflate_DICTID_wait needRun))
-    refine Or.inr (Or.inr (Or.inr (Or.inr ⟨have0, LeaveShort.of_state st hs ?_⟩)))
+    refine TripLeaveCause.short ⟨have0, LeaveShort.of_state st hs ?_⟩
     have len : (natBits l1.bits.toNat l1.hold.toNat).length < 32 := by
       rw [natBits_length]; exact below
     unfold ShortAt
@@ -145,7 +145,7 @@ theorem cause_dict (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
   obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun (cut.trans run)
   rcases ends with ⟨_, cause, _⟩ | ⟨e', _⟩
   · rcases cause with s | s | s
-    · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
+    · exact TripLeaveCause.short s
     · exact Or.inr (Or.inl s)
     · exact Or.inr (Or.inr (Or.inl s))
   · rw [e] at e'; cases e'
