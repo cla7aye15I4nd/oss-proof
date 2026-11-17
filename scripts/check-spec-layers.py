@@ -136,31 +136,88 @@ MATH_PROOF_IMPORTS = {
 }
 
 
+COMPONENT = r'(?:«[^»\n]*»|[^\s.«»]+)'
+MODULE = COMPONENT + r'(?:\.' + COMPONENT + r')*'
+IMPORT = re.compile(r'(?:(?:public|private|meta)\s+)*import\s+(?:all\s+)?(' + MODULE + r')\s*(?:--.*)?$')
+PLAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_'!?]*$")
+
+# ZlibF modules that an import names and no file provides. Any entry fails the check: an import that
+# is not followed would hide every edge behind it.
+UNRESOLVED = set()
+
+
+def components(name):
+    """The components of a module name. A dot inside «…» does not separate components."""
+    if not re.fullmatch(MODULE, name):
+        raise ValueError(f'not a module name: {name!r}')
+    return [part[1:-1] if part.startswith('«') else part for part in re.findall(COMPONENT, name)]
+
+
+def canonical(parts):
+    """One spelling for each module: a component is quoted exactly when it is not a plain identifier."""
+    return '.'.join(part if PLAIN.match(part) else f'«{part}»' for part in parts)
+
+
 def module_path(name):
-    return ROOT / (name.replace('.', '/').replace('«', '').replace('»', '') + '.lean')
+    parts = components(name)
+    return ROOT.joinpath(*parts[:-1], parts[-1] + '.lean')
 
 
 def module_name(path):
-    return '.'.join(path.relative_to(ROOT).with_suffix('').parts)
+    parts = list(path.relative_to(ROOT).parts)
+    return canonical(parts[:-1] + [parts[-1][:-len('.lean')]])
+
+
+def header_imports(text):
+    """The names in the import header of a module: the imports before its first command.
+
+    Line comments and block comments (nested) may precede or separate the imports."""
+    found = []
+    depth = 0
+    for line in text.splitlines():
+        rest = line
+        if depth == 0:
+            match = IMPORT.match(line.strip())
+            if match:
+                found.append(match.group(1))
+                continue
+        code = ''
+        while rest:
+            if depth:
+                close, open_ = rest.find('-/'), rest.find('/-')
+                if open_ != -1 and (close == -1 or open_ < close):
+                    depth, rest = depth + 1, rest[open_ + 2:]
+                elif close != -1:
+                    depth, rest = depth - 1, rest[close + 2:]
+                else:
+                    rest = ''
+            else:
+                open_, dash = rest.find('/-'), rest.find('--')
+                if dash != -1 and (open_ == -1 or dash < open_):
+                    code, rest = code + rest[:dash], ''
+                elif open_ != -1:
+                    code, depth, rest = code + rest[:open_], 1, rest[open_ + 2:]
+                else:
+                    code, rest = code + rest, ''
+        code = code.strip()
+        if code and code not in ('prelude', 'module'):
+            break
+    return found
 
 
 @functools.lru_cache(maxsize=None)
 def imports(name):
     path = module_path(name)
     if not path.is_file():
-        return []
-    found = []
-    for line in path.read_text().splitlines():
-        match = re.match(r'import\s+(\S+)', line)
-        if match:
-            found.append(match.group(1))
-        elif line.strip() and not line.startswith('--') and not line.startswith('prelude'):
-            break
-    return tuple(m for m in found if m.startswith('ZlibF.'))
+        UNRESOLVED.add(name)
+        return ()
+    found = [canonical(components(m)) for m in header_imports(path.read_text())]
+    return tuple(m for m in found if m == 'ZlibF' or m.startswith('ZlibF.'))
 
 
 def plain(name):
-    return name.replace('«', '').replace('»', '')
+    """A module name in canonical spelling, so that a listed name and an imported name compare equal."""
+    return canonical(components(name))
 
 
 def layer(name):
@@ -247,7 +304,7 @@ def check_common_goals(errors):
 
 
 def check_math(errors):
-    allowed = {(src, plain(dst)) for src, dsts in MATH_PROOF_IMPORTS.items() for dst in dsts}
+    allowed = {(plain(src), plain(dst)) for src, dsts in MATH_PROOF_IMPORTS.items() for dst in dsts}
     found = set()
     for path in sorted((ROOT / 'ZlibF/Math').rglob('*.lean')):
         src = module_name(path)
@@ -267,6 +324,9 @@ def main():
     count = check_modules(errors)
     remaining = check_math(errors)
     check_common_goals(errors)
+    for name in sorted(UNRESOLVED):
+        errors.append(f'the imported module {name} has no file {module_path(name).relative_to(ROOT)}: '
+                      'its imports cannot be followed')
     if errors:
         print('Specification layer check failed (docs/design/safety-functional-split.md):')
         for error in errors:
