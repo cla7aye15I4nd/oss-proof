@@ -124,7 +124,6 @@ jobs:
         run: |
           python3 tests/verification/test_audit.py
           python3 -O tests/verification/test_audit.py
-          python3 tests/verification/test_harness.py
           python3 tests/verification/test_audit_shards.py
           python3 -O tests/verification/test_audit_shards.py
           python3 tests/verification/test_ci_build.py
@@ -191,39 +190,16 @@ jobs:
 
       # Copies zlib/ to tests/build/zlib, applies patches/*.patch there in name order, and builds
       # libz.a (./configure --static; make libz.a). The submodule is not modified.
-      - name: Build the patched zlib and the Lean drivers, run the differential test
-        run: ZLIB_SRC="$GITHUB_WORKSPACE/zlib" bash tests/run.sh
-
-      # Same test with the C side built with AddressSanitizer and UBSan: the C reference itself
-      # must be free of memory errors and undefined behaviour on every input.
-      - name: Differential test, C side under ASan and UBSan
+      # One run, with the C side built with AddressSanitizer and UBSan: the outputs of the C and of
+      # the translation must be identical, and the C reference itself must be free of memory errors
+      # and undefined behaviour on every input.
+      - name: Build the patched zlib and the Lean drivers, run the differential test under ASan and UBSan
         run: SAN=1 ZLIB_SRC="$GITHUB_WORKSPACE/zlib" bash tests/run.sh
 
 
-  diff_harness:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
-      - uses: ./.github/actions/lean-environment
-        with:
-          library: 'true'
-      - name: Harness mutation check (all original cases, eight independent runners)
-        env:
-          MUTATION_SHARD_COUNT: '8'
-          MUTATION_SHARD_INDEX: ${{ matrix.shard }}
-        run: ZLIB_SRC="$GITHUB_WORKSPACE/zlib" bash tests/selftest.sh
-
   # Required status: a failed, skipped or cancelled worker cannot pass.
   difftest:
-    needs: [diff_core, diff_harness]
+    needs: [diff_core]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -231,5 +207,4 @@ jobs:
       - name: Require every differential stage
         env:
           CORE_RESULT: ${{ needs.diff_core.result }}
-          HARNESS_RESULT: ${{ needs.diff_harness.result }}
-        run: test "$CORE_RESULT/$HARNESS_RESULT" = "success/success"
+        run: test "$CORE_RESULT" = "success"

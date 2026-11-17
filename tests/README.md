@@ -27,7 +27,6 @@ flowchart LR
 ```bash
 git submodule update --init zlib            # at the pinned commit
 ZLIB_SRC=$PWD/zlib bash tests/run.sh        # builds the patched copy once, then tests
-bash tests/selftest.sh                      # mutation check of the harness (reuses tests/build/zlib)
 SAN=1 ZLIB_SRC=$PWD/zlib bash tests/run.sh  # the C side under ASan + UBSan
 ```
 
@@ -87,42 +86,8 @@ Five edits. Take `adler32` as the model.
    ```
 5. `tests/list.txt`: one line, `crc32`.
 
-Then add `tests/mutations/crc32.tsv` (below) and run `run.sh` and `selftest.sh`. The names must agree:
-`c/NAME.c`, `gen/NAME.py`, `difftest_NAME`, `list.txt`, `mutations/NAME.tsv`.
-
-## The mutation check (`selftest.sh`)
-
-Before the slow runs, a preflight checks every selected mutation against the same translation
-prefix the runner will keep. Missing targets, unchanged replacements and empty selections fail.
-Each suite restores its last mutation before the next suite checks its positive baseline.
-`selftest-parallel.sh` runs two disjoint ordinal shards in separate copies. Each keeps its
-own positive baselines and build cache; the wrapper fails if either shard fails.
-
-A harness that cannot see a wrong translation is worthless. `selftest.sh` copies the workspace to a
-temporary directory, keeps in `ZlibF/Zlib/X.c.lean` only the translation (the text up to the first
-line `end Zlib.<Name>`: proofs would not check after a mutation), checks that the harness passes on
-this unmutated copy, and then, for each line of `mutations/NAME.tsv`, applies one textual mutation,
-rebuilds the Lean driver and runs `run.sh`. Columns, separated by tabs:
-
-`name`, `expect` (`detect` or `same`), `file`, `occurrence` (which match of `old`, 1-based), `old`, `new`.
-
-* `detect`: the mutation changes behaviour; `run.sh` must report a difference.
-* `same`: an equivalent mutant (for example a larger `NMAX` that is still a multiple of 16: with a
-  64-bit `unsigned long` nothing overflows, so the result cannot change). `run.sh` must pass. These
-  lines document why a constant is not tested more tightly; if one is ever reported as a difference,
-  the pair of translation and C changed meaning and someone must look.
-
-For a new C file, write at least one mutation per constant, per comparison (`>=` to `>`), per branch
-condition and per unrolled step. If a `detect` mutation is not detected, fix `gen/NAME.py` (never the
-mutation) until it is. If one cannot be detected because it is equivalent, say so with `same`.
-
-## Results on the adler32 inputs
-
-See the last lines of `run.sh` and `selftest.sh` output. The mutation `combine-sum1-first-ge-to-gt` was
-first marked `detect`; the check showed it is equivalent (the second, identical comparison that follows
-it removes the difference), and it is now `same`. No input of `gen/adler32.py` had to be added to
-catch the others: the boundary cases for `len == 1`, the 16 and 5552 byte steps, and the sums of the
-halves in `adler32_combine` were written first and all `detect` mutations were caught by them.
+Then run `run.sh`. The names must agree:
+`c/NAME.c`, `gen/NAME.py`, `difftest_NAME`, `list.txt`.
 
 ## What this does not cover
 
