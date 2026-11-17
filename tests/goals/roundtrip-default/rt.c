@@ -264,9 +264,81 @@ static int flushes(size_t count) {
     return expected == 3 ? 0 : 1;
 }
 
+/* Optional mode `huge` (not in the default run; needs about 9 GB): compress_z with capacity exactly
+ * compressBound_z(n) at lengths where the output or the input passes UINT_MAX, so compress_z refills
+ * avail_out or avail_in. A call that drains the last pending bytes at entry and is left with no room
+ * returns Z_OK; with no capacity left the next call would get Z_BUF_ERROR. That needs the stream to
+ * fill the whole destination, which the ledger excludes above 2^28 input bytes
+ * (counted_blocks_below_default_bound). Cases: match-free data (every block stored, the longest
+ * output) just above UINT_MAX input, and at the shortest length whose stored output passes
+ * UINT_MAX; zeros above UINT_MAX input, and below it with capacity above UINT_MAX. Each must return
+ * Z_OK, and the stream must inflate to the input. Exit 0 when all do. */
+static void huge_nomatch(unsigned char *out, size_t want) {
+    static long last[1 << 24];
+    for (long i = 0; i < (1L << 24); i++) last[i] = -1000000;
+    unsigned long x = 88172645463325252UL;
+    for (size_t i = 0; i < want; i++) {
+        for (;;) {
+            x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+            unsigned char c = (unsigned char)(x >> 24);
+            if (i >= 2) {
+                long key = ((long)out[i - 2] << 16) | ((long)out[i - 1] << 8) | c;
+                if ((long)i - last[key] < 65536) continue;
+                last[key] = (long)i;
+            }
+            out[i] = c;
+            break;
+        }
+    }
+}
+
+static int huge_inflates(const unsigned char *stream, size_t len, const unsigned char *in, size_t n) {
+    z_stream s; memset(&s, 0, sizeof s);
+    if (inflateInit(&s) != Z_OK) return 0;
+    static unsigned char window[1 << 20];
+    size_t sent = 0, got = 0; int rc = Z_OK;
+    while (rc == Z_OK) {
+        if (s.avail_in == 0) { size_t k = len - sent > (1u << 30) ? (1u << 30) : len - sent; s.next_in = (Bytef *)stream + sent; s.avail_in = (uInt)k; sent += k; }
+        s.next_out = window; s.avail_out = sizeof window;
+        rc = inflate(&s, Z_NO_FLUSH);
+        size_t k = sizeof window - s.avail_out;
+        if (got + k > n || memcmp(window, in + got, k)) { inflateEnd(&s); return 0; }
+        got += k;
+        if (rc == Z_BUF_ERROR && s.avail_in == 0 && sent < len) rc = Z_OK;
+    }
+    inflateEnd(&s);
+    return rc == Z_STREAM_END && got == n && sent == len && s.avail_in == 0;
+}
+
+static int huge(void) {
+    size_t storedMin = 0;   /* shortest n whose all-stored output 2 + n + 5 * ceil(n / 16383) + 4 passes UINT_MAX */
+    for (size_t n = 4293600000UL; ; n++) if (2 + n + 5 * ((n + 16382) / 16383) + 4 > 4294967295UL) { storedMin = n; break; }
+    struct { const char *name; size_t n; int nomatch; } cases[] = {
+        {"nomatch-input-above-uint", 4294967296UL + 100, 1},
+        {"nomatch-output-above-uint", storedMin, 1},
+        {"zeros-input-above-uint", 4294967296UL + 100, 0},
+        {"zeros-capacity-above-uint", 4294000000UL, 0},
+    };
+    int bad = 0;
+    for (int c = 0; c < 4; c++) {
+        size_t n = cases[c].n, cap = compressBound_z(n), len = cap;
+        unsigned char *in = malloc(n), *out = malloc(cap);
+        if (!in || !out) { printf("HUGE %s n=%zu: allocation failed\n", cases[c].name, n); return 2; }
+        if (cases[c].nomatch) huge_nomatch(in, n); else memset(in, 0, n);
+        int rc = compress_z(out, &len, in, n);
+        int ok = rc == Z_OK && huge_inflates(out, len, in, n);
+        printf("HUGE %s n=%zu capacity=%zu rc=%d destLen=%zu slack=%zu %s\n", cases[c].name, n, cap, rc, len,
+               cap - len, ok ? "ok" : "FAIL");
+        if (!ok) bad++;
+        free(in); free(out);
+    }
+    return bad != 0;
+}
+
 int main(int argc, char **argv) {
     if (argc == 3 && !strcmp(argv[1], "flushes")) return flushes(strtoull(argv[2], 0, 10));
-    if (argc < 3) { fprintf(stderr, "usage: rt SEED COUNT | rt flushes COUNT\n"); return 2; }
+    if (argc == 2 && !strcmp(argv[1], "huge")) return huge();
+    if (argc < 3) { fprintf(stderr, "usage: rt SEED COUNT | rt flushes COUNT | rt huge\n"); return 2; }
     rs = strtoull(argv[1], 0, 10) * 0x9E3779B97F4A7C15ull + 1;
     size_t count = strtoull(argv[2], 0, 10), maxn = (size_t)1 << 22;
     unsigned char *in = malloc(maxn + 1);
