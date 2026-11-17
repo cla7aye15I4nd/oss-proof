@@ -290,8 +290,8 @@ theorem clZeroSetup_run_cursor {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv
       omega
     · intro impossible
       cases impossible
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have available := enough rfl
     rw [total] at available bitBound
     have firstBound : here.bits.toUInt32.toNat < 64 := by rw [UInt8.toNat_toUInt32]; omega
@@ -440,8 +440,8 @@ theorem clNeedDrop_run_cursor {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv 
       rw [runX_bind, run]
     · intro impossible
       cases impossible
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have available := enough rfl
     rw [total] at available
     have small : here.bits.toUInt32.toNat < 64 := by rw [UInt8.toNat_toUInt32]; omega
@@ -518,8 +518,8 @@ theorem clRepeat16_nonempty_run_cursor {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
       cases same
       unfold clRepeat16
       rw [runX_bind, prefixRun]
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     obtain ⟨prepared, run, afterInv, _, frame, bits, lenBound, copyLo, copyHi⟩ :=
       clPrevBits_run hc hs size nonempty haveBound initialized inv (enough rfl)
     have zero : s.«have» ≠ 0 := by intro zero; rw [zero] at nonempty; simp at nonempty

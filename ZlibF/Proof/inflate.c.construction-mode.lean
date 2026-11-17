@@ -32,8 +32,8 @@ theorem inflate_CODELENS_default_J_boundary {c : Ctx} {h : Heap} {r : ZStreamRef
     · rw [inflate_CODELENS_eq, runX_bind, read]
     · intro impossible
       cases impossible
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (inflate_CODELENS c) l h = runX (clTail c) regs after := by
       rw [inflate_CODELENS_eq, runX_bind, read]
     have current : Env c after r zs stream state := ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩

@@ -369,8 +369,8 @@ theorem inflate_CODELENS_boundary {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
       rw [inflate_CODELENS_eq, runX_bind, run]
     refine ⟨used, regs, usedBound, bits, Or.inl ?_⟩
     exact ⟨.error e, after, stream, state, source, nextGood, nextData, nextB, Or.inl (by intro eq; cases eq)⟩
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (inflate_CODELENS c) l h = runX (clTail c) regs after := by
       rw [inflate_CODELENS_eq, runX_bind, run]
     have done : state.mode = CODELENS → state.«have».toNat = state.nlen.toNat + state.ndist.toNat := by

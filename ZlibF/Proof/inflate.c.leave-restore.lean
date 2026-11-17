@@ -63,8 +63,8 @@ theorem inflate_leave_split (c : Ctx) (l : IL) :
   cases first : wrZ c.strm (fun z => { z with next_out := l.put, avail_out := l.left, next_in := l.next, avail_in := l.have_ }) h with
   | error fault => simp only
   | ok result =>
-    obtain ⟨unit, current⟩ := result
-    cases unit
+    obtain ⟨unitVal, current⟩ := result
+    cases unitVal
     simp only
 
 /-- The actual prefix writes the exposed cursors and private bit buffer. -/

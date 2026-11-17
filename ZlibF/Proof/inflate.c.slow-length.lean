@@ -58,8 +58,8 @@ theorem inflate_LEN_slow_lookup_boundary_leaf {c : Ctx} {l : IL} {h : Heap}
     refine ⟨regs, heap, reset, used, usedFour, usedBound, ?_, resetGood, resetTables,
       inv, empty, bits, shape, rfl, bitBound, cursor, rfl, rfl⟩
     rw [source, runX_bind, run]
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     obtain ⟨dropped, dropBound, heapEq, leaf, enough, bits, count⟩ := done rfl
     subst after
     let state := { reset with back := Int32.ofNat dropped }

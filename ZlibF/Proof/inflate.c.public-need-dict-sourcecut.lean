@@ -50,8 +50,8 @@ theorem run_dictionary_origin
       exact prior (dispatch_dictionary_output_unchanged env currentJ currentPacket currentLocal incoming source
         final.good.live.hs nextLow).1
     cases outcome with
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       exact ⟨finalStream, finalState, rest, final, finalPacket, finalLocal, finalBits, carry⟩
     | error stopped => exact ⟨finalState, final.good.live.hs, carry⟩
   rw [cut] at run

@@ -175,8 +175,8 @@ theorem run_need_zero
     have same := Except.ok.inj (actual.symm.trans source)
     cases same
     cases outcome with
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       have normal := (inflate_dispatch_ret_classification env initial beforePacket ret source final.good.live.hs).1 rfl
       exact ⟨finalStream, finalState, rest, final, finalLocal, finalPacket, finalBits, normal⟩
     | error exit =>

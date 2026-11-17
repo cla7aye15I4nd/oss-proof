@@ -110,8 +110,8 @@ private theorem clZero_outcome_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStream
   | error fault =>
     refine ⟨.error fault, prepared, h, used, ?_, usedBound, preparedInv, shape', bitBound, rfl, cursor, budget⟩
     rw [runX_bind, setupRun]
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     obtain ⟨zero, copyLo, copyHi⟩ := counts rfl
     have value : prepared.len.toNat ≤ 15 := by rw [zero]; decide
     obtain ⟨outcome, regs, after, finishRun, inv, frame, bits, post, next⟩ :=
@@ -184,8 +184,8 @@ theorem clAfterLookup_run_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
           refine ⟨.error fault, prepared, h, used, ?_, usedBound, inv, shape', by omega, rfl, cursor, budget⟩
           unfold clRepeat16
           rw [runX_bind, setupRun]
-        | ok unit =>
-          cases unit
+        | ok unitVal =>
+          cases unitVal
           obtain ⟨i, message, bad⟩ := tcBadMode_run (c := c) "invalid bit length repeat"
             lit_bit_length_repeat hr hc hz hs
           refine ⟨.ok true, prepared, tcBadHeap h r zs z s i, used, ?_, usedBound,
@@ -204,8 +204,8 @@ theorem clAfterLookup_run_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
         cases result with
         | error fault =>
           exact ⟨.error fault, prepared, h, used, failure fault rfl, usedBound, inv, shape', by omega, rfl, cursor, budget⟩
-        | ok unit =>
-          cases unit
+        | ok unitVal =>
+          cases unitVal
           obtain ⟨prefixRun, value, copyLo, copyHi⟩ := success rfl
           obtain ⟨outcome, regs, after, run, finalInv, frame, bits, post, next⟩ :=
             clFinish_outcome_cursor hr hc hz hs size nlen ndist (by omega) (by omega) (by omega)
@@ -267,8 +267,8 @@ theorem clReadBody_run_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
   | error fault =>
     refine ⟨.error fault, looked, h, used1, ?_, used1Bound, inv, frame, by omega, rfl, next1, by omega⟩
     rw [clReadBody_eq, runX_bind, lookupRun]
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have root : s.lenbits.toNat ≤ 7 := table.2.1
     obtain ⟨outcome, regs, after, used2, run, used2Bound, finalInv, regFrame, finalBits, post, next2, budget2⟩ :=
       clAfterLookup_run_cursor hr hc hz hs size nlen ndist more initialized inv looked.here

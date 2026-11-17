@@ -197,8 +197,8 @@ theorem run_active_base
       have unchanged := inflate_dispatch_output_base_noncheck env notCheck source
       exact ⟨(prior beforeActive).1, unchanged.trans (prior beforeActive).2⟩
     cases outcome with
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       exact ⟨finalStream, finalState, rest, final, finalLocal, finalPacket, finalBits, carry⟩
     | error stopped => exact ⟨finalState, final.good.live.hs, carry⟩
   rw [cut] at run
@@ -378,8 +378,8 @@ theorem run_dictionary_output_unchanged
         currentLocal incoming source final.good.live.hs nextLow
       exact ⟨put.trans (prior beforeLow).1, left.trans (prior beforeLow).2⟩
     cases outcome with
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       exact ⟨finalStream, finalState, rest, final, finalLocal, finalPacket, finalBits, carry⟩
     | error stopped => exact ⟨finalState, final.good.live.hs, carry⟩
   rw [cut] at run

@@ -173,7 +173,7 @@ private theorem jp0_last_layout {c : Ctx} {s result : TS} {h after : Heap}
     (by
       intro before h value after run
       obtain ⟨hd, middle, _, run⟩ := bind_return run
-      obtain ⟨unit, middle', _, run⟩ := bind_return run
+      obtain ⟨unitVal, middle', _, run⟩ := bind_return run
       cases run
       rfl) fillRun
   have len : filled.len = s.len := by simpa only [retained] using congrArg TS.len fillFrame

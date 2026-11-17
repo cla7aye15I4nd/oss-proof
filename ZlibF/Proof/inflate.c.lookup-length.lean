@@ -88,8 +88,8 @@ theorem lenSubLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateStat
       cases impossible
     · intro _
       exact ⟨rfl, empty rfl, sameStream⟩
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (lenSubLookup c root) l h =
         runX (do
           let last := (← get).last
@@ -340,8 +340,8 @@ theorem lenLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       rw [runX_bind, run]
     · intro impossible
       cases impossible
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have cell : ca.getD (offset + current.hold.toNat % 2 ^ s.lenbits.toNat) default = current.here :=
       selected.symm
     have rootIndex : current.hold.toNat % 2 ^ s.lenbits.toNat < 2 ^ s.lenbits.toNat :=

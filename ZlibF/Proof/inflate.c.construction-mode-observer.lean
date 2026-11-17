@@ -75,8 +75,8 @@ theorem CODELENS_above_dict
     have same := xrun_state_eq source actual nextJ.good.live.hs get
     rw [← same]
     rcases modes with selected | selected <;> rw [selected] <;> decide
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (inflate_CODELENS c) l h = runX (clTail c) readRegs readHeap := by
       rw [inflate_CODELENS_eq, runX_bind, read]
     have current : Env c readHeap r zs stream0 readState := ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩

@@ -86,12 +86,12 @@ theorem prepared_find_short_quality {h after : Heap} {ds : Nat} {d : DeflateStat
   cases find : slowFind (some (.tab ds)) candidate (setD h ds (lazyPrepare d)) with
   | error fault => simp [find] at run
   | ok pair =>
-    rcases pair with ⟨unit, found⟩
+    rcases pair with ⟨unitVal, found⟩
     have same : found = after :=
       (Prod.mk.inj (Except.ok.inj (by simpa only [find, bind_app, pure_app] using run))).2
     subst after
-    have unitEq : unit = () := Subsingleton.elim _ _
-    subst unit
+    have unitEq : unitVal = () := Subsingleton.elim _ _
+    subst unitVal
     exact slow_find_short_quality (d := lazyPrepare d) (by simp [setD])
       (by simp [lazyPrepare]) find
 

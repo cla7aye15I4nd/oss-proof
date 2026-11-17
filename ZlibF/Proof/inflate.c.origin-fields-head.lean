@@ -69,8 +69,8 @@ theorem inflate_HEAD_origin_record {c : Ctx} {h after : Heap} {r : ZStreamRef} {
     | error exit =>
       cases actual
       exact ⟨s, E.hs, Or.inl rfl, rfl, rfl, rfl⟩
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       exact headDefaultCheck_origin_record E invariant.headWindow actual
 
 /-- Actual HEAD dispatch has the same source origins. -/

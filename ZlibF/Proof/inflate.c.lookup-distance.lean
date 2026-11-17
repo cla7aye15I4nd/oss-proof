@@ -58,8 +58,8 @@ theorem distSubLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateSta
       cases impossible
     · intro _
       exact ⟨rfl, empty rfl, sameStream⟩
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have source : runX (distSubLookup c root) l h =
         runX (do
           let last := (← get).last
@@ -215,8 +215,8 @@ theorem distLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       rw [runX_bind, run]
     · intro impossible
       cases impossible
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     have prefixRun : runX (distLookup c) l h = runX (distRootTail c current.here) current h := by
       unfold distLookup
       rw [runX_bind, run]
@@ -377,8 +377,8 @@ theorem inflate_DIST_lookup_boundary_bounded {c : Ctx} {l : IL} {h : Heap}
     left
     refine ⟨regs, used, usedFour, usedBound, ?_, inv, empty, bits, shape, cursor, bitBound⟩
     rw [inflate_DIST_lookup_cut, runX_bind, run]
-  | ok unit =>
-    cases unit
+  | ok unitVal =>
+    cases unitVal
     obtain ⟨dropped, dropBound, heapEq, leaf, enough, bits, count⟩ := done rfl
     subst after
     let state := { s with back := Int32.ofNat (before + dropped) }
