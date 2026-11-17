@@ -43,7 +43,7 @@ import ZlibF.Proof.«public-deflate-inflate-roundtrip»
 import ZlibF.Proof.«inflate.c.default-entry»
 
 namespace Zlib.Inflate.Proofs.DefaultCompletes
-open C ZlibF.Spec ZlibF.Spec.Public Zlib.Inflate.Proofs
+open C ZlibF.Spec ZlibF.Spec.Public Zlib.Inflate.Proofs Zlib.Inflate.Spec
 set_option autoImplicit false
 
 theorem params15 : Api.inflWbits (15 : Int32).toInt = some (.zlib, 15) := by decide
@@ -498,7 +498,10 @@ own stream for "a" (block 2) and at a 1-byte output buffer (block 3); block 1 ho
 string "1". Every allocation succeeds. `inflateInit` keeps the four buffer fields. -/
 
 def wStream : ZStream :=
-  { (default : ZStream) with next_in := .ref (.blk 2) 0, avail_in := 9, next_out := .ref (.blk 3) 0,
+  { (default : ZStream) with
+    next_in := .ref (.blk 2) 0
+    avail_in := 9
+    next_out := .ref (.blk 3) 0
     avail_out := 1 }
 
 def wInput : List UInt8 := [0x78, 0x9C, 0x4b, 0x04, 0x00, 0x00, 0x62, 0x00, 0x62]
@@ -579,6 +582,7 @@ theorem w_platform : ZlibF.PlatformMemory.ByteObjectsFit wHeap := by
     cases get
     decide
 
+set_option maxRecDepth 8192 in
 theorem w_decodes : Zlib.Decodes [] wInput [0x61] :=
   ⟨0x78, 0x9C, [], _, rfl, by decide +kernel,
     fun _ => ⟨rfl, _, .last rfl rfl (.fixed (.lit (s := 97) rfl (by decide +kernel) (.eob rfl))),
