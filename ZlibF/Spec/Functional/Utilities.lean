@@ -4,8 +4,8 @@ import ZlibF.Spec.Functional.Api.Compress
 /-!
 # Utilities: functional goals and the definitions only they use
 
-Split from `ZlibF/Spec/Public/Utilities.lean` without a change of statement or name
-(`docs/design/safety-functional-split.md`). The namespace stays `ZlibF.Spec.Public`.
+The split into safety and functional modules: `docs/en/design/safety-functional-split.md`. The
+namespace is `ZlibF.Spec.Public`.
 -/
 
 namespace ZlibF.Spec.Public
@@ -13,7 +13,7 @@ open C ZlibF.Spec
 
 /-- The four compressor entries share the data relation. Their scalar-pointer domains and
 returned scalar types remain separate. No compressor or allocator theorem is assumed.
-`Uniq` is the representation condition of the initial heap (`docs/trusted-base.md`); the heap
+`Uniq` is the representation condition of the initial heap (`docs/en/trusted-base.md`); the heap
 after the call is compared entry by entry (`SameObjectsUpToTableShape`), since the local
 `z_stream` leaves an empty table entry.
 The accepted LP64 environment bounds each represented byte object by PTRDIFF_MAX;
@@ -71,7 +71,7 @@ def Uncompressed (src : List UInt8) (capacity : Nat) (rc : Int32)
 /-- Counted decompression retains both length cells on early argument and init failures.
 Later memory failure stores the actual output and consumption lengths.
 The accepted LP64 byte-object premise includes caller, static and embedded storage.
-`Uniq` is the representation condition of the initial heap (`docs/trusted-base.md`): one
+`Uniq` is the representation condition of the initial heap (`docs/en/trusted-base.md`): one
 object per block identity below `nextBlk`. Every C state has such a representation. -/
 def UncompressCounted
     (program : BPtr → BPtr → BPtr → BPtr → M Int32) (nullableLengths : Bool) : Prop :=

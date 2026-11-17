@@ -5,7 +5,7 @@ import ZlibF.Proof.«deflate.c.engine.pending-resume»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-pending-resume»
 
 /-!
-# deflate.c: the entry flush with an advanced pending cursor (M10)
+# deflate.c: the entry flush with an advanced pending cursor
 
 At a call boundary with bytes pending, the previous call stopped on a full output, so
 `pending_out` may lie past `pending_buf`. The flush lemmas of the header and trailer phases assume
@@ -150,7 +150,7 @@ theorem flush_cursor_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d
       flush_pending_resume_foreign_bits good buffers ptr low bits
     exact ⟨produced, after, z', d', run, goodA, buffersA, account, count⟩
 
-/-- **M10: the entry flush with an advanced cursor.** From the invariant, with bytes pending and
+/-- **The entry flush with an advanced cursor.** From the invariant, with bytes pending and
 room in the output, `flush_pending` copies `min pending avail_out` bytes (at least one) from the
 cursor, changes only `pending` and `pending_out` in the state, keeps the invariant and the caller
 buffers, and is a stage. `pbuf` names the `pending_buf` block of the stage frame. -/

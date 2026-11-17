@@ -431,7 +431,7 @@ theorem gz_skip_have_run {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) 
       (skipRec s).skip.toInt + (skipRec s).x.pos.toInt = s.skip.toInt + s.x.pos.toInt :=
   gz_skip_have_run' inv.upToSkip
 
-/-- **Skeleton statement**: `gz_skip_have` on a reader in `GzInv` does not fault, keeps `GzInv`, writes only the
+/-- `gz_skip_have` on a reader in `GzInv` does not fault, keeps `GzInv`, writes only the
 record, and keeps the skip target `x.pos + skip`. -/
 theorem gz_skip_have_safe (i : Nat) (h : Heap) (s : GzState) (inv : GzInv h i s) (hm : s.mode = GZ_READ) :
     ∃ after s', C.run (Zlib.Gzread.gz_skip_have (gzSt i)) h = .ok ((), after) ∧ GzInv after i s' ∧

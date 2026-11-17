@@ -5,7 +5,7 @@ import ZlibF.Spec.Safety.GzSafety
 /-!
 # gz file interface, safety: a fresh handle is in `GzInv`; `gzdopen`
 
-The skeleton leaf `gzdopen_safe` (`skeleton/gz`, `gz.skeleton.lean`), and the facts it shares with `gzopen`:
+`gzdopen_safe`, and the facts it shares with `gzopen`:
 
 1. `open_inv`: a record in `OpenState` (the public open contract), with no codec (`strm.state` NULL), no pending
    input pointer (`strm.next_in` NULL), the writer's `reset` cleared, an accepted `direct`, a private path block other
@@ -14,10 +14,10 @@ The skeleton leaf `gzdopen_safe` (`skeleton/gz`, `gz.skeleton.lean`), and the fa
 2. `parsedOpenRecord_inv_facts`: the record that `gz_open` actually returns has those extra fields. They are fields
    of the fresh record that `gz_open` does not write: in the model a fresh pointer is NULL (`GzState.garbage`), which
    is weaker than C. C never reads `strm.state` or `strm.next_in` before `gz_look` or `gz_init` writes them
-   (`docs/spec/safety.md`, section 3).
+   (`docs/en/spec/safety.md`, "Model limits").
 3. `gz_open_supplied_shape`: the world and heap of every return of `gz_open` with a supplied descriptor.
 4. `fit_of_frame_new`: the platform object bound after a call that frames the caller's heap.
-5. `gzdopen_safe_proof`, restated as the skeleton's `gzdopen_safe`.
+5. `gzdopen_safe_proof`, restated as `gzdopen_safe`.
 
 Patches: none beyond those of the reused open lemmas.
 -/

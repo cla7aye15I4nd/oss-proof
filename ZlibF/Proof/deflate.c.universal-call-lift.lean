@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-early»
 /-!
 # deflate.c: carrying the invariant across the phases of one call
 
-Owner 2 of the deflate split (`deflate_call`). The header stages, the flushes and the flush
+The header stages, the flushes and the flush
 markers write `pending_buf` only in its pending area, below `lit_bufsize`; the recorded symbols
 sit from `lit_bufsize` on. These lemmas carry `Symbols` and `HeaderInv` across such a change.
 -/

@@ -5,7 +5,7 @@ import ZlibF.Proof.«deflate.c.engine.caller-frame»
 /-!
 # deflate.c: `deflateEnd` from the universal invariant
 
-Batch C of the deflate skeleton (`end_from_inv`). The invariant gives `DGood` and the default
+`end_from_inv`: the invariant gives `DGood` and the default
 allocators, so `deflate_end_public` applies. Its ownership clauses are stated with
 `DeflateOwned`; under `DGood` that is `StreamOwned` (`stream_owned_deflate`).
 -/

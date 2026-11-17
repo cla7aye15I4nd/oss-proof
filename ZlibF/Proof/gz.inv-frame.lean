@@ -10,7 +10,7 @@ import ZlibF.Proof.PlatformMemory
 `GzInv.frame_shape`: when every block the handle owns is unchanged, the same blocks exist in the same tables
 (`Shape`), and the global facts hold of the new heap, the invariant holds of the new heap with the same record,
 and the handle owns the same blocks. `GzInv.byte_put` instantiates it for one store into a byte view the handle
-does not own. `gzerror_step` (skeleton statement, unchanged) follows: `gzerror` stores the code into the
+does not own. `gzerror_step` follows: `gzerror` stores the code into the
 caller's 4-byte cell and changes nothing else. `gzerror_string`: the pointer it returns is a C string in the
 heap after the call (a literal, or the handle's message, which `GzInv` holds after the store).
 -/
@@ -417,7 +417,7 @@ theorem safe_of_run {i : Nat} {call : Call} {h after : Heap} {fs : Fs} {s : GzSt
     cases he
     exact post
 
-/-- `gzerror`, from the registered `gzerror` goal: stores the code in `[errnum, errnum + 4)`. -/
+/-- `gzerror`: stores the code in `[errnum, errnum + 4)`. -/
 theorem gzerror_step (i : Nat) (errnum : BPtr) : GzCallSafe i (.gzerror (some (.in_gzstate_x i)) errnum) := by
   intro h fs s inv hfs ha
   have hs := inv.common.record

@@ -5,8 +5,8 @@ import ZlibF.Proof.«deflate.c.universal-call-stageframe»
 /-!
 # deflate.c: the header phase of one call, at the invariant level
 
-Owner 2 of the deflate split (`deflate_call`). From a header state (`INIT_STATE` to `HCRC_STATE`)
-with the invariant, batch C's `header_phase` either returns `Z_OK` or continues in `BUSY_STATE`
+From a header state (`INIT_STATE` to `HCRC_STATE`)
+with the invariant, `header_phase` either returns `Z_OK` or continues in `BUSY_STATE`
 with nothing pending. Here `DInv`, `HeaderInv` and `CallFacts` are carried to its result with
 `DInv.lift_empty` (a header state records no symbol).
 -/

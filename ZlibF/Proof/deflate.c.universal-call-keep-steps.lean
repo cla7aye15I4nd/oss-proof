@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-call-keep-checksum»
 /-!
 # deflate.c: record updates and the step tactic of `KeepRel`
 
-Owner 2 of the deflate split (`deflate_call`); port of `deflate.c.universal-params-steps` to the
+The analogue of `deflate.c.universal-params-steps` for the
 relation `KeepRel` of `deflate.c.universal-call-keep-base`. `keep_wr`, `keep_md` and
 `keep_stTreeDesc` cover the record updates; `keep_step` composes the primitives along the
 translated code.

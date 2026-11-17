@@ -5,7 +5,7 @@ import ZlibF.Runtime.Alloc
 
 The runtime heap (`ZlibF/Runtime`) has no file system, no `errno` and no `printf`. The gz* functions call `open`,
 `read`, `write`, `lseek`, `close`, `fcntl`, `strerror`, `snprintf`/`vsnprintf`. This file is the model of those
-calls, written next to the translation; it is part of the trusted base (`docs/design/external-io.md`
+calls, written next to the translation; it is part of the trusted base (`docs/en/design/external-io.md`
 lists every decision and narrowing).
 
 The world is a record `Fs` that lives beside the heap: a gz computation is `G α = StateT Fs C.M α`, so a heap
@@ -61,7 +61,7 @@ inductive LseekChoice where
 /-- The file system, the descriptor table, `errno` and the file size limit (`RLIMIT_FSIZE`). Paths are flat
 byte strings (no directory structure). The world also carries two oracles: the `vsnprintf` oracle (`printfRet` ..
 `nprintf`) and the OS-call oracle (`nos` .. `readBudget`), which choose each call's result within its contract
-(`docs/trusted-base.md`). -/
+(`docs/en/trusted-base.md`). -/
 structure Fs where
   names : Array (Array UInt8 × Nat) := #[]
   nodes : Array Node := #[]
@@ -83,7 +83,7 @@ structure Fs where
   /-- The number of `read`, `write`, `lseek`, `close` and `open` calls so far: it numbers the entries of the OS-call
   oracle below. The defaults of the oracle fields reproduce the regular-file model and serve the executable
   drivers only; every goal quantifies over all worlds. The oracle is deliberately wider than any real system
-  (`docs/trusted-base.md`): `bytes` and `count` succeed whatever the descriptor's state, a `count` write does not
+  (`docs/en/trusted-base.md`): `bytes` and `count` succeed whatever the descriptor's state, a `count` write does not
   change the file, a `value` `lseek` does not move the descriptor. -/
   nos : Nat := 0
   /-- What read call `n` does (M1). -/
@@ -645,7 +645,7 @@ def formatBytes (f : Array UInt8) (args : List VaArg) : M (Array UInt8) := fun h
 /-- `snprintf(dst, size, fmt, ...)` for the fixed formats of gzlib.c (`"%s%s%s"`, `"%s"`, `"<fd:%d>"`): writes at
 most `size - 1` characters of the full output and a NUL (nothing if `size` is 0), and returns the full length, or −1
 when it exceeds `INT_MAX`. For `%s` with a `char *` and `%d` that is glibc's only failure (`EOVERFLOW`); `errno` is
-not modelled here, and no caller reads it before a system call sets it again (docs/trusted-base.md). -/
+not modelled here, and no caller reads it before a system call sets it again (docs/en/trusted-base.md). -/
 def snprintf (dst : BPtr) (size : UInt64) (fmt : BPtr) (args : List VaArg) : M Int32 := do
   let f ← cstring fmt
   let out ← formatBytes f args
@@ -668,7 +668,7 @@ def argsLive (args : List VaArg) : M Unit := fun h =>
 
 /-- `vsnprintf(dst, size, fmt, va)` with a caller's format (`gzvprintf`): an external call, modelled by its C contract
 (C17 7.21.6.12), not by formatting. The caller guarantees that the call is defined for its format and arguments
-(`docs/trusted-base.md`). The model reads the format as a string and faults on a pointer argument into a freed
+(`docs/en/trusted-base.md`). The model reads the format as a string and faults on a pointer argument into a freed
 block; it does not read the format's conversions. The world oracle chooses the result `r = printfRet n`, any `int`.
 If `r ≥ 0` (success, `r` the length of the full output, possibly `size` or more): the first `min(r, size - 1)` bytes
 of `printfOut n` (padded with zeros) and a NUL after them, nothing if `size` is 0. If `r < 0` (failure): `errno` is

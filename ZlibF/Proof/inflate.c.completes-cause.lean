@@ -397,7 +397,8 @@ theorem loop_cause {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
     · exact absurd raw.1 wrapped
   exact xwhile_success_control_post P Q step ⟨side, Or.inl start⟩ run rfl
 
-/-- The cause rows of a zlib call that are not yet theorems: the header rows (`HEAD`,
+/-- The cause rows of a zlib call that `cause_zlib` takes as premises (`zlib_cause_rows`,
+`inflate.c.completes-cause-zlib`, proves them): the header rows (`HEAD`,
 `DICTID`, `DICT`), the boundary after the last block, the dynamic header and `LENGTH`. -/
 structure ZlibCauseRows : Prop where
   head : ∀ c f r, f.wrap = .zlib → CauseAt c f r (fun s => s.mode = HEAD)

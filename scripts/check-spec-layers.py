@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the layers of the specification (docs/design/safety-functional-split.md).
+"""Check the layers of the specification (docs/en/design/safety-functional-split.md).
 
 Layout. Directly under ZlibF/Spec/ there are only the folders Safety/, Functional/ and Common/, and at
 most the three root import files Safety.lean, Functional.lean and Common.lean.
@@ -322,7 +322,7 @@ def main():
         errors.append(f'the imported module {name} has no file {module_path(name).relative_to(ROOT)}: '
                       'its imports cannot be followed')
     if errors:
-        print('Specification layer check failed (docs/design/safety-functional-split.md):')
+        print('Specification layer check failed (docs/en/design/safety-functional-split.md):')
         for error in errors:
             print('  ' + error)
         return 1

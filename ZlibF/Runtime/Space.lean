@@ -1,7 +1,7 @@
 /-!
 # Runtime: the parts that do not mention the heap
 
-Trusted base of every translation; see `docs/trusted-base.md`. The heap itself is generated
+Trusted base of every translation; see `docs/en/trusted-base.md`. The heap itself is generated
 (`Schema.lean`, from the C headers). This file holds what the generated file builds on:
 
 * `upd`, the update of a table (a function from block numbers);

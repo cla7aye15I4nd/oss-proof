@@ -4,7 +4,7 @@ import ZlibF.Proof.«crc32.c»
 /-!
 # deflate.c: the gzip header stage with a caller header record
 
-Batch C (`call_frame`, `deflate_header_trailer`). With `gzhead != Z_NULL` the gzip stage writes
+With `gzhead != Z_NULL` the gzip stage writes
 the ten header bytes from the record, the extra length when there is an extra field, and the
 header CRC when it is asked for, then enters `EXTRA_STATE`. Nothing is flushed in this stage.
 -/

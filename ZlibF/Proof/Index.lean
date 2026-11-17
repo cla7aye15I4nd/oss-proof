@@ -221,7 +221,6 @@ import ZlibF.Proof.Api.GzipRoundtrip
 import ZlibF.Proof.Api.Roundtrip
 import ZlibF.Proof.Api.DeflateFlush
 import ZlibF.Proof.Api.GzRoundtrip
-import ZlibF.Proof.Api.GzSeekRead
 import ZlibF.Proof.Api.CompressRoundtrip
 import ZlibF.Proof.Api.DeflateBounds
 import ZlibF.Proof.«public-inflate-setdict»
@@ -779,19 +778,13 @@ import ZlibF.Proof.«borrowed-byte-frame»
 import ZlibF.Proof.«checksum.borrow-stable»
 import ZlibF.Proof.«gzfs.borrow-stable»
 import ZlibF.Proof.«gzfs.borrowed-error»
-import ZlibF.Proof.«gzfs.error-message-frame»
 import ZlibF.Proof.«gzfs.error-message-store»
 import ZlibF.Proof.«gzfs.format-error-message»
 import ZlibF.Proof.«gzfs.oracle»
 import ZlibF.Proof.«gzfs.read-contract»
 import ZlibF.Proof.«gz.read-store»
-import ZlibF.Proof.«gzlib.c.errno-call-lifetime»
 import ZlibF.Proof.«gzlib.c.error-borrow»
 import ZlibF.Proof.«gzlib.c.error-message-refusal»
-import ZlibF.Proof.«gzlib.c.error-noescape»
-import ZlibF.Proof.«gzwrite.c.borrowed-error-regression»
-import ZlibF.Proof.«gz.position-overflow-regression»
-import ZlibF.Proof.«gz.position-copy-overflow-regression»
 import ZlibF.Proof.«inflate.c.borrow-stable-dispatch-fast»
 import ZlibF.Proof.«inflate.c.borrow-stable-dispatch-macros»
 import ZlibF.Proof.«inflate.c.borrow-stable-dispatch-modes»
@@ -830,10 +823,6 @@ import ZlibF.Proof.«deflate.c.borrow-stable-private-search»
 import ZlibF.Proof.«deflate.c.borrow-stable-publish»
 import ZlibF.Proof.«deflate.c.borrow-stable-strategies»
 import ZlibF.Proof.«deflate.c.borrow-stable»
-import ZlibF.Proof.«gzlib.c.error-message-oversize»
-import ZlibF.Proof.«gzread.c.load-errno»
-import ZlibF.Proof.«gzlib.c.error-keeps-x»
-import ZlibF.Proof.«gzread.c.fetch-copy»
 import ZlibF.Proof.«trees.c.borrow-stable»
 
 import ZlibF.Proof.«proof-registrations»
@@ -1463,7 +1452,6 @@ import ZlibF.Proof.«gzwrite.c.flush-params»
 import ZlibF.Proof.«gzwrite.c.close»
 import ZlibF.Proof.«gzwrite.c.printf»
 import ZlibF.Proof.«gzwrite.c.printf-run»
-import ZlibF.Proof.«gzwrite.c.printf-error-string-regression»
 import ZlibF.Proof.«gz.inv-seek»
 import ZlibF.Spec.Safety.GzSafety
 import ZlibF.Proof.«gz.inv-offset-rewind»

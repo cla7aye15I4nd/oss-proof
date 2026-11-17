@@ -4,8 +4,7 @@ import ZlibF.Proof.«deflate.c.init.default»
 
 The entry checks of `deflateInit2_` before any allocation: the version and stream-size refusal
 and the `NULL` stream refusal hold for every level, method, window, memory level and strategy.
-These are lemmas `init2_version` and `init2_null` of the deflate skeleton
-(`docs/progress.md`, Core proof skeletons).
+These are the lemmas `init2_version` and `init2_null`.
 -/
 
 namespace Zlib.Deflate.Proofs.GeneralInit

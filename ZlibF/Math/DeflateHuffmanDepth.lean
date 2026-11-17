@@ -2,7 +2,7 @@ import ZlibF.Math.DeflateHuffmanChain
 
 /-!
 Pure depth/height mathematics adapted from the pinned zlib-formal reference
-`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`; see docs/history/references.md.
+`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`.
 Imports and namespace use this project's tree shape and clamped levels.
 The modular recurrence is retained until the level bound rules out wrap.
 -/

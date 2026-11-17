@@ -7,7 +7,7 @@ import ZlibF.Spec.Functional.Api.Goals
 import ZlibF.Spec.Functional.Api.InflateAccepted
 
 /-!
-# deflate.c: the stream operations keep the invariant (batch A, `operation_step`)
+# deflate.c: the stream operations keep the invariant (`operation_step_of`)
 
 One lemma per operation of `StreamOperation .deflate`, each in the form of `operation_step`: the
 call returns, `DInv` holds afterwards, and the buffer frame and the allocation ledger of

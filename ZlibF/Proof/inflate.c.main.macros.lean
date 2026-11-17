@@ -5,8 +5,8 @@ import ZlibF.Proof.«inflate.c.main.xloop»
 
 `PULLBYTE`, `NEEDBITS`, `BITS`, `DROPBITS`, `BYTEBITS` and `INITBITS` of `inflate()` against the bit-stream invariant
 `BitInv`: the registers `next`, `have`, `hold`, `bits` describe the unconsumed DEFLATE bit stream
-`natBits bits hold ++ bytesBits bs`, where `bs` are the input bytes not yet pulled. Migrated from the earlier attempt's
-`InflateBits`; the byte-block pointer facts are now facts about `Space.get h r`. None of these macros writes the heap.
+`natBits bits hold ++ bytesBits bs`, where `bs` are the input bytes not yet pulled.
+The byte-block pointer facts are facts about `Space.get h r`. None of these macros writes the heap.
 -/
 
 namespace Zlib.Inflate.Proofs

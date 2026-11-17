@@ -50,7 +50,7 @@ def update2 (sr : Nat) (e : BPtr) (copy : UInt32) : M UInt32 := do
   let st := initWin st0
   if copy ≥ st.wsize then uw_big ist st e else uw_small ist st e copy
 
-/-- The window invariant W of `docs/proof/inflate.md`: the window is a writable byte block of `2^wbits` bytes. -/
+/-- The window invariant W of `docs/en/proof/inflate.md`: the window is a writable byte block of `2^wbits` bytes. -/
 structure WInv (h : Heap) (st : InflateState) : Prop where
   k : st.wbits.toNat ≤ 15
   win : ∃ w a, st.window = .ref (.blk w) 0 ∧ h.bytes w = some a ∧ h.ro w = false ∧ a.size = 2 ^ st.wbits.toNat

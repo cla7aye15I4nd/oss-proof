@@ -40,8 +40,6 @@ The allocation attempts of a call are those of the codec. A `compress*` call att
 five, all in `deflateInit`: the state, the window, `prev`, `head` and the pending buffer; it
 attempts none when it refuses its arguments or the level. An `uncompress*` call attempts the
 decoder state in `inflateInit`, and the window inside `inflate` when decoding needs it.
-A differential [test](../../../../tests/regression/compress-allocation/README.md) compares the
-allocation attempts of the four compression functions with the real C.
 
 First the convention for the lengths. `sourceLen` gives the number of readable input bytes.
 `*destLen` is the writable capacity of the destination array before the call, and the number of

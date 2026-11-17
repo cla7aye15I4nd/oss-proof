@@ -6,7 +6,7 @@ Statements about natural numbers. `ws` is `w_size` (512 to 32768, a power of two
 
 **D**, the window range: `ss + la <= 2 * ws`.
 
-These are the numeric facts of `docs/proof/deflate.md` section 3: the slide test, the slide copy, the room left
+These are the numeric facts of `docs/en/proof/deflate.md`, section "Inside one `deflate` call" (`fill_window`): the slide test, the slide copy, the room left
 after `fill_window`, the `high_water` clearing, and the margins that keep every read of `longest_match` inside the
 window.
 -/

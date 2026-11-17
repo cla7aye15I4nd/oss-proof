@@ -9,7 +9,7 @@ import ZlibF.Proof.«deflate.c.universal-ops»
 /-!
 # deflate.c: the early returns of one `deflate` call
 
-Owner 2 of the deflate split (`deflate_call`). The calls that return from the entry phase
+The calls that return from the entry phase
 without using input or writing output: an invalid flush value (nothing changes), a refusal
 (`Z_STREAM_ERROR`, `msg` set) and a full output (`Z_BUF_ERROR`, `msg` set). Each gives `DInv`
 afterwards and every clause of `CallClauses`.

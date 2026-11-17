@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.engine.slow-source»
 /-!
 # deflate.c: the parameter frame for the matcher and the compression strategies
 
-Batch C of the deflate skeleton (`bound_before_output`). `longest_match`, `deflate_stored`,
+`longest_match`, `deflate_stored`,
 `deflate_fast`, `deflate_slow`, `deflate_rle` and `deflate_huff` keep every parameter of every
 record (`ExactM`).
 -/

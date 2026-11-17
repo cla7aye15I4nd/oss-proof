@@ -9,7 +9,7 @@ directory is the evidence that it matches the C. For each C function, the same i
 
 The two outputs are compared byte for byte. This is a test, not a proof: it shows that the two agree on
 the inputs tried, nothing more. The drivers import the translation module itself, never a copy, and
-sit outside the audit.
+are not part of the checked library.
 
 ```mermaid
 flowchart LR
@@ -123,13 +123,6 @@ after a data error, and at the end `inflateMark`, `inflateSyncPoint`, `inflateCo
   corrupted at many places, truncated, with trailing bytes, garbage, every flush value (`Z_BLOCK` and `Z_TREES` stop at
   block boundaries), window sizes smaller and larger than the stream's, dictionaries (right, wrong, missing, longer than the
   window), `Z_SYNC_FLUSH` streams for `inflateSync`.
-
-## Benchmark of the runtime
-
-`bench_store` (`lean/Driver/Bench.lean`) is not a differential test. `bench_store N SIZE` makes `N` stores into a
-`SIZE`-byte block and prints the number of changed bytes; `bench_store checksums SIZE` runs `adler32_z` and `crc32_z`
-over `SIZE` bytes. Memory and time are read with `/usr/bin/time -f "%e s %M KB"`; the numbers are in
-https://www.dataisland.org/zlib-f/en/trusted-base.html, item 2.
 
 ## Platform
 

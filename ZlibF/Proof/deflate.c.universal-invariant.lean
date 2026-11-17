@@ -9,13 +9,12 @@ import ZlibF.Spec.Functional.Api.Compress
 # deflate.c: the universal invariant of a deflate stream
 
 `DInv` holds in every reachable state of a deflate stream, for every level, `memLevel`,
-`windowBits`, strategy, tuning and header. Batch A establishes it after `deflateInit2_` and shows
-that every stream operation and caller rebuffering keep it. The engine lemmas of batches B and C
-assume it at entry and give it back at exit (`docs/progress.md`, section "Core proof skeletons").
+`windowBits`, strategy, tuning and header. It holds after `deflateInit2_`, and every stream
+operation and caller rebuffering keep it. The engine lemmas (the strategies, the block flush, the
+phases of `deflate`) assume it at entry and give it back at exit.
 
-Other modules use the interface lemmas `DInv.*` and the field accessors named in the progress
-list. A missing fact is not unfolded from the definition: it is reported to batch A, which adds it
-here and proves that every operation keeps it.
+Other modules use the interface lemmas `DInv.*` and the field accessors. A missing fact is not
+unfolded from the definition: it is added here, with the proof that every operation keeps it.
 -/
 
 namespace Zlib.Deflate.Universal
@@ -26,7 +25,7 @@ set_option autoImplicit false
 
 /-! ## 1. The invariant -/
 
-/-- Scalar shape of the window, match, block and bit state (`docs/proof/deflate.md`, D).
+/-- Scalar shape of the window, match, block and bit state (`docs/en/proof/deflate.md`, D).
 
 * `blockStart`, `blockSpan`: the current block starts at most at `strstart`; at a nonzero level it
   spans at most 258 bytes per recorded symbol plus the lazy literal. `block_start` may be far
@@ -98,12 +97,11 @@ structure CallFacts (d : DeflateState) : Prop where
   finishSym : d.status = FINISH_STATE → d.sym_next = 0
   /-- A finished stream has no lookahead: deflate sets `FINISH_STATE` only after a strategy has
   consumed all of it (the loops end on `lookahead = 0`; `deflate_stored` keeps none), and a finished
-  stream refuses new input. Checked on the real C (`tests/goals/deflate/invariant.c`). -/
+  stream refuses new input. -/
   finishLook : d.status = FINISH_STATE → d.lookahead = 0
-  /-- M18: a finished stream holds no bits. The last block ends with `bi_windup` (`_tr_flush_block`
+  /-- A finished stream holds no bits. The last block ends with `bi_windup` (`_tr_flush_block`
   with `last`, `_tr_stored_block`), the trailer writes whole bytes, and `deflatePrime` is permitted
-  only before the first `deflate` call (`DeflateNotStarted`). Checked on the real C
-  (`tests/goals/deflate/invariant.c`). -/
+  only before the first `deflate` call (`DeflateNotStarted`). -/
   finishBits : d.status = FINISH_STATE → d.bi_valid = 0
 
 /-- The insertion frontier: no position at or above it has been inserted. The positions from
@@ -112,7 +110,7 @@ are in the window, so none of the last two bytes of the data is inserted either.
 def chainTop (d : DeflateState) : Nat :=
   min (d.strstart.toNat - d.insert.toNat) (d.strstart.toNat + d.lookahead.toNat - 2)
 
-/-- The `hashing` clause of the deflate invariant (`HashChains`; `docs/proof/deflate.md#hashing-chains-that-can-be-followed`): the hash chains name inserted positions below the
+/-- The `hashing` clause of the deflate invariant (`HashChains`; `docs/en/proof/deflate.md#hashing-chains-that-can-be-followed`): the hash chains name inserted positions below the
 insertion frontier `chainTop`, for every content of the unwritten `prev` slots. -/
 def Chains (h : Heap) (d : DeflateState) : Prop :=
   HeapChains h d (chainTop d)

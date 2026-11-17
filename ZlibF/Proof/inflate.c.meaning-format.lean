@@ -7,8 +7,7 @@ The two format clauses of `Goal.inflate_sequence` that hold for every
 protocol trace: a finished single-dictionary epoch consumed an accepted
 stream (`accepted_of_meaning`), and on a beginning of a valid stream the
 output begins the decoding, there is no data error, and the end comes
-exactly at the end of the stream (`prefix_of_meaning`). Statements as on
-`skeleton/inflate`.
+exactly at the end of the stream (`prefix_of_meaning`).
 -/
 
 namespace Zlib.Inflate.Proofs

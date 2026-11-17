@@ -21,7 +21,7 @@ theorem libcStr_run (h : Heap) (e : Int32) :
     libcStr e h = .ok (.ref (.str (libcErrnoIndex (nextErrorEpoch h) e)) 0,
       { h with libcErrorBorrow := some (nextErrorEpoch h, e) }) := rfl
 
-/-- `strerror` returns the old model's identical text as the currently valid
+/-- `strerror` returns the error text as the currently valid
 borrow. It leaves malloc tables, allocator calls and errno untouched. -/
 theorem zstrerror_run (h : Heap) (fs : Fs) :
     zstrerror fs h = .ok ((.ref (.str (libcErrnoIndex (nextErrorEpoch h) fs.errno)) 0, fs),

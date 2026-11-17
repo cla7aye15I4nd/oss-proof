@@ -491,7 +491,7 @@ def gzflush (file : GzFilePtr) (flush : Int32) : G Int32 := do
 
 /-- `int ZEXPORT gzsetparams(gzFile file, int level, int strategy)`. Candidate finding (unconfirmed): the result
 (`Z_BUF_ERROR`) of `deflateParams` is ignored and the new level and strategy are stored anyway; see
-`docs/design/external-io.md`. -/
+`docs/en/design/external-io.md`. -/
 def gzsetparams (file : GzFilePtr) (level strategy : Int32) : G Int32 := do
   if file.isNone then return Z_STREAM_ERROR
   let state := castState file

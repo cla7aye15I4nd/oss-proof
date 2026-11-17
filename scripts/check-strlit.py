@@ -23,7 +23,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-# Comments and literals of Lean source, blanked out (moved here from the former sorry check).
+# Comments and literals of Lean source, blanked out.
 CHAR = re.compile(r"'(?:\\(?:x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|.)|[^\\'\n])'")
 RAW = re.compile(r'r(#*)"')
 IDENT_END = re.compile(r"[\w'!?]")

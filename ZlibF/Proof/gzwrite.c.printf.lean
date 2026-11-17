@@ -761,7 +761,7 @@ theorem init_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzSt
 
 end printf
 
-/-- **`gzvprintf_step`** (skeleton statement), given the facts of `gz_error`. Relies on the local patch for W7
+/-- **`gzvprintf_step`**, given the facts of `gz_error`. Relies on the local patch for W7
 (patch 0005: the position check of `gzvprintf`). The argument domain puts the format and every `%s` string apart
 from the blocks the handle owns (`GzArguments`); without it the call can fault (`gzwrite.c.printf-error-string-
 regression`). Past the mode test the format is a string and the pointer arguments are live. -/
@@ -797,7 +797,7 @@ theorem gzvprintf_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (f
   have RS := runSafe_of_ok R
   exact ⟨RS.1, fun _ => RS.2.1 trivial, fun v fs' after he => GetcUngetc.Eff.post rfl (RS.2.2 v fs' after he)⟩
 
-/-- **`gzprintf_step`** (skeleton statement): `gzprintf` is `gzvprintf`. -/
+/-- **`gzprintf_step`**: `gzprintf` is `gzvprintf`. -/
 theorem gzprintf_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (format : BPtr) (va : List VaArg) :
     GzCallSafe i (.gzprintf (some (.in_gzstate_x i)) format va) :=
   gzvprintf_step_of err errOwn i format va

@@ -11,10 +11,9 @@ import ZlibF.Proof.«inflate.c.caller-buffers»
 its three outcomes: a refusal or identifier mismatch that changes nothing, an
 allocation failure that enters `MEM`, and a success that changes only the
 window fields and `havedict`, with the window holding the last window of the
-old window followed by the dictionary (the registered
-`Goal.inflateSetDictionary`). No object-size premise is used (the copy of the
-invariant argument of `inflateSetDictionary_preserves` without it, as agreed
-with the inflate owner).
+old window followed by the dictionary (as in
+`Goal.inflateSetDictionary`). No object-size premise is used (the invariant
+argument of `inflateSetDictionary_preserves`, without that premise).
 -/
 
 namespace Zlib.Inflate.Proofs
@@ -337,7 +336,7 @@ theorem wrapCode_zero {wrap : ZlibF.Spec.Api.Wrap} (zero : wrapCode wrap = 0) : 
   cases wrap <;> first | rfl | exact absurd zero (by decide)
 
 /-- `int inflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt dictLength)`
-keeps the format meaning (statement as on `skeleton/inflate`). -/
+keeps the format meaning. -/
 theorem meaning_dictionary {h after : Heap} {r : ZStreamRef} {wb : Int32} {log : ZlibF.Spec.Public.DataLog}
     {pending : Bool} {p : BPtr} {n : UInt32} {bytes : List UInt8} {rc : Int32}
     (current : ParseMeaning wb r h log pending)

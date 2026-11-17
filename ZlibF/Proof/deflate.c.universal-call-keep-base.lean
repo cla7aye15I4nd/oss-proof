@@ -6,7 +6,7 @@ import ZlibF.Spec.Functional.Api.Basic
 /-!
 # deflate.c: what every run of a `deflate` callee keeps
 
-Owner 2 of the deflate split (`deflate_call`). Batch C's parameter frame (`universal-params-*`)
+The parameter frame (`universal-params-*`)
 shows that a returning run keeps the parameters of every record. This module and its successors
 show, in the same compositional way, three facts that `Goal.deflate` states for every call:
 
@@ -165,7 +165,7 @@ theorem KeepRel.upd_state {h : Heap} {i : Nat} {d : DeflateState} (get : h.dstat
   · exact ⟨e, (upd_ne _ _ _ _ eq).trans getj, rfl, rfl⟩
 
 /-- The fields of a stream record that a callee's store keeps. The third field makes the three
-fields close by `⟨rfl, rfl, rfl⟩`, as batch C's `ZSame` does. -/
+fields close by `⟨rfl, rfl, rfl⟩`, as `ZSame` does. -/
 structure ZKeep (z z' : ZStream) : Prop where
   msg : z'.msg = z.msg
   data_type : z'.data_type = z.data_type

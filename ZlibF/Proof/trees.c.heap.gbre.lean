@@ -5,8 +5,7 @@ import ZlibF.Proof.«trees.c.heap.gbfix»
 
 `for (bits = max_length; bits != 0; bits--) { n = bl_count[bits]; while (n != 0) { m = heap[--h]; if (m > max_code)
 continue; if (tree[m].Len != bits) { opt_len += (bits - tree[m].Len) * tree[m].Freq; tree[m].Len = bits; } n--; } }`.
-The counting facts (`scnt`, `stot`, `utot`, `Aab`) and `kraft_of_counts` are copied from the earlier attempt
-(`GenBitlenRe.lean`).
+The counting facts (`scnt`, `stot`, `utot`, `Aab`) and `kraft_of_counts` are pure.
 -/
 
 namespace Zlib.Trees.Proofs

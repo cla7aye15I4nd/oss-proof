@@ -12,8 +12,7 @@ Types: `uLong`/`unsigned long` = `UInt64`, `z_size_t` = `UInt64`,
 and then converted to `unsigned long`, which preserves their value.
 
 Status: translated by hand; differentially tested against the real C (`tests/`); the proofs are in
-`ZlibF/Proof/adler32.c.lean`. The statement-by-statement review of the translations is not complete
-(`docs/progress.md#translation-review`).
+`ZlibF/Proof/adler32.c.lean`.
 -/
 
 namespace Zlib.Adler32

@@ -4,7 +4,7 @@ import ZlibF.Proof.«trees.c.monad»
 /-!
 # deflate.c: the parameter frame for the helpers of `deflate_base.c`
 
-Batch C of the deflate skeleton (`bound_before_output`). The macros and helpers of
+The macros and helpers of
 `deflate_base.c.lean` keep every parameter of every record (`ExactM`).
 -/
 

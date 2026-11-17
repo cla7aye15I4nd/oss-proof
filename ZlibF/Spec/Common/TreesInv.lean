@@ -37,7 +37,7 @@ structure TreesBase (h : Heap) (id : Nat) (d : DeflateState) (b : Nat) (buf : Ar
   pending_le : d.pending.toNat ≤ d.pending_buf_size.toNat
 
 /-- **What `_tr_init` adds.** The three tree descriptors point at the arrays of the record and at the static
-descriptors; the bit buffer holds `bi_valid <= 16 = Buf_size` bits (fact F9 of `docs/proof/trees.md`: `send_bits`
+descriptors; the bit buffer holds `bi_valid <= 16 = Buf_size` bits (fact F9 of `docs/en/proof/trees.md`: `send_bits`
 shifts by at most 16) and no bit above them; the symbol count is a multiple of 3 and at most `sym_end`
 (`_tr_tally` is always followed by a flush when `sym_next == sym_end`). -/
 structure TreesRun (id : Nat) (d : DeflateState) : Prop where

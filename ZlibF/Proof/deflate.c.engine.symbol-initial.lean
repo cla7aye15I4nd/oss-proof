@@ -4,7 +4,7 @@ import ZlibF.Proof.«trees.c.initial-frequencies»
 /-! # Initial leaf frequencies from the default public entry
 
 These stronger execution lemmas retain the leaf values computed by the
-real initializer. The previously registered contracts stay unchanged.
+real initializer.
 -/
 
 namespace Zlib.Deflate.Engine.Proofs.SymbolInit

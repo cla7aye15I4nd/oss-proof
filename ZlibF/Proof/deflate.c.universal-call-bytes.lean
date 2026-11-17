@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-early»
 /-!
 # deflate.c: the bytes a call delivers
 
-Owner 2 of the deflate split (`deflate_call`). A call that wrote `produced` bytes into the caller's
+A call that wrote `produced` bytes into the caller's
 output range (its call frame) leaves a list of `produced` bytes readable at `next_out`.
 -/
 

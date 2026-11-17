@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.engine.rebuffer»
 /-!
 # deflate.c: the invariant across the caller's part of the history
 
-Batch A of the deflate skeleton: `DInv.owned` (the blocks the history owns are the five blocks of
+`DInv.owned` (the blocks the history owns are the five blocks of
 the state) and `DInv.rebuffer` (caller rebuffering keeps the invariant). Rebuffering may change
 every block the stream does not own and the four buffer fields of the stream record; the
 invariant reads only the owned blocks, the static tables and the other fields of the record.

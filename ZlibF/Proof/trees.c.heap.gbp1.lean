@@ -6,8 +6,7 @@ import ZlibF.Proof.«trees.c.heap.gbclk»
 
 The loop `for (h = heap_max + 1; h < HEAP_SIZE; h++)` stores in `tree[n].Len` the depth of each node clamped to
 `max_length`, counts the leaves into `bl_count`, counts the clamped nodes in `overflow`, and adds each leaf's
-cost to `opt_len` and `static_len`. The invariant and the clamped depths `clK` are those of the earlier attempt
-(`GenBitlenPass1.lean`, `GenBitlenBase.lean`).
+cost to `opt_len` and `static_len`. The invariant uses the clamped depths `clK` (`trees.c.heap.gbclk`).
 -/
 
 namespace Zlib.Trees.Proofs

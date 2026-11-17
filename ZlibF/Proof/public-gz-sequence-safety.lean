@@ -8,7 +8,7 @@ import ZlibF.Proof.«gz.read-direct-step»
 # The gz sequence goal
 
 `gz_sequence_safety_public`: `Goal.gz_sequence_safety`, from the assembly `gz_sequence_safety_of` and the six read
-leaves of the skeleton, each proved with no premise and with exactly the skeleton's statement: `gzread_step`,
+leaves, each proved with no premise: `gzread_step`,
 `gzfread_step` (`gz.read-assembly`), `gzgetc_step`, `gzungetc_step` (`gz.read-getc-step`), `gzgets_step`
 (`gz.read-gets-step`) and `gzdirect_step` (`gz.read-direct-step`).
 -/
@@ -16,7 +16,7 @@ leaves of the skeleton, each proved with no premise and with exactly the skeleto
 namespace ZlibF.Spec.Public.Proofs
 open ZlibF.Spec.Public
 
-/-- The read leaves of the gz skeleton, all proved. -/
+/-- The read leaves of the gz proof, all proved. -/
 theorem gz_read_leaves : GzSkeleton.GzReadLeaves :=
   ⟨GzRead.gzread_step, GzRead.gzfread_step, GzRead.gzgetc_step, GzRead.gzungetc_step, GzRead.gzgets_step,
     GzRead.gzdirect_step⟩

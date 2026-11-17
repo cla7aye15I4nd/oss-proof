@@ -739,7 +739,7 @@ end step
 
 /-! ## Deflate quiescence with pending input: the premise of `gz_comp` -/
 
-/-- **`DeflateQuietIn`**: the four clauses of `DeflateQuiet` (`gz.skeleton-write`), for the same potential `Φ` and
+/-- **`DeflateQuietIn`**: the four clauses of `DeflateQuiet`, for the same potential `Φ` and
 predicate `Quiet`, with four more clauses for the calls of `gz_comp` that have pending input.
 
 * **(B)** For a reachable deflate stream with no gzip header record (`gzhead = NULL`, as gz never sets one),
@@ -761,7 +761,7 @@ Why (2f): `FINISH_STATE` with pending input is reachable in `gz_comp`. A `gz_com
 `deflate` runs in `FINISH_STATE` with input. In that case (2') does not apply.
 
 The witnesses of `deflate_quiet_holds` (`phiD`, mixed radix with the component `2^64 - 1 - gzindex`) do not satisfy
-(B): `phiD ≥ 2^163`. A witness for this premise is a renormalised potential (batch 3). -/
+(B): `phiD ≥ 2^163`. `deflateQuietIn_holds` proves it with a renormalised potential. -/
 def DeflateQuietIn : Prop :=
   ∃ (Φ : Int32 → Heap → ZStreamRef → Nat) (Quiet : Int32 → Heap → ZStreamRef → Prop),
     (∀ (flush : Int32) (h : Heap) (r : ZStreamRef) (z : ZStream) (value : Int32) (after : Heap) (z' : ZStream),
@@ -874,7 +874,7 @@ def QuietClauses (Φ : Int32 → Heap → ZStreamRef → Nat) (Quiet : Int32 →
 
 theorem quiet_clauses (hq : DeflateQuietIn) : ∃ Φ Quiet, QuietClauses Φ Quiet := hq
 
-/-- **`DeflateQuietIn` holds** (batch 3, `deflate_quiet_in_holds_block`, every flush up to `Z_BLOCK`). -/
+/-- **`DeflateQuietIn` holds** (`deflate_quiet_in_holds_block`, every flush up to `Z_BLOCK`). -/
 theorem deflateQuietIn_holds : DeflateQuietIn := Zlib.Deflate.Universal.Quiet.deflate_quiet_in_holds_block
 
 /-! ## The state of `gz_comp`'s deflate loop -/
@@ -2732,7 +2732,7 @@ theorem comp_tail (err : GzErrorSpec) (errOwn : GzErrorOwn) (hq : DeflateQuietIn
     exact ⟨_, _, _, rfl, compPost_err gk gp⟩
 
 /-- **`gz_comp` is safe, and keeps the shape of the record**, given the facts of `gz_error` and `DeflateQuietIn`: the
-statement of `gz_comp_safe` of `gz.skeleton-write`, strengthened by `CompShape` (the buffers, sizes, mode,
+statement of `gz_comp_safe`, strengthened by `CompShape` (the buffers, sizes, mode,
 position, skip and descriptor are kept, also on failure, and the input only advances by what was consumed: `InTrack`), and by the consumption of the input: a run with
 `Z_NO_FLUSH` that returns 0 leaves no pending input (clause (2') of `DeflateQuietIn`; a finished stream refuses
 `Z_NO_FLUSH` with `Z_STREAM_ERROR`). `gz_zero` and `gz_write` need the shape to re-establish W4 after a failed
@@ -2799,8 +2799,8 @@ theorem gz_comp_safe_shape (err : GzErrorSpec) (errOwn : GzErrorOwn) (hq : Defla
     · exact ⟨_, _, _, rfl, compPost_ok K' own0 gfs gk U' (fun _ => hin)⟩
     · exact ⟨_, _, _, rfl, compPost_err gk gp⟩
 
-/-- **`gz_comp` is safe**, given the facts of `gz_error` and `DeflateQuietIn`: the statement of `gz_comp_safe` of
-`gz.skeleton-write`. -/
+/-- **`gz_comp` is safe**, given the facts of `gz_error` and `DeflateQuietIn`: the statement of
+`gz_comp_safe`. -/
 theorem gz_comp_safe_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (hq : DeflateQuietIn)
     (i : Nat) (flush : Int32) (src : Region) (h : Heap) (fs : Fs) (s : GzState)
     (inv : GzInvUpToInput h i s src) (hfs : FileSystem fs) (hsz : s.size ≠ 0)

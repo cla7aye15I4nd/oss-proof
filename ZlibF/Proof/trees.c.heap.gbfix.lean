@@ -5,7 +5,7 @@ import ZlibF.Proof.«trees.c.heap.gbp1»
 
 `do { bits = max_length-1; while (bl_count[bits] == 0) bits--; bl_count[bits]--; bl_count[bits+1] += 2;
 bl_count[max_length]--; overflow -= 2; } while (overflow > 0);` on the counts `c b = bl_count[b]`.
-`fixStep` is one round; the pure part is copied from the earlier attempt (`GenBitlenFixX.lean`).
+`fixStep` is one round.
 -/
 
 namespace Zlib.Trees.Proofs

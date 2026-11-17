@@ -5,11 +5,11 @@ import ZlibF.Proof.«trees.c.universal-stored»
 /-!
 # trees.c: the dynamic branch of a block flush, for every memLevel with a large symbol buffer
 
-Batch C of the deflate skeleton. Tree construction, `send_all_trees`, `compress_block` with the
+Tree construction, `send_all_trees`, `compress_block` with the
 constructed trees, `init_block` and the final `bi_windup`, with the output room expressed in
 `lit_bufsize` instead of the default 16384.
 
-The room has two parts (fact F9 of `docs/proof/trees.md`): every prefix of the emitted header and
+The room has two parts (fact F9 of `docs/en/proof/trees.md`): every prefix of the emitted header and
 symbols stays below the next unread symbol, and the whole block fits `pending_buf`. Both follow
 from the proved header bound (2283 bits) and symbol excess bound (6.257 bits per symbol above 24)
 when `lit_bufsize ≥ 2048`, that is `memLevel ≥ 5`. For `memLevel` 1 to 4 the room is proved

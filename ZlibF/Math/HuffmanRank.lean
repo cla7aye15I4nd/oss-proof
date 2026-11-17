@@ -3,7 +3,7 @@ import ZlibF.Math.HuffmanPushModel
 
 /-!
 Pure Huffman mathematics adapted from the pinned zlib-formal reference
-`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`; see docs/history/references.md.
+`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`.
 The mathematical statements and proof bodies are retained. Imports use this
 project. No result here alone establishes refinement of the translated C.
 -/

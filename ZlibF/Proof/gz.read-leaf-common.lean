@@ -303,7 +303,7 @@ theorem gz_skip_post (fetch : FetchFacts) (i : Nat) (h : Heap) (fs : Fs) (s : Gz
       · exact ⟨fun e => absurd e (by decide), fun _ => e2 rfl⟩
       · exact ⟨fun _ => e1 rfl, fun e => absurd e (by decide)⟩
 
-/-- **The statement `gzungetc` and `gzgets` use for `gz_skip`**: batch 3's `GzSkipSpec'` with the premise
+/-- **The statement `gzungetc` and `gzgets` use for `gz_skip`**, with the premise
 `skip ≠ 0` (both call `gz_skip` only then). Without it the statement is false: with `skip = 0`, `x.pos = GZ_OFF_MAX`,
 nothing buffered and COPY mode, the first trip fetches one byte (patch 0004's `room ? room : 1`) and `gz_skip`
 returns with `x.pos + x.have > GZ_OFF_MAX`, outside `GzInv`. -/
@@ -316,7 +316,7 @@ def GzSkipSpecNZ : Prop :=
       (∀ s', after.gzstates i = some s' → s.size ≠ 0 → s'.size = s.size) ∧
       (ReadsFinite fs s.fd → ReadsFinite fs' s.fd)
 
-/-- **The termination of `gz_skip`** (a premise): from a reader in the invariant up to the pending skip, with a
+/-- **The termination of `gz_skip`** (`gzSkipTerminates_holds` proves it from `GzFetchSafe`): from a reader in the invariant up to the pending skip, with a
 pending skip and the read budget of `ReadsFinite`, `gz_skip` returns within the fuel of the model. The progress
 clause of `GzFetchSafe` (output, the end of the input, or a stall that lowered the budget) bounds the trips by
 `2·skip + budget + 2`, which can pass the `2^64` trips of `gdoWhile`; the real bound needs how much output a
@@ -334,7 +334,7 @@ theorem gzSkipSpecNZ_of (fetch : FetchFacts) (term : GzSkipTerminates) : GzSkipS
   exact ⟨hr, k, skip_post_inv hr ⟨k, post⟩ hend, fun h0 s' hs' => (hend s' hs').2 h0,
     fun s' hs' hs0 => hsz hs0 s' hs', hrf⟩
 
-/-! ## Facts of the callees, from their statements on `dev` -/
+/-! ## Facts of the callees, from their statements -/
 
 /-- **The fact of `inflate`** behind `gz_decomp_safe_of`: a call from `BAD` or `MEM` moves nothing
 (`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`, `inflate.c.stuck-no-output`). -/

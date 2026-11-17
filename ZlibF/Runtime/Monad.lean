@@ -3,7 +3,7 @@ import ZlibF.Runtime.Schema
 /-!
 # Runtime: the monad, faults and loops
 
-Trusted base of every translation; see `docs/trusted-base.md`.
+Trusted base of every translation; see `docs/en/trusted-base.md`.
 
 A C computation takes the heap and returns a value and the new heap, or a fault. Every undefined behaviour
 the translation can reach is `Fault.ub`. Unsigned arithmetic wraps and signed arithmetic is checked in the

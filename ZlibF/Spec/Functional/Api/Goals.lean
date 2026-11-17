@@ -4,12 +4,12 @@ import ZlibF.Spec.Functional.Api.Iface
 # API model: the proof goals
 
 Goals about the heap-free API models, as `def ... : Prop`. Concrete implementation targets
-are in `ZlibF/Spec/Public/`. A goal is proved when `ZlibF/Results.lean` pairs it with a theorem
+are in `ZlibF/Spec/Safety/` and `ZlibF/Spec/Functional/`. A goal is proved when `ZlibF/Results.lean` pairs it with a theorem
 whose type is exactly the goal.
 
 *Model goals* (`Goal.format_*`, `Goal.inflate_decodes`, ..., `Goal.gz_roundtrip`) do not mention the
 heap: they say that the model of `Inflate.lean`, `Deflate.lean`, `Compress.lean`, `Gz.lean` has
-the properties `C1` to `C7` of `docs/overview.md`. Their proofs are about the model alone.
+the properties they state. Their proofs are about the model alone.
 
 *Refinement goals* (`Goal.*_refines`, `Goal.*_copy`) take a `HeapApi` (the placeholder of
 `Iface.lean`). They say that the translated C functions never fault and that every outcome is an
@@ -17,7 +17,7 @@ outcome of the model, with `Matches` before and after. The correctness of the li
 composition: refinement says that the heap does what the model does; the model goals say what
 the model does.
 
-`docs/design/api-model.md` lists, for each goal, what its proof needs.
+`docs/en/design/api-model.md` lists, for each goal, what its proof needs.
 -/
 
 namespace ZlibF.Spec.Api

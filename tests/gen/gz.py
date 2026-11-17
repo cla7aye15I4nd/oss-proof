@@ -17,8 +17,7 @@ leaves undefined and the runtime accepts as a no-op (R-4). Section 6 has lines f
 gzread-pos-overflow and gzwrite-pos-overflow cover them on the C side. Section 6
 seeks right after a gzungetc at position 0, which the unpatched gzseek64 overflowed on (patch 0002); the translation of
 the unpatched C faults there, so those lines tell the two apart. The gz_fetch overread after a partial read that then
-fails (patch 0003) needs a read() the file model cannot produce; tests/regression/gzread-transparent-stale-next
-covers it on the C side.
+fails (patch 0003) needs a read() the file model cannot produce, so no line here reaches it.
 """
 import random
 import zlib

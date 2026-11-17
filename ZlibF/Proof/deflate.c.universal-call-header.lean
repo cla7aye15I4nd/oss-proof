@@ -5,7 +5,7 @@ import ZlibF.Proof.«deflate.c.engine.stream-control»
 /-!
 # deflate.c: the header stages of one `deflate` call
 
-Batch C of the deflate skeleton (`call_frame`, `deflate_header_trailer`). The header stages write
+The header stages write
 bytes into `pending_buf` with the `deflate.c` `put_byte`, then publish them with `flush_pending`.
 Every lemma here holds for every level, strategy, window size, memory level and held bit count.
 -/

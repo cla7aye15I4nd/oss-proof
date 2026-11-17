@@ -3,7 +3,7 @@ import ZlibF.Proof.«gzwrite.c.zero»
 /-!
 # gzwrite.c: safety of `gz_write`
 
-`gz_write_safe_of`: the skeleton statement `gz_write_safe` (branch `skeleton/gz`, `gz.skeleton-write.lean`), from the
+`gz_write_safe_of`: `gz_write_safe`, from the
 facts of `gz_error` (`GzErrorSpec`, `GzErrorOwn`). The callees are `gz_init_run`, `gz_zero_safe_shape` and
 `gz_comp_safe_shape_of'`.
 
@@ -1007,8 +1007,8 @@ theorem write_t1 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
       simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
         hsk', ↓reduceIte, run, beq_self_eq_true]
 
-/-- **`gz_write` is safe**, given the facts of `gz_error`: the statement of `gz_write_safe` of
-`gz.skeleton-write`. -/
+/-- **`gz_write` is safe**, given the facts of `gz_error`: the statement of
+`gz_write_safe`. -/
 theorem gz_write_safe_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (buf : BPtr) (len : UInt64) (h : Heap)
     (fs : Fs) (s : GzState) (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE)
     (hbuf : len = 0 ∨ GzRange h i s buf len.toNat false) :

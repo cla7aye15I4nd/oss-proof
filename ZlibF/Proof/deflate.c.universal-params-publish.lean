@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-params-trees»
 /-!
 # deflate.c: the parameter frame for `flush_pending` and the block macros
 
-Batch C of the deflate skeleton (`bound_before_output`). `flush_pending` loads the stream and the
+`flush_pending` loads the stream and the
 state, copies the pending bytes and stores both records; the stores write records whose
 parameters are those just loaded.
 -/

@@ -12,9 +12,10 @@ allocation can fail, and `level` and `strategy` are arbitrary, so `deflateInit2_
 fail an allocation, or succeed. On failure `gz_init` frees what it allocated and records
 `Z_MEM_ERROR` with `gz_error`. The proof uses the run of `deflateInit2_` (the proved contract
 `init2_main` and its internal heaps, for the fields of the `gz_state` record outside the stream)
-and two facts on `gz_error`, taken as premises until `gz_error` is proved: `GzErrorSpec` (the skeleton's
+and two facts on `gz_error`, taken as premises: `GzErrorSpec` (the
 interface lemma `GzInv.gz_error`) and `GzErrorOwn` (no grab: a block the handle owns after `gz_error` and that was
-live before was owned before). They restate the premises of the same names in `gzread.c.getc-ungetc`.
+live before was owned before). They restate the premises of the same names in `gzread.c.getc-ungetc`. `gzwrite_gzErrorSpec_holds` and
+`gzwrite_gzErrorOwn_holds` (`gzlib.c.error-inv-premises`) prove them.
 -/
 
 namespace Zlib.Gzwrite.SafeInit
@@ -23,8 +24,7 @@ set_option autoImplicit false
 
 /-! ## The callee `gz_error`, as premises -/
 
-/-- The skeleton statement `GzInv.gz_error` (branch `skeleton/gz`, `gz.skeleton-model.lean`); the same as
-`GetcUngetc.GzErrorSpec`. -/
+/-- The statement of `GzInv.gz_error`; the same as `GetcUngetc.GzErrorSpec`. -/
 def GzErrorSpec : Prop :=
   ∀ {h : Heap} {i : Nat} {s : GzState}, GzInv h i s → ∀ (err : Int32) (msg : BPtr),
     (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) → err ≠ Z_STREAM_END →
@@ -33,7 +33,7 @@ def GzErrorSpec : Prop :=
       Frame h after (fun b => b = i ∨ blkOf s.msg = some b) ∧
       LiveChange h after (fun b => blkOf s'.msg = some b ∧ ¬ h.live b) (fun b => blkOf s.msg = some b)
 
-/-- The no-grab fact on `gz_error` (not in the skeleton statement of `GzInv.gz_error`): a block owned after the
+/-- The no-grab fact on `gz_error` (not in `GzErrorSpec`): a block owned after the
 call that was live before was owned before. The same as `GetcUngetc.GzErrorOwn`. -/
 def GzErrorOwn : Prop :=
   ∀ (h : Heap) (i : Nat) (s : GzState) (err : Int32) (msg : BPtr) (after : Heap), GzInv h i s →
@@ -1828,9 +1828,9 @@ theorem gz_init_run (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Hea
       next _ u A run => cases heq
       next _ e' run => exact (err_noerr err errOwn fs run hfs hk inv hm hsz E hav nso free).elim
 
-/-- **`gz_init` is safe, given the facts of `gz_error`** (the statement of `gz_init_safe` in
-`gz.skeleton-write`, over the definitions of `gz.inv-model`). The premises `GzErrorSpec` and `GzErrorOwn`
-are the statements on `gz_error` that are not proved yet. -/
+/-- **`gz_init` is safe, given the facts of `gz_error`** (the statement of `gz_init_safe`, over
+the definitions of `gz.inv-model`). The premises `GzErrorSpec` and `GzErrorOwn` are the statements on
+`gz_error`; `gzwrite_gzErrorSpec_holds` and `gzwrite_gzErrorOwn_holds` prove them. -/
 theorem gz_init_safe_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
     (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size = 0) :
     RunSafe (Zlib.Gzwrite.gz_init (gzSt i)) fs h True fun r fs' after =>

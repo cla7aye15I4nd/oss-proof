@@ -147,7 +147,7 @@ theorem blHeaderCost_eq (m : Nat) (hm : m ≤ 18) : blHeaderCost m = UInt64.ofNa
   have key : ∀ k, k < 19 → blHeaderCost k = UInt64.ofNat (3 * (k + 1) + 14) := by decide
   exact key m (by omega)
 
-/-- **`opt_len` at the dynamic choice** (for `TinyOverlay`, batch 1's request): after the
+/-- **`opt_len` at the dynamic choice** (for `TinyOverlay`): after the
 preparation run of `_tr_flush_block`, `opt_len` is the length of the dynamic header plus the
 dynamic codes of the symbols, extra bits included, plus the end-of-block code. -/
 theorem dynamic_opt_len {h : Heap} {ds pb : Nat} {d : DeflateState}

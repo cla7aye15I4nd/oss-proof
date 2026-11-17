@@ -9,7 +9,7 @@ import ZlibF.Proof.«inflate.c.gzip-header-frame»
 When a `read` fails and it is not a stall after some bytes, `gz_load` sets `again` on a stall, borrows
 `strerror(errno)` and reports `gz_error(state, Z_ERRNO, ...)`, then returns `-1`. `gz_load_error_tail` shows that this
 path returns with the post-condition `GzPost` over the caller's buffer region. With `gz_load_paths`
-(`gz.read-store`) it gives `gz_load_safe`, the skeleton statement with the two premises found on the way
+(`gz.read-store`) it gives `gz_load_safe`, with the two premises found on the way
 (`size ≠ 0`, and the buffer is a data buffer of the handle or memory it does not own).
 
 `bufferFrame_extend` adds to a buffer frame over one region a later heap change that touches only blocks the frame
@@ -488,7 +488,7 @@ theorem gz_load_key (i : Nat) (buf : BPtr) (len : UInt32) (h : Heap) (fs : Fs) (
           (fun _ h0 => hef h0), hae⟩, hbud⟩
   exact key
 
-/-- **`gz_load(state, buf, len, &have)` is safe** (the skeleton statement `gz_load_safe`, with three premises found
+/-- **`gz_load(state, buf, len, &have)` is safe** (`gz_load_safe`, with three premises found
 in the proof: the reader has its buffers, `size ≠ 0`, since only then can a stall set `again` within the invariant;
 the buffer is a data buffer of the handle or memory the handle does not own; and at the end of the input there is no
 pending input, `eof ≠ 0 → avail_in = 0`, since a stall then sets `again` with `eof` kept (`GzReadInv.againEof`):

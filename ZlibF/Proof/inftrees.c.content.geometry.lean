@@ -12,8 +12,8 @@ namespace Zlib.Inftrees.Proofs
 open Zlib.Inftrees.Canon
 set_option autoImplicit false
 
-/-- Every actual nonempty constructor loop environment establishes Geo;
-it is no longer a condition left for a public caller to assume. -/
+/-- Every actual nonempty constructor loop environment establishes Geo,
+so it is not a condition a public caller must assume. -/
 theorem Env.geometry (e : Env) : e.Geo := by
   rcases e.h_end with complete | ⟨_, single, _⟩
   · apply geometry_complete

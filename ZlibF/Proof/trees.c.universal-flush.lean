@@ -13,7 +13,7 @@ import ZlibF.Proof.«deflate.c.engine.output-full-storage»
 /-!
 # trees.c: `FLUSH_BLOCK_ONLY` for every block choice and every memLevel
 
-Batch C of the deflate skeleton. The macro computes the stored source (`window + block_start`,
+The macro computes the stored source (`window + block_start`,
 or `NULL` after a slide made `block_start` negative) and the checked signed length
 `strstart - block_start`, runs `_tr_flush_block` (`tr_flush_block_safe`), sets `block_start` to
 `strstart` and publishes the pending bytes with `flush_pending`.

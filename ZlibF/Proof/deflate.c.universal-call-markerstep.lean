@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-headerentry»
 /-!
 # deflate.c: the flush markers of one `deflate` call on the invariant
 
-Batch C (`deflate_call` / `marker_step`). After a strategy returns `block_done`, `marker_tail`
+`marker_step`. After a strategy returns `block_done`, `marker_tail`
 writes the marker the flush asks for and flushes. The block is flushed (`sym_next = 0`) and no lazy
 match is pending (`match_available = 0`), which the strategy meaning gives. Without a full flush
 only the pending, bit and `last_flush` fields change, and `DInv.lift_empty` carries the invariant.

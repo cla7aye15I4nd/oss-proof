@@ -14,8 +14,8 @@ A `gzFile` is a pointer into the `gzstates` table (`some (.in_gzstate_x gs)`); `
 * `Z_MEM_ERROR` goes with no message (`gz_error` frees the message before it records an error);
 * `Uniq` (a block number holds an object of at most one table) and `Fresh` (block numbers from `nextBlk` on are unused).
 
-What is not in `GzGood`, on purpose: the pointer `x.next` (it dangles after a direct read, issue 5 of
-`docs/spec/api/gz-file.md`; `NextOk` is a separate hypothesis of the theorems that dereference it), and the
+What is not in `GzGood`, on purpose: the pointer `x.next` (it dangles after a direct read,
+`docs/en/spec/api/gz-file.md`, "Scope and source caveats"; `NextOk` is a separate hypothesis of the theorems that dereference it), and the
 state of the embedded stream `strm` (the read and write proofs add it).
 -/
 

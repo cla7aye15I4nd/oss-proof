@@ -13,8 +13,7 @@ field: object sizes are a per-call premise of `Goal.inflate`, and
 Other modules use only the interface lemmas in this file, never the fields.
 The inflate proof that uses it is complete: `inflate_sequence_safety_public`
 (`public-inflate-sequence-safety`) proves `Goal.inflate_sequence_safety`, and `inflate_safety`
-(`public-stream-call-safety`) proves `Goal.inflate_safety`. The former skeleton's lemma list is
-kept in `docs/history/skeleton-inflate.md`.
+(`public-stream-call-safety`) proves `Goal.inflate_safety`.
 -/
 
 namespace Zlib.Inflate.Proofs
@@ -44,8 +43,7 @@ structure InflateConfig (s : InflateState) : Prop where
 /-- Header progress. Block decoding starts only after a header was read or
 in raw mode. `flags` is the unread sentinel (-1), 0 after a zlib header, or
 the gzip method-and-flags word read as `(int)hold`; that word need not fit in
-16 bits, since `inflatePrime` may add held bits before `FLAGS` reads it
-(`tests/verification/regressions/inflate-gzip-flags-prime.lean`). `FLAGS` follows the gzip magic bytes
+16 bits, since `inflatePrime` may add held bits before `FLAGS` reads it. `FLAGS` follows the gzip magic bytes
 before the flags word is read, so the sentinel is still there. -/
 structure InflatePhase (s : InflateState) : Prop where
   started : s.mode = HEAD ∨ s.mode = BAD ∨ s.mode = MEM ∨ s.mode = SYNC ∨

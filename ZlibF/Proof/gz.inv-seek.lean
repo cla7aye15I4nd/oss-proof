@@ -6,7 +6,7 @@ import ZlibF.Proof.«gzlib.c.seek»
 /-!
 # gz safety: `gzseek64` and `gzseek` keep `GzInv`
 
-`gzseek64_step` and `gzseek_step` (skeleton statements, unchanged), for every world of the OS-call oracle.
+`gzseek64_step` and `gzseek_step`, for every world of the OS-call oracle.
 
 The run of `gzseek64` comes from the seek proofs (`gzseek64_head_any`, `seekTail_copy`, `seekTail_back`,
 `seekTail_fwd`, `gzseek64_write_run`), which need of the handle only `SeekGood` (`GzInv.seekGood`). The paths:
@@ -15,7 +15,7 @@ The run of `gzseek64` comes from the seek proofs (`gzseek64_head_any`, `seekTail
 - a writer: `skip` becomes the distance, or `-1` for a target behind `x.pos`;
 - a reader in the raw area (`how == COPY`): one `lseek`; on success the message is freed and the buffer dropped. The
   displacement `pos - x.pos - have` does not overflow by `GzReadInv.posHave` (`x.pos + x.have ≤ GZ_OFF_MAX`); without
-  that clause it could (regression `tests/verification/regressions/gz-seek-pos-have.lean`);
+  that clause it could;
 - a reader going back: `gzrewind` (`lseek`, then `gz_reset`), then the whole distance becomes `skip`;
 - a reader going forward, also from a negative `x.pos` after `gzungetc` at the start: buffered bytes are consumed,
   the rest becomes `skip`.

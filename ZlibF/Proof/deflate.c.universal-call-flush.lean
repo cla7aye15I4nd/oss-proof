@@ -8,7 +8,7 @@ import ZlibF.Proof.«deflate.c.borrow-stable-publish»
 /-!
 # deflate.c: a flush inside the header stages
 
-Batch C (`deflate_header_trailer`). The extra, name and comment stages fill `pending_buf` to its
+The extra, name and comment stages fill `pending_buf` to its
 end and flush. With fewer than eight held bits (which `deflatePrime` keeps) `flush_pending` needs no
 room beyond `pending_buf`. This file states that flush for either kind of output view, with what
 the header stages need afterwards: the invariants, the caller buffers, the cursor after a full

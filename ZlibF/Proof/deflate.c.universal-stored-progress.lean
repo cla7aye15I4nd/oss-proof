@@ -4,8 +4,8 @@ import ZlibF.Proof.«deflate.c.universal-call-dispatch»
 # deflate.c, universal engine: progress of `deflate_stored`
 
 `deflate` needs to know that a strategy call with input and output room moves one of the two
-cursors (M7 of the `deflate_call` interface), and that a `Z_FINISH` call with output room either
-finishes (`finish_done`) or moves a cursor (M8). For the other strategies this is
+cursors, and that a `Z_FINISH` call with output room either
+finishes (`finish_done`) or moves a cursor. For the other strategies this is
 `StratMeaning.progress`. For `deflate_stored` it is `stored_progress` below.
 
 The argument follows the C. If the copy loop moved a cursor, the rest of the call only moves
@@ -423,7 +423,7 @@ theorem stored_final_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStrea
 
 
 set_option maxHeartbeats 8000000 in
-/-- **Progress of `deflate_stored`** (M7 and M8 of the `deflate_call` interface). With input and
+/-- **Progress of `deflate_stored`**. With input and
 output room, a call moves a cursor. A `Z_FINISH` call with output room returns `finish_done` or
 moves a cursor. No premise beyond `DInv` and the checks of `deflate`. -/
 theorem stored_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
@@ -582,8 +582,8 @@ open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 open Zlib.Deflate.Engine.Proofs
 set_option autoImplicit false
 
-/-- **M7 and M8 for the dispatch at level 0** (`deflate_stored`), in the form of the progress
-clauses of `deflate_call`: with input and output room the call moves a cursor; with `Z_FINISH`
+/-- **Progress of the dispatch at level 0** (`deflate_stored`), in the form of the progress
+clauses of one `deflate` call: with input and output room the call moves a cursor; with `Z_FINISH`
 and output room it returns `finish_done` or moves a cursor. -/
 theorem dispatch_stored_progress {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     {flush : Int32} {bstate : block_state} {after : Heap} {z' : ZStream}

@@ -2,7 +2,7 @@ name = "difftest"
 version = "0.1.0"
 
 # The differential-test drivers. They import the SAME translation the proofs are about,
-# from the parent project, by path. Nothing here is audited: see README.md.
+# from the parent project, by path. Nothing here is part of the checked library: see README.md.
 
 [[require]]
 name = "ZlibF"
@@ -62,10 +62,4 @@ srcDir = "lean"
 [[lean_exe]]
 name = "difftest_inffast"
 root = "Driver.Inffast"
-srcDir = "lean"
-
-# Benchmark of the runtime (memory and time of stores into a block); not a differential test.
-[[lean_exe]]
-name = "bench_store"
-root = "Driver.Bench"
 srcDir = "lean"

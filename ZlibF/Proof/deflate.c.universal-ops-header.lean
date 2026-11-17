@@ -6,7 +6,7 @@ import ZlibF.Proof.«deflate.c.universal-header-inv»
 
 `HeaderInv` (beside `DInv`) after each operation of `StreamOperation .deflate`, case by case. The
 operations that do not write the stream record keep its state pointer, so the state after the
-call sits at the same block; batch C's lemmas (`deflate.c.universal-header-inv`) then give the
+call sits at the same block; the lemmas of `deflate.c.universal-header-inv` then give the
 header facts of that state. Three operations are hypotheses of `operation_header_of`: `deflate`
 (its header phase), `deflateParams` and `deflateSetDictionary`. Each is a theorem:
 `deflate_header_of` (`deflate.c.universal-call-header-fact`, with `tinyOverlay`), `params_header`

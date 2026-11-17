@@ -50,6 +50,6 @@ The definitions that both the safety goals (`ZlibF/Spec/Safety/`) and the functi
 domains and the histories. A common module imports no safety and no functional module, and no
 proof module (`scripts/check-spec-layers.py`).
 
-The modules that came from the former folder `ZlibF/Spec/Public/` keep the Lean namespace
-`ZlibF.Spec.Public`, so the folder name `Common` changes no goal or theorem name.
+These modules use the Lean namespace `ZlibF.Spec.Public`: the folder name `Common` is not part of
+any goal or theorem name.
 -/

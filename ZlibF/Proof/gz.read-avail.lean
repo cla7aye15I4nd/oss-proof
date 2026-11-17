@@ -575,7 +575,7 @@ theorem availLoad_run {h : Heap} {i : Nat} {s : GzState} {fs : Fs} (hu : GzInvUp
       rw [e3]
       omega
 
-/-- **`gz_avail(state)` is safe** (the skeleton statement `gz_avail_safe`, with the premise that the handle is a
+/-- **`gz_avail(state)` is safe** (`gz_avail_safe`, with the premise that the handle is a
 reader; `gz_avail` is a reading helper). It does not fault, returns `0` or `-1`, keeps the open descriptors, and
 satisfies `GzPost` with no caller region; the record changes only in its flags, error, message and input window.
 `AvailFlags` ties the result to the error and the end of the file. -/

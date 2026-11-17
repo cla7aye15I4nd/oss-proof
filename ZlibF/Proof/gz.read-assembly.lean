@@ -45,15 +45,15 @@ theorem gzfread_step_stuck (stuck : InflateStuckNoOutput) :
       GzCallSafe i (.gzfread buf size nitems (some (.in_gzstate_x i))) :=
   gzfread_step_of_read (gz_read_safe_stuck stuck)
 
-/-- **`gz_read` is safe**: the skeleton statement `GzReadSafe`, with no premise. -/
+/-- **`gz_read` is safe**: `GzReadSafe`, with no premise. -/
 theorem gz_read_safe : GzReadSafe := gz_read_safe_stuck inflateStuckNoOutput_holds
 
-/-- **The skeleton leaf `gzread_step`**, with no premise. -/
+/-- **The leaf `gzread_step`**, with no premise. -/
 theorem gzread_step :
     ∀ (i : Nat) (buf : BPtr) (len : UInt32), GzCallSafe i (.gzread (some (.in_gzstate_x i)) buf len) :=
   gzread_step_stuck inflateStuckNoOutput_holds
 
-/-- **The skeleton leaf `gzfread_step`**, with no premise. -/
+/-- **The leaf `gzfread_step`**, with no premise. -/
 theorem gzfread_step :
     ∀ (i : Nat) (buf : BPtr) (size nitems : UInt64),
       GzCallSafe i (.gzfread buf size nitems (some (.in_gzstate_x i))) :=

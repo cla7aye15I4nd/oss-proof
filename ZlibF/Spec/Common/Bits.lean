@@ -2,7 +2,7 @@
 # Bits of a byte sequence
 
 `byteBits` and `bytesToBits`, moved unchanged from `ZlibF/Spec/Functional/Format/Bits.lean`
-(`docs/design/safety-functional-split.md`): `PendingBits` in `Public/Streams.lean` uses them, and
+(`docs/en/design/safety-functional-split.md`): `PendingBits` in `Public/Streams.lean` uses them, and
 a common module may not import the format model.
 -/
 

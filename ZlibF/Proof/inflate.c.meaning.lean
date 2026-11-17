@@ -31,8 +31,7 @@ The grammar is closed under exactly the steps of `ZlibF/Spec/Format`, so a
 position reached on a prefix of a valid stream can be completed to that
 stream's decoding, and a rejected position has no valid completion.
 
-The proof obligations were listed in the inflate skeleton, archived in
-`docs/history/skeleton-inflate.md`. Each component is separate:
+Each component is separate:
 
 * `TableMeaning`: an installed table decodes the canonical code of its lengths
   (`DecodeTableInvariant.Inv`), and its queries are stable, read only their
@@ -142,7 +141,7 @@ from the start of the data reaches `pos`. Every complete step is a step of
 read. The bits of a dynamic block header are admitted before the header is
 complete, also when no completion exists: zlib checks the code-length code,
 the end-of-block length and the acceptability of the codes only after a whole
-part of the header is read (`tests/goals/inflate-meaning/late-rejection.c`).
+part of the header is read.
 `DynamicMatches` pins those bits to the decoder state; `dynamicDone` still
 needs a complete `DynamicHeader`. -/
 inductive DeflateParsed (dict : List UInt8) : List Bool → DeflatePos → Prop
@@ -333,8 +332,7 @@ def HeldBits (s : InflateState) (held : List Bool) : Prop :=
 fits the held bits selects the same entry on every continuation (needed to
 reject an invalid code on fewer than 15 held bits) and from the bits it
 consumes alone (needed to reject the input `inflate_fast` read before an
-invalid code: it drops only the entry's bits, P15,
-`tests/verification/regressions/inflate-prefix-query.lean`); and no leaf is
+invalid code: it drops only the entry's bits, P15); and no leaf is
 both a length or distance and invalid, so the fast and slow branch orders
 agree (`QueryCompatible`). -/
 def TableMeaning (h : Heap) (pointer : CodePtr) (root : UInt32) (type : UInt32)
@@ -422,7 +420,7 @@ many bits their entries take. At a block boundary fewer than 8 bits are held, so
 `BYTEBITS` at the end of the last block drops exactly the padding (to confirm
 by the per-mode proofs: the slow path pulls a byte only while bits are short,
 `inflate_fast` returns whole unused bytes, a stored block ends after
-`INITBITS`; checked on the real decoder by `tests/goals/inflate-meaning`). -/
+`INITBITS`). -/
 def BodyMatches (h : Heap) (s : InflateState) : DeflatePos → Prop
   | ⟨_, final, .boundary⟩ => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ final = false ∧ s.last = 0 ∧
       s.bits.toNat < 8
@@ -497,13 +495,12 @@ def WrapStage.output : WrapStage → List UInt8
 the configuration of the trace; the consumed input minus the held bits parses
 to a stage the decoder state represents, the delivered output is that stage's
 output; a data error leaves `BAD` (or `MEM` for raw data, when a later raw
-`inflateSetDictionary` failed to allocate the window,
-`tests/goals/inflate-meaning/data-error-then-mem.c`) and means the consumed
+`inflateSetDictionary` failed to allocate the window) and means the consumed
 input has no valid completion; after
 an allocation failure (`MEM`) the output facts of `Goal.inflate_sequence`
 still hold for the epoch so far. A set request token (the last call returned
 `Z_NEED_DICT`) means the decoder waits for the dictionary; the converse fails
-after a refused call (`tests/goals/inflate-meaning/refused-dictionary-request.c`). -/
+after a refused call. -/
 def ParseMeaning (wb : Int32) (r : ZStreamRef) (h : Heap) (log : DataLog) (pending : Bool) :
     Prop :=
   ∃ wrap configured i z s, Api.inflWbits wb.toInt = some (wrap, configured) ∧

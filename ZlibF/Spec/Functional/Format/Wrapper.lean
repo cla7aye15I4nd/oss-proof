@@ -4,7 +4,7 @@ import ZlibF.Spec.Functional.Format.Checksum
 /-!
 # Format: the zlib and gzip wrappers
 
-RFC 1950 and RFC 1952; the wrapper sections in `docs/spec/format/README.md`.
+RFC 1950 and RFC 1952; the wrapper sections in `docs/en/spec/format.md`.
 Both are exact: the whole `stream` is the wrapper, there are no bytes after the trailer.
 -/
 
@@ -43,7 +43,7 @@ def Gzip.header (flg : UInt8) (mtime : List UInt8) (xfl os : UInt8)
     (if flg.toNat / 8 % 2 = 1 then name ++ [0] else []) ++
     (if flg.toNat / 16 % 2 = 1 then comment ++ [0] else [])
 
-/-- A gzip member (RFC 1952, 2.3; `docs/spec/format/README.md`, "The gzip wrapper") that decodes to `out`: the header; if `FHCRC`
+/-- A gzip member (RFC 1952, 2.3; `docs/en/spec/format.md`, "The gzip wrapper") that decodes to `out`: the header; if `FHCRC`
 (bit 1) the low 16 bits of the CRC-32 of the header bytes before it, little endian; deflate data;
 the little-endian CRC-32 of `out`; the little-endian length of `out` modulo `2^32`
 (`F-gzip-check`). zlib requires the flag bits 5 to 7 to be 0. The values `extra`, `name`,

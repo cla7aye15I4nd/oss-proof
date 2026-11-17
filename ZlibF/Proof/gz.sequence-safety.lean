@@ -14,18 +14,17 @@ import ZlibF.Spec.Safety.GzSafety
 /-!
 # gz file interface, safety: the assembly of the sequence goal
 
-The assembly of the gz safety skeleton (`gz.skeleton.lean` on the branch `skeleton/gz`): induction over
+The assembly of the gz safety proof: induction over
 `GzHistory` for the invariant (`history_inv`), then dispatch over the call (`operation_safe`, `close_safe`).
 
-What is proved. `gz_sequence_safety_of` has exactly the conclusion `Goal.gz_sequence_safety`. Every leaf that `dev`
-proves is used directly: the open leaves (`gzopen_safe`, `gzopen64_safe`, `gzdopen_safe`), the close leaves
+What is proved. `gz_sequence_safety_of` has exactly the conclusion `Goal.gz_sequence_safety`. Every leaf proved in
+another module is used directly: the open leaves (`gzopen_safe`, `gzopen64_safe`, `gzdopen_safe`), the close leaves
 (`gzclose_step`, `gzclose_w_step`, `GzRead.gzclose_r_step_safe`), the write leaves (`gzwrite.c.safety`), and the
 queries (`gzeof`, `gztell*`, `gzbuffer`, `gzclearerr`, `gzerror`, `gzseek*`, `gzoffset*`, `gzrewind`). A call of the
-`gzgetc()` macro (`GzHistory.getcMacro`, audit A1) is `GzMacro.gzgetc_macro_safe` (`zlib.h.gzgetc-macro`): the inline
+`gzgetc()` macro (`GzHistory.getcMacro`) is `GzMacro.gzgetc_macro_safe` (`zlib.h.gzgetc-macro`): the inline
 path with buffered output, and with `x.have = 0` the function, through the read leaf `gzgetc_step`.
 
-What this file takes as a premise. The read leaves of the former skeleton (`gz.skeleton-read.lean` on the branch
-`skeleton/gz`), each with the skeleton's exact statement, as the fields of `GzReadLeaves`: `gzread_step`,
+What this file takes as a premise. The read leaves, as the fields of `GzReadLeaves`: `gzread_step`,
 `gzfread_step`, `gzgetc_step`, `gzungetc_step`, `gzgets_step`, `gzdirect_step`. `gzgetc_` is `gzgetc` by
 definition. The assembly uses no loop rule.
 
@@ -38,8 +37,7 @@ namespace ZlibF.Spec.Public.GzSkeleton
 open C Zlib.GzFs ZlibF.Spec.Public
 set_option autoImplicit false
 
-/-- The read leaves of the gz skeleton (`gz.skeleton-read.lean` on `skeleton/gz`), one field per leaf, each
-with the skeleton's exact statement. All are proved: `gz_read_leaves` (`public-gz-sequence-safety`). -/
+/-- The read leaves of the gz proof, one field per leaf. All are proved: `gz_read_leaves` (`public-gz-sequence-safety`). -/
 structure GzReadLeaves : Prop where
   /-- `gzread`: `int`/`unsigned` checks, then `gz_read`. -/
   gzread_step : ∀ (i : Nat) (buf : BPtr) (len : UInt32),
@@ -151,7 +149,7 @@ theorem history_inv (L : GzReadLeaves) {h : Heap} {fs : Fs} {i : Nat} (hist : Gz
     exact ⟨hw, ih.2⟩
 
 /-- **Safety of every gz file history, from the read leaves.** The conclusion is exactly
-`Goal.gz_sequence_safety`; the only premises are the six read leaves of the skeleton (`GzReadLeaves`), all proved
+`Goal.gz_sequence_safety`; the only premises are the six read leaves (`GzReadLeaves`), all proved
 (`gz_read_leaves`, `public-gz-sequence-safety`). -/
 theorem gz_sequence_safety_of (L : GzReadLeaves) : Goal.gz_sequence_safety := by
   refine ⟨fun h fs i hist => history_inv L hist, ?_, ?_, ?_, ?_, gzopen_safe, gzopen64_safe, gzdopen_safe⟩

@@ -4,8 +4,8 @@ import ZlibF.Proof.«gzfs.format-error-message»
 /-!
 # gzwrite.c: the public writing calls `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`
 
-`gzwrite_step_of`, `gzfwrite_step_of`, `gzputc_step_of`, `gzputs_step_of`: the skeleton statements `gzwrite_step`,
-`gzfwrite_step`, `gzputc_step`, `gzputs_step` (branch `skeleton/gz`, `gz.skeleton-write.lean`), from the facts of
+`gzwrite_step_of`, `gzfwrite_step_of`, `gzputc_step_of`, `gzputs_step_of`: `gzwrite_step`,
+`gzfwrite_step`, `gzputc_step`, `gzputs_step`, from the facts of
 `gz_error` (`GzErrorSpec`, `GzErrorOwn`). No other callee is a premise: `gz_write` is `gz_write_safe_of`,
 `gz_zero` is `gz_zero_safe_shape`, `gz_init` is `gz_init_run`, `gz_comp` is `gz_comp_safe_shape_of'`.
 
@@ -277,7 +277,7 @@ theorem gzwrite_eq (buf : BPtr) (len : UInt32) :
         return 0
       return (← Zlib.Gzwrite.gz_write (gzSt i) buf len.toUInt64).toUInt32.toInt32 : G Int32) := rfl
 
-/-- **`gzwrite_step`** (skeleton statement), given the facts of `gz_error`. Relies on the local patch for W7
+/-- **`gzwrite_step`**, given the facts of `gz_error`. Relies on the local patch for W7
 (patch 0005, through `gz_write`). -/
 theorem gzwrite_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (buf : BPtr) (len : UInt32) :
     GzCallSafe i (.gzwrite (some (.in_gzstate_x i)) buf len) := by
@@ -351,7 +351,7 @@ theorem gzfwrite_eq (buf : BPtr) (size nitems : UInt64) :
         return 0
       if len != 0 then return (← Zlib.Gzwrite.gz_write (gzSt i) buf len) / size else return 0 : G UInt64) := rfl
 
-/-- **`gzfwrite_step`** (skeleton statement), given the facts of `gz_error`. Relies on the local patch for W7
+/-- **`gzfwrite_step`**, given the facts of `gz_error`. Relies on the local patch for W7
 (patch 0005, through `gz_write`). -/
 theorem gzfwrite_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (buf : BPtr) (size nitems : UInt64) :
     GzCallSafe i (.gzfwrite buf size nitems (some (.in_gzstate_x i))) := by
@@ -420,7 +420,7 @@ theorem gzputs_eq (str : BPtr) :
       let put ← Zlib.Gzwrite.gz_write (gzSt i) str len
       return if len != 0 && put == 0 then -1 else put.toUInt32.toInt32 : G Int32) := rfl
 
-/-- **`gzputs_step`** (skeleton statement), given the facts of `gz_error`. Relies on the local patch for W7
+/-- **`gzputs_step`**, given the facts of `gz_error`. Relies on the local patch for W7
 (patch 0005, through `gz_write`). -/
 theorem gzputs_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (str : BPtr) :
     GzCallSafe i (.gzputs (some (.in_gzstate_x i)) str) := by
@@ -872,7 +872,7 @@ theorem putcT_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
       hszB, ↓reduceIte, hZ, hav', Bool.false_eq_true]
     exact run
 
-/-- **`gzputc_step`** (skeleton statement), given the facts of `gz_error`. Relies on the local patch for W7
+/-- **`gzputc_step`**, given the facts of `gz_error`. Relies on the local patch for W7
 (patch 0005: the position check of the fast path, and through `gz_write`). -/
 theorem gzputc_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (c : Int32) :
     GzCallSafe i (.gzputc (some (.in_gzstate_x i)) c) := by

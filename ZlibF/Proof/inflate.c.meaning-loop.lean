@@ -10,7 +10,7 @@ import ZlibF.Spec.Common.Memory
 buffer, the input cursor and the output cursor are in the registers `IL`, and
 the stream record is written back only at `inf_leave`. `LoopMatches` is the
 same meaning at each trip of the mode loop, for the registers `l` and the heap
-`h`. The per-mode lemmas (batch 1: body modes; batch 2: header, dictionary,
+`h`. The per-mode lemmas (body modes; header, dictionary and
 trailer modes) go from `LoopMatches` to `LoopMatches` of an extended position,
 to `goto inf_leave` with `LoopMatches`, or to `BAD` with `LoopDoomed`. The
 loop assembly composes them; `inf_leave` turns `LoopMatches` into

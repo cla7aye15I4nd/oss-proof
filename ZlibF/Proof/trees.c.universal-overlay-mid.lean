@@ -6,7 +6,7 @@ import ZlibF.Proof.«trees.c.universal-spec»
 /-!
 # trees.c: the dynamic overlay room for `lit_bufsize` 512 and 1024
 
-Batch C of the deflate skeleton. `SmallOverlay` (`trees.c.universal-flushsafe`) asks for the
+`SmallOverlay` (`trees.c.universal-flushsafe`) asks for the
 overlay room of a dynamic block when `lit_bufsize < 2048`. This file proves it for
 `lit_bufsize` 512 and 1024 (`memLevel` 3 and 4), and reduces `SmallOverlay` to the
 `lit_bufsize < 512` case (`memLevel` 1 and 2), `TinyOverlay`. That case is proved by

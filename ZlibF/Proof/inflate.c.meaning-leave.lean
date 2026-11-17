@@ -16,7 +16,7 @@ stage of the input read in the call, with the output of the call appended:
 
 * the bit buffer is the registers' (`RESTORE()`), so `HeldBits` carries over;
 * a body stage gets the window of the output before the call followed by the
-  call's output (`leave_window_meaning`, batch 1);
+  call's output (`leave_window_meaning`);
 * `total` and `check` cover the whole output of the stage
   (`leaveFinalize_values`);
 * a failed window allocation enters `MEM` and returns `Z_MEM_ERROR`, with the

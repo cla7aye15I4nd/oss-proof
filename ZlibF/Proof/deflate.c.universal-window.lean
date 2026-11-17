@@ -9,7 +9,7 @@ import ZlibF.Spec.Functional.Checksums
 /-!
 # deflate.c, universal engine: `read_buf` and `fill_window` for every parameter tuple
 
-Batch B of the deflate skeleton (`docs/progress.md`, Core proof skeletons). The default-family
+The default-family
 lemmas (`deflate.c.engine.fill-*`) fix `wrap = 1`. This module removes that restriction: the
 checksum of `read_buf` is the Adler-32 for `wrap = 1`, the CRC-32 for `wrap = 2` (the CRC tables
 are the library globals), and no update otherwise.

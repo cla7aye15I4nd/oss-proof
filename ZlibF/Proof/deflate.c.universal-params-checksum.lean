@@ -3,7 +3,7 @@ import Init.Data.Range.Lemmas
 import ZlibF.Zlib.«adler32.c»
 import ZlibF.Zlib.«crc32.c»
 
-/-! The checksum read loops keep every parameter (batch C, `bound_before_output`). -/
+/-! The checksum read loops keep every parameter. -/
 set_option maxRecDepth 10000
 namespace Zlib.Deflate.Universal.Params
 open C

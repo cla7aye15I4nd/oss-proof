@@ -3,7 +3,7 @@ import ZlibF.Spec.Common.Bits
 /-!
 # Format: bits, bytes and numbers
 
-Heap-free, pointer-free vocabulary for the data format of `docs/spec/format/README.md`
+Heap-free, pointer-free vocabulary for the data format of `docs/en/spec/format.md`
 (RFC 1950, 1951, 1952). Everything here is total and structurally recursive.
 
 The reader functions return `none` when the input is too short. A reader that

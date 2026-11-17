@@ -109,7 +109,6 @@ A wrong statement is corrected, not worked around.
 
 - Change it when there is evidence: a checked counterexample, or a documented mismatch with
   `zlib.h` or the C source. Put the correction in its own commit. Say what was wrong and why.
-- Keep the counterexample as a regression under `tests/verification/regressions/`.
 - Never weaken a statement, narrow a domain or change a translation to make a proof go through.
   Strengthening a weak goal is allowed and wanted.
 - A translation mismatch with the C is a bug. Fix it and add a differential test that catches it.
@@ -175,9 +174,8 @@ letter of C that a patch here fixes. List it in the table of `docs/en/findings.m
 `docs/zh/findings.md`): what is wrong, the documented calls that reach it, the evidence, the fix
 and the upstream state. `README.md` gives only the count and the link to the published site.
 Anything else (a defect that needs an undocumented function, an unconfirmed report, a documentation
-gap, a question about the caller's domain) stays out of `docs/`; its reproduction stays under
-`tests/regression/<name>/`. Every sanitizer reproduction goes under `tests/regression/<name>/` with
-`run.sh` and `report.txt`.
+gap, a question about the caller's domain) stays out of `docs/`. Reproductions are not kept in the
+tree; they are in the git history.
 
 ## Documents
 

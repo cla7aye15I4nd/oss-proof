@@ -6,7 +6,7 @@ import ZlibF.Proof.«deflate.c.engine.block-reset»
 /-! # Cleared BL frequencies from the default public entry
 
 These execution siblings retain the BL zeros written by the real initializer.
-The final boundary also retains both reset cost counters. The previously registered contracts stay unchanged.
+The final boundary also retains both reset cost counters.
 -/
 
 namespace Zlib.Deflate.Engine.Proofs.BlockInit

@@ -6,7 +6,7 @@ import ZlibF.Proof.«gzlib.c.rewind»
 `t` is the target position: `0` for `SEEK_SET`, `gztell64` for `SEEK_CUR`, plus `offset`. The function refuses
 (`-1`, nothing changes) when `t` is not a `z_off64_t` that is not negative; otherwise it returns `t`.
 
-The unpatched C faulted in two places (R-1, `docs/proof/gzip.md`): `SEEK_CUR` while `gztell64 < 0` (the check
+The unpatched C faulted in two places (`docs/en/proof/gzip.md`, "Source reports and patches"): `SEEK_CUR` while `gztell64 < 0` (the check
 `offset > GZ_OFF_MAX - pos` overflowed), and `pos - x.pos` while `x.pos < 0` (after `gzungetc` at the start). The
 verified source applies the fix of upstream PR 1361 (patch 0002): the first check runs only for `pos > 0`, and a
 target whose displacement from a negative `x.pos` is not a `z_off64_t` is refused. `gzseek64_head_any` shows that the
@@ -978,7 +978,7 @@ theorem gzseek_eq (file : GzFilePtr) (offset : Int64) (whence : Int32) (fs : Fs)
 
 The unpatched C overflowed in `GZ_OFF_MAX - pos` for `SEEK_CUR` while `gztell` was negative (right after `gzungetc` at
 the start of a file), and in `pos - x.pos` for `SEEK_SET` with a negative `x.pos` and `offset - x.pos >= 2^63`
-(reproduction in `tests/regression/gzseek-pushback-overflow`). With patch 0002 neither faults:
+(reproduced with the real C under a sanitizer). With patch 0002 neither faults:
 `gzseek64_head_any` covers both, and the second is refused. -/
 
 /-- `SEEK_SET` at a negative `x.pos` with `offset - x.pos >= 2^63`, where the unpatched C overflowed in `pos - x.pos`:

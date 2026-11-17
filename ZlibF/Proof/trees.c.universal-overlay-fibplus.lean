@@ -5,7 +5,7 @@ import ZlibF.Math.DeflateOverlaySmall
 /-!
 # trees.c: `gen_bitlen` never clamps a tree of weight below 1597
 
-Batch C of the deflate skeleton, small `lit_bufsize`. `ws_gen_bitlen_fib_push` covers both
+Small `lit_bufsize`. `ws_gen_bitlen_fib_push` covers both
 outcomes of the first pass of `gen_bitlen`: no overflow (every length is the Huffman depth) and
 overflow (the repair moves leaves). When the root weight is below `F(17) = 1597`, the overflow
 outcome cannot occur: an overflowing node has a parent at depth 15 or more, and the proved

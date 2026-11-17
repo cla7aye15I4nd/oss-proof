@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-flush-cursor»
 /-!
 # deflate.c: the entry phase with output pending, at any cursor
 
-Owner 2 of the deflate split (`deflate_call`). With output pending, the entry phase stores
+With output pending, the entry phase stores
 `last_flush := flush` and runs `flush_pending` at whatever cursor the previous call left. Then it
 returns `Z_OK` on a full output, refuses new input after `Z_FINISH`, or continues. This module
 evaluates the entry phase in terms of the flush's run (no cursor premise).
@@ -136,7 +136,7 @@ theorem pend_lift {h after : Heap} {r : ZStreamRef} {ds pb po produced : Nat} {z
     · simp only [Ptr.ref.injEq, BRef.blk.injEq] at e
       omega
 
-/-- **T2** (offered to batch 1): an entry flush at any cursor keeps the caller's bytes outside the
+/-- **T2**: an entry flush at any cursor keeps the caller's bytes outside the
 output range, `pending_buf` and the state, and the `gz_header` records. -/
 def EntryKeep : Prop :=
   ∀ {h after : Heap} {r : ZStreamRef} {ds pb produced : Nat} {z z' : ZStream} {d : DeflateState},

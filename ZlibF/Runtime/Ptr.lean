@@ -3,7 +3,7 @@ import ZlibF.Runtime.Monad
 /-!
 # Runtime: pointers into arrays
 
-Trusted base of every translation; see `docs/trusted-base.md`.
+Trusted base of every translation; see `docs/en/trusted-base.md`.
 
 A pointer is `Ptr R`: null, or an array (where it lives is the reference `R`: a heap block, an array inside a struct,
 a static table) and an index. Every primitive is written once, for every `R`, through the class `Space`. Each one
@@ -19,7 +19,7 @@ variable {R T : Type} [Space Heap R T]
 
 /-- `p + k`. Adding zero returns the pointer unchanged for every pointer value: `NULL + 0` is `NULL`, and a pointer
 into a freed block plus 0 is that pointer (allowed by decision, although C17 leaves both undefined: every real
-implementation treats them as no-ops; see `docs/model-limits.md`). A nonzero `k` faults unless the pointer is into a
+implementation treats them as no-ops; see `docs/en/model-limits.md`). A nonzero `k` faults unless the pointer is into a
 live array and the result is an index of the array or one past its end.
 It checks the result only: a pointer built by hand outside its array (`Ptr.ref r off` with `off` beyond the end) is
 not caught here. The translations obtain pointers from `Ptr.add` and from the schema, which never form one. -/
@@ -60,7 +60,7 @@ def Ptr.store (p : Ptr R) (v : T) : M Unit := fun h =>
       else .error (.ub "store outside its object")
 
 /-- `p - q` (a `ptrdiff_t`). `NULL - NULL` is 0 (allowed by decision, as C++ defines it, although C17 and C23 leave
-it undefined since neither operand points into an array object; see `docs/model-limits.md`). Otherwise it faults
+it undefined since neither operand points into an array object; see `docs/en/model-limits.md`). Otherwise it faults
 unless both point into the same live array and the difference is a `ptrdiff_t`. -/
 def Ptr.diff [DecidableEq R] (p q : Ptr R) : M Int64 := fun h =>
   match p, q with

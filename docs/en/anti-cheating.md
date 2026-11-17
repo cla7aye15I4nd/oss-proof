@@ -35,7 +35,7 @@ None of these detects a goal that was made easier. So a reader who relies on a r
 statement of its goal, and the definitions it names. The rule the project follows is: a statement
 is never weakened, a domain never narrowed and a translation never changed to make a proof go
 through. A statement is changed only when there is evidence that it was wrong, such as a
-counterexample, and the counterexample is kept.
+counterexample.
 
 ## What counts as a proof
 

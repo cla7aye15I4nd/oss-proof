@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.engine.raw-output-interval»
 import ZlibF.Proof.«deflate.c.engine.generic-foreign-buffer-frame-adjacent»
 
 /-!
-# deflate.c: the call frame of the strategies (batch B)
+# deflate.c: the call frame of the strategies
 
 `deflate_call` needs, from each strategy, the frame of `CallFrame`: the input and output counts
 and totals, and a heap frame in which only the stream record, the stream's own blocks and the

@@ -45,9 +45,9 @@ def HeaderMemory (h : Heap) (r : ZStreamRef) (p : GzHeaderPtr) (writing : Bool) 
 the extra field, and the name or comment being written, are at least as long as the part
 written (`gzindex`). zlib.h asks the caller to provide the header before the first `deflate`
 call and to keep it valid; shortening it while it is being written makes the real C read
-past the buffer (`tests/regression/deflate-history-domain`). Nor does it set the field being
+past the buffer (reproduced under a sanitizer). Nor does it set the field being
 written to `NULL` part-way: `deflate` then skips that field without resetting `gzindex`, and the
-next string is read from `gzindex` on, past its end (`clear.c` in the same regression). -/
+next string is read from `gzindex` on, past its end (also reproduced). -/
 def DeflateHeaderProgress (h : Heap) (s : DeflateState) : Prop :=
   ∀ i g, s.gzhead = some (.tab i) → h.gzheaders i = some g →
     (s.status = EXTRA_STATE → g.extra ≠ .null → s.gzindex.toNat ≤ g.extra_len.toNat % 2 ^ 16) ∧
@@ -82,8 +82,8 @@ and the comment lie outside the storage the stream owns. The name and comment ra
 the NUL of the `CString` that `HeaderMemory` asks for. These regions have no reason to overlap.
 Two overlaps are undefined behaviour of the real C: a name in the output range, whose NUL a flush
 overwrites, and a name in `pending_buf`, whose NUL a header byte overwrites; the name loop then
-reads past the buffer (`tests/regression/deflate-gzip-name-output`). zlib.h does not say whether
-these layouts are permitted (docs/deviations.md). -/
+reads past the buffer (reproduced under a sanitizer). zlib.h does not say whether
+these layouts are permitted (docs/en/deviations.md). -/
 def DeflateHeaderApart (h : Heap) (r : ZStreamRef) (z : ZStream) (s : DeflateState) : Prop :=
   DeflateHeaderWriting s → ∀ i g, s.gzhead = some (.tab i) → h.gzheaders i = some g →
     ∀ name comment, (g.name ≠ .null → CString h g.name name) →
@@ -97,8 +97,8 @@ and in `EXTRA` the record's `extra_len` is not below the length still to read. E
 with `zmemcpy(head->extra + extra_len - length, next, n)`: on the real C an overlapping
 buffer is an overlapping `memcpy`, and a caller that lowers `extra_len` inside the extra
 field makes the offset wrap and the copy write past `extra_max`
-(`tests/regression/inflate-gzip-extra`). zlib.h does not say whether either layout is
-permitted; this domain excludes both (docs/deviations.md). -/
+(both reproduced under a sanitizer). zlib.h does not say whether either layout is
+permitted; this domain excludes both (docs/en/deviations.md). -/
 def InflateHeaderProgress (h : Heap) (z : ZStream) (s : InflateState) : Prop :=
   HEAD ≤ s.mode → s.mode ≤ HCRC → ∀ i g, s.head = some (.tab i) → h.gzheaders i = some g →
     Separate g.extra g.extra_max.toNat z.next_in z.avail_in.toNat ∧
@@ -125,7 +125,7 @@ deflate() call after a deflateInit2() or deflateReset()" and `deflateSetHeader` 
 first call of deflate()". On the real C, primed bits after symbols were recorded overwrite
 the symbol buffer that shares `pending_buf`, and the next block reads outside `_dist_code`;
 a `NULL` header set while the header is being written is dereferenced
-(`tests/regression/deflate-history-domain`). -/
+(both reproduced under a sanitizer). -/
 def DeflateNotStarted (h : Heap) (r : ZStreamRef) : Prop :=
   ∃ z i s, r.get h = some z ∧ z.state = some (.deflate i) ∧ h.dstates i = some s ∧
     (s.status = INIT_STATE ∨ s.status = GZIP_STATE)
@@ -143,8 +143,8 @@ def Rebuffer (h after : Heap) (r : ZStreamRef) : Prop :=
 /-- Exactly the public operations belonging to an existing stream. A direct call of
 `deflateResetKeep` is not one: zlib.h lists it among the undocumented functions, and it keeps the
 window and the hash tables while dropping the lookahead, after which the hash entries of the last
-two positions are stale (`docs/findings/deflate-resetkeep-stale-hash`) and the deflate invariant
-does not hold (`docs/deviations.md`). `deflateReset` (`deflateResetKeep`, then `lm_init`, which
+two positions are stale and the deflate invariant
+does not hold (`docs/en/deviations.md`). `deflateReset` (`deflateResetKeep`, then `lm_init`, which
 clears the hash) stays. -/
 def StreamOperation (kind : StreamKind) (r : ZStreamRef) : Call → Prop
   | .inflate p _ | .inflateReset p | .inflateReset2 p _ | .inflateResetKeep p
@@ -180,7 +180,7 @@ def StreamArguments (h : Heap) (r : ZStreamRef) : Call → Prop
 For inflate streams, every heap on which a call runs and every heap a caller edit leaves
 satisfies the LP64 object-size limit `ZlibF.PlatformMemory.ByteObjectsFit` (no object exceeds
 `PTRDIFF_MAX`). This is a fact of the platform, not a duty of the caller; see
-docs/deviations.md. The deflate side states it once its calls are shown to keep it.
+docs/en/deviations.md. The deflate histories do not state it.
 The init targets separately prove that valid, non-failing initialisation produces such a history. -/
 inductive StreamReachable : StreamKind → Heap → ZStreamRef → Prop
   | inflateInit {h after r z version wb} :

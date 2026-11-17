@@ -5,7 +5,7 @@ import ZlibF.Zlib.«deflate.c»
 
 Source: `compress.c` of the verified source. `z_size_t *destLen` and `uLongf *destLen` are modelled as an input
 value (`none` is a NULL pointer) and a result (the value stored through the pointer); the runtime has no pointer to a
-scalar cell. `compress2` reads `*destLen` before any NULL test (`docs/deviations.md#whole-buffer-utilities-and-checksums`, row
+scalar cell. `compress2` reads `*destLen` before any NULL test (`docs/en/deviations.md#whole-buffer-utilities-and-checksums`, row
 "Whole-buffer compression"), so a NULL `destLen` there is
 `Fault.ub`. `deflateInit(&stream, level)` is `deflateInit_(&stream, level, ZLIB_VERSION, (int)sizeof(z_stream))`.
 `z_stream stream` is an automatic record in the `streams` table. Creating it cannot fail or

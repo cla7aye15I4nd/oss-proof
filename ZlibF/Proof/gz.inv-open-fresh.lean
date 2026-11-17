@@ -4,7 +4,7 @@ import ZlibF.Proof.«gzlib.c.error-inv»
 /-!
 # gz file interface, safety: `gzopen` and `gzopen64`
 
-The skeleton leaves `gzopen_safe` and `gzopen64_safe` (`skeleton/gz`, `gz.skeleton.lean`). `gzopen` is
+`gzopen_safe` and `gzopen64_safe`. `gzopen` is
 `gz_open path (-1) mode`. Its returns:
 
 1. NULL path or mode, a failed record allocation, a mode the parser refuses, a failed path allocation: the

@@ -4,7 +4,7 @@ import ZlibF.Proof.«inflate.c.dictionary-dispatch»
 /-!
 # inflate.c: `DICTID` keeps the format meaning in the loop
 
-Batch 2, `dictid_step`. In `DICTID` the decoder has read the two bytes of a
+`dictid_step`. In `DICTID` the decoder has read the two bytes of a
 zlib header with `FDICT` set. `case DICTID:` either leaves for more input, or
 reads the four identifier bytes, stores them as `check` (and `adler`), and
 falls through to `DICT`. A wrapped header has no dictionary yet
