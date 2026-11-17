@@ -91,6 +91,92 @@ class StatusPage(unittest.TestCase):
         self.assertEqual(en, zh)
 
 
+LISTS = '''
+def proved : List (Name × Name) := [
+  -- a group
+  (``A.Goal.one, ``A.one),
+  (``A.Goal.two, ``A.two)
+]
+
+/-- Not done. -/
+def notDone : List Name := [
+  ``A.Goal.three
+]
+
+def required : List Name := [
+  ``A.Goal.one
+]
+'''
+
+
+class ResultsReader(unittest.TestCase):
+    """The reader of ZlibF/Results.lean works on the text alone and refuses what it cannot read."""
+
+    def test_the_three_lists_are_read(self):
+        lists = progress.parse_results(LISTS)
+        self.assertEqual(lists.proved, (('A.Goal.one', 'A.one'), ('A.Goal.two', 'A.two')))
+        self.assertEqual(lists.not_done, ('A.Goal.three',))
+        self.assertEqual(lists.required, ('A.Goal.one',))
+
+    def test_comments_are_removed_and_strings_are_kept(self):
+        text = 'a -- line /- not open\nb /- one /- nested -/ still -/ c /-- doc -/ d "-- /- kept" e'
+        stripped = progress.strip_comments(text)
+        self.assertEqual(stripped.split(), ['a', 'b', 'c', 'd', '"--', '/-', 'kept"', 'e'])
+        self.assertEqual(len(stripped), len(text))
+        self.assertEqual(stripped.count('\n'), text.count('\n'))
+
+    def test_an_entry_inside_a_comment_is_not_an_entry(self):
+        for hidden in ('  -- (``A.Goal.two, ``A.two)', '  /- (``A.Goal.two, ``A.two) -/',
+                       '  /- /- nested -/ (``A.Goal.two, ``A.two) -/'):
+            text = LISTS.replace('  (``A.Goal.one, ``A.one),\n  (``A.Goal.two, ``A.two)',
+                                 '  (``A.Goal.one, ``A.one)\n' + hidden)
+            self.assertEqual(progress.parse_results(text).proved, (('A.Goal.one', 'A.one'),), hidden)
+
+    def test_a_list_inside_a_comment_is_not_the_list(self):
+        fake = '/-\ndef proved : List (Name × Name) := [\n  (``A.Goal.three, ``A.three)\n]\n-/\n'
+        self.assertEqual(progress.parse_results(fake + LISTS), progress.parse_results(LISTS))
+
+    def test_a_required_goal_that_is_not_proved_is_refused(self):
+        with self.assertRaisesRegex(progress.ResultsError, 'required goal is not in `proved`: A.Goal.three'):
+            progress.parse_results(LISTS.replace('  ``A.Goal.one\n]', '  ``A.Goal.one,\n  ``A.Goal.three\n]'))
+        with self.assertRaisesRegex(progress.ResultsError, 'required goal is not in `proved`: A.Goal.two'):
+            progress.parse_results(LISTS.replace('  (``A.Goal.two, ``A.two)', '  /- (``A.Goal.two, ``A.two) -/')
+                                   .replace('``A.one),', '``A.one)')
+                                   .replace('  ``A.Goal.one\n]', '  ``A.Goal.one,\n  ``A.Goal.two\n]'))
+
+    def test_an_empty_or_missing_list_is_refused(self):
+        with self.assertRaisesRegex(progress.ResultsError, '`required` is empty'):
+            progress.parse_results(LISTS.replace('  ``A.Goal.one\n]', '  -- ``A.Goal.one\n]'))
+        with self.assertRaisesRegex(progress.ResultsError, '`notDone` is empty'):
+            progress.parse_results(LISTS.replace('  ``A.Goal.three\n', ''))
+        with self.assertRaisesRegex(progress.ResultsError, '`proved` is defined 0 times'):
+            progress.parse_results(LISTS.replace('def proved', 'def other'))
+        with self.assertRaisesRegex(progress.ResultsError, '`required` is defined 2 times'):
+            progress.parse_results(LISTS + 'def required : List Name := [\n  ``A.Goal.two\n]\n')
+
+    def test_text_that_is_not_an_entry_is_refused(self):
+        with self.assertRaisesRegex(progress.ResultsError, 'not an entry'):
+            progress.parse_results(LISTS.replace('``A.Goal.three', '``A.Goal.three ++ more'))
+        with self.assertRaisesRegex(progress.ResultsError, 'not an entry'):
+            progress.parse_results(LISTS.replace('(``A.Goal.two, ``A.two)', '(``A.Goal.two)'))
+        with self.assertRaisesRegex(progress.ResultsError, 'not closed'):
+            progress.parse_results(LISTS + '/- open')
+
+    def test_a_goal_listed_twice_is_refused(self):
+        with self.assertRaisesRegex(progress.ResultsError, 'listed twice'):
+            progress.parse_results(LISTS.replace('``A.Goal.three', '``A.Goal.two'))
+
+    def test_the_module_of_the_repository_is_read_and_agrees_with_the_status_page(self):
+        lists = progress.results()
+        self.assertTrue(set(lists.required) <= {goal for goal, _ in lists.proved})
+        self.assertEqual(len(lists.required), len(progress.required_goals()) + len(progress.roundtrip_goals()))
+        self.assertEqual({progress.short(goal) for goal in lists.required},
+                         set(progress.required_goals()) | set(progress.roundtrip_goals()))
+        for text in PAGES.values():
+            self.assertEqual({goal for _, goal, _ in progress.page_rows(text)},
+                             {progress.short(goal) for goal in lists.required})
+
+
 class Records(unittest.TestCase):
     def test_a_goal_without_a_theorem_is_not_done(self):
         self.assertFalse(progress.goal_done(None))

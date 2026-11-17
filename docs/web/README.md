@@ -87,7 +87,9 @@ to the published site URLs.
 - `reference.py`, `syntax.py`: render canonical content and precise source views
   under `en/` and `zh/`.
 - `progress.py`: done or not done, for every goal and every public function. A reader sees
-  these two states only. The status page itself is `../en/progress.md` and
+  these two states only. It reads the three lists of `ZlibF/Results.lean` as text, with the
+  Lean comments removed, and stops the build when a list is missing or empty, holds anything
+  but entries, or when a required goal is not in the list of proved goals. The status page itself is `../en/progress.md` and
   `../zh/progress.md`, written by hand; `tests/test_progress.py` compares its rows
   with what `progress.py` computes.
 - `home.py`: the landing pages (`en/index.html` and `zh/index.html`) plus the root
