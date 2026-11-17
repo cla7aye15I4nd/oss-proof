@@ -7,11 +7,11 @@ import ZlibF.Proof.«inflate.c.gzip-header-modes»
 # gzread.c: `gz_skip` and the parts of `gzgets` on a handle in `GzInv`
 
 `RunSafe` combinators for `G` (bind, lift, `if`, `gdoWhile` with a measure), the accumulated effect `Acc` of a
-sequence of steps, and the steps of `gz_skip` that `gzread.c.skip-fetch` composes. `gz_skip` is proved in
-`gzread.c.skip-fetch` from the proved `gz_fetch` statement.
+sequence of steps, and the steps of `gz_skip` that `gzread.c.skip-fetch` composes. The earlier `gz_skip_safe_of`, over a
+progress premise `GzFetchProgress` that is false (a fetch may stall in LOOK without output), was removed on
+2026-11-14; `gz_skip` is proved in `gzread.c.skip-fetch` from the proved `gz_fetch` statement.
 
-`gzgets` needs `"position overflow"` in `strTable`
-(`gz.position-overflow-regression`); `gzgets_step` is proved in `gz.read-gets-step`. Its loop pieces (`getsRest`, `getsCopy`, `getsBody`,
+`gzgets` needed `"position overflow"` in `strTable`, which now has it; `gzgets_step` is proved in `gz.read-gets-step`. Its loop pieces (`getsRest`, `getsCopy`, `getsBody`,
 `getsMain`, `memchrB_run`, `gz_room_run`, `Acc.region_put`, `GetsCaller.now`) are checked here.
 -/
 
@@ -144,7 +144,7 @@ theorem RunSafe.doWhile {σ : Type} {body : σ → G σ} {cond : σ → G (Bool 
 
 /-! ## The accumulated effect of a call -/
 
-/-- **No take-over** of a block by a step whose statement has no `GzPost` (`GzInv.gz_error`): a block
+/-- **No take-over** of a block by a step whose statement has no `GzPost` (the skeleton's `GzInv.gz_error`): a block
 that was live before and that the handle did not own is not owned after. It is `GzPost`'s no-grab clause. -/
 def NoTakeover (h after : Heap) (i : Nat) (s : GzState) : Prop :=
   ∀ s', after.gzstates i = some s' → ∀ b, GzOwned after i s' b → h.live b → GzOwned h i s b
@@ -357,7 +357,7 @@ theorem GzInv.msg_owned {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) {
   · rw [hn] at hb; cases hb
   · rw [hp] at hb; cases hb; exact Or.inr (Or.inr (Or.inl hp))
 
-/-- The post-condition of `GzInv.gz_error`, with no take-over, as a `GzPost` step. -/
+/-- The post-condition of `GzInv.gz_error` (skeleton statement), with no take-over, as a `GzPost` step. -/
 theorem post_of_gz_error {h1 h2 : Heap} {i : Nat} {s1 s2 : GzState} {fs : Fs} (inv1 : GzInv h1 i s1)
     (inv2 : GzInv h2 i s2) (hs2 : s2 = { s1 with err := s2.err, msg := s2.msg })
     (fr : Frame h1 h2 (fun b => b = i ∨ blkOf s1.msg = some b))
@@ -411,7 +411,7 @@ theorem post_of_gz_error {h1 h2 : Heap} {i : Nat} {s1 s2 : GzState} {fs : Fs} (i
 
 /-! ## The callees, as premises -/
 
-/-- The statement of `GzInv.gz_error` (`gzErrorSpec_holds` proves it). -/
+/-- The skeleton statement `GzInv.gz_error` (branch `skeleton/gz`, `gz.skeleton-model.lean`). -/
 def GzErrorSpec : Prop :=
   ∀ {h : Heap} {i : Nat} {s : GzState}, GzInv h i s → ∀ (err : Int32) (msg : BPtr),
     (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) → err ≠ Z_STREAM_END →
@@ -420,8 +420,8 @@ def GzErrorSpec : Prop :=
       Frame h after (fun b => b = i ∨ blkOf s.msg = some b) ∧
       LiveChange h after (fun b => blkOf s'.msg = some b ∧ ¬ h.live b) (fun b => blkOf s.msg = some b)
 
-/-- The no-grab fact on `gz_error` (not in `GzErrorSpec`; `GzInv.gz_error_own` proves it). With the frame of
-`GzErrorSpec` it says that a new message block was not live before. -/
+/-- The no-grab fact on `gz_error` (not in the skeleton statement; batch 1 adds it there later). With the skeleton's
+frame it says that a new message block was not live before. -/
 def GzErrorOwn : Prop :=
   ∀ (h : Heap) (i : Nat) (s : GzState) (err : Int32) (msg : BPtr) (after : Heap), GzInv h i s →
     (msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b) → err ≠ Z_STREAM_END →

@@ -84,7 +84,7 @@ theorem agree (own : Nat → Prop) (h : Heap) (st : Nat) (hst : ¬ own st) (w : 
             have : (bad h st).bytes b = h.bytes b := by simp [bad, upd_ne _ _ _ _ hne]
             rw [this, ho] at hc; exact (Option.some.inj hc).symm
           subst this
-          simp [upd_same, arr_split, ho]
+          simp [upd_same, ho]
         · simp [bad, upd_ne _ _ _ _ hbw, upd_ne _ _ _ _ hne]
       · refine ⟨rfl, rfl, rfl, rfl, rfl, fun b hb => ?_⟩
         simp [bad, upd_ne _ _ _ _ (key b hb)]
@@ -104,8 +104,8 @@ theorem agree (own : Nat → Prop) (h : Heap) (st : Nat) (hst : ¬ own st) (w : 
           refine ⟨by simp [bad, upd_ne _ _ _ _ hne], by simp [bad], by simp [bad], by simp [bad], ?_,
             by simp [bad, upd_ne _ _ _ _ hne], by simp [bad], by simp [bad]⟩
           by_cases hbi : b = id
-          · subst hbi; simp [bad, upd_same, arr_split, hs]
-          · simp [bad, upd_ne _ _ _ _ hbi]
+          · subst hbi; simp [upd_same, hs]
+          · simp [upd_ne _ _ _ _ hbi]
       · refine ⟨rfl, rfl, rfl, rfl, rfl, fun b hb => ?_⟩
         simp [bad, upd_ne _ _ _ _ (key b hb)]
     | str i =>
