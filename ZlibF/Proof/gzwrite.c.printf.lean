@@ -791,7 +791,7 @@ theorem gzvprintf_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (f
       GetcUngetc.Eff.trans (GetcUngetc.Eff.refl inv hfs) inv post1 (fun _ => Iff.rfl)
     obtain ⟨r, fs', h', run, E'⟩ := init_ok err errOwn A E1 (okHeap_borrow h i s) inv1 hw
     refine ⟨r, fs', h', ?_, E'⟩
-    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS,
+    simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS,
       hm', Bool.false_eq_true, ↓reduceIte, run1]
     exact run
   have RS := runSafe_of_ok R
