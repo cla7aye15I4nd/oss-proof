@@ -168,6 +168,7 @@ import ZlibF.Spec.Functional.Checksums
 import ZlibF.Spec.Functional.Copy
 import ZlibF.Spec.Functional.Format
 import ZlibF.Spec.Functional.Initialisation
+import ZlibF.Spec.Functional.InflateCompletion
 import ZlibF.Spec.Functional.Lifecycle
 import ZlibF.Spec.Functional.Queries
 import ZlibF.Spec.Functional.Sequences
