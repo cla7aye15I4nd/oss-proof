@@ -46,6 +46,7 @@ Goals:
 * `Goal.uncompress_completes`: `uncompress` of a complete zlib stream without dictionary, with room
   for its decoding, returns `Z_OK` and the decoding, when every allocation succeeds.
 * `Goal.compress_uncompress_roundtrip`: `uncompress(compress(x)) = x`.
+* `Goal.compress_uncompress_roundtrip_witness`: its premises can all hold.
 
 Statement test: `tests/goals/roundtrip-default` (evidence, not proof).
 -/
@@ -219,7 +220,8 @@ def Goal.inflate_completes_default : Prop :=
 of calls; caller edits between calls. Each call runs on a heap within the object-size limit where
 every allocation succeeds, has a non-null output pointer and positive room (or all of `D` is
 written), offers a further piece of `S` (not empty unless all of `S` is consumed), and uses an
-ordinary flush value. -/
+ordinary flush value. The chain stops at the end of the stream: a call after `Z_STREAM_END` is not
+part of it. -/
 inductive DefaultInflateChain (r : ZStreamRef) (S D : List UInt8) :
     Nat → Heap → DataLog → Heap → DataLog → Prop
   | refl (h log) : DefaultInflateChain r S D 0 h log h log
@@ -228,7 +230,7 @@ inductive DefaultInflateChain (r : ZStreamRef) (S D : List UInt8) :
       ZlibF.PlatformMemory.ByteObjectsFit after →
       DefaultInflateChain r S D k start initial after log
   | step {k start initial h log after z flush rc input output used} :
-      DefaultInflateChain r S D k start initial h log →
+      DefaultInflateChain r S D k start initial h log → log.finished = false →
       ZlibF.PlatformMemory.ByteObjectsFit h → NoAllocationFailure h →
       r.get h = some z → z.next_out ≠ .null → (z.avail_out ≠ 0 ∨ log.output = D) →
       Bytes h z.next_in z.avail_in.toNat input → log.input ++ input <+: S →
@@ -254,7 +256,8 @@ def Goal.inflate_chain_ends : Prop :=
 /-- A continuation of `Z_FINISH` calls that each offer the not yet accepted part of one fixed input
 `source` (accepted after `accepted`), with a non-null output pointer and positive output room,
 counted by the number of calls; caller edits of the buffers between calls. Once the final block
-is begun (`FINISH_STATE`) the caller offers no input (`zlib.h`). -/
+is begun (`FINISH_STATE`) the caller offers no input (`zlib.h`). The chain stops at the end of the
+stream: a call after `Z_STREAM_END` is not part of it. -/
 inductive DefaultFinishChain (r : ZStreamRef) (accepted source : List UInt8) :
     Nat → Heap → DataLog → Heap → DataLog → Prop
   | refl (h log) : DefaultFinishChain r accepted source 0 h log h log
@@ -262,7 +265,7 @@ inductive DefaultFinishChain (r : ZStreamRef) (accepted source : List UInt8) :
       DefaultFinishChain r accepted source k start initial h log → Rebuffer h after r →
       DefaultFinishChain r accepted source k start initial after log
   | step {k start initial h log after z rc input output used} :
-      DefaultFinishChain r accepted source k start initial h log →
+      DefaultFinishChain r accepted source k start initial h log → log.finished = false →
       r.get h = some z → z.next_out ≠ .null → 0 < z.avail_out.toNat →
       (∀ ds d, z.state = some (.deflate ds) → h.dstates ds = some d →
         d.status = FINISH_STATE → input = []) →
@@ -334,5 +337,25 @@ def Goal.compress_uncompress_roundtrip : Prop :=
         n.toNat ≤ capacity₂.toNat →
         ∃ after₂, C.run (Zlib.Uncompr.uncompress dest₂ destLen₂ source₂ stored) h₂ = .ok (Z_OK, after₂) ∧
           Bytes after₂ dest₂ n.toNat xs ∧ LengthCell after₂ destLen₂ n
+
+/-- **Non-vacuity of `Goal.compress_uncompress_roundtrip`.** There is a heap, a destination and a
+source on which every premise of the `compress` half holds; and for every output `out` of `stored`
+bytes, a second heap, destination, length cell and source holding `out` on which every premise of
+the `uncompress` half holds. -/
+def Goal.compress_uncompress_roundtrip_witness : Prop :=
+  ∃ h dest c source n xs,
+    Fresh h ∧ Zlib.Deflate.Spec.Uniq h ∧ LibraryGlobals h ∧ ZlibF.PlatformMemory.ByteObjectsFit h ∧
+    NoAllocationFailure h ∧
+    Bytes h source n.toNat xs ∧ Writable h dest c.toNat ∧ Separate source n.toNat dest c.toNat ∧
+    ¬ compressRejected dest (some c) source n ∧ Api.compressBound n.toNat ≤ c.toNat ∧
+    ∀ (stored : UInt64) (out : List UInt8), out.length = stored.toNat →
+      ∃ h₂ dest₂ destLen₂ source₂ capacity₂,
+        Fresh h₂ ∧ Zlib.Inflate.Spec.Uniq h₂ ∧ LibraryGlobals h₂ ∧
+        ZlibF.PlatformMemory.ByteObjectsFit h₂ ∧ NoAllocationFailure h₂ ∧
+        LengthCell h₂ destLen₂ capacity₂ ∧ destLen₂ ≠ .null ∧ source₂ ≠ .null ∧ dest₂ ≠ .null ∧
+        Bytes h₂ source₂ stored.toNat out ∧ Writable h₂ dest₂ capacity₂.toNat ∧
+        Separate source₂ stored.toNat dest₂ capacity₂.toNat ∧
+        Separate destLen₂ 8 dest₂ capacity₂.toNat ∧ Separate destLen₂ 8 source₂ stored.toNat ∧
+        n.toNat ≤ capacity₂.toNat
 
 end ZlibF.Spec.Public

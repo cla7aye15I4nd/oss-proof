@@ -16,7 +16,8 @@
  *            stream and room n - written returns Z_STREAM_END, with output = input and every
  *            stream byte consumed (InflateCompletes on a default stream; the unconditional round trip).
  *   compress compress with destLen = compressBound(n) returns Z_OK; uncompress with destLen = n
- *            returns Z_OK, destLen = n and the input; uncompress2 consumes exactly the stream.
+ *            (n = 0: the dummy-buffer path) and with a larger destLen returns Z_OK, destLen = n and the
+ *            input; uncompress2 consumes exactly the stream.
  *
  * Input classes: 0 random, 1 zeros, 2 words, 3 random with near 3-byte repeats, 4 runs, 5 short
  * period, 6 random with 258-byte copies at the window distance, 7 bytes >= 144, 8 random with 3-byte
@@ -214,6 +215,16 @@ static void compress_rt(const unsigned char *in, size_t n, unsigned kind) {
     uLong sl = cl; dl = n;
     rc = uncompress2(n ? dec : &spare, &dl, c, &sl);
     if (rc != Z_OK || dl != n || sl != cl) { printf("FAIL uncompress2 kind=%u n=%zu rc=%d sl=%lu cl=%lu\n", kind, n, rc, sl, cl); failures++; }
+    /* Capacity larger than the decoded length (exact capacity, 0 included, is checked above). */
+    uLongf big = n + 1 + rn(100);
+    unsigned char *wide = malloc(big);
+    dl = big;
+    rc = uncompress(wide, &dl, c, cl);
+    if (rc != Z_OK || dl != n || memcmp(wide, in, n)) { printf("FAIL uncompress-room kind=%u n=%zu cap=%lu rc=%d dl=%lu\n", kind, n, big, rc, dl); failures++; }
+    sl = cl; dl = big;
+    rc = uncompress2(wide, &dl, c, &sl);
+    if (rc != Z_OK || dl != n || sl != cl || memcmp(wide, in, n)) { printf("FAIL uncompress2-room kind=%u n=%zu cap=%lu rc=%d dl=%lu sl=%lu\n", kind, n, big, rc, dl, sl); failures++; }
+    free(wide);
     free(c); checked[4]++;
 }
 
