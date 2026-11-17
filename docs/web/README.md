@@ -47,7 +47,9 @@ review: revise any step that requires guessing a new term or filling a logical g
 ## Site and blog boundary
 
 This repository publishes a standalone GitHub Pages project under `/zlib-f/` on the
-blog's domain. `index.html` is English; `index.zh.html` is Chinese. Assets and language
+blog's domain. English pages live under `/zlib-f/en/` and Chinese pages under
+`/zlib-f/zh/`, with identical relative paths and no language suffixes; the root
+`/zlib-f/index.html` redirects to the reader's preferred language. Assets and language
 links are relative to that project subpath. Do not add a separate CNAME file.
 
 The blog contains only the short bilingual entrance posts in `integration/`.
@@ -56,19 +58,19 @@ palette and existing font files preserve the blog's visual style.
 
 ## Sources
 
-The website is the published documentation. Repository Markdown is its authoring
-source, rather than a separate reader edition. Edit the English document and its
-adjacent `.zh.md` companion once; the builder reads those exact files.
+The website is the only published documentation. `../en/` and `../zh/` hold its
+English and Chinese Markdown sources at mirrored relative paths, with no `.en.md`,
+`.zh.md` or folder `README.md` files. Repository files outside `docs/` link directly
+to the published site URLs.
 
-
-- `../articles/`: three paired articles; `book.py` owns order and old URL targets.
-- `reading.py`: article rendering and redirects. `navigation.py` and
-  `static/navigation.*` own the one global contents panel.
-- `content/reading-aliases.json`: published paths and fragments used for redirects.
-- `../spec/api/`: complete API content, return classifications and calling rules.
-  Each function contains a three-column Markdown return table and native details
-  for exact conditions. `api_returns.py` styles the same table as a connected map;
-  it does not maintain a second copy of its wording.
+- `../en/read/` and `../zh/read/`: three paired articles (`codec.md`,
+  `optimizations.md`, `features.md`); `book.py` owns their order and sections.
+- `reading.py`: article rendering. `navigation.py` and `static/navigation.*` own
+  the one global contents panel.
+- `../en/spec/api/` and `../zh/spec/api/`: complete API content, return
+  classifications and calling rules. Each function contains a three-column Markdown
+  return table and native details for exact conditions. `api_returns.py` styles the
+  same table as a connected map; it does not maintain a second copy of its wording.
 - `static/minimal-codec.*`, `static/minimal-codec-model.mjs`: the first article's
   complete teaching format, packet-only decoder and editable worked example.
 - `static/zlib-*-scene.*`: local mechanism diagrams and controls.
@@ -82,23 +84,16 @@ adjacent `.zh.md` companion once; the builder reads those exact files.
 - `codec_trace.py`, `content/codec-trace.json`, `static/examples/codec-trace.c`:
   fixed-source native run records. Insert explained comparisons with a
   `comparison:window`, `comparison:search` or `comparison:storage` HTML comment.
-- `reference.py`, `syntax.py`: render canonical content and precise source views.
-  Reviewed Chinese companions live beside their English content.
-- `content/repository/`: Chinese versions of repository metadata that also appears
-  on the site; there is one source per language.
+- `reference.py`, `syntax.py`: render canonical content and precise source views
+  under `en/` and `zh/`.
 - `progress.py`: done or not done, for every goal and every public function. A reader sees
-  these two states only. The status page itself is `../progress.md`, written by hand;
-  `tests/test_progress.py` compares its rows with what `progress.py` computes.
-- `home.py`: the landing page (`index`). It shows the results with their state, computed by
-  `progress.py`. The old route `status` redirects to the status page.
-  `pagekit.py`: the build stamp, the fixed top navigation and the meta description.
+  these two states only. The status page itself is `../en/progress.md` and
+  `../zh/progress.md`, written by hand; `tests/test_progress.py` compares its rows
+  with what `progress.py` computes.
+- `home.py`: the landing pages (`en/index.html` and `zh/index.html`) plus the root
+  entry `index.html`.
+- `pagekit.py`: the build stamp, the fixed top navigation and the meta description.
 - `static/diagram-view.mjs`: natural diagram dimensions, scrolling and bounded zoom.
-
-`read/codec`, `read/optimizations` and `read/features` are the three articles. `index` redirects
-old article anchors to `read/codec`.
-Published chapter, topic and appendix links resolve to a corresponding article or
-formal reference. Source files for proofs and the status page are not edited as part
-of article rewriting.
 
 ## Build and local preview
 
@@ -116,15 +111,16 @@ The output is static HTML, CSS, fonts, JavaScript and WebAssembly. Interactions 
 no server runtime. Mermaid loads on demand using the vendored renderer and license.
 The source code views keep their original code and line anchors.
 
-Each Chinese companion starts with a comment `source-sha256: <hash>`, the SHA-256 of its English
-source file. A missing companion stops the build. A companion whose hash does not match gives a
-build warning and a notice on the Chinese page, so update the hash when you change both files.
-`check.py` rejects English prose left in a Chinese page.
+Each Chinese reference document under `../zh/` starts with a comment
+`source-sha256: <hash>`, the SHA-256 of its English counterpart under `../en/`. A
+missing companion stops the build. A companion whose hash does not match gives a build
+warning and a notice on the Chinese page, so update the hash when you change both
+files. `check.py` rejects English prose left in a Chinese page.
 
 ## Publication
 
 The site is published from `main` only. The Pages workflow builds and checks `dist/` when
 `docs/`, the goal statements (`ZlibF/Spec/`), `tests/audit/public-api.json` or the workflow
-change. Pull requests and pushes to `dev` are built and checked without publishing; pushes to
-`main` publish through GitHub Actions. So the published site can be behind `dev`. Lean sources are linked on GitHub at the built commit; the site keeps no copy. Complete the local
-reading review before publication when the user requests local iteration.
+change. Pull requests are built and checked without publishing; pushes to `main`
+publish through GitHub Actions. Lean sources are linked on GitHub at the built commit;
+the site keeps no copy.

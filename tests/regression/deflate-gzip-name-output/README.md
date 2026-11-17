@@ -23,7 +23,7 @@ by `extra_len`, so an overwrite only changes the bytes copied, which is defined.
 (`ZlibF/Spec/Common/History.lean`): while `deflate` writes an attached gzip header, the input, the
 output, the extra field, the name and the comment (each string through its NUL) are pairwise
 separate byte ranges, and the extra field, name and comment lie outside the storage the stream
-owns. Both layouts above violate it. Listed in [deviations](../../../docs/deviations.md). The Lean
+owns. Both layouts above violate it. Listed in [deviations](https://www.dataisland.org/zlib-f/en/deviations.html). The Lean
 regression `tests/verification/regressions/deflate-gzip-name-output.lean` checks that the
 layout of `output.c` violates the clause.
 Confidence: high (both reproduced with sanitizers on the pinned source). Scope: a caller

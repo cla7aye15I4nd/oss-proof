@@ -1,6 +1,6 @@
 # gzwrite position overflow after a forward seek
 
-Finding: [docs/findings/gzwrite-pos-overflow](../../../docs/findings/gzwrite-pos-overflow/README.md).
+Finding: [findings](https://www.dataisland.org/zlib-f/en/findings.html).
 
 `wpos.c` opens `/dev/null` with `gzdopen(fd, "wT")` (transparent writer), sets a 2^29-byte
 buffer, seeks to `INT64_MAX - 10` and writes 100 bytes. With the argument `putc` it seeks to

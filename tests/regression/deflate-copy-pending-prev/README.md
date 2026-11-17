@@ -16,7 +16,7 @@ ids replaced, paths relative to the repository or the zlib root). An earlier run
 gave the same AddressSanitizer report.
 
 The history is outside the proved domain: a direct `deflateResetKeep` is not a deflate stream
-operation ([deviations](../../../docs/deviations.md)). After `deflateResetKeep` and
+operation ([deviations](https://www.dataisland.org/zlib-f/en/deviations.html)). After `deflateResetKeep` and
 `deflate(Z_BLOCK)`, the hash heads of the last two positions point to `prev` slots that are not yet
 written; `deflateCopy` does not copy them, and the `Z_RLE` flush on the copy leaves them unwritten,
 so the next `longest_match` follows an uninitialised slot.

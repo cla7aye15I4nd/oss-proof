@@ -1,8 +1,3 @@
-const legacy=document.getElementById('bk-legacy-links');
-if(legacy&&location.hash){
-  const route=JSON.parse(legacy.textContent)[decodeURIComponent(location.hash.slice(1))];
-  if(route)location.replace(new URL(route,location.href));
-}
 if(location.hash){
   const initialHash=location.hash;
   Promise.all([document.fonts.ready,customElements.whenDefined('zlib-demo')]).then(()=>{

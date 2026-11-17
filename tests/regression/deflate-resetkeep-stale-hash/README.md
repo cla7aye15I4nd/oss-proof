@@ -10,4 +10,4 @@ memory error, and no sanitizer reports it. `run.sh` builds `repro.c` with the un
 sources and passes when the program prints three such histories; the seeds it finds depend on the
 `rand` of the C library. `report.txt` is the output of one run on arm64 macOS. The history is
 outside the proved domain: `zlib.h` lists `deflateResetKeep` as undocumented, and a direct call
-is not a deflate stream operation ([deviations](../../../docs/deviations.md)).
+is not a deflate stream operation ([deviations](https://www.dataisland.org/zlib-f/en/deviations.html)).

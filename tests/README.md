@@ -1,6 +1,6 @@
 # Differential tests: the Lean translation against the real C
 
-The translation in `ZlibF/Zlib/*.c.lean` is trusted, not proved (`docs/trusted-base.md`). This
+The translation in `ZlibF/Zlib/*.c.lean` is trusted, not proved (https://www.dataisland.org/zlib-f/en/trusted-base.html). This
 directory is the evidence that it matches the C. For each C function, the same inputs go to
 
 * the **real zlib**: the pinned `zlib/` submodule plus `patches/*.patch` in name order, applied to a
@@ -115,7 +115,7 @@ after a data error, and at the end `inflateMark`, `inflateSyncPoint`, `inflateCo
 
 * The applied upstream `inflateCopy` fix uses equality to identify pointers into `codes`. The C and Lean drivers now
   execute fixed-block copies and compare the resulting streams and their continued output. The retained old-source
-  sanitizer reproduction is under `docs/findings/inflate-copy-fixed/`.
+  issue is listed in https://www.dataisland.org/zlib-f/en/findings.html.
 * The Lean driver rebuilds the heap tables between two `inflate` calls (`flatten`): the heap is a chain of closures and a
   long run would make every lookup slow. It changes no value.
 * Inputs: zlib, raw and gzip streams made with Python's `zlib` (so the exact bytes depend on the zlib of the machine that
@@ -129,7 +129,7 @@ after a data error, and at the end `inflateMark`, `inflateSyncPoint`, `inflateCo
 `bench_store` (`lean/Driver/Bench.lean`) is not a differential test. `bench_store N SIZE` makes `N` stores into a
 `SIZE`-byte block and prints the number of changed bytes; `bench_store checksums SIZE` runs `adler32_z` and `crc32_z`
 over `SIZE` bytes. Memory and time are read with `/usr/bin/time -f "%e s %M KB"`; the numbers are in
-`docs/trusted-base.md`, item 2.
+https://www.dataisland.org/zlib-f/en/trusted-base.html, item 2.
 
 ## Platform
 
