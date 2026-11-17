@@ -6,7 +6,7 @@ public function, for the default x86_64 Linux build: `inflate` and `deflate` wit
 sequences, the other public functions, the gzip file interface and the callback decoder
 `inflateBack`; and one functional result, the round trip of the default zlib stream, with
 completeness. Both are proved, as stated below. Other functional goals beyond what safety needs
-are not planned: a functional fact that a planned proof depends on is in scope. What is already proved stays. The
+are not planned: a functional fact that a planned proof depends on is in scope. A theorem that no goal listed in `ZlibF/Results.lean` depends on is deleted, proved or not; it remains in the git history. The
 functions that zlib.h lists under "undocumented
 functions (not part of the zlib API)" are not required. Read `docs/en/overview.md` first, then
 `docs/en/spec/safety.md`. Keep proof explanations in `docs/en/proof/` and `docs/zh/proof/`. State
@@ -28,7 +28,7 @@ unconditional stream round trip; and `uncompress(compress(x)) = x`.
 Other functional correctness (other levels, strategies, window sizes and wrappers, preset
 dictionaries, the gzip file interface and `inflateBack` as round-trip partners), model-only
 statements and other build configurations are not planned. The undocumented functions are not required public targets;
-proofs already registered for them stay. `docs/en/progress.md` lists what is not planned, with
+proofs that no listed goal depends on are deleted like any other unused code. `docs/en/progress.md` lists what is not planned, with
 the reason. Do not work on a not-planned target unless a planned one needs it. Work as fast as
 honest work allows: process
 exists to keep the result honest, not to slow it down.

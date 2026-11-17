@@ -202,7 +202,7 @@ no heap and no fault; they stand for the safety goals of these two functions.
 
 ## Not planned {#not-planned}
 
-No theorem is intended for these. Theorems that already exist for them stay.
+No theorem is intended for these.
 
 | Group | What it covers | Reason |
 | --- | --- | --- |
