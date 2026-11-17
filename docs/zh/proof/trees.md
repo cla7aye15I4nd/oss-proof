@@ -1,4 +1,4 @@
-<!-- source-sha256: ce4a1fdc889d1d0ecefe74f2c8e4b83435bebf992658455cb785fce1c0d68717 -->
+<!-- source-sha256: cbcf3a3d2a642a5f4c33f2b7fc8356813ccef12916551c339969aaf997106513 -->
 # 树与块输出：块刷新为什么是安全的
 
 源文件：`zlib/trees.c`，符号布局在 `zlib/deflate.h` 中。翻译：`ZlibF/Zlib/trees.c.lean`。
@@ -23,7 +23,7 @@
 
 `B` 是 `lit_bufsize = 2^(memLevel + 6)`。因为 F9 对 `memLevel` 的全部九个值都证明了，所以 `deflate` 的序列定理没有关于它的前提。
 
-也有功能定理（`gen_bitlen_correct`、`pqdownheap_correct`、`bi_reverse_correct` 等：码长构成完整的前缀码，写出的位就是想写的位）。它们已证明，但不是安全结论所必需的。没有针对每一种配置的定理说写出的块能解码回已记录的符号。对默认配置，已证明已完成的流是其输入的一个有效 zlib 流；见[默认配置](deflate-default-engine.md)一页。
+也有功能定理（`gen_bitlen_correct`、`pqdownheap_correct`、`bi_reverse_correct` 等：码长构成完整的前缀码，写出的位就是想写的位）。它们已证明，但不是安全结论所必需的。没有针对每一种配置的定理说写出的块能解码回已记录的符号。对 `deflateInit` 以默认级别建立的流，已证明已完成的流是其输入的一个有效 zlib 流；见[往返](roundtrip.md)。
 
 ## 假设
 

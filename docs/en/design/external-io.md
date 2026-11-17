@@ -33,8 +33,8 @@ is allowed.
 
 Each call of `read`, `write`, `lseek`, `close` and `open` takes the next call number and asks
 the oracle what to do. The oracle either lets the call behave as on a regular file, or chooses
-another result. Every oracle value is mapped into the contract of the call (cut or clamped,
-never rejected), so every world is legal.
+another result. Every oracle value is mapped into the range the model gives the call (cut or
+clamped, never rejected), so every world is legal.
 
 | Call | Regular-file behaviour (the oracle's default) | Other results the oracle may choose |
 | --- | --- | --- |
@@ -47,15 +47,17 @@ never rejected), so every world is legal.
 | `errno` after a success | Unchanged. | A successful call may leave any `errno`. The library's own resets of `errno` are separate effects. |
 | Read budget | No bound. | For each non-negative descriptor number, the bytes it may still deliver; every `read` is cut to it and debits it. A negative descriptor has no budget. |
 
-The oracle is deliberately wider than any real system. It covers, call by call, the results of
+The oracle is wider than a regular file. It covers, call by call, the results of
 pipes, sockets, devices, signals (`EINTR`), nonblocking descriptors (`EAGAIN`), transient
 failures and concurrent file changes, without representing those objects. The regular-file part
 does not represent permissions, directory traversal, links or descriptor sharing through
 duplication; `O_NONBLOCK`, `O_CLOEXEC` and `O_LARGEFILE` have no regular-file effect.
 
-Two results are excluded by the model and are trusted facts about Linux, not premises of a
-theorem: a `write` of a nonempty buffer never returns 0, and `close` releases the descriptor
-also when it fails.
+Three results are excluded by the model. They are assumptions about the system, not premises
+of a theorem: a `write` of a nonempty buffer never returns 0; `close` releases the descriptor
+also when it fails; and `lseek` returns `-1` or a non-negative offset. The first two hold on
+Linux. The third does not hold for every file: on Linux, `lseek` on a file with unsigned
+offsets can return a negative value other than `-1`.
 
 The read budget is there to state when reading ends. `zlib.h` puts no bound on the input, and a
 source that never ends keeps one `gzread` call running forever in C. For the calls that read
@@ -111,7 +113,8 @@ The model has two functions, as the C has:
   or `-1` when that length exceeds `INT_MAX`.
 - `vsnprintf` serves the caller's format in `gzvprintf`. It is an external call modelled by its
   C contract, like `read` and `write`: the world oracle chooses the result (`printfRet`) and the
-  bytes (`printfOut`). The caller ensures that the call is defined in C.
+  bytes (`printfOut`). The model does not read the conversions of the format: the caller ensures
+that the call is defined in C for its format and arguments, with no `%n`.
   [Trusted base](../trusted-base.md) states the contract.
 
 `gzvprintf` still runs its own length test, its sentinel test, its buffer vacate and its error

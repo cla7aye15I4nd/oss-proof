@@ -1,4 +1,4 @@
-<!-- source-sha256: 0bd5c98289640aa64ed9b60c28aa6fa1c9c434f9fce1bd7c2f7462cfa25604d9 -->
+<!-- source-sha256: 63ec3d9c017e4b934d9da8eb18ccecdc523db05d3547d0e3331d7805a4a3a930 -->
 
 # Gzip 文件
 
@@ -72,7 +72,7 @@
 | 其他调用 | 无：每个标量参数的每个取值都被覆盖。 |
 
 `gzprintf` 的条件在每个 `gzprintf` 步骤上都要求成立。对读句柄或处于错误状态的句柄，C 在读格式串之前就返回，这时条件只要求格式串指针和各指针参数在句柄的块之外。
-模型不解析格式串：凡是使 `vsnprintf` 调用在 C 中有定义的格式串都被覆盖，包括浮点转换、`%p`、`h` 和 `hh` 修饰符以及 `*` 宽度。`%n` 不被覆盖
+模型不解析格式串：凡是使 `vsnprintf` 调用在 C 中有定义的格式串都被覆盖，包括浮点转换、`%p`、`h` 和 `hh` 修饰符以及 `*` 宽度。`%n` 不被覆盖。与参数不匹配的格式串也不被覆盖，而且模型发现不了它
 （见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。
 
 **读取预算（`ReadsFinite`）。** 六个读调用的终止子句假设：句柄的描述符还能交付的字节少于 `2^61`。
@@ -1108,14 +1108,14 @@ int ZEXPORTVA gzprintf(gzFile file, const char *format, ...);
 - **目标。** `Goal.gzprintf_safety`（[Safety/GzCalls.lean](../../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzprintf_safety`（[public-gz-call-safety.lean](../../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
-    2. 参数条件（`GzArguments`）：文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块；格式串和每个指针参数都在句柄自己的块之外。`vsnprintf` 调用对格式串和参数在 C 中有定义、且没有 `%n`，由调用者保证（[可信基础](../../trusted-base.md)）。
+    2. 参数条件（`GzArguments`）：文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块；格式串和每个指针参数都在句柄自己的块之外。`vsnprintf` 调用对格式串和参数在 C 中有定义、且没有 `%n`，由调用者保证：没有前提陈述这一点，而模型不读取格式串中的转换，发现不了 C 没有定义的调用（[可信基础](../../trusted-base.md)）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
 - **保证。**
     - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 带 `%n` 的格式串，以及对格式串和参数而言在 C 中没有定义的 `vsnprintf` 调用：在本目标之外（见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzprintf`（不在计划内；未完成）。
+- **不在本目标内。** 带 `%n` 的格式串，以及对格式串和参数而言在 C 中没有定义的 `vsnprintf` 调用，例如与参数不匹配的转换：对这些调用在 C 中的行为，本目标什么也没说（见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzprintf`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>完整返回条件与边界</summary>
 
@@ -1170,14 +1170,14 @@ int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va);
 - **目标。** `Goal.gzvprintf_safety`（[Safety/GzCalls.lean](../../../../ZlibF/Spec/Safety/GzCalls.lean)）；必需，尽管 `zlib.h` 把这个函数列为未文档化：`gzprintf` 经由它实现。定理：`ZlibF.Spec.Public.GzCallSafetyProof.gzvprintf_safety`（[public-gz-call-safety.lean](../../../../ZlibF/Proof/public-gz-call-safety.lean)）。这个目标有两个子句：对 NULL 句柄的拒绝；对句柄的一次调用（`GzCallSafety`，即[序列目标](#the-safety-goal)的调用子句限制到这个函数的调用上）。
 - **适用条件。** 拒绝子句没有条件。对句柄的调用要求：
     1. `file` 是一个带有历史的句柄（`GzHistory`，见[安全目标](#the-safety-goal)一节）；
-    2. 参数条件（`GzArguments`）：文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块；格式串和每个指针参数都在句柄自己的块之外。`vsnprintf` 调用对格式串和参数在 C 中有定义、且没有 `%n`，由调用者保证（[可信基础](../../trusted-base.md)）。
+    2. 参数条件（`GzArguments`）：文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块；格式串和每个指针参数都在句柄自己的块之外。`vsnprintf` 调用对格式串和参数在 C 中有定义、且没有 `%n`，由调用者保证：没有前提陈述这一点，而模型不读取格式串中的转换，发现不了 C 没有定义的调用（[可信基础](../../trusted-base.md)）。
 - **无条件覆盖。** 历史能让句柄处于的每一种状态，读句柄或写句柄，有或没有待处理的错误；每个文件系统世界；每一种分配结果。
 - **保证。**
     - *返回。* 句柄为 NULL 时，不论其他参数取什么值，调用都返回 `Z_STREAM_ERROR`。对句柄调用时，调用在每个世界里都返回。
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 带 `%n` 的格式串，以及对格式串和参数而言在 C 中没有定义的 `vsnprintf` 调用：在本目标之外（见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzvprintf`（不在计划内；未完成）。
+- **不在本目标内。** 带 `%n` 的格式串，以及对格式串和参数而言在 C 中没有定义的 `vsnprintf` 调用，例如与参数不匹配的转换：对这些调用在 C 中的行为，本目标什么也没说（见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzvprintf`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzvprintf"><summary>完整返回条件与边界</summary>
 

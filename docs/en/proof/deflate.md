@@ -11,10 +11,8 @@ unread symbols: while a block is written, the output must never reach a symbol t
 be read. This page and the [trees](trees.md#the-overlay-lemma-f9) page call that fact F9; the
 trees page proves it.
 
-Related page: [the default configuration](deflate-default-engine.md) on
-functional results for one configuration. The internal contracts of this file are `I-fw-*`,
-`I-sh-*`, `I-hc-inv`, `I-lm-*` and `I-fp-*` in
-[internal contracts](../spec/internal-contracts.md); `I-pb-room` there covers the macro
+The internal contracts of this file are `I-fw-*`, `I-sh-*`, `I-hc-inv`, `I-lm-*` and `I-fp-*`
+in [internal contracts](../spec/internal-contracts.md); `I-pb-room` there covers the macro
 `put_byte` of `deflate.h`.
 
 ## Results
@@ -456,11 +454,11 @@ not required for the safety results.
 | --- | --- |
 | `Goal.deflate`: the full contract of one call, with progress, return codes, counters, frame and ownership. The safety proof of `compress*` uses it | `Zlib.Deflate.Universal.deflate_safety` |
 | The full contracts `Goal.deflateInit_`, `Goal.deflateInit2_`, `Goal.deflateCopy`, `Goal.deflateEnd`, `Goal.deflateReset`, `Goal.deflateGetDictionary`, `Goal.deflatePending`, `Goal.deflateUsed`, `Goal.deflateTune` and `Goal.deflateSetHeader` | `deflateInit_proof`, `deflateInit2_proof`, `deflate_copy_public`, `deflate_end_public`, `deflate_reset_public`, `deflate_getdict_public`, `pending_public`, `used_public`, `tune_public`, `header_public` |
-| Results for the default configuration only | see [the default configuration](deflate-default-engine.md) |
 
-For the default configuration, `DeflateCore.correct` says that a completed stream decodes, by
-the format specification, to the input that was accepted. For other configurations no theorem
-says that the output of `deflate` decodes to its input.
+For the stream that `deflateInit` makes at the default level, a completed stream decodes, by
+the format specification, to the input that was accepted
+(`GenericDefaultDataTrace.exact_decodes`). For other configurations no theorem says that the
+output of `deflate` decodes to its input.
 
 The round trip of the default zlib stream (compress with `deflate`, decompress with `inflate`,
 get the input back) is proved, with the completion of both sides:

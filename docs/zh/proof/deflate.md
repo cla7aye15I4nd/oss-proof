@@ -1,11 +1,11 @@
-<!-- source-sha256: 86c03016f7c34f9a2967bdd5b95e8ca30e644638714f81adab71cdcbbdd08231 -->
+<!-- source-sha256: 82654ff12801916feb1235541dfa162a4e78781ec448b10c3f217653bb936f59 -->
 # 流式压缩：`deflate` 为什么是安全的
 
 本页讲的是 `zlib/deflate.c` 和它的翻译 `ZlibF/Zlib/deflate.c.lean`。
 
 `deflate` 和其他 `deflate*` 函数，对任意输入、对缓冲区的任意切分、对任意的压缩级别、`memLevel`、`windowBits`、策略、调优参数和头部，在任意一串被允许的调用上，都是安全的。证明由压缩器状态的一个不变量和三条引理组成：每个可达状态都满足不变量；从这样的状态再做一次调用是安全的；`deflateEnd` 释放一切。最难的一步是待输出字节与未读符号共用的那个缓冲区：写一个块时，输出绝不能追上还没读的符号。本页和[树](trees.md#the-overlay-lemma-f9)页面把这条事实叫作 F9；树页面证明它。
 
-相关页面：[默认配置](deflate-default-engine.md)一页说明针对一种配置的功能结论。这个文件的内部契约是[内部契约](../spec/internal-contracts.md)中的 `I-fw-*`、`I-sh-*`、`I-hc-inv`、`I-lm-*` 和 `I-fp-*`；那里的 `I-pb-room` 涵盖 `deflate.h` 的宏 `put_byte`。
+这个文件的内部契约是[内部契约](../spec/internal-contracts.md)中的 `I-fw-*`、`I-sh-*`、`I-hc-inv`、`I-lm-*` 和 `I-fp-*`；那里的 `I-pb-room` 涵盖 `deflate.h` 的宏 `put_byte`。
 
 ## 结论
 
@@ -284,8 +284,7 @@ stateDiagram-v2
 | --- | --- |
 | `Goal.deflate`：一次调用的完整契约，包括进展、返回码、计数、帧和所有权。`compress*` 的安全证明用到它 | `Zlib.Deflate.Universal.deflate_safety` |
 | 完整契约 `Goal.deflateInit_`、`Goal.deflateInit2_`、`Goal.deflateCopy`、`Goal.deflateEnd`、`Goal.deflateReset`、`Goal.deflateGetDictionary`、`Goal.deflatePending`、`Goal.deflateUsed`、`Goal.deflateTune` 和 `Goal.deflateSetHeader` | `deflateInit_proof`、`deflateInit2_proof`、`deflate_copy_public`、`deflate_end_public`、`deflate_reset_public`、`deflate_getdict_public`、`pending_public`、`used_public`、`tune_public`、`header_public` |
-| 只针对默认配置的结论 | 见[默认配置](deflate-default-engine.md)一页 |
 
-对默认配置，`DeflateCore.correct` 说明：已完成的流按格式规格解码，得到的就是被接受的输入。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。
+对 `deflateInit` 以默认级别建立的流，已完成的流按格式规格解码，得到的就是被接受的输入（`GenericDefaultDataTrace.exact_decodes`）。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。
 
 默认 zlib 流的往返（用 `deflate` 压缩，用 `inflate` 解压，得回输入）已经证明，两边的完成性也在其中：见[往返](roundtrip.md)。

@@ -1,4 +1,4 @@
-<!-- source-sha256: 48aed07ade58a1a92b78e78a84ccfd7e9f15ea7f2a7bdbb8b5344cfc036d3849 -->
+<!-- source-sha256: 1d5d11ee80d1ce363b2c08f090071598db690604cbc094e5dca585a5dc641035 -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -277,7 +277,7 @@ flowchart TD
 
 另外还有一些不是目标的定理：
 
-- `inflateBack` 的分支结论：`NULL` 流、缺失的状态，以及立即结束的输入（`inflateBack_eof`）。前两个同时也是 `Goal.inflateBack_safety` 的子句。
+- `inflateBack` 的分支结论：`NULL` 流（`inflateBack_nullstream`）和缺失的状态（`inflateBack_nostate`）。两者同时也是 `Goal.inflateBack_safety` 的子句。
 
 未完成，也不在计划内；安全结论用不到它们：`Goal.inflateBack` 和 `Goal.inflate_back_sequence`。它们还说明到达 `out`
 的是什么（解码子句）。

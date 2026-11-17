@@ -2,9 +2,9 @@
 
 `pending_buf` holds the compressed output from offset 0 and the recorded symbols from offset
 `lit_bufsize`. `compress_block` must never write a pending byte at or beyond the next unread
-symbol (F9, `docs/en/proof/trees.md`). This is proved for fixed and stored blocks and for dynamic
-blocks at every `memLevel` (`dynamic_overlay_large`, `dynamic_overlay_mid` and `tinyOverlay`). For
-dynamic blocks at `memLevel` 1 to 4 the search below is further evidence.
+symbol (F9, `docs/en/proof/trees.md`). This is proved for every kind of block and all nine values
+of `memLevel` (`ZlibF/Proof/trees.c.universal-*.lean`). The search below is evidence about the
+statement, not part of the proof.
 
 `run.sh` builds the patched zlib copy, adds two statements to its `trees.c` that record the gap
 `lit_bufsize + sx - pending` (before the first symbol and after each symbol), and runs
