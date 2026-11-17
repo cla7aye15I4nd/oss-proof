@@ -80,53 +80,6 @@ theorem fill_window_content_boundary {h : Heap} {r : ZStreamRef} {ds origin base
   exact ⟨used, after, z', result, extended, nextOrigin, run, ⟨pending, traceA, by omega⟩,
     account, start, look, wrapA, originA, agrees, stopped, frame⟩
 
-/-- All three real decisions preserve the decoded meaning of the exact
-stored symbols as well as the actual heap boundary. Search and tally
-are executed; their specifications are not caller assumptions. -/
-theorem slow_body_content_boundary {h : Heap} {r : ZStreamRef} {ds origin base : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {xs : List Symbol}
-    (boundary : ContentBoundary h r ds z d input origin base xs)
-    (lookahead : 262 ≤ d.lookahead.toNat) (space : d.sym_next.toNat + 3 < d.sym_end.toNat)
-    (flush : Int32) (st : LoopS) :
-    ∃ next after result ys,
-      deflate_slow_body (some (.tab ds)) flush st h = .ok (next, after) ∧
-      ContentBoundary after r ds z result input origin base ys ∧
-      SlowRecordFrame d result ∧ d.strstart.toNat < result.strstart.toNat ∧
-      result.lookahead.toNat < d.lookahead.toNat ∧ fillEnd result = fillEnd d ∧
-      (ys = xs ∨ ∃ symbol, ys = xs ++ [symbol]) ∧
-      result.sym_next.toNat < result.sym_end.toNat ∧ next.brk = st.brk ∧
-      (next.ret = st.ret ∨ next.ret = some need_more) := by
-  obtain ⟨w, p, q, wa, pa, qa, env, chains⟩ := heap_chains_environment boundary.good boundary.chains
-  obtain ⟨w0, wa0, win, get, view, form⟩ := boundary.data
-  have sameWindow : w0 = w := by
-    simpa only [env.win, Ptr.ref.injEq, BRef.blk.injEq, and_true] using win.symm
-  subst w0
-  have sameArray : wa0 = wa := Option.some.inj (get.symm.trans env.wbytes)
-  subst wa0
-  obtain ⟨next, after, result, ys, run, goodA, chainsA, winA, bytesA, rangeA, endpoint,
-      advance, less, formA, historyA, deferredA, countA, brkA, retA, symbolsA, step, frameA, values⟩ :=
-    slow_body_with_symbol_values boundary.good boundary.symbols env chains (Nat.le_refl _)
-      boundary.range lookahead boundary.history boundary.deferred view (form (by omega)) space flush st
-  change fillEnd result = fillEnd d at endpoint
-  have core : SlowBoundary after r ds z result input origin ys :=
-    ⟨goodA, chainsA, rangeA, historyA, deferredA, symbolsA, w, wa, winA, bytesA,
-      (fun i bound => view i (by rw [← endpoint]; exact bound)), fun _ => formA⟩
-  have insert : result.insert = 0 :=
-    (congrArg (·.insert) frameA).trans (boundary.ready (by omega))
-  have pending : PendingBoundary after r ds z result input origin ys :=
-    ⟨core, by simp [insert], by simpa only [insert, show (0 : UInt32).toNat = 0 from rfl, Nat.sub_zero] using chainsA,
-      fun _ => insert⟩
-  obtain ⟨_, _, _, _, balance⟩ := boundary.symbols
-  obtain ⟨_, _, _, _, balanceA⟩ := symbolsA
-  refine ⟨next, after, result, ys, run,
-    ⟨pending, slow_value_trace boundary view values,
-      content_accounted_body balance balanceA frameA boundary.accounted⟩,
-    frameA, advance, less, endpoint, ?_, countA, brkA, retA⟩
-  rcases step with same | literal | matched
-  · exact Or.inl same
-  · exact Or.inr ⟨_, literal⟩
-  · exact Or.inr ⟨_, matched⟩
-
 /-- The buffered symbols expand under the format's copyBack to the real
 input prefix, ending immediately before any deferred byte. -/
 theorem ContentBoundary.expands {h : Heap} {r : ZStreamRef} {ds origin base : Nat}

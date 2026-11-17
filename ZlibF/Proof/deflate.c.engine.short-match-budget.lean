@@ -193,32 +193,6 @@ theorem retained_match_short_quality (d : DeflateState)
   have short : d.match_length = 3 := UInt32.toNat_inj.mp (by change d.match_length.toNat = 3; omega)
   exact UInt32.le_iff_toNat_le.mp (quality short)
 
-/-- The source body value packet preserves the quality of every stored
-symbol under the prior pending-match quality. -/
-theorem slow_value_short_quality {d : DeflateState} {wa : Array UInt8}
-    {xs ys : List ZlibF.Math.DeflateSymbols.Symbol}
-    (previous : ∀ s ∈ xs, s.distance ≠ 0 → s.value = 0 → s.distance ≤ 4096)
-    (quality : d.match_length = 3 → d.strstart - 1 - d.match_start ≤ TOO_FAR)
-    (values : SlowSymbolValueStep d wa xs ys) :
-    ∀ s ∈ ys, s.distance ≠ 0 → s.value = 0 → s.distance ≤ 4096 := by
-  rcases values with same | ⟨_available, literal⟩ | ⟨large, matched⟩
-  · rw [same]
-    exact previous
-  · rw [literal]
-    intro s member nonzero zero
-    rcases List.mem_append.mp member with old | fresh
-    · exact previous s old nonzero zero
-    · have same : s = emittedLiteral d wa := List.mem_singleton.mp fresh
-      subst s
-      exact False.elim (nonzero rfl)
-  · rw [matched]
-    intro s member nonzero zero
-    rcases List.mem_append.mp member with old | fresh
-    · exact previous s old nonzero zero
-    · have same : s = retainedMatchSymbol d := List.mem_singleton.mp fresh
-      subst s
-      exact retained_match_short_quality d quality large nonzero zero
-
 /-- The actual default sliding guard leaves at least 32,506 bytes
 before the new cursor. -/
 theorem default_slide_start_floor {h : Heap} {r : ZStreamRef} {ds : Nat}

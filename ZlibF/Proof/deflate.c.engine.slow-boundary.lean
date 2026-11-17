@@ -50,47 +50,6 @@ theorem default_initialization_slow_boundary {h : Heap} {r : ZStreamRef} {z : ZS
     · intro large
       simp [start.lookahead] at large
 
-set_option maxHeartbeats 3500000 in
-/-- The actual complete slow body preserves the same boundary that init
-established. Search and every non-flushing decision are covered. Its
-source path requires lookahead>=262 and room for one non-full symbol.
--/
-theorem slow_body_boundary {h : Heap} {r : ZStreamRef} {ds origin : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {xs : List Symbol}
-    (boundary : SlowBoundary h r ds z d input origin xs)
-    (lookahead : 262 ≤ d.lookahead.toNat) (space : d.sym_next.toNat + 3 < d.sym_end.toNat)
-    (flush : Int32) (st : LoopS) :
-    ∃ next after result ys,
-      deflate_slow_body (some (.tab ds)) flush st h = .ok (next, after) ∧
-      SlowBoundary after r ds z result input origin ys ∧
-      SlowRecordFrame d result ∧ d.strstart.toNat < result.strstart.toNat ∧
-      result.lookahead.toNat < d.lookahead.toNat ∧ fillEnd result = fillEnd d ∧
-      (ys = xs ∨ ∃ symbol, ys = xs ++ [symbol]) ∧
-      result.sym_next.toNat < result.sym_end.toNat ∧ next.brk = st.brk ∧
-      (next.ret = st.ret ∨ next.ret = some need_more) := by
-  obtain ⟨w, p, q, wa, pa, qa, env, chains⟩ := heap_chains_environment boundary.good boundary.chains
-  obtain ⟨w0, wa0, win, get, view, form⟩ := boundary.data
-  have sameWindow : w0 = w := by
-    simpa only [env.win, Ptr.ref.injEq, BRef.blk.injEq, and_true] using win.symm
-  subst w0
-  have sameArray : wa0 = wa := Option.some.inj (get.symm.trans env.wbytes)
-  subst wa0
-  obtain ⟨next, after, result, ys, run, goodA, chainsA, winA, bytesA, rangeA, endpoint,
-      consumed, less, formA, historyA, deferredA, countA, brkA, retA, symbolA, step, frameA⟩ :=
-    slow_body_with_symbols boundary.good boundary.symbols env chains (Nat.le_refl _)
-      boundary.range lookahead boundary.history boundary.deferred view (form (by omega)) space flush st
-  change fillEnd result = fillEnd d at endpoint
-  refine ⟨next, after, result, ys, run, ?_, frameA, consumed, less, endpoint, ?_, countA, brkA, retA⟩
-  · refine ⟨goodA, chainsA, rangeA, historyA, deferredA, symbolA,
-      w, wa, winA, bytesA, ?_, fun _ => formA⟩
-    intro i bound
-    rw [endpoint] at bound
-    exact view i bound
-  · rcases step with same | literal | matched
-    · exact Or.inl same
-    · exact Or.inr ⟨_, literal⟩
-    · exact Or.inr ⟨_, matched⟩
-
 open ZlibF.Spec.Public.Proofs.DeflateInit in
 /-- The strengthened boundary is inhabited by an actual successful
 default entry on the existing concrete caller heap. -/

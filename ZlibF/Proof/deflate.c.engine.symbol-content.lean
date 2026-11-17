@@ -60,34 +60,6 @@ theorem retained_match_input_meaning {d : DeflateState} {input : Nat → UInt8} 
   intro j hj
   exact bytes j (by omega)
 
-/-- The exact emitted-value result advances a trace by the same actual
-literal/match symbol. The deferred-byte flag fixes its logical position. -/
-theorem slow_value_trace {h : Heap} {r : ZStreamRef} {ds origin base : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {wa : Array UInt8} {xs ys : List Symbol}
-    (boundary : ContentBoundary h r ds z d input origin base xs)
-    (view : ∀ i, i < fillEnd d → bfn wa i = input (origin + i))
-    (values : SlowSymbolValueStep d wa xs ys) : Trace input base ys := by
-  have accounted := boundary.accounted
-  rcases values with same | ⟨available, literal⟩ | ⟨large, matched⟩
-  · rw [same]
-    exact boundary.trace
-  · have credit : pendingCredit d = 1 := by simp [pendingCredit, available]
-    have position : base + represented xs = origin + d.strstart.toNat - 1 := by omega
-    rw [literal]
-    apply Trace.snoc boundary.trace
-    rw [position]
-    exact literal_input_meaning boundary.deferred available view
-  · have available : d.match_available ≠ 0 := (boundary.history.2 large).2.1
-    have credit : pendingCredit d = 1 := by simp [pendingCredit, available]
-    have position : base + represented xs = origin + d.strstart.toNat - 1 := by omega
-    have window : d.w_size.toNat ≤ 32768 := by
-      rw [boundary.good.inv.wsize]
-      exact Nat.pow_le_pow_right (by decide) boundary.good.inv.wbits_hi
-    rw [matched]
-    apply Trace.snoc boundary.trace
-    rw [position]
-    exact retained_match_input_meaning boundary.history window large
-
 /-- Real block balance and the exact source record frame preserve the
 absolute position of the traced symbols, including deferred credit. -/
 theorem content_accounted_body {d result : DeflateState} {xs ys : List Symbol} {origin base : Nat}

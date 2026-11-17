@@ -11,7 +11,7 @@ At `lit_bufsize = 128`, every prepared dynamic block satisfies `H + bitExcess �
 (`header_excess_128_w`), from the header hypothesis `HeaderRefBound128W α` with `α ≤ 60`: the
 header is at most `71 + α + W/2 + refHeaderCost128`, with `W` the number of bit-length symbols, the cost of the scanned bit-length symbols under the
 reference code `κ1`. The facts of the run feed the heap-free certificate
-(`DeflateOverlayCertificate128`): the region scan (`scan_cost_region`, charges by region), the
+(`DeflateOverlayCertificate128W`): the region scan (`scan_cost_region`, charges by region), the
 choice row (`choice_row`), Kraft and the forced leaves, which are split into three cases (none;
 only in the distance tree, which then has two nonzero lengths; in the literal/length tree, which
 then has two). The order-free budget follows (`overlay_budget_128_w`), and so the overlay room
@@ -60,12 +60,12 @@ theorem charges_128_w :
   have short : ∀ x, 1 ≤ x → x ≤ 15 → 2 * refWeight1 x + 1 ≤ distanceRegionCharge x := by
     intro x h1 h2
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
-      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128.refLen1, distanceRegionCharge,
+      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128W.refLen1, distanceRegionCharge,
         Zlib.Trees.Proofs.Out.blExtraBits] at h1 h2 ⊢
   have rep : ∀ x, 1 ≤ x → x ≤ 15 → 2 * refWeight1 16 + 1 ≤ 3 * distanceRegionCharge x := by
     intro x h1 h2
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
-      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128.refLen1, distanceRegionCharge,
+      simp [refWeight1, ZlibF.Math.DeflateOverlayCertificate128W.refLen1, distanceRegionCharge,
         Zlib.Trees.Proofs.Out.blExtraBits] at h1 h2 ⊢
   have w0 : 2 * refWeight1 0 + 1 = 5 := by decide
   have w17 : 2 * refWeight1 17 + 1 = 13 := by decide

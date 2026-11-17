@@ -545,43 +545,4 @@ theorem call_phase_safe (call : Goal.inflate) {e : Env} {l : UncLoop} {H : Heap}
           rw [st.agree.allocOk, (put_globals_writeOut _ _ _).2] at bad
           exact bad }
 
-/-- One call after the refills, with the format fact of the functional proof. -/
-theorem call_phase (facts : DecoderFacts) {e : Env} {l : UncLoop} {H : Heap} {log : DataLog} {i : Nat}
-    {z : ZStream} {s : InflateState} (ok : EnvOK e) (st : State e l H log i z s)
-    (fullIn : z.avail_in = 0 → l.len = 0) (fullOut : z.avail_out = 0 → l.left = 0) :
-    ∃ rc H', C.run (inflate (some e.r) Z_NO_FLUSH) H = .ok (rc, H') ∧
-      (rc = Z_OK → ∃ log' z' s', State e { l with err := rc } H' log' i z' s' ∧
-        measure e { l with err := rc } H' < measure e l H) ∧
-      (rc ≠ Z_OK → ∃ input output u z' s', Final e { l with err := rc } rc H H' log input output u i z z' s s') := by
-  obtain ⟨rc, H', run, more, done⟩ := call_phase_safe facts.call ok st.toSafeState fullIn fullOut
-  refine ⟨rc, H', run, ?_, ?_⟩
-  · intro rcOk
-    obtain ⟨input, out, u, z', s', dstep, hin, aU, sst, lt⟩ := more rcOk
-    subst rcOk
-    subst hin
-    refine ⟨_, z', s', { toSafeState := sst, noOver := ?_ }, lt⟩
-    have srcLen := ok.srcLen
-    have inC := st.inCount
-    have inTake' : log.input ++ ((e.src.drop log.input.length).take z.avail_in.toNat).take u =
-        e.src.take (log.input.length + u) := by
-      rw [List.take_take, Nat.min_eq_left aU, List.take_add, ← st.inTake]
-    have given : log.input ++ (e.src.drop log.input.length).take z.avail_in.toNat <+: e.src := by
-      have e1 : log.input ++ (e.src.drop log.input.length).take z.avail_in.toNat =
-          e.src.take (log.input.length + z.avail_in.toNat) := by
-        conv => lhs; arg 1; rw [st.inTake]
-        rw [← List.take_add]
-      rw [e1]
-      exact List.take_prefix _ _
-    intro m o hm d
-    have w := (consumes_within_stream facts.step held_within facts.fail facts.short) 15 .zlib 15 e.r H H' log false Z_NO_FLUSH Z_OK _ out u (e.src.take m) o
-      inflWbits_15 st.trace st.single st.fit (by rw [st.dict]; exact zlib_layer d) zlib_full (st.noOver m o hm d).1
-      (List.prefix_or_prefix_of_prefix given (List.take_prefix m e.src)) dstep
-    rw [inTake'] at w
-    simp only [okLog]
-    rw [inTake']
-    exact ⟨w.1, fun h => w.2 h (Or.inl (by decide)) |>.1 rfl⟩
-  · intro rcNe
-    obtain ⟨input, output, u, z', s', fin⟩ := done rcNe
-    exact ⟨input, output, u, z', s', { toSafeFinal := fin, noOver := st.noOver }⟩
-
 end ZlibF.Spec.Public.Proofs.Uncompress

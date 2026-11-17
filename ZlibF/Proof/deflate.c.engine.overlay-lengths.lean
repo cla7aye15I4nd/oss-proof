@@ -37,7 +37,7 @@ open Zlib.Trees.Proofs (blPrepare BLInput curL same_record_of_runs dynamicHeader
 open Zlib.Trees.Proofs.Out (TreesInvAt dcodeN)
 open ZlibF.Math.DeflateSymbols
 open ZlibF.Math.DeflateOverlayCertificate (kraftTerm)
-open ZlibF.Math.DeflateOverlayCertificate128 (isUsed)
+open ZlibF.Math.DeflateOverlayCertificate128W (isUsed)
 open Zlib.Trees.HuffmanAbstract (fib)
 set_option autoImplicit false
 

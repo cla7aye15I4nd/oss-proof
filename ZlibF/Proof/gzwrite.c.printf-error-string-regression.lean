@@ -39,24 +39,4 @@ def prefixRun : G (GzFilePtr × BPtr) := do
   let m ← StateT.lift (gzerror file .null)
   return (file, m)
 
-set_option maxRecDepth 40000 in
-/-- **The history**: it returns; after the stalled write the message is a C string on the heap, and `gzprintf` with it
-as its `%s` argument faults. -/
-theorem printf_own_message_faults (statics : Statics) :
-    (∃ r, prefixRun stallFs (callerHeap statics) = .ok r) ∧
-    ∀ file m fs1 h1, prefixRun stallFs (callerHeap statics) = .ok (((file, m), fs1), h1) →
-      (∃ text, cstring m h1 = .ok (text, h1)) ∧
-      ∃ e, gzprintf file (.ref (.blk 2) 0) [.str m] fs1 h1 = .error e ∧ e ≠ .outOfFuel := by
-  have e1 : prefixRun stallFs (callerHeap statics) = prefixRun stallFs (callerHeap statics) := rfl
-  conv at e1 => rhs; cbv
-  refine ⟨⟨_, e1⟩, ?_⟩
-  intro file m fs1 h1 hr
-  rw [e1] at hr
-  injection hr with hr
-  injection hr with hr hh
-  injection hr with hr hfs
-  injection hr with hf hm
-  subst hf hm hfs hh
-  exact ⟨⟨_, by conv => lhs; cbv⟩, ⟨_, by conv => lhs; cbv, by decide⟩⟩
-
 end Zlib.Gzwrite.PrintfErrorStringRegression

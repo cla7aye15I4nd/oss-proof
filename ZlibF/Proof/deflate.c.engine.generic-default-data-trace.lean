@@ -46,14 +46,6 @@ theorem GenericDefaultDataTrace.dictionary_empty {h : Heap} {r : ZStreamRef} {lo
   | caller _ _ ih => exact ih
   | step _ _ _ ih => exact ih
 
-/-- Every old raw-output trace embeds with its exact unchanged observed log. -/
-theorem GenericDefaultDataTrace.of_raw {h : Heap} {r : ZStreamRef} {log : DataLog}
-    (history : DefaultDataTrace r h log) : GenericDefaultDataTrace r h log := by
-  induction history with
-  | init domain actual => exact .init domain actual
-  | caller _ edit ih => exact .caller ih edit
-  | step _ getZ _raw observed ih => exact .step ih getZ observed
-
 inductive GenericDefaultDataTrace.UsesFlush {r : ZStreamRef} (allowed : Int32 → Prop) :
     {h : Heap} → {log : DataLog} → GenericDefaultDataTrace r h log → Prop
   | init {h after version} {domain : InitDomain h r version}

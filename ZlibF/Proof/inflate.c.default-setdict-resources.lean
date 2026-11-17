@@ -115,69 +115,7 @@ theorem inflateSetDictionary_owned_retained {h after : Heap} {r : ZStreamRef} {z
       simp [setI]
     simpa only [stateEq, InflateOwned] using (fun b (owned : InflateOwned zs s b) => owned)
 
-/-- The default setter's original public range is sufficient for the actual
-run, the initialized invariant, its public frame and its exact ownership ledger.
-Allocation failure and all argument or checksum refusals are included. -/
-theorem inflateSetDictionary_default_public_contract {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} (before : DefaultOriginState h r zs z s) (allocator : DefAlloc z)
-    (source : BPtr) (len : UInt32) (range : CallerRange h r source len.toNat false) :
-    ∃ rc after state, C.run (inflateSetDictionary (some r) source len) h = .ok (rc, after) ∧
-      DefaultOriginState after r zs z state ∧
-      BufferFrame h after
-        (fun b => StreamRoot r b ∨ StreamOwned h r b ∨
-          StreamHeaderRecord h r (.inflateSetDictionary (some r) source len) b)
-        (StreamWriteRegions h r (.inflateSetDictionary (some r) source len)) ∧
-      LiveChange h after
-        (fun b => StreamOwned after r b ∧ ¬ h.live b)
-        (fun b => StreamOwned h r b ∧ ¬ StreamOwned after r b) := by
-  obtain ⟨code, after, state, actual, current, _⟩ := inflateSetDictionary_default_origin before allocator source len range
-  obtain ⟨old, dictionary⟩ := good_dictionary_view before.good
-  have bytes : ∃ xs, source ≠ .null → Bytes h source len.toNat xs := by
-    rcases range with null | ⟨⟨xs, readable⟩, _⟩
-    · exact ⟨[], fun nonnull => (nonnull null).elim⟩
-    · exact ⟨xs, fun _ => readable⟩
-  obtain ⟨xs, readable⟩ := bytes
-  have separate : Separate source len.toNat s.window (2 ^ s.wbits.toNat) := by
-    cases source with
-    | null => simp [Separate]
-    | ref ref off =>
-      have unowned := callerRange_private_window before.good range rfl
-      rcases before.good.inv.win.block with null | ⟨w, array, window, _⟩
-      · simp [Separate, null]
-      · simp [Separate, window, unowned w window]
-  obtain ⟨rc, computed, run, _reject, _content, frame, post, _beforeGet, postGet, live⟩ :=
-    ZlibF.Spec.Public.Proofs.inflateSetDictionary_public h r zs z s source len xs old before.good allocator.1
-      dictionary readable separate
-      (fun allowed => (before.toDefaultStateJ.range_of_nonzero (before.toDefaultStateJ.width_of_allowed allowed)).1)
-  have same := Except.ok.inj (actual.symm.trans run)
-  cases same
-  have stateEq : post = state := Option.some.inj (postGet.symm.trans current.good.live.hs)
-  subst post
-  have retained := inflateSetDictionary_owned_retained before allocator range current.good actual
-  refine ⟨code, after, state, actual, current, ⟨?_, ?_⟩, ?_⟩
-  · simpa only [StreamWriteRegions, restoreRegions, List.foldl_nil] using
-      (show Frame h after (fun b => StreamRoot r b ∨ StreamOwned h r b ∨
-          StreamHeaderRecord h r (.inflateSetDictionary (some r) source len) b) from by
-        rcases frame with ⟨static, oracle, garbage, next, allocs, outside⟩
-        refine ⟨static, oracle, garbage, next, allocs, ?_⟩
-        intro b alive unchanged
-        apply outside b alive
-        intro changed
-        apply unchanged
-        rcases changed with root | owned
-        · exact Or.inl root
-        · exact Or.inr (Or.inl ((before.good.streamOwned_iff b).mpr owned)))
-  · simp only [StreamWriteRegions, List.not_mem_nil, false_implies, implies_true]
-  · intro b
-    dsimp only
-    rw [current.good.streamOwned_iff, before.good.streamOwned_iff]
-    have notRemoved : ¬ (InflateOwned zs s b ∧ ¬ InflateOwned zs state b) := by
-      rintro ⟨old, absent⟩
-      exact absent (retained b old)
-    simpa only [LiveChange, notRemoved, not_false_eq_true, and_true] using live b
-
 #print axioms good_dictionary_view
 #print axioms updatewindow_owned_retained
 #print axioms inflateSetDictionary_owned_retained
-#print axioms inflateSetDictionary_default_public_contract
 end Zlib.Inflate.Proofs

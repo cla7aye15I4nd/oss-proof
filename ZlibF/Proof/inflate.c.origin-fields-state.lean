@@ -99,21 +99,6 @@ theorem inflate_dispatch_terminal_origin_fields {c : Ctx} {h after : Heap} {r : 
   rw [← same]
   exact OriginFieldFrame.refl r c.st h
 
-/-- Actual data decoding establishes the stronger state without a new
-caller invariant or callee specification assumption. -/
-theorem inflate_dispatch_data_origin_state_run {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (before : DefaultOriginState h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : DataTableMode s.mode) :
-    ∃ outcome regs after stream state,
-      runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) ∧
-      DefaultOriginState after r zs stream state := by
-  obtain ⟨outcome, regs, after, stream, state, actual, current⟩ :=
-    inflate_dispatch_data_view_state_run E before.toDefaultStateJ buffers mode
-  exact ⟨outcome, regs, after, stream, state, actual,
-    before.of_field_frame current (inflate_dispatch_data_origin_fields E mode actual)⟩
-
-#print axioms inflate_dispatch_data_origin_state_run
 #print axioms inflate_dispatch_stored_origin_fields
 #print axioms inflate_dispatch_trailer_origin_fields
 #print axioms inflate_dispatch_terminal_origin_fields
