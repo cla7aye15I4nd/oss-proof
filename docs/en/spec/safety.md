@@ -373,8 +373,8 @@ which is undefined behaviour.
 
 **A theorem that the model does not fault is not, alone, a proof that the C has no undefined
 behaviour.** The model detects most undefined behaviour and raises `Fault.ub`. This section
-lists what it detects and where it does not. The main gaps are two null-pointer operations,
-uninitialised pointers, and object layout and types. Each is a stated limit of the result, also
+lists what it detects and where it does not. The main gaps are two pointer operations that C
+leaves undefined, uninitialised pointers, and object layout and types. Each is a stated limit of the result, also
 recorded in [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schema).
 
 ### The obligations
@@ -382,9 +382,9 @@ recorded in [trusted base, item 2](../trusted-base.md#2-runtime-and-object-schem
 | ID | Obligation | Does the model detect a violation? |
 | --- | --- | --- |
 | U1 | No read or write outside an object | Yes. |
-| U2 | Pointer arithmetic stays within an object or one past it | Yes, except `NULL + 0` ([below](#null-pointers-and-pointer-differences)). |
+| U2 | Pointer arithmetic stays within an object or one past it | Yes, except adding zero to a null or dangling pointer, and `NULL - NULL` ([below](#null-pointers-and-pointer-differences)). |
 | U3 | No null dereference | Yes. |
-| U4 | No use after free or double free | Yes. A freed block number is never reused, so a dangling pointer faults. |
+| U4 | No use after free or double free | Yes. A freed block number is never reused, so a read or a write through a dangling pointer faults. Adding zero to a dangling pointer does not fault ([below](#null-pointers-and-pointer-differences)). |
 | U5 | No invalid use of uninitialised data | Integers: every theorem holds for every value. Pointers: no; no theorem states it, and it is left to source review ([below](#uninitialised-memory)). |
 | U6 | No signed overflow | Yes, where the translation uses a checked signed operation. Where a preceding test in the same function keeps the operands in range, the translation uses the plain operator ([translation, normalisation 4](../design/translation.md#the-accepted-normalisations)); there the test excludes the overflow, and the model does not check it. |
 | U7 | No invalid shift | Yes, where the translation uses a checked shift operation. A shift by a literal count, and a few other shifts, are written with the plain operator, which the model does not check ([translation, form 4](../design/translation.md#forms-not-covered-by-the-four-accepted-normalisations)). |
@@ -401,27 +401,32 @@ obligations. U11 and U12 add termination and resources; a failure of one is not 
 
 ### Null pointers and pointer differences
 
-**The model accepts two null-pointer operations that C leaves undefined: `NULL + 0`, and, in
-the helper of `compress` only, `NULL - NULL`. A no-fault theorem does not show that the C
+**The model accepts two operations that C leaves undefined: adding zero to any pointer value
+(a null pointer, a pointer field that was never written, a pointer into a freed block), and
+`NULL - NULL`. A no-fault theorem does not show that the C
 avoids them.** [Model limits](../model-limits.md#conditions-on-the-model-that-goals-state) has the
-row "Null pointer arithmetic".
+row "Pointer plus zero, and `NULL - NULL`", which names the places of the verified source that
+reach them.
 
 | Operation | What the model does | What a claim about the C still needs |
 | --- | --- | --- |
-| Null pointer plus integer zero | `Ptr.add` returns the null pointer. No fault. | An argument that each reachable use is defined under the selected C rules. |
+| Any pointer plus integer zero | `Ptr.add` returns the pointer. No fault, also for a null pointer, a pointer field that was never written (`NULL` in the model) and a pointer into a freed block. | An argument that each reachable use is defined under the selected C rules. |
 | Null pointer plus a nonzero integer | `Ptr.add` raises `Fault.ub`. | Nothing: a no-fault theorem excludes it. |
-| Null pointer minus null pointer | `Ptr.diff` raises `Fault.ub`. `Zlib.Compress.ptrDiff` returns zero instead. | For the `compress` helper: an argument that the C expression is defined. |
+| Pointer into a freed block plus a nonzero integer | `Ptr.add` raises `Fault.ub`. | Nothing: a no-fault theorem excludes it. |
+| Null pointer minus null pointer | `Ptr.diff` returns zero. No fault. | An argument that each reachable use is defined under the selected C rules. |
+| A null pointer and a non-null pointer | `Ptr.diff` raises `Fault.ub`. | Nothing: a no-fault theorem excludes it. |
 | Two non-null pointers into the same live array | `Ptr.diff` checks both offsets, permits one past the end, and checks that the difference fits 64 signed bits. | That the model's object is the C object. |
 | Pointers into different objects, or dangling pointers | `Ptr.diff` raises `Fault.ub`. | Nothing: a no-fault theorem excludes it. |
 
-The definitions are [Ptr.add and Ptr.diff](../../../ZlibF/Runtime/Ptr.lean) and the
-[compressor helper](../../../ZlibF/Zlib/compress.c.lean). The table is about pointer values, not
+The definitions are [Ptr.add and Ptr.diff](../../../ZlibF/Runtime/Ptr.lean). The table is about pointer values, not
 about the spelling `NULL`, which can also be an integer constant.
 
 C11 ([N1570, section 6.5.6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)) and
 the C23 draft ([N3096, section 6.5.6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf))
 define pointer addition and subtraction only for pointers into an array object, and a null
 pointer points into none. So these texts define neither `NULL + 0` nor `NULL - NULL`.
+The value of a pointer to an object whose lifetime has ended is indeterminate, as is a pointer field that was never written, so
+these texts do not define adding zero to one either.
 
 ### Uninitialised memory
 

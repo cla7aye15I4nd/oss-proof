@@ -9,7 +9,7 @@ are not proved, and compiling the proofs does not discharge them.
 | 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The build: the kernel checks every proof, and a check of the results examines the type of each theorem and the axioms it depends on. A replay by the kernel in a fresh environment is a command a reader can run |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and differential tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: zlib 1.4 and six patches | The [patches page](../../patches/README.md). Each patched defect was reproduced with the real C under a sanitizer, with three exceptions: 0005 rests on a probe run and a reading of the C; one branch of 0004 rests on a reading of the C; 0006 fixes a broken promise that no sanitizer reports |
+| 4 | The selected source: zlib 1.4 and seven patches | The [patches page](../../patches/README.md). Each patched defect was reproduced with the real C under a sanitizer, with two exceptions: one branch of 0004 rests on a reading of the C; 0007 fixes a broken promise that no sanitizer reports |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
 | 6 | The statements: that each goal says what it should | Review against `zlib.h`; the check that a theorem states exactly its goal |
 
@@ -73,14 +73,19 @@ has limits, and five of them matter to every reader:
 - **In-place table updates.** The primitives that write change a heap table in place
   (`Space.modify`). A lemma (`modify_eq`) states that this equals the functional update the
   proofs reason with; the review of that lemma and of the table type is part of this item.
-- **Null pointer arithmetic.** The model defines two operations that C17 leaves undefined:
-  `NULL + 0`, and `NULL - NULL` at one place, the stored length `stream.next_out - dest` of
-  `compress2_z` (`Compress.ptrDiff`), where it gives 0. A `compress` call with a `NULL`
-  destination of capacity 0 is inside the goal, and reaches that place when its `deflateInit`
-  succeeds. A no-fault theorem does
+- **Pointer plus zero, and `NULL - NULL`.** The model defines two operations that C17 leaves
+  undefined. Adding or subtracting zero returns the pointer, for every pointer value: a null
+  pointer, a pointer field that was never written, and a pointer into a freed block.
+  `NULL - NULL` is 0. Every other arithmetic on such a pointer is a fault. This is more
+  permissive than ISO C, which defines `p + 0` only for a pointer into a live array object or
+  one past its end. The verified source reaches both operations. `gzseek64` and `gz_skip_have`
+  compute `x.next += 0` on an `x.next` that was never written, or that points into a caller
+  buffer the caller has freed. A `compress` call with a `NULL` destination of capacity 0 is
+  inside the goal, and when its `deflateInit` succeeds `compress2_z` computes
+  `stream.next_out - dest` with both pointers `NULL`. A no-fault theorem does
   not show that the C avoids these two operations
-  ([model limits](model-limits.md#conditions-on-the-model-that-goals-state), row "Null pointer
-  arithmetic").
+  ([model limits](model-limits.md#conditions-on-the-model-that-goals-state), row "Pointer plus
+  zero, and `NULL - NULL`").
 
 [Model limits](model-limits.md#how-the-runtime-represents-c) has the full lists under three
 headings: "Memory and library operations" (what `memcpy`, `malloc`, `free` and the other modelled
@@ -142,7 +147,7 @@ statement cannot be proved, or a promise of `zlib.h` does not hold. It is as sma
 allows, and it matches the fix submitted upstream where one was submitted. A patch marked local
 has not been submitted.
 
-Six patches are applied. Every theorem is about the patched source, so each patch is part
+Seven patches are applied. Every theorem is about the patched source, so each patch is part
 of what a reader trusts. [Patches](../../patches/README.md) gives the evidence for each.
 
 | Patch | Fixes | Upstream state |
@@ -150,9 +155,10 @@ of what a reader trusts. [Patches](../../patches/README.md) gives the evidence f
 | 0001 | Relational comparison of unrelated pointers in `inflateCopy` | Matches upstream PR #1369; not yet on the upstream branch |
 | 0002 | Signed overflow in `gzseek64` after `gzungetc` | The `gzlib.c` part of upstream PR #1361, open |
 | 0003 | Stale `x.next` after a partial transparent read fails | Upstream PR #1363, open |
-| 0004 | Overflow of the gz position `x.pos` | Local: not submitted |
-| 0005 | Arithmetic on an unwritten or dangling `x.next` with a zero advance | Local: not submitted |
-| 0006 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Local: not submitted |
+| 0004 | Overflow of the gz position `x.pos` while reading | Local: not submitted |
+| 0005 | Overflow of the gz position `x.pos` while writing | Local: not submitted |
+| 0006 | Signed overflow in `gzoffset64` on a negative result of `lseek` | Local: not submitted |
+| 0007 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Local: not submitted |
 
 ## 5. Configuration and external world
 
@@ -220,7 +226,7 @@ OS-call oracle (fields of `Fs`, numbered by the call counter `nos`) decides for 
 `write`, `lseek`, `close` and `open` call whether it behaves as the regular file, fails with a
 chosen errno, or returns a chosen result. Every oracle value is mapped into the range the model
 gives the call: `read` returns -1 or at most the requested count; a nonempty `write` returns -1 or
-between 1 and the count; `lseek` returns -1 or a value in `[0, 2^63 - 1]`, possibly unrelated to
+between 1 and the count; `lseek` returns -1 or any 64-bit value, possibly unrelated to
 later reads; `close` returns 0 or -1 and releases the descriptor in both cases; `open` returns -1
 or any descriptor number below `2^31` that was not open, and fails with `EMFILE` when no
 descriptor below `2^31` is free. A failure sets a nonzero errno, and a success may
@@ -232,12 +238,10 @@ oracle `lseek` does not move the descriptor; read data is arbitrary; a regular r
 by the read budget. These choices only add behaviours. The number `open` returns is not
 constrained further, because the model's descriptor table is not the whole process.
 
-Three facts about the system are assumed and not checked: a nonempty `write` never returns 0;
-`close` releases the descriptor even when it reports an error; and `lseek` returns -1 or a
-non-negative offset. The first two hold on Linux. The third does not hold for every file:
-on Linux, `lseek` on a file with unsigned offsets can return a negative value other than -1.
-The model has no world with such a result, so the gz goals say nothing about a descriptor
-on which `lseek` returns one. The first is needed for termination of `gz_comp`. **To confirm**: by a reading of the C, a `write` that returned 0
+Two facts about the system are assumed and not checked: a nonempty `write` never returns 0;
+and `close` releases the descriptor even when it reports an error. Both hold on Linux.
+Nothing is assumed of `lseek`: a successful call may return any 64-bit value, a negative one
+included, as on a Linux file with unsigned offsets. The first is needed for termination of `gz_comp`. **To confirm**: by a reading of the C, a `write` that returned 0
 forever would make `gz_comp` loop forever, because neither write loop advances on a count of 0.
 No theorem states this: the model has no world with such a `write`.
 

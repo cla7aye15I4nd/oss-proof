@@ -1633,7 +1633,7 @@ The result is the descriptor's current position, less unused compressed input wh
 | Returned value | Meaning and conditions | Caller’s next step |
 | --- | --- | --- |
 | `offset != -1`<br>**Physical file offset value** | The valid handle's system position query succeeds and offset arithmetic is representable; held unused compressed input is subtracted for a reader. | Use it as a physical offset; the query does not move the descriptor, flush writer buffers or execute a pending logical seek. |
-| `-1`<br>**Physical offset unavailable** | NULL, wrong mode or failed system position query, including a nonseekable descriptor. | Check the handle and descriptor seekability; inspect the associated errno for a system failure, without assuming gzerror records this query failure. |
+| `-1`<br>**Physical offset unavailable** | NULL, wrong mode, a failed system position query, including a nonseekable descriptor, or a negative result of that query. | Check the handle and descriptor seekability; inspect the associated errno for a system failure, without assuming gzerror records this query failure. |
 
 ### Calling conditions and effects {#api-gzoffset64-contract}
 
@@ -1663,7 +1663,9 @@ compressed input held by a reader. Does not flush buffered writer data or
 execute a pending logical seek. It does not change the descriptor position.
 
 **Errors and edges:** Returns -1 for NULL, wrong mode or failed system query,
-including a nonseekable descriptor. It differs from uncompressed position.
+including a nonseekable descriptor, and for every negative result of that query
+(patch 0006; the unpatched C overflowed on some of them, see
+[caveats](#scope-and-source-caveats)). It differs from uncompressed position.
 A transparent reader's unread output buffer is not subtracted, so the result
 can be ahead of bytes already delivered. It includes any existing prefix
 before a `gzdopen` handle's initial offset.
@@ -2120,10 +2122,12 @@ A valid writer is destroyed even when its result is `Z_STREAM_ERROR`.
 
 ## Scope and source caveats
 
-Four source problems in the gz functions are fixed by patches. A sanitizer reports the first
-three on the real C. Patch 0004 also bounds the transparent (`COPY`) branch of `gz_look`; no run
-of the real C shows an overflow there. The fourth is undefined only by the letter of C, and no
-sanitizer reports it. The contracts and the
+Five source problems in the gz functions are fixed by patches. A sanitizer reports each of them
+on the real C. Patch 0004 also bounds the transparent (`COPY`) branch of `gz_look`; no run
+of the real C shows an overflow there. A zero advance of a buffer pointer that was never
+written or that dangles is not patched: it is undefined only by the letter of C, no sanitizer
+reports it, and the model accepts it
+([model limits](../../model-limits.md#conditions-on-the-model-that-goals-state)). The contracts and the
 goal are for the patched source ([patches](../../../../patches/README.md) describes each problem
 and its upstream state):
 
@@ -2131,8 +2135,9 @@ and its upstream state):
 | --- | --- | --- |
 | `gzseek` after an initial `gzungetc` (position -1) | Signed overflow in the range check. | 0002 |
 | A transparent read where `read` supplies bytes and then fails | The readers consume the partial bytes through a stale buffer pointer: an out-of-bounds read. | 0003 |
-| A position that passes `GZ_OFF_MAX` while reading or writing | Signed overflow of the position. | 0004, local: not submitted upstream |
-| A zero advance of a buffer pointer that was never written or that dangles | Arithmetic on an indeterminate or dangling pointer. | 0005, local: not submitted upstream |
+| A position that passes `GZ_OFF_MAX` while reading | Signed overflow of the position. | 0004, local: not submitted upstream |
+| A position that passes `GZ_OFF_MAX` while writing | Signed overflow of the position. | 0005, local: not submitted upstream |
+| `gzoffset64` when `lseek` returns a negative offset other than -1 | Signed overflow in the subtraction of the buffered input. | 0006, local: not submitted upstream |
 
 Differential tests supply evidence of translation fidelity, not proof. Private helpers,
 the legacy fixed-argument `gzprintf`, and Windows error-string helpers have no additional

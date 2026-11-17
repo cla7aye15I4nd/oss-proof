@@ -57,6 +57,6 @@ compression parameter.
 
 ## What the premise does not cover
 
-The model's treatment of null-pointer arithmetic is a separate limit. It is described in
+The model's treatment of pointer plus zero and of `NULL - NULL` is a separate limit. It is described in
 [safety, null pointers](safety.md#null-pointers-and-pointer-differences) and in the
 [trusted base](../trusted-base.md).

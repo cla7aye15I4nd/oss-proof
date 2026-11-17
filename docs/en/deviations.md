@@ -21,7 +21,7 @@ Each line ends with the Lean predicate that states it; a line that no predicate 
 **Every call**
 
 - The library is the default x86_64 Linux build: LP64, static, compiled from zlib 1.4 (upstream
-  commit `99623ef7`) with the six [patches](../../patches/README.md).
+  commit `99623ef7`) with the seven [patches](../../patches/README.md).
 - `zalloc` and `zfree` of every `z_stream` are `Z_NULL`, so zlib uses its default allocator
   (`DefaultOrNull`). A custom allocator is not covered. A failing `malloc` is covered.
 - No single object in memory has 2^63 bytes or more (`ByteObjectsFit`). This is the LP64 limit
@@ -263,8 +263,8 @@ heap of the call; an inflate history carries it as the second item says. A concr
 (`inflate_default_witness_platform`).
 
 The conditions that goals put on the model's heap (`Fresh`, `Uniq`, `LibraryGlobals`,
-`CrcGlobals`), the loop fuel, the CRC address model and null pointer arithmetic are not duties of
-a caller. They are in [model limits](model-limits.md#conditions-on-the-model-that-goals-state).
+`CrcGlobals`), the loop fuel, the CRC address model and the rule for pointer plus zero and
+`NULL - NULL` are not duties of a caller. They are in [model limits](model-limits.md#conditions-on-the-model-that-goals-state).
 
 ## Stream calls: inflate and deflate
 
@@ -414,7 +414,7 @@ concrete call.
 file-system world. The safety goal of each gz function (`Goal.<function>_safety`) restricts one
 clause of it to that function, with the same premises: a row below that names
 `Goal.gz_sequence_safety` holds for the goals of the functions it is about. The goals are about
-the patched source ([patches](../../patches/README.md) 0002 to 0005). The gz world is trusted
+the patched source ([patches](../../patches/README.md) 0002 to 0006). The gz world is trusted
 semantics beside the heap: the [external-I/O model](design/external-io.md) describes it, and the
 [trusted base](trusted-base.md) says what is assumed of it.
 
@@ -426,7 +426,7 @@ semantics beside the heap: the [external-I/O model](design/external-io.md) descr
 | Gz printf call (caller's obligation; `GzArguments`) | The call of `vsnprintf` is defined in C for the format and the arguments, and the format has no `%n`: no premise states this, the caller ensures it, as for every printf call ([trusted base](trusted-base.md)). `GzArguments` asks, when the file is open for writing and not in error, that the format is a NUL-terminated string and that every pointer argument points into a block that is not freed. It asks this also when `gz_init`, `gz_zero` or `gz_vacate` then fails, where the C returns before it calls `vsnprintf`. | `Goal.gz_sequence_safety` | `vsnprintf` is an external call modelled by its contract, so every valid format is covered, floating point and `%p` included. The model does not read the conversions of the format, so a call that C does not define is no fault in the model, and the goal says nothing about the C for it. Not covered: `%n`, which writes through its argument; a format that does not match its arguments; and a call that returns before `vsnprintf` with a format that is not a string. |
 | Gz caller and world steps (`GzCallerFrame`, `GzWorldStep`) | Between two calls the caller may change any block the handle does not own, and may free its own buffers; the heap stays well formed and its byte objects fit. The world may change to any well-formed file system: another party may close or reuse the handle's descriptor. | `Goal.gz_sequence_safety` | The handle's blocks belong to the library. Not covered: a history in which the caller writes a block the handle owns. The world step admits more than a real system does. |
 | Gz reading termination (`ReadsFinite`) | For `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzgets` and `gzungetc`: the handle's descriptor has a finite read budget below `2^61` bytes (`fs.readBudget fd = some b` with `b < 2^61`), the total the descriptor can still deliver. The premise also says that the descriptor number is not negative (`HasBudget`). | The termination half of `Goal.gz_sequence_safety`, for these six calls only | On an endless source two loops of the C do not end ([below](#why-a-read-budget)). The premise excludes no fault: the no-fault half and the post-condition hold for every world, with no budget. `gzdirect`, the write side and `gzseek` do not need it. |
-| Gz OS facts | A nonempty `write` never returns 0; `close` releases the descriptor also when it fails; `lseek` returns -1 or a non-negative offset. | `Goal.gz_sequence_safety`, through the world model | Assumptions about the system, trusted and not checked. The first two are Linux behaviour. The third does not hold for every file: on Linux, `lseek` on a file with unsigned offsets can return a negative value other than -1. Not covered: a descriptor on which `lseek` returns one. The first bounds the write loops of `gz_comp`. **To confirm**: by a reading of the C, a `write` that returned 0 forever would make `gz_comp` loop forever. The model has no world with such a `write`, so no theorem states this. |
+| Gz OS facts | A nonempty `write` never returns 0; `close` releases the descriptor also when it fails. | `Goal.gz_sequence_safety`, through the world model | Assumptions about the system, trusted and not checked. Both are Linux behaviour. `lseek` is not restricted: a successful call may return any 64-bit value. The first bounds the write loops of `gz_comp`. **To confirm**: by a reading of the C, a `write` that returned 0 forever would make `gz_comp` loop forever. The model has no world with such a `write`, so no theorem states this. |
 
 The model of `strerror` is a limit of the model, not a duty of a caller: see
 [model limits](model-limits.md#conditions-on-the-model-that-goals-state), row "External error

@@ -1,4 +1,4 @@
-<!-- source-sha256: bcb50da7a26c7f5ec9f9ab141ee9d028b996c1a56e596ce7ea53766d702b7e42 -->
+<!-- source-sha256: 748c88021ad52ba37350907b6b888c0097f174cafd8f7b74eb3f39829711919d -->
 # 从 C 到内核检查过的定理
 
 本项目的定理说的是一个 Lean 程序，不是 C 的文本。本页展示这个程序由什么构成，让读者能够判断内核不检查的两个联系：运行时表示了 C 的操作，翻译与选定的 C 源码一致。[可信基础](../trusted-base.md)列出所有依靠审查的东西。
@@ -171,7 +171,6 @@ def Ptr.load (p : Ptr R) : M T := fun h =>
 | `trees.c.lean` | `sid`、`rd`、`md`；`pLtree`、`pDtree`、`pBltree`、`pHeap`、`pDepth`、`pBlCount`、`pLdesc`、`pDdesc`、`pBldesc`；`setAt`、`heapAt`、`heapSet`、`getFc`、`getDl`、`setFc`、`setDl`、`blOrder` | 对 `*s` 的字段访问；指向 deflate 状态内部各数组和树描述符的指针；对这些数组和 `bl_order` 的元素读写 |
 | `gzguts.h.lean` | `castState`、`castFile`、`strmOf`；`ldS`、`updS`、`updX`、`ldZ`、`updZ` | `(gz_statep)file`、`(gzFile)state`、`&(state->strm)`；对 gz 状态、`state->x` 和流的字段访问 |
 | `crc32.c.lean` | `crcTab`、`x2nTab`、`idx1`、`idx2`、`wordAt` | 对 CRC 各表取下标，下标在表之外是故障；`words[i]` |
-| `compress.c.lean` | `ptrDiff` | `p - q`，其中 `NULL - NULL` 允许，结果为 0 |
 | `deflate.c.lean` | `Z_NULL_strm` | 类型为 `z_streamp` 的 `Z_NULL` |
 
 **把标量单元当作字节，以及 CRC 的地址和字读取。**
@@ -273,7 +272,7 @@ flowchart LR
 | 新分配的整数单元取任意值 | 定理对每个 `garbage` 函数量化；绝不假设它为零 |
 | 每个新分配的单元在一次运行中始终保持同一个值 | 证明不依赖重复的未初始化读取结果一致 |
 | 新分配的指针字段是 NULL | 指针字段漏写一次，在模型里看不出来；单凭一次与 NULL 的比较，也表明不了字段已被写过。C 对每个指针字段都是先写后读，这一点**尚未确认**，须由源码审查确认：没有定理陈述它，在这个模型里也不可能有。证明表明的要窄一些：每种状态的不变量（`InflateInv`、`DInv`、`GzInv`）在每个可达的流上、在每个有历史的 gz 句柄上成立，而不变量说明了它提到的那些指针字段里是什么（[可信基础](../trusted-base.md#2-runtime-and-object-schema)） |
-| `NULL + 0` 成功；一般的 `NULL - NULL` 发生故障 | 唯一允许 `NULL - NULL` 的那处翻译单独审查（[缓冲区](../proof/buffers.md)） |
+| 给任何指针值加零都成功，空指针和悬空指针也一样；`NULL - NULL` 是 0 | “不出故障”的定理并不说明 C 避开了这些操作。被验证的源码到达它们的地方已列出（[模型的限制](../model-limits.md#conditions-on-the-model-that-goals-state)） |
 | 相等比较没有相邻对象地址的情形 | 没有哪个 C 分支是靠来自不同对象的指针相等来论证的 |
 | 没有一般的地址、对齐或类型标签 | 类型转换和对地址敏感的路径逐一明确审查；结构体没有一般的字节视图 |
 | CRC 观察地址的低位 | 堆字节块的起点是对齐的；静态字节数组和内嵌字节数组的起点余数任意但稳定。一般的 ABI 布局，以及按严格别名规则对那处字转换的解读，都在模型之外 |

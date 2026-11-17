@@ -41,7 +41,7 @@ clamped, never rejected), so every world is legal.
 | `open` | Read or write mode; creation, exclusion, truncation and append are represented. An invalid mode or a modelled path failure sets `errno` and returns `-1`. The new descriptor is the lowest free number from 3 up. When no number below `2^31` is free: `-1` with `EMFILE`, before anything is created or truncated. | `-1` with any nonzero `errno`, before anything is created. Or success with the new descriptor moved to any free number below `2^31`. |
 | `read` | Copies the requested bytes of the file up to its end, cut to the read budget. An invalid descriptor, a wrong access mode and a directory fail. | `-1` with any nonzero `errno`. Or, for a request of `n` bytes, any `k` in `[0, n]` bytes of arbitrary data, cut to the read budget, whatever the descriptor's state. |
 | `write` | Writes at the position, or at the end in append mode. After a seek past the end, a write fills the gap with zeros. A write that crosses `fsizeLimit` is short; a write at the limit fails with `EFBIG`. | `-1` with any nonzero `errno`. Or any count in `[1, n]` for a nonempty buffer (0 for an empty one), without changing the file. |
-| `lseek` | Set, current and end offsets; a negative result or a result above `2^63 - 1` is refused. | `-1` with any nonzero `errno`. Or any value in `[0, 2^63 - 1]`, without moving the descriptor. |
+| `lseek` | Set, current and end offsets; a negative result or a result above `2^63 - 1` is refused. | `-1` with any nonzero `errno`. Or any 64-bit value, negative ones included, without moving the descriptor. |
 | `close` | Releases the descriptor; an invalid descriptor fails. | `-1` with any nonzero `errno`; the descriptor is released anyway. |
 | `fcntl` | No effect. | None. |
 | `errno` after a success | Unchanged. | A successful call may leave any `errno`. The library's own resets of `errno` are separate effects. |
@@ -53,11 +53,11 @@ failures and concurrent file changes, without representing those objects. The re
 does not represent permissions, directory traversal, links or descriptor sharing through
 duplication; `O_NONBLOCK`, `O_CLOEXEC` and `O_LARGEFILE` have no regular-file effect.
 
-Three results are excluded by the model. They are assumptions about the system, not premises
-of a theorem: a `write` of a nonempty buffer never returns 0; `close` releases the descriptor
-also when it fails; and `lseek` returns `-1` or a non-negative offset. The first two hold on
-Linux. The third does not hold for every file: on Linux, `lseek` on a file with unsigned
-offsets can return a negative value other than `-1`.
+Two results are excluded by the model. They are assumptions about the system, not premises
+of a theorem: a `write` of a nonempty buffer never returns 0; and `close` releases the descriptor
+also when it fails. Both hold on Linux. No result of `lseek` is excluded: on Linux, `lseek` on
+a file with unsigned offsets can return a negative value other than `-1`, and the oracle
+admits every 64-bit value.
 
 The read budget is there to state when reading ends. `zlib.h` puts no bound on the input, and a
 source that never ends keeps one `gzread` call running forever in C. For the calls that read
@@ -138,21 +138,25 @@ handling after the call, for every result of the contract.
   length cells of `uncompress2`, `uncompress_z` and `uncompress`.
 - File-position arithmetic on `z_off64_t` uses checked 64-bit operations.
 
-The model allows `NULL + 0`. That does not make arithmetic on a dangling pointer acceptable.
+The model accepts adding zero to every pointer value, a null or a dangling pointer included
+([model limits](../model-limits.md#conditions-on-the-model-that-goals-state)). Every other
+arithmetic on a null or a dangling pointer is a fault.
 
 ## The source is the patched source
 
-Four patches change the gz files ([patch register](../../../patches/README.md)):
+Five patches change the gz files ([patch register](../../../patches/README.md)):
 
 | Patch | Change |
 | --- | --- |
 | 0002 | The range checks of `gzseek64` |
 | 0003 | `x.next` is set before `gz_load` in transparent mode |
-| 0004 | The position `x.pos` stays within `z_off64_t` |
-| 0005 | `x.next` is advanced only by a nonzero amount |
+| 0004 | The readers keep the position `x.pos` within `z_off64_t` |
+| 0005 | The writers keep the position `x.pos` within `z_off64_t` |
+| 0006 | `gzoffset64` returns `-1` for every negative result of `lseek` |
 
 In the patched source `gz_reset` does not initialise `x.next`, and a direct read leaves `x.next`
-pointing into the caller's buffer; patch 0005 removes the arithmetic on those values.
+pointing into the caller's buffer. `gzseek64` and `gz_skip_have` add zero to those values; no
+patch changes this, and the model accepts it.
 [Gzip files](../proof/gzip.md#source-reports-and-patches) gives the reports behind the patches.
 
 ## Differential evidence
