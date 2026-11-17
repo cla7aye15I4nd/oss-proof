@@ -344,22 +344,16 @@ theorem inflateGetDictionary_default_public_contract
         j < off + s.whave.toNat - s.wnext.toNat + s.wnext.toNat) := by omega
     simp only [firstOutside, secondOutside, ↓reduceIte]
   have narrow := byte_view_segment_buffer_frame get write size outside
-  have publicBound : s.whave.toNat ≤ 32768 := by
-    have := good.inv.win.hv
-    have : s.wsize.toNat ≤ 32768 := by
-      rcases good.inv.win.ws with zero | full
-      · omega
-      · rw [full]
-        exact Nat.pow_le_pow_right (by decide) before.toDefaultDecodeJ.wbits_small
-    omega
-  have broad := BufferFrame.singleton_widen narrow (Nat.le_refl off)
-    (by omega : off + s.whave.toNat ≤ off + 32768)
   have frame : BufferFrame h (Space.put h ref replacement)
       (fun b => StreamRoot r b ∨ StreamOwned h r b ∨
         StreamHeaderRecord h r (.inflateGetDictionary (some r) dest dl) b)
       (StreamWriteRegions h r (.inflateGetDictionary (some r) dest dl)) := by
-    rw [StreamWriteRegions, pointer]
-    exact inflate_buffer_frame_mono broad (fun _ impossible => False.elim impossible)
+    have regions : StreamWriteRegions h r (.inflateGetDictionary (some r) dest dl) =
+        [⟨.ref ref off, s.whave.toNat⟩] := by
+      simp only [StreamWriteRegions, InflateDictionaryLength, pointer, good.live.hz, good.live.zst,
+        good.live.hs]
+    rw [regions]
+    exact inflate_buffer_frame_mono narrow (fun _ impossible => False.elim impossible)
   have shape := byte_view_put_shape get write replacement
   have owned : ∀ b, StreamOwned (Space.put h ref replacement) r b ↔ StreamOwned h r b := by
     intro b
