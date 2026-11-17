@@ -30,8 +30,13 @@ jobs:
       - uses: ./.github/actions/lean-environment
         id: lean
 
+      # The module cache is restored in every run and saved only by a push to main (the step after the
+      # builds). Lake trusts an .olean whose stored trace matches its inputs, and both come from the cache;
+      # so a pull request may only reuse what main built from merged sources, and cannot plant a cache
+      # that its own later runs, or anyone else's, would trust. Its changed modules are rebuilt.
       - name: Reuse unchanged module outputs across runs
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: module-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .lake
@@ -53,6 +58,15 @@ jobs:
           targets=()
           for name in "${names[@]}"; do targets+=("difftest_$name"); done
           lake build --wfail "${targets[@]}"
+
+      - name: Save the module cache (pushes to main only)
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.module-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake
+            tests/.lake
+          key: ${{ steps.module-cache.outputs.cache-primary-key }}
 
       - name: Every string literal of the translations is in strTable
         run: python3 scripts/check-strlit.py
