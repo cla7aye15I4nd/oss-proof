@@ -21,17 +21,18 @@ Lemmas (name — meaning — state — estimate):
   output and has not written all of `D` (`blocked_leave` and the stage) — checked
 * `consumed_all_state` — with all of a valid stream consumed, the decoder is in `CHECK` holding
   the 32 trailer bits, or in `DONE` (heap-free counting over the stage of `ParseMeaning`, the
-  held-bit bounds of `BodyMatches` and `DecoderHeldBits`) — open — 10 h
+  held-bit bounds of `BodyMatches` and `DecoderHeldBits`; the `DIST` and `CODELENS` states need
+  token determinism beyond `deflateParsed_resid`) — open — 18 h
 * `ok_leave_mode` — a call that returns `Z_OK` or `Z_BUF_ERROR` under an ordinary flush does not
   end in `DONE`, and in `CHECK` holds fewer than 32 bits (control flow: which dispatch can leave
-  in these modes) — open — 16 h
+  in these modes) — open — 18 h
 * `stop_short_zlib` — a call that returns `Z_OK` or `Z_BUF_ERROR` has not consumed a whole valid
   zlib stream (zlib case of `StopShort`) — checked (from the two above)
 * `moves`, `stuck` — the two case splits of the assemblies — checked
 * `progress`, `completes` — the two goals — checked (from the lemmas above)
 * `witness` — a concrete heap, history and stream on which the premises of both goals hold
-  (non-vacuity) — open — 8 h
-Total open: about 34 h.
+  (non-vacuity: zlib's own stream for "a" after the actual `inflateInit`) — checked
+Total open: about 36 h.
 -/
 import ZlibF.Spec.Functional.InflateCompletion
 import ZlibF.Proof.«inflate.c.meaning-zlib»
