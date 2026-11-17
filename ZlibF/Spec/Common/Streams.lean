@@ -34,7 +34,7 @@ def bound64 (n : Nat) : UInt64 := UInt64.ofNat (min n (2 ^ 64 - 1))
 
 /-- The wrapper length that `deflateBound` adds (`deflate.c`). For a gzip header with an extra
 field the C adds `2 + extra_len` computed at `unsigned int` width, so the sum wraps for `extra_len`
-`2^32 - 2` and `2^32 - 1` (`docs/findings/deflatebound-extra-len`). -/
+`2^32 - 2` and `2^32 - 1` (a finding, `docs/en/findings.md`). -/
 def WrapperLength (h : Heap) (s : DeflateState) (n : Nat) : Prop :=
   (s.wrap = 0 ∧ n = 0) ∨
   ((s.wrap = 1 ∨ s.wrap = -1) ∧ n = 6 + if s.strstart = 0 then 0 else 4) ∨

@@ -5,7 +5,7 @@ The return codes and flush values of `zlib.h` and the parameter checks of the `*
 functions (computable, copied from `deflate.c` and `inflate.c`). Both the safety and the
 functional goals use them; they moved here from `ZlibF/Spec/Functional/Api/Basic.lean`, unchanged
 and in the same namespace, so that a safety goal does not import the API model
-(`docs/design/safety-functional-split.md`).
+(`docs/en/design/safety-functional-split.md`).
 -/
 
 namespace ZlibF.Spec.Api

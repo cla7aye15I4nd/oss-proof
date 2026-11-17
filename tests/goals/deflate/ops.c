@@ -1,5 +1,5 @@
 /* Safety test of the deflate history domain: random sequences of every stream operation that
- * StreamReachable admits (ZlibF/Spec/Public/History.lean), on the real libz.a under ASan and
+ * StreamReachable admits (ZlibF/Spec/Common/History.lean), on the real libz.a under ASan and
  * UBSan. The order rules are those of StreamArguments: deflatePrime and deflateSetHeader only
  * before the stream has started (DeflateNotStarted), and a gzip header that the caller keeps
  * at least as long as the part already written (DeflateHeaderProgress). Every other argument

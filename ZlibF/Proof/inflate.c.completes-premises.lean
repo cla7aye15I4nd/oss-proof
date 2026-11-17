@@ -9,8 +9,8 @@ import ZlibF.Proof.«inflate.c.invariant»
 `blocked_leave` (`inflate.c.completes-blocked`) proves `BlockedLeave` from:
 
 * `LeaveRetCodes`: the conclusion of `inflate_run_leave_ret_codes` for every
-  configuration (the inflate owner's general leave theorem; the default
-  configuration is `leaveRetCodes_default`);
+  configuration (`leave_ret_codes`; the default configuration is
+  `leaveRetCodes_default`);
 * `GzipFieldLeaves`: the string and extra-field gzip modes leave only with no input.
 
 Both are theorems: `leave_ret_codes` (`inflate.c.leave-ret-codes`) and `gzip_field_leaves`
@@ -34,8 +34,8 @@ def LeaveRetCodes : Prop :=
 
 /-- The gzip string and extra-field modes leave through `inf_leave` only with no
 input left: their copy loop stops with `copy == have` whenever the field goes
-on (`len != 0`, `length != 0`). Register facts of the loop; open here (batch 2
-proves the loop under the header invariant, `gz_strLoop`). -/
+on (`len != 0`, `length != 0`). Register facts of the loop; `gzip_field_leaves`
+(`inflate.c.completes-gzip-fields`) proves them. -/
 abbrev GzipFieldLeaves : Prop :=
   ∀ c : Ctx, RoomX c.flush c.st (inflate_EXTRA c) ∧ RoomX c.flush c.st (inflate_NAME c) ∧
     RoomX c.flush c.st (inflate_COMMENT c)

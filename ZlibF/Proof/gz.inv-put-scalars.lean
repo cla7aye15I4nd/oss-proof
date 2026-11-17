@@ -11,7 +11,7 @@ them, the invariant holds of the new record.
 The embedded stream lives in the record, so the codec history (`StreamReachable`) is carried by a rebuffer whose
 frame must allow the record block to change: that needs `¬ StreamOwned h (gzStrm i) i` (the codec does not own
 the record block), the clause `GzCommon.recordFree`. `GzInv.put_scalars_of` takes it as a premise;
-`GzInv.put_scalars` (the skeleton statement) supplies it from the invariant.
+`GzInv.put_scalars` supplies it from the invariant.
 -/
 
 namespace ZlibF.Spec.Public
@@ -92,7 +92,7 @@ theorem putGz_owned (hs : h.gzstates i = some s)
 end put
 
 /-- **A scalar write of the record keeps `GzInv`**, given that the codec does not own the record block (`hrec`).
-The other premises are those of the skeleton's `GzInv.put_scalars`. -/
+The other premises are those of `GzInv.put_scalars`. -/
 theorem GzInv.put_scalars_of {h : Heap} {i : Nat} {s s' : GzState} (inv : GzInv h i s)
     (hrec : ¬ StreamOwned h (gzStrm i) i)
     (same : s'.path = s.path ∧ s'.msg = s.msg ∧ s'.«in» = s.«in» ∧ s'.out = s.out ∧ s'.size = s.size ∧

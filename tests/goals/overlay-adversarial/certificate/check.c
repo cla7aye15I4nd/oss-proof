@@ -13,7 +13,7 @@
  *       g(1)=2, g(2)=4, g(3..10)=6, g(11..138)=14, plus 40 in the literal tree for blocks > 138;
  *   F5  the bound: 71 + (header trees under K0) + E <= BOUND, with E the block excess
  *       sum max(0, cost - 24) under the actual lengths. BOUND is the certificate's (cert.py).
- * It also reports the largest observed repair excess  sum f_k (blLen_k - K0_k)  (batch 1's Delta).
+ * It also reports the largest observed repair excess  sum f_k (blLen_k - K0_k)  (Delta).
  * A violated fact prints the block and exits 1. */
 #include "deflate.h"
 #include <stdio.h>

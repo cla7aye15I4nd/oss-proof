@@ -2,13 +2,12 @@ import ZlibF.Proof.«public-compress-safe-init»
 import ZlibF.Proof.«deflate.c.universal-call-clauses»
 
 /-!
-# compress.c: `DeflateLoopFacts` from the deflate skeleton
+# compress.c: `DeflateLoopFacts` from three statements about `deflate`
 
 `DeflateLoopFacts`, the hypothesis of the `compress*` safety proofs beside `Goal.deflate`, follows
-from the statements of three skeleton lemmas of the deflate owner (`reachable_inv`,
-`deflate_call` with `CallClauses`, `call_frame`) and one fact that `CallClauses` does not state
-yet, `FinishedNewInput`. Each is an explicit hypothesis of exactly the skeleton's type, so the
-derivation closes when they are proved.
+from three statements about `deflate` (`ReachableInv`, `DeflateCall` with `CallClauses`,
+`CallFrameFacts`) and one fact that `CallClauses` does not state, `FinishedNewInput`. Each is an
+explicit hypothesis of `deflate_loop_facts_of`.
 
 * progress without `Z_FINISH`: the progress clause of `CallClauses` (a `Z_NO_FLUSH` call on a
   finished stream is refused);
@@ -21,11 +20,11 @@ namespace ZlibF.Spec.Public.Proofs.Compress
 open C ZlibF.Spec ZlibF.Spec.Public Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Universal
 set_option autoImplicit false
 
-/-- The statement of the skeleton lemma `reachable_inv`. -/
+/-- The statement that every reachable deflate stream satisfies `DInv` and `HeaderInv`. -/
 def ReachableInv : Prop :=
   ∀ {h : Heap} {r : ZStreamRef}, StreamReachable .deflate h r → ∃ ds z d, DInv h r ds z d ∧ HeaderInv d
 
-/-- The statement of the skeleton lemma `deflate_call`. -/
+/-- The statement that one `deflate` call keeps the invariant with the clauses `CallClauses`. -/
 def DeflateCall : Prop :=
   ∀ {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState},
     DInv h r ds z d → StreamBuffers h r → ActiveHeader h r → ∀ flush : Int32,
@@ -33,7 +32,7 @@ def DeflateCall : Prop :=
       C.run (Zlib.Deflate.deflate (some r) flush) h = .ok (rc, after) ∧
       DInv after r ds z' d' ∧ CallClauses h r ds z d flush rc after z' d' used out
 
-/-- The statement of the skeleton lemma `call_frame`. -/
+/-- The statement of the call frame of one `deflate` call. -/
 def CallFrameFacts : Prop :=
   ∀ {h after : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState} {flush rc : Int32},
     DInv h r ds z d → StreamBuffers h r → ActiveHeader h r →
@@ -66,7 +65,7 @@ theorem dgood_unique {h : Heap} {r : ZStreamRef} {i i' : Nat} {z z' : ZStream} {
   subst ei
   exact ⟨rfl, rfl, Option.some.inj (g.live.hs.symm.trans g'.live.hs)⟩
 
-/-- `DeflateLoopFacts` from the deflate skeleton. -/
+/-- `DeflateLoopFacts` from `ReachableInv`, `DeflateCall`, `CallFrameFacts` and `FinishedNewInput`. -/
 theorem deflate_loop_facts_of (reach : ReachableInv) (call : DeflateCall) (frame : CallFrameFacts)
     (finished : FinishedNewInput) : DeflateLoopFacts := by
   intro h r i z s flush rc after reachable good buffers active run

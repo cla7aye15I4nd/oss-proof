@@ -4,8 +4,7 @@ import ZlibF.Zlib.«zlib.h»
 /-!
 # gz file interface, safety: the history of a handle and the sequence goal
 
-The definitions of sections 3 and 4 of the gz safety skeleton (`gz.skeleton-model.lean` on the branch
-`skeleton/gz`), stated over the representation invariant `GzInv` and the call shape `GzCallSafe` of
+The definitions of the gz safety goal, stated over the representation invariant `GzInv` and the call shape `GzCallSafe` of
 `gz.inv-model`, and over `GzOperation`, `GzArguments` and `GzCallerFrame` of `GzState`.
 
 1. `GzWorldStep`, `GzHistory`: every actual history of one handle, with an OS-world step between calls. A world
@@ -15,9 +14,8 @@ The definitions of sections 3 and 4 of the gz safety skeleton (`gz.skeleton-mode
 4. `Goal.gz_sequence_safety`: safety of every gz file history, and the string `gzerror` returns.
 5. `Goal.gz_sequence_nonvacuity`: its premises hold on concrete reading and writing histories.
 
-The goal is the skeleton's statement with the `GzInv` and `GzArguments` of this branch: `GzInv` with the corrected
-clauses listed in `gz.inv-model` (`GzCommon.next` only with buffered output, `copyDirect` allows `direct = 0`, and
-the added clauses `haveSkip` and `againEof`), and the `gzprintf` arguments that the handle does not own
+The goal uses `GzInv` (with, among others, the clauses `GzCommon.next` only with buffered output, `copyDirect`
+allowing `direct = 0`, `haveSkip` and `againEof`) and the `gzprintf` arguments that the handle does not own
 (`GzArguments`).
 
 Patches. The statements are for the patched source (`patches/`: 0002, 0003, 0004 for F-1 and W7, and 0005).

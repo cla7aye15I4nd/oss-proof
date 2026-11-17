@@ -15,8 +15,8 @@ The mode loop `for (;;) switch (state->mode)` of one call, from a trip with
 
 The per-mode steps are one premise, `TripMeaning`: from `LoopMatches`, one
 dispatch runs without a fault and ends in a `TripOutcome` or a
-`NeedDictExit`. The per-mode lemmas of batch 1 (body modes) and batch 2
-(header, dictionary, trailer modes) prove it mode by mode. Their side
+`NeedDictExit`. The per-mode lemmas (body modes; header, dictionary and
+trailer modes) prove it mode by mode. Their side
 premises (the stream record, the CRC tables, the window bounds) are facts of
 the safety proof, carried as `Side`: a predicate on the registers and the
 heap that every normal end of a dispatch keeps (`SideKept`). `Side` is a

@@ -4,7 +4,7 @@ import ZlibF.Proof.«gzread.c.getc-ungetc»
 /-!
 # gzwrite.c: safety of `gz_zero`
 
-`gz_zero_safe_of`: the skeleton statement `gz_zero_safe` (branch `skeleton/gz`, `gz.skeleton-write.lean`), from the
+`gz_zero_safe_of`: `gz_zero_safe`, from the
 facts of `gz_error` (`GzErrorSpec`, `GzErrorOwn`). The callee `gz_comp` is `gz_comp_safe_shape_of'`.
 
 Part 1 is shared by the writers (`gz_zero`, `gz_vacate`, `gz_write`):
@@ -657,8 +657,8 @@ theorem post_with {h0 : Heap} {s0 : GzState} {fs0 fs : Fs} {h : Heap} {v : GzSta
   subst e
   exact ⟨hfs, s', ⟨inv', hq⟩, rest⟩
 
-/-- **`gz_zero` is safe and keeps the size**, given the facts of `gz_error`: the statement of `gz_zero_safe` of
-`gz.skeleton-write`, strengthened by the size of the buffers and, on success, no pending skip. -/
+/-- **`gz_zero` is safe and keeps the size**, given the facts of `gz_error`: the statement of
+`gz_zero_safe`, strengthened by the size of the buffers and, on success, no pending skip. -/
 theorem gz_zero_safe_shape (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
     (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size ≠ 0) :
     RunSafe (Zlib.Gzwrite.gz_zero (gzSt i)) fs h True fun r fs' after =>
@@ -713,7 +713,7 @@ theorem gz_zero_safe_shape (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (
       simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app,
         hS, hz0, Bool.false_eq_true, ↓reduceIte, hZ, ha', run, beq_self_eq_true]
 
-/-- **`gz_zero` is safe**, given the facts of `gz_error`: the statement of `gz_zero_safe` of `gz.skeleton-write`. -/
+/-- **`gz_zero` is safe**, given the facts of `gz_error`: the statement of `gz_zero_safe`. -/
 theorem gz_zero_safe_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
     (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size ≠ 0) :
     RunSafe (Zlib.Gzwrite.gz_zero (gzSt i)) fs h True fun r fs' after =>

@@ -6,10 +6,10 @@ import ZlibF.Proof.«deflate.c.universal-strategies»
 import ZlibF.Proof.«deflate.c.universal-stored-loop»
 
 /-!
-# deflate.c: `deflateParams` keeps the invariant, every case (inflate batch 1)
+# deflate.c: `deflateParams` keeps the invariant, every case
 
-Batch B proved the refusals and the change without a flush (`step_params_refuse`,
-`step_params_same`, `deflate.c.universal-ops-params`). This file proves the rest:
+`deflate.c.universal-ops-params` proves the refusals and the change without a flush
+(`step_params_refuse`, `step_params_same`). This file proves the rest:
 
 * a change of the strategy or of the compression function before the first `deflate` call
   (`last_flush = -2`): no flush, the level and strategy change at once;
@@ -17,7 +17,7 @@ Batch B proved the refusals and the change without a flush (`step_params_refuse`
   input is consumed and the block is empty, then the change;
 * the table repair of a level-0 stream: `slide_hash` for one pending slide, `CLEAR_HASH` for more.
 
-The inner `deflate` call is the skeleton's `deflate_call`, a hypothesis here with the statement
+The inner `deflate` call is the hypothesis `DeflateCallFact`, with the statement
 `operation_step_of` uses. The state facts the change reads are `Shape`'s P2, P3 and P6
 (`lazyPrev`, `symBlock`, `lazyStart`) and, before the first `deflate` call, `CallFacts`' P1 and
 P1b (`fresh`, `freshStart`): `CallFacts d` is a hypothesis of the entry state, carried beside
@@ -473,7 +473,7 @@ theorem buffer_frame_then_frame {h m k : Heap} {changed : Nat → Prop} {p : BPt
 
 /-! ## 5. `deflateParams` -/
 
-/-- **Hypothesis: the skeleton's `deflate_call`**, with the statement `operation_step_of` uses
+/-- **Hypothesis: one `deflate` call**, with the statement `operation_step_of` uses
 (the clauses of `Goal.deflate` and the five owned blocks kept), from `DInv`, the header facts and
 the between-calls facts: a header state with recorded symbols satisfies `DInv` but not `HeaderInv`. -/
 def DeflateCallFact : Prop :=
@@ -649,7 +649,7 @@ theorem step_params_private {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' :
 
 set_option maxHeartbeats 8000000 in
 /-- **`deflateParams` keeps the invariant**, for every level and strategy, in every state of the
-invariant and its call facts. Hypothesis: the skeleton's `deflate_call` (`deflateCall`). -/
+invariant and its call facts. Hypothesis: one `deflate` call (`deflateCall`). -/
 theorem step_params (deflateCall : DeflateCallFact)
     {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (inv : DInv h r ds z d) (headerInv : HeaderInv d) (calls : CallFacts d) (level strategy : Int32) (buffers : StreamBuffers h r) (header : ActiveHeader h r) :
@@ -752,7 +752,7 @@ theorem step_params (deflateCall : DeflateCallFact)
 
 end Zlib.Deflate.Universal
 
-/-! ## 6. The header facts (for batch C) -/
+/-! ## 6. The header facts -/
 
 namespace Zlib.Deflate.Universal
 open C ZlibF.Spec ZlibF.Spec.Public Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Engine.Proofs
@@ -825,9 +825,9 @@ theorem params_same_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
     all_goals (try rfl)
 
 set_option maxHeartbeats 8000000 in
-/-- **The header facts of `deflateParams`** (for batch C): the final state of every accepted or
+/-- **The header facts of `deflateParams`**: the final state of every accepted or
 refused call keeps `HeaderInv`, given the entry state's `CallFacts d` (P1, P1b before the first
-`deflate` call). Hypotheses: the skeleton's `deflate_call` and the header phase of `deflate`. -/
+`deflate` call). Hypotheses: one `deflate` call (`deflateCall`) and the header phase of `deflate`. -/
 theorem params_header (deflateCall : DeflateCallFact) (deflateHeader : DeflateHeaderFact)
     {h after : Heap} {r : ZStreamRef} {ds ds' : Nat} {z z' : ZStream} {d d' : DeflateState}
     {level strategy rc : Int32} (inv : DInv h r ds z d) (calls : CallFacts d) (header : HeaderInv d) (buffers : StreamBuffers h r)
@@ -918,8 +918,8 @@ def DeflateCallsFact : Prop :=
 set_option maxHeartbeats 8000000 in
 /-- **The between-calls facts of `deflateParams`**: the final state of every accepted or refused
 call keeps `CallFacts`. The tail changes only the level, the strategy, the tuning and the slide
-count; the inner `deflate(Z_BLOCK)` keeps them by `deflateCalls`. Hypotheses: the skeleton's
-`deflate_call` and the `CallFacts` of `deflate` (`deflateCalls`). -/
+count; the inner `deflate(Z_BLOCK)` keeps them by `deflateCalls`. Hypotheses: one
+`deflate` call (`deflateCall`) and the `CallFacts` of `deflate` (`deflateCalls`). -/
 theorem params_callfacts (deflateCall : DeflateCallFact) (deflateCalls : DeflateCallsFact)
     {h after : Heap} {r : ZStreamRef} {ds ds' : Nat} {z z' : ZStream} {d d' : DeflateState}
     {level strategy rc : Int32} (inv : DInv h r ds z d) (header : HeaderInv d) (calls : CallFacts d) (buffers : StreamBuffers h r)
@@ -999,7 +999,7 @@ theorem params_callfacts (deflateCall : DeflateCallFact) (deflateCalls : Deflate
     · exact finalInv (flushRun v after1 stop) inv1 calls1
     · exact finalInv (flushRun _ _ tailRun) invF (keep calls1)
 
-/-- **The companion for batch C**: the call's final state, with the invariant and the header
+/-- **The final state of the call**, with the invariant and the header
 facts beside it. -/
 theorem params_body (deflateCall : DeflateCallFact) (deflateHeader : DeflateHeaderFact)
     {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}

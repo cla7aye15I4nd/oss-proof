@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-markers»
 /-!
 # deflate.c: the header phase of one `deflate` call
 
-Batch C (`deflate_header_trailer`). `headerPhase` is the chain of the header stages
+`headerPhase` is the chain of the header stages
 (`header_stages`); a stage whose status test fails passes the heap on unchanged.
 -/
 

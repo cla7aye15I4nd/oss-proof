@@ -5,7 +5,7 @@ import ZlibF.Proof.«adler32.c.public-any»
 import ZlibF.Proof.«adler32.c.public-one»
 
 /-!
-# deflate.c: `deflateSetDictionary` keeps the invariant (batch B, part of `operation_step`)
+# deflate.c: `deflateSetDictionary` keeps the invariant (a case of `operation_step_of`)
 
 `deflateSetDictionary` appends the caller's dictionary to the window through `fill_window`, with
 the dictionary as a temporary input, and inserts every position that has three bytes. The insertion

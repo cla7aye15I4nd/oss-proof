@@ -10,9 +10,9 @@ import ZlibF.Spec.Functional.Sequences
 
 `ParseMeaning` (`inflate.c.meaning`) holds after initialization
 (`meaning_init`), a caller edit (`meaning_rebuffer`) and a dictionary call
-(`meaning_dictionary`), all proved. One `inflate` call keeps it: that is
-`meaning_step` of the inflate skeleton, still open, and it enters here as the
-explicit hypothesis `MeaningStep` (`inflate.c.completes-interface`). From it:
+(`meaning_dictionary`), all proved. One `inflate` call keeps it: that
+step enters here as the explicit hypothesis `MeaningStep`
+(`inflate.c.completes-interface`). From it:
 
 * `meaning_of_protocol`: `ParseMeaning` after every protocol history;
 * `sequence_format`: the two format clauses of `Goal.inflate_sequence`

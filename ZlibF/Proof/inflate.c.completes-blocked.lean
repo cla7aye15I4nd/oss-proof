@@ -14,9 +14,9 @@ import ZlibF.Proof.«inflate.c.default-local»
 * `LeaveRetCodes`: a leave of the decoder loop of a call, from a decoder with the
   invariant, has `ret` in `Z_OK`, `Z_STREAM_END` or `Z_DATA_ERROR`
   (`PublicLeaveRet`). This is the conclusion of `inflate_run_leave_ret_codes`
-  (`inflate.c.ret-loop`), proved there for the default configuration; the general
-  form is the inflate owner's (`worker/gzip`). `leaveRetCodes_default` gives it for
-  the default configuration.
+  (`inflate.c.ret-loop`), proved there for the default configuration
+  (`leaveRetCodes_default`); `leave_ret_codes` (`inflate.c.leave-ret-codes`) proves it
+  for every configuration.
 * `GzipFieldLeaves` (`inflate.c.completes-room-modes`).
 
 The loop leaves only for a `RoomCause` (`roomX_inflate_run`) or returns early with

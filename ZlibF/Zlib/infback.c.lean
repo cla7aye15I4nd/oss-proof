@@ -12,13 +12,13 @@ header first: the registers, the monad `X`, `goto inf_leave` as `throw Ex.leave`
 
 * `in_func`: `unsigned (*)(void *in_desc, z_const unsigned char **buf)` is `InCb`. The C passes `&next`, the address of
   the local `next`. A pointer to a scalar is passed by value (a translation choice; see
-  `docs/model-limits.md#representation-gaps-and-proof-obligations`, row "Address and layout model is partial"): the call-back receives the
+  `docs/en/model-limits.md#representation-gaps-and-proof-obligations`, row "Address and layout model is partial"): the call-back receives the
   current value of `next` and returns `(count, new value of *buf)`. A call-back that keeps the address and writes
   through it after it returned is not modelled.
 * `out_func`: `int (*)(void *out_desc, unsigned char *buf, unsigned len)` is `OutCb`.
 
 Both run on the shared heap, so they can read and write any block. `inflateBack` makes no assumption about them; a
-theorem about it has to state what it needs (`docs/proof/callbacks.md`).
+theorem about it has to state what it needs (`docs/en/proof/callbacks.md`).
 
 ## Other decisions
 

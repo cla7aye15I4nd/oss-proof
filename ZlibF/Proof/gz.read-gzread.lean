@@ -5,13 +5,13 @@ import ZlibF.Proof.«gzwrite.c.write-calls»
 /-!
 # gz read side: the public call `gzread`
 
-`gzread_step_of`: the skeleton leaf `gzread_step` (`GzReadLeaves`, `gz.sequence-safety`), from the statement of
+`gzread_step_of`: the leaf `gzread_step` (`GzReadLeaves`, `gz.sequence-safety`), from the statement of
 `gz_read` (`GzReadSafe`) and the three clauses of the reader invariant (`GzReadClauses`, proved by `gzReadClauses_holds`).
 
 The pieces: the mode and error refusals (no change), the reset `gz_error(state, Z_OK, NULL)` when `again` is set
 (`clear_step`), the `int` check with `gz_error(Z_STREAM_ERROR, <literal>)` (`lit_step`), `gz_read` (computed for
 `len = 0`, `GzReadSafe` otherwise), and the tail of a `0` result with `gz_error(Z_ERRNO, zstrerror())` (the borrow
-of `strerror`, then `gz_error`). A zero-length call writes no caller region (`GzWriteRegions`, corrected for this:
+of `strerror`, then `gz_error`). A zero-length call writes no caller region (`GzWriteRegions`;
 regression `gz-read-empty-region`).
 -/
 

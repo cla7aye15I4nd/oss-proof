@@ -1,7 +1,7 @@
 # Repair caps: the 7-bit repair term of the bit-length tree
 
 `repair_caps.py` generates the Lean case analyses `ZlibF/Math/RepairCap13*` and
-`ZlibF/Math/RepairCap15*`. They are part of the TinyOverlay header bound (batch 1, H2b). The
+`ZlibF/Math/RepairCap15*`. They are part of the TinyOverlay header bound (H2b). The
 script finds nothing by search: it enumerates every histogram and writes one small lemma per
 case. The Lean kernel checks every lemma; the script is not trusted.
 

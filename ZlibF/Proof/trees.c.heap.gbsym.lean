@@ -3,8 +3,7 @@ import ZlibF.Proof.«trees.c.heap.gbclk»
 /-!
 # trees.c: the symbol-level view of the lengths (pure)
 
-`countBefore`, `kraftSum`, `bitCost` and the bridge `gb_symbolic` from per-position facts to them, copied from the
-earlier attempt (`Spec/trees/Build.lean`, `GenBitlen.lean`).
+`countBefore`, `kraftSum`, `bitCost` and the bridge `gb_symbolic` from per-position facts to them.
 -/
 
 namespace Zlib.Trees.Proofs.GB

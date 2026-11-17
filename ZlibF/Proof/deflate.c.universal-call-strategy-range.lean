@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-strategy-pars»
 /-!
 # deflate.c: the block state a strategy returns
 
-Batch C (owner 2's M16). `block_state` is a `UInt32` in the model, so that a strategy returns one
+`block_state` is a `UInt32` in the model, so that a strategy returns one
 of the four enumerators is a fact about the code: every `return` in the five strategies, in
 `FLUSH_BLOCK` and in `finish_tail` returns one of `need_more`, `block_done`, `finish_started`,
 `finish_done`. `PostM P m` says that every returning run of `m` returns a value with `P`; it
@@ -185,7 +185,7 @@ theorem post_dispatch (s : DeflateStatePtr) (flush : Int32) (d : DeflateState) :
   · exact post_deflate_fast _ _
   · exact post_deflate_slow _ _
 
-/-- **The dispatch returns one of the four enumerators** (M16). -/
+/-- **The dispatch returns one of the four enumerators.** -/
 theorem dispatch_range {h after : Heap} {ds : Nat} {d : DeflateState} {flush : Int32} {b : block_state}
     (run : dispatch (some (.tab ds)) flush d h = .ok (b, after)) :
     b = need_more ∨ b = block_done ∨ b = finish_started ∨ b = finish_done :=

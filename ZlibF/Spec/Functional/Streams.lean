@@ -4,8 +4,8 @@ import ZlibF.Spec.Functional.Api.Inflate
 /-!
 # Streams: functional goals and the definitions only they use
 
-Split from `ZlibF/Spec/Public/Streams.lean` without a change of statement or name
-(`docs/design/safety-functional-split.md`). The namespace stays `ZlibF.Spec.Public`.
+The split into safety and functional modules: `docs/en/design/safety-functional-split.md`. The
+namespace is `ZlibF.Spec.Public`.
 -/
 
 namespace ZlibF.Spec.Public
@@ -15,7 +15,7 @@ open C ZlibF.Spec
 The domain is actual init/call history, not an arbitrary hand-built decoder state.
 The selected LP64 platform scope explicitly requires every live represented
 byte object to have at most PTRDIFF_MAX bytes (size < 2^63), including caller
-storage from non-malloc origins. See docs/deviations.md.
+storage from non-malloc origins. See docs/en/deviations.md.
 Includes all signed flush arguments, progress, terminal/error modes, output bounds,
 counter timing on late memory failure, caller frame and ownership of a new window.
 `Z_STREAM_ERROR` is characterized exactly: a NULL output pointer, NULL input with

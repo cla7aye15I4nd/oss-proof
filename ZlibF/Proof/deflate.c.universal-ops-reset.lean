@@ -2,7 +2,7 @@ import ZlibF.Proof.«deflate.c.universal-ops»
 import ZlibF.Proof.«deflate.c.init.general-construct»
 
 /-!
-# deflate.c: `deflateReset` keeps the invariant (batch A, `operation_step`)
+# deflate.c: `deflateReset` keeps the invariant (a case of `operation_step_of`)
 
 `deflateReset` is `deflateResetKeep` followed by `lm_init`. From `DInv` the run is the one of
 `deflateReset_safe`: the stream record becomes `rkZ`, the state `lmD (rkPost (rkMid d))`, and the
@@ -12,8 +12,7 @@ is empty with the initial frequencies of `init_block` (`resetKeep_initial`).
 
 `deflateResetKeep` alone is not covered here. It keeps `strstart`, `insert`, the window and the hash
 tables but sets `lookahead = 0`, and then `Hashing.chains` of `DInv` does not hold: positions
-`strstart - 1` and `strstart - 2` can be chain heads, above the insertion frontier `chainTop`
-(reported to the owner of `DInv`).
+`strstart - 1` and `strstart - 2` can be chain heads, above the insertion frontier `chainTop`.
 -/
 
 namespace Zlib.Deflate.Universal

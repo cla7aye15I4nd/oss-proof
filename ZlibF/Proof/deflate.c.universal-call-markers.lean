@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-trailer»
 /-!
 # deflate.c: the flush markers of one `deflate` call
 
-Batch C (`deflate_header_trailer`). After a strategy returns `block_done`, `deflate` writes the
+After a strategy returns `block_done`, `deflate` writes the
 marker the flush asks for: the empty static block for `Z_PARTIAL_FLUSH`, the empty stored block
 for `Z_SYNC_FLUSH` and `Z_FULL_FLUSH` (with the hash table cleared for a full flush), nothing for
 `Z_BLOCK`; then it flushes.

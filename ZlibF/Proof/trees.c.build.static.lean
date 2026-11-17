@@ -136,7 +136,7 @@ def BTBuildResult (tk : TK) (N L : Nat) (xb : Nat → Nat) (slOpt : Option (Nat 
 all tree-construction storage, descriptor and static-table premises for any
 of the three dynamic trees. Old frequencies, depths, lengths and heap
 contents are unrestricted. This is the local construction contract, not
-complete deflate correctness or a registered public goal. -/
+complete deflate correctness or a public goal. -/
 theorem ws_build_tree_initialized {h0 : Heap} {id : Nat} {d : DeflateState}
     (tk : TK) (hwf : d.WellFormed) (hs : Out.TreesStatic h0.static) (hr : Out.TreesRun0 id d) :
     WS h0 id (build_tree (Sp id) (some (tk.descRef id))) d (fun _ e =>

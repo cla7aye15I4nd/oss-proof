@@ -1,4 +1,4 @@
-/* Search for a violation of the overlay bound F9 (docs/proof/trees.md) in dynamic blocks.
+/* Search for a violation of the overlay bound F9 (docs/en/proof/trees.md) in dynamic blocks.
  *
  * Usage: search <memLevel> <windowBits> <steps> <seed>
  *

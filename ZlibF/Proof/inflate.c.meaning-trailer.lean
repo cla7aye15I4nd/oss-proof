@@ -9,7 +9,7 @@ import ZlibF.Proof.«inflate.c.meaning-dictionary»
 /-!
 # inflate.c: the trailer and end modes keep the format meaning in the loop
 
-Per-mode steps of the stream side (batch 2) against `LoopMatches`
+Per-mode steps of the stream side against `LoopMatches`
 (`inflate.c.meaning-loop`). `DONE` leaves with `Z_STREAM_END` and nothing
 else changed.
 -/

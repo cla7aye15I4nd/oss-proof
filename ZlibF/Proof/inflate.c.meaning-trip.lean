@@ -3,7 +3,7 @@ import ZlibF.Proof.«inflate.c.meaning-side»
 /-!
 # inflate.c: one trip of the mode loop keeps the format meaning (`TripMeaning`, by mode)
 
-Skeleton of `TripMeaning c f (CallSide c r)`, the premise of `loop_meaning`. A trip from
+The structure of `TripMeaning c f (CallSide c r)`, the premise of `loop_meaning`. A trip from
 `LoopMatches` dispatches on the decoder mode. The modes a `LoopMatches` state can be in
 (`loop_mode_cases`) are grouped into rows; each row is one `TripAt` statement, universal in the
 configuration unless the row names a wrapper. The rows are proved from the per-mode steps of
@@ -11,8 +11,8 @@ configuration unless the row names a wrapper. The rows are proved from the per-m
 `LoopMatches`, `LeaveShort` or `BAD` with `LoopRefuted`, not in `TripOutcome`), or are new mode
 steps.
 
-Each row is a named proposition. The assemblies take the rows as hypotheses, so this file has no
-open proof; a row is closed by a theorem of exactly its type in its own file.
+Each row is a named proposition. The assemblies take the rows as hypotheses; a row is proved by a theorem of exactly its type
+in its own file.
 
 * `trip_meaning_zlib`: the zlib wrapper, from `ZlibTripRows`. It needs no gzip header row and no
   raw `CHECK` row, since a zlib configuration never reaches the gzip header modes

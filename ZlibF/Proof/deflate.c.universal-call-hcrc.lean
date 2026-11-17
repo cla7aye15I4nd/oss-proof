@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-string»
 /-!
 # deflate.c: the gzip header CRC stage of one `deflate` call
 
-Batch C (`deflate_header_trailer`). With `hcrc` set, the two CRC bytes are added (after a flush if
+With `hcrc` set, the two CRC bytes are added (after a flush if
 they do not fit); then `BUSY_STATE` and the flush that must empty `pending_buf`.
 -/
 

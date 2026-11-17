@@ -26,7 +26,7 @@ allows `MEM` after a data error for raw streams only.
 
 ## Stream-side state test
 
-Step 1 of the proof workflow (`AGENTS.md`) for the stream side of `ParseMeaning`
+Statement test for the stream side of `ParseMeaning`
 (`ZlibF/Proof/inflate.c.meaning*.lean`): the wrapper header, the dictionary request, the trailer
 and the end.
 

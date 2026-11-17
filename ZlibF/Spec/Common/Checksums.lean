@@ -21,7 +21,7 @@ def BufferBytes (h : Heap) (pointer : BPtr) (length : Nat) (bytes : List UInt8) 
 
 /-- Adler initialization queries require a NULL pointer and zero length. This is an
 explicit restriction relative to the pinned header's unrestricted NULL wording;
-see `docs/deviations.md`. Nonnull readable objects retain their full length domain. -/
+see `docs/en/deviations.md`. Nonnull readable objects retain their full length domain. -/
 def AdlerBufferBytes (h : Heap) (pointer : BPtr) (length : Nat) (bytes : List UInt8) : Prop :=
   BufferBytes h pointer length bytes ∧ (pointer = .null → length = 0)
 

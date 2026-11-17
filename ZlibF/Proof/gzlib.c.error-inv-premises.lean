@@ -6,7 +6,7 @@ import ZlibF.Proof.«gzwrite.c.init»
 /-!
 # gz safety: the facts on `gz_error` that other modules take as premises
 
-`GzInv.gz_error` is the skeleton's interface lemma, and `GzInv.gz_error_own` is the no-grab fact. Both follow from
+`GzInv.gz_error` is the interface lemma, and `GzInv.gz_error_own` is the no-grab fact. Both follow from
 `GzInv.gz_error_full` (`gzlib.c.error-inv`). The premises `GzErrorSpec` and `GzErrorOwn` of `gzwrite.c.init`,
 `gzread.c.getc-ungetc` and `gzread.c.skip-gets` restate them; each is proved here, so the results stated over those
 premises hold without them.
@@ -16,7 +16,7 @@ namespace ZlibF.Spec.Public
 open C Zlib.GzFs
 set_option autoImplicit false
 
-/-- **Interface: `gz_error` keeps the invariant** (the skeleton statement `GzInv.gz_error`). -/
+/-- **Interface: `gz_error` keeps the invariant** (`GzInv.gz_error`). -/
 theorem GzInv.gz_error {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (err : Int32) (msg : BPtr)
     (hmsg : msg = .null ∨ ∃ t, CString h msg t ∧ ∀ b, ByteRoot msg b → ¬ GzOwned h i s b)
     (he : err ≠ Z_STREAM_END) :

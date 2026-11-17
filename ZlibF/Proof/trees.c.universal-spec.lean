@@ -7,7 +7,7 @@ import ZlibF.Proof.«deflate.c.engine.flush-storage-frame»
 /-!
 # trees.c: `FLUSH_BLOCK_ONLY` from the deflate invariant
 
-Batch C of the deflate skeleton. `flush_block_dinv` reads the premises of `flush_block_only_safe`
+`flush_block_dinv` reads the premises of `flush_block_only_safe`
 from `DInv` (engine invariants, recorded symbols with their frequencies, cleared costs, the bit
 bound, the pending cursor, the window shape and block span) and from the entry premises of a
 block flush (`StreamBuffers`, a non-`NULL` output pointer, a positive level, nothing pending). The dynamic overlay
@@ -149,7 +149,7 @@ theorem SymbolLedger.empty_bytes {a b : Array UInt8} {d : DeflateState} (ledger 
     SymbolLedger b d [] :=
   ⟨ledger.count, ledger.valid, fun i s selected => by simp at selected, ledger.literal, ledger.distance⟩
 
-/-- **The block flush keeps the deflate invariant** (`flush_block_spec` of the skeleton, with
+/-- **The block flush keeps the deflate invariant** (with
 `last` 0 or 1 and the dynamic overlay room as a premise). -/
 theorem flush_block_spec_of_overlay {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (inv : DInv h r ds z d) (buffers : StreamBuffers h r) (out : z.next_out ≠ .null)

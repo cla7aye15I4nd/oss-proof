@@ -4,7 +4,7 @@ import ZlibF.Runtime.Tables
 # `malloc`, `free` and `memcpy` of every struct kind (GENERATED, do not edit)
 
 `allocK` and `freeK` are `malloc(sizeof(K))` and `free` through the default allocator, `copyK dst src` is the
-`memcpy` of a whole record. They model the C library (see `Libc.lean` and `docs/trusted-base.md`); the loads and
+`memcpy` of a whole record. They model the C library (see `Libc.lean` and `docs/en/trusted-base.md`); the loads and
 stores of the records are in `Tables.lean`. Each `allocK` takes a fixed `sizeof` far below `PTRDIFF_MAX`, so it
 has no size test (`allocB` and `allocW` refuse a request above `PTRDIFF_MAX`).
 -/
@@ -12,7 +12,7 @@ has no size test (`allocB` and `allocW` refuse a request above `PTRDIFF_MAX`).
 namespace C
 
 /-- `malloc(sizeof(z_stream))` through the default allocator: a fresh live record with arbitrary integers and
-null pointers (a documented gap: C leaves them indeterminate, see `docs/trusted-base.md`), or null when the
+null pointers (a documented gap: C leaves them indeterminate, see `docs/en/trusted-base.md`), or null when the
 failure oracle says so. It is a fault (not a C behaviour) if the block number `nextBlk` is already in use:
 the heap is then not `Fresh`, and a theorem about allocation carries `Fresh`. -/
 def allocZStream : M ZStreamPtr := fun h =>
@@ -57,7 +57,7 @@ theorem freeZStream_tab {h : Heap} {i : Nat} {v : ZStream} (e : h.streams i = so
     freeZStream (some (.tab i)) h = .ok ((), { h with streams := upd h.streams i none }) := by simp [freeZStream, e]
 
 /-- `malloc(sizeof(gz_header))` through the default allocator: a fresh live record with arbitrary integers and
-null pointers (a documented gap: C leaves them indeterminate, see `docs/trusted-base.md`), or null when the
+null pointers (a documented gap: C leaves them indeterminate, see `docs/en/trusted-base.md`), or null when the
 failure oracle says so. It is a fault (not a C behaviour) if the block number `nextBlk` is already in use:
 the heap is then not `Fresh`, and a theorem about allocation carries `Fresh`. -/
 def allocGzHeader : M GzHeaderPtr := fun h =>
@@ -101,7 +101,7 @@ theorem freeGzHeader_tab {h : Heap} {i : Nat} {v : GzHeader} (e : h.gzheaders i 
     freeGzHeader (some (.tab i)) h = .ok ((), { h with gzheaders := upd h.gzheaders i none }) := by simp [freeGzHeader, e]
 
 /-- `malloc(sizeof(deflate_state))` through the default allocator: a fresh live record with arbitrary integers and
-null pointers (a documented gap: C leaves them indeterminate, see `docs/trusted-base.md`), or null when the
+null pointers (a documented gap: C leaves them indeterminate, see `docs/en/trusted-base.md`), or null when the
 failure oracle says so. It is a fault (not a C behaviour) if the block number `nextBlk` is already in use:
 the heap is then not `Fresh`, and a theorem about allocation carries `Fresh`. -/
 def allocDeflateState : M DeflateStatePtr := fun h =>
@@ -145,7 +145,7 @@ theorem freeDeflateState_tab {h : Heap} {i : Nat} {v : DeflateState} (e : h.dsta
     freeDeflateState (some (.tab i)) h = .ok ((), { h with dstates := upd h.dstates i none }) := by simp [freeDeflateState, e]
 
 /-- `malloc(sizeof(inflate_state))` through the default allocator: a fresh live record with arbitrary integers and
-null pointers (a documented gap: C leaves them indeterminate, see `docs/trusted-base.md`), or null when the
+null pointers (a documented gap: C leaves them indeterminate, see `docs/en/trusted-base.md`), or null when the
 failure oracle says so. It is a fault (not a C behaviour) if the block number `nextBlk` is already in use:
 the heap is then not `Fresh`, and a theorem about allocation carries `Fresh`. -/
 def allocInflateState : M InflateStatePtr := fun h =>
@@ -189,7 +189,7 @@ theorem freeInflateState_tab {h : Heap} {i : Nat} {v : InflateState} (e : h.ista
     freeInflateState (some (.tab i)) h = .ok ((), { h with istates := upd h.istates i none }) := by simp [freeInflateState, e]
 
 /-- `malloc(sizeof(gz_state))` through the default allocator: a fresh live record with arbitrary integers and
-null pointers (a documented gap: C leaves them indeterminate, see `docs/trusted-base.md`), or null when the
+null pointers (a documented gap: C leaves them indeterminate, see `docs/en/trusted-base.md`), or null when the
 failure oracle says so. It is a fault (not a C behaviour) if the block number `nextBlk` is already in use:
 the heap is then not `Fresh`, and a theorem about allocation carries `Fresh`. -/
 def allocGzState : M GzStatePtr := fun h =>

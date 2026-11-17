@@ -91,11 +91,12 @@ def check_api_safety_goal(api: dict, hidden: bool, safety_goals: list[str]) -> N
 def required_public_goals(manifest: dict) -> list[str]:
     """The required targets: the safety goal of every function compiled by the target and part of
     the zlib API, the listed safety goals and the non-vacuity goals
-    (docs/design/safety-functional-split.md).
+    (docs/en/design/safety-functional-split.md).
 
     zlib.h declares some exported functions as undocumented and not part of the zlib API. They stay
-    in the inventory, and their registered theorems stay audited, but their goals are not required.
-    A functional goal is not required: a registered proof of it is audited in full, an unproved one
+    in the inventory, and their theorems listed in `ZlibF/Results.lean` are still checked, but
+    their goals are not required. A functional goal is not required: a proof of it listed in
+    `ZlibF/Results.lean` is checked in full, an unproved one
     is reported and fails nothing.
     """
     hidden = set(manifest.get("undocumented", {}).get("functions", []))

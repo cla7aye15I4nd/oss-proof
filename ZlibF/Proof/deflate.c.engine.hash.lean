@@ -4,8 +4,6 @@
 Statements about numbers and byte functions that the proofs of `UPDATE_HASH`, `INSERT_STRING`, `fill_window` and
 `longest_match` use. Nothing here mentions the heap or the translation. A window is a function `Nat → UInt8`
 (the content of the window block, read with `getD` outside the block).
-
-Copied from the earlier attempt (`EngineChains`), with the byte array replaced by a byte function.
 -/
 
 namespace Zlib.Deflate.Engine.Proofs

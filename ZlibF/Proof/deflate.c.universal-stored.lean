@@ -4,7 +4,7 @@ import ZlibF.Proof.«trees.c.stored-block»
 /-!
 # deflate.c, universal engine: `deflate_stored`
 
-Batch B of the deflate skeleton. `deflate_stored` (level 0) copies input to the caller's output
+`deflate_stored` (level 0) copies input to the caller's output
 as stored blocks, directly when the output has room for a whole block, and through the window
 and `pending_buf` otherwise. Its safety depends on exact sizes: the stored header occupies
 exactly `(bi_valid + 42) >> 3` bytes (`hv` in the C), which is what the direct copy reserves.

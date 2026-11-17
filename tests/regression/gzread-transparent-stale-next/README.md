@@ -16,7 +16,8 @@ calls `gzread(f, buf, 1)`. The replacement `read()` is defined in the program, s
 `heap-buffer-overflow` READ of size 1 in `gz_read` (`gzread.c:369`), 0 bytes after the 32-byte
 output buffer. The patched build must report nothing; `gzread` returns 1 and keeps `Z_ERRNO`.
 
-`report.txt` is the raw output of one run on x86_64 Linux (GCC 15.2), the project's target, process
+`report.txt` is the raw output of one run on zlib commit 757f0527, the parent of the verified commit
+99623ef7, on x86_64 Linux (GCC 15.2), the project's target, process
 ids replaced. The verdict is the same as on arm64 macOS (Apple clang 21), where the script was first
 run. With GCC the `SUMMARY` line names the inlined fortified `memcpy`; the `gz_read` frame is still
 `gzread.c:369`.

@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-phases»
 /-!
 # deflate.c: the header stages of one `deflate` call
 
-Batch C. `headerPhase` cut at each status test, in source order and without any change. Each
+`headerPhase` cut at each status test, in source order and without any change. Each
 stage takes the rest of the header phase as a continuation, so that `header_stages` holds by
 unfolding.
 -/

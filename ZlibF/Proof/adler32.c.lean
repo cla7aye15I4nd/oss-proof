@@ -773,7 +773,7 @@ end Zlib.Adler32.Proofs
 
 /-! ## Main theorems
 
-They state Theorems A1 (safety) and A2 (correctness) of `docs/proof/adler32.md`. -/
+They state the safety and correctness theorems of `docs/en/proof/adler32.md`. -/
 
 namespace Zlib.Adler32.Proofs
 open C Zlib.Adler32 Zlib.Adler32.Spec

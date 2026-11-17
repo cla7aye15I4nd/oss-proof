@@ -20,11 +20,10 @@ theorem suppliedOpenWorld_heap (h h' : Heap) (fs fs' : Fs) (bs : List UInt8)
     ZlibF.Spec.Public.OpenWorld h' fs fs' [] bs mode (some fd) fd start := by
   simpa only [ZlibF.Spec.Public.OpenWorld, fsLseek_eq, Except.ok.injEq, Prod.mk.injEq, and_true] using hw
 
-/-- `gzFile gzdopen(int fd, const char *mode)` satisfies its original full
+/-- `gzFile gzdopen(int fd, const char *mode)` satisfies its full
 public contract: every mode string, every nonnegative Int32 descriptor, all
 allocator outcomes and NULL mode. No usability/descriptor-slot or caller path
-length premise is added. This is a kernel-checked local result; registration
-and complete audit/CI acceptance remain separate integration checks. -/
+length premise is added. -/
 theorem gzdopen_complete : ZlibF.Spec.Public.Goal.gzdopen := by
   constructor
   · intro h fs fd mode hn

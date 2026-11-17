@@ -4,7 +4,7 @@ import ZlibF.Proof.«gzlib.c.dopen-joint-witness»
 /-!
 # gz file interface: the premises of the sequence goal are satisfiable
 
-`Goal.gz_sequence_nonvacuity` (`ZlibF/Spec/Public/GzSafety.lean`). Two concrete histories:
+`Goal.gz_sequence_nonvacuity` (`ZlibF/Spec/Safety/GzSafety.lean`). Two concrete histories:
 
 1. Reader. The caller heap holds the path `p`, the mode `r` and a one-byte writable buffer (blocks 0, 1, 2). The
    world has the file `p` with two bytes, and every descriptor has a read budget of two bytes. The real `gzopen` runs

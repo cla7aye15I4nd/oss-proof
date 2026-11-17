@@ -13,7 +13,7 @@ stream reachability.
 
 The lemmas that state the allocator's size test (`allocB_large`,
 `allocB_small` and their word forms) live here, in a proof module, and not in
-the runtime: a mutant of the runtime that drops the test fails here.
+the runtime: a runtime that drops the test fails to check here.
 -/
 
 namespace ZlibF.PlatformMemory

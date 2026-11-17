@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.universal-sequence-safety»
 /-!
 # deflate.c: the header facts after a `deflate` call, and the sequence facts
 
-Batch C (`SequenceFacts.deflateHeader`). Owner 2's `deflate_call_header` gives `HeaderInv` after any
+For `SequenceFacts.deflateHeader`: `deflate_call_header` gives `HeaderInv` after any
 `deflate` call from `DInv`, `HeaderInv` and `CallFacts`; with it every field of `SequenceFacts` is a
 theorem under the one hypothesis of the call, `TinyOverlay` (`memLevel` 1 and 2), which is itself
 proved by `tinyOverlay` (`deflate.c.engine.overlay-header-ref`).

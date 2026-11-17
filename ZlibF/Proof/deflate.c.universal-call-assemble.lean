@@ -6,7 +6,7 @@ import ZlibF.Proof.«deflate.c.universal-ops-params-general»
 /-!
 # deflate.c: one `deflate` call, assembled
 
-Owner 2 of the deflate split (`deflate_call`). The case split of `deflate` by its entry phase
+The case split of `deflate` by its entry phase
 (invalid flush, refusal, full output, no-progress refusal, nothing pending, output pending), each
 case composed through the header, strategy and trailer phases, and the clauses of `Goal.deflate`
 derived from the call segment, `KeepRel` and the return code.
@@ -204,7 +204,7 @@ theorem deflate_calls_of (tiny : Block.TinyOverlay) : DeflateCallsFact := by
   obtain ⟨_, _, rfl⟩ := inv1.unique inv2.good
   exact facts1
 
-/-- The header facts after a call (for batch C's `deflateHeader`). -/
+/-- The header facts after a call (for `SequenceFacts.deflateHeader`). -/
 theorem deflate_call_header (tiny : Block.TinyOverlay) {h after : Heap} {r : ZStreamRef}
     {ds ds' : Nat} {z z' : ZStream} {d d' : DeflateState} {flush rc : Int32}
     (inv : DInv h r ds z d) (header : HeaderInv d) (facts : CallFacts d) (buffers : StreamBuffers h r)

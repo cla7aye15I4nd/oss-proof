@@ -3,8 +3,8 @@ import ZlibF.Proof.«inflate.c.misc»
 import ZlibF.Spec.Functional.StreamQueries
 import ZlibF.Spec.Functional.Format.Checksum
 
-/-! Fixed C array layout for the public decode-table query. The legacy counterexample
-is an impossible C object shape, not a reachable library bug. -/
+/-! Fixed C array layout for the public decode-table query. The counterexample to the
+condition without that layout is an impossible C object shape, not a reachable library bug. -/
 namespace ZlibF.Spec.Public.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec Zlib.Inflate.Proofs
 
@@ -83,7 +83,7 @@ theorem codes_layout_of_good {h : Heap} {r : ZStreamRef} {i : Nat}
     {z : ZStream} {s : InflateState} (hg : Good h r i z s) : s.codes.size = 1444 :=
   hg.inv.wf.2.2
 
-/-- The former query condition omitted the fixed C array layout. -/
+/-- The query condition without the fixed C array layout. -/
 def legacyCodesUsed : Prop :=
   CheckedInflate Zlib.Inflate.inflateCodesUsed 0xffffffffffffffff <|
   ∀ h r i z s n, InflateView h r i z s →
@@ -121,7 +121,7 @@ theorem legacy_codes_used_false (a : Array Code) (ha : badSize ≤ a.size) : ¬ 
   rw [huge_result a ha] at hp
   cases hp
 
-/-- The old public condition admits a pointer difference outside ptrdiff_t. -/
+/-- That condition admits a pointer difference outside ptrdiff_t. -/
 theorem legacy_codes_used_impossible : ¬ legacyCodesUsed := by
   apply legacy_codes_used_false (Array.replicate badSize (default : Code))
   simp

@@ -1,6 +1,6 @@
 # Statement test of the decoding side of the inflate format meaning
 
-Step 1 of the proof workflow (`AGENTS.md`) for the body modes of `ParseMeaning`
+Statement test for the body modes of `ParseMeaning`
 (`ZlibF/Proof/inflate.c.meaning.lean`). The stream side and the late-rejection reproduction are
 in `../inflate-meaning`.
 

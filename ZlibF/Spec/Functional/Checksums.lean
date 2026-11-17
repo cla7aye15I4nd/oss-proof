@@ -4,8 +4,8 @@ import ZlibF.Spec.Functional.Format.Checksum
 /-!
 # Checksums: functional goals and the definitions only they use
 
-Split from `ZlibF/Spec/Public/Checksums.lean` without a change of statement or name
-(`docs/design/safety-functional-split.md`). The namespace stays `ZlibF.Spec.Public`.
+The split into safety and functional modules: `docs/en/design/safety-functional-split.md`. The
+namespace is `ZlibF.Spec.Public`.
 -/
 
 namespace ZlibF.Spec.Public
@@ -22,7 +22,7 @@ def adlerValue (seed : UInt64) (bytes : List UInt8) : UInt64 :=
 
 /-- Public update behaviour for either length width. All readable objects and all seeds are
 covered; NULL queries require zero length and return one without reading bytes.
-This explicit domain restriction is recorded in `docs/deviations.md`. The heap is unchanged. -/
+This explicit domain restriction is recorded in `docs/en/deviations.md`. The heap is unchanged. -/
 def AdlerUpdate (program : UInt64 → BPtr → UInt64 → M UInt64) : Prop :=
   ∀ (h : Heap) (seed : UInt64) (pointer : BPtr) (length : UInt64) (bytes : List UInt8),
     AdlerBufferBytes h pointer length.toNat bytes →
@@ -31,13 +31,13 @@ def AdlerUpdate (program : UInt64 → BPtr → UInt64 → M UInt64) : Prop :=
 
 /-- `uLong adler32_z(uLong adler, const Bytef *buf, z_size_t len)`.
 NULL queries have zero length; nonnull readable objects cover 64-bit lengths and all seeds.
-See `docs/deviations.md` for the query restriction. Exact value, no fault, termination,
+See `docs/en/deviations.md` for the query restriction. Exact value, no fault, termination,
 no allocation and the complete heap frame. -/
 def Goal.adler32_z : Prop := AdlerUpdate Zlib.Adler32.adler32_z
 
 /-- `uLong adler32(uLong adler, const Bytef *buf, uInt len)`.
 The public 32-bit length entry has the same buffer domain and exact result as `_z`.
-NULL queries require zero length, as recorded in `docs/deviations.md`. -/
+NULL queries require zero length, as recorded in `docs/en/deviations.md`. -/
 def Goal.adler32 : Prop :=
   ∀ (h : Heap) (seed : UInt64) (pointer : BPtr) (length : UInt32) (bytes : List UInt8),
     AdlerBufferBytes h pointer length.toNat bytes →

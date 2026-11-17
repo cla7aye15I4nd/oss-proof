@@ -103,7 +103,7 @@ def GzLookSpec : Prop :=
             s'.x.pos.toInt + s'.x.have.toNat ≤ 9223372036854775807))
 
 /-- **`gz_decomp`** into the output region `out` (from the record's `out` in `gz_fetch`, then no caller region is
-written; the caller's buffer in `gz_read`), as the skeleton states it, with the fields kept and the progress clauses `gz_fetch` needs.
+written; the caller's buffer in `gz_read`), with the fields kept and the progress clauses `gz_fetch` needs.
 The last two clauses serve `gz_read`: the rank (`fetchRank`) does not rise, and the output region is filled unless the
 call failed, reached the end of the input, or lowered the rank by 2 (a member ended: from the head it took input, past
 the head its flag drops). The four clauses after them serve `gz_skip` (through `GzFetchSafe`): an error other than
@@ -141,7 +141,7 @@ def GzDecompSpec : Prop :=
         (s.err ≠ Z_OK → s.err ≠ Z_BUF_ERROR → s.err ≠ Z_STREAM_END → Stuck h s →
           s'.x.have = 0 ∧ (r = -1 ∨ (s'.eof ≠ 0 ∧ s'.strm.avail_in = 0)))
 
-/-- **`gz_fetch`** on a reader with no buffered output: the skeleton statement with the post `GzInvOut`, the kept
+/-- **`gz_fetch`** on a reader with no buffered output: the statement with the post `GzInvOut`, the kept
 fields, and its progress. The premise `err ≠ Z_STREAM_END` holds on every handle (`gz_error` never records that
 code); so does `how = GZ_COPY → avail_in = 0` (`gz_look` and `gzseek` zero `avail_in` when they set COPY), and so does
 `MsgLit` (the embedded stream's message is `NULL` or a literal). All three are discharged by clauses of the

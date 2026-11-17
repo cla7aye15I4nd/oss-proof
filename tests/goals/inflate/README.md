@@ -1,6 +1,6 @@
 # Statement test of the inflate goals
 
-Step 1 of the proof workflow (`AGENTS.md`): check a goal against the real C before proving it.
+A statement test: check a goal against the real C before proving it.
 
 `driver.c` runs random sessions on the real `libz.a` (the pinned `zlib/` plus `patches/`, built by
 `tests/build-zlib.sh`). Each session initializes inflate with a random `windowBits`, including

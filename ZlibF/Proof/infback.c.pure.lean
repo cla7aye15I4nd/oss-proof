@@ -3,7 +3,7 @@ import ZlibF.Zlib.«inflate.c»
 /-!
 # infback.c: facts that do not mention the heap
 
-Migrated from the earlier attempt (`TableCL`, `StoredSpec`) and restated against the present translation: the table `order`
+The table `order`
 of the code-length code lengths is a permutation of `0 .. 18`, and the check of a stored block header on a 32-bit `hold`.
 -/
 

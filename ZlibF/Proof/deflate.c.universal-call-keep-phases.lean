@@ -5,7 +5,7 @@ import ZlibF.Proof.«deflate.c.universal-call-phases»
 /-!
 # deflate.c: the header, strategy and trailer phases keep `KeepRel`
 
-Owner 2 of the deflate split (`deflate_call`). Phases 2 to 4 of `deflate`
+Phases 2 to 4 of `deflate`
 (`deflate.c.universal-call-phases`) allocate nothing, keep every stream's `msg` and change
 `data_type` only by the guess of `_tr_flush_block`. Phase 1 (`entryPhase`) sets `msg` on its
 error returns (`ERR_RETURN`); `deflate_call` treats it apart.

@@ -76,4 +76,4 @@ diagnostic. Their intentional diagnostics are retained separately.
 
 A successful regression establishes only the finite observations above.
 It does not validate every caller, configuration, pointer alias or C semantic
-assumption, nor does it replace the project audit or its proof obligations.
+assumption, nor does it replace the proofs.

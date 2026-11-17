@@ -3,8 +3,8 @@ import ZlibF.Spec.Common.StreamQueries
 /-!
 # StreamQueries: functional goals and the definitions only they use
 
-Split from `ZlibF/Spec/Public/StreamQueries.lean` without a change of statement or name
-(`docs/design/safety-functional-split.md`). The namespace stays `ZlibF.Spec.Public`.
+The split into safety and functional modules: `docs/en/design/safety-functional-split.md`. The
+namespace is `ZlibF.Spec.Public`.
 -/
 
 namespace ZlibF.Spec.Public

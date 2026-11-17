@@ -1,6 +1,6 @@
 /-!
 Pure Huffman mathematics adapted from the pinned zlib-formal reference
-`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`; see docs/history/references.md.
+`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`.
 The mathematical statements and proof bodies are retained. Imports use this
 project. No result here alone establishes refinement of the translated C.
 -/
@@ -9,7 +9,7 @@ project. No result here alone establishes refinement of the translated C.
 # Abstract Huffman merge of `build_tree` (spec-level, no translated code)
 
 A pure model of the tree that `trees.c`'s `build_tree` builds, used to state and prove the
-facts the overlay bounds need (the overlay analysis of the zlib-formal reference, `docs/history/references.md`, §3, §7, §8.3): Kraft equality,
+facts the overlay bounds need (the overlay analysis of the zlib-formal reference, §3, §7, §8.3): Kraft equality,
 optimality, the Fibonacci depth bound (`FibPlus`), and later the effect of `gen_bitlen`'s
 overflow repair. Nothing here mentions the heap or a translated function; this file imports
 only core Lean.

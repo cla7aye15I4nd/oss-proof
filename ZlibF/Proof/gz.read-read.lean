@@ -9,7 +9,7 @@ import ZlibF.Proof.«gzread.c.getc-ungetc»
 `gz_load_safe` (`gz.read-load-error`) is used directly. Helpers come from `gz.read-decomp`, `gzread.c.skip-gets`,
 `gzread.c.getc-ungetc`, `gz.read-fetch` and the frame modules.
 
-`GzReadSafe` is the skeleton statement `gz_read_safe` (`GzReadSpec` of `gzread.c.getc-ungetc`) with three more
+`GzReadSafe` is `GzReadSpec` of `gzread.c.getc-ungetc` with three more
 premises and the clauses that keep them. The premises are clauses of the reader invariant (`GzReadInv`: `errEnd`, `copyIn`, `msgLit`), as in `GzFetchSafe`:
 `err ≠ Z_STREAM_END` (`gz_error` never records it), `how = GZ_COPY → avail_in = 0` and `MsgLit`.
 
@@ -18,7 +18,7 @@ premises and the clauses that keep them. The premises are clauses of the reader 
    by `got`, and the accumulated `GzPost` over the caller's region.
 2. One trip (`read_body`), by its branch: the position-overflow break, the copy from the buffered output, the
    end-of-input break, `gz_fetch`, the direct `gz_load` (COPY) and the direct `gz_decomp` (GZIP).
-3. The measure (`readMeasure`, the design note of the read side): with `L = min(len, GZ_OFF_MAX - pos)`,
+3. The measure (`readMeasure`, `docs/en/proof/gzip.md`, "Termination of the read loops"): with `L = min(len, GZ_OFF_MAX - pos)`,
    `L / 8 + Q + 2·E + 3·R + fetchRank`, where `Q` ranks the buffered output, `E` the end of the input and `R` the
    room left before `GZ_OFF_MAX`. It drops on every trip that continues and starts below `2^64` under `ReadsFinite`.
 4. At the exit, `GzInv` is restored from `GzInvUpToOutput`, `OutWindow`, the position bound and `skip = 0`
@@ -31,7 +31,7 @@ set_option autoImplicit false
 
 /-! ## The statements -/
 
-/-- **`gz_skip`** on a reader in `GzInv` with a pending skip, as `gz_read` needs it (batch 3 proves it). The premises
+/-- **`gz_skip`** on a reader in `GzInv` with a pending skip, as `gz_read` needs it (`gzSkipRead_holds` proves it from `GzFetchSafe`). The premises
 are the clauses of the reader invariant `GzReadInv` that `GzFetchSafe` takes (`err ≠ Z_STREAM_END`, `how = GZ_COPY → avail_in = 0`,
 `MsgLit`). The post keeps them, keeps the finite read budget, and on success leaves no skip. -/
 def GzSkipRead : Prop :=
@@ -43,7 +43,7 @@ def GzSkipRead : Prop :=
       ∃ s', after.gzstates i = some s' ∧ MsgLit s' ∧ s'.err ≠ Z_STREAM_END ∧
         (s'.how = GZ_COPY → s'.strm.avail_in = 0) ∧ (r = 0 → s'.skip = 0)
 
-/-- **`gz_read` is safe**: the skeleton statement `gz_read_safe` (`GzReadSpec`), with three premises that are
+/-- **`gz_read` is safe**: `GzReadSpec`, with three premises that are
 clauses of the reader invariant `GzReadInv`: `err ≠ Z_STREAM_END`, `how = GZ_COPY → avail_in = 0` and `MsgLit` (the premises of
 `GzFetchSafe`). The post keeps them, keeps the finite read budget, the mode and the descriptor, for the callers
 `gzread`, `gzfread` and `gzgetc`. -/

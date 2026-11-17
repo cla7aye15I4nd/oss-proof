@@ -12,7 +12,7 @@ import ZlibF.Zlib.«inffast.c»
 Source: `inflate.c` of the verified source (`zlib/` plus `patches/*.patch` applied in name order, see `patches/README.md`), default x86_64
 Linux build: `GUNZIP` defined, `Z_SOLO`, `PKZIP_BUG_WORKAROUND`, `INFLATE_STRICT`,
 `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR`, `ZLIB_DEBUG` undefined (so `Tracev` is nothing and `dmax` is written but
-never read). Types as in `docs/design/translation.md`. The notes are `docs/proof/inflate.md`.
+never read). Types as in `docs/en/design/translation.md`. The notes are `docs/en/proof/inflate.md`.
 
 ## How the control flow is translated
 

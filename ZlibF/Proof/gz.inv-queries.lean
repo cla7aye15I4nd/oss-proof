@@ -8,8 +8,7 @@ import ZlibF.Zlib.«gzclose.c»
 /-!
 # gz safety: the queries that change nothing, `gzbuffer`, and the `gzclose` dispatch, on `GzInv`
 
-Skeleton lemmas of batch 1 (`skeleton/gz`, `gz.skeleton.lean`), with their statements unchanged:
-`post_unchanged`, `safe_of_unchanged`, `gzeof_step`, `gztell64_step`, `gztell_step`, `gzbuffer_step` and
+This file proves `post_unchanged`, `safe_of_unchanged`, `gzeof_step`, `gztell64_step`, `gztell_step`, `gzbuffer_step` and
 `gzclose_dispatch_inv`. None of them depends on the OS-call oracle or on a patch: no system call is made, and
 the record changes only in `gzbuffer`, while no codec is set up.
 -/
@@ -59,7 +58,7 @@ theorem safe_of_unchanged {i : Nat} {call : Call} {h : Heap} {fs : Fs} {s : GzSt
 
 /-! ## gzeof -/
 
-/-- `gzeof`, from the registered `gzeof_public`: nothing changes. -/
+/-- `gzeof`, from `gzeof_public`: nothing changes. -/
 theorem gzeof_step (i : Nat) : GzCallSafe i (.gzeof (some (.in_gzstate_x i))) := by
   intro h fs s inv hfs _
   have hr : Zlib.Gzlib.gzeof (some (.in_gzstate_x i)) h =

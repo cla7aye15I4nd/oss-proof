@@ -48,7 +48,7 @@ def main : IO UInt32 := do
   let helpers ← readNames "tests/audit/compiler-helpers.txt"
   initSearchPath (← findSysroot)
   let env ← importModules #[{ module := `ZlibF }] {} 0
-  -- As in the audit: read the checked constants, with the bodies that an exporting view hides.
+  -- Read the checked constants, with the bodies that an exporting view hides.
   let env := env.setExporting false
   let kernel := env.checked.get
   let mut problems : Array String := #[]

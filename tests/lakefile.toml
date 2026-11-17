@@ -2,7 +2,7 @@ name = "difftest"
 version = "0.1.0"
 
 # The differential-test drivers. They import the SAME translation the proofs are about,
-# from the parent project, by path. Nothing here is audited: see README.md.
+# from the parent project, by path. Nothing here is part of the checked library: see README.md.
 
 [[require]]
 name = "ZlibF"

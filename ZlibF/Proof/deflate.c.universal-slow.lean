@@ -7,7 +7,7 @@ import ZlibF.Proof.«deflate.c.borrow-stable-strategies»
 /-!
 # deflate.c, universal engine: `deflate_slow`
 
-Batch B of the deflate skeleton. `deflate_slow` (levels 4 to 9, strategies other than
+`deflate_slow` (levels 4 to 9, strategies other than
 `Z_HUFFMAN_ONLY` and `Z_RLE`) looks one position ahead: the match found at `strstart - 1`
 (`prev_length`, `prev_match`) is emitted only if the match at `strstart` is not longer; otherwise
 the byte at `strstart - 1` is emitted as a literal (`match_available`). The lazy state between
@@ -1474,7 +1474,7 @@ theorem slow_spec_of {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
 
 /-- **`slow_spec`**: `deflate_slow` (levels 4 to 9 with a hashing strategy) keeps the invariant for
 every parameter tuple and flush value, with the stream accounting, given the pending-buffer
-overlay that batch C proves for every memLevel. -/
+overlay, proved for every memLevel. -/
 theorem slow_spec (tiny : Block.TinyOverlay) {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     {d : DeflateState} (inv : DInv h r ds z d) (entry : StrategyEntry h r z d) (flush : Int32)
     (slow : 4 ≤ d.level.toInt ∧ d.strategy.toInt ≠ 2 ∧ d.strategy.toInt ≠ 3) :

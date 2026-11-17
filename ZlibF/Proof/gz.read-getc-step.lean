@@ -4,21 +4,19 @@ import ZlibF.Proof.«gz.read-assembly»
 import ZlibF.Proof.«gzread.c.skip-terminates»
 
 /-!
-# gz read side: `gzgetc` and `gzungetc`, aligned with the skeleton statements
+# gz read side: `gzgetc` and `gzungetc`
 
-`gzread.c.getc-ungetc` (batch 3) proves `gzgetc_step_of` and `gzungetc_step_of` over premise definitions. This file
-derives the skeleton statements from proved theorems where they exist, and restates `gzungetc` where a premise
-definition of batch 3 is false.
+`gzread.c.getc-ungetc` proves `gzgetc_step_of` over premise definitions. This file discharges them, and proves
+`gzungetc` over `GzSkipSpecNZ`.
 
 - `gzgetc_step`: `GetcUngetc.gzgetc_step_of` with its premises discharged: `gz_error` (`gzErrorSpec_holds`,
-  `gzErrorOwn_holds`) and `GzReadSpec`, from the read-side owner's `gz_read_safe_stuck` and the proved
+  `gzErrorOwn_holds`) and `GzReadSpec`, from `gz_read_safe_stuck` and the proved
   `inflateStuckNoOutput_holds`. No premise is left.
-- `gzungetc`: batch 3's `GzSkipSpec'` quantifies over every pending skip, also `0`, and is false there (see
-  `GzSkipSpecNZ`); it rested on `GzFetchProgress`, which is false. The stages `tLook` and `tAgain` are re-proved here
-  over `GzSkipSpecNZ` and `LookFacts` (`gz_look` called only in LOOK mode with nothing buffered, as `gzungetc` does).
+- `gzungetc`: the statement of `gz_skip` needs the premise `skip ≠ 0` (see `GzSkipSpecNZ`). The stages `tLook` and
+  `tAgain` are proved here over `GzSkipSpecNZ` and `LookFacts` (`gz_look` called only in LOOK mode with nothing buffered, as `gzungetc` does).
   `tSkip_run` is reused. `gzungetc_step_of_term` has one premise, `GzSkipTerminates`: the termination of `gz_skip`
   from the invariant up to the pending skip. `gzungetc` calls `gz_skip` after `gz_look`, whose COPY branch may leave
-  output buffered with a skip pending; batch 3's `gz_skip_safe_fetch` starts from `GzInv` and does not cover that
+  output buffered with a skip pending; `gz_skip_safe_fetch` starts from `GzInv` and does not cover that
   record. `gzungetc_step` discharges it with `gzSkipTerminates_holds` (`gzread.c.skip-terminates`): no premise is left.
 -/
 
@@ -30,7 +28,7 @@ set_option autoImplicit false
 
 /-! ## `gzgetc` -/
 
-/-- **`gzgetc_step`** (skeleton statement) from the skeleton statement of `gz_read_safe` (`GzReadSpec`). -/
+/-- **`gzgetc_step`** from the statement of `gz_read` (`GzReadSpec`). -/
 theorem gzgetc_step_of' (read : GetcUngetc.GzReadSpec) (i : Nat) : GzCallSafe i (.gzgetc (some (.in_gzstate_x i))) :=
   GetcUngetc.gzgetc_step_of read GetcUngetc.gzErrorSpec_holds GetcUngetc.gzErrorOwn_holds i
 
@@ -149,23 +147,23 @@ theorem gzungetc_run' (look : LookFacts) (skip : GzSkipSpecNZ)
     obtain ⟨hh, _, hlook, _⟩ := (inv.reader hm').unalloc hz
     exact absurd (by simp [hlook, hh]) hl
 
-/-- **`gzungetc_step`** (skeleton statement) from `LookFacts` and `GzSkipSpecNZ`. -/
+/-- **`gzungetc_step`** from `LookFacts` and `GzSkipSpecNZ`. -/
 theorem gzungetc_step_of' (look : LookFacts) (skip : GzSkipSpecNZ) (i : Nat) (c : Int32) :
     GzCallSafe i (.gzungetc c (some (.in_gzstate_x i))) := by
   intro h fs s inv hfs _
   have R := gzungetc_run' look skip i c h fs s inv hfs
   exact ⟨R.1, fun hn => R.2.1 (hn trivial), fun v fs' after he => GetcUngetc.Eff.post rfl (R.2.2 v fs' after he)⟩
 
-/-- **`gzungetc_step`** (skeleton statement), from the fact of `inflate` (`InflateStuckNoOutput`, `inflateStuckNoOutput_holds`) and the
+/-- **`gzungetc_step`**, from the fact of `inflate` (`InflateStuckNoOutput`, `inflateStuckNoOutput_holds`) and the
 termination of `gz_skip` from the invariant up to the pending skip (`GzSkipTerminates`). `gzungetc` calls `gz_skip`
-after `gz_look`, whose COPY branch may leave output buffered with a skip pending, so batch 3's `gz_skip_safe_fetch`
+after `gz_look`, whose COPY branch may leave output buffered with a skip pending, so `gz_skip_safe_fetch`
 (entry in `GzInv`) does not apply there; its no-fault and post halves are `gz_skip_post`. -/
 theorem gzungetc_step_of (stuck : InflateStuckNoOutput) (term : GzSkipTerminates)
     (i : Nat) (c : Int32) : GzCallSafe i (.gzungetc c (some (.in_gzstate_x i))) :=
   gzungetc_step_of' (lookFacts_of readInvFacts_holds.msgLit gzLookFailEmpty_holds)
     (gzSkipSpecNZ_of (fetchFacts_of readInvFacts_holds stuck (gzFetchRoom_holds stuck)) term) i c
 
-/-- `gz_read`'s statement in the read-side owner's form (`GzReadSafe`) gives batch 3's `GzReadSpec`: its three extra
+/-- `gz_read`'s statement `GzReadSafe` gives `GetcUngetc.GzReadSpec`: its three extra
 premises are clauses of `GzReadInv`. -/
 theorem gzReadSpec_of (read : GzReadSafe) : GetcUngetc.GzReadSpec := by
   intro i buf len h fs s inv hfs hm hbuf
@@ -173,27 +171,27 @@ theorem gzReadSpec_of (read : GzReadSafe) : GetcUngetc.GzReadSpec := by
   exact (read i buf len h fs s inv hfs hm hbuf r.errEnd r.copyIn r.msgLit).mono
     fun _ _ _ ⟨a, b, c, _⟩ => ⟨a, b, c⟩
 
-/-- **`gzgetc_step`** (skeleton statement) from `gz_read`'s statement `GzReadSafe` (`gz_read_safe_of` gives it
+/-- **`gzgetc_step`** from `gz_read`'s statement `GzReadSafe` (`gz_read_safe_of` gives it
 from `gz_skip`'s statement `GzSkipRead`). -/
 theorem gzgetc_step_of (read : GzReadSafe) (i : Nat) : GzCallSafe i (.gzgetc (some (.in_gzstate_x i))) :=
   gzgetc_step_of' (gzReadSpec_of read) i
 
-/-- **`gzgetc_step`** (skeleton statement), from the one fact of `inflate` (`InflateStuckNoOutput`, `inflateStuckNoOutput_holds`), through
+/-- **`gzgetc_step`**, from the one fact of `inflate` (`InflateStuckNoOutput`, `inflateStuckNoOutput_holds`), through
 `gz_read_safe_stuck`. -/
 theorem gzgetc_step_stuck (stuck : InflateStuckNoOutput) (i : Nat) : GzCallSafe i (.gzgetc (some (.in_gzstate_x i))) :=
   gzgetc_step_of (gz_read_safe_stuck stuck) i
 
-/-- **`gzgetc_step`**, the skeleton statement. -/
+/-- **`gzgetc_step`**, with no premise. -/
 theorem gzgetc_step (i : Nat) : GzCallSafe i (.gzgetc (some (.in_gzstate_x i))) :=
   gzgetc_step_stuck inflateStuckNoOutput_holds i
 
-/-- **`gzungetc_step`** (skeleton statement) with one premise (`gzSkipTerminates_holds` proves it), the termination of `gz_skip` from the invariant
+/-- **`gzungetc_step`** with one premise (`gzSkipTerminates_holds` proves it), the termination of `gz_skip` from the invariant
 up to the pending skip (`GzSkipTerminates`). -/
 theorem gzungetc_step_of_term (term : GzSkipTerminates) (i : Nat) (c : Int32) :
     GzCallSafe i (.gzungetc c (some (.in_gzstate_x i))) :=
   gzungetc_step_of inflateStuckNoOutput_holds term i c
 
-/-- **`gzungetc_step`**, the skeleton statement, with no premise: `GzSkipTerminates` is `gzSkipTerminates_holds`
+/-- **`gzungetc_step`**, with no premise: `GzSkipTerminates` is `gzSkipTerminates_holds`
 (`gzread.c.skip-terminates`) applied to the `gz_fetch` statement that `gzgetc_step` uses. -/
 theorem gzungetc_step (i : Nat) (c : Int32) : GzCallSafe i (.gzungetc c (some (.in_gzstate_x i))) :=
   gzungetc_step_of_term (gzSkipTerminates_holds (gz_fetch_safe_stuck inflateStuckNoOutput_holds)) i c

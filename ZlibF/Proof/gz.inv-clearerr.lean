@@ -7,7 +7,7 @@ import ZlibF.Proof.«gzlib.c.simple»
 
 `GzInv.clear_message`: freeing the owned message, clearing the pointer and setting the error code (and, for a
 reader, `eof` and `past`) keeps the invariant; the handle then owns exactly its old blocks but the message.
-This is the `msg == NULL` path of `gz_error`. `gzclearerr_step` (skeleton statement, unchanged) follows.
+This is the `msg == NULL` path of `gz_error`. `gzclearerr_step` follows.
 -/
 
 namespace ZlibF.Spec.Public
@@ -312,7 +312,7 @@ namespace ZlibF.Spec.Public.GzSkeleton
 open C Zlib.GzFs Zlib.Gzguts ZlibF.Spec.Public Zlib.Gzlib.Proofs
 set_option autoImplicit false
 
-/-- The run of `gzclearerr` on a handle in `GzInv` (as the registered `gzclearerr` proof). -/
+/-- The run of `gzclearerr` on a handle in `GzInv`. -/
 theorem gzclearerr_inv_run {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) :
     Zlib.Gzlib.gzclearerr (some (.in_gzstate_x i)) h =
       .ok ((), Zlib.Gzlib.Spec.setS (Zlib.Gzlib.Proofs.freeStr h s.msg) i
@@ -333,8 +333,8 @@ theorem gzclearerr_inv_run {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s
       gsimp [hs, hp, hne, hmode, Zlib.Gzlib.Proofs.freeB_blk_setS ha hro, Zlib.Gzlib.Proofs.freeB_blk_run ha hro,
         Zlib.Gzlib.gz_error, Zlib.Gzlib.Spec.clearRec, Zlib.Gzlib.Spec.errNull, GZ_READ, GZ_WRITE]
 
-/-- `gzclearerr`, from the registered `gzclearerr` goal and `GzInv.gz_error`. Proved here from the run (as the registered proof) and
-`GzInv.clear_message`, the `msg == NULL` path of `gz_error`. -/
+/-- `gzclearerr`, from its run (`gzclearerr_inv_run`) and `GzInv.clear_message`, the `msg == NULL` path of
+`gz_error`. -/
 theorem gzclearerr_step (i : Nat) : GzCallSafe i (.gzclearerr (some (.in_gzstate_x i))) := by
   intro h fs s inv hfs _
   have hrun := gzclearerr_inv_run inv

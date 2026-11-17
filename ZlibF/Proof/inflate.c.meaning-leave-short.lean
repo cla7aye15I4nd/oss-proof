@@ -15,8 +15,8 @@ the per-call facts of the decompression utilities (`ConsumesWithinStream`:
   block that is not the last (the block header); `COPY` still has stored bytes to copy; the lookups hold no
   complete valid symbol of any table meaning of the installed table
   (`LEN`, `DIST`) and no complete code-length item of any code-length
-  meaning of it (`CODELENS`). The header and trailer modes are listed for
-  the steps of batch 2, with the conditions under which they wait at all
+  meaning of it (`CODELENS`). The header and trailer modes are listed
+  with the conditions under which they wait at all
   (`HEAD` and `CHECK` only with a wrapper, `LENGTH` only for gzip).
 * `LoopRefuted`: at a rejection (`BAD`), no valid full-window stream is
   comparable with the input read so far: the stream does not continue it

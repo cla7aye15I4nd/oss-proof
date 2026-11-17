@@ -4,7 +4,7 @@ import ZlibF.Proof.«deflate.c.init.general-main»
 /-!
 # deflate.c: a successful `deflateInit2_` establishes the universal invariant
 
-Batch A of the deflate skeleton (`init2_inv`). The success path of `deflateInit2_` is the actual
+`init2_inv`. The success path of `deflateInit2_` is the actual
 run of `alloc` (`deflate.c.init.general-success`), for every parameter tuple that
 `Api.deflInit?` accepts. Its result state is `resultState`; this module shows `DInv` for it,
 field by field. Nothing about the result is assumed: the scalar fields are computed from the
@@ -133,7 +133,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 4000000
 
 /-- **A successful `deflateInit2_` establishes the invariant and the between-calls facts**
-(skeleton lemma `init2_inv`), for every argument tuple. The result `Z_OK` occurs only on the success path of `init2_main`; that
+for every argument tuple. The result `Z_OK` occurs only on the success path of `init2_main`; that
 path is the actual run of `alloc`, whose result `success_dinv` covers. -/
 theorem init2_inv {h after : Heap} {r : ZStreamRef} {z : ZStream} {version : BPtr}
     {level method wb mem strategy : Int32}

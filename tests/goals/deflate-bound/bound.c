@@ -230,7 +230,7 @@ static void sweep(int slice, size_t count) {
     free(in);
 }
 
-/* The far-match search (docs/findings/deflatebound-fixed-far-matches): random bytes, then copies
+/* The far-match search (the `Z_FIXED` finding of docs/en/findings.md): random bytes, then copies
  * of length L from a random distance in the far half of the window (the upper half of the usable
  * distances for windowBits 9), with literals at a rate of
  * R percent between them. Every window (SEED selects one: 9 .. 15), memLevel, level 1 .. 9 and

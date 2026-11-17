@@ -6,7 +6,7 @@ import ZlibF.Spec.Functional.Api.Compress
 /-!
 # deflate.c: the entry phase of `deflate` for every status
 
-Owner 2 of the deflate split (`deflate_call`). Batch C's entry lemmas
+The entry lemmas
 (`deflate.c.universal-call-entry`) cover an accepted call before the header. Here the entry phase
 is stated for every status: the refusals with their message (`Z_STREAM_ERROR`), the full output
 (`Z_BUF_ERROR`), and, with nothing pending, the repeated-flush refusal and the refusal of new
@@ -238,8 +238,8 @@ theorem entry_empty_all {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
       exact np (Or.inr ⟨yes.1, yes.2⟩)
     simp only [first, second, Bool.false_eq_true, ite_false]
 
-/-- **The entry phase of an accepted call with pending output**, for every status (batch C's
-`entry_accepted_pending` without its status premise). `flush_pending` delivers at least one
+/-- **The entry phase of an accepted call with pending output**, for every status
+(`entry_accepted_pending` without its status premise). `flush_pending` delivers at least one
 byte. If that fills the output, the call returns `Z_OK`; otherwise nothing is left pending, and
 the call refuses new input after `Z_FINISH` (`Z_BUF_ERROR`) or continues. -/
 theorem entry_pending_all {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : DeflateState}

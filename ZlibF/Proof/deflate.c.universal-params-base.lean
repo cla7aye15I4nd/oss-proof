@@ -4,7 +4,7 @@ import ZlibF.Proof.LibcBorrowLoops
 /-!
 # deflate.c: the parameters of a deflate state are not changed by a deflate call
 
-Batch C of the deflate skeleton (`bound_before_output`). `deflateBound` reads `level`, `w_bits`,
+`deflateBound` reads `level`, `w_bits`,
 `hash_bits`, the size of the wrapper (`|wrap|`, `gzhead`) and checks the stream with
 `deflateStateCheck` (`strm`, a valid `status`, the stream's `state`, `zalloc` and `zfree`). This
 module and its successors prove that every returning run of `deflate` keeps these fields of every

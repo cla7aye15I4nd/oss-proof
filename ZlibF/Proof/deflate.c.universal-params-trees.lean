@@ -4,7 +4,7 @@ import ZlibF.Proof.«trees.c.monad»
 /-!
 # trees.c: returning executions keep every deflate parameter
 
-Batch C of the deflate skeleton (`bound_before_output`). Port of `trees.c.borrow-stable` to the
+The analogue of `trees.c.borrow-stable` for the
 parameter frame `ExactM`: every record update in `trees.c` writes trees, costs, symbols or the
 bit buffer, and every store goes to an array of a record or to a byte block.
 -/

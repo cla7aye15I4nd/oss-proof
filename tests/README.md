@@ -9,7 +9,7 @@ directory is the evidence that it matches the C. For each C function, the same i
 
 The two outputs are compared byte for byte. This is a test, not a proof: it shows that the two agree on
 the inputs tried, nothing more. The drivers import the translation module itself, never a copy, and
-sit outside the audit.
+are not part of the checked library.
 
 ```mermaid
 flowchart LR

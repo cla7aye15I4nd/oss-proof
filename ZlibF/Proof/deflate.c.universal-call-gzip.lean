@@ -3,7 +3,7 @@ import ZlibF.Proof.«deflate.c.universal-call-init»
 /-!
 # deflate.c: the gzip header stage of one `deflate` call, without a header record
 
-Batch C (`call_frame`, `deflate_header_trailer`). With `gzhead == Z_NULL` the stage writes the ten
+With `gzhead == Z_NULL` the stage writes the ten
 fixed gzip header bytes, enters `BUSY_STATE` and flushes; with output room it delivers at least
 one byte. Every level, strategy, window size and memory level, and any held bits.
 -/

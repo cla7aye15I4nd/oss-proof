@@ -20,7 +20,7 @@ The theorem below takes the facts about `deflate` itself as the fields of `Seque
 a theorem: `sequence_facts` (`public-deflate-copy`) proves `SequenceFacts` with no hypothesis, and
 `deflate_sequence_safety` (`public-deflate-goals`) is `Goal.deflate_sequence_safety` with no
 hypothesis. A direct `deflateResetKeep` is not a stream operation (`StreamOperation`,
-`docs/deviations.md`).
+`docs/en/deviations.md`).
 -/
 
 namespace Zlib.Deflate.Universal

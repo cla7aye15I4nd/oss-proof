@@ -4,10 +4,8 @@ import ZlibF.Spec.Common.Sequences
 /-!
 # gz file interface: the functional open and lifecycle goals
 
-`gzWitnessHeap`, `gzWitnessFs` and `Goal.gz_initialisation_domain`, split from
-`ZlibF/Spec/Public/Domains.lean`, and `Goal.gz_sequence`, split from `ZlibF/Spec/Public/Sequences.lean`, without
-a change of statement or name (`docs/design/safety-functional-split.md`). The namespace stays
-`ZlibF.Spec.Public`.
+`gzWitnessHeap`, `gzWitnessFs`, `Goal.gz_initialisation_domain` and `Goal.gz_sequence`
+(`docs/en/design/safety-functional-split.md`). The namespace is `ZlibF.Spec.Public`.
 -/
 
 namespace ZlibF.Spec.Public
@@ -24,7 +22,7 @@ def gzWitnessFs (mode : Api.GzMode) : Fs :=
 /-- External open success is specified by the fixed file-system semantics. No gz contract
 is an assumption. Every accepted mode has a successful concrete open witness.
 The LP64 platform scope bounds each byte object below `2^63` bytes, including the caller's path
-(`docs/deviations.md`). -/
+(`docs/en/deviations.md`). -/
 def Goal.gz_initialisation_domain : Prop :=
   (∀ h fs path mode name flags kind level strategy direct fd world start,
     Fresh h → Zlib.Gzlib.Spec.Uniq h → LibraryGlobals h → FileSystem fs →

@@ -3,7 +3,7 @@ import ZlibF.Proof.«gz.read-gzread»
 /-!
 # gzread.c: the public call `gzfread`
 
-`gzfread_step_of`: the skeleton leaf `gzfread_step` (`GzReadLeaves`, `gz.sequence-safety`), from the statement of
+`gzfread_step_of`: the leaf `gzfread_step` (`GzReadLeaves`, `gz.sequence-safety`), from the statement of
 `gz_read` (`GzReadSafe`) and the three clauses of the reader invariant (`GzReadClauses`, proved by `gzReadClauses_holds`, `gz.read-gzread`).
 It mirrors `gzread_step_of`.
 

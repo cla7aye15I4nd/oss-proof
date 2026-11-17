@@ -4,7 +4,7 @@ import ZlibF.Runtime.LibcTables
 /-!
 # Runtime: the C library
 
-Trusted base of every translation; see `docs/trusted-base.md`. Everything here models a function of the C library
+Trusted base of every translation; see `docs/en/trusted-base.md`. Everything here models a function of the C library
 (or of the compiler's literal handling), not the C language: the language level (pointers, arithmetic, loops, the
 heap tables) is in `Space.lean`, `Monad.lean` and `Ptr.lean`. Each function says how it differs from the real one.
 

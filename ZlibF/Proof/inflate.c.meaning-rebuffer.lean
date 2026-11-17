@@ -129,8 +129,7 @@ theorem rebuffer_sameRefs {h after : Heap} {r : ZStreamRef} {i : Nat} {z : ZStre
       have kept := rebuffer_inflate_owned inv.good edit (Or.inr windowEq)
       simp [Space.get, kept.1]
 
-/-- A caller rebuffer keeps the format meaning (statement as on
-`skeleton/inflate`). -/
+/-- A caller rebuffer keeps the format meaning. -/
 theorem meaning_rebuffer {h after : Heap} {r : ZStreamRef} {wb : Int32} {log : DataLog}
     {pending : Bool} (current : ParseMeaning wb r h log pending) (edit : Rebuffer h after r) :
     ParseMeaning wb r after log pending := by

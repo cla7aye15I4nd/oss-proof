@@ -4,7 +4,7 @@
 # a direct deflateResetKeep, then data B with Z_FINISH. The second stream is decoded with the kept
 # window as the dictionary. The program must print three histories whose decoding differs from B.
 # The history is outside the proved domain: a direct deflateResetKeep is not a deflate stream
-# operation (docs/deviations.md).
+# operation (docs/en/deviations.md).
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}

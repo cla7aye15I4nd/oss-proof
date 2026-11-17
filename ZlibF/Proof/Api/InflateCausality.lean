@@ -224,8 +224,8 @@ private theorem deferred_no_complete_prefix (n : Nat) (output : List UInt8) :
       List.length_cons] at hlen
     omega
 
-/-- The former whole-lookahead condition rejects the actual first call. This proof uses
-the old predicate, which remains available separately from the corrected causal relation. -/
+/-- The whole-lookahead condition `Layer.Consistent` rejects the actual first call. This proof
+uses that predicate, which is separate from the causal relation. -/
 theorem inflate_deferred_distance_rejects_legacy_consistency :
     ¬ Layer.Consistent .raw 15 [] [115, 4, 66] [65] := by
   intro h

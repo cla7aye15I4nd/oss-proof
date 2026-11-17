@@ -11,8 +11,8 @@ import ZlibF.Spec.Functional.Streams
 The safety of `compress2_z` (`Goal.compress2_z_safety`) is proved from the public goals of
 the three deflate functions it calls (`Goal.deflateInit_`, `Goal.deflate`, `Goal.deflateEnd`),
 taken as explicit hypotheses of exactly those types, and from four facts about one `deflate`
-call that the public `Goal.deflate` does not state yet (`DeflateLoopFacts`, requested from
-the deflate owner). This file: the hypotheses, the heap after the automatic `z_stream` is
+call that the public `Goal.deflate` does not state (`DeflateLoopFacts`, proved as `loopFacts_mid` in
+`public-compress-safe-mid` for the streams `compress2_z` drives). This file: the hypotheses, the heap after the automatic `z_stream` is
 made, and the arguments of `deflateInit_`.
 -/
 

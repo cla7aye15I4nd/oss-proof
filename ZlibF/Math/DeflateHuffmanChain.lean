@@ -3,7 +3,7 @@ import ZlibF.Math.HuffmanFib
 
 /-!
 Pure ancestor-chain mathematics adapted from the pinned zlib-formal reference
-`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`; see docs/history/references.md.
+`0f1428677ebf5b1614ff77f4702bbb382b2bf3c6`.
 Imports and the namespace use this project's existing tree-shape definitions.
 No theorem here assumes execution of a translated callee.
 -/
@@ -17,7 +17,7 @@ weights `p 0 = w (H q), p 1, …, p d = W` of its ancestors and `s i` of their s
 `p (i+1) = p i + s i`, `s 0 ≥ 1` and `p i ≤ s (i+1)` (the sibling of the `(i+1)`-th ancestor
 was removed after the `i`-th ancestor: the removal order is monotone in weight). These are
 the hypotheses of the abstract `fibChain_bound`, which gives `w * F(d+1) + F(d) ≤ W`
-(`docs/proof/trees.md#dynamic-blocks`, the Fibonacci bound).
+(`docs/en/proof/trees.md#dynamic-blocks`, the Fibonacci bound).
 -/
 
 namespace Zlib.Trees.Proofs.GB

@@ -622,7 +622,7 @@ theorem gzgets_run (P : ReadInvFacts) (head : DecompFacts) (room : GzFetchRoom) 
   exact gets_afterAgain P head room skip C len
     (acc0.step inv (post_of_gz_error inv inv' hs' fr lc own hfs) (fun _ => Iff.rfl) C.views) inv' hl1 hlen
 
-/-- **`gzgets_step`** (skeleton statement) from `gz_skip`'s statement `GzSkipRead` and the facts of the fetch. -/
+/-- **`gzgets_step`** from `gz_skip`'s statement `GzSkipRead` and the facts of the fetch. -/
 theorem gzgets_step_of' (P : ReadInvFacts) (head : DecompFacts) (room : GzFetchRoom)
     (skip : GzSkipRead) (i : Nat) (buf : BPtr) (len : Int32) :
     GzCallSafe i (.gzgets (some (.in_gzstate_x i)) buf len) := by
@@ -632,14 +632,14 @@ theorem gzgets_step_of' (P : ReadInvFacts) (head : DecompFacts) (room : GzFetchR
   obtain ⟨k, hfs', s', inv', m, f, bf, lc, -⟩ := R.2.2 v fs' after he
   exact ⟨k, hfs', s', inv', m, f, bf, lc⟩
 
-/-- **`gzgets_step`** (skeleton statement), from the one fact of `inflate` that the whole read side rests on
-(`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`, as for `gzread_step_stuck`). `gz_skip` is batch 3's `gzSkipRead_holds`. -/
+/-- **`gzgets_step`**, from the one fact of `inflate` that the whole read side rests on
+(`InflateStuckNoOutput`, proved by `inflateStuckNoOutput_holds`, as for `gzread_step_stuck`). `gz_skip` is `gzSkipRead_holds`. -/
 theorem gzgets_step_stuck (stuck : InflateStuckNoOutput) (i : Nat) (buf : BPtr) (len : Int32) :
     GzCallSafe i (.gzgets (some (.in_gzstate_x i)) buf len) :=
   gzgets_step_of' readInvFacts_holds stuck (gzFetchRoom_holds stuck)
     (gzSkipRead_holds (gz_fetch_safe_stuck stuck)) i buf len
 
-/-- **`gzgets_step`**, the skeleton statement. -/
+/-- **`gzgets_step`**, with no premise. -/
 theorem gzgets_step (i : Nat) (buf : BPtr) (len : Int32) : GzCallSafe i (.gzgets (some (.in_gzstate_x i)) buf len) :=
   gzgets_step_stuck inflateStuckNoOutput_holds i buf len
 

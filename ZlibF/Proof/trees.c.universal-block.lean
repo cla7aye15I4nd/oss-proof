@@ -6,7 +6,7 @@ import ZlibF.Proof.«deflate.c.engine.flush-default»
 /-!
 # trees.c: `_tr_flush_block` for every block choice and every memLevel
 
-Batch C of the deflate skeleton. `tr_flush_block_safe` covers the whole function at a positive
+`tr_flush_block_safe` covers the whole function at a positive
 level: the data-type hint, the three tree constructions, the cost comparison, and the stored,
 fixed and dynamic branches with the common tail. Every branch's output room is derived from the
 recorded symbols and `lit_bufsize`. The dynamic branch takes the overlay room of the prepared
