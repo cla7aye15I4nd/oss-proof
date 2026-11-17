@@ -546,12 +546,10 @@ theorem literal_share_sum : mass literalAllow 286 = 232530925 := by
     simp only [literalAllow, show 3 + k < 256 by omega, show ¬ (3 + k ≤ 2) by omega,
       show (3 : Nat) < 256 by omega, show ¬ ((3 : Nat) ≤ 2) by omega, ite_true, ite_false]
   rw [mid]
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum : mass distanceShare 30 = 93684833 := by
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 /-- Each literal/length entry costs at most its share. -/
 theorem literal_entry (ll fl : Nat → Nat) (v : Nat) (hv : v < 286) (hx : ll v ≤ 15)

@@ -269,6 +269,12 @@ def lean_all():
             th = 9 if kind == 'LEN' else 15
             exterm = f' + {S} * (f * (x + {e} - {th}))' if kind in ('LEN', 'DIST') else ''
             A = scaled(cr['A'][n]); M = scaled(cr['m'][kind])
+            # each call site lists only the lemmas its cases use (linter.unusedSimpArgs): the charge of
+            # this entry's region; no Fibonacci values and no `Nat.reduceEqDiff` where `x = 0`
+            sFull = f'{chfun}, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, ' \
+                'Nat.reduceMul, ' + ', '.join(f'f{i}' for i in range(17))
+            sDummy = f'{chfun}, kraftTerm, reduceIte, Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul'
+            sZero = f'{chfun}, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul'
             w(f'theorem entry_{case}_{n} (x f d r : Nat) (hx : x ≤ 15)')
             if kind == 'EOB':
                 w(f'    (used : f = 1 ∧ 1 ≤ x ∧ f * fib (x + 1) + fib x ≤ {W}) (dummy : d = 0)')
@@ -287,7 +293,7 @@ def lean_all():
             if kind == 'EOB':
                 w('  obtain ⟨one, pos, fit⟩ := used')
                 w('  subst one dummy')
-                w(f'  {RC} <;> simp only [{simps}] at fit pos hx ⊢ <;> omega')
+                w(f'  {RC} <;> simp only [{sFull}] at fit pos hx ⊢ <;> omega')
                 w('')
                 continue
             w('  by_cases hf : f = 0')
@@ -295,17 +301,17 @@ def lean_all():
             w('    by_cases x0 : x = 0')
             if dum:
                 w('    · subst x0')
-                w(f'      rcases zero rfl with h | h <;> subst h <;> simp only [{simps}] <;> omega')
+                w(f'      rcases zero rfl with h | h <;> subst h <;> simp only [{sZero}] <;> omega')
                 w('    · have hd := dummy x0 rfl')
                 w('      subst hd')
-                w(f'      {RC} <;> simp only [{simps}] at x0 hx ⊢ <;> omega')
+                w(f'      {RC} <;> simp only [{sDummy}] at x0 hx ⊢ <;> omega')
             else:
                 w('    · subst x0 zero')
-                w(f'      simp only [{simps}]; omega')
+                w(f'      simp only [{sZero}]; omega')
                 w('    · exact absurd rfl (dummy x0)')
             w('  · obtain ⟨pos, fit⟩ := used hf')
             if not dum: w('    subst zero')
-            w(f'    {RC} <;> simp only [{simps}] at fit pos hx ⊢ <;> omega')
+            w(f'    {RC} <;> simp only [{sFull}] at fit pos hx ⊢ <;> omega')
             w('')
     return out, certs
 
@@ -376,11 +382,11 @@ def tail128(certs):
         w('  · subst c')
         w('    have ex : literalExcess 256 (ll 256) = 0 := by simp [literalExcess]')
         w(f'    simp (config := {{ decide := true }}) only [literalCharge, staticLen, literalAllow_{case}, literalRate_{case}, ex,')
-        w('      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul, Nat.mul_one]')
+        w('      ite_true, ite_false, Nat.mul_zero, Nat.add_zero, eob, Nat.one_mul]')
         w('    have u := used (by omega)')
         w('    rw [eob] at u')
         w(f'    have q := entry_{case}_EOB (ll 256) 1 0 _ hx ⟨rfl, u⟩ rfl rfl')
-        w('    simp only [Nat.one_mul, Nat.mul_one, Nat.add_zero] at q ⊢')
+        w('    simp only [Nat.one_mul, Nat.add_zero] at q ⊢')
         w('    omega')
         w('  have nodummy : ll v ≠ 0 → fl v ≠ 0 := fun x0 f0 => by have := dummy x0 f0; omega')
         w('  have ex : literalExcess v (ll v) = ll v + lengthExtra (v - 257) - 9 := by')
@@ -389,13 +395,14 @@ def tail128(certs):
         w(f'  simp only [literalCharge, staticLen, literalAllow_{case}, literalRate_{case}, a, b, c, show ¬ v ≤ 256 by omega,')
         w('    ite_false]' + (' ' if False else ''))
         if dumL: w('  simp only [show ¬ v ≤ 2 by omega, ite_false, Nat.add_zero]')
-        for (e, s_, lo, hi) in LIT_RANGES:
+        for ri, (e, s_, lo, hi) in enumerate(LIT_RANGES):
             cond = f'v ≤ {hi}' if hi < 285 else 'True'
             w(f'  by_cases r{lo} : v ≤ {hi}')
             w(f'  · have range : {disj("v", max(lo, 257), hi)} := by omega')
             w(f'    have q := entry_{case}_LEN{e}S{s_} (ll v) (fl v) 0 _ hx used nodummy rfl rfl')
             w('    rcases range with ' + ' | '.join(['rfl'] * (hi - lo + 1)) + ' <;>')
-            w('      simp (config := { decide := true }) only [lengthExtra, ite_true, ite_false, Nat.reduceSub] at q ⊢ <;> omega')
+            ites = 'ite_true' if ri == 0 else ('ite_false' if ri == len(LIT_RANGES) - 1 else 'ite_true, ite_false')
+            w(f'      simp (config := {{ decide := true }}) only [lengthExtra, {ites}, Nat.reduceSub] at q ⊢ <;> omega')
         w('  omega')
         w('')
         # per-entry dispatch, distance tree
@@ -436,7 +443,8 @@ def tail128(certs):
             else:
                 w(f'    have q := entry_{case}_DIST{e} (dl v) (fd v) 0 _ hx used (fun x0 f0 => absurd (dummy x0 f0) id) rfl rfl')
             w('    rcases range with ' + ' | '.join(['rfl'] * (hi - lo + 1)) + ' <;>')
-            w(f'      simp (config := {{ decide := true }}) only [distanceExtra, distanceAllow_{case}, ite_true, ite_false,')
+            ites = 'ite_true' if e == 0 else ('ite_false' if e == DIST_RANGES[-1][0] else 'ite_true, ite_false')
+            w(f'      simp (config := {{ decide := true }}) only [distanceExtra, distanceAllow_{case}, {ites},')
             w('        Nat.add_zero] at q ⊢ <;> omega')
         w('  omega')
         w('')
@@ -458,19 +466,26 @@ def tail128(certs):
         w('    show 142 = 112 + 30 from rfl, mass_split]')
         w(f'  have c1 : mass (fun k => literalAllow_{case} (3 + k)) 141 = 141 * literalAllow_{case} 3 := by')
         w('    rw [← mass_const]; apply mass_congr; intro k lt')
-        w(f'    simp only [literalAllow_{case}, show 3 + k < 144 by omega, show ¬ (3 + k ≤ 2) by omega, ite_true, ite_false,')
-        w('      show (3 : Nat) < 144 by omega, show ¬ ((3 : Nat) ≤ 2) by omega]')
+        if dumL:
+            w(f'    simp only [literalAllow_{case}, show 3 + k < 144 by omega, show ¬ (3 + k ≤ 2) by omega, ite_true, ite_false,')
+            w('      show (3 : Nat) < 144 by omega, show ¬ ((3 : Nat) ≤ 2) by omega]')
+        else:
+            w(f'    simp only [literalAllow_{case}, show 3 + k < 144 by omega, ite_true,')
+            w('      show (3 : Nat) < 144 by omega]')
         w(f'  have c2 : mass (fun k => literalAllow_{case} (3 + (141 + k))) 112 = 112 * literalAllow_{case} 144 := by')
         w('    rw [← mass_const]; apply mass_congr; intro k lt')
         w(f'    simp only [literalAllow_{case}, show ¬ (3 + (141 + k) < 144) by omega, show 3 + (141 + k) < 256 by omega,')
-        w('      show ¬ (3 + (141 + k) ≤ 2) by omega, ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,')
-        w('      show (144 : Nat) < 256 by omega, show ¬ ((144 : Nat) ≤ 2) by omega]')
+        if dumL:
+            w('      show ¬ (3 + (141 + k) ≤ 2) by omega, ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,')
+            w('      show (144 : Nat) < 256 by omega, show ¬ ((144 : Nat) ≤ 2) by omega]')
+        else:
+            w('      ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,')
+            w('      show (144 : Nat) < 256 by omega]')
         w('  rw [c1, c2]')
-        w(f'  simp (config := {{ decide := true }}) only [mass, literalAllow_{case}, ite_true, ite_false, Nat.reduceAdd,')
-        w('    Nat.reduceMul]')
+        w('  simp (config := { decide := true }) only []')
         w('')
         w(f'theorem distance_share_sum_{case} : mass distanceAllow_{case} 30 = {distSum} := by')
-        w(f'  simp (config := {{ decide := true }}) only [mass, distanceAllow_{case}, ite_true, ite_false, Nat.reduceAdd]')
+        w('  simp (config := { decide := true }) only []')
         w('')
         # the certificate
         wh, wc = cr['wh'], cr['wc']

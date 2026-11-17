@@ -415,7 +415,7 @@ theorem entry_none_DIST4 (x f d r : Nat) (hx : x ≤ 15)
   · subst hf
     by_cases x0 : x = 0
     · subst x0 zero
-      simp only [literalRegionCharge, distanceRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
+      simp only [distanceRegionCharge, kraftTerm, reduceIte, Nat.reduceAdd, Nat.reduceSub, Nat.reducePow, Nat.reduceMul]; omega
     · exact absurd rfl (dummy x0)
   · obtain ⟨pos, fit⟩ := used hf
     subst zero
@@ -1729,8 +1729,7 @@ theorem literal_share_sum_none : mass literalAllow_none 286 = 3978212096 := by
       ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
       show (144 : Nat) < 256 by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum_none : mass distanceAllow_none 30 = 3060352768 := by
   simp (config := { decide := true }) only []
@@ -2014,8 +2013,7 @@ theorem literal_share_sum_dist : mass literalAllow_dist 286 = 3929022464 := by
       ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
       show (144 : Nat) < 256 by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum_dist : mass distanceAllow_dist 30 = 1270579200 := by
   simp (config := { decide := true }) only []
@@ -2303,8 +2301,7 @@ theorem literal_share_sum_lit : mass literalAllow_lit 286 = 6166233088 := by
       show ¬ (3 + (141 + k) ≤ 2) by omega, ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
       show (144 : Nat) < 256 by omega, show ¬ ((144 : Nat) ≤ 2) by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum_lit : mass distanceAllow_lit 30 = 10257571359 := by
   simp (config := { decide := true }) only []

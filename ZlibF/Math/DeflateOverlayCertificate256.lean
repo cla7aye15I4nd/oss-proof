@@ -1704,8 +1704,7 @@ theorem literal_share_sum_none : mass literalAllow_none 286 = 8930252320 := by
       ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
       show (144 : Nat) < 256 by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum_none : mass distanceAllow_none 30 = 7118306272 := by
   simp (config := { decide := true }) only []
@@ -1989,8 +1988,7 @@ theorem literal_share_sum_dist : mass literalAllow_dist 286 = 8714169280 := by
       ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
       show (144 : Nat) < 256 by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum_dist : mass distanceAllow_dist 30 = 1228800000 := by
   simp (config := { decide := true }) only []
@@ -2278,8 +2276,7 @@ theorem literal_share_sum_lit : mass literalAllow_lit 286 = 10363207680 := by
       show ¬ (3 + (141 + k) ≤ 2) by omega, ite_true, ite_false, show ¬ ((144 : Nat) < 144) by omega,
       show (144 : Nat) < 256 by omega, show ¬ ((144 : Nat) ≤ 2) by omega]
   rw [c1, c2]
-  simp (config := { decide := true }) only [
-    ]
+  simp (config := { decide := true }) only []
 
 theorem distance_share_sum_lit : mass distanceAllow_lit 30 = 17234015231 := by
   simp (config := { decide := true }) only []
