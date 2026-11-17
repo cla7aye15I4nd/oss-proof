@@ -48,7 +48,7 @@ jobs:
       # The library build also checks the registry of results, ZlibF/Results.lean: each theorem's type
       # is exactly its goal, allowed axioms only, and every goal is proved or listed as not done.
       - name: Build the library once
-        run: lake build --wfail ZlibF
+        run: lake build --wfail ZlibF Regressions
 
       - name: Save the module cache (pushes to main only)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.module-cache.outputs.cache-hit != 'true' }}
