@@ -1136,6 +1136,12 @@ import ZlibF.Proof.«inflate.c.completes-observe-avail»
 import ZlibF.Proof.«inflate.c.completes-blocked»
 import ZlibF.Proof.«inflate.c.completes-gzip-fields»
 import ZlibF.Proof.«inflate.c.completes-within»
+import ZlibF.Proof.«inflate.c.meaning-holds»
+import ZlibF.Proof.«inflate.c.completes-cause»
+import ZlibF.Proof.«inflate.c.completes-cause-header»
+import ZlibF.Proof.«inflate.c.completes-cause-dynamic»
+import ZlibF.Proof.«inflate.c.completes-cause-zlib»
+import ZlibF.Proof.«inflate.c.completes-stop»
 import ZlibF.Proof.«inflate.c.meaning-run»
 import ZlibF.Proof.«inflate.c.meaning-side»
 import ZlibF.Proof.«inflate.c.meaning-trip»
