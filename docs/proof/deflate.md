@@ -466,11 +466,5 @@ the format specification, to the input that was accepted. For other configuratio
 says that the output of `deflate` decodes to its input.
 
 The round trip of the default zlib stream (compress with `deflate`, decompress with `inflate`,
-get the input back) is not done. One theorem, `deflate_inflate_roundtrip`, proves a conditional
-form. It takes a `deflate` history that starts with `deflateInit_` at `Z_DEFAULT_COMPRESSION`
-and an `inflate` history that starts with `inflateInit2_` at `windowBits` 15. Both consist of
-caller edits and of `deflate` (or `inflate`) calls with any flush value and any split of the
-buffers; they contain no dictionary, reset or other operation. If in both the last call
-returned `Z_STREAM_END`, and the input that `inflate` consumed is a prefix of the output of
-`deflate`, then the output of `inflate` is the input that `deflate` accepted. Not covered: that
-both histories reach `Z_STREAM_END`.
+get the input back) is proved, with the completion of both sides:
+[the round trip](roundtrip.md).

@@ -184,7 +184,7 @@ The frame of one stream call (`StreamCallSafe`, [Safety/Streams.lean](../../Zlib
 | Part | Content |
 | --- | --- |
 | Blocks that may change | The `z_stream` record (`StreamRoot`). The blocks the stream owns (`StreamOwned`). A gzip header record: the one passed to `inflateGetHeader`, or during `inflate` the one attached to the stream (`StreamHeaderRecord`). |
-| Caller ranges that may be written (`StreamWriteRegions`) | For `inflate`, `deflate` and `deflateParams`: `avail_out` bytes at `next_out`; for an inflate stream also the `extra`, `name` and `comment` buffers of an attached header. For `inflateGetDictionary` and `deflateGetDictionary`: 32768 bytes at the dictionary pointer. For the other calls: nothing. |
+| Caller ranges that may be written (`StreamWriteRegions`) | For `inflate`, `deflate` and `deflateParams`: `avail_out` bytes at `next_out`; for an inflate stream also the `extra`, `name` and `comment` buffers of an attached header. For `inflateGetDictionary` and `deflateGetDictionary`: the dictionary at the dictionary pointer, exactly the bytes the call copies (`state->whave` bytes for inflate, `min(w_size, strstart + lookahead)` for deflate), and nothing when the pointer is `NULL`. For the other calls: nothing. |
 
 ### The allocation account {#the-leak-ledger}
 

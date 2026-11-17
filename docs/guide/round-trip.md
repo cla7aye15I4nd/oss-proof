@@ -160,6 +160,9 @@ technical details are in the [compressor](../proof/deflate.md) and [decoder](../
 pages. In every argument, safety or functional, the premises of a helper function follow from
 initialization and the preceding execution; they are not assumed.
 
+For the default zlib stream both connections are proved, and so is the completion of the task:
+[the round trip](../proof/roundtrip.md).
+
 The [rules of evidence](../overview.md#evidence) say what counts as a result. Finite example
 tests can expose a disagreement; they do not prove a universal claim.
 

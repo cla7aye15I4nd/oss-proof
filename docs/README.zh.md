@@ -1,4 +1,4 @@
-<!-- source-sha256: 04d4a3b06b16647645f854ddaf60cf23cbcd3f6410811decf28893616588f5ad -->
+<!-- source-sha256: cf2aaeb6a83f330d20110dc7a0aeadac87ae40ad19132c057edd56fa22224b63 -->
 # 文档
 
 本页是文档的索引：从哪里读起，每一部分讲什么。这份文档说明关于 zlib 形式化验证了什么、假设了什么，以及证明是怎样进行的。[文档网站](https://www.dataisland.org/zlib-f/index.zh.html)展示的是同样的页面。
@@ -26,6 +26,7 @@
 - [规格](spec/README.md)：平台范围、安全性、输入范围、公开 API 契约、内部辅助函数契约与压缩字节的含义。
 - [模型](design/README.md)：翻译、内存语义和外部输入输出。
 - [证明](proof/README.md)：验证方法，以及各个 C 组件的论证。
+- [往返](proof/roundtrip.md)：`uncompress(compress(x)) = x` 和默认 zlib 流的往返，以及它们的前提。
 - [为什么构建通过还不够](anti-cheating.md)：为什么证明能通过编译还不够，这些结论防范了什么。
 - [发现](findings.md)：已确认的关于 zlib 的报告及其范围。
 - [运行时结构](runtime-schema.md)：模型中各记录的字段与类型参考。

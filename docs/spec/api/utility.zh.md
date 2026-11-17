@@ -1,4 +1,4 @@
-<!-- source-sha256: 13416d8ab99365561b6573ae3d7772eb469174fb5976cb6d4b1217438824a633 -->
+<!-- source-sha256: 6560753d2c624d15deca99ffcb8e98ad587b1333f1331e7024e1a81c449af8c5 -->
 
 # 缓冲区工具与库信息
 
@@ -318,7 +318,7 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 - **保证。**
     - *返回。* 翻译是一个从参数到结果的全函数。它不接受堆，也没有故障分支，所以调用对每个参数都返回；本目标另外说明结果是后置条件中给出的饱和公式。
     - *状态、写入、分配。* 都没有：这个函数不访问内存。
-- **不在本目标内。** 翻译后的 `compress` 的每个输出都能放进这么大的目的缓冲区。定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
+- **不在本目标内。** 压缩器的输出能放进这么大的目的缓冲区。对翻译后的 `compress` 和 `compress_z`，在每次分配都成功时，`Goal.compress_completes` 和 `Goal.compress_z_completes` 陈述了这一点（见[往返](../../proof/roundtrip.md)）。对 `compress2` 的其他级别，定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>完整返回条件与边界</summary>
 
@@ -362,7 +362,7 @@ uLong ZEXPORT compressBound(uLong sourceLen);
 - **保证。**
     - *返回。* 翻译是一个从参数到结果的全函数。它不接受堆，也没有故障分支，所以调用对每个参数都返回；本目标另外说明结果是后置条件中给出的饱和公式。
     - *状态、写入、分配。* 都没有：这个函数不访问内存。
-- **不在本目标内。** 翻译后的 `compress` 的每个输出都能放进这么大的目的缓冲区。定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
+- **不在本目标内。** 压缩器的输出能放进这么大的目的缓冲区。对翻译后的 `compress` 和 `compress_z`，在每次分配都成功时，`Goal.compress_completes` 和 `Goal.compress_z_completes` 陈述了这一点（见[往返](../../proof/roundtrip.md)）。对 `compress2` 的其他级别，定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>完整返回条件与边界</summary>
 

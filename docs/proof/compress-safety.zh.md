@@ -1,4 +1,4 @@
-<!-- source-sha256: c27fc1a8045871d864054e9792650ff4decd60ce9704f1645c8c45bee09f7aa9 -->
+<!-- source-sha256: fa97d20f4fed8698e3d8506ab0ec164e30c1a0abf56843b611e11842e60b90e6 -->
 # `compress*` 的安全性
 
 `compress`、`compress_z`、`compress2` 和 `compress2_z` 在满足下列前提的每个输入上都是安全的：调用会返回，没有未定义行为，只写目的缓冲区，并且释放它分配的一切。本页给出这个命题、它的前提和证明的轮廓。
@@ -73,4 +73,4 @@ flowchart TD
 
 `compressBound` 和 `compressBound_z` 不读内存。它们的目标 `Goal.compressBound` 和 `Goal.compressBound_z` 给出上界公式的精确值，这同样的两个目标也就是它们的安全目标。定理是 `compressBound` 和 `compressBound_z`。
 
-不涵盖：翻译后的压缩器的每个输出都不超过上界。那是一条功能命题，安全结论用不到它；见[缓冲区工具函数](buffers.md)。定理 `compress_bound_adequate` 陈述了这一点，`deflate_bound_adequate` 对 `deflateBound` 的上界陈述了同样的事，但都只针对不涉及堆的 [API 模型](../design/api-model.md)。没有定理说翻译后的 `compress2` 或 `deflate` 遵循这个模型。
+不涵盖：翻译后的压缩器的每个输出都不超过上界。那是一条功能命题，安全结论用不到它；见[缓冲区工具函数](buffers.md)。对 `compress` 和 `compress_z`，在每次分配都成功时，`Goal.compress_completes` 和 `Goal.compress_z_completes` 陈述了这一点（见[往返](roundtrip.md)）。对其他级别，定理 `compress_bound_adequate` 陈述了这一点，`deflate_bound_adequate` 对 `deflateBound` 的上界陈述了同样的事，但都只针对不涉及堆的 [API 模型](../design/api-model.md)。没有定理说翻译后的 `compress2` 或 `deflate` 遵循这个模型。

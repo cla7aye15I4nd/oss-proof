@@ -104,8 +104,7 @@ states the functional contract of `gzopen`.
 The full contract `Goal.X` is the functional goal of `X`. The safety goal of `X` is a separate
 statement beside it.
 
-The round trip of the default zlib stream is not done, and it has no goal definition. A
-conditional form has a theorem, `deflate_inflate_roundtrip`, which
-[architecture](architecture.md#the-layers) states.
+The goals of the round trip of the default zlib stream are functional goals about the translated
+C. [The round trip](../proof/roundtrip.md) states them.
 
 [Design](README.md) · [Documentation home](../README.md)

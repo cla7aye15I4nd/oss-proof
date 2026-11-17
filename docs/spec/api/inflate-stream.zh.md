@@ -1,4 +1,4 @@
-<!-- source-sha256: 5f8016ab73cd81909198540d4c08fc21f5bb2562b3c7ede05fb22bd62f2527c9 -->
+<!-- source-sha256: 7977cfd7f06d7b2d82204d5c831c952b86cc814dff9562f3f18b3b79087081fe -->
 
 # 流式解压
 
@@ -508,7 +508,7 @@ int ZEXPORT inflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`，长度值保持传入时的值。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
-    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块，以及 `dictionary` 起 32768 个字节范围内的字节。
+    - *写入。* 对被拒绝的流不写任何内容：堆不变。对可达流调用时，只写流记录、流自己的块，以及 `dictionary` 起 `state->whave` 个字节范围内的字节，也就是调用复制的那些字节；`dictionary` 为 `NULL` 时，不写调用者的内存。
     - *分配。* 对可达流调用时，精确的分配账本（`LiveChange`）。
 - **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 deflate 状态的流记录：没有目标覆盖对这种记录的这个调用（见[偏离记录](../../deviations.md#note-2-refused-streams)）。复制出的字节和报告的长度：功能目标 `Goal.inflateGetDictionary`（不在计划内；已有定理证明它）。
 

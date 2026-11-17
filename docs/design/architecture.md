@@ -32,28 +32,15 @@ Only the path through *Execution proofs* is required for the safety results: no 
 termination, frame and ownership, composed over call sequences. The path through *Refinement
 proofs* gives functional correctness.
 
-The round trip of the default zlib stream, a functional result, is not done. A conditional
-form has a theorem. The theorem
-[`deflate_inflate_roundtrip`](../../ZlibF/Proof/public-deflate-inflate-roundtrip.lean) is about
-two runs of the translated functions. The encoder run is `deflateInit_` at the default level
-(`Z_DEFAULT_COMPRESSION`), then `deflate` calls with any flush values. The decoder run is
-`inflateInit2_` with `windowBits` 15, then `inflate` calls. Neither run has a dictionary, a
-reset or another operation. Between two calls of a run the caller may change the buffer fields
-(`Rebuffer`), so the buffers may be cut into chunks in any way. The premises of each run are
-these:
-
-- The init call starts in `InitDomain` (a well-formed heap, a `version` that points at `'1'`,
-  `zalloc` and `zfree` each `NULL` or the default function, a `NULL` `state` field) and it
-  returned `Z_OK`.
-- Every data call is a `DataStep`: it has `StreamBuffers` and `ActiveHeader`, and it returned.
-  The theorem assumes that these calls return; it does not prove it.
-- On the decoder run only, the heap of each `inflate` call and the heap after each caller edit
-  satisfy the platform premise `ByteObjectsFit`.
-
-When both runs have returned `Z_STREAM_END` and the bytes the decoder consumed are a prefix of
-the bytes the encoder wrote, the bytes the decoder wrote are the bytes the encoder consumed.
-Not covered: completeness (that the runs reach `Z_STREAM_END` when there is enough room), the
-round trip without that condition, and `uncompress(compress(x)) = x` for the translated C.
+One functional result about the translated C is proved through this path: the round trip of the
+default zlib stream. Its goals are about runs of the translated functions: a `deflate` run that
+starts at `deflateInit_` with the default level, and an `inflate` run that starts at
+`inflateInit_`. Between two calls of a run the caller may change the buffer fields (`Rebuffer`),
+so the buffers may be cut into chunks in any way. `Goal.stream_roundtrip_total` says that, given
+output room and the rest of the data, both runs reach `Z_STREAM_END` and the decoder writes the
+bytes the encoder consumed. `Goal.compress_uncompress_roundtrip` says that
+`uncompress(compress(x)) = x`. [The round trip](../proof/roundtrip.md) states the goals and
+their premises.
 Other refinement results have theorems as well; [progress](../progress.md) says which
 functional results are planned.
 

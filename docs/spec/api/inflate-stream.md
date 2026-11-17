@@ -631,7 +631,7 @@ always enough. Non-NULL `dictLength` points to writable `uInt` storage.
 - **Guarantees** (`StreamCallSafe` for the call on a reachable stream).
     - *Returns.* On a refused stream the call returns `Z_STREAM_ERROR` and leaves the length value as it was passed. On a reachable stream the call returns.
     - *State.* On a reachable stream, the stream keeps its invariant (`StreamInvariant`).
-    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks, and bytes within the 32768 bytes at `dictionary`.
+    - *Writes.* On a refused stream, nothing: the heap is unchanged. On a reachable stream, only the stream record, the stream's own blocks, and bytes within the `state->whave` bytes at `dictionary`, the bytes the call copies; for a `NULL` `dictionary`, no caller memory.
     - *Allocations.* On a reachable stream, the exact allocation account (`LiveChange`).
 - **Not in this goal.** A stream record with `zalloc` and `zfree` set whose `state` is a garbage pointer, points to a freed state, or points to a deflate state: no goal covers this call on such a record ([deviations](../../deviations.md#note-2-refused-streams)). The bytes copied and the length reported: functional goal `Goal.inflateGetDictionary` (not planned; a theorem proves it).
 

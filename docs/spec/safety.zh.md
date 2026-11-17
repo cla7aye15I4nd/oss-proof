@@ -1,4 +1,4 @@
-<!-- source-sha256: 94fe3566f3035e0de50f5885fefe55100ae0fb5e19dd2662e2fa01759517ba4e -->
+<!-- source-sha256: e2b2806503aa59fc9330d353359df5a265476b3bf5281d1134ba0b0a4a087a59 -->
 
 # 安全性：目标陈述了什么
 
@@ -167,7 +167,7 @@ flowchart LR
 | 部分 | 内容 |
 | --- | --- |
 | 可以改变的块 | `z_stream` 记录（`StreamRoot`）。流拥有的块（`StreamOwned`）。一个 gzip 头记录：传给 `inflateGetHeader` 的那个，或者在 `inflate` 期间挂在流上的那个（`StreamHeaderRecord`）。 |
-| 可以写的调用者范围（`StreamWriteRegions`） | 对 `inflate`、`deflate` 和 `deflateParams`：`next_out` 处的 `avail_out` 个字节；对 inflate 流，还有所挂头记录的 `extra`、`name` 和 `comment` 缓冲区。对 `inflateGetDictionary` 和 `deflateGetDictionary`：字典指针处的 32768 个字节。其他调用：没有。 |
+| 可以写的调用者范围（`StreamWriteRegions`） | 对 `inflate`、`deflate` 和 `deflateParams`：`next_out` 处的 `avail_out` 个字节；对 inflate 流，还有所挂头记录的 `extra`、`name` 和 `comment` 缓冲区。对 `inflateGetDictionary` 和 `deflateGetDictionary`：字典指针处的字典，恰好是调用复制的那些字节（inflate 是 `state->whave` 个字节，deflate 是 `min(w_size, strstart + lookahead)` 个字节）；指针为 `NULL` 时没有。其他调用：没有。 |
 
 ### 分配账本 {#the-leak-ledger}
 
