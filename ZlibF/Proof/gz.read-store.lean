@@ -709,10 +709,12 @@ theorem loadTrip_step (i : Nat) (buf : BPtr) (len : UInt32) (s1 : GzState) (h1 :
     · subst hb
       obtain ⟨ak, hak, hsz, -⟩ := (glh r off rfl).view a ha
       refine ⟨.ref r (off + l.«have».toNat), ?_, ?_, ?_⟩
-      · simp only [Ptr.add, hak]
-        rw [ite_eq_left (by constructor <;> omega)]
-        simp only [Except.ok.injEq, Prod.mk.injEq, Ptr.ref.injEq, true_and, and_true]
-        omega
+      · by_cases h0 : l.«have».toNat = 0
+        · simp [Ptr.add, h0]
+        · simp only [Ptr.add, show ¬ ((l.«have».toNat : Int) = 0) by omega, ite_false, hak]
+          rw [ite_eq_left (by constructor <;> omega)]
+          simp only [Except.ok.injEq, Prod.mk.injEq, Ptr.ref.injEq, true_and, and_true]
+          omega
       · intro e; cases e
       · intro r' off' e
         injection e with e1 e2

@@ -83,18 +83,15 @@ theorem fsWrite_pure (fd : Int32) (bs : Array UInt8) (w : Fs) :
   · exact ⟨_, rfl⟩
 
 theorem fsLseek_pure (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) :
-    ∃ x, fsLseek fd off wh w = (pure x : M (Int64 × Fs)) ∧ (x.1 = -1 ∨ 0 ≤ x.1.toInt) := by
+    ∃ x, fsLseek fd off wh w = (pure x : M (Int64 × Fs)) := by
   unfold fsLseek
   dsimp only
   split
-  · obtain ⟨⟨r, w'⟩, hy, hp⟩ := fsLseekReg_pure fd off wh (tickW w)
+  · obtain ⟨⟨r, w'⟩, hy, -⟩ := fsLseekReg_pure fd off wh (tickW w)
     rw [hy]
-    exact ⟨_, rfl, hp⟩
-  · exact ⟨_, rfl, Or.inl rfl⟩
-  · refine ⟨_, rfl, Or.inr ?_⟩
-    simp only []
-    rw [Zlib.Gzlib.Proofs.i64_toInt_ofInt (by omega) (by omega)]
-    omega
+    exact ⟨_, rfl⟩
+  · exact ⟨_, rfl⟩
+  · exact ⟨_, rfl⟩
 
 theorem fsClose_pure (fd : Int32) (w : Fs) :
     ∃ x, fsClose fd w = (pure x : M (Int32 × Fs)) := by

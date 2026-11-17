@@ -1,0 +1,23 @@
+Raw output of tests/regression/gzoffset-negative-lseek/run.sh (negative.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e, built twice by
+tests/build-zlib.sh with the sanitizer options of run.sh: with patches/*.patch except 0006
+(before), and with all of patches/*.patch (after).
+Build: GCC 15.2. Host: x86_64 Linux, the project's target. Addresses vary from run to run.
+
+== before
+lseek to the array = the array address
+gzread 10 = 10, gzdirect = 0, gzoffset64 - array address = 405 (the compressed bytes consumed)
+lseek(fd, INT64_MIN + 1, SEEK_SET) = -9223372036854775807
+gzlib.c:494:16: runtime error: signed integer overflow: -9223372036854775807 - 7787 cannot be represented in type 'long int'
+    #0 0x641f5e560f1c in gzoffset64 before/gzlib.c:494
+    #1 0x641f5e56090d in main tests/regression/gzoffset-negative-lseek/negative.c:63
+    #2 0x70d90d22a600 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:59
+    #3 0x70d90d22a717 in __libc_start_main_impl ../csu/libc-start.c:360
+    #4 0x641f5e560664 in _start (negative-before+0x4a664) (BuildId: c300b7302e4eb15f0981decc8740e618347c528a)
+ok: before the fix: gzoffset64 overflows subtracting the buffered input
+== after
+lseek to the array = the array address
+gzread 10 = 10, gzdirect = 0, gzoffset64 - array address = 405 (the compressed bytes consumed)
+lseek(fd, INT64_MIN + 1, SEEK_SET) = -9223372036854775807
+gzoffset64 = -1
+ok: with the fix: gzoffset64 returns -1, no report

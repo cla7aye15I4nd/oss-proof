@@ -31,7 +31,7 @@ theorem gzoffset64_inv {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (f
   have hL : ZlibF.Spec.Public.OffsetProof.lseekRes s.fd 0 SEEK_CUR fs = lseekRes s.fd 0 SEEK_CUR fs := rfl
   rw [hL] at e
   rw [e]
-  by_cases hl : (lseekRes s.fd 0 SEEK_CUR fs).1 = -1
+  by_cases hl : (lseekRes s.fd 0 SEEK_CUR fs).1 < 0
   · rw [ite_eq_left hl]
     exact ⟨_, rfl⟩
   · rw [ite_eq_right hl]

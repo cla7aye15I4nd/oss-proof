@@ -12,7 +12,7 @@ returns to `gz_write` with success: the steps write only owned blocks, own no bl
 owned, and keep the `strerror` borrow when they succeed.
 
 1. **Prefix.** `gz_init` when there are no buffers (on success the buffers exist), `gz_zero` when a skip is pending
-   (on success no skip is left), and the position check of patch 0004: past it, `x.pos + len ≤ GZ_OFF_MAX`. The
+   (on success no skip is left), and the position check of patch 0005: past it, `x.pos + len ≤ GZ_OFF_MAX`. The
    refusal calls `gz_error` with a literal.
 2. **Small path** (`len < size`): the copy loop keeps `GzInv` between trips, with the pending input in `in`. A trip
    copies `min(size - have, len)` bytes, then compresses when `len` is left. Its measure is `2·len` plus one while
@@ -103,7 +103,7 @@ theorem padv_ref_zero (r : BRef) (a : Nat) : padv (.ref r 0) a = .ref r a := by
 theorem padv_zero_self (p : BPtr) : padv p 0 = p := by
   cases p <;> rfl
 
-/-- The literal of the refusal of patch 0004 is a C string. -/
+/-- The literal of the refusal of patch 0005 is a C string. -/
 theorem posov_cstring (H : Heap) {k : Nat} (hk : strIndex "position overflow" = some k) :
     ∃ t, CString H (.ref (.str k) 0) t := by
   have hb : strBytes "position overflow" =
@@ -945,7 +945,7 @@ theorem write_t2 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
   have hd : (Int64.ofInt (9223372036854775807 - v.x.pos.toInt)).toUInt64.toNat =
       (9223372036854775807 - v.x.pos.toInt).toNat := int64_toUInt64_toNat (by omega) (by omega)
   by_cases hc : (Int64.ofInt (9223372036854775807 - v.x.pos.toInt)).toUInt64 < len
-  · -- the refusal of patch 0004
+  · -- the refusal of patch 0005
     obtain ⟨k, hk⟩ := strIndex_of_mem (s := "position overflow") (by decide +kernel)
     obtain ⟨t, ct⟩ := posov_cstring H hk
     have hmsg : (Ptr.ref (BRef.str k) 0 : BPtr) = .null ∨ ∃ t, CString H (.ref (.str k) 0) t ∧

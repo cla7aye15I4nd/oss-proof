@@ -198,7 +198,7 @@ theorem compress2_z_safety_gen (cr : CompressReach R) (call : GoalDeflateFor R) 
       have endRun' : deflateEnd (some (.tab h.nextBlk)) H' = .ok (rcE, H2) := endRun
       have freeRun' : freeZStream (some (.tab h.nextBlk)) H2 =
           .ok ((), { H2 with streams := upd H2.streams h.nextBlk none }) := freeRun
-      have diffRun' : ptrDiff zf.next_out dest H' = .ok (d, H') := diffRun
+      have diffRun' : Ptr.diff zf.next_out dest H' = .ok (d, H') := diffRun
       refine ⟨if st'.1 = Z_STREAM_END then Z_OK else st'.1, some d.toUInt64,
         { H2 with streams := upd H2.streams h.nextBlk none }, ?_, out, writeOut h dest out, store, same,
         outLe, ?_, fun r => absurd r rej⟩

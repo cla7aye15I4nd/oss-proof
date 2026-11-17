@@ -15,6 +15,7 @@ theorem add_input_one (pointer : BPtr) :
   | null => simp [Ptr.add] at run
   | ref ref off =>
     simp only [Ptr.add] at run
+    rw [ite_eq_right (show ¬ ((1 : Int) = 0) by decide)] at run
     cases get : Space.get h ref with
     | none => simp [get] at run
     | some array =>

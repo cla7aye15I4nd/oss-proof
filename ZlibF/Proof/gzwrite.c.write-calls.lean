@@ -15,7 +15,7 @@ The pieces:
 - `lit_step`: a refusal `gz_error(state, err, "<literal>")`, from `GzErrorSpec` and `GzErrorOwn`.
 - `zero_any`, `comp_any`: `gz_zero` and `gz_comp` on a writer with or without buffers. Without buffers both run
   `gz_init` first; on its success the rest of the call is the call on a writer with buffers.
-- `gzputc`: the fast path stores the byte into `in` (the room check and the position check of patch 0004); the slow
+- `gzputc`: the fast path stores the byte into `in` (the room check and the position check of patch 0005); the slow
   path writes a local one-byte block through `gz_write` and frees it (`slow_post`).
 -/
 
@@ -278,7 +278,7 @@ theorem gzwrite_eq (buf : BPtr) (len : UInt32) :
       return (← Zlib.Gzwrite.gz_write (gzSt i) buf len.toUInt64).toUInt32.toInt32 : G Int32) := rfl
 
 /-- **`gzwrite_step`**, given the facts of `gz_error`. Relies on the local patch for W7
-(patch 0004, through `gz_write`). -/
+(patch 0005, through `gz_write`). -/
 theorem gzwrite_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (buf : BPtr) (len : UInt32) :
     GzCallSafe i (.gzwrite (some (.in_gzstate_x i)) buf len) := by
   intro h fs s inv hfs harg
@@ -352,7 +352,7 @@ theorem gzfwrite_eq (buf : BPtr) (size nitems : UInt64) :
       if len != 0 then return (← Zlib.Gzwrite.gz_write (gzSt i) buf len) / size else return 0 : G UInt64) := rfl
 
 /-- **`gzfwrite_step`**, given the facts of `gz_error`. Relies on the local patch for W7
-(patch 0004, through `gz_write`). -/
+(patch 0005, through `gz_write`). -/
 theorem gzfwrite_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (buf : BPtr) (size nitems : UInt64) :
     GzCallSafe i (.gzfwrite buf size nitems (some (.in_gzstate_x i))) := by
   intro h fs s inv hfs harg
@@ -421,7 +421,7 @@ theorem gzputs_eq (str : BPtr) :
       return if len != 0 && put == 0 then -1 else put.toUInt32.toInt32 : G Int32) := rfl
 
 /-- **`gzputs_step`**, given the facts of `gz_error`. Relies on the local patch for W7
-(patch 0004, through `gz_write`). -/
+(patch 0005, through `gz_write`). -/
 theorem gzputs_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (str : BPtr) :
     GzCallSafe i (.gzputs (some (.in_gzstate_x i)) str) := by
   intro h fs s inv hfs harg
@@ -873,7 +873,7 @@ theorem putcT_ok (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
     exact run
 
 /-- **`gzputc_step`**, given the facts of `gz_error`. Relies on the local patch for W7
-(patch 0004: the position check of the fast path, and through `gz_write`). -/
+(patch 0005: the position check of the fast path, and through `gz_write`). -/
 theorem gzputc_step_of (err : GzErrorSpec) (errOwn : GzErrorOwn) (i : Nat) (c : Int32) :
     GzCallSafe i (.gzputc (some (.in_gzstate_x i)) c) := by
   intro h fs s inv hfs _

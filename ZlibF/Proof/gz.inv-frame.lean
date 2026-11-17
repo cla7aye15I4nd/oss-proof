@@ -309,7 +309,8 @@ theorem GzInv.frame_shape (inv : GzInv h i s) (fr : Frame h after (fun b => ¬ G
 
 /-- Interface: an edit of the caller's memory (anything the handle does not own) keeps the invariant. Uses
 `StreamReachable.rebuffer` for the codec (the record is not edited, so the stream fields are unchanged) and,
-for `next`, the local patch for R-4 (`x.next` never points into caller memory). -/
+for `next`, that `GzCommon.next` claims nothing while `x.have = 0`, which is when `x.next` may point into caller
+memory (R-4). -/
 theorem GzInv.caller (inv : GzInv h i s)
     (hf : GzCallerFrame h after i s) (fit : ZlibF.PlatformMemory.ByteObjectsFit after) : GzInv after i s :=
   (inv.frame_core hf.2.2.2 hf.1 hf.2.1 hf.2.2.1 fit).1

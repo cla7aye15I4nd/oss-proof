@@ -531,8 +531,8 @@ theorem gzseek64_inv {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) {fs 
       exact ⟨_, _, _, hrun, post_same inv hfs hW0 hr⟩
 
 /-- `gzseek64`: from `gzseek64_safe` restated to `GzInv`: result -1 or the target, positions bounded, the COPY
-path's `lseek` (M3: any result, unrelated to reads), the rewind path. Relies on patch 0002 (R-1) and the local
-patches for R-3, R-4 (`x.next += 0`) and F-1. -/
+path's `lseek` (M3: any result, unrelated to reads), the rewind path. Relies on patch 0002 (R-1), patch 0004 (F-1),
+and the runtime's acceptance of `x.next += 0` for any pointer (R-3, R-4). -/
 theorem gzseek64_step (i : Nat) (offset : Int64) (whence : Int32) :
     GzCallSafe i (.gzseek64 (some (.in_gzstate_x i)) offset whence) := by
   intro h fs s inv hfs _

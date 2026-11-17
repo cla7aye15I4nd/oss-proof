@@ -94,7 +94,7 @@ theorem init_failure_heap {h after : Heap} (fresh : Fresh h) (u : Zlib.Deflate.S
 stream leave the caller heap with the output written. -/
 theorem epilogue {e : CEnv} (ok : COK e) {st : Loop} {H : Heap} {out : List UInt8} {used : Nat}
     {z : ZStream} {s : DeflateState} (cs : CState R e st H out used z s) :
-    ∃ d rcE H2, ptrDiff z.next_out e.dest H = .ok (d, H) ∧
+    ∃ d rcE H2, Ptr.diff z.next_out e.dest H = .ok (d, H) ∧
       deflateEnd (some e.r) H = .ok (rcE, H2) ∧
       freeZStream (some e.r) H2 = .ok ((), { H2 with streams := upd H2.streams e.k none }) ∧
       Store e.h₀ e.dest out (writeOut e.h₀ e.dest out) ∧
@@ -106,19 +106,15 @@ theorem epilogue {e : CEnv} (ok : COK e) {st : Loop} {H : Heap} {out : List UInt
   have destBlocks := caller_view_blocks (Or.inr ok.destW)
   -- the output length
   have wH : Writable H e.dest e.cap := cs.agree.writable (writable_writeOut ok.destW outLe ok.destW) destBlocks
-  have diff : ∃ d, ptrDiff z.next_out e.dest H = .ok (d, H) := by
+  have diff : ∃ d, Ptr.diff z.next_out e.dest H = .ok (d, H) := by
     rw [cs.nextOut]
     rcases wH with ⟨h0, c0⟩ | ⟨r, i, a, hq, g, -, fit⟩
-    · rw [h0]; exact ⟨0, by simp [ptrDiff, advance]⟩
+    · rw [h0]; exact ⟨0, by simp [Ptr.diff, advance]⟩
     · rw [hq]
       refine ⟨Int64.ofInt (((i + out.length : Nat) : Int) - ((i : Nat) : Int)), ?_⟩
       have b1 : i + out.length ≤ a.size := by omega
       have b2 : i ≤ a.size := by omega
       have lt : out.length < 2 ^ 63 := by have := ok.capBound; omega
-      have nn : ¬ ((advance (Ptr.ref r i) out.length == Ptr.null && (Ptr.ref r i : BPtr) == Ptr.null) = true) := by
-        intro c; cases c
-      unfold ptrDiff
-      rw [ite_eq_right nn]
       simp only [advance, Ptr.diff]
       rw [ite_eq_left trivial]
       simp only [g]

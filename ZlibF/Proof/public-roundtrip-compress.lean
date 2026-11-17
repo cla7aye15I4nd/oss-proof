@@ -128,16 +128,12 @@ theorem u32_zero {x : UInt32} (zero : x.toNat = 0) : x = 0 := UInt32.toNat_inj.m
 
 theorem u64_zero {x : UInt64} (zero : x.toNat = 0) : x = 0 := UInt64.toNat_inj.mp (by rw [zero]; rfl)
 
-/-- `ptrDiff` from a pointer into a byte view to the pointer `L` bytes further. -/
+/-- `Ptr.diff` from a pointer into a byte view to the pointer `L` bytes further. -/
 theorem ptrDiff_advance {H : Heap} {r : BRef} {i L : Nat} {a : Array UInt8} (g : Space.get H r = some a)
     (fit : i + L ≤ a.size) (small : L < 2 ^ 63) :
-    ∃ d, Zlib.Compress.ptrDiff (advance (.ref r i) L) (.ref r i) H = .ok (d, H) ∧ d.toUInt64.toNat = L := by
+    ∃ d, Ptr.diff (advance (.ref r i) L) (.ref r i) H = .ok (d, H) ∧ d.toUInt64.toNat = L := by
   refine ⟨Int64.ofInt (((i + L : Nat) : Int) - ((i : Nat) : Int)), ?_, ?_⟩
   · have b2 : i ≤ a.size := by omega
-    have nn : ¬ ((advance (Ptr.ref r i) L == Ptr.null && (Ptr.ref r i : BPtr) == Ptr.null) = true) := by
-      intro c; cases c
-    unfold Zlib.Compress.ptrDiff
-    rw [ite_eq_right nn]
     simp only [advance, Ptr.diff]
     rw [ite_eq_left trivial]
     simp only [g]
@@ -605,7 +601,7 @@ theorem compress_z_completes_core : Goal.compress_z_completes := by
   have endRun' : Zlib.Deflate.deflateEnd (some (.tab h.nextBlk)) H' = .ok (rcE, H2) := endRun
   have freeRun' : freeZStream (some (.tab h.nextBlk)) H2 =
       .ok ((), { H2 with streams := upd H2.streams h.nextBlk none }) := freeRun
-  have diffRun' : Zlib.Compress.ptrDiff zf.next_out dest H' = .ok (d, H') := diffRun
+  have diffRun' : Ptr.diff zf.next_out dest H' = .ok (d, H') := diffRun
   have outLe' : out.length ≤ c.toNat := outLe
   have value : d.toUInt64.toNat = out.length := by
     have wH : Writable H' dest c.toNat :=
@@ -616,7 +612,7 @@ theorem compress_z_completes_core : Goal.compress_z_completes := by
         (by have := ok.capBound; change c.toNat < 2 ^ 63 at this; omega)
       have diff2 := diffRun'
       rw [csf.nextOut] at diff2
-      change Zlib.Compress.ptrDiff (advance dest out.length) dest H' = .ok (d, H') at diff2
+      change Ptr.diff (advance dest out.length) dest H' = .ok (d, H') at diff2
       rw [pr] at diff2
       have dd := (Prod.mk.inj (Except.ok.inj (diff2.symm.trans run2))).1
       rw [dd]
