@@ -1060,9 +1060,11 @@ def emit_wellformed(model, w):
         lean = S[cname][2]
         conds, nested = wf_conditions(model, cname)
         w("/-- The array fields of a `%s` have the lengths of the C declaration. -/" % cname)
-        w("def %s.WellFormed (v : %s) : Prop := %s" % (lean, lean, " ∧ ".join(conds) if conds else "True"))
+        # a record without array fields is always well-formed: its argument is unused (linter.unusedVariables)
+        w("def %s.WellFormed (%s : %s) : Prop := %s" % (lean, "v" if conds else "_v", lean, " ∧ ".join(conds) if conds else "True"))
         w("")
-        simp = ["%s.garbage" % lean, "%s.WellFormed" % lean] + ["%s.garbage_wf" % n for n in nested]
+        # `garbage` only matters when there is an array field to measure (linter.unusedSimpArgs)
+        simp = (["%s.garbage" % lean] if conds else []) + ["%s.WellFormed" % lean] + ["%s.garbage_wf" % n for n in nested]
         w("theorem %s.garbage_wf (g : Nat → UInt64) : (%s.garbage g).WellFormed := by" % (lean, lean))
         w("  simp [%s]" % ", ".join(simp))
         w("")
@@ -1439,7 +1441,7 @@ def emit_schema(model, commit, consts):
                                "  have ha : s.%s = a := by simpa [hs] using hg" % fld,
                                "  subst ha",
                                "  have hm := Tbl.modify_opt h.%s id (fun s => { s with %s := f s.%s }) s hs" % (tbl, fld, fld),
-                               "  simp only [hs]",
+                               "  simp only",
                                "  exact congrArg (fun t => ({ h with %s := t } : Heap)) hm" % tbl]))
 
         def used(text, name):
