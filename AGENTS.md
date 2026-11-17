@@ -4,10 +4,9 @@ Goal: kernel-checked Lean 4 proofs about a faithful translation of upstream zlib
 The goal is full safety (no undefined behaviour, no memory error, no leak, termination) of every
 public function, for the default x86_64 Linux build: `inflate` and `deflate` with their call
 sequences, the other public functions, the gzip file interface and the callback decoder
-`inflateBack`. One functional result is planned as well (owner's decision of 2026-11-15): the
-round trip of the default zlib stream, with completeness, described below. Other functional goals
-beyond what safety needs are not planned (owner's decision of 2026-11-11, to finish sooner): a
-functional fact that a planned proof depends on is in scope. What is already proved stays. The
+`inflateBack`; and one functional result, the round trip of the default zlib stream, with
+completeness. Both are proved, as stated below. Other functional goals beyond what safety needs
+are not planned: a functional fact that a planned proof depends on is in scope. What is already proved stays. The
 functions that zlib.h lists under "undocumented
 functions (not part of the zlib API)" are not required. Read `docs/overview.md` first, then
 `docs/spec/safety.md`. Keep proof explanations in `docs/proof/`. State the status only in
@@ -21,8 +20,9 @@ follows as compositions.
 The round trip of the default zlib stream (`deflateInit` at the default level, `inflateInit`) is
 proved as well: the conditional form under any flush values and any chunking; completeness of
 `deflate` with `Z_FINISH`, of one `deflate(Z_FINISH)` call with `deflateBound` room, of `compress`
-with `compressBound` room, and of `inflate` on every stream the format accepts, when allocation
-succeeds; the unconditional stream round trip; and `uncompress(compress(x)) = x`.
+with `compressBound` room; the default decoder reads every zlib stream the format accepts that
+does not ask for a preset dictionary to `Z_STREAM_END`, when allocation succeeds; the
+unconditional stream round trip; and `uncompress(compress(x)) = x`.
 
 Other functional correctness (other levels, strategies, window sizes and wrappers, preset
 dictionaries, the gzip file interface and `inflateBack` as round-trip partners), model-only
