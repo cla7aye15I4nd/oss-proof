@@ -8,6 +8,29 @@ def StreamInvariant : StreamKind → Heap → ZStreamRef → Prop
   | .inflate, h, r => ∃ i z s, Zlib.Inflate.Spec.Good h r i z s ∧ Zlib.Inflate.Spec.DefAlloc z
   | .deflate, h, r => ∃ i z s, Zlib.Deflate.Spec.DGood h r i z s ∧ Zlib.Deflate.Spec.DefAlloc z
 
+/-- The number of bytes `inflateGetDictionary` copies: `state->whave` (0 without an inflate state). -/
+def InflateDictionaryLength (h : Heap) (r : ZStreamRef) : Nat :=
+  match r.get h with
+  | some z => match z.state with
+    | some (.inflate i) => match h.istates i with
+      | some s => s.whave.toNat
+      | none => 0
+    | _ => 0
+  | none => 0
+
+/-- The number of bytes `deflateGetDictionary` copies: `strstart + lookahead`, at most `w_size`
+(0 without a deflate state). -/
+def DeflateDictionaryLength (h : Heap) (r : ZStreamRef) : Nat :=
+  match r.get h with
+  | some z => match z.state with
+    | some (.deflate i) => match h.dstates i with
+      | some s => min s.w_size.toNat (s.strstart.toNat + s.lookahead.toNat)
+      | none => 0
+    | _ => 0
+  | none => 0
+
+/-- The caller memory a call may write. The dictionary getters write the dictionary, exactly its
+length, and nothing for a `NULL` destination. -/
 def StreamWriteRegions (h : Heap) (r : ZStreamRef) : Call → List Region
   | .inflate _ _ | .deflate _ _ | .deflateParams _ _ _ =>
       match r.get h with
@@ -18,7 +41,12 @@ def StreamWriteRegions (h : Heap) (r : ZStreamRef) : Call → List Region
              | some s => HeaderRegions h s.head
              | none => []
            | _ => [])
-  | .inflateGetDictionary _ p _ | .deflateGetDictionary _ p _ => [⟨p, 32768⟩]
+  | .inflateGetDictionary _ p _ => match p with
+      | .null => []
+      | _ => [⟨p, InflateDictionaryLength h r⟩]
+  | .deflateGetDictionary _ p _ => match p with
+      | .null => []
+      | _ => [⟨p, DeflateDictionaryLength h r⟩]
   | _ => []
 
 def StreamHeaderRecord (h : Heap) (r : ZStreamRef) (call : Call) (b : Nat) : Prop :=
