@@ -73,14 +73,12 @@ exists to keep the result honest, not to slow it down.
 
 ## What counts as proved
 
-There are two levels. Say which one you mean.
-
-- **Checked.** The theorem is on `dev`, and the fast gate is green on that commit: everything
-  builds, there is no `sorry`, and no forbidden construct. Lean's kernel has checked the proof.
-  Day-to-day work is merged at this level.
-- **Accepted.** The theorem is also listed in `tests/audit/theorems.txt`, and the acceptance suite
-  is green on a commit you name: axiom gate, exact goal match, self tests and
-  differential tests. Only an accepted result may be reported as final.
+A result is proved when it is on `main`: its theorem is listed in `tests/audit/theorems.txt`, its
+goal in `tests/audit/goals.txt` and `tests/audit/proved-goals.txt`, and the gate was green on the
+pull request that brought it: everything builds, there is no `sorry` and no forbidden construct,
+the audit passes (allowed axioms only, the theorem's type is exactly the goal, no goal without a
+registered theorem unless it is listed as not done) and the differential tests pass. A theorem on
+a branch is not yet a result; say so when you report it.
 
 Rules that hold at both levels:
 
@@ -134,7 +132,7 @@ Each core result (`inflate`, `deflate`) has one owner. The owner works in this o
 3. **Publish the list.** Keep the list of open lemmas in a comment at the head of the skeleton
    file on the skeleton branch: name, one-line meaning, state (open, checked), estimate in hours.
    Keep it current. It does not go into `docs/`.
-4. **Close lemmas on `dev`.** Prove one lemma at a time and push it to `dev`. Reuse existing
+4. **Close lemmas on your branch.** Prove one lemma at a time and push it to your branch. Reuse existing
    proofs where they fit the lemma as stated. Do not prove what the skeleton does not need.
 5. **Hide large definitions behind an interface.** A representation invariant has a small set of
    interface lemmas. Other modules use those lemmas and do not unfold the definition. Then a
@@ -151,26 +149,21 @@ time: wait for the other owner's build to end before starting yours.
 
 ## Checking
 
-**Fast gate, on every push and pull request** (`build`, `no-sorry`): all modules build, no
-forbidden construct, patches apply to the pinned `zlib/`, no `sorry`. This is the only gate for
-merging.
-
-**Acceptance suite, every night on `main` and on request** (`audit`, `difftest`): axiom gate,
-exact goals, self tests, differential tests with and without sanitisers.
-Run it on request with the `lean` workflow's manual trigger. A red nightly run is fixed before
-new acceptance work, but it does not block proof work.
+**One gate, on every pull request and on every push to `main`** (`build`, `no-sorry`, `audit`,
+`difftest`): all modules build, no forbidden construct, patches apply to the pinned `zlib/`, no
+`sorry`; the audit (allowed axioms, exact goals, its self tests); the differential tests with and
+without sanitisers, and their self test. There is no nightly run and no second suite: what is on
+`main` has passed all of it. The manual trigger of the `lean` workflow runs the same jobs on any
+branch.
 
 There are no lock files. A definition, a specification or a theorem statement is tracked by git
 alone: its history is the record of what changed and why. The protection that remains is the
 audit itself: allowed axioms only, and a goal is proved only by a theorem of exactly that type.
 
-Work that belongs to acceptance is done in batches at a milestone, not for each change:
-
-- registering theorems in `tests/audit/theorems.txt`;
-- updating the rows of `docs/progress.md`.
-
-A milestone is one of: `inflate` proved, `deflate` proved, a stream sequence goal proved, or
-about twenty newly checked targets. Never report a check as passing unless it was run.
+A goal stated under `ZlibF/Spec/` must be registered in the same pull request that states it:
+with its theorem, or listed as not done. The audit rejects a goal that is in neither list. The
+rows of `docs/progress.md` change in the pull request that registers the theorem. Never report a
+check as passing unless it was run.
 
 Full builds use a lot of memory. `ZlibF/Proof/crc32.c.lean` and `ZlibF/Proof/inftrees.c.lean`
 each need 8 to 9 GB. Build with at most four parallel jobs under a 16 GB limit. If one module
@@ -216,10 +209,9 @@ Every sanitizer reproduction goes under `tests/regression/<name>/` with `run.sh`
 
 ## Collaboration
 
-- Work lands on the integration branch `dev`. Commit small, self-contained steps and push them
-  there directly, or merge a pull request into `dev` as soon as the fast gate is green. No review
-  is needed. Keep `dev` building: if a push breaks the fast gate, fix it before anything else.
-- `main` receives `dev` at each milestone, after the acceptance suite is green on that commit.
+- There is one long-lived branch, `main`. Work is done on a branch cut from `main` and reaches
+  `main` by a pull request, which the owner merges when the gate is green. Commit small,
+  self-contained steps. Delete a branch once it is merged.
 - Parallel work uses separate C files or functions. Two workers never edit the same file.
 - Prove the universal goal. Do not add proofs for a fixed parameter or a default configuration
   unless they are a lemma of the universal proof.

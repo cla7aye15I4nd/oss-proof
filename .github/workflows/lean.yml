@@ -2,12 +2,10 @@ name: lean
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-  # The acceptance suite (audit, differential tests) runs every night on main
-  # and on request. It does not gate ordinary merges.
-  schedule:
-    - cron: '17 9 * * *'
+  # Every job runs on every pull request and on every push to main. The manual
+  # trigger runs the same jobs on any branch.
   workflow_dispatch:
 
 concurrency:
@@ -61,7 +59,7 @@ jobs:
           fi
 
       # The audit's unsafe/partial rule on the built environment: a recursive def whose compiled code
-      # needs an `_unsafe_rec` helper fails here, on every push, not only in the nightly audit.
+      # needs an `_unsafe_rec` helper fails here, on every push.
       - name: No unsafe or partial declaration
         run: lake env lean --run tests/audit/PartialCheck.lean
 
@@ -104,7 +102,6 @@ jobs:
 
   # The audit: axioms, doc strings and the goals.
   audit_core:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -134,7 +131,6 @@ jobs:
           python3 -O tests/verification/test_ci_build.py
 
   audit_selftest:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     strategy:
       fail-fast: false
       matrix:
@@ -159,7 +155,7 @@ jobs:
   # core or self-test stage must prevent this status from passing.
   audit:
     needs: [audit_core, audit_selftest]
-    if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -170,7 +166,6 @@ jobs:
         run: test "$AUDIT_CORE_RESULT/$AUDIT_SELFTEST_RESULT" = "success/success"
 
   diff_core:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -206,7 +201,6 @@ jobs:
 
 
   diff_harness:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: build
     strategy:
       fail-fast: false
@@ -230,7 +224,7 @@ jobs:
   # Required status: a failed, skipped or cancelled worker cannot pass.
   difftest:
     needs: [diff_core, diff_harness]
-    if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
