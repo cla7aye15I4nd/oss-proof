@@ -35,7 +35,7 @@ theorem dodistBase_tight_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m :
          (l'.broke = true ∧ LS e l' i' o ∧ ∃ p, h' = e.heap A p BAD))) := by
   unfold dodistBase
   by_cases h1 : l.bits < l.op
-  · simp only [h1, ite_true]
+  · rw [ite_eq_left h1]
     have h1' : l.bits.toNat < l.op.toNat := UInt32.lt_iff_toNat_lt.mp h1
     have hiin : i < e.i0 + e.sm0.avail_in.toNat := by omega
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
@@ -44,7 +44,7 @@ theorem dodistBase_tight_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m :
     have hb3 := pullL_bits l (e.IN.getD i 0) (.ref e.ib (i + 1)) hls.hb
     by_cases h2 : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits <
         (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).op
-    · simp only [h2, ite_true]
+    · rw [ite_eq_left h2]
       have h2' : l.bits.toNat + 8 < l.op.toNat := by
         have := UInt32.lt_iff_toNat_lt.mp h2
         simp only [pullL] at this hb3 ⊢
@@ -67,7 +67,7 @@ theorem dodistBase_tight_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m :
         exact hr
       · simp only [pullL] at hres ⊢
         exact Or.imp id (fun h => ⟨h.1, h.2.1, h.2.2.2⟩) hres
-    · simp only [h2, ite_false]
+    · rw [ite_eq_right h2]
       have h2n : (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).op.toNat ≤
           (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat := by
         have : ¬ ((pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat <
@@ -85,7 +85,7 @@ theorem dodistBase_tight_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m :
         exact hr
       · simp only [pullL] at hres ⊢
         exact Or.imp id (fun h => ⟨h.1, h.2.1, h.2.2.2⟩) hres
-  · simp only [h1, ite_false]
+  · rw [ite_eq_right h1]
     have h1' : l.op.toNat ≤ l.bits.toNat := by
       have : ¬ (l.bits.toNat < l.op.toNat) := fun h => h1 (UInt32.lt_iff_toNat_lt.mpr h)
       omega
@@ -135,7 +135,7 @@ theorem dodist_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : U
       (Sg e l.hold.toNat l.bits.toNat i).drop E.bits.toNat := by
     have := hsg1; rw [hEbn] at this; exact this
   by_cases hb16 : (E.op.toUInt32 &&& 16 != 0) = true
-  · simp only [hb16, ite_true]
+  · rw [ite_eq_left hb16]
     have hb16' : E.op &&& 16 ≠ 0 := by
       rw [mask16] at hb16; simpa using hb16
     have hbase : E.op &&& 16 ≠ 0 ∧ ((E.op &&& 15).toNat ≤ 13) ∧ 1 ≤ E.val.toNat := by
@@ -177,7 +177,7 @@ theorem dodist_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : U
     have hb16' : E.op &&& 16 = 0 := by
       rw [mask16] at hb16; simpa using hb16
     by_cases hb64 : (E.op.toUInt32 &&& 64 == 0) = true
-    · simp only [hb16, hb64, ite_true, ite_false, Bool.false_eq_true]
+    · rw [ite_eq_right hb16, ite_eq_left hb64]
       have hb64' : E.op &&& 64 = 0 := by
         rw [mask64] at hb64; simpa using hb64
       have hlink : 1 ≤ E.op.toNat ∧ E.op.toNat ≤ 15 ∧ e.od + E.val.toNat + 2 ^ E.op.toNat ≤ e.DCA.size := by
@@ -201,7 +201,7 @@ theorem dodist_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : U
         exact Ptr.add_nat_ok (h := e.heap A msg m) (r := e.rd) (a := e.DCA) (off := e.od + E.val.toNat)
           (n := j) (e.heap_cget_DCA A msg m) (by have := hlink.2.2; omega)
       refine Wp.pure' ⟨i, by omega, by omega, by omega, hls.hin⟩
-    · simp only [hb16, hb64, ite_false, Bool.false_eq_true]
+    · rw [ite_eq_right hb16, ite_eq_right hb64]
       obtain ⟨ip, hip⟩ := badData_run hc A msg m "invalid distance code" (by decide +kernel)
       refine Wp.bindE hip ?_
       exact Wp.pure' ⟨i, by omega, by omega, by omega, hls.hin⟩
@@ -303,7 +303,7 @@ theorem dolenRefill_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (
       ∃ i', i ≤ i' ∧ i' ≤ s + 6 ∧ l'.in_ = .ref e.ib i') := by
   unfold dolenRefill
   by_cases h1 : l.bits < 15
-  · simp only [h1, ite_true]
+  · rw [ite_eq_left h1]
     have h1' : l.bits.toNat < 15 := by simpa using UInt32.lt_iff_toNat_lt.mp h1
     have hiin : i < e.i0 + e.sm0.avail_in.toNat := by omega
     refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
@@ -335,7 +335,7 @@ theorem dolenRefill_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (
         have := htight hb
         omega
       · omega
-  · simp only [h1, ite_false]
+  · rw [ite_eq_right h1]
     have h1' : 15 ≤ l.bits.toNat := by
       have : ¬ (l.bits.toNat < 15) := fun h => h1 (UInt32.lt_iff_toNat_lt.mpr (by simpa using h))
       omega
@@ -388,11 +388,11 @@ theorem dolenLen_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m :
       ∃ i', i ≤ i' ∧ i' ≤ s + 6 ∧ l'.in_ = .ref e.ib i') := by
   unfold dolenLen
   by_cases h0 : l.op != 0
-  · simp only [h0, ite_true]
+  · rw [ite_eq_left h0]
     have h0' : l.op.toNat ≠ 0 := by
       intro h; apply (by simpa using h0 : l.op ≠ 0); exact UInt32.toNat_inj.mp (by simpa using h)
     by_cases h1 : l.bits < l.op
-    · simp only [h1, ite_true]
+    · rw [ite_eq_left h1]
       have h1' : l.bits.toNat < l.op.toNat := UInt32.lt_iff_toNat_lt.mp h1
       have hiin : i < e.i0 + e.sm0.avail_in.toNat := by omega
       refine Wp.bindO (pull_run e _ l i o hls (by omega) hiin (e.heap_bytes_in A msg m) (hfr.get (by omega) (by omega))) ?_
@@ -405,7 +405,7 @@ theorem dolenLen_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m :
       intro l' h' hq
       obtain ⟨i', hi1, hi2, hin⟩ := hq
       exact ⟨i', by omega, hi2, hin⟩
-    · simp only [h1, ite_false]
+    · rw [ite_eq_right h1]
       have h1' : l.op.toNat ≤ l.bits.toNat := by
         have : ¬ (l.bits.toNat < l.op.toNat) := fun h => h1 (UInt32.lt_iff_toNat_lt.mpr h)
         omega
