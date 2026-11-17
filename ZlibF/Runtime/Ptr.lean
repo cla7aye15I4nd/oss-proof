@@ -17,14 +17,16 @@ namespace C
 section generic
 variable {R T : Type} [Space Heap R T]
 
-/-- `p + k`. Faults unless the result is an index of the array or one past its end. `NULL + 0` is `NULL` (allowed
-by decision, although C17 leaves it undefined; see `docs/model-limits.md#conditions-on-the-model-that-goals-state`,
-row "Null pointer arithmetic"); the pointer must point to a live array.
+/-- `p + k`. Adding zero returns the pointer unchanged for every pointer value: `NULL + 0` is `NULL`, and a pointer
+into a freed block plus 0 is that pointer (allowed by decision, although C17 leaves both undefined: every real
+implementation treats them as no-ops; see `docs/model-limits.md`). A nonzero `k` faults unless the pointer is into a
+live array and the result is an index of the array or one past its end.
 It checks the result only: a pointer built by hand outside its array (`Ptr.ref r off` with `off` beyond the end) is
 not caught here. The translations obtain pointers from `Ptr.add` and from the schema, which never form one. -/
 def Ptr.add (p : Ptr R) (k : Int) : M (Ptr R) := fun h =>
+  if k = 0 then .ok (p, h) else
   match p with
-  | .null => if k = 0 then .ok (.null, h) else .error (.ub "arithmetic on a null pointer")
+  | .null => .error (.ub "arithmetic on a null pointer")
   | .ref r off =>
     match Space.get h r with
     | none => .error (.ub "arithmetic on a dangling pointer")
@@ -57,9 +59,9 @@ def Ptr.store (p : Ptr R) (v : T) : M Unit := fun h =>
       else if off < a.size then .ok ((), Space.modify h r (fun a => a.set! off v))
       else .error (.ub "store outside its object")
 
-/-- `p - q` (a `ptrdiff_t`). Faults unless both point into the same live array and the difference is a `ptrdiff_t`
-(`NULL - NULL` is a fault: C17 and C23 leave it undefined, since neither operand points into an array object;
-C++ defines it as 0). -/
+/-- `p - q` (a `ptrdiff_t`). `NULL - NULL` is 0 (allowed by decision, as C++ defines it, although C17 and C23 leave
+it undefined since neither operand points into an array object; see `docs/model-limits.md`). Otherwise it faults
+unless both point into the same live array and the difference is a `ptrdiff_t`. -/
 def Ptr.diff [DecidableEq R] (p q : Ptr R) : M Int64 := fun h =>
   match p, q with
   | .ref r1 o1, .ref r2 o2 =>
@@ -73,7 +75,8 @@ def Ptr.diff [DecidableEq R] (p q : Ptr R) : M Int64 := fun h =>
         else .error (.ub "pointer outside its object")
       | none => .error (.ub "difference of dangling pointers")
     else .error (.ub "difference of pointers into different objects")
-  | _, _ => .error (.ub "difference of null pointers")
+  | .null, .null => .ok (0, h)
+  | _, _ => .error (.ub "difference of a null pointer and another pointer")
 
 /-- `p < q`. Faults unless both point into the same live array (relational comparison of unrelated pointers is
 undefined). -/
@@ -98,7 +101,10 @@ def Ptr.le [DecidableEq R] (p q : Ptr R) : M Bool := do
 theorem Ptr.add_ok {h : Heap} {r : R} {a : Array T} {off : Nat} {k : Int}
     (hg : Space.get h r = some a) (h0 : 0 ≤ (off : Int) + k) (h1 : (off : Int) + k ≤ (a.size : Int)) :
     OkOn h (Ptr.add (Ptr.ref r off) k) (Ptr.ref r ((off : Int) + k).toNat) := by
-  unfold OkOn Ptr.add; simp [hg, h0, h1]
+  unfold OkOn Ptr.add
+  by_cases hk : k = 0
+  · subst hk; simp
+  · simp [hk, hg, h0, h1]
 
 theorem Ptr.add_nat_ok {h : Heap} {r : R} {a : Array T} {off n : Nat}
     (hg : Space.get h r = some a) (h1 : off + n ≤ a.size) :
@@ -116,6 +122,14 @@ theorem Ptr.sub_nat_ok {h : Heap} {r : R} {a : Array T} {off n : Nat}
 
 theorem Ptr.add_null_zero {h : Heap} : OkOn h (Ptr.add (Ptr.null : Ptr R) 0) Ptr.null := by
   unfold OkOn Ptr.add; simp
+
+/-- `p + 0` is `p`, for every pointer value (null, into a live array, or into a freed block). -/
+theorem Ptr.add_zero {h : Heap} (p : Ptr R) : Ptr.add p 0 h = .ok (p, h) := by
+  unfold Ptr.add; simp
+
+/-- `NULL - NULL` is 0. -/
+theorem Ptr.diff_null_null [DecidableEq R] {h : Heap} : Ptr.diff (Ptr.null : Ptr R) Ptr.null h = .ok (0, h) := by
+  unfold Ptr.diff; rfl
 
 theorem Ptr.load_ok {h : Heap} {r : R} {a : Array T} {off : Nat}
     (hg : Space.get h r = some a) (hlt : off < a.size) :
