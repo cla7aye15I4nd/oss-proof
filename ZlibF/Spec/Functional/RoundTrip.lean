@@ -26,9 +26,9 @@ Goals:
   decoder read a prefix of the encoder's output, the decoder's output is the encoder's input.
 * `Goal.deflate_completes_default`: after a clean history (only `Z_NO_FLUSH` and `Z_FINISH`: other
   flushes write output without input, `tests/goals/roundtrip-default` mode `flushes`), one
-  `deflate(Z_FINISH)` call with all the remaining input and room for the rest of the unsaturated
-  `compressBound` sum of the whole input (`deflateBound` at these parameters, below saturation)
-  returns `Z_STREAM_END`, and the whole output decodes to the whole input.
+  `deflate(Z_FINISH)` call with all the remaining input and room for more than the rest of the
+  unsaturated `compressBound` sum of the whole input (`deflateBound` at these parameters, below
+  saturation) returns `Z_STREAM_END`, and the whole output decodes to the whole input.
 * `Goal.deflate_bound_default`: after `deflateInit` and caller edits, one `deflate(Z_FINISH)` call
   with all `n` input bytes and at least `deflateBound(strm, n)` bytes of room returns
   `Z_STREAM_END` with a stream that decodes to the input.
@@ -145,9 +145,11 @@ def unsaturatedBound (m : Nat) : Nat := m + m / 4096 + m / 16384 + m / 33554432 
 
 /-- **Completion of the default stream from the bound.** After a clean default history that has
 not ended, a `deflate(Z_FINISH)` call offered all the remaining input `input`, with output room
-at least what the bound of the whole input leaves after the output so far (and at least one
-byte), returns `Z_STREAM_END`: it accepts all of `input`, and the whole output decodes to the
-whole input. The room is measured against `unsaturatedBound` of the whole input, which is
+more than what the bound of the whole input leaves after the output so far, returns
+`Z_STREAM_END`: it accepts all of `input`, and the whole output decodes to the whole input. The
+stream can be exactly as long as the bound, and a call that first delivers pending output and is
+left with no room returns `Z_OK` (`deflate.c`), so room equal to the rest is not enough after an
+earlier call; one call from a fresh stream needs only the bound (`Goal.deflate_bound_default`). The room is measured against `unsaturatedBound` of the whole input, which is
 `compressBound` of the whole input below the saturation point. `zlib.h` promises nothing once
 `compressBound` saturates at `2^64 - 1`, and a history may accept more input than that. At these
 parameters `deflateBound` is `compressBound` (`Goal.deflate_bound_default`). Before
@@ -160,7 +162,7 @@ def Goal.deflate_completes_default : Prop :=
     (∀ ds d, z.state = some (.deflate ds) → h.dstates ds = some d →
       d.status = FINISH_STATE → input = []) →
     0 < z.avail_out.toNat →
-    unsaturatedBound (log.input.length + input.length) ≤ log.output.length + z.avail_out.toNat →
+    unsaturatedBound (log.input.length + input.length) < log.output.length + z.avail_out.toNat →
     ∃ after output, DataStep .deflate h after r Z_FINISH Z_STREAM_END input output input.length ∧
       Zlib.Decodes [] (log.output ++ output) (log.input ++ input)
 

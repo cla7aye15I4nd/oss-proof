@@ -6,7 +6,7 @@
  *            returns Z_STREAM_END, and deflateBound(n) = compressBound(n) for this configuration.
  *   rest     a random history of Z_NO_FLUSH and Z_FINISH calls (random input and output chunks,
  *            some with no room), then one Z_FINISH call with the rest of the input and room
- *            max(1, deflateBound(n) - produced) returns Z_STREAM_END (DeflateCompletes, default). A Z_FINISH call
+ *            deflateBound(n) - produced + 1 returns Z_STREAM_END (DeflateCompletes, default). A Z_FINISH call
  *            may offer part of the input and later calls more; if the final block was begun first, the stream
  *            ends without the rest, and its output must still be at most compressBound of what it accepted.
  *   live     repeated deflate(Z_FINISH) calls with all remaining input and 1 to 64 bytes of room
@@ -99,17 +99,18 @@ static void one(const unsigned char *in, size_t n, unsigned kind) {
     deflateEnd(&s); free(out); checked[0]++;
 }
 
-/* unfinished_output_lt, checked after every call of a clean history that did not end it: the output
- * so far is below compressBound of the accepted input; and the stronger form the proof carries,
- * with the pending bytes and the held bits counted as written. */
+/* The ledger, checked after every call of a clean history that did not end it: the output so far is
+ * at most compressBound of the accepted input; and the stronger form the proof carries, with the
+ * pending bytes and the held bits counted as written. Equality is reachable: the stream can be
+ * exactly compressBound(n) long (tests/verification/regressions/deflate-completes-exact-bound.c). */
 static long ledgers, ledgermin = -1;
 static void ledger(z_stream *s, unsigned kind, size_t n) {
     unsigned pend; int bits;
     if (deflatePending(s, &pend, &bits) != Z_OK) return;
     uLong cb = compressBound(s->total_in);
-    if (s->total_out >= cb) { printf("FAIL ledger kind=%u n=%zu in=%lu out=%lu cb=%lu\n", kind, n, s->total_in, s->total_out, cb); failures++; }
+    if (s->total_out > cb) { printf("FAIL ledger kind=%u n=%zu in=%lu out=%lu cb=%lu\n", kind, n, s->total_in, s->total_out, cb); failures++; }
     unsigned long held = s->total_out + pend + (bits + 7) / 8;
-    if (held >= cb) { printf("FAIL ledger-pending kind=%u n=%zu in=%lu out=%lu pending=%u bits=%d cb=%lu\n", kind, n, s->total_in, s->total_out, pend, bits, cb); failures++; }
+    if (held > cb) { printf("FAIL ledger-pending kind=%u n=%zu in=%lu out=%lu pending=%u bits=%d cb=%lu\n", kind, n, s->total_in, s->total_out, pend, bits, cb); failures++; }
     long slack = (long)cb - (long)held;
     if (ledgermin < 0 || slack < ledgermin) ledgermin = slack;
     ledgers++;
@@ -135,7 +136,7 @@ static void rest(const unsigned char *in, size_t n, unsigned kind) {
         if (rc != Z_STREAM_END) ledger(&s, kind, n);
     }
     if (rc != Z_STREAM_END) {
-        size_t produced = s.total_out, room = bound > produced ? bound - produced : 1;
+        size_t produced = s.total_out, room = bound >= produced ? bound - produced + 1 : 1;
         s.next_in = (Bytef *)in + pos; s.avail_in = (uInt)(n - pos); s.next_out = enc + produced; s.avail_out = (uInt)room;
         rc = deflate(&s, Z_FINISH);
         if (rc == Z_BUF_ERROR && s.avail_in == n - pos) {
