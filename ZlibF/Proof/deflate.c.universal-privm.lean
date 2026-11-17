@@ -49,10 +49,12 @@ theorem ReadM.ptr_add {R T : Type} [Space Heap R T] (p : Ptr R) (k : Int) : Read
   | ref r off =>
     simp only [Ptr.add] at run
     split at run
-    · cases run
+    · cases run; rfl
     · split at run
-      · cases run; rfl
       · cases run
+      · split at run
+        · cases run; rfl
+        · cases run
 
 theorem ReadM.ptr_load {R T : Type} [Space Heap R T] (p : Ptr R) : ReadM (Ptr.load p : M T) := by
   intro h v h' run
@@ -147,10 +149,12 @@ theorem PrivM.padd_bind {β : Type} {r : ZStreamRef} {ds : Nat} {d0 : DeflateSta
     have form : ∃ m, q' = Ptr.ref (WRef.blk P) m := by
       simp only [padd, Ptr.add] at e
       split at e
-      · cases e
+      · cases e; exact ⟨_, rfl⟩
       · split at e
-        · cases e; exact ⟨_, rfl⟩
         · cases e
+        · split at e
+          · cases e; exact ⟨_, rfl⟩
+          · cases e
     obtain ⟨m, rfl⟩ := form
     exact hk m h1 a h' pre run
 

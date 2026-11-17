@@ -120,14 +120,14 @@ theorem record_ptr_add {R T : Type} [Space Heap R T] (p : Ptr R) (k : Int) : Rec
   intro h value after hr
   unfold Ptr.add at hr
   split at hr
-  · split at hr
-    · cases hr; rfl
-    · contradiction
+  · cases hr; rfl
   · split at hr
     · contradiction
     · split at hr
-      · cases hr; rfl
       · contradiction
+      · split at hr
+        · cases hr; rfl
+        · contradiction
 
 theorem record_ptr_load {R T : Type} [Space Heap R T] (p : Ptr R) : RecordStableM (Ptr.load p : M T) := by
   intro h value after hr

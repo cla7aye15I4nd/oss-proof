@@ -206,13 +206,13 @@ theorem comm_freeB (p : BPtr) : Comm i z (freeB p) := by
 
 theorem comm_add (p : BPtr) (k : Int) : Comm i z (p.add k) := by
   intro h
+  by_cases hk0 : k = 0
+  · simp only [Ptr.add, hk0, ite_true]; rfl
   cases p with
   | null =>
-    by_cases hk : k = 0
-    · simp only [Ptr.add, hk, ite_true]; rfl
-    · simp only [Ptr.add, hk, ite_false]; rfl
+    simp only [Ptr.add, hk0, ite_false]; rfl
   | ref r off =>
-    simp only [Ptr.add, get_setStrm]
+    simp only [Ptr.add, hk0, ite_false, get_setStrm]
     cases Space.get h r with
     | none => rfl
     | some a =>

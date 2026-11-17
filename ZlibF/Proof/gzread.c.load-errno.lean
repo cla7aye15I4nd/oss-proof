@@ -126,7 +126,7 @@ theorem gz_load_refusal_source (h : Heap) (fs : Fs) (i : Nat) (s : GzState)
     rw [show fuel = 18446744073709551615 + 1 by rfl, gdoWhile.go]
     simp [hcap, liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift,
       load_bind_app, load_lift_app, load_pure_app, setErrno_app,
-      ldS_eq, setS_gz_same, Ptr.add, ha', hadd, read, storeBytes,
+      ldS_eq, setS_gz_same, Ptr.add, read, storeBytes,
       getErrno_app, ReadRefusal.not_blocked he, loadReport]
     rfl
 /-- The exact report result exposes the real handler's same execution heap. -/
