@@ -1,4 +1,4 @@
-<!-- source-sha256: 242af529448e891d439c16d5478d244d6cb17380dd89d9c88fd5379af47ac4d4 -->
+<!-- source-sha256: 81497bb6df0d919aeedbaa38759955654f62ae5b7c06004aea94ec572c3342c1 -->
 # 结论的状态
 
 本页说明每项结论、zlib 的每个公开函数是否已经完成。只有本页说明状态。要点是：三项安全结论都已完成，组成它们的 99 个目标全部完成；默认 zlib 流的往返也已完成，它有 14 个目标。
@@ -12,16 +12,16 @@
 
 ## 结论 {#scope}
 
-安全指没有未定义行为、没有内存错误、没有泄漏，并且终止。这些结论针对默认的 x86_64 Linux 构建。
+安全指没有未定义行为、没有内存错误、没有泄漏，并且终止。这些结论针对 zlib 1.4 加六个补丁的默认 x86_64 Linux 构建。每项结论都在其目标的前提下成立；前提的简述见[总览](overview.md#the-claim)，按函数列出的见[偏离记录](deviations.md)。调用序列指一个流、一个 gzip 文件句柄或一个回调解码器的历史。
 
 | # | 结论 | 目标 | 状态 |
 | ---: | --- | --- | --- |
 | 1 | `inflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.inflate_safety`、`Goal.inflate_sequence_safety` | 完成 |
 | 2 | `deflate` 对每个输入、缓冲区的每种切分都安全，对它的调用序列也是如此。 | `Goal.deflate_safety`、`Goal.deflate_sequence_safety` | 完成 |
 | 3 | 其余每个有文档的公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。 | [下文](#functions)各表中的其余全部目标 | 完成 |
-| 4 | 默认 zlib 流的往返：给 `compress` 留出 `compressBound` 的空间时，`uncompress(compress(x)) = x`；用默认级别的 `deflateInit` 压缩，再用 `inflateInit` 解压，在每一种调用序列下都得到原输入。 | `Goal.compress_uncompress_roundtrip`、`Goal.compress_uncompress_roundtrip_witness`、`Goal.compress_completes`、`Goal.compress_z_completes`、`Goal.uncompress_completes`、`Goal.stream_roundtrip_total`、`Goal.deflate_finish_ends`、`Goal.inflate_chain_ends`、`Goal.stream_roundtrip`、`Goal.deflate_completes_default`、`Goal.deflate_bound_default`、`Goal.inflate_completes_default`、`Goal.default_inflate_progress`、`Goal.default_inflate_completes` | 完成 |
+| 4 | 默认 zlib 流的往返：给 `compress` 留出 `compressBound` 的空间时，`uncompress(compress(x)) = x`；用默认级别的 `deflateInit` 和任意刷新值的 `deflate` 调用压缩，以 `deflate(Z_FINISH)` 调用结束，再用 `inflateInit` 解压，对缓冲区的每种切分都得到原输入。 | `Goal.compress_uncompress_roundtrip`、`Goal.compress_uncompress_roundtrip_witness`、`Goal.compress_completes`、`Goal.compress_z_completes`、`Goal.uncompress_completes`、`Goal.stream_roundtrip_total`、`Goal.deflate_finish_ends`、`Goal.inflate_chain_ends`、`Goal.stream_roundtrip`、`Goal.deflate_completes_default`、`Goal.deflate_bound_default`、`Goal.inflate_completes_default`、`Goal.default_inflate_progress`、`Goal.default_inflate_completes` | 完成 |
 
-第 4 项是一项功能结论。它说的是默认级别的 `deflateInit` 产生、`inflateInit` 读取的流，不用预设字典，并且每次分配都成功。[往返](proof/roundtrip.md)一页给出每个目标及其前提，下文[它的表](#round-trip)说明每个目标是什么。
+第 4 项是一项功能结论。它说的是默认级别的 `deflateInit` 产生、`inflateInit` 读取的流，不用预设字典，并且每次分配都成功。它的编码器历史是 `deflateInit`，然后是 `deflate` 调用和对缓冲区字段的改动；含有 `deflateParams`、重置或其他级别的历史不在其中。结束流的那些调用和各次 `inflate` 调用都有输出空间。[往返](proof/roundtrip.md)一页给出每个目标及其前提，下文[它的表](#round-trip)说明每个目标是什么。
 
 ## 每个公开函数 {#functions}
 
@@ -172,7 +172,7 @@
 | 给 `compress` 留出 `compressBound` 的空间，它返回 `Z_OK`，写出的是一个 zlib 流，解码得到源数据，并且不要求预设字典。 | `Goal.compress_completes` | 完成 |
 | `compress_z` 同样如此。 | `Goal.compress_z_completes` | 完成 |
 | 对一个不要求预设字典的 zlib 流调用 `uncompress`，空间容得下解码结果时，它返回 `Z_OK`，写出解码结果并存入其长度。 | `Goal.uncompress_completes` | 完成 |
-| 每一种调用序列下的流往返：`Goal.deflate_finish_ends` 与 `Goal.inflate_chain_ends` 合在一起。 | `Goal.stream_roundtrip_total` | 完成 |
+| 流的往返，连同两边的完成性：`Goal.deflate_finish_ends` 与 `Goal.inflate_chain_ends` 合在一起。 | `Goal.stream_roundtrip_total` | 完成 |
 | 在默认流上做过任意 `deflate` 调用之后，只要每次都有输出空间，接下去的每一串 `deflate(Z_FINISH)` 调用都在有界次数内结束：全部输入被接受，输出解码得到输入。 | `Goal.deflate_finish_ends` | 完成 |
 | 把一个完整的默认流按任意分块交给默认解码器，只要有输出空间，它在有界次数的 `inflate` 调用内结束，写出的恰好是编码器的输入。 | `Goal.inflate_chain_ends` | 完成 |
 | 默认流上的一个 `deflate` 调用序列和一个 `inflate` 调用序列都到达 `Z_STREAM_END`，并且解码器读入的是编码器输出的前缀时，解码器写出的恰好是编码器的输入。 | `Goal.stream_roundtrip` | 完成 |

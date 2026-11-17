@@ -15,17 +15,17 @@ from reference import OUT, shell, write
 # docs/{en,zh}/progress.md; tests/test_progress.py compares them.
 RESULTS = [
     (1, ('inflate_safety', 'inflate_sequence_safety'), ('inflate_safety', 'inflate_sequence_safety'),
-     '`inflate` 对每个输入都安全：没有未定义行为、内存错误、泄漏，并且终止；对每个调用序列和缓冲区的任何切分都成立。',
-     '`inflate` is safe on every input: no undefined behaviour, no memory error, no leak, and it terminates, for every call sequence and every split of the buffers.'),
+     '`inflate` 对每个输入都安全：没有未定义行为、内存错误、泄漏，并且终止；对一个流上的每个调用序列和缓冲区的任何切分都成立。',
+     '`inflate` is safe on every input: no undefined behaviour, no memory error, no leak, and it terminates, for every sequence of calls on a stream and every split of the buffers.'),
     (2, ('deflate_safety', 'deflate_sequence_safety'), ('deflate_safety', 'deflate_sequence_safety'),
-     '`deflate` 对每个输入都安全，对每个调用序列都成立。',
-     '`deflate` is safe on every input, for every call sequence.'),
+     '`deflate` 对每个输入都安全，对一个流上的每个调用序列都成立。',
+     '`deflate` is safe on every input, for every sequence of calls on a stream.'),
     (3, None, ('compress_safety', 'uncompress_safe', 'gz_sequence_safety', 'gz_refusal', 'inflate_back_sequence_safety'),
      '其余每个有文档的公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。',
      'Every other documented public function is safe: `compress*` and `uncompress*`, the other stream functions, the checksums, the gzip file interface and the callback decoder `inflateBack`.'),
     (4, roundtrip_goals(), ('compress_uncompress_roundtrip', 'stream_roundtrip_total'),
-     '默认 zlib 流的往返：`uncompress(compress(x)) = x`；用默认级别的 `deflateInit` 压缩、再用 `inflateInit` 解压，在每一种调用序列下都得到原输入。',
-     'The round trip of the default zlib stream: `uncompress(compress(x)) = x`, and compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input under every call sequence.'),
+     '默认 zlib 流的往返：`uncompress(compress(x)) = x`；用默认级别的 `deflateInit` 和任意刷新值的 `deflate` 调用压缩，以 `deflate(Z_FINISH)` 调用结束，再用 `inflateInit` 解压，对缓冲区的任何切分都得到原输入。',
+     'The round trip of the default zlib stream: `uncompress(compress(x)) = x`, and compressing with `deflateInit` at the default level and `deflate` calls with any flush value, finished by `deflate(Z_FINISH)` calls, and then decompressing with `inflateInit` gives back the input, for every split of the buffers.'),
 ]
 
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 265992d947ce259e1db7dc55175337876332318cbe7525fc84d7820b0e0c0f91 -->
+<!-- source-sha256: b1a3d21751df4dd37e41019883f395ab4f01ec06f623392eb89bdb49f314ba73 -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -77,7 +77,7 @@ gzclose(f);                         /* 子句 5：全部释放，close 失败时
 | --- | --- | --- |
 | 打开时的调用者堆和世界 | `GzHistory.open`、`open64`、`dopen`；`GzOpenSafe`、`GzDopenSafe` | 堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`），每个字节对象少于 `2^63` 字节（`ByteObjectsFit`），世界是良构的（`FileSystem`），`path` 和 `mode` 是以 NUL 结尾的字符串（在子句 6 和 7 中也可以是 `NULL`）。 |
 | 调用者缓冲区 | `GzArguments`，经由 `GzRange` | `gzread`、`gzfread`、`gzwrite`、`gzfwrite`、`gzputs`、`gzgets` 和 `gzerror` 的缓冲区在请求的长度内可读，在调用要向其中存入数据时可写，并且与句柄拥有的块不重叠。`gzputs` 的参数是以 NUL 结尾的字符串。长度为 0 的请求、C 因大小而拒绝的请求、缓冲区为 `NULL` 或长度小于 1 的 `gzgets` 调用，以及 `gzerror` 的 `errnum` 为 `NULL` 的情形，都没有缓冲区前提。 |
-| `gzprintf` 和 `gzvprintf` 的参数 | `GzArguments` | 文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块。格式串和每个指针参数都与句柄的块不重叠。`vsnprintf` 调用在 C 中有定义，由调用者保证（[可信基础](../trusted-base.md)）。 |
+| `gzprintf` 和 `gzvprintf` 的参数 | `GzArguments` | 文件以写方式打开且不处于错误状态时，格式串是以 NUL 结尾的字符串，每个指针参数都指向未被释放的块。格式串和每个指针参数都与句柄的块不重叠。`vsnprintf` 调用对格式串和参数在 C 中有定义、且没有 `%n`，由调用者保证：没有前提陈述这一点，而模型不读取格式串中的转换（[可信基础](../trusted-base.md)）。 |
 | 读取预算 | `ReadsFinite` | 句柄的描述符还能交付的字节少于 `2^61`。它只是 (b) 部分的前提，并且只针对六个读调用。这个前提还说描述符的编号不为负。库返回的每个句柄都有这样的编号：`GzOpenSafe` 对 `gzopen` 写明了这一点，而 `gzdopen` 对负的描述符返回 `NULL`。 |
 | 两次调用之间的调用者步骤 | `GzHistory.caller`：`GzCallerFrame`、`ByteObjectsFit` | 调用者只改动句柄不拥有的块。改动之后的堆是良构的（`Fresh`、`Uniq`、`LibraryGlobals`），其中每个字节对象少于 `2^63` 字节。 |
 | 两次调用之间的世界步骤 | `GzHistory.world`：`GzWorldStep` | 新的世界是良构的（`FileSystem`）。此外没有别的要求。 |
@@ -144,7 +144,7 @@ C 中一样。这个步骤还可以替换预言。
 `read`、`write`、`lseek`、`close`、`open` 和调用者格式的 `vsnprintf` 的契约之内选择该调用的结果。预言可以选择什么，见[外部 I/O](../design/external-io.md#the-os-oracle)
 中的表。
 
-预言比任何真实系统都宽：例如，无论描述符处于什么状态，读取都可以成功。每个子句都对所有世界量化，所以没有哪个证明步骤能依赖文件是普通文件。
+预言比普通文件宽：例如，无论描述符处于什么状态，读取都可以成功。每个子句都对所有世界量化，所以没有哪个证明步骤能依赖文件是普通文件。
 
 外部调用分成两组。
 

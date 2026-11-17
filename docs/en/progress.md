@@ -18,17 +18,23 @@ and the calls it covers, read [coverage by function](coverage.md) and
 ## Results {#scope}
 
 Safety means no undefined behaviour, no memory error, no leak, and termination. The results are
-about the default x86_64 Linux build.
+about the default x86_64 Linux build of zlib 1.4 with the six patches. Each holds under the
+premises of its goals; [the overview](overview.md#the-claim) gives them in short, and
+[deviations](deviations.md) by function. A call sequence is the history of one stream, one gzip
+file handle or one callback decoder.
 
 | # | Result | Goals | State |
 | ---: | --- | --- | --- |
 | 1 | `inflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.inflate_safety`, `Goal.inflate_sequence_safety` | done |
 | 2 | `deflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.deflate_safety`, `Goal.deflate_sequence_safety` | done |
 | 3 | Every other documented public function is safe: `compress*` and `uncompress*`, the other stream functions, the checksums, the gzip file interface and the callback decoder `inflateBack`. | every other goal of the tables [below](#functions) | done |
-| 4 | The round trip of the default zlib stream: `uncompress(compress(x)) = x` when `compress` has `compressBound` room; and compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input, under every call sequence. | `Goal.compress_uncompress_roundtrip`, `Goal.compress_uncompress_roundtrip_witness`, `Goal.compress_completes`, `Goal.compress_z_completes`, `Goal.uncompress_completes`, `Goal.stream_roundtrip_total`, `Goal.deflate_finish_ends`, `Goal.inflate_chain_ends`, `Goal.stream_roundtrip`, `Goal.deflate_completes_default`, `Goal.deflate_bound_default`, `Goal.inflate_completes_default`, `Goal.default_inflate_progress`, `Goal.default_inflate_completes` | done |
+| 4 | The round trip of the default zlib stream: `uncompress(compress(x)) = x` when `compress` has `compressBound` room; and compressing with `deflateInit` at the default level and `deflate` calls with any flush value, finished by `deflate(Z_FINISH)` calls, and then decompressing with `inflateInit` gives back the input, for every split of the buffers. | `Goal.compress_uncompress_roundtrip`, `Goal.compress_uncompress_roundtrip_witness`, `Goal.compress_completes`, `Goal.compress_z_completes`, `Goal.uncompress_completes`, `Goal.stream_roundtrip_total`, `Goal.deflate_finish_ends`, `Goal.inflate_chain_ends`, `Goal.stream_roundtrip`, `Goal.deflate_completes_default`, `Goal.deflate_bound_default`, `Goal.inflate_completes_default`, `Goal.default_inflate_progress`, `Goal.default_inflate_completes` | done |
 
 Result 4 is a functional result. It is about the stream that `deflateInit` makes at the default
-level and `inflateInit` reads, with no preset dictionary, where every allocation succeeds.
+level and `inflateInit` reads, with no preset dictionary, where every allocation succeeds. Its
+encoder histories are `deflateInit`, then `deflate` calls and changes of the buffer fields; a
+history with `deflateParams`, a reset or another level is not part of it. The calls that finish
+the stream and the `inflate` calls have output room.
 [The round trip](proof/roundtrip.md) states each goal with its premises, and
 [its table](#round-trip) below says what each goal is.
 
@@ -184,7 +190,7 @@ no heap and no fault; they stand for the safety goals of these two functions.
 | `compress` with `compressBound` room returns `Z_OK`, and what it wrote is a zlib stream that decodes to the source and asks for no preset dictionary. | `Goal.compress_completes` | done |
 | The same for `compress_z`. | `Goal.compress_z_completes` | done |
 | `uncompress` of a zlib stream that asks for no preset dictionary, with room for its decoding, returns `Z_OK`, writes the decoding and stores its length. | `Goal.uncompress_completes` | done |
-| The stream round trip under every call sequence: `Goal.deflate_finish_ends` and `Goal.inflate_chain_ends` together. | `Goal.stream_roundtrip_total` | done |
+| The stream round trip with the completion of both sides: `Goal.deflate_finish_ends` and `Goal.inflate_chain_ends` together. | `Goal.stream_roundtrip_total` | done |
 | After any `deflate` calls on a default stream, every continuation by `deflate(Z_FINISH)` calls with output room ends after a bounded number of calls, with all input consumed and an output that decodes to the input. | `Goal.deflate_finish_ends` | done |
 | A default decoder given a complete default stream, in any chunks and with output room, ends after a bounded number of `inflate` calls, having written exactly the input of the encoder. | `Goal.inflate_chain_ends` | done |
 | When a `deflate` call sequence and an `inflate` call sequence on default streams both reach `Z_STREAM_END`, and the decoder read a prefix of what the encoder wrote, the decoder wrote exactly the input of the encoder. | `Goal.stream_roundtrip` | done |

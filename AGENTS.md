@@ -150,7 +150,7 @@ time: wait for the other owner's build to end before starting yours.
 `differential-test` of the `CI` workflow): all modules build, no forbidden construct, patches apply to the pinned `zlib/`, no
 `sorry`; the check of `ZlibF/Results.lean` and the coverage of `zlib.h`; the differential tests, with the
 C side under sanitisers, when the translation, the runtime, the patches or the test changed. There is no nightly run and no second suite: what is on
-`main` has passed all of it. The manual trigger of the `lean` workflow runs the same jobs on any
+`main` has passed all of it. The manual trigger of the `CI` workflow runs the same jobs on any
 branch.
 
 There are no lock files. A definition, a specification or a theorem statement is tracked by git
@@ -221,4 +221,4 @@ gap, a question about the caller's domain) stays out of `docs/`; its reproductio
 - Report what is checked, what is accepted and what is open. Name the commit.
 
 [docs/en/anti-cheating.md](https://www.dataisland.org/zlib-f/en/anti-cheating.html) says why a green
-build can still be worthless, and what the acceptance suite defends against.
+build can still be worthless, and what the gate defends against.
