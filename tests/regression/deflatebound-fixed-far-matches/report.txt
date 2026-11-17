@@ -1,4 +1,9 @@
-zlib 1.3.2.1-motley, n = 1000000, windowBits 15, memLevel 8, strategy Z_FIXED
+Raw output of tests/regression/deflatebound-fixed-far-matches/run.sh, exit status 0.
+Source: the pinned zlib with patches/*.patch, without the patch of this folder and with all of them.
+Build: Apple clang version 21.0.0 (clang-2100.4.1.1); host: macOS on arm64. Addresses vary from run to run.
+
+== before
+zlib 1.4, n = 1000000, windowBits 15, memLevel 8, strategy Z_FIXED
 level 1: deflateBound 1000318, deflate(Z_FINISH) with that room returns 0 (not Z_STREAM_END), stream needs 1007343
 level 2: deflateBound 1000318, deflate(Z_FINISH) with that room returns 0 (not Z_STREAM_END), stream needs 1008565
 level 3: deflateBound 1000318, deflate(Z_FINISH) with that room returns 0 (not Z_STREAM_END), stream needs 1008570
@@ -8,3 +13,16 @@ level 6: deflateBound 1000318, deflate(Z_FINISH) with that room returns 1 (Z_STR
 level 7: deflateBound 1000318, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
 level 8: deflateBound 1000318, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
 level 9: deflateBound 1000318, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
+ok: before the fix: deflate(Z_FINISH) with deflateBound bytes of room does not end
+== after
+zlib 1.4, n = 1000000, windowBits 15, memLevel 8, strategy Z_FIXED
+level 1: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1007343
+level 2: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1008565
+level 3: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1008570
+level 4: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
+level 5: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
+level 6: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
+level 7: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
+level 8: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
+level 9: deflateBound 1130869, deflate(Z_FINISH) with that room returns 1 (Z_STREAM_END), stream needs 1000296
+ok: with the fix: every level ends within deflateBound

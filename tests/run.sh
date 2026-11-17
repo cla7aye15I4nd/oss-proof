@@ -66,3 +66,16 @@ fi
 if [ -z "${ONLY:-}" ] || [ "$ONLY" = deflate-slide ]; then
   ZLIB_BUILD="$ZLIB_BUILD" bash "$here/regression/deflate-slide/run.sh"
 fi
+
+# The patches: each reproduction builds the source with every patch but its own and shows the defect
+# on the real C, then builds the verified source and shows none. A case that stops reproducing, or
+# whose patched build still faults, fails the run.
+if [ -z "${ONLY:-}" ] || [ "$ONLY" = patches ]; then
+  [ -n "${ZLIB_SRC:-}" ] || { echo "run.sh: the patch reproductions need ZLIB_SRC" >&2; exit 2; }
+  for case in inflate-copy-fixed gzseek-pushback-overflow gzread-transparent-stale-next gzread-pos-overflow \
+      gzwrite-pos-overflow gzoffset-negative-lseek deflatebound-fixed-far-matches; do
+    echo "== patch reproduction: $case"
+    ZLIB_SRC="$ZLIB_SRC" bash "$here/regression/$case/run.sh" || { echo "FAIL: patch reproduction $case" >&2; exit 1; }
+  done
+  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them"
+fi
