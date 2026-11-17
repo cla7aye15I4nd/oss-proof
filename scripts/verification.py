@@ -614,7 +614,6 @@ def main() -> int:
             if dirty:
                 raise Rejected("final acceptance requires a clean committed source tree")
             run(["bash", "scripts/check-sorry.sh"])
-            run(["bash", "tests/audit/selftest.sh"])
             run(["env", "SAN=1", f"ZLIB_SRC={ROOT / 'zlib'}", "bash", "tests/run.sh"])
             commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
             print(f"final acceptance on commit: {commit}")

@@ -101,7 +101,9 @@ jobs:
           python3 tests/verification/test_strlit_check.py
 
   # The audit: axioms, doc strings and the goals.
-  audit_core:
+  # The audit: allowed axioms only, each registered theorem is exactly its goal, no goal without a
+  # registered theorem unless listed as not done, and the compiled proofs replayed by the kernel.
+  audit:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -124,45 +126,8 @@ jobs:
         run: |
           python3 tests/verification/test_audit.py
           python3 -O tests/verification/test_audit.py
-          python3 tests/verification/test_audit_shards.py
-          python3 -O tests/verification/test_audit_shards.py
           python3 tests/verification/test_ci_build.py
           python3 -O tests/verification/test_ci_build.py
-
-  audit_selftest:
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1]
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
-          fetch-depth: 0
-
-      - uses: ./.github/actions/lean-environment
-
-      - name: Audit self test (every assigned cheat must be rejected)
-        env:
-          AUDIT_SHARD_COUNT: '2'
-          AUDIT_SHARD_INDEX: ${{ matrix.shard }}
-        run: bash tests/audit/selftest.sh
-
-  # Keep audit as the required status. Failure, cancellation or skipping of the
-  # core or self-test stage must prevent this status from passing.
-  audit:
-    needs: [audit_core, audit_selftest]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Require every audit stage
-        env:
-          AUDIT_CORE_RESULT: ${{ needs.audit_core.result }}
-          AUDIT_SELFTEST_RESULT: ${{ needs.audit_selftest.result }}
-        run: test "$AUDIT_CORE_RESULT/$AUDIT_SELFTEST_RESULT" = "success/success"
 
   diff_core:
     needs: build

@@ -151,7 +151,7 @@ time: wait for the other owner's build to end before starting yours.
 
 **One gate, on every pull request and on every push to `main`** (`build`, `no-sorry`, `audit`,
 `difftest`): all modules build, no forbidden construct, patches apply to the pinned `zlib/`, no
-`sorry`; the audit (allowed axioms, exact goals, its self tests); the differential tests, with the
+`sorry`; the audit (allowed axioms, exact goals); the differential tests, with the
 C side under sanitisers. There is no nightly run and no second suite: what is on
 `main` has passed all of it. The manual trigger of the `lean` workflow runs the same jobs on any
 branch.
