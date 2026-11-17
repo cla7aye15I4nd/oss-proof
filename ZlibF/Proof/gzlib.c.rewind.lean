@@ -16,23 +16,15 @@ namespace Zlib.Gzlib.Proofs
 open C Zlib.GzFs Zlib.Gzguts Zlib.Gzlib Zlib.Gzlib.Spec
 
 theorem fsLseek_pure (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) :
-    ∃ x, fsLseek fd off wh w = (pure x : M (Int64 × Fs)) ∧ (x.1 = -1 ∨ 0 ≤ x.1.toInt) :=
+    ∃ x, fsLseek fd off wh w = (pure x : M (Int64 × Fs)) :=
   Zlib.GzFs.Proofs.fsLseek_pure fd off wh w
 
 theorem fsLseek_eq (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) (h : Heap) :
     fsLseek fd off wh w h = .ok (lseekRes fd off wh w, h) := by
-  obtain ⟨x, hx, -⟩ := fsLseek_pure fd off wh w
+  obtain ⟨x, hx⟩ := fsLseek_pure fd off wh w
   unfold lseekRes
   rw [hx]
   rfl
-
-/-- `lseek` returns `-1` or a position that is not negative. -/
-theorem lseekRes_ret (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) :
-    (lseekRes fd off wh w).1 = -1 ∨ 0 ≤ (lseekRes fd off wh w).1.toInt := by
-  obtain ⟨x, hx, hp⟩ := fsLseek_pure fd off wh w
-  unfold lseekRes
-  rw [hx]
-  exact hp
 
 theorem G_bind_app {α β : Type} (m : G α) (f : α → G β) (fs : Fs) (h : Heap) :
     (m >>= f) fs h = match m fs h with | .ok ((a, fs1), h1) => f a fs1 h1 | .error e => .error e := by
@@ -102,21 +94,23 @@ theorem gzrewind_spec {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (
 /-- `gzoffset64(NULL)` returns -1; the world and the heap are unchanged. No precondition. -/
 theorem gzoffset64_null (fs : Fs) (h : Heap) : gzoffset64 none fs h = .ok ((-1, fs), h) := rfl
 
-/-- `gzoffset64`. The result is `-1` when `lseek(fd, 0, SEEK_CUR)` fails; otherwise the descriptor's position, less the
+/-- `gzoffset64`. The result is `-1` when `lseek(fd, 0, SEEK_CUR)` fails or returns a negative value; otherwise the descriptor's position, less the
 input the inflate stream holds but has not used (`strm.avail_in`) for a reader. -/
 theorem gzoffset64_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (fs : Fs) :
     gzoffset64 (hnd gs) fs h =
-      if (lseekRes s.fd 0 SEEK_CUR fs).1 = -1 then .ok ((-1, (lseekRes s.fd 0 SEEK_CUR fs).2), h)
+      if (lseekRes s.fd 0 SEEK_CUR fs).1 < 0 then .ok ((-1, (lseekRes s.fd 0 SEEK_CUR fs).2), h)
       else if s.mode = GZ_READ then
         .ok ((Int64.ofInt ((lseekRes s.fd 0 SEEK_CUR fs).1.toInt - s.strm.avail_in.toNat), (lseekRes s.fd 0 SEEK_CUR fs).2), h)
       else .ok (((lseekRes s.fd 0 SEEK_CUR fs).1, (lseekRes s.fd 0 SEEK_CUR fs).2), h) := by
   have hs := hG.hs
-  have hr := lseekRes_ret s.fd 0 SEEK_CUR fs
   have hav := s.strm.avail_in.toNat_lt
   unfold gzoffset64
-  by_cases hl : (lseekRes s.fd 0 SEEK_CUR fs).1 = -1
+  by_cases hl : (lseekRes s.fd 0 SEEK_CUR fs).1 < 0
   · rcases hG.mode with hm | hm <;> ggsimp [hs, hm, hl, GZ_READ, GZ_WRITE]
-  · have hr' : 0 ≤ (lseekRes s.fd 0 SEEK_CUR fs).1.toInt := hr.resolve_left hl
+  · have hr' : 0 ≤ (lseekRes s.fd 0 SEEK_CUR fs).1.toInt := by
+      rw [Int64.lt_iff_toInt_lt] at hl
+      simp at hl
+      omega
     have hlt := (lseekRes s.fd 0 SEEK_CUR fs).1.toInt_lt
     have e := i64sub_run (lseekRes s.fd 0 SEEK_CUR fs).1 (u32ToI64 s.strm.avail_in)
       (by rw [u32ToI64_toInt]; omega) (by rw [u32ToI64_toInt]; omega) h

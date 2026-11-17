@@ -13,7 +13,7 @@ def lseekRes (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) : Int64 × Fs :=
 
 
 theorem fsLseek_pure (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) :
-    ∃ x, fsLseek fd off wh w = (pure x : M (Int64 × Fs)) ∧ (x.1 = -1 ∨ 0 ≤ x.1.toInt) :=
+    ∃ x, fsLseek fd off wh w = (pure x : M (Int64 × Fs)) :=
   Zlib.GzFs.Proofs.fsLseek_pure fd off wh w
 
 /-- The result and world of the regular-file `lseek`. -/
@@ -36,18 +36,10 @@ theorem lseekRes_regular {fd : Int32} {off : Int64} {wh : Int32} {fs : Fs}
 
 theorem fsLseek_eq (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) (h : Heap) :
     fsLseek fd off wh w h = .ok (lseekRes fd off wh w, h) := by
-  obtain ⟨x, hx, -⟩ := fsLseek_pure fd off wh w
+  obtain ⟨x, hx⟩ := fsLseek_pure fd off wh w
   unfold lseekRes
   rw [hx]
   rfl
-
-/-- `lseek` returns `-1` or a position that is not negative. -/
-theorem lseekRes_ret (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) :
-    (lseekRes fd off wh w).1 = -1 ∨ 0 ≤ (lseekRes fd off wh w).1.toInt := by
-  obtain ⟨x, hx, hp⟩ := fsLseek_pure fd off wh w
-  unfold lseekRes
-  rw [hx]
-  exact hp
 
 theorem G_bind_app {α β : Type} (m : G α) (f : α → G β) (fs : Fs) (h : Heap) :
     (m >>= f) fs h = match m fs h with | .ok ((a, fs1), h1) => f a fs1 h1 | .error e => .error e := by
@@ -144,17 +136,19 @@ query on any existing state record with a supported mode. -/
 theorem gzoffset64_record {h : Heap} {i : Nat} {s : GzState}
     (hs : h.gzstates i = some s) (hm : s.mode = GZ_READ ∨ s.mode = GZ_WRITE) (fs : Fs) :
     gzoffset64 (hnd i) fs h =
-      if (lseekRes s.fd 0 SEEK_CUR fs).1 = -1 then .ok ((-1, (lseekRes s.fd 0 SEEK_CUR fs).2), h)
+      if (lseekRes s.fd 0 SEEK_CUR fs).1 < 0 then .ok ((-1, (lseekRes s.fd 0 SEEK_CUR fs).2), h)
       else if s.mode = GZ_READ then
         .ok ((Int64.ofInt ((lseekRes s.fd 0 SEEK_CUR fs).1.toInt - s.strm.avail_in.toNat),
           (lseekRes s.fd 0 SEEK_CUR fs).2), h)
       else .ok (((lseekRes s.fd 0 SEEK_CUR fs).1, (lseekRes s.fd 0 SEEK_CUR fs).2), h) := by
-  have hr := lseekRes_ret s.fd 0 SEEK_CUR fs
   have hav := s.strm.avail_in.toNat_lt
   unfold gzoffset64
-  by_cases hl : (lseekRes s.fd 0 SEEK_CUR fs).1 = -1
+  by_cases hl : (lseekRes s.fd 0 SEEK_CUR fs).1 < 0
   · rcases hm with hm | hm <;> offsetsimp [hs, hm, hl, GZ_READ, GZ_WRITE]
-  · have hr' : 0 ≤ (lseekRes s.fd 0 SEEK_CUR fs).1.toInt := hr.resolve_left hl
+  · have hr' : 0 ≤ (lseekRes s.fd 0 SEEK_CUR fs).1.toInt := by
+      rw [Int64.lt_iff_toInt_lt] at hl
+      simp at hl
+      omega
     have hlt := (lseekRes s.fd 0 SEEK_CUR fs).1.toInt_lt
     have e := i64sub_run (lseekRes s.fd 0 SEEK_CUR fs).1 (u32ToI64 s.strm.avail_in)
       (by rw [u32ToI64_toInt]; omega) (by rw [u32ToI64_toInt]; omega) h
@@ -180,30 +174,30 @@ theorem gzoffset64_public {h : Heap} {i : Nat} {s : GzState}
   have hex := gzoffset64_record hs hm fs
   by_cases hfd : s.fd.toInt < 0
   · have he : (lseekRes s.fd 0 SEEK_CUR fs).1 = -1 := by simpa [hfd] using hres
-    exact ⟨-1, _, by simpa [he] using hex, hfs, by simp [hfd]⟩
+    have hn : (lseekRes s.fd 0 SEEK_CUR fs).1 < 0 := by rw [he]; decide
+    exact ⟨-1, _, by simpa [hn] using hex, hfs, by simp [hfd]⟩
   · cases hf : fs.fds[s.fd.toInt.toNat]? with
     | none =>
       have he : (lseekRes s.fd 0 SEEK_CUR fs).1 = -1 := by
         rw [ite_eq_right hfd, hf] at hres
         exact hres
-      exact ⟨-1, _, by simpa [he] using hex, hfs, by simp [hfd]⟩
+      have hn : (lseekRes s.fd 0 SEEK_CUR fs).1 < 0 := by rw [he]; decide
+      exact ⟨-1, _, by simpa [hn] using hex, hfs, by simp [hfd]⟩
     | some slot =>
       cases slot with
       | none =>
         have he : (lseekRes s.fd 0 SEEK_CUR fs).1 = -1 := by
           rw [ite_eq_right hfd, hf] at hres
           exact hres
-        exact ⟨-1, _, by simpa [he] using hex, hfs, by simp [hfd]⟩
+        have hn : (lseekRes s.fd 0 SEEK_CUR fs).1 < 0 := by rw [he]; decide
+        exact ⟨-1, _, by simpa [hn] using hex, hfs, by simp [hfd]⟩
       | some file =>
         have hr : (lseekRes s.fd 0 SEEK_CUR fs).1.toInt = (file.pos : Int) := by
           rw [ite_eq_right hfd, hf] at hres
           exact hres
-        have he : (lseekRes s.fd 0 SEEK_CUR fs).1 ≠ -1 := by
-          intro he
-          rw [he] at hr
-          have : (0 : Int) ≤ file.pos := by omega
-          have : (-1 : Int) = file.pos := by simp at hr
-          omega
+        have he : ¬ (lseekRes s.fd 0 SEEK_CUR fs).1 < 0 := by
+          rw [Int64.lt_iff_toInt_lt, hr]
+          simp
         by_cases hread : s.mode = GZ_READ
         · refine ⟨Int64.ofInt ((lseekRes s.fd 0 SEEK_CUR fs).1.toInt - s.strm.avail_in.toNat), _,
             by simpa [he, hread] using hex, hfs, ?_⟩
