@@ -41,6 +41,7 @@ theorem inflate_after_not_covered {h : Heap} {r : ZStreamRef} {z : ZStream} {i :
   rintro ⟨region, member, off', pointer, _, past⟩
   simp only [List.mem_singleton] at member
   subst member
+  dsimp only at pointer past
   cases pointer
   omega
 
@@ -55,6 +56,7 @@ theorem deflate_after_not_covered {h : Heap} {r : ZStreamRef} {z : ZStream} {i :
   rintro ⟨region, member, off', pointer, _, past⟩
   simp only [List.mem_singleton] at member
   subst member
+  dsimp only at pointer past
   cases pointer
   omega
 
