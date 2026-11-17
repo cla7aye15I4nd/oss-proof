@@ -339,16 +339,19 @@ def Goal.compress_uncompress_roundtrip : Prop :=
           Bytes after₂ dest₂ n.toNat xs ∧ LengthCell after₂ destLen₂ n
 
 /-- **Non-vacuity of `Goal.compress_uncompress_roundtrip`.** There is a heap, a destination and a
-source on which every premise of the `compress` half holds; and for every output `out` of `stored`
-bytes, a second heap, destination, length cell and source holding `out` on which every premise of
-the `uncompress` half holds. -/
+non-empty source on which every premise of the `compress` half holds; and for every output `out`
+that `compress` can produce there (`stored` bytes, at most `compressBound n`), a second heap,
+destination, length cell and source holding `out` on which every premise of the `uncompress` half
+holds. -/
 def Goal.compress_uncompress_roundtrip_witness : Prop :=
   ∃ h dest c source n xs,
     Fresh h ∧ Zlib.Deflate.Spec.Uniq h ∧ LibraryGlobals h ∧ ZlibF.PlatformMemory.ByteObjectsFit h ∧
     NoAllocationFailure h ∧
+    xs ≠ [] ∧
     Bytes h source n.toNat xs ∧ Writable h dest c.toNat ∧ Separate source n.toNat dest c.toNat ∧
     ¬ compressRejected dest (some c) source n ∧ Api.compressBound n.toNat ≤ c.toNat ∧
-    ∀ (stored : UInt64) (out : List UInt8), out.length = stored.toNat →
+    ∀ (stored : UInt64) (out : List UInt8), stored.toNat ≤ Api.compressBound n.toNat →
+      out.length = stored.toNat →
       ∃ h₂ dest₂ destLen₂ source₂ capacity₂,
         Fresh h₂ ∧ Zlib.Inflate.Spec.Uniq h₂ ∧ LibraryGlobals h₂ ∧
         ZlibF.PlatformMemory.ByteObjectsFit h₂ ∧ NoAllocationFailure h₂ ∧
