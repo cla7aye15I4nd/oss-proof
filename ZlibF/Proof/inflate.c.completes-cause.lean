@@ -309,4 +309,68 @@ theorem cause_check_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wr
       obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun ((dispatchEq.trans run1).trans skip)
       exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
 
+/-- `left` only decreases in a trip. -/
+theorem trip_left_le {c : Ctx} {r : ZStreamRef} {l l' : IL} {h h' : Heap} {outcome : Except Ex Unit}
+    (side : CallSide c r l h) (run : runX (inflate_dispatch c) l h = .ok ((outcome, l'), h')) :
+    l'.left.toNat ≤ l.left.toNat := by
+  obtain ⟨zs, z, s, strm, st, j, ⟨bs, buf⟩, loc, bits, _⟩ := side
+  have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
+  obtain ⟨outcome2, regs, after, _, _, _, made, _, run2, _, _, _, _, _, _, leftEq, _⟩ :=
+    inflate_dispatch_default_view_state_rank E j buf loc bits
+  have same := run.symm.trans run2
+  simp only [Except.ok.injEq, Prod.mk.injEq] at same
+  obtain ⟨⟨_, rfl⟩, rfl⟩ := same
+  omega
+
+/-- The leave that ends the mode loop of a wrapped stream has a cause in the trip it ends. -/
+theorem loop_cause {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
+    (trip : TripMeaning c f (CallSide c r)) (rawTrip : RawCheckTrip c f (CallSide c r))
+    (cause : ∀ h l, CallSide c r l h → LoopMatches c f h l →
+      ∀ l' h', runX (inflate_dispatch c) l h = .ok ((.error Ex.leave, l'), h') → TripLeaveCause c h' l l')
+    (wrapped : f.wrap ≠ .raw) (strm : c.strm = some r)
+    {l regs : IL} {h after : Heap}
+    (side : CallSide c r l h) (start : LoopMatches c f h l ∨ LoopBad c f h l)
+    (run : runX (xwhile (pure true) (inflate_dispatch c)) l h = .ok ((.error Ex.leave, regs), after)) :
+    ∃ l0, TripLeaveCause c after l0 regs ∧ regs.left.toNat ≤ l0.left.toNat := by
+  let P : IL → Heap → Prop := fun l h =>
+    CallSide c r l h ∧ ((LoopMatches c f h l ∨ LoopBad c f h l) ∨ RawCheck c f h l)
+  let Q : Ex → IL → Heap → Prop := fun e regs after =>
+    e = .leave → ∃ l0, TripLeaveCause c after l0 regs ∧ regs.left.toNat ≤ l0.left.toNat
+  have kept := side_kept c r
+  have step : ∀ l h outcome regs after, P l h →
+      runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) →
+      match outcome with
+      | .ok () => P regs after
+      | .error exit => Q exit regs after := by
+    intro l h outcome regs after ⟨side, current⟩ source
+    have leftLe := trip_left_le side source
+    rcases current with (loop | bad) | raw
+    · obtain ⟨result, l', h', run', outcome'⟩ := trip h l side loop
+      have same := source.symm.trans run'
+      simp only [Except.ok.injEq, Prod.mk.injEq] at same
+      obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
+      cases outcome with
+      | ok u =>
+        cases u
+        rcases outcome' with tripOut | needDict | ⟨_, raw'⟩
+        · rcases tripOut with ⟨_, cont⟩ | ⟨e, _⟩
+          · exact ⟨kept l h regs after side source, Or.inl cont⟩
+          · cases e
+        · obtain ⟨e, _⟩ := needDict
+          cases e
+        · exact ⟨kept l h regs after side source, Or.inr raw'⟩
+      | error exit =>
+        intro e
+        subst e
+        exact ⟨l, cause h l side loop regs after source, leftLe⟩
+    · obtain ⟨z, hz⟩ := side.record
+      obtain ⟨run', _⟩ := bad_trip bad strm hz
+      have same := source.symm.trans run'
+      simp only [Except.ok.injEq, Prod.mk.injEq] at same
+      obtain ⟨⟨rfl, rfl⟩, rfl⟩ := same
+      intro _
+      exact ⟨l, Or.inl (show Z_DATA_ERROR ≠ Z_OK by decide), leftLe⟩
+    · exact absurd raw.1 wrapped
+  exact xwhile_success_control_post P Q step ⟨side, Or.inl start⟩ run rfl
+
 end Zlib.Inflate.Proofs
