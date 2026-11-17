@@ -25,16 +25,18 @@ The room cause (`left = 0`, holding output) is stated in the leave registers. -/
 def TripLeaveCause (c : Ctx) (h' : Heap) (l l' : IL) : Prop :=
   l'.ret ≠ Z_OK ∨ c.flush = Z_BLOCK ∨ c.flush = Z_TREES ∨ (l'.left = 0 ∧ HoldsOutput c h') ∨
     (l'.have_ = 0 ∧ LeaveShort c h' l') ∨
-    (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_)
+    ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_) ∧ l'.bits.toNat < 8)
 
 /-- A leave for want of input, short of the field the mode waits for. -/
 theorem TripLeaveCause.short {c : Ctx} {h' : Heap} {l l' : IL}
     (short : l'.have_ = 0 ∧ LeaveShort c h' l') : TripLeaveCause c h' l l' :=
   Or.inr (Or.inr (Or.inr (Or.inr (Or.inl short))))
 
-/-- A leave in `LEN_`: the dynamic header is complete (the `Z_TREES` stop of `CODELENS`). -/
+/-- A leave in `LEN_` with fewer than 8 bits held: the dynamic header is complete (the `Z_TREES`
+stop of `CODELENS`). -/
 theorem TripLeaveCause.lenStart {c : Ctx} {h' : Heap} {l l' : IL}
-    (len : ∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_) :
+    (len : (∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = LEN_) ∧
+      l'.bits.toNat < 8) :
     TripLeaveCause c h' l l' :=
   Or.inr (Or.inr (Or.inr (Or.inr (Or.inr len))))
 

@@ -58,7 +58,7 @@ theorem cause_len_start {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStre
 /-- The cause of a leave of the header run in the `Z_TREES` context. -/
 def TreesCause (c : Ctx) (f : LoopFrame) (res : Except Ex Unit) (H : Heap) (L : IL) : Prop :=
   res = .error Ex.leave → LoopMatches c f H L ∧
-    ((L.have_ = 0 ∧ LeaveShort c H L) ∨ LenMode c H)
+    ((L.have_ = 0 ∧ LeaveShort c H L) ∨ (LenMode c H ∧ L.bits.toNat < 8))
 
 theorem codelens_cause {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef} {z : ZStream}
     (trees : c.flush = Z_TREES) (loop : LoopMatches c f h l) (strm : c.strm = some r)
@@ -72,9 +72,9 @@ theorem codelens_cause {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStrea
   · refine ⟨res, L, H, run, fun leave => ?_⟩
     rcases ends with ⟨_, cause, m⟩ | ⟨e, _⟩
     · refine ⟨m, ?_⟩
-      rcases cause with s | ⟨_, len⟩
+      rcases cause with s | ⟨_, len, small⟩
       · exact Or.inl s
-      · exact Or.inr len
+      · exact Or.inr ⟨len, small⟩
     · rw [leave] at e; cases e
   · exact absurd trees other
 
