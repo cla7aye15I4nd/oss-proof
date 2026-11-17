@@ -17,9 +17,9 @@ Every declaration of a `ZlibF` module is rejected when the compiled environment 
   `Lean.ofReduceBool` in the declaration that holds it, and that declaration is in the library, so
   both are found here. The reviewed compiler auxiliaries are not exempt from the last three rules.
 
-Not checked here: an axiom reached only through a declaration of another package. The audit
-computes the full axiom closure of every definition and theorem; this check reads each declaration
-of the library once.
+Not checked here: an axiom reached only through a declaration of another package. The check of
+`ZlibF/Results.lean` computes the full axiom closure (`Lean.collectAxioms`) of every theorem that
+proves a goal; this check reads each declaration of the library once.
 
 Run after the library build: `lake env lean --run tests/audit/PartialCheck.lean`.
 -/

@@ -3,7 +3,7 @@
 
 Cross-run caches are only Lake inputs. The producer always asks Lake to validate
 their traces against source. Consumers accept this run's exact checkout and
-platform, then use Lake's --no-build check before the independent kernel audit.
+platform, then use Lake's --no-build check before they use the build.
 """
 import argparse
 import hashlib
