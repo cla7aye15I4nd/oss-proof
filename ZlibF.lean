@@ -49,7 +49,6 @@ import ZlibF.Proof.«inflate.c.start»
 import ZlibF.Proof.«inflate.c.misc»
 import ZlibF.Proof.«inflate.c.misc2»
 import ZlibF.Proof.«inflate.c.window»
-import ZlibF.Proof.«inflate.c.witness»
 import ZlibF.Proof.«inflate.c.main.bits»
 import ZlibF.Proof.«inflate.c.main.xloop»
 import ZlibF.Proof.«inflate.c.main.macros»
@@ -247,7 +246,6 @@ import ZlibF.Proof.«inffast.c.length-trace»
 import ZlibF.Proof.«inffast.c.body-token»
 import ZlibF.Proof.Format.Token
 
-import ZlibF.Proof.Api.HeapCleanup
 import ZlibF.Proof.Api.QueryLayout
 import ZlibF.Proof.«gzlib.c.public-clearerr»
 import ZlibF.Proof.Index
@@ -379,13 +377,10 @@ import ZlibF.Proof.«deflate.c.engine.marker-request-buffer-frame»
 import ZlibF.Proof.«deflate.c.engine.marker-request-controls»
 import ZlibF.Proof.«deflate.c.engine.marker-request-contract»
 import ZlibF.Proof.«deflate.c.engine.all-scalar-request-contract»
-import ZlibF.Proof.«deflate.c.engine.all-scalar-full-contract»
-import ZlibF.Proof.«deflate.c.engine.full-contract-witness»
 
 import ZlibF.Proof.«deflate.c.engine.flush-content-encoding»
 
 import ZlibF.Math.DeflateFlushMarkers
-import ZlibF.Math.DeflateBoundBlocks
 import ZlibF.Proof.«deflate.c.engine.marker-encoding»
 
 import ZlibF.Proof.«deflate.c.engine.strategy-encoding-cut»
@@ -654,8 +649,6 @@ import ZlibF.Proof.«infback.c.safety-call»
 import ZlibF.Proof.«infback.c.safety-reach»
 import ZlibF.Proof.«deflate.c.universal-flush-cursor»
 import ZlibF.Proof.«public-stream-call-safety»
-import ZlibF.Proof.«public-stream-refusal-strengthening»
-import ZlibF.Proof.«public-gz-printf-contract-strengthening»
 import ZlibF.Proof.«public-init-safety»
 import ZlibF.Proof.«public-gz-call-safety»
 import ZlibF.Proof.«public-back-safety»
