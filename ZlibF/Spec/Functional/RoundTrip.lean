@@ -157,7 +157,7 @@ parameters `deflateBound` is `compressBound` (`Goal.deflate_bound_default`). Bef
 def Goal.deflate_completes_default : Prop :=
   ∀ r h log z input,
     DefaultCleanHistory r h log → log.finished = false →
-    r.get h = some z → StreamBuffers h r → ActiveHeader h r → z.next_out ≠ .null →
+    r.get h = some z → StreamBuffers h r → z.next_out ≠ .null →
     Bytes h z.next_in z.avail_in.toNat input →
     (∀ ds d, z.state = some (.deflate ds) → h.dstates ds = some d →
       d.status = FINISH_STATE → input = []) →
@@ -174,7 +174,7 @@ def Goal.deflate_bound_default : Prop :=
   ∀ r h log z input n b,
     DefaultCleanHistory r h log → log.input = [] → log.output = [] → log.finished = false →
     C.run (Zlib.Deflate.deflateBound (some r) n) h = .ok (b, h) →
-    r.get h = some z → StreamBuffers h r → ActiveHeader h r → z.next_out ≠ .null →
+    r.get h = some z → StreamBuffers h r → z.next_out ≠ .null →
     Bytes h z.next_in z.avail_in.toNat input → input.length = n.toNat →
     b.toNat ≤ z.avail_out.toNat →
     ∃ after output, DataStep .deflate h after r Z_FINISH Z_STREAM_END input output input.length ∧

@@ -269,7 +269,8 @@ theorem finish_completes_of {r : ZStreamRef} {h : Heap} {log : DataLog} {z : ZSt
     simpa [deflateLogStep, List.take_length] using decodes
 
 theorem deflate_completes_default : Goal.deflate_completes_default := by
-  intro r h log z input history unfinished get buffers header output snapshot protocol room enough
+  intro r h log z input history unfinished get buffers output snapshot protocol room enough
+  have header := clean_active_header history
   refine finish_completes_of history unfinished get buffers header output snapshot protocol room ?_
   intro after out used step
   have next : DefaultCleanHistory r after (deflateLogStep log Z_FINISH Z_OK input out used) :=
@@ -334,8 +335,9 @@ theorem unsaturated_le_of_compressBound_le {n room : Nat} (fits : room < 4294967
     omega
 
 theorem deflate_bound_default : Goal.deflate_bound_default := by
-  intro r h log z input n b history noInput noOutput unfinished bound get buffers header output
+  intro r h log z input n b history noInput noOutput unfinished bound get buffers output
     snapshot length room
+  have header := clean_active_header history
   have value := bound_value_default history noOutput bound
   have protocol : ∀ ds d, z.state = some (.deflate ds) → h.dstates ds = some d →
       d.status = FINISH_STATE → input = [] := by
