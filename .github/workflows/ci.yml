@@ -40,8 +40,10 @@ jobs:
           restore-keys: |
             lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-
 
+      # The library build also checks the registry of results, ZlibF/Results.lean: each theorem's type
+      # is exactly its goal, allowed axioms only, and every goal is proved or listed as not done.
       - name: Build the library once
-        run: lake build ZlibF zlibf-audit
+        run: lake build ZlibF
 
       - name: Build the differential drivers once
         working-directory: tests
@@ -98,9 +100,8 @@ jobs:
 
   # The final requirement of the project: no sorry anywhere. A work in progress may fail this job; a result may not
   # be reported as final while it fails.
-  # The audit: axioms, doc strings and the goals.
-  # The audit: allowed axioms only, each registered theorem is exactly its goal, no goal without a
-  # registered theorem unless listed as not done, and the compiled proofs replayed by the kernel.
+  # The audit: the compiled library replayed by the kernel in a fresh environment, and the coverage of
+  # the public API (every function of zlib.h has its goals, every required goal is proved).
   audit:
     needs: build
     runs-on: ubuntu-latest
@@ -109,21 +110,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
-          fetch-depth: 0
 
       - uses: ./.github/actions/lean-environment
         with:
           library: 'true'
 
-      - name: Audit
-        env:
-          ZLIBF_REQUIRE_PREBUILT: '1'
-        run: python3 scripts/verification.py specs
+      - name: Kernel replay of the compiled library
+        run: lake env leanchecker --fresh ZlibF.Results
 
-      - name: Auditor acceptance and rejection tests
+      - name: Coverage of the public API
+        run: python3 scripts/verification.py
+
+      - name: Self-tests
         run: |
-          python3 tests/verification/test_audit.py
-          python3 -O tests/verification/test_audit.py
+          python3 tests/verification/test_coverage.py
           python3 tests/verification/test_ci_build.py
           python3 -O tests/verification/test_ci_build.py
 

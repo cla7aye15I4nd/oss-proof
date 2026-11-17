@@ -2,18 +2,13 @@
 """Check artifact provenance and the auditor controls."""
 import importlib.util
 import io
-import os
 from pathlib import Path
 import subprocess
-import sys
 import tarfile
 import tempfile
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'scripts'))
-import verification
 
 
 def load(name, path):
@@ -98,15 +93,6 @@ class BuildTransport(unittest.TestCase):
             artifact.validate_members([])
         with self.assertRaises(ValueError):
             artifact.validate_members([tarfile.TarInfo(artifact.METADATA)] * 2)
-
-    def test_prebuilt_consumers_refuse_to_compile(self):
-        with patch.dict(os.environ, {'ZLIBF_REQUIRE_PREBUILT': '1'}), \
-                patch.object(verification, 'run') as run:
-            verification.build_library()
-            run.assert_called_once_with(['lake', '--no-build', 'build', 'ZlibF'])
-        with patch.dict(os.environ, {'ZLIBF_REQUIRE_PREBUILT': 'invalid'}), \
-                self.assertRaises(verification.Rejected):
-            verification.build_library()
 
 
 if __name__ == '__main__':
