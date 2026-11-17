@@ -40,8 +40,8 @@ Functional theorems also exist (`gen_bitlen_correct`, `pqdownheap_correct`,
 `bi_reverse_correct` and others: the lengths form a complete prefix code, the bits written are
 the ones intended). They are proved, and they are not required for the safety results. No
 theorem for every configuration says that the emitted block decodes to the recorded symbols.
-For the default configuration, a completed stream is proved to be a valid zlib stream for its
-input; see [the default configuration](deflate-default-engine.md).
+For the stream that `deflateInit` makes at the default level, a completed stream is proved to
+be a valid zlib stream for its input; see [the round trip](roundtrip.md).
 
 ## Assumptions
 

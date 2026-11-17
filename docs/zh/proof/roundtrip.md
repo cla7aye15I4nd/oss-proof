@@ -1,4 +1,4 @@
-<!-- source-sha256: b3bc9b8db91e360914b3ef42e74f348ba28951d5fa82b53515f65900ea605448 -->
+<!-- source-sha256: d39f02fcf2ce692fd7ffdd08c97840db2509c19d2625e0d28a068d9957f9d3f0 -->
 # 默认 zlib 流的往返
 
 用 zlib 按默认级别压缩，再解压，得到原输入。本页给出表达这件事的十四个目标及其前提，并说明证明的轮廓。这项结论已完成。它是一项功能结论：安全结论不依赖它。
@@ -58,7 +58,7 @@
 
 `inflate` 两个目标的前提：`StreamBuffers`，`next_out` 不是 `NULL`，`ByteObjectsFit`，每次分配都成功（历史中的和本次调用中的），刷新值不是 `Z_BLOCK` 和 `Z_TREES`，这两个值会在块边界停下。
 
-### 流，每一种调用序列
+### 流，每一段历史
 
 | 目标 | 定理 | 命题 |
 | --- | --- | --- |
@@ -90,7 +90,7 @@ flowchart TD
   unc --> rt
 ```
 
-**条件形式的往返。** 关于已结束历史的两条事实在这里相遇。对 `deflate`：一段返回了 `Z_STREAM_END` 的默认历史，其输出是一个 zlib 流，解码得到被接受的输入（[默认配置的引擎](deflate-default-engine.md)）。对 `inflate`：默认解码器到 `Z_STREAM_END` 为止消耗的输入是一个 zlib 流，解码得到写出的输出（`completed_inflate_decodes`，[流解码](inflate.md#functional-results)）。一个完整的 zlib 流只有一种解码结果，并且以它开头的更长的字节序列都不是完整的流（`Zlib.ext`）。解码器消耗的是编码器输出的前缀，而两者都是完整的流。所以它们是同样的字节，两个解码结果相等。
+**条件形式的往返。** 关于已结束历史的两条事实在这里相遇。对 `deflate`：一段返回了 `Z_STREAM_END` 的默认历史，其输出是一个 zlib 流，解码得到被接受的输入（`GenericDefaultDataTrace.exact_decodes`）。对 `inflate`：默认解码器到 `Z_STREAM_END` 为止消耗的输入是一个 zlib 流，解码得到写出的输出（`completed_inflate_decodes`，[流解码](inflate.md#functional-results)）。一个完整的 zlib 流只有一种解码结果，并且以它开头的更长的字节序列都不是完整的流（`Zlib.ext`）。解码器消耗的是编码器输出的前缀，而两者都是完整的流。所以它们是同样的字节，两个解码结果相等。
 
 **大小账本。** 沿着每一段干净的历史，有一个不变量 `SizeLedger`，它把已写出的输出、流内部暂存的字节和已接受的输入联系起来。对 `n` 个已接受的字节，它给出 `输出 ≤ n + 11 + 5·⌊n/16383⌋`，这不超过 `unsaturatedBound(n)`（`output_le_bound`）。每次 `Z_NO_FLUSH` 和 `Z_FINISH` 调用都保持这个账本，输出指针可以在任何内存中（`clean_size_ledger`）。
 

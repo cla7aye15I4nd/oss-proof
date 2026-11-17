@@ -94,7 +94,7 @@ Premises of the two `inflate` goals: `StreamBuffers`, `next_out` not `NULL`, `By
 every allocation succeeds (in the history and in the call), and a flush value other than
 `Z_BLOCK` and `Z_TREES`, which stop at block boundaries.
 
-### Streams, every call sequence
+### Streams, every history
 
 | Goal | Theorem | Statement |
 | --- | --- | --- |
@@ -135,7 +135,7 @@ flowchart TD
 
 **The conditional round trip.** Two facts about finished histories meet. For `deflate`: the
 output of a default history that returned `Z_STREAM_END` is a zlib stream that decodes to the
-input accepted ([the default-configuration engine](deflate-default-engine.md)). For `inflate`:
+input accepted (`GenericDefaultDataTrace.exact_decodes`). For `inflate`:
 the input a default decoder consumed up to `Z_STREAM_END` is a zlib stream that decodes to the
 output written (`completed_inflate_decodes`, [stream decoding](inflate.md#functional-results)).
 A complete zlib stream has one decoding, and no longer sequence of bytes that starts with it is

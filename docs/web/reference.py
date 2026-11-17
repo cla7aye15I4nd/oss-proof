@@ -462,7 +462,6 @@ def render_portals() -> None:
             ("inftrees.md", t("解码表构造", "Decode-table construction")),
             ("inffast.md", t("快速解码", "Fast decoding")),
             ("trees.md", t("树、位输出与共享缓冲区", "Trees, bit emission, and shared storage")),
-            ("deflate-default-engine.md", t("默认压缩配置", "Default compressor configuration")),
             ("roundtrip.md", t("默认流的往返", "Round trip of the default stream")),
             ("method.md", t("证明方法与不变量", "Proof method and invariants")),
             ("gzip.md", t("gzip 文件接口", "Gzip file interface")),
@@ -566,11 +565,11 @@ def render_proof_routes() -> None:
                 source = REPO / route["path"]
                 name = route["declaration"]
                 if not source.exists():
-                    continue
+                    raise ValueError(f"content/proof-routes.json names a file that does not exist: {route['path']}")
                 raw = source.read_text()
                 found = re.search(r"^(?:(?:private|protected|noncomputable)\s+)?(?:theorem|lemma|def)\s+" + re.escape(name) + r"\b", raw, re.M)
                 if not found:
-                    continue
+                    raise ValueError(f"content/proof-routes.json names a declaration that {route['path']} does not have: {name}")
                 line = raw[:found.start()].count("\n") + 1
                 body += f'<li><a href="{source_path(source,lang)}#L{line}">{html.escape(route["topic"][lang])}</a><p>{html.escape(route["summary"][lang])}</p><small>{html.escape(route["premise"][lang])}</small><code>{html.escape(name)}</code></li>'
             body += "</ol>"
