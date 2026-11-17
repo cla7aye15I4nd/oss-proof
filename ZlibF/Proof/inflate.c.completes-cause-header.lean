@@ -34,6 +34,7 @@ theorem cause_head_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wra
   rcases kinds with rfl | rfl
   · have run1 := dispatch.trans (zlib_head_run_ok E wrap5 headNone needRun)
     have shape' : SymbolRegShape l l1 := by
+      unfold SymbolRegShape
       rw [shape]
     have packet : DispatchBuffers h r l1 (bs.drop used) :=
       buf.consume j.good j.good rfl (fun _ => rfl) (fun _ => rfl) shape' nextEq usedLe binv1
