@@ -497,7 +497,7 @@ theorem len_slow_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
       ∀ w o d i, s.window = .ref w o → l.put = .ref d i → w ≠ d)
     (rawWidth : f.wrap = .raw → f.configured ≠ 0) :
     ∃ result l' h', runX (inflate_LEN c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (LoopMatches c f h' l' ∨
           ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -621,7 +621,7 @@ theorem len_slow_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
       runX (inflate_LEN c) l h =
         runX (lenLeafTail c e) rD (setI h zs { s with back := Int32.ofNat bn, length := e.val.toUInt32 }) →
       ∃ result l' h', runX (inflate_LEN c) l h = .ok ((result, l'), h') ∧
-        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
          (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
            (LoopMatches c f h' l' ∨
             ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -804,7 +804,7 @@ theorem len_slow_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStream
       rawWidth
     refine ⟨result, l', h', runX'.trans runT, ?_⟩
     rcases rest with ⟨leave, cause, m⟩ | ⟨ok, more, m⟩
-    · exact Or.inl ⟨leave, cause.imp id (fun e => keepT.2.2.1.symm.trans e), m⟩
+    · exact Or.inl ⟨leave, cause.imp id (fun e => ⟨keepT.2.2.1.symm.trans e.1, e.2⟩), m⟩
     · exact Or.inr ⟨ok, by rw [readD] at more; omega, m⟩
   -- the root lookup
   have fail1 : ∀ current used, LookupRegShape l current →
@@ -1028,7 +1028,7 @@ theorem len__step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
       ∀ w o d i, s.window = .ref w o → l.put = .ref d i → w ≠ d)
     (rawWidth : f.wrap = .raw → f.configured ≠ 0) :
     ∃ result l' h', runX (inflate_LEN_ c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (LoopMatches c f h' l' ∨
           ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧

@@ -1,4 +1,5 @@
 import ZlibF.Proof.«inflate.c.meaning-match»
+import ZlibF.Proof.«inflate.c.meaning-holds»
 import ZlibF.Proof.«inflate.c.distance-extra»
 import ZlibF.Proof.«inflate.c.distance-finish»
 import ZlibF.Proof.«inflate.c.meaning-lookup»
@@ -192,7 +193,7 @@ theorem distext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
       ∀ w o d i, s.window = .ref w o → l.put = .ref d i → w ≠ d)
     (rawWidth : f.wrap = .raw → f.configured ≠ 0) :
     ∃ result l' h', runX (inflate_DISTEXT c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (LoopMatches c f h' l' ∨
           ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -228,7 +229,7 @@ theorem distext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
       s2.sane = s.sane → RegsKeep l l2 → loopRead l ≤ loopRead l2 →
       LoopMatches c f (setI h zs s2) l2 →
       ∃ result l' h', runX (inflate_MATCH c) l2 (setI h zs s2) = .ok ((result, l'), h') ∧
-        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
          (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
            (LoopMatches c f h' l' ∨
             ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -254,7 +255,8 @@ theorem distext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
       rawWidth
     refine ⟨result, l', h', run, ?_⟩
     rcases rest with ⟨leave, left0, rfl, rfl⟩ | ⟨ok, read, rest⟩
-    · exact Or.inl ⟨leave, Or.inr (keep.2.2.1.symm.trans left0), loop2⟩
+    · exact Or.inl ⟨leave, Or.inr ⟨keep.2.2.1.symm.trans left0,
+        HoldsOutput.of_state st (setI_istates_same h zs s2) (Or.inr (Or.inl m2))⟩, loop2⟩
     · exact Or.inr ⟨ok, by omega, rest⟩
   by_cases zero : s.extra = 0
   · -- no extra bits
@@ -988,7 +990,7 @@ theorem dist_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
       ∀ w o d i, s.window = .ref w o → l.put = .ref d i → w ≠ d)
     (rawWidth : f.wrap = .raw → f.configured ≠ 0) :
     ∃ result l' h', runX (inflate_DIST c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (LoopMatches c f h' l' ∨
           ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -1095,7 +1097,7 @@ theorem dist_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
       natBits rF.bits.toNat rF.hold.toNat = natBits cons rF.hold.toNat ++ natBits rD.bits.toNat rD.hold.toNat →
       runX (inflate_DIST c) l h = runX (distLeafTail c e) rD (setI h zs { s with back := b }) →
       ∃ result l' h', runX (inflate_DIST c) l h = .ok ((result, l'), h') ∧
-        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
          (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
            (LoopMatches c f h' l' ∨
             ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -1193,7 +1195,7 @@ theorem dist_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
         exact runT
       refine ⟨result, l', h', runAll, ?_⟩
       rcases rest with ⟨leave, cause, m⟩ | ⟨ok, more, m⟩
-      · exact Or.inl ⟨leave, cause.imp id (fun e => keepT.2.2.1.symm.trans e), m⟩
+      · exact Or.inl ⟨leave, cause.imp id (fun e => ⟨keepT.2.2.1.symm.trans e.1, e.2⟩), m⟩
       · exact Or.inr ⟨ok, by rw [readD] at more; omega, m⟩
     · -- an invalid code: `BAD`
       obtain ⟨i, runB⟩ := leafTail_bad E' e rD good
@@ -1528,7 +1530,7 @@ theorem lenext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       ∀ w o d i, s.window = .ref w o → l.put = .ref d i → w ≠ d)
     (rawWidth : f.wrap = .raw → f.configured ≠ 0) :
     ∃ result l' h', runX (inflate_LENEXT c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (LoopMatches c f h' l' ∨
           ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -1567,7 +1569,7 @@ theorem lenext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       BackBound s2 20 → RegsKeep l l2 → loopRead l ≤ loopRead l2 →
       LoopMatches c f (setI h zs s2) l2 →
       ∃ result l' h', runX (inflate_DIST c) l2 (setI h zs s2) = .ok ((result, l'), h') ∧
-        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧ LoopMatches c f h' l') ∨
+        ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧ LoopMatches c f h' l') ∨
          (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
            (LoopMatches c f h' l' ∨
             ((∀ zs s, c.st = some (.tab zs) → h'.istates zs = some s → s.mode = BAD) ∧
@@ -1600,7 +1602,7 @@ theorem lenext_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       rawWidth
     refine ⟨result, l', h', run, ?_⟩
     rcases rest with ⟨leave, cause, m⟩ | ⟨ok, read, rest⟩
-    · exact Or.inl ⟨leave, cause.imp id (fun e => keep.2.2.1.symm.trans e), m⟩
+    · exact Or.inl ⟨leave, cause.imp id (fun e => ⟨keep.2.2.1.symm.trans e.1, e.2⟩), m⟩
     · exact Or.inr ⟨ok, by omega, rest⟩
   by_cases zero : s.extra = 0
   · -- no extra bits

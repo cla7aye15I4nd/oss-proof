@@ -1,6 +1,7 @@
 import ZlibF.Proof.«inflate.c.meaning-lit»
 import ZlibF.Proof.«inflate.c.stored-views»
 import ZlibF.Proof.«inflate.c.meaning-leave-short»
+import ZlibF.Proof.«inflate.c.meaning-holds»
 
 /-!
 # inflate.c: `COPY_` and `COPY` keep the format meaning
@@ -394,7 +395,7 @@ theorem copy_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
     (bounds : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s →
       s.wnext ≤ s.whave ∧ s.whave ≤ s.wsize) :
     ∃ result l' h', runX (inflate_COPY c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧
           LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧ LoopMatches c f h' l')) := by
   have loop0 := loop
@@ -455,8 +456,9 @@ theorem copy_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef}
   rw [nDef] at lengthBound inputBound outputBound
   by_cases stall : n = 0
   · exact ⟨_, _, _, inflate_COPY_leave E l done (nDef.trans stall),
-      Or.inl ⟨rfl, (copyAmt_zero done (nDef.trans stall)).imp_left
-        (fun e => ⟨e, LeaveShort.of_state st hs (Or.inr (Or.inr (Or.inl ⟨mode, done⟩)))⟩),
+      Or.inl ⟨rfl, (copyAmt_zero done (nDef.trans stall)).imp
+        (fun e => ⟨e, LeaveShort.of_state st hs (Or.inr (Or.inr (Or.inl ⟨mode, done⟩)))⟩)
+        (fun e => ⟨e, HoldsOutput.of_state st hs (Or.inr (Or.inr ⟨mode, done⟩))⟩),
         loop_copy_reg 0 loop0⟩⟩
   have positive : 0 < n.toNat := by
     have nz : n.toNat ≠ 0 := fun zero => stall (UInt32.toNat_inj.mp (by simpa using zero))
@@ -635,7 +637,7 @@ theorem copy_start_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStre
     (bounds : ∀ zs s, c.st = some (.tab zs) → h.istates zs = some s →
       s.wnext ≤ s.whave ∧ s.whave ≤ s.wsize) :
     ∃ result l' h', runX (inflate_COPY_ c) l h = .ok ((result, l'), h') ∧
-      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ l.left = 0) ∧
+      ((result = .error Ex.leave ∧ ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧
           LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧ LoopMatches c f h' l')) := by
   obtain ⟨zs, s, st, hs⟩ : ∃ zs s, c.st = some (.tab zs) ∧ h.istates zs = some s := by
