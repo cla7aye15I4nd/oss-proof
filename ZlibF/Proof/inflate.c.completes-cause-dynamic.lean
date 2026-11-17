@@ -22,7 +22,7 @@ has a cause (the leave registers are compared with `left` at the start). -/
 theorem cause_len_start {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8}
     (loop : LoopMatches c f h l) (E : Env c h r zs z s) (j : DefaultStateJ h r zs z s)
-    (buf : DispatchBuffers h r l bs) (mode : s.mode = LEN_) {l' h' : Heap → IL}
+    (buf : DispatchBuffers h r l bs) (mode : s.mode = LEN_)
     {L : IL} {H : Heap}
     (run : runX (inflate_LEN_ c) l h = .ok ((.error Ex.leave, L), H))
     (le : L.left.toNat ≤ l.left.toNat) : TripLeaveCause c H l L := by
@@ -151,7 +151,7 @@ theorem dyn_cause_core {c : Ctx} {f : LoopFrame} {r : ZStreamRef} {h : Heap} {l 
       have le : l'.left.toNat ≤ regs.left.toNat := by
         rw [leftEq]
         exact trip_left_le side leaveRun
-      exact cause_len_start loop0 E J buf mode (l' := fun _ => l') runL le
+      exact cause_len_start loop0 E J buf mode runL le
 
 /-- The dynamic header (`TABLE`, `LENLENS`, `CODELENS`). -/
 theorem cause_dynamic (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
