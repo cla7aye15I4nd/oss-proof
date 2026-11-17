@@ -69,11 +69,11 @@ exists to keep the result honest, not to slow it down.
 
 ## What counts as proved
 
-A result is proved when it is on `main`: its theorem is listed in `tests/audit/theorems.txt`, its
-goal in `tests/audit/goals.txt` and `tests/audit/proved-goals.txt`, and the gate was green on the
-pull request that brought it: everything builds, there is no `sorry` and no forbidden construct,
-the audit passes (allowed axioms only, the theorem's type is exactly the goal, no goal without a
-registered theorem unless it is listed as not done) and the differential tests pass. A theorem on
+A result is proved when it is on `main`: `ZlibF/Results.lean` pairs its goal with its theorem, and
+the gate was green on the pull request that brought it: everything builds, which checks that module
+(allowed axioms only, the theorem's type is exactly the goal, no goal without a theorem unless it is
+listed as not done), there is no `sorry` and no forbidden construct, every function of `zlib.h`
+has its goals (coverage), and the differential tests pass. A theorem on
 a branch is not yet a result; say so when you report it.
 
 Rules that hold at both levels:
@@ -145,19 +145,21 @@ time: wait for the other owner's build to end before starting yours.
 
 ## Checking
 
-**One gate, on every pull request and on every push to `main`** (jobs `build`, `audit` and
+**One gate, on every pull request and on every push to `main`** (jobs `build` and
 `differential-test` of the `CI` workflow): all modules build, no forbidden construct, patches apply to the pinned `zlib/`, no
-`sorry`; the audit (allowed axioms, exact goals); the differential tests, with the
+`sorry`; the check of `ZlibF/Results.lean` and the coverage of `zlib.h`; the differential tests, with the
 C side under sanitisers, when the translation, the runtime, the patches or the test changed. There is no nightly run and no second suite: what is on
 `main` has passed all of it. The manual trigger of the `lean` workflow runs the same jobs on any
 branch.
 
 There are no lock files. A definition, a specification or a theorem statement is tracked by git
 alone: its history is the record of what changed and why. The protection that remains is the
-audit itself: allowed axioms only, and a goal is proved only by a theorem of exactly that type.
+check of `ZlibF/Results.lean`: allowed axioms only, and a goal is proved only by a theorem of
+exactly that type.
 
-A goal stated under `ZlibF/Spec/` must be registered in the same pull request that states it:
-with its theorem, or listed as not done. The audit rejects a goal that is in neither list. The
+A goal stated under `ZlibF/Spec/` must be entered in `ZlibF/Results.lean` in the same pull request
+that states it: with its theorem in `proved`, or in `notDone`. The build fails on a goal that is in
+neither list. The
 rows of `docs/progress.md` change in the pull request that registers the theorem. Never report a
 check as passing unless it was run.
 

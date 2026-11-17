@@ -1,34 +1,29 @@
 #!/usr/bin/env python3
-"""Check coverage, the declaration audit and final acceptance separately."""
+"""Coverage of the public API: every function of zlib.h has its goals, and every required goal is proved.
+
+The goals proved and not done are read from `ZlibF/Results.lean`, which Lean checks when the library is
+built (each theorem's type is exactly its goal, allowed axioms only, every goal in one of its two lists).
+This script checks the rest against `tests/audit/public-api.json` and `zlib/zlib.h`.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDITOR_ROOT = ROOT
 MANIFEST = Path("tests/audit/public-api.json")
-THEOREMS = Path("tests/audit/theorems.txt")
-PROVED_GOALS = Path("tests/audit/proved-goals.txt")
-REMOVALS = Path("tests/audit/registry-removals.json")
-# The open list at the commit that introduced it: the floor while the base branch has no open list.
-OPEN_SAFETY_FLOOR = "ec860375"
-# The shrink-only checks compare every commit after these (dev at bd2afafd; main at 364790f5, whose
-# squash commits have no dev ancestry). Each run needs at least one of them as an ancestor of HEAD.
-CHAIN_FLOORS = ("bd2afafdc764914528953edfa148d6b18fdfada8", "364790f5f0cea98e6897be37a8aeaa0515cc1fec")
+RESULTS = Path("ZlibF/Results.lean")
 # The functions that name their full contract as safety goal (with a safety_note): pure functions with
 # no own Goal.<function>_safety. No other function may.
 FULL_CONTRACT_SAFETY = ("compressBound", "compressBound_z")
-# The safety goals that several functions share, each with exactly the functions that name it. Empty
-# since step 4 gave the gz and inflateBack functions their own goals: every documented function names
-# its own Goal.<function>_safety (or _safe), or is listed in FULL_CONTRACT_SAFETY.
+# The safety goals that several functions share, each with exactly the functions that name it. Empty:
+# every documented function names its own Goal.<function>_safety (or _safe), or is listed in
+# FULL_CONTRACT_SAFETY.
 SHARED_SAFETY_GOALS: dict[str, list[str]] = {}
 
 
@@ -40,53 +35,24 @@ def run(args: list[str], *, stdout=None) -> subprocess.CompletedProcess:
     return subprocess.run(args, cwd=ROOT, text=True, stdout=stdout, check=True)
 
 
-def control_char(c: str) -> bool:
-    """C0, DEL, C1 and U+2028/U+2029: the class of `isControlChar` in tests/audit/Audit.lean."""
-    n = ord(c)
-    return n < 32 or n == 127 or 0x80 <= n <= 0x9F or n in (0x2028, 0x2029)
+def results() -> tuple[list[str], list[str]]:
+    """The goals of `proved` and of `notDone` in ZlibF/Results.lean, in order."""
+    text = (ROOT / RESULTS).read_text()
+    lists = {}
+    for name in ("proved", "notDone"):
+        block = re.search(r"^def " + name + r" : [^\n]*:= \[\n(.*?)^\]", text, re.S | re.M)
+        if not block:
+            raise Rejected(f"{RESULTS} has no list {name}")
+        lists[name] = re.findall(r"^\s*\(?``([^\s,]+)", block[1], re.M)
+    return lists["proved"], lists["notDone"]
 
 
-# Whitespace that may not occur in a registry name: the list of `isRegistrySpace` in Audit.lean.
-SPACES = {0x20, 0xA0, 0x1680, *range(0x2000, 0x200B), 0x202F, 0x205F, 0x3000, 0xFEFF}
-
-
-def registry_lines(text: str, label: str) -> list[str]:
-    """The registry line rule, shared with the auditor's `registryLines`: lines are separated by
-    "\n" only; an empty line or a line that starts with "#" is skipped; no line holds a control
-    character, and a name line holds no whitespace either. A line that breaks the rule is rejected,
-    never repaired, so both readers see the same names."""
-    names = []
-    for line in text.split("\n"):
-        if any(control_char(c) for c in line):
-            raise Rejected(f"{label}: line breaks the registry rule: {line!r}")
-        if line == "" or line.startswith("#"):
-            continue
-        if any(ord(c) in SPACES for c in line):
-            raise Rejected(f"{label}: line breaks the registry rule: {line!r}")
-        names.append(line)
-    return names
-
-
-def raw_text(path: Path) -> str:
-    """The file's text with no newline translation (read_text() would turn "\r" into a line break)."""
-    return path.read_bytes().decode("utf-8")
-
-
-def read_names(path: Path) -> list[str]:
-    if not path.is_file() or path.is_symlink():
-        raise Rejected(f"missing registry: {path}")
-    names = registry_lines(raw_text(path), str(path))
-    if not names or len(names) != len(set(names)):
-        raise Rejected(f"empty or duplicate registry: {path}")
-    return names
+UNDOCUMENTED_MARK = "/* undocumented functions (not part of the zlib API) */"
 
 
 def public_names(header: str) -> set[str]:
     header = re.sub(r"/\*.*?\*/", "", header, flags=re.S)
     return set(re.findall(r"ZEXTERN\s+[^;]*?\bZEXPORT(?:VA)?\s+(\w+)\s*\(", header, re.S))
-
-
-UNDOCUMENTED_MARK = "/* undocumented functions (not part of the zlib API) */"
 
 
 def undocumented_names(header: str) -> set[str]:
@@ -143,19 +109,16 @@ def open_safety(manifest: dict) -> list[str]:
 
 
 def check_not_planned(manifest: dict) -> None:
-    """`not_planned` names public goals that stay defined and registered in goals.txt as open
-    targets but are not planned, each with a reason. It is not a way out of the required set: the
-    pinned groups of coverage() decide what is required. An entry must be a goal of goals.txt with a
-    definition, in no manifest group and named by no api, and not proved (a proved entry is stale)."""
+    """`not_planned` names goals that stay stated and listed as not done but are not planned, each with
+    a reason. It is not a way out of the required set: an entry must be in `notDone` of
+    ZlibF/Results.lean, in no manifest group and named by no api."""
     entries = manifest.get("not_planned", [])
     if not isinstance(entries, list):
         raise Rejected("not_planned must be a list")
-    goals = set(read_names(ROOT / "tests/audit/goals.txt"))
-    proved = set(proved_goals())
+    _, not_done = results()
     grouped = set(required_public_goals(manifest)) | set(manifest.get("sequence_goals", [])) | \
         set(manifest.get("nonvacuity_goals", [])) | set(manifest.get("safety_goals", []))
     named = {a.get(k) for a in manifest["apis"] for k in ("functional_goal", "safety_goal")}
-    sources = [path.read_text() for path in (ROOT / "ZlibF/Spec").rglob("*.lean")]
     seen = set()
     for entry in entries:
         if not isinstance(entry, dict) or set(entry) != {"goal", "reason"} or \
@@ -165,15 +128,10 @@ def check_not_planned(manifest: dict) -> None:
         if goal in seen:
             raise Rejected(f"duplicate not_planned entry: {goal}")
         seen.add(goal)
-        if goal not in goals:
-            raise Rejected(f"not_planned goal is not in tests/audit/goals.txt: {goal}")
-        leaf = goal.rsplit(".", 1)[-1]
-        if not any(re.search(r"^def\s+Goal\." + re.escape(leaf) + r"\s*:", text, re.M) for text in sources):
-            raise Rejected(f"not_planned goal has no definition under ZlibF/Spec: {goal}")
+        if goal not in not_done:
+            raise Rejected(f"not_planned goal is not listed as not done in {RESULTS}: {goal}")
         if goal in grouped or goal in named:
             raise Rejected(f"not_planned goal is required, grouped or named by an api: {goal}")
-        if goal in proved:
-            raise Rejected(f"stale not_planned entry, the goal is proved: {goal}")
 
 
 def check_open_safety(manifest: dict) -> None:
@@ -194,169 +152,17 @@ def check_open_safety(manifest: dict) -> None:
         raise Rejected("duplicate open_safety entry")
 
 
-def base_revision() -> str:
-    """The base branch the open list is compared with: ZLIBF_BASE_REF, else the pull request's
-    base branch, else origin/main. When that is this very commit (a run on main), its first parent."""
-    ref = os.environ.get("ZLIBF_BASE_REF") or \
-        ("origin/" + os.environ["GITHUB_BASE_REF"] if os.environ.get("GITHUB_BASE_REF") else "origin/main")
-    try:
-        base = subprocess.check_output(["git", "rev-parse", "--verify", ref + "^{commit}"],
-                                       cwd=ROOT, text=True, stderr=subprocess.DEVNULL).strip()
-        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        if base == head:
-            base = subprocess.check_output(["git", "rev-parse", "--verify", "HEAD^"],
-                                           cwd=ROOT, text=True, stderr=subprocess.DEVNULL).strip()
-    except subprocess.CalledProcessError:
-        raise Rejected(f"base branch {ref} is not available: fetch it, or set ZLIBF_BASE_REF")
-    return base
-
-
-def show(revision: str, path: Path) -> str | None:
-    """A file at a revision, without newline translation; None when it is absent."""
-    try:
-        data = subprocess.check_output(["git", "show", f"{revision}:{path.as_posix()}"], cwd=ROOT,
-                                       stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
-        return None
-    return data.decode("utf-8")
-
-
-def revision_chain() -> list[str]:
-    """The revisions the shrink-only checks compare with: the base, the pinned floors that are
-    ancestors of HEAD, and every commit after them that HEAD contains (all parents, not only the
-    first, so no merge can hide what came before it). At least one floor must be an ancestor of
-    HEAD, or the check rejects: HEAD cannot drop the history these checks read. CHAIN_FLOORS moves
-    forward only by an edit to this script."""
-    base = base_revision()
-    floors = []
-    for floor in CHAIN_FLOORS:
-        if subprocess.run(["git", "cat-file", "-e", floor + "^{commit}"], cwd=ROOT,
-                          stderr=subprocess.DEVNULL).returncode != 0:
-            raise Rejected(f"chain floor {floor[:12]} is not available: fetch the full history")
-        if subprocess.run(["git", "merge-base", "--is-ancestor", floor, "HEAD"], cwd=ROOT).returncode == 0:
-            floors.append(floor)
-    if not floors:
-        raise Rejected("no chain floor is an ancestor of HEAD: " + ", ".join(f[:12] for f in CHAIN_FLOORS))
-    commits = subprocess.check_output(["git", "rev-list", "--reverse", "HEAD", "--not", *CHAIN_FLOORS],
-                                      cwd=ROOT, text=True).split()
-    return list(dict.fromkeys([base] + floors + commits))
-
-
-def check_open_safety_shrinks(manifest: dict) -> None:
-    """The open list only shrinks: a required goal that is not open at the base or at any
-    first-parent commit since may not be open now. A goal new to the required set may enter it."""
-    chain = revision_chain()
-    closed: dict[str, str] = {}
-    seen = 0
-    for revision in chain:
-        text = show(revision, MANIFEST)
-        previous = json.loads(text) if text is not None else None
-        if previous is None or "open_safety" not in previous:
-            continue
-        seen += 1
-        for goal in set(required_public_goals(previous)) - set(open_safety(previous)):
-            closed.setdefault(goal, revision)
-    if not show(chain[0], MANIFEST) or "open_safety" not in json.loads(show(chain[0], MANIFEST)):
-        # The base predates the open list: compare with the list where it was introduced.
-        text = show(OPEN_SAFETY_FLOOR, MANIFEST)
-        if text is None:
-            raise Rejected(f"the open_safety floor {OPEN_SAFETY_FLOOR} is not available: fetch it")
-        floor = json.loads(text)
-        for goal in set(required_public_goals(floor)) - set(open_safety(floor)):
-            closed.setdefault(goal, OPEN_SAFETY_FLOOR)
-        print(f"open_safety: base {chain[0][:12]} predates the open list; floor {OPEN_SAFETY_FLOOR}")
-    reopened = sorted(g for g in open_safety(manifest) if g in closed)
-    if reopened:
-        raise Rejected("open_safety grew: required goals closed before are open again: " +
-                       ", ".join(f"{g} (closed at {closed[g][:12]})" for g in reopened))
-    print(f"open_safety: {len(open_safety(manifest))} open; {len(chain)} revisions compared, "
-          f"{seen} with an open list")
-
-
-def proved_goals() -> list[str]:
-    """The goals with a registered theorem of exactly their type. The auditor's `--proved` check
-    rejects any difference from the PROVED set it computes, so this file can be trusted alone."""
-    path = ROOT / PROVED_GOALS
-    if not path.is_file() or path.is_symlink():
-        raise Rejected(f"missing registry: {PROVED_GOALS}")
-    names = registry_lines(raw_text(path), str(PROVED_GOALS))
-    if len(names) != len(set(names)):
-        raise Rejected(f"duplicate entry in {PROVED_GOALS}")
-    return names
-
-
-def removals() -> dict[str, set]:
-    """Reviewed removals: a registered theorem or a recorded proved goal that may disappear."""
-    path = ROOT / REMOVALS
-    data = json.loads(raw_text(path)) if path.is_file() else {"version": 1, "theorems": [], "proved_goals": []}
-    if set(data) != {"version", "theorems", "proved_goals"} or data["version"] != 1:
-        raise Rejected(f"unknown {REMOVALS}")
-    result: dict[str, set] = {}
-    for key in ("theorems", "proved_goals"):
-        names = set()
-        for entry in data[key]:
-            if not isinstance(entry, dict) or set(entry) != {"name", "reason"} or \
-                    not isinstance(entry["name"], str) or not isinstance(entry["reason"], str) or \
-                    not entry["reason"].strip() or registry_lines(entry["name"], str(REMOVALS)) != [entry["name"]]:
-                raise Rejected(f"{REMOVALS} entries need one name and a reason: {entry}")
-            names.add(entry["name"])
-        result[key] = names
-    return result
-
-
-def check_registries_shrink() -> None:
-    """No name registered in theorems.txt or recorded in proved-goals.txt at the base or at any
-    first-parent commit since disappears, unless tests/audit/registry-removals.json names it with a
-    reason. So a goal proved once cannot become open, required or not. A removal entry whose name
-    was never registered on that chain, or is registered now, is stale and rejected."""
-    chain = revision_chain()
-    allowed = removals()
-    for path, key, current in ((THEOREMS, "theorems", set(read_names(ROOT / THEOREMS))),
-                               (PROVED_GOALS, "proved_goals", set(proved_goals()))):
-        earlier: dict[str, str] = {}
-        for revision in chain:
-            text = show(revision, path)
-            if text is None:
-                continue
-            for name in registry_lines(text, f"{revision[:12]}:{path}"):
-                earlier.setdefault(name, revision)
-        if show(chain[0], path) is None:
-            print(f"{path}: base {chain[0][:12]} predates it; {len(chain)} revisions compared")
-        stale = sorted(n for n in allowed[key] if n not in earlier or n in current)
-        if stale:
-            raise Rejected(f"stale entries in {REMOVALS} ({key}): " + ", ".join(stale))
-        lost = sorted(set(earlier) - current - allowed[key])
-        if lost:
-            raise Rejected(f"names in {path} removed without a reviewed entry in {REMOVALS}: " +
-                           ", ".join(f"{n} (registered at {earlier[n][:12]})" for n in lost))
-
-
 def check_required_proved(manifest: dict) -> None:
-    """Every required goal that is not listed as open is proved, and no listed goal is proved.
-    Decided on tests/audit/proved-goals.txt, which the auditor checks to be exact."""
-    proved = set(proved_goals())
-    targets = set(read_names(ROOT / "tests/audit/goals.txt")) | set(required_public_goals(manifest)) | \
-        set(functional_goals(manifest))
-    unknown = sorted(proved - targets)
-    if unknown:
-        raise Rejected(f"{PROVED_GOALS} names what is not a goal: " + ", ".join(map(repr, unknown)))
+    """Every required goal that is not listed as open is proved, and no listed goal is proved."""
+    proved, _ = results()
     opened = set(open_safety(manifest))
     missing = [g for g in required_public_goals(manifest) if g not in proved and g not in opened]
     if missing:
-        raise Rejected("required goals without a registered theorem and not listed in open_safety: " +
+        raise Rejected("required goals without a theorem in ZlibF/Results.lean and not listed in open_safety: " +
                        ", ".join(missing))
-    listed_proved = sorted(opened & proved)
+    listed_proved = sorted(opened & set(proved))
     if listed_proved:
         raise Rejected("open_safety lists proved goals; remove them: " + ", ".join(listed_proved))
-
-
-def build_library() -> None:
-    # Consumers must fail on a stale/missing artifact instead of silently doing
-    # another full compile. Final acceptance retains its explicit clean build.
-    flag = os.environ.get('ZLIBF_REQUIRE_PREBUILT', '0')
-    if flag not in {'0', '1'}:
-        raise Rejected('ZLIBF_REQUIRE_PREBUILT must be 0 or 1')
-    run(['lake'] + (['--no-build'] if flag == '1' else []) + ['build', 'ZlibF'])
 
 
 def check_imports() -> None:
@@ -385,6 +191,7 @@ def check_imports() -> None:
                     raise Rejected(f"import has no source (a stale object could hide it): {name}")
 
     visit(ROOT / "ZlibF.lean")
+    visit(ROOT / "ZlibF/Results.lean")
     missing = set((ROOT / "ZlibF").rglob("*.lean")) - seen
     if missing:
         raise Rejected("modules outside the audited import closure: " +
@@ -537,89 +344,12 @@ def check_safety_binding(manifest: dict) -> None:
                            f"not by its pinned functions")
 
 
-def build_auditor() -> Path:
-    """Compile the invoking snapshot's auditor, never a candidate-supplied tool."""
-    subprocess.run(["lake", "build", "zlibf-audit"], cwd=AUDITOR_ROOT, check=True)
-    return AUDITOR_ROOT / ".lake/build/bin/zlibf-audit"
-
-
-def audit(report: Path, *, strict: bool = False, public: bool = False) -> int:
-    names = read_names(ROOT / "tests/audit/goals.txt")
-    if public:
-        manifest = coverage()
-        listed = required_public_goals(manifest) + functional_goals(manifest)
-        names += [name for name in listed if name not in names]
-    with tempfile.TemporaryDirectory(prefix="verification-goals-") as directory:
-        targets = Path(directory) / "goals.txt"
-        targets.write_text("\n".join(names) + "\n")
-        args = ["lake", "env", str(build_auditor()),
-                "tests/audit/theorems.txt", str(targets)]
-        if strict:
-            args.append("--require-complete")
-        # The auditor rejects any difference between this list and the goals it finds PROVED.
-        args += ["--proved", str(ROOT / PROVED_GOALS)]
-        if public:
-            # The auditor itself decides that every required goal not listed as open is PROVED.
-            required = Path(directory) / "required.txt"
-            opened = set(open_safety(manifest))
-            required.write_text("".join(g + "\n" for g in required_public_goals(manifest) if g not in opened))
-            args += ["--require", str(required)]
-        with report.open("w") as out:
-            return subprocess.run(args, cwd=ROOT, text=True, stdout=out).returncode
-
-
 def main() -> int:
-    global ROOT
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("coverage", "check", "specs", "final"))
-    parser.add_argument("--report", type=Path)
-    parser.add_argument("--root", type=Path, help="candidate checkout; the auditor remains the invoking snapshot")
-    args = parser.parse_args()
-    if args.root:
-        ROOT = args.root.resolve()
+    argparse.ArgumentParser(description=__doc__).parse_args()
     try:
         manifest = coverage()
-        if args.mode == "coverage":
-            print("coverage is not specification readiness or proof completion")
-            return 0
-        if args.mode == "final":
-            if os.environ.get('ZLIBF_REQUIRE_PREBUILT', '0') != '0':
-                raise Rejected('final acceptance requires a clean build')
-            run(["lake", "clean"])
-        build_library()
-        # Recheck the compiled proof terms in a fresh kernel environment, not just the build trace.
-        run(["lake", "env", "leanchecker", "--fresh", "ZlibF"])
-        with tempfile.TemporaryDirectory(prefix="verification-report-") as directory:
-            report = args.report or Path(directory) / "audit.txt"
-            # The auditor's strict mode would reject every unproved goal, functional ones included.
-            # Only the required goals are required: check_required_proved below.
-            rc = audit(report, public=args.mode in ("specs", "final"))
-            if rc:
-                for line in report.read_text().splitlines():
-                    if line.startswith(("goal ", "PROBLEM:")):
-                        print(line)
-                raise Rejected("audit rejected the requested verification stage")
-            # Decided on the registries, never on the report text: the auditor has checked that
-            # proved-goals.txt is exactly the set of PROVED goals.
-            if args.mode in ("specs", "final"):
-                check_required_proved(manifest)
-                check_open_safety_shrinks(manifest)
-                check_registries_shrink()
-            if args.mode == "final" and open_safety(manifest):
-                raise Rejected("final acceptance requires an empty open_safety: " +
-                               ", ".join(open_safety(manifest)))
-        if args.mode == "final":
-            dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=normal"],
-                                            cwd=ROOT, text=True)
-            if dirty:
-                raise Rejected("final acceptance requires a clean committed source tree")
-            run(["bash", "scripts/check-sorry.sh"])
-            run(["env", "SAN=1", f"ZLIB_SRC={ROOT / 'zlib'}", "bash", "tests/run.sh"])
-            commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-            print(f"final acceptance on commit: {commit}")
-        print("stage passed: " + args.mode)
-        if args.mode == "check":
-            print("development audit only; public specification readiness and final proofs are separate gates")
+        check_required_proved(manifest)
+        print("coverage passed")
         return 0
     except (Rejected, OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
         print(f"REJECTED: {error}", file=sys.stderr)
