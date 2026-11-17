@@ -128,6 +128,8 @@ theorem cause_of_ends {c : Ctx} {f : LoopFrame} {h' : Heap} {l l' : IL} {result 
   · exact TripLeaveCause.of_short cause
   · rw [leave] at e; cases e
 
+open Zlib.Inflate.Proofs.MeaningLit Zlib.Inflate.Proofs.MeaningMatch
+open Zlib.Inflate.Proofs.MeaningDistance Zlib.Inflate.Proofs.MeaningLength in
 /-- The Huffman codes (`LEN_` to `LIT`). -/
 theorem cause_codes (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     CauseAt c f r (fun s => LEN_ ≤ s.mode ∧ s.mode ≤ LIT) := by
