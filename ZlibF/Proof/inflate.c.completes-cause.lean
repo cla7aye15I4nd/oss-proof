@@ -2,6 +2,7 @@ import ZlibF.Proof.«inflate.c.meaning-trip-body»
 import ZlibF.Proof.«inflate.c.meaning-trip-codes»
 import ZlibF.Proof.«inflate.c.meaning-trip-trailer»
 import ZlibF.Proof.«inflate.c.meaning-stop-short»
+import ZlibF.Proof.«inflate.c.meaning-trip-modes»
 
 /-!
 # inflate.c: why a trip of the mode loop leaves (zlib rows)
@@ -372,5 +373,43 @@ theorem loop_cause {c : Ctx} {f : LoopFrame} {r : ZStreamRef}
       exact ⟨l, Or.inl (show Z_DATA_ERROR ≠ Z_OK by decide), leftLe⟩
     · exact absurd raw.1 wrapped
   exact xwhile_success_control_post P Q step ⟨side, Or.inl start⟩ run rfl
+
+/-- The cause rows of a zlib call that are not yet theorems: the header rows (`HEAD`,
+`DICTID`, `DICT`), the boundary after the last block, the dynamic header and `LENGTH`. -/
+structure ZlibCauseRows : Prop where
+  head : ∀ c f r, f.wrap = .zlib → CauseAt c f r (fun s => s.mode = HEAD)
+  dictid : ∀ c f r, f.wrap = .zlib → CauseAt c f r (fun s => s.mode = DICTID)
+  dict : ∀ c f r, f.wrap = .zlib → CauseAt c f r (fun s => s.mode = DICT)
+  typeFinal : ∀ c f r, f.wrap = .zlib →
+    CauseAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0)
+  dynamic : ∀ c f r, CauseAt c f r (fun s => s.mode = TABLE ∨ s.mode = LENLENS ∨ s.mode = CODELENS)
+  length : ∀ c f r, f.wrap = .zlib → CauseAt c f r (fun s => s.mode = LENGTH)
+
+/-- Every trip of a zlib call that leaves states its cause. -/
+theorem cause_zlib (rows : ZlibCauseRows) (c : Ctx) (f : LoopFrame) (r : ZStreamRef)
+    (zlib : f.wrap = .zlib) :
+    ∀ h l, CallSide c r l h → LoopMatches c f h l →
+      ∀ l' h', runX (inflate_dispatch c) l h = .ok ((.error Ex.leave, l'), h') →
+        TripLeaveCause c h' l l' := by
+  intro h l side loop
+  obtain ⟨zs, s, st, hs, mode⟩ := loop_mode_cases c f h l loop
+  rcases mode with m | m | m | m | m | m | m | m | m | m | m | m
+  · exact rows.head c f r zlib h l side loop (at_state (P := fun s => s.mode = HEAD) st hs m)
+  · exact absurd m (gzip_fields_absent c f r h l side loop (Or.inl zlib) zs s st hs)
+  · exact rows.dictid c f r zlib h l side loop (at_state (P := fun s => s.mode = DICTID) st hs m)
+  · exact rows.dict c f r zlib h l side loop (at_state (P := fun s => s.mode = DICT) st hs m)
+  · exact cause_type_open c f r h l side loop
+      (at_state (P := fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last = 0) st hs m)
+  · exact rows.typeFinal c f r zlib h l side loop
+      (at_state (P := fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0) st hs m)
+  · exact cause_stored c f r h l side loop
+      (at_state (P := fun s => s.mode = STORED ∨ s.mode = COPY_ ∨ s.mode = COPY) st hs m)
+  · exact rows.dynamic c f r h l side loop
+      (at_state (P := fun s => s.mode = TABLE ∨ s.mode = LENLENS ∨ s.mode = CODELENS) st hs m)
+  · exact cause_codes c f r h l side loop
+      (at_state (P := fun s => LEN_ ≤ s.mode ∧ s.mode ≤ LIT) st hs m)
+  · exact cause_check_zlib c f r zlib h l side loop (at_state (P := fun s => s.mode = CHECK) st hs m)
+  · exact rows.length c f r zlib h l side loop (at_state (P := fun s => s.mode = LENGTH) st hs m)
+  · exact cause_done c f r h l side loop (at_state (P := fun s => s.mode = DONE) st hs m)
 
 end Zlib.Inflate.Proofs
