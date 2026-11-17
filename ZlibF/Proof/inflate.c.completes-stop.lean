@@ -1,5 +1,10 @@
 import ZlibF.Proof.«inflate.c.completes-cause-zlib»
 import ZlibF.Proof.«inflate.c.meaning-stop-short»
+import ZlibF.Proof.«inflate.c.meaning-zlib»
+import ZlibF.Proof.«inflate.c.meaning-call-exit»
+import ZlibF.Proof.«inflate.c.completes-stops»
+import ZlibF.Proof.«public-inflate»
+import ZlibF.Spec.Functional.InflateCompletion
 
 /-!
 # inflate.c: a call that returns `Z_OK` or `Z_BUF_ERROR` has not read a whole zlib stream
@@ -95,5 +100,150 @@ theorem lenstart_not_end {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
     omega
   have heldLen : more.length = l.bits.toNat := heldBits.1
   omega
+
+theorem params15' : Api.inflWbits (15 : Int32).toInt = some (.zlib, 15) := by decide
+
+/-- A call of a zlib protocol history (window 15, no dictionary) that returns `Z_OK` or
+`Z_BUF_ERROR` after reading a whole valid stream: it filled the output and output is still due.
+The other causes of its last leave are impossible (`StopShort` for the default stream). -/
+theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : Bool}
+    {S D input output : List UInt8} {flush rc : Int32} {used : Nat} {z' : ZStream}
+    (history : InflateProtocolTrace 15 r h log pending) (dictEmpty : log.dictionary = [])
+    (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
+    (notMemAll : ∀ i z s, Zlib.Inflate.Spec.Good h r i z s → s.mode ≠ MEM)
+    (valid : Zlib.Decodes [] S D) (flushes : OrdinaryFlush flush)
+    (step : DataStep .inflate h after r flush rc input output used) (hz' : r.get after = some z')
+    (codes : rc = Z_OK ∨ rc = Z_BUF_ERROR) (all : log.input ++ input.take used = S) :
+    z'.avail_out = 0 ∧ (log.output ++ output).length < D.length := by
+  obtain ⟨meaning, single⟩ := meaning_zlib params15' history
+  have meaning0 := meaning
+  obtain ⟨wrap, configured, i, z, s, wbits, inv, config0, _⟩ := meaning0
+  rw [params15'] at wbits
+  obtain ⟨rfl, rfl⟩ : Api.Wrap.zlib = wrap ∧ 15 = configured := by
+    cases wbits; exact ⟨rfl, rfl⟩
+  have step0 := step
+  obtain ⟨z1, z2, get, get2, buffers, active, bytes, usedEq, outBytes, run⟩ := step0
+  have zEq : z1 = z := Option.some.inj (get.symm.trans inv.good.live.hz)
+  subst zEq
+  have z2Eq : z2 = z' := Option.some.inj (get2.symm.trans hz')
+  subst z2Eq
+  have inLen : input.length = z1.avail_in.toNat := callEntry_bytes_length bytes
+  have notBlock : flush ≠ Z_BLOCK := by
+    rcases flushes with f | f | f | f | f <;> rw [f] <;> decide
+  have notTrees : flush ≠ Z_TREES := by
+    rcases flushes with f | f | f | f | f <;> rw [f] <;> decide
+  have reach := InflateProtocolTrace.reachable history
+  -- the refused calls return `Z_STREAM_ERROR`
+  obtain ⟨rc', after', _, _, _, _, run', _, _, _, _, _, sErr, _⟩ :=
+    inflate_public h r i z1 s flush reach inv.good fit inv.alloc buffers active
+  have same' : (rc, after) = (rc', after') := Except.ok.inj (run.symm.trans run')
+  cases same'
+  have notStreamErr : rc ≠ Z_STREAM_ERROR := by
+    rcases codes with e | e <;> rw [e] <;> decide
+  have nonnull : z1.next_out ≠ .null := fun e => notStreamErr (sErr.2 (Or.inl e))
+  have inputOk : z1.next_in = .null → z1.avail_in = 0 := by
+    intro e
+    rcases bytes with ⟨_, n0, _⟩ | ⟨_, _, _, p, _⟩
+    · exact UInt32.toNat_inj.mp (by rw [n0]; rfl)
+    · rw [e] at p
+      cases p
+  have notSync : s.mode ≠ SYNC := fun e => notStreamErr (sErr.2 (Or.inr (Or.inr e)))
+  have notMem : s.mode ≠ MEM := notMemAll i z1 s inv.good
+  obtain ⟨l0, h0, eq0, side0, start0⟩ := call_entry 15 r h log pending .zlib 15 flush i z1 s input
+    meaning single params15' fit inv buffers active bytes nonnull inputOk notMem notSync
+  -- the run of `inflate_run` inside the call
+  have live' := Live.syncAlloc inv.good.live
+  have accepted : (z1.next_out == .null || (z1.next_in == .null && z1.avail_in != 0)) = false := by
+    cases e1 : (z1.next_out == .null) with
+    | true => exact absurd (by simpa using e1) nonnull
+    | false =>
+      cases e2 : (z1.next_in == .null) with
+      | false => simp
+      | true =>
+        have zero := inputOk (by simpa using e2)
+        simp [zero]
+  have run1 := run
+  unfold C.run Zlib.Inflate.inflate at run1
+  obtain ⟨hbuf, hA, ealloc, runA⟩ := KeepProofs.bind_ok run1
+  rw [allocLocalB_run h inv.good.fresh] at ealloc
+  cases ealloc
+  obtain ⟨res, hB, ebody, _⟩ := KeepProofs.bind_ok runA
+  simp only [bind_app, stateCheck_live live', bne_self_eq_false, Bool.false_eq_true, ite_false,
+    ldZStream_ok live'.hz, accepted, live'.zst, castI] at ebody
+  generalize hR : (ExceptT.run (inflate_run
+    { strm := some r, st := some (InflateStateRef.tab i), hbuf := syncBuf h, flush := flush })).run
+      IL.init (syncAlloc h) = R at ebody
+  have erun : runX (inflate_run (callCtx h r i flush)) IL.init (syncAlloc h) = R := hR
+  cases R with
+  | error fault => cases ebody
+  | ok triple =>
+    obtain ⟨⟨outcome, regs⟩, h1⟩ := triple
+    have erun0 := erun
+    rw [eq0] at erun
+    let c := callCtx h r i flush
+    let f := callFrame .zlib 15 log z1 input
+    obtain ⟨trip, rawTrip⟩ := trips_zlib zlib_trip_rows params15' .zlib 15 params15' c f r rfl rfl
+    obtain ⟨exit, rfl, ends, side1⟩ := loop_meaning_side trip rawTrip rfl side0 start0 erun
+    obtain ⟨h2, how, afterEq⟩ := callExit_split inv nonnull inputOk run erun0
+    rcases ends with ⟨exitEq, loopCases⟩ | needDict
+    · subst exitEq
+      obtain ⟨_, leaveRun⟩ : _ ∧ _ := by
+        rcases how with p | ⟨_, e, _, _⟩
+        · exact p
+        · cases e
+      have retCode := inflate_leave_ret c regs h1 rc h2 leaveRun
+      rcases loopCases with loop | ⟨retEq, _⟩ | ⟨retEq, _⟩
+      · -- an ordinary leave: its cause
+        have loop0 := loop
+        obtain ⟨_, _, _, _, _, _, _, _, ret0, _⟩ := loop0
+        obtain ⟨l0', cause, _⟩ := loop_cause trip rawTrip
+          (cause_zlib zlib_cause_rows c f r rfl) (by decide) rfl side0 start0 erun
+        obtain ⟨zc, hzc, allocator, statics, sideFn, _, bits, _⟩ := callExit_leave_side inv erun0 side1
+        have regsEq : ({ regs with ret := Z_OK } : IL) = regs := by rw [← ret0]
+        have leaveM := leave_meaning (ret := Z_OK) loop rfl hzc sideFn bits allocator statics nonnull
+          (by rw [regsEq]; exact leaveRun)
+        obtain ⟨zs', s0', sA, zA, callOut, consumed, held, stage, st', hsA, hzA, _, aIn, _, aOut, _,
+          inEq, _, _, _, _, _, _, _, _, _⟩ := leaveM
+        subst afterEq
+        have zAEq : zA = z' := by
+          rw [callExit_get_freeWin] at hz'
+          exact Option.some.inj (hzA.symm.trans hz')
+        subst zAEq
+        have usedRead : used = loopRead regs :=
+          callExit_used usedEq inLen aIn inEq
+        have whole : f.logIn ++ f.inp.take (loopRead regs) = S := by
+          rw [← usedRead]; exact all
+        obtain ⟨lay, full⟩ := layer_of_zlib valid
+        have valid' : Api.Layer.Decodes f.wrap f.configured f.dict S D := by
+          show Api.Layer.Decodes .zlib 15 log.dictionary S D
+          rw [dictEmpty]; exact lay
+        rcases cause with retNe | block | trees | ⟨left0, holds⟩ | short | ⟨lenMode, small⟩
+        · exact absurd ret0 retNe
+        · exact absurd block notBlock
+        · exact absurd trees notTrees
+        · -- no output room, holding output that is due
+          refine ⟨by rw [aOut]; exact left0, ?_⟩
+          sorry
+        · exact (LoopMatches.starved_not_end loop short.2 valid' whole).elim
+        · exact (lenstart_not_end loop lenMode small (by decide) valid' whole).elim
+      · exfalso
+        rw [retEq] at retCode
+        rcases retCode with e | e | ⟨_, e⟩
+        · rcases codes with c' | c' <;> rw [c'] at e <;> exact absurd e (by decide)
+        · rcases codes with c' | c' <;> rw [c'] at e <;> exact absurd e (by decide)
+        · exact absurd e (by decide)
+      · exfalso
+        rw [retEq] at retCode
+        rcases retCode with e | e | ⟨_, e⟩
+        · rcases codes with c' | c' <;> rw [c'] at e <;> exact absurd e (by decide)
+        · rcases codes with c' | c' <;> rw [c'] at e <;> exact absurd e (by decide)
+        · exact absurd e (by decide)
+    · exfalso
+      obtain ⟨exitEq, _⟩ := needDict
+      cases exitEq
+      rcases how with ⟨e, _⟩ | ⟨v, e, rcEq, _⟩
+      · cases e
+      · cases e
+        rcases codes with c' | c' <;> rw [c'] at rcEq <;> exact absurd rcEq (by decide)
 
 end Zlib.Inflate.Proofs
