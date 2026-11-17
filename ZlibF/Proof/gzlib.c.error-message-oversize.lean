@@ -32,7 +32,7 @@ private theorem oversize_strlenB_setS (h : Heap) (i : Nat) (s : GzState) (p : BP
     | none => rfl
     | some a =>
       dsimp only
-      cases hl : strlenFrom a off <;> simp only [hl]
+      cases hl : strlenFrom a off <;> simp only
 
 private theorem oversize_cstring_nonnull {h : Heap} {p : BPtr} {xs : List UInt8} (hc : CString h p xs) :
     p ≠ .null := by

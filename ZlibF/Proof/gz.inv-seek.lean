@@ -132,7 +132,7 @@ theorem LseekWorld.fs {w w' : Fs} (hfs : FileSystem w) (hw : LseekWorld w w') : 
           exact ⟨{ of with pos := p }, by
             rw [hf]; simp only [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, ite_true, hjs]⟩
       · rw [hf]
-        simp [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, he]
+        simp [Array.set!_eq_setIfInBounds, he]
 
 /-- `lseek` keeps a `FileSystem` and its open descriptors, for every oracle value. -/
 theorem lseekRes_fs {fs : Fs} (hfs : FileSystem fs) (fd : Int32) (off : Int64) (wh : Int32) :

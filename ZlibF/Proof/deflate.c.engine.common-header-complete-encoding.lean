@@ -20,10 +20,10 @@ theorem common_header_complete_prefix (h : Heap) (r : ZStreamRef) (ds pb ob oo :
       written[oo + 1]? = some ((levelHeaderWord d.level &&& 0xff).toUInt8) := by
   let written := copyRange output (levelHeaderBytes d.level buf) oo 0 2
   have first : (levelHeaderBytes d.level buf)[0]! = (levelHeaderWord d.level >>> 8).toUInt8 := by
-    simp [levelHeaderBytes, getElem!_def, Array.getElem?_setIfInBounds, Array.set!_eq_setIfInBounds,
+    simp [levelHeaderBytes, Array.set!_eq_setIfInBounds,
       show 0 < buf.size by omega]
   have second : (levelHeaderBytes d.level buf)[1]! = (levelHeaderWord d.level &&& 0xff).toUInt8 := by
-    simp [levelHeaderBytes, getElem!_def, Array.getElem?_setIfInBounds, Array.set!_eq_setIfInBounds,
+    simp [levelHeaderBytes, Array.set!_eq_setIfInBounds,
       show 1 < buf.size by omega]
   refine ⟨written, by simp [levelHeaderCompleteHeap, levelHeaderCompleteBytes, written], ?_, ?_⟩
   · rw [getElem?_copyRange output (levelHeaderBytes d.level buf) oo 0 2 oo outputRoom]

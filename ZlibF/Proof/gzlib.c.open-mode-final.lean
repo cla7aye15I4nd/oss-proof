@@ -80,7 +80,7 @@ theorem checkedMode_invariants (h : Heap) (i : Nat) (s : GzState)
     (mode : ZlibF.Spec.Api.GzMode) (hs : h.gzstates i = some s) (hf : Fresh h) (hu : Uniq h) :
     Fresh (checkedModeHeap h i s mode) ∧ Uniq (checkedModeHeap h i s mode) := by
   by_cases hc : mode = .read ∧ s.direct = 0
-  · simp only [checkedModeHeap, hc, ite_true]
+  · simp only [checkedModeHeap, hc]
     exact ⟨Shape.fresh (shape_setS hs _) rfl hf, Shape.uniq (shape_setS hs _) hu⟩
   · simp [checkedModeHeap, hc, hf, hu]
 
@@ -89,7 +89,7 @@ theorem checkedMode_cstring (h : Heap) (i : Nat) (s : GzState)
     (hc : ZlibF.Spec.Public.CString h p bs) :
     ZlibF.Spec.Public.CString (checkedModeHeap h i s mode) p bs := by
   by_cases he : mode = .read ∧ s.direct = 0
-  · simp only [checkedModeHeap, he, ite_true]
+  · simp only [checkedModeHeap, he]
     exact openCString_setS h i _ p bs hc
   · simpa [checkedModeHeap, he] using hc
 

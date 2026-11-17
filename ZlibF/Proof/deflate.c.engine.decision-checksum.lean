@@ -22,7 +22,7 @@ theorem slow_match_run_adler {h after : Heap} {r : ZStreamRef}
     (memory : d.lit_bufsize.toNat = 16384) (ready : PublishReady d)
     (clear : BlockInit.BlockClear d)
     (run : slowDecision (some (.tab ds)) flush st candidate h = .ok (next, after))
-    (live : r.get after = some returned) (account : StreamAccounting z returned 0 produced) :
+    (live : r.get after = some returned) (_account : StreamAccounting z returned 0 produced) :
     returned.adler = z.adler := by
   obtain ⟨head, emittedHeap, emitted, emitRun, emittedBoundary, emittedFrontier, emittedBuffers, emitFrame,
       emittedFlag, _emittedStart, _emittedLook, _emittedEnd, _emittedCount, _emittedEndCount, _storage⟩ :=
@@ -69,7 +69,7 @@ theorem slow_literal_full_run_adler {h after : Heap} {r : ZStreamRef}
     (positive : 0 < d.level.toInt) (pointer : z.next_out = .ref (.blk ob) oo)
     (memory : d.lit_bufsize.toNat = 16384) (ready : PublishReady d) (clear : BlockInit.BlockClear d)
     (run : slowDecision (some (.tab ds)) flush st candidate h = .ok (next, after))
-    (live : r.get after = some returned) (account : StreamAccounting z returned 0 produced) :
+    (live : r.get after = some returned) (_account : StreamAccounting z returned 0 produced) :
     returned.adler = z.adler := by
   obtain ⟨pb, buf, trees, ledger, balance⟩ := cut.symbols
   have previousByte := cut.deferred available

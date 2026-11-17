@@ -126,7 +126,7 @@ theorem storedTail_run (c : BCtx) {h : Heap} {l : IL} {zs : Nat} {s : InflateSta
     {da sa : Array UInt8} (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
     (hput : l.put = .ref (.blk win) od) (hnext : l.next = .ref (.blk bb) off2)
     (hd : h.bytes win = some da) (hsa : h.bytes bb = some sa) (hro : h.ro win = false) (hne : win ≠ bb)
-    (hhave : l.have_ ≠ 0) (hleft : l.left ≠ 0) (hcopy : l.copy ≠ 0)
+    (_hhave : l.have_ ≠ 0) (_hleft : l.left ≠ 0) (_hcopy : l.copy ≠ 0)
     (h1 : od + l.left.toNat ≤ da.size) (h2 : off2 + l.have_.toNat ≤ sa.size) :
     runX (storedTail c) l h = .ok ((.ok (), storedRegs l (clampCopy l.copy l.have_ l.left) bb off2 win od),
       copiedHeap h zs win s da sa od off2 (clampCopy l.copy l.have_ l.left).toNat (s.length - clampCopy l.copy l.have_ l.left)) := by

@@ -32,10 +32,10 @@ theorem inflate_CHECK_zlib_zero_output_cut
   simp only [wrap, show ((5 : Int32) != 0) = true from rfl, ↓reduceIte]
   rw [runX_bind, pull]
   simp only []
-  simp [runX_bind, runX_lift, runX_modify, runX_get, amount, E.strm, E.st,
+  simp [runX_bind, runX_lift, runX_modify, runX_get, E.strm, E.st,
     wrZ_eq, wrI_eq, ldI_eq, E.hz, E.hs, ZStreamRef.put_self E.hz, flags, wrap,
     trailer, runX_INITBITS, setMode, inflate_LENGTH, inflate_DONE, runX_throw,
-    setI_setI, setI, upd_upd, upd_self _ _ _ E.hs, outField, leftField, empty, bind_app, pure_app]
+    setI, upd_upd, outField, leftField, empty]
 
 /-- The real optional leave checksum extends the independent checksum of
 all earlier output by the exact new readable output slice. This includes
@@ -84,11 +84,11 @@ theorem leaveChecksum_zlib_output_append
     rw [E.st, E.strm]
     simp only [bind_app, ldI_eq, E.hs, wrap,
       show (((5 : Int32) &&& 4) != 0) = true from rfl, Bool.true_and,
-      bne_iff_ne, show l.out_ - z.avail_out ≠ 0 from empty, ↓reduceIte]
-    rw [if_pos (show l.out_ - z.avail_out ≠ 0 from empty), bind_app, actualPointer]
+      bne_iff_ne]
+    rw [ite_eq_left (show l.out_ - z.avail_out ≠ 0 from empty), bind_app, actualPointer]
     simp only []
     rw [bind_app, update, value]
-    simp only [bind_app, E.st, wrI_eq, E.hs, E.strm, wrZ_eq, ZStreamRef.get_setI, E.hz]
+    simp only [bind_app, wrI_eq, E.hs, wrZ_eq, ZStreamRef.get_setI, E.hz]
     rw [ZStreamRef.put_setI, wrap]
 
 /-- Once the actual trailer pull succeeds, CHECK validates the independent
@@ -142,7 +142,7 @@ theorem inflate_CHECK_zlib_output_append_cut
   simp [runX_bind, runX_lift, ldI_eq, E.hs, wrap, pull, E.strm, runX_modify, runX_get,
     wrZ_eq, wrI_eq, E.hz, outField, leftField, putField, nonempty,
     show ((5 : Int32) &&& 4) ≠ 0 by decide, actualPointer2, update2,
-    flags, trailer, runX_INITBITS, setMode, runX_throw, setI_setI, chkCond, h1, out, value,
+    flags, trailer, runX_INITBITS, setMode, runX_throw, setI_setI, value,
     ZStreamRef.put_setI, ZStreamRef.put_put, ZStreamRef.get_put_same E.hz]
 
 /-- Independent bit reads compose, retaining the exact little-endian value. -/
@@ -167,7 +167,7 @@ theorem wrapper_readBits_join {n m : Nat} {input middle rest : List Bool} {v w :
         have tail := ih parse
         rw [show n + 1 + m = (n + m) + 1 by omega, readBits, tail]
         congr 2
-        simp only [Nat.pow_succ, Nat.mul_add, Nat.add_mul, Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.add_assoc]
+        simp only [Nat.pow_succ, Nat.mul_add, Nat.mul_comm, Nat.mul_left_comm, Nat.add_assoc]
 
 /-- The independent reader consumes exactly one represented byte. -/
 theorem wrapper_readBits_byte (byte : UInt8) (future : List Bool) :
@@ -264,7 +264,7 @@ theorem wrapper_swap_be32 {held : UInt64} (value : UInt32)
   simp only [ZSWAP32, UInt64.toNat_add, UInt64.toNat_and, UInt64.toNat_shiftRight,
     UInt64.toNat_shiftLeft, UInt64.reduceToNat, UInt32.toNat_toUInt64, Nat.shiftRight_eq_div_pow,
     Nat.shiftLeft_eq, mask8, wrapper_mask_middle_byte]
-  simp only [UInt64.reduceToNat, Nat.reducePow, Nat.reduceMod, Nat.div_div_eq_div_mul, Nat.reduceMul, mask8, wrapper_mask_middle_byte, Nat.shiftLeft_eq, byte0, byte1, byte2, byte3, last]
+  simp only [Nat.reducePow, Nat.reduceMod, Nat.div_div_eq_div_mul, Nat.reduceMul, byte0, byte1, byte2, byte3, last]
   clear wire byte0 byte1 byte2 byte3 keep2 keep3 held
   omega
 

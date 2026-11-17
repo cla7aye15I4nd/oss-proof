@@ -210,7 +210,7 @@ theorem clAfterLens_distance_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs :
     have add := Ptr.add_nat_ok (off := 0) (n := s.nlen.toNat) lens (by omega : 0 + s.nlen.toNat ≤ s.lens.size)
     unfold OkOn at add
     simp only [Nat.zero_add, clDistPre, next, setI_setI] at add actual
-    simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, clDistPre, lensP, workP, codesP,
+    simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, clDistPre, lensP, workP,
       next, add, actual, runX_modify, setI_setI, clDistResult]
   · intro success
     obtain ⟨used, pointer, capacity, invariant⟩ := newMeaning success
@@ -553,7 +553,7 @@ theorem clAfterLens_distance_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs
     have add := Ptr.add_nat_ok (off := 0) (n := s.nlen.toNat) lens (by omega : 0 + s.nlen.toNat ≤ s.lens.size)
     unfold OkOn at add
     simp only [Nat.zero_add, clDistPre, next, setI_setI] at add actual
-    simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, clDistPre, lensP, workP, codesP,
+    simp [runX_bind, runX_lift, wrI_eq, ldI_eq, hs, clDistPre, lensP, workP,
       next, add, actual, runX_modify, setI_setI, clDistResult]
   · intro success
     obtain ⟨used, pointer, capacity, invariant⟩ := newMeaning success

@@ -108,8 +108,8 @@ theorem inflate_dispatch_TYPE {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC,
-    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS,
-    LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH, DONE]
+    DICTID, DICT, TYPE,
+    ]
 
 /-- The real switch selects the TYPEDO branch. -/
 theorem inflate_dispatch_TYPEDO {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -118,8 +118,8 @@ theorem inflate_dispatch_TYPEDO {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC,
-    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS,
-    LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH, DONE]
+    DICTID, DICT, TYPE, TYPEDO,
+    ]
 
 /-- Stored blocks: `stored_step`, `copy_start_step`, `copy_step`. -/
 theorem trip_stored : TripStored := by

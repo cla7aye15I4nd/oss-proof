@@ -49,7 +49,7 @@ theorem DefaultFinishBoundary.generic_all_scalar_run_effects {h after : Heap} {r
       have zeroOut : produced=0 := by have counts:=account.2.2.2.1;omega
       subst used produced
       have shape : Shape h h := by intro b;simp
-      have frame : Frame h h (fun b=>StreamRoot r b ∨ DeflateOwned ds d b) := by simp [Frame,SlotSame]
+      have frame : Frame h h (fun b=>StreamRoot r b ∨ DeflateOwned ds d b) := by simp [Frame]
       have precise := finishing_foreign_private_zero_frame boundary.good buffers pointer shape frame
       exact ⟨by simp,by simp,shape,precise,full_shape_live_change shape,rfl,rfl⟩
     · by_cases finish : flush=Z_FINISH

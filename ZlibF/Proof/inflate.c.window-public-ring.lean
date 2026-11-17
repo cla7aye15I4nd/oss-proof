@@ -38,7 +38,7 @@ theorem ringList_public (a : Array UInt8) (ws wn wh : Nat)
       simp only [ringSlot]
       by_cases hle : wh ≤ wn
       · have heq : wn = wh := by omega
-        simp [hle, heq, getElem!_pos a i (by omega), Array.getElem_toList]
+        simp [heq, getElem!_pos a i (by omega), Array.getElem_toList]
       · simp [hle, hfirst, getElem!_pos a (i - (wh - wn)) hidx, Array.getElem_toList]
 
 /-- The public dictionary predicate and ring contents describe the same bytes

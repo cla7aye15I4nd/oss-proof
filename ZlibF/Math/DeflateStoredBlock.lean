@@ -46,7 +46,7 @@ theorem stored_body_grammar (history bytes : List UInt8) (padding : Nat) (suffix
     rw [skip]
     simp only [storedBodyBits, List.append_assoc, List.drop_append_of_le_length
       (show padding ≤ (List.replicate padding false).length by simp),
-      List.length_replicate, List.drop_replicate, Nat.sub_self, List.replicate_zero, List.nil_append]
+      List.drop_replicate, Nat.sub_self, List.replicate_zero, List.nil_append]
   refine Body.stored (len := bytes.length) (nlen := 65535 - bytes.length)
     (r1 := natBits (65535 - bytes.length) 16 ++ (bytesToBits bytes ++ suffix))
     (r2 := bytesToBits bytes ++ suffix) ?_ ?_ rfl ?_

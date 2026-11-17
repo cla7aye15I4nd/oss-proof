@@ -36,9 +36,9 @@ theorem generic_zlib_header_prepare_source {h : Heap} {r : ZStreamRef} {ds pb : 
     simp only [wrD_eq, ZStreamRef.put_dstates, d1]
     simp only [ready, levelHeaderReady, h1, ZStreamRef.put_setD, setD_setD, levelHeaderState]
   unfold publicZlibHeader
-  simp only [bind_app, pure_app, rdD_eq, hd, status, wrap]
+  simp only [bind_app, rdD_eq, hd, status, wrap]
   simp only [show (INIT_STATE == INIT_STATE) = true from rfl, show ((1 : Int32) == 0) = false from rfl,
-    Bool.and_false, Bool.false_eq_true, ite_false, ite_true, bind_app, pure_app,
+    Bool.and_false, Bool.false_eq_true, ite_false, ite_true, bind_app,
     rdD_eq, hd, status, ldDeflateState_tab hd, strategy, window, start]
   simp only [show ((0 : Int32) ≥ Z_HUFFMAN_ONLY) = False from by decide,
     decide_false, Bool.false_or, show ((0 : UInt32) != 0) = false from rfl,

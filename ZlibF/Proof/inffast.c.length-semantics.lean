@@ -95,7 +95,7 @@ theorem length_lookup_matches_format : Goal.length_lookup_matches_format := by
       refine ⟨?_, ?_, by omega, leaf⟩
       · simp only [tableRead, rootRead, bind, Option.bind, firstCell]
         simp only [ite_true, opMask, BEq.rfl]
-        simp only [secondRead, Option.bind_some, secondCell]
+        simp only [secondRead, secondCell]
         simp [hconsumed, link.1]
       · omega
   obtain ⟨query, positive, codeLe, leaf⟩ := selected

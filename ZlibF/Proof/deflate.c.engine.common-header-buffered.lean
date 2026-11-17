@@ -49,7 +49,7 @@ theorem first_common_finish_one_source {h : Heap} {r : ZStreamRef} {ds pb ob oo 
       show ((2 : UInt64) - (1 : UInt32).toUInt64) = 1 from by decide,
       show ((1 : UInt64) == 0) = false from rfl, Bool.false_eq_true, ite_false]
   have adler : { z with adler := 1 } = z := by rw [← initial.adler]
-  simp only [levelHeaderFlushed, selected, levelHeaderReady, reset, adler, h0, d0,
+  simp only [levelHeaderFlushed, selected, levelHeaderReady, adler, d0,
     setD_bytes, ZStreamRef.put_bytes, setD_bytes_commute, ← stream_put_bytes, ZStreamRef.put_setD, setD_setD,
     levelHeaderOneHeap, levelHeaderOneBytes,
     show ((1 : UInt32).toNat) = 1 from rfl, ZStreamRef.put_put, reset]

@@ -64,7 +64,7 @@ theorem slow_finish_strategy_step_progress {h : Heap} {r : ZStreamRef} {ds ob oo
         simpa only [Nat.zero_add, Nat.add_zero] using stream_accounting_trans fillAccount accountA
       refine ⟨used, produced, next, after, z', result, base', ys, extended, nextOrigin,
         ?_, state, endA, buffersA, joined, agreesF, ?_, baseLe, reasonA, retA, continuesA, ?_, ?_⟩
-      · rw [source]; simp only [empty, beq_eq_false_iff_ne.mpr empty, Bool.false_eq_true, ite_false]; exact suffixRun
+      · rw [source]; simp only [beq_eq_false_iff_ne.mpr empty, Bool.false_eq_true, ite_false]; exact suffixRun
       · rw [endpoint]; exact endpointF
       · intro _
         have before := fillAccount.2.2.1

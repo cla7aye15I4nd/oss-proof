@@ -46,7 +46,7 @@ theorem public_default_valid_header_complete {h : Heap} {r : ZStreamRef} {ds pb 
       show ((2 : UInt64) - (2 : UInt32).toUInt64) = 0 from rfl, BEq.rfl, ite_true]
     rw [← initial.pending, ← initial.pendingOut]
   have adler : { z with adler := 1 } = z := by rw [← initial.adler]
-  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, reset, adler, h0, d0,
+  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, adler, h0, d0,
     setD_bytes, ZStreamRef.put_bytes, setD_bytes_commute, ← stream_put_bytes, ZStreamRef.put_setD, setD_setD,
     headerCompleteHeap, headerCompleteBytes, headerCompleteStream,
     show ((2 : UInt32).toNat) = 2 from rfl, ZStreamRef.put_put, reset]
@@ -83,7 +83,7 @@ theorem first_valid_one_source {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
       show ((2 : UInt64) - (1 : UInt32).toUInt64) = 1 from by decide,
       show ((1 : UInt64) == 0) = false from rfl, Bool.false_eq_true, ite_false]
   have adler : { z with adler := 1 } = z := by rw [← initial.adler]
-  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, reset, adler, h0, d0,
+  simp only [zlibHeaderFlushed, selected, zlibHeaderReady, adler, d0,
     setD_bytes, ZStreamRef.put_bytes, setD_bytes_commute, ← stream_put_bytes, ZStreamRef.put_setD, setD_setD,
     headerOneHeap, headerOneBytes,
     show ((1 : UInt32).toNat) = 1 from rfl, ZStreamRef.put_put, reset]

@@ -138,7 +138,7 @@ theorem flush_pending_avail_in {h after : Heap} {r : ZStreamRef} {z : ZStream}
       simp only [et] at run
       obtain ⟨k1, g1⟩ := kept_tr_flush_bits sp h0 _ h1 et
       have getz1 : r.get h1 = some z := (get_of_kept r k1 g1).trans getz
-      simp only [ldZStream, getz1] at run
+      simp only [getz1] at run
       cases el : ldDeflateState sp h1 with
       | error _ => simp [el] at run
       | ok p2 =>
@@ -229,7 +229,7 @@ theorem finished_new_input : FinishedNewInput := by
       (d.status == FINISH_STATE && flush != Z_FINISH)) = false := by
     simp [out, inp, fin]
   unfold entryPhase at run'
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs, test,
@@ -245,9 +245,9 @@ theorem finished_new_input : FinishedNewInput := by
     have st1 : d1.status = FINISH_STATE := by
       simp only [Zlib.Deflate.Universal.Params.Pars, Prod.mk.injEq] at pars1
       rw [pars1.2.2.2.2.2.2.1]; exact fs
-    simp only [zrd_eq, getz1] at run'
+    simp only [getz1] at run'
     by_cases full : z1.avail_out = 0
-    · rw [if_pos (by simp [full])] at run'
+    · rw [ite_eq_left (by simp [full])] at run'
       simp only [bind_app, wrD_eq, getd1, pure_app, Except.ok.injEq, Prod.mk.injEq] at run'
       obtain ⟨-, rfl⟩ := run'
       right
@@ -257,9 +257,9 @@ theorem finished_new_input : FinishedNewInput := by
       rw [full]; exact Ne.symm room
     · left
       obtain ⟨i, err, -⟩ := err_return_static getz1 Z_BUF_ERROR
-      rw [if_neg (by simp [full])] at run'
+      rw [ite_eq_right (by simp [full])] at run'
       simp only [bind_app, rdD_eq, getd1, zrd_eq, getz1] at run'
-      rw [if_pos (by simp [st1, ain1, ain]), err] at run'
+      rw [ite_eq_left (by simp [st1, ain1, ain]), err] at run'
       simp only [Except.ok.injEq, Prod.mk.injEq] at run'
       exact run'.1.symm
   · cases run'

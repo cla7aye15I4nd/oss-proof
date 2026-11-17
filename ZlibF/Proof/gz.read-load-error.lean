@@ -70,8 +70,8 @@ theorem agree_put {X Y : Heap} {b : Nat} (hag : AgreeAt X Y b) (r : BRef) (a : A
       by rw [x5, y5, e6], by rw [x6, y6, e7], by rw [x7, y7, e8]⟩
     rw [hd, hd]
     by_cases e : b = k
-    · subst e; rw [if_pos rfl, if_pos rfl, e5]
-    · rw [if_neg e, if_neg e, e5]
+    · subst e; rw [ite_eq_left rfl, ite_eq_left rfl, e5]
+    · rw [ite_eq_right e, ite_eq_right e, e5]
   | st_dist_code => exact ⟨e1, e2, e3, e4, e5, e6, e7, e8⟩
   | st_length_code => exact ⟨e1, e2, e3, e4, e5, e6, e7, e8⟩
 
@@ -298,7 +298,7 @@ theorem gz_load_error_tail (i : Nat) (buf : BPtr) (len : UInt32) (h : Heap) (fs 
   -- the run of the tail
   have hrun : loadTail i l fs' H = .ok (((-1, l.«have»), fs'), after) := by
     unfold loadTail
-    rw [if_pos herr.1]
+    rw [ite_eq_left herr.1]
     have hge : getErrno fs' H = .ok ((fs'.errno, fs'), H) := rfl
     by_cases hb : BLOCKED fs'.errno = true
     · have h0 : l.«have» = 0 := Classical.byContradiction fun hn => herr.2 ⟨hb, hn⟩
@@ -311,7 +311,7 @@ theorem gz_load_error_tail (i : Nat) (buf : BPtr) (len : UInt32) (h : Heap) (fs 
         ite_true, updS_run hrecH, hne, Bool.false_eq_true, ite_false, g_pure_app]
       rw [← hS2, hz3]
       simp only [gzSt] at run4'
-      simp only [run4', g_pure_app]
+      simp only [run4']
     · have hS2 : putGz H i S2 = H := by
         show putGz H i { s1 with again := ag, eof := s.eof } = H
         simp only [ag, hb, Bool.false_eq_true, ite_false]

@@ -71,7 +71,7 @@ theorem dispatch_spec {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     obtain ⟨b, a, z', d', run, i', bu, fr, m⟩ := rle_spec_of (Block.flushSafeAt_of ov) inv entry.toIn flush l0 s3
     refine ⟨b, a, z', d', ?_, i', bu, fr, Or.inr ⟨l0, m⟩⟩
     simp only [C.run] at run
-    simp [dispatch, l0', hf', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
+    simp [dispatch, l0', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
   have rl' : (d.strategy == Z_RLE) = false := by simp [rl]
   have s3 : d.strategy.toInt ≠ 3 := fun e => rl (Int32.toInt_inj.mp (by rw [e]; rfl))
   by_cases fast : d.level.toInt ≤ 3
@@ -83,7 +83,7 @@ theorem dispatch_spec {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
   · obtain ⟨b, a, z', d', run, i', bu, fr, m⟩ := slow_spec_of (Block.flushSafeAt_of ov) inv entry.toIn flush ⟨by omega, s2, s3⟩
     refine ⟨b, a, z', d', ?_, i', bu, fr, Or.inr ⟨l0, m⟩⟩
     simp only [C.run] at run
@@ -93,7 +93,7 @@ theorem dispatch_spec {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e | e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
 
 /-- The dispatch is in `KeepRel`: no allocation, `msg` kept, the `data_type` guess. -/
 theorem keep_dispatch (s : DeflateStatePtr) (flush : Int32) (d : DeflateState) :

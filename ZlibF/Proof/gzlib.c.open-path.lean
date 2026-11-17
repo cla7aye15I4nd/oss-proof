@@ -117,7 +117,7 @@ theorem openPath_snprintf_overflow (h : Heap) (dest fmt path : BPtr)
     simp [cstring, strlenB, bind_app] at hr
   have hout := Zlib.GzFs.Proofs.formatBytes_s hnonnull hr
   unfold snprintf
-  simp [bind_app, hfmt, hout, hlen, ub]
+  simp [bind_app, hfmt, hout, hlen]
 
 #print axioms openPath_read_loop
 #print axioms openPath_cstring

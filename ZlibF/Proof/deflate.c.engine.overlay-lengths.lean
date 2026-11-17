@@ -44,7 +44,7 @@ set_option autoImplicit false
 /-- A sum of terms each at most `c` on the used entries, over exactly two used entries, that
 reaches `2c`, has every used term equal to `c`. -/
 theorem mass_two_tight (f u : Nat → Nat) (n c : Nat) (each : ∀ v, v < n → f v ≤ c * u v)
-    (unit : ∀ v, u v ≤ 1) (two : mass u n = 2) (full : mass f n = 2 * c) :
+    (_unit : ∀ v, u v ≤ 1) (two : mass u n = 2) (full : mass f n = 2 * c) :
     ∀ v, v < n → u v = 1 → f v = c := by
   have split : mass (fun v => c * u v) n = mass (fun v => c * u v - f v) n + mass f n := by
     rw [← mass_add]
@@ -151,11 +151,11 @@ theorem prepared_lengths_fib {h : Heap} {ds pb : Nat} {d : DeflateState} {buf : 
         (fun v => if T[v]!.dl.toNat ≠ 0 then 1 else 0) n (2 ^ 14)
         (fun w hw => by
           by_cases z : T[w]!.dl.toNat ≠ 0
-          · rw [if_pos z, if_pos z, Nat.mul_one]
+          · rw [ite_eq_left z, ite_eq_left z, Nat.mul_one]
             exact Nat.pow_le_pow_right (by omega) (by omega)
-          · rw [if_neg z, if_neg z]; omega)
-        (fun w => by split <;> omega) count (by rw [kraft]) v hv (by rw [if_pos nz'])
-      rw [if_pos nz'] at tight
+          · rw [ite_eq_right z, ite_eq_right z]; omega)
+        (fun w => by split <;> omega) count (by rw [kraft]) v hv (by rw [ite_eq_left nz'])
+      rw [ite_eq_left nz'] at tight
       have lv : T[v]!.dl.toNat ≤ 15 := len v hv
       show T[v]!.dl.toNat = 1
       generalize T[v]!.dl.toNat = x at nz' lv tight ⊢

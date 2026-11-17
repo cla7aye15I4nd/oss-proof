@@ -119,7 +119,7 @@ theorem FastInputPacket.copyMatch_exact_frame
           outputGet outputWrite
       refine ⟨{ l with op := l.dist - l.op, broke := true },
         after, j, run, ?_, outputRoom.1, ?_⟩
-      · simpa only [outPtr]
+      · simp only [outPtr]
       · rw [heapEq]
         exact (badHeap_buffer_frame invariant.good.live.hz
           invariant.good.live.hs i [⟨slow.put, j - oo⟩]).1

@@ -68,7 +68,7 @@ theorem fsReadReg_contract (fd : Int32) (m : UInt64) (w : Fs) (hfs : FileSystem 
             split at hi
             · rename_i e
               subst e
-              simp only [hj, ite_true, Option.some.injEq] at hi
+              simp only [Option.some.injEq] at hi
               subst hi
               refine ⟨hnode, ?_, fun node hn hd => hwr node hn hd⟩
               show of.pos + k ≤ 2 ^ 63 - 1
@@ -177,14 +177,14 @@ theorem budget_debit (fd : Int32) (w : Fs) (k : Nat) (hk : 0 ≤ fd.toInt → �
   intro hfd
   have hneg : ¬ fd < 0 := fun x => by have := Int32.lt_iff_toInt_lt.mp x; simp at this; omega
   unfold debitW
-  rw [if_neg (by simpa using hneg)]
+  rw [ite_eq_right (by simpa using hneg)]
   refine ⟨fun e => ?_, fun b hb => ⟨b - k, ?_, by have := hk hfd b hb; omega⟩⟩
   · show (if fd.toInt.toNat = fd.toInt.toNat then (w.readBudget fd.toInt.toNat).map (· - k)
       else w.readBudget fd.toInt.toNat) = none
-    rw [if_pos rfl, e]; rfl
+    rw [ite_eq_left rfl, e]; rfl
   · show (if fd.toInt.toNat = fd.toInt.toNat then (w.readBudget fd.toInt.toNat).map (· - k)
       else w.readBudget fd.toInt.toNat) = some (b - k)
-    rw [if_pos rfl, hb]; rfl
+    rw [ite_eq_left rfl, hb]; rfl
 
 theorem budget_okErr (fd : Int32) (o : Option Int32) (w w' : Fs) (k : Nat) (h : BudgetAcc fd w w' k) :
     BudgetAcc fd w (okErrW o w') k := by
@@ -194,7 +194,7 @@ theorem readCap_budget (fd : Int32) (n : UInt64) (w : Fs) (hfd : 0 ≤ fd.toInt)
     (hb : w.readBudget fd.toInt.toNat = some b) : readCap fd n w ≤ b := by
   have hneg : ¬ fd < 0 := fun x => by have := Int32.lt_iff_toInt_lt.mp x; simp at this; omega
   unfold readCap
-  rw [if_neg (by simpa using hneg), hb]
+  rw [ite_eq_right (by simpa using hneg), hb]
   exact Nat.min_le_right _ _
 
 /-- **The budget across `read`**: the bytes returned come off the descriptor's budget. -/

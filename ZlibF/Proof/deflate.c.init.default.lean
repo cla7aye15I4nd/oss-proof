@@ -70,7 +70,7 @@ theorem source_eq (strm : ZStreamPtr) (level : Int32) (version : BPtr) (size : I
   by_cases hd : level = Z_DEFAULT_COMPRESSION
   all_goals unfold deflateInit_ deflateInit2_ allocate levelValue
   all_goals simp [hd, Z_DEFLATED, MAX_WBITS, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY, MAX_MEM_LEVEL,
-    Z_FIXED, MIN_MATCH_u, iadd, ishl, chk32, M_bind_assoc, M_pure_bind]
+    Z_FIXED, MIN_MATCH_u, iadd, ishl, chk32, M_pure_bind]
   all_goals rfl
 
 /-- The default allocator check reads the actual stream record. -/
@@ -240,18 +240,18 @@ theorem buffers_run {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat} {d : De
   change ZALLOC_bytes (some r) 32768 2 h = .ok (bytePtr h, windowHeap h) at runW
   simp only [show ((32768 : UInt32) * 2).toNat / 2 = 32768 from by decide +kernel] at runP runH
   simp only [show ((16384 : UInt32) * 4).toNat = 65536 from by decide +kernel] at runB
-  simp only [H1, H2, H4, prevHeap, headHeap, buffersHeap, windowHeap, wordPtr_setD,
+  simp only [H1, H2, H4, prevHeap, headHeap, windowHeap, wordPtr_setD,
     bytePtr_setD, wordResult_setD, byteResult_setD] at runP runH runB
   dsimp only [d1, d2, d3, d4, prevHeap, headHeap, windowHeap] at runP runH runB
   unfold buffers
   rw [bind_app, runW]
-  simp only [bind_app, wrD_eq, windowHeap, byteResult_dstates, hs, d1, d2, d3, d4]
+  simp only [bind_app, wrD_eq, windowHeap, byteResult_dstates, hs]
   rw [runP]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, d1, d2, d3, d4]
+  simp only [setD_dstates_same, setD_setD]
   rw [runH]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, d1, d2, d3, d4]
+  simp only [setD_dstates_same, setD_setD]
   rw [runB]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, pure_app]
+  simp only [setD_dstates_same, setD_setD, pure_app]
   rfl
 
 /-- The exact state fields written before the four buffer allocations. -/
@@ -321,8 +321,8 @@ theorem allocate_to_finish {h : Heap} {r : ZStreamRef} {z : ZStream}
   have runS : allocDeflateState h = .ok (some (.tab h.nextBlk),
       stateHeap h (DeflateState.garbage (h.garbage h.nalloc))) := allocDeflateState_some ho
   rw [bind_app, runS]
-  simp [bind_app, stD_eq, pure_app, ZStreamRef.put_dstates, stateHeap_dstates_same,
-    zwr_eq, get_stateHeap, ZStreamRef.get_put_same hz, wrD_eq, upd_upd,
+  simp [bind_app, stD_eq, ZStreamRef.put_dstates,
+    zwr_eq, get_stateHeap, wrD_eq,
     put_stateHeap, stateHeap_setD, hz, StateRef.ofDeflateState]
   change (do let ps ← buffers (some r) (some (.tab h.nextBlk))
              finish (some r) (some (.tab h.nextBlk)) level ps) (publishedHeap h r z) = _

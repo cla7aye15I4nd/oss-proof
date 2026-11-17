@@ -51,10 +51,10 @@ theorem same_without_two {k : Nat} {X X' Y' : Heap} (s : SameObjectsUpToTableSha
   · intro b
     simp only [upd_apply]
     by_cases e1 : b = k + 1
-    · rw [if_pos e1]; exact ((none_at b (Or.inr e1)).1).symm
+    · rw [ite_eq_left e1]; exact ((none_at b (Or.inr e1)).1).symm
     by_cases e0 : b = k
-    · rw [if_neg e1, if_pos e0]; exact ((none_at b (Or.inl e0)).1).symm
-    rw [if_neg e1, if_neg e0, s1 b]; exact (other b (by omega)).1
+    · rw [ite_eq_right e1, ite_eq_left e0]; exact ((none_at b (Or.inl e0)).1).symm
+    rw [ite_eq_right e1, ite_eq_right e0, s1 b]; exact (other b (by omega)).1
   · intro b
     by_cases c : b = k ∨ b = k + 1
     · rw [s2 b, (x'k b c).1, (none_at b c).2.1]
@@ -140,7 +140,7 @@ theorem cells2_bytes (h : Heap) (cap n : UInt64) (b : Nat) :
   by_cases e1 : b = h.nextBlk + 1
   · simp [e1]
   · by_cases e0 : b = h.nextBlk
-    · simp [e1, e0]
+    · simp [e0]
     · simp [e1, e0]
 
 theorem cells2_ro (h : Heap) (cap n : UInt64) (b : Nat) :
@@ -149,7 +149,7 @@ theorem cells2_ro (h : Heap) (cap n : UInt64) (b : Nat) :
   by_cases e1 : b = h.nextBlk + 1
   · simp [e1]
   · by_cases e0 : b = h.nextBlk
-    · simp [e1, e0]
+    · simp [e0]
     · simp [e1, e0]
 
 theorem cells2_others (h : Heap) (cap n : UInt64) :
@@ -209,7 +209,7 @@ theorem cells2_agree {h : Heap} (cap n : UInt64) :
   refine ⟨fun b ⟨n0, n1⟩ => ⟨by rw [cells2_bytes]; simp [n0, n1], by rw [o1], by rw [o2], by rw [o3], by rw [o4],
     by rw [o5], by rw [o6], by rw [cells2_ro]; simp [n0, n1]⟩, o7, o8, o9, o12⟩
 
-theorem cells2_fit {h : Heap} (fresh : Fresh h) (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (cap n : UInt64) :
+theorem cells2_fit {h : Heap} (_fresh : Fresh h) (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (cap n : UInt64) :
     ZlibF.PlatformMemory.ByteObjectsFit (cells2 h cap n) := by
   intro rr a g
   cases rr with
@@ -230,7 +230,7 @@ theorem cells2_got (h : Heap) (cap n : UInt64) : LengthCell (cells2 h cap n) (ce
     simp only [Space.get, cells2_bytes]; simp
   refine ⟨Or.inr ⟨.blk h.nextBlk, 0, _, rfl, g, by simp [lengthBytes_length], ?_⟩,
     Or.inr ⟨.blk h.nextBlk, 0, _, rfl, g, by simp only [Space.ro, cells2_ro]; simp, by simp [lengthBytes_length]⟩⟩
-  simp only [List.toList_toArray, List.drop_zero]
+  simp only [List.drop_zero]
   rw [List.take_of_length_le (by rw [lengthBytes_length]; exact Nat.le_refl _)]
   rfl
 
@@ -242,7 +242,7 @@ theorem cells2_used (h : Heap) (cap n : UInt64) : LengthCell (cells2 h cap n) (c
   refine ⟨Or.inr ⟨.blk (h.nextBlk + 1), 0, _, rfl, g, by simp [lengthBytes_length], ?_⟩,
     Or.inr ⟨.blk (h.nextBlk + 1), 0, _, rfl, g, by simp only [Space.ro, cells2_ro]; simp,
       by simp [lengthBytes_length]⟩⟩
-  simp only [List.toList_toArray, List.drop_zero]
+  simp only [List.drop_zero]
   rw [List.take_of_length_le (by rw [lengthBytes_length]; exact Nat.le_refl _)]
   rfl
 
@@ -448,7 +448,7 @@ theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int
   have sepU : UtilitySeparation dest capacity.toNat source n.toNat (cellPtr h) (cellPtr (cellRaw h)) :=
     ⟨sep.1, sepCell _ dest _ destB (Nat.le_refl _), sepCell _ source _ srcBl (Nat.le_refl _),
       sepCell _ dest _ destB (Nat.le_succ _), sepCell _ source _ srcBl (Nat.le_succ _),
-      Or.inr (Or.inr (Or.inl (by simp [cellPtr, cellRaw])))⟩
+      Or.inr (Or.inr (Or.inl (by simp [cellRaw])))⟩
   obtain ⟨rc, after', run', bad', good'⟩ := inner (cells2 h capacity n) dest (cellPtr h)
     source (cellPtr (cellRaw h)) capacity n src (preserve h capacity n pre) (cells2_fresh fresh capacity n) (cells2_uniq fresh uniq capacity n)
     (by simp only [LibraryGlobals] at globals ⊢; rw [(cells2_others h capacity n).2.2.2.2.2.2.1]; exact globals)
@@ -473,7 +473,7 @@ theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int
     simp only [C.run, bind_app, p1, p2, p3, p4, p5, p6]
     rw [show Zlib.Uncompr.uncompress2_z dest (cellPtr h) source (cellPtr (cellRaw h)) (cells2 h capacity n) =
       .ok (rc, after') from run']
-    simp only [bind_app, e1, e2, e3, e4, e5, e6, pure_app]
+    simp only [e1, e2, e3, e4, e5, e6, pure_app]
   have x'k : ∀ (X : Heap), (∀ c, c = h.nextBlk ∨ c = h.nextBlk + 1 → X.words c = none ∧ X.streams c = none ∧
       X.gzheaders c = none ∧ X.dstates c = none ∧ X.istates c = none ∧ X.gzstates c = none) →
       ∀ (q : BPtr) (xs : List UInt8),
@@ -534,7 +534,7 @@ theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int
     have wDestG : Writable (cells2 h capacity n) dest capacity.toNat := kept.writable_of wDest
     have len8 : ∀ v, (lengthBytes v).length ≤ 8 := fun v => by rw [lengthBytes_length]; exact Nat.le_refl _
     have sUG : Separate (cellPtr (cellRaw h)) 8 (cellPtr h) 8 :=
-      Or.inr (Or.inr (Or.inl (by simp [cellPtr, cellRaw])))
+      Or.inr (Or.inr (Or.inl (by simp [cellRaw])))
     -- the cells of the expected inner heap
     have gG := cells2_got h capacity n
     have uG := cells2_used h capacity n

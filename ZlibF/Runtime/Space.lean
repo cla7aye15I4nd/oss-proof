@@ -103,7 +103,7 @@ theorem set_self (t : Tbl α) (k : Nat) (hk : k < t.arr.size) : t.set k (t.get k
   simp [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, get_eq]
   intro hki
   subst hki
-  simp [hk', Array.getElem?_eq_getElem hk']
+  simp [hk']
 
 theorem set_set (t : Tbl α) (k : Nat) (v v' : α) : (t.set k v).set k v' = t.set k v' := by
   unfold set

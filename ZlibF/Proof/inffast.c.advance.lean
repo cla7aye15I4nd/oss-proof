@@ -113,12 +113,12 @@ theorem dodist_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m : U
   have hld : OkOn (e.heap A msg m) (Ptr.load l.here) (e.DCA.getD k default) := by
     rw [hhere, ← hkE]; exact Ptr.load_ok (e.heap_cget_DCA A msg m) hk
   have hEb64 : (((e.DCA.getD k default).bits.toUInt32).toUInt64).toNat = (e.DCA.getD k default).bits.toNat := by
-    simp [toNat32]
+    simp
   have hEbn : ((e.DCA.getD k default).bits.toUInt32).toNat = (e.DCA.getD k default).bits.toNat := toNat32 _
   have hls1 : LS e (dropL l (e.DCA.getD k default).bits.toUInt32) i o :=
     hls.dropL _ (by omega) (by omega)
   have hEb64 : (((e.DCA.getD k default).bits.toUInt32).toUInt64).toNat = (e.DCA.getD k default).bits.toNat := by
-    simp [toNat32]
+    simp
   have hEbn : ((e.DCA.getD k default).bits.toUInt32).toNat = (e.DCA.getD k default).bits.toNat := toNat32 _
   have hls1 : LS e (dropL l (e.DCA.getD k default).bits.toUInt32) i o :=
     hls.dropL _ (by omega) (by omega)
@@ -412,7 +412,7 @@ theorem dolenLen_advance_wp (hc : CtxOK e c) (A : Array UInt8) (msg : BPtr) (m :
       refine Wp.mono (dolenExt_advance_wp hc A msg m l i o s hts hls hA ho hAb hbroke hx h1' hlen hs6 (by omega)
         (by intro h3; omega) (hfr.mono (by omega))) ?_
       exact fun _ _ hq => hq
-  · simp only [h0, ite_false]
+  · simp only [h0]
     have h0' : l.op.toNat = 0 := by
       have : l.op = 0 := by simpa using h0
       rw [this]; rfl

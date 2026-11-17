@@ -85,7 +85,7 @@ theorem public_common_header_complete {h : Heap} {r : ZStreamRef} {ds pb ob oo :
       show ((2 : UInt64) - (2 : UInt32).toUInt64) = 0 from rfl, BEq.rfl, ite_true]
     rw [← initial.pending, ← initial.pendingOut]
   have adler : { z with adler := 1 } = z := by rw [← initial.adler]
-  simp only [levelHeaderFlushed, selected, levelHeaderReady, reset, adler, h0, d0,
+  simp only [levelHeaderFlushed, selected, levelHeaderReady, adler, h0, d0,
     setD_bytes, ZStreamRef.put_bytes, setD_bytes_commute, ← stream_put_bytes, ZStreamRef.put_setD, setD_setD,
     levelHeaderCompleteHeap, levelHeaderCompleteBytes, headerCompleteStream,
     show ((2 : UInt32).toNat) = 2 from rfl, ZStreamRef.put_put, reset]

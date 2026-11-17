@@ -66,7 +66,7 @@ theorem lit_cstring (h : Heap) {j : Nat} (hj : j < strTable.size) :
     Array.ext' (by simp [strBytes])
   have hg : Space.get h (BRef.str j) = some ((strTable[j]).toUTF8.data.toList ++ [0]).toArray := by
     show staticStringBytes h j = _
-    simp only [staticStringBytes, if_pos hj, Array.getElem?_eq_getElem hj, Option.map_some]
+    simp only [staticStringBytes, ite_eq_left hj, Array.getElem?_eq_getElem hj, Option.map_some]
     rw [hb]
   refine ⟨_, ⟨Or.inr ⟨.str j, 0, _, rfl, hg, by simp, (List.take_of_length_le (by simp)).symm⟩, hz, hl⟩,
     fun b hb' => ?_⟩
@@ -96,7 +96,7 @@ theorem bf_bytes {h a : Heap} {C : Nat → Prop} {R : List Region} (bf : BufferF
     (hl : h.live b) (hc : ¬ C b) (hr : ¬ Zlib.Inflate.Proofs.RegionRoot R (.blk b)) :
     a.bytes b = h.bytes b := by
   obtain ⟨e1, -⟩ := bf.1.2.2.2.2.2 b hl hc
-  rw [Zlib.Inflate.Proofs.restoreRegions_bytes, if_neg (fun hh => hr hh.1)] at e1
+  rw [Zlib.Inflate.Proofs.restoreRegions_bytes, ite_eq_right (fun hh => hr hh.1)] at e1
   exact e1
 
 /-- A byte block outside the changed set keeps its size and its flag. -/
@@ -120,10 +120,10 @@ theorem GzInv.in_ne_out {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (
   intro e
   subst e
   have nd := inv.common.distinct.1
-  simp only [ownedPtrs, if_pos hsz, if_pos (Or.inl hm : s.mode = GZ_READ ∨ s.direct = 0), List.cons_append,
+  simp only [ownedPtrs, ite_eq_left hsz, ite_eq_left (Or.inl hm : s.mode = GZ_READ ∨ s.direct = 0), List.cons_append,
     List.nil_append] at nd
   exact absurd (nd.sublist (List.Sublist.filterMap blkOf
-    (List.Sublist.cons _ (List.Sublist.cons _ (List.Sublist.cons₂ _ (List.Sublist.cons₂ _ (List.nil_sublist _)))))))
+    (List.Sublist.cons _ (List.Sublist.cons _ (List.Sublist.cons_cons _ (List.Sublist.cons_cons _ (List.nil_sublist _)))))))
     (by simp [hin, hout, blkOf])
 
 /-- The facts of a reader with buffers that an `inflate` call needs, on the actual heap. -/
@@ -1056,7 +1056,7 @@ theorem Base.step {i : Nat} {out : Region} {h0 : Heap} {fs0 : Fs} {s0 : GzState}
   -- the out block is owned when the window is `out`
   have post' : GzPost h i s (if out.pointer = s0.out then [] else S) fs' h' GzInvUpToOutput := by
     by_cases hB : out.pointer = s0.out
-    · rw [if_pos hB]
+    · rw [ite_eq_left hB]
       rcases within with hS | ⟨d, m, hS, -⟩
       · rw [← hS]; exact ⟨hfs', s', inv', hmo, hfdp, bf, lc, ng⟩
       · subst hS
@@ -1066,13 +1066,13 @@ theorem Base.step {i : Nat} {out : Region} {h0 : Heap} {fs0 : Fs} {s0 : GzState}
         rw [hp] at bf
         have own : GzOwned h i s ob := Or.inr (Or.inr (Or.inr ⟨hsz, Or.inr ⟨Or.inl hm, Or.inl hob'⟩⟩))
         exact ⟨hfs', s', inv', hmo, hfdp, BufferFrame.nil_of_frame (frame_of_bf_blk bf own), lc, ng⟩
-    · rw [if_neg hB]
+    · rw [ite_eq_right hB]
       exact ⟨hfs', s', inv', hmo, hfdp, bf, lc, ng⟩
   have within' : Zlib.Inflate.Proofs.RegionsWithin (if out.pointer = s0.out then [] else S) (outRegions out s0) := by
     unfold outRegions
     by_cases hB : out.pointer = s0.out
-    · rw [if_pos hB, if_pos hB]; exact Zlib.Inflate.Proofs.RegionsWithin.nil _
-    · rw [if_neg hB, if_neg hB]
+    · rw [ite_eq_left hB, ite_eq_left hB]; exact Zlib.Inflate.Proofs.RegionsWithin.nil _
+    · rw [ite_eq_right hB, ite_eq_right hB]
       rcases within with hS | ⟨d, m, hS, hle⟩
       · rw [hS]; exact Zlib.Inflate.Proofs.RegionsWithin.nil _
       · rw [hS]; exact within_one out.pointer out.length d m hle
@@ -1453,7 +1453,7 @@ theorem gz_avail_bad {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = som
   have hc : (s.err != Z_OK && s.err != Z_BUF_ERROR) = true := by
     simp only [Bool.and_eq_true, bne_iff_ne, ne_eq]
     exact hb
-  rw [if_pos hc]
+  rw [ite_eq_left hc]
   rfl
 
 section loop
@@ -1523,7 +1523,7 @@ theorem bad_code {e : Int32} (h : e = Z_STREAM_ERROR ∨ e = Z_MEM_ERROR ∨ e =
   rcases h with h | h | h <;> (subst h; exact ⟨by decide, by decide⟩)
 
 /-- A report of `gz_error` with a bad code, after an `inflate` error: the post of the loop. -/
-theorem errs_post (St : Stat i out h0 s0) {fs : Fs} {h after : Heap} {s s' : GzState}
+theorem errs_post (_St : Stat i out h0 s0) {fs : Fs} {h after : Heap} {s s' : GzState}
     (B' : Base i out h0 fs0 s0 fs after s') (hgz : s.how = GZIP) (shape : s' = { s with err := s'.err, msg := s'.msg })
     (kc : CodecKept h after s) (hil : inputLeft fs s' = inputLeft fs s) (hstr : Strict h0 fs0 s0 fs s)
     (rc : Int32) (hbad : s'.err ≠ Z_OK ∧ s'.err ≠ Z_BUF_ERROR) (hrc : rc ≠ Z_OK ∧ rc ≠ Z_STREAM_END)
@@ -1561,7 +1561,7 @@ theorem errs_run (St : Stat i out h0 s0) {fs : Fs} {h : Heap} {s : GzState} (B :
   have hsz := B.size St
   unfold decompErrs
   by_cases c1 : (rc == Z_STREAM_ERROR || rc == Z_NEED_DICT) = true
-  · rw [if_pos c1]
+  · rw [ite_eq_left c1]
     obtain ⟨p, hp, hmsg⟩ := lit_msg "internal error: inflate stream corrupt" (by decide +kernel)
       (by decide +kernel) (by decide +kernel) h
     obtain ⟨after, s', run, hs', shape, errs, kc, hil, B'⟩ := err_trans St B Z_STREAM_ERROR (by decide) p hmsg
@@ -1573,9 +1573,9 @@ theorem errs_run (St : Stat i out h0 s0) {fs : Fs} {h : Heap} {s : GzState} (B :
       Or.inr ⟨rfl, errs_post St B' hgz shape kc hil hstr rc
         (bad_code (errs.elim (fun e => Or.inl e) (fun e => Or.inr (Or.inl e)))) hrc
         (Or.inl (c1.elim Or.inr Or.inl)) e3 e4 e5⟩⟩
-  rw [if_neg c1]
+  rw [ite_eq_right c1]
   by_cases c2 : (rc == Z_MEM_ERROR) = true
-  · rw [if_pos c2]
+  · rw [ite_eq_left c2]
     obtain ⟨p, hp, hmsg⟩ := lit_msg "out of memory" (by decide +kernel) (by decide +kernel) (by decide +kernel) h
     obtain ⟨after, s', run, hs', shape, errs, kc, hil, B'⟩ := err_trans St B Z_MEM_ERROR (by decide) p hmsg
     have run' : Zlib.Gzlib.gz_error (gzSt i) Z_MEM_ERROR p h = .ok ((), after) := run
@@ -1585,15 +1585,15 @@ theorem errs_run (St : Stat i out h0 s0) {fs : Fs} {h : Heap} {s : GzState} (B :
       by simp only [g_bind_app, lift_ok hp, lift_ok run', g_pure_app], Or.inr ⟨rfl, errs_post St B' hgz shape kc hil
         hstr _ (bad_code (errs.elim (fun e => Or.inr (Or.inl e)) (fun e => Or.inr (Or.inl e))))
         ⟨by decide, by decide⟩ (Or.inr (Or.inr rfl)) e3 e4 e5⟩⟩
-  rw [if_neg c2]
+  rw [ite_eq_right c2]
   by_cases c3 : (rc == Z_DATA_ERROR) = true
-  · rw [if_pos c3]
+  · rw [ite_eq_left c3]
     have c : rc = Z_DATA_ERROR := by simpa using c3
     subst c
     have hld : (StateT.lift (ldS (gzSt i)) : G GzState) fs h = .ok ((s, fs), h) := lift_ok (ldS_run B.rcd)
     simp only [g_bind_app, hld]
     by_cases cj : (s.junk == 1) = true
-    · rw [if_pos cj]
+    · rw [ite_eq_left cj]
       -- `avail_in = 0`, then `eof = 1, how = LOOK`
       let s2 : GzState := { s with strm := { s.strm with avail_in := 0 } }
       have hu2 : GzInvUpToOutput (putGz h i s2) i s2 := upto_zero_input B.inv hm hsz
@@ -1619,7 +1619,7 @@ theorem errs_run (St : Stat i out h0 s0) {fs : Fs} {h : Heap} {s : GzState} (B :
         fun e => absurd (show LOOK = GZIP from e) (by decide), fun hne => absurd rfl hne,
         fun hb => by show s.err ≠ Z_OK ∧ s.err ≠ Z_BUF_ERROR; rw [e1]; exact hb,
         fun _ _ => Or.inr (Or.inl heof), fun _ _ hs => ⟨(e4 hs).1, Or.inr heof⟩⟩⟩
-    · rw [if_neg cj]
+    · rw [ite_eq_right cj]
       have hz : (StateT.lift (ldZ (strmOf (gzSt i))) : G ZStream) fs h = .ok ((s.strm, fs), h) :=
         lift_ok (ldZ_run B.rcd)
       simp only [g_bind_app, hz]
@@ -1637,7 +1637,7 @@ theorem errs_run (St : Stat i out h0 s0) {fs : Fs} {h : Heap} {s : GzState} (B :
         refine ⟨{ ret := Z_DATA_ERROR, brk := true }, fs, after, ?_, Or.inr ⟨rfl, errs_post St B' hgz shape kc hil
           hstr _ (bad_code (errs.elim (fun e => Or.inr (Or.inr e)) (fun e => Or.inr (Or.inl e))))
           ⟨by decide, by decide⟩ (Or.inr (Or.inl rfl)) e3 e4 e5⟩⟩
-        rw [if_pos cm]
+        rw [ite_eq_left cm]
         simp only [g_bind_app, lift_ok hp, lift_ok run', g_pure_app]
       · obtain ⟨after, s', run, hs', shape, errs, kc, hil, B'⟩ :=
           err_trans St B Z_DATA_ERROR (by decide) s.strm.msg hmsgOk
@@ -1645,9 +1645,9 @@ theorem errs_run (St : Stat i out h0 s0) {fs : Fs} {h : Heap} {s : GzState} (B :
         refine ⟨{ ret := Z_DATA_ERROR, brk := true }, fs, after, ?_, Or.inr ⟨rfl, errs_post St B' hgz shape kc hil
           hstr _ (bad_code (errs.elim (fun e => Or.inr (Or.inr e)) (fun e => Or.inr (Or.inl e))))
           ⟨by decide, by decide⟩ (Or.inr (Or.inl rfl)) e3 e4 e5⟩⟩
-        rw [if_neg cm]
+        rw [ite_eq_right cm]
         simp only [g_bind_app, g_pure_app, lift_ok run']
-  rw [if_neg c3]
+  rw [ite_eq_right c3]
   -- `Z_OK` or `Z_STREAM_END`: the loop goes on, or stops at the end of a member
   have hcode : rc = Z_OK ∨ rc = Z_STREAM_END := by
     simp only [Bool.or_eq_true, beq_iff_eq, not_or] at c1 c2 c3
@@ -1677,7 +1677,7 @@ variable {i : Nat} {out : Region} {h0 : Heap} {fs0 : Fs} {s0 : GzState}
 
 /-- The `inflate` call, the `junk` update and the error checks. -/
 theorem run_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (St : Stat i out h0 s0) (had : UInt32)
-    (hhad : had.toNat = out.length) {fs : Fs} {h : Heap}
+    (_hhad : had.toNat = out.length) {fs : Fs} {h : Heap}
     {s : GzState} (B : Base i out h0 fs0 s0 fs h s) (hgz : s.how = GZIP) (hav : s.strm.avail_in ≠ 0)
     (hao : s.strm.avail_out ≠ 0) (hd : Hd h0 fs0 s0 fs h s) (k : Nat)
     (hk : ReadsFinite fs0 s0.fd → meas fs s ≤ k) (l : Zlib.Gzread.DecompLoop) (hl : l.brk = false)
@@ -1739,7 +1739,7 @@ theorem run_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (S
   unfold decompRun
   simp only [g_bind_app, hrun, hz]
   by_cases cj : z'.avail_out < had
-  · rw [if_pos cj]
+  · rw [ite_eq_left cj]
     let s3 : GzState := { s2 with junk := 0 }
     have rd := (B2.inv.2.reader hm)
     have hu3 : GzInvUpToOutput (putGz h2 i s3) i s3 :=
@@ -1754,7 +1754,7 @@ theorem run_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (S
     simp only [g_bind_app, hu]
     exact errs_run St B3 hgz k l hl rc codes pBUF hstr hmeas r1 e2 e3 e4
       (fun hc => stuck_put (pStuck' hc) rfl)
-  · rw [if_neg cj]
+  · rw [ite_eq_right cj]
     exact errs_run St B2 hgz k l hl rc codes pBUF hstr hmeas r1 e2 e3 e4 pStuck'
 
 /-- The second input check. -/
@@ -1773,7 +1773,7 @@ theorem mid_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (S
   unfold decompMid
   simp only [g_bind_app, hz]
   by_cases c0 : (s.strm.avail_in == 0) = true
-  · rw [if_pos c0]
+  · rw [ite_eq_left c0]
     have hav : s.strm.avail_in = 0 := by simpa using c0
     have nb : ¬ BadErr s0 := fun hb => hbad hb hav
     have hld : (StateT.lift (ldS (gzSt i)) : G GzState) fs h = .ok ((s, fs), h) := lift_ok (ldS_run B.rcd)
@@ -1788,7 +1788,7 @@ theorem mid_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (S
       have e' : l.ret = Z_STREAM_END := e
       rw [hret] at e'; exact absurd e' (by decide)
     by_cases ca : (s.again == 0) = true
-    · rw [if_pos ca]
+    · rw [ite_eq_left ca]
       obtain ⟨p, hp, hmsg⟩ := lit_msg "unexpected end of file" (by decide +kernel) (by decide +kernel)
         (by decide +kernel) h
       obtain ⟨after, s', run, hs', shape, -, kc, hil, B'⟩ := err_trans St B Z_BUF_ERROR (by decide) p hmsg
@@ -1799,9 +1799,9 @@ theorem mid_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (S
       rcases hd a b c with x | x
       · exact Or.inl (atHead_kept kc (by rw [shape]) x)
       · exact Or.inr (by rw [hil]; exact x)
-    · rw [if_neg ca]
+    · rw [ite_eq_right ca]
       exact ⟨{ l with brk := true }, fs, h, rfl, post h s B hgz rfl rfl hd⟩
-  · rw [if_neg c0]
+  · rw [ite_eq_right c0]
     have hav : s.strm.avail_in ≠ 0 := by simpa using c0
     exact run_run head stuck St had hhad B hgz hav hao hd k hk l hl r1 r2 r3
 
@@ -1815,7 +1815,7 @@ theorem body_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (
   unfold decompBody
   simp only [g_bind_app, hz]
   by_cases c0 : (s.strm.avail_in == 0) = true
-  · rw [if_pos c0]
+  · rw [ite_eq_left c0]
     have hav0 : s.strm.avail_in = 0 := by simpa using c0
     obtain ⟨r, fs1, h1, s1, run, hr, hs1, B1, hrec, hflags, hist, hle⟩ := avail_trans St B (by rw [hgz]; decide)
     have e := hrec
@@ -1834,7 +1834,7 @@ theorem body_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (
       exact ⟨k2, st2, by rw [e]; exact hk2, by rw [hist k2]; exact hst2, hmode⟩
     have hao1 : s1.strm.avail_out = s.strm.avail_out := by rw [e]
     by_cases c1 : (r == -1) = true
-    · rw [if_pos c1]
+    · rw [ite_eq_left c1]
       have rm : r = -1 := by simpa using c1
       have hb1 := hflags.1 rm
       have hld : (StateT.lift (ldS (gzSt i)) : G GzState) fs1 h1 = .ok ((s1, fs1), h1) := lift_ok (ldS_run hs1)
@@ -1848,7 +1848,7 @@ theorem body_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (
         rcases i2 hb with x | ⟨-, x⟩
         · exact absurd x hne
         · exact Or.inr (Or.inr (Or.inl fun a b => Nat.lt_of_le_of_lt (hle a) (x a b)))
-    · rw [if_neg c1]
+    · rw [ite_eq_right c1]
       have r0 : r = 0 := hr.resolve_right (by simpa using c1)
       have nb : ¬ BadErr s0 := fun hb => by
         have hb' : BadErr s := by show s.err ≠ Z_OK ∧ s.err ≠ Z_BUF_ERROR; rw [i1]; exact hb
@@ -1867,7 +1867,7 @@ theorem body_run (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutput) (
       unfold meas
       rw [hao1]
       omega
-  · rw [if_neg c0]
+  · rw [ite_eq_right c0]
     exact mid_run head stuck St had hhad B hgz hao (fun e => absurd (by simp [e]) c0) hd k (fun _ => by omega) l hl hret
       i1 i2 i3 (fun _ e => c0 (by simp [e]))
 
@@ -2085,7 +2085,7 @@ theorem tail_run (St : Stat i out h0 s0) (g0 : s0.how = GZIP) (had : UInt32) (hh
   unfold decompTail
   simp only [g_bind_app, hz, hu1, hadd, hu2]
   by_cases ce : (l.ret == Z_STREAM_END) = true
-  · rw [if_pos ce]
+  · rw [ite_eq_left ce]
     have ret : l.ret = Z_STREAM_END := by simpa using ce
     let s3 : GzState := { s2 with junk := 0, how := LOOK }
     have hs2 : (putGz (putGz h i s1) i s2).gzstates i = some s2 := by simp [putGz]
@@ -2114,7 +2114,7 @@ theorem tail_run (St : Stat i out h0 s0) (g0 : s0.how = GZIP) (had : UInt32) (hh
       rcases hx with ⟨-, x⟩ | x
       · exact absurd ret x
       · exact x
-  · rw [if_neg ce]
+  · rw [ite_eq_right ce]
     have ret : l.ret ≠ Z_STREAM_END := by simpa using ce
     have hdF : HasBudget fs0 s0.fd → s0.err ≠ Z_STREAM_END → InflateAtHead h0 s0 →
         (s2.how = GZIP → InflateAtHead (putGz (putGz h i s1) i s2) s2) ∨ inputLeft fs s2 < inputLeft fs0 s0 := by
@@ -2144,13 +2144,13 @@ theorem tail_run (St : Stat i out h0 s0) (g0 : s0.how = GZIP) (had : UInt32) (hh
       · exact Or.inr (Or.inr (Or.inr ⟨g, stuck_put (stuck_put st rfl) rfl, ns, na⟩))
     by_cases c : (l.ret != Z_OK) = true
     · refine ⟨_, fs, _, rfl, ?_⟩
-      rw [if_pos c]
+      rw [ite_eq_left c]
       have hne : l.ret ≠ Z_OK := by simpa using c
       exact final_post B2 (-1) (Or.inr rfl) hgl hxc (fun _ => (herr hne ret).1) (fun e => absurd e (by decide)) rkA
         (fun _ _ => Or.inr (Or.inl rfl)) (fun a b => hbb ⟨a, b⟩) (fun _ => herr hne ret) dC
         (fun a b c hs => ⟨hzero (hq4 ⟨a, b⟩ c hs).1, Or.inl rfl⟩)
     · refine ⟨_, fs, _, rfl, ?_⟩
-      rw [if_neg c]
+      rw [ite_eq_right c]
       have e : l.ret = Z_OK := by simpa using c
       have hav0 : s2.x.have ≠ 0 ∨ (s2.eof ≠ 0 ∧ s2.strm.avail_in = 0) := by
         rcases hok e with a0 | a0
@@ -2208,8 +2208,8 @@ theorem gz_decomp_safe_of (stuck : InflateStuckNoOutput) : GzDecompSpec := by
         omega
     · unfold outRegions
       by_cases hB : out.pointer = s.out
-      · rw [if_pos hB]; exact views_nil' _
-      · rw [if_neg hB]
+      · rw [ite_eq_left hB]; exact views_nil' _
+      · rw [ite_eq_right hB]
         have hA := hside.resolve_right hB
         rintro ref ⟨region, mem, off, hp⟩
         rw [List.mem_singleton] at mem

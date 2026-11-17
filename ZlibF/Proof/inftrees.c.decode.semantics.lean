@@ -63,7 +63,7 @@ theorem hereC_lens_eq {c : Ctx} {word : UInt16} (bits : UInt8)
         rw [matchValue, UInt32.le_iff_toNat_le, wordValue]
         change ¬ 257 ≤ word.toNat
         omega
-      simp only [hereC, test, before, literal, ending, ite_false, ite_true,
+      simp only [hereC, test, before, ending, ite_false, ite_true,
         show ¬ (256 : Nat) < 256 by omega]
     · have after : c.match_ ≤ word.toUInt32 := by
         rw [matchValue, UInt32.le_iff_toNat_le, wordValue]
@@ -268,7 +268,7 @@ theorem Env.read_allocated_word {e : Env} {ca : Array Code} {j value : Nat}
       omega
     simp only [tableRead, rootRead, bind, Option.bind, getLink]
     rw [isLink]
-    simp only [ite_true, linkOp, linkBits, linkBase, secondRead, bind, Option.bind, getHere]
+    simp only [ite_true, linkOp, linkBits, linkBase, secondRead, getHere]
     rw [linkBits] at bits
     rw [bits]
     rfl

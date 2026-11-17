@@ -233,7 +233,7 @@ theorem DefaultDecodeJ.requestedBits_of {h : Heap} {r : ZStreamRef} {zs : Nat} {
   RequestedBitsOK.of_default bits nonzero
 
 theorem DefaultDecodeJ.requestedWrap_of {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
-    {s : InflateState} (current : DefaultDecodeJ h r zs z s)
+    {s : InflateState} (_current : DefaultDecodeJ h r zs z s)
     (wrap : s.reqwrap = 0 ∨ s.reqwrap = 1 ∨ s.reqwrap = 5)
     (current_wrap : s.wrap = 0 ∨ s.wrap = 1 ∨ s.wrap = 5) : RequestedWrapOK s.reqwrap s.wrap :=
   RequestedWrapOK.of_default wrap current_wrap

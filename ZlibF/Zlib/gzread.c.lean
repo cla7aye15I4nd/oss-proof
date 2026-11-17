@@ -134,7 +134,7 @@ def gz_look (state : GzStatePtr) : G Int32 := do
       gz_error state Z_MEM_ERROR (← strLit "out of memory")
       return -1
     -- state->size = state->want;
-    let s ← ldS state
+    let _s ← ldS state
     updS state fun s => { s with size := s.want }
     -- state->strm.zalloc = Z_NULL; zfree; opaque; avail_in = 0; next_in = Z_NULL;
     updZ strm fun z => { z with zalloc := .null, zfree := .null, «opaque» := .null, avail_in := 0, next_in := .null }
@@ -259,7 +259,7 @@ def gz_fetch (state : GzStatePtr) : G Int32 := do
   let s ← ldS state
   if s.err != Z_OK && s.err != Z_BUF_ERROR && s.again == 0 then return -1
   let r ← gdoWhile
-    (fun (r : Option Int32) => do
+    (fun (_r : Option Int32) => do
       -- switch (state->how)
       let s ← ldS state
       if s.how == LOOK then

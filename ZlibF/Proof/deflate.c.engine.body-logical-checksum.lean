@@ -85,7 +85,7 @@ theorem slow_body_run_logical_adler {h after : Heap} {r : ZStreamRef}
             .ok ({ st with brk := true }, filledHeap) := by
           rw [slow_body_search_decision_source]
           simp only [bind_app, rdD_eq, boundary.good.live.hs, small, ite_true,
-            fillRun, filledState.good.live.hs, notWait, Bool.false_eq_true, ite_false,
+            fillRun, filledState.good.live.hs, Bool.false_eq_true, ite_false,
             empty, notWaitZero, BEq.rfl, ite_true, pure_app]
         exact identify actual filledState fillAccount agreesF endpointF coveredF checksumF
       · have nonzero : 1 ≤ filled.lookahead.toNat := by

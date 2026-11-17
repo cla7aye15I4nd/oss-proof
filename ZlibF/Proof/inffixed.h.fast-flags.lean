@@ -42,12 +42,12 @@ theorem all_root_flags_query_compatible {type : UInt32} {ca : Array Code} {offse
       obtain ⟨i, rest⟩ := pair
       simp only [read, bind, Option.bind] at query
       cases get : ca[offset + i]? with
-      | none => simp only [get, Option.bind] at query; contradiction
+      | none => simp only [get] at query; contradiction
       | some actual =>
           have check := (Array.all_eq_true_iff_forall_mem.mp allFlags) actual (Array.mem_of_getElem? get)
           obtain ⟨compatible, leaf⟩ := fixedFlagsCheck_sound check
           unfold Subtable.IsLink at leaf
-          simp only [get, Option.bind, leaf, Bool.false_eq_true, ite_false] at query
+          simp only [get, leaf, Bool.false_eq_true, ite_false] at query
           have equal : actual = entry := congrArg Prod.fst (Option.some.inj query)
           subst actual
           exact compatible

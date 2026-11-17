@@ -89,11 +89,11 @@ theorem regOut_props (fd : Int32) (w : Fs) :
       · intro j hj
         have hne : fd.toInt.toNat ≠ j := fun e => hj h0.1 e.symm
         show (w.fds.set! fd.toInt.toNat none)[j]? = w.fds[j]?
-        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, if_neg hne]
+        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, ite_eq_right hne]
       · intro _ f hf
         have hlt : fd.toInt.toNat < w.fds.size := by omega
         dsimp only at hf
-        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, if_pos rfl, if_pos hlt] at hf
+        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, ite_eq_left rfl, ite_eq_left hlt] at hf
         cases hf
 
 theorem closeResult_eq (fd : Int32) (fs : Fs) :
@@ -452,9 +452,9 @@ theorem run_buf {h H1 H2 H3 H4 H5 : Heap} {i : Nat} {s t : GzState} (fs : Fs) (h
   unfold Zlib.Gzread.gzclose_r
   simp only [hnd_isNone, Bool.false_eq_true, ↓reduceIte, castState_hnd]
   simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_lift_app,
-    ldS_run hs, hm', hz', Bool.false_eq_true, eq_self_iff_true, ↓reduceIte, strmOf_tab, e1, e2, e3, e4,
+    ldS_run hs, hm', hz', Bool.false_eq_true, ↓reduceIte, strmOf_tab, e1, e2, e3, e4,
     ldS_run e5, e6]
-  simp [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_lift_app,
+  simp [
     g_pure_app, Zlib.Gzread.Proofs.fsClose_run, freeGzState_run e7]
 
 /-- The run of a reader without buffers, given the runs of its pieces. -/
@@ -473,7 +473,7 @@ theorem run_unbuf {h H4 H5 : Heap} {i : Nat} {s t : GzState} (fs : Fs) (hs : h.g
   simp only [hnd_isNone, Bool.false_eq_true, ↓reduceIte, castState_hnd]
   simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_lift_app,
     ldS_run hs, hm', hz', Bool.false_eq_true, ↓reduceIte, e4, ldS_run e5, e6]
-  simp [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, g_bind_app, g_lift_app,
+  simp [
     g_pure_app, Zlib.Gzread.Proofs.fsClose_run, freeGzState_run e7]
 
 theorem rc_cases (c : Int32) (e : Int32) :
@@ -481,13 +481,13 @@ theorem rc_cases (c : Int32) (e : Int32) :
     (if c ≠ 0 then Z_ERRNO else if e = Z_BUF_ERROR then Z_BUF_ERROR else Z_OK) = Z_BUF_ERROR ∨
     (if c ≠ 0 then Z_ERRNO else if e = Z_BUF_ERROR then Z_BUF_ERROR else Z_OK) = Z_ERRNO := by
   by_cases h1 : c ≠ 0
-  · rw [if_pos h1]
+  · rw [ite_eq_left h1]
     exact Or.inr (Or.inr rfl)
-  · rw [if_neg h1]
+  · rw [ite_eq_right h1]
     by_cases h2 : e = Z_BUF_ERROR
-    · rw [if_pos h2]
+    · rw [ite_eq_left h2]
       exact Or.inr (Or.inl rfl)
-    · rw [if_neg h2]
+    · rw [ite_eq_right h2]
       exact Or.inl rfl
 
 /-! ## 5. The pointer facts of a reader -/

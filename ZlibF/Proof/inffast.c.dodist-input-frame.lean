@@ -33,14 +33,14 @@ theorem dodist_input_cursor (c : Ctx) (l : L) :
     | dsimp only
     | (apply valuePost_pure (α := L) (post := fun result => ∃ used, used ≤ 2 ∧ result.in_ = inputAdvance l.in_ used)
        first
-       | solve | refine ⟨0, by omega, ?_⟩; simp_all [inputRegisters, inputAdvance_zero, inputAdvance_add]
+       | solve | refine ⟨0, by omega, ?_⟩; simp_all [inputAdvance_zero]
        | solve | refine ⟨1, by omega, ?_⟩; simp_all [inputRegisters, inputAdvance_zero, inputAdvance_add]
        | solve | refine ⟨2, by omega, ?_⟩; simp_all [inputRegisters, inputAdvance_zero, inputAdvance_add])
     | (apply copyMatch_cursor_bound (origin := l.in_) (bound := 2)
        first
-       | solve | refine ⟨0, by omega, ?_⟩; simp_all [inputRegisters, inputAdvance_zero, inputAdvance_add]
-       | solve | refine ⟨1, by omega, ?_⟩; simp_all [inputRegisters, inputAdvance_zero, inputAdvance_add]
-       | solve | refine ⟨2, by omega, ?_⟩; simp_all [inputRegisters, inputAdvance_zero, inputAdvance_add])
+       | solve | refine ⟨0, by omega, ?_⟩; simp_all [inputAdvance_zero, inputAdvance_add]
+       | solve | refine ⟨1, by omega, ?_⟩; simp_all [inputAdvance_add]
+       | solve | refine ⟨2, by omega, ?_⟩; simp_all [inputAdvance_add])
     | apply valuePost_ite (α := L) (post := fun result => ∃ used, used ≤ 2 ∧ result.in_ = inputAdvance l.in_ used)
     | apply valuePost_bind (α := L) (β := L) (post := fun result => ∃ used, used ≤ 2 ∧ result.in_ = inputAdvance l.in_ used) (pull_input_cursor _); intro next cursor
     | apply valuePost_bind_any (β := L) (post := fun result => ∃ used, used ≤ 2 ∧ result.in_ = inputAdvance l.in_ used); intro next
@@ -65,7 +65,7 @@ theorem dodist_continue_cursor (c : Ctx) (l : L) :
   unfold dodist
   repeat' first
     | dsimp only
-    | apply valuePost_pure (α := L) (post := fun result => result.againD = true → result.in_ = l.in_); simp_all [decodeControls]
+    | apply valuePost_pure (α := L) (post := fun result => result.againD = true → result.in_ = l.in_); simp_all
     | apply copyMatch_stopped_cursor (origin := l.in_); simp_all [decodeControls]
     | apply valuePost_ite (α := L) (post := fun result => result.againD = true → result.in_ = l.in_)
     | apply valuePost_bind (α := L) (β := L) (post := fun result => result.againD = true → result.in_ = l.in_) (pull_decode_controls _); intro next controls
@@ -120,7 +120,7 @@ theorem dodist_againL_frame (c : Ctx) (l : L) :
   unfold dodist
   repeat' first
     | dsimp only
-    | apply valuePost_pure (α := L) (post := fun result => result.againL = l.againL); simp_all [decodeControls]
+    | apply valuePost_pure (α := L) (post := fun result => result.againL = l.againL); simp_all
     | apply copyMatch_againL_frame (expected := l.againL); simp_all [decodeControls]
     | apply valuePost_ite (α := L) (post := fun result => result.againL = l.againL)
     | apply valuePost_bind (α := L) (β := L) (post := fun result => result.againL = l.againL) (pull_decode_controls _); intro next controls

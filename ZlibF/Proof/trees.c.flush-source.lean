@@ -61,6 +61,6 @@ theorem flush_block_source (s : DeflateStatePtr) (buf : BPtr) (stored_len : UInt
     compress_block s (← pLtree s) (← pDtree s)
   flushBlockTail s last) := by
   unfold «_tr_flush_block» fixedBlockPayload fixedBlockHeader flushBlockTail
-  simp only [M_bind_assoc, M_pure_bind, merge_ite_bind]
+  simp only [M_bind_assoc]
 
 end Zlib.Trees.Proofs

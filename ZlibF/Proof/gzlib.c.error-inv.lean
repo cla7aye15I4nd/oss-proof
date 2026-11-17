@@ -226,7 +226,7 @@ theorem GzInv.put_message {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s)
       msg := by
         refine Or.inr ⟨m, (putGz_cstring _ _).2 ?_, nb, _, rfl, hb, hro, by simp⟩
         refine ⟨Or.inr ⟨.blk nb, 0, _, rfl, hb, by simp, ?_⟩, h0, hlen⟩
-        simp only [List.toList_toArray, List.drop_zero]
+        simp only [List.drop_zero]
         exact (List.take_of_length_le (by simp)).symm
       memerr := fun e => absurd e herr
       want := c.want
@@ -343,7 +343,7 @@ private theorem strlenB_setS (h : Heap) (i : Nat) (s : GzState) (p : BPtr) :
     | none => rfl
     | some a =>
       dsimp only
-      cases hl : strlenFrom a off <;> simp only [hl]
+      cases hl : strlenFrom a off <;> simp only
 
 /-- **Prefix**: the run equals the run from the heap with the old message freed and the code stored. -/
 theorem gz_error_prefix {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (err : Int32) (msg : BPtr) :
@@ -582,7 +582,7 @@ theorem tail_copied {h : Heap} {i : Nat} {s : GzState} {err : Int32} {msg : BPtr
   have herr' : (err == Z_MEM_ERROR) = false := by simpa using herr
   unfold Zlib.Gzlib.gz_error
   simp [gzSt, bind_app, ldS_eq, updS_eq, hs, hm, hn, hpLen, heLen, hpLenReady, heLenReady,
-    hsum, hnum, hxm, hem, hlenmod, hmalloc, hready, error_format_literal, error_separator_literal,
+    hsum, hxm, hem, hlenmod, hmalloc, error_format_literal, error_separator_literal,
     finalH, chars, copiedS, readyH, herr', setS, upd_upd]
   dsimp only [msgLen] at hprint ⊢
   rw [hprint]
@@ -770,9 +770,9 @@ theorem post_copied {h h1 : Heap} {i : Nat} {s s1 : GzState} {err : Int32} {msg 
     refine ⟨fsta.symm, fok.symm, fgar.symm, by rw [fnext]; omega, by rw [fnal]; omega, ?_⟩
     intro b hb _
     have hlt := h1lt b hb
-    refine ⟨by rw [hAb, if_neg (by omega)], by rw [fw], by rw [fst], by rw [fgh], by rw [fds], by rw [fis],
+    refine ⟨by rw [hAb, ite_eq_right (by omega)], by rw [fw], by rw [fst], by rw [fgh], by rw [fds], by rw [fis],
       by rw [fgz], ?_⟩
-    rw [hAro, if_neg (by omega)]
+    rw [hAro, ite_eq_right (by omega)]
   have freshA : Fresh hA := by
     intro b hb hl
     rw [fnext] at hb
@@ -786,7 +786,7 @@ theorem post_copied {h h1 : Heap} {i : Nat} {s s1 : GzState} {err : Int32} {msg 
     · subst e
       obtain ⟨-, a2, a3, a4, a5, a6, a7⟩ := hfresh1 h1.nextBlk (Nat.le_refl _)
       simp [a2, a3, a4, a5, a6, a7]
-    · rw [if_neg e]; exact inv1.common.uniq b
+    · rw [ite_eq_right e]; exact inv1.common.uniq b
   have globalsA : LibraryGlobals hA := by
     unfold LibraryGlobals; rw [fsta]; exact inv1.common.globals
   have fitA : ZlibF.PlatformMemory.ByteObjectsFit hA := by
@@ -796,11 +796,11 @@ theorem post_copied {h h1 : Heap} {i : Nat} {s s1 : GzState} {err : Int32} {msg 
       have e : hA.bytes b = some a := hra
       rw [hAb] at e
       by_cases eb : b = h1.nextBlk
-      · rw [if_pos eb] at e
+      · rw [ite_eq_left eb] at e
         cases e
         simp [chars, ZlibF.PlatformMemory.byteObjectLimit]
         omega
-      · rw [if_neg eb] at e
+      · rw [ite_eq_right eb] at e
         exact inv1.common.fit (.blk b) a e
     | str j =>
       rw [hAget _ (fun _ e => by cases e)] at hra
@@ -827,9 +827,9 @@ theorem post_copied {h h1 : Heap} {i : Nat} {s s1 : GzState} {err : Int32} {msg 
     simp only [List.mem_append, List.mem_cons, List.not_mem_nil, not_or]
     exact ⟨⟨hpx.2.1, by decide, by decide⟩, ct.2.1⟩
   have hAnb : hA.bytes h1.nextBlk = some ((xs ++ [58, 32] ++ t) ++ [0]).toArray := by
-    rw [hAb, if_pos rfl]
+    rw [hAb, ite_eq_left rfl]
     simp [chars]
-  have hAro' : hA.ro h1.nextBlk = false := by rw [hAro, if_pos (Or.inl rfl)]
+  have hAro' : hA.ro h1.nextBlk = false := by rw [hAro, ite_eq_left (Or.inl rfl)]
   obtain ⟨invB, ownB⟩ := invA.put_message c.msg1 (by rw [c.err1]; exact herr) hAnb hAro' h0
     (by simp; omega) hnbown hptr
   have hnbh : ¬ h.live h1.nextBlk := by rw [c.next1]; exact c.fresh0

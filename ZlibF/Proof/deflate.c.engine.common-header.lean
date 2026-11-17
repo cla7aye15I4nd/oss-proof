@@ -101,9 +101,9 @@ theorem public_common_header_run {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
   have da : after.dstates ds = some (pendingState (levelHeaderState d) (.ref (.blk pb) n.toNat) n) := by
     simp [after, levelHeaderFlushed, n]
   unfold publicZlibHeader
-  simp only [bind_app, pure_app, rdD_eq, hd, status, wrap]
+  simp only [bind_app, rdD_eq, hd, status, wrap]
   simp only [show (INIT_STATE == INIT_STATE) = true from rfl, show ((1 : Int32) == 0) = false from rfl,
-    Bool.and_false, Bool.false_eq_true, ite_false, ite_true, bind_app, pure_app,
+    Bool.and_false, Bool.false_eq_true, ite_false, ite_true, bind_app,
     rdD_eq, hd, status, ldDeflateState_tab hd, strategy, window, start]
   simp only [show ((0 : Int32) ≥ Z_HUFFMAN_ONLY) = False from by decide,
     decide_false, Bool.false_or, show ((0 : UInt32) != 0) = false from rfl,
@@ -112,9 +112,9 @@ theorem public_common_header_run {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
   rw [bind_app, put]
   simp only [bind_app, pure_app, rdD_eq, d1, start, show ((0 : UInt32) != 0) = false from rfl, Bool.false_eq_true, ite_false,
     Zlib.Adler32.Proofs.adler32_null_init, pure_app, zwr_eq, z1, writeBusy, flush]
-  simp only [bind_app, rdD_eq, da, pendingState, levelHeaderState]
+  simp only [da, pendingState, levelHeaderState]
   split
-  · simp only [wrD_eq, da, bind_app, setD_setD]
+  · simp only [wrD_eq, da, bind_app]
     rfl
   · rfl
 

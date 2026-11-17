@@ -72,7 +72,7 @@ theorem gz_room_run' {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = som
   have hpg := s.x.pos.le_toInt
   have hml := max.toNat_lt
   unfold Zlib.Gzread.gz_room
-  simp only [gzSt, bind_app, pure_app, ldS_eq, hs]
+  simp only [gzSt, bind_app, ldS_eq, hs]
   by_cases hp : s.x.pos > 0
   · have hp' : 0 < s.x.pos.toInt := by have := (Int64.lt_iff_toInt_lt).1 hp; simpa using this
     have hsub := i64sub_run GZ_OFF_MAX s.x.pos (by rw [GZ_OFF_MAX_toInt]; omega)
@@ -96,14 +96,14 @@ theorem gz_room_run' {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = som
       rw [hv] at this
       simp at this
       omega
-    · simp only [hlt, Bool.false_eq_true, ite_false, pure_app]
+    · simp only [hlt, ite_false, pure_app]
       have hge : ¬ (9223372036854775807 - s.x.pos.toInt < (max.toNat : Int)) := by
         intro hh; apply hlt; rw [Int64.lt_iff_toInt_lt, hd, u32ToI64_toInt]; exact hh
       refine ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz, fun hlt => absurd hlt (Nat.lt_irrefl _)⟩
   · have hp' : s.x.pos.toInt ≤ 0 := by
       have : ¬ (0 : Int64).toInt < s.x.pos.toInt := fun hh => hp ((Int64.lt_iff_toInt_lt).2 hh)
       simp at this; omega
-    simp only [hp, Bool.false_eq_true, ite_false, pure_app, decide_false]
+    simp only [hp, ite_false, pure_app]
     exact ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz, fun hlt => absurd hlt (Nat.lt_irrefl _)⟩
 
 -- `post_compose` of `gz.read-decomp`, for any invariants that name the record (there: `GzInvUpToOutput` only).
@@ -590,7 +590,7 @@ theorem rank_eq {fs : Fs} {h h' : Heap} {s s' : GzState} (hhow : s'.how = s.how)
 theorem budOf_lt {fs : Fs} {fd : Int32} (hb : ReadsFinite fs fd) : budOf fs fd < 2 ^ 61 := by
   have := hb.2
   unfold budOf
-  rw [if_pos hb.1.1]
+  rw [ite_eq_left hb.1.1]
   exact this
 
 /-- The measure starts below the fuel. -/
@@ -791,7 +791,7 @@ theorem copy_run {i : Nat} {h0 : Heap} {fs0 : Fs} {s0 : GzState} {buf0 : BPtr} {
     (views0 : Zlib.Inflate.Proofs.RegionViews (StartChanged h0 i s0) [⟨buf0, len0.toNat⟩])
     (hw0 : Writable h0 buf0 len0.toNat) (hno0 : ∀ b, ByteRoot buf0 b → ¬ GzOwned h0 i s0 b) (hn0 : len0.toNat ≠ 0)
     {l : Zlib.Gzread.ReadLoop} {fs : Fs} {h : Heap} {s : GzState} (acc : RAcc i h0 fs0 s0 buf0 len0 l fs h)
-    (hs : h.gzstates i = some s) (inv : GzInv h i s) (kp : Keep s0 s) (hbrk : l.brk = false) (herr0 : l.err = 0)
+    (hs : h.gzstates i = some s) (inv : GzInv h i s) (kp : Keep s0 s) (hbrk : l.brk = false) (_herr0 : l.err = 0)
     (n0 n : UInt32) (hn0le : n0.toNat ≤ l.len.toNat) (hn0v : n0.toNat = l.len.toNat ∨ n0.toNat = 4294967295)
     (hnle : n.toNat ≤ n0.toNat) (hpn : s.x.pos.toInt + n.toNat ≤ 9223372036854775807)
     (hcut : n.toNat < n0.toNat → s.x.pos.toInt + n.toNat = 9223372036854775807)
@@ -835,7 +835,7 @@ theorem copy_run {i : Nat} {h0 : Heap} {fs0 : Fs} {s0 : GzState} {buf0 : BPtr} {
   have hsize : (copyRange a oa off c0 m.toNat).size = a.size := size_copyRange _ _ _ _ _
   obtain ⟨P1, inv1⟩ := post_region_put (m := m.toNat) inv hfs hg hro hsize
     (fun b hb' => hno b (by rw [hb]; exact hb'))
-    (fun j hj hnc => by rw [Zlib.Deflate.Engine.Proofs.getElem?_copyRange _ _ _ _ _ _ (by omega), if_neg hnc])
+    (fun j hj hnc => by rw [Zlib.Deflate.Engine.Proofs.getElem?_copyRange _ _ _ _ _ _ (by omega), ite_eq_right hnc])
   have hs1 : (Space.put h r (copyRange a oa off c0 m.toNat)).gzstates i = some s := by rw [space_put_gz]; exact hs
   have hg1ob : Space.get (Space.put h r (copyRange a oa off c0 m.toNat)) (BRef.blk ob) = some oa := by
     rw [Zlib.Inflate.Proofs.byte_view_get_put_ne h (Ne.symm hne)]; exact hob'
@@ -916,22 +916,22 @@ theorem copy_run {i : Nat} {h0 : Heap} {fs0 : Fs} {s0 : GzState} {buf0 : BPtr} {
 
 /-! ## Facts of the measure -/
 
-theorem q_one {s : GzState} (h0 : s.x.«have».toNat = 0) : qOf s = 1 := by unfold qOf; rw [if_pos h0]
+theorem q_one {s : GzState} (h0 : s.x.«have».toNat = 0) : qOf s = 1 := by unfold qOf; rw [ite_eq_left h0]
 
 theorem q_zero {s : GzState} (h0 : s.x.«have».toNat ≠ 0)
     (hc : 16 ≤ s.x.«have».toNat ∨ s.err ≠ Z_OK ∨ 9223372036854775807 ≤ s.x.pos.toInt + s.x.«have».toNat) :
     qOf s = 0 := by
   unfold qOf
-  rw [if_neg h0, if_neg]
+  rw [ite_eq_right h0, ite_eq_right]
   rintro ⟨a, b, c⟩
   rcases hc with e | e | e
   · omega
   · exact e b
   · omega
 
-theorem e_zero {s : GzState} (h0 : s.eof ≠ 0 ∧ s.strm.avail_in = 0) : eOf s = 0 := by unfold eOf; rw [if_pos h0]
+theorem e_zero {s : GzState} (h0 : s.eof ≠ 0 ∧ s.strm.avail_in = 0) : eOf s = 0 := by unfold eOf; rw [ite_eq_left h0]
 
-theorem e_one {s : GzState} (h0 : ¬ (s.eof ≠ 0 ∧ s.strm.avail_in = 0)) : eOf s = 1 := by unfold eOf; rw [if_neg h0]
+theorem e_one {s : GzState} (h0 : ¬ (s.eof ≠ 0 ∧ s.strm.avail_in = 0)) : eOf s = 1 := by unfold eOf; rw [ite_eq_right h0]
 
 theorem cont_of {l : Zlib.Gzread.ReadLoop} (hb : l.brk = false) (hl : l.len ≠ 0) (he : l.err = 0) : cont l = true := by
   simp [cont, hb, hl, he]
@@ -943,7 +943,7 @@ theorem cont_err (l : Zlib.Gzread.ReadLoop) : cont { l with err := -1 } = false 
 theorem rank_copy {fs : Fs} {h : Heap} {s : GzState} (hc : s.how = GZ_COPY) :
     fetchRank fs h s = 4 * (budOf fs s.fd + s.strm.avail_in.toNat) + budOf fs s.fd := by
   have : ¬ (s.how = GZIP ∧ ¬ InflateAtHead h s) := fun hh => absurd (hc.symm.trans hh.1) (by decide)
-  rw [fetchRank_ite, inputLeft_eq, if_neg this, if_pos hc]
+  rw [fetchRank_ite, inputLeft_eq, ite_eq_right this, ite_eq_left hc]
   omega
 
 /-- A reader with no buffered output in the loop is in `GzInv`. -/
@@ -1296,7 +1296,7 @@ theorem decomp_run (decomp : GzDecompSpec) {i : Nat} {h0 : Heap} {fs0 : Fs} {s0 
     rw [hb, hout] at e1
     cases e1
     exact hno ob (by rw [hb]; rfl) (GetcUngetc.out_owned kp.mode hsz hout)
-  rw [if_neg hne_out] at post
+  rw [ite_eq_right hne_out] at post
   have hfs2 : FileSystem fs2 := post.1
   have hu2 : GzInvUpToOutput h2 i s' := by
     obtain ⟨-, t, ht, -⟩ := post
@@ -1536,7 +1536,7 @@ theorem tail_final {i : Nat} {h0 : Heap} {fs0 : Fs} {s0 : GzState} {buf0 : BPtr}
   have P := post_compose' acc.post (fun t ht => ht) hs
     (post_put_step (fs := fs) (s' := { s with past := 1 }) hs c.live hfs ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl)
     (Zlib.Inflate.Proofs.RegionsWithin.nil _) views0
-  exact final_of hm0 ⟨acc.sum, acc.buf, acc.kept, P, acc.rb⟩ (by simp [putGz]) inv'
+  exact final_of hm0 ⟨acc.sum, acc.buf, acc.kept, P, acc.rb⟩ (by simp) inv'
     ⟨kp.mode, kp.fd, kp.skip, kp.noend, kp.copy, kp.ml⟩
 
 end Rd

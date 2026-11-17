@@ -89,8 +89,8 @@ theorem RunSafe.ite {c : Prop} [Decidable c] {A B : G α} {P : α → Fs → Hea
     (ha : c → RunSafe A fs h fin P) (hb : ¬ c → RunSafe B fs h fin P) :
     RunSafe (if c then A else B) fs h fin P := by
   by_cases hc : c
-  · rw [if_pos hc]; exact ha hc
-  · rw [if_neg hc]; exact hb hc
+  · rw [ite_eq_left hc]; exact ha hc
+  · rw [ite_eq_right hc]; exact hb hc
 
 theorem RunSafe.mono {m : G α} {P Q : α → Fs → Heap → Prop} (hm : RunSafe m fs h fin P)
     (hpq : ∀ a fs' h', P a fs' h' → Q a fs' h') : RunSafe m fs h fin Q :=
@@ -527,9 +527,9 @@ theorem memchrB_run {h : Heap} {r : BRef} {off n : Nat} {a : Array UInt8} (hg : 
     by_cases e : (a[off + i]'(by omega) == c) = true
     · have hadd : Ptr.add (Ptr.ref r off) (i : Int) h = .ok (Ptr.ref r (off + i), h) :=
         Ptr.add_nat_ok (off := off) (n := i) hg (by omega)
-      rw [if_pos e, bind_app, hadd]
+      rw [ite_eq_left e, bind_app, hadd]
       exact ⟨_, rfl, Or.inr ⟨i, hi', rfl⟩⟩
-    · rw [if_neg e]
+    · rw [ite_eq_right e]
       exact ⟨_, rfl, Or.inl rfl⟩
   · rintro y (e | ⟨j, hj, e⟩)
     · simp only [e]; exact ⟨_, rfl, Or.inl rfl⟩
@@ -546,7 +546,7 @@ theorem gz_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = some
   have hpg := s.x.pos.le_toInt
   have hml := max.toNat_lt
   unfold Zlib.Gzread.gz_room
-  simp only [gzSt, bind_app, pure_app, ldS_eq, hs]
+  simp only [gzSt, bind_app, ldS_eq, hs]
   by_cases hp : s.x.pos > 0
   · have hp' : 0 < s.x.pos.toInt := by have := (Int64.lt_iff_toInt_lt).1 hp; simpa using this
     have hsub := i64sub_run GZ_OFF_MAX s.x.pos (by rw [GZ_OFF_MAX_toInt]; omega)
@@ -570,14 +570,14 @@ theorem gz_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = some
       rw [hv] at this
       simp at this
       omega
-    · simp only [hlt, Bool.false_eq_true, ite_false, pure_app]
+    · simp only [hlt, ite_false, pure_app]
       have hge : ¬ (9223372036854775807 - s.x.pos.toInt < (max.toNat : Int)) := by
         intro hh; apply hlt; rw [Int64.lt_iff_toInt_lt, hd, u32ToI64_toInt]; exact hh
       refine ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz⟩
   · have hp' : s.x.pos.toInt ≤ 0 := by
       have : ¬ (0 : Int64).toInt < s.x.pos.toInt := fun hh => hp ((Int64.lt_iff_toInt_lt).2 hh)
       simp at this; omega
-    simp only [hp, Bool.false_eq_true, ite_false, pure_app, decide_false]
+    simp only [hp, ite_false, pure_app]
     exact ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz⟩
 
 /-- A write of the caller's region keeps the accumulated effect. -/
@@ -627,7 +627,7 @@ theorem lit_run (str : String) (t : List UInt8) (hs : str ∈ strTable) (hb : st
 
 /-- `gz_room` gives `0` at `x.pos = GZ_OFF_MAX` for any nonzero request. -/
 theorem gz_room_zero {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = some s)
-    (hp : s.x.pos.toInt = 9223372036854775807) (max : UInt32) (hm : max ≠ 0) :
+    (hp : s.x.pos.toInt = 9223372036854775807) (max : UInt32) (_hm : max ≠ 0) :
     Zlib.Gzread.gz_room (gzSt i) max h = .ok (0, h) := by
   obtain ⟨n, hr, -, hb, -⟩ := gz_room_run hs max
   have : n.toNat = 0 := by omega

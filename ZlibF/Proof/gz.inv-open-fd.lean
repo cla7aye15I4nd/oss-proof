@@ -31,15 +31,15 @@ theorem lowestFd_go_free (w : Fs) : ∀ k i, w.fds.size ≤ i + k → ¬ FdOpen 
     rw [e] at hf
     by_cases h1 : i < w.fds.size
     · by_cases h2 : (w.fds[i]!).isNone = true
-      · rw [if_pos h1, if_pos h2] at hf
+      · rw [ite_eq_left h1, ite_eq_left h2] at hf
         rw [getElem!_pos w.fds i h1] at h2
         rw [Array.getElem?_eq_getElem h1] at hf
         simp only [Option.some.injEq] at hf
         rw [hf] at h2
         simp at h2
-      · rw [if_pos h1, if_neg h2] at hf
+      · rw [ite_eq_left h1, ite_eq_right h2] at hf
         exact ih (i + 1) (by omega) ⟨f, hf⟩
-    · rw [if_neg h1] at hf
+    · rw [ite_eq_right h1] at hf
       rw [Array.getElem?_eq_none (by omega)] at hf
       cases hf
 
@@ -91,7 +91,7 @@ theorem openSourceNode_fds (slot n : Nat) (w : Fs) (acc : Int32) (has : Int32 �
       · simp
       · intro node hg hd
         try dsimp only at hg
-        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, if_pos rfl, if_pos hn] at hg
+        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, ite_eq_left rfl, ite_eq_left hn] at hg
         simp only [Option.some.injEq] at hg
         subst hg
         try dsimp only at hd
@@ -182,7 +182,7 @@ theorem okErrW_fs (o : Option Int32) {w : Fs} (hw : FileSystem w) : FileSystem (
 
 theorem set2_get_other (G : Array (Option OFile)) (k s j : Nat) (e : Option OFile) (hj : j ≠ s) (hjk : j ≠ k) :
     ((G.set! k e).set! s none)[j]? = G[j]? := by
-  simp [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, Ne.symm hj, Ne.symm hjk]
+  simp [Array.set!_eq_setIfInBounds, Ne.symm hj, Ne.symm hjk]
 
 theorem set2_get_k (G : Array (Option OFile)) (k s : Nat) (e : Option OFile) (f : OFile) (hks : k ≠ s)
     (h : ((G.set! k e).set! s none)[k]? = some (some f)) : e = some f := by
@@ -201,8 +201,8 @@ theorem grow_get (fds : Array (Option OFile)) (k j : Nat) (f : OFile) :
     (if k < fds.size then fds else fds ++ Array.replicate (k + 1 - fds.size) none)[j]? = some (some f) ↔
       fds[j]? = some (some f) := by
   by_cases hk : k < fds.size
-  · rw [if_pos hk]
-  · rw [if_neg hk]
+  · rw [ite_eq_left hk]
+  · rw [ite_eq_right hk]
     by_cases hjs : j < fds.size
     · simp [Array.getElem?_append, hjs]
     · rw [Array.getElem?_eq_none (show fds.size ≤ j by omega)]
@@ -257,9 +257,9 @@ theorem openFsResult_fds (name : Array UInt8) (flags : Int32) (fs : Fs) (hfs : F
     rw [hreg] at hR
     obtain ⟨hF, hK, hS⟩ := hR
     by_cases hr : r = -1
-    · rw [if_pos hr]
+    · rw [ite_eq_left hr]
       exact ⟨hF, fun _ => hK hr, fun h => absurd hr h⟩
-    · rw [if_neg hr]
+    · rw [ite_eq_right hr]
       obtain ⟨hcast, hlt, hopen, hothers⟩ := hS hr
       obtain ⟨hti, htn, htpos⟩ := openSlot_cast (lowestFd (tickW fs)) hlt
       have hfree : ¬ FdOpen fs (lowestFd (tickW fs)) := lowestFd_free (tickW fs)

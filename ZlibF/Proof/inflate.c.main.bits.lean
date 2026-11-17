@@ -53,7 +53,7 @@ theorem natBits_drop (k n j : Nat) (hj : j ≤ k) :
   simp [natBits_length]
 
 /-- `hold += b << bits; bits += 8` appends the byte's bits. -/
-theorem natBits_pull (bits hold b : Nat) (hh : hold < 2 ^ bits) (hb : b < 256) :
+theorem natBits_pull (bits hold b : Nat) (hh : hold < 2 ^ bits) (_hb : b < 256) :
     natBits (bits + 8) (hold + b * 2 ^ bits) = natBits bits hold ++ natBits 8 b := by
   rw [natBits_add]
   have h1 : natBits bits (hold + b * 2 ^ bits) = natBits bits hold := by

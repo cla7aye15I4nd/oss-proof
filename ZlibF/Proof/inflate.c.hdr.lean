@@ -99,7 +99,7 @@ theorem inflateGetHeader_ok {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
     exact this
   refine ⟨_, hrun, rfl, ?_, ?_, fun b => hS.live b⟩
   · obtain ⟨⟨hz, hs, zst, back, hm, za, zf⟩, inv, uniq, fresh⟩ := hG1
-    refine ⟨⟨by simpa using hz, by simpa using hs, zst, back, hm, za, zf⟩, ?_,
+    refine ⟨⟨by simpa using hz, by simp, zst, back, hm, za, zf⟩, ?_,
       (shape_putG hg1 _).uniq uniq, (shape_putG hg1 _).fresh (by simp) fresh⟩
     exact StInv.congr (h := setI h zs (getHeaderState (some g) st)) (by simp) (by simp) inv
   · cases g with

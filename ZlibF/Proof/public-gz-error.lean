@@ -26,7 +26,7 @@ private theorem byte_get_put {h : Heap} {r : BRef} {a : Array UInt8}
 
 private theorem byte_ro_put (h : Heap) (r : BRef) (a : Array UInt8) :
     Space.ro (Space.put h r a) r = Space.ro h r := by
-  cases r <;> simp [Space.get, Space.put, Space.ro]
+  cases r <;> simp [Space.put, Space.ro]
 
 private theorem byte_put_put {h : Heap} {r : BRef} {a : Array UInt8}
     (hg : Space.get h r = some a) (hro : Space.ro h r = false) (b c : Array UInt8) :
@@ -78,7 +78,7 @@ theorem store32_run {h : Heap} {r : BRef} {a : Array UInt8} {off : Nat}
       .ok (.ref r (off + 3), Space.put (Space.put (Space.put h r a0) r a1) r a2) := by simpa using add3
   simp only [a0, a1, a2] at e1 e2 e3 st1 st2 st3
   unfold store32
-  simp only [bind_app, e0, st0, e1, st1, e2, st2, e3, st3, pure_app]
+  simp only [bind_app, e0, st0, e1, st1, e2, st2, e3, st3]
   simp only [a0, a1, a2] at *
   rw [byte_put_put hg hro, byte_put_put hg hro, byte_put_put hg hro]
 
@@ -99,34 +99,34 @@ theorem set_four_slice (a : Array UInt8) (off : Nat) (hfit : off + 4 ≤ a.size)
   have hlt3 : off + 3 < a.size := by omega
   by_cases h0 : j = off
   · subst j
-    simp [Array.getElem?_extract, hm, hlt0, hlt1, hlt2, hlt3]
+    simp [hm, hlt0]
   · by_cases h1 : j = off + 1
     · subst j
-      simp [Array.getElem?_extract, hm, hlt0, hlt1, hlt2, hlt3,
+      simp [hm, hlt1,
         show ¬ off + 1 < off from by omega]
     · by_cases h2 : j = off + 2
       · subst j
-        simp [Array.getElem?_extract, hm, hlt0, hlt1, hlt2, hlt3,
+        simp [hm, hlt2,
           show ¬ off + 2 < off from by omega]
       · by_cases h3 : j = off + 3
         · subst j
-          simp [Array.getElem?_extract, hm, hlt0, hlt1, hlt2, hlt3,
+          simp [hm, hlt3,
             show ¬ off + 3 < off from by omega]
         · by_cases hbefore : j < off
           · have hj4 : j < off + 4 := by omega
             have hja : j < a.size := by omega
-            simp [h0, h1, h2, h3, Ne.symm h0, Ne.symm h1, Ne.symm h2, Ne.symm h3,
-              hbefore, hj4, hja, Array.getElem?_extract, hm, Array.getElem?_eq_getElem]
+            simp [Ne.symm h0, Ne.symm h1, Ne.symm h2, Ne.symm h3,
+              hbefore, hj4, hja, hm]
           · have hafter : off + 4 ≤ j := by omega
             have hj4 : ¬ j < off + 4 := by omega
             have heq : off + 4 + (j - (off + 4)) = j := by omega
             by_cases hja : j < a.size
             · have htail : j - (off + 4) < a.size - (off + 4) := by omega
-              simp [h0, h1, h2, h3, Ne.symm h0, Ne.symm h1, Ne.symm h2, Ne.symm h3,
-                hbefore, hj4, htail, hja, heq, Array.getElem?_extract, hm]
+              simp [Ne.symm h0, Ne.symm h1, Ne.symm h2, Ne.symm h3,
+                hj4, htail, hja, heq, hm]
             · have htail : ¬ j - (off + 4) < a.size - (off + 4) := by omega
-              simp [h0, h1, h2, h3, Ne.symm h0, Ne.symm h1, Ne.symm h2, Ne.symm h3,
-                hbefore, hj4, htail, hja, Array.getElem?_extract, hm, Array.getElem?_eq_none]
+              simp [Ne.symm h0, Ne.symm h1, Ne.symm h2, Ne.symm h3,
+                hj4, htail, hja, hm]
 
 /-- The little-endian four-byte store replaces exactly its requested slice. -/
 theorem store32_slice_run {h : Heap} {r : BRef} {a : Array UInt8} {off : Nat}
@@ -199,7 +199,7 @@ private theorem lit_static (h : Heap) (p : BPtr) (s : String) (hl : IsLit p s) :
       cases hi
   refine ⟨i, rfl, ?_, rfl⟩
   change staticStringBytes h i = some (strBytes s)
-  rw [staticStringBytes, if_pos bound, hi]
+  rw [staticStringBytes, ite_eq_left bound, hi]
   rfl
 
 /-- `const char *gzerror(gzFile file, int *errnum)` returns the specified

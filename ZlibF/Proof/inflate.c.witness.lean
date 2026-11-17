@@ -37,7 +37,7 @@ theorem h0_fresh : Fresh h0 := by
   simp [Heap.live, h0, Heap.empty, upd_ne _ _ _ _ h1, upd_ne _ _ _ _ h0'] at hl
 
 theorem h0_get : (ZStreamRef.tab 0).get h0 = some ZStream.zeroed := by
-  simp [ZStreamRef.get, h0, upd_ne _ _ _ _ (by decide : (0 : Nat) ≠ 1)]
+  simp [ZStreamRef.get, h0]
 
 theorem h0_version : OkOn h0 (index8 (.ref (.blk 1) 0) 0) 49 := by
   have := index8_ok (h := h0) (blk := 1) (off := 0) (i := 0) (bytes := #[49, 0]) (by simp [h0]) (by simp)

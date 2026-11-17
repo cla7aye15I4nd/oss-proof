@@ -26,7 +26,7 @@ theorem public_busy_no_flush_resuming_entry {h : Heap} {r : ZStreamRef} {ds : Na
       (setD h ds { d with last_flush := Z_NO_FLUSH }) =
       publicDataTail (some r) (some (.tab ds)) Z_NO_FLUSH (setD h ds { d with last_flush := Z_NO_FLUSH }) := by
     unfold publicZlibHeader
-    simp only [bind_app, pure_app, rdD_eq, setD_dstates_same, status,
+    simp only [bind_app, rdD_eq, setD_dstates_same, status,
       show (BUSY_STATE == INIT_STATE) = false from rfl, Bool.false_and, Bool.false_eq_true, ite_false]
   have inputs : (z.avail_in != 0 && z.next_in == .null) = false := by
     by_cases empty : z.avail_in = 0
@@ -57,8 +57,8 @@ theorem public_busy_no_flush_resuming_entry {h : Heap} {r : ZStreamRef} {ds : Na
     show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr positive,
     wrD_eq, good.live.hs, pending,
     noDuplicate, Bool.false_and, show ((0 : UInt64) != 0) = false from rfl,
-    BEq.rfl, rankFinish, ranked, show (Z_NO_FLUSH != Z_NO_FLUSH) = false from rfl,
-    Bool.and_false, rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
+    rankFinish, ranked,
+    rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
   simpa only [status, pending] using header
 
 
@@ -165,7 +165,7 @@ theorem DefaultFinishBoundary.no_flush_resuming {h : Heap} {r : ZStreamRef} {ds 
     apply StreamReachable.step (call := .deflate (some r) Z_NO_FLUSH) (value := Z_OK) boundary.reachable (fun k => nomatch k)
     · exact ⟨rfl, rfl⟩
     · exact ⟨buffers, default_finish_active_header boundary.good boundary.no_header⟩
-    · simpa only [Call.execute, heapCall, run]
+    · simp only [Call.execute, heapCall, run]
   have bounds : -2 ≤ result.last_flush.toInt ∧ result.last_flush.toInt ≤ 5 := by
     rcases lastA with eq | eq <;> rw [eq] <;> decide
   exact ⟨used, produced, after, z', result, run,

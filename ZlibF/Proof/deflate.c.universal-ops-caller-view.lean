@@ -128,8 +128,8 @@ theorem caller_view_write {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
       · simp [Heap.live, Space.put, upd_ne _ _ _ _ e]
     · rw [BRef.put_dstate_depth getF]
       by_cases e : b = owner
-      · subst e; simp [Heap.live, setD, upd_same, getF]
-      · simp [Heap.live, setD, upd_ne _ _ _ _ e]
+      · subst e; simp [Heap.live, upd_same, getF]
+      · simp [Heap.live, upd_ne _ _ _ _ e]
   refine ⟨inv', put.stream, put.state, ⟨?_, ?_⟩, ?_⟩
   · rw [restored]; exact frame_refl h changed
   · intro region mem q o a pointer old'
@@ -223,7 +223,7 @@ theorem getDictionary_view {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
       (new := copyRange da wa off (d.strstart.toNat + d.lookahead.toNat - (dictLen d).toNat) (dictLen d).toNat)
       inv getD kind
       (size_copyRange _ _ _ _ _)
-      (fun j nin => by rw [getElem?_copyRange _ _ _ _ _ _ room', if_neg nin]) (Nat.le_refl _) changed
+      (fun j nin => by rw [getElem?_copyRange _ _ _ _ _ _ room', ite_eq_right nin]) (Nat.le_refl _) changed
     have regions : StreamWriteRegions h r (.deflateGetDictionary (some r) dictionary hasDictLength) =
         [⟨.ref ref off, (dictLen d).toNat⟩] := by
       rw [pointer]

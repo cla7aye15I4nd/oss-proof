@@ -34,7 +34,7 @@ needed by lookup1. No validity of the compressed input is assumed. -/
 def Goal.constructor_root_bits : Prop :=
   ∀ (h : Heap) (type : UInt32) (rl : WRef) (ol : Nat) (codes : UInt32)
     (rc : CodeRef) (oc : Nat) (bits : UInt32) (rw : WRef) (ow : Nat)
-    (pre : CallPre h type rl ol codes rc oc bits rw ow),
+    (_pre : CallPre h type rl ol codes rc oc bits rw ow),
     ∃ r after,
       C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h =
         .ok (r, after) ∧
@@ -51,7 +51,7 @@ Empty and singleton tables are included and must not invent links. -/
 def Goal.constructor_subtable_bits : Prop :=
   ∀ (h : Heap) (type : UInt32) (rl : WRef) (ol : Nat) (codes : UInt32)
     (rc : CodeRef) (oc : Nat) (bits : UInt32) (rw : WRef) (ow : Nat)
-    (pre : CallPre h type rl ol codes rc oc bits rw ow),
+    (_pre : CallPre h type rl ol codes rc oc bits rw ow),
     (type = LENS ∨ type = DISTS) →
     ∃ r after,
       C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h =

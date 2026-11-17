@@ -83,7 +83,7 @@ theorem FastInputPacket.dolen_leaf_bit_budget
     have account := Zlib.Inffast.Proofs.dolen_nobase_input_bit_ledger
       load codeWidth available nonbase run
     refine ⟨_, _, 0, by omega, run, noAgain, ?_, by omega⟩
-    simpa only [inputAdvance_zero] using account.1
+    simp only [inputAdvance_zero]
   · obtain ⟨result, after, pulled, bound, run, cursor, budget⟩ :=
       packet.dolen_base_leaf_bit_budget invariant buffers
         streamPtr statePtr whaveEq wsizeEq wnextEq windowEq

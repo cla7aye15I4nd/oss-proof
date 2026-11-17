@@ -82,8 +82,8 @@ theorem inflate_HEAD_output_frame {c : Ctx} {h after : Heap} {r : ZStreamRef} {z
     | error exit =>
       cases run
       exact bufferFrame_live_refl E.hz E.hs regions
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       exact headDefaultCheck_output_frame E invariant.headWindow run regions
 
 /-- The actual default HEAD dispatch has zero output with the exact empty

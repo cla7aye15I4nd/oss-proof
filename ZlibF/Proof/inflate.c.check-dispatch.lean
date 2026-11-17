@@ -38,7 +38,7 @@ theorem inflate_CHECK_views_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
     refine ⟨h2, h1, h3, ?_⟩
     unfold inflate_CHECK
     rw [hc]
-    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, runX_throw]
+    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e]
   · intro e
     refine ⟨hok e, ?_⟩
     by_cases hcond : chkCond s out = true
@@ -70,21 +70,21 @@ theorem inflate_CHECK_views_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
         have hs2 : (chkH h r zs z s out v).istates zs = some (chkS s out v) := by simp [chkH]
         obtain ⟨i, hi, hbm⟩ := tcBadMode_run (c := c) "incorrect data check" lit_data_check hr hc hz2 hs2
         refine ⟨i, hi, ?_⟩
-        simp [chkH, chkZ, chkS, tcBadHeap, hcond, hct', hout] at hbm
+        simp [chkH, chkZ, chkS, tcBadHeap, hct', hout] at hbm
         have hbad2 : (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = v) := by
           refine ⟨hbad, ?_⟩
           simp only [chkS, hcond, ↓reduceIte] at hne
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0]
-            rw [if_neg (by simpa using hf0)] at hne
+          · rw [ite_eq_left hf0]
+            rw [ite_eq_right (by simpa using hf0)] at hne
             exact hne
-          · rw [if_neg hf0]
-            rw [if_pos hf0] at hne
+          · rw [ite_eq_right hf0]
+            rw [ite_eq_left hf0] at hne
             exact hne
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hct3, hct', hbad2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcond, hbm, chkCond,
+          hout, hout', hleft', runX_pure, hct3, hbad2, setMode, chkH, chkZ, chkS, hbm, chkCond,
           hput', hptr2, hv2]
         simp [tcBadHeap]
       · intro hn
@@ -94,11 +94,11 @@ theorem inflate_CHECK_views_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
           refine ⟨ha, ?_⟩
           simp only [chkS, hcond, ↓reduceIte]
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0] at hb
-            rw [if_neg (by simpa using hf0)]
+          · rw [ite_eq_left hf0] at hb
+            rw [ite_eq_right (by simpa using hf0)]
             exact hb
-          · rw [if_neg hf0] at hb
-            rw [if_pos hf0]
+          · rw [ite_eq_right hf0] at hb
+            rw [ite_eq_left hf0]
             exact hb
         have hn3 : (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = v := by
           by_cases hh : (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = v
@@ -107,7 +107,7 @@ theorem inflate_CHECK_views_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hct3, hct', hn3, setMode, runX_INITBITS, chkH, chkZ, chkS, hcond, chkCond,
+          hout, hout', hleft', hct3, hn3, setMode, runX_INITBITS, chkH, chkZ, chkS, chkCond,
           hput', hptr2, hv2]
     · have hcf : chkCond s out = false := by simpa using hcond
       have hcf' : chkCond s (l.out_ - l.left) = false := by rw [← hout]; exact hcf
@@ -126,21 +126,21 @@ theorem inflate_CHECK_views_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
           by_cases hz0 : l.out_ - l.left = 0
           · exact hz0
           · exact absurd ⟨hbad, hz0⟩ hcf3
-        simp [chkH, chkZ, chkS, tcBadHeap, hcf, hcf', hout, hcf4, chkCond] at hbm
+        simp [chkH, chkZ, chkS, tcBadHeap, hout, hcf4, chkCond] at hbm
         have hbad2 : (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = s.check) := by
           refine ⟨hbad, ?_⟩
-          simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte, ite_self] at hne
+          simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte] at hne
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0]
-            rw [if_neg (by simpa using hf0)] at hne
+          · rw [ite_eq_left hf0]
+            rw [ite_eq_right (by simpa using hf0)] at hne
             exact hne
-          · rw [if_neg hf0]
-            rw [if_pos hf0] at hne
+          · rw [ite_eq_right hf0]
+            rw [ite_eq_left hf0] at hne
             exact hne
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hcf3, hcf4, hcf', hbad2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcf, hbm, chkCond]
+          hout, hout', hleft', runX_pure, hcf4, hbad2, setMode, chkH, chkZ, chkS, hbm, chkCond]
         simp [tcBadHeap]
       · intro hn
         have hn2 : ¬ (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = s.check) := by
@@ -149,16 +149,16 @@ theorem inflate_CHECK_views_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
           refine ⟨ha, ?_⟩
           simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte]
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0] at hb
-            rw [if_neg (by simpa using hf0)]
+          · rw [ite_eq_left hf0] at hb
+            rw [ite_eq_right (by simpa using hf0)]
             exact hb
-          · rw [if_neg hf0] at hb
-            rw [if_pos hf0]
+          · rw [ite_eq_right hf0] at hb
+            rw [ite_eq_left hf0]
             exact hb
         unfold inflate_CHECK
         rw [hc]
-        simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz, hcf2,
-          hout, hout', hleft', runX_pure, hcf3, hcf', hn2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcf]
+        simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
+          hout, hout', hleft', hcf3, hcf', hn2, setMode, runX_INITBITS, chkH, chkZ, chkS]
 
 
 /-- Once CHECK accounts for its output, the new segment starts at put.
@@ -362,8 +362,8 @@ theorem inflate_dispatch_DICTID {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC,
-    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS,
-    LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH]
+    DICTID,
+    ]
 
 /-- The real switch selects the DICT branch. -/
 theorem inflate_dispatch_DICT {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -372,8 +372,8 @@ theorem inflate_dispatch_DICT {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC,
-    DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS,
-    LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH]
+    DICTID, DICT,
+    ]
 
 /-- The real switch selects the CHECK branch. -/
 theorem inflate_dispatch_CHECK {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -383,7 +383,7 @@ theorem inflate_dispatch_CHECK {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC,
     DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS,
-    LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH]
+    LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK]
 
 /-- The real switch selects the LENGTH branch. -/
 theorem inflate_dispatch_LENGTH {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}

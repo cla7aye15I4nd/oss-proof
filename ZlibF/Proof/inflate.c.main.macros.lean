@@ -23,7 +23,7 @@ theorem runX_lift {α : Type} (m : M α) (l : IL) (h : Heap) :
   unfold runX
   rcases hm : m h with e | ⟨a, h'⟩ <;>
     simp [hm, monadLift, MonadLift.monadLift, ExceptT.lift, ExceptT.run, ExceptT.mk, StateT.lift, StateT.run,
-      Functor.map, StateT.map, ExceptT.map, bind_app]
+      Functor.map, StateT.map, bind_app]
 
 /-- The registers describe the bit stream `natBits bits hold` followed by the bytes `bs` at `next`. -/
 structure BitInv (h : Heap) (l : IL) (bs : List UInt8) : Prop where

@@ -99,7 +99,7 @@ theorem GBDone.symbolic_lengths {tk : TK} {built mid : DeflateState} {hm J N max
       apply GB.rs_congr
       intro i hi
       by_cases hv : Hn built (hm + 1 + i) ≤ maxc <;>
-        by_cases hl : len (Hn built (hm + 1 + i)) = b <;> simp only [hv, hl, and_self, and_true, and_false, ite_true, ite_false, false_and, true_and]
+        by_cases hl : len (Hn built (hm + 1 + i)) = b <;> simp only [hv, hl, and_self, and_true, and_false, ite_true, ite_false]
     rw [hpos, hshape.leaf_sum (fun v => len v ≠ 0) hseen (fun v => if len v = b then 1 else 0), GB.countBefore_rs]
     apply GB.rs_congr
     intro v hv

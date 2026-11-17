@@ -53,7 +53,7 @@ theorem separate_advance_right {p q : BPtr} {n m used remaining : Nat}
   · right; left
     omega
   · right; right
-    cases p <;> cases q <;> simp only [Separate, advance] at disjoint ⊢
+    cases p <;> cases q <;> simp only [advance] at disjoint ⊢
     rcases disjoint with apart | before | after
     · exact Or.inl apart
     · exact Or.inr (Or.inl (by omega))

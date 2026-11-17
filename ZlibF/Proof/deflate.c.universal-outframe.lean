@@ -61,7 +61,7 @@ theorem raw_buffer_frame_adjacent {h m k : Heap} {ob offset first second : Nat} 
     unique get (by simpa using getFin) (roTwo.trans roOne) sizeFin same
 
 /-- A block that holds bytes, or a state record, is not the stream root. -/
-theorem not_root_of_unique {h : Heap} {r : ZStreamRef} {z : ZStream} {b : Nat} (unique : Uniq h)
+theorem not_root_of_unique {h : Heap} {r : ZStreamRef} {z : ZStream} {b : Nat} (_unique : Uniq h)
     (get : r.get h = some z) (other : h.streams b = none ∧ h.gzstates b = none) : ¬ StreamRoot r b := by
   intro root
   cases r with

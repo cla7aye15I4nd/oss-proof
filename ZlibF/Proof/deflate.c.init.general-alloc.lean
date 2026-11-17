@@ -74,19 +74,19 @@ theorem buffers_run {h : Heap} {r : ZStreamRef} {z : ZStream} {ds : Nat} {d : De
   have runB := bytes_run hf4 (r := r) (z := z) (by simpa [H4, headHeap, prevHeap, windowHeap] using hz) ha
     (UInt32.ofNat (2 ^ (mem + 6))) 4
   change ZALLOC_bytes (some r) (UInt32.ofNat (2 ^ wb)) 2 h = .ok (bytePtr h, windowHeap h wb) at runW
-  simp only [H1, H2, H4, prevHeap, headHeap, buffersHeap, windowHeap, wordPtr_setD,
+  simp only [H1, H2, H4, prevHeap, headHeap, windowHeap, wordPtr_setD,
     bytePtr_setD, wordResult_setD, byteResult_setD]
     at runP runH runB
   dsimp only [d1, d2, d3, d4, prevHeap, headHeap, windowHeap] at runP runH runB
   unfold buffers
   rw [bind_app, runW]
-  simp only [bind_app, wrD_eq, windowHeap, byteResult_dstates, hs, d1, d2, d3, d4]
+  simp only [bind_app, wrD_eq, windowHeap, byteResult_dstates, hs]
   rw [runP]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, d1, d2, d3, d4]
+  simp only [setD_dstates_same, setD_setD]
   rw [runH]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, d1, d2, d3, d4]
+  simp only [setD_dstates_same, setD_setD]
   rw [runB]
-  simp only [bind_app, wrD_eq, setD_dstates_same, setD_setD, pure_app]
+  simp only [setD_dstates_same, setD_setD, pure_app]
   rfl
 
 /-- The state fields written before the four buffer allocations. -/
@@ -160,8 +160,8 @@ theorem alloc_to_finish {h : Heap} {r : ZStreamRef} {z : ZStream}
   have runS : allocDeflateState h = .ok (some (.tab h.nextBlk),
       stateHeap h (DeflateState.garbage (h.garbage h.nalloc))) := allocDeflateState_some ho
   rw [bind_app, runS]
-  simp [bind_app, stD_eq, pure_app, ZStreamRef.put_dstates, stateHeap_dstates_same,
-    zwr_eq, get_stateHeap, ZStreamRef.get_put_same hz, wrD_eq, upd_upd,
+  simp [bind_app, stD_eq, ZStreamRef.put_dstates,
+    zwr_eq, get_stateHeap, wrD_eq,
     put_stateHeap, stateHeap_setD, hz, StateRef.ofDeflateState]
   have remaining : (do
       let ps ← buffers (some r) (some (.tab h.nextBlk)) wb mem

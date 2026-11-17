@@ -23,7 +23,7 @@ theorem tooBig_false_of_budget (e : Env) {used : UInt32} (bound : used.toNat ≤
   · rw [type]
     simp [tooBig, CODES, LENS, DISTS]
   · rw [type] at capacity ⊢
-    simp [CODES, LENS, DISTS] at capacity
+    simp [CODES, LENS] at capacity
     have small : ¬ used > ENOUGH_LENS.toUInt32 := by
       rw [gt_iff_lt, UInt32.lt_iff_toNat_lt]
       change ¬ 852 < used.toNat
@@ -96,7 +96,7 @@ theorem openBody_no_refusal (e : Env) (i : Nat) (s : TS) (ca : Array Code)
     exact limit
   have hcs32 : cs.toNat < 32 := by omega
   rw [shl32_eq hcs32] at run
-  simp only [bind_app, pure_app] at run
+  simp only [pure_app] at run
   have hu : ((1 : UInt32) <<< cs).toNat = 2 ^ cs.toNat := u32_shl1 hcs32
   have width : Canon.width e.ls (i + 1) e.R e.mx = cs.toNat := by
     rw [hcs]
@@ -1179,7 +1179,7 @@ theorem itA_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat}
       fun _ => hacc, fun h => absurd (show (0 : Int32) = 1 from h) (by decide),
       fun h => absurd (show (0 : Int32) = -1 from h) (by decide)⟩
     · rw [wput_self P.hgw]
-    · simp [Array.size_set!]
+    · simp
     · intro x hx
       have h1 : oc + 1 ≠ x := by omega
       have h2 : oc ≠ x := by omega

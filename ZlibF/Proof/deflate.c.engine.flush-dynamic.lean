@@ -57,7 +57,7 @@ theorem flush_dynamic_dispatch {h : Heap} {r : ZStreamRef} {ds : Nat}
             (← Zlib.Trees.pDtree (some (.tab ds)))
           Zlib.Trees.Proofs.flushBlockTail (some (.tab ds)) last) (setD (r.put h z') ds prepared) := by
   rw [flush_block_dynamic_prepare_source]
-  simp only [bind_app, pure_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
+  simp only [bind_app, Zlib.Trees.Proofs.Out.rd_run good.live.hs,
     positive, ite_true, run, Zlib.Trees.Proofs.Out.rd_run after.live.hs,
     prefer, ite_false, avoid, show ((((prepared.static_len + 3 + 7) >>> 3) ==
       ((prepared.opt_len + 3 + 7) >>> 3))) = false from beq_eq_false_iff_ne.mpr dynamic,

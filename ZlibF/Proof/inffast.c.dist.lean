@@ -60,7 +60,7 @@ theorem LS.pullL {l : L} {i o : Nat} (hl : LS e l i o) (hb : l.bits.toNat ≤ 22
     LS e (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))) (i + 1) o :=
   LS.pull e hl hb hi _
 
-theorem Sg_pullL {l : L} {i o : Nat} (hl : LS e l i o) (hb : l.bits.toNat ≤ 22) (hi : i < e.i0 + e.sm0.avail_in.toNat) :
+theorem Sg_pullL {l : L} {i o : Nat} (hl : LS e l i o) (_hb : l.bits.toNat ≤ 22) (hi : i < e.i0 + e.sm0.avail_in.toNat) :
     Sg e (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).hold.toNat
       (pullL l (e.IN.getD i 0) (.ref e.ib (i + 1))).bits.toNat (i + 1) = Sg e l.hold.toNat l.bits.toNat i := by
   rw [pullL_hold _ _ _ hl.hb hl.hH, pullL_bits _ _ _ hl.hb]

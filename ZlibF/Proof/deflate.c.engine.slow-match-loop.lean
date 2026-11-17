@@ -83,7 +83,7 @@ theorem slow_match_full_flush_loop {h : Heap} {r : ZStreamRef} {ds ob oo w origi
   have dataA : after.bytes b = some bytes := by rw [bytesFrame]; simp [ht]
   have emittedSize : (emittedMatch d).bytes = d.prev_length.toNat := by
     change (if distance.toNat = 0 then 1 else length.toNat + 3) = _
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
     have len : length.toNat = d.prev_length.toNat - 3 := bounds.2.2.1
     omega
   have balanceA : BlockBalance result (xs ++ [emittedMatch d]) (deferredCredit result) := by
@@ -152,7 +152,7 @@ theorem slow_match_full_flush_loop {h : Heap} {r : ZStreamRef} {ds ob oo w origi
     dsimp only [distance, length] at tally
     unfold slowDecision
     simp only [bind_app, ldDeflateState_tab good.live.hs, selected, ite_true, tally]
-    simp only [bind_app, advance', flushRun]
+    simp only [advance', flushRun]
     by_cases empty : (z'.avail_out == 0) = true <;> simp [empty, pure_app]
   · rw [flushStart]; exact startA
   · rw [flushLook]; exact lookA

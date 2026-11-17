@@ -49,7 +49,7 @@ theorem stored_block_copy_run {h : Heap} {id b sourceBlock offset : Nat} {d : De
   · unfold storedBlockCopy
     by_cases zero : length = 0
     · subst length
-      simp only [bne_self_eq_false, Bool.false_eq_true, ite_false, bind_app, pure_app, UInt64.add_zero]
+      simp only [bne_self_eq_false, Bool.false_eq_true, ite_false, UInt64.add_zero]
       rw [md_run trees.base.dstate]
       change (Except.ok ((), setD h id d) : Except Fault (Unit × Heap)) =
         Except.ok ((), setD (setB h b buf) id d)

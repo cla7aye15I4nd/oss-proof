@@ -45,7 +45,7 @@ theorem inflateMark_spec {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s
     have hr : -9223372036854775808 ≤ st.back.toInt * 65536 + (lo.toNat : Int) ∧
         st.back.toInt * 65536 + (lo.toNat : Int) < 9223372036854775808 := by omega
     refine ⟨Int64.ofInt (st.back.toInt * 65536 + lo.toNat), ?_, ?_⟩
-    · simp only [bind_app, pure_app]
+    · simp only
       have : (((st.back.toInt64.toUInt64) <<< 16).toInt64).toInt = st.back.toInt * 65536 := mark_hi st.back
       simp [chkI64, this, hr.1, hr.2]
     · rw [Int64.toInt_ofInt_of_le (by omega) (by omega)]
@@ -64,7 +64,7 @@ theorem inflateMark_spec {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s
     · simp [c1]
     · have hne : (MATCH : UInt32) ≠ COPY := by decide
       by_cases c2 : st.mode = MATCH
-      · simp [c1, c2, hne]
+      · simp [c2, hne]
       · simp [c1, c2]
 
 

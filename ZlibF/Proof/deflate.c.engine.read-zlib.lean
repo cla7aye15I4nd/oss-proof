@@ -51,8 +51,8 @@ theorem read_buf_ref_eq {h : Heap} {r : ZStreamRef} {z : ZStream}
     (hz : r.get h = some z) (buf : BPtr) (size : UInt32) :
     read_buf (some r) buf size h = rbCore (some r) buf (rbLen z.avail_in size) h := by
   unfold read_buf rbCore rbLen
-  simp only [zrd_eq, hz, bind_app, pure_app]
-  by_cases big : z.avail_in > size <;> simp only [big, if_true, if_false]
+  simp only [zrd_eq, hz, bind_app]
+  by_cases big : z.avail_in > size <;> simp only [big, ite_true, ite_false]
   all_goals rfl
 
 def readStream (z : ZStream) (n : UInt32) (ref : BRef) (off : Nat) (a : UInt64) : ZStream :=
@@ -139,8 +139,8 @@ theorem read_buf_zlib {h : Heap} {r : ZStreamRef} {ds w io bo : Nat}
   rw [read_buf_ref_eq hz]
   change rbCore (some r) (.ref (.blk w) bo) n h = _
   have nz : (n == 0) = false := by simp [n, nonzero]
-  simp only [rbCore, nz, Bool.false_eq_true, if_false, bind_app, dec, read, copy, state,
-    show ((1 : Int32) == 1) = true from rfl, if_true,
+  simp only [rbCore, nz, Bool.false_eq_true, ite_false, bind_app, dec, read, copy, state,
+    show ((1 : Int32) == 1) = true from rfl, ite_true,
     castDeflateState_ok, wrapper, seed, checksum, setAdler, readNext, advance, writeNext, pure_app]
   rfl
 

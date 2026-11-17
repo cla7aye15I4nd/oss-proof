@@ -28,7 +28,7 @@ theorem runX_same {α : Type} {x : X α} {l : IL} {h : Heap} {o1 o2 : Except Ex 
 theorem inflate_STORED_held {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
     (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = STORED)
+    (buffers : DispatchBuffers h r l bs) (_mode : s.mode = STORED)
     {outcome : Except Ex Unit} {regs : IL} {after : Heap} {state : InflateState}
     (run : runX (inflate_STORED c) l h = .ok ((outcome, regs), after))
     (get : after.istates zs = some state) :
@@ -194,14 +194,14 @@ theorem inflate_dispatch_type_held {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : N
     regs.bits.toNat ≤ max l.bits.toNat 10 := by
   rw [inflate_dispatch_block_type E l mode] at run
   rcases mode with type | typedo
-  · rw [if_pos type] at run
+  · rw [ite_eq_left type] at run
     obtain ⟨_, regs2, _, _, _, _, _, _, run2, _, _, _, _, _, _, _, _, _, _, bits2, _⟩ :=
       inflate_TYPE_boundary E invariant.good invariant.pending buffers invariant.globals type
     obtain ⟨_, regsEq, _⟩ := runX_same run run2
     rw [regsEq]
     exact bits2
   · have notType : s.mode ≠ TYPE := by rw [typedo]; decide
-    rw [if_neg notType] at run
+    rw [ite_eq_right notType] at run
     obtain ⟨_, regs2, _, _, _, _, _, _, run2, _, _, _, _, _, _, _, _, _, _, bits2, _⟩ :=
       inflate_TYPEDO_boundary E invariant.good invariant.pending buffers invariant.globals (Or.inr typedo)
     obtain ⟨_, regsEq, _⟩ := runX_same run run2
@@ -226,11 +226,11 @@ theorem inflate_dispatch_construction_held {c : Ctx} {h : Heap} {r : ZStreamRef}
     omega
   · obtain ⟨nextMode, source⟩ := continued
     by_cases trees : c.flush = Z_TREES
-    · rw [if_pos trees] at source
+    · rw [ite_eq_left trees] at source
       obtain ⟨_, regsEq, _⟩ := runX_same run source
       rw [regsEq]
       omega
-    · rw [if_neg trees] at source
+    · rw [ite_eq_right trees] at source
       have nextEnv : Env c after1 r zs stream1 state1 :=
         ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩
       have dataMode : DataTableMode state1.mode := by rw [nextMode]; unfold DataTableMode; decide
@@ -330,7 +330,7 @@ theorem inflate_DICT_held {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
       (by rfl) (Or.inr rfl) invariant.held sizes0 static0
     have packet0 := buffers.byte_views invariant.good good0 rfl views readonly
     have selector : runX (inflate_dispatch c) l heap0 = runX (inflate_TYPE c) l heap0 := by
-      rw [inflate_dispatch_block_type E0 l (Or.inl rfl), if_pos rfl]
+      rw [inflate_dispatch_block_type E0 l (Or.inl rfl), ite_eq_left rfl]
     exact inflate_dispatch_type_held E0 state0 packet0 (Or.inl rfl)
       (selector.trans ((inflate_DICT_ready_cut E l missing).symm.trans run))
 
@@ -497,9 +497,9 @@ theorem inflate_dispatch_mem_sync_ret {c : Ctx} {h : Heap} {r : ZStreamRef} {zs 
   unfold terminalExit
   rcases mode with m | m
   · refine ⟨Z_MEM_ERROR, ?_⟩
-    rw [if_neg (by rw [m]; decide), if_pos m]
+    rw [ite_eq_right (by rw [m]; decide), ite_eq_left m]
   · refine ⟨Z_STREAM_ERROR, ?_⟩
-    rw [if_neg (by rw [m]; decide), if_neg (by rw [m]; decide)]
+    rw [ite_eq_right (by rw [m]; decide), ite_eq_right (by rw [m]; decide)]
 
 /-- The strong per-dispatch bound from `DecoderHeldBits` when the dispatch does not return directly. -/
 theorem DecoderHeldBits.strong {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}

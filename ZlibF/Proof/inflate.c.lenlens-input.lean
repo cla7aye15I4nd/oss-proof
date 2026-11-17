@@ -98,7 +98,7 @@ theorem ll1_run_cursor {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : InflateStat
               omega
             refine ⟨j + jn, by omega, rfl, ?_, ?_, ?_, fun _ => ⟨rfl, h1, hjl, h3⟩, (fun hh => by omega), nextCursor, nextBits⟩
             · simpa [tcDrop_drop] using B'.tc_of_heap (h' := h) rfl rfl rfl rfl
-            · rw [← hS1, ← hS']; simp [tcDrop_drop]
+            · rw [← hS1, ← hS']; simp
             · exact hsh1.trans hshape
         | ret v => exact absurd rfl (noRet_NEEDBITS 3 l1 _ _ l' _ hrun v)
       | ok u =>

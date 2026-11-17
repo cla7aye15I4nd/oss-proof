@@ -49,7 +49,7 @@ def slowMatchAdvance (s : DeflateStatePtr) (max_insert hash_head : UInt32) : M U
   wr s (fun d => { d with match_available := 0, match_length := MIN_MATCH_u - 1, strstart := d.strstart + 1 })
   return hh
 
-def slowDecision (s : DeflateStatePtr) (flush : Int32) (st : LoopS) (hash_head : UInt32) : M LoopS := do
+def slowDecision (s : DeflateStatePtr) (_flush : Int32) (st : LoopS) (hash_head : UInt32) : M LoopS := do
   let mut hash_head := hash_head
   let d ← ldDeflateState s
   let mut bflush := false

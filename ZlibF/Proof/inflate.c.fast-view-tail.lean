@@ -262,7 +262,7 @@ theorem FastInputPacket.tailIf_view
     · simpa only [Nat.add_zero] using outPtr
     · simpa only [Zlib.Inffast.Proofs.cpyN,
         Zlib.Inffast.Proofs.blitN, ite_self] using outputGet
-    · simpa only [Nat.add_zero, ← fromPtr, ← outPtr]
+    · simp only [Nat.add_zero, ← fromPtr, ← outPtr]
   · rw [one] at count sourceRoom outputRoom ⊢
     have lenOne : fastLocal.len = 1 :=
       UInt32.toNat_inj.mp (by simpa using count)

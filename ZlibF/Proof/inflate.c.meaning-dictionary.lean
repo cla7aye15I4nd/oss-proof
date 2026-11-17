@@ -321,7 +321,7 @@ theorem dictId_be32 {a b c d e f : UInt8} {v : UInt32}
     (eq : dictId [a, b, c, d, e, f] = v.toUInt64) : ZlibF.Spec.be32 v.toNat = [c, d, e, f] := by
   have nat := congrArg UInt64.toNat eq
   simp only [dictId, List.getD_cons_succ, List.getD_cons_zero, UInt32.toNat_toUInt64,
-    UInt64.toNat_ofNat] at nat
+    ] at nat
   have hc := c.toNat_lt
   have hd := d.toNat_lt
   have he := e.toNat_lt

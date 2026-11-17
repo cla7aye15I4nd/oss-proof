@@ -60,7 +60,7 @@ theorem slow_finish_ready_step {h : Heap} {r : ZStreamRef} {ds ob oo origin base
         simpa only [Nat.zero_add, Nat.add_zero] using stream_accounting_trans fillAccount accountA
       refine ⟨used, produced, next, after, z', result, base', ys, extended, nextOrigin,
         ?_, state, endA, buffersA, joined, agreesF, ?_, baseLe, reasonA, retA, readyA, ?_, ?_⟩
-      · rw [source]; simp only [empty, beq_eq_false_iff_ne.mpr empty, Bool.false_eq_true, ite_false]; exact suffixRun
+      · rw [source]; simp only [beq_eq_false_iff_ne.mpr empty, Bool.false_eq_true, ite_false]; exact suffixRun
       · rw [endpoint]; exact endpointF
       · intro _ _
         have before := fillAccount.2.2.1

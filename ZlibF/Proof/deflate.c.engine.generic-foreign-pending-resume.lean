@@ -44,7 +44,7 @@ theorem flush_pending_resume_foreign_bits {h : Heap} {r : ZStreamRef} {ds owner 
         exact setD_self outGet
       rw [self] at frame0
       refine ⟨?_,by simpa only [pointer] using frame0.2⟩
-      exact full_frame_weaken (by simpa only [pointer] using frame0.1) (fun _ impossible => False.elim (by simpa using impossible))
+      exact full_frame_weaken (by simpa only [pointer] using frame0.1) (fun _ impossible => False.elim (by simp at impossible))
   · have run := flush_pending_low_foreign good.live.hz good.live.zst good.live.hs low pointer cursor
       outGet get (Ne.symm different) outBound sourceBound empty
     obtain ⟨written, remaining, bytes, pendingA, bits⟩ :=

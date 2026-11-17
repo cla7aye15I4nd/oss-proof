@@ -33,7 +33,7 @@ theorem static_symbol_cost (s : Symbol) (valid : s.Valid) :
       Zlib.Trees.Proofs.Out.natBits_length]
   · have above : ¬ (symbolLengthCode s.value + 257 < 257) := by omega
     simp only [Symbol.literalKey, zero, ite_false, staticDistanceSymbolCost, Symbol.distanceKey,
-      staticLiteralCost, above, staticDistanceCost, Nat.add_sub_cancel, payloadSymBits,
+      staticLiteralCost, staticDistanceCost, Nat.add_sub_cancel, payloadSymBits,
       List.length_append, Zlib.Trees.Proofs.Out.codeBits, Zlib.Trees.Proofs.Out.natBits_length,
       sourceLiteralExtra, sourceDistanceExtra, symbolLengthCode, Zlib.Trees.Proofs.Out.lcodeN, Nat.add_assoc]
     split <;> omega

@@ -87,7 +87,7 @@ theorem foreign_zlib_header_writer {h : Heap} {r : ZStreamRef} {ds pb owner oo :
         rw [pointer] at initialFrame ⊢
         exact generic_wrapper_foreign_setD_frame goodM.live.hs beforeGet middleGet different (Or.inr (Or.inl rfl)) rfl initialFrame
       exact ⟨goodF,buffersF,sizesF,bytesF,pendingF,frameF⟩
-    · simp only [after,marked,waiting,ite_false]
+    · simp only [after,marked,waiting]
       exact ⟨goodM,buffersM,⟨fun _ _ get => ⟨_,get,rfl⟩,fun _ => rfl⟩,bytesM,pendingM,initialFrame⟩
   obtain ⟨goodF,buffersF,sizesF,bytesF,pendingF,frameF⟩ := finalized
   have pendingF' : marked.pending = result.pending := by dsimp only [marked]; split <;> rfl
@@ -103,14 +103,14 @@ theorem foreign_zlib_header_writer {h : Heap} {r : ZStreamRef} {ds pb owner oo :
     rw [pendingF']
     by_cases waiting : (result.pending != 0) = true
     · simp only [marked,waiting,ite_true]
-    · simp only [marked,waiting,ite_false]
+    · simp only [marked,waiting]
       rw [fields]
       rfl
   have fieldsF : marked = {d with pending := marked.pending,pending_out := marked.pending_out,status := BUSY_STATE,last_flush := marked.last_flush} := by
     by_cases waiting : (result.pending != 0) = true
     · simp only [marked,waiting,ite_true]
       rw [fields] <;> rfl
-    · simp only [marked,waiting,ite_false]
+    · simp only [marked,waiting]
       rw [fields] <;> rfl
   have headerRoom : 2 ≤ buf.size := by have extent := trees.base.size; have lo := trees.base.lit_lo; omega
   have prepared := generic_zlib_header_prepare_source good.live.hz good.live.hs status wrap strategy window start pending
@@ -120,14 +120,14 @@ theorem foreign_zlib_header_writer {h : Heap} {r : ZStreamRef} {ds pb owner oo :
     rw [prepared,pendingF']
     by_cases waiting : (result.pending != 0) = true
     · simp only [bind_app,flush,rdD_eq,goodM.live.hs,waiting,ite_true,wrD_eq,pure_app,after]
-    · simp only [bind_app,flush,rdD_eq,goodM.live.hs,waiting,ite_false,pure_app,after] <;> rfl
+    · simp only [bind_app,flush,rdD_eq,goodM.live.hs,waiting,after] <;> rfl
   refine ⟨produced,after,z',marked,written,remaining,run,goodF,buffersF,account,
     (sizesE.trans sizesM).trans sizesF,amount,?_,statusF,bitsF,lastF,fieldsF,bytesF,pendingF,wire,adlerM,inputM,outputCountM,?_,?_,frameF⟩
   · rw [pendingF']; exact left
-  · by_cases waiting : (result.pending != 0) = true <;> simp only [after,waiting,ite_true,ite_false,setD_nalloc]
+  · by_cases waiting : (result.pending != 0) = true <;> simp only [after,waiting,ite_true,setD_nalloc]
     · exact allocM.trans storageE.nalloc
     · exact allocM.trans storageE.nalloc
-  · by_cases waiting : (result.pending != 0) = true <;> simp only [after,waiting,ite_true,ite_false,setD_nextBlk]
+  · by_cases waiting : (result.pending != 0) = true <;> simp only [after,waiting,ite_true,setD_nextBlk]
     · exact frontierM.trans storageE.nextBlk
     · exact frontierM.trans storageE.nextBlk
 

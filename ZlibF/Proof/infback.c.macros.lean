@@ -64,7 +64,7 @@ theorem PULL_have {c : BCtx} {l : IL} {h : Heap} (hne : l.have_ ≠ 0) :
     runX (PULL c) l h = .ok ((.ok (), l), h) := by
   have hb : (l.have_ == 0) = false := by simpa using hne
   unfold PULL
-  simp [runX_bind, runX_get, hb, hne, runX_pure]
+  simp [runX_bind, runX_get, hne, runX_pure]
 
 /-- `PULL()` with no input left and `in` returning a chunk of `n ≠ 0` bytes at `nx`. -/
 theorem PULL_chunk {c : BCtx} {l : IL} {h h' : Heap} {n : UInt32} {nx : BPtr} (h0 : l.have_ = 0) (hn : n ≠ 0)
@@ -72,7 +72,7 @@ theorem PULL_chunk {c : BCtx} {l : IL} {h h' : Heap} {n : UInt32} {nx : BPtr} (h
     runX (PULL c) l h = .ok ((.ok (), { l with have_ := n, next := nx }), h') := by
   have hb : (n == 0) = false := by simpa using hn
   unfold PULL
-  simp [runX_bind, runX_get, h0, hin, runX_lift_ok, hb, hn, runX_set, runX_pure, runX_lift]
+  simp [runX_bind, runX_get, h0, hin, hn, runX_set, runX_pure, runX_lift]
 
 theorem PULL_noinput {c : BCtx} {l : IL} {h h' : Heap} {nx : BPtr} (h0 : l.have_ = 0)
     (hin : c.inCb c.inDesc l.next h = .ok ((0, nx), h')) :
@@ -83,7 +83,7 @@ theorem PULLBYTE_c_eq (c : BCtx) {l : IL} {h : Heap} (hne : l.have_ ≠ 0) :
     runX (Zlib.Infback.PULLBYTE c) l h = runX Zlib.Inflate.PULLBYTE l h := by
   have hb : (l.have_ == 0) = false := by simpa using hne
   unfold Zlib.Infback.PULLBYTE Zlib.Inflate.PULLBYTE
-  simp only [runX_bind, PULL_have hne, runX_get, hb, Bool.false_eq_true, ↓reduceIte, runX_pure, runX_set, runX_lift]
+  simp only [runX_bind, PULL_have hne, runX_get, hb, Bool.false_eq_true, ↓reduceIte, runX_set, runX_lift]
   generalize load8 l.next h = r1
   rcases r1 with e | ⟨a1, h1⟩
   · rfl

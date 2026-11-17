@@ -50,7 +50,7 @@ theorem mass_count_key {α : Type} (key : α → Nat) {xs : List α} (n : Nat)
         fun k => (if k = key s then 1 else 0) + countKey (fun s => some (key s)) xs k := by
       funext k
       simp [countKey, eq_comm]
-    rw [split, mass_add, mass_single, if_pos first, rest]
+    rw [split, mass_add, mass_single, ite_eq_left first, rest]
     simp only [List.length_cons]
     omega
 
@@ -65,7 +65,7 @@ theorem mass_optional_key {α : Type} (key : α → Option Nat) {xs : List α} (
       (fun k => (if key s = some k then 1 else 0) + countKey key xs k) from rfl, mass_add]
     cases eq : key s with
     | none =>
-      simp only [eq, reduceCtorEq, ite_false]
+      simp only [reduceCtorEq, ite_false]
       rw [mass_zero]
       simp only [List.length_cons]
       omega
@@ -73,7 +73,7 @@ theorem mass_optional_key {α : Type} (key : α → Option Nat) {xs : List α} (
       have first := bounds s (by simp) k eq
       have single : (fun j => if some k = some j then 1 else 0) =
           (fun j => if j = k then 1 else 0) := by funext j; simp [eq_comm]
-      rw [single, mass_single, if_pos first]
+      rw [single, mass_single, ite_eq_left first]
       simp only [List.length_cons]
       omega
 

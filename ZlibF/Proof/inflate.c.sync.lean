@@ -58,13 +58,13 @@ theorem infix_snoc {l w : List UInt8} {b : UInt8} : l <:+: w ++ [b] ↔ l <:+: w
 
 theorem suffix_snoc {l w : List UInt8} {x b : UInt8} : l ++ [x] <:+ w ++ [b] ↔ x = b ∧ l <:+ w := by
   rw [← List.reverse_prefix, ← List.reverse_prefix (l₁ := l)]
-  simp [List.cons_prefix_cons, eq_comm]
+  simp [List.cons_prefix_cons]
 
 theorem suffix_snoc0 {w : List UInt8} {b : UInt8} : [b] <:+ w ++ [b] := List.suffix_append _ _
 
 theorem suffix_snoc1 {w : List UInt8} {x b : UInt8} : [x] <:+ w ++ [b] ↔ x = b := by
   have := @suffix_snoc [] w x b
-  simpa using this
+  simp
 
 /-- Suffix facts used to step the search: the last byte of `w ++ [b]`, and the suffixes `[0]`, `[0,0]`, `[0,0,255]`. -/
 theorem sfx1 {w : List UInt8} {b : UInt8} : [0] <:+ w ++ [b] ↔ b = 0 := by
@@ -455,7 +455,7 @@ theorem syncsearch_null (g : UInt32) (h : Heap) : syncsearch g .null 0 h = .ok (
       let got := if b.toNat == (if got < 2 then 0 else 0xff) then got + 1 else if b != 0 then 0 else 4 - got
       pure (next + 1, got)) (fun k s => k = 0 ∧ s = (0, g)) (fun s => s = (0, g))
     (fun k s ⟨hk, _⟩ => by omega)
-    (fun s ⟨_, hs⟩ => ⟨s, by subst hs; unfold OkOn; simp [bind_app, pure_app], hs⟩)
+    (fun s ⟨_, hs⟩ => ⟨s, by subst hs; unfold OkOn; simp [pure_app], hs⟩)
     (k := 0) (s := (0, g)) ⟨rfl, rfl⟩ (by unfold fuel; omega)
   obtain ⟨s, hs, hq⟩ := key
   subst hq

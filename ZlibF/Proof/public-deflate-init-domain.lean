@@ -30,7 +30,7 @@ theorem deflate_domain_general :
   have first : h.allocOk h.nalloc = true := by simpa using alloc 0 (by decide)
   have all : (List.range 5).all (fun j => h.allocOk (h.nalloc + j)) = true := by
     simpa only [List.all_eq_true, List.mem_range] using alloc
-  simp only [first, all, Bool.false_eq_true, if_false, if_true] at facts
+  simp only [first, all, ite_true] at facts
   obtain ⟨-, rfl, initial⟩ := facts
   exact ⟨after, run, initial, StreamReachable.deflateInit hf hu hg hz ha hv run⟩
 

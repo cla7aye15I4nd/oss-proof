@@ -78,7 +78,7 @@ theorem buffers_failed_iff (h : Heap) :
     by_cases hp : h.allocOk (h.nalloc + 1) = true <;>
     by_cases hq : h.allocOk (h.nalloc + 2) = true <;>
     by_cases hb : h.allocOk (h.nalloc + 3) = true
-  all_goals simp [bufferPointers, buffersHeap, headHeap, prevHeap, windowHeap,
+  all_goals simp [bufferPointers, headHeap, prevHeap, windowHeap,
     byteResult, wordResult, bytePtr, wordPtr, byteHeap, wordHeap, failedHeap,
     Zlib.Zutil.Proofs.allocHeap, hw, hp, hq, hb, Nat.add_assoc]
 
@@ -141,7 +141,7 @@ theorem rollback_arrays_at {h g : Heap} (hf : Fresh h) (x : Nat)
     exact popP
   constructor
   · unfold rollbackBuffers bufferPointers
-    simp only [freeWords_bytes] at b1 ⊢
+    simp only at b1 ⊢
     have eq : (freeWords (freeWords (freeBytes g (bytePtr (headHeap h memory))) (wordPtr (prevHeap h)))
         (wordPtr (windowHeap h))).bytes x = (windowHeap h).bytes x := by
       simpa [headHeap, prevHeap] using b1

@@ -60,7 +60,7 @@ theorem setMode_holds {q : InflateStatePtr} {m : UInt32} {h h1 : Heap} {u : Unit
       | some s =>
         have eq := wrS_eq g run
         subst eq
-        exact ⟨i, { s with mode := m }, rfl, by simp [upd_apply], rfl⟩
+        exact ⟨i, { s with mode := m }, rfl, by simp, rfl⟩
 
 /-- `DISTEXT` falls through to `MATCH` after setting the mode. -/
 theorem roomP_setMode_MATCH (c : Ctx) (pre : Heap → Prop) (l : IL) :
@@ -327,7 +327,7 @@ theorem roomX_inflate_FLAGS (gz : GzipFieldLeaves) (c : Ctx) : RoomX c.flush c.s
     | with_reducible exact roomX_inflate_TIME gz _ _
     | room_step
 
-theorem roomX_inflate_HEAD (gz : GzipFieldLeaves) (c : Ctx) : RoomX c.flush c.st (inflate_HEAD c) := by
+theorem roomX_inflate_HEAD (_gz : GzipFieldLeaves) (c : Ctx) : RoomX c.flush c.st (inflate_HEAD c) := by
   intro l
   unfold inflate_HEAD
   repeat' first

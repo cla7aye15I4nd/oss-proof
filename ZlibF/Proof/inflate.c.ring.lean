@@ -46,9 +46,9 @@ theorem copyRange_getElem? (d s : Array UInt8) (doff soff n : Nat) (hd : doff + 
 
 /-- The four ways `uwPost` fills the ring buffer, in terms of `Nat` (`ws` = `wsize`, `wn` = `wnext`, `wh` = `whave`). -/
 theorem uwPost_nat {st : InflateState} {a ebytes : Array UInt8} {eo : Nat} {copy : UInt32}
-    (hpos : st.wsize.toNat ≠ 0)
+    (_hpos : st.wsize.toNat ≠ 0)
     (hv : st.whave.toNat ≤ st.wsize.toNat) (hwn : st.wnext.toNat < st.wsize.toNat)
-    (heq : st.whave.toNat < st.wsize.toNat → st.wnext.toNat = st.whave.toNat) (hw32 : st.wsize.toNat ≤ 2 ^ 16) :
+    (_heq : st.whave.toNat < st.wsize.toNat → st.wnext.toNat = st.whave.toNat) (hw32 : st.wsize.toNat ≤ 2 ^ 16) :
     let ws := st.wsize.toNat; let wn := st.wnext.toNat; let wh := st.whave.toNat; let c := copy.toNat
     let P := uwPost st a ebytes eo copy
     (ws ≤ c ∧ P.1 = copyRange a ebytes 0 (eo - ws) ws ∧ P.2.wnext.toNat = 0 ∧ P.2.whave.toNat = ws) ∨
@@ -69,7 +69,7 @@ theorem uwPost_nat {st : InflateState} {a ebytes : Array UInt8} {eo : Nat} {copy
   repeat' split
   all_goals
     simp only [UInt32.lt_iff_toNat_lt, UInt32.le_iff_toNat_le, UInt32.toNat_add, UInt32.toNat_sub, gt_iff_lt, beq_iff_eq,
-      bne_iff_ne, ne_eq, ← UInt32.toNat_inj, UInt32.toNat_zero, Nat.not_lt, Nat.not_le] at *
+      ne_eq, ← UInt32.toNat_inj, UInt32.toNat_zero, Nat.not_lt, Nat.not_le] at *
   all_goals first
     | (refine Or.inl ⟨?_, ?_, ?_, ?_⟩ <;> first | omega | rfl | trivial | (congr 1 <;> first | omega | (congr 1 <;> first | omega | (congr 1 <;> omega))))
     | (refine Or.inr (Or.inl ⟨?_, ?_, ?_, ?_⟩) <;> first | omega | rfl | trivial | (congr 1 <;> first | omega | (congr 1 <;> first | omega | (congr 1 <;> omega))))
@@ -113,7 +113,7 @@ theorem ring_spec {st : InflateState} {a ebytes : Array UInt8} {eo : Nat} {copy 
     (hpos : st.wsize.toNat ≠ 0)
     (hv : st.whave.toNat ≤ st.wsize.toNat) (hwn : st.wnext.toNat < st.wsize.toNat)
     (heq : st.whave.toNat < st.wsize.toNat → st.wnext.toNat = st.whave.toNat) (hw32 : st.wsize.toNat ≤ 2 ^ 16)
-    (hasz : st.wsize.toNat ≤ a.size) (hc : copy.toNat ≤ eo) (hoff : eo ≤ ebytes.size) (hA : a.size = st.wsize.toNat) :
+    (_hasz : st.wsize.toNat ≤ a.size) (hc : copy.toNat ≤ eo) (hoff : eo ≤ ebytes.size) (hA : a.size = st.wsize.toNat) :
     ringList (uwPost st a ebytes eo copy).1 st.wsize.toNat (uwPost st a ebytes eo copy).2.wnext.toNat
         (uwPost st a ebytes eo copy).2.whave.toNat =
       ((ringList a st.wsize.toNat st.wnext.toNat st.whave.toNat ++ newBytes ebytes eo copy.toNat).drop

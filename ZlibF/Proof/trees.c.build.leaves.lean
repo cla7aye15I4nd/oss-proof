@@ -90,8 +90,8 @@ theorem build_tree_eq_leaves (s : DeflateStatePtr) (desc : TreeDescPtr) :
     build_tree s desc = (do
       let (tree, _stree, elems, max_code) ← btLeavesStart s desc
       btAfterLeaves s desc tree elems max_code) := by
-  simp only [build_tree, btLeavesStart, btScanStart, btScan, btScanBody,
-    btForce, btForceBody, btAfterLeaves, M_bind_assoc, M_pure_bind]
+  simp only [build_tree, btLeavesStart, btScanStart, btScan,
+    btForce, btAfterLeaves, M_bind_assoc, M_pure_bind]
   rfl
 
 /-- The actual start of `build_tree` establishes the scan invariant. Neither

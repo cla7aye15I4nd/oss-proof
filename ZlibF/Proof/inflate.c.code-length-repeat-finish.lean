@@ -12,7 +12,7 @@ the permitted branch; the original error-branch theorem remains unchanged. -/
 theorem clRepeatFinish_contents {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : InflateState}
     (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
     (size : s.lens.size = 320) (nlen : s.nlen.toNat ≤ 286) (ndist : s.ndist.toNat ≤ 30)
-    (haveBound : s.«have».toNat ≤ s.nlen.toNat + s.ndist.toNat) (_copyBound : l.copy.toNat ≤ 138)
+    (_haveBound : s.«have».toNat ≤ s.nlen.toNat + s.ndist.toNat) (_copyBound : l.copy.toNat ≤ 138)
     (room : s.«have».toNat + l.copy.toNat ≤ s.nlen.toNat + s.ndist.toNat) :
     ∃ state,
       runX (clRepeatFinish c) l h = .ok ((.ok false, { l with copy := 0xffffffff }), setI h zs state) ∧

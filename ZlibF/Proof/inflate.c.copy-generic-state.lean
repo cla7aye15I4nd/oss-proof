@@ -229,7 +229,7 @@ theorem copiedGeneric_J_of_heap_facts
     · left
       simpa [copied, copiedGeneric] using range
     · right
-      simp [copied, copiedGeneric, zero, windowNull null, unread, nonraw]
+      simp [copiedGeneric, zero, windowNull null, unread, nonraw]
   · simpa [copied, copiedGeneric] using invariant.wrapper
   · simpa [copied, copiedGeneric] using invariant.header
   · simpa [copied, copiedGeneric, GzipHeaderMode, HeaderDone, GzipFlagsPending, GzipAllowed] using invariant.modes

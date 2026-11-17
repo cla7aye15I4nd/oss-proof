@@ -142,7 +142,7 @@ theorem inflate_table_codes_decoder_safe
     have value : ca.getD (oc + cell) default = ⟨64, 1, 0⟩ := by
       have cases : cell = 0 ∨ cell = 1 := by change cell < 2 at inside; omega
       rcases cases with rfl | rfl
-      · simpa only [Nat.add_zero, Array.getD_eq_getD_getElem?, first, Option.getD_some]
+      · simp only [Nat.add_zero, Array.getD_eq_getD_getElem?, first, Option.getD_some]
       · simp only [Array.getD_eq_getD_getElem?, second, Option.getD_some]
     dsimp only
     rw [value]

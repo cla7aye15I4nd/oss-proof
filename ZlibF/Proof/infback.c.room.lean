@@ -16,7 +16,7 @@ theorem ROOM_have (c : BCtx) {l : IL} {h : Heap} (hl : l.left ≠ 0) :
     runX (ROOM c) l h = .ok ((.ok (), l), h) := by
   have hb : (l.left == 0) = false := by simpa using hl
   unfold ROOM
-  simp [runX_bind, runX_get, hb, hl, runX_pure]
+  simp [runX_bind, runX_get, hl, runX_pure]
 
 /-- The heap `ROOM()` sets before it calls `out`: `state->whave = state->wsize`. -/
 def roomHeap (h : Heap) (zs : Nat) (s : InflateState) : Heap := setI h zs { s with whave := s.wsize }
@@ -45,10 +45,10 @@ theorem ROOM_run (c : BCtx) {win : Nat} {ownI ownO : Nat → Prop} {R : Heap →
   by_cases hr0 : r = 0
   · refine ⟨.ok (), { l with put := s.window, left := s.wsize }, h', ?_, fr, hR', Or.inl ⟨rfl, rfl⟩⟩
     unfold ROOM
-    simp [runX_bind, runX_get, hb, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_pure]
+    simp [runX_bind, runX_get, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_pure]
   · refine ⟨.error Ex.leave, { l with put := s.window, left := s.wsize, ret := Z_BUF_ERROR }, h', ?_, fr, hR',
       Or.inr ⟨rfl, rfl⟩⟩
     unfold ROOM
-    simp [runX_bind, runX_get, hb, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_modify, runX_throw]
+    simp [runX_bind, runX_get, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_modify, runX_throw]
 
 end Zlib.Infback.Proofs

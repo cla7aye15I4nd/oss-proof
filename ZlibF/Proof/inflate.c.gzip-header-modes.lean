@@ -392,7 +392,7 @@ theorem gz_strBody {sel : GzHeader → BPtr} {cap : GzHeader → UInt32} (valid 
 theorem uint32_succ_toNat {a b : UInt32} (lt : a.toNat < b.toNat) : (a + 1).toNat = a.toNat + 1 := by
   rw [UInt32.toNat_add]
   have := b.toNat_lt
-  simp only [UInt32.toNat_one, UInt32.size] at *
+  simp only [UInt32.toNat_one] at *
   omega
 
 theorem gz_strLoop {sel : GzHeader → BPtr} {cap : GzHeader → UInt32} (valid : e.Valid)
@@ -490,7 +490,7 @@ variable {e : GzEntry} {l : IL} {h : Heap} {z : ZStream} {s : InflateState} {use
 theorem uint32_sub_toNat {a b : UInt32} (le : b.toNat ≤ a.toNat) : (a - b).toNat = a.toNat - b.toNat :=
   UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr le)
 
-theorem gz_strAdvanceK {k : X Unit} (valid : e.Valid) (inv : GzInv e l h z s used)
+theorem gz_strAdvanceK {k : X Unit} (_valid : e.Valid) (inv : GzInv e l h z s used)
     (bound : l.copy.toNat ≤ l.have_.toNat) (pos : 0 < l.have_.toNat)
     (mode : FLAGS < s.mode ∧ s.mode ≤ HCRC) (flags : s.flags ≠ -1 ∧ s.flags ≠ 0) (notExtra : s.mode ≠ EXTRA)
     (notTime : s.mode ≠ TIME) (stop : l.len ≠ 0 → l.copy.toNat = l.have_.toNat)
@@ -609,7 +609,7 @@ theorem GzInv.clearField (inv : GzInv e l h z s used) (valid : e.Valid) {i : Nat
   · simp only [w0, ↓reduceIte]
     exact inv.setHeader head get ⟨rfl, rfl, rfl⟩ (Or.inr rfl) (Or.inl rfl) (Or.inl rfl)
   · by_cases w1 : which = 1
-    · simp only [w0, w1, ↓reduceIte]
+    · simp only [w1, ↓reduceIte]
       exact inv.setHeader head get ⟨rfl, rfl, rfl⟩ (Or.inl rfl) (Or.inr rfl) (Or.inl rfl)
     · simp only [w0, w1, ↓reduceIte]
       exact inv.setHeader head get ⟨rfl, rfl, rfl⟩ (Or.inl rfl) (Or.inl rfl) (Or.inr rfl)

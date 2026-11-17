@@ -211,7 +211,7 @@ theorem Env.singleton_query_sound {e : Env} {ca : Array Code}
       rw [root]
       simp only [tableRead, read, bind, Option.bind, Nat.add_zero, first]
       rw [notLink]
-      simp only [ite_false, firstBits, zeroLength]
+      simp only [firstBits, zeroLength]
       rfl
     have codeBits := ZlibF.Math.InflateDecode.allocated_word_code e.f e.n index
     change codeOf e.ls (Canon.sy e.ls 0) = bitsOfNat (Canon.H e.ls 0) (Canon.L e.ls 0) at codeBits

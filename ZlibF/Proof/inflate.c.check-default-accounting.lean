@@ -200,8 +200,8 @@ theorem inflate_CHECK_default_state_accounting_rank {c : Ctx} {h : Heap} {r : ZS
             rcases progress2 with leave | ⟨normal, _⟩
             · exact Or.inr (Or.inl ⟨leave, leaveEnd leave⟩)
             · cases normal
-          | ok unit =>
-            cases unit
+          | ok unitVal =>
+            cases unitVal
             exact Or.inr (Or.inr ⟨rfl, okBad rfl⟩)
         · rw [streamTotals.2, outFirst]
           exact check_output_credit z.total_out l buffers.output.count

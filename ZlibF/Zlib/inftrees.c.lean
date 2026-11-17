@@ -300,7 +300,7 @@ def inflate_table (type : UInt32) (lens : WPtr) (codes : UInt32) (table : CodePt
       let b ← geta count len.toNat
       pure (len + 1, ← seta offs (len + 1).toNat (a + b))) ((1 : UInt32), offs)
   -- for (sym = 0; sym < codes; sym++) if (lens[sym] != 0) work[offs[lens[sym]]++] = (unsigned short)sym;
-  let (_, offs) ← cwhile (fun (sym, offs) => pure (sym < codes, (sym, offs)))
+  let (_, _offs) ← cwhile (fun (sym, offs) => pure (sym < codes, (sym, offs)))
     (fun (sym, offs) => do
       let l ← lens.index sym.toNat
       if l != 0 then

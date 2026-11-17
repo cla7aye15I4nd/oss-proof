@@ -9,9 +9,9 @@ set_option autoImplicit false
 theorem slide_insert_count (d : DeflateState) :
     (slideState d).insert.toNat = min d.insert.toNat (slideState d).strstart.toNat := by
   by_cases small : d.insert > d.strstart - d.w_size
-  · simp only [slideState, slideBeforeHash, small, if_true]
+  · simp only [slideState, slideBeforeHash, small, ite_true]
     exact (Nat.min_eq_right (Nat.le_of_lt (UInt32.lt_iff_toNat_lt.mp small))).symm
-  · simp only [slideState, slideBeforeHash, small, if_false]
+  · simp only [slideState, slideBeforeHash, small, ite_false]
     exact (Nat.min_eq_left (by
       have bound : ¬ (d.strstart - d.w_size).toNat < d.insert.toNat := by
         simpa only [GT.gt, UInt32.lt_iff_toNat_lt] using small
@@ -67,7 +67,7 @@ theorem slide_pending_boundary {h : Heap} {r : ZStreamRef} {ds origin : Nat}
   have symbolS := symbol_boundary_of_ledger goodS pendingS dataS (slide_ledger ledger) balanceS
   refine ⟨w, p, q, wa, pa, qa, pa', qa', env, sizeP, sizeH, run, ⟨goodS, heap_chains_raise frontierS (Nat.sub_le _ _), rangeS,
     slide_lazy_history boundary.good env.win env.wbytes boundary.range taken boundary.history,
-    ?_, symbolS, w, slideWindow d wa, env.win, by simp [hs, slideHeap], ?_, ?_⟩, ?_, frontierS, ?_⟩
+    ?_, symbolS, w, slideWindow d wa, env.win, by simp [slideHeap], ?_, ?_⟩, ?_, frontierS, ?_⟩
   · intro _
     change 1 ≤ (slideState d).strstart.toNat
     omega
@@ -86,7 +86,7 @@ theorem slide_pending_boundary {h : Heap} {r : ZStreamRef} {ds origin : Nat}
     have zero := boundary.ready large
     have small : ¬ d.insert > d.strstart - d.w_size := by
       simp [zero, UInt32.lt_iff_toNat_lt]
-    simp [slid, slideState, slideBeforeHash, small, zero]
+    simp [slideState, slideBeforeHash, zero]
 
 /-- Empty input exits before priming. Padding preserves the lower frontier
 and the insertion counter on the exact returned heap. -/

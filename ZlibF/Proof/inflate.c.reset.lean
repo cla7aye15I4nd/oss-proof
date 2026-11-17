@@ -70,7 +70,7 @@ theorem inflateReset_run {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s
       rw [resetKeep_run]
       rotate_left
       · exact ⟨by simp [hz], by first | exact setI_istates_same _ _ _ | (rw [freeWin_istates]; exact setI_istates_same _ _ _), hL.zst, by simp [hL.back], by simpa using hL.mode, hL.zalloc, hL.zfree⟩
-      · simp [resetHeap, resetPre, hne, hw, resetKeepState, resetKeepStream, freeWin_null]
+      · simp [resetHeap, resetPre, hne, resetKeepState, resetKeepStream]
 
 
 /-- The invariants of a stream after both records are replaced, over any heap that has the two records. -/

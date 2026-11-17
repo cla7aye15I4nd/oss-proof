@@ -106,7 +106,7 @@ theorem entry_run {h : Heap} {r : ZStreamRef} {z : ZStream} {version : BPtr}
   obtain ⟨hn, read⟩ := version_load hv
   unfold deflateInit2_ tail
   by_cases hza : z.zalloc = .null <;> by_cases hzf : z.zfree = .null
-  all_goals simp [hn, bind_app, pure_app, read, sizeof_z_stream, zwr_eq, zrd_eq, hz,
+  all_goals simp [hn, bind_app, read, sizeof_z_stream, zwr_eq, zrd_eq, hz,
     ZStreamRef.get_put_same hz, ZStreamRef.put_put, preparedStream, hza, hzf]
 
 /-! ## Parameter normalization -/
@@ -178,16 +178,16 @@ theorem tail_eq (strm : ZStreamPtr) (level method wb mem strategy : Int32) :
         simp only [Int32.lt_iff_toInt_lt] at low; simp at low; omega
       have lo : -2147483648 ≤ -wb.toInt ∧ -wb.toInt ≤ 2147483647 := by omega
       by_cases hl : level = Z_DEFAULT_COMPRESSION <;>
-        simp [neg, low, hl, ineg, chk32, lo, M_pure_bind, M_bind_assoc] <;> rfl
+        simp [neg, low, hl, ineg, chk32, lo, M_pure_bind] <;> rfl
   · by_cases high : wb > 15
     · have n3 : 15 < wb.toInt := by simpa [gt_iff_lt, Int32.lt_iff_toInt_lt] using high
       have n4 := wb.toInt_le
       have lo : -2147483648 ≤ wb.toInt - 16 ∧ wb.toInt - 16 ≤ 2147483647 := by
         simp [Int32.maxValue] at n4; omega
       by_cases hl : level = Z_DEFAULT_COMPRESSION <;>
-        simp [neg, high, hl, isub, chk32, lo, M_pure_bind, M_bind_assoc] <;> rfl
+        simp [neg, high, hl, isub, chk32, lo, M_pure_bind] <;> rfl
     · by_cases hl : level = Z_DEFAULT_COMPRESSION <;>
-        simp [neg, high, hl, M_pure_bind, M_bind_assoc] <;> rfl
+        simp [neg, high, hl] <;> rfl
 
 /-! ## Sizes -/
 
@@ -306,7 +306,7 @@ theorem finish_case (strm : ZStreamPtr) (lv b method mem strategy : Int32) (wr :
       apply Int32.toInt_inj.mp
       rw [Int32.toInt_ofNat_of_lt (by omega)]
       omega
-    rw [if_neg hb, if_neg r0, lvEq]
+    rw [ite_eq_right hb, ite_eq_right r0, lvEq]
     exact rest_eq strm lv (wrapCode wr) b method mem strategy (by omega) (by omega) (by omega) (by omega)
 
 /-- The normalized level as an integer. -/
@@ -330,8 +330,8 @@ theorem init_case (strm : ZStreamPtr) (lvI bI : Int) (method mem strategy : Int3
     | none => pure Z_STREAM_ERROR
     | some p => alloc strm (Int32.ofNat p.level) (wrapCode p.wrap) p.wbits p.memLevel method strategy := by
   by_cases r : refused lvI bI method.toInt mem.toInt strategy.toInt wr
-  · rw [if_pos r, if_pos r]
-  · rw [if_neg r, if_neg r]
+  · rw [ite_eq_left r, ite_eq_left r]
+  · rw [ite_eq_right r, ite_eq_right r]
     have nine : (if bI = 8 then 9 else bI.toNat) = (if bI = 8 then 9 else bI).toNat := by
       by_cases e : bI = 8 <;> simp [e]
     simp only [nine]

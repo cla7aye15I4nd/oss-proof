@@ -87,17 +87,17 @@ theorem runBits_length (blt : Nat → UInt16 × UInt16) (o : Option (Nat × Int 
     simp
   by_cases few : cnt < mn
   · rw [two cur 0 cnt 0 (by omega) (by omega) (fun k => by simp [runFreq, few])]
-    simp [runBits, few, flatten_replicate_length, codeBits_length, blWeight, ec]
+    simp [runBits, few, codeBits_length, blWeight, ec]
   by_cases nz : cur ≠ 0
   · by_cases newLen : (cur : Int) ≠ prev
     · rw [two cur 16 1 1 (by omega) (by omega) (fun k => by simp [runFreq, few, nz, newLen])]
-      simp only [runBits, few, nz, newLen, if_false, if_true, ne_eq, not_false_eq_true, List.length_append,
+      simp only [runBits, few, nz, newLen, ite_false, ite_true, ne_eq, not_false_eq_true, List.length_append,
         codeBits_length, natBits_length]
       have e16 : blExtraBits 16 = 2 := rfl
       simp only [blWeight, ec, e16]
       omega
     · rw [two 16 0 1 0 (by omega) (by omega) (fun k => by simp [runFreq, few, nz, newLen])]
-      simp only [runBits, few, nz, newLen, if_false, if_true, ne_eq, not_false_eq_true, List.length_append,
+      simp only [runBits, few, nz, newLen, ite_false, ite_true, ne_eq, not_false_eq_true, List.length_append,
         codeBits_length, natBits_length]
       simp [blWeight, blExtraBits]
   · have z : cur = 0 := by simpa using nz

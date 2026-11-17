@@ -591,8 +591,8 @@ theorem next_add_run_reset {h : Heap} {s : GzState} (hN : NextOk h s) {n : Nat} 
 
 /-- The part of `gzseek64` after the checks, for a reader that is not in the raw area, with the target before `x.pos` and `NextOk`: `gzrewind`, which fails with -1 and no change of the heap if `lseek` fails, otherwise the state is reset and the whole distance becomes `skip`; no fault. -/
 theorem seekTail_back {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h gs s) (hm : s.mode = GZ_READ)
-    (hhow : s.how ≠ GZ_COPY) (he : s.err = Z_OK ∨ s.err = Z_BUF_ERROR) (hnn : 0 ≤ s.x.pos.toInt) {t : Int}
-    (ht : SeekOk t) (hlt : t < s.x.pos.toInt) (hN : NextOk h s) (fs : Fs) :
+    (hhow : s.how ≠ GZ_COPY) (he : s.err = Z_OK ∨ s.err = Z_BUF_ERROR) (_hnn : 0 ≤ s.x.pos.toInt) {t : Int}
+    (ht : SeekOk t) (hlt : t < s.x.pos.toInt) (_hN : NextOk h s) (fs : Fs) :
     seekTail (hnd gs) s (Int64.ofInt t) fs h =
       if (lseekRes s.fd s.start SEEK_SET fs).1 = -1 then Except.ok ((-1, (lseekRes s.fd s.start SEEK_SET fs).2), h)
       else Except.ok ((Int64.ofInt t, (lseekRes s.fd s.start SEEK_SET fs).2),

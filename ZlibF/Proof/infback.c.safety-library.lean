@@ -281,7 +281,7 @@ theorem ROOM_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
           exact istates_frame ext.1 (show (setI h i s1).istates i = some s1 by simp [setI]) pr.disjoint.1⟩),
         meas⟩
       unfold ROOM
-      simp [runX_bind, runX_get, hb, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_pure, l1]
+      simp [runX_bind, runX_get, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_pure, l1]
     · refine ⟨.error Ex.leave, { l1 with ret := Z_BUF_ERROR }, after, log2, ?_, I2.withRet Z_BUF_ERROR,
         fun x => (nomatch x), fun e x => by injection x with x; subst x; exact ⟨rfl, rfl⟩, rfl, rfl, rfl, rfl, rfl, (by rw [istates_frame ext.1 (show (setI h i s1).istates i = some s1 by simp [setI]) pr.disjoint.1, hs]; rfl),
         (fun s' g => ⟨s.wsize, by
@@ -289,7 +289,7 @@ theorem ROOM_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
           exact istates_frame ext.1 (show (setI h i s1).istates i = some s1 by simp [setI]) pr.disjoint.1⟩),
         meas⟩
       unfold ROOM
-      simp [runX_bind, runX_get, hb, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_modify,
+      simp [runX_bind, runX_get, hl, runX_lift_ok hld, runX_set, runX_lift_ok hwr, hcall, hr0, runX_modify,
         runX_throw, l1]
   · exact ⟨.ok (), l, h, log, ROOM_have c hl, I, fun _ => hl, fun e x => (nomatch x), rfl, rfl, rfl, rfl,
       rfl, rfl, fun s' g => ⟨s'.whave, g⟩, Nat.le_refl _⟩

@@ -99,7 +99,7 @@ theorem wget_put_code (h : Heap) (r : CodeRef) (a : Array Code) (w : WRef) :
     cases hs : h.istates id with
     | none => simp
     | some s =>
-      cases w <;> simp [Space.get, upd_apply, hs] <;> (try split) <;> simp_all
+      cases w <;> simp [Space.get, upd_apply] <;> (try split) <;> simp_all
   | st_lenfix => rfl
   | st_distfix => rfl
 
@@ -111,7 +111,7 @@ theorem cget_put_word (h : Heap) (w : WRef) (a : Array UInt16) (r : CodeRef) :
     | blk b => simp [Space.put, Space.get]
     | dstate_bl_count d =>
       simp only [Space.put]
-      cases hs : h.dstates d <;> simp [Space.get, hs]
+      cases hs : h.dstates d <;> simp [Space.get]
     | istate_lens d =>
       simp only [Space.put]
       cases hs : h.istates d with
@@ -133,17 +133,17 @@ theorem wput_put (h : Heap) (w : WRef) (a b : Array UInt16) :
     simp only [Space.put]
     cases hs : h.dstates d with
     | none => simp [hs]
-    | some s => simp only [hs, upd_same]; rw [upd_upd]
+    | some s => simp only [upd_same]; rw [upd_upd]
   | istate_lens d =>
     simp only [Space.put]
     cases hs : h.istates d with
     | none => simp [hs]
-    | some s => simp only [hs, upd_same]; rw [upd_upd]
+    | some s => simp only [upd_same]; rw [upd_upd]
   | istate_work d =>
     simp only [Space.put]
     cases hs : h.istates d with
     | none => simp [hs]
-    | some s => simp only [hs, upd_same]; rw [upd_upd]
+    | some s => simp only [upd_same]; rw [upd_upd]
 
 theorem wget_put_self {h : Heap} {w : WRef} {a0 : Array UInt16} (hg : Space.get h w = some a0) (b : Array UInt16) :
     Space.get (Space.put h w b) w = some b := by
@@ -152,15 +152,15 @@ theorem wget_put_self {h : Heap} {w : WRef} {a0 : Array UInt16} (hg : Space.get 
   | dstate_bl_count d =>
     simp only [Space.get, Option.map_eq_some_iff] at hg
     obtain ⟨s, hs, _⟩ := hg
-    simp [Space.put, Space.get, hs, upd_apply]
+    simp [Space.put, Space.get, hs]
   | istate_lens d =>
     simp only [Space.get, Option.map_eq_some_iff] at hg
     obtain ⟨s, hs, _⟩ := hg
-    simp [Space.put, Space.get, hs, upd_apply]
+    simp [Space.put, Space.get, hs]
   | istate_work d =>
     simp only [Space.get, Option.map_eq_some_iff] at hg
     obtain ⟨s, hs, _⟩ := hg
-    simp [Space.put, Space.get, hs, upd_apply]
+    simp [Space.put, Space.get, hs]
 
 theorem wget_put_ne {h : Heap} {w w' : WRef} (hne : w ≠ w') (b : Array UInt16) :
     Space.get (Space.put h w b) w' = Space.get h w' := by
@@ -169,7 +169,7 @@ theorem wget_put_ne {h : Heap} {w w' : WRef} (hne : w ≠ w') (b : Array UInt16)
     cases w' with
     | blk y =>
       have : x ≠ y := fun e => hne (by rw [e])
-      simp [Space.put, Space.get, upd_apply, this, Ne.symm this]
+      simp [Space.put, Space.get, Ne.symm this]
     | dstate_bl_count y => simp [Space.put, Space.get]
     | istate_lens y => simp [Space.put, Space.get]
     | istate_work y => simp [Space.put, Space.get]
@@ -180,8 +180,8 @@ theorem wget_put_ne {h : Heap} {w w' : WRef} (hne : w ≠ w') (b : Array UInt16)
       have : x ≠ y := fun e => hne (by rw [e])
       simp only [Space.put]
       cases hs : h.dstates x with
-      | none => simp [hs]
-      | some s => simp [Space.get, upd_apply, this, Ne.symm this]
+      | none => simp
+      | some s => simp [Space.get, Ne.symm this]
     | istate_lens y => simp only [Space.put]; cases h.dstates x <;> simp [Space.get]
     | istate_work y => simp only [Space.put]; cases h.dstates x <;> simp [Space.get]
   | istate_lens x =>
@@ -192,16 +192,16 @@ theorem wget_put_ne {h : Heap} {w w' : WRef} (hne : w ≠ w') (b : Array UInt16)
       have : x ≠ y := fun e => hne (by rw [e])
       simp only [Space.put]
       cases hs : h.istates x with
-      | none => simp [hs]
-      | some s => simp [Space.get, upd_apply, this, Ne.symm this]
+      | none => simp
+      | some s => simp [Space.get, Ne.symm this]
     | istate_work y =>
       simp only [Space.put]
       cases hs : h.istates x with
-      | none => simp [hs]
+      | none => simp
       | some s =>
         by_cases hxy : y = x
-        · subst hxy; simp [Space.get, upd_apply, hs]
-        · simp [Space.get, upd_apply, hxy]
+        · subst hxy; simp [Space.get, hs]
+        · simp [Space.get, hxy]
   | istate_work x =>
     cases w' with
     | blk y => simp only [Space.put]; cases h.istates x <;> simp [Space.get]
@@ -209,17 +209,17 @@ theorem wget_put_ne {h : Heap} {w w' : WRef} (hne : w ≠ w') (b : Array UInt16)
     | istate_lens y =>
       simp only [Space.put]
       cases hs : h.istates x with
-      | none => simp [hs]
+      | none => simp
       | some s =>
         by_cases hxy : y = x
-        · subst hxy; simp [Space.get, upd_apply, hs]
-        · simp [Space.get, upd_apply, hxy]
+        · subst hxy; simp [Space.get, hs]
+        · simp [Space.get, hxy]
     | istate_work y =>
       have : x ≠ y := fun e => hne (by rw [e])
       simp only [Space.put]
       cases hs : h.istates x with
-      | none => simp [hs]
-      | some s => simp [Space.get, upd_apply, this, Ne.symm this]
+      | none => simp
+      | some s => simp [Space.get, Ne.symm this]
 
 theorem cput_put (h : Heap) (r : CodeRef) (a b : Array Code) :
     Space.put (Space.put h r a) r b = Space.put h r b := by
@@ -228,7 +228,7 @@ theorem cput_put (h : Heap) (r : CodeRef) (a b : Array Code) :
     simp only [Space.put]
     cases hs : h.istates d with
     | none => simp [hs]
-    | some s => simp only [hs, upd_same]; rw [upd_upd]
+    | some s => simp only [upd_same]; rw [upd_upd]
   | st_lenfix => rfl
   | st_distfix => rfl
 
@@ -237,7 +237,7 @@ theorem cget_put_self {h : Heap} {r : CodeRef} {a0 : Array Code} (hg : Space.get
   obtain ⟨d, rfl⟩ := CodeRef.ro_false_iff hro
   simp only [Space.get, Option.map_eq_some_iff] at hg
   obtain ⟨s, hs, _⟩ := hg
-  simp [Space.put, Space.get, hs, upd_apply]
+  simp [Space.put, Space.get, hs]
 
 
 /-! ### Machine integers -/
@@ -302,7 +302,7 @@ theorem getD_set! {a : Array UInt16} {i j : Nat} {v : UInt16} :
   · subst h1
     by_cases h2 : i < a.size
     · simp [h2]
-    · simp [h2, Array.getElem?_eq_none (show a.size ≤ i by omega)]
+    · simp [h2]
   · simp [h1]
 
 theorem u16_succ {a : Nat} (h : a + 1 < 65536) : UInt16.ofNat a + 1 = UInt16.ofNat (a + 1) := by

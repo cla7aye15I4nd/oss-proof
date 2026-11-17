@@ -139,7 +139,7 @@ theorem deflate_slow_finish_ready_stream_encoding_adler {h : Heap} {r : ZStreamR
       [], loopWritten ++ tailWritten, actual, stateA, buffersA, account,
       ?_, agreesL, checksumA.trans checksumL, Or.inr ⟨?_, tailBytes, pendingBytes, finalA, ?_⟩⟩
     · simpa only [List.length_append, tailLength, pointer] using bothBytes
-    · split <;> simp only [or_self, true_or, or_true]
+    · split <;> simp only [true_or, or_true]
     · simpa only [List.append_assoc] using validA
 
 end Zlib.Deflate.Engine.Proofs

@@ -41,8 +41,8 @@ theorem public_first_no_flush_encoding_input {h : Heap} {r : ZStreamRef} {ds ob 
       accountA, bytesA, fun _ _ => rfl, ?_, statusA, Or.inl lastA, checksumA, ?_,
       Or.inl ⟨rfl, rfl, rfl, rfl, rfl, phaseA⟩⟩
     · simp only [fillEnd, startA, lookA, initial.start, initial.lookahead,
-        UInt32.toNat_zero, Nat.add_zero, Nat.zero_add]
-    · simp only [fillEnd, startA, lookA, UInt32.toNat_zero, Nat.add_zero, Nat.zero_add,
+        UInt32.toNat_zero, Nat.add_zero]
+    · simp only [fillEnd, startA, lookA, UInt32.toNat_zero, Nat.add_zero,
         inputPrefix, List.range_zero, List.map_nil, List.take_zero]
   · have room : 2 ≤ z.avail_out.toNat := by omega
     obtain ⟨before, pending⟩ := good_pending_bits initial.good

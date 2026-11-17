@@ -75,7 +75,7 @@ theorem foreign_zlib_trailer_publish_encoding {h : Heap} {r : ZStreamRef} {ds pb
       Bool.false_eq_true,ite_false,getW,show ¬ (1 : Int32) ≤ 0 from by decide,
       show ((1 : Int32) == 2) = false from rfl,write,flush,getWM,
       show (1 : Int32) > 0 from by decide,ite_true,negative,wrD_eq,goodM.live.hs]
-    simp only [bind_app,pure_app,rdD_eq,setD_dstates_same]
+    simp only [rdD_eq,setD_dstates_same]
     rfl
   have wire := outputM.trans word
   have privateFrame := storageE.pending_private_frame trees.base.pbuf

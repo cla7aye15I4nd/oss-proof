@@ -32,14 +32,14 @@ theorem public_pending_valid_continue {h middle : Heap} {r : ZStreamRef} {ds : N
     omega
   have low : ¬ flush < 0 := by rw [Int32.lt_iff_toInt_lt]; change ¬ flush.toInt < 0; omega
   rw [public_deflate_source]
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low,
     decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
     show (z.next_out == .null) = false from beq_eq_false_iff_ne.mpr out,
     inputs, show (d.status == FINISH_STATE) = false from by rw [status]; rfl,
-    Bool.false_and, Bool.and_false, Bool.or_false,
+    Bool.false_and, Bool.or_false,
     show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr positive,
     wrD_eq, good.live.hs, show (d.pending != 0) = true from bne_iff_ne.mpr pending,
     ite_true, run, goodM.live.hz,
@@ -52,7 +52,7 @@ theorem public_busy_header_skip_next {h : Heap} {r : ZStreamRef} {ds : Nat} {z :
     (good : DGood h r ds z d) (status : d.status = BUSY_STATE) (next : M Int32) :
     publicZlibHeader (some r) (some (.tab ds)) next h = next h := by
   unfold publicZlibHeader
-  simp only [bind_app, pure_app, rdD_eq, good.live.hs, status,
+  simp only [bind_app, rdD_eq, good.live.hs, status,
     show (BUSY_STATE == INIT_STATE) = false from rfl, Bool.false_and, Bool.false_eq_true, ite_false]
 
 end Zlib.Deflate.Engine.Proofs

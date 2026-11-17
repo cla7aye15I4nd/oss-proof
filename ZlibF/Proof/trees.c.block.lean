@@ -39,7 +39,7 @@ theorem zero_freq_loop {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dstates 
         setD h id (s.upd d (a.set! n.toInt.toNat { a[n.toInt.toNat]! with fc := 0 })), ?_, ?_, ⟨?_, ?_, ?_⟩, ?_⟩
       · simp [hlt]
       · rw [hcast] at hset
-        simp only [bind_app, hp _ hne, hset, pure_app, Sel.arr_upd, Sel.upd_upd, setD_setD]
+        simp only [bind_app, hp _ hne, hset, pure_app, Sel.upd_upd, setD_setD]
         simp only [hadd, i32_one_toInt, pure_app]
       · rw [hnn]; omega
       · rw [hnn]; omega
@@ -158,7 +158,7 @@ theorem init_block_spec0 {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf
   rw [bind_app, pLtree_run hd3]
   simp only []
   rw [bind_app, hE, hset]
-  simp (disch := simp) only [bind_app, md_run', rdD_setD_same, setD_setD, pure_app]
+  simp (disch := simp) only [bind_app, md_run', rdD_setD_same, setD_setD]
   have ha1 : Sel.l.arr (Sel.bl.upd (Sel.d.upd (Sel.l.upd d a1) a2) a3) = a1 := rfl
   have hdl1 : ∀ n : Nat, (a1[n]! : CtData).dl = (d.dyn_ltree[n]! : CtData).dl := by
     intro n

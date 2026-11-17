@@ -43,7 +43,7 @@ def PermOn (H' H : Nat → Int32) (len : Nat) : Prop :=
     ∀ i, 1 ≤ i → i ≤ len → H' i = H (σ i)
 
 theorem PermOn.refl (H : Nat → Int32) (len : Nat) : PermOn H H len :=
-  ⟨id, fun i a b => ⟨a, b⟩, fun i i' _ _ _ _ e => e, fun _ _ _ => rfl⟩
+  ⟨id, fun _i a b => ⟨a, b⟩, fun _i _i' _ _ _ _ e => e, fun _ _ _ => rfl⟩
 
 /-- Swap positions `a`, `b`. -/
 def swapAt (A : Nat → Int32) (a b : Nat) : Nat → Int32 :=

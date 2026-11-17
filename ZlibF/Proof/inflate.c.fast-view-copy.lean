@@ -235,7 +235,7 @@ theorem FastInputPacket.copyOp_distinct_view
           using finalFrom,
         by simpa only [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm]
           using finalOut, exactBytes, finalWritable, finalSource,
-        by rw [finalEq]; simp [next, first, Nat.add_assoc,
+        by rw [finalEq]; simp [next, first,
           Nat.add_comm, Nat.add_left_comm]⟩
   obtain ⟨n, count⟩ : ∃ n, fastLocal.op.toNat = n + 1 :=
     ⟨fastLocal.op.toNat - 1, by omega⟩

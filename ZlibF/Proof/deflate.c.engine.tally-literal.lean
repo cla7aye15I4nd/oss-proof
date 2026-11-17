@@ -60,7 +60,7 @@ theorem increment_literal_frequency {h : Heap} {ds : Nat} {d : DeflateState} {i 
     get (by rfl) bound
   unfold freq_inc
   rw [bind_app, add]
-  simp only [Nat.zero_add]
+  simp only
   rw [bind_app, load]
   simp only []
   rw [put, CtDataRef.put_dstate_dyn_ltree state]
@@ -125,7 +125,7 @@ theorem tally_literal_run {h : Heap} {ds b : Nat} {d : DeflateState} {buf : Arra
     let d ← ldDeflateState (some (.tab ds))
     pure (d.sym_next == d.sym_end)) h0 = _
   rw [bind_app, second']
-  simp only [Zlib.Trees.Proofs.Out.setB_setB]
+  simp only
   change (do
     store_at d.sym_buf (d.sym_next.toNat + 2) c
     stDeflateState (some (.tab ds)) dn
@@ -133,7 +133,7 @@ theorem tally_literal_run {h : Heap} {ds b : Nat} {d : DeflateState} {buf : Arra
     let d ← ldDeflateState (some (.tab ds))
     pure (d.sym_next == d.sym_end)) h1 = _
   rw [bind_app, third']
-  simp only [Zlib.Trees.Proofs.Out.setB_setB]
+  simp only
   change (do
     stDeflateState (some (.tab ds)) dn
     freq_inc (.dstate_dyn_ltree ds) c.toNat
@@ -150,7 +150,7 @@ theorem literalState_tally (d : DeflateState) (c : UInt8) :
   have three : d.sym_next + 1 + 1 + 1 = d.sym_next + 3 := by
     rw [UInt32.add_assoc, UInt32.add_assoc]
     rfl
-  simp only [literalState, Zlib.Trees.Proofs.Out.tallyRec, if_pos rfl, ite_true, three, UInt8.toNat_toUInt32]
+  simp only [literalState, Zlib.Trees.Proofs.Out.tallyRec, ite_true, three, UInt8.toNat_toUInt32]
 
 /-- The strategy's strict, aligned symbol count supplies room for the
 three actual stores. It does not assume output space for tree emission. -/
@@ -202,7 +202,7 @@ theorem literal_good_after {h : Heap} {r : ZStreamRef} {ds b : Nat} {z : ZStream
   have shape := shape_setD goodB.live.hs dt
   refine ⟨?_, DStInv.congr (h := hb) (h' := setD hb ds dt) rfl rfl rfl rfl inv,
     shape.uniq goodB.uniq, shape.fresh rfl goodB.fresh, ⟨dt, b, literalBytes buf d c, treeResult⟩⟩
-  exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp [dt], good.live.zst,
+  exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp, good.live.zst,
     good.live.back, good.live.status, good.live.zalloc, good.live.zfree⟩
 
 theorem tally_literal_good {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}

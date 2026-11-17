@@ -57,7 +57,7 @@ theorem inflate_CHECK_value_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
     refine ⟨h2, h1, h3, ?_⟩
     unfold inflate_CHECK
     rw [hc]
-    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, runX_throw]
+    simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e]
   · intro e
     refine ⟨hok e, ?_⟩
     by_cases hcond : chkCond s out = true
@@ -95,21 +95,21 @@ theorem inflate_CHECK_value_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
         have hs2 : (chkH h r zs z s out v).istates zs = some (chkS s out v) := by simp [chkH]
         obtain ⟨i, hi, hbm⟩ := tcBadMode_run (c := c) "incorrect data check" lit_data_check hr hc hz2 hs2
         refine ⟨i, hi, ?_⟩
-        simp [chkH, chkZ, chkS, tcBadHeap, hcond, hct', hout] at hbm
+        simp [chkH, chkZ, chkS, tcBadHeap, hct', hout] at hbm
         have hbad2 : (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = v) := by
           refine ⟨hbad, ?_⟩
           simp only [chkS, hcond, ↓reduceIte] at hne
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0]
-            rw [if_neg (by simpa using hf0)] at hne
+          · rw [ite_eq_left hf0]
+            rw [ite_eq_right (by simpa using hf0)] at hne
             exact hne
-          · rw [if_neg hf0]
-            rw [if_pos hf0] at hne
+          · rw [ite_eq_right hf0]
+            rw [ite_eq_left hf0] at hne
             exact hne
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hct3, hct', hbad2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcond, hbm, chkCond,
+          hout, hout', hleft', runX_pure, hct3, hbad2, setMode, chkH, chkZ, chkS, hbm, chkCond,
           hput', hptr2, hv2]
         simp [tcBadHeap]
       · intro hn
@@ -119,11 +119,11 @@ theorem inflate_CHECK_value_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
           refine ⟨ha, ?_⟩
           simp only [chkS, hcond, ↓reduceIte]
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0] at hb
-            rw [if_neg (by simpa using hf0)]
+          · rw [ite_eq_left hf0] at hb
+            rw [ite_eq_right (by simpa using hf0)]
             exact hb
-          · rw [if_neg hf0] at hb
-            rw [if_pos hf0]
+          · rw [ite_eq_right hf0] at hb
+            rw [ite_eq_left hf0]
             exact hb
         have hn3 : (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = v := by
           by_cases hh : (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = v
@@ -132,7 +132,7 @@ theorem inflate_CHECK_value_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hct3, hct', hn3, setMode, runX_INITBITS, chkH, chkZ, chkS, hcond, chkCond,
+          hout, hout', hleft', hct3, hn3, setMode, runX_INITBITS, chkH, chkZ, chkS, chkCond,
           hput', hptr2, hv2]
     · have hcf : chkCond s out = false := by simpa using hcond
       have hcf' : chkCond s (l.out_ - l.left) = false := by rw [← hout]; exact hcf
@@ -151,21 +151,21 @@ theorem inflate_CHECK_value_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
           by_cases hz0 : l.out_ - l.left = 0
           · exact hz0
           · exact absurd ⟨hbad, hz0⟩ hcf3
-        simp [chkH, chkZ, chkS, tcBadHeap, hcf, hcf', hout, hcf4, chkCond] at hbm
+        simp [chkH, chkZ, chkS, tcBadHeap, hout, hcf4, chkCond] at hbm
         have hbad2 : (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = s.check) := by
           refine ⟨hbad, ?_⟩
-          simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte, ite_self] at hne
+          simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte] at hne
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0]
-            rw [if_neg (by simpa using hf0)] at hne
+          · rw [ite_eq_left hf0]
+            rw [ite_eq_right (by simpa using hf0)] at hne
             exact hne
-          · rw [if_neg hf0]
-            rw [if_pos hf0] at hne
+          · rw [ite_eq_right hf0]
+            rw [ite_eq_left hf0] at hne
             exact hne
         unfold inflate_CHECK
         rw [hc]
         simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
-          hout, hout', hleft', runX_pure, hcf3, hcf4, hcf', hbad2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcf, hbm, chkCond]
+          hout, hout', hleft', runX_pure, hcf4, hbad2, setMode, chkH, chkZ, chkS, hbm, chkCond]
         simp [tcBadHeap]
       · intro hn
         have hn2 : ¬ (¬ s.wrap &&& 4 = 0 ∧ ¬ (if s.flags = 0 then ZSWAP32 l'.hold else l'.hold) = s.check) := by
@@ -174,16 +174,16 @@ theorem inflate_CHECK_value_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
           refine ⟨ha, ?_⟩
           simp only [chkS, hcf, Bool.false_eq_true, ↓reduceIte]
           by_cases hf0 : s.flags = 0
-          · rw [if_pos hf0] at hb
-            rw [if_neg (by simpa using hf0)]
+          · rw [ite_eq_left hf0] at hb
+            rw [ite_eq_right (by simpa using hf0)]
             exact hb
-          · rw [if_neg hf0] at hb
-            rw [if_pos hf0]
+          · rw [ite_eq_right hf0] at hb
+            rw [ite_eq_left hf0]
             exact hb
         unfold inflate_CHECK
         rw [hc]
-        simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz, hcf2,
-          hout, hout', hleft', runX_pure, hcf3, hcf', hn2, setMode, runX_INITBITS, chkH, chkZ, chkS, hcf]
+        simp [runX_bind, runX_lift, ldI_eq, hs, hw', hrun, e, hr, runX_modify, runX_get, wrZ_eq, wrI_eq, hz,
+          hout, hout', hleft', hcf3, hcf', hn2, setMode, runX_INITBITS, chkH, chkZ, chkS]
 
 #print axioms inflate_CHECK_value_run
 
@@ -273,7 +273,7 @@ theorem trailer_kind {wrap : Api.Wrap} {configured : Nat} {dict header bodyDict 
   unfold FlagsMatch at flagsM
   simp only [wrapped, ite_false] at flagsM
   by_cases gz : IsGzipHeader header
-  · rw [if_pos gz] at flagsM
+  · rw [ite_eq_left gz] at flagsM
     obtain ⟨gzipH, trailerEq⟩ := wrapHeader_gzip wh gz wrapped
     have method := gzipHeader_method gzipH
     left
@@ -292,7 +292,7 @@ theorem trailer_kind {wrap : Api.Wrap} {configured : Nat} {dict header bodyDict 
         exact absurd gz (zlibHeader_not_gzip zh)
       | gzip => exact Or.inl rfl
       | auto => exact Or.inr ⟨rfl, gz⟩
-  · rw [if_neg gz] at flagsM
+  · rw [ite_eq_right gz] at flagsM
     right
     refine ⟨flagsM, ?_, ?_⟩
     · rintro (g | ⟨_, magic⟩)
@@ -309,7 +309,7 @@ theorem trailer_kind {wrap : Api.Wrap} {configured : Nat} {dict header bodyDict 
         exact absurd (gzipHeader_is_gzip gh) gz
       | auto =>
         simp only [WrapTrailer]
-        rw [if_neg gz]
+        rw [ite_eq_right gz]
 
 /-- The last `p` bytes of the call's output are the `p` bytes before `put`. -/
 theorem pending_bytes {h : Heap} {start put : BPtr} {callOut : List UInt8} {ref : BRef} {off p : Nat}
@@ -553,9 +553,9 @@ theorem check_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
         rw [vValue cond]
         rcases kind with ⟨_, flagsNZ, choice, _⟩ | ⟨flags0, choice, _⟩
         · simp only [expected, choice, ite_true] at old ⊢
-          rw [inflateChecksumValue, if_neg (show s.flags ≠ 0 from flagsNZ), old, toUInt32_toUInt64, MeaningChecksum.crc_continue, whole]
+          rw [inflateChecksumValue, ite_eq_right (show s.flags ≠ 0 from flagsNZ), old, toUInt32_toUInt64, MeaningChecksum.crc_continue, whole]
         · simp only [expected, choice, ite_false] at old ⊢
-          rw [inflateChecksumValue, if_pos (show s.flags = 0 from flags0), old, adlerValue_continue, whole]
+          rw [inflateChecksumValue, ite_eq_left (show s.flags = 0 from flags0), old, adlerValue_continue, whole]
       · have cond' : chkCond s (l.out_ - l.left) = false := by simpa using cond
         simp only [chkS, cond', Bool.false_eq_true, ite_false]
         have zero : loopPending l' = 0 := by
@@ -615,7 +615,7 @@ theorem check_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
             (chkS s (l.out_ - l.left) v).check) := by
           rintro ⟨_, ne⟩
           apply ne
-          rw [newCheck, expEq, if_pos (show s.flags ≠ 0 from flagsNZ)]
+          rw [newCheck, expEq, ite_eq_left (show s.flags ≠ 0 from flagsNZ)]
           exact agree
         have run := matchRun notBad
         have pre : [] ++ [a, b, c', d] <+: WrapTrailer f.wrap header out := iff.mp agree
@@ -650,7 +650,7 @@ theorem check_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
         obtain ⟨res, l3, h3, run3, trip⟩ := length_step loop2 strm hz2 lengthHyp
         exact ⟨res, l3, h3, run.trans run3, trip⟩
       · obtain ⟨i, _, bad⟩ := badRun wrap4 (by
-          rw [newCheck, expEq, if_pos (show s.flags ≠ 0 from flagsNZ)]
+          rw [newCheck, expEq, ite_eq_left (show s.flags ≠ 0 from flagsNZ)]
           exact agree)
         refine ⟨_, _, _, bad, Or.inl ⟨rfl, Or.inr ?_⟩⟩
         refine ⟨zs, { chkS s (l.out_ - l.left) v with mode := BAD }, st, setI_istates_same _ _ _, rfl,
@@ -660,7 +660,7 @@ theorem check_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRef
     · -- zlib: the Adler-32 field ends the stream
       have expEq : expected = (adler32 out).toUInt64 := by simp only [expected, choice, ite_false]
       have cmpEq : (if s.flags ≠ 0 then l'.hold else ZSWAP32 l'.hold) = ZSWAP32 l'.hold :=
-        if_neg (fun ne => ne flags0)
+        ite_eq_right (fun ne => ne flags0)
       have iff : ZSWAP32 l'.hold = (adler32 out).toUInt64 ↔ [a, b, c', d] <+: WrapTrailer f.wrap header out := by
         rw [swap_eq_be32 holdValue, trailerEq out]
         constructor

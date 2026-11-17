@@ -22,7 +22,7 @@ theorem public_busy_valid_nonempty_entry {h : Heap} {r : ZStreamRef} {ds : Nat} 
       (setD h ds { d with last_flush := flush }) =
       publicDataTail (some r) (some (.tab ds)) flush (setD h ds { d with last_flush := flush }) := by
     unfold publicZlibHeader
-    simp only [bind_app, pure_app, rdD_eq, setD_dstates_same, status,
+    simp only [bind_app, rdD_eq, setD_dstates_same, status,
       show (BUSY_STATE == INIT_STATE) = false from rfl, Bool.false_and, Bool.false_eq_true, ite_false]
   have inputs : (z.avail_in != 0 && z.next_in == .null) = false := by
     by_cases empty : z.avail_in = 0
@@ -47,8 +47,8 @@ theorem public_busy_valid_nonempty_entry {h : Heap} {r : ZStreamRef} {ds : Nat} 
     show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr positive,
     wrD_eq, good.live.hs, pending,
     show (z.avail_in == 0) = false from beq_eq_false_iff_ne.mpr nonempty, Bool.false_and, show ((0 : UInt64) != 0) = false from rfl,
-    BEq.rfl, rankedCurrent, ranked,
-    Bool.and_false, rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
+    rankedCurrent, ranked,
+    rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
   simpa only [status, pending] using header
 /-- The complete valid BUSY entry includes empty-input duplicate refusal.
 The numerical ranks are computed by their actual total source, and every
@@ -70,7 +70,7 @@ theorem public_busy_valid_entry_choice {h : Heap} {r : ZStreamRef} {ds : Nat} {z
       (setD h ds { d with last_flush := flush }) =
       publicDataTail (some r) (some (.tab ds)) flush (setD h ds { d with last_flush := flush }) := by
     unfold publicZlibHeader
-    simp only [bind_app, pure_app, rdD_eq, setD_dstates_same, status,
+    simp only [bind_app, rdD_eq, setD_dstates_same, status,
       show (BUSY_STATE == INIT_STATE) = false from rfl, Bool.false_and, Bool.false_eq_true, ite_false]
   have inputs : (z.avail_in != 0 && z.next_in == .null) = false := by
     by_cases empty : z.avail_in = 0
@@ -96,8 +96,8 @@ theorem public_busy_valid_entry_choice {h : Heap} {r : ZStreamRef} {ds : Nat} {z
     show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr positive,
     wrD_eq, good.live.hs, pending,
     show ((0 : UInt64) != 0) = false from rfl,
-    BEq.rfl, rankedCurrent, ranked,
-    Bool.and_false, rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
+    rankedCurrent, ranked,
+    ]
   by_cases duplicate : (z.avail_in == 0 && decide (current ≤ rank) && flush != Z_FINISH) = true
   · simp only [duplicate, ite_true]
   · have notDuplicate := Bool.eq_false_iff.mpr duplicate

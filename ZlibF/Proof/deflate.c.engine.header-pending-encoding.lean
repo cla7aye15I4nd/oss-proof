@@ -83,10 +83,10 @@ theorem header_one_output_encoding {h : Heap} {r : ZStreamRef} {ds pb ob oo : Na
     Bytes (headerOneHeap h r ds pb ob oo z d buf output) z.next_out 1 [120] ∧
       HeaderPending (headerOneHeap h r ds pb ob oo z d buf output) (headerOneState d pb) [120] := by
   have first : (zlibHeaderBytes buf)[0]? = some (120 : UInt8) := by
-    simp [zlibHeaderBytes, Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds,
+    simp [zlibHeaderBytes, Array.set!_eq_setIfInBounds,
       show 0 < buf.size by omega]
   have second : (zlibHeaderBytes buf)[1]? = some (156 : UInt8) := by
-    simp [zlibHeaderBytes, Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds,
+    simp [zlibHeaderBytes, Array.set!_eq_setIfInBounds,
       show 1 < buf.size by omega]
   have getOutput : (headerOneHeap h r ds pb ob oo z d buf output).bytes ob =
       some (copyRange output (zlibHeaderBytes buf) oo 0 1) := by

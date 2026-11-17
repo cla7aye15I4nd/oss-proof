@@ -28,22 +28,22 @@ theorem inflateSetDictionary_window_cut {h after : Heap} {r : ZStreamRef} {zs : 
   · have checksum := adler32_dict_any get len room
     have expected := check dict
     have test : (s.mode == DICT) = true := by simpa using dict
-    simp only [test, adler32_init, checksum, expected, bne_self_eq_false, add, windowRun,
+    simp only [bne_self_eq_false,
       ite_true, Bool.false_eq_true, ite_false, Bool.and_false, dict, beq_self_eq_true]
     simp only [bind_app, adler32_init, checksum, expected, bne_self_eq_false, add, windowRun,
-      Bool.false_eq_true, ite_false, setMode, wrI_eq, stateGet]
+      Bool.false_eq_true, ite_false, setMode]
     by_cases zero : wr = 0
     · simp only [zero, bne_self_eq_false, Bool.false_eq_true, ite_false, ite_true, bind_app, wrI_eq, stateGet, pure_app, setI]
     · have nonzero : (wr != 0) = true := by simpa using zero
-      simp only [nonzero, ite_true, zero, ite_false, setMode, bind_app, wrI_eq, stateGet, pure_app, setI]
+      simp only [nonzero, ite_true, zero, ite_false, bind_app, wrI_eq, stateGet, pure_app, setI]
   · have raw : s.wrap = 0 := allowed.resolve_right dict
     have test : (s.mode == DICT) = false := by simpa using dict
-    simp only [test, raw, add, windowRun, bne_self_eq_false, Bool.false_and,
-      Bool.false_eq_true, ite_false, Bool.and_false]
-    simp only [bind_app, add, windowRun, Bool.false_eq_true, ite_false, setMode, wrI_eq, stateGet]
+    simp only [test, raw, bne_self_eq_false, Bool.false_and,
+      Bool.false_eq_true, ite_false]
+    simp only [bind_app, add, windowRun, setMode]
     by_cases zero : wr = 0
     · simp only [zero, bne_self_eq_false, Bool.false_eq_true, ite_false, ite_true, bind_app, wrI_eq, stateGet, pure_app, setI]
     · have nonzero : (wr != 0) = true := by simpa using zero
-      simp only [nonzero, ite_true, zero, ite_false, setMode, bind_app, wrI_eq, stateGet, pure_app, setI]
+      simp only [nonzero, ite_true, zero, ite_false, bind_app, wrI_eq, stateGet, pure_app, setI]
 
 end Zlib.Inflate.Proofs

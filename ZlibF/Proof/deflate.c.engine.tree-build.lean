@@ -120,9 +120,9 @@ theorem source_trees_engine {h : Heap} {r : ZStreamRef} {ds pb ob : Nat}
       simp only [Zlib.Trees.pDdesc, bind_app, Zlib.Trees.Proofs.Out.sid_run goodL.live.hs]
       rfl
     unfold Zlib.Trees.Proofs.blPrepare
-    simp only [bind_app, ptrL, ptrD, TK.descRef] at runL runD ⊢
+    simp only [bind_app, ptrL, TK.descRef] at runL runD ⊢
     rw [runL]
-    simp only [bind_app, ptrD]
+    simp only [ptrD]
     simpa only [setD_setD] using runD
   obtain ⟨other, prepared, input, _trees, _bl, _bits⟩ := Zlib.Trees.Proofs.bl_prepare trees
   have same : result = other := Zlib.Trees.Proofs.same_record_of_runs prepare prepared

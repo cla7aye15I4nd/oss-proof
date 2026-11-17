@@ -82,7 +82,7 @@ theorem inflate_getdict_public : Goal.inflateGetDictionary := by
         have hseg : xs.toArray = a.extract s.wnext.toNat s.whave.toNat ++ a.extract 0 s.wnext.toNat := by
           rw [hxs]
           apply Array.toList_inj.mp
-          simp [Array.toList_extract, List.extract_eq_take_drop, hwn]
+          simp [Array.toList_extract, List.extract_eq_take_drop]
         refine ⟨rd,od,D,hd,hD,hroD,by simpa [hxslen] using hroom', ?_⟩
         rw [hseg, hxslen]
         congr 1

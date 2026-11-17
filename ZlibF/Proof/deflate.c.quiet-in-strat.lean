@@ -89,12 +89,12 @@ theorem finish_tail_qI2 {kind : DeflateState → Prop} {h : Heap} {r : ZStreamRe
       · subst none'
         refine ⟨block_done, after, z', result, ?_, invA.good.live.hz, invA.good.live.hs,
           QEndI2.of_end ⟨Nat.le_of_lt lt, fun e => absurd e (Nat.ne_of_lt lt), fun e => absurd e (by decide), gz⟩ keeps.availIn⟩
-        simp [finish_tail, finishB, bind_app, rdSym, symbolsB, symbols, run']
+        simp [finish_tail, finishB, bind_app, rdSym, symbols, run']
       · subst more
         refine ⟨need_more, after, z', result, ?_, invA.good.live.hz, invA.good.live.hs,
           QEndI2.of_end ⟨Nat.le_of_lt lt, fun e => absurd e (Nat.ne_of_lt lt),
             fun _ room => absurd (fullOut (Option.some_ne_none _)) room, gz⟩ keeps.availIn⟩
-        simp [finish_tail, finishB, bind_app, rdSym, symbolsB, symbols, run']
+        simp [finish_tail, finishB, bind_app, rdSym, symbols, run']
 
 
 set_option maxHeartbeats 1600000 in
@@ -404,7 +404,7 @@ theorem stored_finalG2 {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
       exfalso
       by_cases cf : (flush == Z_FINISH && z.avail_in == 0 && MIN left Hv == left) = true
       · simp only [Bool.and_eq_true, beq_iff_eq] at cf; exact nz cf.1.2
-      · rw [if_neg cf] at l0; simp at l0
+      · rw [ite_eq_right cf] at l0; simp at l0
     · simp only [Bool.not_eq_true] at l0
       have pendA : z'.avail_out ≠ 0 → e.pending = 0 := by
         intro room
@@ -412,7 +412,7 @@ theorem stored_finalG2 {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
         exact UInt64.toNat_inj.mp (by
           have : e.pending.toNat = 0 := by omega
           rw [this]; rfl)
-      refine ⟨need_more, after, z', e, by simp only [l0, Bool.false_eq_true, ite_false, bind_app, pure_app],
+      refine ⟨need_more, after, z', e, by simp only [l0, Bool.false_eq_true, ite_false, pure_app],
         invA.good.live.hz, invA.good.live.hs, by omega, inA, gzA, fun nz wide finB => ⟨?_, fun e => absurd e (by decide)⟩,
         fun _ room => pendA room⟩
       have lenPos : 0 < (MIN left Hv).toNat := by omega
@@ -430,7 +430,7 @@ theorem stored_finalG2 {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d :
   · simp only [Bool.not_eq_true] at c
     simp only [c, Bool.false_eq_true, ite_false]
     subst lastZero
-    refine ⟨need_more, h, z, d, by simp [bind_app], good.live.hz, good.live.hs, Nat.le_refl _, rfl, rfl,
+    refine ⟨need_more, h, z, d, by simp, good.live.hz, good.live.hs, Nat.le_refl _, rfl, rfl,
       fun _ wide _ => ?_, fun _ _ => pend0⟩
     exfalso
     have h1 : ¬ (left ≥ MIN Hv d.w_size) := by
@@ -657,7 +657,7 @@ theorem dispatch_qI_nz2 {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
     obtain ⟨b, a, z', d', run, hz, hs, q⟩ := rle_qI2 safe inv entry.toIn flush l0 s3
     refine ⟨b, a, z', d', ?_, hz, hs, q⟩
     simp only [C.run] at run
-    simp [dispatch, l0', hf', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
+    simp [dispatch, l0', rl, run, show Z_RLE ≠ Z_HUFFMAN_ONLY by decide]
   have rl' : (d.strategy == Z_RLE) = false := by simp [rl]
   have s3 : d.strategy.toInt ≠ 3 := fun e => rl (Int32.toInt_inj.mp (by rw [e]; rfl))
   by_cases fast : d.level.toInt ≤ 3
@@ -669,7 +669,7 @@ theorem dispatch_qI_nz2 {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
   · obtain ⟨b, a, z', d', run, hz, hs, q⟩ := slow_qI2 safe inv entry.toIn flush ⟨by omega, s2, s3⟩
     refine ⟨b, a, z', d', ?_, hz, hs, q⟩
     simp only [C.run] at run
@@ -679,7 +679,7 @@ theorem dispatch_qI_nz2 {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
       simp only [← Int32.toInt_inj]; exact this
     unfold dispatch
     rcases values with e | e | e | e | e | e <;>
-      simp [l0', hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
+      simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
 
 /-- **`DeflateQuietIn` for one strategy run**: the work term rises by at most four per input byte the
 run consumed, `gzindex` is kept, and a run that consumed no input satisfies `StratQuiet`. -/

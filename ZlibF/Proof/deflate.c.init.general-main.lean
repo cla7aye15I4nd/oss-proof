@@ -35,8 +35,8 @@ theorem params_ranges {level method wb mem strategy : Int} {p : ZlibF.Spec.Api.D
     by_cases ok : mem < 1 ∨ mem > 9 ∨ method ≠ 8 ∨ b < 8 ∨ b > 15 ∨
           (if level = -1 then 6 else level) < 0 ∨ (if level = -1 then 6 else level) > 9 ∨
           strategy < 0 ∨ strategy > 4 ∨ (b = 8 ∧ wr ≠ .zlib)
-    · rw [if_pos ok] at e; cases e
-    · rw [if_neg ok, Option.some.injEq] at e
+    · rw [ite_eq_left ok] at e; cases e
+    · rw [ite_eq_right ok, Option.some.injEq] at e
       simp only [not_or] at ok
       subst e
       refine ⟨by omega, ?_, ?_, ?_, by dsimp only; omega, by dsimp only; omega, rfl, by omega, by omega, rfl⟩
@@ -46,13 +46,13 @@ theorem params_ranges {level method wb mem strategy : Int} {p : ZlibF.Spec.Api.D
   simp only [] at h
   by_cases hw : wb < 0
   · by_cases hl : wb < -15
-    · rw [if_pos hw, if_pos hl] at h; cases h
-    · rw [if_pos hw, if_neg hl] at h
+    · rw [ite_eq_left hw, ite_eq_left hl] at h; cases h
+    · rw [ite_eq_left hw, ite_eq_right hl] at h
       exact fin _ _ h
   · by_cases hg : wb > 15
-    · rw [if_neg hw, if_pos hg] at h
+    · rw [ite_eq_right hw, ite_eq_left hg] at h
       exact fin _ _ h
-    · rw [if_neg hw, if_neg hg] at h
+    · rw [ite_eq_right hw, ite_eq_right hg] at h
       exact fin _ _ h
 
 /-- **`init2_main`**: every argument tuple and every allocation outcome. -/
@@ -79,7 +79,7 @@ theorem init2_main (level method wb mem strategy : Int32) :
   let zp := preparedStream z
   let hp := r.put h zp
   have hshape := shape_put hz zp
-  have hfP : Fresh hp := hshape.fresh (by simp [hp]) hf
+  have hfP : Fresh hp := hshape.fresh (by simp) hf
   have huP : Uniq hp := hshape.uniq hu
   have hzP : r.get hp = some zp := ZStreamRef.get_put_same hz _
   have haP : DefAlloc zp := prepared_allocators ha

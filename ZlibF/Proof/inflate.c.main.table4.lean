@@ -55,7 +55,7 @@ theorem TcRegShape.drop {l l' : IL} (a : TcRegShape l l') (hold : UInt64) (bits 
   unfold TcRegShape at *
   rw [a]
 
-theorem tcStream_length {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h l bs) :
+theorem tcStream_length {h : Heap} {l : IL} {bs : List UInt8} (_B : BitInv h l bs) :
     (stream l bs).length = l.bits.toNat + 8 * bs.length := by
   unfold stream
   simp [natBits_length, bytesBits_length]
@@ -128,7 +128,7 @@ theorem ll1_run {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : InflateState} {bs 
               omega
             refine ⟨j + jn, by omega, rfl, ?_, ?_, ?_, fun _ => ⟨rfl, h1, hjl, h3⟩, fun hh => by omega⟩
             · simpa [tcDrop_drop] using B'.tc_of_heap (h' := h) rfl rfl rfl rfl
-            · rw [← hS1, ← hS']; simp [tcDrop_drop]
+            · rw [← hS1, ← hS']; simp
             · exact hsh1.trans hshape
         | ret v => exact absurd rfl (noRet_NEEDBITS 3 l1 _ _ l' _ hrun v)
       | ok u =>

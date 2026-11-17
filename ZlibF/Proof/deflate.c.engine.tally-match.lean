@@ -146,13 +146,13 @@ theorem tally_match_run {h : Heap} {ds b : Nat} {d : DeflateState} {buf : Array 
     stDeflateState (some (.tab ds)) dn
     matchTallyTail (some (.tab ds)) dist len) h0 = _
   rw [bind_app, second']
-  simp only [Zlib.Trees.Proofs.Out.setB_setB]
+  simp only
   change (do
     store_at d.sym_buf (d.sym_next.toNat + 2) len
     stDeflateState (some (.tab ds)) dn
     matchTallyTail (some (.tab ds)) dist len) h1 = _
   rw [bind_app, third']
-  simp only [Zlib.Trees.Proofs.Out.setB_setB]
+  simp only
   change (do
     stDeflateState (some (.tab ds)) dn
     matchTallyTail (some (.tab ds)) dist len) hb = _
@@ -227,7 +227,7 @@ theorem match_good_after {h : Heap} {r : ZStreamRef} {ds b : Nat} {z : ZStream}
   refine ⟨?_, DStInv.congr (h := hb) (h' := setD hb ds dt) rfl rfl rfl rfl inv,
     shape.uniq goodB.uniq, shape.fresh rfl goodB.fresh,
     ⟨dt, b, matchBytes buf d distance.toUInt16 length.toUInt8, treeResult⟩⟩
-  exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp [dt], good.live.zst,
+  exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp, good.live.zst,
     good.live.back, good.live.status, good.live.zalloc, good.live.zfree⟩
 
 /-- The actual inline match tally preserves representation and H on its

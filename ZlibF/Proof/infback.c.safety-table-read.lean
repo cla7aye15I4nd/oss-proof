@@ -320,7 +320,7 @@ set_option maxRecDepth 100000 in
 theorem trRep_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
     (pr : Proto c r i window n) {h0 h : Heap} {l : IL} {log : BackLog} (I : PInv c pr h0 h l log)
     {s : InflateState} (hs : h.istates i = some s) (rd : RdSt i s) {here : Code}
-    (hb : here.bits.toNat ≤ l.bits.toNat) (h7 : here.bits.toNat ≤ 7) (sh : l.bits.toNat - here.bits.toNat < 8) :
+    (_hb : here.bits.toNat ≤ l.bits.toNat) (h7 : here.bits.toNat ≤ 7) (sh : l.bits.toNat - here.bits.toNat < 8) :
     ∃ res l' h' log', runX (trRep c here) l h = .ok ((res, l'), h') ∧ PInv c pr h0 h' l' log' ∧
       (∀ b, res = .ok b → baseM pr l' log' ≤ baseM pr l log ∧ ∃ s', h'.istates i = some s' ∧
           ((b = true ∧ s'.mode = BAD) ∨

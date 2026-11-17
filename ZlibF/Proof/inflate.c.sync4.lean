@@ -141,9 +141,9 @@ theorem syncBytes_fillBuf (A : Array UInt8) (x : UInt64) (n : Nat) (hn : n ≤ 4
   intro j
   by_cases hj : j < n
   · have := fillBuf_get A x n j hj (by omega)
-    simp [List.getElem?_take, hj, List.getElem?_range]
+    simp [hj]
     simpa using this
-  · simp [List.getElem?_take, hj, List.getElem?_range]
+  · simp [List.getElem?_take, hj]
 
 theorem dec8 (m : Nat) (hm : m ≤ 4) : decide (8 ≤ UInt32.ofNat (8 * m)) = decide (0 < m) := by
   have : m = 0 ∨ m = 1 ∨ m = 2 ∨ m = 3 ∨ m = 4 := by omega
@@ -202,14 +202,14 @@ theorem syncFirst_run {H0 : Heap} {zs nb : Nat} {st : InflateState} {A : Array U
     unfold OkOn at hadd'
     simp only [Nat.zero_add] at hadd'
     simp only [bind_app, pure_app, ldI_eq, hi, hlen, hadd', store8, hstore, wrI_eq, Space.put]
-    simp [restoreHeap, setI, upd_upd, fillBuf, shr8N, hsub, hsu, hsub, Nat.sub_sub]
+    simp [restoreHeap, setI, upd_upd, fillBuf, shr8N]
     have e1 : 8 * UInt32.ofNat (syncNB st - i) - 8 = 8 * UInt32.ofNat (syncNB st - (i + 1)) := by
       rw [bits_step (syncNB st - i) (by omega) (by omega)]
       congr 2
     rw [e1]
   have hist : (restoreHeap H0 zs nb { st with mode := SYNC, hold := st.hold >>> (st.bits.toUInt64 &&& 7), bits := st.bits - (st.bits &&& 7) } A (syncNB st) (syncNB st)).istates zs = some { st with mode := SYNC, hold := shr8N (syncNB st) (st.hold >>> (st.bits.toUInt64 &&& 7)), bits := UInt32.ofNat (8 * (syncNB st - syncNB st)) } := by
     simp [restoreHeap]
-  simp only [bind_app, pure_app, ldI_eq, hist, wrI_eq]
+  simp only [hist]
   have hsz : (fillBuf A (st.hold >>> (st.bits.toUInt64 &&& 7)) (syncNB st)).size = 4 := by rw [fillBuf_size]; exact hAs
   have hnn : (UInt32.ofNat (syncNB st)).toNat = syncNB st := UInt32.toNat_ofNat_of_lt' (by simp [UInt32.size]; omega)
   rw [syncsearch_run (r := BRef.blk nb) (a := fillBuf A (st.hold >>> (st.bits.toUInt64 &&& 7)) (syncNB st)) (o := 0)
@@ -218,7 +218,7 @@ theorem syncFirst_run {H0 : Heap} {zs nb : Nat} {st : InflateState} {A : Array U
     rw [syncBytes_fillBuf _ _ _ hn4 hAs]
     unfold syncRestore; rw [syncHold0_eq]
   rw [hR]
-  simp only [bind_app, pure_app, ldI_eq, setI_istates_same]
+  simp only [setI_istates_same]
   simp [setI, restoreHeap, syncFirstHeap, syncFirstState, upd_upd, Nat.sub_self, syncHold0_eq]
 
 theorem good_setBuf {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState} {nb : Nat} {a0 : Array UInt8}

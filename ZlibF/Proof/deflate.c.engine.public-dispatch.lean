@@ -89,7 +89,7 @@ theorem public_default_data_before_block {h : Heap} {r : ZStreamRef} {ds origin 
       show ((0 : Int32) == Z_RLE) = false from rfl, cfg, run,
       show (need_more == finish_started) = false from rfl,
       show (need_more == finish_done) = false from rfl,
-      show (need_more == need_more) = true from rfl, Bool.false_or, Bool.true_or,
+      show (need_more == need_more) = true from rfl,
       content.good.live.hz, output,
       show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr positive]
   obtain ⟨empty, short⟩ := stopped.resolve_right (by rw [output]; exact positive)

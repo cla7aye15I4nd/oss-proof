@@ -62,9 +62,9 @@ theorem written_get? (a : Array UInt8) (i : Nat) (xs : List UInt8) (fit : i + xs
     (a.extract 0 i ++ xs.toArray ++ a.extract (i + xs.length) a.size)[j]? =
       if j < i then a[j]? else if j < i + xs.length then xs[j - i]? else a[j]? := by
   rw [← Array.getElem?_toList]
-  simp only [Array.toList_append, Array.toList_extract, List.toList_toArray, List.getElem?_append,
-    List.getElem?_take, List.getElem?_drop, List.length_append, List.length_take, List.length_drop,
-    Array.length_toList, List.drop_zero, Nat.sub_zero, Nat.zero_add,
+  simp only [Array.toList_append, Array.toList_extract, List.getElem?_append,
+    List.getElem?_take, List.getElem?_drop, List.length_append, List.length_take,
+    Array.length_toList, List.drop_zero, Nat.sub_zero,
     Nat.min_eq_left (show i ≤ a.size by omega), Array.getElem?_toList]
   by_cases lo : j < i
   · simp [lo, show j < i + xs.length by omega]
@@ -72,8 +72,8 @@ theorem written_get? (a : Array UInt8) (i : Nat) (xs : List UInt8) (fit : i + xs
   · simp [lo, hi]
   · simp only [lo, hi, ite_false]
     by_cases inb : j < a.size
-    · rw [if_pos (by omega), show i + xs.length + (j - (i + xs.length)) = j by omega]
-    · rw [if_neg (by omega), Array.getElem?_eq_none (by omega)]
+    · rw [ite_eq_left (by omega), show i + xs.length + (j - (i + xs.length)) = j by omega]
+    · rw [ite_eq_right (by omega), Array.getElem?_eq_none (by omega)]
 
 theorem written_size (a : Array UInt8) (i : Nat) (xs : List UInt8) (fit : i + xs.length ≤ a.size) :
     (a.extract 0 i ++ xs.toArray ++ a.extract (i + xs.length) a.size).size = a.size := by
@@ -228,15 +228,15 @@ theorem writeOut_append {h : Heap} {p : BPtr} {xs ys : List UInt8}
   try simp only [Array.extract_size] at w1
   rw [w1 t]
   by_cases t1 : t < i
-  · simp [t1, show t < i + xs.length by omega, w1]
+  · simp [t1, show t < i + xs.length by omega]
   by_cases t2 : t < i + xs.length
-  · simp [t1, t2, show t < i + (xs.length + ys.length) by omega, w1,
+  · simp [t1, t2, show t < i + (xs.length + ys.length) by omega,
       List.getElem?_append_left (show t - i < xs.length by omega)]
   by_cases t3 : t < i + xs.length + ys.length
   · simp [t1, t2, t3, show t < i + (xs.length + ys.length) by omega,
       List.getElem?_append_right (show xs.length ≤ t - i by omega), show t - i - xs.length = t - (i + xs.length) by omega]
-  · simp [t1, t2, t3, show ¬ t < i + (xs.length + ys.length) by omega, w1,
-      show ¬ t < i + xs.length by omega]
+  · simp [t1, t2, t3, show ¬ t < i + (xs.length + ys.length) by omega,
+      ]
 
 /-- A view that reads an array has a live block. -/
 theorem view_block_live {h : Heap} {r : BRef} {a : Array UInt8} (g : Space.get h r = some a) :

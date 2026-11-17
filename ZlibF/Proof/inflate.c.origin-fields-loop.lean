@@ -71,8 +71,8 @@ theorem inflate_default_origin_loop {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : 
       refine ⟨.error fault, finalRegs, finalHeap, ?_, ?_⟩
       · rw [runX_bind, run]
       · exact ⟨(by intro impossible; cases impossible), final⟩
-    | ok unit =>
-      cases unit
+    | ok unitVal =>
+      cases unitVal
       refine ⟨.ok false, finalRegs, finalHeap, ?_, final, ?_⟩
       · rw [runX_bind, run]
         rfl
@@ -84,7 +84,7 @@ theorem inflate_default_origin_loop {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : 
   obtain ⟨outcome, regs, after, run, stopped, final⟩ :=
     xwhileBrk_rank P (defaultViewHeapRank zs) Q step initial budget
   cases outcome with
-  | ok unit => exact False.elim (stopped (by cases unit; rfl))
+  | ok unitVal => exact False.elim (stopped (by cases unitVal; rfl))
   | error exit =>
     obtain ⟨stream, state, used, made, bound, finalJ, packet, finalLocal, bits,
       sizes, next, count, put, left⟩ := final

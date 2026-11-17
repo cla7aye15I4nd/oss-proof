@@ -177,7 +177,7 @@ theorem inflate_dispatch_STORED {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
     runX (inflate_dispatch c) l h = runX (inflate_STORED c) l h := by
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
-  with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY]
+  with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED]
 
 /-- The actual switch selects the stored-block mode. -/
 theorem inflate_dispatch_COPY_start {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -185,7 +185,7 @@ theorem inflate_dispatch_COPY_start {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : 
     runX (inflate_dispatch c) l h = runX (inflate_COPY_ c) l h := by
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
-  with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY]
+  with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED, COPY_]
 
 /-- The actual switch selects the stored-block mode. -/
 theorem inflate_dispatch_COPY {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}

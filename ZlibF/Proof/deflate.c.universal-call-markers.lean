@@ -138,7 +138,7 @@ theorem MarkerFrame.trans {h m k : Heap} {r : ZStreamRef} {ds pb : Nat} {d d1 : 
 /-- **`CLEAR_HASH`** is a marker part. -/
 theorem MarkerFrame.clear {h : Heap} {r : ZStreamRef} {ds pb q : Nat} {d : DeflateState} {z : ZStream}
     {qa : Array UInt16} (good : DGood h r ds z d) (buffers : StreamBuffers h r)
-    (pbuf : d.pending_buf = .ref (.blk pb) 0) (head : d.head = .ref (.blk q) 0) (getQ : h.words q = some qa)
+    (_pbuf : d.pending_buf = .ref (.blk pb) 0) (head : d.head = .ref (.blk q) 0) (getQ : h.words q = some qa)
     (a : Array UInt16) (d' : DeflateState) :
     MarkerFrame h (setD (setW h q a) ds d') r ds pb d z z 0 := by
   have stateW : (setW h q a).dstates ds = some d := good.live.hs
@@ -563,7 +563,7 @@ theorem marker_tail {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d :
         fun _ => ⟨ssA, bsA, insA, slA, wordsA⟩, fun e => absurd e (by decide), ?_⟩
       have eq : markerTail (some r) (some (.tab ds)) Z_BLOCK k h = markerFlush (some r) (some (.tab ds)) k h := by
         unfold markerTail markerFlush
-        simp only [np, Bool.false_eq_true, ite_false, show (Z_BLOCK != Z_BLOCK) = false from rfl, bind_app, pure_app]
+        simp only [np, Bool.false_eq_true, ite_false, show (Z_BLOCK != Z_BLOCK) = false from rfl, bind_app]
       rw [eq]; exact outcome
     · have nb : (flush != Z_BLOCK) = true := bne_iff_ne.mpr isBlock
       obtain ⟨H1, d1, buf1, run1, good1, trees1, size1, buffers1, cursor1, _, zero1, pend1, diff1, stage1⟩ :=
@@ -625,7 +625,7 @@ theorem marker_tail {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d :
               Bool.false_eq_true, ite_false, ite_true, bind_app]
             rw [run1]; simp only []
             rw [run2]
-            simp only [rdD_eq, good2.live.hs, beq_eq_false_iff_ne.mpr look, Bool.false_eq_true, ite_false, pure_app]
+            simp only [rdD_eq, good2.live.hs, beq_eq_false_iff_ne.mpr look, Bool.false_eq_true, ite_false]
             rfl
           rw [eq]; exact outcome
       · obtain ⟨after, z', d', produced, goodA, treesA, buffersA, account, mf, low, shapeA, ssA, bsA, insA, slA, curA, outA, wordsA,

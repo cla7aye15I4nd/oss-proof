@@ -73,7 +73,7 @@ theorem entry_accepted_empty {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream
     simp only [← Int32.toInt_inj]
     exact this
   unfold entryPhase
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
@@ -81,10 +81,10 @@ theorem entry_accepted_empty {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream
     inputs, Bool.or_false, notFinish, Bool.false_and,
     show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr room,
     wrD_eq, good.live.hs, pending, show ((0 : UInt64) != 0) = false from rfl,
-    rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
+    ]
   rcases reset with old | old <;> rw [old] <;>
     rcases flushValues with rfl | rfl | rfl | rfl | rfl | rfl <;>
-    simp [RANK, chk32, isub, Bool.and_false, Bool.false_eq_true, ite_false, bind_app, pure_app] <;>
+    simp [RANK, chk32, isub, Bool.and_false, Bool.false_eq_true, bind_app, pure_app] <;>
     rcases status with st | st <;> simp [st, rdD_eq, setD_dstates_same, zrd_eq, ZStreamRef.get_setD, good.live.hz,
       (by decide : INIT_STATE ≠ FINISH_STATE), (by decide : GZIP_STATE ≠ FINISH_STATE)]
 
@@ -180,7 +180,7 @@ theorem entry_accepted_pending {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZS
   have run' : flush_pending (some r) (setD h ds { d with last_flush := flush }) = .ok ((), after) := run
   refine ⟨produced, after, z', d', goodA, buffersA, account, one, statusA, run, ?_⟩
   unfold entryPhase
-  simp only [bind_app, pure_app, checked, show ((0 : Int32) != 0) = false from rfl,
+  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
     high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
     zrd_eq, good.live.hz, good.live.zst, castDeflateState,
     ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
@@ -191,7 +191,7 @@ theorem entry_accepted_pending {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZS
   by_cases full : z'.avail_out = 0
   · left
     refine ⟨full, fun k => ?_⟩
-    simp [zrd_eq, zAfter, full, wrD_eq, dAfter, bind_app]
+    simp [zAfter, full, wrD_eq, dAfter, bind_app]
   · right
     have lt : produced < z.avail_out.toNat := by
       have : z'.avail_out.toNat ≠ 0 := fun e => full (UInt32.toNat_inj.mp (by simpa using e))

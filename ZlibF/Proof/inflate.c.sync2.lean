@@ -410,7 +410,7 @@ theorem syncDone_good {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : 
       unfold syncOkHeap; simp [hc, f2]
     rw [hHeap]
     have hwn : (syncOkState zs s).window = .null := syncOk_window_null h0
-    exact ⟨⟨⟨by simpa using hX.live.hz, by simpa using hX.live.hs, hX.live.zst, hX.live.back, hX.live.mode, hX.live.zalloc, hX.live.zfree⟩,
+    exact ⟨⟨⟨by simpa using hX.live.hz, by simp, hX.live.zst, hX.live.back, hX.live.mode, hX.live.zalloc, hX.live.zfree⟩,
       stInv_of_null hX.inv hwn, uniq_freeWin hX.uniq _, fresh_freeWin hX.fresh _⟩,
       fun b hb => hlive0 b ((hShape.live b).1 (live_freeWin _ b hb))⟩
   · have hc : ¬ ((syncC zs s).wbits == 0) = true := by simp [f1, h0]

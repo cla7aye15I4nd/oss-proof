@@ -61,7 +61,7 @@ theorem inflate_run_output_entry_frame_state {c : Ctx} {h : Heap} {r : ZStreamRe
       ByteViewSizes.refl h, by rfl, by simp [setI, upd_self _ _ _ good.live.hs], by simp only [type, ↓reduceIte]⟩
     unfold inflate_run
     rw [runX_bind, runX_rdS E]
-    simp only [type, beq_iff_eq, ↓reduceIte, runX_bind, runX_pure]
+    simp only [type, beq_iff_eq, ↓reduceIte, runX_bind]
     rw [LOAD_run E]
     simp only []
     rw [runX_modify]

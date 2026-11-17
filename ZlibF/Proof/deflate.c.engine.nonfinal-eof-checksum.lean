@@ -19,7 +19,7 @@ theorem finish_tail_nonfinal_run_adler {h after : Heap} {r : ZStreamRef} {ds ob 
     (clear : BlockInit.BlockClear d) (available : d.match_available = 0)
     (flush : Int32) (nonfinal : flush ≠ Z_FINISH)
     (run : finish_tail (some (.tab ds)) flush h = .ok (ret, after))
-    (live : r.get after = some returned) (account : StreamAccounting z returned 0 produced) :
+    (live : r.get after = some returned) (_account : StreamAccounting z returned 0 produced) :
     returned.adler = z.adler := by
   by_cases empty : d.sym_next = 0
   · have actual : finish_tail (some (.tab ds)) flush h = .ok (block_done, h) := by
@@ -103,7 +103,7 @@ theorem slow_eof_nonfinal_run_adler {h after : Heap} {r : ZStreamRef} {ds ob oo 
     (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0)
     (flush : Int32) (nonfinal : flush ≠ Z_FINISH)
     (run : slowEofTail (some (.tab ds)) flush h = .ok (ret, after))
-    (live : r.get after = some returned) (account : StreamAccounting z returned 0 produced) :
+    (live : r.get after = some returned) (_account : StreamAccounting z returned 0 produced) :
     returned.adler = z.adler := by
   obtain ⟨_produced, _ret, _other, _otherZ, _otherD, actual, goodA, _accountA, adler⟩ :=
     slow_eof_nonfinal_adler_execution boundary frontier buffers empty positive pointer cursor memory pending flush nonfinal

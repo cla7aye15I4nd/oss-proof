@@ -156,7 +156,7 @@ theorem buffers_failed_iff (h : Heap) :
     by_cases hp : h.allocOk (h.nalloc + 1) = true <;>
     by_cases hq : h.allocOk (h.nalloc + 2) = true <;>
     by_cases hb : h.allocOk (h.nalloc + 3) = true
-  all_goals simp [bufferPointers, buffersHeap, headHeap, prevHeap, windowHeap,
+  all_goals simp [bufferPointers, headHeap, prevHeap, windowHeap,
     byteResult, wordResult, bytePtr, wordPtr, byteHeap, wordHeap, failedHeap,
     Zlib.Zutil.Proofs.allocHeap, hw, hp, hq, hb, Nat.add_assoc]
 
@@ -187,13 +187,13 @@ theorem byte_pop_at {h : Heap} (hf : Fresh h) (n x : Nat) :
   obtain ⟨hb, _, _, _, _, _, _⟩ := Heap.not_live.mp (hf _ (Nat.le_refl _))
   by_cases ho : h.allocOk h.nalloc = true <;> by_cases hx : x = h.nextBlk
   all_goals simp [byteResult, bytePtr, byteHeap, Zlib.Zutil.Proofs.allocHeap,
-    failedHeap, ho, freeBytes, upd_apply, hx, hb]
+    failedHeap, ho, freeBytes, hx, hb]
 
 theorem word_pop_at {h : Heap} (hf : Fresh h) (n x : Nat) :
     (freeWords (wordResult h n) (wordPtr h)).words x = h.words x := by
   obtain ⟨_, hw, _, _, _, _, _⟩ := Heap.not_live.mp (hf _ (Nat.le_refl _))
   by_cases ho : h.allocOk h.nalloc = true <;> by_cases hx : x = h.nextBlk
-  all_goals simp [wordResult, wordPtr, wordHeap, failedHeap, ho, freeWords, upd_apply, hx, hw]
+  all_goals simp [wordResult, wordPtr, wordHeap, failedHeap, ho, freeWords, hx, hw]
 
 def rollbackBuffers (h g : Heap) : Heap :=
   freeBytes (freeWords (freeWords (freeBytes g (bufferPointers h).2.2.2)
@@ -267,7 +267,7 @@ theorem rollback_arrays_at {h g : Heap} (hf : Fresh h) (x : Nat)
     exact popP
   constructor
   · unfold rollbackBuffers bufferPointers
-    simp only [freeWords_bytes] at b1 ⊢
+    simp only at b1 ⊢
     have eq : (freeWords (freeWords (freeBytes g (bytePtr (headHeap h))) (wordPtr (prevHeap h)))
         (wordPtr (windowHeap h))).bytes x = (windowHeap h).bytes x := by
       simpa [headHeap, prevHeap] using b1

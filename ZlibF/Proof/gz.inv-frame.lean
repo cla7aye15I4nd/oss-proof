@@ -490,7 +490,7 @@ theorem gzerror_step (i : Nat) (errnum : BPtr) : GzCallSafe i (.gzerror (some (.
       show arr[j]? = a[j]?
       simp only [arr]
       rw [← ZlibF.Spec.Public.GzErrorProof.set_four_slice a off hfit]
-      simp [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, h0, h1, h2, h3]
+      simp [Array.set!_eq_setIfInBounds, h0, h1, h2, h3]
 
 /-- A literal of the sources whose bytes before the NUL contain no NUL is a C string. -/
 theorem strTable_cstring (h : Heap) {j : Nat} {t : String} (hj : strTable[j]? = some t) (xs : List UInt8)
@@ -504,7 +504,7 @@ theorem strTable_cstring (h : Heap) {j : Nat} {t : String} (hj : strTable[j]? = 
       cases hj
   have hg : Space.get h (BRef.str j) = some (xs ++ [0]).toArray := by
     change staticStringBytes h j = _
-    rw [staticStringBytes, if_pos bound, hj, ← hb]
+    rw [staticStringBytes, ite_eq_left bound, hj, ← hb]
     rfl
   have e : List.take (xs.length + 1) (xs ++ [0]) = xs ++ [0] := List.take_of_length_le (by simp)
   exact ⟨Or.inr ⟨.str j, 0, _, rfl, hg, by simp, by simpa using e.symm⟩, h0, hlen⟩

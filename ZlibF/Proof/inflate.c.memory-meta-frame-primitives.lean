@@ -171,12 +171,12 @@ theorem memoryMetaFrameM_list_forIn {α β : Type} (r : ZStreamRef) (values : Li
         (fun value membership state => frames value (by simp [membership]) state) next
 
 /-- Word/code array writes retain read-only flags and the allocation frontier. -/
-theorem word_view_put_memory_meta (h : Heap) (ref : WRef) (array : Array UInt16) (r : ZStreamRef) :
+theorem word_view_put_memory_meta (h : Heap) (ref : WRef) (array : Array UInt16) (_r : ZStreamRef) :
     memoryMeta (Space.put h ref array) = memoryMeta h := by
   cases ref <;> simp only [Space.put]
   all_goals first | rfl | (split <;> rfl)
 
-theorem code_view_put_memory_meta (h : Heap) (ref : CodeRef) (array : Array Code) (r : ZStreamRef) :
+theorem code_view_put_memory_meta (h : Heap) (ref : CodeRef) (array : Array Code) (_r : ZStreamRef) :
     memoryMeta (Space.put h ref array) = memoryMeta h := by
   cases ref <;> simp only [Space.put]
   all_goals first | rfl | (split <;> rfl)

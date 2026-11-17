@@ -88,7 +88,7 @@ theorem FastInputPacket.dolen_linked_literal_output_break
   have rootLink : LenLink codes[baseOff + rootSlice] := by
     simpa only [rootEq] using link
   have selected := safe.2.2 rootSlice root
-  rw [rootEq, if_pos rootLink] at selected
+  rw [rootEq, ite_eq_left rootLink] at selected
   rcases selected with ⟨rootWidthBound, _, opWidth,
     subtable, _⟩
   have rootFits : codes[baseOff + rootSlice].bits.toNat ≤
@@ -187,7 +187,7 @@ theorem FastInputPacket.dolen_linked_literal_output_break
     simpa only [result, after, slowFinal, count]
       using second.1
   have secondAgain : result.againL = false := by
-    simpa only [result] using second.2.1
+    simp only [result]
   have loopRun : C.run
       (cdoWhile (Zlib.Inffast.dolen c)
         (fun current => pure (current.againL, current)) l) h =
