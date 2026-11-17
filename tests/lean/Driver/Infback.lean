@@ -67,7 +67,7 @@ def runCase (wb : Int32) (inch : Nat) (opts : Nat) (input : Array UInt8) : M Str
   set32 ctl 4 input.size.toUInt32
   set32 ctl 5 (if inch == 0 then 1 else inch).toUInt32
   set32 ctl 6 opts.toUInt32
-  let inCb : InCb := fun d buf => do
+  let inCb : InCb := fun d _buf => do
     flatten
     let pos ← get32 d 0
     let len ← get32 d 4
