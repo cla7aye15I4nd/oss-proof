@@ -49,19 +49,19 @@ theorem inflate_run_pending_entry {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Na
   have finalTables : DataTableInvariant after state := by
     by_cases type : s.mode = TYPE
     · intro active
-      rw [stateEq, if_pos type] at active
+      rw [stateEq, ite_eq_left type] at active
       change DataTableMode TYPEDO at active
       rcases active with eq | eq | eq | eq | eq | eq | eq <;> contradiction
-    · have sameState : state = s := by rw [stateEq, if_neg type]
+    · have sameState : state = s := by rw [stateEq, ite_eq_right type]
       have sameHeap : after = h := by rw [heapEq, sameState]; simp [setI, upd_self _ _ _ good.live.hs]
       rwa [sameHeap, sameState]
   have finalPending : DataPendingInvariant state := by
     by_cases type : s.mode = TYPE
     · apply dataPendingInvariant_idle (by rw [frame]; exact pending.sane)
-      rw [stateEq, if_pos type]
+      rw [stateEq, ite_eq_left type]
       change TYPEDO ≠ LENEXT ∧ TYPEDO ≠ DIST ∧ TYPEDO ≠ DISTEXT ∧ TYPEDO ≠ MATCH
       decide
-    · rw [stateEq, if_neg type]
+    · rw [stateEq, ite_eq_right type]
       exact pending
   exact ⟨after, state, bs, run, finalGood, env, ⟨input, output, separate, inv⟩,
     finalTables, finalPending, finalGood.inv.bits, sizes, frame, heapEq⟩

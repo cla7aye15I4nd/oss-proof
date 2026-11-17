@@ -56,9 +56,9 @@ theorem matchCopyByte_run {h : Heap} {l : IL} {dest source : BRef}
     by_cases same : source = dest
     · subst source
       simpa only [ite_true] using destGet
-    · rw [if_neg same]
+    · rw [ite_eq_right same]
       rw [byte_view_get_put_ne h same array]
-      simpa only [if_neg same] using sourceGet
+      simpa only [ite_eq_right same] using sourceGet
   have nextOut : l.put.add 1 after = .ok (.ref dest (outOffset + 1), after) := by
     rw [put]
     exact Ptr.add_nat_ok destGet (by simp [array]; omega)
@@ -115,8 +115,8 @@ theorem matchCopyWhile_run {h : Heap} {l : IL} {dest source : BRef}
     by_cases same : source = dest
     · subst source
       simpa only [ite_true] using byte_view_get_put outGet write array
-    · rw [if_neg same, byte_view_get_put_ne h same array]
-      simpa only [if_neg same] using sourceGet
+    · rw [ite_eq_right same, byte_view_get_put_ne h same array]
+      simpa only [ite_eq_right same] using sourceGet
   have step : ∀ k current heap, P (k + 1) current heap →
       ∃ testRegs testHeap, runX matchCopyCond current heap = .ok ((.ok true, testRegs), testHeap) ∧
         ∃ outcome next heap', runX (do matchCopyByte; pure false : X Bool) testRegs testHeap = .ok ((outcome, next), heap') ∧
@@ -207,8 +207,8 @@ theorem matchCopyLoop_run {h : Heap} {l : IL} {dest source : BRef}
     by_cases same : source = dest
     · subst source
       simpa only [ite_true] using arrayGet
-    · rw [if_neg same, byte_view_get_put_ne h same array]
-      simpa only [if_neg same] using sourceGet
+    · rw [ite_eq_right same, byte_view_get_put_ne h same array]
+      simpa only [ite_eq_right same] using sourceGet
   have sourceFit : sourceOffset + 1 + (n - 1) ≤ (if source = dest then array else saved).size := by
     by_cases same : source = dest
     · simp only [same, ite_true, array, Array.size_set!] at sourceBound ⊢

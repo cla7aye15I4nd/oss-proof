@@ -185,7 +185,7 @@ theorem dynamic_header_rank {h : Heap} {ds pb : Nat} {d : DeflateState} {buf : A
   have small : ∀ (T : Array CtData) (M : Nat), (∀ i ≤ M, T[i]!.dl.toNat ≤ 15) →
       ∀ i, i < M + 1 → guarded (fun n => T[n]!.dl.toNat) M i ≤ 15 := by
     intro T M fit i lt
-    simp only [guarded, show i ≠ M + 1 by omega, if_false]
+    simp only [guarded, show i ≠ M + 1 by omega, ite_false]
     exact fit i (by omega)
   have tl := Zlib.Trees.Proofs.Out.treeBits_length (Zlib.Trees.Proofs.Out.blWords ready) _ _
     (small readyP.dyn_ltree readyP.l_desc.max_code.toInt.toNat input.llen)

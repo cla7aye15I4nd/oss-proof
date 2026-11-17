@@ -19,13 +19,13 @@ theorem BTForceTrace.frequency_or_one_small {tk : TK} {sl : Option (Nat → UInt
     rw [btForceState_freq tk d' node hl sl fit]
     dsimp only
     by_cases same : v = node.toInt.toNat
-    · rw [if_pos same]
+    · rw [ite_eq_left same]
       right
       refine ⟨rfl, ?_⟩
       have small := forceNode_le_two mc.toInt
       have nodeNat : node.toInt.toNat = Math.forceNode mc.toInt := by omega
       omega
-    · rw [if_neg same]
+    · rw [ite_eq_right same]
       exact ih
 
 /-- The real trace increases heap length once per repair iteration. -/

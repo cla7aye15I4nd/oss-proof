@@ -165,7 +165,7 @@ theorem gzip_head_magic {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStre
       rw [e] at w
       exact nz (w.symm.trans rfl)
     show (if s.wbits = 0 then (15 : UInt32) else s.wbits).toNat = f.configured
-    rw [if_neg sNZ]
+    rw [ite_eq_right sNZ]
     exact w
   have bitsNew : bytesToBits (f.logIn ++ f.inp.take (loopRead { l with hold := 0, bits := 0 })) =
       bytesToBits [31, 139] ++ [] := by
@@ -185,7 +185,7 @@ theorem gzip_head_magic {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStre
     refine ⟨fun _ => ?_, fun ng => absurd (show IsGzipHeader [31, 139] by decide) ng⟩
     have zero : s.wbits = 0 := width0 cz
     show (if s.wbits = 0 then (15 : UInt32) else s.wbits).toNat = 15
-    rw [if_pos zero]
+    rw [ite_eq_left zero]
     rfl
   refine ⟨zs, headGzipState s l.hold, [], bytesToBits [31, 139], [], .header [31, 139], E.st,
     setI_istates_same _ _ _, retOk, configNew, haveLe, inLen, bitInv_hbuf_put binv apart hbufAt,
@@ -333,7 +333,7 @@ theorem auto_head_accepted {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZS
     rw [List.append_nil, input]
   have modeEq := zlib_head_mode (l := l) wire
   by_cases plain : flg.toNat / 32 % 2 = 0
-  · have modeT : headDefaultMode l = TYPE := by rw [modeEq, if_pos plain]
+  · have modeT : headDefaultMode l = TYPE := by rw [modeEq, ite_eq_left plain]
     refine ⟨zs, headDefaultState s l, [], bytesToBits [cmf, flg], [],
       .body [cmf, flg] ⟨[], false, .boundary⟩, E.st, setI_istates_same _ _ _, retOk,
       zlib_head_config config, haveLe, inLen, ⟨binv2.have_eq, binv2.next, by simp⟩, leftLe,
@@ -359,9 +359,9 @@ theorem auto_head_accepted {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZS
     · show FlagsMatch _ f.wrap _
       rw [auto]
       unfold FlagsMatch
-      rw [if_neg (show ¬ (Api.Wrap.auto = Api.Wrap.raw) by decide), if_neg notGzip] <;> rfl
+      rw [ite_eq_right (show ¬ (Api.Wrap.auto = Api.Wrap.raw) by decide), ite_eq_right notGzip] <;> rfl
   · have fdict : flg.toNat / 32 % 2 = 1 := by omega
-    have modeD : headDefaultMode l = DICTID := by rw [modeEq, if_neg plain]
+    have modeD : headDefaultMode l = DICTID := by rw [modeEq, ite_eq_right plain]
     refine ⟨zs, headDefaultState s l, [], bytesToBits [cmf, flg], [], .header [cmf, flg], E.st,
       setI_istates_same _ _ _, retOk, zlib_head_config config, haveLe, inLen,
       ⟨binv2.have_eq, binv2.next, by simp⟩, leftLe,

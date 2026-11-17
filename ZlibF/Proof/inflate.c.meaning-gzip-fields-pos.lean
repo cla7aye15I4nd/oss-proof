@@ -333,7 +333,7 @@ theorem GzAt.body {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {zs : Nat} {s : 
         · exact notGz (Or.inr ⟨w, gzh⟩)
   · show FlagsMatch s' f.wrap header
     unfold FlagsMatch
-    rw [if_neg g.wrapped, if_pos gzh, flags, flagsWord, Int32.toInt_ofNat_of_lt]
+    rw [ite_eq_right g.wrapped, ite_eq_left gzh, flags, flagsWord, Int32.toInt_ofNat_of_lt]
     · unfold gzipFlagsWord
       rw [method]
       simp

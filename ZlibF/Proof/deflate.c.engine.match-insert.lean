@@ -92,7 +92,7 @@ theorem slow_match_insert_step_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
       if ss ≤ max_insert then INSERT_STRING (some (.tab ds)) ss else pure hash_head) h = _
     rw [bind_app, write]
     have stateB : hb.dstates ds = some (bumpStart d) := bumped.2.1.live.hs
-    simp only [bind_app, rdD_eq, stateB, guard, if_true]
+    simp only [bind_app, rdD_eq, stateB, guard, ite_true]
     exact insert
   have condition : slowMatchCond (some (.tab ds)) candidate mid =
       .ok (((countDown di).prev_length != 0, candidate), after) := by

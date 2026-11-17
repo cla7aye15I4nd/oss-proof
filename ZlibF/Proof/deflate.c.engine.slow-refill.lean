@@ -128,7 +128,7 @@ theorem slow_short_no_flush_boundary {h : Heap} {r : ZStreamRef} {ds origin : Na
       (18446744073709551614 + 2) ({} : LoopS) h = _
     rw [cwhile.go, bind_app,
       show forever {} h = .ok ((true, {}), h) from rfl]
-    simp only [if_true, bind_app, body]
+    simp only [ite_true, bind_app, body]
     rw [cwhile.go, bind_app,
       show forever { ret := some need_more } after = .ok ((false, { ret := some need_more }), after) from rfl]
     rfl

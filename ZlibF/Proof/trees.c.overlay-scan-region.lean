@@ -55,7 +55,7 @@ theorem run_cost_nonzero (wt P A B : Nat → Nat) (ch : ScanCharges wt P A B) (c
       rw [← mass_add]
       apply mass_congr
       intro k _
-      simp only [runFreq, few, if_false, nz, newLen, ne_eq, not_false_eq_true, if_true, true_and]
+      simp only [runFreq, few, ite_false, nz, newLen, ne_eq, not_false_eq_true, ite_true, true_and]
       rw [Nat.add_mul]
     rw [split, mass_point wt cur 1 19 (by omega), mass_point wt 16 1 19 (by omega)]
     have : cnt * P cur ≥ 4 * P cur := Nat.mul_le_mul_right _ f4
@@ -134,24 +134,24 @@ theorem scan_cost_region_pending (L wt P A B : Nat → Nat) (ch : ScanCharges wt
       have expandB : (s.cnt + 1) * B n = s.cnt * B n + B n := by rw [Nat.add_mul, Nat.one_mul]
       have expandP : (s.cnt + 1) * P (L n) = s.cnt * P (L n) + P (L n) := by rw [Nat.add_mul, Nat.one_mul]
       have d1 : (if 0 < n + 1 ∧ L n = 0 ∧ L n ≠ 0 then A (n + 1) else 0) = 0 := by
-        rw [if_neg (by intro h; exact h.2.2 h.2.1)]
+        rw [ite_eq_right (by intro h; exact h.2.2 h.2.1)]
       rw [d1]
       by_cases z : L n = 0
       · have kb := (keep n z).2
         have d0 : (if 0 < n ∧ L (n - 1) = 0 ∧ L n ≠ 0 then A n else 0) = 0 := by
-          rw [if_neg (by intro h; exact h.2.2 z)]
-        rw [d0, if_pos z] at prevBound
-        rw [if_pos z, if_pos z, kb]
+          rw [ite_eq_right (by intro h; exact h.2.2 z)]
+        rw [d0, ite_eq_left z] at prevBound
+        rw [ite_eq_left z, ite_eq_left z, kb]
         omega
       · have dle : (if 0 < n ∧ L (n - 1) = 0 ∧ L n ≠ 0 then A n else 0) ≤ A n := by split <;> omega
-        rw [if_neg z] at prevBound
-        rw [if_neg z, if_neg z]
+        rw [ite_eq_right z] at prevBound
+        rw [ite_eq_right z, ite_eq_right z]
         omega
     · -- the run ends at n
       have h2 : (runStep L n s).2 = some (s.next, s.prev, s.cnt + 1, s.mn) := by simp [runStep, cont]
       have h1 : (runStep L n s).1.cnt = 0 := by
         unfold runStep
-        simp only [cont, if_false]
+        simp only [cont, ite_false]
         split
         · rfl
         · split <;> rfl
@@ -163,9 +163,9 @@ theorem scan_cost_region_pending (L wt P A B : Nat → Nat) (ch : ScanCharges wt
         have run := run_cost_zero wt P A B ch n s.prev (s.cnt + 1) s.mn (by omega) mn3
         rw [z]
         have d0 : (if 0 < n ∧ L (n - 1) = 0 ∧ L n ≠ 0 then A n else 0) = 0 := by
-          rw [if_neg (by intro h; exact h.2.2 Ln)]
-        rw [d0, if_pos Ln] at prevBound
-        rw [if_pos Ln]
+          rw [ite_eq_right (by intro h; exact h.2.2 Ln)]
+        rw [d0, ite_eq_left Ln] at prevBound
+        rw [ite_eq_left Ln]
         have ka := (keep n Ln).1
         have expandB : (s.cnt + 1) * B n = s.cnt * B n + B n := by rw [Nat.add_mul, Nat.one_mul]
         by_cases nx : L (n + 1) = 0
@@ -179,12 +179,12 @@ theorem scan_cost_region_pending (L wt P A B : Nat → Nat) (ch : ScanCharges wt
             omega
           have c := run.2 full
           have d1 : (if 0 < n + 1 ∧ L n = 0 ∧ L (n + 1) ≠ 0 then A (n + 1) else 0) = 0 := by
-            rw [if_neg (by intro h; exact h.2.2 nx)]
+            rw [ite_eq_right (by intro h; exact h.2.2 nx)]
           rw [d1]
           omega
         · have c := run.1
           have d1 : (if 0 < n + 1 ∧ L n = 0 ∧ L (n + 1) ≠ 0 then A (n + 1) else 0) = A n := by
-            rw [if_pos ⟨by omega, Ln, nx⟩, ka]
+            rw [ite_eq_left ⟨by omega, Ln, nx⟩, ka]
           rw [d1]
           omega
       · -- a run of a nonzero length
@@ -196,11 +196,11 @@ theorem scan_cost_region_pending (L wt P A B : Nat → Nat) (ch : ScanCharges wt
           · exact ⟨by omega, fun _ => by omega⟩)
         rw [nextEq] at run
         rw [nextEq]
-        rw [if_neg Ln] at prevBound
-        rw [if_neg Ln]
+        rw [ite_eq_right Ln] at prevBound
+        rw [ite_eq_right Ln]
         have expandP : (s.cnt + 1) * P (L n) = s.cnt * P (L n) + P (L n) := by rw [Nat.add_mul, Nat.one_mul]
         have d1 : (if 0 < n + 1 ∧ L n = 0 ∧ L (n + 1) ≠ 0 then A (n + 1) else 0) = 0 := by
-          rw [if_neg (by intro h; exact Ln h.2.1)]
+          rw [ite_eq_right (by intro h; exact Ln h.2.1)]
         have dle : (if 0 < n ∧ L (n - 1) = 0 ∧ L n ≠ 0 then A n else 0) ≤ A n := by split <;> omega
         rw [d1]
         omega

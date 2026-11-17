@@ -60,9 +60,9 @@ theorem syncOkHeap_reset2 {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {
   · have cleared : (syncC zs s).window = .null := by
       rw [syncWindow]
       by_cases same : s.wbits = s.reqbits
-      · rw [if_pos same]
+      · rw [ite_eq_left same]
         exact current.zero_window (same.trans zero)
-      · rw [if_neg same]
+      · rw [ite_eq_right same]
     have test : ((syncC zs s).wbits == 0) = true := by
       rw [(syncC_field zs s).1, zero]
       rfl

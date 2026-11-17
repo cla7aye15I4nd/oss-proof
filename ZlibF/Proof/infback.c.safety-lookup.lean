@@ -130,12 +130,12 @@ theorem lookup1_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
       have jlt := Nat.mod_lt l1.hold.toNat (Nat.two_pow_pos nb.toNat)
       have entry := entries _ jlt
       by_cases fit : (ca.getD (off + l1.hold.toNat % 2 ^ nb.toNat) default).bits.toUInt32 ≤ l1.bits
-      · rw [if_pos fit] at run
+      · rw [ite_eq_left fit] at run
         refine ⟨.ok true, _, h1, run, log1, I1.withHere _, ist1, fun _ => ⟨put1, left1, rfl, ?_, ext1, pull1⟩,
           fun e x => (nomatch x), meas1⟩
         have := UInt32.le_iff_toNat_le.mp fit
         simpa using this
-      · rw [if_neg fit] at run
+      · rw [ite_eq_right fit] at run
         have fit' : l1.bits.toNat < (ca.getD (off + l1.hold.toNat % 2 ^ nb.toNat) default).bits.toNat := by
           have := mt UInt32.le_iff_toNat_le.mpr fit
           simp only [UInt8.toNat_toUInt32] at this

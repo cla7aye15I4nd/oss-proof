@@ -188,7 +188,7 @@ theorem params_full {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : De
     have flushRun : ∀ v after, paramsAfter (some r) (some (.tab ds)) (if level == Z_DEFAULT_COMPRESSION then 6 else level) strategy rc after1 = .ok (v, after) →
         C.run (deflateParams (some r) level strategy) h = .ok (v, after) := by
       intro v after e
-      rw [C.run, source, if_pos resetB, params_flush_split]
+      rw [C.run, source, ite_eq_left resetB, params_flush_split]
       simp only [bind_app, run1']
       exact e
     rcases params_after_outcome inv1 rc _ strategy lo hi slo shi with

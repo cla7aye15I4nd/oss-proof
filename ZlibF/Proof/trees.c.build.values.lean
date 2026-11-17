@@ -90,8 +90,8 @@ theorem ws_btMergeBody_values {h0 : Heap} {id : Nat} {tk : TK} {d0 d : DeflateSt
   · intro a bound
     by_cases last : a = j
     · subst a
-      rw [newn, newm, frequencies, if_pos (by omega), frequencies,
-        if_neg (by omega), frequencies, if_neg (by omega), UInt16.toNat_add, Nat.mod_eq_of_lt nowrap]
+      rw [newn, newm, frequencies, ite_eq_left (by omega), frequencies,
+        ite_eq_right (by omega), frequencies, ite_eq_right (by omega), UInt16.toNat_add, Nat.mod_eq_of_lt nowrap]
     · have before : a < j := by omega
       have qn : 573 - 2 * j ≤ 572 - 2 * a := by omega
       have qm : 573 - 2 * j ≤ 571 - 2 * a := by omega
@@ -99,8 +99,8 @@ theorem ws_btMergeBody_values {h0 : Heap} {id : Nat} {tk : TK} {d0 d : DeflateSt
       have qmTop : 571 - 2 * a < 573 := by omega
       have vn := oldNode _ qn qnTop
       have vm := oldNode _ qm qmTop
-      rw [oldTail _ qn, oldTail _ qm, frequencies, if_neg (by omega),
-        frequencies, if_neg (by omega), frequencies, if_neg (by omega)]
+      rw [oldTail _ qn, oldTail _ qm, frequencies, ite_eq_right (by omega),
+        frequencies, ite_eq_right (by omega), frequencies, ite_eq_right (by omega)]
       exact history.sum a before
   · intro a bound
     by_cases last : a = j
@@ -110,19 +110,19 @@ theorem ws_btMergeBody_values {h0 : Heap} {id : Nat} {tk : TK} {d0 d : DeflateSt
         show n.toInt.toNat ≠ node.toInt.toNat by omega,
         show m.toInt.toNat ≠ node.toInt.toNat by omega, ite_true, ite_false]
       by_cases order : d.depth[m.toInt.toNat]! ≤ d.depth[n.toInt.toNat]!
-      · rw [if_pos order, UInt8.toNat_add, Nat.max_eq_left (UInt8.le_iff_toNat_le.mp order)]
+      · rw [ite_eq_left order, UInt8.toNat_add, Nat.max_eq_left (UInt8.le_iff_toNat_le.mp order)]
         rfl
       · have natural : ¬ d.depth[m.toInt.toNat]!.toNat ≤ d.depth[n.toInt.toNat]!.toNat :=
           fun h => order (UInt8.le_iff_toNat_le.mpr h)
-        rw [if_neg order, UInt8.toNat_add, Nat.max_eq_right (by omega)]
+        rw [ite_eq_right order, UInt8.toNat_add, Nat.max_eq_right (by omega)]
         rfl
     · have before : a < j := by omega
       have qn : 573 - 2 * j ≤ 572 - 2 * a := by omega
       have qm : 573 - 2 * j ≤ 571 - 2 * a := by omega
       have vn := oldNode _ qn (by omega)
       have vm := oldNode _ qm (by omega)
-      rw [oldTail _ qn, oldTail _ qm, depthCells, if_neg (by omega),
-        depthCells, if_neg (by omega), depthCells, if_neg (by omega)]
+      rw [oldTail _ qn, oldTail _ qm, depthCells, ite_eq_right (by omega),
+        depthCells, ite_eq_right (by omega), depthCells, ite_eq_right (by omega)]
       exact history.depth a before
 
 /-- All source merges retain their mathematical parent sums and exact

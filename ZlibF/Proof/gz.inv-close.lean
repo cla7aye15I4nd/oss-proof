@@ -22,7 +22,7 @@ theorem gzclose_step (i : Nat) : GzCloseSafe i (.gzclose (some (.in_gzstate_x i)
   · obtain ⟨v, fs', after, e, hr⟩ := GzRead.gzclose_r_step_safe i h fs s inv hfs
     refine ⟨v, fs', after, ?_, Or.inr ⟨fun hc => hc, ?_⟩⟩
     · show Zlib.Gzclose.gzclose _ fs h = _
-      rw [gzclose_dispatch_inv inv fs, if_pos hm]
+      rw [gzclose_dispatch_inv inv fs, ite_eq_left hm]
       exact e
     · rcases hr with ⟨hc, _⟩ | ⟨_, hrel⟩
       · exact absurd hm hc
@@ -34,7 +34,7 @@ theorem gzclose_step (i : Nat) : GzCloseSafe i (.gzclose (some (.in_gzstate_x i)
     obtain ⟨v, fs', after, e, hr⟩ := gzclose_w_step i h fs s inv hfs
     refine ⟨v, fs', after, ?_, Or.inr ⟨fun hc => hc, ?_⟩⟩
     · show Zlib.Gzclose.gzclose _ fs h = _
-      rw [gzclose_dispatch_inv inv fs, if_neg hm]
+      rw [gzclose_dispatch_inv inv fs, ite_eq_right hm]
       exact e
     · rcases hr with ⟨hc, _⟩ | ⟨_, hrel⟩
       · exact absurd hw hc

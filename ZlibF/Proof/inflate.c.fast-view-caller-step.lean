@@ -78,7 +78,7 @@ theorem inflate_LEN_fast_view_step
     ⟨E.strm, E.st, current.good.live.hz, current.good.live.hs⟩
   rw [cut, inflateAfterFast_run env]
   by_cases type : state.mode = TYPE
-  · rw [if_pos type]
+  · rw [ite_eq_left type]
     have finalJ := current.type_set_back type (-1)
     have finalPacket := fastPacket.byte_views current.good finalJ.good rfl
       (byte_view_get_setI finished zs { state with back := -1 })
@@ -87,7 +87,7 @@ theorem inflate_LEN_fast_view_step
       usedBound, rfl, finalJ, finalMode, finalPacket,
       originalSizes.trans (byte_view_sizes_setI finished zs _), next, count, put,
       left, small, budget, rfl, window, rfl, rfl, progress, decreases⟩
-  · rw [if_neg type]
+  · rw [ite_eq_right type]
     exact ⟨regs, finished, stream, state, used, made, usedBound, rfl,
       current, finalMode, fastPacket, originalSizes, next, count, put, left, small, budget,
       rfl, window, rfl, rfl, progress, decreases⟩

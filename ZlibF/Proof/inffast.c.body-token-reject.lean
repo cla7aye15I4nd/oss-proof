@@ -80,11 +80,11 @@ theorem readBits_word {n : Nat} {inp rest : List Bool} {value : Nat}
 
 theorem lensValid {symbol : Nat} : ValidSymbol LENS symbol ↔ symbol ≤ 285 := by
   unfold ValidSymbol
-  rw [if_pos rfl]
+  rw [ite_eq_left rfl]
 
 theorem distsValid {symbol : Nat} : ValidSymbol DISTS symbol ↔ symbol ≤ 29 := by
   unfold ValidSymbol
-  rw [if_neg (by decide)]
+  rw [ite_eq_right (by decide)]
 
 theorem Sg_long (e : Env) (H b i : Nat) : b ≤ (Sg e H b i).length := by
   simp only [Sg, List.length_append, bitsOfNat_length]
@@ -260,17 +260,17 @@ theorem actual_body_rejects_prefix (e : Env) (c : Ctx) (bytes : Array UInt8) (ms
       · exact ⟨symbol, valid, meaning, length, decoded⟩
     have meaning' := meaning
     unfold DecodeSemantics.SymbolEntry at meaning'
-    rw [if_pos rfl] at meaning'
+    rw [ite_eq_left rfl] at meaning'
     have lower : 257 ≤ symbol := by
       apply Classical.byContradiction
       intro small
       by_cases lit : symbol < 256
-      · rw [if_pos lit] at meaning'
+      · rw [ite_eq_left lit] at meaning'
         exact hasBase (by rw [meaning'.1]; decide)
-      · rw [if_neg lit, if_pos (by omega : symbol = 256)] at meaning'
+      · rw [ite_eq_right lit, ite_eq_left (by omega : symbol = 256)] at meaning'
         exact hasBase (by rw [meaning'.1]; decide)
     have extraEq : (entry.op &&& 15).toNat = lengthExtras.getD (symbol - 257) 0 := by
-      rw [if_neg (by omega), if_neg (by omega), if_pos valid] at meaning'
+      rw [ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left valid] at meaning'
       have extrasBound : ∀ n : Fin 29, lengthExtras.getD n.val 0 ≤ 5 := by decide +kernel
       have bound : lengthExtras.getD (symbol - 257) 0 ≤ 5 := extrasBound ⟨symbol - 257, by omega⟩
       have mask : ∀ op : UInt8, 16 ≤ op.toNat → op.toNat ≤ 21 →

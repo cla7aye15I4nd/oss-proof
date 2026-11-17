@@ -76,13 +76,13 @@ theorem DefaultFinishBoundary.finish_progress {h : Heap} {r : ZStreamRef} {ds ob
     refine ⟨?_, emptyP, public_finish_phase_started phaseP⟩
     have pendingA := default_memory_pending_count stateA.good phaseP boundary.configuration.memory
     intro _ok
-    rw [status, if_pos rfl]
+    rw [status, ite_eq_left rfl]
     rcases phaseP with ⟨_inputA, _originA, _baseA, _xsA, _stateA, statusA⟩ | phaseA
-    · rw [if_pos statusA]
+    · rw [ite_eq_left statusA]
       rcases progress statusA with less | ⟨equal, less⟩ <;> omega
     · have busyA : result.status ≠ BUSY_STATE := by rw [phaseA.status]; decide
       have emptyA := emptyP phaseA.status
-      rw [if_neg busyA, phaseA.lookahead, emptyA]
+      rw [ite_eq_right busyA, phaseA.lookahead, emptyA]
       simp only [UInt32.toNat_zero, Nat.zero_add, Nat.zero_mul, Nat.zero_add]
       split <;> omega
   · obtain ⟨producedP, rcP, afterP, zP, resultP, runP, goodP, _buffersP, accountP,
@@ -100,7 +100,7 @@ theorem DefaultFinishBoundary.finish_progress {h : Heap} {r : ZStreamRef} {ds ob
     have emitted := progress ok
     have beforeBusy : d.status ≠ BUSY_STATE := by rw [finishing.status]; decide
     have afterBusy : result.status ≠ BUSY_STATE := by rw [phaseP.status]; decide
-    rw [if_neg beforeBusy, if_neg afterBusy, finishing.lookahead, accepted finishing.status,
+    rw [ite_eq_right beforeBusy, ite_eq_right afterBusy, finishing.lookahead, accepted finishing.status,
       phaseP.lookahead, emptyP]
     simp only [UInt32.toNat_zero, Nat.zero_add, Nat.zero_mul, Nat.zero_add]
     omega

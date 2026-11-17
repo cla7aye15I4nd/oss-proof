@@ -142,9 +142,9 @@ theorem inflate_dispatch_type_J {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
       DefaultDecodeJ after r zs stream state ∧ BlockControlMode state.mode := by
   rw [inflate_dispatch_block_type E l mode]
   rcases mode with selected | selected
-  · rw [if_pos selected]
+  · rw [ite_eq_left selected]
     exact inflate_TYPE_default_J E invariant buffers selected format
-  · rw [if_neg (by rw [selected]; decide : s.mode ≠ TYPE)]
+  · rw [ite_eq_right (by rw [selected]; decide : s.mode ≠ TYPE)]
     exact inflate_TYPEDO_default_J E invariant buffers (Or.inr selected) format
 
 /-- The actual block switch retains J and its state/stream frames, exact

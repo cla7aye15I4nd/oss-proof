@@ -100,10 +100,10 @@ theorem inflate_dispatch_type_rank {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : N
       (outcome = .error Ex.leave ∨ (outcome = .ok () ∧ dispatchRank regs state.mode < dispatchRank l s.mode)) := by
   rw [inflate_dispatch_block_type E l mode]
   rcases mode with type | typedo
-  · rw [if_pos type]
+  · rw [ite_eq_left type]
     exact inflate_TYPE_rank E good pending buffers globals type incoming
   · have notType : s.mode ≠ TYPE := by rw [typedo]; decide
-    rw [if_neg notType]
+    rw [ite_eq_right notType]
     exact inflate_TYPEDO_rank E good pending buffers globals (Or.inr typedo) incoming
 
 /-- The complete zlib HEAD mode retains its exact bit budget and moves to

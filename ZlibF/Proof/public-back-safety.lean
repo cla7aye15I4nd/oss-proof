@@ -60,11 +60,11 @@ theorem inflateBackInit__safety : Goal.inflateBackInit__safety := by
           hmain h r z wb window version hf hu hg hz hd hv hlo hhi hwin (hwrite hwin hlo hhi)
         refine ⟨rc, after, hrun, ?_⟩
         by_cases ha : h.allocOk h.nalloc = false
-        · rw [if_pos ha] at hbr
+        · rw [ite_eq_left ha] at hbr
           obtain ⟨hrc, hsame⟩ := hbr
           obtain ⟨hfr, hl⟩ := InitSafetyProof.frame_of_same hz (InitSafetyProof.upToShape_of_same hsame)
           exact ⟨hfr, Or.inr ⟨by rw [hrc]; decide, hl⟩⟩
-        · rw [if_neg ha] at hbr
+        · rw [ite_eq_right ha] at hbr
           dsimp only at hbr
           obtain ⟨hrc, hvalid, hfr, hl⟩ := hbr
           exact ⟨hfr, Or.inl ⟨hrc, ⟨_, _, hvalid, rfl⟩, hl⟩⟩

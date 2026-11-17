@@ -107,9 +107,9 @@ theorem clRepeat_run {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {s : InflateState}
         rw [countNext] at bound
         rw [Zlib.Inftrees.Proofs.getD_set!]
         by_cases last : state.«have».toNat = j
-        · rw [if_pos ⟨last, inside⟩]
+        · rw [ite_eq_left ⟨last, inside⟩]
           exact storedValue
-        · rw [if_neg (fun both => last both.1)]
+        · rw [ite_eq_right (fun both => last both.1)]
           exact initializedState j (by omega)
       · exact registers'
   · intro current heap inv

@@ -36,7 +36,7 @@ theorem public_default_busy_block_ready {h : Heap} {r : ZStreamRef} {ds ob oo or
   obtain ⟨current, old, _currentRank, _oldRank, source⟩ := public_busy_valid_entry_choice boundary.good
     status pending nonnull positive inputValid lower upper Z_BLOCK (by decide) (by decide)
   by_cases duplicate : (z.avail_in == 0 && decide (current ≤ old) && Z_BLOCK != Z_FINISH) = true
-  · rw [if_pos duplicate] at source
+  · rw [ite_eq_left duplicate] at source
     obtain ⟨message, refused⟩ := err_return_run state0.good.live.hz Z_BUF_ERROR
     let z' := { z with msg := message }
     have goodA := stream_control_good (z' := z') state0.good rfl boundary.good.live.zalloc boundary.good.live.zfree
@@ -45,7 +45,7 @@ theorem public_default_busy_block_ready {h : Heap} {r : ZStreamRef} {ds ob oo or
     have stateA := stream_control_buffered state0 goodA
     exact ⟨0, 0, Z_BUF_ERROR, _, z', _, input, origin, base, xs, source.trans refused,
       stateA, buffersA, account, Or.inr rfl, status, Or.inl rfl⟩
-  · rw [if_neg duplicate] at source
+  · rw [ite_eq_right duplicate] at source
     have engine0 := state0.strategy publish0
     obtain ⟨used, produced, after, z', result, nextBase, ys, extended, nextOrigin,
         run, stateA, endA, buffersA, accountA, _agreesA, _endpointA, _baseA, statusA, lastA⟩ :=

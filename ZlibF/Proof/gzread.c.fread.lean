@@ -140,7 +140,7 @@ theorem gzfread_step_of (read : GzReadSafe) (clauses : GzReadClauses) :
   have hrange : size.toNat * nitems.toNat < 2 ^ 64 → GzRange h i s buf (size.toNat * nitems.toNat) true := by
     intro hl
     simp only [GzArguments] at harg
-    rw [if_neg (by omega)] at harg
+    rw [ite_eq_right (by omega)] at harg
     exact harg
   have vw : Views i h s buf size nitems := by
     rintro ⟨hp, hl⟩

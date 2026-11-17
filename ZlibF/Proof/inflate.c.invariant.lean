@@ -84,41 +84,41 @@ theorem inflWbits_bits {w : Int} {wrap : ZlibF.Spec.Api.Wrap} {bits : Nat}
     bits = 0 ∨ (8 ≤ bits ∧ bits ≤ 15) := by
   unfold ZlibF.Spec.Api.inflWbits at selected
   by_cases negative : w < 0
-  · rw [if_pos negative] at selected
+  · rw [ite_eq_left negative] at selected
     by_cases low : w < -15
-    · rw [if_pos low] at selected
+    · rw [ite_eq_left low] at selected
       cases selected
-    · rw [if_neg low] at selected
+    · rw [ite_eq_right low] at selected
       by_cases small : -w < 8
-      · rw [if_pos small] at selected
+      · rw [ite_eq_left small] at selected
         cases selected
-      · rw [if_neg small] at selected
+      · rw [ite_eq_right small] at selected
         cases selected
         omega
-  · rw [if_neg negative] at selected
+  · rw [ite_eq_right negative] at selected
     generalize (if w < 48 then w % 16 else w) = width at selected
     have pick : ∀ wr : ZlibF.Spec.Api.Wrap,
         (if width ≠ 0 ∧ (width < 8 ∨ width > 15) then none else some (wr, width.toNat)) =
           some (wrap, bits) → bits = 0 ∨ (8 ≤ bits ∧ bits ≤ 15) := by
       intro wr chosen
       by_cases accepted : width ≠ 0 ∧ (width < 8 ∨ width > 15)
-      · rw [if_pos accepted] at chosen
+      · rw [ite_eq_left accepted] at chosen
         cases chosen
-      · rw [if_neg accepted] at chosen
+      · rw [ite_eq_right accepted] at chosen
         cases chosen
         omega
     by_cases zlib : w / 16 = 0
-    · rw [if_pos zlib] at selected
+    · rw [ite_eq_left zlib] at selected
       exact pick _ selected
-    · rw [if_neg zlib] at selected
+    · rw [ite_eq_right zlib] at selected
       by_cases gzip : w / 16 = 1
-      · rw [if_pos gzip] at selected
+      · rw [ite_eq_left gzip] at selected
         exact pick _ selected
-      · rw [if_neg gzip] at selected
+      · rw [ite_eq_right gzip] at selected
         by_cases auto : w / 16 = 2
-        · rw [if_pos auto] at selected
+        · rw [ite_eq_left auto] at selected
           exact pick _ selected
-        · rw [if_neg auto] at selected
+        · rw [ite_eq_right auto] at selected
           cases selected
 
 /-- A raw request has a width of 8 to 15. -/
@@ -126,41 +126,41 @@ theorem inflWbits_raw {w : Int} {bits : Nat}
     (selected : ZlibF.Spec.Api.inflWbits w = some (.raw, bits)) : 8 ≤ bits := by
   unfold ZlibF.Spec.Api.inflWbits at selected
   by_cases negative : w < 0
-  · rw [if_pos negative] at selected
+  · rw [ite_eq_left negative] at selected
     by_cases low : w < -15
-    · rw [if_pos low] at selected
+    · rw [ite_eq_left low] at selected
       cases selected
-    · rw [if_neg low] at selected
+    · rw [ite_eq_right low] at selected
       by_cases small : -w < 8
-      · rw [if_pos small] at selected
+      · rw [ite_eq_left small] at selected
         cases selected
-      · rw [if_neg small] at selected
+      · rw [ite_eq_right small] at selected
         cases selected
         omega
-  · rw [if_neg negative] at selected
+  · rw [ite_eq_right negative] at selected
     generalize (if w < 48 then w % 16 else w) = width at selected
     have pick : ∀ wr : ZlibF.Spec.Api.Wrap, wr ≠ .raw →
         (if width ≠ 0 ∧ (width < 8 ∨ width > 15) then none else some (wr, width.toNat)) ≠
           some (.raw, bits) := by
       intro wr notRaw chosen
       by_cases accepted : width ≠ 0 ∧ (width < 8 ∨ width > 15)
-      · rw [if_pos accepted] at chosen
+      · rw [ite_eq_left accepted] at chosen
         cases chosen
-      · rw [if_neg accepted] at chosen
+      · rw [ite_eq_right accepted] at chosen
         cases chosen
         exact notRaw rfl
     by_cases zlib : w / 16 = 0
-    · rw [if_pos zlib] at selected
+    · rw [ite_eq_left zlib] at selected
       exact absurd selected (pick _ (by decide))
-    · rw [if_neg zlib] at selected
+    · rw [ite_eq_right zlib] at selected
       by_cases gzip : w / 16 = 1
-      · rw [if_pos gzip] at selected
+      · rw [ite_eq_left gzip] at selected
         exact absurd selected (pick _ (by decide))
-      · rw [if_neg gzip] at selected
+      · rw [ite_eq_right gzip] at selected
         by_cases auto : w / 16 = 2
-        · rw [if_pos auto] at selected
+        · rw [ite_eq_left auto] at selected
           exact absurd selected (pick _ (by decide))
-        · rw [if_neg auto] at selected
+        · rw [ite_eq_right auto] at selected
           cases selected
 
 /-! ## Interface -/

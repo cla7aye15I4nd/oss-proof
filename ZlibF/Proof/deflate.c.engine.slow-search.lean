@@ -40,7 +40,7 @@ theorem slow_search_composes {h after : Heap} {ds p q : Nat} {d : DeflateState}
   have write : wr (some (.tab ds)) lazyPrepare hi = .ok ((), hm) := by
     simp [wrD_eq, hi, insertedHeap, hm]
   unfold slowSearch
-  simp only [bind_app, rdD_eq, state, ready, if_true, inserted, initial_match_length]
+  simp only [bind_app, rdD_eq, state, ready, ite_true, inserted, initial_match_length]
   change (do
     wr (some (.tab ds)) lazyPrepare
     slowFind (some (.tab ds)) (wfn qa key.toNat).toUInt32

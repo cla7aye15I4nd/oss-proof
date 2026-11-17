@@ -67,14 +67,14 @@ theorem default_flush_arguments {h : Heap} {r : ZStreamRef} {ds pb w : Nat}
       let source ← if d.block_start ≥ 0 then padd d.window d.block_start.toUInt64.toUInt32.toNat else pure Ptr.null
       let length ← lsub d.strstart.toUInt64.toInt64 d.block_start
       return (source, length.toUInt64)) h = _
-    rw [if_pos (show d.block_start ≥ 0 from by simpa only [Int64.le_iff_toInt_le, Int64.toInt_zero] using nonnegative), win, bind_app, add]
+    rw [ite_eq_left (show d.block_start ≥ 0 from by simpa only [Int64.le_iff_toInt_le, Int64.toInt_zero] using nonnegative), win, bind_app, add]
     rw [difference.1]
     simp only [bind_app, pure_app, cast, Nat.zero_add, word, defaultStoredSource, nonnegative, ite_true]
   · change (do
       let source ← if d.block_start ≥ 0 then padd d.window d.block_start.toUInt64.toUInt32.toNat else pure Ptr.null
       let length ← lsub d.strstart.toUInt64.toInt64 d.block_start
       return (source, length.toUInt64)) h = _
-    rw [if_neg (show ¬ d.block_start ≥ 0 from by simpa only [Int64.le_iff_toInt_le, Int64.toInt_zero] using nonnegative), difference.1]
+    rw [ite_eq_right (show ¬ d.block_start ≥ 0 from by simpa only [Int64.le_iff_toInt_le, Int64.toInt_zero] using nonnegative), difference.1]
     simp only [bind_app, pure_app, word, defaultStoredSource, nonnegative, ite_false]
 
 /-- The macro's actual block_start update changes no byte, tree, output

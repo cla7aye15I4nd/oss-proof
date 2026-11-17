@@ -62,7 +62,7 @@ theorem fill_prime_initial {h : Heap} {ds w : Nat} {d : DeflateState} {wa : Arra
     unfold fillPrime
     rw [bind_app, ldDeflateState_tab state]
     simp only []
-    rw [if_pos enter]
+    rw [ite_eq_left enter]
     simp only [ss, insert, UInt32.sub_self, show (0 : UInt32).toNat = 0 from rfl,
       show ((0 : Nat) : Int) = 0 from rfl,
       bind_app, read0, write0]
@@ -73,7 +73,7 @@ theorem fill_prime_initial {h : Heap} {ds w : Nat} {d : DeflateState} {wa : Arra
       let (_, _) ← cwhile _ _ ((0 : UInt32), false)
       pure ()) h0 = _
     simp only [bind_app, read1, update, loops, pure_app]
-    simp only [primeState, large, if_true]
+    simp only [primeState, large, ite_true]
     rfl
   · simp [fillPrime, bind_app, ldDeflateState_tab state, insert, MIN_MATCH_u, large,
       primeState, setD_self state]

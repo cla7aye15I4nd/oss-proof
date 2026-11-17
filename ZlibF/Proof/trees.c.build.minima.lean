@@ -123,11 +123,11 @@ theorem ws_btMergeBody_minima {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateState
     change _ ≤ (btFreq tk { d2 with heap := H' } H'[q]!.toInt.toNat).toNat
     rw [entry]
     split
-    · rw [frequencies, if_pos rfl, UInt16.toNat_add, Nat.mod_eq_of_lt nowrap]
+    · rw [frequencies, ite_eq_left rfl, UInt16.toNat_add, Nat.mod_eq_of_lt nowrap]
       omega
     · have valid := hB (σ q) position.1 position.2
       have old : H[σ q]!.toInt.toNat ≠ node.toInt.toNat := by have := hp.1; omega
-      rw [frequencies, if_neg old]
+      rw [frequencies, ite_eq_right old]
       exact sm_frequency_le (hminm (σ q) position.1 position.2)
 
 end Zlib.Trees.Proofs

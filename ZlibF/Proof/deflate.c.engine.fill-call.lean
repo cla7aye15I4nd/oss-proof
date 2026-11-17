@@ -72,7 +72,7 @@ theorem fill_window_first_read {h : Heap} {r : ZStreamRef} {ds w io : Nat}
       have eq : n = z.avail_in := UInt32.toNat_inj.mp (by omega)
       simp [z', readStream, eq]
     unfold fillCond
-    simp only [bind_app, ldDeflateState_tab state, Bool.false_eq_true, if_false, look, back]
+    simp only [bind_app, ldDeflateState_tab state, Bool.false_eq_true, ite_false, look, back]
     by_cases small : n < MIN_LOOKAHEAD_u
     · simp [small, zrd_eq, stream, exhausted small]
     · simp [small]

@@ -149,12 +149,12 @@ open Zlib.Inflate.Proofs.MeaningLookup
 
 theorem lensValid {symbol : Nat} : ValidSymbol LENS symbol ↔ symbol ≤ 285 := by
   unfold ValidSymbol
-  rw [if_pos rfl]
+  rw [ite_eq_left rfl]
 
 theorem lensAccepted {entry : Code} :
     LeafAccepted LENS entry ↔ (entry.op &&& 32 != 0) = true ∨ entry.op &&& 64 = 0 := by
   unfold LeafAccepted
-  rw [if_pos rfl]
+  rw [ite_eq_left rfl]
 
 theorem u8_and_zero (o k : UInt8) : o &&& k = 0 ↔ o.toNat &&& k.toNat = 0 := by
   rw [← UInt8.toNat_inj, UInt8.toNat_and]
@@ -172,15 +172,15 @@ theorem lensEntry {symbol : Nat} {entry : Code} (le : symbol ≤ 285) (meaning :
     (257 ≤ symbol ∧ entry.op.toNat = 16 + lengthExtras.getD (symbol - 257) 0 ∧
       entry.val.toNat = lengthBases.getD (symbol - 257) 0) := by
   unfold SymbolEntry at meaning
-  rw [if_pos rfl] at meaning
+  rw [ite_eq_left rfl] at meaning
   by_cases a : symbol < 256
-  · rw [if_pos a] at meaning
+  · rw [ite_eq_left a] at meaning
     exact Or.inl ⟨a, meaning⟩
-  · rw [if_neg a] at meaning
+  · rw [ite_eq_right a] at meaning
     by_cases b : symbol = 256
-    · rw [if_pos b] at meaning
+    · rw [ite_eq_left b] at meaning
       exact Or.inr (Or.inl ⟨b, meaning.1⟩)
-    · rw [if_neg b, if_pos le] at meaning
+    · rw [ite_eq_right b, ite_eq_left le] at meaning
       exact Or.inr (Or.inr ⟨by omega, meaning⟩)
 
 /-- A query that does not fit the held bits: they hold no valid symbol. -/
@@ -217,7 +217,7 @@ theorem nofit_short_len {h : Heap} {s : InflateState} {ref : CodeRef} {offset : 
 
 theorem slow_isLink_len {entry : Code} : Subtable.IsLink LENS entry = true ↔ SlowLenLink entry := by
   unfold Subtable.IsLink SlowLenLink
-  rw [if_pos rfl]
+  rw [ite_eq_left rfl]
   simp
 
 /-- The query of the held bits at a state, as zlib's root and link reads see it. -/

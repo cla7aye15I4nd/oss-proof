@@ -94,10 +94,10 @@ theorem inflate_run_default_no_stream_error
   have entryMode : entryState.mode ≠ SYNC := by
     rw [stateEq]
     by_cases type : s.mode = TYPE
-    · rw [if_pos type]
+    · rw [ite_eq_left type]
       change TYPEDO ≠ SYNC
       decide
-    · rw [if_neg type]
+    · rw [ite_eq_right type]
       exact notSync
   rw [cut] at run
   exact inflate_default_no_sync_loop E.strm E.st
@@ -120,7 +120,7 @@ theorem leave_buf_facts {l : IL} {flush : Int32} (codes : PublicLeaveRet l)
       simp only [Bool.and_eq_true, beq_iff_eq]
       exact nothing
     · exact Or.inr finish
-  · rw [if_neg condition] at returned
+  · rw [ite_eq_right condition] at returned
     exfalso
     rcases codes with e | e | e <;> rw [e] at returned <;> exact absurd returned (by decide)
 

@@ -55,7 +55,7 @@ theorem retained_match_input_meaning {d : DeflateState} {input : Nat → UInt8} 
   unfold Symbol.Meaning Symbol.Valid
   rw [distanceEq, lengthEq]
   refine ⟨⟨by omega, by omega⟩, ?_⟩
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
   refine ⟨earlier, ?_⟩
   intro j hj
   exact bytes j (by omega)

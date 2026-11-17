@@ -95,7 +95,7 @@ theorem DataHistory.logical_suffix
       have empty := low (by rw [mode]; exact UInt32.le_refl _)
       simp only [success, ite_true, empty, List.append_nil]
       exact ⟨history, rfl⟩
-    · simpa only [if_neg success] using suffix
+    · simpa only [ite_eq_right success] using suffix
 
 /-- From actual init and public calls, every active payload entry obtains
 the concrete physical saved ring used by fast match semantics. -/

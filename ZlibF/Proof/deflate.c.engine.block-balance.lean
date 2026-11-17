@@ -36,7 +36,7 @@ theorem balance_match {d : DeflateState} {xs : List Symbol} {credit : Int}
   have nonzero : distance.toNat ≠ 0 := by omega
   unfold BlockBalance at balance ⊢
   simp only [matchSymbolState, matchFrequencies, represented_snoc, Symbol.bytes,
-    if_neg nonzero]
+    ite_eq_right nonzero]
   omega
 
 /-- The actual one-byte advance repays one byte of credit. -/
@@ -93,7 +93,7 @@ theorem block_start_slide_run {h : Heap} {r : ZStreamRef} {ds b : Nat}
   refine ⟨?_, ?_⟩
   · unfold lsub chk64
     rw [cast]
-    simp only [valueLo, valueHi, and_self, if_true]
+    simp only [valueLo, valueHi, and_self, ite_true]
   · rw [Int64.toInt_ofInt]
     exact Int.bmod_eq_of_le (by change -9223372036854775808 ≤ _; omega)
       (by change _ < 9223372036854775808; omega)

@@ -54,8 +54,8 @@ theorem slide_heap_chains {h : Heap} {r : ZStreamRef} {ds w p q top : Nat}
   have sizes := slide_window_sizes good
   have slid := chains_slide (h2 := wfn qa') (p2 := wfn pa') (w' := bfn (slideWindow d wa))
     chains good.inv.wsize (by omega)
-    (fun i bound => by rw [head i, if_pos bound])
-    (fun i bound => by rw [prev i, if_pos bound])
+    (fun i bound => by rw [head i, ite_eq_left bound])
+    (fun i bound => by rw [prev i, ite_eq_left bound])
     (slide_window_view good env.win env.wbytes range taken)
   refine ⟨w, p, q, slideWindow d wa, pa', qa', env.win, env.prevp, env.headp,
     ?_, ?_, ?_, ?_⟩

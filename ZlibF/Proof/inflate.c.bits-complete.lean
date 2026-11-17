@@ -30,7 +30,7 @@ theorem NEEDBITS_run_cursor {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h 
       have hnl : l1.bits.toNat < n.toNat := by
         by_cases hc : l1.bits.toNat < n.toNat
         · exact hc
-        · rw [if_neg hc] at hk; omega
+        · rw [ite_eq_right hc] at hk; omega
       have hnl' : l1.bits < n := UInt32.lt_iff_toNat_lt.mpr hnl
       obtain ⟨⟨hj, hB, hS, hbits, hshape, hmax, hz⟩, cursor⟩ := hb
       have hcond : runX (do return (← get).bits < n : X Bool) l1 h1 = .ok ((.ok true, l1), h1) := by
@@ -61,14 +61,14 @@ theorem NEEDBITS_run_cursor {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h 
           · rw [hshape]; simp [pulled]
           · change nx = inputAdvance l.next (j + 1)
             rw [nextCursor, cursor, inputAdvance_add]
-          · rw [if_pos hnl] at hk
+          · rw [ite_eq_left hnl] at hk
             rw [hb2]
             split <;> omega)
 
     (fun l1 h1 hP => by
       obtain ⟨hh, j, hb, hk⟩ := hP
       subst hh
-      have hnl : ¬ l1.bits.toNat < n.toNat := by intro hl; rw [if_pos hl] at hk; omega
+      have hnl : ¬ l1.bits.toNat < n.toNat := by intro hl; rw [ite_eq_left hl] at hk; omega
       refine ⟨l1, h1, by rw [runX_cond_lt]; simp [UInt32.lt_iff_toNat_lt, hnl], rfl, j, hb, ?_, ?_, Or.inl rfl⟩
       · intro _
         omega

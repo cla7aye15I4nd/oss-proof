@@ -61,7 +61,7 @@ theorem slow_body_with_room {h : Heap} {r : ZStreamRef} {ds w p q top : Nat}
       (decision : slowDecision (some (.tab ds)) flush st candidate found = .ok (next, after)) :
       deflate_slow_body (some (.tab ds)) flush st h = .ok (next, after) := by
     rw [slow_body_source]
-    simp only [bind_app, rdD_eq, good.live.hs, enough, if_false, search]
+    simp only [bind_app, rdD_eq, good.live.hs, enough, ite_false, search]
     exact decision
   by_cases selected : (df.prev_length ≥ MIN_MATCH_u && df.match_length ≤ df.prev_length) = true
   · obtain ⟨head, after, result, decision, goodA, chainsA, winA, bytesA, availableA, _, _, startA,

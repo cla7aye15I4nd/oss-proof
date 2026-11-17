@@ -118,11 +118,11 @@ theorem epilogue {e : CEnv} (ok : COK e) {st : Loop} {H : Heap} {out : List UInt
       have nn : ¬ ((advance (Ptr.ref r i) out.length == Ptr.null && (Ptr.ref r i : BPtr) == Ptr.null) = true) := by
         intro c; cases c
       unfold ptrDiff
-      rw [if_neg nn]
+      rw [ite_eq_right nn]
       simp only [advance, Ptr.diff]
-      rw [if_pos trivial]
+      rw [ite_eq_left trivial]
       simp only [g]
-      rw [if_pos ⟨b1, b2⟩, if_pos (by omega)]
+      rw [ite_eq_left ⟨b1, b2⟩, ite_eq_left (by omega)]
   obtain ⟨d, diffRun⟩ := diff
   -- deflateEnd
   obtain ⟨-, -, -, -, -, H2s, run1, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, uniq2, -, -⟩ :=

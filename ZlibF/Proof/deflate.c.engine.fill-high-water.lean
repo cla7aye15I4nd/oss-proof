@@ -121,9 +121,9 @@ theorem fill_high_water_complete {h : Heap} {r : ZStreamRef} {ds w : Nat}
       dsimp only [highWaterWrite, curr, count] at run
       dsimp only [curr] at first
       unfold fillHighWater
-      simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_true, first]
+      simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_true, first]
       by_cases large : d.window_size - (d.strstart.toUInt64 + d.lookahead.toUInt64) > WIN_INIT_u
-      all_goals simpa only [large, Bool.false_eq_true, if_true, if_false] using run
+      all_goals simpa only [large, Bool.false_eq_true, ite_true, ite_false] using run
     · have after : fillEnd d ≤ d.high_water.toNat := by
         have notlt := first
         rw [UInt64.lt_iff_toNat_lt, current] at notlt
@@ -167,10 +167,10 @@ theorem fill_high_water_complete {h : Heap} {r : ZStreamRef} {ds w : Nat}
         dsimp only [highWaterWrite, curr, count, initial, left] at run
         dsimp only [curr] at first second
         unfold fillHighWater
-        simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_true, first, if_false, second]
+        simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_true, first, ite_false, second]
         by_cases large : d.strstart.toUInt64 + d.lookahead.toUInt64 + WIN_INIT_u - d.high_water >
           d.window_size - d.high_water
-        all_goals simpa only [large, Bool.false_eq_true, if_true, if_false] using run
+        all_goals simpa only [large, Bool.false_eq_true, ite_true, ite_false] using run
       · have past : fillEnd d + 258 ≤ d.high_water.toNat := by
           have notlt := second
           rw [UInt64.lt_iff_toNat_lt, extra] at notlt
@@ -180,7 +180,7 @@ theorem fill_high_water_complete {h : Heap} {r : ZStreamRef} {ds w : Nat}
         rw [padded_heap_idle good.live.hs get startPlan targetPlan]
         dsimp only [curr] at first second
         unfold fillHighWater
-        simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_true, first, if_false, second]
+        simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_true, first, ite_false, second]
         rfl
   · have full : d.high_water.toNat = d.window_size.toNat := by
       have notlt := active
@@ -191,7 +191,7 @@ theorem fill_high_water_complete {h : Heap} {r : ZStreamRef} {ds w : Nat}
     have targetPlan : paddingTarget d = d.high_water.toNat := by unfold paddingTarget; omega
     rw [padded_heap_idle good.live.hs get startPlan targetPlan]
     unfold fillHighWater
-    simp only [bind_app, ldDeflateState_tab good.live.hs, active, if_false]
+    simp only [bind_app, ldDeflateState_tab good.live.hs, active, ite_false]
     rfl
 
 end Zlib.Deflate.Engine.Proofs

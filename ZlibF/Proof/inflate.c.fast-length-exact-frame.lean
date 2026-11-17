@@ -60,10 +60,10 @@ theorem inflate_LEN_fast_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStreamR
     next := stream.next_in, have_ := stream.avail_in, hold := state.hold, bits := state.bits }
   rw [cut, inflateAfterFast_run env1]
   by_cases type : state.mode = TYPE
-  · rw [if_pos type]
+  · rw [ite_eq_left type]
     exact ⟨regs, _, stream, { state with back := -1 }, made, rfl,
       current.type_set_back type (-1), count, put, bufferFrame_setI_after fullFrame (Or.inr rfl)⟩
-  · rw [if_neg type]
+  · rw [ite_eq_right type]
     exact ⟨regs, finished, stream, state, made, rfl, current, count, put, fullFrame⟩
 
 #print axioms inflate_LEN_fast_exact_frame

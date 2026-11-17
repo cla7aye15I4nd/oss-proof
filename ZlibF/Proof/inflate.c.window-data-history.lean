@@ -40,7 +40,7 @@ theorem dictionary_history_guarded
     · simpa only [ok, ite_true] using dictionary
     · have notOK : rc ≠ Z_OK := by
         rcases refused with error | error <;> rw [error] <;> decide
-      simpa only [if_neg notOK, heap, stateEq] using stored active
+      simpa only [ite_eq_right notOK, heap, stateEq] using stored active
     · rw [mode] at nextActive
       exact False.elim ((by decide : ¬ MEM < CHECK) nextActive)
   · obtain ⟨represented, bound, dictionary⟩ := dictionary_exists_bounded invariant.good

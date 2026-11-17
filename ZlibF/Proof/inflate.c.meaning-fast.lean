@@ -701,9 +701,9 @@ theorem fast_call_meaning {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZSt
       Option (Array UInt8)) = some (e.inArr A) := by
     unfold Zlib.Inffast.Proofs.EnvG.inArr
     by_cases same : e.ib = e.ob
-    · rw [if_pos same, ← ib0, same]
+    · rw [ite_eq_left same, ← ib0, same]
       exact bytesOut
-    · rw [if_neg same]
+    · rw [ite_eq_right same]
       exact (bytesOther ib (fun eq => same (ib0.trans eq))).trans inArr
   have viewA : f.inp.drop (loopRead l) =
       ((e.inArr A).toList.drop io).take (f.inp.drop (loopRead l)).length := by
@@ -801,7 +801,7 @@ theorem fast_call_meaning {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZSt
   rcases outcome with ⟨mdEq, q⟩ | ⟨mdType, u0, _, q, tok⟩ | ⟨mdBad, u0, u0le, q, rejected⟩
   · -- more tokens of the same block
     have md' : md = LEN := mdEq.trans mode0
-    rw [if_neg (show ¬ md = TYPE by rw [md']; decide)]
+    rw [ite_eq_right (show ¬ md = TYPE by rw [md']; decide)]
     refine ⟨fastRegs l ib io ob oo used o hold bits, _, by rw [← regsEq], readLe, Or.inl ?_⟩
     exact fast_rebuild (bk := s.back) st retOk config (show md ≠ SYNC by rw [md']; decide) haveLe inLen leftLe
       pendBase sepNext sepStart startF startLe usedLe' ooLe oLe haveLen viewA inFitA hsH inGet outGet outRo
@@ -810,7 +810,7 @@ theorem fast_call_meaning {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZSt
       ⟨last, Zlib.Inflate.Proofs.TableMeaning.frame codesH lenTable, Zlib.Inflate.Proofs.TableMeaning.frame codesH distTable,
         Or.inr md', Or.inl bitsLt⟩ rfl
   · -- the end of the block
-    rw [if_pos mdType]
+    rw [ite_eq_left mdType]
     have flat : ({ { s with mode := md, hold := hold, bits := bits } with back := -1 } : InflateState) =
         { s with mode := md, hold := hold, bits := bits, back := -1 } := rfl
     rw [flat]
@@ -857,7 +857,7 @@ theorem fast_call_meaning {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZSt
       · have l1 : s.last = (if true then (1 : Int32) else 0) := last
         exact ⟨Or.inl mdType, rfl, by simpa using l1, bitsLt⟩
   · -- a rejected token
-    rw [if_neg (show ¬ md = TYPE by rw [mdBad]; decide)]
+    rw [ite_eq_right (show ¬ md = TYPE by rw [mdBad]; decide)]
     refine ⟨fastRegs l ib io ob oo used o hold bits, _, by rw [← regsEq], readLe, Or.inr ⟨?_, ?_⟩⟩
     · intro zs' s' st' hs'
       rw [st] at st'

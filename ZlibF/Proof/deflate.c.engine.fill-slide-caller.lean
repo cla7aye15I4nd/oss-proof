@@ -137,7 +137,7 @@ theorem fill_window_slide_caller {h : Heap} {r : ZStreamRef} {ds w p q b io top 
     have before : i < origin + d.w_size.toNat + fillEnd slid := by
       change i < origin + d.w_size.toNat + fillEnd (slideState d)
       omega
-    simp only [extended, extendInput, before, if_true]
+    simp only [extended, extendInput, before, ite_true]
   · simpa only [after, resumedFillHeap, paddedHeap, resumeReadHeap, setD_bytes, ZStreamRef.put_bytes,
       upd_ne _ _ _ _ distinct.symm] using pendingS
   · rw [fields]

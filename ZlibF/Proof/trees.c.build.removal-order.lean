@@ -61,7 +61,7 @@ theorem ws_btMergeBody_order {h0 : Heap} {id : Nat} {tk : TK} {d0 d : DeflateSta
   have hm : NV (tk.arr d) d.depth m := ⟨mv.1, by omega, by omega⟩
   have oldFreq (v : Nat) (bound : v < node.toInt.toNat) : btFreq tk e v = btFreq tk d v := by
     unfold btFreq
-    rw [tree, btParentState_fc tk d n m node hn hm parent, if_neg (by omega)]
+    rw [tree, btParentState_fc tk d n m node hn hm parent, ite_eq_right (by omega)]
   have pnIndex : (d.heap_max.toInt - 1).toNat = 572 - 2 * j := by omega
   have pmIndex : (d.heap_max.toInt - 2).toNat = 571 - 2 * j := by omega
   rw [pnIndex] at keepn

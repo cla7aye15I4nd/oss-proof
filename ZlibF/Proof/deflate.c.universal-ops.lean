@@ -143,13 +143,13 @@ theorem cstring_gzStr {h : Heap} {p : BPtr} {xs : List UInt8} (c : CString h p x
     · have last := congrArg (fun l => l[xs.length]?) eq
       simp only [List.getElem?_append_right (Nat.le_refl _), Nat.sub_self, List.getElem?_cons_zero,
         List.getElem?_take, List.getElem?_drop] at last
-      simp only [Nat.lt_add_one, if_true] at last
+      simp only [Nat.lt_add_one, ite_true] at last
       rw [← Array.getElem?_toList]
       exact last.symm
     · intro k below
       have at_k := congrArg (fun l => l[k]?) eq
       simp only [List.getElem?_append_left below, List.getElem?_take, List.getElem?_drop] at at_k
-      simp only [show k < xs.length + 1 by omega, if_true] at at_k
+      simp only [show k < xs.length + 1 by omega, ite_true] at at_k
       rw [← Array.getElem?_toList, ← at_k]
       intro zero
       exact nz (List.mem_of_getElem? zero)
