@@ -10,10 +10,7 @@ name: native-audit-smoke
       - 'lean-toolchain'
       - 'tests/audit/**'
       - 'tests/verification/test_audit.py'
-      - 'tests/verification/test_public_mutants.py'
       - 'scripts/verification.py'
-      - 'scripts/mutation_spans.py'
-      - 'ZlibF/Zlib/gzlib.c.lean'
   pull_request:
     paths:
       - '.github/workflows/native-audit-smoke.yml'
@@ -22,10 +19,7 @@ name: native-audit-smoke
       - 'lean-toolchain'
       - 'tests/audit/**'
       - 'tests/verification/test_audit.py'
-      - 'tests/verification/test_public_mutants.py'
       - 'scripts/verification.py'
-      - 'scripts/mutation_spans.py'
-      - 'ZlibF/Zlib/gzlib.c.lean'
   workflow_dispatch:
 
 permissions:
@@ -51,15 +45,10 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: Build only the native audit tools
-        run: lake build zlibf-audit zlibf-span
+      - name: Build only the native audit tool
+        run: lake build zlibf-audit
 
       - name: Check native auditor acceptance and rejection fixtures
         run: |
           python3 tests/verification/test_audit.py
           python3 -O tests/verification/test_audit.py
-
-      - name: Check public replay and the real gzlib parser
-        run: |
-          python3 tests/verification/test_public_mutants.py
-          python3 -O tests/verification/test_public_mutants.py

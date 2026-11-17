@@ -103,7 +103,7 @@ def run_case(base: Path, root: Path, case: Path, binary: Path) -> None:
     with (root / 'ZlibF.lean').open('a') as out:
         out.write('import ZlibF.Cheat\n')
     build(root)
-    report = root / 'mutant.txt'
+    report = root / 'cheat.txt'
     result = audit(root, binary, report)
     if result.returncode != 1 or 'PROBLEM:' not in report.read_text() + result.stderr:
         raise RuntimeError('cheat survived or auditor failed unexpectedly: ' + case.name + '\n' + result.stderr)

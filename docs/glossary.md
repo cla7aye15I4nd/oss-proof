@@ -204,10 +204,6 @@ It is evidence of fidelity, not proof.
 built with AddressSanitizer or UndefinedBehaviorSanitizer. It is evidence about one run of the
 real C, not proof.
 
-**Proof mutant.** A deliberately wrong translation, such as a dropped check. Mutated translations
-were checked to break the proofs: a proof that still passed on one would not depend on the
-translation. This is additional evidence, not part of what "done" means.
-
 **Allowed axioms.** `propext`, `Classical.choice` and `Quot.sound`, the three standard axioms of
 Lean. A done result depends on no other axiom.
 
