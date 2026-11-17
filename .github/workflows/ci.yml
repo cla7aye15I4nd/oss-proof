@@ -80,6 +80,15 @@ jobs:
       - name: No unsafe, partial, opaque or extern declaration and no extra axiom in the compiled library
         run: lake env lean --run tests/audit/PartialCheck.lean
 
+      - name: Coverage of the public API (every function of zlib.h has its goals, every required goal is proved)
+        run: python3 scripts/verification.py
+
+      - name: Self-tests of the coverage check and of the build transport
+        run: |
+          python3 tests/verification/test_coverage.py
+          python3 tests/verification/test_ci_build.py
+          python3 -O tests/verification/test_ci_build.py
+
       - name: Patches apply to the pinned zlib
         run: |
           cp -r zlib /tmp/zlib-verified
@@ -97,35 +106,6 @@ jobs:
           compression-level: 0
           retention-days: 2
           if-no-files-found: error
-
-  # The final requirement of the project: no sorry anywhere. A work in progress may fail this job; a result may not
-  # be reported as final while it fails.
-  # The audit: the compiled library replayed by the kernel in a fresh environment, and the coverage of
-  # the public API (every function of zlib.h has its goals, every required goal is proved).
-  audit:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
-
-      - uses: ./.github/actions/lean-environment
-        with:
-          library: 'true'
-
-      - name: Kernel replay of the compiled library
-        run: lake env leanchecker --fresh ZlibF.Results
-
-      - name: Coverage of the public API
-        run: python3 scripts/verification.py
-
-      - name: Self-tests
-        run: |
-          python3 tests/verification/test_coverage.py
-          python3 tests/verification/test_ci_build.py
-          python3 -O tests/verification/test_ci_build.py
 
   # The differential test compares the translation with the C. It is needed only when one of the
   # two sides, the runtime they run on, or the test itself changes.

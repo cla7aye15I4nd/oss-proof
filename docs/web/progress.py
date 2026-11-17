@@ -16,13 +16,6 @@ STATE = {True: ('完成', 'done'), False: ('未完成', 'not done')}
 # Group of the status page, by the API manual that documents the function.
 GROUPS = ('inflate-stream', 'deflate-stream', 'utility', 'checksums', 'inflate-back', 'gz-file')
 # The goals of the one functional result, the round trip of the default zlib stream.
-ROUND_TRIP = (
-    'compress_uncompress_roundtrip', 'compress_uncompress_roundtrip_witness',
-    'compress_completes', 'compress_z_completes', 'uncompress_completes',
-    'stream_roundtrip_total', 'deflate_finish_ends', 'inflate_chain_ends', 'stream_roundtrip',
-    'deflate_completes_default', 'deflate_bound_default', 'inflate_completes_default',
-    'default_inflate_progress', 'default_inflate_completes',
-)
 
 
 @dataclass(frozen=True)
@@ -95,10 +88,13 @@ def required_goals() -> tuple[str, ...]:
     return tuple(dict.fromkeys(names))
 
 
+@lru_cache(maxsize=1)
 def roundtrip_goals() -> tuple[str, ...]:
     """Short names of the goals of the round trip of the default zlib stream, in the order of the
-    status page."""
-    return ROUND_TRIP
+    status page: the group of that name in the list `proved` of ZlibF/Results.lean."""
+    text = (REPO / 'ZlibF/Results.lean').read_text()
+    group = re.search(r'^  -- The round trip of the default zlib stream\n(.*?)^  --', text, re.S | re.M)
+    return tuple(short(goal) for goal in re.findall(r'^\s*\(``([^\s,]+),', group[1], re.M))
 
 
 @lru_cache(maxsize=1)

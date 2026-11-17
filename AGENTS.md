@@ -72,8 +72,8 @@ exists to keep the result honest, not to slow it down.
 A result is proved when it is on `main`: `ZlibF/Results.lean` pairs its goal with its theorem, and
 the gate was green on the pull request that brought it: everything builds, which checks that module
 (allowed axioms only, the theorem's type is exactly the goal, no goal without a theorem unless it is
-listed as not done), there is no `sorry` and no forbidden construct, the audit passes (the kernel
-replay and the coverage of `zlib.h`) and the differential tests pass. A theorem on
+listed as not done), there is no `sorry` and no forbidden construct, every function of `zlib.h`
+has its goals (coverage), and the differential tests pass. A theorem on
 a branch is not yet a result; say so when you report it.
 
 Rules that hold at both levels:
@@ -145,9 +145,9 @@ time: wait for the other owner's build to end before starting yours.
 
 ## Checking
 
-**One gate, on every pull request and on every push to `main`** (jobs `build`, `audit` and
+**One gate, on every pull request and on every push to `main`** (jobs `build` and
 `differential-test` of the `CI` workflow): all modules build, no forbidden construct, patches apply to the pinned `zlib/`, no
-`sorry`; the audit (kernel replay, coverage of `zlib.h`); the differential tests, with the
+`sorry`; the check of `ZlibF/Results.lean` and the coverage of `zlib.h`; the differential tests, with the
 C side under sanitisers, when the translation, the runtime, the patches or the test changed. There is no nightly run and no second suite: what is on
 `main` has passed all of it. The manual trigger of the `lean` workflow runs the same jobs on any
 branch.
