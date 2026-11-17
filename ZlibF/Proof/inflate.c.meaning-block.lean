@@ -570,7 +570,7 @@ theorem stored_step_bounded {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : Z
     (heldBound : l.bits.toNat < 32) :
     ∃ result l' h', runX (inflate_STORED c) l h = .ok ((result, l'), h') ∧
       ((result = .error Ex.leave ∧
-          ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES ∨ l.left = 0) ∧
+          ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧
           LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (LoopMatches c f h' l' ∨
@@ -728,7 +728,7 @@ theorem stored_step_bounded {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : Z
           (fun zs' s' st' hs' => by rw [same zs' s' st' hs']; exact bounds zs s st hs)
         refine ⟨result, l', h', run3.trans runC, ?_⟩
         rcases rest with ⟨leave, cause, m⟩ | ⟨ok, more, m⟩
-        · exact Or.inl ⟨leave, cause.imp id (fun e => Or.inr (keep1.2.2.1.symm.trans e)), m⟩
+        · exact Or.inl ⟨leave, cause.imp id (fun e => Or.inr ⟨keep1.2.2.1.symm.trans e.1, e.2⟩), m⟩
         · exact Or.inr ⟨ok, Nat.le_trans (by show loopRead l ≤ loopRead l1; omega) more, Or.inl m⟩
   · -- not enough input
     have wait := empty rfl
@@ -754,7 +754,7 @@ theorem stored_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamRe
       s.wnext ≤ s.whave ∧ s.whave ≤ s.wsize) :
     ∃ result l' h', runX (inflate_STORED c) l h = .ok ((result, l'), h') ∧
       ((result = .error Ex.leave ∧
-          ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES ∨ l.left = 0) ∧
+          ((l'.have_ = 0 ∧ LeaveShort c h' l') ∨ c.flush = Z_TREES ∨ (l.left = 0 ∧ HoldsOutput c h')) ∧
           LoopMatches c f h' l') ∨
        (result = .ok () ∧ loopRead l ≤ loopRead l' ∧
          (LoopMatches c f h' l' ∨
