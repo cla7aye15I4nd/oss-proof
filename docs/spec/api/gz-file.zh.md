@@ -1,4 +1,4 @@
-<!-- source-sha256: cc79c39e8bf5b282c86f242208dc197aa94ead15ff82ced28994813152a1a4f8 -->
+<!-- source-sha256: 7c63de98bf61c76ed4de553021571f8a5a3139cf16007936157d9393dd8cdd00 -->
 
 # Gzip 文件
 
@@ -73,9 +73,9 @@
 | `gzerror(file, errnum)` | `errnum` 为 NULL，或覆盖 4 个可写字节且在句柄的块之外。 |
 | 其他调用 | 无：每个标量参数的每个取值都被覆盖。 |
 
-`gzprintf` 的条件在每个 `gzprintf` 步骤上都要求成立，包括读句柄和处于错误状态的句柄，尽管那时 C 并不读格式串。
-格式化器覆盖整数、字符和字符串转换。浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度不在定义域之内
-（见[偏离记录](../../deviations.md)的“格式化”一行）。
+`gzprintf` 的条件在每个 `gzprintf` 步骤上都要求成立。对读句柄或处于错误状态的句柄，C 在读格式串之前就返回，这时条件只要求格式串指针和各指针参数在句柄的块之外。
+模型不解析格式串：凡是使 `vsnprintf` 调用在 C 中有定义的格式串都被覆盖，包括浮点转换、`%p`、`h` 和 `hh` 修饰符以及 `*` 宽度。`%n` 不被覆盖
+（见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。
 
 **读取预算（`ReadsFinite`）。** 六个读调用的终止子句假设：句柄的描述符还能交付的字节少于 `2^61`。
 这个前提是必要的：一个不断交付空 gzip 成员的数据源，会让 C 中的一次 `gzread` 永远运行。
@@ -1117,7 +1117,7 @@ int ZEXPORTVA gzprintf(gzFile file, const char *format, ...);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzprintf`（不在计划内；未完成）。
+- **不在本目标内。** 带 `%n` 的格式串，以及对格式串和参数而言在 C 中没有定义的 `vsnprintf` 调用：在本目标之外（见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzprintf`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzprintf"><summary>完整返回条件与边界</summary>
 
@@ -1179,7 +1179,7 @@ int ZEXPORTVA gzvprintf(gzFile file, const char *format, va_list va);
     - *状态。* 对句柄的调用返回之后：世界良构，打开的描述符集合不变（`FdsKept`），句柄保持其不变量、模式和描述符（`GzStepPost`、`GzInv`）。
     - *写入。* 句柄为 NULL 时不写任何内容：堆和世界都不变。对句柄调用时，只写句柄自己的块。
     - *分配。* 对句柄调用时，按句柄计的精确的分配账本（`LiveChange`）。
-- **不在本目标内。** 浮点转换、`%p`、`%n`、`h` 和 `hh` 修饰符以及 `*` 宽度：在本目标之外（见[偏离记录](../../deviations.md)的“格式化”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzvprintf`（不在计划内；未完成）。
+- **不在本目标内。** 带 `%n` 的格式串，以及对格式串和参数而言在 C 中没有定义的 `vsnprintf` 调用：在本目标之外（见[偏离记录](../../deviations.md)的“Gz printf 调用”一行）。对句柄调用时的返回值，以及由此得到的字节、位置和标志：功能目标 `Goal.gzvprintf`（不在计划内；未完成）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="gzvprintf"><summary>完整返回条件与边界</summary>
 
