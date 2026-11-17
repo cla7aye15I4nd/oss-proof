@@ -103,6 +103,12 @@ theorem lenstart_not_end {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL}
 
 theorem params15' : Api.inflWbits (15 : Int32).toInt = some (.zlib, 15) := by decide
 
+theorem layer_of_zlib' {S D : List UInt8} (valid : Zlib.Decodes [] S D) :
+    Api.Layer.Decodes .zlib 15 [] S D ∧ Api.FullWindow .zlib 15 S := by
+  refine ⟨⟨valid, ?_⟩, Or.inl rfl⟩
+  obtain ⟨cmf, flg, pre, s, rfl, ⟨_, ci, _⟩, _⟩ := valid
+  exact Or.inr ⟨cmf, rfl, by omega⟩
+
 /-- A call of a zlib protocol history (window 15, no dictionary) that returns `Z_OK` or
 `Z_BUF_ERROR` after reading a whole valid stream: it filled the output and output is still due.
 The other causes of its last leave are impossible (`StopShort` for the default stream). -/
@@ -127,6 +133,7 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
   subst zEq
   have z2Eq : z2 = z' := Option.some.inj (get2.symm.trans hz')
   subst z2Eq
+  clear hz'
   have inLen : input.length = z1.avail_in.toNat := callEntry_bytes_length bytes
   have notBlock : flush ≠ Z_BLOCK := by
     rcases flushes with f | f | f | f | f <;> rw [f] <;> decide
@@ -197,7 +204,7 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
         have loop0 := loop
         obtain ⟨_, _, _, _, _, _, _, _, ret0, _⟩ := loop0
         obtain ⟨l0', cause, _⟩ := loop_cause trip rawTrip
-          (cause_zlib zlib_cause_rows c f r rfl) (by decide) rfl side0 start0 erun
+          (cause_zlib zlib_cause_rows c f r rfl) (show Api.Wrap.zlib ≠ .raw by decide) rfl side0 start0 erun
         obtain ⟨zc, hzc, allocator, statics, sideFn, _, bits, _⟩ := callExit_leave_side inv erun0 side1
         have regsEq : ({ regs with ret := Z_OK } : IL) = regs := by rw [← ret0]
         have leaveM := leave_meaning (ret := Z_OK) loop rfl hzc sideFn bits allocator statics nonnull
@@ -205,15 +212,16 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
         obtain ⟨zs', s0', sA, zA, callOut, consumed, held, stage, st', hsA, hzA, _, aIn, _, aOut, _,
           inEq, _, _, _, _, _, _, _, _, _⟩ := leaveM
         subst afterEq
-        have zAEq : zA = z' := by
-          rw [callExit_get_freeWin] at hz'
-          exact Option.some.inj (hzA.symm.trans hz')
+        have zAEq : zA = z2 := by
+          have g := get2
+          rw [callExit_get_freeWin] at g
+          exact Option.some.inj (hzA.symm.trans g)
         subst zAEq
         have usedRead : used = loopRead regs :=
           callExit_used usedEq inLen aIn inEq
         have whole : f.logIn ++ f.inp.take (loopRead regs) = S := by
           rw [← usedRead]; exact all
-        obtain ⟨lay, full⟩ := layer_of_zlib valid
+        obtain ⟨lay, full⟩ := layer_of_zlib' valid
         have valid' : Api.Layer.Decodes f.wrap f.configured f.dict S D := by
           show Api.Layer.Decodes .zlib 15 log.dictionary S D
           rw [dictEmpty]; exact lay
@@ -225,7 +233,7 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
           refine ⟨by rw [aOut]; exact left0, ?_⟩
           sorry
         · exact (LoopMatches.starved_not_end loop short.2 valid' whole).elim
-        · exact (lenstart_not_end loop lenMode small (by decide) valid' whole).elim
+        · exact (lenstart_not_end loop lenMode small (show Api.Wrap.zlib ≠ .raw by decide) valid' whole).elim
       · exfalso
         rw [retEq] at retCode
         rcases retCode with e | e | ⟨_, e⟩
