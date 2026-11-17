@@ -61,6 +61,14 @@ theorem TripLeaveCause.of_step {c : Ctx} {h' : Heap} {l l' : IL}
   · exact Or.inr (Or.inr (Or.inl s))
   · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨left_zero_of_le le s.1, s.2⟩)))
 
+theorem TripLeaveCause.of_short {c : Ctx} {h' : Heap} {l l' : IL}
+    (step : (l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h'))
+    (le : l'.left.toNat ≤ l.left.toNat) :
+    TripLeaveCause c h' l l' := by
+  rcases step with s | s
+  · exact TripLeaveCause.short s
+  · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨left_zero_of_le le s.1, s.2⟩)))
+
 /-- A run that is equal to a known one ends the same way. -/
 theorem same_leave {p : X Unit} {l l' l1 : IL} {h h' h1 : Heap} {result : Except Ex Unit}
     (run : runX p l h = .ok ((.error Ex.leave, l'), h')) (run1 : runX p l h = .ok ((result, l1), h1)) :
@@ -143,14 +151,6 @@ theorem cause_done (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
   have run1 := (inflate_dispatch_DONE E l (mode zs s E.st E.hs)).trans (inflate_DONE_run c l h)
   obtain ⟨_, rfl, rfl⟩ := same_leave run run1
   exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
-
-theorem TripLeaveCause.of_short {c : Ctx} {h' : Heap} {l l' : IL}
-    (step : (l'.have_ = 0 ∧ LeaveShort c h' l') ∨ (l.left = 0 ∧ HoldsOutput c h'))
-    (le : l'.left.toNat ≤ l.left.toNat) :
-    TripLeaveCause c h' l l' := by
-  rcases step with s | s
-  · exact TripLeaveCause.short s
-  · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨left_zero_of_le le s.1, s.2⟩)))
 
 /-- The cause from the ends of a decode step. -/
 theorem cause_of_ends {c : Ctx} {f : LoopFrame} {h' : Heap} {l l' : IL} {result : Except Ex Unit}
