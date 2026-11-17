@@ -6,7 +6,7 @@ Goals: `Goal.default_inflate_progress`, `Goal.default_inflate_completes`
 Open lemmas (name — meaning — state — estimate):
 * `trace_protocol` — a default history is a zlib protocol history with window 15
   (`inflateInit_` is `inflateInit2_` with 15) — open — 2 h
-* `trace_state` — on a heap of a default history the decoder record exists, `Good`, reachable,
+* `trace_state` (used by `call_codes`) — on a heap of a default history the decoder record exists, `Good`, reachable,
   header attached, allocator set, never `SYNC`, never `MEM` (every allocation succeeded) — open — 4 h
 * `valid_not_bad` — `ParseMeaning` and a consumed prefix of a valid stream exclude `BAD` — open — 2 h
 * `prefix_after` — after a call on a prefix of the rest of a valid stream, the consumed input and
@@ -28,9 +28,9 @@ Open lemmas (name — meaning — state — estimate):
 * `blocked_output_due` — a call that returns `Z_OK` or `Z_BUF_ERROR` with input left has not
   written all of `D` (`blocked_leave` and the stage of `ParseMeaning`: `LIT`, `MATCH` or `COPY`
   holds output that is due) — open — 6 h
-* `progress` — assembly of the progress goal — open — 3 h
-* `completes` — assembly of the completion goal — open — 3 h
-Total about 57 h.
+* `moves`, `stuck` — the two case splits of the assemblies — checked (from the lemmas above)
+* `progress`, `completes` — the two goals — checked (from the lemmas above)
+Total open: about 51 h.
 -/
 import ZlibF.Spec.Functional.InflateCompletion
 import ZlibF.Proof.«inflate.c.meaning-zlib»
