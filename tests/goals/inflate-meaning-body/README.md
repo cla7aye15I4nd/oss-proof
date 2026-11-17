@@ -29,5 +29,4 @@ checks the distance, so a match whose distance reaches beyond the history can wa
 while the call returns `Z_OK`: a raw inflate of `03 02` (one fixed-block match of length 3 at
 distance 1, no history) with no output room stops there, and the next call with room reports
 "invalid distance too far back". `PendingParsed` at `.copy` admits such a match with nothing
-written and no history bound; `MATCH` then rejects it. The Lean regression is
-`tests/verification/regressions/inflate-unchecked-match.lean`.
+written and no history bound; `MATCH` then rejects it.

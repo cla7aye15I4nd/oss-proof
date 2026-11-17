@@ -9,7 +9,7 @@ after it. It does not say that the entry depends only on the bits it
 consumes: a table whose root cell for a short code is not replicated over
 the indices that share those bits passes `Inv` and `StableQuery`, yet a
 query of the whole input selects an entry that a query of the consumed bits
-alone does not (`tests/verification/regressions/inflate-prefix-query.lean`).
+alone does not.
 The fast decoder looks up on at least fifteen held bits and rejects an
 invalid entry after dropping only its own bits, so the rejection of the
 input read needs this property (`PrefixQuery`).
