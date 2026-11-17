@@ -1,4 +1,4 @@
-<!-- source-sha256: b5356ecbe0da4f60e992819cc4b243fb1b0146614f6b5ede6a4c1b3f0da4ad43 -->
+<!-- source-sha256: dcb6b3d91c3958eec115ae9d2e32a56d8a1e150018f64797d0354c05da1d65e6 -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -30,7 +30,7 @@
 
 `inflate_sequence_safety_public` 由引理 `inflate_sequence_safety` 推出。
 
-这个文件也有功能结论。它们不是安全结论所必需的，列在[功能结论](#functional-results)一节。
+这个文件也有功能结论，列在[功能结论](#functional-results)一节。
 
 ## 拒绝
 
@@ -250,7 +250,7 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 | `CODELENS` | 查表、`lens[have++]`、`lens[have - 1]` | 子句 `lengths`。会超过 `nlen + ndist` 的重复被拒绝。`have = 0` 时的代码 16 在访问 `lens[have - 1]` 之前被拒绝 |
 | `CODELENS` 的末尾 | 两次调用 `inflate_table`，写入 `codes[1444]` | `852 + 592 = 1444`。`inflate_table_safe` 给出无故障；`inflate_table_decoder_safe` 给出子句 `tables` 需要的表形状 |
 | `LEN` 到 `DISTEXT` | 查表 | 子句 `tables`：掩码后的下标在表内，表项是叶子，或是通向叶子的链接 |
-| `LEN`，快速路径 | 对 `inflate_fast` 的调用 | 这次调用是在 `RESTORE()` 留下的堆上，由不变量和 `StreamBuffers` 证明的，适用于 `StreamBuffers` 允许的每一种布局（`inflate_fast_default_view_buffers`）。`inflate_fast_raw_entry` 只在输入和输出位于两个不同的堆块时，才建立[快速解码](inffast.md#assumptions)的入口条件；见[快速路径](#the-fast-path) |
+| `LEN`，快速路径 | 对 `inflate_fast` 的调用 | 这次调用是在 `RESTORE()` 留下的堆上，由不变量和 `StreamBuffers` 证明的，适用于 `StreamBuffers` 允许的每一种布局（`inflate_fast_default_view_buffers`）；见[快速路径](#the-fast-path) |
 | `MATCH` | 从窗口或更早的输出复制 | `offset > 0`（子句 `pending`）。距离超出本次调用的输出时去读窗口；因为 `sane = 1`，距离超过 `whave` 时 C 会拒绝。W 限定了窗口下标 |
 | `LIT` | 往 `*put` 写一个字节 | 先检查 `left > 0` |
 | `CHECK` | 对 `put` 之前的 `out` 个字节计算校验和：这是从调用开始以来的输出。一次调用至多算一次：算过之后模式是 `LENGTH`、`DONE` 或 `BAD` | 这些字节是本次调用写的，在输出区域之内 |
@@ -295,7 +295,7 @@ rank = 64 * mass + credit(mode)
 
 难点不在某一个循环。难在一次调用可以在任何一个 `NEEDBITS` 处停下再继续，所以不变量必须在大约三十个模式中的每一个里都足够强，同时又能被每一个模式重新确立。有三处最难。
 
-- **gzip 头部。** 这是 `inflate` 往输出之外的调用者缓冲区里写东西的唯一地方。对某些调用者布局，真实的 C 在这里会出故障，所以才有前提 `InflateHeaderProgress`。
+- **gzip 头部。** 这是 `inflate` 往输出之外的调用者缓冲区里写东西的唯一地方。往 `extra` 的复制需要前提 `InflateHeaderProgress`。
 - **终止性。** 有几种转移既不用输入也不写输出。只看输入和输出的度量在这些地方不会下降；秩里的 credit 项处理的就是它们。
 - **快速路径。** `inflate_fast` 的入口条件比它周围的模式更严。这次调用要在 `RESTORE()` 留下的堆上，从同一个不变量证明出来，包括输入和输出是同一个块里两段区域的情形（[快速路径](#the-fast-path)）。
 
@@ -316,17 +316,17 @@ rank = 64 * mass + credit(mode)
 | `Goal.inflate`：一次调用的完整契约，包括进展、返回码、计数器、帧性质和所有权。`uncompress*` 和 gzip 读取端的安全证明用到它 | `inflate_public` |
 | 其他函数的完整契约，例如 `Goal.inflateCopy`、`Goal.inflateReset`、`Goal.inflateSetDictionary` | `inflate_copy_public`、`reset_public`、`inflateSetDictionary_public` 等 |
 
-有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes` 说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。有条件的往返定理 `deflate_inflate_roundtrip` 说的是：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都是有条件的：它们假设各次调用到达 `Z_STREAM_END`。完备性（各次调用确实会到达）和无条件的往返未完成（[进度](../progress.md#scope)）。
+有一种情形，有定理把翻译后的 `inflate` 的输出与 DEFLATE 格式联系起来。`completed_inflate_decodes` 说的是这样的流：由 `windowBits` 为 15 的 `inflateInit2_` 创建，之后只有调用者的修改和 `inflate` 调用，没有字典，也没有重置。如果历史中最后一次调用返回了 `Z_STREAM_END`，那么已消耗的输入是一个 zlib 流，它解码成已写出的输出（`Zlib.Decodes`）。往返定理 `deflate_inflate_roundtrip` 说的是：当这样一段历史和一段默认的 `deflate` 历史都以 `Z_STREAM_END` 结束，并且解码器消耗的是编码器写出的字节的一段前缀时，解码器的输出等于编码器的输入。这两条定理都以各次调用到达 `Z_STREAM_END` 为前提。
 
-对其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置），没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
+不涵盖：各次调用会到达 `Z_STREAM_END`（完备性），以及不带这条前提的往返（[进度](../progress.md#scope)）。不涵盖：其他配置（裸流和 gzip 流、其他窗口宽度、预设字典、重置）；对它们，没有定理说 `inflate` 的输出等于输入的含义。`inflate_decodes` 只是关于抽象模型的命题。
 
 ### 跨调用的因果关系与历史
 
-这一小节陈述关于含义的命题必须顾及的两条事实。两者都不是 zlib 的缺陷。
+关于解码器的三条事实，限定了关于含义的命题能说什么。
 
-一个解码出的符号由输入位的一段前缀支撑。解码器可能已经读得更远：`inflate_fast` 会提前取入整字节，再把没用到的还回去。要求输出与解码器读过的全部内容一致的命题是错的，因为提前读入的字节可能格式有误，而已经解码的符号是有效的。`inflate` 的抽象模型里的关系只把每个符号与支撑它的那些位联系起来。有两条关于这个模型的定理在一个裸流上显示出这一差别，在这个流上解码器先写出一个字节，然后才遇到一个无效的距离：`inflate_deferred_distance` 说模型接受这次调用，`inflate_deferred_distance_rejects_legacy_consistency` 说那个针对读过的全部内容的条件对它不成立。
+一个解码出的符号由输入位的一段前缀支撑。解码器可能已经读得更远：`inflate_fast` 会提前取入整字节，再把没用到的还回去。输出不必与解码器读过的全部内容一致：提前读入的字节可能格式有误，而已经解码的符号是有效的。`inflate` 的抽象模型里的关系只把每个符号与支撑它的那些位联系起来。有两条关于这个模型的定理说的是同一个裸流，在这个流上解码器先写出一个字节，然后才遇到一个无效的距离：`inflate_deferred_distance` 说模型接受这次调用，`inflate_deferred_distance_rejects_legacy_consistency` 说与读过的全部内容一致这一条件对它不成立。
 
-数据错误并不总是在它的起因之后八个字节以内被发现。带这个界的命题有反例，把常数调大也修不好。依赖它的模型目标 `Api.Goal.inflate_rejects_invalid` 未完成，也不在计划内（[进度](../progress.md#not-planned)）。
+数据错误并不总是在它的起因之后八个字节以内被发现：在一个动态块中，输入在第 230 字节处就已不可能成立，而一次调用可以消耗 281 字节并返回 `Z_OK`。模型目标 `Api.Goal.inflate_rejects_invalid` 陈述的是八字节的界；它未完成，也不在计划内（[进度](../progress.md#not-planned)）。
 
 错误可能出现在真实的输出之后：窗口是在调用结束时分配的，所以 `inflate` 可能在写出一些字节之后返回 `Z_MEM_ERROR`。`Goal.inflate` 保留了这种效果。
 

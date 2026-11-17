@@ -44,8 +44,8 @@ corollaries of the sequence theorem.
 
 `inflate_sequence_safety_public` is derived from the lemma `inflate_sequence_safety`.
 
-Functional results also exist for this file. They are not required for the safety results and
-are listed in [Functional results](#functional-results).
+Functional results also exist for this file. They are listed in
+[Functional results](#functional-results).
 
 ## Refusals
 
@@ -326,7 +326,7 @@ it.
 | `CODELENS` | Table lookup, `lens[have++]`, `lens[have - 1]` | Clause `lengths`. A repeat that would pass `nlen + ndist` is rejected. Code 16 with `have = 0` is rejected before `lens[have - 1]` |
 | End of `CODELENS` | Two calls of `inflate_table` into `codes[1444]` | `852 + 592 = 1444`. `inflate_table_safe` gives no fault; `inflate_table_decoder_safe` gives the table shape that clause `tables` needs |
 | `LEN` to `DISTEXT` | Table lookups | Clause `tables`: a masked index is inside the table and the entry is a leaf or a link to leaves |
-| `LEN`, fast path | The call of `inflate_fast` | The call is proved from the invariant and `StreamBuffers`, on the heap that `RESTORE()` leaves, for every layout that `StreamBuffers` allows (`inflate_fast_default_view_buffers`). `inflate_fast_raw_entry` builds the entry conditions of [fast decoding](inffast.md#assumptions) only when input and output are in two different heap blocks; see [the fast path](#the-fast-path) |
+| `LEN`, fast path | The call of `inflate_fast` | The call is proved from the invariant and `StreamBuffers`, on the heap that `RESTORE()` leaves, for every layout that `StreamBuffers` allows (`inflate_fast_default_view_buffers`); see [the fast path](#the-fast-path) |
 | `MATCH` | Copy from the window or from earlier output | `offset > 0` (clause `pending`). A distance beyond the output of this call goes to the window, and `sane = 1` makes the C reject it when it exceeds `whave`. W bounds the window index |
 | `LIT` | One byte to `*put` | `left > 0` is tested first |
 | `CHECK` | Checksum over the `out` bytes before `put`: the output since the start of the call. A call computes it at most once: after it the mode is `LENGTH`, `DONE` or `BAD` | The bytes were written by this call, inside the output range |
@@ -405,8 +405,7 @@ invariant must be strong enough in each of about thirty modes and still be re-es
 every one of them. Three places are the hardest.
 
 - **The gzip header.** It is the only place where `inflate` writes into caller buffers other
-  than the output. The real C faults there for some caller layouts, which is why the premise
-  `InflateHeaderProgress` exists.
+  than the output. The copy into `extra` needs the premise `InflateHeaderProgress`.
 - **Termination.** Several transitions use no input and write no output. A measure on input and
   output alone does not fall there; the credit term of the rank handles them.
 - **The fast path.** `inflate_fast` has stricter entry conditions than the modes around it. The
@@ -449,36 +448,36 @@ format. `completed_inflate_decodes` is about a
 stream made by `inflateInit2_` with `windowBits` 15, followed only by caller edits and
 `inflate` calls, with no dictionary and no reset. When the last call of the history returned
 `Z_STREAM_END`, the input consumed is a zlib stream that decodes to the output written
-(`Zlib.Decodes`). The conditional
+(`Zlib.Decodes`). The
 round trip `deflate_inflate_roundtrip` says: when such a history and a
 default `deflate` history both end with `Z_STREAM_END`, and the decoder consumed a prefix of
 the bytes the encoder wrote, the decoder's output equals the encoder's input. Both theorems
-are conditional: they assume that the calls reach `Z_STREAM_END`. Completeness (that they do)
-and the unconditional round trip are not done ([progress](../progress.md#scope)).
+have the premise that the calls reach `Z_STREAM_END`.
 
-For the other configurations (raw and gzip streams, other window widths, preset dictionaries,
-resets) no theorem says that the output of `inflate` equals the meaning of the input.
-`inflate_decodes` is a statement about the abstract model only.
+Not covered: that the calls reach `Z_STREAM_END` (completeness), and the round trip without
+that premise ([progress](../progress.md#scope)). Not covered: the other configurations (raw
+and gzip streams, other window widths, preset dictionaries, resets); for them no theorem says
+that the output of `inflate` equals the meaning of the input. `inflate_decodes` is a statement
+about the abstract model only.
 
 ### Causality and history across calls
 
-This subsection states two facts that a statement about meaning has to respect. Neither is a
-zlib bug.
+Three facts about the decoder bound what a statement about meaning can say.
 
 A decoded symbol is supported by a prefix of the input bits. The decoder may have read further:
-`inflate_fast` pulls whole bytes ahead and gives the unused ones back. A statement that
-requires the output to agree with everything the decoder has read is false, because bytes
-read ahead can be malformed while the symbols already decoded are valid. The relation of the
+`inflate_fast` pulls whole bytes ahead and gives the unused ones back. The output does not
+have to agree with everything the decoder has read: bytes read ahead can be malformed while
+the symbols already decoded are valid. The relation of the
 abstract model of `inflate` ties each symbol to its supporting bits only. Two theorems about
-that model show the difference on one raw stream, in which the decoder writes a byte before it
+that model are about one raw stream, in which the decoder writes a byte before it
 meets an invalid distance: `inflate_deferred_distance` says that the model admits that call,
-and `inflate_deferred_distance_rejects_legacy_consistency` says that the condition on
+and `inflate_deferred_distance_rejects_legacy_consistency` says that agreement with
 everything read is false for it.
 
-A data error is not always detected within eight bytes of its cause. A statement with that
-bound has a counterexample, and a larger constant would not repair it. The model goal that
-rests on it, `Api.Goal.inflate_rejects_invalid`, is not done and not planned
-([progress](../progress.md#not-planned)).
+A data error is not always detected within eight bytes of its cause: in a dynamic block, the
+input can be impossible after 230 bytes while a call consumes 281 bytes and returns `Z_OK`.
+The model goal `Api.Goal.inflate_rejects_invalid` states the
+eight-byte bound; it is not done and not planned ([progress](../progress.md#not-planned)).
 
 An error can follow real output: the window is allocated at the end of a call, so `inflate` can
 return `Z_MEM_ERROR` after it has written bytes. `Goal.inflate` keeps that effect.

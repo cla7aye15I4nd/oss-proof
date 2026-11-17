@@ -205,9 +205,8 @@ The remaining entries read or adjust a small part of the state.
 | Read the history | `inflateGetDictionary`, `deflateGetDictionary` | **Safety:** the copy stays inside the destination, whose required size the goal states ([deviations](../deviations.md)). **Functional:** the bytes are the current history, which may differ from the preset dictionary. |
 | Control validation | `inflateValidate` is undocumented. It turns the trailer check on or off. | No safety goal is planned. Its functional contract, `Goal.inflateValidate`, has a theorem. |
 
-The C does not enforce every timing rule of the two Prime functions. A call outside such a rule
-is not thereby undefined behaviour, and not thereby a clean refusal; the
-[contract conventions](../spec/api/contracts.md) say how to read each case.
+The C does not enforce every timing rule of the two Prime functions; the
+[contract conventions](../spec/api/contracts.md) say how to read a call outside such a rule.
 **Safety:** the safety goal of `inflatePrime` has no timing premise. The safety goal of
 `deflatePrime` assumes that no `deflate` call has started the stream since init or reset:
 priming later overwrites the symbol buffer in the real C ([deviations](../deviations.md)).

@@ -3,12 +3,9 @@
 This page lists the limits of the model that a caller of zlib cannot act on. They are of three
 kinds: conditions on the model's heap that goals state as premises; choices in how the runtime
 represents C memory and library calls; and limits of functional and model theorems that no
-safety goal depends on. The duties of a caller are on another page:
-[deviations](deviations.md). What is trusted is summarised in the [trusted base](trusted-base.md),
-whose item 2 this page details.
-
-Each limit is a place where the model could differ from C. None is permission to narrow a public
-theorem silently.
+safety goal depends on. Each limit is a place where the model could differ from C. The duties
+of a caller are on another page: [deviations](deviations.md). What is trusted is summarised in
+the [trusted base](trusted-base.md), whose item 2 this page details.
 
 ## Names used on this page
 
@@ -27,60 +24,55 @@ theorem silently.
 
 ## Conditions on the model that goals state
 
-These rows are premises of goals. A C program meets each of them without doing anything; they
+The first row holds premises of goals. A C program meets them without doing anything; they
 exist because a Lean statement quantifies over every model heap, including heaps no C program
-can produce.
+can produce. The other four rows are choices of the model that the goals are stated over.
 
-| Area | What the goals state | Consequence |
+| Area | What the model does | What follows |
 | --- | --- | --- |
-| Heap well-formedness (`Fresh`, `Uniq`, `LibraryGlobals`, `CrcGlobals`) | The heap an init, open, `compress*` or `uncompress*` call starts on has no live block at or above `nextBlk` (`Fresh`), at most one object per block number (`Uniq`), and the constant tables of the selected build (`LibraryGlobals`). The CRC goals ask only for the two CRC tables (`CrcGlobals`), and the refusals of `inflate` and `inflateSync` only for `Fresh`. A caller edit between calls keeps all three (`Rebuffer`, `GzCallerFrame`). | These are conditions on the model's heap, not duties that `zlib.h` puts on a caller. They are premises all the same. `Fresh` does not say that block numbers below `nextBlk` are unique across tables; `Uniq` does. |
-| Loop fuel | Every translated loop runs for at most `2^64` iterations; exhausting the bound is `Fault.outOfFuel`. | A safety goal that concludes a normal return proves that the bound is never reached. Where the C can loop without a bound that the proof can derive, the goal carries a premise that bounds it: the [callback input total](deviations.md#callback-decoder) and the [gz read budget](deviations.md#gzip-file-interface). |
-| CRC address and word access | `addrOf` observes only low address bits. Heap byte blocks retain the aligned-origin convention; static and embedded byte objects have arbitrary stable residues. Word loads assemble bytes. | General ABI layout, arbitrary raw-block origins and the C cast's aliasing semantics remain outside this abstraction. The public checksum domain is unchanged. A [checked example](../tests/verification/regressions/crc-static-address.lean) reads a 47-byte static table through both CRC entries. |
-| Null pointer arithmetic | `Ptr.add` allows null plus zero; `Ptr.diff` faults on nulls, while the compressor helper `Compress.ptrDiff` permits null minus null. | These model permissions do not establish C definedness. The [safety specification](spec/safety.md#null-pointers-and-pointer-differences) distinguishes the operations and language rules. The [allocation regression](../tests/regression/compress-allocation/README.md) preserves that distinction for zero-capacity null destinations. |
-| External error strings | `strerror` returns a read-only view that is tagged with an epoch, a number that each `strerror` call changes. It consumes no allocation attempt and no live block owned by the library. The next `strerror` call invalidates earlier views. | The model selects sequential calls and fixed-locale text. Concurrent calls, locale changes and reuse of an earlier pointer identity are outside this model. Copying text and preserving a borrow are separate proof obligations. This is not a complete correspondence with libc. |
+| Heap well-formedness (`Fresh`, `Uniq`, `LibraryGlobals`, `CrcGlobals`) | The heap an init, open, `compress*` or `uncompress*` call starts on has no live block at or above `nextBlk` (`Fresh`), at most one object per block number (`Uniq`), and the constant tables of the selected build (`LibraryGlobals`). The CRC goals ask only for the two CRC tables (`CrcGlobals`), and the refusals of `inflate` and `inflateSync` only for `Fresh`. A caller edit between calls keeps all three (`Rebuffer`, `GzCallerFrame`). | These are premises about the model's bookkeeping. `zlib.h` puts no such duty on a caller, and no C caller can break them. |
+| Loop fuel | Every translated loop runs for at most `2^64` iterations; exhausting the bound is `Fault.outOfFuel`. | A safety goal that concludes a normal return proves that the bound is never reached. Where the C can loop without a bound that the proof can derive, the goal has a premise that bounds it: the [callback input total](deviations.md#callback-decoder) and the [gz read budget](deviations.md#gzip-file-interface). |
+| CRC address and word access | `addrOf` observes only the low bits of an address. A heap byte block starts at an aligned address; a static or embedded byte object has an arbitrary, stable residue, which is metadata of the heap that no store changes. A word load assembles eight bytes. | Not modelled: general ABI layout, an arbitrary origin of a raw block, and the aliasing semantics of the C cast to `z_word_t *`. The domain of the checksum goals is not narrowed by this. A [checked example](../tests/verification/regressions/crc-static-address.lean) reads a 47-byte static table through both CRC entries. |
+| Null pointer arithmetic | `Ptr.add NULL 0` returns `NULL`. `Ptr.diff` faults on a null argument; the compressor helper `Compress.ptrDiff` returns zero for two nulls. | That the model permits an operation does not show that the C is defined: C17 and C23 leave `NULL - NULL` undefined. The [safety specification](spec/safety.md#null-pointers-and-pointer-differences) compares the operations with the language rules, and a [regression](../tests/regression/compress-allocation/README.md) covers a `NULL` destination of zero capacity. |
+| External error strings | `strerror` returns a read-only view tagged with an epoch, a number that each `strerror` call changes. It consumes no allocation attempt and no live block owned by the library. The next `strerror` call invalidates earlier views. | The model is of sequential calls in a fixed locale. Not modelled: concurrent calls, a change of locale, and the reuse of an earlier pointer identity. |
 
 ## How the runtime represents C
 
 The runtime defines what a translated run means, so a no-fault theorem is a statement about
-these definitions. The two tables list the choices a reviewer has to know.
+these definitions.
 
 ### Memory and library operations
 
 The heap has a separate table for each kind of object. Freed block numbers are never reused.
 An allocator writes at `nextBlk` only if that number is unused in every table (`Heap.slotUsed`);
 otherwise it faults.
-`Fresh` protects future numbers. The initial heap must also have unique block numbers across
-tables below `nextBlk`; `Fresh` alone does not express that condition, and `Uniq` does.
 
-| Operation | Model behaviour requiring review |
+| Operation | What the model does |
 | --- | --- |
 | `memcpy`, `zmemcpy` | Reject null pointers even for zero length, overlapping ranges, and read-only destinations when the length is not zero. Whole-record copies use `copyK`, which rejects copying an object onto itself. A bare load/store record pair does not check overlap. |
 | `memmove` | Checks the same ranges and writability, with the same exception for a zero length, but permits overlap and copies from the original source. |
-| `memset`, `zmemzero` | `Ptr.fill` counts elements and assigns a value; it rejects a null pointer even for zero length, and a read-only destination when the length is not zero; it represents byte `memset` or zero filling only in the stated uses. `Ptr.memset` replicates a byte. Whole-record zeroing stores the explicit zero record. |
+| `memset`, `zmemzero` | `Ptr.fill` counts elements and assigns a value; it rejects a null pointer even for zero length, and a read-only destination when the length is not zero. It stands for a byte `memset` or for zero filling only in the uses that say so. `Ptr.memset` replicates a byte. Whole-record zeroing stores the explicit zero record. |
 | `strlen` | Requires a NUL inside the represented block. |
 | Allocation | Fresh integers come from the arbitrary garbage function; fresh pointer fields are NULL. A `malloc` request above `PTRDIFF_MAX` bytes returns NULL. Otherwise the `allocOk` oracle determines failure. Every `malloc` call consumes one oracle number. Automatic local objects bypass that oracle and do not consume an allocator attempt. |
 | `free` | NULL is a no-op. Otherwise the argument must be the start of a live writable allocation of the represented kind. There is no allocation-origin tag. |
-| String literals | `strLitRef` denotes a static read-only NUL-terminated entry in the generated closed `strTable`. It is always live, has stable identity and is never freed. Unknown literal text faults. Borrowed external error text has a separate read-only view and lifetime. |
+| String literals | `strLitRef` denotes a static read-only NUL-terminated entry in the generated closed `strTable`. It is always live, has stable identity and is never freed. Unknown literal text faults. |
 
-The runtime and translations provide particular models of the external operations they use,
-not general libc models. Runtime error text and the gzip external helper implement the
-fixed-locale, sequential borrowed-view behaviour of the row "External error strings" above.
-Allocation, formatting, `errno` and `abs` also require their stated correspondence review;
-that some of them are defined beside the translations does not reduce their semantic role.
+The models of allocation, formatting, `errno`, `abs` and `strerror` cover the uses zlib makes of
+them. They are not general models of libc, and that they agree with libc is reviewed, not
+proved.
 
 ### Representation gaps and proof obligations
 
-| Choice or gap | Consequence for a C claim |
+| Choice or gap | What follows for a claim about the C |
 | --- | --- |
-| Uninitialised pointers become NULL | Equality, copying and freeing NULL can succeed without a prior write. Every pointer read needs a write-before-read argument; no theorem states one, and it is **to confirm** by source review. The init translations explicitly zero the two allocated stream-state records; this is not a general property of fresh records or automatic `z_stream` storage. Closing the gap requires initialisation tracking or a distinct uninitialised value for all pointer forms, with checked operations and corresponding translation changes. |
-| One garbage value per cell | Integer theorems quantify over every `Heap.garbage`, indexed by allocation attempt and cell position. Repeated reads of a cell nevertheless agree. Proofs must not rely on that agreement where C permits unstable unspecified values. |
-| Array extents are predicates | `WellFormed`, `Heap.RecordsWellFormed` and `Statics.WellFormed` must establish C lengths. Generated preservation lemmas retain them. Static contents must match the defining C translation; the runtime does not compare them with C. |
-| Pointer equality is structural | Different objects compare unequal; equality of dangling pointers does not fault. Proofs must not rely on outcomes that C does not guarantee, including equality at adjacent object boundaries. Relational comparison requires the same live array. |
-| Null arithmetic is partly permitted | `Ptr.add NULL 0` returns NULL. `Ptr.diff` rejects null arguments, but `Compress.ptrDiff` returns zero for two nulls. These choices require a separate definedness argument for the corresponding C calls. The comment on `Ptr.diff` in the source says that C17 and C23 leave `NULL - NULL` undefined and that C++ defines it as 0; see the [operation and language comparison](spec/safety.md#null-pointers-and-pointer-differences). |
-| Address and layout model is partial | There is no general ABI address, effective-type or record-byte-view model. CRC observes low address bits: heap byte blocks retain aligned origins; static and embedded byte origins have arbitrary stable residues. The residues are metadata of the heap, not writable bytes: no store changes them. Byte-assembled word loads do not settle the C cast's aliasing semantics. Scalar-cell adapters may omit aliases; for eight public functions the result cell is a value and not memory ([deviations](deviations.md#stream-calls-inflate-and-deflate), rows "Result cells" and "Whole-buffer compression"). `z_stream` records live in their own table, so a record that partly overlaps a buffer or another record cannot be expressed ([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Copy destination"). |
+| Uninitialised pointers become NULL | Comparing, copying and freeing such a pointer can succeed in the model without a prior write. A claim about the C needs that every pointer is written before it is read; no theorem states this, and it is **to confirm** by source review. The init translations zero the two allocated stream-state records explicitly; this is not a general property of fresh records or of an automatic `z_stream`. |
+| One garbage value per cell | Integer theorems quantify over every `Heap.garbage`, indexed by allocation attempt and cell position. Repeated reads of one cell agree in the model; C does not guarantee that for an indeterminate value, and no program checks that no proof relies on it. |
+| Array extents are predicates | The length of an array is not part of its type: `WellFormed`, `Heap.RecordsWellFormed` and `Statics.WellFormed` state the C lengths, and generated lemmas show that operations keep them. The runtime does not compare the contents of the static tables with the C. |
+| Pointer equality is structural | Pointers to different objects compare unequal, and comparing a dangling pointer for equality does not fault. C guarantees neither, in particular not at the boundary of adjacent objects; no program checks that no proof relies on it. A relational comparison requires the same live array. |
+| Address and layout model is partial | There is no general model of ABI addresses, of effective types or of a record as bytes. For eight public functions the result cell is a value and not memory ([deviations](deviations.md#stream-calls-inflate-and-deflate), rows "Result cells" and "Whole-buffer compression"). `z_stream` records live in their own table, so a record that partly overlaps a buffer or another record cannot be expressed ([deviations](deviations.md#stream-calls-inflate-and-deflate), row "Copy destination"). |
 | Read-only marking is partial | Byte blocks, named static tables and instances can be read-only. Word blocks and records in tables cannot represent that qualifier. |
-| Pointer construction checks are partial | `Ptr.add` checks its result, not whether a manually constructed starting offset was valid. Translation review must exclude invalid uses of the public `Ptr.ref` constructor. |
-| Object origin is not tracked | A caller block created by `allocBytes` can be freed by translated code. Frame and ownership clauses must prevent this where the API forbids it. A wrong-kind state cast faults earlier than the corresponding C access. |
+| Pointer construction checks are partial | `Ptr.add` checks its result, not whether the offset it starts from was valid. That no translation builds a pointer with an invalid offset through the constructor `Ptr.ref` is reviewed, not checked. |
+| Object origin is not tracked | Translated code can free a caller block created by `allocBytes`. Where the API forbids that, the frame and ownership clauses of a goal are what exclude it. A state cast to the wrong kind faults earlier than the corresponding C access. |
 
 ### Table updates
 
@@ -90,30 +82,28 @@ repeated-update rules, from `Tbl.get_set`.
 
 The primitives that write use `Space.modify`, which takes an array out of its table, changes it
 and puts it back, so that no chain of earlier arrays is kept. `Space.modify_eq` states that this
-equals the simpler functional operation `put`. The trusted review must cover `Tbl.get_set`,
-`Tbl.modify_eq` and the `modify` and `modify_eq` of every generated `Space` instance. The
-operation lemmas reason with `put`; that the executable runs fast does not establish their
-correspondence.
+equals the simpler functional operation `put`, which the proofs reason with. Trusted by review:
+`Tbl.get_set`, `Tbl.modify_eq`, and the `modify` and `modify_eq` of every generated `Space`
+instance.
 
 ## Functional and model statements
 
-The rows below limit functional goals, API models and internal lemmas. No safety goal
-depends on them. The safety results do not depend on functional goals. [Progress](progress.md) says which
-functional goals are planned.
+The rows below limit functional goals, API models and internal lemmas. No safety goal depends
+on them. [Progress](progress.md) says which functional goals are planned.
 
-| Area | Present limit | Consequence |
+| Area | Limit | What follows |
 | --- | --- | --- |
-| Focused function manuals | Entries may require valid handles, separated buffers, checksums of actual strings, generated operators or a stated call order | These are explicit prose scopes. They do not reduce the broader Lean public targets. |
-| Compressor length cell in the API model | The functional models `Concrete.compress2_z` and `Concrete.compress2` use an optional scalar input and returned stored value | This row is about the functional model only. Aliasing the cell with input or output is absent there. Null-cell effects remain different for `_z` and compatibility wrappers. The translation has the same scalar cell, and that does limit safety goals: see [deviations](deviations.md#whole-buffer-utilities-and-checksums), row "Whole-buffer compression". |
-| Counted decompression cells | The functional models of `uncompress*` (`Uncompress2`) keep input length, output length and data ranges separate | Aliasing the cells with data or each other is outside these models. Early and late memory failures retain distinct scalar effects. |
-| Compressor data relation | `Compress2` describes data with a coarse rejection flag | `Compress2Z` and `Compress2Wrapper` express pointer shapes, error ordering and length stores. A data-model theorem alone is not an entry-point refinement. |
-| Bound arithmetic | Both lengths are 64 bits on LP64 | `Goal.compress_bound_value` covers every `UInt64`, without a smaller numeric premise. Other ABIs need size-conversion statements. The numeric formula alone is not output adequacy. |
-| Deflate dictionary order | The zlib branch of `DeflSetDict` rejects a dictionary after `started` | C can accept a dictionary after stream end. A refinement may use the rejection only within the documented ordering. `deflate_valid` is a model theorem, not a theorem about all such C executions. |
-| Ordinary byte-format epochs | One initial preset dictionary interprets an ordinary stream | Raw dictionary replacement after decoding starts has a constructor-derived marker. Its exact window effect is a functional statement and is not planned. Sequence safety of those histories is proved: `Goal.inflate_sequence_safety` covers `inflateSetDictionary` at any point of a history. A single initial dictionary cannot describe the entire advanced history. |
-| Advanced operation combinations | Priming, headers and recovery retain concrete per-entry targets | The target set is not a completed operational refinement of every combination. A proof may not choose or clear history eligibility markers to avoid obligations. |
-| Fast decoder helpers | Local execution and bit-origin lemmas assume raw byte blocks for input and output (distinct, or disjoint ranges of one block), a window block other than the output block, six input bytes, 258 output bytes, entry bits below eight and sane mode | These are internal premises for construction and init invariants to establish. They do not restrict or prove the public inflate goal. |
-| Accepted-window inflate initialization | `inflate_init2_valid_public` assumes `Api.inflWbits wb.toInt = some (wrap, bits)` | It retains the existing initialization contract, including all allocation outcomes, ABI/version refusal and null-stream refusal, for accepted raw/zlib/gzip/automatic window parameters. Invalid window arguments are excluded explicitly. `Goal.inflateInit2_` itself has no such premise: it covers every `windowBits` (theorem `inflate_init2_public`, which uses this lemma for the accepted values). |
-| Gz file data | Functional gz contracts (`FileData`, `CloseContract`, `GzWriterFormat`, read and write values) and the goals `Goal.gzoffset64`, `Goal.gzoffset` and `Goal.gzrewind` (premise `RegularOs fs`) are stated for the world in which every OS call behaves as a regular file (`RegularOs`) | They describe regular files. An oracle `lseek` may return without moving the descriptor, as on some Linux devices; there the offset and rewind values do not hold ([regression](../tests/verification/regressions/gz-offset-regular-world.lean)). The safety goals do not use these contracts. The safety of `gzoffset64`, `gzoffset` and `gzrewind` on every world is part of `Goal.gz_sequence_safety`, which has no `RegularOs` premise. File-system permissions, parent directories, links, ownership and locking are not represented; the oracle's failures cover their effect on each call. |
+| API manual entries | The Pre of an entry may ask for valid handles, separated buffers, checksums of actual strings, generated operators or a stated call order | The entry describes ordinary use. The Lean goal of the function is the wider statement and is not narrowed by it. |
+| Compressor length cell in the API model | The functional models `Concrete.compress2_z` and `Concrete.compress2` take the length cell as an optional scalar and return the stored value | The models say nothing about a cell that aliases the input or the output. The translation has the same scalar cell, which limits the safety goals: [deviations](deviations.md#whole-buffer-utilities-and-checksums), row "Whole-buffer compression". |
+| Counted decompression cells | The functional models of `uncompress*` (`Uncompress2`) keep input length, output length and data ranges separate | A cell that aliases data or the other cell is outside these models. |
+| Compressor data relation | `Compress2` describes the data with a coarse rejection flag; `Compress2Z` and `Compress2Wrapper` express pointer shapes, error ordering and length stores | A theorem about the data model alone says nothing about an entry point. |
+| Bound arithmetic | Both lengths are 64 bits on LP64 | `Goal.compress_bound_value` covers every `UInt64`. It states the numeric formula; that the bound is enough room for the output is a separate statement. Other ABIs need statements about the size conversions. |
+| Deflate dictionary order | The zlib branch of the model `DeflSetDict` rejects a dictionary after `started` | The C can accept a dictionary after the stream has ended. `deflate_valid` is a theorem about the model, not about those C executions. |
+| Preset dictionary in the byte format | The format relation interprets an ordinary stream with one initial preset dictionary | Not described: the effect on the window of replacing the dictionary of a raw stream after decoding has started; that functional statement is not planned. The safety of such a history is proved: `Goal.inflate_sequence_safety` covers `inflateSetDictionary` at any point. |
+| Priming, headers and recovery | Each of these functions has its own functional goal | No functional goal describes every combination of them in one history. |
+| Fast decoder helpers | The lemmas about `inflate_fast` assume raw byte blocks for input and output (distinct, or disjoint ranges of one block), a window block other than the output block, six input bytes, 258 output bytes, fewer than eight bits on entry and a sane mode | These are premises of internal lemmas, which the proof of the public goal establishes. They do not restrict the public inflate goal. |
+| Accepted-window inflate initialization | The lemma `inflate_init2_valid_public` assumes an accepted `windowBits`: `Api.inflWbits wb.toInt = some (wrap, bits)` | `Goal.inflateInit2_` has no such premise: its theorem `inflate_init2_public` covers every `windowBits` and uses the lemma for the accepted values. |
+| Gz file data | The functional gz contracts (`FileData`, `CloseContract`, `GzWriterFormat`, read and write values) and the goals `Goal.gzoffset64`, `Goal.gzoffset` and `Goal.gzrewind` are stated for the world in which every OS call behaves as a regular file (`RegularOs`) | An oracle `lseek` may return without moving the descriptor, as on some Linux devices; there the offset and rewind values do not hold ([regression](../tests/verification/regressions/gz-offset-regular-world.lean)). The safety of these three functions on every world is part of `Goal.gz_sequence_safety`, which has no `RegularOs` premise. Not represented: permissions, parent directories, links, ownership and locking; the failures of the oracle cover their effect on each call. |
 
 The premises of the intermediate deflate theorems, and of the local open, close and priming
 lemmas, narrow lemmas and never a public goal.

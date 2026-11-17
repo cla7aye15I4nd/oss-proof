@@ -2,28 +2,11 @@
 
 The gz writers add the bytes they accept to the signed position `state->x.pos` without a bound. A
 transparent writer that seeks forward to near `INT64_MAX` overflows the position on the next
-write, once the sink has accepted the zeros of the seek. This page lets a zlib maintainer
-reproduce the report and judge it without reading anything else. The read-side twin is
-[gzread-pos-overflow](../gzread-pos-overflow/README.md). The test files are in
-[`tests/regression/gzwrite-pos-overflow`](../../../tests/regression/gzwrite-pos-overflow/README.md).
+write, once the sink has accepted the zeros of the seek: in `gz_write` and in the fast path of
+`gzputc`. Signed overflow is undefined behaviour. The read side is
+[gzread-pos-overflow](../gzread-pos-overflow/README.md).
 
-## Status
-
-- Undefined behaviour: signed integer overflow of `x.pos` in `gz_write` and in the fast path of
-  `gzputc`. Inside the documented use.
-- Reported by UndefinedBehaviorSanitizer on x86_64 Linux (kernel 7.0, GCC 15.2) with the real
-  `/dev/null`, and in a faster mode on Linux and on arm64 macOS. The faster mode ran on upstream
-  `develop` at commit `757f0527154291bcf6bfbd6396ecde6bedd2db95` with the patches of this
-  repository except 0004, as `run.sh` builds it. The retained run with the real `/dev/null` used an
-  earlier copy of the program, on the same commit with patches 0001 to 0003. `gzwrite.c` and
-  `gzlib.c` are byte-identical in zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies;
-  no run on that revision is recorded here.
-- Not submitted upstream. The verified source applies the local
-  [patch 0004](../../../patches/README.md). One pull
-  request text for both sides is drafted in
-  [../gzread-pos-overflow/upstream-description.md](../gzread-pos-overflow/upstream-description.md).
-
-## Call sequence
+## Calls that reach it
 
 ```c
 int fd = open("/dev/null", O_WRONLY);
@@ -47,11 +30,19 @@ to the target. `gz_write` (`x.pos += copy` and `x.pos += n`), the fast path of `
 (`x.pos++`) and `gzprintf` (`x.pos += len`) then add to it with no bound. The zero fill is 2^34
 writes of 2^29 bytes; `/dev/null` accepts them.
 
+A transparent writer reaches the overflow on a sink that accepts unbounded output: `/dev/null`,
+or a pipe to a consumer that discards. For a regular file the write fails long before (`EFBIG`).
+A compressing writer must compress the zeros first, about 2^63 bytes of work.
+
+Every call is documented use. About the limit `zlib.h` says only that `gzseek` returns -1 if the
+resulting position "would not be representable in the offset type" (`zlib.h:1687`).
+
 The complete program is [`wpos.c`](../../../tests/regression/gzwrite-pos-overflow/wpos.c).
 
-## Run
+## Evidence
 
-From the repository root, with the `zlib/` submodule checked out:
+UndefinedBehaviorSanitizer reports the overflow on the C with every patch except 0004. From the
+repository root, with the `zlib/` submodule checked out:
 
 ```sh
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzwrite-pos-overflow/run.sh
@@ -70,10 +61,7 @@ ok: with the fix: Z_DATA_ERROR position overflow, no report
 
 By default the program is linked with `fastwrite.c`, a `write()` that accepts every byte for the
 `/dev/null` descriptor without a system call: about a minute per run. `FULL=1` before the command
-uses the real `/dev/null`: about 17 minutes per run on x86_64 Linux. Both modes build with
-UndefinedBehaviorSanitizer only; under AddressSanitizer the 2^34 intercepted writes take hours.
-
-## Sanitizer verdict
+uses the real `/dev/null`: about 17 minutes per run on x86_64 Linux.
 
 From [`report.txt`](../../../tests/regression/gzwrite-pos-overflow/report.txt), x86_64 Linux,
 source without patch 0004, default mode:
@@ -83,36 +71,23 @@ gzwrite.c:230:26: runtime error: signed integer overflow: 9223372036854775797 + 
 gzwrite.c:352:25: runtime error: signed integer overflow: 9223372036854775807 + 1 cannot be represented in type 'long int'
 ```
 
-The same file holds the first line again from a run with the real `/dev/null`, which took 17
-minutes (an earlier copy of the program, source with patches 0001 to 0003). A run of the default mode on arm64 macOS gave both reports at the same
-lines, with the type printed as `off_t`.
+The same file holds the first line from a run with the real `/dev/null`. arm64 macOS gives both
+reports at the same lines in the default mode.
 
-## Scope and severity
+## Effect
 
-- **Who reaches it.** A transparent writer to a sink that accepts unbounded output: `/dev/null`,
-  or a pipe to a consumer that discards. For a regular file the write fails long before
-  (`EFBIG`). For a compressing writer the zeros must be compressed first, about 2^63 bytes of
-  work, which is not practical.
-- **Effect.** Undefined behaviour on a signed counter. With the usual wrapping, `gztell` becomes
-  negative.
-- **Severity.** Low: the overflow needs about 2^63 bytes accepted by the sink.
-
-## What `zlib.h` says
-
-Every call is documented use. About the limit zlib.h says only that `gzseek` returns -1 if the
-resulting position "would not be representable in the offset type" (`zlib.h:1687`). It says
-nothing about writes that move the position past that limit.
+Undefined behaviour on a signed counter. With the usual wrapping, `gztell` becomes negative.
 
 ## Fix
 
-[0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch), write side:
-`gz_write` refuses a write of `len` bytes when `GZ_OFF_MAX - x.pos < len`, `gzputc` leaves its fast
-path at `GZ_OFF_MAX` (and `gz_write` then refuses), and `gzprintf` refuses formatted output that
-would pass the limit. Each sets `Z_DATA_ERROR` "position overflow". Writes that stay within the
-limit are unchanged. A write that crosses the limit is refused as a whole. Without the patch such
-a write is undefined once the position overflows; it is defined only if an I/O error or a stall
-stops it before that point, and with the patch that case reports "position overflow" in place of
-the I/O error.
+[Patch 0004](../../../patches/README.md), write side: `gz_write` refuses a write of `len` bytes
+when `GZ_OFF_MAX - x.pos < len`, `gzputc` leaves its fast path at `GZ_OFF_MAX` (and `gz_write`
+then refuses), and `gzprintf` refuses formatted output that would pass the limit. Each sets
+`Z_DATA_ERROR` "position overflow". Writes that stay within the limit are unchanged. A write that
+crosses the limit is refused as a whole, so a crossing write that an I/O error or a stall would
+have stopped before the limit reports "position overflow" in place of the I/O error.
+
+Upstream: the patch is local and has not been submitted.
 
 ## Relation to the proofs
 

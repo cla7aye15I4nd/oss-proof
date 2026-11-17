@@ -230,7 +230,7 @@ For a small configured window, those are different conditions. The default C pat
 farther back within the current output buffer than the saved window can retain between calls.
 `INFLATE_STRICT` adds a check against the zlib header's declared limit. The complete refinement
 of these conditions across output-buffer boundaries is **to confirm**; the format relation
-must not be presented as a guarantee that every buffer split accepts the same stream.
+does not guarantee that every buffer split accepts the same stream.
 See [model choices](model.md#model-choices-and-boundaries) and [the inflate API](../api/inflate-stream.md).
 
 ## The zlib wrapper

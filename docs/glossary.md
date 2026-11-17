@@ -24,26 +24,20 @@ more call is safe.
 
 **History.** The calls made so far on one stream or handle, starting at its init or open call,
 with the caller's edits between calls. A sequence goal quantifies over every history, defined as
-an inductive predicate (`StreamReachable`, `GzHistory`, `BackSafeReachable`). No earlier call's
-specification is assumed.
+an inductive predicate (`StreamReachable`, `GzHistory`, `BackSafeReachable`).
 
 **Reachable.** A stream is reachable when some history produces it: a successful init, then any
 number of calls and caller edits. `StreamReachable` is the Lean predicate; a one-function safety
 goal of a stream function holds on every reachable stream.
 
 **Refusal.** A call that the C rejects with an error value, such as a call on a `NULL` or
-inconsistent stream. A refusal is stated in two kinds of goal. First, the safety goal of a
-function has a refusal clause beside its clause for a valid call: this holds for every documented
+inconsistent stream. A refusal clause states the value returned and what the call may change.
+The safety goal of a function has one, beside its clause for a valid call, for every documented
 inflate and deflate stream function except the four init functions, for `inflateCopy` and
-`deflateCopy`, for the gzip file functions that take a handle, and for `inflateBack` and
-`inflateBackEnd`. Second, the refusal goals (`Goal.inflate_refusal`, `Goal.deflate_refusal`,
-`Goal.gz_refusal`) state the refusal of several functions in one statement. Both kinds state the
-value returned and what the call may change. The value is `Z_STREAM_ERROR`, except `-65536` for
-`inflateMark` and the bound of a `NULL` stream for `deflateBound` and `deflateBound_z`. For most
-functions the heap after the call is the heap before it. Two cases differ: `inflate` and
-`inflateSync` are stated to write no block that was live and to leave the set of live blocks as
-it was; a copy from a refused source clears the destination's state pointer and changes nothing
-else. Which streams count as refused is in
+`deflateCopy`, for the gzip file functions
+that take a handle, and for `inflateBack` and `inflateBackEnd`; three refusal goals
+(`Goal.inflate_refusal`, `Goal.deflate_refusal`, `Goal.gz_refusal`) state the refusals of several
+functions at once. Which streams count as refused, and the values and changes, are in
 [deviations](deviations.md#note-2-refused-streams).
 
 **Non-vacuity goal.** A goal that shows the premises of other goals can be met: a concrete heap on
@@ -78,8 +72,7 @@ project. [What a done result rests on](checking/README.md) says what the checks 
 **Not done.** No such theorem exists. A goal of which only a part has a theorem is not done; a
 page may say in plain words which part has one.
 
-**Not planned.** Said in addition to "not done" of a goal the project does not work on. It is
-never called proved.
+**Not planned.** Said in addition to "not done" of a goal the project does not work on.
 
 ## Model
 
@@ -156,10 +149,10 @@ plus the [patches](../patches/README.md), applied in name order.
 
 **Normalisation.** One of four ways in which a translation may differ from a literal
 statement-by-statement copy of the C, each with the same behaviour as the C.
-[Translation](design/translation.md) lists them with an example of each. Any other difference is
-a translation bug. The translations contain at least six further forms that the four do not cover
-as worded; it is not decided whether each is accepted as a normalisation or changed, and the same
-page lists them.
+[Translation](design/translation.md) lists them with an example of each. The translations also
+contain at least six further forms that the four do not cover
+([trusted base](trusted-base.md), item 3). A difference that changes what the C computes is a
+translation bug.
 
 ## Premises
 

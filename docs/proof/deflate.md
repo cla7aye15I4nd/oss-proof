@@ -100,7 +100,7 @@ Each premise has a row in [deviations](../deviations.md).
 | Dictionary range (`CallerRange`) | The dictionary buffer is `NULL`, or readable (writable for `deflateGetDictionary`) for the bytes the call reads or writes, and outside the stream's blocks | `deflateSetDictionary`, `deflateGetDictionary` |
 | `DeflateNotStarted` | No `deflate` call has started the stream since initialisation or reset: the status is `INIT_STATE` or `GZIP_STATE` | `deflatePrime`, `deflateSetHeader` |
 | Header argument (`HeaderMemory`) | The record passed in is `NULL`, or readable and not owned by the stream, with `extra` readable for `extra_len` bytes and `name` and `comment` ending in a NUL | `deflateSetHeader` |
-| No direct `deflateResetKeep` | It is not one of the permitted calls. `zlib.h` lists it as undocumented, and after it the hash entries of the last two positions are stale ([finding](../findings/deflate-resetkeep-stale-hash/README.md)) | the history |
+| No direct `deflateResetKeep` | It is not one of the permitted calls. `zlib.h` lists it as undocumented | the history |
 
 `deflateReset`, `deflateTune`, `deflatePending` and `deflateUsed` have no argument premise.
 `Goal.deflateEnd_safety` needs a reachable stream and nothing else.
@@ -442,13 +442,9 @@ finite ranges: `extra_len` bytes, and a string up to its NUL.
 
 ## Readings of the C that no theorem states
 
-- `deflateSetDictionary` goes through `read_buf`, which adds the dictionary length to
-  `total_in`. The translation keeps the update. Whether a caller should read `total_in` as
-  including the dictionary is **to confirm**.
-- `deflateCopy` with the same record as source and destination is outside the goals: the copy
-  case of a history and `Goal.deflateCopy_safety` take two different records
-  (row "Copy destination" of [deviations](../deviations.md)). Whether `zlib.h` means to allow
-  that call is **to confirm**.
+- **To confirm**: `deflateSetDictionary` passes the dictionary (its last `w_size` bytes when it
+  is longer) through `fill_window`, whose `read_buf` adds the bytes it reads to `total_in`. So
+  after the call `total_in` includes the dictionary. The translation keeps the update.
 - The size of `deflate_state` is 5968 bytes in this build. No Lean file or test states the
   number. **to confirm**.
 
@@ -457,8 +453,7 @@ More notes of this kind are in the [source notes](deflate-source-notes.md).
 ## Functional results
 
 These say what the functions compute. The goals named in the first two rows are done. They are
-not required for the safety results. Apart from the round trip described below, further
-functional results are not planned.
+not required for the safety results.
 
 | Result | Theorem |
 | --- | --- |
@@ -477,6 +472,5 @@ and an `inflate` history that starts with `inflateInit2_` at `windowBits` 15. Bo
 caller edits and of `deflate` (or `inflate`) calls with any flush value and any split of the
 buffers; they contain no dictionary, reset or other operation. If in both the last call
 returned `Z_STREAM_END`, and the input that `inflate` consumed is a prefix of the output of
-`deflate`, then the output of `inflate` is the input that `deflate` accepted. No theorem says
-that both histories reach `Z_STREAM_END`, and none states the round trip without that
-condition. [Progress](../progress.md) says what is planned.
+`deflate`, then the output of `inflate` is the input that `deflate` accepted. Not covered: that
+both histories reach `Z_STREAM_END`.

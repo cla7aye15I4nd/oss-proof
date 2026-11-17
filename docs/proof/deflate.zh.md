@@ -1,4 +1,4 @@
-<!-- source-sha256: a19173ce691f979a46a9fad438ca63de6f04809047a0c51988c6aa8a3a353529 -->
+<!-- source-sha256: 4ea6be7d48ae4f13fc297363fabde18e69a04421ef006d07e54442798c63835e -->
 # 流式压缩：`deflate` 为什么是安全的
 
 本页讲的是 `zlib/deflate.c` 和它的翻译 `ZlibF/Zlib/deflate.c.lean`。
@@ -54,7 +54,7 @@
 | 字典区域（`CallerRange`） | 字典缓冲区是 `NULL`，或者在这次调用读写的那些字节内可读（对 `deflateGetDictionary` 要可写），并且在流的块之外 | `deflateSetDictionary`、`deflateGetDictionary` |
 | `DeflateNotStarted` | 自初始化或重置以来，还没有 `deflate` 调用启动过这个流：状态值是 `INIT_STATE` 或 `GZIP_STATE` | `deflatePrime`、`deflateSetHeader` |
 | 头部参数（`HeaderMemory`） | 传入的记录是 `NULL`，或者可读且不归流所有，它的 `extra` 在 `extra_len` 个字节内可读，`name` 和 `comment` 以 NUL 结尾 | `deflateSetHeader` |
-| 不直接调用 `deflateResetKeep` | 它不在被允许的调用之列。`zlib.h` 把它列为未文档化的函数，而且在它之后，最后两个位置的哈希表项是过时的（[发现](../findings/deflate-resetkeep-stale-hash/README.md)） | 历史 |
+| 不直接调用 `deflateResetKeep` | 它不在被允许的调用之列。`zlib.h` 把它列为未文档化的函数 | 历史 |
 
 `deflateReset`、`deflateTune`、`deflatePending` 和 `deflateUsed` 没有参数前提。`Goal.deflateEnd_safety` 只需要流是可达的。
 
@@ -273,15 +273,14 @@ stateDiagram-v2
 
 ## 没有定理陈述的 C 解读
 
-- `deflateSetDictionary` 经过 `read_buf`，后者把字典长度加到 `total_in` 上。翻译保留了这次更新。调用者是否应当把 `total_in` 理解为包含字典，**尚未由证明确认**。
-- 用同一个记录既作源又作目的调用 `deflateCopy`，不在目标之内：历史中的复制情形和 `Goal.deflateCopy_safety` 取的都是两个不同的记录（见[偏离记录](../deviations.md)中“复制的目的流”一行）。`zlib.h` 是否有意允许这种调用，**尚未由证明确认**。
+- **尚未由证明确认**：`deflateSetDictionary` 让字典（字典更长时取它的最后 `w_size` 个字节）经过 `fill_window`，其中的 `read_buf` 把读到的字节数加到 `total_in` 上。所以调用之后 `total_in` 包含了字典。翻译保留了这次更新。
 - 在本构建中 `deflate_state` 的大小是 5968 字节。没有哪个 Lean 文件或测试陈述这个数。**尚未由证明确认**。
 
 更多这类笔记见[源码笔记](deflate-source-notes.md)。
 
 ## 功能结论
 
-这些结论说的是函数算出了什么。前两行列出的目标已完成。它们不是安全结论所必需的。除了下面讲的往返，更多的功能结论不在计划内。
+这些结论说的是函数算出了什么。前两行列出的目标已完成。它们不是安全结论所必需的。
 
 | 结论 | 定理 |
 | --- | --- |
@@ -291,4 +290,4 @@ stateDiagram-v2
 
 对默认配置，`DeflateCore.correct` 说明：已完成的流按格式规格解码，得到的就是被接受的输入。对其他配置，没有定理说 `deflate` 的输出能解码回它的输入。
 
-默认 zlib 流的往返（用 `deflate` 压缩，用 `inflate` 解压，得回输入）未完成。有一条定理 `deflate_inflate_roundtrip` 证明了它的有条件形式。它取一段以 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_` 开始的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和 `deflate`（或 `inflate`）调用组成，刷新值任意，缓冲区的切分任意；其中没有字典、重置或别的操作。如果两段历史的最后一次调用都返回了 `Z_STREAM_END`，并且 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。没有定理说两段历史都会到达 `Z_STREAM_END`，也没有定理陈述不带这个条件的往返。哪些在计划内，见[进度](../progress.md)。
+默认 zlib 流的往返（用 `deflate` 压缩，用 `inflate` 解压，得回输入）未完成。有一条定理 `deflate_inflate_roundtrip` 证明了它的有条件形式。它取一段以 `Z_DEFAULT_COMPRESSION` 的 `deflateInit_` 开始的 `deflate` 历史，和一段以 `windowBits` 为 15 的 `inflateInit2_` 开始的 `inflate` 历史。两者都由调用者的修改和 `deflate`（或 `inflate`）调用组成，刷新值任意，缓冲区的切分任意；其中没有字典、重置或别的操作。如果两段历史的最后一次调用都返回了 `Z_STREAM_END`，并且 `inflate` 消耗的输入是 `deflate` 输出的一个前缀，那么 `inflate` 的输出就是 `deflate` 接受的输入。不涵盖：两段历史都会到达 `Z_STREAM_END`。

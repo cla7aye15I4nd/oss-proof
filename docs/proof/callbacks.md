@@ -21,8 +21,7 @@ Terms: [glossary](../glossary.md).
 All six are done. The first is the safety result over histories, and the second shows that
 init can succeed. The third shows that the premises of a call of `inflateBack` can be met, the
 callback protocol included ([the caller protocol](#the-caller-protocol)). The last three are
-the safety goals of the three functions. The histories of the sequence goal do not ask
-for a `NULL` `state` field before `inflateBackInit_`.
+the safety goals of the three functions.
 
 The one-function goals follow from the results of this page:
 
@@ -34,8 +33,7 @@ The one-function goals follow from the results of this page:
   (`InitArguments`), with no history. It follows from the functional theorem `back_init_public`.
 
 Each function also has a functional contract (`Goal.inflateBackInit_`, `Goal.inflateBack`,
-`Goal.inflateBackEnd`). These contracts are not required;
-[the last section](#functional-results-that-stay) says which are done.
+`Goal.inflateBackEnd`). [The last section](#functional-results-that-stay) says which are done.
 
 `Goal.inflate_back_sequence_safety` has four clauses.
 
@@ -141,10 +139,8 @@ of this table are also those of the history clauses of `Goal.inflateBack_safety`
 
 ### Why a bound on the input
 
-A callback that returns is not enough for termination. An input callback can supply
-infinitely many empty non-final stored blocks, and `inflateBack` then never returns. That is
-not undefined behaviour, but it is not termination either. `zlib.h` does not promise that a
-callback eventually ends its input.
+An input callback can supply infinitely many empty non-final stored blocks, and `inflateBack`
+then never returns. `zlib.h` does not promise that a callback eventually ends its input.
 
 The figure `2^48` is the model's limit, not zlib's. The runtime bounds every loop by `2^64`
 iterations, and the measure of the dispatch loop counts input bits.
@@ -179,25 +175,24 @@ The table is a summary. The complete statement is the structure `CallbackProtoco
 
 `inStep` and `outStep` are required only on a heap that satisfies `CallbackEntry`: the stream is
 a valid callback decoder over this window (`BackValid`). So the heap is a library heap and the
-window is writable. This is what the library provides at each call of `in` and `out`. The
-premise is needed. Without it no protocol exists: `local_` makes the invariant insensitive to
+window is writable. This is what the library provides at each call of `in` and `out`.
+Without the premise no protocol exists: `local_` makes the invariant insensitive to
 every block outside `own`, and `disjoint` puts the state block outside `own`. The invariant
 would then also hold on a heap whose state block holds two objects, and no step from that heap
-can end in a well-formed heap with that block unchanged. Both facts have Lean proofs, which
-are not among the theorems of the library. First, a protocol whose steps are required on every
-heap that satisfies its invariant has an invariant that no heap and log satisfy. Second, every
-such protocol is also a protocol with the `CallbackEntry` premise, with the same invariant. So
-the premise makes the goals stronger, not weaker.
+can end in a well-formed heap with that block unchanged. So a protocol whose steps are required
+on every heap that satisfies its invariant has an invariant that no heap and log satisfy. Every
+such protocol is also a protocol with the `CallbackEntry` premise, with the same invariant.
+Both facts have Lean proofs, which are not among the theorems of the library.
 
 `Goal.inflateBack_call_domain` shows that the premises can be met. It gives a concrete
 history: `inflateBackInit_` on the witness heap, then a caller's edit of `next_in` and
 `avail_in`. The callbacks are concrete: `noInput` reports the end of input, and `takeOutput`
 accepts every chunk. The protocol `witnessProtocol` owns one block. The first chunk has two
 bytes in a heap byte block. Every premise of the call clause of `Goal.inflateBack_safety` holds
-on them together. The witness has limits. Its input callback delivers no bytes: all input of
+on them together. The input callback delivers no bytes: all input of
 the witness call is the caller's first chunk. The two bytes are not a valid deflate stream, so
-the witness call ends with an error code. The goal shows that the premises are satisfiable. It
-does not show that every kind of protocol is.
+the witness call ends with an error code. Not covered: a witness whose `in` callback delivers
+bytes, or whose call returns `Z_STREAM_END`.
 
 "Changes only its own blocks" (`ExternalFrame`) allows a callback to allocate and free blocks
 of its own. Every block it creates is one of its own, and the heap stays well formed. It cannot
@@ -210,7 +205,7 @@ the stream `r` with state block `i` over the caller's window of `n` bytes.
 
 | Constructor | Step |
 | --- | --- |
-| `init` | A successful `inflateBackInit_` from caller storage in `BackInitArguments` (the `state` field of the stream record may hold any value), with `stream_size = 112`, `8 ≤ windowBits ≤ 15` and a non-`NULL` writable window in a heap byte block. |
+| `init` | A successful `inflateBackInit_` from caller storage in `BackInitArguments`, with `stream_size = 112`, `8 ≤ windowBits ≤ 15` and a non-`NULL` writable window in a heap byte block. |
 | `caller` | The caller changes memory the stream does not own and the four buffer fields of the stream record (`Rebuffer`). The heap stays well formed, the bytes of the window slice are kept, and no block that stays live changes its read-only flag. |
 | `step` | An `inflateBack` call that returned. Its first chunk was readable and separate from the window, the protocol's invariant held at the call, and the platform premises held (`ByteObjectsFit` at the call, `BackPlatform`, `BackFirstChunk`). |
 
@@ -339,8 +334,7 @@ for the window premise.
 ## Functional results that stay
 
 Each of the three functions has a functional contract, and there is a functional sequence
-goal `Goal.inflate_back_sequence`. None is required for the safety results. Two of the four
-are done:
+goal `Goal.inflate_back_sequence`. Two of the four are done:
 
 - `Goal.inflateBackInit_` (`back_init_public`) and `Goal.inflateBackEnd` (`back_end_public`):
   the full contracts of the two lifecycle functions. Clause 4 of the safety goal uses

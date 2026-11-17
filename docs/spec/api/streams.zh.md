@@ -1,4 +1,4 @@
-<!-- source-sha256: db103694cc7b97847852521ed011ae579c739edd1be6e58496dfa2bd8eb25ccd -->
+<!-- source-sha256: d1c8c5f854043028970e38944ad1072c6d085cb19b5a1c8c2dc9f06b2ef9efb4 -->
 
 # 共享流规则
 
@@ -153,5 +153,3 @@ zlib 字典在压缩开始之前设置。替换裸流的字典需要一个已完
 | [缓冲区工具与库信息](utility.md) | 整缓冲区操作、上界、版本、标志和错误 |
 | [校验和](checksums.md) | Adler-32、CRC-32 及其组合 |
 | [Gzip 文件](gz-file.md) | 文件句柄、I/O、定位和关闭 |
-
-自定义分配器不在本页范围之内。

@@ -16,11 +16,10 @@ function returns the model's bound formula `compressBound`
 | Concrete goal (a safety goal or a functional goal) | A translated call run on the runtime heap, and its effects. |
 
 A theorem about a model relation is not a theorem about a C function. For example,
-`ZlibF.Spec.Api.Goal.roundtrip` is a proved statement about the model only. The planned round
+`ZlibF.Spec.Api.Goal.roundtrip` is a proved statement about the model only. The round
 trip of the default zlib stream is a different statement: it is about runs of the translated
-`deflate` and `inflate`, and it is not done. Its conditional form has a theorem,
-`deflate_inflate_roundtrip`, which [architecture](architecture.md#the-layers) states;
-completeness and the unconditional form have none ([progress](../progress.md)).
+`deflate` and `inflate`, and it is not done. A conditional form has a theorem,
+`deflate_inflate_roundtrip`, which [architecture](architecture.md#the-layers) states.
 
 To say something about the C, a functional claim needs three connections:
 

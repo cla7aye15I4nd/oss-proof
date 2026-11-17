@@ -135,7 +135,6 @@ ownership rules.
 **What is proved.** Safety only: the goal named under **Proof goals**, under the conditions
 listed there. The contract and the goal can differ:
 
-- Where Pre is narrower than the goal's conditions, the goal still covers the wider domain.
 - Where the goal's conditions are narrower than `zlib.h`,
   [deviations](../../deviations.md) has a row.
 - Post describes functional behaviour: return values, output bytes, state changes. It is read

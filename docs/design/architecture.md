@@ -30,10 +30,10 @@ flowchart TD
 
 Only the path through *Execution proofs* is required for the safety results: no fault,
 termination, frame and ownership, composed over call sequences. The path through *Refinement
-proofs* gives functional correctness. It is not required for the safety results.
+proofs* gives functional correctness.
 
-One functional result is planned: the round trip of the default zlib stream. It is not done.
-Its conditional form has a theorem. The theorem
+The round trip of the default zlib stream, a functional result, is not done. A conditional
+form has a theorem. The theorem
 [`deflate_inflate_roundtrip`](../../ZlibF/Proof/public-deflate-inflate-roundtrip.lean) is about
 two runs of the translated functions. The encoder run is `deflateInit_` at the default level
 (`Z_DEFAULT_COMPRESSION`), then `deflate` calls with any flush values. The decoder run is
@@ -52,12 +52,10 @@ these:
 
 When both runs have returned `Z_STREAM_END` and the bytes the decoder consumed are a prefix of
 the bytes the encoder wrote, the bytes the decoder wrote are the bytes the encoder consumed.
-The theorem is conditional: it assumes that both runs reach `Z_STREAM_END`. No theorem says
-that they do (completeness: the runs reach `Z_STREAM_END` when there is enough room), none
-states the round trip without that condition, and none states `uncompress(compress(x)) = x` for
-the translated C. Completeness and the unconditional round trip are planned and not done. Other
-refinement results have theorems as well; [progress](../progress.md) says which functional
-results are planned.
+Not covered: completeness (that the runs reach `Z_STREAM_END` when there is enough room), the
+round trip without that condition, and `uncompress(compress(x)) = x` for the translated C.
+Other refinement results have theorems as well; [progress](../progress.md) says which
+functional results are planned.
 
 ## The model in a few definitions
 
@@ -140,7 +138,7 @@ line.
 
 The target is the default x86_64 Linux static build with LP64 widths and the default
 allocator. Allocation failure is in scope. Other build configurations and custom allocator
-implementations are not planned; [deviations](../deviations.md) records the limit.
+implementations are not covered; [deviations](../deviations.md) records the limit.
 The upstream source is never edited. A patch is permitted only for a confirmed upstream bug;
 the [patch register](../../patches/README.md) lists the patches.
 
@@ -372,7 +370,7 @@ The table gives each decision and its consequence.
 | 2 | Proof automation is local | Every generated proof term is checked by the kernel; no assumed verification-condition generator replaces a proof |
 | 3 | The C is translated by hand, statement by statement | The correspondence rests on review; differential tests are evidence |
 | 4 | The compressor's overlapping pending and symbol storage is modelled as in C | Its lifetime and non-overwrite conditions are proved for every admitted memory level ([trees](../proof/trees.md)) |
-| 5 | Fresh integer cells have arbitrary values and fresh pointers are NULL | Theorems quantify over integer garbage; that pointer fields are written before they are read is **to confirm** by source review, because no theorem can state it in this model |
+| 5 | Fresh integer cells have arbitrary values and fresh pointers are NULL | Theorems quantify over integer garbage; a missing write of a pointer field does not show in the model ([above](#where-the-model-differs-from-c)) |
 | 6 | Records have no ABI byte layout | A byte view of a record, and an alias between a scalar and a buffer, are outside the model |
 
 ## Composing calls without assuming their answers

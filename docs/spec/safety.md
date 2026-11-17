@@ -105,9 +105,9 @@ facts.
 
 ## What is proved, what is assumed
 
-**Proved.** There are 99 required goals: the safety goal of each of the 86 documented functions,
-four sequence goals, three refusal goals, the goal of `gzvprintf`, and five non-vacuity goals.
-Each has a theorem of exactly its type: all of them are done. The
+**Proved.** Every required goal is done: it has a theorem of exactly its type. The required goals
+are the safety goal of each documented function, the goal of `gzvprintf`, the sequence goals,
+the refusal goals and the non-vacuity goals. The
 [appendix](#where-the-goals-are) names them by function, and
 [progress](../progress.md#functions) lists every goal.
 
@@ -418,16 +418,10 @@ The definitions are [Ptr.add and Ptr.diff](../../ZlibF/Runtime/Ptr.lean) and the
 [compressor helper](../../ZlibF/Zlib/compress.c.lean). The table is about pointer values, not
 about the spelling `NULL`, which can also be an integer constant.
 
-Why the two operations are not settled: C11
-([N1570, section 6.5.6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)) and the
-C23 draft ([N3096, section 6.5.6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf))
-define pointer arithmetic and subtraction only for pointers into an array, and a null pointer
-points to no array element. [N3261](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3261.pdf)
-proposes to define the two null operations in a later revision; a proposal is not a rule of
-this project's C target. A differential test that agrees and a silent sanitizer do not settle
-it either. The comment on `Ptr.diff` in the runtime says the same about the subtraction: C17 and
-C23 leave `NULL - NULL` undefined, since neither operand points into an array object, and C++
-defines it as 0.
+C11 ([N1570, section 6.5.6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)) and
+the C23 draft ([N3096, section 6.5.6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf))
+define pointer addition and subtraction only for pointers into an array object, and a null
+pointer points into none. So these texts define neither `NULL + 0` nor `NULL - NULL`.
 
 ### Uninitialised memory
 

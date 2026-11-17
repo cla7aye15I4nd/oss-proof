@@ -70,10 +70,9 @@ condition qualifies the abstract rejection/completion claims; it is not a public
 restriction.
 
 The constant `detectLag = 8` does not describe actual inflate. A dynamic-table prefix can be
-impossible at byte 230 while a call consumes 281 bytes and returns `Z_OK`. Thus a theorem about
-`Goal.inflate_rejects_invalid` would establish a model property, not this implementation timing
-claim. The public input domain is not changed to hide the discrepancy; model-only statements
-are not planned ([progress](../progress.md)).
+impossible at byte 230 while a call consumes 281 bytes and returns `Z_OK`. So
+`Goal.inflate_rejects_invalid` states a property of the model, not when this implementation
+reports an error.
 
 `InflRunOk` describes cursor progress, totals, return codes, stopping, format clauses, checksums
 and requested header fields. `InflRunMem` describes failure to allocate the history window at

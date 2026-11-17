@@ -165,16 +165,15 @@ the build.
 
 ### The hang of `crc32_combine_op` outside its domain
 
-`multmodp` scans bits 31 down to 0 of its first operand. If the low word is zero, the mask
-reaches zero and the C loop never terminates. `crc32_combine_op` handles `op == 0` before it
-calls `multmodp`, and a generated operator has a nonzero low word, so the documented use
-terminates: that is the content of `Goal.crc32_combine_op_safety`. An arbitrary nonzero 64-bit
-value is not in the documented domain. For `crc32_combine_op(1, 2, 1UL << 32)`,
-`crc32_combine_op_diverges` proves that the translation runs out of fuel. The real C was
-reported not to return on that call in two runs with a timeout. No reproduction of that report
-is kept ([findings](../findings.md#unconfirmed-observations)). So the behaviour of the C on
-this call is a report, and the theorem is about the translation. The hang is a misuse outside
-the documented domain, not a defect within it.
+`multmodp` scans bits 31 down to 0 of its first operand and leaves its loop at the lowest set
+bit. `crc32_combine_op` returns 0 for `op == 0` before it calls `multmodp`, and an operator that
+`crc32_combine_gen` or `crc32_combine_gen64` returned is 0 or has a set bit among its low 32
+bits.
+`Goal.crc32_combine_op_safety` states that the call returns for every such operator; it does
+not cover any other `op`. For a nonzero `op` whose low 32 bits are zero, for example
+`crc32_combine_op(1, 2, 1UL << 32)`, the theorem `crc32_combine_op_diverges` proves that the
+translation runs out of fuel. For the C this is a reading of the source, which has the same
+loop: the mask reaches zero and the loop never ends.
 
 ## Evidence for the static tables
 

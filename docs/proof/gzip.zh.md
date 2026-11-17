@@ -1,4 +1,4 @@
-<!-- source-sha256: b3bd97ff3f31d3ef4413f1d345434782bfd0ce47a52d27289f01046b6844f9ab -->
+<!-- source-sha256: aba764c5ee963cc0ec76c4f2449abdce00b8e90bd0ab9fb53987846432b6549b -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -27,7 +27,7 @@ gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以�
 - `gzopen` 和 `gzopen64`：子句 6。`gzdopen`：子句 7。
 
 这些证明使用 `gz_sequence_safety_public`；对 `NULL` 的拒绝通过求值成立。所以本页余下讲序列目标的内容，同时也就是单函数目标的证明。
-每个函数另有一个功能契约 `Goal.<function>`。这些契约不是必需的；哪些已完成，见[最后一节](#functional-results-that-stay)。
+每个函数另有一个功能契约 `Goal.<function>`。这些契约不是必需的；哪些有定理，见[最后一节](#functional-results)。
 
 序列目标覆盖下面这样的程序。注释指出覆盖每个调用的是目标的哪个子句。
 
@@ -97,7 +97,7 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 
 ### 为什么要读取预算
 
-有限的预算是真实的要求，不是模型造成的假象。一个无穷的输入源会让一次 `gzread` 调用在 C 中永远运行：无穷的 `FNAME`
+一个无穷的输入源会让一次 `gzread` 调用在 C 中永远运行：无穷的 `FNAME`
 字段，或者无穷多个空的 gzip 成员。`zlib.h` 没有承诺读调用在这样的输入源上会返回。
 
 `2^61` 这个数字是模型的限制。模型的一个循环有 `2^64` 轮燃料。读循环由度量界定，度量由剩余输入、读取预算和还要交付的字节构成。低于
@@ -109,20 +109,16 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 ## 源码报告与补丁
 
 不变量之所以是这个形式，是因为未打补丁的 C 有六处缺陷。下表每处一行。[发现](../findings.md)列出它们及其复现；补丁以
-`patches/README.md` 中的列表为准。
+`patches/README.md` 中的列表为准。补丁 0002 和 0003 已提交上游；补丁 0004 和 0005 是本地补丁。
 
-- 负的定位位置，以及部分读取之后出错，这两项已在 sanitizer 下复现。它们的修复已提交上游，并作为补丁 0002 和 0003 应用。
-- 两项位置溢出已在 sanitizer 下复现。未写入的指针和调用者缓冲区的生命期这两项，按 C 的条文是未定义的，没有 sanitizer
-  报告它们。这四项的修复是本地补丁 0004 和 0005，它们没有提交上游。
-
-| 情形 | 未打补丁的 C 的行为 | 修复与证据 |
+| 情形 | 未打补丁的 C 的行为 | 证据与修复 |
 | --- | --- | --- |
-| 负的定位位置 | 在一开始的 `gzungetc` 之后，`GZ_OFF_MAX - pos` 或者后来的位置差使有符号 64 位算术溢出。 | 已复现：[gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md)。上游 [PR 1361](https://github.com/madler/zlib/pull/1361)，作为补丁 0002 应用。该拉取请求处于打开状态。 |
-| 部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已复现：[gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md)。上游 [PR 1363](https://github.com/madler/zlib/pull/1363)，作为补丁 0003 应用。该拉取请求处于打开状态。 |
-| 未写入的指针 | `gz_reset` 没有写 `x.next`；`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-reset-next-uninitialised/README.md)，用探针展示。本地补丁 0005 只在计数非零时推进 `x.next`。初始化为 `NULL` 不行：`NULL + 0` 在 C 中是未定义的。 |
-| 调用者缓冲区的生命期 | 直接读取把 `x.next` 指进调用者的缓冲区，并在 `x.have = 0` 时保留它。调用者释放缓冲区之后，`gzseek64` 和 `gz_skip_have` 给它加零。 | [发现](../findings/gz-next-dangling-after-direct-read/README.md)，用探针展示。本地补丁 0005。`gzseek64_dangling_next_ok` 表明打过补丁的定位不使用这个指针。 |
-| 读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已复现：[gzread-pos-overflow](../findings/gzread-pos-overflow/README.md)。本地补丁 0004 在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
-| 写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已复现：[gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md)。本地补丁 0004 拒绝会越过 `GZ_OFF_MAX` 的写入。 |
+| 负的定位位置 | 在一开始的 `gzungetc` 之后，`GZ_OFF_MAX - pos` 或者后来的位置差使有符号 64 位算术溢出。 | 已在 sanitizer 下复现：[gzseek-pushback-overflow](../findings/gzseek-pushback-overflow/README.md)。补丁 0002，上游 [PR 1361](https://github.com/madler/zlib/pull/1361)。 |
+| 部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已在 sanitizer 下复现：[gzread-transparent-stale-next](../findings/gzread-transparent-stale-next/README.md)。补丁 0003，上游 [PR 1363](https://github.com/madler/zlib/pull/1363)。 |
+| 未写入的指针 | `gz_reset` 没有写 `x.next`；`gzseek64` 和 `gz_skip_have` 给它加零。 | 按 C 的条文是未定义的；没有 sanitizer 报告它：[gz-reset-next-uninitialised](../findings/gz-reset-next-uninitialised/README.md)。补丁 0005 只在计数非零时推进 `x.next`。 |
+| 调用者缓冲区的生命期 | 直接读取把 `x.next` 指进调用者的缓冲区，并在 `x.have = 0` 时保留它。调用者释放缓冲区之后，`gzseek64` 和 `gz_skip_have` 给它加零。 | 按 C 的条文是未定义的；没有 sanitizer 报告它：[gz-next-dangling-after-direct-read](../findings/gz-next-dangling-after-direct-read/README.md)。补丁 0005。`gzseek64_dangling_next_ok` 表明打过补丁的定位不使用这个指针。 |
+| 读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已在 sanitizer 下复现：[gzread-pos-overflow](../findings/gzread-pos-overflow/README.md)。补丁 0004 在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
+| 写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已在 sanitizer 下复现：[gzwrite-pos-overflow](../findings/gzwrite-pos-overflow/README.md)。补丁 0004 拒绝会越过 `GZ_OFF_MAX` 的写入。 |
 
 ## 历史
 
@@ -379,9 +375,8 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 `write` 返回 `-1`，或者返回 1 到长度之间的一个计数（`fsWrite_contract`）。这就是[上文](#trusted-not-in-the-statement-the-world-model)关于
 `write` 的受信任事实。deflate 循环有它自己的度量，只要循环继续，它就下降。
 
-模型中没有哪个世界的 `write` 会对非空缓冲区返回 0，所以对于有这种 `write` 的系统，目标什么都没有说。对模型中的世界，子句 2 的 (b)
-部分说每个写调用都会返回。**尚未由证明确认**：按对 C 的解读，一个永远返回 0 的 `write` 会让 `gz_comp`
-永远循环，因为两个写循环在计数为 0 时都不前进。没有定理陈述这一点。
+不涵盖：`write` 会对非空缓冲区返回 0 的系统。**尚未由证明确认**：按对 C 的解读，一个永远返回 0 的 `write` 会让 `gz_comp`
+永远循环，因为两个写循环在计数为 0 时都不前进。
 
 `gzvprintf` 在 `next[size - 1]` 处写一个哨兵，并以容量 `size` 做格式化。长度落在 `1..size-1` 之外，或者哨兵丢失，`gzvprintf` 就拒绝这个结果。
 
@@ -431,15 +426,15 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 所以子句 2，以及它对读调用的 (b) 部分，适用于一次长度非零的真实调用。
 
-## 保留的功能结论
+## 功能结论
 
 31 个有文档的 gz 函数和 `gzvprintf` 各有一个功能契约 `Goal.<function>`：共 32
-个目标。安全结论不需要其中任何一个。其中八个已完成：
+个目标。安全结论不需要其中任何一个。其中八个有定理：
 
-- `Goal.gzbuffer`、`Goal.gzeof`、`Goal.gzerror`、`Goal.gzclearerr`、`Goal.gzdopen`：单个函数的完整契约。
-- `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`：针对普通文件的世界表述（前提 `RegularOs fs`）。
+- `Goal.gzbuffer`、`Goal.gzeof`、`Goal.gzerror`、`Goal.gzclearerr`、`Goal.gzdopen`：各函数的完整契约：`gzbuffer` 存入的大小（至少为 8）及其拒绝，`gzeof` 的返回值，`gzerror` 的错误码和借用的消息，`gzclearerr` 复位的状态，以及 `gzdopen` 对描述符的拒绝或接管。
+- `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`：描述符的位置减去读句柄已缓冲的压缩输入，以及定位回起点并复位读句柄的状态。它们针对普通文件的世界表述（前提 `RegularOs fs`）。
 
-未完成，也不在计划内；安全结论用不到它们：
+没有定理陈述下面这些：
 
 - 其余 24 个功能契约：`Goal.gzopen`、`Goal.gzopen64`、`Goal.gzclose`、`Goal.gzclose_r`、`Goal.gzclose_w`、`Goal.gzread`、`Goal.gzfread`、`Goal.gzgetc`、`Goal.gzgetc_`、`Goal.gzungetc`、`Goal.gzgets`、`Goal.gzdirect`、`Goal.gzwrite`、`Goal.gzfwrite`、`Goal.gzputc`、`Goal.gzputs`、`Goal.gzprintf`、`Goal.gzvprintf`、`Goal.gzflush`、`Goal.gzsetparams`、`Goal.gzseek`、`Goal.gzseek64`、`Goal.gztell`
   和 `Goal.gztell64`；

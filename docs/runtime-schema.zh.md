@@ -1,4 +1,4 @@
-<!-- source-sha256: f2060cf3e2fcb4018b34c1c923cd085707b68b22201a4dbdee079c2a9f7d1caf -->
+<!-- source-sha256: 274769415305b8db4d9fbfd53d16434ecf25dab1ff029ad40235c68ceebdbd57 -->
 # 运行时结构：对象堆上的 zlib 结构体
 
 本页说明 zlib 的每个结构体在 Lean 模型中如何表示：每个字段一行，给出 C 类型、Lean 类型和原因。
@@ -42,13 +42,13 @@ Lean 记录和本页的表格是一起生成的：生成器通过 clang 的 JSON
   引理 `Heap.RecordsWellFormed.set_*`、`clear_*` 和 `*.put_*_wf` 证明写入保持良构性。
 * **静态表的内容。** `Statics` 保存数组；`Statics.WellFormed` 表示每个数组都具有声明的长度。
   数值由 `trees.c`、`inffixed.h`、`crc32.c` 的翻译确定（各自由读取 C 源码的生成器产生），
-  在此之前作为定理的假设。生成器不将这些值与 C 比较。
+  需要这些数值的定理把它们写成假设。生成器不将这些值与 C 比较。
 * **表。** 堆中的表采用 `Tbl`（将 `Array` 看作块编号到元素的函数），使写入原语可以原地更新；
   见[可信基础](trusted-base.md)第 2 项。
 * **与枚举项重名的宏。** `COPY` 既是 `inflate.h` 中的枚举项（16195），又是 `gzguts.h` 中的宏（1）。
   枚举项保留名称 `COPY`；宏对应常量 `GZ_COPY`。
 * **分配。** 如果下一个块编号已被占用，`allocK` 会产生故障，因此堆必须满足 `Fresh`
-  （`Fresh.slotUsed_next`；策略 `fresh_slot` 从 `Fresh h` 解除 `allocK_some` 的假设）。
+  （`Fresh.slotUsed_next` 从 `Fresh h` 给出引理 `allocK_some` 所要求的假设）。
   直接写入（`stK`）数组长度错误的记录不会产生故障。
 * **两类状态之间的转换**在转换时即产生故障；在 C 中，只有访问时才产生故障。
 

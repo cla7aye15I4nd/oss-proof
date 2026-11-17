@@ -139,10 +139,10 @@ flowchart LR
 
 | 章节 | 沿着例子理解…… |
 | --- | --- |
-| [1. 一次完整的任务](guide/round-trip.md) | 原始字节 → 压缩字节 → 恢复出的字节；开始、处理和释放。 |
-| [2. 重复、编码与块](guide/encoding.md) | 重叠的历史复制、Huffman 编码和块的选择。 |
+| [1. 一次完整任务](guide/round-trip.md) | 原始字节 → 压缩字节 → 恢复出的字节；开始、处理和释放。 |
+| [2. 重复、编码与数据块](guide/encoding.md) | 重叠的历史复制、Huffman 编码和块的选择。 |
 | [3. 流式处理](guide/streaming.md) | 缓冲区耗尽、保留的比特与历史，以及精确的续接。 |
-| [4. 格式与完整性校验](guide/wrappers.md) | 共用的 DEFLATE 主体、封装条件和尾部校验。 |
+| [4. 格式与完整性检查](guide/wrappers.md) | 共用的 DEFLATE 主体、封装条件和尾部校验。 |
 | [5. 状态操作](guide/state-operations.md) | 为下一个任务重置、为检查点复制、字典与刷新。 |
 | [6. 应用接口](guide/interfaces.md) | 整缓冲区、回调、gzip 文件和逻辑定位。 |
 

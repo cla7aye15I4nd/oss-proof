@@ -24,7 +24,7 @@
     },
     "summary": {
       "zh": "读完固定块头后，解码器需要把格式规定的编码表装到真实状态中。这条结果跟随 TYPEDO 尾部进入读取符号前的 LEN_ 状态，在返回堆上建立表不变量 DataTableInvariant；表指针对应实际静态数组。",
-      "en": "After reading a fixed-block header, the decoder must install the format’s actual tables. The actual fixed-block TYPEDO tail enters LEN_ and establishes DataTableInvariant on the returned heap. Fixed pointers are connected to the actual static arrays rather than assuming table safety from the caller."
+      "en": "After reading a fixed-block header, the decoder must install the format’s actual tables. The actual fixed-block TYPEDO tail enters LEN_ and establishes DataTableInvariant on the returned heap. Fixed pointers are connected to the actual static arrays."
     },
     "path": "ZlibF/Proof/inflate.c.table-invariant.lean",
     "declaration": "typedoTail_fixed_tableInvariant",
@@ -46,8 +46,8 @@
     "path": "ZlibF/Proof/inftrees.c.content.result.lean",
     "declaration": "inflate_table_construction",
     "premise": {
-      "zh": "调用前提 CallPre 要求码长输入可读、目标表容量可写，并满足相应分离条件。这条结果不把构造出的内容与解码器使用的表关系和实际调用状态联系起来；它不是整个流的解码正确性。",
-      "en": "CallPre describes the internal call’s readable input, writable table storage, and separation. CallPre supplies the length input, writable capacities, separation, and other internal call conditions. It does not relate the constructed contents to the predicates the decoder uses or to the actual call state; it is not whole-stream decoding correctness."
+      "zh": "调用前提 CallPre 要求码长输入可读、目标表容量可写、满足相应分离条件，并包含其他内部调用条件。这条结果不把构造出的内容与解码器使用的表关系和实际调用状态联系起来；它不是整个流的解码正确性。",
+      "en": "CallPre describes the internal call’s readable length input, writable table capacities, separation, and other internal call conditions. It does not relate the constructed contents to the predicates the decoder uses or to the actual call state; it is not whole-stream decoding correctness."
     }
   },
   {
@@ -63,8 +63,8 @@
     "path": "ZlibF/Proof/inflate.c.default-view-loop.lean",
     "declaration": "inflate_default_view_loop",
     "premise": {
-      "zh": "需要有效运行环境 Env、状态条件 DefaultStateJ、分派缓冲区条件 DispatchBuffers，且进入时缓冲位不超过 39。结果不包含公开入口完整定义域、公共退出路径或所有权后置条件。",
-      "en": "DefaultStateJ relates actual fields to a usable decoding state; DispatchBuffers describes this internal call’s buffers. Requires Env, DefaultStateJ, DispatchBuffers, and at most 39 incoming buffered bits. The theorem does not include the complete public entry domain, leave path, or ownership postcondition."
+      "zh": "需要有效运行环境 Env、状态条件 DefaultStateJ、分派缓冲区条件 DispatchBuffers、局部头部条件 HeaderLocal，且进入时缓冲位不超过 39。结果不包含公开入口完整定义域、公共退出路径或所有权后置条件。",
+      "en": "DefaultStateJ relates actual fields to a usable decoding state; DispatchBuffers describes this internal call’s buffers. Requires Env, DefaultStateJ, DispatchBuffers, the local-header condition HeaderLocal, and at most 39 incoming buffered bits. The theorem does not include the complete public entry domain, leave path, or ownership postcondition."
     }
   },
   {
@@ -82,23 +82,6 @@
     "premise": {
       "zh": "context.strm 必须指向所述流。StreamFrameX 描述“执行已经成功返回时，固定字段保持不变”这一条件性结论。它本身不说明执行是否存在、能否终止、是否无故障，也不说明输出内容。",
       "en": "Requires context.strm to identify the stream. StreamFrameX is conditional on an already successful execution equation and states fixed-field preservation only. By itself it does not establish execution existence, termination, fault freedom, or correct output."
-    }
-  },
-  {
-    "engine": "inflate",
-    "topic": {
-      "zh": "返回游标记账",
-      "en": "Return-cursor accounting"
-    },
-    "summary": {
-      "zh": "返回时，公开流中的指针和可用量必须反映本轮真正的进展。这条结果对默认内部函数体的每个返回码建立记账关系 StreamAccounting：字典请求 DICT 的直接出口发布局部游标，窗口分配失败仍通过 RESTORE 写回已消费和已产生的数量。",
-      "en": "A return must publish how far input and output actually moved. Establishes StreamAccounting on every return code of the complete default internal body. Direct DICT exits publish local cursors; window-allocation failure still runs RESTORE and retains exact consumed and produced counts."
-    },
-    "path": "ZlibF/Proof/inflate.c.all-return-accounting.lean",
-    "declaration": "inflate_body_default_all_return_accounting",
-    "premise": {
-      "zh": "需要运行环境 Env、状态条件 DefaultStateJ、默认分配器、公开缓冲区条件 StreamBuffers，以及直接字节块分离条件 RawFastIO。这条结果只处理游标和可用量，不给出整个生命周期累计计数器的结论，也不扩大到所有公开参数和历史。",
-      "en": "Requires Env, DefaultStateJ, the default allocator, StreamBuffers, and RawFastIO. This lemma isolates cursor/available-count accounting. It asserts no lifetime-total-counter conclusion and does not extend the result to every public parameter and history."
     }
   },
   {
@@ -233,8 +216,8 @@
     "path": "ZlibF/Proof/deflate.c.engine.fixed-block-output.lean",
     "declaration": "fixed_block_final_valid",
     "premise": {
-      "zh": "需要压缩器有效状态 DGood、树状态 TreesInvAt、有效的打包符号及其位轨迹 Trace。lit_bufsize 为默认的 16384，待交付字节数和缓冲位数都为零，输出游标位于基址，并有至少 63488 字节的直接输出容量。树的准备、分支选择、zlib 封装和公开的 deflate 目标不在这条结果内。",
-      "en": "DGood and TreesInvAt describe valid compressor and tree states; Trace connects packed symbols to the writer’s bits. Requires DGood, TreesInvAt, packed valid symbols and Trace, default lit_bufsize 16384, zero pending/buffered bits, the base pending cursor, and at least 63488 bytes of raw output capacity. Tree preparation, branch selection, zlib wrappers, and the public deflate target are outside this theorem."
+      "zh": "需要压缩器有效状态 DGood、树状态 TreesInvAt、公开缓冲区条件 StreamBuffers、有效的打包符号及其位轨迹 Trace。lit_bufsize 为默认的 16384，待交付字节数和缓冲位数都为零，输出游标位于基址，并有至少 63488 字节的直接输出容量。树的准备、分支选择、zlib 封装和公开的 deflate 目标不在这条结果内。",
+      "en": "DGood and TreesInvAt describe valid compressor and tree states; Trace connects packed symbols to the writer’s bits. Requires DGood, TreesInvAt, the public buffer condition StreamBuffers, packed valid symbols and Trace, default lit_bufsize 16384, zero pending/buffered bits, the base pending cursor, and at least 63488 bytes of raw output capacity. Tree preparation, branch selection, zlib wrappers, and the public deflate target are outside this theorem."
     }
   },
   {

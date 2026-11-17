@@ -1,4 +1,4 @@
-<!-- source-sha256: e8c81cec9164a0f205b7da29166314735417f223466c7f289ab4857e47130928 -->
+<!-- source-sha256: a7246900e706e252c06a6a5d504b78b2c6139984fb635701c2e1401ee0998f86 -->
 
 # 流式压缩
 
@@ -14,7 +14,7 @@
 | 调整或分支 | [参数](#deflateparams)、[调优](#deflatetune)、[位预置](#deflateprime)、[复制](#deflatecopy) |
 | 释放存储 | [结束](#deflateend) |
 
-这些契约遵循固定版本的 zlib 在应用各[补丁](../../../patches/README.md)之后的 `zlib.h` 和 `deflate.c`，采用默认 LP64 Linux 构建。六个补丁中只有补丁 0006 改动 `deflate.c`。它修改 `deflateBound_z` 中的一个条件：策略为 `Z_FIXED` 时，窗口为 15、内存级别为 8 的流得到两个保守上界之一，而未打补丁的 C 在这种情况下返回紧的上界。`deflateBound` 调用 `deflateBound_z`，所以它的结果也随之改变。这个补丁不改动其他函数。这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。前置条件之外、C 仍会处理的情况，写在“错误”或**聚焦范围之外**下。超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。定义域和效果标签的含义见[契约约定](contracts.md)。
+这些契约遵循固定版本的 zlib 在应用各[补丁](../../../patches/README.md)之后的 `zlib.h` 和 `deflate.c`，采用默认 LP64 Linux 构建。六个补丁中只有补丁 0006 改动 `deflate.c`。它修改 `deflateBound_z` 中的一个条件，`deflateBound` 调用 `deflateBound_z`，其结果也随之改变；改动的内容见条目 [deflateBound_z](#deflatebound_z)。这个补丁不改动其他函数。这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。前置条件之外、C 仍会处理的情况，写在“错误”或**聚焦范围之外**下。超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。定义域和效果标签的含义见[契约约定](contracts.md)。
 
 **已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有定理陈述的，都**尚未由证明确认**；安全结论不需要它们。哪些目标已完成，见[进度](../../progress.md)。
 
@@ -57,10 +57,6 @@ int ZEXPORT deflateInit_(z_streamp strm, int level, const char *version, int str
 | `Z_MEM_ERROR`<br>**状态分配失败** | 首项状态分配失败；state 保持进入时的值，没有新分配的块存活。 | 处理内存不足后可按初始化的前置条件重试；无需为此次失败调用 deflateEnd。 |
 | `Z_MEM_ERROR`<br>**缓冲分配失败并已清理** | 状态分配成功后，四项缓冲分配全部尝试；任何失败都会释放所有新块，state 变为 NULL，msg 报告内存不足。 | 此调用已完成清理；处理内存不足后可重新初始化。 |
 
-**判读要点。**
-
-- 不消费输入、不写输出。级别 -1 选择 6。
-
 ### 调用条件与效果 {#api-deflateinit_-contract}
 
 **定义域：** 受限定义域。**效果：** 分配并初始化。
@@ -74,12 +70,12 @@ int ZEXPORT deflateInit_(z_streamp strm, int level, const char *version, int str
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. `version` 为 NULL，或其首字节可读（`VersionValue`）；
     3. `strm` 为 NULL；或者指向一个可读的流记录，其 `zalloc` 和 `zfree` 各自为 NULL 或默认函数（`DefaultOrNull`）。
-- **无条件覆盖。** 每一个 `level`，无论是否有效；每一个 `stream_size`；`version` 首字节的每一个取值；记录中其他字段的每一个取值，包括 `state`；每一种分配结果。本目标比前置条件宽：它还覆盖 `strm` 为 NULL、版本或 `stream_size` 不对，以及 `state` 不为 NULL 的记录。如果该记录原本是一个存活流，调用仍然返回，但旧状态仍处于已分配状态，而记录不再指向它：账本如实记下这次泄漏，并不排除它。
+- **无条件覆盖。** 每一个 `level`，无论是否有效；每一个 `stream_size`；`version` 首字节的每一个取值；记录中其他字段的每一个取值，包括 `state`；每一种分配结果。如果记录原本是一个存活流，调用仍然返回，但旧状态仍处于已分配状态，而记录不再指向它：账本如实记下这次泄漏，并不排除它。
 - **保证**（`InitResultSafe`）。
     - *返回。* 调用返回。`strm` 为 NULL 时，返回值是 `Z_VERSION_ERROR` 或 `Z_STREAM_ERROR`。
     - *状态。* 返回 `Z_OK` 时，`strm` 是可达流。
     - *写入。* `strm` 为 NULL 时不写任何内容：堆不变。否则只写流记录和调用自己分配的块。
-    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。因此这里的“无泄漏”只针对调用自己的分配：调用前记录所指向的状态仍处于已分配状态。
+    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。
 - **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。各种拒绝和各种分配失败分别返回哪个状态码，以及调用之后各字段的值：功能目标 `Goal.deflateInit_`（不在计划内；已有定理证明它）。确实存在返回 `Z_OK` 的调用：`Goal.deflate_initialisation_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateInit_"><summary>完整返回条件与边界</summary>
@@ -118,7 +114,7 @@ int ZEXPORT deflateInit2_(z_streamp strm, int level, int method, int windowBits,
 
 **判读要点。**
 
-- 不消费输入、不写输出。级别 -1 选择 6。
+- 级别 -1 选择 6。
 
 ### 调用条件与效果 {#api-deflateinit2_-contract}
 
@@ -133,12 +129,12 @@ int ZEXPORT deflateInit2_(z_streamp strm, int level, int method, int windowBits,
     1. 堆是库堆（`Fresh`、`Uniq`、`LibraryGlobals`）；
     2. `version` 为 NULL，或其首字节可读（`VersionValue`）；
     3. `strm` 为 NULL；或者指向一个可读的流记录，其 `zalloc` 和 `zfree` 各自为 NULL 或默认函数（`DefaultOrNull`）。
-- **无条件覆盖。** 每一个 `level`、`method`、`windowBits`、`memLevel` 和 `strategy`，无论是否有效；每一个 `stream_size`；`version` 首字节的每一个取值；记录中其他字段的每一个取值，包括 `state`；每一种分配结果。本目标比前置条件宽：它还覆盖 `strm` 为 NULL、版本或 `stream_size` 不对，以及 `state` 不为 NULL 的记录。如果该记录原本是一个存活流，调用仍然返回，但旧状态仍处于已分配状态，而记录不再指向它：账本如实记下这次泄漏，并不排除它。
+- **无条件覆盖。** 每一个 `level`、`method`、`windowBits`、`memLevel` 和 `strategy`，无论是否有效；每一个 `stream_size`；`version` 首字节的每一个取值；记录中其他字段的每一个取值，包括 `state`；每一种分配结果。如果记录原本是一个存活流，调用仍然返回，但旧状态仍处于已分配状态，而记录不再指向它：账本如实记下这次泄漏，并不排除它。
 - **保证**（`InitResultSafe`）。
     - *返回。* 调用返回。`strm` 为 NULL 时，返回值是 `Z_VERSION_ERROR` 或 `Z_STREAM_ERROR`。
     - *状态。* 返回 `Z_OK` 时，`strm` 是可达流。
     - *写入。* `strm` 为 NULL 时不写任何内容：堆不变。否则只写流记录和调用自己分配的块。
-    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。因此这里的“无泄漏”只针对调用自己的分配：调用前记录所指向的状态仍处于已分配状态。
+    - *分配。* 返回 `Z_OK` 时，调用分配的每个块都是流自己的块，且不释放任何块（`LiveChange`）。返回其他状态码时，已分配的块与调用前相同。
 - **不在本目标内。** `zalloc` 或 `zfree` 是自定义函数的流：在所有目标之外（见[偏离记录](../../deviations.md)）。各种拒绝和各种分配失败分别返回哪个状态码，以及调用之后各字段的值：功能目标 `Goal.deflateInit2_`（不在计划内；已有定理证明它）。确实存在返回 `Z_OK` 的调用：`Goal.deflate_initialisation_domain`（[Safety/Domains.lean](../../../ZlibF/Spec/Safety/Domains.lean)），必需。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateInit2_"><summary>完整返回条件与边界</summary>
@@ -171,10 +167,6 @@ int ZEXPORT deflateSetDictionary(z_streamp strm, const Bytef *dictionary, uInt d
 | --- | --- | --- |
 | `Z_OK`<br>**历史已载入** | 满足字典与流的前置条件；历史保留最多一个窗口的可用后缀，zlib 校验和覆盖完整字典。 | 随后开始压缩；需要预置历史的解码器须获得相同字典。next_in 和 avail_in 已恢复，不交付输出。 |
 | `Z_STREAM_ERROR`<br>**字典条件不满足** | 流检查失败，或使用 gzip、NULL 字典、已离开初始状态的 zlib、预读字节数非零，或裸流不在已完成的块边界；均不改变流。 | 先建立合法的字典调用条件。原有的存活流如果仍在，可改用合法操作或 deflateEnd。 |
-
-**判读要点。**
-
-- 安全目标和功能目标都覆盖在合法块边界处替换裸流的字典，以及第一次 deflate 之前重复的 zlib 调用；重复的 zlib 调用累积 Adler-32。
 
 ### 调用条件与效果 {#api-deflatesetdictionary-contract}
 
@@ -226,10 +218,6 @@ int ZEXPORT deflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
 | `Z_OK`<br>**历史查询完成** | 存活流；dictionary 若非 NULL，接收窗口区域最后 n 个字节；dictLength 若非 NULL，接收 n，其中 n = min(strstart + lookahead, window size)。 | 使用所请求的结果；两种输出可独立省略，流不变，可继续合法调用。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流检查失败；正常操作尚未开始，流和结果单元均未写入。 | 先建立存活流并满足调用的前置条件；这个结果不表示操作已完成。 |
 
-**判读要点。**
-
-- 长度以字节计，包括已接受的预读输入；不保证包含全部历史输入的一个完整窗口。
-
 ### 调用条件与效果 {#api-deflategetdictionary-contract}
 
 **定义域：** 受限定义域。**效果：** 可带输出缓冲区的查询。
@@ -243,7 +231,7 @@ int ZEXPORT deflateGetDictionary(z_streamp strm, Bytef *dictionary, uInt *dictLe
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `dictionary` 为 NULL，或指向 `min(w_size, strstart + lookahead)` 个可写字节（即本次调用复制的字节数），且在流自己的块之外（`CallerRange`）。
-- **无条件覆盖。** 每一个可达流，无论处于哪个阶段：第一次 `deflate` 之前、流的中途、收尾期间，以及 `Z_STREAM_END` 之后。本目标比前置条件宽：前置条件要求整整一个窗口的空间。在翻译中 `dictLength` 是一个值而不是内存（见[共享约定](#shared-conventions)），所以本目标对这个指针没有要求。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **无条件覆盖。** 每一个可达流，无论处于哪个阶段：第一次 `deflate` 之前、流的中途、收尾期间，以及 `Z_STREAM_END` 之后。在翻译中 `dictLength` 是一个值而不是内存（见[共享约定](#shared-conventions)），所以本目标对这个指针没有要求。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`，不存入长度。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
@@ -276,15 +264,11 @@ int ZEXPORT deflateResetKeep(z_streamp strm);
 | `Z_OK`<br>**进度已重置，历史保留** | 存活流处于任意阶段。计数、校验和及封装进度重置；待输出数据和未处理完的预读输入丢弃，gzip 头指针清空。 | 仅在允许引用保留历史的任务中继续；需要空历史时使用 deflateReset。分配仍由流拥有。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流检查失败；正常操作尚未开始，流和结果单元均未写入。 | 先建立存活流并满足调用的前置条件；这个结果不表示操作已完成。 |
 
-**判读要点。**
-
-- 这是一个未文档化的条目。不改变 I/O 指针和可用计数，不分配或释放；保留级别、策略及调优。
-
 ### 调用条件与效果 {#api-deflateresetkeep-contract}
 
 **定义域：** 受限定义域。**效果：** 重置，保留历史和分配。
 
-**前置条件：** 处于任意阶段的存活流。这是一个未文档化的条目；如果下一个压缩流必须从空历史开始，使用 `deflateReset`。
+**前置条件：** 处于任意阶段的存活流。如果下一个压缩流必须从空历史开始，使用 `deflateReset`。
 
 **证明目标。** 没有必需目标：`zlib.h` 把这个函数声明在“`undocumented functions (not part of the zlib API)`”（未文档化的函数，不属于 zlib API）之下。直接调用它也不是 deflate 序列目标中的一步：`StreamOperation` 没有列出它（见[偏离记录](../../deviations.md)中“直接调用 `deflateResetKeep`”一行）。单次调用有功能目标 `Goal.deflateResetKeep`（[Functional/Lifecycle.lean](../../../ZlibF/Spec/Functional/Lifecycle.lean)）（不在计划内；已有定理证明它）：`ZlibF.Spec.Public.DeflateResetKeepProof.deflate_resetkeep_public`（[public-deflate-reset-keep.lean](../../../ZlibF/Proof/public-deflate-reset-keep.lean)）。
 
@@ -314,10 +298,6 @@ int ZEXPORT deflateReset(z_streamp strm);
 | --- | --- | --- |
 | `Z_OK`<br>**已重置为空历史** | 存活流处于任意阶段，包括 Z_STREAM_END 之后。计数、封装及待输出进度重置；历史和字典遗忘，调优恢复为当前级别默认值，gzip 头指针清空。 | 为新任务提供缓冲区；需要时设置它的字典或 gzip 头。最终仍需调用 deflateEnd。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流检查失败；正常操作尚未开始，流和结果单元均未写入。 | 先建立存活流并满足调用的前置条件；这个结果不表示操作已完成。 |
-
-**判读要点。**
-
-- 未完成输入与未交付输出被丢弃；I/O 指针和可用计数不变，级别、策略、封装和内存配置保留。
 
 ### 调用条件与效果 {#api-deflatereset-contract}
 
@@ -363,10 +343,6 @@ int ZEXPORT deflateSetHeader(z_streamp strm, gz_headerp head);
 | --- | --- | --- |
 | `Z_OK`<br>**头指针已设置** | 存活的 gzip 流接受 head；NULL 选择默认头，非 NULL 头仍归调用者所有，尚不复制或输出头部字节。 | 在头部输出完成前保持记录和可选字段有效且不变；继续 deflate。两种重置都会清空指针。 |
 | `Z_STREAM_ERROR`<br>**流不接受 gzip 头** | 流检查失败或封装不是 gzip；不发生变化。 | 在存活的 gzip 流上，按头部调用的前置条件设置；原存活流仍可合法继续或结束。 |
-
-**判读要点。**
-
-- 聚焦用法在第一次 deflate 前设置；较晚的设置虽被接受，却不重写已经输出的头部字节。
 
 ### 调用条件与效果 {#api-deflatesetheader-contract}
 
@@ -420,7 +396,7 @@ int ZEXPORT deflatePending(z_streamp strm, unsigned *pending, int *bits);
 
 **判读要点。**
 
-- 正常压缩历史下 bits 为 0..7；这是当前待输出位数，不是 deflateUsed 的最近刷新位数。
+- bits 是当前待输出位数，不是 deflateUsed 的最近刷新位数。
 
 ### 调用条件与效果 {#api-deflatepending-contract}
 
@@ -446,7 +422,7 @@ int ZEXPORT deflatePending(z_streamp strm, unsigned *pending, int *bits);
 
 **后置条件：** 返回 `Z_OK`。若请求相应结果，`pending` 接收尚未交付的整字节数，`bits` 接收剩余位数（合法压缩历史下为 0..7）。流及其缓冲区不变。被省略的结果不写入。
 
-若状态中表示的待输出字节数超出 `unsigned` 的范围，所请求的字节计数饱和，并返回 `Z_BUF_ERROR`；若请求了位数结果，仍会写入。虽然正常默认构建的缓冲区更小，功能目标仍包括这种数值拒绝。
+若状态中表示的待输出字节数超出 `unsigned` 的范围，所请求的字节计数饱和，并返回 `Z_BUF_ERROR`；若请求了位数结果，仍会写入。功能目标包括这种数值拒绝；默认构建的待输出缓冲区比这小。
 
 </details>
 
@@ -468,10 +444,6 @@ int ZEXPORT deflateUsed(z_streamp strm, int *bits);
 | --- | --- | --- |
 | `Z_OK`<br>**已读取保存的位数** | 存活流；bits 若非 NULL，接收保存值。正常历史下，字节边界刷新后为 1..8，自初始化或重置以来未发生这种刷新则为 0。 | 使用该保存结果，或以 NULL 省略输出；流不变，可继续合法操作。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流检查失败；正常操作尚未开始，流和结果单元均未写入。 | 先建立存活流并满足调用的前置条件；这个结果不表示操作已完成。 |
-
-**判读要点。**
-
-- 功能目标对每个通过检查的状态返回保存值，不假设任意可表示的状态都满足正常历史下的取值范围。该值不同于 deflatePending 的当前待输出位数。
 
 ### 调用条件与效果 {#api-deflateused-contract}
 
@@ -524,7 +496,7 @@ int ZEXPORT deflatePrime(z_streamp strm, int bits, int value);
 
 **判读要点。**
 
-- 实现不检查封装或首次调用时机；接受位片段本身不保证任意插入后的普通流格式有效。没有分配。
+- 实现不检查封装或首次调用时机；接受位片段本身不保证任意插入后的普通流格式有效。
 
 ### 调用条件与效果 {#api-deflateprime-contract}
 
@@ -539,7 +511,7 @@ int ZEXPORT deflatePrime(z_streamp strm, int bits, int value);
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. 自初始化或 `deflateReset` 以来，还没有 `deflate` 调用让流开始工作：流状态仍是 `INIT_STATE` 或 `GZIP_STATE`（`DeflateNotStarted`）。
-- **无条件覆盖。** 每一个 `bits` 和 `value`；每一种封装。本目标比前置条件宽：前置条件要求流是裸流，且 `bits` 在 0..16 内。调用顺序的要求与前置条件相同。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **无条件覆盖。** 每一个 `bits` 和 `value`；每一种封装。调用顺序的要求与前置条件相同。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
@@ -551,7 +523,7 @@ int ZEXPORT deflatePrime(z_streamp strm, int bits, int value);
 
 **后置条件：** `Z_OK` 将 `value` 的低 `bits` 位按最低有效位优先的顺序，追加到逻辑待输出位序列。完整字节加入待输出数据，缓冲中剩余少于 8 位。不向 `next_out` 交付字节；不分配。待输出缓冲区空间不足时，`Z_BUF_ERROR` 不插入任何位。在该拒绝之前，已有的待输出字节可能已在其所属缓冲区内被紧缩。
 
-**聚焦范围之外：** 计数不在 0..16 时，在紧缩前返回 `Z_BUF_ERROR`；流检查失败返回 `Z_STREAM_ERROR`。实现不检查封装或首次调用时机。功能目标覆盖这些情况下对待输出位的精确效果，但不保证任意插入片段都保持普通流的有效性。
+**聚焦范围之外：** 计数不在 0..16 时，在紧缩前返回 `Z_BUF_ERROR`；流检查失败返回 `Z_STREAM_ERROR`。功能目标覆盖每一种封装、每一种调用顺序下对待输出位的精确效果。
 
 </details>
 
@@ -577,10 +549,6 @@ int ZEXPORT deflateParams(z_streamp strm, int level, int strategy);
 | `Z_STREAM_ERROR`<br>**所需刷新被拒绝** | 参数本身有效，但所需 deflate(Z_BLOCK) 返回 Z_STREAM_ERROR，例如收尾已开始或缓冲条件不满足；新设置没有安装。 | 先确定调用开始时流所处的阶段和缓冲条件。收尾已经开始时，按 Z_FINISH 协议完成，或合法重置/结束。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流检查失败；正常操作尚未开始，流和结果单元均未写入。 | 先建立存活流并满足调用的前置条件；这个结果不表示操作已完成。 |
 
-**判读要点。**
-
-- 要选择精确输入边界，先完成 deflate(Z_BLOCK) 直到 avail_out 非零，并在更改参数之前不提供新输入。
-
 ### 调用条件与效果 {#api-deflateparams-contract}
 
 **定义域：** 受限定义域。**效果：** 更新设置；可以消费输入并输出数据。
@@ -594,7 +562,7 @@ int ZEXPORT deflateParams(z_streamp strm, int level, int strategy);
     1. `strm` 是可达流（`StreamReachable`）；
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. [deflate](#deflate) 的条件 3 到 6，即对缓冲区和 gzip 头的要求（`StreamBuffers`、`ActiveHeader`）：这个调用可能执行 `deflate(strm, Z_BLOCK)`。
-- **无条件覆盖。** 每一个 `level` 和 `strategy`，无论是否有效。每一个可达流，无论处于哪个阶段：第一次 `deflate` 之前、流的中途、收尾期间，以及 `Z_STREAM_END` 之后。本目标在参数取值、阶段和缓冲区三方面都比前置条件宽（缓冲区方面同 [deflate](#deflate)）。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
+- **无条件覆盖。** 每一个 `level` 和 `strategy`，无论是否有效。每一个可达流，无论处于哪个阶段：第一次 `deflate` 之前、流的中途、收尾期间，以及 `Z_STREAM_END` 之后。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。
     - *状态。* 对可达流调用时，流保持其不变量（`StreamInvariant`）。
@@ -635,16 +603,12 @@ int ZEXPORT deflateTune(z_streamp strm, int good_length, int max_lazy, int nice_
 
 **返回值类型。** `int` — zlib 状态码
 
-返回值只说明四个调优字段是否存入，不保证任意取值下后续压缩的性质。
+返回值只说明四个调优字段是否存入。
 
 | 返回值 | 含义与出现条件 | 调用者接下来 |
 | --- | --- | --- |
 | `Z_OK`<br>**调优值已存入** | 存活流接受所有 int 参数；good_length、max_lazy 和 max_chain 转为 unsigned，nice_length 按 signed 存储。不消费输入或交付输出。 | 选择适用于后续压缩的调优；deflateReset 或 deflateParams 更改级别会恢复标准值。 |
 | `Z_STREAM_ERROR`<br>**流检查未通过** | 流检查失败；正常操作尚未开始，流和结果单元均未写入。 | 先建立存活流并满足调用的前置条件；这个结果不表示操作已完成。 |
-
-**判读要点。**
-
-- C 建议 max_lazy >= 3、max_chain >= 4；设置成功本身不能确立所有选择下的后续安全性或压缩上界。
 
 ### 调用条件与效果 {#api-deflatetune-contract}
 
@@ -670,7 +634,7 @@ int ZEXPORT deflateTune(z_streamp strm, int good_length, int max_lazy, int nice_
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateTune"><summary>完整返回条件与边界</summary>
 
-**后置条件：** 返回 `Z_OK`。将 `good_length`、`max_lazy`、`max_chain` 转为无符号后存入，将 `nice_length` 作为有符号值存入。不消费输入、不交付输出、不分配。`deflateParams` 更改级别，或执行 `deflateReset`，会恢复标准调优。仅凭该设置函数的契约，不能确立所有调优选择下的后续压缩上界或安全性；C 建议 `max_lazy >= 3` 和 `max_chain >= 4`。
+**后置条件：** 返回 `Z_OK`。将 `good_length`、`max_lazy`、`max_chain` 转为无符号后存入，将 `nice_length` 作为有符号值存入。不消费输入、不交付输出、不分配。`deflateParams` 更改级别，或执行 `deflateReset`，会恢复标准调优。`deflate.c` 中的一条注释说，`deflate()` 的代码要求 `max_lazy >= MIN_MATCH`（`MIN_MATCH` 为 3）且 `max_chain >= 4`；`deflateTune` 不检查这四个值。调用之后流仍是可达流，所以后续调用的安全目标覆盖任意调优值之后的流。没有目标陈述 `deflateTune` 之后的流的压缩上界。
 
 </details>
 
@@ -693,11 +657,6 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
 | 返回值 | 含义与出现条件 | 调用者接下来 |
 | --- | --- | --- |
 | `bound`<br>**输出字节数上界** | 存活流按当前窗口、内存级别、压缩级别、策略和完整封装大小选择公式；NULL 或可安全检查的无效流采用固定/存储公式较大者加 18。结果均在 SIZE_MAX 处饱和，堆不变。 | 所述容量保证只在以下条件下适用：在初始化和各项设置之后、压缩之前调用；配置、字典和头部保持不变；使用标准调优；没有预置位。还须满足缓冲区可表示以及 avail_in/avail_out 的容量条件。 |
-
-**判读要点。**
-
-- SIZE_MAX 可能是精确值，也可能是饱和结果；它不保证存在这么大的可寻址缓冲区。没有错误码。
-- 在容量保证的各项前提下，把全部输入和至少这么多输出空间交给一次 deflate(Z_FINISH)，必须得到 Z_STREAM_END；仅 Z_NO_FLUSH 后接 Z_FINISH 的安排具有总输出上界，其他刷新可能超出。
 
 ### 调用条件与效果 {#api-deflatebound_z-contract}
 
@@ -757,11 +716,6 @@ uLong ZEXPORT deflateBound(z_streamp strm, uLong sourceLen);
 | --- | --- | --- |
 | `bound`<br>**uLong 输出字节数上界** | deflateBound_z 的数值可由 uLong 表示时原样返回，否则返回 ULONG_MAX；NULL 或可安全检查的无效流也使用其保守回退公式。流不变。 | 用于容量规划时，遵守 deflateBound_z 关于设置时机、固定设置、调优、无预置位、缓冲区和刷新安排的条件。 |
 
-**判读要点。**
-
-- ULONG_MAX 可能是精确值，也可能是被截到上限的结果；数值相等本身不提供额外容量保证。
-- 默认 LP64 下，uLong 和 z_size_t 都为 64 位，两种查询结果一致。
-
 ### 调用条件与效果 {#api-deflatebound-contract}
 
 **定义域：** 与 `deflateBound_z` 相同的受限定义域；包括每个 `uLong sourceLen`。
@@ -819,8 +773,7 @@ int ZEXPORT deflate(z_streamp strm, int flush);
 
 **判读要点。**
 
-- 状态码不是本轮字节计数；I/O 指针、avail_in/avail_out 和 total_in/total_out 记录实际进展。调用不分配或释放。
-- 非结束性的刷新完成后，返回的仍是 Z_OK，不表示流已结束；应结合输出空间和所用刷新协议判断该边界是否完成。错误返回仍可能改变 msg 或记住的 `flush` 值。
+- 非结束性的刷新完成后，返回的仍是 Z_OK，不表示流已结束；应结合输出空间和所用刷新协议判断该边界是否完成。
 
 ### 调用条件与效果 {#api-deflate-contract}
 
@@ -880,10 +833,6 @@ int ZEXPORT deflateEnd(z_streamp strm);
 | `Z_DATA_ERROR`<br>**未完成任务已释放** | 存活流的保存状态为 BUSY_STATE，报告未完成压缩；全部流分配仍已释放，state 为 NULL。 | 不要为清理再次调用 deflateEnd；未完成压缩已经放弃，再次压缩须重新初始化。 |
 | `Z_STREAM_ERROR`<br>**结束请求被拒绝** | 流检查失败，包括第二次结束；本次不释放任何内容。 | 不要把该结果当作释放成功；先确定流的实际生命周期，再做任何压缩或清理。 |
 
-**判读要点。**
-
-- 返回状态取决于内部阶段，不只是输出是否全部交付。调用者输入、输出和头部仍归调用者所有，且不被释放。
-
 ### 调用条件与效果 {#api-deflateend-contract}
 
 **定义域：** 受限定义域。**效果：** 释放拥有的状态。
@@ -931,10 +880,6 @@ int ZEXPORT deflateCopy(z_streamp dest, z_streamp source);
 | `Z_STREAM_ERROR`<br>**目的流为 NULL** | dest 为 NULL，复制未开始。 | 提供不同于源且不拥有状态的可写目的记录，再按复制的前置条件调用。 |
 | `Z_STREAM_ERROR`<br>**源检查未通过** | 目的流非 NULL，但源检查失败；dest->state 清空，不进行复制分配。 | 先建立存活的源；只对不同且不拥有状态的目的流调用，不能据此认为任意原有目的流状态已被释放。 |
 
-**判读要点。**
-
-- 契约排除自复制和覆盖已经存活的目的流；这些情况没有无泄漏保证。
-
 ### 调用条件与效果 {#api-deflatecopy-contract}
 
 **定义域：** 受限定义域。**效果：** 分配并复制拥有的状态。
@@ -947,13 +892,13 @@ int ZEXPORT deflateCopy(z_streamp dest, z_streamp source);
 - **适用条件。** 对 NULL `dest` 的拒绝没有条件。对 NULL `source` 的拒绝要求 `dest` 指向一个可读的流记录。对被拒绝的 `source` 的拒绝要求 `dest` 指向一个可读的流记录，并要求 `source` 不是 NULL 且是被拒绝的流（`RefusedDeflate`）；它不要求 `dest` 与 `source` 不同。主子句要求：
     1. `source` 是可达流（`StreamReachable`）。命题还把它的不变量和默认分配器作为假设（`DGood`、`DefAlloc`）；每个可达流都满足它们（`Goal.deflate_sequence_safety` 的第一个子句）；
     2. `dest` 指向一个可读的流记录，且不是 `source` 记录（`source ≠ dest`）。不要求平台大小上界。
-- **无条件覆盖。** `dest` 记录的每一种内容；每一种分配结果。拒绝子句中：`dest` 记录的每一种内容，每一个被拒绝的 `source`，以及 `dest` 为 NULL 时的每一个 `source` 指针。本目标比前置条件宽：`dest` 的各字段可以是任意值。如果 `dest` 原本是一个存活流，它的旧状态仍处于已分配状态，而记录不再指向它。
+- **无条件覆盖。** `dest` 记录的每一种内容；每一种分配结果。拒绝子句中：`dest` 记录的每一种内容，每一个被拒绝的 `source`，以及 `dest` 为 NULL 时的每一个 `source` 指针。如果 `dest` 原本是一个存活流，它的旧状态仍处于已分配状态，而记录不再指向它。
 - **保证。**
     - *返回。* `dest` 为 NULL、`source` 为 NULL 或 `source` 被拒绝时，调用返回 `Z_STREAM_ERROR`。从可达的源复制时，调用返回，返回值为 `Z_OK` 或 `Z_MEM_ERROR`。只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
     - *状态。* 从可达的源复制时：`source` 记录及其状态不变。返回 `Z_OK` 时，`dest` 满足流不变量（`StreamInvariant`），并且按 `StreamReachable` 的定义是可达流。返回 `Z_MEM_ERROR` 时，`dest->state` 为 NULL，`dest` 的其他字段不变。
     - *写入。* `dest` 为 NULL 时不写任何内容：堆不变。`source` 为 NULL 或被拒绝时，只写 `dest->state`，把它置为 NULL；`dest` 的其他字段和堆的其余部分不变。从可达的源复制时，只写 `dest` 记录和调用自己分配的块。
     - *分配。* 三种拒绝都不分配也不释放任何块。从可达的源复制时：返回 `Z_OK` 时，新块恰好有五个：新的状态记录和它的四个缓冲区（`window`、`prev`、`head`、`pending_buf`）。不释放任何块。安全目标没有说 `dest->state` 指向这个记录；功能目标 `Goal.deflateCopy` 说了这一点。返回 `Z_MEM_ERROR` 时，已分配的块与调用前相同。
-- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的 `source` 记录：没有目标覆盖从这种源的复制（见[偏离记录](../../deviations.md#note-2-refused-streams)）。`source` 可达而 `dest == source`：没有目标覆盖这个调用（见[偏离记录](../../deviations.md)中“复制的目的流”一行）。副本的内容：功能目标 `Goal.deflateCopy`（不在计划内；已有定理证明它）。
+- **不在本目标内。** `zalloc` 和 `zfree` 已设置、而 `state` 是垃圾指针、指向已释放的状态或指向 inflate 状态的 `source` 记录：没有目标覆盖从这种源的复制（见[偏离记录](../../deviations.md#note-2-refused-streams)）。`source` 可达而 `dest == source`：此时 C 的 `zmemcpy(dest, source, sizeof(z_stream))` 把记录复制到它自身，这是未定义行为；没有目标覆盖这个调用（见[偏离记录](../../deviations.md)中“复制的目的流”一行）。副本的内容：功能目标 `Goal.deflateCopy`（不在计划内；已有定理证明它）。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateCopy"><summary>完整返回条件与边界</summary>
 
@@ -961,7 +906,7 @@ int ZEXPORT deflateCopy(z_streamp dest, z_streamp source);
 
 `Z_MEM_ERROR` 释放每项新分配、清空 `dest->state`，并保持目的流的其他字段和源不变。没有新的存活状态需要释放。
 
-**聚焦范围之外：** NULL 目的流返回 `Z_STREAM_ERROR`；源检查失败还会清空非 NULL 目的流的状态。安全目标和功能目标都假设两个流不同。这里排除自复制和覆盖已经存活的目的流，不为它们提供无泄漏契约。
+**聚焦范围之外：** NULL 目的流返回 `Z_STREAM_ERROR`；源检查失败还会清空非 NULL 目的流的状态。对可达的源，功能目标 `Goal.deflateCopy` 有同样的前提 `source ≠ dest`。
 
 </details>
 

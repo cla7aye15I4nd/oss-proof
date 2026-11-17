@@ -2,8 +2,7 @@
 
 The kernel checks a proof against its Lean statement. That the statement says something true of
 the selected C source also depends on the six items below. They are reviewed and tested; they
-are not proved, and compiling the proofs does not discharge them. Wherever this documentation
-summarises what is trusted, it lists the same six.
+are not proved, and compiling the proofs does not discharge them.
 
 | # | Trusted | Checked by |
 | --- | --- | --- |
@@ -48,25 +47,24 @@ by a program; the generator and the [runtime schema](runtime-schema.md) are part
 A no-fault theorem is a statement about these definitions. The intended correspondence is that
 every undefined behaviour the C can reach becomes `Fault.ub`. Unsigned arithmetic is modular.
 Signed arithmetic, shifts and conversions are checked by each translation; item 3 names the
-accepted exception and the forms that are not yet decided. The correspondence
+accepted exception and the further forms the translations contain. The correspondence
 has limits, and four of them matter to every reader:
 
 - **Uninitialised pointers.** The model has no value for an uninitialised pointer: a pointer field
-  in fresh memory reads as `NULL`. Comparing, copying and freeing it can succeed in the model
-  where C gives no guarantee. A proof about the C therefore needs that a pointer field is written
-  before it is read. No theorem states this, and none can in this model: a missing write does
-  not show, and the runtime does not check it. What the proofs show is narrower: the invariant
-  of each kind of state (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream and on
-  every gz handle with a history, and the invariant says what the pointer fields it names hold.
-  That the C writes each pointer field before it reads it is **to confirm** by source review.
+  in fresh memory reads as `NULL`, so a missing write does not show. Comparing, copying and
+  freeing such a field can succeed in the model where C gives no guarantee. That the C writes
+  each pointer field before it reads it is not a theorem, and cannot be one in this model; it
+  is **to confirm** by source review. What is proved: the invariant of each kind of state
+  (`InflateInv`, `DInv`, `GzInv`) holds on every reachable stream and on every gz handle with a
+  history, and it says what the pointer fields it names hold.
 - **Uninitialised integers.** An integer cell of fresh memory has an arbitrary value, fixed per
   cell by the garbage function. Theorems hold for every garbage function.
 - **Loop fuel.** A loop runs for at most `2^64` iterations; exhausting the bound is
   `Fault.outOfFuel`, which a termination proof excludes. One statement allows `outOfFuel`: the
-  first half of the gz safety goal. It is partial correctness up to `2^64` iterations of each
-  loop, which no real execution reaches. Undefined behaviour that grows with the iterations (a
-  signed 64-bit counter advancing by at least 1 per iteration) would occur within `2^63`
-  iterations, inside the fuel, so it is not hidden behind `outOfFuel`.
+  first half of the gz safety goal, which is partial correctness up to `2^64` iterations of each
+  loop. Undefined behaviour that grows with the iterations (a signed 64-bit counter advancing
+  by at least 1 per iteration) would occur within `2^63` iterations, inside the fuel, so it is
+  not hidden behind `outOfFuel`.
 - **In-place table updates.** The primitives that write change a heap table in place
   (`Space.modify`). A lemma (`modify_eq`) states that this equals the functional update the
   proofs reason with; the review of that lemma and of the table type is part of this item.
@@ -90,15 +88,14 @@ assignments to fields of one record are one record update; a signed operation th
 test of the same function keeps in range uses the plain operator. The
 [translation rules](design/translation.md#the-accepted-normalisations) show an example of each.
 
-The translations also contain at least six forms that the four do not cover as worded: a value
+The translations also contain at least six further forms, which the four do not cover: a value
 just stored is used again without a read; an operand is evaluated before the short-circuit test
 that guards it in C; a field value is taken from a record loaded before a store; a shift by a
 constant count uses the plain operator; the locals of `inflate` that C leaves uninitialised
-start at fixed values; and a store is written after a call that follows it in C. Whether each
-becomes an accepted normalisation or is changed is not decided.
+start at fixed values; and a store is written after a call that follows it in C. That each of
+them computes what the C computes is trusted, not proved.
 [Translation](design/translation.md#forms-not-covered-by-the-four-accepted-normalisations) lists
-the places found; its tables are examples, not a complete inventory. No place was found to
-compute a different value from the C; that is a reading, not a proved fact.
+the places known; the list is not complete.
 
 Three parts of this item are easy to miss:
 
@@ -149,12 +146,9 @@ of what a reader trusts. [Patches](../patches/README.md) gives the evidence for 
 The target is the default x86_64 Linux/LP64 static build with the default allocator.
 The [platform scope](spec/platform.md) requires each represented byte
 object to have fewer than `2^63` bytes. This is an environment premise: the LP64 `PTRDIFF_MAX`
-limit on the size of one object. Every library allocation keeps it (`ByteObjectsFit.allocB`). An
-inflate history states it on every heap on which a call runs and after every caller edit; a
-deflate history states it only at the call a goal is about.
-[Deviations](deviations.md#build-and-platform) lists where each goal states it.
-Allocation failure remains in scope. Other build configurations and custom allocators would
-need their own correspondence arguments; they are not planned ([progress](progress.md)).
+limit on the size of one object. [Deviations](deviations.md#build-and-platform) lists where each
+goal states it. Allocation failure is covered. Other build configurations and custom allocators
+would need their own correspondence arguments; they are not planned ([progress](progress.md)).
 
 **Allocation size.** `malloc` returns NULL for a request above `PTRDIFF_MAX` (`2^63 − 1` bytes),
 whatever the allocation oracle says. The call still consumes one oracle number, and the heap
@@ -173,7 +167,7 @@ caller storage.
 `[dst, dst + size)`, and returns the full length, or -1 past `INT_MAX`. In glibc 2.43 that is
 the only failure for `%s` with a `char *` and for `%d` (`stdio-common/vfprintf-process-arg.c`,
 `form_string` and `form_integer`; `stdio-common/Xprintf_buffer_done.c`, `EOVERFLOW` past
-`INT_MAX`). Its `errno` is not modelled. That is a stated limitation. No caller reads `errno`
+`INT_MAX`). Its `errno` is not modelled. No caller reads `errno`
 before a system call sets it again: the model reads `errno` only in `zstrerror` and `getErrno`,
 in `gz_comp` (after a failed `fsWrite` in an iteration that starts with `setErrno 0`), in
 `gz_load` (after a failed `fsRead`) and in `gzread` (when `again` was set by `gz_load` in the
@@ -184,14 +178,11 @@ the world oracle `printfOk`. A failed call returns -1, sets a nonzero `errno` (`
 `EOVERFLOW` past `INT_MAX`) and leaves arbitrary bytes (`printfJunk`) and a NUL inside
 `[dst, dst + size)`. glibc writes the terminator on every path (`libio/vsnprintf.c`,
 `__printf_buffer_snprintf_init` and `__printf_buffer_snprintf_done`) and writes nothing outside
-the buffer. The oracle works in both directions. It may fail where glibc deterministically
-succeeds; that widening does no harm to safety. It may succeed where glibc deterministically
-fails, for example `%lc` with an invalid wide character, but `%lc` is not represented and faults.
-So a goal clause conditioned on `printfOk` describes the model branch, not a claim that glibc
-succeeds on that format. The formatter runs before the oracle is consulted, so an unrepresented
-conversion faults: conservative. The defaults of the oracle fields (all calls succeed, empty
-junk, `EOVERFLOW`) exist for the executable drivers only and carry no meaning for the proofs.
-Every goal quantifies over all worlds.
+the buffer. The oracle is not glibc: it may fail where glibc succeeds, which only adds
+behaviours, and it may succeed where glibc fails. So a goal clause conditioned on `printfOk`
+describes the model branch, not a claim that glibc succeeds on that format. The formatter runs
+before the oracle is consulted, so a conversion the model does not represent faults whatever
+the oracle says. Every goal quantifies over all worlds.
 
 **The gz file world.** The model of the file system (`Fs`) has two parts. The regular-file part represents
 flat paths, regular files, directory markers, descriptor positions and a file-size limit. The
@@ -205,11 +196,11 @@ or any descriptor number below `2^31` that was not open, and fails with `EMFILE`
 descriptor below `2^31` is free. A failure sets a nonzero errno, and a success may
 change errno. The safety goals quantify over every world, hence over every oracle.
 
-The oracle is deliberately wider than any real system: an oracle read or write succeeds whatever
+The oracle admits more than any real system does: an oracle read or write succeeds whatever
 the descriptor's state (closed, wrong access mode); an oracle write does not change the file; an
 oracle `lseek` does not move the descriptor; read data is arbitrary; a regular read is still cut
-by the read budget. These choices only add behaviours, and must not be narrowed. No proof may
-depend on the number `open` returns: the model's descriptor table is not the whole process.
+by the read budget. These choices only add behaviours. The number `open` returns is not
+constrained further, because the model's descriptor table is not the whole process.
 
 Two OS facts are assumed and not checked: a nonempty `write` never returns 0, and `close`
 releases the descriptor even when it reports an error. Both hold on Linux. The first is needed
@@ -230,12 +221,11 @@ deliver. It is a premise of the termination half of the gz safety goal only
 world in which every OS call behaves as a regular file (`RegularOs`). `fcntl` has no effect; its
 results are ignored by the C.
 
-The gz file world and formatting model are additional trusted semantics. Their supported file
-kinds, errors, conversions and external string allocation do not represent every operating-system
-or library behaviour. The callback decoder's theorem assumes the caller's protocol for `in` and
-`out`: both return, the total input is bounded, and the window is preserved
-([deviations](deviations.md#callback-decoder)). Compiler, operating-system and hardware
-correctness are outside the proof.
+The gz file world and the formatting model are trusted semantics beside the heap. They do not
+represent every file kind, error, conversion or allocation of an external string that an
+operating system or a library can show. The callback decoder's theorem assumes the caller's
+protocol for `in` and `out`: both return, the total input is bounded, and the window is
+preserved ([deviations](deviations.md#callback-decoder)).
 
 ## 6. Statements and authority
 

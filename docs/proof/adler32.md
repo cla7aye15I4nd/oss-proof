@@ -45,8 +45,7 @@ of `adler32_z` treats a `NULL` buffer as follows:
 For a length other than 1 the C returns 1 without reading. For length 1 it reads
 `buf[0]` before it tests for `NULL`, which is undefined behaviour. The goals
 exclude `NULL` with every nonzero length. The narrowing has a row in
-[deviations](../deviations.md) ("Adler initialization queries"), which also
-records the upstream report.
+[deviations](../deviations.md) ("Adler initialization queries").
 
 The combination functions have no premise: they are safe for every argument, also
 forged checksums and negative lengths.
@@ -106,8 +105,7 @@ s ≤ 65535 + j (65535 + 255 × 5552)
 
 For `j ≤ 5552`, this gives `a ≤ 1481295` and `s ≤ 8224215375`, below `2^64`.
 The default LP64 `unsigned long` additions therefore agree with ordinary natural
-arithmetic. This loose bound is specific to the 64-bit argument; another word
-width needs a suitable bound for its own branch.
+arithmetic. The bound is for the 64-bit `unsigned long` of the default build only.
 
 The 16-byte unrolling preserves the byte-step invariant sixteen times. Applying
 it to each full batch and tail, then reducing, gives the result packed as
@@ -137,10 +135,8 @@ The public value goal `Goal.adler32_z` covers every seed: its specification
 The distinction is observable. For `adler32_z(0xFFFFFFF0, "\0", 1)`, the masked
 low component is 65520 and the high component is 65535. Their sum after the byte
 step is 131055. One subtraction leaves 65534, and the function returns
-`0xFFFEFFF0`. Full modular reduction would give a high component of 13. The call
-is memory-safe; a specification that reduces every arbitrary start word gives a
-different value. The counterexample is why the public value is not stated as
-full modular reduction.
+`0xFFFEFFF0`. Full modular reduction would give a high component of 13, so
+`adlerValue` follows the C in the one-byte branch. The call is memory-safe.
 
 ## Wrappers and combination
 

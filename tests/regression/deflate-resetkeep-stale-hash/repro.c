@@ -6,7 +6,7 @@
    with Z_NO_FLUSH (leaves lookahead), deflateResetKeep, data B with Z_FINISH. The second stream
    may refer to the kept window window[0 .. strstart), so it is decoded with those bytes as the
    dictionary. Prints the histories whose decoding differs from B. Built with the pinned zlib:
-     cc -I zlib repro.c zlib/{adler32,crc32,deflate,inflate,inftrees,inffast,trees,zutil}.c
+     ZLIB_SRC=<zlib checkout> bash tests/regression/deflate-resetkeep-stale-hash/run.sh
    With CLEAR_HASH(s) added to deflateResetKeep after `s->lookahead = 0;` no history differs
    (200000 tried). */
 static unsigned char win[1<<17], A[1<<16], B[1<<16], out[1<<18], back[1<<17];

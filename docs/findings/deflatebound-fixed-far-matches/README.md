@@ -1,15 +1,12 @@
-# deflateBound is too small for Z_FIXED at levels 1 to 3
+# `deflateBound` is too small for `Z_FIXED` at levels 1 to 3
 
-Status: patched locally. Local patch 0006 (`patches/0006-deflatebound-fixed-conservative.patch`)
-has not been submitted upstream. Reproduced on the real C without that patch (upstream `develop` at commit
-`757f0527154291bcf6bfbd6396ecde6bedd2db95`; patches 0001 to 0005 do not touch `deflate.c` or
-`trees.c`), with and without AddressSanitizer and UndefinedBehaviorSanitizer, and on a system zlib
-1.2.12. Not yet reported upstream; whether upstream knows it is not yet checked with upstream.
-It is a broken API promise, not a memory error: the sanitizers report nothing.
-`deflate.c` differs between that commit and zlib 1.4 (commit `99623ef7097352da7993ba614161fd6a311e046e`), the revision this project verifies, only in the
-copyright string, and `trees.c` is byte-identical; no run on that revision is recorded here.
+With `windowBits` 15, `memLevel` 8, strategy `Z_FIXED` and level 1, 2 or 3, the unpatched
+`deflateBound` returns a bound smaller than the stream `deflate` produces. One
+`deflate(Z_FINISH)` call with that room then returns `Z_OK`, against the promise of `zlib.h`. It
+is a broken promise, not a memory error: no behaviour is undefined, and the sanitizers report
+nothing.
 
-zlib.h, `deflateBound`: "If that first deflate() call is provided the sourceLen input bytes, an
+`zlib.h`, `deflateBound`: "If that first deflate() call is provided the sourceLen input bytes, an
 output buffer allocated to the size returned by deflateBound(), and the flush value Z_FINISH, then
 deflate() is guaranteed to return Z_STREAM_END."
 
@@ -26,48 +23,56 @@ fallback of every block: about 5 bytes for each block of at most 16383 symbols. 
 An input made of 3-byte copies from distances in (16384, 32000] gives blocks of 16383 such matches,
 about 49 KB each. They cross a slide, have no stored fallback, and grow by 1/24.
 
-Reproduction: `repro.c` (no clock, no input). Output on the C without patch 0006, under the
-sanitizers: `report.txt`. For n = 1,000,000 the bound is 1,000,318; at levels 1, 2 and 3 one
-`deflate(Z_FINISH)` with that room returns `Z_OK`, and the stream needs 1,007,343, 1,008,565 and
-1,008,570 bytes. Levels 4 to 9 end.
+## Calls that reach it
 
-Older releases fail more widely. On a system zlib 1.2.12 the same input fails at every level 1 to
-9 (for n = 1,000,000 the stream needs up to 1,031,475 bytes). There `Z_FIXED` forced a fixed block
-even when a stored block was smaller. Upstream commit 7fabcb5 ("Fix bug in block type selection when
-Z_FIXED used", zlib 1.2.13) lets the smaller stored block win again. That leaves only the blocks
-without a stored fallback (`buf == NULL`), and only `deflate_fast` takes far 3-byte matches. No
-entry of `ChangeLog` up to 1.3.2.1 addresses this case (checked: every `deflateBound` and `Z_FIXED`
-entry); a web search found no upstream issue. Whether upstream knows it is not yet checked with
-upstream.
+```c
+deflateInit2(&s, level, Z_DEFLATED, 15, 8, Z_FIXED);   /* level 1, 2 or 3 */
+bound = deflateBound(&s, n);
+s.next_in = in;   s.avail_in = n;                      /* 3-byte copies from far distances */
+s.next_out = out; s.avail_out = bound;
+deflate(&s, Z_FINISH);                                 /* returns Z_OK, not Z_STREAM_END */
+```
 
-Scope, from a targeted search (`tests/goals/deflate-bound`, over every
-`windowBits` 9 to 15, `memLevel` 1 to 9, level 1 to 9, strategy default and `Z_FIXED`, copy
-lengths 3 to 5, literal rates 0 to 50%): only `windowBits` 15 with `memLevel` 8 (the tight bound),
-`Z_FIXED`, levels 1 to 3. The other parameter sets use the conservative bounds, which allow 9 bits
-per byte. The default strategy is not affected in these tests: dynamic codes give a far 3-byte match
-a short code. `compress`, `compress2` and `compressBound` use the default strategy and are not
-affected.
+Only `windowBits` 15 with `memLevel` 8 (the tight bound), `Z_FIXED` and levels 1 to 3 are
+affected. The other parameter sets use the conservative bounds, which allow 9 bits per byte. With
+the default strategy, dynamic codes give a far 3-byte match a short code. `compress`, `compress2`
+and `compressBound` use the default strategy and are not affected.
 
-## Fix: patch 0006
+## Evidence
 
-The fix is a local patch, not a premise of the theorems. In `deflateBound_z` the conservative bounds
-apply also when the strategy is `Z_FIXED`: `fixedlen` at levels 1 to 9, `storelen` at level 0,
-as for the other parameter sets. Fixed codes cost at most 9 bits per byte, which `fixedlen`
-covers. No other strategy and no other parameter set changes.
+The reproduction [`repro.c`](repro.c) on the C without patch 0006, with and without
+AddressSanitizer and UndefinedBehaviorSanitizer. From [`report.txt`](report.txt), for
+n = 1,000,000:
 
-Measured with the patch (the C with patches 0001 to 0006):
+```
+level 1: deflateBound 1000318, deflate(Z_FINISH) with that room returns 0 (not Z_STREAM_END), stream needs 1007343
+level 2: deflateBound 1000318, deflate(Z_FINISH) with that room returns 0 (not Z_STREAM_END), stream needs 1008565
+level 3: deflateBound 1000318, deflate(Z_FINISH) with that room returns 0 (not Z_STREAM_END), stream needs 1008570
+```
 
-- `repro.c`, n = 1,000,000: the bound is 1,130,869, and one `deflate(Z_FINISH)` with that room
-  returns `Z_STREAM_END` at every level 1 to 9, with and without the sanitizers. The stream sizes
-  are unchanged (1,007,343 to 1,008,570 at levels 1 to 3).
-- The far-match search, mode `far` of `tests/goals/deflate-bound/bound.c`: copy lengths 3 to 5,
-  literal rates 0, 10, 25 and 50%, every `windowBits` 9 to 15, `memLevel` 1 to 9, level 1 to 9
-  and strategy, n = 200,000. Without patch 0006 it fails in 6 cases, all `windowBits` 15,
-  `memLevel` 8, `Z_FIXED`, levels 1 to 3, copy length 3, literal rates 0 and 10%. With the patch it
-  fails in none. Under the sanitizers (`windowBits` 15, n = 150,000) it fails in none and the
-  sanitizers report nothing.
-- `tests/goals/deflate-bound/run.sh` passes with the patch; it runs the far-match search.
+Levels 4 to 9 end with `Z_STREAM_END`.
 
-Effect on the proof: with the patch, `DeflateCompletes`
-needs no premise for this case. The translation of `deflateBound_z` and the value specifications
-(`deflateBoundValue`, `Api.DeflState.bound`) follow the patched C.
+The scope comes from a search on the real C (`tests/goals/deflate-bound`) over every `windowBits`
+9 to 15, `memLevel` 1 to 9, level 1 to 9, strategy default and `Z_FIXED`, copy lengths 3 to 5 and
+literal rates 0 to 50%. Without patch 0006 it fails only for `windowBits` 15, `memLevel` 8,
+`Z_FIXED`, levels 1 to 3, copy length 3. With the patch it fails in no case.
+
+## Fix
+
+[Patch 0006](../../../patches/README.md): in `deflateBound_z` the conservative bounds apply also
+when the strategy is `Z_FIXED`: `fixedlen` at levels 1 to 9, `storelen` at level 0, as for the
+other parameter sets. Fixed codes cost at most 9 bits per byte, which `fixedlen` covers. No other
+strategy and no other parameter set changes.
+
+With the patch, for n = 1,000,000 the bound is 1,130,869, and one `deflate(Z_FINISH)` with that
+room returns `Z_STREAM_END` at every level 1 to 9, with and without the sanitizers. The stream
+sizes are unchanged.
+
+Upstream: the patch is local and has not been submitted.
+
+## Relation to the proofs
+
+No safety goal depends on the value of the bound. The translation of `deflateBound_z` and the
+specification of its value follow the patched C. Without the patch, a statement that `deflate`
+with `Z_FINISH` and `deflateBound` bytes of room ends the stream, for every strategy
+(`DeflateCompletes`), is false.

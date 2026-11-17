@@ -1,4 +1,4 @@
-<!-- source-sha256: 658069dd6be256d9c83f5356ed69e258e4d36a534236998039ee5989a734c734 -->
+<!-- source-sha256: c52c96341c05962849c6f66581167eb553e7c3378e8072c204863f541d2dc55e -->
 
 # 5. 状态操作
 
@@ -182,8 +182,7 @@ Sync 搜索进行期间，普通的 `inflate` 调用不能代替它：它返回 
 | 读取历史 | `inflateGetDictionary`、`deflateGetDictionary` | **安全：** 复制不超出目的缓冲区，目标写明了它所需的大小（见[偏离记录](../deviations.md)）。**功能：** 得到的字节是当前历史，可能与预置字典不同。 |
 | 控制校验 | `inflateValidate` 未文档化。它打开或关闭尾部检查。 | 安全目标不在计划内。它的功能契约 `Goal.inflateValidate` 有一个定理。 |
 
-C 并不强制两个 Prime 函数的每一条时机规则。违反这类规则的调用并不因此就是未定义行为，也不因此就是干净的拒绝；
-[契约约定](../spec/api/contracts.md)说明每种情况怎样解读。
+C 并不强制两个 Prime 函数的每一条时机规则；违反这类规则的调用怎样解读，见[契约约定](../spec/api/contracts.md)。
 **安全：** `inflatePrime` 的安全目标没有时机前提。`deflatePrime` 的安全目标假设自初始化或重置以来还没有 `deflate` 调用启动过这条流：
 在真实的 C 中，更晚的 Prime 会覆盖符号缓冲区（见[偏离记录](../deviations.md)）。
 

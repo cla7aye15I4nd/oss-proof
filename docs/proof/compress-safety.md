@@ -89,9 +89,9 @@ theorems here do not use it.
 
 The measure is `avail_in + sourceLen + avail_out + left`. Here `sourceLen` and `left` are the C
 locals: the source bytes and the destination room not yet given to the stream. The measure
-starts below the loop fuel, `2^64`. The refills keep it. A call that returns `Z_OK` is not refused and has room; otherwise
-`Goal.deflate` gives `Z_BUF_ERROR`. With `Z_NO_FLUSH` the call has input, because source
-remains after the refill, so `DeflateLoopFacts` gives progress. With `Z_FINISH`, the progress
+starts below the loop fuel, `2^64`. The refills keep it. A call that returns `Z_OK` is not
+refused and has room; otherwise `Goal.deflate` gives `Z_BUF_ERROR`. With `Z_NO_FLUSH` the
+call has input, because source remains after the refill, so `DeflateLoopFacts` gives progress. With `Z_FINISH`, the progress
 clause of `Goal.deflate` gives progress, unless the stream is finished and has new input; in
 that case `DeflateLoopFacts` gives `Z_BUF_ERROR` or a written byte. Progress lowers the
 measure.
@@ -102,5 +102,9 @@ measure.
 `Goal.compressBound_z` give the exact value of the bound formula, and these same goals are
 their safety goals. The theorems are `compressBound` and `compressBound_z`.
 
-Whether every compressor output fits the bound is a separate functional question. It is not
-required for the safety results; see [buffer utilities](buffers.md).
+Not covered: that every output of the translated compressor fits the bound. That is a
+functional statement, which the safety results do not need; see
+[buffer utilities](buffers.md). The theorem `compress_bound_adequate` states it, and
+`deflate_bound_adequate` states the same for the bound of `deflateBound`, for the heap-free
+[API model](../design/api-model.md) only. No theorem says that the translated `compress2` or
+`deflate` follows that model.

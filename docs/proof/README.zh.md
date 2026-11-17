@@ -1,4 +1,4 @@
-<!-- source-sha256: 48ce9c5950fb6fb78e066c8a079df394cce7098cb95148cbc74e5c51d098e8dd -->
+<!-- source-sha256: e3dfd87191adaec6bf71636c7ecf77ca79da2504c11d0c7e1419b642fafa868b -->
 # 证明参考：组件、页面、定理
 
 本节每一页对应一个 C 文件，说明关于它的定理为什么成立。本页是地图：哪一页解释哪条定理。读者只要熟悉 C，把 `zlib/` 下对应的文件打开对照，不读 Lean 也应当能读懂每一页。
@@ -84,7 +84,7 @@ deflateEnd(&strm);
 | [流式压缩](deflate.md) | `Goal.deflate`，一次调用的完整契约（`Zlib.Deflate.Universal.deflate_safety`） |
 | [默认配置引擎](deflate-default-engine.md) | 在默认配置下：按格式规格，已完成的流的输出是它的输入的一个合法 zlib 流，并且流能够被完成（`DeflateCore.correct`） |
 
-默认 zlib 流的往返（先 `deflate` 再 `inflate` 得回输入）未完成。有一条定理 `deflate_inflate_roundtrip` 证明了一个有条件的形式：如果两段历史都已到达 `Z_STREAM_END`，并且 `inflate` 消耗的输入是 `deflate` 写出的字节的前缀，那么 `inflate` 写出的字节就是 `deflate` 读入的字节。没有定理说两边都会到达 `Z_STREAM_END`。前提见[流式压缩](deflate.md#functional-results)。
+默认 zlib 流的往返（先 `deflate` 再 `inflate` 得回输入）未完成。有一条定理 `deflate_inflate_roundtrip` 证明了一个有条件的形式：如果两段历史都以一次返回 `Z_STREAM_END` 的调用结束，并且 `inflate` 消耗的输入是 `deflate` 写出的字节的前缀，那么 `inflate` 写出的字节就是 `deflate` 读入的字节。没有定理说两边都会到达 `Z_STREAM_END`。前提见[流式压缩](deflate.md#functional-results)。
 
 ## 组件页面的结构
 
@@ -119,8 +119,4 @@ gzip 文件接口和回调解码器建立在这些之上，它们的页面放到
 - `F1` 到 `F9` 是多个证明共用的结构性事实（[方法](method.md#structural-facts-used-by-several-proofs)）。
 - `I-*` 是函数之间的内部契约（[内部契约](../spec/internal-contracts.md)）。
 
-它们是义务和事实的名字，不是状态。
-
 依赖默认构建的位宽、表或分配器的界，只对该构建成立。模型的整数规则和指针规则见[翻译语义](../design/translation.md)。
-
-[进度](../progress.md)列出每一个目标以及它是否完成。

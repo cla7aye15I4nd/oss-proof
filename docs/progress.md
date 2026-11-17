@@ -24,7 +24,7 @@ about the default x86_64 Linux build.
 | 1 | `inflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.inflate_safety`, `Goal.inflate_sequence_safety` | done |
 | 2 | `deflate` is safe on every input and every split of the buffers, also over its call sequences. | `Goal.deflate_safety`, `Goal.deflate_sequence_safety` | done |
 | 3 | Every other documented public function is safe: `compress*` and `uncompress*`, the other stream functions, the checksums, the gzip file interface and the callback decoder `inflateBack`. | every other goal of the tables [below](#functions) | done |
-| 4 | The round trip of the default zlib stream: compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input. | no goal is stated yet | not done |
+| 4 | The round trip of the default zlib stream: compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input. | no goal is stated | not done |
 
 About result 4: one theorem, `deflate_inflate_roundtrip`, proves a conditional form for the
 translated C. It is about a `deflate` call sequence that starts at `deflateInit` with the default

@@ -156,8 +156,8 @@ Four patches change the gz files ([patch register](../../patches/README.md)):
 | 0004 | The position `x.pos` stays within `z_off64_t` |
 | 0005 | `x.next` is advanced only by a nonzero amount |
 
-`gz_reset` still does not initialise `x.next`, and a direct read still leaves `x.next` pointing
-into the caller's buffer; patch 0005 removes the arithmetic on those values.
+In the patched source `gz_reset` does not initialise `x.next`, and a direct read leaves `x.next`
+pointing into the caller's buffer; patch 0005 removes the arithmetic on those values.
 [Gzip files](../proof/gzip.md#source-reports-and-patches) gives the reports behind the patches.
 
 ## Differential evidence

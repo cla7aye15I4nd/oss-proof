@@ -1,4 +1,4 @@
-<!-- source-sha256: 2977873e31d689d1cb8ac377e26965b2f8b20b6bdd3c0313c56f0f1d91b7b20c -->
+<!-- source-sha256: 48aed07ade58a1a92b78e78a84ccfd7e9f15ea7f2a7bdbb8b5344cfc036d3849 -->
 # 回调解码器：调用者协议与有限输入
 
 `inflateBack` 用调用者提供的两个函数来解码：`in` 交付输入，`out`
@@ -18,7 +18,6 @@
 
 六个都已完成。第一个是关于历史的安全结论，第二个表明初始化可以成功。第三个表明 `inflateBack` 一次调用的前提可以被满足，
 其中包括回调协议（[调用者协议](#the-caller-protocol)）。后三个是三个函数各自的安全目标。
-序列目标的历史不要求 `inflateBackInit_` 之前 `state` 字段为 `NULL`。
 
 单函数目标由本页的结论推出：
 
@@ -26,7 +25,7 @@
 - `Goal.inflateBackEnd_safety` 是序列目标的子句 4，再加对 `NULL` 流以及对状态或 `zfree` 为 `NULL` 的流记录的拒绝（来自 `back_end_public`）。
 - `Goal.inflateBackInit__safety` 是初始化调用在 `zlib.h` 允许的每组参数上的安全（`InitArguments`），不需要历史。它由功能定理 `back_init_public` 推出。
 
-每个函数另有一个功能契约（`Goal.inflateBackInit_`、`Goal.inflateBack`、`Goal.inflateBackEnd`）。这些契约不是必需的；哪些已完成，见[最后一节](#functional-results-that-stay)。
+每个函数另有一个功能契约（`Goal.inflateBackInit_`、`Goal.inflateBack`、`Goal.inflateBackEnd`）。哪些已完成，见[最后一节](#functional-results-that-stay)。
 
 `Goal.inflate_back_sequence_safety` 有四个子句。
 
@@ -119,8 +118,8 @@ sequenceDiagram
 
 ### 为什么要给输入设界
 
-回调会返回，这对终止还不够。输入回调可以提供无穷多个空的、非最后的存储块，`inflateBack`
-于是永不返回。这不是未定义行为，但也不是终止。`zlib.h` 没有承诺回调最终会结束它的输入。
+输入回调可以提供无穷多个空的、非最后的存储块，`inflateBack`
+于是永不返回。`zlib.h` 没有承诺回调最终会结束它的输入。
 
 `2^48` 这个数字是模型的限制，不是 zlib 的。运行时把每个循环界定在 `2^64` 次迭代之内，而分派循环的度量数的是输入的位。
 
@@ -149,18 +148,19 @@ sequenceDiagram
 这张表是摘要。完整的命题是结构 `CallbackProtocol`。
 
 `inStep` 和 `outStep` 只在满足 `CallbackEntry` 的堆上才被要求：流是这个窗口上的一个有效回调解码器（`BackValid`）。
-因此堆是库的堆，窗口可写。库在每次调用 `in` 和 `out` 时提供的正是这样的堆。这个前提是必要的。
-没有它，就不存在任何协议：`local_` 使不变量对 `own` 之外的每个块都不敏感，而 `disjoint` 把状态块放在 `own` 之外。
+因此堆是库的堆，窗口可写。库在每次调用 `in` 和 `out` 时提供的正是这样的堆。
+没有这个前提，就不存在任何协议：`local_` 使不变量对 `own` 之外的每个块都不敏感，而 `disjoint` 把状态块放在 `own` 之外。
 于是不变量在“状态块里放着两个对象”的堆上同样成立，而从这样的堆出发，没有任何一步能以一个良构且该块不变的堆结束。
-这两个事实都有 Lean 证明，这些证明不在库的定理之内。第一，如果协议要求它的步骤在每个满足其不变量的堆上都成立，那么没有任何堆和日志满足它的不变量。
-第二，每个这样的协议也都是带 `CallbackEntry` 前提的协议，不变量相同。所以这个前提使目标更强，而不是更弱。
+所以，如果协议要求它的步骤在每个满足其不变量的堆上都成立，那么没有任何堆和日志满足它的不变量。
+每个这样的协议也都是带 `CallbackEntry` 前提的协议，不变量相同。
+这两个事实都有 Lean 证明，这些证明不在库的定理之内。
 
 `Goal.inflateBack_call_domain` 表明这些前提可以被满足。它给出一个具体的历史：在见证堆上调用
 `inflateBackInit_`，然后调用者修改 `next_in` 和 `avail_in`。回调是具体的：`noInput` 报告输入结束，`takeOutput`
 接受每个片段。协议 `witnessProtocol` 拥有一个块。第一个片段有两个字节，位于一个堆字节块中。
-`Goal.inflateBack_safety` 调用子句的每个前提在它们上面同时成立。这个见证有它的局限。它的输入回调不交付任何字节：
+`Goal.inflateBack_safety` 调用子句的每个前提在它们上面同时成立。输入回调不交付任何字节：
 见证调用的全部输入就是调用者的第一个片段。这两个字节不是合法的 deflate 流，所以见证调用以错误码结束。
-这个目标表明前提可以满足，并不表明每一类协议都可以满足。
+不涵盖：`in` 回调交付字节的见证，或者调用返回 `Z_STREAM_END` 的见证。
 
 “只改动自己的块”（`ExternalFrame`）允许回调分配和释放它自己的块。它创建的每个块都是它自己的块，堆保持良构。它不能改变一个保持存活的块是否只读：C
 代码没有办法做到这一点。
@@ -171,7 +171,7 @@ sequenceDiagram
 
 | 构造子 | 步骤 |
 | --- | --- |
-| `init` | 一次成功的 `inflateBackInit_`，出发的调用者存储满足 `BackInitArguments`（流记录的 `state` 字段可以取任意值），其中 `stream_size = 112`，`8 ≤ windowBits ≤ 15`，窗口不是 `NULL`、可写，并且在一个堆字节块中。 |
+| `init` | 一次成功的 `inflateBackInit_`，出发的调用者存储满足 `BackInitArguments`，其中 `stream_size = 112`，`8 ≤ windowBits ≤ 15`，窗口不是 `NULL`、可写，并且在一个堆字节块中。 |
 | `caller` | 调用者改动流不拥有的内存和流记录的四个缓冲区字段（`Rebuffer`）。堆保持良构，窗口切片的字节保持不变，保持存活的块都不改变只读标志。 |
 | `step` | 一次已返回的 `inflateBack` 调用。它的第一个片段可读并且与窗口分离，协议的不变量在调用时成立，平台前提也成立（调用时的 `ByteObjectsFit`、`BackPlatform`、`BackFirstChunk`）。 |
 
@@ -270,7 +270,7 @@ flowchart TD
 ## 保留的功能结论
 
 这三个函数各有一个功能契约，另有功能序列目标
-`Goal.inflate_back_sequence`。安全结论不需要其中任何一个。这四个中有两个已完成：
+`Goal.inflate_back_sequence`。这四个中有两个已完成：
 
 - `Goal.inflateBackInit_`（`back_init_public`）和
   `Goal.inflateBackEnd`（`back_end_public`）：两个生命周期函数的完整契约。安全目标的子句 4 使用 `back_end_public`。`Goal.inflateBackEnd_safety` 的拒绝子句和整个 `Goal.inflateBackInit__safety` 都由这两条定理推出。

@@ -1,4 +1,4 @@
-<!-- source-sha256: e39a47801ead55ee9a8780540b0390fff83e875aa9d5bb4ee03b12bcf4b51f06 -->
+<!-- source-sha256: 94fe3566f3035e0de50f5885fefe55100ae0fb5e19dd2662e2fa01759517ba4e -->
 
 # 安全性：目标陈述了什么
 
@@ -96,8 +96,8 @@ flowchart LR
 
 ## 已证明的内容与所作的假设
 
-**已证明。** 必需目标共 99 个：86 个有文档的函数各自的安全目标、四个序列目标、三个拒绝目标、`gzvprintf` 的目标，
-以及五个非空性目标。每个目标都有一条类型与它完全相同的定理：它们全部完成。
+**已证明。** 每个必需目标都已完成：它有一条类型与它完全相同的定理。必需目标是：每个有文档的函数的安全目标、
+`gzvprintf` 的目标、序列目标、拒绝目标和非空性目标。
 [附录](#where-the-goals-are)按函数列出这些目标，[进度](../progress.md#functions)列出每一个目标。
 
 **假设。**
@@ -376,14 +376,10 @@ U1 到 U10 是 C 的义务。U11 和 U12 增加了终止和资源两项；其中
 定义见 [Ptr.add 和 Ptr.diff](../../ZlibF/Runtime/Ptr.lean) 以及[压缩器辅助函数](../../ZlibF/Zlib/compress.c.lean)。
 这张表说的是指针值，不是 `NULL` 这个写法；`NULL` 也可以是一个整数常量。
 
-这两种操作为什么没有定论：C11
-（[N1570 第 6.5.6 节](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)）和 C23 草案
+C11（[N1570 第 6.5.6 节](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)）和 C23 草案
 （[N3096 第 6.5.6 节](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)）
-只对指向数组内部的指针定义了指针运算和指针减法，而空指针不指向任何数组元素。
-[N3261](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3261.pdf) 提议在以后的修订中给这两种空指针操作下定义；
-提案不是本项目 C 目标的规则。差分测试结果一致、sanitizer 没有报告，同样不能定论。
-运行时里 `Ptr.diff` 的注释对减法说的是同一件事：C17 和 C23 都没有定义 `NULL - NULL`，
-因为两个操作数都不指向数组对象；C++ 把它定义为 0。
+只对指向数组对象的指针定义了指针加法和指针减法，而空指针不指向任何数组对象。
+所以这两份文本既没有定义 `NULL + 0`，也没有定义 `NULL - NULL`。
 
 ### 未初始化内存
 

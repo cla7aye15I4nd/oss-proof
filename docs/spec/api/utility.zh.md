@@ -1,4 +1,4 @@
-<!-- source-sha256: 04c6e8b7eb97f0a314147dc9028125547965bdf8de2dbb2e2373bac3b2305847 -->
+<!-- source-sha256: 13416d8ab99365561b6573ae3d7772eb469174fb5976cb6d4b1217438824a633 -->
 
 # 缓冲区工具与库信息
 
@@ -27,7 +27,7 @@
 `CompressorSafety`，`uncompress2` 和 `uncompress2_z` 用 `UncompressCountedSafe`，
 `uncompress` 和 `uncompress_z` 用 `UncompressSingleSafe`。
 
-缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。
+缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。流记录是自动变量，不是堆块，所以它不占用任何一次分配尝试。一次调用的分配尝试都来自编解码器。`compress*` 调用至多尝试五次分配，全部在 `deflateInit` 中：状态、窗口、`prev`、`head` 和待输出缓冲区；当它拒绝参数或级别时，一次也不尝试。`uncompress*` 调用在 `inflateInit` 中尝试分配解码器状态，并在解码需要时于 `inflate` 内尝试分配窗口。一个差分[测试](../../../tests/regression/compress-allocation/README.md)把四个压缩函数的分配尝试与真实 C 进行比较。
 
 先说明长度的约定：`sourceLen` 指定可读输入的字节数；`*destLen` 在调用前是目的数组的可写容量，调用后改为实际写入量。例如目的缓冲区有 1000 字节容量、最终写入 120 字节，调用前应设置 `*destLen = 1000`，成功返回后读取到 120。这个长度单元自身也是需要保持存活、可读写的调用者存储。`uncompress2_z` 的 `*sourceLen` 同样在调用前给出可用的输入字节数，返回后报告已消费的字节数。
 
@@ -80,12 +80,6 @@ int ZEXPORT compress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source,
 | `Z_STREAM_ERROR`<br>**早期参数拒绝** | source 为 NULL 且 sourceLen > 0，或 dest 为 NULL 且原始容量 > 0。destLen == NULL 也经检查后拒绝。现有长度值不变。 | 修正已拒绝的参数，再用有效缓冲区重新调用。 |
 | `Z_STREAM_ERROR`<br>**无效压缩级别** | 通过早期参数检查后，level 不在 -1 或 0–9 中；分配前将 `*destLen` 置零。 | 选择 -1 或 0–9，并为新调用重新设置输出容量。 |
 | `Z_STREAM_ERROR`<br>**零容量 NULL 目的缓冲区** | 通过早期参数检查且级别有效，dest == NULL 且容量为零，初始化成功；`*destLen` 为零。分配失败时则返回 Z_MEM_ERROR。 | 提供有效的目的缓冲区和足够容量，再重新调用。 |
-
-**判读要点。**
-
-- 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- destLen 可以为 NULL，此时调用经检查后拒绝；非 NULL 的长度单元须可读写。
-- 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。-1 选择级别 6。
 
 ### 调用条件与效果 {#api-compress2_z-contract}
 
@@ -151,12 +145,6 @@ int ZEXPORT compress2(Bytef *dest, uLongf *destLen, const Bytef *source,
 | `Z_STREAM_ERROR`<br>**无效压缩级别** | 通过早期参数检查后，level 不在 -1 或 0–9 中；分配前将 `*destLen` 置零。 | 选择 -1 或 0–9，并为新调用重新设置输出容量。 |
 | `Z_STREAM_ERROR`<br>**零容量 NULL 目的缓冲区** | 通过早期参数检查且级别有效，dest == NULL 且容量为零，初始化成功；`*destLen` 为零。分配失败时则返回 Z_MEM_ERROR。 | 提供有效的目的缓冲区和足够容量，再重新调用。 |
 
-**判读要点。**
-
-- 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- `compress2` 是包在 `compress2_z` 外面的包装函数：它先读取 destLen 单元，不检查是否为 NULL，且每次返回都写回长度。因此 NULL destLen 不在这个前置条件内。
-- 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。-1 选择级别 6。
-
 ### 调用条件与效果 {#api-compress2-contract}
 
 **定义域。** 受限定义域。
@@ -212,12 +200,6 @@ int ZEXPORT compress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_si
 | `Z_STREAM_ERROR`<br>**早期参数拒绝** | source 为 NULL 且 sourceLen > 0，或 dest 为 NULL 且原始容量 > 0。destLen == NULL 也经检查后拒绝。现有长度值不变。 | 修正已拒绝的参数，再用有效缓冲区重新调用。 |
 | `Z_STREAM_ERROR`<br>**零容量 NULL 目的缓冲区** | 通过早期参数检查，dest == NULL 且容量为零，初始化成功；`*destLen` 为零。分配失败时则返回 Z_MEM_ERROR。 | 提供有效的目的缓冲区和足够容量，再重新调用。 |
 
-**判读要点。**
-
-- 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- destLen 可以为 NULL，此时调用经检查后拒绝；非 NULL 的长度单元须可读写。
-- 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。使用默认级别 -1，即级别 6。
-
 ### 调用条件与效果 {#api-compress_z-contract}
 
 **定义域。** 受限定义域。
@@ -269,12 +251,6 @@ int ZEXPORT compress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong so
 | `Z_STREAM_ERROR`<br>**早期参数拒绝** | source 为 NULL 且 sourceLen > 0，或 dest 为 NULL 且原始容量 > 0。现有长度值不变。 | 修正已拒绝的参数，再用有效缓冲区重新调用。 |
 | `Z_STREAM_ERROR`<br>**零容量 NULL 目的缓冲区** | 通过早期参数检查，dest == NULL 且容量为零，初始化成功；`*destLen` 为零。分配失败时则返回 Z_MEM_ERROR。 | 提供有效的目的缓冲区和足够容量，再重新调用。 |
 
-**判读要点。**
-
-- 调用前 `*destLen` 是容量；返回后除早期拒绝外是实际写入量。所有内部分配在每条返回路径上均释放。
-- `compress` 调用包装函数 `compress2`，后者先读取 destLen 单元，不检查是否为 NULL，且每次返回都写回长度。因此 NULL destLen 不在这个前置条件内。
-- 输入、目的缓冲区及长度单元必须互相分离并覆盖所述范围。空输入有效。使用默认级别 -1，即级别 6。
-
 ### 调用条件与效果 {#api-compress-contract}
 
 **定义域。** 受限定义域。
@@ -323,10 +299,6 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 | --- | --- | --- |
 | `min(2^64 - 1, n + (n >> 12) + (n >> 14) + (n >> 25) + 13)`<br>**容量数值** | n = sourceLen，可取任意 64 位无符号值；按数学整数求和，再饱和至最大值。n == 0 时返回 13。 | 将数值用于规划有效目的缓冲区容量。 |
 
-**判读要点。**
-
-- 这是数值契约，无错误返回。输出容量充分性是另一个性质，只限于默认的 zlib 封装、窗口和内存设置；它不涵盖任意的裸流或 gzip 设置。
-
 ### 调用条件与效果 {#api-compressbound_z-contract}
 
 **定义域。** 完整类型定义域。
@@ -335,8 +307,8 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 
 **效果。** 纯计算。没有指针访问、分配、状态变化或错误返回。
 
-**范围。** 本契约规定数值。输出容量充分性是另一个性质，针对使用默认封装、
-窗口和内存设置的有效压缩调用。它不为任意裸流或 gzip 流的设置给出上界。
+**范围。** 本契约规定数值。这个上界是为使用默认封装、窗口和内存设置的压缩而设的，
+`compress` 正是这样使用的。它不为任意裸流或 gzip 流的设置给出上界。
 
 **证明目标。**
 
@@ -346,7 +318,7 @@ z_size_t ZEXPORT compressBound_z(z_size_t sourceLen);
 - **保证。**
     - *返回。* 翻译是一个从参数到结果的全函数。它不接受堆，也没有故障分支，所以调用对每个参数都返回；本目标另外说明结果是后置条件中给出的饱和公式。
     - *状态、写入、分配。* 都没有：这个函数不访问内存。
-- **不在本目标内。** 这么大的目的缓冲区对 `compress` 是否足够：没有必需目标陈述这一点。
+- **不在本目标内。** 翻译后的 `compress` 的每个输出都能放进这么大的目的缓冲区。定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>完整返回条件与边界</summary>
 
@@ -374,17 +346,13 @@ uLong ZEXPORT compressBound(uLong sourceLen);
 | --- | --- | --- |
 | `min(2^64 - 1, n + (n >> 12) + (n >> 14) + (n >> 25) + 13)`<br>**容量数值** | n = sourceLen，可取任意 64 位无符号值；按数学整数求和，再饱和至最大值。n == 0 时返回 13。 | 将数值用于规划有效目的缓冲区容量。 |
 
-**判读要点。**
-
-- 这是数值契约，无错误返回。输出容量充分性是另一个性质，只限于默认的 zlib 封装、窗口和内存设置；它不涵盖任意的裸流或 gzip 设置。
-
 ### 调用条件与效果 {#api-compressbound-contract}
 
 **定义域。** 完整类型定义域。
 
 **前置条件。** 完整类型定义域：每个 64 位 `sourceLen`。
 
-**效果。** 纯计算。没有内存访问或错误返回。输出容量充分性的范围也相同。
+**效果。** 纯计算。没有内存访问或错误返回。[compressBound_z](#compressbound_z) 的范围同样适用。
 
 **证明目标。**
 
@@ -394,7 +362,7 @@ uLong ZEXPORT compressBound(uLong sourceLen);
 - **保证。**
     - *返回。* 翻译是一个从参数到结果的全函数。它不接受堆，也没有故障分支，所以调用对每个参数都返回；本目标另外说明结果是后置条件中给出的饱和公式。
     - *状态、写入、分配。* 都没有：这个函数不访问内存。
-- **不在本目标内。** 这么大的目的缓冲区对 `compress` 是否足够：没有必需目标陈述这一点。
+- **不在本目标内。** 翻译后的 `compress` 的每个输出都能放进这么大的目的缓冲区。定理 `compress_bound_adequate` 陈述了这一点，但只针对不涉及堆的 [API 模型](../../design/api-model.md)；没有定理说翻译后的 `compress2` 遵循这个模型。
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>完整返回条件与边界</summary>
 
@@ -424,12 +392,6 @@ int ZEXPORT uncompress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z
 | `Z_MEM_ERROR`<br>**初始化分配失败** | 初始化失败；现有长度值均不变，未写入输出。 | 若从原始输入完整重试，先把 `*destLen` 重新设为目的缓冲区容量，并把 `*sourceLen` 重新设为原始输入的完整长度。资源允许时可从原输入重新发起完整调用，并重新提供容量。 |
 | `Z_MEM_ERROR`<br>**解码期间分配失败** | 成功初始化后分配失败，可能已有部分输出；`*destLen` 报告已写字节数，`*sourceLen` 报告已消费字节数。 | 若从原始输入完整重试，先把 `*destLen` 重新设为目的缓冲区容量，并把 `*sourceLen` 重新设为原始输入的完整长度。保留需要的已写字节；它们不是已完整校验的结果。新调用须从原输入开始并重新设置容量。 |
 | `Z_STREAM_ERROR`<br>**初始化前参数拒绝** | 非空输入的 NULL source，或正容量的 NULL dest，或 NULL destLen 或 NULL sourceLen，会在初始化前被拒绝；现有长度值均不变。 | 修正已拒绝的参数，再重新调用。 |
-
-**判读要点。**
-
-- 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- 长度指针可以为 NULL，此时调用经检查后拒绝；非 NULL 的单元须可读写。
-- 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
 
 ### 调用条件与效果 {#api-uncompress2_z-contract}
 
@@ -501,12 +463,6 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 | `Z_MEM_ERROR`<br>**解码期间分配失败** | 成功初始化后分配失败，可能已有部分输出；`*destLen` 报告已写字节数，`*sourceLen` 报告已消费字节数。 | 若从原始输入完整重试，先把 `*destLen` 重新设为目的缓冲区容量，并把 `*sourceLen` 重新设为原始输入的完整长度。保留需要的已写字节；它们不是已完整校验的结果。新调用须从原输入开始并重新设置容量。 |
 | `Z_STREAM_ERROR`<br>**初始化前参数拒绝** | 非空输入的 NULL source，或正容量的 NULL dest，会在初始化前被拒绝；现有长度值均不变。 | 修正已拒绝的参数，再重新调用。 |
 
-**判读要点。**
-
-- 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- `uncompress2` 是包在 `uncompress2_z` 外面的包装函数：它先读取两个长度单元，不检查是否为 NULL，所以 destLen 和 sourceLen 均须非 NULL。两者每次返回都会写回。
-- 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
-
 ### 调用条件与效果 {#api-uncompress2-contract}
 
 **定义域。** 受限定义域。
@@ -565,12 +521,6 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
 | `Z_MEM_ERROR`<br>**解码期间分配失败** | 成功初始化后分配失败，可能已有部分输出；`*destLen` 报告已写字节数；已消费输入计数不向调用者公开。 | 若从原始输入完整重试，先把 `*destLen` 重新设为目的缓冲区容量。保留需要的已写字节；它们不是已完整校验的结果。新调用须从原输入开始并重新设置容量。 |
 | `Z_STREAM_ERROR`<br>**初始化前参数拒绝** | 非空输入的 NULL source，或正容量的 NULL dest，或 NULL destLen，会在初始化前被拒绝；现有长度值均不变。 | 修正已拒绝的参数，再重新调用。 |
 
-**判读要点。**
-
-- 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- `destLen` 可以为 NULL，此时调用经检查后拒绝；非 NULL 的单元须可读写。
-- 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
-
 ### 调用条件与效果 {#api-uncompress_z-contract}
 
 **定义域。** 受限定义域。
@@ -627,12 +577,6 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 | `Z_MEM_ERROR`<br>**初始化分配失败** | 初始化失败；现有长度值均不变，未写入输出。 | 若从原始输入完整重试，先把 `*destLen` 重新设为目的缓冲区容量。资源允许时可从原输入重新发起完整调用，并重新提供容量。 |
 | `Z_MEM_ERROR`<br>**解码期间分配失败** | 成功初始化后分配失败，可能已有部分输出；`*destLen` 报告已写字节数；已消费输入计数不向调用者公开。 | 若从原始输入完整重试，先把 `*destLen` 重新设为目的缓冲区容量。保留需要的已写字节；它们不是已完整校验的结果。新调用须从原输入开始并重新设置容量。 |
 | `Z_STREAM_ERROR`<br>**初始化前参数拒绝** | 非空输入的 NULL source，或正容量的 NULL dest，会在初始化前被拒绝；现有长度值均不变。 | 修正已拒绝的参数，再重新调用。 |
-
-**判读要点。**
-
-- 成功初始化后，每次返回都写入实际计数，包括后续内存失败；已写输出仍可读取。每条返回路径均释放所有内部分配。
-- `uncompress` 调用包装函数 `uncompress2`，后者先读取长度单元，不检查是否为 NULL：destLen 须非 NULL，且每次返回都会写回。
-- 输入、目的缓冲区及长度单元互相分离。NULL 目的缓冲区配合零容量可使用私有输出指针接受完整空流。内部 Z_STREAM_END 映射为 Z_OK，Z_NEED_DICT 映射为 Z_DATA_ERROR，其他解码器返回码保留。
 
 ### 调用条件与效果 {#api-uncompress-contract}
 
@@ -779,10 +723,6 @@ const char * ZEXPORT zError(int err);
 | `"buffer error"`<br>**缓冲区错误文本** | err == -5。 | 读取借用的静态文本；不得写入或释放。 |
 | `"incompatible version"`<br>**版本不兼容文本** | err == -6。 | 读取借用的静态文本；不得写入或释放。 |
 | `""`<br>**空文本** | err == 0，或 err 不在 -6–2 范围内，包括 int 的最小值和最大值。 | 按需读取空字符串；这既不是 NULL 指针，也不是另一个错误码。 |
-
-**判读要点。**
-
-- 接受每一个 int 值；在索引运算前检查范围。不分配内存，也不改变堆。
 
 ### 调用条件与效果 {#api-zerror-contract}
 

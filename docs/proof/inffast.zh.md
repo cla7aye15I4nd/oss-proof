@@ -1,4 +1,4 @@
-<!-- source-sha256: d1434a77f28b5ed08aef2b87e58479f1ac83ea1b240a6db844d244412030733b -->
+<!-- source-sha256: 022210dcba5c12351a9d025b59c77f31babb88dad07a815cdac0d41e1731cf75 -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -22,7 +22,7 @@
 调用者这样使用这些定理：
 
 - **`inflateBack`。** `fast_env` 证明入口条件。`LEN_fast_p` 从它取得这些条件，并应用 `fast_consumes`。这在 `inflate_back_sequence_safety` 的证明内部。从 `inflateBack` 发出的调用靠它才安全，这个调用者的循环也靠它才终止。
-- **`inflate`，输入和输出位于两个不同的堆块。** `inflate_fast_raw_entry` 在这条前提下证明入口条件，然后对它们应用 `inflate_fast_safe_progress`。
+- **`inflate`，输入和输出位于两个不同的堆块。** `inflate_fast_raw_entry` 在这条前提（`ib ≠ ob`）下证明入口条件，然后对它们应用 `inflate_fast_safe_progress`。
 - **`inflate`，每一种布局。** `inflate_sequence_safety_public` 允许输入和输出是同一个块里的两段。对快速调用，它的证明用的是 `inflate_fast_default_view_buffers_progress`，它是那个证明的一条引理。这条引理对块没有前提。它是对同一个翻译后的函数的第二个证明，针对调用者的区域和解码器不变量陈述；它不使用 `EnvG`。`fast_consumes` 没有用于 `inflate`。见[流式解码](inflate.md#the-fast-path)。
 - **`inflate`，功能结论。** `inflate_fast_entry` 对每一种布局证明入口条件。功能定理 `fast_call_meaning` 用到它；安全结论不用它。
 
@@ -32,7 +32,7 @@
 
 ## 假设
 
-这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段。`Env` 是 `inflate` 的情形，这时窗口绝不是输出对象；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：调用者在应用本页的定理之前证明它们。`fast_env` 为 `inflateBack` 做这件事。`inflate_fast_raw_entry` 在输入和输出位于两个不同的堆块时为 `inflate` 做这件事；它带有这条前提（`ib ≠ ob`）。`inflate_fast_entry` 为每一种布局下的 `inflate` 做这件事。
+这些定理假设下面的入口条件。在 Lean 里它们是记录 `EnvG` 的字段。`Env` 是 `inflate` 的情形，这时窗口绝不是输出对象；`inflate_fast_safe` 是针对 `Env` 陈述的。这些是内部前提：调用者在应用本页的定理之前证明它们；做这件事的引理列在[结论](#results)一节。
 
 - **流。** `strm` 指向一个可写的流记录，它的 `state` 是 inflate 状态。
 - **输入。** `next_in` 指向一个少于 `2^63` 字节的字节对象内部。`avail_in ≥ 6`，这 `avail_in` 个字节都在对象内。字节对象是一个堆块，或者模型里其他的字节数组，例如状态记录内部的数组。
@@ -140,7 +140,7 @@ hold &= (1U << bits) - 1;
 
 I4 给出 `bits ≤ bits_entry + 8 * (in - in0)`。加上 `bits_entry < 8`，就得到 `len ≤ in - in0`：函数归还的只是它自己读入的字节，`in` 不会退到 `in0` 之前。之后 `bits < 8`，所以掩码的移位在合法范围内。入口条件 `bits < 8` 就用在这里。没有它，函数可能退过调用者已经消耗掉的字节。
 
-`inflate` 在选择快速路径的条件里自己检查了 `bits < 8`。`inflateBack` 不检查。它的分派循环的证明把这个事实放在循环不变量里：每一轮以 `TYPE`、`TABLE` 或 `LEN` 模式开始时，持有的位都少于 8 个（`Short`）。`LEN_fast_p` 并不证明入口处的 `bits < 8`：它把这一点当作前提，由上述不变量提供，并证明调用之后它再次成立。
+`inflate` 在选择快速路径的条件里自己检查了 `bits < 8`。`inflateBack` 不检查。它的分派循环的证明把这个事实放在循环不变量里：每一轮以 `TYPE`、`TABLE` 或 `LEN` 模式开始时，持有的位都少于 8 个（`Short`）。`LEN_fast_p` 把入口处的 `bits < 8` 当作前提，由上述不变量提供，并证明调用之后它再次成立。
 
 随后函数算出新的 `avail_in` 和 `avail_out`，两者各由同一个块内的指针差得到，连同两个游标、`hold` 和 `bits` 一起存回（`fast_finish_wp`）。
 

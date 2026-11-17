@@ -37,6 +37,13 @@ four compression functions, `UncompressCountedSafe` for `uncompress2` and `uncom
 `UncompressSingleSafe` for `uncompress` and `uncompress_z`.
 
 The buffer utilities create and release a local stream with the zlib wrapper and default settings.
+The stream record is an automatic variable, not a heap block, so it takes no allocation attempt.
+The allocation attempts of a call are those of the codec. A `compress*` call attempts at most
+five, all in `deflateInit`: the state, the window, `prev`, `head` and the pending buffer; it
+attempts none when it refuses its arguments or the level. An `uncompress*` call attempts the
+decoder state in `inflateInit`, and the window inside `inflate` when decoding needs it.
+A differential [test](../../../tests/regression/compress-allocation/README.md) compares the
+allocation attempts of the four compression functions with the real C.
 
 First the convention for the lengths. `sourceLen` gives the number of readable input bytes.
 `*destLen` is the writable capacity of the destination array before the call, and the number of
@@ -104,12 +111,6 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 | `Z_STREAM_ERROR`<br>**Invalid compression level** | After early argument checks, level is outside -1 and 0–9; `*destLen` is zeroed before any allocation. | Choose -1 or 0–9 and reset the output capacity for a new call. |
 | `Z_STREAM_ERROR`<br>**NULL destination with zero capacity** | After early argument checks and a valid level, dest == NULL with zero capacity and initialization succeeds; `*destLen` is zero. Allocation failure instead returns Z_MEM_ERROR. | Provide a valid destination and sufficient capacity, then make a new call. |
 
-**Reading the result.**
-
-- Before the call, `*destLen` is capacity; after return it is the written count except on early rejection. All internal allocations are released on every return path.
-- destLen may be NULL for checked rejection; non-NULL length cells must be readable and writable.
-- Input, destination and length cells must be separate and cover the stated ranges. Empty input is valid. Level -1 selects level 6.
-
 ### Calling conditions and effects {#api-compress2_z-contract}
 
 **Domain.** Restricted domain.
@@ -174,12 +175,6 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 | `Z_STREAM_ERROR`<br>**Invalid compression level** | After early argument checks, level is outside -1 and 0–9; `*destLen` is zeroed before any allocation. | Choose -1 or 0–9 and reset the output capacity for a new call. |
 | `Z_STREAM_ERROR`<br>**NULL destination with zero capacity** | After early argument checks and a valid level, dest == NULL with zero capacity and initialization succeeds; `*destLen` is zero. Allocation failure instead returns Z_MEM_ERROR. | Provide a valid destination and sufficient capacity, then make a new call. |
 
-**Reading the result.**
-
-- Before the call, `*destLen` is capacity; after return it is the written count except on early rejection. All internal allocations are released on every return path.
-- `compress2` is a wrapper function around `compress2_z`: it reads the destLen cell first, without a NULL check, and copies the length back on every return. A NULL destLen is therefore outside this precondition.
-- Input, destination and length cells must be separate and cover the stated ranges. Empty input is valid. Level -1 selects level 6.
-
 ### Calling conditions and effects {#api-compress2-contract}
 
 **Domain.** Restricted domain.
@@ -235,12 +230,6 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 | `Z_STREAM_ERROR`<br>**Early argument rejection** | source is NULL with sourceLen > 0, or dest is NULL with positive original capacity. destLen == NULL is also checked and rejected. Existing length values are unchanged. | Correct the rejected arguments and call again with valid buffers. |
 | `Z_STREAM_ERROR`<br>**NULL destination with zero capacity** | After early argument checks, dest == NULL with zero capacity and initialization succeeds; `*destLen` is zero. Allocation failure instead returns Z_MEM_ERROR. | Provide a valid destination and sufficient capacity, then make a new call. |
 
-**Reading the result.**
-
-- Before the call, `*destLen` is capacity; after return it is the written count except on early rejection. All internal allocations are released on every return path.
-- destLen may be NULL for checked rejection; non-NULL length cells must be readable and writable.
-- Input, destination and length cells must be separate and cover the stated ranges. Empty input is valid. Uses default level -1, selecting level 6.
-
 ### Calling conditions and effects {#api-compress_z-contract}
 
 **Domain.** Restricted domain.
@@ -293,12 +282,6 @@ The status says whether the whole buffer became a complete zlib stream. The byte
 | `Z_STREAM_ERROR`<br>**Early argument rejection** | source is NULL with sourceLen > 0, or dest is NULL with positive original capacity. Existing length values are unchanged. | Correct the rejected arguments and call again with valid buffers. |
 | `Z_STREAM_ERROR`<br>**NULL destination with zero capacity** | After early argument checks, dest == NULL with zero capacity and initialization succeeds; `*destLen` is zero. Allocation failure instead returns Z_MEM_ERROR. | Provide a valid destination and sufficient capacity, then make a new call. |
 
-**Reading the result.**
-
-- Before the call, `*destLen` is capacity; after return it is the written count except on early rejection. All internal allocations are released on every return path.
-- `compress` calls the wrapper function `compress2`, which reads the destLen cell first, without a NULL check, and copies the length back on every return. A NULL destLen is therefore outside this precondition.
-- Input, destination and length cells must be separate and cover the stated ranges. Empty input is valid. Uses default level -1, selecting level 6.
-
 ### Calling conditions and effects {#api-compress-contract}
 
 **Domain.** Restricted domain.
@@ -347,10 +330,6 @@ Computes the capacity value used for default compression settings; allocates no 
 | --- | --- | --- |
 | `min(2^64 - 1, n + (n >> 12) + (n >> 14) + (n >> 25) + 13)`<br>**Capacity value** | n = sourceLen may be any unsigned 64-bit value; sum mathematically, then saturate at the maximum. n == 0 returns 13. | Use the value to plan valid destination capacity. |
 
-**Reading the result.**
-
-- This is a numeric contract with no error return. Output adequacy is a separate property scoped to default zlib wrapper, window and memory settings; it does not cover arbitrary raw or gzip settings.
-
 ### Calling conditions and effects {#api-compressbound_z-contract}
 
 **Domain.** Full type domain.
@@ -359,9 +338,9 @@ Computes the capacity value used for default compression settings; allocates no 
 
 **Effects.** Pure. No pointer access, allocation, state change or error return.
 
-**Scope.** This contract specifies the number. Output adequacy is a separate property
-for valid compression calls with the default wrapper, window and memory settings.
-It gives no bound for arbitrary raw or gzip stream settings.
+**Scope.** This contract specifies the number. The bound is meant for compression with the
+default wrapper, window and memory settings, as `compress` uses them. It gives no bound for
+arbitrary raw or gzip stream settings.
 
 **Proof goals.**
 
@@ -371,7 +350,7 @@ It gives no bound for arbitrary raw or gzip stream settings.
 - **Guarantees.**
     - *Returns.* The translation is a total function from the argument to the result. It takes no heap and has no fault case, so the call returns for every argument; the goal adds that the result is the saturated formula given under Post.
     - *State, writes, allocations.* None: the function has no access to memory.
-- **Not in this goal.** That a destination of this size is enough for `compress`: no required goal states it.
+- **Not in this goal.** That every output of the translated `compress` fits in a destination of this size. The theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound_z"><summary>Complete return conditions and boundaries</summary>
 
@@ -399,17 +378,13 @@ Computes the capacity value used for default compression settings; allocates no 
 | --- | --- | --- |
 | `min(2^64 - 1, n + (n >> 12) + (n >> 14) + (n >> 25) + 13)`<br>**Capacity value** | n = sourceLen may be any unsigned 64-bit value; sum mathematically, then saturate at the maximum. n == 0 returns 13. | Use the value to plan valid destination capacity. |
 
-**Reading the result.**
-
-- This is a numeric contract with no error return. Output adequacy is a separate property scoped to default zlib wrapper, window and memory settings; it does not cover arbitrary raw or gzip settings.
-
 ### Calling conditions and effects {#api-compressbound-contract}
 
 **Domain.** Full type domain.
 
 **Pre.** Full type domain: every 64-bit `sourceLen`.
 
-**Effects.** Pure. No memory access or error return. The same output-adequacy scope applies.
+**Effects.** Pure. No memory access or error return. The scope of [compressBound_z](#compressbound_z) applies.
 
 **Proof goals.**
 
@@ -419,7 +394,7 @@ Computes the capacity value used for default compression settings; allocates no 
 - **Guarantees.**
     - *Returns.* The translation is a total function from the argument to the result. It takes no heap and has no fault case, so the call returns for every argument; the goal adds that the result is the saturated formula given under Post.
     - *State, writes, allocations.* None: the function has no access to memory.
-- **Not in this goal.** That a destination of this size is enough for `compress`: no required goal states it.
+- **Not in this goal.** That every output of the translated `compress` fits in a destination of this size. The theorem `compress_bound_adequate` states it for the heap-free [API model](../../design/api-model.md) only; no theorem says that the translated `compress2` follows that model.
 
 <details markdown="1" class="ar-return-exact" data-return-exact="compressBound"><summary>Complete return conditions and boundaries</summary>
 
@@ -449,12 +424,6 @@ The status says whether the first zlib stream decoded completely. Length values 
 | `Z_MEM_ERROR`<br>**Initialization allocation failure** | Initialization fails; existing length values are unchanged and no output is written. | For a complete retry from the original input, first restore `*destLen` to the destination capacity and `*sourceLen` to the full original input length. When resources permit, make a new complete call from the original input and supply the capacity again. |
 | `Z_MEM_ERROR`<br>**Allocation failure during decoding** | Allocation fails after successful initialization, possibly after partial output; `*destLen` reports bytes written and `*sourceLen` reports bytes consumed. | For a complete retry from the original input, first restore `*destLen` to the destination capacity and `*sourceLen` to the full original input length. Retain written bytes if needed; they are not a fully checked result. A new call must start from the original input with capacity reset. |
 | `Z_STREAM_ERROR`<br>**Argument rejection before initialization** | NULL source for nonempty input, or NULL dest for positive capacity, or NULL destLen or NULL sourceLen is rejected before initialization; existing length values are unchanged. | Correct the rejected arguments, then make a new call. |
-
-**Reading the result.**
-
-- After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- Length pointers may be NULL for checked rejection; non-NULL cells must be readable and writable.
-- Input, destination and length cells are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
 
 ### Calling conditions and effects {#api-uncompress2_z-contract}
 
@@ -527,12 +496,6 @@ The status says whether the first zlib stream decoded completely. Length values 
 | `Z_MEM_ERROR`<br>**Allocation failure during decoding** | Allocation fails after successful initialization, possibly after partial output; `*destLen` reports bytes written and `*sourceLen` reports bytes consumed. | For a complete retry from the original input, first restore `*destLen` to the destination capacity and `*sourceLen` to the full original input length. Retain written bytes if needed; they are not a fully checked result. A new call must start from the original input with capacity reset. |
 | `Z_STREAM_ERROR`<br>**Argument rejection before initialization** | NULL source for nonempty input, or NULL dest for positive capacity is rejected before initialization; existing length values are unchanged. | Correct the rejected arguments, then make a new call. |
 
-**Reading the result.**
-
-- After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- `uncompress2` is a wrapper function around `uncompress2_z`: it reads both length cells first, without a NULL check, so destLen and sourceLen must both be non-NULL. Both are copied back on every return.
-- Input, destination and length cells are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
-
 ### Calling conditions and effects {#api-uncompress2-contract}
 
 **Domain.** Restricted domain.
@@ -591,12 +554,6 @@ The status says whether the first zlib stream decoded completely. Length values 
 | `Z_MEM_ERROR`<br>**Allocation failure during decoding** | Allocation fails after successful initialization, possibly after partial output; `*destLen` reports bytes written; the consumed-input count is not exposed to the caller. | For a complete retry from the original input, first restore `*destLen` to the destination capacity. Retain written bytes if needed; they are not a fully checked result. A new call must start from the original input with capacity reset. |
 | `Z_STREAM_ERROR`<br>**Argument rejection before initialization** | NULL source for nonempty input, or NULL dest for positive capacity, or NULL destLen is rejected before initialization; existing length values are unchanged. | Correct the rejected arguments, then make a new call. |
 
-**Reading the result.**
-
-- After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- `destLen` may be NULL for checked rejection; a non-NULL cell must be readable and writable.
-- Input, destination and the length cell are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
-
 ### Calling conditions and effects {#api-uncompress_z-contract}
 
 **Domain.** Restricted domain.
@@ -654,12 +611,6 @@ The status says whether the first zlib stream decoded completely. Length values 
 | `Z_MEM_ERROR`<br>**Initialization allocation failure** | Initialization fails; existing length values are unchanged and no output is written. | For a complete retry from the original input, first restore `*destLen` to the destination capacity. When resources permit, make a new complete call from the original input and supply the capacity again. |
 | `Z_MEM_ERROR`<br>**Allocation failure during decoding** | Allocation fails after successful initialization, possibly after partial output; `*destLen` reports bytes written; the consumed-input count is not exposed to the caller. | For a complete retry from the original input, first restore `*destLen` to the destination capacity. Retain written bytes if needed; they are not a fully checked result. A new call must start from the original input with capacity reset. |
 | `Z_STREAM_ERROR`<br>**Argument rejection before initialization** | NULL source for nonempty input, or NULL dest for positive capacity is rejected before initialization; existing length values are unchanged. | Correct the rejected arguments, then make a new call. |
-
-**Reading the result.**
-
-- After successful initialization, every return stores actual counts, including later memory failure; written output remains readable. All internal allocations are released on every return path.
-- `uncompress` calls the wrapper function `uncompress2`, which reads the length cell first, without a NULL check: destLen must be non-NULL, and it is copied back on every return.
-- Input, destination and the length cell are separate. A NULL destination with zero capacity uses a private output pointer and can accept a complete empty stream. Internal Z_STREAM_END maps to Z_OK, Z_NEED_DICT to Z_DATA_ERROR, and other decoder codes are retained.
 
 ### Calling conditions and effects {#api-uncompress-contract}
 
@@ -807,10 +758,6 @@ Maps the supplied result code to text. The function itself always returns a non-
 | `"buffer error"`<br>**buffer error text** | err == -5. | Read the borrowed static text; do not write to or free it. |
 | `"incompatible version"`<br>**incompatible version text** | err == -6. | Read the borrowed static text; do not write to or free it. |
 | `""`<br>**Empty text** | err == 0, or err is outside -6–2, including the minimum and maximum int. | Read the empty string as needed; this is neither a NULL pointer nor another error code. |
-
-**Reading the result.**
-
-- Accepts every int value; checks the range before index arithmetic. Allocates no memory and does not change the heap.
 
 ### Calling conditions and effects {#api-zerror-contract}
 

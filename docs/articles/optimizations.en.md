@@ -86,7 +86,7 @@ Bitwise XOR sets a result bit when its two input bits differ; retaining the low 
 
 Starting from zero, A, B and C produce 65, 2146 and 3075. Appending D gives 36, also obtained by hashing B, C and D from zero. Shifting and masking removed A's contribution. Advancing to the next three-byte key reuses the prior calculation instead of hashing the whole key again.
 
-Keeping a predecessor for every input position forever would be unbounded. Instead, `prev` has W slots and position p uses `p & (W−1)`, or p modulo W. At W=512, positions 100 and 612 share a slot; their separation 512 exceeds the 250-byte search range. The old link is no longer useful when the slot is reused. This circular indexing belongs to the **predecessor array**. Compared bytes remain in the continuous `2W` array.
+Keeping a predecessor for every input position forever would be unbounded. Instead, `prev` has W slots and position p uses `p & (W−1)`, or p modulo W. At W=512, positions 100 and 612 share slot 100; their separation 512 exceeds the 250-byte search range. The old link is no longer useful when the slot is reused. This circular indexing belongs to the **predecessor array**. Compared bytes remain in the continuous `2W` array.
 
 When bytes move down by W, `slide_hash` transforms saved positions m to `m−W` if m≥W, otherwise zero, the no-position marker. Subtraction leaves slot remainders unchanged. Source 700 at slot 188 becomes source 188; predecessor 650 becomes 138. Chains index moved bytes rather than copying their contents.
 

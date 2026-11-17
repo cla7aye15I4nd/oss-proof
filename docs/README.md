@@ -35,6 +35,4 @@ verification has its own reference material below.
 - [Why a green build is not enough](anti-cheating.md): why a proof that compiles is not enough,
   and what the results are guarded against.
 - [Findings](findings.md): confirmed reports about zlib and their scope.
-- [Sanitizer reports](sanitizer-reports.md): every sanitizer reproduction and the premise that
-  excludes it.
 - [Runtime schema](runtime-schema.md): the field and type reference of the model's records.

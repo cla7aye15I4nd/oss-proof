@@ -1,15 +1,9 @@
-<!-- source-sha256: 733142373aa3f27631761774dd50afe18294c02607a28549df0403f7e0cca99a -->
+<!-- source-sha256: fcf63181888eb1fa503083ce7dcd6c3a1a152138b39af89b52d47ae0239b5c1e -->
 # `gzread`：在设备上定位之后位置发生有符号溢出
 
-gz 读取函数把交付的字节数加到有符号的位置 `state->x.pos` 上，没有上界。在 Linux 上，对 `/dev/zero` 这样的字符设备做透明模式的 `gzseek`，可以把位置设为 `INT64_MAX`，下一次读取就让它溢出。zlib 的维护者只读本页，就能复现这份报告并作出判断。写入一侧的对应问题是 [gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)。测试文件在 [`tests/regression/gzread-pos-overflow`](../../../tests/regression/gzread-pos-overflow/README.md)。
+gz 读取函数把它们交付的字节数加到有符号位置 `state->x.pos` 上，没有上界。在 Linux 上，对 `/dev/zero` 这样的字符设备做透明的 `gzseek`，可以把位置设为 `INT64_MAX`，下一次读取就使它溢出：在 `gz_read` 中，在 `gzgetc` 函数中，以及在 `zlib.h` 的 `gzgetc()` 宏中，而这个宏运行在调用者的代码里。有符号溢出是未定义行为。写入一侧见 [gzwrite-pos-overflow](../gzwrite-pos-overflow/README.md)。
 
-## 状态
-
-- 未定义行为：`x.pos` 的有符号整数溢出，出现在 `gz_read`、`gzgetc` 函数，以及在调用者代码中展开的 zlib.h 的 `gzgetc()` 宏里。在文档用法之内。
-- 由 UndefinedBehaviorSanitizer 在 x86_64 Linux（内核 7.0，GCC 15.2）上报告；源码是上游 `develop` 的提交 `757f0527154291bcf6bfbd6396ecde6bedd2db95` 加上本仓库除 0004 以外的补丁。在 arm64 macOS 上用 Apple clang 运行了一次，没有复现：那里对 `/dev/zero` 的 `lseek` 接受这个偏移并把它返回，读取没有交付位置 `INT64_MAX` 之后的任何字节，sanitizer 也没有任何报告。没有试过别的系统。`gzread.c` 和 `gzlib.c` 在 zlib 1.4（提交 `99623ef7097352da7993ba614161fd6a311e046e`，即本项目验证的版本）中逐字节相同，`zlib.h` 的 `gzgetc()` 宏也没有变；这里没有记录在该版本上的运行。
-- 没有提交上游。被验证的源码应用本地[补丁 0004](../../../patches/README.md)。拉取请求的文字草稿在 [upstream-description.md](upstream-description.md)。
-
-## 调用序列
+## 到达它的调用
 
 ```c
 int fd = open("/dev/zero", O_RDONLY);
@@ -19,7 +13,7 @@ gzseek(f, INT64_MAX, SEEK_SET);          /* 设备上的 lseek 返回 0：x.pos 
 gzread(f, buf, 16);                      /* gz_read：state->x.pos += n 溢出 */
 ```
 
-第二个序列在调用者的代码里溢出：
+第二个序列在调用者的代码中溢出：
 
 ```c
 gzseek(f, INT64_MAX - 4, SEEK_SET);
@@ -28,23 +22,25 @@ gzgetc(f); gzgetc(f); gzgetc(f);         /* 宏：x.pos 到达 INT64_MAX */
 gzgetc(f);                               /* 宏中的 (g)->pos++ 溢出 */
 ```
 
-定位为什么被接受：`gzseek64` 只检查目标能否用 `z_off64_t` 表示。在透明模式下，它随后对描述符调用 `lseek`。在 Linux 上，对 `/dev/zero` 的 `lseek` 返回 0、不失败，而设备继续提供字节：保留的报告显示了偏移为 `INT64_MAX - 1` 的这次调用。没有在别的设备上运行过。
+`gzseek64` 只检查目标能否用 `z_off64_t` 表示。在透明模式下，它随后对描述符调用 `lseek`。在 Linux 上，对 `/dev/zero` 的 `lseek` 返回 0 而不失败，设备继续交付字节。
+
+透明读取者在这样的描述符上到达溢出：它的 `lseek` 成功却不限制偏移，之后仍交付数据，并且程序定位到了 `INT64_MAX` 附近。运行过的描述符是 Linux 的 `/dev/zero`。gzip 流要到达同样的溢出，需要大约 2^63 字节的解压输出。
+
+每个调用都是文档用法：`zlib.h` 允许对任何描述符调用 `gzdopen`，允许定位到偏移类型能表示的任何位置，也允许之后读取。关于这个上限，它只说如果结果位置 `would not be representable in the offset type`（无法用偏移类型表示，`zlib.h:1687`），`gzseek` 返回 -1。
 
 完整程序是 [`devzero.c`](../../../tests/regression/gzread-pos-overflow/devzero.c)。
 
-## 运行
+## 证据
 
-在 Linux 上，仓库根目录，`zlib/` 子模块已检出：
+在 x86_64 Linux 上，对带有除 0004 以外全部补丁的 C，UndefinedBehaviorSanitizer 报告这次溢出。在 Linux 上，于仓库根目录、已检出 `zlib/` 子模块时运行：
 
 ```sh
 ZLIB_SRC=$PWD/zlib bash tests/regression/gzread-pos-overflow/run.sh
 ```
 
-脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把 zlib 源码构建两次：一次用除 0004 以外的 `patches/*.patch`，一次用全部补丁。它在每个构建上以三种模式运行 `devzero.c`。没有 0004 时，每次运行都必须报告位置的有符号溢出。有 0004 时不得有任何报告，并且读取必须以 `Z_DATA_ERROR`“position overflow”结束。六项检查全部成立时脚本以状态 0 退出；每项通过的检查打印一行以 `ok:` 开头的文字。在其他系统上，脚本打印 `skip: needs Linux (/dev/zero with a succeeding lseek)`，什么也不检查。
+脚本用 `-fsanitize=address,undefined -fno-sanitize-recover=undefined -g -O1` 把 zlib 源码构建两次：一次带 `patches/*.patch` 中除 0004 以外的补丁，一次带全部补丁。它在每个构建上以三种模式运行 `devzero.c`。不带 0004 时，每次运行都必须报告位置的有符号溢出。带 0004 时不得有任何报告，并且读取必须以 `Z_DATA_ERROR`（消息为 `position overflow`）结束。六项检查全部成立时脚本以状态 0 退出。在其他系统上，脚本打印 `skip: needs Linux (/dev/zero with a succeeding lseek)`，不做任何检查。
 
-## Sanitizer 判定
-
-摘自 [`report.txt`](../../../tests/regression/gzread-pos-overflow/report.txt)，x86_64 Linux，不含补丁 0004 的源码：
+摘自 [`report.txt`](../../../tests/regression/gzread-pos-overflow/report.txt)，x86_64 Linux，不带补丁 0004 的源码：
 
 ```
 gzread.c:414:22: runtime error: signed integer overflow: 9223372036854775807 + 16 cannot be represented in type 'long int'
@@ -52,34 +48,27 @@ devzero.c:73:17: runtime error: signed integer overflow: 9223372036854775807 + 1
 gzread.c:539:21: runtime error: signed integer overflow: 9223372036854775807 + 1 cannot be represented in type 'long int'
 ```
 
-第一行是 `gz_read` 中的 `state->x.pos += n`，在未打补丁的文件中是第 413 行。第二行是在 `devzero.c` 中展开的 `gzgetc()` 宏。第三行是 `gzgetc` 函数。这份报告需要 Linux。
+第一行是 `gz_read` 中的 `state->x.pos += n`（不打补丁的文件的第 413 行）。第二行是在 `devzero.c` 中展开的 `gzgetc()` 宏。第三行是 `gzgetc` 函数。
 
-## 范围与严重程度
+## 影响
 
-- **谁会遇到。** 透明模式的读取者，其描述符的 `lseek` 成功却不限制偏移，随后还提供数据。Linux 上的 `/dev/zero` 就是这样的描述符，也是唯一运行过的一个。程序必须定位到 `INT64_MAX` 附近。对 gzip 流，同样的溢出需要大约 2^63 字节的解压输出，不现实。
-- **后果。** 有符号计数器上的未定义行为。按通常的回绕，`gztell` 变为负数，之后的定位从错误的位置计算。
-- **内存安全。** 没有发现这个溢出会引起内存错误。这是对未打补丁的 C 的解读，**尚未由证明确认**。本项目的证明也不会确认它：gz 安全定理（`gz_sequence_safety_public`，它证明 `Goal.gz_sequence_safety`）针对的是带补丁 0004 的源码，在那里溢出不会发生。
-- **严重程度。** 低：它需要在设备上有接近 2^63 的位置。
-
-## `zlib.h` 的说法
-
-每个调用都是文档用法：zlib.h 允许对任何描述符使用 `gzdopen`，允许定位到偏移类型能表示的任何位置，也允许之后读取。关于这一界限，它只说，如果结果位置 “`would not be representable in the offset type`”（不能用偏移类型表示），`gzseek` 返回 -1（`zlib.h:1687`）。对于把位置推过这一界限的读取，以及对于设备，它没有说明。
+有符号计数器上的未定义行为。按通常的回绕，`gztell` 变为负数，之后的定位从错误的位置算起。没有发现由这次溢出引起的内存错误。这是对不打补丁的 C 的解读，**尚未由证明确认**；定理不会确认它，因为定理说的是带补丁 0004 的源码，其中不会发生这次溢出。
 
 ## 修复
 
-[0004-gz-position-overflow.patch](../../../patches/0004-gz-position-overflow.patch) 的读取部分：辅助函数 `gz_room(state, max)` 返回 `max`，如果再交付 `max` 个字节会使 `x.pos` 超过 `GZ_OFF_MAX`，则返回更少。`gz_fetch` 最多向输出缓冲区填入这么多字节（至少一个，以便仍能发现输入结束），从而 `x.pos + x.have` 永不超过 `GZ_OFF_MAX`，`gzgetc()` 宏保持有定义。`gz_read` 和 `gzgets` 最多交付这么多字节；如果还剩无法交付的数据，就丢弃它并设置 `Z_DATA_ERROR`“position overflow”。在 `GZ_OFF_MAX - 2 * size` 以下没有任何变化。接近界限时交付相同的字节，只是每次填充更少。到达界限时，输入结束仍像以前一样报告；只有原本会使位置溢出的数据变成错误。
+[补丁 0004](../../../patches/README.md)，读取一侧。辅助函数 `gz_room(state, max)` 返回 `max`；如果再交付 `max` 个字节会使 `x.pos` 超过 `GZ_OFF_MAX`，就返回更小的值。补丁保证每个读取调用返回时 `x.pos + x.have <= GZ_OFF_MAX`，这正是 `gzgetc()` 宏所需要的。每个产生 `x.have` 的地方都保持它：
 
-补丁保持的不变量是：每次调用返回时 `x.pos + x.have <= GZ_OFF_MAX`。`x.have` 的每个产生者都保持它：
+- `gz_fetch` 向输出缓冲区最多填入 `gz_room` 个字节，并且至少一个，以便仍能发现输入的结束；
+- `gz_look` 在透明模式下最多缓冲 `gz_room(state, avail_in)` 个字节，输入超出时记录 `Z_DATA_ERROR`（消息为 `position overflow`）；
+- `gz_read` 和 `gzgets` 最多交付 `gz_room` 个字节；如果还剩下无法交付的数据，就丢弃它并设置同样的错误；
+- `gzungetc` 加入一个字节的同时把 `x.pos` 减一；
+- 透明模式下的定位会清空缓冲区。
 
-- `gz_fetch` 最多加载 `GZ_OFF_MAX - x.pos` 个字节；
-- `gz_look` 在透明模式下最多缓冲 `gz_room(state, avail_in)` 个字节，输入超出时记录同样的错误。为什么需要这个界限：见 [gz-position-copy-overflow](../gz-position-copy-overflow.md)；
-- `gz_read` 的直接路径最多交付这么多字节；
-- `gzungetc` 加入一个字节时把 `x.pos` 减一；
-- 透明模式下的定位清空缓冲区。
+`gz_fetch` 在 `GZ_OFF_MAX` 处为发现输入结束而装入的那一个字节，会被它在该处仅有的调用者 `gz_read` 和 `gzgets` 在返回之前丢弃。所以逐字节取用已缓冲数据的路径（`gzgetc` 函数、`gzgetc()` 宏）以及 `gz_skip_have` 不需要检查。
 
-`gz_fetch` 在 `GZ_OFF_MAX` 处为发现输入结束而加载的那一个字节，由它在那里仅有的调用者 `gz_read` 和 `gzgets` 在返回前丢弃（`gz_skip` 从不在 `GZ_OFF_MAX` 处取数据，因为 `x.pos + skip` 至多为 `GZ_OFF_MAX`）。因此逐字节取缓冲数据的快速路径（`gzgetc` 函数、`gzgetc()` 宏）以及 `gz_skip_have` 都无需检查。复现的 `fast` 运行在 `INT64_MAX - 2` 处检验了这些路径。
+在 `GZ_OFF_MAX - 2 * size` 以下，什么都不变。接近上限时，交付的字节相同，只是每次填入的更少。到达上限时，输入的结束仍像以前一样报告；只有会使位置溢出的数据才变成错误。
 
-补丁的检查：[upstream-description.md](upstream-description.md) 的“测试”一节。两个 `run.sh` 脚本（本发现和写入一侧）的历史有保留下来的输出，那里列出的其他运行没有。
+上游：该补丁是本地补丁，没有提交。
 
 ## 与证明的关系
 
