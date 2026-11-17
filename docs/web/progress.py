@@ -41,8 +41,10 @@ def manifest() -> dict:
 
 @lru_cache(maxsize=1)
 def proved() -> frozenset[str]:
-    lines = (REPO / 'tests/audit/proved-goals.txt').read_text().splitlines()
-    return frozenset(line.strip() for line in lines if line.strip() and not line.startswith('#'))
+    """The goals of the list `proved` of ZlibF/Results.lean, which Lean checks when the library is built."""
+    text = (REPO / 'ZlibF/Results.lean').read_text()
+    block = re.search(r'^def proved : [^\n]*:= \[\n(.*?)^\]', text, re.S | re.M)
+    return frozenset(re.findall(r'^\s*\(``([^\s,]+),', block[1], re.M))
 
 
 def short(goal: str) -> str:
