@@ -30,9 +30,3 @@ directory is read-only. Only a temporary project receives build outputs.
 This is positive differential evidence, not a proof or a claim that the
 default target configuration was executed. The report records the host and
 compiler configuration. It does not repeat the public-buffer counterexample.
-
-The address interpretation has direct proof mutants in
-[`byte-address.tsv`](../../proofmut/byte-address.tsv). With a built root, run
-`PROOFMUT_STRICT=1 bash tests/audit/proofmut.sh tests/proofmut/byte-address.tsv`.
-Ignoring or shifting an origin must fail the unchanged address proof.
-Restoring the old non-block fault must fail the general CRC-view proof.
