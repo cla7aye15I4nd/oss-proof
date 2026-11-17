@@ -48,11 +48,14 @@ inductive WriteChoice where
   deriving Inhabited
 
 /-- What call `n` of `lseek` does (M3). `regular`: the regular-file `lseek`. `fail e`: `-1` with errno `e`.
-`value v`: `min v (2^63 - 1)`, without moving the descriptor. -/
+`value v`: `v`, any 64-bit value, without moving the descriptor. A real `lseek` returns `-1` for a failure and
+otherwise an `off_t`, which need not be a position of a regular file: on Linux a file with unsigned offsets
+(`/proc/<pid>/mem`, `/dev/mem`) returns every 64-bit value except `-4095 .. -1` (which the C library reports as
+failures), and POSIX allows negative offsets for some devices. The oracle admits every value. -/
 inductive LseekChoice where
   | regular
   | fail (e : Int32)
-  | value (v : Nat)
+  | value (v : Int64)
   deriving Inhabited
 
 /-- The file system, the descriptor table, `errno` and the file size limit (`RLIMIT_FSIZE`). Paths are flat
@@ -356,8 +359,8 @@ def fsWrite (fd : Int32) (bs : Array UInt8) : G Int64 := fun w0 =>
   | .fail e => pure (-1, { w with errno := failErrno e EIO })
   | .count k => pure ((if bs.isEmpty then 0 else Int64.ofNat (max 1 (min k bs.size))), okErrW (w0.okErrno c) w)
 
-/-- `lseek(fd, off, whence)`. M3: `-1` with a nonzero errno, or a value in `[0, 2^63 - 1]`, possibly unrelated to
-later reads. -/
+/-- `lseek(fd, off, whence)`. M3: `-1` with a nonzero errno, or any 64-bit value, possibly unrelated to later
+reads (`LseekChoice`). -/
 def fsLseek (fd : Int32) (off : Int64) (whence : Int32) : G Int64 := fun w0 =>
   let c := w0.nos
   let w := tickW w0
@@ -366,7 +369,7 @@ def fsLseek (fd : Int32) (off : Int64) (whence : Int32) : G Int64 := fun w0 =>
     let (r, w') ← fsLseekReg fd off whence w
     pure (r, if r = -1 then w' else okErrW (w0.okErrno c) w')
   | .fail e => pure (-1, { w with errno := failErrno e ESPIPE })
-  | .value v => pure (Int64.ofInt (min (v : Int) (2 ^ 63 - 1)), okErrW (w0.okErrno c) w)
+  | .value v => pure (v, okErrW (w0.okErrno c) w)
 
 /-- `close(fd)`. M4: `0`, or `-1` with a nonzero errno; the descriptor is released in both cases. -/
 def fsClose (fd : Int32) : G Int32 := fun w0 =>
