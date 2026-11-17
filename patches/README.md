@@ -1,6 +1,6 @@
 # Patches
 
-The verified source is zlib 1.4 (upstream commit `99623ef7`) with the six patches of this
+The verified source is zlib 1.4 (upstream commit `99623ef7`) with the seven patches of this
 directory applied in name order. Every theorem is about that patched source.
 
 Each patch fixes an issue of zlib without whose fix a safety statement cannot be proved, or a
@@ -81,5 +81,18 @@ patch makes `deflateBound_z` return a conservative bound also when the strategy 
 (`fixedlen` for levels 1 to 9, `storelen` for level 0, as for the other parameter sets), which
 allows 9 bits per byte. No other strategy and no other parameter set changes. It fixes a broken
 promise, not a memory error: no safety goal depends on the value of the bound.
+
+Upstream: local patch, not submitted.
+
+## 0007-gzoffset-negative-lseek.patch
+
+`gzoffset64` takes `LSEEK(fd, 0, SEEK_CUR)`, refuses only -1, and when reading subtracts the
+buffered input `state->strm.avail_in`. On Linux, `lseek` on a file with unsigned offsets
+(`/proc/<pid>/mem`, `/dev/mem`) returns any 64-bit offset, negative ones included, and POSIX
+allows negative offsets for some devices. A descriptor at a large negative offset then makes the
+subtraction overflow `z_off64_t` (reproduction under
+`tests/regression/gzoffset-negative-lseek/`). The patch returns -1 for every negative result of
+`lseek`, as for a failure: a negative value is not a file offset. Without it the safety of
+`gzoffset64` and `gzoffset` cannot be proved on every outside world.
 
 Upstream: local patch, not submitted.

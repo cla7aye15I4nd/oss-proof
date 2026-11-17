@@ -4,7 +4,7 @@ import ZlibF.Zlib.«gzguts.h»
 # gzlib.c — faithful translation
 
 Source: `gzlib.c` of the verified source (with `patches/0002-gzseek-negative-position-overflow.patch` and
-`patches/0005-gz-next-zero-advance.patch`), default x86_64 Linux build: `LSEEK` is `lseek64`
+`patches/0005-gz-next-zero-advance.patch` and `patches/0007-gzoffset-negative-lseek.patch`), default x86_64 Linux build: `LSEEK` is `lseek64`
 (`_LARGEFILE64_SOURCE`, `_LFS64_LARGEFILE`), `O_CLOEXEC`, `O_NONBLOCK`, `O_EXCL`, `O_LARGEFILE` are defined
 (`O_LARGEFILE` is 0), `O_BINARY`, `WIDECHAR`, `UNDER_CE`, `NO_GZCOMPRESS` are not. So `gz_strwinerror`, the `-2`
 (wide path) branches and the `#ifndef O_EXCL` block are not compiled.
@@ -349,9 +349,9 @@ def gzoffset64 (file : GzFilePtr) : G Int64 := do
   let state := castState file
   let s ← ldS state
   if s.mode != GZ_READ && s.mode != GZ_WRITE then return -1
-  -- offset = LSEEK(state->fd, 0, SEEK_CUR); if (offset == -1) return -1;
+  -- offset = LSEEK(state->fd, 0, SEEK_CUR); if (offset < 0) return -1;   (patch 0007)
   let mut offset ← fsLseek s.fd 0 SEEK_CUR
-  if offset == -1 then return -1
+  if offset < 0 then return -1
   -- if (state->mode == GZ_READ) offset -= state->strm.avail_in;
   if s.mode == GZ_READ then
     let z ← ldZ (strmOf state)
