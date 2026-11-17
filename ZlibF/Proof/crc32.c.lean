@@ -1044,7 +1044,7 @@ def wsteps : Nat → UInt64 → UInt64
   | 0, d => d
   | n + 1, d => wstep (wsteps n d)
 
-theorem toUInt32_ofNat_eq (x : UInt64) (_h : x.toNat < 256) : UInt32.ofNat x.toNat = x.toUInt32 := by
+theorem toUInt32_ofNat_eq (x : UInt64) (h : x.toNat < 256) : UInt32.ofNat x.toNat = x.toUInt32 := by
   apply UInt32.toNat_inj.mp
   rw [UInt32.toNat_ofNat', UInt64.toNat_toUInt32]
 

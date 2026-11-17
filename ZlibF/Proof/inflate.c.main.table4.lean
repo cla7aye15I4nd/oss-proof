@@ -55,7 +55,7 @@ theorem TcRegShape.drop {l l' : IL} (a : TcRegShape l l') (hold : UInt64) (bits 
   unfold TcRegShape at *
   rw [a]
 
-theorem tcStream_length {h : Heap} {l : IL} {bs : List UInt8} (_B : BitInv h l bs) :
+theorem tcStream_length {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h l bs) :
     (stream l bs).length = l.bits.toNat + 8 * bs.length := by
   unfold stream
   simp [natBits_length, bytesBits_length]

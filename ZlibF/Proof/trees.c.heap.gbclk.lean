@@ -55,7 +55,7 @@ def blP (H : Nat → Nat) (hm maxc : Nat) (len : Nat → Nat) (k b : Nat) : Nat 
   rs (fun i => if H (hm + 1 + i) ≤ maxc ∧ len (H (hm + 1 + i)) = b then 1 else 0) k
 
 /-- Clamped nodes among the first `k` non-root positions. -/
-def ovP (_H : Nat → Nat) (hm elems L : Nat) (cl : Nat → Nat) (k : Nat) : Nat :=
+def ovP (H : Nat → Nat) (hm elems L : Nat) (cl : Nat → Nat) (k : Nat) : Nat :=
   rs (fun i => if cl (dadP elems (hm + 1 + i)) = L then 1 else 0) k
 
 /-- `Σ f · (len + xbits)` over the leaves among the first `k` non-root positions. -/

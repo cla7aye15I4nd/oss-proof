@@ -291,7 +291,7 @@ theorem keeps_trans {a b c : GzState} (k1 : FetchKeeps a b) (k2 : FetchKeeps b c
 
 /-- The body of `gz_fetch`'s loop (source text). -/
 def fetchBody (i : Nat) : Option Int32 → G (Option Int32) :=
-    (fun (_r : Option Int32) => do
+    (fun (r : Option Int32) => do
       let s ← ldS (some (.tab i))
       if s.how == LOOK then
         if (← Zlib.Gzread.gz_look (some (.tab i))) == -1 then return some (-1)

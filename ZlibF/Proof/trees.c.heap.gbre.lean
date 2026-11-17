@@ -441,7 +441,7 @@ theorem ws_gbOuter {h0 : Heap} {id : Nat} {tk : TK} {e0 : DeflateState} {hm J el
     (hR : ReSt tk e0 hm J maxc L xb c opt0 573 L (c L) e) :
     WS h0 id (cfor (σ := Int32 × Int32) (fun (bits, _) => pure (bits != 0))
       (fun (bits, h) => do pure (← isub bits 1, h)) (gbOuter (Sp id) (Ptr.ref (tk.ref id) 0) mc) (ml, hI)) e
-      (fun _r e' => ∃ hc, ReSt tk e0 hm J maxc L xb c opt0 hc 0 0 e') := by
+      (fun r e' => ∃ hc, ReSt tk e0 hm J maxc L xb c opt0 hc 0 0 e') := by
   have hL15 := ctx.L15
   have hL1 := ctx.L1
   have hcL : ∀ x, x ≤ L → c x ≤ 600 := by

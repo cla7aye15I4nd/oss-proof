@@ -80,7 +80,7 @@ theorem u32_sub_one_eq {x : UInt32} (h : x.toNat = 1) : ((x - 1) != 0) = false :
   simp [h0]
 
 /-- `do { *out++ = *from++; } while (--op);` copying from a block `fb` other than the output block. -/
-theorem copyOp_win_go (_A S : Array UInt8) (msg : BPtr) (m : UInt32) (fb : BRef) (hfb : fb ≠ e.ob)
+theorem copyOp_win_go (A S : Array UInt8) (msg : BPtr) (m : UInt32) (fb : BRef) (hfb : fb ≠ e.ob)
     (hSg : Space.get e.h0 fb = some S) :
     ∀ n (l : L) (fo oo : Nat) (A : Array UInt8) (fu : Nat), l.op.toNat = n + 1 → n ≤ fu →
       l.from_ = .ref fb fo → l.out = .ref e.ob oo → fo + n + 1 ≤ S.size → oo + n + 1 ≤ A.size →

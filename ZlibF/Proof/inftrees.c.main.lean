@@ -101,7 +101,7 @@ def itTop (type : UInt32) (lens : WPtr) (codes : UInt32) (table : CodePtr) (bits
   if root > max then root := max
   itA type lens codes table bits work count max root
 
-theorem gaddr0 (e : Env) (_hm : e.m = 1) (hR : e.R = 1) {mm : Nat} (hmm : mm < gReps e.ls e.R e.mx 0) :
+theorem gaddr0 (e : Env) (hm : e.m = 1) (hR : e.R = 1) {mm : Nat} (hmm : mm < gReps e.ls e.R e.mx 0) :
     gAddr e.ls e.R e.mx 0 mm = 0 := by
   have hpos := e.h_pos
   obtain ⟨b1, b2⟩ := lenAt_bounds (f := e.f) (n := e.n) hpos

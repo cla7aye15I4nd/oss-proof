@@ -52,7 +52,7 @@ structure LMEnv (h0 : Heap) (sr : Nat) (d : DeflateState) (wb pb : Nat) (wa : Ar
     (bfn wa p = bfn wa d.strstart.toNat → bfn wa (p + 1) = bfn wa (d.strstart.toNat + 1) →
       bfn wa (p + 2) = bfn wa (d.strstart.toNat + 2))
 
-def LMInv (h0 : Heap) (sr : Nat) (d : DeflateState) (wb _pb : Nat) (wa : Array UInt8) (pa : Array UInt16)
+def LMInv (h0 : Heap) (sr : Nat) (d : DeflateState) (wb pb : Nat) (wa : Array UInt8) (pa : Array UInt16)
     (c : UInt32) (st : LMState) (h : Heap) : Prop :=
   ∃ (ms : UInt32) (b : Nat), h = hAt h0 sr d ms ∧
     st.scan = .ref (.blk wb) d.strstart.toNat ∧ st.best_len.toInt = (b : Int) ∧ d.prev_length.toNat ≤ b ∧ b ≤ 258 ∧

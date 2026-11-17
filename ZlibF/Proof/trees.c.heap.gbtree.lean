@@ -113,7 +113,7 @@ def kraftC (H : Nat → Nat) (hm J maxc L : Nat) (cl : Nat → Nat) : Nat :=
   rs (fun i => if H (hm + 1 + i) ≤ maxc then 2 ^ (L - cl (H (hm + 1 + i))) else 0) (2 * J)
 
 /-- Number of nodes whose (clamped) parent depth is already `L`: `gen_bitlen`'s `overflow`. -/
-def ovfC (_H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
+def ovfC (H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
   rs (fun i => if cl (dadP elems (hm + 1 + i)) = L then 1 else 0) (2 * J)
 
 theorem PShape.internal_tail (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl) (F : Nat → Nat) :
@@ -164,7 +164,7 @@ theorem kraft_clamped (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L
   omega
 
 /-- Nodes at exact depth `L`: their parent has clamped depth `L - 1`. -/
-def exactC (_H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
+def exactC (H : Nat → Nat) (hm J elems L : Nat) (cl : Nat → Nat) : Nat :=
   rs (fun i => if cl (dadP elems (hm + 1 + i)) + 1 = L then 1 else 0) (2 * J)
 
 /-- Leaves of clamped depth `b` (`bl_count[b]` after the first pass). -/
@@ -249,7 +249,7 @@ theorem exactC_pos (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl
   unfold exactC; omega
 
 /-- No leaf has clamped depth `0`. -/
-theorem blC_zero (_S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl) (hL : 1 ≤ L) :
+theorem blC_zero (S : PShape H hm J elems maxc) (C : Clamped H hm J elems L cl) (hL : 1 ≤ L) :
     blC H hm J maxc cl 0 = 0 := by
   unfold blC
   apply rs_eq_zero; intro i hi
