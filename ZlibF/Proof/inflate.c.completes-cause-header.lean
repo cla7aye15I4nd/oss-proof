@@ -4,6 +4,8 @@ import ZlibF.Proof.«inflate.c.head-default-state»
 import ZlibF.Proof.«inflate.c.meaning-dictid»
 import ZlibF.Proof.«inflate.c.dictid-dispatch»
 import ZlibF.Proof.«inflate.c.dictionary-dispatch»
+import ZlibF.Proof.«inflate.c.meaning-dict-trip»
+import ZlibF.Proof.«inflate.c.meaning-type-final»
 
 /-!
 # inflate.c: why the header trips of a zlib call leave
@@ -97,5 +99,117 @@ theorem cause_dictid (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
     unfold ShortAt
     exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
       (Or.inr (Or.inr (Or.inl ⟨Or.inr mode, len⟩))))))))))))
+
+open MeaningDictTrip MeaningBlock in
+/-- `DICT`: without a dictionary it returns `Z_NEED_DICT`; with one it goes on to `TYPE` in the
+same dispatch (`type_step`). -/
+theorem cause_dict (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
+    CauseAt c f r (fun s => s.mode = DICT) := by
+  intro h l side loop dict l' h' leaveRun
+  have side0 := side
+  obtain ⟨zs, z, s, strm, st, j, _, _, _⟩ := side0
+  have E : Env c h r zs z s := ⟨strm, st, j.good.live.hz, j.good.live.hs⟩
+  have mode : s.mode = DICT := dict zs s st E.hs
+  have dispatch := inflate_dispatch_DICT E l mode
+  by_cases present : s.havedict = 0
+  · obtain ⟨e, _, _⟩ := same_leave leaveRun (dispatch.trans (inflate_DICT_wait_run E l present))
+    cases e
+  let z1 : ZStream := { z with adler := 1 }
+  let s1 : InflateState := { s with check := 1, mode := TYPE }
+  let h1 := setI (r.put h z1) zs s1
+  have hz1 : r.get h1 = some z1 := by
+    simp only [h1, ZStreamRef.get_setI]
+    exact ZStreamRef.get_put_same E.hz _
+  have loop1 : LoopMatches c f h1 l := dict_ready_loop loop E mode present
+  have globals : LibraryGlobals h1 := by
+    have g := j.globals
+    unfold LibraryGlobals at g ⊢
+    simp only [h1, setI, ZStreamRef.put_static]
+    exact g
+  have last0 : s.last = 0 := by
+    obtain ⟨_, s', _, _, _, stage, st', hs', _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _,
+      stageM, wrapM, _⟩ := loop
+    rw [st] at st'
+    cases st'
+    rw [E.hs] at hs'
+    cases hs'
+    obtain ⟨header, rfl⟩ := stage_of_dict stageM mode
+    exact wrapM.2.2.2.2.1
+  have boundary : ∀ zs' s', c.st = some (.tab zs') → h1.istates zs' = some s' →
+      (s'.mode = TYPE ∨ s'.mode = TYPEDO) ∧ s'.last = 0 :=
+    at_state (P := fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last = 0) st
+      (setI_istates_same _ _ _) ⟨Or.inl rfl, last0⟩
+  have cut := dispatch.trans (inflate_DICT_ready_cut E l present)
+  obtain ⟨result, l1, h2, run, ends⟩ := type_step loop1 strm hz1 globals boundary
+  obtain ⟨e, rfl, rfl⟩ := same_leave leaveRun (cut.trans run)
+  rcases ends with ⟨_, cause, _⟩ | ⟨e', _⟩
+  · rcases cause with s | s | s
+    · exact Or.inr (Or.inr (Or.inr (Or.inr s)))
+    · exact Or.inr (Or.inl s)
+    · exact Or.inr (Or.inr (Or.inl s))
+  · rw [e] at e'; cases e'
+
+/-- `TYPE`/`TYPEDO` after the last block: it leaves only at a `Z_BLOCK`/`Z_TREES` stop in `TYPE`;
+`TYPEDO` goes on to `CHECK`. -/
+theorem cause_type_final (c : Ctx) (f : LoopFrame) (r : ZStreamRef) :
+    CauseAt c f r (fun s => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ s.last ≠ 0) := by
+  intro h l side _ modeAt l' h' leaveRun
+  obtain ⟨zs, z, s, E, _⟩ := side.env
+  obtain ⟨mode, last⟩ := modeAt zs s E.st E.hs
+  have dispatch := inflate_dispatch_block_type E l mode
+  have typedo : runX (inflate_dispatch c) l h = runX (inflate_TYPEDO c) l h → False := by
+    intro run
+    obtain ⟨e, _, _⟩ := same_leave leaveRun (run.trans (inflate_TYPEDO_last E l last))
+    cases e
+  by_cases isType : s.mode = TYPE
+  · rw [ite_cond_eq_true _ _ (eq_true isType)] at dispatch
+    by_cases flush : c.flush = Z_BLOCK ∨ c.flush = Z_TREES
+    · rcases flush with b | t
+      · exact Or.inr (Or.inl b)
+      · exact Or.inr (Or.inr (Or.inl t))
+    · have go : c.flush ≠ Z_BLOCK ∧ c.flush ≠ Z_TREES :=
+        ⟨fun e => flush (Or.inl e), fun e => flush (Or.inr e)⟩
+      exact (typedo (dispatch.trans (inflate_TYPE_go c l h go))).elim
+  · rw [ite_cond_eq_false _ _ (eq_false isType)] at dispatch
+    exact (typedo dispatch).elim
+
+open MeaningTrailer in
+/-- `LENGTH` of a zlib stream: no length field (`flags = 0`), so `DONE` with `Z_STREAM_END`. -/
+theorem cause_length_zlib (c : Ctx) (f : LoopFrame) (r : ZStreamRef) (zlib : f.wrap = .zlib) :
+    CauseAt c f r (fun s => s.mode = LENGTH) := by
+  intro h l side loop length l' h' leaveRun
+  obtain ⟨zs, z, s, E, _⟩ := side.env
+  obtain ⟨zs0, s0, _, _, _, stage0, st, hs, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _,
+    parsed0, stageM0, wrapM0, _⟩ := loop
+  have e0 : zs0 = zs := by rw [E.st] at st; cases st; rfl
+  subst e0
+  have e1 : s0 = s := Option.some.inj (hs.symm.trans E.hs)
+  subst e1
+  have mode : s0.mode = LENGTH := length zs0 s0 st hs
+  obtain ⟨header0, out0, bytes0, rfl⟩ : ∃ header out bytes, stage0 = .trailer header out bytes := by
+    rcases stage0 with b | b | ⟨b, pos⟩ | ⟨header, out, bytes⟩ | out
+    · have hi : s0.mode ≤ DICTID := stageM0.2
+      rw [mode] at hi; exact absurd hi (by decide)
+    · have m : s0.mode = DICT := stageM0; rw [mode] at m; exact absurd m (by decide)
+    · exact absurd stageM0.1.1 (by
+        intro bm
+        exact (MeaningTrailer.body_mode_range bm |> fun x => by
+          rw [show (loopState s0 l).mode = LENGTH from mode] at x
+          revert x; decide))
+    · exact ⟨header, out, bytes, rfl⟩
+    · have m : s0.mode = DONE := stageM0; rw [mode] at m; exact absurd m (by decide)
+  obtain ⟨flagsM, _, _⟩ := wrapM0
+  have notGzip : ¬ IsGzipHeader header0 := by
+    obtain ⟨_, _, _, wh, _⟩ := parsed0
+    rw [zlib] at wh
+    obtain ⟨window, zh, _⟩ := wh
+    exact zlibHeader_not_gzip zh
+  have flags0 : s0.flags = 0 := by
+    unfold FlagsMatch at flagsM
+    rw [zlib] at flagsM
+    simpa [notGzip, loopState] using flagsM
+  have run1 := (inflate_dispatch_LENGTH E l mode).trans (inflate_LENGTH_skip st hs (Or.inr flags0))
+  obtain ⟨_, rfl, rfl⟩ := same_leave leaveRun run1
+  exact Or.inl (show Z_STREAM_END ≠ Z_OK by decide)
 
 end Zlib.Inflate.Proofs
