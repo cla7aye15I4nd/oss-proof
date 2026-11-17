@@ -37,15 +37,19 @@ class StatusPage(unittest.TestCase):
         owned = {f.name for f in progress.functions()}
         for lang, text in PAGES.items():
             rows = [row for row in progress.page_rows(text) if row[0] not in owned]
-            self.assertEqual(sorted(row[1] for row in rows), sorted(progress.other_goals()), lang)
+            self.assertEqual(sorted(row[1] for row in rows),
+                             sorted(progress.other_goals() + progress.roundtrip_goals()), lang)
             for _, goal, shown in rows:
                 self.assertEqual(shown, progress.state(progress.goal_done(goal), lang), (lang, goal))
 
-    def test_the_rows_are_exactly_the_goals_of_the_safety_results(self):
+    def test_the_rows_are_exactly_the_goals_of_the_four_results(self):
+        safety, roundtrip = progress.required_goals(), progress.roundtrip_goals()
+        self.assertFalse(set(safety) & set(roundtrip))
         for lang, text in PAGES.items():
             listed = [row[1] for row in progress.page_rows(text)]
-            self.assertEqual(sorted(listed), sorted(progress.required_goals()), lang)
-            self.assertIn(str(len(listed)), text.split('##')[0], (lang, 'the stated number of goals'))
+            self.assertEqual(sorted(listed), sorted(safety + roundtrip), lang)
+            for number in (len(safety), len(roundtrip)):
+                self.assertIn(str(number), text.split('##')[0], (lang, 'the stated number of goals'))
 
     def test_the_results_agree_with_the_home_page_and_the_records(self):
         for lang, text in PAGES.items():
@@ -59,7 +63,7 @@ class StatusPage(unittest.TestCase):
                     self.assertEqual(goals, [], (lang, number))
                 self.assertEqual(shown, progress.state(result_done(decided), lang), (lang, number))
         taken = [goal for _, decided, *_ in RESULTS for goal in result_goals(decided)]
-        self.assertEqual(sorted(taken), sorted(progress.required_goals()))
+        self.assertEqual(sorted(taken), sorted(progress.required_goals() + progress.roundtrip_goals()))
 
     def test_functions_without_a_safety_goal_are_named_as_not_planned(self):
         missing = [f.name for f in progress.functions() if not f.goal]

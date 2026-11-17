@@ -5,7 +5,7 @@ from pathlib import Path
 from navigation import global_contents
 from pagekit import COMMIT, top_links, stamp, describe
 from syntax import color_blocks, color_code
-from progress import functional_state, functions, goal_done, other_goals, state
+from progress import functional_state, functions, goal_done, other_goals, roundtrip_goals, state
 from api_returns import parse_role, validate_sources, enhance_contract, enhance_manual
 from functools import lru_cache
 from hashlib import sha256
@@ -458,7 +458,7 @@ def render_portals() -> None:
         for file,label in [('inftrees.md',t('解码表构造','Decode-table construction')),('inffast.md',t('快速解码','Fast decoding')),('trees.md',t('树、位输出与共享缓冲区','Trees, bit emission, and shared storage')),('method.md',t('证明方法与不变量','Proof method and invariants')),('adler32.md','Adler-32'),('crc32.md','CRC-32'),('zutil.md',t('分配与工具函数','Allocation and utilities'))]:
             body+=link('proof/'+file,label)
         body+='</div>'
-        body+=f'<p><a href="targets{suffix}">{t("调用序列、拒绝与前提可满足性的目标命题","Statements of the goals for call sequences, refusals and satisfiable premises")} →</a></p>'
+        body+=f'<p><a href="targets{suffix}">{t("调用序列、拒绝、前提可满足性与往返的目标命题","Statements of the goals for call sequences, refusals, satisfiable premises and the round trip")} →</a></p>'
         write(current,shell(t('证明细节','Proof details'),body,current,lang,other=other))
 
 
@@ -507,6 +507,7 @@ def render_targets(manifest: dict) -> None:
         (('调用序列的安全','Safety of call sequences'),[n for n in safety if n.endswith('_sequence_safety')]),
         (('拒绝','Refusals'),[n for n in safety if n.endswith('_refusal')]),
         (('前提可以满足','The premises can be met'),[n for n in safety if n in domains]),
+        (('默认 zlib 流的往返','The round trip of the default zlib stream'),list(roundtrip_goals())),
         (('完整的序列契约（安全之外）','Full sequence contracts (beyond safety)'),[goal.rsplit('.',1)[-1] for goal in manifest['sequence_goals']]),
     ]
     full={goal.rsplit('.',1)[-1]:goal for goal in manifest['sequence_goals']}
@@ -518,7 +519,7 @@ def render_targets(manifest: dict) -> None:
         current=OUT/'reference'/('targets'+suffix)
         other=current.with_name('targets.html' if zh else 'targets.zh.html')
         status=href(doc_path(REPO/'docs/progress.md',lang),current)
-        body='<p class="rf-scope-note">'+('这些目标说的不是单个函数：完整的调用序列、对无效流或句柄的拒绝，以及各目标的前提可以满足。每个函数自己的目标在该函数的页面上。哪些已经完成，见<a href="'+status+'">结论的状态</a>；完整的序列契约是功能目标，它们各自的状态写在下面每一条旁边。' if zh else 'These goals are about more than one function: whole call sequences, the refusal of an invalid stream or handle, and that the premises of the goals can be met. The goal of each function is on the page of that function. Which are done is on the <a href="'+status+'">status page</a>; the state of each full sequence contract, which is a functional goal, is shown with it below.')+'</p>'
+        body='<p class="rf-scope-note">'+('这些目标说的不是单个函数：完整的调用序列、对无效流或句柄的拒绝、各目标的前提可以满足，以及默认 zlib 流的往返。每个函数自己的目标在该函数的页面上。哪些已经完成，见<a href="'+status+'">结论的状态</a>；完整的序列契约是功能目标，它们各自的状态写在下面每一条旁边。' if zh else 'These goals are about more than one function: whole call sequences, the refusal of an invalid stream or handle, that the premises of the goals can be met, and the round trip of the default zlib stream. The goal of each function is on the page of that function. Which are done is on the <a href="'+status+'">status page</a>; the state of each full sequence contract, which is a functional goal, is shown with it below.')+'</p>'
         for title,names in sections:
             body+='<h2>'+title[0 if zh else 1]+'</h2>'
             for name in names:

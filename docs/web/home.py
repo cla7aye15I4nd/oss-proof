@@ -7,7 +7,7 @@ import re
 
 from book import BOOK
 from pagekit import route_href
-from progress import functions, goal_done, other_goals, required_goals, state
+from progress import functions, goal_done, other_goals, required_goals, roundtrip_goals, state
 from reference import OUT, shell, write
 
 # Result number, goals that decide it (None: every other goal of the safety results; (): no goal
@@ -23,9 +23,9 @@ RESULTS = [
     (3, None, ('compress_safety', 'uncompress_safe', 'gz_sequence_safety', 'gz_refusal', 'inflate_back_sequence_safety'),
      '其余每个有文档的公开函数都安全：`compress*` 与 `uncompress*`、其他流函数、校验和函数、gzip 文件接口和回调解码器 `inflateBack`。',
      'Every other documented public function is safe: `compress*` and `uncompress*`, the other stream functions, the checksums, the gzip file interface and the callback decoder `inflateBack`.'),
-    (4, (), (),
-     '默认 zlib 流的往返：先压缩再解压，得到原输入。有一条定理证明了条件形式（两边都到达 `Z_STREAM_END` 时成立）；无条件的形式还没有定理。',
-     'The round trip of the default zlib stream: compressing and then decompressing gives back the input. One theorem proves a conditional form (when both sides reach `Z_STREAM_END`); the unconditional form has no theorem.'),
+    (4, roundtrip_goals(), ('compress_uncompress_roundtrip', 'stream_roundtrip_total'),
+     '默认 zlib 流的往返：`uncompress(compress(x)) = x`；用默认级别的 `deflateInit` 压缩、再用 `inflateInit` 解压，在每一种调用序列下都得到原输入。',
+     'The round trip of the default zlib stream: `uncompress(compress(x)) = x`, and compressing with `deflateInit` at the default level and then decompressing with `inflateInit` gives back the input under every call sequence.'),
 ]
 
 
@@ -47,7 +47,7 @@ def goal_href(name: str, current: Path, lang: str) -> str:
     owner = next((f.name for f in functions() if f.goal == name), None)
     if owner:
         return route_href('reference/functions/' + owner, current, lang, 'safety-target')
-    if name not in other_goals():
+    if name not in other_goals() + roundtrip_goals():
         raise ValueError('A result names a goal that is not one of its goals: ' + name)
     return route_href('reference/targets', current, lang, name)
 
