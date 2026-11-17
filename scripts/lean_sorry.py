@@ -19,13 +19,21 @@ RAW = re.compile(r'r(#*)"')
 IDENT_END = re.compile(r"[\w'!?]")
 
 
-def strip(text):
-    """The text with comments and literals replaced by spaces. Line breaks are kept."""
+def strip(text, keep_literals=False):
+    """The text with comments and literals replaced by spaces. Line breaks are kept.
+
+    With `keep_literals`, only comments are replaced: string and character literals stay as written."""
     out = []
     i, n = 0, len(text)
 
     def blank(chunk):
         out.append(''.join('\n' if c == '\n' else ' ' for c in chunk))
+
+    def literal(chunk):
+        if keep_literals:
+            out.append(chunk)
+        else:
+            blank(chunk)
 
     while i < n:
         c = text[i]
@@ -56,8 +64,14 @@ def strip(text):
             close = '"' + match.group(1)
             end = text.find(close, match.end())
             end = n if end == -1 else end + len(close)
-            blank(text[i:end])
+            literal(text[i:end])
             i = end
+        elif c == '"' and keep_literals:
+            j = i + 1
+            while j < n and text[j] != '"':
+                j += 2 if text[j] == '\\' else 1
+            out.append(text[i:j + 1])
+            i = j + 1
         elif c == '"':
             interpolated = i > 0 and text[i - 1] == '!'
             j = i + 1
@@ -82,7 +96,7 @@ def strip(text):
             i = j + 1
         elif c == "'" and not (i and IDENT_END.match(text[i - 1])) and CHAR.match(text, i):
             end = CHAR.match(text, i).end()
-            blank(text[i:end])
+            literal(text[i:end])
             i = end
         else:
             out.append(c)

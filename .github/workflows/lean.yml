@@ -107,6 +107,7 @@ jobs:
         run: |
           python3 tests/verification/test_spec_layers.py
           python3 tests/verification/test_sorry_check.py
+          python3 tests/verification/test_strlit_check.py
 
   # The audit: axioms, doc strings and the goals.
   audit_core:
