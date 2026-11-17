@@ -620,7 +620,7 @@ theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UI
     have e : ZStreamRef.get (initOkHeap wHeap (.tab 0) wStream 5 15) (.tab 0) =
         some (resetKeepStream (initStream2 wStream wHeap.nextBlk)
           (resetPre (reset2Pre 5 15 (initState (.tab 0))))) := by
-      simp [initOkHeap, allocIstHeap, w_reset2Heap, setI, ZStreamRef.put, ZStreamRef.get]
+      simp [initOkHeap, allocIstHeap, w_reset2Heap, setI, ZStreamRef.put, ZStreamRef.get, wHeap]
     rw [e] at hz
     exact (Option.some.inj hz).symm
   have sEq : s = resetKeepState wHeap.nextBlk (resetPre (reset2Pre 5 15 (initState (.tab 0)))) := by
@@ -656,7 +656,8 @@ theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UI
       · simp [resetKeepState, resetPre, reset2Pre, initState] at e
     · simp [resetKeepStream, initStream2, initStream] at st
   refine ⟨.tab 0, _, {}, wInput, [0x61], _, .init w_domain run, rfl, w_decodes, by simp,
-    List.nil_prefix, fit, ?_, ?_, hz, ?_, ?_, ?_, by simp [wInput], by simp⟩
+    List.nil_prefix, fit, ?_, ?_, hz, ?_, ?_, ?_, by simp [wInput],
+    by simp [resetKeepStream, initStream2, initStream, wStream]⟩
   · intro n
     simp [initOkHeap, setI, allocIstHeap, w_reset2Heap, ZStreamRef.put, wHeap, Heap.empty]
   · refine ⟨_, hz, Or.inr ⟨⟨wInput, ?_⟩, fun e => absurd e (by decide), ?_⟩,
