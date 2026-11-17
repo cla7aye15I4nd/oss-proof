@@ -106,6 +106,7 @@ jobs:
       - name: Self-tests of the source checks
         run: |
           python3 tests/verification/test_spec_layers.py
+          python3 tests/verification/test_sorry_check.py
 
   # The audit: axioms, doc strings and the goals.
   audit_core:
