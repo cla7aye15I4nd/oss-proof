@@ -97,12 +97,11 @@ structure CallFacts (d : DeflateState) : Prop where
   finishSym : d.status = FINISH_STATE → d.sym_next = 0
   /-- A finished stream has no lookahead: deflate sets `FINISH_STATE` only after a strategy has
   consumed all of it (the loops end on `lookahead = 0`; `deflate_stored` keeps none), and a finished
-  stream refuses new input. Checked on the real C (`tests/goals/deflate/invariant.c`). -/
+  stream refuses new input. -/
   finishLook : d.status = FINISH_STATE → d.lookahead = 0
   /-- A finished stream holds no bits. The last block ends with `bi_windup` (`_tr_flush_block`
   with `last`, `_tr_stored_block`), the trailer writes whole bytes, and `deflatePrime` is permitted
-  only before the first `deflate` call (`DeflateNotStarted`). Checked on the real C
-  (`tests/goals/deflate/invariant.c`). -/
+  only before the first `deflate` call (`DeflateNotStarted`). -/
   finishBits : d.status = FINISH_STATE → d.bi_valid = 0
 
 /-- The insertion frontier: no position at or above it has been inserted. The positions from

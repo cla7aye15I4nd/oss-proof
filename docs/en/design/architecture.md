@@ -23,7 +23,7 @@ flowchart TD
 | Layer | Its job | What justifies it |
 | --- | --- | --- |
 | Selected C | Fix the program being verified | The pinned upstream zlib source plus the project's patches, applied in name order |
-| Runtime | Give translated operations executable semantics | Review and semantic regression tests |
+| Runtime | Give translated operations executable semantics | Review and differential tests |
 | Translation | Preserve the C statements and their order | Source review and differential tests; tests are evidence, not proof |
 | Models and specifications | State what the program does without committing to its implementation | Review of definitions, domains and their relation to `zlib.h` and the data formats |
 | Proofs | Connect the computation to those statements | Lean kernel checking |

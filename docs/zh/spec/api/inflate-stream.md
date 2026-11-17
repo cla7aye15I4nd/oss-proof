@@ -1,4 +1,4 @@
-<!-- source-sha256: a5588254caa73f9196ac684e08a441d32f150e1a2011002f3c2b9c42a3938aee -->
+<!-- source-sha256: fb7f45b7bdfff05f9403b0dc1c882db817a6b181b544d9399e0b69ce6b969add -->
 
 # 流式解压
 
@@ -350,7 +350,7 @@ int ZEXPORT inflatePrime(z_streamp strm, int bits, int value);
 
 <details markdown="1" class="ar-return-exact" data-return-exact="inflatePrime"><summary>完整返回条件与边界</summary>
 
-**后置条件。** 零位返回 `Z_OK`，不发生变化。负位数清空位缓冲区。1 至 16 位且能放入 32 位缓冲区时，返回 `Z_OK`，将 `value` 的低 `bits` 位追加到已有位之上。`value` 为负时，追加的是其二进制补码表示的低 `bits` 位（[测试](../../../../tests/regression/inflate-prime/README.md)）。这些位先于 `next_in` 使用。
+**后置条件。** 零位返回 `Z_OK`，不发生变化。负位数清空位缓冲区。1 至 16 位且能放入 32 位缓冲区时，返回 `Z_OK`，将 `value` 的低 `bits` 位追加到已有位之上。`value` 为负时，追加的是其二进制补码表示的低 `bits` 位。这些位先于 `next_in` 使用。
 
 **错误。** 超过 16 位、位缓冲区空间不足或流检查失败，返回 `Z_STREAM_ERROR`，不发生变化。不更新 `data_type`。C 不强制执行裸流限制或调用顺序限制。
 
@@ -390,7 +390,7 @@ int ZEXPORT inflate(z_streamp strm, int flush);
 
 **前置条件。** `next_in` 描述 `avail_in` 个可读字节，仅在计数为零时可为 NULL。即使 `avail_out` 为零，`next_out` 也非 NULL，并描述该数量的可写字节。已挂接的头部及其缓冲区保持可写。调用可以提供更多输入/空间继续，可以提供请求的字典，也可以在成功重置/恢复之后继续。终止/错误状态下重复调用的行为见下文。
 
-**记账。** 正常返回，包括数据错误和缓冲区错误，按已消费/已产生字节数更新总计数，并更新已启用的输出校验和。`Z_NEED_DICT` 把已消费的头部字节计入总计数，并让 `adler` 保持为字典标识。迟发的窗口分配失败可能发生在消费输入和写入输出之后：指针/计数已经反映这些操作，但正常的最终总计数/校验和/`data_type` 记账被跳过（[测试](../../../../tests/regression/compress-allocation/README.md)）。一次调用已消费的输入不必全部属于某个有效的流：后一次调用可以拒绝该流而不再消费输入（[测试](../../../../tests/regression/inflate-deferred-distance/README.md)）。
+**记账。** 正常返回，包括数据错误和缓冲区错误，按已消费/已产生字节数更新总计数，并更新已启用的输出校验和。`Z_NEED_DICT` 把已消费的头部字节计入总计数，并让 `adler` 保持为字典标识。迟发的窗口分配失败可能发生在消费输入和写入输出之后：指针/计数已经反映这些操作，但正常的最终总计数/校验和/`data_type` 记账被跳过。一次调用已消费的输入不必全部属于某个有效的流：后一次调用可以拒绝该流而不再消费输入。
 
 **所有权。** 新窗口存储归流所有，仍可用于重置/结束，包括错误之后。一次调用的 `Z_FINISH` 完成可能无需窗口。拼接 gzip 成员要求成员之间重置。错误消息是借用的静态字符串。缓冲区和流检查的拒绝不改变任何内容。
 

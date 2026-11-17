@@ -51,8 +51,7 @@ argument errors without a change, writes only the output buffer (at most its
 capacity) and the length cells, frees every allocation on every return path
 (`SameObjectsUpToTableShape` with the stored heap), returns one of the documented
 codes, and reports `Z_MEM_ERROR` only after an allocation failed. They say
-nothing about the bytes written (the format is in `Goal.uncompress*`).
-Statement test: `tests/goals/uncompress-safety` (evidence, not proof). -/
+nothing about the bytes written (the format is in `Goal.uncompress*`). -/
 
 /-- Safety of counted decompression (`uncompress2_z`, `uncompress2`). The premises are
 those of `UncompressCounted`. -/

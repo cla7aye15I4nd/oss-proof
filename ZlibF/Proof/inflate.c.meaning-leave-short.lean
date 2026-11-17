@@ -27,9 +27,8 @@ the per-call facts of the decompression utilities (`ConsumesWithinStream`:
   inside the bits read would continue it (`header_split`,
   `deflateParsed_resid`).
 
-Both were checked on the real decoder first
-(`tests/goals/inflate-meaning-body`, starved leaves and data errors on
-corrupted sources).
+Both hold on the real decoder for the inputs tried (starved leaves and data
+errors on corrupted sources); that is evidence, not proof.
 -/
 
 namespace Zlib.Inflate.Proofs

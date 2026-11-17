@@ -69,8 +69,7 @@ Output must preserve the current input until the next input callback.
 `inStep` and `outStep` are required only on a heap that satisfies `CallbackEntry`, which is what
 the library provides at each call of `in` and `out`. Without that premise no protocol exists:
 `local_` makes the invariant insensitive to every block outside `own`, so the invariant would also
-hold on a heap whose state block holds two objects, where no step can end in a `Uniq` heap
-(`tests/verification/regressions/inflateback-protocol-vacuous.lean`). -/
+hold on a heap whose state block holds two objects, where no step can end in a `Uniq` heap. -/
 structure CallbackProtocol (r : ZStreamRef) (state : Nat) (window : BPtr) (capacity : Nat)
     (input : InCb) (inDesc : BPtr) (output : OutCb) (outDesc : BPtr) where
   own : Nat → Prop

@@ -7,9 +7,9 @@ are not proved, and compiling the proofs does not discharge them.
 | # | Trusted | Checked by |
 | --- | --- | --- |
 | 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The build: the kernel checks every proof, and a check of the results examines the type of each theorem and the axioms it depends on. A replay by the kernel in a fresh environment is a command a reader can run |
-| 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and semantic regression tests |
+| 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and differential tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: zlib 1.4 and six patches | The [patches page](../../patches/README.md). Each patch has a sanitizer reproduction, with three exceptions: 0005 rests on a probe run and a reading of the C; one branch of 0004 rests on a reading of the C; 0006 fixes a broken promise that no sanitizer reports |
+| 4 | The selected source: zlib 1.4 and six patches | The [patches page](../../patches/README.md). Each patched defect was reproduced with the real C under a sanitizer, with three exceptions: 0005 rests on a probe run and a reading of the C; one branch of 0004 rests on a reading of the C; 0006 fixes a broken promise that no sanitizer reports |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
 | 6 | The statements: that each goal says what it should | Review against `zlib.h`; the check that a theorem states exactly its goal |
 

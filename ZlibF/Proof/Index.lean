@@ -823,7 +823,6 @@ import ZlibF.Proof.«deflate.c.borrow-stable-private-search»
 import ZlibF.Proof.«deflate.c.borrow-stable-publish»
 import ZlibF.Proof.«deflate.c.borrow-stable-strategies»
 import ZlibF.Proof.«deflate.c.borrow-stable»
-import ZlibF.Proof.«gzlib.c.error-message-oversize»
 import ZlibF.Proof.«trees.c.borrow-stable»
 
 import ZlibF.Proof.«proof-registrations»

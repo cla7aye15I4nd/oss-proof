@@ -116,10 +116,6 @@ this in the row "Address and layout model is partial". The C also reads the low 
 local endian marker to choose the branch; on this target it chooses the little-endian one, and
 the big-endian branch is not run. Of the big-endian helpers only `crc_word_big_safe` is proved.
 
-A [checked example](../../../tests/verification/regressions/crc-static-address.lean) covers a valid
-47-byte read from a static table: both `crc32` and `crc32_z` return the independent checksum
-and leave the heap unchanged.
-
 ## The value (functional)
 
 `crc32_z_correct` states the value for heap byte blocks: for every seed, every length and every

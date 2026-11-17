@@ -60,12 +60,11 @@ def TraceEvidence : Prop :=
 /-- A call whose offered input is comparable with a valid stream consumes only
 bytes of that stream. A call after which the whole stream is consumed returns
 neither `Z_OK` nor `Z_BUF_ERROR` (it ends the stream, fails to allocate the window,
-or is refused, `tests/goals/inflate-meaning/refused-after-end.c`), if the stream
+or is refused), if the stream
 has a trailer (not raw data) or the output has room for the rest of the decoding
 and the call does not stop at a block boundary (`Z_BLOCK`, `Z_TREES`). The last
 byte of raw data can hold the end of a literal and the whole end-of-block code:
-without room inflate reads it and stops before the literal
-(`tests/goals/inflate-meaning/raw-last-byte-no-room.c`). The heap of the call is
+without room inflate reads it and stops before the literal. The heap of the call is
 within the object-size limit, as the history records. -/
 def ConsumesWithinStream : Prop :=
   ∀ (wb : Int32) wrap bits r h after log pending (flush rc : Int32) input output used

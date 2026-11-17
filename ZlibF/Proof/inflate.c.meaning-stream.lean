@@ -15,9 +15,6 @@ stream-side proofs can refine them here without editing the shared interface.
 
 In a protocol trace no gzip header record is attached (`inflateGetHeader` is
 not a trace step), so `head = NULL` and header capture never happens.
-
-Statement test: `tests/goals/inflate-meaning` (state fields of the real
-decoder against the parse position of the consumed input).
 -/
 
 namespace Zlib.Inflate.Proofs

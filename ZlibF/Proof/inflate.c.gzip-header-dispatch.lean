@@ -244,7 +244,7 @@ the remaining input is fixed, not its bytes. Two premises are narrower than
 zlib.h (`docs/en/deviations.md`): `extraApart` (the `extra` buffer is separate from
 the unread input) and `extraLen` (in `EXTRA`, `extra_len` is not below the
 remaining length); the real C has undefined behaviour without them
-(`tests/regression/inflate-gzip-extra`). -/
+(reproduced under a sanitizer). -/
 theorem inflate_dispatch_gzip_header_rank {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
     (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
@@ -325,7 +325,7 @@ copying the rest of the input.
 The flags word is kept, or written in `FLAGS` from the bit buffer. It is a
 16-bit word when the entry bit buffer held 0, 8 or 16 bits. `inflatePrime` can
 put up to 32 bits in the buffer while the decoder waits in `FLAGS`; the C then
-writes a wider word (`tests/regression/inflate-gzip-flags-prime`). -/
+writes a wider word. -/
 theorem inflate_dispatch_gzip_header_flags_leave_word {c : Ctx} {h after : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s state : InflateState} {l regs : IL} {bs : List UInt8} {outcome : Except Ex Unit}
     (E : Env c h r zs z s) (good : Good h r zs z s)

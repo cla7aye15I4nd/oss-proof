@@ -141,7 +141,7 @@ and needs no budget. `gzseek` defers its skip and needs none either.
 ## Source reports and patches
 
 The invariant has its form because of six defects of the unpatched C. The table has one row for
-each. [Findings](../findings.md) lists them with their reproductions, and `patches/README.md` is
+each. [Findings](../findings.md) lists them with their evidence, and `patches/README.md` is
 the authoritative list of patches. Patches 0002 and 0003 are submitted upstream; patches 0004
 and 0005 are local.
 
