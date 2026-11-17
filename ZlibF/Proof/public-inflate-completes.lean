@@ -40,6 +40,7 @@ import ZlibF.Proof.«inflate.c.completes-percall»
 import ZlibF.Proof.«public-inflate»
 import ZlibF.Proof.«public-inflate-init2»
 import ZlibF.Proof.«public-deflate-inflate-roundtrip»
+import ZlibF.Proof.«inflate.c.default-entry»
 
 namespace Zlib.Inflate.Proofs.DefaultCompletes
 open C ZlibF.Spec ZlibF.Spec.Public Zlib.Inflate.Proofs
@@ -490,6 +491,100 @@ theorem completes : Goal.default_inflate_completes := by
     exact Or.inr ⟨rfl, need_dict_zlib trace fit within step⟩
   · exact (stuck trace fit noFail valid flushes step hz' (Or.inr be) started within room inLen usedEq outLen).elim
 
+/-! ## Non-vacuity
+
+The caller heap of the witness: the stream record 0 (no state yet) points at the 9 bytes of zlib's
+own stream for "a" (block 2) and at a 1-byte output buffer (block 3); block 1 holds the version
+string "1". Every allocation succeeds. `inflateInit` keeps the four buffer fields. -/
+
+def wStream : ZStream :=
+  { (default : ZStream) with next_in := .ref (.blk 2) 0, avail_in := 9, next_out := .ref (.blk 3) 0,
+    avail_out := 1 }
+
+def wInput : List UInt8 := [0x78, 0x9C, 0x4b, 0x04, 0x00, 0x00, 0x62, 0x00, 0x62]
+
+def wHeap : Heap :=
+  { Heap.empty with
+    streams := upd Heap.empty.streams 0 (some wStream)
+    bytes := upd (upd (upd Heap.empty.bytes 1 (some #[49, 0])) 2 (some wInput.toArray)) 3 (some #[0])
+    nextBlk := 4
+    static := Zlib.Crc32.initStatics
+      (Zlib.Inftrees.initStatics (Zlib.Trees.trees_statics Heap.empty.static)) }
+
+theorem w_fresh : Fresh wHeap := by
+  intro b hb hl
+  have h0 : b ≠ 0 := by change 4 ≤ b at hb; omega
+  have h1 : b ≠ 1 := by change 4 ≤ b at hb; omega
+  have h2 : b ≠ 2 := by change 4 ≤ b at hb; omega
+  have h3 : b ≠ 3 := by change 4 ≤ b at hb; omega
+  simp [Heap.live, wHeap, Heap.empty, upd_ne _ _ _ _ h0, upd_ne _ _ _ _ h1, upd_ne _ _ _ _ h2,
+    upd_ne _ _ _ _ h3] at hl
+
+theorem w_uniq : Zlib.Inflate.Spec.Uniq wHeap := by
+  intro b
+  by_cases h0 : b = 0
+  · subst b; simp [wHeap, Heap.empty, cnt]
+  by_cases h1 : b = 1
+  · subst b; simp [wHeap, Heap.empty, cnt]
+  by_cases h2 : b = 2
+  · subst b; simp [wHeap, Heap.empty, cnt]
+  by_cases h3 : b = 3
+  · subst b; simp [wHeap, Heap.empty, cnt]
+  simp [wHeap, Heap.empty, cnt, upd_ne _ _ _ _ h0, upd_ne _ _ _ _ h1, upd_ne _ _ _ _ h2,
+    upd_ne _ _ _ _ h3]
+
+theorem w_domain : InitDomain wHeap (.tab 0) (.ref (.blk 1) 0) := by
+  refine ⟨w_fresh, w_uniq, rfl, ?_, wStream, ?_, ⟨Or.inl rfl, Or.inl rfl⟩, rfl⟩
+  · right
+    refine ⟨49, rfl, Or.inr ⟨.blk 1, 0, #[49, 0], rfl, ?_, ?_, ?_⟩⟩ <;>
+      simp [Space.get, wHeap, Heap.empty]
+  · simp [ZStreamRef.get, wHeap]
+
+set_option maxRecDepth 8192 in
+theorem w_platform : ZlibF.PlatformMemory.ByteObjectsFit wHeap := by
+  intro ref a get
+  cases ref with
+  | blk b =>
+    by_cases one : b = 1
+    · subst b
+      simp only [BRef.get_blk, wHeap] at get
+      simp [upd_ne] at get
+      cases get
+      decide
+    · by_cases two : b = 2
+      · subst b
+        simp [BRef.get_blk, wHeap, upd_ne] at get
+        cases get
+        decide
+      · by_cases three : b = 3
+        · subst b
+          simp [BRef.get_blk, wHeap] at get
+          cases get
+          decide
+        · simp [Space.get, wHeap, Heap.empty, upd_ne, one, two, three] at get
+  | str i =>
+    have bounds : ∀ j : Fin strTable.size,
+        (strBytes strTable[j]).size < ZlibF.PlatformMemory.byteObjectLimit := by
+      decide +kernel
+    by_cases inside : i < strTable.size
+    · rw [C.LibcBorrow.source_view wHeap i inside, Array.getElem?_eq_getElem inside] at get
+      cases get
+      exact bounds ⟨i, inside⟩
+    · simp [BRef.get_str, staticStringBytes, inside, wHeap, Heap.empty] at get
+  | dstate_depth i => simp [Space.get, wHeap, Heap.empty] at get
+  | st_dist_code =>
+    cases get
+    decide
+  | st_length_code =>
+    cases get
+    decide
+
+theorem w_decodes : Zlib.Decodes [] wInput [0x61] :=
+  ⟨0x78, 0x9C, [], _, rfl, by decide +kernel,
+    fun _ => ⟨rfl, _, .last rfl rfl (.fixed (.lit (s := 97) rfl (by decide +kernel) (.eob rfl))),
+      by decide +kernel⟩,
+    fun h => absurd h (by decide +kernel)⟩
+
 /-- Non-vacuity: a concrete heap, history and stream on which the premises of both goals hold. -/
 theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UInt8) (z : ZStream),
     DefaultInflateTrace r h log ∧ log.finished = false ∧ Zlib.Decodes [] S D ∧ D ≠ [] ∧
@@ -497,6 +592,72 @@ theorem witness : ∃ (r : ZStreamRef) (h : Heap) (log : DataLog) (S D : List UI
     StreamBuffers h r ∧ r.get h = some z ∧ z.next_out ≠ .null ∧ z.avail_out ≠ 0 ∧
     Bytes h z.next_in z.avail_in.toNat (S.drop log.input.length) ∧ S.drop log.input.length ≠ [] ∧
     D.length ≤ log.output.length + z.avail_out.toNat := by
-  sorry
+  obtain ⟨after, z, s, run, _, good, _, _, _, _, _, fit, _⟩ :=
+    inflate_default_init_boundary wHeap (.tab 0) (.ref (.blk 1) 0) w_domain w_platform rfl
+  obtain ⟨nonnull, first⟩ :=
+    ZlibF.Spec.Public.Proofs.InflateInit.version_value_read w_domain.2.2.2.1
+  have expected : C.run (Zlib.Inflate.inflateInit_ (some (.tab 0)) (.ref (.blk 1) 0) 112) wHeap =
+      .ok (Z_OK, initOkHeap wHeap (.tab 0) wStream 5 15) := by
+    change Zlib.Inflate.inflateInit2_ (some (.tab 0)) 15 (.ref (.blk 1) 0) 112 wHeap = _
+    exact inflateInit2_success (z := wStream) (by simp [ZStreamRef.get, wHeap]) w_fresh rfl
+      (Or.inl rfl) (Or.inl rfl) nonnull first (by decide +kernel)
+  have heapEq : after = initOkHeap wHeap (.tab 0) wStream 5 15 :=
+    congrArg Prod.snd (Except.ok.inj (run.symm.trans expected))
+  subst heapEq
+  have hz := good.live.hz
+  have hs := good.live.hs
+  have zEq : z = resetKeepStream (initStream2 wStream wHeap.nextBlk)
+      (resetPre (reset2Pre 5 15 (initState (.tab 0)))) := by
+    simp [initOkHeap, ZStreamRef.get, ZStreamRef.put, setI, allocIstHeap, reset2Heap] at hz
+    exact hz.symm
+  have sEq : s = resetKeepState wHeap.nextBlk (resetPre (reset2Pre 5 15 (initState (.tab 0)))) := by
+    simp [initOkHeap, setI] at hs
+    exact hs.symm
+  subst zEq sEq
+  have getIn : Space.get (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 2) = some wInput.toArray := by
+    simp [initOkHeap, setI, allocIstHeap, reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
+  have getOut : Space.get (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 3) = some #[0] := by
+    simp [initOkHeap, setI, allocIstHeap, reset2Heap, ZStreamRef.put, Space.get, wHeap, upd_ne]
+  have roOut : Space.ro (initOkHeap wHeap (.tab 0) wStream 5 15) (BRef.blk 3) = false := by
+    simp [initOkHeap, setI, allocIstHeap, reset2Heap, ZStreamRef.put, Space.ro, wHeap, Heap.empty]
+  have inBytes : Bytes (initOkHeap wHeap (.tab 0) wStream 5 15) (.ref (.blk 2) 0) 9 wInput :=
+    Or.inr ⟨.blk 2, 0, wInput.toArray, rfl, getIn, by decide, by decide⟩
+  have outBytes : Bytes (initOkHeap wHeap (.tab 0) wStream 5 15) (.ref (.blk 3) 0) 1 [0] :=
+    Or.inr ⟨.blk 3, 0, #[0], rfl, getOut, by decide, by decide⟩
+  have notOwned : ∀ b, b = 2 ∨ b = 3 →
+      ¬ StreamOwned (initOkHeap wHeap (.tab 0) wStream 5 15) (.tab 0) b := by
+    rintro b which ⟨z', hz', owned⟩
+    rw [hz] at hz'
+    cases hz'
+    rcases owned with ⟨i, s', st, hs', own⟩ | ⟨i, s', st, _, _⟩
+    · simp [resetKeepStream, initStream2, initStream] at st
+      subst st
+      rw [hs] at hs'
+      cases hs'
+      rcases own with e | e
+      · change b = 4 at e
+        omega
+      · simp [resetKeepState, resetPre, reset2Pre, initState] at e
+    · simp [resetKeepStream, initStream2, initStream] at st
+  refine ⟨.tab 0, _, {}, wInput, [0x61], _, .init w_domain run, rfl, w_decodes, by simp,
+    List.nil_prefix, fit, ?_, ?_, hz, ?_, ?_, ?_, by simp [wInput], by simp⟩
+  · intro n
+    simp [initOkHeap, setI, allocIstHeap, reset2Heap, ZStreamRef.put, wHeap, Heap.empty]
+  · refine ⟨_, hz, Or.inr ⟨⟨wInput, ?_⟩, fun e => absurd e (by decide), ?_⟩,
+      Or.inr ⟨⟨[0], ?_⟩, fun _ => Or.inr ⟨.blk 3, 0, #[0], ?_, getOut, roOut, ?_⟩, ?_⟩, ?_⟩
+    · simpa [resetKeepStream, initStream2, initStream, wStream] using inBytes
+    · intro b root
+      simp [resetKeepStream, initStream2, initStream, wStream, ByteRoot] at root
+      exact notOwned b (Or.inl root)
+    · simpa [resetKeepStream, initStream2, initStream, wStream] using outBytes
+    · simp [resetKeepStream, initStream2, initStream, wStream]
+    · simp [resetKeepStream, initStream2, initStream, wStream]
+    · intro b root
+      simp [resetKeepStream, initStream2, initStream, wStream, ByteRoot] at root
+      exact notOwned b (Or.inr root)
+    · simp [resetKeepStream, initStream2, initStream, wStream, Separate]
+  · simp [resetKeepStream, initStream2, initStream, wStream]
+  · simp [resetKeepStream, initStream2, initStream, wStream]
+  · simpa [resetKeepStream, initStream2, initStream, wStream] using inBytes
 
 end Zlib.Inflate.Proofs.DefaultCompletes
