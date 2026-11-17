@@ -432,7 +432,7 @@ reported block/header boundary; every signed `bits` and `value`.
 **Post.** Zero bits returns `Z_OK` unchanged. Negative bits empties the bit buffer.
 For 1 through 16 bits that fit within the 32-bit buffer, returns `Z_OK`, appending
 the low `bits` bits of `value` above existing bits. For a negative `value` these are the low
-`bits` bits of its two's-complement form ([test](../../../../tests/regression/inflate-prime/README.md)). These bits precede `next_in`.
+`bits` bits of its two's-complement form. These bits precede `next_in`.
 
 **Errors.** More than 16 bits, insufficient bit-buffer space or a failed stream
 check returns `Z_STREAM_ERROR` unchanged. Does not update `data_type`. The C does
@@ -489,9 +489,9 @@ consumed/produced bytes and update the enabled output checksum. `Z_NEED_DICT`
 accounts for consumed header bytes and leaves `adler` as the dictionary identifier.
 A late window-allocation failure can follow input consumption and output writes:
 pointers/counts already reflect them, but normal final total/checksum/`data_type`
-accounting is skipped ([test](../../../../tests/regression/compress-allocation/README.md)).
+accounting is skipped.
 The input a call has consumed need not all belong to a valid stream: a later call can reject
-the stream without consuming more input ([test](../../../../tests/regression/inflate-deferred-distance/README.md)).
+the stream without consuming more input.
 
 **Ownership.** New window storage belongs to the stream and remains available for
 reset/end, including after errors. A one-call `Z_FINISH` completion may need no

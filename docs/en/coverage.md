@@ -177,7 +177,7 @@ premises are the [gz rows of deviations](deviations.md#gzip-file-interface).
 | `gzdirect` | Call clause | Terminates in every world |
 | `gzclose`, `gzclose_r`, `gzclose_w` | Close clause | A close of the wrong mode refuses and changes nothing; otherwise every owned block is freed and the descriptor released |
 | The `gzgetc()` macro of `zlib.h` (in `Goal.gzgetc_safety`) | Macro clause, and the history step `GzHistory.getcMacro` | With buffered output it is the inline path; with `x.have = 0` it calls the function, covered under `ReadsFinite`. The macro on a `NULL` handle is undefined behaviour in C and is not covered. |
-| A second handle on the same descriptor | World step `GzHistory.world` | Any well-formed world may follow a call, so another party may close or reuse the descriptor ([example](../../tests/verification/regressions/gz-world-closes-fd.lean)). |
+| A second handle on the same descriptor | World step `GzHistory.world` | Any well-formed world may follow a call, so another party may close or reuse the descriptor. |
 
 ## Domains narrower than `zlib.h`
 

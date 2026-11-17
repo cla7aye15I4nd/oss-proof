@@ -1,4 +1,4 @@
-<!-- source-sha256: 67567f0866da83631240a1e8c96f90ba3a8557a80edea27fe2072bfe6aa9f3fa -->
+<!-- source-sha256: f23b59deeb5001a2c0219f39abdf3fe3338d012497405314652685b7a47c2455 -->
 # 模型的限制
 
 本页列出模型的一类限制：zlib 的调用者对它们无法采取任何行动。它们分三类：目标作为前提陈述的、对模型中的堆的条件；运行时表示 C 的内存和库调用时所作的选择；以及功能定理和模型定理的限制，安全目标都不依赖它们。每一条限制都是模型可能与 C 不同的地方。调用者的义务在另一页：[偏离记录](deviations.md)。被信任的东西概括在[可信基础](trusted-base.md)中，本页是其中第 2 项的细节。
@@ -26,8 +26,8 @@
 | --- | --- | --- |
 | 堆的良构性（`Fresh`、`Uniq`、`LibraryGlobals`、`CrcGlobals`） | 初始化、打开、`compress*` 或 `uncompress*` 调用开始时的堆，在 `nextBlk` 及以上没有存活的块（`Fresh`），每个块编号至多有一个对象（`Uniq`），并且带有所选构建的常量表（`LibraryGlobals`）。CRC 目标只要求两张 CRC 表（`CrcGlobals`），`inflate` 和 `inflateSync` 的拒绝只要求 `Fresh`。两次调用之间调用者的修改保持这三条（`Rebuffer`、`GzCallerFrame`）。 | 这些是关于模型自身记账的前提。`zlib.h` 没有把这样的义务加给调用者，C 的调用者也破坏不了它们。 |
 | 循环燃料 | 翻译后的每个循环至多运行 `2^64` 次迭代；耗尽这个上界就是 `Fault.outOfFuel`。 | 结论为正常返回的安全目标证明了这个上界永远达不到。凡是 C 可能无界地循环、而证明又推不出上界的地方，目标都有一条给出上界的前提：[回调输入总量](deviations.md#callback-decoder)和 [gz 读取预算](deviations.md#gzip-file-interface)。 |
-| CRC 地址与字访问 | `addrOf` 只观察地址的低位。堆字节块从对齐的地址开始；静态的或内嵌的字节对象有一个任意而稳定的余数，它是堆的元数据，任何写入都不改变它。字的加载由八个字节拼成。 | 没有建模：通用的 ABI 布局、原始块的任意起点，以及 C 中转换为 `z_word_t *` 的别名语义。校验和目标的定义域不因此变窄。一个[经过检查的例子](../../tests/verification/regressions/crc-static-address.lean)经由两个 CRC 入口读取一张 47 字节的静态表。 |
-| NULL 指针算术 | `Ptr.add NULL 0` 返回 `NULL`。`Ptr.diff` 遇到 NULL 参数就出故障；压缩器的辅助函数 `Compress.ptrDiff` 对两个 NULL 返回零。 | 模型允许某个操作，并不说明 C 有定义：C17 和 C23 都没有定义 `NULL - NULL`。[安全性规格](spec/safety.md#null-pointers-and-pointer-differences)把这些操作与语言规则作了对照，一个[回归](../../tests/regression/compress-allocation/README.md)覆盖零容量的 `NULL` 目的缓冲区：`dest` 为 `NULL`、`*destLen == 0` 的 `compress` 调用在它的目标之内，它的 `deflateInit` 成功时，`compress2_z` 计算 `stream.next_out - dest`，两个指针都是 `NULL`。 |
+| CRC 地址与字访问 | `addrOf` 只观察地址的低位。堆字节块从对齐的地址开始；静态的或内嵌的字节对象有一个任意而稳定的余数，它是堆的元数据，任何写入都不改变它。字的加载由八个字节拼成。 | 没有建模：通用的 ABI 布局、原始块的任意起点，以及 C 中转换为 `z_word_t *` 的别名语义。校验和目标的定义域不因此变窄。 |
+| NULL 指针算术 | `Ptr.add NULL 0` 返回 `NULL`。`Ptr.diff` 遇到 NULL 参数就出故障；压缩器的辅助函数 `Compress.ptrDiff` 对两个 NULL 返回零。 | 模型允许某个操作，并不说明 C 有定义：C17 和 C23 都没有定义 `NULL - NULL`。[安全性规格](spec/safety.md#null-pointers-and-pointer-differences)把这些操作与语言规则作了对照。`dest` 为 `NULL`、`*destLen == 0` 的 `compress` 调用在它的目标之内，它的 `deflateInit` 成功时，`compress2_z` 计算 `stream.next_out - dest`，两个指针都是 `NULL`。 |
 | 外部错误字符串 | `strerror` 返回一个只读视图，视图上带有一个代次，每次 `strerror` 调用都会改变这个代次。它不消耗分配尝试，也不占用库拥有的存活块。下一次 `strerror` 调用使先前的视图失效。 | 模型说的是固定区域设置下的顺序调用。没有建模：并发调用、区域设置的改变，以及旧指针身份的再次使用。 |
 
 ## 运行时怎样表示 C
@@ -85,6 +85,6 @@
 | 位预置、头部和恢复 | 这些函数各有自己的功能目标 | 没有功能目标描述它们在一段历史中的每种组合。 |
 | 快速解码辅助函数 | 关于 `inflate_fast` 的引理假设：输入和输出是原始字节块（不同的块，或同一块中不相交的范围），窗口所在的块不是输出块，有六个输入字节、258 个输出字节，进入时的比特数小于八，并且处于 `sane` 模式 | 这些是内部引理的前提，由公开目标的证明来确立。它们不限制公开的 inflate 目标。 |
 | 窗口参数被接受时的 inflate 初始化 | 引理 `inflate_init2_valid_public` 假设 `windowBits` 被接受：`Api.inflWbits wb.toInt = some (wrap, bits)` | `Goal.inflateInit2_` 没有这个前提：它的定理 `inflate_init2_public` 覆盖每个 `windowBits`，对被接受的取值使用这条引理。 |
-| Gz 文件数据 | 功能性的 gz 契约（`FileData`、`CloseContract`、`GzWriterFormat`、读写的值），以及目标 `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`，都是针对“每个系统调用都按普通文件行事”的世界（`RegularOs`）陈述的 | 预言的 `lseek` 可以返回而不移动描述符，某些 Linux 设备就是这样；在那里，偏移值和倒回的结果不成立（[回归](../../tests/verification/regressions/gz-offset-regular-world.lean)）。这三个函数在每个世界上的安全性是 `Goal.gz_sequence_safety` 的一部分，该目标没有 `RegularOs` 前提。没有表示：权限、父目录、链接、属主和加锁；它们对每次调用的影响由预言的失败来涵盖。 |
+| Gz 文件数据 | 功能性的 gz 契约（`FileData`、`CloseContract`、`GzWriterFormat`、读写的值），以及目标 `Goal.gzoffset64`、`Goal.gzoffset` 和 `Goal.gzrewind`，都是针对“每个系统调用都按普通文件行事”的世界（`RegularOs`）陈述的 | 预言的 `lseek` 可以返回而不移动描述符，某些 Linux 设备就是这样；在那里，偏移值和倒回的结果不成立。这三个函数在每个世界上的安全性是 `Goal.gz_sequence_safety` 的一部分，该目标没有 `RegularOs` 前提。没有表示：权限、父目录、链接、属主和加锁；它们对每次调用的影响由预言的失败来涵盖。 |
 
 中间 deflate 定理的前提，以及局部的打开、关闭和位预置引理的前提，收窄的是引理，从不是公开目标。

@@ -979,7 +979,7 @@ theorem gzseek_eq (file : GzFilePtr) (offset : Int64) (whence : Int32) (fs : Fs)
 
 The unpatched C overflowed in `GZ_OFF_MAX - pos` for `SEEK_CUR` while `gztell` was negative (right after `gzungetc` at
 the start of a file), and in `pos - x.pos` for `SEEK_SET` with a negative `x.pos` and `offset - x.pos >= 2^63`
-(reproduction in `tests/regression/gzseek-pushback-overflow`). With patch 0002 neither faults:
+(reproduced with the real C under a sanitizer). With patch 0002 neither faults:
 `gzseek64_head_any` covers both, and the second is refused. -/
 
 /-- `SEEK_SET` at a negative `x.pos` with `offset - x.pos >= 2^63`, where the unpatched C overflowed in `pos - x.pos`:

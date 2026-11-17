@@ -25,7 +25,7 @@ Goals:
 * `Goal.stream_roundtrip`: the conditional form. When both histories reach `Z_STREAM_END` and the
   decoder read a prefix of the encoder's output, the decoder's output is the encoder's input.
 * `Goal.deflate_completes_default`: after a clean history (only `Z_NO_FLUSH` and `Z_FINISH`: other
-  flushes write output without input, `tests/goals/roundtrip-default` mode `flushes`), one
+  flushes write output without input), one
   `deflate(Z_FINISH)` call with all the remaining input and room for more than the rest of the
   unsaturated `compressBound` sum of the whole input (`deflateBound` at these parameters, below
   saturation) returns `Z_STREAM_END`, and the whole output decodes to the whole input.
@@ -47,8 +47,6 @@ Goals:
   for its decoding, returns `Z_OK` and the decoding, when every allocation succeeds.
 * `Goal.compress_uncompress_roundtrip`: `uncompress(compress(x)) = x`.
 * `Goal.compress_uncompress_roundtrip_witness`: its premises can all hold.
-
-Statement test: `tests/goals/roundtrip-default` (evidence, not proof).
 -/
 
 namespace ZlibF.Spec.Public
@@ -184,8 +182,7 @@ def Goal.deflate_bound_default : Prop :=
 allocation succeeds: the call returns `Z_OK`, stores the length `m` it wrote, at most
 `compressBound n`, and the `m` bytes at `dest` decode to the source and do not ask for a preset
 dictionary. `Zlib.Decodes []` also accepts a stream with `FDICT` set and the Adler-32 of the empty
-dictionary as `DICTID`, which `uncompress` refuses with `Z_DATA_ERROR`
-(`tests/goals/roundtrip-default/fdict.c`). -/
+dictionary as `DICTID`, which `uncompress` refuses with `Z_DATA_ERROR`. -/
 def CompressCompletes
     (program : BPtr → Option UInt64 → BPtr → UInt64 → M (Int32 × Option UInt64)) : Prop :=
   ∀ h dest c source n xs,

@@ -60,8 +60,7 @@ structure EnvG (alias : Bool) where
   hAbig : A0.size < 2 ^ 63
   hstart : sm0.avail_out.toNat ≤ start.toNat
   hbeg : start.toNat - sm0.avail_out.toNat ≤ o0
-  /-- Input and output are distinct byte views, or disjoint ranges of one view
-  (`tests/regression/inflate-shared-block`). -/
+  /-- Input and output are distinct byte views, or disjoint ranges of one view. -/
   hsep : ib ≠ ob ∨ (ib = ob ∧
     (i0 + sm0.avail_in.toNat ≤ o0 ∨ o0 + sm0.avail_out.toNat ≤ i0))
   -- the bit buffer

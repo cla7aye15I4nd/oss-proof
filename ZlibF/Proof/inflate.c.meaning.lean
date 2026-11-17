@@ -141,7 +141,7 @@ from the start of the data reaches `pos`. Every complete step is a step of
 read. The bits of a dynamic block header are admitted before the header is
 complete, also when no completion exists: zlib checks the code-length code,
 the end-of-block length and the acceptability of the codes only after a whole
-part of the header is read (`tests/goals/inflate-meaning/late-rejection.c`).
+part of the header is read.
 `DynamicMatches` pins those bits to the decoder state; `dynamicDone` still
 needs a complete `DynamicHeader`. -/
 inductive DeflateParsed (dict : List UInt8) : List Bool → DeflatePos → Prop
@@ -420,7 +420,7 @@ many bits their entries take. At a block boundary fewer than 8 bits are held, so
 `BYTEBITS` at the end of the last block drops exactly the padding (to confirm
 by the per-mode proofs: the slow path pulls a byte only while bits are short,
 `inflate_fast` returns whole unused bytes, a stored block ends after
-`INITBITS`; checked on the real decoder by `tests/goals/inflate-meaning`). -/
+`INITBITS`). -/
 def BodyMatches (h : Heap) (s : InflateState) : DeflatePos → Prop
   | ⟨_, final, .boundary⟩ => (s.mode = TYPE ∨ s.mode = TYPEDO) ∧ final = false ∧ s.last = 0 ∧
       s.bits.toNat < 8
@@ -495,13 +495,12 @@ def WrapStage.output : WrapStage → List UInt8
 the configuration of the trace; the consumed input minus the held bits parses
 to a stage the decoder state represents, the delivered output is that stage's
 output; a data error leaves `BAD` (or `MEM` for raw data, when a later raw
-`inflateSetDictionary` failed to allocate the window,
-`tests/goals/inflate-meaning/data-error-then-mem.c`) and means the consumed
+`inflateSetDictionary` failed to allocate the window) and means the consumed
 input has no valid completion; after
 an allocation failure (`MEM`) the output facts of `Goal.inflate_sequence`
 still hold for the epoch so far. A set request token (the last call returned
 `Z_NEED_DICT`) means the decoder waits for the dictionary; the converse fails
-after a refused call (`tests/goals/inflate-meaning/refused-dictionary-request.c`). -/
+after a refused call. -/
 def ParseMeaning (wb : Int32) (r : ZStreamRef) (h : Heap) (log : DataLog) (pending : Bool) :
     Prop :=
   ∃ wrap configured i z s, Api.inflWbits wb.toInt = some (wrap, configured) ∧

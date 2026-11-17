@@ -20,8 +20,7 @@ file places them in the format grammar and rebuilds `LoopMatches`:
   with fewer than 8 held bits (`inflate_fast` returns the unused whole bytes).
 
 Input and output may be any caller byte views the dispatch packet admits,
-also disjoint ranges of one block (`inflate_fast_entry`,
-`tests/regression/inflate-shared-block`). The leaf
+also disjoint ranges of one block (`inflate_fast_entry`). The leaf
 flags and the prefix reads the fast decoder needs are part of `TableMeaning`.
 
 A rejected token gives `BAD`, and the input read is refuted (`LoopRefuted`):

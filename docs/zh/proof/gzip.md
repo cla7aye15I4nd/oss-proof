@@ -1,4 +1,4 @@
-<!-- source-sha256: b1a3d21751df4dd37e41019883f395ab4f01ec06f623392eb89bdb49f314ba73 -->
+<!-- source-sha256: b816c1e5cc7afcfe305ced62e4f9fc765de0691b003fd3fd0c208636c9493ba9 -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -108,7 +108,7 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 
 ## 源码报告与补丁
 
-不变量之所以是这个形式，是因为未打补丁的 C 有六处缺陷。下表每处一行。[发现](../findings.md)列出它们及其复现；补丁以
+不变量之所以是这个形式，是因为未打补丁的 C 有六处缺陷。下表每处一行。[发现](../findings.md)列出它们及其证据；补丁以
 `patches/README.md` 中的列表为准。补丁 0002 和 0003 已提交上游；补丁 0004 和 0005 是本地补丁。
 
 | 情形 | 未打补丁的 C 的行为 | 证据与修复 |

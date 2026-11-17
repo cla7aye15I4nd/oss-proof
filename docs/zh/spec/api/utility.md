@@ -1,4 +1,4 @@
-<!-- source-sha256: 3bf304eb5655c3504c6b842ca6dbab612cb7c9b6c220aa68b7d8a149a5ae75c4 -->
+<!-- source-sha256: 2a4849694dbb26004b70706b7658902ae18a296001d134035c6cabc56baf6432 -->
 
 # 缓冲区工具与库信息
 
@@ -25,7 +25,7 @@
 `CompressorSafety`，`uncompress2` 和 `uncompress2_z` 用 `UncompressCountedSafe`，
 `uncompress` 和 `uncompress_z` 用 `UncompressSingleSafe`。
 
-缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。流记录是自动变量，不是堆块，所以它不占用任何一次分配尝试。一次调用的分配尝试都来自编解码器。`compress*` 调用至多尝试五次分配，全部在 `deflateInit` 中：状态、窗口、`prev`、`head` 和待输出缓冲区；当它拒绝参数或级别时，一次也不尝试。`uncompress*` 调用在 `inflateInit` 中尝试分配解码器状态，并在解码需要时于 `inflate` 内尝试分配窗口。一个差分[测试](../../../../tests/regression/compress-allocation/README.md)把四个压缩函数的分配尝试与真实 C 进行比较。
+缓冲区工具使用 zlib 封装和默认设置，创建并释放一个局部流。流记录是自动变量，不是堆块，所以它不占用任何一次分配尝试。一次调用的分配尝试都来自编解码器。`compress*` 调用至多尝试五次分配，全部在 `deflateInit` 中：状态、窗口、`prev`、`head` 和待输出缓冲区；当它拒绝参数或级别时，一次也不尝试。`uncompress*` 调用在 `inflateInit` 中尝试分配解码器状态，并在解码需要时于 `inflate` 内尝试分配窗口。
 
 先说明长度的约定：`sourceLen` 指定可读输入的字节数；`*destLen` 在调用前是目的数组的可写容量，调用后改为实际写入量。例如目的缓冲区有 1000 字节容量、最终写入 120 字节，调用前应设置 `*destLen = 1000`，成功返回后读取到 120。这个长度单元自身也是需要保持存活、可读写的调用者存储。`uncompress2_z` 的 `*sourceLen` 同样在调用前给出可用的输入字节数，返回后报告已消费的字节数。
 

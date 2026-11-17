@@ -33,10 +33,7 @@ A reading of the C that no theorem states is marked **to confirm**.
   allocations. It is released before every return. Scalar locals whose address is taken are
   treated the same way.
 - **Coverage.** Covered: the safety theorems run the translation with this local and prove that
-  nothing stays allocated. An
-  [allocation test](../../../tests/regression/compress-allocation/README.md) compares return
-  codes, stored lengths, allocation attempts and live blocks with the real C for each failing
-  allocation index. That is evidence, not proof.
+  nothing stays allocated.
 
 ### The wrappers read their length cells before the `_z` call
 

@@ -194,8 +194,7 @@ theorem finish_ok_fills {r : ZStreamRef} {h after : Heap} {log : DataLog} {z : Z
   simpa using length
 
 /-- **The bound ledger.** A clean default history has written at most the unsaturated
-`compressBound` sum of the input it accepted. Equality is reachable
-(`tests/verification/regressions/deflate-completes-exact-bound.c`). -/
+`compressBound` sum of the input it accepted. Equality is reachable. -/
 theorem output_le_bound {r : ZStreamRef} {h : Heap} {log : DataLog}
     (history : DefaultCleanHistory r h log) :
     log.output.length ≤ unsaturatedBound log.input.length := by

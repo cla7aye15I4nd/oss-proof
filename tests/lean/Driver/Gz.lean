@@ -146,8 +146,7 @@ def doOp (e : Env) (op : String) : Except Fault (String × Env) := do
       args := [VaArg.str p0]
     let (fp, e) ← ro env (printfFmt k)
     -- vsnprintf is an external call: its oracle gets the output glibc gives, computed here with the model's formatter
-    -- (the formats of this driver are defined and give glibc's output: tests/verification/regressions/
-    -- printf-format-undefined.lean). Format 13: the C side's "%3000000000d" fails in glibc; here the call fails.
+    -- (the formats of this driver are defined and give glibc's output). Format 13: the C side's "%3000000000d" fails in glibc; here the call fails.
     let (out, e) ← runM e (do formatBytes (← cstring fp) args)
     let n := e.fs.nprintf
     let ret : Int32 := if k == 13 then -1 else Int32.ofNat out.size
