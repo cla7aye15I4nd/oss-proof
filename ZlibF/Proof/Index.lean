@@ -1813,6 +1813,8 @@ import ZlibF.Proof.«public-roundtrip-inflate»
 import ZlibF.Proof.«public-roundtrip-compress»
 import ZlibF.Proof.«public-roundtrip-uncompress»
 import ZlibF.Proof.«public-roundtrip-witness»
+import ZlibF.Proof.«deflate.c.engine.finish-progress-foreign»
+import ZlibF.Proof.«public-roundtrip-finish»
 
 /-!
 Proof-only import point. Add new proof modules here without changing the locked root.
