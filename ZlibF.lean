@@ -524,7 +524,6 @@ import ZlibF.Proof.«deflate.c.universal-ops-params»
 import ZlibF.Math.DeflateOverlaySmall
 import ZlibF.Math.DeflateOverlayFibActual
 import ZlibF.Math.DeflateOverlayCertificate
-import ZlibF.Math.DeflateOverlayCertificate128
 import ZlibF.Math.DeflateOverlayCertificate256
 import ZlibF.Math.DeflateOverlayCertificate128W
 import ZlibF.Math.HuffmanReference
