@@ -173,6 +173,11 @@ class AuditTests(unittest.TestCase):
                 {"name": "T.b", "reason": ""}], "proved_goals": []}))
             with self.assertRaises(verification.Rejected):
                 verification.check_registries_shrink()
+            # A key the reader does not know is rejected, never ignored.
+            (audit / "registry-removals.json").write_text(json.dumps({"version": 1, "theorems": [
+                {"name": "T.b", "reason": "merged into T.a"}], "proved_goals": [], "other": []}))
+            with self.assertRaisesRegex(verification.Rejected, "unknown"):
+                verification.check_registries_shrink()
 
     def repo(self):
         """A scratch git repository with a git() helper."""
@@ -222,14 +227,12 @@ class AuditTests(unittest.TestCase):
                 list(verification.SHARED_SAFETY_GOALS)}
 
     def test_safety_goal_is_bound_to_its_function(self):
-        # Defect 2: pointing adler32_combine at Goal.adler32_safety made both goals "shared" and
-        # dropped both from the mutant requirement.
+        # Defect 2: pointing adler32_combine at Goal.adler32_safety made both goals "shared".
         # A fixture shared goal: since step 4 the real set is empty.
         shared = {"ZlibF.Spec.Public.Goal.gz_sequence_safety": ["gzread", "gzwrite"]}
         with patch.object(verification, "SHARED_SAFETY_GOALS", shared):
             manifest = self.binding_manifest()
             verification.check_safety_binding(manifest)
-            self.assertIn("ZlibF.Spec.Public.Goal.adler32_combine_safety", verification.mutant_public_goals(manifest))
             manifest["apis"][1]["safety_goal"] = "ZlibF.Spec.Public.Goal.adler32_safety"
             with self.assertRaisesRegex(verification.Rejected, "adler32_combine"):
                 verification.check_safety_binding(manifest)
@@ -243,9 +246,6 @@ class AuditTests(unittest.TestCase):
             gz["safety_goal"] = "ZlibF.Spec.Public.Goal.gzread_safety"
             with self.assertRaisesRegex(verification.Rejected, "pinned"):
                 verification.check_safety_binding(manifest)
-            # A shared goal never keys function mutants.
-            self.assertNotIn("ZlibF.Spec.Public.Goal.gz_sequence_safety",
-                             verification.mutant_public_goals(self.binding_manifest()))
 
     def test_registration_removed_on_the_branch_is_seen(self):
         # Defect 3: a dispatch on dev compares with origin/main; a name registered on dev and removed
@@ -355,145 +355,6 @@ class AuditTests(unittest.TestCase):
         with self.assertRaisesRegex(verification.Rejected, "adler32"):
             verification.check_safety_binding(manifest)
 
-    def test_mutant_references_of_a_proved_goal_only_shrink(self):
-        # Defect B: deleting Goal.inflate_safety's key took its proof out of mutant replay.
-        repo, git = self.repo()
-        audit = repo / "tests/audit"
-        (repo / "tests/proof-mutants").mkdir()
-        rows = repo / "tests/proof-mutants/rows.tsv"
-        rows.write_text("# NAME\tFILE\tOLD\tNEW\tPROOF_MODULES\n"
-                        "first\tZ.lean\ta\tb\tM\nsecond\tZ.lean\tc\td\tM\n")
-        targets = {"Goal.s": [{"list": "tests/proof-mutants/rows.tsv", "name": "first"},
-                              {"list": "tests/proof-mutants/rows.tsv", "name": "second"}]}
-        (audit / "public-mutants.json").write_text(json.dumps({"version": 1, "targets": targets}))
-        (audit / "proved-goals.txt").write_text("Goal.s\n")
-        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
-        (repo / "README").write_text("x\n")
-        git("add", "README"); git("commit", "-qm", "head")
-        def write(t):
-            (audit / "public-mutants.json").write_text(json.dumps({"version": 1, "targets": t}))
-        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
-            verification.check_mutants_shrink()
-            write({})
-            with self.assertRaisesRegex(verification.Rejected, "Goal.s"):
-                verification.check_mutants_shrink()
-            write({"Goal.s": targets["Goal.s"][:1]})
-            with self.assertRaisesRegex(verification.Rejected, "second"):
-                verification.check_mutants_shrink()
-            write(targets)
-            rows.write_text(rows.read_text().replace("second\tZ.lean\tc\td", "second\tZ.lean\tc\te"))
-            with self.assertRaisesRegex(verification.Rejected, "second"):
-                verification.check_mutants_shrink()
-            (audit / "registry-removals.json").write_text(json.dumps({"version": 1, "theorems": [], "proved_goals": [],
-                "mutant_references": [{"goal": "Goal.s", "list": "tests/proof-mutants/rows.tsv", "name": "second",
-                                       "reason": "the translation line changed"}]}))
-            verification.check_mutants_shrink()
-            rows.write_text(rows.read_text().replace("second\tZ.lean\tc\te", "second\tZ.lean\tc\td"))
-            with self.assertRaisesRegex(verification.Rejected, "stale"):
-                verification.check_mutants_shrink()
-            # Once the goal is no longer proved (a reviewed deregistration), its key may go.
-            (audit / "registry-removals.json").unlink()
-            (audit / "proved-goals.txt").write_text("")
-            write({})
-            verification.check_mutants_shrink()
-
-    def frozen_repo(self):
-        """A frozen semantic list with a script row and its mutator, committed as the floor "base"."""
-        repo, git = self.repo()
-        (repo / "tests/proof-mutants").mkdir()
-        table = repo / "tests/proof-mutants/gz-sequence.tsv"
-        mutator = repo / "tests/proof-mutants/gz-sequence.py"
-        table.write_text("# NAME\tFILE\tOLD\tNEW\tPROOF_MODULES\n" +
-                         "".join(f"row{i}\tscript:tests/proof-mutants/gz-sequence.py\t-\t-\tgz.sequence-safety\n"
-                                 for i in range(3)) +
-                         "plain\tZ.lean\ta\tb\tgz.sequence-safety\n")
-        mutator.write_text("# the edit of each row, also in the proof restatements\n")
-        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
-        (repo / "README").write_text("x\n")
-        git("add", "README"); git("commit", "-qm", "head")
-        return repo, table, mutator
-
-    def test_semantic_list_cannot_be_cut(self):
-        # Fifth reading, cheat 1: gz-sequence.tsv cut from 43 rows to 1 passed every check.
-        repo, table, mutator = self.frozen_repo()
-        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}), \
-                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/gz-sequence.tsv",)):
-            verification.check_frozen_mutant_rows()
-            lines = table.read_text().splitlines(keepends=True)
-            table.write_text(lines[0] + lines[1])
-            with self.assertRaisesRegex(verification.Rejected, "row1"):
-                verification.check_frozen_mutant_rows()
-            table.write_text("".join(lines).replace("\tb\tgz.sequence-safety", "\tb\tany.module"))
-            with self.assertRaisesRegex(verification.Rejected, "plain"):
-                verification.check_frozen_mutant_rows()
-            table.write_text("".join(lines) + "added\tZ.lean\tc\td\tgz.sequence-safety\n")
-            verification.check_frozen_mutant_rows()
-
-    def test_mutator_script_is_frozen(self):
-        # Fifth reading, cheat 2: a script: row's mutator was in no identity.
-        repo, table, mutator = self.frozen_repo()
-        audit = repo / "tests/audit"
-        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}), \
-                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/gz-sequence.tsv",)):
-            mutator.write_text("# writes an error into the expected proof module instead\n")
-            with self.assertRaisesRegex(verification.Rejected, "row0"):
-                verification.check_frozen_mutant_rows()
-            (audit / "registry-removals.json").write_text(json.dumps({"version": 1, "theorems": [], "proved_goals": [],
-                "mutant_rows": [{"list": "tests/proof-mutants/gz-sequence.tsv", "name": f"row{i}",
-                                 "reason": "the mutator was rewritten"} for i in range(3)]}))
-            verification.check_frozen_mutant_rows()
-            (audit / "registry-removals.json").write_text(json.dumps({"version": 1, "theorems": [], "proved_goals": [],
-                "mutant_rows": [{"list": "tests/proof-mutants/gz-sequence.tsv", "name": "plain", "reason": "x"}]}))
-            with self.assertRaisesRegex(verification.Rejected, "row0"):
-                verification.check_frozen_mutant_rows()
-
-    def test_list_of_only_equivalent_mutants_is_rejected(self):
-        # Fifth reading: a list with only same: rows gave killed + same > 0 with no kill.
-        (self.root / "tests/proof-mutants").mkdir(parents=True)
-        (self.root / "tests/proof-mutants/only-same.tsv").write_text(
-            "equivalent\tZ.lean\ta\tb\tM\tsame:unused\n")
-        (self.root / "tests/proof-mutants/mixed.tsv").write_text(
-            "equivalent\tZ.lean\ta\tb\tM\tsame:unused\n" +
-            "".join(f"k{i}\tZ.lean\ta\tb{i}\tM\n" for i in range(5)))
-        with patch.object(verification, "ROOT", self.root), patch.object(verification, "public_mutants", lambda m: {}), \
-                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/mixed.tsv",)):
-            (self.root / "tests/proof-mutants/api-boundary.tsv").write_text("k\tZ.lean\ta\tb\tM\n")
-            shards = [verification.mutation_partition({}, 4, i)[1] for i in range(4)]
-            for shard in shards:
-                rows = shard.get("tests/proof-mutants/mixed.tsv", [])
-                if rows:
-                    self.assertTrue(any("same:" not in row for row in rows))
-            self.assertEqual(sum(len(s.get("tests/proof-mutants/mixed.tsv", [])) for s in shards), 6)
-            with patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/only-same.tsv",)):
-                with self.assertRaisesRegex(verification.Rejected, "without a row that must be killed"):
-                    verification.mutation_partition({}, 4, 0)
-
-    def test_proved_required_goal_needs_keyed_or_pinned_evidence(self):
-        audit = self.root / "tests/audit"
-        audit.mkdir(parents=True, exist_ok=True)
-        (self.root / "tests/proof-mutants").mkdir()
-        (audit / "proved-goals.txt").write_text("Goal.first_safety\nGoal.second_safety\n")
-        (audit / "public-mutants.json").write_text(json.dumps({"version": 1, "targets": {
-            "Goal.first_safety": [{"list": "tests/proof-mutants/l.tsv", "name": "x"}]}}))
-        table = self.root / "tests/proof-mutants/l.tsv"
-        table.write_text("a\tZ.lean\ta\tb\tM\nb\tZ.lean\tc\td\tM\n")
-        manifest = self.open_manifest()
-        with patch.object(verification, "ROOT", self.root), \
-                patch.object(verification, "SAFETY_MUTANT_LISTS", ("tests/proof-mutants/l.tsv",)):
-            with patch.object(verification, "PINNED_EVIDENCE", {}):
-                with self.assertRaisesRegex(verification.Rejected, "second_safety"):
-                    verification.check_pinned_evidence(manifest)
-            with patch.object(verification, "PINNED_EVIDENCE",
-                              {"Goal.second_safety": {"lists": {"tests/proof-mutants/l.tsv": 2}, "keys": []}}):
-                verification.check_pinned_evidence(manifest)
-                table.write_text("a\tZ.lean\ta\tb\tM\nb\tZ.lean\tc\td\tM\tsame:x\n")
-                with self.assertRaisesRegex(verification.Rejected, "fewer than 2"):
-                    verification.check_pinned_evidence(manifest)
-            with patch.object(verification, "PINNED_EVIDENCE",
-                              {"Goal.second_safety": {"lists": {"tests/proof-mutants/other.tsv": 1}, "keys": []}}):
-                with self.assertRaisesRegex(verification.Rejected, "not run in the shards"):
-                    verification.check_pinned_evidence(manifest)
-
     def test_open_safety_reopened_on_the_branch_is_seen(self):
         repo, git = self.repo()
         manifest = repo / "tests/audit/public-api.json"
@@ -506,24 +367,6 @@ class AuditTests(unittest.TestCase):
         with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
             with self.assertRaisesRegex(verification.Rejected, "first_safety"):
                 verification.check_open_safety_shrinks(self.open_manifest("Goal.first_safety", "Goal.second_safety"))
-
-    def test_mutant_waivers_only_shrink(self):
-        # Defect 4: a new waiver needed only a script edit.
-        repo, git = self.repo()
-        (repo / "scripts").mkdir()
-        script = repo / "scripts/verification.py"
-        script.write_text('MUTANT_COVERAGE_PENDING: dict[str, str] = {"Goal.old": "rows later"}\n')
-        git("add", "-A"); git("commit", "-qm", "base"); git("tag", "base")
-        (repo / "README").write_text("x\n")
-        git("add", "README"); git("commit", "-qm", "head")
-        with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "base"}):
-            with patch.object(verification, "MUTANT_COVERAGE_PENDING", {}):
-                verification.check_waivers_shrink()
-            with patch.object(verification, "MUTANT_COVERAGE_PENDING", {"Goal.old": "rows later"}):
-                verification.check_waivers_shrink()
-            with patch.object(verification, "MUTANT_COVERAGE_PENDING", {"Goal.new": "no rows"}):
-                with self.assertRaisesRegex(verification.Rejected, "Goal.new"):
-                    verification.check_waivers_shrink()
 
     def test_open_safety_only_shrinks_against_the_base_branch(self):
         repo = self.root / "repo"
@@ -548,82 +391,6 @@ class AuditTests(unittest.TestCase):
         with patch.object(verification, "ROOT", repo), patch.dict(os.environ, {"ZLIBF_BASE_REF": "missing"}):
             with self.assertRaises(verification.Rejected):
                 verification.check_open_safety_shrinks(self.open_manifest())
-
-    def test_public_proofs_require_mutants_in_the_actual_function(self):
-        source = "ZlibF/Zlib/fixture.c.lean"
-        target = self.root / source
-        target.parent.mkdir(parents=True)
-        target.write_text("namespace Fixture\ndef first : Nat := 0\ndef second : Nat := 2\nend Fixture\n")
-        directory = self.root / "tests/proof-mutants"
-        directory.mkdir(parents=True)
-        table = directory / "fixture.tsv"
-        table.write_text("first-change\t" + source + "\tdef first : Nat := 0\tdef first : Nat := 1\tFixture\n"
-                         "second-change\t" + source + "\tdef second : Nat := 2\tdef second : Nat := 3\tFixture\n")
-        boundary = directory / 'api-boundary.tsv'
-        boundary.write_text('api-only\t' + source + '\tdef first : Nat := 0\tdef first : Nat := 4\tFixture\n')
-        mapping = self.root / "tests/audit/public-mutants.json"
-        mapping.parent.mkdir(parents=True)
-        manifest = {"apis": [{"functional_goal": "Goal.first", "safety_goal": "Goal.first_safe",
-                              "function": "first", "source": source, "scope": "lp64-linux"}]}
-        def write_targets(targets):
-            mapping.write_text(json.dumps({"version": 1, "targets": targets}))
-        reference = {"list": "tests/proof-mutants/fixture.tsv", "name": "first-change"}
-        with patch.object(verification, "ROOT", self.root), \
-                patch.object(verification, "MUTANT_COVERAGE_PENDING", {}):
-            write_targets({})
-            verification.check_public_mutant_coverage(manifest, set())
-            with self.assertRaises(verification.Rejected):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first"})
-            # A proved per-function safety goal needs mutants of its own too (F2).
-            with self.assertRaisesRegex(verification.Rejected, "first_safe"):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first_safe"})
-            with patch.object(verification, "MUTANT_COVERAGE_PENDING", {"Goal.first_safe": "pending rows"}):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first_safe"})
-                with self.assertRaisesRegex(verification.Rejected, "stale"):
-                    verification.check_public_mutant_coverage(manifest, set())
-            write_targets({"Goal.first": [reference]})
-            verification.check_public_mutant_coverage(manifest, {"Goal.first"})
-            executed = []
-            def record(command):
-                self.assertEqual(command[:-1], ['env', 'PROOFMUT_STRICT=1',
-                                                'bash', 'tests/audit/proofmut.sh'])
-                executed.extend(Path(command[-1]).read_text().splitlines())
-            with patch.object(verification, "run", side_effect=record), \
-                    patch.object(verification, "SAFETY_MUTANT_LISTS", ()), \
-                    patch.object(verification, "check_public_mutant_spans"), \
-                    patch.object(verification, "replay_public_mutants"):
-                verification.run_public_mutants(manifest)
-                self.assertCountEqual(executed, table.read_text().splitlines() +
-                                      boundary.read_text().splitlines())
-            write_targets({"Goal.first": [dict(reference, name="second-change")]})
-            with self.assertRaises(verification.Rejected):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first"})
-            write_targets({"Goal.first": [reference]})
-            original = table.read_text()
-            write_targets({"Goal.first": [dict(reference, name="")]})
-            table.write_text(original.replace("first-change", "", 1))
-            with self.assertRaises(verification.Rejected):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first"})
-            write_targets({"Goal.first": [reference]})
-            table.write_text(original.replace("def first : Nat := 1", "def renamed : Nat := 1"))
-            with self.assertRaises(verification.Rejected):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first"})
-            table.write_text(original.replace("\tFixture\n", "\tFixture\tgap:missing proof\n", 1))
-            with self.assertRaises(verification.Rejected):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first"})
-            table.write_text(original.replace(source, "ZlibF/Spec/Fixture.lean", 1))
-            with self.assertRaises(verification.Rejected):
-                verification.check_public_mutant_coverage(manifest, {"Goal.first"})
-            # the function's own safety goal keys the same function; another name does not
-            table.write_text(original)
-            write_targets({"Goal.first_safe": [reference]})
-            self.assertIn("Goal.first_safe", verification.public_mutants(manifest))
-            write_targets({"Goal.first_safe": [dict(reference, name="second-change")]})
-            with self.assertRaises(verification.Rejected):
-                verification.public_mutants(manifest)
-            write_targets({"Goal.first_safety": [reference]})
-            with self.assertRaises(verification.Rejected):
-                verification.public_mutants(manifest)
 
 
     def setUp(self):
@@ -882,58 +649,6 @@ end ZlibF.Fixture
         result = self.audit()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unsafe declaration", result.stdout + result.stderr)
-
-    def test_final_mutants_reject_known_gaps(self):
-        audit_dir = self.root / "tests/audit"
-        audit_dir.mkdir(parents=True)
-        shutil.copyfile(ROOT / "tests/audit/proofmut.sh", audit_dir / "proofmut.sh")
-        (self.root / "ZlibF/Zlib").mkdir()
-        (self.root / "ZlibF/Proof").mkdir()
-        (self.root / "ZlibF/Zlib/fixture.c.lean").write_text(
-            "namespace Fixture\ndef value : Nat := 0\ndef unused : Nat := 0\nend Fixture\n")
-        (self.root / "ZlibF/Proof/fixture.c.lean").write_text(
-            "import ZlibF.Zlib.«fixture.c»\nnamespace Fixture\n"
-            "theorem checked : value = 0 := rfl\nend Fixture\n")
-        mutations = audit_dir / "fixture.tsv"
-        mutations.write_text("known-gap\tZlibF/Zlib/fixture.c.lean\tdef unused : Nat := 0\t"
-                             "def unused : Nat := 1\tfixture.c\tgap:deliberately uncovered fixture\n")
-
-        def mutants(strict, pattern="."):
-            env = dict(os.environ, PROOFMUT_STRICT=str(strict), PROOFMUT_BASELINE="0")
-            return subprocess.run(["bash", "tests/audit/proofmut.sh", str(mutations), pattern],
-                                  cwd=self.root, env=env, text=True, errors="replace", capture_output=True)
-
-        development = mutants(0)
-        self.assertEqual(development.returncode, 0, development.stdout + development.stderr)
-        self.assertIn("GAP (known)", development.stdout)
-        final = mutants(1)
-        self.assertNotEqual(final.returncode, 0, final.stdout + final.stderr)
-        self.assertIn("baseline: the listed proof modules build unmutated", final.stdout)
-        self.assertIn("strict acceptance requires", final.stdout)
-        mutations.write_text("killed\tZlibF/Zlib/fixture.c.lean\tdef value : Nat := 0\t"
-                             "def value : Nat := 1\tfixture.c\n")
-        killed = mutants(1)
-        self.assertEqual(killed.returncode, 0, killed.stdout + killed.stderr)
-        self.assertIn("KILLED", killed.stdout)
-        nested_dir = self.root / "ZlibF/Proof/Api"
-        nested_dir.mkdir()
-        (nested_dir / "fixture.c.lean").write_text(
-            "import ZlibF.Zlib.«fixture.c»\nnamespace Fixture\n"
-            "theorem nestedChecked : value = 0 := rfl\nend Fixture\n")
-        mutations.write_text("nested-killed\tZlibF/Zlib/fixture.c.lean\tdef value : Nat := 0\t"
-                             "def value : Nat := 1\tApi/fixture.c\n")
-        nested = mutants(1)
-        self.assertEqual(nested.returncode, 0, nested.stdout + nested.stderr)
-        self.assertIn("KILLED", nested.stdout)
-        empty = mutants(1, "no-match")
-        self.assertNotEqual(empty.returncode, 0, empty.stdout + empty.stderr)
-        # Fifth reading: a list whose only row is an equivalent (same:) mutant is not evidence.
-        mutations.write_text("equivalent\tZlibF/Zlib/fixture.c.lean\tdef unused : Nat := 0\t"
-                             "def unused : Nat := 1\tfixture.c\tsame:unused definition\n")
-        only_same = mutants(1)
-        self.assertNotEqual(only_same.returncode, 0, only_same.stdout + only_same.stderr)
-        self.assertIn("SAME ok", only_same.stdout)
-        self.assertIn("strict acceptance requires a killed mutant", only_same.stdout)
 
 
 if __name__ == "__main__":

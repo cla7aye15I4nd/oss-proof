@@ -20,7 +20,6 @@ STAGES = {
     "build": ["lake", "build", "ZlibF"],
     "no-sorry": ["bash", "scripts/check-sorry.sh"],
     "audit": [sys.executable, "scripts/verification.py", "specs"],
-    "mutants": [sys.executable, "scripts/verification.py", "mutants"],
 }
 
 

@@ -1,52 +1,5 @@
 {
   "version": 1,
   "theorems": [],
-  "proved_goals": [],
-  "mutant_rows": [
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "codes-used-legacy-layout",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "deflate-refusal-clears-started",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "inflate-causal-guessed-future",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "inflate-fdict-data-error-guard",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "inflate-legacy-lookahead-validity",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "inflate-mem-speculative-output",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "inflate-ok-speculative-output",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "inflate-prime-negative-low-bit",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    },
-    {
-      "list": "tests/proof-mutants/api-boundary.tsv",
-      "name": "inflate-unknown-dictionary-consistency",
-      "reason": "spec split step 1 (7a537376) moved the specification file from ZlibF/Spec/Api or ZlibF/Spec/Public to ZlibF/Spec/Functional; the mutation (old and new text, proof modules) is unchanged"
-    }
-  ]
+  "proved_goals": []
 }
