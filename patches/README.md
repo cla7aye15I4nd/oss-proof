@@ -1,6 +1,6 @@
 # Patches
 
-The verified source is zlib 1.4 (upstream commit `99623ef7`) with the eight patches of this
+The verified source is zlib 1.4 (upstream commit `99623ef7`) with the seven patches of this
 directory applied in name order. Every theorem is about that patched source.
 
 Each patch fixes one issue of zlib without whose fix a safety statement cannot be proved, or a
@@ -10,7 +10,10 @@ changes the lines that 0003 moves and so applies after 0003.
 [Findings](https://www.dataisland.org/zlib-f/en/findings.html) lists the issues in one table, with
 the calls that reach each issue and the evidence. The reproduction of each gz patch under
 `tests/regression/` builds the source with every patch but its own (for 0003, also without 0004)
-and shows the defect, and builds the verified source and shows none.
+and shows the defect, and builds the verified source and shows none. `gzseek64` and `gz_skip_have`
+compute `x.next += 0` on a pointer that may never have been written or may point into a freed caller
+buffer; that needs no patch, because the model accepts adding zero to any pointer, a stated limit of
+the model (`tests/regression/gz-reset-next-uninitialised`, `gz-next-dangling-after-direct-read`).
 
 ## 0001-inflate-copy-pointer-equality.patch
 
@@ -89,23 +92,7 @@ Covered by: `Goal.gzwrite_safety`, `Goal.gzfwrite_safety`, `Goal.gzputc_safety`,
 
 Upstream: local patch, not submitted.
 
-## 0006-gz-next-zero-advance.patch
-
-`gzseek64` and `gz_skip_have` do `state->x.next += n` also when `n` is zero. The field may then
-never have been written (`gz_reset` does not set it), or may point into a caller buffer that was
-freed after a direct `gzread`; arithmetic on either is undefined in C. Calls: `gzopen` of a
-gzip file, or a large `gzread` and a `free` of its buffer, then `gzseek` or `gzdirect`. The patch
-advances `x.next` only when `n` is not zero. No result or state changes. The model faults on
-arithmetic with a dangling pointer; it does not see the never-written case, because a pointer
-field in fresh memory is `NULL` there and `NULL + 0` passes. That case rests on the reading of the C
-and on the probe run.
-
-Covered by: `Goal.gzseek64_safety`, `Goal.gzseek_safety`, the goals of 0003 (through
-`gz_skip_have`), `Goal.gzdirect_safety`, and `Goal.gz_sequence_safety`.
-
-Upstream: local patch, not submitted.
-
-## 0007-gzoffset-negative-lseek.patch
+## 0006-gzoffset-negative-lseek.patch
 
 `gzoffset64` takes `LSEEK(fd, 0, SEEK_CUR)`, refuses only -1, and when reading subtracts the
 buffered input `state->strm.avail_in`. On Linux, `lseek` on a file with unsigned offsets
@@ -121,7 +108,7 @@ Covered by: `Goal.gzoffset64_safety`, `Goal.gzoffset_safety`, and `Goal.gz_seque
 
 Upstream: local patch, not submitted.
 
-## 0008-deflatebound-fixed-conservative.patch
+## 0007-deflatebound-fixed-conservative.patch
 
 With `windowBits` 15, `memLevel` 8 and strategy `Z_FIXED`, `deflateBound` returns the tight default
 bound, which counts on a stored block as the fallback of every block. A block that crosses a window

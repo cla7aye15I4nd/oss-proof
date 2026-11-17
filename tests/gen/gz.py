@@ -11,8 +11,8 @@ Lines: "gz OP OP ..." (a scenario on temporary files; the output is one token pe
 Handles H are 0..3; a handle that was never opened (or whose open failed) is the NULL gzFile. getcm is the gzgetc()
 macro of zlib.h, then g->have; it is never used on a NULL handle, which the macro dereferences.
 Both drivers free the buffer of a read or fread right after the call. A large read on a gzip file decompresses
-straight into that buffer and leaves x.next pointing into it; a later gzseek or gzdirect advanced it by zero, which the
-translation of the C without patch 0006 faults on (R-4). Section 6 has lines for it. The position overflows that patches
+straight into that buffer and leaves x.next pointing into it; a later gzseek or gzdirect advances it by zero, which C17
+leaves undefined and the runtime accepts as a no-op (R-4). Section 6 has lines for it. The position overflows that patches
 0004 and 0005 remove need a device (/dev/zero, /dev/null), which the file model cannot express; tests/regression/
 gzread-pos-overflow and gzwrite-pos-overflow cover them on the C side. Section 6
 seeks right after a gzungetc at position 0, which the unpatched gzseek64 overflowed on (patch 0002); the translation of
@@ -248,7 +248,7 @@ for src in (gzbig, big):
 p = "put:f:" + hx(gzbig)
 line(p, "open:0:f:rb", "ungetc:0:81", "seek:0:9223372036854775806:0", "tell:0", "close:0")
 # a direct read into the (then freed) caller buffer, then gzdirect and gzseek with an empty output buffer: x.next
-# was advanced by zero inside the freed buffer before patch 0006 (R-4)
+# is advanced by zero inside the freed buffer (R-4)
 line(p, "open:0:f:rb", "buffer:0:8", "read:0:20000", "direct:0", "seek:0:1:1", "tell:0", "read:0:5", "eof:0", "close:0")
 line(p, "open:0:f:rb", "buffer:0:8", "fread:0:4:5000", "seek:0:-10:1", "tell:0", "read:0:10", "close:0")
 line(p, "open:0:f:rb", "read:0:1", "read:0:40000", "seek:0:0:1", "tell:0", "direct:0", "close:0")

@@ -32,7 +32,7 @@ Corrections against the skeleton at `7d896179` (strengthenings):
 - `GzPost` has a no-grab clause: a block owned after a helper call was owned before it or was not live before it.
 
 Patches. Some clauses (`GzCommon.pos`, `GzCommon.next`, `GzReadInv.output`) are established only for the patched
-source (patches 0002 and 0003, patch 0004 for F-1, patch 0005 for W7, and patch 0006). The definitions do not depend on that;
+source (patches 0002 and 0003, patch 0004 for F-1 and patch 0005 for W7). The definitions do not depend on that;
 the lemmas that need a patch say so.
 -/
 

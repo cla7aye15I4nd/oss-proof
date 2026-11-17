@@ -218,7 +218,7 @@ for wb in [15, -15, 31, 9]:
         for level in [0, 1, 6, 9]:
             sess(f"I:{level}:8:{wb}:{mem}:0", "IN:" + hx(data("text", 1000)), "B")
 sess("I:6:8:31:8:0", "H:1:5:3:1:0102:6e616d65:636f6d6d656e74", "IN:" + hx(b"hello hello hello"), "B", "D:4:17:100")
-# deflateBound and the strategy (patch 0008): Z_FIXED (4) takes a conservative bound even with the
+# deflateBound and the strategy (patch 0007): Z_FIXED (4) takes a conservative bound even with the
 # default windowBits and memLevel; deflateParams changes the strategy the bound reads. Fixed data,
 # so the random stream of the later cases is unchanged.
 for strat in range(5):

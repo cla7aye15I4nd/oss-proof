@@ -297,7 +297,7 @@ theorem boundBody_wl {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
 /-- **deflateBound_z, safety and specification.** On an initialised stream with the invariant, and a user gzip header
 (if there is one) whose `name` and `comment` are `NULL` or NUL-terminated strings (`zlib.h` requires it; the
 precondition `HdrStrOk`), the call never faults and leaves the heap unchanged. Its value is the closed formula
-`boundTail` of `w_bits`, `hash_bits`, `level`, `strategy` (patch 0008), the wrapper length `wl` (`WrapLen`: 0 for raw, 6 or 10 for zlib, 18 and the
+`boundTail` of `w_bits`, `hash_bits`, `level`, `strategy` (patch 0007), the wrapper length `wl` (`WrapLen`: 0 for raw, 6 or 10 for zlib, 18 and the
 parts of the header for gzip) and the source length. -/
 theorem deflateBound_z_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hG : DGood h r ds z d) (hs : HdrStrOk h d) (n : UInt64) :

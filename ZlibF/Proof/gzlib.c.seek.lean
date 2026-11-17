@@ -997,10 +997,10 @@ theorem gzseek64_set_negpos_refuse {h : Heap} {gs : Nat} {s : GzState} (hG : See
   omega
 
 
-/-- **The dangling `x.next` (R-4, patch 0006).** A reader outside the raw area with nothing buffered (`x.have = 0`),
-whose `x.next` may point to an object that no longer exists (the caller's buffer after a direct decompression, freed by
-the caller) or may never have been written (R-3): a forward seek does not fault. Without patch 0006 the translation
-computed `x.next + 0` here and faulted on a dangling `x.next`. No hypothesis on `x.next`. -/
+/-- **The dangling `x.next` (R-4).** A reader outside the raw area with nothing buffered (`x.have = 0`), whose
+`x.next` may point to an object that no longer exists (the caller's buffer after a direct decompression, freed by the
+caller) or may never have been written (R-3): a forward seek does not fault. It computes `x.next + 0`, which the runtime
+accepts for any pointer (`Ptr.add_zero`). No hypothesis on `x.next`. -/
 theorem seekTail_fwd_empty {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h gs s) (hm : s.mode = GZ_READ)
     (hhow : s.how ≠ GZ_COPY) {t : Int} (ht : SeekOk t)
     (hd : t - s.x.pos.toInt ≤ OffMax) (hfw : s.x.pos.toInt ≤ t)
@@ -1048,8 +1048,8 @@ theorem seekTail_fwd_empty {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h 
   ggsimp [hs, fpos, fsk, skipFwd, ← hnU, padv_zero]
 
 /-- `gzseek64` forward on a reader outside the raw area with nothing buffered: no fault, whatever `x.next` holds
-(dangling after a direct read and a `free` by the caller, R-4, or never written, R-3). With patch 0006; before it,
-the translation faulted on a dangling `x.next`. -/
+(dangling after a direct read and a `free` by the caller, R-4, or never written, R-3): the runtime accepts
+`x.next + 0` for any pointer. -/
 theorem gzseek64_dangling_next_ok {h : Heap} {gs : Nat} {s : GzState} (hG : SeekGood h gs s) (hP : PosInv s)
     (hnn : 0 ≤ s.x.pos.toInt) (he : s.err = Z_OK ∨ s.err = Z_BUF_ERROR) {whence : Int32}
     (hw : whence = SEEK_SET ∨ whence = SEEK_CUR) (hm : s.mode = GZ_READ) (hhow : s.how ≠ GZ_COPY)

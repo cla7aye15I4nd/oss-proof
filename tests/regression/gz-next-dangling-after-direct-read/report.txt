@@ -1,21 +1,15 @@
-== before
+Raw output of tests/regression/gz-next-dangling-after-direct-read/run.sh, exit status 0.
+Source: the pinned zlib commit 99623ef7 with patches/*.patch (the verified source), built by
+tests/build-zlib.sh under ASan and UBSan, with the probe of probe.h compiled in.
+Build: Apple clang version 21.0.0 (clang-2100.4.1.1); host: macOS on arm64. Addresses vary from run to run.
+
 -- large gzread, free the buffer, gzdirect
 gzread 100000 = 100000
-x.next + 0 at gzread.c:313, x.next = inside the freed caller buffer
+x.next + 0 at gzread.c:315, x.next = inside the freed caller buffer
 gzdirect = 0
 -- large gzread, free the buffer, gzseek(f, 1, SEEK_CUR)
 gzread 100000 = 100000
 x.next + 0 at gzlib.c:435, x.next = inside the freed caller buffer
 gzseek = 100001
 evaluations of x.next with n == 0: 2
-ok: before the fix: x.next evaluated with n == 0 in gzseek64 and gz_skip_have
-== after
--- large gzread, free the buffer, gzdirect
-gzread 100000 = 100000
-gzdirect = 0
--- large gzread, free the buffer, gzseek(f, 1, SEEK_CUR)
-gzread 100000 = 100000
-gzseek = 100001
-evaluations of x.next with n == 0: 0
-ok: after the fix: x.next is never evaluated with n == 0
-rc=0
+ok: the C evaluates x.next + 0 in gzseek64 and gz_skip_have, with no sanitizer report
