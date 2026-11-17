@@ -13,20 +13,16 @@ functions (not part of the zlib API)" are not required. Read `docs/overview.md` 
 `docs/spec/safety.md`. Keep proof explanations in `docs/proof/`. State the status only in
 `docs/progress.md`, as done or not done (section Documents).
 
-The project is finished when the safety results are accepted, in this order: `inflate` is safe on
-every input; `deflate` is safe on every input; then every other public function, including the
-gzip file interface and `inflateBack`. Each covers its call sequences, and the safety of `compress`
-and `uncompress` follows as compositions.
+The safety results are proved: `inflate` is safe on every input; `deflate` is safe on every
+input; and so is every other public function, including the gzip file interface and
+`inflateBack`. Each covers its call sequences, and the safety of `compress` and `uncompress`
+follows as compositions.
 
-After the safety results comes the round trip, for the default zlib stream (`deflateInit` at the
-default level, `inflateInit`), in this order. First the conditional form: when a `deflate` call
-sequence and an `inflate` call sequence both reach `Z_STREAM_END`, under any flush values and any
-chunking, the bytes `inflate` writes are the bytes `deflate` read. Then completeness: with enough
-output room and successful allocation, `deflate` with `Z_FINISH` consumes all input and ends; one
-`deflate(Z_FINISH)` call ends when the room is at least `deflateBound`; `compress` returns `Z_OK`
-when the room is at least `compressBound`; and `inflate` reads every stream the format accepts to
-`Z_STREAM_END`. Then the unconditional results: the stream round trip, and
-`uncompress(compress(x)) = x`. A `sorry` for these lives only on a skeleton branch.
+The round trip of the default zlib stream (`deflateInit` at the default level, `inflateInit`) is
+proved as well: the conditional form under any flush values and any chunking; completeness of
+`deflate` with `Z_FINISH`, of one `deflate(Z_FINISH)` call with `deflateBound` room, of `compress`
+with `compressBound` room, and of `inflate` on every stream the format accepts, when allocation
+succeeds; the unconditional stream round trip; and `uncompress(compress(x)) = x`.
 
 Other functional correctness (other levels, strategies, window sizes and wrappers, preset
 dictionaries, the gzip file interface and `inflateBack` as round-trip partners), model-only
