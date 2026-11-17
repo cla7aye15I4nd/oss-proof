@@ -222,7 +222,7 @@ def validate_sources(repo: Path = REPO) -> int:
         for lang in HEADERS:
             path = repo / relative
             if lang == 'zh':
-                path = path.with_name(path.stem + '.zh.md')
+                path = repo / 'docs/zh' / Path(relative).relative_to('docs/en')
             source = path.read_text()
             sections = list(re.finditer(r'^##\s+(.+?)\s*$', source, re.M))
             counts = {name: 0 for name in expected}

@@ -10,7 +10,7 @@ import progress
 from home import RESULTS, result_done, result_goals
 
 DOCS = SITE.parent
-PAGES = {'en': (DOCS / 'progress.md').read_text(), 'zh': (DOCS / 'progress.zh.md').read_text()}
+PAGES = {'en': (DOCS / 'en/progress.md').read_text(), 'zh': (DOCS / 'zh/progress.md').read_text()}
 
 
 def result_rows(text):

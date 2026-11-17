@@ -18,7 +18,7 @@ most 65535.
 The translation faults in the same places (`memcpyB` checks overlap and bounds). The gzip header
 dispatch theorem `inflate_dispatch_gzip_header_rank` therefore assumes that the extra buffer is
 separate from the unread input (`ExtraApart`) and that, in `EXTRA`, the record's `extra_len` is
-not below the remaining length. Both are listed in [deviations](../../../docs/deviations.md).
+not below the remaining length. Both are listed in [deviations](https://www.dataisland.org/zlib-f/en/deviations.html).
 `Goal.inflate` states both as caller-domain clauses: `InflateHeaderProgress`, a conjunct of
 `ActiveHeader` (`ZlibF/Spec/Common/History.lean`), required at every `inflate` call.
 Confidence: high (both reproduced with sanitizers on the pinned source). Scope: a caller

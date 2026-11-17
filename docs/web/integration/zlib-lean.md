@@ -9,4 +9,4 @@ description: "Follow the data through the algorithm, then the implementation thr
 
 Three interactive articles explain a complete codec, zlib’s implementation and optimizations, and streaming and checksums. Full API contracts and formal-verification references are on the same bilingual site.
 
-<a href="/zlib-f/index.html" data-no-spa>Read the documentation →</a>
+<a href="/zlib-f/en/index.html" data-no-spa>Read the documentation →</a>
