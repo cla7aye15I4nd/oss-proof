@@ -247,7 +247,8 @@ theorem call_stop {r : ZStreamRef} {h after : Heap} {log : DataLog} {pending : B
               | null => exact absurd hq nonnull
               | ref ref off => exact ⟨ref, off, rfl⟩
             have e := nextO.symm.trans (nOut.trans putEqL)
-            rw [hp] at e
+            have fs : f.start = z1.next_out := rfl
+            rw [fs, hp] at e
             simp [advance, inputAdvance] at e
             omega
           have outEq : output = callOut := by
