@@ -129,8 +129,34 @@ jobs:
           python3 tests/verification/test_ci_build.py
           python3 -O tests/verification/test_ci_build.py
 
+  # The differential test compares the translation with the C. It is needed only when one of the
+  # two sides, the runtime they run on, or the test itself changes.
+  diff_changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          run=true
+          if [ "$EVENT" != workflow_dispatch ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            if ! git diff --name-only "$BASE" HEAD | grep -qE '^(ZlibF/Zlib/|ZlibF/Runtime/|tests/(lean|c|gen)/|tests/[^/]+$|patches/|zlib$|lakefile\.toml$|lean-toolchain$|\.github/)'; then
+              run=false
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "differential test needed: $run"
+
   diff_core:
-    needs: build
+    needs: [build, diff_changes]
+    if: ${{ needs.diff_changes.outputs.run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -164,12 +190,18 @@ jobs:
 
   # Required status: a failed, skipped or cancelled worker cannot pass.
   difftest:
-    needs: [diff_core]
+    needs: [diff_changes, diff_core]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Require every differential stage
         env:
+          NEEDED: ${{ needs.diff_changes.outputs.run }}
           CORE_RESULT: ${{ needs.diff_core.result }}
-        run: test "$CORE_RESULT" = "success"
+        run: |
+          if [ "$NEEDED" = false ]; then
+            test "$CORE_RESULT" = skipped
+          else
+            test "$NEEDED/$CORE_RESULT" = "true/success"
+          fi
