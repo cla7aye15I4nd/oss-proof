@@ -24,7 +24,8 @@ theorem slow_defer_search_boundary {h : Heap} {r : ZStreamRef} {ds w origin base
       StreamBuffers after r ∧ SlowRecordFrame d result ∧
       result.strstart.toNat = d.strstart.toNat + 1 ∧
       result.lookahead.toNat = d.lookahead.toNat - 1 ∧ fillEnd result = fillEnd d ∧
-      result.sym_next.toNat < result.sym_end.toNat ∧ ByteFrame h after (DeflateOwned ds d) := by
+      result.sym_next.toNat < result.sym_end.toNat ∧ ByteFrame h after (DeflateOwned ds d) ∧
+      result.match_length = d.match_length ∧ result.match_start = d.match_start := by
   let result := deferOne d
   let after := setD h ds result
   have counts := advance_one_counts cut.good.inv cut.range positive
@@ -59,7 +60,7 @@ theorem slow_defer_search_boundary {h : Heap} {r : ZStreamRef} {ds w origin base
   have buffersA := stream_buffers_private_read cut.good.live.hz goodA.live.hz buffers storage
     (fun k own => (stream_owned_deflate cut.good k).mpr own) owned (stream_accounting_zero z) rfl
   refine ⟨after, result, symbolic.1, ?_, endA, buffersA, symbolic.2.2,
-    startA, lookA, endpoint, strict, storage⟩
+    startA, lookA, endpoint, strict, storage, rfl, rfl⟩
   refine ⟨⟨⟨goodA, chainsA, kept.2.2, historyA, ?_, symbolic.2.1, ?_⟩,
     ?_, frontierA, ?_⟩, cut.trace, ?_⟩
   · intro _; rw [startA]; omega

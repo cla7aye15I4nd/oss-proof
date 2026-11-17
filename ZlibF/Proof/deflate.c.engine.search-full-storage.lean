@@ -243,7 +243,7 @@ theorem slow_search_initialized_full_storage {h : Heap} {r : ZStreamRef} {ds ori
       SearchWorkFrame d result ∧ StreamBuffers after r ∧ ByteFrame h after (fun k => k = ds) ∧
       Shape h after ∧ Frame h after (fun b => StreamRoot r b ∨ DeflateOwned ds d b) ∧
       LiveChange h after (fun _ => False) (fun _ => False) ∧ after.nalloc = h.nalloc ∧ after.nextBlk = h.nextBlk := by
-  obtain ⟨w, wa, candidate, after, result, run, cut, fields, buffersA, bytes⟩ :=
+  obtain ⟨w, wa, candidate, after, result, run, cut, fields, buffersA, bytes, _prev⟩ :=
     slow_search_initialized_boundary boundary frontier buffers room
   exact ⟨w, wa, candidate, after, result, run, cut, fields, buffersA, bytes,
     slow_search_run_full_storage boundary room run⟩

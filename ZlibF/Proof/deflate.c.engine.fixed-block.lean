@@ -38,6 +38,8 @@ theorem fixed_block_ready_frame {h : Heap} {r : ZStreamRef} {ds pb ob base : Nat
       8 * result.pending.toNat + result.bi_valid.toInt.toNat ≤ 8 * next.size ∧
       (last = true → result.bi_valid.toInt = 0 ∧ result.bi_buf = 0) ∧
       padding.length < 8 ∧ (last = false → padding = []) ∧
+      payload.length = (xs.map (fun s => (Zlib.Trees.Proofs.Out.payloadSymBits
+        Zlib.Trees.Proofs.fixedLiteralWords Zlib.Trees.Proofs.fixedDistanceWords (s.distance, s.value)).length)).sum + 7 ∧
       Zlib.Trees.Proofs.Out.outBits next result = Zlib.Trees.Proofs.Out.outBits buf d ++
         (fixedTag last ++ payload ++ padding) ∧
       ∀ suffix, ZlibF.Spec.Body [] 1 (inputPrefix input base) (payload ++ suffix) suffix
@@ -53,6 +55,11 @@ theorem fixed_block_ready_frame {h : Heap} {r : ZStreamRef} {ds pb ob base : Nat
   let payload := xs.flatMap (fun s => Zlib.Trees.Proofs.Out.payloadSymBits
       Zlib.Trees.Proofs.fixedLiteralWords Zlib.Trees.Proofs.fixedDistanceWords (s.distance, s.value)) ++
     Zlib.Trees.Proofs.Out.codeBits Zlib.Trees.Proofs.fixedLiteralWords 256
+  have payloadLength : payload.length = (xs.map (fun s => (Zlib.Trees.Proofs.Out.payloadSymBits
+      Zlib.Trees.Proofs.fixedLiteralWords Zlib.Trees.Proofs.fixedDistanceWords (s.distance, s.value)).length)).sum + 7 := by
+    have eob : (Zlib.Trees.Proofs.Out.codeBits Zlib.Trees.Proofs.fixedLiteralWords 256).length = 7 := by
+      simp [Zlib.Trees.Proofs.Out.codeBits, Zlib.Trees.Proofs.fixed_literal_end]
+    simp only [payload, List.length_append, List.length_flatMap, eob]
   have emittedBits : Zlib.Trees.Proofs.Out.outBits emittedBuf emitted =
       Zlib.Trees.Proofs.Out.outBits buf d ++ (fixedTag last ++ payload) := by
     rw [outputE, outputH, List.append_assoc]
@@ -81,7 +88,7 @@ theorem fixed_block_ready_frame {h : Heap} {r : ZStreamRef} {ds pb ob base : Nat
   | false =>
     change Zlib.Trees.Proofs.fixedBlockHeader (some (.tab ds)) 0 h = .ok ((), setD h ds tagged) at headerRun
     refine ⟨_, reset, emittedBuf, payload, [], ?_, goodR, treesR, buffersR, sizes, storage, ledgerR, frameR,
-      sizeE, by omega, (by intro _; exact pendingR), cursorR, roomR, by simp, by decide, by simp, ?_, grammar⟩
+      sizeE, by omega, (by intro _; exact pendingR), cursorR, roomR, by simp, by decide, by simp, payloadLength, ?_, grammar⟩
     · unfold Zlib.Trees.Proofs.fixedBlockPayload Zlib.Trees.Proofs.flushBlockTail
       simp only [bind_app, headerRun, payloadRun, resetRun,
         show ((0 : Int32) != 0) = false from rfl, Bool.false_eq_true, ite_false, pure_app]
@@ -100,7 +107,7 @@ theorem fixed_block_ready_frame {h : Heap} {r : ZStreamRef} {ds pb ob base : Nat
       omega
     refine ⟨_, result, next, payload, padding, ?_, goodA, treesA, buffersA, sizes.trans sizesA,
       storage.trans storageA, empty_ledger_bits ledgerR fieldsA, frameR.bits fieldsA, size, upper, (by simp), cursorA, room,
-      by intro _; exact ⟨zeroA, wordA⟩, ?_, by simp, ?_, grammar⟩
+      by intro _; exact ⟨zeroA, wordA⟩, ?_, by simp, payloadLength, ?_, grammar⟩
     · unfold Zlib.Trees.Proofs.fixedBlockPayload Zlib.Trees.Proofs.flushBlockTail
       simp only [bind_app, headerRun, payloadRun, resetRun,
         show ((1 : Int32) != 0) = true from rfl, ite_true, windupRun]
@@ -131,7 +138,7 @@ theorem fixed_block_ready_bounds {h : Heap} {r : ZStreamRef} {ds pb ob base : Na
       ∀ suffix, ZlibF.Spec.Body [] 1 (inputPrefix input base) (payload ++ suffix) suffix
         (inputPrefix input (base + represented xs)) := by
   obtain ⟨after, result, next, payload, padding, run, goodA, treesA, buffersA, sizes, storage,
-    ledger, _fields, size, bound, nonfinal, cursorA, room, final, padBound, padNone, output, grammar⟩ :=
+    ledger, _fields, size, bound, nonfinal, cursorA, room, final, padBound, padNone, _payloadLength, output, grammar⟩ :=
     fixed_block_ready_frame (ob := ob) good trees buffers cursor memory pending bits count packed valid trace last
   exact ⟨after, result, next, payload, padding, run, goodA, treesA, buffersA, sizes, storage,
     ledger, size, bound, nonfinal, cursorA, room, final, padBound, padNone, output, grammar⟩

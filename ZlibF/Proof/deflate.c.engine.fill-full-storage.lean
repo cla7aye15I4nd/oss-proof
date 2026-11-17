@@ -202,7 +202,7 @@ theorem fill_window_pending_boundary_all_full_storage {h : Heap} {r : ZStreamRef
       Shape h after ∧ Frame h after (fun b => StreamRoot r b ∨ DeflateOwned ds d b) ∧
       LiveChange h after (fun _ => False) (fun _ => False) ∧ after.nalloc = h.nalloc ∧ after.nextBlk = h.nextBlk := by
   obtain ⟨used, after, z', result, extended, nextOrigin, run, boundaryA, account,
-      start, look, wrapA, originA, prefixA, stopped, fields⟩ :=
+      start, look, wrapA, originA, prefixA, stopped, fields, _companion⟩ :=
     fill_window_pending_boundary_all_frame boundary short wrap buffers inputValid
   obtain ⟨inputCount, outputCount⟩ := fill_window_run_counter_effects boundary short wrap buffers inputValid
     run boundaryA.good.live.hz account

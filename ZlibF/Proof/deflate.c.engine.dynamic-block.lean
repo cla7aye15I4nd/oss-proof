@@ -5,7 +5,7 @@ import ZlibF.Proof.«deflate.c.engine.block-windup»
 
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
-open Zlib.Trees.Proofs (dynamicTag)
+open Zlib.Trees.Proofs (dynamicTag dynamicHeaderBits sourceWords)
 open Zlib.Trees.Proofs.Out (TreesInvAt)
 open ZlibF.Math.DeflateSymbols
 set_option autoImplicit false
@@ -30,12 +30,17 @@ theorem dynamic_prepared_block_ready {h : Heap} {r : ZStreamRef} {ds pb ob base 
       8 * result.pending.toNat + result.bi_valid.toInt.toNat ≤ 8 * next.size ∧
       (last = true → result.bi_valid.toInt = 0 ∧ result.bi_buf = 0) ∧
       padding.length < 8 ∧ (last = false → padding = []) ∧
+      (∃ mb ready, (do Zlib.Trees.Proofs.blPrepare (some (.tab ds)); Zlib.Trees.build_bl_tree (some (.tab ds))) h =
+          .ok (mb, setD h ds ready) ∧
+        body = dynamicHeaderBits ready mb ++
+          (xs.flatMap (fun s => Zlib.Trees.Proofs.Out.payloadSymBits (sourceWords ready .lit) (sourceWords ready .dist)
+            (s.distance, s.value)) ++ Zlib.Trees.Proofs.Out.codeBits (sourceWords ready .lit) 256)) ∧
       Zlib.Trees.Proofs.Out.outBits next result = Zlib.Trees.Proofs.Out.outBits buf d ++
         (dynamicTag last ++ body ++ padding) ∧
       ∀ suffix, ZlibF.Spec.Body [] 2 (inputPrefix input base) (body ++ suffix) suffix
         (inputPrefix input (base + represented xs)) := by
   obtain ⟨emittedHeap, emitted, emittedBuf, body, emittedRun, goodE, treesE, buffersE,
-    sizesE, storageE, sizeE, cursorE, roomE, outputE, grammar⟩ :=
+    sizesE, storageE, sizeE, cursorE, roomE, shape, outputE, grammar⟩ :=
     dynamic_prepared_payload_format (ob := ob) good trees buffers cursor memory pending bits ledger clear trace last
   obtain ⟨reset, resetRun, goodR, treesR, buffersR, sizesR, storageR, ledgerR, clearR, resetBits⟩ :=
     init_block_clear_engine (ob := ob) goodE treesE buffersE
@@ -57,7 +62,7 @@ theorem dynamic_prepared_block_ready {h : Heap} {r : ZStreamRef} {ds pb ob base 
   | false =>
     change dynamicPreparedPayload (some (.tab ds)) 0 h = .ok ((), emittedHeap) at emittedRun
     refine ⟨_, reset, emittedBuf, body, [], ?_, goodR, treesR, buffersR, sizes, storage,
-      ledgerR, clearR, sizeE, by omega, cursorR, physicalRoom, by simp, by decide, by simp, ?_, grammar⟩
+      ledgerR, clearR, sizeE, by omega, cursorR, physicalRoom, by simp, by decide, by simp, shape, ?_, grammar⟩
     · unfold Zlib.Trees.Proofs.flushBlockTail
       simp only [bind_app, emittedRun, resetRun, show ((0 : Int32) != 0) = false from rfl,
         Bool.false_eq_true, ite_false, pure_app]
@@ -85,7 +90,7 @@ theorem dynamic_prepared_block_ready {h : Heap} {r : ZStreamRef} {ds pb ob base 
       omega
     refine ⟨_, result, next, body, padding, ?_, goodA, treesA, buffersA,
       sizes.trans sizesA, storage.trans storageA, empty_ledger_bits ledgerR diffA, clearR.bits diffA,
-      size, bound, cursorA, physical, by intro _; exact ⟨zeroA, wordA⟩, padBound, by simp, ?_, grammar⟩
+      size, bound, cursorA, physical, by intro _; exact ⟨zeroA, wordA⟩, padBound, by simp, shape, ?_, grammar⟩
     · unfold Zlib.Trees.Proofs.flushBlockTail
       simp only [bind_app, emittedRun, resetRun, show ((1 : Int32) != 0) = true from rfl,
         ite_true, windupRun]

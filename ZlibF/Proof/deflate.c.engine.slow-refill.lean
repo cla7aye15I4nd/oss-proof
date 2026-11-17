@@ -59,7 +59,7 @@ theorem slow_body_no_flush_boundary {h : Heap} {r : ZStreamRef} {ds origin : Nat
       (next.ret = some need_more ∨ origin + d.strstart.toNat < nextOrigin + result.strstart.toNat) := by
   by_cases short : d.lookahead.toNat < 262
   · obtain ⟨used, filledHeap, z', filled, extended, nextOrigin, fillRun, boundaryF, account,
-        startF, lookF, _, _, prefixF, _, fieldsF⟩ :=
+        startF, lookF, _, _, prefixF, _, fieldsF, _companion⟩ :=
       fill_window_pending_boundary_all_frame boundary short wrap buffers inputValid
     have symNext : filled.sym_next = d.sym_next := congrArg (·.sym_next) fieldsF
     have symEnd : filled.sym_end = d.sym_end := congrArg (·.sym_end) fieldsF

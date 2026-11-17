@@ -26,7 +26,7 @@ theorem slow_search_all_lookahead {h : Heap} {r : ZStreamRef} {ds w origin base 
         InsHForm result.hash_shift result.hash_mask (bfn wa) (result.strstart.toNat + 1) result.ins_h) ∧
       SlowRecordFrame d result ∧ ByteFrame h after (fun i => i = ds) := by
   obtain ⟨candidate, after, result, run, goodA, chainsA, winA, bytesA, previous, deferred,
-      symbols, length, clipped, matching, formA, slowFrame, _searchFrame, storage⟩ :=
+      symbols, length, clipped, matching, formA, _prevEq, slowFrame, _searchFrame, storage⟩ :=
     slow_search_all_frame boundary win get room
   exact ⟨candidate, after, result, run, goodA, chainsA, winA, bytesA, previous, deferred,
     symbols, length, clipped, matching, formA, slowFrame, storage⟩

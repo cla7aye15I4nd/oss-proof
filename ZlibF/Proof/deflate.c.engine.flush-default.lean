@@ -88,7 +88,7 @@ theorem flush_default_ready {h : Heap} {r : ZStreamRef} {ds pb ob w origin base 
       (stored := UInt64.ofNat (represented xs)) (by rw [natural]; omega) chooseStored.1
     rw [natural] at room
     obtain ⟨after, result, next, body, run, goodA, treesA, buffersA, sizesA, storageA,
-      ledgerA, clearA, size, bound, cursorA, aligned, output, grammar⟩ :=
+      ledgerA, clearA, size, bound, cursorA, aligned, _bodyLength, output, grammar⟩ :=
       stored_block_ready (ob := ob) goodP treesP buffersP cursorP memoryP pendingP bitsP
         (by rw [record]; exact win) (by simpa only [setD_bytes, ZStreamRef.put_bytes] using get)
         (by rw [record]; exact range) (by rw [record]; exact nonnegative)
@@ -115,7 +115,7 @@ theorem flush_default_ready {h : Heap} {r : ZStreamRef} {ds pb ob w origin base 
           defaultStoredSource d w != .null) := by
         simpa only [selectedCost, chooseFixed, ite_true] using chooseStored
       obtain ⟨after, result, next, body, padding, run, goodA, treesA, buffersA, sizesA, storageA,
-        ledgerA, _frame, size, bound, _nonfinal, cursorA, _room, final, padBound, padNone, output, grammar⟩ :=
+        ledgerA, _frame, size, bound, _nonfinal, cursorA, _room, final, padBound, padNone, _payloadLength, output, grammar⟩ :=
         fixed_block_ready_frame (ob := ob) goodP treesP buffersP cursorP memoryP pendingP bitsP
           countP packedP ledger.valid trace last
       obtain ⟨clearHeap, clearState, clearRun, clearGood, clearStateData⟩ :=
@@ -144,7 +144,7 @@ theorem flush_default_ready {h : Heap} {r : ZStreamRef} {ds pb ob w origin base 
         rw [equal]
         exact Nat.le_refl _
       obtain ⟨after, result, next, body, padding, emitRun, goodA, treesA, buffersA, sizesA, storageA,
-        ledgerA, clearA, size, bound, cursorA, _room, final, padBound, padNone, output, grammar⟩ :=
+        ledgerA, clearA, size, bound, cursorA, _room, final, padBound, padNone, _shape, output, grammar⟩ :=
         dynamic_prepared_block_ready (ob := ob) goodZ treesZ buffersZ cursor memory pending bits ledger clear trace last
       unfold dynamicPreparedPayload at emitRun
       have joined : ((do

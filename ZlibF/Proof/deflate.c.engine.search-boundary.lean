@@ -46,10 +46,11 @@ theorem slow_search_initialized_boundary {h : Heap} {r : ZStreamRef} {ds origin 
     ∃ w wa candidate after result,
       slowSearch (some (.tab ds)) h = .ok (candidate, after) ∧
       SearchBoundary after r ds z result input origin base xs w wa ∧
-      SearchWorkFrame d result ∧ StreamBuffers after r ∧ ByteFrame h after (fun k => k = ds) := by
+      SearchWorkFrame d result ∧ StreamBuffers after r ∧ ByteFrame h after (fun k => k = ds) ∧
+      (result.prev_length = d.match_length ∧ result.prev_match = d.match_start) := by
   obtain ⟨w, wa, win, get, view, _form⟩ := boundary.data
   obtain ⟨candidate, after, result, run, goodA, chainsA, winA, bytesA, previousA, deferredA,
-      symbolsA, lengthA, clippedA, matchingA, formA, _slowFrame, frameA, storage⟩ :=
+      symbolsA, lengthA, clippedA, matchingA, formA, prevEq, _slowFrame, frameA, storage⟩ :=
     slow_search_all_frame boundary win get room
   have startA : result.strstart = d.strstart := by rw [frameA]
   have lookA : result.lookahead = d.lookahead := by rw [frameA]
@@ -62,7 +63,7 @@ theorem slow_search_initialized_boundary {h : Heap} {r : ZStreamRef} {ds origin 
   have buffersA := stream_buffers_private_read boundary.good.live.hz goodA.live.hz buffers storage
     (fun k equal => (stream_owned_deflate boundary.good k).mpr (Or.inl equal)) owned (stream_accounting_zero z)
     (Zlib.Deflate.BorrowProofs.Private.stable_slowSearch _ _ _ _ run)
-  refine ⟨w, wa, candidate, after, result, run, ?_, frameA, buffersA, storage⟩
+  refine ⟨w, wa, candidate, after, result, run, ?_, frameA, buffersA, storage, prevEq⟩
   refine ⟨goodA, ?_, ?_, ?_, ?_, previousA, deferredA, symbolsA, ?_, ?_, winA, bytesA,
     ?_, lengthA, ?_, matchingA, ?_, boundary.trace, ?_⟩
   · simpa only [startA] using chainsA

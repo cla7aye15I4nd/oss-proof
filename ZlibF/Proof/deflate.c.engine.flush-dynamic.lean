@@ -107,7 +107,7 @@ theorem flush_dynamic_prepared {h : Heap} {r : ZStreamRef} {ds pb ob base : Nat}
   refine ⟨mb, z', prepared, prepare, all_tree_frames frameL frameD scans blFrame finish, ?_⟩
   intro prefer avoid dynamic
   obtain ⟨after, result, next, body, padding, emitRun, goodA, treesA, buffersA, sizesA, storageA,
-    ledgerA, clearA, size, bound, cursorA, _room, final, padBound, padNone, output, grammar⟩ :=
+    ledgerA, clearA, size, bound, cursorA, _room, final, padBound, padNone, _shape, output, grammar⟩ :=
     dynamic_prepared_block_ready (ob := ob) goodZ treesZ buffersZ cursor memory pending bits ledger clear trace last
   unfold dynamicPreparedPayload at emitRun
   have joined : ((do

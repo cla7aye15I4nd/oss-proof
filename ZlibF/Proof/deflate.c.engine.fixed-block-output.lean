@@ -36,7 +36,7 @@ theorem fixed_block_publish_frame {h : Heap} {r : ZStreamRef} {ds pb ob oo base 
       ∀ suffix, ZlibF.Spec.Body [] 1 (inputPrefix input base) (payload ++ suffix) suffix
         (inputPrefix input (base + represented xs)) := by
   obtain ⟨ready, emitted, outputBuf, payload, padding, run, goodE, treesE, buffersE, sizesE, storageE,
-    ledgerE, frameE, _size, boundE, nonfinalE, cursorE, roomE, finalE, padBound, padNone, outputE, grammar⟩ :=
+    ledgerE, frameE, _size, boundE, nonfinalE, cursorE, roomE, finalE, padBound, padNone, _payloadLength, outputE, grammar⟩ :=
     fixed_block_ready_frame (ob := ob) good trees buffers cursor memory pending bits count packed valid trace last
   obtain ⟨produced, after, z', result, written, remaining, flush, goodA, buffersA, account, sizesA, storageA,
     copied, left, low, validA, fieldsA, bytes, pendingA, outputA⟩ :=

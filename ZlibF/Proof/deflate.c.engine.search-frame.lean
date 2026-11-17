@@ -35,6 +35,7 @@ theorem slow_search_all_frame {h : Heap} {r : ZStreamRef} {ds w origin base : Na
         GoodMatch wa result.strstart.toNat result.w_size.toNat result.match_start.toNat result.match_length.toNat) ∧
       (3 ≤ d.lookahead.toNat →
         InsHForm result.hash_shift result.hash_mask (bfn wa) (result.strstart.toNat + 1) result.ins_h) ∧
+      (result.prev_length = d.match_length ∧ result.prev_match = d.match_start) ∧
       SlowRecordFrame d result ∧ SearchWorkFrame d result ∧ ByteFrame h after (fun i => i = ds) := by
   have pack {candidate key pos len : UInt32} {after : Heap}
       (run : slowSearch (some (.tab ds)) h = .ok (candidate, after))
@@ -57,6 +58,7 @@ theorem slow_search_all_frame {h : Heap} {r : ZStreamRef} {ds w origin base : Na
           GoodMatch wa result.strstart.toNat result.w_size.toNat result.match_start.toNat result.match_length.toNat) ∧
         (3 ≤ d.lookahead.toNat →
           InsHForm result.hash_shift result.hash_mask (bfn wa) (result.strstart.toNat + 1) result.ins_h) ∧
+        (result.prev_length = d.match_length ∧ result.prev_match = d.match_start) ∧
         SlowRecordFrame d result ∧ SearchWorkFrame d result ∧ ByteFrame h after (fun i => i = ds) := by
     let result := matchState (lazyPrepare { d with ins_h := key }) pos len
     obtain ⟨b, buf, trees, ledger, balance⟩ := boundary.symbols
@@ -66,7 +68,7 @@ theorem slow_search_all_frame {h : Heap} {r : ZStreamRef} {ds w origin base : Na
       symbol_boundary_of_ledger goodA trees.base.pbuf getB ledgerA balance
     have previous : PreviousHistory input origin result := logical_prepare_history boundary.history key
     refine ⟨candidate, after, result, run, goodA, chainsA, win, ?_, previous, boundary.deferred,
-      symbols, length, clipped, matching, formA, ?_, rfl, storage⟩
+      symbols, length, clipped, matching, formA, ⟨rfl, rfl⟩, ?_, rfl, storage⟩
     · rw [bytesA]; exact get
     · rfl
   by_cases three : 3 ≤ d.lookahead.toNat
