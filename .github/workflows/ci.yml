@@ -4,13 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Every job runs on every pull request and on every push to main. The manual
-  # trigger runs the same jobs on any branch.
   workflow_dispatch:
 
 concurrency:
-  # One group per pull request (a newer push cancels the superseded run), and one per commit and event
-  # otherwise, so that no pushed head loses its gate result to a later push or a manual dispatch.
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -18,135 +14,106 @@ permissions:
   contents: read
 
 jobs:
-  # Everything must build. This job is the one that has to be green on every push.
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      build_projects: ${{ steps.matrix.outputs.build_projects }}
+      difftest_projects: ${{ steps.matrix.outputs.difftest_projects }}
+      has_build: ${{ steps.matrix.outputs.has_build }}
+      has_difftest: ${{ steps.matrix.outputs.has_difftest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Framework self-tests
+        run: python3 -m unittest discover -s framework/tests -p "test_*.py"
+
+      - name: Options, Lakefiles, toolchains, and strict ISO C17 runtime UB policy
+        run: |
+          python3 framework/check_options.py
+          python3 framework/check_runtime_ub.py
+
+      - name: Compute affected project matrices
+        id: matrix
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 framework/ci_matrix.py
+
   build:
+    needs: scope
+    if: ${{ needs.scope.outputs.has_build == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJson(needs.scope.outputs.build_projects) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
 
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
       - uses: ./.github/actions/lean-environment
         id: lean
 
-      # The module cache is restored by pull requests and manual runs, and saved only by a push to main
-      # (the step after the builds). A push to main restores nothing: every commit of main is built from
-      # nothing, and the cache it saves is the output of that build. Lake trusts an .olean whose stored
-      # trace matches its inputs, and both come from the cache; so a pull request may only reuse what a
-      # from-scratch build of main produced, and cannot plant a cache that its own later runs, or anyone
-      # else's, would trust. Its changed modules are rebuilt.
+      # Pull requests and manual runs may restore a module cache; pushes to main build from scratch
+      # and are the sole writers of the module cache, preventing cache poisoning.
       - name: Reuse unchanged module outputs across runs
         if: ${{ github.event_name != 'push' }}
-        id: module-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            .lake
-            tests/.lake
-          key: lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-${{ hashFiles('ZlibF.lean', 'ZlibF/**/*.lean', 'tests/**/*.lean') }}
+            projects/${{ matrix.project }}/.lake
+            projects/${{ matrix.project }}/tests/.lake
+          key: lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-${{ hashFiles(format('projects/{0}/**/*.lean', matrix.project)) }}
           restore-keys: |
-            lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-
+            lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-
 
-      # The library build also checks the registry of results, ZlibF/Results.lean: each theorem's type
-      # is exactly its goal, allowed axioms only, and every goal is proved or listed as not done.
-      - name: Build the library once
-        run: lake build --wfail ZlibF
+      - name: Build project library with warnings as errors
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: |
+          mapfile -t targets < <(python3 -c 'import json, os; print("\n".join(json.load(open(f"projects/{os.environ[\"PROJECT\"]}/project.json"))["build"]["targets"]))')
+          lake --dir "projects/$PROJECT" build --wfail "${targets[@]}"
 
-      - name: Save the module cache (pushes to main only)
+      - name: Save module cache (pushes to main only)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            .lake
-            tests/.lake
-          key: lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-${{ hashFiles('ZlibF.lean', 'ZlibF/**/*.lean', 'tests/**/*.lean') }}
+            projects/${{ matrix.project }}/.lake
+            projects/${{ matrix.project }}/tests/.lake
+          key: lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-${{ hashFiles(format('projects/{0}/**/*.lean', matrix.project)) }}
 
-      - name: Every string literal of the translations is in strTable
-        run: python3 scripts/check-strlit.py
+      - name: Run full verification gate for project
+        run: python3 framework/check_project.py "${{ matrix.project }}" --skip-build
 
-      - name: Safety specifications import no functional specification
-        run: python3 scripts/check-spec-layers.py
-
-      - name: Self-tests of the source checks
-        run: |
-          python3 tests/verification/test_spec_layers.py
-          python3 tests/verification/test_strlit_check.py
-          python3 tests/verification/test_options_check.py
-
-      - name: Forbidden constructs
-        run: |
-          if grep -rnE '\b(native_decide|bv_decide|implemented_by)\b|^\s*(@\[[^]]*\]\s*)?((private|protected|noncomputable|local|scoped)\s+)*axiom\b|^\s*(@\[[^]]*\]\s*)?(private\s+|protected\s+|noncomputable\s+)*((partial|unsafe)\s+(def|instance|theorem|abbrev|structure|inductive)\b|opaque\s+[A-Za-z_.]+\s*[:(\[{])|@\[[^]]*\bextern\b' ZlibF.lean ZlibF; then
-            echo "forbidden construct found"; exit 1
-          fi
-
-      # Options that switch off or weaken checking: the kernel check (debug.skipKernelTC), proofs taken as
-      # sorry (debug.byAsSorry and the like), elaboration checks (bootstrap.*), and options or plugins
-      # passed by the Lake configuration. A declaration added without the kernel check looks like any
-      # other in the environment, so this source check is the guard. It is an allow-list: any other
-      # option, in any spelling (`«debug».skipKernelTC`), and any other Lake key fail.
-      - name: No option that weakens checking
-        run: python3 scripts/check-options.py
-
-      # The audit's unsafe/partial rule on the built environment: a recursive def whose compiled code
-      # needs an `_unsafe_rec` helper fails here, on every push.
-      - name: No unsafe, partial, opaque or extern declaration and no extra axiom in the compiled library
-        run: lake env lean --run tests/audit/PartialCheck.lean
-
-      - name: Coverage of the public API (every function of zlib.h has its goals, every required goal is proved)
-        run: python3 scripts/verification.py
-
-      - name: The check of ZlibF/Results.lean rejects a wrong type, an extra axiom, an unlisted goal and an unproved required goal
-        run: bash tests/results-check/run.sh
-
-      - name: Self-test of the coverage check
-        run: python3 tests/verification/test_coverage.py
-
-      - name: Patches apply to the pinned zlib
-        run: |
-          cp -r zlib /tmp/zlib-verified
-          rm -rf /tmp/zlib-verified/.git
-          shopt -s nullglob
-          for p in patches/*.patch; do (cd /tmp/zlib-verified && git apply "$GITHUB_WORKSPACE/$p"); done
-
-  # The differential test compares the translation with the C. It is needed only when one of the
-  # two sides, the runtime they run on, or the test itself changes.
-  differential-test-scope:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      run: ${{ steps.decide.outputs.run }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - id: decide
-        env:
-          EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          run=true
-          if [ "$EVENT" != workflow_dispatch ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            if ! git diff --name-only "$BASE" HEAD | grep -qE '^(ZlibF/Zlib/|ZlibF/Runtime/|tests/(lean|c|gen|regression)/|tests/[^/]+$|patches/|zlib$|lakefile\.toml$|lean-toolchain$|\.github/)'; then
-              run=false
-            fi
-          fi
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "differential test needed: $run"
-
-  # The drivers import only the translation and the runtime, so this job builds those modules and the
-  # drivers itself and does not wait for the build job: the two run side by side.
   differential-test:
-    needs: differential-test-scope
-    if: ${{ needs.differential-test-scope.outputs.run == 'true' }}
+    needs: scope
+    if: ${{ needs.scope.outputs.has_difftest == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJson(needs.scope.outputs.difftest_projects) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: true    # zlib/ at the pinned commit; it is copied, never modified
+          submodules: true
 
-      - name: Install a C compiler and tools
+      - name: Install C compiler and tools
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends build-essential patch python3
@@ -154,38 +121,64 @@ jobs:
       - uses: ./.github/actions/lean-environment
         id: lean
 
-      # The same read-only module cache as the build job, under the same rule: not on a push to main.
       - name: Reuse unchanged module outputs across runs
         if: ${{ github.event_name != 'push' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            .lake
-            tests/.lake
-          key: lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-${{ hashFiles('ZlibF.lean', 'ZlibF/**/*.lean', 'tests/**/*.lean') }}
+            projects/${{ matrix.project }}/.lake
+            projects/${{ matrix.project }}/tests/.lake
+          key: lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-${{ hashFiles(format('projects/{0}/**/*.lean', matrix.project)) }}
           restore-keys: |
-            lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-
+            lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-
 
-      # tests/ is a separate Lake project that requires the parent project ZlibF by path, so the
-      # drivers call the same translation the proofs are about. The lean-toolchain of tests/ is a
-      # copy of the root one; keep them equal.
       - name: Toolchains agree
-        run: cmp lean-toolchain tests/lean-toolchain
-
-      # Builds the translation and runtime modules the drivers import, and the drivers, with warnings
-      # as errors. No proof module is built here.
-      - name: Build the differential drivers
-        working-directory: tests
+        env:
+          PROJECT: ${{ matrix.project }}
         run: |
-          mapfile -t names < <(grep -v '^[[:space:]]*\(#\|$\)' list.txt)
-          targets=()
-          for name in "${names[@]}"; do targets+=("difftest_$name"); done
-          lake build --wfail "${targets[@]}"
+          cmp lean-toolchain "projects/$PROJECT/lean-toolchain"
+          if [ -f "projects/$PROJECT/tests/lean-toolchain" ]; then
+            cmp lean-toolchain "projects/$PROJECT/tests/lean-toolchain"
+          fi
 
-      # Copies zlib/ to tests/build/zlib, applies patches/*.patch there in name order, and builds
-      # libz.a (./configure --static; make libz.a). The submodule is not modified.
-      # One run, with the C side built with AddressSanitizer and UBSan: the outputs of the C and of
-      # the translation must be identical, and the C reference itself must be free of memory errors
-      # and undefined behaviour on every input.
-      - name: Build the patched zlib and the Lean drivers, run the differential test under ASan and UBSan
-        run: SAN=1 ZLIB_SRC="$GITHUB_WORKSPACE/zlib" bash tests/run.sh
+      - name: Build differential drivers and run under ASan and UBSan
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: |
+          PROJECT_DIR="$GITHUB_WORKSPACE/projects/$PROJECT"
+          eval "$(python3 -c '
+          import json, os, shlex
+          p = json.load(open(f"projects/{os.environ[\"PROJECT\"]}/project.json"))
+          dt = p["difftest"]
+          up = p["upstream"]["submodule"]
+          print("DIFFTEST_DIR=" + shlex.quote(dt["dir"]))
+          print("DIFFTEST_LIST=" + shlex.quote(dt.get("list", "")))
+          print("DIFFTEST_CMD=" + shlex.quote(dt["command"]))
+          print("UPSTREAM_SUB=" + shlex.quote(up))
+          ')"
+          export PROJECT_DIR
+          export UPSTREAM_DIR="$PROJECT_DIR/$UPSTREAM_SUB"
+          if [ -n "$DIFFTEST_LIST" ] && [ -f "$PROJECT_DIR/$DIFFTEST_LIST" ]; then
+            mapfile -t names < <(grep -v '^[[:space:]]*\(#\|$\)' "$PROJECT_DIR/$DIFFTEST_LIST")
+            targets=()
+            for name in "${names[@]}"; do targets+=("difftest_$name"); done
+            lake --dir "$PROJECT_DIR/$DIFFTEST_DIR" build --wfail "${targets[@]}"
+          fi
+          (cd "$PROJECT_DIR" && eval "$DIFFTEST_CMD")
+
+  gate:
+    if: always()
+    needs: [scope, build, differential-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify all scheduled verification jobs succeeded
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          DIFFTEST_RESULT: ${{ needs.differential-test.result }}
+        run: |
+          echo "scope=$SCOPE_RESULT build=$BUILD_RESULT differential-test=$DIFFTEST_RESULT"
+          [ "$SCOPE_RESULT" = "success" ]
+          [ "$BUILD_RESULT" = "success" ] || [ "$BUILD_RESULT" = "skipped" ]
+          [ "$DIFFTEST_RESULT" = "success" ] || [ "$DIFFTEST_RESULT" = "skipped" ]

@@ -1,223 +1,171 @@
-# Working rules
+# Working rules (`oss-proof`)
 
-Goal: kernel-checked Lean 4 proofs about a faithful translation of upstream zlib `develop`.
-The goal is full safety (no undefined behaviour, no memory error, no leak, termination) of every
-public function, for the default x86_64 Linux build: `inflate` and `deflate` with their call
-sequences, the other public functions, the gzip file interface and the callback decoder
-`inflateBack`; and one functional result, the round trip of the default zlib stream, with
-completeness. Both are proved, as stated below. Other functional goals beyond what safety needs
-are not planned: a functional fact that a planned proof depends on is in scope. A theorem that no goal listed in `ZlibF/Results.lean` depends on is deleted, proved or not; it remains in the git history. The
-functions that zlib.h lists under "undocumented
-functions (not part of the zlib API)" are not required. Read `docs/en/overview.md` first, then
-`docs/en/spec/safety.md`. Keep proof explanations in `docs/en/proof/` and `docs/zh/proof/`. State
-the status only in `docs/en/progress.md` and `docs/zh/progress.md`, as done or not done (section
-Documents).
+Goal: kernel-checked Lean 4 safety proofs (and explicitly scoped functional theorems where stated)
+about faithful, statement-by-statement translations of upstream open-source C libraries, verified
+under one shared checking infrastructure (`framework/`) and published under one bilingual site
+(`site/`, hosted at `https://www.dataisland.org/oss-proof/`).
 
-The safety results are proved: `inflate` is safe on every input; `deflate` is safe on every
-input; and so is every other public function, including the gzip file interface and
-`inflateBack`. Each covers its call sequences, and the safety of `compress` and `uncompress`
-follows as compositions.
+Each verified C library lives in `projects/<id>/` with its own Lake package (`<Package>`), pinned
+upstream submodule, minimal patches (`patches/`), specifications (`<Package>/Spec/`), proofs
+(`<Package>/Proof/`), goal registry (`<Package>/Results.lean`), differential test suite (`tests/`),
+bilingual documentation (`docs/en/`, `docs/zh/`), and project-specific `projects/<id>/AGENTS.md`.
+Both this root `AGENTS.md` and `projects/<id>/AGENTS.md` apply when working on `projects/<id>/`;
+on any shared rule (proof soundness, allowed axioms, C undefined behaviour, translation fidelity,
+anti-cheating), this root `AGENTS.md` is authoritative.
 
-The round trip of the default zlib stream (`deflateInit` at the default level, `inflateInit`) is
-proved as well: the conditional form under any flush values and any chunking; completeness of
-`deflate` with `Z_FINISH`, of one `deflate(Z_FINISH)` call with `deflateBound` room, of `compress`
-with `compressBound` room; the default decoder reads every zlib stream the format accepts that
-does not ask for a preset dictionary to `Z_STREAM_END`, when allocation succeeds; the
-unconditional stream round trip; and `uncompress(compress(x)) = x`.
+Work as fast as honest work allows: process exists to keep the result honest, not to slow it down.
 
-Other functional correctness (other levels, strategies, window sizes and wrappers, preset
-dictionaries, the gzip file interface and `inflateBack` as round-trip partners), model-only
-statements and other build configurations are not planned. The undocumented functions are not required public targets;
-proofs that no listed goal depends on are deleted like any other unused code. `docs/en/progress.md` lists what is not planned, with
-the reason. Do not work on a not-planned target unless a planned one needs it. Work as fast as
-honest work allows: process
-exists to keep the result honest, not to slow it down.
+## Repository layout
 
-## Source
+- `lean-toolchain` — single pinned Lean 4 toolchain shared across every project (`projects/<id>/lean-toolchain` and `projects/<id>/tests/lean-toolchain` must equal it byte-for-byte).
+- `framework/` — shared verification gate (`check_project.py`, `check_options.py`, `check_forbidden.py`, `check_runtime_ub.py`, `check_spec_layers.py`, `ci_matrix.py`), reusable Lean checkers (`framework/lean/ResultsCheck.lean`, `framework/lean/PartialCheck.lean`), strict runtime reference (`framework/lean/StrictPtr.lean`), project registry (`framework/projects.json`), and `framework/TEMPLATE_AGENTS.md`.
+- `site/` — unified static site builder (`site/build.py`) and auditor (`site/check.py`), rendering the `oss-proof` portal (`site/dist/{en,zh}/`) and each project's subsite (`site/dist/<id>/{en,zh}/`).
+- `projects/<id>/` — one verified C library per directory (currently `projects/zlib/`; incoming `*-f` libraries drop into `projects/<id>/` with a `project.json` manifest).
 
-- `zlib/` is the upstream submodule. Never modify it. The verified source is `zlib/` plus
-  `patches/*.patch` applied in name order.
-- A patch is allowed only for a confirmed zlib bug that blocks a proof. It must be minimal, match
-  a fix submitted upstream, and be listed in `patches/README.md`. A patch may land before its
+## Source and patches
+
+- `projects/<id>/<upstream>/` is the upstream git submodule. **Never modify it.** The verified
+  source is `<upstream>/` plus `projects/<id>/patches/*.patch` applied in name order.
+- A patch is allowed **only** for a confirmed upstream bug or ISO C17 undefined behaviour reachable
+  through documented API calls that blocks a proof. It must be minimal, match a fix submitted
+  upstream, and be listed in `projects/<id>/patches/README.md`. A patch may land before its
   upstream submission when the owner approves it; `patches/README.md` then marks it as local and
   pending, and it is replaced by the upstream fix when one exists. Delete a patch once upstream
   merges the fix and the pin moves past it.
-- Translations mirror the C layout: `zlib/X.c` is `ZlibF/Zlib/X.c.lean`, and `zlib/X.h` is
-  `ZlibF/Zlib/X.h.lean`. Each function keeps its C name, and its docstring starts with the C
+- Translations mirror the C layout: `<upstream>/.../X.c` is `<Package>/<Lib>/.../X.c.lean`, and
+  `X.h` is `X.h.lean`. Each function keeps its C name, and its docstring starts with the C
   signature.
-- Specifications are in `ZlibF/Spec/`. Proofs about `zlib/X.c` are in
-  `ZlibF/Proof/X.c.<topic>.lean`. Proofs of public goals are in `ZlibF/Proof/public-<name>.lean`.
-- Heap-free mathematics goes to `ZlibF/Math/`. The runtime (heap, pointers, loops, faults) is
-  `ZlibF/Runtime/*.lean`.
+- Specifications live in `<Package>/Spec/{Common,Safety,Functional}/`. No `Safety` or `Common`
+  module may import a `Functional` module, and no `Spec` module may import `<Package>/Proof/`.
+- Proofs about `X.c` live in `<Package>/Proof/X.c.<topic>.lean`. Proofs of public goals live in
+  `<Package>/Proof/public-<name>.lean`. Heap-free mathematics goes to `<Package>/Math/`.
 
 ## Translation
 
 - Translate statement by statement. Do not reorder, merge or simplify.
-  Four normalisations are accepted (owner's decision of 2026-11-15) and are not translation bugs:
-  an out-parameter of an internal function is passed by value and returned as a second result;
-  two reads of one location with no store between them are one read; consecutive assignments to
-  fields of one record are one record update; a signed operation that a preceding test of the
-  same function keeps in range uses the plain operator. Anything else is a translation bug.
-  `docs/en/design/translation.md` shows an example of each.
-- Every undefined behaviour the C can reach raises `Fault.ub`. Unsigned arithmetic wraps. Signed
-  arithmetic is checked.
-- Reading an uninitialised integer returns an arbitrary value, and a theorem must hold for every
-  value. A pointer in fresh memory is NULL in the model, which is weaker than C: the model reads an unwritten
-  pointer as NULL, and that a pointer field is written before it is read is not a theorem; the runtime also
-  accepts adding zero to any pointer (`docs/en/spec/safety.md`, section 3; `docs/en/trusted-base.md`, item 2).
+  Four normalisations are accepted and are not translation bugs:
+  1. an out-parameter of an internal function is passed by value and returned as a second result;
+  2. two reads of one location with no store between them are one read;
+  3. consecutive assignments to fields of one record are one record update;
+  4. a signed operation that a preceding test of the same function keeps in range uses the plain
+     operator.
+  Anything else is a translation bug.
 - Never change a translation to make a proof easier. A mismatch with the C is a translation bug.
   Fix it, and add a differential test that catches it.
-- Every proof depends on the runtime. Change it only for a confirmed mismatch with C.
+- Every proof depends on `<Package>/Runtime/`. Change a runtime file only for a confirmed mismatch
+  with ISO C17, in its own commit, naming the reason and the proofs it affects.
+
+## C Undefined Behaviour Policy (Strict ISO C17 — Non-Negotiable)
+
+**ISO C17 (ISO/IEC 9899:2018) on LP64 Linux is the sole semantic standard.** Every undefined
+behaviour reachable in ISO C17 MUST raise `Fault.ub` in `<Package>/Runtime/` and in the translation.
+
+**Do NOT argue "benign UB".** Agents must NEVER argue that an ISO C17 undefined behaviour is
+"defined in C++", "permitted in C2y", "compiled to a no-op on x86_64", "accepted by GCC/Clang
+without crashing", or "too strict in the runtime model". The owner has explicitly ruled all of the
+following **unsupported** (`Fault.ub`):
+
+| C construct | ISO C17 clause | Required model behaviour |
+| --- | --- | --- |
+| **Wild / uninitialised / freed ("dangling") pointer `+ 0` or `- 0`** (`p + 0`, `p += 0`, `&p[0]` when `p` is uninitialised or points into a freed block) | §6.5.6p8, §6.2.4p2 | **`Fault.ub`**. Never bypass pointer liveness or bounds checks when the offset `k` is `0` (`if k = 0 then .ok` is forbidden; see `framework/lean/StrictPtr.lean` and `framework/check_runtime_ub.py`). |
+| **`NULL + 0`, `NULL - 0`, `&((T *)NULL)[0]`** | §6.5.6p8 | **`Fault.ub`**. C++ allows `nullptr + 0`; ISO C17 does not. `Ptr.add .null 0` must fault. |
+| **`NULL - NULL` and `p - NULL`** | §6.5.6p9 | **`Fault.ub`**. Both operands of pointer subtraction must point into (or one past the end of) the **same live** array object. |
+| **Cross-object pointer subtraction (`p - q`) and relational comparison (`<`, `<=`, `>`, `>=`)** | §6.5.6p9, §6.5.8p5 | **`Fault.ub`**, unless both pointers refer to `[0, size]` of the exact same live allocation. Never allow `virtualStart = buf - extSize` on `char *` across objects. |
+| **Out-of-bounds pointer formation without dereference** (`p + k` outside `[0, size]` of its live array, even transiently before adding `-k` back) | §6.5.6p8 | **`Fault.ub`** at the exact point `p + k` is evaluated, whether or not the pointer is ever dereferenced. |
+| **`memcpy`, `memmove`, `memset`, `memcmp` with `n == 0` and `NULL`, uninitialised, or dangling pointer** | §7.24.1p2, §7.1.4p1 | **`Fault.ub`**. Valid pointers to live objects are required even when the byte/element count `n` is `0`. |
+| **Reading or using an uninitialised ("wild") pointer** | §6.3.2.1p2, §6.2.4 | Fresh struct pointer fields are represented as `.null` in the heap model, which is weaker than C: every struct pointer field MUST be written before it is read, offset, compared or freed. Never rely on default `.null` in fresh records to excuse an unwritten C pointer. |
+| **Reading an uninitialised integer** | §6.2.6.1, §6.3.2.1 | Returns an arbitrary value from `Heap.garbage`; every theorem must quantify universally over all `Heap.garbage` functions. |
+| **Signed integer overflow (`+`, `-`, `*`, unary `-`, `INT_MIN / -1`), division/modulo by `0`, and invalid shifts** (negative shift count, shift count `>= width`, or left-shift of a negative signed integer) | §6.5p5, §6.5.5, §6.5.7 | **`Fault.ub`**. Unsigned arithmetic wraps modulo $2^w$; signed arithmetic and shifts are explicitly checked. |
+| **Out-of-bounds, dangling, or read-only dereference / store; `strlen` without in-object NUL; overlapping `memcpy`; invalid or double `free`** | §6.5.3.2, §7.22.3, §7.24 | **`Fault.ub`**. |
+
+When upstream C executes any construct in this table on a path reachable from documented public API
+calls:
+1. Do **not** weaken `<Package>/Runtime/` and do **not** narrow the caller precondition to hide it
+   (unless the library's own public header explicitly forbids that caller input).
+2. Confirm the path on real C (under UBSan / ASan `detect_invalid_pointer_pair=2` where applicable,
+   or by concrete trace for standard-letter UB such as `wild_ptr + 0` that hardware sanitizers miss),
+   report it to the owner, record it in `docs/{en,zh}/findings.md`, and propose a minimal upstream
+   C patch in `projects/<id>/patches/`.
+
+*(Note on `projects/zlib`: `ZlibF/Runtime/Ptr.lean` currently retains a pre-existing legacy debt for
+`Ptr.add p 0` and `Ptr.diff .null .null`, isolated in `LEGACY_PERMISSIVE_PTR_PROJECTS` of
+`framework/check_runtime_ub.py`. That debt is scheduled for removal in its own dedicated PR and MUST
+NEVER be copied to any other project or cited to justify permissive UB.)*
 
 ## What counts as proved
 
-A result is proved when it is on `main`: `ZlibF/Results.lean` pairs its goal with its theorem, and
-the gate was green on the pull request that brought it: everything builds, which checks that module
-(allowed axioms only, the theorem's type is exactly the goal, no goal without a theorem unless it is
-listed as not done), there is no `sorry` and no forbidden construct, every function of `zlib.h`
-has its goals (coverage), and the differential tests pass. A theorem on
-a branch is not yet a result; say so when you report it.
+A result is proved when it is on `main`: `projects/<id>/<Package>/Results.lean` pairs its goal with
+its theorem, and the `CI` gate was green on the pull request that brought it: everything builds with
+`--wfail`, `Results.lean` passes (allowed axioms only, exact goal type, every goal listed, every
+required goal proved), there is no `sorry` and no forbidden construct, public API coverage passes,
+runtime UB checks pass, and differential tests pass under ASan + UBSan. A theorem on a branch is not
+yet a result; say so when reporting it.
 
-Rules that hold at both levels:
+Rules that hold everywhere:
 
 - Only `propext`, `Classical.choice` and `Quot.sound` are allowed. Never use `sorry`,
   `native_decide`, `bv_decide`, `axiom`, `implemented_by`, `extern`, `unsafe`, `partial` or
-  `opaque`. Do not look for ways around the checks; report the obstacle.
-- A goal is proved only by a theorem whose type is exactly the goal.
-- A theorem states its precondition explicitly. A precondition narrower than `zlib.h` allows is
-  written in the theorem's docstring and listed in `docs/en/deviations.md`. Never shrink the domain
-  silently.
-- **Disjoint caller regions.** Caller-supplied memory regions with no semantic reason to overlap
-  may be assumed fully disjoint when that makes the proof simpler: input, output, window and
-  dictionary buffers, the `gz_header` record and its extra, name and comment buffers, and length
-  cells. The premise is only that their byte ranges do not overlap: the regions may lie in one
-  heap block. A caller string (the gzip `name` and `comment`) is assumed NUL-terminated, and its
-  range is the string through its NUL. Each such premise stays explicit in the statement and gets
-  a row in `docs/en/deviations.md`; no sanitizer reproduction is needed first. This does not allow
-  narrowing by parameter value, or dropping a reachable case in which the regions do not alias.
-- **No callee contracts as assumptions.** A callee's specification is a theorem about the
-  translated callee. A representation invariant is established by the init function, which also
-  shows that the invariant can hold. A concrete witness is needed only for a top-level theorem.
-- When a proof is stuck, decide which of four causes it is, without assuming the answer: the
-  proof technique, a wrong specification, a translation bug, or a real zlib bug. For a possible
-  zlib bug, build a concrete input, run the real C under a sanitiser, and report it with the
-  reproduction. Never narrow a precondition to hide it.
-- Differential tests are evidence of fidelity, not proof. Say so when reporting.
-
-## Correcting a specification, a goal or a translation
-
-A wrong statement is corrected, not worked around.
-
-- Change it when there is evidence: a checked counterexample, or a documented mismatch with
-  `zlib.h` or the C source. Put the correction in its own commit. Say what was wrong and why.
-- Never weaken a statement, narrow a domain or change a translation to make a proof go through.
-  Strengthening a weak goal is allowed and wanted.
-- A translation mismatch with the C is a bug. Fix it and add a differential test that catches it.
-- A change to `ZlibF/Runtime/` is its own commit, with the reason and the proofs it affects.
+  `opaque` (except `sorry` on `skeleton/*` branches only). Do not look for ways around the checks;
+  report the obstacle.
+- A goal is proved only by a theorem whose type is syntactically equal to the goal.
+- A theorem states its precondition explicitly. Any precondition narrower than the public C header
+  allows is written in the theorem's docstring and listed in `projects/<id>/docs/en/deviations.md`
+  (and `zh/deviations.md`). Never shrink the domain silently.
+- **Disjoint caller regions.** Caller-supplied memory regions with no semantic reason to overlap may
+  be assumed pairwise disjoint in byte range when that simplifies the proof (input, output, window,
+  dictionary, header buffers, scalar out-cells). Each such premise stays explicit in the goal and
+  gets a row in `deviations.md`. This never permits narrowing by parameter value or dropping valid
+  non-aliasing cases (such as `NULL` buffer with length `0` when the public API allows it).
+- **No callee contracts as assumptions.** Every internal helper's specification is a proved theorem
+  about its translated C code. Representation invariants are established by init/create functions,
+  paired with concrete non-vacuity witness theorems at the top level.
+- Differential tests are evidence of translation fidelity, not proof. Say so when reporting.
 
 ## Proof workflow
 
-Each core result (`inflate`, `deflate`) has one owner. The owner works in this order.
-
-1. **Test the statement first.** Before a long proof, check the goal against reality. Run the
-   executable format specification against the real C on many inputs. Check each clause of the
-   goal on small concrete cases. A wrong statement found here costs minutes; found during the
-   proof it costs days. Correct it as the section above says.
-2. **Build the skeleton top down.** On the branch `skeleton/<result>`, write the proof of the goal
-   from named lemma statements, with the lemma proofs left open. `sorry` is allowed on a skeleton
-   branch and nowhere else. The skeleton must type-check. It is the list of remaining work.
-3. **Publish the list.** Keep the list of open lemmas in a comment at the head of the skeleton
-   file on the skeleton branch: name, one-line meaning, state (open, checked), estimate in hours.
-   Keep it current. It does not go into `docs/`.
-4. **Close lemmas on your branch.** Prove one lemma at a time and push it to your branch. Reuse existing
-   proofs where they fit the lemma as stated. Do not prove what the skeleton does not need.
-5. **Hide large definitions behind an interface.** A representation invariant has a small set of
-   interface lemmas. Other modules use those lemmas and do not unfold the definition. Then a
-   change to the invariant rebuilds its interface, not hundreds of modules.
-6. **Delete what the skeleton does not use.** A proof tied to a fixed parameter or a default
-   configuration that cannot serve the general lemma is removed, unless a registered theorem
-   needs it.
-7. **Do not stop between lemmas.** Report at a milestone, at a statement correction, or after two
-   hours without progress on one lemma. The report names what is checked, the commit, and the
-   remaining estimate.
-
-Owners work in parallel on separate files. Heavy builds on the shared build host run one at a
-time: wait for the other owner's build to end before starting yours.
+1. **Bootstrap strict runtime and framework gates first.** Wire `projects/<id>/project.json` into
+   `framework/projects.json` using `framework/lean/StrictPtr.lean`, `ResultsCheck.lean`, and
+   `PartialCheck.lean` so every commit passes `python3 framework/check_project.py <id>` from day one.
+2. **Test goal statements against real C first** before starting long proofs.
+3. **Build the skeleton top down** on `skeleton/<id>-<result>` (`sorry` allowed only on `skeleton/*`
+   branches). Keep open-lemma tracking in a header comment of the skeleton file, never in `docs/`.
+4. **Hide large state invariants behind small interface lemmas** so editing an invariant clause does
+   not rebuild hundreds of proof files.
+5. **Delete unused proofs** that no goal in `Results.lean` depends on.
+6. **Memory discipline.** Build with at most four parallel jobs (`-j 4`) under a 16 GB limit, and
+   run heavy builds one at a time on shared hosts.
 
 ## Checking
 
-**One gate, on every pull request and on every push to `main`** (jobs `build` and
-`differential-test` of the `CI` workflow): all modules build, no forbidden construct, patches apply to the pinned `zlib/`, no
-`sorry`; the check of `ZlibF/Results.lean` and the coverage of `zlib.h`; the differential tests, with the
-C side under sanitisers, when the translation, the runtime, the patches or the test changed. There is no nightly run and no second suite: what is on
-`main` has passed all of it. The manual trigger of the `CI` workflow runs the same jobs on any
-branch.
+One gate (`CI` workflow) runs on every pull request and every push to `main`:
+- `framework` unit tests and path-scoped project matrix (`framework/ci_matrix.py`);
+- `lake --dir projects/<id> build --wfail <targets>` (main builds from scratch and is the sole writer
+  of the `.lake` cache; pull requests only restore `main`'s cache);
+- `python3 framework/check_project.py <id> --skip-build` (options/lakefile/toolchain allow-list,
+  forbidden constructs, strict runtime UB check, spec-layer DAG, string-literal table, `PartialCheck`
+  on the compiled kernel environment, `ResultsCheck` fixtures, public API coverage, clean submodule
+  and patch application);
+- `differential-test` under AddressSanitizer and UndefinedBehaviorSanitizer whenever translations,
+  runtime, patches, upstream submodule, or difftest harnesses change;
+- `Docs` workflow (`python3 site/build.py && python3 site/check.py` + JS tests) when `site/` or
+  project docs/specs change.
 
-There are no lock files. A definition, a specification or a theorem statement is tracked by git
-alone: its history is the record of what changed and why. The protection that remains is the
-check of `ZlibF/Results.lean`: allowed axioms only, and a goal is proved only by a theorem of
-exactly that type.
+Never report a check as passing unless it was actually run.
 
-A goal stated under `ZlibF/Spec/` must be entered in `ZlibF/Results.lean` in the same pull request
-that states it: with its theorem in `proved`, or in `notDone`. The build fails on a goal that is in
-neither list. The rows of `docs/en/progress.md` and `docs/zh/progress.md` change in the pull request
-that registers the theorem. Never report a check as passing unless it was run.
+## Findings and documents
 
-Full builds use a lot of memory. `ZlibF/Proof/crc32.c.lean` and `ZlibF/Proof/inftrees.c.lean`
-each need 8 to 9 GB. Build with at most four parallel jobs under a 16 GB limit. If one module
-needs more than that, find out why before raising any limit.
+- A finding goes in `projects/<id>/docs/{en,zh}/findings.md` only if it is a confirmed defect or
+  ISO C17 undefined behaviour of the upstream C library itself, reachable through documented API
+  calls.
+- English and Chinese site sources live under `projects/<id>/docs/en/` and `docs/zh/` at mirrored
+  lowercase-hyphenated paths, with no `.en.md`, `.zh.md` or folder `README.md` files. Repository
+  files outside `docs/` link to `https://www.dataisland.org/oss-proof/...`.
+- A result has only two states in reader-facing docs: **done** or **not done** (plus "not planned"
+  where applicable). Keep commits, PRs, branches, CI jobs, registry filenames, folder layouts, and
+  estimates out of reader-facing `docs/`.
+- `projects/<id>/docs/{en,zh}/progress.md` is the sole status page of each project.
+- Do not put machine names, addresses, user names, local paths or tool names in the repository or in
+  commit messages.
 
-## Findings
-
-A finding is listed only if it is a defect of zlib itself, is reachable through documented use of
-the documented API, and is confirmed: by a run of the real C, or as undefined behaviour by the
-letter of C that a patch here fixes. List it in the table of `docs/en/findings.md` (and
-`docs/zh/findings.md`): what is wrong, the documented calls that reach it, the evidence, the fix
-and the upstream state. `README.md` gives only the count and the link to the published site.
-Anything else (a defect that needs an undocumented function, an unconfirmed report, a documentation
-gap, a question about the caller's domain) stays out of `docs/`. Reproductions are not kept in the
-tree; they are in the git history.
-
-## Documents
-
-- English and Chinese site sources live under `docs/en/` and `docs/zh/` at mirrored relative paths,
-  with no `.en.md`, `.zh.md` or folder `README.md` files. Repository files outside `docs/` link
-  directly to `https://www.dataisland.org/zlib-f/en/...`.
-- File names are lowercase, with hyphens: `method.md`. `README.md` and `AGENTS.md` keep their
-  conventional names.
-- Write short sentences. Say what is proved, what is assumed, and what is not done.
-- The documentation is for a reader who wants to know what was verified. It is about the
-  specifications and the proofs. A result has one of two states there: **done** (a theorem whose
-  statement is exactly the goal exists and passes every check) or **not done**; add "not
-  planned" where it applies. The levels of the section "What counts as proved" are working terms
-  and do not appear in `docs/` or `README.md`.
-- Keep out of the documentation: commits, runs, pull requests, branches, dates of project
-  events, gates and suites, registry files, the folder layout as a subject, the history of how a
-  statement or a page changed, remaining-work lists and estimates, and any term that only has a
-  meaning inside the project. Evidence may be named (differential tests, a reproduction under a
-  sanitizer) without describing how it is stored or run.
-- `docs/en/progress.md` (paired with `docs/zh/progress.md`) is the only page that states a status:
-  each result and each public function, done or not done, and what is not planned.
-- State each fact once, plainly. No claim followed by its own retraction, no open question, no
-  "not decided", no comparison with what a page or a goal used to say, no evidence bookkeeping. A
-  limit is a premise or one "not covered" sentence, not an argument. Premises, model limits,
-  trusted-base items and **to confirm** marks are not hedging and stay.
-- `README.md` is short: what is proved, what it rests on, what was found, what is not claimed, how
-  to check it.
-- Mark a reading of the C that the proof must still confirm with **to confirm**.
-- Use diagrams (mermaid) for structure and order. Do not use a diagram for a list.
-- Do not put machine names, addresses, user names, local paths or tool names in the repository.
-
-## Collaboration
-
-- There is one long-lived branch, `main`. Work is done on a branch cut from `main` and reaches
-  `main` by a pull request, which the owner merges when the gate is green. Commit small,
-  self-contained steps. Delete a branch once it is merged.
-- Parallel work uses separate C files or functions. Two workers never edit the same file.
-- Prove the universal goal. Do not add proofs for a fixed parameter or a default configuration
-  unless they are a lemma of the universal proof.
-- Commit messages describe the change. They carry no attribution lines for tools.
-- Report what is checked, what is accepted and what is open. Name the commit.
-
-[docs/en/anti-cheating.md](https://www.dataisland.org/zlib-f/en/anti-cheating.html) says why a green
-build can still be worthless, and what the gate defends against.
+See [anti-cheating](https://www.dataisland.org/oss-proof/zlib/en/anti-cheating.html) for why a green
+build can still be worthless and what the gate defends against.
