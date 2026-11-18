@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "libarchive",
+  "title": "libarchive",
+  "package": "LibarchiveF",
+  "upstream": {
+    "submodule": "libarchive",
+    "repository": "https://github.com/libarchive/libarchive",
+    "version": "3.8",
+    "target": "default scalar x86_64 Linux LP64 build (RAR5 & 7-Zip readers)",
+    "patches_dir": "patches"
+  },
+  "build": {
+    "targets": [
+      "LibarchiveF",
+      "LibarchiveF.Results"
+    ],
+    "results_module": "LibarchiveF.Results",
+    "compiler_helpers": "tests/audit/compiler-helpers.txt"
+  },
+  "checks": {
+    "spec_layers": {
+      "spec_dir": "LibarchiveF/Spec",
+      "proof_dir": "LibarchiveF/Proof"
+    }
+  },
+  "site": {
+    "route": "libarchive",
+    "brand": "libarchive × Lean",
+    "findings_count": 0,
+    "patches_count": 0,
+    "summary": {
+      "en": "Top-down Lean 4 safety invariants and strict ISO C17 runtime bootstrap for libarchive's RAR5 and 7-Zip format decoders; statement-by-statement C translation safety proofs are not done.",
+      "zh": "针对 libarchive 中 RAR5 与 7-Zip 归档格式解码器的 Lean 4 顶层安全不变量模型与严格 ISO C17 运行时基座；C 逐语句翻译的安全性证明尚未完成。"
+    }
+  }
+}

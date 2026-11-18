@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "7zip",
+  "title": "7-Zip C SDK",
+  "package": "SevenZipF",
+  "upstream": {
+    "submodule": "7zip",
+    "repository": "https://github.com/ip7z/7zip",
+    "version": "26.00",
+    "target": "portable scalar x86_64 Linux LP64 build",
+    "patches_dir": "patches"
+  },
+  "build": {
+    "targets": [
+      "SevenZipF",
+      "SevenZipF.Results"
+    ],
+    "results_module": "SevenZipF.Results",
+    "compiler_helpers": "tests/audit/compiler-helpers.txt"
+  },
+  "checks": {
+    "spec_layers": {
+      "spec_dir": "SevenZipF/Spec",
+      "proof_dir": "SevenZipF/Proof"
+    }
+  },
+  "site": {
+    "route": "7zip",
+    "brand": "7-Zip × Lean",
+    "findings_count": 0,
+    "patches_count": 0,
+    "summary": {
+      "en": "Top-down Lean 4 safety invariants and strict ISO C17 runtime bootstrap for the 7-Zip pure-C SDK (.7z container DAG, BCJ2, PPMd7 arena allocator, LZMA/LZMA2); full C translation safety proofs are not done.",
+      "zh": "针对官方 7-Zip 纯 C SDK（.7z 容器 DAG、BCJ2、PPMd7 内存池子分配器、LZMA/LZMA2）的 Lean 4 顶层安全不变量模型与严格 ISO C17 运行时基座；完整 C 翻译的安全性证明尚未完成。"
+    }
+  }
+}

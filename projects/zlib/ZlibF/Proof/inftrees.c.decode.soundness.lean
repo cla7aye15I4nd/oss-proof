@@ -142,9 +142,8 @@ theorem two_invalid_query {ca : Array Code} {offset : Nat} (type : UInt32)
     tableRead type ca offset 1 inp = some (⟨64, 1, 0⟩, 1) := by
   obtain ⟨value, _rest, read, bound, _source⟩ := ZlibF.Math.InflateDecode.read_total 1 inp enough
   have cases : value = 0 ∨ value = 1 := by change value < 2 at bound; omega
-  have mask : (64 : UInt8) &&& 240 ≠ 0 := by decide
   rcases cases with rfl | rfl
-  all_goals simp [tableRead, read, first, second, mask]
+  all_goals simp [tableRead, read, first, second]
 
 set_option maxHeartbeats 2000000 in
 theorem Env.singleton_decode_first_bit {e : Env} (single : e.m = 1) (one : e.mx = 1)
@@ -224,8 +223,7 @@ theorem Env.singleton_query_sound {e : Env} {ca : Array Code}
     exact e.classify_decoded_query index kind decoded query
   · have query : tableRead e.c.type ca e.oc e.R inp = some (⟨64, 1, 0⟩, 1) := by
       rw [root]
-      have mask : (64 : UInt8) &&& 240 ≠ 0 := by decide
-      simp [tableRead, read, invalid, mask]
+      simp [tableRead, read, invalid]
     refine ⟨⟨64, 1, 0⟩, 1, query, ?_⟩
     have rejected : ¬ LeafAccepted e.c.type ⟨64, 1, 0⟩ := by unfold LeafAccepted; split <;> decide
     constructor

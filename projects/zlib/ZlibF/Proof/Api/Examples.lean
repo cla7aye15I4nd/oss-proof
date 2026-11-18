@@ -214,10 +214,10 @@ theorem defl_one_call :
   and_intros
   all_goals first
     | rfl
+    | (intro (_ : _ ∨ _); refine ⟨rfl, fun (v : UInt32) h => Option.some.inj h⟩)
     | decide
     | (intro h; exact absurd h (by decide))
     | (intro h; exact absurd h.2.1 (by decide))
-    | (intro _; refine ⟨rfl, fun v h => ?_⟩; exact (Option.some.inj h).symm)
     | (intro _; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, fun _ => zA_valid, fun _ h => absurd h (by decide), fun _ => by decide⟩)
     | (intro _ _ _ _ _ _; rfl)
     | (intro _ _ h; exact absurd h (by decide))
@@ -440,11 +440,11 @@ theorem defl_full_flush :
   and_intros
   all_goals first
     | rfl
+    | (intro _; exact ⟨rfl, fun v h => by cases h⟩)
     | decide
     | (intro h; exact absurd h (by decide))
     | (intro h; exact absurd h.1 (by decide))
     | (intro _ h; exact absurd h (by decide))
-    | (intro _; exact ⟨rfl, fun v h => by cases h⟩)
     | (intro _ _ _; exact ⟨by decide, by decide, rfl⟩)
     | (intro _ _ _; exact ⟨rfl, rfl⟩)
     | (intro _ _ _; refine ⟨rfl, fun _ => ?_⟩; exact fullA_flushed)

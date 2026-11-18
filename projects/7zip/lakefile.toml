@@ -1,0 +1,7 @@
+name = "7zip-f"
+version = "0.1.0"
+defaultTargets = ["SevenZipF"]
+
+[[lean_lib]]
+name = "SevenZipF"
+roots = ["SevenZipF", "SevenZipF.Results"]

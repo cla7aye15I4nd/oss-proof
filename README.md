@@ -4,11 +4,15 @@ Machine-checked Lean 4 proofs about statement-by-statement translations of open-
 every covered public function is free of undefined behaviour, memory errors and leaks, writes only
 its stated frame, and returns, under the premises each theorem states.
 
-## Verified libraries
+## Libraries
 
-| Library | Source | Build target | Public functions | Findings / patches | Status |
+| Library | Source | Build target | Scope & current state | Findings / patches | Status |
 | --- | --- | --- | --- | --- | --- |
 | [`zlib`](projects/zlib/README.md) | zlib 1.4 (`99623ef7`) + [7 patches](projects/zlib/patches/README.md) | default x86_64 Linux LP64 | 86 / 86 documented functions safe + default zlib stream round trip | [8 issues](https://www.dataisland.org/oss-proof/zlib/en/findings.html), [7 patches](projects/zlib/patches/README.md) | Done |
+| [`7zip`](projects/7zip/README.md) | 7-Zip C SDK 26.00 (`d3296e39`) | portable scalar x86_64 Linux LP64 | Top-down container/BCJ2/PPMd7/LZMA2 invariants & strict ISO C17 runtime checked; C translation not done | — | Not done |
+| [`libarchive`](projects/libarchive/README.md) | libarchive 3.8 (`432ab464`) | default scalar x86_64 Linux LP64 | Top-down RAR5 & 7-Zip invariants & strict ISO C17 runtime checked; C translation not done | — | Not done |
+| [`zstd`](projects/zstd/README.md) | Zstandard 1.5.7 (`756e62a9`) | portable scalar x86_64 Linux LP64 (`libzstd` decoder) | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
+| [`brotli`](projects/brotli/README.md) | Brotli 1.2 (`libbrotlidec` decoder) | portable scalar x86_64 Linux LP64 | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
 
 ## What it rests on
 

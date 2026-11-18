@@ -18,6 +18,7 @@ sys.path.insert(0, str(REPO / "projects/zlib/docs/web"))
 
 from framework.manifest import load_all_projects
 from language import audit_chinese_html
+import project_docs
 
 
 class AuditPage(HTMLParser):
@@ -60,6 +61,21 @@ class AuditPage(HTMLParser):
                 assert "syntax-highlight" not in classes, "Mermaid block must keep original markup"
 
 
+def check_bilingual_dir_parity(base: Path, all_pages: dict[Path, AuditPage], check_ids: bool = True) -> None:
+    en_dir = (base / "en").resolve()
+    zh_dir = (base / "zh").resolve()
+    en_rels = {p.relative_to(en_dir) for p in all_pages if p.is_relative_to(en_dir)}
+    zh_rels = {p.relative_to(zh_dir) for p in all_pages if p.is_relative_to(zh_dir)}
+    assert en_rels == zh_rels and en_rels, (base, "en/ and zh/ diverged", en_rels ^ zh_rels)
+    if check_ids:
+        for rel in en_rels:
+            assert all_pages[(en_dir / rel).resolve()].ids == all_pages[(zh_dir / rel).resolve()].ids, (
+                base,
+                "Anchor IDs diverged",
+                rel,
+            )
+
+
 def main() -> int:
     assert ROOT.is_dir(), "site/dist does not exist; run python3 site/build.py first"
     assert (ROOT / ".nojekyll").is_file(), "Missing .nojekyll in site/dist"
@@ -75,16 +91,7 @@ def main() -> int:
     assert root_index in all_pages and all_pages[root_index].redirect, "site/dist/index.html must be language redirect"
 
     # Check portal en/ and zh/ parity
-    portal_en = (ROOT / "en").resolve()
-    portal_zh = (ROOT / "zh").resolve()
-    en_rels = {p.relative_to(portal_en) for p in all_pages if p.is_relative_to(portal_en)}
-    zh_rels = {p.relative_to(portal_zh) for p in all_pages if p.is_relative_to(portal_zh)}
-    assert en_rels == zh_rels and en_rels, ("Portal en/ and zh/ diverged", en_rels ^ zh_rels)
-    for rel in en_rels:
-        assert all_pages[(portal_en / rel).resolve()].ids == all_pages[(portal_zh / rel).resolve()].ids, (
-            "Portal anchor IDs diverged",
-            rel,
-        )
+    check_bilingual_dir_parity(ROOT, all_pages, check_ids=True)
 
     # Check every HTML file across portal + all subsites
     for path, page in all_pages.items():
@@ -110,6 +117,12 @@ def main() -> int:
         checker = proj.data.get("site", {}).get("checker")
         if checker:
             subprocess.run([sys.executable, checker], cwd=proj.root, check=True)
+        else:
+            route = proj.data.get("site", {}).get("route", proj.id)
+            sub_index = (ROOT / route / "index.html").resolve()
+            assert sub_index in all_pages and all_pages[sub_index].redirect, (route, "Missing subsite redirect")
+            check_bilingual_dir_parity(ROOT / route, all_pages, check_ids=False)
+            project_docs.check_standard_docs_parity(proj.root)
 
     tests_dir = SITE_DIR / "tests"
     if tests_dir.is_dir():

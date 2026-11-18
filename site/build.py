@@ -12,19 +12,21 @@ REPO = SITE_DIR.parent
 OUT = SITE_DIR / "dist"
 
 sys.path.insert(0, str(REPO))
-from framework.manifest import load_all_projects
 import portal
+import project_docs
 
 
 def main() -> int:
     if OUT.exists():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True, exist_ok=True)
-    portal.build_portal()
-    for proj in load_all_projects(REPO):
-        builder = proj.data.get("site", {}).get("builder")
+    summaries = portal.build_portal()
+    for summary in summaries:
+        builder = summary.project.data.get("site", {}).get("builder")
         if builder:
-            subprocess.run([sys.executable, builder], cwd=proj.root, check=True)
+            subprocess.run([sys.executable, builder], cwd=summary.project.root, check=True)
+        else:
+            project_docs.build_standard_subsite(summary, summaries)
     print("Built complete oss-proof site in site/dist/")
     return 0
 

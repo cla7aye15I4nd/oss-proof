@@ -293,6 +293,7 @@ theorem TYPE_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
       · have hzA : r.get (setI h1 i sL) = some z1 := by simpa using hzs1
         obtain ⟨k, hbad⟩ := badMode_run c I1.cstrm I1.cst hzA hs2 "invalid block type" msg_block_type
         have IA := I1.setState hs1 sL (by rw [hsL]) (by rw [hsL]) (by rw [hsL]) wfL (by rw [hsL]; exact I1.mode s1 hs1)
+          (by rw [hsL]; exact ⟨rfl, rfl, Or.inl rfl⟩)
         have IB := IA.putMsg hzA (.ref (.str k) 0)
         have hsB : (r.put (setI h1 i sL) { z1 with msg := .ref (.str k) 0 }).istates i = some sL := by simp [setI]
         have IC := IB.setState hsB { sL with mode := BAD } rfl rfl rfl (wf_with wfL _ rfl rfl rfl)

@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "brotli",
+  "title": "Brotli",
+  "package": "BrotliF",
+  "upstream": {
+    "submodule": "brotli",
+    "repository": "https://github.com/google/brotli",
+    "version": "1.2",
+    "target": "portable scalar x86_64 Linux LP64 decoder build",
+    "patches_dir": "patches"
+  },
+  "build": {
+    "targets": [
+      "BrotliF",
+      "BrotliF.Results"
+    ],
+    "results_module": "BrotliF.Results",
+    "compiler_helpers": "tests/audit/compiler-helpers.txt"
+  },
+  "checks": {
+    "spec_layers": {
+      "spec_dir": "BrotliF/Spec",
+      "proof_dir": "BrotliF/Proof"
+    }
+  },
+  "site": {
+    "route": "brotli",
+    "brand": "brotli × Lean",
+    "findings_count": 0,
+    "patches_count": 0,
+    "summary": {
+      "en": "Strict ISO C17 runtime bootstrap and verification scope for Google Brotli's C decoder (libbrotlidec); C translation and public decoder safety proofs are not done.",
+      "zh": "针对 Google Brotli C 解码器（libbrotlidec）的严格 ISO C17 运行时基座与验证规约；C 翻译与公开解码器安全性证明尚未完成。"
+    }
+  }
+}

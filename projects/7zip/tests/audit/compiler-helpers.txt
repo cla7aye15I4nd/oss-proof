@@ -1,0 +1,5 @@
+# Compiler-generated execution auxiliaries of the pinned toolchain.
+C.cdoWhile.go._unsafe_rec
+C.cwhile.go._unsafe_rec
+SevenZipF.Model.Archive.ownerCoderAux._unsafe_rec
+SevenZipF.Model.Archive.reachesUnpackIn._unsafe_rec

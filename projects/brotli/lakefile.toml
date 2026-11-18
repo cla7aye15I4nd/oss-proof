@@ -1,0 +1,7 @@
+name = "brotli-f"
+version = "0.1.0"
+defaultTargets = ["BrotliF"]
+
+[[lean_lib]]
+name = "BrotliF"
+roots = ["BrotliF", "BrotliF.Results"]
