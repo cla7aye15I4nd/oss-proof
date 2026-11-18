@@ -1,0 +1,14 @@
+Raw output of tests/regression/deflatebound-gzip-extra-length/run.sh (repro.c), exit status 0.
+Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e, built twice by tests/build-zlib.sh:
+with every patch but its own (before) and with patches/*.patch (after).
+Build: Apple clang version 21.0.0 (clang-2100.4.1.1), -O2. Host: arm64 Darwin; the defect is in integer arithmetic and does not
+depend on the platform.
+
+== before
+extra_len 4294967294: deflateBound 125, deflate(Z_FINISH) with that room Z_OK, the stream needs 65656
+extra_len 4294967295: deflateBound 126, deflate(Z_FINISH) with that room Z_OK, the stream needs 65657
+ok: before the fix: deflate(Z_FINISH) with deflateBound bytes of room does not end
+== after
+extra_len 4294967294: deflateBound 65661, deflate(Z_FINISH) with that room Z_STREAM_END, the stream needs 65656
+extra_len 4294967295: deflateBound 65662, deflate(Z_FINISH) with that room Z_STREAM_END, the stream needs 65657
+ok: with the fix: both calls end within deflateBound

@@ -12,7 +12,7 @@ Tokens:
   P:level:strategy deflateParams       S:hex deflateSetDictionary   G deflateGetDictionary   R deflateReset
   K:bits:value deflatePrime            C deflateCopy (continue with the copy)               B deflateBound (of the input)
   T:good:lazy:nice:chain deflateTune   Q deflatePending   U deflateUsed
-  H:text:time:os:hcrc:extra:name:comment  deflateSetHeader (hex or -)                      E deflateEnd
+  H:text:time:os:hcrc:extra:name:comment  deflateSetHeader (hex or -; extra HEX/LEN sets extra_len) E deflateEnd
 Undefined behaviour of the C is never generated.
 """
 import random
@@ -245,6 +245,12 @@ HDRS = [
     "H:0:0:3:1:" + "cd" * 70 + ":" + "61" * 40 + ":" + "62" * 30,
 ]
 HDRS = [h if h.count(":") == 7 else h for h in HDRS]
+# deflateBound with an extra length whose 2 + extra_len wraps at 32 bits (patch 0007): the buffer holds
+# the 65534 or 65535 bytes deflate writes; the bound, then deflate(Z_FINISH) with ample room (the driver's
+# output buffer is N + N/2 + 4096 bytes for N input bytes, so the input is 60000 bytes).
+for el in [4294967294, 4294967295]:
+    sess("I:6:8:31:8:0", "H:0:0:3:0:" + "5a" * 65535 + "/" + str(el) + ":-:-", "IN:" + hx(data("text", 60000)),
+         "B", "D:4:60000:95000", *(["D:4:0:95000"] * 2))
 for h in HDRS:
     for (oc) in [1000, 7, 1, 25, 3]:
         d = data("text", 120)

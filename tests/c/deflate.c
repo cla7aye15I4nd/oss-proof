@@ -121,7 +121,7 @@ static void session(char **tok, int nt) {
             int b = 7; int rc = deflateUsed(strm, &b);
             printf("U=%d,%d ", rc, b);
         } else if (t[0] == 'H' && t[1] == ':') {
-            /* text:time:os:hcrc:extra:name:comment (hex or -) */
+            /* text:time:os:hcrc:extra:name:comment (hex or -; extra may be HEX/LEN) */
             char *f[7]; char *p = t + 2; int k = 0;
             while (k < 7) { f[k++] = p; char *c = strchr(p, ':'); if (!c) break; *c = 0; p = c + 1; }
             /* release the previous header's fields before they are replaced: the library only
@@ -130,7 +130,13 @@ static void session(char **tok, int nt) {
             memset(&hdr, 0, sizeof hdr);
             hdr.text = atoi(f[0]); hdr.time = strtoul(f[1], 0, 10); hdr.os = atoi(f[2]); hdr.hcrc = atoi(f[3]);
             size_t n;
-            if (strcmp(f[4], "-")) { hdr.extra = hexdec(f[4], &n); hdr.extra_len = (uInt)n; hdr.extra_max = (uInt)n; }
+            if (strcmp(f[4], "-")) {
+                /* HEX or HEX/LEN: the buffer, and extra_len LEN when given (it may exceed the buffer) */
+                char *len = strchr(f[4], '/');
+                if (len) *len++ = 0;
+                hdr.extra = hexdec(f[4], &n); hdr.extra_max = (uInt)n;
+                hdr.extra_len = len ? (uInt)strtoul(len, 0, 10) : (uInt)n;
+            }
             if (strcmp(f[5], "-")) { unsigned char *s = hexdec(f[5], &n); s[n] = 0; hdr.name = s; hdr.name_max = (uInt)n + 1; }
             if (strcmp(f[6], "-")) { unsigned char *s = hexdec(f[6], &n); s[n] = 0; hdr.comment = s; hdr.comm_max = (uInt)n + 1; }
             printf("H=%d ", deflateSetHeader(strm, &hdr));
