@@ -4,8 +4,8 @@ The verified source is zlib 1.4 (upstream commit `99623ef7`) with the seven patc
 directory applied in name order. Every theorem is about that patched source.
 
 Each patch fixes one issue of zlib without whose fix a safety statement cannot be proved, or a
-promise of `zlib.h` does not hold. Each is as small as the fix allows. A patch that was submitted
-upstream is the submitted fix. Each applies to the pinned source on its own, except 0004, which
+promise of `zlib.h` does not hold. Each is as small as the fix allows, and each is a fix
+submitted upstream. Each applies to the pinned source on its own, except 0004, which
 changes the lines that 0003 moves and so applies after 0003.
 [Findings](https://www.dataisland.org/zlib-f/en/findings.html) lists the issues in one table, with
 the calls that reach each issue and the evidence. Each patch has one reproduction under
@@ -72,7 +72,9 @@ bounded by `gz_room`.
 Covered by: the goals of 0003, `Goal.gzdirect_safety` (`gz_look`), and the clause of
 `Goal.gzgetc_safety` for the `gzgetc()` macro.
 
-Upstream: local patch, not submitted.
+Upstream: the patch is the change of the last commit of
+[PR #1405](https://github.com/madler/zlib/pull/1405), which is open. The branch of that pull
+request is on top of PR #1363.
 
 ## 0005-gzwrite-position-overflow.patch
 
@@ -90,7 +92,8 @@ Covered by: `Goal.gzwrite_safety`, `Goal.gzfwrite_safety`, `Goal.gzputc_safety`,
 `Goal.gzputs_safety`, `Goal.gzprintf_safety`, `Goal.gzvprintf_safety`, and
 `Goal.gz_sequence_safety`.
 
-Upstream: local patch, not submitted.
+Upstream: the patch is the change of [PR #1406](https://github.com/madler/zlib/pull/1406), which is
+open.
 
 ## 0006-gzoffset-negative-lseek.patch
 
@@ -106,7 +109,8 @@ offset. With a result of at least 0 the subtraction cannot overflow, and no othe
 
 Covered by: `Goal.gzoffset64_safety`, `Goal.gzoffset_safety`, and `Goal.gz_sequence_safety`.
 
-Upstream: local patch, not submitted.
+Upstream: the patch is the change of [PR #1404](https://github.com/madler/zlib/pull/1404), which is
+open.
 
 ## 0007-deflatebound-fixed-conservative.patch
 
@@ -117,9 +121,10 @@ slide has none, and `deflate_fast` (levels 1 to 3) takes 3-byte matches at any d
 that room returns `Z_OK`, against the promise of `zlib.h`. The patch makes `deflateBound_z` return a
 conservative bound also when the strategy is `Z_FIXED` (`fixedlen` for levels 1 to 9, `storelen` for
 level 0, as for the other parameter sets), which allows 9 bits per byte. No other strategy and no
-other parameter set changes. It fixes a broken promise, not a memory error: no safety goal depends
-on the value of the bound.
+other parameter set changes. The patch also says so in the comment above `deflateBound_z`. It
+fixes a broken promise, not a memory error: no safety goal depends on the value of the bound.
 
 Covered by: `Goal.deflate_bound_default` and `Goal.deflate_completes_default`, which use the bound.
 
-Upstream: local patch, not submitted.
+Upstream: the patch is the change of [PR #1394](https://github.com/madler/zlib/pull/1394), which is
+open.

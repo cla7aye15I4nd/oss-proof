@@ -80,8 +80,8 @@ translation mismatch is a difference between the translation and the real C on s
 kind of difference that a differential test detects. The translation is then corrected. A zlib
 bug is settled on the real C: on a concrete input, the C run under a sanitizer reports the
 fault. [Findings](../findings.md) lists the confirmed ones. A confirmed zlib bug can justify a
-minimal patch of the verified source; `patches/README.md` lists the patches and says which of
-them match a fix submitted upstream. A limit of the model is not a zlib bug.
+minimal patch of the verified source; `patches/README.md` lists the patches and gives the
+upstream pull request of each. A limit of the model is not a zlib bug.
 
 ## One representation invariant
 

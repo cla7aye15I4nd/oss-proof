@@ -142,17 +142,17 @@ and needs no budget. `gzseek` defers its skip and needs none either.
 
 Patches 0002 to 0006 fix five defects of the unpatched C. The first table has one row for
 each. [Findings](../findings.md) lists them with their evidence, and `patches/README.md` is
-the authoritative list of patches. Patches 0002 and 0003 are submitted upstream; patches 0004,
-0005 and 0006 are local. The invariant has its form because of the first four defects and
+the authoritative list of patches. Each of the five is submitted upstream, and each of the
+pull requests is open. The invariant has its form because of the first four defects and
 because of the two cases of the second table, which no patch changes.
 
 | Case | Behaviour of the unpatched C | Evidence and fix |
 | --- | --- | --- |
 | Negative seek position | After an initial `gzungetc`, `GZ_OFF_MAX - pos` or a later position difference overflowed signed 64-bit arithmetic. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0002, upstream [PR 1361](https://github.com/madler/zlib/pull/1361). |
 | Partial read, then an error | In the `COPY` case of `gz_fetch`, `gz_load` could leave a nonzero `x.have` on error before `x.next = out` ran; `gz_read` then copied from a stale pointer. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0003, upstream [PR 1363](https://github.com/madler/zlib/pull/1363). |
-| Read position overflow | A transparent seek on a device whose `lseek` succeeds without moving set `x.pos` to `GZ_OFF_MAX`; the next read overflowed it. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0004 keeps `x.pos + x.have ≤ GZ_OFF_MAX` on return from every call. |
-| Write position overflow | A forward seek of a transparent writer to near `GZ_OFF_MAX`, then a write, overflowed `x.pos`. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0005 refuses a write that would pass `GZ_OFF_MAX`. |
-| Negative descriptor offset | `gzoffset64` took only `-1` from `lseek` as a failure. Another negative result, less the buffered input of a reader, overflowed signed 64-bit arithmetic. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0006 returns `-1` for every negative result of `lseek`. |
+| Read position overflow | A transparent seek on a device whose `lseek` succeeds without moving set `x.pos` to `GZ_OFF_MAX`; the next read overflowed it. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0004, upstream [PR 1405](https://github.com/madler/zlib/pull/1405), keeps `x.pos + x.have ≤ GZ_OFF_MAX` on return from every call. |
+| Write position overflow | A forward seek of a transparent writer to near `GZ_OFF_MAX`, then a write, overflowed `x.pos`. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0005, upstream [PR 1406](https://github.com/madler/zlib/pull/1406), refuses a write that would pass `GZ_OFF_MAX`. |
+| Negative descriptor offset | `gzoffset64` took only `-1` from `lseek` as a failure. Another negative result, less the buffered input of a reader, overflowed signed 64-bit arithmetic. | Reproduced under a sanitizer ([findings](../findings.md)). Patch 0006, upstream [PR 1404](https://github.com/madler/zlib/pull/1404), returns `-1` for every negative result of `lseek`. |
 
 | Case | Behaviour of the C, patched or not | How the proof treats it |
 | --- | --- | --- |
