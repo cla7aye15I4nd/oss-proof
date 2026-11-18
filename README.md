@@ -4,12 +4,12 @@ A machine-checked proof, in Lean 4, that every documented public function of zli
 undefined behaviour, no memory error, no leak, and every call returns. This holds for every input
 and every sequence of calls that meets the conditions below.
 
-The subject is zlib 1.4 with seven patches, as built by default on x86_64 Linux: 86 functions.
+The subject is zlib 1.4 with six patches, as built by default on x86_64 Linux: 86 functions.
 Lean's kernel checks every proof.
 
 The conditions of the theorems:
 
-- **Source.** zlib 1.4 with the seven [patches](patches/README.md). Unpatched zlib 1.4 has the
+- **Source.** zlib 1.4 with the six [patches](patches/README.md). Unpatched zlib 1.4 has the
   defects listed under "Found in zlib".
 - **Allocator.** `zalloc` and `zfree` are `Z_NULL`, so zlib uses its default allocator. A custom
   allocator is outside every theorem. A failing `malloc` is covered.
@@ -60,7 +60,7 @@ two agree, not proof.
 ## Found in zlib
 
 Eight issues, each reached through documented calls: six are undefined behaviour or a memory
-error, two are a `deflateBound` that is too small. Seven patches fix seven of them; each patch is a
+error, two are a `deflateBound` that is too small. Six patches fix seven of them; each patch is a
 fix submitted upstream. The theorems are about the patched source.
 [Findings](https://www.dataisland.org/zlib-f/en/findings.html) has the table, and
 [patches](patches/README.md) describes each patch.

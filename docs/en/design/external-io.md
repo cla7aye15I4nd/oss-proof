@@ -144,15 +144,14 @@ arithmetic on a null or a dangling pointer is a fault.
 
 ## The source is the patched source
 
-Five patches change the gz files ([patch register](../../../patches/README.md)):
+Four patches change the gz files ([patch register](../../../patches/README.md)):
 
 | Patch | Change |
 | --- | --- |
 | 0002 | The range checks of `gzseek64` |
-| 0003 | `x.next` is set before `gz_load` in transparent mode |
-| 0004 | The readers keep the position `x.pos` within `z_off64_t` |
-| 0005 | The writers keep the position `x.pos` within `z_off64_t` |
-| 0006 | `gzoffset64` returns `-1` for every negative result of `lseek` |
+| 0003 | `x.next` is set before `gz_load` in transparent mode, and the readers keep the position `x.pos` within `z_off64_t` |
+| 0004 | The writers keep the position `x.pos` within `z_off64_t` |
+| 0005 | `gzoffset64` returns `-1` for every negative result of `lseek` |
 
 In the patched source `gz_reset` does not initialise `x.next`, and a direct read leaves `x.next`
 pointing into the caller's buffer. `gzseek64` and `gz_skip_have` add zero to those values; no

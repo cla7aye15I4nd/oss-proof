@@ -127,7 +127,7 @@ A reading of the C that no theorem states is marked **to confirm**.
       Upstream knows the case ([discussion](https://github.com/madler/zlib/pull/1360)).
     - With `windowBits` 15, `memLevel` 8, `Z_FIXED` and level 1 to 3 the output can exceed the
       bound, as a run of the C shows
-      ([finding](../findings.md)). Patch 0007 gives `Z_FIXED` the
+      ([finding](../findings.md)). Patch 0006 gives `Z_FIXED` the
       conservative bound (upstream [PR 1394](https://github.com/madler/zlib/pull/1394), open).
 
     **To confirm**: that the output fits the bound on the rest of the source and header domain.

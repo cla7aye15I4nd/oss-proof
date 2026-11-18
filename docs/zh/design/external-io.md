@@ -1,4 +1,4 @@
-<!-- source-sha256: 659a99c9fffeb96388dee4d55c88597b8a067744e1eb07290e1be9d59eeb4b92 -->
+<!-- source-sha256: 07d1d4695279dc7fde504cd422359dd7946be1361b94a7616deacb665651767f -->
 # 外部 I/O：文件、格式化与局部存储
 
 gz 函数调用操作系统和 C 库：`open`、`read`、`write`、`lseek`、`close`、`fcntl`、`strerror`、`snprintf` 和 `vsnprintf`。本页说明这些调用的模型：记录 [`Fs`](../../../ZlibF/Zlib/gzfs.lean) 以及它上面的操作。这个模型是被信任的：内核对照它检查证明，但不对照 Linux 检查它本身（[可信基础](../trusted-base.md)）。
@@ -76,15 +76,14 @@ C 字符串字面量是另一回事：它们是库源码中各字面量组成的
 
 ## 源码是打过补丁的源码
 
-有五个补丁修改 gz 文件（[补丁登记表](../../../patches/README.md)）：
+有四个补丁修改 gz 文件（[补丁登记表](../../../patches/README.md)）：
 
 | 补丁 | 改动 |
 | --- | --- |
 | 0002 | `gzseek64` 的范围检查 |
-| 0003 | 透明模式下，在 `gz_load` 之前设置 `x.next` |
-| 0004 | 读取函数把位置 `x.pos` 保持在 `z_off64_t` 之内 |
-| 0005 | 写入函数把位置 `x.pos` 保持在 `z_off64_t` 之内 |
-| 0006 | `lseek` 的结果为负时，`gzoffset64` 一律返回 `-1` |
+| 0003 | 透明模式下，在 `gz_load` 之前设置 `x.next`；读取函数把位置 `x.pos` 保持在 `z_off64_t` 之内 |
+| 0004 | 写入函数把位置 `x.pos` 保持在 `z_off64_t` 之内 |
+| 0005 | `lseek` 的结果为负时，`gzoffset64` 一律返回 `-1` |
 
 在打过补丁的源码中，`gz_reset` 不初始化 `x.next`，直接读取之后 `x.next` 指向调用者的缓冲区。`gzseek64` 和 `gz_skip_have` 给这些值加零；没有补丁改动这一点，模型接受它。各补丁背后的报告见 [gzip 文件](../proof/gzip.md#source-reports-and-patches)。
 

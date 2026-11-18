@@ -1664,7 +1664,7 @@ execute a pending logical seek. It does not change the descriptor position.
 
 **Errors and edges:** Returns -1 for NULL, wrong mode or failed system query,
 including a nonseekable descriptor, and for every negative result of that query
-(patch 0006; the unpatched C overflowed on some of them, see
+(patch 0005; the unpatched C overflowed on some of them, see
 [caveats](#scope-and-source-caveats)). It differs from uncompressed position.
 A transparent reader's unread output buffer is not subtracted, so the result
 can be ahead of bytes already delivered. It includes any existing prefix
@@ -2123,7 +2123,7 @@ A valid writer is destroyed even when its result is `Z_STREAM_ERROR`.
 ## Scope and source caveats
 
 Five source problems in the gz functions are fixed by patches. A sanitizer reports each of them
-on the real C. Patch 0004 also bounds the transparent (`COPY`) branch of `gz_look`; no run
+on the real C. Patch 0003 also bounds the transparent (`COPY`) branch of `gz_look`; no run
 of the real C shows an overflow there. A zero advance of a buffer pointer that was never
 written or that dangles is not patched: it is undefined only by the letter of C, no sanitizer
 reports it, and the model accepts it
@@ -2135,9 +2135,9 @@ and its upstream state):
 | --- | --- | --- |
 | `gzseek` after an initial `gzungetc` (position -1) | Signed overflow in the range check. | 0002 |
 | A transparent read where `read` supplies bytes and then fails | The readers consume the partial bytes through a stale buffer pointer: an out-of-bounds read. | 0003 |
-| A position that passes `GZ_OFF_MAX` while reading | Signed overflow of the position. | 0004 |
-| A position that passes `GZ_OFF_MAX` while writing | Signed overflow of the position. | 0005 |
-| `gzoffset64` when `lseek` returns a negative offset other than -1 | Signed overflow in the subtraction of the buffered input. | 0006 |
+| A position that passes `GZ_OFF_MAX` while reading | Signed overflow of the position. | 0003 |
+| A position that passes `GZ_OFF_MAX` while writing | Signed overflow of the position. | 0004 |
+| `gzoffset64` when `lseek` returns a negative offset other than -1 | Signed overflow in the subtraction of the buffered input. | 0005 |
 
 Differential tests supply evidence of translation fidelity, not proof. Private helpers,
 the legacy fixed-argument `gzprintf`, and Windows error-string helpers have no additional
