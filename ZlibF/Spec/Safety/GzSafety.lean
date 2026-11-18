@@ -18,7 +18,8 @@ The goal uses `GzInv` (with, among others, the clauses `GzCommon.next` only with
 allowing `direct = 0`, `haveSkip` and `againEof`) and the `gzprintf` arguments that the handle does not own
 (`GzArguments`).
 
-Patches. The statements are for the patched source (`patches/`: 0002, 0003, 0004 and 0005).
+Patches. The statements are for the patched source (`patches/`): the gzseek negative-position fix (0002), the gzread stale-next and position-overflow fix (0003),
+the gzwrite position-overflow fix (0004) and the gzoffset negative-lseek fix (0005).
 -/
 
 namespace ZlibF.Spec.Public

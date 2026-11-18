@@ -151,7 +151,7 @@ of what a reader trusts. [Patches](../../patches/README.md) gives the evidence f
 
 | Patch | Fixes | Upstream state |
 | --- | --- | --- |
-| 0001 | Relational comparison of unrelated pointers in `inflateCopy` | Matches upstream PR #1369; not yet on the upstream branch |
+| 0001 | Relational comparison of unrelated pointers in `inflateCopy` | The commit of upstream PR #1369, which the maintainer answered with "Applied"; zlib 1.4 does not contain it |
 | 0002 | Signed overflow in `gzseek64` after `gzungetc` | The `gzlib.c` part of upstream PR #1361, open |
 | 0003 | Stale `x.next` after a partial transparent read fails, and overflow of the gz position `x.pos` while reading | Upstream PR #1405, open |
 | 0004 | Overflow of the gz position `x.pos` while writing | Upstream PR #1406, open |
