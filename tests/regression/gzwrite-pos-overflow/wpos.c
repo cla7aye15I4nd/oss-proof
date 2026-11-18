@@ -1,7 +1,8 @@
 /* gzwrite: signed overflow of x.pos on a transparent writer.
-   gzdopen(/dev/null, "wT"); gzbuffer 2^29; gzseek to INT64_MAX - 10; gzwrite 100 bytes.
-   gzwrite first writes the INT64_MAX - 10 zeros of the pending seek (2^34 writes of
-   2^29 bytes to /dev/null), then copies the 100 bytes. Without the fix, the copy adds
+   gzdopen(/dev/null, "wT"); gzbuffer 2^31 - 1 (the largest gzbuffer accepts); gzseek to
+   INT64_MAX - 10; gzwrite 100 bytes.
+   gzwrite first writes the INT64_MAX - 10 zeros of the pending seek (about 2^32 writes of
+   2^31 - 1 bytes to /dev/null), then copies the 100 bytes. Without the fix, the copy adds
    100 to x.pos (gzwrite.c, state->x.pos += copy). With the argument "putc", one byte
    is written with gzputc at INT64_MAX instead (seek to INT64_MAX). */
 #include <stdio.h>
@@ -29,7 +30,7 @@ int main(int argc, char **argv) {
     f = gzdopen(null_fd, "wT");
     if (f == NULL)
         return 2;
-    printf("gzbuffer 2^29 = %d\n", gzbuffer(f, 1u << 29));
+    printf("gzbuffer 2^31 - 1 = %d\n", gzbuffer(f, (1u << 31) - 1));
     if (putc_mode) {
         printf("gzseek INT64_MAX = %lld\n", (long long)gzseek(f, INT64_MAX, SEEK_SET));
         r = gzputc(f, 'a');
