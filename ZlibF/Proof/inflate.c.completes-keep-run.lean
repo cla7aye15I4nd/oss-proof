@@ -102,10 +102,6 @@ theorem KeepMAt.bind_dep {α β : Type} {m : M α} {f : α → M β} {h : Heap} 
     rw [e] at hr
     exact (hm a h1 e).trans (hf a h1 e b after hr)
 
-theorem KeepMAt.letFun {α β γ : Type} {X : β → M γ} {F : (β → M γ) → M α} {h : Heap}
-    (hX : ∀ u, KeepM (X u)) (hF : ∀ jp : β → M γ, (∀ u, KeepM (jp u)) → KeepMAt (F jp) h) :
-    KeepMAt (have jp := X; F jp) h := hF X hX
-
 theorem KeepMAt.ite_dep {α : Type} (p : Prop) [Decidable p] {a b : M α} {h : Heap}
     (ha : p → KeepMAt a h) (hb : ¬ p → KeepMAt b h) : KeepMAt (if p then a else b) h := by
   split

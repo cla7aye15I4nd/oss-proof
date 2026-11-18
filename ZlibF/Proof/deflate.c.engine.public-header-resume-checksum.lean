@@ -65,26 +65,4 @@ theorem public_header_pending_one_output_encoding_adler {h : Heap} {r : ZStreamR
   · rw [fields]; exact status
 
 
-/-- Legal caller replacement retains the unfinished header and checksum
-of its unchanged logical input, even when output storage is replaced. -/
-theorem rebuffer_header_encoding_checksum {h g : Heap} {r : ZStreamRef} {ds origin : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {config : EngineConfig}
-    {published : List UInt8}
-    (boundary : BufferedBoundary h r ds z d input origin 0 [] config)
-    (encoding : HeaderPending h d published)
-    (checksum : z.adler = (ZlibF.Spec.adler32 (inputPrefix input (origin + fillEnd d))).toUInt64)
-    (edit : Rebuffer h g r) (header : d.gzhead = none) :
-    ∃ z', r.get g = some z' ∧ BufferedBoundary g r ds z' d input origin 0 [] config ∧
-      HeaderPending g d published ∧
-      z'.adler = (ZlibF.Spec.adler32 (inputPrefix input (origin + fillEnd d))).toUInt64 := by
-  obtain ⟨z', get, stateA⟩ := rebuffer_buffered_boundary boundary edit header
-  have encodingA := encoding.rebuffer boundary.good edit
-  obtain ⟨_fresh, _uniq, _globals, _frame, old, new, oldGet, newGet, fields⟩ := edit
-  have oldEq : old = z := Option.some.inj (oldGet.symm.trans boundary.good.live.hz)
-  have newEq : new = z' := Option.some.inj (newGet.symm.trans get)
-  subst old new
-  refine ⟨z', get, stateA, encodingA, ?_⟩
-  rw [fields]
-  exact checksum
-
 end Zlib.Deflate.Engine.Proofs

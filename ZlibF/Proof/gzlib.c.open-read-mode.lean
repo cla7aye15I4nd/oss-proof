@@ -219,17 +219,6 @@ not a claim that the C implementation initializes the pointer. -/
 theorem readerChecked_next (s : GzState) (gzipOnly : Bool) :
     (readerCheckedRecord s gzipOnly).x.next = s.x.next := by cases gzipOnly <;> rfl
 
-/-- The actual guard changes only the handle record and no live allocation. -/
-theorem readerChecked_frame (h : Heap) (i : Nat) (s : GzState) (gzipOnly : Bool)
-    (hs : h.gzstates i = some s) :
-    ZlibF.Spec.Public.Frame h (readerCheckedHeap h i s gzipOnly) (fun b => b = i) ∧
-    ZlibF.Spec.Public.LiveChange h (readerCheckedHeap h i s gzipOnly)
-      (fun _ => False) (fun _ => False) := by
-  cases gzipOnly
-  · exact openModeLoop_frame h i s { s with direct := 1 } hs
-  · have he : setS h i s = h := by simp [setS, upd_self _ _ _ hs]
-    simpa [readerCheckedHeap, he] using openModeLoop_frame h i s s hs
-
 #print axioms openModeLoop_read
 #print axioms openModeLoop_read_gzip
 #print axioms readerEntry_front

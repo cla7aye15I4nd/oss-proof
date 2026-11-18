@@ -9,7 +9,7 @@ are not proved, and compiling the proofs does not discharge them.
 | 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The build: the kernel checks every proof, and a check of the results examines the type of each theorem and the axioms it depends on. A replay by the kernel in a fresh environment is a command a reader can run |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and differential tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: zlib 1.4 and seven patches | The [patches page](../../patches/README.md). Each patched defect was reproduced with the real C under a sanitizer, with two exceptions: one branch of 0004 rests on a reading of the C; 0007 fixes a broken promise that no sanitizer reports |
+| 4 | The selected source: zlib 1.4 and seven patches | The [patches page](../../patches/README.md). Each patched defect was reproduced with the real C under a sanitizer, with two exceptions: one branch of 0003 rests on a reading of the C; 0006 and 0007 fix broken promises that no sanitizer reports |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
 | 6 | The statements: that each goal says what it should | Review against `zlib.h`; the check that a theorem states exactly its goal |
 
@@ -151,13 +151,13 @@ of what a reader trusts. [Patches](../../patches/README.md) gives the evidence f
 
 | Patch | Fixes | Upstream state |
 | --- | --- | --- |
-| 0001 | Relational comparison of unrelated pointers in `inflateCopy` | Matches upstream PR #1369; not yet on the upstream branch |
+| 0001 | Relational comparison of unrelated pointers in `inflateCopy` | The commit of upstream PR #1369, which the maintainer answered with "Applied"; zlib 1.4 does not contain it |
 | 0002 | Signed overflow in `gzseek64` after `gzungetc` | The `gzlib.c` part of upstream PR #1361, open |
-| 0003 | Stale `x.next` after a partial transparent read fails | Upstream PR #1363, open |
-| 0004 | Overflow of the gz position `x.pos` while reading | The last commit of upstream PR #1405, open |
-| 0005 | Overflow of the gz position `x.pos` while writing | Upstream PR #1406, open |
-| 0006 | Signed overflow in `gzoffset64` on a negative result of `lseek` | Upstream PR #1404, open |
-| 0007 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Upstream PR #1394, open |
+| 0003 | Stale `x.next` after a partial transparent read fails, and overflow of the gz position `x.pos` while reading | Upstream PR #1405, open |
+| 0004 | Overflow of the gz position `x.pos` while writing | Upstream PR #1406, open |
+| 0005 | Signed overflow in `gzoffset64` on a negative result of `lseek` | Upstream PR #1404, open |
+| 0006 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Upstream PR #1394, open |
+| 0007 | `deflateBound` too small for a gzip extra length of 2^32 - 2 or 2^32 - 1 | The `deflate.c` part of upstream PR #1360, open |
 
 ## 5. Configuration and external world
 
@@ -204,7 +204,10 @@ defined. `VaArg.long` stands for the 64-bit type the conversion expects (`long`,
 7.21.6.12), not by formatting. Assumed: the call is defined in C for the caller's format and
 arguments. This is the caller's obligation, as for every call of the printf family; no premise
 states it. In particular the format has no `%n`: a conversion that writes through an argument
-is outside the contract. The model reads the format as a string, and faults on a pointer
+is outside the contract. With `%n` the call writes caller memory, which the frame of the
+conclusion does not describe, so the obligation excludes `%n`. The model's argument type
+(`VaArg`) has the cases `int`, `uint`, `long`, `ulong` and `str`; a call with a floating-point
+or `%p` argument is not among the calls the goals range over. The model reads the format as a string, and faults on a pointer
 argument into a freed block (an indeterminate value, C17 6.2.4p2). It does not read the
 conversions. So a format that does not match its arguments, which is undefined behaviour in C,
 is no fault in the model: for such a call `Goal.gzprintf_safety` and `Goal.gzvprintf_safety`

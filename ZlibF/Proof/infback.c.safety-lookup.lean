@@ -47,8 +47,6 @@ def lkBody (c : BCtx) (dist : Bool) : X Bool := do
   Zlib.Infback.PULLBYTE c
   return false
 
-theorem lookup1_eq (c : BCtx) (dist : Bool) : Zlib.Infback.lookup1 c dist = xloopBrk (lkBody c dist) := rfl
-
 /-- One trip of the lookup loop: the root entry selected by the held bits. -/
 theorem lkBody_run (c : BCtx) {i : Nat} (dist : Bool) {h : Heap} {s : InflateState} (l : IL)
     (hc : c.st = some (.tab i)) (hs : h.istates i = some s) {ref : CodeRef} {off : Nat} {ca : Array Code}

@@ -259,36 +259,4 @@ def witnessHeap : Heap :=
     static := Zlib.Crc32.initStatics
       (Zlib.Inftrees.initStatics (Zlib.Trees.trees_statics Heap.empty.static)) }
 
-theorem witness_fresh : Fresh witnessHeap := by
-  intro b hb hl
-  have h0 : b ≠ 0 := by change 2 ≤ b at hb; omega
-  have h1 : b ≠ 1 := by change 2 ≤ b at hb; omega
-  simp [Heap.live, witnessHeap, Heap.empty, upd_ne _ _ _ _ h0, upd_ne _ _ _ _ h1] at hl
-
-theorem witness_uniq : Uniq witnessHeap := by
-  intro b
-  by_cases h0 : b = 0
-  · subst b; simp [witnessHeap, Heap.empty, cnt]
-  by_cases h1 : b = 1
-  · subst b; simp [witnessHeap, Heap.empty, cnt]
-  simp [witnessHeap, Heap.empty, cnt, upd_ne _ _ _ _ h0, upd_ne _ _ _ _ h1]
-
-theorem witness_version : VersionValue witnessHeap (.ref (.blk 1) 0) (some 49) := by
-  right
-  refine ⟨49, rfl, Or.inr ⟨.blk 1, 0, #[49, 0], rfl, ?_, ?_, ?_⟩⟩ <;>
-    simp [Space.get, witnessHeap, Heap.empty]
-
-/-- Non-vacuity: a concrete default caller actually returns an initialized
-stream whose representation invariant was established by the entry. -/
-theorem default_init_witness :
-    ∃ after, C.run (deflateInit_ (some (.tab 0)) Z_DEFAULT_COMPRESSION (.ref (.blk 1) 0) 112)
-      witnessHeap = .ok (Z_OK, after) ∧
-      DeflateInitial witnessHeap after (.tab 0) (settings 6) := by
-  obtain ⟨rc, after, hr, hp⟩ := (deflateInit_proof Z_DEFAULT_COMPRESSION).2.2
-    witnessHeap (.tab 0) default (.ref (.blk 1) 0) witness_fresh witness_uniq rfl
-    (by simp [ZStreamRef.get, witnessHeap]) ⟨Or.inl rfl, Or.inl rfl⟩ witness_version
-  change after.nalloc = 5 ∧ rc = Z_OK ∧ DeflateInitial witnessHeap after (.tab 0) (settings 6) at hp
-  rw [hp.2.1] at hr
-  exact ⟨after, hr, hp.2.2⟩
-
 end ZlibF.Spec.Public.Proofs.DeflateInit

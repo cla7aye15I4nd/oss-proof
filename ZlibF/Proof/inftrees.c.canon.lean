@@ -53,33 +53,10 @@ theorem rev_split (a b x : Nat) :
     rw [h1, h2, h3, Nat.pow_add 2 a b, Nat.add_mul, Nat.mul_assoc, Nat.mul_comm (2 ^ b) (2 ^ a)]
     omega
 
-theorem rev_mod (k x : Nat) : rev k (x % 2 ^ k) = rev k x := by
-  induction k generalizing x with
-  | zero => rfl
-  | succ k ih =>
-    rw [rev_succ, rev_succ]
-    have h2 : x % 2 ^ (k + 1) / 2 = x / 2 % 2 ^ k := by
-      rw [Nat.pow_succ, Nat.mul_comm, Nat.mod_mul_right_div_self]
-    have h3 : x % 2 ^ (k + 1) % 2 = x % 2 := by
-      rw [Nat.pow_succ, Nat.mod_mul_left_mod]
-    rw [h2, h3, ih]
-
 theorem rev_of_zero (k : Nat) : rev k 0 = 0 := by
   induction k with
   | zero => rfl
   | succ k ih => simp [rev_succ, ih]
-
-/-- Appending low zero bits (a code shifted left by `d`) adds high zero bits
-to the reversed value. -/
-theorem rev_shift (k d x : Nat) : rev (k + d) (x * 2 ^ d) = rev k x := by
-  rw [rev_split, Nat.mul_div_cancel _ (Nat.two_pow_pos d), Nat.mul_mod_left, rev_of_zero]
-  simp
-
-theorem rev_two_pow (i : Nat) : rev (i + 1) (2 ^ i) = 1 := by
-  have := rev_split 1 i (2 ^ i)
-  rw [show 1 + i = i + 1 by omega] at this
-  rw [this, Nat.div_self (Nat.two_pow_pos i), Nat.mod_self, rev_of_zero]
-  simp [rev]
 
 /-- Bit `k-1-i` of `rev k x` is bit `i` of `x`. -/
 theorem rev_bit (k i x : Nat) (hi : i < k) :
@@ -111,77 +88,7 @@ theorem rev_bit (k i x : Nat) (hi : i < k) :
   rw [← rev_succ, ht]
   rw [Nat.pow_succ, Nat.mod_mul_right_div_self]
 
-/-- Backwards increment, carry case: if bits `0..i-1` of `x` are ones and bit
-`i` is zero (`i < k`), then `rev k (x+1)` keeps the top `k-1-i` reversed bits
-and sets bit `k-1-i`. -/
-theorem rev_succ_of_trailing (k i x : Nat) (hi : i < k)
-    (hlow : x % 2 ^ i = 2 ^ i - 1) (hbit : x / 2 ^ i % 2 = 0) :
-    rev k (x + 1) = rev k x % 2 ^ (k - 1 - i) + 2 ^ (k - 1 - i) := by
-  have hk : k = (k - 1 - i) + (i + 1) := by omega
-  have hs1 := rev_split (k - 1 - i) (i + 1) x
-  have hs2 := rev_split (k - 1 - i) (i + 1) (x + 1)
-  rw [← hk] at hs1 hs2
-  have hp : 0 < 2 ^ i := Nat.two_pow_pos i
-  have hm : x % 2 ^ (i + 1) = 2 ^ i - 1 := by
-    have := Nat.mod_add_div (x % 2 ^ (i + 1)) (2 ^ i)
-    have e1 : x % 2 ^ (i + 1) % 2 ^ i = x % 2 ^ i := by
-      rw [Nat.pow_succ, Nat.mod_mul_right_mod]
-    have e2 : x % 2 ^ (i + 1) / 2 ^ i = x / 2 ^ i % 2 := by
-      rw [Nat.pow_succ, Nat.mod_mul_right_div_self]
-    rw [e1, e2, hbit, hlow] at this
-    omega
-  have hq : (x + 1) / 2 ^ (i + 1) = x / 2 ^ (i + 1) := by
-    have := Nat.div_add_mod x (2 ^ (i + 1))
-    have hp2 : 2 ^ (i + 1) = 2 * 2 ^ i := by rw [Nat.pow_succ, Nat.mul_comm]
-    have : x + 1 = 2 ^ (i + 1) * (x / 2 ^ (i + 1)) + 2 ^ i := by omega
-    rw [this, Nat.mul_add_div (Nat.two_pow_pos _), Nat.div_eq_of_lt (Nat.pow_lt_pow_right (by decide) (by omega))]
-    simp
-  have hr : (x + 1) % 2 ^ (i + 1) = 2 ^ i := by
-    have := Nat.div_add_mod x (2 ^ (i + 1))
-    have hp2 : 2 ^ (i + 1) = 2 * 2 ^ i := by rw [Nat.pow_succ, Nat.mul_comm]
-    have : x + 1 = 2 ^ (i + 1) * (x / 2 ^ (i + 1)) + 2 ^ i := by omega
-    rw [this, Nat.mul_add_mod, Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by decide) (by omega))]
-  rw [hs2, hq, hr, rev_two_pow, Nat.one_mul, hs1]
-  have hlt := rev_lt (k - 1 - i) (x / 2 ^ (i + 1))
-  rw [Nat.add_mul_mod_self_right, Nat.mod_eq_of_lt hlt]
-
-/-- Backwards increment, overflow case: all `k` bits ones. -/
-theorem rev_all_ones (k x : Nat) (hlow : x % 2 ^ k = 2 ^ k - 1) (hx : x < 2 ^ k) :
-    x + 1 = 2 ^ k := by
-  rw [Nat.mod_eq_of_lt hx] at hlow
-  have := Nat.two_pow_pos k
-  omega
-
-/-- Extending the low run of ones by one bit. -/
-theorem low_ones_succ (x i : Nat) (hlow : x % 2 ^ i = 2 ^ i - 1) (hbit : x / 2 ^ i % 2 = 1) :
-    x % 2 ^ (i + 1) = 2 ^ (i + 1) - 1 := by
-  have := Nat.mod_add_div (x % 2 ^ (i + 1)) (2 ^ i)
-  have e1 : x % 2 ^ (i + 1) % 2 ^ i = x % 2 ^ i := by
-    rw [Nat.pow_succ, Nat.mod_mul_right_mod]
-  have e2 : x % 2 ^ (i + 1) / 2 ^ i = x / 2 ^ i % 2 := by
-    rw [Nat.pow_succ, Nat.mod_mul_right_div_self]
-  rw [e1, e2, hbit, hlow] at this
-  have hp2 : 2 ^ (i + 1) = 2 * 2 ^ i := by rw [Nat.pow_succ, Nat.mul_comm]
-  have := Nat.two_pow_pos i
-  omega
-
 /-! ## Bitwise helpers -/
-
-theorem and_two_pow (x p : Nat) : x &&& 2 ^ p = if x / 2 ^ p % 2 = 1 then 2 ^ p else 0 := by
-  apply Nat.eq_of_testBit_eq
-  intro j
-  rw [Nat.testBit_and, Nat.testBit_two_pow]
-  split
-  · rename_i hb
-    rw [Nat.testBit_two_pow]
-    by_cases hj : p = j
-    · subst hj; simp [Nat.testBit_eq_decide_div_mod_eq, hb]
-    · simp [hj]
-  · rename_i hb
-    simp only [Nat.zero_testBit]
-    by_cases hj : p = j
-    · subst hj; simp [Nat.testBit_eq_decide_div_mod_eq]; omega
-    · simp [hj]
 
 end Zlib.Inftrees.Canon
 
@@ -383,14 +290,6 @@ theorem sy_of_interval (ls : List Nat) {j l : Nat} (hl1 : 1 ≤ l) (hl : l ≤ 1
   rw [hsy]
   exact (mem_symsOf ls l _).mp hm
 
-/-- Lengths are bounded by 15 (the C precondition). -/
-def Bounded (ls : List Nat) : Prop := ∀ l ∈ ls, l ≤ 15
-
-theorem count_eq_zero_of_gt (ls : List Nat) (hb : Bounded ls) (l : Nat) (hl : 15 < l) :
-    ls.count l = 0 := by
-  apply List.count_eq_zero_of_not_mem
-  intro hm; have := hb l hm; omega
-
 theorem L_interval (ls : List Nat) {j : Nat} (hj : j < nz ls) :
     1 ≤ L ls j ∧ L ls j ≤ 15 ∧ offL ls (L ls j) ≤ j ∧ j < offL ls (L ls j + 1) ∧
       sy ls j < ls.length := by
@@ -510,60 +409,10 @@ theorem K_offL_add (ls : List Nat) {l : Nat} (hl1 : 1 ≤ l) (hl : l ≤ 15) (r 
     rw [L_eq_of_interval ls hl1 hl (by omega) h2, Nat.succ_mul]
     omega
 
-theorem krAt_K (ls : List Nat) (l : Nat) (hl : l ≤ 15) :
-    krAt ls l * 2 ^ (15 - l) = K ls (offL ls (l + 1)) := by
-  induction l with
-  | zero => simp [krAt, offL_one, K_zero]
-  | succ l ih =>
-    rw [krAt, offL_succ_pos ls (show 1 ≤ l + 1 by omega),
-      K_offL_add ls (by omega) hl _ (Nat.le_refl _), ← ih (by omega)]
-    have hp : 2 ^ (15 - l) = 2 * 2 ^ (15 - (l + 1)) := by
-      rw [show 15 - l = (15 - (l + 1)) + 1 by omega, Nat.pow_succ, Nat.mul_comm]
-    rw [hp, Nat.add_mul, Nat.mul_comm 2 (krAt ls l), Nat.mul_assoc]
-
-/-- Total Kraft sum (in units of 2^-15) of the coded symbols. -/
-theorem krAt15 (ls : List Nat) : krAt ls 15 = K ls (nz ls) := by
-  have := krAt_K ls 15 (by omega)
-  simp at this
-  rw [nz_eq]; exact this
-
-theorem krAt_mono (ls : List Nat) (a b : Nat) (h : a ≤ b) :
-    krAt ls a * 2 ^ (b - a) ≤ krAt ls b := by
-  induction b with
-  | zero => have : a = 0 := by omega
-            subst this; simp
-  | succ b ih =>
-    by_cases hab : a = b + 1
-    · subst hab; simp
-    · have := ih (by omega)
-      rw [krAt, show b + 1 - a = (b - a) + 1 by omega, Nat.pow_succ]
-      rw [← Nat.mul_assoc]
-      omega
-
 /-! ## Canonical values -/
 
 theorem cv_mul (ls : List Nat) {j : Nat} (hj : j < nz ls) :
     cv ls j * 2 ^ (15 - L ls j) = K ls j := Nat.div_mul_cancel (dvd_K_self ls hj)
-
-theorem cv_succ (ls : List Nat) {j : Nat} (hj : j + 1 < nz ls) :
-    cv ls (j + 1) = (cv ls j + 1) * 2 ^ (L ls (j + 1) - L ls j) := by
-  have hm := L_mono ls (show j ≤ j + 1 by omega) hj
-  have h15 := (L_interval ls hj).2.1
-  show K ls (j + 1) / 2 ^ (15 - L ls (j + 1)) = _
-  rw [K_succ, ← cv_mul ls (show j < nz ls by omega)]
-  have hp : 2 ^ (15 - L ls j) = 2 ^ (L ls (j + 1) - L ls j) * 2 ^ (15 - L ls (j + 1)) := by
-    rw [← Nat.pow_add]; congr 1; omega
-  rw [show cv ls j * 2 ^ (15 - L ls j) + 2 ^ (15 - L ls j) = (cv ls j + 1) * 2 ^ (15 - L ls j)
-    by rw [Nat.succ_mul], hp, ← Nat.mul_assoc, Nat.mul_div_cancel _ (Nat.two_pow_pos _)]
-
-theorem H_succ (ls : List Nat) {j : Nat} (hj : j + 1 < nz ls) :
-    H ls (j + 1) = rev (L ls j) (cv ls j + 1) := by
-  have hm := L_mono ls (show j ≤ j + 1 by omega) hj
-  show rev (L ls (j + 1)) (cv ls (j + 1)) = _
-  rw [cv_succ ls hj]
-  have := rev_shift (L ls j) (L ls (j + 1) - L ls j) (cv ls j + 1)
-  rw [show L ls j + (L ls (j + 1) - L ls j) = L ls (j + 1) by omega] at this
-  exact this
 
 theorem H_zero (ls : List Nat) : H ls 0 = 0 := by
   unfold H cv; rw [K_zero, Nat.zero_div, rev_of_zero]
@@ -581,26 +430,6 @@ theorem cv_succ_le (ls : List Nat) {j : Nat} (hj : j < nz ls)
 theorem H_lt (ls : List Nat) (j : Nat) : H ls j < 2 ^ L ls j := rev_lt _ _
 
 /-! ## Remaining counts -/
-
-theorem cntGE_zero (ls : List Nat) {l : Nat} (hl : 1 ≤ l) : cntGE ls 0 l = ls.count l := by
-  unfold cntGE; rw [offL_succ_pos ls hl]; simp
-
-/-- Decrement of `count[len]` after processing allocation index `j`. -/
-theorem cntGE_succ (ls : List Nat) {j l : Nat} (hj : j < nz ls) (hl : 1 ≤ l) :
-    cntGE ls (j + 1) l = if l = L ls j then cntGE ls j l - 1 else cntGE ls j l := by
-  obtain ⟨a1, a2, a3, a4, _⟩ := L_interval ls hj
-  unfold cntGE
-  split
-  · rename_i he; subst he; omega
-  · rename_i hne
-    rcases Nat.lt_or_gt_of_ne hne with hlt | hgt
-    · have := offL_mono ls (show l + 1 ≤ L ls j by omega); omega
-    · have := offL_mono ls (show L ls j + 1 ≤ l by omega); omega
-
-theorem cntGE_self (ls : List Nat) {j : Nat} (hj : j < nz ls) :
-    cntGE ls j (L ls j) = offL ls (L ls j + 1) - j := by
-  obtain ⟨_, _, a3, _, _⟩ := L_interval ls hj
-  unfold cntGE; congr 1; omega
 
 end Zlib.Inftrees.Canon
 

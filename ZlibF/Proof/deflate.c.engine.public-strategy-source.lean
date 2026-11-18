@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.public-finish»
-import ZlibF.Proof.«deflate.c.engine.finish-zero»
+import ZlibF.Proof.«deflate.c.engine.eof-zero»
 
 /-! # Exact public return statements following the default FINISH strategy -/
 

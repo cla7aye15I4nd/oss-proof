@@ -15,11 +15,6 @@ theorem DecodeStateFrame.trans {a b c : InflateState} (first : DecodeStateFrame 
   unfold DecodeStateFrame at *
   rw [second, first]
 
-theorem DecodeStateFrame.hold_bound {before after : InflateState} (frame : DecodeStateFrame before after)
-    (hold : before.hold.toNat < 2 ^ before.bits.toNat) : after.hold.toNat < 2 ^ after.bits.toNat := by
-  rw [frame]
-  exact hold
-
 theorem DecodeStateFrame.sane {before after : InflateState} (frame : DecodeStateFrame before after) :
     after.sane = before.sane := by rw [frame]
 

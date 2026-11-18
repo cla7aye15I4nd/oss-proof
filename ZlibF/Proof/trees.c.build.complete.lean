@@ -150,48 +150,4 @@ theorem ws_btHeap_built {h0 : Heap} {id : Nat} {tk dk : TK} {d : DeflateState}
     cases tk <;> exact hT
   exact WS.pure' ⟨rfl, prepared, prepared.heap_len.toInt.toNat, hbuilt, hDesc', heB, by rw [heT, hTs]; exact hTbig⟩
 
-/-- The complete actual build_tree executes through length limiting and
-canonical code assignment. Its dynamic tree context is established by the
-actual prefix. Preconditions concern explicit internal storage and static
-tables, not assumed specifications of any called function. This is a local
-construction result; public caller reachability, emission and compression
-correctness are separate obligations. -/
-theorem ws_build_tree_complete {h0 : Heap} {id : Nat} {tk dk : TK} {d : DeflateState}
-    {sref : StaticTreeDescRef} {dd : TreeDesc} {sd : StaticTreeDesc}
-    {xb : Nat → Nat} {slOpt : Option (Nat → Nat)}
-    (hdd : (dk.descRef id).get (setD h0 id d) = some dd)
-    (hsd : StaticTreeDescRef.get h0 sref = some sd)
-    (hstat : dd.stat_desc = some sref) (htree : dd.dyn_tree = .ref (tk.ref id) 0)
-    (he3 : 3 ≤ sd.elems.toInt) (he286 : sd.elems.toInt ≤ 286)
-    (hT : 2 * sd.elems.toInt.toNat - 1 ≤ (tk.arr d).size) (hTbig : (tk.arr d).size ≤ 600)
-    (hD : 2 * sd.elems.toInt.toNat - 1 ≤ d.depth.size)
-    (hH : d.heap.size = 573) (hB : d.bl_count.size = 16)
-    (hs : BTBuildStatic h0 id sd xb slOpt) :
-    WS h0 id (build_tree (Sp id) (some (dk.descRef id))) d (fun _ e =>
-      ∃ (prepared built mid : DeflateState) (mc : Int32) (K : Nat),
-        BTBuilt tk sd.elems.toInt.toNat K mc prepared built ∧
-        GBDone tk built (574 - 2 * K) (K - 1) mc.toInt.toNat sd.max_length.toInt.toNat xb slOpt mid ∧
-        ∃ a : Array CtData, e = tk.setArr mid a ∧ a.size = (tk.arr mid).size ∧
-          ∀ i < a.size, a[i]! =
-            if i < (mc.toInt + 1).toNat ∧ (tk.arr mid)[i]!.dl ≠ 0 then
-              { (tk.arr mid)[i]! with fc := UInt16.ofNat (Math.storedCode
-                (fun b => mid.bl_count[b]!.toNat) (fun v => (tk.arr mid)[v]!.dl.toNat) i) }
-            else (tk.arr mid)[i]!) := by
-  obtain ⟨sl, hsRepair⟩ := hs.repair
-  rw [build_tree_eq_heap_codes]
-  refine WS.bind' (ws_btHeap_built hdd hsd hstat htree he3 he286 hT hTbig hD hH hB hsRepair)
-    fun a built ⟨ht, prepared, K, hbuilt, hdesc, hBs, hTs⟩ => ?_
-  rcases a with ⟨tree, mc⟩
-  dsimp only at ht hbuilt hdesc ⊢
-  subst tree
-  have hctx := hbuilt.bitlen_ctx hs rfl hBs hTs
-  have hcodes := ws_btCodes (h0 := h0) (id := id) (tk := tk) (d := built)
-    (r := dk.descRef id) (sref := sref) (dd := { dd with max_code := mc }) (sd := sd)
-    (hm := 574 - 2 * K) (J := K - 1) (elems := sd.elems.toInt.toNat) (maxc := mc.toInt.toNat)
-    (L := sd.max_length.toInt.toNat) (baseN := sd.extra_base.toInt.toNat) (xb := xb) (slOpt := slOpt)
-    hdesc hsd hstat htree hctx hbuilt.heap_max hs.length_capacity (by omega) hbuilt.unused
-  refine WS.mono hcodes ?_
-  intro _ e ⟨mid, hdone, hcode⟩
-  exact ⟨prepared, built, mid, mc, K, hbuilt, hdone, hcode⟩
-
 end Zlib.Trees.Proofs

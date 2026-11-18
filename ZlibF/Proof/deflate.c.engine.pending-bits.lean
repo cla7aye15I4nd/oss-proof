@@ -120,26 +120,6 @@ theorem flush_pending_low_raw_bits_storage {h : Heap} {r : ZStreamRef} {ds pb ob
     · simpa only [pendingCopyHeap, Nat.zero_add] using run
     · simpa only [Nat.zero_add] using pending_copy_good (pending := buf) (oo := oo) good trees.base.pbuf (cursor.trans trees.base.pbuf) outGet
 
-/-- The earlier pending-bit transfer result retains its exact statement. -/
-theorem flush_pending_low_raw_bits {h : Heap} {r : ZStreamRef} {ds pb ob oo : Nat}
-    {z : ZStream} {d : DeflateState} {buf output : Array UInt8}
-    (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf)
-    (low : d.bi_valid.toInt < 8) (cursor : d.pending_out = d.pending_buf)
-    (pointer : z.next_out = .ref (.blk ob) oo) (outGet : h.bytes ob = some output)
-    (writable : h.ro ob = false) (separate : ob ≠ pb) (outBound : oo + z.avail_out.toNat ≤ output.size) :
-    ∃ produced after z' result written remaining,
-      flush_pending (some r) h = .ok ((), after) ∧ DGood after r ds z' result ∧
-      StreamAccounting z z' 0 produced ∧ ByteSizes h after ∧
-      produced = min d.pending.toNat z.avail_out.toNat ∧ result.pending.toNat + produced = d.pending.toNat ∧
-      result = { d with pending := result.pending, pending_out := result.pending_out } ∧
-      Bytes after z.next_out produced written ∧ PendingBits after result remaining ∧
-      ZlibF.Spec.bytesToBits written ++ remaining = Zlib.Trees.Proofs.Out.outBits buf d := by
-  obtain ⟨produced, after, z', result, written, remaining, run, goodA, account, sizes, count,
-    pendingCount, fields, bytes, pendingBits, bits, _storage⟩ :=
-    flush_pending_low_raw_bits_storage good trees low cursor pointer outGet writable separate outBound
-  exact ⟨produced, after, z', result, written, remaining, run, goodA, account, sizes, count,
-    pendingCount, fields, bytes, pendingBits, bits⟩
-
 /-- A completely drained state with no residual bits denotes an empty
 pending bit sequence in the public relation. -/
 theorem pending_bits_empty {h : Heap} {d : DeflateState} {bits : List Bool}

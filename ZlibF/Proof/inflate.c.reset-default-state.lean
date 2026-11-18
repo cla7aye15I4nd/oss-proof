@@ -54,35 +54,6 @@ theorem inflateResetKeep_default_state
 #print axioms inflateResetKeep_default_state
 
 
-/-- Freeing the window (or nothing) cannot create an oversized byte view. -/
-theorem platform_freeWin {h : Heap} (platform : ZlibF.PlatformMemory.ByteObjectsFit h) (p : BPtr) :
-    ZlibF.PlatformMemory.ByteObjectsFit (freeWin h p) := by
-  intro ref array get
-  unfold freeWin at get
-  split at get
-  · rename_i block
-    cases ref with
-    | blk b =>
-      by_cases same : b = block
-      · subst b
-        simp only [Space.get, upd_same] at get
-        cases get
-      · have old : h.bytes b = some array := by
-          simpa only [Space.get, upd_ne _ _ _ _ same] using get
-        exact platform (BRef.blk b) array old
-    | str index => exact platform (.str index) array get
-    | dstate_depth index => exact platform (.dstate_depth index) array get
-    | st_dist_code => exact platform .st_dist_code array get
-    | st_length_code => exact platform .st_length_code array get
-  · exact platform ref array get
-
-theorem platform_reset2Heap {h : Heap} (platform : ZlibF.PlatformMemory.ByteObjectsFit h)
-    (wb : Int32) (s : InflateState) : ZlibF.PlatformMemory.ByteObjectsFit (reset2Heap h wb s) := by
-  unfold reset2Heap
-  split
-  · exact platform_freeWin platform s.window
-  · exact platform
-
 theorem reset2Heap_static (h : Heap) (wb : Int32) (s : InflateState) :
     (reset2Heap h wb s).static = h.static := by
   unfold reset2Heap freeWin

@@ -18,18 +18,6 @@ set_option autoImplicit false
 theorem pow_sub_le_half {L x : Nat} (h1 : 1 ≤ x) (h2 : x ≤ L) : 2 ^ (L - x) ≤ 2 ^ (L - 1) :=
   Nat.pow_le_pow_right (by omega) (by omega)
 
-theorem two_leaves {L x y : Nat} (hx1 : 1 ≤ x) (hxL : x ≤ L) (hy1 : 1 ≤ y) (hyL : y ≤ L)
-    (h : 2 ^ (L - x) + 2 ^ (L - y) = 2 ^ L) : x = 1 ∧ y = 1 := by
-  have a := pow_sub_le_half hx1 hxL
-  have b := pow_sub_le_half hy1 hyL
-  have e : 2 ^ L = 2 ^ (L - 1) + 2 ^ (L - 1) := by
-    rw [← Nat.two_mul, ← Nat.pow_succ']; congr 1; omega
-  have ha : 2 ^ (L - x) = 2 ^ (L - 1) := by omega
-  have hb : 2 ^ (L - y) = 2 ^ (L - 1) := by omega
-  have px : ¬ L - x < L - 1 := fun h => by have := Nat.pow_lt_pow_right (by decide : 1 < 2) h; omega
-  have py : ¬ L - y < L - 1 := fun h => by have := Nat.pow_lt_pow_right (by decide : 1 < 2) h; omega
-  omega
-
 /-- In a complete code with exactly two nonzero lengths, both are `1`. -/
 theorem len_one_of_two {len : Nat → Nat} {N L : Nat} (hL : ∀ n, len n ≤ L)
     (hk : rs (fun n => if len n ≠ 0 then 2 ^ (L - len n) else 0) N = 2 ^ L)

@@ -76,7 +76,7 @@ def after (st : Sess) : M Sess := do
   let ai ← zrd st.strm (·.avail_in)
   return { st with consumed := st.fed - ai.toNat }
 
-/-- The header of `H:text:time:os:hcrc:extra:name:comment`. -/
+/-- The header of `H:text:time:os:hcrc:extra:name:comment` (`extra` is HEX or HEX/LEN). -/
 def mkHeader (f : List String) : M GzHeaderPtr := do
   let get := fun (i : Nat) => f.getD i "-"
   let hexs := fun (s : String) => (parseHex s).toOption.getD #[]
@@ -86,13 +86,17 @@ def mkHeader (f : List String) : M GzHeaderPtr := do
     let n := bs.size
     let p ← allocBytes (if nul then bs.push 0 else bs)
     return (p, n)
-  let (extra, el) ← ptrOf (get 4) false
+  -- extra is HEX or HEX/LEN: the buffer, and extra_len LEN when given (it may exceed the buffer)
+  let (exHex, exLen) := match (get 4).splitOn "/" with
+    | [h, l] => (h, l.toNat?)
+    | _ => (get 4, none)
+  let (extra, el) ← ptrOf exHex false
   let (name, nl) ← ptrOf (get 5) true
   let (comment, cl) ← ptrOf (get 6) true
   let p ← allocGzHeader
   stGzHeader p { GzHeader.zeroed with
     text := i32 ((get 0).toInt?.getD 0), time := (get 1).toNat?.getD 0 |>.toUInt64, os := i32 ((get 2).toInt?.getD 0),
-    hcrc := i32 ((get 3).toInt?.getD 0), extra, extra_len := UInt32.ofNat el, extra_max := UInt32.ofNat el,
+    hcrc := i32 ((get 3).toInt?.getD 0), extra, extra_len := UInt32.ofNat (exLen.getD el), extra_max := UInt32.ofNat el,
     name, name_max := UInt32.ofNat (nl + 1), comment, comm_max := UInt32.ofNat (cl + 1) }
   return p
 

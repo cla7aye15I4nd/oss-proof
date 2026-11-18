@@ -97,9 +97,6 @@ theorem flagW_copy {s : GzState} (hc : s.how = GZ_COPY) : flagW s = 0 := by
 theorem flagW_ne {s : GzState} (hc : s.how ≠ GZ_COPY) : flagW s = 2 := by
   unfold flagW; rw [ite_eq_right hc]
 
-theorem flagW_le (s : GzState) : flagW s ≤ 2 := by
-  unfold flagW; split <;> omega
-
 theorem flagW_look {s : GzState} (hl : s.how = LOOK) : flagW s = 2 := flagW_ne (by rw [hl]; decide)
 
 theorem flagW_gzip {s : GzState} (hg : s.how = GZIP) : flagW s = 2 := flagW_ne (by rw [hg]; decide)

@@ -646,8 +646,6 @@ theorem fl_succ (t k : Nat) : fl f t (k + 1) = fl f t k ++ (if f k = t then [k] 
   rw [List.range_succ, List.filter_append]
   by_cases h : f k = t <;> simp [h]
 
-theorem cnt_succ (t k : Nat) : cnt f k t = cnt f k t ∧ True := ⟨rfl, trivial⟩
-
 theorem cnt_step (t k : Nat) : cnt f (k + 1) t = cnt f k t + (if f k = t then 1 else 0) := by
   unfold cnt
   rw [fl_succ]
@@ -728,104 +726,12 @@ theorem val_zero (h : 0 < Tc f n 15) : val f n 0 = 0 := by
 
 /-! ### The canonical code is prefix-free -/
 
-/-- Later codes are above the end of the interval of an earlier one: `(v_i + 1) 2^(l_j - l_i) <= v_j`. -/
-theorem val_ge {i : Nat} : ∀ d, i + 1 + d < Tc f n 15 →
-    (val f n i + 1) * 2 ^ (lenAt f n (i + 1 + d) - lenAt f n i) ≤ val f n (i + 1 + d)
-  | 0, h => by
-    have := val_succ (f := f) (n := n) (i := i) (by omega)
-    simp only [Nat.add_zero]; omega
-  | d + 1, h => by
-    have ih := val_ge (i := i) d (by omega)
-    have hs := val_succ (f := f) (n := n) (i := i + 1 + d) (by omega)
-    have m1 := lenAt_mono (f := f) (n := n) (show i ≤ i + 1 + d by omega) (by omega)
-    have m2 := lenAt_mono (f := f) (n := n) (show i + 1 + d ≤ i + 1 + d + 1 by omega) (by omega)
-    have e : i + 1 + (d + 1) = i + 1 + d + 1 := by omega
-    rw [e, hs]
-    have hp : 2 ^ (lenAt f n (i + 1 + d + 1) - lenAt f n i) =
-        2 ^ (lenAt f n (i + 1 + d) - lenAt f n i) * 2 ^ (lenAt f n (i + 1 + d + 1) - lenAt f n (i + 1 + d)) := by
-      rw [← Nat.pow_add]; congr 1; omega
-    rw [hp, ← Nat.mul_assoc]
-    exact Nat.mul_le_mul_right _ (by
-      have := Nat.mul_le_mul_right (2 ^ 0) ih
-      omega)
-
-/-- No canonical code is a prefix of a later one. -/
-theorem prefix_free {i j : Nat} (hij : i < j) (hj : j < Tc f n 15) :
-    val f n j / 2 ^ (lenAt f n j - lenAt f n i) ≠ val f n i := by
-  obtain ⟨d, rfl⟩ : ∃ d, j = i + 1 + d := ⟨j - i - 1, by omega⟩
-  have h := val_ge (f := f) (n := n) (i := i) d hj
-  have hpos : 0 < 2 ^ (lenAt f n (i + 1 + d) - lenAt f n i) := Nat.pow_pos (by omega)
-  intro heq
-  have : val f n (i + 1 + d) / 2 ^ (lenAt f n (i + 1 + d) - lenAt f n i) ≥ val f n i + 1 :=
-    (Nat.le_div_iff_mul_le hpos).mpr h
-  omega
-
-
-/-- The sets of table indices that two different codes fill are disjoint: the indices that fill the entries of the
-`i`-th code are those `x` with `x mod 2^l_i = rev l_i v_i` (the first `l_i` bits that the decoder reads). -/
-theorem entries_disjoint (hfit : Fits f n) {i j : Nat} (hij : i < j) (hj : j < Tc f n 15) (x : Nat) :
-    ¬ (x % 2 ^ lenAt f n i = rev (lenAt f n i) (val f n i) ∧ x % 2 ^ lenAt f n j = rev (lenAt f n j) (val f n j)) := by
-  rintro ⟨h1, h2⟩
-  have hi : i < Tc f n 15 := by omega
-  have m := lenAt_mono (f := f) (n := n) (show i ≤ j by omega) hj
-  obtain ⟨Δ, hΔ⟩ : ∃ Δ, lenAt f n j = lenAt f n i + Δ := ⟨lenAt f n j - lenAt f n i, by omega⟩
-  have hd : lenAt f n j - lenAt f n i = Δ := by omega
-  have h3 : x % 2 ^ lenAt f n i = rev (lenAt f n i) (val f n j / 2 ^ Δ) := by
-    have e1 : x % 2 ^ lenAt f n i = (x % 2 ^ lenAt f n j) % 2 ^ lenAt f n i :=
-      (Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega))).symm
-    rw [e1, h2]
-    have := rev_mod_pow Δ (lenAt f n i) (val f n j)
-    rw [← hΔ] at this
-    exact this
-  have h4 := rev_inj _ _ _ (h1.symm.trans h3)
-  have vi := val_lt hfit hi
-  have vj := val_lt hfit hj
-  have hlt : val f n j / 2 ^ Δ < 2 ^ lenAt f n i := by
-    apply (Nat.div_lt_iff_lt_mul (Nat.pow_pos (by omega))).mpr
-    rw [← Nat.pow_add, ← hΔ]; exact vj
-  rw [Nat.mod_eq_of_lt vi, Nat.mod_eq_of_lt hlt] at h4
-  exact prefix_free (f := f) (n := n) hij hj (by rw [hd]; exact h4.symm)
-
-
 /-- The reversed code is its root part plus `2^R` times the sub-table part. -/
 theorem rev_split {R j : Nat} (hR : R ≤ lenAt f n j) :
     rev (lenAt f n j) (val f n j) = rev R (pre f n R j) + 2 ^ R * (rev (lenAt f n j) (val f n j) / 2 ^ R) := by
   have h := huff_low (f := f) (n := n) (R := R) (j := j) hR
   have := Nat.mod_add_div (rev (lenAt f n j) (val f n j)) (2 ^ R)
   omega
-
-/-- Two different codes under the same root prefix fill different entries of their sub-table: the entries of the
-`j`-th code are `hd_j + 2^(l_j - R) t` with `hd_j = rev l_j v_j / 2^R`. -/
-theorem block_disjoint (hfit : Fits f n) {R i j : Nat} (hij : j < i) (hi : i < Tc f n 15)
-    (hRj : R < lenAt f n j) (hp : pre f n R j = pre f n R i) (t t' : Nat) :
-    rev (lenAt f n j) (val f n j) / 2 ^ R + 2 ^ (lenAt f n j - R) * t' ≠
-      rev (lenAt f n i) (val f n i) / 2 ^ R + 2 ^ (lenAt f n i - R) * t := by
-  intro heq
-  have hj : j < Tc f n 15 := by omega
-  have mono := lenAt_mono (f := f) (n := n) (show j ≤ i by omega) hi
-  have sj := rev_split (f := f) (n := n) (R := R) (j := j) (by omega)
-  have si := rev_split (f := f) (n := n) (R := R) (j := i) (by omega)
-  have lj := rev_lt (lenAt f n j) (val f n j)
-  have li := rev_lt (lenAt f n i) (val f n i)
-  apply entries_disjoint hfit hij hi (rev R (pre f n R i) + 2 ^ R * (rev (lenAt f n j) (val f n j) / 2 ^ R + 2 ^ (lenAt f n j - R) * t'))
-  have ej : 2 ^ R * 2 ^ (lenAt f n j - R) = 2 ^ lenAt f n j := by rw [← Nat.pow_add]; congr 1; omega
-  have ei : 2 ^ R * 2 ^ (lenAt f n i - R) = 2 ^ lenAt f n i := by rw [← Nat.pow_add]; congr 1; omega
-  constructor
-  · -- modulo 2^l_j
-    have : rev R (pre f n R i) + 2 ^ R * (rev (lenAt f n j) (val f n j) / 2 ^ R + 2 ^ (lenAt f n j - R) * t') =
-        rev (lenAt f n j) (val f n j) + 2 ^ lenAt f n j * t' := by
-      rw [← hp] at *
-      rw [Nat.mul_add, ← Nat.mul_assoc, ej]
-      omega
-    rw [this, Nat.add_mul_mod_self_left]
-    exact Nat.mod_eq_of_lt lj
-  · rw [heq]
-    have : rev R (pre f n R i) + 2 ^ R * (rev (lenAt f n i) (val f n i) / 2 ^ R + 2 ^ (lenAt f n i - R) * t) =
-        rev (lenAt f n i) (val f n i) + 2 ^ lenAt f n i * t := by
-      rw [Nat.mul_add, ← Nat.mul_assoc, ei]
-      omega
-    rw [this, Nat.add_mul_mod_self_left]
-    exact Nat.mod_eq_of_lt li
 
 end Model
 

@@ -64,60 +64,10 @@ theorem gzrewind_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (f
 /-- `gzrewind(NULL)` returns -1; the world and the heap are unchanged. No precondition. -/
 theorem gzrewind_null (fs : Fs) (h : Heap) : gzrewind none fs h = .ok ((-1, fs), h) := rfl
 
-/-- **gzrewind.** On a handle that satisfies the invariant: `-1` and no change when the handle is not a reader or has a
-serious error; `-1` and only the world changed (`errno`) when `lseek` to `start` fails; otherwise `0`, the world is the one
-`lseek` leaves (the descriptor is at `start`), and the state is reset (`gz_reset`). -/
-theorem gzrewind_spec {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (fs : Fs) :
-    ∃ r fs' h', gzrewind (hnd gs) fs h = .ok ((r, fs'), h') ∧
-      ((s.mode ≠ GZ_READ ∨ (s.err ≠ Z_OK ∧ s.err ≠ Z_BUF_ERROR)) ∧ r = -1 ∧ fs' = fs ∧ h' = h ∨
-       ¬(s.mode ≠ GZ_READ ∨ (s.err ≠ Z_OK ∧ s.err ≠ Z_BUF_ERROR)) ∧ (lseekRes s.fd s.start SEEK_SET fs).1 = -1 ∧
-         r = -1 ∧ fs' = (lseekRes s.fd s.start SEEK_SET fs).2 ∧ h' = h ∨
-       ¬(s.mode ≠ GZ_READ ∨ (s.err ≠ Z_OK ∧ s.err ≠ Z_BUF_ERROR)) ∧ (lseekRes s.fd s.start SEEK_SET fs).1 ≠ -1 ∧
-         r = 0 ∧ fs' = (lseekRes s.fd s.start SEEK_SET fs).2 ∧ h' = setS (freeStr h s.msg) gs (resetRec s) ∧
-         GzGood h' gs (resetRec s) ∧ (∀ S, h.Owns S → h'.Owns (fun b => S b ∧ s.msg ≠ .ref (.blk b) 0))) := by
-  have e := gzrewind_run hG fs
-  by_cases hc : s.mode ≠ GZ_READ ∨ (s.err ≠ Z_OK ∧ s.err ≠ Z_BUF_ERROR)
-  · rw [ite_eq_left hc] at e
-    exact ⟨_, _, _, e, Or.inl ⟨hc, rfl, rfl, rfl⟩⟩
-  · rw [ite_eq_right hc] at e
-    by_cases hl : (lseekRes s.fd s.start SEEK_SET fs).1 = -1
-    · rw [ite_eq_left hl] at e
-      exact ⟨_, _, _, e, Or.inr (Or.inl ⟨hc, hl, rfl, rfl, rfl⟩)⟩
-    · rw [ite_eq_right hl] at e
-      obtain ⟨h1, -, he, hg, ho⟩ := gz_reset_safe hG
-      subst he
-      exact ⟨_, _, _, e, Or.inr (Or.inr ⟨hc, hl, rfl, rfl, rfl, hg, ho⟩)⟩
-
-
 /-! ## gzoffset64, gzoffset -/
 
 /-- `gzoffset64(NULL)` returns -1; the world and the heap are unchanged. No precondition. -/
 theorem gzoffset64_null (fs : Fs) (h : Heap) : gzoffset64 none fs h = .ok ((-1, fs), h) := rfl
-
-/-- `gzoffset64`. The result is `-1` when `lseek(fd, 0, SEEK_CUR)` fails or returns a negative value; otherwise the descriptor's position, less the
-input the inflate stream holds but has not used (`strm.avail_in`) for a reader. -/
-theorem gzoffset64_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (fs : Fs) :
-    gzoffset64 (hnd gs) fs h =
-      if (lseekRes s.fd 0 SEEK_CUR fs).1 < 0 then .ok ((-1, (lseekRes s.fd 0 SEEK_CUR fs).2), h)
-      else if s.mode = GZ_READ then
-        .ok ((Int64.ofInt ((lseekRes s.fd 0 SEEK_CUR fs).1.toInt - s.strm.avail_in.toNat), (lseekRes s.fd 0 SEEK_CUR fs).2), h)
-      else .ok (((lseekRes s.fd 0 SEEK_CUR fs).1, (lseekRes s.fd 0 SEEK_CUR fs).2), h) := by
-  have hs := hG.hs
-  have hav := s.strm.avail_in.toNat_lt
-  unfold gzoffset64
-  by_cases hl : (lseekRes s.fd 0 SEEK_CUR fs).1 < 0
-  · rcases hG.mode with hm | hm <;> ggsimp [hs, hm, hl, GZ_READ, GZ_WRITE]
-  · have hr' : 0 ≤ (lseekRes s.fd 0 SEEK_CUR fs).1.toInt := by
-      rw [Int64.lt_iff_toInt_lt] at hl
-      simp at hl
-      omega
-    have hlt := (lseekRes s.fd 0 SEEK_CUR fs).1.toInt_lt
-    have e := i64sub_run (lseekRes s.fd 0 SEEK_CUR fs).1 (u32ToI64 s.strm.avail_in)
-      (by rw [u32ToI64_toInt]; omega) (by rw [u32ToI64_toInt]; omega) h
-    rw [u32ToI64_toInt] at e
-    rcases hG.mode with hm | hm
-    · ggsimp [hs, hm, hl, GZ_READ, GZ_WRITE, e]
-    · ggsimp [hs, hm, hl, GZ_READ, GZ_WRITE]
 
 /-- `gzoffset` is `gzoffset64` (`z_off_t` is `long`, so the range check `ret == (z_off_t)ret` always holds). -/
 theorem gzoffset_eq (file : GzFilePtr) (fs : Fs) (h : Heap) : gzoffset file fs h = gzoffset64 file fs h := by

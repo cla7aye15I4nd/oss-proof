@@ -33,9 +33,4 @@ def Api.Layer.InflateAccepted (wrap : Api.Wrap) (windowBits : Nat)
       (Zlib.DecodesWithWindow windowBits dict stream out ∧ Api.ZlibFits windowBits stream) ∨
       Gzip.Decodes stream out
 
-/-- Selecting the window from the header recovers the original relation. -/
-theorem Zlib.decodesWithWindow_zero (dict stream out : List UInt8) :
-    Zlib.DecodesWithWindow 0 dict stream out ↔ Zlib.Decodes dict stream out := by
-  simp only [Zlib.DecodesWithWindow, Zlib.Decodes, ite_true]
-
 end ZlibF.Spec

@@ -224,22 +224,6 @@ private theorem deferred_no_complete_prefix (n : Nat) (output : List UInt8) :
       List.length_cons] at hlen
     omega
 
-/-- The whole-lookahead condition `Layer.Consistent` rejects the actual first call. This proof
-uses that predicate, which is separate from the causal relation. -/
-theorem inflate_deferred_distance_rejects_legacy_consistency :
-    ¬ Layer.Consistent .raw 15 [] [115, 4, 66] [65] := by
-  intro h
-  rcases h with h | ⟨tail, output, n, hn, hd, _⟩
-  · have bad := h.1
-    simp [hdrLag] at bad
-  · have heq : (([115, 4, 66] : List UInt8) ++ tail).take n =
-        [115, 4, 66] ++ tail.take (n - 3) := by
-      rw [List.take_append, List.take_of_length_le hn]
-      rfl
-    change Deflate.Decodes [] ((([115, 4, 66] : List UInt8) ++ tail).take n) output at hd
-    rw [heq] at hd
-    exact deferred_invalid_prefix _ _ hd
-
 /-- The model admits the real first call before the invalid distance is checked. -/
 theorem inflate_deferred_distance : Goal.inflate_deferred_distance := by
   refine ⟨{ (InflState.fresh .raw 15) with

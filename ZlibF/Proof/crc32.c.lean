@@ -56,10 +56,6 @@ theorem and1_cases (x : UInt32) : x &&& 1 = 0 ∨ x &&& 1 = 1 := by
   · left; apply UInt32.toNat_inj.mp; simp [h, h0]
   · right; apply UInt32.toNat_inj.mp; simp [h, h0]
 
-theorem xor_cancel32 (a b : UInt32) : a ^^^ (a ^^^ b) = b := by
-  rw [← UInt32.xor_assoc, UInt32.xor_self, UInt32.zero_xor]
-theorem xor_cancel64 (a b : UInt64) : a ^^^ (a ^^^ b) = b := by
-  rw [← UInt64.xor_assoc, UInt64.xor_self, UInt64.zero_xor]
 theorem xor_pp32 (a b p : UInt32) : (a ^^^ p) ^^^ (b ^^^ p) = a ^^^ b := by
   apply u32_ext; intro i _
   simp only [UInt32.toBitVec_xor, BitVec.getLsbD_xor]
@@ -80,7 +76,6 @@ def pw : Nat → UInt32 → UInt32
   | 0, v => v
   | m + 1, v => pw m (ZlibF.Spec.crcBit v)
 
-theorem pw_zero_n (v : UInt32) : pw 0 v = v := rfl
 theorem pw_succ (m : Nat) (v : UInt32) : pw (m + 1) v = pw m (ZlibF.Spec.crcBit v) := rfl
 theorem pw_succ' (m : Nat) (v : UInt32) : pw (m + 1) v = ZlibF.Spec.crcBit (pw m v) := by
   induction m generalizing v with
@@ -240,10 +235,6 @@ theorem lin32_ext {f g : UInt32 → UInt32} (hf : Lin32 f) (hg : Lin32 g)
     (by intro t ht; simp only [e] at hb; rw [hb t ht]) 32 (Nat.le_refl _) x.toNat (by simpa using UInt32.toNat_lt x)
   simp only [UInt32.ofNat_toNat] at key
   exact UInt32.toNat_inj.mp key
-
-theorem lin32_zero {f : UInt32 → UInt32} (hf : Lin32 f) : f 0 = 0 := by
-  have := hf 0 0
-  simpa using this
 
 /-! ### Multiplication in the bit-reflected representation -/
 
@@ -706,16 +697,6 @@ theorem bl_le (n : Nat) : bl n ≤ n := by
     · rw [bl_pos n h]
       have := ih (n / 2) (by omega)
       omega
-
-theorem lt_pow_bl (n : Nat) : n < 2 ^ bl n := by
-  induction n using Nat.strongRecOn with
-  | _ n ih =>
-    by_cases h : n = 0
-    · subst h; rw [bl_zero]; simp
-    · rw [bl_pos n h, Nat.pow_succ]
-      have := ih (n / 2) (by omega)
-      omega
-
 
 theorem u32_roundtrip (x : UInt32) : x.toUInt64.toUInt32 = x := by
   apply UInt32.toNat_inj.mp
@@ -2273,13 +2254,6 @@ theorem crc32_z_correct (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : 
       ~~~ rbl (~~~ crc.toUInt32) ((bs.toList.drop off).take len.toNat) := rfl
   rw [e1, not32_toUInt64]
 
-/-- **crc32_z, safety.** Same hypotheses as `crc32_z_correct`: no fault (no out-of-bounds read, no bad table index, no
-shift overflow, no fuel exhaustion), the heap is unchanged (so every heap invariant and every block is preserved). -/
-theorem crc32_z_safe (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Nat) (bs : Array UInt8)
-    (hb : h.bytes blk = some bs) (len : UInt64) (hlen : off + len.toNat ≤ bs.size) :
-    ∃ r, C.run (crc32_z crc (.ref (.blk blk) off) len) h = .ok (r, h) :=
-  ⟨_, crc32_z_correct h hs crc blk off bs hb len hlen⟩
-
 /-- **crc32, `buf == NULL`.** Returns `0` for every `crc` and `len`; heap unchanged. -/
 theorem crc32_null (h : Heap) (crc : UInt64) (len : UInt32) :
     C.run (crc32 crc .null len) h = .ok (0, h) := crc32_z_null h crc len.toUInt64
@@ -2293,102 +2267,11 @@ theorem crc32_correct (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Na
   rw [UInt32.toNat_toUInt64] at this
   exact this
 
-/-- **crc32, safety.** Same hypotheses as `crc32_correct`; no fault, heap unchanged. -/
-theorem crc32_safe (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Nat) (bs : Array UInt8)
-    (hb : h.bytes blk = some bs) (len : UInt32) (hlen : off + len.toNat ≤ bs.size) :
-    ∃ r, C.run (crc32 crc (.ref (.blk blk) off) len) h = .ok (r, h) :=
-  ⟨_, crc32_correct h hs crc blk off bs hb len hlen⟩
-
 /-! ### `get_crc_table` -/
-
-/-- **get_crc_table, safety.** Returns the pointer to the static table (index 0); no fault; heap unchanged. -/
-theorem get_crc_table_safe (h : Heap) :
-    C.run get_crc_table h = .ok (Ptr.ref URef.st_crc_table 0, h) := rfl
-
-/-- **get_crc_table, correctness.** With the static tables of `crc32.h`, entry `i < 256` of the returned table is the
-CRC register after the single byte `i` from the zero register (`ZlibF.Spec.crcByte 0 i`), and reading it does not fault. -/
-theorem get_crc_table_correct (h : Heap) (hs : StaticsOK h) (i : Nat) (hi : i < 256) :
-    ∃ p, C.run get_crc_table h = .ok (p, h) ∧
-      C.run (Ptr.index p (i : Int)) h = .ok (ZlibF.Spec.crcByte 0 (UInt8.ofNat i), h) := by
-  refine ⟨Ptr.ref URef.st_crc_table 0, rfl, ?_⟩
-  have hg : Space.get h URef.st_crc_table = some Crc32H.crc_table := by rw [URef.get_st_crc_table, hs.1]
-  have hlt : 0 + i < Crc32H.crc_table.size := by rw [crc_table_size]; omega
-  have := Ptr.index_ok (r := URef.st_crc_table) (off := 0) (i := i) hg hlt
-  unfold OkOn at this
-  unfold C.run
-  rw [this]
-  have e : Crc32H.crc_table[0 + i] = ZlibF.Spec.crcByte 0 (UInt8.ofNat i) := by
-    have h1 := crc_table_eq ⟨i, hi⟩
-    simp only at h1
-    rw [getElem!_pos _ _ (by omega)] at h1
-    simp only [Nat.zero_add]
-    rw [h1, crcByte_eq, UInt32.zero_xor]
-    congr 1
-    apply UInt32.toNat_inj.mp
-    simp [UInt32.toNat_ofNat']
-    omega
-  rw [e]
 
 /-! ### `multmodp`, `x2nmodp` -/
 
-/-- **multmodp, safety.** If the low 32 bits of `a` are not all zero and `b < 2^32`, `multmodp(a, b)` terminates
-without fault, returns a value below `2^32` and leaves the heap unchanged. (If the low 32 bits of `a` are zero, the C
-function loops forever: `multmodp_diverges`.) This is wider than the callers need (`zlib.h` has no `multmodp`). -/
-theorem multmodp_safe (h : Heap) (a b : UInt64) (ha : a.toUInt32 ≠ 0) (hb : b.toNat < 2 ^ 32) :
-    ∃ r, C.run (multmodp a b) h = .ok (r, h) ∧ r.toNat < 2 ^ 32 :=
-  ⟨_, multmodp_ok h a b ha hb, by rw [UInt32.toNat_toUInt64]; exact UInt32.toNat_lt _⟩
-
-/-- **multmodp, correctness.** `multmodp(x^n, b)` for the register `x^n` (the register `0x80000000`, which is `x^0`,
-advanced by `n` steps of the bit-reflected CRC polynomial division `ZlibF.Spec.crcBit`) is `b` advanced by `n` steps:
-multiplication by `x^n` modulo the CRC polynomial. For every `n` and every `b < 2^32`. -/
-theorem multmodp_correct (h : Heap) (n : Nat) (b : UInt64) (hb : b.toNat < 2 ^ 32) :
-    C.run (multmodp ((((List.range n).foldl (fun c _ => crcBit c) (0x80000000 : UInt32))).toUInt64) b) h =
-      .ok (((List.range n).foldl (fun c _ => crcBit c) b.toUInt32).toUInt64, h) := by
-  rw [pw_foldl, pw_foldl, e31_eq]
-  have hne : (pw n (e 31)).toUInt64.toUInt32 ≠ 0 := by
-    rw [u32_roundtrip]
-    intro h0
-    exact e_ne_zero 31 (by omega) (pw_eq_zero _ _ h0)
-  have := multmodp_ok h (pw n (e 31)).toUInt64 b hne hb
-  unfold OkOn at this
-  unfold C.run
-  rw [this, u32_roundtrip, mulp_pw_left', mulp_one]
-
-/-- **x2nmodp, safety.** With the static tables of `crc32.h`, for every `n >= 0` (`z_off64_t`) and every `k`:
-`x2nmodp(n, k)` terminates without fault, returns a value below `2^32` and leaves the heap unchanged. (`n < 0` is
-excluded by the callers; the loop `while (n)` would run on the arithmetic shift.) -/
-theorem x2nmodp_safe (h : Heap) (hs : StaticsOK h) (n : Int64) (hn : 0 ≤ n.toInt) (k : UInt32) :
-    ∃ r, C.run (x2nmodp n k) h = .ok (r, h) ∧ r.toNat < 2 ^ 32 := by
-  obtain ⟨p, hp, hp32, _⟩ := x2nmodp_ok h hs n hn k
-  exact ⟨p, hp, hp32⟩
-
-/-- **x2nmodp, correctness.** `x2nmodp(n, k)` is `x^(n * 2^k) mod p(x)`: the register `0x80000000` (`x^0`) advanced by
-`n * 2^k` steps of `ZlibF.Spec.crcBit`, for `n >= 0` and every `k` (the table index `k & 31` is justified by
-`x^(2^32) = x`, checked on the table). -/
-theorem x2nmodp_correct (h : Heap) (hs : StaticsOK h) (n : Int64) (hn : 0 ≤ n.toInt) (k : UInt32) :
-    C.run (x2nmodp n k) h =
-      .ok ((((List.range (n.toInt.toNat * 2 ^ k.toNat)).foldl (fun c _ => crcBit c) (0x80000000 : UInt32))).toUInt64, h) := by
-  obtain ⟨p, hp, hp32, hv⟩ := x2nmodp_ok h hs n hn k
-  rw [pw_foldl, e31_eq]
-  have h1 : p.toUInt32 = pw (n.toInt.toNat * 2 ^ k.toNat) (e 31) := by
-    have := hv (e 31)
-    rwa [mulp_one_right] at this
-  unfold OkOn at hp
-  unfold C.run
-  rw [hp, ← h1, u64_roundtrip p hp32]
-
 /-! ### `crc32_combine` and friends -/
-
-/-- **crc32_combine_gen64, safety.** With the static tables of `crc32.h`, no fault and heap unchanged for every
-`len2`. For `len2 < 0` the result is `0`; for `len2 >= 0` it is below `2^32` and nonzero (so `crc32_combine_op`
-terminates on it). -/
-theorem crc32_combine_gen64_safe (h : Heap) (hs : StaticsOK h) (len2 : Int64) :
-    ∃ op, C.run (crc32_combine_gen64 len2) h = .ok (op, h) ∧ (len2.toInt < 0 → op = 0) ∧
-      (0 ≤ len2.toInt → op.toNat < 2 ^ 32 ∧ op.toUInt32 ≠ 0) := by
-  by_cases hneg : len2.toInt < 0
-  · exact ⟨0, gen64_neg h len2 hneg, fun _ => rfl, fun hh => absurd hh (by omega)⟩
-  · obtain ⟨op, hop, hlt, hnz, _⟩ := gen64_op h hs len2 (by omega)
-    exact ⟨op, hop, fun hh => absurd hh hneg, fun _ => ⟨hlt, hnz⟩⟩
 
 /-- **crc32_combine_gen64, correctness.** For `len2 >= 0`, the operator is `x^(8 * len2) mod p(x)`: the register
 `0x80000000` advanced by `8 * len2` steps of `ZlibF.Spec.crcBit` (the effect of `len2` zero bytes on a CRC register). -/
@@ -2404,41 +2287,12 @@ theorem crc32_combine_gen64_correct (h : Heap) (hs : StaticsOK h) (len2 : Int64)
   unfold C.run
   rw [hop, ← h1, u64_roundtrip op hlt]
 
-/-- **crc32_combine_gen, safety.** `z_off_t` is `long` (64 bits): same as `crc32_combine_gen64`. -/
-theorem crc32_combine_gen_safe (h : Heap) (hs : StaticsOK h) (len2 : Int64) :
-    ∃ op, C.run (crc32_combine_gen len2) h = .ok (op, h) ∧ (len2.toInt < 0 → op = 0) ∧
-      (0 ≤ len2.toInt → op.toNat < 2 ^ 32 ∧ op.toUInt32 ≠ 0) :=
-  crc32_combine_gen64_safe h hs len2
-
-/-- **crc32_combine_gen, correctness.** As `crc32_combine_gen64_correct`. -/
-theorem crc32_combine_gen_correct (h : Heap) (hs : StaticsOK h) (len2 : Int64) (hpos : 0 ≤ len2.toInt) :
-    C.run (crc32_combine_gen len2) h =
-      .ok ((((List.range (8 * len2.toInt.toNat)).foldl (fun c _ => crcBit c) (0x80000000 : UInt32))).toUInt64, h) :=
-  crc32_combine_gen64_correct h hs len2 hpos
-
-/-- **crc32_combine_op, safety.** For every `crc1`, `crc2`, and every `op` that is `0` or has a bit set among its low
-32 bits (in particular every value `crc32_combine_gen` returns, and every `op < 2^32`): no fault, heap unchanged.
-Narrower than the C signature: for `op` nonzero with zero low 32 bits the C function never terminates
-(`crc32_combine_op_diverges`: the translation runs out of fuel there, for example at `crc32_combine_op(1, 2, 1UL << 32)`;
-that the real C does not return follows from reading `multmodp`, and no run of the real C is kept). -/
-theorem crc32_combine_op_safe (h : Heap) (crc1 crc2 op : UInt64) (hop : op = 0 ∨ op.toUInt32 ≠ 0) :
-    ∃ r, C.run (crc32_combine_op crc1 crc2 op) h = .ok (r, h) := by
-  rcases hop with rfl | hop
-  · exact ⟨0, by unfold C.run crc32_combine_op; rw [ite_eq_left (by decide)]; rfl⟩
-  · exact ⟨_, combine_op_ok h crc1 crc2 op hop⟩
-
 /-- **crc32_combine_op, the candidate hang.** If `op != 0` and the low 32 bits of `op` are zero (for example
 `op = 1UL << 32`), the translation of `crc32_combine_op` runs out of fuel (the C loop in `multmodp` does not end):
 `multmodp` finds no set bit among bits 0..31 of `a`, so `(a & (m - 1)) == 0` is never reached. -/
 theorem crc32_combine_op_diverges (h : Heap) (crc1 crc2 op : UInt64) (hop : op ≠ 0) (hlow : op.toUInt32 = 0) :
     C.run (crc32_combine_op crc1 crc2 op) h = .error .outOfFuel :=
   combine_op_diverges h crc1 crc2 op hop hlow
-
-/-- **crc32_combine64, safety.** With the static tables of `crc32.h`: every `crc1`, `crc2`, `len2`: no fault, heap
-unchanged; the result is `0` for `len2 < 0`. -/
-theorem crc32_combine64_safe (h : Heap) (hs : StaticsOK h) (crc1 crc2 : UInt64) (len2 : Int64) :
-    ∃ r, C.run (crc32_combine64 crc1 crc2 len2) h = .ok (r, h) ∧ (len2.toInt < 0 → r = 0) :=
-  ⟨_, combine64_ok h hs crc1 crc2 len2, fun hh => by rw [ite_eq_left hh]⟩
 
 /-- **crc32_combine64, correctness.** For two byte sequences `A`, `B` with `len2 = B.length` and the CRC values
 `crc1 = crc32 A`, `crc2 = crc32 B` (`ZlibF.Spec.crc32`), the result is `crc32 (A ++ B)`. -/
@@ -2451,90 +2305,7 @@ theorem crc32_combine64_correct (h : Heap) (hs : StaticsOK h) (A B : List UInt8)
   unfold C.run
   rw [this, ite_eq_right (by omega), u32_roundtrip, u32_roundtrip, hlen, Int.toNat_natCast, crc32_append]
 
-/-- **crc32_combine, safety.** `z_off_t` is `long`: the same as `crc32_combine64`. -/
-theorem crc32_combine_safe (h : Heap) (hs : StaticsOK h) (crc1 crc2 : UInt64) (len2 : Int64) :
-    ∃ r, C.run (crc32_combine crc1 crc2 len2) h = .ok (r, h) ∧ (len2.toInt < 0 → r = 0) :=
-  crc32_combine64_safe h hs crc1 crc2 len2
-
-/-- **crc32_combine, correctness.** As `crc32_combine64_correct`: `crc32_combine(crc32 A, crc32 B, |B|) = crc32 (A ++ B)`. -/
-theorem crc32_combine_correct (h : Heap) (hs : StaticsOK h) (A B : List UInt8) (len2 : Int64)
-    (hlen : len2.toInt = B.length) :
-    C.run (crc32_combine (ZlibF.Spec.crc32 A).toUInt64 (ZlibF.Spec.crc32 B).toUInt64 len2) h =
-      .ok ((ZlibF.Spec.crc32 (A ++ B)).toUInt64, h) :=
-  crc32_combine64_correct h hs A B len2 hlen
-
-/-- **crc32_combine_op, correctness (with the generator).** For `A`, `B` and `len2 = |B|`: running
-`crc32_combine_gen(len2)` and then `crc32_combine_op(crc32 A, crc32 B, op)` returns `crc32 (A ++ B)`. -/
-theorem crc32_combine_op_correct (h : Heap) (hs : StaticsOK h) (A B : List UInt8) (len2 : Int64)
-    (hlen : len2.toInt = B.length) :
-    C.run (crc32_combine_gen len2 >>= fun op =>
-        crc32_combine_op (ZlibF.Spec.crc32 A).toUInt64 (ZlibF.Spec.crc32 B).toUInt64 op) h =
-      .ok ((ZlibF.Spec.crc32 (A ++ B)).toUInt64, h) :=
-  crc32_combine64_correct h hs A B len2 hlen
-
 /-! ### `crc_word` and the helpers -/
-
-/-- **crc_word, safety.** With the static tables of `crc32.h`, `crc_word(data)` does not fault for any 64-bit `data`;
-heap unchanged. -/
-theorem crc_word_safe (h : Heap) (hs : StaticsOK h) (data : UInt64) :
-    ∃ r, C.run (crc_word data) h = .ok (r, h) := ⟨_, crc_word_ok h hs data⟩
-
-/-- **crc_word, correctness.** For a register `c` and the eight bytes at `off` of a heap block (read by `loadWord`, little
-endian), `crc_word(c ^ word)` is the register after those eight bytes: the left fold of `ZlibF.Spec.crcByte`. -/
-theorem crc_word_correct (h : Heap) (hs : StaticsOK h) (c : UInt32) (blk off : Nat) (bs : Array UInt8)
-    (hb : h.bytes blk = some bs) (hlen : off + 8 ≤ bs.size) :
-    C.run (loadWord (.ref (.blk blk) off) >>= fun w => crc_word (c.toUInt64 ^^^ w)) h =
-      .ok ((((bs.toList.drop off).take 8).foldl ZlibF.Spec.crcByte c), h) := by
-  have h1 := OkOn.bind (f := fun w => crc_word (c.toUInt64 ^^^ w)) (loadWord_ok h blk off bs hb hlen) (crc_word_ok h hs (c.toUInt64 ^^^
-    wob bs[off + 0]! bs[off + 1]! bs[off + 2]! bs[off + 3]! bs[off + 4]! bs[off + 5]! bs[off + 6]! bs[off + 7]!))
-  have h2 : Psi (c.toUInt64 ^^^ wob bs[off + 0]! bs[off + 1]! bs[off + 2]! bs[off + 3]! bs[off + 4]! bs[off + 5]!
-      bs[off + 6]! bs[off + 7]!) = rbFrom bs c off 8 := Psi_WA c bs off
-  rw [h2, rbFrom_list bs 8 c off hlen] at h1
-  exact h1
-
-/-- **loadWord, safety.** Reading eight bytes inside a block never faults and leaves the heap unchanged. -/
-theorem loadWord_safe (h : Heap) (blk off : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hlen : off + 8 ≤ bs.size) : ∃ w, C.run (loadWord (.ref (.blk blk) off)) h = .ok (w, h) :=
-  ⟨_, loadWord_ok h blk off bs hb hlen⟩
-
-/-- **crcTab / x2nTab, safety.** Table reads with an index below the table size (256, 32) do not fault. -/
-theorem crcTab_safe (h : Heap) (hs : StaticsOK h) (i : UInt64) (hi : i.toNat < 256) :
-    ∃ t, C.run (crcTab i) h = .ok (t, h) := ⟨_, crcTab_ok h hs i hi⟩
-
-/-- **x2nTab, safety.** A read of `x2n_table[i]` with `i < 32` does not fault; heap unchanged. -/
-theorem x2nTab_safe (h : Heap) (hs : StaticsOK h) (i : UInt32) (hi : i.toNat < 32) :
-    ∃ t, C.run (x2nTab i) h = .ok (t, h) := ⟨_, x2nTab_ok h hs i hi⟩
-
-/-- **crcByte, safety.** One table-driven byte step inside a block does not fault, and returns the next register and
-pointer (`ZlibF.Spec.crcByte`). -/
-theorem crcByte_safe (h : Heap) (hs : StaticsOK h) (blk o : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (ho : o < bs.size) (c : UInt32) :
-    C.run (crcByte c.toUInt64 (.ref (.blk blk) o)) h =
-      .ok (((ZlibF.Spec.crcByte c bs[o]!).toUInt64, Ptr.ref (BRef.blk blk) (o + 1)), h) :=
-  crcByte_ok h hs blk o bs hb ho c
-
-/-- **wordAt, safety.** Word `i` of a word array inside a block: no fault. -/
-theorem wordAt_safe (h : Heap) (blk ow i : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hlt : ow + 8 * i + 8 ≤ bs.size) : ∃ w, C.run (wordAt (.ref (.blk blk) ow) i) h = .ok (w, h) :=
-  ⟨_, wordAt_ok h blk ow i bs hb hlt⟩
-
-/-- **braidTab, safety.** The braid table lookup for `k < 8` and any word: no fault. -/
-theorem braidTab_safe (h : Heap) (kn : Nat) (hk : kn < 8) (word : UInt64) :
-    ∃ t, C.run (braidTab (Int32.ofNat kn) word) h = .ok (t, h) := ⟨_, braidTab_ok h kn hk word⟩
-
-/-- **blockLittle, safety.** One block of 5 words (40 bytes) of the braided loop inside a block: no fault. -/
-theorem blockLittle_safe (h : Heap) (s : BL) (blk ow : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hlt : ow + 40 ≤ bs.size) (hw : s.words = .ref (.blk blk) ow) :
-    ∃ s', C.run (blockLittle s) h = .ok (s', h) := ⟨_, blockLittle_ok h s blk ow bs hb hlt hw⟩
-
-/-- **addrOf, raw block case.** The aligned-origin convention retains the offset as its address representative.
-Static and embedded origins use separate symbolic residues. -/
-theorem addrOf_safe (h : Heap) (blk off : Nat) :
-    C.run (addrOf (.ref (.blk blk) off)) h = .ok (UInt64.ofNat off, h) := rfl
-
-/-- **shr64, safety.** A shift count below 64 does not fault. -/
-theorem shr64_safe (h : Heap) (x n : UInt64) (hn : n < 64) : C.run (shr64 x n) h = .ok (x >>> n, h) := by
-  unfold C.run shr64; rw [ite_eq_left hn]; rfl
 
 theorem crc_big_table_size : Crc32H.crc_big_table.size = 256 := by decide +kernel
 

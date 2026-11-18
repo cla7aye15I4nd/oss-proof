@@ -1,4 +1,4 @@
-<!-- source-sha256: ed6c7921f38c59807d23a2e89d08fe68c5b6578ec130a4ca33d6fcd901cfe9c0 -->
+<!-- source-sha256: 5c1328e154a1642eff421f6c9b1034a33fe00dafe3a6359889c9f3b023d0498a -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -81,7 +81,7 @@
 
 默认分配器不是单独的前提：它由历史推出，并由不变量携带（子句 `alloc`）。
 
-有 `InflateHeaderProgress` 这条前提，是因为缺了它 C 会出故障。在 `EXTRA` 模式里，C 往 `head->extra + extra_len - length` 处复制。`extra` 缓冲区若与输入重叠，就是一次重叠的 `memcpy`；调用者若在读头部的中途把 `extra_len` 调小，这个偏移就会回绕。这两种故障都已用真实的 C 在 sanitizer 下复现。
+有 `InflateHeaderProgress` 这条前提，是因为缺了它 C 会出故障。在 `EXTRA` 模式里，C 往 `head->extra + extra_len - length` 处复制。`extra` 缓冲区若与输入重叠，就是一次重叠的 `memcpy`；`extra_len` 若在读头部的中途被调小，这个偏移就会回绕。这两种故障都已用真实的 C 在 sanitizer 下复现。这条前提是每次调用时对记录的条件，不论这个字段是谁写的。`inflate` 会写流所挂接记录中的 `extra_len`，所以两个流挂接在同一个记录上时（例如 `inflateCopy` 之后），一个流可能使另一个流的这条前提不成立。挂接在同一个头记录上的两个流在目标之外。
 
 ## 一次调用的轮廓
 
@@ -303,7 +303,7 @@ rank = 64 * mass + credit(mode)
 
 - 匹配从窗口读到的字节是先前写过的。原因是 W.5：在没有填满的窗口里，有效历史是 `[0, whave)`，而 C 会拒绝超过 `whave` 的距离。定理只陈述了读落在块内。在模型里，读一个从未写过的字节会得到任意值，不算故障（[可信基础](../trusted-base.md)）。**尚未由证明确认**。
 - 窗口里按顺序存着输出和字典最近的 `whave` 个字节。这是关于含义的事实，安全性不需要它，也没有安全定理陈述它。**尚未由证明确认**。
-- 状态的每个指针字段在被读之前都写过。`inflateInit2_` 和 `inflateCopy` 在使用新状态之前先用 `zmemzero` 把它清零，翻译在同一位置有同样的语句。没有定理陈述这一事实，在这个模型里也不可能有：在模型里，新分配的内存中的指针字段读出来是 `NULL`，不出故障，所以漏掉一次写入是看不出来的（[安全性](../spec/safety.md#uninitialised-memory)）。**尚未确认**，须由源码审查确认。
+- 由 `inflateInit2_` 或 `inflateCopy` 建立的状态，其每个指针字段在被读之前都写过。这两个函数在使用新状态之前先用 `zmemzero` 把它清零，翻译在同一位置有同样的语句。由 `inflateBackInit_` 建立的状态不清零：它的 `strm` 字段没有写过，如果对这个流调用 inflate 函数，状态检查会读它（[模型的限制](../model-limits.md#representation-gaps-and-proof-obligations)）。没有定理陈述这一事实，在这个模型里也不可能有：在模型里，新分配的内存中的指针字段读出来是 `NULL`，不出故障，所以漏掉一次写入是看不出来的（[安全性](../spec/safety.md#uninitialised-memory)）。**尚未确认**，须由源码审查确认。
 
 ## 功能结论
 

@@ -25,9 +25,6 @@ theorem cdoWhile_two {σ : Type} {body : σ → M σ} {cond : σ → M (Bool × 
 
 variable {α : Bool} {e : EnvG α} {c : Ctx}
 
-theorem DistLeaf_class (d : Nat) (E : Code) (h : DistLeaf d E) : (E.op &&& 16 ≠ 0 ∧ (E.op &&& 15).toNat ≤ 13 ∧ 1 ≤ E.val.toNat) ∨
-    (E.op &&& 16 = 0 ∧ E.op &&& 64 ≠ 0) := h.2
-
 /-- A root entry of the distance table is either a leaf or a link whose second level is in range. -/
 theorem distRoot (hts : DistTableSafe e.DCA e.od e.s0.distbits.toNat) (kidx : Nat) (hk : kidx < 2 ^ e.s0.distbits.toNat) :
     e.od + kidx < e.DCA.size ∧

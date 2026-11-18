@@ -64,10 +64,6 @@ theorem put_istates_comm (r : ZStreamRef) (h : Heap) (v : ZStream) (t : Tbl (Opt
     ({ r.put h v with istates := t } : Heap) = r.put { h with istates := t } v := by
   cases r <;> simp only [ZStreamRef.put] <;> split <;> rfl
 
-theorem put_bytes_comm (r : ZStreamRef) (h : Heap) (v : ZStream) (t : Tbl (Option (Array UInt8))) :
-    ({ r.put h v with bytes := t } : Heap) = r.put { h with bytes := t } v := by
-  cases r <;> simp only [ZStreamRef.put] <;> split <;> rfl
-
 /-! ### The situation -/
 
 /-- The heap of the loop before any `break`: the message and the mode are those of the entry. -/
@@ -187,11 +183,6 @@ theorem EnvG.heap_get_ne (A msg m) {ref : BRef} (hb : ref ≠ e.ob) :
     (Space.get (e.heap A msg m) ref : Option (Array UInt8)) = Space.get e.h0 ref := by
   rw [e.heap_get]
   exact Zlib.Inflate.Proofs.byte_view_get_put_ne _ hb A
-
-/-- A heap block other than the output view is that of `h0` (the window). -/
-theorem EnvG.heap_bytes_ne (A msg m) {b : Nat} (hb : BRef.blk b ≠ e.ob) :
-    (e.heap A msg m).bytes b = e.h0.bytes b :=
-  e.heap_get_ne A msg m hb
 
 theorem EnvG.heap_ro_view (A msg m) (ref : BRef) :
     Space.ro (e.heap A msg m) ref = Space.ro e.h0 ref := by

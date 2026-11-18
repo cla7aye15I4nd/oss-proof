@@ -1,5 +1,6 @@
 import ZlibF.Proof.«deflate.c.engine.finish-strategy-progress»
-import ZlibF.Proof.«deflate.c.engine.strategy-finish-loop»
+import ZlibF.Proof.«deflate.c.engine.finish-strategy-step»
+import ZlibF.Proof.«deflate.c.engine.strategy-no-flush-loop»
 
 /-! # A FINISH loop stopped by output exhaustion has consumed work -/
 

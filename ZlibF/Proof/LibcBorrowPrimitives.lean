@@ -27,11 +27,6 @@ theorem space_modify_borrow (h : Heap) (r : BRef) (f : Array UInt8 → Array UIn
     (Space.modify h r f).libcErrorBorrow = h.libcErrorBorrow := by
   cases r <;> rfl
 
-theorem space_put_borrow (h : Heap) (r : BRef) (a : Array UInt8) :
-    (Space.put h r a).libcErrorBorrow = h.libcErrorBorrow := by
-  cases r <;> simp only [Space.put]
-  split <;> rfl
-
 /-- The actual block-copy primitive does not invoke strerror, on every
 returning branch and every supported byte-reference kind. -/
 theorem stable_memcpyB (dst src : BPtr) (n : Nat) : StableM (memcpyB dst src n) := by

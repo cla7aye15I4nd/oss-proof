@@ -54,13 +54,14 @@ def StrPart (h : Heap) (p : BPtr) (k : UInt64) : Prop :=
   (p = .null ∧ k = 0) ∨ ∃ len, GzStr h p len ∧ k = UInt64.ofNat (len + 1)
 
 /-- `wl` is the length of the wrapper of the state record `d`: raw 0; zlib 6, plus 4 when `strstart` is not 0; gzip 18,
-plus the parts of the user's header when there is one: the extra field (two length bytes and the field), the name, the
+plus the parts of the user's header when there is one: the extra field (two length bytes and the low 16 bits of its
+length, patch 0007), the name, the
 comment and the header CRC (two bytes). The wrapper is read from the absolute value of `wrap`. -/
 def WrapLen (h : Heap) (d : DeflateState) (wl : UInt64) : Prop :=
   (d.wrap = 0 ∧ wl = 0) ∨ ((d.wrap = 1 ∨ d.wrap = -1) ∧ wl = 6 + (if d.strstart != 0 then 4 else 0)) ∨
   ((d.wrap = 2 ∨ d.wrap = -2) ∧ ((d.gzhead = none ∧ wl = 18) ∨
     ∃ g gh kn kc, d.gzhead = some (.tab g) ∧ h.gzheaders g = some gh ∧ StrPart h gh.name kn ∧ StrPart h gh.comment kc ∧
-      wl = 18 + (if gh.extra = .null then 0 else ((2 : UInt32) + gh.extra_len).toUInt64) + kn + kc +
+      wl = 18 + (if gh.extra = .null then 0 else ((2 : UInt64) + (gh.extra_len &&& 0xffff).toUInt64)) + kn + kc +
         (if gh.hcrc != 0 then 2 else 0)))
 
 /-- The user's header, if there is one, has NUL-terminated `name` and `comment` (or `NULL`), as `zlib.h` requires. -/
@@ -156,7 +157,7 @@ def boundBody (strm : ZStreamPtr) (fixedlen storelen : UInt64) (sourceLen : UInt
     wraplen := 18
     if d.gzhead != none then
       let gh ← ldGzHeader d.gzhead
-      if gh.extra != .null then wraplen := wraplen + ((2 : UInt32) + gh.extra_len).toUInt64
+      if gh.extra != .null then wraplen := wraplen + ((2 : UInt64) + (gh.extra_len &&& 0xffff).toUInt64)
       if gh.name != .null then
         let (wl, _) ← cdoWhile
           (fun (wl, str) => pure (wl + 1, str))
@@ -249,7 +250,7 @@ theorem boundBody_gz_head {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {
     (hg : d.gzhead = some (.tab g)) (hgh : h.gzheaders g = some gh) {kn kc : UInt64}
     (hn : StrPart h gh.name kn) (hc : StrPart h gh.comment kc) (fx st n : UInt64) :
     boundBody (some r) fx st n h = .ok (boundTailP d.w_bits d.hash_bits d.level d.strategy
-      (18 + (if gh.extra = .null then 0 else ((2 : UInt32) + gh.extra_len).toUInt64) + kn + kc +
+      (18 + (if gh.extra = .null then 0 else ((2 : UInt64) + (gh.extra_len &&& 0xffff).toUInt64)) + kn + kc +
         (if gh.hcrc != 0 then 2 else 0)) fx st n, h) := by
   unfold boundBody
   rcases hw with hw | hw
@@ -297,7 +298,7 @@ theorem boundBody_wl {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : D
 /-- **deflateBound_z, safety and specification.** On an initialised stream with the invariant, and a user gzip header
 (if there is one) whose `name` and `comment` are `NULL` or NUL-terminated strings (`zlib.h` requires it; the
 precondition `HdrStrOk`), the call never faults and leaves the heap unchanged. Its value is the closed formula
-`boundTail` of `w_bits`, `hash_bits`, `level`, `strategy` (patch 0007), the wrapper length `wl` (`WrapLen`: 0 for raw, 6 or 10 for zlib, 18 and the
+`boundTail` of `w_bits`, `hash_bits`, `level`, `strategy` (patch 0006), the wrapper length `wl` (`WrapLen`: 0 for raw, 6 or 10 for zlib, 18 and the
 parts of the header for gzip) and the source length. -/
 theorem deflateBound_z_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (hG : DGood h r ds z d) (hs : HdrStrOk h d) (n : UInt64) :

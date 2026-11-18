@@ -140,30 +140,4 @@ theorem lookup2_data_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateStat
     rw [← totalNat]
     exact enough success
 
-/-- Projection retaining the original second-level lookup statement. -/
-theorem lookup2_data_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {P : Nat → Code → Prop}
-    {l : IL} {bs : List UInt8} (dist : Bool) (last : Code)
-    (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : (if dist then s.distcode else s.lencode) = .ref ref offset)
-    (get : Space.get h ref = some ca) (remembered : l.last = last)
-    (link : LinkOK P ca offset last)
-    (leafBound : ∀ entry, P last.bits.toNat entry → entry.bits.toNat + last.bits.toNat ≤ 15)
-    (B : BitInv h l bs) :
-    ∃ result regs used,
-      runX (lookup2 c dist) l h = .ok ((result, regs), h) ∧
-      used ≤ 2 ∧ used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      stream regs (bs.drop used) = stream l bs ∧ LookupRegShape l regs ∧
-      regs.bits.toNat = l.bits.toNat + 8 * used ∧ regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      regs.here = subLookupValue ca offset last regs ∧ P last.bits.toNat regs.here ∧
-      last.bits.toNat + regs.here.bits.toNat ≤ 15 ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → last.bits.toNat + regs.here.bits.toNat ≤ regs.bits.toNat) ∧
-      (result = .error Ex.leave → regs.have_ = 0) := by
-  obtain ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, finalLeaf, total, kinds, enough, empty, _⟩ :=
-      lookup2_data_run_cursor dist last hc hs pointer get remembered link leafBound B
-  exact ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, finalLeaf, total, kinds, enough, empty⟩
-
 end Zlib.Inflate.Proofs

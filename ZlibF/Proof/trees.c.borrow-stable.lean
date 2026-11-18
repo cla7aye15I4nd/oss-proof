@@ -529,16 +529,4 @@ theorem stable__tr_flush_block (s : DeflateStatePtr) (buf : BPtr) (stored_len : 
     | with_reducible exact stable_iadd _ _
     | trees_borrow_step
 
-theorem stable__tr_tally (s : DeflateStatePtr) (dist lc : UInt32) : StableM («_tr_tally» s dist lc) := by
-  unfold «_tr_tally»
-  repeat' first
-    | with_reducible exact stable_d_code _
-    | with_reducible exact stable_setFc _ _ _
-    | with_reducible exact stable_getFc _ _
-    | with_reducible exact stable_pDtree _
-    | with_reducible exact stable_pLtree _
-    | with_reducible exact stable_md _ _
-    | with_reducible exact stable_rd _
-    | trees_borrow_step
-
 end Zlib.Trees.BorrowProofs

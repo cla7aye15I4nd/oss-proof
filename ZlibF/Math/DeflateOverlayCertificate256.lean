@@ -22,29 +22,6 @@ open ZlibF.Math.DeflateOverlayCertificate (kraftTerm lengthExtra distanceExtra l
   mass_split mass_const lengthExtra_le distanceExtra_le)
 set_option autoImplicit false
 
-/-- The reference bit-length code `κ0` (symbols 0..18). -/
-def refLen0 : Nat → Nat
-  | 0 => 2
-  | 1 => 7
-  | 2 => 7
-  | 3 => 5
-  | 4 => 5
-  | 5 => 4
-  | 6 => 4
-  | 7 => 4
-  | 8 => 4
-  | 9 => 3
-  | 10 => 4
-  | 11 => 4
-  | 12 => 7
-  | 13 => 7
-  | 14 => 7
-  | 15 => 7
-  | 16 => 7
-  | 17 => 3
-  | 18 => 7
-  | _ => 0
-
 /-- The region charge of an entry of length `x` in the literal region (positions 0..256),
 scaled by 2: 2 for a zero, `2·max(κ0[x], 3) + 6` for a length. -/
 def literalRegionCharge : Nat → Nat

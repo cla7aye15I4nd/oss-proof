@@ -13,7 +13,7 @@ macro of zlib.h, then g->have; it is never used on a NULL handle, which the macr
 Both drivers free the buffer of a read or fread right after the call. A large read on a gzip file decompresses
 straight into that buffer and leaves x.next pointing into it; a later gzseek or gzdirect advances it by zero, which C17
 leaves undefined and the runtime accepts as a no-op (R-4). Section 6 has lines for it. The position overflows that patches
-0004 and 0005 remove need a device (/dev/zero, /dev/null), which the file model cannot express; tests/regression/
+0003 and 0004 remove need a device (/dev/zero, /dev/null), which the file model cannot express; tests/regression/
 gzread-pos-overflow and gzwrite-pos-overflow cover them on the C side. Section 6
 seeks right after a gzungetc at position 0, which the unpatched gzseek64 overflowed on (patch 0002); the translation of
 the unpatched C faults there, so those lines tell the two apart. The gz_fetch overread after a partial read that then

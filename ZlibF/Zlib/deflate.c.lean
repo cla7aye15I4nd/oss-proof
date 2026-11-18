@@ -756,8 +756,9 @@ def deflateBound_z (strm : ZStreamPtr) (sourceLen : UInt64) : M UInt64 := do
     wraplen := 18                                                -- gzip wrapper
     if d.gzhead != none then
       let gh ← ldGzHeader d.gzhead
-      -- if (s->gzhead->extra != Z_NULL) wraplen += 2 + s->gzhead->extra_len;  (2 + uInt is computed in unsigned)
-      if gh.extra != .null then wraplen := wraplen + ((2 : UInt32) + gh.extra_len).toUInt64
+      -- /* gzip writes only the low 16 bits of the extra length */
+      -- if (s->gzhead->extra != Z_NULL) wraplen += 2 + (z_size_t)(s->gzhead->extra_len & 0xffff);   (patch 0007)
+      if gh.extra != .null then wraplen := wraplen + ((2 : UInt64) + (gh.extra_len &&& 0xffff).toUInt64)
       -- str = s->gzhead->name; if (str != Z_NULL) do { wraplen++; } while (*str++);
       if gh.name != .null then
         let (wl, _) ← cdoWhile
@@ -779,7 +780,7 @@ def deflateBound_z (strm : ZStreamPtr) (sourceLen : UInt64) : M UInt64 := do
       if gh.hcrc != 0 then wraplen := wraplen + 2
   else
     wraplen := 18                                                -- for compiler happiness
-  -- if (s->w_bits != 15 || s->hash_bits != 8 + 7 || s->strategy == Z_FIXED) { ... }   (patch 0007)
+  -- if (s->w_bits != 15 || s->hash_bits != 8 + 7 || s->strategy == Z_FIXED) { ... }   (patch 0006)
   if d.w_bits != 15 || d.hash_bits != 15 || d.strategy == Z_FIXED then
     let bound := if d.w_bits ≤ d.hash_bits && d.level != 0 then fixedlen else storelen
     return if bound + wraplen < bound then 0xffffffffffffffff else bound + wraplen

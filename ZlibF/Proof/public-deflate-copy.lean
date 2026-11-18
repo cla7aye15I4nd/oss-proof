@@ -30,31 +30,6 @@ theorem deflateCopy_null_source {h : Heap} {dest : ZStreamRef} {z : ZStream} (ge
     C.run (deflateCopy (some dest) none) h = .ok (Z_STREAM_ERROR, dest.put h { z with state := none }) := by
   simp [C.run, deflateCopy, deflateStateCheck, zwr_eq, get]
 
-/-- `deflateCopy` refuses a source record with a null `zalloc`, a null `zfree` or no state, and
-clears the destination state. -/
-theorem deflateCopy_refused {h : Heap} {source dest : ZStreamRef} {zs oldDest : ZStream}
-    (sget : source.get h = some zs) (dget : dest.get h = some oldDest)
-    (bad : zs.zalloc = .null ∨ zs.zfree = .null ∨ zs.state = none) :
-    C.run (deflateCopy (some dest) (some source)) h = .ok (Z_STREAM_ERROR, dest.put h { oldDest with state := none }) := by
-  have hD : StreamDom h (some source) := by
-    refine Or.inr ⟨source, zs, rfl, sget, ?_⟩
-    rcases bad with e | e | e
-    · exact Or.inl e
-    · exact Or.inr (Or.inl e)
-    · exact Or.inr (Or.inr (Or.inl e))
-  have hN : ¬ DInitialised h (some source) := by
-    rintro ⟨r, ds, z, d, er, hL⟩
-    cases er
-    have ez : z = zs := Option.some.inj (hL.hz.symm.trans sget)
-    subst ez
-    rcases bad with e | e | e
-    · exact hL.zalloc e
-    · exact hL.zfree e
-    · have st := hL.zst
-      rw [e] at st
-      cases st
-  simp [C.run, deflateCopy, bind_app, Zlib.Deflate.Proofs.notInit_check hD hN, zwr_eq, dget]
-
 /-- The facts of the deflate sequence proof, with no hypothesis. -/
 theorem sequence_facts : SequenceFacts :=
   Call.sequence_facts_of (Block.tinyOverlay_of_two Zlib.Deflate.Engine.Proofs.tinyOverlayAt_128

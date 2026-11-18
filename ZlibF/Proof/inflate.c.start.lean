@@ -71,10 +71,6 @@ theorem zallocs_run {h : Heap} {r : ZStreamRef} {z : ZStream} (hz : r.get h = so
     ZALLOCS (some r) h = allocInflateState h := by
   simp [ZALLOCS, ldZ_eq, hz, hza]
 
-theorem allocIst_ok (h : Heap) (hok : h.allocOk h.nalloc = true) (hF : Fresh h) :
-    allocInflateState h = .ok (some (.tab h.nextBlk), allocIstHeap h (InflateState.garbage (h.garbage h.nalloc))) := by
-  rw [allocInflateState_some hok hF.slotUsed_next]; rfl
-
 theorem allocIst_put {h : Heap} {r : ZStreamRef} {z : ZStream} (hz : r.get h = some z) (hok : h.allocOk h.nalloc = true)
     (hF : Fresh h) (v : ZStream) :
     allocInflateState (r.put h v) = .ok (some (.tab h.nextBlk),
@@ -88,9 +84,6 @@ theorem allocIst_fail_put {h : Heap} {r : ZStreamRef} (hok : ¬ h.allocOk h.nall
   have : ¬ (r.put h v).allocOk (r.put h v).nalloc = true := by simpa using hok
   rw [allocInflateState_none this]
   simp
-
-theorem allocIst_fail (h : Heap) (hok : ¬ h.allocOk h.nalloc = true) :
-    allocInflateState h = .ok (none, { h with nalloc := h.nalloc + 1 }) := allocInflateState_none hok
 
 theorem fresh_allocIst {h : Heap} (hF : Fresh h) (st : InflateState) : Fresh (allocIstHeap h st) := by
   intro b hb hl

@@ -186,32 +186,4 @@ theorem uwPost_counts {st : InflateState} {a ebytes : Array UInt8} {eo : Nat} {c
       | (simp only [hw, ite_false] at hwh'; omega)
       | omega
 
-/-- **updatewindow, window content.** On a good stream whose window block exists, the window after the call, read as a
-ring (`ringList`), is the last `wsize` bytes of the history before the call (the ring read from the state with `wsize`
-set, empty when it was just set) followed by the `copy` bytes that end at offset `eo` of the caller's buffer;
-`whave` is `min wsize (whave + copy)`. -/
-theorem updatewindow_ring {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState} {w eb eo : Nat}
-    {a ebytes : Array UInt8} {copy : UInt32}
-    (hG : Good H r zs z st) (hw : st.window = .ref (.blk w) 0) (ha : H.bytes w = some a) (hro : H.ro w = false)
-    (hasz : a.size = 2 ^ st.wbits.toNat)
-    (heb : H.bytes eb = some ebytes) (hne : w ≠ eb) (hc : copy.toNat ≤ eo) (hoff : eo ≤ ebytes.size) :
-    ∃ H' st' A', updatewindow (some r) (.ref (.blk eb) eo) copy H = .ok (0, H') ∧ Good H' r zs z st' ∧
-      H'.bytes w = some A' ∧
-      ringList A' (initWinS st).wsize.toNat st'.wnext.toNat st'.whave.toNat =
-        ((ringList a (initWinS st).wsize.toNat (initWinS st).wnext.toNat (initWinS st).whave.toNat ++
-            newBytes ebytes eo copy.toNat).drop ((initWinS st).whave.toNat + copy.toNat - st'.whave.toNat)) ∧
-      st'.whave.toNat = min (initWinS st).wsize.toNat ((initWinS st).whave.toNat + copy.toNat) := by
-  have hI := hG.inv
-  obtain ⟨f1, f2, f3, hv1, hwn1, heq1, -⟩ := initWinS_facts hI.win.wbits hI.win.ws hI.win.hv hI.win.wn hI.win.eq
-  have hwb := hI.win.wbits
-  have hle : (initWinS st).wsize.toNat ≤ 2 ^ 16 := by
-    rw [f1]; have := Nat.pow_le_pow_right (by decide : 0 < 2) (by omega : st.wbits.toNat ≤ 16); omega
-  have hposn : (initWinS st).wsize.toNat ≠ 0 := by rw [f1]; exact Nat.pos_iff_ne_zero.mp (Nat.two_pow_pos _)
-  obtain ⟨H', st', hrun, hH', hst', hG', -, hb', -, -, -, -⟩ := uw_post hG hw ha hro hasz heb hne hc hoff
-  refine ⟨H', st', _, hrun, hG', hb', ?_, ?_⟩
-  · rw [hst']
-    exact ring_spec hposn hv1 hwn1 heq1 hle (by rw [f1]; omega) hc hoff (by rw [f1]; omega)
-  · rw [hst']
-    exact (uwPost_counts hposn hv1 hwn1 heq1 hle).1
-
 end Zlib.Inflate.Proofs

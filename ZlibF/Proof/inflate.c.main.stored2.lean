@@ -52,25 +52,6 @@ theorem copyTail_run {c : Ctx} {h : Heap} {r zs z s} (E : Env c h r zs z s) (l :
   rw [runX_bind, runX_wrS E']
   rfl
 
-/-- `case COPY:` with input and room: copies `copyAmt` bytes, as `copyTail_run` (the source and destination ranges inside
-their blocks and not overlapping). -/
-theorem inflate_COPY_run {c : Ctx} {h : Heap} {r zs z s} (E : Env c h r zs z s) (l : IL) (hnz : s.length ≠ 0)
-    (hn : copyAmt s.length l.have_ l.left ≠ 0)
-    {rs : BRef} {os db od : Nat} {da sa : Array UInt8}
-    (hput : l.put = .ref (.blk db) od) (hnext : l.next = .ref rs os)
-    (hd : h.bytes db = some da) (hsrc : (Space.get h rs : Option (Array UInt8)) = some sa)
-    (hro : Space.ro h (BRef.blk db) = false)
-    (h1 : od + (copyAmt s.length l.have_ l.left).toNat ≤ da.size) (h2 : os + (copyAmt s.length l.have_ l.left).toNat ≤ sa.size)
-    (hdis : BRef.blk db ≠ rs ∨ od + (copyAmt s.length l.have_ l.left).toNat ≤ os ∨
-      os + (copyAmt s.length l.have_ l.left).toNat ≤ od) :
-    runX (inflate_COPY c) l h = .ok ((.ok (), copyRegs l (copyAmt s.length l.have_ l.left)
-        (Ptr.ref rs (os + (copyAmt s.length l.have_ l.left).toNat))
-        (Ptr.ref (BRef.blk db) (od + (copyAmt s.length l.have_ l.left).toNat))),
-      setI { h with bytes := upd h.bytes db (some (copyRange da sa od os (copyAmt s.length l.have_ l.left).toNat)) } zs
-        { s with length := s.length - copyAmt s.length l.have_ l.left }) := by
-  rw [inflate_COPY_split E l hnz]
-  exact copyTail_run E l hn hput hnext hd hsrc hro h1 h2 hdis
-
 /-- `case COPY:` with `length` bytes to go but no input or no room: `goto inf_leave`. -/
 theorem inflate_COPY_leave {c : Ctx} {h : Heap} {r zs z s} (E : Env c h r zs z s) (l : IL) (hnz : s.length ≠ 0)
     (hz : copyAmt s.length l.have_ l.left = 0) :

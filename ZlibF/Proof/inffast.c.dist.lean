@@ -84,9 +84,6 @@ theorem i64_toInt (n : Nat) (h : n < 2 ^ 62) : (Int64.ofInt (n : Int)).toInt = n
 
 theorem EnvG.bg_le {α : Bool} (e : EnvG α) : e.bg ≤ e.o0 := by unfold EnvG.bg; omega
 
-/-- `strm->avail_in`-style facts used everywhere. -/
-theorem EnvG.hroomA {α : Bool} (e : EnvG α) : e.o0 + e.sm0.avail_out.toNat ≤ e.A0.size := e.hAsz
-
 /-- The continuation of the distance block after the extra bits were read: add the extra bits to the base, drop them,
 compute how much of the output of this call there is, and copy. -/
 def distCont (c : Ctx) (l : L) : M L := do

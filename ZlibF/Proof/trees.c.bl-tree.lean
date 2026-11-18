@@ -410,34 +410,6 @@ theorem bl_prepare {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8
   rw [bind_app, hpD]
   exact hrD
 
-/-- The three actual tree constructors and both actual code-length scans
-compose from the existing live tree representation. BLInput is established
-by actual earlier calls, rather than assumed at this entry. This remains a
-local tree-description theorem; full block emission and engine integration
-are separate obligations. -/
-theorem prepare_build_bl_tree {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : Out.TreesInvAt h id d b buf) :
-    ∃ (mb : Int32) (ready scanned built e : DeflateState) (B : Array CtData),
-      blPrepare (Sp id) h = .ok ((), setD h id ready) ∧ BLInput ready ∧
-      (do blPrepare (Sp id); build_bl_tree (Sp id)) h = .ok (mb, setD h id e) ∧
-      scanned = blScannedState ready B ∧
-      (∀ k : Nat, B[k]!.fc = d.bl_tree[k]!.fc + UInt16.ofNat (blScanCount ready k)) ∧
-      BTBuildFrame .bl .bl scanned built ∧
-      e = { built with opt_len := built.opt_len + blHeaderCost (Math.blMaxIdx (blUsed built) 18) } ∧
-      mb.toInt = Math.blMaxIdx (blUsed built) 18 ∧ 2 ≤ mb.toInt ∧ mb.toInt ≤ 18 ∧
-      Out.TreesInvAt (setD h id e) id e b buf ∧ Out.outBits buf e = Out.outBits buf d ∧
-      BLCodeResult scanned e := by
-  obtain ⟨ready, hready, hin, hIR, hBready, houtR⟩ := bl_prepare hI
-  obtain ⟨mb, scanned, built, e, B, hbuild, hs, hfreq, hframe, he, hmb, hlo, hhi, htail, hIe, hout, hcodes⟩ :=
-    build_bl_tree_checked hIR hin
-  rw [setD_setD] at hbuild hIe
-  refine ⟨mb, ready, scanned, built, e, B, hready, hin, ?_, hs, ?_, hframe, he, hmb, hlo, hhi,
-    hIe, hout.trans houtR, hcodes⟩
-  · rw [bind_app, hready]
-    exact hbuild
-  · intro k
-    rw [hfreq k, hBready]
-
 /-- Frequency increments are bounded by the finite alphabets, independently
 of total input size or the old frequency values. -/
 theorem blScanCount_le (d : DeflateState) (hin : BLInput d) (k : Nat) : blScanCount d k ≤ 316 := by
@@ -461,60 +433,6 @@ theorem blScanCount_le (d : DeflateState) (hin : BLInput d) (k : Nat) : blScanCo
   have hD30 := hin.d30
   unfold blScanCount
   omega
-
-/-- Zero initialization makes the actual two-scan frequency cells exact
-natural counts, with no 16-bit wrap. This is an internal data premise; the
-following init-to-scans theorem establishes it by actual initialization. -/
-theorem bl_scan_pair_zero {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : Out.TreesInvAt h id d b buf) (hin : BLInput d)
-    (hz : ∀ k < 19, d.bl_tree[k]!.fc = 0) :
-    ∃ (e : DeflateState) (B : Array CtData),
-      blScanPair (Sp id) h = .ok ((), setD h id e) ∧ e = blScannedState d B ∧
-      Out.TreesInvAt (setD h id e) id e b buf ∧
-      ∀ k < 19, B[k]!.fc.toNat = blScanCount d k ∧ B[k]!.fc.toNat ≤ 316 := by
-  obtain ⟨e, B, hr, he, hIe, hout, hBs, hdl, hfc⟩ := bl_scan_pair hI hin
-  refine ⟨e, B, hr, he, hIe, ?_⟩
-  intro k hk
-  have hb := blScanCount_le d hin k
-  have hv : B[k]!.fc.toNat = blScanCount d k := by
-    rw [hfc k, hz k hk, UInt16.zero_add, UInt16.toNat_ofNat']
-    exact Nat.mod_eq_of_lt (by omega)
-  exact ⟨hv, by omega⟩
-
-/-- Actual init_block establishes zero bit-length frequencies. Both actual
-source-tree constructors preserve them, and both scans then store their
-exact natural counts. This is an init-to-call composition; it is not the
-streaming proof that arbitrary intervening symbol tallies retain the same
-entry facts. -/
-theorem init_prepare_scans {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : Out.TreesInvAt h id d b buf) :
-    ∃ (initialized ready scanned : DeflateState) (B : Array CtData),
-      (do init_block (Sp id); blPrepare (Sp id); blScanPair (Sp id)) h =
-        .ok ((), setD h id scanned) ∧
-      init_block (Sp id) h = .ok ((), setD h id initialized) ∧
-      BLInput ready ∧ scanned = blScannedState ready B ∧
-      Out.TreesInvAt (setD h id scanned) id scanned b buf ∧
-      ∀ k < 19, B[k]!.fc.toNat = blScanCount ready k ∧ B[k]!.fc.toNat ≤ 316 := by
-  obtain ⟨aL, aD, aB, initialized, hinit, hII, heI, hLs, hDs, hBs,
-    hLzero, hEOB, hDzero, hBzero, hLdl, hDdl, hBdl⟩ := Out.init_block_spec0 hI.base hI.run.to0
-  change init_block (Sp id) h = .ok ((), setD h id initialized) at hinit
-  change Out.TreesInvAt (setD h id initialized) id initialized b buf at hII
-  have hzI : ∀ k < 19, initialized.bl_tree[k]!.fc = 0 := by
-    intro k hk
-    rw [heI]
-    exact hBzero k hk
-  obtain ⟨ready, hprepare, hin, hIR, hBready, hout⟩ := bl_prepare hII
-  have hzR : ∀ k < 19, ready.bl_tree[k]!.fc = 0 := by
-    rw [hBready]
-    exact hzI
-  obtain ⟨scanned, B, hscan, hs, hIS, hcounts⟩ := bl_scan_pair_zero hIR hin hzR
-  rw [setD_setD] at hprepare
-  simp only [setD_setD] at hscan hIS
-  refine ⟨initialized, ready, scanned, B, ?_, hinit, hin, hs, hIS, hcounts⟩
-  rw [bind_app, hinit]
-  simp only []
-  rw [bind_app, hprepare]
-  exact hscan
 
 /-- Scanning only changes the literal sentinel beyond the live alphabet. -/
 theorem blScannedState_lit_get (d : DeflateState) (B : Array CtData) (i : Nat)

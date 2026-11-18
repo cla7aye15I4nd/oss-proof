@@ -303,30 +303,4 @@ theorem ws_gen_codes {h0 : Heap} {id : Nat} (d : DeflateState) (tk : TK)
   refine WS.bind' (gcAssign_run d tk max_code nc hm0 hm1 hfit hlen hsz hv) fun _ e he => ?_
   exact WS.pure' he
 
-/-- `local void gen_codes(ct_data *tree, int max_code, ushf *bl_count)`.
-For any of the three live dynamic tree arrays, an internal symbol range
-`-1 ≤ max_code < 573` fitting that array, at least fifteen readable counts,
-and code lengths at most fifteen, the actual translated function terminates
-without a fault. Every positive-length symbol receives its canonical code
-in reversed bit order. Only those code cells change. No consistency or Kraft
-condition on the counts and lengths is assumed. This is an internal callee
-result; its preconditions still have to be established by `build_tree`. -/
-theorem gen_codes_correct {h : Heap} {id : Nat} {d : DeflateState}
-    (hd : h.dstates id = some d) (tk : TK) (max_code : Int32)
-    (hbc : 15 ≤ d.bl_count.size) (hm0 : -1 ≤ max_code.toInt) (hm1 : max_code.toInt < 573)
-    (hfit : (max_code.toInt + 1).toNat ≤ (tk.arr d).size)
-    (hlen : ∀ j < (max_code.toInt + 1).toNat, ((tk.arr d)[j]!).dl.toNat ≤ 15) :
-    ∃ a : Array CtData,
-      gen_codes (.ref (tk.ref id) 0) max_code (.ref (.dstate_bl_count id) 0) h =
-        .ok ((), setD h id (tk.setArr d a)) ∧
-      a.size = (tk.arr d).size ∧ ∀ j < a.size, a[j]! =
-        if j < (max_code.toInt + 1).toNat ∧ ((tk.arr d)[j]!).dl ≠ 0 then
-          { (tk.arr d)[j]! with fc := UInt16.ofNat (Math.storedCode
-            (fun i => d.bl_count[i]!.toNat) (fun i => ((tk.arr d)[i]!).dl.toNat) j) }
-        else (tk.arr d)[j]! := by
-  obtain ⟨u, e, hr, a, rfl, hsz, hv⟩ := ws_gen_codes (h0 := h) (id := id) d tk max_code hbc hm0 hm1 hfit hlen
-  cases u
-  rw [setD_self hd] at hr
-  exact ⟨a, hr, hsz, hv⟩
-
 end Zlib.Trees.Proofs

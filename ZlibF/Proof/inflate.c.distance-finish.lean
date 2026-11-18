@@ -56,23 +56,6 @@ theorem distFinish_consume_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
   · simpa only [UInt8.toNat_toUInt32] using bits
   · simpa only [UInt8.toNat_toUInt32] using count
 
-/-- Projection retaining the original distance leaf execution. -/
-theorem distFinish_consume {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8} (before dropped : Nat)
-    (hc : c.st = some (.tab zs)) (good : Good h r zs z s) (tables : DataTablesSafe h s)
-    (leaf : DistLeaf dropped l.here) (back : s.back = Int32.ofNat (before + dropped))
-    (backBound : before ≤ 20) (enough : l.here.bits.toNat ≤ l.bits.toNat) (B : BitInv h l bs) :
-    ∃ regs after state,
-      runX (distFinish c) l h = runX (distLeafTail c l.here) regs after ∧
-      Good after r zs z state ∧ DataTablesSafe after state ∧ BitInv after regs bs ∧
-      DecodeStateFrame s state ∧ SymbolRegShape l regs ∧
-      after = setI h zs state ∧ state = { s with back := Int32.ofNat (before + dropped + l.here.bits.toNat) } ∧
-      stream regs bs = (stream l bs).drop l.here.bits.toNat ∧
-      regs.bits.toNat = l.bits.toNat - l.here.bits.toNat ∧ regs.here = l.here := by
-  obtain ⟨regs, after, state, run, finalGood, finalTables, inv, frame, shape,
-    heap, stateEq, bits, count, here, _⟩ := distFinish_consume_cursor before dropped hc good tables leaf back backBound enough B
-  exact ⟨regs, after, state, run, finalGood, finalTables, inv, frame, shape, heap, stateEq, bits, count, here⟩
-
 /-- DIST rejects an invalid leaf or installs the actual distance base and
 extra-bit count before its real DISTEXT continuation. The pending match
 length and was fields are preserved by the exact record update. -/
@@ -155,27 +138,5 @@ theorem distLeafTail_boundary_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRe
       have valBound := UInt16.toNat_lt here.val
       have powBound := Nat.pow_le_pow_right (by decide : 1 ≤ 2) base.2.1
       omega
-
-/-- Projection retaining the previous boundary. -/
-theorem distLeafTail_boundary {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {here : Code} {bs : List UInt8} {dropped : Nat}
-    (hr : c.strm = some r) (hc : c.st = some (.tab zs))
-    (good : Good h r zs z s) (tables : DataTablesSafe h s) (B : BitInv h l bs)
-    (leaf : DistLeaf dropped here) :
-    (∃ after finalZ state,
-      runX (distLeafTail c here) l h = .ok ((.ok (), l), after) ∧
-      Good after r zs finalZ state ∧ DataTableInvariant after state ∧ BitInv after l bs ∧
-      state.mode = BAD ∧ state = { s with mode := BAD }) ∨
-    (∃ after state,
-      runX (distLeafTail c here) l h = runX (inflate_DISTEXT c) l after ∧
-      Good after r zs z state ∧ DataTablesSafe after state ∧ BitInv after l bs ∧
-      state.mode = DISTEXT ∧
-      after = setI h zs state ∧
-      state = { s with offset := here.val.toUInt32, extra := here.op.toUInt32 &&& 15, mode := DISTEXT } ∧
-      state.extra.toNat ≤ 13 ∧ 1 ≤ state.offset.toNat ∧ state.offset.toNat + 2 ^ state.extra.toNat ≤ 73727) := by
-  rcases distLeafTail_boundary_frame hr hc good tables B leaf with stopped | continued
-  · obtain ⟨after, finalZ, state, run, finalGood, data, inv, mode, frame, _⟩ := stopped
-    exact Or.inl ⟨after, finalZ, state, run, finalGood, data, inv, mode, frame⟩
-  · exact Or.inr continued
 
 end Zlib.Inflate.Proofs

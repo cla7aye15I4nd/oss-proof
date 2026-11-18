@@ -5,12 +5,6 @@ namespace Zlib.Inffast.Proofs
 open C Zlib.Inffast Zlib.Inflate.Proofs
 set_option autoImplicit false
 
-theorem valuePost_weaken {α : Type} {program : M α} {oldPost post : α → Prop}
-    (proved : ValuePost program oldPost) (use : ∀ value, oldPost value → post value) :
-    ValuePost program post := by
-  intro h result after run
-  exact use result (proved h result after run)
-
 theorem copyMatch_cursor_bound (c : Ctx) (current : L) (origin : BPtr) (bound : Nat)
     (known : ∃ used, used ≤ bound ∧ current.in_ = inputAdvance origin used) :
     ValuePost (copyMatch c current) (fun result => ∃ used, used ≤ bound ∧

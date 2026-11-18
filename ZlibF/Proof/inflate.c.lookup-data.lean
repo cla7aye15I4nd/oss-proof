@@ -109,30 +109,6 @@ theorem lookup1_data_readable_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : In
   · intro current _
     exact dataLookupBody_run dist current hc hs pointer get safe
 
-/-- Projection retaining the original lookup statement. -/
-theorem lookup1_data_readable_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (dist : Bool) (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : (if dist then s.distcode else s.lencode) = .ref ref offset)
-    (get : Space.get h ref = some ca)
-    (safe : RootTableReadable ca offset (if dist then s.distbits else s.lenbits).toNat)
-    (B : BitInv h l bs) :
-    ∃ result regs used,
-      runX (lookup1 c dist) l h = .ok ((result, regs), h) ∧
-      used ≤ 2 ∧ used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      stream regs (bs.drop used) = stream l bs ∧ LookupRegShape l regs ∧
-      regs.bits.toNat = l.bits.toNat + 8 * used ∧
-      regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      regs.here = codeLookupValue ca offset (if dist then s.distbits else s.lenbits).toNat regs ∧
-      regs.here.bits.toNat ≤ 15 ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → regs.here.bits.toNat ≤ regs.bits.toNat) ∧
-      (result = .error Ex.leave → regs.have_ = 0) := by
-  obtain ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, entryBound, kinds, enough, empty, _⟩ := lookup1_data_readable_run_cursor dist hc hs pointer get safe B
-  exact ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, entryBound, kinds, enough, empty⟩
-
 /-- An actual root lookup retains the exact root entry and its constructor
 classification. The caller does not supply an independent decoded symbol. -/
 theorem lookup1_len_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
@@ -159,28 +135,6 @@ theorem lookup1_len_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState
   rw [selected]
   exact safe.2.2 _ (Nat.mod_lt _ (Nat.two_pow_pos _))
 
-/-- Projection retaining the original lookup statement. -/
-theorem lookup1_len_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : s.lencode = .ref ref offset) (get : Space.get h ref = some ca)
-    (safe : LenTableSafe ca offset s.lenbits.toNat) (B : BitInv h l bs) :
-    ∃ result regs used,
-      runX (lookup1 c false) l h = .ok ((result, regs), h) ∧
-      used ≤ 2 ∧ used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      stream regs (bs.drop used) = stream l bs ∧ LookupRegShape l regs ∧
-      regs.bits.toNat = l.bits.toNat + 8 * used ∧ regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      regs.here = codeLookupValue ca offset s.lenbits.toNat regs ∧
-      regs.here.bits.toNat ≤ 15 ∧
-      (if LenLink regs.here then LinkOK LenLeaf ca offset regs.here else LenLeaf 0 regs.here) ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → regs.here.bits.toNat ≤ regs.bits.toNat) ∧
-      (result = .error Ex.leave → regs.have_ = 0) := by
-  obtain ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, entryBound, classification, kinds, enough, empty, _⟩ := lookup1_len_run_cursor hc hs pointer get safe B
-  exact ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, entryBound, classification, kinds, enough, empty⟩
-
 theorem lookup1_dist_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
     {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
     (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
@@ -204,27 +158,4 @@ theorem lookup1_dist_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateStat
     selected, entryBound, ?_, kinds, enough, empty, cursor⟩
   rw [selected]
   exact safe.2.2 _ (Nat.mod_lt _ (Nat.two_pow_pos _))
-/-- Projection retaining the original lookup statement. -/
-theorem lookup1_dist_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : s.distcode = .ref ref offset) (get : Space.get h ref = some ca)
-    (safe : DistTableSafe ca offset s.distbits.toNat) (B : BitInv h l bs) :
-    ∃ result regs used,
-      runX (lookup1 c true) l h = .ok ((result, regs), h) ∧
-      used ≤ 2 ∧ used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      stream regs (bs.drop used) = stream l bs ∧ LookupRegShape l regs ∧
-      regs.bits.toNat = l.bits.toNat + 8 * used ∧ regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      regs.here = codeLookupValue ca offset s.distbits.toNat regs ∧
-      regs.here.bits.toNat ≤ 15 ∧
-      (if DistLink regs.here then LinkOK DistLeaf ca offset regs.here else DistLeaf 0 regs.here) ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → regs.here.bits.toNat ≤ regs.bits.toNat) ∧
-      (result = .error Ex.leave → regs.have_ = 0) := by
-  obtain ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, entryBound, classification, kinds, enough, empty, _⟩ := lookup1_dist_run_cursor hc hs pointer get safe B
-  exact ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, entryBound, classification, kinds, enough, empty⟩
-
-
 end Zlib.Inflate.Proofs

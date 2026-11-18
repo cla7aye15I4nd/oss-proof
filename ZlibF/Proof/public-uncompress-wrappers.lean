@@ -115,12 +115,6 @@ def SingleWithOn (Pre : Heap → Prop) (program : BPtr → BPtr → BPtr → UIn
           (got.toNat = out.length ∨ (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity)) ∧
           (rc = Z_MEM_ERROR → AllocationFailed h after))
 
-theorem counted_with_uncompressed (P : BPtr → BPtr → BPtr → BPtr → M Int32) (nl : Bool) :
-    CountedWith P nl Uncompressed = UncompressCounted P nl := rfl
-
-theorem single_with_uncompressed (P : BPtr → BPtr → BPtr → UInt64 → M Int32) (nl : Bool) :
-    SingleWith P nl Uncompressed = UncompressSingle P nl := rfl
-
 /-- The single-length wrapper on the heaps that satisfy `Pre`, a property that its length cell
 keeps. -/
 theorem single_of_counted_on {Pre : Heap → Prop} {P : BPtr → BPtr → BPtr → BPtr → M Int32} {nl : Bool}

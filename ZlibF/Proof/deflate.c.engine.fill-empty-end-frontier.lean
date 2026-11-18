@@ -54,19 +54,4 @@ theorem fill_empty_end_frontier_execution {h : Heap} {r : ZStreamRef} {ds origin
     exact ⟨paddedHeap h ds w d wa, paddedState d, run.1,
       padded_good boundary.good win get boundary.range, run.2⟩
 
-/-- The stronger frontier belongs to the same actual returned state used
-by the existing complete refill/content theorem. -/
-theorem fill_empty_run_end_frontier {h after : Heap} {r : ZStreamRef} {ds origin : Nat}
-    {z : ZStream} {d result : DeflateState} {xs : List Symbol} {input : Nat → UInt8}
-    (boundary : PendingBoundary h r ds z d input origin xs) (frontier : EndFrontier h d)
-    (empty : z.avail_in = 0) (run : fill_window (some (.tab ds)) h = .ok ((), after))
-    (live : after.dstates ds = some result) : EndFrontier after result := by
-  obtain ⟨other, otherD, otherRun, otherGood, otherEnd⟩ :=
-    fill_empty_end_frontier_execution boundary frontier empty
-  have heaps : other = after := (Prod.mk.inj (Except.ok.inj (otherRun.symm.trans run))).2
-  rw [heaps] at otherGood otherEnd
-  have stateEq : otherD = result := Option.some.inj (otherGood.live.hs.symm.trans live)
-  rw [← stateEq]
-  exact otherEnd
-
 end Zlib.Deflate.Engine.Proofs

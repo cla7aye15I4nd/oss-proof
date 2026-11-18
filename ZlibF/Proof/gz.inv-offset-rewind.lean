@@ -105,7 +105,7 @@ theorem gzrewind_inv {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) {fs 
       (fun hc => absurd hc (by show ¬ (LOOK = GZ_COPY); decide))
     exact post_gen inv hfs' hk hr inv1 rfl rfl _ inv.msg_owned own1 live1 fr1
 
-/-- `gzrewind`, from `rewind_public` restated to `GzInv` (`lseek` M3, `gz_reset`: local patch for R-3). -/
+/-- `gzrewind`, from `rewind_public` restated to `GzInv` (`lseek` M3, `gz_reset` leaves `x.next` unwritten). -/
 theorem gzrewind_step (i : Nat) : GzCallSafe i (.gzrewind (some (.in_gzstate_x i))) := by
   intro h fs s inv hfs _
   obtain ⟨r, fs', after, e, post⟩ := gzrewind_inv inv hfs

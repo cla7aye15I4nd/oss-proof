@@ -234,47 +234,4 @@ theorem matchCopyLoop_run {h : Heap} {l : IL} {dest source : BRef}
   have fromEnd : sourceOffset + 1 + (n - 1) = sourceOffset + n := by omega
   simp only [regs, outEnd, fromEnd]
 
-/-- Complete MATCH source with only its literal copy loop factored out. -/
-def matchCase (c : Ctx) : X Unit := do
-  let l ← get
-  -- if (left == 0) goto inf_leave;
-  if l.left == 0 then throw Ex.leave
-  -- copy = out - left;
-  let mut copy := l.out_ - l.left
-  let mut from_ : BPtr := l.from_
-  let s ← ldInflateState c.st
-  -- if (state->offset > copy) { /* copy from window */
-  if s.offset > copy then
-    -- copy = state->offset - copy;
-    copy := s.offset - copy
-    -- if (copy > state->whave) { if (state->sane) { ...BAD; break; } }
-    if copy > s.whave then
-      if s.sane != 0 then
-        badMode c "invalid distance too far back"
-        return
-    -- if (copy > state->wnext) { copy -= state->wnext; from = state->window + (state->wsize - copy); }
-    if copy > s.wnext then
-      copy := copy - s.wnext
-      from_ ← s.window.add ((s.wsize - copy).toNat : Int)
-    else
-      -- else from = state->window + (state->wnext - copy);
-      from_ ← s.window.add ((s.wnext - copy).toNat : Int)
-    -- if (copy > state->length) copy = state->length;
-    if copy > s.length then copy := s.length
-  else
-    -- from = put - state->offset; copy = state->length;
-    from_ ← l.put.add (-(s.offset.toNat : Int))
-    copy := s.length
-  -- if (copy > left) copy = left;
-  if copy > l.left then copy := l.left
-  -- left -= copy; state->length -= copy;
-  set { l with left := l.left - copy, copy := copy, from_ := from_ }
-  wrS c.st fun s => { s with length := s.length - copy }
-  -- do { *put++ = *from++; } while (--copy);
-  matchCopyLoop
-  -- if (state->length == 0) state->mode = LEN;
-  if (← rdS c.st (·.length)) == 0 then setMode c.st LEN
-
-theorem inflate_MATCH_copy_cut (c : Ctx) : inflate_MATCH c = matchCase c := rfl
-
 end Zlib.Inflate.Proofs

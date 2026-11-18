@@ -132,8 +132,12 @@ invariant carries it (clause `alloc`).
 
 `InflateHeaderProgress` exists because the C faults without it. In `EXTRA` the C copies to
 `head->extra + extra_len - length`. An `extra` buffer that overlaps the input is an overlapping
-`memcpy`, and a caller that lowers `extra_len` in mid-header makes the offset wrap. Both
-faults were reproduced with the real C under a sanitizer.
+`memcpy`, and an `extra_len` lowered in mid-header makes the offset wrap. Both
+faults were reproduced with the real C under a sanitizer. The premise is a condition on the
+record at each call, whoever wrote the field. `inflate` writes `extra_len` in the record attached
+to the stream, so with two streams attached to one record, as after `inflateCopy`, one stream can
+make the premise false for the other. Two streams attached to one header record are outside the
+goals.
 
 ## One call in outline
 
@@ -421,9 +425,11 @@ every one of them. Three places are the hardest.
 - The window holds the most recent `whave` bytes of output and dictionary, in order. This is a
   fact about meaning. It is not needed for safety and no safety theorem states it.
   **to confirm**.
-- Every pointer field of the state is written before it is read. `inflateInit2_` and
-  `inflateCopy` clear the new state with `zmemzero` before they use it, and the translation has
-  the same statement at the same place. No theorem states this fact, and none can in this
+- Every pointer field of a state made by `inflateInit2_` or `inflateCopy` is written before it
+  is read. These two functions clear the new state with `zmemzero` before they use it, and the
+  translation has the same statement at the same place. A state made by `inflateBackInit_` is not
+  cleared: its `strm` field is unwritten, and the state check reads it if an inflate function is
+  called on that stream ([model limits](../model-limits.md#representation-gaps-and-proof-obligations)). No theorem states this fact, and none can in this
   model: a pointer field in fresh memory reads as `NULL` there without a fault, so a missing
   write would not show ([safety](../spec/safety.md#uninitialised-memory)). **to confirm** by
   source review.

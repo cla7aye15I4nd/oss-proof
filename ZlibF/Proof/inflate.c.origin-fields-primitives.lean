@@ -42,9 +42,6 @@ theorem originFieldFrameM_ptr_lt [DecidableEq R] (r : ZStreamRef) (owner : Infla
   unfold Ptr.lt at run
   repeat' first | split at run | (cases run <;> exact OriginFieldFrame.refl r owner h)
 
-theorem originFieldFrameM_ptr_le [DecidableEq R] (r : ZStreamRef) (owner : InflateStatePtr) (p q : Ptr R) : OriginFieldFrameM r owner (p.le q) :=
-  originFieldFrameM_bind (originFieldFrameM_ptr_lt r owner q p) (fun _ => originFieldFrameM_pure r owner _)
-
 theorem originFieldFrameM_ldS (r : ZStreamRef) (owner : InflateStatePtr) (pointer : InflateStatePtr) : OriginFieldFrameM r owner (ldInflateState pointer) := by
   intro h value after run
   cases pointer with

@@ -59,31 +59,6 @@ theorem frame_cancel_local {h after : Heap} {changed : Nat → Prop}
     have preserved := objects b ((live_syncAlloc b).mpr (Or.inl live)) outside
     simpa only [syncAlloc, freeWin, syncBuf, upd_ne _ _ _ _ different] using preserved
 
-/-- The real local declaration and cleanup cancel from a produced caller
-slice. Its original readable byte view is the only alias exclusion needed. -/
-theorem buffer_frame_cancel_local {h after : Heap} {changed : Nat → Prop}
-    {ref : BRef} {off made : Nat} {array : Array UInt8}
-    (fresh : Fresh h) (get : Space.get h ref = some array)
-    (frame : BufferFrame (syncAlloc h) after changed [⟨.ref ref off, made⟩]) :
-    BufferFrame h (freeWin after (syncBuf h)) changed [⟨.ref ref off, made⟩] := by
-  have getAlloc := (byte_view_syncAlloc fresh get).1
-  have originalFrame : Frame (syncAlloc h) (Space.put after ref array) changed := by
-    simpa only [restoreRegions, List.foldl_cons, List.foldl_nil, getAlloc] using frame.1
-  have freedFrame := frame_cancel_local fresh originalFrame
-  rw [← byte_view_put_free_local fresh get array] at freedFrame
-  refine ⟨?_, ?_⟩
-  · simpa only [restoreRegions, List.foldl_cons, List.foldl_nil, get] using freedFrame
-  · intro region member dest start old pointer oldGet
-    have same : region = (⟨.ref ref off, made⟩ : Region) := by simpa only [List.mem_singleton] using member
-    subst region
-    have ptr : Ptr.ref ref off = Ptr.ref dest start := pointer
-    cases ptr
-    have oldEq : old = array := Option.some.inj (oldGet.symm.trans get)
-    subst old
-    obtain ⟨next, nextGet, size, outside⟩ :=
-      frame.2 ⟨.ref ref off, made⟩ (by simp) ref off array rfl getAlloc
-    exact ⟨next, (byte_view_free_local_get fresh get).trans nextGet, size, outside⟩
-
 /-- An entry refusal merely allocates and frees the local declaration.
 Every original byte view is retained, including null/empty bindings. -/
 theorem tmp_freed_buffer_frame {h : Heap} (fresh : Fresh h) (changed : Nat → Prop) (regions : List Region) :

@@ -60,9 +60,6 @@ theorem grp_head (bits hold : Nat) (rest : List Bool) (h3 : 3 ≤ bits) : grp0 (
   obtain ⟨k, rfl⟩ : ∃ k, bits = 3 + k := ⟨bits - 3, by omega⟩
   exact grp0_natBits k hold rest
 
-theorem grp_succ (S : List Bool) (t : Nat) : grp S t = grp (S.drop (3 * t)) 0 := by
-  simp [grp]
-
 /-! ## The array `lens` after the two loops -/
 
 /-- `lens[order[i0 + u]] = grp S u` for `u < t`. -/

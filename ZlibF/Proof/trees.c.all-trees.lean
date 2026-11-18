@@ -325,39 +325,6 @@ theorem send_all_trees_emit {h : Heap} {id b : Nat} {d : DeflateState} {buf : Ar
   rw [send_all_trees_eq]
   exact htrace.emit hcall
 
-/-- Construction facts from the two checked views of the same actual run
-hold on the same returned record. No callee specification is assumed. -/
-theorem init_tallies_all_tree_data {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (symbols : List (UInt32 × UInt32))
-    (hlegal : ∀ t ∈ symbols, t.2.toNat < 256 ∧ t.1.toNat ≤ 32768)
-    (hroom : 3 * symbols.length ≤ d.sym_end.toNat) :
-    ∃ (mb : Int32) (e : DeflateState) (buf' : Array UInt8),
-      (do init_block (Sp id); tallyCalls (Sp id) symbols
-          blPrepare (Sp id); build_bl_tree (Sp id)) h =
-        .ok (mb, Out.setD (Out.setB h b buf') id e) ∧
-      TreesInvAt (Out.setD (Out.setB h b buf') id e) id e b buf' ∧
-      AllTreeData e (e.l_desc.max_code.toInt.toNat + 1) (e.d_desc.max_code.toInt.toNat + 1) (mb.toInt.toNat + 1) ∧
-      3 ≤ mb.toInt ∧ mb.toInt ≤ 18 := by
-  obtain ⟨mb, e, buf', hr, hIe, hsend⟩ := init_tallies_ready_to_send hI symbols hlegal hroom
-  obtain ⟨mb2, e2, buf2, hr2, hlo, hhi, hlL, hlH, hdL, hdH, hlen, hupper, hI2⟩ :=
-    init_tallies_prepare_bl_fields hI symbols hlegal hroom
-  have heq := Prod.mk.inj (Except.ok.inj (hr.symm.trans hr2))
-  have hrecord := congrArg (fun H : Heap => H.dstates id) heq.2
-  simp only [Out.setD_dstates_same] at hrecord
-  have he : e = e2 := Option.some.inj hrecord
-  have hm : mb = mb2 := heq.1
-  subst e2
-  subst mb2
-  have hL := hsend .lit (by decide +kernel)
-  have hD := hsend .dist (by decide +kernel)
-  have hL0 := hL.nonneg
-  have hD0 := hD.nonneg
-  change 0 ≤ e.l_desc.max_code.toInt at hL0
-  change 0 ≤ e.d_desc.max_code.toInt at hD0
-  refine ⟨mb, e, buf', hr, hIe, ?_, hlo, hhi⟩
-  exact ⟨by omega, by omega, by omega, by omega, by omega, by omega,
-    by omega, by omega, hL, hD, hlen⟩
-
 /-- The actual count-argument expression in the dynamic flush branch.
 This fragment alone does not constitute a whole flush-block proof. -/
 def atCall (s : DeflateStatePtr) (mb : Int32) : M Unit := do
@@ -410,55 +377,5 @@ theorem atCall_emit {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt
   obtain ⟨bu, de, hrun, hInv, hbits, hsize, hframe, hlo, hhi, hdiff⟩ :=
     send_all_trees_emit hI lc dc bc L D B hLC hDC hBC hdata hr
   exact ⟨bu, de, hcall.trans hrun, hInv, hbits, hsize, hframe, hlo, hhi, hdiff⟩
-
-/-- A proof harness composing the actual block/tree/header calls. It is
-not a replacement translation of the flush or strategy functions. -/
-def atPrepared (s : DeflateStatePtr) (symbols : List (UInt32 × UInt32)) : M Unit := do
-  let mb ← do
-    init_block s
-    tallyCalls s symbols
-    blPrepare s
-    build_bl_tree s
-  atCall s mb
-
-/-- Grouping the actual construction calls does not change their order. -/
-theorem atPrepared_eq (s : DeflateStatePtr) (symbols : List (UInt32 × UInt32)) :
-    atPrepared s symbols = ((do init_block s; tallyCalls s symbols; blPrepare s; build_bl_tree s) >>= fun mb => atCall s mb) := by
-  unfold atPrepared
-  simp only [M_bind_assoc]
-
-/-- Actual construction establishes the writer data, and the actual
-computed-argument call emits the full modeled header when its exact bit
-room holds. Room is tested on the returned constructed state; it is still
-to be derived from block/overlay bounds. No output-prefix claim is made
-across the earlier symbol-buffer tally stores. -/
-theorem atPrepared_emit {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (symbols : List (UInt32 × UInt32))
-    (hlegal : ∀ t ∈ symbols, t.2.toNat < 256 ∧ t.1.toNat ≤ 32768)
-    (hcapacity : 3 * symbols.length ≤ d.sym_end.toNat) :
-    ∃ (mb : Int32) (built : DeflateState) (prepared : Array UInt8),
-      (do init_block (Sp id); tallyCalls (Sp id) symbols
-          blPrepare (Sp id); build_bl_tree (Sp id)) h =
-        .ok (mb, Out.setD (Out.setB h b prepared) id built) ∧
-      (let L := built.l_desc.max_code.toInt.toNat + 1
-       let D := built.d_desc.max_code.toInt.toNat + 1
-       let B := mb.toInt.toNat + 1
-       let bits := allTreesBits (blWords built) (sendLengths built .lit) (sendLengths built .dist) L D B
-       8 * built.pending.toNat + built.bi_valid.toInt.toNat + bits.length ≤ 8 * prepared.size →
-         ∃ (e : DeflateState) (buf' : Array UInt8),
-           atPrepared (Sp id) symbols h = .ok ((), Out.setD (Out.setB h b buf') id e) ∧
-           TreesInvAt (Out.setD (Out.setB h b buf') id e) id e b buf' ∧
-           outBits buf' e = outBits prepared built ++ bits ∧ BitsDiff built e) := by
-  obtain ⟨mb, built, prepared, hbuild, hIb, hdata, hlo, hhi⟩ :=
-    init_tallies_all_tree_data hI symbols hlegal hcapacity
-  refine ⟨mb, built, prepared, hbuild, ?_⟩
-  dsimp only
-  intro hroom
-  obtain ⟨buf', e, hcall, hIe, hbits, hsize, hframe, hplo, hphi, hdiff⟩ :=
-    atCall_emit hIb mb _ _ _ hdata (by omega) hroom
-  refine ⟨e, buf', ?_, ?_, hbits, hdiff⟩
-  · rw [atPrepared_eq, bind_app, hbuild]
-    simpa only [Out.setB_setD, Out.setB_setB, Out.setD_setD] using hcall
-  · simpa only [Out.setB_setD, Out.setB_setB, Out.setD_setD] using hIe
 
 end Zlib.Trees.Proofs

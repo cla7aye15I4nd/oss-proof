@@ -47,16 +47,6 @@ theorem content_data_unique {h : Heap} {r : ZStreamRef} {ds : Nat} {z z' : ZStre
   have b2 := content_base_eq two
   exact ⟨by omega, symbol_boundary_unique one.symbols two.symbols⟩
 
-/-- The origin of a boundary is fixed by the accepted input. -/
-theorem origin_of_accepted {d : DeflateState} {input input' : Nat → UInt8} {origin origin' : Nat}
-    {accepted : List UInt8}
-    (one : inputPrefix input (origin + fillEnd d) = accepted)
-    (two : inputPrefix input' (origin' + fillEnd d) = accepted) : origin = origin' := by
-  have l1 := congrArg List.length one
-  have l2 := congrArg List.length two
-  rw [input_prefix_length] at l1 l2
-  omega
-
 /-- **Setting the `BUSY_STATE` clause from one known boundary.** -/
 theorem busy_clause_of_data {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     {config : EngineConfig} {accepted observed : List UInt8}

@@ -32,9 +32,8 @@ def DeflateRefuses (z : ZStream) (s : DeflateState) (flush : Int32) : Prop :=
 
 def bound64 (n : Nat) : UInt64 := UInt64.ofNat (min n (2 ^ 64 - 1))
 
-/-- The wrapper length that `deflateBound` adds (`deflate.c`). For a gzip header with an extra
-field the C adds `2 + extra_len` computed at `unsigned int` width, so the sum wraps for `extra_len`
-`2^32 - 2` and `2^32 - 1` (a finding, `docs/en/findings.md`). -/
+/-- The wrapper length that `deflateBound` adds (`deflate.c` with patch 0007). For a gzip header with
+an extra field it adds `2` and the low 16 bits of `extra_len`, the length `deflate` writes. -/
 def WrapperLength (h : Heap) (s : DeflateState) (n : Nat) : Prop :=
   (s.wrap = 0 ∧ n = 0) ∨
   ((s.wrap = 1 ∨ s.wrap = -1) ∧ n = 6 + if s.strstart = 0 then 0 else 4) ∨
@@ -43,7 +42,7 @@ def WrapperLength (h : Heap) (s : DeflateState) (n : Nat) : Prop :=
       s.gzhead = some (.tab g) ∧ h.gzheaders g = some gh ∧
       (gh.name = .null ∧ name = [] ∨ CString h gh.name name) ∧
       (gh.comment = .null ∧ comment = [] ∨ CString h gh.comment comment) ∧
-      n = 18 + (if gh.extra = .null then 0 else ((2 : UInt32) + gh.extra_len).toNat) +
+      n = 18 + (if gh.extra = .null then 0 else 2 + (gh.extra_len &&& 0xffff).toNat) +
         (if gh.name = .null then 0 else name.length + 1) +
         (if gh.comment = .null then 0 else comment.length + 1) +
         (if gh.hcrc = 0 then 0 else 2)))

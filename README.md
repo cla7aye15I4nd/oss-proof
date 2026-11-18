@@ -60,7 +60,7 @@ two agree, not proof.
 ## Found in zlib
 
 Eight issues, each reached through documented calls: six are undefined behaviour or a memory
-error, two are a `deflateBound` that is too small. Seven patches fix seven of them; each patch is a
+error, two are a `deflateBound` that is too small. Seven patches fix all eight; each patch is a
 fix submitted upstream. The theorems are about the patched source.
 [Findings](https://www.dataisland.org/zlib-f/en/findings.html) has the table, and
 [patches](patches/README.md) describes each patch.

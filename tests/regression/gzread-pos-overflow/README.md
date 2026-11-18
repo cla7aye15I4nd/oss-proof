@@ -10,9 +10,9 @@ the `gzgetc()` macro and function, `gzclearerr`, `gzungetc` again, `gzdirect`, `
 `gzgets` across `INT64_MAX`.
 
 `run.sh` needs Linux, where `lseek` on `/dev/zero` succeeds without moving. It builds the pinned
-source twice under ASan and UBSan: with `patches/*.patch` except 0004, and with all of them. Before
-0004 each run must report a signed overflow of the position: in `gz_read`, in the `gzgetc()`
-macro in `devzero.c`, and in the `gzgetc` function. With 0004 nothing may be reported, and the reads end with `Z_DATA_ERROR`
+source twice under ASan and UBSan: with `patches/*.patch` except 0003, and with all of them. Before
+0003 each run must report a signed overflow of the position: in `gz_read`, in the `gzgetc()`
+macro in `devzero.c`, and in the `gzgetc` function. With 0003 nothing may be reported, and the reads end with `Z_DATA_ERROR`
 "position overflow".
 
 `report.txt` is the raw output of one run on x86_64 Linux (kernel 7.0, gcc 15.2).

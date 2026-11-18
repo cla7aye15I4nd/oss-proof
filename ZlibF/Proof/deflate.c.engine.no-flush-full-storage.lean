@@ -1,5 +1,6 @@
 import ZlibF.Proof.«deflate.c.engine.loop-full-storage»
-import ZlibF.Proof.«deflate.c.engine.ordinary-call-counters»
+import ZlibF.Proof.«deflate.c.engine.finish-call-counters»
+import ZlibF.Proof.«deflate.c.engine.no-flush-call-counters»
 
 /-! # Complete ordinary strategy heap frames -/
 

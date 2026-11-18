@@ -61,7 +61,7 @@ structure GzGood (h : Heap) (gs : Nat) (s : GzState) : Prop where
 
 /-- With buffered output (`x.have ≠ 0`), `x.next` can be advanced by up to `x.have` bytes: it points into a live array
 with `x.have` bytes after it, and not into the message block. With nothing buffered it says nothing: after a direct read
-`x.next` is left in the caller's buffer and can dangle (R-4), or it was never written (R-3); nothing reads it then, and
+`x.next` is left in the caller's buffer and can dangle, or it was never written; nothing reads it then, and
 the only arithmetic on it adds zero, which the runtime accepts for any pointer (`seekTail_fwd_empty`). -/
 def NextOk (h : Heap) (s : GzState) : Prop :=
   (s.x.«have» ≠ 0 →
@@ -134,10 +134,6 @@ theorem updZ_run {h : Heap} {gs : Nat} {s : GzState} (e : h.gzstates gs = some s
 
 /-! ### The arithmetic of the translation -/
 
-theorem i64chk_ok (r : Int) (h : -9223372036854775808 ≤ r ∧ r < 9223372036854775808) :
-    i64chk r = pure (Int64.ofInt r) := by
-  simp [i64chk, h]
-
 theorem i64add_run (a b : Int64) (hlo : -9223372036854775808 ≤ a.toInt + b.toInt)
     (hhi : a.toInt + b.toInt < 9223372036854775808) (h : Heap) :
     i64add a b h = .ok (Int64.ofInt (a.toInt + b.toInt), h) := by
@@ -152,21 +148,6 @@ theorem i64neg_run (a : Int64) (hlo : -9223372036854775808 ≤ -a.toInt)
     (hhi : -a.toInt < 9223372036854775808) (h : Heap) :
     i64neg a h = .ok (Int64.ofInt (-a.toInt), h) := by
   simp [i64neg, i64chk, hlo, hhi]
-
-theorem i64add_ub (a b : Int64) (h : Heap) (hb : ¬ (-9223372036854775808 ≤ a.toInt + b.toInt ∧ a.toInt + b.toInt < 9223372036854775808)) :
-    i64add a b h = .error (.ub "signed overflow (long)") := by
-  show i64chk _ h = _
-  unfold i64chk; simp only [hb, ite_false]; rfl
-
-theorem i64sub_ub (a b : Int64) (h : Heap) (hb : ¬ (-9223372036854775808 ≤ a.toInt - b.toInt ∧ a.toInt - b.toInt < 9223372036854775808)) :
-    i64sub a b h = .error (.ub "signed overflow (long)") := by
-  show i64chk _ h = _
-  unfold i64chk; simp only [hb, ite_false]; rfl
-
-theorem i64neg_ub (a : Int64) (h : Heap) (hb : ¬ (-9223372036854775808 ≤ -a.toInt ∧ -a.toInt < 9223372036854775808)) :
-    i64neg a h = .error (.ub "signed overflow (long)") := by
-  show i64chk _ h = _
-  unfold i64chk; simp only [hb, ite_false]; rfl
 
 theorem bmod64 (n : Int) (h1 : -9223372036854775808 ≤ n) (h2 : n < 9223372036854775808) :
     n.bmod Int64.size = n := by
@@ -293,8 +274,5 @@ theorem freeB_null (h : Heap) : freeB .null h = .ok ((), h) := rfl
 @[simp] theorem freeStr_null (h : Heap) : freeStr h .null = h := rfl
 
 @[simp] theorem freeStr_blk (h : Heap) (b : Nat) : freeStr h (.ref (.blk b) 0) = { h with bytes := upd h.bytes b none } := rfl
-
-/-- The block numbers a handle's strings and buffers take. -/
-def blocksOf (s : GzState) : List Nat := [s.path, s.msg, s.in, s.out].filterMap ptrBlk
 
 end Zlib.Gzlib.Proofs

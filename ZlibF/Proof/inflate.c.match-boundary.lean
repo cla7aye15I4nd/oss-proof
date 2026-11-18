@@ -109,31 +109,4 @@ theorem inflate_MATCH_boundary_ranges {c : Ctx} {h : Heap} {r : ZStreamRef} {zs 
       rw [UInt32.toNat_sub_of_le _ _ (by exact copyLeft)]
       omega
 
-/-- Projection retaining the earlier positional separation premise. -/
-theorem inflate_MATCH_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (tables : DataTablesSafe h s)
-    {l : IL} {bs : List UInt8} (B : BitInv h l bs) {dest : BRef} {output : Array UInt8} {outOffset : Nat}
-    (put : l.put = .ref dest outOffset) (get : Space.get h dest = some output) (write : Space.ro h dest = false)
-    (mode : s.mode = MATCH) (length : 0 < s.length.toNat) (offset : 0 < s.offset.toNat) (sane : s.sane ≠ 0)
-    (room : outOffset + l.left.toNat ≤ output.size)
-    (count : l.left.toNat ≤ l.out_.toNat) (produced : l.out_.toNat - l.left.toNat ≤ outOffset)
-    (privateWindow : ∀ w, s.window = .ref (.blk w) 0 → dest ≠ .blk w)
-    (inputSeparate : ∀ i, l.next = .ref dest i → i + bs.length ≤ outOffset ∨ outOffset + l.left.toNat ≤ i) :
-    ∃ outcome regs after stream state,
-      runX (inflate_MATCH c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ BitInv after regs bs ∧
-      DecodeStateFrame s state ∧
-      ((outcome = .error Ex.leave ∧ regs = l ∧ after = h ∧ state = s) ∨
-       (outcome = .ok () ∧ state.mode = BAD ∧ regs = l ∧
-         ∃ i, strTable[i]? = some "invalid distance too far back" ∧ after = badHeap h r zs z s i) ∨
-       (outcome = .ok () ∧ ∃ copy source sourceOffset saved,
-         0 < copy.toNat ∧ copy.toNat ≤ l.left.toNat ∧ copy.toNat ≤ s.length.toNat ∧
-         regs = { l with left := l.left - copy, copy := 0, put := .ref dest (outOffset + copy.toNat), from_ := .ref source (sourceOffset + copy.toNat) } ∧
-         after = setI (Space.put h dest (ZlibF.Math.InflateMatchCopy.copy (decide (source = dest)) saved
-           copy.toNat sourceOffset outOffset output)) zs state ∧
-         state = matchEmitState s copy ∧ state.length.toNat = s.length.toNat - copy.toNat ∧
-         (state.mode = LEN ∨ state.mode = MATCH) ∧ regs.left.toNat < l.left.toNat)) := by
-  exact inflate_MATCH_boundary_ranges E good tables B put get write mode length offset sane
-    room count produced privateWindow (Or.inr inputSeparate)
-
 end Zlib.Inflate.Proofs

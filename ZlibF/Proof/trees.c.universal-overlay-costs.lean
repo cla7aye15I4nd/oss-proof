@@ -54,12 +54,6 @@ theorem mass_mul_add (f g w : Nat → Nat) (n : Nat) :
   intro k _
   rw [Nat.add_mul]
 
-theorem flatten_replicate_length (l : List Bool) (n : Nat) :
-    (List.replicate n l).flatten.length = n * l.length := by
-  induction n with
-  | zero => simp
-  | succ n ih => simp [List.replicate_succ, ih, Nat.succ_mul, Nat.add_comm]
-
 /-- **One run**: what `send_tree` emits for a finished run has the length of the bit-length
 symbols `scan_tree` counts for it, each at its code length plus extra bits. -/
 theorem runBits_length (blt : Nat → UInt16 × UInt16) (o : Option (Nat × Int × Nat × Nat))

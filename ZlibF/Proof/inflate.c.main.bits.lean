@@ -79,20 +79,6 @@ theorem bytesBits_length (bs : List UInt8) : (bytesBits bs).length = 8 * bs.leng
   | nil => rfl
   | cons b bs ih => rw [bytesBits_cons]; simp [natBits_length, ih]; omega
 
-theorem bytesBits_drop (bs : List UInt8) (j : Nat) :
-    (bytesBits bs).drop (8 * j) = bytesBits (bs.drop j) := by
-  induction bs generalizing j with
-  | nil => simp [bytesBits]
-  | cons b bs ih =>
-    cases j with
-    | zero => simp
-    | succ j =>
-      rw [bytesBits_cons, show 8 * (j + 1) = 8 + 8 * j by omega, ← List.drop_drop,
-        List.drop_append_of_le_length (by simp [natBits_length]),
-        List.drop_eq_nil_of_le (as := natBits 8 b.toNat) (by simp [natBits_length]),
-        List.nil_append, ih]
-      simp
-
 theorem natBits_testBit : ∀ k n, natBits k n = (List.range k).map fun i => n.testBit i
   | 0, _ => rfl
   | k + 1, n => by

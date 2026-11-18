@@ -7,15 +7,6 @@ import ZlibF.Proof.«inflate.c.reset»
 namespace Zlib.Inflate.Spec
 open C
 
-/-- The window bits and wrapper a `windowBits` argument asks for, as `(wrap, wbits)`, and `none` when it is refused
-(`docs/en/spec/api/inflate-stream.md`): negative values (raw, `-15` to `-8`) have wrapper 0; 0 and 8 to 15 give
-wrapper 5, 16 and 24 to 31 give 6, 32 and 40 to 47 give 7; everything else is refused. -/
-def reset2Req (w : Int) : Option (Int × Int) :=
-  match (if w < 0 then (if w < -15 then none else some ((0 : Int), -w))
-         else some (w / 16 + 5, if w < 48 then w % 16 else w)) with
-  | none => none
-  | some (wrap, wb) => if wb ≠ 0 ∧ (wb < 8 ∨ 15 < wb) then none else some (wrap, wb)
-
 /-- The window bits are refused: not 0 and not 8 to 15. -/
 def badBits (wb : Int32) : Bool := wb != 0 && (wb < 8 || wb > 15)
 
@@ -47,12 +38,6 @@ theorem int32_shr4 (w : Int32) : (w >>> 4).toInt = w.toInt / 16 := by
   have h4 : ((4 : Int32).toBitVec.smod 32).toNat = 4 := by decide
   rw [h4]
   rfl
-
-theorem int32_neg (w : Int32) (h1 : -15 ≤ w.toInt) (h2 : w.toInt < 0) : (-w).toInt = - w.toInt := by
-  rw [Int32.toInt_neg]
-  have := w.toInt_lt
-  have := w.le_toInt
-  rw [Int.bmod_eq_of_le (by omega) (by omega)]
 
 /-- `int` constants of the C, as integers. -/
 theorem int32_ofInt_toInt (k : Int) (h1 : -2147483648 ≤ k) (h2 : k < 2147483648) : (Int32.ofInt k).toInt = k := by

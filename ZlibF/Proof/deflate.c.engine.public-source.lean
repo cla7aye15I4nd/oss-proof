@@ -1,4 +1,4 @@
-import ZlibF.Proof.«deflate.c.engine.loop-entry»
+import ZlibF.Proof.«deflate.c.engine.slow-loop»
 import ZlibF.Proof.«deflate.c.engine.pending-output»
 
 /-! # Source cut points for the public compressor entry

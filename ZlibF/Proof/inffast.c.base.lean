@@ -52,9 +52,6 @@ theorem Wp.ite {α : Type} {c : Prop} [Decidable c] {m1 m2 : M α} {h : Heap} {Q
 theorem Wp.of_eq {α : Type} {m : M α} {h h' : Heap} {a : α} (e : m h = .ok (a, h')) {Q : α → Heap → Prop}
     (hq : Q a h') : Wp m h Q := ⟨a, h', e, hq⟩
 
-theorem Wp.of_ok {α : Type} {m : M α} {h : Heap} {a : α} (e : OkOn h m a) {Q : α → Heap → Prop}
-    (hq : Q a h) : Wp m h Q := ⟨a, h, e, hq⟩
-
 theorem Wp.cwhile {σ : Type} {cond : σ → M (Bool × σ)} {body : σ → M σ} (Inv : σ → Heap → Prop) (μ : σ → Nat)
     (Q : σ → Heap → Prop)
     (hstep : ∀ s h, Inv s h →

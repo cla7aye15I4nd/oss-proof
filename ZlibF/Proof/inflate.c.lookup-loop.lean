@@ -147,30 +147,4 @@ theorem lookupLoop_run_cursor {body : X Bool} {h : Heap} {l : IL} {bs : List UIn
   exact ⟨result, regs, used, run, atMostTwo, usedBound, inv, sameStream, shape, count, bitBound,
     selected, entryBits, kinds, enough, empty, cursor⟩
 
-/-- Projection retaining the original checked lookup-loop contract. -/
-theorem lookupLoop_run {body : X Bool} {h : Heap} {l : IL} {bs : List UInt8}
-    (query : IL → Code) (need : Code → UInt32)
-    (stable : ∀ current, query { current with here := query current } = query current)
-    (bound : ∀ current, (need (query current)).toNat ≤ 15)
-    (bodyRun : ∀ current, LookupRegShape l current →
-      runX body current h =
-        if need (query current) ≤ current.bits then
-          .ok ((.ok true, { current with here := query current }), h)
-        else runX (do PULLBYTE; pure false : X Bool) { current with here := query current } h)
-    (B : BitInv h l bs) :
-    ∃ result regs used,
-      runX (xloopBrk body) l h = .ok ((result, regs), h) ∧
-      used ≤ 2 ∧ used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      stream regs (bs.drop used) = stream l bs ∧ LookupRegShape l regs ∧
-      regs.bits.toNat = l.bits.toNat + 8 * used ∧
-      regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      regs.here = query regs ∧ (need regs.here).toNat ≤ 15 ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → (need regs.here).toNat ≤ regs.bits.toNat) ∧
-      (result = .error Ex.leave → regs.have_ = 0) := by
-  obtain ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, width, kinds, enough, empty, _⟩ := lookupLoop_run_cursor query need stable bound bodyRun B
-  exact ⟨result, regs, used, run, two, usedBound, inv, bits, shape, count, bitBound,
-    selected, width, kinds, enough, empty⟩
-
 end Zlib.Inflate.Proofs

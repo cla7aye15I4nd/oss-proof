@@ -74,9 +74,6 @@ theorem live_of_gz {H : Heap} {x : Nat} {t : GzState} (g : H.gzstates x = some t
 theorem live_of_bytes {H : Heap} {x : Nat} {a : Array UInt8} (g : H.bytes x = some a) : H.live x := by
   simp [Heap.live, g]
 
-theorem live_of_words {H : Heap} {x : Nat} {a : Array UInt16} (g : H.words x = some a) : H.live x := by
-  simp [Heap.live, g]
-
 theorem live_of_dstates {H : Heap} {x : Nat} {d : DeflateState} (g : H.dstates x = some d) : H.live x := by
   simp [Heap.live, g]
 
@@ -227,8 +224,6 @@ theorem nodup2 {a b : Nat} (h : a ≠ b) : [a, b].Nodup := by
 
 theorem nodup3 {a b c : Nat} (h1 : a ≠ b) (h2 : a ≠ c) (h3 : b ≠ c) : [a, b, c].Nodup := by
   simp [h1, h2, h3]
-
-theorem blkOf_null : blkOf (.null : BPtr) = none := rfl
 
 theorem msg_of_blkOf {h : Heap} {i : Nat} {s : GzState} (cm : GzCommon h i s) {b : Nat}
     (e : blkOf s.msg = some b) : s.msg = .ref (.blk b) 0 := by

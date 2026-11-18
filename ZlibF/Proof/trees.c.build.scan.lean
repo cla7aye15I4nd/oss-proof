@@ -303,19 +303,4 @@ theorem ws_btScan {h0 : Heap} {id : Nat} (tk : TK) (d : DeflateState) (elems : I
     have hkN : k = N := by omega
     exact ⟨by dsimp; omega, by simpa only [hkN] using hi⟩
 
-/-- Any scanned symbol absent from the resulting heap has length zero.
-This derives the inactive-symbol condition needed after tree construction. -/
-theorem BTScanInv.absent_zero {tk : TK} {d e : DeflateState} {k : Nat} {mc : Int32}
-    (hi : BTScanInv tk d k mc e) (hT : k ≤ (tk.arr d).size) (v : Nat) (hv : v < k)
-    (habsent : ∀ q : Nat, 1 ≤ q → (q : Int) ≤ e.heap_len.toInt → (e.heap[q]!).toInt ≠ v) :
-    ((tk.arr e)[v]!).dl = 0 := by
-  obtain ⟨T, H, D, hl, rfl, hsT, hsH, hsD, hhl, hmc, ht, hd, hh, hvalid, hinj, hcomplete⟩ := hi
-  have hfreq : btFreq tk d v = 0 := by
-    apply Classical.byContradiction
-    intro hf
-    obtain ⟨q, hq1, hq2, hqv⟩ := hcomplete v hv hf
-    exact habsent q hq1 (by simp only [btScanState_len]; omega) hqv
-  simp only [btScanState_tree]
-  rw [ht v (by omega), ite_eq_left ⟨hv, hfreq⟩]
-
 end Zlib.Trees.Proofs

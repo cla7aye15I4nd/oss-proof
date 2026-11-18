@@ -14,20 +14,6 @@ namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public
 set_option autoImplicit false
 
-theorem not_gzip_of_default {w : Int32} (value : w = 0 ∨ w = 1 ∨ w = 5) : ¬ GzipAllowed w := by
-  unfold GzipAllowed
-  rcases value with v | v | v <;> rw [v] <;> decide
-
-/-- Without gzip, `flags` is the unread sentinel or the zlib value 0. -/
-theorem InflateInv.default_flags {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
-    {s : InflateState} (current : InflateInv h r zs z s) (notGzip : ¬ GzipAllowed s.wrap) :
-    s.flags = -1 ∨ s.flags = 0 := by
-  by_cases unread : s.flags = -1
-  · exact Or.inl unread
-  · by_cases zero : s.flags = 0
-    · exact Or.inr zero
-    · exact absurd (current.phase.gzipFlags unread zero) notGzip
-
 theorem InflateInv.to_origin {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
     {s : InflateState} (current : InflateInv h r zs z s)
     (platform : ZlibF.PlatformMemory.ByteObjectsFit h) :

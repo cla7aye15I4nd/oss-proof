@@ -111,29 +111,6 @@ theorem inflate_MATCH_output_step_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStre
           have lengthNat := UInt32.toNat_sub_of_le s.length copy copyLength
           exact ⟨by omega, by omega, by trivial, by trivial, by trivial⟩
 
-/-- Projection retaining the earlier exact output-accounting step. -/
-theorem inflate_MATCH_output_step {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (tables : DataTablesSafe h s)
-    (B : BitInv h l bs) (output : OutputCursorInvariant h r l)
-    (separate : Separate l.next l.have_.toNat l.put l.left.toNat)
-    (mode : s.mode = MATCH) (length : 0 < s.length.toNat) (offset : 0 < s.offset.toNat) (sane : s.sane ≠ 0) :
-    ∃ outcome regs after stream state made,
-      runX (inflate_MATCH c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ BitInv after regs bs ∧
-      OutputCursorInvariant after r regs ∧ Separate regs.next regs.have_.toNat regs.put regs.left.toNat ∧
-      ByteViewSizes h after ∧ DecodeStateFrame s state ∧ EmitRegFrame l regs ∧
-      regs.left.toNat + made = l.left.toNat ∧ regs.put = inputAdvance l.put made ∧
-      Zlib.Inflate.Proofs.stream regs bs = Zlib.Inflate.Proofs.stream l bs ∧
-      ((outcome = .error Ex.leave ∧ made = 0) ∨
-        (outcome = .ok () ∧ state.mode = BAD ∧ made = 0) ∨
-        (outcome = .ok () ∧ 0 < made ∧ (state.mode = LEN ∨ state.mode = MATCH))) := by
-  obtain ⟨outcome, regs, after, stream, state, made, run, finalGood, data, inv,
-    output, separate, sizes, stateFrame, regFrame, count, put, bits, kinds, _, _⟩ :=
-      inflate_MATCH_output_step_frame E good tables B output separate mode length offset sane
-  exact ⟨outcome, regs, after, stream, state, made, run, finalGood, data, inv,
-    output, separate, sizes, stateFrame, regFrame, count, put, bits, kinds⟩
-
 /-- MATCH preserves the same complete buffer relation used by the next
 dispatch iteration. Its residual guard is suitable for a resumed match. -/
 theorem inflate_MATCH_dispatch {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}

@@ -119,13 +119,6 @@ theorem snprintf_error_any {h : Heap} {b : Nat} {a : Array UInt8}
     ite_true, hnum, Nat.add_sub_cancel, Nat.min_self, Array.extract_size]
   simpa only [m_bind_assoc, m_pure_bind] using result
 
-/-- `storedMessageHeap` as one record update (its parts are private to the store module). -/
-theorem stored_eq (h : Heap) (b : Nat) (a out : Array UInt8) :
-    storedMessageHeap h b a out =
-      { h with bytes := upd (upd (upd (upd h.bytes h.nextBlk (some out)) b (some (copyRange a out 0 0 out.size)))
-                          h.nextBlk none) b (some (out.push 0)),
-               ro := upd h.ro h.nextBlk false, nextBlk := h.nextBlk + 1 } := rfl
-
 /-! ## The blocks of the owned pointers -/
 
 section owned

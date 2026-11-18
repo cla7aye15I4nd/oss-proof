@@ -261,27 +261,6 @@ theorem inflate_COPY_boundary_frame {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : 
         (byte_view_put_shape outputGet write array).trans
           (shape_setI (by rw [byte_view_put_istates]; exact good.live.hs) state)⟩
 
-/-- Projection retaining the original complete COPY boundary. -/
-theorem inflate_COPY_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = COPY) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (state : InflateState) (made : Nat),
-      made ≤ bs.length ∧ runX (inflate_COPY c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs z state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧
-      DispatchBuffers after r regs (bs.drop made) ∧ ByteViewSizes h after ∧ DecodeStateFrame s state ∧
-      regs.next = inputAdvance l.next made ∧ regs.have_.toNat + made = l.have_.toNat ∧
-      regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧
-      regs.bits = l.bits ∧ regs.hold = l.hold ∧
-      ((outcome = .error Ex.leave ∧ made = 0 ∧ state = s) ∨
-        (outcome = .ok () ∧ made = 0 ∧ state.mode = TYPE) ∨
-        (outcome = .ok () ∧ 0 < made ∧ state.mode = COPY ∧ state.length.toNat + made = s.length.toNat)) := by
-  obtain ⟨outcome, regs, after, state, made, bound, run, current, tables, nextPending,
-    packet, sizes, frame, next, haveCount, put, left, bits, hold, kinds, _, _⟩ :=
-    inflate_COPY_boundary_frame E good pending buffers mode
-  exact ⟨outcome, regs, after, state, made, bound, run, current, tables, nextPending,
-    packet, sizes, frame, next, haveCount, put, left, bits, hold, kinds⟩
-
 /-- The real COPY_ entry normalizes its mode and executes the complete
 public-view COPY boundary on that same heap. -/
 theorem inflate_COPY_start_boundary_frame {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -315,26 +294,5 @@ theorem inflate_COPY_start_boundary_frame {c : Ctx} {h : Heap} {r : ZStreamRef} 
   exact ⟨outcome, regs, after, state, made, bound, (inflate_COPY__eq E l).trans run,
     current, tables, nextPending, packet, (byte_view_sizes_setI h zs ready).trans sizes,
     DecodeStateFrame.trans (by rfl) frame, next, haveCount, put, left, bits, hold, kinds, static, (shape_setI good.live.hs ready).trans shape⟩
-
-/-- Projection retaining the original complete COPY_ boundary. -/
-theorem inflate_COPY_start_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = COPY_) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (state : InflateState) (made : Nat),
-      made ≤ bs.length ∧ runX (inflate_COPY_ c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs z state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧
-      DispatchBuffers after r regs (bs.drop made) ∧ ByteViewSizes h after ∧ DecodeStateFrame s state ∧
-      regs.next = inputAdvance l.next made ∧ regs.have_.toNat + made = l.have_.toNat ∧
-      regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧
-      regs.bits = l.bits ∧ regs.hold = l.hold ∧
-      ((outcome = .error Ex.leave ∧ made = 0 ∧ state = { s with mode := COPY }) ∨
-        (outcome = .ok () ∧ made = 0 ∧ state.mode = TYPE) ∨
-        (outcome = .ok () ∧ 0 < made ∧ state.mode = COPY ∧ state.length.toNat + made = s.length.toNat)) := by
-  obtain ⟨outcome, regs, after, state, made, bound, run, current, tables, nextPending,
-    packet, sizes, frame, next, haveCount, put, left, bits, hold, kinds, _, _⟩ :=
-    inflate_COPY_start_boundary_frame E good pending buffers mode
-  exact ⟨outcome, regs, after, state, made, bound, run, current, tables, nextPending,
-    packet, sizes, frame, next, haveCount, put, left, bits, hold, kinds⟩
 
 end Zlib.Inflate.Proofs

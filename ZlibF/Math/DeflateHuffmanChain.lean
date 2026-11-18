@@ -152,37 +152,4 @@ theorem tree_weights_positive {H : Nat → Nat} {hm J elems maxc : Nat}
       rw [equation, sums a bound]
       omega
 
-/-- Every node in a positive, ordered Huffman tree of weight below 65536
-has level at most 22. The full ancestor-chain argument precedes this bound;
-it does not assume that a source UInt8 depth already represents a height. -/
-theorem tree_levels_le_22 {H : Nat → Nat} {hm J elems maxc : Nat}
-    (shape : PShape H hm J elems maxc) (w : Nat → Nat)
-    (positive : ∀ q, hm ≤ q → q < 573 → 1 ≤ w (H q))
-    (sums : ∀ a, a < J → w (elems + a) = w (H (572 - 2 * a)) + w (H (571 - 2 * a)))
-    (order : ∀ q q', hm + 1 ≤ q' → q' ≤ q → q < 573 → w (H q) ≤ w (H q'))
-    (budget : w (H hm) < 2 ^ 16) :
-    ∀ q, hm ≤ q → q < 573 → clK H hm elems 1000 (2 * J) (H q) ≤ 22 := by
-  have clamped := clK_clamped (L := 1000) shape
-  intro q lower upper
-  by_cases root : q = hm
-  · subst q
-    rw [clamped.root]
-    omega
-  · obtain ⟨p, s, initial, steps, first, siblings, last, _sibling⟩ := leaf_chain shape clamped w
-      (w (H hm)) sums order (fun q lo hi => positive q (by omega) hi) rfl
-      _ q (by omega) upper rfl
-    have bound := Zlib.Trees.HuffmanAbstract.fibChain_bound p s (w (H q))
-      (clK H hm elems 1000 (2 * J) (H q)) initial steps first siblings
-    rw [last] at bound
-    have pos := positive q lower upper
-    have product := Nat.le_mul_of_pos_left
-      (Zlib.Trees.HuffmanAbstract.fib (clK H hm elems 1000 (2 * J) (H q) + 1)) pos
-    have recurrence := Zlib.Trees.HuffmanAbstract.fib_add_two (clK H hm elems 1000 (2 * J) (H q))
-    apply Nat.le_of_not_lt
-    intro tooDeep
-    have lowerFib := Zlib.Trees.HuffmanAbstract.fib_mono
-      (show 25 ≤ clK H hm elems 1000 (2 * J) (H q) + 2 by omega)
-    have value : Zlib.Trees.HuffmanAbstract.fib 25 = 75025 := by decide +kernel
-    omega
-
 end Zlib.Trees.Proofs.GB

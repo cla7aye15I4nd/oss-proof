@@ -208,13 +208,6 @@ theorem views_setD {h hW : Heap} {ds : Nat} {d d' : DeflateState} (hs : h.dstate
     change some (setD hW ds d').static.length_code = some h.static.length_code
     rw [show (setD hW ds d').static = h.static from static]
 
-theorem depth_setD {h : Heap} {ds : Nat} {d d' : DeflateState} (hs : h.dstates ds = some d)
-    (depth : d'.depth = d.depth) (i : Nat) :
-    ((setD h ds d').dstates i).map (·.depth) = (h.dstates i).map (·.depth) := by
-  by_cases e : i = ds
-  · subst e; rw [setD_dstates_same, hs]; simp [depth]
-  · rw [setD_dstates_ne _ _ _ _ e]
-
 theorem owned_frame_setD (h : Heap) (r : ZStreamRef) (ds : Nat) (d d' : DeflateState) :
     Frame h (setD h ds d') (fun b => StreamRoot r b ∨ DeflateOwned ds d b) :=
   full_frame_weaken (state_store_full_frame h ds d') (fun _ e => Or.inr (Or.inl e))
@@ -998,18 +991,5 @@ theorem params_callfacts (deflateCall : DeflateCallFact) (deflateCalls : Deflate
       ⟨v, stop⟩ | ⟨afterK, dF, tailRun, invF, -, -, -, -, -, -, -, -, -, -, keep⟩
     · exact finalInv (flushRun v after1 stop) inv1 calls1
     · exact finalInv (flushRun _ _ tailRun) invF (keep calls1)
-
-/-- **The final state of the call**, with the invariant and the header
-facts beside it. -/
-theorem params_body (deflateCall : DeflateCallFact) (deflateHeader : DeflateHeaderFact)
-    {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (inv : DInv h r ds z d) (headerInv : HeaderInv d) (calls : CallFacts d) (level strategy : Int32) (buffers : StreamBuffers h r) (act : ActiveHeader h r) :
-    ∃ rc after ds' zF dF, C.run (Zlib.Deflate.deflateParams (some r) level strategy) h = .ok (rc, after) ∧
-      DInv after r ds' zF dF ∧ (HeaderInv d → HeaderInv dF) := by
-  obtain ⟨value, after, run, ⟨ds', zF, dF, invF⟩, -, -⟩ := step_params deflateCall inv headerInv calls level strategy
-    buffers act
-  have run' : C.run (Zlib.Deflate.deflateParams (some r) level strategy) h = .ok (value, after) := heapCall_ok run
-  exact ⟨value, after, ds', zF, dF, run', invF,
-    fun header => params_header deflateCall deflateHeader inv calls header buffers act run' invF⟩
 
 end Zlib.Deflate.Universal

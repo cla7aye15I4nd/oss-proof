@@ -1,6 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.header-caller»
 import ZlibF.Proof.«deflate.c.engine.finish-entry»
-import ZlibF.Proof.«deflate.c.engine.public-finish-ready»
+import ZlibF.Proof.«deflate.c.engine.finish-status»
+import ZlibF.Proof.«deflate.c.engine.finish-ready-call»
 
 /-! # Initial FINISH header and its initialized engine boundary -/
 

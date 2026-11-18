@@ -80,13 +80,6 @@ theorem bi_flush_emit {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : 
   exact ⟨buf', d', e, hi, by simpa using ho, hs, hf, hl, hu, ⟨p, a, v, d.bi_used, by rw [hd]⟩⟩
 
 
-/-- **`bi_windup` as an emission.** -/
-theorem bi_windup_emit {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (hroom : 8 * d.pending.toNat + d.bi_valid.toInt.toNat ≤ 8 * buf.size) :
-    Emit id b (bi_windup (some (.tab id))) h d buf (List.replicate ((8 - d.bi_valid.toInt.toNat % 8) % 8) false) 2 := by
-  obtain ⟨buf', d', e, hi, ho, -, -, -, hs, hf, hl, hu, p, u, hd⟩ := bi_windup_spec hI hroom
-  exact ⟨buf', d', e, hi, ho, hs, hf, hl, hu, ⟨p, 0, 0, u, by rw [hd]⟩⟩
-
 theorem u16i_toInt (x : UInt16) : (u16i x).toInt = x.toNat := by
   unfold u16i
   have := x.toNat_lt

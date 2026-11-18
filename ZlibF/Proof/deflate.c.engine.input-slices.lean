@@ -6,23 +6,6 @@ namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 set_option autoImplicit false
 
-/-- Public buffer validity and the actual entry's null-input check supply
-a full caller input snapshot. Null input is admitted exactly when empty. -/
-theorem caller_input_full_snapshot {h : Heap} {r : ZStreamRef} {ds : Nat}
-    {z : ZStream} {d : DeflateState} (good : DGood h r ds z d)
-    (buffers : StreamBuffers h r) (valid : z.avail_in ≠ 0 → z.next_in ≠ .null) :
-    ∃ bytes, Bytes h z.next_in z.avail_in.toNat bytes := by
-  obtain ⟨old, get, input, _output, _separate⟩ := buffers
-  have equal : old = z := Option.some.inj (get.symm.trans good.live.hz)
-  subst old
-  rcases input with null | ⟨bytes, _writable, _outside⟩
-  · have empty : z.avail_in = 0 := by
-      by_cases empty : z.avail_in = 0
-      · exact empty
-      · exact False.elim (valid empty null)
-    exact ⟨[], Or.inl ⟨null, by rw [empty]; rfl, rfl⟩⟩
-  · exact bytes
-
 /-- A readable range contains precisely its declared number of bytes. -/
 theorem caller_bytes_length {h : Heap} {p : BPtr} {n : Nat} {xs : List UInt8}
     (bytes : Bytes h p n xs) : xs.length = n := by

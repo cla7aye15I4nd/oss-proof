@@ -115,9 +115,6 @@ def initStreamRec (h : Heap) (source : BPtr) : ZStream :=
   resetKeepStream (initStream2 (preStream h source) (h.nextBlk + 2))
     (resetPre (reset2Pre 5 15 (initState (.tab h.nextBlk))))
 
-theorem preStream_alloc (h : Heap) (source : BPtr) :
-    (preStream h source).zalloc = .null ∧ (preStream h source).zfree = .null := ⟨rfl, rfl⟩
-
 theorem init_ok_run {h : Heap} (fresh : Fresh h) (source : BPtr) (ok : h.allocOk h.nalloc = true) :
     inflateInit_ (some (.tab h.nextBlk)) (.ref (.str 57) 0) 112 (preHeap h source) =
       .ok (Z_OK, initHeap h source) := by

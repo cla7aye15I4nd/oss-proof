@@ -300,7 +300,7 @@ open ZlibF.Spec.Public
 set_option autoImplicit false
 
 /-- `gzopen`: mode parsing, path copy, `open` (M5), the append `lseek`, the reader's start `lseek` (M3), and
-`gz_reset` (relies on the local patch for R-3). NULL for a NULL path or mode, a bad mode, a failed allocation
+`gz_reset` (`gz_reset` leaves `x.next` unwritten). NULL for a NULL path or mode, a bad mode, a failed allocation
 or a failed `open`, with nothing left behind. A path longer than `INT_MAX` is copied whole (`snprintf` returns
 -1, which `gz_open` ignores). -/
 theorem gzopen_safe : GzOpenSafe Zlib.Gzlib.gzopen := Zlib.Gzlib.Proofs.gzopen_safe_proof

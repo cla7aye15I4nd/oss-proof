@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.pending-entry»
+import ZlibF.Proof.«inflate.c.pending-dispatch»
+import ZlibF.Proof.«inflate.c.dispatch-entry»
 import ZlibF.Proof.«inflate.c.checksum-view»
 import ZlibF.Proof.«inflate.c.table-prime»
 import ZlibF.Proof.«inflate.c.window-compose»

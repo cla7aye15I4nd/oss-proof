@@ -178,9 +178,6 @@ theorem upTo_recW {h : Heap} {s : GzState} {src : Region} (hs : h.gzstates i = s
   · exact Or.inl e
   · exact Or.inr ⟨⟨xs, (bytes_putGz _ _ _ _ _ _).2 hb⟩, fun b hr ho => no b hr ((o b).1 ho)⟩
 
-/-- The record unchanged as a `recW`. -/
-theorem recW_self (s : GzState) : recW s s.strm.next_in s.strm.avail_in s.x.pos s.skip = s := rfl
-
 /-! ### A write of the bytes of the `in` buffer -/
 
 /-- **A write of the bytes of `in` (same size) keeps `GzInv`**, the owned and the live blocks, and changes only an
@@ -280,9 +277,6 @@ theorem good_clear {I : Heap → Nat → GzState → Prop}
     GetcUngetc.Good I := fun h j s x => by
   obtain ⟨hs, invC⟩ := f h j s x
   exact ⟨hs, fun b hb => (live_putGz hs _ b).1 (invC.common.live b ((owned_clearIn hs b).2 hb))⟩
-
-theorem own_live {h : Heap} {s : GzState} (inv : GzInv h i s) : ∀ b, GzOwned h i s b → h.live b :=
-  inv.common.live
 
 /-- The post-condition of `gz_comp_safe_shape`. -/
 def CQ (src : Region) (s : GzState) (h : Heap) (flush r : Int32) (h' : Heap) (i' : Nat) (s' : GzState) : Prop :=
@@ -413,24 +407,11 @@ theorem memset_run {H : Heap} {B : Nat} {a : Array UInt8} (hB : H.bytes B = some
 def ZJ (h0 : Heap) (s0 : GzState) (fs0 : Fs) (fs : Fs) (h : Heap) (v : GzState) : Prop :=
   GetcUngetc.Eff i h0 s0 fs0 fs h ∧ GzInv h i v ∧ v.mode = GZ_WRITE ∧ v.size ≠ 0 ∧ v.size = s0.size
 
-theorem eff_inv {h0 : Heap} {s0 : GzState} {fs0 fs : Fs} {h : Heap} (e : GetcUngetc.Eff i h0 s0 fs0 fs h) :
-    ∃ v, GzInv h i v := by
-  obtain ⟨-, -, v, inv, -⟩ := e
-  exact ⟨v, inv⟩
-
 theorem eff_fs {h0 : Heap} {s0 : GzState} {fs0 fs : Fs} {h : Heap} (e : GetcUngetc.Eff i h0 s0 fs0 fs h) :
     FileSystem fs := e.2.1
 
 /-- The record of a trip after the input write. -/
 def zeroRec1 (v : GzState) : GzState := { v with strm := { v.strm with avail_in := zeroN v, next_in := v.«in» } }
-
-theorem hif_run (v : GzState) (fs : Fs) (H : Heap) :
-    (if (false || decide (u32ToI64 v.size > v.skip)) = true then (Pure.pure v.skip.toUInt64.toUInt32 : G UInt32)
-      else Pure.pure v.size) fs H = .ok ((zeroN v, fs), H) := by
-  unfold zeroN
-  by_cases hc : u32ToI64 v.size > v.skip
-  · simp only [hc, decide_true, Bool.false_or, ↓reduceIte]; rfl
-  · simp only [hc, decide_false, Bool.false_or, Bool.false_eq_true, ↓reduceIte]; rfl
 
 theorem int32_zero_ne_neg_one : ((0 : Int32) == -1) = false := by decide
 

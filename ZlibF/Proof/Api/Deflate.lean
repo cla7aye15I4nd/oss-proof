@@ -182,11 +182,4 @@ theorem deflate_valid : Goal.deflate_valid := by
   intro p x st _ ht hd hprec
   exact (deflate_trace_completed ht (by simp [DeflState.fresh]) hd).2 hprec
 
-/-- A buffer-error return after the example finished stream cannot clear its historical `started`
-flag. This excludes the refusal-and-dictionary counterexample found before the monotonicity clause. -/
-theorem deflate_refusal_keeps_started {c : DeflCall} {o : DeflOut} {st' : DeflState}
-    (hr : DeflRun dDoneA c o st') (_hbuf : o.rc = Z.bufError) : st'.started = true := by
-  rcases hr with ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hstarted, _⟩
-  exact hstarted rfl
-
 end ZlibF.Spec.Api.Proofs

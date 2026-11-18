@@ -10,9 +10,9 @@ buffer. It then replaces `read()` with one that returns one byte and then fails 
 calls `gzread(f, buf, 1)`. The replacement `read()` is defined in the program, so the static
 `libz.a` calls it.
 
-`run.sh` builds the pinned source twice under ASan and UBSan: without any patch, and with
-`patches/*.patch`, which includes `0003-gzread-partial-copy-read-error.patch` (upstream
-[PR #1363](https://github.com/madler/zlib/pull/1363)). The unpatched build must report a
+`run.sh` builds the pinned source twice under ASan and UBSan: with `patches/*.patch` except 0003,
+and with `patches/*.patch`, which includes `0003-gzread-stale-next-and-position-overflow.patch` (upstream
+[PR #1405](https://github.com/madler/zlib/pull/1405)). The unpatched build must report a
 `heap-buffer-overflow` READ of size 1 in `gz_read` (`gzread.c:369`), 0 bytes after the 32-byte
 output buffer. The patched build must report nothing; `gzread` returns 1 and keeps `Z_ERRNO`.
 

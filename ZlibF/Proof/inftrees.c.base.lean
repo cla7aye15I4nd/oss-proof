@@ -305,15 +305,6 @@ theorem getD_set! {a : Array UInt16} {i j : Nat} {v : UInt16} :
     · simp [h2]
   · simp [h1]
 
-theorem u16_succ {a : Nat} (h : a + 1 < 65536) : UInt16.ofNat a + 1 = UInt16.ofNat (a + 1) := by
-  apply UInt16.toNat_inj.mp
-  have e1 : (UInt16.ofNat a).toNat = a := by simp [UInt16.toNat_ofNat', Nat.mod_eq_of_lt (show a < 2 ^ 16 by omega)]
-  have e2 : (UInt16.ofNat (a + 1)).toNat = a + 1 := by simp [UInt16.toNat_ofNat', Nat.mod_eq_of_lt (show a + 1 < 2 ^ 16 by omega)]
-  rw [UInt16.toNat_add, e1, e2]
-  have : (1 : UInt16).toNat = 1 := rfl
-  rw [this]
-  exact Nat.mod_eq_of_lt (by omega)
-
 theorem lt_fuel {k : Nat} (h : k < 2 ^ 32) : k < fuel := by
   unfold fuel
   exact Nat.lt_of_lt_of_le h (Nat.pow_le_pow_right (by omega) (by omega))

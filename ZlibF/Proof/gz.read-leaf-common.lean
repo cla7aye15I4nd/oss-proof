@@ -305,7 +305,7 @@ theorem gz_skip_post (fetch : FetchFacts) (i : Nat) (h : Heap) (fs : Fs) (s : Gz
 
 /-- **The statement `gzungetc` and `gzgets` use for `gz_skip`**, with the premise
 `skip ≠ 0` (both call `gz_skip` only then). Without it the statement is false: with `skip = 0`, `x.pos = GZ_OFF_MAX`,
-nothing buffered and COPY mode, the first trip fetches one byte (patch 0004's `room ? room : 1`) and `gz_skip`
+nothing buffered and COPY mode, the first trip fetches one byte (patch 0003's `room ? room : 1`) and `gz_skip`
 returns with `x.pos + x.have > GZ_OFF_MAX`, outside `GzInv`. -/
 def GzSkipSpecNZ : Prop :=
   ∀ (i : Nat) (h : Heap) (fs : Fs) (s : GzState), GzInvUpToSkip h i s → FileSystem fs → s.mode = GZ_READ →

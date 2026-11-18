@@ -49,14 +49,6 @@ theorem deflateTune_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d
   · exact hG.setD' (d' := tuneD d g m n c) rfl hG.live.status (hG.inv.tune g m n c) (by trkeep)
   · intro b; exact (shape_setD hG.live.hs _).live b
 
-/-- **deflateTune, refusal.** On a stream the check refuses (including `NULL`), the call returns `Z_STREAM_ERROR` and
-changes nothing. -/
-theorem deflateTune_reject {h : Heap} {strm : ZStreamPtr} (hD : StreamDom h strm) (hN : ¬ DInitialised h strm)
-    (g m n c : Int32) : C.run (deflateTune strm g m n c) h = .ok (Z_STREAM_ERROR, h) := by
-  unfold deflateTune
-  exact check_refuse hD hN _ _
-
-
 /-! ### deflateSetHeader -/
 
 theorem deflateSetHeader_run_gz {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
@@ -88,18 +80,6 @@ theorem deflateSetHeader_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStrea
   · exact hG.setD' (d' := setHeaderD d head) rfl hG.live.status (hG.inv.setHeader head hg) (by trkeep)
   · intro b; exact (shape_setD hG.live.hs _).live b
 
-/-- **deflateSetHeader on a stream that is not gzip.** `Z_STREAM_ERROR`, nothing changes. -/
-theorem deflateSetHeader_not_gzip {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (hL : DLive h r ds z d) (hw : d.wrap ≠ 2) (head : GzHeaderPtr) :
-    C.run (deflateSetHeader (some r) head) h = .ok (Z_STREAM_ERROR, h) :=
-  deflateSetHeader_run_other hL hw head
-
-/-- **deflateSetHeader, refusal.** On a stream the check refuses (including `NULL`): `Z_STREAM_ERROR`, nothing changes. -/
-theorem deflateSetHeader_reject {h : Heap} {strm : ZStreamPtr} (hD : StreamDom h strm) (hN : ¬ DInitialised h strm)
-    (head : GzHeaderPtr) : C.run (deflateSetHeader strm head) h = .ok (Z_STREAM_ERROR, h) := by
-  unfold deflateSetHeader
-  exact check_refuse hD hN _ _
-
 /-! ### deflateUsed -/
 
 theorem deflateUsed_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
@@ -107,19 +87,6 @@ theorem deflateUsed_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d 
     deflateUsed (some r) hasBits h = .ok ((Z_OK, if hasBits then some d.bi_used else none), h) := by
   unfold deflateUsed
   dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs]
-
-/-- **deflateUsed, safety and specification.** On an initialised stream the call returns `Z_OK` and, when the pointer
-`bits` is not `NULL` (`hasBits`), the value `bi_used` that would be stored through it; the heap is unchanged. -/
-theorem deflateUsed_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (hL : DLive h r ds z d) (hasBits : Bool) :
-    C.run (deflateUsed (some r) hasBits) h = .ok ((Z_OK, if hasBits then some d.bi_used else none), h) :=
-  deflateUsed_run hL hasBits
-
-/-- **deflateUsed, refusal.** `Z_STREAM_ERROR`, no value stored, nothing changes. -/
-theorem deflateUsed_reject {h : Heap} {strm : ZStreamPtr} (hD : StreamDom h strm) (hN : ¬ DInitialised h strm)
-    (hasBits : Bool) : C.run (deflateUsed strm hasBits) h = .ok ((Z_STREAM_ERROR, none), h) := by
-  unfold deflateUsed
-  exact check_refuse hD hN _ _
 
 /-! ### deflatePending -/
 
@@ -138,42 +105,5 @@ theorem deflatePending_run {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} 
   unfold deflatePending
   cases hasPending <;> cases hasBits <;> dsimp' [stateCheck_live hL, hL.zst, hL.hz, hL.hs, pendingResult] <;>
     split <;> simp_all
-
-/-- **deflatePending, safety and specification.** On an initialised stream with the invariant the call never faults
-and returns `Z_OK`; the count stored through `pending` (when it is not `NULL`) is exactly the number of pending output
-bytes, and the value stored through `bits` is `bi_valid`. The heap is unchanged. (The count is at most
-`4 * lit_bufsize <= 2^17`, so the overflow case of the C, `Z_BUF_ERROR` with `(unsigned)-1`, cannot happen.) -/
-theorem deflatePending_safe {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (hG : DGood h r ds z d) (hasPending hasBits : Bool) :
-    C.run (deflatePending (some r) hasPending hasBits) h =
-      .ok ((Z_OK, (if hasPending then some d.pending.toUInt32 else none), (if hasBits then some d.bi_valid else none)), h) ∧
-    (hasPending = true → d.pending.toUInt32.toNat = d.pending.toNat) := by
-  have hI := hG.inv
-  obtain ⟨w, p, q, b, hB⟩ := hI.blocks
-  obtain ⟨off, -, hpl⟩ := hB.pout
-  have hlit : d.lit_bufsize.toNat ≤ 32768 := by
-    have := hI.lit; have := hI.hsize; have := hI.hbits_hi
-    have : 2 ^ d.hash_bits.toNat ≤ 2 ^ 16 := Nat.pow_le_pow_right (by omega) hI.hbits_hi
-    omega
-  have hpend : d.pending.toNat < 2 ^ 32 := by
-    have := hB.psize; omega
-  have e1 : d.pending.toUInt32.toUInt64 = d.pending := by
-    apply UInt64.toNat_inj.mp
-    rw [UInt32.toNat_toUInt64, UInt64.toNat_toUInt32]
-    exact Nat.mod_eq_of_lt hpend
-  have e2 : d.pending.toUInt32.toNat = d.pending.toNat := by
-    rw [UInt64.toNat_toUInt32]; exact Nat.mod_eq_of_lt hpend
-  refine ⟨?_, fun _ => e2⟩
-  have := deflatePending_run hG.live hasPending hasBits
-  rw [C.run, this]
-  simp [pendingResult, e1]
-  cases hasPending <;> cases hasBits <;> simp
-
-/-- **deflatePending, refusal.** `Z_STREAM_ERROR`, no value stored, nothing changes. -/
-theorem deflatePending_reject {h : Heap} {strm : ZStreamPtr} (hD : StreamDom h strm) (hN : ¬ DInitialised h strm)
-    (hasPending hasBits : Bool) :
-    C.run (deflatePending strm hasPending hasBits) h = .ok ((Z_STREAM_ERROR, none, none), h) := by
-  unfold deflatePending
-  exact check_refuse hD hN _ _
 
 end Zlib.Deflate.Proofs

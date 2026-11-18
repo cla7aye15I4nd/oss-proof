@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.fast-view-body-rank-cursor-invariant»
+import ZlibF.Proof.«inflate.c.fast-view-loop-cursor-frame-invariant»
+import ZlibF.Proof.«inflate.c.fast-view-body-rank-invariant»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

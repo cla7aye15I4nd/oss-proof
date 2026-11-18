@@ -153,25 +153,4 @@ theorem public_pending_exhausted_allowed {h : Heap} {r : ZStreamRef} {ds ob oo :
     base, publicRun, goodF, buffersF, account, sizes, storage, outputZero, rfl,
     pendingCount, lowM, fieldsF, dataF, pendingF, bits⟩
 
-/-- The non-finished public pending path retains its exact statement. -/
-theorem public_pending_exhausted {h : Heap} {r : ZStreamRef} {ds ob oo : Nat}
-    {z : ZStream} {d : DeflateState} {before : List Bool} (flush : Int32)
-    (good : DGood h r ds z d) (buffers : StreamBuffers h r)
-    (pointer : z.next_out = .ref (.blk ob) oo) (input : z.avail_in ≠ 0 → z.next_in ≠ .null)
-    (flagLo : 0 ≤ flush.toInt) (flagHi : flush.toInt ≤ Z_BLOCK.toInt)
-    (status : d.status ≠ FINISH_STATE) (positive : 0 < z.avail_out.toNat)
-    (enough : z.avail_out.toNat ≤ d.pending.toNat) (low : d.bi_valid.toInt < 8)
-    (pending : PendingBits h d before) :
-    ∃ pb after z' result written remaining,
-      d.pending_buf = .ref (.blk pb) 0 ∧
-      deflate (some r) flush h = .ok (Z_OK, after) ∧ DGood after r ds z' result ∧ StreamBuffers after r ∧
-      StreamAccounting z z' 0 z.avail_out.toNat ∧ ByteSizes h after ∧ OutputStorage h after r ds pb ob ∧
-      z'.avail_out = 0 ∧ result.last_flush = -1 ∧
-      result.pending.toNat + z.avail_out.toNat = d.pending.toNat ∧ result.bi_valid.toInt < 8 ∧
-      result = { d with pending := result.pending, pending_out := result.pending_out, last_flush := -1 } ∧
-      Bytes after z.next_out z.avail_out.toNat written ∧ PendingBits after result remaining ∧
-      ZlibF.Spec.bytesToBits written ++ remaining = before := by
-  exact public_pending_exhausted_allowed flush good buffers pointer input flagLo flagHi
-    (fun finished => False.elim (status finished)) positive enough low pending
-
 end Zlib.Deflate.Engine.Proofs

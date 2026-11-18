@@ -57,16 +57,6 @@ theorem dec_word {cl : List Nat} (acc : Acceptable .codeLength cl) {s : Nat} (nz
     (W : List Bool) : decodeSym cl (codeOf cl s ++ W) = some (s, W) :=
   ZlibF.Math.InflateDecode.decode_canonical_word acc s nz W
 
-theorem none_take {cl : List Nat} (acc : Acceptable .codeLength cl) {X : List Bool}
-    (nd : decodeSym cl X = none) (m : Nat) : decodeSym cl (X.take m) = none := by
-  cases d : decodeSym cl (X.take m) with
-  | none => rfl
-  | some pair =>
-    obtain ⟨s, r⟩ := pair
-    have e := dec_ext acc (Y := X.drop m) d
-    rw [List.take_append_drop, nd] at e
-    cases e
-
 /-- The bits of one item. -/
 def itemBits (cl : List Nat) (sym x : Nat) : List Bool :=
   codeOf cl sym ++ bitsOfNat x (codeLenExtra sym)

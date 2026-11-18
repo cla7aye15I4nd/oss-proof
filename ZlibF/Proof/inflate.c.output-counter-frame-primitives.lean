@@ -41,9 +41,6 @@ theorem outputCounterM_ptr_lt [DecidableEq R] (r : ZStreamRef) (p q : Ptr R) : O
   unfold Ptr.lt at run
   repeat' first | split at run | (cases run <;> rfl)
 
-theorem outputCounterM_ptr_le [DecidableEq R] (r : ZStreamRef) (p q : Ptr R) : OutputCounterM r (p.le q) :=
-  outputCounterM_bind (outputCounterM_ptr_lt r q p) (fun _ => outputCounterM_pure r _)
-
 theorem outputCounterM_ptr_store (r : ZStreamRef) (p : Ptr R) (value : T)
     (writes : ∀ (h : Heap) (ref : R) (array : Array T), r.get (Space.put h ref array : Heap) = r.get h) :
     OutputCounterM r (p.store value) := by

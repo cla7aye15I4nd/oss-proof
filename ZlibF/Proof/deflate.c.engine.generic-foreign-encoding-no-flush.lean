@@ -127,22 +127,4 @@ theorem DefaultEncodingState.foreign_no_flush_positive_result {h : Heap} {r : ZS
     refine ⟨0, Z_STREAM_ERROR, after, z', d, [], run, ?_, buffersA, accountA, bytesA, by decide⟩
     simpa only [List.take_zero, List.append_nil] using stateA
 
-/-- Encoding preservation without retaining the separate non-END result. -/
-theorem DefaultEncodingState.foreign_no_flush_positive {h : Heap} {r : ZStreamRef} {ds owner oo : Nat}
-    {z : ZStream} {d : DeflateState} {config : EngineConfig} {accepted observed actualInput : List UInt8}
-    (state : DefaultEncodingState h r ds z d config accepted observed) (buffers : StreamBuffers h r)
-    (pointer : z.next_out = .ref (.dstate_depth owner) oo) (output : 0 < z.avail_out.toNat)
-    (valid : z.avail_in ≠ 0 → z.next_in ≠ .null)
-    (snapshot : Bytes h z.next_in z.avail_in.toNat actualInput) :
-    ∃ used rc after z' result written,
-      deflate (some r) Z_NO_FLUSH h = .ok (rc, after) ∧
-      DefaultEncodingState after r ds z' result config
-        (accepted ++ actualInput.take used) (observed ++ written) ∧
-      StreamBuffers after r ∧ StreamAccounting z z' used written.length ∧
-      Bytes after z.next_out written.length written := by
-  obtain ⟨used, rc, after, z', result, written, run, stateA, buffersA, accountA, bytesA, _notEnd⟩ :=
-    state.foreign_no_flush_positive_result buffers pointer output valid snapshot
-  exact ⟨used, rc, after, z', result, written, run, stateA, buffersA, accountA, bytesA⟩
-
-
 end Zlib.Deflate.Engine.Proofs

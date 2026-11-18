@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.pending-loop-phase»
-import ZlibF.Proof.«deflate.c.engine.flush-control»
+import ZlibF.Proof.«deflate.c.engine.flush-cut»
 
 /-! # Actual flush macros retain the continuing strategy phase -/
 

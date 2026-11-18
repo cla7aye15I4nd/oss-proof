@@ -139,7 +139,7 @@ theorem gz_reset_inv_run {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) 
         Zlib.Gzlib.Spec.resetRec]
 
 /-- Interface: `gz_reset` keeps the invariant and clears the buffered output, the position and the skip.
-Relies on the local patch for R-3 (`gz_reset` writes `x.next`). -/
+`gz_reset` does not write `x.next`; the runtime accepts adding zero to it. -/
 theorem GzInv.gz_reset {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) :
     ∃ after s', C.run (Zlib.Gzlib.gz_reset (gzSt i)) h = .ok ((), after) ∧ GzInv after i s' ∧
       s'.x.have = 0 ∧ s'.x.pos = 0 ∧ s'.skip = 0 ∧ s'.err = Z_OK ∧ s'.msg = .null ∧

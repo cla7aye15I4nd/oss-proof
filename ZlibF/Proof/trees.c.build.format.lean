@@ -1,4 +1,6 @@
-import ZlibF.Proof.«trees.c.build.emit»
+import ZlibF.Proof.«trees.c.build.support»
+import ZlibF.Proof.«trees.c.emit»
+import ZlibF.Spec.Functional.Format.Bits
 import ZlibF.Math.DeflateKraft
 import ZlibF.Proof.Format.Huffman
 
@@ -365,22 +367,5 @@ theorem ws_build_tree_decodable_initialized {h0 : Heap} {id : Nat} {d : DeflateS
   exact ws_build_tree_decodable (bt_desc_get tk h0 id d) (trees_build_desc_get hs tk) hstat htree
     he3 he286 hT hTbig hDepth hH hBC (trees_build_static hs tk)
 
-
-/-- Symbol decoding correctness for actual initialized caller storage. -/
-theorem build_tree_decodable_initialized {h : Heap} {id : Nat} {d : DeflateState}
-    (tk : TK) (hd : h.dstates id = some d) (hwf : d.WellFormed)
-    (hs : Out.TreesStatic h.static) (hr : Out.TreesRun0 id d) :
-    ∃ e : DeflateState, build_tree (Sp id) (some (tk.descRef id)) h = .ok ((), setD h id e) ∧
-      ∃ maxc : Nat, maxc < tk.buildDesc.elems.toInt.toNat ∧ (tk.getDesc e).max_code.toInt = maxc ∧
-        (∀ kind : ZlibF.Spec.CodeKind, ZlibF.Spec.Acceptable kind
-          (Zlib.Inftrees.Proofs.lensOf (fun v => (tk.arr e)[v]!.dl.toNat) (maxc + 1))) ∧
-        ∀ v < tk.buildDesc.elems.toInt.toNat, btFreq tk d v ≠ 0 → ∀ suffix : List Bool,
-          ZlibF.Spec.decodeSym (Zlib.Inftrees.Proofs.lensOf (fun n => (tk.arr e)[n]!.dl.toNat) (maxc + 1))
-            (Out.natBits (tk.arr e)[v]!.fc.toNat (tk.arr e)[v]!.dl.toNat ++ suffix) = some (v, suffix) := by
-  obtain ⟨a, e, he, hresult⟩ := ws_build_tree_decodable_initialized (h0 := h) tk hwf hs hr
-  have ha : a = () := Subsingleton.elim _ _
-  subst a
-  rw [setD_self hd] at he
-  exact ⟨e, he, hresult⟩
 
 end Zlib.Trees.Proofs

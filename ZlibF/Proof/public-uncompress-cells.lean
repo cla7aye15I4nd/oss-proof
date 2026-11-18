@@ -43,28 +43,6 @@ theorem store_cell_run (h : Heap) (v : UInt64) : store64 (cellPtr h) v (cellRaw 
   simp [Space.put, cellHeap, cellRaw, upd_upd]
   congr 2
 
-theorem cell_alloc_store {h : Heap} (fresh : Fresh h) (v : UInt64) :
-    (do let c ← allocLocal 8; store64 c v; pure c : M BPtr) h = .ok (cellPtr h, cellHeap h v) := by
-  have slot : h.slotUsed h.nextBlk = false := Heap.slotUsed_eq_false.2 (fresh h.nextBlk (Nat.le_refl _))
-  have run : allocLocal 8 h = .ok (cellPtr h, { h with
-      bytes := upd h.bytes h.nextBlk (some (Array.ofFn (n := 8) fun i => Junk.of (h.garbage h.nalloc i.val)))
-      ro := upd h.ro h.nextBlk false
-      nextBlk := h.nextBlk + 1 }) := by
-    unfold allocLocal allocBytes; rw [slot]; rfl
-  simp only [bind_app, run, pure_app]
-  have g : Space.get ({ h with
-      bytes := upd h.bytes h.nextBlk (some (Array.ofFn (n := 8) fun i => Junk.of (h.garbage h.nalloc i.val)))
-      ro := upd h.ro h.nextBlk false
-      nextBlk := h.nextBlk + 1 } : Heap) (BRef.blk h.nextBlk) =
-      some (Array.ofFn (n := 8) fun i => Junk.of (h.garbage h.nalloc i.val)) := by
-    simp [Space.get]
-  rw [cellPtr, store64_ref g (by simp [Space.ro]) (by simp)]
-  simp only []
-  congr 2
-  rw [store64Array_eq _ _ _ (by simp)]
-  simp [Space.put, cellHeap, upd_upd]
-  congr 2
-
 theorem cellHeap_live (h : Heap) (v : UInt64) (b : Nat) :
     (cellHeap h v).live b ↔ h.live b ∨ b = h.nextBlk := by
   simp only [cellHeap, Heap.live, upd_apply]

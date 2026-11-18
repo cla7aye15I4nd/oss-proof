@@ -328,25 +328,4 @@ theorem flush_block_spec_of_overlay {h : Heap} {r : ZStreamRef} {ds : Nat} {z : 
   exact ⟨after, z', result, produced, run, ⟨goodA, allocA, globalsA, shapeA, hashingA, symbolsA⟩,
     buffersA, account, countA⟩
 
-/-- `flush_block_spec_of_overlay` for `memLevel ≥ 5` (`lit_bufsize ≥ 2048`). -/
-theorem flush_block_spec_large {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (inv : DInv h r ds z d) (buffers : StreamBuffers h r) (out : z.next_out ≠ .null)
-    (level : 0 < d.level.toInt) (pending : d.pending = 0) (idle : d.match_available = 0) (large : 2048 ≤ d.lit_bufsize.toNat)
-    (last : Bool) :
-    ∃ after z' d' produced,
-      C.run (FLUSH_BLOCK_ONLY (some (.tab ds)) (if last then 1 else 0)) h = .ok ((), after) ∧
-      DInv after r ds z' d' ∧ StreamBuffers after r ∧ StreamAccounting z z' 0 produced ∧
-      d'.sym_next = 0 := by
-  refine flush_block_spec_of_overlay inv buffers out level pending idle ?_ last
-  intro xs recorded z'
-  obtain ⟨b, a, pbuf, bytes, ledger⟩ := recorded
-  obtain ⟨pb, buf, trees⟩ := trees_of_good inv.dgood
-  have capacity : xs.length + 1 ≤ d.lit_bufsize.toNat := by
-    have bound := trees.run.sym_next_le
-    rw [ledger.count, trees.base.sym_end] at bound
-    have lowLit := trees.base.lit_lo
-    omega
-  exact dynamic_overlay_large large pending
-    (show d.bi_valid.toInt ≤ 7 from (inv.shape' : Zlib.Deflate.Universal.Shape d).biValid) capacity
-
 end Zlib.Deflate.Universal.Block

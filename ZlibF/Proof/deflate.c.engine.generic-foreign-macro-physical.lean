@@ -7,27 +7,6 @@ open Zlib.Trees.Proofs.Out (TreesInvAt)
 open ZlibF.Math.DeflateSymbols
 set_option autoImplicit false
 
-/-- The actual foreign-output macro retains its complete storage frame and allocation ledger. -/
-theorem default_foreign_flush_macro_run_output_storage {h : Heap} {r : ZStreamRef} {ds pb owner oo w origin base : Nat}
-    {z : ZStream} {d : DeflateState} {buf window : Array UInt8} {xs : List Symbol} {input : Nat → UInt8}
-    (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r)
-    (positive : 0 < d.level.toInt) (pointer : z.next_out = .ref (.dstate_depth owner) oo) (cursor : d.pending_out = d.pending_buf)
-    (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (bits : d.bi_valid.toInt ≤ 7)
-    (ledger : SymbolLedger buf d xs) (clear : BlockInit.BlockClear d) (trace : Trace input base xs)
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some window)
-    (range : fillEnd d ≤ d.window_size.toNat) (balance : BlockBalance d xs 0)
-    (accounted : base + represented xs = origin + d.strstart.toNat)
-    (view : ∀ i, i < fillEnd d → bfn window i = input (origin + i)) (last : Bool)
-    {after : Heap} (run : FLUSH_BLOCK_ONLY (some (.tab ds)) (if last then 1 else 0) h = .ok ((), after)) :
-    OutputStorage h after r ds pb owner := by
-  obtain ⟨_produced, other, _z', _result, _written, _remaining, _kind, _body, _padding,
-      tested, _goodA, _buffersA, _accountA, _sizes, storage, _rest⟩ :=
-    default_flush_block_only_foreign_publish good trees buffers positive pointer cursor memory pending bits ledger clear trace
-      win get range balance accounted view last
-  have eq := (Prod.mk.inj (Except.ok.inj (tested.symm.trans run))).2
-  rw [← eq]
-  exact storage
-
 /-- The actual return wrapper only reads after publishing the block. -/
 theorem default_foreign_flush_control_run_full_storage {h after : Heap} {r : ZStreamRef} {ds owner oo origin base : Nat}
     {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8}

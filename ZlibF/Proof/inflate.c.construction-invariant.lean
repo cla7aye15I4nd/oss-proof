@@ -54,23 +54,6 @@ theorem clRead_default_J_complete {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Na
     exact full
 
 
-/-- Projection retaining the original complete J transport. -/
-theorem clRead_default_J {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (invariant : DefaultDecodeJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = CODELENS) :
-    ∃ outcome regs after stream state used, used ≤ bs.length ∧
-      runX (clRead c) l h = .ok ((outcome, regs), after) ∧ DefaultDecodeJ after r zs stream state ∧
-      DispatchBuffers after r regs (bs.drop used) ∧ ByteViewSizes h after ∧
-      regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
-      regs.put = l.put ∧ regs.left = l.left ∧ regs.out_ = l.out_ ∧
-      regs.bits.toNat ≤ max l.bits.toNat 21 ∧ regs.bits.toNat ≤ l.bits.toNat + 8 * used := by
-  obtain ⟨outcome, regs, after, stream, state, used, bound, run, next,
-    packet, sizes, cursor, count, put, left, total, bits, budget, _, _⟩ :=
-    clRead_default_J_complete E invariant buffers mode
-  exact ⟨outcome, regs, after, stream, state, used, bound, run, next,
-    packet, sizes, cursor, count, put, left, total, bits, budget⟩
-
 /-- The entire actual LENLENS reading loop preserves J's initialized
 prefix and every other clause. Unused lens cells remain arbitrary. -/
 theorem ll1_default_J {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
@@ -168,28 +151,5 @@ theorem DefaultDecodeJ.table_update {h after : Heap} {r : ZStreamRef} {zs : Nat}
   · change after.static = _
     rw [static]
     exact invariant.globals
-
-/-- The actual end-of-block check and dynamic constructors carry J to
-BAD or to the actual LEN_ continuation with checked data tables. -/
-theorem clTail_default_J {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (invariant : DefaultDecodeJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (modes : s.mode = BAD ∨ s.mode = CODELENS)
-    (done : s.mode = CODELENS → s.«have».toNat = s.nlen.toNat + s.ndist.toNat) :
-    (∃ ret after stream state,
-      runX (clTail c) l h = .ok ((.ok (), { l with ret := ret }), after) ∧
-      DefaultDecodeJ after r zs stream state ∧ state.mode = BAD ∧
-      DispatchBuffers after r { l with ret := ret } bs ∧ ByteViewSizes h after ∧ after.static = h.static) ∨
-    (∃ after state, DefaultDecodeJ after r zs z state ∧ state.mode = LEN_ ∧
-      DispatchBuffers after r { l with ret := 0 } bs ∧ ByteViewSizes h after ∧ after.static = h.static ∧
-      (runX (clTail c) l h = if c.flush = Z_TREES then .ok ((.error Ex.leave, { l with ret := 0 }), after)
-        else runX (inflate_LEN_ c) { l with ret := 0 } after)) := by
-  rcases clTail_buffers E invariant.good invariant.pending buffers modes invariant.lengths done with bad | ready
-  · obtain ⟨ret, after, stream, state, run, current, mode, tables, pending, packet, sizes, static, update⟩ := bad
-    exact Or.inl ⟨ret, after, stream, state, run,
-      invariant.table_update current tables pending sizes static update (Or.inl mode), mode, packet, sizes, static⟩
-  · obtain ⟨after, state, current, mode, tables, pending, packet, sizes, static, run, update⟩ := ready
-    exact Or.inr ⟨after, state,
-      invariant.table_update current tables pending sizes static update (Or.inr mode), mode, packet, sizes, static, run⟩
 
 end Zlib.Inflate.Proofs

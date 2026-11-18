@@ -1,4 +1,4 @@
-<!-- source-sha256: 6688b0064d9a15bfd13756b3536bb6265b69f8cf036602dc3dddfa37319261ee -->
+<!-- source-sha256: ce699814e5ff3486c810ea27b612d418a5f1cd0305b42606632215fd07ce37cc -->
 # Gzip 文件：不变量、历史与操作系统预言
 
 gzip 文件接口（`gzopen`、`gzread`、`gzwrite`、`gzseek`、`gzclose` 以及其他 `gz`
@@ -92,7 +92,7 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 
 ### 源码是打过补丁的源码
 
-这些命题说的是应用了补丁 0002 到 0006 的 C。未打补丁的 C
+这些命题说的是应用了补丁 0002 到 0005 的 C。未打补丁的 C
 在某些历史上有未定义行为：见[源码报告与补丁](#source-reports-and-patches)。
 
 ### 为什么要读取预算
@@ -108,16 +108,16 @@ Linux 检查这个模型（[可信基础](../trusted-base.md)）。证明倚重�
 
 ## 源码报告与补丁
 
-补丁 0002 到 0006 修复未打补丁的 C 的五处缺陷。第一张表每处一行。[发现](../findings.md)列出它们及其证据；补丁以
-`patches/README.md` 中的列表为准。这五个补丁都已提交上游，各拉取请求都处于打开状态。不变量之所以是这个形式，是因为前四处缺陷，以及第二张表中的两种情形，后者没有补丁改动。
+补丁 0002 到 0005 修复未打补丁的 C 的五处缺陷；补丁 0003 修复其中两处。第一张表每处一行。[发现](../findings.md)列出它们及其证据；补丁以
+`patches/README.md` 中的列表为准。这四个补丁都已提交上游，各拉取请求都处于打开状态。不变量之所以是这个形式，是因为前四处缺陷，以及第二张表中的两种情形，后者没有补丁改动。
 
 | 情形 | 未打补丁的 C 的行为 | 证据与修复 |
 | --- | --- | --- |
 | 负的定位位置 | 在一开始的 `gzungetc` 之后，`GZ_OFF_MAX - pos` 或者后来的位置差使有符号 64 位算术溢出。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0002，上游 [PR 1361](https://github.com/madler/zlib/pull/1361)。 |
-| 部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0003，上游 [PR 1363](https://github.com/madler/zlib/pull/1363)。 |
-| 读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0004，上游 [PR 1405](https://github.com/madler/zlib/pull/1405)，在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
-| 写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0005，上游 [PR 1406](https://github.com/madler/zlib/pull/1406)，拒绝会越过 `GZ_OFF_MAX` 的写入。 |
-| 负的描述符偏移 | `gzoffset64` 只把 `lseek` 返回的 `-1` 当作失败。别的负值减去读句柄已缓冲的输入，使有符号 64 位算术溢出。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0006，上游 [PR 1404](https://github.com/madler/zlib/pull/1404)，对 `lseek` 的每个负结果都返回 `-1`。 |
+| 部分读取之后出错 | 在 `gz_fetch` 的 `COPY` 分支中，`gz_load` 出错时可能在 `x.next = out` 执行之前留下非零的 `x.have`；`gz_read` 随后从一个过时的指针复制。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0003，上游 [PR 1405](https://github.com/madler/zlib/pull/1405)。 |
+| 读位置溢出 | 在一个 `lseek` 成功却不移动的设备上，透明模式的定位把 `x.pos` 设为 `GZ_OFF_MAX`；下一次读取使它溢出。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0003，上游 [PR 1405](https://github.com/madler/zlib/pull/1405)，在每个调用返回时保持 `x.pos + x.have ≤ GZ_OFF_MAX`。 |
+| 写位置溢出 | 透明写句柄向前定位到接近 `GZ_OFF_MAX`，然后写入，使 `x.pos` 溢出。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0004，上游 [PR 1406](https://github.com/madler/zlib/pull/1406)，拒绝会越过 `GZ_OFF_MAX` 的写入。 |
+| 负的描述符偏移 | `gzoffset64` 只把 `lseek` 返回的 `-1` 当作失败。别的负值减去读句柄已缓冲的输入，使有符号 64 位算术溢出。 | 已在 sanitizer 下复现（[发现](../findings.md)）。补丁 0005，上游 [PR 1404](https://github.com/madler/zlib/pull/1404)，对 `lseek` 的每个负结果都返回 `-1`。 |
 
 | 情形 | C 的行为，打不打补丁都一样 | 证明如何处理 |
 | --- | --- | --- |
@@ -388,7 +388,7 @@ NUL 留出位置，用 `min(have, left)` 界定它的 `memchr`，写最后的 NU
 
 ## 位置、定位与错误消息的归属
 
-`gztell64` 报告逻辑位置加上待处理的跳过；`past` 置位时不加这段跳过。`gzoffset64` 查询描述符的位置，在读模式下再减去已缓冲的压缩输入。`lseek` 的结果为负时它一律返回 `-1`（补丁 0006），所以这次减法不溢出。这是两个不同的位置。
+`gztell64` 报告逻辑位置加上待处理的跳过；`past` 置位时不加这段跳过。`gzoffset64` 查询描述符的位置，在读模式下再减去已缓冲的压缩输入。`lseek` 的结果为负时它一律返回 `-1`（补丁 0005），所以这次减法不溢出。这是两个不同的位置。
 
 `gzseek64_step` 和 `gzseek_step` 对每个世界成立。路径有：
 

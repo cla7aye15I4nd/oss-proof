@@ -90,14 +90,6 @@ theorem upd_zero {hsh hm : UInt32} {k : Nat} (hk : hm.toNat = 2 ^ k - 1) (h8 : 8
 theorem upd_le (hsh hm x : UInt32) (c : UInt8) : (updHash hsh hm x c).toNat ≤ hm.toNat := by
   unfold updHash; rw [UInt32.toNat_and]; exact Nat.and_le_right
 
-/-- Every key is below `hash_size`: `head[ins_h]` is in bounds. -/
-theorem hkey_lt {n hsh hm : UInt32} (prm : HashParams n hsh hm) (w : Nat → UInt8) (p : Nat) :
-    (hkey hsh hm w p).toNat < n.toNat := by
-  obtain ⟨k, -, -, hn, hk, -⟩ := prm.bits
-  have := upd_le hsh hm (updHash hsh hm (updHash hsh hm 0 (w p)) (w (p + 1))) (w (p + 2))
-  have : 0 < 2 ^ k := Nat.two_pow_pos k
-  unfold hkey; omega
-
 /-- Every `UPDATE_HASH` result is below `hash_size` (so is `ins_h` after any update). -/
 theorem updHash_lt {n hsh hm : UInt32} (prm : HashParams n hsh hm) (x : UInt32) (c : UInt8) :
     (updHash hsh hm x c).toNat < n.toNat := by

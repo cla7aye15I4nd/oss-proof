@@ -4,7 +4,7 @@ import ZlibF.Proof.«gz.read-getc-step»
 # gz read side: `gzdirect` is safe
 
 `gzdirect(file)` on a reader in LOOK mode with nothing buffered calls `gz_look` and then `gz_skip_have`, and returns
-`state->direct == 1`. `gz_look` may buffer output (COPY) while a skip is pending; patch 0004 bounds that output by the
+`state->direct == 1`. `gz_look` may buffer output (COPY) while a skip is pending; patch 0003 bounds that output by the
 room left before `GZ_OFF_MAX`, so the record is in the invariant up to the pending skip, and `gz_skip_have` consumes
 the skip or the buffered output, which gives `GzInv` back. `gzdirect` has no reading loop, so its termination needs no
 read budget (`NeedsReadBound` is false for it).

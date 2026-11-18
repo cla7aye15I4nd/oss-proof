@@ -117,28 +117,6 @@ theorem distSubLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateSta
       cases impossible
 
 
-/-- Projection retaining the original distance-link lookup statement. -/
-theorem distSubLookup_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (root : Code) (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : s.distcode = .ref ref offset) (tableGet : Space.get h ref = some ca)
-    (link : LinkOK DistLeaf ca offset root) (before : Nat) (back : s.back = Int32.ofNat before) (backBound : before ≤ 20) (B : BitInv h l bs) :
-    ∃ result regs used after,
-      runX (distSubLookup c root) l h = .ok ((result, regs), after) ∧
-      used ≤ 2 ∧ used ≤ bs.length ∧ BitInv after regs (bs.drop used) ∧
-      SymbolRegShape l regs ∧ regs.last = root ∧ regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () →
-        after = setI h zs { s with back := Int32.ofNat (before + root.bits.toNat) } ∧
-        DistLeaf root.bits.toNat regs.here ∧ regs.here.bits.toNat ≤ regs.bits.toNat ∧
-        stream regs (bs.drop used) = (stream l bs).drop root.bits.toNat ∧
-        regs.bits.toNat = l.bits.toNat + 8 * used - root.bits.toNat) ∧
-      (result = .error Ex.leave → after = h ∧ regs.have_ = 0 ∧
-        stream regs (bs.drop used) = stream l bs) := by
-  obtain ⟨result, regs, used, after, run, two, usedBound, inv, shape, last, bound, kinds, done, leave, _⟩ :=
-    distSubLookup_run_cursor root hc hs pointer tableGet link before back backBound B
-  exact ⟨result, regs, used, after, run, two, usedBound, inv, shape, last, bound, kinds, done, leave⟩
-
 /-- The distance decoder's actual root-link test. -/
 def SlowDistLink (entry : Code) : Prop := entry.op &&& 240 = 0
 instance (entry : Code) : Decidable (SlowDistLink entry) := inferInstanceAs (Decidable (entry.op &&& 240 = 0))
@@ -268,28 +246,6 @@ theorem distLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       · intro impossible
         cases impossible
 
-/-- Projection retaining the original complete distance lookup. -/
-theorem distLookup_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : s.distcode = .ref ref offset) (tableGet : Space.get h ref = some ca)
-    (safe : DistTableSafe ca offset s.distbits.toNat) (before : Nat) (back : s.back = Int32.ofNat before) (backBound : before ≤ 20) (B : BitInv h l bs) :
-    ∃ result regs used after,
-      runX (distLookup c) l h = .ok ((result, regs), after) ∧
-      used ≤ 4 ∧ used ≤ bs.length ∧ BitInv after regs (bs.drop used) ∧
-      SymbolRegShape l regs ∧ regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → ∃ dropped, dropped ≤ 15 ∧
-        after = setI h zs { s with back := Int32.ofNat (before + dropped) } ∧
-        DistLeaf dropped regs.here ∧ regs.here.bits.toNat ≤ regs.bits.toNat ∧
-        stream regs (bs.drop used) = (stream l bs).drop dropped ∧
-        regs.bits.toNat = l.bits.toNat + 8 * used - dropped) ∧
-      (result = .error Ex.leave → after = h ∧ regs.have_ = 0 ∧
-        stream regs (bs.drop used) = stream l bs) := by
-  obtain ⟨result, regs, used, after, run, four, usedBound, inv, shape, bound, kinds, done, leave, _⟩ :=
-    distLookup_run_cursor hc hs pointer tableGet safe before back backBound B
-  exact ⟨result, regs, used, after, run, four, usedBound, inv, shape, bound, kinds, done, leave⟩
-
 /-- Actual DIST suffix after root/link lookup and root-bit consumption. -/
 def distFinish (c : Ctx) : X Unit := do
   -- DROPBITS(here.bits); state->back += here.bits;
@@ -417,62 +373,5 @@ theorem inflate_DIST_lookup_boundary_cursor {c : Ctx} {l : IL} {h : Heap}
       finalGood, finalTables, inv, leaf, enough, back, bits, shape, frame, count, heap, stateEq, cursor, _⟩ := continued
     exact Or.inr ⟨regs, after, state, used, dropped, four, usedBound, dropBound, run,
       finalGood, finalTables, inv, leaf, enough, back, bits, shape, frame, count, heap, stateEq, cursor⟩
-
-/-- Projection retaining the original framed distance boundary. -/
-theorem inflate_DIST_lookup_boundary_full {c : Ctx} {l : IL} {h : Heap}
-    {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8} (before : Nat)
-    (hc : c.st = some (.tab zs)) (good : Good h r zs z s)
-    (tables : DataTablesSafe h s) (B : BitInv h l bs)
-    (back : s.back = Int32.ofNat before) (backBound : before ≤ 20) :
-    (∃ regs used,
-      used ≤ 4 ∧ used ≤ bs.length ∧
-      runX (inflate_DIST c) l h = .ok ((.error Ex.leave, regs), h) ∧
-      BitInv h regs (bs.drop used) ∧ regs.have_ = 0 ∧
-      stream regs (bs.drop used) = stream l bs ∧ SymbolRegShape l regs) ∨
-    (∃ regs after state used dropped,
-      used ≤ 4 ∧ used ≤ bs.length ∧ dropped ≤ 15 ∧
-      runX (inflate_DIST c) l h = runX (distFinish c) regs after ∧
-      Good after r zs z state ∧ DataTablesSafe after state ∧
-      BitInv after regs (bs.drop used) ∧ DistLeaf dropped regs.here ∧
-      regs.here.bits.toNat ≤ regs.bits.toNat ∧ state.back = Int32.ofNat (before + dropped) ∧
-      stream regs (bs.drop used) = (stream l bs).drop dropped ∧
-      SymbolRegShape l regs ∧ DecodeStateFrame s state ∧
-      regs.bits.toNat = l.bits.toNat + 8 * used - dropped ∧
-      after = setI h zs state ∧ state = { s with back := Int32.ofNat (before + dropped) }) := by
-  rcases inflate_DIST_lookup_boundary_cursor before hc good tables B back backBound with wait | continued
-  · obtain ⟨regs, used, four, usedBound, run, inv, empty, bits, shape, _⟩ := wait
-    exact Or.inl ⟨regs, used, four, usedBound, run, inv, empty, bits, shape⟩
-  · obtain ⟨regs, after, state, used, dropped, four, usedBound, dropBound, run,
-      finalGood, finalTables, inv, leaf, enough, back, bits, shape, frame, count, heap, stateEq, _⟩ := continued
-    exact Or.inr ⟨regs, after, state, used, dropped, four, usedBound, dropBound, run,
-      finalGood, finalTables, inv, leaf, enough, back, bits, shape, frame, count, heap, stateEq⟩
-/-- Actual DIST lookup uses the same installed table as its caller. It
-returns safely on exhausted input or reaches the actual finishing suffix
-with a proved distance leaf and enough held bits. -/
-theorem inflate_DIST_lookup_boundary {c : Ctx} {l : IL} {h : Heap}
-    {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8} (before : Nat)
-    (hc : c.st = some (.tab zs)) (good : Good h r zs z s)
-    (tables : DataTablesSafe h s) (B : BitInv h l bs)
-    (back : s.back = Int32.ofNat before) (backBound : before ≤ 20) :
-    (∃ regs used,
-      used ≤ 4 ∧ used ≤ bs.length ∧
-      runX (inflate_DIST c) l h = .ok ((.error Ex.leave, regs), h) ∧
-      BitInv h regs (bs.drop used) ∧ regs.have_ = 0 ∧
-      stream regs (bs.drop used) = stream l bs ∧ SymbolRegShape l regs) ∨
-    (∃ regs after state used dropped,
-      used ≤ 4 ∧ used ≤ bs.length ∧ dropped ≤ 15 ∧
-      runX (inflate_DIST c) l h = runX (distFinish c) regs after ∧
-      Good after r zs z state ∧ DataTablesSafe after state ∧
-      BitInv after regs (bs.drop used) ∧ DistLeaf dropped regs.here ∧
-      regs.here.bits.toNat ≤ regs.bits.toNat ∧ state.back = Int32.ofNat (before + dropped) ∧
-      stream regs (bs.drop used) = (stream l bs).drop dropped ∧
-      SymbolRegShape l regs ∧ DecodeStateFrame s state ∧
-      regs.bits.toNat = l.bits.toNat + 8 * used - dropped) := by
-  rcases inflate_DIST_lookup_boundary_full before hc good tables B back backBound with wait | continued
-  · exact Or.inl wait
-  · obtain ⟨regs, after, state, used, dropped, usedFour, usedBound, droppedBound,
-      run, finalGood, finalTables, inv, leaf, enough, backEq, bits, shape, frame, count, _, _⟩ := continued
-    exact Or.inr ⟨regs, after, state, used, dropped, usedFour, usedBound, droppedBound,
-      run, finalGood, finalTables, inv, leaf, enough, backEq, bits, shape, frame, count⟩
 
 end Zlib.Inflate.Proofs

@@ -18,7 +18,8 @@ The goal uses `GzInv` (with, among others, the clauses `GzCommon.next` only with
 allowing `direct = 0`, `haveSkip` and `againEof`) and the `gzprintf` arguments that the handle does not own
 (`GzArguments`).
 
-Patches. The statements are for the patched source (`patches/`: 0002, 0003, 0004 for F-1 and W7, and 0005).
+Patches. The statements are for the patched source (`patches/`): the gzseek negative-position fix (0002), the gzread stale-next and position-overflow fix (0003),
+the gzwrite position-overflow fix (0004) and the gzoffset negative-lseek fix (0005).
 -/
 
 namespace ZlibF.Spec.Public
@@ -37,7 +38,7 @@ def GzWorldStep (_fs fs' : Fs) (_fd : Int32) : Prop :=
 
 /-- **Every actual history of one handle** (safety; replaces `GzReachable`, with `ByteObjectsFit` at every point
 where the caller supplies a heap). The caller may free its own buffers (`caller`), including the last `gzread`
-buffer (R-4: `GzCommon.next` says nothing of `x.next` without buffered output). `getcMacro` is a call of the
+buffer (`GzCommon.next` says nothing of `x.next` without buffered output). `getcMacro` is a call of the
 `gzgetc()` macro of `zlib.h` (`Zlib.ZlibH.gzgetc`), the default way an application calls `gzgetc`, in either branch:
 with buffered output (`x.have ≠ 0`) it changes `x.have`, `x.pos` and `x.next` with no library call, and unlike the
 function it does not clear `err` and `msg` when `again` is set; with `x.have = 0` it calls the function `gzgetc`. -/

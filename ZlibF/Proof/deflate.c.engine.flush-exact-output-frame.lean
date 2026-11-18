@@ -79,39 +79,4 @@ theorem flush_macro_run_output_interval {h after : Heap} {r : ZStreamRef}
   rw [← heaps, ← count]
   exact flush_pending_run_output_interval goodU treesU buffersU pointerE cursorE roomU flushRun goodA.live.hz accountA getPrepared
 
-/-- Complete computed block publication has the exact public caller byte-region frame. -/
-theorem flush_macro_run_buffer_frame {h after : Heap} {r : ZStreamRef}
-    {ds pb ob oo w origin base produced : Nat} {z z' : ZStream} {d : DeflateState}
-    {buf window : Array UInt8} {xs : List Symbol} {input : Nat → UInt8}
-    (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r)
-    (positive : 0 < d.level.toInt) (pointer : z.next_out = .ref (.blk ob) oo) (cursor : d.pending_out = d.pending_buf)
-    (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (bits : d.bi_valid.toInt ≤ 7)
-    (ledger : SymbolLedger buf d xs) (clear : BlockInit.BlockClear d) (trace : Trace input base xs)
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some window)
-    (range : fillEnd d ≤ d.window_size.toNat) (balance : BlockBalance d xs 0)
-    (accounted : base + represented xs = origin + d.strstart.toNat)
-    (view : ∀ i, i < fillEnd d → bfn window i = input (origin + i)) (last : Bool)
-    (run : FLUSH_BLOCK_ONLY (some (.tab ds)) (if last then 1 else 0) h = .ok ((), after))
-    (live : r.get after = some z') (account : StreamAccounting z z' 0 produced) :
-    BufferFrame h after (fun b => StreamRoot r b ∨ DeflateOwned ds d b) [⟨z.next_out, produced⟩] := by
-  obtain ⟨_amount, other, _ze, _de, _written, _remaining, _kind, _body, _padding,
-      tested, _goodA, _buffersA, _accountA, sizes, storage, _rest⟩ :=
-    flush_block_only_publish good trees buffers positive pointer cursor memory pending bits ledger clear trace
-      win get range balance accounted view last
-  have eq := (Prod.mk.inj (Except.ok.inj (tested.symm.trans run))).2
-  rw [eq] at sizes storage
-  obtain ⟨before, getBefore, _writable, _bound, _outside⟩ := caller_raw_output good buffers pointer
-  obtain ⟨next, getNext, size, untouched⟩ := flush_macro_run_output_interval good trees buffers positive pointer
-    cursor memory pending bits ledger clear trace win get range balance accounted view last run live account getBefore
-  have frame : Frame h after (fun b => (StreamRoot r b ∨ DeflateOwned ds d b) ∨ b = ob) := by
-    apply full_frame_weaken (storage.private_frame trees.base.pbuf)
-    intro b changed
-    rcases changed with root | owned | output
-    · exact Or.inl (Or.inl root)
-    · exact Or.inl (Or.inr owned)
-    · exact Or.inr output
-  have readonly : after.ro ob = h.ro ob := sizes.ro (.blk ob)
-  rw [pointer]
-  exact raw_buffer_frame_of_interval frame storage.shape good.uniq getBefore getNext readonly size untouched
-
 end Zlib.Deflate.Engine.Proofs

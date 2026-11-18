@@ -113,21 +113,23 @@ A reading of the C that no theorem states is marked **to confirm**.
 - **Model.** A pure function on `UInt64`.
 - **Coverage.** `compressBound` and `compressBound_z` prove the exact value for every input.
 
-### `deflateBound_z`: `2 + extra_len` is computed in 32 bits
+### `deflateBound_z`: the gzip extra length
 
 - **C.** `deflateBound_z` reads the wrapper state and the optional gzip header strings; each
-  string scan includes the terminating NUL. For the extra field it adds `2 + extra_len`,
-  evaluated as 32-bit `unsigned`, to the 64-bit wrapper cost. For `extra_len >= 0xfffffffe` that
-  sum wraps, while the header writer emits only `extra_len & 0xffff` bytes.
-- **Model.** The translation computes the same wrapped sum.
+  string scan includes the terminating NUL. For the extra field the patched C adds 2 and the low 16
+  bits of `extra_len` as a `z_size_t`, the length the header writer emits (patch 0007). Upstream
+  zlib adds `2 + extra_len` evaluated as 32-bit `unsigned`, which wraps for
+  `extra_len >= 0xfffffffe`.
+- **Model.** The translation follows the patched C.
 - **Coverage.** Safety is covered (`deflateBound_safety`, `deflateBound_z_safety`). The value of
   the bound has two defects in upstream zlib.
     - For `extra_len` of `2^32 - 2` and `2^32 - 1` the bound is too small, as a run of the C
-      shows ([finding](../findings.md)). No patch is applied.
-      Upstream knows the case ([discussion](https://github.com/madler/zlib/pull/1360)).
+      shows ([finding](../findings.md)). Patch 0007 takes the low 16 bits of the length (the
+      `deflate.c` part of upstream [PR 1360](https://github.com/madler/zlib/pull/1360), open). No
+      goal states the value of the bound for a gzip header.
     - With `windowBits` 15, `memLevel` 8, `Z_FIXED` and level 1 to 3 the output can exceed the
       bound, as a run of the C shows
-      ([finding](../findings.md)). Patch 0007 gives `Z_FIXED` the
+      ([finding](../findings.md)). Patch 0006 gives `Z_FIXED` the
       conservative bound (upstream [PR 1394](https://github.com/madler/zlib/pull/1394), open).
 
     **To confirm**: that the output fits the bound on the rest of the source and header domain.

@@ -13,15 +13,6 @@ frontier is retained across short decisions before the EOF insert reset. -/
 def EndFrontier (h : Heap) (d : DeflateState) : Prop :=
   HeapChains h d (min d.strstart.toNat (fillEnd d - 2))
 
-theorem end_frontier_of_two {h : Heap} {d : DeflateState}
-    (chains : HeapChains h d d.strstart.toNat) (two : 2 ≤ d.lookahead.toNat) :
-    EndFrontier h d := by
-  have minEq : min d.strstart.toNat (fillEnd d - 2) = d.strstart.toNat :=
-    Nat.min_eq_left (by dsimp only [fillEnd]; omega)
-  unfold EndFrontier
-  rw [minEq]
-  exact chains
-
 /-- The stronger short-input frontier is established by the same actual
 default initialization, including its concrete allocated arrays. -/
 theorem default_initialization_end_frontier {h : Heap} {r : ZStreamRef} {z : ZStream}

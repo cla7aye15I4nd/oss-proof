@@ -31,13 +31,6 @@ theorem windowBlock {h : Heap} {st : InflateState} (hW : WinInv h st) :
   · exact Or.inl hn
   · exact Or.inr ⟨w, a, hw, ha, hro⟩
 
-theorem Good.defz {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState}
-    (hG : Good h r zs z st) : z.zalloc ≠ .null := hG.live.zalloc
-
-theorem live_mid {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState}
-    (hL : Live h r zs z st) (h0 : Heap) (hz : r.get h0 = some z) (hs : h0.istates zs = some st) : Live h0 r zs z st :=
-  ⟨hz, hs, hL.zst, hL.back, hL.mode, hL.zalloc, hL.zfree⟩
-
 /-- The window pointer is `NULL` or a writable byte block that exists. -/
 def WindowOk (h : Heap) (p : BPtr) : Prop := p = .null ∨ ∃ b a, p = .ref (.blk b) 0 ∧ h.bytes b = some a ∧ h.ro b = false
 

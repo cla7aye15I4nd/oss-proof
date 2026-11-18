@@ -265,20 +265,6 @@ theorem default_initialization_engine_bindings {h : Heap} {r : ZStreamRef} {z : 
   have engine := initialized_engine good
   simpa only [hp, ZStreamRef.put_nextBlk] using engine
 
-/-- The earlier initialized engine theorem retains its exact statement. -/
-theorem default_initialization_engine {h : Heap} {r : ZStreamRef} {z : ZStream}
-    {version : BPtr} {level : Int32} {p : Api.DeflParams}
-    (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
-    (ha : DefaultOrNull z) (hv : VersionValue h version (some 49))
-    (params : Api.deflInit? level.toInt 8 15 8 0 = some p)
-    (alloc : ∀ j, j < 5 → h.allocOk (h.nalloc + j) = true) :
-    ∃ after zf sf, C.run (deflateInit_ (some r) level version 112) h = .ok (Z_OK, after) ∧
-      EngineStart after r h.nextBlk zf sf ∧ DeflateInitial h after r p ∧
-      StreamReachable .deflate after r := by
-  obtain ⟨after, zf, sf, run, start, initial, reachable, _, _, _, _⟩ :=
-    default_initialization_engine_bindings hf hu hg hz ha hv params alloc
-  exact ⟨after, zf, sf, run, start, initial, reachable⟩
-
 theorem EngineStart.window_range {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (start : EngineStart h r ds z d) :
     d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat := by

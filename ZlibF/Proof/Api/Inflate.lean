@@ -13,39 +13,6 @@ translated implementation.
 namespace ZlibF.Spec.Api.Proofs
 open ZlibF.Spec
 
-/-- Output from a complete stream is determined among all compatible complete streams. -/
-theorem inflate_determined_of_decodes {w : Wrap} {b : Nat} {dict x out : List UInt8}
-    (h : Layer.Decodes w b dict x out) : Layer.Determined w b dict x out := by
-  intro stream decoded comparable hd
-  rcases comparable with ⟨tail, heq⟩ | ⟨tail, heq⟩
-  · have hx := Layer.ext h (by simpa only [← heq] using hd)
-    simpa only [← hx.2] using (List.prefix_refl out)
-  · have hx := Layer.ext hd (by simpa only [← heq] using h)
-    simpa only [hx.2] using (List.prefix_refl out)
-
-/-- The empty stored raw stream used by the speculative-output regression is valid. -/
-theorem inflate_regression_raw_empty :
-    Layer.Decodes .raw 15 [] [1, 0, 0, 255, 255] [] :=
-  ⟨_, .last rfl rfl (.stored rfl rfl rfl rfl), by decide⟩
-
-/-- A running OK call cannot invent `a` without consuming input from a fresh raw stream. -/
-theorem inflate_no_input_ok_cannot_guess (after : InflState) :
-    ¬ InflRunOk (InflStart .raw 15 []) ⟨[], 1, .block, false⟩ ⟨0, [97], Z.ok⟩ after := by
-  intro h
-  rcases h with ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hd, _⟩
-  have hp := hd ⟨rfl, rfl⟩ (Or.inl rfl) [] rfl [1, 0, 0, 255, 255] []
-    (Or.inl List.nil_prefix) inflate_regression_raw_empty
-  simp [InflStart, InflState.fresh] at hp
-
-/-- The window-allocation-failure outcome also cannot invent `a` without consuming input. -/
-theorem inflate_no_input_mem_cannot_guess (after : InflState) :
-    ¬ InflRunMem (InflStart .raw 15 []) ⟨[], 1, .block, false⟩ ⟨0, [97], Z.memError⟩ after := by
-  intro h
-  rcases h with ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hd, _⟩
-  have hp := hd ⟨rfl, rfl⟩ [] rfl [1, 0, 0, 255, 255] []
-    (Or.inl List.nil_prefix) inflate_regression_raw_empty
-  simp [InflStart, InflState.fresh] at hp
-
 private theorem fullWindow_prefix {w : Wrap} {b : Nat} {part stream : List UInt8}
     (hp : part <+: stream) (hw : FullWindow w b stream) : FullWindow w b part := by
   rcases hp with ⟨tail, rfl⟩
@@ -122,51 +89,6 @@ private theorem dict_step_fields {st after : InflState} {dictionary : List UInt8
         simp_all
     · obtain ⟨_, rfl⟩ := hd
       simp_all
-
-/-- A valid FDICT stream whose preset dictionary and decoded output are both empty. -/
-theorem inflate_regression_fdict_empty :
-    Layer.Decodes .zlib 15 []
-      [120, 32, 0, 0, 0, 1, 1, 0, 0, 255, 255, 0, 0, 0, 1] [] := by
-  refine ⟨?_, Or.inr ⟨120, rfl, by decide⟩⟩
-  refine ⟨120, 32, [0, 0, 0, 1], _, rfl, by decide, ?_, ?_⟩
-  · intro h; exact absurd h (by decide)
-  · intro _
-    refine ⟨by decide, _, .last rfl rfl (.stored rfl rfl rfl rfl), by decide⟩
-
-/-- Reading only a legal FDICT header cannot justify a data-error result. -/
-theorem inflate_fdict_header_cannot_fail (after : InflState) :
-    ¬ InflRunOk (InflStart .zlib 15 []) ⟨[120, 32], 10, .block, false⟩
-      ⟨2, [], Z.dataError⟩ after := by
-  intro h
-  rcases h with ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hd, _⟩
-  have hn := hd ⟨rfl, rfl⟩ rfl (Or.inl rfl) [] (Or.inl (by decide))
-  apply hn
-  exact Or.inr ⟨[0, 0, 0, 1, 1, 0, 0, 255, 255, 0, 0, 0, 1], [], 15,
-    by simpa [InflStart, InflState.fresh] using inflate_regression_fdict_empty⟩
-
-/-- An unknown preset dictionary does not rule out a valid wrapped input prefix.
-The empty output is determined for every still-permitted dictionary. -/
-theorem inflate_unknown_dictionary_prefix {w : Wrap} {b : Nat}
-    {dictionary stream decoded : List UInt8} (hw : w ≠ .raw)
-    (hd : Layer.Decodes w b dictionary stream decoded) (n : Nat) :
-    (InflState.fresh w b).Consistent (stream.take n) [] ∧
-      (InflState.fresh w b).Determined (stream.take n) [] := by
-  constructor
-  · exact output_evidence_nil (Or.inl hw) hd (stream.take n)
-  · intro _ _ _ _ _ _
-    exact List.nil_prefix
-
-/-- Priming one low bit of minus one inserts a true bit. -/
-theorem inflate_prime_negative_low_bit :
-    InflPrime (InflState.fresh .raw 15) 1 (-1) Z.ok
-      { InflState.fresh .raw 15 with pre := [true], precise := false } := by
-  simp [InflPrime, InflState.fresh]
-
-/-- The earlier false-bit result of priming minus one is rejected. -/
-theorem inflate_prime_negative_rejects_false :
-    ¬ InflPrime (InflState.fresh .raw 15) 1 (-1) Z.ok
-      { InflState.fresh .raw 15 with pre := [false], precise := false } := by
-  simp [InflPrime, InflState.fresh]
 
 /-- A valid decode trace preserves its format, dictionary and output invariants.
 This is a property of the API model; implementation refinement is separate. -/

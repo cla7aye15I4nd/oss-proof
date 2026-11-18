@@ -44,17 +44,6 @@ theorem overlayAt_mid {L : Nat} (lower : 512 ≤ L) : OverlayAt L := fun small =
 theorem TinyOverlay.at (tiny : TinyOverlay) (L : Nat) : OverlayAt L :=
   fun small => tinyOverlay_iff.mp tiny L small
 
-/-- The overlay instance for every size from the two small sizes: `lit_bufsize` is
-`1 << (memLevel + 6)`, so below 512 it is 128 or 256 (`deflateInit2_`); the other sizes below
-512 never occur and are covered by the hypothesis only through `L = 128` and `L = 256`. -/
-theorem overlayAt_of_two (t128 : TinyOverlayAt 128) (t256 : TinyOverlayAt 256) {L : Nat}
-    (pow : L = 128 ∨ L = 256 ∨ 512 ≤ L) : OverlayAt L := by
-  intro small
-  rcases pow with e | e | e
-  · subst e; exact t128
-  · subst e; exact t256
-  · omega
-
 /-- A valid state's symbol buffer size is 128, 256 or at least 512: `2 * lit_bufsize = 2 ^ hash_bits`
 with `hash_bits ≥ 8` (`DStInv`, `lit_bufsize = 2 ^ (memLevel + 6)`). -/
 theorem lit_cases {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}

@@ -1,4 +1,6 @@
-import ZlibF.Proof.«deflate.c.engine.strategy-finish»
+import ZlibF.Proof.«deflate.c.engine.finish-strategy-step»
+import ZlibF.Proof.«deflate.c.engine.strategy-no-flush-loop»
+import ZlibF.Proof.«deflate.c.engine.eof-tail»
 
 /-! # Actual final publication leaves no residual buffered bits -/
 

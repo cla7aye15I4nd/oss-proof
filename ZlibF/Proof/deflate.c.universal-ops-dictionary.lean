@@ -1386,43 +1386,4 @@ theorem setdict_sym0 {d : DeflateState} (shape : Shape d) (wlo : -2 ≤ d.wrap.t
       have n2 : d.wrap.toInt ≠ 2 := fun e => w2 (Int32.toInt_inj.mp (by rw [e]; rfl))
       exact finished (shape.trailer (by omega))
 
-set_option maxHeartbeats 4000000 in
-/-- **`deflateSetDictionary` keeps the invariant** when no slide of a level-0 stream is pending
-(`matches = 0`): the case of every stream at a nonzero level. -/
-theorem step_setDictionary_unslid {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (inv : DInv h r ds z d) (dictionary : BPtr) (dictLength : UInt32)
-    (args : CallerRange h r dictionary dictLength.toNat false) (zeroM : d.«matches» = 0)
-    (header : HeaderInv d) (finished : d.status = FINISH_STATE → d.sym_next = 0) :
-    StepOk h r (.deflateSetDictionary (some r) dictionary dictLength) := by
-  have good := inv.good
-  have check := stateCheck_live good.live
-  by_cases null : dictionary = .null
-  · refine step_unchanged inv Z_STREAM_ERROR (heapCall_run ?_) rfl
-    rw [setdict_checks]
-    simp [bind_app, check, null]
-    rfl
-  have nullB : (dictionary == .null) = false := by simpa using null
-  have stateRun : zrd (some r) (·.state) h = .ok (z.state, h) := by rw [zrd_eq, good.live.hz]
-  have ldRun : ldDeflateState (some (.tab ds)) h = .ok (d, h) := ldDeflateState_tab good.live.hs
-  by_cases refuse : (d.wrap == 2 || (d.wrap == 1 && d.status != INIT_STATE) || d.lookahead != 0 ||
-      (d.wrap == 0 && d.strstart.toUInt64.toInt64 != d.block_start)) = true
-  · refine step_unchanged inv Z_STREAM_ERROR (heapCall_run ?_) rfl
-    rw [setdict_checks]
-    simp only [bind_app, check, nullB, bne_self_eq_false, Bool.false_or, Bool.false_eq_true, ite_false, stateRun,
-      good.live.zst, castD, ldRun, refuse, ite_true]
-    rfl
-  · have la0 : d.lookahead = 0 := by
-      by_cases e : d.lookahead = 0
-      · exact e
-      · exfalso; apply refuse; simp [e]
-    obtain ⟨after, zF, dF, bodyRun, invF, shapeF, frameF, _, _, ownedF, _, _⟩ :=
-      setdict_body inv dictionary dictLength args null zeroM la0
-        (setdict_sym0 inv.shape good.inv.wrap_lo good.inv.wrap_hi header finished (by simpa using refuse))
-    refine step_of_frame inv Z_OK (heapCall_run ?_) rfl invF shapeF frameF ownedF
-    rw [setdict_checks]
-    simp only [Bool.not_eq_true] at refuse
-    simp only [bind_app, check, nullB, bne_self_eq_false, Bool.false_or, Bool.false_eq_true, ite_false, stateRun,
-      good.live.zst, castD, ldRun, refuse]
-    exact bodyRun
-
 end Zlib.Deflate.Universal

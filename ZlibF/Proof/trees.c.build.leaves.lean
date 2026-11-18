@@ -31,69 +31,6 @@ def btLeavesStart (s : DeflateStatePtr) (desc : TreeDescPtr) :
   let mc ← btForce s tree stree mc
   pure (tree, stree, elems, mc)
 
-/-- The unchanged main suffix after leaf preparation, in source order.
-This definition names code; it does not assert a callee specification. -/
-def btAfterLeaves (s : DeflateStatePtr) (desc : TreeDescPtr) (tree : CtDataPtr)
-    (elems max_code : Int32) : M Unit := do
-  -- desc->max_code = max_code;
-  stTreeDesc desc { (← ldTreeDesc desc) with max_code := max_code }
-  -- for (n = s->heap_len/2; n >= 1; n--) pqdownheap(s, tree, n);
-  let _ ← cfor (σ := Int32) (fun n => pure (decide (n.toInt ≥ 1))) (fun n => isub n 1)
-    (fun n => do pqdownheap s tree n; pure n) ((← rd s).heap_len / 2)
-  -- node = elems;
-  -- do { ... } while (s->heap_len >= 2);
-  let _ ← cdoWhile (σ := Int32)
-    (fun node => do
-      -- pqremove(s, tree, n);  m = s->heap[SMALLEST];
-      let n ← pqremove s tree
-      let m ← heapAt s 1
-      -- s->heap[--(s->heap_max)] = n;  s->heap[--(s->heap_max)] = m;
-      let hm ← isub (← rd s).heap_max 1
-      md s fun d => { d with heap_max := hm }
-      heapSet s hm n
-      let hm ← isub (← rd s).heap_max 1
-      md s fun d => { d with heap_max := hm }
-      heapSet s hm m
-      -- tree[node].Freq = tree[n].Freq + tree[m].Freq;
-      let fn ← getFc tree n.toInt
-      let fm ← getFc tree m.toInt
-      setFc tree node.toInt (fn + fm)
-      -- s->depth[node] = (uch)((s->depth[n] >= s->depth[m] ? s->depth[n] : s->depth[m]) + 1);
-      let dp ← pDepth s
-      let dn ← Ptr.index dp n.toInt
-      let dm ← Ptr.index dp m.toInt
-      let mx ← if dn ≥ dm then Ptr.index dp n.toInt else Ptr.index dp m.toInt
-      setAt dp node.toInt (mx + 1)
-      -- tree[n].Dad = tree[m].Dad = (ush)node;
-      setDl tree m.toInt (i2us node)
-      setDl tree n.toInt (i2us node)
-      -- s->heap[SMALLEST] = node++;
-      heapSet s 1 node
-      let node' ← iadd node 1
-      pqdownheap s tree 1
-      pure node')
-    (fun node => do pure (decide ((← rd s).heap_len.toInt ≥ 2), node))
-    elems
-  -- s->heap[--(s->heap_max)] = s->heap[SMALLEST];
-  let top ← heapAt s 1
-  let hm ← isub (← rd s).heap_max 1
-  md s fun d => { d with heap_max := hm }
-  heapSet s hm top
-  -- gen_bitlen(s, (tree_desc *)desc);
-  gen_bitlen s desc
-  -- gen_codes ((ct_data *)tree, max_code, s->bl_count);
-  gen_codes tree max_code (← pBlCount s)
-
-/-- Complete actual-function equality independently ties the proved prefix
-to main. No statement in the residual suffix is reordered or dropped. -/
-theorem build_tree_eq_leaves (s : DeflateStatePtr) (desc : TreeDescPtr) :
-    build_tree s desc = (do
-      let (tree, _stree, elems, max_code) ← btLeavesStart s desc
-      btAfterLeaves s desc tree elems max_code) := by
-  simp only [build_tree, btLeavesStart, btScanStart, btScan,
-    btForce, btAfterLeaves, M_bind_assoc, M_pure_bind]
-  rfl
-
 /-- The actual start of `build_tree` establishes the scan invariant. Neither
 the old heap length, the old depths nor the old code lengths are restricted.
 Both heap-control writes preceding the scan execute on the actual heap. -/

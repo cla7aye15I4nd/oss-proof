@@ -187,19 +187,6 @@ theorem refill_le (x : UInt64) : (refill x).toUInt64.toNat ≤ x.toNat ∧ ((ref
       simpa using this
     · intro e; subst e; rfl
 
-/-- The heap determines the decoder. -/
-theorem good_unique {H : Heap} {r : ZStreamRef} {i i' : Nat} {z z' : ZStream} {s s' : InflateState}
-    (g : Zlib.Inflate.Spec.Good H r i z s) (g' : Zlib.Inflate.Spec.Good H r i' z' s') :
-    i = i' ∧ z = z' ∧ s = s' := by
-  have ez : z = z' := Option.some.inj (g.live.hz.symm.trans g'.live.hz)
-  subst ez
-  have ei : i = i' := by
-    have both := g.live.zst.symm.trans g'.live.zst
-    cases both
-    rfl
-  subst ei
-  exact ⟨rfl, rfl, Option.some.inj (g.live.hs.symm.trans g'.live.hs)⟩
-
 /-- A stream record write at a live table entry. -/
 theorem put_tab_eq {H : Heap} {k : Nat} {z v : ZStream} (hz : H.streams k = some z) :
     (ZStreamRef.tab k).put H v = { H with streams := upd H.streams k (some v) } := by

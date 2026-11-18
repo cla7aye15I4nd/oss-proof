@@ -121,39 +121,6 @@ theorem uw_null_state_frame_public {h : Heap} {r : ZStreamRef} {zs : Nat} {z : Z
     | st_distfix => rw [heapEq]; rfl
 
 
-/-- The actual successful callee preserves the full non-window state. -/
-theorem updatewindow_state_frame_public {h after : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
-    {s state : InflateState} {off : Nat} {source : BRef} {bytes : Array UInt8} {copy : UInt32}
-    (good : Good h r zs z s) (allocator : z.zalloc = .fn "zcalloc")
-    (get : Space.get h source = some bytes) (fit : off + copy.toNat ≤ bytes.size)
-    (separate : Separate (.ref source off) copy.toNat s.window (2 ^ s.wbits.toNat))
-    (run : C.run (updatewindow (some r) (.ref source (off + copy.toNat)) copy) h = .ok (0, after))
-    (stored : after.istates zs = some state) : WindowStateFrame s state := by
-  change updatewindow (some r) (.ref source (off + copy.toNat)) copy h = .ok (0, after) at run
-  have sep : Separate (.ref source ((off + copy.toNat) - copy.toNat)) copy.toNat
-      s.window (2 ^ s.wbits.toNat) := by simpa using separate
-  rcases good.inv.win.block with window | ⟨w, a, window, array, ro, size⟩
-  · by_cases alloc : h.allocOk h.nalloc = true
-    · obtain ⟨result, state', execution, nextGood, frame, _, _⟩ :=
-        uw_null_state_frame_public (copy := copy) (eo := off + copy.toNat)
-          good allocator window alloc get (by omega) fit
-      have heaps : after = result := by rw [run] at execution; cases execution; rfl
-      subst result
-      have states : state = state' := Option.some.inj (stored.symm.trans nextGood.live.hs)
-      simpa only [states] using frame
-    · have fail := uw_alloc_fail good.live allocator good.inv.win.wbits window alloc
-        (.ref source (off + copy.toNat)) copy
-      rw [run] at fail
-      cases fail
-  · obtain ⟨result, state', execution, _, value, nextGood, _, _, _, _, _, _⟩ :=
-      uw_post_public (copy := copy) (eo := off + copy.toNat)
-        good window array ro size get (by omega) fit sep
-    have heaps : after = result := by rw [run] at execution; cases execution; rfl
-    have nextGood' : Good after r zs z state' := by rw [heaps]; exact nextGood
-    have states : state = state' := Option.some.inj (stored.symm.trans nextGood'.live.hs)
-    rw [states, value]
-    exact uwPost_windowStateFrame _ _ _ _ _
-
 theorem WindowStateFrame.pending {s state : InflateState} (frame : WindowStateFrame s state)
     (pending : DataPendingInvariant s) : DataPendingInvariant state := by
   rw [frame]

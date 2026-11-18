@@ -1,4 +1,4 @@
-import ZlibF.Proof.«deflate.c.engine.public-first-finish»
+import ZlibF.Proof.«deflate.c.engine.header-finish-boundary»
 
 /-! # The first default public FINISH call at every positive capacity -/
 
@@ -149,36 +149,4 @@ theorem public_default_first_finish_one {h : Heap} {r : ZStreamRef} {ds ob oo : 
     change d.bi_valid.toInt = 0
     rw [initial.bits]
     rfl
-/-- The complete first public FINISH call from an initialized default
-stream has a successful safety/accounting result at every positive raw
-output capacity. One byte splits the header; exactly two bytes enters
-compression with no output space left. Input length is unrestricted.
-The call-history, full frame and format-refinement goals are not stated here. -/
-theorem public_default_first_finish {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {config : EngineConfig}
-    (initial : EngineStart h r ds z d) (level : d.level = 6)
-    (boundary : StrategyBoundary h r ds z d input origin base [] config)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (pointer : z.next_out = .ref (.blk ob) oo) (outputRoom : 0 < z.avail_out.toNat)
-    (memory : config.memory.toNat = 16384) (valid : z.avail_in ≠ 0 → z.next_in ≠ .null) :
-    ∃ used produced rc after z' result,
-      deflate (some r) Z_FINISH h = .ok (rc, after) ∧
-      DGood after r ds z' result ∧ StreamBuffers after r ∧ StreamAccounting z z' used produced ∧
-      (rc = Z_OK ∨ rc = Z_STREAM_END) ∧ result.bi_valid.toInt < 8 ∧
-      (rc = Z_STREAM_END → result.status = FINISH_STATE ∧ result.wrap = -1 ∧
-        z'.avail_in = 0 ∧ result.lookahead = 0 ∧ result.pending = 0 ∧ result.bi_valid.toInt = 0) := by
-  by_cases one : z.avail_out = 1
-  · obtain ⟨after, z', result, run, goodA, buffersA, accountA, _emptyA, _statusA, _pendingA, bitsA, _lastA⟩ :=
-      public_default_first_finish_one initial level buffers pointer one valid
-    refine ⟨0, 1, Z_OK, after, z', result, run, goodA, buffersA, accountA, Or.inl rfl, ?_, ?_⟩
-    · rw [bitsA]
-      decide
-    · intro impossible
-      cases (show Z_OK ≠ Z_STREAM_END from by decide) impossible
-  · have room : 2 ≤ z.avail_out.toNat := by
-      have notOne : z.avail_out.toNat ≠ 1 := fun value => one (UInt32.toNat_inj.mp value)
-      omega
-    obtain ⟨used, produced, rc, after, z', result, run, goodA, buffersA, accountA, allowed, bits, ended⟩ :=
-      public_default_first_finish_header_fits initial level boundary frontier buffers pointer room memory valid
-    exact ⟨used, 2 + produced, rc, after, z', result, run, goodA, buffersA, accountA, allowed, bits, ended⟩
 end Zlib.Deflate.Engine.Proofs

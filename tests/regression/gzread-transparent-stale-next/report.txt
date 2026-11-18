@@ -1,6 +1,6 @@
 Raw output of tests/regression/gzread-transparent-stale-next/run.sh (stale.c), exit status 0.
 Source: the pinned zlib commit 757f0527154291bcf6bfbd6396ecde6bedd2db95, built twice by tests/build-zlib.sh:
-without any patch (unpatched) and with patches/*.patch (patched).
+with every patch but its own (unpatched) and with patches/*.patch (patched).
 Build: GCC 15.2, the sanitizer options of run.sh.
 Host: x86_64 Linux, the project's target. Process ids are replaced by PID. Paths are relative to
 the build directory or to the repository root; system paths are as the toolchain prints them.

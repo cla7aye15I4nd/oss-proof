@@ -344,20 +344,6 @@ theorem clZeroSetup_run_cursor {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv
       rw [firstCount, UInt8.toNat_toUInt32]
       omega
 
-/-- Projection retaining the original repeat setup interface. -/
-theorem clZeroSetup_run {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h l bs)
-    (here : Code) (extra base : UInt32) (width : here.bits.toNat ≤ 7)
-    (extraBound : extra.toNat ≤ 7) (baseLo : 3 ≤ base.toNat) (baseHi : base.toNat ≤ 11) :
-    ∃ result regs used,
-      runX (clZeroSetup here extra base) l h = .ok ((result, regs), h) ∧
-      used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      regs = { l with next := regs.next, have_ := regs.have_, hold := regs.hold, bits := regs.bits, copy := regs.copy, len := regs.len } ∧
-      regs.bits.toNat ≤ max l.bits.toNat 21 ∧
-      (result = .ok () → regs.len = 0 ∧ 3 ≤ regs.copy.toNat ∧ regs.copy.toNat ≤ 138) := by
-  obtain ⟨result, regs, used, run, bound, inv, shape, bits, counts, _, _⟩ :=
-    clZeroSetup_run_cursor B here extra base width extraBound baseLo baseHi
-  exact ⟨result, regs, used, run, bound, inv, shape, bits, counts⟩
-
 def clPrevBits (c : Ctx) (haveCount : UInt32) : X Unit := do
   let value ← Ptr.index (lensP c.st) ((haveCount - 1).toNat : Int)
   let bits ← BITS 2
@@ -461,18 +447,6 @@ theorem clNeedDrop_run_cursor {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv 
       rw [count, UInt8.toNat_toUInt32]
       omega
 
-/-- Projection retaining the original read/drop interface. -/
-theorem clNeedDrop_run {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h l bs)
-    (here : Code) (extra : UInt32) (width : here.bits.toNat ≤ 7) (extraBound : extra.toNat ≤ 7) :
-    ∃ result regs used,
-      runX (clNeedDrop here extra) l h = .ok ((result, regs), h) ∧
-      used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      TcRegShape l regs ∧ regs.bits.toNat ≤ max l.bits.toNat (extra.toNat + 14) ∧
-      (result = .ok () → extra.toNat ≤ regs.bits.toNat) := by
-  obtain ⟨result, regs, used, run, bound, inv, shape, bits, enough, _, _⟩ :=
-    clNeedDrop_run_cursor B here extra width extraBound
-  exact ⟨result, regs, used, run, bound, inv, shape, bits, enough⟩
-
 def clRepeat16 (c : Ctx) (here : Code) : X Bool := do
   clNeedDrop here 2
   let s ← ldInflateState c.st
@@ -541,24 +515,5 @@ theorem clRepeat16_nonempty_run_cursor {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
       exact cursor
     · rw [bits]
       omega
-
-/-- Projection retaining the original previous-length repeat interface. -/
-theorem clRepeat16_nonempty_run {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
-    {s : InflateState} {bs : List UInt8}
-    (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (size : s.lens.size = 320) (nonempty : 1 ≤ s.«have».toNat) (haveBound : s.«have».toNat ≤ 320)
-    (initialized : ∀ k, k < s.«have».toNat → (s.lens.getD k 0).toNat ≤ 15)
-    (B : BitInv h l bs) (here : Code) (width : here.bits.toNat ≤ 7) :
-    ∃ (result : Except Ex Unit) (regs : IL) (used : Nat),
-      used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      regs = { l with next := regs.next, have_ := regs.have_, hold := regs.hold, bits := regs.bits, copy := regs.copy, len := regs.len } ∧
-      regs.bits.toNat ≤ max l.bits.toNat 16 ∧
-      (result = .ok () →
-        runX (clRepeat16 c here) l h = runX (clRepeatFinish c) regs h ∧
-        regs.len.toNat ≤ 15 ∧ 3 ≤ regs.copy.toNat ∧ regs.copy.toNat ≤ 6) ∧
-      (∀ fault, result = .error fault → runX (clRepeat16 c here) l h = .ok ((.error fault, regs), h)) := by
-  obtain ⟨result, regs, used, bound, inv, shape, bits, success, failure, _, _⟩ :=
-    clRepeat16_nonempty_run_cursor hc hs size nonempty haveBound initialized B here width
-  exact ⟨result, regs, used, bound, inv, shape, bits, success, failure⟩
 
 end Zlib.Inflate.Proofs

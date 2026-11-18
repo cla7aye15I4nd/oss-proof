@@ -101,22 +101,4 @@ theorem fill_prime_pending_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
     · intro large
       omega
 
-/-- The earlier priming theorem follows from the stronger storage result. -/
-theorem fill_prime_pending {h : Heap} {r : ZStreamRef} {ds w : Nat}
-    {z : ZStream} {d : DeflateState} {wa : Array UInt8}
-    (good : DGood h r ds z d) (chains : HeapChains h d (d.strstart.toNat - d.insert.toNat))
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
-    (range : d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat)
-    (pending : d.insert.toNat ≤ d.strstart.toNat) :
-    ∃ after result,
-      fillPrime (some (.tab ds)) h = .ok ((), after) ∧ DGood after r ds z result ∧
-      HeapChains after result (result.strstart.toNat - result.insert.toNat) ∧
-      after.bytes = h.bytes ∧ PendingInsertFrame d result ∧
-      result.insert.toNat = min d.insert.toNat (2 - d.lookahead.toNat) ∧
-      (3 ≤ result.lookahead.toNat → result.insert = 0 ∧
-        InsHForm result.hash_shift result.hash_mask (bfn wa) result.strstart.toNat result.ins_h) := by
-  obtain ⟨after, result, run, goodA, chainsA, bytesA, frameA, countA, formA, _⟩ :=
-    fill_prime_pending_storage good chains win get range pending
-  exact ⟨after, result, run, goodA, chainsA, bytesA, frameA, countA, formA⟩
-
 end Zlib.Deflate.Engine.Proofs

@@ -43,39 +43,6 @@ theorem normalized_hold_lt (H : UInt64) (b : UInt32) (hb : b.toNat < 32) :
 
 /-- The C conditional arithmetic computes the exact nonnegative remaining
 count, in both pointer-order branches. -/
-theorem ptr_avail_run {h : Heap} {r : BRef} {A : Array UInt8} {p q k : Nat}
-    (hg : Space.get h r = some A) (hp : p ≤ A.size) (hq : q ≤ A.size)
-    (hsz : A.size < 2 ^ 63) (hle : p ≤ q + k) (hk : k < 2 ^ 31)
-    (hr : q + k - p < 2 ^ 32) :
-    (do
-      if ← Ptr.lt (.ref r p) (.ref r q) then do
-        let d ← Ptr.diff (.ref r q) (.ref r p)
-        chk64 ((k : Int) + d.toInt)
-      else do
-        let d ← Ptr.diff (.ref r p) (.ref r q)
-        chk64 ((k : Int) - d.toInt)) h =
-    .ok (Int64.ofInt ((q + k - p : Nat) : Int), h) := by
-  rw [bind_ok (Ptr.lt_ok hg hp hq)]
-  by_cases hc : p < q
-  · simp only [hc, decide_true, ite_true]
-    have hd := Ptr.diff_ok hg hq hp (by omega)
-    have hdiff : (q : Int) - (p : Int) = ((q - p : Nat) : Int) := by omega
-    rw [hdiff] at hd
-    rw [bind_ok hd, i64_toInt (q - p) (by omega)]
-    have hv : (k : Int) + (q - p : Nat) = ((q + k - p : Nat) : Int) := by omega
-    rw [hv, chk64_eq (by omega) (by omega)]
-    rfl
-  · simp only [hc, decide_false, Bool.false_eq_true, ite_false]
-    have hd := Ptr.diff_ok hg hp hq (by omega)
-    have hdiff : (p : Int) - (q : Int) = ((p - q : Nat) : Int) := by omega
-    rw [hdiff] at hd
-    rw [bind_ok hd, i64_toInt (p - q) (by omega)]
-    have hv : (k : Int) - (p - q : Nat) = ((q + k - p : Nat) : Int) := by omega
-    rw [hv, chk64_eq (by omega) (by omega)]
-    rfl
-
-/-- The C conditional arithmetic computes the exact nonnegative remaining
-count, in both pointer-order branches. -/
 theorem ptr_avail_cont {α : Type} {h : Heap} {r : BRef} {A : Array UInt8} {p q k : Nat}
     (hg : Space.get h r = some A) (hp : p ≤ A.size) (hq : q ≤ A.size)
     (hsz : A.size < 2 ^ 63) (hle : p ≤ q + k) (hk : k < 2 ^ 31)

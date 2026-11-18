@@ -223,32 +223,6 @@ def alloc (strm : ZStreamPtr) (level wrap : Int32) (wbits memory : Nat) (method 
   wr s (fun d => { d with level, strategy, «method» := method.toUInt32.toUInt8 })
   deflateReset strm
 
-/-- The window shift of every accepted window size. -/
-theorem window_shift (b : Int32) (lo : 8 ≤ b.toInt) (hi : b.toInt ≤ 15) :
-    let k := if b.toInt = 8 then 9 else b.toInt.toNat
-    ∃ v : Int32, ishl 1 (Int32.toUInt32 (if b == 8 then 9 else b)).toNat = pure v ∧
-      v.toUInt32 = UInt32.ofNat (2 ^ k) ∧ (Int32.toUInt32 (if b == 8 then 9 else b)) = UInt32.ofNat k := by
-  have e : b = Int32.ofInt b.toInt := by simp
-  generalize hn : b.toInt = n at lo hi e
-  subst e
-  have cases : n = 8 ∨ n = 9 ∨ n = 10 ∨ n = 11 ∨ n = 12 ∨ n = 13 ∨ n = 14 ∨ n = 15 := by omega
-  rcases cases with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-    exact ⟨_, rfl, by decide, by decide⟩
-
-/-- The hash and symbol-buffer shifts of every accepted memory level. -/
-theorem memory_shifts (m : Int32) (lo : 1 ≤ m.toInt) (hi : m.toInt ≤ 9) :
-    ∃ v w a : Int32, ishl 1 (m.toUInt32 + 7).toNat = pure v ∧ iadd m 6 = pure a ∧
-      ishl 1 a.toInt.toNat = pure w ∧
-      v.toUInt32 = UInt32.ofNat (2 ^ (m.toInt.toNat + 7)) ∧
-      w.toUInt32 = UInt32.ofNat (2 ^ (m.toInt.toNat + 6)) ∧
-      m.toUInt32 + 7 = UInt32.ofNat (m.toInt.toNat + 7) := by
-  have e : m = Int32.ofInt m.toInt := by simp
-  generalize hn : m.toInt = n at lo hi e
-  subst e
-  have cases : n = 1 ∨ n = 2 ∨ n = 3 ∨ n = 4 ∨ n = 5 ∨ n = 6 ∨ n = 7 ∨ n = 8 ∨ n = 9 := by omega
-  rcases cases with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-    exact ⟨_, _, _, rfl, rfl, rfl, by decide, by decide, by decide⟩
-
 set_option maxHeartbeats 8000000 in
 /-- After the parameter check, the source is the allocation with plain sizes. -/
 theorem rest_eq (strm : ZStreamPtr) (lv w b method m strategy : Int32)

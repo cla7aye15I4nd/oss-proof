@@ -40,10 +40,6 @@ theorem fsClose_run (fd : Int32) (fs : Fs) (h : Heap) :
   rw [hx]
   rfl
 
-/-- `int gzclose_r(gzFile file)` rejects NULL without heap or file effects. -/
-theorem gzclose_r_null (fs : Fs) (h : Heap) :
-    Zlib.Gzread.gzclose_r none fs h = .ok ((Z_STREAM_ERROR, fs), h) := rfl
-
 /-- `int gzclose_r(gzFile file)` rejects every non-reader mode before any effect. -/
 theorem gzclose_r_wrong_mode {h : Heap} {i : Nat} {s : GzState}
     (hs : h.gzstates i = some s) (hm : s.mode ≠ GZ_READ) (fs : Fs) :
@@ -74,24 +70,6 @@ theorem gzclose_r_unbuffered {h : Heap} {i : Nat} {s : GzState}
   simp [
     G_pure_app, fsClose_run, freeGzState, freeStr_setS, closedHeap, errNull]
   simp [setS, upd_upd, freeStr_gzstates]
-
-/-- `int gzclose_r(gzFile file)` preserves unrelated allocations and does not allocate
-on the unbuffered close path. The stated footprint includes the handle, path and message. -/
-theorem gzclose_r_unbuffered_frame (h : Heap) (i : Nat) (s : GzState) :
-    ZlibF.Spec.Public.Frame h (closedHeap h i s)
-      (fun b => b = i ∨ ptrBlk s.path = some b ∨ ptrBlk s.msg = some b) ∧
-    (closedHeap h i s).nalloc = h.nalloc ∧ (closedHeap h i s).nextBlk = h.nextBlk := by
-  cases hp : s.path with
-  | null =>
-    cases hm : s.msg with
-    | null => simp [ZlibF.Spec.Public.Frame, closedHeap, hp, hm, freeStr, ptrBlk, upd_apply] <;> intro b _ <;> intros <;> simp_all
-    | ref r off => cases r <;>
-        simp [ZlibF.Spec.Public.Frame, closedHeap, hp, hm, freeStr, ptrBlk, upd_apply, eq_comm] <;> intro b _ <;> intros <;> simp_all
-  | ref r off =>
-    cases r <;> cases hm : s.msg with
-    | null => simp [ZlibF.Spec.Public.Frame, closedHeap, hp, hm, freeStr, ptrBlk, upd_apply, eq_comm] <;> intro b _ <;> intros <;> simp_all
-    | ref r' off' => cases r' <;>
-        simp [ZlibF.Spec.Public.Frame, closedHeap, hp, hm, freeStr, ptrBlk, upd_apply, eq_comm] <;> intro b _ <;> intros <;> simp_all
 
 #print axioms gzclose_r_unbuffered
 end Zlib.Gzread.Proofs

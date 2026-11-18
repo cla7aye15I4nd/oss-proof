@@ -70,24 +70,6 @@ theorem clFinish_outcome_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
     refine ⟨.ok false, { l with copy := 0xffffffff }, setI h zs state, run, inv.setI zs _,
       rfl, rfl, ⟨state, rfl, frame, sz, by omega, progress, prefixValues⟩, rfl⟩
 
-/-- Projection retaining the original range-check/write interface. -/
-theorem clFinish_outcome {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (hr : c.strm = some r) (hc : c.st = some (.tab zs))
-    (hz : r.get h = some z) (hs : h.istates zs = some s)
-    (size : s.lens.size = 320) (nlen : s.nlen.toNat ≤ 286) (ndist : s.ndist.toNat ≤ 30)
-    (haveBound : s.«have».toNat ≤ s.nlen.toNat + s.ndist.toNat)
-    (copyLo : 1 ≤ l.copy.toNat) (copyHi : l.copy.toNat ≤ 138) (value : l.len.toNat ≤ 15)
-    (initialized : ∀ k, k < s.«have».toNat → (s.lens.getD k 0).toNat ≤ 15)
-    (B : BitInv h l bs) :
-    ∃ result regs after,
-      runX (clRepeatFinish c) l h = .ok ((result, regs), after) ∧
-      BitInv after regs bs ∧ ClRegShape l regs ∧ regs.bits = l.bits ∧
-      ClStepOutcome h r zs z s result after := by
-  obtain ⟨result, regs, after, run, inv, shape, bits, post, _⟩ :=
-    clFinish_outcome_cursor hr hc hz hs size nlen ndist haveBound copyLo copyHi value initialized B
-  exact ⟨result, regs, after, run, inv, shape, bits, post⟩
-
 private theorem clZero_outcome_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
     {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8}
     (hr : c.strm = some r) (hc : c.st = some (.tab zs))
@@ -123,24 +105,6 @@ private theorem clZero_outcome_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStream
       exact bitBound
     · rw [bits]
       exact budget
-
-private theorem clZero_outcome {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (hr : c.strm = some r) (hc : c.st = some (.tab zs))
-    (hz : r.get h = some z) (hs : h.istates zs = some s)
-    (size : s.lens.size = 320) (nlen : s.nlen.toNat ≤ 286) (ndist : s.ndist.toNat ≤ 30)
-    (haveBound : s.«have».toNat ≤ s.nlen.toNat + s.ndist.toNat)
-    (initialized : ∀ k, k < s.«have».toNat → (s.lens.getD k 0).toNat ≤ 15)
-    (B : BitInv h l bs) (here : Code) (extra base : UInt32)
-    (width : here.bits.toNat ≤ 7) (extraBound : extra.toNat ≤ 7)
-    (baseLo : 3 ≤ base.toNat) (baseHi : base.toNat ≤ 11) :
-    ∃ result regs after used,
-      runX (do clZeroSetup here extra base; clRepeatFinish c) l h = .ok ((result, regs), after) ∧
-      used ≤ bs.length ∧ BitInv after regs (bs.drop used) ∧ ClRegShape l regs ∧
-      regs.bits.toNat ≤ max l.bits.toNat 21 ∧ ClStepOutcome h r zs z s result after := by
-  obtain ⟨result, regs, after, used, run, bound, inv, shape, bits, post, _, _⟩ :=
-    clZero_outcome_cursor hr hc hz hs size nlen ndist haveBound initialized B here extra base width extraBound baseLo baseHi
-  exact ⟨result, regs, after, used, run, bound, inv, shape, bits, post⟩
 
 theorem clAfterLookup_run_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
     {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8}
@@ -225,24 +189,6 @@ theorem clAfterLookup_run_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
           width (by decide) (by decide) (by decide)
 
 
-/-- Projection retaining the original complete code-length step. -/
-theorem clAfterLookup_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (hr : c.strm = some r) (hc : c.st = some (.tab zs))
-    (hz : r.get h = some z) (hs : h.istates zs = some s)
-    (size : s.lens.size = 320) (nlen : s.nlen.toNat ≤ 286) (ndist : s.ndist.toNat ≤ 30)
-    (haveBound : s.«have».toNat < s.nlen.toNat + s.ndist.toNat)
-    (initialized : ∀ k, k < s.«have».toNat → (s.lens.getD k 0).toNat ≤ 15)
-    (B : BitInv h l bs) (here : Code) (width : here.bits.toNat ≤ 7)
-    (enough : here.bits.toNat ≤ l.bits.toNat) :
-    ∃ result regs after used,
-      runX (clAfterLookup c here) l h = .ok ((result, regs), after) ∧
-      used ≤ bs.length ∧ BitInv after regs (bs.drop used) ∧ ClRegShape l regs ∧
-      regs.bits.toNat ≤ max l.bits.toNat 21 ∧ ClStepOutcome h r zs z s result after := by
-  obtain ⟨result, regs, after, used, run, bound, inv, shape, bits, post, _, _⟩ :=
-    clAfterLookup_run_cursor hr hc hz hs size nlen ndist haveBound initialized B here width enough
-  exact ⟨result, regs, after, used, run, bound, inv, shape, bits, post⟩
-
 /-- One actual CODELENS iteration: root lookup, extra-bit handling,
 repetition checks and writes. Every continuing iteration strictly extends
 the initialized length prefix; exits preserve a valid bit source. -/
@@ -284,22 +230,6 @@ theorem clReadBody_run_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
 
     · rw [next2, next1, inputAdvance_add]
 
-
-/-- Projection retaining the original CODELENS body interface. -/
-theorem clReadBody_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (hr : c.strm = some r) (hc : c.st = some (.tab zs))
-    (hz : r.get h = some z) (hs : h.istates zs = some s)
-    (size : s.lens.size = 320) (mode : s.mode = CODELENS)
-    (stateInv : CodeLengthInvariant zs s)
-    (more : s.«have».toNat < s.nlen.toNat + s.ndist.toNat) (B : BitInv h l bs) :
-    ∃ result regs after used,
-      runX (clReadBody c) l h = .ok ((result, regs), after) ∧
-      used ≤ bs.length ∧ BitInv after regs (bs.drop used) ∧ ClRegShape l regs ∧
-      regs.bits.toNat ≤ max l.bits.toNat 21 ∧ ClStepOutcome h r zs z s result after := by
-  obtain ⟨result, regs, after, used, run, bound, inv, shape, bits, post, _, _⟩ :=
-    clReadBody_run_cursor hr hc hz hs size mode stateInv more B
-  exact ⟨result, regs, after, used, run, bound, inv, shape, bits, post⟩
 
 def ClReadResult (zs : Nat) (s : InflateState) (l : IL) (bs : List UInt8)
     (outcome : Except Ex Unit) (regs : IL) (after : Heap) : Prop :=
@@ -469,20 +399,6 @@ theorem clRead_run_full {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
       ClReadResultFull h r z zs s l bs outcome regs after := by
   obtain ⟨outcome, regs, after, run, result, _⟩ :=
     clRead_run_full_cursor hr hc hz hs size mode stateInv B
-  exact ⟨outcome, regs, after, run, result⟩
-
-/-- The safety and initialized-prefix projection of the stronger actual
-loop result. The original statement is retained. -/
-theorem clRead_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (hr : c.strm = some r) (hc : c.st = some (.tab zs))
-    (hz : r.get h = some z) (hs : h.istates zs = some s)
-    (size : s.lens.size = 320) (mode : s.mode = CODELENS)
-    (stateInv : CodeLengthInvariant zs s) (B : BitInv h l bs) :
-    ∃ outcome regs after, runX (clRead c) l h = .ok ((outcome, regs), after) ∧
-      ClReadResult zs s l bs outcome regs after := by
-  obtain ⟨outcome, regs, after, run, result, _⟩ :=
-    clRead_run_full hr hc hz hs size mode stateInv B
   exact ⟨outcome, regs, after, run, result⟩
 
 end Zlib.Inflate.Proofs

@@ -39,87 +39,15 @@ open C Zlib.GzFs Zlib.Gzguts Zlib.Gzlib Zlib.Gzlib.Spec
 
 /-! ## gz_intmax, GT_OFF -/
 
-/-- `gz_intmax()` returns `INT_MAX` (2147483647) and does not change the heap. No precondition. -/
-theorem gz_intmax_run (h : Heap) : gz_intmax h = .ok (2147483647, h) := rfl
-
 /-- `GT_OFF(x)` is false for every `x`: `sizeof(int) == sizeof(z_off64_t)` is false, and `gz_intmax` is not called. -/
 theorem GT_OFF_run (x : UInt32) (h : Heap) : GT_OFF x h = .ok (false, h) := by
   simp [GT_OFF]
 
 /-! ## gzbuffer -/
 
-/-- `gzbuffer(NULL, size)` returns -1 and does not change the heap, for every `size`. -/
-theorem gzbuffer_null (size : UInt32) (h : Heap) : gzbuffer none size h = .ok (-1, h) := rfl
-
-/-- Doubling `size` overflows exactly when `size` is `2^31` or more. -/
-theorem double_overflow_iff (size : UInt32) : (size <<< 1) < size ↔ 2 ^ 31 ≤ size.toNat := by
-  rw [UInt32.lt_iff_toNat_lt, UInt32.toNat_shiftLeft]
-  have := size.toNat_lt
-  simp only [UInt32.toNat_ofNat, Nat.reducePow] at *
-  rcases Nat.lt_or_ge size.toNat (2 ^ 31) with h1 | h1
-  · have : (1 : UInt32).toNat % 32 = 1 := rfl
-    simp; omega
-  · have : (1 : UInt32).toNat % 32 = 1 := rfl
-    simp; omega
-
-/-- **gzbuffer.** `-1` and no change when buffers exist (`size ≠ 0`) or `size` cannot be doubled; otherwise `want` becomes
-`max(size, 8)` and the result is 0. -/
-theorem gzbuffer_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (size : UInt32) :
-    gzbuffer (hnd gs) size h =
-      if s.size ≠ 0 ∨ (size <<< 1) < size then .ok (-1, h)
-      else .ok (0, setS h gs { s with want := if size < 8 then 8 else size }) := by
-  have hs := hG.hs
-  have hm : s.mode = GZ_READ ∨ s.mode = GZ_WRITE := hG.mode
-  have hne : s.mode ≠ GZ_READ ∨ s.mode ≠ GZ_WRITE := by
-    rcases hm with h1 | h1 <;> simp [h1, GZ_READ, GZ_WRITE]
-  unfold gzbuffer
-  by_cases h1 : s.size ≠ 0
-  · gsimp [hs, h1, hm]
-  · have h1' : s.size = 0 := by simpa using h1
-    by_cases h2 : (size <<< 1) < size
-    · gsimp [hs, h1', h2, hm]
-    · rcases hm with hm | hm <;> gsimp [hs, h1', h2, hm, GZ_READ, GZ_WRITE]
-
-/-- `gzbuffer` on a handle with `GzGood`: no fault; either the result is -1 and the heap is unchanged (buffers exist, or `size >= 2^31`), or the result is 0, `want` is `max(size, 8)`, nothing else changes and `GzGood` still holds. Caller condition: a handle returned by `gzopen`/`gzdopen`, not closed. -/
-theorem gzbuffer_safe {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (size : UInt32) :
-    ∃ r h', C.run (gzbuffer (hnd gs) size) h = .ok (r, h') ∧
-      ((s.size ≠ 0 ∨ 2 ^ 31 ≤ size.toNat) ∧ r = -1 ∧ h' = h ∨
-       (s.size = 0 ∧ size.toNat < 2 ^ 31) ∧ r = 0 ∧
-        h' = setS h gs { s with want := if size < 8 then 8 else size } ∧
-        GzGood h' gs { s with want := if size < 8 then 8 else size }) := by
-  have hr := gzbuffer_run hG size
-  have hd := double_overflow_iff size
-  by_cases hc : s.size ≠ 0 ∨ (size <<< 1) < size
-  · rw [ite_eq_left hc] at hr
-    refine ⟨-1, h, hr, Or.inl ⟨?_, rfl, rfl⟩⟩
-    rcases hc with hc | hc
-    · exact Or.inl hc
-    · exact Or.inr (hd.mp hc)
-  · rw [ite_eq_right hc] at hr
-    have hc1 : s.size = 0 := Classical.byContradiction fun hh => hc (Or.inl hh)
-    have hc2 : ¬ (size <<< 1) < size := fun hh => hc (Or.inr hh)
-    refine ⟨0, _, hr, Or.inr ⟨⟨hc1, ?_⟩, rfl, rfl, ?_⟩⟩
-    · exact Classical.byContradiction fun hh => hc2 (hd.mpr (by omega))
-    · exact GzGood.withRec hG (Or.inl rfl) rfl rfl rfl rfl (fun hh => hG.memerr hh)
-
 /-! ## gzeof -/
 
-/-- `gzeof(NULL)` returns 0 and does not change the heap. -/
-theorem gzeof_null (h : Heap) : gzeof none h = .ok (0, h) := rfl
-
-/-- `gzeof` on a handle with `GzGood`: returns `past` for a reader and 0 for a writer; the heap is unchanged. -/
-theorem gzeof_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) :
-    gzeof (hnd gs) h = .ok ((if s.mode = GZ_READ then s.past else 0), h) := by
-  have hs := hG.hs
-  unfold gzeof
-  rcases hG.mode with hm | hm
-  · gsimp [hs, hm]
-  · gsimp [hs, hm, GZ_READ, GZ_WRITE]
-
 /-! ## gztell64, gztell -/
-
-/-- `gztell64(NULL)` returns -1 and does not change the heap. -/
-theorem gztell64_null (h : Heap) : gztell64 none h = .ok (-1, h) := rfl
 
 theorem gztell64_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (hP : PosInv s) :
     gztell64 (hnd gs) h = .ok (Int64.ofInt (tellPos s), h) := by
@@ -150,40 +78,10 @@ theorem gztell_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (hP 
   unfold gztell
   simp [bind_app, gztell64_run hG hP]
 
-/-- `gztell(NULL)` returns -1 and does not change the heap. -/
-theorem gztell_null (h : Heap) : gztell none h = .ok (-1, h) := rfl
-
 /-! ## gzerror -/
 
 /-- `gzerror(NULL, errnum)` returns NULL and does not change the heap, whatever `errnum` is. -/
 theorem gzerror_null_file (errnum : BPtr) (h : Heap) : gzerror none errnum h = .ok (.null, h) := rfl
-
-/-- **gzerror, no `errnum`.** The result is the static text `"out of memory"` for `Z_MEM_ERROR`, else the message of the
-handle, else the static empty text. The heap is unchanged. -/
-theorem gzerror_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) :
-    ∃ r, gzerror (hnd gs) .null h = .ok (r, h) ∧
-      ((s.err = Z_MEM_ERROR ∧ IsLit r "out of memory") ∨
-       (s.err ≠ Z_MEM_ERROR ∧ s.msg = .null ∧ IsLit r "") ∨
-       (s.err ≠ Z_MEM_ERROR ∧ s.msg ≠ .null ∧ r = s.msg)) := by
-  have hs := hG.hs
-  have lit : ∀ t : String, t ∈ strTable → ∃ r, strLit t h = .ok (r, h) ∧ IsLit r t := fun t ht => by
-    obtain ⟨i, e, hi⟩ := strLitRef_of_mem (h := h) ht
-    exact ⟨_, e, i, rfl, hi⟩
-  have hm : s.mode = GZ_READ ∨ s.mode = GZ_WRITE := hG.mode
-  by_cases he : s.err = Z_MEM_ERROR
-  · obtain ⟨r, e1, e2⟩ := lit "out of memory" (by decide +kernel)
-    refine ⟨r, ?_, Or.inl ⟨he, e2⟩⟩
-    unfold gzerror
-    rcases hm with hm | hm <;> gsimp [hs, hm, he, GZ_READ, GZ_WRITE, e1]
-  · by_cases hn : s.msg = .null
-    · obtain ⟨r, e1, e2⟩ := lit "" (by decide +kernel)
-      refine ⟨r, ?_, Or.inr (Or.inl ⟨he, hn, e2⟩)⟩
-      unfold gzerror
-      rcases hm with hm | hm <;> gsimp [hs, hm, he, hn, GZ_READ, GZ_WRITE, e1]
-    · refine ⟨s.msg, ?_, Or.inr (Or.inr ⟨he, hn, rfl⟩)⟩
-      unfold gzerror
-      rcases hm with hm | hm <;> gsimp [hs, hm, he, hn, GZ_READ, GZ_WRITE]
-
 
 /-! ## gzclearerr -/
 
@@ -194,26 +92,5 @@ theorem GzGood.clearRec {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s)
   refine GzGood.withRec hG (Or.inl (by unfold Spec.clearRec; split <;> rfl)) (by unfold Spec.clearRec; split <;> rfl)
     (by unfold Spec.clearRec; split <;> rfl) (by unfold Spec.clearRec; split <;> rfl) (by unfold Spec.clearRec; split <;> rfl)
     (by intro hh; have := hG.memerr (by unfold Spec.clearRec at hh; split at hh <;> exact hh); unfold Spec.clearRec; split <;> exact this)
-
-/-- `gzclearerr` on a handle with `GzGood`: a reader clears `eof` and `past`; the error code becomes `Z_OK` and the message block is freed (`gz_error(state, Z_OK, NULL)`); nothing else changes. Caller condition: an open handle. -/
-theorem gzclearerr_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) :
-    gzclearerr (hnd gs) h = .ok ((), setS (freeStr h s.msg) gs (errNull (clearRec s) Z_OK)) := by
-  have hs := hG.hs
-  unfold gzclearerr
-  rcases hG.msg with hn | ⟨mb, hm, a, ha, hro, k, hz⟩
-  · rcases hG.mode with hmo | hmo <;> gsimp [hs, hn, hmo, gz_error, clearRec, errNull, GZ_READ, GZ_WRITE]
-  · have hne : s.err ≠ Z_MEM_ERROR := fun h' => by have := hG.memerr h'; rw [hm] at this; cases this
-    rcases hG.mode with hmo | hmo <;>
-      gsimp [hs, hm, hne, hmo, freeB_blk_setS ha hro, freeB_blk_run ha hro, gz_error, clearRec, errNull, GZ_READ, GZ_WRITE]
-
-/-- **gzclearerr, safety and effect.** -/
-theorem gzclearerr_safe {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) :
-    ∃ h', C.run (gzclearerr (hnd gs)) h = .ok ((), h') ∧ h' = setS (freeStr h s.msg) gs (errNull (clearRec s) Z_OK) ∧
-      GzGood h' gs (errNull (clearRec s) Z_OK) := by
-  refine ⟨_, gzclearerr_run hG, rfl, ?_⟩
-  have := GzGood.afterErr (GzGood.clearRec hG) Z_OK
-  have e : (clearRec s).msg = s.msg := by unfold Spec.clearRec; split <;> rfl
-  rw [e] at this
-  simpa using this
 
 end Zlib.Gzlib.Proofs

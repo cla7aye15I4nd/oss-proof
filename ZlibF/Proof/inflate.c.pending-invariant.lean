@@ -43,57 +43,6 @@ theorem dataPendingInvariant_match {s : InflateState} (sane : s.sane = 1)
   refine ⟨sane, ?_, ?_, ?_, fun _ => facts⟩
   all_goals intro selected; rw [mode] at selected; contradiction
 
-/-- The actual default initializer establishes the scalar clause from its
-writes. The existing successful initialization theorem supplies the run,
-Good, table clause and reachability on this same heap. -/
-theorem inflate_default_pending_boundary
-    (h : Heap) (r : ZStreamRef) (version : BPtr)
-    (domain : InitDomain h r version) (platform : ZlibF.PlatformMemory.ByteObjectsFit h)
-    (allocation : h.allocOk h.nalloc = true) :
-    ∃ after z s,
-      C.run (inflateInit_ (some r) version 112) h = .ok (Z_OK, after) ∧
-      InflateInitial h after r .zlib 15 ∧ Good after r h.nextBlk z s ∧
-      s.mode = HEAD ∧ DataTableInvariant after s ∧ DataPendingInvariant s ∧
-      ZlibF.PlatformMemory.ByteObjectsFit after ∧ StreamReachable .inflate after r := by
-  obtain ⟨after, z, s, run, initial, good, head, _, _, _, tables, fit, reachable⟩ :=
-    inflate_default_init_boundary h r version domain platform allocation
-  have sane := inflate_default_success_sane domain allocation run good
-  exact ⟨after, z, s, run, initial, good, head, tables, dataPendingInvariant_head sane head, fit, reachable⟩
-
-/-- A concrete default caller reaches the strengthened initial boundary. -/
-theorem inflate_default_pending_witness :
-    ∃ after z s,
-      C.run (inflateInit_ (some (.tab 0)) (.ref (.blk 1) 0) 112) witnessHeap = .ok (Z_OK, after) ∧
-      Good after (.tab 0) witnessHeap.nextBlk z s ∧ DataTableInvariant after s ∧
-      DataPendingInvariant s ∧ StreamReachable .inflate after (.tab 0) := by
-  obtain ⟨after, z, s, run, _, good, _, tables, pending, _, reachable⟩ :=
-    inflate_default_pending_boundary witnessHeap (.tab 0) (.ref (.blk 1) 0)
-      ZlibF.Spec.Public.Proofs.InflateInit.public_witness_domain inflate_default_witness_platform rfl
-  exact ⟨after, z, s, run, good, tables, pending, reachable⟩
-
-/-- The literal mode retains pending scalar safety at both its zero-output
-exit and its actual LEN continuation. The fields are supplied by init and
-prior dispatch transitions, rather than by public caller arguments. -/
-theorem inflate_LIT_pending {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (tables : DataTablesSafe h s)
-    (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s) :
-    ∃ outcome regs after state,
-      runX (inflate_LIT c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs z state ∧ DataTablesSafe after state ∧ DispatchBuffers after r regs bs ∧
-      DataPendingInvariant state ∧ ByteViewSizes h after ∧ DecodeStateFrame s state := by
-  obtain ⟨outcome, regs, after, state, run, finalGood, finalTables, packet, sizes, frame, _, kinds⟩ :=
-    inflate_LIT_dispatch E good tables buffers
-  refine ⟨outcome, regs, after, state, run, finalGood, finalTables, packet, ?_, sizes, frame⟩
-  rcases kinds with ⟨_, _, _, stateEq⟩ | ⟨_, stateEq, _⟩
-  · rwa [stateEq]
-  · apply dataPendingInvariant_idle
-    · rw [frame]
-      exact pending.sane
-    · rw [stateEq]
-      change LEN ≠ LENEXT ∧ LEN ≠ DIST ∧ LEN ≠ DISTEXT ∧ LEN ≠ MATCH
-      decide
-
 /-- MATCH, LEN and BAD cannot enter either extra-bit phase by themselves. -/
 theorem dataPendingInvariant_match_modes {s : InflateState} (sane : s.sane = 1)
     (modes : s.mode = MATCH ∨ s.mode = LEN ∨ s.mode = BAD)

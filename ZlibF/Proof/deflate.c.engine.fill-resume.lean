@@ -18,14 +18,6 @@ def resumedFillHeap (h : Heap) (r : ZStreamRef) (ds w : Nat) (z : ZStream) (d : 
   let copied := copyRange wa ia (fillEnd d) io n.toNat
   paddedHeap (resumeReadHeap h r ds w z d ref io ia wa) ds w (resumeReadState d n copied) copied
 
-theorem resumed_fill_record (d : DeflateState) (n : UInt32) (copied : Array UInt8) :
-    ∃ key high, resumedFillState d n copied =
-      { d with lookahead := d.lookahead + n, ins_h := key, high_water := high } := by
-  obtain ⟨key, fields⟩ := resume_read_record d n copied
-  refine ⟨key, UInt64.ofNat (paddingTarget (resumeReadState d n copied)), ?_⟩
-  unfold resumedFillState paddedState
-  rw [fields]
-
 set_option maxHeartbeats 1200000 in
 /-- `local void fill_window(deflate_state *s)`.
 The whole resumed call with new input, short lookahead, no slide and no

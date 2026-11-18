@@ -75,11 +75,6 @@ def Gzip.Flushed (stream out : List UInt8) : Prop :=
           le16 ((crc32 (Gzip.header flg mtime xfl os extra name comment)).toNat % 2 ^ 16) else []) ++ s ∧
     Deflate.Flushed [] s out
 
-/-- `F-deflate-valid` for the zlib layer: `compressed` is a valid zlib stream for `input`
-(given the preset dictionary `dict`, `[]` if none). -/
-def Zlib.ValidWith (dict input compressed : List UInt8) : Prop :=
-  Zlib.Decodes dict compressed input
-
 /-- `F-deflate-valid` for the zlib layer without a dictionary. This is what `deflate` has
 to produce. -/
 def Zlib.Valid (input compressed : List UInt8) : Prop :=

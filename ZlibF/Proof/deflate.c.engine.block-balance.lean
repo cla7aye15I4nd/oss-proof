@@ -28,17 +28,6 @@ theorem balance_literal {d : DeflateState} {xs : List Symbol} {credit : Int}
   simp only [literalState, represented_snoc, Symbol.bytes, ite_true]
   omega
 
-theorem balance_match {d : DeflateState} {xs : List Symbol} {credit : Int}
-    (balance : BlockBalance d xs credit) (distance length : UInt32)
-    (positive : 1 ≤ distance.toNat) :
-    BlockBalance (matchSymbolState d distance length)
-      (xs ++ [⟨distance.toNat, length.toNat⟩]) (credit - (length.toNat + 3 : Nat)) := by
-  have nonzero : distance.toNat ≠ 0 := by omega
-  unfold BlockBalance at balance ⊢
-  simp only [matchSymbolState, matchFrequencies, represented_snoc, Symbol.bytes,
-    ite_eq_right nonzero]
-  omega
-
 /-- The actual one-byte advance repays one byte of credit. -/
 theorem balance_advance_one {h : Heap} {ds : Nat} {d : DeflateState}
     {xs : List Symbol} {credit : Int}

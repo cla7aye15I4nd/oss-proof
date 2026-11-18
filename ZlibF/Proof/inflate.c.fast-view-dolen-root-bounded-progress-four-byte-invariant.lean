@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inflate.c.fast-view-dolen-link-bounded-progress-four-byte-invariant»
-import ZlibF.Proof.«inflate.c.fast-view-root-base-progress-invariant»
+import ZlibF.Proof.«inflate.c.fast-view-literal-progress-invariant»
+import ZlibF.Proof.«inflate.c.fast-view-dolen-root-terminals-invariant»
 import ZlibF.Proof.«inflate.c.fast-view-dolen-root-base-four-byte-invariant»
 
 namespace Zlib.Inflate.Proofs

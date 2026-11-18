@@ -514,51 +514,6 @@ theorem acceptable_scan_lengths (tk : TK) (d : DeflateState) (M : Nat)
   unfold Zlib.Inftrees.Proofs.lensOf
   exact List.mem_map.mpr ⟨i, List.mem_range.mpr (by omega), rfl⟩
 
-/-- The actual tree constructor supplies every scalar, length and capacity
-premise of actual scan_tree. Both calls run on one heap. This bridges tree
-construction to description-frequency scanning, rather than assuming the
-scan's precondition as a callee contract. -/
-theorem build_tree_scan {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : Out.TreesInvAt h id d b buf) (tk : TK) (hne : tk ≠ .bl) :
-    ∃ (built e : DeflateState) (B : Array CtData),
-      build_tree (Sp id) (some (tk.descRef id)) h = .ok ((), setD h id built) ∧
-      (do build_tree (Sp id) (some (tk.descRef id))
-          scan_tree (Sp id) (.ref (tk.ref id) 0) (tk.getDesc (← rd (Sp id))).max_code) h =
-        .ok ((), setD h id e) ∧
-      scan_tree (Sp id) (.ref (tk.ref id) 0) (tk.getDesc built).max_code (setD h id built) =
-        .ok ((), setD h id e) ∧
-      e = { tk.setArr built (scGuard (tk.arr built) (tk.getDesc built).max_code.toInt.toNat) with bl_tree := B } ∧
-      Out.TreesInvAt (setD h id e) id e b buf ∧ Out.outBits buf e = Out.outBits buf d ∧
-      B.size = built.bl_tree.size ∧
-      ∀ k : Nat, B[k]!.fc = built.bl_tree[k]!.fc + UInt16.ofNat
-        (Out.scanFreqUpTo
-          (Out.guarded (fun i => (tk.arr built)[i]!.dl.toNat) (tk.getDesc built).max_code.toInt.toNat)
-          ((tk.getDesc built).max_code.toInt.toNat + 1) k) := by
-  obtain ⟨a, built, hbuild, hframe, M, hM, hmax, haccept, hdecode⟩ := merge_ws_and
-    (ws_build_tree_frame_initialized (h0 := h) tk hI.base.wf hI.base.static hI.run.to0)
-    (ws_build_tree_decodable_initialized (h0 := h) tk hI.base.wf hI.base.static hI.run.to0)
-  have ha : a = () := Subsingleton.elim _ _
-  subst a
-  rw [setD_self hI.base.dstate] at hbuild
-  have hmc0 : 0 ≤ (tk.getDesc built).max_code.toInt := by omega
-  have hmcN : (tk.getDesc built).max_code.toInt < tk.buildDesc.elems.toInt := by
-    have hN0 : 0 ≤ tk.buildDesc.elems.toInt := by cases tk <;> decide +kernel
-    omega
-  have hlens := acceptable_scan_lengths tk built M (haccept .codeLength)
-  have hlens' : ∀ i ≤ (tk.getDesc built).max_code.toInt.toNat, (tk.arr built)[i]!.dl.toNat ≤ 15 := by
-    intro i hi
-    exact hlens i (by omega)
-  obtain ⟨e, B, hscan, heB, hIe, hout, hBs, hdl, hfc⟩ :=
-    scan_tree_preserves (hframe.treesInvAt hI) tk hne (tk.getDesc built).max_code hmc0 hmcN hlens'
-  rw [setD_setD] at hscan hIe
-  refine ⟨built, e, B, hbuild, ?_, hscan, heB, hIe, hout.trans (hframe.outBits buf), hBs, hfc⟩
-  have hrd : rd (Sp id) (setD h id built) = .ok (built, setD h id built) :=
-    Out.rd_run (setD_dstates_same h id built)
-  rw [bind_app, hbuild]
-  simp only []
-  rw [bind_app, hrd]
-  exact hscan
-
 /-- A finished run contributes at most its consumed length to any one
 frequency. Repeated nonzero lengths use at most two symbols and require at
 least three consumed lengths. -/
@@ -602,17 +557,6 @@ theorem scanFreq_le (L : Nat → Nat) (hL : ∀ i, L i < 65536) (n k : Nat) :
     Out.scanFreqUpTo L n k ≤ n := by
   have := scanFreq_with_pending_le L hL n k
   omega
-
-/-- The two scans' counts fit exactly in a 16-bit frequency cell when their
-combined alphabet size is below 65536. No input-length restriction is used. -/
-theorem scan_frequency_pair_exact (L D : Nat → Nat)
-    (hL : ∀ i, L i < 65536) (hD : ∀ i, D i < 65536) (n m k : Nat) (hsize : n + m < 65536) :
-    (UInt16.ofNat (Out.scanFreqUpTo L n k) + UInt16.ofNat (Out.scanFreqUpTo D m k)).toNat =
-      Out.scanFreqUpTo L n k + Out.scanFreqUpTo D m k := by
-  have h1 := scanFreq_le L hL n k
-  have h2 := scanFreq_le D hD m k
-  rw [← UInt16.ofNat_add, UInt16.toNat_ofNat']
-  exact Nat.mod_eq_of_lt (by omega)
 
 /-- The sentinel forces the last pending run to be counted. -/
 theorem scan_guard_finishes (L : Nat → Nat) (M : Nat) (h15 : ∀ i ≤ M, L i ≤ 15) :

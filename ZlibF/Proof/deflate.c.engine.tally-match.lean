@@ -230,36 +230,4 @@ theorem match_good_after {h : Heap} {r : ZStreamRef} {ds b : Nat} {z : ZStream}
   exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp, good.live.zst,
     good.live.back, good.live.status, good.live.zalloc, good.live.zfree⟩
 
-/-- The actual inline match tally preserves representation and H on its
-exact returned heap. The strategy must establish the real distance bound;
-room is derived here from the strict aligned symbol count. The length
-argument is narrowed to a byte exactly as in the C macro. -/
-theorem tally_match_good_chains {h : Heap} {r : ZStreamRef} {ds top : Nat}
-    {z : ZStream} {d : DeflateState} (good : DGood h r ds z d)
-    (chains : HeapChains h d top) (distance length : UInt32)
-    (positive : 1 ≤ distance.toNat) (distanceBound : distance.toNat ≤ 32768)
-    (strict : d.sym_next.toNat < d.sym_end.toNat) :
-    ∃ b buf, h.bytes b = some buf ∧
-      tally_dist (some (.tab ds)) distance length h = .ok (d.sym_next + 3 == d.sym_end,
-        setD (Zlib.Trees.Proofs.Out.setB h b (matchBytes buf d distance.toUInt16 length.toUInt8)) ds
-          (matchSymbolState d distance length)) ∧
-      DGood (setD (Zlib.Trees.Proofs.Out.setB h b (matchBytes buf d distance.toUInt16 length.toUInt8)) ds
-        (matchSymbolState d distance length)) r ds z (matchSymbolState d distance length) ∧
-      HeapChains (setD (Zlib.Trees.Proofs.Out.setB h b (matchBytes buf d distance.toUInt16 length.toUInt8)) ds
-        (matchSymbolState d distance length)) (matchSymbolState d distance length) top ∧
-      ((d.sym_next + 3 == d.sym_end) = false →
-        (matchSymbolState d distance length).sym_next.toNat < d.sym_end.toNat) := by
-  obtain ⟨d0, b, buf, trees⟩ := good.trees
-  have eq : d0 = d := Option.some.inj (trees.base.dstate.symm.trans good.live.hs)
-  subst d0
-  have room := literal_room good.inv strict
-  refine ⟨b, buf, trees.base.bytes, tally_match_run trees.base distance length positive distanceBound room,
-    match_good_after good trees distance length room, ?_, ?_⟩
-  · obtain ⟨w, p, q, wa, pa, qa, win, prev, head, hw, hp, hq, H⟩ :=
-      pending_write_chains good chains trees.base.pbuf
-        (matchBytes buf d distance.toUInt16 length.toUInt8) 0
-    exact ⟨w, p, q, wa, pa, qa, win, prev, head, hw, hp, hq, H⟩
-  · intro flag
-    exact literal_not_full trees 0 room flag
-
 end Zlib.Deflate.Engine.Proofs

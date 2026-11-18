@@ -28,8 +28,6 @@ theorem fib_zero : fib 0 = 0 := rfl
 theorem fib_one : fib 1 = 1 := rfl
 theorem fib_two : fib 2 = 1 := rfl
 
-theorem fib_succ_eq (n : Nat) : fib (n + 1) = (fibPair n).2 := rfl
-
 theorem fib_add_two (n : Nat) : fib (n + 2) = fib n + fib (n + 1) := rfl
 
 theorem fib_le_succ : ∀ n, fib n ≤ fib (n + 1)
@@ -246,20 +244,5 @@ theorem PosT.leaf_w : ∀ {t : HTree}, PosT t → ∀ x ∈ t.leaves, 1 ≤ x.w
     rcases hy with hy | hy
     · exact PosT.leaf_w h.1 y hy
     · exact PosT.leaf_w h.2 y hy
-
-/-- **No overflow below `F(L+3)`.** If the total weight is below `F(L+3)`, every leaf
-depth is at most `L`. For `L = 15`, `F(18) = 2584`. -/
-theorem depth_le_of_merges {syms : List (Nat × Nat)} {tr : List HTree} {T : HTree}
-    (h : Merges (initForest syms) tr T) (hpos : ∀ p ∈ syms, 1 ≤ p.2) (L : Nat)
-    (hW : T.weight < fib (L + 3)) : ∀ x ∈ T.leaves, x.d ≤ L := by
-  have ⟨_, hP⟩ := (FInv.init syms hpos).merges h
-  intro x hx
-  have h1 := fibPlus_of_merges h hpos x hx
-  have hw := PosT.leaf_w hP x hx
-  refine Nat.le_of_not_lt fun hlt => ?_
-  have h2 : fib (x.d + 1) ≤ x.w * fib (x.d + 1) := Nat.le_mul_of_pos_left _ hw
-  have h3 : fib (L + 3) ≤ fib (x.d + 2) := fib_mono (by omega)
-  have h4 := fib_add_two x.d
-  omega
 
 end Zlib.Trees.HuffmanAbstract

@@ -18,7 +18,4 @@ theorem ROOM_have (c : BCtx) {l : IL} {h : Heap} (hl : l.left ≠ 0) :
   unfold ROOM
   simp [runX_bind, runX_get, hl, runX_pure]
 
-/-- The heap `ROOM()` sets before it calls `out`: `state->whave = state->wsize`. -/
-def roomHeap (h : Heap) (zs : Nat) (s : InflateState) : Heap := setI h zs { s with whave := s.wsize }
-
 end Zlib.Infback.Proofs

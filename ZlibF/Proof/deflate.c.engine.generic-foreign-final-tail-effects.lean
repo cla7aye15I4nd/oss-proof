@@ -40,37 +40,4 @@ theorem default_foreign_finish_tail_effect_execution {h : Heap} {r : ZStreamRef}
   simp only [beq_self_eq_true,ite_true,bind_app,controlRun]
   by_cases empty : (z'.avail_out==0)=true <;> simp [empty,pure_app]
 
-/-- The same actual final-tail return has exact wrapping input/output totals. -/
-theorem default_foreign_finish_tail_run_counter_effects {h after : Heap} {r : ZStreamRef} {ds owner oo origin base produced : Nat}
-    {z returned : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {ret : block_state}
-    (boundary : ContentBoundary h r ds z d input origin base xs) (frontier : EndFrontier h d)
-    (buffers : StreamBuffers h r) (positive : 0<d.level.toInt)
-    (pointer : z.next_out=.ref (.dstate_depth owner) oo) (cursor : d.pending_out=d.pending_buf)
-    (memory : d.lit_bufsize.toNat=16384) (pending : d.pending=0) (bits : d.bi_valid.toInt≤7)
-    (clear : BlockInit.BlockClear d) (available : d.match_available=0) (wrap : d.wrap=1)
-    (run : finish_tail (some (.tab ds)) Z_FINISH h=.ok (ret,after)) (live : r.get after=some returned)
-    (account : StreamAccounting z returned 0 produced) :
-    returned.total_in=z.total_in ∧ returned.total_out=z.total_out+UInt64.ofNat produced := by
-  obtain ⟨amount,otherRet,other,otherZ,_otherD,actual,goodA,accountA,inputA,outputA,_checksumA⟩ :=
-    default_foreign_finish_tail_effect_execution boundary frontier buffers positive pointer cursor memory pending bits clear available wrap
-  have same := actual_run_stream_unique actual run goodA.live.hz live
-  rw [same] at accountA inputA outputA
-  have count : produced=amount := (stream_accounting_counts_unique account accountA).2
-  exact ⟨inputA,count ▸ outputA⟩
-
-/-- The same actual final-tail return retains Adler without a callee checksum premise. -/
-theorem default_foreign_finish_tail_run_adler {h after : Heap} {r : ZStreamRef} {ds owner oo origin base produced : Nat}
-    {z returned : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {ret : block_state}
-    (boundary : ContentBoundary h r ds z d input origin base xs) (frontier : EndFrontier h d)
-    (buffers : StreamBuffers h r) (positive : 0<d.level.toInt)
-    (pointer : z.next_out=.ref (.dstate_depth owner) oo) (cursor : d.pending_out=d.pending_buf)
-    (memory : d.lit_bufsize.toNat=16384) (pending : d.pending=0) (bits : d.bi_valid.toInt≤7)
-    (clear : BlockInit.BlockClear d) (available : d.match_available=0) (wrap : d.wrap=1)
-    (run : finish_tail (some (.tab ds)) Z_FINISH h=.ok (ret,after)) (live : r.get after=some returned)
-    (_account : StreamAccounting z returned 0 produced) : returned.adler=z.adler := by
-  obtain ⟨_amount,_otherRet,other,otherZ,_otherD,actual,goodA,_accountA,_inputA,_outputA,checksumA⟩ :=
-    default_foreign_finish_tail_effect_execution boundary frontier buffers positive pointer cursor memory pending bits clear available wrap
-  have same := actual_run_stream_unique actual run goodA.live.hz live
-  exact same ▸ checksumA
-
 end Zlib.Deflate.Engine.Proofs

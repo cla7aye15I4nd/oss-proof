@@ -264,15 +264,6 @@ theorem fsWrite_contract_m (fd : Int32) (bs : Array UInt8) (w : Fs) (hfs : FileS
     rw [Int64.toInt_ofNat', Zlib.Gzlib.Proofs.bmod64 _ (by omega) (by omega)]
     omega
 
-/-- **M2, the contract of `write`, for every oracle value**: `-1`, or `k` with `1 ≤ k ≤ bs.size` for a nonempty
-buffer. The heap is untouched, the file system stays well formed and no descriptor opens or closes. -/
-theorem fsWrite_contract (fd : Int32) (bs : Array UInt8) (w : Fs) (h : Heap) (hfs : FileSystem w)
-    (hne : bs.size ≠ 0) (hsmall : bs.size < 2 ^ 63) :
-    ∃ r w', fsWrite fd bs w h = .ok ((r, w'), h) ∧
-      (r = -1 ∨ (1 ≤ r.toInt ∧ r.toInt ≤ bs.size)) ∧ FileSystem w' ∧ FdsKept w w' := by
-  obtain ⟨r, w', e, p⟩ := fsWrite_contract_m fd bs w hfs hne hsmall
-  exact ⟨r, w', by rw [e]; rfl, p⟩
-
 /-! ## The source split of `gz_comp` -/
 
 /-- The length of one transparent write. -/
@@ -359,23 +350,6 @@ def compBody (i : Nat) (flush : Int32) (l : Zlib.Gzwrite.CompLoop) : G Zlib.Gzwr
 /-- The condition of the deflate loop. -/
 def compCond (l : Zlib.Gzwrite.CompLoop) : G (Bool × Zlib.Gzwrite.CompLoop) :=
   Pure.pure (l.res.isNone && l.«have» != 0, l)
-
-theorem gz_comp_source (i : Nat) (flush : Int32) :
-    Zlib.Gzwrite.gz_comp (gzSt i) flush = (do
-      if (← ldS (gzSt i)).size == 0 then
-        if (← Zlib.Gzwrite.gz_init (gzSt i)) == -1 then return -1
-      if (← ldS (gzSt i)).direct != 0 then
-        let r ← gwhile (directCond i) (directBody i) none
-        return r.getD 0
-      if (← ldS (gzSt i)).reset != 0 then
-        let z ← ldZ (strmOf (gzSt i))
-        if z.avail_in == 0 && flush == Z_NO_FLUSH then return 0
-        let _ ← Zlib.Deflate.deflateReset (strmOf (gzSt i))
-        updS (gzSt i) fun s => { s with reset := 0 }
-      let l ← gdoWhile (compBody i flush) compCond { ret := Z_OK, «have» := 0, res := none }
-      if let some r := l.res then return r
-      if flush == Z_FINISH then updS (gzSt i) fun s => { s with reset := 1 }
-      return 0) := rfl
 
 /-! ## The writer invariant across a step of `gz_comp`
 
@@ -1024,8 +998,6 @@ theorem frame_of_out {h after : Heap} {C : Nat → Prop} {ob off n : Nat} {oa : 
   · obtain ⟨a', g, sz, -⟩ := inside _ (List.mem_singleton.mpr rfl) (.blk ob) off oa rfl hob
     exact ⟨a', g, sz⟩
   · exact (f6 ob hl hc).2.2.2.2.2.2.2
-
-theorem streamRoot_gz (b : Nat) : StreamRoot (gzStrm i) b ↔ b = i := Iff.rfl
 
 theorem exec_deflate {r : ZStreamRef} {flush rc : Int32} {h after : Heap}
     (run : C.run (Zlib.Deflate.deflate (some r) flush) h = .ok (rc, after)) :
@@ -2432,11 +2404,6 @@ open Classical in
 noncomputable def muP (Φ : Int32 → Heap → ZStreamRef → Nat) (Quiet : Int32 → Heap → ZStreamRef → Prop)
     (flush : Int32) (i : Nat) (h : Heap) : Nat :=
   if SilentP Quiet flush i h then 1 else if recOut h i = 0 then 2 + PsiP Φ flush i h else 3 + 2 ^ 63
-
-theorem u32_ne_zero {x : UInt32} : x ≠ 0 ↔ x.toNat ≠ 0 := by
-  constructor
-  · intro hx e; exact hx (UInt32.toNat_inj.mp (by rw [e]; rfl))
-  · intro hx e; exact hx (by rw [e]; rfl)
 
 theorem psi_lt {Φ : Int32 → Heap → ZStreamRef → Nat} {Quiet : Int32 → Heap → ZStreamRef → Prop}
     (hc : QuietClauses Φ Quiet) {flush : Int32} (hf : 0 ≤ flush.toInt ∧ flush.toInt ≤ 5)

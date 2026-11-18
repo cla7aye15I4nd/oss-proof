@@ -138,15 +138,6 @@ theorem CallFrameFacts.call_views {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Na
     RegionViews (CallChanged c r zs s.head) (⟨z.next_out, 0⟩ :: HeaderRegions h s.head) :=
   facts.views.mono fun _ inside => Or.inl inside
 
-theorem CallFrameFacts.window_root {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
-    {s : InflateState} (facts : CallFrameFacts c h r zs z s) {w : Nat} (window : s.window = .ref (.blk w) 0) :
-    ¬ RegionRoot (⟨z.next_out, 0⟩ :: HeaderRegions h s.head) (.blk w) := by
-  intro root
-  rcases facts.views _ root with ⟨i, e, outside⟩ | ⟨i, e, _⟩
-  · cases e
-    exact outside (Or.inr (Or.inr window))
-  · cases e
-
 theorem RegionRoot.head_length {pointer : BPtr} {n m : Nat} {rest : List Region} {ref : BRef}
     (root : RegionRoot (⟨pointer, n⟩ :: rest) ref) : RegionRoot (⟨pointer, m⟩ :: rest) ref := by
   obtain ⟨region, member, off, at_⟩ := root

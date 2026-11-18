@@ -213,16 +213,6 @@ theorem init_block_spec0 {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf
   · exact hdl3
 
 
-/-- `init_block_spec0` for a state that satisfies the whole invariant. -/
-theorem init_block_spec {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) :
-    ∃ a1 a2 a3 d', init_block (some (.tab id)) h = .ok ((), setD h id d') ∧
-      TreesInvAt (setD h id d') id d' b buf ∧ d' = ibRec d a1 a2 a3 ∧
-      a1.size = 573 ∧ a2.size = 61 ∧ a3.size = 39 := by
-  obtain ⟨a1, a2, a3, d', e, hi, hd, s1, s2, s3, -⟩ := init_block_spec0 hI.base hI.run.to0
-  exact ⟨a1, a2, a3, d', e, hi, hd, s1, s2, s3⟩
-
-
 /-- The record after the stores of `_tr_init` that precede `init_block`. -/
 def trInitRec (id : Nat) (d : DeflateState) : DeflateState :=
   { d with

@@ -21,7 +21,7 @@ Clauses that the proofs need:
   `strm.state` name a block that is not live, which a caller may then allocate, so `GzInv.caller` would be false.
 - `GzCommon.recordFree`: the codec does not own the record block, so that a write of the record (`put_scalars`,
   `gz_error`) is a rebuffer of the codec.
-- `GzReadInv.posHave`: `x.pos + x.have ≤ GZ_OFF_MAX` on return (patch 0004). Without it the buffered path of
+- `GzReadInv.posHave`: `x.pos + x.have ≤ GZ_OFF_MAX` on return (patch 0003). Without it the buffered path of
   `gzgetc` overflows `x.pos`.
 - `GzReadInv.againSize`: `size = 0 → again = 0`. Without it `gzungetc` computes `out + 2·size - 1` on a NULL `out`.
 - `GzReadInv.haveSkip`: `x.have ≠ 0 → skip = 0` at call boundaries; `GzInvUpToSkip` is the invariant without it, for
@@ -30,7 +30,7 @@ Clauses that the proofs need:
 - `GzPost` has a no-grab clause: a block owned after a helper call was owned before it or was not live before it.
 
 Patches. Some clauses (`GzCommon.pos`, `GzCommon.next`, `GzReadInv.output`) are established only for the patched
-source (patches 0002 and 0003, patch 0004 for F-1 and patch 0005 for W7). The definitions do not depend on that;
+source (patches 0002, 0003 and 0004). The definitions do not depend on that;
 the lemmas that need a patch say so.
 -/
 

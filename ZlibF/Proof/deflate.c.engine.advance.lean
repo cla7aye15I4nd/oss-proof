@@ -51,13 +51,4 @@ theorem advance_one_good {h : Heap} {r : ZStreamRef} {ds top : Nat} {z : ZStream
   · rw [counts.2.2]
     exact range
 
-theorem advance_one_padding {h : Heap} {ds : Nat} {d : DeflateState}
-    (inv : DStInv h ds d) (range : d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat)
-    (positive : 1 ≤ d.lookahead.toNat)
-    (padded : min (d.strstart.toNat + d.lookahead.toNat + 258) d.window_size.toNat ≤ d.high_water.toNat) :
-    min ((advanceOne d).strstart.toNat + (advanceOne d).lookahead.toNat + 258)
-      (advanceOne d).window_size.toNat ≤ (advanceOne d).high_water.toNat := by
-  rw [(advance_one_counts inv range positive).2.2]
-  exact padded
-
 end Zlib.Deflate.Engine.Proofs

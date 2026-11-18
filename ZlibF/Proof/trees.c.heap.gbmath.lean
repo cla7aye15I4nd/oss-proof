@@ -144,8 +144,6 @@ theorem rs_all_one {F : Nat → Nat} {n : Nat} (hle : ∀ i < n, F i ≤ 1) (hs 
 /-- Indicator. -/
 def ind (p : Prop) [Decidable p] : Nat := if p then 1 else 0
 
-theorem ind_le (p : Prop) [Decidable p] : ind p ≤ 1 := by unfold ind; split <;> omega
-
 /-! ## Counting and reindexing -/
 
 /-- Number of `i < m` with `P i = v`. -/
@@ -194,15 +192,6 @@ theorem cnt_exists {P : Nat → Nat} {m v : Nat} (h : 1 ≤ cnt P m v) : ∃ i <
   by_cases hx : ∃ i < m, P i = v
   · exact hx
   · have := cnt_zero (P := P) (m := m) (v := v) (fun i hi e => hx ⟨i, hi, e⟩); omega
-
-/-- Pigeonhole: an injective map from `m` points into `N` values has `m ≤ N`. -/
-theorem inj_le (P : Nat → Nat) (m N : Nat) (hP : ∀ i < m, P i < N)
-    (hinj : ∀ i j, i < m → j < m → P i = P j → i = j) : m ≤ N := by
-  have := rs_image P (fun _ => 1) m N hP
-  rw [rs_const] at this
-  have h2 : rs (fun v => cnt P m v * 1) N ≤ rs (fun _ => 1) N :=
-    rs_le (fun v _ => by have := cnt_le_one P m v hinj; omega)
-  rw [rs_const] at h2; omega
 
 /-- An injective self-map of `[0, n)` hits every point. -/
 theorem inj_surj (P : Nat → Nat) (n : Nat) (hP : ∀ i < n, P i < n)
@@ -262,13 +251,5 @@ theorem rs_pair (F : Nat → Nat) (J : Nat) :
     simp only [rs_succ, rs_zero]
     rw [show (2 + 2 * J - 1 - 0) / 2 = J by omega, show (2 + 2 * J - 1 - 1) / 2 = J by omega]
     omega
-
-theorem rs_ind_add (p q : Nat → Prop) [DecidablePred p] [DecidablePred q] (n : Nat)
-    (h : ∀ i < n, ¬ (p i ∧ q i)) :
-    rs (fun i => if p i ∨ q i then 1 else 0) n =
-      rs (fun i => if p i then 1 else 0) n + rs (fun i => if q i then 1 else 0) n := by
-  rw [← rs_add]; apply rs_congr; intro i hi
-  have := h i hi
-  by_cases a : p i <;> by_cases b : q i <;> simp_all
 
 end Zlib.Trees.Proofs.GB

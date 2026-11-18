@@ -872,11 +872,6 @@ theorem stuck_put {h : Heap} {i : Nat} {s s' : GzState} (hd : Stuck h s) (hst : 
   obtain ⟨k, st, a, b, c⟩ := hd
   exact ⟨k, st, by rw [hst]; exact a, b, c⟩
 
-theorem stuck_of_put {h : Heap} {i : Nat} {s s' : GzState} (hd : Stuck (putGz h i s') s')
-    (hst : s'.strm.state = s.strm.state) : Stuck h s := by
-  obtain ⟨k, st, a, b, c⟩ := hd
-  exact ⟨k, st, by rw [← hst]; exact a, b, c⟩
-
 /-- **`gz_error` inside a reading call** as a step: the run, the record (error and message changed), and the
 post-condition with no caller region. -/
 theorem post_gz_error {H : Heap} {i : Nat} {s : GzState} {fs : Fs} (hu : GzInvUpToOutput H i s)

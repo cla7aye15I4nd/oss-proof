@@ -262,11 +262,6 @@ theorem keep_gen_codes (tree : CtDataPtr) (max_code : Int32) (bl_count : WPtr) :
     | with_reducible exact keep_trees_iadd _ _
     | trees_keep_step
 
-theorem keep_tr_static_init  : KeepM (tr_static_init ) := by
-  unfold tr_static_init
-  repeat' first
-    | trees_keep_step
-
 theorem keep_init_block (s : DeflateStatePtr) : KeepM (init_block s) := by
   unfold init_block
   repeat' first
@@ -276,15 +271,6 @@ theorem keep_init_block (s : DeflateStatePtr) : KeepM (init_block s) := by
     | with_reducible exact keep_pLtree _
     | with_reducible exact keep_md _ _ (fun _ => ⟨rfl, rfl⟩)
     | with_reducible exact keep_trees_iadd _ _
-    | trees_keep_step
-
-theorem keep__tr_init (s : DeflateStatePtr) : KeepM («_tr_init» s) := by
-  unfold «_tr_init»
-  repeat' first
-    | with_reducible exact keep_init_block _
-    | with_reducible exact keep_tr_static_init
-    | with_reducible exact keep_md _ _ (fun _ => ⟨rfl, rfl⟩)
-    | with_reducible exact keep_trees_sid _
     | trees_keep_step
 
 theorem keep_pqdownheap (s : DeflateStatePtr) (tree : CtDataPtr) (k : Int32) : KeepM (pqdownheap s tree k) := by
@@ -598,18 +584,6 @@ theorem keep__tr_flush_block (s : DeflateStatePtr) (buf : BPtr) (stored_len : UI
     | with_reducible exact keep_pLtree _
     | with_reducible exact keep_trees_rd _
     | with_reducible exact keep_trees_iadd _ _
-    | trees_keep_step
-
-theorem keep__tr_tally (s : DeflateStatePtr) (dist lc : UInt32) : KeepM («_tr_tally» s dist lc) := by
-  unfold «_tr_tally»
-  repeat' first
-    | with_reducible exact keep_trees_d_code _
-    | with_reducible exact keep_setFc _ _ _
-    | with_reducible exact keep_getFc _ _
-    | with_reducible exact keep_pDtree _
-    | with_reducible exact keep_pLtree _
-    | with_reducible exact keep_md _ _ (fun _ => ⟨rfl, rfl⟩)
-    | with_reducible exact keep_trees_rd _
     | trees_keep_step
 
 end Zlib.Trees.KeepProofs

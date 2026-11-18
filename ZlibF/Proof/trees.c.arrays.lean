@@ -43,20 +43,6 @@ theorem setFc_gen (hg : Space.get h r = some a) (hro : Space.ro h r = false) (hi
   rw [e3]
   simp
 
-theorem setDl_gen (hg : Space.get h r = some a) (hro : Space.ro h r = false) (hi : i < a.size) (v : UInt16) :
-    setDl (.ref r 0) (i : Int) v h = .ok ((), Space.put h r (a.set! i { a[i] with dl := v })) := by
-  have e1 := Ptr.add_nat_ok (off := 0) (n := i) hg (by omega)
-  have e2 := Ptr.load_ok (off := 0 + i) hg (by omega)
-  have e3 := Ptr.store_ok (v := ({ a[0 + i] with dl := v } : CtData)) (off := 0 + i) hg hro (by omega)
-  unfold OkOn at e1 e2
-  unfold setDl
-  rw [bind_app, e1]
-  simp only []
-  rw [bind_app, e2]
-  simp only []
-  rw [e3]
-  simp
-
 end generic
 
 
@@ -115,15 +101,6 @@ theorem Sel.put_ref {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id =
     Space.put h (s.ref id) a = setD h id (s.upd d a) := by
   cases s <;> simp [Sel.ref, Sel.upd, Space.put, e, setD]
 
-theorem Sel.size_arr {d : DeflateState} (hw : d.WellFormed) (s : Sel) : (s.arr d).size = s.size := by
-  obtain ⟨h1, h2, h3, -⟩ := hw
-  cases s <;> simp [Sel.arr, Sel.size, h1, h2, h3]
-
-theorem Sel.wf_upd {d : DeflateState} (hw : d.WellFormed) (s : Sel) (a : Array CtData) (ha : a.size = s.size) :
-    (s.upd d a).WellFormed := by
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hw
-  cases s <;> simp_all [Sel.upd, Sel.size, DeflateState.WellFormed]
-
 theorem Sel.arr_upd (s : Sel) (d : DeflateState) (a : Array CtData) : s.arr (s.upd d a) = a := by
   cases s <;> rfl
 
@@ -148,38 +125,5 @@ theorem setFc_sel {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id = s
     setFc (.ref (s.ref id) 0) (i : Int) v h =
       .ok ((), setD h id (s.upd d ((s.arr d).set! i { (s.arr d)[i]! with fc := v }))) := by
   rw [getElem!_pos (s.arr d) i hi, setFc_gen (Sel.get_ref e s) (Sel.ro_ref h id s) hi, Sel.put_ref e]
-
-theorem setDl_sel {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id = some d) (s : Sel) {i : Nat}
-    (hi : i < (s.arr d).size) (v : UInt16) :
-    setDl (.ref (s.ref id) 0) (i : Int) v h =
-      .ok ((), setD h id (s.upd d ((s.arr d).set! i { (s.arr d)[i]! with dl := v }))) := by
-  rw [getElem!_pos (s.arr d) i hi, setDl_gen (Sel.get_ref e s) (Sel.ro_ref h id s) hi, Sel.put_ref e]
-
-theorem TreesBase.treeUpd {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Array UInt8}
-    (hb : TreesBase h id d b buf) (s : Sel) (a : Array CtData) (ha : a.size = s.size) :
-    TreesBase (setD h id (s.upd d a)) id (s.upd d a) b buf := by
-  refine ⟨setD_dstates_same _ _ _, Sel.wf_upd hb.wf s a ha, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  all_goals first
-    | (cases s <;> simpa [Sel.upd] using hb.static)
-    | (cases s <;> simpa [Sel.upd] using hb.pbuf)
-    | (cases s <;> simpa [Sel.upd] using hb.bytes)
-    | (cases s <;> simpa [Sel.upd] using hb.rw)
-    | (cases s <;> simpa [Sel.upd] using hb.size)
-    | (cases s <;> simpa [Sel.upd] using hb.psize)
-    | (cases s <;> simpa [Sel.upd] using hb.sym)
-    | (cases s <;> simpa [Sel.upd] using hb.lit_lo)
-    | (cases s <;> simpa [Sel.upd] using hb.lit_hi)
-    | (cases s <;> simpa [Sel.upd] using hb.sym_end)
-    | (cases s <;> simpa [Sel.upd] using hb.pending_le)
-
-theorem TreesRun.treeUpd {id : Nat} {d : DeflateState} (hr : TreesRun id d) (s : Sel) (a : Array CtData) :
-    TreesRun id (s.upd d a) := by
-  cases s <;> exact ⟨hr.ldyn, hr.lstat, hr.ddyn, hr.dstat, hr.bldyn, hr.blstat, hr.bi_lo, hr.bi_hi, hr.bi_buf,
-    hr.sym_next_le, hr.sym_next_mod⟩
-
-theorem TreesInvAt.treeUpd {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (s : Sel) (a : Array CtData) (ha : a.size = s.size) :
-    TreesInvAt (setD h id (s.upd d a)) id (s.upd d a) b buf :=
-  ⟨hI.base.treeUpd s a ha, hI.run.treeUpd s a⟩
 
 end Zlib.Trees.Proofs.Out

@@ -1,6 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.finish-ready-call»
 import ZlibF.Proof.«deflate.c.engine.finish-status»
-import ZlibF.Proof.«deflate.c.engine.ordinary-call-counters»
+import ZlibF.Proof.«deflate.c.engine.finish-call-counters»
+import ZlibF.Proof.«deflate.c.engine.no-flush-call-counters»
 import ZlibF.Proof.«deflate.c.engine.trailer-counters»
 import ZlibF.Proof.«deflate.c.engine.public-no-flush-buffered»
 

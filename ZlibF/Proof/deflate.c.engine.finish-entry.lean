@@ -1,4 +1,4 @@
-import ZlibF.Proof.«deflate.c.engine.public-slow-finish»
+import ZlibF.Proof.«deflate.c.engine.finish-status»
 
 /-! # Actual accepted BUSY entry for the complete default FINISH path -/
 
@@ -73,34 +73,5 @@ theorem public_busy_finish_entry {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZSt
     rankFinish, ranked, show (Z_FINISH != Z_FINISH) = false from rfl,
     Bool.and_false, rdD_eq, setD_dstates_same, ZStreamRef.get_setD]
   simpa only [status, pending] using header
-
-/-- The accepted complete public FINISH call on a BUSY default stream.
-It executes the real entry, unrestricted slow call, final status stores
-and trailer publication. The initialized boundary is explicit; this is
-not the arbitrary-history, frame or output-refinement public goal. -/
-theorem public_default_busy_finish {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
-    {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
-    (boundary : StrategyBoundary h r ds z d input origin base xs config)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (status : d.status = BUSY_STATE) (level : d.level = 6) (strategy : d.strategy = 0)
-    (pointer : z.next_out = .ref (.blk ob) oo) (memory : config.memory.toNat = 16384)
-    (wrap : config.wrap = 1) (output : 0 < z.avail_out.toNat)
-    (inputValid : z.avail_in ≠ 0 → z.next_in ≠ .null)
-    (lower : -2 ≤ d.last_flush.toInt) (upper : d.last_flush.toInt ≤ 5) :
-    ∃ used produced rc after z' result,
-      deflate (some r) Z_FINISH h = .ok (rc, after) ∧
-      DGood after r ds z' result ∧ StreamBuffers after r ∧ StreamAccounting z z' used produced ∧
-      (rc = Z_OK ∨ rc = Z_STREAM_END) ∧ result.bi_valid.toInt < 8 ∧
-      (rc = Z_STREAM_END → result.status = FINISH_STATE ∧ result.wrap = -1 ∧
-        z'.avail_in = 0 ∧ result.lookahead = 0 ∧ result.pending = 0 ∧ result.bi_valid.toInt = 0) := by
-  have boundary0 := last_flush_strategy_boundary boundary Z_FINISH
-  have frontier0 := last_flush_end_frontier (ds := ds) frontier Z_FINISH
-  have buffers0 := last_flush_buffers boundary.good buffers Z_FINISH
-  obtain ⟨used, produced, rc, after, z', result, run, goodA, buffersA, account, allowed, bits, ended⟩ :=
-    public_busy_slow_finish boundary0 frontier0 buffers0 status level strategy pointer memory wrap output inputValid
-  have entry := public_busy_finish_entry boundary.good status (boundary.resume output).1
-    (by rw [pointer]; intro impossible; cases impossible)
-    (by intro zero; rw [zero] at output; exact Nat.lt_irrefl 0 output) inputValid lower upper
-  exact ⟨used, produced, rc, after, z', result, entry.trans run, goodA, buffersA, account, allowed, bits, ended⟩
 
 end Zlib.Deflate.Engine.Proofs

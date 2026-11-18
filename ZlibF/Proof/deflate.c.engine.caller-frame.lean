@@ -52,10 +52,6 @@ theorem byte_frame_setB (h : Heap) (b : Nat) (a : Array UInt8) :
   intro i outside
   simp only [Zlib.Trees.Proofs.Out.setB, upd_ne _ _ _ _ outside]
 
-theorem byte_frame_put (h : Heap) (r : ZStreamRef) (z : ZStream) (changed : Nat → Prop) :
-    ByteFrame h (r.put h z) changed := by
-  exact ⟨by simp, by intro _ _; simp, by intro _ _; simp, by intro _ _; simp⟩
-
 theorem ByteFrame.get {h g : Heap} {changed : Nat → Prop} (frame : ByteFrame h g changed)
     (ref : BRef) (off : Nat) (outside : ∀ b, ByteRoot (.ref ref off) b → ¬ changed b)
     (borrow : g.libcErrorBorrow = h.libcErrorBorrow) :

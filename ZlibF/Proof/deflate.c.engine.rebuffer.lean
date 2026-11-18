@@ -103,23 +103,4 @@ theorem initial_no_header {h g : Heap} {r : ZStreamRef} {z : ZStream} {d : Defla
   rw [eq]
   exact header
 
-/-- Successful default initialization followed by an arbitrary legal
-caller buffer replacement reaches the engine with its established
-representation and hash invariant. No engine invariant is a premise. -/
-theorem default_engine_rebuffered {h : Heap} {r : ZStreamRef} {z : ZStream}
-    {version : BPtr} {level : Int32} {p : ZlibF.Spec.Api.DeflParams}
-    (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
-    (allocators : DefaultOrNull z) (versionValue : VersionValue h version (some 49))
-    (params : ZlibF.Spec.Api.deflInit? level.toInt 8 15 8 0 = some p)
-    (alloc : ∀ j, j < 5 → h.allocOk (h.nalloc + j) = true) :
-    ∃ after zf sf, C.run (deflateInit_ (some r) level version 112) h = .ok (Z_OK, after) ∧
-      EngineStart after r h.nextBlk zf sf ∧ StreamReachable .deflate after r ∧
-      ∀ g, Rebuffer after g r → ∃ zg, EngineStart g r h.nextBlk zg sf ∧ StreamReachable .deflate g r := by
-  obtain ⟨after, zf, sf, run, start, initial, reachable⟩ :=
-    default_initialization_engine hf hu hg hz allocators versionValue params alloc
-  refine ⟨after, zf, sf, run, start, reachable, ?_⟩
-  intro g edit
-  obtain ⟨zg, next⟩ := rebuffer_engine_start start edit (initial_no_header start initial)
-  exact ⟨zg, next, StreamReachable.rebuffer reachable edit (fun k => nomatch k)⟩
-
 end Zlib.Deflate.Engine.Proofs

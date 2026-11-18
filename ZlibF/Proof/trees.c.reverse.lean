@@ -45,45 +45,6 @@ theorem i32_toInt_bounds (x : Int32) : -2147483648 ≤ x.toInt ∧ x.toInt ≤ 2
 
 theorem i32_one_toInt : (1 : Int32).toInt = 1 := by decide
 
-/-- **`bi_reverse`, safety.** For every `len` above `INT_MIN` (so `--len` does not overflow) and every `code`,
-`bi_reverse(code, len)` ends without undefined behaviour (it runs `max(len, 1)` times) and does not touch the heap.
-`gen_codes` calls it with `1 <= len <= 15`. -/
-theorem bi_reverse_safe (h : Heap) (code : UInt32) (len : Int32) (hl : -2147483648 < len.toInt) :
-    ∃ r, bi_reverse code len h = .ok (r, h) := by
-  have key : Wp (cdoWhile (σ := UInt32 × UInt32 × Int32)
-      (fun (code, res, len) => do
-        let res := res ||| (code &&& 1)
-        pure (code >>> 1, res <<< 1, len))
-      (fun (code, res, len) => do
-        let len ← isub len 1
-        pure (decide (len.toInt > 0), (code, res, len))) (code, 0, len)) h (fun _ h' => h' = h) := by
-    refine Wp.cdoWhile (s := (code, 0, len)) (h := h) (fun s h' => h' = h ∧ -2147483648 < s.2.2.toInt) (fun s => s.2.2.toInt.toNat) _ ?_
-      ⟨rfl, hl⟩ (by have := (i32_toInt_bounds len).2; simp only [fuel]; omega)
-    rintro ⟨c, r, l⟩ h' ⟨rfl, hl'⟩
-    have hl' : -2147483648 < l.toInt := hl'
-    have hub := (i32_toInt_bounds l).2
-    refine ⟨_, _, rfl, ?_⟩
-    have e : isub l 1 = pure (Int32.ofInt (l.toInt - 1)) :=
-      (isub_eq (a := l) (b := 1) (by rw [i32_one_toInt]; omega) (by rw [i32_one_toInt]; omega)).trans
-        (by rw [i32_one_toInt])
-    have hn : (Int32.ofInt (l.toInt - 1)).toInt = l.toInt - 1 :=
-      i32_ofInt_toInt (by omega) (by omega)
-    by_cases hp : l.toInt - 1 > 0
-    · right
-      refine ⟨(c >>> 1, (r ||| c &&& 1) <<< 1, Int32.ofInt (l.toInt - 1)), h', ?_, ⟨rfl, ?_⟩, ?_⟩
-      · simp only [e, pure_app, bind_app, hn, hp, decide_true]
-      · simp only [hn]; omega
-      · simp only [hn]; omega
-    · left
-      refine ⟨(c >>> 1, (r ||| c &&& 1) <<< 1, Int32.ofInt (l.toInt - 1)), h', ?_, rfl⟩
-      simp only [e, pure_app, bind_app, hn, hp, decide_false]
-  obtain ⟨r, h', e, rfl⟩ := key
-  refine ⟨r.2.1 >>> 1, ?_⟩
-  unfold bi_reverse
-  simp only [bind_app, e]
-  rfl
-
-
 /-- **`bi_reverse`, correctness.** For `1 <= len <= 31`, `bi_reverse(code, len)` returns the low `len` bits of
 `code` in reverse order (`revBits`: bit `i` of `code` becomes bit `len - 1 - i`) and leaves the heap unchanged.
 zlib calls it with `1 <= len <= 15` (code lengths). (For `len = 32` the C loses the top bit to the final `>> 1`;

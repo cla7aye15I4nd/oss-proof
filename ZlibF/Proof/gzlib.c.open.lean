@@ -26,11 +26,6 @@ theorem gzopen_null (h : Heap) (fs : Fs) (path mode : BPtr)
     (hn : path = .null ∨ mode = .null) :
     gzopen path mode fs h = .ok ((none, fs), h) := gz_open_null h fs path (-1) mode hn
 
-/-- `gzFile gzopen64(const char *path, const char *mode)` rejects either NULL argument. -/
-theorem gzopen64_null (h : Heap) (fs : Fs) (path mode : BPtr)
-    (hn : path = .null ∨ mode = .null) :
-    gzopen64 path mode fs h = .ok ((none, fs), h) := gz_open_null h fs path (-1) mode hn
-
 /-- `gzFile gz_open(const void *path, int fd, const char *mode)` returns NULL when
 its first allocation fails. No path or mode byte is read; no descriptor is opened. -/
 theorem gz_open_alloc_failure (h : Heap) (fs : Fs) (path : BPtr) (fd : Int32) (mode : BPtr)
@@ -38,18 +33,6 @@ theorem gz_open_alloc_failure (h : Heap) (fs : Fs) (path : BPtr) (fd : Int32) (m
     gz_open path fd mode fs h = .ok ((none, fs), { h with nalloc := h.nalloc + 1 }) := by
   unfold gz_open
   offsetsimp [hp, hm, allocGzState, hf]
-
-/-- `gzFile gzopen(const char *path, const char *mode)` has exact first-allocation failure effects. -/
-theorem gzopen_alloc_failure (h : Heap) (fs : Fs) (path mode : BPtr)
-    (hp : path ≠ .null) (hm : mode ≠ .null) (hf : h.allocOk h.nalloc = false) :
-    gzopen path mode fs h = .ok ((none, fs), { h with nalloc := h.nalloc + 1 }) :=
-  gz_open_alloc_failure h fs path (-1) mode hp hm hf
-
-/-- `gzFile gzopen64(const char *path, const char *mode)` has the same allocation failure effects. -/
-theorem gzopen64_alloc_failure (h : Heap) (fs : Fs) (path mode : BPtr)
-    (hp : path ≠ .null) (hm : mode ≠ .null) (hf : h.allocOk h.nalloc = false) :
-    gzopen64 path mode fs h = .ok ((none, fs), { h with nalloc := h.nalloc + 1 }) :=
-  gz_open_alloc_failure h fs path (-1) mode hp hm hf
 
 /-- `gzFile gzdopen(int fd, const char *mode)` rejects negative descriptors before allocation. -/
 theorem gzdopen_negative (h : Heap) (fs : Fs) (fd : Int32) (mode : BPtr) (hf : fd < 0) :

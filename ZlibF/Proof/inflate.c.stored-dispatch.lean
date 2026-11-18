@@ -133,44 +133,6 @@ theorem inflate_STORED_boundary_budget_modes {c : Ctx} {h : Heap} {r : ZStreamRe
       by omega,
       fun impossible => by cases impossible⟩
 
-/-- Projection retaining the original complete STORED heap frame. -/
-theorem inflate_STORED_boundary_frame {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = STORED) (incoming : l.bits.toNat ≤ 39) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (stream : ZStream)
-      (state : InflateState) (used made : Nat), used ≤ bs.length ∧
-      runX (inflate_STORED c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧
-      DispatchBuffers after r regs (bs.drop used) ∧ ByteViewSizes h after ∧ DecodeStateFrame s state ∧
-      regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
-      regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧
-      regs.bits.toNat ≤ 39 ∧ (outcome = .ok () ∨ outcome = .error Ex.leave) ∧ after.static = h.static ∧ Shape h after := by
-  obtain ⟨outcome, regs, after, stream, state, used, made, bound, run, current, tables,
-    nextPending, packet, sizes, frame, next, count, put, left, bits, kinds, static, shape, _, _⟩ :=
-    inflate_STORED_boundary_budget_modes E good pending buffers mode incoming
-  exact ⟨outcome, regs, after, stream, state, used, made, bound, run, current, tables,
-    nextPending, packet, sizes, frame, next, count, put, left, bits, kinds, static, shape⟩
-
-/-- Projection retaining the original complete STORED boundary. -/
-theorem inflate_STORED_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = STORED) (incoming : l.bits.toNat ≤ 39) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (stream : ZStream)
-      (state : InflateState) (used made : Nat), used ≤ bs.length ∧
-      runX (inflate_STORED c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧
-      DispatchBuffers after r regs (bs.drop used) ∧ ByteViewSizes h after ∧ DecodeStateFrame s state ∧
-      regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
-      regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧
-      regs.bits.toNat ≤ 39 ∧ (outcome = .ok () ∨ outcome = .error Ex.leave) := by
-  obtain ⟨outcome, regs, after, stream, state, used, made, bound, run, current, tables,
-    nextPending, packet, sizes, frame, next, count, put, left, bits, kinds, _, _⟩ :=
-    inflate_STORED_boundary_frame E good pending buffers mode incoming
-  exact ⟨outcome, regs, after, stream, state, used, made, bound, run, current, tables,
-    nextPending, packet, sizes, frame, next, count, put, left, bits, kinds⟩
-
 /-- The actual switch selects the stored-block mode. -/
 theorem inflate_dispatch_STORED {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} (E : Env c h r zs z s) (l : IL) (mode : s.mode = STORED) :
@@ -194,44 +156,5 @@ theorem inflate_dispatch_COPY {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
   unfold inflate_dispatch
   rw [runX_bind, runX_rdS E]
   with_reducible simp [mode, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY]
-
-/-- All three stored-block modes compose through the actual dispatch switch. -/
-theorem inflate_dispatch_stored_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = STORED ∨ s.mode = COPY_ ∨ s.mode = COPY) (incoming : l.bits.toNat ≤ 39) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (stream : ZStream)
-      (state : InflateState) (used made : Nat), used ≤ bs.length ∧
-      runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧
-      DispatchBuffers after r regs (bs.drop used) ∧ ByteViewSizes h after ∧ DecodeStateFrame s state ∧
-      regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
-      regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧
-      regs.bits.toNat ≤ 39 ∧ (outcome = .ok () ∨ outcome = .error Ex.leave) ∧ after.static = h.static ∧ Shape h after := by
-  rcases mode with stored | start | copy
-  · rw [inflate_dispatch_STORED E l stored]
-    exact inflate_STORED_boundary_frame E good pending buffers stored incoming
-  · obtain ⟨outcome, regs, after, state, made, bound, run, current, tables, nextPending,
-      packet, sizes, frame, next, count, put, left, bits, _, exits, static, shape⟩ :=
-      inflate_COPY_start_boundary_frame E good pending buffers start
-    have kinds : outcome = .ok () ∨ outcome = .error Ex.leave := by
-      rcases exits with wait | done | copied
-      · exact Or.inr wait.1
-      · exact Or.inl done.1
-      · exact Or.inl copied.1
-    exact ⟨outcome, regs, after, z, state, made, made, bound,
-      (inflate_dispatch_COPY_start E l start).trans run, current, tables, nextPending,
-      packet, sizes, frame, next, count, put, left, by rw [bits]; exact incoming, kinds, static, shape⟩
-  · obtain ⟨outcome, regs, after, state, made, bound, run, current, tables, nextPending,
-      packet, sizes, frame, next, count, put, left, bits, _, exits, static, shape⟩ :=
-      inflate_COPY_boundary_frame E good pending buffers copy
-    have kinds : outcome = .ok () ∨ outcome = .error Ex.leave := by
-      rcases exits with wait | done | copied
-      · exact Or.inr wait.1
-      · exact Or.inl done.1
-      · exact Or.inl copied.1
-    exact ⟨outcome, regs, after, z, state, made, made, bound,
-      (inflate_dispatch_COPY E l copy).trans run, current, tables, nextPending,
-      packet, sizes, frame, next, count, put, left, by rw [bits]; exact incoming, kinds, static, shape⟩
 
 end Zlib.Inflate.Proofs

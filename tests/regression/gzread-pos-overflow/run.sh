@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/regression/gzread-pos-overflow/run.sh
 # Linux only: it needs a /dev/zero on which lseek succeeds without moving. Builds the pinned
-# zlib twice under ASan and UBSan: with patches/*.patch except 0004 (the source before the fix),
+# zlib twice under ASan and UBSan: with patches/*.patch except 0003 (the source before the fix),
 # and with all of patches/*.patch. Runs devzero.c twice on each: a seek to INT64_MAX then a
 # 16-byte gzread; a seek to INT64_MAX - 4 then gzread, the gzgetc() macro and gzgets; and a seek
 # to INT64_MAX - 2 then gzungetc, the gzgetc() macro and function, gzdirect, gzseek and gzgets.
-# Without 0004 each run must report a signed overflow of the position; with 0004 nothing may
+# Without 0003 each run must report a signed overflow of the position; with 0003 nothing may
 # be reported, and the reads must stop with Z_DATA_ERROR "position overflow".
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -17,7 +17,7 @@ rm -rf "$work/without"
 mkdir -p "$work/without/tests" "$work/without/patches"
 cp "$here/../../build-zlib.sh" "$work/without/tests/"
 for p in "$here"/../../../patches/*.patch; do
-  case "$(basename "$p")" in 0004-*) ;; *) cp "$p" "$work/without/patches/";; esac
+  case "$(basename "$p")" in 0003-*) ;; *) cp "$p" "$work/without/patches/";; esac
 done
 CFLAGS="$san" bash "$work/without/tests/build-zlib.sh" "$src" "$work/before" >/dev/null || exit 2
 CFLAGS="$san" bash "$here/../../build-zlib.sh" "$src" "$work/after" >/dev/null || exit 2

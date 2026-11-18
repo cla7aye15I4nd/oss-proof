@@ -141,36 +141,6 @@ theorem prepare_build_bl_min {h : Heap} {id b : Nat} {d : DeflateState} {buf : A
   rw [bind_app, hready]
   exact hbuild
 
-/-- Actual block initialization discharges END_BLOCK support and cleared
-bit-length frequencies. The actual constructor/search sequence then returns
-3..18, so its transmitted entry count is 4..19. Streaming tally preservation
-and full block emission remain separate obligations. -/
-theorem init_prepare_build_bl_min {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : Out.TreesInvAt h id d b buf) :
-    ∃ (mb : Int32) (e : DeflateState),
-      (do init_block (Sp id); blPrepare (Sp id); build_bl_tree (Sp id)) h =
-        .ok (mb, setD h id e) ∧
-      3 ≤ mb.toInt ∧ mb.toInt ≤ 18 ∧
-      Out.TreesInvAt (setD h id e) id e b buf := by
-  obtain ⟨aL, aD, aB, initialized, hinit, hII, heI, hLs, hDs, hBs,
-    hLzero, hEOB, hDzero, hBzero, hLdl, hDdl, hBdl⟩ := Out.init_block_spec0 hI.base hI.run.to0
-  change init_block (Sp id) h = .ok ((), setD h id initialized) at hinit
-  change Out.TreesInvAt (setD h id initialized) id initialized b buf at hII
-  have hEOBI : initialized.dyn_ltree[256]!.fc ≠ 0 := by
-    rw [heI]
-    change aL[256]!.fc ≠ 0
-    rw [hEOB]
-    decide +kernel
-  have hzI : ∀ k < 19, initialized.bl_tree[k]!.fc = 0 := by
-    intro k hk
-    rw [heI]
-    exact hBzero k hk
-  obtain ⟨mb, e, hbuild, hlo, hhi, hIe, hout⟩ := prepare_build_bl_min hII hEOBI hzI
-  rw [setD_setD] at hbuild hIe
-  refine ⟨mb, e, ?_, hlo, hhi, hIe⟩
-  rw [bind_app, hinit]
-  exact hbuild
-
 /-- Complete actual bit-length construction bounds all nineteen lengths,
 including unused symbols above the final alphabet maximum. -/
 theorem build_bl_tree_all_lengths {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
@@ -258,39 +228,5 @@ theorem prepare_build_bl_fields {h : Heap} {id b : Nat} {d : DeflateState} {buf 
     omega
   · rw [hDdesc]
     omega
-
-/-- Actual initialization and the complete actual tree-description prefix
-supply the format's HLIT, HDIST and HCLEN ranges and every transmitted
-three-bit length bound. This theorem does not execute send_all_trees or
-prove preservation through intervening streaming tallies. -/
-theorem init_prepare_build_bl_fields {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : Out.TreesInvAt h id d b buf) :
-    ∃ (mb : Int32) (e : DeflateState),
-      (do init_block (Sp id); blPrepare (Sp id); build_bl_tree (Sp id)) h = .ok (mb, setD h id e) ∧
-      3 ≤ mb.toInt ∧ mb.toInt ≤ 18 ∧
-      257 ≤ e.l_desc.max_code.toInt + 1 ∧ e.l_desc.max_code.toInt + 1 ≤ 286 ∧
-      1 ≤ e.d_desc.max_code.toInt + 1 ∧ e.d_desc.max_code.toInt + 1 ≤ 30 ∧
-      (∀ v < 19, e.bl_tree[v]!.dl.toNat ≤ 7) ∧
-      (∀ v < 19, e.bl_desc.max_code.toInt.toNat < v → e.bl_tree[v]!.dl = 0) ∧
-      Out.TreesInvAt (setD h id e) id e b buf := by
-  obtain ⟨aL, aD, aB, initialized, hinit, hII, heI, hLs, hDs, hBs,
-    hLzero, hEOB, hDzero, hBzero, hLdl, hDdl, hBdl⟩ := Out.init_block_spec0 hI.base hI.run.to0
-  change init_block (Sp id) h = .ok ((), setD h id initialized) at hinit
-  change Out.TreesInvAt (setD h id initialized) id initialized b buf at hII
-  have hEOBI : initialized.dyn_ltree[256]!.fc ≠ 0 := by
-    rw [heI]
-    change aL[256]!.fc ≠ 0
-    rw [hEOB]
-    decide +kernel
-  have hzI : ∀ k < 19, initialized.bl_tree[k]!.fc = 0 := by
-    intro k hk
-    rw [heI]
-    exact hBzero k hk
-  obtain ⟨mb, e, hbuild, hlo, hhi, hlL, hlH, hdL, hdH, hlen, hupper, hIe, hout⟩ :=
-    prepare_build_bl_fields hII hEOBI hzI
-  rw [setD_setD] at hbuild hIe
-  refine ⟨mb, e, ?_, hlo, hhi, hlL, hlH, hdL, hdH, hlen, hupper, hIe⟩
-  rw [bind_app, hinit]
-  exact hbuild
 
 end Zlib.Trees.Proofs

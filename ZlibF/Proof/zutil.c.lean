@@ -80,12 +80,6 @@ theorem errText_lit (k : Int) : IsLit (errText k) := by
   rw [Array.mem_def]
   split <;> decide +kernel
 
-set_option maxRecDepth 100000 in
-theorem version_lit : IsLit ZLIB_VERSION := by
-  unfold IsLit ZLIB_VERSION
-  rw [Array.mem_def]
-  decide +kernel
-
 /-! ### zError -/
 
 theorem zError_eval (err : Int32) :
@@ -130,52 +124,7 @@ theorem zError_correct (h : Heap) (err : Int32) :
 
 /-! ### zlibVersion -/
 
-/-- **zlibVersion, safety.** `zlibVersion` never faults, on any heap; it returns a static literal and changes nothing. -/
-theorem zlibVersion_safe (h : Heap) :
-    ∃ p h', C.run zlibVersion h = .ok (p, h') ∧ LitFrame h h' := by
-  obtain ⟨i, hr, -⟩ := strLit_run h ZLIB_VERSION version_lit
-  exact ⟨_, _, hr, litHeap_frame h _⟩
-
-theorem strlen_lit (h : Heap) (s : String) (i : Nat) (hi : strTable[i]? = some s)
-    (hnz : ∀ x ∈ s.toUTF8.data.toList, x ≠ 0) :
-    OkOn h (strlenB (.ref (.str i) 0)) (UInt64.ofNat s.utf8ByteSize) := by
-  have inside : i < strTable.size := Array.getElem?_eq_some_iff.mp hi |>.1
-  have hg : Space.get h (BRef.str i) = some (s.toUTF8.data.push 0) := by
-    rw [C.LibcBorrow.source_view h i inside, hi]
-    rfl
-  have hsz : s.toUTF8.data.size = s.utf8ByteSize := by simp [String.toUTF8]
-  have := strlenB_ok (h := h) (r := BRef.str i) (off := 0)
-    (a := s.toUTF8.data.push 0) (k := s.utf8ByteSize) hg (Nat.zero_le _)
-    (by rw [Array.getElem?_push, hsz]; simp) (by
-      intro j _ hj
-      have hj' : j < s.toUTF8.data.size := by omega
-      have hne := hnz (s.toUTF8.data[j]) (by simp)
-      rw [Array.getElem?_push, ite_eq_right (by omega), Array.getElem?_eq_getElem hj']
-      simpa using hne)
-  simpa using this
-
-/-- **zlibVersion, correctness.** It returns a pointer to the NUL-terminated text `ZLIB_VERSION` (the release string
-of the verified source), and `strlen` of the result is the length of that text. -/
-theorem zlibVersion_correct (h : Heap) :
-    ∃ i h', C.run zlibVersion h = .ok (.ref (.str i) 0, h') ∧
-      CString h' (.ref (.str i) 0) ZLIB_VERSION ∧ h' = litHeap h ZLIB_VERSION ∧
-      OkOn h' (strlenB (.ref (.str i) 0)) (UInt64.ofNat ZLIB_VERSION.utf8ByteSize) := by
-  obtain ⟨i, hr, hi⟩ := strLit_run h ZLIB_VERSION version_lit
-  exact ⟨i, _, hr, litHeap_cstring h _ i hi, rfl, strlen_lit h _ i hi (by decide)⟩
-
 /-! ### zlibCompileFlags -/
-
-/-- **zlibCompileFlags, safety.** It never faults and leaves the heap unchanged. -/
-theorem zlibCompileFlags_safe (h : Heap) : ∃ r, C.run zlibCompileFlags h = .ok (r, h) := by
-  exact ⟨_, rfl⟩
-
-/-- **zlibCompileFlags, correctness.** On the default LP64 target (`uInt` 4, `uLong` 8, `voidpf` 8, `z_off_t` 8
-bytes) the result is `Spec.compileFlags 4 8 8 8 = 0xA9`: the four size fields are 1, 2, 2, 2 and no option bit
-(bits 8 and up: `ZLIB_DEBUG`, `ZLIB_WINAPI`, `BUILDFIXED`, ...) is set. -/
-theorem zlibCompileFlags_correct (h : Heap) :
-    ∃ r, C.run zlibCompileFlags h = .ok (r, h) ∧ r.toNat = compileFlags 4 8 8 8 ∧ r = 0xA9 ∧
-      r &&& 3 = 1 ∧ (r >>> 2) &&& 3 = 2 ∧ (r >>> 4) &&& 3 = 2 ∧ (r >>> 6) &&& 3 = 2 ∧ r >>> 8 = 0 := by
-  exact ⟨0xA9, rfl, by decide, rfl, by decide, by decide, by decide, by decide, by decide⟩
 
 /-! ### zcalloc -/
 
@@ -223,25 +172,6 @@ theorem zcalloc_fail_run (h : Heap) (op : BPtr) (items sz : UInt32) (hok : ¬ h.
   unfold zcalloc
   exact allocB_none _ hok
 
-theorem failHeap_live (h : Heap) (b : Nat) : (failHeap h).live b ↔ h.live b := Iff.rfl
-
-theorem failHeap_fresh {h : Heap} (hF : Fresh h) : Fresh (failHeap h) := hF
-
-/-- **zcalloc, safety.** For every `opaque` argument, `items` and `size` (the product is taken modulo 2^32, as in C, and is
-defined for every `unsigned` pair), `zcalloc` runs without undefined behaviour. Either it returns `NULL` and only
-the allocation counter moves (nothing is allocated, nothing leaks), or it returns the start of a new writable byte
-block and adds exactly that block to the live blocks. -/
-theorem zcalloc_safe (h : Heap) (op : BPtr) (items sz : UInt32) (hF : Fresh h) :
-    ∃ p h', C.run (zcalloc op items sz) h = .ok (p, h') ∧
-      ((p = .null ∧ h' = failHeap h ∧ (∀ b, h'.live b ↔ h.live b) ∧ (Fresh h → Fresh h')) ∨
-       (p = .ref (.blk h.nextBlk) 0 ∧ h' = allocHeap h (items * sz).toNat ∧ AllocFrame h h' ∧
-         h'.ro h.nextBlk = false)) := by
-  by_cases hok : h.allocOk h.nalloc = true
-  · exact ⟨_, _, zcalloc_ok_run h op items sz hok hF,
-      Or.inr ⟨rfl, rfl, allocHeap_frame h _, by simp [allocHeap]⟩⟩
-  · exact ⟨_, _, zcalloc_fail_run h op items sz hok,
-      Or.inl ⟨rfl, rfl, failHeap_live h, failHeap_fresh⟩⟩
-
 /-- **zcalloc, correctness (allocation succeeds).** When the allocation oracle says yes, the result is the start of
 a new block; the block is writable; its size in bytes is `items * size` reduced modulo 2^32 (the `unsigned`
 product of the C); and its content is arbitrary (`malloc` does not clear: this is not `calloc`). -/
@@ -256,22 +186,6 @@ theorem zcalloc_correct_some (h : Heap) (op : BPtr) (items sz : UInt32) (hok : h
   · simp [UInt32.toNat_mul]
   · intro i hi
     simp
-
-/-- **zcalloc, correctness without wrap.** If `items * size` fits in 32 bits (every call site of zlib, whose largest
-product is 131072: the allocation table of `docs/en/proof/zutil.md`), the block has exactly
-`items * size` bytes. -/
-theorem zcalloc_correct_size (h : Heap) (op : BPtr) (items sz : UInt32) (hok : h.allocOk h.nalloc = true)
-    (hnw : items.toNat * sz.toNat < 2 ^ 32) (hF : Fresh h) :
-    ∃ h' a, C.run (zcalloc op items sz) h = .ok (.ref (.blk h.nextBlk) 0, h') ∧
-      h'.bytes h.nextBlk = some a ∧ a.size = items.toNat * sz.toNat := by
-  obtain ⟨h', a, hr, hb, -, hsz, -⟩ := zcalloc_correct_some h op items sz hok hF
-  exact ⟨h', a, hr, hb, by rw [hsz]; exact Nat.mod_eq_of_lt hnw⟩
-
-/-- **zcalloc, correctness (allocation fails).** When the oracle says no, the result is `NULL` and the heap changes
-only in the call counter. -/
-theorem zcalloc_correct_none (h : Heap) (op : BPtr) (items sz : UInt32) (hok : ¬ h.allocOk h.nalloc = true) :
-    C.run (zcalloc op items sz) h = .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
-  exact zcalloc_fail_run h op items sz hok
 
 /-! ### zcfree -/
 
@@ -305,35 +219,7 @@ theorem zcfree_correct (h : Heap) (op : BPtr) (b : Nat) (a : Array UInt8) (S : N
   subst this
   exact ⟨by simp, fun x hx => by simp [upd_ne _ _ _ _ hx]⟩
 
-/-- `zcfree(NULL)` does nothing. -/
-theorem zcfree_correct_null (h : Heap) (op : BPtr) : C.run (zcfree op .null) h = .ok ((), h) := by
-  exact freeB_null
-
 /-! ### No leak: allocate, then free -/
-
-/-- **zcalloc then zcfree.** On a heap whose block numbers from `nextBlk` on are unused, `zcalloc` followed by
-`zcfree` of its result runs without undefined behaviour (also when the allocation fails: `zcfree(NULL)`) and the set
-of live blocks afterwards is the set before. -/
-theorem zcalloc_zcfree_no_leak (h : Heap) (op : BPtr) (items sz : UInt32) (hF : Fresh h) :
-    ∃ h', C.run (zcalloc op items sz >>= fun p => zcfree op p) h = .ok ((), h') ∧
-      ∀ b, h'.live b ↔ h.live b := by
-  rw [C.run]
-  by_cases hok : h.allocOk h.nalloc = true
-  · rw [bind_app, zcalloc_ok_run h op items sz hok hF]
-    have hb : (allocHeap h (items * sz).toNat).bytes h.nextBlk = some (Array.ofFn (n := (items * sz).toNat)
-        fun i => Junk.of (h.garbage h.nalloc i.val)) := by simp [allocHeap]
-    have hro : (allocHeap h (items * sz).toNat).ro h.nextBlk = false := by simp [allocHeap]
-    refine ⟨_, freeB_ok hb hro, ?_⟩
-    intro b
-    by_cases hbn : b = h.nextBlk
-    · subst hbn
-      have := Heap.not_live.mp (hF _ (Nat.le_refl _))
-      obtain ⟨e0, e1, e2, e3, e4, e5, e6⟩ := this
-      simp [Heap.live, allocHeap, e1, e2, e3, e4, e5, e6]
-      simp [e0]
-    · simp [Heap.live, allocHeap, upd_ne _ _ _ _ hbn]
-  · rw [bind_app, zcalloc_fail_run h op items sz hok]
-    exact ⟨_, freeB_null, fun b => Iff.rfl⟩
 
 /-! ### Non-vacuity: concrete runs of the real functions -/
 

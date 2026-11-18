@@ -31,32 +31,6 @@ theorem fast_stream_drop_bit_upper
     bytesBits_length, List.length_drop] at lengths
   omega
 
-/-- A decoder stage that starts below the one-pull threshold retains the
-30-bit limit after reading at most one byte. -/
-theorem fast_stream_drop_bit_bound_one_pull
-    {slow slowFinal : IL} {bs : List UInt8} {used consumed : Nat}
-    (usedBound : used ≤ bs.length)
-    (onePull : used ≤ 1)
-    (bitsBound : slow.bits.toNat ≤ 22)
-    (source : stream slowFinal (bs.drop used) =
-      (stream slow bs).drop consumed) :
-    slowFinal.bits.toNat ≤ 30 := by
-  have upper := fast_stream_drop_bit_upper usedBound source
-  omega
-
-/-- The fast body's initial refill starts below fifteen held bits, so its
-two input reads cannot exceed the 30-bit limit. -/
-theorem fast_stream_drop_bit_bound_two_pulls
-    {slow slowFinal : IL} {bs : List UInt8} {used consumed : Nat}
-    (usedBound : used ≤ bs.length)
-    (twoPulls : used ≤ 2)
-    (bitsBound : slow.bits.toNat < 15)
-    (source : stream slowFinal (bs.drop used) =
-      (stream slow bs).drop consumed) :
-    slowFinal.bits.toNat ≤ 30 := by
-  have upper := fast_stream_drop_bit_upper usedBound source
-  omega
-
 /-- The distance-extra-bit suffix removes held bits and therefore preserves
 the fast-loop bound without a new assumption about the output heap. -/
 theorem FastInputPacket.distCont_bits_bound

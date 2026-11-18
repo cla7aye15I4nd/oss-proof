@@ -10,7 +10,7 @@ zlib.h allows `gzungetc` right after `gzopen`. It sets `state->x.pos` to -1. A f
   (`gzlib.c:403`), in `offset = pos - state->x.pos` for a gzip file (`gzlib.c:424`).
 
 `seek.c` makes each call on a fresh handle. `run.sh` builds the pinned source twice under ASan and
-UBSan: without any patch, and with `patches/*.patch`, which includes
+UBSan: with every patch but its own (0002), and with `patches/*.patch`, which includes
 `0002-gzseek-negative-position-overflow.patch` (upstream
 [PR #1361](https://github.com/madler/zlib/pull/1361)). The unpatched build must report a signed
 overflow in each of the four runs (transparent and gzip input, `SEEK_CUR` and `SEEK_SET`). The

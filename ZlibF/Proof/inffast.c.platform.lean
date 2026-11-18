@@ -27,16 +27,4 @@ theorem PlatformEntry.fit_after (entry : PlatformEntry) {after : Heap}
     exact entry.toEnv.hAbig
   exact (entry.platform.with_bytes (block := entry.ob) bound).with_istates _
 
-/-- `void inflate_fast(z_streamp strm, unsigned start)`.
-The explicit LP64 platform scope bounds all represented byte objects by
-`PTRDIFF_MAX`. The other internal fast-entry restrictions are retained.
-Execution, termination, frame and exact writeback follow from the proved
-translated callee; no callee contract is a hypothesis. The returned heap
-preserves the platform condition. This is not the public inflate goal. -/
-theorem inflate_fast_safe_platform (entry : PlatformEntry) :
-    ∃ after, C.run (inflate_fast entry.strm entry.start) entry.h0 = .ok ((), after) ∧
-      FastPost entry.toEnv after ∧ ByteObjectsFit after := by
-  obtain ⟨after, run, post⟩ := inflate_fast_safe entry.toEnv
-  exact ⟨after, run, post, PlatformEntry.fit_after entry post⟩
-
 end Zlib.Inffast.Proofs

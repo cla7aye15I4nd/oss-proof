@@ -211,22 +211,6 @@ theorem vheap_window_write {v : TabView} {h : Heap} {d : DeflateState} {top w : 
   exact ⟨w, p, q, wa', pa, qa, win, prev, head, by simp, hp, hq,
     view_congr H (fun _ => rfl) (fun _ => rfl) keepBytes⟩
 
-/-- A state write that keeps the window, the tables, the sizes and the data end keeps the view
-chains. -/
-theorem vheap_state {v : TabView} {h h' : Heap} {d d' : DeflateState} {top : Nat}
-    (chains : VHeapChains v h d top) (bytes : h'.bytes = h.bytes) (words : h'.words = h.words)
-    (win : d'.window = d.window) (prev : d'.prev = d.prev) (head : d'.head = d.head)
-    (sizes : d'.hash_size = d.hash_size ∧ d'.hash_shift = d.hash_shift ∧ d'.hash_mask = d.hash_mask ∧
-      d'.w_size = d.w_size)
-    (lim : d'.strstart.toNat + d'.lookahead.toNat = d.strstart.toNat + d.lookahead.toNat) :
-    VHeapChains v h' d' top := by
-  obtain ⟨w, p, q, wa, pa, qa, hw, hp, hq, a, b, c, H⟩ := chains
-  obtain ⟨s1, s2, s3, s4⟩ := sizes
-  refine ⟨w, p, q, wa, pa, qa, by rw [win]; exact hw, by rw [prev]; exact hp, by rw [head]; exact hq,
-    by rw [bytes]; exact a, by rw [words]; exact b, by rw [words]; exact c, ?_⟩
-  rw [s1, s2, s3, s4, lim]
-  exact H
-
 /-! ## Insertion -/
 
 /-- `INSERT_STRING` keeps the representation and the view chains. -/

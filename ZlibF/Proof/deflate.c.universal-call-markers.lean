@@ -64,17 +64,6 @@ theorem strategy_phase_split (strm : ZStreamPtr) (s : DeflateStatePtr) (flush : 
   delta strategyPhase strategyPhase' strategyAfter markerTail
   exact rfl
 
-/-- The marker itself. -/
-def markerPart (s : DeflateStatePtr) (flush : Int32) : M Unit := do
-  if flush == Z_PARTIAL_FLUSH then
-    «_tr_align» s
-  else if flush != Z_BLOCK then
-    «_tr_stored_block» s (Ptr.null : BPtr) 0 0
-    if flush == Z_FULL_FLUSH then
-      CLEAR_HASH s
-      if (← rd s (·.lookahead)) == 0 then
-        wr s (fun d => { d with strstart := 0, block_start := 0, insert := 0 })
-
 /-- The flush after the marker and its early return. -/
 def markerFlush (strm : ZStreamPtr) (s : DeflateStatePtr) (k : M Int32) : M Int32 := do
   flush_pending strm

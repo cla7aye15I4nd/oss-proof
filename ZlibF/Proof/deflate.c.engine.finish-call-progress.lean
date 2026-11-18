@@ -1,5 +1,7 @@
 import ZlibF.Proof.«deflate.c.engine.finish-loop-progress»
-import ZlibF.Proof.«deflate.c.engine.strategy-finish»
+import ZlibF.Proof.«deflate.c.engine.finish-strategy-step»
+import ZlibF.Proof.«deflate.c.engine.strategy-no-flush-loop»
+import ZlibF.Proof.«deflate.c.engine.eof-tail»
 import ZlibF.Proof.«deflate.c.engine.finish-buffered»
 
 /-! # Complete actual FINISH calls progress before output retry -/

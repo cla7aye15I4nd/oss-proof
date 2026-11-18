@@ -534,7 +534,7 @@ namespace ZlibF.Spec.Public.GzSkeleton
 open ZlibF.Spec.Public
 set_option autoImplicit false
 
-/-- `gzdopen`: restate `gzdopen_complete` to `GzInv` (relies on the local patch for R-3 through `gz_reset`). -/
+/-- `gzdopen`: restate `gzdopen_complete` to `GzInv` (`gz_reset` leaves `x.next` unwritten; the runtime accepts adding zero to any pointer). -/
 theorem gzdopen_safe : GzDopenSafe := Zlib.Gzlib.Proofs.gzdopen_safe_proof
 
 #print axioms gzdopen_safe

@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.trailer-state»
-import ZlibF.Proof.«deflate.c.engine.public-pending-idle»
+import ZlibF.Proof.«deflate.c.engine.public-pending»
 
 /-! # Default zlib trailer publication and its one-time wrapper transition -/
 

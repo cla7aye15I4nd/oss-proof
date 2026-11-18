@@ -85,14 +85,6 @@ theorem byte_view_get_headerPut (h : Heap) (i : Nat) (g : GzHeader) (ref : BRef)
     (Space.get ((GzHeaderRef.tab i).put h g) ref : Option (Array UInt8)) = Space.get h ref := by
   cases ref <;> simp only [Space.get, GzHeaderRef.put] <;> split <;> rfl
 
-theorem headerPut_dstates (h : Heap) (i : Nat) (g : GzHeader) :
-    ((GzHeaderRef.tab i).put h g).dstates = h.dstates := by
-  simp only [GzHeaderRef.put]; split <;> rfl
-
-theorem headerPut_static (h : Heap) (i : Nat) (g : GzHeader) :
-    ((GzHeaderRef.tab i).put h g).static = h.static := by
-  simp only [GzHeaderRef.put]; split <;> rfl
-
 /-- A `gz_header` record write keeps the representation invariant. -/
 theorem _root_.Zlib.Inflate.Spec.Good.headerPut {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} (good : Good h r zs z s) {i : Nat} {g0 : GzHeader}

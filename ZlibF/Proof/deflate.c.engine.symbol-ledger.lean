@@ -226,29 +226,6 @@ theorem ledger_match {h : Heap} {ds b : Nat} {d : DeflateState} {buf : Array UIn
       ledger.distance k bound, distance_frequency_snoc]
     simp [Symbol.distanceKey, nonzero, eq_comm]
 
-/-- The execution and semantic ledger concern exactly the same returned
-heap, including the full-buffer flag. -/
-theorem tally_literal_ledger {h : Heap} {ds b : Nat} {d : DeflateState} {buf : Array UInt8}
-    {xs : List Symbol} (base : TreesBase h ds d b buf) (ledger : SymbolLedger buf d xs)
-    (room : d.sym_next.toNat + 3 ≤ d.sym_end.toNat) (c : UInt8) :
-    tally_lit (some (.tab ds)) c h = .ok (d.sym_next + 3 == d.sym_end,
-      setD (Zlib.Trees.Proofs.Out.setB h b (literalBytes buf d c)) ds (literalState d c)) ∧
-    SymbolLedger (literalBytes buf d c) (literalState d c) (xs ++ [⟨0, c.toNat⟩]) :=
-  ⟨tally_literal_run base c room, ledger_literal base ledger room c⟩
-
-theorem tally_match_ledger {h : Heap} {ds b : Nat} {d : DeflateState} {buf : Array UInt8}
-    {xs : List Symbol} (base : TreesBase h ds d b buf) (ledger : SymbolLedger buf d xs)
-    (room : d.sym_next.toNat + 3 ≤ d.sym_end.toNat) (distance length : UInt32)
-    (positive : 1 ≤ distance.toNat) (distanceBound : distance.toNat ≤ 32768)
-    (lengthBound : length.toNat < 256) :
-    tally_dist (some (.tab ds)) distance length h = .ok (d.sym_next + 3 == d.sym_end,
-      setD (Zlib.Trees.Proofs.Out.setB h b (matchBytes buf d distance.toUInt16 length.toUInt8)) ds
-        (matchSymbolState d distance length)) ∧
-    SymbolLedger (matchBytes buf d distance.toUInt16 length.toUInt8)
-      (matchSymbolState d distance length) (xs ++ [⟨distance.toNat, length.toNat⟩]) :=
-  ⟨tally_match_run base distance length positive distanceBound room,
-    ledger_match base ledger room distance length positive distanceBound lengthBound⟩
-
 /-- The ledger starts at the actual public default initialization. The
 pending array is obtained from the returned owned storage. -/
 theorem default_initialization_ledger {h : Heap} {r : ZStreamRef} {z : ZStream}

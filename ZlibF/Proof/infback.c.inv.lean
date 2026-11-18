@@ -92,8 +92,4 @@ theorem badMode_run (c : BCtx) {r : ZStreamRef} {zs : Nat} {h : Heap} {z : ZStre
   unfold badMode setMsg Zlib.Zutil.strLit
   simp [bind_app, hi, hcs, ldZ_eq, hz, stZ_eq, setMode_ok hct hs']
 
-theorem phi_congr {c : BCtx} {ownI : Nat → Prop} {R : Heap → Prop} {μ : Heap → Nat} (hF : InFinite c ownI R μ)
-    {h h' : Heap} (e : ∀ b, h'.bytes b = h.bytes b) (l : IL) : phi μ h' l = phi μ h l := by
-  simp only [phi]; rw [hF.local_ h h' (fun b _ => e b)]
-
 end Zlib.Infback.Proofs

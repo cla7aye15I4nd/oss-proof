@@ -59,13 +59,6 @@ theorem Aab_le (c : Nat → Nat) (L b : Nat) (hb : b ≤ L) : Aab c L b + c b �
   rw [rs_add, rs_single, ite_eq_left (by omega)] at this
   unfold Aab; omega
 
-theorem ite_iff {p q : Prop} [Decidable p] [Decidable q] {α : Type} (a b : α) (h : p ↔ q) :
-    (if p then a else b) = (if q then a else b) := by
-  by_cases hp : p
-  · rw [ite_eq_left hp, ite_eq_left (h.mp hp)]
-  · rw [ite_eq_right hp, ite_eq_right (fun hq => hp (h.mpr hq))]
-
-
 /-- Kraft equality of the reassigned lengths (by position). -/
 theorem kraft_of_counts (H : Nat → Nat) (hm J maxc L : Nat) (len c : Nat → Nat) (hc0 : c 0 = 0)
     (hkc : kc c L = 2 ^ L)

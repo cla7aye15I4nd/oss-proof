@@ -177,19 +177,4 @@ theorem setDictionary_callfacts {h after : Heap} {r : ZStreamRef} {ds ds' : Nat}
     obtain ⟨-, -, rfl⟩ := invF.unique invAfter.good
     exact keep calls
 
-/-- **The final state of the call**, with the invariant and the header
-facts beside it. -/
-theorem setDictionary_body {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
-    {d : DeflateState} (inv : DInv h r ds z d) (dictionary : BPtr) (dictLength : UInt32)
-    (args : CallerRange h r dictionary dictLength.toNat false)
-    (header : HeaderInv d) (finished : d.status = FINISH_STATE → d.sym_next = 0) :
-    ∃ rc after zF dF, C.run (Zlib.Deflate.deflateSetDictionary (some r) dictionary dictLength) h = .ok (rc, after) ∧
-      DInv after r ds zF dF ∧ (HeaderInv d → HeaderInv dF) := by
-  rcases setdict_cases inv dictionary dictLength with refused | ⟨null, la0, pass, body⟩
-  · exact ⟨Z_STREAM_ERROR, h, z, d, refused, inv, id⟩
-  · obtain ⟨after, zF, dF, bodyRun, invF, -, -, -, -, -, headerF, -⟩ :=
-      setdict_body_all inv dictionary dictLength args null la0
-        (setdict_sym0 inv.shape inv.good.inv.wrap_lo inv.good.inv.wrap_hi header finished pass)
-    exact ⟨Z_OK, after, zF, dF, body.trans bodyRun, invF, headerF⟩
-
 end Zlib.Deflate.Universal

@@ -64,9 +64,6 @@ theorem winHeap_winHeap (h : Heap) (w : Nat) (a1 a2 : Array UInt8) :
     winHeap (winHeap h w a1) w a2 = winHeap h w a2 := by
   simp [winHeap, upd_upd]
 
-theorem winHeap_self {h : Heap} {w : Nat} {a : Array UInt8} (get : h.bytes w = some a) : winHeap h w a = h := by
-  simp only [winHeap, upd_self h.bytes w a get]
-
 /-- `*put++ = *from++;` inside the window's block. -/
 theorem mcBody_run {H : Heap} {w : Nat} {a : Array UInt8} (get : H.bytes w = some a) (ro : H.ro w = false)
     {l : IL} {f p : Nat} (hf : l.from_ = .ref (.blk w) f) (hp : l.put = .ref (.blk w) p)

@@ -160,16 +160,6 @@ theorem buffers_failed_iff (h : Heap) :
     byteResult, wordResult, bytePtr, wordPtr, byteHeap, wordHeap, failedHeap,
     Zlib.Zutil.Proofs.allocHeap, hw, hp, hq, hb, Nat.add_assoc]
 
-theorem freeBytes_congr (h g : Heap) (p : BPtr) (he : h.bytes = g.bytes) :
-    (freeBytes h p).bytes = (freeBytes g p).bytes := by
-  unfold freeBytes
-  split <;> simp_all
-
-theorem freeWords_congr (h g : Heap) (p : WPtr) (he : h.words = g.words) :
-    (freeWords h p).words = (freeWords g p).words := by
-  unfold freeWords
-  split <;> simp_all
-
 theorem freeBytes_congr_at (h g : Heap) (p : BPtr) (x : Nat) (he : h.bytes x = g.bytes x) :
     (freeBytes h p).bytes x = (freeBytes g p).bytes x := by
   unfold freeBytes

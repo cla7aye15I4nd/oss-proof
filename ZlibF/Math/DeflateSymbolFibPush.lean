@@ -178,16 +178,4 @@ theorem SymbolFibPush.congr_frequency {alphabet weight : Nat} {frequency other l
     rw [counts]
     exact total
 
-/-- An unused sentinel can change without affecting any originally used
-symbol. Only nonzero-frequency lengths enter the class inequalities. -/
-theorem SymbolFibPush.congr_length {alphabet weight : Nat} {frequency length other : Nat → Nat}
-    (budget : SymbolFibPush alphabet weight frequency length)
-    (same : ∀ v, v < alphabet → frequency v ≠ 0 → other v = length v) :
-    SymbolFibPush alphabet weight frequency other := by
-  obtain ⟨classes, origin, classified, total⟩ := budget
-  refine ⟨classes, origin, ?_, total⟩
-  intro v bound nonzero
-  rw [same v bound nonzero]
-  exact classified v bound nonzero
-
 end ZlibF.Math.DeflatePush
