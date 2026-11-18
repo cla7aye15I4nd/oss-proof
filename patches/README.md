@@ -1,6 +1,6 @@
 # Patches
 
-The verified source is zlib 1.4 (upstream commit `99623ef7`) with the six patches of this
+The verified source is zlib 1.4 (upstream commit `99623ef7`) with the seven patches of this
 directory applied in name order. Every theorem is about that patched source.
 
 Each patch fixes one issue of zlib without whose fix a safety statement cannot be proved, or a
@@ -127,3 +127,20 @@ Covered by: `Goal.deflate_bound_default` and `Goal.deflate_completes_default`, w
 
 Upstream: the patch is the change of [PR #1394](https://github.com/madler/zlib/pull/1394), which is
 open.
+
+## 0007-deflatebound-gzip-extra-length.patch
+
+With a gzip header from `deflateSetHeader` whose `extra` is not `Z_NULL`, `deflateBound_z` adds
+`2 + s->gzhead->extra_len` to the wrapper length. The sum is evaluated in 32-bit unsigned
+arithmetic, so for `extra_len` 2^32-2 or 2^32-1 it wraps to 0 or 1. `deflate` writes only the low
+16 bits of the extra length and that many bytes of `extra`, so the bound is then about 64 KiB too
+small, and one `deflate(Z_FINISH)` call with exactly that room returns `Z_OK`, against the promise
+of `zlib.h`. The patch takes the low 16 bits of `extra_len`, as `deflate` does, and adds them as a
+`z_size_t`. It fixes a broken promise, not a memory error.
+
+Covered by: `Goal.deflateBound_safety` and `Goal.deflateBound_z_safety`, the goals that run this
+code. No goal states the value of the bound for a gzip header, so the fix repairs a promise of
+`zlib.h` that no theorem covers.
+
+Upstream: the patch is the `deflate.c` part of [PR #1360](https://github.com/madler/zlib/pull/1360),
+which is open; the pull request also adds a test to `test/example.c`, which is not part of the patch.
