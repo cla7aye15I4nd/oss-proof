@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Usage: ZLIB_SRC=<zlib checkout> [FULL=1] bash tests/regression/gzwrite-pos-overflow/run.sh
-# Builds the pinned zlib twice under UBSan: with patches/*.patch except 0005 (the source before
+# Builds the pinned zlib twice under UBSan: with patches/*.patch except 0004 (the source before
 # the fix), and with all of patches/*.patch. Runs wpos.c on each: a transparent writer on
 # /dev/null seeks to INT64_MAX - 10 and writes 100 bytes, and (argument "putc") seeks to
-# INT64_MAX and writes one byte with gzputc. Without 0005 each run must report a signed
-# overflow of the position; with 0005 nothing may be reported, and the write must fail with
+# INT64_MAX and writes one byte with gzputc. Without 0004 each run must report a signed
+# overflow of the position; with 0004 nothing may be reported, and the write must fail with
 # Z_DATA_ERROR "position overflow".
 # By default fastwrite.c answers the writes to /dev/null without a system call (about a minute
 # per run). FULL=1 uses the real /dev/null: about 17 minutes per run on x86_64 Linux, so about an
@@ -20,7 +20,7 @@ rm -rf "$work/without"
 mkdir -p "$work/without/tests" "$work/without/patches"
 cp "$here/../../build-zlib.sh" "$work/without/tests/"
 for p in "$here"/../../../patches/*.patch; do
-  case "$(basename "$p")" in 0005-*) ;; *) cp "$p" "$work/without/patches/";; esac
+  case "$(basename "$p")" in 0004-*) ;; *) cp "$p" "$work/without/patches/";; esac
 done
 CFLAGS="$san" bash "$work/without/tests/build-zlib.sh" "$src" "$work/before" >/dev/null || exit 2
 CFLAGS="$san" bash "$here/../../build-zlib.sh" "$src" "$work/after" >/dev/null || exit 2
