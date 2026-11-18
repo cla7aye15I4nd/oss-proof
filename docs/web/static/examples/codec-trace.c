@@ -1,6 +1,5 @@
-/* Deterministic codec experiments. Before compiling, apply the registered
- * 0001-inflate-copy-pointer-equality.patch to the pinned zlib source.
- * Link with that patched source and its header.
+/* Deterministic codec experiments. Before compiling, apply the patches of patches/ in name order to
+ * the pinned zlib source. Link with that patched source and its header.
  * Default output is JSON. --dump-input writes the generated input bytes.
  * This example runner does not instrument internal codec functions.
  */
@@ -297,7 +296,15 @@ int main(int argc, char **argv) {
     free(input);
     printf("{\n  \"schema\": 1,\n  \"kind\": \"fixed-source-native-example-runs\",\n");
     printf("  \"source_commit\": \"%s\",\n  \"zlib_version\": \"%s\",\n", TRACE_SOURCE, zlibVersion());
-    printf("  \"source_patches\": [\"0001-inflate-copy-pointer-equality.patch\"],\n");
+    printf("  \"source_patches\": [");
+    printf("\"0001-inflate-copy-pointer-equality.patch\"");
+    printf(", \"0002-gzseek-negative-position-overflow.patch\"");
+    printf(", \"0003-gzread-stale-next-and-position-overflow.patch\"");
+    printf(", \"0004-gzwrite-position-overflow.patch\"");
+    printf(", \"0005-gzoffset-negative-lseek.patch\"");
+    printf(", \"0006-deflatebound-fixed-conservative.patch\"");
+    printf(", \"0007-deflatebound-gzip-extra-length.patch\"");
+    printf("],\n");
     printf("  \"input\": {\"bytes\": %zu, \"sha256\": \"%s\",\n", TRACE_INPUT_SIZE, digest);
     printf("    \"generator\": \"three 65536-byte regions: periodic text with numeric markers; 1024-byte runs; xorshift32 bytes\",\n");
     printf("    \"random_seed\": \"0x12345678\", \"random_shifts\": [13, 17, 5]},\n");

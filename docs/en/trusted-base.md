@@ -9,7 +9,7 @@ are not proved, and compiling the proofs does not discharge them.
 | 1 | The Lean kernel, three axioms, and the programs that check axioms and statements | The build: the kernel checks every proof, and a check of the results examines the type of each theorem and the axioms it depends on. A replay by the kernel in a fresh environment is a command a reader can run |
 | 2 | The runtime: heap, pointers, faults, loops, modelled library calls | Review and differential tests |
 | 3 | The hand translation of the C | Review and differential tests against the real C |
-| 4 | The selected source: zlib 1.4 and six patches | The [patches page](../../patches/README.md). Each patched defect was reproduced with the real C under a sanitizer, with two exceptions: one branch of 0003 rests on a reading of the C; 0006 fixes a broken promise that no sanitizer reports |
+| 4 | The selected source: zlib 1.4 and seven patches | The [patches page](../../patches/README.md). Each patched defect was reproduced with the real C under a sanitizer, with two exceptions: one branch of 0003 rests on a reading of the C; 0006 and 0007 fix broken promises that no sanitizer reports |
 | 5 | The build configuration and the model of the outside world | Review against glibc and POSIX; differential tests |
 | 6 | The statements: that each goal says what it should | Review against `zlib.h`; the check that a theorem states exactly its goal |
 
@@ -146,7 +146,7 @@ order. A patch fixes a zlib issue without whose fix a safety
 statement cannot be proved, or a promise of `zlib.h` does not hold. It is as small as the fix
 allows, and it matches a fix submitted upstream.
 
-Six patches are applied. Every theorem is about the patched source, so each patch is part
+Seven patches are applied. Every theorem is about the patched source, so each patch is part
 of what a reader trusts. [Patches](../../patches/README.md) gives the evidence for each.
 
 | Patch | Fixes | Upstream state |
@@ -157,6 +157,7 @@ of what a reader trusts. [Patches](../../patches/README.md) gives the evidence f
 | 0004 | Overflow of the gz position `x.pos` while writing | Upstream PR #1406, open |
 | 0005 | Signed overflow in `gzoffset64` on a negative result of `lseek` | Upstream PR #1404, open |
 | 0006 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Upstream PR #1394, open |
+| 0007 | `deflateBound` too small for a gzip extra length of 2^32 - 2 or 2^32 - 1 | The `deflate.c` part of upstream PR #1360, open |
 
 ## 5. Configuration and external world
 

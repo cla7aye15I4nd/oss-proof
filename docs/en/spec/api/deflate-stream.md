@@ -15,10 +15,11 @@ see [compress and compress2](utility.md#compress2_z).
 | Release storage | [End](#deflateend) |
 
 The contracts follow `zlib.h` and `deflate.c` of the pinned zlib with the
-[patches](../../../../patches/README.md) applied, in the default LP64 Linux build. Of the six patches
-only patch 0006 touches `deflate.c`. It changes one condition in `deflateBound_z`, and with it the
-result of `deflateBound`, which calls `deflateBound_z`; the entry [deflateBound_z](#deflatebound_z)
-states the change. The patch changes no other function.
+[patches](../../../../patches/README.md) applied, in the default LP64 Linux build. Of the seven patches
+only patches 0006 and 0007 touch `deflate.c`. Both change `deflateBound_z`, and with it the result
+of `deflateBound`, which calls `deflateBound_z`: 0006 one condition, 0007 the length of the gzip extra
+field in the wrapper size. The entry [deflateBound_z](#deflatebound_z) states both changes. The
+patches change no other function.
 These are focused contracts: Pre describes ordinary correct use and is deliberately narrower than
 what the function accepts. Cases outside Pre that the C still handles appear under Errors or
 **Outside focused scope**. A call outside Pre is not thereby undefined, and it need not return an
@@ -849,7 +850,11 @@ the unpatched C, one `deflate(Z_FINISH)` call with that much output room can ret
 ([finding](../../findings.md), reproduced with the real C).
 
 `w` is 0 for raw, 6 for zlib plus 4 when preset history is present, or 18 for gzip plus
-its optional extra field (including two length bytes), terminated name/comment and header CRC.
+its optional extra field (two length bytes and the low 16 bits of `extra_len`, the length the header
+writer emits), terminated name/comment and header CRC. Taking the low 16 bits is the change of
+patch 0007: the unpatched C adds `2 + extra_len` in 32-bit unsigned arithmetic, which wraps for
+`extra_len` 2^32 - 2 and 2^32 - 1 and gives a bound about 64 KiB too small
+([finding](../../findings.md), reproduced with the real C).
 
 **Output capacity:** separately from the numerical formula, for a representable adequate
 buffer, when the input and output sizes fit `avail_in` and `avail_out`, supplying all

@@ -1,4 +1,4 @@
-<!-- source-sha256: 11683b8bf11792a9ba4506e02d14a62b86a564eb2da2ca6917cdf47a0a4855ce -->
+<!-- source-sha256: e75398d6092c92818dd02e287ccff55525a2f5c4e3e447993954a711e848a233 -->
 # 缓冲区工具函数：源码上的决定
 
 本页列出 `compress.c`、`uncompr.c` 以及 `deflate.c` 的上界函数中，C 的做法需要模型小心表示的地方。每一处都说明 C 做了什么，模型做了什么，以及是否有定理覆盖它。这些函数的安全证明在另外两页；本页是它们的源码阅读配套页。
@@ -68,12 +68,12 @@
 - **模型。** `UInt64` 上的一个纯函数。
 - **覆盖情况。** `compressBound` 和 `compressBound_z` 对每个输入证明了精确值。
 
-### `deflateBound_z`：`2 + extra_len` 按 32 位计算
+### `deflateBound_z`：gzip extra 字段的长度
 
-- **C。** `deflateBound_z` 读取封装状态和可选的 gzip 头字符串；每次字符串扫描都包含结尾的 NUL。对于 extra 字段，它把按 32 位 `unsigned` 求值的 `2 + extra_len` 加到 64 位的封装开销上。当 `extra_len >= 0xfffffffe` 时这个和会回绕，而头部写入函数只输出 `extra_len & 0xffff` 个字节。
-- **模型。** 翻译计算同一个回绕的和。
+- **C。** `deflateBound_z` 读取封装状态和可选的 gzip 头字符串；每次字符串扫描都包含结尾的 NUL。对于 extra 字段，打过补丁的 C 把 2 和 `extra_len` 的低 16 位以 `z_size_t` 加到封装开销上，这正是头部写入函数输出的长度（补丁 0007）。上游 zlib 加的是按 32 位 `unsigned` 求值的 `2 + extra_len`，当 `extra_len >= 0xfffffffe` 时会回绕。
+- **模型。** 翻译遵循打过补丁的 C。
 - **覆盖情况。** 安全性已覆盖（`deflateBound_safety`、`deflateBound_z_safety`）。在上游 zlib 中，上界的值有两处缺陷。
-    - 当 `extra_len` 为 `2^32 - 2` 和 `2^32 - 1` 时上界偏小，对 C 的一次运行表明了这一点（[发现](../findings.md)）。没有应用补丁。上游知道这种情形（[讨论](https://github.com/madler/zlib/pull/1360)）。
+    - 当 `extra_len` 为 `2^32 - 2` 和 `2^32 - 1` 时上界偏小，对 C 的一次运行表明了这一点（[发现](../findings.md)）。补丁 0007 取长度的低 16 位（上游 [PR 1360](https://github.com/madler/zlib/pull/1360) 的 `deflate.c` 部分，处于打开状态）。没有目标陈述 gzip 头部时上界的值。
     - 在 `windowBits` 为 15、`memLevel` 为 8、使用 `Z_FIXED` 且级别为 1 到 3 时，输出可以超过上界，对 C 的一次运行表明了这一点（[发现](../findings.md)）。补丁 0006 让 `Z_FIXED` 使用保守的上界（上游 [PR 1394](https://github.com/madler/zlib/pull/1394)，处于打开状态）。
 
     **尚未由证明确认**：在源数据和头部定义域的其余部分上，输出不超过上界。

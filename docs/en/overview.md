@@ -16,7 +16,7 @@ check of the project. [Coverage by function](coverage.md) names the theorem of e
 
 The premises, in short ([deviations](deviations.md) has them by function):
 
-- The source is zlib 1.4 with the six [patches](../../patches/README.md). Unpatched zlib 1.4
+- The source is zlib 1.4 with the seven [patches](../../patches/README.md). Unpatched zlib 1.4
   has the defects that [findings](findings.md) lists.
 - `zalloc` and `zfree` are `Z_NULL`: zlib uses its default allocator. A custom allocator is
   outside every goal. A failing `malloc` is covered.
