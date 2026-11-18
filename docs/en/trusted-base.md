@@ -204,7 +204,10 @@ defined. `VaArg.long` stands for the 64-bit type the conversion expects (`long`,
 7.21.6.12), not by formatting. Assumed: the call is defined in C for the caller's format and
 arguments. This is the caller's obligation, as for every call of the printf family; no premise
 states it. In particular the format has no `%n`: a conversion that writes through an argument
-is outside the contract. The model reads the format as a string, and faults on a pointer
+is outside the contract. With `%n` the call writes caller memory, which the frame of the
+conclusion does not describe, so the obligation excludes `%n`. The model's argument type
+(`VaArg`) has the cases `int`, `uint`, `long`, `ulong` and `str`; a call with a floating-point
+or `%p` argument is not among the calls the goals range over. The model reads the format as a string, and faults on a pointer
 argument into a freed block (an indeterminate value, C17 6.2.4p2). It does not read the
 conversions. So a format that does not match its arguments, which is undefined behaviour in C,
 is no fault in the model: for such a call `Goal.gzprintf_safety` and `Goal.gzvprintf_safety`

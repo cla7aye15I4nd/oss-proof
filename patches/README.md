@@ -35,7 +35,8 @@ An initial `gzungetc` sets `state->x.pos` to -1. Calls: `gzopen`, `gzungetc`, th
 overflows signed arithmetic. The
 patch evaluates the range check only for a positive `pos`, and refuses a seek whose displacement
 from a negative position does not fit in `z_off64_t`. These are the only two subtractions of a
-negative position in `gzseek64`.
+negative position in `gzseek64`. A third overflow of `gzseek64` has no negative position, and
+this patch alone does not remove it: patch 0003 does.
 
 Covered by: `Goal.gzseek64_safety`, `Goal.gzseek_safety`, and `Goal.gz_sequence_safety`.
 
@@ -65,12 +66,20 @@ from data past the limit) and what `gz_read` and `gzgets` deliver. Data past `GZ
 `Z_DATA_ERROR` "position overflow". Every addition to `x.pos` in `gzread.c` then adds a count
 bounded by `gz_room`.
 
+The same bound removes an overflow of `gzseek64`, also without `gzungetc`. On a transparent
+reader whose `lseek` succeeds (Linux `/dev/zero`), with the position near `GZ_OFF_MAX` and bytes
+buffered, a seek back evaluates `pos - state->x.pos - state->x.have` below the smallest
+`z_off64_t`. Calls: `gzseek` to near
+`2^63`, `gzread` of one byte, then `gzseek` back to 0. With `x.pos + x.have` at most `GZ_OFF_MAX`
+the expression stays in range.
+
 Reproductions: `tests/regression/gzread-transparent-stale-next/` and
 `tests/regression/gzread-pos-overflow/`.
 
 Covered by: `Goal.gzread_safety`, `Goal.gzfread_safety`, `Goal.gzgetc_safety` (with its clause for
 the `gzgetc()` macro), `Goal.gzgetc__safety`, `Goal.gzgets_safety`, `Goal.gzungetc_safety`,
-`Goal.gzdirect_safety` (`gz_look`), and `Goal.gz_sequence_safety`.
+`Goal.gzdirect_safety` (`gz_look`), `Goal.gzseek64_safety`, `Goal.gzseek_safety`, and
+`Goal.gz_sequence_safety`.
 
 Upstream: the patch is the change of [PR #1405](https://github.com/madler/zlib/pull/1405), which is
 open.

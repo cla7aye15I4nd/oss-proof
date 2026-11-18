@@ -84,8 +84,11 @@ back can then be a use after free in the C
 The `gzprintf` condition is asked at every `gzprintf` step. On a reader or a handle in error the
 C returns before it reads the format, and the condition then asks only that the format pointer
 and the pointer arguments lie outside the handle's blocks. The model does not parse the format:
-every format for which the `vsnprintf` call is defined in C is covered, with floating
-conversions, `%p`, the `h` and `hh` modifiers and `*` widths. `%n` is not covered. A format that
+every format for which the `vsnprintf` call is defined in C and whose arguments are integers or
+strings is covered, with the `h` and `hh` modifiers and `*` widths. The model's argument type
+(`VaArg`) has no floating-point or `void *` case, so floating conversions and `%p` are not
+covered. `%n` is not covered: with `%n` the call writes caller memory, which the frame of the
+conclusion does not describe, so the caller's obligation excludes it. A format that
 does not match its arguments is not covered either, and the model does not detect one
 ([deviations](../../deviations.md), row "Gz printf call").
 
@@ -1175,8 +1178,8 @@ Positive values count accepted formatted bytes. Zero and negative values have di
 
 **Pre:** `format` is a readable terminated string. Arguments have the types
 required by each conversion; referenced objects are valid. External formatting
-obeys the platform `vsnprintf` semantics. Any `%n` target is writable, properly
-separated and an allowed caller-visible effect. Valid compression parameters hold.
+obeys the platform `vsnprintf` semantics. The format has no `%n`. Valid compression
+parameters hold.
 
 **Proof goals.**
 

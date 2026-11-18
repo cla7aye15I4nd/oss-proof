@@ -1,4 +1,4 @@
-<!-- source-sha256: fb7f45b7bdfff05f9403b0dc1c882db817a6b181b544d9399e0b69ce6b969add -->
+<!-- source-sha256: 4754bbc087e4f1bd9132cf960c08aadc5963149e90326ac2569faf4a52335ea7 -->
 
 # 流式解压
 
@@ -402,7 +402,7 @@ int ZEXPORT inflate(z_streamp strm, int flush);
     2. 平台大小上界成立（`ByteObjectsFit`）；
     3. `next_in` 为 NULL，或指向 `avail_in` 个可读字节；`next_out` 为 NULL，或指向 `avail_out` 个可写字节；两个范围都不在流自己的块内，且互不重叠（`StreamBuffers`）；
     4. 如果挂接了头部记录（已交给 `inflateGetHeader`，此后没有被重置解除）：该记录存活，且不是流自己的块；它的 `extra`、`name`、`comment` 指针各自为 NULL，或分别指向 `extra_max`、`name_max`、`comm_max` 个可写字节，且这些字节在流自己的块之外（`HeaderMemory`）。本目标在每次调用时都要求这一点，头部读完之后也是如此；
-    5. 在把 gzip 头读入该记录期间：`extra` 缓冲区与尚未读取的输入不重叠；在读取 extra 字段期间，调用者不把 `extra_len` 改得小于尚待读取的长度（`InflateHeaderProgress`）。条件 4 和 5 合起来就是 `ActiveHeader`。
+    5. 在把 gzip 头读入该记录期间：`extra` 缓冲区与尚未读取的输入不重叠；在读取 extra 字段期间，记录的 `extra_len` 不小于尚待读取的长度（`InflateHeaderProgress`）。这是调用时对记录的条件，不论这个字段是谁写的：`inflate` 会写流所挂接记录中的 `extra_len`，所以挂接在同一个记录上的两个流（例如 `inflateCopy` 之后）在目标之外。条件 4 和 5 合起来就是 `ActiveHeader`。
 - **无条件覆盖。** 每一个 `flush` 值；每一种输入字节序列，无论格式是否正确；每一种分配结果。本目标比前置条件宽：`next_out` 可以为 NULL，`next_in` 也可以在 `avail_in` 非零时为 NULL。C 对这两种情况都返回 `Z_STREAM_ERROR` 拒绝。拒绝子句中：每一个被拒绝的流，以及其他参数的每个取值。
 - **保证**（对可达流的调用是 `StreamCallSafe`）。
     - *返回。* 对被拒绝的流，调用返回 `Z_STREAM_ERROR`。对可达流调用时，调用返回。

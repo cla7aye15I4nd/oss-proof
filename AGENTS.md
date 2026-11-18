@@ -62,8 +62,9 @@ exists to keep the result honest, not to slow it down.
 - Every undefined behaviour the C can reach raises `Fault.ub`. Unsigned arithmetic wraps. Signed
   arithmetic is checked.
 - Reading an uninitialised integer returns an arbitrary value, and a theorem must hold for every
-  value. A pointer in fresh memory is NULL in the model, which is weaker than C: the proof shows that a pointer
-  field was written before it is read (`docs/en/spec/safety.md`, section 3; `docs/en/trusted-base.md`, item 2).
+  value. A pointer in fresh memory is NULL in the model, which is weaker than C: the model reads an unwritten
+  pointer as NULL, and that a pointer field is written before it is read is not a theorem; the runtime also
+  accepts adding zero to any pointer (`docs/en/spec/safety.md`, section 3; `docs/en/trusted-base.md`, item 2).
 - Never change a translation to make a proof easier. A mismatch with the C is a translation bug.
   Fix it, and add a differential test that catches it.
 - Every proof depends on the runtime. Change it only for a confirmed mismatch with C.
