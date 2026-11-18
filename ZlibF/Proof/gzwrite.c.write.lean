@@ -784,7 +784,8 @@ def writeT3 (i : Nat) (buf : BPtr) (len : UInt64) : G UInt64 := do
 
 /-- From the position check on. -/
 def writeT2 (i : Nat) (buf : BPtr) (len : UInt64) : G UInt64 := do
-  if (← i64sub GZ_OFF_MAX (← ldS (gzSt i)).x.pos).toUInt64 < len then
+  let room ← i64sub GZ_OFF_MAX (← ldS (gzSt i)).x.pos
+  if room.toUInt64.toInt64 == room && room.toUInt64 < len then
     Zlib.Gzlib.gz_error (gzSt i) Z_DATA_ERROR (← Zlib.GzFs.strLit "position overflow")
     return 0
   writeT3 i buf len
@@ -939,6 +940,10 @@ theorem write_t2 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
     exact this
   have hd : (Int64.ofInt (9223372036854775807 - v.x.pos.toInt)).toUInt64.toNat =
       (9223372036854775807 - v.x.pos.toInt).toNat := int64_toUInt64_toNat (by omega) (by omega)
+  -- on LP64 the room converts to z_size_t and back unchanged
+  have hround : ((Int64.ofInt (9223372036854775807 - v.x.pos.toInt)).toUInt64.toInt64 ==
+      Int64.ofInt (9223372036854775807 - v.x.pos.toInt)) = true := by
+    rw [Int64.toInt64_toUInt64]; exact beq_self_eq_true _
   by_cases hc : (Int64.ofInt (9223372036854775807 - v.x.pos.toInt)).toUInt64 < len
   · -- the refusal of patch 0004
     obtain ⟨k, hk⟩ := strIndex_of_mem (s := "position overflow") (by decide +kernel)
@@ -953,7 +958,7 @@ theorem write_t2 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
     refine ⟨0, fs, after, ?_, by simp, GetcUngetc.Eff.trans E inv P (fun _ => Iff.rfl)⟩
     unfold writeT2
     simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, cpure_app, hS, hsub,
-      hc, ↓reduceIte, Zlib.GzFs.strLit, strLitRef_of_index hk, run']
+      hround, hc, decide_true, Bool.and_self, ↓reduceIte, Zlib.GzFs.strLit, strLitRef_of_index hk, run']
   · have hpos : v.x.pos.toInt + len.toNat ≤ 9223372036854775807 := by
       have : ¬ (Int64.ofInt (9223372036854775807 - v.x.pos.toInt)).toUInt64.toNat < len.toNat :=
         fun x => hc (UInt64.lt_iff_toNat_lt.mpr x)
@@ -963,7 +968,7 @@ theorem write_t2 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzS
     refine ⟨r, fs', h', ?_, post⟩
     unfold writeT2
     simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, cbind_app, clift_app, hS, hsub,
-      hc, ↓reduceIte, run]
+      hround, hc, decide_false, Bool.and_false, Bool.false_eq_true, ↓reduceIte, run]
 
 theorem write_t1 (err : GzErrorSpec) (errOwn : GzErrorOwn) {h0 : Heap} {s0 : GzState} {fs0 fs : Fs}
     {buf : BPtr} {len : UInt64} {H : Heap} {v : GzState}
