@@ -227,9 +227,12 @@ def gz_write (state : GzStatePtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   -- if (state->skip && gz_zero(state) == -1) return 0;
   if (← ldS state).skip != 0 then
     if (← gz_zero state) == -1 then return 0
-  -- if (GZ_OFF_MAX - state->x.pos < len) { gz_error(state, Z_DATA_ERROR, "position overflow"); return 0; }
-  -- (patch 0004; the long difference converts to the unsigned long of len)
-  if (← i64sub GZ_OFF_MAX (← ldS state).x.pos).toUInt64 < len then
+  -- room = GZ_OFF_MAX - state->x.pos;   (patch 0004; z_off64_t room)
+  let room ← i64sub GZ_OFF_MAX (← ldS state).x.pos
+  -- if ((z_off64_t)(z_size_t)room == room && (z_size_t)room < len) {
+  --     gz_error(state, Z_DATA_ERROR, "position overflow"); return 0; }
+  -- (z_size_t is the 64-bit unsigned long, z_off64_t the 64-bit long: both conversions wrap)
+  if room.toUInt64.toInt64 == room && room.toUInt64 < len then
     gz_error state Z_DATA_ERROR (← strLit "position overflow")
     return 0
   -- if (len < state->size) { for (;;) {...} }
