@@ -53,11 +53,11 @@ theorem distance_regionCharge_256c (L : Nat → Nat) (i : Nat) :
   unfold regionCharge otherRegionCharge256
   by_cases z : L i = 0 <;> simp [z]
 
-/-- **Header plus excess at `lit_bufsize = 256`**: at most `2023` bits for `Δ ≤ 419`. -/
-theorem header_excess_256c {Δ : Nat} (small : Δ ≤ 419) (headerBound : HeaderRefBound Δ)
+/-- **Header plus excess at `lit_bufsize = 256`**: at most `1899` bits for `Δ ≤ 245`. -/
+theorem header_excess_256c {Δ : Nat} (small : Δ ≤ 245) (headerBound : HeaderRefBound Δ)
     {h : Heap} {ds : Nat} {d : DeflateState} {xs : List Symbol} {mb : Int32} {ready : DeflateState}
     (prepared : TinyPrepared h ds d xs mb ready) (size : d.lit_bufsize.toNat = 256) :
-    (dynamicHeaderBits ready mb).length + Zlib.Trees.Overlay.bitExcess (dynamicSymbolCosts ready xs) ≤ 2023 := by
+    (dynamicHeaderBits ready mb).length + Zlib.Trees.Overlay.bitExcess (dynamicSymbolCosts ready xs) ≤ 1899 := by
   have hdrBound := headerBound prepared size
   obtain ⟨⟨ll, fl, dl, fd, lenL, lenD, kL, kD, leafL, eob, leafD, symbols, balance, choice, excess,
     maxL256, maxL_lt, maxD_lt, lowL, lowD⟩⟩ := prepared_tiny_facts prepared (by omega)
@@ -108,8 +108,8 @@ theorem header_excess_256c {Δ : Nat} (small : Δ ≤ 419) (headerBound : Header
     kL kD leafL eob leafD symbols balance (by omega) choice
   omega
 
-/-- **The order-free budget at `memLevel` 2**, from the header bound with `Δ ≤ 419`. -/
-theorem overlay_budget_256c {Δ : Nat} (small : Δ ≤ 419) (headerBound : HeaderRefBound Δ)
+/-- **The order-free budget at `memLevel` 2**, from the header bound with `Δ ≤ 245`. -/
+theorem overlay_budget_256c {Δ : Nat} (small : Δ ≤ 245) (headerBound : HeaderRefBound Δ)
     {h : Heap} {ds : Nat} {d : DeflateState} {xs : List Symbol} {mb : Int32} {ready : DeflateState}
     (prepared : TinyPrepared h ds d xs mb ready) (size : d.lit_bufsize.toNat = 256) :
     OverlayBudget ready mb xs := by
@@ -119,9 +119,9 @@ theorem overlay_budget_256c {Δ : Nat} (small : Δ ≤ 419) (headerBound : Heade
   rw [litR, size]
   omega
 
-/-- **The overlay room at `memLevel` 2**, from the header bound with `Δ ≤ 419`: the premises of
+/-- **The overlay room at `memLevel` 2**, from the header bound with `Δ ≤ 245`: the premises of
 `TinyOverlay` with `lit_bufsize = 256`. -/
-theorem dynamic_overlay_256c {Δ : Nat} (small : Δ ≤ 419) (headerBound : HeaderRefBound Δ)
+theorem dynamic_overlay_256c {Δ : Nat} (small : Δ ≤ 245) (headerBound : HeaderRefBound Δ)
     {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : DeflateState} {buf : Array UInt8}
     {xs : List Symbol} (_good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf)
     (ledger : SymbolLedger buf d xs) (clear : BlockInit.BlockClear d) (pending : d.pending = 0)
