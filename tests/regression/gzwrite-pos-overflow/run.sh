@@ -6,9 +6,10 @@
 # INT64_MAX and writes one byte with gzputc. Without 0004 each run must report a signed
 # overflow of the position; with 0004 nothing may be reported, and the write must fail with
 # Z_DATA_ERROR "position overflow".
-# By default fastwrite.c answers the writes to /dev/null without a system call (about a minute
-# per run). FULL=1 uses the real /dev/null: about 17 minutes per run on x86_64 Linux, so about an
-# hour in all. Both modes build with UBSan only: under ASan the 2^34 intercepted writes take hours.
+# By default fastwrite.c answers the writes to /dev/null without a system call, and the two runs
+# of each build run at the same time. FULL=1 uses the real /dev/null instead, which takes many
+# minutes per run. Both modes build with UBSan only: the defect is a signed overflow, and under
+# ASan the 2^32 intercepted writes take far longer. Each run allocates a 4 GB input buffer.
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}
@@ -27,9 +28,11 @@ CFLAGS="$san" bash "$here/../../build-zlib.sh" "$src" "$work/after" >/dev/null |
 fail=0
 for b in before after; do
   cc $san -I"$work/$b" "$here/wpos.c" $extra "$work/$b/libz.a" $libs -o "$work/wpos-$b" || exit 2
+  for mode in write putc; do "$work/wpos-$b" $mode > "$work/out-$b-$mode" 2>&1 & done
+  wait
   for mode in write putc; do
     echo "== $b $mode"
-    out=$("$work/wpos-$b" $mode 2>&1)
+    out=$(cat "$work/out-$b-$mode")
     printf '%s\n' "$out" | sed "s#$work/##g; s#$here/##g"
     if [ $b = before ]; then
       if printf '%s\n' "$out" | grep -q "runtime error: signed integer overflow"; then
