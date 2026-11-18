@@ -81,11 +81,13 @@ jobs:
             lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-
 
       - name: Build project library with warnings as errors
-        env:
-          PROJECT: ${{ matrix.project }}
         run: |
-          mapfile -t targets < <(python3 -c 'import json, os; print("\n".join(json.load(open(f"projects/{os.environ[\"PROJECT\"]}/project.json"))["build"]["targets"]))')
-          lake --dir "projects/$PROJECT" build --wfail "${targets[@]}"
+          python3 - "${{ matrix.project }}" <<'PY'
+          import subprocess, sys
+          from framework.manifest import load_project
+          proj = load_project(sys.argv[1])
+          subprocess.run(["lake", "--dir", str(proj.root), "build", "--wfail", *proj.targets], check=True)
+          PY
 
       - name: Save module cache (pushes to main only)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -116,7 +118,11 @@ jobs:
       - name: Install C compiler and tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential patch python3
+          sudo apt-get install -y --no-install-recommends build-essential patch
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
 
       - uses: ./.github/actions/lean-environment
         id: lean
@@ -132,39 +138,8 @@ jobs:
           restore-keys: |
             lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-
 
-      - name: Toolchains agree
-        env:
-          PROJECT: ${{ matrix.project }}
-        run: |
-          cmp lean-toolchain "projects/$PROJECT/lean-toolchain"
-          if [ -f "projects/$PROJECT/tests/lean-toolchain" ]; then
-            cmp lean-toolchain "projects/$PROJECT/tests/lean-toolchain"
-          fi
-
       - name: Build differential drivers and run under ASan and UBSan
-        env:
-          PROJECT: ${{ matrix.project }}
-        run: |
-          PROJECT_DIR="$GITHUB_WORKSPACE/projects/$PROJECT"
-          eval "$(python3 -c '
-          import json, os, shlex
-          p = json.load(open(f"projects/{os.environ[\"PROJECT\"]}/project.json"))
-          dt = p["difftest"]
-          up = p["upstream"]["submodule"]
-          print("DIFFTEST_DIR=" + shlex.quote(dt["dir"]))
-          print("DIFFTEST_LIST=" + shlex.quote(dt.get("list", "")))
-          print("DIFFTEST_CMD=" + shlex.quote(dt["command"]))
-          print("UPSTREAM_SUB=" + shlex.quote(up))
-          ')"
-          export PROJECT_DIR
-          export UPSTREAM_DIR="$PROJECT_DIR/$UPSTREAM_SUB"
-          if [ -n "$DIFFTEST_LIST" ] && [ -f "$PROJECT_DIR/$DIFFTEST_LIST" ]; then
-            mapfile -t names < <(grep -v '^[[:space:]]*\(#\|$\)' "$PROJECT_DIR/$DIFFTEST_LIST")
-            targets=()
-            for name in "${names[@]}"; do targets+=("difftest_$name"); done
-            lake --dir "$PROJECT_DIR/$DIFFTEST_DIR" build --wfail "${targets[@]}"
-          fi
-          (cd "$PROJECT_DIR" && eval "$DIFFTEST_CMD")
+        run: python3 framework/run_difftest.py "${{ matrix.project }}"
 
   gate:
     if: always()

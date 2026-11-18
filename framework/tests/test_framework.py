@@ -12,7 +12,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from framework import check_forbidden, check_options, check_runtime_ub, check_spec_layers, ci_matrix, manifest
+from framework import check_forbidden, check_options, check_runtime_ub, check_spec_layers, ci_matrix, manifest, run_difftest
 
 
 class FrameworkTests(unittest.TestCase):
@@ -214,6 +214,12 @@ class FrameworkTests(unittest.TestCase):
             errs = check_runtime_ub.check_project_runtime_ub(proj, base=Path(tmp))
             self.assertEqual(len(errs), 1)
             self.assertIn("n = 0", errs[0])
+
+    def test_difftest_driver_targets_for_zlib(self):
+        targets = run_difftest.driver_targets(REPO / "projects/zlib/tests/list.txt")
+        self.assertIn("difftest_inflate", targets)
+        self.assertIn("difftest_deflate", targets)
+        self.assertTrue(all(t.startswith("difftest_") for t in targets))
 
 
 if __name__ == "__main__":

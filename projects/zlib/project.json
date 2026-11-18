@@ -40,8 +40,8 @@
   "difftest": {
     "dir": "tests",
     "list": "tests/list.txt",
+    "script": "tests/run.sh",
     "upstream_env": "ZLIB_SRC",
-    "command": "SAN=1 ZLIB_SRC=\"$UPSTREAM_DIR\" bash tests/run.sh",
     "watch_paths": [
       "ZlibF/Zlib/",
       "ZlibF/Runtime/",
