@@ -1,17 +1,18 @@
 # Patches
 
-The verified source is zlib 1.4 (upstream commit `99623ef7`) with the seven patches of this
+The verified source is zlib 1.4 (upstream commit `99623ef7`) with the six patches of this
 directory applied in name order. Every theorem is about that patched source.
 
 Each patch fixes one issue of zlib without whose fix a safety statement cannot be proved, or a
-promise of `zlib.h` does not hold. Each is as small as the fix allows, and each is a fix
-submitted upstream. Each applies to the pinned source on its own, except 0004, which
-changes the lines that 0003 moves and so applies after 0003.
+promise of `zlib.h` does not hold, except 0003, which fixes two issues that share code. Each is as
+small as the fix allows, and each is a fix submitted upstream. Each applies to the pinned source
+on its own.
 [Findings](https://www.dataisland.org/zlib-f/en/findings.html) lists the issues in one table, with
-the calls that reach each issue and the evidence. Each patch has one reproduction under
+the calls that reach each issue and the evidence. Each issue has one reproduction under
 `tests/regression/`, which the differential test runs: it builds the source with every patch but its
-own (for 0003, also without 0004) and shows the defect on the real C, and builds the verified source
-and shows none. `gzseek64` and `gz_skip_have` compute `x.next += 0` on a pointer that may never have
+own and shows the defect on the real C, and builds the verified source
+and shows none. The two reproductions of 0003 leave out the same patch.
+`gzseek64` and `gz_skip_have` compute `x.next += 0` on a pointer that may never have
 been written or may point into a freed caller buffer; that needs no patch, because the model accepts
 adding zero to any pointer, a stated limit of the model.
 
@@ -41,26 +42,21 @@ Covered by: `Goal.gzseek64_safety`, `Goal.gzseek_safety`, and `Goal.gz_sequence_
 Upstream: the patch is the `gzlib.c` part of
 [PR #1361](https://github.com/madler/zlib/pull/1361), which is open.
 
-## 0003-gzread-partial-copy-read-error.patch
+## 0003-gzread-stale-next-and-position-overflow.patch
 
-In transparent (`COPY`) mode, when `read` supplies some bytes and then fails, `gz_load` leaves
-the partial count in `x.have` and returns -1, and `gz_fetch` returns before its assignment of
-`x.next`. Calls: `gzread` (or `gzgetc`, `gzgets`) on input that is not gzip, when the descriptor
-fails after partial data. The readers then take the partial bytes through a stale `x.next`, which
-can be outside the output buffer. The patch sets
+The patch fixes two defects of `gzread.c`. They are one patch because the second fix rewrites the
+lines of `gz_fetch` that the first one moves.
+
+Stale `x.next`. In transparent (`COPY`) mode, when `read` supplies some bytes and then fails,
+`gz_load` leaves the partial count in `x.have` and returns -1, and `gz_fetch` returns before its
+assignment of `x.next`. Calls: `gzread` (or `gzgetc`, `gzgets`) on input that is not gzip, when the
+descriptor fails after partial data. The readers then take the partial bytes through a stale
+`x.next`, which can be outside the output buffer: an out-of-bounds read. The patch sets
 `state->x.next = state->out` before `gz_load`, so the pointer matches the bytes on every return.
 
-Covered by: `Goal.gzread_safety`, `Goal.gzfread_safety`, `Goal.gzgetc_safety`,
-`Goal.gzgetc__safety`, `Goal.gzgets_safety`, `Goal.gzungetc_safety`, and `Goal.gz_sequence_safety`.
-
-Upstream: the patch is the change of [PR #1363](https://github.com/madler/zlib/pull/1363), which
-is open.
-
-## 0004-gzread-position-overflow.patch
-
-The gz readers add to the signed position `state->x.pos` without a bound, so a read at a position
-near `GZ_OFF_MAX` overflows it: in `gz_read`, `gzgets`, `gzgetc`, and the `gzgetc()` macro of
-`zlib.h`. Calls: `gzseek` to near
+Position overflow. The gz readers add to the signed position `state->x.pos` without a bound, so a
+read at a position near `GZ_OFF_MAX` overflows it: in `gz_read`, `gzgets`, `gzgetc`, and the
+`gzgetc()` macro of `zlib.h`. Calls: `gzseek` to near
 `2^63` on a device whose `lseek` succeeds without moving (Linux `/dev/zero`), then `gzread` or
 `gzgetc`. The patch keeps `x.pos + x.have` at most `GZ_OFF_MAX`, which the `gzgetc()` macro needs
 (it does `pos++` on any buffered byte). A helper `gz_room(state, max)` bounds what the transparent
@@ -69,14 +65,17 @@ from data past the limit) and what `gz_read` and `gzgets` deliver. Data past `GZ
 `Z_DATA_ERROR` "position overflow". Every addition to `x.pos` in `gzread.c` then adds a count
 bounded by `gz_room`.
 
-Covered by: the goals of 0003, `Goal.gzdirect_safety` (`gz_look`), and the clause of
-`Goal.gzgetc_safety` for the `gzgetc()` macro.
+Reproductions: `tests/regression/gzread-transparent-stale-next/` and
+`tests/regression/gzread-pos-overflow/`.
 
-Upstream: the patch is the change of the last commit of
-[PR #1405](https://github.com/madler/zlib/pull/1405), which is open. The branch of that pull
-request is on top of PR #1363.
+Covered by: `Goal.gzread_safety`, `Goal.gzfread_safety`, `Goal.gzgetc_safety` (with its clause for
+the `gzgetc()` macro), `Goal.gzgetc__safety`, `Goal.gzgets_safety`, `Goal.gzungetc_safety`,
+`Goal.gzdirect_safety` (`gz_look`), and `Goal.gz_sequence_safety`.
 
-## 0005-gzwrite-position-overflow.patch
+Upstream: the patch is the change of [PR #1405](https://github.com/madler/zlib/pull/1405), which is
+open.
+
+## 0004-gzwrite-position-overflow.patch
 
 The gz writers add to `state->x.pos` without a bound: signed overflow in `gz_write`, `gzputc` and
 `gzprintf` at a position near `GZ_OFF_MAX`. Calls: `gzseek` forward to near
@@ -95,7 +94,7 @@ Covered by: `Goal.gzwrite_safety`, `Goal.gzfwrite_safety`, `Goal.gzputc_safety`,
 Upstream: the patch is the change of [PR #1406](https://github.com/madler/zlib/pull/1406), which is
 open.
 
-## 0006-gzoffset-negative-lseek.patch
+## 0005-gzoffset-negative-lseek.patch
 
 `gzoffset64` takes `LSEEK(fd, 0, SEEK_CUR)`, refuses only -1, and when reading subtracts the
 buffered input `state->strm.avail_in`. On Linux, `lseek` on a file with unsigned offsets
@@ -112,7 +111,7 @@ Covered by: `Goal.gzoffset64_safety`, `Goal.gzoffset_safety`, and `Goal.gz_seque
 Upstream: the patch is the change of [PR #1404](https://github.com/madler/zlib/pull/1404), which is
 open.
 
-## 0007-deflatebound-fixed-conservative.patch
+## 0006-deflatebound-fixed-conservative.patch
 
 With `windowBits` 15, `memLevel` 8 and strategy `Z_FIXED`, `deflateBound` returns the tight default
 bound, which counts on a stored block as the fallback of every block. A block that crosses a window
