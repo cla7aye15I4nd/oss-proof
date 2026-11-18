@@ -342,8 +342,9 @@ the cost of the code-length symbols. At `B = 256` every data code is at most 11 
 the code-length symbols 12 to 15 do not occur; at `B = 128` every code is at most 9 bits long.
 The cost of the remaining symbols is bounded against a fixed complete code
 (`header_ref_bound_256`, `header_ref_bound_128w`). One more inequality is used: the dynamic form was
-chosen, so its rounded cost is below the cost of the fixed form. A heap-free certificate
-combines these facts into `header + excess ≤ 2023` and `≤ 999`
+chosen, so its rounded cost is below the cost of the fixed form. Adding the header bound and a
+multiple of that choice inequality cancels the symbol-length sums; Kraft and the Fibonacci depth
+bound then give `header + excess ≤ 2023` and `≤ 999`
 (`header_excess_256c`, `header_excess_128_w`). In both cases the proved bound meets the budget
 exactly.
 

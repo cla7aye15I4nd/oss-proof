@@ -2,15 +2,15 @@ import ZlibF.Proof.«deflate.c.engine.overlay-mem2»
 import ZlibF.Proof.«deflate.c.engine.overlay-choice-row»
 import ZlibF.Proof.«trees.c.overlay-scan-region»
 import ZlibF.Proof.«trees.c.build.two-leaves»
-import ZlibF.Math.DeflateOverlayCertificate128W
+import ZlibF.Math.DeflateOverlayTiny
 
 /-!
 # deflate.c: the reference header cost at `memLevel` 1
 
 The cost of the scanned bit-length symbols under the reference code `κ1`
-(`DeflateOverlayCertificate128W.refLen1`), extra bits included: `refHeaderCost128`. The header
-bound `HeaderRefBound128W` and the overlay room at `lit_bufsize = 128` (`overlay-mem1w`) are stated
-with it.
+(`DeflateOverlayTiny.refLen1`), extra bits included: `refHeaderCost128`. The header bound
+`HeaderRefBound128W` and the overlay room at `lit_bufsize = 128` (`overlay-mem1w`) are stated with
+it.
 -/
 
 namespace Zlib.Deflate.Engine.Proofs
@@ -18,7 +18,7 @@ open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 open Zlib.Trees.Proofs (sendLengths)
 open Zlib.Trees.Proofs.Out (scanFreqUpTo)
 open ZlibF.Math.DeflateSymbols
-open ZlibF.Math.DeflateOverlayCertificate128W (refLen1)
+open ZlibF.Math.DeflateOverlayTiny (refLen1)
 set_option autoImplicit false
 
 /-- The cost of bit-length symbol `k` under `κ1`, extra bits included. -/
