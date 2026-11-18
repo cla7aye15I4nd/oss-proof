@@ -1,0 +1,7 @@
+name = "libarchive-f"
+version = "0.1.0"
+defaultTargets = ["LibarchiveF"]
+
+[[lean_lib]]
+name = "LibarchiveF"
+roots = ["LibarchiveF", "LibarchiveF.Results"]

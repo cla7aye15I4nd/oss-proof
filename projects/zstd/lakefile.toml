@@ -1,0 +1,7 @@
+name = "zstd-f"
+version = "0.1.0"
+defaultTargets = ["ZstdF"]
+
+[[lean_lib]]
+name = "ZstdF"
+roots = ["ZstdF", "ZstdF.Results"]

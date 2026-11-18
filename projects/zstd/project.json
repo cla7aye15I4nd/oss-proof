@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "zstd",
+  "title": "Zstandard",
+  "package": "ZstdF",
+  "upstream": {
+    "submodule": "zstd",
+    "repository": "https://github.com/facebook/zstd",
+    "version": "1.5.7",
+    "target": "portable scalar x86_64 Linux LP64 decoder build",
+    "patches_dir": "patches"
+  },
+  "build": {
+    "targets": [
+      "ZstdF",
+      "ZstdF.Results"
+    ],
+    "results_module": "ZstdF.Results",
+    "compiler_helpers": "tests/audit/compiler-helpers.txt"
+  },
+  "checks": {
+    "spec_layers": {
+      "spec_dir": "ZstdF/Spec",
+      "proof_dir": "ZstdF/Proof"
+    }
+  },
+  "site": {
+    "route": "zstd",
+    "brand": "zstd × Lean",
+    "findings_count": 0,
+    "patches_count": 0,
+    "summary": {
+      "en": "Strict ISO C17 runtime bootstrap and verification scope for Meta Zstandard's standalone C decoder (libzstd); C translation and public decoder safety proofs are not done.",
+      "zh": "针对 Meta Zstandard 独立 C 解码器（libzstd）的严格 ISO C17 运行时基座与验证规约；C 翻译与公开解码器安全性证明尚未完成。"
+    }
+  }
+}

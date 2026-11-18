@@ -1,3 +1,15 @@
 [submodule "zlib"]
 	path = projects/zlib/zlib
 	url = https://github.com/madler/zlib
+[submodule "projects/7zip/7zip"]
+	path = projects/7zip/7zip
+	url = https://github.com/ip7z/7zip.git
+[submodule "projects/libarchive/libarchive"]
+	path = projects/libarchive/libarchive
+	url = https://github.com/libarchive/libarchive.git
+[submodule "projects/zstd/zstd"]
+	path = projects/zstd/zstd
+	url = https://github.com/facebook/zstd.git
+[submodule "projects/brotli/brotli"]
+	path = projects/brotli/brotli
+	url = https://github.com/google/brotli.git

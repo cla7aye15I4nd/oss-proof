@@ -1,6 +1,10 @@
 {
   "version": 1,
   "projects": [
-    "zlib"
+    "zlib",
+    "7zip",
+    "libarchive",
+    "zstd",
+    "brotli"
   ]
 }

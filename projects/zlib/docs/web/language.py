@@ -7,8 +7,10 @@ import re
 # These are names and formats, not English prose. Source identifiers are also
 # recognized by their spelling; no directory or page is exempt from the check.
 TECHNICAL_NAMES = frozenset('''
-API ABI AST ASCII C CRC CRC32 DEFLATE FDICT GZIP Huffman JSON Lean Linux
-LP64 NULL RFC UTF UTF8 Windows zlib gzip raw Adler Adler32 Mermaid
+API ABI AST ASCII BCJ BCJ2 Brotli C CRC CRC32 DAG DEFLATE FDICT Google GZIP
+Huffman ISO JSON Lean Linux LP64 LZMA LZMA2 LZSS Meta Mermaid NULL OSS PPMd
+PPMd7 RAR RAR5 RFC SDK UTF UTF8 Windows zlib zstd Zstandard gzip raw Adler
+Adler32 libarchive libbrotlidec libzstd vint
 '''.lower().split())
 ENGLISH_LABELS = frozenset('''
 contents|documentation|reference|status|scope|input|output|history|length|

@@ -19,7 +19,6 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "projects/zlib/docs/web"))
 
 from framework.manifest import Project, load_all_projects
-from progress import parse_results
 from syntax import color_blocks
 
 SHARED_STATIC_FILES = (
@@ -37,6 +36,46 @@ SHARED_STATIC_FILES = (
     "favicon.svg",
 )
 
+REV_FILES = (
+    "base.css",
+    "reference.css",
+    "book.css",
+    "navigation.css",
+    "syntax.css",
+    "portal.css",
+    "select.css",
+    "select.js",
+    "select-model.mjs",
+    "navigation.js",
+    "reference.js",
+    "diagram-view.mjs",
+)
+
+_PAIR_RE = re.compile(r"\(\s*``([A-Za-z0-9_'.]+)\s*,\s*``([A-Za-z0-9_'.]+)\s*\)")
+_NAME_RE = re.compile(r"``([A-Za-z0-9_'.]+)")
+
+
+@dataclass(frozen=True)
+class ParsedResults:
+    proved: tuple[tuple[str, str], ...]
+    not_done: tuple[str, ...]
+    required: tuple[str, ...]
+
+
+def parse_results_lists(text: str) -> ParsedResults:
+    clean = re.sub(r"--[^\n]*", "", re.sub(r"/-.*?-/", "", text, flags=re.S))
+
+    def extract_list(defn: str) -> str:
+        m = re.search(rf"\bdef\s+{defn}\b[^=]*:=\s*\[(.*?)\]", clean, flags=re.S)
+        if not m:
+            raise ValueError(f"missing `def {defn} := [...]` in Results.lean")
+        return m.group(1)
+
+    proved = tuple(_PAIR_RE.findall(extract_list("proved")))
+    not_done = tuple(_NAME_RE.findall(extract_list("notDone")))
+    required = tuple(_NAME_RE.findall(extract_list("required")))
+    return ParsedResults(proved=proved, not_done=not_done, required=required)
+
 
 @dataclass(frozen=True)
 class ProjectSummary:
@@ -47,6 +86,8 @@ class ProjectSummary:
     target: str
     documented_functions: int
     proved_functions: int
+    proved_goals: int
+    stated_goals: int
     required_goals: int
     proved_required_goals: int
     done: bool
@@ -54,14 +95,17 @@ class ProjectSummary:
     patches_count: int
     summary_en: str
     summary_zh: str
+    has_full_book: bool
     has_articles: bool
 
 
 def summarize_project(proj: Project) -> ProjectSummary:
     results_rel = proj.results_module.replace(".", "/") + ".lean"
     results_text = (proj.root / results_rel).read_text()
-    parsed = parse_results(results_text)
+    parsed = parse_results_lists(results_text)
     proved_set = {goal for goal, _ in parsed.proved}
+    proved_count = len(parsed.proved)
+    stated_count = len(parsed.proved) + len(parsed.not_done)
     req_count = len(parsed.required)
     proved_req = sum(1 for g in parsed.required if g in proved_set)
 
@@ -80,6 +124,7 @@ def summarize_project(proj: Project) -> ProjectSummary:
     site_cfg = proj.data.get("site", {})
     upstream_cfg = proj.data["upstream"]
     done = req_count > 0 and proved_req == req_count
+    has_full_book = bool(site_cfg.get("builder"))
     has_articles = (proj.root / "docs/en/read/codec.md").is_file()
     return ProjectSummary(
         project=proj,
@@ -89,6 +134,8 @@ def summarize_project(proj: Project) -> ProjectSummary:
         target=upstream_cfg.get("target", "x86_64 Linux LP64"),
         documented_functions=doc_fns,
         proved_functions=proved_fns,
+        proved_goals=proved_count,
+        stated_goals=stated_count,
         required_goals=req_count,
         proved_required_goals=proved_req,
         done=done,
@@ -96,12 +143,17 @@ def summarize_project(proj: Project) -> ProjectSummary:
         patches_count=int(site_cfg.get("patches_count", 0)),
         summary_en=site_cfg["summary"]["en"],
         summary_zh=site_cfg["summary"]["zh"],
+        has_full_book=has_full_book,
         has_articles=has_articles,
     )
 
 
 def href(target: Path, current: Path) -> str:
     return os.path.relpath(target, current.parent).replace(os.sep, "/")
+
+
+def asset_revision() -> str:
+    return sha256(b"".join((OUT / "static" / n).read_bytes() for n in REV_FILES)).hexdigest()[:12]
 
 
 def copy_shared_static() -> None:
@@ -160,25 +212,28 @@ def global_toc(current: Path, lang: str, page_title: str, summaries: list[Projec
         f'<button type="button" data-toc-close aria-label="{t("关闭目录", "Close contents")}">×</button></div>'
         f'<div class="bk-global-location"><span>{t("正在阅读", "READING NOW")}</span>{html.escape(page_title)}</div>'
         f'<label class="bk-global-search">{t("查找库或主题", "Find a library or section")}'
-        f'<input type="search" data-toc-search placeholder="{t("zlib、方法、检查…", "zlib, method, checking…")}" autocomplete="off"></label>'
+        f'<input type="search" data-toc-search placeholder="{t("zlib、zstd、方法、检查…", "zlib, zstd, method, checking…")}" autocomplete="off"></label>'
         f'<nav class="bk-global-tree" aria-label="{t("全站目录", "Site contents")}">'
     )
     body += (
         f'<details class="bk-global-section" data-toc-section open>'
         f'<summary>{t("总览章节", "Overview")}</summary><ul>'
-        f'<li data-toc-entry><a href="{idx}#libraries">{t("已验证的开源库", "Verified libraries")}</a></li>'
+        f'<li data-toc-entry><a href="{idx}#libraries">{t("开源验证库", "Libraries")}</a></li>'
         f'<li data-toc-entry><a href="{idx}#method">{t("共同验证方法", "Verification method")}</a></li>'
         f'<li data-toc-entry><a href="{idx}#checking">{t("完成的结论依靠什么", "What a done result rests on")}</a></li>'
         f'</ul></details>'
     )
-    body += f'<details class="bk-global-section" data-toc-section open><summary>{t("已验证的 C 库", "Verified C libraries")}</summary><ul>'
+    body += f'<details class="bk-global-section" data-toc-section open><summary>{t("开源 C 库", "C libraries")}</summary><ul>'
     for item in summaries:
         sub_base = OUT / item.route / lang
         body += (
             f'<li data-toc-entry><a href="{href(sub_base / "index.html", current)}">{html.escape(item.brand)}</a></li>'
             f'<li data-toc-entry><a href="{href(sub_base / "progress.html", current)}">{html.escape(item.project.title)} · {t("结论的状态", "Status of the results")}</a></li>'
-            f'<li data-toc-entry><a href="{href(sub_base / "api.html", current)}">{html.escape(item.project.title)} · {t("公开 API 契约", "Public API contracts")}</a></li>'
         )
+        if item.has_full_book:
+            body += (
+                f'<li data-toc-entry><a href="{href(sub_base / "api.html", current)}">{html.escape(item.project.title)} · {t("公开 API 契约", "Public API contracts")}</a></li>'
+            )
     body += "</ul></details>"
     body += f'</nav><p class="bk-global-empty" data-toc-empty hidden>{t("没有匹配条目。", "No matching entries.")}</p></dialog>'
     return body
@@ -190,22 +245,7 @@ def render_portal_page(lang: str, summaries: list[ProjectSummary]) -> None:
     current = OUT / lang / "index.html"
     other = OUT / ("en" if zh else "zh") / "index.html"
     asset = lambda name: href(OUT / "static" / name, current)
-
-    rev_files = [
-        "base.css",
-        "reference.css",
-        "book.css",
-        "navigation.css",
-        "syntax.css",
-        "portal.css",
-        "select.css",
-        "select.js",
-        "select-model.mjs",
-        "navigation.js",
-        "reference.js",
-        "diagram-view.mjs",
-    ]
-    revision = sha256(b"".join((OUT / "static" / n).read_bytes() for n in rev_files)).hexdigest()[:12]
+    revision = asset_revision()
 
     page_title = t("oss-proof：开源 C 库的形式化验证", "oss-proof")
     lead = t(
@@ -222,11 +262,12 @@ def render_portal_page(lang: str, summaries: list[ProjectSummary]) -> None:
             else t("无补丁", "unpatched")
         )
         links = [
-            (href(sub / "index.html", current), t("总览与结论 →", "Overview and results →")),
-            (href(sub / "progress.html", current), t("每个函数的状态", "Status of every function")),
-            (href(sub / "api.html", current), t("公开 API 契约", "Public API contracts")),
-            (href(sub / "proofs.html", current), t("证明细节", "Proof details")),
+            (href(sub / "index.html", current), t("总览与范围 →", "Overview and scope →")),
+            (href(sub / "progress.html", current), t("结论的状态", "Status of the results")),
         ]
+        if item.has_full_book:
+            links.append((href(sub / "api.html", current), t("公开 API 契约", "Public API contracts")))
+            links.append((href(sub / "proofs.html", current), t("证明细节", "Proof details")))
         if item.findings_count:
             links.append((href(sub / "findings.html", current), t(f"上游发现的问题（{item.findings_count}）", f"Issues found ({item.findings_count})")))
         if item.has_articles:
@@ -234,7 +275,16 @@ def render_portal_page(lang: str, summaries: list[ProjectSummary]) -> None:
 
         links_html = "".join(f'<a href="{u}">{html.escape(lbl)}</a>' for u, lbl in links)
         fn_stat = f"{item.proved_functions} / {item.documented_functions}" if item.documented_functions else "—"
-        goal_stat = f"{item.proved_required_goals} / {item.required_goals}"
+        goal_stat = (
+            f"{item.proved_required_goals} / {item.required_goals}"
+            if item.required_goals
+            else f"{item.proved_goals} / {item.stated_goals}"
+        )
+        goal_label = (
+            t("必需目标（已完成 / 总数）", "Required goals (done / total)")
+            if item.required_goals
+            else t("已登记目标（已证 / 已列）", "Registered goals (proved / stated)")
+        )
         cards.append(
             f'<article class="op-card" id="lib-{html.escape(item.project.id)}">'
             f'<div class="op-card-head"><div class="op-card-title">'
@@ -244,7 +294,7 @@ def render_portal_page(lang: str, summaries: list[ProjectSummary]) -> None:
             f'<p>{html.escape(item.summary_zh if zh else item.summary_en)}</p>'
             f'<dl class="op-metrics">'
             f'<div><dt>{t("有文档的公开函数", "Documented public functions")}</dt><dd>{fn_stat}</dd></div>'
-            f'<div><dt>{t("必需目标（已完成 / 总数）", "Required goals (done / total)")}</dt><dd>{goal_stat}</dd></div>'
+            f'<div><dt>{goal_label}</dt><dd>{goal_stat}</dd></div>'
             f'<div><dt>{t("在上游发现的真实缺陷", "Confirmed upstream issues")}</dt><dd>{item.findings_count}</dd></div>'
             f'</dl>'
             f'<div class="op-links">{links_html}</div>'
@@ -267,14 +317,14 @@ def render_portal_page(lang: str, summaries: list[ProjectSummary]) -> None:
     )
 
     body = (
-        f'<section id="libraries"><h2>{t("已验证的库", "Verified libraries")}</h2>'
-        f'<p>{t("每个库只使用两种状态：完成（存在命题恰好等于目标的 Lean 定理且通过全部检查）或未完成。", "Each result has one of two states: done (a Lean theorem whose statement is exactly the goal exists and passes every check) or not done.")}</p>'
+        f'<section id="libraries"><h2>{t("验证库与状态", "Libraries and status")}</h2>'
+        f'<p>{t("每个结论只使用两种状态：完成（存在命题恰好等于目标的 Lean 定理且通过全部检查）或未完成。", "Each result has one of two states: done (a Lean theorem whose statement is exactly the goal exists and passes every check) or not done.")}</p>'
         f'<div class="op-grid">{"".join(cards)}</div></section>'
         f'<section id="method"><h2>{t("共同验证方法", "How every proof is built")}</h2>'
-        f'<p>{t("同一套翻译规则、内存与故障模型及证明结构用于所有库。", "Every library in this collection follows the same translation discipline, memory and fault model, and proof structure.")}</p>'
+        f'<p>{t("同一套翻译规则、严格 ISO C17 内存与故障模型及证明结构用于所有库。", "Every library in this collection follows the same translation discipline, strict ISO C17 memory and fault model, and proof structure.")}</p>'
         f'<div class="op-steps">'
         f'<div class="op-step"><small>01</small><strong>{t("逐语句翻译", "Translate statement by statement")}</strong>'
-        f'<p>{t("C 代码按原语句顺序翻译为 Lean。C 中可到达的每一种未定义行为都表示为显式故障 Fault.ub；无符号算术回绕，有符号算术逐处检查。", "Pinned C code is translated to Lean without reordering or simplifying. Every reachable undefined behaviour raises Fault.ub; unsigned arithmetic wraps and signed arithmetic is checked.")}</p></div>'
+        f'<p>{t("C 代码按原语句顺序翻译为 Lean。ISO C17 中可到达的每一种未定义行为（包括空指针或悬垂指针加零与跨对象指针减法）都表示为显式故障 Fault.ub；无符号算术回绕，有符号算术逐处检查。", "Pinned C code is translated to Lean without reordering or simplifying. Every ISO C17 undefined behaviour—including null or dangling pointer + 0 and cross-object pointer subtraction—raises Fault.ub; unsigned arithmetic wraps and signed arithmetic is checked.")}</p></div>'
         f'<div class="op-step"><small>02</small><strong>{t("定义表示不变量", "Define representation invariants")}</strong>'
         f'<p>{t("对每种流、解码器或文件句柄定义跨调用保持的状态性质：拥有的堆块、缓冲区容量、表内容与游标上界。", "Each stream, decoder or handle carries an explicit invariant over its owned heap blocks, buffer capacities, lookup tables and cursors.")}</p></div>'
         f'<div class="op-step"><small>03</small><strong>{t("逐函数证明，不假设被调函数", "Prove each function without assumptions")}</strong>'
@@ -300,7 +350,7 @@ def render_portal_page(lang: str, summaries: list[ProjectSummary]) -> None:
     footer = (
         f'<footer class="site-stamp">'
         f'<a href="https://github.com/cla7aye15I4nd/oss-proof">GitHub</a> · '
-        f'<a href="#libraries">{t("已验证的库", "Verified libraries")}</a>'
+        f'<a href="#libraries">{t("验证库与状态", "Libraries and status")}</a>'
         f'</footer>'
     )
 
@@ -334,7 +384,7 @@ def render_portal_page(lang: str, summaries: list[ProjectSummary]) -> None:
     write_html(current, doc)
 
 
-def build_portal() -> None:
+def build_portal() -> list[ProjectSummary]:
     OUT.mkdir(parents=True, exist_ok=True)
     copy_shared_static()
     summaries = [summarize_project(p) for p in load_all_projects(REPO)]
@@ -342,6 +392,7 @@ def build_portal() -> None:
     for lang in ("en", "zh"):
         render_portal_page(lang, summaries)
     print(f"Built oss-proof portal ({len(summaries)} registered project(s))")
+    return summaries
 
 
 if __name__ == "__main__":
