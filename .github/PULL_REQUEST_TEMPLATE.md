@@ -3,7 +3,6 @@
 Say what changed. If a specification, goal, translation or runtime definition changed, say what
 was wrong and give the evidence.
 
-## Level
+## Checks
 
-Checked (fast gate) or accepted (acceptance suite on a named commit). List the commands that
-were actually run.
+List the commands that were actually run, besides the CI of this pull request.

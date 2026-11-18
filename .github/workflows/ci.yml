@@ -30,11 +30,14 @@ jobs:
       - uses: ./.github/actions/lean-environment
         id: lean
 
-      # The module cache is restored in every run and saved only by a push to main (the step after the
-      # builds). Lake trusts an .olean whose stored trace matches its inputs, and both come from the cache;
-      # so a pull request may only reuse what main built from merged sources, and cannot plant a cache
-      # that its own later runs, or anyone else's, would trust. Its changed modules are rebuilt.
+      # The module cache is restored by pull requests and manual runs, and saved only by a push to main
+      # (the step after the builds). A push to main restores nothing: every commit of main is built from
+      # nothing, and the cache it saves is the output of that build. Lake trusts an .olean whose stored
+      # trace matches its inputs, and both come from the cache; so a pull request may only reuse what a
+      # from-scratch build of main produced, and cannot plant a cache that its own later runs, or anyone
+      # else's, would trust. Its changed modules are rebuilt.
       - name: Reuse unchanged module outputs across runs
+        if: ${{ github.event_name != 'push' }}
         id: module-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -51,13 +54,13 @@ jobs:
         run: lake build --wfail ZlibF
 
       - name: Save the module cache (pushes to main only)
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.module-cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .lake
             tests/.lake
-          key: ${{ steps.module-cache.outputs.cache-primary-key }}
+          key: lean-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'tests/lakefile.toml') }}-${{ hashFiles('ZlibF.lean', 'ZlibF/**/*.lean', 'tests/**/*.lean') }}
 
       - name: Every string literal of the translations is in strTable
         run: python3 scripts/check-strlit.py
@@ -69,23 +72,21 @@ jobs:
         run: |
           python3 tests/verification/test_spec_layers.py
           python3 tests/verification/test_strlit_check.py
+          python3 tests/verification/test_options_check.py
 
       - name: Forbidden constructs
         run: |
-          if grep -rnE '\b(native_decide|bv_decide|implemented_by)\b|^\s*axiom\b|^\s*(@\[[^]]*\]\s*)?(private\s+|protected\s+|noncomputable\s+)*((partial|unsafe)\s+(def|instance|theorem|abbrev|structure|inductive)\b|opaque\s+[A-Za-z_.]+\s*[:(\[{])|@\[[^]]*\bextern\b' ZlibF.lean ZlibF; then
+          if grep -rnE '\b(native_decide|bv_decide|implemented_by)\b|^\s*(@\[[^]]*\]\s*)?((private|protected|noncomputable|local|scoped)\s+)*axiom\b|^\s*(@\[[^]]*\]\s*)?(private\s+|protected\s+|noncomputable\s+)*((partial|unsafe)\s+(def|instance|theorem|abbrev|structure|inductive)\b|opaque\s+[A-Za-z_.]+\s*[:(\[{])|@\[[^]]*\bextern\b' ZlibF.lean ZlibF; then
             echo "forbidden construct found"; exit 1
           fi
 
       # Options that switch off or weaken checking: the kernel check (debug.skipKernelTC), proofs taken as
-      # sorry (debug.byAsSorry and the like), elaboration checks (bootstrap.*), and options passed by the
-      # lakefile. A declaration added without the kernel check looks like any other in the environment, so
-      # this source check is the guard.
+      # sorry (debug.byAsSorry and the like), elaboration checks (bootstrap.*), and options or plugins
+      # passed by the Lake configuration. A declaration added without the kernel check looks like any
+      # other in the environment, so this source check is the guard. It is an allow-list: any other
+      # option, in any spelling (`«debug».skipKernelTC`), and any other Lake key fail.
       - name: No option that weakens checking
-        run: |
-          if grep -rnE '\b(debug|bootstrap)\.[A-Za-z]|\b(allowUnsafeReducibility|warn\.sorry)\b' ZlibF.lean ZlibF \
-              || grep -nE 'leanOptions|moreLeanArgs|weakLeanArgs|moreServerArgs' lakefile.toml tests/lakefile.toml; then
-            echo "option that weakens checking found"; exit 1
-          fi
+        run: python3 scripts/check-options.py
 
       # The audit's unsafe/partial rule on the built environment: a recursive def whose compiled code
       # needs an `_unsafe_rec` helper fails here, on every push.
@@ -153,8 +154,9 @@ jobs:
       - uses: ./.github/actions/lean-environment
         id: lean
 
-      # The same read-only module cache as the build job: what main built from merged sources.
+      # The same read-only module cache as the build job, under the same rule: not on a push to main.
       - name: Reuse unchanged module outputs across runs
+        if: ${{ github.event_name != 'push' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |

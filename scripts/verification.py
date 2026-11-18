@@ -90,19 +90,20 @@ def check_api_safety_goal(api: dict, hidden: bool, safety_goals: list[str]) -> N
 
 def required_public_goals(manifest: dict) -> list[str]:
     """The required targets: the safety goal of every function compiled by the target and part of
-    the zlib API, the listed safety goals and the non-vacuity goals
+    the zlib API, the listed safety goals, the non-vacuity goals and the listed functional goals
+    (`required_functional_goals`: the round trip and the completion results)
     (docs/en/design/safety-functional-split.md).
 
     zlib.h declares some exported functions as undocumented and not part of the zlib API. They stay
     in the inventory, and their theorems listed in `ZlibF/Results.lean` are still checked, but
-    their goals are not required. A functional goal is not required: a proof of it listed in
-    `ZlibF/Results.lean` is checked in full, an unproved one
-    is reported and fails nothing.
+    their goals are not required. Any other functional goal is not required: a proof of it listed
+    in `ZlibF/Results.lean` is checked in full, an unproved one is reported and fails nothing.
     """
     hidden = set(manifest.get("undocumented", {}).get("functions", []))
     required = [a["safety_goal"] for a in manifest["apis"]
                 if a["scope"] == "lp64-linux" and a["function"] not in hidden]
     required += manifest.get("safety_goals", []) + manifest.get("nonvacuity_goals", [])
+    required += manifest.get("required_functional_goals", [])
     return list(dict.fromkeys(required))
 
 
@@ -126,7 +127,8 @@ def check_not_planned(manifest: dict) -> None:
     lists = results()
     not_done, lean_required = lists["notDone"], set(lists["required"])
     grouped = set(required_public_goals(manifest)) | set(manifest.get("sequence_goals", [])) | \
-        set(manifest.get("nonvacuity_goals", [])) | set(manifest.get("safety_goals", []))
+        set(manifest.get("nonvacuity_goals", [])) | set(manifest.get("safety_goals", [])) | \
+        set(manifest.get("required_functional_goals", []))
     named = {a.get(k) for a in manifest["apis"] for k in ("functional_goal", "safety_goal")}
     seen = set()
     for entry in entries:
@@ -253,6 +255,10 @@ def coverage() -> dict:
         "nonvacuity_goals": ["inflate_initialisation_domain", "deflate_initialisation_domain",
                               "inflate_back_initialisation_domain", "inflateBack_call_domain",
                               "gz_sequence_nonvacuity"],
+        # The functional results the project states as done: the round trip and the completion goals.
+        "required_functional_goals": ["compress_uncompress_roundtrip", "compress_uncompress_roundtrip_witness", "compress_completes", "compress_z_completes", "uncompress_completes",
+                                      "stream_roundtrip_total", "deflate_finish_ends", "inflate_chain_ends", "stream_roundtrip", "deflate_completes_default",
+                                      "deflate_bound_default", "inflate_completes_default", "default_inflate_progress", "default_inflate_completes"],
         "safety_goals": ["inflate_sequence_safety", "deflate_sequence_safety", "uncompress_safe", "uncompress_z_safe", "uncompress2_safe", "uncompress2_z_safe", "compress_safety", "compress_z_safety", "compress2_safety", "compress2_z_safety",
                          "inflate_back_sequence_safety", "deflateCopy_safety",
                          "inflate_refusal", "deflate_refusal", "gz_sequence_safety", "gz_refusal",
@@ -289,11 +295,11 @@ def coverage() -> dict:
     check_imports()
     run([sys.executable, "scripts/gen_public_calls.py", "--check"])
     print(f"coverage: {len(exports)} public declarations, "
-          f"{len(goals) - len(manifest['sequence_goals']) - len(manifest['nonvacuity_goals']) - len(manifest['safety_goals'])} default-build entries "
+          f"{len(goals) - len(manifest['sequence_goals']) - len(manifest['nonvacuity_goals']) - len(manifest['safety_goals']) - len(manifest['required_functional_goals'])} default-build entries "
           f"({len([a for a in apis if a['scope'] == 'lp64-linux' and a['function'] not in listed])} documented, "
           f"the rest undocumented in zlib.h), "
           f"{len(manifest['sequence_goals'])} sequence targets, {len(manifest['nonvacuity_goals'])} non-vacuity targets, "
-          f"{len(manifest['safety_goals'])} safety targets; "
+          f"{len(manifest['safety_goals'])} safety targets, {len(manifest['required_functional_goals'])} functional targets; "
           f"{len(required_public_goals(manifest))} required goals, {len(open_safety(manifest))} open")
     return manifest
 
