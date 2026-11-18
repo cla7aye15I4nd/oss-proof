@@ -30,9 +30,6 @@ def LeaveAt {α : Type} (flush : Int32) (l : IL) (program : X α) : Prop :=
 abbrev LeaveX {α : Type} (flush : Int32) (program : X α) : Prop :=
   ∀ l, LeaveAt flush l program
 
-theorem leaveAt_of_X {α : Type} {flush : Int32} {l : IL} {program : X α}
-    (all : LeaveX flush program) : LeaveAt flush l program := all l
-
 theorem leaveAt_pure {α : Type} {flush : Int32} {l : IL} (value : α) :
     LeaveAt flush l (pure value : X α) := by
   intro h result regs after run leave

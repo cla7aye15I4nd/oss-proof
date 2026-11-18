@@ -62,22 +62,4 @@ theorem deflate_slow_finish_run_full_storage {h after : Heap} {r : ZStreamRef} {
     have frame := full_frame_trans_shape frameL frameT shapeL
     exact ⟨shape, frame, full_shape_live_change shape, allocT.trans allocL, nextT.trans nextL⟩
 
-/-- Both complete actual ordinary strategy calls retain the full private/output frame and exact object/allocation ledgers. -/
-theorem deflate_slow_ordinary_run_full_storage {h after : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
-    {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8}
-    {config : EngineConfig} {ret : block_state} {flush : Int32}
-    (flag : flush = Z_NO_FLUSH ∨ flush = Z_FINISH)
-    (boundary : StrategyBoundary h r ds z d input origin base xs config)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (positive : 0 < config.level.toInt) (pointer : z.next_out = .ref (.blk ob) oo)
-    (memory : config.memory.toNat = 16384) (wrap : config.wrap = 1) (publish : PublishReady d)
-    (inputValid : z.avail_in ≠ 0 → z.next_in ≠ .null)
-    (run : deflate_slow (some (.tab ds)) flush h = .ok (ret, after))
- :
-    Shape h after ∧ Frame h after (fun b => StreamRoot r b ∨ DeflateOwned ds d b ∨ b = ob) ∧
-      LiveChange h after (fun _ => False) (fun _ => False) ∧ after.nalloc = h.nalloc ∧ after.nextBlk = h.nextBlk := by
-  rcases flag with rfl | rfl
-  · exact deflate_slow_no_flush_run_full_storage boundary frontier buffers positive pointer memory wrap publish inputValid run
-  · exact deflate_slow_finish_run_full_storage boundary frontier buffers positive pointer memory wrap publish inputValid run
-
 end Zlib.Deflate.Engine.Proofs

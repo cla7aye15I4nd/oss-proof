@@ -69,16 +69,4 @@ theorem invalid_leaf (d : Nat) (b : UInt8) (hb : b.toNat + d ≤ 15) :
   have h2 : (64 : UInt8) &&& 64 ≠ 0 := by decide
   ⟨⟨hb, Or.inr (Or.inr ⟨h1, h2⟩)⟩, ⟨hb, Or.inr ⟨h1, h2⟩⟩⟩
 
-/-- `here.bits = (unsigned char)(len - drop)`: with `drop ≤ len ≤ 15` it is `len - drop`, so that bits plus the bits
-`drop` already consumed is `len ≤ 15`. -/
-theorem bits_toNat {len drop : UInt32} (h1 : drop.toNat ≤ len.toNat) (h2 : len.toNat ≤ 15) :
-    (len - drop).toUInt8.toNat = len.toNat - drop.toNat := by
-  rw [UInt32.toNat_toUInt8, UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; exact h1)]
-  omega
-
-/-- The bits stored plus the bits already dropped are at most 15 (`LenLeaf`/`DistLeaf` first conjunct). -/
-theorem bits_add_drop {len drop : UInt32} (h1 : drop.toNat ≤ len.toNat) (h2 : len.toNat ≤ 15) :
-    (len - drop).toUInt8.toNat + drop.toNat ≤ 15 := by
-  rw [bits_toNat h1 h2]; omega
-
 end Zlib.Inftrees.Proofs.Cover

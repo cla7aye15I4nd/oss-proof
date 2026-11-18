@@ -334,7 +334,7 @@ theorem gz_fetch_source (i : Nat) : Zlib.Gzread.gz_fetch (gzSt i) = (do
 
 open Classical in
 /-- The rank of a record's state in the measure: LOOK 2, GZIP at `HEAD` 1, COPY 0, otherwise 3. COPY ranks lowest:
-`gz_look` may leave COPY with nothing buffered (at `x.pos = GZ_OFF_MAX`, patch 0004), and the next trip is the
+`gz_look` may leave COPY with nothing buffered (at `x.pos = GZ_OFF_MAX`, patch 0003), and the next trip is the
 COPY trip, which ends the loop. -/
 noncomputable def cOf (h : Heap) (s : GzState) : Nat :=
   if s.how = LOOK then 2 else if s.how = GZIP ∧ InflateAtHead h s then 1 else if s.how = GZ_COPY then 0 else 3
@@ -372,7 +372,7 @@ theorem inputLeft_lt {fs : Fs} {s : GzState} (hb : ReadsFinite fs s.fd) : inputL
 
 theorem fetch_GZ_OFF_MAX_toInt : GZ_OFF_MAX.toInt = 9223372036854775807 := by decide
 
-/-- `gz_room(state, max)` (patch 0004): as `gz_room_run`, and the result is `max` or reaches `GZ_OFF_MAX`. -/
+/-- `gz_room(state, max)` (patch 0003): as `gz_room_run`, and the result is `max` or reaches `GZ_OFF_MAX`. -/
 theorem fetch_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = some s) (max : UInt32) :
     ∃ n, Zlib.Gzread.gz_room (gzSt i) max h = .ok (n, h) ∧ n.toNat ≤ max.toNat ∧
       s.x.pos.toInt + n.toNat ≤ 9223372036854775807 ∧ (n = 0 → max = 0 ∨ s.x.pos.toInt = 9223372036854775807) ∧

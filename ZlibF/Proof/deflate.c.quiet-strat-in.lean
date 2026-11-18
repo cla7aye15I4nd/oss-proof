@@ -1375,25 +1375,6 @@ theorem stored_finalG {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : 
     have a1 : ¬ (MIN Hv d.w_size).toNat ≤ left.toNat := fun x => h1 (UInt32.le_iff_toNat_le.mpr x)
     omega
 
-/-- A run that ends with a state write leaves the written state. -/
-theorem wr_last {α : Type} {m : M α} {f : DeflateState → DeflateState} {ds : Nat} {h g : Heap}
-    (run : (m >>= fun _ => wr (some (.tab ds)) f) h = .ok ((), g)) : ∃ v, g.dstates ds = some (f v) := by
-  rw [bind_app] at run
-  cases hm : m h with
-  | error e => rw [hm] at run; cases run
-  | ok p =>
-    obtain ⟨a, h1⟩ := p
-    rw [hm] at run
-    simp only at run
-    rw [wrD_eq] at run
-    cases hv : h1.dstates ds with
-    | none => rw [hv] at run; cases run
-    | some v =>
-      rw [hv] at run
-      simp only [Except.ok.injEq, Prod.mk.injEq] at run
-      rw [← run.2]
-      exact ⟨v, setD_dstates_same _ _ _⟩
-
 theorem wr_state {f : DeflateState → DeflateState} {ds : Nat} {h g : Heap} {v : DeflateState}
     (run : wr (some (.tab ds)) f h = .ok ((), g)) (hs : h.dstates ds = some v) : g.dstates ds = some (f v) := by
   rw [wrD_eq, hs] at run

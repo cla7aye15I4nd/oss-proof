@@ -98,9 +98,6 @@ theorem good_syncAlloc {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st 
   exact ⟨⟨by simpa using hz, by simpa using hs, zst, back, hm, za, zf⟩,
     ⟨wf, winInv_syncAlloc hF win, rq, bits, ptr⟩, uniq_syncAlloc hU hF, fresh_syncAlloc hF⟩
 
-theorem live_tmpFreed {h : Heap} (b : Nat) : (tmpFreed h).live b → (syncAlloc h).live b :=
-  live_freeWin _ b
-
 theorem freeBuf_run {H : Heap} {nb : Nat} {a : Array UInt8} (hb : H.bytes nb = some a) (hro : H.ro nb = false) :
     freeB (.ref (.blk nb) 0) H = .ok ((), freeWin H (.ref (.blk nb) 0)) := by
   rw [freeB_ok hb hro]; rfl
@@ -182,10 +179,6 @@ def syncTail (strm : ZStreamPtr) (st : InflateStatePtr) : M Int32 := do
     wrZ strm fun z => { z with avail_in := z.avail_in - len, next_in := ni, total_in := z.total_in + len.toUInt64 }
     if (← rdS st (·.«have»)) != 4 then return Z_DATA_ERROR
     syncDone strm st
-
-theorem bind_ite_unit {α : Type} (c : Prop) [Decidable c] (A : M Unit) (jp : Unit → M α) :
-    (ite c A (pure ()) >>= jp) = ite c (A >>= jp) (jp ()) := by
-  by_cases hc : c <;> simp [hc] <;> rfl
 
 theorem bind_assoc_M {α β γ : Type} (m : M α) (f : α → M β) (g : β → M γ) :
     ((m >>= f) >>= g) = (m >>= fun x => f x >>= g) := by
@@ -419,63 +412,6 @@ theorem syncDone_good {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : 
     rw [hHeap]
     exact ⟨hX, fun b hb => hlive0 b ((hShape.live b).1 hb)⟩
 
-/-- Ownership after a found pattern: only the window block can be freed (`¬ SyncKeeps`); nothing is allocated. -/
-theorem syncDone_owns {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
-    (hG : Good H r zs z s) {S : Nat → Prop} (hO : H.Owns S) :
-    (syncOkHeap H r zs z s).Owns (fun b => S b ∧ ¬ (¬ SyncKeeps s ∧ WinBlk s b)) := by
-  have hL := hG.live
-  have hz0 : r.get (resetHeap H s) = some z := by unfold resetHeap; split <;> simp [hL.hz]
-  have hs0 : (resetHeap H s).istates zs = some s := by unfold resetHeap; split <;> simp [hL.hs]
-  obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11⟩ := syncC_field zs s
-  have hShape : Shape (resetHeap H s) (setI (r.put (resetHeap H s) (syncOkStream z s)) zs (syncOkState zs s)) :=
-    (shape_put hz0 _).trans (shape_setI (by simpa using hs0) _)
-  have hO2 := hShape.owns (resetHeap_owns hG.uniq hG.inv.win hO)
-  have hwb := windowBlock (winInv_reset hG.inv.win hG.inv.reqbits)
-  have hrw := resetPre_window s
-  by_cases h0 : s.reqbits = 0
-  · have hc : ((syncC zs s).wbits == 0) = true := by simp [f1, h0]
-    have hHeap : syncOkHeap H r zs z s = freeWin (setI (r.put (resetHeap H s) (syncOkStream z s)) zs (syncOkState zs s)) (resetPre s).window := by
-      unfold syncOkHeap; simp [hc, f2]
-    rw [hHeap]
-    rcases hwb with hn | ⟨w, a, hw, hba, hro⟩
-    · rw [hn, freeWin_null]
-      intro b; rw [hO2 b]
-      by_cases hwr : s.wbits = s.reqbits
-      · rw [hwr] at hrw
-        simp only [ite_true] at hrw
-        have : ¬ WinBlk s b := by
-          intro hb; unfold WinBlk at hb; rw [hrw] at hn; simp [hb] at hn
-        simp [SyncKeeps, this, hwr]
-      · simp [SyncKeeps, hwr]
-    · have hwr : s.wbits = s.reqbits := by
-        by_cases hh : s.wbits = s.reqbits
-        · exact hh
-        · rw [ite_eq_right hh] at hrw; rw [hrw] at hw; cases hw
-      rw [ite_eq_left hwr] at hrw
-      have hUX : Uniq (setI (r.put (resetHeap H s) (syncOkStream z s)) zs (syncOkState zs s)) :=
-        hShape.uniq (by
-          unfold resetHeap; split
-          · exact uniq_freeWin hG.uniq _
-          · exact hG.uniq)
-      have hbX : (setI (r.put (resetHeap H s) (syncOkStream z s)) zs (syncOkState zs s)).bytes w = some a := by simpa using hba
-      have := owns_freeWin hUX hbX hO2
-      rw [hw]
-      intro b
-      rw [this b]
-      have hws : s.window = .ref (.blk w) 0 := by rw [← hrw]; exact hw
-      have hWB : WinBlk s b ↔ b = w := by
-        unfold WinBlk; rw [hws]
-        constructor
-        · intro hh; exact (BRef.blk.inj (Ptr.ref.inj hh).1).symm
-        · intro hh; rw [hh]
-      simp [SyncKeeps, hwr, h0, hWB]
-  · have hc : ¬ ((syncC zs s).wbits == 0) = true := by simp [f1, h0]
-    have hHeap : syncOkHeap H r zs z s = setI (r.put (resetHeap H s) (syncOkStream z s)) zs (syncOkState zs s) := by
-      unfold syncOkHeap; simp [hc]
-    rw [hHeap]
-    intro b; rw [hO2 b]
-    simp [SyncKeeps, h0]
-
 end Zlib.Inflate.Proofs
 
 namespace Zlib.Inflate.Spec
@@ -497,70 +433,7 @@ end Zlib.Inflate.Spec
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec
 
-theorem syncsearch_at {h : Heap} {p : BPtr} {len : UInt32} {bs : List UInt8} (I : SyncIn h p len bs)
-    {g : UInt32} {w : List UInt8} (hA : SyncAt g w) :
-    ∃ N G, syncsearch g p len h = .ok ((N, G), h) ∧ N.toNat ≤ len.toNat ∧
-      (G = 4 → syncPat <:+: w ++ bs.take N.toNat ∧ ∀ L', L' < N.toNat → ¬ syncPat <:+: w ++ bs.take L') ∧
-      (G ≠ 4 → N = len ∧ SyncSt G (w ++ bs)) := by
-  rcases hA with hs | ⟨rfl, hw⟩
-  · obtain ⟨N, G, hr, h1, h2, h3⟩ := syncsearch_spec I hs
-    refine ⟨N, G, hr, h1, ?_, h3⟩
-    intro h4
-    obtain ⟨-, a, b⟩ := h2 h4
-    exact ⟨List.IsSuffix.isInfix a, b⟩
-  · have hlen := syncIn_length I
-    rcases I with ⟨b, a, o, rfl, hg, hl, rfl⟩ | ⟨rfl, rfl, rfl⟩
-    · have := syncsearch_run (r := .blk b) (h := h) (a := a) (o := o) (len := len) 4 hg hl
-      rw [syncScan_ge (by decide)] at this
-      refine ⟨0, 4, by simpa using this, by simp, fun _ => ⟨by simpa using hw, fun L' hL' => by simp at hL'⟩, fun h4 => absurd rfl h4⟩
-    · refine ⟨0, 4, syncsearch_null 4 h, by simp, fun _ => ⟨by simpa using hw, fun L' hL' => by simp at hL'⟩, fun h4 => absurd rfl h4⟩
-
-/-- Reading the search result into the stream: advancing the input pointer by `N ≤ len` bytes. -/
-theorem syncAdd_run {H : Heap} {p : BPtr} {len : UInt32} {bs : List UInt8} (I : SyncIn H p len bs) {N : UInt32}
-    (hN : N.toNat ≤ len.toNat) {H' : Heap} (hb : H'.bytes = H.bytes) :
-    Ptr.add p (N.toNat : Int) H' = .ok (syncAdv p N.toNat, H') := by
-  rcases I with ⟨b, a, o, rfl, hg, hl, rfl⟩ | ⟨rfl, rfl, rfl⟩
-  · have hg' : Space.get H' (BRef.blk b) = some a := by simpa [Space.get, hb] using hg
-    exact Ptr.add_nat_ok (r := BRef.blk b) hg' (by omega)
-  · have : N.toNat = 0 := by simpa using hN
-    rw [this]; rfl
-
 /-- The state record after the search: only `have` changes. -/
 def syncHave (s : InflateState) (G : UInt32) : InflateState := { s with «have» := G }
-
-theorem good_syncSearch {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
-    (hG : Good H r zs z s) (N : UInt32) (G : UInt32) :
-    Good (setI (r.put H (syncAdvance z N)) zs (syncHave s G)) r zs (syncAdvance z N) (syncHave s G) :=
-  hG.setZI (by simp [syncAdvance]) (by simpa [syncAdvance] using hG.live.zalloc)
-    (by simpa [syncAdvance] using hG.live.zfree) (by simp [syncHave]) (by simpa [syncHave] using hG.live.mode)
-    (hG.inv.of_fields rfl rfl rfl rfl rfl rfl rfl rfl rfl hG.inv.bits rfl rfl rfl)
-
-/-- **The search step of `inflateSync`.** On a stream in the search (`Good`, with the state's `have` consistent with the
-bytes `w` seen so far, `SyncAt`) and an input `next_in[0 .. avail_in)` (`SyncIn`), the part of `inflateSync` from the call
-of `syncsearch` on runs without a fault. It stores the search result in `have`, consumes `N` bytes (`syncAdvance`) and
-returns `Z_DATA_ERROR` if the pattern is not complete (`G ≠ 4`, and then all the input was consumed), else `Z_OK` after the
-reset of the stream (`syncOkHeap`). -/
-theorem syncTail_run {H : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState} {bs w : List UInt8}
-    (hG : Good H r zs z s) (hf : z.zfree = .fn "zcfree") (hI : SyncIn H z.next_in z.avail_in bs)
-    (hA : SyncAt s.«have» w) :
-    ∃ N G, N.toNat ≤ z.avail_in.toNat ∧
-      (G = 4 → syncPat <:+: w ++ bs.take N.toNat ∧ ∀ L', L' < N.toNat → ¬ syncPat <:+: w ++ bs.take L') ∧
-      (G ≠ 4 → N = z.avail_in ∧ SyncSt G (w ++ bs)) ∧
-      Good (setI (r.put H (syncAdvance z N)) zs (syncHave s G)) r zs (syncAdvance z N) (syncHave s G) ∧
-      (G ≠ 4 → syncTail (some r) (some (.tab zs)) H =
-        .ok (Z_DATA_ERROR, setI (r.put H (syncAdvance z N)) zs (syncHave s G))) ∧
-      (G = 4 → syncTail (some r) (some (.tab zs)) H =
-        .ok (Z_OK, syncOkHeap (setI (r.put H (syncAdvance z N)) zs (syncHave s G)) r zs (syncAdvance z N) (syncHave s G))) := by
-  have hL := hG.live
-  obtain ⟨N, G, hse, hN, h4, h3⟩ := syncsearch_at hI hA
-  have hG1 := good_syncSearch hG N G
-  refine ⟨N, G, hN, h4, h3, hG1, fun hne => ?_, fun he => ?_⟩
-  · unfold syncTail
-    isimp [hL.hz, hL.hs, hse, syncAdd_run hI hN (H' := setI H zs { s with «have» := G }) rfl, syncAdvance, syncHave, hne]
-  · subst he
-    unfold syncTail
-    have hdone := syncDone_run (hG1) (by simpa [syncAdvance] using hf)
-    isimp [hL.hz, hL.hs, hse, syncAdd_run hI hN (H' := setI H zs { s with «have» := 4 }) rfl]
-    simpa [syncAdvance, syncHave] using hdone
 
 end Zlib.Inflate.Proofs

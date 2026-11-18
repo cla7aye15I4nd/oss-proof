@@ -30,9 +30,6 @@ def payloadSymAt (buf : Array UInt8) (offset i : Nat) : Nat × Nat :=
 def payloadPrefixBits (lt dt : Nat → UInt16 × UInt16) (buf : Array UInt8) (offset n : Nat) : List Bool :=
   ((List.range n).map (payloadSymAt buf offset)).flatMap (payloadSymBits lt dt)
 
-def payloadBits (lt dt : Nat → UInt16 × UInt16) (buf : Array UInt8) (offset n : Nat) : List Bool :=
-  payloadPrefixBits lt dt buf offset n ++ codeBits lt 256
-
 theorem payloadPrefixBits_succ (lt dt : Nat → UInt16 × UInt16) (buf : Array UInt8) (offset n : Nat) :
     payloadPrefixBits lt dt buf offset (n + 1) =
       payloadPrefixBits lt dt buf offset n ++ payloadSymBits lt dt (payloadSymAt buf offset n) := by

@@ -3,17 +3,17 @@ import ZlibF.Zlib.«gzguts.h»
 /-!
 # gzlib.c — faithful translation
 
-Source: `gzlib.c` of the verified source (with `patches/0002-gzseek-negative-position-overflow.patch` and
-`patches/0006-gzoffset-negative-lseek.patch`), default x86_64 Linux build: `LSEEK` is `lseek64`
+Source: `gzlib.c` of the verified source (with patch 0002, gzseek negative position, and patch 0005, gzoffset
+negative lseek), default x86_64 Linux build: `LSEEK` is `lseek64`
 (`_LARGEFILE64_SOURCE`, `_LFS64_LARGEFILE`), `O_CLOEXEC`, `O_NONBLOCK`, `O_EXCL`, `O_LARGEFILE` are defined
 (`O_LARGEFILE` is 0), `O_BINARY`, `WIDECHAR`, `UNDER_CE`, `NO_GZCOMPRESS` are not. So `gz_strwinerror`, the `-2`
 (wide path) branches and the `#ifndef O_EXCL` block are not compiled.
 
-`gzseek64` follows the patched C: the range checks no longer overflow after `gzungetc` at the start (R-1, upstream
+`gzseek64` follows the patched C: the range checks no longer overflow after `gzungetc` at the start (upstream
 PR 1361, applied as patch 0002).
 
-`gz_reset` does not write `x.next` (R-3), and a direct `gzread` leaves it in the caller's buffer, which the caller may
-free (R-4). `gzseek64` then adds zero to it; the runtime accepts adding zero to any pointer (`Ptr.add`).
+`gz_reset` does not write `x.next`, and a direct `gzread` leaves it in the caller's buffer, which the caller may
+free. `gzseek64` then adds zero to it; the runtime accepts adding zero to any pointer (`Ptr.add`).
 
 File calls go through `Zlib.GzFs` (the model of `open`, `lseek`, `close`, `errno`, `snprintf`).
 -/
@@ -57,8 +57,8 @@ def gz_error (state : GzStatePtr) (err : Int32) (msg : BPtr) : M Unit := do
   let l2 ← strlenB msg
   let _ ← snprintf s.msg (l1 + l2 + 3) fmt [.str s.path, .str sep, .str msg]
 
-/-- `local void gz_reset(gz_statep state)`. Does not write `x.next` (R-3: the earlier repository's `ub.patch`
-hunk `state->x.next = Z_NULL;` is not applied; a fresh state has `x.next = NULL` in the model). -/
+/-- `local void gz_reset(gz_statep state)`. Does not write `x.next` (a fresh state has
+`x.next = NULL` in the model). -/
 def gz_reset (state : GzStatePtr) : M Unit := do
   -- state->x.have = 0; state->past = 0;
   updX state fun x => { x with «have» := 0 }
@@ -257,8 +257,8 @@ def gzrewind (file : GzFilePtr) : G Int32 := do
   return 0
 
 /-- `z_off64_t ZEXPORT gzseek64(gzFile file, z_off64_t offset, int whence)`. With patch 0002 (upstream PR 1361):
-the range checks are safe after a `gzungetc()` right after `gzopen()` (R-1). `x.next += n` with `n = 0` on a
-never-written or dangling `x.next` (R-3, R-4) is accepted by the runtime. -/
+the range checks are safe after a `gzungetc()` right after `gzopen()`. `x.next += n` with `n = 0` on a
+never-written or dangling `x.next` is accepted by the runtime. -/
 def gzseek64 (file : GzFilePtr) (offset : Int64) (whence : Int32) : G Int64 := do
   if file.isNone then return -1
   let state := castState file
@@ -348,7 +348,7 @@ def gzoffset64 (file : GzFilePtr) : G Int64 := do
   let state := castState file
   let s ← ldS state
   if s.mode != GZ_READ && s.mode != GZ_WRITE then return -1
-  -- offset = LSEEK(state->fd, 0, SEEK_CUR); if (offset < 0) return -1;   (patch 0006)
+  -- offset = LSEEK(state->fd, 0, SEEK_CUR); if (offset < 0) return -1;   (patch 0005)
   let mut offset ← fsLseek s.fd 0 SEEK_CUR
   if offset < 0 then return -1
   -- if (state->mode == GZ_READ) offset -= state->strm.avail_in;

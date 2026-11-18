@@ -27,15 +27,6 @@ theorem rebuffer_default_state {h after : Heap} {r : ZStreamRef} {zs : Nat}
   obtain ⟨stream, current⟩ := rebuffer_default_J invariant.toDefaultDecodeJ edit platform
   exact ⟨stream, ⟨current, invariant.requestedBits, invariant.requestedWrap, invariant.phase⟩⟩
 
-/-- A validation toggle retains the requested default configuration. -/
-theorem validateState_default_requested {s : InflateState}
-    (requested : s.reqwrap = 0 ∨ s.reqwrap = 1 ∨ s.reqwrap = 5) (check : Int32) :
-    (validateState check s).reqwrap = 0 ∨ (validateState check s).reqwrap = 1 ∨
-      (validateState check s).reqwrap = 5 := by
-  rcases requested with requested | requested | requested <;> by_cases zero : check = 0
-  all_goals simp [validateState, requested, zero]
-  all_goals decide
-
 /-- Toggling bit 2 of a valid wrapper value gives 0 only from 0. -/
 theorem validate_reqwrap_zero {s : InflateState} (value : RequestedWrapOK s.reqwrap s.wrap)
     (check : Int32) (zero : (validateState check s).reqwrap = 0) : s.reqwrap = 0 := by

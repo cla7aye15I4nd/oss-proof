@@ -90,8 +90,8 @@ structure GzCommon (h : Heap) (i : Nat) (s : GzState) : Prop where
     (∀ p, p ∈ ownedPtrs s → ∀ b, blkOf p = some b → b ≠ i ∧ ¬ StreamOwned h (gzStrm i) b)
   /-- every owned block is live -/
   live : ∀ b, GzOwned h i s b → h.live b
-  /-- positions. Relies on local patches for F-1 and W7 (`x.pos + skip` never passes `GZ_OFF_MAX`) and on patch
-  0002 (R-1). Lower bound: `x.pos + x.have`, the position of the end of the buffered output, is never negative;
+  /-- positions. Relies on patches 0003 and 0004 (position overflow in gzread and gzwrite: `x.pos + skip` never
+  passes `GZ_OFF_MAX`) and on patch 0002 (gzseek negative position). Lower bound: `x.pos + x.have`, the position of the end of the buffered output, is never negative;
   `gzungetc` lowers `x.pos` by one and raises `x.have` by one. It implies `-(2·size) ≤ x.pos` for a reader
   (`GzInv.pos_lower`), since `x.have ≤ 2·size` by `GzReadInv.output`. -/
   pos : 0 ≤ s.skip.toInt ∧ s.x.pos.toInt + s.skip.toInt ≤ 9223372036854775807 ∧
@@ -101,7 +101,7 @@ structure GzCommon (h : Heap) (i : Nat) (s : GzState) : Prop where
   buffer) leaves `x.next = next_out - have` inside the caller's buffer with `x.have = 0`. With `x.have = 0`,
   `gz_skip_have` and `gzseek64` add zero to `x.next`, which the runtime accepts
   for any pointer; every read or nonzero advance of `x.next` happens with `x.have ≠ 0` (`gz_skip_have`, `gzseek64`,
-  `gzgetc`, `gzgets`, the compare in `gzungetc`), so a stale or never-written `x.next` (R-3, R-4) is never read. -/
+  `gzgetc`, `gzgets`, the compare in `gzungetc`), so a stale or never-written `x.next` is never read. -/
   next : s.x.have ≠ 0 → ∃ b off a, s.x.next = .ref (.blk b) off ∧ b ≠ i ∧ GzOwned h i s b ∧
     blkOf s.msg ≠ some b ∧ h.bytes b = some a ∧ off + s.x.have.toNat ≤ a.size
   nullHave : s.x.next = .null → s.x.have = 0
@@ -133,14 +133,14 @@ structure GzReadInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   unalloc : s.size = 0 → s.x.have = 0 ∧ s.strm.avail_in = 0 ∧ s.how = LOOK ∧ s.strm.state = none
   bufs : s.size ≠ 0 → ExactBuffer h s.«in» s.size.toNat ∧ ExactBuffer h s.out (2 * s.size.toNat)
   input : s.strm.avail_in = 0 ∨ ∃ a, s.strm.next_in = padv s.«in» a ∧ a + s.strm.avail_in.toNat ≤ s.size.toNat
-  /-- relies on patch 0003 (R-2: `x.next` is set before a COPY load can fail) -/
+  /-- relies on patch 0003 (`x.next` is set before a COPY load can fail) -/
   output : s.x.have ≠ 0 → ∃ c, s.x.next = padv s.out c ∧ c + s.x.have.toNat ≤ 2 * s.size.toNat
   /-- the inflate stream is in the inflate history, with no header record (`gz_look` never calls
   `inflateGetHeader`) -/
   codec : s.size ≠ 0 → StreamReachable .inflate h (gzStrm i) ∧
     ∃ z k st, (gzStrm i).get h = some z ∧ z.state = some (.inflate k) ∧ h.istates k = some st ∧ st.head = none
-  /-- the end of the buffered output, `x.pos + x.have`, is a representable position. Relies on the local patch for
-  F-1 (patch 0004): `gz_fetch` fills at most `GZ_OFF_MAX - x.pos` bytes when that is positive. At
+  /-- the end of the buffered output, `x.pos + x.have`, is a representable position. Relies on patch
+  0003 (gzread position overflow): `gz_fetch` fills at most `GZ_OFF_MAX - x.pos` bytes when that is positive. At
   `x.pos = GZ_OFF_MAX` it loads one byte to find the end of the input, so the clause may fail inside a call; its
   callers there, `gz_read` and `gzgets`, drop that byte (`x.have = 0`, `Z_DATA_ERROR`) before they return.
   `gz_skip` never fetches there: it fetches only with `skip > 0`, and `x.pos + skip ≤ GZ_OFF_MAX`. With this clause
@@ -171,7 +171,7 @@ structure GzReadInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   msgLit : MsgLit s
 
 /-- The writer part (`s.mode = GZ_WRITE`): the clauses W1–W10. W1 and W9 are in `GzCommon`; W10 needs no fact;
-W7 is the position clause of `GzCommon` (relies on the local patch for W7). -/
+W7 is the position clause of `GzCommon` (relies on patch 0004, gzwrite position overflow). -/
 structure GzWriteInv (h : Heap) (i : Nat) (s : GzState) : Prop where
   /-- the `gzgetc` macro reads `x.have` on any handle -/
   have0 : s.x.have = 0

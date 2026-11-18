@@ -324,18 +324,6 @@ theorem pqdownheap_correct {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dsta
   rw [setD_self hd] at e
   exact ⟨hp', e, hr⟩
 
-/-- **`pqdownheap` does not fault**: the preconditions of `pqdownheap_correct` (hole `k0 ∈ [1, heap_len]`, nodes of
-`heap[1..heap_len]` inside `tree` and `depth`, heap order for parents `> k0`) give a run to the end; every index is
-inside the arrays. -/
-theorem pqdownheap_safe {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dstates id = some d) (tk : TK)
-    (kk : Int32) (k0 len : Nat) (hk : kk.toInt = k0) (hk1 : 1 ≤ k0) (hk2 : k0 ≤ len) (hlen : d.heap_len.toInt = len)
-    (hsz : len < d.heap.size) (hbig : d.heap.size ≤ 1000000)
-    (hval : ∀ i, 1 ≤ i → i ≤ len → NV (tk.arr d) d.depth d.heap[i]!)
-    (hheap : HeapOK (sm (tk.arr d) d.depth) (fun i => d.heap[i]!) len k0) :
-    ∃ h', pqdownheap (Sp id) (Ptr.ref (tk.ref id) 0) kk h = .ok ((), h') := by
-  obtain ⟨hp', e, -⟩ := pqdownheap_correct hd tk kk k0 len hk hk1 hk2 hlen hsz hbig hval hheap
-  exact ⟨_, e⟩
-
 /-- **`pqremove`, correct and safe.** Called with `heap_len = len ≥ 2` (the loop of `build_tree` runs while
 `heap_len ≥ 2`), the heap order holding everywhere. It returns `heap[1]`, the smallest node, sets `heap_len` to
 `len - 1`, and leaves `heap[1 .. len-1]` a heap, a permutation of the old `heap[2..len]`. -/
@@ -353,15 +341,5 @@ theorem pqremove_correct {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dstate
   rw [setD_self hd] at e
   subst htop
   exact ⟨hl', hp', hh, e, hr⟩
-
-/-- **`pqremove` does not fault**: `heap_len ≥ 2`, the nodes of `heap[1..heap_len]` inside `tree` and `depth`, the
-heap order everywhere (see `pqremove_correct`). -/
-theorem pqremove_safe {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dstates id = some d) (tk : TK) (len : Nat)
-    (hlen : d.heap_len.toInt = len) (h2 : 2 ≤ len) (hsz : len < d.heap.size) (hbig : d.heap.size ≤ 1000000)
-    (hval : ∀ i, 1 ≤ i → i ≤ len → NV (tk.arr d) d.depth d.heap[i]!)
-    (hheap : HeapOK (sm (tk.arr d) d.depth) (fun i => d.heap[i]!) len 0) :
-    ∃ (top : Int32) (h' : Heap), pqremove (Sp id) (Ptr.ref (tk.ref id) 0) h = .ok (top, h') := by
-  obtain ⟨_, _, _, e, -⟩ := pqremove_correct hd tk len hlen h2 hsz hbig hval hheap
-  exact ⟨_, _, e⟩
 
 end Zlib.Trees.Proofs

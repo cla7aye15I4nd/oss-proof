@@ -414,20 +414,4 @@ theorem gen_bitlen_correct {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dsta
   rw [setD_self hd] at e
   exact ⟨d', e, hq⟩
 
-/-- **`gen_bitlen` does not fault.** Same preconditions as `gen_bitlen_correct` (they are what `build_tree` establishes
-before the call): the call returns normally, every index into `heap`, `bl_count` and the tree is inside its array
-(including the search `while (bl_count[bits] == 0) bits--`, which stays at `bits ≥ 1`, and the scan `heap[--h]`, which
-stays above the root). -/
-theorem gen_bitlen_safe {h : Heap} {id : Nat} {d : DeflateState} (hd : h.dstates id = some d) {tk : TK}
-    {r : TreeDescRef} {sref : StaticTreeDescRef} {dd : TreeDesc} {sd : StaticTreeDesc}
-    {hm J elems maxc L baseN : Nat} {xb : Nat → Nat} {slOpt : Option (Nat → Nat)}
-    (hdd : r.get h = some dd) (hsd : StaticTreeDescRef.get h sref = some sd)
-    (hstat : dd.stat_desc = some sref) (htree : dd.dyn_tree = Ptr.ref (tk.ref id) 0)
-    (ctx : P1Ctx h id tk d sd.static_tree sd.extra_bits dd.max_code sd.extra_base sd.max_length hm J elems maxc L baseN
-      xb slOpt)
-    (hHM : d.heap_max.toInt = hm) (hel : elems ≤ 2 ^ L) :
-    ∃ h', gen_bitlen (Sp id) (some r) h = .ok ((), h') := by
-  obtain ⟨d', e, -⟩ := gen_bitlen_correct hd hdd hsd hstat htree ctx hHM hel
-  exact ⟨_, e⟩
-
 end Zlib.Trees.Proofs

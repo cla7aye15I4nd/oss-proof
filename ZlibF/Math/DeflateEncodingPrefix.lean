@@ -1,4 +1,4 @@
-import ZlibF.Math.DeflateBlockStream
+import ZlibF.Math.DeflateRunDecode
 
 /-! # Compose actual block encodings at their absolute bit positions -/
 

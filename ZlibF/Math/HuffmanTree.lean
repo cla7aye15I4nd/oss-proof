@@ -79,9 +79,6 @@ def sons : HTree → List HTree
   | leaf _ _ => []
   | node a b => [a, b]
 
-/-- `Σ_leaves w·d`: the cost of the code whose lengths are the leaf depths. -/
-def leafCost (t : HTree) : Nat := (t.leaves.map fun x => x.w * x.d).sum
-
 end HTree
 
 /-- The `smaller(tree, n, m, depth)` macro of trees.c: `Freq` first, then `depth`, with

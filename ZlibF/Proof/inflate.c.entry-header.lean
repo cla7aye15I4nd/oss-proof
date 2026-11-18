@@ -68,11 +68,6 @@ theorem ActiveHeader.entry {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} 
   exact ⟨record, fun i g attached got => (progress low high i g attached got).1,
     fun extra i g attached got => (progress low high i g attached got).2 extra⟩
 
-/-- A stream that does not accept gzip has no header record. -/
-theorem EntryHeaderFacts.of_zlib {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
-    (invariant : DefaultStateJ h r zs z s) (wrap : s.wrap = 1 ∨ s.wrap = 5) : EntryHeaderFacts h r s z :=
-  EntryHeaderFacts.of_none (invariant.head_none wrap)
-
 /-- A non-null pointer of a caller range names a live object of the heap. -/
 theorem callerRange_live_ref {h : Heap} {r : ZStreamRef} {pointer : BPtr} {size : Nat} {writing : Bool}
     (range : CallerRange h r pointer size writing) (nonnull : pointer ≠ .null)

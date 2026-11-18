@@ -16,11 +16,6 @@ open C C.LibcBorrow Zlib.GzFs
 def nextErrorEpoch (h : Heap) : Nat :=
   match h.libcErrorBorrow with | none => 1 | some (k, _) => k + 1
 
-/-- Exact result of the actual external call. No heap object is allocated. -/
-theorem libcStr_run (h : Heap) (e : Int32) :
-    libcStr e h = .ok (.ref (.str (libcErrnoIndex (nextErrorEpoch h) e)) 0,
-      { h with libcErrorBorrow := some (nextErrorEpoch h, e) }) := rfl
-
 /-- `strerror` returns the error text as the currently valid
 borrow. It leaves malloc tables, allocator calls and errno untouched. -/
 theorem zstrerror_run (h : Heap) (fs : Fs) :
@@ -49,10 +44,6 @@ theorem zstrerror_readable (h : Heap) (fs : Fs) :
     (strBytes (strerrorText fs.errno)).size < 64 := by
   exact ⟨(current_view _ _ _ rfl).1, C.LibcStrings.Proofs.errno_bytes_lt64 _⟩
 
-/-- Every second actual call advances the epoch, including the same errno. -/
-theorem nextErrorEpoch_strict (h : Heap) (e : Int32) :
-    nextErrorEpoch { h with libcErrorBorrow := some (nextErrorEpoch h, e) } = nextErrorEpoch h + 1 := rfl
-
 /-- Old external views become invalid on the next actual call; this cannot
 resurrect an old view during library execution. -/
 theorem zstrerror_invalidates_old (h : Heap) (old : Nat) (oldError : Int32) (fs : Fs)
@@ -72,12 +63,6 @@ theorem two_calls_invalidate (h : Heap) (first second : Int32) :
   apply old_view_invalid _ _ _ _ _ rfl
   change nextErrorEpoch h ≠ nextErrorEpoch h + 1
   omega
-
-/-- Source literals stay readable through an actual strerror call. -/
-theorem zstrerror_source_preserved (h : Heap) (e : Int32) (i : Nat) (hi : i < strTable.size) :
-    Space.get { h with libcErrorBorrow := some (nextErrorEpoch h, e) } (BRef.str i) =
-      Space.get h (BRef.str i) := by
-  rw [source_view _ i hi, source_view _ i hi]
 
 /-- Syscall output storage remains in the malloc heap; updating errno or Fs
 alone cannot alter the active borrowed view. -/

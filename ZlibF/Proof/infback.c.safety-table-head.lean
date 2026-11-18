@@ -231,12 +231,6 @@ theorem TRound.bad {c : BCtx} {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Na
   obtain ⟨h', run, I', m, sF, hsF, mF⟩ := I.badRound msg hm
   exact ⟨h', run, log, I', Or.inl ⟨rfl, by rw [m]; exact lt⟩, fun _ => Short.of_mode hsF (Or.inl mF)⟩
 
-theorem PInv.withRegs {c : BCtx} {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
-    {pr : Proto c r i window n} {h0 h : Heap} {l : IL} {log : BackLog} (I : PInv c pr h0 h l log) {l' : IL}
-    (put : l'.put = l.put) (left : l'.left = l.left) (have_ : l'.have_ = l.have_) (next : l'.next = l.next)
-    (bits : l'.bits = l.bits) (hold : l'.hold = l.hold) : PInv c pr h0 h l' log :=
-  I.regs put left have_ next (by rw [bits]; exact I.bits.1) (by rw [hold, bits]; exact I.bits.2)
-
 set_option maxRecDepth 100000 in
 /-- **The header of `case TABLE` on the invariant.** `NEEDBITS(14)` and the three counts; too many
 symbols give `BAD`; no input gives `Z_BUF_ERROR`; otherwise the code-length loops start with

@@ -725,41 +725,6 @@ theorem ws_btMergeBody_queue {h0 : Heap} {id : Nat} {tk : TK} {d : DeflateState}
   · have heq : K - (j + 1) = K - j - 1 := by omega
     rwa [heq]
 
-/-- The complete actual merge loop terminates after exactly K-1 iterations.
-Its queue has one valid root and its counter and tail boundary have their
-exact source values. This is queue safety and order, not tree-layout or
-code-emission correctness. -/
-theorem ws_btMergeLoop {h0 : Heap} {id : Nat} {tk : TK} {d : DeflateState}
-    {N K : Nat} {node : Int32} (hi : BTMergeQueue tk N K 0 node d) :
-    WS h0 id (btMergeLoop (Sp id) (.ref (tk.ref id) 0) node) d
-      (fun next e => BTMergeQueue tk N K (K - 1) next e ∧ e.heap_len.toInt = 1) := by
-  let Inv : Int32 → DeflateState → Prop := fun node e =>
-    ∃ j : Nat, BTMergeQueue tk N K j node e ∧ j + 1 < K
-  let Q : Int32 → DeflateState → Prop := fun node e =>
-    BTMergeQueue tk N K (K - 1) node e ∧ e.heap_len.toInt = 1
-  unfold btMergeLoop
-  refine WS.cdoWhile2 Inv (fun _ e => e.heap_len.toInt.toNat) Q ?_
-    ⟨0, hi, by have := hi.k2; omega⟩ (by have := hi.len; have := hi.kN; have := hi.n286; dsimp only [fuel]; omega)
-  intro current e ⟨j, hj, hmore⟩
-  refine WS.mono (ws_btMergeBody_queue hj hmore) ?_
-  intro next e' hj'
-  refine WS.bind' ws_rd fun got e'' ⟨hgot, he''⟩ => ?_
-  subst e''; subst got
-  have hlen := hj'.len
-  have hstage := hj'.stage
-  have hK := hj'.k2
-  by_cases hcontinue : e'.heap_len.toInt ≥ 2
-  · have hjnext : j + 1 + 1 < K := by omega
-    refine WS.pure' (Or.inr ⟨by simp only [hcontinue, decide_true], ⟨j + 1, hj', hjnext⟩, ?_⟩)
-    have hlen0 := hj.len
-    omega
-  · have hjend : j + 1 = K - 1 := by omega
-    refine WS.pure' (Or.inl ⟨by simp only [hcontinue, decide_false], ?_⟩)
-    change Q next e'
-    rw [hjend] at hj'
-    exact ⟨hj', by omega⟩
-
-
 /-- Deterministic executions of the same fragment have the same result and
 state. Thus separately proved data properties can be combined. -/
 theorem merge_ws_and {α : Type} {h0 : Heap} {id : Nat} {m : M α} {d : DeflateState}

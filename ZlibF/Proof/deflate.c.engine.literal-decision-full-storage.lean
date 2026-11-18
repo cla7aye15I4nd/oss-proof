@@ -1,6 +1,8 @@
 import ZlibF.Proof.«deflate.c.engine.search-full-storage»
 import ZlibF.Proof.«deflate.c.engine.output-full-storage»
-import ZlibF.Proof.«deflate.c.engine.slow-literal»
+import ZlibF.Proof.«deflate.c.engine.slow-source»
+import ZlibF.Proof.«deflate.c.engine.tally-literal»
+import ZlibF.Proof.«deflate.c.engine.advance»
 
 /-! # Complete object and allocation effects of the actual strategy -/
 

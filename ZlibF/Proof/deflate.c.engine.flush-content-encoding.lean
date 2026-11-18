@@ -1,4 +1,4 @@
-import ZlibF.Proof.«deflate.c.engine.flush-control»
+import ZlibF.Proof.«deflate.c.engine.flush-cut»
 
 /-! # One actual flush restores content and retains its independently decoded output -/
 
@@ -99,43 +99,5 @@ theorem flush_nonfinal_content_encoding {h : Heap} {r : ZStreamRef} {ds ob oo or
   simp only [bind_app, run0, ldDeflateState_tab boundaryA.good.live.hs,
     boundaryA.good.live.back, zrd_eq, boundaryA.good.live.hz]
   by_cases empty : (z'.avail_out == 0) = true <;> simp [empty, pure_app]
-
-/-- The actual nonfinal flush's decoded body extends any later independently
-valid block continuation. The stored choice retains its real byte-alignment
-condition. No specification of an unproved C callee is assumed: the supplied
-continuation is solely a mathematical parser derivation for later bits. -/
-theorem flush_nonfinal_content_continuation {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
-    {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8}
-    (boundary : ContentBoundary h r ds z d input origin base xs)
-    (buffers : StreamBuffers h r) (positive : 0 < d.level.toInt)
-    (pointer : z.next_out = .ref (.blk ob) oo) (cursor : d.pending_out = d.pending_buf)
-    (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (bits : d.bi_valid.toInt ≤ 7)
-    (clear : BlockInit.BlockClear d) (available : d.match_available = 0) :
-    ∃ (produced : Nat) (after : Heap) (z' : ZStream) (result : DeflateState)
-      (before : List Bool) (written : List UInt8) (remaining : List Bool) (kind : Nat) (body : List Bool),
-      FLUSH_BLOCK (some (.tab ds)) 0 h =
-        .ok ((if z'.avail_out == 0 then some need_more else none), after) ∧
-      ContentBoundary after r ds z' result input origin (base + represented xs) [] ∧
-      StreamBuffers after r ∧ StreamAccounting z z' 0 produced ∧ BlockInit.BlockClear result ∧
-      FlushWorkFrame { d with block_start := d.strstart.toUInt64.toInt64 } result ∧
-      PendingBits h d before ∧ Bytes after z.next_out produced written ∧ PendingBits after result remaining ∧
-      kind < 3 ∧ ZlibF.Spec.bytesToBits written ++ remaining = before ++
-        (Zlib.Trees.Proofs.Out.natBits 0 1 ++ Zlib.Trees.Proofs.Out.natBits kind 2 ++ body) ∧
-      ∀ (suffix rest : List Bool) (decoded : List UInt8), (kind = 0 → suffix.length % 8 = 0) →
-        ZlibF.Spec.Blocks [] (inputPrefix input (base + represented xs)) suffix rest decoded →
-        ZlibF.Spec.Blocks [] (inputPrefix input base)
-          ((Zlib.Trees.Proofs.Out.natBits 0 1 ++ Zlib.Trees.Proofs.Out.natBits kind 2 ++ body) ++ suffix)
-          rest decoded := by
-  obtain ⟨produced, after, z', result, before, written, remaining, kind, body,
-    run, boundaryA, buffersA, accountA, clearA, frameA, beforeA, bytesA, pendingA,
-    kindA, outputA, grammarA⟩ :=
-    flush_nonfinal_content_encoding boundary buffers positive pointer cursor memory pending bits clear available
-  refine ⟨produced, after, z', result, before, written, remaining, kind, body,
-    run, boundaryA, buffersA, accountA, clearA, frameA, beforeA, bytesA, pendingA, kindA, outputA, ?_⟩
-  intro suffix rest decoded aligned next
-  simp only [List.append_assoc]
-  exact ZlibF.Spec.Blocks.more
-    (Zlib.Trees.Proofs.Out.readBits_natBits 1 0 _ (by decide +kernel))
-    (Zlib.Trees.Proofs.Out.readBits_natBits 2 kind _ (by omega)) (grammarA suffix aligned) next
 
 end Zlib.Deflate.Engine.Proofs

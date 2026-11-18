@@ -53,19 +53,6 @@ theorem fixedState_tables_safe {h : Heap} (s : InflateState) (globals : LibraryG
     cases get
     exact Zlib.Inffast.Proofs.lenfix_leavesPositive
 
-/-- `void inflate_fixed(struct inflate_state *state)`.
-The actual installer returns pointers to the actual static arrays. Their
-table safety comes from the proved static-table facts and the library's
-explicit global-data representation, not a table premise from the caller. -/
-theorem inflate_fixed_tables_safe {h : Heap} {zs : Nat} {s : InflateState}
-    (state : h.istates zs = some s) (globals : LibraryGlobals h) :
-    ∃ after,
-      C.run (Zlib.Inftrees.inflate_fixed (some (.tab zs))) h = .ok ((), after) ∧
-      after.istates zs = some (fixedState s) ∧
-      DataTablesSafe after (fixedState s) := by
-  exact ⟨setI h zs (fixedState s), inflate_fixed_ok state, by simp,
-    fixedState_tables_safe s globals⟩
-
 /-- `case TYPEDO:` with a fixed block and flush other than Z_TREES.
 The actual branch enters LEN_ and establishes the now-active data-table
 clause. This connects the installer to dispatch rather than only checking
@@ -84,27 +71,5 @@ theorem typedoTail_fixed_tableInvariant {c : Ctx} {h : Heap} {r : ZStreamRef}
   have tables := fixedState_tables_safe
     (h := setI h zs { fixedState s with mode := LEN_ }) s globals
   exact ⟨tables.lengthTable, tables.distanceTable, tables.lengthLeaves⟩
-
-/-- `int inflateInit2_(z_streamp strm, int windowBits, const char *version, int stream_size)`.
-For every accepted parameter, successful actual initialization establishes
-the guarded data-table clause along with Good and the platform scope. No
-table validity or callee correctness is assumed. This is one safety clause,
-not a proof of the entire persistent invariant or public inflate call. -/
-theorem inflate_init_dataTableInvariant
-    (h : Heap) (r : ZStreamRef) (version : BPtr) (wb : Int32)
-    (wrap : ZlibF.Spec.Api.Wrap) (bits : Nat)
-    (domain : InitDomain h r version) (platform : ZlibF.PlatformMemory.ByteObjectsFit h)
-    (params : ZlibF.Spec.Api.inflWbits wb.toInt = some (wrap, bits))
-    (allocation : h.allocOk h.nalloc = true) :
-    ∃ after z s,
-      C.run (inflateInit2_ (some r) wb version 112) h = .ok (Z_OK, after) ∧
-      Good after r h.nextBlk z s ∧ s.mode = HEAD ∧
-      DataTableInvariant after s ∧ ZlibF.PlatformMemory.ByteObjectsFit after ∧
-      StreamReachable .inflate after r := by
-  obtain ⟨after, run, initial, reachable, fit⟩ :=
-    ZlibF.Spec.Public.Proofs.InflateInit.inflate_domain_general_platform
-      h r version wb wrap bits domain platform params allocation
-  obtain ⟨z, s, good, _, _, head, rest⟩ := initial
-  exact ⟨after, z, s, run, good, head, dataTableInvariant_head head, fit, reachable⟩
 
 end Zlib.Inflate.Proofs

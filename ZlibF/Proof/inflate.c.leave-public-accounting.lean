@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.leave-all-wrappers»
+import ZlibF.Proof.«inflate.c.leave-window»
+import ZlibF.Proof.«inflate.c.leave-checksum-general»
 import ZlibF.Proof.«inflate.c.leave-public-fields»
 
 namespace Zlib.Inflate.Proofs

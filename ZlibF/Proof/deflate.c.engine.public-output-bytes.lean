@@ -1,4 +1,4 @@
-import ZlibF.Proof.«deflate.c.engine.ordinary-counter-history»
+import ZlibF.Proof.«deflate.c.engine.public-request-counters»
 namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 set_option autoImplicit false

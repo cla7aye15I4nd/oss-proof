@@ -44,23 +44,6 @@ theorem DefaultStateJ.trailer_update {h after : Heap} {r : ZStreamRef} {zs : Nat
   have config : DefaultConfigFrame s state := by rw [frame]; exact ⟨rfl, rfl, rfl, rfl, rfl⟩
   exact invariant.config_update base config format
 
-/-- Actual default LENGTH has no gzip length word and reaches DONE with
-the full default state relation and the original caller byte views. -/
-theorem inflate_LENGTH_default_state_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = LENGTH) (skip : s.wrap = 0 ∨ s.flags = 0) :
-    runX (inflate_LENGTH c) l h = .ok ((.error Ex.leave, { l with ret := Z_STREAM_END }),
-      setI h zs { s with mode := DONE }) ∧
-      DefaultStateJ (setI h zs { s with mode := DONE }) r zs z { s with mode := DONE } ∧
-      DispatchBuffers (setI h zs { s with mode := DONE }) r { l with ret := Z_STREAM_END } bs ∧
-      ByteViewSizes h (setI h zs { s with mode := DONE }) := by
-  obtain ⟨run, current, tables, pending, packet, sizes⟩ :=
-    inflate_LENGTH_default_boundary E invariant.good invariant.pending buffers skip
-  have final := invariant.trailer_update (Or.inr mode) current tables pending (by rfl)
-    (Or.inr (Or.inr (Or.inl rfl))) sizes rfl
-  exact ⟨run, final, packet, sizes⟩
-
 /-- Actual LENGTH for every completed header: with no length word (raw, or
 zlib flags 0) it reaches DONE at once; with a gzip header it reads the 32-bit
 length, leaves for more input, rejects a wrong length (BAD) or reaches DONE. -/

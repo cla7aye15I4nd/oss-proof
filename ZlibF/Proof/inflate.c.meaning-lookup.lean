@@ -76,9 +76,6 @@ theorem natBits_drop {k n v : Nat} (le : k ≤ n) :
 def subLookupIndexNat (last : Code) (hold : Nat) : Nat :=
   hold % 2 ^ (last.bits.toNat + last.op.toNat) / 2 ^ last.bits.toNat
 
-theorem subLookupIndex_eq (last : Code) (l : IL) :
-    subLookupIndex last l = subLookupIndexNat last l.hold.toNat := rfl
-
 /-- A root cell that is not a link. -/
 theorem tableRead_root {type : UInt32} {ca : Array Code} {offset root bits hold : Nat}
     (lt : hold < 2 ^ bits) (root15 : root ≤ 15)
@@ -158,15 +155,5 @@ theorem fitted_leaf_meaning {type : UInt32} {ca : Array Code} {offset root used 
 end Zlib.Inflate.Proofs.MeaningLookup
 
 namespace Zlib.Inflate.Proofs.MeaningLookup
-
-/-- Refilling the bit buffer after the root entry fits does not change the
-root index: the new hold value keeps the low bits. -/
-theorem root_index_stable {root b1 hold1 hold2 : Nat} (le : root ≤ b1)
-    (keep : hold2 % 2 ^ b1 = hold1 % 2 ^ b1) : hold2 % 2 ^ root = hold1 % 2 ^ root := by
-  obtain ⟨m, rfl⟩ := Nat.exists_eq_add_of_le le
-  rw [Nat.pow_add] at keep
-  have h2 := Nat.mod_mul_right_mod hold2 (2 ^ root) (2 ^ m)
-  have h1 := Nat.mod_mul_right_mod hold1 (2 ^ root) (2 ^ m)
-  rw [← h2, ← h1, keep]
 
 end Zlib.Inflate.Proofs.MeaningLookup

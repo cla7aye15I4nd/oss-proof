@@ -136,94 +136,6 @@ theorem inflate_fast_pull_view {h : Heap} {l : Zlib.Inffast.L}
   rw [shift]
   rfl
 
-/-- The first actual fast bit-buffer read follows from the public dispatch
-packet, without a raw-block or different-allocation premise. -/
-theorem DispatchBuffers.fast_first_pull {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState}
-    {l : IL} {bs : List UInt8} {fastLocal : Zlib.Inffast.L}
-    (good : Good h r zs z s)
-    (fit : ZlibF.PlatformMemory.ByteObjectsFit h)
-    (buffers : DispatchBuffers h r l bs)
-    (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true)
-    (cursor : fastLocal.in_ = l.next)
-    (bits : fastLocal.bits.toNat ≤ 22) :
-    ∃ byte, OkOn h (Zlib.Inffast.pull fastLocal)
-      (Zlib.Inffast.Proofs.pullL fastLocal byte
-        (inputAdvance l.next 1)) := by
-  obtain ⟨ir, or, ia, oa, io, oo, inputPtr, inputGet,
-    inputSize, _, _, _, _, _, _, _, _⟩ :=
-    buffers.fast_views good fit fast
-  have margins : (6 ≤ l.have_ ∧ 258 ≤ l.left) ∧ l.bits < 8 := by
-    simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast
-  have available : 6 ≤ l.have_.toNat := by
-    simpa [UInt32.le_iff_toNat_le] using margins.1.1
-  have readBound : io < ia.size := by omega
-  refine ⟨ia[io], ?_⟩
-  have run := inflate_fast_pull_view (l := fastLocal)
-    (ref := ir) (array := ia) (off := io)
-    (cursor.trans inputPtr) inputGet readBound bits
-  simpa only [inputPtr, inputAdvance] using run
-
-/-- A fast output-byte write inside the caller's output range leaves the
-unread input packet valid, even if both ranges share one byte object. The
-next translated `pull` is therefore safe on the written heap. -/
-theorem DispatchBuffers.fast_pull_after_output_byte
-    {h : Heap} {r : ZStreamRef} {l : IL} {bs : List UInt8}
-    (buffers : DispatchBuffers h r l bs)
-    (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true)
-    {dest : BRef} {array : Array UInt8} {oo j : Nat}
-    (outputPtr : l.put = .ref dest oo)
-    (outputGet : Space.get h dest = some array)
-    (outputWrite : Space.ro h dest = false)
-    (inside : oo ≤ j ∧ j < oo + l.left.toNat)
-    (value : UInt8)
-    {fastLocal : Zlib.Inffast.L}
-    (cursor : fastLocal.in_ = l.next)
-    (bits : fastLocal.bits.toNat ≤ 22) :
-    let after := Space.put h dest (array.set! j value)
-    BitInv after l bs ∧
-      ∃ byte, OkOn after (Zlib.Inffast.pull fastLocal)
-        (Zlib.Inffast.Proofs.pullL fastLocal byte
-          (inputAdvance l.next 1)) := by
-  have margins : (6 ≤ l.have_ ∧ 258 ≤ l.left) ∧ l.bits < 8 := by
-    simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast
-  have inputRoom : 6 ≤ l.have_.toNat := by
-    simpa [UInt32.le_iff_toNat_le] using margins.1.1
-  have nonempty : bs ≠ [] := by
-    intro empty
-    have count := buffers.bits.have_eq
-    rw [empty] at count
-    simp at count
-    omega
-  have left : l.left ≠ 0 := by
-    intro zero
-    rw [zero] at margins
-    simp at margins
-  have separated := buffers.bits.output_positions outputPtr left
-    buffers.separate
-  have nextSeparated : bs = [] ∨
-      ∀ i, l.next = .ref dest i →
-        i + bs.length ≤ j ∨ j + 1 ≤ i := by
-    rcases separated with empty | positions
-    · exact Or.inl empty
-    · right
-      intro i ptr
-      rcases positions i ptr with before | after
-      · exact Or.inl (by omega)
-      · exact Or.inr (by omega)
-  have packet := buffers.bits.store_byte outputGet outputWrite value nextSeparated
-  refine ⟨packet, ?_⟩
-  obtain ⟨ref, saved, off, inputPtr, inputGet, inputSize, _⟩ :=
-    packet.next.resolve_left nonempty
-  have readBound : off < saved.size := by
-    have count := packet.have_eq
-    omega
-  refine ⟨saved[off], ?_⟩
-  have run := inflate_fast_pull_view (l := fastLocal)
-    (ref := ref) (array := saved) (off := off)
-    (cursor.trans inputPtr) inputGet readBound bits
-  simpa only [inputPtr, inputAdvance] using run
-
 /-- Synchronize the public bit-source packet with the current registers of
 the translated fast decoder. Output writes may change the heap, but the
 packet continues to describe the unread input suffix. -/
@@ -309,35 +221,6 @@ theorem FastInputPacket.pull {h : Heap} {slow : IL}
   exact ⟨next, fastNext, slowNext, run,
     by rw [sourcePtr]; rfl, rfl, rfl, nextPacket, sameStream⟩
 
-/-- The two consecutive `pull` calls in the fast body's `bits < 15`
-branch consume two public bytes and preserve the exact bitstream. -/
-theorem FastInputPacket.pull_twice {h : Heap} {slow : IL}
-    {first second : UInt8} {rest : List UInt8}
-    {fastLocal : Zlib.Inffast.L}
-    (packet : FastInputPacket h slow (first :: second :: rest) fastLocal)
-    (small : slow.bits.toNat < 15) :
-    ∃ fastNext slowNext,
-      C.run (do
-        let one ← Zlib.Inffast.pull fastLocal
-        Zlib.Inffast.pull one) h = .ok (fastNext, h) ∧
-      FastInputPacket h slowNext rest fastNext ∧
-      stream slowNext rest = stream slow (first :: second :: rest) := by
-  obtain ⟨next1, fast1, slow1, run1, _, slow1Eq, _, packet1, stream1⟩ :=
-    packet.pull (by omega)
-  have small1 : slow1.bits.toNat ≤ 22 := by
-    have nextBits : slow1.bits.toNat = slow.bits.toNat + 8 := by
-      rw [slow1Eq]
-      exact u32_add8 slow.bits (by omega)
-    omega
-  obtain ⟨next2, fast2, slow2, run2, _, _, _, packet2, stream2⟩ :=
-    packet1.pull small1
-  refine ⟨fast2, slow2, ?_, packet2, stream2.trans stream1⟩
-  change (Zlib.Inffast.pull fastLocal >>= Zlib.Inffast.pull) h = .ok (fast2, h)
-  change Zlib.Inffast.pull fastLocal h = .ok (fast1, h) at run1
-  change Zlib.Inffast.pull fast1 h = .ok (fast2, h) at run2
-  rw [bind_app, run1]
-  exact run2
-
 /-- A byte written within the separated public output range preserves the
 fast loop's synchronized unread-input packet. This permits the following
 translated `pull` even when input and output share an allocation. -/
@@ -392,42 +275,6 @@ theorem FastInputPacket.store8_output {h : Heap} {slow : IL}
   exact ⟨written,
     packet.output_byte separate left outputPtr outputGet
       outputWrite inside value⟩
-
-/-- A translated output store followed immediately by a translated fast
-input read is safe and bitstream-preserving on shared or separate storage. -/
-theorem FastInputPacket.store8_then_pull {h : Heap} {slow : IL}
-    {b : UInt8} {bs : List UInt8} {fastLocal : Zlib.Inffast.L}
-    (packet : FastInputPacket h slow (b :: bs) fastLocal)
-    (small : slow.bits.toNat ≤ 22)
-    (separate : Separate slow.next slow.have_.toNat
-      slow.put slow.left.toNat)
-    (left : slow.left ≠ 0)
-    {dest : BRef} {array : Array UInt8} {oo j : Nat}
-    (outputPtr : slow.put = .ref dest oo)
-    (outputGet : Space.get h dest = some array)
-    (outputWrite : Space.ro h dest = false)
-    (outputSize : oo + slow.left.toNat ≤ array.size)
-    (inside : oo ≤ j ∧ j < oo + slow.left.toNat)
-    (value : UInt8) :
-    ∃ after fastNext slowNext,
-      C.run (do
-        store8 (.ref dest j) value
-        Zlib.Inffast.pull fastLocal) h = .ok (fastNext, after) ∧
-      FastInputPacket after slowNext bs fastNext ∧
-      stream slowNext bs = stream slow (b :: bs) := by
-  let after := Space.put h dest (array.set! j value)
-  have ⟨written, current⟩ :=
-    packet.store8_output separate left outputPtr outputGet
-      outputWrite outputSize inside value
-  obtain ⟨next, fastNext, slowNext, read, _, _, _, finalPacket,
-      sameStream⟩ := current.pull small
-  refine ⟨after, fastNext, slowNext, ?_, finalPacket, sameStream⟩
-  change (store8 (.ref dest j) value >>= fun _ =>
-    Zlib.Inffast.pull fastLocal) h = .ok (fastNext, after)
-  change store8 (.ref dest j) value h = .ok ((), after) at written
-  change Zlib.Inffast.pull fastLocal after = .ok (fastNext, after) at read
-  rw [bind_app, written]
-  exact read
 
 /-- One actual fast back-reference copy reads its source before writing the
 destination. Its byte-view proof permits source and destination in the same
@@ -667,42 +514,6 @@ theorem inflateAfterFast_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs 
   · simp only [beq_iff_eq, type, ↓reduceIte]
     rfl
 
-/-- A concrete fast postcondition supplies the live records used by LOAD.
-No specification of the fast callee is assumed to obtain that postcondition
-in the mode theorem below. -/
-theorem fastPost_environment (e : Zlib.Inffast.Proofs.Env) {after : Heap}
-    (post : Zlib.Inffast.Spec.FastPost e after) {c : Ctx}
-    (strm : c.strm = e.strm) (state : c.st = some (.tab e.stid)) :
-    ∃ z s, Env c after e.r e.stid z s := by
-  obtain ⟨used, made, buffered, bytes, msg, mode, bits, hold, _, _, _, _, _, _, heapEq, _, _, _⟩ := post
-  let z := { e.sm0 with next_in := .ref e.ib (e.i0 + used), next_out := .ref e.ob (e.o0 + made), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - used), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - made), msg }
-  let s := { e.s0 with mode, bits, hold }
-  have baseGet : e.r.get (Space.put (Zlib.Inflate.Spec.setI e.h0 e.stid s) e.ob bytes) = some e.sm0 :=
-    e.stream_get_frame bytes s
-  refine ⟨z, s, ⟨strm.trans e.hstrm, state, ?_, ?_⟩⟩
-  · rw [heapEq, ZStreamRef.get_put, baseGet]
-    rfl
-  · rw [heapEq, ZStreamRef.put_istates, Zlib.Inflate.Proofs.byte_view_put_istates]; exact upd_same _ _ _
-
-/-- The complete actual fast LEN branch returns in the distinct-raw-buffer
-case. Its caller premises are all established by the dispatch packet.
-Transport of the common post-invariant and the broader caller-view cases
-remain separate obligations. -/
-theorem inflate_LEN_fast_raw_run {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {bs : List UInt8} {ib io ob oo : Nat}
-    (E : Env c h r zs z s) (good : Good h r zs z s)
-    (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
-    (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
-    (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
-    (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
-    ∃ regs after, runX (inflate_LEN c) l h = .ok ((.ok (), regs), after) := by
-  obtain ⟨entry, heap1, cut, post, _, strmEq, refEq, idEq, _, _, _, _⟩ :=
-    inflate_LEN_fast_raw_cut E good fit tables buffers pending input output different fast
-  have contextState : c.st = some (.tab entry.toEnv.stid) := by change c.st = some (.tab entry.stid); rw [E.st, idEq]
-  obtain ⟨stream1, state1, env1⟩ := fastPost_environment entry.toEnv post (by change c.strm = entry.strm; exact strmEq.symm) contextState
-  rw [cut, inflateAfterFast_run env1]
-  exact ⟨_, _, rfl⟩
-
 /-- The fast entry heap keeps the length-table leaves of the decoder state. -/
 theorem leaveEntry_leaves {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState} {l : IL}
     (state : h.istates zs = some s) (tables : DataTablesSafe h s) :
@@ -776,63 +587,5 @@ theorem fastPost_retained (e : Zlib.Inffast.Proofs.Env) {after : Heap}
       ⟨e.rd, e.od, e.DCA, e.hdc, by rw [views]; exact e.hDCA, e.hdt⟩,
       fun ref offset ca pointer get => leaves ref offset ca pointer (by rw [views] at get; exact get)⟩
   exact ⟨stream, state, goodFinal, tablesFinal, pendingFinal, held, bitCount, rfl⟩
-
-/-- The actual raw-buffer fast branch now retains the same scalar/table
-clauses as the slow data dispatch. Its buffer and progress transport remain
-the next composition obligations; broader caller views are not stated here. -/
-theorem inflate_LEN_fast_raw_retained {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {bs : List UInt8} {ib io ob oo : Nat}
-    (E : Env c h r zs z s) (good : Good h r zs z s)
-    (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
-    (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
-    (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
-    (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
-    ∃ regs after stream state, runX (inflate_LEN c) l h = .ok ((.ok (), regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧
-      state.hold.toNat < 2 ^ state.bits.toNat ∧ state.bits.toNat < 8 := by
-  obtain ⟨entry, heap1, cut, post, _, strmEq, refEq, idEq, stateEq, streamEq, heapEq, outputEq⟩ :=
-    inflate_LEN_fast_raw_cut E good fit tables buffers pending input output different fast
-  have count : l.bits.toNat < 8 := by
-    have margins : (6 ≤ l.have_ ∧ 258 ≤ l.left) ∧ l.bits < 8 := by
-      simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast
-    simpa [UInt32.lt_iff_toNat_lt] using margins.2
-  obtain ⟨good0, pending0, _, _⟩ := leave_restore_invariant E good pending buffers.bits (by omega)
-  have entryGood : Good entry.toEnv.h0 entry.toEnv.r entry.toEnv.stid entry.toEnv.sm0 entry.toEnv.s0 := by
-    change Good entry.h0 entry.r entry.stid entry.sm0 entry.s0
-    rw [heapEq, refEq, idEq, streamEq, stateEq]
-    exact good0
-  have entryPending : DataPendingInvariant entry.toEnv.s0 := by change DataPendingInvariant entry.s0; rw [stateEq]; exact pending0
-  have privateWindow := callerRange_private_window good buffers.output.range output
-  have window : ∀ w, entry.toEnv.s0.window = .ref (.blk w) 0 → entry.toEnv.ob ≠ BRef.blk w := by
-    change ∀ w, entry.s0.window = .ref (.blk w) 0 → BRef.blk entry.ob ≠ BRef.blk w
-    rw [stateEq, outputEq]
-    exact privateWindow
-  obtain ⟨stream1, state1, good1, tables1, pending1, held1, bits1, _⟩ :=
-    fastPost_retained entry.toEnv entryGood entryPending (by
-      change ∀ ref offset ca, entry.s0.lencode = .ref ref offset → Space.get entry.h0 ref = some ca →
-        Zlib.Inffast.Spec.LenLeavesPositive ca offset entry.s0.lenbits.toNat
-      rw [stateEq, heapEq]
-      exact leaveEntry_leaves good.live.hs tables) window post
-  have good1' : Good heap1 r zs stream1 state1 := by change Good heap1 entry.r entry.stid stream1 state1 at good1; simpa only [refEq, idEq] using good1
-  have env1 : Env c heap1 r zs stream1 state1 := ⟨E.strm, E.st, good1'.live.hz, good1'.live.hs⟩
-  let regs := { l with put := stream1.next_out, left := stream1.avail_out, next := stream1.next_in, have_ := stream1.avail_in, hold := state1.hold, bits := state1.bits }
-  by_cases type : state1.mode = TYPE
-  · let state2 := { state1 with back := -1 }
-    have good2 := good1'.decode_update (after := state2) (by rfl) (by exact good1'.live.mode)
-    have pending2 : DataPendingInvariant state2 := by
-      apply dataPendingInvariant_idle (s := state2) pending1.sane
-      change state1.mode ≠ LENEXT ∧ state1.mode ≠ DIST ∧ state1.mode ≠ DISTEXT ∧ state1.mode ≠ MATCH
-      rw [type]; decide
-    have tables2 : DataTableInvariant (setI heap1 zs state2) state2 := by
-      intro active
-      change DataTableMode state1.mode at active
-      rw [type] at active
-      exact False.elim ((by unfold DataTableMode; decide : ¬ DataTableMode TYPE) active)
-    refine ⟨regs, setI heap1 zs state2, stream1, state2, ?_, good2, tables2, pending2, held1, bits1⟩
-    rw [cut, inflateAfterFast_run env1]
-    simp only [state2, type, ↓reduceIte, regs]
-  · refine ⟨regs, heap1, stream1, state1, ?_, good1', tables1, pending1, held1, bits1⟩
-    rw [cut, inflateAfterFast_run env1]
-    simp only [type, ↓reduceIte, regs]
 
 end Zlib.Inflate.Proofs

@@ -114,49 +114,4 @@ theorem slow_match_insert_step_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
   · exact formI
   · exact bytesI
 
-/-- The earlier byte-frame statement follows from the storage-aware execution. -/
-theorem slow_match_insert_step_frame {h : Heap} {r : ZStreamRef} {ds w : Nat}
-    {z : ZStream} {d : DeflateState} {wa : Array UInt8}
-    (good : DGood h r ds z d) (chains : HeapChains h d (d.strstart.toNat + 1))
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
-    (positive : 1 ≤ d.prev_length.toNat) (lookahead : 3 ≤ d.lookahead.toNat)
-    (room : d.strstart.toNat + d.prev_length.toNat + 1 + d.lookahead.toNat ≤ d.window_size.toNat)
-    (max_insert : UInt32) (maximum : d.strstart.toNat + d.prev_length.toNat ≤ max_insert.toNat)
-    (form : InsHForm d.hash_shift d.hash_mask (bfn wa) (d.strstart.toNat + 1) d.ins_h)
-    (hash_head : UInt32) :
-    ∃ key candidate mid after,
-      let result := countDown { bumpStart d with ins_h := key }
-      slowMatchBody (some (.tab ds)) max_insert hash_head h = .ok (candidate, mid) ∧
-      slowMatchCond (some (.tab ds)) candidate mid = .ok ((result.prev_length != 0, candidate), after) ∧
-      DGood after r ds z result ∧ HeapChains after result (result.strstart.toNat + 1) ∧
-      after.bytes w = some wa ∧ result.strstart.toNat = d.strstart.toNat + 1 ∧
-      result.prev_length.toNat = d.prev_length.toNat - 1 ∧
-      InsHForm result.hash_shift result.hash_mask (bfn wa) (result.strstart.toNat + 1) result.ins_h ∧ after.bytes = h.bytes := by
-  obtain ⟨key, candidate, mid, after, bodyRun, condRun, goodA, chainsA, bytesA, startA, countA, formA, bytesEq, _⟩ :=
-    slow_match_insert_step_storage good chains win get positive lookahead room max_insert maximum form hash_head
-  exact ⟨key, candidate, mid, after, bodyRun, condRun, goodA, chainsA, bytesA, startA, countA, formA, bytesEq⟩
-
-
-/-- The original step contract; the stronger helper also retains the byte frame. -/
-theorem slow_match_insert_step {h : Heap} {r : ZStreamRef} {ds w : Nat}
-    {z : ZStream} {d : DeflateState} {wa : Array UInt8}
-    (good : DGood h r ds z d) (chains : HeapChains h d (d.strstart.toNat + 1))
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
-    (positive : 1 ≤ d.prev_length.toNat) (lookahead : 3 ≤ d.lookahead.toNat)
-    (room : d.strstart.toNat + d.prev_length.toNat + 1 + d.lookahead.toNat ≤ d.window_size.toNat)
-    (max_insert : UInt32) (maximum : d.strstart.toNat + d.prev_length.toNat ≤ max_insert.toNat)
-    (form : InsHForm d.hash_shift d.hash_mask (bfn wa) (d.strstart.toNat + 1) d.ins_h)
-    (hash_head : UInt32) :
-    ∃ key candidate mid after,
-      let result := countDown { bumpStart d with ins_h := key }
-      slowMatchBody (some (.tab ds)) max_insert hash_head h = .ok (candidate, mid) ∧
-      slowMatchCond (some (.tab ds)) candidate mid = .ok ((result.prev_length != 0, candidate), after) ∧
-      DGood after r ds z result ∧ HeapChains after result (result.strstart.toNat + 1) ∧
-      after.bytes w = some wa ∧ result.strstart.toNat = d.strstart.toNat + 1 ∧
-      result.prev_length.toNat = d.prev_length.toNat - 1 ∧
-      InsHForm result.hash_shift result.hash_mask (bfn wa) (result.strstart.toNat + 1) result.ins_h := by
-  obtain ⟨key, candidate, mid, after, body, condition, goodA, chainsA, bytesA, startA, countA, formA, _⟩ :=
-    slow_match_insert_step_frame good chains win get positive lookahead room max_insert maximum form hash_head
-  exact ⟨key, candidate, mid, after, body, condition, goodA, chainsA, bytesA, startA, countA, formA⟩
-
 end Zlib.Deflate.Engine.Proofs

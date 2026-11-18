@@ -112,27 +112,6 @@ theorem fill_window_pending_boundary_all_frame {h : Heap} {r : ZStreamRef} {ds o
         by rw [start], look, wrapA, Or.inl rfl, prefixA, stop, by rw [fields]; rfl,
         fill_companion_same (by rw [fields]) (by rw [fields]) (by rw [fields]) (by rw [fields]) (by rw [fields])⟩
 
-/-- The earlier complete refill preservation statement follows from the
-same execution result, retaining its original scope. -/
-theorem fill_window_pending_boundary_all {h : Heap} {r : ZStreamRef} {ds origin : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {xs : List ZlibF.Math.DeflateSymbols.Symbol}
-    (boundary : PendingBoundary h r ds z d input origin xs)
-    (short : d.lookahead.toNat < 262) (wrap : d.wrap = 1) (buffers : StreamBuffers h r)
-    (inputValid : z.avail_in ≠ 0 → z.next_in ≠ .null) :
-    ∃ used after z' result extended nextOrigin,
-      fill_window (some (.tab ds)) h = .ok ((), after) ∧
-      PendingBoundary after r ds z' result extended nextOrigin xs ∧ StreamAccounting z z' used 0 ∧
-      nextOrigin + result.strstart.toNat = origin + d.strstart.toNat ∧
-      result.lookahead.toNat = d.lookahead.toNat + used ∧ result.wrap = 1 ∧
-      (nextOrigin = origin ∨ nextOrigin = origin + d.w_size.toNat) ∧
-      (∀ i, i < origin + fillEnd d → extended i = input i) ∧
-      (262 ≤ result.lookahead.toNat ∨ z'.avail_in = 0) := by
-  obtain ⟨used, after, z', result, extended, nextOrigin, run, boundaryA, account,
-      start, look, wrapA, originA, prefixA, stopped, _, _⟩ :=
-    fill_window_pending_boundary_all_frame boundary short wrap buffers inputValid
-  exact ⟨used, after, z', result, extended, nextOrigin, run, boundaryA, account,
-    start, look, wrapA, originA, prefixA, stopped⟩
-
 end Zlib.Deflate.Engine.Proofs
 
 namespace Zlib.Deflate.Engine.Proofs

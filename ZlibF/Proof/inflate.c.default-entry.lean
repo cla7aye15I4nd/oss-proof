@@ -54,12 +54,6 @@ theorem inflate_default_witness_platform :
     decide
 
 /-- `int inflateInit_(z_streamp strm, const char *version, int stream_size)`.
-The existing complete default-entry contract, including allocation failure,
-does not depend on the invalid-window cleanup contract of inflateInit2_. -/
-theorem inflate_default_init_contract : Goal.inflateInit_ :=
-  ZlibF.Spec.Public.Proofs.InflateInit.init15_public
-
-/-- `int inflateInit_(z_streamp strm, const char *version, int stream_size)`.
 With successful state allocation, the actual default entry establishes
 Good, the initial zlib wrapper with windowBits 15, the guarded data-table
 clause, the platform scope and an actual reachable history. Caller storage
@@ -86,22 +80,6 @@ theorem inflate_default_init_boundary
     header, _⟩ := initial
   exact ⟨after, z, s, run, initial', good, head, wrap, bits, header,
     dataTableInvariant_head head, fit, reachable⟩
-
-/-- `int inflateInit_(z_streamp strm, const char *version, int stream_size)`.
-A concrete caller heap reaches the default initial boundary under the
-platform scope. Thus the added platform premise has not emptied the domain. -/
-theorem inflate_default_init_witness :
-    ∃ after z s,
-      C.run (inflateInit_ (some (.tab 0)) (.ref (.blk 1) 0) 112) witnessHeap =
-        .ok (Z_OK, after) ∧
-      InflateInitial witnessHeap after (.tab 0) .zlib 15 ∧
-      Good after (.tab 0) witnessHeap.nextBlk z s ∧ s.mode = HEAD ∧
-      s.wrap = 5 ∧ s.wbits.toNat = 15 ∧ s.head = none ∧
-      DataTableInvariant after s ∧ ZlibF.PlatformMemory.ByteObjectsFit after ∧
-      StreamReachable .inflate after (.tab 0) :=
-  inflate_default_init_boundary witnessHeap (.tab 0) (.ref (.blk 1) 0)
-    ZlibF.Spec.Public.Proofs.InflateInit.public_witness_domain
-    inflate_default_witness_platform rfl
 
 /-- The actual default initializer sets the sanity field used by MATCH.
 This derives the scalar fact from initialization execution and its returned

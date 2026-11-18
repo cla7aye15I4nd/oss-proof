@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inflate.c.stream-frame-modes»
-import ZlibF.Proof.«inflate.c.pending-entry»
+import ZlibF.Proof.«inflate.c.pending-dispatch»
+import ZlibF.Proof.«inflate.c.dispatch-entry»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

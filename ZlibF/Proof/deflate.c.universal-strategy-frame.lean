@@ -96,26 +96,4 @@ theorem strat_frame_private {h after : Heap} {r : ZStreamRef} {ds : Nat} {d : De
     change (after.dstates owner).map (·.depth) = some before
     rw [ds1]; exact g
 
-/-- **`fill_window` in the call frame**: it reads input and writes no output. -/
-theorem fill_strat_frame {roll : Prop} {h after : Heap} {r : ZStreamRef} {ds : Nat} {z z' : ZStream}
-    {d result : DeflateState} (good : DGood h r ds z d) (post : FillPost roll h after r ds z z' d result)
-    (buffers : StreamBuffers h r) :
-    ∃ used, StratFrame h after r ds d z z' used 0 := by
-  obtain ⟨used, account, _⟩ := post.account
-  have totals : z'.total_in = z.total_in + UInt64.ofNat used ∧ z'.total_out = z.total_out := by
-    rcases post.stream with same | ⟨n, ref, io, ia, pointer, data, bound, count, value⟩
-    · subst same
-      have : used = 0 := by have := account.2.2.1; omega
-      subst this
-      exact ⟨by simp, rfl⟩
-    · have a2 := read_stream_accounting z n ref io
-        (checksumValue d.wrap z.adler ((ia.toList.drop io).take n.toNat)) pointer count
-      rw [← value] at a2
-      have : used = n.toNat := by have := account.2.2.1; have := a2.2.2.1; omega
-      subst this
-      rw [value]
-      exact ⟨by simp [readStream], rfl⟩
-  exact ⟨used, strat_frame_private account totals.1 totals.2 post.frame post.shape post.live post.nalloc
-    good.uniq (output_target good buffers)⟩
-
 end Zlib.Deflate.Universal

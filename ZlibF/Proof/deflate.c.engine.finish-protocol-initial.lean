@@ -1,5 +1,5 @@
 import ZlibF.Proof.«deflate.c.engine.finish-protocol»
-import ZlibF.Proof.«deflate.c.engine.buffered-initial»
+import ZlibF.Proof.«deflate.c.engine.buffered-boundary»
 
 /-! # Actual default initialization establishes the complete FINISH protocol -/
 
@@ -41,14 +41,4 @@ theorem default_initialization_finish_protocol {h : Heap} {r : ZStreamRef} {z : 
   all_goals rw [start.lastFlush]; decide
 
 open ZlibF.Spec.Public.Proofs.DeflateInit in
-/-- A concrete actual init inhabits the protocol used for later calls. -/
-theorem default_finish_protocol_witness :
-    ∃ after zf sf,
-      C.run (deflateInit_ (some (.tab 0)) Z_DEFAULT_COMPRESSION (.ref (.blk 1) 0) 112)
-        witnessHeap = .ok (Z_OK, after) ∧
-      DefaultFinishBoundary after (.tab 0) 2 zf sf (engineConfig sf) := by
-  exact default_initialization_finish_protocol (h := witnessHeap) (r := .tab 0) (z := default)
-    (version := .ref (.blk 1) 0) witness_fresh witness_uniq rfl
-    (by simp [ZStreamRef.get, witnessHeap]) ⟨Or.inl rfl, Or.inl rfl⟩ witness_version (by intro _ _; rfl)
-
 end Zlib.Deflate.Engine.Proofs

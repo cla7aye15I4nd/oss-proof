@@ -1,4 +1,7 @@
-import ZlibF.Proof.«deflate.c.engine.slow-body-loop»
+import ZlibF.Proof.«deflate.c.borrow-stable-private-search»
+import ZlibF.Proof.«deflate.c.engine.strategy-boundary»
+import ZlibF.Proof.«deflate.c.engine.slow-literal-loop»
+import ZlibF.Proof.«deflate.c.engine.slow-caller-storage»
 import ZlibF.Proof.«deflate.c.engine.loop-accounting»
 
 /-! # Real refill and full ready decisions share the strategy boundary -/

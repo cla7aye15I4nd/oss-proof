@@ -73,15 +73,6 @@ theorem poolAt_preimage (H : Nat → Nat) (K j q : Nat) (hK : K ≤ 286) (hj : j
     simp only [poolAt, show ¬ K - j + (572 - q) < K - j by omega, ite_false, Nat.add_sub_cancel_left,
       show 572 - (572 - q) = q by omega]
 
-/-- A heap position's sequence index is unique. -/
-theorem poolAt_index_injective (K j : Nat) (hK : K ≤ 286) (hj : j < K) :
-    ∀ i i', i < K + j → i' < K + j →
-      (if i < K - j then i + 1 else 572 - (i - (K - j))) =
-      (if i' < K - j then i' + 1 else 572 - (i' - (K - j))) → i = i' := by
-  intro i i' hi hi' heq
-  split at heq <;> split at heq <;> omega
-
-
 /-- Two child stores enlarge the descending tail, while the queue count
 loses those two children and gains their fresh parent. -/
 theorem poolSum_step (H E : Nat → Nat) (K j n m node : Nat)

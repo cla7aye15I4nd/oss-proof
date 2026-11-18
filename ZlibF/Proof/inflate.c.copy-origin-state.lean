@@ -18,16 +18,4 @@ theorem CopyTableOrigin.relocated {old : Nat} {s : InflateState}
       cases impossible
     exact Or.inr (by simpa only [copiedGeneric, different, ↓reduceIte] using fixed)
 
-/-- A copied source record retains its header sentinel and repaired table
-origins. The incoming J here is an actual copied-state conclusion, not a
-callee contract required of a public caller. -/
-theorem DefaultOriginState.copied_state {h after : Heap} {source dest : ZStreamRef}
-    {old fresh nextOff distOff : Nat} {z : ZStream} {s : InflateState} {window : BPtr}
-    (before : DefaultOriginState h source old z s)
-    (current : DefaultStateJ after dest fresh { z with state := some (.inflate fresh) }
-      (copiedGeneric dest old fresh nextOff distOff window s)) :
-    DefaultOriginState after dest fresh { z with state := some (.inflate fresh) }
-      (copiedGeneric dest old fresh nextOff distOff window s) :=
-  ⟨current, before.tableOrigin.relocated dest fresh nextOff distOff window⟩
-
 end Zlib.Inflate.Proofs

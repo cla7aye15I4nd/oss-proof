@@ -35,26 +35,4 @@ theorem prefix_bits_le (costs : List Nat) :
       unfold bitExcess at bound
       omega
 
-/-- With a drained block-entry state, the reference excess and header
-bounds leave at least fifteen bits before every unread-symbol boundary.
-The numeric domain includes memLevel 6 through 9. The bounds remain data
-premises until established from actual tallies, tree construction and
-emission; this is not a public compressor theorem. -/
-theorem large_overlay_prefix (capacity start header : Nat) (costs : List Nat)
-    (capacity_min : 4096 ≤ capacity) (start_max : start ≤ 7)
-    (header_max : header ≤ 2283) (symbols_fit : costs.length + 1 ≤ capacity)
-    (excess : 1000 * bitExcess costs ≤ 6257 * (costs.length + 1)) (k : Nat) :
-    start + 3 + header + (costs.take k).sum + 15 ≤ 8 * (capacity + 3 * k) := by
-  have prefix_bound := prefix_bits_le costs k
-  omega
-
-/-- The default memLevel 8 uses lit_bufsize = 16384. This is a concrete
-instance of the prefix budget, not a restriction on the public API. -/
-theorem default_overlay_prefix (start header : Nat) (costs : List Nat)
-    (start_max : start ≤ 7) (header_max : header ≤ 2283)
-    (symbols_fit : costs.length + 1 ≤ 16384)
-    (excess : 1000 * bitExcess costs ≤ 6257 * (costs.length + 1)) (k : Nat) :
-    start + 3 + header + (costs.take k).sum + 15 ≤ 8 * (16384 + 3 * k) :=
-  large_overlay_prefix 16384 start header costs (by decide) start_max header_max symbols_fit excess k
-
 end Zlib.Trees.Overlay

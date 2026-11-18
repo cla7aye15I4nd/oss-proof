@@ -472,16 +472,4 @@ theorem exact__tr_flush_block (s : DeflateStatePtr) (buf : BPtr) (stored_len : U
     | with_reducible exact exact_trees_iadd _ _
     | trees_exact_step
 
-theorem exact__tr_tally (s : DeflateStatePtr) (dist lc : UInt32) : ExactM («_tr_tally» s dist lc) := by
-  unfold «_tr_tally»
-  repeat' first
-    | with_reducible exact exact_trees_d_code _
-    | with_reducible exact exact_setFc _ _ _
-    | with_reducible exact exact_getFc _ _
-    | with_reducible exact exact_pDtree _
-    | with_reducible exact exact_pLtree _
-    | ((with_reducible apply exact_md); intro _; rfl)
-    | with_reducible exact exact_trees_rd _
-    | trees_exact_step
-
 end Zlib.Trees.ParamsProofs

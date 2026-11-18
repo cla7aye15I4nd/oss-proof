@@ -1,5 +1,6 @@
 import ZlibF.Proof.«trees.c.send-tree»
-import ZlibF.Proof.«trees.c.tally-support»
+import ZlibF.Proof.«trees.c.bl-support»
+import ZlibF.Proof.«trees.c.tally»
 
 /-! # trees.c: deriving send_tree's data premises from actual construction -/
 
@@ -158,39 +159,5 @@ theorem build_bl_tree_ready_to_send {h : Heap} {id b : Nat} {d : DeflateState} {
       rw [hEDD] at hpos
       exact hfits k hk (by unfold blScanCount; omega)
   · exact False.elim (hne rfl)
-
-/-- Actual block initialization, any capacity-bounded list of legal actual
-tallies, and all three actual tree constructors establish both senders'
-data and independent symbol meaning. This is a call-composition result;
-strategy input history, full header emission and overlay room remain separate. -/
-theorem init_tallies_ready_to_send {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (symbols : List (UInt32 × UInt32))
-    (hlegal : ∀ t ∈ symbols, t.2.toNat < 256 ∧ t.1.toNat ≤ 32768)
-    (hroom : 3 * symbols.length ≤ d.sym_end.toNat) :
-    ∃ (mb : Int32) (e : DeflateState) (buf' : Array UInt8),
-      (do init_block (Sp id); tallyCalls (Sp id) symbols
-          blPrepare (Sp id); build_bl_tree (Sp id)) h =
-        .ok (mb, Out.setD (Out.setB h b buf') id e) ∧
-      TreesInvAt (Out.setD (Out.setB h b buf') id e) id e b buf' ∧
-      (∀ tk : TK, tk ≠ .bl → SendTreeData e tk) := by
-  obtain ⟨aL, aD, aB, initialized, hinit, hII, heI, hLs, hDs, hBs,
-    hLzero, hEOB, hDzero, hBzero, hLdl, hDdl, hBdl⟩ := init_block_spec0 hI.base hI.run.to0
-  have hroomI : initialized.sym_next.toNat + 3 * symbols.length ≤ initialized.sym_end.toNat := by
-    rw [heI]
-    change (0 : UInt32).toNat + 3 * symbols.length ≤ d.sym_end.toNat
-    simpa using hroom
-  obtain ⟨counted, buf', htally, hIC, hEC, hBC, hcount, hEnd⟩ :=
-    tallyCalls_preserves hII symbols hlegal hroomI
-  obtain ⟨ready, hprepare, hin, hIR, hBready, hout⟩ := bl_prepare hIC
-  have hzeroR : ∀ k < 19, ready.bl_tree[k]!.fc = 0 := by
-    intro k hk
-    rw [hBready, hBC, heI]
-    exact hBzero k hk
-  obtain ⟨mb, e, hbuild, hIe, hdata⟩ := build_bl_tree_ready_to_send hIR hin hzeroR
-  have hDsame : Zlib.Trees.Proofs.setD = Out.setD := rfl
-  simp only [hDsame, Out.setB_setD, Out.setD_setD] at htally hprepare hbuild hIe
-  refine ⟨mb, e, buf', ?_, hIe, hdata⟩
-  simp only [bind_app, hinit, htally, hprepare]
-  exact hbuild
 
 end Zlib.Trees.Proofs

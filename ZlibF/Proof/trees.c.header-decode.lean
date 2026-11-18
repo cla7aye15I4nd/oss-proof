@@ -48,45 +48,6 @@ theorem build_bl_tree_source_guards {h : Heap} {id b : Nat} {d : DeflateState} {
     decide +kernel
   · exact False.elim (hne rfl)
 
-/-- Actual initialization, valid within-block tallies and the three actual
-constructors jointly establish writer data and terminal guards. -/
-theorem init_tallies_header_data {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (symbols : List (UInt32 × UInt32))
-    (hlegal : ∀ t ∈ symbols, t.2.toNat < 256 ∧ t.1.toNat ≤ 32768)
-    (hroom : 3 * symbols.length ≤ d.sym_end.toNat) :
-    ∃ (mb : Int32) (e : DeflateState) (buf' : Array UInt8),
-      (do init_block (Sp id); tallyCalls (Sp id) symbols
-          blPrepare (Sp id); build_bl_tree (Sp id)) h =
-        .ok (mb, Out.setD (Out.setB h b buf') id e) ∧
-      TreesInvAt (Out.setD (Out.setB h b buf') id e) id e b buf' ∧
-      AllTreeData e (e.l_desc.max_code.toInt.toNat + 1) (e.d_desc.max_code.toInt.toNat + 1) (mb.toInt.toNat + 1) ∧
-      SourceGuards e ∧ 3 ≤ mb.toInt ∧ mb.toInt ≤ 18 := by
-  obtain ⟨mb, e, buf', hr, hIe, hdata, hlo, hhi⟩ := init_tallies_all_tree_data hI symbols hlegal hroom
-  obtain ⟨aL, aD, aB, initialized, hinit, hII, heI, hLs, hDs, hBs,
-    hLzero, hEOB, hDzero, hBzero, hLdl, hDdl, hBdl⟩ := init_block_spec0 hI.base hI.run.to0
-  have hroomI : initialized.sym_next.toNat + 3 * symbols.length ≤ initialized.sym_end.toNat := by
-    rw [heI]
-    change (0 : UInt32).toNat + 3 * symbols.length ≤ d.sym_end.toNat
-    simpa using hroom
-  obtain ⟨counted, buf2, htally, hIC, hEC, hBC, hcount, hEnd⟩ :=
-    tallyCalls_preserves hII symbols hlegal hroomI
-  obtain ⟨ready, hprepare, hin, hIR, hBready, hout⟩ := bl_prepare hIC
-  obtain ⟨mb2, e2, hbuild, hguards⟩ := build_bl_tree_source_guards hIR hin
-  have hDsame : Zlib.Trees.Proofs.setD = Out.setD := rfl
-  simp only [hDsame, Out.setB_setD, Out.setD_setD] at htally hprepare hbuild
-  have hr2 : (do
-      init_block (Sp id)
-      tallyCalls (Sp id) symbols
-      blPrepare (Sp id)
-      build_bl_tree (Sp id)) h = .ok (mb2, Out.setD (Out.setB h b buf2) id e2) := by
-    simp only [bind_app, hinit, htally, hprepare]
-    exact hbuild
-  have hpair := Prod.mk.inj (Except.ok.inj (hr.symm.trans hr2))
-  have hrecord := congrArg (fun H : Heap => H.dstates id) hpair.2
-  simp only [Out.setD_dstates_same] at hrecord
-  have he : e = e2 := Option.some.inj hrecord
-  exact ⟨mb, e, buf', hr, hIe, hdata, he.symm ▸ hguards, hlo, hhi⟩
-
 /-- Stored data derived from actual construction make the two emitted
 source-tree descriptions satisfy the independent code-length grammar. -/
 theorem allTreeData_codeLens {d : DeflateState} {L D B : Nat}
@@ -121,46 +82,6 @@ theorem allTreeData_codeLens {d : DeflateState} {L D B : Nat}
     · exact (hd.lit_data.codes k hk (by simpa only [TK.getDesc, hLN] using hleft)).2 r
     · have hright : 0 < scanFreqUpTo (sendLengths d .dist) D k := by omega
       exact (hd.dist_data.codes k hk (by simpa only [TK.getDesc, hDN] using hright)).2 r
-
-/-- Actual construction and the actual header call share one returned
-heap. The tree-description portion has independent grammar meaning for
-every suffix. Exact output room remains explicit; the count fields and
-transmitted BL lengths still need the independent header-reader bridge. -/
-theorem atPrepared_emit_codeLens {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (symbols : List (UInt32 × UInt32))
-    (hlegal : ∀ t ∈ symbols, t.2.toNat < 256 ∧ t.1.toNat ≤ 32768)
-    (hcapacity : 3 * symbols.length ≤ d.sym_end.toNat) :
-    ∃ (mb : Int32) (built : DeflateState) (prepared : Array UInt8),
-      (do init_block (Sp id); tallyCalls (Sp id) symbols
-          blPrepare (Sp id); build_bl_tree (Sp id)) h =
-        .ok (mb, Out.setD (Out.setB h b prepared) id built) ∧
-      (let L := built.l_desc.max_code.toInt.toNat + 1
-       let D := built.d_desc.max_code.toInt.toNat + 1
-       let B := mb.toInt.toNat + 1
-       let bits := allTreesBits (blWords built) (sendLengths built .lit) (sendLengths built .dist) L D B
-       (∀ suffix, ZlibF.Spec.CodeLens
-          (Zlib.Inftrees.Proofs.lensOf (fun n => built.bl_tree[n]!.dl.toNat)
-            (built.bl_desc.max_code.toInt.toNat + 1)) (L + D) []
-          (sendTreeBits (blWords built) (sendLengths built .lit) (L - 1) ++
-            sendTreeBits (blWords built) (sendLengths built .dist) (D - 1) ++ suffix)
-          suffix (lens (sendLengths built .lit) L ++ lens (sendLengths built .dist) D)) ∧
-       (8 * built.pending.toNat + built.bi_valid.toInt.toNat + bits.length ≤ 8 * prepared.size →
-         ∃ (e : DeflateState) (buf' : Array UInt8),
-           atPrepared (Sp id) symbols h = .ok ((), Out.setD (Out.setB h b buf') id e) ∧
-           TreesInvAt (Out.setD (Out.setB h b buf') id e) id e b buf' ∧
-           outBits buf' e = outBits prepared built ++ bits ∧ BitsDiff built e)) := by
-  obtain ⟨mb, built, prepared, hbuild, hIb, hdata, hguards, hlo, hhi⟩ :=
-    init_tallies_header_data hI symbols hlegal hcapacity
-  refine ⟨mb, built, prepared, hbuild, ?_⟩
-  dsimp only
-  refine ⟨fun suffix => allTreeData_codeLens hdata hguards suffix, ?_⟩
-  intro hroom
-  obtain ⟨buf', e, hcall, hIe, hbits, hsize, hframe, hplo, hphi, hdiff⟩ :=
-    atCall_emit hIb mb _ _ _ hdata (by omega) hroom
-  refine ⟨e, buf', ?_, ?_, hbits, hdiff⟩
-  · rw [atPrepared_eq, bind_app, hbuild]
-    simpa only [Out.setB_setD, Out.setB_setB, Out.setD_setD] using hcall
-  · simpa only [Out.setB_setD, Out.setB_setB, Out.setD_setD] using hIe
 
 /-- Actual table data needed by the independent dynamic-header reader. -/
 structure HeaderTableData (d : DeflateState) (B : Nat) : Prop where
@@ -216,48 +137,6 @@ theorem allTreeData_codeLens_full {d : DeflateState} {L D B : Nat}
     (fun i hi hi19 => ht.upper_zero i hi19 (by omega))
   rw [hlens]
   exact hpad
-
-/-- Full reader-table data and the source guards follow from the same
-actual initialization, tally and tree-construction history. -/
-theorem init_tallies_header_tables {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (symbols : List (UInt32 × UInt32))
-    (hlegal : ∀ t ∈ symbols, t.2.toNat < 256 ∧ t.1.toNat ≤ 32768)
-    (hroom : 3 * symbols.length ≤ d.sym_end.toNat) :
-    ∃ (mb : Int32) (e : DeflateState) (buf' : Array UInt8),
-      (do init_block (Sp id); tallyCalls (Sp id) symbols
-          blPrepare (Sp id); build_bl_tree (Sp id)) h =
-        .ok (mb, Out.setD (Out.setB h b buf') id e) ∧
-      TreesInvAt (Out.setD (Out.setB h b buf') id e) id e b buf' ∧
-      AllTreeData e (e.l_desc.max_code.toInt.toNat + 1) (e.d_desc.max_code.toInt.toNat + 1) (mb.toInt.toNat + 1) ∧
-      SourceGuards e ∧ HeaderTableData e (mb.toInt.toNat + 1) ∧ 3 ≤ mb.toInt ∧ mb.toInt ≤ 18 := by
-  obtain ⟨mb, e, buf', hr, hIe, hdata, hguards, hlo, hhi⟩ := init_tallies_header_data hI symbols hlegal hroom
-  obtain ⟨aL, aD, aB, initialized, hinit, hII, heI, hLs, hDs, hBs,
-    hLzero, hEOB, hDzero, hBzero, hLdl, hDdl, hBdl⟩ := init_block_spec0 hI.base hI.run.to0
-  have hroomI : initialized.sym_next.toNat + 3 * symbols.length ≤ initialized.sym_end.toNat := by
-    rw [heI]
-    change (0 : UInt32).toNat + 3 * symbols.length ≤ d.sym_end.toNat
-    simpa using hroom
-  obtain ⟨counted, buf2, htally, hIC, hEC, hBC, hcount, hEnd⟩ :=
-    tallyCalls_preserves hII symbols hlegal hroomI
-  obtain ⟨ready, hprepare, hin, hIR, hBready, hout⟩ := bl_prepare hIC
-  obtain ⟨mb2, e2, hbuild, htables⟩ := build_bl_tree_header_tables hIR hin
-  have hDsame : Zlib.Trees.Proofs.setD = Out.setD := rfl
-  simp only [hDsame, Out.setB_setD, Out.setD_setD] at htally hprepare hbuild
-  have hr2 : (do
-      init_block (Sp id)
-      tallyCalls (Sp id) symbols
-      blPrepare (Sp id)
-      build_bl_tree (Sp id)) h = .ok (mb2, Out.setD (Out.setB h b buf2) id e2) := by
-    simp only [bind_app, hinit, htally, hprepare]
-    exact hbuild
-  have hpair := Prod.mk.inj (Except.ok.inj (hr.symm.trans hr2))
-  have hrecord := congrArg (fun H : Heap => H.dstates id) hpair.2
-  simp only [Out.setD_dstates_same] at hrecord
-  have he : e = e2 := Option.some.inj hrecord
-  have hm : mb = mb2 := hpair.1
-  subst e2
-  subst mb2
-  exact ⟨mb, e, buf', hr, hIe, hdata, hguards, htables, hlo, hhi⟩
 
 /-- The complete header model recovers its three actual count fields and
 the complete acceptable BL table through the independent format readers. -/

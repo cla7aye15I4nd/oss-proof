@@ -60,8 +60,6 @@ theorem suffix_snoc {l w : List UInt8} {x b : UInt8} : l ++ [x] <:+ w ++ [b] ↔
   rw [← List.reverse_prefix, ← List.reverse_prefix (l₁ := l)]
   simp [List.cons_prefix_cons]
 
-theorem suffix_snoc0 {w : List UInt8} {b : UInt8} : [b] <:+ w ++ [b] := List.suffix_append _ _
-
 theorem suffix_snoc1 {w : List UInt8} {x b : UInt8} : [x] <:+ w ++ [b] ↔ x = b := by
   have := @suffix_snoc [] w x b
   simp
@@ -93,9 +91,6 @@ theorem sfx3_not1 {w : List UInt8} (h : [0, 0, 255] <:+ w) : ¬ [0] <:+ w := by
   have e : t ++ [0, 0, 255] = (t ++ [0, 0]) ++ [255] := by simp
   rw [e, sfx1] at this
   exact absurd this (by decide)
-
-theorem sfx3_not2 {w : List UInt8} (h : [0, 0, 255] <:+ w) : ¬ [0, 0] <:+ w :=
-  fun h2 => sfx3_not1 h (sfx2_1 h2)
 
 /-- The state description for each value of `got`. -/
 theorem syncSt_cases {g : UInt32} {w : List UInt8} (hs : SyncSt g w) :
@@ -178,13 +173,6 @@ theorem syncSt_mk {g : UInt32} {w : List UInt8}
     · intro k hk hs
       have : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 := by omega
       rcases this with rfl | rfl | rfl | rfl <;> decide
-
-/-- The search starts in state 0 with nothing read. -/
-theorem syncSt_zero : SyncSt 0 [] := by
-  refine syncSt_mk (by decide) (Or.inl ⟨rfl, ?_, ?_, ?_⟩)
-  · rintro ⟨t, ht⟩; simp at ht
-  · rintro ⟨t, ht⟩; simp at ht
-  · rintro ⟨t, ht⟩; simp at ht
 
 theorem u8_eq255 {b : UInt8} : b.toNat = 255 ↔ b = 255 := by
   constructor
@@ -338,20 +326,6 @@ theorem syncScan_spec {g : UInt32} {w : List UInt8} (hs : SyncSt g w) (bs : List
         refine ⟨by simp; omega, ?_⟩
         simpa [List.append_assoc] using a2
 
-/-- The search finds the pattern exactly when it occurs in the history followed by the new bytes. -/
-theorem syncScan_found_iff {g : UInt32} {w : List UInt8} (hs : SyncSt g w) (bs : List UInt8) :
-    (syncScan g bs).1 = 4 ↔ syncPat <:+: w ++ bs := by
-  obtain ⟨-, h1, h2⟩ := syncScan_spec hs bs rfl
-  constructor
-  · intro h
-    obtain ⟨-, a2, -⟩ := h1 h
-    have hin : w ++ bs.take (syncScan g bs).2 <:+: w ++ bs :=
-      ⟨[], bs.drop (syncScan g bs).2, by simp [List.append_assoc]⟩
-    exact (List.IsSuffix.isInfix a2).trans hin
-  · intro h
-    refine Classical.byContradiction fun hne => ?_
-    exact (h2 hne).2.2.1 (by simpa using h)
-
 /-! ### The loop on the heap -/
 
 theorem syncBytes_length {a : Array UInt8} {o : Nat} {len : UInt32} (hl : o + len.toNat ≤ a.size) :
@@ -468,41 +442,5 @@ theorem syncsearch_null (g : UInt32) (h : Heap) : syncsearch g .null 0 h = .ok (
         let got := if b.toNat == (if got < 2 then 0 else 0xff) then got + 1 else if b != 0 then 0 else 4 - got
         pure (next + 1, got)) (0, g) h = .ok ((0, g), h) := hs
   rw [hs']
-
-theorem syncIn_length {h : Heap} {p : BPtr} {len : UInt32} {bs : List UInt8} (I : SyncIn h p len bs) :
-    bs.length = len.toNat := by
-  rcases I with ⟨b, a, o, rfl, hg, hl, rfl⟩ | ⟨rfl, rfl, rfl⟩
-  · exact syncBytes_length hl
-  · rfl
-
-/-- **`syncsearch`, specification.** Let `g` be the state after the bytes `w` (`SyncSt`; `g = 0` and `w = []` for the
-first call). On an input `buf[0 .. len)` (`SyncIn`) the call never faults, does not change the heap, and returns the
-number `N` of bytes consumed and the new `*have` `G`:
-* `G = 4`: the pattern `00 00 FF FF` was found, `N > 0`, it ends `w ++ buf[0 .. N)` and does not occur in `w ++ buf[0 .. N')` for
-  `N' < N` (the first occurrence), and `N ≤ len`;
-* `G ≠ 4`: all `len` bytes were consumed and `G` is the state after `w ++ buf[0 .. len)` (the longest proper prefix of
-  the pattern that ends the input): the pattern has not occurred and a later call carries on from `G`. -/
-theorem syncsearch_spec {h : Heap} {p : BPtr} {len : UInt32} {bs : List UInt8} (I : SyncIn h p len bs)
-    {g : UInt32} {w : List UInt8} (hs : SyncSt g w) :
-    ∃ N G, syncsearch g p len h = .ok ((N, G), h) ∧ N.toNat ≤ len.toNat ∧
-      (G = 4 → 0 < N.toNat ∧ syncPat <:+ w ++ bs.take N.toNat ∧ ∀ L', L' < N.toNat → ¬ syncPat <:+: w ++ bs.take L') ∧
-      (G ≠ 4 → N = len ∧ SyncSt G (w ++ bs)) := by
-  have hlen := syncIn_length I
-  rcases I with ⟨b, a, o, rfl, hg, hl, rfl⟩ | ⟨rfl, rfl, rfl⟩
-  · refine ⟨UInt32.ofNat (syncScan g (syncBytes a o len)).2, (syncScan g (syncBytes a o len)).1,
-      syncsearch_run (r := .blk b) g hg hl, ?_⟩
-    obtain ⟨h1, h2, h3⟩ := syncScan_spec hs (syncBytes a o len) rfl
-    have hn : (UInt32.ofNat (syncScan g (syncBytes a o len)).2).toNat = (syncScan g (syncBytes a o len)).2 := by
-      have := len.toNat_lt
-      rw [UInt32.toNat_ofNat_of_lt' (by simp [UInt32.size]; omega)]
-    rw [hn]
-    refine ⟨by omega, h2, fun hne => ?_⟩
-    obtain ⟨e, st⟩ := h3 hne
-    refine ⟨?_, st⟩
-    apply UInt32.toNat_inj.mp; rw [hn]; omega
-  · refine ⟨0, g, syncsearch_null g h, by simp, ?_, ?_⟩
-    · intro h4
-      have := hs.1; rw [h4] at this; exact absurd this (by decide)
-    · intro _; exact ⟨rfl, by simpa using hs⟩
 
 end Zlib.Inflate.Proofs

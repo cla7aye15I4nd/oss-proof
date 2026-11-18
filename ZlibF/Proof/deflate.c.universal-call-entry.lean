@@ -26,68 +26,6 @@ theorem rank_values (f : Int32) (lower : -2 ≤ f.toInt) (upper : f.toInt ≤ 5)
   rcases values with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals rfl
 
-/-- Before the header, the duplicate-flush refusal never applies: `RANK(flush) > RANK(last_flush)`. -/
-theorem rank_after_reset (flush old : Int32) (flushLow : 0 ≤ flush.toInt) (flushHigh : flush.toInt ≤ 5)
-    (reset : old = -2 ∨ old = -1) :
-    (do let a ← RANK flush; let b ← RANK old; pure (decide (a ≤ b)) : M Bool) = pure false := by
-  rw [rank_values flush (by omega) flushHigh]
-  rcases reset with rfl | rfl
-  all_goals
-    rw [rank_values _ (by decide) (by decide)]
-    have values : flush = 0 ∨ flush = 1 ∨ flush = 2 ∨ flush = 3 ∨ flush = 4 ∨ flush = 5 := by
-      have : flush.toInt = 0 ∨ flush.toInt = 1 ∨ flush.toInt = 2 ∨ flush.toInt = 3 ∨
-          flush.toInt = 4 ∨ flush.toInt = 5 := by omega
-      simp only [← Int32.toInt_inj]
-      exact this
-    rcases values with rfl | rfl | rfl | rfl | rfl | rfl
-    all_goals rfl
-
-/-- **The entry phase of an accepted call with nothing pending, before the header.** Nothing
-is refused; the phase sets `last_flush` and continues. -/
-theorem entry_accepted_empty {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    {flush : Int32} (good : DGood h r ds z d) (pending : d.pending = 0)
-    (accepted : ¬ DeflateRefuses z d flush) (room : z.avail_out ≠ 0)
-    (status : d.status = INIT_STATE ∨ d.status = GZIP_STATE) (reset : d.last_flush = -2 ∨ d.last_flush = -1)
-    (k : DeflateStatePtr → M Int32) :
-    entryPhase (some r) flush k h = k (some (.tab ds)) (setD h ds { d with last_flush := flush }) := by
-  unfold DeflateRefuses at accepted
-  have flushLow : 0 ≤ flush.toInt := by omega
-  have flushHigh : flush.toInt ≤ 5 := by omega
-  have out : z.next_out ≠ .null := fun e => accepted (Or.inr (Or.inr (Or.inl e)))
-  have inputs : (z.avail_in != 0 && z.next_in == .null) = false := by
-    by_cases empty : z.avail_in = 0
-    · simp [empty]
-    · have : z.next_in ≠ .null := fun e => accepted (Or.inr (Or.inr (Or.inr (Or.inl ⟨e, empty⟩))))
-      simp [this]
-  have notFinish : (d.status == FINISH_STATE) = false := by
-    rcases status with st | st <;> rw [st] <;> rfl
-  have checked := stateCheck_live good.live
-  have high : ¬ flush > Z_BLOCK := by
-    intro bad
-    have value : 5 < flush.toInt := Int32.lt_iff_toInt_lt.mp bad
-    omega
-  have low : ¬ flush < 0 := by rw [Int32.lt_iff_toInt_lt]; change ¬ flush.toInt < 0; omega
-  have flushValues : flush = 0 ∨ flush = 1 ∨ flush = 2 ∨ flush = 3 ∨ flush = 4 ∨ flush = 5 := by
-    have : flush.toInt = 0 ∨ flush.toInt = 1 ∨ flush.toInt = 2 ∨ flush.toInt = 3 ∨
-        flush.toInt = 4 ∨ flush.toInt = 5 := by omega
-    simp only [← Int32.toInt_inj]
-    exact this
-  unfold entryPhase
-  simp only [bind_app, checked, show ((0 : Int32) != 0) = false from rfl,
-    high, low, decide_false, Bool.false_or, Bool.false_eq_true, ite_false,
-    zrd_eq, good.live.hz, good.live.zst, castDeflateState,
-    ldZStream_ok good.live.hz, ldDeflateState_tab good.live.hs,
-    show (z.next_out == .null) = false from beq_eq_false_iff_ne.mpr out,
-    inputs, Bool.or_false, notFinish, Bool.false_and,
-    show (z.avail_out == 0) = false from beq_eq_false_iff_ne.mpr room,
-    wrD_eq, good.live.hs, pending, show ((0 : UInt64) != 0) = false from rfl,
-    ]
-  rcases reset with old | old <;> rw [old] <;>
-    rcases flushValues with rfl | rfl | rfl | rfl | rfl | rfl <;>
-    simp [RANK, chk32, isub, Bool.and_false, Bool.false_eq_true, bind_app, pure_app] <;>
-    rcases status with st | st <;> simp [st, rdD_eq, setD_dstates_same, zrd_eq, ZStreamRef.get_setD, good.live.hz,
-      (by decide : INIT_STATE ≠ FINISH_STATE), (by decide : GZIP_STATE ≠ FINISH_STATE)]
-
 /-- Writing `last_flush` keeps the engine invariants, the caller buffers and every byte. -/
 theorem last_flush_engine {h : Heap} {r : ZStreamRef} {ds pb : Nat}
     {z : ZStream} {d : DeflateState} {buf : Array UInt8} (v : Int32)

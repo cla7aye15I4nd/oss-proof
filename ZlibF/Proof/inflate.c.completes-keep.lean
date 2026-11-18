@@ -323,12 +323,6 @@ theorem keep_strLitRef (s : String) : KeepM (strLitRef s) := by
   unfold strLitRef at hr
   repeat' first | split at hr | contradiction | (cases hr; rfl)
 
-theorem keep_strlenB (p : BPtr) : KeepM (strlenB p) := by
-  apply KeepM.of_same
-  intro h value after hr
-  unfold strlenB at hr
-  repeat' first | split at hr | contradiction | (cases hr; rfl)
-
 /-! ## Writes to records other than decoder records -/
 
 theorem get_put_ne {h : Heap} {r r' : ZStreamRef} (e : r' ≠ r) (v : ZStream) : r'.get (r.put h v) = r'.get h := by

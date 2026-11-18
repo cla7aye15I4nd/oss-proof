@@ -1,5 +1,6 @@
-import ZlibF.Proof.«deflate.c.engine.flush-default-output»
-import ZlibF.Math.DeflateBlockStream
+import ZlibF.Proof.«deflate.c.engine.flush-default»
+import ZlibF.Proof.«deflate.c.engine.pending-block-output»
+import ZlibF.Math.DeflateRunDecode
 
 /-! # The real strategy macro computes the proved flush pointer and length -/
 
@@ -202,46 +203,5 @@ theorem flush_block_only_publish {h : Heap} {r : ZStreamRef} {ds pb ob oo w orig
     (setD ready ds updated) = .ok ((), after)
   rw [bind_app, streamRead]
   exact flush
-
-/-- `FLUSH_BLOCK_ONLY(s, 1)`.
-The complete real macro, including argument evaluation and its actual
-block_start store, publishes an independently valid raw stream from a
-byte-aligned zero-credit block cutpoint with enough caller output space.
-This does not prove the surrounding deflate_slow loop or public wrapper. -/
-theorem flush_block_only_final_valid {h : Heap} {r : ZStreamRef} {ds pb ob oo w origin : Nat}
-    {z : ZStream} {d : DeflateState} {buf window : Array UInt8} {xs : List Symbol} {input : Nat → UInt8}
-    (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r)
-    (positive : 0 < d.level.toInt) (pointer : z.next_out = .ref (.blk ob) oo) (cursor : d.pending_out = d.pending_buf)
-    (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (bits : d.bi_valid.toInt = 0)
-    (ledger : SymbolLedger buf d xs) (clear : BlockInit.BlockClear d) (trace : Trace input 0 xs)
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some window)
-    (range : fillEnd d ≤ d.window_size.toNat) (balance : BlockBalance d xs 0)
-    (accounted : represented xs = origin + d.strstart.toNat)
-    (view : ∀ i, i < fillEnd d → bfn window i = input (origin + i))
-    (capacity : 63488 ≤ z.avail_out.toNat) :
-    ∃ produced after z' result written,
-      FLUSH_BLOCK_ONLY (some (.tab ds)) 1 h = .ok ((), after) ∧
-      DGood after r ds z' result ∧ StreamBuffers after r ∧ StreamAccounting z z' 0 produced ∧
-      ByteSizes h after ∧ OutputStorage h after r ds pb ob ∧ BlockInit.BlockClear result ∧
-      result.block_start = result.strstart.toUInt64.toInt64 ∧ result.pending.toNat = 0 ∧
-      result.bi_valid.toInt.toNat = 0 ∧ Bytes after z.next_out produced written ∧
-      ZlibF.Spec.Deflate.Valid (inputPrefix input (represented xs)) written := by
-  obtain ⟨produced, after, z', result, written, remaining, kind, body, padding, run, goodA, buffersA,
-    account, sizes, storage, clearA, _frequencies, position, _low, bytes, pendingA, drained, final, kindBound,
-    padBound, _padNone, storedPad, output, grammar⟩ :=
-    flush_block_only_publish good trees buffers positive pointer cursor memory pending (by rw [bits]; decide +kernel)
-      ledger clear trace win get range balance (by simpa only [Nat.zero_add] using accounted) view true
-  have drainedA := drained (by simpa only [ite_true, Nat.add_zero] using capacity)
-  have validZero := final rfl
-  have remainingZero := pending_bits_empty pendingA drainedA validZero
-  have before : Zlib.Trees.Proofs.Out.outBits buf d = [] := by
-    simp [Zlib.Trees.Proofs.Out.outBits, Zlib.Trees.Proofs.Out.bytesBits, Zlib.Trees.Proofs.Out.natBits, pending, bits]
-  rw [remainingZero, List.append_nil, before, List.nil_append] at output
-  have bodyGrammar := grammar padding (fun isStored => by rw [storedPad isStored]; rfl)
-  have accepted : ZlibF.Spec.Deflate.Valid (inputPrefix input (represented xs)) written :=
-    Zlib.Trees.Proofs.Out.terminal_block_valid (by omega) padBound output
-      (by simpa only [inputPrefix, List.range_zero, List.map_nil, Nat.zero_add] using bodyGrammar)
-  exact ⟨produced, after, z', result, written, run, goodA, buffersA, account, sizes, storage,
-    clearA, position, drainedA, validZero, bytes, accepted⟩
 
 end Zlib.Deflate.Engine.Proofs

@@ -14,14 +14,6 @@ open C Zlib.GzFs
 
 /-! ## The regular-file versions are pure -/
 
-theorem fsReadReg_pure (fd : Int32) (n : UInt64) (w : Fs) :
-    ∃ x, fsReadReg fd n w = (pure x : M ((Int64 × Array UInt8) × Fs)) := by
-  unfold fsReadReg
-  repeat' first
-    | exact ⟨_, rfl⟩
-    | split
-    | dsimp only
-
 theorem fsWriteReg_pure (fd : Int32) (bs : Array UInt8) (w : Fs) :
     ∃ x, fsWriteReg fd bs w = (pure x : M (Int64 × Fs)) := by
   unfold fsWriteReg
@@ -59,17 +51,6 @@ theorem fsOpenReg_pure (path : Array UInt8) (flags : Int32) (w : Fs) :
     | dsimp only
 
 /-! ## The oracle versions are pure, for every oracle value -/
-
-theorem fsRead_pure (fd : Int32) (n : UInt64) (w : Fs) :
-    ∃ x, fsRead fd n w = (pure x : M ((Int64 × Array UInt8) × Fs)) := by
-  unfold fsRead
-  dsimp only
-  split
-  · obtain ⟨⟨⟨r, bs⟩, w'⟩, hy⟩ := fsReadReg_pure fd (UInt64.ofNat (readCap fd n w)) (tickW w)
-    rw [hy]
-    exact ⟨_, rfl⟩
-  · exact ⟨_, rfl⟩
-  · exact ⟨_, rfl⟩
 
 theorem fsWrite_pure (fd : Int32) (bs : Array UInt8) (w : Fs) :
     ∃ x, fsWrite fd bs w = (pure x : M (Int64 × Fs)) := by
@@ -112,26 +93,6 @@ theorem fsOpen_pure (path : Array UInt8) (flags : Int32) (w : Fs) :
     exact ⟨_, rfl⟩
 
 /-! ## The regular instance -/
-
-/-- With a regular oracle entry and no budget, `read` is the regular-file read on the advanced world (a success
-may still be followed by an oracle errno, which `okErrW` applies). -/
-theorem fsRead_regular (fd : Int32) (n : UInt64) (w : Fs) (hc : w.readChoice w.nos = .regular)
-    (hb : readCap fd n w = n.toNat) :
-    fsRead fd n w = (do
-      let ((r, bs), w') ← fsReadReg fd n (tickW w)
-      pure ((r, bs), if r = -1 then w' else okErrW (w.okErrno w.nos) (debitW fd bs.size w'))) := by
-  unfold fsRead
-  dsimp only
-  rw [hc, hb, UInt64.ofNat_toNat]
-
-/-- With a regular oracle entry, `write` is the regular-file write on the advanced world. -/
-theorem fsWrite_regular (fd : Int32) (bs : Array UInt8) (w : Fs) (hc : w.writeChoice w.nos = .regular) :
-    fsWrite fd bs w = (do
-      let (r, w') ← fsWriteReg fd bs (tickW w)
-      pure (r, if r = -1 then w' else okErrW (w.okErrno w.nos) w')) := by
-  unfold fsWrite
-  dsimp only
-  rw [hc]
 
 /-- With a regular oracle entry, `lseek` is the regular-file `lseek` on the advanced world. -/
 theorem fsLseek_regular (fd : Int32) (off : Int64) (wh : Int32) (w : Fs) (hc : w.lseekChoice w.nos = .regular) :

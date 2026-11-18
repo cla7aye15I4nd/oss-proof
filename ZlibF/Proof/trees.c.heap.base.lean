@@ -303,9 +303,6 @@ theorem ws_getDl (k : TK) (i : Int) (h0' : 0 ≤ i) (h1 : i < (k.arr d).size) :
   have := index0_ok (tk_get (h0 := h0) (id := id) (d := d) k) h0' h1
   exact WS.of_eq (by simp only [bind_app, this]; rfl) ⟨rfl, rfl⟩
 
-/-- `tree[i]` with the fields `fc`, `dl` replaced. -/
-def CtData.withFc (e : CtData) (v : UInt16) : CtData := { e with fc := v }
-
 theorem ws_setFc (k : TK) (i : Int) (v : UInt16) (h0' : 0 ≤ i) (h1 : i < (k.arr d).size) :
     WS h0 id (setFc (Ptr.ref (k.ref id) 0) i v) d
       (fun _ d' => d' = k.setArr d ((k.arr d).set! i.toNat { (k.arr d)[i.toNat]! with fc := v })) := by

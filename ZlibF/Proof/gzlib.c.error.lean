@@ -126,9 +126,6 @@ theorem freeB_blk_setS {h : Heap} {mb : Nat} {a : Array UInt8} (ha : h.bytes mb 
     freeB (.ref (.blk mb) 0) (setS h gs s') = .ok ((), setS { h with bytes := upd h.bytes mb none } gs s') := by
   simp [freeB, setS, ha, hro]
 
-theorem record_msg_null {s : GzState} (hn : s.msg = .null) : { s with msg := .null } = s := by
-  cases s; simp_all
-
 /-- `gz_error(state, err, NULL)`: the old message is freed (the only change of the heap besides the record), the error
 code is `err` and there is no message. -/
 theorem gz_error_null_run {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) (e : Int32) :
@@ -162,25 +159,5 @@ theorem GzGood.afterReset {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs 
     (by unfold resetRec errNull; split <;> rfl) (by unfold resetRec errNull; split <;> rfl)
     (by intro _; unfold resetRec; split <;> rfl)
   simpa using h1
-
-/-- **gz_reset, safety and effect.** On a handle that satisfies the invariant the call does not fault; the old message
-block is the only block freed; the record is `resetRec s`. -/
-theorem gz_reset_safe {h : Heap} {gs : Nat} {s : GzState} (hG : GzGood h gs s) :
-    ∃ h', C.run (gz_reset (some (.tab gs))) h = .ok ((), h') ∧ h' = setS (freeStr h s.msg) gs (resetRec s) ∧
-      GzGood h' gs (resetRec s) ∧
-      (∀ S, h.Owns S → h'.Owns (fun b => S b ∧ s.msg ≠ .ref (.blk b) 0)) := by
-  refine ⟨_, gz_reset_run hG, rfl, GzGood.afterReset hG, ?_⟩
-  intro S hO
-  rcases hG.msg with hn | ⟨mb, hm, a, ha, hro, k, hz⟩
-  · simp only [hn, freeStr_null]
-    have := Shape.owns (shape_setS hG.hs (resetRec s)) hO
-    simpa [hn] using this
-  · rw [hm]; simp only [freeStr_blk]
-    have hO1 : ({ h with bytes := upd h.bytes mb none } : Heap).Owns (fun b => S b ∧ b ≠ mb) := by
-      intro b; rw [live_freeBytes hG.uniq ha b, hO b]
-    have := Shape.owns (shape_setS (h := ({ h with bytes := upd h.bytes mb none } : Heap)) (gs := gs) (s0 := s) hG.hs (resetRec s)) hO1
-    intro b
-    rw [this b]
-    simp [eq_comm]
 
 end Zlib.Gzlib.Proofs

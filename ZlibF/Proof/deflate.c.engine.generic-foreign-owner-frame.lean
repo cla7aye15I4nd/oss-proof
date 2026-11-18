@@ -4,12 +4,6 @@ namespace Zlib.Deflate.Engine.Proofs
 open C Zlib.Deflate Zlib.Deflate.Spec Zlib.Deflate.Proofs ZlibF.Spec.Public
 set_option autoImplicit false
 
-/-- An existing foreign depth owner cannot alias any allocation created at or beyond init's birth frontier. -/
-theorem foreign_depth_old_owner_disjoint {h : Heap} {owner created : Nat} {foreign : DeflateState}
-    (fresh : Fresh h) (get : h.dstates owner = some foreign) (new : h.nextBlk ≤ created) : owner ≠ created := by
-  have before := foreign_depth_owner_before_frontier fresh get
-  omega
-
 /-- A foreign-output BufferFrame preserves all owner fields except the depth bytes.
 The equality obtained by restoring depth records every remaining field at once. -/
 theorem buffer_frame_foreign_owner_fields {h after : Heap} {owner off n : Nat}

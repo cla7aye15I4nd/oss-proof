@@ -1,6 +1,7 @@
 import ZlibF.Proof.«deflate.c.borrow-stable-strategies»
 import ZlibF.Proof.«deflate.c.engine.fill-caller-storage»
-import ZlibF.Proof.«deflate.c.engine.content-refill»
+import ZlibF.Proof.«deflate.c.engine.content-boundary»
+import ZlibF.Proof.«deflate.c.engine.slow-refill»
 
 /-! # Real slow coding retains external storage and public caller buffers -/
 
@@ -22,23 +23,5 @@ theorem SlowIterationFrame.trans {a b c : DeflateState} (first : SlowIterationFr
     (second : SlowIterationFrame b c) : SlowIterationFrame a c := by
   unfold SlowIterationFrame at *
   rw [second, first]
-
-theorem iteration_frame_fill {d result : DeflateState} (frame : FillRecordFrame d result) :
-    SlowIterationFrame d result := by
-  unfold FillRecordFrame at frame
-  unfold SlowIterationFrame
-  rw [frame]
-
-theorem iteration_frame_slow {d result : DeflateState} (frame : SlowRecordFrame d result) :
-    SlowIterationFrame d result := by
-  unfold SlowRecordFrame at frame
-  unfold SlowIterationFrame
-  rw [frame]
-
-theorem fill_owned_frame {d result : DeflateState} (frame : FillRecordFrame d result) (ds : Nat) :
-    DeflateOwned ds result = DeflateOwned ds d := by
-  unfold FillRecordFrame at frame
-  rw [frame]
-  rfl
 
 end Zlib.Deflate.Engine.Proofs

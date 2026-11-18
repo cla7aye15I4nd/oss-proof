@@ -26,12 +26,6 @@ theorem static_end_block {h : Heap} (hs : TreesStatic h.static) :
 
 theorem tr_flush_bits_eq (s : DeflateStatePtr) : «_tr_flush_bits» s = bi_flush s := rfl
 
-/-- **`_tr_flush_bits`, safety and specification** (it is `bi_flush`). -/
-theorem tr_flush_bits_emit {h : Heap} {id : Nat} {d : DeflateState} {b : Nat} {buf : Array UInt8}
-    (hI : TreesInvAt h id d b buf) (hroom : 8 * d.pending.toNat + d.bi_valid.toInt.toNat ≤ 8 * buf.size) :
-    Emit id b («_tr_flush_bits» (some (.tab id))) h d buf [] 2 :=
-  bi_flush_emit hI hroom
-
 theorem v16_static_trees : v16 (STATIC_TREES <<< 1) = 2 := by decide
 
 /-- **`_tr_align`, safety and specification.** `_tr_align(s)` appends the empty static block to the output: the 3

@@ -70,21 +70,6 @@ def copyTail (dest source : ZStreamPtr) (ss ds : DeflateStatePtr) (dd : DeflateS
     wr ds (fun d => { d with l_desc := { d.l_desc with dyn_tree := .ref (.dstate_dyn_ltree id) 0 }, d_desc := { d.d_desc with dyn_tree := .ref (.dstate_dyn_dtree id) 0 }, bl_desc := { d.bl_desc with dyn_tree := .ref (.dstate_bl_tree id) 0 } })
   return Z_OK
 
-/-- The null test and the cleanup after the buffer requests. -/
-def copyFinish (dest source : ZStreamPtr) (ss ds : DeflateStatePtr) (dd : DeflateState)
-    (ps : BPtr × WPtr × WPtr × BPtr) : M Int32 := do
-  let (window, prev, head, pending_buf) := ps
-  if window == .null || prev == .null || head == .null || pending_buf == .null then
-    if pending_buf != .null then ZFREE_bytes source pending_buf
-    if head != .null then ZFREE_words source head
-    if prev != .null then ZFREE_words source prev
-    if window != .null then ZFREE_bytes source window
-    zfree_default source
-    freeDeflateState ds
-    zwr dest (fun z => { z with state := none })
-    return Z_MEM_ERROR
-  copyTail dest source ss ds dd window prev head pending_buf
-
 /-! ## Results other than `Z_OK` -/
 
 /-- A computation that never returns `Z_OK`. -/
@@ -199,18 +184,6 @@ theorem chains_copy {h1 p1 h2 p2 : Nat → UInt16} {w1 w2 : Nat → UInt8} {n hs
   refine ⟨a1, a2, ?_, by rw [prevs _ (slots _ a1)]; exact a4⟩
   rw [hkey_congr (w := w1) (p := p) (fun j hj => win _ (by omega))]
   exact a3
-
-/-- The slot of a position below `cnt`, for both values of `cnt`. -/
-theorem copy_slots {ws strstart insert top b : Nat} (pow : ws = 2 ^ b) (slid : Bool)
-    (le : top ≤ strstart - insert) :
-    ∀ p, p < top → p &&& (ws - 1) <
-      (if slid ∨ ws < strstart - insert then ws else strstart - insert) := by
-  intro p hp
-  have mod : p &&& (ws - 1) = p % ws := by rw [pow, Nat.and_two_pow_sub_one_eq_mod]
-  rw [mod]
-  split
-  · exact Nat.mod_lt _ (by rw [pow]; exact Nat.two_pow_pos b)
-  · have := Nat.mod_le p ws; omega
 
 /-! ## From `Z_OK` to the success path -/
 
@@ -450,11 +423,6 @@ theorem getD_copy_in {T : Type} [Inhabited T] (a s : Array T) (o n i : Nat) (z0 
   simp only [Array.getD_eq_getD_getElem?, getElem?_copyRange _ _ _ _ _ _ ha, ite_eq_left (And.intro hi1 hi2), e,
     Array.getElem?_eq_getElem (show i < s.size by omega), Option.getD_some]
   all_goals exact getElem!_pos s i (by omega)
-
-theorem getD_copy_out {T : Type} [Inhabited T] (a s : Array T) (o n i : Nat) (z0 : T)
-    (hi : i < o ∨ o + n ≤ i) (ha : o + n ≤ a.size) :
-    (copyRange a s o o n).getD i z0 = a.getD i z0 := by
-  simp only [Array.getD_eq_getD_getElem?, getElem?_copyRange _ _ _ _ _ _ ha, ite_eq_right (show ¬ (o ≤ i ∧ i < o + n) by omega)]
 
 theorem get_setB' (X : Heap) (r : ZStreamRef) (b : Nat) (a : Array UInt8) : r.get (setB X b a) = r.get X := by
   cases r <;> rfl

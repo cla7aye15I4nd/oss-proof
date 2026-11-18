@@ -194,15 +194,6 @@ def upd (s : Locals) (b : UInt8) : Locals :=
 def updL (s : Locals) (bs : List UInt8) : Locals :=
   { s with adler := (bs.foldl acc (s.adler, s.sum2)).1, sum2 := (bs.foldl acc (s.adler, s.sum2)).2 }
 
-theorem updL_nil (s : Locals) : updL s [] = s := rfl
-
-theorem updL_cons (s : Locals) (b : UInt8) (bs : List UInt8) :
-    updL s (b :: bs) = updL (upd s b) bs := rfl
-
-theorem updL_append (s : Locals) (xs ys : List UInt8) :
-    updL s (xs ++ ys) = updL (updL s xs) ys := by
-  simp [updL, List.foldl_append]
-
 variable {h : Heap} {blk : Nat} {bytes : Array UInt8}
 
 theorem getElem_eq_bang (bytes : Array UInt8) (i : Nat) (hi : i < bytes.size) :
@@ -743,18 +734,6 @@ theorem adler32_z_one (hb : h.bytes blk = some bytes) (a : UInt64) (off : Nat)
       · rw [hx]; simp only [sums, List.foldl, step, Spec.BASE]; omega
       · rw [hy]; simp only [sums, List.foldl, step, Spec.BASE]; omega
 
-/-- `len == 1` is safe for every initial value (no validity needed). -/
-theorem adler32_z_one_safe (hb : h.bytes blk = some bytes) (a : UInt64) (off : Nat)
-    (hfit : off + 1 ≤ bytes.size) :
-    ∃ r, OkOn h (adler32_z a (.ref (.blk blk) off) (1 : Nat).toUInt64) r ∧ True := by
-  unfold adler32_z
-  rw [ite_eq_left (by decide)]
-  refine OkOn.bind_ex (index8_ok (i := 0) hb (by omega : off + 0 < bytes.size)).bind_ex_pure ?_
-  intro b _
-  dsimp only
-  split <;> split <;> exact ⟨_, OkOn.pure _ _, trivial⟩
-
-
 end Zlib.Adler32.Proofs
 
 namespace Zlib.Adler32.Proofs
@@ -804,16 +783,6 @@ theorem adler32_z_correct_ne_one (h : Heap) (blk : Nat) (bytes : Array UInt8)
   · exact adler32_z_short hb a off L hfit h16 h1
   · exact adler32_z_long hb a off L hfit hL (by omega)
 
-/-- **Safety.** For every initial value, `adler32_z` on an in-bounds buffer
-terminates without undefined behavior and leaves the heap unchanged. -/
-theorem adler32_z_safe (h : Heap) (blk : Nat) (bytes : Array UInt8)
-    (hb : h.bytes blk = some bytes) (a : UInt64) (off L : Nat)
-    (hfit : off + L ≤ bytes.size) (hL : L < 2 ^ 64) :
-    ∃ r, C.run (adler32_z a (.ref (.blk blk) off) L.toUInt64) h = .ok (r, h) := by
-  by_cases h1 : L = 1
-  · subst h1; obtain ⟨r, hr, -⟩ := adler32_z_one_safe hb a off hfit; exact ⟨r, hr⟩
-  · obtain ⟨r, hr, -⟩ := adler32_z_correct_ne_one h blk bytes hb a off L hfit hL h1; exact ⟨r, hr⟩
-
 end Zlib.Adler32.Proofs
 
 namespace Zlib.Adler32.Proofs
@@ -830,9 +799,6 @@ theorem len2_rem (x : Int64) (h0 : 0 ≤ x) :
   rw [UInt32.toNat_toUInt64, UInt64.toNat_toUInt32, Int64.toNat_toUInt64_of_le hm0,
     ← Int64.toNat_toInt, hm, Int.tmod_eq_emod_of_nonneg hx]
   omega
-
-theorem toNat_sub' (x y : UInt64) : (x - y).toNat = (x.toNat + (2 ^ 64 - y.toNat)) % 2 ^ 64 := by
-  rw [UInt64.toNat_sub]; have := y.toNat_lt; omega
 
 /-- `if (x >= c) x -= c;` -/
 def csub (x c : UInt64) : UInt64 := if x ≥ c then x - c else x
@@ -947,76 +913,16 @@ theorem adler32_combine_safe (a1 a2 : UInt64) (len2 : Int64) :
     repeat' split
     all_goals exact ⟨_, OkOn.pure _ _⟩
 
-/-- **Combination theorem.** For byte strings `A` and `B` (with `|B| < 2^63`),
-`adler32_combine64(adler32(A), adler32(B), |B|) = adler32(A ++ B)`, where
-`adler32` starts from the conventional initial value 1. -/
-theorem adler32_combine_correct (A B : List UInt8) (hB : B.length < 2 ^ 63) :
-    ∃ r, OkOn h (adler32_combine64 (Spec.adler32 1 A).toUInt64 (Spec.adler32 1 B).toUInt64
-        (Int64.ofNat B.length)) r ∧ r.toNat = Spec.adler32 1 (A ++ B) := by
-  have hx := sums_lt 1 0 A (by decide) (by decide)
-  have hy := sums_lt 1 0 B (by decide) (by decide)
-  simp only [Spec.BASE] at hx hy
-  have e1 : Spec.adler32 1 A = (sums 1 0 A).1 + 65536 * (sums 1 0 A).2 := rfl
-  have e2 : Spec.adler32 1 B = (sums 1 0 B).1 + 65536 * (sums 1 0 B).2 := rfl
-  have e3 : Spec.adler32 1 (A ++ B) = (sums 1 0 (A ++ B)).1 + 65536 * (sums 1 0 (A ++ B)).2 := rfl
-  obtain ⟨l1, h1⟩ := halves (sums 1 0 A) hx.1 hx.2
-  obtain ⟨l2, h2⟩ := halves (sums 1 0 B) hy.1 hy.2
-  have hlen0 : (0 : Int64) ≤ Int64.ofNat B.length := by
-    rw [Int64.le_iff_toInt_le, Int64.toInt_ofNat_of_lt (by omega : B.length < 2 ^ 63)]
-    exact Int.natCast_nonneg _
-  have hlen : (Int64.ofNat B.length).toInt.toNat = B.length := by
-    rw [Int64.toInt_ofNat_of_lt (by omega)]; simp
-  rw [e1, e2] at *
-  obtain ⟨r, hr, hv⟩ := combine_value (h := h) _ _ _ hlen0 (by rw [l1]; exact hx.1) (by rw [h1]; exact hx.2)
-    (by rw [l2]; exact hy.1) (by rw [h2]; exact hy.2)
-  refine ⟨r, hr, ?_⟩
-  rw [hv, l1, h1, l2, h2, hlen, e3, sums_combine]
-  simp only [Spec.BASE]
-
-/-- `adler32_combine64` is `adler32_combine_`: it never faults. -/
-theorem adler32_combine64_safe (a1 a2 : UInt64) (len2 : Int64) :
-    ∃ r, OkOn h (adler32_combine64 a1 a2 len2) r := by
-  exact adler32_combine_safe a1 a2 len2
-
 /-- `adler32_combine` is `adler32_combine_`: it never faults. -/
 theorem adler32_combine_c_safe (a1 a2 : UInt64) (len2 : Int64) :
     ∃ r, OkOn h (adler32_combine a1 a2 len2) r := by
   exact adler32_combine_safe a1 a2 len2
-
-/-- `adler32` is `adler32_z` with a 32-bit length: it never faults on an in-bounds buffer. -/
-theorem adler32_safe (h : Heap) (blk : Nat) (bytes : Array UInt8)
-    (hb : h.bytes blk = some bytes) (a : UInt64) (off L : Nat)
-    (hfit : off + L ≤ bytes.size) (hL : L < 2 ^ 32) :
-    ∃ r, C.run (adler32 a (.ref (.blk blk) off) L.toUInt32) h = .ok (r, h) := by
-  have hL' : L < 2 ^ 64 := by omega
-  have e : L.toUInt32.toUInt64 = L.toUInt64 := by
-    apply UInt64.toNat_inj.mp
-    simp [Nat.mod_eq_of_lt hL, Nat.mod_eq_of_lt hL']
-  unfold adler32
-  rw [e]
-  exact adler32_z_safe h blk bytes hb a off L hfit hL'
 
 end Zlib.Adler32.Proofs
 
 
 namespace Zlib.Adler32.Proofs
 open C Zlib.Adler32
-
-/-- Result value of a run, if it returns. -/
-def resultOf {α} (r : Except Fault (α × Heap)) : Option α :=
-  match r with
-  | .ok (x, _) => some x
-  | .error _ => none
-
-/-- The `hvalid` precondition of `adler32_z_correct` is necessary: with initial
-value `0xFFFFFFF0` (high half 65535, not canonical) and the single byte 0, the
-C code subtracts BASE only once and returns `sum2 = 65534`, while the Adler-32
-spec gives 13. -/
-theorem adler32_z_one_noncanonical :
-    resultOf (C.run (adler32_z 0xFFFFFFF0 (.ref (.blk 0) 0) 1) { Heap.empty with bytes := C.upd Tbl.empty 0 (some #[0]) }) =
-      some (65520 + 65536 * 65534) ∧
-    Spec.adler32 (0xFFFFFFF0 : UInt64).toNat [0] = 65520 + 65536 * 13 := by
-  constructor <;> decide
 
 end Zlib.Adler32.Proofs
 

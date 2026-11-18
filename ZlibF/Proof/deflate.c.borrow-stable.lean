@@ -106,17 +106,4 @@ theorem stable_deflate (p : ZStreamPtr) (flush : Int32) : StableM (deflate p flu
   unfold deflate
   repeat' first | public_borrow_join | public_borrow_head
 
-/-- The view receipt is obtained from this very actual returned run. No
-caller promise about a persistent literal or a volatile borrow is needed. -/
-theorem deflate_run_borrow_stable {h after : Heap} {p : ZStreamPtr} {flush rc : Int32}
-    (run : deflate p flush h = .ok (rc, after)) (ref : BRef) : BorrowStable h after ref :=
-  StableM.view (stable_deflate p flush) run ref
-
-/-- Source literals and volatile errno-text views both keep their current
-bytes during an actual deflate call. Arbitrary caller edits are not covered. -/
-theorem deflate_run_string_get {h after : Heap} {p : ZStreamPtr} {flush rc : Int32}
-    (run : deflate p flush h = .ok (rc, after)) (i : Nat) :
-    Space.get after (BRef.str i) = Space.get h (BRef.str i) :=
-  str_view_stable (deflate_run_borrow_stable run (.str i))
-
 end Zlib.Deflate.BorrowProofs

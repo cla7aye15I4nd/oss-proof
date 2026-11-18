@@ -48,22 +48,4 @@ theorem default_stored_length {h : Heap} {ds pb : Nat}
   rw [ite_eq_left (show -9223372036854775808 ≤ (d.strstart.toNat : Int) - d.block_start.toInt ∧
     (d.strstart.toNat : Int) - d.block_start.toInt ≤ 9223372036854775807 by omega)]
 
-/-- On the real signed length calculation, selecting stored implies
-enough pending room. No caller-supplied length or non-wrapping cost premise
-is needed beyond the actual block balance and original ledger. -/
-theorem default_stored_position_room {h : Heap} {ds pb : Nat}
-    {d prepared : DeflateState} {buf : Array UInt8} {xs : List Symbol} {credit : Int}
-    (trees : TreesInvAt h ds d pb buf) (ledger : SymbolLedger buf d xs)
-    (memory : d.lit_bufsize.toNat = 16384) (count : d.sym_next.toNat ≤ d.sym_end.toNat)
-    (balance : BlockBalance d xs credit) (lo : 0 ≤ credit) (hi : credit ≤ 1)
-    (budget : prepared.static_len.toNat ≤ 31 * xs.length + 7)
-    (selected : (Int64.ofInt ((d.strstart.toNat : Int) - d.block_start.toInt)).toUInt64 + (4 : UInt64) ≤
-      ZlibF.Math.DeflateSelection.selectedCost (((prepared.opt_len + 3 + 7) >>> 3))
-        (((prepared.static_len + 3 + 7) >>> 3)) (prepared.strategy == Z_FIXED)) :
-    ((d.strstart.toNat : Int) - d.block_start.toInt).toNat + 6 ≤ 63488 := by
-  have length := default_stored_length trees ledger memory count balance lo hi
-  have room := default_stored_selection_room trees ledger memory count budget length.2.2 selected
-  rw [length.2.1] at room
-  exact room
-
 end Zlib.Deflate.Engine.Proofs

@@ -37,18 +37,4 @@ theorem default_initialization_pending_boundary {h : Heap} {r : ZStreamRef} {z :
   · simpa only [start.insert, show (0 : UInt32).toNat = 0 from rfl, Nat.sub_zero] using boundary.chains
 
 open ZlibF.Spec.Public.Proofs.DeflateInit in
-/-- The strengthened boundary is inhabited by an actual successful
-default entry on the existing concrete caller heap. -/
-theorem default_pending_boundary_witness :
-    ∃ after zf sf,
-      C.run (deflateInit_ (some (.tab 0)) Z_DEFAULT_COMPRESSION (.ref (.blk 1) 0) 112)
-        witnessHeap = .ok (Z_OK, after) ∧
-      PendingBoundary after (.tab 0) 2 zf sf (fun _ => 0) 0 [] := by
-  obtain ⟨after, zf, sf, run, _, boundary, _, _⟩ :=
-    default_initialization_pending_boundary (h := witnessHeap) (r := .tab 0) (z := default)
-      (version := .ref (.blk 1) 0) (level := Z_DEFAULT_COMPRESSION) (p := settings 6)
-      witness_fresh witness_uniq rfl (by simp [ZStreamRef.get, witnessHeap])
-      ⟨Or.inl rfl, Or.inl rfl⟩ witness_version (by decide +kernel) (by intro _ _; rfl) (fun _ => 0)
-  exact ⟨after, zf, sf, run, boundary⟩
-
 end Zlib.Deflate.Engine.Proofs

@@ -324,13 +324,4 @@ def Call.execute : (call : Call) → G call.Result
   | .zlibCompileFlags => heapCall (Zlib.Zutil.zlibCompileFlags)
   | .zlibVersion => heapCall (Zlib.Zutil.zlibVersion)
 
-/-- A concrete total-correctness schema. Final goals must fix `pre` and `post` in
-reviewed definitions and establish their domain from init. This schema is not itself
-a completed per-function contract. Successful execution is required explicitly. -/
-def Correct (call : Call) (pre : Heap → Fs → Prop)
-    (post : Heap → Fs → call.Result → Heap → Fs → Prop) : Prop :=
-  ∀ before fs, pre before fs → ∃ value after fs',
-    call.execute fs before = .ok ((value, fs'), after) ∧
-    post before fs value after fs'
-
 end ZlibF.Spec.Public

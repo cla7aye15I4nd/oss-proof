@@ -112,18 +112,6 @@ def GzErrorOwn : Prop :=
     C.run (Zlib.Gzlib.gz_error (gzSt i) err msg) h = .ok ((), after) →
     ∀ s', after.gzstates i = some s' → ∀ b, GzOwned after i s' b → h.live b → GzOwned h i s b
 
-/-- The statement of `gz_look`, strengthened by two clauses that `gzungetc` needs:
-- after the call, no buffers means a serious error (`gz_look` fails only with `Z_MEM_ERROR`), so the refusal
-  `size == 0` of `gzungetc` fires;
-- the read budget of the descriptor stays finite (M7 is kept for the `gz_skip` that may follow).
-The post is over `GzInvUpToSkip`: in COPY mode `gz_look` may buffer output while a skip is pending. -/
-def GzLookSpec' : Prop :=
-  ∀ (i : Nat) (h : Heap) (fs : Fs) (s : GzState), GzInv h i s → FileSystem fs → s.mode = GZ_READ → s.x.have = 0 →
-    RunSafe (Zlib.Gzread.gz_look (gzSt i)) fs h True fun r fs' after =>
-      (r = 0 ∨ r = -1) ∧ FdsKept fs fs' ∧ GzPost h i s [] fs' after GzInvUpToSkip ∧
-      (∀ s', after.gzstates i = some s' → s'.size = 0 → s'.err ≠ Z_OK ∧ s'.err ≠ Z_BUF_ERROR) ∧
-      (ReadsFinite fs s.fd → ReadsFinite fs' s.fd)
-
 /-- The statement of `gz_read` (`GzRead.gzReadSpec_of` derives it from `GzReadSafe`). -/
 def GzReadSpec : Prop :=
   ∀ (i : Nat) (buf : BPtr) (len : UInt64) (h : Heap) (fs : Fs) (s : GzState), GzInv h i s → FileSystem fs →

@@ -61,16 +61,6 @@ theorem gzread_eq (i : Nat) (buf : BPtr) (len : UInt32) :
 
 /-! ## Steps -/
 
-theorem toInt32_neg {x : UInt32} (hx : x.toInt32 < 0) : 2 ^ 31 ≤ x.toNat := by
-  refine Classical.byContradiction fun hn => ?_
-  have h1 : x.toInt32.toInt = x.toBitVec.toInt := rfl
-  rw [BitVec.toInt_eq_toNat_cond] at h1
-  have h2 : x.toBitVec.toNat = x.toNat := rfl
-  rw [h2] at h1
-  have h3 := Int32.lt_iff_toInt_lt.mp hx
-  rw [show (0 : Int32).toInt = 0 from rfl] at h3
-  split at h1 <;> omega
-
 /-- The post-condition of the call. -/
 def RdPost (i : Nat) (h : Heap) (s : GzState) (fs : Fs) (buf : BPtr) (len : UInt32) :
     Int32 → Fs → Heap → Prop :=

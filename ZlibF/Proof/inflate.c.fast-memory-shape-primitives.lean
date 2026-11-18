@@ -40,9 +40,6 @@ theorem fastMemoryMetaFrameM_ptr_lt [DecidableEq R] (r : ZStreamRef) (p q : Ptr 
   unfold Ptr.lt at run
   repeat' first | split at run | (cases run <;> rfl)
 
-theorem fastMemoryMetaFrameM_ptr_le [DecidableEq R] (r : ZStreamRef) (p q : Ptr R) : FastMemoryMetaFrameM r (p.le q) :=
-  fastMemoryMetaFrameM_bind (fastMemoryMetaFrameM_ptr_lt r q p) (fun _ => fastMemoryMetaFrameM_pure r _)
-
 /-- A typed store retains allocation metadata whenever writes to that
 array space do. The concrete byte/word/code spaces discharge this rule. -/
 theorem fastMemoryMetaFrameM_ptr_store (r : ZStreamRef) (p : Ptr R) (value : T)

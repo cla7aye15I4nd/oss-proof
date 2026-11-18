@@ -92,20 +92,4 @@ theorem fast_continuing_table_views
   exact ⟨by rw [byte_view_put_code]; exact lenGet,
     by rw [byte_view_put_code]; exact distGet⟩
 
-/-- Output progress is a strict loop measure and the current distance to
-the output limit fits the translated loop's fuel budget. -/
-theorem fast_remaining_output_measure
-    {slow : IL} {oo j next : Nat}
-    (current : oo ≤ j)
-    (progress : oo + slow.left.toNat - next <
-      oo + slow.left.toNat - j) :
-    oo + slow.left.toNat - next <
-        oo + slow.left.toNat - j ∧
-      oo + slow.left.toNat - j < fuel := by
-  have width := UInt32.toNat_lt slow.left
-  constructor
-  · exact progress
-  · apply Zlib.Inffast.Proofs.lt_fuel_of
-    omega
-
 end Zlib.Inflate.Proofs

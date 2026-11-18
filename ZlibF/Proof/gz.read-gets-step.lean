@@ -26,10 +26,6 @@ theorem get_setS_ref (H : Heap) (j : Nat) (t : GzState) (r : BRef) :
     Space.get (setS H j t) r = Space.get H r := by
   cases r <;> rfl
 
-theorem ro_setS_ref (H : Heap) (j : Nat) (t : GzState) (r : BRef) :
-    Space.ro (setS H j t) r = Space.ro H r := by
-  cases r <;> rfl
-
 theorem get_put_blk_ne (H : Heap) (r : BRef) (arr : Array UInt8) {b : Nat} (hne : r ≠ BRef.blk b) :
     Space.get (Space.put H r arr) (BRef.blk b) = Space.get H (BRef.blk b) := by
   cases r with
@@ -42,9 +38,6 @@ theorem get_put_blk_ne (H : Heap) (r : BRef) (arr : Array UInt8) {b : Nat} (hne 
       | some s => { H with dstates := upd H.dstates c (some { s with depth := arr }) } | none => H) (BRef.blk b) = _
     cases H.dstates c <;> rfl
   | _ => rfl
-
-theorem byteRoot_off (r : BRef) (o1 o2 b : Nat) : ByteRoot (.ref r o1) b ↔ ByteRoot (.ref r o2) b := by
-  cases r <;> exact Iff.rfl
 
 /-! ## The copy step -/
 
@@ -279,7 +272,7 @@ theorem lit_posov (h : Heap) : ∃ p, strLit "position overflow" h = .ok (p, h) 
     (by decide +kernel) (by decide +kernel) (by decide) (by decide) h
   exact ⟨p, hp, ⟨_, ht⟩, hr⟩
 
-/-- **The trip at the largest position**: after a fetch at `x.pos = GZ_OFF_MAX` (patch 0004 loads one byte to see
+/-- **The trip at the largest position**: after a fetch at `x.pos = GZ_OFF_MAX` (patch 0003 loads one byte to see
 the end of the input), `gz_room` gives `0`, the buffered output is dropped and `"position overflow"` is recorded.
 `h1` is the heap before the fetch (a reader in `GzInv`), `post` the fetch's post-condition. -/
 theorem getsRest_max {E : GetsEnv} (C : GetsCaller E) {fs fs2 : Fs} {h h2 : Heap} {s s2 : GzState}

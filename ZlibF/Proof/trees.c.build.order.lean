@@ -18,69 +18,6 @@ def btSortedStart (s : DeflateStatePtr) (desc : TreeDescPtr) :
   btOrder s desc tree mc
   pure (tree, stree, elems, mc)
 
-/-- The current source suffix after descriptor storage and heapify. -/
-def btAfterOrder (s : DeflateStatePtr) (desc : TreeDescPtr) (tree : CtDataPtr)
-    (elems max_code : Int32) : M Unit := do
-  -- node = elems;
-  -- do { ... } while (s->heap_len >= 2);
-  let _ ← cdoWhile (σ := Int32)
-    (fun node => do
-      -- pqremove(s, tree, n);  m = s->heap[SMALLEST];
-      let n ← pqremove s tree
-      let m ← heapAt s 1
-      -- s->heap[--(s->heap_max)] = n;  s->heap[--(s->heap_max)] = m;
-      let hm ← isub (← rd s).heap_max 1
-      md s fun d => { d with heap_max := hm }
-      heapSet s hm n
-      let hm ← isub (← rd s).heap_max 1
-      md s fun d => { d with heap_max := hm }
-      heapSet s hm m
-      -- tree[node].Freq = tree[n].Freq + tree[m].Freq;
-      let fn ← getFc tree n.toInt
-      let fm ← getFc tree m.toInt
-      setFc tree node.toInt (fn + fm)
-      -- s->depth[node] = (uch)((s->depth[n] >= s->depth[m] ? s->depth[n] : s->depth[m]) + 1);
-      let dp ← pDepth s
-      let dn ← Ptr.index dp n.toInt
-      let dm ← Ptr.index dp m.toInt
-      let mx ← if dn ≥ dm then Ptr.index dp n.toInt else Ptr.index dp m.toInt
-      setAt dp node.toInt (mx + 1)
-      -- tree[n].Dad = tree[m].Dad = (ush)node;
-      setDl tree m.toInt (i2us node)
-      setDl tree n.toInt (i2us node)
-      -- s->heap[SMALLEST] = node++;
-      heapSet s 1 node
-      let node' ← iadd node 1
-      pqdownheap s tree 1
-      pure node')
-    (fun node => do pure (decide ((← rd s).heap_len.toInt ≥ 2), node))
-    elems
-  -- s->heap[--(s->heap_max)] = s->heap[SMALLEST];
-  let top ← heapAt s 1
-  let hm ← isub (← rd s).heap_max 1
-  md s fun d => { d with heap_max := hm }
-  heapSet s hm top
-  -- gen_bitlen(s, (tree_desc *)desc);
-  gen_bitlen s desc
-  -- gen_codes ((ct_data *)tree, max_code, s->bl_count);
-  gen_codes tree max_code (← pBlCount s)
-
-/-- The actual leaf suffix begins with the named descriptor/heapify code. -/
-theorem btAfterLeaves_eq_order (s : DeflateStatePtr) (desc : TreeDescPtr)
-    (tree : CtDataPtr) (elems mc : Int32) :
-    btAfterLeaves s desc tree elems mc = (do
-      btOrder s desc tree mc
-      btAfterOrder s desc tree elems mc) := by
-  simp only [btAfterLeaves, btOrder, btHeapify, btAfterOrder, M_bind_assoc, M_pure_bind] <;> rfl
-
-/-- Complete actual-function equality retains the whole ordered prefix. -/
-theorem build_tree_eq_order (s : DeflateStatePtr) (desc : TreeDescPtr) :
-    build_tree s desc = (do
-      let (tree, _stree, elems, mc) ← btSortedStart s desc
-      btAfterOrder s desc tree elems mc) := by
-  rw [build_tree_eq_leaves]
-  simp only [btSortedStart, M_bind_assoc, M_pure_bind, btAfterLeaves_eq_order] <;> rfl
-
 /-- The actual scan invariant retains the sizes of the two arrays needed
 for internal-node creation. -/
 theorem BTScanInv.merge_sizes {tk : TK} {d e : DeflateState} {N : Nat} {mc : Int32}

@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inflate.c.default-view-loop»
-import ZlibF.Proof.«inflate.c.pending-entry»
+import ZlibF.Proof.«inflate.c.pending-dispatch»
+import ZlibF.Proof.«inflate.c.dispatch-entry»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public

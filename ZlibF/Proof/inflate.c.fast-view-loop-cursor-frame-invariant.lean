@@ -1,4 +1,5 @@
-import ZlibF.Proof.«inflate.c.fast-view-body-rank-frame-invariant»
+import ZlibF.Proof.«inflate.c.fast-view-body-frame-invariant»
+import ZlibF.Proof.«inflate.c.fast-view-body-rank-invariant»
 import ZlibF.Proof.«inflate.c.fast-view-entry-six-invariant»
 
 namespace Zlib.Inflate.Proofs

@@ -4,19 +4,18 @@ import ZlibF.Zlib.«inflate.c»
 /-!
 # gzread.c — faithful translation
 
-Source: `gzread.c` of the verified source (with `patches/0003-gzread-partial-copy-read-error.patch` and
-`patches/0004-gzread-position-overflow.patch`), default x86_64 Linux build (`errno`, `EAGAIN == EWOULDBLOCK`,
+Source: `gzread.c` of the verified source (with patch 0003, gzread stale next and position overflow), default x86_64 Linux build (`errno`, `EAGAIN == EWOULDBLOCK`,
 `STDC`). Reads go through `Zlib.GzFs`.
 
-Patch 0004 (local, F-1): `gz_room` bounds what `gz_look`'s COPY branch buffers, what `gz_fetch` loads and what
+Patch 0003: `gz_room` bounds what `gz_look`'s COPY branch buffers, what `gz_fetch` loads and what
 `gz_read` and `gzgets` deliver, so that `x.pos` never passes `GZ_OFF_MAX`; data beyond it gives `Z_DATA_ERROR`
 "position overflow".
 
-`gz_fetch`, `case COPY` follows the patched C (R-2, upstream PR 1363, applied as patch 0003): `x.next = out` is set
+`gz_fetch`, `case COPY` follows the patched C (patch 0003): `x.next = out` is set
 before `gz_load`, so a failing `read` that returned some bytes leaves `x.have != 0` with `x.next` at the new bytes.
 
-`gz_read` leaves `x.next` pointing into the user's buffer after a direct decompression (R-4), and `gz_reset` never
-writes it (R-3). `gz_skip_have` and `gzseek64` then add zero to it, which the runtime accepts for any pointer
+`gz_read` leaves `x.next` pointing into the user's buffer after a direct decompression, and `gz_reset` never
+writes it. `gz_skip_have` and `gzseek64` then add zero to it, which the runtime accepts for any pointer
 (`Ptr.add`).
 
 Decisions: `unsigned *have` of `gz_load` is returned (the caller stores it right after the call; nothing in `gz_load`
@@ -104,7 +103,7 @@ def gz_avail (state : GzStatePtr) : G Int32 := do
     updZ strm fun z => { z with avail_in := z.avail_in + got, next_in := s.«in» }
   return 0
 
-/-- `local unsigned gz_room(gz_statep state, unsigned max)` (patch 0004). `GZ_OFF_MAX - state->x.pos < max`
+/-- `local unsigned gz_room(gz_statep state, unsigned max)` (patch 0003). `GZ_OFF_MAX - state->x.pos < max`
 compares in `z_off64_t` (the `unsigned` operand converts to `long`). -/
 def gz_room (state : GzStatePtr) (max : UInt32) : M UInt32 := do
   -- if (state->x.pos > 0 && GZ_OFF_MAX - state->x.pos < max) return (unsigned)(GZ_OFF_MAX - state->x.pos);
@@ -180,10 +179,10 @@ def gz_look (state : GzStatePtr) : G Int32 := do
   let s ← ldS state
   updX state fun x => { x with next := s.out }
   memcpyB s.out z.next_in z.avail_in.toNat
-  -- state->x.have = gz_room(state, strm->avail_in);   (patch 0004)
+  -- state->x.have = gz_room(state, strm->avail_in);   (patch 0003)
   let room ← gz_room state z.avail_in
   updX state fun x => { x with «have» := room }
-  -- if (state->x.have < strm->avail_in) gz_error(state, Z_DATA_ERROR, "position overflow");   (patch 0004)
+  -- if (state->x.have < strm->avail_in) gz_error(state, Z_DATA_ERROR, "position overflow");   (patch 0003)
   if (← ldS state).x.«have» < (← ldZ strm).avail_in then
     gz_error state Z_DATA_ERROR (← strLit "position overflow")
   -- strm->avail_in = 0; state->how = COPY; return 0;
@@ -250,7 +249,7 @@ def gz_decomp (state : GzStatePtr) : G Int32 := do
   -- return ret != Z_OK ? -1 : 0;
   return if ret != Z_OK then -1 else 0
 
-/-- `local int gz_fetch(gz_statep state)`. With patches 0003 (upstream PR 1363) and 0004, see the file comment. The
+/-- `local int gz_fetch(gz_statep state)`. With patch 0003, see the file comment. The
 control tag of the loop is the result (`some r`: return `r`). The local `unsigned room` is assigned before each
 read. -/
 def gz_fetch (state : GzStatePtr) : G Int32 := do
@@ -301,7 +300,7 @@ def gz_fetch (state : GzStatePtr) : G Int32 := do
   return r.getD 0
 
 /-- `local void gz_skip_have(gz_statep state)`. `x.next += n` with `n = 0` on a never-written or dangling `x.next`
-(R-3, R-4) is accepted by the runtime. -/
+is accepted by the runtime. -/
 def gz_skip_have (state : GzStatePtr) : M Unit := do
   let s ← ldS state
   -- n = GT_OFF(state->x.have) || (z_off64_t)state->x.have > state->skip ? (unsigned)state->skip : state->x.have;
@@ -356,7 +355,7 @@ structure ReadLoop where
   brk : Bool
 
 /-- `local z_size_t gz_read(gz_statep state, voidp buf, z_size_t len)`. The direct decompression into the user's
-buffer leaves `x.next` pointing into it (R-4; a later `x.next += 0` is accepted by the runtime). -/
+buffer leaves `x.next` pointing into it (a later `x.next += 0` is accepted by the runtime). -/
 def gz_read (state : GzStatePtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   let strm := strmOf state
   -- if (len == 0) return 0;

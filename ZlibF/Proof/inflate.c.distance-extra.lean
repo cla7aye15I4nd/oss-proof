@@ -160,31 +160,4 @@ theorem inflate_DISTEXT_boundary_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStre
     exact Or.inr ⟨regs, after, state, used, run, usedBound, finalGood, finalTables, inv,
       mode, frame, shape, bits, heap, stateEq, lower, upper, back, cursor⟩
 
-/-- Projection retaining the original distance-extra boundary. -/
-theorem inflate_DISTEXT_boundary {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
-    {zs : Nat} {z : ZStream} {s : InflateState} {bs : List UInt8} (before : Nat)
-    (hr : c.strm = some r) (hc : c.st = some (.tab zs)) (good : Good h r zs z s) (tables : DataTablesSafe h s)
-    (B : BitInv h l bs) (extra : s.extra.toNat ≤ 13)
-    (lower : 1 ≤ s.offset.toNat) (budget : s.offset.toNat + 2 ^ s.extra.toNat ≤ 73727)
-    (back : s.back = Int32.ofNat before) (backBound : before ≤ 35) :
-    (∃ regs used,
-      runX (inflate_DISTEXT c) l h = .ok ((.error Ex.leave, regs), h) ∧
-      used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧ regs.have_ = 0 ∧
-      stream regs (bs.drop used) = stream l bs ∧ SymbolRegShape l regs) ∨
-    (∃ regs after state used,
-      runX (inflate_DISTEXT c) l h = runX (inflate_MATCH c) regs after ∧
-      used ≤ bs.length ∧ Good after r zs z state ∧ DataTablesSafe after state ∧
-      BitInv after regs (bs.drop used) ∧ state.mode = MATCH ∧ DecodeStateFrame s state ∧
-      SymbolRegShape l regs ∧ stream regs (bs.drop used) = (stream l bs).drop s.extra.toNat ∧
-      after = setI h zs state ∧ state = { s with offset := state.offset, back := Int32.ofNat (before + s.extra.toNat), mode := MATCH } ∧
-      1 ≤ state.offset.toNat ∧ state.offset.toNat ≤ 73726 ∧
-      state.back = Int32.ofNat (before + s.extra.toNat)) := by
-  rcases inflate_DISTEXT_boundary_cursor before hr hc good tables B extra lower budget back backBound with wait | continued
-  · obtain ⟨regs, used, run, usedBound, inv, empty, bits, shape, _⟩ := wait
-    exact Or.inl ⟨regs, used, run, usedBound, inv, empty, bits, shape⟩
-  · obtain ⟨regs, after, state, used, run, usedBound, finalGood, finalTables, inv,
-      mode, frame, shape, bits, heap, stateEq, lower, upper, back, _⟩ := continued
-    exact Or.inr ⟨regs, after, state, used, run, usedBound, finalGood, finalTables, inv,
-      mode, frame, shape, bits, heap, stateEq, lower, upper, back⟩
-
 end Zlib.Inflate.Proofs

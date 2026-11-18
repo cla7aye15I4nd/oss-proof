@@ -50,24 +50,6 @@ theorem default_foreign_slow_eof_finish_effect_execution {h : Heap} {r : ZStream
   rw [bind_app,insertRun]
   exact tailRun
 
-/-- Every presentation of the same actual EOF return has exact wrapping totals.
-The domain is the tracked EOF refinement with only the caller pointer variant changed. -/
-theorem default_foreign_slow_eof_finish_run_counter_effects {h after : Heap} {r : ZStreamRef} {ds owner oo origin base produced : Nat}
-    {z returned : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {ret : block_state}
-    (boundary : StrategyBoundary h r ds z d input origin base xs (engineConfig d))
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r) (empty : d.lookahead=0) (positive : 0<d.level.toInt)
-    (pointer : z.next_out=.ref (.dstate_depth owner) oo) (cursor : d.pending_out=d.pending_buf)
-    (memory : d.lit_bufsize.toNat=16384) (pending : d.pending=0) (wrap : d.wrap=1)
-    (run : slowEofTail (some (.tab ds)) Z_FINISH h=.ok (ret,after)) (live : r.get after=some returned)
-    (account : StreamAccounting z returned 0 produced) :
-    returned.total_in=z.total_in ∧ returned.total_out=z.total_out+UInt64.ofNat produced := by
-  obtain ⟨amount,_otherRet,other,otherZ,_otherD,actual,goodA,accountA,inputA,outputA,_checksumA⟩ :=
-    default_foreign_slow_eof_finish_effect_execution boundary frontier buffers empty positive pointer cursor memory pending wrap
-  have same:=actual_run_stream_unique actual run goodA.live.hz live
-  rw [same] at accountA inputA outputA
-  have count : produced=amount := (stream_accounting_counts_unique account accountA).2
-  exact ⟨inputA,count ▸ outputA⟩
-
 /-- Every presentation of the same actual EOF return preserves Adler.
 No positive-output or callee checksum premise is introduced. -/
 theorem default_foreign_slow_eof_finish_run_adler {h after : Heap} {r : ZStreamRef} {ds owner oo origin base produced : Nat}

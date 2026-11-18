@@ -102,29 +102,6 @@ theorem DefaultCleanHistory.toDefault {r : ZStreamRef} {h : Heap} {log : DataLog
   | caller _ edit ih => exact .caller ih edit
   | step _ _ actual ih => exact .step ih actual
 
-/-- A default deflate history is a data trace at the default parameters. -/
-theorem DefaultDeflateHistory.toDataTrace {r : ZStreamRef} {h : Heap} {log : DataLog}
-    (history : DefaultDeflateHistory r h log) :
-    DeflateDataTrace Z_DEFAULT_COMPRESSION Z_DEFLATED MAX_WBITS DEF_MEM_LEVEL Z_DEFAULT_STRATEGY
-      r h log := by
-  induction history with
-  | init domain actual => exact .init domain actual
-  | caller _ edit ih => exact .caller ih edit
-  | step _ actual ih => exact .step ih actual
-
-/-- A default inflate history is a protocol trace at window 15. -/
-theorem DefaultInflateHistory.toProtocolTrace {r : ZStreamRef} {h : Heap} {log : DataLog}
-    (history : DefaultInflateHistory r h log) :
-    ∃ pending, InflateProtocolTrace 15 r h log pending := by
-  induction history with
-  | init domain actual => exact ⟨false, .init domain actual⟩
-  | caller _ edit fit ih =>
-    obtain ⟨pending, trace⟩ := ih
-    exact ⟨pending, .caller trace edit fit⟩
-  | step _ fit actual ih =>
-    obtain ⟨pending, trace⟩ := ih
-    exact ⟨_, .step trace fit actual⟩
-
 /-- **The stream round trip, conditional form.** A default zlib stream written by `deflate`
 under any flush values and any chunking, and read by `inflate` under any chunking: when both
 histories reach `Z_STREAM_END` and the decoder read a prefix of the encoder's output, the

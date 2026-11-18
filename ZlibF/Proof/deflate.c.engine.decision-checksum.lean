@@ -208,21 +208,4 @@ theorem slow_search_decision_run_adler {h after : Heap} {r : ZStreamRef} {ds ob 
   exact slow_decision_run_adler cut searchedBuffers positiveS strictS
     (by rw [levelS]; exact positive) pointer (by rw [memoryS]; exact memory) readyS clearS decisionRun live account
 
-/-- Checksum preservation accompanies the established actual search suffix. -/
-theorem slow_search_decision_adler_execution {h : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
-    {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
-    (boundary : StrategyBoundary h r ds z d input origin base xs config)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r) (lookahead : 1 ≤ d.lookahead.toNat)
-    (room : 3 ≤ d.lookahead.toNat → d.strstart.toNat + 262 ≤ d.window_size.toNat)
-    (positive : 0 < config.level.toInt) (pointer : z.next_out = .ref (.blk ob) oo)
-    (memory : config.memory.toNat = 16384) (ready : PublishReady d) (flush : Int32) (st : LoopS) :
-    ∃ produced next after z' result,
-      slowSearchDecision (some (.tab ds)) flush st h = .ok (next, after) ∧ DGood after r ds z' result ∧
-      StreamAccounting z z' 0 produced ∧ z'.adler = z.adler := by
-  obtain ⟨produced, next, after, z', result, _base, _ys, run, stateA, _endA, _buffersA, account, _rest⟩ :=
-    slow_search_decision_ready_boundary boundary frontier buffers lookahead room positive pointer memory ready flush st
-  have effects := slow_search_decision_run_adler boundary frontier buffers lookahead room positive pointer memory ready
-    run stateA.good.live.hz account
-  exact ⟨produced, next, after, z', result, run, stateA.good, account, effects⟩
-
 end Zlib.Deflate.Engine.Proofs

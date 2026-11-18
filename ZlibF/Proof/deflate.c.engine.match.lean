@@ -108,10 +108,6 @@ theorem matchLen_agree (w : Nat → UInt8) (S C : Nat)
     · subst h; exact h2
   · exact (firstMis_spec w S C _ 3 rfl (by omega)).1 j (by omega) hj
 
-theorem matchLen_stop (w : Nat → UInt8) (S C : Nat) (h : matchLen w S C < 258) :
-    w (S + matchLen w S C) ≠ w (C + matchLen w S C) :=
-  (firstMis_spec w S C _ 3 rfl (by omega)).2 h
-
 /-! ## The best length
 
 `best_len` only grows, and only to a length the loop measured. The cap at `lookahead` at the end keeps a

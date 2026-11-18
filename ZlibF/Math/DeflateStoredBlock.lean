@@ -70,15 +70,6 @@ theorem storedTag_wire (last : Bool) :
     storedTag last = natBits (if last then 1 else 0) 1 ++ natBits 0 2 := by
   cases last <;> decide +kernel
 
-/-- A final stored block accepts the exact source bytes and retains an
-aligned trailer suffix. No symbol-decoder premise is involved. -/
-theorem stored_last_grammar (history bytes : List UInt8) (padding : Nat) (suffix : List Bool)
-    (small : bytes.length < 65536) (pad : padding < 8) (aligned : suffix.length % 8 = 0) :
-    Blocks [] history ((storedTag true ++ storedBodyBits padding bytes) ++ suffix) suffix (history ++ bytes) := by
-  rw [storedTag_wire, List.append_assoc, List.append_assoc]
-  exact Blocks.last (readBits_natBits 1 1 _ (by decide +kernel))
-    (readBits_natBits 2 0 _ (by decide +kernel)) (stored_body_grammar history bytes padding suffix small pad aligned)
-
 /-- A non-final stored block composes with its actual aligned continuation. -/
 theorem stored_more_grammar {history out : List UInt8} (bytes : List UInt8) (padding : Nat)
     {suffix rest : List Bool} (small : bytes.length < 65536) (pad : padding < 8)

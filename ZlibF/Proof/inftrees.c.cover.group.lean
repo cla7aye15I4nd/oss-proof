@@ -140,19 +140,6 @@ theorem first_lt {ls : List Nat} {R p j : Nat} (hg : Group ls R p j) : H ls j / 
   rw [Nat.div_lt_iff_lt_mul (two_pow_pos' _), ← Nat.pow_add, show L ls j - R + R = L ls j by omega]
   exact H_lt ls j
 
-/-- The cells that a code of the group writes lie inside the sub-table of `2^c` cells. -/
-theorem cell_lt {ls : List Nat} {R p j c : Nat} (hg : Group ls R p j) (hl : L ls j ≤ R + c) {t' : Nat}
-    (ht' : t' < 2 ^ (R + c - L ls j)) : H ls j / 2 ^ R + 2 ^ (L ls j - R) * t' < 2 ^ c := by
-  have h1 := first_lt hg
-  have hR := hg.2.1
-  have hp : 2 ^ c = 2 ^ (L ls j - R) * 2 ^ (R + c - L ls j) := by
-    rw [← Nat.pow_add]; congr 1; omega
-  rw [hp]
-  have : 2 ^ (L ls j - R) * (t' + 1) ≤ 2 ^ (L ls j - R) * 2 ^ (R + c - L ls j) :=
-    Nat.mul_le_mul_left _ ht'
-  rw [Nat.mul_succ] at this
-  omega
-
 /-- **Group covering, in the index form of the C.** For a complete code, a group `p` of long codes (one of them is
 `j0`) and a sub-table width `c` with `R + c ≤ 15` that holds every code of the group (`L j ≤ R + c`, which
 `inflate_table` ensures with `look`), every cell `t < 2^c` of the sub-table is written by exactly one code `j` of the

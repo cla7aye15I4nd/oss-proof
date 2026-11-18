@@ -227,40 +227,4 @@ theorem inflate_LEN_fast_raw_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamR
     rw [cut, inflateAfterFast_run env1, regEq]
     simp only [type, ↓reduceIte]
 
-/-- The LEN_ fall-through establishes LEN before the same actual fast call. -/
-theorem inflate_LEN_start_fast_raw_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {bs : List UInt8} {ib io ob oo : Nat}
-    (E : Env c h r zs z s) (good : Good h r zs z s)
-    (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
-    (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
-    (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
-    (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
-    ∃ used made regs after stream state, used ≤ bs.length ∧
-      runX (inflate_LEN_ c) l h = .ok ((.ok (), regs), after) ∧ Good after r zs stream state ∧
-      DataTableInvariant after state ∧ DataPendingInvariant state ∧ DispatchBuffers after r regs (bs.drop used) ∧
-      ByteViewSizes h after ∧ regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
-      regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧ regs.bits.toNat < 8 := by
-  let state0 := { s with mode := LEN }
-  let heap0 := setI h zs state0
-  have good0 : Good heap0 r zs z state0 := good.decode_update (by rfl)
-    (by change HEAD ≤ LEN ∧ LEN ≤ SYNC; decide)
-  have env0 : Env c heap0 r zs z state0 := ⟨E.strm, E.st, good0.live.hz, good0.live.hs⟩
-  have tables0 : DataTablesSafe heap0 state0 := tables.decode_update good.live.hs (by rfl)
-  have pending0 : DataPendingInvariant state0 := by
-    apply dataPendingInvariant_idle (s := state0) pending.sane
-    change LEN ≠ LENEXT ∧ LEN ≠ DIST ∧ LEN ≠ DISTEXT ∧ LEN ≠ MATCH
-    decide
-  have packet0 := buffers.byte_views good good0 rfl (fun ref => byte_view_get_setI h zs state0 ref)
-    (fun ref => byte_view_ro_setI h zs state0 ref)
-  have sizes0 := byte_view_sizes_setI h zs state0
-  have fit0 := sizes0.platform fit
-  obtain ⟨used, made, regs, after, stream, state, usedBound, run, nextGood, nextTables,
-    nextPending, nextPacket, sizes, next, haveCount, put, left, bitCount⟩ :=
-    inflate_LEN_fast_raw_buffers env0 good0 fit0 tables0 packet0 pending0 input output different fast
-  refine ⟨used, made, regs, after, stream, state, usedBound, ?_, nextGood, nextTables,
-    nextPending, nextPacket, sizes0.trans sizes, next, haveCount, put, left, bitCount⟩
-  unfold inflate_LEN_
-  rw [runX_bind, runX_setMode E]
-  exact run
-
 end Zlib.Inflate.Proofs

@@ -51,20 +51,6 @@ theorem checksum_input_prefix_append {input extended : Nat → UInt8}
       exact added j (List.mem_range.mp member)
     _ = _ := checksum_input_array_slice incoming offset count fit
 
-/-- The actual refill extension function joins the same caller bytes to
-the previously accepted input used by independent raw block encoding. -/
-theorem checksum_extend_input_prefix (input : Nat → UInt8) (limit : Nat)
-    (incoming : Array UInt8) (offset count : Nat) (fit : offset + count ≤ incoming.size) :
-    inputPrefix (extendInput input limit incoming offset) (limit + count) =
-      inputPrefix input limit ++ (incoming.toList.drop offset).take count := by
-  apply checksum_input_prefix_append
-  · intro i before
-    simp only [extendInput, before, ite_true]
-  · intro j _before
-    simp only [extendInput, show ¬ limit + j < limit from by omega, ite_false,
-      Nat.add_sub_cancel_left]
-  · exact fit
-
 /-- The real non-sliding refill's returned window fixes the exact newly
 accepted logical input. Pending insertions and high-water padding are
 included by the complete actual execution theorem. -/

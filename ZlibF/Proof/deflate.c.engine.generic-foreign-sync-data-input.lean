@@ -111,37 +111,4 @@ theorem public_foreign_busy_sync_data_raw_prefix_input_interval {h : Heap} {r : 
     · rw [endpointA]; exact inputLedgerM
     · simpa only [List.length_append, tailLength] using strategyEffect.trans intervalA
 
-/-- Projection of the stronger exact caller-interval refinement. -/
-theorem public_foreign_busy_sync_data_raw_prefix_input {h : Heap} {r : ZStreamRef} {ds owner oo origin base : Nat}
-    {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {config : EngineConfig}
-    {published : List UInt8}
-    (boundary : StrategyBoundary h r ds z d input origin base xs config)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (status : d.status = BUSY_STATE) (level : d.level = 6) (strategy : d.strategy = 0)
-    (pointer : z.next_out = .ref (.dstate_depth owner) oo) (memory : config.memory.toNat = 16384)
-    (wrap : config.wrap = 1) (publish : PublishReady d)
-    (inputValid : z.avail_in ≠ 0 → z.next_in ≠ .null)
-    {actualInput : List UInt8} (snapshot : Bytes h z.next_in z.avail_in.toNat actualInput)
-    (checksum : z.adler = (ZlibF.Spec.adler32 (inputPrefix input (origin + fillEnd d))).toUInt64)
-    (encoding : RawPrefix h d input base published) :
-    ∃ used after z' result extended nextOrigin nextBase ys written,
-      publicDataTail (some r) (some (.tab ds)) Z_SYNC_FLUSH h = .ok (Z_OK, after) ∧
-      BufferedBoundary after r ds z' result extended nextOrigin nextBase ys config ∧
-      StreamBuffers after r ∧ StreamAccounting z z' used written.length ∧
-      Bytes after z.next_out written.length written ∧
-      (∀ i, i < origin + fillEnd d → extended i = input i) ∧
-      nextOrigin + fillEnd result = origin + fillEnd d + used ∧ base ≤ nextBase ∧
-      result.status = BUSY_STATE ∧ (result.last_flush = d.last_flush ∨ result.last_flush = -1) ∧
-      RawPrefix after result extended nextBase (published ++ written) ∧
-      z'.adler = (ZlibF.Spec.adler32 (inputPrefix extended (nextOrigin + fillEnd result))).toUInt64 ∧
-      inputPrefix extended (nextOrigin + fillEnd result) =
-        inputPrefix input (origin + fillEnd d) ++ actualInput.take used := by
-  obtain ⟨used, after, z', result, extended, nextOrigin, nextBase, ys, written,
-      run, stateA, buffersA, accountA, bytesA, agreesA, endpointA, baseA,
-      statusA, lastA, encodingA, checksumA, inputLedgerA, _intervalA⟩ :=
-    public_foreign_busy_sync_data_raw_prefix_input_interval boundary frontier buffers status level strategy pointer memory wrap publish inputValid snapshot checksum encoding
-  exact ⟨used, after, z', result, extended, nextOrigin, nextBase, ys, written,
-    run, stateA, buffersA, accountA, bytesA, agreesA, endpointA, baseA,
-    statusA, lastA, encodingA, checksumA, inputLedgerA⟩
-
 end Zlib.Deflate.Engine.Proofs

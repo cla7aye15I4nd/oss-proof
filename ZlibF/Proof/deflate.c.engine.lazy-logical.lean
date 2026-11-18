@@ -38,11 +38,6 @@ theorem logical_history_initial {d : DeflateState} (length : d.match_length = 2)
   change 3 ≤ 2 at large
   omega
 
-theorem initialized_logical_history {h : Heap} {r : ZStreamRef} {ds : Nat}
-    {z : ZStream} {d : DeflateState} (start : EngineStart h r ds z d)
-    (input : Nat → UInt8) : LazyHistory input 0 d :=
-  logical_history_initial start.matchLength input 0
-
 theorem logical_prepare_history {d : DeflateState} {input : Nat → UInt8} {origin : Nat}
     (history : LazyHistory input origin d) (key : UInt32) :
     PreviousHistory input origin (lazyPrepare { d with ins_h := key }) := history
@@ -138,37 +133,5 @@ theorem logical_previous_tally_bounds {input : Nat → UInt8} {origin : Nat} {d 
     rfl
   have maximum := history.1
   exact ⟨by rw [exactDistance]; omega, by rw [exactDistance]; omega, len, by rw [len]; omega, by omega⟩
-
-/-- The real match-emission guard and logical history discharge the
-inline tally's argument bounds. No callee contract is assumed. The
-following consumption and insertion loop is a separate source fragment.
--/
-theorem logical_history_tally_call {h : Heap} {r : ZStreamRef} {ds top : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {origin : Nat}
-    (good : DGood h r ds z d) (chains : HeapChains h d top)
-    (history : PreviousHistory input origin d)
-    (selected : (d.prev_length ≥ MIN_MATCH_u && d.match_length ≤ d.prev_length) = true)
-    (strict : d.sym_next.toNat < d.sym_end.toNat) :
-    let distance := d.strstart - 1 - d.prev_match
-    let length := d.prev_length - MIN_MATCH_u
-    ∃ after result,
-      tally_dist (some (.tab ds)) distance length h = .ok (d.sym_next + 3 == d.sym_end, after) ∧
-      DGood after r ds z result ∧ HeapChains after result top ∧
-      length.toNat ≤ 255 ∧ d.prev_length.toNat - 1 ≤ d.lookahead.toNat ∧
-      result.strstart = d.strstart ∧ result.lookahead = d.lookahead := by
-  have previous : 3 ≤ d.prev_length.toNat := by
-    have guard := selected
-    simp only [Bool.and_eq_true, decide_eq_true_eq] at guard
-    exact UInt32.le_iff_toNat_le.mp guard.1
-  have window : d.w_size.toNat ≤ 32768 := by
-    rw [good.inv.wsize]
-    calc 2 ^ d.w_bits.toNat ≤ 2 ^ 15 := Nat.pow_le_pow_right (by decide) good.inv.wbits_hi
-         _ = 32768 := by decide
-  have bounds := logical_previous_tally_bounds history previous window
-  let distance := d.strstart - 1 - d.prev_match
-  let length := d.prev_length - MIN_MATCH_u
-  obtain ⟨b, buf, _, run, goodA, chainsA, _⟩ :=
-    tally_match_good_chains good chains distance length bounds.1 bounds.2.1 strict
-  exact ⟨_, _, run, goodA, chainsA, bounds.2.2.2.1, bounds.2.2.2.2, rfl, rfl⟩
 
 end Zlib.Deflate.Engine.Proofs

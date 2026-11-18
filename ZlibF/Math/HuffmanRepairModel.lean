@@ -86,8 +86,4 @@ def lenSearch (c : Nat → Nat) (r : Nat) (k : Nat) : Nat → Nat
 `j ≤ L` with `r ≤ c 0 + … + c j`. This is `L` if `r` exceeds the total. -/
 def lenOfRank (L : Nat) (c : Nat → Nat) (r : Nat) : Nat := lenSearch c r 0 L
 
-/-- The capped histogram of depths: `c j = #{r ∈ ds : min r L = j}`. This is the
-`bl_count` that the first pass of `gen_bitlen` leaves, when `ds` lists the leaf depths. -/
-def histC (L : Nat) (ds : List Nat) (j : Nat) : Nat := (ds.filter fun d => min d L == j).length
-
 end Zlib.Trees.HuffmanAbstract

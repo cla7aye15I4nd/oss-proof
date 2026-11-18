@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inflate.c.slow-step»
+import ZlibF.Proof.«inflate.c.match-step»
 import ZlibF.Spec.Common.History
 import ZlibF.Spec.Functional.Api.Basic
 
@@ -40,26 +40,5 @@ theorem callerRange_slow_output {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStr
   · exact False.elim (nonnull null)
   · exact ⟨dest, array, outOffset, ptr, get, write, room, count, produced dest outOffset ptr,
       callerRange_private_window good range ptr⟩
-
-/-- The complete actual slow step uses the existing public caller-buffer domain. -/
-theorem inflate_LEN_slow_step_buffers {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (tables : DataTablesSafe h s)
-    {l : IL} {bs : List UInt8} (B : BitInv h l bs) (sane : s.sane ≠ 0)
-    (slow : ¬ (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true)
-    (separate : ZlibF.Spec.Public.Separate l.next l.have_.toNat l.put l.left.toNat)
-    (range : CallerRange h r l.put l.left.toNat true) (nonnull : l.put ≠ .null)
-    (count : l.left.toNat ≤ l.out_.toNat)
-    (produced : ∀ dest offset, l.put = .ref dest offset → l.out_.toNat - l.left.toNat ≤ offset) :
-    ∃ outcome regs after stream state used consumed,
-      used ≤ bs.length ∧ consumed ≤ 48 ∧
-      runX (inflate_LEN c) l h = .ok ((outcome, regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ BitInv after regs (bs.drop used) ∧
-      Zlib.Inflate.Proofs.stream regs (bs.drop used) = (Zlib.Inflate.Proofs.stream l bs).drop consumed ∧
-      (outcome = .error Ex.leave ∨
-        (outcome = .ok () ∧ (state.mode = LIT ∨ state.mode = TYPE ∨ state.mode = BAD)) ∨
-        (outcome = .ok () ∧ (state.mode = LEN ∨ state.mode = MATCH) ∧ regs.left.toNat < l.left.toNat)) := by
-  apply inflate_LEN_slow_step E good tables B sane slow separate
-  intro _
-  exact callerRange_slow_output good l range nonnull count produced
 
 end Zlib.Inflate.Proofs

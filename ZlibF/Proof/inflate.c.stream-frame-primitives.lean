@@ -41,9 +41,6 @@ theorem streamFrameM_ptr_lt [DecidableEq R] (r : ZStreamRef) (p q : Ptr R) : Str
   unfold Ptr.lt at run
   repeat' first | split at run | (cases run <;> rfl)
 
-theorem streamFrameM_ptr_le [DecidableEq R] (r : ZStreamRef) (p q : Ptr R) : StreamFrameM r (p.le q) :=
-  streamFrameM_bind (streamFrameM_ptr_lt r q p) (fun _ => streamFrameM_pure r _)
-
 /-- A typed store preserves the stream root whenever writes to that
 array space do. The concrete byte/word/code spaces discharge this rule. -/
 theorem streamFrameM_ptr_store (r : ZStreamRef) (p : Ptr R) (value : T)

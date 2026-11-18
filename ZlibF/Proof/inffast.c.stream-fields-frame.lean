@@ -202,22 +202,6 @@ theorem streamFastFrameM_shr64 (r : ZStreamRef) (x n : UInt64) :
   split at run <;> cases run
   rfl
 
-theorem streamFastFrameM_strLit (r : ZStreamRef) (message : String) :
-    StreamFastFrameM r (Zlib.Zutil.strLit message) := by
-  apply streamFastFrameM_read
-  intro h value after run
-  unfold Zlib.Zutil.strLit strLitRef at run
-  split at run <;> cases run
-  rfl
-
-theorem streamFastFrameM_chk64 (r : ZStreamRef) (value : Int) :
-    StreamFastFrameM r (chk64 value) := by
-  apply streamFastFrameM_read
-  intro h result after run
-  unfold chk64 at run
-  split at run <;> cases run
-  rfl
-
 theorem streamFastFrameM_ldInflateState (r : ZStreamRef)
     (state : InflateStatePtr) :
     StreamFastFrameM r (ldInflateState state) := by

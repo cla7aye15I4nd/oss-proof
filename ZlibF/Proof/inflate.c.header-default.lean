@@ -77,40 +77,6 @@ theorem inflate_HEAD_zlib_window_prefix_count {c : Ctx} {h : Heap} {r : ZStreamR
     simp only
   · rfl
 
-/-- Projection retaining the original zlib header prefix. -/
-theorem inflate_HEAD_zlib_window_prefix {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (B : BitInv h l bs) (wrap : s.wrap = 1 ∨ s.wrap = 5) (header : s.head = none) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (used : Nat), used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      regs.next = inputAdvance l.next used ∧
-      regs = { l with next := regs.next, have_ := regs.have_, hold := regs.hold, bits := regs.bits } ∧
-      regs.bits.toNat ≤ max l.bits.toNat 23 ∧
-      (outcome = .ok () ∨ outcome = .error Ex.leave) ∧
-      (outcome = .ok () → 16 ≤ regs.bits.toNat) ∧
-      runX (inflate_HEAD c) l h =
-        (match outcome with
-        | .ok () => runX (headDefaultCheck c s regs) regs h
-        | .error e => .ok ((.error e, regs), h)) := by
-  obtain ⟨outcome, regs, used, bound, bits, cursor, shape, bitBound, kinds, full, run, _⟩ :=
-    inflate_HEAD_zlib_window_prefix_count E B wrap header
-  exact ⟨outcome, regs, used, bound, bits, cursor, shape, bitBound, kinds, full, run⟩
-
-/-- Projection for the original default-initialization header prefix. -/
-theorem inflate_HEAD_default_prefix {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (B : BitInv h l bs) (wrap : s.wrap = 5) (header : s.head = none) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (used : Nat), used ≤ bs.length ∧ BitInv h regs (bs.drop used) ∧
-      regs.next = inputAdvance l.next used ∧
-      regs = { l with next := regs.next, have_ := regs.have_, hold := regs.hold, bits := regs.bits } ∧
-      regs.bits.toNat ≤ max l.bits.toNat 23 ∧
-      (outcome = .ok () ∨ outcome = .error Ex.leave) ∧
-      (outcome = .ok () → 16 ≤ regs.bits.toNat) ∧
-      runX (inflate_HEAD c) l h =
-        (match outcome with
-        | .ok () => runX (headDefaultCheck c s regs) regs h
-        | .error e => .ok ((.error e, regs), h)) := by
-  exact inflate_HEAD_zlib_window_prefix E B (Or.inr wrap) header
-
 /-- The first header test, retaining the exact unsigned C operations. -/
 def headHeaderRejected (s : InflateState) (l : IL) : Bool :=
   (s.wrap &&& 1) == 0 ||
@@ -640,24 +606,6 @@ theorem headDefaultCheck_boundary_frame {c : Ctx} {h : Heap} {r : ZStreamRef} {z
     change 0 ≤ l.bits.toNat
     omega
 
-/-- Projection retaining the original header boundary. -/
-theorem headDefaultCheck_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (full : 16 ≤ l.bits.toNat)
-    (wbits : (8 ≤ s.wbits.toNat ∧ s.wbits.toNat ≤ 15) ∨ (s.wbits = 0 ∧ s.window = .null)) :
-    ∃ regs after stream state,
-      runX (headDefaultCheck c s l) l h = .ok ((.ok (), regs), after) ∧
-      Good after r zs stream state ∧ DataTableInvariant after state ∧ DataPendingInvariant state ∧
-      DispatchBuffers after r regs bs ∧ ByteViewSizes h after ∧ HeadRegFrame l regs ∧
-      regs.bits.toNat ≤ l.bits.toNat ∧ (state.mode = BAD ∨ state.mode = TYPE ∨ state.mode = DICTID) ∧
-      state.window = s.window ∧ HeadWidth s state ∧ after.static = h.static := by
-  obtain ⟨regs, after, stream, state, run, nextGood, tables, nextPending, packet, sizes,
-    frame, bits, mode, window, width, static, _, _⟩ :=
-    headDefaultCheck_boundary_frame E good pending buffers full wbits
-  exact ⟨regs, after, stream, state, run, nextGood, tables, nextPending, packet, sizes,
-    frame, bits, mode, window, width, static⟩
-
 /-- The complete actual default HEAD mode retains the common relation.
 Every byte pull is supplied by NEEDBITS; checks retain the exact unread
 input and output cursors. Empty input and partial-header calls are included.
@@ -724,43 +672,6 @@ theorem inflate_HEAD_zlib_window_boundary_frame {c : Ctx} {h : Heap} {r : ZStrea
     inflate_HEAD_zlib_window_boundary_budget E good pending buffers mode wrap header wbits
   exact ⟨outcome, regs, after, stream, state, used, bound, run, current, tables, nextPending,
     packet, sizes, next, count, put, left, bits, static, kinds, stateFrame, streamFrame⟩
-
-/-- Projection for the original initialized default-header frame. -/
-theorem inflate_HEAD_default_boundary_frame {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = HEAD) (wrap : s.wrap = 5)
-    (header : s.head = none) (wbits : HeadWindow s) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (stream : ZStream) (state : InflateState) (used : Nat), used ≤ bs.length ∧
-      runX (inflate_HEAD c) l h = .ok ((outcome, regs), after) ∧ Good after r zs stream state ∧
-      DataTableInvariant after state ∧ DataPendingInvariant state ∧ DispatchBuffers after r regs (bs.drop used) ∧
-      ByteViewSizes h after ∧ regs.next = inputAdvance l.next used ∧
-      regs.have_.toNat + used = l.have_.toNat ∧ regs.put = l.put ∧ regs.left = l.left ∧
-      regs.bits.toNat ≤ max l.bits.toNat 23 ∧ after.static = h.static ∧
-      ((outcome = .error Ex.leave ∧ state = s) ∨
-        (outcome = .ok () ∧ (state.mode = BAD ∨ state.mode = TYPE ∨ state.mode = DICTID))) ∧
-      HeaderStateFrame s state ∧ HeaderStreamFrame z stream := by
-  exact inflate_HEAD_zlib_window_boundary_frame E good pending buffers mode (Or.inr wrap) header wbits
-
-/-- Projection retaining the original complete default HEAD boundary. -/
-theorem inflate_HEAD_default_boundary {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
-    (E : Env c h r zs z s) (good : Good h r zs z s) (pending : DataPendingInvariant s)
-    (buffers : DispatchBuffers h r l bs) (mode : s.mode = HEAD) (wrap : s.wrap = 5)
-    (header : s.head = none) (wbits : HeadWindow s) :
-    ∃ (outcome : Except Ex Unit) (regs : IL) (after : Heap) (stream : ZStream) (state : InflateState) (used : Nat), used ≤ bs.length ∧
-      runX (inflate_HEAD c) l h = .ok ((outcome, regs), after) ∧ Good after r zs stream state ∧
-      DataTableInvariant after state ∧ DataPendingInvariant state ∧ DispatchBuffers after r regs (bs.drop used) ∧
-      ByteViewSizes h after ∧ regs.next = inputAdvance l.next used ∧
-      regs.have_.toNat + used = l.have_.toNat ∧ regs.put = l.put ∧ regs.left = l.left ∧
-      regs.bits.toNat ≤ max l.bits.toNat 23 ∧ after.static = h.static ∧
-      ((outcome = .error Ex.leave ∧ state = s) ∨
-        (outcome = .ok () ∧ (state.mode = BAD ∨ state.mode = TYPE ∨ state.mode = DICTID))) := by
-  obtain ⟨outcome, regs, after, stream, state, used, bound, run, nextGood, tables, nextPending,
-    packet, sizes, next, count, put, left, bits, static, kinds, _, _⟩ :=
-    inflate_HEAD_default_boundary_frame E good pending buffers mode wrap header wbits
-  exact ⟨outcome, regs, after, stream, state, used, bound, run, nextGood, tables, nextPending,
-    packet, sizes, next, count, put, left, bits, static, kinds⟩
 
 /-- The actual switch selects this checked default HEAD mode. -/
 theorem inflate_dispatch_HEAD {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}

@@ -23,11 +23,6 @@ def BTFibOrigins (tk : TK) (N : Nat) (original result : DeflateState) : Prop :=
       (LeafRank.value (Hn built) (frn (tk.arr built)) (574 - 2 * K) (K - 1) mc.toInt.toNat)
       (LeafRank.value (Hn built) (curL (tk.arr result)) (574 - 2 * K) (K - 1) mc.toInt.toNat)
 
-theorem BTFibOrigins.to_result {tk : TK} {N : Nat} {original result : DeflateState}
-    (origins : BTFibOrigins tk N original result) : BTFibResult tk N original result := by
-  obtain ⟨prepared, built, mc, K, tree, weight, _frequencies, _used, fib⟩ := origins
-  exact ⟨prepared, built, mc, K, tree, weight, fib⟩
-
 /-- Later construction of another tree changes work arrays and counters,
 but retaining this selected tree preserves its quantitative result. -/
 theorem BTFibOrigins.congr_tree {tk : TK} {N : Nat} {original before after : DeflateState}

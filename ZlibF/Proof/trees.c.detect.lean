@@ -34,13 +34,6 @@ theorem detect_data_type_source (s : DeflateStatePtr) : detect_data_type s = (do
   unfold detect_data_type dataTypeBlack dataTypeText
   rfl
 
-/-- A literal-frequency read within the admitted array leaves the heap unchanged. -/
-theorem data_type_read {h : Heap} {id i : Nat} {d : DeflateState}
-    (state : h.dstates id = some d) (bound : i < d.dyn_ltree.size) :
-    (do getFc (← pLtree (some (.tab id))) (i : Int)) h = .ok (d.dyn_ltree[i]!.fc, h) := by
-  rw [bind_app, pLtree_run state]
-  exact getFc_sel state .l bound
-
 /-- The black-byte loop terminates and makes no writes. Its only possible
 nonempty early result is the source's binary hint. -/
 theorem data_type_black_safe {h : Heap} {id : Nat} {d : DeflateState}

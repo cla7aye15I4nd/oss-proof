@@ -17,11 +17,6 @@ theorem fds_set_get (a : Array (Option OFile)) (j i : Nat) (v : Option OFile) :
     (a.set! j v)[i]? = if j = i then (if j < a.size then some v else none) else a[i]? := by
   simp [Array.set!, Array.getElem?_setIfInBounds]
 
-/-- A world that differs only in `errno` keeps `FileSystem` and the open descriptors. -/
-theorem errno_world (w : Fs) (e : Int32) (hfs : FileSystem w) :
-    FileSystem { w with errno := e } ∧ FdsKept w { w with errno := e } :=
-  ⟨hfs, fun _ => Iff.rfl⟩
-
 /-- **M1 for the regular-file read**: `-1` and no bytes, or `k ≤ m` bytes with result `k`; only the descriptor's
 position and `errno` change, the file system stays well formed and no descriptor opens or closes. -/
 theorem fsReadReg_contract (fd : Int32) (m : UInt64) (w : Fs) (hfs : FileSystem w) (hm : m.toNat < 2 ^ 63) :
@@ -168,9 +163,6 @@ theorem BudgetAcc.mono {fd : Int32} {a b : Fs} {m n : Nat} (h : BudgetAcc fd a b
   intro hfd
   obtain ⟨n1, s1⟩ := h hfd
   exact ⟨n1, fun x hx => let ⟨y, hy, h2⟩ := s1 x hx; ⟨y, hy, by omega⟩⟩
-
-theorem budget_errno (fd : Int32) (w : Fs) (e : Int32) : BudgetAcc fd w { w with errno := e } 0 :=
-  BudgetAcc.refl fd w
 
 theorem budget_debit (fd : Int32) (w : Fs) (k : Nat) (hk : 0 ≤ fd.toInt → ∀ b, w.readBudget fd.toInt.toNat = some b → k ≤ b) :
     BudgetAcc fd w (debitW fd k w) k := by

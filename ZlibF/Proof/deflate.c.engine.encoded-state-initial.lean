@@ -39,15 +39,4 @@ theorem default_initialization_encoding_state {h : Heap} {r : ZStreamRef} {z : Z
     Or.inl ⟨rfl, rfl, (fun _ => 0), start, boundary⟩⟩
 
 open ZlibF.Spec.Public.Proofs.DeflateInit in
-/-- The observed encoding invariant is inhabited by a concrete actual
-default initialization, including the five real allocated objects. -/
-theorem default_encoding_state_witness :
-    ∃ after zf sf,
-      C.run (deflateInit_ (some (.tab 0)) Z_DEFAULT_COMPRESSION (.ref (.blk 1) 0) 112)
-        witnessHeap = .ok (Z_OK, after) ∧
-      DefaultEncodingState after (.tab 0) 2 zf sf (engineConfig sf) [] [] := by
-  exact default_initialization_encoding_state (h := witnessHeap) (r := .tab 0) (z := default)
-    (version := .ref (.blk 1) 0) witness_fresh witness_uniq rfl
-    (by simp [ZStreamRef.get, witnessHeap]) ⟨Or.inl rfl, Or.inl rfl⟩ witness_version (by intro _ _; rfl)
-
 end Zlib.Deflate.Engine.Proofs

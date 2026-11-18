@@ -1,4 +1,6 @@
-import ZlibF.Proof.«deflate.c.engine.tree-fib»
+import ZlibF.Proof.«deflate.c.engine.tree-weight»
+import ZlibF.Proof.«deflate.c.engine.tree-build»
+import ZlibF.Proof.«trees.c.build.fib-complete»
 import ZlibF.Proof.«trees.c.build.fib-origins»
 
 /-! # Both actual source trees retain original symbol weights and FibPush -/

@@ -779,7 +779,7 @@ def deflateBound_z (strm : ZStreamPtr) (sourceLen : UInt64) : M UInt64 := do
       if gh.hcrc != 0 then wraplen := wraplen + 2
   else
     wraplen := 18                                                -- for compiler happiness
-  -- if (s->w_bits != 15 || s->hash_bits != 8 + 7 || s->strategy == Z_FIXED) { ... }   (patch 0007)
+  -- if (s->w_bits != 15 || s->hash_bits != 8 + 7 || s->strategy == Z_FIXED) { ... }   (patch 0006)
   if d.w_bits != 15 || d.hash_bits != 15 || d.strategy == Z_FIXED then
     let bound := if d.w_bits ≤ d.hash_bits && d.level != 0 then fixedlen else storelen
     return if bound + wraplen < bound then 0xffffffffffffffff else bound + wraplen

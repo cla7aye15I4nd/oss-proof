@@ -43,19 +43,6 @@ theorem gz_comp_safe (i : Nat) (flush : Int32) (src : Region) (h : Heap) (fs : F
         if r = 0 then GzInvUpToInput h' i' s' src else GzInvUpToInputWeak h' i' s' src) :=
   gz_comp_safe_of' gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i flush src h fs s inv hfs hsz hflush
 
-/-- **`gz_comp` keeps the shape of the record** (`gz_comp_safe_shape_of'` without the `gz_error` premises):
-`gz_comp_safe` strengthened by `CompShape`, the consumption of the input under `Z_NO_FLUSH`, and the `strerror`
-borrow on success. -/
-theorem gz_comp_safe_shape' (i : Nat) (flush : Int32) (src : Region) (h : Heap) (fs : Fs) (s : GzState)
-    (inv : GzInvUpToInput h i s src) (hfs : FileSystem fs) (hsz : s.size ≠ 0)
-    (hflush : 0 ≤ flush.toInt ∧ flush.toInt ≤ 5) :
-    RunSafe (Zlib.Gzwrite.gz_comp (gzSt i) flush) fs h True fun r fs' after =>
-      (r = 0 ∨ r = -1) ∧ FdsKept fs fs' ∧
-      GzPost h i s [] fs' after (fun h' i' s' =>
-        (if r = 0 then GzInvUpToInput h' i' s' src else GzInvUpToInputWeak h' i' s' src) ∧ CompShape s s' ∧
-          (r = 0 → flush = Z_NO_FLUSH → s'.strm.avail_in = 0) ∧ (r = 0 → h'.libcErrorBorrow = h.libcErrorBorrow)) :=
-  gz_comp_safe_shape_of' gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i flush src h fs s inv hfs hsz hflush
-
 /-- **`gz_zero`** (`gz_zero_safe`). -/
 theorem gz_zero_safe (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
     (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size ≠ 0) :
@@ -63,17 +50,7 @@ theorem gz_zero_safe (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
       (r = 0 ∨ r = -1) ∧ FdsKept fs fs' ∧ GzPost h i s [] fs' after GzInv :=
   gz_zero_safe_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i h fs s inv hfs hm hsz
 
-/-- **`gz_zero` keeps the size** (`gz_zero_safe_shape` without the `gz_error` premises): `gz_zero_safe`
-strengthened by the size of the buffers and, on success, no pending skip and the `strerror` borrow kept. -/
-theorem gz_zero_safe_shape' (i : Nat) (h : Heap) (fs : Fs) (s : GzState)
-    (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE) (hsz : s.size ≠ 0) :
-    RunSafe (Zlib.Gzwrite.gz_zero (gzSt i)) fs h True fun r fs' after =>
-      (r = 0 ∨ r = -1) ∧ FdsKept fs fs' ∧
-        GzPost h i s [] fs' after (fun h' i' s' => GzInv h' i' s' ∧
-          (s'.size = s.size ∧ (r = 0 → s'.skip = 0 ∧ h'.libcErrorBorrow = h.libcErrorBorrow))) :=
-  gz_zero_safe_shape gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i h fs s inv hfs hm hsz
-
-/-- **`gz_write`** (`gz_write_safe`). Relies on the local patch for W7. -/
+/-- **`gz_write`** (`gz_write_safe`). Relies on patch 0004 (gzwrite position overflow). -/
 theorem gz_write_safe (i : Nat) (buf : BPtr) (len : UInt64) (h : Heap) (fs : Fs) (s : GzState)
     (inv : GzInv h i s) (hfs : FileSystem fs) (hm : s.mode = GZ_WRITE)
     (hbuf : len = 0 ∨ GzRange h i s buf len.toNat false) :
@@ -81,25 +58,25 @@ theorem gz_write_safe (i : Nat) (buf : BPtr) (len : UInt64) (h : Heap) (fs : Fs)
       r.toNat ≤ len.toNat ∧ FdsKept fs fs' ∧ GzPost h i s [] fs' after GzInv :=
   gz_write_safe_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i buf len h fs s inv hfs hm hbuf
 
-/-- **`gzwrite`** (`gzwrite_step`). Relies on the local patch for W7. -/
+/-- **`gzwrite`** (`gzwrite_step`). Relies on patch 0004 (gzwrite position overflow). -/
 theorem gzwrite_step (i : Nat) (buf : BPtr) (len : UInt32) :
     GzCallSafe i (.gzwrite (some (.in_gzstate_x i)) buf len) :=
   gzwrite_step_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i buf len
 
-/-- **`gzfwrite`** (`gzfwrite_step`). Relies on the local patch for W7. -/
+/-- **`gzfwrite`** (`gzfwrite_step`). Relies on patch 0004 (gzwrite position overflow). -/
 theorem gzfwrite_step (i : Nat) (buf : BPtr) (size nitems : UInt64) :
     GzCallSafe i (.gzfwrite buf size nitems (some (.in_gzstate_x i))) :=
   gzfwrite_step_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i buf size nitems
 
-/-- **`gzputc`** (`gzputc_step`). Relies on the local patch for W7. -/
+/-- **`gzputc`** (`gzputc_step`). Relies on patch 0004 (gzwrite position overflow). -/
 theorem gzputc_step (i : Nat) (c : Int32) : GzCallSafe i (.gzputc (some (.in_gzstate_x i)) c) :=
   gzputc_step_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i c
 
-/-- **`gzputs`** (`gzputs_step`). Relies on the local patch for W7. -/
+/-- **`gzputs`** (`gzputs_step`). Relies on patch 0004 (gzwrite position overflow). -/
 theorem gzputs_step (i : Nat) (str : BPtr) : GzCallSafe i (.gzputs (some (.in_gzstate_x i)) str) :=
   gzputs_step_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i str
 
-/-- **`gzvprintf`** (`gzvprintf_step`). Relies on the local patch for W7. -/
+/-- **`gzvprintf`** (`gzvprintf_step`). Relies on patch 0004 (gzwrite position overflow). -/
 theorem gzvprintf_step (i : Nat) (format : BPtr) (va : List VaArg) :
     GzCallSafe i (.gzvprintf (some (.in_gzstate_x i)) format va) :=
   gzvprintf_step_of gzwrite_gzErrorSpec_holds gzwrite_gzErrorOwn_holds i format va

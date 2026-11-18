@@ -107,50 +107,12 @@ theorem PULLBYTE_nx {h : Heap} {l : IL} {b : UInt8} {r : BRef} {off : Nat} {a : 
   simp only [runX_bind, runX_set, runX_lift_ok hld, runX_lift_ok hadd, runX_lift_ok hshl]
   rfl
 
-/-- `PULLBYTE` with input left in an `in` chunk: one byte moves into the bit buffer; the chunk stays in its block. -/
-theorem PULLBYTE_have (c : BCtx) {ownI : Nat → Prop} {h : Heap} {l : IL} {b : UInt8} {rest : List UInt8}
-    (B : BIn ownI h l (b :: rest)) (hb : l.bits.toNat ≤ 56) :
-    ∃ nx, runX (Zlib.Infback.PULLBYTE c) l h = .ok ((.ok (), pulled l b nx), h) ∧ BIn ownI h (pulled l b nx) rest ∧
-      (pulled l b nx).bits.toNat = l.bits.toNat + 8 := by
-  have hne0 : l.have_ ≠ 0 := fun e => by have := B.bit.have_eq; rw [e] at this; simp at this
-  obtain ⟨nx, hrun, hB2, -, hbits⟩ := PULLBYTE_succ B.bit hb
-  refine ⟨nx, by rw [PULLBYTE_c_eq c hne0]; exact hrun, ?_, hbits⟩
-  refine ⟨hB2, ?_⟩
-  obtain ⟨bb, off0, hnx0, hown⟩ := B.own.resolve_left (by simp)
-  obtain ⟨r, a, off, hnext, hg, hsz, hbs⟩ := B.bit.next.resolve_left (by simp)
-  rw [hnx0] at hnext
-  obtain ⟨h1, h2⟩ := Ptr.ref.inj hnext
-  subst h1; subst h2
-  have hsz' : off0 + rest.length + 1 ≤ a.size := by simp at hsz; omega
-  have hbs' : b :: rest = a[off0] :: (a.toList.drop (off0 + 1)).take rest.length := by
-    have := take_succ_drop a off0 rest.length hsz'
-    simp only [List.length_cons] at hbs
-    rw [← this]; exact hbs
-  have hbb : a[off0] = b := by injection hbs' with h1; exact h1.symm
-  have hrun2 := PULLBYTE_nx (b := b) hne0 hnx0 hg (by omega) hbb (by omega)
-  rw [hrun] at hrun2
-  have hnx : pulled l b nx = pulled l b (.ref (.blk bb) (off0 + 1)) := by
-    simpa using hrun2
-  right
-  refine ⟨bb, off0 + 1, ?_, hown⟩
-  rw [hnx]; rfl
-
 /-- The registers after a successful `PULLBYTE`/`NEEDBITS`: only `next`, `have`, `hold`, `bits` differ. -/
 def InShape (l l' : IL) : Prop := l' = { l with next := l'.next, have_ := l'.have_, hold := l'.hold, bits := l'.bits }
-
-/-- The registers after the end of input: `next = NULL`, `have = 0`, `ret = Z_BUF_ERROR`. -/
-def EofRegs (l : IL) : IL := { l with have_ := 0, next := .null, ret := Z_BUF_ERROR }
 
 theorem InShape.refl (l : IL) : InShape l l := by cases l; rfl
 
 theorem InShape.trans {l l1 l2 : IL} (a : InShape l l1) (b : InShape l1 l2) : InShape l l2 := by
   cases l; cases l1; cases l2; simp_all [InShape]
-
-/-- The registers after the end of input in the middle of `NEEDBITS`: the input registers and `ret` differ. -/
-def EofShape (l l' : IL) : Prop :=
-  l' = { l with next := .null, have_ := 0, hold := l'.hold, bits := l'.bits, ret := Z_BUF_ERROR }
-
-theorem EofShape.of_eof {l l1 : IL} (a : InShape l l1) : EofShape l (EofRegs l1) := by
-  cases l; cases l1; simp_all [InShape, EofShape, EofRegs]
 
 end Zlib.Infback.Proofs

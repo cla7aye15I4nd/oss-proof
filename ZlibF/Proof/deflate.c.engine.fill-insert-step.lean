@@ -78,25 +78,4 @@ theorem fill_insert_step_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
   simp only [bind_app, insertRun, write, ldDeflateState_tab goodA.live.hs, pure_app]
   rfl
 
-/-- The original step statement follows from the same actual execution,
-which additionally retains external byte storage. -/
-theorem fill_insert_step {h : Heap} {r : ZStreamRef} {ds w : Nat}
-    {z : ZStream} {d : DeflateState} {wa : Array UInt8} (str : UInt32) (brk : Bool)
-    (good : DGood h r ds z d) (chains : HeapChains h d str.toNat)
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
-    (range : d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat)
-    (cursor : str.toNat + d.insert.toNat = d.strstart.toNat)
-    (positive : 1 ≤ d.insert.toNat) (ready : 3 ≤ d.lookahead.toNat + d.insert.toNat)
-    (form : InsHForm d.hash_shift d.hash_mask (bfn wa) str.toNat d.ins_h) :
-    ∃ key after,
-      let result := pendingInsertState d key
-      fillInsertBody (some (.tab ds)) (str, brk) h =
-        .ok ((str + 1, result.lookahead + result.insert < MIN_MATCH_u), after) ∧
-      DGood after r ds z result ∧ HeapChains after result (str.toNat + 1) ∧ after.bytes = h.bytes ∧
-      (str + 1).toNat = str.toNat + 1 ∧ result.insert.toNat = d.insert.toNat - 1 ∧
-      InsHForm result.hash_shift result.hash_mask (bfn wa) (str.toNat + 1) result.ins_h := by
-  obtain ⟨key, after, run, goodA, chainsA, bytesA, next, count, formA, _⟩ :=
-    fill_insert_step_storage str brk good chains win get range cursor positive ready form
-  exact ⟨key, after, run, goodA, chainsA, bytesA, next, count, formA⟩
-
 end Zlib.Deflate.Engine.Proofs

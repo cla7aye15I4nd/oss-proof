@@ -331,20 +331,4 @@ theorem ws_build_tree_usable_initialized {h0 : Heap} {id : Nat} {d : DeflateStat
   exact ws_build_tree_usable_codes (bt_desc_get tk h0 id d) (trees_build_desc_get hs tk) hstat htree
     he3 he286 hT hTbig hDepth hH hBC (trees_build_static hs tk)
 
-/-- The supported-code result runs on the actual initialized caller heap. -/
-theorem build_tree_usable_initialized {h : Heap} {id : Nat} {d : DeflateState}
-    (tk : TK) (hd : h.dstates id = some d) (hwf : d.WellFormed)
-    (hs : Out.TreesStatic h.static) (hr : Out.TreesRun0 id d) :
-    ∃ e : DeflateState, build_tree (Sp id) (some (tk.descRef id)) h = .ok ((), setD h id e) ∧
-      ∀ v < tk.buildDesc.elems.toInt.toNat, btFreq tk d v ≠ 0 →
-        1 ≤ (tk.arr e)[v]!.dl.toNat ∧ (tk.arr e)[v]!.dl.toNat ≤ tk.buildDesc.max_length.toInt.toNat ∧
-        (tk.arr e)[v]!.fc.toNat = Math.storedCode
-          (fun b => e.bl_count[b]!.toNat) (fun n => (tk.arr e)[n]!.dl.toNat) v ∧
-        (tk.arr e)[v]!.fc.toNat < 2 ^ (tk.arr e)[v]!.dl.toNat := by
-  obtain ⟨a, e, he, hresult⟩ := ws_build_tree_usable_initialized tk hwf hs hr
-  have ha : a = () := Subsingleton.elim _ _
-  subst a
-  rw [setD_self hd] at he
-  exact ⟨e, he, hresult⟩
-
 end Zlib.Trees.Proofs

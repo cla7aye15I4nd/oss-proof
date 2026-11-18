@@ -26,24 +26,4 @@ theorem rebuffer_pending_boundary {h g : Heap} {r : ZStreamRef} {ds origin : Nat
     w, wa, win, window.1.trans get, view, form⟩,
     boundary.insert_le, rebuffer_chains boundary.good edit boundary.frontier, boundary.ready⟩
 
-/-- Actual default initialization establishes the boundary before and
-after every legal caller buffer replacement. Universal Init2 is not a
-callee contract or proof dependency. -/
-theorem default_pending_rebuffered {h : Heap} {r : ZStreamRef} {z : ZStream}
-    {version : BPtr} {level : Int32} {p : ZlibF.Spec.Api.DeflParams}
-    (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
-    (allocators : DefaultOrNull z) (versionValue : VersionValue h version (some 49))
-    (params : ZlibF.Spec.Api.deflInit? level.toInt 8 15 8 0 = some p)
-    (alloc : ∀ j, j < 5 → h.allocOk (h.nalloc + j) = true) (input : Nat → UInt8) :
-    ∃ after zf sf, C.run (deflateInit_ (some r) level version 112) h = .ok (Z_OK, after) ∧
-      PendingBoundary after r h.nextBlk zf sf input 0 [] ∧ StreamReachable .deflate after r ∧
-      ∀ g, Rebuffer after g r → ∃ zg,
-        PendingBoundary g r h.nextBlk zg sf input 0 [] ∧ StreamReachable .deflate g r := by
-  obtain ⟨after, zf, sf, run, start, boundary, initial, reachable⟩ :=
-    default_initialization_pending_boundary hf hu hg hz allocators versionValue params alloc input
-  refine ⟨after, zf, sf, run, boundary, reachable, ?_⟩
-  intro g edit
-  obtain ⟨zg, _, boundaryG⟩ := rebuffer_pending_boundary boundary edit (initial_no_header start initial)
-  exact ⟨zg, boundaryG, StreamReachable.rebuffer reachable edit (fun k => nomatch k)⟩
-
 end Zlib.Deflate.Engine.Proofs

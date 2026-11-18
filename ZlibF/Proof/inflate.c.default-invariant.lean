@@ -1,6 +1,7 @@
 import ZlibF.Proof.«inflate.c.default-foundation»
 import ZlibF.Proof.«inflate.c.check-dispatch»
-import ZlibF.Proof.«inflate.c.lenlens-table-safe»
+import ZlibF.Proof.«inflate.c.main.table6»
+import ZlibF.Proof.«inflate.c.codelens-install»
 import ZlibF.Proof.«inflate.c.validate-invariant»
 
 namespace Zlib.Inflate.Proofs

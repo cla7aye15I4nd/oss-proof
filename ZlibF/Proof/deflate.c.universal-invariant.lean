@@ -216,24 +216,13 @@ theorem DInv.dgood {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : Def
 theorem DInv.defAlloc {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (inv : DInv h r ds z d) : DefAlloc z := inv.alloc
 
-/-- The static tables (CRC, trees, inflate) are the initial ones; `read_buf` with `wrap = 2`
-reads the CRC tables. No stream operation writes them. -/
-theorem DInv.libraryGlobals {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (inv : DInv h r ds z d) : LibraryGlobals h := inv.globals
-
 theorem DInv.shape' {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (inv : DInv h r ds z d) : Shape d := inv.shape
-
-theorem DInv.hashing' {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (inv : DInv h r ds z d) : Hashing h d := inv.hashing
 
 /-- Off level 0 the chains are exact. -/
 theorem DInv.chains {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
     (inv : DInv h r ds z d) (level : d.level ≠ 0) : Chains h d :=
   inv.hashing.chains (inv.shape.slides.2 level)
-
-theorem DInv.blockClear {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (inv : DInv h r ds z d) : BlockClear d := inv.symbols.clear
 
 /-- The symbol ledger of the current block, with the distance bound. -/
 theorem DInv.recorded {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}

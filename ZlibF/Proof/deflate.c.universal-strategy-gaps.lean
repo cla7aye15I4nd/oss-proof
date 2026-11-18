@@ -67,14 +67,6 @@ theorem dispatch_spec_in {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
     rcases values with e | e | e | e | e | e <;>
       simp [hf', rl', e, config_at, configuration_table, bind_app, pure_app] <;> exact run
 
-/-- The dispatch with a full output, in the form of `StrategyGaps.noRoom`. -/
-theorem gaps_noRoom {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}
-    {d : DeflateState} (flush : Int32) (inv : DInv h r ds z d) (ov : Block.OverlayAt d.lit_bufsize.toNat) (buffers : StreamBuffers h r)
-    (out : z.next_out ≠ .null) (input : z.avail_in ≠ 0 → z.next_in ≠ .null) (_full : z.avail_out = 0)
-    (pend : d.pending = 0) (_busy : d.status = BUSY_STATE ∨ d.status = FINISH_STATE) :
-    DispatchOut h r ds z d flush (dispatch (some (.tab ds)) flush d h) :=
-  dispatch_spec_in inv ov ⟨buffers, out, input, pend⟩ flush
-
 /-- What the returned block state says about the state after the
 dispatch, for every run from the checks of `deflate` (any output room). -/
 theorem gaps_facts {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream}

@@ -247,40 +247,6 @@ theorem exact_ld_st {β γ : Type} (p : DeflateStatePtr) (q : DeflateState → M
             · cases q <;> simpa only [ZStreamRef.get] using got
           exact rel1.trans (rel2.trans (hk d x _ value after run))
 
-/-- `strm->... = ...` as a store of a stream record built from an earlier load of the same
-record, when everything between keeps the stream's `state` and allocators. -/
-theorem exact_ldz_st {β γ : Type} (p : ZStreamPtr) (q : ZStream → M β)
-    (g : ZStream → β → ZStream) (k : ZStream → β → M γ)
-    (hq : ∀ z, ExactM (q z)) (hg : ∀ z x, ZSame z (g z x)) (hk : ∀ z x, ExactM (k z x)) :
-    ExactM (do
-      let z ← ldZStream p
-      let x ← q z
-      stZStream p (g z x)
-      k z x) := by
-  intro h value after run
-  simp only [bind_app] at run
-  cases p with
-  | none => cases run
-  | some r =>
-    cases get : r.get h with
-    | none => simp [ldZStream, get] at run
-    | some z =>
-      simp only [ldZStream, get] at run
-      cases eq1 : q z h with
-      | error _ => simp [eq1] at run
-      | ok p1 =>
-        rcases p1 with ⟨x, h1⟩
-        simp only [eq1] at run
-        have rel1 := hq z h x h1 eq1
-        obtain ⟨z1, get1, same1⟩ := rel1.2.1 r z get
-        have hsame : ZSame z1 (g z x) := by
-          have := hg z x
-          exact ⟨this.state.trans same1.state.symm, this.zalloc.trans same1.zalloc.symm,
-            this.zfree.trans same1.zfree.symm⟩
-        have ro : r.isRo = false := by cases r <;> rfl
-        simp only [stZStream, get1, ro, Bool.false_eq_true, ite_false] at run
-        exact rel1.trans ((exact_put_stream get1 (g z x) hsame).trans (hk z x _ value after run))
-
 end Zlib.Deflate.Universal.Params
 
 namespace Zlib.Deflate.Universal.Params

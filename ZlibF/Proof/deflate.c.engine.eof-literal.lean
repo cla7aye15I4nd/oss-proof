@@ -128,24 +128,4 @@ theorem slow_eof_literal_content_frame {h : Heap} {r : ZStreamRef} {ds origin ba
     simp only [bind_app, ldDeflateState_tab boundary.good.live.hs, has, ite_true, read, tally]
     exact put
 
-/-- The earlier content-only cutpoint follows from its stronger frame. -/
-theorem slow_eof_literal_content {h : Heap} {r : ZStreamRef} {ds origin base : Nat}
-    {z : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8}
-    (boundary : ContentBoundary h r ds z d input origin base xs)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (empty : d.lookahead = 0) (strict : d.sym_next.toNat < d.sym_end.toNat)
-    (clear : BlockInit.BlockClear d) :
-    ∃ after result ys,
-      slowEofLiteral (some (.tab ds)) h = .ok ((), after) ∧
-      ContentBoundary after r ds z result input origin base ys ∧ EndFrontier after result ∧
-      StreamBuffers after r ∧ result.match_available = 0 ∧ result.lookahead = 0 ∧
-      result.strstart = d.strstart ∧ result.sym_next.toNat ≤ result.sym_end.toNat ∧
-      BlockInit.BlockClear result ∧ ConfigFrame d result ∧
-      (ys = xs ∨ ∃ wa, ys = xs ++ [emittedLiteral d wa]) := by
-  obtain ⟨after, result, ys, run, boundaryA, frontierA, buffersA, flag, look, start, count,
-      clearA, configA, _recordA, symbols⟩ :=
-    slow_eof_literal_content_frame boundary frontier buffers empty strict clear
-  exact ⟨after, result, ys, run, boundaryA, frontierA, buffersA, flag, look, start, count,
-    clearA, configA, symbols⟩
-
 end Zlib.Deflate.Engine.Proofs

@@ -3011,17 +3011,6 @@ theorem chains_lower_lim {h1 p1 : Nat → UInt16} {w : Nat → UInt8} {n hsh hm 
   obtain ⟨a, _, c, e⟩ := hc.node k p hk hr hp ht
   exact ⟨a, by omega, c, e⟩
 
-theorem heap_chains_lower {h : Heap} {d d' : DeflateState} {top : Nat} (chains : HeapChains h d top)
-    (win : d'.window = d.window) (prev : d'.prev = d.prev) (head : d'.head = d.head)
-    (size : d'.hash_size = d.hash_size) (shift : d'.hash_shift = d.hash_shift) (mask : d'.hash_mask = d.hash_mask)
-    (wsize : d'.w_size = d.w_size)
-    (fits : top + 2 ≤ d'.strstart.toNat + d'.lookahead.toNat) : HeapChains h d' top := by
-  obtain ⟨w, p, q, wa, pa, qa, win0, prev0, head0, hw, hp, hq, H⟩ := chains
-  refine ⟨w, p, q, wa, pa, qa, by rw [win]; exact win0, by rw [prev]; exact prev0, by rw [head]; exact head0,
-    hw, hp, hq, ?_⟩
-  rw [size, shift, mask, wsize]
-  exact chains_lower_lim H fits
-
 /-- The state after the match of a search is recorded and the lookahead lowered by its length. -/
 def matchRecorded (d2 : DeflateState) : DeflateState :=
   let d3 := matchSymbolState d2 (d2.strstart - d2.match_start) (d2.match_length - MIN_MATCH_u)

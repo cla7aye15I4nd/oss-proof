@@ -304,12 +304,6 @@ theorem modePrepared_ledger (h : Heap) (bs : List UInt8) (hf : Fresh h) :
     ZlibF.Spec.Public.LiveChange h (modePreparedHeap h bs) (fun b => b = h.nextBlk) (fun _ => False) :=
   openFrontHeap_ledger h (modePreparedRecord h bs) (Fresh.slotUsed_next hf)
 
-/-- The full mode loop consumes no further allocation-oracle call. -/
-theorem modePrepared_counts (h : Heap) (bs : List UInt8) :
-    (modePreparedHeap h bs).nextBlk = h.nextBlk + 1 ∧
-    (modePreparedHeap h bs).nalloc = h.nalloc + 1 ∧
-    (modePreparedHeap h bs).allocOk = h.allocOk := ⟨rfl, rfl, rfl⟩
-
 #print axioms modePrepared_fields
 #print axioms modePrepared_invariants
 #print axioms modePrepared_cstring

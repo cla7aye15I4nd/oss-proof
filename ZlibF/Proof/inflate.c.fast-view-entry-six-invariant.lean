@@ -36,35 +36,6 @@ theorem FastInputPacket.six_unread
             | cons sixth rest =>
               exact ⟨first, second, third, fourth, fifth, sixth, rest, rfl⟩
 
-/-- The real fast-loop input guard entails the six-byte margin when `last`
-tracks the end of the current unread range minus five. -/
-theorem FastInputPacket.six_unread_of_guard
-    {h : Heap} {slow : IL} {bs : List UInt8}
-    {l : Zlib.Inffast.L} {c : Zlib.Inffast.Ctx}
-    {ref : BRef} {input : Array UInt8} {off : Nat}
-    (packet : FastInputPacket h slow bs l)
-    (nextPtr : slow.next = .ref ref off)
-    (lastPtr : c.last = .ref ref
-      (off + slow.have_.toNat - 5))
-    (inputGet : Space.get h ref = some input)
-    (capacity : off + slow.have_.toNat ≤ input.size)
-    (guard : C.run (Ptr.lt l.in_ c.last) h = .ok (true, h)) :
-    ∃ first second third fourth fifth sixth rest,
-      bs = first :: second :: third :: fourth :: fifth :: sixth :: rest := by
-  have offBound : off ≤ input.size := by omega
-  have lastBound : off + slow.have_.toNat - 5 ≤ input.size := by omega
-  have compare := Ptr.lt_ok (r := ref) (a := input)
-    inputGet offBound lastBound
-  rw [packet.cursor, nextPtr, lastPtr] at guard
-  change (Ptr.lt (.ref ref off)
-    (.ref ref (off + slow.have_.toNat - 5))) h =
-      .ok (true, h) at guard
-  rw [compare] at guard
-  have margin : 6 ≤ slow.have_.toNat := by
-    simp at guard
-    omega
-  exact packet.six_unread margin
-
 /-- The consumed-byte count in a fast-body packet gives the exact remaining
 public input count, independent of output writes. -/
 theorem FastInputPacket.have_after_drop

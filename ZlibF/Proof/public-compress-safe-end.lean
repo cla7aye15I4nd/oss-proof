@@ -51,10 +51,6 @@ theorem tables_freed {E X : Heap} {k : Nat} {z : ZStream} (u : Zlib.Deflate.Spec
     only.2.2.2.1.trans e.2.2.2.2.1.symm, only.2.2.2.2.1.trans e.2.2.2.2.2.1.symm,
     only.2.2.2.2.2.trans e.2.2.2.2.2.2.symm⟩
 
-theorem freed_live {X : Heap} {k b : Nat} (ne : b ≠ k) :
-    ({ X with streams := upd X.streams k none } : Heap).live b ↔ X.live b := by
-  simp [Heap.live, upd_ne _ _ _ _ ne]
-
 theorem freed_tables {X : Heap} {k b : Nat} (ne : b ≠ k) :
     Tables X { X with streams := upd X.streams k none } b := by
   exact ⟨rfl, rfl, by simp [upd_ne _ _ _ _ ne], rfl, rfl, rfl, rfl⟩

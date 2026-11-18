@@ -182,32 +182,4 @@ theorem fill_window_run_full_storage {h after : Heap} {r : ZStreamRef} {ds origi
       rw [← heaps]
       exact ⟨shapeA, frameA, liveA, allocA, nextA⟩
 
-/-- The actual complete refill both returns and preserves the content
-boundary, public buffer accounting and complete object/allocation frame.
-All effects are established from the initialized boundary and actual code. -/
-theorem fill_window_pending_boundary_all_full_storage {h : Heap} {r : ZStreamRef} {ds origin : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {xs : List ZlibF.Math.DeflateSymbols.Symbol}
-    (boundary : PendingBoundary h r ds z d input origin xs)
-    (short : d.lookahead.toNat < 262) (wrap : d.wrap = 1) (buffers : StreamBuffers h r)
-    (inputValid : z.avail_in ≠ 0 → z.next_in ≠ .null) :
-    ∃ used after z' result extended nextOrigin,
-      fill_window (some (.tab ds)) h = .ok ((), after) ∧
-      PendingBoundary after r ds z' result extended nextOrigin xs ∧ StreamAccounting z z' used 0 ∧
-      nextOrigin + result.strstart.toNat = origin + d.strstart.toNat ∧
-      result.lookahead.toNat = d.lookahead.toNat + used ∧ result.wrap = 1 ∧
-      (nextOrigin = origin ∨ nextOrigin = origin + d.w_size.toNat) ∧
-      (∀ i, i < origin + fillEnd d → extended i = input i) ∧
-      (262 ≤ result.lookahead.toNat ∨ z'.avail_in = 0) ∧ FillRecordFrame d result ∧
-      z'.total_in = z.total_in + UInt64.ofNat used ∧ z'.total_out = z.total_out ∧
-      Shape h after ∧ Frame h after (fun b => StreamRoot r b ∨ DeflateOwned ds d b) ∧
-      LiveChange h after (fun _ => False) (fun _ => False) ∧ after.nalloc = h.nalloc ∧ after.nextBlk = h.nextBlk := by
-  obtain ⟨used, after, z', result, extended, nextOrigin, run, boundaryA, account,
-      start, look, wrapA, originA, prefixA, stopped, fields, _companion⟩ :=
-    fill_window_pending_boundary_all_frame boundary short wrap buffers inputValid
-  obtain ⟨inputCount, outputCount⟩ := fill_window_run_counter_effects boundary short wrap buffers inputValid
-    run boundaryA.good.live.hz account
-  obtain ⟨shape, frame, live, alloc, next⟩ := fill_window_run_full_storage boundary short wrap buffers inputValid run
-  exact ⟨used, after, z', result, extended, nextOrigin, run, boundaryA, account,
-    start, look, wrapA, originA, prefixA, stopped, fields, inputCount, outputCount, shape, frame, live, alloc, next⟩
-
 end Zlib.Deflate.Engine.Proofs

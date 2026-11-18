@@ -16,10 +16,6 @@ the first NUL), the format by `cstring fmt h = .ok (f, h)`.
 namespace Zlib.GzFs.Proofs
 open C Zlib.GzFs
 
-/-- The bytes of the decimal text of an integer, with a minus sign for a negative one. -/
-def decBytes (z : Int) : Array UInt8 :=
-  (if z < 0 then #[45] else #[]) ++ ((Nat.toDigits 10 z.natAbs).toArray.map fun c => c.toNat.toUInt8)
-
 theorem parse_s : parseSpec #[37, 115] 1 = some ({ conv := 115 }, 2) := by decide
 theorem parse_fd : parseSpec #[60, 102, 100, 58, 37, 100, 62] 5 = some ({ conv := 100 }, 6) := by decide
 theorem parse_sss1 : parseSpec #[37, 115, 37, 115, 37, 115] 1 = some ({ conv := 115 }, 2) := by decide

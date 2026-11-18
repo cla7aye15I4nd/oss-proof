@@ -1,4 +1,4 @@
-import ZlibF.Proof.«deflate.c.engine.finish-search»
+import ZlibF.Proof.«deflate.c.engine.search-frame»
 
 /-! # Lazy history and pending frontiers at short lookahead -/
 

@@ -126,57 +126,6 @@ theorem slow_search_short_quality {h after : Heap} {ds : Nat} {d : DeflateState}
       pure 0) h = .ok (candidate, after) at run
     exact prepared_find_short_quality get run
 
-/-- For an older retained match position, the checked unsigned distance
-is the ordinary natural distance used by the stored-symbol cost bound. -/
-theorem kept_short_natural_distance {d : DeflateState}
-    (keep : rejectShort d ≠ true) (short : d.match_length = 3)
-    (older : d.match_start.toNat ≤ d.strstart.toNat) :
-    d.strstart.toNat - d.match_start.toNat ≤ 4096 := by
-  have bound := kept_short_match_distance keep short
-  rw [UInt32.le_iff_toNat_le,
-    UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; exact older)] at bound
-  exact bound
-
-/-- The actual sliding record update preserves the pending lazy match
-quality, including wrapped pointer positions. -/
-theorem slide_short_candidate_quality (d : DeflateState)
-    (quality : d.match_length = 3 → d.strstart - 1 - d.match_start ≤ TOO_FAR) :
-    (slideState d).match_length = 3 →
-      (slideState d).strstart - 1 - (slideState d).match_start ≤ TOO_FAR := by
-  intro short
-  change (d.strstart - d.w_size) - 1 - (d.match_start - d.w_size) ≤ TOO_FAR
-  rw [shifted_short_distance]
-  exact quality short
-
-/-- The actual one-byte advance retains a fresh search match as the
-next lazy candidate. -/
-theorem advance_short_candidate_quality (d : DeflateState)
-    (quality : d.match_length = 3 → d.strstart - d.match_start ≤ TOO_FAR) :
-    (advanceOne d).match_length = 3 →
-      (advanceOne d).strstart - 1 - (advanceOne d).match_start ≤ TOO_FAR := by
-  intro short
-  change (d.strstart + 1) - 1 - d.match_start ≤ TOO_FAR
-  rw [advanced_short_distance]
-  exact quality short
-
-/-- The actual deferred-byte update retains the fresh search match
-quality for the next source iteration. -/
-theorem defer_short_candidate_quality (d : DeflateState)
-    (quality : d.match_length = 3 → d.strstart - d.match_start ≤ TOO_FAR) :
-    (deferOne d).match_length = 3 →
-      (deferOne d).strstart - 1 - (deferOne d).match_start ≤ TOO_FAR := by
-  intro short
-  change (d.strstart + 1) - 1 - d.match_start ≤ TOO_FAR
-  rw [advanced_short_distance]
-  exact quality short
-
-/-- The source lazy-field preparation transfers the previous candidate
-quality to the fields used by the next match emission. -/
-theorem prepare_previous_short_quality (d : DeflateState)
-    (quality : d.match_length = 3 → d.strstart - 1 - d.match_start ≤ TOO_FAR) :
-    (lazyPrepare d).prev_length = 3 →
-      (lazyPrepare d).strstart - 1 - (lazyPrepare d).prev_match ≤ TOO_FAR := quality
-
 /-- The actual retained match symbol satisfies the distance rule
 required by the byte-sensitive fixed-code cost. -/
 theorem retained_match_short_quality (d : DeflateState)
@@ -192,37 +141,5 @@ theorem retained_match_short_quality (d : DeflateState)
     exact zero
   have short : d.match_length = 3 := UInt32.toNat_inj.mp (by change d.match_length.toNat = 3; omega)
   exact UInt32.le_iff_toNat_le.mp (quality short)
-
-/-- The actual default sliding guard leaves at least 32,506 bytes
-before the new cursor. -/
-theorem default_slide_start_floor {h : Heap} {r : ZStreamRef} {ds : Nat}
-    {z : ZStream} {d : DeflateState} (good : DGood h r ds z d)
-    (memory : d.w_size.toNat = 32768)
-    (taken : d.strstart ≥ d.w_size + (d.w_size - MIN_LOOKAHEAD_u)) :
-    32506 ≤ (slideState d).strstart.toNat := by
-  have threshold := slide_threshold good
-  have lower := UInt32.le_iff_toNat_le.mp taken
-  rw [threshold, memory] at lower
-  change 32506 ≤ (d.strstart - d.w_size).toNat
-  rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; omega)]
-  omega
-
-/-- For a negative block start immediately after the actual default
-slide, the zero-credit ledger represents a large enough block. -/
-theorem default_slid_negative_block_large {h : Heap} {r : ZStreamRef} {ds : Nat}
-    {z : ZStream} {d : DeflateState} {xs : List ZlibF.Math.DeflateSymbols.Symbol}
-    (good : DGood h r ds z d) (memory : d.w_size.toNat = 32768)
-    (taken : d.strstart ≥ d.w_size + (d.w_size - MIN_LOOKAHEAD_u))
-    (balance : BlockBalance (slideState d) xs 0)
-    (negative : (slideState d).block_start.toInt < 0) :
-    32506 ≤ ZlibF.Math.DeflateSymbols.represented xs := by
-  have floor := default_slide_start_floor good memory taken
-  unfold BlockBalance at balance
-  omega
-
-
-
-
-
 
 end Zlib.Deflate.Engine.Proofs

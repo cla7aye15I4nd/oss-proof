@@ -33,25 +33,6 @@ theorem rebuffer_content_boundary {h g : Heap} {r : ZStreamRef} {ds origin base 
   obtain ⟨z', getZ, next⟩ := rebuffer_pending_boundary boundary.toPendingBoundary edit header
   exact ⟨z', getZ, next, boundary.trace, boundary.accounted⟩
 
-/-- Default initialization and every legal caller buffer replacement
-establish the content boundary on actual reachable states. -/
-theorem default_content_rebuffered {h : Heap} {r : ZStreamRef} {z : ZStream}
-    {version : BPtr} {level : Int32} {p : ZlibF.Spec.Api.DeflParams}
-    (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
-    (ha : DefaultOrNull z) (hv : VersionValue h version (some 49))
-    (params : ZlibF.Spec.Api.deflInit? level.toInt 8 15 8 0 = some p)
-    (alloc : ∀ j, j < 5 → h.allocOk (h.nalloc + j) = true) (input : Nat → UInt8) :
-    ∃ after zf sf, C.run (deflateInit_ (some r) level version 112) h = .ok (Z_OK, after) ∧
-      ContentBoundary after r h.nextBlk zf sf input 0 0 [] ∧ StreamReachable .deflate after r ∧
-      ∀ g, Rebuffer after g r → ∃ zg,
-        ContentBoundary g r h.nextBlk zg sf input 0 0 [] ∧ StreamReachable .deflate g r := by
-  obtain ⟨after, zf, sf, run, start, boundary, initial, reachable⟩ :=
-    default_initialization_content_boundary hf hu hg hz ha hv params alloc input
-  refine ⟨after, zf, sf, run, boundary, reachable, ?_⟩
-  intro g edit
-  obtain ⟨zg, _, boundaryG⟩ := rebuffer_content_boundary boundary edit (initial_no_header start initial)
-  exact ⟨zg, boundaryG, StreamReachable.rebuffer reachable edit (fun k => nomatch k)⟩
-
 /-- The actual fill extends input only beyond the previously accepted
 prefix. The stored symbols and their cumulative positions retain their
 meaning through sliding, pending insertions and every padding branch. -/
@@ -93,17 +74,4 @@ theorem ContentBoundary.expands {h : Heap} {r : ZStreamRef} {ds origin base : Na
   exact boundary.trace.expands
 
 open ZlibF.Spec.Public.Proofs.DeflateInit in
-/-- An actual default entry inhabits the content boundary. -/
-theorem default_content_boundary_witness :
-    ∃ after zf sf,
-      C.run (deflateInit_ (some (.tab 0)) Z_DEFAULT_COMPRESSION (.ref (.blk 1) 0) 112)
-        witnessHeap = .ok (Z_OK, after) ∧
-      ContentBoundary after (.tab 0) 2 zf sf (fun _ => 0) 0 0 [] := by
-  obtain ⟨after, zf, sf, run, _, boundary, _, _⟩ :=
-    default_initialization_content_boundary (h := witnessHeap) (r := .tab 0) (z := default)
-      (version := .ref (.blk 1) 0) (level := Z_DEFAULT_COMPRESSION) (p := settings 6)
-      witness_fresh witness_uniq rfl (by simp [ZStreamRef.get, witnessHeap])
-      ⟨Or.inl rfl, Or.inl rfl⟩ witness_version (by decide +kernel) (by intro _ _; rfl) (fun _ => 0)
-  exact ⟨after, zf, sf, run, boundary⟩
-
 end Zlib.Deflate.Engine.Proofs

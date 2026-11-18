@@ -13,9 +13,6 @@ open C Zlib.Inflate
 /-- `order` has 19 entries, every one below 19. -/
 theorem order_lt : ∀ j, j < 19 → ∃ v, order[j]? = some v ∧ v.toNat < 19 := by decide
 
-/-- `order` is injective on `0 .. 18`. -/
-theorem order_inj : ∀ i, i < 19 → ∀ j, j < 19 → order[i]? = order[j]? → i = j := by decide
-
 /-- `order` hits every code length symbol `0 .. 18`: the loops of `case TABLE` that write `lens[order[have++]]` for
 `have = 0 .. 18` write every one of `lens[0 .. 18]` exactly once. -/
 theorem order_surj : ∀ k, k < 19 → ∃ j, j < 19 ∧ order[j]? = some k.toUInt16 := by decide

@@ -18,20 +18,4 @@ theorem charge_rebase (total : UInt64) (base remaining : UInt32)
     total + (base - remaining).toUInt64 + remaining.toUInt64 = total + base.toUInt64 := by
   rw [UInt64.add_assoc, difference_cast base remaining bound]
 
-/-- A conserved ledger and exact public remaining count determine the
-final wrapping total. No upper bound on the lifetime total is required. -/
-theorem charge_from_ledger (before current : UInt64) (base remaining original : UInt32) (produced : Nat)
-    (bound : remaining.toNat ≤ base.toNat)
-    (counts : remaining.toNat + produced = original.toNat)
-    (ledger : current + base.toUInt64 = before + original.toUInt64) :
-    current + (base - remaining).toUInt64 = before + UInt64.ofNat produced := by
-  have words := congrArg UInt64.ofNat counts
-  simp only [UInt64.ofNat_add, UInt64.ofNat_uInt32ToNat] at words
-  have combined : current + (base - remaining).toUInt64 + remaining.toUInt64 =
-      (before + UInt64.ofNat produced) + remaining.toUInt64 := by
-    rw [charge_rebase current base remaining bound, ledger, ← words]
-    rw [UInt64.add_comm remaining.toUInt64, ← UInt64.add_assoc]
-  have canceled := congrArg (fun value : UInt64 => value - remaining.toUInt64) combined
-  simpa only [UInt64.add_sub_cancel] using canceled
-
 end ZlibF.Math.CounterAccounting

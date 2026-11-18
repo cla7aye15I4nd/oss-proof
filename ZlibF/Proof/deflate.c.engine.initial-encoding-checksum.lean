@@ -42,27 +42,4 @@ theorem default_initialization_encoding_checksum {h : Heap} {r : ZStreamRef} {z 
   refine ⟨[], [], held, rfl, ?_⟩
   simpa only [inputPrefix, List.range_zero, List.map_nil] using block_prefix_empty ([] : List UInt8) [] 0
 
-/-- Legal caller replacement preserves the same logical input, raw prefix
-and checksum together. The caller can replace exhausted buffers and edit
-unowned allocations without changing this initialized private meaning. -/
-theorem rebuffer_encoding_checksum {h g : Heap} {r : ZStreamRef} {ds origin base : Nat}
-    {z : ZStream} {d : DeflateState} {input : Nat → UInt8} {xs : List Symbol}
-    {config : EngineConfig} {published : List UInt8}
-    (boundary : BufferedBoundary h r ds z d input origin base xs config)
-    (encoding : RawPrefix h d input base published)
-    (checksum : z.adler = (ZlibF.Spec.adler32 (inputPrefix input (origin + fillEnd d))).toUInt64)
-    (edit : Rebuffer h g r) (header : d.gzhead = none) :
-    ∃ z', r.get g = some z' ∧ BufferedBoundary g r ds z' d input origin base xs config ∧
-      RawPrefix g d input base published ∧
-      z'.adler = (ZlibF.Spec.adler32 (inputPrefix input (origin + fillEnd d))).toUInt64 := by
-  obtain ⟨z', get, stateA⟩ := rebuffer_buffered_boundary boundary edit header
-  have encodingA := encoding.rebuffer boundary.good edit
-  obtain ⟨_fresh, _uniq, _globals, _frame, old, new, oldGet, newGet, fields⟩ := edit
-  have oldEq : old = z := Option.some.inj (oldGet.symm.trans boundary.good.live.hz)
-  have newEq : new = z' := Option.some.inj (newGet.symm.trans get)
-  subst old new
-  refine ⟨z', get, stateA, encodingA, ?_⟩
-  rw [fields]
-  exact checksum
-
 end Zlib.Deflate.Engine.Proofs

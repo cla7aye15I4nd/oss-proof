@@ -60,12 +60,6 @@ theorem leaveX_CRC2 (flush : Int32) (c : Ctx) : LeaveX flush (CRC2 c) := by
   repeat' first
     | leave_cause_source
 
-theorem leaveX_CRC4 (flush : Int32) (c : Ctx) : LeaveX flush (CRC4 c) := by
-  intro l
-  unfold CRC4
-  repeat' first
-    | leave_cause_source
-
 theorem leaveX_lookup1 (flush : Int32) (c : Ctx) (distance : Bool) : LeaveX flush (lookup1 c distance) := by
   intro l
   unfold lookup1

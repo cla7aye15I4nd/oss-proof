@@ -147,28 +147,6 @@ theorem lenSubLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateStat
     · intro impossible
       cases impossible
 
-/-- Projection retaining the original length-link lookup statement. -/
-theorem lenSubLookup_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (root : Code) (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : s.lencode = .ref ref offset) (tableGet : Space.get h ref = some ca)
-    (link : LinkOK LenLeaf ca offset root) (back : s.back = 0) (B : BitInv h l bs) :
-    ∃ result regs used after,
-      runX (lenSubLookup c root) l h = .ok ((result, regs), after) ∧
-      used ≤ 2 ∧ used ≤ bs.length ∧ BitInv after regs (bs.drop used) ∧
-      SymbolRegShape l regs ∧ regs.last = root ∧ regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () →
-        after = setI h zs { s with back := Int32.ofNat root.bits.toNat } ∧
-        LenLeaf root.bits.toNat regs.here ∧ regs.here.bits.toNat ≤ regs.bits.toNat ∧
-        stream regs (bs.drop used) = (stream l bs).drop root.bits.toNat ∧
-        regs.bits.toNat = l.bits.toNat + 8 * used - root.bits.toNat) ∧
-      (result = .error Ex.leave → after = h ∧ regs.have_ = 0 ∧
-        stream regs (bs.drop used) = stream l bs) := by
-  obtain ⟨result, regs, used, after, run, two, usedBound, inv, shape, last, bound, kinds, done, leave, _⟩ :=
-    lenSubLookup_run_cursor root hc hs pointer tableGet link back B
-  exact ⟨result, regs, used, after, run, two, usedBound, inv, shape, last, bound, kinds, done, leave⟩
-
 /-- The source point after the root lookup, including the actual slow-link test. -/
 def lenRootTail (c : Ctx) (here : Code) : X Unit := do
   if here.op != 0 && (here.op &&& 0xf0) == 0 then
@@ -405,28 +383,6 @@ theorem lenLookup_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
       · intro _
         refine ⟨current.hold.toNat % 2 ^ s.lenbits.toNat, rootIndex, ?_⟩
         rw [cell, ite_eq_right notLink]
-
-/-- Projection retaining the original complete length lookup. -/
-theorem lenLookup_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : s.lencode = .ref ref offset) (tableGet : Space.get h ref = some ca)
-    (safe : LenTableSafe ca offset s.lenbits.toNat) (back : s.back = 0) (B : BitInv h l bs) :
-    ∃ result regs used after,
-      runX (lenLookup c) l h = .ok ((result, regs), after) ∧
-      used ≤ 4 ∧ used ≤ bs.length ∧ BitInv after regs (bs.drop used) ∧
-      SymbolRegShape l regs ∧ regs.bits.toNat ≤ max l.bits.toNat 22 ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → ∃ dropped, dropped ≤ 15 ∧
-        after = setI h zs { s with back := Int32.ofNat dropped } ∧
-        LenLeaf dropped regs.here ∧ regs.here.bits.toNat ≤ regs.bits.toNat ∧
-        stream regs (bs.drop used) = (stream l bs).drop dropped ∧
-        regs.bits.toNat = l.bits.toNat + 8 * used - dropped) ∧
-      (result = .error Ex.leave → after = h ∧ regs.have_ = 0 ∧
-        stream regs (bs.drop used) = stream l bs) := by
-  obtain ⟨result, regs, used, after, run, four, usedBound, inv, shape, bound, kinds, done, leave, _⟩ :=
-    lenLookup_run_cursor hc hs pointer tableGet safe back B
-  exact ⟨result, regs, used, after, run, four, usedBound, inv, shape, bound, kinds, done, leave⟩
 
 private theorem bindX_ite {α β : Type} (p : Prop) [Decidable p] (a b : X α) (f : α → X β) :
     ((if p then a else b) >>= f) = (if p then a >>= f else b >>= f) := by

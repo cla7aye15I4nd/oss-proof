@@ -213,25 +213,4 @@ theorem lookup1_codes_run_cursor {c : Ctx} {h : Heap} {zs : Nat} {s : InflateSta
       · intro impossible
         cases impossible
 
-/-- Projection retaining the original lookup interface. -/
-theorem lookup1_codes_run {c : Ctx} {h : Heap} {zs : Nat} {s : InflateState}
-    {ref : CodeRef} {offset : Nat} {ca : Array Code} {l : IL} {bs : List UInt8}
-    (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
-    (pointer : s.lencode = .ref ref offset) (get : Space.get h ref = some ca)
-    (safe : Zlib.Inftrees.Spec.CodeLengthTableSafe ca offset s.lenbits.toNat)
-    (B : BitInv h l bs) :
-    ∃ result l' used,
-      runX (lookup1 c false) l h = .ok ((result, l'), h) ∧
-      used ≤ 1 ∧ used ≤ bs.length ∧ BitInv h l' (bs.drop used) ∧
-      stream l' (bs.drop used) = stream l bs ∧
-      l' = { l with next := l'.next, have_ := l'.have_, hold := l'.hold, bits := l'.bits, here := l'.here } ∧
-      l'.bits.toNat ≤ max l.bits.toNat 14 ∧
-      1 ≤ l'.here.bits.toNat ∧ l'.here.bits.toNat ≤ s.lenbits.toNat ∧
-      (result = .ok () ∨ result = .error Ex.leave) ∧
-      (result = .ok () → l'.here.bits.toNat ≤ l'.bits.toNat) ∧
-      (result = .error Ex.leave → l'.have_ = 0) := by
-  obtain ⟨result, regs, used, run, one, bound, inv, stream, shape, bits, lower, upper,
-    kinds, full, empty, _, _⟩ := lookup1_codes_run_cursor hc hs pointer get safe B
-  exact ⟨result, regs, used, run, one, bound, inv, stream, shape, bits, lower, upper, kinds, full, empty⟩
-
 end Zlib.Inflate.Proofs

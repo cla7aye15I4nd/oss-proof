@@ -32,48 +32,6 @@ def fastAfterLoopView (c : Zlib.Inffast.Ctx)
   let s ← ldInflateState c.state
   stInflateState c.state { s with hold, bits }
 
-/-- The loop and the checked writeback in their translated order. -/
-def fastAfterPrefixView (c : Zlib.Inffast.Ctx)
-    (initial : Zlib.Inffast.L) : M Unit := do
-  let l ← cdoWhile (Zlib.Inffast.inflate_fast_body c)
-    (fun l => do
-      if l.broke then pure (false, l)
-      else if ← Ptr.lt l.in_ c.last then
-        pure (← Ptr.lt l.out c.end_, l)
-      else pure (false, l)) initial
-  fastAfterLoopView c l
-
-/-- A source-order continuation cut at the fast loop entry. -/
-def fastEntryWithView (strm : ZStreamPtr) (start : UInt32)
-    (k : Zlib.Inffast.Ctx → Zlib.Inffast.L → M Unit) : M Unit := do
-  let sm ← ldZStream strm
-  let state ← castInflateState sm.state
-  let in_ := sm.next_in
-  let last ← in_.add (sm.avail_in - 5).toNat
-  let out := sm.next_out
-  let beg ← Zlib.Inffast.subn out (start - sm.avail_out)
-  let end_ ← out.add (sm.avail_out - 257).toNat
-  let s ← ldInflateState state
-  let lmask := (← Zlib.Inffast.shl32 1 s.lenbits) - 1
-  let dmask := (← Zlib.Inffast.shl32 1 s.distbits) - 1
-  let c : Zlib.Inffast.Ctx := {
-    strm, state, last, beg, end_, wsize := s.wsize,
-    whave := s.whave, wnext := s.wnext,
-    window := s.window, lcode := s.lencode,
-    dcode := s.distcode, lmask, dmask }
-  let l : Zlib.Inffast.L := {
-    in_, out, hold := s.hold, bits := s.bits,
-    here := default, op := 0, len := 0, dist := 0,
-    from_ := default, broke := false,
-    againL := false, againD := false }
-  k c l
-
-/-- The cut is definitionally the actual translated C function. -/
-theorem inflate_fast_view_split (strm : ZStreamPtr) (start : UInt32) :
-    Zlib.Inffast.inflate_fast strm start =
-      fastEntryWithView strm start fastAfterPrefixView := by
-  rfl
-
 /-- The source-order stream and state stores work with arbitrary input and
 output byte references, including the same reference. -/
 theorem fastStoresView {h : Heap} {r : ZStreamRef} {zs : Nat}

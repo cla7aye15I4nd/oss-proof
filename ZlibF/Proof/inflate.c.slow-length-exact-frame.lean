@@ -1,5 +1,5 @@
 import ZlibF.Proof.«inflate.c.stored-output-exact-frame»
-import ZlibF.Proof.«inflate.c.slow-buffers»
+import ZlibF.Proof.«inflate.c.match-output»
 import ZlibF.Proof.«inflate.c.live-frame-modes»
 
 namespace Zlib.Inflate.Proofs

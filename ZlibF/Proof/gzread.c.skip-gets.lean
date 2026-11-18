@@ -36,8 +36,6 @@ theorem glift_app {α : Type} (m : M α) (fs : Fs) (h : Heap) :
   simp only [StateT.lift, bind, pure]
   cases m h <;> rfl
 
-theorem gpure_app {α : Type} (a : α) (fs : Fs) (h : Heap) : (pure a : G α) fs h = .ok ((a, fs), h) := rfl
-
 section run
 variable {α β : Type} {fs : Fs} {h : Heap} {fin : Prop}
 

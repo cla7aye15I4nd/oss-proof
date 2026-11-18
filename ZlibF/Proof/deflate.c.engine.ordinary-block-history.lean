@@ -62,17 +62,4 @@ theorem DefaultOrdinaryBlockRequests.preserves {h after : Heap} {r : ZStreamRef}
       subst computed
       exact ⟨z', result, stateA⟩
 
-/-- Actual default initialization establishes the same boundary after
-any finite ordinary request history, including real error returns. -/
-theorem default_init_ordinary_block_request_histories {h : Heap} {r : ZStreamRef} {z : ZStream} {version : BPtr}
-    (hf : Fresh h) (hu : Uniq h) (hg : LibraryGlobals h) (hz : r.get h = some z)
-    (ha : DefaultOrNull z) (hv : VersionValue h version (some 49))
-    (alloc : ∀ j, j < 5 → h.allocOk (h.nalloc + j) = true) :
-    ∃ initialized config,
-      C.run (deflateInit_ (some r) Z_DEFAULT_COMPRESSION version 112) h = .ok (Z_OK, initialized) ∧
-      (∀ after, DefaultOrdinaryBlockRequests r h.nextBlk initialized after →
-        ∃ z' result, DefaultFinishBoundary after r h.nextBlk z' result config) := by
-  obtain ⟨initialized, zf, sf, run, boundary⟩ := default_initialization_finish_protocol hf hu hg hz ha hv alloc
-  exact ⟨initialized, engineConfig sf, run, fun _ history => history.preserves boundary⟩
-
 end Zlib.Deflate.Engine.Proofs

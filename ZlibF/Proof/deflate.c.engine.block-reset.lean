@@ -1,4 +1,5 @@
-import ZlibF.Proof.«deflate.c.engine.fixed-format»
+import ZlibF.Proof.«deflate.c.engine.fixed-payload»
+import ZlibF.Math.DeflateFixedPayload
 
 /-! # Actual block reset restores the empty symbol ledger without losing output -/
 

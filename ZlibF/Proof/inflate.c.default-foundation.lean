@@ -98,20 +98,6 @@ theorem RequestedWrapOK.of_default {reqwrap wrap : Int32}
       rw [c]
       rcases requested with e | e | e <;> rw [e] <;> decide
 
-/-- The default request: the requested width is the current one, and the
-requested wrapper is raw, zlib, or zlib with checking. A reset keeps the
-default configuration only under this request. -/
-def DefaultRequest (s : InflateState) : Prop :=
-  s.reqbits = s.wbits ∧ (s.reqwrap = 0 ∨ s.reqwrap = 1 ∨ s.reqwrap = 5)
-
-/-- A default wrapper value is a wrapper value. -/
-theorem wrapper_of_default {w : Int32} (value : w = 0 ∨ w = 1 ∨ w = 5) :
-    w = 0 ∨ w = 1 ∨ w = 2 ∨ w = 3 ∨ w = 5 ∨ w = 6 ∨ w = 7 := by
-  rcases value with e | e | e
-  · exact Or.inl e
-  · exact Or.inr (Or.inl e)
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl e))))
-
 /-- Toggling bit 2 of a wrapper value gives a wrapper value, and 0 only from 0. -/
 theorem wrapper_validate {w check : Int32}
     (value : w = 0 ∨ w = 1 ∨ w = 2 ∨ w = 3 ∨ w = 5 ∨ w = 6 ∨ w = 7) :
@@ -296,17 +282,6 @@ theorem inflate_default_J_initial
     contradiction
   · exact Or.inl ⟨by omega, by omega⟩
   · rintro (active | active) <;> rw [head] at active <;> contradiction
-
-/-- The default relation has a concrete initialized caller. This rules out
-an empty invariant independently of its still-open preservation proof. -/
-theorem inflate_default_J_witness :
-    ∃ after z s, C.run (inflateInit_ (some (.tab 0)) (.ref (.blk 1) 0) 112) witnessHeap = .ok (Z_OK, after) ∧
-      DefaultDecodeJ after (.tab 0) witnessHeap.nextBlk z s ∧ StreamReachable .inflate after (.tab 0) := by
-  obtain ⟨after, z, s, run, _, invariant, reachable⟩ :=
-    inflate_default_J_initial witnessHeap (.tab 0) (.ref (.blk 1) 0)
-      ZlibF.Spec.Public.Proofs.InflateInit.public_witness_domain inflate_default_witness_platform rfl
-  exact ⟨after, z, s, run, invariant, reachable⟩
-
 
 /-- Successful actual default initialization establishes both the decoder
 relation and its reset/header history fields. -/

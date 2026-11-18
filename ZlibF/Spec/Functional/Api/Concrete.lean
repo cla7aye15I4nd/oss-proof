@@ -23,15 +23,6 @@ def execute {α : Type} (program : C.M α) (h : C.Heap) : Outcome C.Heap α :=
   | .error _ => .fault
   | .ok (value, after) => .ret after value
 
-/-- Total correctness for this particular translated computation: for every permitted input heap,
-it returns without a runtime fault and satisfies the postcondition, including any frame and
-ownership clauses supplied there. The successful run is required explicitly. Non-vacuity of the
-precondition still needs an initialisation theorem or a concrete permitted input. -/
-def Correct {α : Type} (program : C.M α) (pre : C.Heap → Prop)
-    (post : C.Heap → α → C.Heap → Prop) : Prop :=
-  ∀ before, pre before → ∃ value after,
-    C.run program before = .ok (value, after) ∧ post before value after
-
 /-- The concrete `_z` compressor entry, including argument-error ordering and the stored length.
 `none` models a null `destLen` pointer in this translation; the scalar-pointer abstraction does
 not model aliasing that pointer with caller buffers. No success or safety claim is built in. -/

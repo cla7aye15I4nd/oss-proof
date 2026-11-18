@@ -67,34 +67,6 @@ theorem inflate_run_output_entry_frame_state {c : Ctx} {h : Heap} {r : ZStreamRe
     rw [runX_modify]
     rfl
 
-/-- Projection retaining the previous boundary. -/
-theorem inflate_run_output_entry_frame {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} (E : Env c h r zs z s) (good : Good h r zs z s)
-    (buffers : StreamBuffers h r) (nonnull : z.next_out ≠ .null) :
-    ∃ after state,
-      runX (inflate_run c) IL.init h =
-        runX (xwhile (pure true) (inflate_dispatch c)) (dispatchRegs z state) after ∧
-      Good after r zs z state ∧ Env c after r zs z state ∧
-      OutputCursorInvariant after r (dispatchRegs z state) ∧
-      ByteViewSizes h after ∧ DecodeStateFrame s state ∧ after = setI h zs state := by
-  obtain ⟨after, state, run, finalGood, env, output, sizes, frame, heapEq, _⟩ :=
-    inflate_run_output_entry_frame_state E good buffers nonnull
-  exact ⟨after, state, run, finalGood, env, output, sizes, frame, heapEq⟩
-
-/-- Projection retaining the initial output-clause boundary. -/
-theorem inflate_run_output_entry {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} (E : Env c h r zs z s) (good : Good h r zs z s)
-    (buffers : StreamBuffers h r) (nonnull : z.next_out ≠ .null) :
-    ∃ after state,
-      runX (inflate_run c) IL.init h =
-        runX (xwhile (pure true) (inflate_dispatch c)) (dispatchRegs z state) after ∧
-      Good after r zs z state ∧ Env c after r zs z state ∧
-      OutputCursorInvariant after r (dispatchRegs z state) ∧
-      ByteViewSizes h after ∧ DecodeStateFrame s state := by
-  obtain ⟨after, state, run, finalGood, env, output, sizes, frame, _⟩ :=
-    inflate_run_output_entry_frame E good buffers nonnull
-  exact ⟨after, state, run, finalGood, env, output, sizes, frame⟩
-
 /-- Actual readable input supplies the bit-source view after LOAD. The
 private held-bit bound belongs to the stream invariant; NULL input with a
 nonzero count is rejected by the outer entry before this point. -/
@@ -124,66 +96,5 @@ theorem dispatchRegs_input {h : Heap} {r : ZStreamRef} {z : ZStream} {s : Inflat
         omega
       exact ⟨bytes, ⟨length.symm, Or.inr ⟨ref, array, off, ptr, arrayGet, by omega,
         by simpa only [length] using contents⟩, hold⟩, separate⟩
-
-/-- Both input and output dispatch clauses are established by the real
-entry prefix. No loop-body or callee execution contract is assumed. -/
-theorem inflate_run_buffers_entry {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} (E : Env c h r zs z s) (good : Good h r zs z s)
-    (buffers : StreamBuffers h r) (nonnull : z.next_out ≠ .null)
-    (inputValid : z.next_in = .null → z.avail_in = 0)
-    (hold : s.hold.toNat < 2 ^ s.bits.toNat) :
-    ∃ after state bs,
-      runX (inflate_run c) IL.init h =
-        runX (xwhile (pure true) (inflate_dispatch c)) (dispatchRegs z state) after ∧
-      Good after r zs z state ∧ Env c after r zs z state ∧
-      OutputCursorInvariant after r (dispatchRegs z state) ∧ BitInv after (dispatchRegs z state) bs ∧
-      Separate (dispatchRegs z state).next (dispatchRegs z state).have_.toNat
-        (dispatchRegs z state).put (dispatchRegs z state).left.toNat ∧
-      ByteViewSizes h after ∧ DecodeStateFrame s state ∧ after = setI h zs state := by
-  obtain ⟨after, state, run, finalGood, env, output, sizes, frame, heapEq⟩ :=
-    inflate_run_output_entry_frame E good buffers nonnull
-  have currentBuffers : StreamBuffers after r := by
-    obtain ⟨stream, streamGet, input, out, separate⟩ := buffers
-    have eq : stream = z := Option.some.inj (streamGet.symm.trans good.live.hz)
-    subst stream
-    refine ⟨z, finalGood.live.hz, ?_, ?_, separate⟩
-    · apply callerRange_transport good finalGood (by rw [frame]) _ _ input
-      · intro ref
-        rw [heapEq, byte_view_get_setI]
-      · intro ref
-        rw [heapEq, byte_view_ro_setI]
-    · apply callerRange_transport good finalGood (by rw [frame]) _ _ out
-      · intro ref
-        rw [heapEq, byte_view_get_setI]
-      · intro ref
-        rw [heapEq, byte_view_ro_setI]
-  obtain ⟨bs, inv, separate⟩ := dispatchRegs_input (s := state) finalGood.live.hz currentBuffers inputValid (by rw [frame]; exact hold)
-  exact ⟨after, state, bs, run, finalGood, env, output, inv, separate, sizes, frame, heapEq⟩
-
-/-- The actual entry prefix establishes the same complete buffer relation
-which literal and match dispatch steps preserve. -/
-theorem inflate_run_dispatch_entry {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} (E : Env c h r zs z s) (good : Good h r zs z s)
-    (buffers : StreamBuffers h r) (nonnull : z.next_out ≠ .null)
-    (inputValid : z.next_in = .null → z.avail_in = 0)
-    (hold : s.hold.toNat < 2 ^ s.bits.toNat) :
-    ∃ after state bs,
-      runX (inflate_run c) IL.init h =
-        runX (xwhile (pure true) (inflate_dispatch c)) (dispatchRegs z state) after ∧
-      Good after r zs z state ∧ Env c after r zs z state ∧
-      DispatchBuffers after r (dispatchRegs z state) bs ∧
-      ByteViewSizes h after ∧ DecodeStateFrame s state ∧ after = setI h zs state := by
-  obtain ⟨after, state, bs, run, finalGood, env, output, inv, separate, sizes, frame, heapEq⟩ :=
-    inflate_run_buffers_entry E good buffers nonnull inputValid hold
-  obtain ⟨stream, streamGet, input, _, _⟩ := buffers
-  have eq : stream = z := Option.some.inj (streamGet.symm.trans good.live.hz)
-  subst stream
-  have currentInput : CallerRange after r z.next_in z.avail_in.toNat false := by
-    apply callerRange_transport good finalGood (by rw [frame]) _ _ input
-    · intro ref
-      rw [heapEq, byte_view_get_setI]
-    · intro ref
-      rw [heapEq, byte_view_ro_setI]
-  exact ⟨after, state, bs, run, finalGood, env, ⟨currentInput, output, separate, inv⟩, sizes, frame, heapEq⟩
 
 end Zlib.Inflate.Proofs

@@ -36,7 +36,7 @@ def lookGzip (i : Nat) (f : Int32 → Int32) : G Int32 := do
   pure 0
 
 /-- The copy path: the pending input goes to `out`, at most the room left before `GZ_OFF_MAX` is buffered, and the
-rest gives `Z_DATA_ERROR` (patch 0004). -/
+rest gives `Z_DATA_ERROR` (patch 0003). -/
 def lookCopy (i : Nat) (z : ZStream) : G Int32 := do
   let s ← StateT.lift (ldS (some (.tab i)))
   StateT.lift (updX (some (.tab i)) fun x => { x with next := s.out })
@@ -1048,7 +1048,7 @@ theorem err_post {H : Heap} {i : Nat} {s : GzState} (fs : Fs) (hfs : FileSystem 
 
 theorem look_GZ_OFF_MAX_toInt : GZ_OFF_MAX.toInt = 9223372036854775807 := by decide
 
-/-- `gz_room(state, max)` (patch 0004): no fault, no change; at most `max`, keeps `x.pos + n ≤ GZ_OFF_MAX`, and `0`
+/-- `gz_room(state, max)` (patch 0003): no fault, no change; at most `max`, keeps `x.pos + n ≤ GZ_OFF_MAX`, and `0`
 only for `max = 0` or `x.pos = GZ_OFF_MAX`. -/
 theorem look_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = some s) (max : UInt32) :
     ∃ n, Zlib.Gzread.gz_room (gzSt i) max h = .ok (n, h) ∧ n.toNat ≤ max.toNat ∧
@@ -1091,7 +1091,7 @@ theorem look_room_run {h : Heap} {i : Nat} {s : GzState} (hs : h.gzstates i = so
     simp only [hp, ite_false, pure_app]
     exact ⟨_, rfl, Nat.le_refl _, by omega, fun hz => Or.inl hz⟩
 
-/-- The literal of the refusal of patch 0004 is a C string. -/
+/-- The literal of the refusal of patch 0003 is a C string. -/
 theorem look_posov_cstring (H : Heap) {k : Nat} (hk : strIndex "position overflow" = some k) :
     ∃ t, CString H (.ref (.str k) 0) t := by
   have hb : strBytes "position overflow" =
@@ -1233,7 +1233,7 @@ theorem copyTail_run {G0 : Heap} {i : Nat} {u : GzState} (fs : Fs) (hu : GzInvUp
 
 /-- **The copy path** on a reader with buffers and pending input: the input moves to the start of `out`, `x.have`
 is the room left before `GZ_OFF_MAX` (all of the input below the limit), `Z_DATA_ERROR` is recorded when input is
-left over (patch 0004), `avail_in` is 0, and `how = COPY`. -/
+left over (patch 0003), `avail_in` is 0, and `how = COPY`. -/
 theorem lookCopy_run {H : Heap} {i : Nat} {t : GzState} (fs : Fs) (hu : GzInvUpToOutput H i t)
     (hm : t.mode = GZ_READ) (hsz : t.size ≠ 0) (hfs : FileSystem fs) (hav : t.strm.avail_in ≠ 0)
     (hd : t.direct ≠ -1) :
@@ -2263,8 +2263,6 @@ theorem lookPost_transfer {H H6 : Heap} {i : Nat} {s s6 : GzState} {fs fs' : Fs}
 theorem ref_beq_null (r : BRef) (o : Nat) : ((Ptr.ref r o : BPtr) == Ptr.null) = false := rfl
 
 theorem null_beq_null : ((Ptr.null : BPtr) == Ptr.null) = true := rfl
-
-theorem look_freeB_null (H : Heap) : freeB (.null : BPtr) H = .ok ((), H) := rfl
 
 theorem look_freeB_run {H : Heap} {b : Nat} {a : Array UInt8} (hb : H.bytes b = some a) (hro : H.ro b = false) :
     freeB (.ref (.blk b) 0) H = .ok ((), dHeap H b) := by

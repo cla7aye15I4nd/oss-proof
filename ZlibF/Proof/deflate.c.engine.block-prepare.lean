@@ -91,58 +91,6 @@ theorem block_data_type_engine {h : Heap} {r : ZStreamRef} {ds pb ob : Nat}
       good.live.back, ldZStream_ok good.live.hz, show (z.data_type == Z_UNKNOWN) = false from beq_eq_false_iff_ne.mpr unknown,
       Bool.false_eq_true, ite_false, ZStreamRef.put_self good.live.hz]
 
-/-- The complete actual positive-level preparation prefix includes unknown
-hint detection, both source trees, both scans, the BL tree, search and cost
-store. All caller ranges, ownership and output bits are retained. -/
-theorem block_prepare_engine {h : Heap} {r : ZStreamRef} {ds pb ob : Nat}
-    {z : ZStream} {d : DeflateState} {buf : Array UInt8}
-    (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r) :
-    ∃ (mb : Int32) (z' : ZStream) (result : DeflateState),
-      blockPrepare (some (.tab ds)) h = .ok (mb, setD (r.put h z') ds result) ∧
-      DGood (setD (r.put h z') ds result) r ds z' result ∧
-      TreesInvAt (setD (r.put h z') ds result) ds result pb buf ∧
-      StreamBuffers (setD (r.put h z') ds result) r ∧ StreamAccounting z z' 0 0 ∧
-      ByteSizes h (setD (r.put h z') ds result) ∧ OutputStorage h (setD (r.put h z') ds result) r ds pb ob ∧
-      2 ≤ mb.toInt ∧ mb.toInt ≤ 18 ∧ Zlib.Trees.Proofs.SourceGuards result ∧
-      Zlib.Trees.Proofs.Out.outBits buf result = Zlib.Trees.Proofs.Out.outBits buf d ∧
-      z' = { z with data_type := z'.data_type } := by
-  obtain ⟨z', hint, goodZ, treesZ, buffersZ, account, sizesZ, storageZ, fieldsZ, _unknown, _known⟩ :=
-    block_data_type_engine (ob := ob) good trees buffers
-  obtain ⟨mb, literal, ready, scanned, built, result, B, run, goodA, treesA, buffersA,
-    sizesA, storageA, _input, _frameL, _frameD, _scans, _frame, _finish, lower, upper, guards, _codes, output⟩ :=
-    all_trees_engine (ob := ob) goodZ treesZ buffersZ
-  refine ⟨mb, z', result, ?_, goodA, treesA, buffersA, account,
-    sizesZ.trans sizesA, storageZ.trans storageA, lower, upper, guards, output, fieldsZ⟩
-  unfold blockPrepare
-  rw [bind_app, hint]
-  exact run
-
-/-- The complete preparation result also exposes every retained engine
-field, so stronger reachable-state invariants can be transported. -/
-theorem block_prepare_engine_frame {h : Heap} {r : ZStreamRef} {ds pb ob : Nat}
-    {z : ZStream} {d : DeflateState} {buf : Array UInt8}
-    (good : DGood h r ds z d) (trees : TreesInvAt h ds d pb buf) (buffers : StreamBuffers h r) :
-    ∃ (mb : Int32) (z' : ZStream) (result : DeflateState),
-      blockPrepare (some (.tab ds)) h = .ok (mb, setD (r.put h z') ds result) ∧
-      DGood (setD (r.put h z') ds result) r ds z' result ∧
-      TreesInvAt (setD (r.put h z') ds result) ds result pb buf ∧
-      StreamBuffers (setD (r.put h z') ds result) r ∧ StreamAccounting z z' 0 0 ∧
-      ByteSizes h (setD (r.put h z') ds result) ∧ OutputStorage h (setD (r.put h z') ds result) r ds pb ob ∧
-      2 ≤ mb.toInt ∧ mb.toInt ≤ 18 ∧ Zlib.Trees.Proofs.SourceGuards result ∧
-      TreePreparationFrame d result ∧ Zlib.Trees.Proofs.Out.outBits buf result = Zlib.Trees.Proofs.Out.outBits buf d ∧
-      z' = { z with data_type := z'.data_type } := by
-  obtain ⟨z', hint, goodZ, treesZ, buffersZ, account, sizesZ, storageZ, fieldsZ, _unknown, _known⟩ :=
-    block_data_type_engine (ob := ob) good trees buffers
-  obtain ⟨mb, literal, ready, scanned, built, result, B, run, goodA, treesA, buffersA,
-    sizesA, storageA, _input, frameL, frameD, scans, frame, finish, lower, upper, guards, _codes, output⟩ :=
-    all_trees_engine (ob := ob) goodZ treesZ buffersZ
-  have fields := all_tree_frames frameL frameD scans frame finish
-  refine ⟨mb, z', result, ?_, goodA, treesA, buffersA, account,
-    sizesZ.trans sizesA, storageZ.trans storageA, lower, upper, guards, fields, output, fieldsZ⟩
-  unfold blockPrepare
-  rw [bind_app, hint]
-  exact run
-
 section source
 open Zlib.Trees Zlib.Trees.Proofs Out
 

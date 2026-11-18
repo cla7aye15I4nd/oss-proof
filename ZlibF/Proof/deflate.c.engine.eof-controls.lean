@@ -58,24 +58,4 @@ theorem slow_eof_finish_controls_execution {h : Heap} {r : ZStreamRef} {ds ob oo
     rw [bind_app, insertRun]
     exact tailRun
 
-/-- The control facts hold on the established actual EOF return heap,
-by determinism of that same translated call. -/
-theorem slow_eof_finish_run_controls {h after : Heap} {r : ZStreamRef} {ds ob oo origin base : Nat}
-    {z : ZStream} {d result : DeflateState} {xs : List Symbol} {input : Nat → UInt8} {ret : block_state}
-    (boundary : StrategyBoundary h r ds z d input origin base xs (engineConfig d))
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (empty : d.lookahead = 0) (positive : 0 < d.level.toInt)
-    (pointer : z.next_out = .ref (.blk ob) oo) (cursor : d.pending_out = d.pending_buf)
-    (memory : d.lit_bufsize.toNat = 16384) (pending : d.pending = 0) (wrap : d.wrap = 1)
-    (run : slowEofTail (some (.tab ds)) Z_FINISH h = .ok (ret, after))
-    (live : after.dstates ds = some result) :
-    StrategyControls d result := by
-  obtain ⟨otherRet, other, otherZ, otherD, otherRun, otherGood, controls⟩ :=
-    slow_eof_finish_controls_execution boundary frontier buffers empty positive pointer cursor memory pending wrap
-  have heaps : other = after := (Prod.mk.inj (Except.ok.inj (otherRun.symm.trans run))).2
-  rw [heaps] at otherGood
-  have states : otherD = result := Option.some.inj (otherGood.live.hs.symm.trans live)
-  rw [← states]
-  exact controls
-
 end Zlib.Deflate.Engine.Proofs

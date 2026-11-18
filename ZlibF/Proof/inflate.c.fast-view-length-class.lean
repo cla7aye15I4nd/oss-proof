@@ -5,48 +5,6 @@ open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public
 open Zlib.Inffast.Spec
 set_option autoImplicit false
 
-/-- The checked length-table shape classifies every root entry into
-the source's literal, length-base, second-level and terminal branches. -/
-theorem len_table_root_cases
-    {codes : Array Code} {baseOff rootBits index : Nat}
-    (safe : LenTableSafe codes baseOff rootBits)
-    (rootIndex : index < 2 ^ rootBits) :
-    let offset := baseOff + index
-    let entry := codes.getD offset default
-    offset < codes.size ∧ entry.bits.toNat ≤ 15 ∧
-      (entry.op = 0 ∨
-       (entry.op &&& 16 ≠ 0 ∧
-         (entry.op &&& 15).toNat ≤ 5 ∧
-         3 ≤ entry.val.toNat ∧
-         entry.val.toNat + 2 ^ (entry.op &&& 15).toNat ≤ 259) ∨
-       (entry.op ≠ 0 ∧ entry.op &&& 16 = 0 ∧
-         entry.op &&& 64 = 0 ∧
-         1 ≤ entry.op.toNat ∧ entry.op.toNat ≤ 15 ∧
-         baseOff + entry.val.toNat + 2 ^ entry.op.toNat ≤
-           codes.size) ∨
-       (entry.op &&& 16 = 0 ∧ entry.op &&& 64 ≠ 0)) := by
-  rcases safe with ⟨_, rootSize, entries⟩
-  have atBound : baseOff + index < codes.size := by
-    omega
-  have classified := entries index rootIndex
-  let entry : Code := codes.getD (baseOff + index) default
-  have classified' :
-      (if LenLink entry then LinkOK LenLeaf codes baseOff entry
-       else LenLeaf 0 entry) := by
-    simpa only [entry] using classified
-  by_cases isLink : LenLink entry
-  · rw [ite_eq_left isLink] at classified'
-    rcases classified' with ⟨bits, opMin, opMax, bound, _⟩
-    exact ⟨atBound, bits,
-      Or.inr (Or.inr (Or.inl ⟨isLink.1, isLink.2.1,
-        isLink.2.2, opMin, opMax, bound⟩))⟩
-  · rw [ite_eq_right isLink] at classified'
-    rcases classified' with ⟨bits, literal | base | terminal⟩
-    · exact ⟨atBound, bits, Or.inl literal⟩
-    · exact ⟨atBound, bits, Or.inr (Or.inl base)⟩
-    · exact ⟨atBound, bits,
-        Or.inr (Or.inr (Or.inr terminal))⟩
-
 /-- A selected second-level length entry remains inside the array and
 is a leaf whose total code width fits the fifteen held bits. -/
 theorem len_table_link_target

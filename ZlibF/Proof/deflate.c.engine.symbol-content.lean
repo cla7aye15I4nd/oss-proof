@@ -60,17 +60,4 @@ theorem retained_match_input_meaning {d : DeflateState} {input : Nat → UInt8} 
   intro j hj
   exact bytes j (by omega)
 
-/-- Real block balance and the exact source record frame preserve the
-absolute position of the traced symbols, including deferred credit. -/
-theorem content_accounted_body {d result : DeflateState} {xs ys : List Symbol} {origin base : Nat}
-    (before : BlockBalance d xs (deferredCredit d)) (after : BlockBalance result ys (deferredCredit result))
-    (frame : SlowRecordFrame d result)
-    (accounted : base + represented xs + pendingCredit d = origin + d.strstart.toNat) :
-    base + represented ys + pendingCredit result = origin + result.strstart.toNat := by
-  have block : result.block_start = d.block_start := congrArg (·.block_start) frame
-  unfold BlockBalance at before after
-  rw [deferred_credit_nat] at before
-  rw [deferred_credit_nat, block] at after
-  omega
-
 end Zlib.Deflate.Engine.Proofs

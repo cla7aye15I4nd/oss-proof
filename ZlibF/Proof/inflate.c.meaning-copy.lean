@@ -102,34 +102,6 @@ theorem slice_copy_outside {output input : Array UInt8} {oo io n i m : Nat}
     · rfl
   · rfl
 
-/-- A readable range separate from the copied range is unchanged. -/
-theorem bytes_after_copy {h : Heap} {dest : BRef} {output input : Array UInt8} {oo io n : Nat}
-    (get : Space.get h dest = some output) (write : Space.ro h dest = false)
-    (outputFit : oo + n ≤ output.size) (inputFit : io + n ≤ input.size)
-    {p : BPtr} {m : Nat} {xs : List UInt8}
-    (sep : Separate (.ref dest oo) n p m) (view : Bytes h p m xs) :
-    Bytes (Space.put h dest (copyRange output input oo io n)) p m xs := by
-  rcases view with ⟨rfl, rfl, rfl⟩ | ⟨r, i, a', rfl, get', fits, rfl⟩
-  · exact Or.inl ⟨rfl, rfl, rfl⟩
-  · right
-    by_cases same : r = dest
-    · subst same
-      have arrays : a' = output := Option.some.inj (get'.symm.trans get)
-      subst arrays
-      refine ⟨r, i, copyRange a' input oo io n, rfl, byte_view_get_put get' write _,
-        by rw [size_copyRange]; exact fits, ?_⟩
-      have outside : n = 0 ∨ m = 0 ∨ i + m ≤ oo ∨ oo + n ≤ i := by
-        rcases sep with zero | zero | sep
-        · exact Or.inl zero
-        · exact Or.inr (Or.inl zero)
-        · simp only at sep
-          rcases sep with ne | lt | lt
-          · exact absurd rfl ne
-          · exact Or.inr (Or.inr (Or.inr lt))
-          · exact Or.inr (Or.inr (Or.inl lt))
-      exact (slice_copy_outside outputFit inputFit outside).symm
-    · exact ⟨r, i, a', rfl, by rw [byte_view_get_put_ne h same]; exact get', fits, rfl⟩
-
 /-- The window, separate from the copied range, is unchanged. -/
 theorem dictionary_after_copy {h : Heap} {dest : BRef} {output input : Array UInt8}
     {oo io n : Nat} (get : Space.get h dest = some output) (write : Space.ro h dest = false)

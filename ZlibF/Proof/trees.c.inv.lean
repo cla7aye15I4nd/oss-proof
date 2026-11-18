@@ -46,11 +46,6 @@ theorem Wp.ite {α : Type} {c : Prop} [Decidable c] {m1 m2 : M α} {h : Heap} {Q
 theorem Wp.of_eq {α : Type} {m : M α} {h h' : Heap} {a : α} (e : m h = .ok (a, h')) {Q : α → Heap → Prop}
     (hq : Q a h') : Wp m h Q := ⟨a, h', e, hq⟩
 
-theorem Wp.bind_eq {α β : Type} {m : M α} {f : α → M β} {h h1 : Heap} {a : α} {R : β → Heap → Prop}
-    (e : m h = .ok (a, h1)) (hf : Wp (f a) h1 R) : Wp (m >>= f) h R := by
-  obtain ⟨b, h2, e2, hr⟩ := hf
-  exact ⟨b, h2, by rw [bind_app, e]; exact e2, hr⟩
-
 /-- Loop with a measure: `Inv` is kept, the measure decreases at each iteration, and `Q` holds when the
 condition fails. -/
 theorem Wp.cwhile {σ : Type} {cond : σ → M (Bool × σ)} {body : σ → M σ} (Inv : σ → Heap → Prop) (μ : σ → Nat)
@@ -183,21 +178,7 @@ theorem pDtree_run {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id = 
 theorem pBltree_run {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id = some d) :
     pBltree (some (.tab id)) h = .ok (.ref (.dstate_bl_tree id) 0, h) := by
   simp [pBltree, sid_run e]; try rfl
-theorem pHeap_run {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id = some d) :
-    pHeap (some (.tab id)) h = .ok (.ref (.dstate_heap id) 0, h) := by
-  simp [pHeap, sid_run e]; try rfl
-theorem pDepth_run {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id = some d) :
-    pDepth (some (.tab id)) h = .ok (.ref (.dstate_depth id) 0, h) := by
-  simp [pDepth, sid_run e]; try rfl
-theorem pBlCount_run {h : Heap} {id : Nat} {d : DeflateState} (e : h.dstates id = some d) :
-    pBlCount (some (.tab id)) h = .ok (.ref (.dstate_bl_count id) 0, h) := by
-  simp [pBlCount, sid_run e]; try rfl
-
-
 /-! ## The static data of `trees.c` -/
-
-theorem install_trees_static (h : Heap) : TreesStatic (install_trees h).static := by
-  simp [TreesStatic, install_trees, trees_statics]
 
 theorem TreesStatic.dist_code {st : Statics} (hs : TreesStatic st) : st.dist_code = dist_code_tab := by
   have := congrArg Statics.dist_code hs; simpa [trees_statics] using this.symm
@@ -239,10 +220,6 @@ structure TreesRun0 (id : Nat) (d : DeflateState) : Prop where
 
 theorem TreesRun.to0 {id : Nat} {d : DeflateState} (hr : TreesRun id d) : TreesRun0 id d :=
   ⟨hr.ldyn, hr.lstat, hr.ddyn, hr.dstat, hr.bldyn, hr.blstat, hr.bi_lo, hr.bi_hi, hr.bi_buf⟩
-
-theorem TreesRun0.withSym {id : Nat} {d : DeflateState} (hr : TreesRun0 id d) (h1 : d.sym_next.toNat ≤ d.sym_end.toNat)
-    (h2 : d.sym_next.toNat % 3 = 0) : TreesRun id d :=
-  ⟨hr.ldyn, hr.lstat, hr.ddyn, hr.dstat, hr.bldyn, hr.blstat, hr.bi_lo, hr.bi_hi, hr.bi_buf, h1, h2⟩
 
 /-- Everything of the heap except the byte block `b` and the deflate record `id` is the same. -/
 structure HFrame (h h' : Heap) (b id : Nat) : Prop where

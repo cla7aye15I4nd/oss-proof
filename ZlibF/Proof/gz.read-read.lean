@@ -497,7 +497,7 @@ structure Keep (s0 s : GzState) : Prop where
   ml : MsgLit s
 
 /-- The record invariant inside the loop: `GzInv`, or what a COPY fetch at `GZ_OFF_MAX` leaves (one byte buffered
-at `x.pos = GZ_OFF_MAX`, patch 0004), which the next trip drops. -/
+at `x.pos = GZ_OFF_MAX`, patch 0003), which the next trip drops. -/
 def RI (h : Heap) (i : Nat) (s : GzState) : Prop :=
   GzInv h i s ∨ (GzInvUpToOutput h i s ∧ OutWindow s ∧ s.x.pos.toInt = 9223372036854775807 ∧ s.x.«have».toNat ≤ 1)
 
@@ -626,19 +626,6 @@ theorem u64_step (got len : UInt64) (k : Nat) (k32 : UInt32) (hk32 : k32.toNat =
   · rw [UInt64.toNat_sub_of_le _ _ (by rw [UInt64.le_iff_toNat_le, e]; exact hk), e]
   · rw [UInt64.toNat_add, e]
     exact Nat.mod_eq_of_lt (by omega)
-
-/-- `GzInv` after a write of `x.pos` that keeps the position bounds, with no pending skip. -/
-theorem inv_pos {h : Heap} {i : Nat} {s : GzState} (inv : GzInv h i s) (hm : s.mode = GZ_READ) (hsk : s.skip = 0)
-    (p : Int64) (h0 : 0 ≤ p.toInt + s.x.«have».toNat) (h1 : p.toInt + s.x.«have».toNat ≤ 9223372036854775807) :
-    GzInv (putGz h i { s with x := { s.x with pos := p } }) i { s with x := { s.x with pos := p } } := by
-  have rd := inv.reader hm
-  have c := inv.common
-  have hsk0 : s.skip.toInt = 0 := by rw [hsk]; rfl
-  exact inv.put_scalars ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ ⟨c.want.1, c.want.2, Or.inr rfl⟩
-    ⟨c.pos.1, by simp only []; omega, h0⟩ (Nat.le_refl _)
-    (fun _ => ⟨rd.how, rd.copyDirect, rd.gzipDirect, rd.junk, rd.flags.1, rd.flags.2.1, rd.flags.2.2,
-      fun hz => (rd.unalloc hz).2.2.1, rd.againSize, h1, fun _ => hsk, rd.againEof⟩)
-    (fun hw => absurd (hm.symm.trans hw) read_ne_write') (fun _ => rd.copyIn)
 
 /-- **The caller's region now**: a writable byte view the handle does not own, with its block live. -/
 theorem region_now {i : Nat} {h0 : Heap} {fs0 : Fs} {s0 : GzState} {buf0 : BPtr} {len0 : UInt64}
@@ -935,10 +922,6 @@ theorem e_one {s : GzState} (h0 : ¬ (s.eof ≠ 0 ∧ s.strm.avail_in = 0)) : eO
 
 theorem cont_of {l : Zlib.Gzread.ReadLoop} (hb : l.brk = false) (hl : l.len ≠ 0) (he : l.err = 0) : cont l = true := by
   simp [cont, hb, hl, he]
-
-theorem cont_brk (l : Zlib.Gzread.ReadLoop) : cont { l with brk := true } = false := by simp [cont]
-
-theorem cont_err (l : Zlib.Gzread.ReadLoop) : cont { l with err := -1 } = false := by simp [cont]
 
 theorem rank_copy {fs : Fs} {h : Heap} {s : GzState} (hc : s.how = GZ_COPY) :
     fetchRank fs h s = 4 * (budOf fs s.fd + s.strm.avail_in.toNat) + budOf fs s.fd := by

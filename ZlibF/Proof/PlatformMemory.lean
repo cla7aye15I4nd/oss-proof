@@ -25,11 +25,6 @@ theorem ByteObjectsFit.size_lt {h : Heap} (fit : ByteObjectsFit h)
     {ref : BRef} {a : Array UInt8} (get : Space.get h ref = some a) :
     a.size < 2 ^ 63 := fit ref a get
 
-/-- Raw byte blocks satisfy the same bound as static and embedded views. -/
-theorem ByteObjectsFit.block_size_lt {h : Heap} (fit : ByteObjectsFit h)
-    {block : Nat} {a : Array UInt8} (get : h.bytes block = some a) :
-    a.size < 2 ^ 63 := fit.size_lt (ref := .blk block) get
-
 /-- Both pointers may be one past the object. Their actual signed
 difference is representable without a separate arithmetic premise. -/
 theorem ByteObjectsFit.diff_ok {h : Heap} (fit : ByteObjectsFit h)
@@ -114,24 +109,11 @@ theorem allocB_large {h : Heap} (n : Nat) (hn : C.mallocLimit ≤ n) :
     C.allocB n h = .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
   simp [C.allocB, Nat.not_lt.mpr hn]
 
-/-- `malloc(2 * n)` for `n` words with `2 * n ≥ PTRDIFF_MAX + 1`: NULL whatever the oracle says. -/
-theorem allocW_large {h : Heap} (n : Nat) (hn : C.mallocLimit ≤ 2 * n) :
-    C.allocW n h = .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
-  simp [C.allocW, Nat.not_lt.mpr hn]
-
 /-- Every block the byte allocator creates has fewer than `2^63` bytes: a non-NULL result comes from a request
 below the limit. -/
 theorem allocB_small {h after : Heap} {n : Nat} {r : BRef} {off : Nat}
     (run : C.allocB n h = .ok (.ref r off, after)) : n < C.mallocLimit := by
   unfold C.allocB at run
-  split at run
-  · rename_i c; exact c.2
-  · cases run
-
-/-- The same for word blocks: `2 * n` bytes, below the limit. -/
-theorem allocW_small {h after : Heap} {n : Nat} {r : WRef} {off : Nat}
-    (run : C.allocW n h = .ok (.ref r off, after)) : 2 * n < C.mallocLimit := by
-  unfold C.allocW at run
   split at run
   · rename_i c; exact c.2
   · cases run

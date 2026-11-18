@@ -30,17 +30,5 @@ theorem inflate_run_default_low_out
   rw [left] at lower ⊢
   omega
 
-/-- An entry bit packet: a null input pointer has no input. -/
-theorem BitInv.input_valid {h : Heap} {z : ZStream} {s : InflateState} {bs : List UInt8}
-    (input : BitInv h (dispatchRegs z s) bs) : z.next_in = .null → z.avail_in = 0 := by
-  intro null
-  rcases input.next with empty | ⟨_, _, _, pointer, _⟩
-  · have count := input.have_eq
-    rw [empty] at count
-    exact UInt32.toNat_inj.mp (by simpa [dispatchRegs] using count)
-  · change z.next_in = _ at pointer
-    rw [null] at pointer
-    cases pointer
-
 #print axioms inflate_run_default_low_out
 end Zlib.Inflate.Proofs

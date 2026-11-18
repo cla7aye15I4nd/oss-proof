@@ -73,7 +73,7 @@ def DeflState.dictEff (st : DeflState) : List UInt8 := st.dict.getD []
 /-- The header record that is written: the one set, else the default. -/
 def DeflState.header (st : DeflState) : GzHead := st.hdr.getD GzHead.default
 
-/-- `deflateBound(strm, n)` (`deflate.c` with patch 0007), without the overflow clamp (the argument
+/-- `deflateBound(strm, n)` (`deflate.c` with patch 0006), without the overflow clamp (the argument
 is below `2^60`): wrapper length, then one of three bounds. The tight bound applies only to the
 default window and memory level with a strategy other than `Z_FIXED`. -/
 def DeflState.bound (st : DeflState) (n : Nat) : Nat :=

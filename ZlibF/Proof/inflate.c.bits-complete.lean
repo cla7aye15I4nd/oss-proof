@@ -85,18 +85,4 @@ theorem NEEDBITS_run_cursor {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h 
   · exact hz hj0
   · exfalso; omega
 
-/-- Projection retaining the original exhaustive NEEDBITS outcomes. -/
-theorem NEEDBITS_run_complete {h : Heap} {l : IL} {bs : List UInt8} (B : BitInv h l bs) (n : UInt32) (hn : n.toNat ≤ 49) :
-    ∃ r l' j, runX (NEEDBITS n) l h = .ok ((r, l'), h) ∧ j ≤ bs.length ∧ BitInv h l' (bs.drop j) ∧
-      stream l' (bs.drop j) = stream l bs ∧ l'.bits.toNat = l.bits.toNat + 8 * j ∧
-      l' = { l with next := l'.next, have_ := l'.have_, hold := l'.hold, bits := l'.bits } ∧
-      l'.bits.toNat ≤ max l.bits.toNat (n.toNat + 7) ∧ (n.toNat ≤ l.bits.toNat → l' = l) ∧
-      (r = .ok () → n.toNat ≤ l'.bits.toNat) ∧
-      (r = .error Ex.leave → j = bs.length ∧ l'.have_ = 0 ∧ l'.bits.toNat < n.toNat) ∧
-      (r = .ok () ∨ r = .error Ex.leave) := by
-  obtain ⟨result, regs, used, run, usedBound, inv, bits, count, shape, bitBound,
-    noPull, enough, empty, kinds, _⟩ := NEEDBITS_run_cursor B n hn
-  exact ⟨result, regs, used, run, usedBound, inv, bits, count, shape, bitBound,
-    noPull, enough, empty, kinds⟩
-
 end Zlib.Inflate.Proofs

@@ -97,21 +97,4 @@ theorem default_foreign_deflate_slow_finish_run_buffer_frame {h after : Heap} {r
     rw [counts.2] at composed
     simpa only [pointer] using composed
 
-/-- Both complete actual ordinary strategy calls have their full caller byte frame. -/
-theorem default_foreign_deflate_slow_ordinary_run_buffer_frame {h after : Heap} {r : ZStreamRef} {ds owner oo origin base used produced : Nat}
-    {z z' : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8}
-    {config : EngineConfig} {ret : block_state} {flush : Int32}
-    (flag : flush=Z_NO_FLUSH ∨ flush=Z_FINISH)
-    (boundary : StrategyBoundary h r ds z d input origin base xs config)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (positive : 0 < config.level.toInt) (pointer : z.next_out = .ref (.dstate_depth owner) oo)
-    (memory : config.memory.toNat = 16384) (wrap : config.wrap = 1) (publish : PublishReady d)
-    (inputValid : z.avail_in ≠ 0 → z.next_in ≠ .null)
-    (run : deflate_slow (some (.tab ds)) flush h = .ok (ret,after))
-    (live : r.get after = some z') (account : StreamAccounting z z' used produced) :
-    BufferFrame h after (fun b => StreamRoot r b ∨ DeflateOwned ds d b) [⟨z.next_out,produced⟩] := by
-  rcases flag with rfl | rfl
-  · exact default_foreign_deflate_slow_no_flush_run_buffer_frame boundary frontier buffers positive pointer memory wrap publish inputValid run live account
-  · exact default_foreign_deflate_slow_finish_run_buffer_frame boundary frontier buffers positive pointer memory wrap publish inputValid run live account
-
 end Zlib.Deflate.Engine.Proofs

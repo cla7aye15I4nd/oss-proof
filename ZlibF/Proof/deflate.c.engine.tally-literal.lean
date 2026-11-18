@@ -205,19 +205,6 @@ theorem literal_good_after {h : Heap} {r : ZStreamRef} {ds b : Nat} {z : ZStream
   exact ⟨by simpa only [ZStreamRef.get_setD] using goodB.live.hz, by simp, good.live.zst,
     good.live.back, good.live.status, good.live.zalloc, good.live.zfree⟩
 
-theorem tally_literal_good {h : Heap} {r : ZStreamRef} {ds : Nat} {z : ZStream} {d : DeflateState}
-    (good : DGood h r ds z d) (c : UInt8) (strict : d.sym_next.toNat < d.sym_end.toNat) :
-    ∃ b buf, h.bytes b = some buf ∧
-      tally_lit (some (.tab ds)) c h = .ok (d.sym_next + 3 == d.sym_end,
-        setD (Zlib.Trees.Proofs.Out.setB h b (literalBytes buf d c)) ds (literalState d c)) ∧
-      DGood (setD (Zlib.Trees.Proofs.Out.setB h b (literalBytes buf d c)) ds (literalState d c))
-        r ds z (literalState d c) := by
-  obtain ⟨d0, b, buf, trees⟩ := good.trees
-  have eq : d0 = d := Option.some.inj (trees.base.dstate.symm.trans good.live.hs)
-  subst d0
-  have room := literal_room good.inv strict
-  exact ⟨b, buf, trees.base.bytes, tally_literal_run trees.base c room, literal_good_after good trees c room⟩
-
 theorem pending_write_chains {h : Heap} {r : ZStreamRef} {ds top b : Nat}
     {z : ZStream} {d : DeflateState} (good : DGood h r ds z d) (chains : HeapChains h d top)
     (pending : d.pending_buf = .ref (.blk b) 0) (buf : Array UInt8) (c : UInt8) :
@@ -268,27 +255,5 @@ theorem literal_not_full {h : Heap} {ds b : Nat} {d : DeflateState} {buf : Array
     exact UInt32.toNat_inj.mp eq
   change (literalState d c).sym_next.toNat < d.sym_end.toNat
   omega
-
-/-- The actual inline literal tally preserves representation and H on
-the same result heap. Only its pending/symbol byte block and state change.
-Room is derived from the aligned strict entry symbol count. -/
-theorem tally_literal_good_chains {h : Heap} {r : ZStreamRef} {ds top : Nat}
-    {z : ZStream} {d : DeflateState} (good : DGood h r ds z d)
-    (chains : HeapChains h d top) (c : UInt8) (strict : d.sym_next.toNat < d.sym_end.toNat) :
-    ∃ b buf, h.bytes b = some buf ∧
-      tally_lit (some (.tab ds)) c h = .ok (d.sym_next + 3 == d.sym_end,
-        setD (Zlib.Trees.Proofs.Out.setB h b (literalBytes buf d c)) ds (literalState d c)) ∧
-      DGood (setD (Zlib.Trees.Proofs.Out.setB h b (literalBytes buf d c)) ds (literalState d c))
-        r ds z (literalState d c) ∧
-      HeapChains (setD (Zlib.Trees.Proofs.Out.setB h b (literalBytes buf d c)) ds (literalState d c))
-        (literalState d c) top ∧
-      ((d.sym_next + 3 == d.sym_end) = false →
-        (literalState d c).sym_next.toNat < (literalState d c).sym_end.toNat) := by
-  obtain ⟨d0, b, buf, trees⟩ := good.trees
-  have eq : d0 = d := Option.some.inj (trees.base.dstate.symm.trans good.live.hs)
-  subst d0
-  have room := literal_room good.inv strict
-  exact ⟨b, buf, trees.base.bytes, tally_literal_run trees.base c room, literal_good_after good trees c room,
-    pending_write_chains good chains trees.base.pbuf _ _, literal_not_full trees c room⟩
 
 end Zlib.Deflate.Engine.Proofs

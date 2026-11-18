@@ -31,22 +31,4 @@ theorem snapshot_input_valid {h : Heap} {z : ZStream} {input : List UInt8}
   · rw [null] at pointer
     cases pointer
 
-/-- The continuation's quantified FINISH input guard follows from the
-actual private state and the unchanged readable snapshot. -/
-theorem finish_snapshot_protocol {h : Heap} {r : ZStreamRef} {ds : Nat}
-    {z : ZStream} {d : DeflateState} {input : List UInt8}
-    (good : DGood h r ds z d) (snapshot : Bytes h z.next_in z.avail_in.toNat input)
-    (accepted : d.status = FINISH_STATE → z.avail_in = 0) :
-    ∀ id state, z.state = some (.deflate id) → h.dstates id = some state →
-      state.status = FINISH_STATE → input = [] := by
-  intro id state kind live status
-  have ids : ds = id := by
-    simpa only [good.live.zst, Option.some.injEq, StateRef.deflate.injEq] using kind
-  subst id
-  have states : state = d := Option.some.inj (live.symm.trans good.live.hs)
-  subst state
-  have length := caller_bytes_length snapshot
-  rw [accepted status] at length
-  exact List.eq_nil_iff_length_eq_zero.mpr length
-
 end ZlibF.Spec.Public.Proofs.DeflateCore

@@ -10,7 +10,7 @@ the callees.
 Two facts of the source shape the statements.
 
 1. **Buffered output past `GZ_OFF_MAX`.** `gz_look`'s transparent path sets `x.have = avail_in` with `x.pos`
-   unchanged, and `gz_fetch`'s COPY path (patch 0004) loads one byte when `x.pos = GZ_OFF_MAX`. So after these
+   unchanged, and `gz_fetch`'s COPY path (patch 0003) loads one byte when `x.pos = GZ_OFF_MAX`. So after these
    helpers `x.pos + x.have` may pass `GZ_OFF_MAX`, and the pending skip may coexist with buffered output. The post
    is `GzInvOut`: the invariant of the record without its buffered output (`GzInvUpToOutput`), with the window of
    the buffered output inside `out`. The callers (`gz_read`, `gzgets`, `gz_skip`) consume or drop the output.
@@ -79,7 +79,7 @@ def FetchKeeps (s s' : GzState) : Prop :=
 only there; from COPY with no input left it returns 0 with `how = COPY`). The read budget never rises. A `0` that leaves
 `how = LOOK` is at the end of the input (`eof ≠ 0`, `avail_in = 0`) or a stall that read at least one byte, so the
 budget fell by at least one. A `0` in COPY has consumed the pending input and buffered only what fits before
-`GZ_OFF_MAX` (patch 0004): `x.pos + x.have ≤ GZ_OFF_MAX`, and nothing is buffered only at `x.pos = GZ_OFF_MAX`.
+`GZ_OFF_MAX` (patch 0003): `x.pos + x.have ≤ GZ_OFF_MAX`, and nothing is buffered only at `x.pos = GZ_OFF_MAX`.
 A `-1` leaves `how = LOOK`, no buffered output and an error other than `Z_OK` and `Z_BUF_ERROR` (`gz_error`, or the
 error `gz_avail` refused), and such an error stays. -/
 def GzLookSpec : Prop :=
@@ -149,7 +149,7 @@ invariant (`GzReadInv`: `errEnd`, `copyIn`, `msgLit`). Its progress (`GzFetchPro
 `how = LOOK` after a stall of `gz_look` that lowered the read budget by at least one). The budget and the input left
 never rise. The last clauses serve `gz_read`'s termination and its return to `GzInv`: the record keeps the three
 premises; a `-1` records an error; the buffered output passes `GZ_OFF_MAX` only by the one byte loaded at
-`x.pos = GZ_OFF_MAX` (patch 0004); the rank does not rise; a `0` with no output is at the end of the input or lowers
+`x.pos = GZ_OFF_MAX` (patch 0003); the rank does not rise; a `0` with no output is at the end of the input or lowers
 the rank; and output is a full buffer (`2·size`) unless the call failed, the output reaches `GZ_OFF_MAX`, the input
 ended, or the rank fell by 2. The four clauses after it serve `gz_skip`, which goes on after a `-1` that left
 output: an error outside `Z_OK` and `Z_BUF_ERROR` stays; a `-1` leaves such an error or the end of the input; from

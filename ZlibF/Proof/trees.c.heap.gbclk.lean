@@ -71,11 +71,6 @@ theorem costP_succ (H : Nat → Nat) (hm maxc : Nat) (fr len xb : Nat → Nat) (
       (if H (hm + 1 + k) ≤ maxc then fr (H (hm + 1 + k)) * (len (H (hm + 1 + k)) + xb (H (hm + 1 + k))) else 0) :=
   rfl
 
-theorem blP_le (H : Nat → Nat) (hm maxc : Nat) (len : Nat → Nat) (k b : Nat) : blP H hm maxc len k b ≤ k := by
-  have := rs_le (n := k) (F := fun i => if H (hm + 1 + i) ≤ maxc ∧ len (H (hm + 1 + i)) = b then 1 else 0)
-    (G := fun _ => 1) (fun i _ => by split <;> omega)
-  rw [rs_const] at this; unfold blP; omega
-
 theorem ovP_le (H : Nat → Nat) (hm elems L : Nat) (cl : Nat → Nat) (k : Nat) : ovP H hm elems L cl k ≤ k := by
   have := rs_le (n := k) (F := fun i => if cl (dadP elems (hm + 1 + i)) = L then 1 else 0)
     (G := fun _ => 1) (fun i _ => by split <;> omega)

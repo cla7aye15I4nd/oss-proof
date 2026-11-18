@@ -2,14 +2,6 @@ import ZlibF.Spec.Functional.Api.Concrete
 
 namespace ZlibF.Spec.Api.Proofs
 
-/-- The concrete boundary exposes every fault of the translated computation.
-This equivalence requires no hypothesis that the computation succeeds. -/
-theorem execute_fault_iff {α : Type} (program : C.M α) (h : C.Heap) :
-    Concrete.execute program h = .fault ↔ ∃ fault, C.run program h = .error fault := by
-  cases hr : C.run program h with
-  | error fault => simp [Concrete.execute, hr]
-  | ok result => simp [Concrete.execute, hr]
-
 /-- The actual translated `compressBound_z` equals the saturated natural-number
 formula for every 64-bit input. The proof checks that the sum can wrap only once
 and that its increment is less than the modulus, so the C overflow test is exact. -/

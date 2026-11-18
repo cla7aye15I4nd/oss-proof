@@ -16,14 +16,6 @@ theorem runStep_done_prev (L : Nat → Nat) (n : Nat) (s : RunSt)
   · rfl
   · split <;> rfl
 
-theorem runStep_done_cnt (L : Nat → Nat) (n : Nat) (s : RunSt)
-    (ha : ¬ (s.cnt + 1 < s.mx ∧ s.next = L (n + 1))) :
-    (runStep L n s).1.cnt = 0 := by
-  simp only [runStep, ite_eq_right ha]
-  split
-  · rfl
-  · split <;> rfl
-
 theorem scanFreq_le_next (L : Nat → Nat) (n k : Nat) :
     scanFreqUpTo L n k ≤ scanFreqUpTo L (n + 1) k := by
   simp only [scanFreqUpTo]

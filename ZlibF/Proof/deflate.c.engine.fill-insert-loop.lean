@@ -160,24 +160,4 @@ theorem fill_insert_loop_storage {h : Heap} {r : ZStreamRef} {ds w : Nat}
     while_heap_rank Inv rank Q step initial bound
   exact ⟨final, after, result, run, goodA, chainsA, bytesA, frameA, cursorA, countA, formA, storageA⟩
 
-/-- The earlier complete loop statement retains its scope. -/
-theorem fill_insert_loop {h : Heap} {r : ZStreamRef} {ds w : Nat}
-    {z : ZStream} {d : DeflateState} {wa : Array UInt8} (str : UInt32)
-    (good : DGood h r ds z d) (chains : HeapChains h d str.toNat)
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
-    (range : d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat)
-    (cursor : str.toNat + d.insert.toNat = d.strstart.toNat)
-    (ready : 3 ≤ d.lookahead.toNat + d.insert.toNat)
-    (form : InsHForm d.hash_shift d.hash_mask (bfn wa) str.toNat d.ins_h) :
-    ∃ final after result,
-      cwhile (fillInsertCond (some (.tab ds))) (fillInsertBody (some (.tab ds))) (str, false) h =
-        .ok (final, after) ∧
-      DGood after r ds z result ∧ HeapChains after result final.1.toNat ∧ after.bytes = h.bytes ∧
-      PendingInsertFrame d result ∧ final.1.toNat + result.insert.toNat = d.strstart.toNat ∧
-      result.insert.toNat = min d.insert.toNat (2 - d.lookahead.toNat) ∧
-      InsHForm result.hash_shift result.hash_mask (bfn wa) final.1.toNat result.ins_h := by
-  obtain ⟨final, after, result, run, goodA, chainsA, bytesA, frameA, cursorA, countA, formA, _⟩ :=
-    fill_insert_loop_storage str good chains win get range cursor ready form
-  exact ⟨final, after, result, run, goodA, chainsA, bytesA, frameA, cursorA, countA, formA⟩
-
 end Zlib.Deflate.Engine.Proofs

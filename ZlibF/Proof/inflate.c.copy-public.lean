@@ -61,22 +61,6 @@ theorem put_other_block (h : Heap) (dest : ZStreamRef) (v : ZStream) {b : Nat}
     simp only [ZStreamRef.put]
     split <;> simp [upd_ne _ _ _ _ ne]
 
-/-- A stream reference that resolves names a live block. -/
-theorem get_root_live {h : Heap} {dest : ZStreamRef} {z : ZStream} (get : dest.get h = some z)
-    {b : Nat} (root : StreamRoot dest b) : h.live b := by
-  cases dest with
-  | tab k =>
-    simp only [StreamRoot] at root
-    subst root
-    have e : h.streams b = some z := get
-    simp [Heap.live, e]
-  | in_gzstate_strm k =>
-    simp only [StreamRoot] at root
-    subst root
-    cases e : h.gzstates b with
-    | none => simp [ZStreamRef.get, e] at get
-    | some g => simp [Heap.live, e]
-
 /-- The window bytes of a decoder fit in its window block. -/
 theorem whave_le_window {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (good : Good h r zs z s) : s.whave.toNat ≤ 2 ^ s.wbits.toNat := by

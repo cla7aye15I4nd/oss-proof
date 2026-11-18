@@ -250,34 +250,4 @@ theorem compress_block_fixed_emit {h : Heap} {id b : Nat} {d : DeflateState} {bu
 
 
 
-/-- `local void compress_block(deflate_state *s, const ct_data *ltree, const ct_data *dtree)`.
-For default memLevel 8, the entire fixed-table payload, including every
-legal match and END_BLOCK, writes at most 63486 pending bytes into its
-65536-byte shared allocation. Unread symbols and all output-room checks
-follow from the prefix bound. Initialization and block selection are
-separate, and the public deflate domain is unchanged. -/
-theorem compress_block_default_fixed {h : Heap} {id b : Nat} {d : DeflateState} {buf : Array UInt8}
-    (inv : TreesInvAt h id d b buf) (memory : d.lit_bufsize.toNat = 16384)
-    (pending : d.pending = 0) (bits : d.bi_valid.toInt ≤ 10)
-    (n : Nat) (count : d.sym_next.toNat = 3 * n)
-    (legal : ∀ i, i < n → (payloadSymAt buf d.lit_bufsize.toNat i).1 ≤ 32768) :
-    ∃ D B, compress_block (Sp id) (.ref .st_static_ltree 0) (.ref .st_static_dtree 0) h =
-        .ok ((), Out.setD (Out.setB h b B) id D) ∧
-      TreesInvAt (Out.setD (Out.setB h b B) id D) id D b B ∧
-      outBits B D = outBits buf d ++
-        (fixedPayloadPrefix buf 16384 n ++ codeBits fixedLiteralWords 256) ∧
-      B.size = 65536 ∧ D.pending.toNat ≤ 63486 := by
-  obtain ⟨B, D, run, invA, output, size, _frame, _lower, _upper, _fields⟩ :=
-    compress_block_fixed_emit inv pending bits n count legal
-  have bound := inv.run.sym_next_le
-  rw [count, inv.base.sym_end, memory] at bound
-  have length := fixedPayloadPrefix_length buf d.lit_bufsize.toNat n legal
-  rw [memory] at output length
-  have bitCount := congrArg List.length output
-  simp only [outBits_length, List.length_append, codeBits, fixed_literal_end,
-    natBits_length, show (7 : UInt16).toNat = 7 from rfl, pending, UInt64.toNat_zero] at bitCount
-  have nonnegative := invA.run.bi_lo
-  refine ⟨D, B, run, invA, output, ?_, by omega⟩
-  rw [size, inv.base.size, memory]
-
 end Zlib.Trees.Proofs

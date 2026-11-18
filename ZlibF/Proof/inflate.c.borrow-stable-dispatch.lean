@@ -48,12 +48,6 @@ theorem stable_x_inflate_run (c : Ctx) : StableX (inflate_run c) := by
     | with_reducible exact stable_x_inflate_dispatch _
     | inflate_borrow_x_step
 
-/-- Equality for the same actual dispatch result, with arbitrary heap/registers. -/
-theorem inflate_dispatch_borrow_eq (c : Ctx) (l regs : IL) (h after : Heap)
-    (outcome : Except Ex Unit)
-    (run : StateT.run (ExceptT.run (inflate_dispatch c)) l h = .ok ((outcome, regs), after)) :
-    after.libcErrorBorrow = h.libcErrorBorrow := stable_x_inflate_dispatch c l h _ after run
-
 theorem inflate_run_borrow_eq (c : Ctx) (l regs : IL) (h after : Heap)
     (outcome : Except Ex Unit)
     (run : StateT.run (ExceptT.run (inflate_run c)) l h = .ok ((outcome, regs), after)) :

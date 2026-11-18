@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inflate.c.fast-view-match-result»
+import ZlibF.Proof.«inflate.c.fast-view-invalid»
 import ZlibF.Proof.«inflate.c.caller-buffers»
 
 namespace Zlib.Inflate.Proofs
@@ -79,75 +79,5 @@ theorem fast_window_data_of_caller
   exact fast_window_data_of_good good whaveEq wsizeEq
     windowEq (callerRange_private_window good range outputPtr)
     branch validBack
-
-/-- The live stream and the public caller range discharge the window
-geometry and separation premises of the complete fast match theorem. -/
-theorem FastInputPacket.copyMatch_view_of_good
-    {h : Heap} {slow : IL} {bs : List UInt8}
-    {l : Zlib.Inffast.L} {c : Zlib.Inffast.Ctx}
-    {r : ZStreamRef} {zs : Nat} {z : ZStream}
-    {s : InflateState}
-    (packet : FastInputPacket h slow bs l)
-    (good : Good h r zs z s)
-    (streamPtr : c.strm = some r)
-    (statePtr : c.state = some (.tab zs))
-    (whaveEq : c.whave = s.whave)
-    (wsizeEq : c.wsize = s.wsize)
-    (wnextEq : c.wnext = s.wnext)
-    (windowEq : c.window = s.window)
-    (sane : s.sane ≠ 0)
-    (separate : Separate slow.next slow.have_.toNat
-      slow.put slow.left.toNat)
-    (left : slow.left ≠ 0)
-    (length : 3 ≤ l.len.toNat)
-    {dest : BRef} {output : Array UInt8} {oo j : Nat}
-    (range : CallerRange h r slow.put slow.left.toNat true)
-    (outPtr : l.out = .ref dest j)
-    (outputPtr : slow.put = .ref dest oo)
-    (outputGet : Space.get h dest = some output)
-    (outputWrite : Space.ro h dest = false)
-    (outputSize : oo + slow.left.toNat ≤ output.size)
-    (outputRoom : oo ≤ j ∧
-      j + l.len.toNat ≤ oo + slow.left.toNat)
-    (produced : l.op.toNat ≤ j) :
-    ∃ result after,
-      C.run (Zlib.Inffast.copyMatch c l) h =
-        .ok (result, after) ∧
-      FastInputPacket after slow bs result ∧
-      result.againD = l.againD ∧
-      result.againL = l.againL ∧
-      ((result.broke = true ∧
-        ∃ i, after = setI
-          (r.put h { z with msg := .ref (.str i) 0 }) zs
-          { s with mode := BAD } ∧
-          Space.get after dest = some output ∧
-          Space.ro after dest = false) ∨
-       (result.broke = l.broke ∧
-        ∃ array,
-          result.out = .ref dest (j + l.len.toNat) ∧
-          Space.get after dest = some array ∧
-          array.size = output.size ∧
-          Space.ro after dest = false)) := by
-  have whaveBound : c.whave.toNat ≤ c.wsize.toNat := by
-    rw [whaveEq, wsizeEq]
-    exact good.inv.win.hv
-  have wnextBound : c.wnext.toNat ≤ c.wsize.toNat := by
-    rw [wnextEq, wsizeEq]
-    rcases good.inv.win.wn with lt | zero
-    · omega
-    · omega
-  have wsizeBound : c.wsize.toNat ≤ 32768 := by
-    rw [wsizeEq]
-    have pow := Nat.pow_le_pow_right
-      (by decide : 0 < 2) good.inv.win.wbits
-    rcases good.inv.win.ws with zero | size
-    · omega
-    · omega
-  exact packet.copyMatch_view good streamPtr statePtr sane
-    separate left length whaveBound wnextBound wsizeBound
-    outPtr outputPtr outputGet outputWrite outputSize
-    outputRoom produced
-    (fast_window_data_of_caller good range outputPtr
-      whaveEq wsizeEq windowEq)
 
 end Zlib.Inflate.Proofs

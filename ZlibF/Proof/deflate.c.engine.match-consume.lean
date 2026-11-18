@@ -42,25 +42,6 @@ theorem current_insert_storage {h : Heap} {r : ZStreamRef} {ds w top : Nat}
   exact ⟨key, _, after, run, goodA, chainsA, frame, primed,
     insert_string_byte_frame good.live.hs env d.strstart (by omega) (by omega) run⟩
 
-/-- The earlier insertion statement retains its exact scope. -/
-theorem current_insert {h : Heap} {r : ZStreamRef} {ds w top : Nat}
-    {z : ZStream} {d : DeflateState} {wa : Array UInt8}
-    (good : DGood h r ds z d) (chains : HeapChains h d top)
-    (win : d.window = .ref (.blk w) 0) (get : h.bytes w = some wa)
-    (ordered : top ≤ d.strstart.toNat)
-    (range : d.strstart.toNat + d.lookahead.toNat ≤ d.window_size.toNat)
-    (lookahead : 3 ≤ d.lookahead.toNat)
-    (form : InsHForm d.hash_shift d.hash_mask (bfn wa) d.strstart.toNat d.ins_h) :
-    ∃ key candidate after,
-      INSERT_STRING (some (.tab ds)) d.strstart h = .ok (candidate, after) ∧
-      DGood after r ds z { d with ins_h := key } ∧
-      HeapChains after { d with ins_h := key } (d.strstart.toNat + 1) ∧
-      after.bytes = h.bytes ∧
-      InsHForm d.hash_shift d.hash_mask (bfn wa) (d.strstart.toNat + 1) key := by
-  obtain ⟨key, candidate, after, run, goodA, chainsA, bytesA, formA, _⟩ :=
-    current_insert_storage good chains win get ordered range lookahead form
-  exact ⟨key, candidate, after, run, goodA, chainsA, bytesA, formA⟩
-
 def prepareMatch (d : DeflateState) : DeflateState :=
   { d with lookahead := d.lookahead - (d.prev_length - 1), prev_length := d.prev_length - 2 }
 

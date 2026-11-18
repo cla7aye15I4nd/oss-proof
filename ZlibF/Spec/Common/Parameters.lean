@@ -95,8 +95,4 @@ def deflInit? (level method wbits memLevel strategy : Int) : Option DeflParams :
         strategy < 0 ∨ strategy > 4 ∨ (wb = 8 ∧ wr ≠ .zlib) then none
     else some ⟨level'.toNat, wr, (if wb = 8 then 9 else wb).toNat, memLevel.toNat, strategy.toNat⟩
 
-/-- The input wrapper selected by the deflate wrapper. -/
-def DWrap.toWrap : DWrap → Wrap
-  | .raw => .raw | .zlib => .zlib | .gzip => .gzip
-
 end ZlibF.Spec.Api

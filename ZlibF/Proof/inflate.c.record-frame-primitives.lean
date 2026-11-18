@@ -38,14 +38,6 @@ theorem recordFrameM_ptr_diff [DecidableEq R] (r : ZStreamRef) (owner : InflateS
   unfold Ptr.diff at run
   repeat' first | split at run | (cases run <;> exact RecordFrame.refl r owner h)
 
-theorem recordFrameM_ptr_lt [DecidableEq R] (r : ZStreamRef) (owner : InflateStatePtr) (p q : Ptr R) : RecordFrameM r owner (p.lt q) := by
-  intro h value after run
-  unfold Ptr.lt at run
-  repeat' first | split at run | (cases run <;> exact RecordFrame.refl r owner h)
-
-theorem recordFrameM_ptr_le [DecidableEq R] (r : ZStreamRef) (owner : InflateStatePtr) (p q : Ptr R) : RecordFrameM r owner (p.le q) :=
-  recordFrameM_bind (recordFrameM_ptr_lt r owner q p) (fun _ => recordFrameM_pure r owner _)
-
 theorem recordFrameM_ldS (r : ZStreamRef) (owner : InflateStatePtr) (pointer : InflateStatePtr) : RecordFrameM r owner (ldInflateState pointer) := by
   intro h value after run
   cases pointer with
@@ -130,11 +122,6 @@ theorem recordFrameM_list_forIn {α β : Type} (r : ZStreamRef) (owner : Inflate
     | yield next =>
       exact ih (fun value membership state => body value (by simp [membership]) state)
         (fun value membership state => frames value (by simp [membership]) state) next
-
-theorem recordFrameM_castI (r : ZStreamRef) (owner : InflateStatePtr) (state : Option StateRef) : RecordFrameM r owner (castInflateState state) := by
-  intro h value after run
-  unfold castInflateState at run
-  repeat' first | split at run | (cases run <;> exact RecordFrame.refl r owner h)
 
 theorem recordFrameM_strLit (r : ZStreamRef) (owner : InflateStatePtr) (message : String) : RecordFrameM r owner (Zlib.Zutil.strLit message) := by
   intro h value after run

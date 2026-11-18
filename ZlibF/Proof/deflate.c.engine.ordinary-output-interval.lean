@@ -198,22 +198,4 @@ theorem deflate_slow_finish_run_output_effect {h after : Heap} {r : ZStreamRef} 
     have effect := effectL.trans effectT
     exact RawOutputInterval.identify wholeRun run tailGood.live.hz live combined account effect
 
-/-- Both actual complete ordinary strategies preserve the exact accounted caller output interval. -/
-theorem deflate_slow_ordinary_run_output_effect {h after : Heap} {r : ZStreamRef} {ds ob oo origin base used delivered : Nat}
-    {z returned : ZStream} {d : DeflateState} {xs : List Symbol} {input : Nat → UInt8}
-    {config : EngineConfig} {ret : block_state} {flush : Int32}
-    (flag : flush = Z_NO_FLUSH ∨ flush = Z_FINISH)
-    (boundary : StrategyBoundary h r ds z d input origin base xs config)
-    (frontier : EndFrontier h d) (buffers : StreamBuffers h r)
-    (positive : 0 < config.level.toInt) (pointer : z.next_out = .ref (.blk ob) oo)
-    (memory : config.memory.toNat = 16384) (wrap : config.wrap = 1) (publish : PublishReady d)
-    (inputValid : z.avail_in ≠ 0 → z.next_in ≠ .null)
-    (run : deflate_slow (some (.tab ds)) flush h = .ok (ret, after))
-    (live : r.get after = some returned) (account : StreamAccounting z returned used delivered)
- :
-    RawOutputInterval h after ob oo delivered := by
-  rcases flag with rfl | rfl
-  · exact deflate_slow_no_flush_run_output_effect boundary frontier buffers positive pointer memory wrap publish inputValid run live account
-  · exact deflate_slow_finish_run_output_effect boundary frontier buffers positive pointer memory wrap publish inputValid run live account
-
 end Zlib.Deflate.Engine.Proofs

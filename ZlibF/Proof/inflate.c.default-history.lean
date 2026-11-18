@@ -66,14 +66,4 @@ theorem rebuffer_default_J {h after : Heap} {r : ZStreamRef} {zs : Nat}
     invariant.trailer, edit.2.2.1, platform⟩⟩
 
 
-/-- The selected build refuses undermining and retains the initialized
-sane value. Its actual write leaves the complete default relation intact. -/
-theorem inflateUndermine_default_J {h : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} (invariant : DefaultDecodeJ h r zs z s) (subvert : Int32) :
-    C.run (inflateUndermine (some r) subvert) h = .ok (Z_DATA_ERROR, h) ∧ DefaultDecodeJ h r zs z s := by
-  obtain ⟨after, run, heap, _⟩ := inflateUndermine_safe invariant.good subvert
-  have state : { s with sane := 1 } = s := by rw [← invariant.pending.sane]
-  have same : after = h := by rw [heap, state, tcSetI_same invariant.good.live.hs]
-  exact ⟨by simpa only [same] using run, invariant⟩
-
 end Zlib.Inflate.Proofs

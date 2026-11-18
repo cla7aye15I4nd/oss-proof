@@ -154,15 +154,6 @@ theorem lm_init_inv {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array 
     E.plle, fun _ => ⟨rfl, rfl⟩, ?_, Or.inl ⟨rfl, rfl⟩⟩
   exact Chain.start
 
-theorem lm_loop_total {h0 : Heap} {sr wb pb : Nat} {d : DeflateState} {wa : Array UInt8} {pa : Array UInt16} {c : UInt32}
-    (E : LMEnv h0 sr d wb pb wa pa c) (limit : UInt32) (hlimit : limit.toNat = lmLimit d.strstart.toNat (d.w_size.toNat - 262))
-    (st : LMState) (h : Heap) (hbrk : st.brk = false) (hI : LMInv h0 sr d wb pb wa pa c st h)
-    (res : Except Fault (LMState × Heap)) (hres : cdoWhile (lm_body (some (.tab sr))) (lmCond d.prev d.w_mask limit) st h = res) :
-    ∃ st' h', res = .ok (st', h') ∧ LMOut h0 sr d wa st' h' := by
-  obtain ⟨st', h', hr, ho⟩ := lm_loop_ok E limit hlimit st h hbrk hI
-  exact ⟨st', h', hres.symm.trans hr, ho⟩
-
-
 /-- The part of `longest_match` after the two tests on `prev_length` and `lookahead`: the loop and the final `min`. -/
 def lmRest (sr : Nat) (L : UInt32) (d : DeflateState) (c : UInt32) (wb : Nat) (wa : Array UInt8) (cl : UInt32) (nm : Int32) :
     M UInt32 := do
