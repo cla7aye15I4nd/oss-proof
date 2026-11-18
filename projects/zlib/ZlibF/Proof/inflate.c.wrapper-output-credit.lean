@@ -141,7 +141,7 @@ theorem inflate_CHECK_zlib_output_append_cut
   rw [E.st]
   simp [runX_bind, runX_lift, ldI_eq, E.hs, wrap, pull, E.strm, runX_modify, runX_get,
     wrZ_eq, wrI_eq, E.hz, outField, leftField, putField, nonempty,
-    show ((5 : Int32) &&& 4) ≠ 0 by decide, actualPointer2, update2,
+    actualPointer2, update2,
     flags, trailer, runX_INITBITS, setMode, runX_throw, setI_setI, value,
     ZStreamRef.put_setI, ZStreamRef.put_put, ZStreamRef.get_put_same E.hz]
 

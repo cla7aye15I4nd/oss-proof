@@ -75,7 +75,6 @@ theorem mark_public : Goal.inflateMark := by
     show inflateMark p h = _
     unfold inflateMark
     simp [bind_app, notInit_check (refused_dom hr) (refused_not_initialised hr), pure_app]
-    decide
   · intro h r i z s hv
     rcases hv with ⟨hz, hstate, hi, hb, ha, hf, hlo, hhi⟩
     have hl : Live h r i z s := ⟨hz, hi, hstate, hb, ⟨hlo, hhi⟩, ha, hf⟩

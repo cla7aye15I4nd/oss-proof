@@ -166,14 +166,20 @@ private theorem semantic_bad (acc : Acc) (action : SemanticAction) :
   rcases acc with ⟨mo, lv, st, di, bad⟩
   cases action <;> simp [badFlag, semanticStep]
 
+private theorem semanticAction_bad_iff : ∀ a : Action, semanticAction a = .bad ↔ a = .bad
+  | .bad => ⟨fun _ => rfl, fun _ => rfl⟩
+  | .level _ | .mode _ | .binary | .cloexec | .exclusive
+  | .strategy _ | .gzipOnly | .nonblock | .transparent | .ignore =>
+    ⟨(fun h => nomatch h), (fun h => nomatch h)⟩
+
 /-- A later valid-looking character never clears an earlier '+' error. -/
 theorem semanticStep_bad (acc : Acc) (b : UInt8) :
     badFlag (semanticStep acc (semanticAction (sourceAction b))) =
       (badFlag acc || decide (b = 43)) := by
   rw [semantic_bad]
-  have he : semanticAction (sourceAction b) = .bad ↔ sourceAction b = .bad := by
-    cases sourceAction b <;> simp [semanticAction]
-  simp only [he, sourceAction_bad]
+  congr 1
+  rw [decide_eq_decide]
+  exact (semanticAction_bad_iff (sourceAction b)).trans (sourceAction_bad b)
 
 /-- The public bad bit describes membership of '+' in the full mode list. -/
 theorem badFlag_fold (bs : List UInt8) (acc : Acc) :

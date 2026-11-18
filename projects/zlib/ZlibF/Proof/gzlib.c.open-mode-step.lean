@@ -71,16 +71,18 @@ def modeActionState (s : GzState) : Action → GzState
   | .strategy n => { s with strategy := Int32.ofNat n }
   | .gzipOnly => { s with direct := -1 }
   | .transparent => { s with direct := 1 }
-  | _ => s
+  | .bad | .binary | .cloexec | .exclusive | .nonblock | .ignore => s
 
 def modeActionFlags (flags : Int32) : Action → Int32
   | .cloexec => flags ||| O_CLOEXEC
   | .nonblock => flags ||| O_NONBLOCK
-  | _ => flags
+  | .level _ | .mode _ | .bad | .binary | .exclusive
+  | .strategy _ | .gzipOnly | .transparent | .ignore => flags
 
 def modeActionExclusive (old : Int32) : Action → Int32
   | .exclusive => 1
-  | _ => old
+  | .level _ | .mode _ | .bad | .binary | .cloexec
+  | .strategy _ | .gzipOnly | .nonblock | .transparent | .ignore => old
 
 /-- The actual condition reads the original byte once without changing either
 world. This includes its post-'+' test with done=true. -/
@@ -105,52 +107,57 @@ theorem modeBody_normal (h : Heap) (fs : Fs) (i : Nat) (s : GzState)
         setS h i (modeActionState s (sourceAction b))) := by
   have hadd : 0 ≤ (off : Int) + 1 ∧ (off : Int) + 1 ≤ (a.size : Int) := by omega
   have hself : setS h i s = h := by simp [setS, upd_self _ _ _ hs]
-  by_cases h0 : 48 ≤ b.toInt8.toInt32 ∧ b.toInt8.toInt32 ≤ 57
-  · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0]
-  ·
-    by_cases h1 : b.toInt8.toInt32 = 114
-    · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1]
-    ·
-      by_cases h2 : b.toInt8.toInt32 = 119
-      · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2]
-      ·
-        by_cases h3 : b.toInt8.toInt32 = 97
-        · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3]
-        ·
-          by_cases h4 : b.toInt8.toInt32 = 43
-          · exact False.elim (hn (by simp [sourceAction, h4]))
-          ·
-            by_cases h5 : b.toInt8.toInt32 = 98
-            · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5]
-            ·
-              by_cases h6 : b.toInt8.toInt32 = 101
-              · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6]
-              ·
-                by_cases h7 : b.toInt8.toInt32 = 120
-                · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7]
-                ·
-                  by_cases h8 : b.toInt8.toInt32 = 102
-                  · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8]
-                  ·
-                    by_cases h9 : b.toInt8.toInt32 = 104
-                    · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9]
-                    ·
-                      by_cases h10 : b.toInt8.toInt32 = 82
-                      · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10]
-                      ·
-                        by_cases h11 : b.toInt8.toInt32 = 70
-                        · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11]
-                        ·
-                          by_cases h12 : b.toInt8.toInt32 = 71
-                          · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12]
-                          ·
-                            by_cases h13 : b.toInt8.toInt32 = 78
-                            · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13]
-                            ·
-                              by_cases h14 : b.toInt8.toInt32 = 84
-                              · offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14]
-                              ·
-                                offsetsimp [modeBody, sourceAction, modeActionState, modeActionFlags, modeActionExclusive, hs, load8, Ptr.load, ha, hoff, hb, Ptr.add, hadd, modeBytes_setS, hself, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14]
+  have hload : load8 (.ref r off) h = .ok (b, h) := by simp [load8, Ptr.load, ha, hoff, hb]
+  unfold modeBody sourceAction at *
+  simp only [liftM, monadLift, MonadLift.monadLift, MonadLiftT.monadLift, G_bind_app, G_lift_app, hload] at hn ⊢
+  generalize b.toInt8.toInt32 = c at hn ⊢
+  by_cases h0 : (c ≥ 48 && c ≤ 57) = true
+  · simp only [h0, ↓reduceIte]
+    offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, hself]
+  · simp only [Bool.not_eq_true _ ▸ h0, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+    by_cases h1 : c = 114
+    · subst h1; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha]
+    · simp only [beq_eq_false_iff_ne.mpr h1, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+      by_cases h2 : c = 119
+      · subst h2; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha]
+      · simp only [beq_eq_false_iff_ne.mpr h2, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+        by_cases h3 : c = 97
+        · subst h3; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha]
+        · simp only [beq_eq_false_iff_ne.mpr h3, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+          by_cases h4 : c = 43
+          · subst h4; exact False.elim (hn rfl)
+          · simp only [beq_eq_false_iff_ne.mpr h4, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+            by_cases h5 : c = 98
+            · subst h5; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, hself]
+            · simp only [beq_eq_false_iff_ne.mpr h5, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+              by_cases h6 : c = 101
+              · subst h6; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, hself]
+              · simp only [beq_eq_false_iff_ne.mpr h6, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                by_cases h7 : c = 120
+                · subst h7; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, hself]
+                · simp only [beq_eq_false_iff_ne.mpr h7, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                  by_cases h8 : c = 102
+                  · subst h8; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, Z_FILTERED]
+                  · simp only [beq_eq_false_iff_ne.mpr h8, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                    by_cases h9 : c = 104
+                    · subst h9; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, Z_HUFFMAN_ONLY]
+                    · simp only [beq_eq_false_iff_ne.mpr h9, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                      by_cases h10 : c = 82
+                      · subst h10; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, Z_RLE]
+                      · simp only [beq_eq_false_iff_ne.mpr h10, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                        by_cases h11 : c = 70
+                        · subst h11; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, Z_FIXED]
+                        · simp only [beq_eq_false_iff_ne.mpr h11, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                          by_cases h12 : c = 71
+                          · subst h12; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha]
+                          · simp only [beq_eq_false_iff_ne.mpr h12, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                            by_cases h13 : c = 78
+                            · subst h13; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, hself]
+                            · simp only [beq_eq_false_iff_ne.mpr h13, Bool.false_eq_true, ↓reduceIte] at hn ⊢
+                              by_cases h14 : c = 84
+                              · subst h14; offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha]
+                              · simp only [beq_eq_false_iff_ne.mpr h14, Bool.false_eq_true, ↓reduceIte]
+                                offsetsimp [modeActionState, modeActionFlags, modeActionExclusive, hs, Ptr.add, hadd, modeBytes_setS, ha, hself]
 
 /-- '+' really frees the actual handle, sets done, and leaves the mode pointer
 on the offending byte. It performs no pointer increment or file operation. -/
@@ -234,15 +241,19 @@ theorem modeRep_action (s : GzState) (acc : Acc) (b : UInt8)
   rcases hr with ⟨hm, hl, hs, hd, hb⟩
   dsimp only at hm hl hs hd hb
   cases action with
-  | level v => simp [ModeRep, semanticAction, semanticStep, modeActionState, hm, hs, hd, hb]
+  | level v =>
+    dsimp only [semanticAction, semanticStep, modeActionState, ModeRep]
+    exact ⟨hm, rfl, hs, hd, hb⟩
   | mode m =>
-    cases m <;> simp [ModeRep, semanticAction, semanticStep, modeActionState, modeCode, hl, hs, hd, hb]
+    cases m <;> exact ⟨rfl, hl, hs, hd, hb⟩
   | bad => contradiction
   | strategy n =>
     have hv : (Int32.ofNat n).toInt = n := Int32.toInt_ofNat_of_lt hfit
-    simp [ModeRep, semanticAction, semanticStep, modeActionState, hm, hl, hd, hb, hv]
-  | gzipOnly => simp [ModeRep, semanticAction, semanticStep, modeActionState, hm, hl, hs, hb]
-  | transparent => simp [ModeRep, semanticAction, semanticStep, modeActionState, hm, hl, hs, hb]
+    exact ⟨hm, hl, hv, hd, hb⟩
+  | gzipOnly =>
+    exact ⟨hm, hl, hs, rfl, hb⟩
+  | transparent =>
+    exact ⟨hm, hl, hs, rfl, hb⟩
   | binary | cloexec | exclusive | nonblock | ignore =>
     exact ⟨hm, hl, hs, hd, hb⟩
 

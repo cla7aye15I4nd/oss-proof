@@ -11,7 +11,10 @@ namespace Zlib.Infback.Proofs
 open C Zlib.Inflate
 
 /-- `order` has 19 entries, every one below 19. -/
-theorem order_lt : ∀ j, j < 19 → ∃ v, order[j]? = some v ∧ v.toNat < 19 := by decide
+theorem order_lt : ∀ j, j < 19 → ∃ v, order[j]? = some v ∧ v.toNat < 19 := by
+  have h19 : ∀ j : Fin 19, (order[j.val]'j.isLt).toNat < 19 := by decide
+  intro j hj
+  exact ⟨order[j]'hj, Array.getElem?_eq_getElem hj, h19 ⟨j, hj⟩⟩
 
 /-- `order` hits every code length symbol `0 .. 18`: the loops of `case TABLE` that write `lens[order[have++]]` for
 `have = 0 .. 18` write every one of `lens[0 .. 18]` exactly once. -/
