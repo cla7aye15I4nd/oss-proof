@@ -68,11 +68,11 @@ theorem distance_regionCharge_w (L : Nat → Nat) (i : Nat) :
   unfold regionCharge distanceRegionCharge128
   by_cases z : L i = 0 <;> simp [z]
 
-/-- **Header plus excess at `lit_bufsize = 128`**: at most `999` bits for `α ≤ 29`. -/
+/-- **Header plus excess at `lit_bufsize = 128`**: at most `983` bits for `α ≤ 29`. -/
 theorem header_excess_128_w {α : Nat} (small : α ≤ 29) (headerBound : HeaderRefBound128W α)
     {h : Heap} {ds : Nat} {d : DeflateState} {xs : List Symbol} {mb : Int32} {ready : DeflateState}
     (prepared : TinyPrepared h ds d xs mb ready) (size : d.lit_bufsize.toNat = 128) :
-    (dynamicHeaderBits ready mb).length + Zlib.Trees.Overlay.bitExcess (dynamicSymbolCosts ready xs) ≤ 999 := by
+    (dynamicHeaderBits ready mb).length + Zlib.Trees.Overlay.bitExcess (dynamicSymbolCosts ready xs) ≤ 983 := by
   have hdrBound := headerBound prepared size
   obtain ⟨⟨ll, fl, dl, fd, lenL, lenD, kL, kD, leafL, eob, leafD, symbols, balance, choice, excess,
     maxL256, maxL_lt, maxD_lt, lowL, lowD⟩⟩ := prepared_tiny_facts prepared (by omega)

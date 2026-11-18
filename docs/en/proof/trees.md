@@ -344,9 +344,8 @@ The cost of the remaining symbols is bounded against a fixed complete code
 (`header_ref_bound_256`, `header_ref_bound_128w`). One more inequality is used: the dynamic form was
 chosen, so its rounded cost is below the cost of the fixed form. Adding the header bound and a
 multiple of that choice inequality cancels the symbol-length sums; Kraft and the Fibonacci depth
-bound then give `header + excess ≤ 2023` and `≤ 999`
-(`header_excess_256c`, `header_excess_128_w`). In both cases the proved bound meets the budget
-exactly.
+bound then give `header + excess ≤ 1899` and `≤ 983`
+(`header_excess_256c`, `header_excess_128_w`).
 
 ## Why the loops end
 
