@@ -1,7 +1,8 @@
 .lake/
 build/
-/lake-manifest.json
-/docs/web/dist/
+/projects/*/lake-manifest.json
+/site/dist/
+/projects/*/docs/web/dist/
 __pycache__/
 .claude/
 .vscode/
