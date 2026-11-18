@@ -15,8 +15,8 @@ see [compress and compress2](utility.md#compress2_z).
 | Release storage | [End](#deflateend) |
 
 The contracts follow `zlib.h` and `deflate.c` of the pinned zlib with the
-[patches](../../../../patches/README.md) applied, in the default LP64 Linux build. Of the seven patches
-only patch 0007 touches `deflate.c`. It changes one condition in `deflateBound_z`, and with it the
+[patches](../../../../patches/README.md) applied, in the default LP64 Linux build. Of the six patches
+only patch 0006 touches `deflate.c`. It changes one condition in `deflateBound_z`, and with it the
 result of `deflateBound`, which calls `deflateBound_z`; the entry [deflateBound_z](#deflatebound_z)
 states the change. The patch changes no other function.
 These are focused contracts: Pre describes ordinary correct use and is deliberately narrower than
@@ -842,7 +842,7 @@ saturated at `SIZE_MAX`, where `n = sourceLen` and `w` is the full wrapper size:
 - Otherwise: `n + floor(n/32) + floor(n/128) + floor(n/2048) + 7 + w`.
 
 Hash bits are memory level plus 7. The words "and a strategy other than `Z_FIXED`" in the first
-case are the change of patch 0007: the unpatched C uses the first formula for every strategy. With
+case are the change of patch 0006: the unpatched C uses the first formula for every strategy. With
 `Z_FIXED`, window 15 and memory level 8, the patched function uses the second formula at levels 1
 to 9 and the third at level 0. The first formula is too small for `Z_FIXED` at levels 1 to 3: on
 the unpatched C, one `deflate(Z_FINISH)` call with that much output room can return `Z_OK`
@@ -909,7 +909,7 @@ This returns the uLong form of the deflateBound_z bound, still in bytes. ULONG_M
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>Complete return conditions and boundaries</summary>
 
-**Post:** return the `deflateBound_z` result, with the change of patch 0007, if it fits `uLong`,
+**Post:** return the `deflateBound_z` result, with the change of patch 0006, if it fits `uLong`,
 otherwise `ULONG_MAX`.
 On the default LP64 target both types have 64 bits and the results agree.
 The stream is unchanged. Output adequacy requires the separate schedule and capacity

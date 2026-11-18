@@ -1,4 +1,4 @@
-<!-- source-sha256: b54645ecf49f13f2f413d630fd97e0b8f637678a80821807b2c56148704acbec -->
+<!-- source-sha256: 11683b8bf11792a9ba4506e02d14a62b86a564eb2da2ca6917cdf47a0a4855ce -->
 # 缓冲区工具函数：源码上的决定
 
 本页列出 `compress.c`、`uncompr.c` 以及 `deflate.c` 的上界函数中，C 的做法需要模型小心表示的地方。每一处都说明 C 做了什么，模型做了什么，以及是否有定理覆盖它。这些函数的安全证明在另外两页；本页是它们的源码阅读配套页。
@@ -74,6 +74,6 @@
 - **模型。** 翻译计算同一个回绕的和。
 - **覆盖情况。** 安全性已覆盖（`deflateBound_safety`、`deflateBound_z_safety`）。在上游 zlib 中，上界的值有两处缺陷。
     - 当 `extra_len` 为 `2^32 - 2` 和 `2^32 - 1` 时上界偏小，对 C 的一次运行表明了这一点（[发现](../findings.md)）。没有应用补丁。上游知道这种情形（[讨论](https://github.com/madler/zlib/pull/1360)）。
-    - 在 `windowBits` 为 15、`memLevel` 为 8、使用 `Z_FIXED` 且级别为 1 到 3 时，输出可以超过上界，对 C 的一次运行表明了这一点（[发现](../findings.md)）。补丁 0007 让 `Z_FIXED` 使用保守的上界（上游 [PR 1394](https://github.com/madler/zlib/pull/1394)，处于打开状态）。
+    - 在 `windowBits` 为 15、`memLevel` 为 8、使用 `Z_FIXED` 且级别为 1 到 3 时，输出可以超过上界，对 C 的一次运行表明了这一点（[发现](../findings.md)）。补丁 0006 让 `Z_FIXED` 使用保守的上界（上游 [PR 1394](https://github.com/madler/zlib/pull/1394)，处于打开状态）。
 
     **尚未由证明确认**：在源数据和头部定义域的其余部分上，输出不超过上界。

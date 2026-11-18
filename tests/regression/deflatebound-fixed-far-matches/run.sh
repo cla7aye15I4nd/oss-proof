@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Usage: ZLIB_SRC=<zlib checkout> bash tests/regression/deflatebound-fixed-far-matches/run.sh
-# Builds the pinned zlib twice: with patches/*.patch except 0007 (the source before the fix), and
+# Builds the pinned zlib twice: with patches/*.patch except 0006 (the source before the fix), and
 # with all of patches/*.patch. Runs repro.c on each: 1,000,000 bytes that deflate_fast codes as far
 # 3-byte matches, compressed with windowBits 15, memLevel 8 and Z_FIXED at levels 1 to 9, in one
 # deflate(Z_FINISH) call with exactly deflateBound bytes of room. zlib.h promises Z_STREAM_END.
-# Without 0007 some level must return Z_OK (repro.c exits 1); with 0007 every level must end.
+# Without 0006 some level must return Z_OK (repro.c exits 1); with 0006 every level must end.
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 src=${ZLIB_SRC:?set ZLIB_SRC to the pinned zlib checkout}
@@ -13,7 +13,7 @@ rm -rf "$work/without"
 mkdir -p "$work/without/tests" "$work/without/patches"
 cp "$here/../../build-zlib.sh" "$work/without/tests/"
 for p in "$here"/../../../patches/*.patch; do
-  case "$(basename "$p")" in 0007-*) ;; *) cp "$p" "$work/without/patches/";; esac
+  case "$(basename "$p")" in 0006-*) ;; *) cp "$p" "$work/without/patches/";; esac
 done
 bash "$work/without/tests/build-zlib.sh" "$src" "$work/before" >/dev/null || exit 2
 bash "$here/../../build-zlib.sh" "$src" "$work/after" >/dev/null || exit 2

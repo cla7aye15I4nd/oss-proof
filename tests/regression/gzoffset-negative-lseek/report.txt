@@ -1,6 +1,6 @@
 Raw output of tests/regression/gzoffset-negative-lseek/run.sh (negative.c), exit status 0.
 Source: the pinned zlib commit 99623ef7097352da7993ba614161fd6a311e046e, built twice by
-tests/build-zlib.sh with the sanitizer options of run.sh: with patches/*.patch except 0006
+tests/build-zlib.sh with the sanitizer options of run.sh: with patches/*.patch except 0005
 (before), and with all of patches/*.patch (after).
 Build: GCC 15.2. Host: x86_64 Linux, the project's target. Addresses vary from run to run.
 

@@ -21,7 +21,7 @@ Each line ends with the Lean predicate that states it; a line that no predicate 
 **Every call**
 
 - The library is the default x86_64 Linux build: LP64, static, compiled from zlib 1.4 (upstream
-  commit `99623ef7`) with the seven [patches](../../patches/README.md).
+  commit `99623ef7`) with the six [patches](../../patches/README.md).
 - `zalloc` and `zfree` of every `z_stream` are `Z_NULL`, so zlib uses its default allocator
   (`DefaultOrNull`). A custom allocator is not covered. A failing `malloc` is covered.
 - No single object in memory has 2^63 bytes or more (`ByteObjectsFit`). This is the LP64 limit
@@ -414,7 +414,7 @@ concrete call.
 file-system world. The safety goal of each gz function (`Goal.<function>_safety`) restricts one
 clause of it to that function, with the same premises: a row below that names
 `Goal.gz_sequence_safety` holds for the goals of the functions it is about. The goals are about
-the patched source ([patches](../../patches/README.md) 0002 to 0006). The gz world is trusted
+the patched source ([patches](../../patches/README.md) 0002 to 0005). The gz world is trusted
 semantics beside the heap: the [external-I/O model](design/external-io.md) describes it, and the
 [trusted base](trusted-base.md) says what is assumed of it.
 

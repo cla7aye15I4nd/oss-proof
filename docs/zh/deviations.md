@@ -1,4 +1,4 @@
-<!-- source-sha256: 20d8e1d1dfb448061510c2737e221ddab2ea9c04a981c46f65096ecfc5986d9f -->
+<!-- source-sha256: 8116c35aeb3f65bb783608882df25cb5a40bc308621f120637e468597c88ff57 -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后的 Lean 前提、陈述它的目标，以及它的理由。
@@ -13,7 +13,7 @@
 
 **每一次调用**
 
-- 库是默认的 x86_64 Linux 构建：LP64、静态链接，由 zlib 1.4（上游提交 `99623ef7`）加七个[补丁](../../patches/README.md)编译而成。
+- 库是默认的 x86_64 Linux 构建：LP64、静态链接，由 zlib 1.4（上游提交 `99623ef7`）加六个[补丁](../../patches/README.md)编译而成。
 - 每个 `z_stream` 的 `zalloc` 和 `zfree` 都是 `Z_NULL`，于是 zlib 使用它的默认分配器（`DefaultOrNull`）。自定义分配器不被覆盖。`malloc` 失败是被覆盖的。
 - 内存中没有任何单个对象达到或超过 2^63 字节（`ByteObjectsFit`）。这是 LP64 下单个对象的上限 `PTRDIFF_MAX`；它不限制内存总量，也不限制流的长度。
 - 这些行对整段历史成立。一个流或一个文件上的某次调用被覆盖，前提是从它的初始化或打开算起，此前在它上面的每次调用也都满足各自的行；那些调用返回什么都可以（`StreamReachable`、`GzHistory`、`BackSafeReachable`）。
@@ -241,7 +241,7 @@ int rc = inflateInit(&s);   /* covered by Goal.inflateInit__safety */
 
 ## Gzip 文件接口
 
-`Goal.gz_sequence_safety` 在一个句柄的每段历史（`GzHistory`）上、对每个文件系统世界成立。每个 gz 函数的安全目标（`Goal.<function>_safety`）把它的一个子句限制到这个函数上，前提相同：下面写了 `Goal.gz_sequence_safety` 的行，对该行所说的那些函数的目标同样成立。这些目标说的是打过补丁的源码（[补丁](../../patches/README.md) 0002 至 0006）。gz 世界是堆之外的可信语义：[外部 I/O 模型](design/external-io.md)描述它，[可信基础](trusted-base.md)说明对它作了哪些假设。
+`Goal.gz_sequence_safety` 在一个句柄的每段历史（`GzHistory`）上、对每个文件系统世界成立。每个 gz 函数的安全目标（`Goal.<function>_safety`）把它的一个子句限制到这个函数上，前提相同：下面写了 `Goal.gz_sequence_safety` 的行，对该行所说的那些函数的目标同样成立。这些目标说的是打过补丁的源码（[补丁](../../patches/README.md) 0002 至 0005）。gz 世界是堆之外的可信语义：[外部 I/O 模型](design/external-io.md)描述它，[可信基础](trusted-base.md)说明对它作了哪些假设。
 
 | 前提 | 要求什么 | 目标 | 理由，以及什么不被覆盖 |
 | --- | --- | --- | --- |

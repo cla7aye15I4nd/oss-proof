@@ -1,4 +1,4 @@
-<!-- source-sha256: eb93153b96f47b1f62a93ed81da3cb5578819ae61c536a68c05fc03e53bceb57 -->
+<!-- source-sha256: b0e51e586e3ad623cac892355056f5780ad890ecb801eaff471520ba6e3f3346 -->
 
 # 流式压缩
 
@@ -12,7 +12,7 @@
 | 调整或分支 | [参数](#deflateparams)、[调优](#deflatetune)、[位预置](#deflateprime)、[复制](#deflatecopy) |
 | 释放存储 | [结束](#deflateend) |
 
-这些契约遵循固定版本的 zlib 在应用各[补丁](../../../../patches/README.md)之后的 `zlib.h` 和 `deflate.c`，采用默认 LP64 Linux 构建。七个补丁中只有补丁 0007 改动 `deflate.c`。它修改 `deflateBound_z` 中的一个条件，`deflateBound` 调用 `deflateBound_z`，其结果也随之改变；改动的内容见条目 [deflateBound_z](#deflatebound_z)。这个补丁不改动其他函数。这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。前置条件之外、C 仍会处理的情况，写在“错误”或**聚焦范围之外**下。超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。定义域和效果标签的含义见[契约约定](contracts.md)。
+这些契约遵循固定版本的 zlib 在应用各[补丁](../../../../patches/README.md)之后的 `zlib.h` 和 `deflate.c`，采用默认 LP64 Linux 构建。六个补丁中只有补丁 0006 改动 `deflate.c`。它修改 `deflateBound_z` 中的一个条件，`deflateBound` 调用 `deflateBound_z`，其结果也随之改变；改动的内容见条目 [deflateBound_z](#deflatebound_z)。这个补丁不改动其他函数。这些是聚焦契约：前置条件描述通常的正确用法，有意比函数实际接受的范围窄。前置条件之外、C 仍会处理的情况，写在“错误”或**聚焦范围之外**下。超出前置条件的调用并不因此就是未定义行为，也不一定返回错误码。定义域和效果标签的含义见[契约约定](contracts.md)。
 
 **已证明的内容。** 只证明安全性：每次调用都返回，没有未定义行为和内存错误，只写其目标指明的内容，并且不泄漏（见[安全性](../safety.md)）。各条目在“证明目标”下给出自己的目标，所用的五项和固定用语由[阅读证明目标段落](contracts.md#reading-a-proof-goals-paragraph)定义：目标及其定理；目标适用的条件，按 Lean 命题中的顺序列出；对每一个取值都覆盖的内容；保证的内容（返回、状态、写入、分配）；以及留给其他目标的内容。证明所假设的是那里列出的条件，而不是文档中的前置条件。后置条件、返回值表和各项说明描述的是功能行为：它们读自 C 源码，凡是没有定理陈述的，都**尚未由证明确认**；安全结论不需要它们。哪些目标已完成，见[进度](../../progress.md)。
 
@@ -686,7 +686,7 @@ z_size_t ZEXPORT deflateBound_z(z_streamp strm, z_size_t sourceLen);
 - 否则，若窗口位数不超过哈希位数且级别非零：`n + floor(n/8) + floor(n/256) + floor(n/512) + 4 + w`。
 - 否则：`n + floor(n/32) + floor(n/128) + floor(n/2048) + 7 + w`。
 
-哈希位数等于内存级别加 7。第一种情况里“且策略不是 `Z_FIXED`”这几个字就是补丁 0007 的改动：未打补丁的 C 对每一种策略都使用第一个公式。策略为 `Z_FIXED`、窗口 15、内存级别 8 时，打过补丁的函数在级别 1 到 9 使用第二个公式，在级别 0 使用第三个公式。对于级别 1 到 3 的 `Z_FIXED`，第一个公式偏小：在未打补丁的 C 上，一次 `deflate(Z_FINISH)` 调用即使得到这么多输出空间，也可能返回 `Z_OK`（见[发现](../../findings.md)，已用真实的 C 复现）。
+哈希位数等于内存级别加 7。第一种情况里“且策略不是 `Z_FIXED`”这几个字就是补丁 0006 的改动：未打补丁的 C 对每一种策略都使用第一个公式。策略为 `Z_FIXED`、窗口 15、内存级别 8 时，打过补丁的函数在级别 1 到 9 使用第二个公式，在级别 0 使用第三个公式。对于级别 1 到 3 的 `Z_FIXED`，第一个公式偏小：在未打补丁的 C 上，一次 `deflate(Z_FINISH)` 调用即使得到这么多输出空间，也可能返回 `Z_OK`（见[发现](../../findings.md)，已用真实的 C 复现）。
 
 裸流的 `w` 为 0；zlib 为 6，存在预置历史时再加 4；gzip 为 18，再加可选的 extra 字段（包括两个长度字节）、以零终止的名称/注释和头部 CRC。
 
@@ -740,7 +740,7 @@ uLong ZEXPORT deflateBound(z_streamp strm, uLong sourceLen);
 
 <details markdown="1" class="ar-return-exact" data-return-exact="deflateBound"><summary>完整返回条件与边界</summary>
 
-**后置条件：** 如果 `deflateBound_z` 的结果（含补丁 0007 的改动）能由 `uLong` 表示，则返回该结果，否则返回 `ULONG_MAX`。默认 LP64 目标中两种类型都是 64 位，结果相同。流不变。输出是否足够，仍要求 `deflateBound_z` 单独规定的调用安排和容量条件，不能只由数值相等推出。
+**后置条件：** 如果 `deflateBound_z` 的结果（含补丁 0006 的改动）能由 `uLong` 表示，则返回该结果，否则返回 `ULONG_MAX`。默认 LP64 目标中两种类型都是 64 位，结果相同。流不变。输出是否足够，仍要求 `deflateBound_z` 单独规定的调用安排和容量条件，不能只由数值相等推出。
 
 </details>
 
