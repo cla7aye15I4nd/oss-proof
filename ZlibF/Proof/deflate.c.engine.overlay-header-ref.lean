@@ -263,21 +263,21 @@ theorem header_ref_bound_256 : HeaderRefBound 245 := by
     · by_cases hi : 16 ≤ v
       · exact Or.inr hi
       · exact absurd (absent v (by omega) (by omega)) nz
-  have bound : ∀ v, v < 19 → allowed256 v = true → 1 ≤ ZlibF.Math.DeflateOverlayCertificate.refLen v ∧
-      ZlibF.Math.DeflateOverlayCertificate.refLen v ≤ 7 := by decide +kernel
-  have kraft : Zlib.Trees.Proofs.GB.rs (fun v => if allowed256 v then 2 ^ (7 - ZlibF.Math.DeflateOverlayCertificate.refLen v) else 0)
+  have bound : ∀ v, v < 19 → allowed256 v = true → 1 ≤ ZlibF.Math.DeflateOverlayTiny.refLen v ∧
+      ZlibF.Math.DeflateOverlayTiny.refLen v ≤ 7 := by decide +kernel
+  have kraft : Zlib.Trees.Proofs.GB.rs (fun v => if allowed256 v then 2 ^ (7 - ZlibF.Math.DeflateOverlayTiny.refLen v) else 0)
       19 ≤ 2 ^ 7 := by decide +kernel
   have count : Zlib.Trees.Proofs.GB.rs (fun v => if allowed256 v then 1 else 0) 19 ≤ 15 := by decide +kernel
   have weightLe : Zlib.Trees.Proofs.GB.rs (fun v => (btFreq .bl scanned v).toNat) 19 ≤ 316 := by
     rw [Zlib.Trees.Proofs.rs_eq_mass, mass_congr fv]
     exact Zlib.Trees.Proofs.blScanCount_mass_le readyP input
-  have core := rank.cost_le_15 allowed256 7 ZlibF.Math.DeflateOverlayCertificate.refLen allowed bound kraft count weightLe
+  have core := rank.cost_le_15 allowed256 7 ZlibF.Math.DeflateOverlayTiny.refLen allowed bound kraft count weightLe
   rw [Zlib.Trees.Proofs.rs_eq_mass, Zlib.Trees.Proofs.rs_eq_mass] at core
   have e1 : mass (fun v => (btFreq .bl scanned v).toNat * curL (TK.arr .bl built) v) 19 =
       mass (fun v => blScanCount readyP v * curL (TK.arr .bl built) v) 19 :=
     mass_congr (fun v hv => by rw [fv v hv])
-  have e2 : mass (fun v => (btFreq .bl scanned v).toNat * ZlibF.Math.DeflateOverlayCertificate.refLen v) 19 =
-      mass (fun v => blScanCount readyP v * ZlibF.Math.DeflateOverlayCertificate.refLen v) 19 :=
+  have e2 : mass (fun v => (btFreq .bl scanned v).toNat * ZlibF.Math.DeflateOverlayTiny.refLen v) 19 =
+      mass (fun v => blScanCount readyP v * ZlibF.Math.DeflateOverlayTiny.refLen v) 19 :=
     mass_congr (fun v hv => by rw [fv v hv])
   rw [e1, e2] at core
   rw [hdr, refEq, mass_mul_add_right]
@@ -313,22 +313,22 @@ theorem header_ref_bound_128w : HeaderRefBound128W 29 := by
     · by_cases hi : 16 ≤ v
       · exact Or.inr hi
       · exact absurd (absent v (by omega) (by omega)) nz
-  have bound : ∀ v, v < 19 → allowed128 v = true → 1 ≤ ZlibF.Math.DeflateOverlayCertificate128W.refLen1 v ∧
-      ZlibF.Math.DeflateOverlayCertificate128W.refLen1 v ≤ 8 := by decide +kernel
+  have bound : ∀ v, v < 19 → allowed128 v = true → 1 ≤ ZlibF.Math.DeflateOverlayTiny.refLen1 v ∧
+      ZlibF.Math.DeflateOverlayTiny.refLen1 v ≤ 8 := by decide +kernel
   have kraft : Zlib.Trees.Proofs.GB.rs
-      (fun v => if allowed128 v then 2 ^ (8 - ZlibF.Math.DeflateOverlayCertificate128W.refLen1 v) else 0) 19 ≤ 2 ^ 8 := by
+      (fun v => if allowed128 v then 2 ^ (8 - ZlibF.Math.DeflateOverlayTiny.refLen1 v) else 0) 19 ≤ 2 ^ 8 := by
     decide +kernel
   have count : Zlib.Trees.Proofs.GB.rs (fun v => if allowed128 v then 1 else 0) 19 ≤ 13 := by decide +kernel
   have weightLe : Zlib.Trees.Proofs.GB.rs (fun v => (btFreq .bl scanned v).toNat) 19 ≤ 316 := by
     rw [Zlib.Trees.Proofs.rs_eq_mass, mass_congr fv]
     exact Zlib.Trees.Proofs.blScanCount_mass_le readyP input
-  have core := rank.cost_le_13 allowed128 8 ZlibF.Math.DeflateOverlayCertificate128W.refLen1 allowed bound kraft count weightLe
+  have core := rank.cost_le_13 allowed128 8 ZlibF.Math.DeflateOverlayTiny.refLen1 allowed bound kraft count weightLe
   rw [Zlib.Trees.Proofs.rs_eq_mass, Zlib.Trees.Proofs.rs_eq_mass, Zlib.Trees.Proofs.rs_eq_mass] at core
   have e1 : mass (fun v => (btFreq .bl scanned v).toNat * curL (TK.arr .bl built) v) 19 =
       mass (fun v => blScanCount readyP v * curL (TK.arr .bl built) v) 19 :=
     mass_congr (fun v hv => by rw [fv v hv])
-  have e2 : mass (fun v => (btFreq .bl scanned v).toNat * ZlibF.Math.DeflateOverlayCertificate128W.refLen1 v) 19 =
-      mass (fun v => blScanCount readyP v * ZlibF.Math.DeflateOverlayCertificate128W.refLen1 v) 19 :=
+  have e2 : mass (fun v => (btFreq .bl scanned v).toNat * ZlibF.Math.DeflateOverlayTiny.refLen1 v) 19 =
+      mass (fun v => blScanCount readyP v * ZlibF.Math.DeflateOverlayTiny.refLen1 v) 19 :=
     mass_congr (fun v hv => by rw [fv v hv])
   have e3 : mass (fun v => (btFreq .bl scanned v).toNat) 19 = mass (blScanCount readyP) 19 :=
     mass_congr (fun v hv => by rw [fv v hv])

@@ -523,9 +523,7 @@ import ZlibF.Proof.«deflate.c.universal-strategy-frame»
 import ZlibF.Proof.«deflate.c.universal-ops-params»
 import ZlibF.Math.DeflateOverlaySmall
 import ZlibF.Math.DeflateOverlayFibActual
-import ZlibF.Math.DeflateOverlayCertificate
-import ZlibF.Math.DeflateOverlayCertificate256
-import ZlibF.Math.DeflateOverlayCertificate128W
+import ZlibF.Math.DeflateOverlayTiny
 import ZlibF.Math.HuffmanReference
 import ZlibF.Proof.«deflate.c.engine.overlay-reference»
 import ZlibF.Proof.«trees.c.universal-overlay-fibplus»
