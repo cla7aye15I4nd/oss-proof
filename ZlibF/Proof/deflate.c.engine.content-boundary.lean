@@ -73,5 +73,4 @@ theorem ContentBoundary.expands {h : Heap} {r : ZStreamRef} {ds origin base : Na
   rw [← endpoint]
   exact boundary.trace.expands
 
-open ZlibF.Spec.Public.Proofs.DeflateInit in
 end Zlib.Deflate.Engine.Proofs

@@ -50,5 +50,4 @@ theorem default_initialization_slow_boundary {h : Heap} {r : ZStreamRef} {z : ZS
     · intro large
       simp [start.lookahead] at large
 
-open ZlibF.Spec.Public.Proofs.DeflateInit in
 end Zlib.Deflate.Engine.Proofs

@@ -36,5 +36,4 @@ theorem default_initialization_pending_boundary {h : Heap} {r : ZStreamRef} {z :
   · simp [start.insert]
   · simpa only [start.insert, show (0 : UInt32).toNat = 0 from rfl, Nat.sub_zero] using boundary.chains
 
-open ZlibF.Spec.Public.Proofs.DeflateInit in
 end Zlib.Deflate.Engine.Proofs

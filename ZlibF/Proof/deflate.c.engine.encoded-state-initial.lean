@@ -38,5 +38,4 @@ theorem default_initialization_encoding_state {h : Heap} {r : ZStreamRef} {z : Z
   exact ⟨after, zf, sf, run, protocol, by simpa only [prefixNil] using checksum,
     Or.inl ⟨rfl, rfl, (fun _ => 0), start, boundary⟩⟩
 
-open ZlibF.Spec.Public.Proofs.DeflateInit in
 end Zlib.Deflate.Engine.Proofs

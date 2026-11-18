@@ -40,5 +40,4 @@ theorem default_initialization_finish_protocol {h : Heap} {r : ZStreamRef} {z : 
     Or.inl ⟨_, 0, 0, start, buffered⟩, ?_, ?_⟩
   all_goals rw [start.lastFlush]; decide
 
-open ZlibF.Spec.Public.Proofs.DeflateInit in
 end Zlib.Deflate.Engine.Proofs
