@@ -144,8 +144,7 @@ has defined semantics.
 The verified source is zlib 1.4 (upstream commit `99623ef7`) plus the patches, applied in name
 order. A patch fixes a zlib issue without whose fix a safety
 statement cannot be proved, or a promise of `zlib.h` does not hold. It is as small as the fix
-allows, and it matches the fix submitted upstream where one was submitted. A patch marked local
-has not been submitted.
+allows, and it matches a fix submitted upstream.
 
 Seven patches are applied. Every theorem is about the patched source, so each patch is part
 of what a reader trusts. [Patches](../../patches/README.md) gives the evidence for each.
@@ -155,10 +154,10 @@ of what a reader trusts. [Patches](../../patches/README.md) gives the evidence f
 | 0001 | Relational comparison of unrelated pointers in `inflateCopy` | Matches upstream PR #1369; not yet on the upstream branch |
 | 0002 | Signed overflow in `gzseek64` after `gzungetc` | The `gzlib.c` part of upstream PR #1361, open |
 | 0003 | Stale `x.next` after a partial transparent read fails | Upstream PR #1363, open |
-| 0004 | Overflow of the gz position `x.pos` while reading | Local: not submitted |
-| 0005 | Overflow of the gz position `x.pos` while writing | Local: not submitted |
-| 0006 | Signed overflow in `gzoffset64` on a negative result of `lseek` | Local: not submitted |
-| 0007 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Local: not submitted |
+| 0004 | Overflow of the gz position `x.pos` while reading | The last commit of upstream PR #1405, open |
+| 0005 | Overflow of the gz position `x.pos` while writing | Upstream PR #1406, open |
+| 0006 | Signed overflow in `gzoffset64` on a negative result of `lseek` | Upstream PR #1404, open |
+| 0007 | `deflateBound` too small for `Z_FIXED` at levels 1 to 3 | Upstream PR #1394, open |
 
 ## 5. Configuration and external world
 

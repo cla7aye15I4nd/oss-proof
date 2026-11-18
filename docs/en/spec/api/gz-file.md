@@ -2135,9 +2135,9 @@ and its upstream state):
 | --- | --- | --- |
 | `gzseek` after an initial `gzungetc` (position -1) | Signed overflow in the range check. | 0002 |
 | A transparent read where `read` supplies bytes and then fails | The readers consume the partial bytes through a stale buffer pointer: an out-of-bounds read. | 0003 |
-| A position that passes `GZ_OFF_MAX` while reading | Signed overflow of the position. | 0004, local: not submitted upstream |
-| A position that passes `GZ_OFF_MAX` while writing | Signed overflow of the position. | 0005, local: not submitted upstream |
-| `gzoffset64` when `lseek` returns a negative offset other than -1 | Signed overflow in the subtraction of the buffered input. | 0006, local: not submitted upstream |
+| A position that passes `GZ_OFF_MAX` while reading | Signed overflow of the position. | 0004 |
+| A position that passes `GZ_OFF_MAX` while writing | Signed overflow of the position. | 0005 |
+| `gzoffset64` when `lseek` returns a negative offset other than -1 | Signed overflow in the subtraction of the buffered input. | 0006 |
 
 Differential tests supply evidence of translation fidelity, not proof. Private helpers,
 the legacy fixed-argument `gzprintf`, and Windows error-string helpers have no additional

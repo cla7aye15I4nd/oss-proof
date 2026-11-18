@@ -29,7 +29,7 @@
     },
     {
       "path": "patches/0007-deflatebound-fixed-conservative.patch",
-      "sha256": "f04413d93d4ddaa4717ba5ac3a795acd913a2ff3b52c91c0552f3a4f984829b5"
+      "sha256": "5baa8f82d91f1372a766d73a74cc69303879a052ca8f4d9806ba4216bb895b40"
     }
   ],
   "compiler": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12-git",
@@ -66,7 +66,7 @@
     },
     {
       "path": "deflate.c",
-      "sha256": "965f636d700002bd8bd35946379df549e5d13ed73330568b0a5aae8ad9695dd9"
+      "sha256": "6bd3a55de0183624f9b8da1031fbb3e371d4baba22f49bda8dd34e77bd1d5a2f"
     },
     {
       "path": "trees.c",
