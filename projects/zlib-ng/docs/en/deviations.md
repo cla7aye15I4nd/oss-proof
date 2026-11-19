@@ -88,13 +88,14 @@ whose call-backs behave as below and by the program. It is not proved (see the p
 The goals of the gz* functions are stated on the files that `zlib.h` lets a program reach (`GzReachable`): returned
 by a successful `gzopen`, `gzopen64` or `gzdopen`, then changed only by gz calls with valid arguments and by the
 program, which may use the `gzgetc()` macro and change anything that does not belong to the file. A `NULL` file is
-also accepted. Every goal holds for every result of `open`, `read`, `write`, `lseek`, `close`, `malloc`, `strerror`
-and `vsnprintf`.
+also accepted. Every goal holds for every result of `open`, `read`, `write`, `lseek` (one that POSIX allows, see below), `close`,
+`malloc`, `strerror` and `vsnprintf`.
 
 | Function | Premise | Lean | Reason |
 | --- | --- | --- | --- |
 | `gzread`, `gzfread`, `gzgets`, `gzwrite`, `gzfwrite`, `gzputs` | The caller's buffer (or string) lies outside the file's own blocks (its `gz_state`, path, message, buffers and inflate or deflate state). | `OutsideGz` | The library's memory is not the caller's; a buffer with no reason to overlap it. |
 | `gzprintf`, `gzvprintf` | The arguments match the format. | `vsnprintf` oracle (`Runtime/Gz.lean`) | `zlib.h` describes the format as that of `printf`; a mismatch is undefined in `vsnprintf` itself. |
+| Every gz function (it matters to `gzoffset`, `gzoffset64`) | `lseek` returns `-1` or an offset that is not negative. | `GzWF` | POSIX: `lseek` returns the resulting offset or `-1`. Linux lets a few device files with unsigned offsets (`/dev/mem`, `/proc/<pid>/mem`) reach offsets of `2^63` and more, which come back as negative numbers; `gzoffset64` subtracts the buffered input from the offset, which overflows within that many bytes of `2^63`. Reads at such offsets fail, so input is buffered there only when the program itself moves the descriptor there, behind the file's back, after a read. |
 | Every gz function | The read results deliver finitely many bytes, and the inputs (files, delivered bytes) are below `2^62` bytes. | `GzWF` | On an endless input `gzread` may wait forever, as any reader would; the bound only keeps the model's loop fuel from being the limit. |
 
 ## Behaviour of the verified source

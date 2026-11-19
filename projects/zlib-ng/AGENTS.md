@@ -244,7 +244,8 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
   position `x.pos` overflowed after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds and which keeps
   delivering data (`gzread.c:356`): patch 0016 stops the readers at `GZ_OFF_MAX`. Open question, not a finding:
   `gzoffset64` computes `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below
-  `INT64_MIN + avail_in`; see `deviations.md` for how the goal treats it.
+  `INT64_MIN + avail_in`: `GzWF` admits only the `lseek` values POSIX allows (`-1` or not negative), a
+  `deviations.md` row (Linux files with unsigned offsets fail their reads at such offsets).
 
 ## Checking
 

@@ -24,10 +24,10 @@ were asked for. `GzWF` bounds these by `2^62` so that the model's loop fuel (`2^
 An endless input (a pipe whose writer never stops) is outside the model; on it `gzread` may not return, as any reader
 would not.
 
-**Not provable on the verified source yet.** The four open findings refute some goals as stated (the goals are
-honest; the patches will make them provable): an allocation failure in `gz_buffer_alloc` (`gzread`, `gzwrite` and
-the other first I/O calls), a failed `gzwrite` on its direct path followed by a write, flush or close, and the read
-position overflow on a descriptor whose `lseek` succeeds without moving (`gzseek`, then the readers).
+**`lseek` results.** POSIX `lseek` returns the resulting offset or `-1`. `GzWF` admits every oracle value of that
+form: `-1` or not negative. Linux files with unsigned offsets (`/dev/mem`, `/proc/<pid>/mem`) can return offsets of
+`2^63` and more as negative numbers, on which `gzoffset64`'s `offset - avail_in` can overflow; reads at those offsets
+fail (deviations page).
 
 **Narrowings** (deviations page): caller buffers lie outside the file's own blocks; the `vsnprintf` arguments of
 `gzprintf` match the format (as `zlib.h` requires of a `printf` format).
@@ -46,13 +46,14 @@ def GzRun {α : Type} (m : G α) (w : World) (h : Heap) (r : α) (w' : World) (h
 def CStr (h : Heap) (p : BPtr) : Prop := ∃ n, CStringLen h p n
 
 /-- The world and heap are those of a C program: CRC tables, no object in an unallocated block, objects below
-`2^63` bytes, the `gz_state` objects in allocated blocks with their embedded `z_stream` alive, and the inputs (the
-read budget and the files) below `2^62` bytes. -/
+`2^63` bytes, the `gz_state` objects in allocated blocks with their embedded `z_stream` alive, the inputs (the
+read budget and the files) below `2^62` bytes, and every `lseek` value the oracle chooses `-1` or not negative. -/
 def GzWF (w : World) (h : Heap) : Prop :=
   CrcGlobals h ∧ DFreshBlocks h ∧ ObjBound h ∧
   (∀ b, h.nextBlk ≤ b → w.gzs b = none) ∧
   (∀ b s, w.gz h b = some s → ∃ z, h.streams s.strm = some z) ∧
-  w.fs.budget < 2 ^ 62 ∧ (∀ d ∈ w.fs.nodes, d.size < 2 ^ 62)
+  w.fs.budget < 2 ^ 62 ∧ (∀ d ∈ w.fs.nodes, d.size < 2 ^ 62) ∧
+  (∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v)
 
 /-- The heap blocks that belong to the open file `f` in `w`, `h`: the block of its `gz_state`, its `path`, its
 `msg`, its buffer block and the block of its inflate or deflate state. -/

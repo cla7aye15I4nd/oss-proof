@@ -1,4 +1,4 @@
-<!-- source-sha256: 43e9fddcc2036e95373fa3986b32b5e410c5c3c03d91973282f9ebc4a86aa3c2 -->
+<!-- source-sha256: 674cf21cfd4af30a3cd433664881df10ab776100046033f71f39be1d22769983 -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -82,13 +82,14 @@
 
 gz* 函数的目标针对 `zlib.h` 允许程序到达的文件（`GzReachable`）陈述：由成功的 `gzopen`、`gzopen64` 或 `gzdopen`
 返回，此后只被参数有效的 gz 调用以及程序改变；程序可以使用 `gzgetc()` 宏，并改变不属于该文件的任何东西。`NULL`
-文件也被接受。每个目标对 `open`、`read`、`write`、`lseek`、`close`、`malloc`、`strerror` 与 `vsnprintf` 的每种结果
-都成立。
+文件也被接受。每个目标对 `open`、`read`、`write`、`lseek`（POSIX 允许的结果，见下文）、`close`、`malloc`、`strerror` 与
+`vsnprintf` 的每种结果都成立。
 
 | 函数 | 前提 | Lean | 理由 |
 | --- | --- | --- | --- |
 | `gzread`、`gzfread`、`gzgets`、`gzwrite`、`gzfwrite`、`gzputs` | 调用者的缓冲区（或字符串）位于该文件自身的块（其 `gz_state`、路径、消息、缓冲区及 inflate 或 deflate 状态）之外。 | `OutsideGz` | 库的内存不是调用者的；缓冲区没有理由与之重叠。 |
 | `gzprintf`、`gzvprintf` | 参数与格式相符。 | `vsnprintf` 预言机（`Runtime/Gz.lean`） | `zlib.h` 把格式描述为 `printf` 的格式；不相符在 `vsnprintf` 本身就是未定义的。 |
+| 每个 gz 函数（对 `gzoffset`、`gzoffset64` 有影响） | `lseek` 返回 `-1` 或非负偏移。 | `GzWF` | POSIX：`lseek` 返回结果偏移或 `-1`。Linux 允许少数具有无符号偏移的设备文件（`/dev/mem`、`/proc/<pid>/mem`）到达 `2^63` 及以上的偏移，它们以负数返回；`gzoffset64` 从偏移中减去已缓冲的输入，在距 `2^63` 不足这么多字节时溢出。在这些偏移上读取会失败，因此只有当程序在读取之后自己绕过该文件把描述符移到那里时，缓冲区才在那里持有输入。 |
 | 每个 gz 函数 | 读取结果总共只交付有限个字节，且输入（文件、交付的字节）少于 `2^62` 字节。 | `GzWF` | 在无尽的输入上 `gzread` 可能一直等待，任何读取者都会如此；该上界只是使模型的循环燃料不成为限制。 |
 
 ## 被验证源码的行为

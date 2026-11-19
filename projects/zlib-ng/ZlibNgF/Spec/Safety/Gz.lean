@@ -8,8 +8,7 @@ quantifies over every allocation outcome, every OS-call result the oracles allow
 `vsnprintf` result), every accepted file (`GzHandle`: `NULL` or reachable) and valid caller arguments, the call
 does not fault (no undefined behaviour) and returns, and changes only what `GzFrame` names; `gzclose`,
 `gzclose_r` and `gzclose_w` of a reachable file of their mode also release everything of it (`GzReleased`: no
-leak, nothing left to dangle). That a call keeps the file reachable is part of `GzReachable`. The open findings
-refute some of these goals on the verified source (module comment of `ZlibNgF.Spec.Common.Gz`).
+leak, nothing left to dangle). That a call keeps the file reachable is part of `GzReachable`.
 -/
 
 set_option autoImplicit false
@@ -134,7 +133,8 @@ def Goal.gzoffset_safety : Prop :=
     GzWF w h → GzHandle w h f →
     ∃ r w' h', GzRun (gzoffset f) w h r w' h' ∧ GzFrame w h w' h' f []
 
-/-- `z_off64_t gzoffset64(gzFile file)`. Accepted file, no fault, frame. -/
+/-- `z_off64_t gzoffset64(gzFile file)`. Accepted file, no fault, frame. `GzWF` admits the `lseek` values POSIX allows
+(`-1` or not negative): `offset - avail_in` cannot overflow on them (deviations page). -/
 def Goal.gzoffset64_safety : Prop :=
   ∀ (w : World) (h : Heap) (f : GzPtr),
     GzWF w h → GzHandle w h f →
