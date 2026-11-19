@@ -14,7 +14,12 @@ these readers need is asked:
 * a link (the test of the slow decoder: `op != 0 && (op & 0xf0) == 0` for literal/length tables,
   `(op & 0xf0) == 0` for distance tables) points to a sub-table `a[o + val, o + val + 2^op)` inside the region,
   and its `bits` plus the `bits` of every sub-table entry is at most `m`;
-* in a distance table, a valid entry (`op & 64 == 0`) has `val ≥ 1` (a match distance is never zero).
+* in a distance table, a valid entry (`op & 64 == 0`) has `val ≥ 1` (a match distance is never zero);
+* sub-table entries are not links (a decoder follows at most one link);
+* in a literal/length table (`LenOK`, what `inflate_fast` needs: three symbols after one `REFILL` of at least 56
+  bits): a literal takes at most 15 bits in all (link bits plus entry bits), any other entry at most 20 (a code of at
+  most 15 bits and at most 5 extra bits), and a length base `val + extra` lies in `[1, 258]` for every value of its
+  extra bits (`op & 15` code bits and `bits - (op & 15)` extra bits, `COMBINE_OP` / `COMBINE_BITS`).
 
 `zng_inflate_table` establishes this predicate (the hypothesis `TableFacts` of `Proof/inflate.c.facts.lean`); the
 static `lenfix` / `distfix` satisfy it. The state invariant carries it through `TabAt` for the tables a mode reads.
@@ -38,16 +43,27 @@ structure EntryOK (e : Code) (m : Nat) (dist : Bool) : Prop where
   op_lt : e.op &&& 16 = 0 → e.op &&& 64 = 0 → e.op &&& 0xf0 = 0
   dval : dist = true → e.op &&& 64 = 0 → 1 ≤ e.val.toNat
 
-/-- `a[o, e)` is a decoding table with `n` root bits whose entries satisfy `EntryOK _ m dist`. -/
+/-- A literal/length entry reached after `pre` bits of a root link (`pre = 0` for a root entry): a literal
+(`op == 0`) takes at most 15 bits in all, any other entry at most 20, and a length base (`op & 16`) gives a length
+`val + extra` in `[1, 258]` for every value of its `bits - (op & 15)` extra bits. -/
+def LenOK (pre : Nat) (e : Code) : Prop :=
+  (e.op = 0 → pre + e.bits.toNat ≤ 15) ∧ (e.op ≠ 0 → pre + e.bits.toNat ≤ 20) ∧
+  (e.op &&& 16 ≠ 0 → 1 ≤ e.val.toNat ∧ e.val.toNat + 2 ^ (e.bits.toNat - e.op.toNat % 16) ≤ 259)
+
+/-- `a[o, e)` is a decoding table with `n` root bits whose entries satisfy `EntryOK _ m dist`; a literal/length table
+(`dist = false`) also satisfies `LenOK` on the root entries and on the sub-table entries after their link's bits. -/
 structure CodeTable (a : Array Code) (o e n m : Nat) (dist : Bool) : Prop where
   n_pos : 1 ≤ n
   n_le : n ≤ 15
   root : o + 2 ^ n ≤ e
   fits : e ≤ a.size
   ent : ∀ j, o ≤ j → j < e → EntryOK a[j]! m dist
+  lit : dist = false → ∀ j, o ≤ j → j < o + 2 ^ n → LenOK 0 a[j]!
   link : ∀ j, o ≤ j → j < e → linkTest dist a[j]! = true →
     o + a[j]!.val.toNat + 2 ^ a[j]!.op.toNat ≤ e ∧
-    ∀ k, k < 2 ^ a[j]!.op.toNat → a[j]!.bits.toNat + a[o + a[j]!.val.toNat + k]!.bits.toNat ≤ m
+    ∀ k, k < 2 ^ a[j]!.op.toNat → a[j]!.bits.toNat + a[o + a[j]!.val.toNat + k]!.bits.toNat ≤ m ∧
+      linkTest dist a[o + a[j]!.val.toNat + k]! = false ∧
+      (dist = false → LenOK a[j]!.bits.toNat a[o + a[j]!.val.toNat + k]!)
 
 /-- The table at `p` with `n` root bits, read by a decoder of the state in block `b` with code array `codes`: in the
 state's own `codes` (region `[o, e)`), or a static fixed table. -/
@@ -59,7 +75,9 @@ def TabAt (b : Nat) (codes : Array Code) (p : Ival CodePtr) (n : UInt32) (m : Na
 /-- A table depends only on the entries of its region. -/
 theorem CodeTable.congr {a a' : Array Code} {o e n m : Nat} {dist : Bool} (t : CodeTable a o e n m dist)
     (hs : e ≤ a'.size) (he : ∀ j, o ≤ j → j < e → a'[j]! = a[j]!) : CodeTable a' o e n m dist := by
-  refine ⟨t.n_pos, t.n_le, t.root, hs, fun j h1 h2 => (he j h1 h2) ▸ t.ent j h1 h2, fun j h1 h2 hl => ?_⟩
+  have hr := t.root
+  refine ⟨t.n_pos, t.n_le, t.root, hs, fun j h1 h2 => (he j h1 h2) ▸ t.ent j h1 h2,
+    fun hd j h1 h2 => (he j h1 (by omega)) ▸ t.lit hd j h1 h2, fun j h1 h2 hl => ?_⟩
   rw [he j h1 h2] at hl ⊢
   obtain ⟨hlt, hk⟩ := t.link j h1 h2 hl
   refine ⟨hlt, fun k hk' => ?_⟩

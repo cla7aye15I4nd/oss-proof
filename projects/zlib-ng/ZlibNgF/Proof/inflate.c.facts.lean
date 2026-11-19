@@ -11,11 +11,13 @@ structure. These are statements about translated C functions, to be proved as th
   `[o, o')` it returns is a `CodeTable` (`Proof/inflate.c.tables.lean`) with the returned root bits;
 * `FastFacts`: `inflate_fast_c` / `inflate_fast_safe_c` (`inffast_tpl.h`) as `LEN` calls them (patch 0010: fewer than
   8 bits held): no fault, they advance `next_in` / `next_out` by what they consume / produce, write only the output
-  buffer `[next_out, next_out + avail_out)`, the stream record and the state's `mode`, `hold`, `bits`; they leave
-  `LEN`, `TYPE` or `BAD`, never increase the input bits plus output bytes still available, and unless `BAD`
-  consume a bit or produce a byte;
-* `CopyFacts`: `chunkmemset_safe_c` (`chunkset_tpl.h`) as `MATCH` calls it, for a distance `d ≥ 1` back into the
-  bytes already written to the output buffer: no fault, it returns `out + len` and writes only `[out, out + left)`.
+  buffer `[next_out, next_out + avail_out)`, the stream record and the state's `mode`, `hold`, `bits`, `length`,
+  `was`, `offset`; they leave `LEN`, `TYPE` or `BAD`, or (the safe variant, a match longer than the room left,
+  `inffast_tpl.h:207-213`) `MATCH` with a nonzero `offset`; they never increase the input bits plus output bytes
+  still available, and unless `BAD` consume a bit or produce a byte;
+* `CopyFacts`: `chunkmemset_safe_c` (`chunkset_tpl.h`) as `MATCH` calls it, for a distance `1 ≤ d < 2 ^ 63` back
+  into the bytes already written to the output buffer (`out - from` is a `ptrdiff_t`): no fault, it returns
+  `out + len` and writes only `[out, out + left)`.
 
 None of them is assumed by a registered result: a result is registered only when these are proved.
 -/
@@ -68,7 +70,8 @@ structure FastFacts : Prop where
     z.next_in = .ref ri oi → ReadSlice h z.next_in z.avail_in.toNat →
     z.next_out = .ref (.heap bo) (oo + (start - z.avail_out).toNat) → WriteSlice h (.ref (.heap bo) oo) start.toNat →
     Disjoint z.next_in z.avail_in.toNat (.ref (.heap bo) oo) start.toNat → NotInBlock b z.next_in → bo ≠ b →
-    ∃ (h' : Heap) (ai ao : UInt32) (m : UInt32) (hold : UInt64) (bits : UInt32) (msg : BPtr),
+    ∃ (h' : Heap) (ai ao : UInt32) (m : UInt32) (hold : UInt64) (bits : UInt32) (len was off : UInt32)
+      (msg : BPtr),
       C.run ((if safe then ZlibNg.ChunksetC.inflate_fast_safe_c else ZlibNg.ChunksetC.inflate_fast_c) (some i)
         start) h = .ok ((), h') ∧
       ai ≤ z.avail_in ∧ ao ≤ z.avail_out ∧
@@ -78,18 +81,25 @@ structure FastFacts : Prop where
         next_out := .ref (.heap bo) (oo + (start - ao).toNat)
         avail_out := ao
         msg := msg } ∧
-      h'.istates b = some { st with mode := m, hold := hold, bits := bits } ∧
-      (m = LEN ∨ m = TYPE ∨ m = BAD) ∧ bits < 8 ∧
+      h'.istates b = some { st with
+        mode := m
+        hold := hold
+        bits := bits
+        length := len
+        was := was
+        offset := off } ∧
+      (m = LEN ∨ m = TYPE ∨ m = BAD ∨ (safe = true ∧ m = MATCH ∧ 1 ≤ off.toNat)) ∧ bits < 8 ∧
       8 * ai.toNat + bits.toNat + ao.toNat + (if m = BAD then 0 else 1) ≤
         8 * z.avail_in.toNat + st.bits.toNat + z.avail_out.toNat ∧
       h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧
       Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)]
 
 /-- `chunkmemset_safe_c(out, out - d, len, left)` as `MATCH` calls it: `out` at offset `p` of a heap block with `left`
-bytes after it, the source `d ≥ 1` bytes back in the same block, `len ≤ left`. -/
+bytes after it, the source `d` bytes back in the same block with `1 ≤ d < 2 ^ 63` (`out - from` is computed, ISO C17
+§6.5.6p9), `len ≤ left`. -/
 structure CopyFacts : Prop where
   memset : ∀ (h : Heap) (bo p d : Nat) (data : Array UInt8) (len left : UInt64),
-    h.bytes bo = some data → 1 ≤ d → d ≤ p → p + left.toNat ≤ data.size → len ≤ left → 1 ≤ left →
+    h.bytes bo = some data → 1 ≤ d → d < 2 ^ 63 → d ≤ p → p + left.toNat ≤ data.size → len ≤ left → 1 ≤ left →
     ∃ data' : Array UInt8,
       C.run (ZlibNg.ChunksetC.chunkmemset_safe_c (.ref (.heap bo) p) (.ref (.heap bo) (p - d)) len left) h =
         .ok (.ref (.heap bo) (p + len.toNat), { h with bytes := upd h.bytes bo (some data') }) ∧

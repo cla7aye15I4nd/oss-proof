@@ -7,7 +7,8 @@ Safety of `CHUNKCOPY` (`chunkcopy_c`), `CHUNKUNROLL`, `GET_CHUNK_MAG`, `CHUNKMEM
 `CHUNKMEMSET_SAFE` (`chunkmemset_safe_c`) and `CHUNKCOPY_SAFE` as instantiated by `arch/generic/chunkset_c.c`
 (8-byte `chunk_t`). Every call site (`inflate_fast_c`, `inflate`'s `MATCH` state) passes an output pointer `out`
 and a source `from = out - dist` with `dist ≥ 1` in the same object, the caller's output buffer, a heap block
-`ob` of `N < 2 ^ 63` bytes; the lemmas are stated for that case. Each lemma takes a run `ORun H0 H ob N lo hi` and
+`ob` of `N` bytes (`N < 2 ^ 63` where a difference other than `out - from` is computed); the lemmas are stated for that
+case. Each lemma takes a run `ORun H0 H ob N lo hi` and
 the fact that the bytes the routine may write lie in `[lo, hi)`, and returns the result pointer and the run
 extended by the call, so that the lemmas compose.
 
@@ -268,16 +269,22 @@ theorem u64_le (x y : UInt64) : decide (x ≤ y) = decide (x.toNat ≤ y.toNat) 
 theorem u64_sub (x y : UInt64) (h : y.toNat ≤ x.toNat) : (x - y).toNat = x.toNat - y.toNat :=
   UInt64.toNat_sub_of_le _ _ (by rw [UInt64.le_iff_toNat_le]; exact h)
 
+/-- `Ptr.diff` inside one object when the difference is a `ptrdiff_t`. -/
+theorem sat_diff_r {H : Heap} {r : BRef} {a : Array UInt8} {o1 o2 : Nat} (hb : Space.get H r = some a)
+    (h1 : o1 ≤ a.size) (h2 : o2 ≤ a.size) (hr : -(2 ^ 63 : Int) ≤ (o1 : Int) - (o2 : Int) ∧ (o1 : Int) - (o2 : Int) < 2 ^ 63) :
+    Sat H (Ptr.diff (.ref r o1) (.ref r o2)) (fun d H' => d = Int64.ofInt ((o1 : Int) - o2) ∧ H' = H) :=
+  ⟨_, _, by simp only [Ptr.diff, hb, h1, h2, and_self, ↓reduceIte, hr], rfl, rfl⟩
+
 theorem sat_CHUNKMEMSET {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo hi) {o f : Nat} (len : UInt64)
     (hfo : f < o) (hlen : 1 ≤ len.toNat) (h1 : lo ≤ o) (h2 : o + max len.toNat 8 ≤ hi) (hN : hi ≤ N)
-    (hN63 : N < 2 ^ 63) :
+    (hd63 : o - f < 2 ^ 63) :
     Sat H (CHUNKMEMSET (B ob o) (B ob f) len) (fun p H' => p = B ob (o + len.toNat) ∧ ORun H0 H' ob N lo hi) := by
   obtain ⟨a, ha, haN⟩ := r.cur
   have hg : Space.get H (BRef.heap ob) = some a := ha
   have m1 := Nat.le_max_left len.toNat 8
   have m2 := Nat.le_max_right len.toNat 8
   unfold CHUNKMEMSET
-  refine Sat.bind (Sat.mono (sat_diff hg (o1 := o) (o2 := f) (by omega) (by omega) (by omega)) ?_)
+  refine Sat.bind (Sat.mono (sat_diff_r hg (o1 := o) (o2 := f) (by omega) (by omega) (by omega)) ?_)
   rintro d H1 ⟨rfl, rfl⟩
   have hdist := absI64 ((o : Int) - f) (by omega) (by omega)
   generalize (if Int64.ofInt ((o : Int) - f) < 0 then -Int64.ofInt ((o : Int) - f)
@@ -477,7 +484,7 @@ theorem min_toNat (x y : UInt64) : (MIN x y).toNat = min x.toNat y.toNat := by
 /-- `chunkmemset_safe_c(out, out - dist, len, left)` with `left` bytes of room at `out`: it writes only inside the
 room and returns `out + MIN(len, left)`. -/
 theorem sat_CHUNKMEMSET_SAFE {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo hi) {o f : Nat}
-    (len left : UInt64) (hfo : f < o) (h1 : lo ≤ o) (h2 : o + left.toNat ≤ hi) (hN : hi ≤ N) (hN63 : N < 2 ^ 63) :
+    (len left : UInt64) (hfo : f < o) (h1 : lo ≤ o) (h2 : o + left.toNat ≤ hi) (hN : hi ≤ N) (hd63 : o - f < 2 ^ 63) :
     Sat H (CHUNKMEMSET_SAFE (B ob o) (B ob f) len left)
       (fun p H' => p = B ob (o + min len.toNat left.toNat) ∧ ORun H0 H' ob N lo hi) := by
   unfold CHUNKMEMSET_SAFE
@@ -514,7 +521,7 @@ theorem sat_CHUNKMEMSET_SAFE {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob 
   rw [ite_eq_left this]
   have := Nat.le_max_left len'.toNat 8
   have := Nat.le_max_right len'.toNat 8
-  exact Sat.mono (sat_CHUNKMEMSET r len' hfo (by omega) h1 (by omega) hN hN63)
+  exact Sat.mono (sat_CHUNKMEMSET r len' hfo (by omega) h1 (by omega) hN hd63)
     fun p G ⟨hp, rG⟩ => ⟨by rw [hp, hm], rG⟩
 
 /-! ## `CHUNKCOPY_SAFE` -/
@@ -572,7 +579,7 @@ theorem sat_CHUNKCOPY_SAFE {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N 
   simp only [CHUNK, Bool.or_eq_true, decide_eq_true_eq, UInt64.lt_iff_toNat_lt, UInt64.reduceToNat] at hb
   have := Nat.le_max_left len'.toNat 8
   have := Nat.le_max_right len'.toNat 8
-  exact Sat.mono (sat_CHUNKMEMSET r len' hfo (by omega) h1 (by omega) hN hN63)
+  exact Sat.mono (sat_CHUNKMEMSET r len' hfo (by omega) h1 (by omega) hN (by omega))
     fun p G ⟨hp, rG⟩ => ⟨by rw [hp, hm, hsl], rG⟩
 
 /-! ## Summary: each routine alone
@@ -597,17 +604,17 @@ theorem chunkunroll_c_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.byt
     (by have := Nat.min_le_left (len.toNat + 6) 14; omega) (by omega)
 
 theorem chunkmemset_c_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.bytes ob = some a)
-    (hN : a.size = N) (hN63 : N < 2 ^ 63) {o f : Nat} (len : UInt64) (hlen : 1 ≤ len.toNat)
+    (hN : a.size = N) {o f : Nat} (hd63 : o - f < 2 ^ 63) (len : UInt64) (hlen : 1 ≤ len.toNat)
     (ho : o + max len.toNat 8 ≤ N) (hf : f < o) :
     Sat H (CHUNKMEMSET (B ob o) (B ob f) len)
       (fun p H' => p = B ob (o + len.toNat) ∧ ORun H H' ob N o (o + max len.toNat 8)) :=
-  sat_CHUNKMEMSET (ORun.refl ha hN _ _) len hf hlen (Nat.le_refl _) (Nat.le_refl _) ho hN63
+  sat_CHUNKMEMSET (ORun.refl ha hN _ _) len hf hlen (Nat.le_refl _) (Nat.le_refl _) ho hd63
 
 theorem chunkmemset_safe_c_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.bytes ob = some a)
-    (hN : a.size = N) (hN63 : N < 2 ^ 63) {o f : Nat} (len left : UInt64) (ho : o + left.toNat ≤ N) (hf : f < o) :
+    (hN : a.size = N) {o f : Nat} (hd63 : o - f < 2 ^ 63) (len left : UInt64) (ho : o + left.toNat ≤ N) (hf : f < o) :
     Sat H (ZlibNg.ChunksetC.chunkmemset_safe_c (B ob o) (B ob f) len left)
       (fun p H' => p = B ob (o + min len.toNat left.toNat) ∧ ORun H H' ob N o (o + left.toNat)) :=
-  sat_CHUNKMEMSET_SAFE (ORun.refl ha hN _ _) len left hf (Nat.le_refl _) (Nat.le_refl _) ho hN63
+  sat_CHUNKMEMSET_SAFE (ORun.refl ha hN _ _) len left hf (Nat.le_refl _) (Nat.le_refl _) ho hd63
 
 theorem chunkcopy_safe_tpl_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.bytes ob = some a)
     (hN : a.size = N) (hN63 : N < 2 ^ 63) {o f s : Nat} (len : UInt64) (hlen : 1 ≤ len.toNat) (hf : f < o)

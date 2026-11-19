@@ -284,7 +284,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
             exact Sat.pure (hcont _ _ _ e3i e3b rfl (by omega) (by rw [hlu]; omega) r5)
           · refine Sat.bind (Sat.mono (ZlibNgF.Proof.ChunkCopy.sat_CHUNKMEMSET r l.len.toUInt64
               (o := ot + w) (f := ot + w - dist3.toNat) (by omega) (by omega) (by omega) (by rw [hlu]; omega)
-              hsN hN) ?_)
+              hsN (by omega)) ?_)
             rintro p G5 ⟨rfl, r5⟩
             exact Sat.pure (hcont _ _ _ e3i e3b rfl (by omega) (by rw [hlu]; omega) r5)
         · simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte]
