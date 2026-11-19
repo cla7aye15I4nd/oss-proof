@@ -3,6 +3,7 @@ import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Proof.«public-deflate-init»
 import ZlibNgF.Proof.«deflate.c.reset»
 import ZlibNgF.Proof.«deflate.c.prime»
+import ZlibNgF.Proof.«deflate.c.facts»
 
 /-!
 # Reachable deflate streams have the structural invariant (`ZlibNgF`)
