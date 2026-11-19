@@ -1,4 +1,4 @@
-<!-- source-sha256: c2b5c20da6745b45eaff98f7ad78493ae4668f981129f582579bbbd86ee5ff09 -->
+<!-- source-sha256: afe48179b0e3c5323e16851c4f4ccf6703fada0336e4ab25da01b442a10e316b -->
 # 结论的状态
 
 整体库验证状态：**未完成**。
@@ -18,7 +18,7 @@
 | `inflateInit_`、`inflateInit2_`、`inflateUndermine`：安全性 | 公开 C 接口 | 完成 |
 | `inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateResetKeep`、`inflatePrime`、`inflateSetDictionary`、`inflateGetDictionary`、`inflateGetHeader`、`inflateSync`、`inflateSyncPoint`、`inflateCopy`、`inflateValidate`、`inflateMark`、`inflateCodesUsed`：安全性 | 公开 C 接口 | 完成 |
 | `inflateBackInit_`：安全性 | 公开 C 接口 | 完成 |
-| `inflateBack`、`inflateBackEnd`：安全性 | 公开 C 接口 | 未完成 |
+| `inflateBack`、`inflateBackEnd`：安全性 | 公开 C 接口 | 完成 |
 | `compress`、`compress2` 安全性 | 公开 C 接口 | 未完成 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` 安全性 | 公开 C 接口 | 完成 |
 | `gz*` 文件函数安全性 | 公开 C 接口 | 未完成 |
