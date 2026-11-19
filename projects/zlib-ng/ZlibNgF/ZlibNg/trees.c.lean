@@ -639,8 +639,9 @@ def detect_data_type (st : StatePtr) : M Int32 := do
   if found then
     return Z_BINARY
   let t ← if (← ctFc ltree 9) != 0 then pure true
-    else if (← ctFc ltree 10) != 0 then pure true
-    else do pure ((← ctFc ltree 13) != 0)
+    else do
+      if (← ctFc ltree 10) != 0 then pure true
+      else do pure ((← ctFc ltree 13) != 0)
   if t then
     return Z_TEXT
   let (_, found) ← cwhile

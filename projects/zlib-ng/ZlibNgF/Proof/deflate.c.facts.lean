@@ -132,13 +132,15 @@ boundary (`(bi_valid + 3 + 7) / 8` bytes), `LEN` and `NLEN`, the data (the `have
 def storedRoom (st : DeflateState) (len : UInt32) : Nat := len.toNat + (st.bi_valid.toInt.toNat + 42) / 8
 
 /-- The block emitters. `flush_block` is called by `FLUSH_BLOCK_ONLY` with no pending bytes (the previous
-`FLUSH_BLOCK` emptied them, or the strategy returned) and the block's bytes in the window (or `NULL` when
+`FLUSH_BLOCK` emptied them, or the strategy returned), at a level above 0 (level 0 is `deflate_stored`, which does
+not call it; at level 0 its stored path could copy a block longer than `pending_buf`), and the block's bytes in the window (or `NULL` when
 `block_start` is negative); its result fits `pending_buf` (the `sym_buf` overlay argument of `deflate.c`).
 `stored_block` writes `storedRoom` bytes; `align` and the `emit_*` of `deflate_quick` (static trees) add at most 16
 bytes (with up to 63 bits waiting in `bi_buf`). -/
 structure TreesFacts : Prop where
   flush_block : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
-    EmitOk s b (fun st => st.pending = 0 ∧ (buf = .null ∨ WindowBuf b st buf len)) (fun _ => 0)
+    EmitOk s b (fun st => st.pending = 0 ∧ 0 < st.level ∧ (buf = .null ∨ WindowBuf b st buf len))
+      (fun _ => 0)
       (fun st => 4 * st.lit_bufsize.toNat + 9) (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)
   stored_block : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
     EmitOk s b (fun st => WindowBuf b st buf len) (fun st => storedRoom st len) (fun st => storedRoom st len)
