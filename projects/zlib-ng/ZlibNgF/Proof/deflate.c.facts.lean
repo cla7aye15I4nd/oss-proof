@@ -51,10 +51,11 @@ def DBufsSet (h : Heap) (s : StreamPtr) : Prop :=
   ∃ z, StreamAt h s z ∧ z.next_out ≠ .null ∧ (z.avail_in ≠ 0 → z.next_in ≠ .null)
 
 /-- The state in which `deflate` calls a strategy: the invariant, the CRC tables, valid and set buffers, a valid
-`flush` (`Z_NO_FLUSH` .. `Z_BLOCK`), and no pending bytes (`deflate` flushed them, or returned). -/
+`flush` (`Z_NO_FLUSH` .. `Z_BLOCK`), no pending bytes (`deflate` flushed them, or returned), and the header written
+(`status` is `BUSY_STATE` or `FINISH_STATE`, so the invariant allows tallied symbols). -/
 def StratPre (h : Heap) (s : StreamPtr) (flush : Int32) : Prop :=
   DInv h s ∧ CrcGlobals h ∧ DStreamIO h s ∧ DBufsSet h s ∧ 0 ≤ flush ∧ flush ≤ 5 ∧
-    ∃ b st, DStateIs h s b st ∧ st.pending = 0
+    ∃ b st, DStateIs h s b st ∧ st.pending = 0 ∧ (st.status = BUSY_STATE ∨ st.status = FINISH_STATE)
 
 /-- What a strategy call leaves: the invariant, valid and set buffers, a change of the stream record, the stream's block
 and the output buffer only, and no pending bytes after `block_done` / `finish_done`. -/
@@ -122,26 +123,39 @@ def EmitOk (s : StreamPtr) (b : Nat) (pre : DeflateState → Prop) (room grow : 
       (∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9)) ∧
       ∀ st', DStateIs h' s b st' → EmitKeeps st st' ∧ st'.pending.toNat ≤ st.pending.toNat + grow st
 
+/-- After a successful run of `m` from the working state of stream `s` (block `b`) with `pre`, no symbol is left in
+`sym_buf` (`zng_tr_flush_block` ends with `init_block`). -/
+def EmitClears (s : StreamPtr) (b : Nat) (pre : DeflateState → Prop) (m : M Unit) : Prop :=
+  ∀ (h h' : Heap) (st : DeflateState), DWork h s → DStateIs h s b st → pre st → C.run m h = .ok ((), h') →
+    ∀ st', DStateIs h' s b st' → st'.sym_next = 0
+
 /-- `buf` is `NULL` with `len == 0`, or `len` bytes of the window from offset `k`, below `strstart`. -/
 def WindowBuf (b : Nat) (st : DeflateState) (buf : BPtr) (len : UInt32) : Prop :=
   (buf = .null ∧ len = 0) ∨
     ∃ wo k, st.window = .val (.ref (.heap b) wo) ∧ buf = .ref (.heap b) (wo + k) ∧ k + len.toNat ≤ st.strstart.toNat
+
+/-- The precondition of `zng_tr_flush_block` in `FLUSH_BLOCK_ONLY`. -/
+def FlushBlockPre (b : Nat) (buf : BPtr) (len : UInt32) (st : DeflateState) : Prop :=
+  st.pending = 0 ∧ 0 < st.level ∧ st.bi_valid < 8 ∧ (buf = .null ∨ WindowBuf b st buf len)
 
 /-- The bytes of a stored block of `len` bytes with the bits of `st`: the 3 header bits and the padding to a byte
 boundary (`(bi_valid + 3 + 7) / 8` bytes), `LEN` and `NLEN`, the data (the `have` of `deflate_stored`). -/
 def storedRoom (st : DeflateState) (len : UInt32) : Nat := len.toNat + (st.bi_valid.toInt.toNat + 42) / 8
 
 /-- The block emitters. `flush_block` is called by `FLUSH_BLOCK_ONLY` with no pending bytes (the previous
-`FLUSH_BLOCK` emptied them, or the strategy returned), at a level above 0 (level 0 is `deflate_stored`, which does
-not call it; at level 0 its stored path could copy a block longer than `pending_buf`), and the block's bytes in the window (or `NULL` when
-`block_start` is negative); its result fits `pending_buf` (the `sym_buf` overlay argument of `deflate.c`).
+`FLUSH_BLOCK` emptied them, or the strategy returned) and fewer than 8 bits in `bi_buf` (the `flush_pending` of the
+previous `FLUSH_BLOCK` moved the complete bytes), at a level above 0 (level 0 is `deflate_stored`, which does not
+call it; at level 0 its stored path could copy a block longer than `pending_buf`), and the block's bytes in the window (or `NULL` when
+`block_start` is negative); its result fits `pending_buf` (the `sym_buf` overlay argument of `deflate.c`) and it
+leaves no symbol (`flush_block_clears`).
 `stored_block` writes `storedRoom` bytes; `align` and the `emit_*` of `deflate_quick` (static trees) add at most 16
 bytes (with up to 63 bits waiting in `bi_buf`). -/
 structure TreesFacts : Prop where
   flush_block : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
-    EmitOk s b (fun st => st.pending = 0 ∧ 0 < st.level ∧ (buf = .null ∨ WindowBuf b st buf len))
-      (fun _ => 0)
-      (fun st => 4 * st.lit_bufsize.toNat + 9) (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)
+    EmitOk s b (FlushBlockPre b buf len) (fun _ => 0) (fun st => 4 * st.lit_bufsize.toNat + 9)
+      (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)
+  flush_block_clears : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
+    EmitClears s b (FlushBlockPre b buf len) (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)
   stored_block : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
     EmitOk s b (fun st => WindowBuf b st buf len) (fun st => storedRoom st len) (fun st => storedRoom st len)
       (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last)
