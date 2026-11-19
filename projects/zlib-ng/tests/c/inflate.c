@@ -172,6 +172,7 @@ int main(void) {
         printf("init:%d", r);
         if (r != Z_OK) { printf("\n"); free(in); free(dict); continue; }
         gz_header h; memset(&h, 0, sizeof h);
+        unsigned char *own[3] = {NULL, NULL, NULL}; /* inflate sets an unused buffer pointer of the header to NULL */
         unsigned extra_max = 0, name_max = 0, comm_max = 0;
         int hdr = strcmp(tok[8], "-") != 0;
         if (hdr) {
@@ -182,6 +183,7 @@ int main(void) {
             if (h.extra) memset(h.extra, 0xaa, extra_max);
             if (h.name) memset(h.name, 0xaa, name_max);
             if (h.comment) memset(h.comment, 0xaa, comm_max);
+            own[0] = h.extra; own[1] = h.name; own[2] = h.comment;
             h.extra_max = extra_max; h.name_max = name_max; h.comm_max = comm_max;
             h.text = 7; h.time = 7; h.xflags = 7; h.os = 7; h.extra_len = 7; h.hcrc = 7; h.done = 7;
             printf(" gethdr:%d", inflateGetHeader(&s, &h));
@@ -208,7 +210,7 @@ int main(void) {
         }
         printf(" end:%d\n", inflateEnd(&s));
         free(out); free(in); free(dict);
-        if (hdr) { free(h.extra); free(h.name); free(h.comment); }
+        if (hdr) { free(own[0]); free(own[1]); free(own[2]); }
     }
     free(line);
     return 0;
