@@ -5,3 +5,4 @@ compress
 inflate
 deflate
 infback
+gz
