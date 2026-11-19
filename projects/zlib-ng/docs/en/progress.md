@@ -18,7 +18,7 @@ Overall library status: **not done**.
 | `inflateInit_`, `inflateInit2_`, `inflateUndermine`: safety | Public C API | done |
 | `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`, `inflatePrime`, `inflateSetDictionary`, `inflateGetDictionary`, `inflateGetHeader`, `inflateSync`, `inflateSyncPoint`, `inflateCopy`, `inflateValidate`, `inflateMark`, `inflateCodesUsed`: safety | Public C API | done |
 | `inflateBackInit_`: safety | Public C API | done |
-| `inflateBack`, `inflateBackEnd`: safety | Public C API | not done |
+| `inflateBack`, `inflateBackEnd`: safety | Public C API | done |
 | `compress`, `compress2`, `compress_z`, `compress2_z` safety | Public C API | not done |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` safety | Public C API | done |
 | `gz*` file functions safety | Public C API | not done |

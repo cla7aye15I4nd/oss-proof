@@ -1,4 +1,4 @@
-<!-- source-sha256: a6cad84fb7c23694a3d7a427205eaf58a11f8086e63507a2d02fcc6d63c9c238 -->
+<!-- source-sha256: a10c923536b85dbbde3003c8bee67e4ad577b04d23a813f9af4a60366658ffa0 -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -6,7 +6,7 @@
 
 ## 所有调用
 
-- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加十个补丁，以
+- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加十四个补丁，以
   `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF` 构建为 x86_64
   Linux LP64 库，使 `adler32` 与 `adler32_z` 执行 `adler32_c`，`crc32` 与 `crc32_z` 执行 `crc32_braid`。分派到
   SIMD 内核或 Chorba CRC-32 内核（默认）的构建不在覆盖之内。
@@ -69,7 +69,7 @@
 ## 回调解压
 
 `inflateBack` 的目标针对 `zlib.h` 允许程序到达的流（`BackReachable`）陈述：由成功的 `inflateBackInit_` 以
-`2^windowBits` 个可写字节的窗口建立，此后只被回调行为如下的 `inflateBack` 调用以及程序改变。该目标未被证明（见进度页）。
+`2^windowBits` 个可写字节的窗口建立，此后只被回调行为如下的 `inflateBack` 调用以及程序改变。
 
 | 函数 | 前提 | Lean | 原因 |
 | --- | --- | --- | --- |
@@ -78,6 +78,21 @@
 | `inflateBack` | `in()` 与 `out()` 会返回，不写也不释放 `z_stream` 与库的分配，不释放窗口也不改变其大小。 | `BackCallbacks`、`BackKeep` | `zlib.h` 把它们保留给库并禁止改变窗口；写窗口内容的回调并未被排除。 |
 | `inflateBack` | 一次调用总共得到少于 `2^48` 个输入字节（含首块）。 | `BackCallPre` | 输入无穷时 `inflateBack` 不返回，C 中亦然。 |
 | 调用之间 | 程序只改变 `z_stream` 的 `next_in`、`avail_in`、`next_out`、`avail_out`，不改变库的分配，并保持窗口已分配且大小不变。 | `BackCallerStep` | 与 inflate 流相同；每次调用都使用窗口。 |
+
+## gz* 文件
+
+gz* 函数的目标针对 `zlib.h` 允许程序到达的文件（`GzReachable`）陈述：由成功的 `gzopen`、`gzopen64` 或 `gzdopen`
+返回，此后只被参数有效的 gz 调用以及程序改变；程序可以使用 `gzgetc()` 宏，并改变不属于该文件的任何东西。`NULL`
+文件也被接受。每个目标对 `open`、`read`、`write`、`lseek`（POSIX 允许的结果，见下文）、`close`、`malloc`、`strerror` 与
+`vsnprintf` 的每种结果都成立。
+
+| 函数 | 前提 | Lean | 理由 |
+| --- | --- | --- | --- |
+| `gzread`、`gzfread`、`gzgets`、`gzwrite`、`gzfwrite`、`gzputs` | 调用者的缓冲区（或字符串）位于该文件自身的块（其 `gz_state`、路径、消息、缓冲区及 inflate 或 deflate 状态）之外。 | `OutsideGz` | 库的内存不是调用者的；缓冲区没有理由与之重叠。 |
+| `gzprintf`、`gzvprintf` | 参数与格式相符。 | `vsnprintf` 预言机（`Runtime/Gz.lean`） | `zlib.h` 把格式描述为 `printf` 的格式；不相符在 `vsnprintf` 本身就是未定义的。 |
+| 每个 gz 函数（对 `gzoffset`、`gzoffset64` 有影响） | `lseek` 返回 `-1` 或非负偏移。 | `GzWF` | POSIX：`lseek` 返回结果偏移或 `-1`。Linux 允许少数具有无符号偏移的设备文件（`/dev/mem`、`/proc/<pid>/mem`）到达 `2^63` 及以上的偏移，它们以负数返回；`gzoffset64` 从偏移中减去已缓冲的输入，在距 `2^63` 不足这么多字节时溢出。在这些偏移上读取会失败，因此只有当程序在读取之后自己绕过该文件把描述符移到那里时，缓冲区才在那里持有输入。 |
+| 每个 gz 函数（调用可改变的内容） | 除该文件自身的内存、新分配的块、调用者的输出缓冲区与文件系统外，调用还可以添加静态字符串：gz* 文件的字符串字面量（首次使用时）以及每次 `strerror` 调用的文本。已有的静态字符串不变。 | `GzFrame` | 在 C 中这些字符串是调用之前已存在的静态数据；模型在首次使用时才生成它们。 |
+| 每个 gz 函数 | 读取结果总共只交付有限个字节，且输入（文件、交付的字节）少于 `2^62` 字节。 | `GzWF` | 在无尽的输入上 `gzread` 可能一直等待，任何读取者都会如此；该上界只是使模型的循环燃料不成为限制。 |
 
 ## 被验证源码的行为
 

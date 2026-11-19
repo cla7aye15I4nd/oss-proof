@@ -1,9 +1,14 @@
 import ZlibNgF.Proof.«infback.c.init»
+import ZlibNgF.Proof.«infback.c.initshape»
+import ZlibNgF.Proof.«inflate.c.reach»
 
 /-!
-# The call-back decoder: `inflateBackInit_` safety and the non-vacuity of the `inflateBack` premises (`ZlibNgF`)
+# The call-back decoder: `inflateBack`, `inflateBackEnd` and the non-vacuity of the `inflateBack` premises (`ZlibNgF`)
 
-`Goal.inflateBackInit__safety` is in `Proof/infback.c.init.lean`. Here: a heap with a zero `z_stream` whose `next_in`
+`Goal.inflateBackInit__safety` is in `Proof/infback.c.init.lean`. `inflateBack_safety`: every reachable call-back
+stream has the call-back shape (`Proof/infback.c.reach.lean`, `Proof/infback.c.initshape.lean`), and a call on it
+returns (`Proof/infback.c.run.lean`). `inflateBackEnd_safety`: on such a stream it frees the state block through
+`zcfree` (`free_run`). Non-vacuity: a heap with a zero `z_stream` whose `next_in`
 holds one byte, a 256-byte window, `inflateBackInit_` with `windowBits` 8 and the library's version, and call-backs
 that hand out nothing (`in()` returns 0, `out()` returns 0). The invariant `I` says that no more input will come and
 that the chunk is either empty or the one byte of the first buffer, which stays allocated.
@@ -103,5 +108,33 @@ theorem nonvac_gen (h : Heap) (hz : h.streams 0 = some ({ next_in := inp, avail_
 
 theorem inflateBack_nonvacuous : Goal.inflateBack_nonvacuous :=
   nonvac_gen backHeap (upd_same _ _ _) backHeap_b0 backHeap_b1 rfl fresh rfl
+
+/-- `Goal.inflateBack_safety`. -/
+theorem inflateBack_safety : Goal.inflateBack_safety :=
+  ZlibNgF.Proof.InfbackLoop.inflateBack_safety_of_init InfbackInit.initShape
+
+/-- `Goal.inflateBackEnd_safety`: a `Z_NULL` stream or one without state returns `Z_STREAM_ERROR`; a reachable
+call-back stream frees its state block and clears `state`. -/
+theorem inflateBackEnd_safety : Goal.inflateBackEnd_safety := by
+  intro h s hh
+  rcases hh with rfl | ⟨z, ⟨i, rfl, hz⟩, hzs⟩ | ⟨w, n, hr⟩
+  · exact ⟨_, _, rfl, InflateInit.frame_refl h _ _ _ _⟩
+  · refine ⟨Z_STREAM_ERROR, h, ?_, InflateInit.frame_refl h _ _ _ _⟩
+    simp [C.run, inflateBackEnd, bind_app, ldStream, hz, hzs]
+  · obtain ⟨i, b, wb, woff, z, S, rfl, rfl, bs⟩ := InfbackLoop.BackReachable.shape InfbackInit.initShape hr
+    have hz : h.streams i = some z := bs.hz
+    have hzb : z.state = some b := bs.zs
+    obtain ⟨d, hd⟩ := bs.hd
+    obtain ⟨al, hal, hzf, hbuf⟩ := bs.al
+    have e := InflateAlloc.free_run hz hzb hd bs.hs bs.ab hal hzf hbuf
+    have hzf' : z.zfree = .zcfree := bs.zfree
+    refine ⟨Z_OK, { h with
+      bytes := upd h.bytes b none
+      savedPtrs := upd h.savedPtrs b none
+      streams := upd h.streams i (some { z with state := none }) }, ?_, ?_⟩
+    · simp [C.run, inflateBackEnd, bind_app, ldStream, hz, hzb, hzf', e]
+    · rw [InflateReach.stateIds_of hz hzb]
+      exact InflateReach.frame_of (fun c hc => upd_ne _ _ _ _ (by simpa [streamIds] using hc)) (fun _ _ => rfl)
+        (fun c hc => ⟨rfl, rfl, upd_ne _ _ _ _ (by simpa using hc)⟩) rfl rfl rfl rfl (Nat.le_refl _)
 
 end ZlibNgF.Proof.Infback

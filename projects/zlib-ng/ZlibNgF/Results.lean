@@ -64,6 +64,8 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Safety.Goal.uncompress_z_safety, ``ZlibNgF.Proof.Uncompress.uncompress_z_safety),
   (``ZlibNgF.Spec.Safety.Goal.inflateBackInit__safety, ``ZlibNgF.Proof.InfbackInit.inflateBackInit__safety),
   (``ZlibNgF.Spec.Safety.Goal.inflateBack_nonvacuous, ``ZlibNgF.Proof.Infback.inflateBack_nonvacuous),
+  (``ZlibNgF.Spec.Safety.Goal.inflateBack_safety, ``ZlibNgF.Proof.Infback.inflateBack_safety),
+  (``ZlibNgF.Spec.Safety.Goal.inflateBackEnd_safety, ``ZlibNgF.Proof.Infback.inflateBackEnd_safety),
   (``ZlibNgF.Spec.Safety.Goal.deflateInit__safety, ``ZlibNgF.Proof.DeflateInitPublic.deflateInit__safety),
   (``ZlibNgF.Spec.Safety.Goal.deflateInit2__safety, ``ZlibNgF.Proof.DeflateInitPublic.deflateInit2__safety),
   (``ZlibNgF.Spec.Safety.Goal.deflateInit_nonvacuous, ``ZlibNgF.Proof.DeflateInitPublic.deflateInit_nonvacuous)
@@ -93,8 +95,40 @@ def notDone : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.compress2_safety,
   ``ZlibNgF.Spec.Safety.Goal.compress_safety,
   ``ZlibNgF.Spec.Safety.Goal.compress_z_safety,
-  ``ZlibNgF.Spec.Safety.Goal.inflateBack_safety,
-  ``ZlibNgF.Spec.Safety.Goal.inflateBackEnd_safety
+  ``ZlibNgF.Spec.Safety.Goal.gzopen_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzopen64_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzdopen_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzopen_read_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.gzopen_write_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.gzbuffer_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzsetparams_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzgetc_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzgetc__safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzungetc_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzputc_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzflush_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzseek_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzseek64_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzrewind_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gztell_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gztell64_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzoffset_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzoffset64_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzeof_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzdirect_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzerror_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzclearerr_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzread_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzfread_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzgets_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzwrite_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzfwrite_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzputs_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzprintf_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzvprintf_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzclose_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzclose_r_safety,
+  ``ZlibNgF.Spec.Safety.Goal.gzclose_w_safety
 ]
 
 def required : List Name := [
@@ -159,7 +193,9 @@ def required : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.uncompress_safety,
   ``ZlibNgF.Spec.Safety.Goal.uncompress_z_safety,
   ``ZlibNgF.Spec.Safety.Goal.inflateBackInit__safety,
-  ``ZlibNgF.Spec.Safety.Goal.inflateBack_nonvacuous
+  ``ZlibNgF.Spec.Safety.Goal.inflateBack_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.inflateBack_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateBackEnd_safety
 ]
 
 #eval checkWith proved notDone required inLibrary
