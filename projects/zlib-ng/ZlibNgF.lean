@@ -15,6 +15,7 @@ import ZlibNgF.Proof.«trees_emit.h.static»
 import ZlibNgF.Proof.«trees.c.init»
 import ZlibNgF.Proof.«trees.c.facts»
 import ZlibNgF.Proof.«trees.c.overlay»
+import ZlibNgF.Proof.«trees.c.compress»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Inflate
