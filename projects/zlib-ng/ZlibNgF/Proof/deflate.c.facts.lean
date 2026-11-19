@@ -160,6 +160,46 @@ structure TreesFacts : Prop where
   emit_align : ∀ (s : StreamPtr) (b : Nat), EmitOk s b (fun _ => True) (fun _ => 16) (fun _ => 16)
       (ZlibNg.TreesEmit.zng_tr_emit_align (some b))
 
+/-! ## Window facts -/
+
+/-- The input that `read_buf` reads: `next_in` has `avail_in` readable bytes outside block `b` of the stream's
+state, and is set when `avail_in` is not zero. -/
+def DInput (h : Heap) (s : StreamPtr) : Prop :=
+  ∃ z b, StreamAt h s z ∧ z.state = some b ∧ NullOrRead h z.next_in z.avail_in.toNat ∧ NotInBlock b z.next_in ∧
+    (z.avail_in ≠ 0 → z.next_in ≠ .null)
+
+/-- What `fill_window` leaves: the invariant and a readable input; only the stream record (`next_in`, `avail_in`,
+`total_in`, `adler`) and the stream's block change; no more input taken than the window gained (`avail_in +
+lookahead` does not grow); the state fields that the callers read back (`wrap`, `status`, `gzhead`, `level`,
+`strategy`, the function pointers, `block_start`) kept. -/
+def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
+  DInv h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
+  ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
+    h.dstate b = some st ∧ h'.dstate b = some st' ∧
+    z' = { z with
+      next_in := z'.next_in
+      avail_in := z'.avail_in
+      total_in := z'.total_in
+      adler := z'.adler } ∧
+    z'.avail_in.toNat + st'.lookahead.toNat ≤ z.avail_in.toNat + st.lookahead.toNat ∧
+    st'.wrap = st.wrap ∧ st'.status = st.status ∧ st'.gzhead = st.gzhead ∧ st'.level = st.level ∧
+    st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch ∧
+    st'.block_start = st.block_start
+
+/-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
+the translated C code: `fill_window` from the invariant and a readable input (the CRC tables when it computes a
+CRC-32), and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose 4-byte reads
+stay below `strstart + lookahead + 1`; they change only the stream's block (`head`, `prev`) and `ins_h`. -/
+structure WindowFacts : Prop where
+  fill_window : ∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState), DInv h s → DStateIs h s b st →
+    DInput h s → (st.wrap = 2 → CrcGlobals h) →
+    ∃ h', C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') ∧ FillPost h h' s
+  insert_batch : ∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (f : InsertBatchFn) (wo : Nat)
+    (str n : UInt32), DInv h s → DStateIs h s b st → st.window = .val (.ref (.heap b) wo) → 1 ≤ n.toNat →
+    str.toNat + n.toNat + 2 ≤ st.strstart.toNat + st.lookahead.toNat →
+    ∃ h', C.run (ZlibNg.InsertString.call_insert_batch f (some b) (.ref (.heap b) wo) str n) h = .ok ((), h') ∧
+      DInv h' s ∧ DFrame h h' [] [b] [] [] ∧ ∀ st', DStateIs h' s b st' → st' = { st with ins_h := st'.ins_h }
+
 /-! ## Interface lemmas -/
 
 /-- The invariant's pending range as `PendRoom` with no bytes more. -/
