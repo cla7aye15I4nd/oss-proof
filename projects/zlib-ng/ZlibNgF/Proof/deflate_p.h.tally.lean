@@ -306,4 +306,14 @@ theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Def
     fe_hi := c.fe_hi
     bs_lo := c.bs_lo }
 
+open ZlibNgF.Proof.DeflateInv in
+/-- `block_start = strstart` (the store of `FLUSH_BLOCK_ONLY` after `zng_tr_flush_block`) keeps the invariant's
+clauses. -/
+theorem dcore_bs {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs} (x : Int32)
+    (c : DCore h s z b v al) (hx : x.toInt = v.strstart.toNat) :
+    DCore h s z b { v with block_start := x } al :=
+  { c with
+    bstart := by simp only []; omega
+    bs_lo := by simp only []; omega }
+
 end ZlibNgF.Proof.Tally
