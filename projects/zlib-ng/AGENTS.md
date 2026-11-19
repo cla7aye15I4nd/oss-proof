@@ -43,6 +43,21 @@ not done.
 - The braided CRC kernel reads `z_word_t` words as eight byte loads. The model does not check the
   effective-type rule (ISO C17 §6.5p7) for these word reads.
 
+- Inflate objects (`Runtime/Inflate.lean`, trusted base): a caller's `z_stream` / `gz_header` is a typed object of
+  `Heap.streams` / `Heap.gzheaders`. The block that `alloc_inflate` gets from `zalloc` is a byte block; the casts
+  `(inflate_allocs *)(buff + alloc_pos)` and `(inflate_state *)(buff + state_pos)` are the carve primitives
+  `carveAllocs` / `carveState`, which fault (`Fault.ub`) unless the region fits in the plain bytes of the live
+  block, the address is aligned for the type (`Heap.baseAddr`, as `Ptr.castAligned`), and the block holds no
+  object of that type yet; they cut the byte array at the start of the region, so the carved regions are
+  disjoint and a byte access into them faults. Their pointer fields start `Ival.uninit` (reading one faults) and
+  their integers come from `Heap.garbage`. A carved object lives as long as its block. Trusted: the sizes and
+  alignments `SIZEOF_INFLATE_STATE = 9088`, `ALIGNOF_INFLATE_STATE = 64`, `SIZEOF_INFLATE_ALLOCS = 32`,
+  `SIZEOF_Z_STREAM = 112` (measured on the built configuration; LP64 layout); that the C accesses a carved object
+  only through a pointer to its type (true of the translated code; `inflateCopy`'s `memcpy` of a whole
+  `inflate_state` is a record copy, `copyState`); the static `lenfix` / `distfix` tables
+  (`Runtime/InffixedTbl.lean`, copied from `inffixed_tbl.h` by a script). Only the default allocator is modelled:
+  `zalloc` / `zfree` are `FnPtr.zcalloc` / `FnPtr.zcfree`; calling another function pointer faults.
+
 ## Inflate scope (pinned `develop` commit, verified option set)
 
 Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `inflate.c.o`, `inftrees.c.o`,
