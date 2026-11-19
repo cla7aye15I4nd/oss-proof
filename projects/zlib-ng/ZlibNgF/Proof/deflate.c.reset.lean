@@ -48,6 +48,16 @@ the stream's block only. -/
 def ResetPost (h : Heap) (i b : Nat) (r : Int32) (h' : Heap) : Prop :=
   r = Z_OK ∧ DInv h' (some i) ∧ DFrame h h' [i] [b] [] []
 
+/-- The layout facts of `RLay` from the invariant's clauses. -/
+theorem rlay_of {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : DeflateState} {al : DeflateAllocs}
+    {d : Array UInt8} (c : DCore h s z b (dview st) al) (hd : h.bytes b = some d) : RLay b st d.size := by
+  obtain ⟨w1, w2, wsz, l1, l2, pbs, se⟩ := c.sizes
+  obtain ⟨d0, wo, po, ho, pbo, hd0, hw, hp, hh, hpb, h1, h2, h3, h4, hs, -⟩ := c.lay
+  obtain rfl : d0 = d := Option.some.inj (hd0.symm.trans hd)
+  refine ⟨⟨w1, w2⟩, ⟨l1, l2⟩, pbs, se, ⟨wo, po, ho, pbo, hw, hp, hh, hpb, ?_, h2, h3, h4, hs⟩, c.strategy⟩
+  have : st.window_size = W_BUF_SIZE st.w_size := wsz
+  rw [← this]; exact h1
+
 theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
     ∃ i z b, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧
       Sat h (deflateReset s) (fun r h' => ResetPost h i b r h') := by
@@ -58,9 +68,10 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
   refine ⟨i, z, b, rfl, L.hz, L.hb, ?_⟩
   rw [← SH_self L.hz L.hst hd]
   refine Sat.mono (reset_SH ⟨L.za, L.zf, L.hb, L.ab, L.sm, L.lo, L.hi⟩ c.wrap hpb c.trees.1 c.trees.2.1 c.trees.2.2
-    hh hho c.level.1 c.level.2) ?_
-  rintro r h' ⟨rfl, A, B, C, cf, lm, ib, d', rfl, hd', hA, hB, hC⟩
-  refine ⟨rfl, ⟨i, rkZ z st.wrap, b, lmS (trS b (rkS st) A B C) cf lm ib, al, rfl, by simp [SH], L.hb,
+    hh hho c.level.1 c.level.2 (rlay_of c hd)) ?_
+  rintro r h' ⟨rfl, A, B, C, cf, lm, ib, d', rfl, hd', hA, hB, hC, RL⟩
+  obtain ⟨q1, q2, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C cf lm ib
+  refine ⟨rfl, ⟨i, rkZ z st.wrap, b, lmS (trS b (rkS st) A B C) cf (.val lm) (.val ib), al, rfl, by simp [SH], L.hb,
     by simp [Heap.dstate, SH], ?_, ?_⟩, ?_⟩
   · simp [Heap.dallocsOf, SH, hda]
   · exact {
@@ -79,7 +90,14 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       pbuf := ⟨pb, hpb⟩
       head := ⟨ho, d', (by simp [SH]), hh, (by omega)⟩
       level := c.level
-      trees := ⟨hA, hB, hC⟩ }
+      trees := ⟨hA, hB, hC⟩
+      sizes := q1
+      lay := q2
+      syms := q3
+      bits := q4
+      look := q5
+      strategy := q6
+      fns := q7 }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 
@@ -114,7 +132,18 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       pbuf := ⟨pb, hpb⟩
       head := ⟨ho, d, (by simp [SH]), hh, hho⟩
       level := c.level
-      trees := ⟨hA, hB, hC⟩ }
+      trees := ⟨hA, hB, hC⟩
+      sizes := c.sizes
+      lay := by
+        obtain ⟨d0, wo, po, ho', pbo, hd0, hw, hp, hh', hpb', h1, h2, h3, h4, hs, -⟩ := c.lay
+        obtain rfl : d0 = d := Option.some.inj (hd0.symm.trans hd)
+        exact ⟨d0, wo, po, ho', pbo, by simp [SH], hw, hp, hh', hpb', h1, h2, h3, h4, hs, pbo,
+          by simpa [dview, trS, rkS] using hpb', Nat.le_refl _, by simp [dview, trS, rkS]⟩
+      syms := ⟨by simp [dview, trS, rkS], by simp [dview, trS, rkS]⟩
+      bits := ⟨by simp [dview, trS, rkS], by simp [dview, trS, rkS]⟩
+      look := c.look
+      strategy := c.strategy
+      fns := c.fns }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 

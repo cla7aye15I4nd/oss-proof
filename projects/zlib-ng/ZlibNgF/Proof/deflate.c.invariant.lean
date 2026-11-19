@@ -10,12 +10,13 @@ and the entry points read in range. As on the inflate side (`Proof/inflate.c.inv
 the state only through the view `dview`: a store that changes only fields outside the view keeps it by `rfl`. Proofs
 use it through the interface lemmas at the end of this file.
 
-The clauses are those that the proofs so far need: besides the fields of the state check, `pending_buf` is set,
-`head` lies in the plain bytes of the block (`CLEAR_HASH` of `deflateReset`), `level` is 0..9 (`lm_set_level`) and
-the tree arrays have their C sizes (`zng_tr_init`). Clauses for the layout of the window, `prev` and `pending_buf`,
-the window and match positions, `pending` / `pending_out`, `sym_next` / `sym_end`, `bi_valid` and the function
-pointers are added with the proofs of the entry points that read them (`deflatePrime`, `deflateGetDictionary`,
-`deflateSetDictionary`, `deflate`).
+Besides the fields of the state check, the clauses fix what `deflateInit2` and `deflateReset` set up and every
+later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the block (`CLEAR_HASH`), `level` is
+0..9 (`lm_set_level`), the tree arrays have their C sizes (`zng_tr_init`); the sizes `w_size`, `window_size`,
+`lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf`
+in that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within
+`pending_buf`; whole symbols in `sym_buf` up to `sym_end`; at most 64 bits in `bi_buf`; `strstart + lookahead`
+within the window; a valid `strategy`; both function pointers of `lm_set_level` set.
 -/
 
 set_option autoImplicit false
@@ -38,11 +39,29 @@ structure DView where
   lsize : Nat
   dsize : Nat
   bsize : Nat
+  window : Ival BPtr
+  prev : Ival BPtr
+  window_size : UInt32
+  lit_bufsize : UInt32
+  pending_buf_size : UInt32
+  sym_buf : Ival BPtr
+  sym_end : UInt32
+  sym_next : UInt32
+  pending : UInt32
+  pending_out : Ival BPtr
+  bi_valid : Int32
+  strstart : UInt32
+  lookahead : UInt32
+  strategy : Int32
+  longest_match : Ival LongestMatchFn
+  insert_batch : Ival InsertBatchFn
 
 /-- The constrained fields of `st`. -/
 def dview (st : DeflateState) : DView :=
   ⟨st.strm, st.alloc_bufs, st.status, st.wrap, st.gzhead, st.w_size, st.pending_buf, st.head, st.level,
-    st.dyn_ltree.size, st.dyn_dtree.size, st.bl_tree.size⟩
+    st.dyn_ltree.size, st.dyn_dtree.size, st.bl_tree.size, st.window, st.prev, st.window_size, st.lit_bufsize,
+    st.pending_buf_size, st.sym_buf, st.sym_end, st.sym_next, st.pending, st.pending_out, st.bi_valid, st.strstart,
+    st.lookahead, st.strategy, st.longest_match, st.insert_batch⟩
 
 /-- The clauses on the stream record `z`, the constrained state fields `v` and the allocation record `al` of
 block `b`. -/
@@ -68,11 +87,38 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   level : 0 ≤ v.level ∧ v.level ≤ 9
   /-- the tree arrays have their C sizes -/
   trees : v.lsize = HEAP_SIZE ∧ v.dsize = 2 * 30 + 1 ∧ v.bsize = 2 * 19 + 1
+  /-- the sizes that `deflateInit2` and `lm_init` set: `w_size = 1 << windowBits` (`windowBits` 9..15),
+  `window_size = W_BUF_SIZE(w_size)`, `lit_bufsize = 1 << (memLevel + 6)`, `pending_buf_size = 4 * lit_bufsize`,
+  `sym_end = (lit_bufsize - 1) * 3` -/
+  sizes : 512 ≤ v.w_size.toNat ∧ v.w_size.toNat ≤ 32768 ∧ v.window_size = W_BUF_SIZE v.w_size ∧
+    128 ≤ v.lit_bufsize.toNat ∧ v.lit_bufsize.toNat ≤ 32768 ∧ v.pending_buf_size.toNat = 4 * v.lit_bufsize.toNat ∧
+    v.sym_end.toNat = 3 * (v.lit_bufsize.toNat - 1)
+  /-- the layout of `alloc_deflate`: the window (`window_size` bytes), `prev` (`w_size` two-byte entries), `head`
+  (`HASH_SIZE` two-byte entries) and `pending_buf` (`PENDING_BUF_SIZE` bytes, then padding to 64) lie in that order
+  in the plain bytes of block `b`; `sym_buf` is `pending_buf + lit_bufsize + PENDING_BUF_PAD`; the pending bytes
+  `[pending_out, pending_out + pending)` lie within `pending_buf` -/
+  lay : ∃ d wo po ho pbo, h.bytes b = some d ∧ v.window = .val (.ref (.heap b) wo) ∧
+    v.prev = .val (.ref (.heap b) po) ∧ v.head = .val (.ref (.heap b) ho) ∧
+    v.pending_buf = .val (.ref (.heap b) pbo) ∧ wo + v.window_size.toNat ≤ po ∧ po + 2 * v.w_size.toNat ≤ ho ∧
+    ho + 131072 ≤ pbo ∧ pbo + 4 * v.lit_bufsize.toNat + 64 ≤ d.size ∧
+    v.sym_buf = .val (.ref (.heap b) (pbo + v.lit_bufsize.toNat + 8)) ∧
+    ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
+      poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9
+  /-- the symbol buffer holds whole three-byte symbols, at most `sym_end` bytes -/
+  syms : v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0
+  /-- the bit buffer holds at most `BIT_BUF_SIZE` bits -/
+  bits : 0 ≤ v.bi_valid ∧ v.bi_valid ≤ 64
+  /-- the window positions in use lie in the window -/
+  look : v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat
+  /-- `strategy` is one of the five strategies -/
+  strategy : 0 ≤ v.strategy ∧ v.strategy ≤ 4
+  /-- `lm_set_level` has set both function pointers -/
+  fns : (∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
     (hb : h'.bytes b = h.bytes b) (c : DCore h s z b v al) : DCore h' s z b v al :=
-  { c with head := by rw [hb]; exact c.head }
+  { c with head := by rw [hb]; exact c.head, lay := by rw [hb]; exact c.lay }
 
 /-- The structural invariant of the deflate stream `s` in `h`. -/
 def DInv (h : Heap) (s : StreamPtr) : Prop :=
