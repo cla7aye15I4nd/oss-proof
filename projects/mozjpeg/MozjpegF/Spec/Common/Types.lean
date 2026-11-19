@@ -64,7 +64,48 @@ def ValidDecompCore (h : C.Heap) (cinfo : C.DecompPtr) : Prop :=
     dc.mem = .ref rm 0 ∧ C.Space.get h rm = some mems ∧ 0 < mems.size ∧
     dc.master = .ref rmas 0 ∧ C.Space.get h rmas = some masters ∧ 0 < masters.size ∧
     dc.inputctl = .ref ric 0 ∧ C.Space.get h ric = some ics ∧ 0 < ics.size ∧
-    dc.marker = .ref rmrk 0 ∧ C.Space.get h rmrk = some mrks ∧ 0 < mrks.size
+    dc.marker = .ref rmrk 0 ∧ C.Space.get h rmrk = some mrks ∧ 0 < mrks.size ∧
+    2 ≤ (mems[0]!).poolAllocs.size ∧
+    (∀ bmas, rmas = .master bmas → bmas ∉ (mems[0]!).poolAllocs[1]!.masters)
+
+/-- Fresh-nextBlk heap freshness invariant: slots at or above `h.nextBlk` are unallocated. -/
+def FreshNextBlk (h : C.Heap) : Prop :=
+  ∀ k, h.nextBlk ≤ k →
+    h.bytes k = none ∧ h.i32s k = none ∧ h.mems k = none ∧ h.masters k = none ∧
+    h.markers k = none ∧ h.inputctls k = none ∧ h.srcs k = none ∧ h.comps k = none
+
+/-- Initial caller-allocated `cinfo` with live `err` and fresh `nextBlk` prior to `jpeg_CreateDecompress`. -/
+def FreshDecompInit (h : C.Heap) (cinfo : C.DecompPtr) : Prop :=
+  ∃ rc dcs dc,
+    cinfo = .ref rc 0 ∧
+    C.Space.get h rc = some dcs ∧ 0 < dcs.size ∧
+    dc = dcs[0]! ∧
+    ValidErrMgr h dc.err ∧
+    FreshNextBlk h
+
+/-- Valid live source manager when `cinfo->src` is non-null or needs allocation in `cinfo->mem`. -/
+def ValidDecompMem (h : C.Heap) (cinfo : C.DecompPtr) : Prop :=
+  ∃ rc dcs dc rm mems,
+    cinfo = .ref rc 0 ∧
+    C.Space.get h rc = some dcs ∧ 0 < dcs.size ∧
+    dc = dcs[0]! ∧
+    ValidErrMgr h dc.err ∧
+    dc.mem = .ref rm 0 ∧ C.Space.get h rm = some mems ∧ 0 < mems.size ∧
+    2 ≤ (mems[0]!).poolAllocs.size ∧
+    (dc.src = .null ∨
+      ∃ rs srcs, dc.src = .ref rs 0 ∧ C.Space.get h rs = some srcs ∧ 0 < srcs.size)
+
+/-- Valid decompressor with live source manager ready for `next_marker` / `jpeg_resync_to_restart`. -/
+def ValidDecompResyncInput (h : C.Heap) (cinfo : C.DecompPtr) : Prop :=
+  ValidDecompCore h cinfo ∧
+  ∃ rc dcs dc rs srcs src rerr errs,
+    cinfo = .ref rc 0 ∧ C.Space.get h rc = some dcs ∧ 0 < dcs.size ∧ dc = dcs[0]! ∧
+    dc.src = .ref rs 0 ∧ C.Space.get h rs = some srcs ∧ 0 < srcs.size ∧ src = srcs[0]! ∧
+    dc.err = .ref rerr 0 ∧ C.Space.get h rerr = some errs ∧ 0 < errs.size ∧
+    0 ≤ (errs[0]!).numWarnings.toInt ∧ (errs[0]!).numWarnings.toInt + 2 ^ 30 < 2 ^ 63 ∧
+    src.bytesInBuffer.toNat < 2 ^ 20 ∧
+    (src.bytesInBuffer = 0 ∨ LiveBytes h src.nextInputByte src.bytesInBuffer.toNat) ∧
+    (src.fillInputBuffer = .fn "suspend_input" ∨ src.fillInputBuffer = .fn "fill_mem_input_buffer")
 
 /-- Decompressor object satisfies `ValidDecompCore` plus valid `initial_setup` header bounds
 (`DSTATE_READY` or general state check, `1 ≤ numComponents ≤ 10`, sampling factors in `1..4`,

@@ -11,6 +11,16 @@ set_option autoImplicit false
 namespace Mozjpeg.Jerror
 open C Mozjpeg.JerrorH
 
+/-- `METHODDEF(void) emit_message(j_common_ptr cinfo, int msg_level)` (`jerror.c:124-143`). -/
+def emit_message (cinfo : DecompPtr) (msg_level : Int32) : M Unit := do
+  let dc ← Ptr.load cinfo
+  let err ← Ptr.load dc.err
+  if msg_level < 0 then
+    let nw ← i64Add err.numWarnings 1
+    Ptr.store dc.err { err with numWarnings := nw }
+  else
+    return ()
+
 /-- `METHODDEF(void) reset_error_mgr(j_common_ptr cinfo)` (`jerror.c:208-214`). -/
 def reset_error_mgr (cinfo : DecompPtr) : M Unit := do
   let dc ← Ptr.load cinfo

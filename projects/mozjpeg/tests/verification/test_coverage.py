@@ -51,7 +51,7 @@ class CoverageTests(unittest.TestCase):
     def test_manifest_passes(self):
         counts = self.check()
         self.assertEqual(counts["declared"], len(self.manifest["apis"]))
-        self.assertEqual(counts["done"], 10)
+        self.assertEqual(counts["done"], 13)
 
     def test_missing_and_extra_functions(self):
         m = copy.deepcopy(self.manifest)

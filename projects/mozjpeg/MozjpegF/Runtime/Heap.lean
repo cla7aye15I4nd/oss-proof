@@ -147,10 +147,11 @@ def strTable : Array String := #[
   "Invalid restart interval %d; must be an integer multiple of the number of MCUs in an MCU row (%d)"
 ]
 
-/-- Reference to a byte array (`malloc`, read-only static bytes, or source string literal). -/
+/-- Reference to a byte array (`malloc`, read-only static bytes, source EOF buffer, or source string literal). -/
 inductive BRef where
   | heap (b : Nat)
   | const (b : Nat)
+  | const_eof
   | str (i : Nat)
   deriving DecidableEq, Repr, Inhabited
 
@@ -201,6 +202,11 @@ inductive MemRef where
   | mem (b : Nat)
   deriving DecidableEq, Repr, Inhabited
 
+/-- Reference to a `struct jpeg_source_mgr` object. -/
+inductive SrcRef where
+  | src (b : Nat)
+  deriving DecidableEq, Repr, Inhabited
+
 abbrev BPtr := Ptr BRef
 abbrev IPtr := Ptr IRef
 abbrev MsgTblPtr := Ptr MsgTblRef
@@ -211,6 +217,7 @@ abbrev MasterPtr := Ptr MasterRef
 abbrev InputCtlPtr := Ptr InputCtlRef
 abbrev MarkerPtr := Ptr MarkerRef
 abbrev MemPtr := Ptr MemRef
+abbrev SrcPtr := Ptr SrcRef
 
 /-- `struct jpeg_error_mgr` (`jpeglib.h:827-880`). -/
 structure JpegErrorMgr where
@@ -256,14 +263,33 @@ structure JpegDecompMaster where
   markerListEnd : BPtr := .null
   deriving Repr, Inhabited, DecidableEq
 
-/-- `struct jpeg_input_controller` (`jpegint.h`). -/
-structure JpegInputController where
-  hasMultipleScans : Int32 := 0
-  eoiReached : Int32 := 0
+/-- `struct jpeg_source_mgr` (`jpeglib.h:883-913`). -/
+structure JpegSourceMgr where
+  nextInputByte : BPtr := .null
+  bytesInBuffer : UInt64 := 0
+  initSource : FnPtr := .null
+  fillInputBuffer : FnPtr := .null
+  skipInputData : FnPtr := .null
+  resyncToRestart : FnPtr := .null
+  termSource : FnPtr := .null
   deriving Repr, Inhabited, DecidableEq
 
-/-- `my_marker_reader` (`jdmarker.c`, `jpegint.h`). -/
+/-- `struct jpeg_input_controller` (`jpegint.h:319-329`, `jdinput.c:29-33`). -/
+structure JpegInputController where
+  consumeInput : FnPtr := .null
+  resetInputController : FnPtr := .null
+  startInputPass : FnPtr := .null
+  finishInputPass : FnPtr := .null
+  hasMultipleScans : Int32 := 0
+  eoiReached : Int32 := 0
+  inheaders : Int32 := 1
+  deriving Repr, Inhabited, DecidableEq
+
+/-- `my_marker_reader` (`jdmarker.c:95-110`, `jpegint.h`). -/
 structure JpegMarkerReader where
+  resetMarkerReader : FnPtr := .null
+  readMarkers : FnPtr := .null
+  readRestartMarker : FnPtr := .null
   processCOM : FnPtr := .null
   lengthLimitCOM : UInt32 := 0
   processAPPn : Array FnPtr := Array.replicate 16 .null
@@ -271,12 +297,31 @@ structure JpegMarkerReader where
   sawSOI : Int32 := 0
   sawSOF : Int32 := 0
   discardedBytes : UInt32 := 0
+  curMarker : BPtr := .null
+  bytesRead : UInt32 := 0
   deriving Repr, Inhabited, DecidableEq
 
-/-- `struct jpeg_memory_mgr` (`jpeglib.h:937-990`). -/
+/-- Objects tracked per lifetime pool (`JPOOL_PERMANENT = 0`, `JPOOL_IMAGE = 1`). -/
+structure PoolAllocs where
+  bytes : Array Nat := #[]
+  i32s : Array Nat := #[]
+  masters : Array Nat := #[]
+  inputctls : Array Nat := #[]
+  markers : Array Nat := #[]
+  srcs : Array Nat := #[]
+  comps : Array Nat := #[]
+  deriving Repr, Inhabited, DecidableEq
+
+/-- `struct jpeg_memory_mgr` / `my_memory_mgr` (`jpeglib.h:937-990`, `jmemmgr.c:123-145`). -/
 structure JpegMemMgr where
+  allocSmall : FnPtr := .null
+  freePool : FnPtr := .null
+  selfDestruct : FnPtr := .null
   maxAllocChunk : Int64 := 1000000000
+  maxMemoryToUse : Int64 := 0
+  totalSpaceAllocated : UInt64 := 0
   livePools : Array Bool := #[true, true]
+  poolAllocs : Array PoolAllocs := #[{}, {}]
   deriving Repr, Inhabited, DecidableEq
 
 /-- `struct jpeg_decompress_struct` (`jpeglib.h:568-814`). -/
@@ -287,7 +332,7 @@ structure JpegDecompressStruct where
   clientData : BPtr := .null
   isDecompressor : Int32 := 1
   globalState : Int32 := 0
-  src : BPtr := .null
+  src : SrcPtr := .null
   imageWidth : UInt32 := 0
   imageHeight : UInt32 := 0
   numComponents : Int32 := 0
@@ -295,20 +340,40 @@ structure JpegDecompressStruct where
   outColorSpace : Int32 := 0
   scaleNum : UInt32 := 1
   scaleDenom : UInt32 := 1
+  outputGamma : UInt64 := 0
   bufferedImage : Int32 := 0
   rawDataOut : Int32 := 0
   dctMethod : Int32 := 0
   doFancyUpsampling : Int32 := 1
   doBlockSmoothing : Int32 := 1
   quantizeColors : Int32 := 0
+  ditherMode : Int32 := 0
+  twoPassQuantize : Int32 := 0
+  desiredNumberOfColors : Int32 := 0
+  colormap : BPtr := .null
+  enable1passQuant : Int32 := 0
+  enableExternalQuant : Int32 := 0
+  enable2passQuant : Int32 := 0
   outputWidth : UInt32 := 0
   outputHeight : UInt32 := 0
   outColorComponents : Int32 := 0
   outputComponents : Int32 := 0
   recOutbufHeight : Int32 := 0
   outputScanline : UInt32 := 0
+  inputScanNumber : Int32 := 0
+  outputScanNumber : Int32 := 0
+  coefBits : BPtr := .null
+  quantTblPtrs : Array BPtr := Array.replicate 4 .null
+  dcHuffTblPtrs : Array BPtr := Array.replicate 4 .null
+  acHuffTblPtrs : Array BPtr := Array.replicate 4 .null
   dataPrecision : Int32 := 8
   compInfo : CompPtr := .null
+  progressiveMode : Int32 := 0
+  arithCode : Int32 := 0
+  restartInterval : UInt32 := 0
+  sawJFIFMarker : Int32 := 0
+  sawAdobeMarker : Int32 := 0
+  adobeTransform : UInt8 := 0
   ccir601Sampling : Int32 := 0
   markerList : BPtr := .null
   maxHSampFactor : Int32 := 1
@@ -316,11 +381,33 @@ structure JpegDecompressStruct where
   minDctHScaledSize : Int32 := 8
   minDctVScaledSize : Int32 := 8
   totalIMcuRows : UInt32 := 0
+  blockSize : Int32 := 8
+  naturalOrder : IPtr := .null
+  limSe : Int32 := 63
   unreadMarker : Int32 := 0
   master : MasterPtr := .null
   inputctl : InputCtlPtr := .null
   marker : MarkerPtr := .null
   deriving Repr, Inhabited, DecidableEq
+
+/-- Zero-byte representation of `struct jpeg_decompress_struct` after `memset(cinfo, 0, sizeof(...))`. -/
+def JpegDecompressStruct.zeroed : JpegDecompressStruct := {
+  isDecompressor := 0
+  scaleNum := 0
+  scaleDenom := 0
+  doFancyUpsampling := 0
+  doBlockSmoothing := 0
+  dataPrecision := 0
+  maxHSampFactor := 0
+  maxVSampFactor := 0
+  minDctHScaledSize := 0
+  minDctVScaledSize := 0
+  blockSize := 0
+  limSe := 0
+}
+
+/-- Zero-byte representation of `my_decomp_master` after `memset(cinfo->master, 0, sizeof(...))`. -/
+def JpegDecompMaster.zeroed : JpegDecompMaster := {}
 
 /-- Heap state with byte blocks, static tables, typed libjpeg objects, allocation/garbage/address oracles. -/
 structure Heap where
@@ -336,6 +423,7 @@ structure Heap where
   inputctls : Tbl (Option (Array JpegInputController)) := .empty
   markers : Tbl (Option (Array JpegMarkerReader)) := .empty
   mems : Tbl (Option (Array JpegMemMgr)) := .empty
+  srcs : Tbl (Option (Array JpegSourceMgr)) := .empty
   nextBlk : Nat := 0
   nalloc : Nat := 0
   allocOk : Nat → Bool := fun _ => true
@@ -351,23 +439,27 @@ def litBytes (s : String) : Array UInt8 := s.toUTF8.data.push 0
 def getBytes (h : Heap) : BRef → Option (Array UInt8)
   | .heap b => h.bytes b
   | .const b => h.consts b
+  | .const_eof => some #[0xff, 0xd9, 0, 0]
   | .str i => strTable[i]?.map litBytes
 
 def putBytes (h : Heap) (r : BRef) (a : Array UInt8) : Heap :=
   match r with
   | .heap b => { h with bytes := upd h.bytes b (some a) }
   | .const _ => h
+  | .const_eof => h
   | .str _ => h
 
 def isRoBytes (_h : Heap) : BRef → Bool
   | .heap _ => false
   | .const _ => true
+  | .const_eof => true
   | .str _ => true
 
 def modifyBytes (h : Heap) (r : BRef) (f : Array UInt8 → Array UInt8) : Heap :=
   match r with
   | .heap b => { h with bytes := h.bytes.modify b (Option.map f) }
   | .const _ => h
+  | .const_eof => h
   | .str _ => h
 
 theorem modifyBytes_eq (h : Heap) (r : BRef) (a : Array UInt8) (f : Array UInt8 → Array UInt8)
@@ -378,6 +470,7 @@ theorem modifyBytes_eq (h : Heap) (r : BRef) (a : Array UInt8) (f : Array UInt8 
     simp only [getBytes] at hg
     simp only [modifyBytes, putBytes, Tbl.modify_opt h.bytes b f a hg]
   | const _ => rfl
+  | const_eof => rfl
   | str _ => rfl
 
 def getI32 (h : Heap) : IRef → Option (Array Int32)
@@ -483,5 +576,14 @@ instance : Space Heap MemRef JpegMemMgr where
   modify_eq h r a f hg := by
     cases r with | mem b =>
     exact congrArg (fun x => { h with mems := x }) (Tbl.modify_opt h.mems b f a hg)
+
+instance : Space Heap SrcRef JpegSourceMgr where
+  get h | .src b => h.srcs b
+  put h | .src b => fun a => { h with srcs := upd h.srcs b (some a) }
+  ro _ _ := false
+  modify h | .src b => fun f => { h with srcs := h.srcs.modify b (Option.map f) }
+  modify_eq h r a f hg := by
+    cases r with | src b =>
+    exact congrArg (fun x => { h with srcs := x }) (Tbl.modify_opt h.srcs b f a hg)
 
 end C

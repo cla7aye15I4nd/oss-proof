@@ -57,4 +57,43 @@ def Goal.jpeg_core_output_dimensions_shrink_functional : Prop :=
         (dcs'[0]!).outputWidth.toNat = ((d0[0]!).imageWidth.toNat + denom.toNat - 1) / denom.toNat ∧
         (dcs'[0]!).outputHeight.toNat = ((d0[0]!).imageHeight.toNat + denom.toNat - 1) / denom.toNat)
 
+/-- Successful `jpeg_CreateDecompress(cinfo, JPEG_LIB_VERSION, sizeof_jpeg_decompress_struct)`
+establishes `ValidDecompCore h' cinfo`, `ValidDecompMem h' cinfo`, `global_state = DSTATE_START`, and
+`data_precision = 8`. -/
+def Goal.jpeg_CreateDecompress_establishes_valid : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr),
+    FreshDecompInit h cinfo →
+    (∀ n, h.allocOk n = true) →
+    ∃ h' rc dcs',
+      cinfo = .ref rc 0 ∧
+      C.run (Mozjpeg.Jdapimin.jpeg_CreateDecompress cinfo JPEG_LIB_VERSION sizeof_jpeg_decompress_struct) h =
+        .ok (.ok (), h') ∧
+      ValidDecompCore h' cinfo ∧
+      ValidDecompMem h' cinfo ∧
+      C.Space.get h' rc = some dcs' ∧ 0 < dcs'.size ∧
+      (dcs'[0]!).globalState = DSTATE_START ∧
+      (dcs'[0]!).dataPrecision = 8 ∧
+      (dcs'[0]!).src = .null
+
+/-- `jpeg_mem_src(cinfo, inbuffer, insize)` on a fresh/null `src` installs `fill_mem_input_buffer`,
+`jpeg_resync_to_restart`, `inbuffer`, and `insize`. -/
+def Goal.jpeg_mem_src_functional : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr) (inbuffer : C.BPtr) (insize : UInt64),
+    ValidDecompMem h cinfo →
+    FreshNextBlk h →
+    (∀ n, h.allocOk n = true) →
+    (∀ rc dcs, cinfo = .ref rc 0 → C.Space.get h rc = some dcs → 0 < dcs.size → (dcs[0]!).src = .null) →
+    inbuffer ≠ .null →
+    insize ≠ 0 →
+    ∃ h' rc dcs' rs srcs',
+      cinfo = .ref rc 0 ∧
+      C.run (Mozjpeg.Jdatasrc.jpeg_mem_src cinfo inbuffer insize) h = .ok (.ok (), h') ∧
+      C.Space.get h' rc = some dcs' ∧ 0 < dcs'.size ∧
+      (dcs'[0]!).src = .ref rs 0 ∧
+      C.Space.get h' rs = some srcs' ∧ 0 < srcs'.size ∧
+      (srcs'[0]!).nextInputByte = inbuffer ∧
+      (srcs'[0]!).bytesInBuffer = insize ∧
+      (srcs'[0]!).fillInputBuffer = .fn "fill_mem_input_buffer" ∧
+      (srcs'[0]!).resyncToRestart = .fn "jpeg_resync_to_restart"
+
 end MozjpegF.Spec.Functional

@@ -62,5 +62,8 @@ def JCS_EXT_ARGB : Int32 := 15
 def JCS_RGB565 : Int32 := 16
 
 def sizeof_jpeg_marker_struct : Int64 := 32
+def sizeof_jpeg_decompress_struct : UInt64 := 656
+def sizeof_my_decomp_master : UInt64 := 160
+def sizeof_jpeg_source_mgr : UInt64 := 56
 
 end Mozjpeg.JpeglibH

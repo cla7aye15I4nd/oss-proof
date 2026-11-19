@@ -181,18 +181,51 @@ def Goal.jpeg_calc_output_dimensions_shrink_nonvacuous : Prop :=
     (dcs'[0]!).outputWidth = 251 ∧
     (dcs'[0]!).outputHeight = 189
 
+/-! ## Proved `jpeg_CreateDecompress`, `jpeg_mem_src`, and `jpeg_resync_to_restart` goals -/
+
+/-- `jpeg_CreateDecompress(cinfo, version, structsize)` never faults for any `version`, `structsize`,
+or allocation-failure oracle (`allocOk`), cleanly updating `err` and unwinding via `ERREXIT*`. -/
+def Goal.jpeg_CreateDecompress_safety : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr) (version : Int32) (structsize : UInt64),
+    FreshDecompInit h cinfo →
+    ∃ res h', C.run (Mozjpeg.Jdapimin.jpeg_CreateDecompress cinfo version structsize) h = .ok (res, h')
+
+/-- Tier 0 cleanup guarantee (AGENTS.md): after `jpeg_CreateDecompress` finishes OR exits early via
+`ERREXIT` at any failure point (bad version, struct mismatch, or OOM), `jpeg_destroy_decompress`
+frees every newly allocated pool block (`FreshNextBlk` preserved at `h.nextBlk`) and clears `cinfo->mem`. -/
+def Goal.jpeg_CreateDecompress_destroy_no_leak : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr) (version : Int32) (structsize : UInt64),
+    FreshDecompInit h cinfo →
+    ∃ res h1 h2,
+      C.run (Mozjpeg.Jdapimin.jpeg_CreateDecompress cinfo version structsize) h = .ok (res, h1) ∧
+      C.run (Mozjpeg.Jdapimin.jpeg_destroy_decompress cinfo) h1 = .ok ((), h2) ∧
+      (∀ k, h.nextBlk ≤ k →
+        h2.bytes k = none ∧ h2.i32s k = none ∧ h2.mems k = none ∧ h2.masters k = none ∧
+        h2.markers k = none ∧ h2.inputctls k = none ∧ h2.srcs k = none ∧ h2.comps k = none)
+
+/-- `jpeg_mem_src(cinfo, inbuffer, insize)` never faults for any `inbuffer`, `insize` (including
+`NULL` / `0`, existing `src` reuse mismatch, and OOM). -/
+def Goal.jpeg_mem_src_safety : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr) (inbuffer : C.BPtr) (insize : UInt64),
+    ValidDecompMem h cinfo →
+    ∃ res h', C.run (Mozjpeg.Jdatasrc.jpeg_mem_src cinfo inbuffer insize) h = .ok (res, h')
+
+/-- `jpeg_resync_to_restart(cinfo, desired)` never faults on any `ValidDecompResyncInput` object with
+`INT32_MIN + 2 ≤ desired < INT32_MAX - 1`, terminating either via restart alignment, EOF (`M_EOI`), or
+suspension (`FALSE`). -/
+def Goal.jpeg_resync_to_restart_safety : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr) (desired : Int32),
+    ValidDecompResyncInput h cinfo →
+    -(2 ^ 31 : Int) + 2 ≤ desired.toInt →
+    desired.toInt < 2 ^ 31 - 2 →
+    ∃ res h', C.run (Mozjpeg.Jdmarker.jpeg_resync_to_restart cinfo desired) h = .ok (res, h')
+
 /-! ## Remaining Tier 0 decompression goals (not done yet) -/
 
-/-- `jpeg_CreateDecompress`: not done yet (`jdapimin.c`, `jmemmgr.c`, `jmemnobs.c`). -/
-def Goal.jpeg_CreateDecompress_safety : Prop := True
-/-- `jpeg_mem_src`: not done yet (`jdatasrc.c`). -/
-def Goal.jpeg_mem_src_safety : Prop := True
 /-- `jpeg_read_header`: not done yet (`jdapimin.c`, `jdinput.c`, `jdmarker.c`). -/
 def Goal.jpeg_read_header_safety : Prop := True
 /-- `jpeg_consume_input`: not done yet (`jdapimin.c`, `jdinput.c`, `jdmarker.c`). -/
 def Goal.jpeg_consume_input_safety : Prop := True
-/-- `jpeg_resync_to_restart`: not done yet (`jdmarker.c`). -/
-def Goal.jpeg_resync_to_restart_safety : Prop := True
 /-- `jpeg_start_decompress`: not done yet (`jdapistd.c`, `jdmaster.c`, entropy/IDCT/upsample/color). -/
 def Goal.jpeg_start_decompress_safety : Prop := True
 /-- `jpeg_read_scanlines`: not done yet (`jdapistd.c`, `jdmainct.c`, `jdcoefct.c`, `jdhuff.c`, `jidct*.c`, `jdcolor.c`). -/

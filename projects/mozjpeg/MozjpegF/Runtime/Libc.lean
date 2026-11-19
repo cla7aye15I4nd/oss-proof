@@ -132,6 +132,104 @@ def memsetZeroErrMgr (dst : ErrPtr) : M Unit := fun h =>
         .ok ((), Space.modify h r (fun arr => arr.set! off { msgParmI := Array.replicate 8 0 }))
       else .error (.ub "memset outside its object")
 
+/-- Zero an entire live writable `JpegDecompressStruct` (`memset(cinfo, 0, sizeof(...))`). -/
+def memsetZeroDecomp (dst : DecompPtr) : M Unit := fun h =>
+  match dst with
+  | .null => .error (.ub "memset on a null pointer")
+  | .ref r off =>
+    match Space.get h r with
+    | none => .error (.ub "memset on a dangling pointer")
+    | some a =>
+      if Space.ro h r then .error (.ub "memset into a read-only object")
+      else if off < a.size then
+        .ok ((), Space.modify h r (fun arr => arr.set! off JpegDecompressStruct.zeroed))
+      else .error (.ub "memset outside its object")
+
+/-- Zero an entire live writable `JpegDecompMaster` (`memset(master, 0, sizeof(...))`). -/
+def memsetZeroMaster (dst : MasterPtr) : M Unit := fun h =>
+  match dst with
+  | .null => .error (.ub "memset on a null pointer")
+  | .ref r off =>
+    match Space.get h r with
+    | none => .error (.ub "memset on a dangling pointer")
+    | some a =>
+      if Space.ro h r then .error (.ub "memset into a read-only object")
+      else if off < a.size then
+        .ok ((), Space.modify h r (fun arr => arr.set! off JpegDecompMaster.zeroed))
+      else .error (.ub "memset outside its object")
+
+/-- Allocate a fresh `JpegMemMgr` control block (`jpeg_get_small(cinfo, sizeof(my_memory_mgr))`). -/
+def allocMemMgr : M MemPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    let h' : Heap := {
+      h with
+      mems := upd h.mems b (some #[default])
+      nextBlk := b + 1
+      nalloc := h.nalloc + 1
+    }
+    .ok (.ref (.mem b) 0, h')
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Free a `JpegMemMgr` control block (`jpeg_free_small(cinfo, cinfo->mem, sizeof(my_memory_mgr))`). -/
+def freeMemMgr (p : MemPtr) : M Unit := fun h =>
+  match p with
+  | .null => .ok ((), h)
+  | .ref (.mem b) 0 =>
+    match h.mems b with
+    | some _ => .ok ((), { h with mems := upd h.mems b none })
+    | none => .error (.ub "double or dangling free of mem manager")
+  | _ => .error (.ub "free of interior mem manager pointer")
+
+/-- Allocate a fresh `JpegDecompMaster` object (`alloc_small` for `my_decomp_master`). -/
+def allocMaster : M MasterPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    .ok (.ref (.master b) 0, { h with masters := upd h.masters b (some #[default]), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Allocate a fresh `JpegMarkerReader` object (`alloc_small` for `my_marker_reader`). -/
+def allocMarker : M MarkerPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    .ok (.ref (.marker b) 0, { h with markers := upd h.markers b (some #[default]), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Allocate a fresh `JpegInputController` object (`alloc_small` for `my_input_controller`). -/
+def allocInputCtl : M InputCtlPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    .ok (.ref (.inputctl b) 0, { h with inputctls := upd h.inputctls b (some #[default]), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Allocate a fresh `JpegSourceMgr` object (`alloc_small` for `struct jpeg_source_mgr`). -/
+def allocSrc : M SrcPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    .ok (.ref (.src b) 0, { h with srcs := upd h.srcs b (some #[default]), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Free every heap block recorded in `pa : PoolAllocs` (`free_pool`). -/
+def freePoolAllocs (pa : PoolAllocs) (h : Heap) : Heap :=
+  {
+    h with
+    bytes := pa.bytes.foldl (fun t b => upd t b none) h.bytes
+    i32s := pa.i32s.foldl (fun t b => upd t b none) h.i32s
+    masters := pa.masters.foldl (fun t b => upd t b none) h.masters
+    inputctls := pa.inputctls.foldl (fun t b => upd t b none) h.inputctls
+    markers := pa.markers.foldl (fun t b => upd t b none) h.markers
+    srcs := pa.srcs.foldl (fun t b => upd t b none) h.srcs
+    comps := pa.comps.foldl (fun t b => upd t b none) h.comps
+  }
+
+/-- Monadic action freeing all heap objects recorded in `pa : PoolAllocs`. -/
+def freePoolM (pa : PoolAllocs) : M Unit := fun h => .ok ((), freePoolAllocs pa h)
+
 theorem toInt_ofInt64 {x : Int} (hlo : -(2 ^ 63 : Int) ≤ x) (hhi : x < 2 ^ 63) :
     (Int64.ofInt x).toInt = x := by
   rw [Int64.toInt_ofInt, Int.bmod]
