@@ -74,3 +74,8 @@ import ZlibNgF.Proof.«insert_string_p.h.base»
 import ZlibNgF.Proof.«insert_string_p.h.safety»
 import ZlibNgF.Proof.«slide_hash_c.c.safety»
 import ZlibNgF.Proof.«deflate_p.h.readbuf»
+import ZlibNgF.Math.WinMask
+import ZlibNgF.Proof.«deflate.c.fill_window.inv»
+import ZlibNgF.Proof.«deflate.c.fill_window.slide»
+import ZlibNgF.Proof.«deflate.c.fill_window.safety»
+import ZlibNgF.Proof.«deflate.c.fill_window.dinv»
