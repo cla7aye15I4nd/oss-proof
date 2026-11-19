@@ -4,155 +4,192 @@ Inherits all rules of [`../../AGENTS.md`](../../AGENTS.md), including the **Stri
 (no `NULL + 0`, no wild/dangling pointer `+ 0`, no `NULL - NULL`, no cross-object `virtualStart` pointer subtraction
 or relational comparison, and no `memcpy`/`memset` with `n == 0` on `NULL` or dangling pointers).
 
-- **Status:** Registered in `framework/projects.json`; strict ISO C17 runtime (`ZstdF.Runtime`)
-  checked, statement-by-statement C translation and public safety proofs **Not done**.
+Goal: kernel-checked Lean 4 proofs about a faithful translation of upstream Meta Zstandard (`dev`),
+covering the standalone C decoder, dictionary loader, frame inspector and shared entropy/checksum
+units (`lib/zstd.h`, `lib/zstd_errors.h`, `lib/decompress/*.c`, and the six `lib/common/*.c` units
+linked by the decoder).
 
-## Scope (`ZstdF`)
-
-Goal: kernel-checked Lean 4 proofs about a faithful, statement-by-statement translation of upstream
-Meta Zstandard (`facebook/zstd`, pinned submodule `zstd/` + `patches/*.patch`), covering **both the
-standalone C decoder AND the single-threaded C compressor**, dictionary loader/compiler, frame
-inspector, and shared entropy/checksum units (`lib/zstd.h`, `lib/zstd_errors.h`, `lib/common/*.c`,
-`lib/decompress/*.c`, and `lib/compress/*.c`).
-
-Target configuration — portable scalar, single-threaded x86_64 Linux LP64 build:
+The goal is full safety (no undefined behaviour, no memory error, no dangling dictionary/prefix
+borrow, no memory leak, and termination) of every public decoder, dictionary, frame-inspection and
+error/version function in `lib/zstd.h`, across every input and every sequence of calls, for the
+portable scalar x86_64 Linux LP64 build:
 
 ```text
--DZSTD_DISABLE_ASM -DDYNAMIC_BMI2=0 -DZSTD_LEGACY_SUPPORT=0 -DZSTD_MULTITHREAD=0
+-DZSTD_DISABLE_ASM -DDYNAMIC_BMI2=0 -DZSTD_LEGACY_SUPPORT=0
 -DXXH_NAMESPACE=ZSTD_ -DXXH_NO_XXH3 -DXXH_VECTOR=0
 ```
 
-The goal is full safety (no ISO C17 undefined behaviour, no out-of-bounds read/write, no dangling
-dictionary/prefix borrow, no memory leak, stated write frame, and termination) across every
-documented public decompression **and** compression call sequence.
+Specifically:
 
-## Real-World Usage Paths & Function Priority
+1. **Streaming decompression (`ZSTD_decompressStream`)** is safe on every input and every split of
+   input and output buffers across calls, including multi-frame and skippable-frame streams, raw
+   and formatted dictionaries, ring-buffer / contiguous / non-contiguous (`extDict`) output modes,
+   allocation failures, and repeated calls after frame completion or error;
+2. **One-shot and context decompression** (`ZSTD_decompress`, `ZSTD_decompressDCtx`,
+   `ZSTD_decompress_usingDict`, `ZSTD_decompress_usingDDict`) is safe on every input;
+3. **Every other public decoder, dictionary, frame-query and utility function** in `lib/zstd.h` is
+   safe across every valid call sequence and cleanly refuses invalid parameters as specified:
+   - Context & stream lifecycle: `ZSTD_createDCtx`, `ZSTD_freeDCtx`, `ZSTD_sizeof_DCtx`,
+     `ZSTD_createDStream`, `ZSTD_freeDStream`, `ZSTD_initDStream`, `ZSTD_sizeof_DStream`,
+     `ZSTD_DStreamInSize`, `ZSTD_DStreamOutSize`, `ZSTD_dParam_getBounds`,
+     `ZSTD_DCtx_setParameter`, `ZSTD_DCtx_reset`;
+   - Dictionaries & prefixes (both raw content and `0xEC30A437` formatted dictionaries with
+     pre-built Huffman/FSE tables): `ZSTD_createDDict`, `ZSTD_freeDDict`, `ZSTD_sizeof_DDict`,
+     `ZSTD_DCtx_loadDictionary`, `ZSTD_DCtx_refDDict`, `ZSTD_DCtx_refPrefix`,
+     `ZSTD_getDictID_fromDict`, `ZSTD_getDictID_fromDDict`, `ZSTD_getDictID_fromFrame`;
+   - Frame inspection & library queries: `ZSTD_getFrameContentSize`, `ZSTD_getDecompressedSize`,
+     `ZSTD_findFrameCompressedSize`, `ZSTD_decompressBound`, `ZSTD_isError`, `ZSTD_getErrorCode`,
+     `ZSTD_getErrorName`, `ZSTD_versionNumber`, `ZSTD_versionString`,
+     `ZSTD_isDeterministicBuild`.
 
-Audit of production callers shows that **both** decompression and compression paths of `libzstd`
-handle attacker-influenced data at massive scale:
-- **Node.js (`node:zlib` `src/node_zlib.cc`):** `ZSTD_createCCtx`/`ZSTD_createDCtx`,
-  `ZSTD_CCtx_setParameter`/`ZSTD_DCtx_setParameter`, `ZSTD_compressStream2`,
-  `ZSTD_decompressStream`, `ZSTD_CCtx_reset`/`ZSTD_DCtx_reset`, dictionary loading (`ZSTD_createCDict`,
-  `ZSTD_createDDict`, `ZSTD_CCtx_refCDict`, `ZSTD_DCtx_refDDict`).
-- **Python (`compression.zstd` in Python 3.14+, `python-zstandard`, `pyarrow`/Parquet):**
-  `ZSTD_compressStream2`, `ZSTD_decompressStream`, `ZSTD_compress2`, `ZSTD_decompressDCtx`,
-  `ZSTD_createCDict`/`ZSTD_createDDict`, `ZSTD_getFrameContentSize`, `ZSTD_compressBound`.
-- **HTTP/CDN & Reverse Proxies (`Content-Encoding: zstd` in Chrome, Firefox, Nginx, Cloudflare, Envoy):**
-  Streaming decode of untrusted server/client payloads (`ZSTD_decompressStream`) and streaming
-  re-compression of dynamic HTTP bodies (`ZSTD_compressStream2` at levels 1–9, fast/dfast/greedy/lazy
-  strategies, including flush directives `ZSTD_e_continue`, `ZSTD_e_flush`, `ZSTD_e_end`).
-- **OS Packages, Databases & Containers (`pacman`, RPM, Debian, `libarchive`, RocksDB, Kafka, Docker/OCI, Linux kernel):**
-  Both streaming (`ZSTD_compressStream2` / `ZSTD_decompressStream`) and block/one-shot paths
-  (`ZSTD_compress`, `ZSTD_compress2`, `ZSTD_decompress`, `ZSTD_decompressDCtx`, `ZSTD_decompress_usingDDict`).
+The compressor (`lib/compress/`), dictionary trainer (`lib/dictBuilder/`), legacy v0.1–v0.7 decoders
+(`lib/legacy/`), handwritten amd64 assembly (`huf_decompress_amd64.S`), and full RFC 8878 functional
+decoding equivalence beyond what safety requires are not planned: any functional fact that a safety
+proof depends on (such as FSE state bounds, Huffman jump-table and bit-consumption bounds, or
+`WILDCOPY_OVERLENGTH` sequence margin invariants) is in scope.
 
-### Tier 1 (P0) — Decompression Path (Prove First)
+Work as fast as honest work allows: process exists to keep the result honest, not to slow it down.
 
-1. **Streaming decompression:** `ZSTD_decompressStream`, `ZSTD_createDStream`, `ZSTD_freeDStream`,
-   `ZSTD_initDStream`, `ZSTD_sizeof_DStream`, `ZSTD_DStreamInSize`, `ZSTD_DStreamOutSize`,
-   `ZSTD_createDCtx`, `ZSTD_freeDCtx`, `ZSTD_sizeof_DCtx`, `ZSTD_DCtx_setParameter`,
-   `ZSTD_dParam_getBounds`, `ZSTD_DCtx_reset` — across arbitrary input/output buffer splits,
-   multi-frame & skippable frames, contiguous/ring-buffer/`extDict` modes, allocation failure, and
-   calls after completion or error.
-2. **One-shot & context decompression:** `ZSTD_decompress`, `ZSTD_decompressDCtx`,
-   `ZSTD_decompress_usingDict`, `ZSTD_decompress_usingDDict`.
-3. **Decompression dictionaries & prefixes (untrusted `0xEC30A437` formatted + raw):**
-   `ZSTD_createDDict`, `ZSTD_freeDDict`, `ZSTD_sizeof_DDict`, `ZSTD_DCtx_loadDictionary`,
-   `ZSTD_DCtx_refDDict`, `ZSTD_DCtx_refPrefix`, `ZSTD_getDictID_fromDict`,
-   `ZSTD_getDictID_fromDDict`, `ZSTD_getDictID_fromFrame`.
-4. **Frame inspection & query utilities:** `ZSTD_getFrameContentSize`, `ZSTD_getDecompressedSize`,
-   `ZSTD_findFrameCompressedSize`, `ZSTD_decompressBound`, `ZSTD_isError`, `ZSTD_getErrorCode`,
-   `ZSTD_getErrorName`, `ZSTD_versionNumber`, `ZSTD_versionString`, `ZSTD_isDeterministicBuild`.
+## Source
 
-### Tier 1 (P0) — Compression Path (Prove Immediately After / Alongside Decoder)
+- `zstd/` is the upstream submodule (`https://github.com/facebook/zstd`). Never modify it. The
+  verified source is `zstd/` plus `patches/*.patch` applied in name order.
+- The verified C translation units are the exact ten `.c` files of the standalone decoder (plus the
+  headers they include from `lib/`, `lib/common/`, and `lib/decompress/`):
+  - `lib/common/debug.c`, `lib/common/entropy_common.c`, `lib/common/error_private.c`,
+    `lib/common/fse_decompress.c`, `lib/common/xxhash.c` (`XXH64` path),
+    `lib/common/zstd_common.c`;
+  - `lib/decompress/huf_decompress.c`, `lib/decompress/zstd_ddict.c`,
+    `lib/decompress/zstd_decompress.c`, `lib/decompress/zstd_decompress_block.c`.
+- A patch is allowed only for a confirmed Zstandard bug (or C standard undefined behaviour reachable
+  through the documented API) that blocks a proof. It must be minimal, match a fix submitted
+  upstream, be listed in `patches/README.md`, and have a corresponding ablation case in
+  `tests/patch-reverts/<case>/` showing that reverting the patch breaks the proof and reproduces on C
+  (under ASan/UBSan or a C probe).
+- Translations mirror the C layout:
+  - `zstd/lib/common/X.c` is `ZstdF/Zstd/common/X.c.lean` (`.h` -> `.h.lean`);
+  - `zstd/lib/decompress/X.c` is `ZstdF/Zstd/decompress/X.c.lean` (`.h` -> `.h.lean`);
+  - `zstd/lib/zstd.h` and `zstd/lib/zstd_errors.h` are `ZstdF/Zstd/zstd.h.lean` and
+    `ZstdF/Zstd/zstd_errors.h.lean`.
+  Each function keeps its C name, and its docstring starts with the C signature.
+- Specifications live in `ZstdF/Spec/{Common,Safety,Functional}/`. No `Safety` or `Common` module
+  may import a `Functional` module, and no `Spec` module may import `ZstdF/Proof/`.
+- Proofs about `X.c` live in `ZstdF/Proof/X.c.<topic>.lean`. Proofs of public goals live in
+  `ZstdF/Proof/public-<name>.lean`.
+- Heap-free mathematics (reverse bitstream geometry, FSE/tANS table invariants, Huffman X1/X2 table
+  bounds, XXH64 arithmetic, sequence-offset window algebra) goes to `ZstdF/Math/`.
+- The runtime (heap, pointers, unaligned little-endian memory reads/writes `MEM_read*`/`MEM_write*`,
+  loops, faults) is `ZstdF/Runtime/*.lean`.
 
-Compression paths process untrusted user uploads, dynamic web responses, and caller-provided tight
-destination buffers (note historical `CVE-2019-11922` OOB write on tight output buffers, plus stale
-dictionary/window pointer hazards on context reuse and reset):
+## Translation
 
-1. **Streaming compression (primary Node.js/Python/HTTP path):** `ZSTD_createCCtx`, `ZSTD_freeCCtx`,
-   `ZSTD_sizeof_CCtx`, `ZSTD_createCStream`, `ZSTD_freeCStream`, `ZSTD_initCStream`,
-   `ZSTD_sizeof_CStream`, `ZSTD_CStreamInSize`, `ZSTD_CStreamOutSize`, `ZSTD_cParam_getBounds`,
-   `ZSTD_CCtx_setParameter`, `ZSTD_CCtx_setPledgedSrcSize`, `ZSTD_CCtx_reset`,
-   `ZSTD_compressStream`, `ZSTD_compressStream2` (all `ZSTD_EndDirective` modes: `ZSTD_e_continue`,
-   `ZSTD_e_flush`, `ZSTD_e_end`), `ZSTD_flushStream`, `ZSTD_endStream`.
-2. **One-shot & context compression:** `ZSTD_compress`, `ZSTD_compress2`, `ZSTD_compressCCtx`,
-   `ZSTD_compress_usingDict`, `ZSTD_compress_usingCDict`, `ZSTD_compressBound`,
-   `ZSTD_minCLevel`, `ZSTD_maxCLevel`, `ZSTD_defaultCLevel`.
-3. **Compression dictionaries & prefixes:** `ZSTD_createCDict`, `ZSTD_freeCDict`,
-   `ZSTD_sizeof_CDict`, `ZSTD_CCtx_loadDictionary`, `ZSTD_CCtx_refCDict`, `ZSTD_CCtx_refPrefix`.
-   Covers all single-threaded scalar match-finding strategies (`fast`, `dfast`, `greedy`, `lazy`,
-   `lazy2`, `btlazy2`, `btopt`, `btultra`, `btultra2`) and entropy encoders (`huf_compress.c`,
-   `fse_compress.c`, `hist.c`).
+- Translate statement by statement. Do not reorder, merge or simplify.
+  Four normalisations are accepted and are not translation bugs:
+  an out-parameter of an internal function is passed by value and returned as a second result;
+  two reads of one location with no store between them are one read;
+  consecutive assignments to fields of one record are one record update;
+  a signed operation that a preceding test of the same function keeps in range uses the plain
+  operator. Anything else is a translation bug, documented with examples in
+  `docs/en/design/translation.md`.
+- Every undefined behaviour the C can reach raises `Fault.ub`. Unsigned arithmetic wraps. Signed
+  arithmetic, shifts and narrowing conversions are checked. Pointer arithmetic (`p + k`, `p - k`,
+  `p - q`) and relational pointer comparisons (`<`, `<=`, `>`, `>=`) are checked against single-object
+  allocation bounds at the point they are evaluated, matching C11 §6.5.6 and §6.5.8.
+- Reading an uninitialised integer returns an arbitrary value from `Heap.garbage`, and a theorem
+  must hold for every garbage function. A pointer in fresh memory is `NULL` in the model, which is
+  weaker than C: the proof and review show that every pointer field of `ZSTD_DCtx` and `ZSTD_DDict`
+  is written before it is read (`docs/en/trusted-base.md`).
+- Never change a translation to make a proof easier. A mismatch with the C is a translation bug.
+  Fix it, and add a differential test that catches it.
+- Every proof depends on the runtime. Change `ZstdF/Runtime/` only for a confirmed mismatch with C,
+  in its own commit.
 
-### Tier 2 (P1) & Explicitly Not Planned
-
-- **Tier 2 (optional follow-up):** Long-distance matching (`zstd_ldm.c`), `ZSTD_CCtx_setParametersUsingCCtxParams`
-  / `ZSTD_createCCtxParams` / `ZSTD_freeCCtxParams`, and `ZSTD_CCtxParams_*`.
-- **Not planned:** Multi-threaded job pool (`lib/compress/zstdmt_compress.c`, `lib/common/pool.c`,
-  `lib/common/threading.c`), dictionary trainer (`lib/dictBuilder/`), legacy v0.1–v0.7 decoders
-  (`lib/legacy/`), handwritten amd64 assembly (`huf_decompress_amd64.S`), CLI (`programs/`),
-  experimental `ZSTD_STATIC_LINKING_ONLY` APIs outside those required by public `zstd.h`, and full
-  RFC 8878 functional round-trip equivalence beyond invariants needed for safety.
-
-## Verified Translation Units
-
-- **Shared (`lib/common/`):** `debug.c`, `entropy_common.c`, `error_private.c`, `fse_decompress.c`,
-  `xxhash.c` (`XXH64` scalar path), `zstd_common.c` (plus `lib/zstd.h`, `lib/zstd_errors.h`).
-- **Decoder (`lib/decompress/`):** `huf_decompress.c`, `zstd_ddict.c`, `zstd_decompress.c`,
-  `zstd_decompress_block.c`.
-- **Compressor (`lib/compress/`):** `hist.c`, `fse_compress.c`, `huf_compress.c`, `zstd_compress.c`,
-  `zstd_compress_literals.c`, `zstd_compress_sequences.c`, `zstd_compress_superblock.c`,
-  `zstd_fast.c`, `zstd_double_fast.c`, `zstd_lazy.c`, `zstd_opt.c`, `zstd_preSplit.c`
-  (and `zstd_ldm.c` in Tier 2).
-
-Translations mirror the C layout (`zstd/lib/<dir>/X.c` -> `ZstdF/Zstd/<dir>/X.c.lean`, `.h` -> `.h.lean`).
-Each function keeps its C name and starts its docstring with the C signature.
-
-## Key Zstandard Hazards to Model and Verify Without Shortcuts
+## Key Zstandard hazards to model and verify without shortcuts
 
 1. **Fast sequence execution and `WILDCOPY_OVERLENGTH` (`zstd_decompress_block.c`).**
    `ZSTD_wildcopy` intentionally copies in 8- or 16-byte chunks up to `WILDCOPY_OVERLENGTH` (32
    bytes) past the logical end of a literal or match copy, relying on fast-loop guards
    (`oend_w = oend - WILDCOPY_OVERLENGTH`) before falling back to `ZSTD_execSequenceEnd` /
    `ZSTD_safecopy`. In `SplitLitBuffer` mode, decoded literals temporarily reside at the tail of the
-   destination buffer while sequences overwrite the front. Prove from first principles that every
-   wildcopy stays strictly within the writable destination block and never clobbers unread split
-   literals.
+   destination buffer itself while sequences overwrite the front. Prove from first principles that
+   every wildcopy stays strictly within the writable destination block and never clobbers unread
+   split literals.
 2. **Cross-object `virtualStart` and `extDict` pointer arithmetic (`zstd_decompress.c`,
-   `zstd_decompress_block.c`, `zstd_compress.c`, `zstd_fast.c`, `zstd_lazy.c`, `zstd_opt.c`).**
-   Both decoder and compressor compute `virtualStart = prefixStart - extDictSize` and
-   `ip - virtualStart` across distinct heap objects in `extDict` / streaming window modes. Do **not**
-   weaken `ZstdF/Runtime/Ptr.lean`: confirm every ISO C17 UB site on real C (UBSan + ASan
-   `detect_invalid_pointer_pair=2`), document in `docs/{en,zh}/findings.md`, and isolate minimal
-   `uintptr_t`/offset-arithmetic fixes in `patches/` with `tests/patch-reverts/` ablations.
-3. **Reverse bitstreams (`BIT_DStream_t` / `BIT_CStream_t`), 4-stream Huffman, and FSE workspace
-   aliasing (`huf_decompress.c`, `huf_compress.c`, `fse_decompress.c`, `fse_compress.c`,
-   `entropy_common.c`).**
-   Model exact buffer/workspace layouts (including `LLTable`/`OFTable`/`MLTable` flat `U32` aliasing
-   in `ZSTD_loadDEntropy`, 6-byte 4-stream jump tables, and `BIT_flushBitsFast` tight-destination
-   bounds in `huf_compress.c` / `fse_compress.c`).
-4. **Compressor window-index wraparound (`ZSTD_window_t`) and tight-buffer fallback (`zstd_compress.c`,
-   `zstd_fast.c`, `zstd_double_fast.c`, `zstd_lazy.c`, `zstd_opt.c`).**
-   Prove hash/chain/binary-tree table indices stay in bounds across window overflow corrections
-   (`ZSTD_window_correctOverflow`), `CDict` prefix/extDict switches, `ZSTD_CCtx_reset` calls after
-   errors, and destination buffers strictly smaller than `ZSTD_compressBound(srcSize)` (the exact
-   failure class of `CVE-2019-11922`).
-5. **Untrusted formatted dictionaries (`0xEC30A437`) and borrowed references (`ZSTD_DCtx_refDDict`,
-   `ZSTD_DCtx_refPrefix`, `ZSTD_CCtx_refCDict`, `ZSTD_CCtx_refPrefix`).**
-   Prove full parser safety for untrusted formatted dictionaries (including `rep[0..2]` validation)
-   and track caller-buffer liveness explicitly in the sequence invariant across streaming calls.
+   `zstd_decompress_block.c`, `compiler.h`).**
+   When output buffers are non-contiguous across calls or a dictionary/prefix is attached, upstream C
+   computes `virtualStart = prefixStart - extDictSize` (`ZSTD_wrappedPtrSub` or raw `char*`
+   subtraction) and `oLitEnd - virtualStart` (`ZSTD_wrappedPtrDiff` or raw subtraction) across
+   distinct heap objects. Do **not** weaken `ZstdF/Runtime/Ptr.lean` to allow cross-object pointer
+   subtraction or out-of-object pointer formation: investigate every site on real C (with UBSan and
+   ASan `detect_invalid_pointer_pair=2`), record confirmed C11 undefined behaviour in
+   `docs/en/findings.md`, and isolate minimal `uintptr_t` / size-arithmetic fixes in `patches/` with
+   `tests/patch-reverts/` reproductions.
+3. **Reverse bitstreams (`BIT_DStream_t`), 4-stream Huffman (`huf_decompress.c`) and FSE tables
+   (`fse_decompress.c`, `entropy_common.c`).**
+   `BIT_initDStream` and `BIT_reloadDStream` read backwards from `srcEnd` toward `src`; 4-stream
+   Huffman splits the compressed buffer via a 6-byte jump table (`ip1..ip4`); and
+   `ZSTD_loadDEntropy` aliases the three adjacent FSE table arrays (`LLTable`, `OFTable`, `MLTable`)
+   inside `ZSTD_entropyDTables_t` as a flat `U32` workspace while building `hufTable`. Model these
+   exact buffer/workspace layouts without unsound casts or unproved table-entry bounds.
+4. **Formatted dictionaries (`0xEC30A437`) and borrowed references (`ZSTD_DCtx_refDDict`,
+   `ZSTD_DCtx_refPrefix`).**
+   Prove full parser safety for untrusted formatted dictionaries (`ZSTD_createDDict`,
+   `ZSTD_DCtx_loadDictionary`), including initial `rep[0..2]` offset validation against dictionary
+   size, and track caller-buffer liveness explicitly in the sequence invariant whenever `refDDict` or
+   `refPrefix` borrows external memory across `ZSTD_decompressStream` calls.
 
-## Proof Workflow & Local Commands
+## What counts as proved
 
-- Only `propext`, `Classical.choice`, and `Quot.sound` are allowed (`sorry` permitted on
-  `skeleton/*` branches only). Every safety goal pairs with a concrete non-vacuity witness theorem.
-- Any narrower precondition (e.g. pairwise disjoint caller buffers, default allocator) is explicit
-  in the goal and listed in `docs/{en,zh}/deviations.md`.
-- Build with at most `-j 4` under a 16 GB RAM limit.
+`ZstdF/Results.lean` is the single Lean-checked registry of results: it pairs each proved `Goal.*`
+with its theorem in `proved` and lists unfinished goals in `notDone`. Building `ZstdF` checks in Lean
+itself that:
+1. every theorem's type is definitionally/syntactically identical to its `Goal.*` declaration;
+2. only `propext`, `Classical.choice` and `Quot.sound` are used (verified on the compiled environment
+   alongside `PartialCheck.lean`);
+3. every `Goal.*` under `ZstdF/Spec/` appears in `proved` or `notDone`, and `public-api.json` covers
+   every public decoder/dictionary/query declaration of `lib/zstd.h`.
 
-From repository root:
+Rules that hold everywhere:
 
-```bash
-lake --dir projects/zstd build --wfail ZstdF ZstdF.Results
-python3 framework/check_project.py zstd --skip-build
-```
+- Never use `sorry`, `native_decide`, `bv_decide`, `axiom`, `implemented_by`, `extern`, `unsafe`,
+  `partial` or `opaque`. Do not look for ways around the checks; report the obstacle.
+- Every safety goal is paired with a non-vacuity witness theorem showing all premises hold
+  simultaneously on a concrete heap and non-trivial execution.
+- Every precondition narrower than `zstd.h` allows (such as pairwise disjoint caller buffers or the
+  default `malloc`/`free` allocator when `customMem` is zeroed) is stated explicitly in the goal and
+  listed in `docs/en/deviations.md`. Never shrink a domain silently.
+- **No callee contracts as assumptions.** Every helper's contract is a theorem about the translated C
+  callee. Representation invariants (`DCtxInv`, `DDictInv`) are established by `ZSTD_createDCtx` /
+  `ZSTD_createDDict` and preserved across every public operation.
+- Differential tests (comparing Lean executions against ASan+UBSan-instrumented C across single-shot,
+  1-byte streaming splits, `extDict` buffer switches, corrupted FSE/Huffman tables, and formatted
+  dictionaries) are evidence of fidelity, not proof. Say so when reporting.
+
+## Proof workflow
+
+1. **Bootstrap runtime and CI gates first.** Set up `ZstdF/Runtime/`, `ZstdF/Results.lean`,
+   `PartialCheck.lean`, `check-sorry.sh`, `check-spec-layers.py` and `verification.py` so every
+   commit passes the build and audit checks from day one.
+2. **Translate all ten `.c` units and run C-vs-Lean differential tests before proving.** Shake out
+   translation and C11 pointer-UB issues early with differential tests and sanitizers.
+3. **Test goal statements on concrete C executions.** Verify behaviour on `NULL` with zero capacity,
+   allocation failure at every `ZSTD_customMalloc` site, and repeated calls after errors.
+4. **Build skeletons top down (`skeleton/<result>`).** `sorry` is allowed only on `skeleton/*`
+   branches. Keep the open-lemma list in the skeleton header comment, not in `docs/`.
+5. **Hide `DCtxInv` and `DDictInv` behind small interface lemmas** so changing an internal clause
+   rebuilds only its interface module. Build with at most `-j 4` under a 16 GB memory limit, and
+   delete unused modules outside the dependency closure of `ZstdF/Results.lean`.
+
+## Findings and documents
+
+- List confirmed upstream Zstandard defects reachable through documented `zstd.h` calls in
+  `docs/en/findings.md` and `docs/zh/findings.md`, with sanitizer/probe reproductions under
+  `tests/regression/<name>/` and patch-ablation tests under `tests/patch-reverts/<name>/`.
+- English and Chinese documentation sources live under `docs/en/` and `docs/zh/` at mirrored
+  lowercase-hyphenated paths, with no `.en.md`, `.zh.md` or subdirectory `README.md` files.
+  `docs/en/progress.md` (paired with `docs/zh/progress.md`) is the sole status page (`done` or
+  `not done`).
+- Do not put machine names, addresses, user names, local paths or tool names in the repository or in
+  commit messages.
+- Work lands via pull requests into `main` (or integration branches merged into `main` once CI is
+  green). Parallel workers own disjoint files and never edit the same file concurrently.
