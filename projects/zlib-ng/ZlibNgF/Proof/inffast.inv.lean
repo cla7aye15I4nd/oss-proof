@@ -127,6 +127,10 @@ def InOK (e : FE) (l : FL) (k : Nat) : Prop :=
   ∃ p, l.in_ = .ref e.rin p ∧ e.in0 ≤ p ∧ p + k ≤ e.E ∧ l.bits.toNat < 64 ∧
     l.bits.toNat ≤ 8 * (p - e.in0) + e.bits0
 
+/-- At least one bit consumed since entry: `in` at offset `p`, `bits + 1 ≤ 8 * (p - in0) + bits0`. -/
+def InS (e : FE) (l : FL) : Prop :=
+  ∃ p, l.in_ = .ref e.rin p ∧ l.bits.toNat + 1 ≤ 8 * (p - e.in0) + e.bits0
+
 /-- `out` is `w` bytes past `ot`, the value of `out` at the start of the trip, which had room for a whole trip. -/
 def OutOK (e : FE) (sm : Bool) (ot : Nat) (l : FL) (w : Nat) : Prop :=
   l.out = B e.ob (ot + w) ∧ e.o0 ≤ ot ∧ (if sm then ot + 3 else ot + 260) ≤ e.s
@@ -147,17 +151,17 @@ def BrkHeap (H0 : Heap) (e : FE) (G : Heap) : Prop :=
 /-- The invariant of the label loop, with ghost rank `n`. -/
 def PI (H0 : Heap) (c : FC) (e : FE) (ot : Nat) (n : Nat) (x : FL × Lbl) (G : Heap) : Prop :=
   match x.2 with
-  | .dolen => ∃ w, w ≤ 2 ∧ OutOK e c.safeMode ot x.1 w ∧ InOK e x.1 8 ∧ RH H0 e G ∧
+  | .dolen => ∃ w, w ≤ 2 ∧ OutOK e c.safeMode ot x.1 w ∧ InOK e x.1 8 ∧ InS e x.1 ∧ RH H0 e G ∧
       ((n = 6 ∧ RootL e x.1.here ∧ 20 ≤ x.1.bits.toNat) ∨
        (n = 4 ∧ SubL x.1.here ∧ x.1.here.bits.toNat ≤ x.1.bits.toNat))
-  | .common => ∃ w, w ≤ 2 ∧ OutOK e c.safeMode ot x.1 w ∧ InOK e x.1 8 ∧ RH H0 e G ∧ x.1.here.op ≠ 0 ∧
+  | .common => ∃ w, w ≤ 2 ∧ OutOK e c.safeMode ot x.1 w ∧ InOK e x.1 8 ∧ InS e x.1 ∧ RH H0 e G ∧ x.1.here.op ≠ 0 ∧
       ((n = 5 ∧ RootL e x.1.here ∧ 20 ≤ x.1.bits.toNat + x.1.here.bits.toNat) ∨ (n = 3 ∧ SubL x.1.here))
-  | .dodist => ∃ w, w ≤ 2 ∧ OutOK e c.safeMode ot x.1 w ∧ InOK e x.1 0 ∧ RH H0 e G ∧
+  | .dodist => ∃ w, w ≤ 2 ∧ OutOK e c.safeMode ot x.1 w ∧ InOK e x.1 0 ∧ InS e x.1 ∧ RH H0 e G ∧
       1 ≤ x.1.len.toNat ∧ x.1.len.toNat ≤ 258 ∧
       ((n = 2 ∧ RootD e x.1.here ∧ 28 ≤ x.1.bits.toNat) ∨
        (n = 1 ∧ SubD x.1.here ∧ x.1.here.bits.toNat ≤ x.1.bits.toNat))
   | .cont => ∃ po, x.1.out = B e.ob po ∧ ot < po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ RH H0 e G
-  | .brk => ∃ po, x.1.out = B e.ob po ∧ ot ≤ po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ BrkHeap H0 e G
+  | .brk => ∃ po, x.1.out = B e.ob po ∧ ot ≤ po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ InS e x.1 ∧ BrkHeap H0 e G
 
 /-! ## Root and second-level entries -/
 
@@ -179,6 +183,11 @@ theorem InOK.mono {e : FE} {l l' : FL} {k k' : Nat} (h : InOK e l k) (hin : l'.i
     (hb : l'.bits.toNat ≤ l.bits.toNat) (hk : k' ≤ k) : InOK e l' k' := by
   obtain ⟨p, h1, h2, h3, h4, h5⟩ := h
   exact ⟨p, hin.trans h1, h2, by omega, by omega, by omega⟩
+
+theorem InS.mono {e : FE} {l l' : FL} (h : InS e l) (hin : l'.in_ = l.in_)
+    (hb : l'.bits.toNat ≤ l.bits.toNat) : InS e l' := by
+  obtain ⟨p, h1, h2⟩ := h
+  exact ⟨p, hin.trans h1, by omega⟩
 
 theorem drop_toNat (x y : UInt8) (h : y.toNat ≤ x.toNat) : (x - y.toUInt32.toUInt8).toNat = x.toNat - y.toNat := by
   have e : y.toUInt32.toUInt8 = y := by

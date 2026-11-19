@@ -21,7 +21,7 @@ theorem sat_stepDolen {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK H
     (hP : PI H0 c e ot n (l, .dolen) G) :
     Sat G (stepDolen c l) (fun x G' => ∃ m, m < n ∧ PI H0 c e ot m x G') := by
   simp only [PI] at hP
-  obtain ⟨w, hw, ho, hin, r, hph⟩ := hP
+  obtain ⟨w, hw, ho, hin, hS, r, hph⟩ := hP
   have hb : l.here.bits.toNat ≤ l.bits.toNat ∧ l.here.bits.toNat ≤ 20 := by
     rcases hph with ⟨_, hr, h20⟩ | ⟨_, ⟨pre, he, _⟩, hle⟩
     · have := LenEnt.bits_le (RootL.ent EV.ltab hr); omega
@@ -40,11 +40,13 @@ theorem sat_stepDolen {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK H
   · rename_i hlit
     have hop : l1.here.op ≠ 0 := by intro h0; exact hlit (by simp [h0])
     rcases hph with ⟨rfl, hr, h20⟩ | ⟨rfl, hs, _⟩
-    · refine Sat.pure ⟨5, by omega, w, hw, ?_, hin.mono hin1 (by dsimp only; omega) (by omega), r, hop, Or.inl ⟨rfl, ?_, ?_⟩⟩
+    · refine Sat.pure ⟨5, by omega, w, hw, ?_, hin.mono hin1 (by dsimp only; omega) (by omega),
+        hS.mono hin1 (by dsimp only; omega), r, hop, Or.inl ⟨rfl, ?_, ?_⟩⟩
       · rw [OutOK, hout1]; exact ho
       · rw [hh1]; exact hr
       · dsimp only; rw [hh1]; omega
-    · refine Sat.pure ⟨3, by omega, w, hw, ?_, hin.mono hin1 (by dsimp only; omega) (by omega), r, hop, Or.inr ⟨rfl, ?_⟩⟩
+    · refine Sat.pure ⟨3, by omega, w, hw, ?_, hin.mono hin1 (by dsimp only; omega) (by omega),
+        hS.mono hin1 (by dsimp only; omega), r, hop, Or.inr ⟨rfl, ?_⟩⟩
       · rw [OutOK, hout1]; exact ho
       · rw [hh1]; exact hs
 
@@ -88,6 +90,10 @@ theorem sat_stepTop {H0 G : Heap} {c : FC} {e : FE} {ot : Nat} (EV : EnvOK H0 c 
   refine Sat.bind (Sat.mono (sat_oldDrop l2 (by rw [hh2]; omega) (by rw [hh2]; omega)) ?_)
   rintro l3 G3 ⟨rfl, hin3, hout3, hh3, hlen3, hbits3⟩
   rw [hh2] at hbits3
+  have hS3 : InS e l3 := by
+    obtain ⟨q, hq1, -, -, -, hq5⟩ := hin2
+    have := (RootL.ent EV.ltab hr1).2.2.2
+    exact ⟨q, hin3.trans hq1, by omega⟩
   have hO : ∀ l' : FL, l'.out = l.out → OutOK e c.safeMode ot l' 0 := by
     intro l' h; rw [OutOK, h]; exact ho
   split
@@ -113,23 +119,29 @@ theorem sat_stepTop {H0 G : Heap} {c : FC} {e : FE} {ot : Nat} (EV : EnvOK H0 c 
       rintro l7 G7 ⟨rfl, r7⟩
       refine Sat.bind (Sat.mono (sat_lookupLen EV r7 _) ?_)
       rintro l8 G8 ⟨rfl, hr8, hl8⟩
-      refine Sat.pure ⟨6, by omega, 2, by omega, ?_, ?_, r7, Or.inl ⟨rfl, hr8, ?_⟩⟩
+      refine Sat.pure ⟨6, by omega, 2, by omega, ?_, ?_, ?_, r7, Or.inl ⟨rfl, hr8, ?_⟩⟩
       · rw [OutOK, hl8]; exact ⟨rfl, ho.2⟩
       · refine hin2.mono ?_ ?_ (Nat.le_refl _)
         · rw [hl8]; dsimp only; rw [hin6, hin5, hin3]
         · rw [hl8]; dsimp only; omega
+      · refine hS3.mono ?_ ?_
+        · rw [hl8]; dsimp only; rw [hin6, hin5]
+        · rw [hl8]; dsimp only; omega
       · rw [hl8]; dsimp only; omega
     · rename_i hlit2
       have hop : l6.here.op ≠ 0 := by intro h0; exact hlit2 (by simp [h0])
-      refine Sat.pure ⟨5, by omega, 1, by omega, ?_, ?_, r4, hop, Or.inl ⟨rfl, by rw [hh6]; exact hr5, ?_⟩⟩
+      refine Sat.pure ⟨5, by omega, 1, by omega, ?_, ?_, ?_, r4, hop, Or.inl ⟨rfl, by rw [hh6]; exact hr5, ?_⟩⟩
       · rw [OutOK, hout6, hout5]; exact ⟨rfl, ho.2⟩
       · refine hin2.mono ?_ ?_ (Nat.le_refl _)
         · dsimp only; rw [hin6, hin5, hin3]
         · dsimp only; omega
+      · refine hS3.mono ?_ ?_
+        · dsimp only; rw [hin6, hin5]
+        · dsimp only; omega
       · dsimp only; rw [hh6]; omega
   · rename_i hlit1
     have hop : l3.here.op ≠ 0 := by intro h0; exact hlit1 (by simp [h0])
-    refine Sat.pure ⟨5, by omega, 0, by omega, hO l3 (by rw [hout3, ho2, ho1]), ?_, r, hop,
+    refine Sat.pure ⟨5, by omega, 0, by omega, hO l3 (by rw [hout3, ho2, ho1]), ?_, hS3, r, hop,
       Or.inl ⟨rfl, by rw [hh3, hh2]; exact hr1, ?_⟩⟩
     · refine hin2.mono ?_ ?_ (Nat.le_refl _)
       · dsimp only; rw [hin3]
@@ -216,7 +228,7 @@ theorem sat_stepCommon {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
     (hP : PI H0 c e ot n (l, .common) G) :
     Sat G (stepCommon c l) (fun x G' => ∃ m, m < n ∧ PI H0 c e ot m x G') := by
   simp only [PI] at hP
-  obtain ⟨w, hw, ho, hin, r, hop, hph⟩ := hP
+  obtain ⟨w, hw, ho, hin, hS, r, hop, hph⟩ := hP
   have hent : ∃ pre, LenEnt pre l.here ∧ (n = 5 ∨ n = 3) := by
     rcases hph with ⟨rfl, hr, _⟩ | ⟨rfl, pre, he, _⟩
     · exact ⟨0, RootL.ent EV.ltab hr, Or.inl rfl⟩
@@ -229,7 +241,7 @@ theorem sat_stepCommon {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
   · -- length base
     rename_i hbase
     have hB : Base l.here := by simpa [Base] using hbase
-    obtain ⟨hv1, hv2⟩ := he.2.2 hB
+    obtain ⟨hv1, hv2⟩ := he.2.2.1 hB
     refine Sat.bind (Sat.mono (sat_EXTRA_BITS (H := G) l.old l.here _ (by omega)) ?_)
     rintro x G1 ⟨hG1, hx⟩
     rw [hG1]
@@ -241,11 +253,14 @@ theorem sat_stepCommon {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
     rintro d G1 ⟨hG1, hd⟩
     rw [hG1]
     obtain ⟨p, hp, hp0, hpE, hb64, hacc⟩ := hin
+    obtain ⟨q, hq, hqs⟩ := hS
+    have hqp : q = p := by rw [hp] at hq; cases hq; rfl
+    subst hqp
     have fin : ∀ l' G', (G' = G ∧ l'.out = l.out ∧ l'.here = d ∧
-        l'.len = l.here.val.toUInt32 + x.toUInt32 ∧ 28 ≤ l'.bits.toNat ∧ InOK e l' 0) →
+        l'.len = l.here.val.toUInt32 + x.toUInt32 ∧ 28 ≤ l'.bits.toNat ∧ InOK e l' 0 ∧ InS e l') →
         Sat G' (pure (l', Lbl.dodist)) (fun x G' => ∃ m, m < n ∧ PI H0 c e ot m x G') := by
-      rintro l' G' ⟨rfl, hout', hh', hlen', hb', hin'⟩
-      refine Sat.pure ⟨2, by omega, w, hw, ?_, hin', r, ?_, ?_, Or.inl ⟨rfl, ?_, ?_⟩⟩
+      rintro l' G' ⟨rfl, hout', hh', hlen', hb', hin', hS'⟩
+      refine Sat.pure ⟨2, by omega, w, hw, ?_, hin', hS', r, ?_, ?_, Or.inl ⟨rfl, ?_, ?_⟩⟩
       · rw [OutOK, hout']; exact ho
       · dsimp only; rw [hlen', hlen]; omega
       · dsimp only; rw [hlen', hlen]; omega
@@ -258,17 +273,18 @@ theorem sat_stepCommon {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
       refine Sat.bind (Sat.mono (sat_REFILL hA' _ hp (by omega) hb64) ?_)
       rintro l' G' ⟨hG', hd', rfl⟩
       have e56 := or56 l.bits hb64
-      refine fin _ _ ⟨hG', rfl, rfl, rfl, by dsimp only; omega, p + (7 - l.bits.toNat / 8), rfl, by omega, by omega,
-        by dsimp only; omega, ?_⟩
-      dsimp only; rw [e56]; omega
+      refine fin _ _ ⟨hG', rfl, rfl, rfl, by dsimp only; omega, ⟨q + (7 - l.bits.toNat / 8), rfl, by omega, by omega,
+        by dsimp only; omega, ?_⟩, q + (7 - l.bits.toNat / 8), rfl, ?_⟩
+      · dsimp only; rw [e56]; omega
+      · dsimp only; rw [e56]; omega
     · rename_i hlt
       have : 38 ≤ l.bits.toNat := by
         simp only [MAX_BITS] at hlt
         rw [UInt32.lt_iff_toNat_lt] at hlt; simpa using hlt
       first
-        | (apply fin; exact ⟨rfl, rfl, rfl, rfl, by dsimp only; omega, p, hp, hp0, by omega, hb64, hacc⟩)
+        | (apply fin; exact ⟨rfl, rfl, rfl, rfl, by dsimp only; omega, ⟨q, hp, hp0, by omega, hb64, hacc⟩, q, hp, hqs⟩)
         | (refine Sat.bind (Sat.pure ?_); apply fin
-           exact ⟨rfl, rfl, rfl, rfl, by dsimp only; omega, p, hp, hp0, by omega, hb64, hacc⟩)
+           exact ⟨rfl, rfl, rfl, rfl, by dsimp only; omega, ⟨q, hp, hp0, by omega, hb64, hacc⟩, q, hp, hqs⟩)
   · rename_i hbase
     split
     · -- second-level length code
@@ -293,7 +309,7 @@ theorem sat_stepCommon {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
         rw [hG1]
         obtain ⟨hsd, hnl⟩ := hsub bv.toNat hbv
         have hd20 := LenEnt.bits_le hsd
-        refine Sat.pure ⟨4, by omega, w, hw, ?_, hin, r, Or.inr ⟨rfl, ⟨l.here.bits.toNat, ?_, ?_⟩, ?_⟩⟩
+        refine Sat.pure ⟨4, by omega, w, hw, ?_, hin, hS, r, Or.inr ⟨rfl, ⟨l.here.bits.toNat, ?_, ?_⟩, ?_⟩⟩
         · exact ho
         · dsimp only; rw [hidx, ← Nat.add_assoc]; exact hsd
         · dsimp only; rw [hidx, ← Nat.add_assoc]; exact hnl
@@ -309,11 +325,11 @@ theorem sat_stepCommon {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
         rintro _ G1 rfl
         obtain ⟨_, ho0, hroom⟩ := id ho
         refine Sat.pure ⟨0, by omega, ot + w, ho.1, by omega, by split at hroom <;> omega,
-          hin.mono rfl (Nat.le_refl _) (by omega), brk_state EV r _ (Or.inr (Or.inl rfl))⟩
+          hin.mono rfl (Nat.le_refl _) (by omega), hS.mono rfl (Nat.le_refl _), brk_state EV r _ (Or.inr (Or.inl rfl))⟩
       · refine Sat.bind (Sat.mono (sat_SET_BAD EV r _ (by simp [strTable])) ?_)
         rintro _ G1 hb
         obtain ⟨_, ho0, hroom⟩ := id ho
         refine Sat.pure ⟨0, by omega, ot + w, ho.1, by omega, by split at hroom <;> omega,
-          hin.mono rfl (Nat.le_refl _) (by omega), hb⟩
+          hin.mono rfl (Nat.le_refl _) (by omega), hS.mono rfl (Nat.le_refl _), hb⟩
 
 end ZlibNgF.Proof.InffastSteps

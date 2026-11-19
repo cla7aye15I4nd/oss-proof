@@ -135,7 +135,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
     (hP : PI H0 c e ot n (l, .dodist) G) :
     Sat G (stepDodist c l) (fun x G' => ∃ m, m < n ∧ PI H0 c e ot m x G') := by
   simp only [PI] at hP
-  obtain ⟨w, hw, ho, hin, r, hl1, hl258, hph⟩ := hP
+  obtain ⟨w, hw, ho, hin, hS, r, hl1, hl258, hph⟩ := hP
   have hent : ∃ pre, DistEnt pre l.here ∧ (n = 2 ∨ n = 1) ∧ l.here.bits.toNat ≤ l.bits.toNat := by
     rcases hph with ⟨rfl, hr, h28⟩ | ⟨rfl, ⟨pre, he, _⟩, hle⟩
     · exact ⟨0, RootD.ent EV.dtab hr, Or.inl rfl, by have := (RootD.ent EV.dtab hr).1; omega⟩
@@ -154,7 +154,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
   have hbrk : ∀ (x : FL) (G' : Heap), x.in_ = l.in_ → x.bits.toNat ≤ l.bits.toNat →
       x.out = l.out → BrkHeap H0 e G' → ∃ m, m < n ∧ PI H0 c e ot m (x, .brk) G' :=
     fun x G' h1 h2 h3 h6 => ⟨0, by omega, ot + w, h3.trans hout, by omega, by split at hroom <;> omega,
-      hin.mono h1 h2 (Nat.le_refl _), h6⟩
+      hin.mono h1 h2 (Nat.le_refl _), hS.mono h1 h2, h6⟩
   unfold stepDodist
   refine Sat.bind (Sat.mono (sat_oldDrop l hbl (by omega)) ?_)
   rintro l1 G1 ⟨rfl, hin1, hout1, hh1, hlen1, hbits1⟩
@@ -347,7 +347,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
         obtain ⟨hsd, hnl⟩ := hsub bv.toNat hbv
         have hd28' := hsd.1
         refine Sat.pure ⟨1, by omega, w, hw, ⟨hout1.trans hout, ho0, hroom⟩, hin.mono hin1 (by show l1.bits.toNat ≤ _; omega) (Nat.le_refl _),
-          r, by rw [hlen1]; exact hl1, by rw [hlen1]; exact hl258, Or.inr ⟨rfl, ⟨l.here.bits.toNat, ?_, ?_⟩, ?_⟩⟩
+          hS.mono hin1 (by show l1.bits.toNat ≤ _; omega), r, by rw [hlen1]; exact hl1, by rw [hlen1]; exact hl258, Or.inr ⟨rfl, ⟨l.here.bits.toNat, ?_, ?_⟩, ?_⟩⟩
         · dsimp only; rw [hidx, ← Nat.add_assoc]; exact hsd
         · dsimp only; rw [hidx, ← Nat.add_assoc]; exact hnl
         · dsimp only; rw [hidx, ← Nat.add_assoc, hbits1]; omega

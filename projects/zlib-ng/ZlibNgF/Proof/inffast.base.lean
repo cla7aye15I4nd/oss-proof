@@ -30,10 +30,11 @@ def DistLink (e : Code) : Prop := e.op.toUInt32 &&& 16 = 0 ∧ e.op.toUInt32 &&&
 
 /-- A length/literal entry reached after `pre` bits of a root link (`pre = 0` for a root entry): a literal takes at most
 15 bits in all, any other entry at most 20 (a code of at most 15 bits and at most 5 extra bits); a length base
-`val + extra` lies in `[1, 258]` for every value of its extra bits. -/
+`val + extra` lies in `[1, 258]` for every value of its extra bits; every entry takes at least one bit in all. -/
 def LenEnt (pre : Nat) (e : Code) : Prop :=
   (e.op = 0 → pre + e.bits.toNat ≤ 15) ∧ (e.op ≠ 0 → pre + e.bits.toNat ≤ 20) ∧
-  (Base e → 1 ≤ e.val.toNat ∧ e.val.toNat + 2 ^ (e.bits.toNat - e.op.toNat % 16) ≤ 259)
+  (Base e → 1 ≤ e.val.toNat ∧ e.val.toNat + 2 ^ (e.bits.toNat - e.op.toNat % 16) ≤ 259) ∧
+  1 ≤ pre + e.bits.toNat
 
 /-- A distance entry reached after `pre` bits of a root link: at most 28 bits in all (a code of at most 15 bits and at
 most 13 extra bits), and a distance base is at least 1. -/

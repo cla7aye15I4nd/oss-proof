@@ -39,8 +39,8 @@ theorem and16_iff : ∀ x : UInt8, (x.toUInt32 &&& 16 = 0) ↔ (x &&& 16 = 0) :=
 theorem and64_iff : ∀ x : UInt8, (x.toUInt32 &&& 64 = 0) ↔ (x &&& 64 = 0) := by decide
 theorem andf0_lt : ∀ x : UInt8, x &&& 0xf0 = 0 → x.toNat < 16 := by decide
 
-theorem lenOK_ent {pre : Nat} {e : Code} (h : LenOK pre e) : LenEnt pre e := by
-  refine ⟨h.1, h.2.1, fun hb => h.2.2 ?_⟩
+theorem lenOK_ent {pre : Nat} {e : Code} (h : LenOK pre e) (h1 : 1 ≤ pre + e.bits.toNat) : LenEnt pre e := by
+  refine ⟨h.1, h.2.1, fun hb => h.2.2 ?_, h1⟩
   intro h0; exact hb ((and16_iff _).mpr h0)
 
 theorem lenLink_test {e : Code} {m : Nat} (E : EntryOK e m false) (h : LenLink e) : linkTest false e = true := by
@@ -57,8 +57,10 @@ theorem distLink_test {e : Code} {m : Nat} (E : EntryOK e m true) (h : DistLink 
 theorem codeTable_len {a : Array Code} {o e n : Nat} (t : CodeTable a o e n 28 false) : Tab a o n LenEnt LenLink := by
   have hr := t.root
   have hf := t.fits
-  refine ⟨by omega, fun k hk => ⟨lenOK_ent (t.lit rfl _ (by omega) (by omega)), fun hl => ?_⟩⟩
+  refine ⟨by omega, fun k hk => ?_⟩
   have E := t.ent (o + k) (by omega) (by omega)
+  have E1 : 1 ≤ (a[o + k]!).bits.toNat := Nat.le_trans E.cb_pos E.cb_le
+  refine ⟨lenOK_ent (t.lit rfl _ (by omega) (by omega)) (by omega), fun hl => ?_⟩
   have hlt := lenLink_test E hl
   obtain ⟨hsz, hsub⟩ := t.link (o + k) (by omega) (by omega) hlt
   have h16 : (a[o + k]!).op &&& 0xf0 = 0 := by
@@ -66,7 +68,7 @@ theorem codeTable_len {a : Array Code} {o e n : Nat} (t : CodeTable a o e n 28 f
     exact E.op_lt ((and16_iff _).mp h16) ((and64_iff _).mp h64)
   refine ⟨andf0_lt _ h16, by omega, fun j hj => ?_⟩
   obtain ⟨_, hnl, hok⟩ := hsub j hj
-  refine ⟨lenOK_ent (hok rfl), fun hl' => ?_⟩
+  refine ⟨lenOK_ent (hok rfl) (by omega), fun hl' => ?_⟩
   have E' := t.ent (o + (a[o + k]!).val.toNat + j) (by omega) (by omega)
   rw [lenLink_test E' hl'] at hnl
   exact absurd hnl (by decide)
