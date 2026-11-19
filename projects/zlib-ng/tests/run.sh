@@ -35,6 +35,9 @@ for name in $names; do
   in="$build/data/$name.in"
   "$build/bin$sfx/c_$name" < "$in" > "$build/data/$name.c.out"
   .lake/build/bin/difftest_$name < "$in" > "$build/data/$name.lean.out"
+  # Open defects (undefined behaviour of the verified source, no patch yet): on the inputs listed in
+  # expected-faults.txt the translation must fault with the listed message; see expected_faults.py.
+  python3 expected_faults.py "$name" "$in" "$build/data/$name.c.out" "$build/data/$name.lean.out" || exit 1
   nin=$(grep -c . "$in"); nc=$(grep -c . "$build/data/$name.c.out"); nl=$(grep -c . "$build/data/$name.lean.out")
   if [ "$nin" != "$nc" ] || [ "$nin" != "$nl" ]; then
     echo "DIFFERENCE ($name): $nin inputs, $nc C results, $nl Lean results"; exit 1

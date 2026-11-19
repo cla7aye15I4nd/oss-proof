@@ -1,0 +1,3 @@
+# <driver> <finding> <fault message> | <input line>  (see expected_faults.py)
+deflate longest-match-window-offset pointer arithmetic outside its object | def 9 8 15 4 1 gen:m:70000:261107360 - - 80443 P64/11362,P31/15274,L0/23334/1073741824,L0/999/1073741824,L4/1073741824/1073741824,f4,p,u
+deflate longest-match-window-offset pointer arithmetic outside its object | def 9 8 31 1 4 gen:m:70000:1314757043 - - 80443 G32768,L4/1073741824/333,f4,p,u
