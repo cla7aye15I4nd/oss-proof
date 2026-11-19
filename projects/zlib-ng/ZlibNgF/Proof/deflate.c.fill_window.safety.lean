@@ -44,6 +44,9 @@ theorem InSrc.rbz {H : Heap} {b : Nat} {z : ZStream} {r : BRef} {os : Nat} {src 
 theorem ZR.state {z z' : ZStream} (h : ZR z z') : z'.state = z.state := by
   obtain ⟨-, _, _, _, _, rfl⟩ := h; rfl
 
+theorem FWS.wrap {st st' : DeflateState} (h : FWS st st') : st'.wrap = st.wrap := by
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ := h; rfl
+
 theorem FWS.sizes {st st' : DeflateState} (h : FWS st st') :
     st'.window_size = st.window_size ∧ st'.w_size = st.w_size := by
   obtain ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ := h; exact ⟨rfl, rfl⟩
@@ -64,7 +67,7 @@ theorem read_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (f : Insert
     (hzb : z.state = some b) (L : HLay b d.size st wo po ho) (hws : st.window_size = W_BUF_SIZE st.w_size)
     (hwo : wo + st.window_size.toNat ≤ po) (hw2 : st.w_size.toNat ≤ 32768)
     (C : WCore st) (hlt : st.strstart.toNat < st.fill_end.toNat) (hla : st.lookahead.toNat < 262)
-    (hz0 : z.avail_in ≠ 0) (hin : InSrc H b z) (hc : H.crcTable = ZlibNg.Crc32Tbl.crc_table) :
+    (hz0 : z.avail_in ≠ 0) (hin : InSrc H b z) (hc : st.wrap = 2 → H.crcTable = ZlibNg.Crc32Tbl.crc_table) :
     Sat (SH H i z b st d) (fill_window_read (some b) (some i) f (.ref (.heap b) wo) level)
       (fun _ H' => ∃ z' st' d', H' = SH H i z' b st' d' ∧ WrIn d 0 (ho + 131072) d' ∧ ZR z z' ∧ InSrc H b z' ∧
         RFin st st' ∧ z'.avail_in.toNat + st'.lookahead.toNat = z.avail_in.toNat + st.lookahead.toNat) := by
@@ -191,7 +194,7 @@ the state changed in `fill_window`'s fields only, the window clauses, the data i
 or no more input; the block's bytes change below `U` only, and the lookahead grows by the input taken. -/
 def FWPost (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st0 : DeflateState) (d : Array UInt8) (U : Nat) (H' : Heap) :
     Prop :=
-  ∃ z' st' d', H' = SH H i z' b st' d' ∧ WrIn d 0 U d' ∧ ZR z z' ∧ (z'.avail_in = 0 ∨ InSrc H b z') ∧
+  ∃ z' st' d', H' = SH H i z' b st' d' ∧ WrIn d 0 U d' ∧ ZR z z' ∧ (z' = z ∧ z.avail_in = 0 ∨ InSrc H b z') ∧
     FWS st0 st' ∧ WCore st' ∧ st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat ∧
     (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧
     z'.avail_in.toNat + st'.lookahead.toNat = z.avail_in.toNat + st0.lookahead.toNat
@@ -202,7 +205,7 @@ theorem fill_window_SH {st : DeflateState} {wo po ho : Nat} (f : InsertBatchFn)
     (hwo : wo + st.window_size.toNat ≤ po) (hw2 : st.w_size.toNat ≤ 32768)
     (C : WCore st) (hlook : st.strstart.toNat + st.lookahead.toNat ≤ st.window_size.toNat)
     (hla : st.lookahead.toNat < 262)
-    (hin : z.avail_in = 0 ∨ InSrc H b z) (hc : H.crcTable = ZlibNg.Crc32Tbl.crc_table) :
+    (hin : z.avail_in = 0 ∨ InSrc H b z) (hc : st.wrap = 2 → H.crcTable = ZlibNg.Crc32Tbl.crc_table) :
     Sat (SH H i z b st d) (fill_window (some b))
       (fun _ H' => FWPost H i z b st d (ho + 131072) H') := by
   unfold fill_window
@@ -218,12 +221,13 @@ theorem fill_window_SH {st : DeflateState} {wo po ho : Nat} (f : InsertBatchFn)
   have hML : MIN_LOOKAHEAD.toNat = 262 := by decide
   refine Sat.bind (Sat.mono (sat_cdoWhileH (s := false)
     (fun brk H' => brk = false ∧ ∃ z' st' d', H' = SH H i z' b st' d' ∧ WrIn d 0 (ho + 131072) d' ∧ ZR z z' ∧
-      (z'.avail_in = 0 ∨ InSrc H b z') ∧ FWS st st' ∧ WCore st' ∧
+      (z' = z ∧ z.avail_in = 0 ∨ InSrc H b z') ∧ FWS st st' ∧ WCore st' ∧
       st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat ∧ st'.lookahead.toNat < 262 ∧
       z'.avail_in.toNat + st'.lookahead.toNat = z.avail_in.toNat + st.lookahead.toNat)
     (fun _ H' => match H'.dstates b with | some s => 262 - s.lookahead.toNat | none => 0)
     (fun _ H' => FWPost H i z b st d (ho + 131072) H') ?_
-    ⟨rfl, z, st, d, rfl, WrIn.refl _ _ _, ZR.refl z, hin, FWS.refl st, C, hlook, hla, rfl⟩ ?_) ?_)
+    ⟨rfl, z, st, d, rfl, WrIn.refl _ _ _, ZR.refl z, hin.imp (fun h => ⟨rfl, h⟩) id, FWS.refl st, C, hlook, hla, rfl⟩
+    ?_) ?_)
   · rintro _ _ ⟨rfl, z1, s1, d1, rfl, hd1w, zr1, in1, F1, C1, lk1, la1, sm1⟩
     have hd1 := hd1w.1
     have L1 := FWS.hlay F1 L
@@ -240,17 +244,20 @@ theorem fill_window_SH {st : DeflateState} {wo po ho : Nat} (f : InsertBatchFn)
       have h0' : z1.avail_in = 0 := by simpa using h0
       refine Sat.pure ?_
       simp only [↓reduceIte]
-      exact Sat.pure ⟨fun h => absurd h (by decide), fun _ => ⟨z1, s2, d2, rfl, hd2u, zr1, Or.inl h0',
+      exact Sat.pure ⟨fun h => absurd h (by decide), fun _ => ⟨z1, s2, d2, rfl, hd2u, zr1, in1,
         F1.trans F2, C2, lk2, Or.inr h0', by rw [la2]; exact sm1⟩⟩
     · rename_i h0
       have h0' : z1.avail_in ≠ 0 := by simpa using h0
-      have in1' : InSrc H b z1 := by rcases in1 with h | h; exact absurd h h0'; exact h
+      have in1' : InSrc H b z1 := by
+        rcases in1 with ⟨rfl, h⟩ | h
+        · exact absurd h h0'
+        · exact h
       have L2 := FWS.hlay F2 L1
       rw [← hd2w.1] at L2
       have hsz2 := FWS.sizes (F1.trans F2)
       refine Sat.bind (Sat.mono (read_SH (z := z1) level f (by rw [ZR.state zr1]; exact hzb) L2
         (by rw [hsz2.1, hsz2.2]; exact hws) (by rw [hsz2.1]; exact hwo) (by rw [hsz2.2]; exact hw2) C2 lt2 (by rw [la2]; exact la1) h0'
-        in1' hc) ?_)
+        in1' (fun e => hc (by rw [← FWS.wrap (F1.trans F2)]; exact e))) ?_)
       rintro _ _ ⟨z3, s3, d3, rfl, hd3w, zr3, in3, ⟨F3, la3, ss3, fe3, C3, lk3⟩, sm3⟩
       have hd3u := wr_tr hd2u hd3w
       rw [la2] at sm3

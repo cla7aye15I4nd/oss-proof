@@ -57,7 +57,7 @@ theorem dstateOf_SH (hzb : z.state = some b) :
 
 theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array UInt8}
     (hni : z.next_in = .ref r os) (hr : r ≠ .heap b) (hg : Space.get H r = some src)
-    (hin : os + z.avail_in.toNat ≤ src.size) (hc : H.crcTable = ZlibNg.Crc32Tbl.crc_table)
+    (hin : os + z.avail_in.toNat ≤ src.size) (hc : st.wrap = 2 → H.crcTable = ZlibNg.Crc32Tbl.crc_table)
     {off : Nat} (size : UInt32) (hbuf : off + size.toNat ≤ d.size) :
     Sat (SH H i z b st d) (ZlibNg.DeflateP.read_buf (some i) (.ref (.heap b) off) size)
       (fun n H' => n.toNat ≤ size.toNat ∧ n.toNat ≤ z.avail_in.toNat ∧ (n = 0 → H' = SH H i z b st d ∧ (z.avail_in = 0 ∨ size = 0)) ∧
@@ -120,9 +120,11 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
     exact Sat.pure ⟨hl1, hl2, fun h => absurd h hlen0, d', a, rfl, hd'⟩
   clear_value jp
   split
-  · refine Sat.bind (Sat.of_eq ldStream_SH ?_)
+  · rename_i hw2
+    have hc' := hc (by simpa using hw2)
+    refine Sat.bind (Sat.of_eq ldStream_SH ?_)
     rw [hni]
-    obtain ⟨v, e, -⟩ := ZlibNgF.Proof.Crc32.crc32_braid_ok (show (SH H i z b st d).crcTable = _ from hc) hg'
+    obtain ⟨v, e, -⟩ := ZlibNgF.Proof.Crc32.crc32_braid_ok (show (SH H i z b st d).crcTable = _ from hc') hg'
       z.adler.toUInt32 os len.toUInt64 hl64
     refine Sat.bind ?_
     refine ⟨v, SH H i z b st (copyFold src off os (List.range' 0 len.toNat) d), ?_, ?_⟩
