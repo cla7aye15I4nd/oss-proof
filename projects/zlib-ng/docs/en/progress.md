@@ -15,7 +15,7 @@ Overall library status: **not done**.
 | `compressBound`: safety and exact value | Public C API | done |
 | Streaming `deflate*` safety | Public C API | not done |
 | `inflateInit_`, `inflateInit2_`, `inflateUndermine`: safety | Public C API | done |
-| Streaming `inflate*` safety (the other functions) | Public C API | not done |
+| `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`, `inflatePrime`, `inflateSetDictionary`, `inflateGetDictionary`, `inflateGetHeader`, `inflateSync`, `inflateSyncPoint`, `inflateCopy`, `inflateValidate`, `inflateMark`, `inflateCodesUsed`: safety | Public C API | done |
 | `inflateBack*` safety | Public C API | not done |
 | `compress`, `compress2` safety | Public C API | not done |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` safety | Public C API | not done |
