@@ -10,6 +10,7 @@ import ZlibNgF.ZlibNg.«uncompr.c»
 import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.reach»
+import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Inflate
 import ZlibNgF.Spec.Safety.Infback
