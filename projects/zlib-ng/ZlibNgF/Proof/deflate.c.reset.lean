@@ -98,7 +98,14 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       bits := q4
       look := q5
       strategy := q6
-      fns := q7 }
+      fns := q7
+      symv := by
+        obtain ⟨d0, _, _, _, pbo0, hd0, -, -, -, -, -, -, -, -, hs, -⟩ := q2
+        exact ⟨d0, _, hd0, hs, fun j hj => by simp [dview, lmS, trS, rkS] at hj⟩
+      psym := fun hn => absurd (by simp [dview, lmS, trS, rkS]) hn
+      hdr := fun _ _ => by simp [dview, lmS, trS, rkS]
+      bstart := by simp [dview, lmS, trS, rkS]
+      ins := by simp [dview, lmS, trS, rkS] }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 
@@ -145,7 +152,15 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       bits := ⟨by simp [dview, trS, rkS], by simp [dview, trS, rkS]⟩
       look := c.look
       strategy := c.strategy
-      fns := c.fns }
+      fns := c.fns
+      symv := by
+        obtain ⟨d0, _, _, _, pbo0, hd0, -, -, -, -, -, -, -, -, hs, -⟩ := c.lay
+        obtain rfl : d0 = d := Option.some.inj (hd0.symm.trans hd)
+        exact ⟨d0, _, by simp [SH], hs, fun j hj => by simp [dview, trS, rkS] at hj⟩
+      psym := fun hn => absurd (by simp [dview, trS, rkS]) hn
+      hdr := fun _ _ => by simp [dview, trS, rkS]
+      bstart := c.bstart
+      ins := c.ins }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 

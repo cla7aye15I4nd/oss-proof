@@ -769,7 +769,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
       · exact hw
@@ -786,6 +786,12 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · exact q5
       · exact q6
       · exact q7
+      · obtain ⟨d0, _, _, _, pbo0, hd0, -, -, -, -, -, -, -, -, hs, -⟩ := q2
+        exact ⟨d0, _, hd0, hs, fun j hj => by simp [DeflateInv.dview, lmS, trS, rkS] at hj⟩
+      · exact fun hn => absurd (by simp [DeflateInv.dview, lmS, trS, rkS]) hn
+      · exact fun _ _ => by simp [DeflateInv.dview, lmS, trS, rkS]
+      · simp [DeflateInv.dview, lmS, trS, rkS]
+      · simp [DeflateInv.dview, lmS, trS, rkS]
 
 /-- The `windowBits` decoding and the tail, on a stream whose allocator fields are the defaults. -/
 theorem decode_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)

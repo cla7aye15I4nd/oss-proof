@@ -16,7 +16,9 @@ later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the bl
 `lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf`
 in that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within
 `pending_buf` (from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; fewer than 8 bits in `bi_buf`; `strstart + lookahead`
-within the window; a valid `strategy`; both function pointers of `lm_set_level` set.
+within the window; a valid `strategy`; both function pointers of `lm_set_level` set; valid distances in the
+tallied symbols, the pending bytes before `sym_buf` while there are symbols, no symbols in the header states;
+`block_start` and `insert` at or before `strstart`.
 -/
 
 set_option autoImplicit false
@@ -55,13 +57,15 @@ structure DView where
   strategy : Int32
   longest_match : Ival LongestMatchFn
   insert_batch : Ival InsertBatchFn
+  block_start : Int32
+  insert : UInt32
 
 /-- The constrained fields of `st`. -/
 def dview (st : DeflateState) : DView :=
   ⟨st.strm, st.alloc_bufs, st.status, st.wrap, st.gzhead, st.w_size, st.pending_buf, st.head, st.level,
     st.dyn_ltree.size, st.dyn_dtree.size, st.bl_tree.size, st.window, st.prev, st.window_size, st.lit_bufsize,
     st.pending_buf_size, st.sym_buf, st.sym_end, st.sym_next, st.pending, st.pending_out, st.bi_valid, st.strstart,
-    st.lookahead, st.strategy, st.longest_match, st.insert_batch⟩
+    st.lookahead, st.strategy, st.longest_match, st.insert_batch, st.block_start, st.insert⟩
 
 /-- The clauses on the stream record `z`, the constrained state fields `v` and the allocation record `al` of
 block `b`. -/
@@ -117,11 +121,24 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   strategy : 0 ≤ v.strategy ∧ v.strategy ≤ 4
   /-- `lm_set_level` has set both function pointers -/
   fns : (∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)
+  /-- the symbols in `sym_buf` are those that `zng_tr_tally_*` write: a distance (the first two bytes, little
+  endian) of at most 32768 (`compress_block` indexes `zng_dist_code` with `d_code(dist - 1)`) -/
+  symv : ∃ d sbo, h.bytes b = some d ∧ v.sym_buf = .val (.ref (.heap b) sbo) ∧
+    ∀ j, 3 * j < v.sym_next.toNat → d[sbo + 3 * j]!.toNat + 256 * d[sbo + 3 * j + 1]!.toNat ≤ 32768
+  /-- while symbols wait in `sym_buf`, the pending bytes end before it -/
+  psym : v.sym_next ≠ 0 → ∃ pbo poo, v.pending_buf = .val (.ref (.heap b) pbo) ∧
+    v.pending_out = .val (.ref (.heap b) poo) ∧ poo - pbo + v.pending.toNat ≤ v.lit_bufsize.toNat + 8
+  /-- in the header states (before the first block), no symbol is tallied -/
+  hdr : v.status ≠ BUSY_STATE → v.status ≠ FINISH_STATE → v.sym_next = 0
+  /-- `block_start` lies at or before `strstart` -/
+  bstart : v.block_start.toInt ≤ v.strstart.toNat
+  /-- `insert` is at most `strstart` -/
+  ins : v.insert ≤ v.strstart
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
     (hb : h'.bytes b = h.bytes b) (c : DCore h s z b v al) : DCore h' s z b v al :=
-  { c with head := by rw [hb]; exact c.head, lay := by rw [hb]; exact c.lay }
+  { c with head := by rw [hb]; exact c.head, lay := by rw [hb]; exact c.lay, symv := by rw [hb]; exact c.symv }
 
 /-- The structural invariant of the deflate stream `s` in `h`. -/
 def DInv (h : Heap) (s : StreamPtr) : Prop :=
