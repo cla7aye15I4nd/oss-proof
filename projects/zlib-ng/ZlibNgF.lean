@@ -1,6 +1,7 @@
 import ZlibNgF.Proof.«public-runtime-ub»
 import ZlibNgF.Proof.«public-zutil»
 import ZlibNgF.Proof.«adler32_c.c.kernel»
+import ZlibNgF.Proof.«adler32_c.c.safety»
 import ZlibNgF.Proof.«public-adler32»
 import ZlibNgF.Proof.«public-crc32»
 import ZlibNgF.Proof.«public-compress-bound»
@@ -11,6 +12,10 @@ import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«inflate.c.reset»
 import ZlibNgF.Proof.«inflate.c.alloc»
 import ZlibNgF.Proof.«public-inflate-init»
+import ZlibNgF.Proof.«inflate.c.dict»
+import ZlibNgF.Proof.«inflate.c.window»
+import ZlibNgF.Proof.«inflate.c.sync»
+import ZlibNgF.Proof.«inflate.c.copy»
 import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Math.BitReverse
 import ZlibNgF.Math.InftreesCount
@@ -26,3 +31,9 @@ import ZlibNgF.Proof.«inftrees.c.loop»
 import ZlibNgF.Proof.«inftrees.c.pre»
 import ZlibNgF.Proof.«inftrees.c.safety»
 import ZlibNgF.Proof.«inftrees.c.table»
+import ZlibNgF.Proof.«inftrees.c.facts»
+import ZlibNgF.Proof.«inflate.c.facts»
+import ZlibNgF.Proof.«inflate.c.loop»
+import ZlibNgF.Proof.«inflate.c.steps»
+import ZlibNgF.Proof.«inflate.c.header-modes»
+import ZlibNgF.Proof.«inflate.c.gzhead-modes»

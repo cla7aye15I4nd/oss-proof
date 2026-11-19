@@ -1,5 +1,7 @@
 import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«public-inflate-init»
+import ZlibNgF.Proof.«inflate.c.copy»
+import ZlibNgF.Proof.«adler32_c.c.safety»
 
 /-!
 # Reachable inflate streams have the structural invariant (`ZlibNgF`)
@@ -14,23 +16,15 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.InflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNgF.Proof.InflateInv
 
-/-- The preservation lemmas still to prove: `inflate`, `inflateSync`, `inflateSetDictionary`, `inflateGetDictionary`,
-and `inflateCopy` (on its source, and the invariant of a successful copy's destination). -/
+/-- The obligation still to prove: preservation of the invariant by `inflate`. -/
 structure Pending : Prop where
   inflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), Inv h s → StreamIO h s →
     C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h') → Inv h' s
-  sync : ∀ (h h' : Heap) (s : StreamPtr) (r : Int32), Inv h s → StreamIO h s → SyncInput h s →
-    C.run (inflateSync s) h = .ok (r, h') → Inv h' s
-  setDict : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (n : UInt32) (r : Int32), Inv h s →
-    NullOrRead h d n.toNat → (∀ b, StateBlock h s b → NotInBlock b d) →
-    C.run (inflateSetDictionary s d n) h = .ok (r, h') → Inv h' s
-  getDict : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (hasLen : Bool) (r : Int32 × Option UInt32), Inv h s →
-    NullOrWrite h d 32768 → (∀ b, StateBlock h s b → NotInBlock b d) →
-    C.run (inflateGetDictionary s d hasLen) h = .ok (r, h') → Inv h' s
-  copySrc : ∀ (h h' : Heap) (s dst : StreamPtr) (r : Int32), Inv h s → InitReady h dst → dst ≠ s →
-    C.run (inflateCopy dst s) h = .ok (r, h') → Inv h' s
-  copyDst : ∀ (h h' : Heap) (src dst : StreamPtr), Inv h src → InitReady h dst → dst ≠ src →
-    C.run (inflateCopy dst src) h = .ok (Z_OK, h') → Inv h' dst
+
+/-- `adler32_c` on a readable buffer does not fault and changes nothing (`Proof/adler32_c.c.safety.lean`). -/
+theorem adlerSafe : InflateWindow.AdlerSafe := fun _ a _ o _ n hg hle =>
+  let ⟨v, e, _⟩ := Adler32Safe.adler32_c_safe hg a o n hle
+  ⟨v, e⟩
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -80,14 +74,17 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
     ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
     ⟨w, r, e⟩ | ⟨c, r, e⟩ | ⟨v, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
   · exact P.inflate h h' s flush r hv hio e
-  · exact P.sync h h' s r hv hio hsi e
+  · obtain ⟨_, _, e0, hi, _⟩ := InflateSync.sync_inv hv hio hsi
+    rw [det e e0]; exact hi
   · obtain ⟨_, e0⟩ := InflateControl.inflateSyncPoint_inv hv
     rw [det e e0]; exact hv
-  · exact P.setDict h h' s d n r hv hd hnb e
-  · exact P.getDict h h' s d hasLen r hv hd hnb e
+  · obtain ⟨_, _, e0, hi, _⟩ := InflateWindow.setDict_inv adlerSafe hv hd hnb
+    rw [det e e0]; exact hi
+  · obtain ⟨_, _, e0, hi, _⟩ := InflateDict.getDict_inv hasLen hv hd hnb
+    rw [det e e0]; exact hi
   · rcases hok with rfl | ⟨k, g, rfl, hg, _⟩
     · rw [getHeader_none hv e]; exact hv
-    · obtain ⟨_, _, e0, hi⟩ := InflateControl.inflateGetHeader_inv hv k g hg
+    · obtain ⟨_, _, e0, hi, _⟩ := InflateControl.inflateGetHeader_inv hv k g hg
       rw [det e e0]; exact hi
   · obtain ⟨_, _, e0, hi, _⟩ := InflateReset.prime_inv hv bits value
     rw [det e e0]; exact hi
@@ -106,7 +103,7 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
     rw [det e e0]; exact hv
   · obtain ⟨_, e0⟩ := InflateControl.inflateCodesUsed_inv hv
     rw [det e e0]; exact hv
-  · exact P.copySrc h h' s dst r hv hdst hne e
+  · exact (InflateCopy.copy_inv hv hdst hne e).1
 
 /-- A successful `inflateInit2` on a stream ready for initialisation leaves the invariant. -/
 theorem init2_inv' {h h' : Heap} {s : StreamPtr} {wb : Int32} (hi : InitReady h s)
@@ -130,7 +127,7 @@ theorem reach_inv (P : Pending) {h : Heap} {s : StreamPtr} (hr : InflateReachabl
     · simp only [C.run, inflateInit2_, bind_app, hc, Bool.false_eq_true, ↓reduceIte] at e
       exact init2_inv' hi e
     · simp [C.run, inflateInit2_, bind_app, hc, Z_VERSION_ERROR, Z_OK] at e
-  | copy h h' src dst _ hdst hne e ih => exact P.copyDst h h' src dst ih hdst hne e
+  | copy h h' src dst _ hdst hne e ih => exact (InflateCopy.copy_inv ih hdst hne e).2 rfl
   | step h h' s _ hs ih => exact step_inv P ih hs
   | caller h h' s _ hc ih => exact caller_inv ih hc
 
@@ -202,5 +199,98 @@ theorem inflateReset2_safety_of (P : Pending) : Goal.inflateReset2_safety := by
     rcases InflateReset.reset2_run L w with e | ⟨_, _, _, e⟩
     · exact ⟨_, _, e, InflateInit.frame_refl h _ _ _ _⟩
     · exact ⟨_, _, e, frame_setZS L.hz L.hb _ _⟩
+
+theorem inflateGetDictionary_safety_of (P : Pending) : Goal.inflateGetDictionary_safety := by
+  intro h s d hasLen _ hh hd hnb
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateDict.getDict_noState (Or.inl hn) d hasLen, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateDict.getDict_noState (Or.inr hn) d hasLen, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, f⟩ := InflateDict.getDict_inv hasLen (reach_inv P hr) hd hnb
+    exact ⟨r, h', e, f⟩
+
+theorem inflateSetDictionary_safety_of (P : Pending) : Goal.inflateSetDictionary_safety := by
+  intro h s d n _ hh hd hnb
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateWindow.setDict_noState (Or.inl hn) d n, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateWindow.setDict_noState (Or.inr hn) d n, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, f⟩ := InflateWindow.setDict_inv adlerSafe (reach_inv P hr) hd hnb
+    exact ⟨r, h', e, f⟩
+
+theorem inflateSync_safety_of (P : Pending) : Goal.inflateSync_safety := by
+  intro h s _ hh hio
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateSync.sync_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateSync.sync_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, f⟩ := InflateSync.sync_inv (reach_inv P hr) (hio hr).1 (hio hr).2
+    exact ⟨r, h', e, f⟩
+
+theorem inflateCopy_safety_of (P : Pending) : Goal.inflateCopy_safety := by
+  intro h dst src _ hfr hh hdst hne
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateCopy.copy_noState (Or.inl hn) dst, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateCopy.copy_noState (Or.inr hn) dst, InflateInit.frame_refl h _ _ _ _⟩
+  · exact InflateCopy.copy_safe (reach_inv P hr) hfr hdst hne
+
+/-- A frame from agreement outside the named streams, blocks and headers. -/
+theorem frame_of {h h' : Heap} {S B G : List Nat} (hs : ∀ i, i ∉ S → h'.streams i = h.streams i)
+    (hg : ∀ k, k ∉ G → h'.gzheaders k = h.gzheaders k)
+    (hb : ∀ b, b ∉ B → h'.istates b = h.istates b ∧ h'.iallocs b = h.iallocs b ∧ h'.bytes b = h.bytes b)
+    (hc : h'.consts = h.consts) (hcrc : h'.crcTable = h.crcTable) (hx : h'.x2nTable = h.x2nTable)
+    (hbase : h'.baseAddr = h.baseAddr) (hn : h.nextBlk ≤ h'.nextBlk) : Frame h h' S B G [] :=
+  ⟨hs, hg, fun b _ hb' => ⟨(hb b hb').1, (hb b hb').2.1⟩, fun b _ hb' d hd => ⟨d, by rw [(hb b hb').2.2]; exact hd,
+    rfl, fun _ _ _ => rfl⟩, fun b _ hb' hn' => by rw [(hb b hb').2.2]; exact hn', hc, hcrc, hx, hbase, hn⟩
+
+theorem inflatePrime_safety_of (P : Pending) : Goal.inflatePrime_safety := by
+  intro h s bits value _ hh
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflatePrime_noState (Or.inl hn) bits value, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflatePrime_noState (Or.inr hn) bits value, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, hor⟩ := InflateReset.prime_inv (reach_inv P hr) bits value
+    refine ⟨r, h', e, ?_⟩
+    rcases hor with he | ⟨b, st', ⟨z, ⟨i, rfl, hz⟩, hzb⟩, rfl⟩
+    · rw [he]; exact InflateInit.frame_refl h _ _ _ _
+    · rw [stateIds_of hz hzb]
+      exact frame_of (fun _ _ => rfl) (fun _ _ => rfl)
+        (fun c hc => ⟨upd_ne _ _ _ _ (by simpa using hc), rfl, rfl⟩) rfl rfl rfl rfl (Nat.le_refl _)
+
+theorem inflateValidate_safety_of (P : Pending) : Goal.inflateValidate_safety := by
+  intro h s check _ hh
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflateValidate_noState (Or.inl hn) check, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflateValidate_noState (Or.inr hn) check, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨h', e, _, b, ⟨z, ⟨i, rfl, hz⟩, hzb⟩, he⟩ := InflateControl.inflateValidate_inv (reach_inv P hr) check
+    refine ⟨_, h', e, ?_⟩
+    rw [stateIds_of hz hzb]
+    have hi : h'.istates = upd h.istates b (h'.istates b) := by
+      have := congrArg Heap.istates he; exact this
+    refine frame_of (fun _ _ => by rw [he]) (fun _ _ => by rw [he]) (fun c hc => ⟨?_, by rw [he], by rw [he]⟩)
+      (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he]; exact Nat.le_refl _)
+    rw [hi]; exact upd_ne _ _ _ _ (by simpa using hc)
+
+theorem inflateGetHeader_safety_of (P : Pending) : Goal.inflateGetHeader_safety := by
+  intro h s hp _ hh hpn hok
+  rcases hok with hn | ⟨k, g, rfl, hg, -⟩
+  · exact absurd hn hpn
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflateGetHeader_noState (Or.inl hn) _, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflateGetHeader_noState (Or.inr hn) _, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, hor⟩ := InflateControl.inflateGetHeader_inv (reach_inv P hr) k g hg
+    refine ⟨r, h', e, ?_⟩
+    rcases hor with he | ⟨b, st', ⟨z, ⟨i, rfl, hz⟩, hzb⟩, rfl⟩
+    · rw [he]; exact InflateInit.frame_refl h _ _ _ _
+    · rw [stateIds_of hz hzb]
+      exact frame_of (fun _ _ => rfl) (fun c hc => upd_ne _ _ _ _ (by simpa using hc))
+        (fun c hc => ⟨upd_ne _ _ _ _ (by simpa using hc), rfl, rfl⟩) rfl rfl rfl rfl (Nat.le_refl _)
+
+theorem inflateEnd_safety_of (P : Pending) : Goal.inflateEnd_safety := by
+  intro h s _ hh
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflateEnd_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflateEnd_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨i, z, b, rfl, hz, hzb, e⟩ := InflateControl.inflateEnd_inv (reach_inv P hr)
+    refine ⟨_, _, e, ?_⟩
+    rw [stateIds_of hz hzb]
+    exact frame_of (fun c hc => upd_ne _ _ _ _ (by simpa [streamIds] using hc)) (fun _ _ => rfl)
+      (fun c hc => ⟨rfl, rfl, upd_ne _ _ _ _ (by simpa using hc)⟩) rfl rfl rfl rfl (Nat.le_refl _)
 
 end ZlibNgF.Proof.InflateReach

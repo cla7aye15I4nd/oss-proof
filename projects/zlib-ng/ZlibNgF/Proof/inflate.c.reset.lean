@@ -148,8 +148,9 @@ theorem reset2_15 {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateStat
 /-- The state after `inflateResetKeep` has the invariant when the window fields are in range. -/
 theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : InflateState} {al : InflateAllocs}
     (sh : Shape h s z b (view st) al) (hza : z'.zalloc = z.zalloc) (hzf : z'.zfree = z.zfree)
-    (hw : st.wbits ≤ 15) (hr : st.reqbits ≤ 15) (hs : st.wsize = 0 ∨ st.wsize = (1 : UInt32) <<< st.wbits)
-    (hh : st.whave ≤ st.wsize) (hn : st.wnext = 0 ∨ st.wnext < st.wsize) (hnw : st.wnext ≤ st.whave) :
+    (hw : st.wbits ≤ 15) (hr : st.reqbits ≤ 15) (hs : st.wsize ≤ 32768)
+    (hh : st.whave ≤ st.wsize) (hn : st.wnext = 0 ∨ st.wnext < st.wsize) (hnw : st.wnext ≤ st.whave)
+    (hne : st.whave < st.wsize → st.wnext = st.whave) :
     Core h s z' b (view (rkS b st)) al where
   toShape := { sh with zalloc := hza.trans sh.zalloc, zfree := hzf.trans sh.zfree,
                        mode_lo := by show HEAD ≤ HEAD; decide, mode_hi := by show HEAD ≤ SYNC; decide }
@@ -159,11 +160,14 @@ theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : Inf
   whave := hh
   wnext := hn
   wnext_le := hnw
-  bits := by show (0 : UInt32) ≤ 64; decide
+  wnext_eq := hne
+  bits := by show (0 : UInt32) ≤ 39; decide
   lencode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   distcode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   next := ⟨0, rfl, Nat.zero_le _⟩
+  tables := Or.inl ⟨rfl, 0, rfl, Nat.zero_le _⟩
   head := Or.inl rfl
+  modes := InflateInv.ModeOK.quiet _ _ (Or.inl (by show HEAD < LENLENS; decide))
 
 /-- The invariant of a heap made by `setZS`. -/
 theorem inv_setZS {h : Heap} {i : Nat} {z' : ZStream} {b : Nat} {st' : InflateState} {al : InflateAllocs}
@@ -179,7 +183,7 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := InflateInv.live hv
   refine ⟨i, z, b, st, rfl, resetKeep_run L, inv_setZS L.hb L.hd hal ?_⟩
   exact core_rkS (z := z) { c.toShape with } rfl rfl c.wbits c.reqbits c.wsize c.whave c.wnext
-    c.wnext_le
+    c.wnext_le c.wnext_eq
 
 theorem reset_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
     ∃ i z b st, s = some i ∧
@@ -187,8 +191,8 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
       Inv (setZS h i (rkZ z st.wrap) b (rkS b (rS st))) s := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := InflateInv.live hv
   refine ⟨i, z, b, st, rfl, reset_run L, inv_setZS L.hb L.hd hal ?_⟩
-  exact core_rkS (z := z) (st := rS st) { c.toShape with } rfl rfl c.reqbits c.reqbits (Or.inl rfl)
-    (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _)
+  exact core_rkS (z := z) (st := rS st) { c.toShape with } rfl rfl c.reqbits c.reqbits (by show (0 : UInt32) ≤ 32768; decide)
+    (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _) (fun _ => rfl)
 
 theorem reset2_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (w : Int32) :
     C.run (inflateReset2 s w) h = .ok (Z_STREAM_ERROR, h) ∨
@@ -199,14 +203,14 @@ theorem reset2_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (w : Int32) :
   rcases reset2_run L w with e | ⟨wrap, wb, hwb, e⟩
   · exact Or.inl e
   · refine Or.inr ⟨i, z, b, st, wrap, wb, rfl, e, inv_setZS L.hb L.hd hal ?_⟩
-    exact core_rkS (z := z) (st := rS (r2S st wrap wb)) { c.toShape with } rfl rfl hwb hwb (Or.inl rfl)
-      (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _)
+    exact core_rkS (z := z) (st := rS (r2S st wrap wb)) { c.toShape with } rfl rfl hwb hwb (by show (0 : UInt32) ≤ 32768; decide)
+      (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _) (fun _ => rfl)
 
 /-! ## `inflatePrime` -/
 
 private theorem prime_bits {sb : UInt32} {bits : Int32}
     (hc : ¬ (bits > 16 || sb.toUInt64 + bits.toUInt32.toUInt64 > 32) = true) :
-    sb < 64 ∧ sb + bits.toUInt32 ≤ 64 := by
+    sb < 64 ∧ sb + bits.toUInt32 ≤ 32 := by
   simp only [Bool.or_eq_true, decide_eq_true_eq, not_or, gt_iff_lt, UInt64.not_lt] at hc
   obtain ⟨h16, h32⟩ := hc
   rw [UInt64.le_iff_toNat_le, UInt64.toNat_add] at h32
@@ -217,7 +221,7 @@ private theorem prime_bits {sb : UInt32} {bits : Int32}
   have hb2 := UInt32.toNat_lt bits.toUInt32
   constructor
   · rw [UInt32.lt_iff_toNat_lt]; show sb.toNat < 64; omega
-  · rw [UInt32.le_iff_toNat_le, UInt32.toNat_add]; show _ ≤ 64; omega
+  · rw [UInt32.le_iff_toNat_le, UInt32.toNat_add]; show _ ≤ 32; omega
 
 /-- `inflatePrime` on an invariant stream: no fault; the heap is unchanged or only the state record changes; the
 invariant holds after. -/
@@ -230,7 +234,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (bits value : Int32)
   · exact ⟨Z_OK, h, by simp [C.run, inflatePrime, bind_app, L.check, h0], hv, Or.inl rfl⟩
   by_cases hneg : bits < 0
   · obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with hold := 0, bits := 0 }) hsb L.istate
-      (fun _ _ c => { c with bits := by show (0 : UInt32) ≤ 64; decide })
+      (fun _ _ c => { c with bits := by show (0 : UInt32) ≤ 39; decide })
     refine ⟨Z_OK, _, ?_, hi, Or.inr ⟨b, _, hsb, rfl⟩⟩
     simp only [C.run] at hr
     simp [C.run, inflatePrime, bind_app, L.check, h0, hneg, L.stateOf, hr]
@@ -244,7 +248,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (bits value : Int32)
     obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with
         hold := s.hold + (((value.toInt64 &&& (((1 : Int64) <<< bits.toInt64) - 1)).toInt32).toInt64.toUInt64 <<<
           st.bits.toUInt64), bits := s.bits + bits.toUInt32 })
-      hsb L.istate (fun _ _ c => { c with bits := hle })
+      hsb L.istate (fun _ _ c => { c with bits := UInt32.le_trans hle (by decide) })
     refine ⟨Z_OK, _, ?_, hi, Or.inr ⟨b, _, hsb, rfl⟩⟩
     simp only [C.run] at hr
     simp only [C.run, inflatePrime, bind_app, L.check, L.stateOf, ldState_app L.istate, Bool.false_eq_true,

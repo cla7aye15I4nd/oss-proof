@@ -1,4 +1,4 @@
-import ZlibNgF.Spec.Safety.Inflate
+import ZlibNgF.Proof.«inflate.c.tables»
 
 /-!
 # Structural invariant of an inflate stream (`ZlibNgF`)
@@ -12,22 +12,26 @@ this file, so that a clause can be added or changed without touching the per-fun
 1. Per public function, "invariant in → no fault, exact result heap, invariant out" (`*_inv` lemmas), and the
    `Z_NULL` / no-state case (`*_noState`). Done: `inflateMark`, `inflateSyncPoint`, `inflateCodesUsed`,
    `inflateValidate`, `inflateGetHeader`, `inflateEnd`, `inflateResetKeep`, `inflateReset`, `inflateReset2`,
-   `inflatePrime` (`Proof/public-inflate-control.lean`, `Proof/inflate.c.reset.lean`); `inflateInit2` establishes the
-   invariant on success (`InflateAlloc.init2_inv`, every heap).
+   `inflatePrime` (`Proof/public-inflate-control.lean`, `Proof/inflate.c.reset.lean`), `inflateGetDictionary`
+   (`Proof/inflate.c.dict.lean`), `updatewindow` without a check value and `inflateSetDictionary`
+   (`Proof/inflate.c.window.lean`, with the safety of `adler32_c` from `Proof/adler32_c.c.safety.lean`), `inflateSync` (`Proof/inflate.c.sync.lean`),
+   `inflateCopy` (source kept, destination established on `Z_OK`, `Proof/inflate.c.copy.lean`); `inflateInit2`
+   establishes the invariant on success (`InflateAlloc.init2_inv`, every heap).
 2. `InflateReach.reach_inv (P : Pending) : InflateReachable h s → Inv h s` (`Proof/inflate.c.reach.lean`): the
    induction is written and every constructor case is proved (init, init2, caller step, the steps of 1) except the
-   fields of `Pending`: preservation by `inflate`, `inflateSync`, `inflateSetDictionary`, `inflateGetDictionary`, and
-   `inflateCopy` (source kept; destination established on `Z_OK`). Proving `Pending` closes the induction.
+   single field of `Pending`: preservation by `inflate`. Proving it closes the induction.
 3. Frames: each `*_inv` lemma gives the result heap exactly (`setZS h i z b st` for the resets; `{ h with istates :=
    upd h.istates b _ }` for `inflatePrime`, `inflateValidate`; plus `gzheaders k` for `inflateGetHeader`; bytes and
    `savedPtrs` of `b` and stream `i` for `inflateEnd`), so `Frame h h' (streamIds s) (stateIds h s) ...` is a
    pointwise `upd_ne` argument; `InflateAlloc.Fr.frame` does it for the allocating calls.
 4. Each registered goal `Goal.f_safety` then follows: `InflateHandle` splits into `Z_NULL` / no state (`*_noState`)
-   and reachable (`reach_inv` → `*_inv` → frame). Order of the remaining work: `inflateGetDictionary`,
-   `inflateSetDictionary` + `updatewindow`, `inflateSync`, `inflateCopy`, `zng_inflate_table`, the chunk copies,
-   `inflate_fast_c` / `inflate_fast_safe_c`, then `inflate` state by state; `Core` gains the clauses these need
-   (`hold < 2 ^ bits`, table contents, mode-conditional bounds on `ncode`/`nlen`/`ndist`/`have`) behind the interface
-   lemmas of this file.
+   and reachable (`reach_inv` → `*_inv` → frame); every function but `inflate` has its `*_safety_of`.
+5. `inflate`: `Core` carries the mode-conditional clauses `ModeOK` (counts of a dynamic header, code lengths read so
+   far, the decoding tables `TabAt` of `Proof/inflate.c.tables.lean`, extra bits, match distance) and `bits ≤ 39`.
+   The callees proved in other files enter as the hypothesis structures `TableFacts` (`zng_inflate_table`),
+   `FastFacts` (`inflate_fast_c` / `inflate_fast_safe_c`) and `CopyFacts` (`chunkmemset_safe_c`) of
+   `Proof/inflate.c.facts.lean`; the loop of `inflate` is proved mode by mode from them, and `Pending` follows.
+   `hold < 2 ^ bits` is not a clause: no mode of `inflate` needs it for safety.
 -/
 
 set_option autoImplicit false
@@ -60,11 +64,104 @@ structure View where
   distcode : Ival CodePtr
   next : Ival CodePtr
   head : Ival HeaderPtr
+  lenbits : UInt32
+  distbits : UInt32
+  codes : Array Code
+  lens : Array UInt16
+  ncode : UInt32
+  nlen : UInt32
+  ndist : UInt32
+  «have» : UInt32
+  extra : UInt32
+  offset : UInt32
 
 /-- The constrained fields of `st`. -/
 def view (st : InflateState) : View :=
   ⟨st.strm, st.alloc_bufs, st.window, st.wbufsize, st.mode, st.wbits, st.reqbits, st.wsize, st.whave, st.wnext,
-    st.bits, st.codes.size, st.lens.size, st.work.size, st.lencode, st.distcode, st.next, st.head⟩
+    st.bits, st.codes.size, st.lens.size, st.work.size, st.lencode, st.distcode, st.next, st.head, st.lenbits,
+    st.distbits, st.codes, st.lens, st.ncode, st.nlen, st.ndist, st.«have», st.extra, st.offset⟩
+
+/-- The fields that the mode-conditional clauses read (`ModeOK`), so that a store into another field keeps them by
+definition. -/
+structure MView where
+  mode : UInt32
+  lencode : Ival CodePtr
+  distcode : Ival CodePtr
+  lenbits : UInt32
+  distbits : UInt32
+  codes : Array Code
+  lens : Array UInt16
+  ncode : UInt32
+  nlen : UInt32
+  ndist : UInt32
+  «have» : UInt32
+  extra : UInt32
+  offset : UInt32
+
+def View.m (v : View) : MView :=
+  ⟨v.mode, v.lencode, v.distcode, v.lenbits, v.distbits, v.codes, v.lens, v.ncode, v.nlen, v.ndist, v.«have»,
+    v.extra, v.offset⟩
+
+/-- The modes that decode with the literal/length and distance tables (`LEN_` to `LIT`). -/
+def DecodeMode (m : UInt32) : Prop :=
+  m = LEN_ ∨ m = LEN ∨ m = LENEXT ∨ m = DIST ∨ m = DISTEXT ∨ m = MATCH ∨ m = LIT
+
+open ZlibNgF.Proof.InflateTab (TabAt) in
+/-- What the modes from `LENLENS` to `LIT` need of the state when the loop of `inflate` enters them: the counts of
+a dynamic block header (`LENLENS`, `CODELENS`), the code lengths read so far (in range for `zng_inflate_table`), the
+decoding tables (`TabAt`: entries read in bounds, bounded bit counts), the number of extra bits of a length or
+distance, and a nonzero match distance. Each clause is conditional on the mode, so a store that sets another mode
+keeps it. -/
+structure ModeOK (b : Nat) (v : MView) : Prop where
+  lenlens : v.mode = LENLENS → v.ncode ≤ 19 ∧ v.nlen ≤ 286 ∧ v.ndist ≤ 30 ∧
+    ∀ j, j < v.«have».toNat → v.lens[(order[j]!).toNat]! ≤ 7
+  codelens : v.mode = CODELENS → v.nlen ≤ 286 ∧ v.ndist ≤ 30 ∧ (∀ j, j < v.«have».toNat → v.lens[j]! ≤ 15) ∧
+    TabAt b v.codes v.lencode v.lenbits 25 false
+  decode : DecodeMode v.mode → TabAt b v.codes v.lencode v.lenbits 28 false ∧
+    TabAt b v.codes v.distcode v.distbits 28 true
+  extra : v.mode = LENEXT ∨ v.mode = DISTEXT → v.extra ≤ 31
+  offset : v.mode = DISTEXT ∨ v.mode = MATCH → 1 ≤ v.offset.toNat ∧ (v.mode = DISTEXT → v.offset.toNat < 65536)
+
+/-- A mode outside `LENLENS .. LIT` asks nothing. -/
+theorem ModeOK.quiet (b : Nat) (v : MView) (hm : v.mode < LENLENS ∨ LIT < v.mode) : ModeOK b v := by
+  have h1 : ∀ m : UInt32, (m < LENLENS ∨ LIT < m) → ¬ (LENLENS ≤ m ∧ m ≤ LIT) := by
+    intro m h ⟨a, c⟩
+    rcases h with h | h
+    · exact absurd a (UInt32.not_le.mpr h)
+    · exact absurd c (UInt32.not_le.mpr h)
+  have h2 := h1 v.mode hm
+  refine ⟨fun e => absurd ⟨?_, ?_⟩ h2, fun e => absurd ⟨?_, ?_⟩ h2, fun e => absurd ⟨?_, ?_⟩ h2,
+    fun e => absurd ⟨?_, ?_⟩ h2, fun e => absurd ⟨?_, ?_⟩ h2⟩ <;>
+  first
+    | (rw [e]; decide)
+    | (rcases e with e | e | e | e | e | e | e <;> rw [e] <;> decide)
+    | (rcases e with e | e <;> rw [e] <;> decide)
+
+open ZlibNgF.Proof.InflateTab (TabAt) in
+/-- `inflateCopy` moves the table pointers from the source's `codes` to the copy's. -/
+theorem ModeOK.rebase {b b' o2 : Nat} {v : MView} (hm : ModeOK b v) (hl : v.lencode = .val (.ref (.codes b) 0))
+    (hd : v.distcode = .val (.ref (.codes b) o2)) :
+    ModeOK b' { v with lencode := .val (.ref (.codes b') 0), distcode := .val (.ref (.codes b') o2) } := by
+  obtain ⟨h1, h2, h3, h4, h5⟩ := hm
+  refine ⟨h1, fun e => ?_, fun e => ?_, h4, h5⟩
+  · obtain ⟨a1, a2, a3, a4⟩ := h2 e
+    rw [hl] at a4
+    exact ⟨a1, a2, a3, a4.rebase⟩
+  · obtain ⟨a1, a2⟩ := h3 e
+    rw [hl] at a1; rw [hd] at a2
+    exact ⟨a1.rebase, a2.rebase⟩
+
+/-- With the fixed tables, a state's mode clauses hold for every block. -/
+theorem ModeOK.fixed {b b' : Nat} {v : MView} (hm : ModeOK b v) (hl : v.lencode = .val (.ref .lenfix 0))
+    (hd : v.distcode = .val (.ref .distfix 0)) : ModeOK b' v := by
+  obtain ⟨h1, h2, h3, h4, h5⟩ := hm
+  have nl : ∀ c o, v.lencode ≠ .val (.ref (.codes c) o) := by intro c o e; rw [hl] at e; cases e
+  have nd : ∀ c o, v.distcode ≠ .val (.ref (.codes c) o) := by intro c o e; rw [hd] at e; cases e
+  refine ⟨h1, fun e => ?_, fun e => ?_, h4, h5⟩
+  · obtain ⟨a1, a2, a3, a4⟩ := h2 e
+    exact ⟨a1, a2, a3, a4.fixed nl⟩
+  · obtain ⟨a1, a2⟩ := h3 e
+    exact ⟨a1.fixed nl, a2.fixed nd⟩
 
 /-- The clauses that `inflateInit2` establishes before it calls `inflateReset2`, and that no reset changes: the
 stream record `z`, the allocation record `al` of block `b`, the carve layout, the mode range. -/
@@ -91,17 +188,29 @@ structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (a
     extends Shape h s z b st al where
   wbits : st.wbits ≤ 15
   reqbits : st.reqbits ≤ 15
-  wsize : st.wsize = 0 ∨ st.wsize = (1 : UInt32) <<< st.wbits
+  /-- the window size is at most 32768 (`updatewindow` sets it to `1 << wbits`; the zlib header may change `wbits`
+  after) -/
+  wsize : st.wsize ≤ 32768
   whave : st.whave ≤ st.wsize
   wnext : st.wnext = 0 ∨ st.wnext < st.wsize
   /-- the window is filled from 0: until it is full, `wnext = whave` (`inflateGetDictionary` copies `whave - wnext`
   bytes) -/
   wnext_le : st.wnext ≤ st.whave
-  bits : st.bits ≤ 64
+  /-- until the window is full, the next write position is the end of the data (`updatewindow` adds `dist` to both) -/
+  wnext_eq : st.whave < st.wsize → st.wnext = st.whave
+  /-- at most 39 bits are held between calls (`inflateSync` moves the whole bytes of the bit buffer, at most 32 bits,
+  into `buf[4]`). `inflatePrime` keeps 32; `inflate` can leave 39: `NEEDBITS(32)` in `CHECK` pulls a byte onto 31
+  primed bits, and a failing check leaves through `BAD` with all of them. -/
+  bits : st.bits ≤ 39
   lencode : ∃ p, st.lencode = .val p ∧ CodeTarget b p
   distcode : ∃ p, st.distcode = .val p ∧ CodeTarget b p
   next : ∃ o, st.next = .val (.ref (.codes b) o) ∧ o ≤ ENOUGH
+  /-- `lencode` is the start of `codes` (with `distcode` inside `codes`), or the fixed tables: `inflateCopy` rebases
+  `distcode` when `lencode == codes` -/
+  tables : (st.lencode = .val (.ref (.codes b) 0) ∧ ∃ o, st.distcode = .val (.ref (.codes b) o) ∧ o ≤ ENOUGH) ∨
+    (st.lencode = .val (.ref .lenfix 0) ∧ st.distcode = .val (.ref .distfix 0))
   head : st.head = .val none ∨ ∃ k g, st.head = .val (some k) ∧ h.gzheaders k = some g
+  modes : ModeOK b st.m
 
 /-- The shape clauses read the heap only through its byte blocks. -/
 theorem Shape.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
@@ -127,10 +236,7 @@ theorem shl_le (w : UInt32) (hw : w ≤ 15) : (1 : UInt32) <<< w ≤ 32768 := by
 
 /-- The window size is at most 32768 bytes. -/
 theorem Core.wsize_le {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
-    (c : Core h s z b v al) : v.wsize ≤ 32768 := by
-  rcases c.wsize with e | e
-  · rw [e]; decide
-  · rw [e]; exact shl_le _ c.wbits
+    (c : Core h s z b v al) : v.wsize ≤ 32768 := c.wsize
 
 /-- The structural invariant of the inflate stream `s` in `h`. -/
 def Inv (h : Heap) (s : StreamPtr) : Prop :=
