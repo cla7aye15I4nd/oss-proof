@@ -85,6 +85,10 @@ def localBlock (n : Nat) : M BPtr := fun h =>
   let arr := Array.ofFn (n := n) (fun i => Junk.of (h.garbage (2 ^ 41 + b) i.val))
   .ok (.ref (.heap b) 0, { h with bytes := upd h.bytes b (some arr), nextBlk := b + 1 })
 
+/-- The values of the uninitialised scalar locals of a function (ISO C17 §6.7.9p10, §6.2.6.1): the garbage oracle
+at key `2 ^ 42 + k`, one key per translated function. A translation reads local `i` as `Junk.of (g i)`. -/
+def uninitLocals (k : Nat) : M (Nat → UInt64) := fun h => .ok (h.garbage (2 ^ 42 + k), h)
+
 /-- The end of the lifetime of a local array made by `localBlock`. -/
 def dropLocal (p : BPtr) : M Unit := fun h =>
   match p with
