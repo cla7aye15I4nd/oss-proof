@@ -1,0 +1,89 @@
+import ZlibNgF
+import ZlibNgF.ResultsCheck
+
+namespace ZlibNgF.Results
+open Lean Elab Command
+
+def proved : List (Name × Name) := [
+  (``ZlibNgF.Spec.Safety.Goal.null_ptr_add_zero_ub, ``ZlibNgF.Proof.RuntimeUb.null_ptr_add_zero_ub),
+  (``ZlibNgF.Spec.Safety.Goal.dangling_ptr_add_zero_ub, ``ZlibNgF.Proof.RuntimeUb.dangling_ptr_add_zero_ub),
+  (``ZlibNgF.Spec.Safety.Goal.null_ptr_diff_null_ub, ``ZlibNgF.Proof.RuntimeUb.null_ptr_diff_null_ub),
+  (``ZlibNgF.Spec.Safety.Goal.cross_object_ptr_diff_ub, ``ZlibNgF.Proof.RuntimeUb.cross_object_ptr_diff_ub),
+  (``ZlibNgF.Spec.Safety.Goal.null_memset_zero_ub, ``ZlibNgF.Proof.RuntimeUb.null_memset_zero_ub),
+  (``ZlibNgF.Spec.Safety.Goal.zlibVersion_safety, ``ZlibNgF.Proof.Zutil.zlibVersion_safety),
+  (``ZlibNgF.Spec.Safety.Goal.zlibCompileFlags_safety, ``ZlibNgF.Proof.Zutil.zlibCompileFlags_safety),
+  (``ZlibNgF.Spec.Safety.Goal.zError_safety, ``ZlibNgF.Proof.Zutil.zError_safety),
+  (``ZlibNgF.Spec.Safety.Goal.zcalloc_zcfree_safety, ``ZlibNgF.Proof.Zutil.zcalloc_zcfree_safety),
+  (``ZlibNgF.Spec.Safety.Goal.zng_alloc_aligned_safety, ``ZlibNgF.Proof.Zutil.zng_alloc_aligned_safety),
+  (``ZlibNgF.Spec.Safety.Goal.zng_alloc_aligned_nonvacuous, ``ZlibNgF.Proof.Zutil.zng_alloc_aligned_nonvacuous),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_safety, ``ZlibNgF.Proof.Adler32.adler32_safety),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_z_safety, ``ZlibNgF.Proof.Adler32.adler32_z_safety),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous, ``ZlibNgF.Proof.Adler32.adler32_nonvacuous),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_combine_safety, ``ZlibNgF.Proof.Adler32.adler32_combine_safety),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_combine64_safety, ``ZlibNgF.Proof.Adler32.adler32_combine64_safety),
+  (``ZlibNgF.Spec.Safety.Goal.get_crc_table_safety, ``ZlibNgF.Proof.Crc32.get_crc_table_safety),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_safety, ``ZlibNgF.Proof.Crc32.crc32_safety),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_z_safety, ``ZlibNgF.Proof.Crc32.crc32_z_safety),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_nonvacuous, ``ZlibNgF.Proof.Crc32.crc32_nonvacuous),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_combine_gen_safety, ``ZlibNgF.Proof.Crc32.crc32_combine_gen_safety),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_combine_gen64_safety, ``ZlibNgF.Proof.Crc32.crc32_combine_gen64_safety),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_combine_op_safety, ``ZlibNgF.Proof.Crc32.crc32_combine_op_safety),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_combine_safety, ``ZlibNgF.Proof.Crc32.crc32_combine_safety),
+  (``ZlibNgF.Spec.Safety.Goal.crc32_combine64_safety, ``ZlibNgF.Proof.Crc32.crc32_combine64_safety),
+  (``ZlibNgF.Spec.Safety.Goal.compressBound_safety, ``ZlibNgF.Proof.CompressBound.compressBound_safety),
+  (``ZlibNgF.Spec.Functional.Goal.zlibVersion_functional, ``ZlibNgF.Proof.Zutil.zlibVersion_functional),
+  (``ZlibNgF.Spec.Functional.Goal.zlibCompileFlags_functional, ``ZlibNgF.Proof.Zutil.zlibCompileFlags_functional),
+  (``ZlibNgF.Spec.Functional.Goal.zError_functional, ``ZlibNgF.Proof.Zutil.zError_functional),
+  (``ZlibNgF.Spec.Functional.Goal.zng_alloc_aligned_alignment, ``ZlibNgF.Proof.Zutil.zng_alloc_aligned_alignment),
+  (``ZlibNgF.Spec.Functional.Goal.adler32_z_functional, ``ZlibNgF.Proof.Adler32.adler32_z_functional),
+  (``ZlibNgF.Spec.Functional.Goal.adler32_functional, ``ZlibNgF.Proof.Adler32.adler32_functional),
+  (``ZlibNgF.Spec.Functional.Goal.adler32_combine_functional, ``ZlibNgF.Proof.Adler32.adler32_combine_functional),
+  (``ZlibNgF.Spec.Functional.Goal.adler32_combine64_functional, ``ZlibNgF.Proof.Adler32.adler32_combine64_functional),
+  (``ZlibNgF.Spec.Functional.Goal.crc32_combine_rejection_functional, ``ZlibNgF.Proof.Crc32.crc32_combine_rejection_functional),
+  (``ZlibNgF.Spec.Functional.Goal.compressBound_functional, ``ZlibNgF.Proof.CompressBound.compressBound_functional)
+]
+
+def notDone : List Name := []
+
+def required : List Name := [
+  ``ZlibNgF.Spec.Safety.Goal.null_ptr_add_zero_ub,
+  ``ZlibNgF.Spec.Safety.Goal.dangling_ptr_add_zero_ub,
+  ``ZlibNgF.Spec.Safety.Goal.null_ptr_diff_null_ub,
+  ``ZlibNgF.Spec.Safety.Goal.cross_object_ptr_diff_ub,
+  ``ZlibNgF.Spec.Safety.Goal.null_memset_zero_ub,
+  ``ZlibNgF.Spec.Safety.Goal.zlibVersion_safety,
+  ``ZlibNgF.Spec.Safety.Goal.zlibCompileFlags_safety,
+  ``ZlibNgF.Spec.Safety.Goal.zError_safety,
+  ``ZlibNgF.Spec.Safety.Goal.zcalloc_zcfree_safety,
+  ``ZlibNgF.Spec.Safety.Goal.zng_alloc_aligned_safety,
+  ``ZlibNgF.Spec.Safety.Goal.zng_alloc_aligned_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_safety,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_z_safety,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_combine_safety,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_combine64_safety,
+  ``ZlibNgF.Spec.Safety.Goal.get_crc_table_safety,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_safety,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_z_safety,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_combine_gen_safety,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_combine_gen64_safety,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_combine_op_safety,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_combine_safety,
+  ``ZlibNgF.Spec.Safety.Goal.crc32_combine64_safety,
+  ``ZlibNgF.Spec.Safety.Goal.compressBound_safety,
+  ``ZlibNgF.Spec.Functional.Goal.zlibVersion_functional,
+  ``ZlibNgF.Spec.Functional.Goal.zlibCompileFlags_functional,
+  ``ZlibNgF.Spec.Functional.Goal.zError_functional,
+  ``ZlibNgF.Spec.Functional.Goal.zng_alloc_aligned_alignment,
+  ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
+  ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
+  ``ZlibNgF.Spec.Functional.Goal.adler32_combine_functional,
+  ``ZlibNgF.Spec.Functional.Goal.adler32_combine64_functional,
+  ``ZlibNgF.Spec.Functional.Goal.crc32_combine_rejection_functional,
+  ``ZlibNgF.Spec.Functional.Goal.compressBound_functional
+]
+
+#eval checkWith proved notDone required inLibrary
+
+end ZlibNgF.Results

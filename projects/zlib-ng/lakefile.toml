@@ -1,0 +1,7 @@
+name = "ZlibNgF"
+version = "0.1.0"
+defaultTargets = ["ZlibNgF"]
+
+[[lean_lib]]
+name = "ZlibNgF"
+roots = ["ZlibNgF", "ZlibNgF.Results"]

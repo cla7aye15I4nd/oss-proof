@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "id": "zlib-ng",
+  "title": "zlib-ng",
+  "package": "ZlibNgF",
+  "upstream": {
+    "submodule": "zlib-ng",
+    "repository": "https://github.com/zlib-ng/zlib-ng",
+    "version": "2.3.3",
+    "target": "x86_64 Linux LP64 static library, cmake -DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF",
+    "patches_dir": "patches"
+  },
+  "build": {
+    "targets": [
+      "ZlibNgF",
+      "ZlibNgF.Results"
+    ],
+    "results_module": "ZlibNgF.Results",
+    "compiler_helpers": "tests/audit/compiler-helpers.txt"
+  },
+  "checks": {
+    "spec_layers": {
+      "spec_dir": "ZlibNgF/Spec",
+      "math_dir": "ZlibNgF/Math",
+      "proof_dir": "ZlibNgF/Proof"
+    },
+    "coverage": {
+      "manifest": "tests/audit/public-api.json",
+      "script": "scripts/verification.py"
+    },
+    "self_tests": [
+      "tests/verification/test_coverage.py"
+    ]
+  },
+  "difftest": {
+    "dir": "tests",
+    "list": "tests/list.txt",
+    "script": "tests/run.sh",
+    "upstream_env": "ZLIB_NG_SRC",
+    "watch_paths": [
+      "ZlibNgF/ZlibNg/",
+      "ZlibNgF/Runtime/",
+      "tests/lean/",
+      "tests/c/",
+      "tests/gen/",
+      "tests/regression/",
+      "tests/run.sh",
+      "tests/build-zlib-ng.sh",
+      "tests/zlib-ng-build-current.sh",
+      "patches/",
+      "zlib-ng"
+    ]
+  },
+  "site": {
+    "route": "zlib-ng",
+    "brand": "zlib-ng × Lean",
+    "findings_count": 5,
+    "patches_count": 7,
+    "summary": {
+      "en": "The checksum, version, error-string and compressBound functions of zlib-ng 2.3.3 (with seven patches) are proved safe, and most of them functionally correct; streaming deflate, inflate, one-shot and gz* safety are not done.",
+      "zh": "zlib-ng 2.3.3（含七个补丁）的校验和、版本、错误字符串与 compressBound 函数已证明安全，其中多数已证明功能正确；流式 deflate、inflate、单次调用与 gz* 系列的安全性尚未完成。"
+    }
+  }
+}
