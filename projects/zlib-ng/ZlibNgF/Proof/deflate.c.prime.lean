@@ -269,16 +269,15 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
       simp only [dview] at hs0 hv0
       rw [hsb] at hs0
       obtain rfl : pbo + st.lit_bufsize.toNat + 8 = sbo := by injection hs0 with e1; injection e1
-      refine ⟨d', _, by simp [SH], hsb, fun j hj => ?_⟩
-      have hn : st.sym_next ≠ 0 := fun e => by simp [dview, e] at hj
+      refine ⟨d', _, by simp [SH], hsb, hv0.of_eq fun j hj => ?_⟩
+      have hn : st.sym_next ≠ 0 := fun e => by simp [e] at hj
       obtain ⟨pbo1, poo1, hp1, ho1, hq⟩ := c.psym hn
       simp only [dview] at hp1 ho1 hq
       rw [hpb] at hp1; rw [hpo] at ho1
       obtain rfl : pbo = pbo1 := by injection hp1 with e1; injection e1
       obtain rfl : pbo = poo1 := by injection ho1 with e1; injection e1
       have hnp : np.toNat ≤ st.lit_bufsize.toNat + 8 := by omega
-      rw [w.2 _ (Or.inr (by omega)), w.2 _ (Or.inr (by omega))]
-      exact hv0 j hj
+      exact w.2 _ (Or.inr (by omega))
     psym := fun hn => by
       obtain ⟨pbo1, poo1, hp1, ho1, hq⟩ := c.psym hn
       simp only [dview] at hp1 ho1 hq ⊢
@@ -292,6 +291,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
     wpow := c.wpow
     fe_mod := c.fe_mod
     fe_hi := c.fe_hi
-    bs_lo := c.bs_lo }
+    bs_lo := c.bs_lo
+    descs := c.descs }
 
 end ZlibNgF.Proof.DeflatePrime

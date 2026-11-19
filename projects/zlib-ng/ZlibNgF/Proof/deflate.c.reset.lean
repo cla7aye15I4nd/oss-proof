@@ -69,7 +69,7 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
   rw [← SH_self L.hz L.hst hd]
   refine Sat.mono (reset_SH ⟨L.za, L.zf, L.hb, L.ab, L.sm, L.lo, L.hi⟩ c.wrap hpb c.trees.1 c.trees.2.1 c.trees.2.2
     hh hho c.level.1 c.level.2 (rlay_of c hd)) ?_
-  rintro r h' ⟨rfl, A, B, C, cf, lm, ib, d', rfl, hd', hA, hB, hC, RL⟩
+  rintro r h' ⟨rfl, A, B, C, cf, lm, ib, d', rfl, hd', hA, hB, hC, hF, RL⟩
   obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C cf lm ib
   refine ⟨rfl, ⟨i, rkZ z st.wrap, b, lmS (trS b (rkS st) A B C) cf (.val lm) (.val ib), al, rfl, by simp [SH], L.hb,
     by simp [Heap.dstate, SH], ?_, ?_⟩, ?_⟩
@@ -101,7 +101,7 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       fns := q7
       symv := by
         obtain ⟨d0, _, _, _, pbo0, hd0, -, -, -, -, -, -, -, -, hs, -⟩ := q2
-        exact ⟨d0, _, hd0, hs, fun j hj => by simp [dview, lmS, trS, rkS] at hj⟩
+        exact ⟨d0, _, hd0, hs, by simp only [dview, lmS, trS, rkS]; exact SymOk.empty hF.1 hF.2⟩
       psym := fun hn => absurd (by simp [dview, lmS, trS, rkS]) hn
       hdr := fun _ _ => by simp [dview, lmS, trS, rkS]
       bstart := by simp [dview, lmS, trS, rkS]
@@ -113,7 +113,8 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       fe_hi := by
         have := lm_fill_end _ q1.1 q1.2.1
         simpa [dview, lmS, trS, rkS] using this.2
-      bs_lo := by simp [dview, lmS, trS, rkS] }
+      bs_lo := by simp [dview, lmS, trS, rkS]
+      descs := by simp [dview, lmS, trS, rkS] }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 
@@ -128,7 +129,7 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
   rw [← SH_self L.hz L.hst hd]
   refine Sat.mono (resetKeep_SH ⟨L.za, L.zf, L.hb, L.ab, L.sm, L.lo, L.hi⟩ c.wrap hpb c.trees.1 c.trees.2.1
     c.trees.2.2) ?_
-  rintro r h' ⟨rfl, A, B, C, rfl, hA, hB, hC⟩
+  rintro r h' ⟨rfl, A, B, C, rfl, hA, hB, hC, hF⟩
   refine ⟨rfl, ⟨i, rkZ z st.wrap, b, trS b (rkS st) A B C, al, rfl, by simp [SH], L.hb,
     by simp [Heap.dstate, SH], ?_, ?_⟩, ?_⟩
   · simp [Heap.dallocsOf, SH, hda]
@@ -164,7 +165,7 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       symv := by
         obtain ⟨d0, _, _, _, pbo0, hd0, -, -, -, -, -, -, -, -, hs, -⟩ := c.lay
         obtain rfl : d0 = d := Option.some.inj (hd0.symm.trans hd)
-        exact ⟨d0, _, by simp [SH], hs, fun j hj => by simp [dview, trS, rkS] at hj⟩
+        exact ⟨d0, _, by simp [SH], hs, by simp only [dview, trS, rkS]; exact SymOk.empty hF.1 hF.2⟩
       psym := fun hn => absurd (by simp [dview, trS, rkS]) hn
       hdr := fun _ _ => by simp [dview, trS, rkS]
       bstart := c.bstart
@@ -172,7 +173,8 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       wpow := c.wpow
       fe_mod := c.fe_mod
       fe_hi := c.fe_hi
-      bs_lo := c.bs_lo }
+      bs_lo := c.bs_lo
+      descs := by simp [dview, trS, rkS] }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 
