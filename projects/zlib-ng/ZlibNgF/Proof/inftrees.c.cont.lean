@@ -64,6 +64,7 @@ theorem st_next {S : Setup} (hS : S.OK) {t : TL} {C C' : Array Code} {K : Nat} (
     {r : UInt16} (hr : r.toNat = (K + 2 ^ (16 - t.len.toNat)) % 2 ^ 16)
     {hf : UInt32} (hhf : hf.toNat = rev 16 (K + 2 ^ (16 - t.len.toNat)))
     {len : UInt32} {min : UInt32} (here : Code)
+    (hcov : CovPre S → Cv S t C' (K + 2 ^ (16 - t.len.toNat)))
     (hlen : (2 ≤ cnt t.count t.len.toNat ∧ len = t.len) ∨
       (cnt t.count t.len.toNat = 1 ∧ 1 ≤ len.toNat ∧ len.toNat ≤ 15 ∧
         nsum S.c0 (len.toNat - 1) ≤ t.sym.toNat + 1 ∧ t.sym.toNat + 1 < nsum S.c0 len.toNat)) :
@@ -143,7 +144,8 @@ theorem st_next {S : Setup} (hS : S.OK) {t : TL} {C C' : Array Code} {K : Nat} (
            kraft := hkr
            dvd := Nat.dvd_add hdvd0 (Nat.dvd_refl _)
            huff := hhf
-           geo := hgeo _ (Nat.le_refl _) }
+           geo := hgeo _ (Nat.le_refl _)
+           cov := hcov }
   · have hsl : t.sym.toNat + 1 = nsum S.c0 t.len.toNat := by omega
     have hgt : t.len.toNat < len.toNat := by
       apply Classical.byContradiction
@@ -211,7 +213,8 @@ theorem st_next {S : Setup} (hS : S.OK) {t : TL} {C C' : Array Code} {K : Nat} (
              exact Nat.dvd_add (Nat.dvd_trans (Nat.pow_dvd_pow 2 (by omega)) hdvd0)
                (Nat.pow_dvd_pow 2 (by omega)))
            huff := hhf
-           geo := hgeo _ (by dsimp only; omega) }
+           geo := hgeo _ (by dsimp only; omega)
+           cov := hcov }
 
 set_option hygiene false in
 /-- The steps of `tblCont_wp` after the program is unfolded, on a goal
@@ -277,6 +280,7 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
     rw [Wp.bind_iff]
     refine Wp.mono (fill1_wp hl (by omega) hp _ hincr _ f hf hq4m hF1) ?_
     rintro _ h2 ⟨C2, rfl, hF2⟩
+    have hcov2 : CovPre S → Cv S t C2 (K + 2 ^ (16 - t.len.toNat)) := fun hp => cov_fill hS hst hp (hhere hp) hnx hF2
     -- the stores stay in the current table
     have hsize2 : C2.size = C.size := hF2.size
     have hfr2 : ∀ i, ¬ (S.off ≤ i ∧ i < S.off + t.used.toNat) → C2[i]? = C[i]? := by
@@ -328,7 +332,7 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
           (fun t' h' => Trip S t t' h') := by
       intro len' h' hlen' rfl
       have hst' := st_next hS hst hsize2 hfr2 (count := t.count.set! t.len.toNat (t.count[t.len.toNat] - 1))
-        (by rw [hcget]) hr hhf (len := len') (min := (1 : UInt32) <<< t.curr) here hlen'
+        (by rw [hcget]) hr hhf (len := len') (min := (1 : UInt32) <<< t.curr) here hcov2 hlen'
       refine Wp.mono (tblSub_wp hS hmax hroot hmask hst' (by rw [u32_shl_one (by omega)])) ?_
       rintro t' h'' (⟨hmi, hs'⟩ | h1)
       · refine Or.inl ⟨hmi, by rw [hs', hsym1]; omega, by rw [hs', hsym1]; omega⟩
@@ -363,7 +367,11 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
           omega
         refine { ret := rfl, csize := by rw [hsize2]; exact hst.csize,
                  frame := fun i hi => by rw [hfr2 i hi]; exact hst.frame i hi,
-                 used_bnd := hst.used_bnd, root_le := hur, geo := ?_, huff := ?_ }
+                 used_bnd := hst.used_bnd, root_le := hur, geo := ?_, huff := ?_, cov := ?_,
+                 lenb := by
+                   show 1 ≤ (t.len - t.drop).toNat ∧ (t.len - t.drop).toNat ≤ 15
+                   have := hst.cbf hS
+                   rw [hld]; omega }
         · rcases hst.geo with ⟨h1, -, h3, h4, -⟩ | ⟨h1, -, -, -, nx', P, h5, -, h7, -⟩
           · exact Or.inl ⟨h1, h3, h4⟩
           · exact Or.inr ⟨h1, nx', h5, h7⟩
@@ -380,6 +388,26 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
             · refine Or.inr ⟨hm1, h1, ?_, hr1, h3, by rw [h4, hr1]⟩
               rw [hhf, hKT, hT, rev16_pow15]
             · omega
+        · intro hp i hi hh
+          refine (hcov2 hp).ok i hi ?_
+          rcases hS.complete with hT | ⟨hm1, hc01⟩
+          · rw [hKT, hT]; exact wr_all hS hst i hi
+          · have hT : wsum S.c0 15 = 2 ^ 15 := by
+              rw [wsum_one (fun L h1 h2 => hS.above L (by omega) h2), hc01]
+            have hr1 : S.root = 1 := by omega
+            have hh1 : (zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32.toNat
+                = 1 := by rw [hhf, hKT, hT, rev16_pow15]
+            have hi0 : i = 0 := by
+              rcases hst.geo with ⟨-, -, -, h4, -⟩ | ⟨-, h2, -⟩
+              · rw [h4, hr1] at hi
+                rcases hh with hh | hh
+                · simp only at hh; rw [hh] at hh1; simp at hh1
+                · simp only at hh; omega
+              · omega
+            subst hi0
+            refine Or.inl ⟨Nat.two_pow_pos _, Or.inl ?_⟩
+            rw [rev_of_zero, Nat.zero_mul, hKT, hT]
+            exact Nat.two_pow_pos _
       · rw [ite_eq_right hm]
         have hlm : t.len.toNat ≠ S.mx := fun e => hm (beq_iff_eq.mpr (UInt32.toNat_inj.mp (by rw [e, hmax])))
         have hsl : t.sym.toNat + 1 = nsum S.c0 t.len.toNat := by omega
@@ -419,7 +447,7 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
 /-- The part of the body after `here` is made. -/
 theorem tblCont_wp {S : Setup} (hS : S.OK) {t : TL} {C : Array Code} {K : Nat} (hst : St S t C K true)
     {maxv rootv mask : UInt32} (hmax : maxv.toNat = S.mx) (hroot : rootv.toNat = S.root)
-    (hmask : mask.toNat = 2 ^ S.root - 1) (here : Code) :
+    (hmask : mask.toNat = 2 ^ S.root - 1) (here : Code) (hhere : CovPre S → SubOK S.type t.drop.toNat here) :
     Wp (tblCont S.type (.ref (.lens S.b) S.lo) (.ref (.work S.b) 0) (.ref (.codes S.b) S.off) maxv rootv mask t
       here) (setCW S.h0 S.b S.s C S.W) (fun t' h' => Trip S t t' h') := by
   unfold tblCont

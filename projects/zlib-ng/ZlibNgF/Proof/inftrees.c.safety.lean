@@ -26,15 +26,19 @@ theorem Wp.pure_of {α : Type} {a : α} {h : Heap} {Q : α → Heap → Prop} (h
 def bndOf (type bits : UInt32) : Nat :=
   if type = LENS then 1332 else if type = DISTS then 592 else 2 ^ bits.toNat
 
-/-- What `zng_inflate_table` guarantees about its result and the heap. -/
-def TablePost (h : Heap) (b : Nat) (s : InflateState) (type bits : UInt32) (off : Nat)
+/-- What `zng_inflate_table` guarantees about its result and the heap: only `codes[off .. off + bndOf type bits)` and
+`work` change, and on success the region `[off, off + used)` is a decoding table with the returned root bits (for
+at most 286 literal/length lengths). -/
+def TablePost (h : Heap) (b : Nat) (s : InflateState) (type codes bits : UInt32) (off : Nat)
     (r : Int32 × CodePtr × UInt32) (h' : Heap) : Prop :=
   ∃ C W, h' = setCW h b s C W ∧ C.size = s.codes.size ∧ W.size = s.work.size ∧
     (∀ i, ¬ (off ≤ i ∧ i < off + bndOf type bits) → C[i]? = s.codes[i]?) ∧
     (r.1 = 0 ∨ r.1 = -1 ∨ r.1 = 1) ∧
     (r.1 ≠ 0 → r.2 = (.ref (.codes b) off, bits)) ∧
     (r.1 = 0 → ∃ used, 2 ^ r.2.2.toNat ≤ used ∧ used ≤ bndOf type bits ∧ r.2.1 = .ref (.codes b) (off + used) ∧
-      1 ≤ r.2.2.toNat ∧ r.2.2.toNat ≤ 15 ∧ (∀ i, ¬ (off ≤ i ∧ i < off + used) → C[i]? = s.codes[i]?))
+      1 ≤ r.2.2.toNat ∧ r.2.2.toNat ≤ 15 ∧ (∀ i, ¬ (off ≤ i ∧ i < off + used) → C[i]? = s.codes[i]?) ∧
+      ((type = LENS → codes.toNat ≤ 286) →
+        InflateTab.CodeTable C off (off + used) r.2.2.toNat (mOf type) (dOf type)))
 
 theorem set_ne {α : Type} {C : Array α} {k i : Nat} (v : α) (h : k ≠ i) : (C.set! k v)[i]? = C[i]? := by
   simp [Array.set!_eq_setIfInBounds, h]

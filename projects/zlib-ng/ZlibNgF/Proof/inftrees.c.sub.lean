@@ -1,4 +1,4 @@
-import ZlibNgF.Proof.«inftrees.c.geom»
+import ZlibNgF.Proof.«inftrees.c.cover»
 
 /-!
 # `zng_inflate_table`: opening a sub-table (`ZlibNgF`)
@@ -15,21 +15,6 @@ open C ZlibNg.Inftrees ZlibNg.InflateP ZlibNgF.Math.BitReverse ZlibNgF.Math.Inft
 
 theorem Wp.have_ {α β : Type} {h : Heap} {Q : β → Heap → Prop} {v : α} {f : α → M β}
     (hf : Wp (f v) h Q) : Wp (have x := v; f x) h Q := hf
-
-theorem St.K_lt {S : Setup} {t : TL} {C : Array Code} {K : Nat} {inb : Bool} (hS : S.OK)
-    (hs : St S t C K inb) : K + 2 ^ (16 - t.len.toNat) ≤ 2 ^ 16 := by
-  have h1 := wsum_le_of (cnt t.count) (k := t.len.toNat) (m := 15) hs.len_lo (by have := hs.len_hi; have := hS.mx15; omega)
-  have h2 := hs.kraft
-  have h3 := hS.kraft
-  have h4 : 2 ^ (16 - t.len.toNat) ≤ cnt t.count t.len.toNat * 2 ^ (16 - t.len.toNat) :=
-    Nat.le_mul_of_pos_left _ hs.cur_pos
-  omega
-
-/-- The block number of a code. -/
-theorem blk_lt {K r : Nat} (hK : K < 2 ^ 16) (hr : r ≤ 16) : K / 2 ^ (16 - r) < 2 ^ r := by
-  apply Nat.div_lt_of_lt_mul
-  rw [← Nat.pow_add, show 16 - r + r = 16 by omega]
-  exact hK
 
 /-- No new sub-table: the state keeps its tables and `K` is in their block. -/
 theorem St.keep {S : Setup} {t : TL} {C : Array Code} {K : Nat} (hS : S.OK) (hs : St S t C K false)
@@ -332,7 +317,10 @@ theorem tblSub_wp {S : Setup} (hS : S.OK) {t : TL} {here : Code} {min : UInt32} 
         frame := fun j hj => ?_
         used_bnd := by dsimp only; rw [hus]; omega
         geo := Or.inr ⟨hdrop', hc.1, by dsimp only; omega, by dsimp only; omega, t.used.toNat, K / 2 ^ (16 - S.root), rfl, hur,
-          by dsimp only; rw [hus], blk_lt hKl hr16, hlow, fun _ => ?_, fun _ => rfl⟩ }
+          by dsimp only; rw [hus], blk_lt hKl hr16, hlow, fun _ => ?_, fun _ => rfl⟩
+        cov := fun hp => cov_link hS hst hp hdrop' (by dsimp only; omega) (by dsimp only; omega) hus hlow hc.2
+          (fun j hj => by simp only [Array.set!_eq_setIfInBounds, getElem!_def, Array.getElem?_setIfInBounds,
+            Ne.symm hj, ite_false]) ?_ }
       · dsimp only at hj
         rw [hus] at hj
         have hne : S.off + (huff &&& mask).toNat ≠ j := fun e => hj ⟨by omega, by omega⟩
@@ -344,6 +332,19 @@ theorem tblSub_wp {S : Setup} (hS : S.OK) {t : TL} {here : Code} {min : UInt32} 
           dsimp only
           have := Nat.div_mul_le_self K (2 ^ (16 - S.root))
           rw [Nat.add_mul, Nat.one_mul]
+          omega
+      · simp only [Array.set!_eq_setIfInBounds, getElem!_def, Array.getElem?_setIfInBounds, Array.size_setIfInBounds, hi,
+          ite_true, Array.getElem_setIfInBounds_self]
+        refine ⟨?_, ?_, ?_⟩
+        · show (cu.toUInt8).toNat = cu.toNat
+          rw [UInt32.toNat_toUInt8]; omega
+        · show (rootv.toUInt8).toNat = S.root
+          rw [UInt32.toNat_toUInt8]; omega
+        · show ((Int64.ofInt ((S.off + t.used.toNat : Nat) - (S.off : Int))).toUInt64.toUInt16).toNat = t.used.toNat
+          have e : ((S.off + t.used.toNat : Nat) : Int) - (S.off : Int) = (t.used.toNat : Int) := by omega
+          rw [e, UInt64.toNat_toUInt16,
+            show Int64.ofInt (t.used.toNat : Int) = Int64.ofNat t.used.toNat from by simp [Int64.ofInt_eq_ofNat],
+            Int64.toUInt64_ofNat', UInt64.toNat_ofNat']
           omega
   · have hc' : ¬ (decide (len > rootv) && huff &&& mask != t.low) = true := by
       simp only [Bool.and_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq, UInt32.lt_iff_toNat_lt, hroot]

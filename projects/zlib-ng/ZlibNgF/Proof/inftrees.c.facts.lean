@@ -63,7 +63,7 @@ theorem table_run (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo :
       codes'.size = ENOUGH ∧ work'.size = 288 ∧ (∀ j, j < o → codes'[j]! = st.codes[j]!) ∧
       (ret = 0 ∨ ret = -1 ∨ ret = 1) ∧
       (ret = 0 → o' ≤ o + (if type = DISTS then 592 else 1332) ∧ o + 2 ^ lb.toNat ≤ o' ∧ 1 ≤ lb.toNat ∧
-        lb.toNat ≤ 15) := by
+        lb.toNat ≤ 15 ∧ InflateTab.CodeTable codes' o o' lb.toNat (mOf type) (dOf type)) := by
   have hP := TblPre.of_call hi hc hl hw hcall hv
   obtain ⟨⟨ret, p, lb⟩, h', e, C, W, rfl, hCs, hWs, hfr, hret, herr, hok⟩ := zng_inflate_table_wp hP
   have hbits := hcall
@@ -77,14 +77,26 @@ theorem table_run (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo :
     have := hfr j (by omega)
     simp only [getElem!_def, this]
   by_cases h0 : ret = 0
-  · obtain ⟨used, h1, h2, hp, h3, h4, -⟩ := hok h0
+  · obtain ⟨used, h1, h2, hp, h3, h4, -, hct⟩ := hok h0
+    have h286 : type = LENS → n.toNat ≤ 286 := by
+      intro e
+      rcases hcall with ⟨e1, -⟩ | ⟨-, -, -, h, -⟩ | ⟨e1, -⟩
+      · rw [e] at e1; cases e1
+      · exact h
+      · rw [e] at e1; cases e1
     simp only at hp h1 h3 h4
     subst hp
     exact ⟨ret, o + used, lb, C, W, e, by rw [hCs, hc], by rw [hWs, hw], hkeep, hret,
-      fun _ => ⟨by omega, by omega, h3, h4⟩⟩
+      fun _ => ⟨by omega, by omega, h3, h4, hct h286⟩⟩
   · have hp := herr h0
     simp only [Prod.mk.injEq] at hp
     obtain ⟨rfl, rfl⟩ := hp
     exact ⟨ret, o, _, C, W, e, by rw [hCs, hc], by rw [hWs, hw], hkeep, hret, fun e => absurd e h0⟩
+
+/-- `TableFacts`: `zng_inflate_table` as `inflate` calls it, with its decoding table on success. -/
+theorem tableFacts : ZlibNgF.Proof.InflateFacts.TableFacts := by
+  refine ⟨fun h b st type lo n o bits hi hc hl hw hcall hv => ?_⟩
+  obtain ⟨ret, o', lb, codes', work', e, h1, h2, h3, -, h5⟩ := table_run h b st type lo n o bits hi hc hl hw hcall hv
+  exact ⟨ret, o', lb, codes', work', e, h1, h2, h3, fun h0 => ⟨(h5 h0).1, (h5 h0).2.2.2.2⟩⟩
 
 end ZlibNgF.Proof.Inftrees

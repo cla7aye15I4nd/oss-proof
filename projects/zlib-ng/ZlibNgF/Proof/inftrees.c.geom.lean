@@ -1,6 +1,7 @@
 import ZlibNgF.Proof.«inftrees.c.fill»
 import ZlibNgF.Proof.«inftrees.c.rev»
 import ZlibNgF.Math.InftreesCount
+import ZlibNgF.Proof.«inftrees.c.entry»
 
 /-!
 # The state of the table-filling loop of `zng_inflate_table` (`ZlibNgF`)
@@ -113,6 +114,34 @@ def Geo (S : Setup) (t : TL) (c : Nat → Nat) (K len : Nat) (inb : Bool) : Prop
           (P + 1) * 2 ^ (16 - S.root) ≤ K + wsum c (S.root + t.curr.toNat))) ∧
       (inb = true → K / 2 ^ (16 - S.root) = P))
 
+/-- What the table facts need of the input beyond `Setup.OK`: at most 286 literal/length lengths (the symbols 286
+and 287 have no length base). -/
+def CovPre (S : Setup) : Prop := S.type = LENS → S.codes ≤ 286
+
+/-- Slot `i` of the region holds an entry for a code before `K`, for the table fields `drop`, `curr`, `used`, `low`:
+a root slot whose `root`-bit prefix starts before `K`, the root slot `low` linked to the current sub-table, a slot of
+an earlier sub-table, or a slot of the current sub-table (at `used - 2 ^ curr`, for the block `rev root low`) whose
+code interval starts before `K`. -/
+def Wr' (S : Setup) (drop curr used low : UInt32) (K i : Nat) : Prop :=
+  (i < 2 ^ S.root ∧ (rev S.root i * 2 ^ (16 - S.root) < K ∨ (drop ≠ 0 ∧ i = low.toNat))) ∨
+  (drop ≠ 0 ∧ 2 ^ S.root ≤ i ∧ i < used.toNat - 2 ^ curr.toNat) ∨
+  (drop ≠ 0 ∧ used.toNat - 2 ^ curr.toNat ≤ i ∧
+    rev S.root low.toNat * 2 ^ (16 - S.root) +
+      rev curr.toNat (i - (used.toNat - 2 ^ curr.toNat)) * 2 ^ (16 - S.root - curr.toNat) < K)
+
+/-- Coverage: every written slot holds a valid entry; in the root table `K` is on a root-block boundary, in a
+sub-table `K` lies in the block of the current sub-table (or at its end). -/
+structure Cv' (S : Setup) (drop curr used low : UInt32) (C : Array Code) (K : Nat) : Prop where
+  ok : ∀ i, i < used.toNat → Wr' S drop curr used low K i → SlotOK S.type S.root used.toNat i C[S.off + i]!
+  blk : (drop = 0 ∧ 2 ^ (16 - S.root) ∣ K) ∨
+    (drop ≠ 0 ∧ rev S.root low.toNat * 2 ^ (16 - S.root) ≤ K ∧ K ≤ (rev S.root low.toNat + 1) * 2 ^ (16 - S.root))
+
+/-- `Wr'` for the fields of the loop state `t`. -/
+abbrev Wr (S : Setup) (t : TL) (K i : Nat) : Prop := Wr' S t.drop t.curr t.used t.low K i
+
+/-- `Cv'` for the fields of the loop state `t`. -/
+abbrev Cv (S : Setup) (t : TL) (C : Array Code) (K : Nat) : Prop := Cv' S t.drop t.curr t.used t.low C K
+
 /-- The invariant of the table-filling loop for the state `t`, the `codes` array `C` and the code `K`. -/
 structure St (S : Setup) (t : TL) (C : Array Code) (K : Nat) (inb : Bool) : Prop where
   ret : t.ret = none
@@ -132,6 +161,7 @@ structure St (S : Setup) (t : TL) (C : Array Code) (K : Nat) (inb : Bool) : Prop
   dvd : 2 ^ (16 - t.len.toNat) ∣ K
   huff : t.huff.toNat = rev 16 K
   geo : Geo S t (cnt t.count) K t.len.toNat inb
+  cov : CovPre S → Cv S t C K
 
 /-- The loop state at the start of a trip. -/
 def MI (S : Setup) (t : TL) (h : Heap) : Prop := ∃ C K, h = setCW S.h0 S.b S.s C S.W ∧ St S t C K true
@@ -148,6 +178,9 @@ structure Fin0 (S : Setup) (t : TL) (C : Array Code) : Prop where
   huff : (wsum S.c0 15 = 2 ^ 16 ∧ t.huff = 0) ∨
     (S.mx = 1 ∧ t.drop = 0 ∧ t.huff.toNat = 1 ∧ S.root = 1 ∧ t.next = .ref (.codes S.b) S.off ∧
       t.used.toNat = 2)
+  cov : CovPre S → ∀ i, i < t.used.toNat → (t.huff = 0 ∨ i ≠ t.huff.toNat) →
+    SlotOK S.type S.root t.used.toNat i C[S.off + i]!
+  lenb : 1 ≤ (t.len - t.drop).toNat ∧ (t.len - t.drop).toNat ≤ 15
 
 /-- The loop state after the room check failed (`ret = 1`). -/
 structure Fin1 (S : Setup) (t : TL) (C : Array Code) : Prop where
