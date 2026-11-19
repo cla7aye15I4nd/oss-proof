@@ -1,0 +1,30 @@
+name = "difftest"
+version = "0.1.0"
+
+[[require]]
+name = "MozjpegF"
+path = ".."
+
+[[lean_lib]]
+name = "DiffTest"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_jutils"
+root = "Driver.Jutils"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_jerror"
+root = "Driver.Jerror"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_jdmarker"
+root = "Driver.Jdmarker"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_jdmaster"
+root = "Driver.Jdmaster"
+srcDir = "lean"
