@@ -20,3 +20,4 @@ import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Proof.«inflate.c.facts»
 import ZlibNgF.Proof.«inflate.c.loop»
 import ZlibNgF.Proof.«inflate.c.steps»
+import ZlibNgF.Proof.«inflate.c.header-modes»

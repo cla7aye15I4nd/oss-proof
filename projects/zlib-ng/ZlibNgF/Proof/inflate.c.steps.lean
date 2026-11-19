@@ -357,6 +357,12 @@ theorem dropbits_ok {H : Heap} {l : IL} (n : UInt32) (hn : n < 64) {Q : Except E
 theorem initbits_ok {H : Heap} {l : IL} {Q : Except Ex PUnit → IL → Heap → Prop}
     (q : Q (.ok ⟨⟩) { l with hold := 0, bits := 0 } H) : SatX H l INITBITS Q := SatX.modify q
 
+/-- The index of a message in the string table, by evaluation. -/
+theorem strIdx {msg : String} (i : Nat) (hi : i < strTable.size) (he : (strTable[i] == msg) = true)
+    (hb : ∀ j (hj : j < i), ¬ (strTable[j]'(Nat.lt_trans hj hi) == msg) = true) :
+    strTable.findIdx? (· == msg) = some i :=
+  Array.findIdx?_eq_some_iff_getElem.mpr ⟨hi, he, hb⟩
+
 /-- `SET_BAD(msg)` for a message of the string table. -/
 theorem LI.setBad {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (msg : String) {i : Nat} (hm : strTable.findIdx? (· == msg) = some i) :
@@ -463,5 +469,12 @@ theorem LI.stHdr {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
     · rcases h5 with e | e
       · rw [e]; exact a5
       · exact Or.inr e
+
+/-- `LI` for new locals with the same buffers and at most 39 bits. -/
+theorem LI.setBits {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
+    (h1 : l'.next = l.next) (h2 : l'.have_ = l.have_) (h3 : l'.put = l.put) (h4 : l'.out = l.out)
+    (h5 : l'.left = l.left) (h6 : l'.bits ≤ 39) : LI E l' H z S :=
+  ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt,
+    by rw [h3, h4, h5]; exact li.outAt, h6⟩
 
 end ZlibNgF.Proof.InflateLoop
