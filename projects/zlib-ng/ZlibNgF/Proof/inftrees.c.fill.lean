@@ -59,7 +59,7 @@ variable {h0 : Heap} {b : Nat} {s : InflateState} {W : Array UInt16}
 
 /-- The unrolled replication loop. -/
 theorem fill4_wp (hl : LiveSt h0 b s) {C : Array Code} {p a m : Nat} (hm1 : 1 ≤ m) (hm : m * 2 ^ a ≤ 2 ^ 15)
-    (hp : p + m * 2 ^ a ≤ C.size) (incr : UInt32) (hincr : incr.toNat = 2 ^ a) (u : UInt32)
+    (hp : ∀ j, j < m → p + j * 2 ^ a < C.size) (incr : UInt32) (hincr : incr.toNat = 2 ^ a) (u : UInt32)
     (f0 : UInt32) (hf0 : f0.toNat = m * 2 ^ a) :
     Wp (cwhile
       (fun (fill : UInt32) => pure (fill >= incr <<< 2, fill))
@@ -70,7 +70,7 @@ theorem fill4_wp (hl : LiveSt h0 b s) {C : Array Code} {p a m : Nat} (hm1 : 1 �
         stCode (.ref (CodeRef.codes b) p) (Int.ofNat (fill - 4 * incr).toNat) (unpackCode u)
         pure (fill - incr <<< 2))
       f0) (setCW h0 b s C W)
-      (fun f h' => ∃ q C', f.toNat = q * 2 ^ a ∧ q < 4 ∧ h' = setCW h0 b s C' W ∧
+      (fun f h' => ∃ q C', f.toNat = q * 2 ^ a ∧ q < 4 ∧ q ≤ m ∧ h' = setCW h0 b s C' W ∧
         Fill C C' p (2 ^ a) q m (unpackCode u)) := by
   have hpa : 0 < 2 ^ a := Nat.two_pow_pos a
   have hD : 2 ^ a ≤ 2 ^ 15 := Nat.le_trans (Nat.le_mul_of_pos_left _ hm1) hm
@@ -107,8 +107,7 @@ theorem fill4_wp (hl : LiveSt h0 b s) {C : Array Code} {p a m : Nat} (hm1 : 1 �
     have hlt : ∀ k, 1 ≤ k → k ≤ 4 → p + (n - k) * 2 ^ a < C1.size := by
       intro k hk1 hk4
       rw [hs1]
-      have : (n - k) * 2 ^ a < m * 2 ^ a := Nat.mul_lt_mul_of_pos_right (by omega) hpa
-      omega
+      exact hp (n - k) (by omega)
     rw [Wp.bind_iff]
     refine Wp.of_eq (by rw [show ((1 : UInt32)) = UInt32.ofNat 1 from rfl, e1]; exact stCode_ok hl (hlt 1 (Nat.le_refl _) (by omega)) _) ?_
     rw [Wp.bind_iff]
@@ -131,11 +130,11 @@ theorem fill4_wp (hl : LiveSt h0 b s) {C : Array Code} {p a m : Nat} (hm1 : 1 �
   · have hlt4 : n < 4 := by
       simp only [decide_eq_false_iff_not, UInt32.le_iff_toNat_le, h4, hf, Nat.not_le] at hc
       exact Nat.lt_of_mul_lt_mul_right hc
-    exact ⟨n, C1, hf, hlt4, rfl, hF⟩
+    exact ⟨n, C1, hf, hlt4, hn, rfl, hF⟩
 
 /-- The tail replication loop. -/
 theorem fill1_wp (hl : LiveSt h0 b s) {C C1 : Array Code} {p a m q : Nat} (hm : m * 2 ^ a ≤ 2 ^ 15)
-    (hp : p + m * 2 ^ a ≤ C.size) (incr : UInt32) (hincr : incr.toNat = 2 ^ a) (u : UInt32)
+    (hp : ∀ j, j < m → p + j * 2 ^ a < C.size) (incr : UInt32) (hincr : incr.toNat = 2 ^ a) (u : UInt32)
     (f : UInt32) (hf : f.toNat = q * 2 ^ a) (hq : q ≤ m) (hF : Fill C C1 p (2 ^ a) q m (unpackCode u)) :
     Wp (cwhile
       (fun (fill : UInt32) => pure (fill != 0, fill))
@@ -164,8 +163,7 @@ theorem fill1_wp (hl : LiveSt h0 b s) {C C1 : Array Code} {p a m q : Nat} (hm : 
         hincr, hf2, Nat.sub_mul, Nat.one_mul]
     have hlt : p + (n - 1) * 2 ^ a < C2.size := by
       rw [hF2.size]
-      have : (n - 1) * 2 ^ a < m * 2 ^ a := Nat.mul_lt_mul_of_pos_right (by omega) hpa
-      omega
+      exact hp (n - 1) (by omega)
     rw [Wp.bind_iff, e]
     refine Wp.of_eq (stCode_ok hl hlt _) ?_
     rw [Wp.pure_iff]

@@ -123,6 +123,13 @@ theorem index_ok {r : R} {off : Nat} {k : Int} {a : Array T} {h : Heap} (hg : Sp
   rw [bind_app, add_ok hg h0 h1 (by omega)]
   exact load_ok hg (by omega)
 
+theorem index_nat [Inhabited T] {r : R} {off i : Nat} {a : Array T} {h : Heap} (hg : Space.get h r = some a)
+    (hi : off + i < a.size) : Ptr.index (.ref r off) (Int.ofNat i) h = .ok (a[off + i]!, h) := by
+  rw [index_ok hg (by omega) (by simp; omega) (by simp; omega)]
+  congr
+  rw [getElem!_pos a (off + i) hi]
+  congr 1
+
 theorem store_ok {r : R} {off : Nat} {v : T} {a : Array T} {h : Heap} (hg : Space.get h r = some a)
     (hro : Space.ro h r = false) (hk : off < a.size) :
     Ptr.store (.ref r off) v h = .ok ((), Space.modify h r (fun a => a.set! off v)) := by

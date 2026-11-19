@@ -83,6 +83,7 @@ structure Setup.OK (S : Setup) : Prop where
   lens_size : S.lo + S.codes ≤ S.s.lens.size
   W_size : S.W.size = S.s.work.size
   n_le : nsum S.c0 15 ≤ S.W.size
+  n_codes : nsum S.c0 15 ≤ S.codes
   sorted : ∀ L, 1 ≤ L → L ≤ 15 → ∀ j, nsum S.c0 (L - 1) ≤ j → j < nsum S.c0 L →
     (S.W[j]!).toNat < S.codes ∧ S.lensv (S.W[j]!).toNat = L
   mx1 : 1 ≤ S.mx
