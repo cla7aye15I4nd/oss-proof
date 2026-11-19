@@ -73,4 +73,5 @@ import ZlibNgF.Proof.«infback.c.match»
 import ZlibNgF.Proof.«infback.c.stored»
 import ZlibNgF.Proof.«infback.c.fast»
 import ZlibNgF.Proof.«infback.c.decode»
+import ZlibNgF.Proof.«infback.c.lencopy»
 import ZlibNgF.Proof.«public-infback»
