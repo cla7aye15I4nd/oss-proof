@@ -18,7 +18,7 @@ open C ZlibNg.Inflate ZlibNg.Deflate
 def gz_write_init (state : GzPtr) : G Int32 := do
   let strm ← strmOf state
   if (← gz_buffer_alloc state) != 0 then
-    gz_error state Z_MEM_ERROR (← lm (gzLit "out of memory"))
+    gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
     return -1
   if (← rdG state (·.direct)) == 0 then
     let ret ← lm (deflateInit2_ strm (← rdG state (·.level)) Z_DEFLATED.toUInt32.toInt32 (MAX_WBITS + 16) DEF_MEM_LEVEL
@@ -26,9 +26,9 @@ def gz_write_init (state : GzPtr) : G Int32 := do
     if ret != Z_OK then
       gz_buffer_free state
       if ret == Z_MEM_ERROR then
-        gz_error state Z_MEM_ERROR (← lm (gzLit "out of memory"))
+        gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
       else
-        gz_error state Z_STREAM_ERROR (← lm (gzLit "invalid compression parameters"))
+        gz_error state Z_STREAM_ERROR (← (gzLit "invalid compression parameters"))
       return -1
     lm (wrZ strm fun z => { z with next_in := .null })
     let sz ← rdG state (·.size)
@@ -88,7 +88,7 @@ def gz_comp (state : GzPtr) (flush : Int32) : G Int32 := do
       let hv ← lm (rdZ strm (·.avail_out))
       let ret ← lm (deflate strm flush)
       if ret == Z_STREAM_ERROR then
-        gz_error state Z_STREAM_ERROR (← lm (gzLit "internal error: deflate stream corrupt"))
+        gz_error state Z_STREAM_ERROR (← (gzLit "internal error: deflate stream corrupt"))
         return { s with ret := ret, ctl := .ret }
       let hv := hv - (← lm (rdZ strm (·.avail_out)))
       return { s with ret := ret, hv := hv })
@@ -217,7 +217,7 @@ def gzwrite (file : GzPtr) (buf : BPtr) (len : UInt32) : G Int32 := do
   if (← rdG state (·.mode)) != GZ_WRITE || (← rdG state (·.err)) != Z_OK then
     return 0
   if len.toInt32 < 0 then
-    gz_error state Z_DATA_ERROR (← lm (gzLit "requested length does not fit in int"))
+    gz_error state Z_DATA_ERROR (← (gzLit "requested length does not fit in int"))
     return 0
   return (← gz_write state buf len.toUInt64).toUInt32.toInt32
 
@@ -233,7 +233,7 @@ def gzfwrite (buf : BPtr) (size nitems : UInt64) (file : GzPtr) : G UInt64 := do
     return 0
   let len := nitems * size
   if len / size != nitems then
-    gz_error state Z_STREAM_ERROR (← lm (gzLit "request does not fit in a size_t"))
+    gz_error state Z_STREAM_ERROR (← (gzLit "request does not fit in a size_t"))
     return 0
   if len != 0 then
     return (← gz_write state buf len) / size
@@ -281,7 +281,7 @@ def gzputs (file : GzPtr) (s : BPtr) : G Int32 := do
     return -1
   let len ← lm (strlenB s)
   if len.toUInt32.toInt32 < 0 || len.toUInt32.toUInt64 != len then
-    gz_error state Z_STREAM_ERROR (← lm (gzLit "string length does not fit in int"))
+    gz_error state Z_STREAM_ERROR (← (gzLit "string length does not fit in int"))
     return -1
   let put ← gz_write state s len
   return if put < len then -1 else len.toUInt32.toInt32
@@ -309,8 +309,9 @@ def gzvprintf (file : GzPtr) (format : BPtr) : G Int32 := do
   let next ← lm (a.add (Int.ofNat (← lm (rdZ strm (·.avail_in))).toNat))
   lm (store8 (← lm (next.add (Int.ofNat ((← rdG state (·.size)) - 1).toNat))) 0)
   let len ← vsnprintfG next (← rdG state (·.size)).toUInt64 format
-  if len == 0 || len.toUInt32 ≥ (← rdG state (·.size)) ||
-      (← lm (index8 next (Int.ofNat ((← rdG state (·.size)) - 1).toNat))) != 0 then
+  let bad ← if len == 0 || len.toUInt32 ≥ (← rdG state (·.size)) then pure true
+    else do pure ((← lm (index8 next (Int.ofNat ((← rdG state (·.size)) - 1).toNat))) != 0)
+  if bad then
     return 0
   lm (wrZ strm fun z => { z with avail_in := z.avail_in + len.toUInt32 })
   let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + len.toInt))

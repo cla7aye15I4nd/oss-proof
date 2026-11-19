@@ -10,7 +10,9 @@ is false). The `gz_state` structure is `C.GzState` (`Runtime/Gz.lean`).
 Control flow of the translations: a loop is `gwhile` / `gdoWhile` over a record of its locals; a `break` or a
 `return` inside the loop sets the field `ctl` (`Ctl.brk`, `Ctl.ret`), which ends the loop without evaluating the
 condition again, and the code after the loop returns when `ctl = Ctl.ret`. A `continue` ends the body (the
-condition is evaluated).
+condition is evaluated). A condition `a && b` or `a || b` whose second operand can fault or has an effect is
+written as nested `if`s, so that the operand is evaluated only when the C evaluates it; reads of fields of the live
+`gz_state` and of its embedded `z_stream`, which cannot fault and have no effect, are hoisted out of conditions.
 -/
 
 set_option autoImplicit false

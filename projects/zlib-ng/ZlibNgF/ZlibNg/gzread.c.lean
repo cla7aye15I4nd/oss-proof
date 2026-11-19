@@ -20,16 +20,16 @@ open C ZlibNg.Inflate ZlibNg.Deflate
 /-- `static int gz_read_init(gz_state *state)` (`gzread.c:21-40`). -/
 def gz_read_init (state : GzPtr) : G Int32 := do
   if (← gz_buffer_alloc state) != 0 then
-    gz_error state Z_MEM_ERROR (← lm (gzLit "out of memory"))
+    gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
     return -1
   let ret ← lm (inflateInit2_ (← strmOf state) (MAX_WBITS + 16) (← lm (strLitRef ZLIB_VERSION))
     SIZEOF_Z_STREAM.toInt32)
   if ret != Z_OK then
     gz_buffer_free state
     if ret == Z_MEM_ERROR then
-      gz_error state Z_MEM_ERROR (← lm (gzLit "out of memory"))
+      gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
     else
-      gz_error state Z_STREAM_ERROR (← lm (gzLit "invalid compression parameters"))
+      gz_error state Z_STREAM_ERROR (← (gzLit "invalid compression parameters"))
     return -1
   return 0
 
@@ -162,18 +162,18 @@ def gz_decomp (state : GzPtr) : G Int32 := do
         if (← gz_avail state) == -1 then
           return { s with ctl := .ret }
       if (← lm (rdZ strm (·.avail_in))) == 0 then
-        gz_error state Z_BUF_ERROR (← lm (gzLit "unexpected end of file"))
+        gz_error state Z_BUF_ERROR (← (gzLit "unexpected end of file"))
         return { s with ctl := .brk }
       let ret ← lm (inflate strm Z_NO_FLUSH)
       if ret == Z_STREAM_ERROR || ret == Z_NEED_DICT then
-        gz_error state Z_STREAM_ERROR (← lm (gzLit "internal error: inflate stream corrupt"))
+        gz_error state Z_STREAM_ERROR (← (gzLit "internal error: inflate stream corrupt"))
         return { s with ret := ret, ctl := .ret }
       if ret == Z_MEM_ERROR then
-        gz_error state Z_MEM_ERROR (← lm (gzLit "out of memory"))
+        gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
         return { s with ret := ret, ctl := .ret }
       if ret == Z_DATA_ERROR then
         let m ← lm (rdZ strm (·.msg))
-        gz_error state Z_DATA_ERROR (← if m == .null then lm (gzLit "compressed data error") else lm (rdZ strm (·.msg)))
+        gz_error state Z_DATA_ERROR (← if m == .null then (gzLit "compressed data error") else lm (rdZ strm (·.msg)))
         return { s with ret := ret, ctl := .ret }
       return { s with ret := ret })
     (fun (s : DecompLoop) => do
@@ -329,7 +329,7 @@ def gzread (file : GzPtr) (buf : BPtr) (len : UInt32) : G Int32 := do
       ((← rdG state (·.err)) != Z_OK && (← rdG state (·.err)) != Z_BUF_ERROR) then
     return -1
   if len.toInt32 < 0 then
-    gz_error state Z_STREAM_ERROR (← lm (gzLit "request does not fit in an int"))
+    gz_error state Z_STREAM_ERROR (← (gzLit "request does not fit in an int"))
     return -1
   let len := (← gz_read state buf len.toUInt64).toUInt32
   if len == 0 && (← rdG state (·.err)) != Z_OK && (← rdG state (·.err)) != Z_BUF_ERROR then
@@ -347,7 +347,7 @@ def gzfread (buf : BPtr) (size nitems : UInt64) (file : GzPtr) : G UInt64 := do
       ((← rdG state (·.err)) != Z_OK && (← rdG state (·.err)) != Z_BUF_ERROR) then
     return 0
   if size != 0 && 0xFFFFFFFFFFFFFFFF / size < nitems then
-    gz_error state Z_STREAM_ERROR (← lm (gzLit "request does not fit in a size_t"))
+    gz_error state Z_STREAM_ERROR (← (gzLit "request does not fit in a size_t"))
     return 0
   let len := nitems * size
   if len != 0 then
@@ -414,7 +414,7 @@ def gzungetc (c : Int32) (file : GzPtr) : G Int32 := do
     wrG state fun s => { s with past := 0 }
     return c
   if (← rdG state (·.«have»)) == ((← rdG state (·.size)) <<< 1) then
-    gz_error state Z_DATA_ERROR (← lm (gzLit "out of room to push characters"))
+    gz_error state Z_DATA_ERROR (← (gzLit "out of room to push characters"))
     return -1
   if (← (← ldGz state).next.get) == (← (← ldGz state).out.get) then
     let src ← lm ((← (← ldGz state).out.get).add (Int.ofNat (← rdG state (·.«have»)).toNat))

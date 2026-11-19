@@ -37,7 +37,7 @@ def gz_error (state : GzPtr) (err : Int32) (msg : BPtr) : G Unit := do
     return
   let path ← (← ldGz state).path.get
   let n := (← lm (strlenB path)) + (← lm (strlenB msg)) + 3
-  let _ ← lm (snprintfSSS (← (← ldGz state).msg.get) n path (← lm (gzLit ": ")) msg)
+  let _ ← lm (snprintfSSS (← (← ldGz state).msg.get) n path (← (gzLit ": ")) msg)
 
 /-- `static gzFile gz_state_init(void)` (`gzlib.c:27-52`). -/
 def gz_state_init : G GzPtr := do
@@ -106,9 +106,11 @@ def gz_buffer_alloc (state : GzPtr) : G Int32 := do
   if out_size != 0 then
     let o ← lm ((← (← ldGz state).buffers.get).add (Int.ofNat in_size.toNat))
     wrG state fun s => { s with out := .val o }
-  if (← (← ldGz state).«in».get) == .null || (out_size != 0 && (← (← ldGz state).out.get) == .null) then
+  let bad ← if (← (← ldGz state).«in».get) == .null then pure true
+    else if out_size != 0 then do pure ((← (← ldGz state).out.get) == .null) else pure false
+  if bad then
     gz_buffer_free state
-    gz_error state Z_MEM_ERROR (← lm (gzLit "out of memory"))
+    gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
     return -1
   wrG state fun s => { s with size := want }
   return 0
@@ -289,11 +291,13 @@ def gzseek64 (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
   else
     let mut cur ← rdG state (·.pos)
     if (← rdG state (·.past)) == 0 then
-      if cur > 0 && (← rdG state (·.skip)) > (← lm (chkI64 (GZ_OFF_MAX.toInt - cur.toInt))) then
-        return -1
+      if cur > 0 then
+        if (← rdG state (·.skip)) > (← lm (chkI64 (GZ_OFF_MAX.toInt - cur.toInt))) then
+          return -1
       cur ← lm (chkI64 (cur.toInt + (← rdG state (·.skip)).toInt))
-    if cur > 0 && offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - cur.toInt))) then
-      return -1
+    if cur > 0 then
+      if offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - cur.toInt))) then
+        return -1
     let bad ← if cur < 0 then
         (if offset ≤ 0 then pure true else do pure (offset < (← lm (chkI64 (-cur.toInt)))))
       else do pure (offset < (← lm (chkI64 (-cur.toInt))))
@@ -301,8 +305,9 @@ def gzseek64 (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
       return -1
     pos ← lm (chkI64 (cur.toInt + offset.toInt))
     wrG state fun s => { s with skip := 0 }
-  if (← rdG state (·.pos)) < 0 && pos > (← lm (chkI64 (GZ_OFF_MAX.toInt + (← rdG state (·.pos)).toInt))) then
-    return -1
+  if (← rdG state (·.pos)) < 0 then
+    if pos > (← lm (chkI64 (GZ_OFF_MAX.toInt + (← rdG state (·.pos)).toInt))) then
+      return -1
   offset ← lm (chkI64 (pos.toInt - (← rdG state (·.pos)).toInt))
   if (← rdG state (·.mode)) == GZ_READ then
     if (← rdG state (·.how)) == COPY then
@@ -401,10 +406,10 @@ def gzerror (file : GzPtr) (hasErrnum : Bool) : G (BPtr × Option Int32) := do
     return (.null, none)
   let en : Option Int32 ← if hasErrnum then do pure (some (← rdG state (·.err))) else pure none
   if (← rdG state (·.err)) == Z_MEM_ERROR then
-    return (← lm (gzLit "out of memory"), en)
+    return (← (gzLit "out of memory"), en)
   let m ← (← ldGz state).msg.get
   if m == .null then
-    return (← lm (gzLit ""), en)
+    return (← (gzLit ""), en)
   return (← (← ldGz state).msg.get, en)
 
 /-- `void Z_EXPORT PREFIX(gzclearerr)(gzFile file)` (`gzlib.c:556-572`). -/
