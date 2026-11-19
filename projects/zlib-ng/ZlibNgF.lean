@@ -31,6 +31,7 @@ import ZlibNgF.Proof.«inftrees.c.rev»
 import ZlibNgF.Proof.«inftrees.c.loopdefs»
 import ZlibNgF.Proof.«inftrees.c.fill»
 import ZlibNgF.Proof.«inftrees.c.entry»
+import ZlibNgF.Proof.«inftrees.c.prefix»
 import ZlibNgF.Proof.«inftrees.c.geom»
 import ZlibNgF.Proof.«inftrees.c.cover»
 import ZlibNgF.Proof.«inftrees.c.sub»
@@ -70,6 +71,19 @@ import ZlibNgF.Proof.«public-uncompress»
 import ZlibNgF.Proof.«infback.c.init»
 import ZlibNgF.Proof.«infback.c.pull»
 import ZlibNgF.Proof.«infback.c.room»
+import ZlibNgF.Proof.«infback.c.loop»
+import ZlibNgF.Proof.«infback.c.steps»
+import ZlibNgF.Proof.«infback.c.type»
+import ZlibNgF.Proof.«infback.c.match»
+import ZlibNgF.Proof.«infback.c.stored»
+import ZlibNgF.Proof.«infback.c.fast»
+import ZlibNgF.Proof.«infback.c.decode»
+import ZlibNgF.Proof.«infback.c.lencopy»
+import ZlibNgF.Proof.«infback.c.len»
+import ZlibNgF.Proof.«infback.c.table»
+import ZlibNgF.Proof.«infback.c.run»
+import ZlibNgF.Proof.«infback.c.reach»
+import ZlibNgF.Proof.«infback.c.initshape»
 import ZlibNgF.Proof.«public-infback»
 import ZlibNgF.Proof.«gzlib.c.invariant»
 import ZlibNgF.Proof.«gzlib.c.reach»

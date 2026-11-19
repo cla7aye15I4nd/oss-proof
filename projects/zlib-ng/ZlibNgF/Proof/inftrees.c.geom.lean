@@ -2,6 +2,7 @@ import ZlibNgF.Proof.«inftrees.c.fill»
 import ZlibNgF.Proof.«inftrees.c.rev»
 import ZlibNgF.Math.InftreesCount
 import ZlibNgF.Proof.«inftrees.c.entry»
+import ZlibNgF.Proof.«inftrees.c.prefix»
 
 /-!
 # The state of the table-filling loop of `zng_inflate_table` (`ZlibNgF`)
@@ -19,6 +20,8 @@ set_option autoImplicit false
 
 namespace ZlibNgF.Proof.Inftrees
 open C ZlibNg.Inftrees ZlibNg.InflateP ZlibNgF.Math.BitReverse ZlibNgF.Math.InftreesCount
+open ZlibNgF.Proof.InfbackLoop (Lvl PosCB)
+open ZlibNgF.Proof.InflateTab (linkTest)
 
 /-! ## Arithmetic of the loop -/
 
@@ -129,12 +132,32 @@ def Wr' (S : Setup) (drop curr used low : UInt32) (K i : Nat) : Prop :=
     rev S.root low.toNat * 2 ^ (16 - S.root) +
       rev curr.toNat (i - (used.toNat - 2 ^ curr.toNat)) * 2 ^ (16 - S.root - curr.toNat) < K)
 
+/-- The prefix facts of slot `i` (`Proof/inftrees.c.prefix.lean`): a root slot has the code bits of its code
+position, cut at `root`, and a link in it is the one of the current sub-table (`op = curr`, at `used - 2 ^ curr`) or
+points to an earlier, complete sub-table that is a prefix code, and in a code length table (`CODES`) its code bits are
+its `bits` (`op & 16` clear); a slot of the current sub-table has the code bits of its code position after the `root`
+dropped bits. -/
+def PreOK (S : Setup) (drop curr used low : UInt32) (C : Array Code) (i : Nat) : Prop :=
+  (i < 2 ^ S.root → PosCB S.c0 (rev S.root i * 2 ^ (16 - S.root)) S.root (CODE_BITS C[S.off + i]!).toNat ∧
+    (linkTest (dOf S.type) C[S.off + i]! = true →
+      (drop ≠ 0 ∧ i = low.toNat ∧ C[S.off + i]!.op.toNat = curr.toNat ∧
+        C[S.off + i]!.val.toNat + 2 ^ curr.toNat = used.toNat) ∨
+      (2 ^ S.root ≤ C[S.off + i]!.val.toNat ∧
+        C[S.off + i]!.val.toNat + 2 ^ C[S.off + i]!.op.toNat ≤ used.toNat - 2 ^ curr.toNat ∧
+        Lvl C (S.off + C[S.off + i]!.val.toNat) C[S.off + i]!.op.toNat)) ∧
+    (S.type = CODES → C[S.off + i]!.op.toNat &&& 16 = 0)) ∧
+  (drop ≠ 0 → used.toNat - 2 ^ curr.toNat ≤ i →
+    PosCB S.c0 (rev S.root low.toNat * 2 ^ (16 - S.root) +
+        rev curr.toNat (i - (used.toNat - 2 ^ curr.toNat)) * 2 ^ (16 - S.root - curr.toNat))
+      (S.root + curr.toNat) ((CODE_BITS C[S.off + i]!).toNat + S.root))
+
 /-- Coverage: every written slot holds a valid entry; in the root table `K` is on a root-block boundary, in a
-sub-table `K` lies in the block of the current sub-table (or at its end). -/
+sub-table `K` lies in the block of the current sub-table (or at its end); every written slot has its prefix facts. -/
 structure Cv' (S : Setup) (drop curr used low : UInt32) (C : Array Code) (K : Nat) : Prop where
   ok : ∀ i, i < used.toNat → Wr' S drop curr used low K i → SlotOK S.type S.root used.toNat i C[S.off + i]!
   blk : (drop = 0 ∧ 2 ^ (16 - S.root) ∣ K) ∨
     (drop ≠ 0 ∧ rev S.root low.toNat * 2 ^ (16 - S.root) ≤ K ∧ K ≤ (rev S.root low.toNat + 1) * 2 ^ (16 - S.root))
+  pre : ∀ i, i < used.toNat → Wr' S drop curr used low K i → PreOK S drop curr used low C i
 
 /-- `Wr'` for the fields of the loop state `t`. -/
 abbrev Wr (S : Setup) (t : TL) (K i : Nat) : Prop := Wr' S t.drop t.curr t.used t.low K i
@@ -181,6 +204,9 @@ structure Fin0 (S : Setup) (t : TL) (C : Array Code) : Prop where
   cov : CovPre S → ∀ i, i < t.used.toNat → (t.huff = 0 ∨ i ≠ t.huff.toNat) →
     SlotOK S.type S.root t.used.toNat i C[S.off + i]!
   lenb : 1 ≤ (t.len - t.drop).toNat ∧ (t.len - t.drop).toNat ≤ 15
+  pre : CovPre S → ∀ i, i < t.used.toNat → (t.huff = 0 ∨ i ≠ t.huff.toNat) → PreOK S t.drop t.curr t.used t.low C i
+  rc : t.drop ≠ 0 → S.root + t.curr.toNat ≤ 15 ∧ 2 ^ S.root + 2 ^ t.curr.toNat ≤ t.used.toNat ∧ t.low.toNat < 2 ^ S.root
+  lenmx : t.len.toNat = S.mx
 
 /-- The loop state after the room check failed (`ret = 1`). -/
 structure Fin1 (S : Setup) (t : TL) (C : Array Code) : Prop where

@@ -193,15 +193,19 @@
     },
     {
       "function": "inflateBack",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of inflateBack is not proved yet; the goal is stated and its premises are shown satisfiable (Goal.inflateBack_nonvacuous)."
+      "source": "ZlibNgF/ZlibNg/infback.c.lean",
+      "implementation": "ZlibNg.Infback.inflateBack",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateBack_safety"
     },
     {
       "function": "inflateBackEnd",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of inflateBackEnd is not done: on a stream that inflateBack has used it needs the frame of inflateBack, which is not proved."
+      "source": "ZlibNgF/ZlibNg/infback.c.lean",
+      "implementation": "ZlibNg.Infback.inflateBackEnd",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateBackEnd_safety"
     },
     {
       "function": "zlibCompileFlags",

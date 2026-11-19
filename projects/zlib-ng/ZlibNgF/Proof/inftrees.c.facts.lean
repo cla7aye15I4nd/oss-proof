@@ -49,10 +49,11 @@ theorem TblPre.of_call {h : Heap} {b : Nat} {st : InflateState} {type : UInt32} 
             room := by rw [hc, hE, hb]; omega, codes_lt := by rw [hc, hE]; decide,
             kind := Or.inr (Or.inr ⟨rfl, by omega⟩) }
 
-/-- The three calls of `zng_inflate_table` in `inflate`: no fault, only `codes` and `work` change, the entries
-before the table start are kept, and on success the table `[o, o')` has room for its `2 ^ lb` root entries and ends
-within `ENOUGH_DISTS` (distance code) or `ENOUGH_LENS` (the other two) of `o`. -/
-theorem table_run (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo : Nat) (n : UInt32) (o : Nat)
+/-- The three calls of `zng_inflate_table` in `inflate` and `inflateBack`: no fault, only `codes` and `work` change,
+the entries before the table start are kept, and on success the table `[o, o')` has room for its `2 ^ lb` root entries,
+ends within `ENOUGH_DISTS` (distance code) or `ENOUGH_LENS` (the other two) of `o`, and is a prefix code (`Rep`)
+whose root level of a code length table is a prefix code for every entry, with `op & 16` clear. -/
+theorem table_run_rep (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo : Nat) (n : UInt32) (o : Nat)
     (bits : UInt32) (hi : h.istate b = some st) (hc : st.codes.size = ENOUGH) (hl : st.lens.size = 320)
     (hw : st.work.size = 288) (hcall : TableCall type lo n o bits)
     (hv : ∀ j, j < n.toNat → (st.lens[lo + j]!).toNat ≤ (if type = CODES then 7 else 15)) :
@@ -63,7 +64,10 @@ theorem table_run (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo :
       codes'.size = ENOUGH ∧ work'.size = 288 ∧ (∀ j, j < o → codes'[j]! = st.codes[j]!) ∧
       (ret = 0 ∨ ret = -1 ∨ ret = 1) ∧
       (ret = 0 → o' ≤ o + (if type = DISTS then 592 else 1332) ∧ o + 2 ^ lb.toNat ≤ o' ∧ 1 ≤ lb.toNat ∧
-        lb.toNat ≤ 15 ∧ InflateTab.CodeTable codes' o o' lb.toNat (mOf type) (dOf type)) ∧
+        lb.toNat ≤ 15 ∧ InflateTab.CodeTable codes' o o' lb.toNat (mOf type) (dOf type) ∧
+        InfbackLoop.Rep codes' o lb.toNat (dOf type) ∧
+        (type = CODES → InfbackLoop.LvlAll codes' o lb.toNat ∧
+          ∀ j, j < 2 ^ lb.toNat → codes'[o + j]!.op.toNat &&& 16 = 0)) ∧
       (ret ≠ 0 → o' = o) := by
   have hP := TblPre.of_call hi hc hl hw hcall hv
   obtain ⟨⟨ret, p, lb⟩, h', e, C, W, rfl, hCs, hWs, hfr, hret, herr, hok⟩ := zng_inflate_table_wp hP
@@ -88,11 +92,30 @@ theorem table_run (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo :
     simp only at hp h1 h3 h4
     subst hp
     exact ⟨ret, o + used, lb, C, W, e, by rw [hCs, hc], by rw [hWs, hw], hkeep, hret,
-      fun _ => ⟨by omega, by omega, h3, h4, hct h286⟩, fun e => absurd h0 e⟩
+      fun _ => ⟨by omega, by omega, h3, h4, (hct h286).1, (hct h286).2.1, (hct h286).2.2⟩, fun e => absurd h0 e⟩
   · have hp := herr h0
     simp only [Prod.mk.injEq] at hp
     obtain ⟨rfl, rfl⟩ := hp
     exact ⟨ret, o, _, C, W, e, by rw [hCs, hc], by rw [hWs, hw], hkeep, hret, fun e => absurd e h0, fun _ => rfl⟩
+
+/-- `table_run_rep` without the prefix property: the three calls of `zng_inflate_table` in `inflate`. -/
+theorem table_run (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo : Nat) (n : UInt32) (o : Nat)
+    (bits : UInt32) (hi : h.istate b = some st) (hc : st.codes.size = ENOUGH) (hl : st.lens.size = 320)
+    (hw : st.work.size = 288) (hcall : TableCall type lo n o bits)
+    (hv : ∀ j, j < n.toNat → (st.lens[lo + j]!).toNat ≤ (if type = CODES then 7 else 15)) :
+    ∃ (ret : Int32) (o' : Nat) (lb : UInt32) (codes' : Array Code) (work' : Array UInt16),
+      C.run (zng_inflate_table type (.ref (.lens b) lo) n (.ref (.codes b) o) bits (.ref (.work b) 0)) h =
+        .ok ((ret, .ref (.codes b) o', lb),
+          { h with istates := upd h.istates b (some { st with codes := codes', work := work' }) }) ∧
+      codes'.size = ENOUGH ∧ work'.size = 288 ∧ (∀ j, j < o → codes'[j]! = st.codes[j]!) ∧
+      (ret = 0 ∨ ret = -1 ∨ ret = 1) ∧
+      (ret = 0 → o' ≤ o + (if type = DISTS then 592 else 1332) ∧ o + 2 ^ lb.toNat ≤ o' ∧ 1 ≤ lb.toNat ∧
+        lb.toNat ≤ 15 ∧ InflateTab.CodeTable codes' o o' lb.toNat (mOf type) (dOf type)) ∧
+      (ret ≠ 0 → o' = o) := by
+  obtain ⟨ret, o', lb, codes', work', e, h1, h2, h3, h4, h5, h6⟩ :=
+    table_run_rep h b st type lo n o bits hi hc hl hw hcall hv
+  exact ⟨ret, o', lb, codes', work', e, h1, h2, h3, h4,
+    fun h0 => ⟨(h5 h0).1, (h5 h0).2.1, (h5 h0).2.2.1, (h5 h0).2.2.2.1, (h5 h0).2.2.2.2.1⟩, h6⟩
 
 /-- `TableFacts`: `zng_inflate_table` as `inflate` calls it, with its decoding table on success. -/
 theorem tableFacts : ZlibNgF.Proof.InflateFacts.TableFacts := by
