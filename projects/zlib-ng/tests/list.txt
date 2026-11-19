@@ -1,0 +1,4 @@
+adler32
+crc32
+zutil
+compress

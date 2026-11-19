@@ -1,0 +1,34 @@
+name = "difftest"
+version = "0.1.0"
+
+# The differential-test drivers. They import the SAME translation the proofs are about,
+# from the parent project, by path. Nothing here is part of the checked library: see README.md.
+
+[[require]]
+name = "ZlibNgF"
+path = ".."
+
+[[lean_lib]]
+name = "DiffTest"
+srcDir = "lean"
+
+# One executable per C driver. Name: difftest_<name>, root: Driver.<Name>.
+[[lean_exe]]
+name = "difftest_adler32"
+root = "Driver.Adler32"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_crc32"
+root = "Driver.Crc32"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_zutil"
+root = "Driver.Zutil"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_compress"
+root = "Driver.Compress"
+srcDir = "lean"
