@@ -140,16 +140,17 @@ def Goal.deflateUsed_safety : Prop :=
     ∃ r, C.run (ZlibNg.Deflate.deflateUsed s hb) h = .ok (r, h)
 
 /-- `uLong deflateBound(z_stream *strm, uLong sourceLen)`: for every `sourceLen`, on an accepted stream whose
-registered header is readable, does not fault and changes nothing. -/
+registered header is readable, does not fault and changes nothing. Every object has fewer than `2^63` bytes
+(`ObjBound`: the model bounds the number of trips of the loop over the header's strings by `2^64`). -/
 def Goal.deflateBound_safety : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (n : UInt64),
-    DeflateHandle h s → DHeaderReadable h s →
+    DeflateHandle h s → DHeaderReadable h s → ObjBound h →
     ∃ r, C.run (ZlibNg.Deflate.deflateBound s n) h = .ok (r, h)
 
 /-- `z_size_t deflateBound_z(z_stream *strm, z_size_t sourceLen)`: as `deflateBound`. -/
 def Goal.deflateBound_z_safety : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (n : UInt64),
-    DeflateHandle h s → DHeaderReadable h s →
+    DeflateHandle h s → DHeaderReadable h s → ObjBound h →
     ∃ r, C.run (ZlibNg.Deflate.deflateBound_z s n) h = .ok (r, h)
 
 /-! ## Control -/

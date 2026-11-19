@@ -1,4 +1,4 @@
-<!-- source-sha256: 240ac31d76be307e4825dc9c87972f4a4ac7340740ae3e602cb4293a38e57a16 -->
+<!-- source-sha256: f8461a835dfbd9fd731aea5db8bdea656051f1cfce5026ac9d528e37f3d6619a -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -59,7 +59,7 @@
 | `deflateGetDictionary` | 缓冲区为 `NULL` 或至少有 32768 个可写字节。 | `Goal.deflateGetDictionary_safety` | `zlib.h` 指明 32768 字节总是足够。 |
 | `deflateCopy` | `dest` 与 `source` 是不同的流。 | `Goal.deflateCopy_safety` | 对 `z_stream` 的复制是 `memcpy`，对同一对象未定义。 |
 | `deflateSetHeader`（在流的历史中） | 在首次 `deflate` 调用之前调用，所给头的 `extra` 有 `extra_len` 个可读字节，`name` 与 `comment` 为 C 字符串。 | `DeflateStep` | 这是 `zlib.h` 对 `deflateSetHeader` 的要求；调用本身任何时候都安全（`Goal.deflateSetHeader_safety`）。 |
-| `deflateBound`、`deflateBound_z` | 已登记的 `gz_header` 按 `deflateSetHeader` 的要求可读。 | `DHeaderReadable` | `deflateBound` 读取头中的字符串。 |
+| `deflateBound`、`deflateBound_z` | 已登记的 `gz_header` 按 `deflateSetHeader` 的要求可读；每个对象都小于 `2^63` 字节。 | `DHeaderReadable`、`ObjBound` | `deflateBound` 读取头中的字符串直到其零字节。模型中该循环至多运行 `2^64` 次，而模型本身不限制对象的大小；x86_64 Linux 上的每个对象都远小于此。 |
 | `deflateInit_`、`deflateInit2_`、`deflateCopy`、`compress*` | 堆模型在尚未分配的块中不记录任何对象（字节、inflate 或 deflate 状态）。 | `DFreshBlocks` | 堆模型的良构条件，程序到达的每个堆都满足。 |
 | `deflate`、`deflateParams`（流历史中的每次调用） | 静态 CRC 表保持其常量（`CrcGlobals`）。 | `DeflateStep` | C 中的常量数据。 |
 | 调用之间 | 程序不改变 `z_stream` 的其他字段或库的分配块，也不释放已登记的 `gz_header` 记录。在 `deflate` 写 gzip 头期间，程序保持头的 `extra`、`extra_len`、`name`、`comment` 字段以及两个字符串的长度不变。 | `DCallerStep` | `zlib.h` 把 `z_stream` 的这些字段与分配块留给库；`deflate` 在这些缓冲区中按保存的下标继续写头。 |
