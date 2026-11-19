@@ -174,9 +174,6 @@ def trS (b : Nat) (st : DeflateState) (A B C : Array Ct) : DeflateState :=
     opt_len := 0
     sym_next := 0 }
 
-theorem trS_view (b : Nat) (st : DeflateState) (A B C : Array Ct) :
-    DeflateInv.dview (trS b st A B C) = DeflateInv.dview st := rfl
-
 /-- `zng_tr_init` on a state whose tree arrays have their C sizes. -/
 theorem tr_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8} (st : DeflateState)
     (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1) (h3 : st.bl_tree.size = 2 * 19 + 1) :
@@ -698,11 +695,15 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
       · exact hw
       · exact wsize_ne n hn2
+      · exact ⟨_, rfl⟩
+      · exact ⟨_, d', SH_bytes _ _ _ _ _ _, rfl, by rw [hd', hdsz]; omega⟩
+      · exact ⟨Int32.not_lt.mp hl0, Int32.not_lt.mp hl9⟩
+      · exact ⟨hA, hB, hC⟩
 
 /-- The `windowBits` decoding and the tail, on a stream whose allocator fields are the defaults. -/
 theorem decode_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)

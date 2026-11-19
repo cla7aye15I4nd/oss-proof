@@ -1,6 +1,7 @@
 import ZlibNgF.Proof.«public-deflate-bound»
 import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Proof.«public-deflate-init»
+import ZlibNgF.Proof.«deflate.c.reset»
 
 /-!
 # Reachable deflate streams have the structural invariant (`ZlibNgF`)
@@ -8,7 +9,7 @@ import ZlibNgF.Proof.«public-deflate-init»
 `dreach_inv (P : DPending) : DeflateReachable h s → DInv h s`, by induction over `DeflateReachable`, as
 `InflateReach.reach_inv` on the inflate side. The constructor cases proved: `deflateInit_` and `deflateInit2_`
 (`Proof/public-deflate-init.lean`), the caller step, and the steps `deflatePending`, `deflateUsed`, `deflateTune`,
-`deflateSetHeader`, `deflateBound`, `deflateBound_z`. Every other case is a field of `DPending`, the list of
+`deflateSetHeader`, `deflateBound`, `deflateBound_z`, `deflateReset`, `deflateResetKeep`. Every other case is a field of `DPending`, the list of
 preservation obligations not proved yet. The `*_safety_of` theorems
 derive registered goals from `DPending`; a goal is registered as proved only once `DPending` is.
 -/
@@ -36,10 +37,6 @@ structure DPending : Prop where
     C.run (ZlibNg.Deflate.deflateGetDictionary s d hasLen) h = .ok (r, h') → DInv h' s
   prime : ∀ (h h' : Heap) (s : StreamPtr) (bits value r : Int32), DInv h s →
     C.run (ZlibNg.Deflate.deflatePrime s bits value) h = .ok (r, h') → DInv h' s
-  reset : ∀ (h h' : Heap) (s : StreamPtr) (r : Int32), DInv h s →
-    C.run (ZlibNg.Deflate.deflateReset s) h = .ok (r, h') → DInv h' s
-  resetKeep : ∀ (h h' : Heap) (s : StreamPtr) (r : Int32), DInv h s →
-    C.run (ZlibNg.Deflate.deflateResetKeep s) h = .ok (r, h') → DInv h' s
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -60,8 +57,7 @@ theorem caller_inv {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (hc : DCallerSt
   refine ⟨i', z', b', st, al, rfl, hz', hs'.trans hb, hst', hal', ?_⟩
   have za : z'.zalloc = z1.zalloc := by rw [ez]
   have zf : z'.zfree = z1.zfree := by rw [ez]
-  exact ⟨za.trans c.zalloc, zf.trans c.zfree, c.strm, c.alloc_bufs, c.al_state, c.al_zfree, c.al_buf, c.status_lo,
-    c.status_hi, c.wrap, c.gzhead, c.w_size⟩
+  exact { DCore.of_heap hbytes c with zalloc := za.trans c.zalloc, zfree := zf.trans c.zfree }
 
 /-- Every public step keeps the invariant, given the pending preservation lemmas. -/
 theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (hs : DeflateStep h h' s) :
@@ -85,8 +81,10 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     rw [det e e0]; exact hi
   · rw [DeflateBound.RO.deflateBound s n h r h' e]; exact hv
   · rw [DeflateBound.RO.deflateBound_z s n h r h' e]; exact hv
-  · exact P.reset h h' s r hv e
-  · exact P.resetKeep h h' s r hv e
+  · obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _⟩⟩ := DeflateReset.reset_inv hv
+    rw [det e e0]; exact hi
+  · obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _⟩⟩ := DeflateReset.resetKeep_inv hv
+    rw [det e e0]; exact hi
   · exact (P.copy h h' s dst r hv hdst hne e).1
 
 /-- **The induction.** Every reachable deflate stream has the structural invariant, given the pending obligations. -/
@@ -175,5 +173,19 @@ theorem deflateBound_z_safety_of (P : DPending) : Goal.deflateBound_z_safety := 
   rcases handle_cases hh with hn | hre
   · exact DeflateBound.deflateBound_z_noState hn n
   · exact DeflateBound.deflateBound_z_inv (dreach_inv P hre) hr hob n
+
+theorem deflateReset_safety_of (P : DPending) : Goal.deflateReset_safety := by
+  intro h s hh
+  rcases handle_cases hh with hn | hr
+  · exact ⟨_, _, DeflateReset.reset_noState hn, dframe_refl h _ _ _ _⟩
+  · obtain ⟨i, z, b, rfl, hz, hzb, r, h', e, ⟨_, _, f⟩⟩ := DeflateReset.reset_inv (dreach_inv P hr)
+    exact ⟨r, h', e, by rw [stateIds_of hz hzb]; exact f⟩
+
+theorem deflateResetKeep_safety_of (P : DPending) : Goal.deflateResetKeep_safety := by
+  intro h s hh
+  rcases handle_cases hh with hn | hr
+  · exact ⟨_, _, DeflateReset.resetKeep_noState hn, dframe_refl h _ _ _ _⟩
+  · obtain ⟨i, z, b, rfl, hz, hzb, r, h', e, ⟨_, _, f⟩⟩ := DeflateReset.resetKeep_inv (dreach_inv P hr)
+    exact ⟨r, h', e, by rw [stateIds_of hz hzb]; exact f⟩
 
 end ZlibNgF.Proof.DeflateReach

@@ -10,10 +10,12 @@ and the entry points read in range. As on the inflate side (`Proof/inflate.c.inv
 the state only through the view `dview`: a store that changes only fields outside the view keeps it by `rfl`. Proofs
 use it through the interface lemmas at the end of this file.
 
-The clauses are those that the proofs so far need; clauses for the carve layout of the window, `prev`, `head` and
-`pending_buf`, the window and match positions, `pending` / `pending_out`, `sym_next` / `sym_end`, `bi_valid` and the
-function pointers are added with the proofs of the entry points that read them (`deflatePrime`, `deflateBound`,
-`deflateGetDictionary`, `deflate`).
+The clauses are those that the proofs so far need: besides the fields of the state check, `pending_buf` is set,
+`head` lies in the plain bytes of the block (`CLEAR_HASH` of `deflateReset`), `level` is 0..9 (`lm_set_level`) and
+the tree arrays have their C sizes (`zng_tr_init`). Clauses for the layout of the window, `prev` and `pending_buf`,
+the window and match positions, `pending` / `pending_out`, `sym_next` / `sym_end`, `bi_valid` and the function
+pointers are added with the proofs of the entry points that read them (`deflatePrime`, `deflateGetDictionary`,
+`deflateSetDictionary`, `deflate`).
 -/
 
 set_option autoImplicit false
@@ -30,9 +32,17 @@ structure DView where
   wrap : Int32
   gzhead : Ival HeaderPtr
   w_size : UInt32
+  pending_buf : Ival BPtr
+  head : Ival BPtr
+  level : Int32
+  lsize : Nat
+  dsize : Nat
+  bsize : Nat
 
 /-- The constrained fields of `st`. -/
-def dview (st : DeflateState) : DView := ⟨st.strm, st.alloc_bufs, st.status, st.wrap, st.gzhead, st.w_size⟩
+def dview (st : DeflateState) : DView :=
+  ⟨st.strm, st.alloc_bufs, st.status, st.wrap, st.gzhead, st.w_size, st.pending_buf, st.head, st.level,
+    st.dyn_ltree.size, st.dyn_dtree.size, st.bl_tree.size⟩
 
 /-- The clauses on the stream record `z`, the constrained state fields `v` and the allocation record `al` of
 block `b`. -/
@@ -50,12 +60,19 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   gzhead : ∃ hp, v.gzhead = .val hp
   /-- `w_size = 1 << w_bits` is not zero (`W_BITS` takes its trailing zeros) -/
   w_size : v.w_size ≠ 0
+  /-- `pending_buf` is set -/
+  pbuf : ∃ pb, v.pending_buf = .val pb
+  /-- `head` (`HASH_SIZE` two-byte entries) lies in the plain bytes of the block -/
+  head : ∃ ho d, h.bytes b = some d ∧ v.head = .val (.ref (.heap b) ho) ∧ ho + 131072 ≤ d.size
+  /-- `level` is a valid compression level (`lm_set_level` indexes `configuration_table` with it) -/
+  level : 0 ≤ v.level ∧ v.level ≤ 9
+  /-- the tree arrays have their C sizes -/
+  trees : v.lsize = HEAP_SIZE ∧ v.dsize = 2 * 30 + 1 ∧ v.bsize = 2 * 19 + 1
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
-    (_hb : h'.bytes b = h.bytes b) (c : DCore h s z b v al) : DCore h' s z b v al :=
-  ⟨c.zalloc, c.zfree, c.strm, c.alloc_bufs, c.al_state, c.al_zfree, c.al_buf, c.status_lo, c.status_hi, c.wrap,
-    c.gzhead, c.w_size⟩
+    (hb : h'.bytes b = h.bytes b) (c : DCore h s z b v al) : DCore h' s z b v al :=
+  { c with head := by rw [hb]; exact c.head }
 
 /-- The structural invariant of the deflate stream `s` in `h`. -/
 def DInv (h : Heap) (s : StreamPtr) : Prop :=
