@@ -1,9 +1,10 @@
-/* Open defect (no patch). The readers add to the signed 64-bit position x.pos without a bound. On a descriptor whose
+/* Patch 0016. The readers add to the signed 64-bit position x.pos without a bound. On a descriptor whose
  * lseek succeeds without moving and which always has data, such as Linux /dev/zero (lseek returns 0, read returns
  * zeros), a transparent read followed by gzseek(file, INT64_MAX, SEEK_SET) sets x.pos to INT64_MAX (the seek is
  * within the raw area, gzseek64 calls lseek and adds the offset); the next gzread adds the bytes it delivers:
  * signed overflow (ISO C17 §6.5p5) in gz_read. On a system whose /dev/zero lseek does not behave as Linux's, the
- * repro answers lseek on its descriptor as Linux does (returns 0); read is the system's. */
+ * repro answers lseek on its descriptor as Linux does (returns 0); read is the system's.
+ * With patch 0016 the readers stop at GZ_OFF_MAX: gzread returns 0 and prints "gzread 0 9223372036854775807 0". */
 #include <stdio.h>
 #include <stdint.h>
 #include <fcntl.h>

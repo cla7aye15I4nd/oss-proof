@@ -145,7 +145,8 @@ structure WriteLoop where
   len : UInt64
   ctl : Ctl
 
-/-- `static size_t gz_write(gz_state *state, void const *buf, size_t len)` (`gzwrite.c:162-219`). -/
+/-- `static size_t gz_write(gz_state *state, void const *buf, size_t len)` (`gzwrite.c:162-219`, with patch 0014:
+after the direct path, and when it fails, `strm.next_in` is `state->in` and `strm.avail_in` is 0). -/
 def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   let put := len
   if len == 0 then
@@ -199,6 +200,9 @@ def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
         let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + n.toNat))
         wrG state fun st => { st with pos := np }
         if (← gz_comp state Z_NO_FLUSH) == -1 then
+          lm (wrZ strm fun z => { z with avail_in := 0 })
+          let i ← (← ldGz state).«in».get
+          lm (wrZ strm fun z => { z with next_in := i })
           return { s with ctl := .ret }
         return { s with len := s.len - n.toUInt64 })
       (fun (s : WriteLoop) => do
@@ -207,6 +211,8 @@ def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
       ⟨buf, len, .go⟩
     if lp.ctl == .ret then
       return 0
+    let i ← (← ldGz state).«in».get
+    lm (wrZ strm fun z => { z with next_in := i })
   return put
 
 /-- `z_int32_t Z_EXPORT PREFIX(gzwrite)(gzFile file, void const *buf, z_uint32_t len)` (`gzwrite.c:222-243`). -/

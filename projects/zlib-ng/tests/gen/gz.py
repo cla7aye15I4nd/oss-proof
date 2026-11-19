@@ -13,11 +13,11 @@ The schedule numbers the OS calls (open, read, write, lseek, close) of the line 
 them, a failure (F<errno>), a short read or write (S<k>), device data for a read (B<hex>) or an lseek result
 (V<value>); see tests/c/gz.c.
 
-Not generated, because the verified C has undefined behaviour there that no patch fixes yet (findings page and
-tests/regression/): a write error on the direct path of gz_write (len >= the buffer size) followed by any call that
-writes again, flushes or closes (the stream still points into the caller's buffer, which the driver has freed);
-gzclearerr after any write error followed by a write; an allocation failure (the drivers do not fail malloc);
-gzseek to near 2^63 followed by reads or writes.
+A schedule entry A<k> makes the library's malloc call number k of the line (0-based) return NULL.
+
+Every input on which the C ran into undefined behaviour before patches 0014-0016 is generated: write errors on the
+direct path of gz_write followed by further writes, flushes and closes, gzclearerr after write errors, allocation
+failures (gz_state, path, buffers, inflate and deflate state, error message), and reads after gzseek to near 2^63.
 """
 import random
 import zlib
@@ -224,6 +224,56 @@ for m in ("w", "wT"):
         line(None, sched, ["openg:" + m, "buffer:64", "write:" + hx(text(20)), "flush:2", "error", "write:41", "error",
                            "close"])
         line(None, sched, ["openg:" + m, "buffer:64", "puts:" + hx(text(30)), "printf:d:5", "close", "error"])
+
+# ---- write errors on the direct path (patch 0014), then more writes, gzclearerr, flushes and closes ----
+for m in ("w", "wT", "w1", "w0"):
+    for sched in (["1:F28"], ["1:S3"], ["2:F5"], ["1:F11"], ["1:S0"], ["3:F5"]):
+        line(None, sched, ["openg:" + m, "buffer:8", "writen:100:-1", "error", "clearerr", "write:41", "putc:66",
+                           "printf:d:7", "params:1:0", "writen:20:5", "flush:2", "error", "close"])
+        line(None, sched, ["openg:" + m, "buffer:8", "writen:100:-1", "error", "close"])
+        line(None, sched, ["openg:" + m, "buffer:8", "write:41", "writen:100:-1", "clearerr", "writen:50:3", "tell",
+                           "close"])
+        line(None, sched, ["openg:" + m, "buffer:8", "writen:100:-1", "clearerr", "printf:s:" + hx(b"abcdefg"),
+                           "seek:20:1", "flush:4", "closew"])
+
+# ---- allocation failures ----
+for k in range(9):
+    A = ["A%d" % k]
+    line(gz(text(300)), A, ["open:r", "buffer:16", "read:20", "gets:10", "error", "read:4000", "error", "close"])
+    line(text(300), A, ["open:r", "buffer:16", "read:20", "getc", "ungetc:65", "error", "close"])
+    line(gz(text(50))[:-5], A, ["open:r", "read:200", "error", "clearerr", "error", "read:5", "error", "close"])
+    line(gz(b"abc"), A, ["dopen:0:r", "direct", "read:10", "error", "close"])
+    line(gz(b"abc"), A, ["open:r", "seek:2:0", "read:5", "error", "close"])
+    line(None, A, ["openg:zz", "error"])
+    for m in ("w", "wT", "w9", "a"):
+        line(None, A, ["openg:" + m, "buffer:16", "write:" + hx(text(40)), "error", "printf:d:5", "flush:2", "close"])
+        line(None, A, ["openg:" + m, "write:41", "error", "clearerr", "putc:1", "puts:4142", "error", "close"])
+        line(None, A, ["openg:" + m, "seek:30:0", "params:2:0", "error", "close"])
+    line(None, A, ["openg:w", "buffer:8", "writen:100:-1", "error", "close"])
+    line(None, ["0:F13"] + A, ["openg:r", "error", "open:r", "error"])
+for a, b in ((0, 1), (1, 2), (2, 3), (3, 4), (2, 4), (4, 5), (1, 3)):
+    A = ["A%d" % a, "A%d" % b]
+    line(gz(text(300)), A, ["open:r", "read:20", "error", "read:20", "error", "close"])
+    line(None, A, ["openg:w", "write:41", "error", "write:42", "error", "close"])
+    line(None, ["1:F5"] + A, ["openg:w", "buffer:8", "writen:30:-1", "error", "close", "error"])
+
+# ---- reads after gzseek to near 2^63 (patch 0016): device data from a descriptor whose lseek moves freely ----
+t = text(300)
+dev = ["%d:B%s" % (i, hx(rnd(25))) for i in range(3, 16)]
+for b in (8, 64):
+    for ops in (["read:3", "seek:9223372036854775807:0", "tell", "read:5", "tell", "getc", "getc_", "gets:10", "read:5",
+                 "eof", "tell"],
+                ["read:3", "seek:9223372036854775800:0", "read:5", "tell", "read:5", "tell", "getc", "tell", "read:3",
+                 "gets:4", "getc", "ungetc:65", "getc", "tell"],
+                ["getc", "seek:9223372036854775806:0", "getc", "getc", "getc", "tell", "ungetc:66", "getc", "getc",
+                 "tell"],
+                ["read:3", "seek:9223372036854775790:0", "gets:30", "gets:30", "tell", "read:100", "tell"],
+                ["read:3", "seek:9223372036854775797:0", "fread:3:4", "tell", "fread:1:5", "tell"],
+                ["read:3", "seek:9223372036854775800:0", "ungetc:65", "ungetc:66", "tell", "read:20", "tell", "getc"]):
+        line(t, dev, ["open:r", "buffer:%d" % b] + ops + ["error", "close"])
+for c in (gz(text(2000)), gz(b"short")):
+    line(c, [], ["open:r", "buffer:8", "seek:9223372036854775807:0", "read:5", "tell", "getc", "gets:5", "eof", "error",
+                 "close"])
 
 for l in out:
     print(l)

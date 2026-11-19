@@ -39,7 +39,7 @@ def GZIP : Int32 := 2
 /-- `GT_OFF(x)`: `sizeof(int) == sizeof(z_off64_t) && (x) > INT_MAX`, false on LP64. -/
 def GT_OFF (_x : UInt32) : Bool := false
 
-/-- `GZ_OFF_MAX` (patch 0004): `(z_off64_t)((~(uint64_t)0) >> (65 - sizeof(z_off64_t) * 8))` = `2^63 - 1`. -/
+/-- `GZ_OFF_MAX` (patch 0004; patch 0016 defines it in `gzread.c` too, when `gzguts.h` does not): `(z_off64_t)((~(uint64_t)0) >> (65 - sizeof(z_off64_t) * 8))` = `2^63 - 1`. -/
 def GZ_OFF_MAX : Int64 := Int64.ofInt (2 ^ 63 - 1)
 
 /-- `Z_ERRNO` -/

@@ -1,9 +1,11 @@
-/* Open defect (no patch). A gzwrite of at least the buffer size writes (transparent mode) or compresses straight
+/* Patch 0014 (the same patch as gzwrite-clearerr-stale-input: the same stale pointer). A gzwrite of at least the buffer size writes (transparent mode) or compresses straight
  * from the caller's buffer: strm.next_in points into it. When write() fails, gzwrite returns 0 with avail_in still
  * nonzero, so next_in keeps pointing into the caller's buffer after gzwrite has returned. gzclose then calls
  * gz_comp(state, Z_FINISH), which writes avail_in bytes from next_in: here the caller has freed the buffer, a read of
  * freed memory whose contents go to the file. The failure is a transient one: a non-blocking pipe that is full
- * (EAGAIN), drained before gzclose. */
+ * (EAGAIN), drained before gzclose.
+ * With patch 0014 avail_in is 0 after the failed gzwrite, so gzclose writes nothing from the freed buffer and prints
+ * "gzclose 0 0". */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

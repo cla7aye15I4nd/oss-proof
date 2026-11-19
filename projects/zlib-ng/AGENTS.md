@@ -233,17 +233,18 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
 - Differential test (`tests/c/gz.c`): the C driver defines `open`, `open64`, `read`, `write`, `lseek`, `lseek64`,
   `close` and `strerror` itself (taking precedence over the C library for the statically linked `libz.a`) as the
   same file-system model and schedule as the Lean side, with Linux flag values (host flags are translated),
-  Linux `errno` values and glibc's texts, so the run is target-faithful on any host. The C library's `malloc`,
-  `snprintf`, `vsnprintf` and string functions are real. Allocation failures are not exercised by the drivers.
-- Undefined behaviour of the verified source reached by documented calls, with no patch yet (findings page,
-  `tests/regression/` open cases): a failed `gzwrite` on the direct path leaves `next_in` in the caller's buffer
-  (`gzwrite.c:185` cross-object subtraction after `gzclearerr`; `gzwrite.c:70` reads it again in `gzclose`);
-  `gz_buffer_alloc` forms `NULL + in_size` when the allocation fails (`gzlib.c:90`); the readers' position
-  `x.pos` overflows after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds without moving
-  (`gzread.c:356`). The translation faults on each. Open question, not a finding: `gzoffset64` computes
-  `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below `INT64_MIN + avail_in`; the
-  `lseek` oracle admits such values (Linux files with unsigned offsets return them), so `Goal.gzoffset64_safety` as
-  stated fails for them, although no such descriptor was found on which `read` also delivers data.
+  Linux `errno` values and glibc's texts, so the run is target-faithful on any host. It also defines `malloc`, which
+  numbers the library's calls on each line and fails the ones the schedule names (`A<k>`), as the Lean side's
+  `Heap.allocOk`; the driver's own buffers come from the C library's `malloc` and are not numbered. The C library's
+  `snprintf`, `vsnprintf` and string functions are real.
+- Undefined behaviour of upstream reached by documented calls, fixed by patches 0014-0016 (findings page): a failed
+  `gzwrite` on the direct path left `next_in` in the caller's buffer (`gzwrite.c:185` cross-object subtraction after
+  `gzclearerr`; `gzwrite.c:70` reads it again in `gzclose`): patch 0014 resets `next_in` / `avail_in` on that path;
+  `gz_buffer_alloc` formed `NULL + in_size` when the allocation failed (`gzlib.c:90`): patch 0015; the readers'
+  position `x.pos` overflowed after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds and which keeps
+  delivering data (`gzread.c:356`): patch 0016 stops the readers at `GZ_OFF_MAX`. Open question, not a finding:
+  `gzoffset64` computes `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below
+  `INT64_MIN + avail_in`; see `deviations.md` for how the goal treats it.
 
 ## Checking
 

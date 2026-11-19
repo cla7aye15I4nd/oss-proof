@@ -5,7 +5,9 @@ import DiffTest.Common
 Lean side of the differential test for `gzlib.c`, `gzread.c` and `gzwrite.c` (format: `tests/c/gz.c`). It runs the
 same operations on the translation, in a world (`C.World`) whose file `f` and OS-call schedule are those of the
 line, and prints the same fields. The `vsnprintf` oracle is set before each `printf` operation to the output of its
-format (`"%s"` of the bytes, `"%d"` of the number, `"%s"` of the empty string).
+format (`"%s"` of the bytes, `"%d"` of the number, `"%s"` of the empty string). The allocation oracle
+(`Heap.allocOk`) fails the library's `malloc` calls the schedule names (`A<k>`); the driver's own buffers are not
+`malloc` calls of the library and are not numbered.
 -/
 
 open DiffTest C ZlibNg.Gz ZlibNg.Inflate
@@ -15,11 +17,12 @@ def junkHeap : Heap :=
     garbage := fun a b => (UInt64.ofNat (a * 0x9E3779B97F4A7C15 + b * 0xBF58476D1CE4E5B9 + 0x94D049BB133111EB)) ^^^ 0x5555555555555555
     baseAddr := fun _ => 16 }
 
-/-- A new heap block holding `a` (a `malloc` of the exact size, filled; at least one byte). -/
+/-- A new heap block holding `a` (a driver buffer of the exact size, filled; at least one byte). It is not a `malloc`
+call of the library: `nalloc` does not move. -/
 def mkBlock (a : Array UInt8) : M BPtr := fun h =>
   let b := h.nextBlk
   let a' := if a.size == 0 then #[0] else a
-  .ok (.ref (.heap b) 0, { h with bytes := upd h.bytes b (some a'), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  .ok (.ref (.heap b) 0, { h with bytes := upd h.bytes b (some a'), nextBlk := b + 1 })
 
 def freeBlock (p : BPtr) : M Unit := freeB p
 
@@ -51,8 +54,11 @@ inductive Ch where
   | S (k : Nat)
   | B (bs : Array UInt8)
   | V (v : Int64)
+  /-- the library's `malloc` call number `n` returns `NULL` -/
+  | A
 
 def parseCh (e : String) : Except String (Nat × Ch) := do
+  if e.startsWith "A" then return (← parseNat (e.drop 1).toString, .A)
   match e.splitOn ":" with
   | [n, c] =>
     let n ← parseNat n
@@ -66,7 +72,7 @@ def parseCh (e : String) : Except String (Nat × Ch) := do
   | _ => throw s!"bad schedule entry {e}"
 
 def mkFs (file : Option (Array UInt8)) (sch : List (Nat × Ch)) : Fs :=
-  let find (n : Nat) : Option Ch := (sch.find? (·.1 == n)).map (·.2)
+  let find (n : Nat) : Option Ch := ((sch.filter fun e => match e.2 with | .A => false | _ => true).find? (·.1 == n)).map (·.2)
   { names := if file.isSome then #[("f".toUTF8.data, 0)] else #[]
     nodes := match file with | some d => #[d] | none => #[]
     budget := 2 ^ 30
@@ -288,7 +294,8 @@ def runLine (file : Option (Array UInt8)) (sch : List (Nat × Ch)) (ops : List S
     let nopen := (w.fs.fds.filter (·.isSome)).size
     outs := outs ++ [s!"fds:{nopen}"]
     return outs
-  match C.run (prog.run w0) junkHeap with
+  let fails := (sch.filter fun e => match e.2 with | .A => true | _ => false).map (·.1)
+  match C.run (prog.run w0) { junkHeap with allocOk := fun n => !fails.contains n } with
   | .ok ((outs, _), _) => return " ".intercalate outs
   | .error f => return showFault f
 

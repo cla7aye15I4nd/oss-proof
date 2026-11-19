@@ -6,12 +6,15 @@
  * precedence over the C library's for the statically linked libz.a, so the real library code runs unchanged against
  * a world that both sides reproduce exactly, including short reads, short writes, failures and lseek results that a
  * regular file never gives. The C library's own malloc, free, snprintf, vsnprintf, strlen, memcpy, memchr and
- * memmove are used.
+ * memmove are used. The library's calls of malloc go through the malloc defined below, which numbers them from 0 on each
+ * line and returns NULL for the numbers the schedule names (as the Lean side's allocation oracle, Heap.allocOk); the
+ * driver's own buffers come from the C library's malloc directly and are not numbered.
  *
  * Input: one test per line:  gz <file f: hex or -> <schedule or -> <op> <op> ...
  * schedule: comma-separated <n>:<choice> for OS call number n (0-based, counting open/read/write/lseek/close):
  *   F<e>  fail with errno e      S<k>  read: regular read of at most k bytes; write: write the first k bytes
  *   B<hex> read: deliver these bytes (device data)      V<v>  lseek: return v without moving
+ * and A<k>: the library's malloc call number k (0-based, on this line) returns NULL.
  * ops: see gen/gz.py. Output: one line per test, the result of each op separated by spaces, then the final length
  * and FNV-1a hash of file f, and the descriptors still open.
  */
@@ -26,7 +29,28 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <dlfcn.h>
 #include "zlib.h"
+
+/* ---------- malloc with scheduled failures ---------- */
+#define NAFAIL 16
+static int counting;            /* set while the ops of a line run */
+static long nmalloc;
+static long afail[NAFAIL];
+static int nafail;
+static void *(*real_malloc)(size_t);
+static void *rmalloc(size_t n) {
+    if (!real_malloc) real_malloc = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
+    if (!real_malloc) { fputs("gz driver: no malloc\n", stderr); abort(); }
+    return real_malloc(n);
+}
+void *malloc(size_t n) {
+    if (counting) {
+        long k = nmalloc++;
+        for (int i = 0; i < nafail; i++) if (afail[i] == k) return NULL;
+    }
+    return rmalloc(n);
+}
 
 /* ---------- the file-system model (Runtime/Fs.lean) ---------- */
 #define L_O_WRONLY 1
@@ -212,7 +236,7 @@ static unsigned char *unhex(const char *s, size_t *len) {
     size_t n = strlen(s);
     if (strcmp(s, "-") == 0) n = 0;
     if (n % 2) { fprintf(stderr, "odd hex\n"); exit(2); }
-    unsigned char *b = malloc(n / 2 + 1);
+    unsigned char *b = rmalloc(n / 2 + 1);
     for (size_t i = 0; i < n / 2; i++) {
         int h = hexv(s[2 * i]), l = hexv(s[2 * i + 1]);
         if (h < 0 || l < 0) { fprintf(stderr, "bad hex\n"); exit(2); }
@@ -287,7 +311,7 @@ static void run(char *line) {
     for (int i = 0; i < nnodes; i++) free(nodes[i].data);
     nnodes = 0; memset(fds, 0, sizeof fds);
     for (int i = 0; i < nsch; i++) free(sch[i].bytes);
-    nsch = 0; ncall = 0; budget = 1 << 30; last_oflag = 0; errno = 0;
+    nsch = 0; ncall = 0; nafail = 0; nmalloc = 0; budget = 1 << 30; last_oflag = 0; errno = 0;
     file = NULL;
     char *fhex = strtok_r(NULL, " \n", &save);
     if (strcmp(fhex, "none") != 0) {
@@ -298,6 +322,11 @@ static void run(char *line) {
     if (strcmp(sc, "-") != 0) {
         char *s2;
         for (char *e = strtok_r(sc, ",", &s2); e; e = strtok_r(NULL, ",", &s2)) {
+            if (e[0] == 'A') {
+                if (nafail == NAFAIL) { fprintf(stderr, "schedule too long\n"); exit(2); }
+                afail[nafail++] = (long)num(e + 1);
+                continue;
+            }
             if (nsch == NSCHED) { fprintf(stderr, "schedule too long\n"); exit(2); }
             struct sched *c = &sch[nsch++];
             c->n = (long)num(e);
@@ -308,6 +337,7 @@ static void run(char *line) {
         }
     }
     outn = 0;
+    counting = 1;
     for (char *op = strtok_r(NULL, " \n", &save); op; op = strtok_r(NULL, " \n", &save)) {
         char name[32]; fieldcpy(name, sizeof name, op);
         if (!strcmp(name, "open") || !strcmp(name, "openg")) {
@@ -329,7 +359,7 @@ static void run(char *line) {
             emit("%d", gzbuffer(file, (unsigned)unum(field(op, 1))));
         } else if (!strcmp(name, "read")) {
             unsigned n = (unsigned)unum(field(op, 1));
-            unsigned char *b = malloc(n && n <= (1u << 20) ? n : 1);
+            unsigned char *b = rmalloc(n && n <= (1u << 20) ? n : 1);
             int r = gzread(file, b, n);
             hexs(hx, b, r > 0 ? (size_t)r : 0);
             emit("%d:%s", r, hx);
@@ -338,7 +368,7 @@ static void run(char *line) {
             size_t sz = (size_t)unum(field(op, 1)), ni = (size_t)unum(field(op, 2));
             size_t cap = (sz && ni <= SIZE_MAX / sz) ? sz * ni : 1;
             if (cap > (1u << 20)) cap = 1;
-            unsigned char *b = malloc(cap ? cap : 1);
+            unsigned char *b = rmalloc(cap ? cap : 1);
             size_t r = gzfread(b, sz, ni, file);
             hexs(hx, b, r * sz <= cap ? r * sz : 0);
             emit("%zu:%s", r, hx);
@@ -351,7 +381,7 @@ static void run(char *line) {
             emit("%d", gzungetc((int)num(field(op, 1)), file));
         } else if (!strcmp(name, "gets")) {
             int n = (int)num(field(op, 1));
-            char *b = malloc(n > 0 ? (size_t)n : 1);
+            char *b = rmalloc(n > 0 ? (size_t)n : 1);
             char *r = gzgets(file, b, n);
             if (!r) emit("null");
             else { hexs(hx, (unsigned char *)r, strlen(r)); emit("%d:%s", (int)(r - b), hx); }
@@ -376,21 +406,21 @@ static void run(char *line) {
             emit("%d", gzrewind(file));
         } else if (!strcmp(name, "write")) {
             size_t n; unsigned char *b = unhex(field(op, 1), &n);
-            unsigned char *c = malloc(n ? n : 1);
+            unsigned char *c = rmalloc(n ? n : 1);
             if (n) memcpy(c, b, n);
             emit("%d", gzwrite(file, c, (unsigned)n));
             free(c); free(b);
         } else if (!strcmp(name, "writen")) {
             size_t n = (size_t)unum(field(op, 1));
             int v = (int)num(field(op, 2));
-            unsigned char *c = malloc(n ? n : 1);
+            unsigned char *c = rmalloc(n ? n : 1);
             for (size_t i = 0; i < n; i++) c[i] = (unsigned char)(v < 0 ? (i * 7 + i / 3) & 255 : v);
             emit("%d", gzwrite(file, c, (unsigned)n));
             free(c);
         } else if (!strcmp(name, "fwrite")) {
             size_t sz = (size_t)unum(field(op, 1)), ni = (size_t)unum(field(op, 2));
             size_t n; unsigned char *b = unhex(field(op, 3), &n);
-            unsigned char *c = malloc(n ? n : 1);
+            unsigned char *c = rmalloc(n ? n : 1);
             if (n) memcpy(c, b, n);
             emit("%zu", gzfwrite(c, sz, ni, file));
             free(c); free(b);
@@ -432,6 +462,7 @@ static void run(char *line) {
         } else { fprintf(stderr, "bad op %s\n", name); exit(2); }
     }
     if (file) { emit("autoclose:%d", gzclose(file)); file = NULL; }
+    counting = 0;
     int fi = lookup("f");
     if (fi >= 0) emit("F:%zu:%016llx", nodes[fi].len, (unsigned long long)fnv(nodes[fi].data, nodes[fi].len));
     else emit("F:none");

@@ -88,7 +88,8 @@ def gz_buffer_free (state : GzPtr) : G Unit := do
   wrG state fun s => { s with «in» := .val .null }
   wrG state fun s => { s with size := 0 }
 
-/-- `int Z_INTERNAL gz_buffer_alloc(gz_state *state)` (`gzlib.c:75-102`). -/
+/-- `int Z_INTERNAL gz_buffer_alloc(gz_state *state)` (`gzlib.c:75-102`, with patch 0015: the null check comes before
+`state->out = state->buffers + in_size`). -/
 def gz_buffer_alloc (state : GzPtr) : G Int32 := do
   let want ← rdG state (·.want)
   let mut in_size := want
@@ -103,15 +104,13 @@ def gz_buffer_alloc (state : GzPtr) : G Int32 := do
   wrG state fun s => { s with buffers := .val b }
   let b ← (← ldGz state).buffers.get
   wrG state fun s => { s with «in» := .val b }
-  if out_size != 0 then
-    let o ← lm ((← (← ldGz state).buffers.get).add (Int.ofNat in_size.toNat))
-    wrG state fun s => { s with out := .val o }
-  let bad ← if (← (← ldGz state).«in».get) == .null then pure true
-    else if out_size != 0 then do pure ((← (← ldGz state).out.get) == .null) else pure false
-  if bad then
+  if (← (← ldGz state).«in».get) == .null then
     gz_buffer_free state
     gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
     return -1
+  if out_size != 0 then
+    let o ← lm ((← (← ldGz state).buffers.get).add (Int.ofNat in_size.toNat))
+    wrG state fun s => { s with out := .val o }
   wrG state fun s => { s with size := want }
   return 0
 
