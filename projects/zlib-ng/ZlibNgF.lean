@@ -63,3 +63,5 @@ import ZlibNgF.Proof.«inflate.c.leave»
 import ZlibNgF.Proof.«public-inflate»
 import ZlibNgF.Proof.«public-inflate-nonvacuous»
 import ZlibNgF.Proof.«public-uncompress»
+import ZlibNgF.Proof.«infback.c.init»
+import ZlibNgF.Proof.«public-infback»
