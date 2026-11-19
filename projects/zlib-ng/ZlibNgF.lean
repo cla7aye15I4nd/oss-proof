@@ -80,3 +80,4 @@ import ZlibNgF.Proof.«deflate.c.fill_window.inv»
 import ZlibNgF.Proof.«deflate.c.fill_window.slide»
 import ZlibNgF.Proof.«deflate.c.fill_window.safety»
 import ZlibNgF.Proof.«deflate.c.fill_window.facts»
+import ZlibNgF.Proof.«deflate_p.h.tally»
