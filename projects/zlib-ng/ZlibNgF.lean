@@ -27,6 +27,7 @@ import ZlibNgF.Proof.«inftrees.c.rev»
 import ZlibNgF.Proof.«inftrees.c.loopdefs»
 import ZlibNgF.Proof.«inftrees.c.fill»
 import ZlibNgF.Proof.«inftrees.c.entry»
+import ZlibNgF.Proof.«inftrees.c.prefix»
 import ZlibNgF.Proof.«inftrees.c.geom»
 import ZlibNgF.Proof.«inftrees.c.cover»
 import ZlibNgF.Proof.«inftrees.c.sub»

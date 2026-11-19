@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«infback.c.room»
+import ZlibNgF.Proof.«inftrees.c.prefix»
 
 /-!
 # The loop of `inflateBack()` (`ZlibNgF`)
@@ -34,23 +35,6 @@ open ZlibNgF.Proof.InfbackPull
 open ZlibNgF.Proof.InflateTab (TabAt CodeTable linkTest)
 
 /-! ## The decoding tables -/
-
-/-- An entry that does not send the decoder to `BAD`: not invalid (`op & 64`), or end of block (`op & 32`). -/
-def Live (e : Code) : Prop := e.op &&& 64 = 0 ∨ e.op &&& 32 ≠ 0
-
-instance (e : Code) : Decidable (Live e) := inferInstanceAs (Decidable (_ ∨ _))
-
-/-- One level `a[s, s + 2^k)` of a decoding table is a prefix code: the code bits of an entry that does not send the
-decoder to `BAD` are at most `k`, and every index with the same low code-bits bits has the same code bits. -/
-def Lvl (a : Array Code) (s k : Nat) : Prop :=
-  ∀ x x', x < 2 ^ k → x' < 2 ^ k → Live a[s + x']! → (CODE_BITS a[s + x']!).toNat ≤ k ∧
-    (x % 2 ^ (CODE_BITS a[s + x']!).toNat = x' % 2 ^ (CODE_BITS a[s + x']!).toNat →
-      CODE_BITS a[s + x]! = CODE_BITS a[s + x']!)
-
-/-- The root table `a[o, o + 2^n)` and every sub-table it links to are prefix codes. -/
-def Rep (a : Array Code) (o n : Nat) (dist : Bool) : Prop :=
-  Lvl a o n ∧ ∀ j, j < 2 ^ n → linkTest dist a[o + j]! = true →
-    Lvl a (o + a[o + j]!.val.toNat) a[o + j]!.op.toNat
 
 /-- The table at `p` with `n` root bits, as the decoders of `inflateBack` read it: in the state's `codes`, or a fixed
 table; a decoding table (`CodeTable`) and a prefix code (`Rep`). -/
