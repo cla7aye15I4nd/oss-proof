@@ -23,7 +23,8 @@ must be those the earlier call used. That is the only caller-owned data that saf
 pairwise disjoint where one of them is written, and outside the library's own block; `deflateGetDictionary` writes
 into a buffer of at least 32768 bytes, the size `zlib.h` names as always enough; `deflateCopy` with distinct source
 and destination; `deflateSetHeader` registers a header for the stream only before the first `deflate` call (status
-`GZIP_STATE`), as `zlib.h` requires.
+`GZIP_STATE`), and `deflatePrime` is called only before any pending output was flushed (`PrimeReady`), as `zlib.h`
+requires.
 -/
 
 set_option autoImplicit false
@@ -108,6 +109,13 @@ def DCallerStep (h h' : Heap) (s : StreamPtr) : Prop :=
 def BeforeFirstDeflate (h : Heap) (s : StreamPtr) : Prop :=
   ∃ b st, DStateOf h s b st ∧ st.status = ZlibNg.Deflate.GZIP_STATE
 
+/-- No pending output has been flushed since the last `deflateInit*` / `deflateReset`: `pending_out` is
+`pending_buf`. `zlib.h` allows `deflatePrime` only before the first `deflate` call after `deflateInit2` or
+`deflateReset`, when this holds; `deflatePrime` writes its bytes at `pending_buf + pending`, so after a partial flush
+(`pending_out` past `pending_buf`) the pending range moves past `pending_buf` with every primed byte. -/
+def PrimeReady (h : Heap) (s : StreamPtr) : Prop :=
+  ∃ b st, DStateOf h s b st ∧ st.pending_out = st.pending_buf
+
 /-- One public deflate call on stream `s` with valid arguments that returns (any result); `deflateEnd` is not a
 step (it ends the stream). -/
 def DeflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
@@ -122,7 +130,7 @@ def DeflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
     C.run (ZlibNg.Deflate.deflateSetHeader s hp) h = .ok (r, h')) ∨
   (∃ hp hb r, C.run (ZlibNg.Deflate.deflatePending s hp hb) h = .ok (r, h')) ∨
   (∃ hb r, C.run (ZlibNg.Deflate.deflateUsed s hb) h = .ok (r, h')) ∨
-  (∃ bits value r, C.run (ZlibNg.Deflate.deflatePrime s bits value) h = .ok (r, h')) ∨
+  (∃ bits value r, PrimeReady h s ∧ C.run (ZlibNg.Deflate.deflatePrime s bits value) h = .ok (r, h')) ∨
   (∃ g l n c r, C.run (ZlibNg.Deflate.deflateTune s g l n c) h = .ok (r, h')) ∨
   (∃ n r, C.run (ZlibNg.Deflate.deflateBound s n) h = .ok (r, h')) ∨
   (∃ n r, C.run (ZlibNg.Deflate.deflateBound_z s n) h = .ok (r, h')) ∨
