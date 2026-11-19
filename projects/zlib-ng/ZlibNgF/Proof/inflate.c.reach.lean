@@ -18,7 +18,7 @@ open C ZlibNgF.Spec ZlibNg.Inflate ZlibNgF.Proof.InflateInv
 
 /-- The obligation still to prove: preservation of the invariant by `inflate`. -/
 structure Pending : Prop where
-  inflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), Inv h s → StreamIO h s →
+  inflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), Inv h s → CrcGlobals h → StreamIO h s →
     C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h') → Inv h' s
 
 /-- `adler32_c` on a readable buffer does not fault and changes nothing (`Proof/adler32_c.c.safety.lean`). -/
@@ -70,10 +70,10 @@ theorem getHeader_none {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : Inv h s)
 /-- Every public step keeps the invariant, given the pending preservation lemmas. -/
 theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs : InflateStep h h' s) :
     Inv h' s := by
-  rcases hs with ⟨flush, r, hio, e⟩ | ⟨r, hio, hsi, e⟩ | ⟨r, e⟩ | ⟨d, n, r, hd, hnb, e⟩ |
+  rcases hs with ⟨flush, r, hcg, hio, e⟩ | ⟨r, hio, hsi, e⟩ | ⟨r, e⟩ | ⟨d, n, r, hd, hnb, e⟩ |
     ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
     ⟨w, r, e⟩ | ⟨c, r, e⟩ | ⟨v, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
-  · exact P.inflate h h' s flush r hv hio e
+  · exact P.inflate h h' s flush r hv hcg hio e
   · obtain ⟨_, _, e0, hi, _⟩ := InflateSync.sync_inv hv hio hsi
     rw [det e e0]; exact hi
   · obtain ⟨_, e0⟩ := InflateControl.inflateSyncPoint_inv hv

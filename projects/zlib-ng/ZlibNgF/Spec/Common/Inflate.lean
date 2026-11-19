@@ -132,7 +132,7 @@ def CallerStep (h h' : Heap) (s : StreamPtr) : Prop :=
 /-- One public inflate call on stream `s` with valid arguments that returns (any result); `inflateEnd` is not a
 step (it ends the stream). -/
 def InflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
-  (∃ flush r, StreamIO h s ∧ C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h')) ∨
+  (∃ flush r, CrcGlobals h ∧ StreamIO h s ∧ C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h')) ∨
   (∃ r, StreamIO h s ∧ SyncInput h s ∧ C.run (ZlibNg.Inflate.inflateSync s) h = .ok (r, h')) ∨
   (∃ r, C.run (ZlibNg.Inflate.inflateSyncPoint s) h = .ok (r, h')) ∨
   (∃ d n r, NullOrRead h d n.toNat ∧ (∀ b, StateBlock h s b → NotInBlock b d) ∧

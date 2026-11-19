@@ -40,6 +40,7 @@
 | `inflateCopy` | `dest` 与 `source` 是不同的流；`dest` 可供初始化。 | `Goal.inflateCopy_safety` | 对 `z_stream` 的复制是 `memcpy`，对同一对象未定义。 |
 | `inflateGetHeader` | `head` 不为 `Z_NULL`。 | `Goal.inflateGetHeader_safety` | `zlib.h` 要求一个 `gz_header` 结构；在 gzip 流上 C 不加检查地写入 `head->done`。 |
 | `inflateInit_`、`inflateInit2_`、`inflateCopy`、`uncompress*` | 堆模型中尚未分配的块里没有记录 `inflate_state` 或 `inflate_allocs` 对象。 | `FreshBlocks` | 堆模型的良构条件，程序到达的每个堆都满足；不是对 C 输入的限制。 |
+| `inflate`（流的历史中的每次调用） | 静态 CRC 表保存其常量（`CrcGlobals`）。 | `InflateStep` | 在 C 中是常量数据（见上）；`Goal.inflate_safety` 对该调用本身也要求这一点。 |
 | 调用之间 | 程序不改变 `z_stream` 的其他字段与库的分配，也不释放已登记的 `gz_header` 记录。该记录的任何字段都可以改变（程序或共享该记录的另一个流都可以写它）；其缓冲区在每次 `inflate` 调用时检查。 | `CallerStep` | `zlib.h` 把 `z_stream` 字段与分配保留给库；已登记的头部会被 `inflate` 写入，因此必须保持已分配。 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `dest` 与 `source` 不重叠。 | `Disjoint` | 没有重叠理由的调用者缓冲区。 |
 
