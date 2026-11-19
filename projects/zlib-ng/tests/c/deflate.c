@@ -241,7 +241,86 @@ static void run_cmp(char **tok, int nt) {
     free(in); free(out);
 }
 
-int main(void) {
+/* Round trip (c_deflate roundtrip <lean.out> < <in>): each "def" input line is paired with the Lean driver's output
+ * line for it. When the script ends a whole stream (a deflate call returned Z_STREAM_END) and does nothing that
+ * makes the output not one stream of the input (deflatePrime, deflateReset, deflateResetKeep, more than one
+ * deflateSetDictionary, a raw-stream dictionary set after data), the output bytes the TRANSLATION printed are
+ * inflated by the real C inflate (zlib, gzip or raw by the windowBits, with the dictionary when it asks for one)
+ * and must give back exactly the input bytes the stream consumed (next_in's offset; total_in also counts the
+ * dictionary), the start of the input data, with every output byte read. Prints the counts; exits 1 on the first failure. */
+static int roundtrip_line(char *inl, char *leanl) {
+    char *tok[12]; int nt = 0; char *save;
+    for (char *t = strtok_r(inl, " \t\r\n", &save); t && nt < 12; t = strtok_r(NULL, " \t\r\n", &save)) tok[nt++] = t;
+    if (nt != 11 || strcmp(tok[0], "def") != 0) return 0;
+    int wb = (int)parse_i(tok[3]);
+    const char *script = tok[10];
+    int ndict = 0, data_seen = 0, late_dict = 0;
+    for (const char *c = script; *c; c++) {
+        if (c != script && c[-1] != ',') continue;
+        if (*c == 'P' || *c == 'R' || *c == 'K') return 0;
+        if (*c == 'D') { ndict++; if (data_seen) late_dict = 1; }
+        if (*c == 'L' || *c == 'f') data_seen = 1;
+    }
+    if (ndict > 1 || (wb < 0 && late_dict)) return 0;
+    /* The last deflate call that returned Z_STREAM_END: " f1:" or " 1:" inside a loop, then its fields. */
+    char *end = NULL;
+    for (char *q = leanl; (q = strstr(q, " 1:")) != NULL; q++) end = q + 3;
+    for (char *q = leanl; (q = strstr(q, " f1:")) != NULL; q++) if (q + 4 > end) end = q + 4;
+    char *outp = strstr(leanl, " out:");
+    if (!end || !outp || end > outp) return 0;
+    unsigned long long in_off;
+    if (sscanf(end, "%llu:", &in_off) != 1) return -1;
+    outp += 5;
+    size_t hl = strcspn(outp, " \n");
+    size_t clen = strcmp(outp, "-") == 0 || (hl == 1 && outp[0] == '-') ? 0 : hl / 2;
+    unsigned char *comp = malloc(clen ? clen : 1);
+    for (size_t i = 0; i < clen; i++) comp[i] = (unsigned char)(hexval(outp[2 * i]) * 16 + hexval(outp[2 * i + 1]));
+    size_t inlen, dictlen; int innull, dictnull;
+    unsigned char *in = gen_data(tok[6], &inlen, &innull);
+    unsigned char *dict = gen_data(tok[7], &dictlen, &dictnull);
+    size_t cap = (size_t)in_off + 1;
+    unsigned char *res = malloc(cap);
+    z_stream s; memset(&s, 0, sizeof s);
+    int ok = inflateInit2(&s, wb < 0 ? -15 : wb > 15 ? 31 : 15) == Z_OK;
+    if (ok && wb < 0 && strstr(leanl, " D0") != NULL) ok = inflateSetDictionary(&s, dict, (uInt)dictlen) == Z_OK;
+    s.next_in = comp; s.avail_in = (uInt)clen; s.next_out = res; s.avail_out = (uInt)cap;
+    int r = Z_OK;
+    while (ok) {
+        r = inflate(&s, Z_NO_FLUSH);
+        if (r == Z_NEED_DICT) { if (inflateSetDictionary(&s, dict, (uInt)dictlen) != Z_OK) break; continue; }
+        if (r != Z_OK) break;
+    }
+    size_t got = (size_t)(s.next_out - res);
+    int good = ok && r == Z_STREAM_END && s.avail_in == 0 && got == in_off && in_off <= inlen &&
+               (got == 0 || memcmp(res, in, got) == 0);
+    if (!good) printf("ROUNDTRIP FAILED: inflate %d, %zu of %llu bytes back, %u of %zu output bytes left\n", r, got,
+                      in_off, s.avail_in, clen);
+    inflateEnd(&s);
+    free(comp); free(in); free(dict); free(res);
+    return good ? 1 : -1;
+}
+
+static int roundtrip(const char *leanpath) {
+    FILE *lf = fopen(leanpath, "r");
+    if (!lf) { perror(leanpath); return 2; }
+    char *inl = NULL, *leanl = NULL; size_t c1 = 0, c2 = 0;
+    long lineno = 0, checked = 0, skipped = 0;
+    while (getline(&inl, &c1, stdin) >= 0) {
+        lineno++;
+        if (getline(&leanl, &c2, lf) < 0) { printf("ROUNDTRIP: Lean output too short\n"); return 1; }
+        if (strncmp(inl, "def ", 4) != 0) continue;
+        int r = roundtrip_line(inl, leanl);
+        if (r < 0) { printf("ROUNDTRIP FAILED at input line %ld\n", lineno); return 1; }
+        if (r) checked++; else skipped++;
+    }
+    printf("round trip: %ld deflate outputs of the translation inflated back to their input by the C inflate, "
+           "%ld not one whole stream of the input\n", checked, skipped);
+    free(inl); free(leanl); fclose(lf);
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    if (argc == 3 && strcmp(argv[1], "roundtrip") == 0) return roundtrip(argv[2]);
     char *line = NULL; size_t cap = 0;
     while (getline(&line, &cap, stdin) >= 0) {
         char *tok[12]; int nt = 0; char *save;

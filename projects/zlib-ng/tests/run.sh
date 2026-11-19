@@ -52,6 +52,10 @@ for name in $names; do
     exit 1
   fi
   echo "== $name: $nin inputs, outputs identical"
+  # Round trip: the translation's deflate output, inflated by the real C inflate, gives back the input.
+  if [ "$name" = deflate ]; then
+    "$build/bin$sfx/c_deflate" roundtrip "$build/data/$name.lean.out" < "$in" || { echo "FAIL: round trip" >&2; exit 1; }
+  fi
   awk '{print $1}' "$in" | sort | uniq -c | awk '{printf "     %-24s %s inputs\n", $2, $1}'
   total=$((total + nin))
 done
