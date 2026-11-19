@@ -212,7 +212,7 @@ open ZlibNgF.Proof.InflateTab (EntryOK LenOK CodeTable TabAt linkTest) in
 def entryB (e : Code) (m : Nat) (dist : Bool) : Bool :=
   decide (1 ≤ (ZlibNg.InflateP.CODE_BITS e).toNat) && decide ((ZlibNg.InflateP.CODE_BITS e).toNat ≤ e.bits.toNat) &&
   decide (e.bits.toNat ≤ m) && decide (e.op &&& 16 = 0 → e.op &&& 64 = 0 → e.op &&& 0xf0 = 0) &&
-  decide (dist = true → e.op &&& 64 = 0 → 1 ≤ e.val.toNat)
+  decide (dist = true → (e.op &&& 64 = 0 ∨ e.op &&& 16 ≠ 0) → 1 ≤ e.val.toNat)
 
 open ZlibNgF.Proof.InflateTab (EntryOK) in
 theorem entryB_ok {e : Code} {m : Nat} {dist : Bool} (h : entryB e m dist = true) : EntryOK e m dist := by
