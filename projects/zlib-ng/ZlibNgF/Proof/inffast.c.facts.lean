@@ -1,9 +1,9 @@
 import ZlibNgF.Proof.«chunkset.copy»
 import ZlibNgF.Proof.«inflate.c.facts»
-import ZlibNgF.Proof.«inffast.base»
+import ZlibNgF.Proof.«inffast.main»
 
 /-!
-# The `CopyFacts` statement for `chunkmemset_safe_c` (`ZlibNgF`)
+# `CopyFacts`, `FastFacts` and the `LEN` tables (`ZlibNgF`)
 
 `copyFacts` proves `InflateFacts.CopyFacts`: `chunkmemset_safe_c` as `MATCH` calls it. `CHUNKMEMSET` computes
 `out - from` (`chunkset_tpl.h:118`), a `ptrdiff_t` (ISO C17 §6.5.6p9) because `d < 2 ^ 63`.
@@ -122,5 +122,58 @@ theorem tabAt_fast {H : Heap} {b : Nat} {st : InflateState} (hst : H.istate b = 
   have := td.fits
   exact ⟨_, _, hl1, hd1, by omega, by omega, ⟨rl, ol, Tl, rfl, hl2, codeTable_len tl⟩,
     ⟨rd, od, Td, rfl, hd2, codeTable_dist td fun j h1 h2 hb => hv rd od Td hd1 hd2 j h1 (by omega) hb⟩⟩
+
+/-! ## `FastFacts` -/
+
+open ZlibNgF.Spec ZlibNgF.Proof.InflateInv in
+/-- `InflateFacts.FastFacts`, given the distance-base fact that `codeTable_dist` needs on the distance table of a state
+in `LEN` (a base entry, `op & 16`, of the distance table has `val ≥ 1`). `CodeTable` asks it only of entries with
+`(op & 64) == 0`; `zng_inflate_table` and `distfix` never make an entry with both bits, but the invariant does not
+say so. -/
+theorem fastFacts_of
+    (hv : ∀ (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState), Inv h (some i) → h.streams i = some z →
+      z.state = some b → h.istate b = some st → st.mode = ZlibNg.Inflate.LEN →
+      ∀ (r : CodeRef) (o : Nat) (T : Array Code), st.distcode = .val (.ref r o) → Space.get h r = some T →
+        ∀ j, o ≤ j → j < T.size → Base T[j]! → 1 ≤ (T[j]!).val.toNat) :
+    ZlibNgF.Proof.InflateFacts.FastFacts := by
+  refine ⟨fun safe h i b z st start ri oi bo oo hinv hz hzs hst hmode hbits hin15 hroom hstart hni hrd hno hwr _ _
+    hbo => ?_⟩
+  have hinv' := hinv
+  obtain ⟨i', z0, b0, st0, al, hi, hz0, hb0, hst0, -, core⟩ := hinv'
+  cases hi
+  rw [hz] at hz0; cases hz0
+  rw [hzs] at hb0; cases hb0
+  rw [hst] at hst0; cases hst0
+  obtain ⟨woff, wd, hwv, -, hwd, hws⟩ := core.window
+  have hwb := core.wbufsize
+  have hwz := core.wsize
+  have hws' : woff + st.wsize.toNat ≤ wd.size := by
+    have e1 : (view st).wbufsize.toNat = 32832 := by rw [hwb]; rfl
+    have e2 : (view st).wsize.toNat ≤ 32768 := UInt32.le_iff_toNat_le.mp hwz
+    have : (view st).wbufsize = st.wbufsize := rfl
+    have : (view st).wsize = st.wsize := rfl
+    simp only [view] at e1 e2 hws ⊢
+    omega
+  obtain ⟨hl, hd⟩ := core.modes.decode (Or.inr (Or.inl hmode))
+  obtain ⟨lc, dc, hlc, hdc, htab⟩ := tabAt_fast hst hl hd (hv h i b z st hinv hz hzs hst hmode)
+  have hnb : ∀ (p : CodePtr) (q : Ival CodePtr), (∃ p', q = .val p' ∧ CodeTarget b p') → q = .val p →
+      ∀ r o b', p = .ref r o → r = .codes b' → b' ≠ bo := by
+    rintro p q ⟨p', hq, ht⟩ hp r o b' rfl rfl
+    rw [hp] at hq; cases hq
+    rcases ht with ⟨o', he, -⟩ | he | he <;> cases he
+    exact fun e => hbo e.symm
+  obtain ⟨r1, off1, A, hr1, hA, hAs⟩ := hrd
+  rw [hni] at hr1; cases hr1
+  obtain ⟨b1, off2, D, hr2, hD, hDs⟩ := hwr
+  cases hr2
+  have hroom' : if safe then 3 ≤ z.avail_out else 260 ≤ z.avail_out := by
+    cases safe
+    · exact hroom
+    · exact hroom.1
+  obtain ⟨_, h', e, ai, ao, m, hold, bits, len, was, off, msg, rest⟩ := InffastMain.inflate_fast_post safe h i b z st
+    start ri oi bo oo A D hmode hz hzs hst hbits hbo woff wd hwv hwd hws' core.whave core.wnext_le lc dc hlc hdc htab
+    (hnb lc _ core.lencode hlc) (hnb dc _ core.distcode hdc) hin15 hstart hroom' hni hA hAs hno hD hDs
+  refine ⟨h', ai, ao, m, hold, bits, len, was, off, msg, ?_, rest⟩
+  cases safe <;> exact e
 
 end ZlibNgF.Proof.InffastFacts
