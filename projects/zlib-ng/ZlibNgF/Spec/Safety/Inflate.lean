@@ -104,11 +104,12 @@ def Goal.inflateGetDictionary_safety : Prop :=
     ∃ r h', C.run (ZlibNg.Inflate.inflateGetDictionary s d hasLen) h = .ok (r, h') ∧
       Frame h h' [] [] [] [(d, 32768)]
 
-/-- `int inflateGetHeader(z_stream *strm, gz_headerp head)`: for a `Z_NULL` or valid header, does not fault and
-changes only the library's block and the header record. -/
+/-- `int inflateGetHeader(z_stream *strm, gz_headerp head)`: for a valid (non-null) header, does not fault and
+changes only the library's block and the header record. `zlib.h` asks for a `gz_header` structure; on a gzip stream
+the C writes `head->done` without testing `head`, so `Z_NULL` is not a valid argument. -/
 def Goal.inflateGetHeader_safety : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (hp : HeaderPtr),
-    CrcGlobals h → InflateHandle h s → HeaderOk h hp →
+    CrcGlobals h → InflateHandle h s → hp ≠ none → HeaderOk h hp →
     ∃ r h', C.run (ZlibNg.Inflate.inflateGetHeader s hp) h = .ok (r, h') ∧
       Frame h h' [] (stateIds h s) (match hp with | none => [] | some k => [k]) []
 

@@ -42,6 +42,7 @@ inflate calls with valid arguments and by the program, which may change `next_in
 | `inflateSync` | `next_in` is not `NULL` when `avail_in` is not 0. | `SyncInput` | `avail_in` counts the bytes at `next_in`. |
 | `inflateGetDictionary` | The buffer is `NULL` or has at least 32768 writable bytes. | `Goal.inflateGetDictionary_safety` | `zlib.h` names 32768 bytes as always enough; the call itself needs only the current window size. |
 | `inflateCopy` | `dest` and `source` are different streams; `dest` is ready for initialisation. | `Goal.inflateCopy_safety` | The copy of the `z_stream` is a `memcpy`, undefined for the same object. |
+| `inflateGetHeader` | `head` is not `Z_NULL`. | `Goal.inflateGetHeader_safety` | `zlib.h` asks for a `gz_header` structure; on a gzip stream the C writes `head->done` without a test. |
 | Between calls | The program does not change the other `z_stream` fields, the library's allocation, or a registered `gz_header` record. | `CallerStep` | `zlib.h` reserves them to the library. |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | `dest` and `source` do not overlap. | `Disjoint` | Caller buffers with no reason to overlap. |
 

@@ -38,6 +38,7 @@
 | `inflateSync` | `avail_in` 不为 0 时 `next_in` 不为 `NULL`。 | `SyncInput` | `avail_in` 计数的是 `next_in` 处的字节。 |
 | `inflateGetDictionary` | 缓冲区为 `NULL` 或至少有 32768 个可写字节。 | `Goal.inflateGetDictionary_safety` | `zlib.h` 指明 32768 字节总是足够；调用本身只需当前窗口大小。 |
 | `inflateCopy` | `dest` 与 `source` 是不同的流；`dest` 可供初始化。 | `Goal.inflateCopy_safety` | 对 `z_stream` 的复制是 `memcpy`，对同一对象未定义。 |
+| `inflateGetHeader` | `head` 不为 `Z_NULL`。 | `Goal.inflateGetHeader_safety` | `zlib.h` 要求一个 `gz_header` 结构；在 gzip 流上 C 不加检查地写入 `head->done`。 |
 | 调用之间 | 程序不改变 `z_stream` 的其他字段、库的分配或已登记的 `gz_header` 记录。 | `CallerStep` | `zlib.h` 把它们保留给库。 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `dest` 与 `source` 不重叠。 | `Disjoint` | 没有重叠理由的调用者缓冲区。 |
 
