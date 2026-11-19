@@ -23,14 +23,15 @@ mkdir -p "$work"
 # case | patch prefix | arguments (comma-separated runs) | unpatched defect: "timeout", "none" (the defect
 # is not observable on a run: no sanitizer reports it; the unpatched build must then behave like the patched
 # one), or an extended regular expression that the output (sanitizer report or program output) must match |
-# patched output line (one per run, ';')
+# patched output line (one per run, ';'). In the defect field, " OR " separates alternatives (the field separator
+# is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull.
 cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
   "deflatebound-gzip-extra-length|0006||bound-ok 0|bound-ok 1"
   "inflate-window-copy|0007|300|invalid-pointer-pair|inflate 1 1"
   "inflatesync-null-next-in|0008||none|sync -3 1"
-  "inflatesetdictionary-null|0009||setdict 0|setdict -2"
+  "inflatesetdictionary-null|0009||setdict 0 OR null pointer passed as argument|setdict -2"
   "inflate-fast-primed-bits|0010||inflate 1 34 4294967294|inflate 1 32 0"
   "inflate-shared-header-extra|0011|copy,two,late|heap-buffer-overflow|inflate 0;inflate 0;inflate 0"
 )
@@ -60,6 +61,7 @@ build "$work/patched"
 fail=0
 for entry in "${cases[@]}"; do
   IFS='|' read -r name patch args defect want <<<"$entry"
+  defect=${defect// OR /|}
   [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
   build "$work/without-$patch" "$patch"
   for b in "without-$patch" patched; do
