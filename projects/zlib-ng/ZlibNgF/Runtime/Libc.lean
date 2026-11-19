@@ -21,6 +21,14 @@ def addrOf (p : BPtr) : M UInt64 := fun h =>
   | .null => .ok (0, h)
   | .ref r off => .ok (h.baseAddr r + UInt64.ofNat off, h)
 
+/-- `(T *)p` for a byte pointer `p` and an object type `T` of alignment `align`: undefined unless the address of
+`p` is a multiple of `align` (ISO C17 §6.3.2.3p7). The result designates the same byte position, so it stays a
+`BPtr`; loads through it are byte loads (the effective-type rule, §6.5p7, is not modelled). -/
+def Ptr.castAligned (p : BPtr) (align : Nat) : M BPtr := do
+  let addr ← addrOf p
+  if addr.toNat % align != 0 then ub "conversion to a misaligned pointer"
+  return p
+
 /-- Look up a source string literal in `strTable` and return its static read-only `BPtr`. -/
 def strLitRef (s : String) : M BPtr := fun h =>
   match strTable.findIdx? (· == s) with
