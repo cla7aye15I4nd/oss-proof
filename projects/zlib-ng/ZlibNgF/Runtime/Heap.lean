@@ -23,7 +23,25 @@ def strTable : Array String := #[
   "data error",
   "insufficient memory",
   "buffer error",
-  "incompatible version"
+  "incompatible version",
+  "header crc mismatch",
+  "incorrect data check",
+  "incorrect header check",
+  "incorrect length check",
+  "invalid bit length repeat",
+  "invalid block type",
+  "invalid code -- missing end-of-block",
+  "invalid code lengths set",
+  "invalid distance code",
+  "invalid distance too far back",
+  "invalid distances set",
+  "invalid literal/length code",
+  "invalid literal/lengths set",
+  "invalid stored block lengths",
+  "invalid window size",
+  "too many length or distance symbols",
+  "unknown compression method",
+  "unknown header flags set"
 ]
 
 /-- Reference to a byte array: a dynamically allocated heap block, a read-only static block, or a source string literal. -/
