@@ -188,6 +188,42 @@ Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it 
 - Call-backs: `in_func` / `out_func` are the parameters `InCb` / `OutCb` of `inflateBack` (caller code); what the
   goals assume of them is in `ZlibNgF/Spec/Common/Infback.lean`.
 
+## gz scope (pinned `develop` commit, verified option set)
+
+Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of `tests/build-zlib-ng.sh`
+(`WITH_GZFILEOP=ON`), and the preprocessor conditions of `gzguts.h` (no `_WIN32`, `NO_GZCOMPRESS`, `NO_STRERROR`,
+`WIDECHAR`; `O_CLOEXEC` and `O_EXCL` defined; `GZBUFSIZE` 131072, `GZBUFSIZE_MAX` `1u << 30`, `DEF_MEM_LEVEL` 8).
+
+- Public entry points: `gzlib.c`: `gzopen`, `gzopen64`, `gzdopen`, `gzbuffer`, `gzrewind`, `gzseek`, `gzseek64`
+  (patch 0004), `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzeof`, `gzerror`, `gzclearerr`, `gzclose`;
+  `gzread.c`: `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzungetc`, `gzgets`, `gzdirect`, `gzclose_r`; `gzwrite.c`:
+  `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams`, `gzclose_w`.
+  `gzopen_w` is Windows only (`WIDECHAR`): not applicable. With `ZLIB_COMPAT` and LP64, `z_off_t` and `z_off64_t`
+  are both 64-bit, so `gzseek` / `gztell` / `gzoffset` call their `64` variants and return the value unchanged.
+- Internal functions: `gzlib.c`: `gz_state_init`, `gz_state_free`, `gz_reset`, `gz_buffer_alloc`, `gz_buffer_free`,
+  `gz_open`, `gz_error`, `gz_intmax` (never called); `gzread.c`: `gz_read_init`, `gz_load`, `gz_avail`, `gz_look`,
+  `gz_decomp`, `gz_fetch`, `gz_skip`, `gz_read`; `gzwrite.c`: `gz_write_init`, `gz_comp`, `gz_zero`, `gz_write`.
+- Library callees: `inflateInit2_` (the `inflateInit2` macro of `zlib.h`, with `ZLIB_VERSION` and `sizeof(z_stream)`),
+  `inflate`, `inflateReset`, `inflateEnd`, `deflateInit2_`, `deflate`, `deflateReset`, `deflateParams`, `deflateEnd`,
+  `zng_alloc_aligned` / `zng_free_aligned` (the in/out buffers: one block of `in_size + out_size` bytes aligned to 64;
+  `in` is `want * 2` bytes when writing, `out` is `want * 2` bytes when reading and absent when writing
+  transparently), `zng_alloc` / `zng_free` (`zutil_p.h`: `malloc` / `free` of the `gz_state`).
+- libc callees: `open` (glibc: `open`), `read`, `write`, `close`, `lseek` (glibc: `lseek64`, because `zbuild.h`
+  defines `_LARGEFILE64_SOURCE`), `strerror`, `errno`, `malloc`, `free`, `strlen`, `memcpy`, `memchr`, `memmove`,
+  `memset`, `snprintf` (formats `"%s"`, `"<fd:%d>"`, `"%s%s%s"`), `vsnprintf` (the caller's format).
+- Objects: `gz_state` is 248 bytes on LP64, alignment 8, with the `z_stream` embedded at offset 136.
+  `gz_state_init` leaves `x.next`, `path`, `buffers`, `err`, `how`, `start`, `eof`, `reset` and most of the
+  embedded `z_stream` unset; `gz_reset` sets `err` (through `gz_error`, which reads `msg` only), `x.have`, `x.pos`,
+  `skip`, `avail_in` and, when reading, `eof`, `past`, `how`.
+- gz model (`Runtime/Fs.lean`, `Runtime/Gz.lean`, trusted base): a gz computation is `G α = StateT World M α`. The
+  world holds the file system and descriptor table that `open`, `read`, `write`, `lseek` and `close` act on,
+  `errno`, the per-call oracles that choose any other result those calls may give, the `strerror` and
+  `vsnprintf` oracles, and the `gz_state` objects. A `gz_state` is a typed object carved from its `malloc` block
+  (like the inflate state): its pointer fields start `Ival.uninit`, its integers come from `Heap.garbage`, it
+  lives as long as the block, and `free` of the block ends it and the embedded `z_stream` (an entry of
+  `Heap.streams`). A `gzFile` is a pointer to the `gz_state` (its first member is the public `struct gzFile_s`).
+  What the model trusts about the libc calls is listed in `Runtime/Fs.lean`.
+
 ## Checking
 
 `python3 framework/check_project.py zlib-ng` from the repository root. It includes the public API
