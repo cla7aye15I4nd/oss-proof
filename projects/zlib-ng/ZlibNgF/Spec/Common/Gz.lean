@@ -24,6 +24,9 @@ were asked for. `GzWF` bounds these by `2^62` so that the model's loop fuel (`2^
 An endless input (a pipe whose writer never stops) is outside the model; on it `gzread` may not return, as any reader
 would not.
 
+**Positions.** `x.pos` is kept below `2^63` by the code (patches 0004, 0016 and 0017), not by `GzWF`: the input bound
+does not limit a writer's position, which grows with every write, failed ones included.
+
 **`lseek` results.** POSIX `lseek` returns the resulting offset or `-1`. `GzWF` admits every oracle value of that
 form: `-1` or not negative. Linux files with unsigned offsets (`/dev/mem`, `/proc/<pid>/mem`) can return offsets of
 `2^63` and more as negative numbers, on which `gzoffset64`'s `offset - avail_in` can overflow; reads at those offsets

@@ -18,6 +18,8 @@ A schedule entry A<k> makes the library's malloc call number k of the line (0-ba
 Every input on which the C ran into undefined behaviour before patches 0014-0016 is generated: write errors on the
 direct path of gz_write followed by further writes, flushes and closes, gzclearerr after write errors, allocation
 failures (gz_state, path, buffers, inflate and deflate state, error message), and reads after gzseek to near 2^63.
+Patch 0017 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
+a one-byte buffer (nothing else can reach that position in a test's time).
 """
 import random
 import zlib
@@ -274,6 +276,13 @@ for b in (8, 64):
 for c in (gz(text(2000)), gz(b"short")):
     line(c, [], ["open:r", "buffer:8", "seek:9223372036854775807:0", "read:5", "tell", "getc", "gets:5", "eof", "error",
                  "close"])
+
+# ---- a write that would move the position past GZ_OFF_MAX is refused (patch 0017); the driver's buffer is not read ----
+for m in ("w", "wT"):
+    for ops in (["fwrite:1:9223372036854775808:41"], ["fwrite:3:3074457345618258603:41"],
+                ["write:4142", "fwrite:1:9223372036854775806:41"], ["seek:5:0", "fwrite:1:9223372036854775803:41"]):
+        line(None, [], ["openg:" + m, "buffer:16"] + ops + ["error", "tell", "write:41", "clearerr", "putc:65",
+                                                             "printf:d:3", "tell", "close"])
 
 for l in out:
     print(l)

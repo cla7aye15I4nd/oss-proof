@@ -87,6 +87,9 @@ print the expected result.
 | `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails (UBSan; GCC and clang word it differently) |
 | `gzread-position-overflow` | 0016 | signed overflow of `x.pos` in `gz_read` after `gzseek` to `INT64_MAX` on a descriptor that keeps delivering data |
 
+Patch 0017 (the writers' position) has no case here: its defect needs about `2^32` calls of `gzwrite` (minutes to
+hours). It was shown once on the real C (findings page); the `gz` differential test covers the refusal it adds.
+
 Plain regression tests (defects of 2.3.3 that the `develop` branch fixes; each must pass on the verified
 source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negative-len-hang` (the
 `g` and `c` runs), `gzbuffer-aligned-alloc-overflow`.

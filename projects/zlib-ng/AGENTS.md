@@ -237,12 +237,15 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
   numbers the library's calls on each line and fails the ones the schedule names (`A<k>`), as the Lean side's
   `Heap.allocOk`; the driver's own buffers come from the C library's `malloc` and are not numbered. The C library's
   `snprintf`, `vsnprintf` and string functions are real.
-- Undefined behaviour of upstream reached by documented calls, fixed by patches 0014-0016 (findings page): a failed
+- Undefined behaviour of upstream reached by documented calls, fixed by patches 0014-0017 (findings page): a failed
   `gzwrite` on the direct path left `next_in` in the caller's buffer (`gzwrite.c:185` cross-object subtraction after
   `gzclearerr`; `gzwrite.c:70` reads it again in `gzclose`): patch 0014 resets `next_in` / `avail_in` on that path;
   `gz_buffer_alloc` formed `NULL + in_size` when the allocation failed (`gzlib.c:90`): patch 0015; the readers'
   position `x.pos` overflowed after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds and which keeps
-  delivering data (`gzread.c:356`): patch 0016 stops the readers at `GZ_OFF_MAX`. Open question, not a finding:
+  delivering data (`gzread.c:356`): patch 0016 stops the readers at `GZ_OFF_MAX`; the writers' `x.pos` overflowed after
+  `2^63` bytes in all, failed writes included (`gzwrite.c:210`): patch 0017 refuses a write past `GZ_OFF_MAX`
+  (`Z_DATA_ERROR`). Its reproduction needs about `2^32` calls, too long for `tests/regression/`; the differential test
+  covers the refusal (`gzfwrite` lengths above `GZ_OFF_MAX`, which are refused before the buffer is read). Open question, not a finding:
   `gzoffset64` computes `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below
   `INT64_MIN + avail_in`: `GzWF` admits only the `lseek` values POSIX allows (`-1` or not negative), a
   `deviations.md` row (Linux files with unsigned offsets fail their reads at such offsets).

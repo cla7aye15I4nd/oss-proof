@@ -146,7 +146,8 @@ structure WriteLoop where
   ctl : Ctl
 
 /-- `static size_t gz_write(gz_state *state, void const *buf, size_t len)` (`gzwrite.c:162-219`, with patch 0014:
-after the direct path, and when it fails, `strm.next_in` is `state->in` and `strm.avail_in` is 0). -/
+after the direct path, and when it fails, `strm.next_in` is `state->in` and `strm.avail_in` is 0; with patch 0017: a
+write that would move `x.pos` past `GZ_OFF_MAX` is refused with `Z_DATA_ERROR`). -/
 def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   let put := len
   if len == 0 then
@@ -157,6 +158,10 @@ def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   if (← rdG state (·.skip)) != 0 then
     if (← gz_zero state) == -1 then
       return 0
+  let room ← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.pos)).toInt))
+  if len > room.toUInt64 then
+    gz_error state Z_DATA_ERROR (← (gzLit "write position does not fit in z_off64_t"))
+    return 0
   let strm ← strmOf state
   if len < (← rdG state (·.size)).toUInt64 then
     let lp ← gdoWhile
@@ -246,7 +251,8 @@ def gzfwrite (buf : BPtr) (size nitems : UInt64) (file : GzPtr) : G UInt64 := do
   else
     return 0
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzputc)(gzFile file, z_int32_t c)` (`gzwrite.c:275-314`). `unsigned char buf[1]` is
+/-- `z_int32_t Z_EXPORT PREFIX(gzputc)(gzFile file, z_int32_t c)` (`gzwrite.c:275-314`, with patch 0017: the buffer
+fast path only while `x.pos != GZ_OFF_MAX`). `unsigned char buf[1]` is
 a local array (`localBlock`). -/
 def gzputc (file : GzPtr) (c : Int32) : G Int32 := do
   if file == none then
@@ -265,7 +271,7 @@ def gzputc (file : GzPtr) (c : Int32) : G Int32 := do
     let e ← lm ((← lm (rdZ strm (·.next_in))).add (Int.ofNat (← lm (rdZ strm (·.avail_in))).toNat))
     let d ← lm (Ptr.diff e (← (← ldGz state).«in».get))
     let hv : UInt32 := d.toUInt64.toUInt32
-    if hv < (← rdG state (·.size)) then
+    if hv < (← rdG state (·.size)) && (← rdG state (·.pos)) != GZ_OFF_MAX then
       lm (store8 (← lm ((← (← ldGz state).«in».get).add (Int.ofNat hv.toNat))) c.toUInt32.toUInt8)
       lm (wrZ strm fun z => { z with avail_in := z.avail_in + 1 })
       let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + 1))
@@ -292,7 +298,8 @@ def gzputs (file : GzPtr) (s : BPtr) : G Int32 := do
   let put ← gz_write state s len
   return if put < len then -1 else len.toUInt32.toInt32
 
-/-- `z_int32_t Z_EXPORTVA PREFIX(gzvprintf)(gzFile file, const char *format, va_list va)` (`gzwrite.c:341-392`);
+/-- `z_int32_t Z_EXPORTVA PREFIX(gzvprintf)(gzFile file, const char *format, va_list va)` (`gzwrite.c:341-392`, with
+patch 0017: `len > GZ_OFF_MAX - x.pos` is refused with `Z_DATA_ERROR`);
 also `gzprintf` (`gzwrite.c:394-402`). -/
 def gzvprintf (file : GzPtr) (format : BPtr) : G Int32 := do
   if file == none then
@@ -319,6 +326,10 @@ def gzvprintf (file : GzPtr) (format : BPtr) : G Int32 := do
     else do pure ((← lm (index8 next (Int.ofNat ((← rdG state (·.size)) - 1).toNat))) != 0)
   if bad then
     return 0
+  let room ← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.pos)).toInt))
+  if len.toInt64 > room then
+    gz_error state Z_DATA_ERROR (← (gzLit "write position does not fit in z_off64_t"))
+    return (← rdG state (·.err))
   lm (wrZ strm fun z => { z with avail_in := z.avail_in + len.toUInt32 })
   let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + len.toInt))
   wrG state fun st => { st with pos := np }

@@ -1,9 +1,9 @@
-<!-- source-sha256: ce4a108d873b420b172c1d9a0b85e334f7b23cb871740f92cf2bb886eaff72c1 -->
+<!-- source-sha256: c8239647247bea65d7e097375b466f2e615251a889bc5f1f62055438d588713a -->
 # 发现：zlib-ng 中发现的问题
 
-本工作在被验证提交的 zlib-ng `develop` 分支中发现了十四个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
+本工作在被验证提交的 zlib-ng `develop` 分支中发现了十五个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
 有文档的函数触达，并由真实 C 代码的运行（消毒器无法发现时，由经跟踪的运行与 ISO C17 条文）展示。补丁 0003、0004、
-0006、0007、0008、0009、0010、0011、0012、0013、0014、0015 与 0016 修复了它们：每个问题一个补丁，只有补丁 0014
+0006、0007、0008、0009、0010、0011、0012、0013、0014、0015、0016 与 0017 修复了它们：每个问题一个补丁，只有补丁 0014
 修复失败的 `gzwrite` 引起的两个问题（两者源于同一个过时指针）。
 
 | 问题 | 错在哪里 | 触达的调用 | 证据 | 修复 | 上游 |
@@ -22,6 +22,7 @@
 | 失败的 `gzwrite` 之后 `gzclose` 读取调用者的缓冲区 | 在同一状态下，`gzclose` 调用 `gz_comp(state, Z_FINISH)`，在 `gzwrite` 返回之后从 `next_in`（位于调用者的缓冲区）写出（或压缩）`avail_in` 个字节：调用者已释放该缓冲区时是对已释放内存的读取，否则把过时的数据写入文件。 | 对已满的非阻塞管道 `gzdopen`，`gzbuffer(file, 8)`，`gzwrite(file, buf, 100)`（以 `EAGAIN` 失败），`free(buf)`，排空管道，`gzclose` | AddressSanitizer，`gzwrite.c:70` 调用的 `write` 中的释放后使用 | 补丁 0014 | 未提交 |
 | `gz_buffer_alloc` 对空指针加偏移 | `gz_buffer_alloc` 在检查分配结果之前计算 `state->out = state->buffers + in_size`：分配失败时，这是 `NULL` 加非零偏移（ISO C17 §6.5.6p8）。 | `gzopen`，`gzbuffer(file, 1 << 30)`，在 3 GiB 分配失败时调用 `gzwrite` 或 `gzread` | UndefinedBehaviorSanitizer，`gzlib.c:90` | 补丁 0015 | 未提交 |
 | gz 位置溢出（读） | 读函数无界地累加 64 位有符号位置 `x.pos`：`gz_read`（以及 `gzgetc` 与 `gzgets`）中的有符号溢出。 | 对 `lseek` 成功但不移动且总有数据的描述符（Linux `/dev/zero`）`gzdopen`，`gzgetc`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzread` | UndefinedBehaviorSanitizer，`gzread.c:356` | 补丁 0016 | 未提交 |
+| gz 位置溢出（写） | 写函数在写出之前无界地把每次写入的长度累加到 64 位有符号位置 `x.pos`：总计 `2^63` 字节之后，`gz_write`（以及 `gzputc` 与 `gzprintf`）中出现有符号溢出。失败的写入保留这次累加，因此无需有数据到达文件；写入 `/dev/null` 同样会触达。 | 对 `write()` 失败的描述符 `gzdopen(fd, "wT")`，`gzbuffer(file, 8)`，然后约 `2^32` 次 `gzwrite(file, buf, INT_MAX)` 与 `gzclearerr(file)` | UndefinedBehaviorSanitizer，`gzwrite.c:210` | 补丁 0017 | 未提交 |
 
 早先 2.3.3 版本中发现的问题（`gzbuffer` 大小溢出、负长度时 `crc32_combine*` 不返回、`adler32` 以 `NULL`
 和长度 1 调用）已在 `develop` 分支修复；它们的复现保留为回归测试。

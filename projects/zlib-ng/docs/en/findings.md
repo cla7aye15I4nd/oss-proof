@@ -1,9 +1,9 @@
 # Findings: issues found in zlib-ng
 
-The work found fourteen issues in the zlib-ng `develop` branch at the verified commit. Each is a defect of zlib-ng
+The work found fifteen issues in the zlib-ng `develop` branch at the verified commit. Each is a defect of zlib-ng
 itself, is reached through functions that `zlib.h` documents, and is shown by a run of the real C (or, where a
 sanitizer cannot see it, by the letter of ISO C17 on a traced run). Patches 0003, 0004, 0006, 0007, 0008, 0009,
-0010, 0011, 0012, 0013, 0014, 0015 and 0016 fix them: one patch each, except patch 0014, which fixes the two
+0010, 0011, 0012, 0013, 0014, 0015, 0016 and 0017 fix them: one patch each, except patch 0014, which fixes the two
 issues of a failed `gzwrite` (one stale pointer causes both).
 
 | Issue | What is wrong | Calls that reach it | Evidence | Fix | Upstream |
@@ -22,6 +22,7 @@ issues of a failed `gzwrite` (one stale pointer causes both).
 | `gzclose` reads the caller's buffer after a failed `gzwrite` | In the same state, `gzclose` calls `gz_comp(state, Z_FINISH)`, which writes (or compresses) `avail_in` bytes from `next_in`, in the caller's buffer, after `gzwrite` has returned: a read of freed memory when the caller has freed it, and stale data in the file otherwise. | `gzdopen` of a non-blocking pipe that is full, `gzbuffer(file, 8)`, `gzwrite(file, buf, 100)` (fails with `EAGAIN`), `free(buf)`, the pipe drained, `gzclose` | AddressSanitizer, heap use after free in `write` from `gzwrite.c:70` | Patch 0014 | not submitted |
 | `gz_buffer_alloc` adds an offset to a null pointer | `gz_buffer_alloc` computes `state->out = state->buffers + in_size` before it checks the allocation: when it failed, that is `NULL` plus a nonzero offset (ISO C17 §6.5.6p8). | `gzopen`, `gzbuffer(file, 1 << 30)`, `gzwrite` or `gzread` when the 3 GiB allocation fails | UndefinedBehaviorSanitizer, `gzlib.c:90` | Patch 0015 | not submitted |
 | gz position overflow, reading | The readers add to the signed 64-bit position `x.pos` without a bound: signed overflow in `gz_read` (also `gzgetc` and `gzgets`). | `gzdopen` of a descriptor whose `lseek` succeeds without moving and which always has data (Linux `/dev/zero`), `gzgetc`, `gzseek(file, INT64_MAX, SEEK_SET)`, `gzread` | UndefinedBehaviorSanitizer, `gzread.c:356` | Patch 0016 | not submitted |
+| gz position overflow, writing | The writers add the length of each write to the signed 64-bit position `x.pos` without a bound, before they write: after `2^63` bytes in all, signed overflow in `gz_write` (also `gzputc` and `gzprintf`). A failed write keeps the addition, so nothing has to reach the file; writing to `/dev/null` reaches it as well. | `gzdopen(fd, "wT")` of a descriptor on which `write()` fails, `gzbuffer(file, 8)`, then `gzwrite(file, buf, INT_MAX)` and `gzclearerr(file)` about `2^32` times | UndefinedBehaviorSanitizer, `gzwrite.c:210` | Patch 0017 | not submitted |
 
 Issues found in the earlier 2.3.3 release (`gzbuffer` size overflow, `crc32_combine*` not returning for a negative
 length, `adler32` with `NULL` and length 1) are fixed on the `develop` branch; their reproductions remain as
