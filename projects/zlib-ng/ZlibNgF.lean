@@ -77,4 +77,5 @@ import ZlibNgF.Proof.«infback.c.decode»
 import ZlibNgF.Proof.«infback.c.lencopy»
 import ZlibNgF.Proof.«infback.c.len»
 import ZlibNgF.Proof.«infback.c.table»
+import ZlibNgF.Proof.«infback.c.run»
 import ZlibNgF.Proof.«public-infback»
