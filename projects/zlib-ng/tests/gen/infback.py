@@ -10,12 +10,10 @@ failing at its first, second and later call, corrupted and truncated streams, lo
 inflateBack called twice on one state, inflateBackInit_ argument errors (NULL window, windowBits outside 8..15,
 wrong version or stream_size) and NULL / stateless streams.
 
-Not generated: streams where a match reaches back into the previous pass of the window so that the source of
-inflate_fast's window copy, window + wsize - op, overlaps its destination (distance + min(op, length) > wsize, op the
-part of the distance before the current pass). With patch 0007 that copy is a memcpy, and such a stream is undefined
-behaviour of the verified source (open-defect case tests/regression/infback-window-overlap). `unsafe` below decodes
-the structure of each stream (lengths and distances only) with zlib's rules, continuing past distances that only the
-fast path accepts, and drops a line when any match could reach that copy.
+Nothing is filtered out: streams whose matches reach back into the previous pass of the window, so that the source
+of inflate_fast's window copy (window + wsize - op) overlaps its destination (distance + min(op, length) > wsize, op
+the part of the distance before the current pass), are generated on purpose (section 9), with distance == wsize
+(a copy onto itself) and every windowBits.
 """
 import random
 import zlib
@@ -23,154 +21,12 @@ import zlib
 rng = random.Random(20261119)
 out = []
 
-# ---------------------------------------------------------------- structural decoder (filter)
-
-class Bad(Exception):
-    pass
-
-class Bits:
-    def __init__(self, data):
-        self.data = data; self.pos = 0; self.bit = 0
-    def get(self, n):
-        v = 0
-        for i in range(n):
-            if self.pos >= len(self.data):
-                raise Bad("eof")
-            v |= ((self.data[self.pos] >> self.bit) & 1) << i
-            self.bit += 1
-            if self.bit == 8:
-                self.bit = 0; self.pos += 1
-        return v
-    def align(self):
-        if self.bit:
-            self.bit = 0; self.pos += 1
-
-def build(lens, kind):
-    """zlib's inflate_table rules. Returns a decode map {(len, code): sym} or None (no symbols: every code invalid)."""
-    mx = max(lens) if lens else 0
-    if mx == 0:
-        return None
-    count = [0] * 16
-    for l in lens:
-        count[l] += 1
-    left = 1
-    for l in range(1, 16):
-        left = left * 2 - count[l]
-        if left < 0:
-            raise Bad("over-subscribed")
-    if left > 0 and (kind == "codes" or mx != 1):
-        raise Bad("incomplete")
-    count[0] = 0
-    code = 0; nxt = [0] * 16
-    for l in range(1, 16):
-        code = (code + count[l - 1]) << 1
-        nxt[l] = code
-    m = {}
-    for s, l in enumerate(lens):
-        if l:
-            m[(l, nxt[l])] = s; nxt[l] += 1
-    return m
-
-def decode(br, m, kind):
-    if m is None:
-        if kind == "codes":
-            br.get(1); return 0
-        raise Bad("invalid code")
-    code = 0
-    for l in range(1, 16):
-        code = (code << 1) | br.get(1)
-        if (l, code) in m:
-            return m[(l, code)]
-    raise Bad("invalid code")
-
-LB = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258]
-LE = [0] * 8 + [1] * 4 + [2] * 4 + [3] * 4 + [4] * 4 + [5] * 4 + [0]
-DB = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097,
-      6145, 8193, 12289, 16385, 24577]
-DE = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]
-ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]
-FIXL = build([8] * 144 + [9] * 112 + [7] * 24 + [8] * 8, "lens")
-FIXD = build([5] * 30 + [5] * 2, "dists")
-
-def unsafe(data, wbits):
-    """True when some match of the stream could make inflate_fast's window copy overlap its destination."""
-    wsize = 1 << wbits
-    br = Bits(data); pos = 0
-    try:
-        last = 0
-        while not last:
-            last = br.get(1); t = br.get(2)
-            if t == 0:
-                br.align(); n = br.get(16); nn = br.get(16)
-                if n != (nn ^ 0xffff):
-                    return False
-                if br.pos + n > len(br.data):
-                    return False
-                br.pos += n
-                pos += n
-                continue
-            if t == 3:
-                return False
-            if t == 1:
-                lm, dm = FIXL, FIXD
-            else:
-                nlen = br.get(5) + 257; ndist = br.get(5) + 1; ncode = br.get(4) + 4
-                if nlen > 286 or ndist > 30:
-                    return False
-                cl = [0] * 19
-                for i in range(ncode):
-                    cl[ORDER[i]] = br.get(3)
-                cm = build(cl, "codes")
-                lens = []
-                while len(lens) < nlen + ndist:
-                    s = decode(br, cm, "codes")
-                    if s < 16:
-                        lens.append(s)
-                    elif s == 16:
-                        if not lens:
-                            return False
-                        lens += [lens[-1]] * (3 + br.get(2))
-                    elif s == 17:
-                        lens += [0] * (3 + br.get(3))
-                    else:
-                        lens += [0] * (11 + br.get(7))
-                    if len(lens) > nlen + ndist:
-                        return False
-                if lens[256] == 0:
-                    return False
-                lm = build(lens[:nlen], "lens"); dm = build(lens[nlen:], "dists")
-            while True:
-                s = decode(br, lm, "lens")
-                if s < 256:
-                    pos += 1; continue
-                if s == 256:
-                    break
-                if s > 285:
-                    return False
-                ln = LB[s - 257] + br.get(LE[s - 257])
-                d = decode(br, dm, "dists")
-                if d > 29:
-                    return False
-                dist = DB[d] + br.get(DE[d])
-                off = pos % wsize
-                whave = wsize if pos >= wsize else 0
-                if dist > off + whave:
-                    return False
-                if dist > off and dist + min(dist - off, ln) > wsize:
-                    return True
-                pos += ln
-    except Bad:
-        return False
-    return False
-
 # ---------------------------------------------------------------- emitters
 
 def hx(b):
     return b.hex() if b else "-"
 
 def emit(wbits, data, first="null", chunks="-", limit="-", abort="-", calls=1):
-    if unsafe(data, wbits):
-        return
     out.append(f"back {wbits} {first} {chunks} {limit} {abort} {calls} {hx(data)}")
 
 def comp(data, level=6, wbits=15, strategy=zlib.Z_DEFAULT_STRATEGY):
@@ -213,6 +69,12 @@ def lit(w, v):
     elif v < 256: w.huff(0x190 + v - 144, 9)
     elif v < 280: w.huff(v - 256, 7)
     else: w.huff(0xc0 + v - 280, 8)
+
+LB = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258]
+LE = [0] * 8 + [1] * 4 + [2] * 4 + [3] * 4 + [4] * 4 + [5] * 4 + [0]
+DB = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097,
+      6145, 8193, 12289, 16385, 24577]
+DE = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]
 
 def fixed(syms):
     """A last fixed-code block of literals (ints) and (length, distance) matches."""
@@ -319,7 +181,33 @@ emit(15, c + b"TRAILING DATA")
 emit(15, c + b"TRAILING DATA", str(len(c) + 13))
 emit(15, c + c, "null", "-", "-", "-", 2)
 
-# 9. inflateBackInit_ arguments and NULL streams.
+# 9. Matches that reach back into the previous pass of the window, where the output is the window: k bytes into
+#    the second pass, a match of length ln at distance dist > k (op = dist - k bytes from the previous pass), so
+#    that the window copy overlaps its destination when dist + min(op, ln) > wsize, and copies onto itself when
+#    dist == wsize. Whole input (the fast path, which bails out to MATCH when ln does not fit the window's rest)
+#    and 1-byte input chunks (the slow path).
+for wb in (8, 9, 10):
+    ws = 1 << wb
+    for k in (0, 1, 3, 100, ws // 2, ws - 260, ws - 3):
+        if k < 0:
+            continue
+        for dist in sorted({k + 1, k + 2, ws - 258, ws - 100, ws - 10, ws - 2, ws - 1, ws}):
+            if dist <= k or dist > ws:
+                continue
+            for ln in (3, 10, 100, 258):
+                syms = [rng.randrange(256) for _ in range(ws + k)] + [(ln, dist)] + [rng.randrange(256) for _ in range(20)]
+                s_ = fixed(syms)
+                emit(wb, s_)
+                if ln in (10, 258):
+                    emit(wb, s_, "null", "1")
+for wb in (12, 15):
+    ws = 1 << wb
+    for k, dist, ln in ((0, ws, 258), (100, ws, 258), (100, ws - 50, 258), (1000, ws - 10, 100), (ws - 300, ws - 1, 258),
+                        (ws - 3, ws, 3), (5, 6, 258), (1, ws - 200, 258)):
+        syms = [rng.randrange(256) for _ in range(ws + k)] + [(ln, dist), (258, ws)] + [rng.randrange(256) for _ in range(20)]
+        emit(wb, fixed(syms))
+
+# 10. inflateBackInit_ arguments and NULL streams.
 for wb in (-1, 0, 7, 8, 9, 15, 16, 31, -15, 2147483647, -2147483648):
     out.append(f"init {wb} w 1.3.2.zlib-ng 112")
 out.append("init 15 null 1.3.2.zlib-ng 112")

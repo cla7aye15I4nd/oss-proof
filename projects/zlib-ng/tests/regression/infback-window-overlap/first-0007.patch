@@ -1,0 +1,55 @@
+--- a/inflate.c
++++ b/inflate.c
+@@ -1097,7 +1097,8 @@
+                 copy = MIN(copy, state->length);
+                 copy = MIN(copy, left);
+ 
+-                put = chunkcopy_safe(put, from, copy, put + left);
++                memcpy(put, from, copy);    /* the window and the output are distinct objects */
++                put += copy;
+             } else {
+                 copy = MIN(state->length, left);
+ 
+--- a/inffast_tpl.h
++++ b/inffast_tpl.h
+@@ -255,7 +255,8 @@
+                         from += wsize - op;
+                         if (UNLIKELY(op < len)) {       /* some from end of window */
+                             len -= op;
+-                            out = CHUNKCOPY_SAFE(out, from, op, safe);
++                            memcpy(out, from, op);      /* window and output are distinct objects */
++                            out += op;
+                             from = window;              /* more from start of window */
+                             op = wnext;
+                             /* This (rare) case can create a situation where
+@@ -266,22 +267,22 @@
+                     if (UNLIKELY(op < len)) {           /* still need some from output */
+                         len -= op;
+ #ifndef USE_SAFE_MODE
+-                        out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        memcpy(out, from, op);
++                        out += op;
+                         out = CHUNKUNROLL(out, &dist, &len);
+                         out = CHUNKCOPY_SAFE(out, out - dist, len, safe);
+ #elif defined(HAVE_MASKED_READWRITE)
+-                        out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        memcpy(out, from, op);
++                        out += op;
+                         out = CHUNKCOPY_SAFE(out, out - dist, len, safe);
+ #else
+-                        out = chunkcopy_safe(out, from, op, safe);
++                        memcpy(out, from, op);
++                        out += op;
+                         out = chunkcopy_safe(out, out - dist, len, safe);
+ #endif
+                     } else {
+-#if !defined(USE_SAFE_MODE) || defined(HAVE_MASKED_READWRITE)
+-                        out = CHUNKCOPY_SAFE(out, from, len, safe);
+-#else
+-                        out = chunkcopy_safe(out, from, len, safe);
+-#endif
++                        memcpy(out, from, len);
++                        out += len;
+                     }
+                 } else {
+ #ifndef USE_SAFE_MODE

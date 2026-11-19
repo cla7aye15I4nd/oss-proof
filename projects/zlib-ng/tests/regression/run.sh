@@ -29,7 +29,8 @@ cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
   "deflatebound-gzip-extra-length|0006||bound-ok 0|bound-ok 1"
-  "inflate-window-copy|0007|300|invalid-pointer-pair|inflate 1 1"
+  "inflate-window-copy|0007|300,1|invalid-pointer-pair|inflate 1 1;inflate 1 1"
+  "infback-window-overlap|0007|8 100 200 150,8 100 250 100,8 100 256 100,8 100 256 200,8 200 220 100,15 1000 32700 200,15 1000 32768 258,9 10 400 258,8 3 255 10|none|back 1 546 1;back 1 496 1;back 1 496 1;back 1 596 1;back 1 596 1;back 1 34008 1;back 1 34066 1;back 1 820 1;back 1 309 1"
   "inflatesync-null-next-in|0008||none|sync -3 1"
   "inflatesetdictionary-null|0009||setdict 0 OR null pointer passed as argument|setdict -2"
   "inflate-fast-primed-bits|0010||inflate 1 34 4294967294|inflate 1 32 0"
@@ -48,8 +49,15 @@ plain=(
 # Open defects: undefined behaviour of the verified source with no patch yet. Each must still show its
 # report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report must match
-open_cases=(
-  "infback-window-overlap||memcpy-param-overlap"
+open_cases=()
+
+# Guards: an earlier, defective version of one of our patches, kept in the case's directory. The source built
+# with that version in place of the current patch must show the defect on the case's reproduction, so that the
+# case would catch the defect if it came back.
+# case | patch prefix | earlier version (file in the case's directory) | arguments (comma-separated runs) |
+# extended regular expression every run's report must match
+guards=(
+  "infback-window-overlap|0007|first-0007.patch|8 100 200 150,8 100 250 100,15 1000 32700 200,9 10 400 258,8 3 255 10|memcpy-param-overlap"
 )
 
 build() { # build <dir> [exclude-prefix]
@@ -137,7 +145,26 @@ for entry in ${open_cases[@]+"${open_cases[@]}"}; do
     echo "FIXED?: no report matching '$defect' on the verified source (status $rc): $out"; fail=1
   fi
 done
+for entry in "${guards[@]}"; do
+  IFS='|' read -r name patch earlier args defect <<<"$entry"
+  [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
+  dir="$work/earlier-${earlier%.patch}"
+  export REPLACE="$patch=$here/$name/$earlier"
+  build "$dir"
+  unset REPLACE
+  cc $san -I"$dir" "$here/$name/repro.c" "$dir/libz.a" -o "$work/$name-earlier" || exit 2
+  IFS=',' read -r -a runs <<<"$args"
+  for arg in "${runs[@]}"; do
+    echo "== $name ($arg) (guard: $earlier in place of $patch)"
+    out=$(cd "$work" && timeout "$timeout_s" "$work/$name-earlier" $arg 2>&1); rc=$?
+    if printf '%s\n' "$out" | grep -qE "$defect"; then
+      echo "ok: with $earlier: $(printf '%s\n' "$out" | grep -m1 -E "$defect" | sed "s#$work/##g; s#$src/##g; s#0x[0-9a-f]*#0x...#g")"
+    else
+      echo "MISSING: with $earlier no report matching '$defect' (status $rc): $out"; fail=1
+    fi
+  done
+done
 if [ $fail -eq 0 ]; then
-  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes; every open defect still reproduces"
+  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes; every open defect still reproduces; every guard shows the earlier defect"
 fi
 exit $fail

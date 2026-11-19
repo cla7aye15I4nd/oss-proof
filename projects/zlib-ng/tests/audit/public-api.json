@@ -195,7 +195,7 @@
       "function": "inflateBack",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of inflateBack is not done: with patch 0007 the verified source copies overlapping ranges with memcpy in inflate_fast when the window is the output (open case tests/regression/infback-window-overlap); the goal is stated and its premises are shown satisfiable (Goal.inflateBack_nonvacuous)."
+      "reason": "Safety of inflateBack is not proved yet; the goal is stated and its premises are shown satisfiable (Goal.inflateBack_nonvacuous)."
     },
     {
       "function": "inflateBackEnd",

@@ -130,14 +130,11 @@ Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it 
   variant bails out to `MATCH` when a match does not fit in `left`; `MATCH` of `infback.c` copies it with
   `chunkcopy_safe` (window to window) or `chunkmemset_safe_c`.
 - Patch 0007's concern (comparing a pointer into the window with one into the caller's output) does not arise in
-  `infback.c`: both are the caller's window. But patch 0007 itself replaced the window copies of `inflate_fast` by
-  `memcpy`, which is only correct when the window and the output are distinct objects. Called from `inflateBack`,
-  the source `window + wsize - op` and the destination `out` can overlap (a distance that reaches into the previous
-  window pass, `dist + min(op, len) > wsize`): `memcpy` with overlapping ranges, undefined (ISO C17 §7.24.2.1p2);
-  AddressSanitizer reports `memcpy-param-overlap` at `inffast_tpl.h` (open-defect case
-  `tests/regression/infback-window-overlap`). Without patch 0007 the copy goes through `chunkcopy_safe`, which
-  handles the overlap. Streams made by zlib's `deflate` with the same window size never reach it (their distances
-  are at most `wsize - 262`).
+  `infback.c`: both are the caller's window. Patch 0007 copies a window match in `inflate_fast` with `memcpy` only
+  when `window != beg`; called from `inflateBack` (`beg == window`) it keeps upstream's `chunkcopy_safe`, which
+  handles the overlap of a distance that reaches into the previous window pass (`dist + min(op, len) > wsize`).
+  The first version of 0007 used `memcpy` there too (overlapping ranges, ISO C17 §7.24.2.1p2); the guard of
+  `tests/regression/infback-window-overlap` keeps that version and checks that it still shows the overlap.
 - Call-backs: `in_func` / `out_func` are the parameters `InCb` / `OutCb` of `inflateBack` (caller code); what the
   goals assume of them is in `ZlibNgF/Spec/Common/Infback.lean`.
 
