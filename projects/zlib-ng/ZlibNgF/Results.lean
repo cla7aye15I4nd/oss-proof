@@ -56,18 +56,18 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Safety.Goal.inflateSetDictionary_safety, ``ZlibNgF.Proof.InflateTop.inflateSetDictionary_safety),
   (``ZlibNgF.Spec.Safety.Goal.inflateGetDictionary_safety, ``ZlibNgF.Proof.InflateTop.inflateGetDictionary_safety),
   (``ZlibNgF.Spec.Safety.Goal.inflateSync_safety, ``ZlibNgF.Proof.InflateTop.inflateSync_safety),
-  (``ZlibNgF.Spec.Safety.Goal.inflateCopy_safety, ``ZlibNgF.Proof.InflateTop.inflateCopy_safety)
+  (``ZlibNgF.Spec.Safety.Goal.inflateCopy_safety, ``ZlibNgF.Proof.InflateTop.inflateCopy_safety),
+  (``ZlibNgF.Spec.Safety.Goal.uncompress2_z_safety, ``ZlibNgF.Proof.Uncompress.uncompress2_z_safety),
+  (``ZlibNgF.Spec.Safety.Goal.uncompress2_safety, ``ZlibNgF.Proof.Uncompress.uncompress2_safety),
+  (``ZlibNgF.Spec.Safety.Goal.uncompress_safety, ``ZlibNgF.Proof.Uncompress.uncompress_safety),
+  (``ZlibNgF.Spec.Safety.Goal.uncompress_z_safety, ``ZlibNgF.Proof.Uncompress.uncompress_z_safety)
 ]
 
 def notDone : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
   ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
   ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
-  ``ZlibNgF.Spec.Safety.Goal.inflate_nonvacuous,
-  ``ZlibNgF.Spec.Safety.Goal.uncompress2_z_safety,
-  ``ZlibNgF.Spec.Safety.Goal.uncompress2_safety,
-  ``ZlibNgF.Spec.Safety.Goal.uncompress_safety,
-  ``ZlibNgF.Spec.Safety.Goal.uncompress_z_safety
+  ``ZlibNgF.Spec.Safety.Goal.inflate_nonvacuous
 ]
 
 def required : List Name := [
@@ -122,7 +122,11 @@ def required : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.inflateSetDictionary_safety,
   ``ZlibNgF.Spec.Safety.Goal.inflateGetDictionary_safety,
   ``ZlibNgF.Spec.Safety.Goal.inflateSync_safety,
-  ``ZlibNgF.Spec.Safety.Goal.inflateCopy_safety
+  ``ZlibNgF.Spec.Safety.Goal.inflateCopy_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress2_z_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress2_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress_z_safety
 ]
 
 #eval checkWith proved notDone required inLibrary

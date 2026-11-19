@@ -124,7 +124,8 @@ theorem μ_lt_fuel (l : IL) (S : InflateState) : μ l S + 2 < fuel := by
   omega
 
 /-- What the call returns with: the invariant and the frame. -/
-def Fin (E : Env) (H : Heap) : Prop := Inv H (some E.i) ∧ Frame E.H0 H [E.i] [E.b] E.G E.W
+def Fin (E : Env) (H : Heap) : Prop := Inv H (some E.i) ∧ Frame E.H0 H [E.i] [E.b] E.G E.W ∧
+  ∃ z, H.streams E.i = some z ∧ z.state = some E.b
 
 /-- The outcome of one trip of the loop started below the measure `m`. -/
 def Post (E : Env) (m : Nat) : Except Ex Unit → IL → Heap → Prop

@@ -165,7 +165,8 @@ theorem inflate_ok {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (h
     (hc : h.crcTable = ZlibNg.Crc32Tbl.crc_table) :
     Sat h (ZlibNg.Inflate.inflate (some i) flush) (fun r h' => Inv h' (some i) ∧
       Frame h h' [i] (stateIds h (some i)) (headerIds h (some i)) (outputRanges h (some i)) ∧
-      (r = Z_OK → Progress h h' i)) := by
+      (r = Z_OK → Progress h h' i) ∧
+      ∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧ z'.state = z.state) := by
   have hv' := hv
   obtain ⟨i', z, b, st, al, e, hz, hb, hst, hal, c⟩ := hv'
   cases e
@@ -185,7 +186,7 @@ theorem inflate_ok {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (h
   have hfr0 : ∀ H1, Touch h H1 i b → Frame h H1 [i] (stateIds h (some i)) (headerIds h (some i))
       (outputRanges h (some i)) := fun H1 t => by rw [hsid]; exact touchFrame t _ _
   split
-  · exact Sat.pure ⟨hv, hfr0 h (Touch.refl h i b), fun e => absurd e (by decide)⟩
+  · exact Sat.pure ⟨hv, hfr0 h (Touch.refl h i b), fun e => absurd e (by decide), fun z0 h0 => ⟨z0, h0, rfl⟩⟩
   rename_i hchk
   have hno : z.next_out ≠ .null := by
     intro e; simp [e] at hchk
@@ -219,7 +220,8 @@ theorem inflate_ok {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (h
         | Except.error Ex.leave => ub "unreachable: inf_leave outside inflate")
         (fun r h' => Inv h' (some i) ∧
           Frame h h' [i] (stateIds h (some i)) (headerIds h (some i)) (outputRanges h (some i)) ∧
-          (r = Z_OK → Progress h h' i)) := by
+          (r = Z_OK → Progress h h' i) ∧
+          ∀ z0, h.streams i = some z0 → ∃ z', h'.streams i = some z' ∧ z'.state = z0.state) := by
     intro H1 S1 hv1 hz1 hs1 hh1 hB hG hC hK ht
     obtain ⟨bo, oo, hpo, eo⟩ := envOK_of (H1 := H1) flush hz hb hst hhead hok hin hout hdisj hnb hno hni hc hB hG hC hK
     obtain ⟨al1, -, c1⟩ : ∃ al, H1.iallocsOf b = some al ∧ Core H1 (some i) z b (view S1) al := by
@@ -269,16 +271,20 @@ theorem inflate_ok {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (h
     · rintro ⟨r, l'⟩ H' ⟨⟨v, hr, hpg⟩, hf⟩
       dsimp only at hr
       subst hr
-      refine Sat.pure ⟨hf.1, ?_, ?_⟩
+      refine Sat.pure ⟨hf.1, ?_, ?_, ?_⟩
       · rw [hsid]
         have f1 := touchFrame ht (headerIds h (some i)) (outputRanges h (some i))
-        exact Frame.trans f1 hf.2
+        exact Frame.trans f1 hf.2.1
       · intro hv0 z0 b0 S0 hz0 hb0 hs0
         rw [hz] at hz0; cases hz0
         rw [hb] at hb0; cases hb0
         rw [hst] at hs0; cases hs0
         obtain ⟨z', S', e1, e2, e3, e4, e5, ⟨e6, p, e7, e8, e9⟩, e10⟩ := hpg hv0
         exact ⟨z', S', e1, e2, e3, e4.trans hhead.symm, e5, ⟨e6, bo, oo, p, hpo, e7, e8, e9⟩, e10⟩
+      · intro z0 hz0
+        rw [hz] at hz0; cases hz0
+        obtain ⟨z', e1, e2⟩ := hf.2.2
+        exact ⟨z', e1, e2.trans hb.symm⟩
   split
   · obtain ⟨e, hv1⟩ := InflateInv.wrS (h := h) (s := some i) hv (fun s => { s with mode := TYPEDO }) ⟨z, ⟨i, rfl, hz⟩, hb⟩
       hst (fun _ _ c => { c with

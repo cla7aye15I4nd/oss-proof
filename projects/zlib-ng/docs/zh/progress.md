@@ -19,6 +19,6 @@
 | `inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateResetKeep`、`inflatePrime`、`inflateSetDictionary`、`inflateGetDictionary`、`inflateGetHeader`、`inflateSync`、`inflateSyncPoint`、`inflateCopy`、`inflateValidate`、`inflateMark`、`inflateCodesUsed`：安全性 | 公开 C 接口 | 完成 |
 | `inflateBack*` 安全性 | 公开 C 接口 | 未完成 |
 | `compress`、`compress2` 安全性 | 公开 C 接口 | 未完成 |
-| `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` 安全性 | 公开 C 接口 | 未完成 |
+| `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` 安全性 | 公开 C 接口 | 完成 |
 | `gz*` 文件函数安全性 | 公开 C 接口 | 未完成 |
 | `deflate` / `inflate` 往返性质 | 功能 | 未完成 |

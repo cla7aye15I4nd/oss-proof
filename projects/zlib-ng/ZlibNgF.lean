@@ -59,3 +59,4 @@ import ZlibNgF.Proof.«inflate.c.decode-modes»
 import ZlibNgF.Proof.«inflate.c.check-modes»
 import ZlibNgF.Proof.«inflate.c.leave»
 import ZlibNgF.Proof.«public-inflate»
+import ZlibNgF.Proof.«public-uncompress»

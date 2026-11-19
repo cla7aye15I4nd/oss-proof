@@ -239,15 +239,19 @@
     },
     {
       "function": "uncompress",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress_safety"
     },
     {
       "function": "uncompress2",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress2",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress2_safety"
     },
     {
       "function": "gzdopen",
@@ -678,15 +682,19 @@
     },
     {
       "function": "uncompress_z",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress_z_safety"
     },
     {
       "function": "uncompress2_z",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress2_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress2_z_safety"
     }
   ]
 }

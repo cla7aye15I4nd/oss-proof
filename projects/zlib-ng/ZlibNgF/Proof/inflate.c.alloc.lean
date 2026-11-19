@@ -357,13 +357,14 @@ theorem init2_ok {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
     ∃ r h', inflateInit2 (some i) wb h = .ok (r, h') ∧ Fr h h' i ∧ (r = Z_OK → Inv h' (some i)) ∧
       (h.allocOk h.nalloc = true → wb = 15 → r = Z_OK) ∧
       (r = Z_OK → ∃ z' st', h'.streams i = some z' ∧ z'.state = some h.nextBlk ∧ h'.istate h.nextBlk = some st' ∧
-        st'.head = .val none) := by
+        st'.head = .val none ∧ z'.next_in = z.next_in ∧ z'.avail_in = z.avail_in) ∧
+      ∃ z', h'.streams i = some z' := by
   rw [init2_pre hz hza hzf wb]
   have hza0 : (({ h with streams := upd h.streams i (some (initZ z)) } : Heap).streams i).map ZStream.zalloc =
       some .zcalloc := by simp [initZ]
   cases hok : h.allocOk h.nalloc
   · refine ⟨Z_MEM_ERROR, { h with streams := upd h.streams i (some (initZ z)), nalloc := h.nalloc + 1 }, ?_, ?_,
-      fun e => absurd e (by decide), fun e => absurd e (by simp), fun e => absurd e (by decide)⟩
+      fun e => absurd e (by decide), fun e => absurd e (by simp), fun e => absurd e (by decide), ⟨_, by simp; rfl⟩⟩
     · simp only [bind_app, alloc_fail hza0 hok]; rfl
     · exact ⟨fun j hj => by simp [hj], rfl, fun _ _ => ⟨rfl, rfl, rfl⟩, rfl, rfl, rfl, rfl, Nat.le_refl _⟩
   · simp only [bind_app, alloc_ok hza0 hfs hfa hok]
@@ -389,7 +390,7 @@ theorem init2_ok {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
         ZlibNg.Zutil.zcfree, freeB]
       refine ⟨_, _, ⟨rfl, rfl⟩, ⟨?_, rfl, ?_, rfl, rfl, rfl, rfl, by simp⟩,
         by intro e; exact absurd e (by decide),
-        fun hw => absurd hw hne, fun e => absurd e (by decide)⟩
+        fun hw => absurd hw hne, fun e => absurd e (by decide), ⟨_, by simp; rfl⟩⟩
       · intro j hj; simp [hj]
       · intro b' hb'
         have ne : b' ≠ h.nextBlk := Nat.ne_of_lt hb'
@@ -428,16 +429,17 @@ theorem init2_ok {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
           work_size := by
             simp only [st2, view_work, rS_work, r2S_work, initS_work, garbage_work] }
       have hhead : ∃ z' st', Hf.streams i = some z' ∧ z'.state = some h.nextBlk ∧ Hf.istate h.nextBlk = some st' ∧
-          st'.head = .val none := by
+          st'.head = .val none ∧ z'.next_in = z.next_in ∧ z'.avail_in = z.avail_in := by
         have hby : Hf.bytes h.nextBlk = some (allocBytes H0) := by
           rw [hHf]; simp [H2, setZS, H0, b]
-        refine ⟨z4, st4, by rw [hHf]; simp [setZS], rfl, ?_, rfl⟩
+        refine ⟨z4, st4, by rw [hHf]; simp [setZS], rfl, ?_, rfl, rfl, rfl⟩
         show (match Hf.bytes h.nextBlk with | some _ => Hf.istates h.nextBlk | none => none) = some st4
         rw [hby]; rw [hHf]; simp [setZS, b]
       simp [-Nat.reducePow, H2, setZS, z2, st2, initS, H0, b, p, upd_upd, initZ] at e
       simp [-Nat.reducePow, ldAllocs, Heap.iallocsOf, Ival.get, wrS, ldState, stState, Heap.istate, wrZ, ldStream,
         stStream, upd_upd, initZ, e, Z_OK]
-      refine ⟨_, _, ⟨rfl, rfl⟩, ?_, fun _ => hinv, fun _ => rfl, fun _ => by obtain ⟨z1, s1, a1, a2, a3, a4⟩ := hhead; exact ⟨z1, a1, a2, s1, a3, a4⟩⟩
+      refine ⟨_, _, ⟨rfl, rfl⟩, ?_, fun _ => hinv, fun _ => rfl, fun _ => by obtain ⟨z1, s1, a1, a2, a3, a4, a5, a6⟩ := hhead; exact ⟨z1, a1, a2, s1, a3, a4, a5, a6⟩,
+        by obtain ⟨z1, s1, a1, -⟩ := hhead; exact ⟨z1, a1⟩⟩
       rw [hHf]
       refine ⟨?_, rfl, ?_, rfl, rfl, rfl, rfl, by simp [H2, setZS, H0]⟩
       · intro j hj; simp [H2, setZS, hj, H0]

@@ -513,10 +513,10 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
           rw [hput]; exact add_neg (r := .heap E.bo) hdo (by omega) (by omega)) ?_)
         refine SatX.bind (SatX.lift (Sat.mono (li7.chksum eo hdo _ (by omega)) ?_))
         rintro u2 H8 ⟨v, li8⟩
-        exact hjpb u2 _ _ ⟨li8.inv, li8.frame⟩
-      · exact hjpb () _ _ ⟨li7.inv, li7.frame⟩
+        exact hjpb u2 _ _ ⟨li8.inv, li8.frame, _, li8.hz, li8.hb⟩
+      · exact hjpb () _ _ ⟨li7.inv, li7.frame, _, li7.hz, li7.hb⟩
     · rename_i hc
-      refine hjpr () _ _ ⟨li7.inv, li7.frame⟩ (fun hr => prog_of li7 hn ha hpo hao ?_)
+      refine hjpr () _ _ ⟨li7.inv, li7.frame, _, li7.hz, li7.hb⟩ (fun hr => prog_of li7 hn ha hpo hao ?_)
       refine Classical.byContradiction fun hb => ?_
       simp only [not_or, ne_eq, Decidable.not_not] at hb
       exact hc (by simp [hb.1, hb.2]; exact hr)
