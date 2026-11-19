@@ -425,6 +425,7 @@ theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H :
       v.sym_buf = .val (.ref (.heap b) (pbo + v.lit_bufsize.toNat + 8)) ∧
       ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
         poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9) ∧
+    (v.pending = 0 → v.pending_out = v.pending_buf) ∧
     (v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0) ∧
     (0 ≤ v.bi_valid ∧ v.bi_valid < 8) ∧
     (v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat) ∧
@@ -433,7 +434,7 @@ theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H :
   obtain ⟨wo, po, ho, pbo, hw, hp, hh, hpb, h1, h2, h3, h4, hs⟩ := r.lay
   refine ⟨⟨r.ws.1, r.ws.2, rfl, r.lb.1, r.lb.2, r.pbs, r.se⟩,
     ⟨d, wo, po, ho, pbo, hd, hw, hp, hh, hpb, h1, h2, h3, by rw [hD]; exact h4, hs, pbo, hpb, Nat.le_refl _,
-      by simp [DeflateInv.dview, lmS, trS, rkS]⟩,
+      by simp [DeflateInv.dview, lmS, trS, rkS]⟩, fun _ => by simp [DeflateInv.dview, lmS, trS, rkS],
     ⟨by simp [DeflateInv.dview, lmS, trS, rkS], by simp [DeflateInv.dview, lmS, trS, rkS]⟩,
     by simp [DeflateInv.dview, lmS, trS, rkS], by simp [DeflateInv.dview, lmS, trS, rkS], r.strat,
     ⟨lm, rfl⟩, ⟨ib, rfl⟩⟩
@@ -756,7 +757,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
     · simp only [hl32]
     · exact ⟨Int32.not_lt.mp hs0, Int32.not_lt.mp hs4⟩
   rintro r H' ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, RL⟩
-  obtain ⟨q1, q2, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C c lm ib
+  obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C c lm ib
   refine ⟨⟨?_, fun _ => ?_⟩, fun _ _ _ _ _ _ _ => rfl⟩
   · refine dframe_of (fun j hj => by simp [SH, AH, upd_ne _ _ _ _ hj]) rfl (fun c hc => ?_) rfl rfl rfl rfl
       (by simp [SH, AH])
@@ -768,7 +769,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
       · exact hw
@@ -779,6 +780,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · exact ⟨hA, hB, hC⟩
       · exact q1
       · exact q2
+      · exact q0
       · exact q3
       · exact q4
       · exact q5

@@ -70,7 +70,7 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
   refine Sat.mono (reset_SH ⟨L.za, L.zf, L.hb, L.ab, L.sm, L.lo, L.hi⟩ c.wrap hpb c.trees.1 c.trees.2.1 c.trees.2.2
     hh hho c.level.1 c.level.2 (rlay_of c hd)) ?_
   rintro r h' ⟨rfl, A, B, C, cf, lm, ib, d', rfl, hd', hA, hB, hC, RL⟩
-  obtain ⟨q1, q2, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C cf lm ib
+  obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C cf lm ib
   refine ⟨rfl, ⟨i, rkZ z st.wrap, b, lmS (trS b (rkS st) A B C) cf (.val lm) (.val ib), al, rfl, by simp [SH], L.hb,
     by simp [Heap.dstate, SH], ?_, ?_⟩, ?_⟩
   · simp [Heap.dallocsOf, SH, hda]
@@ -93,6 +93,7 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       trees := ⟨hA, hB, hC⟩
       sizes := q1
       lay := q2
+      pout := q0
       syms := q3
       bits := q4
       look := q5
@@ -139,6 +140,7 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
         obtain rfl : d0 = d := Option.some.inj (hd0.symm.trans hd)
         exact ⟨d0, wo, po, ho', pbo, by simp [SH], hw, hp, hh', hpb', h1, h2, h3, h4, hs, pbo,
           by simpa [dview, trS, rkS] using hpb', Nat.le_refl _, by simp [dview, trS, rkS]⟩
+      pout := fun _ => by simp [dview, trS, rkS]
       syms := ⟨by simp [dview, trS, rkS], by simp [dview, trS, rkS]⟩
       bits := ⟨by simp [dview, trS, rkS], by simp [dview, trS, rkS]⟩
       look := c.look

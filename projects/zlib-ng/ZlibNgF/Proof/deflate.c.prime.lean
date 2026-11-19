@@ -256,6 +256,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
     sizes := c.sizes
     lay := ⟨d', wo, po, ho, pbo, by simp [SH], hw, hp, hh, hpb, h1, h2, h3, by rw [w.1]; exact h4, hsb, pbo, hpo,
       Nat.le_refl _, by simp only [dview]; omega⟩
+    pout := fun _ => by simp only [dview]; rw [hpo, hpb]
     syms := c.syms
     bits := ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact h0),
       Int32.lt_iff_toInt_lt.mpr (by rw [show (8 : Int32).toInt = 8 from rfl]; exact h8)⟩

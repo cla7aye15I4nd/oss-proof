@@ -15,7 +15,7 @@ later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the bl
 0..9 (`lm_set_level`), the tree arrays have their C sizes (`zng_tr_init`); the sizes `w_size`, `window_size`,
 `lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf`
 in that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within
-`pending_buf`; whole symbols in `sym_buf` up to `sym_end`; fewer than 8 bits in `bi_buf`; `strstart + lookahead`
+`pending_buf` (from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; fewer than 8 bits in `bi_buf`; `strstart + lookahead`
 within the window; a valid `strategy`; both function pointers of `lm_set_level` set.
 -/
 
@@ -104,6 +104,8 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
     v.sym_buf = .val (.ref (.heap b) (pbo + v.lit_bufsize.toNat + 8)) ∧
     ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
       poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9
+  /-- with no pending bytes, `pending_out` is back at `pending_buf` (`flush_pending`, `deflateResetKeep`) -/
+  pout : v.pending = 0 → v.pending_out = v.pending_buf
   /-- the symbol buffer holds whole three-byte symbols, at most `sym_end` bytes -/
   syms : v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0
   /-- between calls the bit buffer holds fewer than 8 bits: every call that adds bits ends with
