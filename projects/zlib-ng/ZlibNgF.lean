@@ -71,3 +71,5 @@ import ZlibNgF.Proof.«infback.c.init»
 import ZlibNgF.Proof.«infback.c.pull»
 import ZlibNgF.Proof.«infback.c.room»
 import ZlibNgF.Proof.«public-infback»
+import ZlibNgF.Proof.«gzlib.c.invariant»
+import ZlibNgF.Proof.«gzlib.c.reach»

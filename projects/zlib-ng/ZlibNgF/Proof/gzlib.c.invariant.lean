@@ -1,0 +1,133 @@
+import ZlibNgF.Spec.Safety.Gz
+import ZlibNgF.Proof.«inflate.c.invariant»
+import ZlibNgF.Proof.«deflate.c.invariant»
+import ZlibNgF.Proof.«public-deflate-init»
+
+/-!
+# The structural invariant of an open gz file (`ZlibNgF`)
+
+`GzInv w h f`: the `gz_state` of the open file `f` is live and its fields are those that `gz_open` and the public gz
+calls leave between two calls (`gzlib.c`, `gzread.c`, `gzwrite.c` with patches 0004, 0014-0017). The clauses are
+grouped in small structures (`GzPos`, `GzBufs`, `GzRead`, `GzWrite`, `GzMsg`) behind the interface lemmas at the end,
+so that a proof about one function opens only the clauses it needs.
+
+* the mode is `GZ_READ` or `GZ_WRITE` (`gz_open` turns `GZ_APPEND` into `GZ_WRITE`);
+* `path` is an owned heap string (`malloc` in `gz_open`), `msg` is `NULL` or an owned heap string, and `NULL` when
+  `err` is `Z_MEM_ERROR` (`gz_error` does not allocate for that error and does not free on it);
+* the embedded `z_stream` is an entry of `Heap.streams`;
+* `want` is in `[8, 2^30]` (`gzbuffer`, `GZBUFSIZE`); `size` is 0 (no buffers yet) or `want`, and then the buffers
+  are one live block, `in` at its start and `out` after the `in` part: `want` and `2 * want` bytes when reading,
+  `2 * want` and `want` (none when `direct`) when writing (`gz_buffer_alloc`);
+* positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -2^31` (only `gzungetc` lowers it, by at
+  most the `2 * want` bytes of the output buffer), `pos ≥ 0` when writing;
+* reading: `how ∈ {LOOK, COPY, GZIP}`; with buffers, the inflate stream has the inflate invariant (`gz_look` called
+  `inflateInit2`), `x.have` bytes from `x.next` lie inside `out`, and `avail_in` bytes from `next_in` inside `in`;
+* writing: with buffers and not `direct`, the deflate stream has the deflate invariant (`gz_write_init`), and
+  `next_in` is `in` plus at most `size` with `avail_in` bytes after it inside `in` (patch 0014: no pointer into a
+  caller's buffer is left between calls).
+-/
+
+set_option autoImplicit false
+
+namespace ZlibNgF.Proof.GzInv
+open C ZlibNgF.Spec ZlibNg.Gz
+
+/-- An owned heap string: offset 0 of a live heap block that holds a C string. -/
+def OwnedStr (h : Heap) (p : Ival BPtr) : Prop :=
+  ∃ c n, p = .val (.ref (.heap c) 0) ∧ CStringLen h (.ref (.heap c) 0) n
+
+/-- The sizes of the two buffers of `gz_buffer_alloc` for the mode and `direct` of `s`. -/
+def inSize (s : GzState) : Nat := if s.mode = GZ_WRITE then 2 * s.want.toNat else s.want.toNat
+def outSize (s : GzState) : Nat :=
+  if s.mode = GZ_WRITE then (if s.direct ≠ 0 then 0 else s.want.toNat) else 2 * s.want.toNat
+
+/-- `n` bytes from `p` lie inside `[base + lo, base + hi)` of block `c`. -/
+def Inside (c base lo hi : Nat) (p : BPtr) (n : Nat) : Prop :=
+  ∃ k, p = .ref (.heap c) (base + k) ∧ lo ≤ k ∧ k + n ≤ hi
+
+/-- Positions (`x.pos`, `skip`). -/
+structure GzPos (s : GzState) : Prop where
+  skip_nonneg : 0 ≤ s.skip.toInt
+  pos_skip : s.pos.toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
+  pos_lower : -(2 ^ 31 : Int) ≤ s.pos.toInt
+  write_pos : s.mode = GZ_WRITE → 0 ≤ s.pos.toInt
+
+/-- The buffers: none (`size == 0`), or one live block carved into `in` and `out`. -/
+structure GzBufs (h : Heap) (s : GzState) (c base : Nat) : Prop where
+  size : s.size = s.want
+  buffers : s.buffers = .val (.ref (.heap c) base)
+  inp : s.«in» = .val (.ref (.heap c) base)
+  out : outSize s ≠ 0 → s.out = .val (.ref (.heap c) (base + inSize s))
+  fits : ∃ d, h.bytes c = some d ∧ base + inSize s + outSize s ≤ d.size
+
+/-- Reading. -/
+structure GzRead (h : Heap) (s : GzState) : Prop where
+  how : s.how = LOOK ∨ s.how = COPY ∨ s.how = GZIP
+  bufs : s.size ≠ 0 → ∃ c base z, GzBufs h s c base ∧ InflateInv.Inv h (some s.strm) ∧
+    h.streams s.strm = some z ∧
+    (s.«have» = 0 ∨ ∃ p, s.next = .val p ∧ Inside c base (inSize s) (inSize s + outSize s) p s.«have».toNat) ∧
+    (z.avail_in = 0 ∨ Inside c base 0 (inSize s) z.next_in z.avail_in.toNat)
+
+/-- Writing. -/
+structure GzWrite (h : Heap) (s : GzState) : Prop where
+  bufs : s.size ≠ 0 → ∃ c base z, GzBufs h s c base ∧ h.streams s.strm = some z ∧
+    (s.direct = 0 → DeflateInv.DInv h (some s.strm)) ∧
+    (z.avail_in = 0 ∨ Inside c base 0 s.size.toNat z.next_in z.avail_in.toNat)
+
+/-- The error message. -/
+structure GzMsg (h : Heap) (s : GzState) : Prop where
+  msg : s.msg = .val .null ∨ OwnedStr h s.msg
+  mem : s.err = ZlibNg.Inflate.Z_MEM_ERROR → s.msg = .val .null
+
+/-- The fields of a live `gz_state` between two public calls. -/
+structure GzShape (h : Heap) (s : GzState) : Prop where
+  mode : s.mode = GZ_READ ∨ s.mode = GZ_WRITE
+  path : OwnedStr h s.path
+  strm : ∃ z, h.streams s.strm = some z
+  want_lo : 8 ≤ s.want.toNat
+  want_hi : s.want.toNat ≤ 2 ^ 30
+  size : s.size = 0 ∨ s.size = s.want
+  pos : GzPos s
+  msg : GzMsg h s
+  read : s.mode = GZ_READ → GzRead h s
+  write : s.mode = GZ_WRITE → GzWrite h s
+
+/-- **The invariant** of an open file. -/
+def GzInv (w : World) (h : Heap) (f : GzPtr) : Prop :=
+  ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s
+
+/-! ## Interface lemmas -/
+
+theorem live {w : World} {h : Heap} {f : GzPtr} (hv : GzInv w h f) :
+    ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s := hv
+
+/-- Reading a field of the live state changes nothing. -/
+theorem rdG_app {α : Type} {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (g : GzState → α) : C.run ((rdG (some b) g).run w) h = .ok ((g s, w), h) := by
+  simp only [C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get,
+    StateT.get, StateT.lift, pure, StateT.pure]
+  simp [hs, StateT.pure, pure]
+
+/-- The mode of an open file is `GZ_READ` or `GZ_WRITE`. -/
+theorem mode {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (hv : GzInv w h (some b)) : s.mode = GZ_READ ∨ s.mode = GZ_WRITE := by
+  obtain ⟨b', s', e, hs', sh⟩ := hv
+  cases e
+  rw [hs] at hs'
+  cases hs'
+  exact sh.mode
+
+/-- The positions of an open file. -/
+theorem pos {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (hv : GzInv w h (some b)) : GzPos s := by
+  obtain ⟨b', s', e, hs', sh⟩ := hv
+  cases e
+  rw [hs] at hs'
+  cases hs'
+  exact sh.pos
+
+/-- A call that changes neither the world nor the heap stays in the frame of any file. -/
+theorem gzframe_refl (w : World) (h : Heap) (f : GzPtr) (W : List (BPtr × Nat)) : GzFrame w h w h f W :=
+  ⟨DeflateInitPublic.dframe_refl h _ _ _ W, fun _ _ _ => rfl⟩
+
+end ZlibNgF.Proof.GzInv
