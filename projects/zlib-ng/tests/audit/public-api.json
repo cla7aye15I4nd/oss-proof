@@ -47,13 +47,13 @@
       "function": "inflate",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateEnd",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "deflateSetDictionary",
@@ -119,55 +119,55 @@
       "function": "inflateSetDictionary",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateGetDictionary",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateSync",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateCopy",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateReset",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateReset2",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflatePrime",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateMark",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateGetHeader",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateBack",
@@ -219,13 +219,13 @@
       "function": "uncompress",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the one-shot uncompress functions is not done: they run inflate, which is not translated yet."
+      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "uncompress2",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the one-shot uncompress functions is not done: they run inflate, which is not translated yet."
+      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "gzdopen",
@@ -408,7 +408,7 @@
       "function": "inflateInit_",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "deflateInit2_",
@@ -420,7 +420,7 @@
       "function": "inflateInit2_",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateBackInit_",
@@ -554,7 +554,7 @@
       "function": "inflateSyncPoint",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "get_crc_table",
@@ -568,25 +568,25 @@
       "function": "inflateUndermine",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateValidate",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateCodesUsed",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "inflateResetKeep",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "deflateResetKeep",
@@ -640,13 +640,13 @@
       "function": "uncompress_z",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "uncompr.c and inflate are not translated yet."
+      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
     },
     {
       "function": "uncompress2_z",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "uncompr.c and inflate are not translated yet."
+      "reason": "Translated (uncompr.c, over the inflate translation) and differentially tested; the safety goal is stated and not proved yet."
     }
   ]
 }

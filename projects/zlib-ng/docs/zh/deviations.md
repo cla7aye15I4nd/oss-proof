@@ -25,6 +25,22 @@
 | `crc32_combine_op` | `op` 的低 32 位不为 0。 | `Goal.crc32_combine_op_safety` | `zlib.h` 只允许由 `crc32_combine_gen` 从非负长度生成的 `op`，它永不为 0；低半部为 0 时 `multmodp` 不返回。 |
 | `zng_alloc_aligned`（内部） | `align ≥ 8` 且 `8 + size + align < 2^32`；对齐定理要求 `align = 2^k`，`3 ≤ k ≤ 31`。 | `Goal.zng_alloc_aligned_safety`、`Goal.zng_alloc_aligned_alignment` | 唯一调用者（`gz_buffer_alloc`）传入 64 与至多 `3 * 2^30` 字节。 |
 
+## Inflate 与 uncompress（目标未完成）
+
+`inflate*` 与 `uncompress*` 的目标针对 `zlib.h` 允许程序到达的流（`InflateReachable`）陈述：由成功的
+`inflateInit_`、`inflateInit2_` 或 `inflateCopy` 建立，此后只被参数合法的 inflate 调用以及程序改变；程序可以改变
+`next_in`、`avail_in`、`next_out`、`avail_out` 和库不拥有的内存。`Z_NULL` 流或状态为 `NULL` 的流同样被接受。
+
+| 函数 | 前提 | Lean | 原因 |
+| --- | --- | --- | --- |
+| `inflateInit_`、`inflateInit2_`（及由它们建立的每个流） | `zalloc` 与 `zfree` 为 `Z_NULL`（库的默认分配器）或已是默认函数。 | `InitReady` | 未对经由调用者分配器的调用建模。 |
+| `inflate`、`inflateSync` | `next_in` 与 `next_out` 为 `NULL`，或分别指向 `avail_in` 个可读字节与 `avail_out` 个可写字节；这些缓冲区与已登记 `gz_header` 的缓冲区彼此不重叠，也不与库的分配重叠。 | `StreamIO` | 没有重叠理由的调用者缓冲区。 |
+| `inflateSync` | `avail_in` 不为 0 时 `next_in` 不为 `NULL`。 | `SyncInput` | `avail_in` 计数的是 `next_in` 处的字节。 |
+| `inflateGetDictionary` | 缓冲区为 `NULL` 或至少有 32768 个可写字节。 | `Goal.inflateGetDictionary_safety` | `zlib.h` 指明 32768 字节总是足够；调用本身只需当前窗口大小。 |
+| `inflateCopy` | `dest` 与 `source` 是不同的流；`dest` 可供初始化。 | `Goal.inflateCopy_safety` | 对 `z_stream` 的复制是 `memcpy`，对同一对象未定义。 |
+| 调用之间 | 程序不改变 `z_stream` 的其他字段、库的分配或已登记的 `gz_header` 记录。 | `CallerStep` | `zlib.h` 把它们保留给库。 |
+| `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `dest` 与 `source` 不重叠。 | `Disjoint` | 没有重叠理由的调用者缓冲区。 |
+
 ## 被验证源码的行为
 
 - `len2` 为负时，`crc32_combine`、`crc32_combine64`、`crc32_combine_gen` 与 `crc32_combine_gen64` 返回 0。

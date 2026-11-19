@@ -43,7 +43,31 @@ def notDone : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.adler32_z_safety,
   ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
   ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
-  ``ZlibNgF.Spec.Functional.Goal.adler32_functional
+  ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
+  ``ZlibNgF.Spec.Safety.Goal.inflateInit__safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateInit2__safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateInit_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.inflate_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflate_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.inflateEnd_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateSync_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateSyncPoint_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateSetDictionary_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateGetDictionary_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateGetHeader_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflatePrime_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateReset_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateResetKeep_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateReset2_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateValidate_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateUndermine_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateMark_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateCodesUsed_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateCopy_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress2_z_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress2_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress_safety,
+  ``ZlibNgF.Spec.Safety.Goal.uncompress_z_safety
 ]
 
 def required : List Name := [

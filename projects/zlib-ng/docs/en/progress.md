@@ -16,6 +16,6 @@ Overall library status: **not done**.
 | Streaming `inflate*` safety | Public C API | not done |
 | `inflateBack*` safety | Public C API | not done |
 | `compress`, `compress2` safety | Public C API | not done |
-| `uncompress`, `uncompress2` safety | Public C API | not done |
+| `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` safety | Public C API | not done |
 | `gz*` file functions safety | Public C API | not done |
 | `deflate` / `inflate` round trip | Functional | not done |
