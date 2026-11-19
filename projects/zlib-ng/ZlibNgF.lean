@@ -18,3 +18,4 @@ import ZlibNgF.Proof.«inflate.c.sync»
 import ZlibNgF.Proof.«inflate.c.copy»
 import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Proof.«inflate.c.facts»
+import ZlibNgF.Proof.«inflate.c.loop»
