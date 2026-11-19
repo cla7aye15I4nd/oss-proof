@@ -408,7 +408,7 @@ theorem copy_safe {h : Heap} {src dst : StreamPtr} (hv : Inv h src) (hfr : Fresh
   rcases hdst with rfl | ⟨zd, ⟨j, rfl, hzd⟩, -, -⟩
   · exact ⟨_, _, copy_none L.check, InflateInit.frame_refl h _ _ _ _⟩
   have hji : j ≠ i := fun e => hne (by rw [e])
-  obtain ⟨r, h', e, f, -, -⟩ := copy_run L hal c hzd hji (fun _ => hfr _ (Nat.le_refl _))
+  obtain ⟨r, h', e, f, -, -⟩ := copy_run L hal c hzd hji (fun _ => ⟨(hfr _ (Nat.le_refl _)).1, (hfr _ (Nat.le_refl _)).2.1⟩)
   exact ⟨r, h', e, f.frame⟩
 
 end ZlibNgF.Proof.InflateCopy

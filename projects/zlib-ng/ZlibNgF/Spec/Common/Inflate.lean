@@ -92,12 +92,19 @@ library's defaults. -/
 def InitReady (h : Heap) (s : StreamPtr) : Prop :=
   s = none ∨ ∃ z, StreamAt h s z ∧ (z.zalloc = .null ∨ z.zalloc = .zcalloc) ∧ (z.zfree = .null ∨ z.zfree = .zcfree)
 
-/-- No typed object (`inflate_state`, `inflate_allocs`) lives in a block that the allocator has not handed out yet.
+/-- No object (bytes, `inflate_state`, `inflate_allocs`) lives in a block that the allocator has not handed out yet.
 Every heap a C program reaches has this property (blocks are numbered in allocation order and never reused, and the
 carve primitives place objects only into allocated blocks); it is a well-formedness condition of the heap model, not
 a restriction of the C inputs. The functions that allocate the inflate state (`inflateInit*`, `inflateCopy`, and
-`uncompress*` through `inflateInit`) need it: the carve of a fresh block faults if a stale object is recorded there. -/
-def FreshBlocks (h : Heap) : Prop := ∀ b, h.nextBlk ≤ b → h.istates b = none ∧ h.iallocs b = none
+`uncompress*` through `inflateInit`) need it: the carve of a fresh block faults if a stale object is recorded there,
+and a caller buffer recorded in a block not yet handed out would be replaced by the next allocation. -/
+def FreshBlocks (h : Heap) : Prop := ∀ b, h.nextBlk ≤ b → h.istates b = none ∧ h.iallocs b = none ∧ h.bytes b = none
+
+/-- Every object has fewer than `2^63` bytes (at most `PTRDIFF_MAX`). True of every object on x86_64 Linux LP64 (the
+user address space is far smaller, and GCC and glibc refuse larger objects); the heap model itself does not bound the
+size of a byte array. The loops of `uncompress*` need it: the model runs a loop at most `2^64` times, and the one-shot
+loop of `uncompress*` is bounded by the bytes of its source and destination together. -/
+def ObjBound (h : Heap) : Prop := ∀ (r : BRef) (d : Array UInt8), Space.get h r = some d → d.size < 2 ^ 63
 
 /-- The `version` argument of `inflateInit_` / `inflateInit2_`: `NULL`, or a readable string (its first byte is
 read). -/

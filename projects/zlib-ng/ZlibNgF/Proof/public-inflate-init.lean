@@ -40,7 +40,7 @@ theorem init2_safe (h : Heap) (s : StreamPtr) (wb : Int32) (hfr : FreshBlocks h)
       (r = Z_OK → InflateInv.Inv h' s) := by
   rcases hi with rfl | ⟨z, ⟨i, rfl, hz⟩, hza, hzf⟩
   · exact ⟨Z_STREAM_ERROR, h, rfl, frame_refl h _ _ _ _, fun e => absurd e (by decide)⟩
-  · obtain ⟨r, h', e, f, hinv, _⟩ := init2_ok hz hza hzf (hfr _ (Nat.le_refl _)).1 (hfr _ (Nat.le_refl _)).2 wb
+  · obtain ⟨r, h', e, f, hinv, _⟩ := init2_ok hz hza hzf (hfr _ (Nat.le_refl _)).1 (hfr _ (Nat.le_refl _)).2.1 wb
     exact ⟨r, h', e, f.frame, hinv⟩
 
 theorem inflateInit__safety : Goal.inflateInit__safety := by
@@ -65,7 +65,7 @@ theorem init_ok_gen (h : Heap) (hfr : FreshBlocks h) (hz : h.streams 0 = some {}
     ∃ h', C.run (do let v ← strLitRef "1.3.2.zlib-ng"; inflateInit_ (some 0) v 112) h = .ok (Z_OK, h') ∧
       InflateReachable h' (some 0) := by
   obtain ⟨r, h', e, _, _, hr⟩ := init2_ok hz (Or.inl rfl) (Or.inl rfl) (hfr _ (Nat.le_refl _)).1
-    (hfr _ (Nat.le_refl _)).2
+    (hfr _ (Nat.le_refl _)).2.1
     DEF_WBITS
   have hr : r = Z_OK := hr hok rfl
   subst hr
@@ -89,7 +89,7 @@ def initHeap : Heap :=
     streams := upd .empty 0 (some {}) }
 
 theorem inflateInit_nonvacuous : Goal.inflateInit_nonvacuous := by
-  have hfr : FreshBlocks initHeap := fun b _ => ⟨Tbl.get_empty_opt b, Tbl.get_empty_opt b⟩
+  have hfr : FreshBlocks initHeap := fun b _ => ⟨Tbl.get_empty_opt b, Tbl.get_empty_opt b, Tbl.get_empty_opt b⟩
   obtain ⟨h', e, hr⟩ := init_ok_gen initHeap hfr (upd_same _ _ _) rfl
   exact ⟨initHeap, h', some 0, ⟨rfl, rfl⟩, Or.inr ⟨{}, ⟨0, rfl, upd_same _ _ _⟩, Or.inl rfl, Or.inl rfl⟩,
     e, hr⟩

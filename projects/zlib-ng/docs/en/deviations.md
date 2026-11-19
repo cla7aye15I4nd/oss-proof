@@ -43,10 +43,11 @@ inflate calls with valid arguments and by the program, which may change `next_in
 | `inflateGetDictionary` | The buffer is `NULL` or has at least 32768 writable bytes. | `Goal.inflateGetDictionary_safety` | `zlib.h` names 32768 bytes as always enough; the call itself needs only the current window size. |
 | `inflateCopy` | `dest` and `source` are different streams; `dest` is ready for initialisation. | `Goal.inflateCopy_safety` | The copy of the `z_stream` is a `memcpy`, undefined for the same object. |
 | `inflateGetHeader` | `head` is not `Z_NULL`. | `Goal.inflateGetHeader_safety` | `zlib.h` asks for a `gz_header` structure; on a gzip stream the C writes `head->done` without a test. |
-| `inflateInit_`, `inflateInit2_`, `inflateCopy`, `uncompress*` | The heap model records no `inflate_state` or `inflate_allocs` object in a block not yet allocated. | `FreshBlocks` | A well-formedness condition of the heap model, true of every heap a program reaches; not a restriction of the C inputs. |
+| `inflateInit_`, `inflateInit2_`, `inflateCopy`, `uncompress*` | The heap model records no object (bytes, `inflate_state` or `inflate_allocs`) in a block not yet allocated. | `FreshBlocks` | A well-formedness condition of the heap model, true of every heap a program reaches; not a restriction of the C inputs. |
 | `inflate` (each call in the history of a stream) | The static CRC tables hold their constants (`CrcGlobals`). | `InflateStep` | Constant data in C (see above); `Goal.inflate_safety` asks it of the call itself. |
 | Between calls | The program does not change the other `z_stream` fields or the library's allocation, and does not free a registered `gz_header` record. Any field of that record may change (the program, or another stream that shares it, may write it); its buffers are checked at each `inflate` call. | `CallerStep` | `zlib.h` reserves the `z_stream` fields and the allocation to the library; a registered header is written by `inflate`, so it must stay allocated. |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | `dest` and `source` do not overlap. | `Disjoint` | Caller buffers with no reason to overlap. |
+| `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | Every object has fewer than `2^63` bytes (at most `PTRDIFF_MAX`). | `ObjBound` | True of every object on x86_64 Linux. The model runs a loop at most `2^64` times and does not bound the size of an object itself; the one-shot loop is bounded by the bytes of source and destination together. |
 
 ## Behaviour of the verified source
 
