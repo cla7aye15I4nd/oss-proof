@@ -103,8 +103,8 @@ theorem dcore_fw {h H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : Def
     look := lk
     strategy := c.strategy
     fns := c.fns
-    symv := ⟨d', pbo + st.lit_bufsize.toNat + 8, SH_bytes _ _ _ _ _ _, hsb, fun j hj => by
-      rw [W.2 _ (Or.inr (by omega)), W.2 _ (Or.inr (by omega))]; exact hsym j hj⟩
+    symv := ⟨d', pbo + st.lit_bufsize.toNat + 8, SH_bytes _ _ _ _ _ _, hsb,
+      hsym.of_eq fun k _ => W.2 _ (Or.inr (by omega))⟩
     psym := c.psym
     hdr := c.hdr
     bstart := C.bs_hi
@@ -112,7 +112,8 @@ theorem dcore_fw {h H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : Def
     wpow := C.wpow
     fe_mod := C.fe_mod
     fe_hi := C.fe_hi
-    bs_lo := hbl }
+    bs_lo := hbl
+    descs := c.descs }
 
 /-- The input of `DInput` as `fill_window_SH` takes it: empty, or outside the block. -/
 theorem insrc_of {h : Heap} {b : Nat} {z : ZStream} (hr : NullOrRead h z.next_in z.avail_in.toNat)
