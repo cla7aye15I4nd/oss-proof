@@ -77,7 +77,7 @@ theorem sub_pull {h h' n b : Nat} (hn : n ≤ b) (hh : h' % 2 ^ b = h % 2 ^ b) :
 /-! ## Tables of the state -/
 
 /-- A decoding table of the state, with the array it lives in on every heap of the call. -/
-theorem RTab.get {E : BEnv} {H : Heap} {z : ZStream} {S : InflateState} (sh : BShape E H z S) {p : Ival CodePtr}
+theorem RTab.get {E : BEnv} {S : InflateState} {p : Ival CodePtr}
     {n : UInt32} {m : Nat} {dist : Bool} (t : RTab E.b S.codes p n m dist) :
     ∃ r o e a, p = .val (.ref r o) ∧ CodeTable a o e n.toNat m dist ∧ Rep a o n.toNat dist ∧
       ∀ H' z', BShape E H' z' S → Space.get H' r = some a := by
@@ -336,7 +336,7 @@ theorem bdecode {E : BEnv} (cb : E.CB) {l : IL} {H : Heap} {t : Nat} {z : ZStrea
     (bm : BM E l H t z S) (hb8 : l.bits.toNat < 8) {tab : InflateState → Ival CodePtr}
     {nbits : InflateState → UInt32} {dist : Bool} (hrt : RTab E.b S.codes (tab S) (nbits S) 28 dist) :
     SatX H l (ZlibNg.Infback.decodeSym E.c tab nbits (linkTest dist)) (DPost E z S l t dist) := by
-  obtain ⟨r, o, e, a, hp, ct, rp, hga⟩ := hrt.get bm.sh
+  obtain ⟨r, o, e, a, hp, ct, rp, hga⟩ := hrt.get (E := E)
   unfold ZlibNg.Infback.decodeSym
   refine SatX.bind (SatX.mono (bdec1 cb bm hp hga ct rp.1 hb8) ?_)
   rintro res l1 H1 p
