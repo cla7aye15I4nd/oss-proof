@@ -218,6 +218,10 @@ structure EnvOK (E : Env) : Prop where
   hdrBuf : ∀ k g0, E.hp = some k → E.H0.gzheaders k = some g0 →
     HBuf E E.H0 g0.extra g0.extra_max.toNat ∧ HBuf E E.H0 g0.name g0.name_max.toNat ∧
     HBuf E E.H0 g0.comment g0.comm_max.toNat
+  /-- the output buffer `[oo, oo + O0)` of heap block `bo`: writable, outside the state's block, a write range of the
+  call, disjoint from the input -/
+  outW : ∃ data, E.H0.bytes E.bo = some data ∧ E.oo + E.O0.toNat ≤ data.size ∧ E.bo ≠ E.b ∧
+    ((.ref (.heap E.bo) E.oo : BPtr), E.O0.toNat) ∈ E.W ∧ Disjoint E.inp E.A0.toNat (.ref (.heap E.bo) E.oo) E.O0.toNat
 
 /-- `Space.get` of a reference outside block `b` keeps the size of its array. -/
 theorem SizeKeep.get {H0 H : Heap} {b : Nat} (sk : SizeKeep H0 H b) {r : BRef} (hr : ∀ off, Ptr.ref r off ≠ (Ptr.ref (BRef.heap b) off : BPtr))
