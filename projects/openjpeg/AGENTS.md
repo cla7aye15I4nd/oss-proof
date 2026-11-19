@@ -1,49 +1,36 @@
 # Working rules (`projects/openjpeg`)
 
-Inherits every rule of the repository root [`../../AGENTS.md`](../../AGENTS.md), including the strict
-ISO C17 undefined-behaviour policy: no `NULL`, wild or dangling pointer `+ 0`, no `NULL - NULL`, no
-cross-object pointer subtraction or comparison, no out-of-bounds pointer formation, no zero-length
-`memcpy`/`memset` on invalid pointers, every struct pointer field written before it is read, and no
-"benign UB" arguments. The runtime starts from `framework/lean/StrictPtr.lean`.
+Inherits every rule of the repository root [`../../AGENTS.md`](../../AGENTS.md), which is
+authoritative on proof soundness, allowed axioms and the strict ISO C17 undefined-behaviour policy.
+The runtime starts from `framework/lean/StrictPtr.lean`.
 
-- **Status:** candidate. Upstream submodule `openjpeg/` tracks the latest default branch. Not
-  registered in `framework/projects.json`; translation and proofs are not done.
+**Status:** candidate. Upstream submodule `openjpeg/` tracks the latest default branch; not
+registered in `framework/projects.json`; translation and proofs are not done.
 
-## Why it matters
+## Tier 0
 
-Pillow's wheels bundle openjpeg (2.5.4 in Pillow 13.0.0) and `Image.open` sniffs JPEG 2000 (`.jp2`
-and raw codestreams) under any file name, so the decoder is reachable from any upload through
-`libImaging/Jpeg2KDecode.c`. Sharp's prebuilt binary does not enable JPEG 2000.
+Tier 0 is the code that turns untrusted bytes into pixels or metadata on a default path. It is the
+whole scope of this project.
 
-## Interfaces to prove (P0)
+**How it is reached.** Pillow recognises JPEG 2000 by magic bytes under any file name:
+`Image.open(upload).load()` → `Jpeg2KImageFile` → `src/decode.c` `PyImaging_Jpeg2KDecoderNew` →
+`src/libImaging/Jpeg2KDecode.c` `ImagingJpeg2KDecode`. Sharp's prebuilt binary does not enable
+JPEG 2000.
 
-Exactly what Pillow calls:
+**Functions** (Pillow decodes tile by tile): `opj_set_default_decoder_parameters`,
+`opj_create_decompress`, `opj_setup_decoder`, `opj_stream_create` with its read / skip / seek
+callbacks, `opj_read_header`, `opj_read_tile_header`, `opj_decode_tile_data`,
+`opj_end_decompress`, `opj_stream_destroy`, `opj_destroy_codec`, `opj_image_destroy` — and the
+JP2 box parser, J2K marker parser, tier-2 packet decoder, tier-1 MQ decoder and inverse wavelet
+transform behind them.
 
-- **Decode (tile by tile):** `opj_set_default_decoder_parameters`, `opj_create_decompress`,
-  `opj_set_error_handler`, `opj_set_warning_handler`, `opj_set_info_handler`,
-  `opj_setup_decoder`, `opj_stream_create`, `opj_stream_set_read_function`,
-  `opj_stream_set_skip_function`, `opj_stream_set_seek_function`, `opj_stream_set_user_data`,
-  `opj_stream_set_user_data_length`, `opj_read_header`, `opj_read_tile_header`,
-  `opj_decode_tile_data`, `opj_end_decompress`, `opj_stream_destroy`, `opj_destroy_codec`,
-  `opj_image_destroy`.
-- **Encode:** `opj_set_default_encoder_parameters`, `opj_image_create`, `opj_create_compress`,
-  `opj_encoder_set_extra_options`, `opj_setup_encoder`, `opj_stream_set_write_function`,
-  `opj_start_compress`, `opj_write_tile`, `opj_end_compress`.
+**What the proofs must cover.**
 
-## Verification hazards
-
-1. `SIZ`, `COD`, `COC`, `QCD` marker values: image and tile origins, subsampling, decomposition
-   levels, code-block sizes, and the 32-bit products derived from them.
-2. Packet headers, tag trees and code-block segment lengths (tier 2).
-3. MQ decoder and bit-plane passes against the code-block buffers (tier 1).
-4. Inverse wavelet transform on one-pixel and odd-sized sub-bands.
-5. JP2 palette (`pclr`), component mapping (`cmap`) and channel definitions against the
+1. Marker values (origins, subsampling, decomposition levels, code-block sizes) cannot produce
+   overflowing or zero-sized geometry.
+2. Packet headers and code-block segment lengths stay inside the code-block buffers.
+3. The inverse wavelet transform and the JP2 palette / component mapping stay inside the
    allocated components.
-
-## Not in scope
-
-Threads (build without them), SIMD transforms, the high-throughput (HTJ2K) decoder unless
-Pillow's build enables it, and the command-line tools.
 
 ## Local commands
 

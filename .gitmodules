@@ -16,9 +16,6 @@
 [submodule "projects/bzip2/bzip2"]
 	path = projects/bzip2/bzip2
 	url = https://sourceware.org/git/bzip2.git
-[submodule "projects/cgif/cgif"]
-	path = projects/cgif/cgif
-	url = https://github.com/dloebl/cgif.git
 [submodule "projects/lcms2/lcms2"]
 	path = projects/lcms2/lcms2
 	url = https://github.com/mm2/Little-CMS.git

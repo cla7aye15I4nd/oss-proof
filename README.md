@@ -13,6 +13,34 @@ its stated frame, and returns, under the premises each theorem states.
 | [`libarchive`](projects/libarchive/README.md) | libarchive 3.8 (`432ab464`) | default scalar x86_64 Linux LP64 | Top-down RAR5 & 7-Zip invariants & strict ISO C17 runtime checked; C translation not done | — | Not done |
 | [`zstd`](projects/zstd/README.md) | Zstandard 1.5.7 (`756e62a9`) | portable scalar x86_64 Linux LP64 (`libzstd` decoder) | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
 | [`brotli`](projects/brotli/README.md) | Brotli 1.2 (`libbrotlidec` decoder) | portable scalar x86_64 Linux LP64 | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
+| [`zlib-ng`](projects/zlib-ng/README.md) | zlib-ng 2.3.3 (`12731092`) + [7 patches](projects/zlib-ng/patches/README.md) | `ZLIB_COMPAT` x86_64 Linux LP64, generic C kernels | Checksums, version/error strings & `compressBound` safe (most also functionally correct); streaming `deflate`/`inflate`, one-shot and `gz*` not done | [7 patches](projects/zlib-ng/patches/README.md) | Not done |
+
+## Candidate targets (Tier 0)
+
+The C code that Sharp (Node.js) and Pillow (Python) run on untrusted images by default, chosen from
+what the published packages actually ship and the functions their callers actually invoke. **Tier
+0** is the code that turns untrusted bytes into pixels or metadata; each project's `AGENTS.md`
+lists exactly that code and nothing else. Every candidate tracks its upstream's latest default
+branch; none is registered for CI yet, and no translation or proof exists.
+
+| Library | Reached from | Tier 0 |
+| --- | --- | --- |
+| [`libvips`](projects/libvips/AGENTS.md) | every [Sharp](projects/sharp/AGENTS.md) call | format sniffing, loader glue, vendored GIF decoder, EXIF and ICC bridges |
+| [`mozjpeg`](projects/mozjpeg/AGENTS.md) | Sharp JPEG | `jpeg_read_header` … `jpeg_read_scanlines`, scaled decoding |
+| [`libpng`](projects/libpng/AGENTS.md) | Sharp PNG | `png_read_info`, chunk handlers, `png_read_row` / `png_read_image` |
+| [`libwebp`](projects/libwebp/AGENTS.md) | Sharp and Pillow WebP | `WebPDecode`, demuxer, `WebPAnimDecoder*` |
+| [`libtiff`](projects/libtiff/AGENTS.md) | Sharp and Pillow TIFF | directory parsing, strip/tile reads, built-in codecs |
+| [`libexif`](projects/libexif/AGENTS.md) | Sharp, any input with EXIF | `exif_data_load_data`, `exif_entry_get_value` |
+| [`lcms2`](projects/lcms2/AGENTS.md) | Sharp, any input with an ICC profile | `cmsOpenProfileFromMem`, `cmsCreateTransform`, `cmsDoTransform` |
+| [`libxml2`](projects/libxml2/AGENTS.md) | Sharp SVG (through librsvg) | SAX parsing via `xmlCreateIOParserCtxt` / `xmlParseDocument` |
+| [`pillow`](projects/pillow/AGENTS.md) | every Pillow `load()` | `src/libImaging/` decoders and their glue |
+| [`libjpeg-turbo`](projects/libjpeg-turbo/AGENTS.md) | Pillow JPEG | `jpeg_read_header` … `jpeg_read_scanlines`, draft scaling |
+| [`libavif`](projects/libavif/AGENTS.md) | Pillow AVIF | `avifDecoderParse`, `avifDecoderNthImage`, `avifImageYUVToRGB` |
+| [`openjpeg`](projects/openjpeg/AGENTS.md) | Pillow JPEG 2000 | `opj_read_header`, `opj_read_tile_header`, `opj_decode_tile_data` |
+| [`xz`](projects/xz/AGENTS.md) | Pillow LZMA-compressed TIFF, Python `lzma` | `lzma_stream_decoder`, `lzma_code` |
+| [`bzip2`](projects/bzip2/AGENTS.md), [`lz4`](projects/lz4/AGENTS.md) | Python `bz2`, python-lz4, libarchive | decompression entry points |
+
+Sharp and Pillow also rely on [`zlib-ng`](projects/zlib-ng/README.md) for PNG and Deflate TIFF.
 
 ## What it rests on
 

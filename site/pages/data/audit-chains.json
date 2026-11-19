@@ -1,0 +1,303 @@
+{
+  "repos": {
+    "sharp": {"path": "projects/sharp/sharp", "url": "https://github.com/lovell/sharp/blob/main/"},
+    "libvips": {"path": "projects/libvips/libvips", "url": "https://github.com/libvips/libvips/blob/master/"},
+    "pillow": {"path": "projects/pillow/pillow", "url": "https://github.com/python-pillow/Pillow/blob/main/"},
+    "librsvg": {"path": null, "url": "https://gitlab.gnome.org/GNOME/librsvg/-/blob/main/"},
+    "mozjpeg": {"path": "projects/mozjpeg/mozjpeg", "url": "https://github.com/mozilla/mozjpeg/blob/master/"},
+    "libjpeg-turbo": {"path": "projects/libjpeg-turbo/libjpeg-turbo", "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/"},
+    "libpng": {"path": "projects/libpng/libpng", "url": "https://github.com/pnggroup/libpng/blob/libpng18/"},
+    "libwebp": {"path": "projects/libwebp/libwebp", "url": "https://github.com/webmproject/libwebp/blob/main/"},
+    "libtiff": {"path": "projects/libtiff/libtiff", "url": "https://gitlab.com/libtiff/libtiff/-/blob/master/"},
+    "libexif": {"path": "projects/libexif/libexif", "url": "https://github.com/libexif/libexif/blob/master/"},
+    "lcms2": {"path": "projects/lcms2/lcms2", "url": "https://github.com/mm2/Little-CMS/blob/master/"},
+    "libxml2": {"path": "projects/libxml2/libxml2", "url": "https://gitlab.gnome.org/GNOME/libxml2/-/blob/master/"},
+    "xz": {"path": "projects/xz/xz", "url": "https://github.com/tukaani-project/xz/blob/master/"},
+    "openjpeg": {"path": "projects/openjpeg/openjpeg", "url": "https://github.com/uclouvain/openjpeg/blob/master/"},
+    "libavif": {"path": "projects/libavif/libavif", "url": "https://github.com/AOMediaCodec/libavif/blob/main/"},
+    "zlib-ng": {"path": "projects/zlib-ng/zlib-ng", "url": "https://github.com/zlib-ng/zlib-ng/blob/develop/"}
+  },
+  "libraries": {
+    "mozjpeg": {"status": "target"},
+    "libpng": {"status": "target"},
+    "zlib-ng": {"status": "progress"},
+    "libwebp": {"status": "target"},
+    "libtiff": {"status": "target"},
+    "libvips": {"status": "target"},
+    "libexif": {"status": "target"},
+    "lcms2": {"status": "target"},
+    "libxml2": {"status": "target"},
+    "pillow": {"status": "target", "name": "libImaging"},
+    "libjpeg-turbo": {"status": "target"},
+    "xz": {"status": "target", "name": "liblzma"},
+    "openjpeg": {"status": "target"},
+    "libavif": {"status": "target"},
+    "librsvg": {"status": "outside"},
+    "dav1d": {"status": "outside"}
+  },
+  "groups": [
+    {
+      "id": "sharp",
+      "title": {"zh": "Sharp（Node.js 图像库）", "en": "Sharp (Node.js)"},
+      "lang": "javascript",
+      "matrix": ["libvips", "mozjpeg", "libpng", "zlib-ng", "libwebp", "libtiff", "libexif", "lcms2", "libxml2"],
+      "chains": [
+        {
+          "id": "s-jpeg",
+          "title": {"zh": "上传 JPEG，生成缩略图", "en": "JPEG upload to thumbnail"},
+          "summary": {"zh": "最常见的用法。缩放时 Sharp 让 mozjpeg 按 1/2、1/4 或 1/8 直接缩小解码，EXIF 与 ICC 配置在读文件头时就被解析。", "en": "The most common use. When resizing, Sharp asks mozjpeg to decode at 1/2, 1/4 or 1/8 scale; EXIF and ICC are parsed while the header is read."},
+          "code": {
+            "zh": "import sharp from 'sharp';\n\n// upload：用户上传的字节，文件名和 MIME 类型都不参与判断\nconst thumb = await sharp(upload)  // ① 记录输入，此时还没有解码\n  .resize(800)                     // ② 触发 shrink-on-load\n  .webp()\n  .toBuffer();                     // ③ 在工作线程里打开并解码\n",
+            "en": "import sharp from 'sharp';\n\n// upload: bytes from the user; file name and MIME type are never consulted\nconst thumb = await sharp(upload)  // ① records the input, nothing decoded yet\n  .resize(800)                     // ② enables shrink-on-load\n  .webp()\n  .toBuffer();                     // ③ opens and decodes on a worker thread\n"
+          },
+          "steps": [
+            {"layer": "js", "repo": "sharp", "file": "lib/output.mjs", "symbols": ["toBuffer", "_pipeline", "sharp.pipeline"], "note": {"zh": "③ 把选项交给原生模块", "en": "③ hands the options to the native module"}},
+            {"layer": "cpp", "repo": "sharp", "file": "src/pipeline.cc", "symbols": ["PipelineWorker", "OpenInput", "jpegload_buffer"], "note": {"zh": "② 需要缩小时用 `shrink` 重新打开 JPEG", "en": "② reopens the JPEG with `shrink` when downscaling"}},
+            {"layer": "cpp", "repo": "sharp", "file": "src/common.cc", "symbols": ["OpenInput", "DetermineImageType", "vips_foreign_find_load_buffer", "new_from_buffer"], "note": {"zh": "按魔数选择加载器，不看文件名", "en": "picks the loader from magic bytes, not the file name"}},
+            {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/jpeg2vips.c", "symbols": ["read_jpeg_header", "read_jpeg_image"],
+             "branches": [
+               {"label": {"zh": "文件带 EXIF（APP1）时", "en": "when the file carries EXIF (APP1)"}, "steps": [
+                 {"layer": "vips", "repo": "libvips", "file": "libvips/iofuncs/header.c", "symbols": ["vips_image_set"], "note": {"zh": "设置 `exif-data` 时自动解析", "en": "setting `exif-data` triggers parsing"}},
+                 {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/exif.c", "symbols": ["vips__exif_parse"]},
+                 {"layer": "lib", "lib": "libexif", "repo": "libexif", "symbols": ["exif_data_new_mem", "exif_data_load_data", "exif_content_foreach_entry", "exif_entry_get_value"]}
+               ]}
+             ]},
+            {"layer": "lib", "lib": "mozjpeg", "repo": "mozjpeg", "symbols": ["jpeg_read_header", "jpeg_calc_output_dimensions", "jpeg_start_decompress", "jpeg_read_scanlines"]}
+          ],
+          "branches": [
+            {"label": {"zh": "文件带 ICC 配置（APP2）时，在 `src/pipeline.cc` 中", "en": "when the file carries an ICC profile (APP2), in `src/pipeline.cc`"}, "steps": [
+              {"layer": "cpp", "repo": "sharp", "file": "src/pipeline.cc", "symbols": ["icc_transform"], "note": {"zh": "默认转换到 sRGB", "en": "converts to sRGB by default"}},
+              {"layer": "vips", "repo": "libvips", "file": "libvips/colour/icc_transform.c", "symbols": ["vips_icc_transform", "cmsOpenProfileFromMem"]},
+              {"layer": "lib", "lib": "lcms2", "repo": "lcms2", "symbols": ["cmsOpenProfileFromMem", "cmsCreateTransform", "cmsDoTransform"]}
+            ]}
+          ],
+          "out": {"zh": "之后的缩放与 `webpsave.c` → libwebp 编码处理的是已解码的像素，不属于 Tier 0。", "en": "Resizing and `webpsave.c` → libwebp encoding afterwards work on decoded pixels and are outside Tier 0."}
+        },
+        {
+          "id": "s-meta",
+          "title": {"zh": "上传 PNG，只读元数据", "en": "PNG upload, metadata only"},
+          "summary": {"zh": "很多服务在接收上传时先调用 `.metadata()` 做校验，这一步就已经在解析不可信的文件头和元数据块。", "en": "Many services call `.metadata()` to validate an upload first. That call already parses the untrusted header and metadata chunks."},
+          "code": {
+            "zh": "import sharp from 'sharp';\n\n// 不做任何像素处理，也会完整解析文件头\nconst meta = await sharp(upload).metadata();  // ①\nconsole.log(meta.format, meta.width, meta.height);\n",
+            "en": "import sharp from 'sharp';\n\n// no pixel work at all, yet the whole header is parsed\nconst meta = await sharp(upload).metadata();  // ①\nconsole.log(meta.format, meta.width, meta.height);\n"
+          },
+          "steps": [
+            {"layer": "js", "repo": "sharp", "file": "lib/input.mjs", "symbols": ["metadata", "sharp.metadata"], "note": {"zh": "① 交给原生模块", "en": "① hands over to the native module"}},
+            {"layer": "cpp", "repo": "sharp", "file": "src/metadata.cc", "symbols": ["MetadataWorker", "OpenInput"]},
+            {"layer": "cpp", "repo": "sharp", "file": "src/common.cc", "symbols": ["OpenInput", "vips_foreign_find_load_buffer"]},
+            {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/vipspng.c", "symbols": ["read_new", "png2vips_header", "png_read_info"],
+             "branches": [
+               {"label": {"zh": "文件带 `eXIf` 块时", "en": "when the file has an `eXIf` chunk"}, "steps": [
+                 {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/exif.c", "symbols": ["vips__exif_parse"], "note": {"zh": "经由 `vips_image_set` 触发", "en": "triggered through `vips_image_set`"}},
+                 {"layer": "lib", "lib": "libexif", "repo": "libexif", "symbols": ["exif_data_load_data", "exif_entry_get_value"]}
+               ]}
+             ]},
+            {"layer": "lib", "lib": "libpng", "repo": "libpng", "symbols": ["png_read_info", "png_get_IHDR", "png_get_iCCP", "png_get_eXIf_1", "png_get_text"]},
+            {"layer": "lib", "lib": "zlib-ng", "repo": "zlib-ng", "symbols": ["inflate"], "note": {"zh": "libpng 解压 `iCCP`、`zTXt`、`iTXt` 块", "en": "libpng inflates `iCCP`, `zTXt`, `iTXt` chunks"}}
+          ]
+        },
+        {
+          "id": "s-tiff",
+          "title": {"zh": "伪装成 .jpg 的 TIFF", "en": "A TIFF named .jpg"},
+          "summary": {"zh": "文件名不起作用：内容是 TIFF 就进 libtiff，TIFF 里的 JPEG 或 Deflate 数据再交给 mozjpeg 或 zlib-ng。", "en": "The file name does nothing: TIFF content goes to libtiff, and JPEG or Deflate data inside the TIFF goes on to mozjpeg or zlib-ng."},
+          "code": {
+            "zh": "import { readFile } from 'node:fs/promises';\nimport sharp from 'sharp';\n\n// 文件名是 avatar.jpg，内容其实是 TIFF\nconst input = await readFile('uploads/avatar.jpg');\nawait sharp(input).resize(256).png().toBuffer();  // ① 选中的是 tiffload\n",
+            "en": "import { readFile } from 'node:fs/promises';\nimport sharp from 'sharp';\n\n// named avatar.jpg, but the bytes are a TIFF\nconst input = await readFile('uploads/avatar.jpg');\nawait sharp(input).resize(256).png().toBuffer();  // ① tiffload is chosen\n"
+          },
+          "steps": [
+            {"layer": "cpp", "repo": "sharp", "file": "src/common.cc", "symbols": ["OpenInput", "vips_foreign_find_load_buffer"], "note": {"zh": "① 前面的 JS 与 `PipelineWorker` 同上一条链", "en": "① the JS and `PipelineWorker` steps are as in the first chain"}},
+            {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/tiff.c", "symbols": ["vips__tiff_openin_source", "TIFFClientOpenExt"]},
+            {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/tiff2vips.c", "symbols": ["rtiff_header_read", "rtiff_strip_read", "rtiff_read_tile"],
+             "branches": [
+               {"label": {"zh": "瓦片用 JPEG 压缩时", "en": "when tiles are JPEG-compressed"}, "steps": [
+                 {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/tiff2vips.c", "symbols": ["rtiff_decompress_jpeg_run"]},
+                 {"layer": "lib", "lib": "mozjpeg", "repo": "mozjpeg", "symbols": ["jpeg_read_header", "jpeg_read_scanlines"]}
+               ]}
+             ]},
+            {"layer": "lib", "lib": "libtiff", "repo": "libtiff", "symbols": ["TIFFReadDirectory", "TIFFGetField", "TIFFReadEncodedStrip", "TIFFReadTile"]},
+            {"layer": "lib", "lib": "zlib-ng", "repo": "zlib-ng", "symbols": ["inflate"], "note": {"zh": "Deflate 压缩的条带，经 libtiff 的 `tif_zip.c`", "en": "Deflate strips, through libtiff's `tif_zip.c`"}}
+          ]
+        },
+        {
+          "id": "s-webp",
+          "title": {"zh": "上传 WebP，转成 JPEG", "en": "WebP upload to JPEG"},
+          "summary": {"zh": "WebP 先由解复用器拆出帧与 EXIF、ICC 块，再交给 libwebp 解码；`rotate()` 会用到 EXIF 中的方向。", "en": "The demuxer splits WebP into frames and EXIF/ICC chunks before libwebp decodes it; `rotate()` uses the EXIF orientation."},
+          "code": {
+            "zh": "import sharp from 'sharp';\n\nconst jpeg = await sharp(upload)\n  .rotate()                 // ① 按 EXIF 方向旋转\n  .jpeg({ quality: 80 })\n  .toBuffer();\n",
+            "en": "import sharp from 'sharp';\n\nconst jpeg = await sharp(upload)\n  .rotate()                 // ① applies the EXIF orientation\n  .jpeg({ quality: 80 })\n  .toBuffer();\n"
+          },
+          "steps": [
+            {"layer": "cpp", "repo": "sharp", "file": "src/common.cc", "symbols": ["OpenInput", "vips_foreign_find_load_buffer"]},
+            {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/webp2vips.c", "symbols": ["read_header", "read_frame"],
+             "branches": [
+               {"label": {"zh": "文件带 `EXIF` 块时", "en": "when the file has an `EXIF` chunk"}, "steps": [
+                 {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/exif.c", "symbols": ["vips__exif_parse"]},
+                 {"layer": "lib", "lib": "libexif", "repo": "libexif", "symbols": ["exif_data_load_data", "exif_entry_get_value"]}
+               ]}
+             ]},
+            {"layer": "lib", "lib": "libwebp", "repo": "libwebp", "symbols": ["WebPDemuxGetFrame", "WebPDemuxGetChunk", "WebPDecode"]}
+          ],
+          "out": {"zh": "`vips2jpeg.c` → mozjpeg 编码处理的是已解码的像素，不属于 Tier 0。", "en": "`vips2jpeg.c` → mozjpeg encoding works on decoded pixels and is outside Tier 0."}
+        },
+        {
+          "id": "s-gif",
+          "title": {"zh": "动图 GIF", "en": "Animated GIF"},
+          "summary": {"zh": "Sharp 的 GIF 解码完全在 libvips 内置的 libnsgif 里，没有外部 GIF 库。", "en": "Sharp decodes GIF entirely with the libnsgif copy inside libvips; there is no external GIF library."},
+          "code": {
+            "zh": "import sharp from 'sharp';\n\nconst small = await sharp(upload, { animated: true })  // ① 读取全部帧\n  .resize(320)\n  .toBuffer();\n",
+            "en": "import sharp from 'sharp';\n\nconst small = await sharp(upload, { animated: true })  // ① reads every frame\n  .resize(320)\n  .toBuffer();\n"
+          },
+          "steps": [
+            {"layer": "cpp", "repo": "sharp", "file": "src/common.cc", "symbols": ["OpenInput", "vips_foreign_find_load_buffer"]},
+            {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/nsgifload.c", "symbols": ["vips_foreign_load_nsgif_header", "vips_foreign_load_nsgif_generate"]},
+            {"layer": "lib", "lib": "libvips", "repo": "libvips", "file": "libvips/foreign/libnsgif/gif.c", "symbols": ["nsgif_data_scan", "nsgif_frame_decode"], "note": {"zh": "libvips 内置的 libnsgif（含 `lzw.c`）", "en": "the libnsgif copy inside libvips (with `lzw.c`)"}}
+          ],
+          "out": {"zh": "输出仍是 GIF，由 `cgifsave.c` → cgif 编码，不属于 Tier 0。", "en": "The output stays GIF and is encoded by `cgifsave.c` → cgif, outside Tier 0."}
+        },
+        {
+          "id": "s-svg",
+          "title": {"zh": "上传 SVG", "en": "SVG upload"},
+          "summary": {"zh": "libvips 把 SVG 加载器标为不可信，但 Sharp 默认接受；librsvg 用 Rust 写成，XML 却由 libxml2 的 C 代码解析。", "en": "libvips marks the SVG loader untrusted, but Sharp accepts it by default; librsvg is Rust, yet the XML is parsed by libxml2's C code."},
+          "code": {
+            "zh": "import sharp from 'sharp';\n\n// 除非调用 sharp.block() 或设置 VIPS_BLOCK_UNTRUSTED，SVG 会被接受\nconst png = await sharp(Buffer.from(svgText))  // ①\n  .png()\n  .toBuffer();\n",
+            "en": "import sharp from 'sharp';\n\n// accepted unless the app calls sharp.block() or sets VIPS_BLOCK_UNTRUSTED\nconst png = await sharp(Buffer.from(svgText))  // ①\n  .png()\n  .toBuffer();\n"
+          },
+          "steps": [
+            {"layer": "cpp", "repo": "sharp", "file": "src/common.cc", "symbols": ["OpenInput", "vips_foreign_find_load_buffer"]},
+            {"layer": "vips", "repo": "libvips", "file": "libvips/foreign/svgload.c", "symbols": ["vips_foreign_load_svg_source_header", "rsvg_handle_new_from_stream_sync"]},
+            {"layer": "rust", "lib": "librsvg", "repo": "librsvg", "file": "rsvg/src/xml/xml2_load.rs", "symbols": ["xmlCreateIOParserCtxt", "xmlParseDocument"], "note": {"zh": "Rust 代码，通过 FFI 调用 libxml2", "en": "Rust code calling libxml2 through FFI"}},
+            {"layer": "lib", "lib": "libxml2", "repo": "libxml2", "symbols": ["xmlCreateIOParserCtxt", "xmlCtxtUseOptions", "xmlParseDocument", "xmlStopParser"]}
+          ],
+          "out": {"zh": "之后 `rsvg_handle_render_document` 用 cairo 栅格化，不属于 Tier 0。", "en": "Rasterising with cairo through `rsvg_handle_render_document` follows and is outside Tier 0."}
+        }
+      ]
+    },
+    {
+      "id": "pillow",
+      "title": {"zh": "Pillow（Python 图像库）", "en": "Pillow (Python)"},
+      "lang": "python",
+      "matrix": ["pillow", "libjpeg-turbo", "zlib-ng", "libtiff", "xz", "libwebp", "openjpeg", "libavif"],
+      "chains": [
+        {
+          "id": "p-jpeg",
+          "title": {"zh": "上传 JPEG，生成缩略图", "en": "JPEG upload to thumbnail"},
+          "summary": {"zh": "`Image.open` 只读文件头；`thumbnail()` 先调用 `draft()` 让 libjpeg-turbo 缩小解码，再在 `load()` 里真正解码。", "en": "`Image.open` reads only the header; `thumbnail()` calls `draft()` so libjpeg-turbo decodes at reduced scale, then decodes for real in `load()`."},
+          "code": {
+            "zh": "from PIL import Image\n\nwith Image.open(upload) as im:     # ① 逐个插件检查魔数，只解析文件头\n    im.thumbnail((800, 800))       # ② draft() 设定缩放，load() 才解码\n    im.save(out, \"WEBP\")\n",
+            "en": "from PIL import Image\n\nwith Image.open(upload) as im:     # ① every plugin checks the magic bytes; header only\n    im.thumbnail((800, 800))       # ② draft() sets the scale, load() decodes\n    im.save(out, \"WEBP\")\n"
+          },
+          "steps": [
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/Image.py", "symbols": ["def open", "_open_core", "def draft"], "note": {"zh": "① 依次调用每个插件的 `_accept`", "en": "① calls every plugin's `_accept` in turn"}},
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/JpegImagePlugin.py", "symbols": ["JpegImageFile", "_open", "def draft"], "note": {"zh": "JPEG 标记在 Python 中解析", "en": "JPEG markers are parsed in Python"}},
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/ImageFile.py", "symbols": ["def load", "_getdecoder"], "note": {"zh": "② 取得名为 `jpeg` 的解码器", "en": "② obtains the `jpeg` decoder"}},
+            {"layer": "pyc", "repo": "pillow", "file": "src/decode.c", "symbols": ["PyImaging_JpegDecoderNew", "_decode"]},
+            {"layer": "pyc", "lib": "pillow", "repo": "pillow", "file": "src/libImaging/JpegDecode.c", "symbols": ["ImagingJpegDecode"]},
+            {"layer": "lib", "lib": "libjpeg-turbo", "repo": "libjpeg-turbo", "symbols": ["jpeg_read_header", "jpeg_start_decompress", "jpeg_read_scanlines"]}
+          ],
+          "out": {"zh": "之后的 `Resample.c` 与 `_webp.c` → libwebp 编码处理的是已解码的像素，不属于 Tier 0。", "en": "`Resample.c` and `_webp.c` → libwebp encoding afterwards work on decoded pixels and are outside Tier 0."}
+        },
+        {
+          "id": "p-png",
+          "title": {"zh": "上传 PNG，转成 RGB", "en": "PNG upload to RGB"},
+          "summary": {"zh": "Pillow 不用 libpng：块在 Python 里解析，像素数据由 Pillow 自己的 `ZipDecode.c` 交给 zlib-ng 解压。", "en": "Pillow does not use libpng: chunks are parsed in Python and pixel data is inflated by Pillow's own `ZipDecode.c` with zlib-ng."},
+          "code": {
+            "zh": "from PIL import Image\n\nim = Image.open(upload)       # ① PNG 块在 Python 中解析\nrgb = im.convert(\"RGB\")       # ② load()：用 zip 解码器解压像素\n",
+            "en": "from PIL import Image\n\nim = Image.open(upload)       # ① PNG chunks are parsed in Python\nrgb = im.convert(\"RGB\")       # ② load(): the zip decoder inflates pixels\n"
+          },
+          "steps": [
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/PngImagePlugin.py", "symbols": ["PngImageFile", "_safe_zlib_decompress"], "note": {"zh": "① `iCCP`、`zTXt` 用 Python 标准库 `zlib` 解压", "en": "① `iCCP` and `zTXt` are inflated with Python's standard `zlib`"}},
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/ImageFile.py", "symbols": ["def load", "_getdecoder"], "note": {"zh": "② 取得名为 `zip` 的解码器", "en": "② obtains the `zip` decoder"}},
+            {"layer": "pyc", "repo": "pillow", "file": "src/decode.c", "symbols": ["PyImaging_ZipDecoderNew", "_decode"]},
+            {"layer": "pyc", "lib": "pillow", "repo": "pillow", "file": "src/libImaging/ZipDecode.c", "symbols": ["ImagingZipDecode"], "note": {"zh": "解压后还原 PNG 行过滤", "en": "undoes PNG row filters after inflating"}},
+            {"layer": "lib", "lib": "zlib-ng", "repo": "zlib-ng", "symbols": ["inflateInit", "inflate", "inflateEnd"]}
+          ]
+        },
+        {
+          "id": "p-tiff",
+          "title": {"zh": "伪装成其他格式的 TIFF", "en": "A TIFF under another name"},
+          "summary": {"zh": "TIFF 目录在 Python 中解析，压缩数据交给 libtiff；libtiff 再按压缩方式调用 liblzma、libjpeg-turbo 或 zlib-ng。", "en": "The TIFF directory is parsed in Python and compressed data goes to libtiff, which calls liblzma, libjpeg-turbo or zlib-ng depending on the compression."},
+          "code": {
+            "zh": "from PIL import Image\n\nim = Image.open(upload)   # ① 文件名随意，内容是 TIFF\nim.load()                 # ② 压缩的 TIFF 交给 libtiff 解码\n",
+            "en": "from PIL import Image\n\nim = Image.open(upload)   # ① any file name; the bytes are a TIFF\nim.load()                 # ② compressed TIFF is decoded by libtiff\n"
+          },
+          "steps": [
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/TiffImagePlugin.py", "symbols": ["TiffImageFile", "_load_libtiff", "_getdecoder"], "note": {"zh": "② 取得名为 `libtiff` 的解码器", "en": "② obtains the `libtiff` decoder"}},
+            {"layer": "pyc", "repo": "pillow", "file": "src/decode.c", "symbols": ["PyImaging_LibTiffDecoderNew", "_decode"]},
+            {"layer": "pyc", "lib": "pillow", "repo": "pillow", "file": "src/libImaging/TiffDecode.c", "symbols": ["ImagingLibTiffDecode", "_tiffReadProc", "_tiffSeekProc"], "note": {"zh": "Pillow 自己的内存读取回调", "en": "Pillow's own in-memory read callbacks"}},
+            {"layer": "lib", "lib": "libtiff", "repo": "libtiff", "symbols": ["TIFFClientOpen", "TIFFReadEncodedStrip", "TIFFReadTile", "TIFFRGBAImageGet"],
+             "branches": [
+               {"label": {"zh": "LZMA 压缩时，经 `tif_lzma.c`", "en": "LZMA compression, through `tif_lzma.c`"}, "steps": [
+                 {"layer": "lib", "lib": "xz", "repo": "xz", "symbols": ["lzma_stream_decoder", "lzma_code", "lzma_end"]}
+               ]},
+               {"label": {"zh": "JPEG 压缩时，经 `tif_jpeg.c`", "en": "JPEG compression, through `tif_jpeg.c`"}, "steps": [
+                 {"layer": "lib", "lib": "libjpeg-turbo", "repo": "libjpeg-turbo", "symbols": ["jpeg_read_header", "jpeg_read_scanlines"]}
+               ]},
+               {"label": {"zh": "Deflate 压缩时，经 `tif_zip.c`", "en": "Deflate compression, through `tif_zip.c`"}, "steps": [
+                 {"layer": "lib", "lib": "zlib-ng", "repo": "zlib-ng", "symbols": ["inflate"]}
+               ]}
+             ]}
+          ]
+        },
+        {
+          "id": "p-webp",
+          "title": {"zh": "上传 WebP", "en": "WebP upload"},
+          "summary": {"zh": "Pillow 对静态 WebP 也使用 libwebp 的动画解码器。", "en": "Pillow uses libwebp's animation decoder even for still WebP images."},
+          "code": {
+            "zh": "from PIL import Image\n\nim = Image.open(upload)   # ① 创建 WebPAnimDecoder\nim.load()                 # ② 取出第一帧\n",
+            "en": "from PIL import Image\n\nim = Image.open(upload)   # ① creates a WebPAnimDecoder\nim.load()                 # ② fetches the first frame\n"
+          },
+          "steps": [
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/WebPImagePlugin.py", "symbols": ["WebPImageFile", "_webp.WebPAnimDecoder"]},
+            {"layer": "pyc", "repo": "pillow", "file": "src/_webp.c", "symbols": ["_anim_decoder_new", "_anim_decoder_get_next"]},
+            {"layer": "lib", "lib": "libwebp", "repo": "libwebp", "symbols": ["WebPAnimDecoderNew", "WebPAnimDecoderGetNext", "WebPDemuxGetChunk"]}
+          ]
+        },
+        {
+          "id": "p-gif",
+          "title": {"zh": "GIF 及其他旧格式", "en": "GIF and other legacy formats"},
+          "summary": {"zh": "GIF、PSD、TGA、SGI、PCX、FLI 等都由 Pillow 自己的 C 解码器处理，没有外部库，是 Pillow 独有的攻击面。", "en": "GIF, PSD, TGA, SGI, PCX, FLI and others are decoded by Pillow's own C decoders with no external library: attack surface unique to Pillow."},
+          "code": {
+            "zh": "from PIL import Image\n\nim = Image.open(upload)   # ① 43 个插件都会被检查\nim.load()                 # ② 用 Pillow 自己的 C 解码器\n",
+            "en": "from PIL import Image\n\nim = Image.open(upload)   # ① all 43 plugins are tried\nim.load()                 # ② decoded by Pillow's own C decoder\n"
+          },
+          "steps": [
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/GifImagePlugin.py", "symbols": ["GifImageFile", "_accept"]},
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/ImageFile.py", "symbols": ["def load", "_getdecoder"], "note": {"zh": "② 取得名为 `gif` 的解码器", "en": "② obtains the `gif` decoder"}},
+            {"layer": "pyc", "repo": "pillow", "file": "src/decode.c", "symbols": ["PyImaging_GifDecoderNew", "_decode"]},
+            {"layer": "pyc", "lib": "pillow", "repo": "pillow", "file": "src/libImaging/GifDecode.c", "symbols": ["ImagingGifDecode"], "note": {"zh": "PSD、TGA、SGI 等对应 `PackDecode.c`、`TgaRleDecode.c`、`SgiRleDecode.c` 等", "en": "PSD, TGA, SGI and others map to `PackDecode.c`, `TgaRleDecode.c`, `SgiRleDecode.c` and so on"}}
+          ]
+        },
+        {
+          "id": "p-jp2",
+          "title": {"zh": "JPEG 2000", "en": "JPEG 2000"},
+          "summary": {"zh": "JPEG 2000 同样按魔数自动识别；Pillow 逐块调用 openjpeg 解码。", "en": "JPEG 2000 is also recognised by magic bytes; Pillow decodes it tile by tile with openjpeg."},
+          "code": {
+            "zh": "from PIL import Image\n\nim = Image.open(upload)   # ① .jp2 与裸码流都会被识别\nim.load()                 # ② 逐块解码\n",
+            "en": "from PIL import Image\n\nim = Image.open(upload)   # ① .jp2 files and raw codestreams are both recognised\nim.load()                 # ② decoded tile by tile\n"
+          },
+          "steps": [
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/Jpeg2KImagePlugin.py", "symbols": ["Jpeg2KImageFile", "jpeg2k"]},
+            {"layer": "pyc", "repo": "pillow", "file": "src/decode.c", "symbols": ["PyImaging_Jpeg2KDecoderNew", "_decode"]},
+            {"layer": "pyc", "lib": "pillow", "repo": "pillow", "file": "src/libImaging/Jpeg2KDecode.c", "symbols": ["ImagingJpeg2KDecode"]},
+            {"layer": "lib", "lib": "openjpeg", "repo": "openjpeg", "symbols": ["opj_read_header", "opj_read_tile_header", "opj_decode_tile_data"]}
+          ]
+        },
+        {
+          "id": "p-avif",
+          "title": {"zh": "上传 AVIF", "en": "AVIF upload"},
+          "summary": {"zh": "libavif 解析容器并做 YUV 到 RGB 的转换，AV1 码流本身由 dav1d 解码。", "en": "libavif parses the container and converts YUV to RGB; the AV1 bitstream itself is decoded by dav1d."},
+          "code": {
+            "zh": "from PIL import Image\n\nim = Image.open(upload)   # ① 解析 AVIF 容器\nim.load()                 # ② 解码第一帧并转成 RGB\n",
+            "en": "from PIL import Image\n\nim = Image.open(upload)   # ① parses the AVIF container\nim.load()                 # ② decodes the first frame and converts to RGB\n"
+          },
+          "steps": [
+            {"layer": "py", "repo": "pillow", "file": "src/PIL/AvifImagePlugin.py", "symbols": ["AvifImageFile", "_avif.AvifDecoder"]},
+            {"layer": "pyc", "repo": "pillow", "file": "src/_avif.c", "symbols": ["AvifDecoderNew", "_decoder_get_frame"]},
+            {"layer": "lib", "lib": "libavif", "repo": "libavif", "symbols": ["avifDecoderParse", "avifDecoderNthImage", "avifImageYUVToRGB"]},
+            {"layer": "lib", "lib": "dav1d", "symbols": [], "note": {"zh": "AV1 解码器，体量大且含汇编，不在计划内", "en": "AV1 decoder, large and partly assembly; not planned"}}
+          ]
+        }
+      ]
+    }
+  ]
+}
