@@ -6,7 +6,7 @@ unsafe.
 
 ## Every call
 
-- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the eight patches, built for x86_64
+- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the ten patches, built for x86_64
   Linux LP64 with `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF`,
   so that `adler32` and `adler32_z` run `adler32_c`, and `crc32` and `crc32_z` run `crc32_braid`. A build that
   dispatches to SIMD kernels or to the Chorba CRC-32 kernel (the default) is not covered.
@@ -48,6 +48,26 @@ inflate calls with valid arguments and by the program, which may change `next_in
 | Between calls | The program does not change the other `z_stream` fields or the library's allocation, and does not free a registered `gz_header` record. Any field of that record may change (the program, or another stream that shares it, may write it); its buffers are checked at each `inflate` call. | `CallerStep` | `zlib.h` reserves the `z_stream` fields and the allocation to the library; a registered header is written by `inflate`, so it must stay allocated. |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | `dest` and `source` do not overlap. | `Disjoint` | Caller buffers with no reason to overlap. |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | Every object has fewer than `2^63` bytes (at most `PTRDIFF_MAX`). | `ObjBound` | True of every object on x86_64 Linux. The model runs a loop at most `2^64` times and does not bound the size of an object itself; the one-shot loop is bounded by the bytes of source and destination together. |
+
+## Deflate and compress
+
+The goals of `deflate*` and `compress*` are stated on the streams that `zlib.h` lets a program reach
+(`DeflateReachable`): made by a successful `deflateInit_`, `deflateInit2_` or `deflateCopy`, then changed only by
+deflate calls with valid arguments and by the program, which may change `next_in`, `avail_in`, `next_out` and
+`avail_out` and memory the library does not own. A stream of `Z_NULL`, or with a `NULL` state, is also accepted.
+
+| Function | Premise | Lean | Reason |
+| --- | --- | --- | --- |
+| `deflateInit_`, `deflateInit2_` (and every stream made by them) | `zalloc` and `zfree` are `Z_NULL` (the library's default allocator) or already the defaults. | `DInitReady` | Calls through a caller's allocator are not modelled. |
+| `deflate`, `deflateParams` | `next_in` and `next_out` are `NULL` or point to `avail_in` readable and `avail_out` writable bytes; the output does not overlap the input or the registered `gz_header` buffers; none of them is inside the library's allocation. | `DStreamIO` | Caller buffers with no reason to overlap. |
+| `deflateGetDictionary` | The buffer is `NULL` or has at least 32768 writable bytes. | `Goal.deflateGetDictionary_safety` | `zlib.h` names 32768 bytes as always enough. |
+| `deflateCopy` | `dest` and `source` are different streams. | `Goal.deflateCopy_safety` | The copy of the `z_stream` is a `memcpy`, undefined for the same object. |
+| `deflateSetHeader` (in the history of a stream) | It is called before the first `deflate` call, with a header whose `extra` has `extra_len` readable bytes and whose `name` and `comment` are C strings. | `DeflateStep` | What `zlib.h` asks of `deflateSetHeader`; the call itself is safe at any time (`Goal.deflateSetHeader_safety`). |
+| `deflateBound`, `deflateBound_z` | A registered `gz_header` is readable as for `deflateSetHeader`; every object has fewer than `2^63` bytes. | `DHeaderReadable`, `ObjBound` | `deflateBound` reads the header's strings up to their zero byte. The model runs that loop at most `2^64` times and does not bound the size of an object itself; every object on x86_64 Linux is far smaller. |
+| `deflateInit_`, `deflateInit2_`, `deflateCopy`, `compress*` | The heap model records no object (bytes, inflate or deflate state) in a block not yet allocated. | `DFreshBlocks` | A well-formedness condition of the heap model, true of every heap a program reaches. |
+| `deflate`, `deflateParams` (each call in the history of a stream) | The static CRC tables hold their constants (`CrcGlobals`). | `DeflateStep` | Constant data in C. |
+| Between calls | The program does not change the other `z_stream` fields or the library's allocation, and does not free a registered `gz_header` record. While `deflate` is writing the gzip header, the program keeps the header's `extra`, `extra_len`, `name` and `comment` fields and the lengths of the two strings. | `DCallerStep` | `zlib.h` reserves the `z_stream` fields and the allocation to the library; `deflate` resumes the header at a saved index into these buffers. |
+| `compress`, `compress2`, `compress_z`, `compress2_z` | `dest` and `source` do not overlap; every object has fewer than `2^63` bytes. | `Disjoint`, `ObjBound` | As for `uncompress*`. |
 
 ## Call-back decoder
 

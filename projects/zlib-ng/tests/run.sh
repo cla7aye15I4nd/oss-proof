@@ -35,6 +35,9 @@ for name in $names; do
   in="$build/data/$name.in"
   "$build/bin$sfx/c_$name" < "$in" > "$build/data/$name.c.out"
   .lake/build/bin/difftest_$name < "$in" > "$build/data/$name.lean.out"
+  # Open defects (undefined behaviour of the verified source, no patch yet): on the inputs listed in
+  # expected-faults.txt the translation must fault with the listed message; see expected_faults.py.
+  python3 expected_faults.py "$name" "$in" "$build/data/$name.c.out" "$build/data/$name.lean.out" || exit 1
   nin=$(grep -c . "$in"); nc=$(grep -c . "$build/data/$name.c.out"); nl=$(grep -c . "$build/data/$name.lean.out")
   if [ "$nin" != "$nc" ] || [ "$nin" != "$nl" ]; then
     echo "DIFFERENCE ($name): $nin inputs, $nc C results, $nl Lean results"; exit 1
@@ -49,6 +52,10 @@ for name in $names; do
     exit 1
   fi
   echo "== $name: $nin inputs, outputs identical"
+  # Round trip: the translation's deflate output, inflated by the real C inflate, gives back the input.
+  if [ "$name" = deflate ]; then
+    "$build/bin$sfx/c_deflate" roundtrip "$build/data/$name.lean.out" < "$in" || { echo "FAIL: round trip" >&2; exit 1; }
+  fi
   awk '{print $1}' "$in" | sort | uniq -c | awk '{printf "     %-24s %s inputs\n", $2, $1}'
   total=$((total + nin))
 done

@@ -1,6 +1,6 @@
 # zlib-ng
 
-Verification target: the zlib-ng `develop` branch at commit `5f1f4899` with eight patches, built as
+Verification target: the zlib-ng `develop` branch at commit `5f1f4899` with ten patches, built as
 the zlib-compatible (`ZLIB_COMPAT`) x86_64 Linux LP64 library with the generic C kernels: every
 dispatched function (`adler32`, `crc32`, …) runs its portable C version, with no SIMD code.
 
