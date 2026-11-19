@@ -22,10 +22,10 @@ pointer to the state (`GzPtr`, the block number): its first member is the public
 `pos`), which the `gzgetc` macro of `zlib.h` reads and writes in the caller.
 
 ## String literals and `strerror`
-The string literals of the gz* files are static arrays: `gzLit` returns a pointer to a read-only block at a fixed key
-of `Heap.consts` (from `2^46` on), made the first time the literal is used. `strerror(errno)` returns a pointer to a
-fresh read-only block (key `2^45 + n` for call `n`) holding the text the oracle `strerrorText` gives for the
-number: trusted to be a string of the C library that stays valid until the C copies it (`gz_error` copies it at once).
+The string literals of the gz* files are static arrays: `gzLit` returns a pointer to a read-only block of
+`Heap.consts`, made at a fresh key the first time the literal is used and found again through `World.litKeys`.
+`strerror(errno)` returns a pointer to a fresh read-only block of `Heap.consts` holding the text the oracle
+`strerrorText` gives for the number: trusted to be a string of the C library that stays valid until the C copies it (`gz_error` copies it at once).
 
 ## `snprintf` and `vsnprintf`
 `snprintf` with the fixed formats of `gzlib.c` (`"%s"`, `"<fd:%d>"`, `"%s%s%s"`) is modelled exactly: the arguments
@@ -131,7 +131,8 @@ structure World where
   fs : Fs := {}
   /-- the text of `strerror(e)` (no zero byte inside) -/
   strerrorText : Int32 → Array UInt8 := linuxStrerror
-  nstrerror : Nat := 0
+  /-- the `Heap.consts` key of each string literal of `gzLits` made so far -/
+  litKeys : List (Nat × Nat) := []
   /-- the result of the caller-format `vsnprintf` call `n` -/
   printfRet : Nat → Int32 := fun _ => 0
   /-- the bytes that call `n` writes (see the module doc) -/
@@ -362,24 +363,29 @@ def gzLits : Array String := #[
   ""
 ]
 
+/-- A fresh read-only block of `Heap.consts` holding `a`. -/
+def newConst (a : Array UInt8) : M BPtr := fun h =>
+  let k := h.consts.arr.size
+  .ok (.ref (.const k) 0, { h with consts := upd h.consts k (some a) })
+
 /-- A pointer to the string literal `s` of a gz* file (see the module doc). -/
-def gzLit (s : String) : M BPtr := fun h =>
+def gzLit (s : String) : G BPtr := do
   match gzLits.findIdx? (· == s) with
   | some i =>
-    let k := 2 ^ 46 + i
-    match h.consts k with
-    | some _ => .ok (.ref (.const k) 0, h)
-    | none => .ok (.ref (.const k) 0, { h with consts := upd h.consts k (some (Heap.litBytes s)) })
-  | none => .error (.ub "unknown gz string literal")
+    match ((← get).litKeys.find? (·.1 == i)) with
+    | some (_, k) => return .ref (.const k) 0
+    | none =>
+      let p ← lm (newConst (Heap.litBytes s))
+      match p with
+      | .ref (.const k) _ => modify fun w => { w with litKeys := (i, k) :: w.litKeys }
+      | _ => pure ()
+      return p
+  | none => gub "unknown gz string literal"
 
 /-- `zstrerror()`, that is `strerror(errno)`. -/
 def zstrerror : G BPtr := do
   let w ← get
-  let text := w.strerrorText w.fs.errno
-  let k := 2 ^ 45 + w.nstrerror
-  set { w with nstrerror := w.nstrerror + 1 }
-  lm (fun h => .ok ((), { h with consts := upd h.consts k (some (text.push 0)) }) : M Unit)
-  return .ref (.const k) 0
+  lm (newConst ((w.strerrorText w.fs.errno).push 0))
 
 /-! ## OS calls -/
 

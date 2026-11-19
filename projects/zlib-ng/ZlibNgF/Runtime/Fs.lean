@@ -11,7 +11,8 @@ What a call does is chosen per call by an oracle of the world (`Fs`), numbered b
 far. Each oracle has a `regular` choice, which acts on the in-memory file system as Linux does on a regular file,
 and other choices that give every other result the call may give on some descriptor (a pipe, a socket, a device):
 
-* `read`: `fail e` returns `-1` with `errno = e` (any `e`); `bytes bs` returns a prefix of `bs` of at most the
+* `read`: `fail e` returns `-1` with `errno = e` (any `e`); `short k` reads as a regular read of at most `k` bytes
+  (a pipe or socket that has fewer bytes ready); `bytes bs` returns a prefix of `bs` of at most the
   requested length (so any count from 0, end of file, to the request, with any data), taken from the world's
   `budget` of such bytes. The budget is a natural number: a world delivers finitely many bytes in all. An endless
   input (a pipe that is never closed) is outside the model; on it `gzread` may wait forever, as any reader would.
@@ -44,6 +45,7 @@ structure OFile where
 inductive ReadChoice where
   | regular
   | fail (e : Int32)
+  | short (k : Nat)
   | bytes (bs : Array UInt8)
   deriving Inhabited
 
@@ -101,6 +103,8 @@ structure Fs where
   closeFail : Nat → Option Int32 := fun _ => none
   /-- the bytes that `bytes` read choices may still deliver -/
   budget : Nat := 0
+  /-- the flags of the last successful `open` (observed by the drivers only) -/
+  lastOflag : Int32 := 0
   deriving Inhabited
 
 namespace Fs
@@ -137,13 +141,13 @@ def openReg (w : Fs) (path : Array UInt8) (oflag : Int32) : Int32 × Fs :=
     if creat && excl then (-1, { w with errno := EEXIST }) else
     let w := if trunc && wr then { w with nodes := w.nodes.set! n #[] } else w
     let fd := w.lowestFd
-    (Int32.ofNat fd, w.setFd fd (some ⟨n, 0, !wr, wr, app⟩))
+    (Int32.ofNat fd, { w.setFd fd (some ⟨n, 0, !wr, wr, app⟩) with lastOflag := oflag })
   | none =>
     if !creat then (-1, { w with errno := ENOENT }) else
     let n := w.nodes.size
     let w := { w with nodes := w.nodes.push #[], names := w.names.push (path, n) }
     let fd := w.lowestFd
-    (Int32.ofNat fd, w.setFd fd (some ⟨n, 0, !wr, wr, app⟩))
+    (Int32.ofNat fd, { w.setFd fd (some ⟨n, 0, !wr, wr, app⟩) with lastOflag := oflag })
 
 /-- Regular `read(fd, buf, n)`: the bytes read (or `-1`) and the new world. -/
 def readReg (w : Fs) (fd : Int32) (n : UInt64) : Int64 × Array UInt8 × Fs :=
@@ -217,6 +221,7 @@ def readCall (w : Fs) (fd : Int32) (len : UInt64) : Int64 × Array UInt8 × Fs :
   match w.readChoice n with
   | .regular => w.readReg fd len
   | .fail e => (-1, #[], { w with errno := failErrno e })
+  | .short k => w.readReg fd (min len (UInt64.ofNat k))
   | .bytes bs =>
     let k := min (min bs.size len.toNat) w.budget
     (Int64.ofNat k, bs.extract 0 k, { w with budget := w.budget - k })
