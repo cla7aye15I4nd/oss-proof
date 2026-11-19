@@ -16,6 +16,8 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Safety.Goal.zcalloc_zcfree_safety, ``ZlibNgF.Proof.Zutil.zcalloc_zcfree_safety),
   (``ZlibNgF.Spec.Safety.Goal.zng_alloc_aligned_safety, ``ZlibNgF.Proof.Zutil.zng_alloc_aligned_safety),
   (``ZlibNgF.Spec.Safety.Goal.zng_alloc_aligned_nonvacuous, ``ZlibNgF.Proof.Zutil.zng_alloc_aligned_nonvacuous),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_safety, ``ZlibNgF.Proof.Adler32Safe.adler32_safety),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_z_safety, ``ZlibNgF.Proof.Adler32Safe.adler32_z_safety),
   (``ZlibNgF.Spec.Safety.Goal.adler32_combine_safety, ``ZlibNgF.Proof.Adler32.adler32_combine_safety),
   (``ZlibNgF.Spec.Safety.Goal.adler32_combine64_safety, ``ZlibNgF.Proof.Adler32.adler32_combine64_safety),
   (``ZlibNgF.Spec.Safety.Goal.get_crc_table_safety, ``ZlibNgF.Proof.Crc32.get_crc_table_safety),
@@ -43,8 +45,6 @@ def proved : List (Name × Name) := [
 ]
 
 def notDone : List Name := [
-  ``ZlibNgF.Spec.Safety.Goal.adler32_safety,
-  ``ZlibNgF.Spec.Safety.Goal.adler32_z_safety,
   ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
   ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
   ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
@@ -76,6 +76,8 @@ def required : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.null_ptr_diff_null_ub,
   ``ZlibNgF.Spec.Safety.Goal.cross_object_ptr_diff_ub,
   ``ZlibNgF.Spec.Safety.Goal.null_memset_zero_ub,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_safety,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_z_safety,
   ``ZlibNgF.Spec.Safety.Goal.zlibVersion_safety,
   ``ZlibNgF.Spec.Safety.Goal.zlibCompileFlags_safety,
   ``ZlibNgF.Spec.Safety.Goal.zError_safety,

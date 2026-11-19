@@ -361,15 +361,19 @@
     },
     {
       "function": "adler32",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (adler32.c, arch/generic/adler32_c.c, adler32_p.h); the SWAR kernel adler32_swar is proved, the alignment prefix, NMAX blocks and tail of adler32_c are not yet."
+      "source": "ZlibNgF/ZlibNg/adler32.c.lean",
+      "implementation": "ZlibNg.Adler32.adler32",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_safety"
     },
     {
       "function": "adler32_z",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (adler32.c, arch/generic/adler32_c.c, adler32_p.h); the SWAR kernel adler32_swar is proved, the alignment prefix, NMAX blocks and tail of adler32_c are not yet."
+      "source": "ZlibNgF/ZlibNg/adler32.c.lean",
+      "implementation": "ZlibNg.Adler32.adler32_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_z_safety"
     },
     {
       "function": "crc32",
