@@ -1,4 +1,4 @@
-<!-- source-sha256: 1f8efe881e5fbd3e6de42d8d6ab78193e74470df56ab627f4e5f23860beb9931 -->
+<!-- source-sha256: 4ae7c77e7aa824ba22dbb9f3a086710295308a588f647b6b22c6f9d0f9a633dc -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -45,6 +45,19 @@
 | 调用之间 | 程序不改变 `z_stream` 的其他字段与库的分配，也不释放已登记的 `gz_header` 记录。该记录的任何字段都可以改变（程序或共享该记录的另一个流都可以写它）；其缓冲区在每次 `inflate` 调用时检查。 | `CallerStep` | `zlib.h` 把 `z_stream` 字段与分配保留给库；已登记的头部会被 `inflate` 写入，因此必须保持已分配。 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `dest` 与 `source` 不重叠。 | `Disjoint` | 没有重叠理由的调用者缓冲区。 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | 每个对象少于 `2^63` 字节（至多 `PTRDIFF_MAX`）。 | `ObjBound` | x86_64 Linux 上的每个对象都满足。模型中一个循环至多运行 `2^64` 次，而模型本身不限制对象大小；一次性解压的循环次数受源与目标字节总数限制。 |
+
+## 回调解压
+
+`inflateBack` 的目标针对 `zlib.h` 允许程序到达的流（`BackReachable`）陈述：由成功的 `inflateBackInit_` 以
+`2^windowBits` 个可写字节的窗口建立，此后只被回调行为如下的 `inflateBack` 调用以及程序改变。该目标未被证明（见进度页）。
+
+| 函数 | 前提 | Lean | 原因 |
+| --- | --- | --- | --- |
+| `inflateBackInit_` | `zalloc` 与 `zfree` 为 `Z_NULL` 或已是默认函数。 | `InitReady` | 与 `inflateInit_` 相同。 |
+| `inflateBack` | 首个输入（`next_in`、`avail_in`）与 `in()` 交出的每块输入可读，不与窗口重叠，也不在库的分配之内。 | `BackCallbacks.chunk` | 没有重叠理由的调用者缓冲区；`zlib.h` 只要求输入在下一次 `in()` 调用前保持不变。 |
+| `inflateBack` | `in()` 与 `out()` 会返回，不写也不释放 `z_stream` 与库的分配，不释放窗口也不改变其大小。 | `BackCallbacks`、`BackKeep` | `zlib.h` 把它们保留给库并禁止改变窗口；写窗口内容的回调并未被排除。 |
+| `inflateBack` | 一次调用总共得到少于 `2^48` 个输入字节（含首块）。 | `BackCallPre` | 输入无穷时 `inflateBack` 不返回，C 中亦然。 |
+| 调用之间 | 程序只改变 `z_stream` 的 `next_in`、`avail_in`、`next_out`、`avail_out`，不改变库的分配，并保持窗口已分配且大小不变。 | `BackCallerStep` | 与 inflate 流相同；每次调用都使用窗口。 |
 
 ## 被验证源码的行为
 

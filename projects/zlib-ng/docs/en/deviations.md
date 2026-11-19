@@ -49,6 +49,20 @@ inflate calls with valid arguments and by the program, which may change `next_in
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | `dest` and `source` do not overlap. | `Disjoint` | Caller buffers with no reason to overlap. |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` | Every object has fewer than `2^63` bytes (at most `PTRDIFF_MAX`). | `ObjBound` | True of every object on x86_64 Linux. The model runs a loop at most `2^64` times and does not bound the size of an object itself; the one-shot loop is bounded by the bytes of source and destination together. |
 
+## Call-back decoder
+
+The goal of `inflateBack` is stated on the streams that `zlib.h` lets a program reach (`BackReachable`): made by a
+successful `inflateBackInit_` with a window of `2^windowBits` writable bytes, then changed only by `inflateBack` calls
+whose call-backs behave as below and by the program. It is not proved (see the progress page).
+
+| Function | Premise | Lean | Reason |
+| --- | --- | --- | --- |
+| `inflateBackInit_` | `zalloc` and `zfree` are `Z_NULL` or already the defaults. | `InitReady` | As for `inflateInit_`. |
+| `inflateBack` | The first input (`next_in`, `avail_in`) and every chunk that `in()` hands out are readable, do not overlap the window and are not inside the library's allocation. | `BackCallbacks.chunk` | Caller buffers with no reason to overlap; `zlib.h` asks only that the input stays unchanged until the next `in()` call. |
+| `inflateBack` | `in()` and `out()` return, do not write or free the `z_stream` or the library's allocation, and do not free the window or change its size. | `BackCallbacks`, `BackKeep` | `zlib.h` reserves these to the library and forbids changing the window; a call-back that writes the window's contents is not excluded. |
+| `inflateBack` | One call is offered fewer than `2^48` input bytes in all, the first chunk included. | `BackCallPre` | With endless input `inflateBack` does not return, in C either. |
+| Between calls | The program changes only `next_in`, `avail_in`, `next_out`, `avail_out` of the `z_stream`, does not change the library's allocation, and keeps the window allocated with its size. | `BackCallerStep` | As for inflate streams; the window is used by every call. |
+
 ## Behaviour of the verified source
 
 - `crc32_combine`, `crc32_combine64`, `crc32_combine_gen` and `crc32_combine_gen64` return 0 for a
