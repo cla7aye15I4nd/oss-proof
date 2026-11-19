@@ -7,8 +7,8 @@ import ZlibNgF.ZlibNg.«infback.c»
 The streams that `inflateBack` and `inflateBackEnd` accept, and what the goals assume of the caller's call-backs. No
 `Goal.*` definitions live here; the goals are in `ZlibNgF.Spec.Safety.Infback`.
 
-**Reachable call-back streams** (`BackReachable h s w n`): made by a successful `inflateBackInit_` with the window
-`w` of `n = 2^windowBits` writable bytes, then changed only by `inflateBack` calls whose call-backs are well behaved
+**Reachable call-back streams** (`BackReachable h s w n`): made by a successful `inflateBackInit_` on a well-formed
+heap (`FreshBlocks`, as for `inflateInit_`) with the window `w` of `n = 2^windowBits` writable bytes, then changed only by `inflateBack` calls whose call-backs are well behaved
 (`BackCallPre`) and by the caller, who may change the four buffer fields of the `z_stream` and any memory the library
 does not own, keeps the window allocated with its size, and does not free or write the library's block
 (`BackCallerStep`).
@@ -76,7 +76,7 @@ def BackCallerStep (h h' : Heap) (s : StreamPtr) (w : BPtr) : Prop :=
 /-- The call-back streams reachable through `zlib.h` (see the module comment), with their window and its size. -/
 inductive BackReachable : Heap → StreamPtr → BPtr → Nat → Prop where
   | init (h h' : Heap) (s : StreamPtr) (windowBits : Int32) (w version : BPtr) (size : Int32) :
-      InitReady h s → VersionOk h version → WriteSlice h w (2 ^ windowBits.toInt.toNat) →
+      FreshBlocks h → InitReady h s → VersionOk h version → WriteSlice h w (2 ^ windowBits.toInt.toNat) →
       C.run (ZlibNg.Infback.inflateBackInit_ s windowBits w version size) h = .ok (ZlibNg.Inflate.Z_OK, h') →
       BackReachable h' s w (2 ^ windowBits.toInt.toNat)
   | back (h h' : Heap) (s : StreamPtr) (w : BPtr) (n : Nat) (inCb : ZlibNg.Infback.InCb) (inDesc : BPtr)

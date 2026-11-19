@@ -84,7 +84,7 @@ theorem nonvac_gen (h : Heap) (hz : h.streams 0 = some ({ next_in := inp, avail_
     simp only [C.run, inflateBackInit_, bind_app, hc, Bool.false_eq_true, ↓reduceIte]
     exact e
   have hreach : BackReachable H1 (some 0) win (2 ^ (8 : Int32).toInt.toNat) := by
-    refine BackReachable.init h H1 (some 0) 8 win (.ref (.str 0) 0) 112
+    refine BackReachable.init h H1 (some 0) 8 win (.ref (.str 0) 0) 112 hfr
       (Or.inr ⟨_, ⟨0, rfl, hz⟩, Or.inl rfl, Or.inl rfl⟩) (Or.inr ⟨.str 0, 0, _, rfl, rfl, ?_⟩) ?_ hrun
     · simp [Heap.litBytes]
     · exact ⟨0, 0, Array.replicate 256 0, rfl, hb0, by rw [Array.size_replicate]; decide⟩
