@@ -203,7 +203,7 @@ def Same (l l' : IL) : Prop :=
 theorem hsBody_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : GzHeader → UInt32)
     (hF : ∀ {l H z S}, LI E l H z S → ∀ k g, E.hp = some k → H.gzheaders k = some g →
       HBuf E H (field g) (maxOf g).toNat)
-    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hmx : S.mode ≠ EXTRA)
+    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (hlt : l.copy < l.have_) :
     SatX H l (hsBody E.c field maxOf) (fun r l' H' => r = .ok () ∧ ∃ S', LI E l' H' z S' ∧ S'.mode = S.mode ∧
       Same l l' ∧ l'.copy = l.copy + 1) := by
@@ -243,7 +243,7 @@ theorem hsBody_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : 
       · rename_i hml
         have hml' : S.length.toNat < (maxOf g).toNat := hml
         refine SatX.bind (SatX.lift (Sat.mono (li1.wrST (fun s => { s with length := s.length + 1 })
-          (fun _ _ c => { c with extraLen := fun e => absurd e hmx }) rfl) ?_))
+          (fun _ _ c => { c with }) rfl) ?_))
         rintro _ H2 ⟨li2, eb, -⟩
         rw [hfe]
         rw [hfe] at hw
@@ -269,7 +269,7 @@ theorem succ_toNat {a b : UInt32} (h : a < b) : (a + 1).toNat = a.toNat + 1 := b
 theorem headerString_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : GzHeader → UInt32)
     (hF : ∀ {l H z S}, LI E l H z S → ∀ k g, E.hp = some k → H.gzheaders k = some g →
       HBuf E H (field g) (maxOf g).toNat)
-    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hmx : S.mode ≠ EXTRA)
+    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (hh : l.have_ ≠ 0) :
     SatX H l (headerString E.c field maxOf) (fun r l' H' => r = .ok () ∧ ∃ S', LI E l' H' z S' ∧
       S'.mode = S.mode ∧ Same l l' ∧ 1 ≤ l'.copy.toNat ∧ l'.copy ≤ l.have_) := by
@@ -281,7 +281,7 @@ theorem headerString_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (ma
   refine SatX.bind (SatX.modify ?_)
   let l0 : IL := { l with copy := 0 }
   have li0 : LI E l0 H z S := li.locals rfl rfl rfl rfl rfl rfl
-  refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li0 hmx (show (0 : UInt32) < l.have_ from hh')) ?_)
+  refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li0 (show (0 : UInt32) < l.have_ from hh')) ?_)
   rintro r l1 H1 ⟨rfl, S1, li1, hm1, hs1, hc1⟩
   have hc1' : l1.copy.toNat = 1 := by rw [hc1]; rfl
   unfold xwhile
@@ -296,7 +296,7 @@ theorem headerString_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (ma
   · rw [hcond]
     have hlt : l'.copy < l'.have_ := by
       simp only [Bool.and_eq_true, decide_eq_true_eq] at hcond; exact hcond.2
-    refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li' (by rw [hm']; exact hmx) hlt) ?_)
+    refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li' hlt) ?_)
     rintro r l2 H2 ⟨rfl, S2, li2, hm2, hs2, hc⟩
     refine SatX.pure ⟨⟨S2, li2, hm2.trans hm', hs'.trans hs2, ?_, ?_⟩, ?_⟩
     · rw [hc, succ_toNat hlt]; omega
@@ -347,7 +347,7 @@ string up to its zero byte or the end of the input, consuming at least one byte.
 theorem strPart_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : GzHeader → UInt32)
     (hF : ∀ {l H z S}, LI E l H z S → ∀ k g, E.hp = some k → H.gzheaders k = some g →
       HBuf E H (field g) (maxOf g).toNat)
-    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hmx : S.mode ≠ EXTRA) {m : Nat}
+    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
     (k : X Unit)
     (hk : ∀ l' H' S', LI E l' H' z S' → S'.mode = S.mode → l'.bits = l.bits → l'.left = l.left →
       l'.have_.toNat + 1 ≤ l.have_.toNat → SatX H' l' k (Post E m)) :
@@ -369,7 +369,7 @@ theorem strPart_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf :
   · exact SatX.bind (SatX.throw ⟨z, S, li⟩)
   rename_i h0
   have hh : l.have_ ≠ 0 := by simpa using h0
-  refine SatX.bind (SatX.mono (headerString_ok eo field maxOf hF li hmx hh) ?_)
+  refine SatX.bind (SatX.mono (headerString_ok eo field maxOf hF li hh) ?_)
   rintro r l1 H1 ⟨rfl, S1, li1, hm1, hs1, hc1, hc2⟩
   have hh1 : l1.have_ ≠ 0 := by rw [hs1.2.1]; exact hh
   have hc2' : l1.copy ≤ l1.have_ := by rw [hs1.2.1]; exact hc2
@@ -406,50 +406,44 @@ theorem run_COMMENT (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_HCRC (·.mo
   dsimp only
   split
   · refine strPart_ok eo (·.comment) (·.comm_max) (fun li k g hk hg => (li.hbufs eo hk hg).2.2) li
-      (by rw [hm]; decide) _ ?_
+      _ ?_
     intro l' H' S' li' _ hb hl hh
-    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li' (by rw [rank_HCRC, hb, hl]; omega)
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li' (by rw [rank_HCRC, hb, hl]; omega)
   · refine hdr1_tail eo li (fun g => { g with comment := .null })
-      (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inr rfl, rfl⟩) (by rw [hm]; decide) _ ?_
-    intro H3 li3 _
-    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li3 (by rw [rank_HCRC]; omega)
+      (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inr rfl, rfl⟩) _ ?_
+    intro H3 li3
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li3 (by rw [rank_HCRC]; omega)
 
 theorem run_NAME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COMMENT (·.mode = COMMENT)) :
     ModeRun E inflate_NAME (·.mode = NAME) := by
   intro l H z S li hm m hμ
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 20 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_NAME] at hμ
-  have tail : ∀ l' H' z' S', LI E l' H' z' S' → S'.mode ≠ EXTRA →
+  have tail : ∀ l' H' z' S', LI E l' H' z' S' →
       32 * (8 * l'.have_.toNat + l'.bits.toNat + l'.left.toNat) + 19 ≤ m →
       SatX H' l' (do
         (MonadLiftT.monadLift (ZlibNg.Inflate.wrS E.c.st fun s => { s with length := 0 }) : X Unit)
         (MonadLiftT.monadLift (setMode E.c.st COMMENT) : X Unit)
         inflate_COMMENT E.c) (Post E m) := by
-    intro l' H' z' S' li' hmx hb
+    intro l' H' z' S' li' hb
     refine SatX.bind (SatX.lift (Sat.mono (li'.wrS (fun s => { s with length := 0 })
-      (fun _ _ c => { c with extraLen := fun e => absurd e hmx }) rfl) ?_))
+      (fun _ _ c => { c with }) rfl) ?_))
     intro _ H2 li2
-    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li2 (by rw [rank_COMMENT]; omega)
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li2 (by rw [rank_COMMENT]; omega)
   unfold inflate_NAME
   refine SatX.bind (SatX.lift_eq li.ldState ?_)
   dsimp only
   split
   · refine strPart_ok eo (·.name) (·.name_max) (fun li k g hk hg => (li.hbufs eo hk hg).2.1) li
-      (by rw [hm]; decide) _ ?_
-    intro l' H' S' li' hm' hb hl hh
-    exact tail _ _ _ _ li' (by rw [hm', hm]; decide) (by rw [hb, hl]; omega)
+      _ ?_
+    intro l' H' S' li' _ hb hl hh
+    exact tail _ _ _ _ li' (by rw [hb, hl]; omega)
   · refine hdr1_tail eo li (fun g => { g with name := .null })
-      (fun g => ⟨Or.inl rfl, rfl, Or.inr rfl, rfl, Or.inl rfl, rfl⟩) (by rw [hm]; decide) _ ?_
-    intro H3 li3 _
-    exact tail _ _ _ _ li3 (by rw [hm]; decide) (by omega)
+      (fun g => ⟨Or.inl rfl, rfl, Or.inr rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
+    intro H3 li3
+    exact tail _ _ _ _ li3 (by omega)
 
 /-! ## `EXTRA` -/
-
-/-- The clause of the invariant for `EXTRA`. -/
-theorem LI.extraOK {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
-    (hS : S.mode = EXTRA) : InflateInv.ExtraOK H (view S) := by
-  obtain ⟨al, -, c⟩ := li.core
-  exact c.extraLen hS
 
 /-- `if (state->length) goto inf_leave;` then `k`. -/
 theorem leaveLen {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
@@ -471,12 +465,9 @@ theorem tailN {E : Env} (hN : ModeRun E inflate_NAME (·.mode = NAME)) {l : IL} 
       (MonadLiftT.monadLift (ZlibNg.Inflate.wrS E.c.st fun s => { s with length := 0 }) : X Unit)
       (MonadLiftT.monadLift (setMode E.c.st NAME) : X Unit)
       inflate_NAME E.c) (Post E m) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.wrS (fun s => { s with length := 0 })
-    (fun _ _ c => { c with
-      extraLen := fun e k g hk hg hx =>
-        ⟨(c.extraLen e k g hk hg hx).1, UInt32.le_iff_toNat_le.mpr (Nat.zero_le _)⟩ }) rfl) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li.wrS (fun s => { s with length := 0 }) (fun _ _ c => { c with }) rfl) ?_))
   intro _ H2 li2
-  exact fall_ok hN (by decide) (by decide) (Or.inl (by decide)) (by decide) li2 (by rw [rank_NAME]; omega)
+  exact fall_ok hN (by decide) (by decide) (Or.inl (by decide)) li2 (by rw [rank_NAME]; omega)
 
 /-- `if (hcrc) state->check = crc32_small(state->check, p, n);` then `k`, with `n` readable bytes at `p`. -/
 theorem crcE_tail {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (eo : EnvOK E)
@@ -505,7 +496,7 @@ theorem crcE_tail {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
 `state->length -= copy`. -/
 theorem extraTail_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     (li : LI E l H z S) (hS : S.mode = EXTRA) (lc : IL) (c : UInt32) (hsame : Same lc l) (hc : c ≤ lc.have_)
-    (hc0 : c ≠ 0) (hcl : c ≤ S.length) (k : X Unit) {Q : Except Ex Unit → IL → Heap → Prop}
+    (hc0 : c ≠ 0) (k : X Unit) {Q : Except Ex Unit → IL → Heap → Prop}
     (hk : ∀ l' H' S', LI E l' H' z S' → S'.mode = EXTRA → l'.have_.toNat + c.toNat = lc.have_.toNat →
       l'.bits = lc.bits → l'.left = lc.left → SatX H' l' k Q) :
     SatX H l (do
@@ -525,7 +516,7 @@ theorem extraTail_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} 
   obtain ⟨r, o, d, hnx, hg, hsz⟩ := li.inBytes eo hh
   have hnx' : lc.next = .ref r o := by rw [← hsame.1]; exact hnx
   refine crcE_tail eo li lc.next c hnx' hg (by omega) _ ?_
-  intro H1 S1 li1 hm1 hl1
+  intro H1 S1 li1 hm1 _
   rw [hnx']
   obtain ⟨r1, o1, d1, hnx1, hg1', hsz1⟩ := li1.inBytes eo hh
   rw [hnx] at hnx1
@@ -535,16 +526,8 @@ theorem extraTail_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} 
   have hcl' : c ≤ l.have_ := by rw [hsame.2.1]; exact hc
   have li2 := li1.consume hnx c hcl' { l with have_ := l.have_ - c, next := .ref r (o + c.toNat) }
     rfl rfl rfl rfl rfl rfl
-  have hcS : c ≤ S1.length := by rw [hl1]; exact hcl
   refine SatX.bind (SatX.lift (Sat.mono (li2.wrS (fun s => { s with length := s.length - c })
-    (fun _ _ cc => { cc with
-      extraLen := fun e k g hk hg hx => by
-        obtain ⟨a1, a2⟩ := cc.extraLen e k g hk hg hx
-        refine ⟨a1, ?_⟩
-        show S1.length - c ≤ g.extra_len
-        have : S1.length.toNat ≤ g.extra_len.toNat := a2
-        have : c.toNat ≤ S1.length.toNat := hcS
-        rw [UInt32.le_iff_toNat_le, UInt32.toNat_sub_of_le _ _ hcS]; omega }) rfl) ?_))
+    (fun _ _ cc => { cc with }) rfl) ?_))
   intro _ H2 li3
   refine hk _ _ _ li3 (by rw [← hS, ← hm1]) ?_ hsame.2.2.1 hsame.2.2.2.1
   show (l.have_ - c).toNat + c.toNat = lc.have_.toNat
@@ -583,7 +566,6 @@ theorem extraHdr_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
     split
     · rename_i hxn
       have hx : g.extra ≠ .null := by simp only [Bool.and_eq_true, bne_iff_ne] at hxn; exact hxn.1
-      have xs' : S.length ≤ g.extra_len := by simp only [Bool.and_eq_true, decide_eq_true_eq] at hxn; exact hxn.2
       rcases (li.hbufs eo hhp hgk).1 with h0 | ⟨bd, off, data, hfe, hd, hsz', hbne, hw, hdj⟩
       · exact absurd h0 hx
       refine SatX.bind (SatX.modify ?_)
@@ -658,10 +640,10 @@ theorem run_EXTRA (E : Env) (eo : EnvOK E) (hN : ModeRun E inflate_NAME (·.mode
     refine SatX.bind (SatX.get ?_)
     dsimp (config := { zeta := false }) only
     extract_lets copy jp2 jpc cp2
-    suffices key : ∀ c, c ≤ l.have_ → c ≤ S.length → SatX H l (jpc () c) (Post E m) by
-      refine SatX.ite (fun h => key _ (UInt32.le_refl _) (UInt32.le_of_lt h)) (fun h => key _ ?_ (UInt32.le_refl _))
+    suffices key : ∀ c, c ≤ l.have_ → SatX H l (jpc () c) (Post E m) by
+      refine SatX.ite (fun h => key _ (UInt32.le_refl _)) (fun h => key _ ?_)
       exact UInt32.not_lt.mp h
-    intro c hc1 hc2
+    intro c hc1
     dsimp (config := { zeta := false }) only [jpc]
     refine SatX.bind (SatX.modify ?_)
     dsimp (config := { zeta := false }) only
@@ -672,7 +654,7 @@ theorem run_EXTRA (E : Env) (eo : EnvOK E) (hN : ModeRun E inflate_NAME (·.mode
       have hc0 : c ≠ 0 := by simpa using hc0'
       refine extraHdr_ok eo li1 l c hs1 hc1 hc0 _ ?_
       intro l' H' li' hs'
-      refine extraTail_ok eo li' hm l c (hs1.trans hs') hc1 hc0 hc2 _ ?_
+      refine extraTail_ok eo li' hm l c (hs1.trans hs') hc1 hc0 _ ?_
       intro l'' H'' S'' li'' _ hh hb hl
       refine leaveLen li'' _ (fun _ => tailN hN li'' ?_)
       rw [hb, hl]; omega

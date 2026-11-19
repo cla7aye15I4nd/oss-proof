@@ -129,7 +129,7 @@ theorem inflateGetHeader_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) (
 theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat) (g : GzHeader)
     (hg : h.gzheaders k = some g) :
     ∃ r h', C.run (inflateGetHeader s (some k)) h = .ok (r, h') ∧
-      ((∀ b st, StateBlock h s b → h.istate b = some st → st.mode ≠ EXTRA) → Inv h' s) ∧
+      Inv h' s ∧
       (h' = h ∨ ∃ b st', StateBlock h s b ∧
         h' = { h with istates := upd h.istates b (some st'),
                       gzheaders := upd h.gzheaders k (some { g with done := 0 }) }) := by
@@ -140,7 +140,7 @@ theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat)
   have hsa : ∃ z, StreamAt h (some i) z ∧ z.state = some b := ⟨z, ⟨i, rfl, hz⟩, hb⟩
   by_cases hc : (st.wrap &&& 2) = 0
   · exact ⟨Z_STREAM_ERROR, h, by simp [C.run, inflateGetHeader, bind_app, h0, hso, rdS, ldState_app hst, hc],
-      fun _ => hv, Or.inl rfl⟩
+      hv, Or.inl rfl⟩
   · have hbytes : ∃ d, h.bytes b = some d := by
       unfold Heap.istate at hst; split at hst <;> simp_all
     obtain ⟨d, hd⟩ := hbytes
@@ -151,15 +151,12 @@ theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat)
     let h2 : Heap := { h1 with gzheaders := upd h1.gzheaders k (some { g with done := 0 }) }
     refine ⟨Z_OK, h2, ?_, ?_, Or.inr ⟨b, _, hsa, rfl⟩⟩
     · simp [C.run, inflateGetHeader, bind_app, h0, hso, rdS, ldState_app hst, hc, hr', ldHeader, stHeader, hg, h1, h2]
-    · intro hm
-      have hne := hm b st hsa hst
-      obtain ⟨_, hi⟩ := InflateInv.wrS hv (fun s => { s with head := .val (some k) }) hsa hst
+    · obtain ⟨_, hi⟩ := InflateInv.wrS hv (fun s => { s with head := .val (some k) }) hsa hst
         (fun _ _ c => { c with
-          head := Or.inr ⟨k, g, rfl, hg⟩
-          extraLen := fun e => absurd e hne })
+          head := Or.inr ⟨k, g, rfl, hg⟩ })
       obtain ⟨i', z', b', st', al', e, hz', hb', hst', hal', c'⟩ := InflateInv.parts hi
       refine ⟨i', z', b', st', al', e, hz', hb', hst', hal', ?_⟩
-      refine { c' with head := ?_, extraLen := ?_ }
+      refine { c' with head := ?_ }
       · rcases c'.head with hh | ⟨k', g', hk', _⟩
         · exact Or.inl hh
         · refine Or.inr ⟨k', ?_, hk', ?_⟩
@@ -167,14 +164,6 @@ theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat)
           · by_cases e2 : k' = k
             · subst e2; simp [h2]
             · simp [h2, e2]; assumption
-      · intro em k2 g2 hk2 hg2 hx
-        by_cases e2 : k2 = k
-        · subst e2
-          have : g2 = { g with done := 0 } := by simp [h2] at hg2; exact hg2.symm
-          subst this
-          exact c'.extraLen em k2 g hk2 hg1 hx
-        · have hg2' : h1.gzheaders k2 = some g2 := by simpa [h2, e2] using hg2
-          exact c'.extraLen em k2 g2 hk2 hg2' hx
 
 /-! ## `inflateEnd` -/
 

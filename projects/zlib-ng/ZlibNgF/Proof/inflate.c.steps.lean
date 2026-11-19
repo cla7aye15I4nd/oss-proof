@@ -111,13 +111,12 @@ theorem LI.core {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (
 
 /-- `setMode` to a mode with no mode clauses. -/
 theorem LI.setQuiet {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (m : UInt32)
-    (lo : HEAD ≤ m) (hi : m ≤ SYNC) (q : m < LENLENS ∨ LIT < m) (hx : m ≠ EXTRA) :
+    (lo : HEAD ≤ m) (hi : m ≤ SYNC) (q : m < LENLENS ∨ LIT < m) :
     Sat H (setMode (some E.b) m) (fun _ H' => LI E l H' z { S with mode := m }) :=
   li.wrS (fun s => { s with mode := m }) (fun _ _ c => { c with
     mode_lo := lo
     mode_hi := hi
-    modes := InflateInv.ModeOK.quiet _ _ q
-    extraLen := fun e => absurd e hx }) rfl
+    modes := InflateInv.ModeOK.quiet _ _ q }) rfl
 
 
 /-! ## Mode statements -/
@@ -391,7 +390,7 @@ theorem LI.setBad {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     (msg : String) {i : Nat} (hm : strTable.findIdx? (· == msg) = some i) :
     Sat H (SET_BAD E.c msg) (fun _ H' => ∃ z', LI E l H' z' { S with mode := BAD }) := by
   unfold SET_BAD
-  refine Sat.bind (Sat.mono (li.setQuiet BAD (by decide) (by decide) (Or.inr (by decide)) (by decide)) ?_)
+  refine Sat.bind (Sat.mono (li.setQuiet BAD (by decide) (by decide) (Or.inr (by decide))) ?_)
   intro _ H1 li1
   refine Sat.bind (Sat.of_eq (show strLitRef msg H1 = .ok (.ref (.str i) 0, H1) by simp [strLitRef, hm]) ?_)
   exact Sat.mono (li1.wrZ (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl) (fun _ H2 li2 => ⟨_, li2⟩)
@@ -460,7 +459,7 @@ theorem LI.stHdr {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
     (g' : GzHeader) (h1 : g'.extra = g.extra ∨ g'.extra = .null) (h2 : g'.extra_max = g.extra_max)
     (h3 : g'.name = g.name ∨ g'.name = .null) (h4 : g'.name_max = g.name_max)
     (h5 : g'.comment = g.comment ∨ g'.comment = .null) (h6 : g'.comm_max = g.comm_max)
-    (hmx : S.mode ≠ EXTRA) :
+    :
     Sat H (stHeader (some k) g') (fun _ H' => LI E l H' z S ∧ H'.gzheaders = upd H.gzheaders k (some g')) := by
   refine ⟨(), { H with gzheaders := upd H.gzheaders k (some g') }, by simp [stHeader, hg], ?_, rfl⟩
   have hkG := eo.hdrG k hk
@@ -473,8 +472,7 @@ theorem LI.stHdr {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
   subst hst
   refine { li with
     inv := ⟨i', z', b', st', al, e, hz', hb', hst', hal, { c with
-      head := ?_
-      extraLen := fun em => absurd em hmx }⟩
+      head := ?_ }⟩
     frame := ?_
     sz := ?_
     hdr := ?_ }

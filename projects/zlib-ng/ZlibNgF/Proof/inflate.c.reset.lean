@@ -168,7 +168,6 @@ theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : Inf
   tables := Or.inl ⟨rfl, 0, rfl, Nat.zero_le _⟩
   head := Or.inl rfl
   modes := InflateInv.ModeOK.quiet _ _ (Or.inl (by show HEAD < LENLENS; decide))
-  extraLen := fun e => absurd (show HEAD = EXTRA from e) (by decide)
 
 /-- The invariant of a heap made by `setZS`. -/
 theorem inv_setZS {h : Heap} {i : Nat} {z' : ZStream} {b : Nat} {st' : InflateState} {al : InflateAllocs}

@@ -63,7 +63,6 @@ theorem run_COPY (E : Env) (eo : EnvOK E) : ModeRun E inflate_COPY (·.mode = CO
   intro l H z S li hm m hμ
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 12 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_COPY] at hμ
-  have hmx : S.mode ≠ EXTRA := by rw [hm]; decide
   unfold inflate_COPY
   refine SatX.bind (SatX.lift_eq (li.rdS (·.length)) ?_)
   dsimp (config := { zeta := false }) only
@@ -141,7 +140,7 @@ theorem run_COPY (E : Env) (eo : EnvOK E) : ModeRun E inflate_COPY (·.mode = CO
       left := l.left - c2
       put := .ref (.heap E.bo) (p + c2.toNat) } rfl rfl rfl rfl rfl rfl
     refine SatX.bind (SatX.lift (Sat.mono (li4.wrS (fun s => { s with length := s.length - c2 })
-      (fun _ _ c => { c with extraLen := fun e => absurd e hmx }) rfl) ?_))
+      (fun _ _ c => { c with }) rfl) ?_))
     intro _ H5 li5
     refine SatX.pure (post_ok li5 ?_)
     unfold μ; dsimp only
@@ -149,7 +148,7 @@ theorem run_COPY (E : Env) (eo : EnvOK E) : ModeRun E inflate_COPY (·.mode = CO
     omega
   · refine SatX.bind (SatX.modify ?_)
     have li1 : LI E { l with copy := S.length } H z S := li.locals rfl rfl rfl rfl rfl rfl
-    refine SatX.lift (Sat.mono (li1.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide)) (by decide)) ?_)
+    refine SatX.lift (Sat.mono (li1.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))) ?_)
     intro _ H1 li2
     refine post_ok li2 ?_
     unfold μ; dsimp only; rw [rank_TYPE]; omega
@@ -160,7 +159,7 @@ theorem run_COPY_ (E : Env) (hX : ModeRun E inflate_COPY (·.mode = COPY)) :
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 13 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_COPY_] at hμ
   unfold inflate_COPY_
-  exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li (by rw [rank_COPY]; omega)
+  exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li (by rw [rank_COPY]; omega)
 
 /-! ## `STORED` -/
 
@@ -169,7 +168,6 @@ theorem run_STORED (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COPY_ (·.mo
   intro l H z S li hm m hμ
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 14 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_STORED] at hμ
-  have hmx : S.mode ≠ EXTRA := by rw [hm]; decide
   have hb39 : l.bits.toNat ≤ 39 := li.bits
   unfold inflate_STORED
   refine SatX.bind (bytebits_ok ?_)
@@ -192,13 +190,12 @@ theorem run_STORED (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COPY_ (·.mo
   · exact bad_ok li2 (by rw [hleft']; omega) "invalid stored block lengths"
       (strIdx 24 (by decide) (by decide) (by decide))
   refine SatX.bind (SatX.lift (Sat.mono (li2.wrS (fun s => { s with length := l2.hold.toUInt16.toUInt32 })
-    (fun _ _ c => { c with extraLen := fun e => absurd e hmx }) rfl) ?_))
+    (fun _ _ c => { c with }) rfl) ?_))
   intro _ H3 li3
   refine SatX.bind (initbits_ok ?_)
   have li4 := li3.setBits (l' := { l2 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl
     (by show (0 : UInt8) ≤ 39; decide)
-  refine SatX.bind (SatX.lift (Sat.mono (li4.setQuiet COPY_ (by decide) (by decide) (Or.inl (by decide))
-    (by decide)) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li4.setQuiet COPY_ (by decide) (by decide) (Or.inl (by decide))) ?_))
   intro _ H5 li5
   dsimp only
   split
@@ -232,8 +229,7 @@ theorem LI.setLen {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
   li.wrS (fun s => { s with mode := LEN }) (fun _ _ c => { c with
     mode_lo := by show HEAD ≤ LEN; decide
     mode_hi := by show LEN ≤ SYNC; decide
-    modes := modeOK_len _ S c.modes hd
-    extraLen := fun e => absurd (show LEN = EXTRA from e) (by decide) }) rfl
+    modes := modeOK_len _ S c.modes hd }) rfl
 
 theorem run_LIT (E : Env) (eo : EnvOK E) : ModeRun E inflate_LIT (·.mode = LIT) := by
   intro l H z S li hm m hμ

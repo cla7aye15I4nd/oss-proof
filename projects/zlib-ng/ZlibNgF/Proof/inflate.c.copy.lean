@@ -321,8 +321,7 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Inflate
         next := ⟨o, rfl, ho⟩
         tables := htab
         head := by rw [fe.gz]; exact c.head
-        modes := hmo
-        extraLen := by unfold InflateInv.ExtraOK; rw [fe.gz]; exact c.extraLen }
+        modes := hmo }
       · rcases htab with ⟨e1, -⟩ | ⟨e1, -⟩
         · exact ⟨_, e1, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
         · exact ⟨_, e1, Or.inr (Or.inl rfl)⟩

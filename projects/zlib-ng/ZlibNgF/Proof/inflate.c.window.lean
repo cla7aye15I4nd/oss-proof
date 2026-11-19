@@ -196,7 +196,6 @@ theorem core_win {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Inf
   tables := c.tables
   head := by rw [hg]; exact c.head
   modes := c.modes
-  extraLen := by unfold InflateInv.ExtraOK; rw [hg]; exact c.extraLen
 
 theorem shl_toNat (w : UInt32) (hw : w ≤ 15) : ((1 : UInt32) <<< w).toNat = 2 ^ w.toNat := by
   have hw' : w.toNat ≤ 15 := hw

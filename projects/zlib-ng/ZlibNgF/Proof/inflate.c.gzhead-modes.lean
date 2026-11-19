@@ -65,19 +65,18 @@ def HKeep (f : GzHeader → GzHeader) : Prop :=
 /-- `if (state->head != NULL) state->head->field = ...;` as a load and a store of the record. -/
 theorem LI.stHdrF {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (eo : EnvOK E)
     (li : LI E l H z S) {k : Nat} (hk : E.hp = some k) (f : GzHeader → GzHeader) (hf : HKeep f)
-    (hmx : S.mode ≠ EXTRA) :
+    :
     Sat H (do let g ← ldHeader (some k); stHeader (some k) (f g)) (fun _ H' => LI E l H' z S) := by
   obtain ⟨g, hgk⟩ := li.hdrRec hk
   refine Sat.bind (Sat.of_eq (show ldHeader (some k) H = .ok (g, H) by simp [ldHeader, hgk]) ?_)
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hf g
-  exact Sat.mono (li.stHdr eo hk hgk (f g) h1 h2 h3 h4 h5 h6 hmx) (fun _ _ q => q.1)
+  exact Sat.mono (li.stHdr eo hk hgk (f g) h1 h2 h3 h4 h5 h6) (fun _ _ q => q.1)
 
 /-- One store into the header when there is one, followed by `k`. -/
 theorem hdr1_tail {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (eo : EnvOK E)
-    (li : LI E l H z S) (f : GzHeader → GzHeader) (hf : HKeep f) (hmx : S.mode ≠ EXTRA) (k : X Unit)
+    (li : LI E l H z S) (f : GzHeader → GzHeader) (hf : HKeep f) (k : X Unit)
     {Q : Except Ex Unit → IL → Heap → Prop}
-    (hk : ∀ H', LI E l H' z S → (∀ kk g, E.hp = some kk → H'.gzheaders kk = some g →
-      ∃ g0, H.gzheaders kk = some g0 ∧ g = f g0) → SatX H' l k Q) :
+    (hk : ∀ H', LI E l H' z S → SatX H' l k Q) :
     SatX H l (do
       let hd ← headOf E.c.st
       if hd != none then
@@ -90,26 +89,20 @@ theorem hdr1_tail {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
   | none =>
     have he : ((none : HeaderPtr) != none) = false := rfl
     simp only [he, Bool.false_eq_true, ↓reduceIte]
-    exact hk _ li (fun _ _ e _ => by rw [hhp] at e; cases e)
+    exact hk _ li
   | some kk =>
     have hne : (some kk != (none : HeaderPtr)) = true := rfl
     simp only [hne, ↓reduceIte]
     obtain ⟨g, hgk⟩ := li.hdrRec hhp
     refine SatX.bind (SatX.lift_eq (show ldHeader (some kk) H = .ok (g, H) by simp [ldHeader, hgk]) ?_)
     obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hf g
-    refine SatX.bind (SatX.lift (Sat.mono (li.stHdr eo hhp hgk (f g) h1 h2 h3 h4 h5 h6 hmx) ?_))
-    rintro _ H2 ⟨li2, hg2'⟩
-    refine hk _ li2 ?_
-    intro k2 g2 e2 hg2
-    rw [hhp] at e2
-    obtain rfl : kk = k2 := Option.some.inj e2
-    refine ⟨g, hgk, ?_⟩
-    rw [hg2', upd_same] at hg2
-    exact (Option.some.inj hg2).symm
+    refine SatX.bind (SatX.lift (Sat.mono (li.stHdr eo hhp hgk (f g) h1 h2 h3 h4 h5 h6) ?_))
+    rintro _ H2 ⟨li2, -⟩
+    exact hk _ li2
 
 /-- Two stores into the header when there is one, followed by `k`. -/
 theorem hdr2_tail {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (eo : EnvOK E)
-    (li : LI E l H z S) (f1 f2 : GzHeader → GzHeader) (hf1 : HKeep f1) (hf2 : HKeep f2) (hmx : S.mode ≠ EXTRA)
+    (li : LI E l H z S) (f1 f2 : GzHeader → GzHeader) (hf1 : HKeep f1) (hf2 : HKeep f2)
     (k : X Unit)
     {Q : Except Ex Unit → IL → Heap → Prop} (hk : ∀ H', LI E l H' z S → SatX H' l k Q) :
     SatX H l (do
@@ -133,34 +126,34 @@ theorem hdr2_tail {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     obtain ⟨g, hgk⟩ := li.hdrRec hhp
     refine SatX.bind (SatX.lift_eq (show ldHeader (some kk) H = .ok (g, H) by simp [ldHeader, hgk]) ?_)
     obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hf1 g
-    refine SatX.bind (SatX.lift (Sat.mono (li.stHdr eo hhp hgk (f1 g) h1 h2 h3 h4 h5 h6 hmx) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li.stHdr eo hhp hgk (f1 g) h1 h2 h3 h4 h5 h6) ?_))
     rintro _ H2 ⟨li2, -⟩
     obtain ⟨g2, hgk2⟩ := li2.hdrRec hhp
     refine SatX.bind (SatX.lift_eq (show ldHeader (some kk) H2 = .ok (g2, H2) by simp [ldHeader, hgk2]) ?_)
     obtain ⟨e1, e2, e3, e4, e5, e6⟩ := hf2 g2
-    refine SatX.bind (SatX.lift (Sat.mono (li2.stHdr eo hhp hgk2 (f2 g2) e1 e2 e3 e4 e5 e6 hmx) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li2.stHdr eo hhp hgk2 (f2 g2) e1 e2 e3 e4 e5 e6) ?_))
     rintro _ H3 ⟨li3, -⟩
     exact hk _ li3
 
 /-- `state->mode = md;` and the fall-through into the mode `md`. -/
 theorem fall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun E f (·.mode = md))
-    (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md) (hx : md ≠ EXTRA)
+    (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md)
     {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
     (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + rank md ≤ m) :
     SatX H l (do (MonadLiftT.monadLift (setMode E.c.st md) : X Unit); f E.c) (Post E m) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet md lo hi q hx) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet md lo hi q) ?_))
   intro _ H1 li1
   exact run _ _ _ _ li1 rfl m (by unfold μ; exact hμ)
 
 /-- `INITBITS(); state->mode = md;` and the fall-through into the mode `md`. -/
 theorem initfall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun E f (·.mode = md))
-    (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md) (hx : md ≠ EXTRA)
+    (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md)
     {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
     (hμ : 32 * (8 * l.have_.toNat + l.left.toNat) + rank md ≤ m) :
     SatX H l (do INITBITS; (MonadLiftT.monadLift (setMode E.c.st md) : X Unit); f E.c) (Post E m) := by
   refine SatX.bind (initbits_ok ?_)
   have e0 : (0 : UInt8).toNat = 0 := rfl
-  exact fall_ok run lo hi q hx (li.setBits (l' := { l with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl
+  exact fall_ok run lo hi q (li.setBits (l' := { l with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl
     (by show (0 : UInt8) ≤ 39; decide))
     (by show 32 * (8 * l.have_.toNat + (0 : UInt8).toNat + l.left.toNat) + _ ≤ m; rw [e0]; omega)
 
@@ -187,35 +180,11 @@ theorem needbits_then {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateSt
     exact ⟨z, S, li1⟩
   exact hk l1 li1 hr (by rw [p1.1]) p1.2
 
-/-- `state->mode = EXTRA;` with the clause of the invariant for `EXTRA`. -/
-theorem LI.setExtra {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
-    (hX : InflateInv.ExtraOK H (view S)) :
-    Sat H (setMode (some E.b) EXTRA) (fun _ H' => LI E l H' z { S with mode := EXTRA }) :=
-  li.wrS (fun s => { s with mode := EXTRA }) (fun _ _ c => { c with
-    mode_lo := by show HEAD ≤ EXTRA; decide
-    mode_hi := by show EXTRA ≤ SYNC; decide
-    modes := InflateInv.ModeOK.quiet _ _ (Or.inl (by show EXTRA < LENLENS; decide))
-    extraLen := fun _ => hX }) rfl
-
-/-- `state->mode = EXTRA;` and the fall-through into `EXTRA`. -/
-theorem fallX_ok {E : Env} (run : ModeRun E inflate_EXTRA (·.mode = EXTRA))
-    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hX : InflateInv.ExtraOK H (view S))
-    {m : Nat} (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + rank EXTRA ≤ m) :
-    SatX H l (do (MonadLiftT.monadLift (setMode E.c.st EXTRA) : X Unit); inflate_EXTRA E.c) (Post E m) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.setExtra hX) ?_))
-  intro _ H1 li1
-  exact run _ _ _ _ li1 rfl m (by unfold μ; exact hμ)
-
-theorem u16_le (x : UInt64) : x.toUInt16.toUInt32 ≤ 65535 := by
-  rw [UInt32.le_iff_toNat_le]; simp only [UInt16.toNat_toUInt32]
-  have := x.toUInt16.toNat_lt; show _ ≤ 65535; omega
-
 theorem run_EXLEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXTRA (·.mode = EXTRA)) :
     ModeRun E inflate_EXLEN (·.mode = EXLEN) := by
   intro l H z S li hm m hμ
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 22 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_EXLEN] at hμ
-  have hmx : S.mode ≠ EXTRA := by rw [hm]; decide
   unfold inflate_EXLEN
   refine SatX.bind (SatX.lift_eq li.ldState ?_)
   dsimp only
@@ -225,32 +194,23 @@ theorem run_EXLEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXTRA (·.mod
     refine SatX.bind (SatX.get ?_)
     dsimp only
     refine SatX.bind (SatX.lift (Sat.mono (li1.wrS (fun s => { s with length := l1.hold.toUInt16.toUInt32 })
-      (fun _ _ c => { c with extraLen := fun e => absurd e hmx }) rfl) ?_))
+      (fun _ _ c => { c with }) rfl) ?_))
     intro _ H2 li2
     refine hdr1_tail eo li2 (fun g => { g with extra_len := l1.hold.toUInt16.toUInt32 })
-      (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) hmx _ ?_
-    intro H3 li3 hrec
+      (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
+    intro H3 li3
     refine crc2_tail eo li3 _ ?_
-    intro H4 v4 li4 hg4
+    intro H4 _ li4 _
     refine SatX.bind (initbits_ok ?_)
     have e0 : (0 : UInt8).toNat = 0 := rfl
-    refine fallX_ok hX (li4.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl
-      (by show (0 : UInt8) ≤ 39; decide)) ?_
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide))
+      (li4.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide))
       (by show 32 * (8 * l1.have_.toNat + (0 : UInt8).toNat + l1.left.toNat) + rank EXTRA ≤ m
           rw [e0, rank_EXTRA, hleft]; omega)
-    intro k g hk hg _
-    have hp : E.hp = some k := Ival.val.inj (li4.head.symm.trans hk)
-    rw [hg4] at hg
-    obtain ⟨g0, -, rfl⟩ := hrec k g hp hg
-    exact ⟨u16_le _, UInt32.le_refl _⟩
   · refine hdr1_tail eo li (fun g => { g with extra := .null })
-      (fun g => ⟨Or.inr rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) hmx _ ?_
-    intro H3 li3 hrec
-    refine fallX_ok hX li3 ?_ (by rw [rank_EXTRA]; omega)
-    intro k g hk hg hx
-    have hp : E.hp = some k := Ival.val.inj (li3.head.symm.trans hk)
-    obtain ⟨g0, -, rfl⟩ := hrec k g hp hg
-    exact absurd rfl hx
+      (fun g => ⟨Or.inr rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
+    intro H3 li3
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li3 (by rw [rank_EXTRA]; omega)
 
 theorem run_OS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXLEN (·.mode = EXLEN)) :
     ModeRun E inflate_OS (·.mode = OS) := by
@@ -265,11 +225,11 @@ theorem run_OS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXLEN (·.mode =
   refine hdr2_tail eo li1 (fun g => { g with xflags := (l1.hold &&& 0xff).toUInt32.toInt32 })
     (fun g => { g with os := (l1.hold >>> 8).toUInt32.toInt32 })
     (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩)
-    (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) (by rw [hm]; decide) _ ?_
+    (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
   intro H3 li3
   refine crc2_tail eo li3 _ ?_
   intro H4 v4 li4 _
-  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li4
+  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li4
     (by rw [rank_EXLEN, hleft]; omega)
 
 theorem run_TIME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_OS (·.mode = OS)) :
@@ -283,11 +243,11 @@ theorem run_TIME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_OS (·.mode = 
   refine SatX.bind (SatX.get ?_)
   dsimp only
   refine hdr1_tail eo li1 (fun g => { g with time := l1.hold.toUInt32.toUInt64 })
-    (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) (by rw [hm]; decide) _ ?_
-  intro H3 li3 _
+    (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
+  intro H3 li3
   refine crc4_tail eo li3 _ ?_
   intro H4 v4 li4 _
-  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li4
+  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li4
     (by rw [rank_OS, hleft]; omega)
 
 theorem run_FLAGS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_TIME (·.mode = TIME)) :
@@ -311,11 +271,11 @@ theorem run_FLAGS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_TIME (·.mode
   split
   · exact bad_ok li2 hb "unknown header flags set" (strIdx 28 (by decide) (by decide) (by decide))
   refine hdr1_tail eo li2 (fun g => { g with text := ((l1.hold >>> 8) &&& 1).toUInt32.toInt32 })
-    (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) (by show S.mode ≠ EXTRA; rw [hm]; decide) _ ?_
-  intro H3 li3 _
+    (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
+  intro H3 li3
   refine crc2_tail eo li3 _ ?_
   intro H4 v4 li4 _
-  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li4
+  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li4
     (by rw [rank_TIME, hleft]; omega)
 
 end ZlibNgF.Proof.InflateLoop

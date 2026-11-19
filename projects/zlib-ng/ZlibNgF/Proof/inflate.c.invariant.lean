@@ -184,13 +184,6 @@ structure Shape (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (
   lens_size : st.lens_size = 320
   work_size : st.work_size = 288
 
-/-- In the gzip extra field (`EXTRA`) with a registered header whose `extra` is not `NULL`: `extra_len` is the 16-bit
-length that `EXLEN` stored and `length` (the bytes still to read) is at most it, so `extra_len - length` and
-`len + copy` of `EXTRA` do not wrap. -/
-def ExtraOK (h : Heap) (st : View) : Prop :=
-  ∀ k g, st.head = .val (some k) → h.gzheaders k = some g → g.extra ≠ .null →
-    g.extra_len ≤ 65535 ∧ st.length ≤ g.extra_len
-
 /-- All clauses on the stream record `z`, the constrained state fields `st` and the allocation record `al` of block
 `b`. -/
 structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (al : InflateAllocs) : Prop
@@ -220,7 +213,6 @@ structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (a
     (st.lencode = .val (.ref .lenfix 0) ∧ st.distcode = .val (.ref .distfix 0))
   head : st.head = .val none ∨ ∃ k g, st.head = .val (some k) ∧ h.gzheaders k = some g
   modes : ModeOK b st.m
-  extraLen : st.mode = EXTRA → ExtraOK h st
 
 /-- The shape clauses read the heap only through its byte blocks. -/
 theorem Shape.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
@@ -232,8 +224,7 @@ theorem Core.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : 
     (hb : h'.bytes b = h.bytes b) (hg : h'.gzheaders = h.gzheaders) (c : Core h s z b v al) : Core h' s z b v al :=
   { c with
     toShape := c.toShape.of_heap hb
-    head := by rw [hg]; exact c.head
-    extraLen := by unfold ExtraOK; rw [hg]; exact c.extraLen }
+    head := by rw [hg]; exact c.head }
 
 /-- `1 << wbits` for `wbits ≤ 15` is at most 32768. -/
 theorem shl_le (w : UInt32) (hw : w ≤ 15) : (1 : UInt32) <<< w ≤ 32768 := by

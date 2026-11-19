@@ -94,7 +94,7 @@ theorem hcrcHead_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
 
 /-- The header record stores of `HCRC` (`hcrc`, `done`), followed by `k`. -/
 theorem hcrcHdr_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
-    (li : LI E l H z S) (hmx : S.mode ≠ EXTRA) (k : X Unit) {Q : Except Ex Unit → IL → Heap → Prop}
+    (li : LI E l H z S) (k : X Unit) {Q : Except Ex Unit → IL → Heap → Prop}
     (hk : ∀ H', LI E l H' z S → SatX H' l k Q) :
     SatX H l (do
       let hd ← headOf E.c.st
@@ -119,12 +119,12 @@ theorem hcrcHdr_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S
     obtain ⟨g, hgk⟩ := li.hdrRec hhp
     refine SatX.bind (SatX.lift_eq (show ldHeader (some kk) H = .ok (g, H) by simp [ldHeader, hgk]) ?_)
     refine SatX.bind (SatX.lift (Sat.mono (li.stHdr eo hhp hgk { g with hcrc := (S.flags >>> 9) &&& 1 }
-      (Or.inl rfl) rfl (Or.inl rfl) rfl (Or.inl rfl) rfl hmx) ?_))
+      (Or.inl rfl) rfl (Or.inl rfl) rfl (Or.inl rfl) rfl) ?_))
     rintro _ H2 ⟨li2, -⟩
     obtain ⟨g2, hgk2⟩ := li2.hdrRec hhp
     refine SatX.bind (SatX.lift_eq (show ldHeader (some kk) H2 = .ok (g2, H2) by simp [ldHeader, hgk2]) ?_)
     refine SatX.bind (SatX.lift (Sat.mono (li2.stHdr eo hhp hgk2 { g2 with done := 1 }
-      (Or.inl rfl) rfl (Or.inl rfl) rfl (Or.inl rfl) rfl hmx) ?_))
+      (Or.inl rfl) rfl (Or.inl rfl) rfl (Or.inl rfl) rfl) ?_))
     rintro _ H3 ⟨li3, -⟩
     exact hk _ li3
 
@@ -135,15 +135,14 @@ theorem run_HCRC (E : Env) (eo : EnvOK E) : ModeRun E inflate_HCRC (·.mode = HC
   unfold inflate_HCRC
   refine hcrcHead_ok eo li (by omega) _ ?_
   intro l1 H1 S1 li1 hm1 hT hleft
-  have hmx : S1.mode ≠ EXTRA := by rw [hm1, hm]; decide
-  refine hcrcHdr_ok eo li1 hmx _ ?_
+  refine hcrcHdr_ok eo li1 _ ?_
   intro H2 li2
   refine SatX.bind (SatX.lift_eq li2.ldState ?_)
   dsimp (config := { zeta := false }) only
   have fin : ∀ H3 z3 S3, LI E l1 H3 z3 S3 →
       SatX H3 l1 (MonadLiftT.monadLift (setMode E.c.st TYPE) : X Unit) (Post E m) := by
     intro H3 z3 S3 li3
-    refine SatX.lift (Sat.mono (li3.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide)) (by decide)) ?_)
+    refine SatX.lift (Sat.mono (li3.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))) ?_)
     intro _ H4 li4
     refine post_ok li4 ?_
     unfold μ; dsimp only; rw [rank_TYPE, hleft]; omega
@@ -185,7 +184,7 @@ theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
     refine SatX.bind (SatX.lift (Sat.mono (li1.wrZ (fun z => { z with adler := ADLER32_INITIAL_VALUE })
       rfl rfl rfl) ?_))
     intro _ H2 li2
-    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li2 (by rw [rank_TYPE]; omega)
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li2 (by rw [rank_TYPE]; omega)
 
 theorem run_DICTID (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_DICT (·.mode = DICT)) :
     ModeRun E inflate_DICTID (·.mode = DICTID) := by
@@ -202,7 +201,7 @@ theorem run_DICTID (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_DICT (·.mod
   intro _ H1 li2
   refine SatX.bind (SatX.lift (Sat.mono (li2.wrZ (fun z => { z with adler := v }) rfl rfl rfl) ?_))
   intro _ H2 li3
-  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li3
+  exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li3
     (by rw [rank_DICT, hleft]; omega)
 
 /-! ## The fixed tables -/
@@ -311,8 +310,7 @@ theorem LI.setLen_ {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
   li.wrS (fun s => { s with mode := LEN_ }) (fun _ _ c => { c with
     mode_lo := by show HEAD ≤ LEN_; decide
     mode_hi := by show LEN_ ≤ SYNC; decide
-    modes := fixedModeOK _ S
-    extraLen := fun e => absurd (show LEN_ = EXTRA from e) (by decide) }) rfl
+    modes := fixedModeOK _ S }) rfl
 
 theorem rank_CHECK : rank CHECK = 2 := by decide
 
@@ -335,8 +333,7 @@ theorem run_TYPEDO (E : Env) (eo : EnvOK E) :
       hold := l.hold >>> (l.bits &&& 7).toUInt32.toUInt64
       bits := l.bits - (l.bits &&& 7) }) rfl rfl rfl rfl rfl
       (by show l.bits - (l.bits &&& 7) ≤ 39; rw [UInt8.le_iff_toNat_le]; show _ ≤ 39; omega)
-    refine SatX.bind (SatX.lift (Sat.mono (li1.setQuiet CHECK (by decide) (by decide) (Or.inr (by decide))
-      (by decide)) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li1.setQuiet CHECK (by decide) (by decide) (Or.inr (by decide))) ?_))
     intro _ H1 li2
     refine SatX.pure (post_ok li2 ?_)
     unfold μ; dsimp only; rw [rank_CHECK]
@@ -381,8 +378,7 @@ theorem run_TYPEDO (E : Env) (eo : EnvOK E) :
       obtain ⟨li'', hlt⟩ := e2 H' z' S' li'
       exact dropbits_ok 2 (by decide) (post_ok li'' hlt)
     split
-    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet STORED (by decide) (by decide) (Or.inl (by decide))
-        (by decide)) ?_))
+    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet STORED (by decide) (by decide) (Or.inl (by decide))) ?_))
       intro _ H4 li4
       exact fin _ _ _ li4
     split
@@ -396,8 +392,7 @@ theorem run_TYPEDO (E : Env) (eo : EnvOK E) :
         exact SatX.throw ⟨_, _, (e2 _ _ _ li5).1⟩
       · exact fin _ _ _ li5
     split
-    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet TABLE (by decide) (by decide) (Or.inl (by decide))
-        (by decide)) ?_))
+    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet TABLE (by decide) (by decide) (Or.inl (by decide))) ?_))
       intro _ H4 li4
       exact fin _ _ _ li4
     · refine SatX.bind (SatX.lift (Sat.mono (li3.setBad "invalid block type"

@@ -131,8 +131,7 @@ theorem core_LL {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S : I
   have hll := c.modes.lenlens hm
   exact { c with
     lens_size := by show L.size = 320; rw [hL]; exact c.lens_size
-    modes := modeOK_LL b _ hm ⟨hll.1, hll.2.1, hll.2.2.1, hk⟩
-    extraLen := fun e => absurd (hm.symm.trans e) (by decide) }
+    modes := modeOK_LL b _ hm ⟨hll.1, hll.2.1, hll.2.2.1, hk⟩ }
 
 theorem LI.lensSize {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) :
     S.lens.size = 320 := by
@@ -212,8 +211,7 @@ theorem core_LLtab {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S 
     distcode := ⟨_, rfl, Or.inl ⟨0, rfl, by decide⟩⟩
     next := ⟨o, rfl, ho⟩
     tables := Or.inl ⟨rfl, 0, rfl, by decide⟩
-    modes := modeOK_LL b _ hm (c.modes.lenlens hm)
-    extraLen := fun e => absurd (hm.symm.trans e) (by decide) }
+    modes := modeOK_LL b _ hm (c.modes.lenlens hm) }
 
 /-- The state entering `CODELENS`. -/
 theorem core_CL {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S : InflateState}
@@ -240,8 +238,7 @@ theorem core_CL {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S : I
     next := ⟨o, rfl, ho⟩
     tables := Or.inl ⟨rfl, 0, rfl, by decide⟩
     modes := modeOK_CL b _ rfl ⟨hll.2.1, hll.2.2.1, fun j hj => absurd hj (Nat.not_lt_zero _),
-      Or.inl ⟨0, o, rfl, ht⟩⟩
-    extraLen := fun e => absurd (show CODELENS = EXTRA from e) (by decide) }
+      Or.inl ⟨0, o, rfl, ht⟩⟩ }
 
 set_option maxRecDepth 20000 in
 set_option maxHeartbeats 2000000 in
@@ -432,7 +429,7 @@ theorem bits5_ge (x : UInt64) (k : UInt32) (hk : k.toNat ≤ 257) :
 
 /-- A store into the state in a mode outside `LENLENS .. LIT` other than `EXTRA` that keeps the shape. -/
 theorem core_quiet {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S : InflateState}
-    (c : Core H (some i) z b (view S) al) (hq : S.mode < LENLENS ∨ LIT < S.mode) (hx : S.mode ≠ EXTRA)
+    (c : Core H (some i) z b (view S) al) (hq : S.mode < LENLENS ∨ LIT < S.mode)
     (S' : InflateState) (e : view S' = { view S with
       ncode := S'.ncode
       nlen := S'.nlen
@@ -440,8 +437,7 @@ theorem core_quiet {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S 
       «have» := S'.«have» }) : Core H (some i) z b (view S') al := by
   rw [e]
   exact { c with
-    modes := ModeOK.quiet _ _ hq
-    extraLen := fun e' => absurd e' hx }
+    modes := ModeOK.quiet _ _ hq }
 
 theorem run_TABLE (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENLENS (·.mode = LENLENS)) :
     ModeRun E inflate_TABLE (·.mode = TABLE) := by
@@ -449,24 +445,23 @@ theorem run_TABLE (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENLENS (·.m
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 15 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_TABLE] at hμ
   have hq : S.mode < LENLENS ∨ LIT < S.mode := Or.inl (by rw [hm]; decide)
-  have hx : S.mode ≠ EXTRA := by rw [hm]; decide
   unfold inflate_TABLE
   refine needbits_then eo li 14 (by decide) ?_
   intro l1 li1 h14 hleft hT
   have h14' : 14 ≤ l1.bits.toNat := h14
   refine SatX.bind (bits_ok 5 (by decide) ?_)
-  refine SatX.bind (SatX.lift (Sat.mono (li1.wrS _ (fun _ _ c => core_quiet c hq hx _ rfl) rfl) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li1.wrS _ (fun _ _ c => core_quiet c hq _ rfl) rfl) ?_))
   intro _ H2 li2
   refine SatX.bind (dropbits_ok 5 (by decide) ?_)
   have li3 := li2.drop 5 (by decide) (by show 5 ≤ _; omega)
   refine SatX.bind (bits_ok 5 (by decide) ?_)
-  refine SatX.bind (SatX.lift (Sat.mono (li3.wrS _ (fun _ _ c => core_quiet c hq hx _ rfl) rfl) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li3.wrS _ (fun _ _ c => core_quiet c hq _ rfl) rfl) ?_))
   intro _ H4 li4
   refine SatX.bind (dropbits_ok 5 (by decide) ?_)
   have hb3 : (l1.bits - (5 : UInt32).toUInt8).toNat = l1.bits.toNat - 5 := drop_toNat (by decide) (by show 5 ≤ _; omega)
   have li5 := li4.drop 5 (by decide) (by show 5 ≤ (l1.bits - (5 : UInt32).toUInt8).toNat; omega)
   refine SatX.bind (bits_ok 4 (by decide) ?_)
-  refine SatX.bind (SatX.lift (Sat.mono (li5.wrS _ (fun _ _ c => core_quiet c hq hx _ rfl) rfl) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li5.wrS _ (fun _ _ c => core_quiet c hq _ rfl) rfl) ?_))
   intro _ H6 li6
   refine SatX.bind (dropbits_ok 4 (by decide) ?_)
   have hb5 : ((l1.bits - (5 : UInt32).toUInt8) - (5 : UInt32).toUInt8).toNat = l1.bits.toNat - 10 :=
@@ -483,14 +478,13 @@ theorem run_TABLE (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENLENS (·.m
         (4 : UInt32).toUInt8).toNat + l1.left.toNat) < m
       rw [hb7, hl']; omega) "too many length or distance symbols" (strIdx 26 (by decide) (by decide) (by decide))
   · simp only [Bool.or_eq_true, decide_eq_true_eq, not_or, UInt32.not_lt] at hok
-    refine SatX.bind (SatX.lift (Sat.mono (li7.wrS _ (fun _ _ c => core_quiet c hq hx _ rfl) rfl) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li7.wrS _ (fun _ _ c => core_quiet c hq _ rfl) rfl) ?_))
     intro _ H8 li8
     refine SatX.bind (SatX.lift (Sat.mono (li8.wrS (fun s => { s with mode := LENLENS }) (fun _ _ c => { c with
       mode_lo := by show HEAD ≤ LENLENS; decide
       mode_hi := by show LENLENS ≤ SYNC; decide
       modes := modeOK_LL _ _ rfl ⟨bits4_le _, ⟨bits5_ge _ 257 (by decide), hok.1⟩, ⟨bits5_ge _ 1 (by decide), hok.2⟩,
-        fun j hj => absurd hj (Nat.not_lt_zero _)⟩
-      extraLen := fun e => absurd (show LENLENS = EXTRA from e) (by decide) }) rfl) ?_))
+        fun j hj => absurd hj (Nat.not_lt_zero _)⟩ }) rfl) ?_))
     intro _ H9 li9
     refine hX _ _ _ _ li9 rfl m ?_
     unfold μ
