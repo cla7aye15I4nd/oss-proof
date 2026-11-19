@@ -364,7 +364,7 @@ theorem tblCont_wp {S : Setup} (hS : S.OK) {t : TL} {C : Array Code} {K : Nat} (
         omega
       refine { ret := rfl, csize := by rw [hsize2]; exact hst.csize,
                frame := fun i hi => by rw [hfr2 i hi]; exact hst.frame i hi,
-               used_bnd := hst.used_bnd, geo := ?_, huff := ?_ }
+               used_bnd := hst.used_bnd, root_le := hur, geo := ?_, huff := ?_ }
       · rcases hst.geo with ⟨h1, -, h3, h4, -⟩ | ⟨h1, -, -, -, nx', P, h5, -, h7, -⟩
         · exact Or.inl ⟨h1, h3, h4⟩
         · exact Or.inr ⟨h1, nx', h5, h7⟩

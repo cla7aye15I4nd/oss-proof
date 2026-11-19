@@ -71,6 +71,11 @@ theorem ssum_sub_le (f : Nat → Nat) {m n : Nat} (h : m ≤ n) (i : Nat) (hm : 
     · subst e; have := ssum_mono f (show m ≤ i from hm); omega
     · have := ih (by omega) (by omega); omega
 
+theorem ssum_add (f g : Nat → Nat) (n : Nat) : ssum (fun i => f i + g i) n = ssum f n + ssum g n := by
+  induction n with
+  | zero => rfl
+  | succ n ih => rw [ssum_succ, ssum_succ, ssum_succ, ih]; omega
+
 /-- The number of codes of length `1 .. m`. -/
 noncomputable def nsum (c : Nat → Nat) (m : Nat) : Nat := ssum (fun i => c (i + 1)) m
 
@@ -157,5 +162,17 @@ theorem wsum_dvd (c : Nat → Nat) (m : Nat) (hm : m ≤ 16) : 2 ^ (16 - m) ∣ 
     apply Nat.dvd_add
     · exact Nat.dvd_trans (Nat.pow_dvd_pow 2 (by omega)) (ih (by omega))
     · exact Nat.dvd_mul_left_of_dvd (Nat.pow_dvd_pow 2 (by omega)) _
+
+theorem nsum_ind (v m : Nat) : nsum (fun L => if v = L then 1 else 0) m = if 1 ≤ v ∧ v ≤ m then 1 else 0 := by
+  induction m with
+  | zero => simp; omega
+  | succ m ih =>
+    rw [nsum_succ, ih]
+    by_cases h1 : 1 ≤ v ∧ v ≤ m
+    · simp only [h1, and_self, ite_true, show ¬ v = m + 1 by omega, ite_false, show v ≤ m + 1 by omega]
+    · simp only [h1, ite_false]
+      by_cases h2 : v = m + 1
+      · simp only [h2, ite_true]; simp
+      · simp only [h2, ite_false]; rw [ite_eq_right (by omega)]
 
 end ZlibNgF.Math.InftreesCount

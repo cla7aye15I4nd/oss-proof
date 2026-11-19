@@ -142,6 +142,7 @@ structure Fin0 (S : Setup) (t : TL) (C : Array Code) : Prop where
   csize : C.size = S.s.codes.size
   frame : ∀ i, ¬ (S.off ≤ i ∧ i < S.off + t.used.toNat) → C[i]? = S.s.codes[i]?
   used_bnd : t.used.toNat ≤ S.bnd
+  root_le : 2 ^ S.root ≤ t.used.toNat
   geo : (t.drop = 0 ∧ t.next = .ref (.codes S.b) S.off ∧ t.used.toNat = 2 ^ S.root) ∨
     (t.drop.toNat = S.root ∧ ∃ nx, t.next = .ref (.codes S.b) (S.off + nx) ∧ nx + 2 ^ t.curr.toNat = t.used.toNat)
   huff : (wsum S.c0 15 = 2 ^ 16 ∧ t.huff = 0) ∨
