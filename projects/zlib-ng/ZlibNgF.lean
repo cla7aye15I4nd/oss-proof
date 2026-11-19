@@ -12,4 +12,5 @@ import ZlibNgF.Proof.«inflate.c.reset»
 import ZlibNgF.Proof.«inflate.c.alloc»
 import ZlibNgF.Proof.«public-inflate-init»
 import ZlibNgF.Proof.«inflate.c.dict»
+import ZlibNgF.Proof.«inflate.c.window»
 import ZlibNgF.Proof.«inflate.c.reach»
