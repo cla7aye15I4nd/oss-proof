@@ -7,6 +7,7 @@ import ZlibNgF.Proof.«public-crc32»
 import ZlibNgF.Proof.«public-compress-bound»
 import ZlibNgF.ZlibNg.«inflate.c»
 import ZlibNgF.ZlibNg.«uncompr.c»
+import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Inflate
 import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«inflate.c.reset»
