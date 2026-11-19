@@ -511,25 +511,28 @@ theorem codeTable_of {type : UInt32} {C : Array Code} {off u root : Nat} (hr1 : 
       rw [(hS (by omega)).nolink] at hl; cases hl
     exact ((hR hi).link hl).1
 
-/-- A finished table whose slots all have their prefix facts is a prefix code (`Rep`). -/
+/-- A finished table whose slots all have their prefix facts is a prefix code (`Rep`), its root level for every
+entry (`LvlAll`). -/
 theorem rep_of_pre {S : Setup} (hS : S.OK) {drop curr used low : UInt32} {C : Array Code}
     (hru : 2 ^ S.root ≤ used.toNat)
     (hrc : drop ≠ 0 → S.root + curr.toNat ≤ 15 ∧ 2 ^ S.root + 2 ^ curr.toNat ≤ used.toNat)
     (hall : ∀ i, i < used.toNat → PreOK S drop curr used low C i) :
-    InfbackLoop.Rep C S.off S.root (dOf S.type) := by
+    InfbackLoop.Rep C S.off S.root (dOf S.type) ∧ InfbackLoop.LvlAll C S.off S.root := by
   have hr15 : S.root ≤ 15 := by have := hS.rootmx; have := hS.mx15; omega
-  refine ⟨lvl_of_pos (d := 0) (Pb := 0) (c := S.c0) (by omega) (Nat.dvd_zero _) (fun x hx => ?_), fun j hj hl => ?_⟩
-  · have := ((hall x (Nat.lt_of_lt_of_le hx hru)).1 hx).1
-    simpa only [Nat.zero_add, Nat.sub_zero, Nat.add_zero] using this
-  · rcases ((hall j (Nat.lt_of_lt_of_le hj hru)).1 hj).2.1 hl with ⟨hd, -, eop, eval⟩ | ⟨-, -, h3⟩
-    · obtain ⟨hrc1, hrc2⟩ := hrc hd
-      rw [eop]
-      refine lvl_of_pos (d := S.root) (Pb := rev S.root low.toNat * 2 ^ (16 - S.root)) (c := S.c0) (by omega)
-        (Nat.dvd_mul_left _ _) (fun m hm => ?_)
-      have hq := (hall (C[S.off + j]!.val.toNat + m) (by omega)).2 hd (by omega)
-      rw [show C[S.off + j]!.val.toNat + m - (used.toNat - 2 ^ curr.toNat) = m by omega, ← Nat.add_assoc] at hq
-      exact hq
-    · exact h3
+  have hroot : InfbackLoop.LvlAll C S.off S.root :=
+    InfbackLoop.lvlAll_of_pos (d := 0) (Pb := 0) (c := S.c0) (by omega) (Nat.dvd_zero _) (fun x hx => by
+      have := ((hall x (Nat.lt_of_lt_of_le hx hru)).1 hx).1
+      simpa only [Nat.zero_add, Nat.sub_zero, Nat.add_zero] using this)
+  refine ⟨⟨hroot.lvl, fun j hj hl => ?_⟩, hroot⟩
+  rcases ((hall j (Nat.lt_of_lt_of_le hj hru)).1 hj).2.1 hl with ⟨hd, -, eop, eval⟩ | ⟨-, -, h3⟩
+  · obtain ⟨hrc1, hrc2⟩ := hrc hd
+    rw [eop]
+    refine lvl_of_pos (d := S.root) (Pb := rev S.root low.toNat * 2 ^ (16 - S.root)) (c := S.c0) (by omega)
+      (Nat.dvd_mul_left _ _) (fun m hm => ?_)
+    have hq := (hall (C[S.off + j]!.val.toNat + m) (by omega)).2 hd (by omega)
+    rw [show C[S.off + j]!.val.toNat + m - (used.toNat - 2 ^ curr.toNat) = m by omega, ← Nat.add_assoc] at hq
+    exact hq
+  · exact h3
 
 /-- An invalid-code marker (`op = 64`, `val = 0`) of `bits` bits. -/
 theorem marker_ok {type : UInt32} {d : Nat} {bits : UInt8} (h1 : 1 ≤ bits.toNat) (h2 : d + bits.toNat ≤ 20) :
@@ -544,14 +547,15 @@ theorem codes_op_of_pre {S : Setup} {drop curr used low : UInt32} {C : Array Cod
     ∀ j, j < 2 ^ S.root → C[S.off + j]!.op.toNat &&& 16 = 0 :=
   fun j hj => ((hall j (Nat.lt_of_lt_of_le hj hru)).1 hj).2.2 hc
 
-/-- Two invalid-code markers of one bit (the table of an empty code) are a prefix code. -/
+/-- Two invalid-code markers of one bit (the table of an empty code) are a prefix code, for every entry. -/
 theorem rep_markers {C : Array Code} {off : Nat} {dist : Bool} (h : ∀ x, x < 2 → C[off + x]! = ⟨1, 64, 0⟩) :
-    InfbackLoop.Rep C off 1 dist := by
-  refine ⟨fun x x' hx hx' _ => ?_, fun j hj hl => ?_⟩
-  · rw [h x hx, h x' hx']
+    InfbackLoop.Rep C off 1 dist ∧ InfbackLoop.LvlAll C off 1 := by
+  have hall : InfbackLoop.LvlAll C off 1 := fun x x' hx hx' => by
+    rw [h x hx, h x' hx']
     exact ⟨by decide, fun _ => rfl⟩
-  · rw [h j hj, linkTest_false (by decide)] at hl
-    cases hl
+  refine ⟨⟨hall.lvl, fun j hj hl => ?_⟩, hall⟩
+  rw [h j hj, linkTest_false (by decide)] at hl
+  cases hl
 
 theorem set!_self {C : Array Code} {k : Nat} (h : k < C.size) (v : Code) : (C.set! k v)[k]? = some v := by
   simp [Array.set!_eq_setIfInBounds, h]

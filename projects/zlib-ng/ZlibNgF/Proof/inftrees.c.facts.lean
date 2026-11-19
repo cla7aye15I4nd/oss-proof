@@ -52,7 +52,7 @@ theorem TblPre.of_call {h : Heap} {b : Nat} {st : InflateState} {type : UInt32} 
 /-- The three calls of `zng_inflate_table` in `inflate` and `inflateBack`: no fault, only `codes` and `work` change,
 the entries before the table start are kept, and on success the table `[o, o')` has room for its `2 ^ lb` root entries,
 ends within `ENOUGH_DISTS` (distance code) or `ENOUGH_LENS` (the other two) of `o`, and is a prefix code (`Rep`)
-whose root entries of a code length table have `op & 16` clear. -/
+whose root level of a code length table is a prefix code for every entry, with `op & 16` clear. -/
 theorem table_run_rep (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (lo : Nat) (n : UInt32) (o : Nat)
     (bits : UInt32) (hi : h.istate b = some st) (hc : st.codes.size = ENOUGH) (hl : st.lens.size = 320)
     (hw : st.work.size = 288) (hcall : TableCall type lo n o bits)
@@ -66,7 +66,8 @@ theorem table_run_rep (h : Heap) (b : Nat) (st : InflateState) (type : UInt32) (
       (ret = 0 → o' ≤ o + (if type = DISTS then 592 else 1332) ∧ o + 2 ^ lb.toNat ≤ o' ∧ 1 ≤ lb.toNat ∧
         lb.toNat ≤ 15 ∧ InflateTab.CodeTable codes' o o' lb.toNat (mOf type) (dOf type) ∧
         InfbackLoop.Rep codes' o lb.toNat (dOf type) ∧
-        (type = CODES → ∀ j, j < 2 ^ lb.toNat → codes'[o + j]!.op.toNat &&& 16 = 0)) ∧
+        (type = CODES → InfbackLoop.LvlAll codes' o lb.toNat ∧
+          ∀ j, j < 2 ^ lb.toNat → codes'[o + j]!.op.toNat &&& 16 = 0)) ∧
       (ret ≠ 0 → o' = o) := by
   have hP := TblPre.of_call hi hc hl hw hcall hv
   obtain ⟨⟨ret, p, lb⟩, h', e, C, W, rfl, hCs, hWs, hfr, hret, herr, hok⟩ := zng_inflate_table_wp hP

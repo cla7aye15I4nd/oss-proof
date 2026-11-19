@@ -39,6 +39,15 @@ def Lvl (a : Array Code) (s k : Nat) : Prop :=
     (x % 2 ^ (CODE_BITS a[s + x']!).toNat = x' % 2 ^ (CODE_BITS a[s + x']!).toNat →
       CODE_BITS a[s + x]! = CODE_BITS a[s + x']!)
 
+/-- `Lvl` for every entry, live or not. -/
+def LvlAll (a : Array Code) (s k : Nat) : Prop :=
+  ∀ x x', x < 2 ^ k → x' < 2 ^ k → (CODE_BITS a[s + x']!).toNat ≤ k ∧
+    (x % 2 ^ (CODE_BITS a[s + x']!).toNat = x' % 2 ^ (CODE_BITS a[s + x']!).toNat →
+      CODE_BITS a[s + x]! = CODE_BITS a[s + x']!)
+
+theorem LvlAll.lvl {a : Array Code} {s k : Nat} (h : LvlAll a s k) : Lvl a s k :=
+  fun x x' hx hx' _ => h x x' hx hx'
+
 /-- The root table `a[o, o + 2^n)` and every sub-table it links to are prefix codes. -/
 def Rep (a : Array Code) (o n : Nat) (dist : Bool) : Prop :=
   Lvl a o n ∧ ∀ j, j < 2 ^ n → linkTest dist a[o + j]! = true →
@@ -102,10 +111,10 @@ theorem pos_div {Pb d k L y : Nat} (hdk : d + k ≤ 16) (hdL : d ≤ L) (hLk : L
   omega
 
 /-- A level whose every slot has the code bits of its code position (`PosCB`) is a prefix code. -/
-theorem lvl_of_pos {a : Array Code} {s k d Pb : Nat} {c : Nat → Nat} (hdk : d + k ≤ 16) (hPb : 2 ^ (16 - d) ∣ Pb)
+theorem lvlAll_of_pos {a : Array Code} {s k d Pb : Nat} {c : Nat → Nat} (hdk : d + k ≤ 16) (hPb : 2 ^ (16 - d) ∣ Pb)
     (hall : ∀ x, x < 2 ^ k → PosCB c (Pb + rev k x * 2 ^ (16 - d - k)) (d + k) ((CODE_BITS a[s + x]!).toNat + d)) :
-    Lvl a s k := by
-  intro x x' hx hx' _
+    LvlAll a s k := by
+  intro x x' hx hx'
   generalize hcb' : (CODE_BITS a[s + x']!).toNat = cb' at *
   have heq : ∀ y, y = x' → CODE_BITS a[s + y]! = CODE_BITS a[s + x']! := fun _ e => by rw [e]
   rcases hall x' hx' with ⟨L, hL1, hL15, h1, h2, hcb⟩ | ⟨h1, hcb⟩
@@ -134,6 +143,11 @@ theorem lvl_of_pos {a : Array Code} {s k d Pb : Nat} {c : Nat → Nat} (hdk : d 
     have e : cb' = k := by omega
     rw [e, Nat.mod_eq_of_lt hx, Nat.mod_eq_of_lt hx'] at hm
     exact heq x hm
+
+theorem lvl_of_pos {a : Array Code} {s k d Pb : Nat} {c : Nat → Nat} (hdk : d + k ≤ 16) (hPb : 2 ^ (16 - d) ∣ Pb)
+    (hall : ∀ x, x < 2 ^ k → PosCB c (Pb + rev k x * 2 ^ (16 - d - k)) (d + k) ((CODE_BITS a[s + x]!).toNat + d)) :
+    Lvl a s k :=
+  (lvlAll_of_pos hdk hPb hall).lvl
 
 /-- The `j`-th replicated slot of the code `K` of length `L` in a level with `c` index bits after `d` dropped
 bits, for the block `P` of the top `d` bits, has its code position in `[K, K + 2 ^ (16 - L))`. -/

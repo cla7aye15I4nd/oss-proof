@@ -28,8 +28,8 @@ def bndOf (type bits : UInt32) : Nat :=
 
 /-- What `zng_inflate_table` guarantees about its result and the heap: only `codes[off .. off + bndOf type bits)` and
 `work` change, and on success the region `[off, off + used)` is a decoding table with the returned root bits and a
-prefix code, whose root entries of a code length table have `op & 16` clear (for at most 286 literal/length
-lengths). -/
+prefix code; in a code length table every root entry has `op & 16` clear (its code bits are its `bits`) and the root
+level is a prefix code for every entry (`LvlAll`) (for at most 286 literal/length lengths). -/
 def TablePost (h : Heap) (b : Nat) (s : InflateState) (type codes bits : UInt32) (off : Nat)
     (r : Int32 × CodePtr × UInt32) (h' : Heap) : Prop :=
   ∃ C W, h' = setCW h b s C W ∧ C.size = s.codes.size ∧ W.size = s.work.size ∧
@@ -41,7 +41,8 @@ def TablePost (h : Heap) (b : Nat) (s : InflateState) (type codes bits : UInt32)
       ((type = LENS → codes.toNat ≤ 286) →
         InflateTab.CodeTable C off (off + used) r.2.2.toNat (mOf type) (dOf type) ∧
           InfbackLoop.Rep C off r.2.2.toNat (dOf type) ∧
-          (type = CODES → ∀ j, j < 2 ^ r.2.2.toNat → C[off + j]!.op.toNat &&& 16 = 0)))
+          (type = CODES → InfbackLoop.LvlAll C off r.2.2.toNat ∧
+            ∀ j, j < 2 ^ r.2.2.toNat → C[off + j]!.op.toNat &&& 16 = 0)))
 
 theorem set_ne {α : Type} {C : Array α} {k i : Nat} (v : α) (h : k ≠ i) : (C.set! k v)[i]? = C[i]? := by
   simp [Array.set!_eq_setIfInBounds, h]

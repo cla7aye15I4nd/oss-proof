@@ -138,7 +138,8 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
     rw [Wp.pure_iff]
     refine ⟨_, _, rfl, by simp, rfl, ?_, Or.inl rfl, fun e => absurd rfl e, fun _ => ⟨2, by simp, hbnd2, ?_, by simp, by simp, ?_,
       fun _ => ⟨codeTable_of (u := 2) (root := 1) (by decide) (by decide) (by decide) (by simp; omega) (fun i hi => ?_),
-        (fun hm => ⟨rep_markers hm, fun _ j hj => by rw [hm j (by simpa using hj)]; decide⟩) (fun x hx => ?_)⟩⟩⟩
+        (fun hm => ⟨(rep_markers hm).1, fun _ => ⟨(rep_markers (dist := false) hm).2,
+          fun j hj => by rw [hm j (by simpa using hj)]; decide⟩⟩) (fun x hx => ?_)⟩⟩⟩
     · intro i hi
       rw [set_ne _ (by omega), set_ne _ (by omega)]
     · show Ptr.ref _ (((off + 1 + 0 : Nat) : Int) + 1).toNat = _
@@ -405,9 +406,11 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
         have hct : (type = LENS → codes.toNat ≤ 286) →
             InflateTab.CodeTable C' off (off + t.used.toNat) root.toNat (mOf type) (dOf type) ∧
               InfbackLoop.Rep C' off root.toNat (dOf type) ∧
-              (type = CODES → ∀ j, j < 2 ^ root.toNat → C'[off + j]!.op.toNat &&& 16 = 0) := fun hp =>
-          ⟨(hct' hp).1, rep_of_pre hS hfr (fun hd => ⟨(hf.rc hd).1, (hf.rc hd).2.1⟩) (hct' hp).2,
-            fun hc => codes_op_of_pre hc hfr (hct' hp).2⟩
+              (type = CODES → InfbackLoop.LvlAll C' off root.toNat ∧
+                ∀ j, j < 2 ^ root.toNat → C'[off + j]!.op.toNat &&& 16 = 0) := fun hp =>
+          ⟨(hct' hp).1, (rep_of_pre hS hfr (fun hd => ⟨(hf.rc hd).1, (hf.rc hd).2.1⟩) (hct' hp).2).1,
+            fun hc => ⟨(rep_of_pre hS hfr (fun hd => ⟨(hf.rc hd).1, (hf.rc hd).2.1⟩) (hct' hp).2).2,
+              codes_op_of_pre hc hfr (hct' hp).2⟩⟩
         refine Wp.bind (Wp.of_eq (add_ok (get_codes hl C' W) (by omega) (by simp only [Int.ofNat_eq_natCast]; omega) (by simp only [Int.ofNat_eq_natCast]; omega)) ?_)
         rw [Wp.pure_iff]
         refine ⟨C', W, rfl, hC', hWs, fun i hi => hfr' i (fun x => hi ⟨x.1, by omega⟩), Or.inl rfl,
