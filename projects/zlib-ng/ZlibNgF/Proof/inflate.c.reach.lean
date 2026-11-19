@@ -1,6 +1,7 @@
 import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«public-inflate-init»
 import ZlibNgF.Proof.«inflate.c.copy»
+import ZlibNgF.Proof.«adler32_c.c.safety»
 
 /-!
 # Reachable inflate streams have the structural invariant (`ZlibNgF`)
@@ -15,12 +16,15 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.InflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNgF.Proof.InflateInv
 
-/-- The obligations still to prove: preservation by `inflate`, and the safety of the Adler-32 kernel `adler32_c`
-(`inflateSetDictionary` checks the dictionary with it). -/
+/-- The obligation still to prove: preservation of the invariant by `inflate`. -/
 structure Pending : Prop where
   inflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), Inv h s → StreamIO h s →
     C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h') → Inv h' s
-  adler : InflateWindow.AdlerSafe
+
+/-- `adler32_c` on a readable buffer does not fault and changes nothing (`Proof/adler32_c.c.safety.lean`). -/
+theorem adlerSafe : InflateWindow.AdlerSafe := fun _ a _ o _ n hg hle =>
+  let ⟨v, e, _⟩ := Adler32Safe.adler32_c_safe hg a o n hle
+  ⟨v, e⟩
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -74,7 +78,7 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
     rw [det e e0]; exact hi
   · obtain ⟨_, e0⟩ := InflateControl.inflateSyncPoint_inv hv
     rw [det e e0]; exact hv
-  · obtain ⟨_, _, e0, hi, _⟩ := InflateWindow.setDict_inv P.adler hv hd hnb
+  · obtain ⟨_, _, e0, hi, _⟩ := InflateWindow.setDict_inv adlerSafe hv hd hnb
     rw [det e e0]; exact hi
   · obtain ⟨_, _, e0, hi, _⟩ := InflateDict.getDict_inv hasLen hv hd hnb
     rw [det e e0]; exact hi
@@ -209,7 +213,7 @@ theorem inflateSetDictionary_safety_of (P : Pending) : Goal.inflateSetDictionary
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateWindow.setDict_noState (Or.inl hn) d n, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateWindow.setDict_noState (Or.inr hn) d n, InflateInit.frame_refl h _ _ _ _⟩
-  · obtain ⟨r, h', e, _, f⟩ := InflateWindow.setDict_inv P.adler (reach_inv P hr) hd hnb
+  · obtain ⟨r, h', e, _, f⟩ := InflateWindow.setDict_inv adlerSafe (reach_inv P hr) hd hnb
     exact ⟨r, h', e, f⟩
 
 theorem inflateSync_safety_of (P : Pending) : Goal.inflateSync_safety := by

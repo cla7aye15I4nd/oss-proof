@@ -5,8 +5,8 @@ import ZlibNgF.Proof.«inflate.c.dict»
 
 `updatewindow` without a check value (`cksum == 0`), from a source outside the state block: the copies stay inside
 the 32768 window bytes of the block, and the window fields keep their clauses (`WinOk`). Then `inflateSetDictionary`
-on an invariant stream. Its `DICT` branch calls `adler32_c` on the dictionary; the safety of `adler32_c` on a readable
-buffer is the hypothesis `AdlerSafe` (the Adler-32 kernel is a separate unit).
+on an invariant stream. Its `DICT` branch calls `adler32_c` on the dictionary; the lemma takes the safety of
+`adler32_c` on a readable buffer as `AdlerSafe`, proved in `Proof/adler32_c.c.safety.lean`.
 -/
 
 set_option autoImplicit false
