@@ -98,12 +98,14 @@ Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `in
   the single block of `alloc_inflate`. The model has to place typed objects (`inflate_state`, `inflate_allocs`,
   the window bytes) inside one `char` block obtained from `zalloc`, and carry the function pointers `zalloc` /
   `zfree` and the static code tables as pointer targets; the runtime of this project does not support that yet.
-- Undefined behaviour of upstream reached by documented calls, fixed by patches 0007-0009 (see the findings page): pointer
+- Undefined behaviour of upstream reached by documented calls, fixed by patches 0007-0010 (see the findings page): pointer
   comparison and subtraction between the window and the caller's output in `chunkcopy_safe`
   (`inflate_p.h:224-225`, from `inflate.c:1100`), `CHUNKCOPY_SAFE` (`chunkset_tpl.h:319`) and `chunkmemset_c`
   (`chunkset_tpl.h:119`, `125`) from `inflate_fast_c` (`inffast_tpl.h:269`); `strm->next_in += 0` on a null
   `next_in` in `inflateSync` after `inflatePrime`; `NULL + 0` and `memcpy` from `NULL` in `updatewindow` from
-  `inflateSetDictionary(strm, NULL, 0)` on a raw stream.
+  `inflateSetDictionary(strm, NULL, 0)` on a raw stream; `in -= len` at the end of `inflate_fast`
+  (`inffast_tpl.h:327`) moving `next_in` before the caller's buffer when `inflatePrime` left 8 or more bits in
+  the bit buffer on entry.
 
 ## Checking
 

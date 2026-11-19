@@ -1,9 +1,9 @@
 # Findings: issues found in zlib-ng
 
-The work found six issues in the zlib-ng `develop` branch at the verified commit. Each is a defect of zlib-ng
+The work found seven issues in the zlib-ng `develop` branch at the verified commit. Each is a defect of zlib-ng
 itself, is reached through functions that `zlib.h` documents, and is shown by a run of the real C (or, where a
-sanitizer cannot see it, by the letter of ISO C17 on a traced run). Patches 0003, 0004, 0006, 0007, 0008 and 0009 fix
-them.
+sanitizer cannot see it, by the letter of ISO C17 on a traced run). Patches 0003, 0004, 0006, 0007, 0008, 0009 and
+0010 fix them.
 
 | Issue | What is wrong | Calls that reach it | Evidence | Fix | Upstream |
 | --- | --- | --- | --- | --- | --- |
@@ -13,6 +13,7 @@ them.
 | `inflate` compares window and output pointers | When a match reaches back into the sliding window, `inflate` (state `MATCH`) calls `chunkcopy_safe`, and `inflate_fast` calls `CHUNKCOPY_SAFE` and `chunkmemset`, with `from` in the window (inside inflate's own allocation) and `out` in the caller's output buffer. They compare these pointers with `>=`, `<` and subtract them: undefined behaviour (ISO C17 §6.5.8p5, §6.5.6p9). | `inflate` of a valid zlib stream whose matches reach into the window, with a small `avail_out` per call | AddressSanitizer pointer-pair check, `inflate_p.h:224`, `inflate_p.h:225`, `chunkset_tpl.h:119`, `chunkset_tpl.h:125`, `chunkset_tpl.h:319` | Patch 0007 | not submitted |
 | `inflateSync` adds 0 to a null `next_in` | With no input (`next_in == NULL`, `avail_in == 0`) but at least 8 bits primed by `inflatePrime`, `inflateSync` runs `strm->next_in += len` with `len == 0`: `NULL + 0` (ISO C17 §6.5.6p8). | `inflateInit`, `inflatePrime(strm, 16, v)`, `inflateSync` | Traced run (returns `Z_DATA_ERROR` after the addition); UndefinedBehaviorSanitizer does not report `NULL + 0` in C | Patch 0008 | not submitted |
 | `inflateSetDictionary` accepts a null dictionary | `zlib.h` says a `NULL` dictionary is an invalid parameter (`Z_STREAM_ERROR`). On a raw stream, `inflateSetDictionary(strm, NULL, 0)` instead calls `updatewindow` with `end = NULL + 0`, which computes `end - 0` and calls `memcpy` with a null source and length 0 (ISO C17 §6.5.6p8, §7.24.1p2), and returns `Z_OK`. | `inflateInit2(strm, -15)`, `inflateSetDictionary(strm, NULL, 0)` | Traced run (returns `Z_OK`) | Patch 0009 | not submitted |
+| `inflate` moves `next_in` before the input after `inflatePrime` | `inflate_fast` assumes fewer than 8 bits in the bit buffer on entry and, on exit, gives back `bits >> 3` bytes of input (`in -= len`). After `inflatePrime` has put up to 32 bits there, it gives back more bytes than it read: `next_in` points before the caller's buffer (ISO C17 §6.5.6p8), `avail_in` is larger than the caller gave and `total_in` wraps below 0. | `inflateInit2(strm, -15)`, `inflatePrime(strm, 16, 3)`, `inflatePrime(strm, 16, 0)`, `inflate` with 32 bytes of input | A run of the real C: `avail_in` 34 after a call with 32, `total_in` 4294967294 | Patch 0010 | not submitted |
 
 Issues found in the earlier 2.3.3 release (`gzbuffer` size overflow, `crc32_combine*` not returning for a negative
 length, `adler32` with `NULL` and length 1) are fixed on the `develop` branch; their reproductions remain as

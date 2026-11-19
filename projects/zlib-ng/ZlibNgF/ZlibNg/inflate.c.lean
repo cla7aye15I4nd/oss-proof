@@ -8,7 +8,7 @@ import ZlibNgF.ZlibNg.arch.generic.«chunkset_c.c»
 # `inflate.c` — zlib decompression (`ZlibNgF`)
 
 Source: `zlib-ng/inflate.c` with patches 0003 (`inflateCopy`), 0007 (window copy in `MATCH`), 0008
-(`inflateSync`) and 0009 (`inflateSetDictionary`); `ZLIB_COMPAT`, `GUNZIP` defined; no `INFLATE_STRICT`,
+(`inflateSync`), 0009 (`inflateSetDictionary`) and 0010 (fast path only with fewer than 8 bits held, in `LEN`); `ZLIB_COMPAT`, `GUNZIP` defined; no `INFLATE_STRICT`,
 `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR`, `S390_DFLTCC_INFLATE`, `ZLIB_DEBUG` (so `Tracev` and the hooks are
 empty, `INFLATE_NEED_CHECKSUM` / `INFLATE_NEED_UPDATEWINDOW` are 1). `bits_t` is `uint8_t` (x86_64).
 
@@ -674,7 +674,7 @@ def inflate_LENEXT (c : Ctx) : X Unit := do
 
 def inflate_LEN (c : Ctx) : X Unit := do
   let l ← get
-  if l.have_ >= INFLATE_FAST_MIN_HAVE && l.left >= INFLATE_FAST_MIN_SAFE then
+  if l.have_ >= INFLATE_FAST_MIN_HAVE && l.left >= INFLATE_FAST_MIN_SAFE && l.bits < 8 then
     RESTORE c
     if l.left >= INFLATE_FAST_MIN_LEFT then
       ZlibNg.ChunksetC.inflate_fast_c c.strm l.out

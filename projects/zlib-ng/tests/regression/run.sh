@@ -31,6 +31,7 @@ cases=(
   "inflate-window-copy|0007|300|invalid-pointer-pair|inflate 1 1"
   "inflatesync-null-next-in|0008||none|sync -3 1"
   "inflatesetdictionary-null|0009||setdict 0|setdict -2"
+  "inflate-fast-primed-bits|0010||inflate 1 34 4294967294|inflate 1 32 0"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
