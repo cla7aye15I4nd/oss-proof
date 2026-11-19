@@ -32,7 +32,6 @@ Pick a chain above the diagram. Each chain starts from ordinary application code
 | openjpeg | Pillow JPEG 2000 | not done |
 | liblzma (xz) | Pillow LZMA-compressed TIFF, Python `lzma` | not done |
 | zlib-ng | Sharp and Pillow PNG and Deflate TIFF | [recorded progress](../zlib-ng/en/progress.html) |
-| bzip2, lz4 | Python `bz2`, python-lz4, libarchive (not Sharp or Pillow) | not done |
 
 zlib, zstd, brotli, the 7-Zip SDK and libarchive keep their existing scopes and are not repeated here.
 
