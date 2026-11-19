@@ -43,6 +43,7 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Functional.Goal.crc32_combine_rejection_functional, ``ZlibNgF.Proof.Crc32.crc32_combine_rejection_functional),
   (``ZlibNgF.Spec.Functional.Goal.compressBound_functional, ``ZlibNgF.Proof.CompressBound.compressBound_functional),
   (``ZlibNgF.Spec.Safety.Goal.inflate_safety, ``ZlibNgF.Proof.InflateTop.inflate_safety),
+  (``ZlibNgF.Spec.Safety.Goal.inflate_nonvacuous, ``ZlibNgF.Proof.InflateNonvacuous.inflate_nonvacuous),
   (``ZlibNgF.Spec.Safety.Goal.inflateMark_safety, ``ZlibNgF.Proof.InflateTop.inflateMark_safety),
   (``ZlibNgF.Spec.Safety.Goal.inflateSyncPoint_safety, ``ZlibNgF.Proof.InflateTop.inflateSyncPoint_safety),
   (``ZlibNgF.Spec.Safety.Goal.inflateCodesUsed_safety, ``ZlibNgF.Proof.InflateTop.inflateCodesUsed_safety),
@@ -66,8 +67,7 @@ def proved : List (Name × Name) := [
 def notDone : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
   ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
-  ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
-  ``ZlibNgF.Spec.Safety.Goal.inflate_nonvacuous
+  ``ZlibNgF.Spec.Functional.Goal.adler32_functional
 ]
 
 def required : List Name := [
@@ -109,6 +109,7 @@ def required : List Name := [
   ``ZlibNgF.Spec.Functional.Goal.crc32_combine_rejection_functional,
   ``ZlibNgF.Spec.Functional.Goal.compressBound_functional,
   ``ZlibNgF.Spec.Safety.Goal.inflate_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflate_nonvacuous,
   ``ZlibNgF.Spec.Safety.Goal.inflateMark_safety,
   ``ZlibNgF.Spec.Safety.Goal.inflateSyncPoint_safety,
   ``ZlibNgF.Spec.Safety.Goal.inflateCodesUsed_safety,
