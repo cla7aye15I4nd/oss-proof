@@ -107,6 +107,7 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       bstart := by simp [dview, lmS, trS, rkS]
       ins := by simp [dview, lmS, trS, rkS]
       wpow := c.wpow
+      lmod := c.lmod
       fe_mod := by
         have := lm_fill_end _ q1.1 q1.2.1
         simpa [dview, lmS, trS, rkS] using this.1
@@ -171,6 +172,7 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       bstart := c.bstart
       ins := c.ins
       wpow := c.wpow
+      lmod := c.lmod
       fe_mod := c.fe_mod
       fe_hi := c.fe_hi
       bs_lo := c.bs_lo

@@ -20,7 +20,7 @@ that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the 
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
 `strstart - block_start` bounded; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
-tree descriptors of `zng_tr_init`.
+tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16.
 -/
 
 set_option autoImplicit false
@@ -214,6 +214,9 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   descs : v.l_dyn = .val (.ref (.dyn_ltree b) 0) ∧ v.l_stat = .val .static_l_desc ∧
     v.d_dyn = .val (.ref (.dyn_dtree b) 0) ∧ v.d_stat = .val .static_d_desc ∧
     v.bl_dyn = .val (.ref (.bl_tree b) 0) ∧ v.bl_stat = .val .static_bl_desc
+  /-- `lit_bufsize = 1 << (memLevel + 6)` is a multiple of 16 (`alloc_deflate` of `deflateCopy` aligns the state that
+  follows `pending_buf` with it) -/
+  lmod : v.lit_bufsize.toNat % 16 = 0
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}

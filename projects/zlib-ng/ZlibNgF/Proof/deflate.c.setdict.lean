@@ -538,6 +538,7 @@ theorem inv_cut {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
     bstart := h1
     ins := h2
     wpow := c.wpow
+    lmod := c.lmod
     fe_mod := c.fe_mod
     fe_hi := c.fe_hi
     bs_lo := h4
