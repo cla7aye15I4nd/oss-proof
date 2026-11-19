@@ -177,6 +177,18 @@ def symCost (LT DT : Array Ct) (d : Array UInt8) (sbo j : Nat) : Nat :=
   if symDist d sbo j = 0 then (LT[d[sbo + 3 * j + 2]!.toNat]!).dl.toNat
   else matchCost LT DT d[sbo + 3 * j + 2]!.toNat (symDist d sbo j - 1)
 
+/-- `symCost` in terms of the decoding of the invariant (`symLCode`, `symDist`, `dCodeOf`): the length of the
+literal/length code, plus for a match the length extra bits, the distance code and its extra bits. -/
+theorem symCost_eq (LT DT : Array Ct) (d : Array UInt8) (sbo j : Nat) :
+    symCost LT DT d sbo j = (LT[symLCode d sbo j]!).dl.toNat +
+      (if symDist d sbo j = 0 then 0 else
+        (lmask_extra[(zng_length_code[d[sbo + 3 * j + 2]!.toNat]!).toNat]!.toUInt32 >>> 8).toNat +
+        (DT[dCodeOf (symDist d sbo j - 1)]!).dl.toNat + (dmask_extra[dCodeOf (symDist d sbo j - 1)]! >>> 16).toNat) := by
+  unfold symCost symLCode matchCost
+  by_cases h : symDist d sbo j = 0
+  · simp [h]
+  · simp only [h, ↓reduceIte]; omega
+
 /-- The bit costs of the first `n` tallied symbols. -/
 def blockCosts (LT DT : Array Ct) (d : Array UInt8) (sbo n : Nat) : List Nat :=
   (List.range n).map (symCost LT DT d sbo)
