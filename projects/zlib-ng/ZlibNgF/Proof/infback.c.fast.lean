@@ -58,7 +58,8 @@ theorem len_fast {E : BEnv} (cb : E.CB) {l : IL} {H : Heap} {t : Nat} {z : ZStre
     SatX H l (do
       RESTORE E.c.ctx
       ZlibNg.ChunksetC.inflate_fast_safe_c E.c.strm (← rdS E.c.st (·.wsize))
-      LOAD E.c.ctx : X Unit) (Post E m) := by
+      LOAD E.c.ctx
+      pure () : X Unit) (Post E m) := by
   have hb8 : l.bits.toNat < 8 := by
     rcases bl.bits with e | e
     · rw [hm] at e; exact absurd e (by decide)
@@ -124,11 +125,12 @@ theorem len_fast {E : BEnv} (cb : E.CB) {l : IL} {H : Heap} {t : Nat} {z : ZStre
     hbb, hia, hoth, hbo, hfr⟩, hnb⟩
   have hbd3 : H3.bytes E.b = some bd := by rw [hbb]; exact hbd
   have hs3' := (show H3.istate E.b = H3.istates E.b by simp only [Heap.istate, hbd3]).trans hs3
+  refine SatX.bind ?_
   unfold LOAD
   dsimp only [BEnv.c, BCtx.ctx]
   refine SatX.bind (liftEq (InflateInv.ldStream_app hz3) ?_)
   refine SatX.bind (liftEq (InflateInv.ldState_app hs3') ?_)
-  refine SatX.modify ?_
+  refine SatX.modify (SatX.pure ?_)
   have hb32 : bits.toNat < 8 := by rw [UInt32.lt_iff_toNat_lt] at hbits; simpa using hbits
   have hai' : ai.toNat ≤ l.have_.toNat := UInt32.le_iff_toNat_le.mp hai
   have hao' : ao.toNat ≤ l.left.toNat := UInt32.le_iff_toNat_le.mp hao
