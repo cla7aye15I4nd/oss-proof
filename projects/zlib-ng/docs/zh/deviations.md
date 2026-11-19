@@ -42,6 +42,7 @@
 | `inflateGetHeader`（作为可达流的一步） | 流的状态处于 `HEAD` 模式：从 `inflateInit*` 或 `inflateReset*` 起，直到 `inflate` 读入第一个头部字节。 | `InflateStep` 中的 `HeadMode` | `zlib.h`："inflateGetHeader() may be called after inflateInit2() or inflateReset(), and before the first call of inflate()"。目标覆盖 `HEAD` 模式下的每次调用，其中包括 `zlib.h` 允许的每次调用。若在 gzip 额外字段中途才登记头部，`inflate` 会读到外来的 `extra_len`：无符号的 `extra_len - length` 与 `len + copy` 回绕，`memcpy` 写出 `extra_max` 之外。 |
 | `inflateInit_`、`inflateInit2_`、`inflateCopy`、`uncompress*` | 堆模型中尚未分配的块里没有记录 `inflate_state` 或 `inflate_allocs` 对象。 | `FreshBlocks` | 堆模型的良构条件，程序到达的每个堆都满足；不是对 C 输入的限制。 |
 | 调用之间 | 程序不改变 `z_stream` 的其他字段、库的分配或已登记的 `gz_header` 记录。 | `CallerStep` | `zlib.h` 把它们保留给库。 |
+| `inflate`（登记了 `gz_header` 的流） | 在该流使用期间，没有其他调用写已登记的 `gz_header` 记录：特别是没有共享该记录的第二个流（经 `inflateCopy`，或以同一记录再次调用 `inflateGetHeader`）在其上运行 `inflate`。 | `CallerStep`（已登记的头部记录在该流的调用之间保持不变） | 这比 `zlib.h` 更窄：`zlib.h` 并不禁止共享 `gz_header`。共享时 C 代码会写出额外字段缓冲区（见发现）；在该缺陷修复之前，目标不覆盖这种情形。 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `dest` 与 `source` 不重叠。 | `Disjoint` | 没有重叠理由的调用者缓冲区。 |
 
 ## 被验证源码的行为

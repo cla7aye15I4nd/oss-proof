@@ -1,8 +1,8 @@
 # 发现：zlib-ng 中发现的问题
 
-本工作在被验证提交的 zlib-ng `develop` 分支中发现了七个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
+本工作在被验证提交的 zlib-ng `develop` 分支中发现了八个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
 有文档的函数触达，并由真实 C 代码的运行（消毒器无法发现时，由经跟踪的运行与 ISO C17 条文）展示。补丁 0003、0004、
-0006、0007、0008、0009 与 0010 修复了它们。
+0006、0007、0008、0009 与 0010 修复了其中七个；共享 `gz_header` 的越界写尚无补丁，安全目标也不覆盖它（见偏差）。
 
 | 问题 | 错在哪里 | 触达的调用 | 证据 | 修复 | 上游 |
 | --- | --- | --- | --- | --- | --- |
@@ -13,6 +13,7 @@
 | `inflateSync` 对空 `next_in` 加 0 | 没有输入（`next_in == NULL`，`avail_in == 0`）但已由 `inflatePrime` 预置至少 8 位时，`inflateSync` 执行 `strm->next_in += len` 且 `len == 0`：`NULL + 0`（ISO C17 §6.5.6p8）。 | `inflateInit`，`inflatePrime(strm, 16, v)`，`inflateSync` | 经跟踪的运行（加法之后返回 `Z_DATA_ERROR`）；UndefinedBehaviorSanitizer 在 C 中不报告 `NULL + 0` | 补丁 0008 | 未提交 |
 | `inflateSetDictionary` 接受空字典 | `zlib.h` 规定 `NULL` 字典是无效参数（`Z_STREAM_ERROR`）。在原始流上，`inflateSetDictionary(strm, NULL, 0)` 却以 `end = NULL + 0` 调用 `updatewindow`，计算 `end - 0` 并以空源指针、长度 0 调用 `memcpy`（ISO C17 §6.5.6p8、§7.24.1p2），然后返回 `Z_OK`。 | `inflateInit2(strm, -15)`，`inflateSetDictionary(strm, NULL, 0)` | 经跟踪的运行（返回 `Z_OK`） | 补丁 0009 | 未提交 |
 | `inflatePrime` 之后 `inflate` 把 `next_in` 移到输入之前 | `inflate_fast` 假定进入时位缓冲中少于 8 位，并在退出时退还 `bits >> 3` 个输入字节（`in -= len`）。`inflatePrime` 在其中放入多达 32 位之后，它退还的字节多于读入的字节：`next_in` 指向调用者缓冲区之前（ISO C17 §6.5.6p8），`avail_in` 大于调用者给出的值，`total_in` 回绕到 0 以下。 | `inflateInit2(strm, -15)`，`inflatePrime(strm, 16, 3)`，`inflatePrime(strm, 16, 0)`，以 32 字节输入调用 `inflate` | 真实 C 代码的运行：以 32 字节调用后 `avail_in` 为 34，`total_in` 为 4294967294 | 补丁 0010 | 未提交 |
+| 两个共享同一 `gz_header` 的流写出其额外字段缓冲区 | `inflate`（`EXTRA` 状态）把额外字段放在 `len = head->extra_len - state->length` 处，并用 `len < extra_max` 与 `len + copy > extra_max` 限定拷贝，都以 32 位 `unsigned` 计算。它假定 `head->extra_len` 是本流 `EXLEN` 状态存入的值。两个流共享该头时，另一个流的 `EXLEN` 可以存入更小的 `extra_len`；此时 `len` 回绕到接近 2^32，而 `extra_max` 接近 2^32 时 `len + copy` 也回绕，于是 `memcpy` 写出缓冲区末尾。 | `inflateInit2(a, 31)`，以 `g.extra_max = 0xffffffff` 调用 `inflateGetHeader(a, &g)`，`inflate(a)` 读到额外字段长度之前，`inflateCopy(b, a)`（或再次 `inflateInit2(b, 31)`、`inflateGetHeader(b, &g)`），`inflate(a)` 读入额外长度 100，`inflate(b)` 读入额外长度 10，以 100 字节额外字段调用 `inflate(a)` | AddressSanitizer heap-buffer-overflow，`inflate.c:625`（写 100 字节，越过缓冲区 11 字节） | 尚无 | 未提交 |
 
 早先 2.3.3 版本中发现的问题（`gzbuffer` 大小溢出、负长度时 `crc32_combine*` 不返回、`adler32` 以 `NULL`
 和长度 1 调用）已在 `develop` 分支修复；它们的复现保留为回归测试。

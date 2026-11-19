@@ -46,7 +46,10 @@ plain=(
 # Open defects: undefined behaviour of the verified source with no patch yet. Each must still show its
 # report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report must match
-open_cases=()
+open_cases=(
+  "inflate-shared-header-extra|copy|heap-buffer-overflow"
+  "inflate-shared-header-extra|two|heap-buffer-overflow"
+)
 
 build() { # build <dir> [exclude-prefix]
   local dir=$1 ex=${2:-}
