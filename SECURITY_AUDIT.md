@@ -173,7 +173,8 @@ However, their internal native architectures differ sharply:
    `7zip` (C SDK decode + encode), `openjpeg`, `freetype` (scoped SFNT/TrueType/CFF/smooth).
 
 *(Note: Only the five projects listed in `framework/projects.json` — `zlib`, `7zip`, `libarchive`,
-`zstd`, and `brotli` — currently have Lean packages registered in CI. All other directories under
-`projects/<id>/` currently contain their scoped `AGENTS.md` audit specifications and will be
-registered in `framework/projects.json` as each project pins its upstream submodule and bootstraps
-its strict ISO C17 Lean runtime from `framework/lean/StrictPtr.lean`.)*
+`zstd`, and `brotli` — currently have Lean packages registered in CI. All 18 additional candidate
+directories under `projects/<id>/` currently contain their scoped `AGENTS.md` audit specifications
+and pinned upstream submodules (`projects/<id>/<id>`), and will be registered in
+`framework/projects.json` as each project bootstraps its strict ISO C17 Lean runtime from
+`framework/lean/StrictPtr.lean`.)*

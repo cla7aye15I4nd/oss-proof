@@ -15,8 +15,8 @@ mechanically):
 - **Never argue "benign UB"**. Report confirmed ISO C17 UB in `docs/{en,zh}/findings.md` with
   minimal upstream patches in `patches/`.
 
-- **Status:** Scoped candidate project (not yet registered in `framework/projects.json`; Lean
-  runtime bootstrap, upstream submodule pin, C translation, and safety proofs **Not done**).
+- **Status:** Upstream submodule `libpng/` pinned (not yet registered in `framework/projects.json`;
+  Lean runtime bootstrap, C translation, and safety proofs **Not done**).
 
 ## Scope (`LibpngF`)
 
@@ -112,7 +112,7 @@ for SVG rasterization!), **OpenCV**, **matplotlib**, **ImageMagick**, **GTK / Qt
 
 ## Bootstrap & Local Commands
 
-When onboarding into `framework/projects.json`: pin `libpng/` submodule, copy `lean-toolchain`,
+When onboarding into `framework/projects.json`: copy `lean-toolchain`,
 start `LibpngF/Runtime/Ptr.lean` from `framework/lean/StrictPtr.lean`, wire `LibpngF/Results.lean`
 and `project.json`, then run:
 

@@ -15,8 +15,8 @@ mechanically):
 - **Never argue "benign UB"**. Report confirmed ISO C17 UB in `docs/{en,zh}/findings.md` with
   minimal upstream patches in `patches/`.
 
-- **Status:** Scoped candidate project (not yet registered in `framework/projects.json`; Lean
-  runtime bootstrap, upstream submodule pin, C translation, and safety proofs **Not done**).
+- **Status:** Upstream submodule `lcms2/` pinned (not yet registered in `framework/projects.json`;
+  Lean runtime bootstrap, C translation, and safety proofs **Not done**).
 
 ## Scope (`Lcms2F`)
 
@@ -118,7 +118,7 @@ AVIF `colr`) can carry an **attacker-controlled embedded binary ICC color profil
 
 ## Bootstrap & Local Commands
 
-When onboarding into `framework/projects.json`: pin `lcms2/` submodule, copy `lean-toolchain`,
+When onboarding into `framework/projects.json`: copy `lean-toolchain`,
 start `Lcms2F/Runtime/Ptr.lean` from `framework/lean/StrictPtr.lean`, wire `Lcms2F/Results.lean`
 and `project.json`, then run:
 

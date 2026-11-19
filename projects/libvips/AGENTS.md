@@ -15,8 +15,8 @@ mechanically):
 - **Never argue "benign UB"**. Report confirmed ISO C17 UB in `docs/{en,zh}/findings.md` with
   minimal upstream patches in `patches/`.
 
-- **Status:** Scoped candidate project (not yet registered in `framework/projects.json`; Lean
-  runtime bootstrap, upstream submodule pin, C translation, and safety proofs **Not done**).
+- **Status:** Upstream submodule `libvips/` pinned (not yet registered in `framework/projects.json`;
+  Lean runtime bootstrap, C translation, and safety proofs **Not done**).
 
 ## Scope (`LibvipsF`)
 
@@ -117,7 +117,7 @@ that directly touch untrusted bytes and raw pixel buffers — confirmed directly
 
 ## Bootstrap & Local Commands
 
-When onboarding into `framework/projects.json`: pin `libvips/` submodule, copy `lean-toolchain`,
+When onboarding into `framework/projects.json`: copy `lean-toolchain`,
 start `LibvipsF/Runtime/Ptr.lean` from `framework/lean/StrictPtr.lean`, model external codec &
 GLib allocator contracts cleanly, wire `LibvipsF/Results.lean` and `project.json`, then run:
 

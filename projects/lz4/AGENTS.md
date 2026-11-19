@@ -18,8 +18,8 @@ mechanically):
   confirm it, record it in `docs/{en,zh}/findings.md`, and propose a minimal upstream C patch in
   `patches/`.
 
-- **Status:** Scoped candidate project (not yet registered in `framework/projects.json`; Lean
-  runtime bootstrap, upstream submodule pin, C translation, and safety proofs **Not done**).
+- **Status:** Upstream submodule `lz4/` pinned (not yet registered in `framework/projects.json`; Lean
+  runtime bootstrap, C translation, and safety proofs **Not done**).
 
 ## Scope (`Lz4F`)
 
@@ -121,7 +121,7 @@ databases, and language bindings:
 
 ## Bootstrap & Local Commands
 
-When onboarding into `framework/projects.json`: pin `lz4/` submodule, copy `lean-toolchain`, start
+When onboarding into `framework/projects.json`: copy `lean-toolchain`, start
 `Lz4F/Runtime/Ptr.lean` from `framework/lean/StrictPtr.lean`, wire `Lz4F/Results.lean` and
 `project.json`, then run:
 

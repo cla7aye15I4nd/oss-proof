@@ -9,7 +9,8 @@ mechanically on all C translation units):
   formation**, **no zero-length `memcpy`/`memmove`/`memset`/`memcmp` on invalid pointers**, and
   **no arguing "benign UB"**.
 
-- **Status:** Scoped umbrella & boundary audit (not yet registered in `framework/projects.json`).
+- **Status:** Scoped umbrella & boundary audit (`sharp/` upstream submodule pinned; not yet registered
+  in `framework/projects.json`).
   Because `lovell/sharp` itself is a ~8k LOC C++ Node-API (N-API) binding layer over `libvips` and
   its prebuilt `@img/sharp-libvips-*` C dependency stack, formal Lean 4 C17 proofs are decomposed
   across **`projects/libvips`** and the underlying pure-C codecs listed below, while this document
@@ -18,8 +19,9 @@ mechanically on all C translation units):
 
 ## Architectural Decomposition (`lovell/sharp` + `lovell/sharp-libvips`)
 
-- **Upstream source:** `https://github.com/lovell/sharp` (`src/*.cc`, `src/*.h`, `lib/*.js`) and
-  `https://github.com/lovell/sharp-libvips` (`versions.properties` / `build/lin.sh`).
+- **Upstream source:** `sharp/` pinned submodule (`https://github.com/lovell/sharp.git`,
+  `src/*.cc`, `src/*.h`, `lib/*.js`) and `https://github.com/lovell/sharp-libvips`
+  (`versions.properties` / `build/lin.sh`).
 - **Why Sharp is a top-priority security target:** Sharp is the dominant Node.js image-processing
   library (Next.js `next/image`, Astro, Gatsby, Strapi, Directus, Payload CMS, serverless thumbnail
   pipelines, AI vision ingestion). In nearly all deployments, **untrusted user-uploaded bytes** flow

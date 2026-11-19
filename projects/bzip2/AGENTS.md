@@ -15,8 +15,8 @@ mechanically):
 - **Never argue "benign UB"**. Report confirmed ISO C17 UB in `docs/{en,zh}/findings.md` with
   minimal upstream patches in `patches/`.
 
-- **Status:** Scoped candidate project (not yet registered in `framework/projects.json`; Lean
-  runtime bootstrap, upstream submodule pin, C translation, and safety proofs **Not done**).
+- **Status:** Upstream submodule `bzip2/` pinned (not yet registered in `framework/projects.json`;
+  Lean runtime bootstrap, C translation, and safety proofs **Not done**).
 
 ## Scope (`Bzip2F`)
 
@@ -98,7 +98,7 @@ Entire `libbz2` library (7 small C files + 2 headers):
 
 ## Bootstrap & Local Commands
 
-When onboarding into `framework/projects.json`: pin `bzip2/` submodule, copy `lean-toolchain`, start
+When onboarding into `framework/projects.json`: copy `lean-toolchain`, start
 `Bzip2F/Runtime/Ptr.lean` from `framework/lean/StrictPtr.lean`, wire `Bzip2F/Results.lean` and
 `project.json`, then run:
 

@@ -15,8 +15,8 @@ mechanically):
 - **Never argue "benign UB"**. Report confirmed ISO C17 UB in `docs/{en,zh}/findings.md` with
   minimal upstream patches in `patches/`.
 
-- **Status:** Scoped candidate project (not yet registered in `framework/projects.json`; Lean
-  runtime bootstrap, upstream submodule pin, C translation, and safety proofs **Not done**).
+- **Status:** Upstream submodule `expat/` pinned (not yet registered in `framework/projects.json`;
+  Lean runtime bootstrap, C translation, and safety proofs **Not done**).
 
 ## Scope (`ExpatF`)
 
@@ -116,7 +116,7 @@ Entire `expat/lib/` core (only 4 `.c` translation units!):
 
 ## Bootstrap & Local Commands
 
-When onboarding into `framework/projects.json`: pin `expat/` submodule, copy `lean-toolchain`,
+When onboarding into `framework/projects.json`: copy `lean-toolchain`,
 start `ExpatF/Runtime/Ptr.lean` from `framework/lean/StrictPtr.lean`, wire `ExpatF/Results.lean`
 and `project.json`, then run:
 
