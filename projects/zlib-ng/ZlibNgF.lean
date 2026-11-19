@@ -12,6 +12,7 @@ import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.reach»
 import ZlibNgF.Proof.«trees_emit.h.emit»
 import ZlibNgF.Proof.«trees_emit.h.static»
+import ZlibNgF.Proof.«trees.c.init»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Inflate
 import ZlibNgF.Spec.Safety.Infback
