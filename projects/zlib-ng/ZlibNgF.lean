@@ -11,7 +11,7 @@ import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.reach»
 import ZlibNgF.ZlibNg.«infback.c»
-import ZlibNgF.ZlibNg.«gzlib.c.gzclose»
+import ZlibNgF.Spec.Safety.Gz
 import ZlibNgF.Spec.Safety.Inflate
 import ZlibNgF.Spec.Safety.Infback
 import ZlibNgF.Proof.«public-inflate-control»

@@ -83,6 +83,20 @@ whose call-backs behave as below and by the program. It is not proved (see the p
 | `inflateBack` | One call is offered fewer than `2^48` input bytes in all, the first chunk included. | `BackCallPre` | With endless input `inflateBack` does not return, in C either. |
 | Between calls | The program changes only `next_in`, `avail_in`, `next_out`, `avail_out` of the `z_stream`, does not change the library's allocation, and keeps the window allocated with its size. | `BackCallerStep` | As for inflate streams; the window is used by every call. |
 
+## gz* files
+
+The goals of the gz* functions are stated on the files that `zlib.h` lets a program reach (`GzReachable`): returned
+by a successful `gzopen`, `gzopen64` or `gzdopen`, then changed only by gz calls with valid arguments and by the
+program, which may use the `gzgetc()` macro and change anything that does not belong to the file. A `NULL` file is
+also accepted. Every goal holds for every result of `open`, `read`, `write`, `lseek`, `close`, `malloc`, `strerror`
+and `vsnprintf`.
+
+| Function | Premise | Lean | Reason |
+| --- | --- | --- | --- |
+| `gzread`, `gzfread`, `gzgets`, `gzwrite`, `gzfwrite`, `gzputs` | The caller's buffer (or string) lies outside the file's own blocks (its `gz_state`, path, message, buffers and inflate or deflate state). | `OutsideGz` | The library's memory is not the caller's; a buffer with no reason to overlap it. |
+| `gzprintf`, `gzvprintf` | The arguments match the format. | `vsnprintf` oracle (`Runtime/Gz.lean`) | `zlib.h` describes the format as that of `printf`; a mismatch is undefined in `vsnprintf` itself. |
+| Every gz function | The read results deliver finitely many bytes, and the inputs (files, delivered bytes) are below `2^62` bytes. | `GzWF` | On an endless input `gzread` may wait forever, as any reader would; the bound only keeps the model's loop fuel from being the limit. |
+
 ## Behaviour of the verified source
 
 - `crc32_combine`, `crc32_combine64`, `crc32_combine_gen` and `crc32_combine_gen64` return 0 for a

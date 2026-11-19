@@ -1,4 +1,4 @@
-<!-- source-sha256: f58a721bbb156f4e0c01148c6bce28f49d198fda3c41c5bfa7ff08b8b6345f0a -->
+<!-- source-sha256: 82c3415525ce8369227c9ed87d99e37de1c595ff0ddfecf5f9c117bf504ae1a6 -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -77,6 +77,19 @@
 | `inflateBack` | `in()` 与 `out()` 会返回，不写也不释放 `z_stream` 与库的分配，不释放窗口也不改变其大小。 | `BackCallbacks`、`BackKeep` | `zlib.h` 把它们保留给库并禁止改变窗口；写窗口内容的回调并未被排除。 |
 | `inflateBack` | 一次调用总共得到少于 `2^48` 个输入字节（含首块）。 | `BackCallPre` | 输入无穷时 `inflateBack` 不返回，C 中亦然。 |
 | 调用之间 | 程序只改变 `z_stream` 的 `next_in`、`avail_in`、`next_out`、`avail_out`，不改变库的分配，并保持窗口已分配且大小不变。 | `BackCallerStep` | 与 inflate 流相同；每次调用都使用窗口。 |
+
+## gz* 文件
+
+gz* 函数的目标针对 `zlib.h` 允许程序到达的文件（`GzReachable`）陈述：由成功的 `gzopen`、`gzopen64` 或 `gzdopen`
+返回，此后只被参数有效的 gz 调用以及程序改变；程序可以使用 `gzgetc()` 宏，并改变不属于该文件的任何东西。`NULL`
+文件也被接受。每个目标对 `open`、`read`、`write`、`lseek`、`close`、`malloc`、`strerror` 与 `vsnprintf` 的每种结果
+都成立。
+
+| 函数 | 前提 | Lean | 理由 |
+| --- | --- | --- | --- |
+| `gzread`、`gzfread`、`gzgets`、`gzwrite`、`gzfwrite`、`gzputs` | 调用者的缓冲区（或字符串）位于该文件自身的块（其 `gz_state`、路径、消息、缓冲区及 inflate 或 deflate 状态）之外。 | `OutsideGz` | 库的内存不是调用者的；缓冲区没有理由与之重叠。 |
+| `gzprintf`、`gzvprintf` | 参数与格式相符。 | `vsnprintf` 预言机（`Runtime/Gz.lean`） | `zlib.h` 把格式描述为 `printf` 的格式；不相符在 `vsnprintf` 本身就是未定义的。 |
+| 每个 gz 函数 | 读取结果总共只交付有限个字节，且输入（文件、交付的字节）少于 `2^62` 字节。 | `GzWF` | 在无尽的输入上 `gzread` 可能一直等待，任何读取者都会如此；该上界只是使模型的循环燃料不成为限制。 |
 
 ## 被验证源码的行为
 

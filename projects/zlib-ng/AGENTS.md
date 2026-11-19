@@ -222,7 +222,28 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
   (like the inflate state): its pointer fields start `Ival.uninit`, its integers come from `Heap.garbage`, it
   lives as long as the block, and `free` of the block ends it and the embedded `z_stream` (an entry of
   `Heap.streams`). A `gzFile` is a pointer to the `gz_state` (its first member is the public `struct gzFile_s`).
-  What the model trusts about the libc calls is listed in `Runtime/Fs.lean`.
+  What the model trusts about the libc calls is listed in `Runtime/Fs.lean` and `Runtime/Gz.lean`; in short:
+  `open` flags and `errno` numbers are those of x86_64 Linux glibc (`O_LARGEFILE` is 0 in user space); `read`,
+  `write`, `lseek`, `open`, `close` do what the regular-file model does or what a per-call oracle chooses within
+  their POSIX contract (failures with any `errno`, short reads and writes, device data from a finite budget, any
+  `lseek` value); `strerror` returns a read-only string of any text; `vsnprintf` with the caller's format and
+  arguments (which must match) writes inside `[next, next + size)` only: `min(r, size - 1)` bytes and a zero for a
+  result `r >= 0`, any `size` bytes for a failure; `snprintf` with the three fixed formats of `gzlib.c` is modelled
+  exactly; `malloc` returns memory aligned for any object; `sizeof(gz_state)` is 248.
+- Differential test (`tests/c/gz.c`): the C driver defines `open`, `open64`, `read`, `write`, `lseek`, `lseek64`,
+  `close` and `strerror` itself (taking precedence over the C library for the statically linked `libz.a`) as the
+  same file-system model and schedule as the Lean side, with Linux flag values (host flags are translated),
+  Linux `errno` values and glibc's texts, so the run is target-faithful on any host. The C library's `malloc`,
+  `snprintf`, `vsnprintf` and string functions are real. Allocation failures are not exercised by the drivers.
+- Undefined behaviour of the verified source reached by documented calls, with no patch yet (findings page,
+  `tests/regression/` open cases): a failed `gzwrite` on the direct path leaves `next_in` in the caller's buffer
+  (`gzwrite.c:185` cross-object subtraction after `gzclearerr`; `gzwrite.c:70` reads it again in `gzclose`);
+  `gz_buffer_alloc` forms `NULL + in_size` when the allocation fails (`gzlib.c:90`); the readers' position
+  `x.pos` overflows after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds without moving
+  (`gzread.c:356`). The translation faults on each. Open question, not a finding: `gzoffset64` computes
+  `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below `INT64_MIN + avail_in`; the
+  `lseek` oracle admits such values (Linux files with unsigned offsets return them), so `Goal.gzoffset64_safety` as
+  stated fails for them, although no such descriptor was found on which `read` also delivers data.
 
 ## Checking
 
