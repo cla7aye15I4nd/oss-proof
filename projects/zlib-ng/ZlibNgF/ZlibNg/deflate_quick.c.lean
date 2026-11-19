@@ -34,14 +34,14 @@ def static_dtree_p : CtPtr := .ref .static_dtree 0
 def strmOf (st : StatePtr) : M StreamPtr := do (← ldDState st).strm.get
 
 /-- `Z_FORCEINLINE static int quick_end_block(deflate_state *s, uint32_t strstart, int last, const int static_emit)`
-(`deflate_quick.c:32-50`). `FLUSH_BLOCK_ONLY(s, s->window, last)` reads `s->window` before the macro body (in C it
-is read inside the macro, only when `s->block_start >= 0`). -/
+(`deflate_quick.c:32-50`). The macro argument `s->window` of `FLUSH_BLOCK_ONLY(s, s->window, last)` is read inside
+the macro body, only when `s->block_start >= 0`. -/
 def quick_end_block (st : StatePtr) (strstart : UInt32) (last : Int32) (static_emit : Int32) : M Bool := do
   if static_emit == 0 then
     -- Tallied symbols are coded by the flush, with trees built for the block
     let c ← if last != 0 then pure true else do pure ((← rdD st (·.sym_next)) != 0)
     if c then
-      FLUSH_BLOCK_ONLY st (← (← rdD st (·.window)).get) last
+      FLUSH_BLOCK_ONLY st (do (← rdD st (·.window)).get) last
       return (← rdZ (← strmOf st) (·.avail_out)) == 0
     return false
   if (← rdD st (·.block_open)) != 0 then

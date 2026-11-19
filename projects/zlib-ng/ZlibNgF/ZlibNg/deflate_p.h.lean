@@ -110,12 +110,14 @@ def max_match_continues (window : BPtr) (strstart dist : UInt32) : M UInt32 := d
   let q ← (← scan.add (-(dist.toNat : Int))).add 2
   return (← ZlibNg.Compare256.compare256_c p q) + 2
 
-/-- `#define FLUSH_BLOCK_ONLY(s, window, last)` (`deflate_p.h:191-200`). `block_start >= 0 ? &window[block_start] :
-NULL`; `(uint32_t)((int)s->strstart - block_start)` is computed in `int` (checked). -/
-def FLUSH_BLOCK_ONLY (st : StatePtr) (window : BPtr) (last : Int32) : M Unit := do
+/-- `#define FLUSH_BLOCK_ONLY(s, window, last)` (`deflate_p.h:191-200`). The macro argument `window` is an
+expression, evaluated where the body uses it: only when `block_start >= 0`, in
+`block_start >= 0 ? &window[block_start] : NULL`. `(uint32_t)((int)s->strstart - block_start)` is computed in `int`
+(checked). -/
+def FLUSH_BLOCK_ONLY (st : StatePtr) (window : M BPtr) (last : Int32) : M Unit := do
   let s ← ldDState st
   let block_start := s.block_start
-  let buf ← if block_start ≥ 0 then window.add block_start.toInt.toNat else pure .null
+  let buf ← if block_start ≥ 0 then (← window).add block_start.toInt.toNat else pure .null
   let len ← chkI32 (s.strstart.toInt32.toInt - block_start.toInt)
   ZlibNg.Trees.zng_tr_flush_block st buf len.toUInt32 last
   wrD st fun s => { s with block_start := s.strstart.toInt32 }
@@ -124,7 +126,7 @@ def FLUSH_BLOCK_ONLY (st : StatePtr) (window : BPtr) (last : Int32) : M Unit := 
 
 /-- `#define FLUSH_BLOCK(s, window, last)` (`deflate_p.h:203-206`): `some r` is the early `return r`. -/
 def FLUSH_BLOCK (st : StatePtr) (window : BPtr) (last : Int32) : M (Option BlockState) := do
-  FLUSH_BLOCK_ONLY st window last
+  FLUSH_BLOCK_ONLY st (pure window) last
   let strm ← (← ldDState st).strm.get
   if (← rdZ strm (·.avail_out)) == 0 then
     return some (if last != 0 then .finish_started else .need_more)

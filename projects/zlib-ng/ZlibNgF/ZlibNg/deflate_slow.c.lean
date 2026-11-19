@@ -93,7 +93,7 @@ def deflate_slow_trip (st : StatePtr) (flush : Int32) (longest_match : LongestMa
     -- bflush = zng_tr_tally_lit(s, window[s->strstart-1]);
     let bflush ← zng_tr_tally_lit st (← index8 window ((← rdD st (·.strstart)) - 1).toNat)
     if bflush then
-      FLUSH_BLOCK_ONLY st window 0
+      FLUSH_BLOCK_ONLY st (pure window) 0
     wrD st fun s => { s with prev_length := match_len }
     wrD st fun s => { s with strstart := s.strstart + 1 }
     wrD st fun s => { s with lookahead := s.lookahead - 1 }
