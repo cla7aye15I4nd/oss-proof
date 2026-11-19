@@ -173,15 +173,6 @@ theorem LI.consume {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
     rw [UInt32.toNat_sub_of_le _ _ hle, UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le, hs]; omega), hs]
     congr 1; omega
 
-/-- `LI.wrS` that also records that the bytes and the headers stay. -/
-theorem LI.wrST {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
-    (f : InflateState → InflateState)
-    (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view (f S)) al)
-    (hh : (f S).head = S.head) :
-    Sat H (ZlibNg.Inflate.wrS (some E.b) f) (fun _ H' => LI E l H' z (f S) ∧ H'.bytes = H.bytes ∧
-      H'.gzheaders = H.gzheaders) :=
-  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => ⟨li.of_touch t hh, t.touch.bytes, t.touch.gz⟩)
-
 /-! ## `headerString` -/
 
 /-- The body of the loop of `headerString`. -/
@@ -212,7 +203,8 @@ def Same (l l' : IL) : Prop :=
 theorem hsBody_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : GzHeader → UInt32)
     (hF : ∀ {l H z S}, LI E l H z S → ∀ k g, E.hp = some k → H.gzheaders k = some g →
       HBuf E H (field g) (maxOf g).toNat)
-    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hlt : l.copy < l.have_) :
+    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hmx : S.mode ≠ EXTRA)
+    (hlt : l.copy < l.have_) :
     SatX H l (hsBody E.c field maxOf) (fun r l' H' => r = .ok () ∧ ∃ S', LI E l' H' z S' ∧ S'.mode = S.mode ∧
       Same l l' ∧ l'.copy = l.copy + 1) := by
   have hlt' : l.copy.toNat < l.have_.toNat := hlt
@@ -251,7 +243,7 @@ theorem hsBody_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : 
       · rename_i hml
         have hml' : S.length.toNat < (maxOf g).toNat := hml
         refine SatX.bind (SatX.lift (Sat.mono (li1.wrST (fun s => { s with length := s.length + 1 })
-          (fun _ _ c => c) rfl) ?_))
+          (fun _ _ c => { c with extraLen := fun e => absurd e hmx }) rfl) ?_))
         rintro _ H2 ⟨li2, eb, -⟩
         rw [hfe]
         rw [hfe] at hw
@@ -277,7 +269,8 @@ theorem succ_toNat {a b : UInt32} (h : a < b) : (a + 1).toNat = a.toNat + 1 := b
 theorem headerString_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : GzHeader → UInt32)
     (hF : ∀ {l H z S}, LI E l H z S → ∀ k g, E.hp = some k → H.gzheaders k = some g →
       HBuf E H (field g) (maxOf g).toNat)
-    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hh : l.have_ ≠ 0) :
+    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hmx : S.mode ≠ EXTRA)
+    (hh : l.have_ ≠ 0) :
     SatX H l (headerString E.c field maxOf) (fun r l' H' => r = .ok () ∧ ∃ S', LI E l' H' z S' ∧
       S'.mode = S.mode ∧ Same l l' ∧ 1 ≤ l'.copy.toNat ∧ l'.copy ≤ l.have_) := by
   have hh' : 0 < l.have_.toNat := by
@@ -288,7 +281,7 @@ theorem headerString_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (ma
   refine SatX.bind (SatX.modify ?_)
   let l0 : IL := { l with copy := 0 }
   have li0 : LI E l0 H z S := li.locals rfl rfl rfl rfl rfl rfl
-  refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li0 (show (0 : UInt32) < l.have_ from hh')) ?_)
+  refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li0 hmx (show (0 : UInt32) < l.have_ from hh')) ?_)
   rintro r l1 H1 ⟨rfl, S1, li1, hm1, hs1, hc1⟩
   have hc1' : l1.copy.toNat = 1 := by rw [hc1]; rfl
   unfold xwhile
@@ -303,7 +296,7 @@ theorem headerString_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (ma
   · rw [hcond]
     have hlt : l'.copy < l'.have_ := by
       simp only [Bool.and_eq_true, decide_eq_true_eq] at hcond; exact hcond.2
-    refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li' hlt) ?_)
+    refine SatX.bind (SatX.mono (hsBody_ok eo field maxOf hF li' (by rw [hm']; exact hmx) hlt) ?_)
     rintro r l2 H2 ⟨rfl, S2, li2, hm2, hs2, hc⟩
     refine SatX.pure ⟨⟨S2, li2, hm2.trans hm', hs'.trans hs2, ?_, ?_⟩, ?_⟩
     · rw [hc, succ_toNat hlt]; omega
@@ -354,7 +347,8 @@ string up to its zero byte or the end of the input, consuming at least one byte.
 theorem strPart_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf : GzHeader → UInt32)
     (hF : ∀ {l H z S}, LI E l H z S → ∀ k g, E.hp = some k → H.gzheaders k = some g →
       HBuf E H (field g) (maxOf g).toNat)
-    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat} (k : X Unit)
+    {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (hmx : S.mode ≠ EXTRA) {m : Nat}
+    (k : X Unit)
     (hk : ∀ l' H' S', LI E l' H' z S' → S'.mode = S.mode → l'.bits = l.bits → l'.left = l.left →
       l'.have_.toNat + 1 ≤ l.have_.toNat → SatX H' l' k (Post E m)) :
     SatX H l (do
@@ -375,7 +369,7 @@ theorem strPart_ok {E : Env} (eo : EnvOK E) (field : GzHeader → BPtr) (maxOf :
   · exact SatX.bind (SatX.throw ⟨z, S, li⟩)
   rename_i h0
   have hh : l.have_ ≠ 0 := by simpa using h0
-  refine SatX.bind (SatX.mono (headerString_ok eo field maxOf hF li hh) ?_)
+  refine SatX.bind (SatX.mono (headerString_ok eo field maxOf hF li hmx hh) ?_)
   rintro r l1 H1 ⟨rfl, S1, li1, hm1, hs1, hc1, hc2⟩
   have hh1 : l1.have_ ≠ 0 := by rw [hs1.2.1]; exact hh
   have hc2' : l1.copy ≤ l1.have_ := by rw [hs1.2.1]; exact hc2
@@ -411,39 +405,42 @@ theorem run_COMMENT (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_HCRC (·.mo
   refine SatX.bind (SatX.lift_eq li.ldState ?_)
   dsimp only
   split
-  · refine strPart_ok eo (·.comment) (·.comm_max) (fun li k g hk hg => (li.hbufs eo hk hg).2.2) li _ ?_
+  · refine strPart_ok eo (·.comment) (·.comm_max) (fun li k g hk hg => (li.hbufs eo hk hg).2.2) li
+      (by rw [hm]; decide) _ ?_
     intro l' H' S' li' _ hb hl hh
-    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li' (by rw [rank_HCRC, hb, hl]; omega)
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li' (by rw [rank_HCRC, hb, hl]; omega)
   · refine hdr1_tail eo li (fun g => { g with comment := .null })
-      (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inr rfl, rfl⟩) _ ?_
-    intro H3 li3
-    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li3 (by rw [rank_HCRC]; omega)
+      (fun g => ⟨Or.inl rfl, rfl, Or.inl rfl, rfl, Or.inr rfl, rfl⟩) (by rw [hm]; decide) _ ?_
+    intro H3 li3 _
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li3 (by rw [rank_HCRC]; omega)
 
 theorem run_NAME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COMMENT (·.mode = COMMENT)) :
     ModeRun E inflate_NAME (·.mode = NAME) := by
   intro l H z S li hm m hμ
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 20 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_NAME] at hμ
-  have tail : ∀ l' H' z' S', LI E l' H' z' S' →
+  have tail : ∀ l' H' z' S', LI E l' H' z' S' → S'.mode ≠ EXTRA →
       32 * (8 * l'.have_.toNat + l'.bits.toNat + l'.left.toNat) + 19 ≤ m →
       SatX H' l' (do
         (MonadLiftT.monadLift (ZlibNg.Inflate.wrS E.c.st fun s => { s with length := 0 }) : X Unit)
         (MonadLiftT.monadLift (setMode E.c.st COMMENT) : X Unit)
         inflate_COMMENT E.c) (Post E m) := by
-    intro l' H' z' S' li' hb
-    refine SatX.bind (SatX.lift (Sat.mono (li'.wrS (fun s => { s with length := 0 }) (fun _ _ c => c) rfl) ?_))
+    intro l' H' z' S' li' hmx hb
+    refine SatX.bind (SatX.lift (Sat.mono (li'.wrS (fun s => { s with length := 0 })
+      (fun _ _ c => { c with extraLen := fun e => absurd e hmx }) rfl) ?_))
     intro _ H2 li2
-    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li2 (by rw [rank_COMMENT]; omega)
+    exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) (by decide) li2 (by rw [rank_COMMENT]; omega)
   unfold inflate_NAME
   refine SatX.bind (SatX.lift_eq li.ldState ?_)
   dsimp only
   split
-  · refine strPart_ok eo (·.name) (·.name_max) (fun li k g hk hg => (li.hbufs eo hk hg).2.1) li _ ?_
-    intro l' H' S' li' _ hb hl hh
-    exact tail _ _ _ _ li' (by rw [hb, hl]; omega)
+  · refine strPart_ok eo (·.name) (·.name_max) (fun li k g hk hg => (li.hbufs eo hk hg).2.1) li
+      (by rw [hm]; decide) _ ?_
+    intro l' H' S' li' hm' hb hl hh
+    exact tail _ _ _ _ li' (by rw [hm', hm]; decide) (by rw [hb, hl]; omega)
   · refine hdr1_tail eo li (fun g => { g with name := .null })
-      (fun g => ⟨Or.inl rfl, rfl, Or.inr rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
-    intro H3 li3
-    exact tail _ _ _ _ li3 (by omega)
+      (fun g => ⟨Or.inl rfl, rfl, Or.inr rfl, rfl, Or.inl rfl, rfl⟩) (by rw [hm]; decide) _ ?_
+    intro H3 li3 _
+    exact tail _ _ _ _ li3 (by rw [hm]; decide) (by omega)
 
 end ZlibNgF.Proof.InflateLoop

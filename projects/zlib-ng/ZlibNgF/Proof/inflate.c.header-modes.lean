@@ -148,7 +148,7 @@ theorem headZ2_ok {E : Env} {m : Nat} {l : IL} {H : Heap} {z : ZStream} {S : Inf
     have lo : HEAD ≤ md := by rcases hmd with rfl | rfl <;> decide
     have hi : md ≤ SYNC := by rcases hmd with rfl | rfl <;> decide
     have q : md < LENLENS ∨ LIT < md := by rcases hmd with rfl | rfl <;> decide
-    refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet md lo hi q) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet md lo hi q (by rcases hmd with rfl | rfl <;> decide)) ?_))
     intro _ H6 li7
     refine initbits_ok (post_ok (li7.setBits rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide)) ?_)
     have := rank_le md
@@ -198,7 +198,7 @@ theorem run_HEAD (E : Env) (eo : EnvOK E) : ModeRun E inflate_HEAD (fun S => S.m
   dsimp only
   by_cases hw : (S.wrap == 0) = true
   · simp only [hw, ↓reduceIte]
-    refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet TYPEDO (by decide) (by decide) (Or.inl (by decide))) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet TYPEDO (by decide) (by decide) (Or.inl (by decide)) (by decide)) ?_))
     intro _ H1 li1
     refine SatX.pure (post_ok li1 ?_)
     unfold μ; simp only [rank_TYPEDO]; omega
@@ -236,11 +236,11 @@ theorem run_HEAD (E : Env) (eo : EnvOK E) : ModeRun E inflate_HEAD (fun S => S.m
       (fun _ _ c => c) rfl) ?_))
     intro _ H3 li3
     refine SatX.bind (SatX.mono (li3.crc2 eo) ?_)
-    rintro r l4 H4 ⟨rfl, hl4, v, li4⟩
+    rintro r l4 H4 ⟨rfl, hl4, v, li4, -⟩
     rw [hl4]
     refine SatX.bind (initbits_ok ?_)
     have li5 := li4.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide)
-    refine SatX.bind (SatX.lift (Sat.mono (li5.setQuiet FLAGS (by decide) (by decide) (Or.inl (by decide))) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li5.setQuiet FLAGS (by decide) (by decide) (Or.inl (by decide)) (by decide)) ?_))
     intro _ H5 li6
     refine SatX.pure (post_ok li6 ?_)
     have := rank_le FLAGS
@@ -257,8 +257,8 @@ theorem run_HEAD (E : Env) (eo : EnvOK E) : ModeRun E inflate_HEAD (fun S => S.m
     simp only [hne, ↓reduceIte]
     refine SatX.bind (SatX.lift_eq (show ldHeader (some k) H1 = .ok (g, H1) by simp [ldHeader, hgk]) ?_)
     refine SatX.bind (SatX.lift (Sat.mono (li1.stHdr eo hhp hgk { g with done := -1 } (Or.inl rfl) rfl (Or.inl rfl)
-      rfl (Or.inl rfl) rfl) ?_))
-    intro _ H2 li2
+      rfl (Or.inl rfl) rfl (by rw [hm]; decide)) ?_))
+    rintro _ H2 ⟨li2, -⟩
     exact headZ_ok li2 hm h16 hz
 
 end ZlibNgF.Proof.InflateLoop
