@@ -35,7 +35,7 @@ def uncompress2_z (dest : BPtr) (destLen : Option UInt64) (source : BPtr) (sourc
     if (sl > 0 && source == .null) || (dl > 0 && dest == .null) then
       return ← fin Z_STREAM_ERROR destLen sourceLen
     let mut len := sl
-    let mut left : UInt64 := 0
+    let mut left : UInt64 := 0  -- `z_size_t left;`: both branches below write it first; the 0 is never read
     let mut dl := dl
     let mut dest := dest
     if dl != 0 then

@@ -187,7 +187,10 @@ def zng_inflate_table (type : UInt32) (lens : WPtr) (codes : UInt32) (table : Co
   let mask := used - 1
   if (type == LENS && used > ENOUGH_LENS) || (type == DISTS && used > ENOUGH_DISTS) then
     return (1, table, bits)
-  let t0 : TL := ⟨min, 0, min, root, 0, left, used, 0, 0, (-1 : Int32).toUInt32, ⟨0, 0, 0⟩, table, count, none⟩
+  -- `code here;` is uninitialised (garbage); each entry writes `bits`, `op` and `val` before it is stored.
+  let g ← uninitLocals 2
+  let t0 : TL := ⟨min, 0, min, root, 0, left, used, 0, 0, (-1 : Int32).toUInt32,
+    ⟨Junk.of (g 0), Junk.of (g 1), Junk.of (g 2)⟩, table, count, none⟩
   let t ← cwhile
     (fun (t : TL) => pure (t.ret.isNone, t))
     (fun (t : TL) => do

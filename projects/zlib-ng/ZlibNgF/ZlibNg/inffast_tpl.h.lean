@@ -265,7 +265,11 @@ def INFLATE_FAST (safeMode : Bool) (strm : StreamPtr) (start : UInt32) : M Unit 
   let dmask := (← shl32 1 s.distbits) - 1
   let c : FC := ⟨strm, st, last, beg, end_, safe, window, wsize, whave, wnext, lcode, dcode, lmask, dmask,
     safeMode⟩
-  let l : FL := ⟨in_, out, hold, bits, ⟨0, 0, 0⟩, 0, 0, .null, 0, 0⟩
+  -- `here op len from dist old` are uninitialised: scalars from the garbage oracle, `from` NULL; each trip writes them
+  -- before reading them.
+  let g ← uninitLocals 1
+  let l : FL := ⟨in_, out, hold, bits, ⟨Junk.of (g 0), Junk.of (g 1), Junk.of (g 2)⟩, Junk.of (g 3), Junk.of (g 4),
+    .null, Junk.of (g 5), Junk.of (g 6)⟩
   let l ← REFILL l
   let (l, _) ← cdoWhile
     (fun ((l, _) : FL × Bool) => trip c l)

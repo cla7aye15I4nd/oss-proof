@@ -22,8 +22,10 @@ through `FnPtr`: `zcalloc` / `zcfree` run the translation of `zutil.c`; any othe
 As in the translation of zlib's `inflate.c`: the locals of `inflate()` are the record `IL`, a mode of the `switch` is
 one `def` of the monad `X = ExceptT Ex (StateT IL M)`; `break` returns, a fall-through is a tail call of the next
 mode, `goto inf_leave` is `throw .leave`, `return v` is `throw (.ret v)`. The `for (;;)` reads `state->mode` on
-every trip. Locals the C leaves uninitialised (`copy len code_bits here last from`) start as `0`, `{0,0,0}` and NULL
-(`from` NULL, so a use before assignment faults); no path reads the others before writing them.
+every trip. The locals start uninitialised (`IL.init`): scalars from the garbage oracle, pointers NULL. `LOAD()` and
+the next statement write `next put have left hold bits in out ret` first; every mode writes `copy len code_bits
+here last from` before it reads them (a mode does not read a value left by another mode), so no path reads an
+uninitialised local.
 
 ## Casts
 `(int)(hold)` and the other conversions of an out-of-range value to a signed type are implementation-defined
@@ -189,7 +191,7 @@ def inflateReset2 (strm : StreamPtr) (windowBits : Int32) : M Int32 := do
   if ← inflateStateCheck strm then return Z_STREAM_ERROR
   let st ← stateOf strm
   let mut windowBits := windowBits
-  let mut wrap : Int32 := 0
+  let mut wrap : Int32 := 0  -- `int wrap;`: both branches write it first; the 0 is never read
   if windowBits < 0 then
     wrap := 0
     if windowBits < -MAX_WBITS then return Z_STREAM_ERROR
@@ -393,7 +395,12 @@ structure IL where
   code_bits : UInt32
   ret : Int32
 
-def IL.init : IL := ⟨.null, .null, .null, 0, 0, 0, 0, 0, 0, 0, ⟨0, 0, 0⟩, ⟨0, 0, 0⟩, 0, 0, 0⟩
+/-- The locals at entry: every scalar is uninitialised (garbage `g`); the pointers `next`, `put`, `from` are NULL, so
+an offset, copy or comparison of one before it is written faults. -/
+def IL.init (g : Nat → UInt64) : IL :=
+  ⟨.null, .null, .null, Junk.of (g 0), Junk.of (g 1), Junk.of (g 2), Junk.of (g 3), Junk.of (g 4), Junk.of (g 5),
+    Junk.of (g 6), ⟨Junk.of (g 7), Junk.of (g 8), Junk.of (g 9)⟩, ⟨Junk.of (g 10), Junk.of (g 11), Junk.of (g 12)⟩,
+    Junk.of (g 13), Junk.of (g 14), (Junk.of (g 15) : Int32)⟩
 
 abbrev X := ExceptT Ex (StateT IL M)
 
@@ -1237,7 +1244,8 @@ def inflate (strm : StreamPtr) (flush : Int32) : M Int32 := do
     match r with
     | some v => return v
     | none => infLeave c
-  let (r, _) ← StateT.run (ExceptT.run body) IL.init
+  let g ← uninitLocals 0
+  let (r, _) ← StateT.run (ExceptT.run body) (IL.init g)
   match r with
   | .ok v => return v
   | .error (.ret v) => return v

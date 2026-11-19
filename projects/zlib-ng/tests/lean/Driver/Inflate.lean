@@ -8,6 +8,12 @@ the translation in `ZlibNgF/ZlibNg/inflate.c.lean` and prints the same fields.
 
 open DiffTest C
 
+/-- The starting heap: static CRC tables, and a garbage oracle with no zero pattern, so that a read of an
+uninitialised local or of fresh `malloc` memory shows up as a difference from the C. -/
+def junkHeap : Heap :=
+  { ZlibNg.Crc32.initStatics Heap.empty with
+    garbage := fun a b => (UInt64.ofNat (a * 0x9E3779B97F4A7C15 + b * 0xBF58476D1CE4E5B9 + 0x94D049BB133111EB)) ^^^ 0x5555555555555555 }
+
 /-- A new heap block holding `a` (a `malloc` of the exact size, filled). -/
 def mkBlock (a : Array UInt8) : M BPtr := fun h =>
   let b := h.nextBlk
@@ -242,18 +248,18 @@ def handle (fn : String) (args : List String) : Except String String :=
       match hd.splitOn "," with
       | [a, b, c] => pure (some (← parseNat a, ← parseNat b, ← parseNat c))
       | _ => throw "bad hdr"
-    let h0 := ZlibNg.Crc32.initStatics Heap.empty
+    let h0 := junkHeap
     match C.run (run wbits flush (← parseNat ic) (← parseNat oc) (← parseNat cap) data dict (dc != "-") hdr rs) h0 with
     | .ok (s, _) => return s
     | .error f => return showFault f
   | "ops", [w, cap, d, dc, sc] => do
-    let h0 := ZlibNg.Crc32.initStatics Heap.empty
+    let h0 := junkHeap
     let w := Int32.ofInt (← parseI64 w).toInt
     match C.run (runOps w (← parseNat cap) (← parseHexOrDash d) (← parseHexOrDash dc) (sc.splitOn ",")) h0 with
     | .ok (s, _) => return s
     | .error f => return showFault f
   | "unc", [v, ds, dl, sl, sn, src] => do
-    let h0 := ZlibNg.Crc32.initStatics Heap.empty
+    let h0 := junkHeap
     let opt (t : String) : Except String (Option Nat) := if t == "null" then pure none else do pure (some (← parseNat t))
     let ds ← opt ds
     let dl ← opt dl
@@ -263,7 +269,7 @@ def handle (fn : String) (args : List String) : Except String String :=
     | .ok (s, _) => return s
     | .error f => return showFault f
   | "ver", [v, sz, wb] => do
-    let h0 := ZlibNg.Crc32.initStatics Heap.empty
+    let h0 := junkHeap
     let sz := Int32.ofInt (← parseI64 sz).toInt
     let wb ← if wb == "-" then pure none else do pure (some (Int32.ofInt (← parseI64 wb).toInt))
     match C.run (runVer (if v == "null" then none else some v) sz wb) h0 with
