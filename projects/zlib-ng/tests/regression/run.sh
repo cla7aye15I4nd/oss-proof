@@ -34,6 +34,8 @@ cases=(
   "inflatesetdictionary-null|0009||setdict 0 OR null pointer passed as argument|setdict -2"
   "inflate-fast-primed-bits|0010||inflate 1 34 4294967294|inflate 1 32 0"
   "inflate-shared-header-extra|0011|copy,two,late|heap-buffer-overflow|inflate 0;inflate 0;inflate 0"
+  "longest-match-offset-base|0012|f,x|none|deflate 1 31733 9f6d82f0;deflate 1 34825 6a1f0340"
+  "deflate-medium-insert-count|0013||runtime error: division by zero|deflate 1 28"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch

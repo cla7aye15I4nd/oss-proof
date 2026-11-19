@@ -26,10 +26,12 @@ Inside a trip the candidate filter (`:150-195`) ends with `LMSel.compare` (fall 
 loop at `:187`.
 
 ## Pointers
-Every pointer the C computes is computed with `Ptr.add` at the same point: `mbase_start -= match_offset` (`:133`),
-`mbase_end -= match_offset` (`:134`) and `mbase_start = window - match_offset` (`:287`) form pointers before
-`window`, which fault when they fall before the start of the block of `alloc_deflate` (ISO C17 §6.5.6p8).
-`mbase_start+cur_match+2`, `scan + len - k` are two pointer additions each, evaluated left to right as in C.
+Every pointer the C computes is computed with `Ptr.add` at the same point. With patch 0012, `mbase_start` stays
+`window` and every candidate address is `mbase_start + (cur_match - match_offset)` (or `mbase_end + ...`): the
+unpatched `mbase_start -= match_offset`, `mbase_end -= match_offset` and `mbase_start = window - match_offset` formed
+pointers before `window`, outside the block of `alloc_deflate` (ISO C17 §6.5.6p8).
+`mbase_start+(cur_match-match_offset)+2`, `scan + len - k` are two pointer additions each, evaluated left to right
+as in C.
 `zng_memcmp_8(p, &scan_end)` compares the 8 bytes at `p` with the 8 bytes of the local `uint64_t`
 (`zng_memcmp_8_local`).
 -/
@@ -192,7 +194,7 @@ def short_walk (e : LMEnv) (first_mask : UInt64) (v : LMVars) (cand_start : UInt
       if v.chain_length == 0 then return (v, cand_start, some (.ret v.best_len))
       let v := { v with cur_match := (← posLoad e.prev (v.cur_match &&& e.wmask).toNat).toUInt32 }
       if v.cur_match <= v.limit then return (v, cand_start, some (.ret v.best_len))
-      let cand_start ← memread8 (← v.mbase_start.add v.cur_match.toNat)
+      let cand_start ← memread8 (← v.mbase_start.add (v.cur_match - v.match_offset).toNat)
       if e.scan_start == cand_start then return (v, cand_start, some .compare)
       return (v, cand_start, none))
     (v, cand_start, none)
@@ -200,7 +202,7 @@ def short_walk (e : LMEnv) (first_mask : UInt64) (v : LMVars) (cand_start : UInt
 
 /-- The candidate filter for `best_len < sizeof(uint64_t)` (`match_tpl.h:150-183`). -/
 def short_filter (e : LMEnv) (v : LMVars) : M (LMSel × LMVars) := do
-  let cand_start ← memread8 (← v.mbase_start.add v.cur_match.toNat)
+  let cand_start ← memread8 (← v.mbase_start.add (v.cur_match - v.match_offset).toNat)
   if e.scan_start != cand_start then
     let first_mask ← zng_first_bytes_mask64 (v.best_len + 1)
     let diff := e.scan_start ^^^ cand_start
@@ -211,7 +213,7 @@ def short_filter (e : LMEnv) (v : LMVars) : M (LMSel × LMVars) := do
     if v.chain_length == 0 then return (.ret v.best_len, v)
     let v := { v with cur_match := (← posLoad e.prev (v.cur_match &&& e.wmask).toNat).toUInt32 }
     if v.cur_match <= v.limit then return (.ret v.best_len, v)
-    let cand_start ← memread8 (← v.mbase_start.add v.cur_match.toNat)
+    let cand_start ← memread8 (← v.mbase_start.add (v.cur_match - v.match_offset).toNat)
     if e.scan_start != cand_start then
       return ← short_walk e first_mask v cand_start
     return (.compare, v)
@@ -224,8 +226,8 @@ def long_filter (e : LMEnv) (v : LMVars) : M (LMSel × LMVars) := do
   let (v, r) ← cwhile
     (fun ((v, r) : LMVars × Option LMSel) => pure (r.isNone, (v, r)))
     (fun ((v, _) : LMVars × Option LMSel) => do
-      if (← zng_memcmp_8_local (← v.mbase_end.add v.cur_match.toNat) v.scan_end) == 0 then
-        if (← zng_memcmp_8_local (← v.mbase_start.add v.cur_match.toNat) e.scan_start) == 0 then
+      if (← zng_memcmp_8_local (← v.mbase_end.add (v.cur_match - v.match_offset).toNat) v.scan_end) == 0 then
+        if (← zng_memcmp_8_local (← v.mbase_start.add (v.cur_match - v.match_offset).toNat) e.scan_start) == 0 then
           return (v, some .compare)
       let (x, v) ← GOTO_NEXT_CHAIN e v
       match x with
@@ -278,7 +280,6 @@ def offset_search_block (e : LMEnv) (v : LMVars) (len : UInt32) : M (LMExit × L
       if pos <= e.limit_base + v.match_offset then return (.ret v.best_len, v)
       v := { v with cur_match := pos }
   v := { v with limit := e.limit_base + v.match_offset }
-  v := { v with mbase_start := ← e.window.add (-(v.match_offset.toNat : Int)) }
   v := { v with mbase_end := ← v.mbase_start.add v.offset.toNat }
   return (.cont, v)
 
@@ -306,7 +307,7 @@ def loop_body (e : LMEnv) (v : LMVars) : M (LMExit × LMVars) := do
   | .accept len => short_match_accept e v len
   | .compare =>
     let a ← e.scan.add 2
-    let b ← (← v.mbase_start.add v.cur_match.toNat).add 2
+    let b ← (← v.mbase_start.add (v.cur_match - v.match_offset).toNat).add 2
     let len := (← compare256_64_static a b) + 2
     if len > v.best_len then short_match_accept e v len
     else goto_next_chain_outer e v
@@ -324,7 +325,7 @@ def LONGEST_MATCH (slow roll : Bool) (st : StatePtr) (cur_match : UInt32) : M UI
   let window ← s.window.get
   let prev ← s.prev.get
   let head ← if slow then s.head.get else pure .null
-  let mut mbase_start := window
+  let mbase_start := window
   let chain_length := s.max_chain_length
   let nice_match := s.nice_match.toUInt32
   let lookahead := s.lookahead
@@ -339,7 +340,7 @@ def LONGEST_MATCH (slow roll : Bool) (st : StatePtr) (cur_match : UInt32) : M UI
   let scan ← window.add strstart.toNat
   let scan_start ← memread8 scan
   let scan_end ← memread8 (← scan.add offset.toNat)
-  let mut mbase_end ← mbase_start.add offset.toNat
+  let mbase_end ← mbase_start.add offset.toNat
   let chain_length := if best_len >= s.good_match then chain_length >>> 2 else chain_length
   let mut limit : UInt32 := if strstart > MAX_DIST s then strstart - MAX_DIST s else 0
   let limit_base := limit
@@ -372,8 +373,6 @@ def LONGEST_MATCH (slow roll : Bool) (st : StatePtr) (cur_match : UInt32) : M UI
         cur_match := cm
       limit := limit_base + match_offset
       if cur_match <= limit then return best_len
-      mbase_start ← mbase_start.add (-(match_offset.toNat : Int))
-      mbase_end ← mbase_end.add (-(match_offset.toNat : Int))
   let e : LMEnv := {
     slow, roll, st, wmask, strstart, window, prev, head, scan, limit_base, nice_match, lookahead, scan_start,
     offset_search }

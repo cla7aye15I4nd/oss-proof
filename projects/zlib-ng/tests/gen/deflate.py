@@ -169,4 +169,12 @@ for case in range(120 if QUICK else 300):
         cells = str(oc)
     out.append("cmp %s %d %s %s %s" % (fn, rng.randint(-1, 10), dat, outs, cells))
 
+# 10. deflateTune with max_lazy outside 0..258 (it is also the insert count of the medium strategy: INT_MIN made
+# deflate_medium divide by zero before patch 0013), on runs and short periods that give overlapping matches.
+for level in range(1, 10):
+    for lazy in (-2147483648, -2147483647, -1, 259, 300, 2147483647):
+        for kind, n in (("z", 5000), ("p", 3000)):
+            d(level, 15, 8, 0, data(kind, n, 7 if kind == "z" else 59), n,
+              ["T8/%d/128/64" % lazy] + finish(), method=8)
+
 print("\n".join(out))
