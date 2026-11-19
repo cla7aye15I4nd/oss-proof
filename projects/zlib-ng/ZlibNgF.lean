@@ -70,3 +70,7 @@ import ZlibNgF.Proof.«infback.c.init»
 import ZlibNgF.Proof.«infback.c.pull»
 import ZlibNgF.Proof.«infback.c.room»
 import ZlibNgF.Proof.«public-infback»
+import ZlibNgF.Proof.«insert_string_p.h.base»
+import ZlibNgF.Proof.«insert_string_p.h.safety»
+import ZlibNgF.Proof.«slide_hash_c.c.safety»
+import ZlibNgF.Proof.«deflate_p.h.readbuf»
