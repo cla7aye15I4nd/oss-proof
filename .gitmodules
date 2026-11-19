@@ -19,12 +19,6 @@
 [submodule "projects/cgif/cgif"]
 	path = projects/cgif/cgif
 	url = https://github.com/dloebl/cgif.git
-[submodule "projects/expat/expat"]
-	path = projects/expat/expat
-	url = https://github.com/libexpat/libexpat.git
-[submodule "projects/freetype/freetype"]
-	path = projects/freetype/freetype
-	url = https://gitlab.freedesktop.org/freetype/freetype.git
 [submodule "projects/lcms2/lcms2"]
 	path = projects/lcms2/lcms2
 	url = https://github.com/mm2/Little-CMS.git
@@ -40,9 +34,6 @@
 [submodule "projects/libpng/libpng"]
 	path = projects/libpng/libpng
 	url = https://github.com/pnggroup/libpng.git
-[submodule "projects/libspng/libspng"]
-	path = projects/libspng/libspng
-	url = https://github.com/randy408/libspng.git
 [submodule "projects/libtiff/libtiff"]
 	path = projects/libtiff/libtiff
 	url = https://gitlab.com/libtiff/libtiff.git
@@ -70,3 +61,9 @@
 [submodule "projects/zlib-ng/zlib-ng"]
 	path = projects/zlib-ng/zlib-ng
 	url = https://github.com/zlib-ng/zlib-ng.git
+[submodule "projects/mozjpeg/mozjpeg"]
+	path = projects/mozjpeg/mozjpeg
+	url = https://github.com/mozilla/mozjpeg.git
+[submodule "projects/libxml2/libxml2"]
+	path = projects/libxml2/libxml2
+	url = https://gitlab.gnome.org/GNOME/libxml2.git

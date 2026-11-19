@@ -35,6 +35,17 @@ class PortalTests(unittest.TestCase):
             zlib_html = (dist / "zlib" / lang / "index.html").read_text()
             self.assertIn(f"../../{lang}/index.html", zlib_html)
 
+    def test_unlisted_pages_exist_but_are_not_linked(self):
+        dist = SITE_DIR / "dist"
+        names = sorted(p.stem for p in (SITE_DIR / "pages" / "en").glob("*.md"))
+        self.assertTrue(names)
+        linked = "".join(p.read_text() for p in dist.rglob("*.html") if p.stem not in names)
+        for name in names:
+            for lang in ("en", "zh"):
+                page = (dist / lang / f"{name}.html").read_text()
+                self.assertIn('name="robots" content="noindex,nofollow"', page)
+            self.assertNotIn(f"{name}.html", linked)
+
 
 if __name__ == "__main__":
     unittest.main()

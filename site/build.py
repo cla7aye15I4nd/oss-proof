@@ -12,6 +12,7 @@ REPO = SITE_DIR.parent
 OUT = SITE_DIR / "dist"
 
 sys.path.insert(0, str(REPO))
+import hidden_pages
 import portal
 import project_docs
 
@@ -21,6 +22,7 @@ def main() -> int:
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True, exist_ok=True)
     summaries = portal.build_portal()
+    hidden_pages.build_unlisted_pages(summaries)
     for summary in summaries:
         builder = summary.project.data.get("site", {}).get("builder")
         if builder:
