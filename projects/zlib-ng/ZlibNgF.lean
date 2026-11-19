@@ -17,3 +17,6 @@ import ZlibNgF.Proof.«inflate.c.window»
 import ZlibNgF.Proof.«inflate.c.sync»
 import ZlibNgF.Proof.«inflate.c.copy»
 import ZlibNgF.Proof.«inflate.c.reach»
+import ZlibNgF.Proof.«chunkset.mem»
+import ZlibNgF.Proof.«chunkset.copy»
+import ZlibNgF.Proof.«inflate_p.h.chunkcopy_safe»
