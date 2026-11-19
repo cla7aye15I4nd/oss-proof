@@ -6,6 +6,8 @@
 # build must show the defect (a sanitizer report, or no return within the timeout); the patched build must
 # exit 0 without a report and print the expected result. A case that stops reproducing, or whose patched
 # build still fails, fails the run. Exit status: 0 all cases behave, 1 a case does not, 2 a setup error.
+# A report is a UBSan "runtime error" or an "ERROR: AddressSanitizer"; ASan's warning that it could not allocate a
+# block (the case makes malloc fail) is not one.
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 tests=$(cd "$here/.." && pwd)
@@ -24,7 +26,9 @@ mkdir -p "$work"
 # is not observable on a run: no sanitizer reports it; the unpatched build must then behave like the patched
 # one), or an extended regular expression that the output (sanitizer report or program output) must match |
 # patched output line (one per run, ';'). In the defect field, " OR " separates alternatives (the field separator
-# is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull.
+# is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull; GCC's
+# UBSan does not report NULL plus an offset (gzbuffer-alloc-null-offset), so there the case accepts the unpatched run
+# printing the patched result (clang reports it).
 cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
@@ -37,6 +41,10 @@ cases=(
   "inflate-shared-header-extra|0011|copy,two,late|heap-buffer-overflow|inflate 0;inflate 0;inflate 0"
   "longest-match-offset-base|0012|f,x|none|deflate 1 31733 9f6d82f0;deflate 1 34825 6a1f0340"
   "deflate-medium-insert-count|0013||runtime error: division by zero|deflate 1 28"
+  "gzwrite-clearerr-stale-input|0014||invalid-pointer-pair OR heap-buffer-overflow|gzwrite 0 -1 1"
+  "gzclose-after-failed-write|0014||heap-use-after-free|gzclose 0 0"
+  "gzbuffer-alloc-null-offset|0015||runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression OR ^gzwrite 0 0 -4 -4$|gzwrite 0 0 -4 -4"
+  "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 0"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
@@ -51,7 +59,8 @@ plain=(
 # Open defects: undefined behaviour of the verified source with no patch yet. Each must still show its
 # report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report must match
-open_cases=()
+open_cases=(
+)
 
 # Guards: an earlier, defective version of one of our patches, kept in the case's directory. The source built
 # with that version in place of the current patch must show the defect on the case's reproduction, so that the
@@ -102,7 +111,7 @@ for entry in "${cases[@]}"; do
     # patched: every patch
     out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched" $arg 2>&1); rc=$?
     w=${wants[$i]}
-    if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|AddressSanitizer"; then
+    if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|ERROR: AddressSanitizer"; then
       echo "UNEXPECTED: with every patch: status $rc: $out"; fail=1
     elif printf '%s\n' "$out" | grep -qx "$w"; then
       echo "ok: with every patch: $w, no report"
@@ -124,7 +133,7 @@ for entry in "${plain[@]}"; do
     echo "== $name ${arg:+($arg)} (fixed upstream)"
     out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched" $arg 2>&1); rc=$?
     w=${wants[$i]}
-    if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|AddressSanitizer"; then
+    if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|ERROR: AddressSanitizer"; then
       echo "UNEXPECTED: status $rc: $out"; fail=1
     elif printf '%s\n' "$out" | grep -qx "$w"; then
       echo "ok: $w, no report"

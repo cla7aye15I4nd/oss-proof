@@ -188,6 +188,68 @@ Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it 
 - Call-backs: `in_func` / `out_func` are the parameters `InCb` / `OutCb` of `inflateBack` (caller code); what the
   goals assume of them is in `ZlibNgF/Spec/Common/Infback.lean`.
 
+## gz scope (pinned `develop` commit, verified option set)
+
+Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of `tests/build-zlib-ng.sh`
+(`WITH_GZFILEOP=ON`), and the preprocessor conditions of `gzguts.h` (no `_WIN32`, `NO_GZCOMPRESS`, `NO_STRERROR`,
+`WIDECHAR`; `O_CLOEXEC` and `O_EXCL` defined; `GZBUFSIZE` 131072, `GZBUFSIZE_MAX` `1u << 30`, `DEF_MEM_LEVEL` 8).
+
+- Public entry points: `gzlib.c`: `gzopen`, `gzopen64`, `gzdopen`, `gzbuffer`, `gzrewind`, `gzseek`, `gzseek64`
+  (patch 0004), `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzeof`, `gzerror`, `gzclearerr`, `gzclose`;
+  `gzread.c`: `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzungetc`, `gzgets`, `gzdirect`, `gzclose_r`; `gzwrite.c`:
+  `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams`, `gzclose_w`.
+  `gzopen_w` is Windows only (`WIDECHAR`): not applicable. With `ZLIB_COMPAT` and LP64, `z_off_t` and `z_off64_t`
+  are both 64-bit, so `gzseek` / `gztell` / `gzoffset` call their `64` variants and return the value unchanged.
+- Internal functions: `gzlib.c`: `gz_state_init`, `gz_state_free`, `gz_reset`, `gz_buffer_alloc`, `gz_buffer_free`,
+  `gz_open`, `gz_error`, `gz_intmax` (never called); `gzread.c`: `gz_read_init`, `gz_load`, `gz_avail`, `gz_look`,
+  `gz_decomp`, `gz_fetch`, `gz_skip`, `gz_read`; `gzwrite.c`: `gz_write_init`, `gz_comp`, `gz_zero`, `gz_write`.
+- Library callees: `inflateInit2_` (the `inflateInit2` macro of `zlib.h`, with `ZLIB_VERSION` and `sizeof(z_stream)`),
+  `inflate`, `inflateReset`, `inflateEnd`, `deflateInit2_`, `deflate`, `deflateReset`, `deflateParams`, `deflateEnd`,
+  `zng_alloc_aligned` / `zng_free_aligned` (the in/out buffers: one block of `in_size + out_size` bytes aligned to 64;
+  `in` is `want * 2` bytes when writing, `out` is `want * 2` bytes when reading and absent when writing
+  transparently), `zng_alloc` / `zng_free` (`zutil_p.h`: `malloc` / `free` of the `gz_state`).
+- libc callees: `open` (glibc: `open`), `read`, `write`, `close`, `lseek` (glibc: `lseek64`, because `zbuild.h`
+  defines `_LARGEFILE64_SOURCE`), `strerror`, `errno`, `malloc`, `free`, `strlen`, `memcpy`, `memchr`, `memmove`,
+  `memset`, `snprintf` (formats `"%s"`, `"<fd:%d>"`, `"%s%s%s"`), `vsnprintf` (the caller's format).
+- Objects: `gz_state` is 248 bytes on LP64, alignment 8, with the `z_stream` embedded at offset 136.
+  `gz_state_init` leaves `x.next`, `path`, `buffers`, `err`, `how`, `start`, `eof`, `reset` and most of the
+  embedded `z_stream` unset; `gz_reset` sets `err` (through `gz_error`, which reads `msg` only), `x.have`, `x.pos`,
+  `skip`, `avail_in` and, when reading, `eof`, `past`, `how`.
+- gz model (`Runtime/Fs.lean`, `Runtime/Gz.lean`, trusted base): a gz computation is `G α = StateT World M α`. The
+  world holds the file system and descriptor table that `open`, `read`, `write`, `lseek` and `close` act on,
+  `errno`, the per-call oracles that choose any other result those calls may give, the `strerror` and
+  `vsnprintf` oracles, and the `gz_state` objects. A `gz_state` is a typed object carved from its `malloc` block
+  (like the inflate state): its pointer fields start `Ival.uninit`, its integers come from `Heap.garbage`, it
+  lives as long as the block, and `free` of the block ends it and the embedded `z_stream` (an entry of
+  `Heap.streams`). A `gzFile` is a pointer to the `gz_state` (its first member is the public `struct gzFile_s`).
+  What the model trusts about the libc calls is listed in `Runtime/Fs.lean` and `Runtime/Gz.lean`; in short:
+  `open` flags and `errno` numbers are those of x86_64 Linux glibc (`O_LARGEFILE` is 0 in user space); `read`,
+  `write`, `lseek`, `open`, `close` do what the regular-file model does or what a per-call oracle chooses within
+  their POSIX contract (failures with any `errno`, short reads and writes, device data from a finite budget, any
+  `lseek` value); `strerror` returns a read-only string of any text; `vsnprintf` with the caller's format and
+  arguments (which must match) writes inside `[next, next + size)` only: `min(r, size - 1)` bytes and a zero for a
+  result `r >= 0`, any `size` bytes for a failure; `snprintf` with the three fixed formats of `gzlib.c` is modelled
+  exactly; `malloc` returns memory aligned for any object; `sizeof(gz_state)` is 248.
+- Differential test (`tests/c/gz.c`): the C driver defines `open`, `open64`, `read`, `write`, `lseek`, `lseek64`,
+  `close` and `strerror` itself (taking precedence over the C library for the statically linked `libz.a`) as the
+  same file-system model and schedule as the Lean side, with Linux flag values (host flags are translated),
+  Linux `errno` values and glibc's texts, so the run is target-faithful on any host. It also defines `malloc`, which
+  numbers the library's calls on each line and fails the ones the schedule names (`A<k>`), as the Lean side's
+  `Heap.allocOk`; the driver's own buffers come from the C library's `malloc` and are not numbered. The C library's
+  `snprintf`, `vsnprintf` and string functions are real.
+- Undefined behaviour of upstream reached by documented calls, fixed by patches 0014-0017 (findings page): a failed
+  `gzwrite` on the direct path left `next_in` in the caller's buffer (`gzwrite.c:185` cross-object subtraction after
+  `gzclearerr`; `gzwrite.c:70` reads it again in `gzclose`): patch 0014 resets `next_in` / `avail_in` on that path;
+  `gz_buffer_alloc` formed `NULL + in_size` when the allocation failed (`gzlib.c:90`): patch 0015; the readers'
+  position `x.pos` overflowed after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds and which keeps
+  delivering data (`gzread.c:356`): patch 0016 stops the readers at `GZ_OFF_MAX`; the writers' `x.pos` overflowed after
+  `2^63` bytes in all, failed writes included (`gzwrite.c:210`): patch 0017 refuses a write past `GZ_OFF_MAX`
+  (`Z_DATA_ERROR`). Its reproduction needs about `2^32` calls, too long for `tests/regression/`; the differential test
+  covers the refusal (`gzfwrite` lengths above `GZ_OFF_MAX`, which are refused before the buffer is read). Open question, not a finding:
+  `gzoffset64` computes `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below
+  `INT64_MIN + avail_in`: `GzWF` admits only the `lseek` values POSIX allows (`-1` or not negative), a
+  `deviations.md` row (Linux files with unsigned offsets fail their reads at such offsets).
+
 ## Checking
 
 `python3 framework/check_project.py zlib-ng` from the repository root. It includes the public API

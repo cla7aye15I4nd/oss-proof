@@ -261,133 +261,133 @@
       "function": "gzdopen",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzdopen_safety is stated, not proved."
     },
     {
       "function": "gzbuffer",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzbuffer_safety is stated, not proved."
     },
     {
       "function": "gzsetparams",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzsetparams_safety is stated, not proved."
     },
     {
       "function": "gzread",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzread_safety is stated, not proved."
     },
     {
       "function": "gzfread",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzfread_safety is stated, not proved."
     },
     {
       "function": "gzwrite",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzwrite_safety is stated, not proved."
     },
     {
       "function": "gzfwrite",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzfwrite_safety is stated, not proved."
     },
     {
       "function": "gzprintf",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzprintf_safety is stated, not proved."
     },
     {
       "function": "gzputs",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzputs_safety is stated, not proved."
     },
     {
       "function": "gzgets",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzgets_safety is stated, not proved."
     },
     {
       "function": "gzputc",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzputc_safety is stated, not proved."
     },
     {
       "function": "gzgetc",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzgetc_safety is stated, not proved."
     },
     {
       "function": "gzungetc",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzungetc_safety is stated, not proved."
     },
     {
       "function": "gzflush",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzflush_safety is stated, not proved."
     },
     {
       "function": "gzrewind",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzrewind_safety is stated, not proved."
     },
     {
       "function": "gzeof",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzeof_safety is stated, not proved."
     },
     {
       "function": "gzdirect",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzdirect_safety is stated, not proved."
     },
     {
       "function": "gzclose",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzclose_safety is stated, not proved."
     },
     {
       "function": "gzclose_r",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzclose_r_safety is stated, not proved."
     },
     {
       "function": "gzclose_w",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzclose_w_safety is stated, not proved."
     },
     {
       "function": "gzerror",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzerror_safety is stated, not proved."
     },
     {
       "function": "gzclearerr",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzclearerr_safety is stated, not proved."
     },
     {
       "function": "adler32",
@@ -476,31 +476,31 @@
       "function": "gzgetc_",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzgetc__safety is stated, not proved."
     },
     {
       "function": "gzopen64",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzopen64_safety is stated, not proved."
     },
     {
       "function": "gzseek64",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzseek64_safety is stated, not proved."
     },
     {
       "function": "gztell64",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gztell64_safety is stated, not proved."
     },
     {
       "function": "gzoffset64",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzoffset64_safety is stated, not proved."
     },
     {
       "function": "adler32_combine64",
@@ -533,25 +533,25 @@
       "function": "gzopen",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzopen_safety is stated, not proved."
     },
     {
       "function": "gzseek",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzseek_safety is stated, not proved."
     },
     {
       "function": "gztell",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gztell_safety is stated, not proved."
     },
     {
       "function": "gzoffset",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzoffset_safety is stated, not proved."
     },
     {
       "function": "adler32_combine",
@@ -658,7 +658,7 @@
       "function": "gzvprintf",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+      "reason": "Translated and differentially tested; Goal.gzvprintf_safety is stated, not proved."
     },
     {
       "function": "compressBound_z",
