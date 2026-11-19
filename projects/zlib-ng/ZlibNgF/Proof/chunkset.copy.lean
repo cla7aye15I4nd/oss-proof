@@ -114,7 +114,8 @@ theorem sat_CHUNKCOPY {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo hi
 `o + len - 1`. It returns `(out', dist', len')` with `out' - dist' = out - dist`, `out' + len' = out + len`, and on exit
 `dist' ≥ len'` or `dist' ≥ 8`. -/
 theorem sat_CHUNKUNROLL {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo hi) {o : Nat} (dist len : UInt32)
-    (hd1 : 1 ≤ dist.toNat) (hdo : dist.toNat ≤ o) (h1 : lo ≤ o) (h2 : o + len.toNat + 6 ≤ hi) (hN : hi ≤ N) :
+    (hd1 : 1 ≤ dist.toNat) (hdo : dist.toNat ≤ o) (h1 : lo ≤ o)
+    (h2 : dist.toNat < 8 → o + min (len.toNat + 6) 14 ≤ hi) (hN : hi ≤ N) (hoN : o + len.toNat ≤ N) :
     Sat H (CHUNKUNROLL (B ob o) dist len) (fun res H' =>
       ∃ L D : UInt32, res = (B ob (o + len.toNat - L.toNat), D, L) ∧ L.toNat ≤ len.toNat ∧
         D.toNat = dist.toNat + (len.toNat - L.toNat) ∧ (1 ≤ len.toNat → 1 ≤ L.toNat) ∧
@@ -143,6 +144,11 @@ theorem sat_CHUNKUNROLL {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo 
       rw [UInt32.lt_iff_toNat_lt] at hc1
       have hc2' : D.toNat < 8 := by
         have := UInt64.lt_iff_toNat_lt.mp (of_decide_eq_true hc2); simpa using this
+      have h2' := h2 (by omega)
+      have := Nat.min_le_left (len.toNat + 6) 14
+      have := Nat.min_le_right (len.toNat + 6) 14
+      have hP : o + len.toNat - L.toNat + 8 ≤ o + min (len.toNat + 6) 14 := by
+        rw [Nat.min_def]; split <;> omega
       obtain ⟨aG, haG, haGN⟩ := rG.cur
       have hgG : Space.get G (BRef.heap ob) = some aG := haG
       refine Sat.bind (Sat.mono (sat_memread8 hgG (by omega)) ?_); rintro _ G1 rfl
@@ -586,8 +592,9 @@ theorem chunkunroll_c_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.byt
     Sat H (CHUNKUNROLL (B ob o) dist len) (fun res H' =>
       ∃ L D : UInt32, res = (B ob (o + len.toNat - L.toNat), D, L) ∧ L.toNat ≤ len.toNat ∧
         D.toNat = dist.toNat + (len.toNat - L.toNat) ∧ (1 ≤ len.toNat → 1 ≤ L.toNat) ∧
-        (L.toNat ≤ D.toNat ∨ 8 ≤ D.toNat) ∧ ORun H H' ob N o (o + len.toNat + 6)) :=
-  sat_CHUNKUNROLL (ORun.refl ha hN _ _) dist len hd1 hdo (Nat.le_refl _) (Nat.le_refl _) ho
+        (L.toNat ≤ D.toNat ∨ 8 ≤ D.toNat) ∧ ORun H H' ob N o (o + min (len.toNat + 6) 14)) :=
+  sat_CHUNKUNROLL (ORun.refl ha hN _ _) dist len hd1 hdo (Nat.le_refl _) (fun _ => Nat.le_refl _)
+    (by have := Nat.min_le_left (len.toNat + 6) 14; omega) (by omega)
 
 theorem chunkmemset_c_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.bytes ob = some a)
     (hN : a.size = N) (hN63 : N < 2 ^ 63) {o f : Nat} (len : UInt64) (hlen : 1 ≤ len.toNat)

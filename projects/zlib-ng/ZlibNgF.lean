@@ -20,3 +20,6 @@ import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Proof.«chunkset.mem»
 import ZlibNgF.Proof.«chunkset.copy»
 import ZlibNgF.Proof.«inflate_p.h.chunkcopy_safe»
+import ZlibNgF.Proof.«inffast.base»
+import ZlibNgF.Proof.«inffast.inv»
+import ZlibNgF.Proof.«inffast.steps»
