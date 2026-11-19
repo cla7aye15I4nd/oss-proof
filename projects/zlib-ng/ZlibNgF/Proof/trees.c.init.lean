@@ -28,30 +28,47 @@ def ibS (st : DeflateState) (A B C : Array Ct) : DeflateState :=
     opt_len := 0
     sym_next := 0 }
 
+/-- The frequencies that `init_block` leaves: `END_BLOCK` once in `dyn_ltree`, every other code of the three trees
+zero. -/
+def IbFreq (A B C : Array Ct) : Prop :=
+  A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧
+    (∀ c, c < 286 → (A[c]!).fc.toNat = if c = 256 then 1 else 0) ∧ (∀ c, c < 30 → (B[c]!).fc.toNat = 0) ∧
+    (∀ c, c < 19 → (C[c]!).fc.toNat = 0)
+
 /-- `init_block` on a state whose tree arrays have their C sizes. -/
 theorem init_block_SH (st : DeflateState) (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1)
     (h3 : st.bl_tree.size = 2 * 19 + 1) :
     Sat (SH H i z b st d) (ZlibNg.Trees.init_block (some b)) (fun _ H' => ∃ A B C, H' = SH H i z b (ibS st A B C) d ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1) := by
+      IbFreq A B C) := by
   simp only [ZlibNg.Trees.init_block, dynLtreeP, dynDtreeP, blTreeP, pure_bind_M]
   refine Sat.bind (Sat.mono (ctLoop CtRef.dyn_ltree (·.dyn_ltree) (fun s A => { s with dyn_ltree := A })
     ctl_get ctl_mod (fun _ => rfl) (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ => rfl) _ L_CODES (by decide)
     (by simp [h1, HEAP_SIZE, L_CODES])) ?_)
-  rintro _ _ ⟨A, rfl, hA⟩
+  rintro _ _ ⟨A, rfl, hA, hA0⟩
   refine Sat.bind (Sat.mono (ctLoop CtRef.dyn_dtree (·.dyn_dtree) (fun s A => { s with dyn_dtree := A })
     ctd_get ctd_mod (fun _ => rfl) (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ => rfl) _ D_CODES (by decide)
     (by simp [h2, D_CODES])) ?_)
-  rintro _ _ ⟨B, rfl, hB⟩
+  rintro _ _ ⟨B, rfl, hB, hB0⟩
   refine Sat.bind (Sat.mono (ctLoop CtRef.bl_tree (·.bl_tree) (fun s A => { s with bl_tree := A })
     ctb_get ctb_mod (fun _ => rfl) (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ => rfl) _ BL_CODES (by decide)
     (by simp [h3, BL_CODES])) ?_)
-  rintro _ _ ⟨C, rfl, hC⟩
-  simp only at hA hB hC
+  rintro _ _ ⟨C, rfl, hC, hC0⟩
+  simp only at hA hB hC hA0 hB0 hC0
   refine Sat.bind (Sat.of_eq (ctSetFc_l _ END_BLOCK 1 (by simp [hA, h1, END_BLOCK, HEAP_SIZE, L_CODES])) ?_)
   try dsimp only
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
-  refine Sat.of_eq (wrD_SH _) ⟨_, B, C, rfl, ?_, by rw [hB, h2], by rw [hC, h3]⟩
+  refine Sat.of_eq (wrD_SH _) ⟨_, B, C, rfl, ⟨?_, by rw [hB, h2], by rw [hC, h3], fun c hc => ?_,
+    fun c hc => by rw [hB0 c (by simp [D_CODES]; omega)]; rfl, fun c hc => by rw [hC0 c (by simp [BL_CODES]; omega)]; rfl⟩⟩
   · simp [hA, h1]
+  · have hc' : c < A.size := by rw [hA, h1]; simp [HEAP_SIZE, L_CODES]; omega
+    simp only [Array.set!_eq_setIfInBounds, getElem!_def, Array.getElem?_setIfInBounds]
+    by_cases e : c = 256
+    · subst e; simp [END_BLOCK, hc']
+    · have e' : (END_BLOCK : Nat) ≠ c := by simp [END_BLOCK]; omega
+      have := hA0 c (by simp [L_CODES]; omega)
+      simp only [getElem!_def] at this
+      simp only [e', e, ↓reduceIte] at this ⊢
+      simp [this]
 
 theorem ctGet_dl (s : DeflateState) (k : Nat) (hk : k < s.dyn_ltree.size) :
     ctGet (.ref (CtRef.dyn_ltree b) 0) (k : Int) (SH H i z b s d) = .ok (s.dyn_ltree[k]!, SH H i z b s d) := by
@@ -113,9 +130,9 @@ theorem detect_SH (st : DeflateState) (h1 : 256 ≤ st.dyn_ltree.size) :
   · subst hf; exact Sat.pure rfl
   · simp only [hf, Bool.false_eq_true, ↓reduceIte]
     refine Sat.bind (Sat.of_eq (ctFc_dl st 9 (by omega)) ?_)
-    refine Sat.bind (Sat.of_eq (ctFc_dl st 10 (by omega)) ?_)
     split
     · exact Sat.pure rfl
+    refine Sat.bind (Sat.of_eq (ctFc_dl st 10 (by omega)) ?_)
     split
     · exact Sat.pure rfl
     refine Sat.bind (Sat.of_eq (ctFc_dl st 13 (by omega)) ?_)

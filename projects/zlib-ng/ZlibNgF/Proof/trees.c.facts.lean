@@ -15,7 +15,7 @@ open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateFacts Zli
 /-- `TreesFacts`, given its `flush_block` field. -/
 theorem treesFacts_of_flush
     (hf : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
-      EmitOk s b (fun st => st.pending = 0 ∧ (buf = .null ∨ WindowBuf b st buf len)) (fun _ => 0)
+      EmitOk s b (fun st => st.pending = 0 ∧ 0 < st.level ∧ (buf = .null ∨ WindowBuf b st buf len)) (fun _ => 0)
         (fun st => 4 * st.lit_bufsize.toNat + 9) (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)) :
     TreesFacts where
   flush_block := hf
