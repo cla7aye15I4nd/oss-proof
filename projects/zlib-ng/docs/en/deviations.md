@@ -28,7 +28,7 @@ unsafe.
 | `crc32_combine_op` | The low 32 bits of `op` are not 0. | `Goal.crc32_combine_op_safety` | `zlib.h` allows only an `op` made by `crc32_combine_gen` from a non-negative length, which is never 0; with a zero low half `multmodp` does not return. |
 | `zng_alloc_aligned` (internal) | `align ≥ 8` and `8 + size + align < 2^32`; the alignment theorem asks `align = 2^k` with `3 ≤ k ≤ 31`. | `Goal.zng_alloc_aligned_safety`, `Goal.zng_alloc_aligned_alignment` | The only caller (`gz_buffer_alloc`) passes 64 and at most `3 * 2^30` bytes. |
 
-## Inflate and uncompress (goals not done)
+## Inflate and uncompress
 
 The goals of `inflate*` and `uncompress*` are stated on the streams that `zlib.h` lets a program reach
 (`InflateReachable`): made by a successful `inflateInit_`, `inflateInit2_` or `inflateCopy`, then changed only by

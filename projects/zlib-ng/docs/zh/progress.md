@@ -14,7 +14,7 @@
 | `crc32_combine`、`crc32_combine64`、`crc32_combine_gen`、`crc32_combine_gen64`、`crc32_combine_op`：安全性与拒绝值 | 公开 C 接口 | 完成 |
 | `compressBound`：安全性与精确值 | 公开 C 接口 | 完成 |
 | 流式 `deflate*` 安全性 | 公开 C 接口 | 未完成 |
-| `inflateUndermine`：安全性 | 公开 C 接口 | 完成 |
+| `inflateInit_`、`inflateInit2_`、`inflateUndermine`：安全性 | 公开 C 接口 | 完成 |
 | 流式 `inflate*` 安全性（其他函数） | 公开 C 接口 | 未完成 |
 | `inflateBack*` 安全性 | 公开 C 接口 | 未完成 |
 | `compress`、`compress2` 安全性 | 公开 C 接口 | 未完成 |

@@ -406,9 +406,11 @@
     },
     {
       "function": "inflateInit_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateInit_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateInit__safety"
     },
     {
       "function": "deflateInit2_",
@@ -418,9 +420,11 @@
     },
     {
       "function": "inflateInit2_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated (inflate.c, inftrees.c, inffast_tpl.h, chunkset_tpl.h) and differentially tested; the safety goal is stated and not proved yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateInit2_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateInit2__safety"
     },
     {
       "function": "inflateBackInit_",

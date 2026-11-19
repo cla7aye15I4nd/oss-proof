@@ -10,8 +10,6 @@ changes only what the frame names: the stream record, the library's own block, t
 the caller buffers the function writes. That a successful call keeps the stream reachable is part of
 `InflateReachable` itself; the content of the goals is that no reachable state lets a call fault. The narrowings
 are in the module comment of `ZlibNgF.Spec.Common.Inflate` and on the deviations page.
-
-None of these goals is proved yet.
 -/
 
 set_option autoImplicit false

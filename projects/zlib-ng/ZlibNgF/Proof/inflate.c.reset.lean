@@ -132,6 +132,17 @@ theorem reset2_run {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateSta
         simp only [hc, ↓reduceIte, Bool.false_eq_true]
         exact reset2_tail L _ _
 
+/-- `inflateReset2` with the default `windowBits` (15) succeeds. -/
+theorem reset2_15 {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateState} (L : Live h i z b st) :
+    ∃ H, inflateReset2 (some i) 15 h = .ok (Z_OK, H) := by
+  have h1 : ¬ (15 : Int32) < 0 := by decide
+  have h2 : (15 : Int32) < 48 := by decide
+  have h3 : ¬ (((15 : Int32) &&& MAX_WBITS) != 0 && (decide (((15 : Int32) &&& MAX_WBITS) < MIN_WBITS) ||
+      decide (((15 : Int32) &&& MAX_WBITS) > MAX_WBITS))) = true := by decide
+  simp only [inflateReset2, bind_app, L.check, L.stateOf, Bool.false_eq_true, ↓reduceIte, h1, h2, h3, wrap_ok,
+    pure_app]
+  exact ⟨_, reset2_tail L _ _⟩
+
 /-! ## The invariant after a reset -/
 
 /-- The state after `inflateResetKeep` has the invariant when the window fields are in range. -/

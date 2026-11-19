@@ -9,3 +9,5 @@ import ZlibNgF.ZlibNg.«uncompr.c»
 import ZlibNgF.Spec.Safety.Inflate
 import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«inflate.c.reset»
+import ZlibNgF.Proof.«inflate.c.alloc»
+import ZlibNgF.Proof.«public-inflate-init»

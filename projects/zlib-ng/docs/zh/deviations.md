@@ -25,7 +25,7 @@
 | `crc32_combine_op` | `op` 的低 32 位不为 0。 | `Goal.crc32_combine_op_safety` | `zlib.h` 只允许由 `crc32_combine_gen` 从非负长度生成的 `op`，它永不为 0；低半部为 0 时 `multmodp` 不返回。 |
 | `zng_alloc_aligned`（内部） | `align ≥ 8` 且 `8 + size + align < 2^32`；对齐定理要求 `align = 2^k`，`3 ≤ k ≤ 31`。 | `Goal.zng_alloc_aligned_safety`、`Goal.zng_alloc_aligned_alignment` | 唯一调用者（`gz_buffer_alloc`）传入 64 与至多 `3 * 2^30` 字节。 |
 
-## Inflate 与 uncompress（目标未完成）
+## Inflate 与 uncompress
 
 `inflate*` 与 `uncompress*` 的目标针对 `zlib.h` 允许程序到达的流（`InflateReachable`）陈述：由成功的
 `inflateInit_`、`inflateInit2_` 或 `inflateCopy` 建立，此后只被参数合法的 inflate 调用以及程序改变；程序可以改变
