@@ -17,3 +17,7 @@ import ZlibNgF.Math.InftreesCount
 import ZlibNgF.Proof.«inftrees.c.base»
 import ZlibNgF.Proof.«inftrees.c.count»
 import ZlibNgF.Proof.«inftrees.c.rev»
+import ZlibNgF.Proof.«inftrees.c.loopdefs»
+import ZlibNgF.Proof.«inftrees.c.fill»
+import ZlibNgF.Proof.«inftrees.c.geom»
+import ZlibNgF.Proof.«inftrees.c.sub»
