@@ -70,7 +70,7 @@ class CoverageTests(unittest.TestCase):
         self.rejects("only a Windows-only function", m)
 
     def test_done_goals_proved_and_required(self):
-        goal = v.SAFETY + "adler32_safety"
+        goal = v.SAFETY + "crc32_safety"
         lists = copy.deepcopy(self.lists)
         lists["required"].remove(goal)
         self.rejects("missing from `required`", lists=lists)
@@ -91,10 +91,10 @@ class CoverageTests(unittest.TestCase):
 
     def test_translation_binding(self):
         m = copy.deepcopy(self.manifest)
-        self.api(m, "adler32")["implementation"] = "ZlibNg.Crc32.adler32"
+        self.api(m, "crc32")["implementation"] = "ZlibNg.Adler32.crc32"
         self.rejects("wrong translated entry binding", m)
         m = copy.deepcopy(self.manifest)
-        self.api(m, "adler32")["source"] = "ZlibNgF/ZlibNg/crc32.c.lean"
+        self.api(m, "crc32")["source"] = "ZlibNgF/ZlibNg/adler32.c.lean"
         self.rejects("missing translated entry", m)
 
     def test_undocumented_list(self):

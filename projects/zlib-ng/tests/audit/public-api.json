@@ -1,7 +1,7 @@
 {
   "version": 1,
   "header": "zlib-ng/zlib.h.in",
-  "source_pin": "12731092979c6d07f42da27da673a9f6c7b13586",
+  "source_pin": "5f1f489934a5b298a835acf22db84d480ac14c22",
   "target": "x86_64 Linux LP64, cmake -DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF",
   "undocumented": {
     "header_comment": "/* undocumented functions */",
@@ -361,26 +361,15 @@
     },
     {
       "function": "adler32",
-      "status": "done",
+      "status": "not-done",
       "scope": "lp64-linux",
-      "source": "ZlibNgF/ZlibNg/adler32.c.lean",
-      "implementation": "ZlibNg.Adler32.adler32",
-      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_safety",
-      "other_goals": [
-        "ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous",
-        "ZlibNgF.Spec.Functional.Goal.adler32_functional"
-      ]
+      "reason": "Translated (adler32.c, arch/generic/adler32_c.c, adler32_p.h); the SWAR kernel adler32_swar is proved, the alignment prefix, NMAX blocks and tail of adler32_c are not yet."
     },
     {
       "function": "adler32_z",
-      "status": "done",
+      "status": "not-done",
       "scope": "lp64-linux",
-      "source": "ZlibNgF/ZlibNg/adler32.c.lean",
-      "implementation": "ZlibNg.Adler32.adler32_z",
-      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_z_safety",
-      "other_goals": [
-        "ZlibNgF.Spec.Functional.Goal.adler32_z_functional"
-      ]
+      "reason": "Translated (adler32.c, arch/generic/adler32_c.c, adler32_p.h); the SWAR kernel adler32_swar is proved, the alignment prefix, NMAX blocks and tail of adler32_c are not yet."
     },
     {
       "function": "crc32",
@@ -616,6 +605,48 @@
       "status": "not-done",
       "scope": "lp64-linux",
       "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+    },
+    {
+      "function": "compressBound_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Translated in compress.c.lean; no safety goal is stated yet."
+    },
+    {
+      "function": "compress_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Depends on deflate, which is not translated yet."
+    },
+    {
+      "function": "compress2_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Depends on deflate, which is not translated yet."
+    },
+    {
+      "function": "deflateBound_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "deflate.c is not translated yet."
+    },
+    {
+      "function": "deflateUsed",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "deflate.c is not translated yet."
+    },
+    {
+      "function": "uncompress_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "uncompr.c and inflate are not translated yet."
+    },
+    {
+      "function": "uncompress2_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "uncompr.c and inflate are not translated yet."
     }
   ]
 }

@@ -6,9 +6,9 @@ unsafe.
 
 ## Every call
 
-- The library is zlib-ng 2.3.3 with the seven patches, built for x86_64 Linux LP64 with
-  `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF`, so that
-  `adler32` and `adler32_z` run `adler32_c`, and `crc32` and `crc32_z` run `crc32_braid`. A build that
+- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the three patches, built for x86_64
+  Linux LP64 with `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF`,
+  so that `adler32` and `adler32_z` run `adler32_c`, and `crc32` and `crc32_z` run `crc32_braid`. A build that
   dispatches to SIMD kernels or to the Chorba CRC-32 kernel (the default) is not covered.
 - The static CRC tables `crc_table` and `x2n_table` hold the constants of `crc32_braid_tbl.h`
   (`CrcGlobals`). In C they are constant data; in the model they are part of the heap, so the CRC
@@ -17,18 +17,19 @@ unsafe.
   live object (`BufferBytes`). This is what `zlib.h` asks.
 - Theorems hold for every address of every object (`Heap.baseAddr`), so every alignment of a
   buffer is covered.
+- The model reads a buffer as 64-bit words (`crc32_braid`, `adler32_swar`) through byte loads; the conversion to
+  the word pointer is checked for alignment, the effective-type rule (ISO C17 §6.5p7) is not.
 
 ## Narrower than `zlib.h`
 
 | Function | Premise | Lean | Reason |
 | --- | --- | --- | --- |
-| `compressBound` (value only) | `sourceLen ≤ 0xe38e38e38e38e377`. | `Goal.compressBound_functional` | Above this, the bound wraps modulo 2^64. Safety holds for every `sourceLen`. |
-| `zng_alloc_aligned` (internal) | `align` is 0 or at least 8; the alignment theorem asks `align = 2^k` with `3 ≤ k ≤ 31`. | `Goal.zng_alloc_aligned_safety`, `Goal.zng_alloc_aligned_alignment` | The only caller (`gz_buffer_alloc`) passes 64. |
+| `compressBound` (value only) | `sourceLen ≤ 0xe38e38e38e38e377`. | `Goal.compressBound_functional` | Above this, the sum wraps and the function returns `ULONG_MAX`. Safety holds for every `sourceLen`. |
+| `crc32_combine_op` | The low 32 bits of `op` are not 0. | `Goal.crc32_combine_op_safety` | `zlib.h` allows only an `op` made by `crc32_combine_gen` from a non-negative length, which is never 0; with a zero low half `multmodp` does not return. |
+| `zng_alloc_aligned` (internal) | `align ≥ 8` and `8 + size + align < 2^32`; the alignment theorem asks `align = 2^k` with `3 ≤ k ≤ 31`. | `Goal.zng_alloc_aligned_safety`, `Goal.zng_alloc_aligned_alignment` | The only caller (`gz_buffer_alloc`) passes 64 and at most `3 * 2^30` bytes. |
 
-## Behaviour that differs from unpatched zlib-ng
+## Behaviour of the verified source
 
 - `crc32_combine`, `crc32_combine64`, `crc32_combine_gen` and `crc32_combine_gen64` return 0 for a
-  negative `len2`, and `crc32_combine_op` returns 0 when the low 32 bits of `op` are 0 (patch 0002).
-  Unpatched, these calls do not return.
-- `adler32` and `adler32_z` return 1 for a `NULL` buffer of length 1 (patch 0007). Unpatched, they
-  read through the null pointer.
+  negative `len2`.
+- `adler32` and `adler32_z` return 1 for a `NULL` buffer of any length.

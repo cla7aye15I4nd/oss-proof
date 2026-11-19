@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Usage: build-zlib-ng.sh <zlib-ng-checkout> <output-dir>
-# Copies the zlib-ng checkout (the upstream submodule, at the pinned tag) to <output-dir>/src, applies
+# Copies the zlib-ng checkout (the upstream submodule, at the pinned commit) to <output-dir>/src, applies
 # ../patches/*.patch there in name order, and builds the static libz.a in <output-dir> with the verified
 # configuration (the option set below). The checkout itself is never modified.
 #   CFLAGS=<flags>        extra compiler flags (e.g. sanitizers)
-#   EXCLUDE=<prefix>      skip the patches whose file name starts with <prefix> (e.g. 0007); used by the
+#   EXCLUDE=<prefix>      skip the patches whose file name starts with <prefix> (e.g. 0006); used by the
 #                         patch reproductions to build the source before one fix
 #   build-zlib-ng.sh --patch-digest   prints the digest of the current patches (one line per patch).
 #   build-zlib-ng.sh --cmake-options  prints the verified CMake option set.

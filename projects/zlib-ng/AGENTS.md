@@ -5,8 +5,8 @@ Behaviour Policy** (no `NULL + 0`, no wild/dangling pointer `+ 0`, no `NULL - NU
 pointer subtraction or comparison, and no `memcpy`/`memset` with `n == 0` on `NULL` or dangling
 pointers). On any shared rule the root `AGENTS.md` is authoritative.
 
-Goal: kernel-checked Lean 4 proofs about a faithful translation of zlib-ng 2.3.3 (`zlib-ng/`
-submodule), built as the `ZLIB_COMPAT` x86_64 Linux LP64 static library with
+Goal: kernel-checked Lean 4 proofs about a faithful translation of zlib-ng at the pinned commit of its `develop` branch
+(`zlib-ng/` submodule), built as the `ZLIB_COMPAT` x86_64 Linux LP64 static library with
 `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF` (other
 options at their defaults). With these options there is no SIMD code and no function table: every
 `FUNCTABLE_CALL(name)` is a direct call to the generic C function (`adler32` -> `adler32_c`, `crc32` ->
@@ -21,7 +21,8 @@ not done.
 
 ## Source
 
-- `zlib-ng/` is the upstream submodule (`https://github.com/zlib-ng/zlib-ng`, tag `2.3.3`). Never
+- `zlib-ng/` is the upstream submodule (`https://github.com/zlib-ng/zlib-ng`, branch `develop`, commit
+  `5f1f4899`). Never
   modify it. The verified source is `zlib-ng/` plus `patches/*.patch` applied in name order, each
   listed in `patches/README.md`.
 - Translations mirror the C layout: `zlib-ng/X.c` is `ZlibNgF/ZlibNg/X.c.lean`, `zlib-ng/X.h` is

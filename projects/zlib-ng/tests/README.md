@@ -68,10 +68,10 @@ print the expected result.
 
 | Case | Patch | Defect shown without the patch |
 | --- | --- | --- |
-| `gzbuffer-aligned-alloc-overflow` | 0001 | signed overflow in `gz_buffer_alloc` |
-| `crc32-combine-negative-len-hang` | 0002 | `crc32_combine_gen(-1)`, `crc32_combine_op(1, 2, 0)`, `crc32_combine(1, 2, -1)` do not return |
 | `inflate-copy-pointer-equality` | 0003 | invalid pointer pair in `inflateCopy` |
 | `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64` |
-| `adler32-null-len-1` | 0007 | null load in `adler32_len_1` for `adler32(1, Z_NULL, 1)` |
+| `deflatebound-gzip-extra-length` | 0006 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` |
 
-Patches 0005 and 0006 have no reproduction: their defects are not confirmed on real C.
+Plain regression tests (defects of 2.3.3 that the `develop` branch fixes; each must pass on the verified
+source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negative-len-hang` (the
+`g` and `c` runs), `gzbuffer-aligned-alloc-overflow`.

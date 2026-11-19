@@ -1,17 +1,22 @@
 # Patches
 
-The verified source is zlib-ng 2.3.3 plus the patches below, applied in name order. Every patch is
-**local and pending**: none has been submitted upstream yet. Each is replaced by the upstream fix
-once one exists, and deleted once the pin moves past it.
+The verified source is the zlib-ng `develop` branch at commit `5f1f4899` plus the patches below, applied in name
+order. Every patch is **local and pending**: none has been submitted upstream yet. Each is replaced by the upstream
+fix once one exists, and deleted once the pin moves past it.
 
 | Patch | Files | What it changes | Defect it addresses | Confirmed on real C |
 | --- | --- | --- | --- | --- |
-| `0001-gzbuffer-aligned-alloc-overflow.patch` | `gzlib.c`, `zutil.c` | `gzbuffer` rejects `size > INT_MAX / 3`; `gz_buffer_alloc` computes sizes in `uint32_t`; `zng_alloc_aligned` returns `NULL` for `align == 0` or when `sizeof(void *) + size + align` would exceed `SIZE_MAX`, and computes the size in `size_t`. | `gzbuffer` accepts sizes up to `0x7fffffff`; `gz_buffer_alloc` then overflows `int` (`want * 2`), and `zng_alloc_aligned` wraps its 32-bit size, allocates too little and writes the saved pointer outside the block. | yes (signed overflow and heap overflow) |
-| `0002-crc32-combine-negative-len-hang.patch` | `crc32_braid_comb.c` | `crc32_combine_gen_` returns 0 for `len2 < 0`; `crc32_combine_op_` returns 0 for `op == 0`; `crc32_combine_` is expressed through those two. | `x2nmodp` never ends for a negative length, and `multmodp` never ends for `op == 0`. | yes (the calls do not return) |
 | `0003-inflate-copy-pointer-equality.patch` | `inflate.c` | `inflateCopy` tests `state->lencode == state->codes` instead of a `>=` / `<=` range test. | The range test compares a pointer into the static fixed-code table with a pointer into the heap state (ISO C17 §6.5.8p5). | yes (pointer-pair check) |
-| `0004-gzseek-and-gzoffset-overflow.patch` | `gzguts.h`, `gzlib.c` | `gzseek64` computes the target position with explicit range checks against `GZ_OFF_MAX`, skips the buffer update when `n == 0`, and tests the raw-area condition without overflow; `gzoffset64` treats every negative `lseek` result as failure. | Signed 64-bit overflow in the offset arithmetic of `gzseek64` and `gzoffset64`. | `gzseek64` yes; `gzoffset64` part not confirmed |
-| `0005-gzread-stale-next.patch` | `gzread.c` | In `gz_fetch`, case `COPY`, sets `state->x.next = state->out` before `gz_load` instead of after it. | When `gz_load` fails after a partial read, `x.next` keeps a stale value. | not confirmed |
-| `0006-deflatebound-gzip-extra-length.patch` | `deflate.c` | `deflateBound` adds `2 + (extra_len & 0xffff)` for a user gzip header with an extra field. | `2 + extra_len` is computed in 32-bit `unsigned` and can wrap. | not confirmed |
-| `0007-adler32-null-before-len-1.patch` | `arch/generic/adler32_c.c` | `adler32_c` tests `buf == NULL` (returning 1) before the `len == 1` fast path instead of after it. | `zlib.h` documents that a `Z_NULL` buffer returns the initial value for any length, but `adler32_c` handles `len == 1` first and reads `buf[0]` through the null pointer. | yes (null load) |
+| `0004-gzseek-overflow.patch` | `gzguts.h`, `gzlib.c` | `gzseek64` computes the target position with explicit range checks against `GZ_OFF_MAX`, and skips the buffer update when `n == 0`. | Signed 64-bit overflow in the offset arithmetic of `gzseek64` (`SEEK_CUR` adds the pending skip without a bound); `state->x.next += 0` on a never-set `x.next` when `gzseek` is called before the first read (wild pointer `+ 0`, ISO C17 §6.5.6p8). | overflow yes (UBSan); `x.next + 0` by the letter of the standard |
+| `0006-deflatebound-gzip-extra-length.patch` | `deflate.c` | `deflateBound` adds `2 + (extra_len & 0xffff)` for a user gzip header with an extra field. | `2 + extra_len` is computed in 32-bit `unsigned` and wraps for `extra_len >= 0xfffffffe`, so the bound is below what one `deflate(Z_FINISH)` writes, against the promise of `zlib.h`. Not undefined behaviour. | yes (`deflate` does not return `Z_STREAM_END`) |
+
+Patches of the earlier 2.3.3 pin that are gone:
+
+| Patch | Verdict | Evidence |
+| --- | --- | --- |
+| `0001` (`gzbuffer` size, `zng_alloc_aligned` wrap) | fixed upstream | `gzbuffer` clamps the size to `GZBUFSIZE_MAX` (1 GiB), so `gz_buffer_alloc` asks for at most `3 * 2^30` bytes and `zng_alloc_aligned` cannot wrap; the reproduction runs clean without a patch. |
+| `0002` (`crc32_combine*` hangs) | fixed upstream | `crc32_combine_` and `crc32_combine_gen_` return 0 for `len2 < 0`. `crc32_combine_op` with `op == 0` still does not return, but `zlib.h` only allows an `op` made by `crc32_combine_gen` from a non-negative length, which is never 0. |
+| `0005` (`gzread` stale `x.next`) | not a defect | `gz_load` reports a read error through `gz_error`, which sets `x.have = 0`, so the stale `x.next` is never read. |
+| `0007` (`adler32` with `NULL` and length 1) | fixed upstream | `adler32` and `adler32_z` test `buf == NULL` before calling `adler32_c`. |
 
 Confirmed defects are described in the findings page of the project documentation.

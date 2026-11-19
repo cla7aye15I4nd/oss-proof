@@ -94,7 +94,7 @@ loop's control flow depends on `a` only, so the model is linear (for `^^^`) in `
 
 private def mulx (b : UInt32) : UInt32 := if b &&& 1 != 0 then (b >>> 1) ^^^ POLY else b >>> 1
 
-private def mpGo (a : UInt32) : Nat → UInt32 → UInt32 → UInt32
+private noncomputable def mpGo (a : UInt32) : Nat → UInt32 → UInt32 → UInt32
   | 0, p, b => if a &&& bit 0 != 0 then p ^^^ b else p
   | i + 1, p, b =>
     if a &&& bit (i + 1) != 0 then
