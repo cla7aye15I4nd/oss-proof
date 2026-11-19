@@ -4,7 +4,8 @@ import ZlibNgF.ZlibNg.«inflate_p.h»
 /-!
 # `inffast_tpl.h` — fast decoding loop (`ZlibNgF`)
 
-Source: `zlib-ng/inffast_tpl.h` with patch 0007, instantiated twice by `zlib-ng/arch/generic/chunkset_c.c`:
+Source: `zlib-ng/inffast_tpl.h` with patch 0007 (a window copy is upstream's `CHUNKCOPY_SAFE` / `chunkcopy_safe`
+when `window == beg`, the output being the window as in `inflateBack`, and `memcpy` otherwise), instantiated twice by `zlib-ng/arch/generic/chunkset_c.c`:
 `inflate_fast_c` (`safeMode = false`) and `inflate_fast_safe_c` (`USE_SAFE_MODE`, `safeMode = true`), with the
 chunk functions of `chunkset_tpl.h.lean`, no `HAVE_MASKED_READWRITE`, no `INFLATE_STRICT`, no
 `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR`. `bits_t` is `uint8_t` (x86_64).
@@ -188,23 +189,37 @@ def stepDodist (c : FC) (l : FL) : M (FL × Lbl) := do
         l := { l with from_ := ← l.from_.add (Int.ofNat (c.wsize - l.op).toNat) }
         if l.op < l.len then
           l := { l with len := l.len - l.op }
-          Ptr.memcpy l.out l.from_ l.op.toNat
-          l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
+          if c.window == c.beg then
+            l := { l with out := ← CHUNKCOPY_SAFE l.out l.from_ l.op.toUInt64 c.safe }
+          else
+            Ptr.memcpy l.out l.from_ l.op.toNat
+            l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
           l := { l with from_ := c.window, op := c.wnext }
       if l.op < l.len then
         l := { l with len := l.len - l.op }
         if !c.safeMode then
-          Ptr.memcpy l.out l.from_ l.op.toNat
-          l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
+          if c.window == c.beg then
+            l := { l with out := ← CHUNKCOPY_SAFE l.out l.from_ l.op.toUInt64 c.safe }
+          else
+            Ptr.memcpy l.out l.from_ l.op.toNat
+            l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
           let (out, dist, len) ← CHUNKUNROLL l.out l.dist l.len
           l := { l with out, dist, len }
           let src ← l.out.add (-(Int.ofNat l.dist.toNat))
           l := { l with out := ← CHUNKCOPY_SAFE l.out src l.len.toUInt64 c.safe }
         else
-          Ptr.memcpy l.out l.from_ l.op.toNat
-          l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
+          if c.window == c.beg then
+            l := { l with out := ← chunkcopy_safe l.out l.from_ l.op.toUInt64 c.safe }
+          else
+            Ptr.memcpy l.out l.from_ l.op.toNat
+            l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
           let src ← l.out.add (-(Int.ofNat l.dist.toNat))
           l := { l with out := ← chunkcopy_safe l.out src l.len.toUInt64 c.safe }
+      else if c.window == c.beg then
+        if !c.safeMode then
+          l := { l with out := ← CHUNKCOPY_SAFE l.out l.from_ l.len.toUInt64 c.safe }
+        else
+          l := { l with out := ← chunkcopy_safe l.out l.from_ l.len.toUInt64 c.safe }
       else
         Ptr.memcpy l.out l.from_ l.len.toNat
         l := { l with out := ← l.out.add (Int.ofNat l.len.toNat) }

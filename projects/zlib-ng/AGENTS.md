@@ -62,7 +62,7 @@ not done.
 
 Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `inflate.c.o`, `inftrees.c.o`,
 `chunkset_c.c.o`, `uncompr.c.o`) and the preprocessor conditions of the files below. `infback.c`
-(`inflateBack*`) is out of this scope.
+(`inflateBack*`) has its own section below.
 
 - Public entry points (`inflate.c`): `inflateInit_`, `inflateInit2_` (both call the hidden `inflateInit2`
   after `CHECK_VER_STSIZE`), `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`,
@@ -157,6 +157,36 @@ files below (`OPTIMAL_CMP` is 64 on x86_64; no `NO_QUICK_STRATEGY`, `NO_MEDIUM_S
   agree on every generated input. `insert_knuth_stepped` is otherwise called with `count >= 3` and
   `max_inserts >= 4` (`deflate_fast`, through `insert_knuth_spread_static`) or `count > 2 * max_insert_count >= 4`
   (`deflate_medium`), so `inserts - 1 >= 1`.
+
+## inflateBack scope (pinned `develop` commit, verified option set)
+
+Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it defines `inflateBackInit`,
+`inflateBackInit_`, `inflateBack`, `inflateBackEnd` and the static `order`, and calls `alloc_inflate`, `free_inflate`,
+`fixedtables`, `zng_inflate_table`, `inflate_fast_safe_c`, `chunkmemset_safe_c`, `zcalloc`, `zcfree`).
+
+- Public entry points: `inflateBackInit_` (`CHECK_VER_STSIZE`, then the hidden `inflateBackInit`), `inflateBack`,
+  `inflateBackEnd`. Translation: `ZlibNgF/ZlibNg/infback.c.lean`.
+- Shared with `inflate.c`: `alloc_inflate` (the same single block, window part included: `inflateBackInit` uses the
+  caller's window instead and never reads the allocated one), `free_inflate` (`inflateBackEnd`), `fixedtables`,
+  `zng_inflate_table`, and from `inflate_p.h` `LOAD`, `RESTORE`, `NEEDBITS`, `BITS`, `DROPBITS`, `BYTEBITS`,
+  `INITBITS`, `SET_BAD`, `CODE_BITS`, `CODE_EXTRA` and the static `chunkcopy_safe`. `infback.c` has its own `PULL`,
+  `PULLBYTE` (calling `in()`) and `ROOM` (calling `out()`).
+- `inflateBackInit` does not set `state->strm`, `state->mode` or the code pointers; `inflateBack` sets `mode`, `last`
+  and `whave` at entry and keeps `hold` / `bits` in locals that start at 0 on every call (there is no `inflatePrime`
+  for these streams, so the bit buffer holds fewer than 8 bits whenever `LEN` calls the fast path: patch 0010's
+  concern has no analogue). `state->wnext` stays 0.
+- `LEN` calls `inflate_fast_safe_c(strm, state->wsize)` (not `inflate_fast_c`) when `have >= 15` and `left >= 3`, with
+  `next_out` inside the caller's window, so the output of `inflate_fast` *is* the window (`beg == window`). The safe
+  variant bails out to `MATCH` when a match does not fit in `left`; `MATCH` of `infback.c` copies it with
+  `chunkcopy_safe` (window to window) or `chunkmemset_safe_c`.
+- Patch 0007's concern (comparing a pointer into the window with one into the caller's output) does not arise in
+  `infback.c`: both are the caller's window. Patch 0007 copies a window match in `inflate_fast` with `memcpy` only
+  when `window != beg`; called from `inflateBack` (`beg == window`) it keeps upstream's `chunkcopy_safe`, which
+  handles the overlap of a distance that reaches into the previous window pass (`dist + min(op, len) > wsize`).
+  The first version of 0007 used `memcpy` there too (overlapping ranges, ISO C17 §7.24.2.1p2); the guard of
+  `tests/regression/infback-window-overlap` keeps that version and checks that it still shows the overlap.
+- Call-backs: `in_func` / `out_func` are the parameters `InCb` / `OutCb` of `inflateBack` (caller code); what the
+  goals assume of them is in `ZlibNgF/Spec/Common/Infback.lean`.
 
 ## Checking
 

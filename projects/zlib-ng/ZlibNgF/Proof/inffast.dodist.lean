@@ -26,17 +26,28 @@ def winJp (c : FC) (l : FL) : M (FL × Lbl) := do
   if l.op < l.len then
     l := { l with len := l.len - l.op }
     if !c.safeMode then
-      Ptr.memcpy l.out l.from_ l.op.toNat
-      l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
+      if c.window == c.beg then
+        l := { l with out := ← CHUNKCOPY_SAFE l.out l.from_ l.op.toUInt64 c.safe }
+      else
+        Ptr.memcpy l.out l.from_ l.op.toNat
+        l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
       let (out, dist, len) ← CHUNKUNROLL l.out l.dist l.len
       l := { l with out, dist, len }
       let src ← l.out.add (-(Int.ofNat l.dist.toNat))
       l := { l with out := ← CHUNKCOPY_SAFE l.out src l.len.toUInt64 c.safe }
     else
-      Ptr.memcpy l.out l.from_ l.op.toNat
-      l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
+      if c.window == c.beg then
+        l := { l with out := ← chunkcopy_safe l.out l.from_ l.op.toUInt64 c.safe }
+      else
+        Ptr.memcpy l.out l.from_ l.op.toNat
+        l := { l with out := ← l.out.add (Int.ofNat l.op.toNat) }
       let src ← l.out.add (-(Int.ofNat l.dist.toNat))
       l := { l with out := ← chunkcopy_safe l.out src l.len.toUInt64 c.safe }
+  else if c.window == c.beg then
+    if !c.safeMode then
+      l := { l with out := ← CHUNKCOPY_SAFE l.out l.from_ l.len.toUInt64 c.safe }
+    else
+      l := { l with out := ← chunkcopy_safe l.out l.from_ l.len.toUInt64 c.safe }
   else
     Ptr.memcpy l.out l.from_ l.len.toNat
     l := { l with out := ← l.out.add (Int.ofNat l.len.toNat) }
@@ -45,29 +56,118 @@ def winJp (c : FC) (l : FL) : M (FL × Lbl) := do
 theorem u32_sub (x y : UInt32) (h : y.toNat ≤ x.toNat) : (x - y).toNat = x.toNat - y.toNat :=
   UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; exact h)
 
-theorem win_get {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) :
+/-- `window != beg` for `inflate`: the window is in the state block, the output in the caller's block. -/
+theorem win_ne_beg {H0 : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (hne : e.wb ≠ e.ob) :
+    ¬ ((c.window == c.beg) = true) := by
+  rw [EV.win, EV.beg]
+  simp only [beq_iff_eq, B, Ptr.ref.injEq, BRef.heap.injEq, not_and]
+  exact fun h => absurd h hne
+
+theorem win_get {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) (hne : e.wb ≠ e.ob) :
     ∃ wd, Space.get H0 (BRef.heap e.wb) = some wd ∧ Space.get G (BRef.heap e.wb) = some wd ∧
       e.woff + c.wsize.toNat ≤ wd.size := by
   obtain ⟨wd, hw, hs⟩ := EV.wdata
   refine ⟨wd, hw, ?_, hs⟩
-  rw [r.get_ne (fun h => EV.wbob (BRef.heap.inj h))]; exact hw
+  rw [r.get_ne (fun h => hne (BRef.heap.inj h))]; exact hw
+
+/-- The window block in the running heap, in both cases of `EnvOK.wbob`. -/
+theorem win_cur {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) :
+    ∃ wd, Space.get G (BRef.heap e.wb) = some wd ∧ e.woff + c.wsize.toNat ≤ wd.size := by
+  rcases EV.wbob with hne | ⟨hwo, hwoff, -, hsw, -⟩
+  · obtain ⟨wd, -, hw, hs⟩ := win_get EV r hne
+    exact ⟨wd, hw, hs⟩
+  · obtain ⟨a, ha, haN⟩ := r.cur
+    have := EV.sN
+    exact ⟨a, by rw [hwo]; exact ha, by omega⟩
+
+/-- The window tail when the window is the output (`inflateBack`): `chunkcopy_safe` from the window, with the source
+behind or at/ahead of the destination, then from the output. -/
+theorem sat_winJp_eq {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) (l : FL) {o fo : Nat}
+    (heq : e.wb = e.ob ∧ e.woff = e.begO ∧ c.safeMode = true ∧ e.s = e.begO + c.wsize.toNat ∧ c.wnext = 0)
+    (hout : l.out = B e.ob o) (hfrom : l.from_ = B e.wb fo) (hD1 : 1 ≤ l.dist.toNat)
+    (hwin : fo + min l.op.toNat l.len.toNat ≤ e.woff + c.wsize.toNat) (hfw : e.woff ≤ fo)
+    (hPL : l.op.toNat < l.len.toNat → o + l.op.toNat = e.begO + l.dist.toNat) (ho0 : e.o0 ≤ o)
+    (hos : o + l.len.toNat ≤ e.s) :
+    Sat G (winJp c l) (fun x G' => x.2 = .cont ∧ x.1.in_ = l.in_ ∧ x.1.bits = l.bits ∧
+      x.1.out = B e.ob (o + l.len.toNat) ∧ RH H0 e G') := by
+  obtain ⟨hwo, hwoff, hsm, hsw, -⟩ := heq
+  have hbo := EV.begle
+  have hsN := EV.sN
+  have hspan := EV.span
+  have hWB : (c.window == c.beg) = true := by rw [EV.win, EV.beg, hwo, hwoff]; simp
+  have hcp : ∀ (L : UInt64) {G1 : Heap} (o1 : Nat), RH H0 e G1 → e.o0 ≤ o1 → o1 ≤ e.s → L.toNat ≤ e.s - o1 → o1 ≤ fo →
+      fo + L.toNat ≤ e.s ∨ fo < o1 →
+      Sat G1 (chunkcopy_safe (B e.ob o1) (B e.ob fo) L (B e.ob e.s))
+        (fun p G' => p = B e.ob (o1 + L.toNat) ∧ RH H0 e G') := by
+    intro L G1 o1 r1 h1 hos1 hL _ hfL
+    exact Sat.mono (ZlibNgF.Proof.ChunkcopySafe.sat_chunkcopy_safe_ahead r1 L (by omega) (by omega) h1
+      (Nat.le_refl _) hsN (by omega) (by omega) (by omega)) fun p G' ⟨hp, h⟩ =>
+        ⟨by rw [hp]; show B e.ob _ = B e.ob _; congr 1; omega, h⟩
+  have hcb : ∀ (L : UInt64) {G1 : Heap} (o1 f1 : Nat), RH H0 e G1 → e.o0 ≤ o1 → o1 ≤ e.s → L.toNat ≤ e.s - o1 → f1 < o1 →
+      e.begO ≤ f1 →
+      Sat G1 (chunkcopy_safe (B e.ob o1) (B e.ob f1) L (B e.ob e.s))
+        (fun p G' => p = B e.ob (o1 + L.toNat) ∧ RH H0 e G') := by
+    intro L G1 o1 f1 r1 h1 hos1 hL hf hb
+    exact Sat.mono (ZlibNgF.Proof.ChunkcopySafe.sat_chunkcopy_safe r1 L hf (by omega) h1 (Nat.le_refl _) hsN
+      (by omega)) fun p G' ⟨hp, h⟩ => ⟨by rw [hp]; show B e.ob _ = B e.ob _; congr 1; omega, h⟩
+  have hc2 : ∀ (L : UInt64) {G1 : Heap} (o1 : Nat), RH H0 e G1 → e.o0 ≤ o1 → o1 ≤ e.s → L.toNat ≤ e.s - o1 →
+      fo + L.toNat ≤ e.s →
+      Sat G1 (chunkcopy_safe (B e.ob o1) (B e.ob fo) L (B e.ob e.s))
+        (fun p G' => p = B e.ob (o1 + L.toNat) ∧ RH H0 e G') := by
+    intro L G1 o1 r1 h1 hos1 hL hfL
+    by_cases hfo : fo < o1
+    · exact hcb L o1 fo r1 h1 hos1 hL hfo (by omega)
+    · exact hcp L o1 r1 h1 hos1 hL (by omega) (Or.inl hfL)
+  rcases l with ⟨in_, out, hold, bits, here, op, len, from_, dist, old⟩
+  simp only at hout hfrom hD1 hwin hPL hos ⊢
+  rw [hwo] at hfrom
+  subst hout hfrom
+  unfold winJp
+  rw [EV.safe]
+  by_cases hlt : op < len
+  · simp only [hlt, ↓reduceIte, hsm, hWB, Bool.not_true, Bool.false_eq_true]
+    have hlt' : op.toNat < len.toNat := by rw [UInt32.lt_iff_toNat_lt] at hlt; exact hlt
+    have hsub := u32_sub len op (by omega)
+    have hpl := hPL hlt'
+    have hou : op.toUInt64.toNat = op.toNat := by simp
+    refine Sat.bind (Sat.mono (hc2 op.toUInt64 o r ho0 (by omega) (by omega) (by omega)) ?_)
+    rintro p G1 ⟨rfl, r1⟩
+    obtain ⟨a1, ha1, ha1N⟩ := r1.cur
+    refine Sat.bind (Sat.mono (sat_add (space_heap G1 e.ob ▸ ha1) (by omega) _ e.begO (by simp; omega)
+      (by omega)) ?_)
+    rintro p G2 ⟨rfl, rfl⟩
+    refine Sat.bind (Sat.mono (hcb (len - op).toUInt64 (o + op.toUInt64.toNat) e.begO r1 (by omega) (by omega)
+      (by simp only [UInt32.toNat_toUInt64]; omega) (by omega) (Nat.le_refl _)) ?_)
+    rintro p G3 ⟨rfl, r3⟩
+    refine Sat.pure ⟨rfl, rfl, rfl, ?_, r3⟩
+    show B e.ob _ = B e.ob _
+    congr 1
+    simp only [UInt32.toNat_toUInt64]
+    omega
+  · simp only [hlt, ↓reduceIte, hsm, hWB, Bool.not_true, Bool.false_eq_true]
+    have hlt' : len.toNat ≤ op.toNat := by rw [UInt32.lt_iff_toNat_lt] at hlt; omega
+    refine Sat.bind (Sat.mono (hc2 len.toUInt64 o r ho0 (by omega) (by simp; omega) (by simp; omega)) ?_)
+    rintro p G1 ⟨rfl, r1⟩
+    refine Sat.pure ⟨rfl, rfl, rfl, ?_, r1⟩
+    simp
 
 /-- The window tail: copy from the window, then (when the match is longer than the window part) from the output. -/
-theorem sat_winJp {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) (l : FL) {o fo : Nat}
-    (hout : l.out = B e.ob o) (hfrom : l.from_ = B e.wb fo) (hL1 : 1 ≤ l.len.toNat) (hD1 : 1 ≤ l.dist.toNat)
+theorem sat_winJp_ne {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) (l : FL) {o fo : Nat}
+    (hne' : e.wb ≠ e.ob) (hout : l.out = B e.ob o) (hfrom : l.from_ = B e.wb fo) (hL1 : 1 ≤ l.len.toNat) (hD1 : 1 ≤ l.dist.toNat)
     (hwin : fo + min l.op.toNat l.len.toNat ≤ e.woff + c.wsize.toNat)
     (hPL : l.op.toNat < l.len.toNat → o + l.op.toNat = e.begO + l.dist.toNat) (ho0 : e.o0 ≤ o)
     (hos : o + l.len.toNat ≤ e.s) (hun : c.safeMode = false → e.begO + 22 ≤ e.s) :
     Sat G (winJp c l) (fun x G' => x.2 = .cont ∧ x.1.in_ = l.in_ ∧ x.1.bits = l.bits ∧
       x.1.out = B e.ob (o + l.len.toNat) ∧ RH H0 e G') := by
-  obtain ⟨wd, hw0, hwG, hwsz⟩ := win_get EV r
-  have hne : BRef.heap e.wb ≠ BRef.heap e.ob := fun h => EV.wbob (BRef.heap.inj h)
+  obtain ⟨wd, hw0, hwG, hwsz⟩ := win_get EV r hne'
+  have hne : BRef.heap e.wb ≠ BRef.heap e.ob := fun h => hne' (BRef.heap.inj h)
   have hbo := EV.begle
   have hsN := EV.sN
   have hspan := EV.span
   rcases l with ⟨in_, out, hold, bits, here, op, len, from_, dist, old⟩
   simp only at hout hfrom hL1 hD1 hwin hPL hos ⊢
   subst hout hfrom
+  have hWB := win_ne_beg EV hne'
   unfold winJp
   rw [EV.safe]
   by_cases hlt : op < len
@@ -79,6 +179,7 @@ theorem sat_winJp {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0
     cases hsm : c.safeMode
     · have h22 := hun hsm
       simp only [Bool.not_false, ↓reduceIte]
+      rw [ite_eq_right hWB]
       refine Sat.bind (Sat.mono (r.sat_memcpy_ext hne hw0 op.toNat (od := o) (os := fo) ho0 (by omega) (by omega)
         (by omega)) ?_)
       intro _ G1 r1
@@ -102,6 +203,7 @@ theorem sat_winJp {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0
       congr 1
       omega
     · simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+      rw [ite_eq_right hWB]
       refine Sat.bind (Sat.mono (r.sat_memcpy_ext hne hw0 op.toNat (od := o) (os := fo) ho0 (by omega) (by omega)
         (by omega)) ?_)
       intro _ G1 r1
@@ -122,6 +224,7 @@ theorem sat_winJp {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0
       omega
   · simp only [hlt, ↓reduceIte]
     have hlt' : len.toNat ≤ op.toNat := by rw [UInt32.lt_iff_toNat_lt] at hlt; omega
+    rw [ite_eq_right hWB]
     refine Sat.bind (Sat.mono (r.sat_memcpy_ext hne hw0 len.toNat (od := o) (os := fo) ho0 (by omega) (by omega)
       (by omega)) ?_)
     intro _ G1 r1
@@ -130,6 +233,18 @@ theorem sat_winJp {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0
       (by omega)) ?_)
     rintro p G2 ⟨rfl, rfl⟩
     exact Sat.pure ⟨rfl, rfl, rfl, rfl, r1⟩
+
+/-- The window tail, in both cases of `EnvOK.wbob`. -/
+theorem sat_winJp {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) (l : FL) {o fo : Nat}
+    (hout : l.out = B e.ob o) (hfrom : l.from_ = B e.wb fo) (hL1 : 1 ≤ l.len.toNat) (hD1 : 1 ≤ l.dist.toNat)
+    (hwin : fo + min l.op.toNat l.len.toNat ≤ e.woff + c.wsize.toNat) (hfw : e.woff ≤ fo)
+    (hPL : l.op.toNat < l.len.toNat → o + l.op.toNat = e.begO + l.dist.toNat) (ho0 : e.o0 ≤ o)
+    (hos : o + l.len.toNat ≤ e.s) (hun : c.safeMode = false → e.begO + 22 ≤ e.s) :
+    Sat G (winJp c l) (fun x G' => x.2 = .cont ∧ x.1.in_ = l.in_ ∧ x.1.bits = l.bits ∧
+      x.1.out = B e.ob (o + l.len.toNat) ∧ RH H0 e G') := by
+  rcases EV.wbob with hne | heq
+  · exact sat_winJp_ne EV r l hne hout hfrom hL1 hD1 hwin hPL ho0 hos hun
+  · exact sat_winJp_eq EV r l heq hout hfrom hD1 hwin hfw hPL ho0 hos
 
 theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK H0 c e) {l : FL}
     (hP : PI H0 c e ot n (l, .dodist) G) :
@@ -149,7 +264,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
   have hows : ot + w + 1 ≤ e.s := by split at hroom <;> omega
   have hcont : ∀ (x : FL) (G' : Heap) (po : Nat), x.in_ = l.in_ → x.bits.toNat ≤ l.bits.toNat →
       x.out = B e.ob po → ot < po → po ≤ e.s → RH H0 e G' → ∃ m, m < n ∧ PI H0 c e ot m (x, .cont) G' :=
-    fun x G' po h1 h2 h3 h4 h5 h6 => ⟨0, by omega, po, h3, h4, h5, hin.mono h1 h2 (Nat.le_refl _), h6⟩
+    fun x G' po h1 h2 h3 h4 h5 h6 => ⟨0, by omega, po, h3, h4, h5, hin.mono h1 h2 (Nat.le_refl _), hS.mono h1 h2, h6⟩
   have hbrk : ∀ (x : FL) (G' : Heap), x.in_ = l.in_ → x.bits.toNat ≤ l.bits.toNat →
       x.out = l.out → BrkHeap H0 c.safeMode e G' → ∃ m, m < n ∧ PI H0 c e ot m (x, .brk) G' :=
     fun x G' h1 h2 h3 h6 => ⟨0, by omega, ot + w, h3.trans hout, by omega, by split at hroom <;> omega,
@@ -157,7 +272,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
   unfold stepDodist
   refine Sat.bind (Sat.mono (sat_oldDrop l hbl (by omega)) ?_)
   rintro l1 G1 ⟨rfl, hin1, hout1, hh1, hlen1, hbits1⟩
-  extract_lets l2 jc jw
+  extract_lets l2 jc ju js jw jx
   have hjw : jw = fun _ l => winJp c l := rfl
   split
   · rename_i hbase
@@ -195,8 +310,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
         exact hcont x1 G' _ (h2.trans e3i) (by rw [h3]; exact e3b) h4 (by omega) hlen h5
       obtain ⟨a, ha, haN⟩ := r.cur
       have hg : Space.get G2 (BRef.heap e.ob) = some a := ha
-      obtain ⟨wd, hw0, hwG, hwsz⟩ := win_get EV r
-      have hne : BRef.heap e.wb ≠ BRef.heap e.ob := fun h => EV.wbob (BRef.heap.inj h)
+      obtain ⟨wd, hwG, hwsz⟩ := win_cur EV r
       have hwh : c.whave.toNat ≤ c.wsize.toNat := UInt32.le_iff_toNat_le.mp EV.whave
       have hwn : c.wnext.toNat ≤ c.whave.toNat := UInt32.le_iff_toNat_le.mp EV.wnext
       refine Sat.bind (Sat.mono (ZlibNgF.Proof.ChunkCopy.sat_diff_r hg (o1 := ot + w) (o2 := e.begO) (by omega) (by omega)
@@ -224,7 +338,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
             (by rw [h6]; simp) (by omega)) ?_)
           rintro p G4 ⟨rfl, rfl⟩
           exact Sat.mono (sat_winJp EV r _ (o := ot + w) (fo := e.woff + (c.wsize.toNat - op5.toNat)) rfl rfl
-            (by simpa using hl1) hD1 (by simp; omega) (by simp; omega) (by omega) (by simpa using hlen) hun) hwfin
+            (by simpa using hl1) hD1 (by simp; omega) (by omega) (by simp; omega) (by omega) (by simpa using hlen) hun) hwfin
         rename_i hw0'
         split
         · rename_i hge
@@ -234,9 +348,17 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
             (by rw [h6]; simp) (by omega)) ?_)
           rintro p G4 ⟨rfl, rfl⟩
           exact Sat.mono (sat_winJp EV r _ (o := ot + w) (fo := e.woff + (c.wnext.toNat - op5.toNat)) rfl rfl
-            (by simpa using hl1) hD1 (by simp; omega) (by simp; omega) (by omega) (by simpa using hlen) hun) hwfin
+            (by simpa using hl1) hD1 (by simp; omega) (by omega) (by simp; omega) (by omega) (by simpa using hlen) hun) hwfin
         rename_i hge
         rw [GE.ge, UInt32.le_iff_toNat_le] at hge
+        have hne' : e.wb ≠ e.ob := by
+          rcases EV.wbob with h | ⟨-, -, -, -, h⟩
+          · exact h
+          · exact absurd (by simp [h]) hw0'
+        obtain ⟨wd0, hw0, hwG0, hwsz0⟩ := win_get EV r hne'
+        have hne : BRef.heap e.wb ≠ BRef.heap e.ob := fun h => hne' (BRef.heap.inj h)
+        have hWB := win_ne_beg EV hne'
+        rw [EV.win, EV.beg] at hWB
         have h6 := u32_sub op5 c.wnext (by omega)
         generalize op5 - c.wnext = op6 at h6 ⊢
         have h7 := u32_sub c.wsize op6 (by omega)
@@ -254,15 +376,16 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
             (by omega)) ?_)
           rintro p G6 ⟨rfl, rfl⟩
           have h8 := u32_sub l.len op6 (by omega)
-          refine Sat.mono (sat_winJp EV r5 _ (o := ot + w + op6.toNat) (fo := e.woff) rfl rfl
-            (by simp only; omega) hD1 (by simp only; omega) (by simp only; omega) (by omega) (by simp only; omega) hun) ?_
+          simp only [jx]
+          refine Sat.mono (sat_winJp EV r5 _ (o := ot + w + op6.toNat) (fo := e.woff) rfl EV.win
+            (by simp only; omega) hD1 (by simp only; omega) (by omega) (by simp only; omega) (by omega) (by simp only; omega) hun) ?_
           rintro x G' ⟨h1, h2, h3, h4, h5⟩
           refine hwfin x G' ⟨h1, h2, h3, ?_, h5⟩
           rw [h4]; simp only [h8]; congr 1; omega
         · rename_i h6l
           rw [UInt32.lt_iff_toNat_lt] at h6l
           exact Sat.mono (sat_winJp EV r _ (o := ot + w) (fo := e.woff + (c.wsize.toNat - op6.toNat)) rfl rfl
-            (by simpa using hl1) hD1 (by simp only; omega) (by simp only; omega) (by omega) (by simpa using hlen) hun)
+            (by simpa using hl1) hD1 (by simp only; omega) (by omega) (by simp only; omega) (by omega) (by simpa using hlen) hun)
             hwfin
       · rename_i hnear
         rw [GT.gt, UInt32.lt_iff_toNat_lt] at hnear

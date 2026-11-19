@@ -6,6 +6,8 @@
 #   CFLAGS=<flags>        extra compiler flags (e.g. sanitizers)
 #   EXCLUDE=<prefix>      skip the patches whose file name starts with <prefix> (e.g. 0006); used by the
 #                         patch reproductions to build the source before one fix
+#   REPLACE=<prefix>=<file>  apply <file> instead of the patch whose file name starts with <prefix>; used by
+#                         the regression guards to build an earlier, defective version of one patch
 #   build-zlib-ng.sh --patch-digest   prints the digest of the current patches (one line per patch).
 #   build-zlib-ng.sh --cmake-options  prints the verified CMake option set.
 # After a build, <output-dir> holds libz.a and the generated zlib.h / zconf.h.
@@ -47,6 +49,9 @@ selected_patches() {
   for p in $(ls "$patches"/*.patch 2>/dev/null | LC_ALL=C sort); do
     if [ -n "${EXCLUDE:-}" ]; then
       case "$(basename "$p")" in "$EXCLUDE"*) continue;; esac
+    fi
+    if [ -n "${REPLACE:-}" ]; then
+      case "$(basename "$p")" in "${REPLACE%%=*}"*) echo "${REPLACE#*=}"; continue;; esac
     fi
     echo "$p"
   done
