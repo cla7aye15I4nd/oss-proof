@@ -95,8 +95,10 @@ static void run_ops(char **tok) {
         else if (c == 'C') { r = inflateCopy(&s2, s); printf("=%d", r);
                              if (r == Z_OK) { printf(":%d", inflateEnd(s)); s = &s2; } }
         else if (c == 'G') { size_t n = (size_t)parse_u(op + 1); unsigned char *b = n ? malloc(n) : NULL;
-                             if (b) memset(b, 0xaa, n); uInt len = 12345;
-                             printf("=%d:%u:", inflateGetDictionary(s, b, &len), len);
+                             if (b) memset(b, 0xaa, n);
+                             uInt len = 12345;
+                             int rg = inflateGetDictionary(s, b, &len); /* before reading len: argument order */
+                             printf("=%d:%u:", rg, len);
                              if (b) hex_out(b, n); else printf("-"); free(b); }
         else if (c == 'g') printf("=%d", inflateGetDictionary(s, NULL, NULL));
         else if (c == 'd') printf("=%d", inflateSetDictionary(s, dict, (uInt)dictlen));
