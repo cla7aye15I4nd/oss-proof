@@ -71,7 +71,7 @@ theorem getHeader_none {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : Inv h s)
 theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs : InflateStep h h' s) :
     Inv h' s := by
   rcases hs with ⟨flush, r, hio, e⟩ | ⟨r, hio, hsi, e⟩ | ⟨r, e⟩ | ⟨d, n, r, hd, hnb, e⟩ |
-    ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
+    ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, hhm, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
     ⟨w, r, e⟩ | ⟨c, r, e⟩ | ⟨v, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
   · exact P.inflate h h' s flush r hv hio e
   · obtain ⟨_, _, e0, hi, _⟩ := InflateSync.sync_inv hv hio hsi
