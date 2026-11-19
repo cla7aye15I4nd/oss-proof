@@ -32,7 +32,7 @@ cases=(
   "inflatesync-null-next-in|0008||none|sync -3 1"
   "inflatesetdictionary-null|0009||setdict 0|setdict -2"
   "inflate-fast-primed-bits|0010||inflate 1 34 4294967294|inflate 1 32 0"
-  "inflate-shared-header-extra|0011|copy,two|heap-buffer-overflow|inflate 0;inflate 0"
+  "inflate-shared-header-extra|0011|copy,two,late|heap-buffer-overflow|inflate 0;inflate 0;inflate 0"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch

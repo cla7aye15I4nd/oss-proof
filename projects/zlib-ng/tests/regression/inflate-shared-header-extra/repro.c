@@ -7,6 +7,11 @@
  * wraps to 10 <= extra_max, so memcpy writes 100 bytes at extra + 2^32 - 90: 11 bytes past the end of the buffer.
  * With the patch, EXTRA copies only when state->length <= head->extra_len and bounds the count by
  * extra_max - len, so A skips the copy and inflate returns Z_OK.
+ * With argument "late", one stream registers the header in the middle of its extra field (zlib.h allows
+ * inflateGetHeader at any time): the stream reads an extra length of 256 and 10 of its bytes, stopping in EXTRA
+ * with state->length = 246; the header then gets extra_len = 230, so len = 230 - 246 wraps to 2^32 - 16 and
+ * len + copy = 2^32 + 230 wraps to 230 <= extra_max: without the patch memcpy writes 246 bytes at
+ * extra + 2^32 - 16, 231 bytes past the end of the buffer. With the patch the copy is skipped.
  * Every call is one that zlib.h documents. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +25,36 @@ static int feed(z_stream *s, unsigned char *in, unsigned n) {
   s->avail_out = sizeof out;
   return inflate(s, Z_NO_FLUSH);
 }
+static int late(void) {
+  unsigned char in[10 + 2 + 256] = {0x1f, 0x8b, 8, 4, 0, 0, 0, 0, 0, 3, 0x00, 0x01}; /* FEXTRA, XLEN 256 */
+  memset(in + 12, 'x', 256);
+  gz_header g;
+  memset(&g, 0, sizeof g);
+  z_stream s;
+  memset(&s, 0, sizeof s);
+  if (inflateInit2(&s, 31) != Z_OK) return 2;
+  s.next_in = in;
+  s.avail_in = 10 + 2 + 10;
+  s.next_out = out;
+  s.avail_out = 16;
+  if (inflate(&s, Z_NO_FLUSH) != Z_OK || s.avail_in != 0) return 2; /* in EXTRA, 246 bytes to go */
+  g.extra_max = 0xffffffffu;
+  g.extra = malloc(g.extra_max);
+  if (g.extra == NULL) return 2;
+  g.extra_len = 0xe6;
+  if (inflateGetHeader(&s, &g) != Z_OK) return 2;
+  s.next_in = in + 22;
+  s.avail_in = 246;
+  s.next_out = out;
+  s.avail_out = 16;
+  int r = inflate(&s, Z_NO_FLUSH);
+  printf("inflate %d\n", r);
+  inflateEnd(&s);
+  free(g.extra);
+  return 0;
+}
 int main(int argc, char **argv) {
+  if (argc > 1 && strcmp(argv[1], "late") == 0) return late();
   int two = argc > 1 && strcmp(argv[1], "two") == 0;
   unsigned char hdr[10] = {0x1f, 0x8b, 8, 4, 0, 0, 0, 0, 0, 3}; /* gzip, FEXTRA */
   unsigned char lenA[2] = {100, 0}, lenB[2] = {10, 0}, data[100];
