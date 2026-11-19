@@ -192,6 +192,12 @@ theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
 
 /-! ## The input buffer -/
 
+/-- A header buffer `p` of `n` bytes in heap `H`: `NULL`, or `n` writable bytes of a heap block other than the state's
+block, a write range of the call, disjoint from the input. -/
+def HBuf (E : Env) (H : Heap) (p : BPtr) (n : Nat) : Prop :=
+  p = .null ∨ ∃ bd off data, p = .ref (.heap bd) off ∧ H.bytes bd = some data ∧ off + n ≤ data.size ∧
+    bd ≠ E.b ∧ (p, n) ∈ E.W ∧ Disjoint E.inp E.A0.toNat p n
+
 /-- What the caller's buffers give at entry (`StreamIO`, `inflate`'s own checks). -/
 structure EnvOK (E : Env) : Prop where
   crc : E.H0.crcTable = ZlibNg.Crc32Tbl.crc_table
@@ -199,6 +205,9 @@ structure EnvOK (E : Env) : Prop where
   inRd : NullOrRead E.H0 E.inp E.A0.toNat
   inNull : E.inp = .null → E.A0 = 0
   inNB : NotInBlock E.b E.inp
+  hdrBuf : ∀ k g0, E.hp = some k → E.H0.gzheaders k = some g0 →
+    HBuf E E.H0 g0.extra g0.extra_max.toNat ∧ HBuf E E.H0 g0.name g0.name_max.toNat ∧
+    HBuf E E.H0 g0.comment g0.comm_max.toNat
 
 /-- `Space.get` of a reference outside block `b` keeps the size of its array. -/
 theorem SizeKeep.get {H0 H : Heap} {b : Nat} (sk : SizeKeep H0 H b) {r : BRef} (hr : ∀ off, Ptr.ref r off ≠ (Ptr.ref (BRef.heap b) off : BPtr))
