@@ -8,7 +8,7 @@ import ZlibNgF.Proof.«adler32_c.c.safety»
 `read_buf(strm, buf, size)` with `buf` in the window of block `b` (`size` bytes there) and `next_in` in another
 object with `avail_in` readable bytes: the check value (`crc32_copy_braid` for gzip, `adler32_copy_c` for zlib)
 or plain `memcpy` copies `len = min(avail_in, size)` input bytes into the block, and the input fields advance by
-`len` (`RBZ`). Nothing else changes.
+`len` (`RBZ`). Nothing else changes: the block's bytes change within `[buf, buf + size)` only.
 -/
 
 set_option autoImplicit false
@@ -16,7 +16,8 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.ReadBuf
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInit ZlibNgF.Proof.WinBase
 open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
-open ZlibNgF.Proof.InflateDict (copyFold copyFold_size memcpy_heap)
+open ZlibNgF.Proof.InflateDict (copyFold copyFold_size copyFold_get memcpy_heap)
+open ZlibNgF.Proof.DeflateBits (WrIn)
 open ZlibNgF.Proof.InflateInv (upd_upd)
 open ZlibNgF.Proof.InflateAlloc (space_get_heap)
 
@@ -24,6 +25,12 @@ open ZlibNgF.Proof.InflateAlloc (space_get_heap)
 def RBZ (z : ZStream) (n : UInt32) (r : BRef) (os : Nat) (a : UInt64) : ZStream :=
   { z with adler := a, avail_in := z.avail_in - n, next_in := .ref r (os + n.toNat),
            total_in := z.total_in + n.toUInt64 }
+
+/-- A copy of `n` bytes to offset `od` changes `[od, od + n)` only. -/
+theorem copyFold_wr (src : Array UInt8) (od os n : Nat) (a : Array UInt8) :
+    WrIn a od (od + n) (copyFold src od os (List.range' 0 n) a) :=
+  ⟨copyFold_size .., fun _ hj => copyFold_get _ _ _ _ _ _ (fun x hx => by
+    simp only [List.mem_range'_1] at hx; omega)⟩
 
 section
 variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
@@ -54,7 +61,7 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
     {off : Nat} (size : UInt32) (hbuf : off + size.toNat ≤ d.size) :
     Sat (SH H i z b st d) (ZlibNg.DeflateP.read_buf (some i) (.ref (.heap b) off) size)
       (fun n H' => n.toNat ≤ size.toNat ∧ n.toNat ≤ z.avail_in.toNat ∧ (n = 0 → H' = SH H i z b st d ∧ (z.avail_in = 0 ∨ size = 0)) ∧
-        ∃ d' a, H' = SH H i (RBZ z n r os a) b st d' ∧ d'.size = d.size) := by
+        ∃ d' a, H' = SH H i (RBZ z n r os a) b st d' ∧ WrIn d off (off + size.toNat) d') := by
   unfold ZlibNg.DeflateP.read_buf
   refine Sat.bind (Sat.of_eq (dstateOf_SH hzb) ?_)
   refine Sat.bind (Sat.of_eq ldStream_SH ?_)
@@ -79,7 +86,7 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
       split at hlen
       · exact Or.inr hlen.symm
       · exact Or.inl hlen.symm
-    exact Sat.pure ⟨by simp, by simp, fun _ => ⟨rfl, h0'⟩, d, z.adler, by rw [e], rfl⟩
+    exact Sat.pure ⟨by simp, by simp, fun _ => ⟨rfl, h0'⟩, d, z.adler, by rw [e], WrIn.refl _ _ _⟩
   rename_i h0
   have hlen0 : len ≠ 0 := by simpa using h0
   refine Sat.bind (Sat.of_eq ldDState_SH ?_)
@@ -88,10 +95,10 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
   have hm := memcpy_SH (H := H) (i := i) (z := z) (st := st) (d := d) hr hg (od := off) (os := os) (n := len.toNat)
     (by omega) (by omega)
   extract_lets jp
-  have hjp : ∀ (a : UInt64) (d' : Array UInt8), d'.size = d.size →
+  have hjp : ∀ (a : UInt64) (d' : Array UInt8), WrIn d off (off + size.toNat) d' →
       Sat (SH H i { z with adler := a } b st d') (jp ())
         (fun n H' => n.toNat ≤ size.toNat ∧ n.toNat ≤ z.avail_in.toNat ∧ (n = 0 → H' = SH H i z b st d ∧ (z.avail_in = 0 ∨ size = 0)) ∧
-          ∃ d' a, H' = SH H i (RBZ z n r os a) b st d' ∧ d'.size = d.size) := by
+          ∃ d' a, H' = SH H i (RBZ z n r os a) b st d' ∧ WrIn d off (off + size.toNat) d') := by
     intro a d' hd'
     simp only [jp]
     refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_)
@@ -126,7 +133,7 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
       simp only []
       rw [UInt32.toNat_toUInt64, hm]; rfl
     · refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_)
-      exact hjp _ _ (copyFold_size ..)
+      exact hjp _ _ ((copyFold_wr ..).widen (Nat.le_refl _) (by omega))
   · split
     · refine Sat.bind (Sat.of_eq ldStream_SH ?_)
       rw [hni]
@@ -140,11 +147,11 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
         simp only []
         rw [UInt32.toNat_toUInt64, hm]; rfl
       · refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_)
-        exact hjp _ _ (copyFold_size ..)
+        exact hjp _ _ ((copyFold_wr ..).widen (Nat.le_refl _) (by omega))
     · refine Sat.bind (Sat.of_eq (rdZ_SH _) ?_)
       rw [hni]
       refine Sat.bind (Sat.of_eq hm ?_)
-      exact hjp z.adler _ (copyFold_size ..)
+      exact hjp z.adler _ ((copyFold_wr ..).widen (Nat.le_refl _) (by omega))
 
 end
 
