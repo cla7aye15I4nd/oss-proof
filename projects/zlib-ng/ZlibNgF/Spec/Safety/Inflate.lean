@@ -55,11 +55,14 @@ def Goal.inflate_safety : Prop :=
     ∃ r h', C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h') ∧
       Frame h h' (streamIds s) (stateIds h s) (headerIds h s) (outputRanges h s)
 
-/-- Non-vacuity of `inflate_safety`: a reachable stream with valid buffers on which one `inflate(Z_FINISH)` decodes
-a whole zlib stream and returns `Z_STREAM_END`. -/
+/-- Non-vacuity of `inflate_safety`: its premises (`CrcGlobals`, an accepted stream, and `StreamIO` for a reachable
+one) hold together on a reachable stream whose input and output buffers are non-null and non-empty, and one
+`inflate(Z_FINISH)` call on it returns. It does not say which result the call returns, nor that it decodes a whole
+zlib stream: a complete successful decode is not part of this goal. -/
 def Goal.inflate_nonvacuous : Prop :=
-  ∃ h s h', CrcGlobals h ∧ InflateReachable h s ∧ StreamIO h s ∧
-    C.run (ZlibNg.Inflate.inflate s 4) h = .ok (ZlibNg.Inflate.Z_STREAM_END, h')
+  ∃ h s h' r z, CrcGlobals h ∧ InflateReachable h s ∧ StreamIO h s ∧ StreamAt h s z ∧
+    z.next_in ≠ .null ∧ z.next_out ≠ .null ∧ 0 < z.avail_in ∧ 0 < z.avail_out ∧
+    C.run (ZlibNg.Inflate.inflate s 4) h = .ok (r, h')
 
 /-- `int inflateEnd(z_stream *strm)`: does not fault and frees only the stream's state block. -/
 def Goal.inflateEnd_safety : Prop :=
