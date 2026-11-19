@@ -11,7 +11,7 @@ structure. These are statements about translated C functions, to be proved as th
   `[o, o')` it returns is a `CodeTable` (`Proof/inflate.c.tables.lean`) with the returned root bits;
 * `FastFacts`: `inflate_fast_c` / `inflate_fast_safe_c` (`inffast_tpl.h`) as `LEN` calls them (patch 0010: fewer than
   8 bits held): no fault, they advance `next_in` / `next_out` by what they consume / produce, write only the output
-  buffer `[next_out, next_out + avail_out)`, the stream record and the state's `mode`, `hold`, `bits`, `length`,
+  buffer `[next_out, next_out + avail_out)` (no other byte block changes, and the output block keeps its size), the stream record and the state's `mode`, `hold`, `bits`, `length`,
   `was`, `offset`; they leave `LEN`, `TYPE` or `BAD`, or (the safe variant, a match longer than the room left,
   `inffast_tpl.h:207-213`) `MATCH` with a nonzero `offset`; they never increase the input bits plus output bytes
   still available, and unless `BAD` consume a bit or produce a byte;
@@ -91,7 +91,8 @@ structure FastFacts : Prop where
       (m = LEN ∨ m = TYPE ∨ m = BAD ∨ (safe = true ∧ m = MATCH ∧ 1 ≤ off.toNat)) ∧ bits < 8 ∧
       8 * ai.toNat + bits.toNat + ao.toNat + (if m = BAD then 0 else 1) ≤
         8 * z.avail_in.toNat + st.bits.toNat + z.avail_out.toNat ∧
-      h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧
+      h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧ (∀ c, c ≠ bo → h'.bytes c = h.bytes c) ∧
+      (∀ d, h.bytes bo = some d → ∃ d', h'.bytes bo = some d' ∧ d'.size = d.size) ∧
       Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)]
 
 /-- `chunkmemset_safe_c(out, out - d, len, left)` as `MATCH` calls it: `out` at offset `p` of a heap block with `left`

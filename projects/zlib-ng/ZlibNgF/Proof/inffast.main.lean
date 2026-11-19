@@ -84,7 +84,8 @@ def FastPost (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateSta
       (safe = true ∧ m = ZlibNg.Inflate.MATCH ∧ 1 ≤ off.toNat)) ∧ bits < 8 ∧
     8 * ai.toNat + bits.toNat + ao.toNat + (if m = ZlibNg.Inflate.BAD then 0 else 1) ≤
       8 * z.avail_in.toNat + st.bits.toNat + z.avail_out.toNat ∧
-    h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧
+    h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧ (∀ c, c ≠ bo → h'.bytes c = h.bytes c) ∧
+    (∀ d, h.bytes bo = some d → ∃ d', h'.bytes bo = some d' ∧ d'.size = d.size) ∧
     Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)]
 
 /-- **`INFLATE_FAST` (both variants) as `LEN` calls it.** -/
@@ -274,7 +275,7 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
       refine ⟨ai, ao, st'.mode,
         (lf.hold &&& (1 : UInt64) <<< (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toUInt64 - 1).toUInt32.toUInt64,
         (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32, st'.length, st'.was, st'.offset, z'.msg,
-        ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · rw [UInt32.le_iff_toNat_le]; omega
       · rw [UInt32.le_iff_toNat_le]; omega
       · show (upd (upd G1.streams i (some z')) i (some _)) i = some _
@@ -298,6 +299,14 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
         split <;> omega
       · exact hbb
       · show G1.iallocs b = _; rw [r1.eq]
+      · intro c hc; exact r1.bytes_ne hc
+      · intro d hd
+        obtain ⟨a0, a, h0, h1, s0, s1, -⟩ := r1.blk
+        have : a0 = d := by
+          have h0' : h.bytes bo = some a0 := h0
+          rw [hd] at h0'; exact (Option.some.inj h0').symm
+        subst this
+        exact ⟨a, h1, by rw [s1, s0]⟩
       · rw [hno]
         refine frame_run (r1.mono (lo' := oo + (start - z.avail_out).toNat)
           (hi' := oo + (start - z.avail_out).toNat + z.avail_out.toNat) (by dsimp only [e]; omega)

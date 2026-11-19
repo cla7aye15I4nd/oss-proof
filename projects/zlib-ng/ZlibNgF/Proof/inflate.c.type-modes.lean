@@ -245,10 +245,11 @@ theorem tabB_ok {a : Array Code} {n m : Nat} {dist : Bool} (h : tabB a m dist = 
     simp only [Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true'] at this
     exact ⟨this.1.1, this.1.2, this.2⟩
   refine ⟨hn1, hn2, by omega, Nat.le_refl _, fun j _ hj => entryB_ok (h' j hj).1, fun hd j _ hj => ?_,
-    fun j _ hj hl => ?_⟩
+    fun j _ hj hl => ?_, fun j _ hj hl => ?_⟩
   · rcases (h' j (by omega)).2.1 with e | e
     · rw [hd] at e; cases e
     · exact lenB_ok e
+  · rw [(h' j hj).2.2] at hl; cases hl
   · rw [(h' j hj).2.2] at hl; cases hl
 
 theorem lenfix_tabB : tabB lenfix 28 false = true := by decide +kernel

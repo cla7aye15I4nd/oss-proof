@@ -11,6 +11,7 @@ these readers need is asked:
 * every entry of the region has `1 ≤ CODE_BITS ≤ bits ≤ m` (a decode drops at least one bit, `CODE_EXTRA` does not
   wrap, and the bit buffer stays bounded), and an entry that is neither a length/distance (`op & 16`) nor invalid /
   end of block (`op & 64`) has `op < 16` (`BITS(op)` of the fast decoders);
+* a link takes the `n` root bits (the slow decoder shifts by `last.bits + last.op` bits);
 * a link (the test of the slow decoder: `op != 0 && (op & 0xf0) == 0` for literal/length tables,
   `(op & 0xf0) == 0` for distance tables) points to a sub-table `a[o + val, o + val + 2^op)` inside the region,
   and its `bits` plus the `bits` of every sub-table entry is at most `m`;
@@ -65,6 +66,8 @@ structure CodeTable (a : Array Code) (o e n m : Nat) (dist : Bool) : Prop where
     ∀ k, k < 2 ^ a[j]!.op.toNat → a[j]!.bits.toNat + a[o + a[j]!.val.toNat + k]!.bits.toNat ≤ m ∧
       linkTest dist a[o + a[j]!.val.toNat + k]! = false ∧
       (dist = false → LenOK a[j]!.bits.toNat a[o + a[j]!.val.toNat + k]!)
+  /-- a link takes the root bits (so `BITS(last.bits + last.op)` of the slow decoder shifts by less than 32) -/
+  link_bits : ∀ j, o ≤ j → j < e → linkTest dist a[j]! = true → a[j]!.bits.toNat = n
 
 /-- The table at `p` with `n` root bits, read by a decoder of the state in block `b` with code array `codes`: in the
 state's own `codes` (region `[o, e)`), or a static fixed table. -/
@@ -78,12 +81,14 @@ theorem CodeTable.congr {a a' : Array Code} {o e n m : Nat} {dist : Bool} (t : C
     (hs : e ≤ a'.size) (he : ∀ j, o ≤ j → j < e → a'[j]! = a[j]!) : CodeTable a' o e n m dist := by
   have hr := t.root
   refine ⟨t.n_pos, t.n_le, t.root, hs, fun j h1 h2 => (he j h1 h2) ▸ t.ent j h1 h2,
-    fun hd j h1 h2 => (he j h1 (by omega)) ▸ t.lit hd j h1 h2, fun j h1 h2 hl => ?_⟩
-  rw [he j h1 h2] at hl ⊢
-  obtain ⟨hlt, hk⟩ := t.link j h1 h2 hl
-  refine ⟨hlt, fun k hk' => ?_⟩
-  rw [he (o + a[j]!.val.toNat + k) (by omega) (by omega)]
-  exact hk k hk'
+    fun hd j h1 h2 => (he j h1 (by omega)) ▸ t.lit hd j h1 h2, fun j h1 h2 hl => ?_, fun j h1 h2 hl => ?_⟩
+  · rw [he j h1 h2] at hl ⊢
+    obtain ⟨hlt, hk⟩ := t.link j h1 h2 hl
+    refine ⟨hlt, fun k hk' => ?_⟩
+    rw [he (o + a[j]!.val.toNat + k) (by omega) (by omega)]
+    exact hk k hk'
+  · rw [he j h1 h2] at hl ⊢
+    exact t.link_bits j h1 h2 hl
 
 /-- `TabAt` depends only on the region of the table when the code array changes. -/
 theorem TabAt.congr {b : Nat} {codes codes' : Array Code} {p : Ival CodePtr} {n : UInt32} {m : Nat} {dist : Bool}

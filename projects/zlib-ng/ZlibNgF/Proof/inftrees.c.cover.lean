@@ -333,7 +333,8 @@ theorem codeTable_of {type : UInt32} {C : Array Code} {off u root : Nat} (hr1 : 
     intro j h1 h2
     have := hall (j - off) (by omega)
     rwa [show off + (j - off) = j by omega] at this
-  refine ⟨hr1, hr15, by omega, hsz, fun j h1 h2 => ?_, fun hd j h1 h2 => ?_, fun j h1 h2 hl => ?_⟩
+  refine ⟨hr1, hr15, by omega, hsz, fun j h1 h2 => ?_, fun hd j h1 h2 => ?_, fun j h1 h2 hl => ?_,
+    fun j h1 h2 hl => ?_⟩
   · obtain ⟨hR, hS⟩ := hall' j h1 h2
     by_cases hi : j - off < 2 ^ root
     · exact (hR hi).ent
@@ -348,6 +349,12 @@ theorem codeTable_of {type : UInt32} {C : Array Code} {off u root : Nat} (hr1 : 
     refine ⟨by omega, fun k hk => ?_⟩
     have hsub := (hall' (off + C[j]!.val.toNat + k) (by omega) (by omega)).2 (by omega)
     exact ⟨by rw [hb]; exact hsub.sum, hsub.nolink, fun hd => by rw [hb]; exact hsub.len hd⟩
+  · obtain ⟨hR, hS⟩ := hall' j h1 h2
+    have hi : j - off < 2 ^ root := by
+      apply Classical.byContradiction
+      intro hi
+      rw [(hS (by omega)).nolink] at hl; cases hl
+    exact ((hR hi).link hl).1
 
 /-- An invalid-code marker (`op = 64`, `val = 0`) of `bits` bits. -/
 theorem marker_ok {type : UInt32} {d : Nat} {bits : UInt8} (h1 : 1 ≤ bits.toNat) (h2 : d + bits.toNat ≤ 20) :
