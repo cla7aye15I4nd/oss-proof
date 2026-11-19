@@ -572,6 +572,10 @@ theorem garbage_sizes (g : Nat → UInt64) : (DeflateState.garbage g).dyn_ltree.
     (DeflateState.garbage g).dyn_dtree.size = 2 * 30 + 1 ∧ (DeflateState.garbage g).bl_tree.size = 2 * 19 + 1 := by
   simp [DeflateState.garbage]
 
+theorem garbage_scratch (g : Nat → UInt64) : (DeflateState.garbage g).pq_leaves.size = 287 ∧
+    (DeflateState.garbage g).pq_scratch.size = 287 ∧ (DeflateState.garbage g).bl_count.size = 16 := by
+  simp [DeflateState.garbage, L_CODES]
+
 theorem AH_SH (h : Heap) (i : Nat) (z1 : ZStream) (d : Array UInt8) (Y : Tbl (Option DeflateAllocs))
     (g : DeflateState) :
     AH { h with streams := upd h.streams i (some z1) } d Y (upd h.dstates h.nextBlk (some g)) =
@@ -726,6 +730,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
     hfs hfa hok W (Int32.ofNat l) n l hn hn1 hn2 hl pl1 pl2 pl3) ?_)
   rintro _ _ ⟨rfl, d, rfl, hdsz, hdz⟩
   have ⟨g1, g2, g3⟩ := garbage_sizes (h.garbage (2 ^ 43 + h.nextBlk))
+  have gs := garbage_scratch (h.garbage (2 ^ 43 + h.nextBlk))
   simp only [gState] at *
   generalize DeflateState.garbage (h.garbage (2 ^ 43 + h.nextBlk)) = g0 at *
   rw [AH_SH]
@@ -808,7 +813,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
       · exact hw
@@ -839,6 +844,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · simp [DeflateInv.dview, lmS, trS, rkS]
       · simp [DeflateInv.dview, lmS, trS, rkS]
       · simp only [DeflateInv.dview, lmS, trS, rkS, hl32]; exact pl3
+      · simp only [DeflateInv.dview, lmS, trS, rkS]; exact gs
 
 /-- The `windowBits` decoding and the tail, on a stream whose allocator fields are the defaults. -/
 theorem decode_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)

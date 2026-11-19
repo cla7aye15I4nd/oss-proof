@@ -150,6 +150,7 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
       fe_hi := c.fe_hi
       bs_lo := c.bs_lo
       lmod := c.lmod
+      scratch := c.scratch
       descs := c.descs }
   · rw [hsn] at hn
     obtain ⟨pbo3, poo3, hp3, ho3, hq⟩ := hr2 hn
