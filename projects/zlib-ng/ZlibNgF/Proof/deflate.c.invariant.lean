@@ -18,7 +18,8 @@ in that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and t
 `pending_buf` (from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; fewer than 8 bits in `bi_buf`; `strstart + lookahead`
 within the window; a valid `strategy`; both function pointers of `lm_set_level` set; valid distances in the
 tallied symbols, the pending bytes before `sym_buf` while there are symbols, no symbols in the header states;
-`block_start` and `insert` at or before `strstart`.
+`block_start` and `insert` at or before `strstart`, `strstart - block_start` bounded; `w_size` a power of two and
+`fill_end + MIN_LOOKAHEAD` a multiple of it within the window.
 -/
 
 set_option autoImplicit false
@@ -59,13 +60,14 @@ structure DView where
   insert_batch : Ival InsertBatchFn
   block_start : Int32
   insert : UInt32
+  fill_end : UInt32
 
 /-- The constrained fields of `st`. -/
 def dview (st : DeflateState) : DView :=
   ⟨st.strm, st.alloc_bufs, st.status, st.wrap, st.gzhead, st.w_size, st.pending_buf, st.head, st.level,
     st.dyn_ltree.size, st.dyn_dtree.size, st.bl_tree.size, st.window, st.prev, st.window_size, st.lit_bufsize,
     st.pending_buf_size, st.sym_buf, st.sym_end, st.sym_next, st.pending, st.pending_out, st.bi_valid, st.strstart,
-    st.lookahead, st.strategy, st.longest_match, st.insert_batch, st.block_start, st.insert⟩
+    st.lookahead, st.strategy, st.longest_match, st.insert_batch, st.block_start, st.insert, st.fill_end⟩
 
 /-- The clauses on the stream record `z`, the constrained state fields `v` and the allocation record `al` of
 block `b`. -/
@@ -134,6 +136,14 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   bstart : v.block_start.toInt ≤ v.strstart.toNat
   /-- `insert` is at most `strstart` -/
   ins : v.insert ≤ v.strstart
+  /-- `w_size` is a power of two (`1 << windowBits`, `windowBits` 9..15) -/
+  wpow : ∃ k, 9 ≤ k ∧ k ≤ 15 ∧ v.w_size.toNat = 2 ^ k
+  /-- `fill_end + MIN_LOOKAHEAD` is a multiple of `w_size` (`lm_init` sets `2 * w_size - MIN_LOOKAHEAD`,
+  `fill_window` adds `w_size`) within the window -/
+  fe_mod : (v.fill_end.toNat + 262) % v.w_size.toNat = 0
+  fe_hi : v.fill_end.toNat + 262 ≤ v.window_size.toNat
+  /-- `strstart - block_start` stays far from `INT_MAX` -/
+  bs_lo : (v.strstart.toNat : Int) - v.block_start.toInt ≤ 2 ^ 30
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}

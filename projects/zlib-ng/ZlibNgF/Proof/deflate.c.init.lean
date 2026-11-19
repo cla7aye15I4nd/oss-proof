@@ -611,6 +611,19 @@ theorem wbuf_toNat (w : UInt32) (hw : w.toNat ≤ 32768) : (W_BUF_SIZE w).toNat 
   · have : ¬ (32768 : UInt32) < 2 * w := by rw [UInt32.lt_iff_toNat_lt, h2]; simpa using c
     simp only [gt_iff_lt, this, ↓reduceIte, c]; rfl
 
+/-- `fill_end = 2 * w_size - MIN_LOOKAHEAD` (`lm_init`): `fill_end + MIN_LOOKAHEAD` is a multiple of `w_size` within
+the window. -/
+theorem lm_fill_end (w : UInt32) (h1 : 512 ≤ w.toNat) (h2 : w.toNat ≤ 32768) :
+    ((2 * w - MIN_LOOKAHEAD).toNat + 262) % w.toNat = 0 ∧
+      (2 * w - MIN_LOOKAHEAD).toNat + 262 ≤ (W_BUF_SIZE w).toNat := by
+  have hm : MIN_LOOKAHEAD.toNat = 262 := rfl
+  have e2 : (2 * w).toNat = 2 * w.toNat := by rw [UInt32.toNat_mul]; simp; omega
+  have hs : (2 * w - MIN_LOOKAHEAD).toNat = 2 * w.toNat - 262 := by
+    rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by rw [hm, e2]; omega)), hm, e2]
+  rw [hs, wbuf_toNat w h2]
+  refine ⟨?_, by unfold dWS; split <;> omega⟩
+  rw [show 2 * w.toNat - 262 + 262 = w.toNat * 2 by omega, Nat.mul_mod_right]
+
 theorem lb_one_le (l : Nat) {x : UInt32} (hx : x.toNat = l) (hl : 1 ≤ l) : 1 ≤ x := by
   rw [UInt32.le_iff_toNat_le, hx]; simpa using hl
 
@@ -769,7 +782,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
       · exact hw
@@ -791,6 +804,12 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · exact fun hn => absurd (by simp [DeflateInv.dview, lmS, trS, rkS]) hn
       · exact fun _ _ => by simp [DeflateInv.dview, lmS, trS, rkS]
       · simp [DeflateInv.dview, lmS, trS, rkS]
+      · simp [DeflateInv.dview, lmS, trS, rkS]
+      · exact ⟨n, hn1, hn2, by simp only [DeflateInv.dview, lmS, trS, rkS]; exact wsize_toNat n hn2⟩
+      · have := lm_fill_end _ q1.1 q1.2.1
+        simpa [DeflateInv.dview, lmS, trS, rkS] using this.1
+      · have := lm_fill_end _ q1.1 q1.2.1
+        simpa [DeflateInv.dview, lmS, trS, rkS] using this.2
       · simp [DeflateInv.dview, lmS, trS, rkS]
 
 /-- The `windowBits` decoding and the tail, on a stream whose allocator fields are the defaults. -/

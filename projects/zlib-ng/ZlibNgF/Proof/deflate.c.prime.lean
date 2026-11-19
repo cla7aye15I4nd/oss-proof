@@ -288,6 +288,10 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
       exact ⟨pbo, pbo, hpb, hpo, by omega⟩
     hdr := c.hdr
     bstart := c.bstart
-    ins := c.ins }
+    ins := c.ins
+    wpow := c.wpow
+    fe_mod := c.fe_mod
+    fe_hi := c.fe_hi
+    bs_lo := c.bs_lo }
 
 end ZlibNgF.Proof.DeflatePrime

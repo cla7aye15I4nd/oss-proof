@@ -334,7 +334,11 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
         · exact ⟨pbo, poo + L, hpb, hpnz hP, by omega⟩
       hdr := c.hdr
       bstart := c.bstart
-      ins := c.ins }
+      ins := c.ins
+      wpow := c.wpow
+      fe_mod := c.fe_mod
+      fe_hi := c.fe_hi
+      bs_lo := c.bs_lo }
   · refine ⟨L, { z with next_out := no, avail_out := av, total_out := tt },
       { st with pending := P, pending_out := Q, bi_buf := bb, bi_valid := bv }, by simp [OH], OH_dstate hob,
       by rw [hL, hnp], by simp only []; omega, rfl, hav, rfl,
