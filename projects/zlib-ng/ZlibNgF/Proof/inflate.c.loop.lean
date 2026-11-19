@@ -63,10 +63,26 @@ def HdrOK (H0 H : Heap) (hp : HeaderPtr) : Prop :=
       (g.name = g0.name ∨ g.name = .null) ∧ g.name_max = g0.name_max ∧
       (g.comment = g0.comment ∨ g.comment = .null) ∧ g.comm_max = g0.comm_max
 
+/-- Every byte block but `b` keeps its size from `H0` (so the caller's buffers stay readable and writable), and the
+static bytes stay. -/
+def SizeKeep (H0 H : Heap) (b : Nat) : Prop :=
+  (∀ c, c ≠ b → ∀ d, H0.bytes c = some d → ∃ d', H.bytes c = some d' ∧ d'.size = d.size) ∧ H.consts = H0.consts
+
+theorem SizeKeep.refl (H : Heap) (b : Nat) : SizeKeep H H b :=
+  ⟨fun _ _ d hd => ⟨d, hd, rfl⟩, rfl⟩
+
+theorem SizeKeep.trans {H0 H1 H2 : Heap} {b : Nat} (s1 : SizeKeep H0 H1 b) (s2 : SizeKeep H1 H2 b) :
+    SizeKeep H0 H2 b := by
+  refine ⟨fun c hc d hd => ?_, s2.2.trans s1.2⟩
+  obtain ⟨d1, e1, z1⟩ := s1.1 c hc d hd
+  obtain ⟨d2, e2, z2⟩ := s2.1 c hc d1 e1
+  exact ⟨d2, e2, z2.trans z1⟩
+
 /-- The loop invariant: heap `H` with stream record `z` and state `S`, locals `l`. -/
 structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Prop where
   inv : Inv H (some E.i)
   frame : Frame E.H0 H [E.i] [E.b] E.G E.W
+  sz : SizeKeep E.H0 H E.b
   hz : H.streams E.i = some z
   hb : z.state = some E.b
   hs : H.istate E.b = some S

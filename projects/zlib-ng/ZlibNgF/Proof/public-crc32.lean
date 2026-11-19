@@ -18,19 +18,19 @@ open ZlibNgF.Spec ZlibNgF.Spec.Safety ZlibNgF.Spec.Functional
 /-! ## Heap-preserving runs -/
 
 /-- `m` terminates on `h` without fault, leaves `h` unchanged, and its value satisfies `Q`. -/
-private def Ok {α : Type} (h : Heap) (m : M α) (Q : α → Prop) : Prop :=
+def Ok {α : Type} (h : Heap) (m : M α) (Q : α → Prop) : Prop :=
   ∃ v, C.run m h = .ok (v, h) ∧ Q v
 
-private theorem Ok.pure {α : Type} {h : Heap} {Q : α → Prop} {v : α} (hq : Q v) :
+theorem Ok.pure {α : Type} {h : Heap} {Q : α → Prop} {v : α} (hq : Q v) :
     Ok h (Pure.pure v) Q := ⟨v, rfl, hq⟩
 
-private theorem Ok.bind {α β : Type} {h : Heap} {m : M α} {f : α → M β} {P : α → Prop} {Q : β → Prop}
+theorem Ok.bind {α β : Type} {h : Heap} {m : M α} {f : α → M β} {P : α → Prop} {Q : β → Prop}
     (hm : Ok h m P) (hf : ∀ v, P v → Ok h (f v) Q) : Ok h (m >>= f) Q := by
   obtain ⟨v, hv, hp⟩ := hm
   obtain ⟨w, hw, hq⟩ := hf v hp
   exact ⟨w, by rw [C.run_bind, hv]; exact hw, hq⟩
 
-private theorem Ok.mono {α : Type} {h : Heap} {m : M α} {P Q : α → Prop}
+theorem Ok.mono {α : Type} {h : Heap} {m : M α} {P Q : α → Prop}
     (hm : Ok h m P) (hpq : ∀ v, P v → Q v) : Ok h m Q := by
   obtain ⟨v, hv, hp⟩ := hm
   exact ⟨v, hv, hpq v hp⟩
@@ -462,14 +462,14 @@ private theorem index8_ok {h : Heap} {r : BRef} {data : Array UInt8} (hg : Space
   exact load8_ok hg hlt
 
 set_option maxRecDepth 100000 in
-private theorem crc_table_size : crc_table.size = 256 := by decide
+theorem crc_table_size : crc_table.size = 256 := by decide
 
 set_option maxRecDepth 100000 in
 private theorem braid_table_facts :
     crc_braid_table.size = 8 ∧ ∀ k, k < 8 → (crc_braid_table[k]!).size = 256 := by
   decide
 
-private theorem crcTab_ok {h : Heap} (hc : h.crcTable = crc_table) (i : UInt64) (hi : i.toNat < 256) :
+theorem crcTab_ok {h : Heap} (hc : h.crcTable = crc_table) (i : UInt64) (hi : i.toNat < 256) :
     Ok h (crcTab i) (fun _ => True) := by
   unfold crcTab
   refine Ok.mono (u32_index_ok (r := URef.st_crc_table) (a := h.crcTable) rfl ?_) (fun _ _ => trivial)
@@ -576,7 +576,7 @@ private theorem len_bits (len : UInt64) :
   omega
 
 /-- `crc32_copy_small(crc, NULL, buf, len, MAX_LEN, 0)` reads at most `len` bytes from `buf`. -/
-private theorem crc32_copy_small_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+theorem crc32_copy_small_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
     (hg : Space.get h r = some data) (c : UInt32) (o : Nat) (len : UInt64) (ML : Int32)
     (hle : o + len.toNat ≤ data.size) :
     Ok h (crc32_copy_small c .null (.ref r o) len ML 0) (fun _ => True) := by
@@ -739,7 +739,7 @@ private theorem align_diff_facts (h : Heap) (r : BRef) (o : Nat) :
 
 set_option maxRecDepth 20000 in
 /-- `crc32_braid(crc, buf, len)` reads only `buf[0 .. len)`. -/
-private theorem crc32_braid_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+theorem crc32_braid_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
     (hg : Space.get h r = some data) (c : UInt32) (o : Nat) (len : UInt64)
     (hle : o + len.toNat ≤ data.size) :
     Ok h (crc32_braid c (.ref r o) len) (fun _ => True) := by
@@ -940,6 +940,18 @@ private theorem crc32_braid_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRe
 
 
 /-! ## Public `get_crc_table`, `crc32`, `crc32_z` -/
+
+/-- `crc32_small(crc, buf, len)` reads only `buf[0 .. len)`. -/
+theorem crc32_small_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+    (hg : Space.get h r = some data) (c : UInt32) (o : Nat) (len : UInt64)
+    (hle : o + len.toNat ≤ data.size) :
+    Ok h (crc32_small c (.ref r o) len) (fun _ => True) := by
+  unfold crc32_small
+  by_cases h32 : len ≥ 32
+  · simp only [h32, ↓reduceIte]
+    exact crc32_braid_ok hc hg c o len hle
+  · simp only [h32, ↓reduceIte]
+    exact Ok.bind (crc32_copy_small_ok hc hg _ o len 32 hle) (fun _ _ => Ok.pure (Q := fun _ => True) trivial)
 
 theorem get_crc_table_safety : Goal.get_crc_table_safety := by
   intro h hg
