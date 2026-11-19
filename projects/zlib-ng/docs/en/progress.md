@@ -13,7 +13,8 @@ Overall library status: **not done**.
 | `crc32_combine`, `crc32_combine64`, `crc32_combine_gen`, `crc32_combine_gen64`, `crc32_combine_op`: safety and rejection values | Public C API | done |
 | `compressBound`: safety and exact value | Public C API | done |
 | Streaming `deflate*` safety | Public C API | not done |
-| Streaming `inflate*` safety | Public C API | not done |
+| `inflateUndermine`: safety | Public C API | done |
+| Streaming `inflate*` safety (the other functions) | Public C API | not done |
 | `inflateBack*` safety | Public C API | not done |
 | `compress`, `compress2` safety | Public C API | not done |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` safety | Public C API | not done |
