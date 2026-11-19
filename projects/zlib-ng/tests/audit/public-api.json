@@ -430,9 +430,11 @@
     },
     {
       "function": "deflateInit_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateInit__safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateInit_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateInit__safety"
     },
     {
       "function": "inflateInit_",
@@ -444,9 +446,11 @@
     },
     {
       "function": "deflateInit2_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateInit2__safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateInit2_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateInit2__safety"
     },
     {
       "function": "inflateInit2_",

@@ -1,13 +1,15 @@
 import ZlibNgF.Proof.«public-deflate-bound»
 import ZlibNgF.Proof.«inflate.c.reach»
+import ZlibNgF.Proof.«public-deflate-init»
 
 /-!
 # Reachable deflate streams have the structural invariant (`ZlibNgF`)
 
 `dreach_inv (P : DPending) : DeflateReachable h s → DInv h s`, by induction over `DeflateReachable`, as
-`InflateReach.reach_inv` on the inflate side. The constructor cases proved here: the caller step, and the steps
-`deflatePending`, `deflateUsed`, `deflateTune`, `deflateSetHeader`, `deflateBound`, `deflateBound_z`. Every other
-case is a field of `DPending`, the list of preservation obligations not proved yet. The `*_safety_of` theorems
+`InflateReach.reach_inv` on the inflate side. The constructor cases proved: `deflateInit_` and `deflateInit2_`
+(`Proof/public-deflate-init.lean`), the caller step, and the steps `deflatePending`, `deflateUsed`, `deflateTune`,
+`deflateSetHeader`, `deflateBound`, `deflateBound_z`. Every other case is a field of `DPending`, the list of
+preservation obligations not proved yet. The `*_safety_of` theorems
 derive registered goals from `DPending`; a goal is registered as proved only once `DPending` is.
 -/
 
@@ -16,16 +18,9 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.DeflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv
 
-/-- The obligations still to prove: a successful initialisation or copy establishes the invariant, and each
-remaining public step keeps it. -/
+/-- The obligations still to prove: a successful copy establishes the invariant, and each remaining public step
+keeps it. -/
 structure DPending : Prop where
-  init : ∀ (h h' : Heap) (s : StreamPtr) (level : Int32) (version : BPtr) (size : Int32),
-    DInitReady h s → VersionOk h version →
-    C.run (ZlibNg.Deflate.deflateInit_ s level version size) h = .ok (Z_OK, h') → DInv h' s
-  init2 : ∀ (h h' : Heap) (s : StreamPtr) (level method windowBits memLevel strategy : Int32) (version : BPtr)
-    (size : Int32), DInitReady h s → VersionOk h version →
-    C.run (ZlibNg.Deflate.deflateInit2_ s level method windowBits memLevel strategy version size) h =
-      .ok (Z_OK, h') → DInv h' s
   /-- `deflateCopy` keeps the source's invariant and, on `Z_OK`, establishes the destination's. -/
   copy : ∀ (h h' : Heap) (src dst : StreamPtr) (r : Int32), DInv h src → InitReady h dst → dst ≠ src →
     C.run (ZlibNg.Deflate.deflateCopy dst src) h = .ok (r, h') → DInv h' src ∧ (r = Z_OK → DInv h' dst)
@@ -97,9 +92,9 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
 /-- **The induction.** Every reachable deflate stream has the structural invariant, given the pending obligations. -/
 theorem dreach_inv (P : DPending) {h : Heap} {s : StreamPtr} (hr : DeflateReachable h s) : DInv h s := by
   induction hr with
-  | init h h' s level version size hi hv e => exact P.init h h' s level version size hi hv e
+  | init h h' s level version size hi hv e => exact DeflateInitPublic.init_inv h h' s level version size hi hv e
   | init2 h h' s level method wb ml st version size hi hv e =>
-    exact P.init2 h h' s level method wb ml st version size hi hv e
+    exact DeflateInitPublic.init2__inv h h' s level method wb ml st version size hi hv e
   | copy h h' src dst _ hdst hne e ih => exact (P.copy h h' src dst Z_OK ih hdst hne e).2 rfl
   | step h h' s _ hs ih => exact step_inv P ih hs
   | caller h h' s _ hc ih => exact caller_inv ih hc

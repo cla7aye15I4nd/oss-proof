@@ -63,16 +63,16 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Safety.Goal.uncompress_safety, ``ZlibNgF.Proof.Uncompress.uncompress_safety),
   (``ZlibNgF.Spec.Safety.Goal.uncompress_z_safety, ``ZlibNgF.Proof.Uncompress.uncompress_z_safety),
   (``ZlibNgF.Spec.Safety.Goal.inflateBackInit__safety, ``ZlibNgF.Proof.InfbackInit.inflateBackInit__safety),
-  (``ZlibNgF.Spec.Safety.Goal.inflateBack_nonvacuous, ``ZlibNgF.Proof.Infback.inflateBack_nonvacuous)
+  (``ZlibNgF.Spec.Safety.Goal.inflateBack_nonvacuous, ``ZlibNgF.Proof.Infback.inflateBack_nonvacuous),
+  (``ZlibNgF.Spec.Safety.Goal.deflateInit__safety, ``ZlibNgF.Proof.DeflateInitPublic.deflateInit__safety),
+  (``ZlibNgF.Spec.Safety.Goal.deflateInit2__safety, ``ZlibNgF.Proof.DeflateInitPublic.deflateInit2__safety),
+  (``ZlibNgF.Spec.Safety.Goal.deflateInit_nonvacuous, ``ZlibNgF.Proof.DeflateInitPublic.deflateInit_nonvacuous)
 ]
 
 def notDone : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
   ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
   ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
-  ``ZlibNgF.Spec.Safety.Goal.deflateInit__safety,
-  ``ZlibNgF.Spec.Safety.Goal.deflateInit2__safety,
-  ``ZlibNgF.Spec.Safety.Goal.deflateInit_nonvacuous,
   ``ZlibNgF.Spec.Safety.Goal.deflate_safety,
   ``ZlibNgF.Spec.Safety.Goal.deflate_nonvacuous,
   ``ZlibNgF.Spec.Safety.Goal.deflateEnd_safety,
@@ -127,6 +127,9 @@ def required : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.inflateInit__safety,
   ``ZlibNgF.Spec.Safety.Goal.inflateInit2__safety,
   ``ZlibNgF.Spec.Safety.Goal.inflateInit_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.deflateInit__safety,
+  ``ZlibNgF.Spec.Safety.Goal.deflateInit2__safety,
+  ``ZlibNgF.Spec.Safety.Goal.deflateInit_nonvacuous,
   ``ZlibNgF.Spec.Functional.Goal.zlibVersion_functional,
   ``ZlibNgF.Spec.Functional.Goal.zlibCompileFlags_functional,
   ``ZlibNgF.Spec.Functional.Goal.zError_functional,

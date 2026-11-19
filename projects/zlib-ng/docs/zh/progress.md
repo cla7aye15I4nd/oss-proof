@@ -1,4 +1,4 @@
-<!-- source-sha256: 82386aa4e6b6c96b3de9bc075bb867f554cfc977ec1bd150b61e0f4693dcfa32 -->
+<!-- source-sha256: d1246130028c7d63a3377de790e6b10b491deb67ba381075260ada4021215970 -->
 # 结论的状态
 
 整体库验证状态：**未完成**。
@@ -14,7 +14,8 @@
 | `get_crc_table`、`crc32`、`crc32_z`：安全性 | 公开 C 接口 | 完成 |
 | `crc32_combine`、`crc32_combine64`、`crc32_combine_gen`、`crc32_combine_gen64`、`crc32_combine_op`：安全性与拒绝值 | 公开 C 接口 | 完成 |
 | `compressBound`：安全性与精确值 | 公开 C 接口 | 完成 |
-| 流式 `deflate*` 安全性 | 公开 C 接口 | 未完成 |
+| `deflateInit_`、`deflateInit2_`：安全性 | 公开 C 接口 | 完成 |
+| 其余流式 `deflate*` 函数安全性 | 公开 C 接口 | 未完成 |
 | `inflateInit_`、`inflateInit2_`、`inflateUndermine`：安全性 | 公开 C 接口 | 完成 |
 | `inflate`、`inflateEnd`、`inflateReset`、`inflateReset2`、`inflateResetKeep`、`inflatePrime`、`inflateSetDictionary`、`inflateGetDictionary`、`inflateGetHeader`、`inflateSync`、`inflateSyncPoint`、`inflateCopy`、`inflateValidate`、`inflateMark`、`inflateCodesUsed`：安全性 | 公开 C 接口 | 完成 |
 | `inflateBackInit_`：安全性 | 公开 C 接口 | 完成 |

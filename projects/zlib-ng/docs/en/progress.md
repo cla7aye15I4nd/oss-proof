@@ -13,7 +13,8 @@ Overall library status: **not done**.
 | `get_crc_table`, `crc32`, `crc32_z`: safety | Public C API | done |
 | `crc32_combine`, `crc32_combine64`, `crc32_combine_gen`, `crc32_combine_gen64`, `crc32_combine_op`: safety and rejection values | Public C API | done |
 | `compressBound`: safety and exact value | Public C API | done |
-| Streaming `deflate*` safety | Public C API | not done |
+| `deflateInit_`, `deflateInit2_`: safety | Public C API | done |
+| Other streaming `deflate*` functions: safety | Public C API | not done |
 | `inflateInit_`, `inflateInit2_`, `inflateUndermine`: safety | Public C API | done |
 | `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`, `inflatePrime`, `inflateSetDictionary`, `inflateGetDictionary`, `inflateGetHeader`, `inflateSync`, `inflateSyncPoint`, `inflateCopy`, `inflateValidate`, `inflateMark`, `inflateCodesUsed`: safety | Public C API | done |
 | `inflateBackInit_`: safety | Public C API | done |
