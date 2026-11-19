@@ -14,6 +14,7 @@ import ZlibNgF.Proof.«trees_emit.h.emit»
 import ZlibNgF.Proof.«trees_emit.h.static»
 import ZlibNgF.Proof.«trees.c.init»
 import ZlibNgF.Proof.«trees.c.facts»
+import ZlibNgF.Proof.«trees.c.overlay»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Inflate
@@ -29,6 +30,7 @@ import ZlibNgF.Proof.«inflate.c.copy»
 import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Math.BitReverse
 import ZlibNgF.Math.InftreesCount
+import ZlibNgF.Math.TreesOverlay
 import ZlibNgF.Proof.«inftrees.c.base»
 import ZlibNgF.Proof.«inftrees.c.count»
 import ZlibNgF.Proof.«inftrees.c.rev»
