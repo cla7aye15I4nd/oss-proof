@@ -12,3 +12,8 @@ import ZlibNgF.Proof.«inflate.c.reset»
 import ZlibNgF.Proof.«inflate.c.alloc»
 import ZlibNgF.Proof.«public-inflate-init»
 import ZlibNgF.Proof.«inflate.c.reach»
+import ZlibNgF.Math.BitReverse
+import ZlibNgF.Math.InftreesCount
+import ZlibNgF.Proof.«inftrees.c.base»
+import ZlibNgF.Proof.«inftrees.c.count»
+import ZlibNgF.Proof.«inftrees.c.rev»
