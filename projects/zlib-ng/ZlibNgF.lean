@@ -88,3 +88,15 @@ import ZlibNgF.Proof.«infback.c.initshape»
 import ZlibNgF.Proof.«public-infback»
 import ZlibNgF.Proof.«gzlib.c.invariant»
 import ZlibNgF.Proof.«gzlib.c.reach»
+import ZlibNgF.Proof.«insert_string_p.h.base»
+import ZlibNgF.Proof.«insert_string_p.h.safety»
+import ZlibNgF.Proof.«slide_hash_c.c.safety»
+import ZlibNgF.Proof.«deflate_p.h.readbuf»
+import ZlibNgF.Math.WinMask
+import ZlibNgF.Proof.«deflate.c.fill_window.inv»
+import ZlibNgF.Proof.«deflate.c.fill_window.slide»
+import ZlibNgF.Proof.«deflate.c.fill_window.safety»
+import ZlibNgF.Proof.«deflate.c.fill_window.facts»
+import ZlibNgF.Proof.«deflate.c.fill_window.io»
+import ZlibNgF.Proof.«deflate_p.h.tally»
+import ZlibNgF.Proof.«deflate_p.h.tally.flush»
