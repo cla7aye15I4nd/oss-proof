@@ -23,10 +23,10 @@ open ZlibNgF.Spec C
 
 /-- `int inflateInit_(z_stream *strm, const char *version, int stream_size)`: for a `Z_NULL` stream or a live
 `z_stream` with the default allocator, a `NULL` or readable `version` and any `stream_size`, does not fault and
-changes only the stream record and fresh blocks. -/
+changes only the stream record and fresh blocks. The heap is well formed (`FreshBlocks`). -/
 def Goal.inflateInit__safety : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (version : BPtr) (size : Int32),
-    CrcGlobals h → InitReady h s → VersionOk h version →
+    CrcGlobals h → FreshBlocks h → InitReady h s → VersionOk h version →
     ∃ r h', C.run (ZlibNg.Inflate.inflateInit_ s version size) h = .ok (r, h') ∧
       Frame h h' (streamIds s) [] [] []
 
@@ -34,7 +34,7 @@ def Goal.inflateInit__safety : Prop :=
 for every `windowBits`. -/
 def Goal.inflateInit2__safety : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (windowBits : Int32) (version : BPtr) (size : Int32),
-    CrcGlobals h → InitReady h s → VersionOk h version →
+    CrcGlobals h → FreshBlocks h → InitReady h s → VersionOk h version →
     ∃ r h', C.run (ZlibNg.Inflate.inflateInit2_ s windowBits version size) h = .ok (r, h') ∧
       Frame h h' (streamIds s) [] [] []
 
@@ -174,20 +174,22 @@ def Goal.inflateCodesUsed_safety : Prop :=
 for initialisation, does not fault and changes only the destination record and fresh blocks. -/
 def Goal.inflateCopy_safety : Prop :=
   ∀ (h : Heap) (dst src : StreamPtr),
-    CrcGlobals h → InflateHandle h src → InitReady h dst → dst ≠ src →
+    CrcGlobals h → FreshBlocks h → InflateHandle h src → InitReady h dst → dst ≠ src →
     ∃ r h', C.run (ZlibNg.Inflate.inflateCopy dst src) h = .ok (r, h') ∧
       Frame h h' (streamIds dst) [] [] []
 
 /-! ## One-shot decompression (`uncompr.c`)
 
 The length cells are values (`none`: a `NULL` cell). The destination is `NULL` or has `*destLen` writable bytes, the
-source is `NULL` or has `*sourceLen` readable bytes, and the two do not overlap. -/
+source is `NULL` or has `*sourceLen` readable bytes, and the two do not overlap. The heap is well formed
+(`FreshBlocks`: `uncompress` allocates an inflate state). -/
 
 /-- `int uncompress2_z(unsigned char *dest, z_size_t *destLen, const unsigned char *source, z_size_t *sourceLen)`:
 does not fault and writes only `dest[0, *destLen)` (and fresh blocks, freed again). -/
 def Goal.uncompress2_z_safety : Prop :=
   ∀ (h : Heap) (dest source : BPtr) (destLen sourceLen : Option UInt64),
-    CrcGlobals h → NullOrWrite h dest (destLen.getD 0).toNat → NullOrRead h source (sourceLen.getD 0).toNat →
+    CrcGlobals h → FreshBlocks h → NullOrWrite h dest (destLen.getD 0).toNat →
+    NullOrRead h source (sourceLen.getD 0).toNat →
     Disjoint dest (destLen.getD 0).toNat source (sourceLen.getD 0).toNat →
     ∃ r h', C.run (ZlibNg.Uncompr.uncompress2_z dest destLen source sourceLen) h = .ok (r, h') ∧
       Frame h h' [] [] [] [(dest, (destLen.getD 0).toNat)]
@@ -196,7 +198,8 @@ def Goal.uncompress2_z_safety : Prop :=
 unsigned long *sourceLen)`: as `uncompress2_z`. -/
 def Goal.uncompress2_safety : Prop :=
   ∀ (h : Heap) (dest source : BPtr) (destLen sourceLen : Option UInt64),
-    CrcGlobals h → NullOrWrite h dest (destLen.getD 0).toNat → NullOrRead h source (sourceLen.getD 0).toNat →
+    CrcGlobals h → FreshBlocks h → NullOrWrite h dest (destLen.getD 0).toNat →
+    NullOrRead h source (sourceLen.getD 0).toNat →
     Disjoint dest (destLen.getD 0).toNat source (sourceLen.getD 0).toNat →
     ∃ r h', C.run (ZlibNg.Uncompr.uncompress2 dest destLen source sourceLen) h = .ok (r, h') ∧
       Frame h h' [] [] [] [(dest, (destLen.getD 0).toNat)]
@@ -205,7 +208,8 @@ def Goal.uncompress2_safety : Prop :=
 unsigned long sourceLen)`: as `uncompress2_z`. -/
 def Goal.uncompress_safety : Prop :=
   ∀ (h : Heap) (dest source : BPtr) (destLen : Option UInt64) (sourceLen : UInt64),
-    CrcGlobals h → NullOrWrite h dest (destLen.getD 0).toNat → NullOrRead h source sourceLen.toNat →
+    CrcGlobals h → FreshBlocks h → NullOrWrite h dest (destLen.getD 0).toNat →
+    NullOrRead h source sourceLen.toNat →
     Disjoint dest (destLen.getD 0).toNat source sourceLen.toNat →
     ∃ r h', C.run (ZlibNg.Uncompr.uncompress dest destLen source sourceLen) h = .ok (r, h') ∧
       Frame h h' [] [] [] [(dest, (destLen.getD 0).toNat)]
@@ -214,7 +218,8 @@ def Goal.uncompress_safety : Prop :=
 as `uncompress2_z`. -/
 def Goal.uncompress_z_safety : Prop :=
   ∀ (h : Heap) (dest source : BPtr) (destLen : Option UInt64) (sourceLen : UInt64),
-    CrcGlobals h → NullOrWrite h dest (destLen.getD 0).toNat → NullOrRead h source sourceLen.toNat →
+    CrcGlobals h → FreshBlocks h → NullOrWrite h dest (destLen.getD 0).toNat →
+    NullOrRead h source sourceLen.toNat →
     Disjoint dest (destLen.getD 0).toNat source sourceLen.toNat →
     ∃ r h', C.run (ZlibNg.Uncompr.uncompress_z dest destLen source sourceLen) h = .ok (r, h') ∧
       Frame h h' [] [] [] [(dest, (destLen.getD 0).toNat)]

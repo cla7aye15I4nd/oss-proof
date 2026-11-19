@@ -91,6 +91,13 @@ library's defaults. -/
 def InitReady (h : Heap) (s : StreamPtr) : Prop :=
   s = none ∨ ∃ z, StreamAt h s z ∧ (z.zalloc = .null ∨ z.zalloc = .zcalloc) ∧ (z.zfree = .null ∨ z.zfree = .zcfree)
 
+/-- No typed object (`inflate_state`, `inflate_allocs`) lives in a block that the allocator has not handed out yet.
+Every heap a C program reaches has this property (blocks are numbered in allocation order and never reused, and the
+carve primitives place objects only into allocated blocks); it is a well-formedness condition of the heap model, not
+a restriction of the C inputs. The functions that allocate the inflate state (`inflateInit*`, `inflateCopy`, and
+`uncompress*` through `inflateInit`) need it: the carve of a fresh block faults if a stale object is recorded there. -/
+def FreshBlocks (h : Heap) : Prop := ∀ b, h.nextBlk ≤ b → h.istates b = none ∧ h.iallocs b = none
+
 /-- The `version` argument of `inflateInit_` / `inflateInit2_`: `NULL`, or a readable string (its first byte is
 read). -/
 def VersionOk (h : Heap) (version : BPtr) : Prop := NullOrRead h version 1
