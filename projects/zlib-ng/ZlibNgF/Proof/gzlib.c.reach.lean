@@ -179,7 +179,7 @@ theorem gzoffset_inv {w : World} {h : Heap} {f : GzPtr} (hwf : GzWF w h) (hv : f
 
 /-- A call that changes only the file system (and not the `gz_state` objects) stays in the frame. -/
 theorem gzframe_fs {w w' : World} (h : Heap) (f : GzPtr) (hg : w'.gzs = w.gzs) : GzFrame w h w' h f [] :=
-  ⟨DeflateInitPublic.dframe_refl h _ _ _ [], fun _ _ _ => by rw [hg]⟩
+  ⟨DeflateInitPublic.dframe_refl h _ _ _ [], fun _ _ e => e, fun _ _ _ => by rw [hg]⟩
 
 theorem gzoffset64_safety_of (P : GPending) : Goal.gzoffset64_safety := by
   intro w h f hwf hh

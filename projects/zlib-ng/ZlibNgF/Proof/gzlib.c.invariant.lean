@@ -128,6 +128,6 @@ theorem pos {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some
 
 /-- A call that changes neither the world nor the heap stays in the frame of any file. -/
 theorem gzframe_refl (w : World) (h : Heap) (f : GzPtr) (W : List (BPtr × Nat)) : GzFrame w h w h f W :=
-  ⟨DeflateInitPublic.dframe_refl h _ _ _ W, fun _ _ _ => rfl⟩
+  ⟨DeflateInitPublic.dframe_refl h _ _ _ W, fun _ _ e => e, fun _ _ _ => rfl⟩
 
 end ZlibNgF.Proof.GzInv

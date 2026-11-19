@@ -152,12 +152,15 @@ def GzHandle (w : World) (h : Heap) (f : GzPtr) : Prop := f = none ∨ GzReachab
 
 /-- What a gz call on `f` may change: the heap blocks of `f` and blocks it allocates (`DFrame` with `f`'s blocks as
 the library's and `f`'s embedded stream), the caller ranges `writes`, `f`'s `gz_state`, and the file system; the
-other `gz_state` objects stay. -/
+other `gz_state` objects stay. Static strings (`Heap.consts`) are only added, never changed: the string literals of
+the gz* files and the texts of `strerror` are static data in C, which the model makes at their first use
+(`Runtime/Gz.lean`). -/
 def GzFrame (w : World) (h : Heap) (w' : World) (h' : Heap) (f : GzPtr) (writes : List (BPtr × Nat)) : Prop :=
   let strm : List Nat := match f with
     | some b => (match w.gz h b with | some s => [s.strm] | none => [])
     | none => []
-  DFrame h h' strm (GzOwned w h f) [] writes ∧
+  DFrame h { h' with consts := h.consts } strm (GzOwned w h f) [] writes ∧
+  (∀ k a, h.consts k = some a → h'.consts k = some a) ∧
   ∀ b, f ≠ some b → b < h.nextBlk → w'.gzs b = w.gzs b
 
 /-- After `gzclose*` of the reachable file `f`, nothing of it is left: its blocks are freed, its `gz_state` and
