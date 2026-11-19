@@ -149,7 +149,7 @@ theorem reset2_15 {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateStat
 theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : InflateState} {al : InflateAllocs}
     (sh : Shape h s z b (view st) al) (hza : z'.zalloc = z.zalloc) (hzf : z'.zfree = z.zfree)
     (hw : st.wbits ≤ 15) (hr : st.reqbits ≤ 15) (hs : st.wsize = 0 ∨ st.wsize = (1 : UInt32) <<< st.wbits)
-    (hh : st.whave ≤ st.wsize) (hn : st.wnext = 0 ∨ st.wnext < st.wsize) :
+    (hh : st.whave ≤ st.wsize) (hn : st.wnext = 0 ∨ st.wnext < st.wsize) (hnw : st.wnext ≤ st.whave) :
     Core h s z' b (view (rkS b st)) al where
   toShape := { sh with zalloc := hza.trans sh.zalloc, zfree := hzf.trans sh.zfree,
                        mode_lo := by show HEAD ≤ HEAD; decide, mode_hi := by show HEAD ≤ SYNC; decide }
@@ -158,6 +158,7 @@ theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : Inf
   wsize := hs
   whave := hh
   wnext := hn
+  wnext_le := hnw
   bits := by show (0 : UInt32) ≤ 64; decide
   lencode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   distcode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
@@ -178,6 +179,7 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := InflateInv.live hv
   refine ⟨i, z, b, st, rfl, resetKeep_run L, inv_setZS L.hb L.hd hal ?_⟩
   exact core_rkS (z := z) { c.toShape with } rfl rfl c.wbits c.reqbits c.wsize c.whave c.wnext
+    c.wnext_le
 
 theorem reset_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
     ∃ i z b st, s = some i ∧
@@ -186,7 +188,7 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := InflateInv.live hv
   refine ⟨i, z, b, st, rfl, reset_run L, inv_setZS L.hb L.hd hal ?_⟩
   exact core_rkS (z := z) (st := rS st) { c.toShape with } rfl rfl c.reqbits c.reqbits (Or.inl rfl)
-    (UInt32.le_refl _) (Or.inl rfl)
+    (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _)
 
 theorem reset2_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (w : Int32) :
     C.run (inflateReset2 s w) h = .ok (Z_STREAM_ERROR, h) ∨
@@ -198,7 +200,7 @@ theorem reset2_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (w : Int32) :
   · exact Or.inl e
   · refine Or.inr ⟨i, z, b, st, wrap, wb, rfl, e, inv_setZS L.hb L.hd hal ?_⟩
     exact core_rkS (z := z) (st := rS (r2S st wrap wb)) { c.toShape with } rfl rfl hwb hwb (Or.inl rfl)
-      (UInt32.le_refl _) (Or.inl rfl)
+      (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _)
 
 /-! ## `inflatePrime` -/
 

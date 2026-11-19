@@ -94,6 +94,9 @@ structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (a
   wsize : st.wsize = 0 ∨ st.wsize = (1 : UInt32) <<< st.wbits
   whave : st.whave ≤ st.wsize
   wnext : st.wnext = 0 ∨ st.wnext < st.wsize
+  /-- the window is filled from 0: until it is full, `wnext = whave` (`inflateGetDictionary` copies `whave - wnext`
+  bytes) -/
+  wnext_le : st.wnext ≤ st.whave
   bits : st.bits ≤ 64
   lencode : ∃ p, st.lencode = .val p ∧ CodeTarget b p
   distcode : ∃ p, st.distcode = .val p ∧ CodeTarget b p
@@ -109,6 +112,25 @@ theorem Shape.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v :
 theorem Core.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
     (hb : h'.bytes b = h.bytes b) (hg : h'.gzheaders = h.gzheaders) (c : Core h s z b v al) : Core h' s z b v al :=
   { c with toShape := c.toShape.of_heap hb, head := by rw [hg]; exact c.head }
+
+/-- `1 << wbits` for `wbits ≤ 15` is at most 32768. -/
+theorem shl_le (w : UInt32) (hw : w ≤ 15) : (1 : UInt32) <<< w ≤ 32768 := by
+  rw [UInt32.le_iff_toNat_le] at hw ⊢
+  have hw' : w.toNat ≤ 15 := hw
+  rw [UInt32.toNat_shiftLeft]
+  have e1 : (1 : UInt32).toNat = 1 := rfl
+  have e2 : (32768 : UInt32).toNat = 32768 := rfl
+  rw [e1, e2, Nat.mod_eq_of_lt (by omega : w.toNat < 32), Nat.shiftLeft_eq, Nat.one_mul]
+  have : 2 ^ w.toNat ≤ 2 ^ 15 := Nat.pow_le_pow_right (by decide) hw'
+  have : 2 ^ w.toNat % 2 ^ 32 ≤ 2 ^ w.toNat := Nat.mod_le _ _
+  omega
+
+/-- The window size is at most 32768 bytes. -/
+theorem Core.wsize_le {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
+    (c : Core h s z b v al) : v.wsize ≤ 32768 := by
+  rcases c.wsize with e | e
+  · rw [e]; decide
+  · rw [e]; exact shl_le _ c.wbits
 
 /-- The structural invariant of the inflate stream `s` in `h`. -/
 def Inv (h : Heap) (s : StreamPtr) : Prop :=

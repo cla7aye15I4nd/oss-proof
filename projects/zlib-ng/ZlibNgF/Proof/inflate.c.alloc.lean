@@ -405,7 +405,7 @@ theorem init2_ok {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
         refine InflateReset.inv_setZS rfl ⟨allocBytes H0, by simp [H2, setZS, H0, b]⟩ hal ?_
         have hsz := allocBytes_size H0
         refine InflateReset.core_rkS (z := z2) ?_ rfl rfl hwb hwb (Or.inl rfl) (UInt32.le_refl _)
-          (Or.inl rfl)
+          (Or.inl rfl) (UInt32.le_refl _)
         exact {
           zalloc := rfl
           zfree := rfl
