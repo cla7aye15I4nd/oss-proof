@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«deflate.c.invariant»
+import ZlibNgF.Proof.«deflate.c.init»
 
 /-!
 # Callee facts of `deflate` (`ZlibNgF`)
@@ -169,9 +170,9 @@ def DInput (h : Heap) (s : StreamPtr) : Prop :=
     (z.avail_in ≠ 0 → z.next_in ≠ .null)
 
 /-- What `fill_window` leaves: the invariant and a readable input; only the stream record (`next_in`, `avail_in`,
-`total_in`, `adler`) and the stream's block change; no more input taken than the window gained (`avail_in +
-lookahead` does not grow); the state fields that the callers read back (`wrap`, `status`, `gzhead`, `level`,
-`strategy`, the function pointers, `block_start`) kept. -/
+`total_in`, `adler`) and the stream's block change; `avail_in` does not grow and drops when `lookahead` changes (the
+window gains only input bytes); at the end the lookahead is full or the input empty; the state fields that the
+callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers) kept. -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
   DInv h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
@@ -181,24 +182,29 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
       avail_in := z'.avail_in
       total_in := z'.total_in
       adler := z'.adler } ∧
-    z'.avail_in.toNat + st'.lookahead.toNat ≤ z.avail_in.toNat + st.lookahead.toNat ∧
+    z'.avail_in.toNat ≤ z.avail_in.toNat ∧
+    (st'.lookahead ≠ st.lookahead → z'.avail_in.toNat < z.avail_in.toNat) ∧
+    (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧
     st'.wrap = st.wrap ∧ st'.status = st.status ∧ st'.gzhead = st.gzhead ∧ st'.level = st.level ∧
-    st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch ∧
-    st'.block_start = st.block_start
+    st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
-the translated C code: `fill_window` from the invariant and a readable input (the CRC tables when it computes a
-CRC-32), and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose 4-byte reads
-stay below `strstart + lookahead + 1`; they change only the stream's block (`head`, `prev`) and `ins_h`. -/
+the translated C code: `fill_window` from the invariant, a readable input (the CRC tables when it computes a
+CRC-32) and `lookahead < MIN_LOOKAHEAD` (every caller's condition), and the `insert_batch` functions of
+`lm_set_level` over `n >= 1` positions from `str` whose 4-byte reads
+stay below `strstart + lookahead + 1`; they change only the bytes of the stream's block (`head`, `prev`) and
+`ins_h` (the result is the `SH` heap of `Proof/deflate.c.init.lean`). -/
 structure WindowFacts : Prop where
   fill_window : ∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState), DInv h s → DStateIs h s b st →
-    DInput h s → (st.wrap = 2 → CrcGlobals h) →
+    DInput h s → (st.wrap = 2 → CrcGlobals h) → st.lookahead.toNat < 262 →
     ∃ h', C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') ∧ FillPost h h' s
-  insert_batch : ∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (f : InsertBatchFn) (wo : Nat)
-    (str n : UInt32), DInv h s → DStateIs h s b st → st.window = .val (.ref (.heap b) wo) → 1 ≤ n.toNat →
+  insert_batch : ∀ (h : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8)
+    (f : InsertBatchFn) (wo : Nat) (str n : UInt32), DInv h (some i) → h.streams i = some z → z.state = some b →
+    h.dstate b = some st → h.bytes b = some d → st.window = .val (.ref (.heap b) wo) → 1 ≤ n.toNat →
     str.toNat + n.toNat + 2 ≤ st.strstart.toNat + st.lookahead.toNat →
-    ∃ h', C.run (ZlibNg.InsertString.call_insert_batch f (some b) (.ref (.heap b) wo) str n) h = .ok ((), h') ∧
-      DInv h' s ∧ DFrame h h' [] [b] [] [] ∧ ∀ st', DStateIs h' s b st' → st' = { st with ins_h := st'.ins_h }
+    ∃ st' d', C.run (ZlibNg.InsertString.call_insert_batch f (some b) (.ref (.heap b) wo) str n) h =
+        .ok ((), DeflateInit.SH h i z b st' d') ∧
+      DInv (DeflateInit.SH h i z b st' d') (some i) ∧ st' = { st with ins_h := st'.ins_h } ∧ d'.size = d.size
 
 /-! ## Interface lemmas -/
 

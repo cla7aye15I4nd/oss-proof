@@ -105,7 +105,15 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       psym := fun hn => absurd (by simp [dview, lmS, trS, rkS]) hn
       hdr := fun _ _ => by simp [dview, lmS, trS, rkS]
       bstart := by simp [dview, lmS, trS, rkS]
-      ins := by simp [dview, lmS, trS, rkS] }
+      ins := by simp [dview, lmS, trS, rkS]
+      wpow := c.wpow
+      fe_mod := by
+        have := lm_fill_end _ q1.1 q1.2.1
+        simpa [dview, lmS, trS, rkS] using this.1
+      fe_hi := by
+        have := lm_fill_end _ q1.1 q1.2.1
+        simpa [dview, lmS, trS, rkS] using this.2
+      bs_lo := by simp [dview, lmS, trS, rkS] }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 
@@ -160,7 +168,11 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
       psym := fun hn => absurd (by simp [dview, trS, rkS]) hn
       hdr := fun _ _ => by simp [dview, trS, rkS]
       bstart := c.bstart
-      ins := c.ins }
+      ins := c.ins
+      wpow := c.wpow
+      fe_mod := c.fe_mod
+      fe_hi := c.fe_hi
+      bs_lo := c.bs_lo }
   · rw [SH_self L.hz L.hst hd]
     exact dframe_SH _ _ _ _ _ _
 
