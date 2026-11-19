@@ -61,10 +61,11 @@ def LoopI (H0 : Heap) (c : FC) (e : FE) (x : FL × Bool) (G : Heap) : Prop :=
 def loopM (e : FE) (x : FL × Bool) : Nat := e.s - offOf x.1.out
 
 /-- The state after the main loop: `out` advanced within `[o0, safe]`, the input and bit accounting, and either no
-`break` (some output written, only output bytes changed) or a `break` (a bit consumed, the mode and message stored). -/
+`break` (some output written and a bit consumed, only output bytes changed) or a `break` (a bit consumed, the mode and
+message stored). -/
 def LoopQ (H0 : Heap) (sm : Bool) (e : FE) (x : FL × Bool) (G : Heap) : Prop :=
   ∃ po, x.1.out = B e.ob po ∧ e.o0 ≤ po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧
-    ((x.2 = false ∧ e.o0 < po ∧ RH H0 e G) ∨ (x.2 = true ∧ InS e x.1 ∧ BrkHeap H0 sm e G))
+    ((x.2 = false ∧ e.o0 < po ∧ InS e x.1 ∧ RH H0 e G) ∨ (x.2 = true ∧ InS e x.1 ∧ BrkHeap H0 sm e G))
 
 theorem loop_step {H0 : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) :
     ∀ s H, LoopI H0 c e s H → Sat H ((fun ((l, _) : FL × Bool) => trip c l) s) (fun s1 H1 => Sat H1
@@ -85,7 +86,7 @@ theorem loop_step {H0 : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) :
   have hrm := EV.room
   rcases hres with ⟨hb1, hc⟩ | ⟨hb1, hk⟩
   · simp only at hb1; subst hb1
-    obtain ⟨po, hpo, hot, hps, hin, r⟩ := hc
+    obtain ⟨po, hpo, hot, hps, hin, hS, r⟩ := hc
     obtain ⟨p, hp, hp0, hpE, hb64, hacc⟩ := hin
     obtain ⟨A, hA, hAE⟩ := EV.inA
     obtain ⟨A', hA', hsz⟩ := in_get r hA
@@ -107,10 +108,10 @@ theorem loop_step {H0 : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) :
         split at hc' <;> split at hrm <;> simp_all <;> omega
       · show e.s - offOf l1.out < e.s - offOf l.out
         rw [show l1.out = B e.ob po from hpo, hout0]; simp only [offOf]; omega
-      · exact ⟨po, hpo, by omega, hps, ⟨p, hp, hp0, by omega, hb64, hacc⟩, Or.inl ⟨rfl, by omega, r⟩⟩
+      · exact ⟨po, hpo, by omega, hps, ⟨p, hp, hp0, by omega, hb64, hacc⟩, Or.inl ⟨rfl, by omega, hS, r⟩⟩
     · simp only [hlt, decide_false, Bool.false_eq_true, ↓reduceIte]
       refine Sat.pure ⟨fun hc => by simp at hc, fun _ =>
-        ⟨po, hpo, by omega, hps, ⟨p, hp, hp0, by omega, hb64, hacc⟩, Or.inl ⟨rfl, by omega, r⟩⟩⟩
+        ⟨po, hpo, by omega, hps, ⟨p, hp, hp0, by omega, hb64, hacc⟩, Or.inl ⟨rfl, by omega, hS, r⟩⟩⟩
   · simp only at hb1; subst hb1
     obtain ⟨po, hpo, hot, hps, hin, hS, hbk⟩ := hk
     simp only [↓reduceIte]

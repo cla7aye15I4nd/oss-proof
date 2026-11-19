@@ -195,13 +195,13 @@
       "function": "inflateBack",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the inflateBack functions is not done: infback.c is not translated yet."
+      "reason": "Safety of inflateBack is not proved yet; the goal is stated and its premises are shown satisfiable (Goal.inflateBack_nonvacuous)."
     },
     {
       "function": "inflateBackEnd",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the inflateBack functions is not done: infback.c is not translated yet."
+      "reason": "Safety of inflateBackEnd is not done: on a stream that inflateBack has used it needs the frame of inflateBack, which is not proved."
     },
     {
       "function": "zlibCompileFlags",
@@ -458,9 +458,11 @@
     },
     {
       "function": "inflateBackInit_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the inflateBack functions is not done: infback.c is not translated yet."
+      "source": "ZlibNgF/ZlibNg/infback.c.lean",
+      "implementation": "ZlibNg.Infback.inflateBackInit_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateBackInit__safety"
     },
     {
       "function": "gzgetc_",

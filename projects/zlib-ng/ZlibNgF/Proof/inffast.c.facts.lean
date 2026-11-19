@@ -170,7 +170,7 @@ theorem fastFacts_of
     cases safe
     · exact hroom
     · exact hroom.1
-  obtain ⟨_, h', e, ai, ao, m, hold, bits, len, was, off, msg, rest⟩ := InffastMain.inflate_fast_post safe h i b z st
+  obtain ⟨_, h', e, ai, ao, m, hold, bits, len, was, off, msg, -, rest⟩ := InffastMain.inflate_fast_post safe h i b z st
     start ri oi bo oo A D hmode hz hzs hst hbits hbo woff wd hwv hwd hws' core.whave core.wnext_le lc dc hlc hdc htab
     (hnb lc _ core.lencode hlc) (hnb dc _ core.distcode hdc) hin15 hstart hroom' hni hA hAs hno hD hDs
   refine ⟨h', ai, ao, m, hold, bits, len, was, off, msg, ?_, rest⟩
