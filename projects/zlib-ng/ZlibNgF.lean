@@ -23,3 +23,4 @@ import ZlibNgF.Proof.«inflate.c.steps»
 import ZlibNgF.Proof.«inflate.c.header-modes»
 import ZlibNgF.Proof.«inflate.c.gzhead-modes»
 import ZlibNgF.Proof.«inflate.c.gzextra-modes»
+import ZlibNgF.Proof.«inflate.c.type-modes»
