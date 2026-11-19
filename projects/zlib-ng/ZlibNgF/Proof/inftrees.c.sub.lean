@@ -318,7 +318,7 @@ theorem tblSub_wp {S : Setup} (hS : S.OK) {t : TL} {here : Code} {min : UInt32} 
         used_bnd := by dsimp only; rw [hus]; omega
         geo := Or.inr ⟨hdrop', hc.1, by dsimp only; omega, by dsimp only; omega, t.used.toNat, K / 2 ^ (16 - S.root), rfl, hur,
           by dsimp only; rw [hus], blk_lt hKl hr16, hlow, fun _ => ?_, fun _ => rfl⟩
-        cov := fun hp => cov_link hS hst hp hdrop' (by dsimp only; omega) (by dsimp only; omega) hus hlow hc.2
+        cov := fun hp => cov_link hS hst hp hdrop' (by dsimp only; omega) (by dsimp only; omega) hus hlow hc.2 hc.1
           (fun j hj => by simp only [Array.set!_eq_setIfInBounds, getElem!_def, Array.getElem?_setIfInBounds,
             Ne.symm hj, ite_false]) ?_ }
       · dsimp only at hj

@@ -90,7 +90,7 @@ def FastPost (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateSta
 
 /-- **`INFLATE_FAST` (both variants), the window in block `wb`**: another block than the output (`LEN` of
 `inflate`), or the output itself with `beg == window`, the safe variant, `start == wsize` and `wnext == 0` (`LEN` of
-`inflateBack`). -/
+`inflateBack`). It allocates nothing. -/
 theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32)
     (ri : BRef) (oi bo oo : Nat) (A D : Array UInt8) (hmode : st.mode = ZlibNg.Inflate.LEN)
     (hz : h.streams i = some z) (hzs : z.state = some b) (hst : h.istate b = some st)
@@ -107,7 +107,8 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
     (hni : z.next_in = .ref ri oi) (hA : Space.get h ri = some A) (hAs : oi + z.avail_in.toNat ≤ A.size)
     (hno : z.next_out = .ref (.heap bo) (oo + (start - z.avail_out).toNat)) (hD : h.bytes bo = some D)
     (hDs : oo + start.toNat ≤ D.size) :
-    Sat h (INFLATE_FAST safe (some i) start) (fun _ h' => FastPost safe h i b z st start ri oi bo oo h') := by
+    Sat h (INFLATE_FAST safe (some i) start)
+      (fun _ h' => FastPost safe h i b z st start ri oi bo oo h' ∧ h'.nextBlk = h.nextBlk) := by
   have hi15 : 15 ≤ z.avail_in.toNat := by rw [UInt32.le_iff_toNat_le] at hin15; simpa using hin15
   have hso : z.avail_out.toNat ≤ start.toNat := UInt32.le_iff_toNat_le.mp hstart
   have hsub : (start - z.avail_out).toNat = start.toNat - z.avail_out.toNat := UInt32.toNat_sub_of_le _ _ hstart
@@ -128,7 +129,7 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
   rw [hH]
   extract_lets jp
   have hjp : Sat h (jp (B bo (if safe then oo + start.toNat - 2 else oo + start.toNat - 259)))
-      (fun _ h' => FastPost safe h i b z st start ri oi bo oo h') := by
+      (fun _ h' => FastPost safe h i b z st start ri oi bo oo h' ∧ h'.nextBlk = h.nextBlk) := by
     simp only [jp]
     refine sat_bind_eq (ZlibNgF.Proof.InflateInv.ldState_app hst) ?_
     refine sat_bind_eq (a := B wb woff) (H' := h) (by rw [hwv]; rfl) ?_
@@ -277,7 +278,7 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
       refine sat_bind_eq (by simp only [stStream, upd_same]; rfl) ?_
       have hbb : G1.bytes b = h.bytes b := r1.bytes_ne hbo.symm
       refine sat_bind_eq (by simp only [ldState, Heap.istate, hbb, hbd, upd_same]; rfl) ?_
-      refine ⟨(), _, by simp only [stState, Heap.istate, hbb, hbd, upd_same]; rfl, ?_⟩
+      refine ⟨(), _, by simp only [stState, Heap.istate, hbb, hbd, upd_same]; rfl, ?_, ?_⟩
       have hbf : (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toNat = lf.bits.toNat % 8 := by
         simp only [UInt8.toNat_toUInt32, hm8]
       have hao' : z.avail_out.toNat ≤ start.toNat := hso
@@ -323,6 +324,8 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
           (by dsimp only [e]; omega)) hbo.symm _ _ ?_ ?_
         · intro j hj; simp only [upd_ne _ _ _ _ hj]
         · intro j hj; simp only [upd_ne _ _ _ _ hj]
+      · show G1.nextBlk = h.nextBlk
+        rw [r1.eq]
   cases safe
   · simp only [Bool.false_eq_true, ↓reduceIte] at hroom hjp
     have : 260 ≤ z.avail_out.toNat := by rw [UInt32.le_iff_toNat_le] at hroom; simpa using hroom
@@ -359,7 +362,8 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
     (hno : z.next_out = .ref (.heap bo) (oo + (start - z.avail_out).toNat)) (hD : h.bytes bo = some D)
     (hDs : oo + start.toNat ≤ D.size) :
     Sat h (INFLATE_FAST safe (some i) start) (fun _ h' => FastPost safe h i b z st start ri oi bo oo h') :=
-  inflate_fast_post_w safe h i b z st start ri oi bo oo A D hmode hz hzs hst hbits hbo wd hwd b woff wd
-    (Or.inl hbo.symm) hwv hwd hws hwh hwn lc dc hlc hdc htab hlnb hdnb hin15 hstart hroom hni hA hAs hno hD hDs
+  Sat.mono (inflate_fast_post_w safe h i b z st start ri oi bo oo A D hmode hz hzs hst hbits hbo wd hwd b woff wd
+    (Or.inl hbo.symm) hwv hwd hws hwh hwn lc dc hlc hdc htab hlnb hdnb hin15 hstart hroom hni hA hAs hno hD hDs)
+    (fun _ _ p => p.1)
 
 end ZlibNgF.Proof.InffastMain

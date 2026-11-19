@@ -137,7 +137,9 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
     refine Wp.have_ ?_
     rw [Wp.pure_iff]
     refine ⟨_, _, rfl, by simp, rfl, ?_, Or.inl rfl, fun e => absurd rfl e, fun _ => ⟨2, by simp, hbnd2, ?_, by simp, by simp, ?_,
-      fun _ => codeTable_of (u := 2) (root := 1) (by decide) (by decide) (by decide) (by simp; omega) (fun i hi => ?_)⟩⟩
+      fun _ => ⟨codeTable_of (u := 2) (root := 1) (by decide) (by decide) (by decide) (by simp; omega) (fun i hi => ?_),
+        (fun hm => ⟨(rep_markers hm).1, fun _ => ⟨(rep_markers (dist := false) hm).2,
+          fun j hj => by rw [hm j (by simpa using hj)]; decide⟩⟩) (fun x hx => ?_)⟩⟩⟩
     · intro i hi
       rw [set_ne _ (by omega), set_ne _ (by omega)]
     · show Ptr.ref _ (((off + 1 + 0 : Nat) : Int) + 1).toNat = _
@@ -151,6 +153,10 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
         exact RootOK.of_sub (marker_ok (by decide) (by decide))
       · rw [getElem!_of_some (set!_self (by simp; omega) _)]
         exact RootOK.of_sub (marker_ok (by decide) (by decide))
+    · rcases (show x = 0 ∨ x = 1 by omega) with rfl | rfl
+      · rw [getElem!_congr (C := s.codes.set! (off + 0) ⟨1, 64, 0⟩) (set_ne _ (by omega)),
+          getElem!_of_some (set!_self (by omega) _)]
+      · rw [getElem!_of_some (set!_self (by simp; omega) _)]
   have hmx1 : 1 ≤ mx.toNat := by
     have : mx ≠ 0 := fun e => hm0 (by rw [e]; rfl)
     have : mx.toNat ≠ 0 := fun e => this (UInt32.toNat_inj.mp (by rw [e]; rfl))
@@ -301,13 +307,13 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
       · wp_have_intro_eq
         intro here hhv
         tbl_to_S CODES
-        have hhere : CovPre S → SubOK S.type t.drop.toNat here := fun _ =>
+        have hhere : CovPre S → HereOK S.type t.drop.toNat t.len.toNat here := fun _ =>
           here_lit (hst.cbf hS) (by rw [hhv]) (by rw [hhv]) (by rw [← hSd]; rfl)
         tblCont_steps mx root ((1 : UInt32) <<< root - 1)
       · wp_have_intro_eq
         intro here hhv
         tbl_to_S CODES
-        have hhere : CovPre S → SubOK S.type t.drop.toNat here := fun _ =>
+        have hhere : CovPre S → HereOK S.type t.drop.toNat t.len.toNat here := fun _ =>
           here_eob (hst.cbf hS) (by rw [hhv]) (by rw [hhv])
         tblCont_steps mx root ((1 : UInt32) <<< root - 1)
     · refine Wp.ite (fun hge => ?_) (fun _ => ?_)
@@ -328,7 +334,7 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
         rw [st_at_ok (by simp [lbase]; exact hidx), Wp.pure_iff]
         wp_have_intro_eq; intro here hhv
         tbl_to_S LENS
-        have hhere : CovPre S → SubOK S.type t.drop.toNat here := fun hp => by
+        have hhere : CovPre S → HereOK S.type t.drop.toNat t.len.toNat here := fun hp => by
           have hty : S.type = LENS := by rw [← hSd]
           have hcod : S.codes = codes.toNat := by rw [← hSd]
           have hc286 := hp hty
@@ -340,17 +346,17 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
           exact here_len (hst.cbf hS) (by rw [hhv, getElem!_pos lext _ (by simp [lext]; omega)])
             (by rw [hhv, getElem!_pos lext _ (by simp [lext]; omega)])
             (by rw [hhv, getElem!_pos lbase _ (by simp [lbase]; omega)]) e1 e2 b1
-            (by rw [hty, mOf_lens]; omega) (fun _ => ⟨by omega, b2⟩)
+            (by rw [hty, mOf_lens]; omega) (fun _ => ⟨by omega, b2⟩) (by rw [hty]; decide)
         tblCont_steps mx root ((1 : UInt32) <<< root - 1)
       refine Wp.ite (fun _ => ?_) (fun _ => ?_)
       · wp_have_intro_eq; intro here hhv
         tbl_to_S LENS
-        have hhere : CovPre S → SubOK S.type t.drop.toNat here := fun _ =>
+        have hhere : CovPre S → HereOK S.type t.drop.toNat t.len.toNat here := fun _ =>
           here_lit (hst.cbf hS) (by rw [hhv]) (by rw [hhv]) (by rw [← hSd]; rfl)
         tblCont_steps mx root ((1 : UInt32) <<< root - 1)
       · wp_have_intro_eq; intro here hhv
         tbl_to_S LENS
-        have hhere : CovPre S → SubOK S.type t.drop.toNat here := fun _ =>
+        have hhere : CovPre S → HereOK S.type t.drop.toNat t.len.toNat here := fun _ =>
           here_eob (hst.cbf hS) (by rw [hhv]) (by rw [hhv])
         tblCont_steps mx root ((1 : UInt32) <<< root - 1)
     · refine Wp.ite (fun hge => ?_) (fun hge => absurd (show (W[t.sym.toNat]!).toUInt32 ≥ (0 : UInt32) from
@@ -368,7 +374,7 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
       rw [st_at_ok (by simp [dbase]; omega), Wp.pure_iff]
       wp_have_intro_eq; intro here hhv
       tbl_to_S DISTS
-      have hhere : CovPre S → SubOK S.type t.drop.toNat here := fun _ => by
+      have hhere : CovPre S → HereOK S.type t.drop.toNat t.len.toNat here := fun _ => by
         have hty : S.type = DISTS := by rw [← hSd]
         have hL := (hst.cbf hS).2.2
         by_cases h30 : ((W[t.sym.toNat]!).toUInt32 - 0).toNat < 30
@@ -376,7 +382,7 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
           exact here_len (hst.cbf hS) (by rw [hhv, getElem!_pos dext _ (by simp [dext]; omega)])
             (by rw [hhv, getElem!_pos dext _ (by simp [dext]; omega)])
             (by rw [hhv, getElem!_pos dbase _ (by simp [dbase]; omega)]) e1 e2 b1
-            (by rw [hty, mOf_dists]; omega) (fun h => by rw [hty, dOf_dists] at h; cases h)
+            (by rw [hty, mOf_dists]; omega) (fun h => by rw [hty, dOf_dists] at h; cases h) (by rw [hty]; decide)
         · exact here_d64 (hst.cbf hS) (by rw [hhv, getElem!_pos dext _ (by simp [dext]; omega)])
             (by rw [hhv, getElem!_pos dext _ (by simp [dext]; omega)]) (dext_hi _ hidx (by omega))
       tblCont_steps mx root ((1 : UInt32) <<< root - 1)
@@ -391,20 +397,31 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
       refine Wp.have_ ?_
       have hjp : ∀ C', C'.size = s.codes.size → (∀ i, ¬ (off ≤ i ∧ i < off + t.used.toNat) → C'[i]? = s.codes[i]?) →
           ((type = LENS → codes.toNat ≤ 286) →
-            InflateTab.CodeTable C' off (off + t.used.toNat) root.toNat (mOf type) (dOf type)) →
+            InflateTab.CodeTable C' off (off + t.used.toNat) root.toNat (mOf type) (dOf type) ∧
+              ∀ i, i < t.used.toNat → PreOK ⟨h, b, s, W, lo, codes.toNat, off, type, cnt cnt0, mx.toNat, root.toNat,
+                bndOf type bits⟩ t.drop t.curr t.used t.low C' i) →
           Wp ((Ptr.ref (CodeRef.codes b) off).add (Int.ofNat t.used.toNat) >>= fun x => pure (0, x, root))
             (setCW h b s C' W) (TablePost h b s type codes bits off) := by
-        intro C' hC' hfr' hct
+        intro C' hC' hfr' hct'
+        have hct : (type = LENS → codes.toNat ≤ 286) →
+            InflateTab.CodeTable C' off (off + t.used.toNat) root.toNat (mOf type) (dOf type) ∧
+              InfbackLoop.Rep C' off root.toNat (dOf type) ∧
+              (type = CODES → InfbackLoop.LvlAll C' off root.toNat ∧
+                ∀ j, j < 2 ^ root.toNat → C'[off + j]!.op.toNat &&& 16 = 0) := fun hp =>
+          ⟨(hct' hp).1, (rep_of_pre hS hfr (fun hd => ⟨(hf.rc hd).1, (hf.rc hd).2.1⟩) (hct' hp).2).1,
+            fun hc => ⟨(rep_of_pre hS hfr (fun hd => ⟨(hf.rc hd).1, (hf.rc hd).2.1⟩) (hct' hp).2).2,
+              codes_op_of_pre hc hfr (hct' hp).2⟩⟩
         refine Wp.bind (Wp.of_eq (add_ok (get_codes hl C' W) (by omega) (by simp only [Int.ofNat_eq_natCast]; omega) (by simp only [Int.ofNat_eq_natCast]; omega)) ?_)
         rw [Wp.pure_iff]
         refine ⟨C', W, rfl, hC', hWs, fun i hi => hfr' i (fun x => hi ⟨x.1, by omega⟩), Or.inl rfl,
           fun e => absurd rfl e, fun _ => ⟨t.used.toNat, hfr, hfu, ?_, hroot1, hr15, hfr', hct⟩⟩
         show Ptr.ref _ _ = _
         congr 1
-      rcases hf.huff with ⟨-, hz⟩ | ⟨-, hd, hh1, hr1, hnx, hu2⟩
+      rcases hf.huff with ⟨-, hz⟩ | ⟨hm1, hd, hh1, hr1, hnx, hu2⟩
       · rw [hz]
         refine Wp.ite (fun e => absurd e (by decide)) (fun _ => ?_)
-        exact hjp C hfc hff (fun hp => codeTable_of hroot1 hr15 hfr (by omega) (fun i hi => hf.cov hp i hi (Or.inl hz)))
+        exact hjp C hfc hff (fun hp => ⟨codeTable_of hroot1 hr15 hfr (by omega) (fun i hi => hf.cov hp i hi (Or.inl hz)),
+          fun i hi => hf.pre hp i hi (Or.inl hz)⟩)
       · have hne : (t.huff != 0) = true := by
           have : t.huff ≠ 0 := fun e => by rw [e] at hh1; simp at hh1
           simpa using this
@@ -413,8 +430,8 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
         dsimp only at hnx hu2 hr1
         rw [hnx]
         refine Wp.bind (Wp.of_eq (stCode_ok hl (p := off) (i := t.huff.toNat) (by omega) _) ?_)
-        refine hjp _ (by simp [hfc]) (fun i hi => ?_) (fun hp => codeTable_of hroot1 hr15 hfr (by simp; omega)
-          (fun i hi => ?_))
+        refine hjp _ (by simp [hfc]) (fun i hi => ?_) (fun hp => ⟨codeTable_of hroot1 hr15 hfr (by simp; omega)
+          (fun i hi => ?_), fun i hi => ?_⟩)
         · rw [set_ne _ (by omega)]
           exact hff i hi
         · by_cases hi1 : i = t.huff.toNat
@@ -425,6 +442,32 @@ theorem zng_inflate_table_wp {h : Heap} {b : Nat} {s : InflateState} {type codes
               (rw [UInt32.toNat_toUInt8]; omega)
           · rw [getElem!_congr (set_ne _ (by omega))]
             exact hf.cov hp i hi (Or.inr hi1)
+        · have hlm := hf.lenmx
+          dsimp only at hm1 hlm
+          by_cases hi1 : i = t.huff.toNat
+          · subst hi1
+            have hcb : (CODE_BITS ⟨(t.len - t.drop).toUInt8, 64, 0⟩).toNat = 1 := by
+              rw [codeBits_of (show (64 : UInt8).toNat &&& 16 = 0 by decide), UInt32.toNat_toUInt8, hd, UInt32.sub_zero]
+              omega
+            refine ⟨fun _ => ⟨?_, fun hl => ?_, fun _ => by
+              rw [getElem!_of_some (set!_self (by omega) _)]; exact (show (64 : UInt8).toNat &&& 16 = 0 by decide)⟩,
+              fun h => absurd hd h⟩
+            · rw [getElem!_of_some (set!_self (by omega) _), hcb, hh1]
+              dsimp only
+              rw [hr1, show rev 1 1 = 1 from rfl]
+              have hw1 : wsum (cnt cnt0) 15 = cnt cnt0 1 * 2 ^ 15 :=
+                wsum_one (fun L h1 h2 => hS.above L (by dsimp only; omega) h2)
+              have hw2 : wsum (cnt cnt0) 1 = cnt cnt0 1 * 2 ^ 15 := by rw [wsum_succ]; simp
+              rcases hS.complete with hT | ⟨-, hc01⟩
+              · dsimp only at hT
+                exact Or.inl ⟨1, Nat.le_refl _, by decide, by simp, by omega, rfl⟩
+              · dsimp only at hc01
+                exact Or.inr ⟨by omega, rfl⟩
+            · rw [getElem!_of_some (set!_self (by omega) _),
+                linkTest_false (show (64 : UInt8).toNat &&& 240 ≠ 0 by decide)] at hl
+              cases hl
+          · exact (hf.pre hp i hi (Or.inr hi1)).keep (getElem!_congr (set_ne _ (by dsimp only; omega)))
+              (fun q hq => getElem!_congr (set_ne _ (by dsimp only; have := Nat.two_pow_pos t.curr.toNat; omega)))
     · rw [hf.ret]
       refine Wp.ite (fun _ => ?_) (fun e => absurd rfl e)
       rw [Wp.pure_iff]

@@ -6,7 +6,7 @@ unsafe.
 
 ## Every call
 
-- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the ten patches, built for x86_64
+- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the fourteen patches, built for x86_64
   Linux LP64 with `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF`,
   so that `adler32` and `adler32_z` run `adler32_c`, and `crc32` and `crc32_z` run `crc32_braid`. A build that
   dispatches to SIMD kernels or to the Chorba CRC-32 kernel (the default) is not covered.
@@ -74,7 +74,7 @@ deflate calls with valid arguments and by the program, which may change `next_in
 
 The goal of `inflateBack` is stated on the streams that `zlib.h` lets a program reach (`BackReachable`): made by a
 successful `inflateBackInit_` with a window of `2^windowBits` writable bytes, then changed only by `inflateBack` calls
-whose call-backs behave as below and by the program. It is not proved (see the progress page).
+whose call-backs behave as below and by the program.
 
 | Function | Premise | Lean | Reason |
 | --- | --- | --- | --- |
@@ -83,6 +83,22 @@ whose call-backs behave as below and by the program. It is not proved (see the p
 | `inflateBack` | `in()` and `out()` return, do not write or free the `z_stream` or the library's allocation, and do not free the window or change its size. | `BackCallbacks`, `BackKeep` | `zlib.h` reserves these to the library and forbids changing the window; a call-back that writes the window's contents is not excluded. |
 | `inflateBack` | One call is offered fewer than `2^48` input bytes in all, the first chunk included. | `BackCallPre` | With endless input `inflateBack` does not return, in C either. |
 | Between calls | The program changes only `next_in`, `avail_in`, `next_out`, `avail_out` of the `z_stream`, does not change the library's allocation, and keeps the window allocated with its size. | `BackCallerStep` | As for inflate streams; the window is used by every call. |
+
+## gz* files
+
+The goals of the gz* functions are stated on the files that `zlib.h` lets a program reach (`GzReachable`): returned
+by a successful `gzopen`, `gzopen64` or `gzdopen`, then changed only by gz calls with valid arguments and by the
+program, which may use the `gzgetc()` macro and change anything that does not belong to the file. A `NULL` file is
+also accepted. Every goal holds for every result of `open`, `read`, `write`, `lseek` (one that POSIX allows, see below), `close`,
+`malloc`, `strerror` and `vsnprintf`.
+
+| Function | Premise | Lean | Reason |
+| --- | --- | --- | --- |
+| `gzread`, `gzfread`, `gzgets`, `gzwrite`, `gzfwrite`, `gzputs` | The caller's buffer (or string) lies outside the file's own blocks (its `gz_state`, path, message, buffers and inflate or deflate state). | `OutsideGz` | The library's memory is not the caller's; a buffer with no reason to overlap it. |
+| `gzprintf`, `gzvprintf` | The arguments match the format. | `vsnprintf` oracle (`Runtime/Gz.lean`) | `zlib.h` describes the format as that of `printf`; a mismatch is undefined in `vsnprintf` itself. |
+| Every gz function (it matters to `gzoffset`, `gzoffset64`) | `lseek` returns `-1` or an offset that is not negative. | `GzWF` | POSIX: `lseek` returns the resulting offset or `-1`. Linux lets a few device files with unsigned offsets (`/dev/mem`, `/proc/<pid>/mem`) reach offsets of `2^63` and more, which come back as negative numbers; `gzoffset64` subtracts the buffered input from the offset, which overflows within that many bytes of `2^63`. Reads at such offsets fail, so input is buffered there only when the program itself moves the descriptor there, behind the file's back, after a read. |
+| Every gz function (what a call may change) | Besides the file's own memory, its fresh blocks, the caller's output buffer and the file system, a call may add static strings: a string literal of the gz* files at its first use, and the text of each `strerror` call. Static strings already there do not change. | `GzFrame` | In C these strings are static data that exist before the call; the model makes each one when it is first used. |
+| Every gz function | The read results deliver finitely many bytes, and the inputs (files, delivered bytes) are below `2^62` bytes. | `GzWF` | On an endless input `gzread` may wait forever, as any reader would; the bound only keeps the model's loop fuel from being the limit. |
 
 ## Behaviour of the verified source
 
