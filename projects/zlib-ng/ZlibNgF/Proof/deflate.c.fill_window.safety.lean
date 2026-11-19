@@ -42,7 +42,7 @@ theorem InSrc.rbz {H : Heap} {b : Nat} {z : ZStream} {r : BRef} {os : Nat} {src 
   ⟨r, os + n.toNat, src, rfl, hr, hg, by simp only [RBZ]; rw [sub_toNat _ _ hn]; omega⟩
 
 theorem ZR.state {z z' : ZStream} (h : ZR z z') : z'.state = z.state := by
-  obtain ⟨-, _, _, _, _, rfl⟩ := h; rfl
+  obtain ⟨-, ⟨_, _, _, _, rfl⟩, -⟩ := h; rfl
 
 theorem FWS.wrap {st st' : DeflateState} (h : FWS st st') : st'.wrap = st.wrap := by
   obtain ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ := h; rfl
@@ -51,9 +51,10 @@ theorem FWS.sizes {st st' : DeflateState} (h : FWS st st') :
     st'.window_size = st.window_size ∧ st'.w_size = st.w_size := by
   obtain ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ := h; exact ⟨rfl, rfl⟩
 
-theorem ZR.rbz (z : ZStream) (n : UInt32) (r : BRef) (os : Nat) (a : UInt64) (hn : n.toNat ≤ z.avail_in.toNat) :
-    ZR z (RBZ z n r os a) :=
-  ⟨by simp only [RBZ]; rw [sub_toNat _ _ hn]; omega, _, _, _, _, rfl⟩
+theorem ZR.rbz (z : ZStream) (n : UInt32) (r : BRef) (os : Nat) (a : UInt64) (hn : n.toNat ≤ z.avail_in.toNat)
+    (hni : z.next_in = .ref r os) : ZR z (RBZ z n r os a) :=
+  ⟨by simp only [RBZ]; rw [sub_toNat _ _ hn]; omega, ⟨_, _, _, _, rfl⟩, Or.inr ⟨r, os, hni, by
+    simp only [RBZ]; rw [sub_toNat _ _ hn]; congr 1; omega⟩⟩
 
 section
 variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8}
@@ -117,7 +118,7 @@ theorem read_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (f : Insert
   have e_w : s1.w_size = st.w_size := by rw [hs1]
   have e_bs : s1.block_start = st.block_start := by rw [hs1]
   have C1 : WCore s1 := by rw [hs1]; exact ⟨C.wpow, C.fe_mod, C.fe_hi, C.ins, C.bs_hi, C.bs_lo⟩
-  have ZR1 := ZR.rbz z n r os a hn2
+  have ZR1 := ZR.rbz z n r os a hn2 hni
   have IS1 := InSrc.rbz n a hni hr hg hin hn2
   have SUM1 : (RBZ z n r os a).avail_in.toNat + s1.lookahead.toNat = z.avail_in.toNat + st.lookahead.toNat := by
     simp only [RBZ]; rw [sub_toNat _ _ hn2, e_la]; omega

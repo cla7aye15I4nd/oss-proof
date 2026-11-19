@@ -63,15 +63,16 @@ theorem dframe_one {h h' : Heap} {S B G : List Nat} {p : BPtr} {n m : Nat} (f : 
 
 /-! ## `zng_tr_flush_block` -/
 
-/-- What `zng_tr_flush_block` leaves beyond `TreesFacts.flush_block`, under its precondition: no symbols
-(`init_block` clears `sym_next`), and only the stream record (`data_type`) and the stream's block changed (the heap
-after is `SH h i { z with data_type } b st' d'`). -/
+/-- What `zng_tr_flush_block` leaves beyond `TreesFacts`, under its precondition: only the stream record
+(`data_type`) and the stream's block changed (the heap after is `SH h i { z with data_type } b st' d'`).
+`TreesFacts.flush_block`'s frame (`DFrame`) says this only for the blocks numbered below `nextBlk`, so it does not
+carry a caller buffer of a block above `nextBlk` (`DStreamIO` after the call). -/
 def FlushExtra : Prop :=
   ∀ (i b : Nat) (z : ZStream) (buf : BPtr) (len : UInt32) (last : Int32) (h h' : Heap) (st : DeflateState),
-    DWork h (some i) → h.streams i = some z → z.state = some b → h.dstate b = some st → st.pending = 0 →
-    0 < st.level → (buf = .null ∨ WindowBuf b st buf len) →
+    DWork h (some i) → h.streams i = some z → z.state = some b → h.dstate b = some st →
+    FlushBlockPre b buf len st →
     C.run (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last) h = .ok ((), h') →
-    ∃ dt st' d', h' = SH h i { z with data_type := dt } b st' d' ∧ st'.sym_next = 0
+    ∃ dt st' d', h' = SH h i { z with data_type := dt } b st' d'
 
 /-- The state after `FLUSH_BLOCK_ONLY` from `st`: the state `st1` after `zng_tr_flush_block` (`EmitKeeps`), with
 `block_start = strstart` and the fields of `flush_pending`. -/
@@ -173,9 +174,13 @@ theorem flush_block_only_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Na
     rw [ZlibNgF.Proof.DeflatePrime.chk_ok _ hv0 hv1, hL32]
     refine Sat.bind (Sat.pure ?_)
     rw [hS]
+    have hpre : FlushBlockPre b buf len32.toUInt32 st := ⟨hp0, hlv, c.bits.2, hbuf⟩
     obtain ⟨h1', ef, W1, F1, K1, -, E1⟩ := T.flush_block (some i) b buf len32.toUInt32 last h st hw0
-      ⟨i, z, rfl, hz, hb, hst⟩ ⟨hp0, hlv, hbuf⟩ (pendRoom_of_core c) (fun hn => c.psym hn)
-    obtain ⟨dt, st1, d1', rfl, hzero⟩ := X i b z buf len32.toUInt32 last h _ st hw0 hz hb hst hp0 hlv hbuf ef
+      ⟨i, z, rfl, hz, hb, hst⟩ hpre (pendRoom_of_core c) (fun hn => c.psym hn)
+    have hclr := T.flush_block_clears (some i) b buf len32.toUInt32 last h h1' st hw0 ⟨i, z, rfl, hz, hb, hst⟩
+      hpre ef
+    obtain ⟨dt, st1, d1', rfl⟩ := X i b z buf len32.toUInt32 last h _ st hw0 hz hb hst hpre ef
+    have hzero : st1.sym_next = 0 := hclr st1 ⟨i, _, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _⟩
     have hK1 := (E1 st1 ⟨i, _, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _⟩).1
     refine Sat.bind ⟨(), _, ef, ?_⟩
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)

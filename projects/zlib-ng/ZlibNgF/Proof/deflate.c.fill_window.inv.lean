@@ -61,17 +61,34 @@ theorem FWS.trans {a b c : DeflateState} (h1 : FWS a b) (h2 : FWS b c) : FWS a c
   obtain ⟨fe, ms, pl, ss, bs, ins, sl, la, ih, hw, rfl⟩ := h2
   exact ⟨fe, ms, pl, ss, bs, ins, sl, la, ih, hw, rfl⟩
 
-/-- `z'` is `z` with only the input fields and the check value changed, and no more input. -/
-def ZR (z z' : ZStream) : Prop :=
-  z'.avail_in.toNat ≤ z.avail_in.toNat ∧ ∃ (ni : BPtr) (ai : UInt32) (ti ad : UInt64),
-    z' = { z with next_in := ni, avail_in := ai, total_in := ti, adler := ad }
+/-- The input of `z'` is the input of `z` or its tail: the same input, or `next_in` advanced by the bytes taken. -/
+def InTail (z z' : ZStream) : Prop :=
+  (z'.next_in = z.next_in ∧ z'.avail_in = z.avail_in) ∨
+    ∃ r os, z.next_in = .ref r os ∧ z'.next_in = .ref r (os + (z.avail_in.toNat - z'.avail_in.toNat))
 
-theorem ZR.refl (z : ZStream) : ZR z z := ⟨Nat.le_refl _, _, _, _, _, rfl⟩
+/-- `z'` is `z` with only the input fields and the check value changed, and no more input (a tail of it). -/
+def ZR (z z' : ZStream) : Prop :=
+  z'.avail_in.toNat ≤ z.avail_in.toNat ∧ (∃ (ni : BPtr) (ai : UInt32) (ti ad : UInt64),
+    z' = { z with next_in := ni, avail_in := ai, total_in := ti, adler := ad }) ∧ InTail z z'
+
+theorem ZR.refl (z : ZStream) : ZR z z := ⟨Nat.le_refl _, ⟨_, _, _, _, rfl⟩, Or.inl ⟨rfl, rfl⟩⟩
+
+theorem InTail.trans {a b c : ZStream} (l1 : b.avail_in.toNat ≤ a.avail_in.toNat)
+    (l2 : c.avail_in.toNat ≤ b.avail_in.toNat) (h1 : InTail a b) (h2 : InTail b c) : InTail a c := by
+  rcases h1 with ⟨e1, f1⟩ | ⟨r, os, e1, f1⟩ <;> rcases h2 with ⟨e2, f2⟩ | ⟨r2, os2, e2, f2⟩
+  · exact Or.inl ⟨e2.trans e1, f2.trans f1⟩
+  · exact Or.inr ⟨r2, os2, e1 ▸ e2, by rw [f2, f1]⟩
+  · exact Or.inr ⟨r, os, e1, by rw [e2, f1, f2]⟩
+  · rw [f1] at e2
+    injection e2 with e3 e4
+    subst e3
+    exact Or.inr ⟨r, os, e1, by rw [f2, ← e4]; congr 1; omega⟩
 
 theorem ZR.trans {a b c : ZStream} (h1 : ZR a b) (h2 : ZR b c) : ZR a c := by
-  obtain ⟨l1, _, _, _, _, rfl⟩ := h1
-  obtain ⟨l2, ni, ai, ti, ad, rfl⟩ := h2
-  exact ⟨Nat.le_trans l2 l1, ni, ai, ti, ad, rfl⟩
+  obtain ⟨l1, ⟨_, _, _, _, eb⟩, t1⟩ := h1
+  obtain ⟨l2, ⟨ni, ai, ti, ad, ec⟩, t2⟩ := h2
+  refine ⟨Nat.le_trans l2 l1, ⟨ni, ai, ti, ad, ?_⟩, InTail.trans l1 l2 t1 t2⟩
+  rw [ec, eb]
 
 /-- `while (cond) body` over a changing heap, with a measure on the loop state and the heap. -/
 theorem sat_cwhileH {σ : Type} {cond : σ → M (Bool × σ)} {body : σ → M σ} (I : σ → Heap → Prop)

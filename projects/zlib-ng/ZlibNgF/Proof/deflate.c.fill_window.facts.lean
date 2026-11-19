@@ -122,10 +122,12 @@ theorem insrc_of {h : Heap} {b : Nat} {z : ZStream} (hr : NullOrRead h z.next_in
   · exact Or.inl (Classical.byContradiction fun h0 => hnn h0 hn)
   · refine Or.inr ⟨r, off, data, hp, fun e => hnb off (by rw [hp, e]), hg, hle⟩
 
-/-- `fill_window` on an invariant stream (`WindowFacts.fill_window`). -/
-theorem fill_window_ok (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (hv : DInvW h s)
+/-- `fill_window` on an invariant stream: `FillPost`, and the heap after is an `SH` heap whose stream record has
+only the input fields changed, the input a tail of the input before (`ZR`). -/
+theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (hv : DInvW h s)
     (hs : DStateIs h s b st) (hin : DInput h s) (hc : st.wrap = 2 → CrcGlobals h) (hla : st.lookahead.toNat < 262) :
-    ∃ h', C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') ∧ FillPost h h' s := by
+    ∃ h', C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') ∧ FillPost h h' s ∧
+      ∃ i z z' st' d', s = some i ∧ h.streams i = some z ∧ h' = SH h i z' b st' d' ∧ ZR z z' := by
   obtain ⟨i, z, b0, st0, al, rfl, hz0, hb0, hst0, hal, c, hbs1, hbs2⟩ := hv
   obtain ⟨i1, z1, e1, hz1, hb1, hst1⟩ := hs
   obtain rfl : i = i1 := Option.some.inj e1
@@ -150,10 +152,11 @@ theorem fill_window_ok (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) 
   rw [ZlibNgF.Proof.DeflateReset.SH_self hz0 hsts hd] at S
   obtain ⟨_, h', e, z', st', d', rfl, W, zr, inz, F, C, lk, hend, sum, df⟩ := S
   have hst := ZR.state zr
-  obtain ⟨hle, ni, ai, ti, ad, rfl⟩ := zr
+  have zr0 := zr
+  obtain ⟨hle, ⟨ni, ai, ti, ad, rfl⟩, -⟩ := zr
   obtain ⟨fe, ms, pl, ss, bs, ins, sl, la, ih, hw', rfl⟩ := F
   have hss : ss.toInt32.toInt = ss.toNat := ss_toInt32 (st := { st with strstart := ss, lookahead := la }) w2 wsz lk
-  refine ⟨_, e, ⟨i, _, b, _, al, rfl, SH_streams _ _ _ _ _ _, hst.trans hb0, SH_dstate _ _ _ _ _ _,
+  refine ⟨_, e, ⟨⟨i, _, b, _, al, rfl, SH_streams _ _ _ _ _ _, hst.trans hb0, SH_dstate _ _ _ _ _ _,
     by simp [Heap.dallocsOf, SH, hda], DCore.of_heap (by rw [SH_bytes, SH_bytes]) <| dcore_fw (H := h)
       (z' := { z with next_in := ni, avail_in := ai, total_in := ti, adler := ad }) (st' := { st with
         fill_end := fe
@@ -169,7 +172,7 @@ theorem fill_window_ok (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) 
       ⟨C.wpow, C.fe_mod, C.fe_hi, C.ins, by show ss.toInt32.toInt ≤ ss.toNat; omega,
         by show (ss.toNat : Int) - ss.toInt32.toInt ≤ 2 ^ 30 + 2 ^ 16; rw [hss, Int.sub_self]; decide⟩ lk
       (by show (ss.toNat : Int) - ss.toInt32.toInt ≤ 2 ^ 30; rw [hss, Int.sub_self]; decide) (fun ho' hh' => ?_),
-    C.bs_hi, C.bs_lo⟩, ?_, ?_, ?_⟩
+    C.bs_hi, C.bs_lo⟩, ?_, ?_, ?_⟩, i, z, _, _, d', rfl, hz0, rfl, zr0⟩
   · rw [HL.head] at hh'
     obtain rfl : ho = ho' := by injection hh' with e; injection e
     exact W
@@ -199,6 +202,13 @@ theorem fill_window_ok (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) 
     have : ¬ la.toNat = st.lookahead.toNat := fun e' => hne' (UInt32.toNat_inj.mp e')
     show ai.toNat < z.avail_in.toNat
     omega
+
+/-- `fill_window` on an invariant stream (`WindowFacts.fill_window`). -/
+theorem fill_window_ok (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (hv : DInvW h s)
+    (hs : DStateIs h s b st) (hin : DInput h s) (hc : st.wrap = 2 → CrcGlobals h) (hla : st.lookahead.toNat < 262) :
+    ∃ h', C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') ∧ FillPost h h' s := by
+  obtain ⟨h', e, P, -⟩ := fill_window_ok2 h s b st hv hs hin hc hla
+  exact ⟨h', e, P⟩
 
 /-- `insert_batch` through the function pointer on an invariant stream (`WindowFacts.insert_batch`). -/
 theorem insert_batch_ok (h : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8)
