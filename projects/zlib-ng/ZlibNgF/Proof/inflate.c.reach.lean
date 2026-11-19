@@ -1,6 +1,6 @@
 import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«public-inflate-init»
-import ZlibNgF.Proof.«inflate.c.window»
+import ZlibNgF.Proof.«inflate.c.sync»
 
 /-!
 # Reachable inflate streams have the structural invariant (`ZlibNgF`)
@@ -15,14 +15,12 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.InflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNgF.Proof.InflateInv
 
-/-- The obligations still to prove: preservation by `inflate`, `inflateSync`, and `inflateCopy` (on its source, and the
-invariant of a successful copy's destination); the safety of the Adler-32 kernel `adler32_c` (`inflateSetDictionary`
-checks the dictionary with it). -/
+/-- The obligations still to prove: preservation by `inflate` and `inflateCopy` (on its source, and the invariant of a
+successful copy's destination); the safety of the Adler-32 kernel `adler32_c` (`inflateSetDictionary` checks the
+dictionary with it). -/
 structure Pending : Prop where
   inflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), Inv h s → StreamIO h s →
     C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h') → Inv h' s
-  sync : ∀ (h h' : Heap) (s : StreamPtr) (r : Int32), Inv h s → StreamIO h s → SyncInput h s →
-    C.run (inflateSync s) h = .ok (r, h') → Inv h' s
   adler : InflateWindow.AdlerSafe
   copySrc : ∀ (h h' : Heap) (s dst : StreamPtr) (r : Int32), Inv h s → InitReady h dst → dst ≠ s →
     C.run (inflateCopy dst s) h = .ok (r, h') → Inv h' s
@@ -77,7 +75,8 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
     ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
     ⟨w, r, e⟩ | ⟨c, r, e⟩ | ⟨v, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
   · exact P.inflate h h' s flush r hv hio e
-  · exact P.sync h h' s r hv hio hsi e
+  · obtain ⟨_, _, e0, hi, _⟩ := InflateSync.sync_inv hv hio hsi
+    rw [det e e0]; exact hi
   · obtain ⟨_, e0⟩ := InflateControl.inflateSyncPoint_inv hv
     rw [det e e0]; exact hv
   · obtain ⟨_, _, e0, hi, _⟩ := InflateWindow.setDict_inv P.adler hv hd hnb
@@ -216,6 +215,14 @@ theorem inflateSetDictionary_safety_of (P : Pending) : Goal.inflateSetDictionary
   · exact ⟨_, _, InflateWindow.setDict_noState (Or.inl hn) d n, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateWindow.setDict_noState (Or.inr hn) d n, InflateInit.frame_refl h _ _ _ _⟩
   · obtain ⟨r, h', e, _, f⟩ := InflateWindow.setDict_inv P.adler (reach_inv P hr) hd hnb
+    exact ⟨r, h', e, f⟩
+
+theorem inflateSync_safety_of (P : Pending) : Goal.inflateSync_safety := by
+  intro h s _ hh hio
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateSync.sync_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateSync.sync_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, f⟩ := InflateSync.sync_inv (reach_inv P hr) (hio hr).1 (hio hr).2
     exact ⟨r, h', e, f⟩
 
 end ZlibNgF.Proof.InflateReach

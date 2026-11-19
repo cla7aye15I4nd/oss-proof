@@ -161,7 +161,7 @@ theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : Inf
   wnext := hn
   wnext_le := hnw
   wnext_eq := hne
-  bits := by show (0 : UInt32) ≤ 64; decide
+  bits := by show (0 : UInt32) ≤ 32; decide
   lencode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   distcode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   next := ⟨0, rfl, Nat.zero_le _⟩
@@ -208,7 +208,7 @@ theorem reset2_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (w : Int32) :
 
 private theorem prime_bits {sb : UInt32} {bits : Int32}
     (hc : ¬ (bits > 16 || sb.toUInt64 + bits.toUInt32.toUInt64 > 32) = true) :
-    sb < 64 ∧ sb + bits.toUInt32 ≤ 64 := by
+    sb < 64 ∧ sb + bits.toUInt32 ≤ 32 := by
   simp only [Bool.or_eq_true, decide_eq_true_eq, not_or, gt_iff_lt, UInt64.not_lt] at hc
   obtain ⟨h16, h32⟩ := hc
   rw [UInt64.le_iff_toNat_le, UInt64.toNat_add] at h32
@@ -219,7 +219,7 @@ private theorem prime_bits {sb : UInt32} {bits : Int32}
   have hb2 := UInt32.toNat_lt bits.toUInt32
   constructor
   · rw [UInt32.lt_iff_toNat_lt]; show sb.toNat < 64; omega
-  · rw [UInt32.le_iff_toNat_le, UInt32.toNat_add]; show _ ≤ 64; omega
+  · rw [UInt32.le_iff_toNat_le, UInt32.toNat_add]; show _ ≤ 32; omega
 
 /-- `inflatePrime` on an invariant stream: no fault; the heap is unchanged or only the state record changes; the
 invariant holds after. -/
@@ -232,7 +232,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (bits value : Int32)
   · exact ⟨Z_OK, h, by simp [C.run, inflatePrime, bind_app, L.check, h0], hv, Or.inl rfl⟩
   by_cases hneg : bits < 0
   · obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with hold := 0, bits := 0 }) hsb L.istate
-      (fun _ _ c => { c with bits := by show (0 : UInt32) ≤ 64; decide })
+      (fun _ _ c => { c with bits := by show (0 : UInt32) ≤ 32; decide })
     refine ⟨Z_OK, _, ?_, hi, Or.inr ⟨b, _, hsb, rfl⟩⟩
     simp only [C.run] at hr
     simp [C.run, inflatePrime, bind_app, L.check, h0, hneg, L.stateOf, hr]
