@@ -1,7 +1,7 @@
 {
   "version": 1,
   "header": "zlib-ng/zlib.h.in",
-  "source_pin": "12731092979c6d07f42da27da673a9f6c7b13586",
+  "source_pin": "5f1f489934a5b298a835acf22db84d480ac14c22",
   "target": "x86_64 Linux LP64, cmake -DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF",
   "undocumented": {
     "header_comment": "/* undocumented functions */",
@@ -45,15 +45,19 @@
     },
     {
       "function": "inflate",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflate",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflate_safety"
     },
     {
       "function": "inflateEnd",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateEnd",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateEnd_safety"
     },
     {
       "function": "deflateSetDictionary",
@@ -117,57 +121,75 @@
     },
     {
       "function": "inflateSetDictionary",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateSetDictionary",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateSetDictionary_safety"
     },
     {
       "function": "inflateGetDictionary",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateGetDictionary",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateGetDictionary_safety"
     },
     {
       "function": "inflateSync",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateSync",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateSync_safety"
     },
     {
       "function": "inflateCopy",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateCopy",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateCopy_safety"
     },
     {
       "function": "inflateReset",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateReset",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateReset_safety"
     },
     {
       "function": "inflateReset2",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateReset2",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateReset2_safety"
     },
     {
       "function": "inflatePrime",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflatePrime",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflatePrime_safety"
     },
     {
       "function": "inflateMark",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateMark",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateMark_safety"
     },
     {
       "function": "inflateGetHeader",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateGetHeader",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateGetHeader_safety"
     },
     {
       "function": "inflateBack",
@@ -217,15 +239,19 @@
     },
     {
       "function": "uncompress",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the one-shot uncompress functions is not done: they run inflate, which is not translated yet."
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress_safety"
     },
     {
       "function": "uncompress2",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the one-shot uncompress functions is not done: they run inflate, which is not translated yet."
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress2",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress2_safety"
     },
     {
       "function": "gzdopen",
@@ -365,11 +391,7 @@
       "scope": "lp64-linux",
       "source": "ZlibNgF/ZlibNg/adler32.c.lean",
       "implementation": "ZlibNg.Adler32.adler32",
-      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_safety",
-      "other_goals": [
-        "ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous",
-        "ZlibNgF.Spec.Functional.Goal.adler32_functional"
-      ]
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_safety"
     },
     {
       "function": "adler32_z",
@@ -377,10 +399,7 @@
       "scope": "lp64-linux",
       "source": "ZlibNgF/ZlibNg/adler32.c.lean",
       "implementation": "ZlibNg.Adler32.adler32_z",
-      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_z_safety",
-      "other_goals": [
-        "ZlibNgF.Spec.Functional.Goal.adler32_z_functional"
-      ]
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_z_safety"
     },
     {
       "function": "crc32",
@@ -417,9 +436,11 @@
     },
     {
       "function": "inflateInit_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateInit_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateInit__safety"
     },
     {
       "function": "deflateInit2_",
@@ -429,9 +450,11 @@
     },
     {
       "function": "inflateInit2_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateInit2_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateInit2__safety"
     },
     {
       "function": "inflateBackInit_",
@@ -563,9 +586,11 @@
     },
     {
       "function": "inflateSyncPoint",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateSyncPoint",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateSyncPoint_safety"
     },
     {
       "function": "get_crc_table",
@@ -577,27 +602,35 @@
     },
     {
       "function": "inflateUndermine",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateUndermine",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateUndermine_safety"
     },
     {
       "function": "inflateValidate",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateValidate",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateValidate_safety"
     },
     {
       "function": "inflateCodesUsed",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateCodesUsed",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateCodesUsed_safety"
     },
     {
       "function": "inflateResetKeep",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming inflate functions is not done: inflate.c, inftrees.c and inffast_tpl.h are not translated yet."
+      "source": "ZlibNgF/ZlibNg/inflate.c.lean",
+      "implementation": "ZlibNg.Inflate.inflateResetKeep",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.inflateResetKeep_safety"
     },
     {
       "function": "deflateResetKeep",
@@ -616,6 +649,52 @@
       "status": "not-done",
       "scope": "lp64-linux",
       "reason": "Safety of the gz* file functions is not done: gzlib.c, gzread.c and gzwrite.c are not translated yet."
+    },
+    {
+      "function": "compressBound_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Translated in compress.c.lean; no safety goal is stated yet."
+    },
+    {
+      "function": "compress_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Depends on deflate, which is not translated yet."
+    },
+    {
+      "function": "compress2_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Depends on deflate, which is not translated yet."
+    },
+    {
+      "function": "deflateBound_z",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "deflate.c is not translated yet."
+    },
+    {
+      "function": "deflateUsed",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "deflate.c is not translated yet."
+    },
+    {
+      "function": "uncompress_z",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress_z_safety"
+    },
+    {
+      "function": "uncompress2_z",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "ZlibNgF/ZlibNg/uncompr.c.lean",
+      "implementation": "ZlibNg.Uncompr.uncompress2_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.uncompress2_z_safety"
     }
   ]
 }

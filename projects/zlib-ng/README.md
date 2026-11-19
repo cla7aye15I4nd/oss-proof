@@ -1,8 +1,8 @@
 # zlib-ng-f
 
-Kernel-checked Lean 4 verification of zlib-ng 2.3.3 (`ZLIB_COMPAT` x86_64 Linux LP64 build with the
+Kernel-checked Lean 4 verification of zlib-ng, `develop` branch at commit `5f1f4899` (`ZLIB_COMPAT` x86_64 Linux LP64 build with the
 generic C kernels: `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF
--DWITH_RUNTIME_CPU_DETECTION=OFF`), with seven patches.
+-DWITH_RUNTIME_CPU_DETECTION=OFF`), with eight patches.
 
 Proved so far: safety of `zlibVersion`, `zlibCompileFlags`, `zError`, `adler32`, `adler32_z`,
 `adler32_combine`, `adler32_combine64`, `get_crc_table`, `crc32`, `crc32_z`, the five

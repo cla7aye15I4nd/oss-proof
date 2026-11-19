@@ -32,3 +32,8 @@ srcDir = "lean"
 name = "difftest_compress"
 root = "Driver.Compress"
 srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_inflate"
+root = "Driver.Inflate"
+srcDir = "lean"

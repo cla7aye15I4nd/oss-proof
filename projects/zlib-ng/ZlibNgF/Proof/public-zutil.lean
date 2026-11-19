@@ -49,7 +49,7 @@ private theorem strLitRef_of_getElem (h : Heap) (s : String) (idx : Nat)
 
 theorem zlibVersion_functional : Goal.zlibVersion_functional := by
   intro h
-  exact strLitRef_of_getElem h "1.3.1.zlib-ng" 0 rfl
+  exact strLitRef_of_getElem h "1.3.2.zlib-ng" 0 rfl
 
 theorem zlibVersion_safety : Goal.zlibVersion_safety := by
   intro h
@@ -216,56 +216,34 @@ theorem zcalloc_zcfree_safety : Goal.zcalloc_zcfree_safety := by
     · simp only [C.run, C.allocB, hokf, Bool.false_eq_true, ↓reduceIte]; rfl
     · rfl
 
-private theorem zng_guard_false_of_ge_8 (size align : UInt32) (ha : 8 ≤ align.toNat) :
-    (align == 0 || size.toUInt64 > ZlibNg.Zutil.SIZE_MAX_64 - 8 - align.toUInt64) = false := by
-  have hne0 : align ≠ 0 := fun h0 => by subst h0; simp at ha
-  have hbeq : (align == 0) = false := beq_false_of_ne hne0
-  have hsize_lt : size.toNat < 2 ^ 32 := size.toBitVec.isLt
-  have halign_lt : align.toNat < 2 ^ 32 := align.toBitVec.isLt
-  have hs64 : size.toUInt64.toNat = size.toNat := UInt32.toNat_toUInt64 size
-  have ha64 : align.toUInt64.toNat = align.toNat := UInt32.toNat_toUInt64 align
-  have hmax : (ZlibNg.Zutil.SIZE_MAX_64 - 8 - align.toUInt64).toNat = (2 ^ 64 - 1) - 8 - align.toNat := by
-    have hsub1 : (ZlibNg.Zutil.SIZE_MAX_64 - 8).toNat = (2 ^ 64 - 1) - 8 := rfl
-    rw [UInt64.toNat_sub_of_le]
-    · rw [hsub1, ha64]
-    · show align.toUInt64.toNat ≤ (ZlibNg.Zutil.SIZE_MAX_64 - 8).toNat
-      rw [hsub1, ha64]; omega
-  have hgt_false : ¬ (size.toUInt64 > ZlibNg.Zutil.SIZE_MAX_64 - 8 - align.toUInt64) := by
-    show ¬ ((ZlibNg.Zutil.SIZE_MAX_64 - 8 - align.toUInt64).toNat < size.toUInt64.toNat)
-    rw [hmax, hs64]
-    omega
-  simp [hbeq, hgt_false]
 
-private theorem zng_alloc_size_toNat (size align : UInt32) :
-    ((8 : UInt64) + size.toUInt64 + align.toUInt64).toNat = 8 + size.toNat + align.toNat := by
-  have hsize_lt : size.toNat < 2 ^ 32 := size.toBitVec.isLt
-  have halign_lt : align.toNat < 2 ^ 32 := align.toBitVec.isLt
+/-- `ALIGN_DIFF(ptr, align)` of `zng_alloc_aligned` as a function of the address. -/
+private def alignDiff (addr : UInt64) (align : UInt32) : UInt64 :=
+  (align.toUInt64 - (addr &&& (align - 1).toUInt64)) &&& (align - 1).toUInt64
+
+private theorem align_m1_toNat (align : UInt32) (ha : 1 ≤ align.toNat) :
+    (align - 1).toUInt64.toNat = align.toNat - 1 := by
+  have h1 : (1 : UInt32) ≤ align := by show (1 : UInt32).toNat ≤ align.toNat; simpa using ha
+  rw [UInt32.toNat_toUInt64, UInt32.toNat_sub_of_le _ _ h1]
+  rfl
+
+private theorem alignDiff_le (addr : UInt64) (align : UInt32) (ha : 1 ≤ align.toNat) :
+    (alignDiff addr align).toNat ≤ align.toNat - 1 := by
+  unfold alignDiff
+  rw [UInt64.toNat_and, align_m1_toNat align ha]
+  exact Nat.and_le_right
+
+private theorem zng_alloc_size_toNat (size align : UInt32) (hw : 8 + size.toNat + align.toNat < 2 ^ 32) :
+    ((8 : UInt64) + size.toUInt64 + align.toUInt64).toUInt32.toNat = 8 + size.toNat + align.toNat := by
   have hs64 : size.toUInt64.toNat = size.toNat := UInt32.toNat_toUInt64 size
   have ha64 : align.toUInt64.toNat = align.toNat := UInt32.toNat_toUInt64 align
   have h8 : (8 : UInt64).toNat = 8 := rfl
   have h1 : ((8 : UInt64) + size.toUInt64).toNat = 8 + size.toNat := by
     rw [UInt64.toNat_add, h8, hs64]; exact Nat.mod_eq_of_lt (by omega)
-  rw [UInt64.toNat_add, h1, ha64]
-  exact Nat.mod_eq_of_lt (by omega)
-
-private theorem zng_align_diff_bounds (addr : UInt64) (align : UInt32) (ha : 8 ≤ align.toNat) :
-    let d : UInt32 := align - (addr % align.toUInt64).toUInt32
-    1 ≤ d.toNat ∧ d.toNat ≤ align.toNat ∧
-    d.toNat = align.toNat - (addr.toNat % align.toNat) := by
-  have halign_lt : align.toNat < 2 ^ 32 := align.toBitVec.isLt
-  have ha64 : align.toUInt64.toNat = align.toNat := UInt32.toNat_toUInt64 align
-  have hmod64 : (addr % align.toUInt64).toNat = addr.toNat % align.toNat := by
-    rw [UInt64.toNat_mod, ha64]
-  have hmod_lt : addr.toNat % align.toNat < align.toNat := Nat.mod_lt _ (by omega)
-  have hrem32 : (addr % align.toUInt64).toUInt32.toNat = addr.toNat % align.toNat := by
-    rw [UInt64.toNat_toUInt32, hmod64]
-    exact Nat.mod_eq_of_lt (by omega)
-  have hle : (addr % align.toUInt64).toUInt32 ≤ align := by
-    show (addr % align.toUInt64).toUInt32.toNat ≤ align.toNat
-    rw [hrem32]; omega
-  have hsub : (align - (addr % align.toUInt64).toUInt32).toNat = align.toNat - (addr.toNat % align.toNat) := by
-    rw [UInt32.toNat_sub_of_le _ _ hle, hrem32]
-  refine ⟨?_, ?_, hsub⟩ <;> omega
+  have h2 : ((8 : UInt64) + size.toUInt64 + align.toUInt64).toNat = 8 + size.toNat + align.toNat := by
+    rw [UInt64.toNat_add, h1, ha64]; exact Nat.mod_eq_of_lt (by omega)
+  rw [UInt64.toNat_toUInt32, h2]
+  exact Nat.mod_eq_of_lt hw
 
 private theorem ptr_add_ok {r : BRef} {off : Nat} {k : Int} {h : Heap} {a : Array UInt8}
     (hg : Space.get h r = some a)
@@ -276,11 +254,23 @@ private theorem ptr_add_ok {r : BRef} {off : Nat} {k : Int} {h : Heap} {a : Arra
   · rfl
   · rename_i hneg; exact absurd hc hneg
 
-/-- Core characterization of `zng_alloc_aligned` when `8 ≤ align.toNat` and `h.allocOk h.nalloc = true`. -/
+/-- `zng_alloc_aligned` when the allocation fails. -/
+private theorem zng_alloc_aligned_when_fail (h : Heap) (size align : UInt32) (hokf : h.allocOk h.nalloc = false) :
+    C.run (ZlibNg.Zutil.zng_alloc_aligned size align) h = .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
+  unfold ZlibNg.Zutil.zng_alloc_aligned
+  have halloc : ∀ n, C.run (allocB n) h = .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
+    intro n
+    simp only [C.run, allocB, hokf, Bool.false_eq_true, ↓reduceIte]
+  rw [C.run_bind, halloc]
+  rfl
+
+/-- Core characterization of `zng_alloc_aligned` when `8 ≤ align`, `8 + size + align` fits in 32 bits and the
+allocation succeeds. -/
 private theorem zng_alloc_aligned_when_ok
-    (h : Heap) (size align : UInt32) (ha8 : 8 ≤ align.toNat) (hok : h.allocOk h.nalloc = true) :
+    (h : Heap) (size align : UInt32) (ha8 : 8 ≤ align.toNat) (hw : 8 + size.toNat + align.toNat < 2 ^ 32)
+    (hok : h.allocOk h.nalloc = true) :
     let addr0 := h.baseAddr (.heap h.nextBlk)
-    let d : UInt32 := align - ((addr0 + UInt64.ofNat 0) % align.toUInt64).toUInt32
+    let d : UInt64 := alignDiff (addr0 + UInt64.ofNat 0) align
     let off : Nat := if d < 8 then d.toNat + align.toNat else d.toNat
     ∃ h' data,
       C.run (ZlibNg.Zutil.zng_alloc_aligned size align) h = .ok (.ref (.heap h.nextBlk) off, h') ∧
@@ -293,10 +283,7 @@ private theorem zng_alloc_aligned_when_ok
         .ok ((), { h' with bytes := upd h'.bytes h.nextBlk none, savedPtrs := upd h'.savedPtrs h.nextBlk none }) := by
   intro addr0 d off
   unfold ZlibNg.Zutil.zng_alloc_aligned
-  have hguard := zng_guard_false_of_ge_8 size align ha8
-  rw [hguard]
-  simp only [Bool.false_eq_true, ↓reduceIte]
-  have hasz := zng_alloc_size_toNat size align
+  have hasz := zng_alloc_size_toNat size align hw
   let n := 8 + size.toNat + align.toNat
   let arr : Array UInt8 := Array.ofFn (n := n) (fun i => Junk.of (h.garbage h.nalloc i.val))
   have harr_sz : arr.size = n := Array.size_ofFn
@@ -308,7 +295,8 @@ private theorem zng_alloc_aligned_when_ok
     nextBlk := b + 1
     nalloc := h.nalloc + 1
   }
-  have halloc_step : C.run (allocB ((8 + size.toUInt64 + align.toUInt64).toNat)) h = .ok (.ref (.heap b) 0, h1) := by
+  have halloc_step : C.run (allocB ((8 + size.toUInt64 + align.toUInt64).toUInt32.toNat)) h =
+      .ok (.ref (.heap b) 0, h1) := by
     rw [hasz]
     simp only [C.run, C.allocB, hok, ↓reduceIte]
     rfl
@@ -317,12 +305,10 @@ private theorem zng_alloc_aligned_when_ok
   have hnot_null : (Ptr.ref (BRef.heap b) 0 == (.null : BPtr)) = false := rfl
   rw [hnot_null]
   simp only [Bool.false_eq_true, ↓reduceIte]
-  have haddr_step : C.run (addrOf (.ref (.heap b) 0)) h1 = .ok (addr0 + UInt64.ofNat 0, h1) := rfl
-  rw [C.run_bind, haddr_step]
+  have hdiff_step : C.run (ZlibNg.Zutil.ALIGN_DIFF (.ref (.heap b) 0) align) h1 = .ok (d, h1) := rfl
+  rw [C.run_bind, hdiff_step]
   dsimp only
-  have ⟨hd1, hd_le, _⟩ := zng_align_diff_bounds (addr0 + UInt64.ofNat 0) align ha8
-  change 1 ≤ d.toNat at hd1
-  change d.toNat ≤ align.toNat at hd_le
+  have hd_le : d.toNat ≤ align.toNat - 1 := alignDiff_le _ align (by omega)
   have h1_get : Space.get h1 (BRef.heap b) = some arr := by
     simp only [Space.get, Heap.getBytes, h1, upd_same]
   have h1_bytes : h1.bytes b = some arr := by simp only [h1, upd_same]
@@ -406,54 +392,62 @@ private theorem zng_alloc_aligned_when_ok
   rfl
 
 theorem zng_alloc_aligned_safety : Goal.zng_alloc_aligned_safety := by
-  intro h size align halign
-  rcases halign with ha0 | ha8
-  · have hz : align = 0 := u32_eq_of_toNat ha0
-    subst hz
-    refine ⟨.null, h, ?_, Or.inl ⟨rfl, rfl, rfl⟩⟩
-    unfold ZlibNg.Zutil.zng_alloc_aligned
-    rfl
-  · by_cases hok : h.allocOk h.nalloc = true
-    · obtain ⟨h', data, hrun, _, hbytes, _, hoff8, hoff_sz, hfree⟩ :=
-        zng_alloc_aligned_when_ok h size align ha8 hok
-      exact ⟨_, h', hrun, Or.inr ⟨rfl, _, data, rfl, hbytes, hoff8, hoff_sz, hfree⟩⟩
-    · have hokf : h.allocOk h.nalloc = false := Bool.eq_false_iff.mpr hok
-      refine ⟨.null, { h with nalloc := h.nalloc + 1 }, ?_, Or.inl ⟨rfl, rfl, rfl⟩⟩
-      unfold ZlibNg.Zutil.zng_alloc_aligned
-      rw [zng_guard_false_of_ge_8 size align ha8]
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      have halloc : C.run (allocB ((8 + size.toUInt64 + align.toUInt64).toNat)) h =
-          .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
-        simp only [C.run, allocB, hokf, Bool.false_eq_true, ↓reduceIte]
-      rw [C.run_bind, halloc]
-      rfl
+  intro h size align ha8 hw
+  by_cases hok : h.allocOk h.nalloc = true
+  · obtain ⟨h', data, hrun, _, hbytes, _, hoff8, hoff_sz, hfree⟩ :=
+      zng_alloc_aligned_when_ok h size align ha8 hw hok
+    exact ⟨_, h', hrun, Or.inr ⟨rfl, _, data, rfl, hbytes, hoff8, hoff_sz, hfree⟩⟩
+  · have hokf : h.allocOk h.nalloc = false := Bool.eq_false_iff.mpr hok
+    exact ⟨.null, { h with nalloc := h.nalloc + 1 }, zng_alloc_aligned_when_fail h size align hokf,
+      Or.inl ⟨rfl, rfl, rfl⟩⟩
 
 theorem zng_alloc_aligned_nonvacuous : Goal.zng_alloc_aligned_nonvacuous := by
   obtain ⟨h', data, hrun, _, hbytes, _, hoff8, hoff_sz, _⟩ :=
-    zng_alloc_aligned_when_ok Heap.empty 0xffffffc0 64 (by decide) rfl
+    zng_alloc_aligned_when_ok Heap.empty 0xc0000000 64 (by decide) (by decide) rfl
   exact ⟨_, h', data, hrun, hbytes, hoff8, hoff_sz⟩
 
+/-- For a power-of-two `align`, `addr + alignDiff addr align` is a multiple of `align`. -/
+private theorem alignDiff_pow (addr : UInt64) (align : UInt32) (k : Nat)
+    (hpow : align.toNat = 2 ^ k) :
+    (alignDiff addr align).toNat = (align.toNat - addr.toNat % align.toNat) % align.toNat := by
+  have hpos : 1 ≤ align.toNat := by rw [hpow]; exact Nat.one_le_two_pow
+  have hlt64 : align.toNat < 2 ^ 64 := by
+    have : align.toNat < 2 ^ 32 := align.toBitVec.isLt
+    omega
+  have hm1 := align_m1_toNat align hpos
+  have hrem : (addr &&& (align - 1).toUInt64).toNat = addr.toNat % align.toNat := by
+    rw [UInt64.toNat_and, hm1, hpow, Nat.and_two_pow_sub_one_eq_mod]
+  have hrem_lt : addr.toNat % align.toNat < align.toNat := Nat.mod_lt _ (by omega)
+  have hsub : (align.toUInt64 - (addr &&& (align - 1).toUInt64)).toNat = align.toNat - addr.toNat % align.toNat := by
+    have hle : (addr &&& (align - 1).toUInt64) ≤ align.toUInt64 := by
+      show (addr &&& (align - 1).toUInt64).toNat ≤ align.toUInt64.toNat
+      rw [hrem, UInt32.toNat_toUInt64]; omega
+    rw [UInt64.toNat_sub_of_le _ _ hle, hrem, UInt32.toNat_toUInt64]
+  unfold alignDiff
+  rw [UInt64.toNat_and, hsub, hm1, hpow, Nat.and_two_pow_sub_one_eq_mod]
+
 theorem zng_alloc_aligned_alignment : Goal.zng_alloc_aligned_alignment := by
-  intro h size align k hk3 hk31 hpow ret h' hrun hne
+  intro h size align k hk3 hk31 hpow hw ret h' hrun hne
   have ha8 : 8 ≤ align.toNat := by
     have h8 : 2 ^ 3 ≤ 2 ^ k := Nat.pow_le_pow_right (by omega) hk3
     omega
   by_cases hok : h.allocOk h.nalloc = true
   · obtain ⟨h_ok, _, hrun_ok, hbase_eq, _, _, _, _, _⟩ :=
-      zng_alloc_aligned_when_ok h size align ha8 hok
+      zng_alloc_aligned_when_ok h size align ha8 hw hok
     rw [hrun_ok] at hrun
     injection hrun with hpair
     injection hpair with hret hh'
     subst hret hh'
     let addr0 := h.baseAddr (.heap h.nextBlk)
-    let d : UInt32 := align - ((addr0 + UInt64.ofNat 0) % align.toUInt64).toUInt32
+    let d : UInt64 := alignDiff (addr0 + UInt64.ofNat 0) align
     let off : Nat := if d < 8 then d.toNat + align.toNat else d.toNat
     have hzero : addr0 + UInt64.ofNat 0 = addr0 := UInt64.add_zero addr0
-    have ⟨hd1, hd_le, hd_eq⟩ := zng_align_diff_bounds (addr0 + UInt64.ofNat 0) align ha8
-    change 1 ≤ d.toNat at hd1
-    change d.toNat ≤ align.toNat at hd_le
-    change d.toNat = align.toNat - ((addr0 + UInt64.ofNat 0).toNat % align.toNat) at hd_eq
-    rw [hzero] at hd_eq
+    have hd_eq : d.toNat = (align.toNat - addr0.toNat % align.toNat) % align.toNat := by
+      have := alignDiff_pow addr0 align k hpow
+      show (alignDiff (addr0 + UInt64.ofNat 0) align).toNat = _
+      rw [hzero]
+      exact this
+    have hd_le : d.toNat ≤ align.toNat - 1 := alignDiff_le _ align (by omega)
     have hdvd64 : align.toNat ∣ 2 ^ 64 := by
       rw [hpow]
       exact ⟨2 ^ (64 - k), by rw [← Nat.pow_add]; congr 1; omega⟩
@@ -470,34 +464,20 @@ theorem zng_alloc_aligned_alignment : Goal.zng_alloc_aligned_alignment := by
       rw [BitVec.toNat_ofNat]
       exact Nat.mod_eq_of_lt hoff_lt64
     rw [UInt64.toNat_add, hoff_nat, Nat.mod_mod_of_dvd _ hdvd64]
+    have hbase : (addr0.toNat + d.toNat) % align.toNat = 0 := by
+      rw [hd_eq, Nat.add_mod, Nat.mod_mod]
+      by_cases hr0 : addr0.toNat % align.toNat = 0
+      · rw [hr0, Nat.sub_zero, Nat.mod_self]; simp
+      · have : (align.toNat - addr0.toNat % align.toNat) % align.toNat = align.toNat - addr0.toNat % align.toNat :=
+          Nat.mod_eq_of_lt (by omega)
+        rw [this, show addr0.toNat % align.toNat + (align.toNat - addr0.toNat % align.toNat) = align.toNat by omega,
+          Nat.mod_self]
     dsimp [off]
     split
-    · have hsum : addr0.toNat + (d.toNat + align.toNat) = align.toNat * (addr0.toNat / align.toNat + 2) := by
-        have hdm := Nat.div_add_mod addr0.toNat align.toNat
-        have hmul2 : align.toNat * (addr0.toNat / align.toNat + 2) =
-            align.toNat * (addr0.toNat / align.toNat) + 2 * align.toNat := by
-          rw [Nat.mul_add]; omega
-        omega
-      rw [hsum, Nat.mul_mod_right]
-    · have hsum : addr0.toNat + d.toNat = align.toNat * (addr0.toNat / align.toNat + 1) := by
-        have hdm := Nat.div_add_mod addr0.toNat align.toNat
-        have hmul1 : align.toNat * (addr0.toNat / align.toNat + 1) =
-            align.toNat * (addr0.toNat / align.toNat) + align.toNat := by
-          rw [Nat.mul_add]; omega
-        omega
-      rw [hsum, Nat.mul_mod_right]
+    · rw [← Nat.add_assoc, Nat.add_mod, hbase, Nat.mod_self]; simp
+    · exact hbase
   · have hokf : h.allocOk h.nalloc = false := Bool.eq_false_iff.mpr hok
-    have hrun_null : C.run (ZlibNg.Zutil.zng_alloc_aligned size align) h =
-        .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
-      unfold ZlibNg.Zutil.zng_alloc_aligned
-      rw [zng_guard_false_of_ge_8 size align ha8]
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      have halloc : C.run (allocB ((8 + size.toUInt64 + align.toUInt64).toNat)) h =
-          .ok (.null, { h with nalloc := h.nalloc + 1 }) := by
-        simp only [C.run, allocB, hokf, Bool.false_eq_true, ↓reduceIte]
-      rw [C.run_bind, halloc]
-      rfl
-    rw [hrun_null] at hrun
+    rw [zng_alloc_aligned_when_fail h size align hokf] at hrun
     injection hrun with hpair
     injection hpair with hret _
     exact absurd hret.symm hne

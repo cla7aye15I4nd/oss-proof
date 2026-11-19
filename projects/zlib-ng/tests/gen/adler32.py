@@ -5,8 +5,9 @@ Deterministic: fixed seed, no clock, no environment. Lines:
   adler32_z <adler> <buf>            adler32 <adler> <buf>
   adler32_combine <a1> <a2> <len2>   adler32_combine64 <a1> <a2> <len2>
 with <buf> = null:<len> | hex:<digits> | off:<k>:<digits> (see tests/README.md).
-adler32_c branches on buf == NULL (first, with patch 0007), len == 1, len < 16, len >= NMAX = 5552, and
-adler32_len_64 steps by 8 bytes before the byte loop of adler32_len_16.
+adler32 and adler32_z test buf == NULL first; adler32_c branches on len == 1, len < 16, len >= NMAX = 5552, and
+the pointer alignment (k mod 8) decides how many bytes adler32_copy_align takes before the 64-bit SWAR
+blocks of at most 184 bytes; adler32_copy_tail runs SWAR blocks only on an aligned pointer, then 4, 2, 1 bytes.
 """
 import random
 
@@ -105,10 +106,11 @@ for fn in ("adler32_z", "adler32"):
 # 5. Unaligned buffers: the pointer k bytes into its block, around the length thresholds.
 for fn in ("adler32_z", "adler32"):
     for k in range(1, 8):
-        for n in (0, 1, 2, 7, 8, 9, 15, 16, 17, 47, 48, 100, NMAX - 1, NMAX, NMAX + 1):
+        for n in (0, 1, 2, 7, 8, 9, 15, 16, 17, 23, 24, 25, 47, 48, 100, 183, 184, 185, 191, 192, 193, 200,
+                  368, 369, 376, 5536, 5543, 5544, 5545, 5551, NMAX - 1, NMAX, NMAX + 1, NMAX + 7, 2 * NMAX + 3):
             out.append(f"{fn} {rand_init()} {offbuf(k, kind_bytes('rand', n))}")
 
-# 6. NULL buffers: the documented initial value 1, for any adler and ANY length (patch 0007), including
+# 6. NULL buffers: the documented initial value 1, for any adler and ANY length, including
 #    len == 1 and lengths on every branch of adler32_c.
 NULL_LENS = [0, 1, 2, 15, 16, 17, 47, NMAX - 1, NMAX, NMAX + 1, 1 << 20, (1 << 32) - 1]
 for fn in ("adler32_z", "adler32"):

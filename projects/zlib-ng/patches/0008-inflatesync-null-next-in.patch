@@ -1,0 +1,12 @@
+--- a/inflate.c
++++ b/inflate.c
+@@ -1345,7 +1345,8 @@
+     /* search available input */
+     len = syncsearch(&(state->have), strm->next_in, strm->avail_in);
+     strm->avail_in -= len;
+-    strm->next_in += len;
++    if (len)
++        strm->next_in += len;
+     strm->total_in += len;
+ 
+     /* return no joy or set up to restart inflate() on a new block */

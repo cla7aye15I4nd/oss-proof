@@ -136,7 +136,7 @@ for n in list(range(0, 70)) + [127, 128, 1000, 65535, 1 << 20, (1 << 40) + 3, (1
         out.append("crc32_combine %d %d %d" % (c1, c2, n))
         op = x2n(n, 3)
         out.append("crc32_combine_op %d %d %d" % (c1, c2, op))
-# Negative len2 (patch 0002 returns 0; unpatched x2nmodp never ends).
+# Negative len2 (returns 0; zlib-ng 2.3.3 looped forever in x2nmodp).
 for n in (-1, -5, -40, -(1 << 31), -(1 << 62), -(1 << 63)):
     for c1, c2 in ((1, 2), (0, 0), (M64, M64)):
         out.append("crc32_combine64 %d %d %d" % (c1, c2, n))
@@ -145,15 +145,12 @@ for c1, c2 in ((0, 0), (M64, M64), (1 << 32, 1 << 33), (0xffffffff, 0)):
     for n in (0, 1, 8, 1000):
         out.append("crc32_combine64 %d %d %d" % (c1, c2, n))
         out.append("crc32_combine_op %d %d %d" % (c1, c2, x2n(n, 3)))
-# op values: zero, small, random with a nonzero low half (a nonzero low half is required to terminate), high bits set.
-out.append("crc32_combine_op 5 6 0")
+# op values: small, random with a nonzero low half, high bits set. An op whose low 32 bits are zero is not
+# tried: multmodp never ends on it, and zlib.h only allows an op made by crc32_combine_gen from a
+# non-negative length, which is never 0.
 out.append("crc32_combine_op 5 6 1")
 out.append("crc32_combine_op 5 6 2147483648")
 out.append("crc32_combine_op 5 6 4294967295")
-# op with a zero low half (patch 0002 returns 0; unpatched multmodp never ends) and high bits set.
-for op in (0, 1 << 32, (1 << 32) | 1, 0xffffffff00000000, M64):
-    for c1, c2 in ((0, 0), (5, 6), (M64, 1)):
-        out.append("crc32_combine_op %d %d %d" % (c1, c2, op))
 for _ in range(60):
     op = rng.randrange(1, 1 << 32)
     if rng.randrange(3) == 0:
