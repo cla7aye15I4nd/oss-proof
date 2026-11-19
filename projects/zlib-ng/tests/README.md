@@ -71,11 +71,13 @@ print the expected result.
 | `inflate-copy-pointer-equality` | 0003 | invalid pointer pair in `inflateCopy` |
 | `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64` |
 | `deflatebound-gzip-extra-length` | 0006 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` |
+| `inflate-window-copy` | 0007 | invalid pointer pair (window vs output) in `chunkcopy_safe` |
+| `inflatesync-null-next-in` | 0008 | none observable: `NULL + 0` is not reported by any sanitizer; the case checks the calls run alike |
+| `inflatesetdictionary-null` | 0009 | `inflateSetDictionary(strm, NULL, 0)` returns `Z_OK` instead of `Z_STREAM_ERROR` |
 
 Plain regression tests (defects of 2.3.3 that the `develop` branch fixes; each must pass on the verified
 source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negative-len-hang` (the
 `g` and `c` runs), `gzbuffer-aligned-alloc-overflow`.
 
-Open defects (undefined behaviour of the verified source with no patch yet; each must still show its sanitizer
-report, and the run fails once upstream fixes it): `inflate-window-pointer-compare` (pointer comparison between
-the sliding window and the caller's output in `chunkcopy_safe`).
+Open defects (undefined behaviour of the verified source with no patch yet; each must still show its report,
+and the run fails once it stops reproducing): none.

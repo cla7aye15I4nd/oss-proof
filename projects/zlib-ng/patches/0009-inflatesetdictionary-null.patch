@@ -1,0 +1,11 @@
+--- a/inflate.c
++++ b/inflate.c
+@@ -1247,6 +1247,8 @@
+     if (inflateStateCheck(strm))
+         return Z_STREAM_ERROR;
+     state = (struct inflate_state *)strm->state;
++    if (dictionary == NULL)
++        return Z_STREAM_ERROR;
+     if (state->wrap != 0 && state->mode != DICT)
+         return Z_STREAM_ERROR;
+ 

@@ -20,13 +20,17 @@ export UBSAN_OPTIONS="print_stacktrace=1"
 timeout_s=${TIMEOUT:-10}
 mkdir -p "$work"
 
-# case | patch prefix | arguments (comma-separated runs) | unpatched defect: "timeout", or an extended
-# regular expression that the output (sanitizer report or program output) must match | patched output
-# line (one per run, ';')
+# case | patch prefix | arguments (comma-separated runs) | unpatched defect: "timeout", "none" (the defect
+# is not observable on a run: no sanitizer reports it; the unpatched build must then behave like the patched
+# one), or an extended regular expression that the output (sanitizer report or program output) must match |
+# patched output line (one per run, ';')
 cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
   "deflatebound-gzip-extra-length|0006||bound-ok 0|bound-ok 1"
+  "inflate-window-copy|0007|300|invalid-pointer-pair|inflate 1 1"
+  "inflatesync-null-next-in|0008||none|sync -3 1"
+  "inflatesetdictionary-null|0009||setdict 0|setdict -2"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
@@ -41,9 +45,7 @@ plain=(
 # Open defects: undefined behaviour of the verified source with no patch yet. Each must still show its
 # report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report must match
-open_cases=(
-  "inflate-window-pointer-compare|300|invalid-pointer-pair"
-)
+open_cases=()
 
 build() { # build <dir> [exclude-prefix]
   local dir=$1 ex=${2:-}
@@ -68,7 +70,11 @@ for entry in "${cases[@]}"; do
     echo "== $name ${arg:+($arg)}"
     # unpatched: every patch but $patch
     out=$(cd "$work" && timeout "$timeout_s" "$work/$name-without-$patch" $arg 2>&1); rc=$?
-    if [ "$defect" = timeout ]; then
+    if [ "$defect" = none ]; then
+      w=${wants[$i]}
+      if [ $rc -eq 0 ] && printf '%s\n' "$out" | grep -qx "$w"; then echo "ok: without $patch: $w (defect not observable on a run)"
+      else echo "UNEXPECTED: without $patch: status $rc: $out"; fail=1; fi
+    elif [ "$defect" = timeout ]; then
       if [ $rc -eq 124 ]; then echo "ok: without $patch: no return within ${timeout_s}s"
       else echo "MISSING: without $patch the call returned (status $rc): $out"; fail=1; fi
     else
@@ -112,7 +118,7 @@ for entry in "${plain[@]}"; do
     i=$((i + 1))
   done
 done
-for entry in "${open_cases[@]}"; do
+for entry in ${open_cases[@]+"${open_cases[@]}"}; do
   IFS='|' read -r name args defect <<<"$entry"
   [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
   cc $san -I"$work/patched" "$here/$name/repro.c" "$work/patched/libz.a" -o "$work/$name-patched" || exit 2

@@ -1,11 +1,11 @@
-/* Open defect (no patch). inflate copies a match that reaches back into the sliding window with
- * chunkcopy_safe (inflate.c, MATCH state) and inflate_fast copies it with CHUNKCOPY_SAFE; both compare or
- * subtract a pointer into the window (inside inflate's own allocation) and a pointer into the caller's
+/* Patch 0007. inflate copies a match that reaches back into the sliding window with chunkcopy_safe
+ * (inflate.c, MATCH state), and inflate_fast copies it with CHUNKCOPY_SAFE / chunkcopy_safe; these compare
+ * and subtract a pointer into the window (inside inflate's own allocation) and a pointer into the caller's
  * output buffer: relational comparison and subtraction of pointers into different objects (ISO C17
- * 6.5.8p5, 6.5.6p9). A valid zlib stream with matches into the window, inflated with a small output
- * buffer per call, reaches it. Verified source: an AddressSanitizer invalid-pointer-pair report (with
- * -fsanitize=pointer-compare,pointer-subtract and detect_invalid_pointer_pairs=2). Argument: output
- * bytes per inflate() call. */
+ * 6.5.8p5, 6.5.6p9). A valid zlib stream with matches into the window, inflated with a small output buffer
+ * per call, reaches it. Unpatched: an AddressSanitizer invalid-pointer-pair report (with
+ * -fsanitize=pointer-compare,pointer-subtract and detect_invalid_pointer_pairs=2). Patched: no report, and
+ * the output is the original data ("inflate 1 1"). Argument: output bytes per inflate() call. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
