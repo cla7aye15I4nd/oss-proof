@@ -67,11 +67,21 @@ def render_doc_page(
     full_title = f"{h1_title} · {summary.brand}"
     eyebrow = t("形式化验证子站", "VERIFICATION SUBSITE")
 
+    en_root = summary.project.root / "docs" / "en"
+    extra_links = ""
+    if (en_root / "findings.md").is_file():
+        extra_links += f'<a href="findings.html">{t("发现的问题", "Findings")}</a>'
+    if (en_root / "deviations.md").is_file():
+        extra_links += f'<a href="deviations.html">{t("前提与偏差", "Deviations")}</a>'
+    if (en_root / "trusted-base.md").is_file():
+        extra_links += f'<a href="trusted-base.html">{t("可信基", "Trusted Base")}</a>'
+
     top_nav = (
         f'<span class="site-links">'
         f'<a href="{portal.href(portal_home, current)}">oss-proof</a>'
         f'<a href="index.html">{t("总览", "Overview")}</a>'
         f'<a href="progress.html">{t("结论的状态", "Status")}</a>'
+        f'{extra_links}'
         f'</span>'
     )
     footer = (
@@ -113,9 +123,12 @@ def render_doc_page(
 
 def build_standard_subsite(summary: portal.ProjectSummary, summaries: list[portal.ProjectSummary]) -> None:
     render_subsite_redirect(summary.route, summary.brand)
-    for lang in ("en", "zh"):
-        render_doc_page(summary, summaries, lang, "overview.md", "index.html")
-        render_doc_page(summary, summaries, lang, "progress.md", "progress.html")
+    en_dir = summary.project.root / "docs" / "en"
+    for md_file in sorted(en_dir.glob("*.md")):
+        md_rel = md_file.name
+        out_name = "index.html" if md_rel == "overview.md" else f"{md_file.stem}.html"
+        for lang in ("en", "zh"):
+            render_doc_page(summary, summaries, lang, md_rel, out_name)
 
 
 def check_standard_docs_parity(proj_root: Path) -> None:
