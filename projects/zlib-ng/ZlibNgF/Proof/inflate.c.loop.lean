@@ -100,8 +100,8 @@ def rank (m : UInt32) : Nat := min 31 <|
   if m = LENGTH then 1 else if m = CHECK then 2 else if m = LEN then 3 else if m = LEN_ then 4
   else if m = LIT then 5 else if m = MATCH then 6 else if m = DISTEXT then 7 else if m = DIST then 8
   else if m = LENEXT then 9 else if m = TYPEDO then 10 else if m = TYPE then 11 else if m = COPY then 12
-  else if m = COPY_ then 13 else if m = STORED then 14 else if m = TABLE then 15 else if m = LENLENS then 16
-  else if m = CODELENS then 17 else if m = HCRC then 18 else if m = COMMENT then 19 else if m = NAME then 20
+  else if m = COPY_ then 13 else if m = STORED then 14 else if m = TABLE then 15 else if m = LENLENS then 17
+  else if m = CODELENS then 16 else if m = HCRC then 18 else if m = COMMENT then 19 else if m = NAME then 20
   else if m = EXTRA then 21 else if m = EXLEN then 22 else if m = OS then 23 else if m = TIME then 24
   else if m = FLAGS then 25 else if m = DICT then 26 else if m = DICTID then 27 else if m = HEAD then 28
   else 0
