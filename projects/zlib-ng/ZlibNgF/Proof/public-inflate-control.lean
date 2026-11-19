@@ -136,9 +136,7 @@ theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat)
   by_cases hc : (st.wrap &&& 2) = 0
   · exact ⟨Z_STREAM_ERROR, h, by simp [C.run, inflateGetHeader, bind_app, h0, hso, rdS, ldState_app hst, hc], hv⟩
   · obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with head := .val (some k) }) hsa hst
-      (fun al z c => ⟨c.zalloc, c.zfree, c.strm, c.alloc_bufs, c.al_state, c.al_zfree, c.al_buf, c.window,
-        c.wbufsize, c.mode_lo, c.mode_hi, c.wbits, c.wsize, c.whave, c.wnext, c.bits, c.codes_size, c.lens_size,
-        c.work_size, c.lencode, c.distcode, c.next, c.ncode, c.nlen, c.ndist, c.have_, Or.inr ⟨k, g, rfl, hg⟩⟩)
+      (fun _ _ c => { c with head := Or.inr ⟨k, g, rfl, hg⟩ })
     have hr' := hr
     simp only [C.run] at hr'
     let h1 : Heap := { h with istates := upd h.istates b (some { st with head := .val (some k) }) }
@@ -148,9 +146,7 @@ theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat)
     · simp [C.run, inflateGetHeader, bind_app, h0, hso, rdS, ldState_app hst, hc, hr', ldHeader, stHeader, hg, h1, h2]
     · obtain ⟨i', z', b', st', al', e, hz', hb', hst', hal', c'⟩ := InflateInv.parts hi
       refine ⟨i', z', b', st', al', e, hz', hb', hst', hal', ?_⟩
-      refine ⟨c'.zalloc, c'.zfree, c'.strm, c'.alloc_bufs, c'.al_state, c'.al_zfree, c'.al_buf, c'.window,
-        c'.wbufsize, c'.mode_lo, c'.mode_hi, c'.wbits, c'.wsize, c'.whave, c'.wnext, c'.bits, c'.codes_size,
-        c'.lens_size, c'.work_size, c'.lencode, c'.distcode, c'.next, c'.ncode, c'.nlen, c'.ndist, c'.have_, ?_⟩
+      refine { c' with head := ?_ }
       rcases c'.head with hh | ⟨k', g', hk', _⟩
       · exact Or.inl hh
       · refine Or.inr ⟨k', ?_, hk', ?_⟩

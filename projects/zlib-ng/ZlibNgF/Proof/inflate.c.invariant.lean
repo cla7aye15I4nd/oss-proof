@@ -30,6 +30,7 @@ structure View where
   wbufsize : UInt32
   mode : UInt32
   wbits : UInt32
+  reqbits : UInt32
   wsize : UInt32
   whave : UInt32
   wnext : UInt32
@@ -40,21 +41,16 @@ structure View where
   lencode : Ival CodePtr
   distcode : Ival CodePtr
   next : Ival CodePtr
-  ncode : UInt32
-  nlen : UInt32
-  ndist : UInt32
-  have_ : UInt32
   head : Ival HeaderPtr
 
 /-- The constrained fields of `st`. -/
 def view (st : InflateState) : View :=
-  ⟨st.strm, st.alloc_bufs, st.window, st.wbufsize, st.mode, st.wbits, st.wsize, st.whave, st.wnext, st.bits,
-    st.codes.size, st.lens.size, st.work.size, st.lencode, st.distcode, st.next, st.ncode, st.nlen, st.ndist,
-    st.«have», st.head⟩
+  ⟨st.strm, st.alloc_bufs, st.window, st.wbufsize, st.mode, st.wbits, st.reqbits, st.wsize, st.whave, st.wnext,
+    st.bits, st.codes.size, st.lens.size, st.work.size, st.lencode, st.distcode, st.next, st.head⟩
 
-/-- The clauses on the stream record `z`, the constrained state fields `st` and the allocation record `al` of block `b`. -/
-structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (al : InflateAllocs) :
-    Prop where
+/-- The clauses that `inflateInit2` establishes before it calls `inflateReset2`, and that no reset changes: the
+stream record `z`, the allocation record `al` of block `b`, the carve layout, the mode range. -/
+structure Shape (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (al : InflateAllocs) : Prop where
   zalloc : z.zalloc = .zcalloc
   zfree : z.zfree = .zcfree
   strm : st.strm = .val s
@@ -67,31 +63,34 @@ structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (a
   wbufsize : st.wbufsize = ((1 : UInt32) <<< 15) + 64
   mode_lo : HEAD ≤ st.mode
   mode_hi : st.mode ≤ SYNC
+  codes_size : st.codes_size = ENOUGH
+  lens_size : st.lens_size = 320
+  work_size : st.work_size = 288
+
+/-- All clauses on the stream record `z`, the constrained state fields `st` and the allocation record `al` of block
+`b`. -/
+structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (al : InflateAllocs) : Prop
+    extends Shape h s z b st al where
   wbits : st.wbits ≤ 15
+  reqbits : st.reqbits ≤ 15
   wsize : st.wsize = 0 ∨ st.wsize = (1 : UInt32) <<< st.wbits
   whave : st.whave ≤ st.wsize
   wnext : st.wnext = 0 ∨ st.wnext < st.wsize
   bits : st.bits ≤ 64
-  codes_size : st.codes_size = ENOUGH
-  lens_size : st.lens_size = 320
-  work_size : st.work_size = 288
   lencode : ∃ p, st.lencode = .val p ∧ CodeTarget b p
   distcode : ∃ p, st.distcode = .val p ∧ CodeTarget b p
   next : ∃ o, st.next = .val (.ref (.codes b) o) ∧ o ≤ ENOUGH
-  ncode : st.ncode ≤ 19
-  nlen : st.nlen ≤ 288
-  ndist : st.ndist ≤ 32
-  have_ : st.have_ ≤ 320
   head : st.head = .val none ∨ ∃ k g, st.head = .val (some k) ∧ h.gzheaders k = some g
 
-/-- The clauses read the heap only through its byte blocks and its `gz_header` records. -/
+/-- The shape clauses read the heap only through its byte blocks. -/
+theorem Shape.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
+    (hb : h'.bytes b = h.bytes b) (c : Shape h s z b v al) : Shape h' s z b v al :=
+  { c with window := by rw [hb]; exact c.window }
+
+/-- The clauses read the heap only through block `b` and the `gz_header` records. -/
 theorem Core.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
-    (hb : h'.bytes = h.bytes) (hg : h'.gzheaders = h.gzheaders) (c : Core h s z b v al) : Core h' s z b v al := by
-  refine ⟨c.zalloc, c.zfree, c.strm, c.alloc_bufs, c.al_state, c.al_zfree, c.al_buf, ?_, c.wbufsize, c.mode_lo,
-    c.mode_hi, c.wbits, c.wsize, c.whave, c.wnext, c.bits, c.codes_size, c.lens_size, c.work_size, c.lencode,
-    c.distcode, c.next, c.ncode, c.nlen, c.ndist, c.have_, ?_⟩
-  · rw [hb]; exact c.window
-  · rw [hg]; exact c.head
+    (hb : h'.bytes b = h.bytes b) (hg : h'.gzheaders = h.gzheaders) (c : Core h s z b v al) : Core h' s z b v al :=
+  { c with toShape := c.toShape.of_heap hb, head := by rw [hg]; exact c.head }
 
 /-- The structural invariant of the inflate stream `s` in `h`. -/
 def Inv (h : Heap) (s : StreamPtr) : Prop :=
@@ -165,5 +164,88 @@ theorem wrS {h : Heap} {s : StreamPtr} (hv : Inv h s) {b : Nat} {st : InflateSta
   · simp [ZlibNg.Inflate.wrS, C.run, bind_app, ldState_app hst0, C.stState, hst0]
   · exact ⟨i, z, b0, f st0, al, rfl, hz, hb0, by simp [Heap.istate, hd], by simpa [Heap.iallocsOf] using hal,
       Core.of_heap (h := h) rfl rfl (hkeep al z c)⟩
+
+/-! ## Live states: what `inflateStateCheck` asks -/
+
+theorem upd_upd {α : Type} [Inhabited α] (t : Tbl α) (k : Nat) (v w : α) : upd (upd t k v) k w = upd t k w := by
+  unfold upd Tbl.set
+  by_cases hk : k < t.arr.size
+  · simp [hk, Array.set!_eq_setIfInBounds]
+  · simp only [hk, ite_false, Array.size_append, Array.size_push, Array.size_replicate, Array.set!_eq_setIfInBounds]
+    have hk' : t.arr.size + (k - t.arr.size) = k := by omega
+    rw [hk']
+    simp only [Nat.lt_add_one, ↓reduceIte]
+    congr 1
+    apply Array.ext_getElem?
+    intro j
+    simp only [Array.getElem?_setIfInBounds, Array.getElem?_append, Array.getElem?_push, Array.size_replicate,
+      Array.size_append, Array.size_push, hk']
+    by_cases e : k = j
+    · subst e; simp
+    · have e' : ¬ j = k := fun x => e x.symm
+      simp [e, e']
+
+/-- `h` with stream `i` set to `z` and the state of block `b` set to `st`. -/
+def setZS (h : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : InflateState) : Heap :=
+  { h with streams := upd h.streams i (some z), istates := upd h.istates b (some st) }
+
+/-- Stream `i` holds `z`, whose state is the live `st` of block `b`, and `inflateStateCheck` accepts it. -/
+structure Live (h : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : InflateState) : Prop where
+  hz : h.streams i = some z
+  hb : z.state = some b
+  hd : ∃ d, h.bytes b = some d
+  hst : h.istates b = some st
+  za : z.zalloc ≠ .null
+  zf : z.zfree ≠ .null
+  ab : ∃ a, st.alloc_bufs = .val (some a)
+  sm : st.strm = .val (some i)
+  lo : HEAD ≤ st.mode
+  hi : st.mode ≤ SYNC
+
+theorem Live.istate {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateState} (L : Live h i z b st) :
+    h.istate b = some st := by
+  obtain ⟨d, hd⟩ := L.hd; simp [Heap.istate, hd, L.hst]
+
+theorem Live.check {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateState} (L : Live h i z b st) :
+    inflateStateCheck (some i) h = .ok (false, h) := by
+  obtain ⟨a, ha⟩ := L.ab
+  have hm1 : ¬ st.mode < HEAD := fun hlt => absurd L.lo (UInt32.not_le.mpr hlt)
+  have hm2 : ¬ st.mode > SYNC := fun hlt => absurd L.hi (UInt32.not_le.mpr hlt)
+  simp [inflateStateCheck, bind_app, ldStream_app L.hz, ldState_app L.istate, L.hb, L.za, L.zf, ha, L.sm, Ival.get,
+    hm1, hm2]
+
+theorem Live.stateOf {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateState} (L : Live h i z b st) :
+    ZlibNg.Inflate.stateOf (some i) h = .ok (some b, h) := by
+  simp [ZlibNg.Inflate.stateOf, rdZ, bind_app, ldStream_app L.hz, L.hb]
+
+/-- A store into the state that keeps the fields the check reads. -/
+theorem Live.setS {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateState} (L : Live h i z b st)
+    (st' : InflateState) (e1 : st'.alloc_bufs = st.alloc_bufs) (e2 : st'.strm = st.strm) (lo : HEAD ≤ st'.mode)
+    (hi : st'.mode ≤ SYNC) : Live { h with istates := upd h.istates b (some st') } i z b st' :=
+  ⟨L.hz, L.hb, L.hd, by simp, L.za, L.zf, e1 ▸ L.ab, e2 ▸ L.sm, lo, hi⟩
+
+/-- A store into the stream that keeps `state`, `zalloc`, `zfree`. -/
+theorem Live.setZ {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateState} (L : Live h i z b st)
+    (z' : ZStream) (e1 : z'.state = z.state) (e2 : z'.zalloc = z.zalloc) (e3 : z'.zfree = z.zfree) :
+    Live { h with streams := upd h.streams i (some z') } i z' b st :=
+  ⟨by simp, e1 ▸ L.hb, L.hd, L.hst, e2 ▸ L.za, e3 ▸ L.zf, L.ab, L.sm, L.lo, L.hi⟩
+
+/-- A stream with the shape clauses is live. -/
+theorem Shape.live {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateState} {al : InflateAllocs}
+    (hz : h.streams i = some z) (hb : z.state = some b) (hst : h.istate b = some st)
+    (c : Shape h (some i) z b (view st) al) : Live h i z b st := by
+  have hd : ∃ d, h.bytes b = some d := by
+    unfold Heap.istate at hst; split at hst <;> simp_all
+  have hst' : h.istates b = some st := by
+    obtain ⟨d, hd⟩ := hd; simpa [Heap.istate, hd] using hst
+  refine ⟨hz, hb, hd, hst', ?_, ?_, ⟨b, c.alloc_bufs⟩, c.strm, c.mode_lo, c.mode_hi⟩
+  · rw [c.zalloc]; decide
+  · rw [c.zfree]; decide
+
+/-- An invariant stream is live. -/
+theorem live {h : Heap} {s : StreamPtr} (hv : Inv h s) :
+    ∃ i z b st al, s = some i ∧ Live h i z b st ∧ h.iallocsOf b = some al ∧ Core h s z b (view st) al := by
+  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c⟩ := hv
+  exact ⟨i, z, b, st, al, rfl, Shape.live hz hb hst c.toShape, hal, c⟩
 
 end ZlibNgF.Proof.InflateInv
