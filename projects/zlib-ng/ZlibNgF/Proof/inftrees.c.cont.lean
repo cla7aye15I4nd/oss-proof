@@ -213,208 +213,216 @@ theorem st_next {S : Setup} (hS : S.OK) {t : TL} {C C' : Array Code} {K : Nat} (
            huff := hhf
            geo := hgeo _ (by dsimp only; omega) }
 
+set_option hygiene false in
+/-- The steps of `tblCont_wp` after the program is unfolded, on a goal
+`Wp P (setCW S.h0 S.b S.s C S.W) (fun t' h' => Trip S t t' h')` where `P` is the part of the loop body after `here`
+(`tblCont` unfolded, or the translation's own join point applied to `here`), with `hS`, `hst`, `hmax`, `hroot`,
+`hmask` and `here` as in `tblCont_wp`; the arguments are `max`, `root` and `mask` of the program. -/
+macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(tactic| (
+    have hl := hS.live
+    have hK := hst.K_lt hS
+    have hlen1 := hst.len_lo
+    have hlen2 := hst.len_hi
+    have hmx := hS.mx15
+    have hr1 := hS.root1
+    have hrmx := hS.rootmx
+    have hcs := hst.count_size
+    have hll := hst.len_le
+    obtain ⟨nx, hnext, hnx, hur, hdr, hcu15⟩ := hst.geo.next_used hS
+    have hdl : t.drop.toNat ≤ t.len.toNat := by
+      rcases hst.geo with ⟨h1, -⟩ | ⟨h1, h2, -⟩
+      · rw [h1]; exact Nat.zero_le _
+      · omega
+    have hdrop32 : t.drop.toNat < 32 := by omega
+    have hld : (t.len - t.drop).toNat = t.len.toNat - t.drop.toNat := u32_sub hdl
+    rw [Wp.bind_iff, shl32_ok (by rw [UInt32.lt_iff_toNat_lt, hld]; show _ < 32; omega), Wp.pure_iff,
+      Wp.bind_iff, shl32_ok (by rw [UInt32.lt_iff_toNat_lt]; show _ < 32; omega), Wp.pure_iff]
+    refine Wp.have_ ?_
+    refine Wp.have_ ?_
+    rw [Wp.bind_iff, shr32_ok (by rw [UInt32.lt_iff_toNat_lt]; show _ < 32; omega), Wp.pure_iff]
+    have hhuffl : t.huff.toNat < 2 ^ t.len.toNat := by rw [hst.huff]; exact rev16_lt (by omega) hst.dvd
+    have hsh : (t.huff >>> t.drop).toNat = t.huff.toNat / 2 ^ t.drop.toNat := u32_shr hdrop32
+    have hq : t.huff.toNat / 2 ^ t.drop.toNat < 2 ^ (t.len.toNat - t.drop.toNat) := by
+      apply Nat.div_lt_of_lt_mul
+      rw [← Nat.pow_add, show t.drop.toNat + (t.len.toNat - t.drop.toNat) = t.len.toNat by omega]
+      exact hhuffl
+    have hio : Int.ofNat (t.huff >>> t.drop).toNat = ((t.huff.toNat / 2 ^ t.drop.toNat : Nat) : Int) := by
+      rw [hsh]; rfl
+    have hma : 2 ^ (t.curr.toNat - (t.len.toNat - t.drop.toNat)) * 2 ^ (t.len.toNat - t.drop.toNat) =
+        2 ^ t.curr.toNat := by
+      rw [← Nat.pow_add]; congr 1; omega
+    have hpa : 2 ^ (t.len.toNat - t.drop.toNat) ≤ 2 ^ t.curr.toNat := Nat.pow_le_pow_right (by omega) (by omega)
+    have hpc : 2 ^ t.curr.toNat ≤ 2 ^ 15 := Nat.pow_le_pow_right (by omega) (by omega)
+    have hcsz := hst.csize
+    have hbs := hS.bnd_size
+    have hub := hst.used_bnd
+    rw [Wp.bind_iff, hio]
+    refine Wp.of_eq (by rw [hnext]; exact add_ok (get_codes hl C S.W) (by omega) (by omega) (by omega)) ?_
+    rw [show ((↑(S.off + nx) : Int) + ((t.huff.toNat / 2 ^ t.drop.toNat : Nat) : Int)).toNat =
+      S.off + nx + t.huff.toNat / 2 ^ t.drop.toNat by omega]
+    refine Wp.have_ ?_
+    have hp : ∀ j, j < 2 ^ (t.curr.toNat - (t.len.toNat - t.drop.toNat)) →
+        S.off + nx + t.huff.toNat / 2 ^ t.drop.toNat + j * 2 ^ (t.len.toNat - t.drop.toNat) < C.size := by
+      intro j hj
+      have := fill_bound hq hj
+      omega
+    have hincr : ((1 : UInt32) <<< (t.len - t.drop)).toNat = 2 ^ (t.len.toNat - t.drop.toNat) := by
+      rw [u32_shl_one (by rw [hld]; omega), hld]
+    have hf0 : ((1 : UInt32) <<< t.curr).toNat =
+        2 ^ (t.curr.toNat - (t.len.toNat - t.drop.toNat)) * 2 ^ (t.len.toNat - t.drop.toNat) := by
+      rw [u32_shl_one (by omega), hma]
+    rw [Wp.bind_iff]
+    refine Wp.mono (fill4_wp hl (Nat.two_pow_pos _) (by omega) hp _ hincr (packCode here) _ hf0) ?_
+    rintro f h1 ⟨q4, C1, hf, hq4, hq4m, rfl, hF1⟩
+    rw [Wp.bind_iff]
+    refine Wp.mono (fill1_wp hl (by omega) hp _ hincr _ f hf hq4m hF1) ?_
+    rintro _ h2 ⟨C2, rfl, hF2⟩
+    -- the stores stay in the current table
+    have hsize2 : C2.size = C.size := hF2.size
+    have hfr2 : ∀ i, ¬ (S.off ≤ i ∧ i < S.off + t.used.toNat) → C2[i]? = C[i]? := by
+      intro i hi
+      apply hF2.keep
+      intro j _ hj e
+      have := fill_bound hq hj
+      omega
+    have hl1 : (t.len - 1).toNat = t.len.toNat - 1 := u32_sub (by simp; omega)
+    rw [Wp.bind_iff, shr32_ok (by rw [UInt32.lt_iff_toNat_lt, hl1]; show _ < 32; omega), Wp.pure_iff]
+    have hw : ((32768 : UInt32) >>> (t.len - 1)).toNat = 2 ^ (16 - t.len.toNat) := by
+      rw [u32_shr (by rw [hl1]; omega), hl1]
+      show 2 ^ 15 / 2 ^ (t.len.toNat - 1) = _
+      rw [Nat.pow_div (by omega) (by omega)]
+      congr 1; omega
+    refine Wp.have_ ?_
+    refine Wp.have_ ?_
+    refine Wp.have_ ?_
+    have hcl : t.len.toNat < t.count.size := by omega
+    rw [Wp.bind_iff, aget_ok hcl, Wp.pure_iff, Wp.bind_iff, aset_ok hcl, Wp.pure_iff]
+    refine Wp.have_ ?_
+    refine Wp.have_ ?_
+    have hc1 := hst.cur_pos
+    have hcget : t.count[t.len.toNat] = t.count[t.len.toNat]! := (getElem!_pos t.count _ hcl).symm
+    have hcnat : (t.count[t.len.toNat]).toNat = cnt t.count t.len.toNat := by rw [hcget]; rfl
+    have hr : (((t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16)).toNat =
+        (K + 2 ^ (16 - t.len.toNat)) % 2 ^ 16 := by
+      rw [rhuff_step (by rw [hw]; have : 2 ^ (16 - t.len.toNat) ≤ 2 ^ 16 := Nat.pow_le_pow_right (by omega) (by omega); omega),
+        hw, hst.rhuff]
+    have hhf : ((zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32).toNat =
+        rev 16 (K + 2 ^ (16 - t.len.toNat)) := by
+      rw [UInt16.toNat_toUInt32, bitreverse16_toNat, hr, rev_mod]
+    have hsym := hst.sym
+    have hnle := hS.n_le
+    have hncodes := hS.n_codes
+    have hcodes : S.codes ≤ 288 := by rcases hS.kind with ⟨-, -, h⟩ | ⟨-, -, h⟩ | ⟨-, -, h⟩ <;> omega
+    have one : (1 : UInt32).toNat = 1 := rfl
+    have hn := nsum_mono S.c0 (show t.len.toNat ≤ 15 by omega)
+    have hsym1 : (t.sym + 1).toNat = t.sym.toNat + 1 := by rw [u32_add (by rw [one]; omega), one]
+    have hsub_trip : ∀ (len' : UInt32) (h' : Heap),
+        (2 ≤ cnt t.count t.len.toNat ∧ len' = t.len) ∨
+          (cnt t.count t.len.toNat = 1 ∧ 1 ≤ len'.toNat ∧ len'.toNat ≤ 15 ∧
+            nsum S.c0 (len'.toNat - 1) ≤ t.sym.toNat + 1 ∧ t.sym.toNat + 1 < nsum S.c0 len'.toNat) →
+        h' = setCW S.h0 S.b S.s C2 S.W →
+        Wp (tblSub S.type (.ref (.codes S.b) S.off) $maxv $rootv $mask t here ((1 : UInt32) <<< t.curr)
+          ((t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16)
+          (zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32
+          (t.sym + 1) (t.count.set! t.len.toNat (t.count[t.len.toNat] - 1)) len') h'
+          (fun t' h' => Trip S t t' h') := by
+      intro len' h' hlen' rfl
+      have hst' := st_next hS hst hsize2 hfr2 (count := t.count.set! t.len.toNat (t.count[t.len.toNat] - 1))
+        (by rw [hcget]) hr hhf (len := len') (min := (1 : UInt32) <<< t.curr) here hlen'
+      refine Wp.mono (tblSub_wp hS hmax hroot hmask hst' (by rw [u32_shl_one (by omega)])) ?_
+      rintro t' h'' (⟨hmi, hs'⟩ | h1)
+      · refine Or.inl ⟨hmi, by rw [hs', hsym1]; omega, by rw [hs', hsym1]; omega⟩
+      · exact Or.inr (Or.inr h1)
+    by_cases hz : (t.count[t.len.toNat] - 1 == 0) = true
+    · have hc1' : cnt t.count t.len.toNat = 1 := by
+        have h0 : (t.count[t.len.toNat] - 1).toNat = 0 := by rw [beq_iff_eq.mp hz]; rfl
+        rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hcnat]; exact hc1), hcnat] at h0
+        have : (1 : UInt16).toNat = 1 := rfl
+        omega
+      rw [ite_eq_left hz]
+      by_cases hm : (t.len == $maxv) = true
+      · rw [ite_eq_left hm, Wp.pure_iff]
+        have hlm : t.len.toNat = S.mx := by rw [← hmax]; exact congrArg UInt32.toNat (beq_iff_eq.mp hm)
+        refine Or.inr (Or.inl ⟨C2, rfl, ?_⟩)
+        have hcv0 : ∀ L, 1 ≤ L → L ≤ 15 → cnt (t.count.set! t.len.toNat (t.count[t.len.toNat] - 1)) L = 0 := by
+          intro L h1 h2
+          rw [cnt_set hcl]
+          split
+          · rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hcnat]; exact hc1), hcnat]
+            have : (1 : UInt16).toNat = 1 := rfl
+            omega
+          · by_cases hlt : L < t.len.toNat
+            · exact hst.below L h1 hlt
+            · rw [hst.above L (by omega) h2]; exact hS.above L (by omega) h2
+        have hKT : K + 2 ^ (16 - t.len.toNat) = wsum S.c0 15 := by
+          have e1 := wsum_dec (c := cnt t.count) (d := cnt (t.count.set! t.len.toNat (t.count[t.len.toNat] - 1)))
+            (k := t.len.toNat) (m := 15) (by omega) (by omega) (by rw [hcv0 _ (by omega) (by omega)]; omega)
+            (fun L hL => by rw [cnt_set hcl]; simp [hL])
+          rw [wsum_eq_zero hcv0] at e1
+          have := hst.kraft
+          omega
+        refine { ret := rfl, csize := by rw [hsize2]; exact hst.csize,
+                 frame := fun i hi => by rw [hfr2 i hi]; exact hst.frame i hi,
+                 used_bnd := hst.used_bnd, root_le := hur, geo := ?_, huff := ?_ }
+        · rcases hst.geo with ⟨h1, -, h3, h4, -⟩ | ⟨h1, -, -, -, nx', P, h5, -, h7, -⟩
+          · exact Or.inl ⟨h1, h3, h4⟩
+          · exact Or.inr ⟨h1, nx', h5, h7⟩
+        · dsimp only
+          rcases hS.complete with hT | ⟨hm1, hc01⟩
+          · refine Or.inl ⟨hT, ?_⟩
+            apply UInt32.toNat_inj.mp
+            rw [hhf, hKT, hT, ← rev_mod, Nat.mod_self]
+            simp
+          · have hT : wsum S.c0 15 = 2 ^ 15 := by
+              rw [wsum_one (fun L h1 h2 => hS.above L (by omega) h2), hc01]
+            have hr1 : S.root = 1 := by omega
+            rcases hst.geo with ⟨h1, -, h3, h4, -⟩ | ⟨h1, h2, -⟩
+            · refine Or.inr ⟨hm1, h1, ?_, hr1, h3, by rw [h4, hr1]⟩
+              rw [hhf, hKT, hT, rev16_pow15]
+            · omega
+      · rw [ite_eq_right hm]
+        have hlm : t.len.toNat ≠ S.mx := fun e => hm (beq_iff_eq.mpr (UInt32.toNat_inj.mp (by rw [e, hmax])))
+        have hsl : t.sym.toNat + 1 = nsum S.c0 t.len.toNat := by omega
+        have hnmx : nsum S.c0 t.len.toNat + S.c0 S.mx ≤ nsum S.c0 15 := by
+          have := ssum_sub_le (fun i => S.c0 (i + 1)) (m := t.len.toNat) (n := 15) (by omega) (S.mx - 1)
+            (by omega) (by omega)
+          simp only [show S.mx - 1 + 1 = S.mx by omega] at this
+          exact this
+        have hc0mx := hS.c0mx
+        obtain ⟨L', hL1, hL15, hL2, hL3⟩ := class_exists S.c0 15 (t.sym.toNat + 1) (by omega)
+        obtain ⟨hWc, hWl⟩ := hS.sorted L' hL1 hL15 _ hL2 hL3
+        have hWs := hS.W_size
+        have hls := hS.lens_size
+        rw [Wp.bind_iff, show (Int.ofNat (t.sym + 1).toNat) = Int.ofNat (t.sym.toNat + 1) by rw [hsym1]]
+        refine Wp.of_eq (index_nat (get_work hl C2 S.W) (off := 0) (by omega)) ?_
+        rw [Nat.zero_add, Wp.bind_iff]
+        refine Wp.of_eq (index_nat (get_lens hl C2 S.W) (by omega)) ?_
+        refine Wp.have_ ?_
+        refine hsub_trip _ _ (Or.inr ⟨hc1', ?_, ?_, ?_, ?_⟩) rfl
+        all_goals
+          have e : (S.s.lens[S.lo + (S.W[t.sym.toNat + 1]!).toNat]!).toUInt32.toNat = L' := by
+            rw [UInt16.toNat_toUInt32]; exact hWl
+          rw [e]
+        all_goals omega
+    · rw [ite_eq_right hz]
+      refine hsub_trip t.len _ (Or.inl ⟨?_, rfl⟩) rfl
+      apply Classical.byContradiction
+      intro h
+      apply hz
+      apply beq_iff_eq.mpr
+      apply UInt16.toNat_inj.mp
+      rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hcnat]; exact hc1), hcnat]
+      show _ = 0
+      have : (1 : UInt16).toNat = 1 := rfl
+      omega))
+
 /-- The part of the body after `here` is made. -/
 theorem tblCont_wp {S : Setup} (hS : S.OK) {t : TL} {C : Array Code} {K : Nat} (hst : St S t C K true)
     {maxv rootv mask : UInt32} (hmax : maxv.toNat = S.mx) (hroot : rootv.toNat = S.root)
     (hmask : mask.toNat = 2 ^ S.root - 1) (here : Code) :
     Wp (tblCont S.type (.ref (.lens S.b) S.lo) (.ref (.work S.b) 0) (.ref (.codes S.b) S.off) maxv rootv mask t
       here) (setCW S.h0 S.b S.s C S.W) (fun t' h' => Trip S t t' h') := by
-  have hl := hS.live
-  have hK := hst.K_lt hS
-  have hlen1 := hst.len_lo
-  have hlen2 := hst.len_hi
-  have hmx := hS.mx15
-  have hr1 := hS.root1
-  have hrmx := hS.rootmx
-  have hcs := hst.count_size
-  have hll := hst.len_le
-  obtain ⟨nx, hnext, hnx, hur, hdr, hcu15⟩ := hst.geo.next_used hS
-  have hdl : t.drop.toNat ≤ t.len.toNat := by
-    rcases hst.geo with ⟨h1, -⟩ | ⟨h1, h2, -⟩
-    · rw [h1]; exact Nat.zero_le _
-    · omega
-  have hdrop32 : t.drop.toNat < 32 := by omega
-  have hld : (t.len - t.drop).toNat = t.len.toNat - t.drop.toNat := u32_sub hdl
   unfold tblCont
-  rw [Wp.bind_iff, shl32_ok (by rw [UInt32.lt_iff_toNat_lt, hld]; show _ < 32; omega), Wp.pure_iff,
-    Wp.bind_iff, shl32_ok (by rw [UInt32.lt_iff_toNat_lt]; show _ < 32; omega), Wp.pure_iff]
-  refine Wp.have_ ?_
-  refine Wp.have_ ?_
-  rw [Wp.bind_iff, shr32_ok (by rw [UInt32.lt_iff_toNat_lt]; show _ < 32; omega), Wp.pure_iff]
-  have hhuffl : t.huff.toNat < 2 ^ t.len.toNat := by rw [hst.huff]; exact rev16_lt (by omega) hst.dvd
-  have hsh : (t.huff >>> t.drop).toNat = t.huff.toNat / 2 ^ t.drop.toNat := u32_shr hdrop32
-  have hq : t.huff.toNat / 2 ^ t.drop.toNat < 2 ^ (t.len.toNat - t.drop.toNat) := by
-    apply Nat.div_lt_of_lt_mul
-    rw [← Nat.pow_add, show t.drop.toNat + (t.len.toNat - t.drop.toNat) = t.len.toNat by omega]
-    exact hhuffl
-  have hio : Int.ofNat (t.huff >>> t.drop).toNat = ((t.huff.toNat / 2 ^ t.drop.toNat : Nat) : Int) := by
-    rw [hsh]; rfl
-  have hma : 2 ^ (t.curr.toNat - (t.len.toNat - t.drop.toNat)) * 2 ^ (t.len.toNat - t.drop.toNat) =
-      2 ^ t.curr.toNat := by
-    rw [← Nat.pow_add]; congr 1; omega
-  have hpa : 2 ^ (t.len.toNat - t.drop.toNat) ≤ 2 ^ t.curr.toNat := Nat.pow_le_pow_right (by omega) (by omega)
-  have hpc : 2 ^ t.curr.toNat ≤ 2 ^ 15 := Nat.pow_le_pow_right (by omega) (by omega)
-  have hcsz := hst.csize
-  have hbs := hS.bnd_size
-  have hub := hst.used_bnd
-  rw [Wp.bind_iff, hio]
-  refine Wp.of_eq (by rw [hnext]; exact add_ok (get_codes hl C S.W) (by omega) (by omega) (by omega)) ?_
-  rw [show ((↑(S.off + nx) : Int) + ((t.huff.toNat / 2 ^ t.drop.toNat : Nat) : Int)).toNat =
-    S.off + nx + t.huff.toNat / 2 ^ t.drop.toNat by omega]
-  refine Wp.have_ ?_
-  have hp : ∀ j, j < 2 ^ (t.curr.toNat - (t.len.toNat - t.drop.toNat)) →
-      S.off + nx + t.huff.toNat / 2 ^ t.drop.toNat + j * 2 ^ (t.len.toNat - t.drop.toNat) < C.size := by
-    intro j hj
-    have := fill_bound hq hj
-    omega
-  have hincr : ((1 : UInt32) <<< (t.len - t.drop)).toNat = 2 ^ (t.len.toNat - t.drop.toNat) := by
-    rw [u32_shl_one (by rw [hld]; omega), hld]
-  have hf0 : ((1 : UInt32) <<< t.curr).toNat =
-      2 ^ (t.curr.toNat - (t.len.toNat - t.drop.toNat)) * 2 ^ (t.len.toNat - t.drop.toNat) := by
-    rw [u32_shl_one (by omega), hma]
-  rw [Wp.bind_iff]
-  refine Wp.mono (fill4_wp hl (Nat.two_pow_pos _) (by omega) hp _ hincr (packCode here) _ hf0) ?_
-  rintro f h1 ⟨q4, C1, hf, hq4, hq4m, rfl, hF1⟩
-  rw [Wp.bind_iff]
-  refine Wp.mono (fill1_wp hl (by omega) hp _ hincr _ f hf hq4m hF1) ?_
-  rintro _ h2 ⟨C2, rfl, hF2⟩
-  -- the stores stay in the current table
-  have hsize2 : C2.size = C.size := hF2.size
-  have hfr2 : ∀ i, ¬ (S.off ≤ i ∧ i < S.off + t.used.toNat) → C2[i]? = C[i]? := by
-    intro i hi
-    apply hF2.keep
-    intro j _ hj e
-    have := fill_bound hq hj
-    omega
-  have hl1 : (t.len - 1).toNat = t.len.toNat - 1 := u32_sub (by simp; omega)
-  rw [Wp.bind_iff, shr32_ok (by rw [UInt32.lt_iff_toNat_lt, hl1]; show _ < 32; omega), Wp.pure_iff]
-  have hw : ((32768 : UInt32) >>> (t.len - 1)).toNat = 2 ^ (16 - t.len.toNat) := by
-    rw [u32_shr (by rw [hl1]; omega), hl1]
-    show 2 ^ 15 / 2 ^ (t.len.toNat - 1) = _
-    rw [Nat.pow_div (by omega) (by omega)]
-    congr 1; omega
-  refine Wp.have_ ?_
-  refine Wp.have_ ?_
-  refine Wp.have_ ?_
-  have hcl : t.len.toNat < t.count.size := by omega
-  rw [Wp.bind_iff, aget_ok hcl, Wp.pure_iff, Wp.bind_iff, aset_ok hcl, Wp.pure_iff]
-  refine Wp.have_ ?_
-  refine Wp.have_ ?_
-  have hc1 := hst.cur_pos
-  have hcget : t.count[t.len.toNat] = t.count[t.len.toNat]! := (getElem!_pos t.count _ hcl).symm
-  have hcnat : (t.count[t.len.toNat]).toNat = cnt t.count t.len.toNat := by rw [hcget]; rfl
-  have hr : (((t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16)).toNat =
-      (K + 2 ^ (16 - t.len.toNat)) % 2 ^ 16 := by
-    rw [rhuff_step (by rw [hw]; have : 2 ^ (16 - t.len.toNat) ≤ 2 ^ 16 := Nat.pow_le_pow_right (by omega) (by omega); omega),
-      hw, hst.rhuff]
-  have hhf : ((zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32).toNat =
-      rev 16 (K + 2 ^ (16 - t.len.toNat)) := by
-    rw [UInt16.toNat_toUInt32, bitreverse16_toNat, hr, rev_mod]
-  have hsym := hst.sym
-  have hnle := hS.n_le
-  have hncodes := hS.n_codes
-  have hcodes : S.codes ≤ 288 := by rcases hS.kind with ⟨-, -, h⟩ | ⟨-, -, h⟩ | ⟨-, -, h⟩ <;> omega
-  have one : (1 : UInt32).toNat = 1 := rfl
-  have hn := nsum_mono S.c0 (show t.len.toNat ≤ 15 by omega)
-  have hsym1 : (t.sym + 1).toNat = t.sym.toNat + 1 := by rw [u32_add (by rw [one]; omega), one]
-  have hsub_trip : ∀ (len' : UInt32) (h' : Heap),
-      (2 ≤ cnt t.count t.len.toNat ∧ len' = t.len) ∨
-        (cnt t.count t.len.toNat = 1 ∧ 1 ≤ len'.toNat ∧ len'.toNat ≤ 15 ∧
-          nsum S.c0 (len'.toNat - 1) ≤ t.sym.toNat + 1 ∧ t.sym.toNat + 1 < nsum S.c0 len'.toNat) →
-      h' = setCW S.h0 S.b S.s C2 S.W →
-      Wp (tblSub S.type (.ref (.codes S.b) S.off) maxv rootv mask t here ((1 : UInt32) <<< t.curr)
-        ((t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16)
-        (zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32
-        (t.sym + 1) (t.count.set! t.len.toNat (t.count[t.len.toNat] - 1)) len') h'
-        (fun t' h' => Trip S t t' h') := by
-    intro len' h' hlen' rfl
-    have hst' := st_next hS hst hsize2 hfr2 (count := t.count.set! t.len.toNat (t.count[t.len.toNat] - 1))
-      (by rw [hcget]) hr hhf (len := len') (min := (1 : UInt32) <<< t.curr) here hlen'
-    refine Wp.mono (tblSub_wp hS hmax hroot hmask hst' (by rw [u32_shl_one (by omega)])) ?_
-    rintro t' h'' (⟨hmi, hs'⟩ | h1)
-    · refine Or.inl ⟨hmi, by rw [hs', hsym1]; omega, by rw [hs', hsym1]; omega⟩
-    · exact Or.inr (Or.inr h1)
-  by_cases hz : (t.count[t.len.toNat] - 1 == 0) = true
-  · have hc1' : cnt t.count t.len.toNat = 1 := by
-      have h0 : (t.count[t.len.toNat] - 1).toNat = 0 := by rw [beq_iff_eq.mp hz]; rfl
-      rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hcnat]; exact hc1), hcnat] at h0
-      have : (1 : UInt16).toNat = 1 := rfl
-      omega
-    rw [ite_eq_left hz]
-    by_cases hm : (t.len == maxv) = true
-    · rw [ite_eq_left hm, Wp.pure_iff]
-      have hlm : t.len.toNat = S.mx := by rw [← hmax]; exact congrArg UInt32.toNat (beq_iff_eq.mp hm)
-      refine Or.inr (Or.inl ⟨C2, rfl, ?_⟩)
-      have hcv0 : ∀ L, 1 ≤ L → L ≤ 15 → cnt (t.count.set! t.len.toNat (t.count[t.len.toNat] - 1)) L = 0 := by
-        intro L h1 h2
-        rw [cnt_set hcl]
-        split
-        · rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hcnat]; exact hc1), hcnat]
-          have : (1 : UInt16).toNat = 1 := rfl
-          omega
-        · by_cases hlt : L < t.len.toNat
-          · exact hst.below L h1 hlt
-          · rw [hst.above L (by omega) h2]; exact hS.above L (by omega) h2
-      have hKT : K + 2 ^ (16 - t.len.toNat) = wsum S.c0 15 := by
-        have e1 := wsum_dec (c := cnt t.count) (d := cnt (t.count.set! t.len.toNat (t.count[t.len.toNat] - 1)))
-          (k := t.len.toNat) (m := 15) (by omega) (by omega) (by rw [hcv0 _ (by omega) (by omega)]; omega)
-          (fun L hL => by rw [cnt_set hcl]; simp [hL])
-        rw [wsum_eq_zero hcv0] at e1
-        have := hst.kraft
-        omega
-      refine { ret := rfl, csize := by rw [hsize2]; exact hst.csize,
-               frame := fun i hi => by rw [hfr2 i hi]; exact hst.frame i hi,
-               used_bnd := hst.used_bnd, root_le := hur, geo := ?_, huff := ?_ }
-      · rcases hst.geo with ⟨h1, -, h3, h4, -⟩ | ⟨h1, -, -, -, nx', P, h5, -, h7, -⟩
-        · exact Or.inl ⟨h1, h3, h4⟩
-        · exact Or.inr ⟨h1, nx', h5, h7⟩
-      · dsimp only
-        rcases hS.complete with hT | ⟨hm1, hc01⟩
-        · refine Or.inl ⟨hT, ?_⟩
-          apply UInt32.toNat_inj.mp
-          rw [hhf, hKT, hT, ← rev_mod, Nat.mod_self]
-          simp
-        · have hT : wsum S.c0 15 = 2 ^ 15 := by
-            rw [wsum_one (fun L h1 h2 => hS.above L (by omega) h2), hc01]
-          have hr1 : S.root = 1 := by omega
-          rcases hst.geo with ⟨h1, -, h3, h4, -⟩ | ⟨h1, h2, -⟩
-          · refine Or.inr ⟨hm1, h1, ?_, hr1, h3, by rw [h4, hr1]⟩
-            rw [hhf, hKT, hT, rev16_pow15]
-          · omega
-    · rw [ite_eq_right hm]
-      have hlm : t.len.toNat ≠ S.mx := fun e => hm (beq_iff_eq.mpr (UInt32.toNat_inj.mp (by rw [e, hmax])))
-      have hsl : t.sym.toNat + 1 = nsum S.c0 t.len.toNat := by omega
-      have hnmx : nsum S.c0 t.len.toNat + S.c0 S.mx ≤ nsum S.c0 15 := by
-        have := ssum_sub_le (fun i => S.c0 (i + 1)) (m := t.len.toNat) (n := 15) (by omega) (S.mx - 1)
-          (by omega) (by omega)
-        simp only [show S.mx - 1 + 1 = S.mx by omega] at this
-        exact this
-      have hc0mx := hS.c0mx
-      obtain ⟨L', hL1, hL15, hL2, hL3⟩ := class_exists S.c0 15 (t.sym.toNat + 1) (by omega)
-      obtain ⟨hWc, hWl⟩ := hS.sorted L' hL1 hL15 _ hL2 hL3
-      have hWs := hS.W_size
-      have hls := hS.lens_size
-      rw [Wp.bind_iff, show (Int.ofNat (t.sym + 1).toNat) = Int.ofNat (t.sym.toNat + 1) by rw [hsym1]]
-      refine Wp.of_eq (index_nat (get_work hl C2 S.W) (off := 0) (by omega)) ?_
-      rw [Nat.zero_add, Wp.bind_iff]
-      refine Wp.of_eq (index_nat (get_lens hl C2 S.W) (by omega)) ?_
-      refine Wp.have_ ?_
-      refine hsub_trip _ _ (Or.inr ⟨hc1', ?_, ?_, ?_, ?_⟩) rfl
-      all_goals
-        have e : (S.s.lens[S.lo + (S.W[t.sym.toNat + 1]!).toNat]!).toUInt32.toNat = L' := by
-          rw [UInt16.toNat_toUInt32]; exact hWl
-        rw [e]
-      all_goals omega
-  · rw [ite_eq_right hz]
-    refine hsub_trip t.len _ (Or.inl ⟨?_, rfl⟩) rfl
-    apply Classical.byContradiction
-    intro h
-    apply hz
-    apply beq_iff_eq.mpr
-    apply UInt16.toNat_inj.mp
-    rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hcnat]; exact hc1), hcnat]
-    show _ = 0
-    have : (1 : UInt16).toNat = 1 := rfl
-    omega
+  tblCont_steps maxv rootv mask
 
 end ZlibNgF.Proof.Inftrees

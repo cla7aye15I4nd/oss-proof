@@ -25,3 +25,4 @@ import ZlibNgF.Proof.«inftrees.c.cont»
 import ZlibNgF.Proof.«inftrees.c.loop»
 import ZlibNgF.Proof.«inftrees.c.pre»
 import ZlibNgF.Proof.«inftrees.c.safety»
+import ZlibNgF.Proof.«inftrees.c.table»
