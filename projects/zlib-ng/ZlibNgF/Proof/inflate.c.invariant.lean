@@ -114,9 +114,10 @@ decoding tables (`TabAt`: entries read in bounds, bounded bit counts), the numbe
 distance, and a nonzero match distance. Each clause is conditional on the mode, so a store that sets another mode
 keeps it. -/
 structure ModeOK (b : Nat) (v : MView) : Prop where
-  lenlens : v.mode = LENLENS → v.ncode ≤ 19 ∧ v.nlen ≤ 286 ∧ v.ndist ≤ 30 ∧
+  lenlens : v.mode = LENLENS → v.ncode ≤ 19 ∧ (257 ≤ v.nlen.toNat ∧ v.nlen ≤ 286) ∧ (1 ≤ v.ndist.toNat ∧ v.ndist ≤ 30) ∧
     ∀ j, j < v.«have».toNat → v.lens[(order[j]!).toNat]! ≤ 7
-  codelens : v.mode = CODELENS → v.nlen ≤ 286 ∧ v.ndist ≤ 30 ∧ (∀ j, j < v.«have».toNat → v.lens[j]! ≤ 15) ∧
+  codelens : v.mode = CODELENS → (257 ≤ v.nlen.toNat ∧ v.nlen ≤ 286) ∧ (1 ≤ v.ndist.toNat ∧ v.ndist ≤ 30) ∧
+    (∀ j, j < v.«have».toNat → v.lens[j]! ≤ 15) ∧
     TabAt b v.codes v.lencode v.lenbits 25 false
   decode : DecodeMode v.mode → TabAt b v.codes v.lencode v.lenbits 28 false ∧
     TabAt b v.codes v.distcode v.distbits 28 true
