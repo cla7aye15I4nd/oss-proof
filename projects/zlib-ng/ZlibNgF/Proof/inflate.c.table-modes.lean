@@ -498,4 +498,44 @@ theorem run_TABLE (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENLENS (·.m
         (4 : UInt32).toUInt8).toNat + l1.left.toNat) + rank LENLENS ≤ m
     rw [hb7, hl', rank_LENLENS]; omega
 
+/-! ## Reading a decoding table (for `CODELENS` and the decoding modes) -/
+
+/-- A table of the invariant lives in an array of the heap. -/
+theorem tab_get {H : Heap} {b : Nat} {S : InflateState} (hs : H.istate b = some S) {p : Ival CodePtr} {n : UInt32}
+    {m : Nat} {dist : Bool} (t : TabAt b S.codes p n m dist) :
+    ∃ r o e a, p = .val (.ref r o) ∧ Space.get H r = some a ∧ CodeTable a o e n.toNat m dist := by
+  rcases t with ⟨o, e, hp, t⟩ | ⟨hp, e, t⟩ | ⟨hp, e, t⟩
+  · exact ⟨.codes b, o, e, S.codes, hp, by show Heap.getCodes _ _ = _; simp [Heap.getCodes, hs], t⟩
+  · exact ⟨.lenfix, 0, e, lenfix, hp, rfl, t⟩
+  · exact ⟨.distfix, 0, e, distfix, hp, rfl, t⟩
+
+/-- `BITS(n)` is below `2 ^ n`. -/
+theorem bits_lt (x : UInt64) (n : UInt32) (hn : n.toNat ≤ 15) :
+    (x &&& ((1 : UInt32) <<< n - 1).toUInt64).toNat < 2 ^ n.toNat := by
+  have hk : n.toNat % 32 = n.toNat := Nat.mod_eq_of_lt (by omega)
+  have hp : 2 ^ n.toNat < 2 ^ 32 := Nat.pow_lt_pow_right (by decide) (by omega)
+  have h1 : ((1 : UInt32) <<< n).toNat = 2 ^ n.toNat := by
+    rw [UInt32.toNat_shiftLeft, hk]
+    show 1 <<< n.toNat % 2 ^ 32 = _
+    rw [Nat.shiftLeft_eq, Nat.one_mul]; exact Nat.mod_eq_of_lt hp
+  have h0 : 1 ≤ 2 ^ n.toNat := Nat.one_le_two_pow
+  have h2 : ((1 : UInt32) <<< n - 1).toNat = 2 ^ n.toNat - 1 := by
+    rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le, h1]; exact h0), h1]; rfl
+  have h3 : ((1 : UInt32) <<< n - 1).toUInt64.toNat = 2 ^ n.toNat - 1 := by rw [UInt32.toNat_toUInt64, h2]
+  rw [UInt64.toNat_and, h3]
+  exact Nat.lt_of_le_of_lt Nat.and_le_right (by omega)
+
+/-- `here = tab[k]` for an index `k < 2 ^ n` of the root table. -/
+theorem tab_index {H : Heap} {r : CodeRef} {o e : Nat} {a : Array Code} {n m : Nat} {dist : Bool}
+    (hg : Space.get H r = some a) (t : CodeTable a o e n m dist) {k : Nat} (hk : k < 2 ^ n) :
+    Ptr.index (.ref r o : CodePtr) (Int.ofNat k) H = .ok (a[o + k]!, H) := by
+  have hr := t.root
+  have hf := t.fits
+  have hlt : o + k < a.size := by omega
+  have hc : o ≤ a.size ∧ 0 ≤ (o : Int) + Int.ofNat k ∧ (o : Int) + Int.ofNat k ≤ (a.size : Int) := by
+    simp only [Int.ofNat_eq_natCast]; omega
+  have e1 : ((o : Int) + Int.ofNat k).toNat = o + k := by simp only [Int.ofNat_eq_natCast]; omega
+  simp only [Ptr.index, Ptr.add, Ptr.load, bind_app, hg, hc, and_self, ↓reduceIte, e1, hlt, ↓reduceDIte,
+    getElem!_pos a (o + k) hlt]
+
 end ZlibNgF.Proof.InflateLoop
