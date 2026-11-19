@@ -91,6 +91,8 @@ structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Pr
   inAt : InAt E.inp E.A0 l.next l.have_
   outAt : OutAt E.bo E.oo E.O0 l.put l.out l.left
   bits : l.bits ≤ 39
+  /-- `in`, the input count at entry, is set once before the loop -/
+  inn : l.in_ = E.A0
 
 /-- The loop invariant for some stream record and state. -/
 def LIx (E : Env) (l : IL) (H : Heap) : Prop := ∃ z S, LI E l H z S
@@ -128,7 +130,7 @@ def Fin (E : Env) (H : Heap) : Prop := Inv H (some E.i) ∧ Frame E.H0 H [E.i] [
 def Post (E : Env) (m : Nat) : Except Ex Unit → IL → Heap → Prop
   | .ok (), l, H => ∃ z S, LI E l H z S ∧ μ l S < m
   | .error .leave, l, H => LIx E l H
-  | .error (.ret _), _, H => Fin E H
+  | .error (.ret v), _, H => Fin E H ∧ v ≠ Z_OK
 
 theorem Post.mono {E : Env} {m m' : Nat} (hm : m ≤ m') {r : Except Ex Unit} {l : IL} {H : Heap}
     (p : Post E m r l H) : Post E m' r l H := by
@@ -148,7 +150,7 @@ theorem loop_ok {E : Env} (T : TripOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
     SatX H l (xloopBrk (do dispatch E.c; return false)) (fun r l' H' => match r with
       | .ok () => False
       | .error .leave => LIx E l' H'
-      | .error (.ret _) => Fin E H') := by
+      | .error (.ret v) => Fin E H' ∧ v ≠ Z_OK) := by
   unfold xloopBrk
   refine xwhileBrk_rank (fun l H => LIx E l H) (fun l H => ?_) _ ?_ ⟨z, S, li⟩ ?_
   · exact match H.istate E.b with | some S => μ l S | none => 0

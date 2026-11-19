@@ -42,13 +42,14 @@ theorem LI.outPos {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
 theorem LI.produce {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     {p : Nat} (hp : l.put = .ref (.heap E.bo) p) (c : UInt32) (hc : c ≤ l.left) (l' : IL)
     (e1 : l'.next = l.next) (e2 : l'.have_ = l.have_) (e3 : l'.put = .ref (.heap E.bo) (p + c.toNat))
-    (e4 : l'.out = l.out) (e5 : l'.left = l.left - c) (e6 : l'.bits = l.bits) : LI E l' H z S := by
+    (e4 : l'.out = l.out) (e5 : l'.left = l.left - c) (e6 : l'.bits = l.bits) (e7 : l'.in_ = l.in_ := by rfl) :
+    LI E l' H z S := by
   obtain ⟨hle, ob, h1, h2, hput⟩ := li.outAt
   have hle' : l.left.toNat ≤ l.out.toNat := hle
   have hc' : c.toNat ≤ l.left.toNat := hc
   have hs : (l.left - c).toNat = l.left.toNat - c.toNat := UInt32.toNat_sub_of_le _ _ hc
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [e1, e2]; exact li.inAt, ?_,
-    by rw [e6]; exact li.bits⟩
+    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn⟩
   rw [e3, e4, e5]
   refine ⟨by rw [UInt32.le_iff_toNat_le, hs]; omega, ob, h1, h2, ?_⟩
   rw [hp] at hput

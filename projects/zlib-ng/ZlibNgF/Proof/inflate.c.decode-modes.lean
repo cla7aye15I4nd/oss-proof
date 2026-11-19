@@ -832,7 +832,7 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
   have hao' : ao.toNat ≤ l.left.toNat := hao
   have hlo' : l.left.toNat ≤ l.out.toNat := hlo
   have hb8 : bits.toNat < 8 := hbits
-  refine ⟨?_, ?_, ?_, hz', li.hb, hist, li.head, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, hz', li.hb, hist, li.head, ?_, ?_, ?_, ?_, li.inn⟩
   · obtain ⟨i', z0, b0, st0, al, e, hz0, hb0, hst0, hal, c⟩ := li.inv
     obtain rfl : E.i = i' := Option.some.inj e
     rw [li.hz] at hz0; cases hz0

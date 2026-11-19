@@ -177,7 +177,7 @@ theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
   split
   · refine SatX.bind (SatX.mono li.restore ?_)
     rintro r l1 H1 ⟨rfl, rfl, z1, S1, li1, -⟩
-    exact SatX.bind (SatX.throw ⟨li1.inv, li1.frame⟩)
+    exact SatX.bind (SatX.throw ⟨⟨li1.inv, li1.frame⟩, by decide⟩)
   · refine SatX.bind (SatX.lift (Sat.mono (li.wrS (fun s => { s with check := ADLER32_INITIAL_VALUE })
       (fun _ _ c => c) rfl) ?_))
     intro _ H1 li1

@@ -54,10 +54,10 @@ theorem run_LENGTH (E : Env) (eo : EnvOK E) : ModeRun E inflate_LENGTH (·.mode 
 /-- `out = left`: the output position is the start of the room left. -/
 theorem LI.resetOut {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (l' : IL)
     (h1 : l'.next = l.next) (h2 : l'.have_ = l.have_) (h3 : l'.put = l.put) (h4 : l'.out = l'.left)
-    (h5 : l'.left = l.left) (h6 : l'.bits = l.bits) : LI E l' H z S := by
+    (h5 : l'.left = l.left) (h6 : l'.bits = l.bits) (h7 : l'.in_ = l.in_ := by rfl) : LI E l' H z S := by
   obtain ⟨p, hp, hp1, hp2⟩ := li.outPos
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt, ?_,
-    by rw [h6]; exact li.bits⟩
+    by rw [h6]; exact li.bits, by rw [h7]; exact li.inn⟩
   refine ⟨by rw [h4]; exact UInt32.le_refl _, p, hp1, by rw [h4, h5]; exact hp2, ?_⟩
   rw [h3, hp, h4, UInt32.sub_self]; rfl
 

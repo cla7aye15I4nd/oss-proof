@@ -124,9 +124,9 @@ theorem LI.setQuiet {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
 /-- `LI` for new locals that agree with the old ones on the fields it reads. -/
 theorem LI.locals {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (h1 : l'.next = l.next) (h2 : l'.have_ = l.have_) (h3 : l'.put = l.put) (h4 : l'.out = l.out)
-    (h5 : l'.left = l.left) (h6 : l'.bits = l.bits) : LI E l' H z S :=
+    (h5 : l'.left = l.left) (h6 : l'.bits = l.bits) (h7 : l'.in_ = l.in_ := by rfl) : LI E l' H z S :=
   ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt,
-    by rw [h3, h4, h5]; exact li.outAt, by rw [h6]; exact li.bits⟩
+    by rw [h3, h4, h5]; exact li.outAt, by rw [h6]; exact li.bits, by rw [h7]; exact li.inn⟩
 
 /-- A mode statement: from every state with the invariant and `pre`, below the measure bound `m`, the mode runs to
 `Post E m`. -/
@@ -197,7 +197,7 @@ theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
   have e : modeFn M E.c = throw (Ex.ret Z_STREAM_ERROR) := by
     rcases hM with rfl | rfl <;> rfl
   rw [e]
-  exact SatX.throw ⟨li.inv, li.frame⟩
+  exact SatX.throw ⟨⟨li.inv, li.frame⟩, by decide⟩
 
 /-! ## The input buffer -/
 
@@ -326,7 +326,7 @@ theorem needbits_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
       have hsub : (l1.have_ - 1).toNat = l1.have_.toNat - 1 := by
         rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; show 1 ≤ _; omega)]; rfl
       refine ⟨⟨rfl, ?_, ?_, ?_⟩, ?_⟩
-      · refine ⟨li1.inv, li1.frame, li1.sz, li1.hz, li1.hb, li1.hs, li1.head, li1.hdr, ?_, li1.outAt, ?_⟩
+      · refine ⟨li1.inv, li1.frame, li1.sz, li1.hz, li1.hb, li1.hs, li1.head, li1.hdr, ?_, li1.outAt, ?_, li1.inn⟩
         · obtain ⟨hle, hat⟩ := li1.inAt
           refine ⟨by rw [UInt32.le_iff_toNat_le, hsub]; have : l1.have_.toNat ≤ E.A0.toNat := hle; omega, ?_⟩
           show match E.inp with
@@ -505,8 +505,8 @@ theorem LI.stHdr {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
 /-- `LI` for new locals with the same buffers and at most 39 bits. -/
 theorem LI.setBits {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (h1 : l'.next = l.next) (h2 : l'.have_ = l.have_) (h3 : l'.put = l.put) (h4 : l'.out = l.out)
-    (h5 : l'.left = l.left) (h6 : l'.bits ≤ 39) : LI E l' H z S :=
+    (h5 : l'.left = l.left) (h6 : l'.bits ≤ 39) (h7 : l'.in_ = l.in_ := by rfl) : LI E l' H z S :=
   ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt,
-    by rw [h3, h4, h5]; exact li.outAt, h6⟩
+    by rw [h3, h4, h5]; exact li.outAt, h6, by rw [h7]; exact li.inn⟩
 
 end ZlibNgF.Proof.InflateLoop

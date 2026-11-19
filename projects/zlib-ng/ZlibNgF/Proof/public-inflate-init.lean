@@ -64,7 +64,7 @@ theorem init_ok_gen (h : Heap) (hfr : FreshBlocks h) (hz : h.streams 0 = some {}
     (hok : h.allocOk h.nalloc = true) :
     ∃ h', C.run (do let v ← strLitRef "1.3.2.zlib-ng"; inflateInit_ (some 0) v 112) h = .ok (Z_OK, h') ∧
       InflateReachable h' (some 0) := by
-  obtain ⟨r, h', e, _, _, hr⟩ := init2_ok hz (Or.inl rfl) (Or.inl rfl) (hfr _ (Nat.le_refl _)).1
+  obtain ⟨r, h', e, _, _, hr, _⟩ := init2_ok hz (Or.inl rfl) (Or.inl rfl) (hfr _ (Nat.le_refl _)).1
     (hfr _ (Nat.le_refl _)).2.1
     DEF_WBITS
   have hr : r = Z_OK := hr hok rfl

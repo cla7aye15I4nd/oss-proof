@@ -408,7 +408,7 @@ theorem LI.afterUW {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
       c (by simp [G3]) (fun d0 hd0 => by rw [hd] at hd0; cases hd0; exact hsz)
       rfl ws wh wn hws W with }⟩,
     Frame.trans li.frame (Frame.mono (G3_frame ..) (fun _ m => m) (fun _ m => m) (fun _ m => nomatch m)
-      (fun _ m => nomatch m)), ?_, by simp [G3], li.hb, G3_istate .., li.head, ?_, li.inAt, li.outAt, li.bits⟩
+      (fun _ m => nomatch m)), ?_, by simp [G3], li.hb, G3_istate .., li.head, ?_, li.inAt, li.outAt, li.bits, li.inn⟩
   · simp only [Heap.iallocsOf, G3, upd_same]
     simpa [Heap.iallocsOf, hd] using hal
   · refine li.sz.trans ⟨fun c hc d0 hd0 => ⟨d0, ?_, rfl⟩, rfl⟩
@@ -416,9 +416,45 @@ theorem LI.afterUW {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
     rw [upd_ne _ _ _ _ hc]; exact hd0
   · exact li.hdr
 
-open ZlibNgF.Proof.InflateLoop in
+open ZlibNgF.Proof.InflateLoop
+
+/-- What a call that returns `Z_OK` leaves in the stream: the input advanced by the bytes consumed, the output position
+inside the caller's buffer with room for `avail_out` bytes, the header unchanged, and some input consumed or some
+output written. -/
+def Prog (E : Env) (H : Heap) : Prop :=
+  ∃ z S, H.streams E.i = some z ∧ z.state = some E.b ∧ H.istate E.b = some S ∧ S.head = .val E.hp ∧
+    InAt E.inp E.A0 z.next_in z.avail_in ∧
+    (z.avail_out ≤ E.O0 ∧ ∃ p, E.oo ≤ p ∧ p + z.avail_out.toNat ≤ E.oo + E.O0.toNat ∧
+      z.next_out = .ref (.heap E.bo) p) ∧
+    (z.avail_in < E.A0 ∨ z.avail_out < E.O0)
+
+theorem prog_of {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
+    (hn : z.next_in = l.next) (ha : z.avail_in = l.have_) (hpo : z.next_out = l.put) (hao : z.avail_out = l.left)
+    (hp : l.in_ - z.avail_in ≠ 0 ∨ l.out - z.avail_out ≠ 0) : Prog E H := by
+  obtain ⟨hlo, ob, hob1, hob2, hput⟩ := li.outAt
+  have hlo' : l.left.toNat ≤ l.out.toNat := hlo
+  have hsub : (l.out - l.left).toNat = l.out.toNat - l.left.toNat := UInt32.toNat_sub_of_le _ _ hlo
+  have hout : l.out.toNat ≤ E.O0.toNat := by omega
+  refine ⟨z, S, li.hz, li.hb, li.hs, li.head, by rw [hn, ha]; exact li.inAt, ⟨?_, ob + (l.out - l.left).toNat,
+    by omega, ?_, by rw [hpo, hput]⟩, ?_⟩
+  · rw [hao, UInt32.le_iff_toNat_le]; omega
+  · rw [hao, hsub]; omega
+  · rw [li.inn, ha, hao] at hp
+    have hin : l.have_.toNat ≤ E.A0.toNat := li.inAt.1
+    rcases hp with hp | hp
+    · left
+      rw [ha, UInt32.lt_iff_toNat_lt]
+      have : E.A0.toNat ≠ l.have_.toNat := fun e => hp (by
+        rw [← UInt32.toNat_inj, UInt32.toNat_sub_of_le _ _ li.inAt.1]; show _ = 0; omega)
+      omega
+    · right
+      rw [hao, UInt32.lt_iff_toNat_lt]
+      have : l.out.toNat ≠ l.left.toNat := fun e => hp (by
+        rw [← UInt32.toNat_inj, hsub]; show _ = 0; omega)
+      omega
+
 theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) :
-    SatX H l (infLeave E.c) (fun r _ H' => (∃ v, r = .ok v) ∧ Fin E H') := by
+    SatX H l (infLeave E.c) (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H')) ∧ Fin E H') := by
   unfold infLeave
   refine SatX.bind (SatX.mono li.restoreX ?_)
   rintro r l1 H2 ⟨hr, hl1, li2⟩
@@ -431,22 +467,23 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
   refine SatX.bind (SatX.get ?_)
   dsimp (config := { zeta := false }) only
   extract_lets jpr jpb jp
-  have hjpr : ∀ (u : Unit) (l' : IL) (H' : Heap), Fin E H' → SatX H' l' (jpr u)
-      (fun r _ H' => (∃ v, r = .ok v) ∧ Fin E H') := by
-    intro u l' H' hf
+  have hjpr : ∀ (u : Unit) (l' : IL) (H' : Heap), Fin E H' → (l'.ret = Z_OK → Prog E H') → SatX H' l' (jpr u)
+      (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H')) ∧ Fin E H') := by
+    intro u l' H' hf hp
     simp only [jpr]
-    exact SatX.bind (SatX.get (SatX.pure ⟨⟨_, rfl⟩, hf⟩))
+    exact SatX.bind (SatX.get (SatX.pure ⟨⟨_, rfl, hp⟩, hf⟩))
   have hjpb : ∀ (u : Unit) (l' : IL) (H' : Heap), Fin E H' → SatX H' l' (jpb u)
-      (fun r _ H' => (∃ v, r = .ok v) ∧ Fin E H') := by
+      (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H')) ∧ Fin E H') := by
     intro u l' H' hf
     simp only [jpb]
-    exact SatX.bind (SatX.modify (hjpr () _ _ hf))
+    exact SatX.bind (SatX.modify (hjpr () _ _ hf (fun e => absurd e (by show ¬ (Z_BUF_ERROR = Z_OK); decide))))
   obtain ⟨hlo, ob, hob1, hob2, hput⟩ := li2.outAt
   have hlo' : l.left.toNat ≤ l.out.toNat := hlo
   have hsubo : (l.out - l.left).toNat = l.out.toNat - l.left.toNat := UInt32.toNat_sub_of_le _ _ hlo
   have hjp : ∀ (u : Unit) (H' : Heap) (z' : ZStream) (S' : InflateState), LI E l H' z' S' →
-      SatX H' l (jp u) (fun r _ H' => (∃ v, r = .ok v) ∧ Fin E H') := by
-    intro u H' z' S' li'
+      z'.next_in = l.next → z'.avail_in = l.have_ → z'.next_out = l.put → z'.avail_out = l.left →
+      SatX H' l (jp u) (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H')) ∧ Fin E H') := by
+    intro u H' z' S' li' hn ha hpo hao
     simp only [jp]
     refine SatX.bind (SatX.lift_eq li'.ldStream ?_)
     refine SatX.bind (SatX.modify ?_)
@@ -478,7 +515,11 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
         rintro u2 H8 ⟨v, li8⟩
         exact hjpb u2 _ _ ⟨li8.inv, li8.frame⟩
       · exact hjpb () _ _ ⟨li7.inv, li7.frame⟩
-    · exact hjpr () _ _ ⟨li7.inv, li7.frame⟩
+    · rename_i hc
+      refine hjpr () _ _ ⟨li7.inv, li7.frame⟩ (fun hr => prog_of li7 hn ha hpo hao ?_)
+      refine Classical.byContradiction fun hb => ?_
+      simp only [not_or, ne_eq, Decidable.not_not] at hb
+      exact hc (by simp [hb.1, hb.2]; exact hr)
   clear_value jp jpb jpr
   split
   · obtain ⟨al, -, c⟩ := li2.core
@@ -491,7 +532,7 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
       (ZlibNgF.Proof.InflateLoop.istates_of li2.hs) hcrc (r := .heap E.bo) (os := ob) (sd := dout) _ hne hdo
       (by omega)) ?_))
     rintro u H3 ⟨data, d', ws, wh, wn, ck, ad, hdata, hd', hws, W, rfl⟩
-    exact hjp u _ _ _ (LI.afterUW li2 hdata hd' ws wh wn hws W ck ad)
-  · exact hjp () _ _ _ li2
+    exact hjp u _ _ _ (LI.afterUW li2 hdata hd' ws wh wn hws W ck ad) rfl rfl rfl rfl
+  · exact hjp () _ _ _ li2 rfl rfl rfl rfl
 
 end ZlibNgF.Proof.InflateLeave

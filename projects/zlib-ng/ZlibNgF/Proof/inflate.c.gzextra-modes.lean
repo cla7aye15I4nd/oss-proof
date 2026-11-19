@@ -49,7 +49,7 @@ theorem LI.wrBytes {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
     (hw : ((.ref (.heap bd) o0 : BPtr), n0) ∈ E.W) (h1 : o0 ≤ od) (h2 : od + n ≤ o0 + n0) :
     LI E l { H with bytes := upd H.bytes bd (some a') } z S := by
   have hbb : (upd H.bytes bd (some a')) E.b = H.bytes E.b := upd_ne _ _ _ _ (fun e => hne e.symm)
-  refine ⟨inv_bytes_ne li.inv ?_, ?_, ?_, li.hz, li.hb, ?_, li.head, li.hdr, li.inAt, li.outAt, li.bits⟩
+  refine ⟨inv_bytes_ne li.inv ?_, ?_, ?_, li.hz, li.hb, ?_, li.head, li.hdr, li.inAt, li.outAt, li.bits, li.inn⟩
   · rintro b' ⟨z', ⟨i', hi', hz'⟩, hb'⟩
     cases hi'
     rw [li.hz] at hz'; cases hz'; rw [li.hb] at hb'; cases hb'
@@ -152,13 +152,13 @@ theorem LI.storeBuf {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
 theorem LI.consume {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     {r : BRef} {o : Nat} (hn : l.next = .ref r o) (c : UInt32) (hc : c ≤ l.have_) (l' : IL)
     (e1 : l'.next = .ref r (o + c.toNat)) (e2 : l'.have_ = l.have_ - c) (e3 : l'.put = l.put) (e4 : l'.out = l.out)
-    (e5 : l'.left = l.left) (e6 : l'.bits = l.bits) : LI E l' H z S := by
+    (e5 : l'.left = l.left) (e6 : l'.bits = l.bits) (e7 : l'.in_ = l.in_ := by rfl) : LI E l' H z S := by
   obtain ⟨hle, hat⟩ := li.inAt
   have hc' : c.toNat ≤ l.have_.toNat := hc
   have hle' : l.have_.toNat ≤ E.A0.toNat := hle
   have hs : (l.have_ - c).toNat = l.have_.toNat - c.toNat := UInt32.toNat_sub_of_le _ _ hc
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, ?_, by rw [e3, e4, e5]; exact li.outAt,
-    by rw [e6]; exact li.bits⟩
+    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn⟩
   rw [e1, e2]
   refine ⟨by rw [UInt32.le_iff_toNat_le, hs]; omega, ?_⟩
   revert hat
