@@ -12,8 +12,8 @@ namespace C
 
 /-- Source string literals compiled into `zlib-ng` (`ZLIB_COMPAT` build). -/
 def strTable : Array String := #[
-  "1.3.1.zlib-ng",
-  " zlib-ng 2.3.3",
+  "1.3.2.zlib-ng",
+  " zlib-ng 2.3.90 devel",
   "need dictionary",
   "stream end",
   "",
