@@ -6,7 +6,7 @@ unsafe.
 
 ## Every call
 
-- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the seven patches, built for x86_64
+- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the eight patches, built for x86_64
   Linux LP64 with `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF`,
   so that `adler32` and `adler32_z` run `adler32_c`, and `crc32` and `crc32_z` run `crc32_braid`. A build that
   dispatches to SIMD kernels or to the Chorba CRC-32 kernel (the default) is not covered.

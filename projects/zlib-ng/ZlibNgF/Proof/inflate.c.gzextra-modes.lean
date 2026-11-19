@@ -552,18 +552,18 @@ theorem extraTail_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} 
 
 /-- The header part of the `copy != 0` branch of `EXTRA`: the copy into `head->extra`. -/
 theorem extraHdr_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
-    (li : LI E l H z S) (hS : S.mode = EXTRA) (lc : IL) (c : UInt32) (hsame : Same lc l) (hc : c ≤ lc.have_)
-    (hc0 : c ≠ 0) (hcl : c ≤ S.length) (k : X Unit) {Q : Except Ex Unit → IL → Heap → Prop}
+    (li : LI E l H z S) (lc : IL) (c : UInt32) (hsame : Same lc l) (hc : c ≤ lc.have_)
+    (hc0 : c ≠ 0) (k : X Unit) {Q : Except Ex Unit → IL → Heap → Prop}
     (hk : ∀ l' H', LI E l' H' z S → Same l l' → SatX H' l' k Q) :
     SatX H l (do
       let hd ← headOf E.c.st
       if hd != none then
         let g ← ldHeader hd
-        if g.extra != .null then
+        if g.extra != .null && S.length ≤ g.extra_len then
           let len := g.extra_len - S.length
           modify fun l => { l with len := len }
           if len < g.extra_max then
-            let n := if len + c > g.extra_max then g.extra_max - len else c
+            let n := if c > g.extra_max - len then g.extra_max - len else c
             Ptr.memcpy (← g.extra.add (Int.ofNat len.toNat)) lc.next n.toNat
       k) Q := by
   have hs0 : Same l l := ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
@@ -582,9 +582,8 @@ theorem extraHdr_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
     dsimp only
     split
     · rename_i hxn
-      have hx : g.extra ≠ .null := by simpa using hxn
-      obtain ⟨xl, xs⟩ := li.extraOK hS kk g (by rw [← hhp]; exact li.head) hgk hx
-      have xs' : S.length ≤ g.extra_len := xs
+      have hx : g.extra ≠ .null := by simp only [Bool.and_eq_true, bne_iff_ne] at hxn; exact hxn.1
+      have xs' : S.length ≤ g.extra_len := by simp only [Bool.and_eq_true, decide_eq_true_eq] at hxn; exact hxn.2
       rcases (li.hbufs eo hhp hgk).1 with h0 | ⟨bd, off, data, hfe, hd, hsz', hbne, hw, hdj⟩
       · exact absurd h0 hx
       refine SatX.bind (SatX.modify ?_)
@@ -593,29 +592,24 @@ theorem extraHdr_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
       have hs1 : Same l { l with len := g.extra_len - S.length } := ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
       split
       · rename_i hlt
-        have xl' : g.extra_len.toNat ≤ 65535 := xl
-        have xsN : S.length.toNat ≤ g.extra_len.toNat := xs'
-        have hlen : (g.extra_len - S.length).toNat = g.extra_len.toNat - S.length.toNat :=
-          UInt32.toNat_sub_of_le _ _ xs'
         have hlt' : (g.extra_len - S.length).toNat < g.extra_max.toNat := hlt
-        have hcN : c.toNat ≤ S.length.toNat := hcl
-        have hnoW : (g.extra_len - S.length + c).toNat = (g.extra_len - S.length).toNat + c.toNat := by
-          rw [UInt32.toNat_add]; apply Nat.mod_eq_of_lt; rw [hlen]; show _ < 4294967296; omega
-        have hn : ∀ n : UInt32, n = (if g.extra_len - S.length + c > g.extra_max then
+        have hsub : (g.extra_max - (g.extra_len - S.length)).toNat =
+            g.extra_max.toNat - (g.extra_len - S.length).toNat :=
+          UInt32.toNat_sub_of_le _ _ (UInt32.le_of_lt hlt)
+        have hn : ∀ n : UInt32, n = (if c > g.extra_max - (g.extra_len - S.length) then
             g.extra_max - (g.extra_len - S.length) else c) →
             n.toNat + (g.extra_len - S.length).toNat ≤ g.extra_max.toNat ∧ n.toNat ≤ c.toNat := by
           intro n hn
           split at hn
           · rename_i hgt
             subst hn
-            have hgt' : g.extra_max.toNat < (g.extra_len - S.length + c).toNat := hgt
-            rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_of_lt hlt)]
+            have hgt' : (g.extra_max - (g.extra_len - S.length)).toNat < c.toNat := hgt
             omega
           · rename_i hgt
             rw [hn]
-            have : ¬ g.extra_max.toNat < (g.extra_len - S.length + c).toNat := hgt
+            have : ¬ (g.extra_max - (g.extra_len - S.length)).toNat < c.toNat := hgt
             omega
-        generalize hN : (if g.extra_len - S.length + c > g.extra_max then
+        generalize hN : (if c > g.extra_max - (g.extra_len - S.length) then
           g.extra_max - (g.extra_len - S.length) else c) = n
         obtain ⟨hn1, hn2⟩ := hn n hN.symm
         rw [hfe]
@@ -676,7 +670,7 @@ theorem run_EXTRA (E : Env) (eo : EnvOK E) (hN : ModeRun E inflate_NAME (·.mode
     split
     · rename_i hc0'
       have hc0 : c ≠ 0 := by simpa using hc0'
-      refine extraHdr_ok eo li1 hm l c hs1 hc1 hc0 hc2 _ ?_
+      refine extraHdr_ok eo li1 l c hs1 hc1 hc0 _ ?_
       intro l' H' li' hs'
       refine extraTail_ok eo li' hm l c (hs1.trans hs') hc1 hc0 hc2 _ ?_
       intro l'' H'' S'' li'' _ hh hb hl

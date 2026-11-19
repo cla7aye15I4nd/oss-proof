@@ -365,4 +365,13 @@ for ver in ("null", "1.3.2.zlib-ng", "1", "1.0", "2.3.90", "0.9", "x"):
         for wb in ("-", "15", "8", "7", "-8", "-15", "-16", "16", "24", "31", "47", "48", "0", "40", "-7", "100"):
             out.append(f"ver {ver} {size} {wb}")
 
+# 14. gzip extra fields at the edges of extra_max (state EXTRA, patch 0011): lengths 0, 1, extra_max - 1,
+# extra_max, extra_max + 1, longer, whole or split across calls.
+d = text(200)
+for xmax in (1, 16):
+    for n in sorted(set([0, 1, xmax - 1, xmax, xmax + 1, 2 * xmax + 5])):
+        m = gz_member(d, extra=bytes((7 * i + 1) & 0xff for i in range(n)), name=b"nm", hcrc=True)
+        for inchunk in (1 << 20, 1, 3, 13):
+            emit(31, 0, inchunk, 1 << 20, len(d), m, "-", f"{xmax},4,4")
+
 print("\n".join(out))

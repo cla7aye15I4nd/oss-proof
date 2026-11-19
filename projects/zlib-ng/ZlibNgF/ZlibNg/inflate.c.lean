@@ -8,7 +8,8 @@ import ZlibNgF.ZlibNg.arch.generic.«chunkset_c.c»
 # `inflate.c` — zlib decompression (`ZlibNgF`)
 
 Source: `zlib-ng/inflate.c` with patches 0003 (`inflateCopy`), 0007 (window copy in `MATCH`), 0008
-(`inflateSync`), 0009 (`inflateSetDictionary`) and 0010 (fast path only with fewer than 8 bits held, in `LEN`); `ZLIB_COMPAT`, `GUNZIP` defined; no `INFLATE_STRICT`,
+(`inflateSync`), 0009 (`inflateSetDictionary`), 0010 (fast path only with fewer than 8 bits held, in `LEN`) and 0011 (bounded
+copy into `head->extra`, in `EXTRA`); `ZLIB_COMPAT`, `GUNZIP` defined; no `INFLATE_STRICT`,
 `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR`, `S390_DFLTCC_INFLATE`, `ZLIB_DEBUG` (so `Tracev` and the hooks are
 empty, `INFLATE_NEED_CHECKSUM` / `INFLATE_NEED_UPDATEWINDOW` are 1). `bits_t` is `uint8_t` (x86_64).
 
@@ -1036,11 +1037,11 @@ def inflate_EXTRA (c : Ctx) : X Unit := do
       let hd ← headOf c.st
       if hd != none then
         let g ← ldHeader hd
-        if g.extra != .null then
+        if g.extra != .null && s.length ≤ g.extra_len then
           let len := g.extra_len - s.length
           modify fun l => { l with len := len }
           if len < g.extra_max then
-            let n := if len + copy > g.extra_max then g.extra_max - len else copy
+            let n := if copy > g.extra_max - len then g.extra_max - len else copy
             Ptr.memcpy (← g.extra.add (Int.ofNat len.toNat)) l.next n.toNat
       if ← hcrcOn c.st then
         let v ← ZlibNg.Crc32.crc32_small (← rdS c.st (·.check)).toUInt32 l.next copy.toUInt64

@@ -54,11 +54,11 @@
   "site": {
     "route": "zlib-ng",
     "brand": "zlib-ng × Lean",
-    "findings_count": 7,
-    "patches_count": 7,
+    "findings_count": 8,
+    "patches_count": 8,
     "summary": {
-      "en": "The version, error-string, CRC-32, adler32_combine and compressBound functions of zlib-ng (develop branch, with seven patches) are proved safe, and most of them functionally correct; adler32 and adler32_z, streaming deflate, inflate, one-shot and gz* safety are not done.",
-      "zh": "zlib-ng（develop 分支，含七个补丁）的版本、错误字符串、CRC-32、adler32_combine 与 compressBound 函数已证明安全，其中多数已证明功能正确；adler32 与 adler32_z、流式 deflate、inflate、单次调用与 gz* 系列的安全性尚未完成。"
+      "en": "The version, error-string, CRC-32, adler32_combine and compressBound functions of zlib-ng (develop branch, with eight patches) are proved safe, and most of them functionally correct; adler32 and adler32_z, streaming deflate, inflate, one-shot and gz* safety are not done.",
+      "zh": "zlib-ng（develop 分支，含八个补丁）的版本、错误字符串、CRC-32、adler32_combine 与 compressBound 函数已证明安全，其中多数已证明功能正确；adler32 与 adler32_z、流式 deflate、inflate、单次调用与 gz* 系列的安全性尚未完成。"
     }
   }
 }

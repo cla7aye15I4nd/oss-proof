@@ -1,10 +1,12 @@
-/* Open defect, no patch. Two inflate streams share one gz_header: with argument "copy", stream A registers it with
+/* Patch 0011. Two inflate streams share one gz_header: with argument "copy", stream A registers it with
  * inflateGetHeader before its first inflate and inflateCopy copies A (with the header pointer) to B; with argument
  * "two", A and B each register it before their first inflate. The header's extra buffer holds extra_max = 2^32 - 1
  * bytes. A reads a gzip header up to an extra field of 100 bytes (head->extra_len = 100, state->length = 100), B
  * then reads its own extra length of 10 (head->extra_len = 10). When A copies its extra field, state EXTRA
  * computes len = extra_len - length = 10 - 100, which wraps to 2^32 - 90 < extra_max, and len + copy = 2^32 + 10
  * wraps to 10 <= extra_max, so memcpy writes 100 bytes at extra + 2^32 - 90: 11 bytes past the end of the buffer.
+ * With the patch, EXTRA copies only when state->length <= head->extra_len and bounds the count by
+ * extra_max - len, so A skips the copy and inflate returns Z_OK.
  * Every call is one that zlib.h documents. */
 #include <stdio.h>
 #include <stdlib.h>

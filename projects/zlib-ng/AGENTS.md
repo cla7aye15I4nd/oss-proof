@@ -105,7 +105,8 @@ Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `in
   `next_in` in `inflateSync` after `inflatePrime`; `NULL + 0` and `memcpy` from `NULL` in `updatewindow` from
   `inflateSetDictionary(strm, NULL, 0)` on a raw stream; `in -= len` at the end of `inflate_fast`
   (`inffast_tpl.h:327`) moving `next_in` before the caller's buffer when `inflatePrime` left 8 or more bits in
-  the bit buffer on entry.
+  the bit buffer on entry. Patch 0011 bounds the copy into `head->extra` in state `EXTRA`, which overran the buffer
+  when two streams share one `gz_header`.
 
 ## Checking
 
