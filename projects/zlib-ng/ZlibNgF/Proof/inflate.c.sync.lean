@@ -308,14 +308,17 @@ theorem syncEnd_ok {H Hk : Heap} {i b : Nat} {zk : ZStream} {Sk : InflateState} 
       Sat H6 (do setMode (some b) TYPE; pure Z_OK : M Int32) (fun _ H' => Touch H H' i b ∧ Inv H' (some i)) := by
     intro H6 z6 S6 t6
     refine Sat.bind (Sat.mono (step_S t6 (fun s => { s with mode := TYPE })
-      (fun _ _ c => { c with mode_lo := by show HEAD ≤ TYPE; decide, mode_hi := by show TYPE ≤ SYNC; decide })) ?_)
+      (fun _ _ c => { c with
+        mode_lo := by show HEAD ≤ TYPE; decide
+        mode_hi := by show TYPE ≤ SYNC; decide
+        modes := InflateInv.ModeOK.quiet _ _ (Or.inl (by show TYPE < LENLENS; decide)) })) ?_)
     rintro - H7 t7
     exact Sat.pure ⟨t7.touch, t7.inv⟩
   dsimp only [InflateReset.rkS, InflateReset.rS]
   by_cases hw : Sk.reqbits = 0
   · simp only [hw, beq_self_eq_true, ↓reduceIte]
     refine Sat.bind (Sat.mono (step_S t4 (fun s => { s with wbits := MAX_WBITS.toUInt32 })
-      (fun _ _ c => { c with wbits := by show MAX_WBITS.toUInt32 ≤ 15; decide, wsize := Or.inl rfl })) ?_)
+      (fun _ _ c => { c with wbits := by show MAX_WBITS.toUInt32 ≤ 15; decide })) ?_)
     rintro - H6 t6
     exact tail H6 _ _ t6
   · have hw' : (Sk.reqbits == 0) = false := by simpa using hw
@@ -350,6 +353,7 @@ theorem syncJp_ok {H Hk : Heap} {i b : Nat} {zk : ZStream} {Sk : InflateState} (
       exact syncEnd_ok t3
 
 theorem syncTail_ok {H Hk : Heap} {i b : Nat} {zk : ZStream} {Sk : InflateState} (t : St H Hk i b zk Sk)
+    (hm : Sk.mode = SYNC)
     (hin : NullOrRead Hk zk.next_in zk.avail_in.toNat) (hnull : zk.next_in = .null → zk.avail_in = 0) :
     Sat Hk (syncTail (some i) (some b)) (fun _ H' => Touch H H' i b ∧ Inv H' (some i)) := by
   unfold syncTail
@@ -360,7 +364,8 @@ theorem syncTail_ok {H Hk : Heap} {i b : Nat} {zk : ZStream} {Sk : InflateState}
   obtain ⟨got, len, es, hle⟩ := syncsearch_ok Hk Sk.have zk.next_in zk.avail_in hin hnull
   refine Sat.bind (Sat.of_eq es ?_)
   dsimp only
-  refine Sat.bind (Sat.mono (step_S t (fun s => { s with «have» := got }) (fun _ _ c => c)) ?_)
+  refine Sat.bind (Sat.mono (step_S t (fun s => { s with «have» := got }) (fun _ _ c => { c with
+    modes := InflateInv.ModeOK.quiet _ _ (Or.inr (by show LIT < Sk.mode; rw [hm]; decide)) })) ?_)
   rintro - H2 t2
   refine Sat.bind (Sat.mono (step_Z t2 (fun z => { z with avail_in := z.avail_in - len }) rfl rfl rfl) ?_)
   rintro - H3 t3
@@ -431,13 +436,16 @@ theorem sync_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (hio : StreamIO h s) 
   simp only [hbuf', Bool.false_eq_true, ↓reduceIte]
   by_cases hm' : (st.mode != SYNC) = false
   · simp only [hm', Bool.false_eq_true, ↓reduceIte]
-    exact syncTail_ok t0 hin hnull
+    exact syncTail_ok t0 (by simpa using hm') hin hnull
   have hm : (st.mode != SYNC) = true := by simpa using hm'
   simp only [hm, ↓reduceIte]
-  have hb32 : st.bits.toNat ≤ 32 := c.bits
+  have hb32 : st.bits.toNat ≤ 39 := c.bits
   unfold setMode
   refine Sat.bind (Sat.mono (step_S t0 (fun s => { s with mode := SYNC })
-    (fun _ _ c => { c with mode_lo := by show HEAD ≤ SYNC; decide, mode_hi := UInt32.le_refl _ })) ?_)
+    (fun _ _ c => { c with
+      mode_lo := by show HEAD ≤ SYNC; decide
+      mode_hi := UInt32.le_refl _
+      modes := InflateInv.ModeOK.quiet _ _ (Or.inr (by show LIT < SYNC; decide)) })) ?_)
   rintro - H1 t1
   refine Sat.bind (Sat.mono (sat_ldState t1) ?_)
   rintro r H2 ⟨rfl, rfl⟩
@@ -451,20 +459,20 @@ theorem sync_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (hio : StreamIO h s) 
   have hb2 : st.bits - (st.bits &&& 7) ≤ 32 := by
     rw [UInt32.le_iff_toNat_le, hsub]; show _ ≤ 32; omega
   refine Sat.bind (Sat.mono (step_S t1 (fun s => { s with hold := hold1, bits := s.bits - (s.bits &&& 7) })
-    (fun _ _ c => { c with bits := hb2 })) ?_)
+    (fun _ _ c => { c with bits := UInt32.le_trans hb2 (by decide) })) ?_)
   rintro - H2 t2
   have hb2' : (st.bits - (st.bits &&& 7)).toNat % 8 = 0 := by rw [hsub]; omega
   refine Sat.bind (Sat.mono (sat_cwhile (s := ((#[] : Array UInt8), ()))
-    (fun (x : Array UInt8 × Unit) Hk => ∃ Sk, St h Hk i b z Sk ∧ Sk.bits.toNat % 8 = 0 ∧
+    (fun (x : Array UInt8 × Unit) Hk => ∃ Sk, St h Hk i b z Sk ∧ Sk.mode = SYNC ∧ Sk.bits.toNat % 8 = 0 ∧
       Sk.bits.toNat + 8 * x.1.size ≤ 32)
-    (fun x => 5 - x.1.size) (fun x Hk => ∃ Sk, St h Hk i b z Sk ∧ x.1.size ≤ 4) ?_
-    ⟨_, t2, hb2', by show (st.bits - (st.bits &&& 7)).toNat + 8 * (#[] : Array UInt8).size ≤ 32; simp only [hsub, List.size_toArray, List.length_nil]; omega⟩
+    (fun x => 5 - x.1.size) (fun x Hk => ∃ Sk, St h Hk i b z Sk ∧ Sk.mode = SYNC ∧ x.1.size ≤ 4) ?_
+    ⟨_, t2, rfl, hb2', by show (st.bits - (st.bits &&& 7)).toNat + 8 * (#[] : Array UInt8).size ≤ 32; simp only [hsub, List.size_toArray, List.length_nil]; omega⟩
     (by unfold fuel; simp)) ?_)
-  · rintro ⟨buf, u⟩ Hk ⟨Sk, tk, h8, hle⟩
+  · rintro ⟨buf, u⟩ Hk ⟨Sk, tk, hmk, h8, hle⟩
     dsimp only at hle ⊢
     refine Sat.bind (Sat.mono (sat_rdS tk (·.bits)) ?_)
     rintro r H3 ⟨rfl, rfl⟩
-    refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨Sk, tk, ?_⟩⟩
+    refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨Sk, tk, hmk, ?_⟩⟩
     · have hge : 8 ≤ Sk.bits.toNat := by simpa [UInt32.le_iff_toNat_le] using hc
       dsimp only
       refine Sat.bind (Sat.mono (sat_ldState tk) ?_)
@@ -476,19 +484,20 @@ theorem sync_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (hio : StreamIO h s) 
       have hb3 : Sk.bits - 8 ≤ 32 := by rw [UInt32.le_iff_toNat_le, hs8]; show _ ≤ 32; omega
       let hold2 := Sk.hold >>> (8 : UInt32).toUInt64
       refine Sat.bind (Sat.mono (step_S tk (fun s => { s with hold := hold2, bits := s.bits - 8 })
-        (fun _ _ c => { c with bits := hb3 })) ?_)
+        (fun _ _ c => { c with bits := UInt32.le_trans hb3 (by decide) })) ?_)
       rintro - H5 t5
-      refine Sat.pure ⟨⟨_, t5, ?_, ?_⟩, ?_⟩
+      refine Sat.pure ⟨⟨_, t5, hmk, ?_, ?_⟩, ?_⟩
       · show (Sk.bits - 8).toNat % 8 = 0; rw [hs8]; omega
       · show (Sk.bits - 8).toNat + 8 * (buf.push Sk.hold.toUInt8).size ≤ 32; rw [hs8, Array.size_push]; omega
       · show 5 - (buf.push Sk.hold.toUInt8).size < 5 - buf.size; rw [Array.size_push]; omega
     · have hlt : Sk.bits.toNat < 8 := by simpa [UInt32.le_iff_toNat_le] using hc
       show buf.size ≤ 4; omega
-  rintro ⟨buf, u⟩ H3 ⟨S3, t3, hsz⟩
+  rintro ⟨buf, u⟩ H3 ⟨S3, t3, hm3, hsz⟩
   dsimp only at hsz ⊢
   have hsz' : ¬ buf.size > 4 := by omega
   simp only [hsz', ↓reduceIte]
-  refine Sat.bind (Sat.mono (step_S t3 (fun s => { s with «have» := 0 }) (fun _ _ c => c)) ?_)
+  refine Sat.bind (Sat.mono (step_S t3 (fun s => { s with «have» := 0 }) (fun _ _ c => { c with
+    modes := InflateInv.ModeOK.quiet _ _ (Or.inr (by show LIT < S3.mode; rw [hm3]; decide)) })) ?_)
   rintro - H4 t4
   obtain ⟨got, eg⟩ := forIn_pure_list H4 (fun (b : UInt8) (r : UInt32) =>
       if r < 4 then
@@ -498,9 +507,10 @@ theorem sync_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (hio : StreamIO h s) 
     (fun a r => by by_cases hr : r < 4 <;> simp only [hr, ↓reduceIte] <;> exact ⟨_, rfl⟩) buf.toList 0
   rw [Array.forIn_toList] at eg
   refine Sat.bind (Sat.of_eq eg ?_)
-  refine Sat.bind (Sat.mono (step_S t4 (fun s => { s with «have» := got }) (fun _ _ c => c)) ?_)
+  refine Sat.bind (Sat.mono (step_S t4 (fun s => { s with «have» := got }) (fun _ _ c => { c with
+    modes := InflateInv.ModeOK.quiet _ _ (Or.inr (by show LIT < S3.mode; rw [hm3]; decide)) })) ?_)
   rintro - H5 t5
   have ht5 : Touch h H5 i b := t5.touch
-  exact syncTail_ok t5 (space_read ht5 hin) hnull
+  exact syncTail_ok t5 hm3 (space_read ht5 hin) hnull
 
 end ZlibNgF.Proof.InflateSync

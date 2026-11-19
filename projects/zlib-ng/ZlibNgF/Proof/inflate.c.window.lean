@@ -176,7 +176,7 @@ theorem uwTail_ok {H : Heap} {i b woff os : Nat} {data sd : Array UInt8} {s : In
 theorem core_win {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : InflateState} {al : InflateAllocs}
     {d' : Array UInt8} (c : Core h s z b (view st) al) (hb : h'.bytes b = some d')
     (hsz : ∀ d, h.bytes b = some d → d'.size = d.size) (hg : h'.gzheaders = h.gzheaders) (ws wh wn : UInt32)
-    (hws : ws = 0 ∨ ws = (1 : UInt32) <<< st.wbits) (W : WinOk ws wh wn) :
+    (hws : ws ≤ 32768) (W : WinOk ws wh wn) :
     Core h' s z b (view { st with wsize := ws, whave := wh, wnext := wn }) al where
   toShape := { c.toShape with
     window := by
@@ -195,6 +195,7 @@ theorem core_win {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Inf
   next := c.next
   tables := c.tables
   head := by rw [hg]; exact c.head
+  modes := c.modes
 
 theorem shl_toNat (w : UInt32) (hw : w ≤ 15) : ((1 : UInt32) <<< w).toNat = 2 ^ w.toNat := by
   have hw' : w.toNat ≤ 15 := hw
@@ -219,7 +220,7 @@ theorem updatewindow_ok {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : Infla
   have hdz : ∀ d, h.bytes b = some d → ∀ d' : Array UInt8, d'.size = data.size → d'.size = d.size := by
     intro d hd d' e; rw [hdata] at hd; cases hd; exact e
   have hinv : ∀ (d' : Array UInt8) (ws wh wn : UInt32), d'.size = data.size →
-      (ws = 0 ∨ ws = (1 : UInt32) <<< st.wbits) → WinOk ws wh wn →
+      ws ≤ 32768 → WinOk ws wh wn →
       Inv { h with bytes := upd h.bytes b (some d'),
                    istates := upd h.istates b (some { st with wsize := ws, whave := wh, wnext := wn }) } (some i) := by
     intro d' ws wh wn hsz hws W
@@ -247,7 +248,7 @@ theorem updatewindow_ok {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : Infla
       omega
     obtain ⟨d', wh, wn, hsz, W, e⟩ := uwTail_ok (H := H0) (i := i) (s := st1) (os := os) (len := len) hdata
       (by simp [H0]) hwin hwsz hws1 W1 hr hsd hos
-    refine ⟨d', (1 : UInt32) <<< st.wbits, wh, wn, ?_, hinv d' _ wh wn hsz (Or.inr rfl) W⟩
+    refine ⟨d', (1 : UInt32) <<< st.wbits, wh, wn, ?_, hinv d' _ wh wn hsz (InflateInv.shl_le _ hwb) W⟩
     have hlt : st.wbits < 32 := by u32_omega
     rw [uw_split]
     simp only [bind_app, L.stateOf, rdS, ldState_app L.istate, pure_app, h0, beq_self_eq_true, ↓reduceIte,

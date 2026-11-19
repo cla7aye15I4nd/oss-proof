@@ -247,6 +247,8 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Inflate
       CF h H j nb z { st with strm := .val (some j), lencode := lc, distcode := dc } (allocBytes H1) aN →
       ((lc = .val (.ref (.codes nb) 0) ∧ ∃ o, dc = .val (.ref (.codes nb) o) ∧ o ≤ ENOUGH) ∨
         (lc = .val (.ref .lenfix 0) ∧ dc = .val (.ref .distfix 0))) →
+      InflateInv.ModeOK nb ⟨st.mode, lc, dc, st.lenbits, st.distbits, st.codes, st.lens, st.ncode, st.nlen, st.ndist,
+        st.«have», st.extra, st.offset⟩ →
       Sat H (do
         let d ← Ptr.diff (← st.next.get) (Ptr.ref (CodeRef.codes b) 0)
         let nx ← (Ptr.ref (CodeRef.codes nb) 0).add d.toInt
@@ -257,7 +259,7 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Inflate
         Ptr.memcpy w (← st.window.get) st.wsize.toNat
         wrZ (some j) fun z => { z with state := some nb }
         return Z_OK : M Int32) (fun r H' => Fr h H' j ∧ Inv H' (some i) ∧ (r = Z_OK → Inv H' (some j))) := by
-    intro H lc dc f htab
+    intro H lc dc f htab hmo
     have hstH : H.istate b = some st := by rw [f.istate_old b hbn]; exact L.istate
     rw [hnx']
     refine Sat.bind (Sat.of_eq rfl ?_)
@@ -318,7 +320,8 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Inflate
         distcode := ?_
         next := ⟨o, rfl, ho⟩
         tables := htab
-        head := by rw [fe.gz]; exact c.head }
+        head := by rw [fe.gz]; exact c.head
+        modes := hmo }
       · rcases htab with ⟨e1, -⟩ | ⟨e1, -⟩
         · exact ⟨_, e1, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
         · exact ⟨_, e1, Or.inr (Or.inl rfl)⟩
@@ -340,14 +343,14 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Inflate
     refine Sat.bind (Sat.of_eq (add_codes f5.istate hcs ho2) ?_)
     refine Sat.bind (Sat.mono (CF.wrS f5 (fun s => { s with distcode := .val (.ref (.codes nb) o2) })) ?_)
     rintro - H6 f6
-    exact tail H6 _ _ f6 (Or.inl ⟨rfl, o2, rfl, ho2⟩)
+    exact tail H6 _ _ f6 (Or.inl ⟨rfl, o2, rfl, ho2⟩) (c.modes.rebase hlc' hdc')
   · have hlc' : st.lencode = .val (.ref .lenfix 0) := hlc
     have hdc' : st.distcode = .val (.ref .distfix 0) := hdc
     rw [hlc']
     refine Sat.bind (Sat.of_eq rfl ?_)
     have hneq : (Ptr.ref CodeRef.lenfix 0 == Ptr.ref (CodeRef.codes b) 0) = false := by simp
     simp only [hneq, Bool.false_eq_true, ↓reduceIte]
-    exact tail H4 st.lencode st.distcode f4 (Or.inr ⟨hlc', hdc'⟩)
+    exact tail H4 st.lencode st.distcode f4 (Or.inr ⟨hlc', hdc'⟩) (c.modes.fixed hlc' hdc')
 
 /-- On a heap that records a typed object in the block the allocator hands out next, the copy faults. -/
 theorem copy_fault {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : InflateState} {al : InflateAllocs}
