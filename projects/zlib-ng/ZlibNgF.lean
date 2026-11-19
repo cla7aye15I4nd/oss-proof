@@ -66,4 +66,7 @@ import ZlibNgF.Proof.«public-uncompress»
 import ZlibNgF.Proof.«infback.c.init»
 import ZlibNgF.Proof.«infback.c.pull»
 import ZlibNgF.Proof.«infback.c.room»
+import ZlibNgF.Proof.«infback.c.loop»
+import ZlibNgF.Proof.«infback.c.steps»
+import ZlibNgF.Proof.«infback.c.type»
 import ZlibNgF.Proof.«public-infback»
