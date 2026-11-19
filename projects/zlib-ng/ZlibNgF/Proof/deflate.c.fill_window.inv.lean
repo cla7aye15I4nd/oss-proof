@@ -13,7 +13,7 @@ state yet, on the state record (`WCore`):
   `fill_end = 2 * w_size - MIN_LOOKAHEAD`; `fill_window` adds `w_size` and subtracts a multiple of it): the slide of
   `fill_window` then moves at least half the data, so its `memcpy` does not overlap, and the reads stay in the window;
 * `insert <= strstart` (`str = strstart - insert` does not wrap);
-* `block_start <= strstart` and `strstart - block_start <= 2^30` (the slide subtracts the same amount from both, so
+* `block_start <= strstart` and `strstart - block_start <= 2^30 + 2^16` (the slide subtracts the same amount from both, so
   the `int` subtraction of `block_start` does not overflow).
 
 `WInv h s`: the state record of `s` satisfies `WCore`. The loop rules `sat_cwhileH` / `sat_cdoWhileH` take a measure
@@ -33,7 +33,7 @@ structure WCore (st : DeflateState) : Prop where
   fe_hi : st.fill_end.toNat + 262 ≤ st.window_size.toNat
   ins : st.insert.toNat ≤ st.strstart.toNat
   bs_hi : st.block_start.toInt ≤ st.strstart.toNat
-  bs_lo : (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30
+  bs_lo : (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16
 
 /-- The window invariant of stream `s`. -/
 def WInv (h : Heap) (s : StreamPtr) : Prop := ∃ b st, DStateIs h s b st ∧ WCore st

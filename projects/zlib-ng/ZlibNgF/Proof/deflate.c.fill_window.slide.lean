@@ -82,7 +82,8 @@ theorem fe_loop {st : DeflateState} (hW : 1 ≤ st.w_size.toNat) (hw2 : st.w_siz
 `strstart` below `fill_end`, the window clauses, and the data within the window. -/
 def SFin (st st' : DeflateState) : Prop :=
   FWS st st' ∧ st'.lookahead = st.lookahead ∧ st'.strstart.toNat < st'.fill_end.toNat ∧ WCore st' ∧
-    st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat
+    st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat ∧
+    (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt
 
 theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
     (L : HLay b d.size st wo po ho) (hws : st.window_size = W_BUF_SIZE st.w_size)
@@ -178,7 +179,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
           have F' : SFin st { s0 with slide_len := sl } :=
             ⟨F.1.trans ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, F.2.1, F.2.2.1,
               ⟨F.2.2.2.1.wpow, F.2.2.2.1.fe_mod, F.2.2.2.1.fe_hi, F.2.2.2.1.ins, F.2.2.2.1.bs_hi, F.2.2.2.1.bs_lo⟩,
-              F.2.2.2.2⟩
+              F.2.2.2.2.1, F.2.2.2.2.2⟩
           split
           · exact Sat.mono (slide_hash_head_c_SH L0') (fun _ _ ⟨d', e, hs⟩ => ⟨_, d', e, wr_tr hd1 hs, F'⟩)
           · exact Sat.mono (slide_hash_c_SH L0' (by rw [hw0]; exact hw2)) (fun _ _ ⟨d', e, hs⟩ =>
@@ -195,7 +196,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
       split
       · rename_i hgi
         refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-        refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
+        refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
         · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
         all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la]
         all_goals (try simp only [BS])
@@ -203,7 +204,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
       · rename_i hgi
         have hgi' : st.insert.toNat ≤ st.strstart.toNat - sl.toNat := by
           rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, hss', e_in] at hgi; omega
-        refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
+        refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
         · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
         all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la, e_in]
         all_goals (try simp only [BS])
@@ -218,7 +219,8 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
     have hle' : fe.toNat + 262 ≤ st.window_size.toNat := by
       rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, sub_toNat _ _ (by rw [hML, e_ws]; omega), e_fe, e_ws, hML] at hle
       omega
-    refine Sat.pure ⟨st1, d, rfl, WrIn.refl _ _ _, ⟨by rw [hst1]; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, e_la, ?_, ?_, ?_⟩⟩
+    refine Sat.pure ⟨st1, d, rfl, WrIn.refl _ _ _, ⟨by rw [hst1]; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, e_la, ?_, ?_, ?_,
+      by rw [e_ss, e_bs]⟩⟩
     · rw [e_ss, e_fe]; exact hsf
     · refine ⟨⟨k, hk1, hk2, by rw [e_w]; exact hwk⟩, by rw [e_fe, e_w]; exact hm, by rw [e_fe, e_ws]; exact hle',
         by rw [e_in, e_ss]; exact C.ins, by rw [e_bs, e_ss]; exact C.bs_hi, by rw [e_bs, e_ss]; exact C.bs_lo⟩
