@@ -54,7 +54,7 @@
   "site": {
     "route": "zlib-ng",
     "brand": "zlib-ng × Lean",
-    "findings_count": 3,
+    "findings_count": 6,
     "patches_count": 3,
     "summary": {
       "en": "The version, error-string, CRC-32, adler32_combine and compressBound functions of zlib-ng (develop branch, with three patches) are proved safe, and most of them functionally correct; adler32 and adler32_z, streaming deflate, inflate, one-shot and gz* safety are not done.",

@@ -38,6 +38,13 @@ plain=(
   "gzbuffer-aligned-alloc-overflow||gzwrite 1"
 )
 
+# Open defects: undefined behaviour of the verified source with no patch yet. Each must still show its
+# report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
+# case | arguments | extended regular expression the report must match
+open_cases=(
+  "inflate-window-pointer-compare|300|invalid-pointer-pair"
+)
+
 build() { # build <dir> [exclude-prefix]
   local dir=$1 ex=${2:-}
   if CFLAGS="$san" EXCLUDE="$ex" bash "$tests/zlib-ng-build-current.sh" "$dir"; then return 0; fi
@@ -105,7 +112,20 @@ for entry in "${plain[@]}"; do
     i=$((i + 1))
   done
 done
+for entry in "${open_cases[@]}"; do
+  IFS='|' read -r name args defect <<<"$entry"
+  [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
+  cc $san -I"$work/patched" "$here/$name/repro.c" "$work/patched/libz.a" -o "$work/$name-patched" || exit 2
+  echo "== $name ${args:+($args)} (open, no patch)"
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched" $args 2>&1); rc=$?
+  if printf '%s\n' "$out" | grep -qE "$defect"; then
+    echo "ok: verified source: $(printf '%s\n' "$out" | grep -m1 -E "$defect" | sed "s#$work/##g; s#$src/##g")"
+    printf '%s\n' "$out" | grep -m1 -E "^ +#[0-9]+ .* in [a-zA-Z_]" | sed "s#$work/##g; s#$src/##g; s#^ *#   at: #" || true
+  else
+    echo "FIXED?: no report matching '$defect' on the verified source (status $rc): $out"; fail=1
+  fi
+done
 if [ $fail -eq 0 ]; then
-  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes"
+  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes; every open defect still reproduces"
 fi
 exit $fail

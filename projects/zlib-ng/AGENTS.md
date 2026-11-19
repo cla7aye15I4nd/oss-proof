@@ -43,6 +43,53 @@ not done.
 - The braided CRC kernel reads `z_word_t` words as eight byte loads. The model does not check the
   effective-type rule (ISO C17 §6.5p7) for these word reads.
 
+## Inflate scope (pinned `develop` commit, verified option set)
+
+Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `inflate.c.o`, `inftrees.c.o`,
+`chunkset_c.c.o`, `uncompr.c.o`) and the preprocessor conditions of the files below. `infback.c`
+(`inflateBack*`) is out of this scope.
+
+- Public entry points (`inflate.c`): `inflateInit_`, `inflateInit2_` (both call the hidden `inflateInit2`
+  after `CHECK_VER_STSIZE`), `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`,
+  `inflatePrime`, `inflateSetDictionary`, `inflateGetDictionary`, `inflateGetHeader`, `inflateSync`,
+  `inflateSyncPoint`, `inflateCopy` (with patch 0003), `inflateUndermine` (returns `Z_DATA_ERROR`:
+  `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR` is off), `inflateValidate`, `inflateMark`, `inflateCodesUsed`;
+  `uncompr.c`: `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z`.
+- Internal functions of `inflate.c`: `inflateStateCheck`, `alloc_inflate`, `free_inflate` (one `zalloc`
+  call of `PAD_64(window + state + allocs + 63)` bytes, carved into the window of `(1 << MAX_WBITS) + 64`
+  bytes, the `inflate_state` and the `inflate_allocs` record; `free_inflate` frees `buf_start` through the
+  saved `zfree`), `fixedtables` (points `lencode`/`distcode` at the static `lenfix`/`distfix` of
+  `inffixed_tbl.h`), `updatewindow`, `syncsearch`, `inf_chksum`, `inf_chksum_cpy`. Macros of
+  `inflate_p.h`: `LOAD`, `RESTORE`, `PULLBYTE`, `NEEDBITS`, `BITS`, `DROPBITS`, `BYTEBITS`, `INITBITS`,
+  `SET_BAD`, `CRC2`/`CRC4` (header CRC through the static `crc_table` of `crc32_braid_tbl.h`, included by
+  `inflate_p.h`), `REFILL`, `CODE_BITS`, `CODE_EXTRA`, `EXTRA_BITS`, `COMBINE_OP`, `COMBINE_BITS`, and the
+  static functions `load_64_bits` and `chunkcopy_safe`. `bits_t` is `uint8_t` on x86_64 (`ARCH_X86`), `unsigned`
+  elsewhere.
+- `inftrees.c`: `zng_inflate_table` and `count_lengths`, with the static `lbase`/`lext`/`dbase`/`dext`;
+  `ENOUGH = ENOUGH_LENS + ENOUGH_DISTS = 1332 + 592`.
+- Function table, resolved at compile time (`DISABLE_RUNTIME_CPU_DETECTION`, generic fallbacks of
+  `arch/generic/generic_functions.h`): `FUNCTABLE_CALL(inflate_fast)` = `inflate_fast_c` (called from the
+  `LEN` state when `have >= 15` and `left >= 260`), `inflate_fast_safe` = `inflate_fast_safe_c` (`3 <= left <
+  260`), `chunkmemset_safe` = `chunkmemset_safe_c`, `adler32` = `adler32_c`, `adler32_copy` = `adler32_copy_c`,
+  `crc32` = `crc32_braid`, `crc32_copy` = `crc32_copy_braid`; `crc32_small` (`crc32.c`) is called directly for
+  gzip header fields. There are no fold variants in this build.
+- `arch/generic/chunkset_c.c` instantiates `chunkset_tpl.h` (`chunk_t = uint64_t`, `CHUNKCOPY` = `chunkcopy_c`,
+  `CHUNKMEMSET` = `chunkmemset_c`, `CHUNKMEMSET_SAFE` = `chunkmemset_safe_c`, `CHUNKUNROLL`, `CHUNKCOPY_SAFE`,
+  `GET_CHUNK_MAG`, `HAVE_CHUNKMEMSET_4`/`_8`, loads and stores through `zng_memread_8`/`zng_memwrite_8` of
+  `zmemory.h`, i.e. `memcpy`) and `inffast_tpl.h` twice (`inflate_fast_c`; `inflate_fast_safe_c` with
+  `USE_SAFE_MODE`). `OPTIMAL_CMP` is 64 on x86_64, so the alignment prologue of `CHUNKMEMSET_SAFE` is not
+  compiled.
+- Allocation: `inflateInit2` installs `zcalloc`/`zcfree` when `zalloc`/`zfree` are `NULL`; all inflate memory is
+  the single block of `alloc_inflate`. The model has to place typed objects (`inflate_state`, `inflate_allocs`,
+  the window bytes) inside one `char` block obtained from `zalloc`, and carry the function pointers `zalloc` /
+  `zfree` and the static code tables as pointer targets; the runtime of this project does not support that yet.
+- Undefined behaviour of the verified source reached by documented calls (see the findings page): pointer
+  comparison and subtraction between the window and the caller's output in `chunkcopy_safe`
+  (`inflate_p.h:224-225`, from `inflate.c:1100`), `CHUNKCOPY_SAFE` (`chunkset_tpl.h:319`) and `chunkmemset_c`
+  (`chunkset_tpl.h:119`, `125`) from `inflate_fast_c` (`inffast_tpl.h:269`); `strm->next_in += 0` on a null
+  `next_in` in `inflateSync` after `inflatePrime`; `NULL + 0` and `memcpy` from `NULL` in `updatewindow` from
+  `inflateSetDictionary(strm, NULL, 0)` on a raw stream.
+
 ## Checking
 
 `python3 framework/check_project.py zlib-ng` from the repository root. It includes the public API

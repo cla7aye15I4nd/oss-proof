@@ -75,3 +75,7 @@ print the expected result.
 Plain regression tests (defects of 2.3.3 that the `develop` branch fixes; each must pass on the verified
 source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negative-len-hang` (the
 `g` and `c` runs), `gzbuffer-aligned-alloc-overflow`.
+
+Open defects (undefined behaviour of the verified source with no patch yet; each must still show its sanitizer
+report, and the run fails once upstream fixes it): `inflate-window-pointer-compare` (pointer comparison between
+the sliding window and the caller's output in `chunkcopy_safe`).
