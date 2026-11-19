@@ -1,9 +1,10 @@
-<!-- source-sha256: efa3da779f1fd6be7f79cc8ab670801bebe7cf3db443ed29b4e7142e65047db7 -->
+<!-- source-sha256: 74a3c0c8ec3c034a393747a936ecda805ae979ae90c88f06c17d2ffce6e899cc -->
 # 发现：zlib-ng 中发现的问题
 
-本工作在被验证提交的 zlib-ng `develop` 分支中发现了十个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
+本工作在被验证提交的 zlib-ng `develop` 分支中发现了十四个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
 有文档的函数触达，并由真实 C 代码的运行（消毒器无法发现时，由经跟踪的运行与 ISO C17 条文）展示。补丁 0003、0004、
-0006、0007、0008、0009、0010、0011、0012 与 0013 修复了它们，每个问题一个补丁。
+0006、0007、0008、0009、0010、0011、0012 与 0013 修复了其中十个，每个问题一个补丁。最后四个位于 gz* 文件函数中，
+尚无补丁。
 
 | 问题 | 错在哪里 | 触达的调用 | 证据 | 修复 | 上游 |
 | --- | --- | --- | --- | --- | --- |
@@ -17,11 +18,15 @@
 | 两个共享同一 `gz_header` 的流写出其额外字段缓冲区 | `inflate`（`EXTRA` 状态）把额外字段放在 `len = head->extra_len - state->length` 处，并用 `len < extra_max` 与 `len + copy > extra_max` 限定拷贝，都以 32 位 `unsigned` 计算。它假定 `head->extra_len` 是本流 `EXLEN` 状态存入的值。两个流共享该头时，另一个流的 `EXLEN` 可以存入更小的 `extra_len`；此时 `len` 回绕到接近 2^32，而 `extra_max` 接近 2^32 时 `len + copy` 也回绕，于是 `memcpy` 写出缓冲区末尾。 | `inflateInit2(a, 31)`，以 `g.extra_max = 0xffffffff` 调用 `inflateGetHeader(a, &g)`，`inflate(a)` 读到额外字段长度之前，`inflateCopy(b, a)`（或再次 `inflateInit2(b, 31)`、`inflateGetHeader(b, &g)`），`inflate(a)` 读入额外长度 100，`inflate(b)` 读入额外长度 10，以 100 字节额外字段调用 `inflate(a)` | AddressSanitizer heap-buffer-overflow，`inflate.c:625`（写 100 字节，越过缓冲区 11 字节） | 补丁 0011 | 未提交 |
 | 7 至 9 级 `deflate` 构造出指向窗口所在块之前的指针 | 在慢速最长匹配搜索（`longest_match_slow_roll_c`，以及 7、8 级使用的 `longest_match_slow_knuth_c`，均来自 `match_tpl.h`）中，惰性搜索若为当前匹配的某个子串找到更早的链，就按该子串的偏移把匹配基址往回移：`mbase_start -= match_offset`（`match_tpl.h:133`），在接受一个匹配之后还有 `mbase_start = window - match_offset`（`match_tpl.h:287`）。`alloc_deflate` 把窗口放在其块的起始处，前面至多 63 字节的对齐填充（`malloc` 返回 64 字节对齐的块时为 0，glibc 的大块为 48 字节），而 `match_offset` 可达 256。于是 `window - match_offset` 指向所分配对象的起点之前：未定义行为（ISO C17 §6.5.6p8），尽管之后经由它读取的每个字节都在窗口内。 | `deflateInit2(strm, 9, Z_DEFLATED, 15, 4, Z_FILTERED)` 或 `deflateInit2(strm, 9, Z_DEFLATED, 31, 1, Z_FIXED)`，然后对 70000 字节的随机、文本与重复混合数据调用 `deflate` | 真实 C 代码的经跟踪运行（插桩的 `match_tpl.h` 副本打印 `match_offset` 与窗口在块内的偏移）：窗口偏移为 0 时出现偏移 191 与 223；没有消毒器报告该指针本身 | 补丁 0012 | 未提交 |
 | 以负的 `max_lazy` 调用 `deflateTune` 后 `deflate` 除以零 | `deflateTune` 原样保存 `max_lazy`。3 至 6 级（`deflate_medium`）把它用作每个匹配的哈希插入次数，并以 32 位 `unsigned` 计算 `max_len = 2 * max_insert_count`，`max_lazy = INT_MIN` 时回绕为 0。于是距离为 1 的匹配（一串相同字节）只留下一个待插入位置，`insert_knuth_stepped` 除以 `inserts - 1 = 0`：未定义行为（ISO C17 §6.5.5p5），在 x86_64 上崩溃（`SIGFPE`）。 | `deflateInit(strm, 4)`，`deflateTune(strm, 8, INT_MIN, 128, 128)`，对 4096 个相同字节调用 `deflate(strm, Z_FINISH)` | UndefinedBehaviorSanitizer，`insert_string_p.h:186` | 补丁 0013 | 未提交 |
+| 失败的 `gzwrite` 使流仍指向调用者的缓冲区；`gzclearerr` 之后的写入相减无关指针 | 长度不小于缓冲区大小的 `gzwrite` 走 `gz_write` 的直接路径，把 `strm.next_in` 指向调用者的缓冲区。`write()` 失败时，`gzwrite` 返回而 `avail_in` 仍非零。`gzclearerr` 之后，下一次小的 `gzwrite`（或 `gzputc`、`gzprintf`）计算 `(next_in + avail_in) - state->in`，即相减指向不同对象的指针（ISO C17 §6.5.6p9），把结果当作输入缓冲区的填充量，并越过其末尾复制。 | 对 `write()` 失败的描述符 `gzdopen`，`gzbuffer(file, 8)` 之后 `gzwrite(file, buf, 100)`，`gzclearerr`，`gzwrite(file, "x", 1)` | AddressSanitizer 指针对检查，`gzwrite.c:185`；不开该检查时为 `memcpy` 中的堆缓冲区溢出 | 尚无 | 未提交 |
+| 失败的 `gzwrite` 之后 `gzclose` 读取调用者的缓冲区 | 在同一状态下，`gzclose` 调用 `gz_comp(state, Z_FINISH)`，在 `gzwrite` 返回之后从 `next_in`（位于调用者的缓冲区）写出（或压缩）`avail_in` 个字节：调用者已释放该缓冲区时是对已释放内存的读取，否则把过时的数据写入文件。 | 对已满的非阻塞管道 `gzdopen`，`gzbuffer(file, 8)`，`gzwrite(file, buf, 100)`（以 `EAGAIN` 失败），`free(buf)`，排空管道，`gzclose` | AddressSanitizer，`gzwrite.c:70` 调用的 `write` 中的释放后使用 | 尚无 | 未提交 |
+| `gz_buffer_alloc` 对空指针加偏移 | `gz_buffer_alloc` 在检查分配结果之前计算 `state->out = state->buffers + in_size`：分配失败时，这是 `NULL` 加非零偏移（ISO C17 §6.5.6p8）。 | `gzopen`，`gzbuffer(file, 1 << 30)`，在 3 GiB 分配失败时调用 `gzwrite` 或 `gzread` | UndefinedBehaviorSanitizer，`gzlib.c:90` | 尚无 | 未提交 |
+| gz 位置溢出（读） | 读函数无界地累加 64 位有符号位置 `x.pos`：`gz_read`（以及 `gzgetc`、`gz_skip`、`gzgets`）中的有符号溢出。 | 对 `lseek` 成功但不移动且总有数据的描述符（Linux `/dev/zero`）`gzdopen`，`gzgetc`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzread` | UndefinedBehaviorSanitizer，`gzread.c:356` | 尚无 | 未提交 |
 
 早先 2.3.3 版本中发现的问题（`gzbuffer` 大小溢出、负长度时 `crc32_combine*` 不返回、`adler32` 以 `NULL`
 和长度 1 调用）已在 `develop` 分支修复；它们的复现保留为回归测试。
 
 这些运行在被验证源码按被验证配置（参见[概述](index.html)）的 LP64 构建上进行，应用了除修复该问题的补丁之外的
-所有补丁，而非在 x86_64 Linux 目标本身上。应用全部补丁后，这些调用均无消毒器报告并正常返回。
+所有补丁，而非在 x86_64 Linux 目标本身上。应用全部补丁后，前十个调用均无消毒器报告并正常返回；后四个在被验证源码上仍出现其报告（gz 位置溢出是在 `/dev/zero` 行为不同于 Linux 的主机上展示的，其 `lseek` 按 Linux 的方式应答）。
 
 消毒器报告或真实 C 代码的运行只是关于那次运行的证据，不是证明。安全性定理针对的是打过补丁的源码。

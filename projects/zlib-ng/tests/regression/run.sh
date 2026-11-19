@@ -51,7 +51,12 @@ plain=(
 # Open defects: undefined behaviour of the verified source with no patch yet. Each must still show its
 # report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report must match
-open_cases=()
+open_cases=(
+  "gzwrite-clearerr-stale-input||invalid-pointer-pair|heap-buffer-overflow"
+  "gzclose-after-failed-write||heap-use-after-free"
+  "gzbuffer-alloc-null-offset||runtime error: .*(null pointer|pointer overflow)"
+  "gzread-position-overflow||runtime error: signed integer overflow"
+)
 
 # Guards: an earlier, defective version of one of our patches, kept in the case's directory. The source built
 # with that version in place of the current patch must show the defect on the case's reproduction, so that the
