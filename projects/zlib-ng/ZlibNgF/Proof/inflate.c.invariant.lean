@@ -188,7 +188,9 @@ structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (a
     extends Shape h s z b st al where
   wbits : st.wbits ≤ 15
   reqbits : st.reqbits ≤ 15
-  wsize : st.wsize = 0 ∨ st.wsize = (1 : UInt32) <<< st.wbits
+  /-- the window size is at most 32768 (`updatewindow` sets it to `1 << wbits`; the zlib header may change `wbits`
+  after) -/
+  wsize : st.wsize ≤ 32768
   whave : st.whave ≤ st.wsize
   wnext : st.wnext = 0 ∨ st.wnext < st.wsize
   /-- the window is filled from 0: until it is full, `wnext = whave` (`inflateGetDictionary` copies `whave - wnext`
@@ -234,10 +236,7 @@ theorem shl_le (w : UInt32) (hw : w ≤ 15) : (1 : UInt32) <<< w ≤ 32768 := by
 
 /-- The window size is at most 32768 bytes. -/
 theorem Core.wsize_le {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : View} {al : InflateAllocs}
-    (c : Core h s z b v al) : v.wsize ≤ 32768 := by
-  rcases c.wsize with e | e
-  · rw [e]; decide
-  · rw [e]; exact shl_le _ c.wbits
+    (c : Core h s z b v al) : v.wsize ≤ 32768 := c.wsize
 
 /-- The structural invariant of the inflate stream `s` in `h`. -/
 def Inv (h : Heap) (s : StreamPtr) : Prop :=

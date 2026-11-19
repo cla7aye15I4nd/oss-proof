@@ -148,7 +148,7 @@ theorem reset2_15 {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : InflateStat
 /-- The state after `inflateResetKeep` has the invariant when the window fields are in range. -/
 theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : InflateState} {al : InflateAllocs}
     (sh : Shape h s z b (view st) al) (hza : z'.zalloc = z.zalloc) (hzf : z'.zfree = z.zfree)
-    (hw : st.wbits ≤ 15) (hr : st.reqbits ≤ 15) (hs : st.wsize = 0 ∨ st.wsize = (1 : UInt32) <<< st.wbits)
+    (hw : st.wbits ≤ 15) (hr : st.reqbits ≤ 15) (hs : st.wsize ≤ 32768)
     (hh : st.whave ≤ st.wsize) (hn : st.wnext = 0 ∨ st.wnext < st.wsize) (hnw : st.wnext ≤ st.whave)
     (hne : st.whave < st.wsize → st.wnext = st.whave) :
     Core h s z' b (view (rkS b st)) al where
@@ -191,7 +191,7 @@ theorem reset_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
       Inv (setZS h i (rkZ z st.wrap) b (rkS b (rS st))) s := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := InflateInv.live hv
   refine ⟨i, z, b, st, rfl, reset_run L, inv_setZS L.hb L.hd hal ?_⟩
-  exact core_rkS (z := z) (st := rS st) { c.toShape with } rfl rfl c.reqbits c.reqbits (Or.inl rfl)
+  exact core_rkS (z := z) (st := rS st) { c.toShape with } rfl rfl c.reqbits c.reqbits (by show (0 : UInt32) ≤ 32768; decide)
     (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _) (fun _ => rfl)
 
 theorem reset2_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (w : Int32) :
@@ -203,7 +203,7 @@ theorem reset2_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (w : Int32) :
   rcases reset2_run L w with e | ⟨wrap, wb, hwb, e⟩
   · exact Or.inl e
   · refine Or.inr ⟨i, z, b, st, wrap, wb, rfl, e, inv_setZS L.hb L.hd hal ?_⟩
-    exact core_rkS (z := z) (st := rS (r2S st wrap wb)) { c.toShape with } rfl rfl hwb hwb (Or.inl rfl)
+    exact core_rkS (z := z) (st := rS (r2S st wrap wb)) { c.toShape with } rfl rfl hwb hwb (by show (0 : UInt32) ≤ 32768; decide)
       (UInt32.le_refl _) (Or.inl rfl) (UInt32.le_refl _) (fun _ => rfl)
 
 /-! ## `inflatePrime` -/

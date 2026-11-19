@@ -318,7 +318,7 @@ theorem syncEnd_ok {H Hk : Heap} {i b : Nat} {zk : ZStream} {Sk : InflateState} 
   by_cases hw : Sk.reqbits = 0
   · simp only [hw, beq_self_eq_true, ↓reduceIte]
     refine Sat.bind (Sat.mono (step_S t4 (fun s => { s with wbits := MAX_WBITS.toUInt32 })
-      (fun _ _ c => { c with wbits := by show MAX_WBITS.toUInt32 ≤ 15; decide, wsize := Or.inl rfl })) ?_)
+      (fun _ _ c => { c with wbits := by show MAX_WBITS.toUInt32 ≤ 15; decide })) ?_)
     rintro - H6 t6
     exact tail H6 _ _ t6
   · have hw' : (Sk.reqbits == 0) = false := by simpa using hw
