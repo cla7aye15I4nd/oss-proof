@@ -77,4 +77,21 @@ def memwrite8 (p : BPtr) (v : UInt64) : M Unit := do
   Ptr.store (← p.add 6) (v >>> 48).toUInt8
   Ptr.store (← p.add 7) (v >>> 56).toUInt8
 
+/-- A local array of `n` bytes whose address is taken (`unsigned char buf[n]`): a fresh block with
+uninitialised contents (from `Heap.garbage`). Unlike `malloc` it never fails and does not consume an allocation
+oracle step. -/
+def localBlock (n : Nat) : M BPtr := fun h =>
+  let b := h.nextBlk
+  let arr := Array.ofFn (n := n) (fun i => Junk.of (h.garbage (2 ^ 41 + b) i.val))
+  .ok (.ref (.heap b) 0, { h with bytes := upd h.bytes b (some arr), nextBlk := b + 1 })
+
+/-- The end of the lifetime of a local array made by `localBlock`. -/
+def dropLocal (p : BPtr) : M Unit := fun h =>
+  match p with
+  | .ref (.heap b) 0 =>
+    match h.bytes b with
+    | some _ => .ok ((), { h with bytes := upd h.bytes b none })
+    | none => .error (.ub "end of lifetime of a dead local array")
+  | _ => .error (.ub "not a local array")
+
 end C
