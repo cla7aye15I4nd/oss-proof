@@ -426,7 +426,7 @@ theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H :
       ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
         poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9) ∧
     (v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0) ∧
-    (0 ≤ v.bi_valid ∧ v.bi_valid ≤ 64) ∧
+    (0 ≤ v.bi_valid ∧ v.bi_valid < 8) ∧
     (v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat) ∧
     (0 ≤ v.strategy ∧ v.strategy ≤ 4) ∧
     ((∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)) := by

@@ -15,7 +15,7 @@ later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the bl
 0..9 (`lm_set_level`), the tree arrays have their C sizes (`zng_tr_init`); the sizes `w_size`, `window_size`,
 `lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf`
 in that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within
-`pending_buf`; whole symbols in `sym_buf` up to `sym_end`; at most 64 bits in `bi_buf`; `strstart + lookahead`
+`pending_buf`; whole symbols in `sym_buf` up to `sym_end`; fewer than 8 bits in `bi_buf`; `strstart + lookahead`
 within the window; a valid `strategy`; both function pointers of `lm_set_level` set.
 -/
 
@@ -106,8 +106,9 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
       poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9
   /-- the symbol buffer holds whole three-byte symbols, at most `sym_end` bytes -/
   syms : v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0
-  /-- the bit buffer holds at most `BIT_BUF_SIZE` bits -/
-  bits : 0 ≤ v.bi_valid ∧ v.bi_valid ≤ 64
+  /-- between calls the bit buffer holds fewer than 8 bits: every call that adds bits ends with
+  `zng_tr_flush_bits` (`flush_pending`, `deflatePrime`), which moves the complete bytes to `pending_buf` -/
+  bits : 0 ≤ v.bi_valid ∧ v.bi_valid < 8
   /-- the window positions in use lie in the window -/
   look : v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat
   /-- `strategy` is one of the five strategies -/
