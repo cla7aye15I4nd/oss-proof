@@ -67,7 +67,11 @@ def proved : List (Name × Name) := [
 def notDone : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
   ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
-  ``ZlibNgF.Spec.Functional.Goal.adler32_functional
+  ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
+  ``ZlibNgF.Spec.Safety.Goal.inflateBackInit__safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateBack_safety,
+  ``ZlibNgF.Spec.Safety.Goal.inflateBack_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.inflateBackEnd_safety
 ]
 
 def required : List Name := [
