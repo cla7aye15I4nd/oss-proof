@@ -333,7 +333,7 @@ theorem cs_step_kA {H0 G : Heap} {ob N lo hi o f t j : Nat} {T : UInt64} (rG : O
 copy, whose output is the window): no fault, result `out + MIN(len, safe - out)`, only `[out, safe)` changes. -/
 theorem sat_chunkcopy_safe_ahead {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo hi) {o f s : Nat}
     (len : UInt64) (hof : o ≤ f) (hos : o ≤ s) (h1 : lo ≤ o) (h2 : s ≤ hi) (hN : hi ≤ N)
-    (hfN : f + min len.toNat (s - o) ≤ N) (hN63 : N < 2 ^ 63) :
+    (hfN : f + min len.toNat (s - o) ≤ N) (hs63 : s - o < 2 ^ 63) (hf63 : f - o < 2 ^ 63) :
     Sat H (chunkcopy_safe (B ob o) (B ob f) len (B ob s))
       (fun p H' => p = B ob (o + min len.toNat (s - o)) ∧ ORun H0 H' ob N lo hi) := by
   obtain ⟨a, ha, haN⟩ := r.cur

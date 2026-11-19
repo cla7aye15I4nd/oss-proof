@@ -88,12 +88,16 @@ def FastPost (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateSta
     (∀ d, h.bytes bo = some d → ∃ d', h'.bytes bo = some d' ∧ d'.size = d.size) ∧
     Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)]
 
-/-- **`INFLATE_FAST` (both variants) as `LEN` calls it.** -/
-theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32)
+/-- **`INFLATE_FAST` (both variants), the window in block `wb`**: another block than the output (`LEN` of
+`inflate`), or the output itself with `beg == window`, the safe variant, `start == wsize` and `wnext == 0` (`LEN` of
+`inflateBack`). -/
+theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32)
     (ri : BRef) (oi bo oo : Nat) (A D : Array UInt8) (hmode : st.mode = ZlibNg.Inflate.LEN)
     (hz : h.streams i = some z) (hzs : z.state = some b) (hst : h.istate b = some st)
-    (hbits : st.bits < 8) (hbo : bo ≠ b) (woff : Nat) (wd : Array UInt8)
-    (hwv : st.window = .val (B b woff)) (hwd : h.bytes b = some wd) (hws : woff + st.wsize.toNat ≤ wd.size)
+    (hbits : st.bits < 8) (hbo : bo ≠ b) (bd : Array UInt8) (hbd : h.bytes b = some bd) (wb woff : Nat)
+    (wd : Array UInt8)
+    (hW : wb ≠ bo ∨ (wb = bo ∧ woff = oo ∧ safe = true ∧ start = st.wsize ∧ st.wnext = 0))
+    (hwv : st.window = .val (B wb woff)) (hwd : h.bytes wb = some wd) (hws : woff + st.wsize.toNat ≤ wd.size)
     (hwh : st.whave ≤ st.wsize) (hwn : st.wnext ≤ st.whave)
     (lc dc : CodePtr) (hlc : st.lencode = .val lc) (hdc : st.distcode = .val dc)
     (htab : FastTableOK h lc st.lenbits dc st.distbits)
@@ -127,7 +131,7 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
       (fun _ h' => FastPost safe h i b z st start ri oi bo oo h') := by
     simp only [jp]
     refine sat_bind_eq (ZlibNgF.Proof.InflateInv.ldState_app hst) ?_
-    refine sat_bind_eq (a := B b woff) (H' := h) (by rw [hwv]; rfl) ?_
+    refine sat_bind_eq (a := B wb woff) (H' := h) (by rw [hwv]; rfl) ?_
     refine sat_bind_eq (a := lc) (H' := h) (by rw [hlc]; rfl) ?_
     refine sat_bind_eq (a := dc) (H' := h) (by rw [hdc]; rfl) ?_
     obtain ⟨hlb, hdb, ⟨rl, ol, Tl, hlr, hlg, hlt⟩, ⟨rd, od, Td, hdr, hdg, hdt⟩⟩ := htab
@@ -140,20 +144,23 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
     have hb8 : st.bits.toUInt8.toNat = st.bits.toNat := u8_of_lt8 _ hbits
     have hS : start.toNat < 2 ^ 32 := start.toNat_lt
     let e : FE := ⟨bo, D.size, oo + (start.toNat - z.avail_out.toNat), oo + start.toNat, oo, ri, oi,
-      oi + z.avail_in.toNat, st.bits.toNat, b, woff, i, b, st, z, rl, ol, Tl, st.lenbits.toNat, rd, od, Td,
+      oi + z.avail_in.toNat, st.bits.toNat, wb, woff, i, b, st, z, rl, ol, Tl, st.lenbits.toNat, rd, od, Td,
       st.distbits.toNat⟩
     let c : FC := ⟨some i, some b, Ptr.ref ri (oi + (z.avail_in.toNat - 14)), Ptr.ref (BRef.heap bo) oo,
       B bo (if safe = true then oo + start.toNat - 2 else oo + start.toNat - 259), Ptr.ref (BRef.heap bo) (oo + start.toNat),
-      B b woff, st.wsize, st.whave, st.wnext, lc, dc, 1 <<< st.lenbits - 1, 1 <<< st.distbits - 1, safe⟩
+      B wb woff, st.wsize, st.whave, st.wnext, lc, dc, 1 <<< st.lenbits - 1, 1 <<< st.distbits - 1, safe⟩
     have EV : EnvOK h c e := by
       refine ⟨rfl, rfl, hz, hst, hbo.symm, ⟨D, hD, rfl⟩, rfl, rfl, by dsimp only [e]; omega, by dsimp only [e]; omega,
         by dsimp only [e]; omega, by dsimp only [e]; omega, rfl, ?_, ?_,
-        ⟨A, hA, by dsimp only [e]; omega⟩, by dsimp only [e]; omega, hb8', rfl, ⟨wd, hwd, hws⟩, hbo.symm, hwh, hwn, hlr, hlg, hlt,
+        ⟨A, hA, by dsimp only [e]; omega⟩, by dsimp only [e]; omega, hb8', rfl, ⟨wd, hwd, hws⟩, ?_, hwh, hwn, hlr, hlg, hlt,
         fun x => and_mask_lt x _ hlb, fun b' hb' => hlnb rl ol b' hlr hb', hdr, hdg, hdt,
         fun x => and_mask_lt x _ hdb, fun b' hb' => hdnb rd od b' hdr hb'⟩
       · dsimp only [e, c]
         cases safe <;> simp at hroom ⊢ <;> rw [UInt32.le_iff_toNat_le] at hroom <;> simp at hroom <;> omega
       · show Ptr.ref ri _ = Ptr.ref ri (oi + z.avail_in.toNat - 14); congr 1; omega
+      · rcases hW with hW | ⟨h1, h2, h3, h4, h5⟩
+        · exact Or.inl hW
+        · exact Or.inr ⟨h1, h2, h3, by dsimp only [e, c]; rw [h4], h5⟩
     refine Sat.bind (Sat.mono (sat_REFILL hA _ rfl (p := oi) (by omega) (by simp only; omega)) ?_)
     rintro l0 H1 ⟨hH, hd, hl0⟩
     rw [hH]
@@ -173,7 +180,7 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
       simp only [offOf, fuel]; dsimp only [e]; omega
     rintro ⟨lf, brk⟩ G ⟨po, hpo, hpo0, hpos, ⟨p, hp, hp0, hpE, hb64, hacc⟩, hcase⟩
     have hsi : h.istates b = some st := by
-      have := hst; simp only [Heap.istate, hwd] at this; exact this
+      have := hst; simp only [Heap.istate, hbd] at this; exact this
     obtain ⟨G1, st', z', r1, hG, hst', hzz, hprog⟩ : ∃ G1 st' z', RH h e G1 ∧
         G = { G1 with istates := upd G1.istates b (some st'), streams := upd G1.streams i (some z') } ∧
         (st' = st ∨ st' = { st with mode := BAD } ∨ st' = { st with mode := TYPE } ∨
@@ -267,8 +274,8 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
       generalize (Int64.ofInt (((oo + start.toNat : Nat) : Int) - (po : Int))).toUInt64.toUInt32 = ao at hao ⊢
       refine sat_bind_eq (by simp only [stStream, upd_same]; rfl) ?_
       have hbb : G1.bytes b = h.bytes b := r1.bytes_ne hbo.symm
-      refine sat_bind_eq (by simp only [ldState, Heap.istate, hbb, hwd, upd_same]; rfl) ?_
-      refine ⟨(), _, by simp only [stState, Heap.istate, hbb, hwd, upd_same]; rfl, ?_⟩
+      refine sat_bind_eq (by simp only [ldState, Heap.istate, hbb, hbd, upd_same]; rfl) ?_
+      refine ⟨(), _, by simp only [stState, Heap.istate, hbb, hbd, upd_same]; rfl, ?_⟩
       have hbf : (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toNat = lf.bits.toNat % 8 := by
         simp only [UInt8.toNat_toUInt32, hm8]
       have hao' : z.avail_out.toNat ≤ start.toNat := hso
@@ -332,5 +339,24 @@ theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st
     rintro p H1 ⟨rfl, hH⟩
     rw [hH]
     exact hjp
+
+/-- **`INFLATE_FAST` (both variants) as `LEN` of `inflate` calls it**: the window in the state block. -/
+theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32)
+    (ri : BRef) (oi bo oo : Nat) (A D : Array UInt8) (hmode : st.mode = ZlibNg.Inflate.LEN)
+    (hz : h.streams i = some z) (hzs : z.state = some b) (hst : h.istate b = some st)
+    (hbits : st.bits < 8) (hbo : bo ≠ b) (woff : Nat) (wd : Array UInt8)
+    (hwv : st.window = .val (B b woff)) (hwd : h.bytes b = some wd) (hws : woff + st.wsize.toNat ≤ wd.size)
+    (hwh : st.whave ≤ st.wsize) (hwn : st.wnext ≤ st.whave)
+    (lc dc : CodePtr) (hlc : st.lencode = .val lc) (hdc : st.distcode = .val dc)
+    (htab : FastTableOK h lc st.lenbits dc st.distbits)
+    (hlnb : ∀ r o b', lc = .ref r o → r = .codes b' → b' ≠ bo) (hdnb : ∀ r o b', dc = .ref r o → r = .codes b' → b' ≠ bo)
+    (hin15 : 15 ≤ z.avail_in) (hstart : z.avail_out ≤ start)
+    (hroom : if safe then 3 ≤ z.avail_out else 260 ≤ z.avail_out)
+    (hni : z.next_in = .ref ri oi) (hA : Space.get h ri = some A) (hAs : oi + z.avail_in.toNat ≤ A.size)
+    (hno : z.next_out = .ref (.heap bo) (oo + (start - z.avail_out).toNat)) (hD : h.bytes bo = some D)
+    (hDs : oo + start.toNat ≤ D.size) :
+    Sat h (INFLATE_FAST safe (some i) start) (fun _ h' => FastPost safe h i b z st start ri oi bo oo h') :=
+  inflate_fast_post_w safe h i b z st start ri oi bo oo A D hmode hz hzs hst hbits hbo wd hwd b woff wd
+    (Or.inl hbo.symm) hwv hwd hws hwh hwn lc dc hlc hdc htab hlnb hdnb hin15 hstart hroom hni hA hAs hno hD hDs
 
 end ZlibNgF.Proof.InffastMain

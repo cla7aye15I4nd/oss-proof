@@ -71,7 +71,9 @@ structure EnvOK (H0 : Heap) (c : FC) (e : FE) : Prop where
   bits0 : e.bits0 < 8
   win : c.window = B e.wb e.woff
   wdata : ∃ wd, H0.bytes e.wb = some wd ∧ e.woff + c.wsize.toNat ≤ wd.size
-  wbob : e.wb ≠ e.ob
+  /-- The window is another block (`inflate`), or it is the output itself (`inflateBack`): `beg == window`, the safe
+  variant, the output ends at the window's end, `wnext == 0`. -/
+  wbob : e.wb ≠ e.ob ∨ (e.wb = e.ob ∧ e.woff = e.begO ∧ c.safeMode = true ∧ e.s = e.begO + c.wsize.toNat ∧ c.wnext = 0)
   whave : c.whave ≤ c.wsize
   wnext : c.wnext ≤ c.whave
   lcode : c.lcode = .ref e.rl e.ol
