@@ -62,7 +62,7 @@ not done.
 
 Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `inflate.c.o`, `inftrees.c.o`,
 `chunkset_c.c.o`, `uncompr.c.o`) and the preprocessor conditions of the files below. `infback.c`
-(`inflateBack*`) is out of this scope.
+(`inflateBack*`) has its own section below.
 
 - Public entry points (`inflate.c`): `inflateInit_`, `inflateInit2_` (both call the hidden `inflateInit2`
   after `CHECK_VER_STSIZE`), `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`,
@@ -107,6 +107,39 @@ Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `in
   (`inffast_tpl.h:327`) moving `next_in` before the caller's buffer when `inflatePrime` left 8 or more bits in
   the bit buffer on entry. Patch 0011 bounds the copy into `head->extra` in state `EXTRA`, which overran the buffer
   when two streams share one `gz_header`.
+
+## inflateBack scope (pinned `develop` commit, verified option set)
+
+Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it defines `inflateBackInit`,
+`inflateBackInit_`, `inflateBack`, `inflateBackEnd` and the static `order`, and calls `alloc_inflate`, `free_inflate`,
+`fixedtables`, `zng_inflate_table`, `inflate_fast_safe_c`, `chunkmemset_safe_c`, `zcalloc`, `zcfree`).
+
+- Public entry points: `inflateBackInit_` (`CHECK_VER_STSIZE`, then the hidden `inflateBackInit`), `inflateBack`,
+  `inflateBackEnd`. Translation: `ZlibNgF/ZlibNg/infback.c.lean`.
+- Shared with `inflate.c`: `alloc_inflate` (the same single block, window part included: `inflateBackInit` uses the
+  caller's window instead and never reads the allocated one), `free_inflate` (`inflateBackEnd`), `fixedtables`,
+  `zng_inflate_table`, and from `inflate_p.h` `LOAD`, `RESTORE`, `NEEDBITS`, `BITS`, `DROPBITS`, `BYTEBITS`,
+  `INITBITS`, `SET_BAD`, `CODE_BITS`, `CODE_EXTRA` and the static `chunkcopy_safe`. `infback.c` has its own `PULL`,
+  `PULLBYTE` (calling `in()`) and `ROOM` (calling `out()`).
+- `inflateBackInit` does not set `state->strm`, `state->mode` or the code pointers; `inflateBack` sets `mode`, `last`
+  and `whave` at entry and keeps `hold` / `bits` in locals that start at 0 on every call (there is no `inflatePrime`
+  for these streams, so the bit buffer holds fewer than 8 bits whenever `LEN` calls the fast path: patch 0010's
+  concern has no analogue). `state->wnext` stays 0.
+- `LEN` calls `inflate_fast_safe_c(strm, state->wsize)` (not `inflate_fast_c`) when `have >= 15` and `left >= 3`, with
+  `next_out` inside the caller's window, so the output of `inflate_fast` *is* the window (`beg == window`). The safe
+  variant bails out to `MATCH` when a match does not fit in `left`; `MATCH` of `infback.c` copies it with
+  `chunkcopy_safe` (window to window) or `chunkmemset_safe_c`.
+- Patch 0007's concern (comparing a pointer into the window with one into the caller's output) does not arise in
+  `infback.c`: both are the caller's window. But patch 0007 itself replaced the window copies of `inflate_fast` by
+  `memcpy`, which is only correct when the window and the output are distinct objects. Called from `inflateBack`,
+  the source `window + wsize - op` and the destination `out` can overlap (a distance that reaches into the previous
+  window pass, `dist + min(op, len) > wsize`): `memcpy` with overlapping ranges, undefined (ISO C17 §7.24.2.1p2);
+  AddressSanitizer reports `memcpy-param-overlap` at `inffast_tpl.h` (open-defect case
+  `tests/regression/infback-window-overlap`). Without patch 0007 the copy goes through `chunkcopy_safe`, which
+  handles the overlap. Streams made by zlib's `deflate` with the same window size never reach it (their distances
+  are at most `wsize - 262`).
+- Call-backs: `in_func` / `out_func` are the parameters `InCb` / `OutCb` of `inflateBack` (caller code); what the
+  goals assume of them is in `ZlibNgF/Spec/Common/Infback.lean`.
 
 ## Checking
 
