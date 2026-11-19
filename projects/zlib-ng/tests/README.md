@@ -39,6 +39,7 @@ made with (`BUILD_DIGEST`) and is rebuilt when they change.
 | `crc32` | `crc32.c`, `arch/generic/crc32_braid_c.c`, `crc32_braid_comb.c` | `crc32`, `crc32_z`, `crc32_combine`, `crc32_combine64`, `crc32_combine_gen`, `crc32_combine_gen64`, `crc32_combine_op`, `get_crc_table` (all 256 entries) |
 | `zutil` | `zutil.c` | `zlibVersion`, `zlibCompileFlags`, `zError`, `zcalloc` / `zcfree` (write, read back, free), `zng_alloc_aligned` / `zng_free_aligned` (NULL or not, alignment, write, read back, free) |
 | `compress` | `compress.c` | `compressBound` |
+| `inflate` | `inflate.c`, `inftrees.c`, `inffast_tpl.h` / `chunkset_tpl.h` (`arch/generic/chunkset_c.c`), `inflate_p.h` | `inflateInit2_`, `inflate` (every flush mode, input and output in pieces), `inflateSetDictionary` (on `Z_NEED_DICT`), `inflateGetHeader`, `inflateReset`, `inflateResetKeep`, `inflateReset2`, `inflateEnd`; zlib, gzip and raw streams of every block type, every `windowBits`, dictionaries, gzip headers, corrupted and truncated streams, window-crossing matches, distances 1..64. A line prints every call's return value, stream fields (`next_in` / `next_out` offsets, `avail_*`, `total_*`, `adler`, `data_type`, `msg`), the output bytes and the header fields and buffers |
 
 ## File formats
 
