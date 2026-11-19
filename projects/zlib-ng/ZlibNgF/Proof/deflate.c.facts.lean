@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«deflate.c.invariant»
+import ZlibNgF.Proof.«deflate.c.init»
 
 /-!
 # Callee facts of `deflate` (`ZlibNgF`)
@@ -168,12 +169,22 @@ def DInput (h : Heap) (s : StreamPtr) : Prop :=
   ∃ z b, StreamAt h s z ∧ z.state = some b ∧ NullOrRead h z.next_in z.avail_in.toNat ∧ NotInBlock b z.next_in ∧
     (z.avail_in ≠ 0 → z.next_in ≠ .null)
 
-/-- What `fill_window` leaves: the invariant and a readable input; only the stream record (`next_in`, `avail_in`,
-`total_in`, `adler`) and the stream's block change; no more input taken than the window gained (`avail_in +
-lookahead` does not grow); the state fields that the callers read back (`wrap`, `status`, `gzhead`, `level`,
-`strategy`, the function pointers, `block_start`) kept. -/
+/-- The invariant of stream `s`, except that `strstart - block_start` may reach `2^30 + 2^16`: the clauses of `DCore` on
+the state with `block_start` at `strstart`, and `block_start` at or before `strstart`. This is the state inside the
+insertion loop of `deflateSetDictionary`, which raises `strstart` (by at most the dictionary length in all) before it
+sets `block_start = (int)strstart`; `fill_window` needs only `block_start - slide_len` in range. -/
+def DInvW (h : Heap) (s : StreamPtr) : Prop :=
+  ∃ i z b st al, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
+    h.dallocsOf b = some al ∧ DCore h s z b (dview { st with block_start := st.strstart.toInt32 }) al ∧
+    st.block_start.toInt ≤ st.strstart.toNat ∧ (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16
+
+/-- What `fill_window` leaves: `DInvW` and a readable input; only the stream record (`next_in`, `avail_in`,
+`total_in`, `adler`) and the stream's block change; `avail_in` does not grow and drops when `lookahead` changes, and
+`lookahead` grows by at most the input taken (the window gains only input bytes); `strstart - block_start` is kept (a
+slide lowers both by `slide_len`); at the end the lookahead is full or the input empty; the state fields that the
+callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers) kept. -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
-  DInv h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
+  DInvW h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
     h.dstate b = some st ∧ h'.dstate b = some st' ∧
     z' = { z with
@@ -181,24 +192,31 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
       avail_in := z'.avail_in
       total_in := z'.total_in
       adler := z'.adler } ∧
-    z'.avail_in.toNat + st'.lookahead.toNat ≤ z.avail_in.toNat + st.lookahead.toNat ∧
+    z'.avail_in.toNat ≤ z.avail_in.toNat ∧
+    (st'.lookahead ≠ st.lookahead → z'.avail_in.toNat < z.avail_in.toNat) ∧
+    st'.lookahead.toNat + z'.avail_in.toNat ≤ st.lookahead.toNat + z.avail_in.toNat ∧
+    (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt ∧
+    (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧
     st'.wrap = st.wrap ∧ st'.status = st.status ∧ st'.gzhead = st.gzhead ∧ st'.level = st.level ∧
-    st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch ∧
-    st'.block_start = st.block_start
+    st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
-the translated C code: `fill_window` from the invariant and a readable input (the CRC tables when it computes a
-CRC-32), and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose 4-byte reads
-stay below `strstart + lookahead + 1`; they change only the stream's block (`head`, `prev`) and `ins_h`. -/
+the translated C code: `fill_window` from `DInvW` (the invariant, or the state inside `deflateSetDictionary`'s
+insertion loop), a readable input (the CRC tables when it computes a CRC-32) and `lookahead < MIN_LOOKAHEAD` (every
+caller's condition), and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose
+4-byte reads stay below `strstart + lookahead + 1`; they change only the bytes of the stream's block (`head`, `prev`)
+and `ins_h` (the result is the `SH` heap of `Proof/deflate.c.init.lean`). -/
 structure WindowFacts : Prop where
-  fill_window : ∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState), DInv h s → DStateIs h s b st →
-    DInput h s → (st.wrap = 2 → CrcGlobals h) →
+  fill_window : ∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState), DInvW h s → DStateIs h s b st →
+    DInput h s → (st.wrap = 2 → CrcGlobals h) → st.lookahead.toNat < 262 →
     ∃ h', C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') ∧ FillPost h h' s
-  insert_batch : ∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (f : InsertBatchFn) (wo : Nat)
-    (str n : UInt32), DInv h s → DStateIs h s b st → st.window = .val (.ref (.heap b) wo) → 1 ≤ n.toNat →
+  insert_batch : ∀ (h : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8)
+    (f : InsertBatchFn) (wo : Nat) (str n : UInt32), DInvW h (some i) → h.streams i = some z → z.state = some b →
+    h.dstate b = some st → h.bytes b = some d → st.window = .val (.ref (.heap b) wo) → 1 ≤ n.toNat →
     str.toNat + n.toNat + 2 ≤ st.strstart.toNat + st.lookahead.toNat →
-    ∃ h', C.run (ZlibNg.InsertString.call_insert_batch f (some b) (.ref (.heap b) wo) str n) h = .ok ((), h') ∧
-      DInv h' s ∧ DFrame h h' [] [b] [] [] ∧ ∀ st', DStateIs h' s b st' → st' = { st with ins_h := st'.ins_h }
+    ∃ st' d', C.run (ZlibNg.InsertString.call_insert_batch f (some b) (.ref (.heap b) wo) str n) h =
+        .ok ((), DeflateInit.SH h i z b st' d') ∧
+      DInvW (DeflateInit.SH h i z b st' d') (some i) ∧ st' = { st with ins_h := st'.ins_h } ∧ d'.size = d.size
 
 /-! ## Interface lemmas -/
 
@@ -231,5 +249,51 @@ theorem DWork.inv {h : Heap} {s : StreamPtr} (hw : DWork h s)
     (h8 : ∀ b st, DStateIs h s b st → st.bi_valid < 8) : DInv h s := by
   obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, b0, -, c, -⟩ := hw
   exact ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with bits := ⟨b0, h8 b st ⟨i, z, rfl, hz, hb, hst⟩⟩ }⟩
+
+/-- `strstart` of an invariant view is at most 65536, so `(int)strstart` is exact. -/
+theorem strstart_toInt32 {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
+    (c : DCore h s z b v al) : v.strstart.toInt32.toInt = v.strstart.toNat ∧ v.strstart.toNat ≤ 65536 := by
+  have hl := c.look
+  obtain ⟨-, hw, hws, -⟩ := c.sizes
+  have h65 : v.window_size.toNat ≤ 65536 := by
+    rw [hws, DeflateInit.wbuf_toNat _ hw]; unfold DeflateAlloc.dWS; split <;> omega
+  exact ⟨DeflateAlloc.u32_toInt32_toInt _ (by omega), by omega⟩
+
+/-- An invariant stream satisfies `DInvW`. -/
+theorem DInvW.of_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) : DInvW h s := by
+  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c⟩ := hv
+  have e := (strstart_toInt32 c).1
+  have hb1 := c.bstart
+  have hb2 := c.bs_lo
+  simp only [dview] at e hb1 hb2
+  refine ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with
+    bstart := by simp only [dview]; rw [e]; exact Int.le_refl _
+    bs_lo := by simp only [dview]; rw [e]; omega }, hb1, by omega⟩
+
+/-- `DInvW` with `strstart - block_start` at most `2^30` is the invariant. -/
+theorem DInvW.inv {h : Heap} {s : StreamPtr} (hw : DInvW h s)
+    (hd : ∀ b st, DStateIs h s b st → (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30) : DInv h s := by
+  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c, h1, h2⟩ := hw
+  exact ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with
+    bstart := h1
+    bs_lo := hd b st ⟨i, z, rfl, hz, hb, hst⟩ }⟩
+
+/-- `fill_window` from an invariant stream leaves the invariant. -/
+theorem FillPost.inv {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (hp : FillPost h h' s) : DInv h' s := by
+  obtain ⟨hw, -, -, i, z, z', b, st, st', rfl, hz, hz', hb, hst, hst', hzz, -, -, -, hd, -⟩ := hp
+  obtain ⟨i0, z0, b0, st0, al, e0, hz0, hb0, hst0, -, c⟩ := hv
+  obtain rfl : i = i0 := Option.some.inj e0
+  obtain rfl : z = z0 := Option.some.inj (hz.symm.trans hz0)
+  obtain rfl : b = b0 := Option.some.inj (hb.symm.trans hb0)
+  obtain rfl : st = st0 := Option.some.inj (hst.symm.trans hst0)
+  have hl := c.bs_lo
+  simp only [dview] at hl
+  refine hw.inv fun b' st2 ⟨i2, z2, e, hz2, hb2, hst2⟩ => ?_
+  obtain rfl : i = i2 := Option.some.inj e
+  obtain rfl : z' = z2 := Option.some.inj (hz'.symm.trans hz2)
+  have hs' : z'.state = z.state := by rw [hzz]
+  obtain rfl : b = b' := Option.some.inj (hb.symm.trans (hs'.symm.trans hb2))
+  obtain rfl : st' = st2 := Option.some.inj (hst'.symm.trans hst2)
+  omega
 
 end ZlibNgF.Proof.DeflateFacts

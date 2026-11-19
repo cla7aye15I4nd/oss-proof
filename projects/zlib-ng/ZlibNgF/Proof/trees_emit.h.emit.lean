@@ -145,7 +145,11 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
         exact ⟨pbo, poo, hpb, hpo, by omega⟩
       hdr := c.hdr
       bstart := c.bstart
-      ins := c.ins }
+      ins := c.ins
+      wpow := c.wpow
+      fe_mod := c.fe_mod
+      fe_hi := c.fe_hi
+      bs_lo := c.bs_lo }
   · rw [hsn] at hn
     obtain ⟨pbo3, poo3, hp3, ho3, hq⟩ := hr2 hn
     obtain rfl := pend_inj hpb hp3
