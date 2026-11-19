@@ -49,6 +49,49 @@ theorem pend_inj {b pbo pbo1 : Nat} {p : Ival BPtr} (h1 : p = .val (.ref (.heap 
     (h2 : p = .val (.ref (.heap b) pbo1)) : pbo = pbo1 := by
   rw [h1] at h2; injection h2 with e; injection e
 
+/-- The heap that an emitter `m` leaves on stream `s` (block `b`) from the working state: the same heap with only the
+state record and the bytes of block `b` replaced (`SH`), the stream record unchanged. -/
+def EmitShape (s : StreamPtr) (b : Nat) (pre : DeflateState → Prop) (room : DeflateState → Nat) (m : M Unit) :
+    Prop :=
+  ∀ (h : Heap) (st : DeflateState), DWork h s → DStateIs h s b st → pre st →
+    PendRoom b st (room st) (4 * st.lit_bufsize.toNat + 9) →
+    (st.sym_next ≠ 0 → PendRoom b st (room st) (st.lit_bufsize.toNat + 8)) →
+    ∀ h', C.run m h = .ok ((), h') → ∃ i z st' d', s = some i ∧ h.streams i = some z ∧ h' = SH h i z b st' d'
+
+/-- An emitter proved on `SH` heaps (the hypothesis of `emit_of`) leaves an `SH` heap. -/
+theorem shape_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room grow : DeflateState → Nat} {m : M Unit}
+    (H : ∀ h i z st d pbo, WCtx h i z b st d pbo → pre st →
+      st.pending.toNat + room st ≤ 4 * st.lit_bufsize.toNat + 9 →
+      Sat (SH h i z b st d) m (fun _ H' => EPost h i z b st d pbo (grow st) H')) :
+    EmitShape s b pre room m := by
+  intro h st hw hs hpre hr1 hr2 h' hrun
+  obtain ⟨i, z, b', st0, al, rfl, hz, hb, hst, hal, b0, b64, c, -, -⟩ := hw
+  obtain ⟨i1, z1, e1, hz1, hb1, hst1⟩ := hs
+  obtain rfl := Option.some.inj e1
+  rw [hz] at hz1; obtain rfl := Option.some.inj hz1
+  rw [hb] at hb1; obtain rfl := (Option.some.inj hb1).symm
+  rw [hst] at hst1; obtain rfl := (Option.some.inj hst1).symm
+  obtain ⟨pbo1, poo1, hpb1, hpo1, hroom⟩ := hr1
+  obtain ⟨-, -, -, -, l2, -, -⟩ := c.sizes
+  obtain ⟨d, wo, po, ho, pbo, hd, hw, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hpoo, hpe⟩ := c.lay
+  simp only [dview] at l2 hw hp hh hpb h1 h2 h3 h4 hsb hpo hpoo hpe
+  obtain rfl := pend_inj hpb hpb1
+  obtain rfl := pend_inj hpo hpo1
+  have hst' : h.dstates b = some st := by simpa [Heap.dstate, hd] using hst
+  have v0 : 0 ≤ st.bi_valid.toInt := by have := Int32.le_iff_toInt_le.mp b0; simpa using this
+  have v64 : st.bi_valid.toInt < 64 := by have := Int32.lt_iff_toInt_lt.mp b64; simpa using this
+  have hwin : ∀ wo1, st.window = .val (.ref (.heap b) wo1) → wo1 + st.strstart.toNat ≤ pbo := by
+    intro wo1 hw1
+    rw [hw] at hw1; injection hw1 with e; injection e with _ e; subst e
+    have := c.look; simp only [dview] at this; omega
+  have S := H h i z st d pbo ⟨hpb, h4, l2, v0, v64, hwin⟩ hpre (by omega)
+  rw [DeflateReset.SH_self hz hst' hd] at S
+  obtain ⟨r, h'', e, st', d', rfl, -⟩ := S
+  have e2 : C.run m h = .ok (r, SH h i z b st' d') := e
+  rw [e2] at hrun
+  cases hrun
+  exact ⟨i, z, st', d', rfl, hz, rfl⟩
+
 /-- An emitter proved on `SH` heaps is `EmitOk`. -/
 theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room grow : DeflateState → Nat} {m : M Unit}
     (hg : ∀ st, grow st ≤ room st)

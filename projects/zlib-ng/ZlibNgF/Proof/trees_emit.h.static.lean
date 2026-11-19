@@ -168,11 +168,28 @@ theorem emit_lit_ok (c : UInt32) (hc : c < 256) :
   emit_of (fun _ => Nat.le_refl _) fun _ _ _ _ _ _ W _ hr =>
     emit_lit_SH W (by omega) c (by have := UInt32.lt_iff_toNat_lt.mp hc; simpa using this)
 
+theorem emit_lit_shape (c : UInt32) (hc : c < 256) :
+    EmitShape s b (fun _ => True) (fun _ => 16)
+      (ZlibNg.TreesEmit.zng_tr_emit_lit (some b) ZlibNg.DeflateQuick.static_ltree_p c) :=
+  shape_of (grow := (fun _ => 16)) fun _ _ _ _ _ _ W _ hr =>
+    emit_lit_SH W (by omega) c (by have := UInt32.lt_iff_toNat_lt.mp hc; simpa using this)
+
 theorem emit_dist_ok (lc dist : UInt32) (hlc : lc ≤ 255) (hd1 : 1 ≤ dist) (hd2 : dist ≤ 32768) :
     EmitOk s b (fun _ => True) (fun _ => 16) (fun _ => 16)
       (ZlibNg.TreesEmit.zng_tr_emit_dist (some b) ZlibNg.DeflateQuick.static_ltree_p
         ZlibNg.DeflateQuick.static_dtree_p lc dist) :=
   emit_of (fun _ => Nat.le_refl _) fun _ _ _ _ _ _ W _ hr => by
+    have := W.pad; have := W.lb
+    exact emit_dist_SH W.hpb W.v0 W.v64 (by omega) (by omega) lc dist
+      (by have := UInt32.le_iff_toNat_le.mp hlc; simp at this; omega)
+      (by have := UInt32.le_iff_toNat_le.mp hd1; simpa using this)
+      (by have := UInt32.le_iff_toNat_le.mp hd2; simpa using this)
+
+theorem emit_dist_shape (lc dist : UInt32) (hlc : lc ≤ 255) (hd1 : 1 ≤ dist) (hd2 : dist ≤ 32768) :
+    EmitShape s b (fun _ => True) (fun _ => 16)
+      (ZlibNg.TreesEmit.zng_tr_emit_dist (some b) ZlibNg.DeflateQuick.static_ltree_p
+        ZlibNg.DeflateQuick.static_dtree_p lc dist) :=
+  shape_of (grow := (fun _ => 16)) fun _ _ _ _ _ _ W _ hr => by
     have := W.pad; have := W.lb
     exact emit_dist_SH W.hpb W.v0 W.v64 (by omega) (by omega) lc dist
       (by have := UInt32.le_iff_toNat_le.mp hlc; simp at this; omega)
@@ -189,10 +206,27 @@ theorem emit_tree_ok (last : Int32) (_h0 : 0 ≤ last) (h1 : last ≤ 1) :
       (by show 2 * (1 : Int32).toInt + last.toInt < _; simp at hl ⊢; omega))
       fun _ _ q => q.epost (by omega)
 
+theorem emit_tree_shape (last : Int32) (_h0 : 0 ≤ last) (h1 : last ≤ 1) :
+    EmitShape s b (fun _ => True) (fun _ => 16)
+      (ZlibNg.TreesEmit.zng_tr_emit_tree (some b) ZlibNg.Trees.STATIC_TREES last) :=
+  shape_of (grow := (fun _ => 16)) fun _ _ _ _ _ _ W _ hr => by
+    have := W.pad; have := W.lb; have := W.v64
+    have hl := Int32.le_iff_toInt_le.mp h1
+    exact Sat.mono (emit_tree_SH W.hpb W.v0 W.v64 (by omega) (by omega) _ last (by decide) (by decide)
+      (by show 2 * (1 : Int32).toInt + last.toInt < _; simp at hl ⊢; omega))
+      fun _ _ q => q.epost (by omega)
+
 theorem emit_end_block_ok (last : Int32) :
     EmitOk s b (fun _ => True) (fun _ => 16) (fun _ => 16)
       (ZlibNg.TreesEmit.zng_tr_emit_end_block (some b) ZlibNg.DeflateQuick.static_ltree_p last) :=
   emit_of (fun _ => Nat.le_refl _) fun _ _ _ _ _ _ W _ hr => by
+    have := W.pad; have := W.lb
+    exact Sat.mono (end_block_SH W.hpb W.v0 W.v64 (by omega) (by omega) last) fun _ _ q => q.2
+
+theorem emit_end_block_shape (last : Int32) :
+    EmitShape s b (fun _ => True) (fun _ => 16)
+      (ZlibNg.TreesEmit.zng_tr_emit_end_block (some b) ZlibNg.DeflateQuick.static_ltree_p last) :=
+  shape_of (grow := (fun _ => 16)) fun _ _ _ _ _ _ W _ hr => by
     have := W.pad; have := W.lb
     exact Sat.mono (end_block_SH W.hpb W.v0 W.v64 (by omega) (by omega) last) fun _ _ q => q.2
 
@@ -203,8 +237,20 @@ theorem emit_align_ok : EmitOk s b (fun _ => True) (fun _ => 16) (fun _ => 16)
     exact Sat.mono (windup_SH W.hpb W.v0 W.v64 (by omega) (by omega))
       fun _ _ q => WDPost.epost rfl (WrIn.refl _ _ _) (Nat.le_refl _) (by omega) q
 
+theorem emit_align_shape : EmitShape s b (fun _ => True) (fun _ => 16)
+    (ZlibNg.TreesEmit.zng_tr_emit_align (some b)) :=
+  shape_of (grow := (fun _ => 16)) fun _ _ _ _ _ _ W _ hr => by
+    have := W.pad; have := W.lb; have := W.v0; have := W.v64
+    exact Sat.mono (windup_SH W.hpb W.v0 W.v64 (by omega) (by omega))
+      fun _ _ q => WDPost.epost rfl (WrIn.refl _ _ _) (Nat.le_refl _) (by omega) q
+
 theorem align_ok : EmitOk s b (fun _ => True) (fun _ => 16) (fun _ => 16) (ZlibNg.Trees.zng_tr_align (some b)) :=
   emit_of (fun _ => Nat.le_refl _) fun _ _ _ _ _ _ W _ hr => by
+    have := W.pad; have := W.lb
+    exact align_SH W.hpb W.v0 W.v64 (by omega) (by omega)
+
+theorem align_shape : EmitShape s b (fun _ => True) (fun _ => 16) (ZlibNg.Trees.zng_tr_align (some b)) :=
+  shape_of (grow := (fun _ => 16)) fun _ _ _ _ _ _ W _ hr => by
     have := W.pad; have := W.lb
     exact align_SH W.hpb W.v0 W.v64 (by omega) (by omega)
 
@@ -212,6 +258,17 @@ theorem stored_block_ok (buf : BPtr) (len : UInt32) (last : Int32) :
     EmitOk s b (fun st => WindowBuf b st buf len) (fun st => storedRoom st len) (fun st => storedRoom st len)
       (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last) :=
   emit_of (fun _ => Nat.le_refl _) fun _ _ _ st _ pbo W hw hr => by
+    have := W.pad; have := W.lb
+    have hsr : storedRoom st len = len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 := rfl
+    refine stored_block_SH W.hpb W.v0 W.v64 buf len ?_ (by omega) (by omega) last
+    rcases hw with h | ⟨wo, k, hwo, rfl, hk⟩
+    · exact Or.inl h
+    · exact Or.inr ⟨wo + k, rfl, by have := W.win wo hwo; omega⟩
+
+theorem stored_block_shape (buf : BPtr) (len : UInt32) (last : Int32) :
+    EmitShape s b (fun st => WindowBuf b st buf len) (fun st => storedRoom st len)
+      (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last) :=
+  shape_of (grow := (fun st => storedRoom st len)) fun _ _ _ st _ pbo W hw hr => by
     have := W.pad; have := W.lb
     have hsr : storedRoom st len = len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 := rfl
     refine stored_block_SH W.hpb W.v0 W.v64 buf len ?_ (by omega) (by omega) last
