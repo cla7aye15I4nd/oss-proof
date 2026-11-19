@@ -5,11 +5,15 @@ Inherits all rules of the repository root [`../../AGENTS.md`](../../AGENTS.md), 
 no cross-object pointer arithmetic/comparison, no zero-length `memcpy`/`memset` on invalid pointers,
 and no arguing "benign UB").
 
+- **Status:** Registered in `framework/projects.json`; **Done** (86 / 86 documented public functions
+  proved safe + default zlib stream round trip; legacy pointer-UB debt removal tracked below).
+
 ## Scope (`ZlibF`)
 
 Kernel-checked Lean 4 proofs about a statement-by-statement translation of upstream `zlib` 1.4
 (commit `99623ef7097352da7993ba614161fd6a311e046e` plus `patches/*.patch`), for the default x86_64
-Linux LP64 static build (`86` documented public functions):
+Linux LP64 static build (`86` documented public functions covering **both decompression and
+compression**):
 
 1. **Safety (proved / done):** `inflate`, `deflate`, `compress*`, `uncompress*`, checksums, utility
    and stream functions, the `gz*` file interface, and `inflateBack` are free of undefined
@@ -27,6 +31,21 @@ Linux LP64 static build (`86` documented public functions):
 Read `docs/en/overview.md` first, then `docs/en/spec/safety.md`. Proof explanations live in
 `docs/en/proof/` and `docs/zh/proof/`. Status is stated only in `docs/en/progress.md` and
 `docs/zh/progress.md`.
+
+## Real-World Usage Paths & Function Criticality
+
+Because `zlib` is the foundational deflate engine linked directly or transitively by **Python**
+(`zlib`, `gzip`, `zipfile`, **Pillow** PNG/ZIP/TIFF via `ZipDecode.c`/`ZipEncode.c`), **Node.js**
+(`node:zlib`, **Sharp** via `libspng`/`libpng`/`libtiff`), **libarchive**, **libpng**, **libspng**,
+**libtiff**, **OpenSSL/TLS**, **Git**, **HTTP/2 & HTTP/1.1 servers/clients**, and Linux package
+managers, both its **decompression** and **compression** surfaces process untrusted data directly:
+
+| Priority | Real-world call path | Critical C entry points (`zlib.h`) | Downstream callers |
+| --- | --- | --- | --- |
+| **Tier 1 (P0) — Decompression** | Streaming & one-shot inflate of untrusted deflate/zlib/gzip payloads | `inflateInit_`, `inflateInit2_`, `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateSetDictionary`, `inflateSync`, `uncompress`, `uncompress2` | Pillow (`ZipDecode.c`), `libspng`, `libpng`, `libtiff` (`tif_zip.c`), `libarchive`, Node.js `node:zlib`, Python `zlib`/`gzip`/`zipfile`, HTTP clients/servers |
+| **Tier 1 (P0) — Compression** | Streaming & one-shot deflate of user uploads, HTTP bodies, and re-encoded images | `deflateInit_`, `deflateInit2_`, `deflate`, `deflateEnd`, `deflateReset`, `deflateBound`, `deflateParams`, `deflateSetDictionary`, `compress`, `compress2`, `compressBound` | Pillow (`ZipEncode.c` PNG/PDF/TIFF save), `libspng`/`libpng` encode, `libtiff` (`tif_zip.c`), Node.js `node:zlib`, Python `zlib`/`gzip`, HTTP servers (note patches `0006` and `0007` caught real `deflateBound` under-sizing bugs) |
+| **Tier 1 (P0) — Checksums** | Frame & chunk integrity checks over untrusted buffers | `crc32`, `crc32_z`, `crc32_combine*`, `adler32`, `adler32_z`, `adler32_combine*` | PNG chunk CRCs (`libspng`, `libpng`, Pillow), ZIP/gzip trailers, `libarchive` |
+| **Tier 2 (P1) — File & callback streams** | `.gz` file streaming and callback-driven inflate | `gzopen`, `gzdopen`, `gzread`, `gzwrite`, `gzgets`, `gzseek*`, `gzoffset*`, `gzclose*`, `inflateBackInit_`, `inflateBack`, `inflateBackEnd`, `inflateCopy`, `deflateCopy`, `inflateGetHeader`, `deflateSetHeader` | CLI tools, log pipelines, `gz*` wrappers (note patches `0001`–`0005` caught real bugs in `inflateCopy`, `gzread`, `gzwrite`, `gzseek`, and `gzoffset`) |
 
 ## Layout within `projects/zlib/`
 
