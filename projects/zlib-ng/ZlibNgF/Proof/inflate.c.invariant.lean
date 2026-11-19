@@ -14,19 +14,19 @@ this file, so that a clause can be added or changed without touching the per-fun
    `inflateValidate`, `inflateGetHeader`, `inflateEnd`, `inflateResetKeep`, `inflateReset`, `inflateReset2`,
    `inflatePrime` (`Proof/public-inflate-control.lean`, `Proof/inflate.c.reset.lean`), `inflateGetDictionary`
    (`Proof/inflate.c.dict.lean`), `updatewindow` without a check value and `inflateSetDictionary` (given the
-   safety of `adler32_c`, `Proof/inflate.c.window.lean`), `inflateSync` (`Proof/inflate.c.sync.lean`);
-   `inflateInit2` establishes the
-   invariant on success (`InflateAlloc.init2_inv`, every heap).
+   safety of `adler32_c`, `Proof/inflate.c.window.lean`), `inflateSync` (`Proof/inflate.c.sync.lean`),
+   `inflateCopy` (source kept, destination established on `Z_OK`, `Proof/inflate.c.copy.lean`); `inflateInit2`
+   establishes the invariant on success (`InflateAlloc.init2_inv`, every heap).
 2. `InflateReach.reach_inv (P : Pending) : InflateReachable h s → Inv h s` (`Proof/inflate.c.reach.lean`): the
    induction is written and every constructor case is proved (init, init2, caller step, the steps of 1) except the
-   fields of `Pending`: the safety of `adler32_c`, preservation by `inflate` and
-   `inflateCopy` (source kept; destination established on `Z_OK`). Proving `Pending` closes the induction.
+   fields of `Pending`: the safety of `adler32_c` and preservation by `inflate`. Proving `Pending` closes the
+   induction.
 3. Frames: each `*_inv` lemma gives the result heap exactly (`setZS h i z b st` for the resets; `{ h with istates :=
    upd h.istates b _ }` for `inflatePrime`, `inflateValidate`; plus `gzheaders k` for `inflateGetHeader`; bytes and
    `savedPtrs` of `b` and stream `i` for `inflateEnd`), so `Frame h h' (streamIds s) (stateIds h s) ...` is a
    pointwise `upd_ne` argument; `InflateAlloc.Fr.frame` does it for the allocating calls.
 4. Each registered goal `Goal.f_safety` then follows: `InflateHandle` splits into `Z_NULL` / no state (`*_noState`)
-   and reachable (`reach_inv` → `*_inv` → frame). Order of the remaining work: `inflateCopy`, `adler32_c`,
+   and reachable (`reach_inv` → `*_inv` → frame). Order of the remaining work: `adler32_c`,
    `zng_inflate_table`, the chunk copies,
    `inflate_fast_c` / `inflate_fast_safe_c`, then `inflate` state by state; `Core` gains the clauses these need
    (`hold < 2 ^ bits`, table contents, mode-conditional bounds on `ncode`/`nlen`/`ndist`/`have`) behind the interface
@@ -107,6 +107,10 @@ structure Core (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (st : View) (a
   lencode : ∃ p, st.lencode = .val p ∧ CodeTarget b p
   distcode : ∃ p, st.distcode = .val p ∧ CodeTarget b p
   next : ∃ o, st.next = .val (.ref (.codes b) o) ∧ o ≤ ENOUGH
+  /-- `lencode` is the start of `codes` (with `distcode` inside `codes`), or the fixed tables: `inflateCopy` rebases
+  `distcode` when `lencode == codes` -/
+  tables : (st.lencode = .val (.ref (.codes b) 0) ∧ ∃ o, st.distcode = .val (.ref (.codes b) o) ∧ o ≤ ENOUGH) ∨
+    (st.lencode = .val (.ref .lenfix 0) ∧ st.distcode = .val (.ref .distfix 0))
   head : st.head = .val none ∨ ∃ k g, st.head = .val (some k) ∧ h.gzheaders k = some g
 
 /-- The shape clauses read the heap only through its byte blocks. -/

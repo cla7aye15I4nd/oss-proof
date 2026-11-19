@@ -193,6 +193,7 @@ theorem core_win {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Inf
   lencode := c.lencode
   distcode := c.distcode
   next := c.next
+  tables := c.tables
   head := by rw [hg]; exact c.head
 
 theorem shl_toNat (w : UInt32) (hw : w ≤ 15) : ((1 : UInt32) <<< w).toNat = 2 ^ w.toNat := by

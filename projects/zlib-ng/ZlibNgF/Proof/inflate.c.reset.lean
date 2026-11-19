@@ -165,6 +165,7 @@ theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : Inf
   lencode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   distcode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   next := ⟨0, rfl, Nat.zero_le _⟩
+  tables := Or.inl ⟨rfl, 0, rfl, Nat.zero_le _⟩
   head := Or.inl rfl
 
 /-- The invariant of a heap made by `setZS`. -/

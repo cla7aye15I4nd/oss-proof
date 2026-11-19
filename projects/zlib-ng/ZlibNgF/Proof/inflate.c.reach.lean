@@ -1,6 +1,6 @@
 import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«public-inflate-init»
-import ZlibNgF.Proof.«inflate.c.sync»
+import ZlibNgF.Proof.«inflate.c.copy»
 
 /-!
 # Reachable inflate streams have the structural invariant (`ZlibNgF`)
@@ -15,17 +15,12 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.InflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNgF.Proof.InflateInv
 
-/-- The obligations still to prove: preservation by `inflate` and `inflateCopy` (on its source, and the invariant of a
-successful copy's destination); the safety of the Adler-32 kernel `adler32_c` (`inflateSetDictionary` checks the
-dictionary with it). -/
+/-- The obligations still to prove: preservation by `inflate`, and the safety of the Adler-32 kernel `adler32_c`
+(`inflateSetDictionary` checks the dictionary with it). -/
 structure Pending : Prop where
   inflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), Inv h s → StreamIO h s →
     C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h') → Inv h' s
   adler : InflateWindow.AdlerSafe
-  copySrc : ∀ (h h' : Heap) (s dst : StreamPtr) (r : Int32), Inv h s → InitReady h dst → dst ≠ s →
-    C.run (inflateCopy dst s) h = .ok (r, h') → Inv h' s
-  copyDst : ∀ (h h' : Heap) (src dst : StreamPtr), Inv h src → InitReady h dst → dst ≠ src →
-    C.run (inflateCopy dst src) h = .ok (Z_OK, h') → Inv h' dst
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -104,7 +99,7 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
     rw [det e e0]; exact hv
   · obtain ⟨_, e0⟩ := InflateControl.inflateCodesUsed_inv hv
     rw [det e e0]; exact hv
-  · exact P.copySrc h h' s dst r hv hdst hne e
+  · exact (InflateCopy.copy_inv hv hdst hne e).1
 
 /-- A successful `inflateInit2` on a stream ready for initialisation leaves the invariant. -/
 theorem init2_inv' {h h' : Heap} {s : StreamPtr} {wb : Int32} (hi : InitReady h s)
@@ -128,7 +123,7 @@ theorem reach_inv (P : Pending) {h : Heap} {s : StreamPtr} (hr : InflateReachabl
     · simp only [C.run, inflateInit2_, bind_app, hc, Bool.false_eq_true, ↓reduceIte] at e
       exact init2_inv' hi e
     · simp [C.run, inflateInit2_, bind_app, hc, Z_VERSION_ERROR, Z_OK] at e
-  | copy h h' src dst _ hdst hne e ih => exact P.copyDst h h' src dst ih hdst hne e
+  | copy h h' src dst _ hdst hne e ih => exact (InflateCopy.copy_inv ih hdst hne e).2 rfl
   | step h h' s _ hs ih => exact step_inv P ih hs
   | caller h h' s _ hc ih => exact caller_inv ih hc
 
@@ -224,5 +219,12 @@ theorem inflateSync_safety_of (P : Pending) : Goal.inflateSync_safety := by
   · exact ⟨_, _, InflateSync.sync_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
   · obtain ⟨r, h', e, _, f⟩ := InflateSync.sync_inv (reach_inv P hr) (hio hr).1 (hio hr).2
     exact ⟨r, h', e, f⟩
+
+theorem inflateCopy_safety_of (P : Pending) : Goal.inflateCopy_safety := by
+  intro h dst src _ hfr hh hdst hne
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateCopy.copy_noState (Or.inl hn) dst, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateCopy.copy_noState (Or.inr hn) dst, InflateInit.frame_refl h _ _ _ _⟩
+  · exact InflateCopy.copy_safe (reach_inv P hr) hfr hdst hne
 
 end ZlibNgF.Proof.InflateReach
