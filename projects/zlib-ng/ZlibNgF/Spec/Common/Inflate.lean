@@ -10,8 +10,9 @@ definitions live here; the goals are in `ZlibNgF.Spec.Safety.Inflate`.
 **The representation invariant.** An inflate stream is accepted when it is *reachable*
 (`InflateReachable`): made by a successful `inflateInit_` / `inflateInit2_` (or `inflateCopy`) and then changed only
 by public inflate calls with valid arguments and by the caller, who may change the four buffer fields of the
-`z_stream` (`next_in`, `avail_in`, `next_out`, `avail_out`) and any memory the library does not own, but not the
-other `z_stream` fields, the block of the stream's state, or the registered `gz_header` record. This is the set of
+`z_stream` (`next_in`, `avail_in`, `next_out`, `avail_out`) and any memory the library does not own (including every
+field of a registered `gz_header`, as another stream sharing it does), but not the other `z_stream` fields or the
+block of the stream's state, and a registered `gz_header` record stays allocated. This is the set of
 states a C program can reach through `zlib.h` without breaking its rules. The proofs establish a concrete
 invariant of the state record (decoding tables, window, bit buffer) that holds on every reachable stream; the goals
 state the claim on reachable streams so that they do not depend on how that concrete invariant is written.
@@ -116,22 +117,17 @@ def SyncInput (h : Heap) (s : StreamPtr) : Prop :=
   ∃ z, StreamAt h s z ∧ (z.next_in = .null → z.avail_in = 0)
 
 /-- The caller's changes between library calls, seen from stream `s`: only the four buffer fields of the
-`z_stream` change; the other fields, the library's block `b` (bytes and typed objects), the registered header
-record and the origin addresses stay; blocks are never reused. -/
+`z_stream` change; the other fields, the library's block `b` (bytes and typed objects) and the origin addresses
+stay; the registered header record stays allocated (any of its fields may change: the caller, or another stream
+that shares the record, may write it; `StreamIO` checks its buffers at each `inflate` call); blocks are never
+reused. -/
 def CallerStep (h h' : Heap) (s : StreamPtr) : Prop :=
   ∃ i z z' b, s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
     z' = { z with next_in := z'.next_in, avail_in := z'.avail_in, next_out := z'.next_out,
                   avail_out := z'.avail_out } ∧
     h'.bytes b = h.bytes b ∧ h'.istates b = h.istates b ∧ h'.iallocs b = h.iallocs b ∧
-    (∀ hp, RegisteredHeader h s hp → ∀ k, hp = some k → h'.gzheaders k = h.gzheaders k) ∧
+    (∀ k g, RegisteredHeader h s (some k) → h.gzheaders k = some g → ∃ g', h'.gzheaders k = some g') ∧
     h'.baseAddr = h.baseAddr ∧ h.nextBlk ≤ h'.nextBlk
-
-/-- The state of stream `s` is in mode `HEAD`: no header byte has been read since `inflateInit*` or `inflateReset*`.
-`zlib.h` lets a program call `inflateGetHeader` only "after inflateInit2() or inflateReset(), and before the first
-call of inflate()"; every such call finds the state in mode `HEAD` (an `inflate` call that read no input leaves it
-there too). -/
-def HeadMode (h : Heap) (s : StreamPtr) : Prop :=
-  ∀ b st, StateBlock h s b → h.istate b = some st → st.mode = ZlibNg.Inflate.HEAD
 
 /-- One public inflate call on stream `s` with valid arguments that returns (any result); `inflateEnd` is not a
 step (it ends the stream). -/
@@ -143,7 +139,7 @@ def InflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
     C.run (ZlibNg.Inflate.inflateSetDictionary s d n) h = .ok (r, h')) ∨
   (∃ d hasLen r, NullOrWrite h d 32768 ∧ (∀ b, StateBlock h s b → NotInBlock b d) ∧
     C.run (ZlibNg.Inflate.inflateGetDictionary s d hasLen) h = .ok (r, h')) ∨
-  (∃ hp r, HeaderOk h hp ∧ HeadMode h s ∧ C.run (ZlibNg.Inflate.inflateGetHeader s hp) h = .ok (r, h')) ∨
+  (∃ hp r, HeaderOk h hp ∧ C.run (ZlibNg.Inflate.inflateGetHeader s hp) h = .ok (r, h')) ∨
   (∃ bits value r, C.run (ZlibNg.Inflate.inflatePrime s bits value) h = .ok (r, h')) ∨
   (∃ r, C.run (ZlibNg.Inflate.inflateReset s) h = .ok (r, h')) ∨
   (∃ r, C.run (ZlibNg.Inflate.inflateResetKeep s) h = .ok (r, h')) ∨

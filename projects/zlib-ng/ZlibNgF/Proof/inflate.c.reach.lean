@@ -31,7 +31,8 @@ theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h 
     (e' : C.run m h = .ok (r', h'')) : h' = h'' := by
   rw [e] at e'; cases e'; rfl
 
-/-- A caller step keeps the invariant: it changes only the buffer fields of the `z_stream`. -/
+/-- A caller step keeps the invariant: it changes only the buffer fields of the `z_stream`, and the registered header
+record stays allocated. -/
 theorem caller_inv {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hc : CallerStep h h' s) : Inv h' s := by
   obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c⟩ := hv
   obtain ⟨i', z1, z', b', e1, hz1, hz', hb', ez, hbytes, histates, hiallocs, hhead, _, _⟩ := hc
@@ -51,9 +52,8 @@ theorem caller_inv {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hc : CallerStep
       window := by rw [hbytes]; exact c.window }
   · rcases c.head with hh | ⟨k, g, hk, hg⟩
     · exact Or.inl hh
-    · refine Or.inr ⟨k, g, hk, ?_⟩
-      rw [hhead (some k) ⟨b', st, ⟨z1, ⟨i', rfl, hz1⟩, hb'⟩, hst, hk⟩ k rfl]
-      exact hg
+    · obtain ⟨g', hg'⟩ := hhead k g ⟨b', st, ⟨z1, ⟨i', rfl, hz1⟩, hb'⟩, hst, hk⟩ hg
+      exact Or.inr ⟨k, g', hk, hg'⟩
 
 /-- `inflateGetHeader(strm, Z_NULL)` returns only when it changes nothing (on a gzip stream it faults). -/
 theorem getHeader_none {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : Inv h s)
@@ -71,7 +71,7 @@ theorem getHeader_none {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : Inv h s)
 theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs : InflateStep h h' s) :
     Inv h' s := by
   rcases hs with ⟨flush, r, hio, e⟩ | ⟨r, hio, hsi, e⟩ | ⟨r, e⟩ | ⟨d, n, r, hd, hnb, e⟩ |
-    ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, -, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
+    ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
     ⟨w, r, e⟩ | ⟨c, r, e⟩ | ⟨v, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
   · exact P.inflate h h' s flush r hv hio e
   · obtain ⟨_, _, e0, hi, _⟩ := InflateSync.sync_inv hv hio hsi
