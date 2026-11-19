@@ -1,4 +1,4 @@
-<!-- source-sha256: f58a721bbb156f4e0c01148c6bce28f49d198fda3c41c5bfa7ff08b8b6345f0a -->
+<!-- source-sha256: df1c372c471b698588f7df98183fd315989e9766ce13534f3e778094af271ba3 -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -68,7 +68,7 @@
 ## 回调解压
 
 `inflateBack` 的目标针对 `zlib.h` 允许程序到达的流（`BackReachable`）陈述：由成功的 `inflateBackInit_` 以
-`2^windowBits` 个可写字节的窗口建立，此后只被回调行为如下的 `inflateBack` 调用以及程序改变。该目标未被证明（见进度页）。
+`2^windowBits` 个可写字节的窗口建立，此后只被回调行为如下的 `inflateBack` 调用以及程序改变。
 
 | 函数 | 前提 | Lean | 原因 |
 | --- | --- | --- | --- |

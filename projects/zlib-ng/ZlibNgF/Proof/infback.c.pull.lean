@@ -140,13 +140,22 @@ theorem Pb.refl (l : IL) : Pb l l := rfl
 theorem Pb.trans {l1 l2 l3 : IL} (a : Pb l1 l2) (b : Pb l2 l3) : Pb l1 l3 := by
   unfold Pb at a b ⊢; rw [b, a]
 
+/-- Adding a byte above the `s` bits held keeps the low `s` bits of the bit buffer. -/
+theorem hold_mod (a x : UInt64) (s : Nat) (hs : s < 64) :
+    (a + (x <<< (UInt64.ofNat s))).toNat % 2 ^ s = a.toNat % 2 ^ s := by
+  have hd : 2 ^ s ∣ 2 ^ 64 := Nat.pow_dvd_pow 2 (by omega)
+  rw [UInt64.toNat_add, Nat.mod_mod_of_dvd _ hd, UInt64.toNat_shiftLeft]
+  have e : (UInt64.ofNat s).toNat % 64 = s := by simp; omega
+  rw [e, Nat.add_mod, Nat.mod_mod_of_dvd _ hd, Nat.shiftLeft_eq, Nat.mul_mod_left, Nat.add_zero, Nat.mod_mod]
+
 /-- The byte read of `PULLBYTE()` with a byte left. -/
 theorem pbTail_ok {i b : Nat} {w : BPtr} {n : Nat} {inCb : InCb} {inDesc : BPtr} {outCb : OutCb} {outDesc : BPtr}
     {I : Heap → BPtr → Nat → Nat → Prop} (cb : BackCallbacks i b w n inCb inDesc outCb outDesc I) {H : Heap}
     {l : IL} {t : Nat} (hin : InB I H l t) (h0 : l.have_ ≠ 0) (hb : l.bits.toNat < 56)
     {Q : Except Ex Unit → IL → Heap → Prop}
     (k : ∀ l', InB I H l' t → l'.have_.toNat + 1 = l.have_.toNat → l'.bits.toNat = l.bits.toNat + 8 →
-      Pb l l' → l'.ret = l.ret → Q (.ok ()) l' H) :
+      Pb l l' → l'.ret = l.ret → l'.hold.toNat % 2 ^ l.bits.toNat = l.hold.toNat % 2 ^ l.bits.toNat →
+      Q (.ok ()) l' H) :
     SatX H l pbTail Q := by
   obtain ⟨r, o, d, hnx, hg, hsz⟩ := hin.bytes cb h0
   have hh1 := u32_ne_zero h0
@@ -171,7 +180,12 @@ theorem pbTail_ok {i b : Nat} {w : BPtr} {n : Nat} {inCb : InCb} {inDesc : BPtr}
     rw [UInt8.toNat_add]; show (l.bits.toNat + 8) % 256 = _; omega
   have hsub : (l.have_ - 1).toNat = l.have_.toNat - 1 := by
     rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; show 1 ≤ _; omega)]; rfl
-  refine k _ ?_ (by simp only [hsub]; omega) hb8 rfl rfl
+  refine k _ ?_ (by simp only [hsub]; omega) hb8 rfl rfl ?_
+  rotate_left
+  · have e : l.bits.toUInt32.toUInt64 = UInt64.ofNat l.bits.toNat := by
+      apply UInt64.toNat_inj.mp; simp
+    show (l.hold + d[o].toUInt64 <<< l.bits.toUInt32.toUInt64).toNat % _ = _
+    rw [e]; exact hold_mod _ _ _ (by omega)
   obtain ⟨p, m, hI, hle, hat⟩ := hin
   obtain ⟨r', o', hp, hn'⟩ := hat h0
   rw [hnx] at hn'
@@ -191,20 +205,22 @@ theorem pullbyte_ok {i b : Nat} {w : BPtr} {n : Nat} {inCb : InCb} {inDesc : BPt
       Q (.error .leave) { l with have_ := 0, next := .null, ret := Z_BUF_ERROR } H')
     (kO : ∀ l' H' t', BackKeep H H' i b w → InB I H' l' t' →
       8 * (l'.have_.toNat + t') + l'.bits.toNat = 8 * (l.have_.toNat + t) + l.bits.toNat →
-      l'.bits.toNat = l.bits.toNat + 8 → Pb l l' → l'.ret = l.ret → Q (.ok ()) l' H') :
+      l'.bits.toNat = l.bits.toNat + 8 → Pb l l' → l'.ret = l.ret →
+      l'.hold.toNat % 2 ^ l.bits.toNat = l.hold.toNat % 2 ^ l.bits.toNat → Q (.ok ()) l' H') :
     SatX H l (PULLBYTE c) Q := by
   rw [pullbyte_eq]
   refine SatX.bind (pull_ok cb c hcI hcD hin ?_ ?_ ?_)
   · intro h0
-    exact pbTail_ok cb hin h0 hb fun l' hin' h1 h2 h3 h4 =>
-      kO l' H t (BackKeep.refl H i b w) hin' (by omega) h2 h3 h4
+    exact pbTail_ok cb hin h0 hb fun l' hin' h1 h2 h3 h4 h5 =>
+      kO l' H t (BackKeep.refl H i b w) hin' (by omega) h2 h3 h4 h5
   · intro h0 H' q hk hI
     exact kL H' q hk hI h0
   · intro h0 k q H' hk0 hkeep hkt hin'
     have h0' : ({ l with have_ := k, next := q } : IL).have_ ≠ 0 := hk0
     have hh0 : l.have_.toNat = 0 := by rw [h0]; rfl
-    exact pbTail_ok cb hin' h0' hb fun l' hin'' h1 h2 h3 h4 =>
-      kO l' H' (t - k.toNat) hkeep hin'' (by simp only at h1 h2; omega) h2 (Pb.trans (show Pb l { l with have_ := k, next := q } from rfl) h3) h4
+    exact pbTail_ok cb hin' h0' hb fun l' hin'' h1 h2 h3 h4 h5 =>
+      kO l' H' (t - k.toNat) hkeep hin'' (by simp only at h1 h2; omega) h2
+        (Pb.trans (show Pb l { l with have_ := k, next := q } from rfl) h3) h4 h5
 
 /-! ## `NEEDBITS` -/
 
@@ -239,7 +255,7 @@ theorem needbits_ok {i b : Nat} {w : BPtr} {n : Nat} {inCb : InCb} {inDesc : BPt
     refine SatX.bind (pullbyte_ok cb c hcI hcD hin1 (by omega) ?_ ?_)
     · intro H' q hk' hI h0
       exact kL _ H' t1 q (BackKeep.trans hk1 hk') hI (Pb.trans hp1 rfl) rfl rfl rfl
-    · intro l' H' t' hk' hin' hm' hb' hp' hr'
+    · intro l' H' t' hk' hin' hm' hb' hp' hr' _
       exact SatX.pure ⟨⟨t', BackKeep.trans hk1 hk', hin', by omega, by omega, Pb.trans hp1 hp', hr'.trans hr1⟩,
         by omega⟩
   · have hge : k.toNat ≤ l1.bits.toNat := by

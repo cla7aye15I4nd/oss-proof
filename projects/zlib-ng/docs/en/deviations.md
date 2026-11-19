@@ -73,7 +73,7 @@ deflate calls with valid arguments and by the program, which may change `next_in
 
 The goal of `inflateBack` is stated on the streams that `zlib.h` lets a program reach (`BackReachable`): made by a
 successful `inflateBackInit_` with a window of `2^windowBits` writable bytes, then changed only by `inflateBack` calls
-whose call-backs behave as below and by the program. It is not proved (see the progress page).
+whose call-backs behave as below and by the program.
 
 | Function | Premise | Lean | Reason |
 | --- | --- | --- | --- |
