@@ -66,7 +66,7 @@ open ZlibNgF.Spec in
 def FastPost (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32) (ri : BRef)
     (oi bo oo : Nat) (h' : Heap) : Prop :=
   ∃ (ai ao : UInt32) (m : UInt32) (hold : UInt64) (bits : UInt32) (len was off : UInt32) (msg : BPtr),
-    ai ≤ z.avail_in ∧ ao ≤ z.avail_out ∧
+    8 * ai.toNat + bits.toNat + 1 ≤ 8 * z.avail_in.toNat + st.bits.toNat ∧ ai ≤ z.avail_in ∧ ao ≤ z.avail_out ∧
     h'.streams i = some { z with
       next_in := .ref ri (oi + (z.avail_in - ai).toNat)
       avail_in := ai
@@ -187,9 +187,11 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
           ∃ len dist : UInt32, safe = true ∧ 1 ≤ dist.toNat ∧
             st' = { st with mode := MATCH, length := len, was := len, offset := dist }) ∧
         (z' = z ∨ ∃ q, z' = { z with msg := q }) ∧
-        (e.o0 < po ∨ lf.bits.toNat + 1 ≤ 8 * (p - oi) + st.bits.toNat) := by
-      rcases hcase with ⟨-, hlt, r⟩ | ⟨-, ⟨q, hq, hqs⟩, G1, st', z', r1, hG, hst', hzz⟩
-      · refine ⟨G, st, z, r, ?_, Or.inl rfl, Or.inl rfl, Or.inl hlt⟩
+        lf.bits.toNat + 1 ≤ 8 * (p - oi) + st.bits.toNat := by
+      rcases hcase with ⟨-, hlt, ⟨q, hq, hqs⟩, r⟩ | ⟨-, ⟨q, hq, hqs⟩, G1, st', z', r1, hG, hst', hzz⟩
+      · have hqp : q = p := by rw [hp] at hq; cases hq; rfl
+        subst hqp
+        refine ⟨G, st, z, r, ?_, Or.inl rfl, Or.inl rfl, hqs⟩
         have e1 : upd G.istates b (some st) = G.istates := by
           rw [r.eq]; exact upd_self _ _ _ hsi
         have e2 : upd G.streams i (some z) = G.streams := by
@@ -197,7 +199,7 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
         rw [e1, e2]
       · have hqp : q = p := by rw [hp] at hq; cases hq; rfl
         subst hqp
-        refine ⟨G1, st', z', r1, hG, ?_, hzz, Or.inr hqs⟩
+        refine ⟨G1, st', z', r1, hG, ?_, hzz, hqs⟩
         rcases hst' with h1 | h1 | ⟨len, dist, hsf, hd1, h1⟩
         · exact Or.inr (Or.inl h1)
         · exact Or.inr (Or.inr (Or.inl h1))
@@ -282,7 +284,8 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
       refine ⟨ai, ao, st'.mode,
         (lf.hold &&& (1 : UInt64) <<< (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toUInt64 - 1).toUInt32.toUInt64,
         (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32, st'.length, st'.was, st'.offset, z'.msg,
-        ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · rw [hbf, hai]; omega
       · rw [UInt32.le_iff_toNat_le]; omega
       · rw [UInt32.le_iff_toNat_le]; omega
       · show (upd (upd G1.streams i (some z')) i (some _)) i = some _

@@ -264,7 +264,7 @@ theorem sat_stepDodist {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK 
   have hows : ot + w + 1 ≤ e.s := by split at hroom <;> omega
   have hcont : ∀ (x : FL) (G' : Heap) (po : Nat), x.in_ = l.in_ → x.bits.toNat ≤ l.bits.toNat →
       x.out = B e.ob po → ot < po → po ≤ e.s → RH H0 e G' → ∃ m, m < n ∧ PI H0 c e ot m (x, .cont) G' :=
-    fun x G' po h1 h2 h3 h4 h5 h6 => ⟨0, by omega, po, h3, h4, h5, hin.mono h1 h2 (Nat.le_refl _), h6⟩
+    fun x G' po h1 h2 h3 h4 h5 h6 => ⟨0, by omega, po, h3, h4, h5, hin.mono h1 h2 (Nat.le_refl _), hS.mono h1 h2, h6⟩
   have hbrk : ∀ (x : FL) (G' : Heap), x.in_ = l.in_ → x.bits.toNat ≤ l.bits.toNat →
       x.out = l.out → BrkHeap H0 c.safeMode e G' → ∃ m, m < n ∧ PI H0 c e ot m (x, .brk) G' :=
     fun x G' h1 h2 h3 h6 => ⟨0, by omega, ot + w, h3.trans hout, by omega, by split at hroom <;> omega,

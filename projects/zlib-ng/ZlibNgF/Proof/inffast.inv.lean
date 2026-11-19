@@ -161,7 +161,7 @@ def PI (H0 : Heap) (c : FC) (e : FE) (ot : Nat) (n : Nat) (x : FL × Lbl) (G : H
       1 ≤ x.1.len.toNat ∧ x.1.len.toNat ≤ 258 ∧
       ((n = 2 ∧ RootD e x.1.here ∧ 28 ≤ x.1.bits.toNat) ∨
        (n = 1 ∧ SubD x.1.here ∧ x.1.here.bits.toNat ≤ x.1.bits.toNat))
-  | .cont => ∃ po, x.1.out = B e.ob po ∧ ot < po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ RH H0 e G
+  | .cont => ∃ po, x.1.out = B e.ob po ∧ ot < po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ InS e x.1 ∧ RH H0 e G
   | .brk => ∃ po, x.1.out = B e.ob po ∧ ot ≤ po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ InS e x.1 ∧ BrkHeap H0 c.safeMode e G
 
 /-! ## Root and second-level entries -/

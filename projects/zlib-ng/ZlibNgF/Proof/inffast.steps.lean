@@ -36,7 +36,7 @@ theorem sat_stepDolen {H0 G : Heap} {c : FC} {e : FE} {ot n : Nat} (EV : EnvOK H
     refine Sat.pure ⟨0, by rcases hph with ⟨rfl, _⟩ | ⟨rfl, _⟩ <;> omega, ?_⟩
     obtain ⟨_, ho0, hroom⟩ := ho
     exact ⟨ot + w + 1, rfl, by omega, by split at hroom <;> omega,
-      hin.mono hin1 (by dsimp only; omega) (by omega), r2⟩
+      hin.mono hin1 (by dsimp only; omega) (by omega), hS.mono hin1 (by dsimp only; omega), r2⟩
   · rename_i hlit
     have hop : l1.here.op ≠ 0 := by intro h0; exact hlit (by simp [h0])
     rcases hph with ⟨rfl, hr, h20⟩ | ⟨rfl, hs, _⟩
