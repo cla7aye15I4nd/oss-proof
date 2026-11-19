@@ -49,6 +49,7 @@ plain=(
 # report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report must match
 open_cases=(
+  "infback-window-overlap||memcpy-param-overlap"
 )
 
 build() { # build <dir> [exclude-prefix]

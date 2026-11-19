@@ -15,6 +15,13 @@ fix once one exists, and deleted once the pin moves past it.
 | `0010-inflate-fast-primed-bits.patch` | `inflate.c` | `inflate` (state `LEN`) calls `inflate_fast` only when fewer than 8 bits are held (`bits < 8`), which `inflate_fast` assumes; otherwise it decodes the code in `inflate` itself. Without `inflatePrime` fewer than 8 bits are always held there, so nothing else changes. | When `inflatePrime` has left 8 or more bits in the bit buffer, `inflate_fast` returns `bits >> 3` bytes of input on exit (`in -= len`, `inffast_tpl.h:327`), more than it read: `next_in` moves before the caller's buffer (ISO C17 §6.5.6p8), `avail_in` grows past what the caller gave and `total_in` wraps. | yes (`avail_in` and `total_in` after the call); no sanitizer reports the pointer itself |
 | `0011-inflate-extra-copy-bound.patch` | `inflate.c` | `inflate` (state `EXTRA`) copies into `head->extra` only when `state->length <= head->extra_len`, and limits the count with `copy > extra_max - len` instead of `len + copy > extra_max`. For one stream that owns its header, `head->extra_len` is the length its own `EXLEN` stored, so the test holds and neither sum wraps: nothing else changes. | `inflate` assumes that `head->extra_len` is the value its own state `EXLEN` stored. When two streams share one `gz_header` (through `inflateCopy`, or a second `inflateGetHeader`), the other stream can store a smaller `extra_len`: `extra_len - length` and `len + copy` wrap, and `memcpy` writes past the end of `head->extra` (heap buffer overflow). | yes (AddressSanitizer heap-buffer-overflow) |
 
+Open defect of patch 0007: `inflateBack` (`infback.c`) calls `inflate_fast_safe` with `next_out` inside the caller's
+window, so there the window and the output are one object, against what 0007 assumes. A match that reaches into the
+previous pass of the window (`dist + min(op, len) > wsize`) then makes `memcpy(out, from, n)` copy between overlapping
+ranges, undefined (ISO C17 §7.24.2.1p2); without 0007, `chunkcopy_safe` handles the overlap. AddressSanitizer reports
+`memcpy-param-overlap` (`tests/regression/infback-window-overlap`, an open case). 0007 has to be revised before
+`inflateBack` can be proved safe.
+
 Patches of the earlier 2.3.3 pin that are gone:
 
 | Patch | Verdict | Evidence |
