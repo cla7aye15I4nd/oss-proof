@@ -150,11 +150,13 @@ files below (`OPTIMAL_CMP` is 64 on x86_64; no `NO_QUICK_STRATEGY`, `NO_MEDIUM_S
   C, so pointer arithmetic is bounded by the block), `Pos` elements are two-byte accesses; the trees, `bl_count` and
   `pq_*` arrays are fields of the state record with their own `Space` instances. `deflateCopy`'s `memcpy` of a whole
   `deflate_state` is a record copy.
-- Undefined behaviour of upstream reached by documented calls, not patched yet (findings page; the differential test
-  lists the inputs in `tests/expected-faults.txt`): `mbase_start -= match_offset` (`match_tpl.h:133`) and
-  `mbase_start = window - match_offset` (`match_tpl.h:287`) in `longest_match_slow_*` (levels 7-9) form a pointer
-  before the window's block when `match_offset` exceeds the alignment padding before the window. `Goal.deflate_safety`
-  and `Goal.deflateParams_safety` do not hold on the verified source until it is fixed.
+- Deflate patches (findings page): 0012 keeps `mbase_start = window` in `match_tpl.h` and reads candidates at
+  `mbase_start + (cur_match - match_offset)` (the slow variants of levels 7-9 formed `window - match_offset`, before
+  the window's block); 0013 bounds `max_insert_count` of `deflate_medium` to `2..STD_MAX_MATCH` (`deflateTune` with
+  `max_lazy = INT_MIN` made `insert_knuth_stepped` divide by zero). `tests/expected-faults.txt` is empty: Lean and C
+  agree on every generated input. `insert_knuth_stepped` is otherwise called with `count >= 3` and
+  `max_inserts >= 4` (`deflate_fast`, through `insert_knuth_spread_static`) or `count > 2 * max_insert_count >= 4`
+  (`deflate_medium`), so `inserts - 1 >= 1`.
 
 ## Checking
 

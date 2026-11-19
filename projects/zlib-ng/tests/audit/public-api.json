@@ -35,7 +35,7 @@
       "function": "deflate",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflate_safety is stated, not proved. As stated it does not hold on the verified source: level 7-9 deflate forms a pointer before the window's block in match_tpl.h (open finding, no patch yet)."
+      "reason": "Translated and differentially tested; Goal.deflate_safety is stated, not proved."
     },
     {
       "function": "deflateEnd",
@@ -87,7 +87,7 @@
       "function": "deflateParams",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateParams_safety is stated, not proved. As stated it does not hold on the verified source: level 7-9 deflate forms a pointer before the window's block in match_tpl.h (open finding, no patch yet)."
+      "reason": "Translated and differentially tested; Goal.deflateParams_safety is stated, not proved."
     },
     {
       "function": "deflateTune",
