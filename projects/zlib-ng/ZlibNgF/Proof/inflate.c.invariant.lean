@@ -19,7 +19,7 @@ this file, so that a clause can be added or changed without touching the per-fun
    establishes the invariant on success (`InflateAlloc.init2_inv`, every heap).
 2. `InflateReach.reach_inv (P : Pending) : InflateReachable h s → Inv h s` (`Proof/inflate.c.reach.lean`): the
    induction is written and every constructor case is proved (init, init2, caller step, the steps of 1) except the
-   single field of `Pending`: preservation by `inflate`. Proving it closes the induction.
+   single field of `Pending`: preservation by `inflate`, proved in `Proof/public-inflate.lean` (`pending`).
 3. Frames: each `*_inv` lemma gives the result heap exactly (`setZS h i z b st` for the resets; `{ h with istates :=
    upd h.istates b _ }` for `inflatePrime`, `inflateValidate`; plus `gzheaders k` for `inflateGetHeader`; bytes and
    `savedPtrs` of `b` and stream `i` for `inflateEnd`), so `Frame h h' (streamIds s) (stateIds h s) ...` is a
@@ -28,9 +28,10 @@ this file, so that a clause can be added or changed without touching the per-fun
    and reachable (`reach_inv` → `*_inv` → frame); every function but `inflate` has its `*_safety_of`.
 5. `inflate`: `Core` carries the mode-conditional clauses `ModeOK` (counts of a dynamic header, code lengths read so
    far, the decoding tables `TabAt` of `Proof/inflate.c.tables.lean`, extra bits, match distance) and `bits ≤ 39`.
-   The callees proved in other files enter as the hypothesis structures `TableFacts` (`zng_inflate_table`),
-   `FastFacts` (`inflate_fast_c` / `inflate_fast_safe_c`) and `CopyFacts` (`chunkmemset_safe_c`) of
-   `Proof/inflate.c.facts.lean`; the loop of `inflate` is proved mode by mode from them, and `Pending` follows.
+   The callees proved in other files are stated as `TableFacts` (`zng_inflate_table`), `FastFacts`
+   (`inflate_fast_c` / `inflate_fast_safe_c`) and `CopyFacts` (`chunkmemset_safe_c`) of `Proof/inflate.c.facts.lean`
+   and proved (`table_run`, `fastFacts`, `copyFacts`); the loop of `inflate` is proved mode by mode
+   (`tripOK`, `loop_ok`), the epilogue by `leave_ok`, and `Pending` follows.
    `hold < 2 ^ bits` is not a clause: no mode of `inflate` needs it for safety.
 -/
 

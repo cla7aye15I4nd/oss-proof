@@ -7,8 +7,7 @@ import ZlibNgF.Proof.«adler32_c.c.safety»
 # Reachable inflate streams have the structural invariant (`ZlibNgF`)
 
 `reach_inv`: `InflateReachable h s → Inv h s`, by induction over `InflateReachable`. Every constructor case is proved
-here except the steps whose preservation lemma does not exist yet; those are the fields of `Pending`, so the
-induction is finished once `Pending` is proved (see the plan in `Proof/inflate.c.invariant.lean`).
+here except preservation by `inflate`, the field of `Pending`, which `Proof/public-inflate.lean` proves (`pending`).
 -/
 
 set_option autoImplicit false
@@ -133,7 +132,7 @@ theorem reach_inv (P : Pending) {h : Heap} {s : StreamPtr} (hr : InflateReachabl
 
 /-! ## The registered goals, given `Pending`
 
-These show that the goals close as soon as `Pending` is proved; they are not registered results. -/
+`Proof/public-inflate.lean` applies these to `pending`. -/
 
 open ZlibNgF.Spec.Safety
 
