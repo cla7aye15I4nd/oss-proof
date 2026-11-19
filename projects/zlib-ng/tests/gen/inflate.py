@@ -201,4 +201,168 @@ for reset in ("R", "K", "W15", "W-15", "W31", "W47", "W0", "W7", "W100"):
         emit(-15, 0, 9, 40, len(d) + 1, comp(d, 6, -15), "-", "-", reset)
 emit(31, 0, 1 << 20, 1 << 20, 800, gz_member(text(700), name=b"nm"), "-", "8,8,8", "R")
 
+
+# 11. Script tests of the other entry points on one stream (ops).
+def ops(wbits, outcap, data, dict_, script):
+    out.append(f"ops {wbits} {outcap} {hx(data)} {dict_} {','.join(script)}")
+
+ALL = ["i1000000", "o1000000"]
+d = text(3000)
+c = comp(d)
+craw = comp(d, 6, -15)
+cfix = comp(b"abcabcabcabc hello hello", 6, -15, zlib.Z_FIXED)
+cgz = gz_member(d, name=b"name")
+
+# Queries and resets around a plain decode.
+for wb, cc in ((15, c), (-15, craw), (31, cgz), (47, cgz), (0, c)):
+    ops(wb, len(d) + 10, cc, "-", ["Y", "M", "N", "G0", "G40000", "g"] + ALL + ["f0", "M", "N", "Y", "G0", "G40000", "g", "E", "M", "N", "Y", "g", "f0"])
+    for k in (1, 5, 37, 200):
+        ops(wb, len(d) + 10, cc, "-", [f"i{k}", "o1000000", "f0", "M", "N", "Y", "G0", "G40000", "i1000000", f"o{k}", "f0", "M", "G40000", "f0", "M"])
+    for r in ("R", "K", "W15", "W-15", "W31", "W47", "W0", "W8", "W7", "W-7", "W-8", "W16", "W100"):
+        ops(wb, len(d) + 10, cc, "-", ["i100", "o50", "f0", r, "M", "N"] + ALL + ["f0", "M"])
+
+# inflateCopy mid-stream, including in a fixed block, then continue with the copy.
+for wb, cc, dd in ((15, c, d), (-15, craw, d), (31, cgz, d), (-15, cfix, b"x" * 24)):
+    ops(wb, len(dd) + 10, cc, "-", ["C"] + ALL + ["f0"])
+    for k in (1, 2, 3, 9, 50, 400, len(cc) - 3):
+        ops(wb, len(dd) + 10, cc, "-", [f"i{k}", "o1000000", "f0", "C", "M"] + ALL + ["f0", "M", "N"])
+        ops(wb, len(dd) + 10, cc, "-", ["i1000000", f"o{k}", "f0", "C", "M", "G40000", "o1000000", "f0"])
+    ops(wb, len(dd) + 10, cc, "-", ALL + ["f0", "C", "f0", "E"])
+    ops(wb, len(dd) + 10, cc, "-", ["E", "C", "f0"])
+
+# inflatePrime: the first bits of a raw stream come through inflatePrime.
+for dd in (text(500), b"", rnd(300), b"a"):
+    cr = comp(dd, 6, -15)
+    b0 = cr[0]
+    ops(-15, len(dd) + 5, cr[1:], "-", [f"P8/{b0}"] + ALL + ["f0"])
+    ops(-15, len(dd) + 5, cr[1:], "-", [f"P3/{b0 & 7}", f"P5/{b0 >> 3}"] + ALL + ["f0"])
+    if len(cr) > 2:
+        v = cr[0] | (cr[1] << 8)
+        ops(-15, len(dd) + 5, cr[2:], "-", [f"P16/{v}"] + ALL + ["f0"])
+        ops(-15, len(dd) + 5, cr[2:], "-", [f"P7/{v & 127}", f"P9/{v >> 7}"] + ALL + ["f0"])
+for p in ("P0/0", "P-1/0", "P-1/5", "P1/1", "P16/65535", "P17/0", "P32/0", "P33/1", "P-2/0", "P31/1", "P24/7"):
+    ops(-15, 100, craw, "-", [p, p] + ALL + ["f0"])
+    ops(15, 100, c, "-", [p] + ALL + ["f0"])
+    ops(-15, 100, craw, "-", ["i3", "o100", "f0", p, "M"] + ALL + ["f0"])
+for i in range(8):
+    ops(-15, 100, craw, "-", [f"P8/{i}"] * 7 + ALL + ["f0"])
+
+# inflateSync: full-flush points, corrupted starts, empty input, bits in the bit buffer.
+def flushed(parts, wbits):
+    co = zlib.compressobj(6, zlib.DEFLATED, wbits)
+    res = b""
+    marks = []
+    for p in parts:
+        res += co.compress(p) + co.flush(zlib.Z_FULL_FLUSH)
+        marks.append(len(res))
+    return res + co.flush(), marks
+parts = [text(700), rnd(200), text(900), periodic(500, 7)]
+for wb in (15, -15, 31):
+    cs, marks = flushed(parts, wb)
+    total = sum(len(p) for p in parts) + 10
+    ops(wb, total, cs, "-", ["S"] + ALL + ["S", "f0"])
+    ops(wb, total, cs, "-", ["i0", "o100", "S", "S", "f0"])
+    ops(wb, total, cs, "-", ["P16/0", "S", "i1000000", "S", "o1000000", "f0"])
+    ops(wb, total, cs, "-", ["P7/5", "i1", "S", "i1000000", "S", "o1000000", "f0", "Y"])
+    for m in marks[:-1]:
+        bad = bytearray(cs)
+        for j in range(5, min(40, m - 6)):
+            bad[j] ^= 0x5a
+        ops(wb, total, bytes(bad), "-", ALL + ["f0", "S", "Y", "f0", "M", "N"])
+        ops(wb, total, bytes(bad), "-", ["i3", "o1000000", "f0", "S", "i1000000", "S", "f0"])
+        ops(wb, total, cs, "-", [f"i{m}", "o1000000", "f0", "Y", "M", "i1000000", "f0"])
+        ops(wb, total, cs, "-", [f"i{m - 2}", "o1000000", "f0", "Y", "S", "i1000000", "S", "f0"])
+    for k in (1, 2, 3, 4, 7, 100):
+        ops(wb, total, rnd(k), "-", ["i1000000", "S", "S", "f0"])
+    ops(wb, total, b"\x00\x00\xff\xff" + cs, "-", ["i1000000", "S", "o1000000", "f0"])
+    ops(wb, total, b"\x00\x00\xff" + cs, "-", ["i1", "S", "i2", "S", "i1000000", "S", "o1000000", "f0"])
+
+# Dictionaries through the script: d at Z_NEED_DICT, too early, too late, NULL; raw streams.
+dic = text(300)
+cd = comp(d, 6, 15, zdict=dic)
+cdraw = comp(d, 6, -15, zdict=dic)
+for script in (ALL + ["f0", "d", "f0"], ALL + ["f0", "n", "d", "f0"], ["d"] + ALL + ["f0"], ALL + ["f0", "G40000", "d", "G40000", "f0"],
+               ["i2", "o100", "f0", "d", "i1000000", "o1000000", "f0"], ALL + ["f0", "d", "C", "f0", "G40000"]):
+    ops(15, len(d) + 5, cd, dic.hex(), script)
+    ops(-15, len(d) + 5, cdraw, dic.hex(), script)
+ops(-15, len(d) + 5, cdraw, "-", ["d"] + ALL + ["f0"])
+ops(-15, len(d) + 5, cdraw, "-", ["n"] + ALL + ["f0"])
+ops(15, len(d) + 5, cd, text(200).hex(), ALL + ["f0", "d", "f0"])
+big = rnd(40000)
+ops(-15, len(d) + 5, comp(d, 6, -15, zdict=big[-32768:]), big.hex(), ["d", "G40000"] + ALL + ["f0", "G40000"])
+ops(-9, len(d) + 5, comp(d, 6, -9, zdict=big[-512:]), big.hex(), ["d", "G40000"] + ALL + ["f0"])
+
+# inflateUndermine / inflateValidate with bad check values.
+for wb, cc in ((15, c), (31, cgz)):
+    bad = bytearray(cc)
+    bad[-1] ^= 1
+    bad[-5] ^= 1
+    for script in (["U1"], ["U0"], ["V0"], ["V1"], ["V0", "V1"], ["U1", "V0"]):
+        ops(wb, len(d) + 5, bytes(bad), "-", script + ALL + ["f0", "M", "f4"])
+        ops(wb, len(d) + 5, cc, "-", script + ALL + ["f4"])
+    ops(wb, len(d) + 5, bytes(bad), "-", ["i10", "o1000000", "f0", "V0", "i1000000", "f0"])
+
+# Flush modes in a script, block and tree boundaries.
+for f in (0, 1, 2, 3, 4, 5, 6, 7, -1):
+    ops(15, len(d) + 5, c, "-", ALL + [f"f{f}", f"f{f}", "M"])
+    ops(15, len(d) + 5, c, "-", ["i40", "o1000000", "f5", "M", "f5", "M", "f6", "M", "i1000000", "f6", "M", "f0"])
+
+# 12. uncompress / uncompress2 / uncompress_z / uncompress2_z.
+def unc_line(v, dsize, dl, sl, src):
+    src_s = "null" if src is None else hx(src)
+    out.append(f"unc {v} {dsize} {dl} {sl} {'null' if src is None else 'x'} {src_s}")
+
+VARS = ("u", "u2", "uz", "u2z")
+for dd in (b"", b"a", text(1000), rnd(500), periodic(70000, 3), rnd(70000)):
+    cc = comp(dd)
+    n = len(dd)
+    for v in VARS:
+        unc_line(v, n + 3, n + 3, len(cc), cc)
+        unc_line(v, n, n, len(cc), cc)
+        unc_line(v, n + 3, n, len(cc) + 5, cc + b"junk!")
+        unc_line(v, max(n, 1), max(n - 1, 0), len(cc), cc)
+        unc_line(v, n // 2 + 1, n // 2, len(cc), cc)
+        unc_line(v, 0, 0, len(cc), cc)
+        unc_line(v, 5, 0, len(cc), cc)
+        unc_line(v, "null", 0, len(cc), cc)
+        unc_line(v, n + 3, n + 3, max(len(cc) - 4, 0), cc)
+        unc_line(v, n + 3, n + 3, len(cc) // 2, cc)
+        unc_line(v, n + 3, n + 3, 0, cc)
+for v in VARS:
+    cc = comp(text(300))
+    unc_line(v, 400, "null", len(cc), cc)
+    unc_line(v, 400, 400, "null", cc)
+    unc_line(v, "null", 400, len(cc), cc)
+    unc_line(v, 400, 400, 0, None)
+    unc_line(v, 400, 400, 5, None)
+    unc_line(v, 0, 0, 0, None)
+    unc_line(v, "null", 0, 0, None)
+    unc_line(v, 400, 400, len(cc), comp(text(300), 6, 15, zdict=b"dictionary"))
+    unc_line(v, 400, 400, len(cc), gz_member(text(300)))
+    unc_line(v, 400, 400, len(cc), comp(text(300), 6, -15))
+    bad = bytearray(cc)
+    bad[len(bad) // 2] ^= 0x33
+    unc_line(v, 400, 400, len(bad), bytes(bad))
+    bad = bytearray(cc)
+    bad[-1] ^= 1
+    unc_line(v, 400, 400, len(bad), bytes(bad))
+    unc_line(v, 400, 400, 2, cc)
+    unc_line(v, 400, 400, 1, cc)
+    unc_line(v, 400, 400, 3, b"\x78\x9c\x03")
+    for k in (1, 2, 3, 10):
+        unc_line(v, 400, 400, k, rnd(k))
+for i in range(60):
+    dd = rng.choice([text, rnd])(rng.randrange(0, 3000))
+    cc = comp(dd, rng.choice([0, 1, 6, 9]), rng.choice([9, 12, 15]))
+    dl = rng.choice([len(dd), len(dd) + 7, max(0, len(dd) - rng.randrange(1, 50)), 0])
+    sl = rng.choice([len(cc), max(0, len(cc) - rng.randrange(1, 10)), len(cc) + 3])
+    src = cc + b"\x00" * max(0, sl - len(cc))
+    unc_line(rng.choice(VARS), dl + rng.choice([0, 1, 9]), dl, sl, src)
+
+# 13. inflateInit_ / inflateInit2_ version and size checks.
+for ver in ("null", "1.3.2.zlib-ng", "1", "1.0", "2.3.90", "0.9", "x"):
+    for size in (112, 111, 113, 0, -1, 88):
+        for wb in ("-", "15", "8", "7", "-8", "-15", "-16", "16", "24", "31", "47", "48", "0", "40", "-7", "100"):
+            out.append(f"ver {ver} {size} {wb}")
+
 print("\n".join(out))

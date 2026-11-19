@@ -1,4 +1,4 @@
-import ZlibNgF.ZlibNg.«inflate.c»
+import ZlibNgF.ZlibNg.«uncompr.c»
 import DiffTest.Common
 
 /-!
@@ -110,6 +110,127 @@ def run (wbits flush : Int32) (inchunk outchunk outcap : Nat) (data dict : Array
   acc := acc ++ s!" end:{← ZlibNg.Inflate.inflateEnd s}"
   return acc
 
+/-- `:in_off:avail_in:out_off:avail_out:total_in:total_out:adler:data_type:msg` -/
+def fieldsOf (s : StreamPtr) : M String := do
+  let z ← ldStream s
+  return s!":{offOf z.next_in}:{z.avail_in}:{offOf z.next_out}:{z.avail_out}:{z.total_in}:{z.total_out}:{z.adler}:{z.data_type}:{← readStr z.msg}"
+
+def runOps (wbits : Int32) (outcap : Nat) (data dict : Array UInt8) (script : List String) : M String := do
+  let inB ← mkBlock data
+  let dictB ← mkBlock dict
+  let outB ← mkBlock (Array.replicate outcap 0)
+  let s1 ← newStream {}
+  let s2 ← newStream {}
+  let mut s := s1
+  let ver ← strLitRef "1.3.2.zlib-ng"
+  let r ← ZlibNg.Inflate.inflateInit2_ s wbits ver 112
+  let mut acc := s!"init:{r}"
+  if r != 0 then return acc
+  let z ← ldStream s
+  stStream s { z with next_in := inB, next_out := outB }
+  for op in script do
+    let c := op.front
+    let arg := (op.drop 1).toString
+    if c == 'i' then
+      let z ← ldStream s
+      let left := data.size - offOf z.next_in
+      stStream s { z with avail_in := (Nat.min left (arg.toNat?.getD 0)).toUInt32 }
+      continue
+    if c == 'o' then
+      let z ← ldStream s
+      let left := outcap - offOf z.next_out
+      stStream s { z with avail_out := (Nat.min left (arg.toNat?.getD 0)).toUInt32 }
+      continue
+    acc := acc ++ s!" {op}"
+    let num (t : String) : Int32 := Int32.ofInt (t.toInt?.getD 0)
+    if c == 'f' then
+      let r ← ZlibNg.Inflate.inflate s (num arg)
+      acc := acc ++ s!"={r}" ++ (← fieldsOf s)
+    else if c == 'P' then
+      match arg.splitOn "/" with
+      | [b, v] => acc := acc ++ s!"={← ZlibNg.Inflate.inflatePrime s (num b) (num v)}"
+      | _ => acc := acc ++ "BAD"
+    else if c == 'S' then
+      let r ← ZlibNg.Inflate.inflateSync s
+      acc := acc ++ s!"={r}" ++ (← fieldsOf s)
+    else if c == 'Y' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateSyncPoint s}"
+    else if c == 'C' then
+      let r ← ZlibNg.Inflate.inflateCopy s2 s
+      acc := acc ++ s!"={r}"
+      if r == 0 then
+        acc := acc ++ s!":{← ZlibNg.Inflate.inflateEnd s}"
+        s := s2
+    else if c == 'G' then
+      let n := arg.toNat?.getD 0
+      let b ← if n == 0 then pure .null else mkBlock (Array.replicate n 0xaa)
+      let (r, len) ← ZlibNg.Inflate.inflateGetDictionary s b true
+      let bs ← if n == 0 then pure "-" else do pure (hexOf (← blockBytes b n))
+      acc := acc ++ s!"={r}:{len.getD 12345}:{bs}"
+    else if c == 'g' then
+      let (r, _) ← ZlibNg.Inflate.inflateGetDictionary s .null false
+      acc := acc ++ s!"={r}"
+    else if c == 'd' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateSetDictionary s dictB dict.size.toUInt32}"
+    else if c == 'n' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateSetDictionary s .null 0}"
+    else if c == 'U' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateUndermine s (num arg)}"
+    else if c == 'V' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateValidate s (num arg)}"
+    else if c == 'M' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateMark s}"
+    else if c == 'N' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateCodesUsed s}"
+    else if c == 'R' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateReset s}"
+    else if c == 'K' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateResetKeep s}"
+    else if c == 'W' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateReset2 s (num arg)}"
+    else if c == 'E' then
+      acc := acc ++ s!"={← ZlibNg.Inflate.inflateEnd s}"
+    else
+      acc := acc ++ "BADOP"
+  let z ← ldStream s
+  acc := acc ++ s!" out:{hexOf (← blockBytes outB (offOf z.next_out))}"
+  acc := acc ++ s!" end:{← ZlibNg.Inflate.inflateEnd s}"
+  if s != s1 then
+    let _ ← ZlibNg.Inflate.inflateEnd s1
+  return acc
+
+def runUnc (v : String) (dsize : Option Nat) (dl sl : Option UInt64) (src : Option (Array UInt8)) : M String := do
+  let dest ← match dsize with
+    | none => pure .null
+    | some n => mkBlock (Array.replicate (if n == 0 then 1 else n) 0xaa)
+  let srcB ← match src with
+    | none => pure .null
+    | some a => mkBlock a
+  let (r, dl', sl') ←
+    if v == "u" then do
+      let (r, d) ← ZlibNg.Uncompr.uncompress dest dl srcB (sl.getD 0)
+      pure (r, d, sl)
+    else if v == "u2" then ZlibNg.Uncompr.uncompress2 dest dl srcB sl
+    else if v == "uz" then do
+      let (r, d) ← ZlibNg.Uncompr.uncompress_z dest dl srcB (sl.getD 0)
+      pure (r, d, sl)
+    else ZlibNg.Uncompr.uncompress2_z dest dl srcB sl
+  let bs ← match dsize with
+    | none => pure "-"
+    | some n => do pure (hexOf (← blockBytes dest n))
+  return s!"{r}:{dl'.getD 0}:{sl'.getD 0}:{bs}"
+
+def runVer (ver : Option String) (size : Int32) (wb : Option Int32) : M String := do
+  let vp ← match ver with
+    | none => pure .null
+    | some v => mkBlock (v.toUTF8.data.push 0)
+  let s ← newStream {}
+  let r ← match wb with
+    | none => ZlibNg.Inflate.inflateInit_ s vp size
+    | some w => ZlibNg.Inflate.inflateInit2_ s w vp size
+  let e ← if r == 0 then ZlibNg.Inflate.inflateEnd s else pure 99
+  return s!"init:{r} end:{e}"
+
 def handle (fn : String) (args : List String) : Except String String :=
   match fn, args with
   | "inf", [w, f, ic, oc, cap, d, dc, hd, rs] => do
@@ -123,6 +244,29 @@ def handle (fn : String) (args : List String) : Except String String :=
       | _ => throw "bad hdr"
     let h0 := ZlibNg.Crc32.initStatics Heap.empty
     match C.run (run wbits flush (← parseNat ic) (← parseNat oc) (← parseNat cap) data dict (dc != "-") hdr rs) h0 with
+    | .ok (s, _) => return s
+    | .error f => return showFault f
+  | "ops", [w, cap, d, dc, sc] => do
+    let h0 := ZlibNg.Crc32.initStatics Heap.empty
+    let w := Int32.ofInt (← parseI64 w).toInt
+    match C.run (runOps w (← parseNat cap) (← parseHexOrDash d) (← parseHexOrDash dc) (sc.splitOn ",")) h0 with
+    | .ok (s, _) => return s
+    | .error f => return showFault f
+  | "unc", [v, ds, dl, sl, sn, src] => do
+    let h0 := ZlibNg.Crc32.initStatics Heap.empty
+    let opt (t : String) : Except String (Option Nat) := if t == "null" then pure none else do pure (some (← parseNat t))
+    let ds ← opt ds
+    let dl ← opt dl
+    let sl ← opt sl
+    let src ← if sn == "null" then pure none else do pure (some (← parseHexOrDash src))
+    match C.run (runUnc v ds (dl.map (·.toUInt64)) (sl.map (·.toUInt64)) src) h0 with
+    | .ok (s, _) => return s
+    | .error f => return showFault f
+  | "ver", [v, sz, wb] => do
+    let h0 := ZlibNg.Crc32.initStatics Heap.empty
+    let sz := Int32.ofInt (← parseI64 sz).toInt
+    let wb ← if wb == "-" then pure none else do pure (some (Int32.ofInt (← parseI64 wb).toInt))
+    match C.run (runVer (if v == "null" then none else some v) sz wb) h0 with
     | .ok (s, _) => return s
     | .error f => return showFault f
   | _, _ => throw s!"unknown function or wrong arity: {fn}"

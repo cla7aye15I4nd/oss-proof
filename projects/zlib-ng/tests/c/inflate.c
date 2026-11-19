@@ -55,6 +55,99 @@ static void decode(z_stream *s, unsigned char *in, size_t inlen, unsigned char *
     printf(" LIMIT");
 }
 
+static void fields(z_stream *s, unsigned char *in, unsigned char *out) {
+    printf(":%zu:%u:%zu:%u:%lu:%lu:%lu:%d:%s", (size_t)(s->next_in - in), s->avail_in, (size_t)(s->next_out - out),
+           s->avail_out, s->total_in, s->total_out, s->adler, s->data_type, s->msg ? s->msg : "-");
+}
+
+/* ops <windowBits> <outcap> <data> <dict> <script>: a script of calls on one stream, comma-separated:
+ * i<k> avail_in = min(k, input left); o<k> avail_out = min(k, space left); f<n> inflate(n); P<bits>/<value>
+ * inflatePrime; S inflateSync; Y inflateSyncPoint; C inflateCopy to a new stream, inflateEnd of the old one, go on
+ * with the copy; G<n> inflateGetDictionary into an n-byte buffer (0: NULL); g inflateGetDictionary(NULL, NULL);
+ * d inflateSetDictionary(dict); n inflateSetDictionary(NULL, 0); U<v> inflateUndermine; V<v> inflateValidate;
+ * M inflateMark; N inflateCodesUsed; R / K / W<bits> the resets; E inflateEnd. */
+static void run_ops(char **tok) {
+    int wbits = (int)parse_i(tok[1]);
+    size_t outcap = (size_t)parse_u(tok[2]);
+    size_t inlen, dictlen;
+    unsigned char *in = parse_hex(tok[3], &inlen);
+    unsigned char *dict = parse_hex(tok[4], &dictlen);
+    unsigned char *out = malloc(outcap ? outcap : 1);
+    z_stream s1, s2; memset(&s1, 0, sizeof s1); memset(&s2, 0, sizeof s2);
+    z_stream *s = &s1;
+    int r = inflateInit2_(s, wbits, ZLIB_VERSION, (int)sizeof(z_stream));
+    printf("init:%d", r);
+    if (r != Z_OK) { printf("\n"); free(in); free(dict); free(out); return; }
+    s->next_in = in; s->next_out = out;
+    char *save;
+    for (char *op = strtok_r(tok[5], ",", &save); op; op = strtok_r(NULL, ",", &save)) {
+        char c = op[0];
+        if (c == 'i') { size_t k = (size_t)parse_u(op + 1), left = inlen - (size_t)(s->next_in - in);
+                        s->avail_in = (uInt)(left < k ? left : k); continue; }
+        if (c == 'o') { size_t k = (size_t)parse_u(op + 1), left = outcap - (size_t)(s->next_out - out);
+                        s->avail_out = (uInt)(left < k ? left : k); continue; }
+        printf(" %s", op);
+        if (c == 'f') { r = inflate(s, (int)parse_i(op + 1)); printf("=%d", r); fields(s, in, out); }
+        else if (c == 'P') { char *sl = strchr(op, '/'); *sl = 0;
+                             printf("=%d", inflatePrime(s, (int)parse_i(op + 1), (int)parse_i(sl + 1))); }
+        else if (c == 'S') { printf("=%d", inflateSync(s)); fields(s, in, out); }
+        else if (c == 'Y') printf("=%d", inflateSyncPoint(s));
+        else if (c == 'C') { r = inflateCopy(&s2, s); printf("=%d", r);
+                             if (r == Z_OK) { printf(":%d", inflateEnd(s)); s = &s2; } }
+        else if (c == 'G') { size_t n = (size_t)parse_u(op + 1); unsigned char *b = n ? malloc(n) : NULL;
+                             if (b) memset(b, 0xaa, n); uInt len = 12345;
+                             printf("=%d:%u:", inflateGetDictionary(s, b, &len), len);
+                             if (b) hex_out(b, n); else printf("-"); free(b); }
+        else if (c == 'g') printf("=%d", inflateGetDictionary(s, NULL, NULL));
+        else if (c == 'd') printf("=%d", inflateSetDictionary(s, dict, (uInt)dictlen));
+        else if (c == 'n') printf("=%d", inflateSetDictionary(s, NULL, 0));
+        else if (c == 'U') printf("=%d", inflateUndermine(s, (int)parse_i(op + 1)));
+        else if (c == 'V') printf("=%d", inflateValidate(s, (int)parse_i(op + 1)));
+        else if (c == 'M') printf("=%ld", inflateMark(s));
+        else if (c == 'N') printf("=%lu", inflateCodesUsed(s));
+        else if (c == 'R') printf("=%d", inflateReset(s));
+        else if (c == 'K') printf("=%d", inflateResetKeep(s));
+        else if (c == 'W') printf("=%d", inflateReset2(s, (int)parse_i(op + 1)));
+        else if (c == 'E') printf("=%d", inflateEnd(s));
+        else { fprintf(stderr, "bad op %s\n", op); exit(2); }
+    }
+    printf(" out:"); hex_out(out, (size_t)(s->next_out - out));
+    printf(" end:%d\n", inflateEnd(s));
+    if (s != &s1) inflateEnd(&s1);
+    free(in); free(dict); free(out);
+}
+
+/* unc <variant u|u2|uz|u2z> <dest: size|null> <destLen: value|null> <sourceLen: value|null> <source: hex|null> */
+static void run_unc(char **tok) {
+    const char *v = tok[1];
+    int dnull = strcmp(tok[2], "null") == 0, dlnull = strcmp(tok[3], "null") == 0;
+    int slnull = strcmp(tok[4], "null") == 0, snull = strcmp(tok[5], "null") == 0;
+    size_t dsize = dnull ? 0 : (size_t)parse_u(tok[2]);
+    unsigned char *dest = dnull ? NULL : malloc(dsize ? dsize : 1);
+    if (dest) memset(dest, 0xaa, dsize ? dsize : 1);
+    size_t slen; unsigned char *src = snull ? NULL : parse_hex(tok[6], &slen);
+    unsigned long dl = dlnull ? 0 : (unsigned long)parse_u(tok[3]);
+    unsigned long sl = slnull ? 0 : (unsigned long)parse_u(tok[4]);
+    int r;
+    if (strcmp(v, "u") == 0) r = uncompress(dest, dlnull ? NULL : &dl, src, sl);
+    else if (strcmp(v, "u2") == 0) r = uncompress2(dest, dlnull ? NULL : &dl, src, slnull ? NULL : &sl);
+    else if (strcmp(v, "uz") == 0) { size_t d = dl; r = uncompress_z(dest, dlnull ? NULL : &d, src, sl); dl = d; }
+    else { size_t d = dl, s2 = sl; r = uncompress2_z(dest, dlnull ? NULL : &d, src, slnull ? NULL : &s2); dl = d; sl = s2; }
+    printf("%d:%lu:%lu:", r, dl, sl);
+    if (dest) hex_out(dest, dsize); else printf("-");
+    printf("\n");
+    free(dest); free(src);
+}
+
+/* ver <version: string|null> <stream_size> <windowBits|->: inflateInit_ / inflateInit2_ with that version. */
+static void run_ver(char **tok) {
+    const char *ver = strcmp(tok[1], "null") == 0 ? NULL : tok[1];
+    int size = (int)parse_i(tok[2]);
+    z_stream s; memset(&s, 0, sizeof s);
+    int r = strcmp(tok[3], "-") == 0 ? inflateInit_(&s, ver, size) : inflateInit2_(&s, (int)parse_i(tok[3]), ver, size);
+    printf("init:%d end:%d\n", r, r == Z_OK ? inflateEnd(&s) : 99);
+}
+
 int main(void) {
     char *line = NULL; size_t cap = 0;
     while (getline(&line, &cap, stdin) >= 0) {
@@ -62,6 +155,9 @@ int main(void) {
         for (char *t = strtok_r(line, " \t\r\n", &save); t && nt < 16; t = strtok_r(NULL, " \t\r\n", &save))
             tok[nt++] = t;
         if (nt == 0) continue;
+        if (strcmp(tok[0], "ops") == 0 && nt == 6) { run_ops(tok); continue; }
+        if (strcmp(tok[0], "unc") == 0 && nt == 7) { run_unc(tok); continue; }
+        if (strcmp(tok[0], "ver") == 0 && nt == 4) { run_ver(tok); continue; }
         if (strcmp(tok[0], "inf") != 0 || nt != 10) { printf("BADINPUT\n"); continue; }
         int wbits = (int)parse_i(tok[1]);
         int flush = (int)parse_i(tok[2]);
