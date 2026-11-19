@@ -191,4 +191,82 @@ theorem gzoffset_safety_of (P : GPending) : Goal.gzoffset_safety := by
   obtain ⟨r, w', e, hg⟩ := gzoffset_inv hwf (handle_inv P hh)
   exact ⟨r, w', h, e, gzframe_fs h f hg⟩
 
+/-! ## String literals -/
+
+/-- What `gzLit` of a literal of the table does: it returns a pointer and, at the literal's first use, adds one
+static string at the next free key; nothing else changes. -/
+theorem gzLit_step (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i) (w : World) (h : Heap) :
+    ∃ p w' h', C.run ((gzLit lit).run w) h = .ok ((p, w'), h') ∧ w'.gzs = w.gzs ∧
+      (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) := by
+  cases hk : w.litKeys.find? (·.1 == i) with
+  | some e =>
+    exact ⟨.ref (.const e.2) 0, w, h, by simp [gzLit, hi, hk, C.run, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure], rfl, Or.inl rfl⟩
+  | none =>
+    refine ⟨.ref (.const h.consts.arr.size) 0, { w with litKeys := (i, h.consts.arr.size) :: w.litKeys },
+      { h with consts := upd h.consts h.consts.arr.size (some (Heap.litBytes lit)) }, ?_, rfl, Or.inr ⟨_, rfl⟩⟩
+    simp [gzLit, hi, hk, C.run, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get, StateT.get, pure,
+      StateT.pure, lm, StateT.lift, newConst, modify, modifyGet, MonadStateOf.modifyGet, StateT.modifyGet]
+
+/-- Adding a static string at the next free key keeps every static string there. -/
+theorem consts_grow (h : Heap) (a : Array UInt8) (k : Nat) (b : Array UInt8) (hk : h.consts k = some b) :
+    (upd h.consts h.consts.arr.size (some a)) k = some b := by
+  have hne : k ≠ h.consts.arr.size := by
+    intro e; subst e
+    have : h.consts h.consts.arr.size = none := by
+      show h.consts.get h.consts.arr.size = none
+      rw [Tbl.get_eq]; simp; rfl
+    rw [this] at hk; cases hk
+  rw [upd_ne _ _ _ _ hne]; exact hk
+
+/-- A step that changes only static strings (by adding one) and leaves the `gz_state` objects alone is in the
+frame. -/
+theorem gzframe_lit {w w' : World} {h h' : Heap} (f : GzPtr) (hg : w'.gzs = w.gzs)
+    (hh : h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) : GzFrame w h w' h' f [] := by
+  rcases hh with e | ⟨a, e⟩ <;> rw [e]
+  · exact ⟨DeflateInitPublic.dframe_refl h _ _ _ [], fun _ _ e => e, fun _ _ _ => by rw [hg]⟩
+  · exact ⟨DeflateInitPublic.dframe_refl h _ _ _ [], fun k b e => consts_grow h a k b e, fun _ _ _ => by rw [hg]⟩
+
+theorem lit_oom : gzLits.findIdx? (· == "out of memory") = some 0 := by simp [gzLits, List.findIdx?_cons]
+theorem lit_empty : gzLits.findIdx? (· == "") = some 12 := by simp [gzLits, List.findIdx?_cons]
+
+/-- `gzerror` on `NULL` or an open file returns; it changes only static strings (a literal at its first use). -/
+theorem gzerror_inv {w : World} {h : Heap} {f : GzPtr} (e : Bool) (hv : f = none ∨ GzInv w h f) :
+    ∃ r w' h', GzRun (gzerror f e) w h r w' h' ∧ GzFrame w h w' h' f [] := by
+  rcases hv with rfl | ⟨b, s, rfl, hs, sh⟩
+  · exact ⟨_, w, h, rfl, gzframe_refl w h none []⟩
+  · have hmode : ¬(¬s.mode = GZ_READ ∧ ¬s.mode = GZ_WRITE) := by
+      rcases sh.mode with hm | hm <;> simp [hm]
+    by_cases hm : s.err = ZlibNg.Inflate.Z_MEM_ERROR
+    · obtain ⟨p, w', h', el, hg, hh⟩ := gzLit_step _ _ lit_oom w h
+      simp only [C.run, StateT.run] at el
+      cases e
+      · refine ⟨(p, none), w', h', ?_, gzframe_lit _ hg hh⟩
+        simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
+          MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, el]
+      · refine ⟨(p, some s.err), w', h', ?_, gzframe_lit _ hg hh⟩
+        simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
+          MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, el]
+    · rcases sh.msg.msg with hn | ⟨c, n, hc, _⟩
+      · obtain ⟨p, w', h', el, hg, hh⟩ := gzLit_step _ _ lit_empty w h
+        simp only [C.run, StateT.run] at el
+        cases e
+        · refine ⟨(p, none), w', h', ?_, gzframe_lit _ hg hh⟩
+          simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
+            MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, hn, el, Ival.get, liftM, monadLift, MonadLift.monadLift]
+        · refine ⟨(p, some s.err), w', h', ?_, gzframe_lit _ hg hh⟩
+          simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
+            MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, hn, el, Ival.get, liftM, monadLift, MonadLift.monadLift]
+      · cases e
+        · refine ⟨(.ref (.heap c) 0, none), w, h, ?_, gzframe_refl w h _ []⟩
+          simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
+            MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, hc, Ival.get, liftM, monadLift, MonadLift.monadLift]
+        · refine ⟨(.ref (.heap c) 0, some s.err), w, h, ?_, gzframe_refl w h _ []⟩
+          simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
+            MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, hc, Ival.get, liftM, monadLift, MonadLift.monadLift]
+
+theorem gzerror_safety_of (P : GPending) : Goal.gzerror_safety := by
+  intro w h f e _ hh
+  exact gzerror_inv e (handle_inv P hh)
+
 end ZlibNgF.Proof.GzReach
