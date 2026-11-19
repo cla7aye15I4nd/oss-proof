@@ -3,4 +3,5 @@ crc32
 zutil
 compress
 inflate
+deflate
 infback

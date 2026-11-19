@@ -35,13 +35,13 @@
       "function": "deflate",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflate_safety is stated, not proved."
     },
     {
       "function": "deflateEnd",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateEnd_safety is stated, not proved."
     },
     {
       "function": "inflate",
@@ -63,61 +63,61 @@
       "function": "deflateSetDictionary",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateSetDictionary_safety is stated, not proved."
     },
     {
       "function": "deflateGetDictionary",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateGetDictionary_safety is stated, not proved."
     },
     {
       "function": "deflateCopy",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateCopy_safety is stated, not proved."
     },
     {
       "function": "deflateReset",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateReset_safety is stated, not proved."
     },
     {
       "function": "deflateParams",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateParams_safety is stated, not proved."
     },
     {
       "function": "deflateTune",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateTune_safety is stated, not proved."
     },
     {
       "function": "deflateBound",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateBound_safety is stated, not proved."
     },
     {
       "function": "deflatePending",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflatePending_safety is stated, not proved."
     },
     {
       "function": "deflatePrime",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflatePrime_safety is stated, not proved."
     },
     {
       "function": "deflateSetHeader",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateSetHeader_safety is stated, not proved."
     },
     {
       "function": "inflateSetDictionary",
@@ -218,13 +218,13 @@
       "function": "compress",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the one-shot compress functions is not done: they run deflate, which is not translated yet."
+      "reason": "Translated and differentially tested; Goal.compress_safety is stated, not proved."
     },
     {
       "function": "compress2",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the one-shot compress functions is not done: they run deflate, which is not translated yet."
+      "reason": "Translated and differentially tested; Goal.compress2_safety is stated, not proved."
     },
     {
       "function": "compressBound",
@@ -430,9 +430,11 @@
     },
     {
       "function": "deflateInit_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateInit_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateInit__safety"
     },
     {
       "function": "inflateInit_",
@@ -444,9 +446,11 @@
     },
     {
       "function": "deflateInit2_",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateInit2_",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateInit2__safety"
     },
     {
       "function": "inflateInit2_",
@@ -638,7 +642,7 @@
       "function": "deflateResetKeep",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Safety of the streaming deflate functions is not done: deflate.c, trees.c and the deflate strategies are not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateResetKeep_safety is stated, not proved."
     },
     {
       "function": "gzopen_w",
@@ -662,25 +666,25 @@
       "function": "compress_z",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Depends on deflate, which is not translated yet."
+      "reason": "Translated and differentially tested; Goal.compress_z_safety is stated, not proved."
     },
     {
       "function": "compress2_z",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "Depends on deflate, which is not translated yet."
+      "reason": "Translated and differentially tested; Goal.compress2_z_safety is stated, not proved."
     },
     {
       "function": "deflateBound_z",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "deflate.c is not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateBound_z_safety is stated, not proved."
     },
     {
       "function": "deflateUsed",
       "status": "not-done",
       "scope": "lp64-linux",
-      "reason": "deflate.c is not translated yet."
+      "reason": "Translated and differentially tested; Goal.deflateUsed_safety is stated, not proved."
     },
     {
       "function": "uncompress_z",

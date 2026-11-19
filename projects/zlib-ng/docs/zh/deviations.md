@@ -1,4 +1,4 @@
-<!-- source-sha256: 1cf87a893bcf0920359bcb4d48d386790e0d2b3ab04e4951c6881357e82054cf -->
+<!-- source-sha256: f58a721bbb156f4e0c01148c6bce28f49d198fda3c41c5bfa7ff08b8b6345f0a -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -6,7 +6,7 @@
 
 ## 所有调用
 
-- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加八个补丁，以
+- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加十个补丁，以
   `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF` 构建为 x86_64
   Linux LP64 库，使 `adler32` 与 `adler32_z` 执行 `adler32_c`，`crc32` 与 `crc32_z` 执行 `crc32_braid`。分派到
   SIMD 内核或 Chorba CRC-32 内核（默认）的构建不在覆盖之内。
@@ -45,6 +45,25 @@
 | 调用之间 | 程序不改变 `z_stream` 的其他字段与库的分配，也不释放已登记的 `gz_header` 记录。该记录的任何字段都可以改变（程序或共享该记录的另一个流都可以写它）；其缓冲区在每次 `inflate` 调用时检查。 | `CallerStep` | `zlib.h` 把 `z_stream` 字段与分配保留给库；已登记的头部会被 `inflate` 写入，因此必须保持已分配。 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | `dest` 与 `source` 不重叠。 | `Disjoint` | 没有重叠理由的调用者缓冲区。 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` | 每个对象少于 `2^63` 字节（至多 `PTRDIFF_MAX`）。 | `ObjBound` | x86_64 Linux 上的每个对象都满足。模型中一个循环至多运行 `2^64` 次，而模型本身不限制对象大小；一次性解压的循环次数受源与目标字节总数限制。 |
+
+## Deflate 与 compress
+
+`deflate*` 与 `compress*` 的目标陈述在 `zlib.h` 允许程序到达的流上（`DeflateReachable`）：由成功的
+`deflateInit_`、`deflateInit2_` 或 `deflateCopy` 建立，此后只被参数有效的 deflate 调用以及程序改变；程序可以改变
+`next_in`、`avail_in`、`next_out`、`avail_out` 以及库不拥有的内存。`Z_NULL` 流与状态为 `NULL` 的流也被接受。
+
+| 函数 | 前提 | Lean | 理由 |
+| --- | --- | --- | --- |
+| `deflateInit_`、`deflateInit2_`（及由它们建立的每个流） | `zalloc` 与 `zfree` 为 `Z_NULL`（库的默认分配器）或已是默认值。 | `DInitReady` | 未建模经由调用者分配器的调用。 |
+| `deflate`、`deflateParams` | `next_in` 与 `next_out` 为 `NULL` 或指向 `avail_in` 个可读、`avail_out` 个可写字节；输出与输入及已登记的 `gz_header` 缓冲区不重叠；它们都不在库的分配块内。 | `DStreamIO` | 调用者缓冲区没有理由重叠。 |
+| `deflateGetDictionary` | 缓冲区为 `NULL` 或至少有 32768 个可写字节。 | `Goal.deflateGetDictionary_safety` | `zlib.h` 指明 32768 字节总是足够。 |
+| `deflateCopy` | `dest` 与 `source` 是不同的流。 | `Goal.deflateCopy_safety` | 对 `z_stream` 的复制是 `memcpy`，对同一对象未定义。 |
+| `deflateSetHeader`（在流的历史中） | 在首次 `deflate` 调用之前调用，所给头的 `extra` 有 `extra_len` 个可读字节，`name` 与 `comment` 为 C 字符串。 | `DeflateStep` | 这是 `zlib.h` 对 `deflateSetHeader` 的要求；调用本身任何时候都安全（`Goal.deflateSetHeader_safety`）。 |
+| `deflateBound`、`deflateBound_z` | 已登记的 `gz_header` 按 `deflateSetHeader` 的要求可读；每个对象都小于 `2^63` 字节。 | `DHeaderReadable`、`ObjBound` | `deflateBound` 读取头中的字符串直到其零字节。模型中该循环至多运行 `2^64` 次，而模型本身不限制对象的大小；x86_64 Linux 上的每个对象都远小于此。 |
+| `deflateInit_`、`deflateInit2_`、`deflateCopy`、`compress*` | 堆模型在尚未分配的块中不记录任何对象（字节、inflate 或 deflate 状态）。 | `DFreshBlocks` | 堆模型的良构条件，程序到达的每个堆都满足。 |
+| `deflate`、`deflateParams`（流历史中的每次调用） | 静态 CRC 表保持其常量（`CrcGlobals`）。 | `DeflateStep` | C 中的常量数据。 |
+| 调用之间 | 程序不改变 `z_stream` 的其他字段或库的分配块，也不释放已登记的 `gz_header` 记录。在 `deflate` 写 gzip 头期间，程序保持头的 `extra`、`extra_len`、`name`、`comment` 字段以及两个字符串的长度不变。 | `DCallerStep` | `zlib.h` 把 `z_stream` 的这些字段与分配块留给库；`deflate` 在这些缓冲区中按保存的下标继续写头。 |
+| `compress`、`compress2`、`compress_z`、`compress2_z` | `dest` 与 `source` 不重叠；每个对象少于 `2^63` 字节。 | `Disjoint`、`ObjBound` | 同 `uncompress*`。 |
 
 ## 回调解压
 

@@ -108,6 +108,56 @@ Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `in
   the bit buffer on entry. Patch 0011 bounds the copy into `head->extra` in state `EXTRA`, which overran the buffer
   when two streams share one `gz_header`.
 
+## Deflate scope (pinned `develop` commit, verified option set)
+
+Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `deflate*.c.o`, `trees.c.o`,
+`insert_string.c.o`, `compare256_c.c.o`, `slide_hash_c.c.o`, `compress.c.o`) and the preprocessor conditions of the
+files below (`OPTIMAL_CMP` is 64 on x86_64; no `NO_QUICK_STRATEGY`, `NO_MEDIUM_STRATEGY`, `S390_DFLTCC_DEFLATE`,
+`ZLIB_DEBUG`; `HASH_SIZE` 65536; `GZIP` defined).
+
+- Public entry points (`deflate.c`): `deflateInit_`, `deflateInit2_` (both call the hidden `deflateInit2`), `deflate`,
+  `deflateEnd`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateCopy`, `deflateReset`, `deflateResetKeep`,
+  `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z` (patch 0006), `deflatePending`, `deflateUsed`,
+  `deflatePrime`, `deflateSetHeader`; `compress.c`: `compress`, `compress2`, `compress_z`, `compress2_z`,
+  `compressBound`, `compressBound_z`. `zng_deflateSetParams` / `zng_deflateGetParams` are not compiled
+  (`ZLIB_COMPAT`).
+- Internal functions of `deflate.c`: `alloc_deflate` (one `zalloc` of `PAD_64(window + prev + head + pending + state
+  + allocs + 63)` bytes, aligned up to 64 and carved in that order: the window of `W_BUF_SIZE(w) = MAX(2 * w, 32768)`
+  bytes, `prev` (`w` `Pos`), `head` (65536 `Pos`), `pending_buf` of `4 * lit_bufsize + 1 + 8` bytes with `sym_buf` at
+  `pending_buf + lit_bufsize + 8`, the `deflate_state` (5440 bytes, `ALIGNED_(64)`) and the `deflate_allocs` record
+  (56 bytes); `prev` is zeroed), `free_deflate`, `deflateStateCheck`, `deflateHeaders`, `lm_set_level`, `lm_init`,
+  `fill_window`, `flush_pending`. `configuration_table`: level 0 `deflate_stored`, 1 `deflate_quick`, 2
+  `deflate_fast`, 3-4 `deflate_medium`, 5-6 `deflate_medium_fizzle`, 7-9 `deflate_slow`; `deflate` calls
+  `deflate_stored` for level 0, `deflate_huff` for `Z_HUFFMAN_ONLY`, `deflate_rle` for `Z_RLE`, else the table entry.
+  `lm_set_level` stores `longest_match_slow_roll_c` / `insert_roll_batch` for level 9 (`MIN_ROLL_LEVEL`),
+  `longest_match_slow_knuth_c` and `insert_knuth_batch_head` (level 1) or `insert_knuth_batch` otherwise.
+- `deflate_p.h` (`zng_tr_tally_lit` / `_dist` with 4-byte `sym_buf` stores, `flush_pending_inline`, `bi_reverse`,
+  `read_buf` with `crc32_copy_braid` / `adler32_copy_c`, `max_match_continues`, `FLUSH_BLOCK*`), `trees.c` (radix
+  `build_tree` over `pq_leaves` / `pq_scratch`, `compress_block` with the `OPTIMAL_CMP >= 64` symbol reads),
+  `trees_emit.h`, `trees_tbl.h` (static trees and code tables, runtime `Runtime/TreesTbl.lean`), the strategies
+  `deflate_stored.c`, `deflate_quick.c`, `deflate_fast.c`, `deflate_medium.c` (`deflate_medium_tpl.h` twice),
+  `deflate_slow.c`, `deflate_rle.c` (`compare256_rle_64`), `deflate_huff.c`; `insert_string.c` with
+  `insert_string_p.h`; `arch/generic/compare256_c.c` (`compare256_64`, `compare256_8`, `compare256_c` =
+  `compare256_64_static`, and `match_tpl.h` three times: `longest_match_c` for levels 2-6 through
+  `FUNCTABLE_CALL(longest_match)`, `longest_match_slow_knuth_c`, `longest_match_slow_roll_c`); `slide_hash_c` /
+  `slide_hash_head_c` of `arch/generic/slide_hash_c.c`.
+- Translation layout: `fill_window` is `ZlibNgF/ZlibNg/deflate.c.fill_window.lean` (the strategies call it and
+  `deflate.c` calls the strategies), `flush_pending` sits next to `flush_pending_inline` in `deflate_p.h.lean`,
+  `bi_reverse` in `trees.c.lean`, the size macros of `zutil.h` in `zutil.h.lean`.
+- Deflate objects (`Runtime/Deflate.lean`, trusted base): the `deflate_state` and `deflate_allocs` are carved from the
+  `zalloc` block like the inflate objects (`carveDState`, `carveDAllocs`, measured sizes `SIZEOF_DEFLATE_STATE`,
+  `SIZEOF_DEFLATE_ALLOCS`); the window, `prev`, `head` and `pending_buf` stay plain bytes of the block (one object in
+  C, so pointer arithmetic is bounded by the block), `Pos` elements are two-byte accesses; the trees, `bl_count` and
+  `pq_*` arrays are fields of the state record with their own `Space` instances. `deflateCopy`'s `memcpy` of a whole
+  `deflate_state` is a record copy.
+- Deflate patches (findings page): 0012 keeps `mbase_start = window` in `match_tpl.h` and reads candidates at
+  `mbase_start + (cur_match - match_offset)` (the slow variants of levels 7-9 formed `window - match_offset`, before
+  the window's block); 0013 bounds `max_insert_count` of `deflate_medium` to `2..STD_MAX_MATCH` (`deflateTune` with
+  `max_lazy = INT_MIN` made `insert_knuth_stepped` divide by zero). `tests/expected-faults.txt` is empty: Lean and C
+  agree on every generated input. `insert_knuth_stepped` is otherwise called with `count >= 3` and
+  `max_inserts >= 4` (`deflate_fast`, through `insert_knuth_spread_static`) or `count > 2 * max_insert_count >= 4`
+  (`deflate_medium`), so `inserts - 1 >= 1`.
+
 ## inflateBack scope (pinned `develop` commit, verified option set)
 
 Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it defines `inflateBackInit`,
