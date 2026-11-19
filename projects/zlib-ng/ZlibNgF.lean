@@ -34,3 +34,4 @@ import ZlibNgF.Proof.«inffast.c.facts»
 import ZlibNgF.Proof.«inflate.c.gzhead-modes»
 import ZlibNgF.Proof.«inflate.c.gzextra-modes»
 import ZlibNgF.Proof.«inflate.c.type-modes»
+import ZlibNgF.Proof.«inflate.c.callees»
