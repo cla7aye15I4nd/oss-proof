@@ -44,7 +44,7 @@ theorem caller_inv {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hc : CallerStep
   refine ⟨i', z', b', st, al, rfl, hz', hs'.trans hb, hst', hal', ?_⟩
   have za : z'.zalloc = z1.zalloc := by rw [ez]
   have zf : z'.zfree = z1.zfree := by rw [ez]
-  refine { c with toShape := ?_, head := ?_ }
+  refine { c with toShape := ?_, head := ?_, extraLen := ?_ }
   · exact { c.toShape with
       zalloc := za.trans c.zalloc
       zfree := zf.trans c.zfree
@@ -54,6 +54,9 @@ theorem caller_inv {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hc : CallerStep
     · refine Or.inr ⟨k, g, hk, ?_⟩
       rw [hhead (some k) ⟨b', st, ⟨z1, ⟨i', rfl, hz1⟩, hb'⟩, hst, hk⟩ k rfl]
       exact hg
+  · intro em k g hk hg hx
+    rw [hhead (some k) ⟨b', st, ⟨z1, ⟨i', rfl, hz1⟩, hb'⟩, hst, hk⟩ k rfl] at hg
+    exact c.extraLen em k g hk hg hx
 
 /-- `inflateGetHeader(strm, Z_NULL)` returns only when it changes nothing (on a gzip stream it faults). -/
 theorem getHeader_none {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : Inv h s)
@@ -71,7 +74,7 @@ theorem getHeader_none {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : Inv h s)
 theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs : InflateStep h h' s) :
     Inv h' s := by
   rcases hs with ⟨flush, r, hio, e⟩ | ⟨r, hio, hsi, e⟩ | ⟨r, e⟩ | ⟨d, n, r, hd, hnb, e⟩ |
-    ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
+    ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, hok, hhm, e⟩ | ⟨bits, value, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ |
     ⟨w, r, e⟩ | ⟨c, r, e⟩ | ⟨v, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
   · exact P.inflate h h' s flush r hv hio e
   · obtain ⟨_, _, e0, hi, _⟩ := InflateSync.sync_inv hv hio hsi
@@ -85,7 +88,7 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
   · rcases hok with rfl | ⟨k, g, rfl, hg, _⟩
     · rw [getHeader_none hv e]; exact hv
     · obtain ⟨_, _, e0, hi, _⟩ := InflateControl.inflateGetHeader_inv hv k g hg
-      rw [det e e0]; exact hi
+      rw [det e e0]; exact hi (fun b st hsb hst => by rw [hhm b st hsb hst]; decide)
   · obtain ⟨_, _, e0, hi, _⟩ := InflateReset.prime_inv hv bits value
     rw [det e e0]; exact hi
   · obtain ⟨_, _, _, _, _, e0, hi⟩ := InflateReset.reset_inv hv

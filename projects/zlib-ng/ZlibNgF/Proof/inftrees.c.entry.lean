@@ -108,7 +108,7 @@ theorem sub_lit {type : UInt32} {d : Nat} {e : Code} (hop : e.op = 0) (hb1 : 1 �
   have h0 : e.op.toNat = 0 := by rw [hop]; rfl
   have h16 : e.op.toNat &&& 16 = 0 := by rw [h0]; rfl
   refine ⟨⟨by rw [codeBits_of h16]; exact hb1, by rw [codeBits_of h16]; exact Nat.le_refl _, by omega,
-    fun _ _ => by rw [hop]; rfl, fun h => by rw [hd] at h; cases h⟩, ?_, by omega,
+    fun _ _ => by rw [hop]; rfl, fun h _ => by rw [hd] at h; cases h⟩, ?_, by omega,
     fun _ => ⟨fun _ => hb, fun h => absurd hop h, fun h => absurd (by rw [hop]; rfl) h⟩⟩
   rw [hd]; unfold linkTest; simp [hop]
 
@@ -117,7 +117,9 @@ theorem sub_inv {type : UInt32} {d : Nat} {e : Code} (h16 : e.op.toNat &&& 16 = 
     (hf0 : e.op.toNat &&& 240 ≠ 0) (hb1 : 1 ≤ e.bits.toNat) (hb : d + e.bits.toNat ≤ 20) : SubOK type d e := by
   have hm := mOf_ge type
   refine ⟨⟨by rw [codeBits_of h16]; exact hb1, by rw [codeBits_of h16]; exact Nat.le_refl _, by omega,
-    fun _ h => absurd ((op_and64 e).1 h) h64, fun _ h => absurd ((op_and64 e).1 h) h64⟩, linkTest_false hf0,
+    fun _ h => absurd ((op_and64 e).1 h) h64,
+    fun _ h => h.elim (fun h => absurd ((op_and64 e).1 h) h64) (fun h => absurd ((op_and16 e).2 h16) h)⟩,
+    linkTest_false hf0,
     by omega, fun _ => ⟨fun h => ?_, fun _ => hb, fun h => absurd ((op_and16 e).2 h16) h⟩⟩
   rw [h] at h64; exact absurd rfl h64
 

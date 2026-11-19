@@ -126,6 +126,13 @@ def CallerStep (h h' : Heap) (s : StreamPtr) : Prop :=
     (∀ hp, RegisteredHeader h s hp → ∀ k, hp = some k → h'.gzheaders k = h.gzheaders k) ∧
     h'.baseAddr = h.baseAddr ∧ h.nextBlk ≤ h'.nextBlk
 
+/-- The state of stream `s` is in mode `HEAD`: no header byte has been read since `inflateInit*` or `inflateReset*`.
+`zlib.h` lets a program call `inflateGetHeader` only "after inflateInit2() or inflateReset(), and before the first
+call of inflate()"; every such call finds the state in mode `HEAD` (an `inflate` call that read no input leaves it
+there too). -/
+def HeadMode (h : Heap) (s : StreamPtr) : Prop :=
+  ∀ b st, StateBlock h s b → h.istate b = some st → st.mode = ZlibNg.Inflate.HEAD
+
 /-- One public inflate call on stream `s` with valid arguments that returns (any result); `inflateEnd` is not a
 step (it ends the stream). -/
 def InflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
@@ -136,7 +143,7 @@ def InflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
     C.run (ZlibNg.Inflate.inflateSetDictionary s d n) h = .ok (r, h')) ∨
   (∃ d hasLen r, NullOrWrite h d 32768 ∧ (∀ b, StateBlock h s b → NotInBlock b d) ∧
     C.run (ZlibNg.Inflate.inflateGetDictionary s d hasLen) h = .ok (r, h')) ∨
-  (∃ hp r, HeaderOk h hp ∧ C.run (ZlibNg.Inflate.inflateGetHeader s hp) h = .ok (r, h')) ∨
+  (∃ hp r, HeaderOk h hp ∧ HeadMode h s ∧ C.run (ZlibNg.Inflate.inflateGetHeader s hp) h = .ok (r, h')) ∨
   (∃ bits value r, C.run (ZlibNg.Inflate.inflatePrime s bits value) h = .ok (r, h')) ∨
   (∃ r, C.run (ZlibNg.Inflate.inflateReset s) h = .ok (r, h')) ∨
   (∃ r, C.run (ZlibNg.Inflate.inflateResetKeep s) h = .ok (r, h')) ∨

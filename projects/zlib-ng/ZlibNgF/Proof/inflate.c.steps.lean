@@ -73,6 +73,15 @@ theorem LI.wrS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (l
     Sat H (ZlibNg.Inflate.wrS (some E.b) f) (fun _ H' => LI E l H' z (f S)) :=
   Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => li.of_touch t hh)
 
+/-- `LI.wrS` that also records that the bytes and the headers stay. -/
+theorem LI.wrST {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
+    (f : InflateState → InflateState)
+    (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view (f S)) al)
+    (hh : (f S).head = S.head) :
+    Sat H (ZlibNg.Inflate.wrS (some E.b) f) (fun _ H' => LI E l H' z (f S) ∧ H'.bytes = H.bytes ∧
+      H'.gzheaders = H.gzheaders) :=
+  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => ⟨li.of_touch t hh, t.touch.bytes, t.touch.gz⟩)
+
 /-- A store into the stream record that keeps `state`, `zalloc`, `zfree` keeps `LI`. -/
 theorem LI.wrZ {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (f : ZStream → ZStream) (e1 : (f z).state = z.state) (e2 : (f z).zalloc = z.zalloc)
@@ -102,12 +111,13 @@ theorem LI.core {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (
 
 /-- `setMode` to a mode with no mode clauses. -/
 theorem LI.setQuiet {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (m : UInt32)
-    (lo : HEAD ≤ m) (hi : m ≤ SYNC) (q : m < LENLENS ∨ LIT < m) :
+    (lo : HEAD ≤ m) (hi : m ≤ SYNC) (q : m < LENLENS ∨ LIT < m) (hx : m ≠ EXTRA) :
     Sat H (setMode (some E.b) m) (fun _ H' => LI E l H' z { S with mode := m }) :=
   li.wrS (fun s => { s with mode := m }) (fun _ _ c => { c with
     mode_lo := lo
     mode_hi := hi
-    modes := InflateInv.ModeOK.quiet _ _ q }) rfl
+    modes := InflateInv.ModeOK.quiet _ _ q
+    extraLen := fun e => absurd e hx }) rfl
 
 
 /-! ## Mode statements -/
@@ -192,6 +202,12 @@ theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
 
 /-! ## The input buffer -/
 
+/-- A header buffer `p` of `n` bytes in heap `H`: `NULL`, or `n` writable bytes of a heap block other than the state's
+block, a write range of the call, disjoint from the input. -/
+def HBuf (E : Env) (H : Heap) (p : BPtr) (n : Nat) : Prop :=
+  p = .null ∨ ∃ bd off data, p = .ref (.heap bd) off ∧ H.bytes bd = some data ∧ off + n ≤ data.size ∧
+    bd ≠ E.b ∧ (p, n) ∈ E.W ∧ Disjoint E.inp E.A0.toNat p n
+
 /-- What the caller's buffers give at entry (`StreamIO`, `inflate`'s own checks). -/
 structure EnvOK (E : Env) : Prop where
   crc : E.H0.crcTable = ZlibNg.Crc32Tbl.crc_table
@@ -199,6 +215,9 @@ structure EnvOK (E : Env) : Prop where
   inRd : NullOrRead E.H0 E.inp E.A0.toNat
   inNull : E.inp = .null → E.A0 = 0
   inNB : NotInBlock E.b E.inp
+  hdrBuf : ∀ k g0, E.hp = some k → E.H0.gzheaders k = some g0 →
+    HBuf E E.H0 g0.extra g0.extra_max.toNat ∧ HBuf E E.H0 g0.name g0.name_max.toNat ∧
+    HBuf E E.H0 g0.comment g0.comm_max.toNat
 
 /-- `Space.get` of a reference outside block `b` keeps the size of its array. -/
 theorem SizeKeep.get {H0 H : Heap} {b : Nat} (sk : SizeKeep H0 H b) {r : BRef} (hr : ∀ off, Ptr.ref r off ≠ (Ptr.ref (BRef.heap b) off : BPtr))
@@ -368,7 +387,7 @@ theorem LI.setBad {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     (msg : String) {i : Nat} (hm : strTable.findIdx? (· == msg) = some i) :
     Sat H (SET_BAD E.c msg) (fun _ H' => ∃ z', LI E l H' z' { S with mode := BAD }) := by
   unfold SET_BAD
-  refine Sat.bind (Sat.mono (li.setQuiet BAD (by decide) (by decide) (Or.inr (by decide))) ?_)
+  refine Sat.bind (Sat.mono (li.setQuiet BAD (by decide) (by decide) (Or.inr (by decide)) (by decide)) ?_)
   intro _ H1 li1
   refine Sat.bind (Sat.of_eq (show strLitRef msg H1 = .ok (.ref (.str i) 0, H1) by simp [strLitRef, hm]) ?_)
   exact Sat.mono (li1.wrZ (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl) (fun _ H2 li2 => ⟨_, li2⟩)
@@ -384,7 +403,8 @@ theorem crcDo1_ok {H : Heap} (hc : H.crcTable = ZlibNg.Crc32Tbl.crc_table) (c : 
 /-- `CRC2` / `CRC4` change only the state's check value. -/
 theorem LI.crc2 {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (eo : EnvOK E)
     (li : LI E l H z S) :
-    SatX H l (CRC2 E.c) (fun r l' H' => r = .ok ⟨⟩ ∧ l' = l ∧ ∃ v, LI E l H' z { S with check := v }) := by
+    SatX H l (CRC2 E.c) (fun r l' H' => r = .ok ⟨⟩ ∧ l' = l ∧ ∃ v, LI E l H' z { S with check := v } ∧
+      H'.gzheaders = H.gzheaders) := by
   have hc : H.crcTable = ZlibNg.Crc32Tbl.crc_table := li.frame.2.2.2.2.2.2.1.trans eo.crc
   unfold CRC2
   refine SatX.bind (SatX.get ?_)
@@ -393,12 +413,13 @@ theorem LI.crc2 {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (
   refine SatX.bind (SatX.lift_eq e1 ?_)
   obtain ⟨v2, e2⟩ := crcDo1_ok hc v1 (l.hold >>> 8)
   refine SatX.bind (SatX.lift_eq e2 ?_)
-  exact SatX.lift (Sat.mono (li.wrS (fun s => { s with check := (~~~v2).toUInt64 }) (fun _ _ c => c) rfl)
-    (fun _ H' li' => ⟨rfl, rfl, _, li'⟩))
+  exact SatX.lift (Sat.mono (li.wrST (fun s => { s with check := (~~~v2).toUInt64 }) (fun _ _ c => c) rfl)
+    (fun _ H' li' => ⟨rfl, rfl, _, li'.1, li'.2.2⟩))
 
 theorem LI.crc4 {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (eo : EnvOK E)
     (li : LI E l H z S) :
-    SatX H l (CRC4 E.c) (fun r l' H' => r = .ok ⟨⟩ ∧ l' = l ∧ ∃ v, LI E l H' z { S with check := v }) := by
+    SatX H l (CRC4 E.c) (fun r l' H' => r = .ok ⟨⟩ ∧ l' = l ∧ ∃ v, LI E l H' z { S with check := v } ∧
+      H'.gzheaders = H.gzheaders) := by
   have hc : H.crcTable = ZlibNg.Crc32Tbl.crc_table := li.frame.2.2.2.2.2.2.1.trans eo.crc
   unfold CRC4
   refine SatX.bind (SatX.get ?_)
@@ -411,8 +432,8 @@ theorem LI.crc4 {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (
   refine SatX.bind (SatX.lift_eq e3 ?_)
   obtain ⟨v4, e4⟩ := crcDo1_ok hc v3 (l.hold >>> 24)
   refine SatX.bind (SatX.lift_eq e4 ?_)
-  exact SatX.lift (Sat.mono (li.wrS (fun s => { s with check := (~~~v4).toUInt64 }) (fun _ _ c => c) rfl)
-    (fun _ H' li' => ⟨rfl, rfl, _, li'⟩))
+  exact SatX.lift (Sat.mono (li.wrST (fun s => { s with check := (~~~v4).toUInt64 }) (fun _ _ c => c) rfl)
+    (fun _ H' li' => ⟨rfl, rfl, _, li'.1, li'.2.2⟩))
 
 /-- `state->head` of a state with the invariant. -/
 theorem LI.headOf {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) :
@@ -434,13 +455,22 @@ theorem LI.stHdr {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
     (li : LI E l H z S) {k : Nat} (hk : E.hp = some k) {g : GzHeader} (hg : H.gzheaders k = some g)
     (g' : GzHeader) (h1 : g'.extra = g.extra ∨ g'.extra = .null) (h2 : g'.extra_max = g.extra_max)
     (h3 : g'.name = g.name ∨ g'.name = .null) (h4 : g'.name_max = g.name_max)
-    (h5 : g'.comment = g.comment ∨ g'.comment = .null) (h6 : g'.comm_max = g.comm_max) :
-    Sat H (stHeader (some k) g') (fun _ H' => LI E l H' z S) := by
-  refine ⟨(), { H with gzheaders := upd H.gzheaders k (some g') }, by simp [stHeader, hg], ?_⟩
+    (h5 : g'.comment = g.comment ∨ g'.comment = .null) (h6 : g'.comm_max = g.comm_max)
+    (hmx : S.mode ≠ EXTRA) :
+    Sat H (stHeader (some k) g') (fun _ H' => LI E l H' z S ∧ H'.gzheaders = upd H.gzheaders k (some g')) := by
+  refine ⟨(), { H with gzheaders := upd H.gzheaders k (some g') }, by simp [stHeader, hg], ?_, rfl⟩
   have hkG := eo.hdrG k hk
   obtain ⟨i', z', b', st', al, e, hz', hb', hst', hal, c⟩ := li.inv
+  have hst : st' = S := by
+    obtain rfl : E.i = i' := Option.some.inj e
+    rw [li.hz] at hz'; cases hz'
+    rw [li.hb] at hb'; cases hb'
+    rw [li.hs] at hst'; exact (Option.some.inj hst').symm
+  subst hst
   refine { li with
-    inv := ⟨i', z', b', st', al, e, hz', hb', hst', hal, { c with head := ?_ }⟩
+    inv := ⟨i', z', b', st', al, e, hz', hb', hst', hal, { c with
+      head := ?_
+      extraLen := fun em => absurd em hmx }⟩
     frame := ?_
     sz := ?_
     hdr := ?_ }

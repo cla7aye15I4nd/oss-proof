@@ -14,7 +14,8 @@ these readers need is asked:
 * a link (the test of the slow decoder: `op != 0 && (op & 0xf0) == 0` for literal/length tables,
   `(op & 0xf0) == 0` for distance tables) points to a sub-table `a[o + val, o + val + 2^op)` inside the region,
   and its `bits` plus the `bits` of every sub-table entry is at most `m`;
-* in a distance table, a valid entry (`op & 64 == 0`) has `val ≥ 1` (a match distance is never zero);
+* in a distance table, a valid entry (`op & 64 == 0`) and a distance base (`op & 16`, the first test of
+  `inflate_fast`) have `val ≥ 1` (a match distance is never zero);
 * sub-table entries are not links (a decoder follows at most one link);
 * in a literal/length table (`LenOK`, what `inflate_fast` needs: three symbols after one `REFILL` of at least 56
   bits): a literal takes at most 15 bits in all (link bits plus entry bits), any other entry at most 20 (a code of at
@@ -41,7 +42,7 @@ structure EntryOK (e : Code) (m : Nat) (dist : Bool) : Prop where
   cb_le : (CODE_BITS e).toNat ≤ e.bits.toNat
   bits_le : e.bits.toNat ≤ m
   op_lt : e.op &&& 16 = 0 → e.op &&& 64 = 0 → e.op &&& 0xf0 = 0
-  dval : dist = true → e.op &&& 64 = 0 → 1 ≤ e.val.toNat
+  dval : dist = true → (e.op &&& 64 = 0 ∨ e.op &&& 16 ≠ 0) → 1 ≤ e.val.toNat
 
 /-- A literal/length entry reached after `pre` bits of a root link (`pre = 0` for a root entry): a literal
 (`op == 0`) takes at most 15 bits in all, any other entry at most 20, and a length base (`op & 16`) gives a length

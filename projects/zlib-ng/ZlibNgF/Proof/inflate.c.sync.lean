@@ -311,7 +311,8 @@ theorem syncEnd_ok {H Hk : Heap} {i b : Nat} {zk : ZStream} {Sk : InflateState} 
       (fun _ _ c => { c with
         mode_lo := by show HEAD ≤ TYPE; decide
         mode_hi := by show TYPE ≤ SYNC; decide
-        modes := InflateInv.ModeOK.quiet _ _ (Or.inl (by show TYPE < LENLENS; decide)) })) ?_)
+        modes := InflateInv.ModeOK.quiet _ _ (Or.inl (by show TYPE < LENLENS; decide))
+        extraLen := fun e => absurd (show TYPE = EXTRA from e) (by decide) })) ?_)
     rintro - H7 t7
     exact Sat.pure ⟨t7.touch, t7.inv⟩
   dsimp only [InflateReset.rkS, InflateReset.rS]
@@ -445,7 +446,8 @@ theorem sync_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (hio : StreamIO h s) 
     (fun _ _ c => { c with
       mode_lo := by show HEAD ≤ SYNC; decide
       mode_hi := UInt32.le_refl _
-      modes := InflateInv.ModeOK.quiet _ _ (Or.inr (by show LIT < SYNC; decide)) })) ?_)
+      modes := InflateInv.ModeOK.quiet _ _ (Or.inr (by show LIT < SYNC; decide))
+      extraLen := fun e => absurd (show SYNC = EXTRA from e) (by decide) })) ?_)
   rintro - H1 t1
   refine Sat.bind (Sat.mono (sat_ldState t1) ?_)
   rintro r H2 ⟨rfl, rfl⟩
