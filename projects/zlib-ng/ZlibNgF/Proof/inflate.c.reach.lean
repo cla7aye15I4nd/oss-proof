@@ -80,7 +80,7 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
     rw [det e e0]; exact hi
   · rcases hok with rfl | ⟨k, g, rfl, hg, _⟩
     · rw [getHeader_none hv e]; exact hv
-    · obtain ⟨_, _, e0, hi⟩ := InflateControl.inflateGetHeader_inv hv k g hg
+    · obtain ⟨_, _, e0, hi, _⟩ := InflateControl.inflateGetHeader_inv hv k g hg
       rw [det e e0]; exact hi
   · obtain ⟨_, _, e0, hi, _⟩ := InflateReset.prime_inv hv bits value
     rw [det e e0]; exact hi
@@ -226,5 +226,67 @@ theorem inflateCopy_safety_of (P : Pending) : Goal.inflateCopy_safety := by
   · exact ⟨_, _, InflateCopy.copy_noState (Or.inl hn) dst, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateCopy.copy_noState (Or.inr hn) dst, InflateInit.frame_refl h _ _ _ _⟩
   · exact InflateCopy.copy_safe (reach_inv P hr) hfr hdst hne
+
+/-- A frame from agreement outside the named streams, blocks and headers. -/
+theorem frame_of {h h' : Heap} {S B G : List Nat} (hs : ∀ i, i ∉ S → h'.streams i = h.streams i)
+    (hg : ∀ k, k ∉ G → h'.gzheaders k = h.gzheaders k)
+    (hb : ∀ b, b ∉ B → h'.istates b = h.istates b ∧ h'.iallocs b = h.iallocs b ∧ h'.bytes b = h.bytes b)
+    (hc : h'.consts = h.consts) (hcrc : h'.crcTable = h.crcTable) (hx : h'.x2nTable = h.x2nTable)
+    (hbase : h'.baseAddr = h.baseAddr) (hn : h.nextBlk ≤ h'.nextBlk) : Frame h h' S B G [] :=
+  ⟨hs, hg, fun b _ hb' => ⟨(hb b hb').1, (hb b hb').2.1⟩, fun b _ hb' d hd => ⟨d, by rw [(hb b hb').2.2]; exact hd,
+    rfl, fun _ _ _ => rfl⟩, fun b _ hb' hn' => by rw [(hb b hb').2.2]; exact hn', hc, hcrc, hx, hbase, hn⟩
+
+theorem inflatePrime_safety_of (P : Pending) : Goal.inflatePrime_safety := by
+  intro h s bits value _ hh
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflatePrime_noState (Or.inl hn) bits value, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflatePrime_noState (Or.inr hn) bits value, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, hor⟩ := InflateReset.prime_inv (reach_inv P hr) bits value
+    refine ⟨r, h', e, ?_⟩
+    rcases hor with he | ⟨b, st', ⟨z, ⟨i, rfl, hz⟩, hzb⟩, rfl⟩
+    · rw [he]; exact InflateInit.frame_refl h _ _ _ _
+    · rw [stateIds_of hz hzb]
+      exact frame_of (fun _ _ => rfl) (fun _ _ => rfl)
+        (fun c hc => ⟨upd_ne _ _ _ _ (by simpa using hc), rfl, rfl⟩) rfl rfl rfl rfl (Nat.le_refl _)
+
+theorem inflateValidate_safety_of (P : Pending) : Goal.inflateValidate_safety := by
+  intro h s check _ hh
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflateValidate_noState (Or.inl hn) check, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflateValidate_noState (Or.inr hn) check, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨h', e, _, b, ⟨z, ⟨i, rfl, hz⟩, hzb⟩, he⟩ := InflateControl.inflateValidate_inv (reach_inv P hr) check
+    refine ⟨_, h', e, ?_⟩
+    rw [stateIds_of hz hzb]
+    have hi : h'.istates = upd h.istates b (h'.istates b) := by
+      have := congrArg Heap.istates he; exact this
+    refine frame_of (fun _ _ => by rw [he]) (fun _ _ => by rw [he]) (fun c hc => ⟨?_, by rw [he], by rw [he]⟩)
+      (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he]; exact Nat.le_refl _)
+    rw [hi]; exact upd_ne _ _ _ _ (by simpa using hc)
+
+theorem inflateGetHeader_safety_of (P : Pending) : Goal.inflateGetHeader_safety := by
+  intro h s hp _ hh hpn hok
+  rcases hok with hn | ⟨k, g, rfl, hg, -⟩
+  · exact absurd hn hpn
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflateGetHeader_noState (Or.inl hn) _, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflateGetHeader_noState (Or.inr hn) _, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, hor⟩ := InflateControl.inflateGetHeader_inv (reach_inv P hr) k g hg
+    refine ⟨r, h', e, ?_⟩
+    rcases hor with he | ⟨b, st', ⟨z, ⟨i, rfl, hz⟩, hzb⟩, rfl⟩
+    · rw [he]; exact InflateInit.frame_refl h _ _ _ _
+    · rw [stateIds_of hz hzb]
+      exact frame_of (fun _ _ => rfl) (fun c hc => upd_ne _ _ _ _ (by simpa using hc))
+        (fun c hc => ⟨upd_ne _ _ _ _ (by simpa using hc), rfl, rfl⟩) rfl rfl rfl rfl (Nat.le_refl _)
+
+theorem inflateEnd_safety_of (P : Pending) : Goal.inflateEnd_safety := by
+  intro h s _ hh
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateControl.inflateEnd_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateControl.inflateEnd_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨i, z, b, rfl, hz, hzb, e⟩ := InflateControl.inflateEnd_inv (reach_inv P hr)
+    refine ⟨_, _, e, ?_⟩
+    rw [stateIds_of hz hzb]
+    exact frame_of (fun c hc => upd_ne _ _ _ _ (by simpa [streamIds] using hc)) (fun _ _ => rfl)
+      (fun c hc => ⟨rfl, rfl, upd_ne _ _ _ _ (by simpa using hc)⟩) rfl rfl rfl rfl (Nat.le_refl _)
 
 end ZlibNgF.Proof.InflateReach

@@ -100,7 +100,7 @@ theorem inflateValidate_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) (c
 
 theorem inflateValidate_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (check : Int32) :
     ∃ h', C.run (inflateValidate s check) h = .ok (Z_OK, h') ∧ Inv h' s ∧
-      ∃ b, h' = { h with istates := upd h.istates b (h'.istates b) } := by
+      ∃ b, StateBlock h s b ∧ h' = { h with istates := upd h.istates b (h'.istates b) } := by
   have h0 : inflateStateCheck s h = .ok (false, h) := InflateInv.stateCheck hv
   obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, _, _⟩ := InflateInv.parts hv
   have hso : ZlibNg.Inflate.stateOf (some i) h = .ok (some b, h) := by
@@ -108,13 +108,13 @@ theorem inflateValidate_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (check : I
   have hsa : ∃ z, StreamAt h (some i) z ∧ z.state = some b := ⟨z, ⟨i, rfl, hz⟩, hb⟩
   by_cases hc : (check != 0 && st.wrap != 0) = true
   · obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with wrap := s.wrap ||| 4 }) hsa hst (fun _ _ c => c)
-    refine ⟨_, ?_, hi, b, by simp⟩
+    refine ⟨_, ?_, hi, b, hsa, by simp⟩
     have hr' := hr
     simp only [C.run] at hr'
     have hc' : ¬check = 0 ∧ ¬st.wrap = 0 := by simpa using hc
     simp [C.run, inflateValidate, bind_app, h0, hso, rdS, ldState_app hst, hc'.1, hc'.2, hr']
   · obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with wrap := s.wrap &&& ~~~4 }) hsa hst (fun _ _ c => c)
-    refine ⟨_, ?_, hi, b, by simp⟩
+    refine ⟨_, ?_, hi, b, hsa, by simp⟩
     have hr' := hr
     simp [C.run] at hr'
     have hc' : ¬(¬check = 0 ∧ ¬st.wrap = 0) := by simpa using hc
@@ -128,14 +128,18 @@ theorem inflateGetHeader_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) (
 
 theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat) (g : GzHeader)
     (hg : h.gzheaders k = some g) :
-    ∃ r h', C.run (inflateGetHeader s (some k)) h = .ok (r, h') ∧ Inv h' s := by
+    ∃ r h', C.run (inflateGetHeader s (some k)) h = .ok (r, h') ∧ Inv h' s ∧
+      (h' = h ∨ ∃ b st', StateBlock h s b ∧
+        h' = { h with istates := upd h.istates b (some st'),
+                      gzheaders := upd h.gzheaders k (some { g with done := 0 }) }) := by
   have h0 : inflateStateCheck s h = .ok (false, h) := InflateInv.stateCheck hv
   obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, _, _⟩ := InflateInv.parts hv
   have hso : ZlibNg.Inflate.stateOf (some i) h = .ok (some b, h) := by
     simp [ZlibNg.Inflate.stateOf, rdZ, bind_app, ldStream_app hz, hb]
   have hsa : ∃ z, StreamAt h (some i) z ∧ z.state = some b := ⟨z, ⟨i, rfl, hz⟩, hb⟩
   by_cases hc : (st.wrap &&& 2) = 0
-  · exact ⟨Z_STREAM_ERROR, h, by simp [C.run, inflateGetHeader, bind_app, h0, hso, rdS, ldState_app hst, hc], hv⟩
+  · exact ⟨Z_STREAM_ERROR, h, by simp [C.run, inflateGetHeader, bind_app, h0, hso, rdS, ldState_app hst, hc], hv,
+      Or.inl rfl⟩
   · obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with head := .val (some k) }) hsa hst
       (fun _ _ c => { c with head := Or.inr ⟨k, g, rfl, hg⟩ })
     have hr' := hr
@@ -143,7 +147,7 @@ theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat)
     let h1 : Heap := { h with istates := upd h.istates b (some { st with head := .val (some k) }) }
     have hg1 : h1.gzheaders k = some g := hg
     let h2 : Heap := { h1 with gzheaders := upd h1.gzheaders k (some { g with done := 0 }) }
-    refine ⟨Z_OK, h2, ?_, ?_⟩
+    refine ⟨Z_OK, h2, ?_, ?_, Or.inr ⟨b, _, hsa, rfl⟩⟩
     · simp [C.run, inflateGetHeader, bind_app, h0, hso, rdS, ldState_app hst, hc, hr', ldHeader, stHeader, hg, h1, h2]
     · obtain ⟨i', z', b', st', al', e, hz', hb', hst', hal', c'⟩ := InflateInv.parts hi
       refine ⟨i', z', b', st', al', e, hz', hb', hst', hal', ?_⟩
