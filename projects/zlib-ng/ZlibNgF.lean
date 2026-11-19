@@ -70,4 +70,5 @@ import ZlibNgF.Proof.«infback.c.loop»
 import ZlibNgF.Proof.«infback.c.steps»
 import ZlibNgF.Proof.«infback.c.type»
 import ZlibNgF.Proof.«infback.c.match»
+import ZlibNgF.Proof.«infback.c.stored»
 import ZlibNgF.Proof.«public-infback»
