@@ -1,13 +1,14 @@
-import ZlibNgF.Proof.«inflate.c.invariant»
+import ZlibNgF.Proof.«inflate.c.alloc»
 
 /-!
 # Inflate entry points that only check and query the state (`ZlibNgF`)
 
 `inflateUndermine` (proved goal), and for `inflateMark`, `inflateCodesUsed`, `inflateSyncPoint`, `inflateValidate`,
-`inflateGetHeader` the per-function lemmas: on `Z_NULL`, on a stream with no state, and on a stream with the
-structural invariant, the call does not fault, changes at most the state record (and for `inflateGetHeader` the
-header's `done`), and keeps the invariant. The registered goals of these functions follow once every inflate step
-is shown to keep the invariant (induction over `InflateReachable`).
+`inflateGetHeader`, `inflateEnd`, `inflateResetKeep`, `inflateReset`, `inflateReset2`, `inflatePrime` the
+per-function lemmas (the invariant cases of the resets and of `inflatePrime` are in `Proof/inflate.c.reset.lean`):
+on `Z_NULL`, on a stream with no state, and on a stream with the structural invariant, the call does not fault,
+changes only what its goal's frame names, and keeps the invariant (`inflateEnd` ends the stream). The registered goals
+of these functions follow once every inflate step is shown to keep the invariant (`Proof/inflate.c.reach.lean`).
 -/
 
 set_option autoImplicit false
@@ -154,5 +155,44 @@ theorem inflateGetHeader_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (k : Nat)
         · by_cases e2 : k' = k
           · subst e2; simp [h2]
           · simp [h2, e2]; assumption
+
+/-! ## `inflateEnd` -/
+
+theorem inflateEnd_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) :
+    C.run (inflateEnd s) h = .ok (Z_STREAM_ERROR, h) := by
+  simp [C.run, inflateEnd, bind_app, show inflateStateCheck s h = .ok (true, h) from stateCheck_noState hn]
+
+/-- `inflateEnd` on an invariant stream frees the state block and clears `state`. -/
+theorem inflateEnd_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) :
+    ∃ i z b, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧
+      C.run (inflateEnd s) h = .ok (Z_OK,
+        { h with
+          bytes := upd h.bytes b none
+          savedPtrs := upd h.savedPtrs b none
+          streams := upd h.streams i (some { z with state := none }) }) := by
+  obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := InflateInv.live hv
+  obtain ⟨d, hd⟩ := L.hd
+  have hal' : h.iallocs b = some al := by simpa [Heap.iallocsOf, hd] using hal
+  refine ⟨i, z, b, rfl, L.hz, L.hb, ?_⟩
+  have e := InflateAlloc.free_run L.hz L.hb hd L.hst c.alloc_bufs hal' c.al_zfree c.al_buf
+  simp [C.run, inflateEnd, bind_app, L.check, e]
+
+/-! ## Resets and `inflatePrime` on a stream with no state -/
+
+theorem inflateResetKeep_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) :
+    C.run (inflateResetKeep s) h = .ok (Z_STREAM_ERROR, h) := by
+  simp [C.run, inflateResetKeep, bind_app, show inflateStateCheck s h = .ok (true, h) from stateCheck_noState hn]
+
+theorem inflateReset_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) :
+    C.run (inflateReset s) h = .ok (Z_STREAM_ERROR, h) := by
+  simp [C.run, inflateReset, bind_app, show inflateStateCheck s h = .ok (true, h) from stateCheck_noState hn]
+
+theorem inflateReset2_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) (w : Int32) :
+    C.run (inflateReset2 s w) h = .ok (Z_STREAM_ERROR, h) := by
+  simp [C.run, inflateReset2, bind_app, show inflateStateCheck s h = .ok (true, h) from stateCheck_noState hn]
+
+theorem inflatePrime_noState {h : Heap} {s : StreamPtr} (hn : NoState h s) (bits value : Int32) :
+    C.run (inflatePrime s bits value) h = .ok (Z_STREAM_ERROR, h) := by
+  simp [C.run, inflatePrime, bind_app, show inflateStateCheck s h = .ok (true, h) from stateCheck_noState hn]
 
 end ZlibNgF.Proof.InflateControl

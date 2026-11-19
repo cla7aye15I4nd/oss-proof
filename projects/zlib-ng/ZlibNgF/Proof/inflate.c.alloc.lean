@@ -90,6 +90,13 @@ theorem carveState_ok {h : Heap} {b off : Nat} (a : Array UInt8) (hb : h.bytes b
   simp [carveState, carveCheck, cutBytes, bind_app, bind_mf, bind_fm, hb, hoff, hal, hfs,
     SIZEOF_INFLATE_STATE, ALIGNOF_INFLATE_STATE]
 
+theorem carveState_fault {h : Heap} {b off : Nat} (a : Array UInt8) (x : InflateState) (hb : h.bytes b = some a)
+    (hoff : off + 9088 ≤ a.size) (hal : ((h.baseAddr (.heap b)).toNat + off) % 64 = 0)
+    (hfs : h.istates b = some x) :
+    carveState (.ref (.heap b) off) h = .error (.ub "second inflate_state in one block (not modelled)") := by
+  simp [carveState, carveCheck, bind_app, bind_fm, hb, hoff, hal, hfs, SIZEOF_INFLATE_STATE,
+    ALIGNOF_INFLATE_STATE, ub]
+
 theorem alloc_ok {h : Heap} {i : Nat} (hza : (h.streams i).map ZStream.zalloc = some .zcalloc)
     (hfs : h.istates h.nextBlk = none) (hfa : h.iallocs h.nextBlk = none) (hok : h.allocOk h.nalloc = true) :
     alloc_inflate (some i) h = .ok (some h.nextBlk, allocHeap h ((h.streams i).elim .null ZStream.zfree)) := by
@@ -129,6 +136,60 @@ theorem alloc_ok {h : Heap} {i : Nat} (hza : (h.streams i).map ZStream.zalloc = 
   · simp; omega
   · exact a2
   · simpa using hfs
+
+/-- `alloc_inflate` faults when the heap records a typed object in the block it gets (`FreshBlocks` fails there). -/
+theorem alloc_fault {h : Heap} {i : Nat} (hza : (h.streams i).map ZStream.zalloc = some .zcalloc)
+    (hok : h.allocOk h.nalloc = true) (hx : h.istates h.nextBlk ≠ none ∨ h.iallocs h.nextBlk ≠ none) :
+    ∃ e, alloc_inflate (some i) h = .error e := by
+  obtain ⟨z, hz, hza⟩ : ∃ z, h.streams i = some z ∧ z.zalloc = .zcalloc := by
+    cases e : h.streams i with
+    | none => rw [e] at hza; simp at hza
+    | some z => rw [e] at hza; exact ⟨z, rfl, by simpa using hza⟩
+  have hpn := padsz_toNat (h.baseAddr (.heap h.nextBlk))
+  generalize hP : (PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat = p at hpn
+  have hp : p < 64 := by omega
+  have a0 : ((h.baseAddr (.heap h.nextBlk)).toNat + p) % 64 = 0 := by omega
+  have a1 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 41920)) % 8 = 0 := by omega
+  have a2 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 32832)) % 64 = 0 := by
+    rw [show (h.baseAddr (.heap h.nextBlk)).toNat + (p + 32832) = (h.baseAddr (.heap h.nextBlk)).toNat + p + 64 * 513
+      by omega, Nat.add_mul_mod_self_left]
+    exact a0
+  have f1 : (p : Int) ≤ 42048 := by omega
+  have f2 : (p : Int) + 41920 ≤ 42048 := by omega
+  have f3 : p ≤ 42048 := by omega
+  have f4 : 0 ≤ (p : Int) + 41920 := by omega
+  have f5 : p + 41920 + 32 ≤ 42048 := by omega
+  have f6 : min (p + 41920) 42048 = p + 41920 := by omega
+  have f7 : 0 ≤ (p : Int) + 32832 := by omega
+  have f9 : p ≤ p + 41920 := by omega
+  have f12 : (p : Int) ≤ (p : Int) + 41920 := by omega
+  have e1 : ((p : Int) + 41920).toNat = p + 41920 := by omega
+  have e2 : ((p : Int) + 32832).toNat = p + 32832 := by omega
+  cases hfa : h.iallocs h.nextBlk with
+  | some x =>
+    rw [alloc_pre]
+    simp [bind_app, ldStream, hz, callZalloc, hza, ZlibNg.Zutil.zcalloc, allocB, hok, addrOf, Ptr.add,
+      space_get_heap, HINT_ALIGNED_64, Ptr.castAligned, carveAllocs, carveCheck,
+      SIZEOF_INFLATE_ALLOCS, ALIGNOF_INFLATE_ALLOCS, hP, a0, a1, hfa, f1, f2, f3, f4, f5, e1, bind_fm, ub]
+  | none =>
+    obtain ⟨x, hfs⟩ : ∃ x, h.istates h.nextBlk = some x := by
+      rcases hx with hx | hx
+      · cases e : h.istates h.nextBlk with
+        | none => exact absurd e hx
+        | some x => exact ⟨x, rfl⟩
+      · exact absurd hfa hx
+    rw [alloc_pre]
+    simp [bind_app, ldStream, hz, callZalloc, hza, ZlibNg.Zutil.zcalloc, allocB, hok, addrOf, Ptr.add,
+      space_get_heap, HINT_ALIGNED_64, Ptr.castAligned, carveAllocs, carveCheck, cutBytes, ldAllocs, stAllocs,
+      Heap.iallocsOf, SIZEOF_INFLATE_ALLOCS, ALIGNOF_INFLATE_ALLOCS,
+      hP, a0, a1, hfa, f1, f2, f3, f4, f5, f6, f7, f9, f12, upd_upd, e1, e2, bind_mf, bind_fm]
+    rw [carveState_fault ((Array.ofFn (n := 42048) fun j => (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
+      (p + 41920)) x]
+    · simp
+    · simp
+    · simp; omega
+    · exact a2
+    · simpa using hfs
 
 theorem alloc_fail {h : Heap} {i : Nat} (hza : (h.streams i).map ZStream.zalloc = some .zcalloc)
     (hok : h.allocOk h.nalloc = false) :
@@ -292,11 +353,10 @@ theorem initS_work (g : Nat → UInt64) (i b p : Nat) : (initS g i b p).work = (
 
 theorem init2_ok {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
     (hza : z.zalloc = .null ∨ z.zalloc = .zcalloc) (hzf : z.zfree = .null ∨ z.zfree = .zcfree)
-    (hfr : FreshBlocks h) (wb : Int32) :
+    (hfs : h.istates h.nextBlk = none) (hfa : h.iallocs h.nextBlk = none) (wb : Int32) :
     ∃ r h', inflateInit2 (some i) wb h = .ok (r, h') ∧ Fr h h' i ∧ (r = Z_OK → Inv h' (some i)) ∧
       (h.allocOk h.nalloc = true → wb = 15 → r = Z_OK) := by
   rw [init2_pre hz hza hzf wb]
-  obtain ⟨hfs, hfa⟩ := hfr h.nextBlk (Nat.le_refl _)
   have hza0 : (({ h with streams := upd h.streams i (some (initZ z)) } : Heap).streams i).map ZStream.zalloc =
       some .zcalloc := by simp [initZ]
   cases hok : h.allocOk h.nalloc
@@ -375,5 +435,31 @@ theorem init2_ok {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
       · intro b' hb'
         have ne : b' ≠ h.nextBlk := Nat.ne_of_lt hb'
         simp [-Nat.reducePow, H2, setZS, H0, b, ne, allocHeap_bytes_ne]
+
+/-- A successful `inflateInit2` leaves the structural invariant, on every heap (on a heap where `FreshBlocks` fails at
+the new block, the call faults). -/
+theorem init2_inv {h h' : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
+    (hza : z.zalloc = .null ∨ z.zalloc = .zcalloc) (hzf : z.zfree = .null ∨ z.zfree = .zcfree) (wb : Int32)
+    (e : inflateInit2 (some i) wb h = .ok (Z_OK, h')) : Inv h' (some i) := by
+  by_cases hx : h.istates h.nextBlk = none ∧ h.iallocs h.nextBlk = none
+  · obtain ⟨r, h'', e', _, hinv, _⟩ := init2_ok hz hza hzf hx.1 hx.2 wb
+    rw [e'] at e
+    obtain ⟨rfl, rfl⟩ : r = Z_OK ∧ h'' = h' := by simpa using e
+    exact hinv rfl
+  · exfalso
+    rw [init2_pre hz hza hzf wb] at e
+    have hza0 : (({ h with streams := upd h.streams i (some (initZ z)) } : Heap).streams i).map ZStream.zalloc =
+        some .zcalloc := by simp [initZ]
+    cases hok : h.allocOk h.nalloc
+    · simp only [bind_app, alloc_fail hza0 hok] at e
+      simp [Z_MEM_ERROR, Z_OK] at e
+    · have hx' : ({ h with streams := upd h.streams i (some (initZ z)) } : Heap).istates h.nextBlk ≠ none ∨
+          ({ h with streams := upd h.streams i (some (initZ z)) } : Heap).iallocs h.nextBlk ≠ none := by
+        by_cases a : h.istates h.nextBlk = none
+        · exact Or.inr fun b => hx ⟨a, b⟩
+        · exact Or.inl a
+      obtain ⟨err, he⟩ := alloc_fault hza0 hok hx'
+      simp only [bind_app, he] at e
+      cases e
 
 end ZlibNgF.Proof.InflateAlloc

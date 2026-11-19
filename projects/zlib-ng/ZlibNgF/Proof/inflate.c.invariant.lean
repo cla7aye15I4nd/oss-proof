@@ -7,9 +7,27 @@ import ZlibNgF.Spec.Safety.Inflate
 layout of `alloc_inflate`, with its fields in range. Proofs use it only through the interface lemmas at the end of
 this file, so that a clause can be added or changed without touching the per-function proofs.
 
-The plan (see `Proof/public-inflate-*.lean`): for each public function, "invariant in → no fault, frame, invariant
-out"; `InflateReachable h s → InflateInv h s` then follows by induction over `InflateReachable`, one constructor case
-per function, and the registered goals follow from it.
+## Plan of the final assembly
+
+1. Per public function, "invariant in → no fault, exact result heap, invariant out" (`*_inv` lemmas), and the
+   `Z_NULL` / no-state case (`*_noState`). Done: `inflateMark`, `inflateSyncPoint`, `inflateCodesUsed`,
+   `inflateValidate`, `inflateGetHeader`, `inflateEnd`, `inflateResetKeep`, `inflateReset`, `inflateReset2`,
+   `inflatePrime` (`Proof/public-inflate-control.lean`, `Proof/inflate.c.reset.lean`); `inflateInit2` establishes the
+   invariant on success (`InflateAlloc.init2_inv`, every heap).
+2. `InflateReach.reach_inv (P : Pending) : InflateReachable h s → Inv h s` (`Proof/inflate.c.reach.lean`): the
+   induction is written and every constructor case is proved (init, init2, caller step, the steps of 1) except the
+   fields of `Pending`: preservation by `inflate`, `inflateSync`, `inflateSetDictionary`, `inflateGetDictionary`, and
+   `inflateCopy` (source kept; destination established on `Z_OK`). Proving `Pending` closes the induction.
+3. Frames: each `*_inv` lemma gives the result heap exactly (`setZS h i z b st` for the resets; `{ h with istates :=
+   upd h.istates b _ }` for `inflatePrime`, `inflateValidate`; plus `gzheaders k` for `inflateGetHeader`; bytes and
+   `savedPtrs` of `b` and stream `i` for `inflateEnd`), so `Frame h h' (streamIds s) (stateIds h s) ...` is a
+   pointwise `upd_ne` argument; `InflateAlloc.Fr.frame` does it for the allocating calls.
+4. Each registered goal `Goal.f_safety` then follows: `InflateHandle` splits into `Z_NULL` / no state (`*_noState`)
+   and reachable (`reach_inv` → `*_inv` → frame). Order of the remaining work: `inflateGetDictionary`,
+   `inflateSetDictionary` + `updatewindow`, `inflateSync`, `inflateCopy`, `zng_inflate_table`, the chunk copies,
+   `inflate_fast_c` / `inflate_fast_safe_c`, then `inflate` state by state; `Core` gains the clauses these need
+   (`hold < 2 ^ bits`, table contents, mode-conditional bounds on `ncode`/`nlen`/`ndist`/`have`) behind the interface
+   lemmas of this file.
 -/
 
 set_option autoImplicit false
