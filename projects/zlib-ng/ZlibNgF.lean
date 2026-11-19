@@ -22,3 +22,4 @@ import ZlibNgF.Proof.«inftrees.c.fill»
 import ZlibNgF.Proof.«inftrees.c.geom»
 import ZlibNgF.Proof.«inftrees.c.sub»
 import ZlibNgF.Proof.«inftrees.c.cont»
+import ZlibNgF.Proof.«inftrees.c.loop»
