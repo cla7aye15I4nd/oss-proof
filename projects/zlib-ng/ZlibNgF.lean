@@ -25,6 +25,7 @@ import ZlibNgF.Proof.«inffast.inv»
 import ZlibNgF.Proof.«inffast.steps»
 import ZlibNgF.Proof.«inffast.dodist»
 import ZlibNgF.Proof.«inffast.loop»
+import ZlibNgF.Proof.«inffast.main»
 import ZlibNgF.Proof.«inflate.c.facts»
 import ZlibNgF.Proof.«inflate.c.loop»
 import ZlibNgF.Proof.«inflate.c.steps»

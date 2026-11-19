@@ -66,13 +66,13 @@ theorem cs_step_k {H0 G : Heap} {ob N lo hi o f t j : Nat} {T : UInt64} (rG : OR
   exact Sat.bind (Sat.pure (hk _ _ ⟨j + c, rfl, by simp only [e]; omega, r1⟩ (by simp only [e]; omega)))
 
 theorem sat_chunkcopy_safe {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo hi) {o f s : Nat}
-    (len : UInt64) (hfo : f < o) (hos : o ≤ s) (h1 : lo ≤ o) (h2 : s ≤ hi) (hN : hi ≤ N) (hN63 : N < 2 ^ 63) :
+    (len : UInt64) (hfo : f < o) (hos : o ≤ s) (h1 : lo ≤ o) (h2 : s ≤ hi) (hN : hi ≤ N) (hd63 : s - f < 2 ^ 63) :
     Sat H (chunkcopy_safe (B ob o) (B ob f) len (B ob s))
       (fun p H' => p = B ob (o + min len.toNat (s - o)) ∧ ORun H0 H' ob N lo hi) := by
   obtain ⟨a, ha, haN⟩ := r.cur
   have hg : Space.get H (BRef.heap ob) = some a := ha
   unfold chunkcopy_safe
-  refine Sat.bind (Sat.mono (sat_diff hg (o1 := s) (o2 := o) (by omega) (by omega) (by omega)) ?_)
+  refine Sat.bind (Sat.mono (ZlibNgF.Proof.ChunkCopy.sat_diff_r hg (o1 := s) (o2 := o) (by omega) (by omega) (by omega)) ?_)
   rintro d G ⟨rfl, hG⟩
   rw [hG]
   have hsl : (Int64.ofInt ((s : Int) - o)).toUInt64.toNat = s - o := by
@@ -110,7 +110,7 @@ theorem sat_chunkcopy_safe {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N 
     simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte]
     rw [beq_B ob o f (by omega)]
     simp only [Bool.false_eq_true, ↓reduceIte]
-    refine Sat.bind (Sat.mono (sat_diff hg (o1 := f) (o2 := o) (by omega) (by omega) (by omega)) ?_)
+    refine Sat.bind (Sat.mono (ZlibNgF.Proof.ChunkCopy.sat_diff_r hg (o1 := f) (o2 := o) (by omega) (by omega) (by omega)) ?_)
     rintro d G ⟨rfl, hG⟩
     rw [hG]
     have hnos := absI64 ((f : Int) - o) (by omega) (by omega)
@@ -278,9 +278,9 @@ theorem sat_chunkcopy_safe {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N 
 /-- `chunkcopy_safe(out, out - dist, len, safe)` alone: no fault, result `out + MIN(len, safe - out)`, only the bytes
 `[out, out + MIN(len, safe - out))` of the output block change. -/
 theorem chunkcopy_safe_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.bytes ob = some a)
-    (hN : a.size = N) (hN63 : N < 2 ^ 63) {o f s : Nat} (len : UInt64) (hf : f < o) (hos : o ≤ s) (hs : s ≤ N) :
+    (hN : a.size = N) {o f s : Nat} (hd63 : s - f < 2 ^ 63) (len : UInt64) (hf : f < o) (hos : o ≤ s) (hs : s ≤ N) :
     Sat H (chunkcopy_safe (B ob o) (B ob f) len (B ob s))
       (fun p H' => p = B ob (o + min len.toNat (s - o)) ∧ ORun H H' ob N o s) :=
-  sat_chunkcopy_safe (ORun.refl ha hN _ _) len hf hos (Nat.le_refl _) (Nat.le_refl _) hs hN63
+  sat_chunkcopy_safe (ORun.refl ha hN _ _) len hf hos (Nat.le_refl _) (Nat.le_refl _) hs hd63
 
 end ZlibNgF.Proof.ChunkcopySafe

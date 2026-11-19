@@ -7,8 +7,8 @@ Safety of `CHUNKCOPY` (`chunkcopy_c`), `CHUNKUNROLL`, `GET_CHUNK_MAG`, `CHUNKMEM
 `CHUNKMEMSET_SAFE` (`chunkmemset_safe_c`) and `CHUNKCOPY_SAFE` as instantiated by `arch/generic/chunkset_c.c`
 (8-byte `chunk_t`). Every call site (`inflate_fast_c`, `inflate`'s `MATCH` state) passes an output pointer `out`
 and a source `from = out - dist` with `dist ≥ 1` in the same object, the caller's output buffer, a heap block
-`ob` of `N` bytes (`N < 2 ^ 63` where a difference other than `out - from` is computed); the lemmas are stated for that
-case. Each lemma takes a run `ORun H0 H ob N lo hi` and
+`ob` of `N` bytes; each pointer difference the routine computes is assumed below `2 ^ 63` (a `ptrdiff_t`). The
+lemmas are stated for that case. Each lemma takes a run `ORun H0 H ob N lo hi` and
 the fact that the bytes the routine may write lie in `[lo, hi)`, and returns the result pointer and the run
 extended by the call, so that the lemmas compose.
 
@@ -533,7 +533,7 @@ theorem beq_B (ob o f : Nat) (h : f ≠ o) : (B ob o == B ob f) = false := by
 and returns `out + MIN(len, safe - out)`. -/
 theorem sat_CHUNKCOPY_SAFE {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N lo hi) {o f s : Nat}
     (len : UInt64) (hfo : f < o) (hos : o ≤ s) (hlen : 1 ≤ len.toNat) (h1 : lo ≤ o) (h2 : s ≤ hi) (hN : hi ≤ N)
-    (hN63 : N < 2 ^ 63) :
+    (hd63 : s - f < 2 ^ 63) :
     Sat H (CHUNKCOPY_SAFE (B ob o) (B ob f) len (B ob s))
       (fun p H' => p = B ob (o + min len.toNat (s - o)) ∧ ORun H0 H' ob N lo hi) := by
   obtain ⟨a, ha, haN⟩ := r.cur
@@ -541,14 +541,14 @@ theorem sat_CHUNKCOPY_SAFE {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N 
   unfold CHUNKCOPY_SAFE
   rw [beq_B ob o f (by omega)]
   simp only [Bool.false_eq_true, ↓reduceIte]
-  refine Sat.bind (Sat.mono (sat_diff hg (o1 := s) (o2 := o) (by omega) (by omega) (by omega)) ?_)
+  refine Sat.bind (Sat.mono (sat_diff_r hg (o1 := s) (o2 := o) (by omega) (by omega) (by omega)) ?_)
   rintro d G ⟨rfl, rfl⟩
   have hsl : (Int64.ofInt ((s : Int) - o)).toUInt64.toNat = s - o := by
     rw [toNat_ofInt_nonneg _ (by omega) (by omega)]; omega
   generalize (Int64.ofInt ((s : Int) - o)).toUInt64 = safelen at hsl ⊢
   have hm := min_toNat len safelen
   generalize MIN len safelen = len' at hm ⊢
-  refine Sat.bind (Sat.mono (sat_diff hg (o1 := s) (o2 := f) (by omega) (by omega) (by omega)) ?_)
+  refine Sat.bind (Sat.mono (sat_diff_r hg (o1 := s) (o2 := f) (by omega) (by omega) (by omega)) ?_)
   rintro d G ⟨rfl, rfl⟩
   have hfd := absI64 ((s : Int) - f) (by omega) (by omega)
   generalize (if Int64.ofInt ((s : Int) - f) < 0 then -Int64.ofInt ((s : Int) - f)
@@ -584,7 +584,7 @@ theorem sat_CHUNKCOPY_SAFE {H0 H : Heap} {ob N lo hi : Nat} (r : ORun H0 H ob N 
 
 /-! ## Summary: each routine alone
 
-`out = B ob o`, `from = B ob f` in heap block `ob` of `N < 2 ^ 63` bytes, `f < o`. Each routine terminates without
+`out = B ob o`, `from = B ob f` in heap block `ob` of `N` bytes, `f < o`, the differences below `2 ^ 63`. Each routine terminates without
 fault, returns the stated pointer, and changes nothing in the heap but the bytes `[o, hi)` of block `ob`. -/
 
 theorem chunkcopy_c_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.bytes ob = some a) (hN : a.size = N)
@@ -617,10 +617,10 @@ theorem chunkmemset_safe_c_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : 
   sat_CHUNKMEMSET_SAFE (ORun.refl ha hN _ _) len left hf (Nat.le_refl _) (Nat.le_refl _) ho hd63
 
 theorem chunkcopy_safe_tpl_safe {H : Heap} {ob N : Nat} {a : Array UInt8} (ha : H.bytes ob = some a)
-    (hN : a.size = N) (hN63 : N < 2 ^ 63) {o f s : Nat} (len : UInt64) (hlen : 1 ≤ len.toNat) (hf : f < o)
+    (hN : a.size = N) {o f s : Nat} (hd63 : s - f < 2 ^ 63) (len : UInt64) (hlen : 1 ≤ len.toNat) (hf : f < o)
     (hos : o ≤ s) (hs : s ≤ N) :
     Sat H (CHUNKCOPY_SAFE (B ob o) (B ob f) len (B ob s))
       (fun p H' => p = B ob (o + min len.toNat (s - o)) ∧ ORun H H' ob N o s) :=
-  sat_CHUNKCOPY_SAFE (ORun.refl ha hN _ _) len hf hos hlen (Nat.le_refl _) (Nat.le_refl _) hs hN63
+  sat_CHUNKCOPY_SAFE (ORun.refl ha hN _ _) len hf hos hlen (Nat.le_refl _) (Nat.le_refl _) hs hd63
 
 end ZlibNgF.Proof.ChunkCopy

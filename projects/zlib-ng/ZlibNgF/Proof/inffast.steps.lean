@@ -167,8 +167,8 @@ theorem sat_stState_e {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : R
 
 theorem brk_state {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) (s' : InflateState)
     (hs : s' = { e.st with mode := BAD } ∨ s' = { e.st with mode := TYPE } ∨
-      ∃ len dist, s' = { e.st with mode := MATCH, length := len, was := len, offset := dist }) :
-    BrkHeap H0 e { G with istates := upd G.istates e.b (some s') } := by
+      ∃ len dist : UInt32, c.safeMode = true ∧ 1 ≤ dist.toNat ∧ s' = { e.st with mode := MATCH, length := len, was := len, offset := dist }) :
+    BrkHeap H0 c.safeMode e { G with istates := upd G.istates e.b (some s') } := by
   refine ⟨G, s', e.z, r, ?_, hs, Or.inl rfl⟩
   have : upd G.streams e.i (some e.z) = G.streams := by
     rw [streams_get r]; exact ZlibNgF.Proof.ChunkMem.upd_self _ _ _ EV.hz
@@ -176,7 +176,7 @@ theorem brk_state {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0
 
 /-- `SET_BAD(msg)` on the running heap. -/
 theorem sat_SET_BAD {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH H0 e G) (msg : String)
-    (hm : msg ∈ strTable) : Sat G (SET_BAD c msg) (fun _ G' => BrkHeap H0 e G') := by
+    (hm : msg ∈ strTable) : Sat G (SET_BAD c msg) (fun _ G' => BrkHeap H0 c.safeMode e G') := by
   unfold SET_BAD
   refine Sat.bind (Sat.mono (sat_ldState_e EV r) ?_)
   rintro s G1 ⟨rfl, hG⟩

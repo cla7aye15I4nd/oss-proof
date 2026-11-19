@@ -57,7 +57,6 @@ structure EnvOK (H0 : Heap) (c : FC) (e : FE) : Prop where
   hst : H0.istate e.b = some e.st
   bob : e.b ≠ e.ob
   outN : ∃ a, H0.bytes e.ob = some a ∧ a.size = e.N
-  N63 : e.N < 2 ^ 63
   beg : c.beg = B e.ob e.begO
   safe : c.safe = B e.ob e.s
   begle : e.begO ≤ e.o0
@@ -141,11 +140,11 @@ def RootD (e : FE) (h : Code) : Prop := ∃ k, k < 2 ^ e.db ∧ h = e.Td[e.od + 
 def SubD (h : Code) : Prop := ∃ pre, DistEnt pre h ∧ ¬ DistLink h
 
 /-- The state after a `break`: the output run, then the stores of `state->mode` (and `strm->msg`). -/
-def BrkHeap (H0 : Heap) (e : FE) (G : Heap) : Prop :=
+def BrkHeap (H0 : Heap) (sm : Bool) (e : FE) (G : Heap) : Prop :=
   ∃ G1 st' z', RH H0 e G1 ∧
     G = { G1 with istates := upd G1.istates e.b (some st'), streams := upd G1.streams e.i (some z') } ∧
     (st' = { e.st with mode := BAD } ∨ st' = { e.st with mode := TYPE } ∨
-      ∃ len dist, st' = { e.st with mode := MATCH, length := len, was := len, offset := dist }) ∧
+      ∃ len dist : UInt32, sm = true ∧ 1 ≤ dist.toNat ∧ st' = { e.st with mode := MATCH, length := len, was := len, offset := dist }) ∧
     (z' = e.z ∨ ∃ p, z' = { e.z with msg := p })
 
 /-- The invariant of the label loop, with ghost rank `n`. -/
@@ -161,7 +160,7 @@ def PI (H0 : Heap) (c : FC) (e : FE) (ot : Nat) (n : Nat) (x : FL × Lbl) (G : H
       ((n = 2 ∧ RootD e x.1.here ∧ 28 ≤ x.1.bits.toNat) ∨
        (n = 1 ∧ SubD x.1.here ∧ x.1.here.bits.toNat ≤ x.1.bits.toNat))
   | .cont => ∃ po, x.1.out = B e.ob po ∧ ot < po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ RH H0 e G
-  | .brk => ∃ po, x.1.out = B e.ob po ∧ ot ≤ po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ InS e x.1 ∧ BrkHeap H0 e G
+  | .brk => ∃ po, x.1.out = B e.ob po ∧ ot ≤ po ∧ po ≤ e.s ∧ InOK e x.1 0 ∧ InS e x.1 ∧ BrkHeap H0 c.safeMode e G
 
 /-! ## Root and second-level entries -/
 
