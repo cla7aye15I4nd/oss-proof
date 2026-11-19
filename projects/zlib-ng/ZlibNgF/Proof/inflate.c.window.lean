@@ -195,6 +195,7 @@ theorem core_win {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Inf
   next := c.next
   tables := c.tables
   head := by rw [hg]; exact c.head
+  modes := c.modes
 
 theorem shl_toNat (w : UInt32) (hw : w ≤ 15) : ((1 : UInt32) <<< w).toNat = 2 ^ w.toNat := by
   have hw' : w.toNat ≤ 15 := hw

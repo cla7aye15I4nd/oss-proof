@@ -161,12 +161,13 @@ theorem core_rkS {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {st : Inf
   wnext := hn
   wnext_le := hnw
   wnext_eq := hne
-  bits := by show (0 : UInt32) ≤ 32; decide
+  bits := by show (0 : UInt32) ≤ 39; decide
   lencode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   distcode := ⟨_, rfl, Or.inl ⟨0, rfl, Nat.zero_le _⟩⟩
   next := ⟨0, rfl, Nat.zero_le _⟩
   tables := Or.inl ⟨rfl, 0, rfl, Nat.zero_le _⟩
   head := Or.inl rfl
+  modes := InflateInv.ModeOK.quiet _ _ (Or.inl (by show HEAD < LENLENS; decide))
 
 /-- The invariant of a heap made by `setZS`. -/
 theorem inv_setZS {h : Heap} {i : Nat} {z' : ZStream} {b : Nat} {st' : InflateState} {al : InflateAllocs}
@@ -233,7 +234,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (bits value : Int32)
   · exact ⟨Z_OK, h, by simp [C.run, inflatePrime, bind_app, L.check, h0], hv, Or.inl rfl⟩
   by_cases hneg : bits < 0
   · obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with hold := 0, bits := 0 }) hsb L.istate
-      (fun _ _ c => { c with bits := by show (0 : UInt32) ≤ 32; decide })
+      (fun _ _ c => { c with bits := by show (0 : UInt32) ≤ 39; decide })
     refine ⟨Z_OK, _, ?_, hi, Or.inr ⟨b, _, hsb, rfl⟩⟩
     simp only [C.run] at hr
     simp [C.run, inflatePrime, bind_app, L.check, h0, hneg, L.stateOf, hr]
@@ -247,7 +248,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : Inv h s) (bits value : Int32)
     obtain ⟨hr, hi⟩ := InflateInv.wrS hv (fun s => { s with
         hold := s.hold + (((value.toInt64 &&& (((1 : Int64) <<< bits.toInt64) - 1)).toInt32).toInt64.toUInt64 <<<
           st.bits.toUInt64), bits := s.bits + bits.toUInt32 })
-      hsb L.istate (fun _ _ c => { c with bits := hle })
+      hsb L.istate (fun _ _ c => { c with bits := UInt32.le_trans hle (by decide) })
     refine ⟨Z_OK, _, ?_, hi, Or.inr ⟨b, _, hsb, rfl⟩⟩
     simp only [C.run] at hr
     simp only [C.run, inflatePrime, bind_app, L.check, L.stateOf, ldState_app L.istate, Bool.false_eq_true,
