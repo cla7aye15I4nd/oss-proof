@@ -184,7 +184,7 @@ theorem lens19 {L : Array UInt16} {hv : UInt32} (h19 : 19 ≤ hv.toNat)
 theorem modeOK_CL (b : Nat) (v : InflateInv.MView) (hm : v.mode = CODELENS)
     (h : (257 ≤ v.nlen.toNat ∧ v.nlen ≤ 286) ∧ (1 ≤ v.ndist.toNat ∧ v.ndist ≤ 30) ∧
       (∀ j, j < v.«have».toNat → v.lens[j]! ≤ 15) ∧
-      TabAt b v.codes v.lencode v.lenbits 25 false) :
+      TabAt b v.codes v.lencode v.lenbits 25 false ∧ v.lencode = .val (.ref (.codes b) 0)) :
     ModeOK b v where
   lenlens := fun e => absurd (hm.symm.trans e) (by decide)
   codelens := fun _ => h
@@ -238,7 +238,7 @@ theorem core_CL {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S : I
     next := ⟨o, rfl, ho⟩
     tables := Or.inl ⟨rfl, 0, rfl, by decide⟩
     modes := modeOK_CL b _ rfl ⟨hll.2.1, hll.2.2.1, fun j hj => absurd hj (Nat.not_lt_zero _),
-      Or.inl ⟨0, o, rfl, ht⟩⟩ }
+      Or.inl ⟨0, o, rfl, ht⟩, rfl⟩ }
 
 set_option maxRecDepth 20000 in
 set_option maxHeartbeats 2000000 in

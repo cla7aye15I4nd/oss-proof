@@ -54,3 +54,4 @@ import ZlibNgF.Proof.«inflate.c.type-modes»
 import ZlibNgF.Proof.«inflate.c.callees»
 import ZlibNgF.Proof.«inflate.c.stored-modes»
 import ZlibNgF.Proof.«inflate.c.table-modes»
+import ZlibNgF.Proof.«inflate.c.codelens-mode»

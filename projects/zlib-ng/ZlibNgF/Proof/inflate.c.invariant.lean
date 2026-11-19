@@ -118,7 +118,7 @@ structure ModeOK (b : Nat) (v : MView) : Prop where
     ∀ j, j < v.«have».toNat → v.lens[(order[j]!).toNat]! ≤ 7
   codelens : v.mode = CODELENS → (257 ≤ v.nlen.toNat ∧ v.nlen ≤ 286) ∧ (1 ≤ v.ndist.toNat ∧ v.ndist ≤ 30) ∧
     (∀ j, j < v.«have».toNat → v.lens[j]! ≤ 15) ∧
-    TabAt b v.codes v.lencode v.lenbits 25 false
+    TabAt b v.codes v.lencode v.lenbits 25 false ∧ v.lencode = .val (.ref (.codes b) 0)
   decode : DecodeMode v.mode → TabAt b v.codes v.lencode v.lenbits 28 false ∧
     TabAt b v.codes v.distcode v.distbits 28 true
   extra : v.mode = LENEXT ∨ v.mode = DISTEXT → v.extra ≤ 31
@@ -146,9 +146,9 @@ theorem ModeOK.rebase {b b' o2 : Nat} {v : MView} (hm : ModeOK b v) (hl : v.lenc
     ModeOK b' { v with lencode := .val (.ref (.codes b') 0), distcode := .val (.ref (.codes b') o2) } := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := hm
   refine ⟨h1, fun e => ?_, fun e => ?_, h4, h5⟩
-  · obtain ⟨a1, a2, a3, a4⟩ := h2 e
+  · obtain ⟨a1, a2, a3, a4, -⟩ := h2 e
     rw [hl] at a4
-    exact ⟨a1, a2, a3, a4.rebase⟩
+    exact ⟨a1, a2, a3, a4.rebase, rfl⟩
   · obtain ⟨a1, a2⟩ := h3 e
     rw [hl] at a1; rw [hd] at a2
     exact ⟨a1.rebase, a2.rebase⟩
@@ -160,8 +160,8 @@ theorem ModeOK.fixed {b b' : Nat} {v : MView} (hm : ModeOK b v) (hl : v.lencode 
   have nl : ∀ c o, v.lencode ≠ .val (.ref (.codes c) o) := by intro c o e; rw [hl] at e; cases e
   have nd : ∀ c o, v.distcode ≠ .val (.ref (.codes c) o) := by intro c o e; rw [hd] at e; cases e
   refine ⟨h1, fun e => ?_, fun e => ?_, h4, h5⟩
-  · obtain ⟨a1, a2, a3, a4⟩ := h2 e
-    exact ⟨a1, a2, a3, a4.fixed nl⟩
+  · obtain ⟨-, -, -, -, a5⟩ := h2 e
+    exact absurd a5 (nl b 0)
   · obtain ⟨a1, a2⟩ := h3 e
     exact ⟨a1.fixed nl, a2.fixed nd⟩
 
