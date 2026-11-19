@@ -321,11 +321,10 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
         simp only [dview] at hs0 hv0
         rw [hsb] at hs0
         obtain rfl : pbo + st.lit_bufsize.toNat + 8 = sbo := by injection hs0 with e1; injection e1
-        refine ⟨d1, _, OH_bytes_b hob, hsb, fun j hj => ?_⟩
-        have hn : st.sym_next ≠ 0 := fun e => by simp [dview, e] at hj
+        refine ⟨d1, _, OH_bytes_b hob, hsb, hv0.of_eq fun j hj => ?_⟩
+        have hn : st.sym_next ≠ 0 := fun e => by simp [e] at hj
         have := hsymb hn
-        rw [w1.2 _ (Or.inr (by omega)), w1.2 _ (Or.inr (by omega))]
-        exact hv0 j hj
+        exact w1.2 _ (Or.inr (by omega))
       psym := fun hn => by
         simp only [dview] at hn ⊢
         have := hsymb hn
@@ -338,7 +337,8 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
       wpow := c.wpow
       fe_mod := c.fe_mod
       fe_hi := c.fe_hi
-      bs_lo := c.bs_lo }
+      bs_lo := c.bs_lo
+      descs := c.descs }
   · refine ⟨L, { z with next_out := no, avail_out := av, total_out := tt },
       { st with pending := P, pending_out := Q, bi_buf := bb, bi_valid := bv }, by simp [OH], OH_dstate hob,
       by rw [hL, hnp], by simp only []; omega, rfl, hav, rfl,
