@@ -2,7 +2,8 @@
  * state->out = state->buffers + in_size before it checks the result: when the allocation fails, that is NULL plus
  * a nonzero offset (ISO C17 §6.5.6p8). gzbuffer(file, 1 << 30), which zlib.h allows, asks for 3 GiB on the first
  * write; the sanitizer's allocator is set to refuse blocks above 1 GiB and return NULL, as malloc does when memory
- * is short. GCC and clang word the report differently (run.sh accepts both). With patch 0015 the null check comes
+ * is short. clang's UBSan reports it; GCC's does not report NULL plus an
+ * offset, so there run.sh only checks that the unpatched build runs alike. With patch 0015 the null check comes
  * first: "gzwrite 0 0 -4 -4". */
 #include <stdio.h>
 #include "zlib.h"

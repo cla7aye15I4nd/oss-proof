@@ -26,7 +26,9 @@ mkdir -p "$work"
 # is not observable on a run: no sanitizer reports it; the unpatched build must then behave like the patched
 # one), or an extended regular expression that the output (sanitizer report or program output) must match |
 # patched output line (one per run, ';'). In the defect field, " OR " separates alternatives (the field separator
-# is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull.
+# is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull; GCC's
+# UBSan does not report NULL plus an offset (gzbuffer-alloc-null-offset), so there the case accepts the unpatched run
+# printing the patched result (clang reports it).
 cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
@@ -41,7 +43,7 @@ cases=(
   "deflate-medium-insert-count|0013||runtime error: division by zero|deflate 1 28"
   "gzwrite-clearerr-stale-input|0014||invalid-pointer-pair OR heap-buffer-overflow|gzwrite 0 -1 1"
   "gzclose-after-failed-write|0014||heap-use-after-free|gzclose 0 0"
-  "gzbuffer-alloc-null-offset|0015||runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression|gzwrite 0 0 -4 -4"
+  "gzbuffer-alloc-null-offset|0015||runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression OR ^gzwrite 0 0 -4 -4$|gzwrite 0 0 -4 -4"
   "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 0"
 )
 

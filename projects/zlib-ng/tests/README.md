@@ -84,7 +84,7 @@ print the expected result.
 | `deflate-medium-insert-count` | 0013 | division by zero in `insert_knuth_stepped` after `deflateTune` with `max_lazy = INT_MIN` (level 4) |
 | `gzwrite-clearerr-stale-input` | 0014 | invalid pointer pair (heap buffer overflow without the pair check) in `gz_write` after a failed direct `gzwrite` and `gzclearerr` |
 | `gzclose-after-failed-write` | 0014 | heap use after free: `gzclose` writes from the caller's freed buffer after a failed direct `gzwrite` |
-| `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails (UBSan; GCC and clang word it differently) |
+| `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails (clang's UBSan; GCC's does not report it, and the case then checks that the calls run alike) |
 | `gzread-position-overflow` | 0016 | signed overflow of `x.pos` in `gz_read` after `gzseek` to `INT64_MAX` on a descriptor that keeps delivering data |
 
 Patch 0017 (the writers' position) has no case here: its defect needs about `2^32` calls of `gzwrite` (minutes to
