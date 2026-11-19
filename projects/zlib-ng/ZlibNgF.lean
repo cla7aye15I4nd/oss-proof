@@ -31,6 +31,10 @@ import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Math.BitReverse
 import ZlibNgF.Math.InftreesCount
 import ZlibNgF.Math.TreesOverlay
+import ZlibNgF.Math.HuffMerge
+import ZlibNgF.Math.HuffPushCost
+import ZlibNgF.Math.HuffKraft
+import ZlibNgF.Math.HuffBuilt
 import ZlibNgF.Proof.«inftrees.c.base»
 import ZlibNgF.Proof.«inftrees.c.count»
 import ZlibNgF.Proof.«inftrees.c.rev»
