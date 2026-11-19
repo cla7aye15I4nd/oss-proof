@@ -318,7 +318,8 @@ def DPost (E : BEnv) (z : ZStream) (S : InflateState) (l : IL) (t : Nat) (dist :
     Except Ex Unit → IL → Heap → Prop
   | .ok (), l', H' => ∃ t', BM E l' H' t' z S ∧ l'.put = l.put ∧ l'.left = l.left ∧
       8 * (l'.have_.toNat + t') + l'.bits.toNat ≤ 8 * (l.have_.toNat + t) + l.bits.toNat ∧
-      EntryOK l'.here 28 dist ∧ (dist = false → ∃ pre, ZlibNgF.Proof.InflateTab.LenOK pre l'.here) ∧
+      EntryOK l'.here 28 dist ∧ linkTest dist l'.here = false ∧
+      (dist = false → ∃ pre, ZlibNgF.Proof.InflateTab.LenOK pre l'.here) ∧
       (CODE_BITS l'.here).toNat ≤ l'.bits.toNat ∧
       (Live l'.here → l'.bits.toNat < (CODE_BITS l'.here).toNat + 8) ∧ l'.bits.toNat ≤ 35
   | .error .leave, l', H' => BLv E l' H'
@@ -375,7 +376,7 @@ theorem bdecode {E : BEnv} (cb : E.CB) {l : IL} {H : Heap} {t : Nat} {z : ZStrea
     have hm3' : 8 * (l3.have_.toNat + t3) + l3.bits.toNat = 8 * (l1.have_.toNat + t1) + l1.bits.toNat := hm3
     have hent3 := ct.ent (o + a[o + j]!.val.toNat + k) (by omega) (by omega)
     refine ⟨t3, bm3.locals rfl rfl rfl rfl, hp3.trans hp1, hl3.trans hl1, ?_, by rw [hhere3]; exact hent3,
-      fun hd => ⟨_, by rw [hhere3]; exact ((hsub k hk).2.2 hd)⟩, ?_, ?_, ?_⟩
+      by rw [hhere3]; exact (hsub k hk).2.1, fun hd => ⟨_, by rw [hhere3]; exact ((hsub k hk).2.2 hd)⟩, ?_, ?_, ?_⟩
     · show 8 * (l3.have_.toNat + t3) + (l3.bits - (CODE_BITS a[o + j]!).toUInt8).toNat ≤ _
       rw [hd]; omega
     · show (CODE_BITS l3.here).toNat ≤ (l3.bits - (CODE_BITS a[o + j]!).toUInt8).toNat
@@ -385,7 +386,8 @@ theorem bdecode {E : BEnv} (cb : E.CB) {l : IL} {H : Heap} {t : Nat} {z : ZStrea
       have := hlive3 hv; rw [hd]; omega
     · show (l3.bits - (CODE_BITS a[o + j]!).toUInt8).toNat ≤ 35
       rw [hd]; omega
-  · refine SatX.pure ⟨t1, bm1, hp1, hl1, by omega, by rw [hhere]; exact hent,
+  · rename_i hnl
+    refine SatX.pure ⟨t1, bm1, hp1, hl1, by omega, by rw [hhere]; exact hent, by rw [hhere]; simpa using hnl,
       fun hd => ⟨0, by rw [hhere]; exact ct.lit hd _ (Nat.le_add_right _ _) (by omega)⟩, by rw [hhere]; exact hcb,
       by rw [hhere]; exact hlive, hb35⟩
 
