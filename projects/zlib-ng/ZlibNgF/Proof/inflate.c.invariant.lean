@@ -12,11 +12,12 @@ this file, so that a clause can be added or changed without touching the per-fun
 1. Per public function, "invariant in → no fault, exact result heap, invariant out" (`*_inv` lemmas), and the
    `Z_NULL` / no-state case (`*_noState`). Done: `inflateMark`, `inflateSyncPoint`, `inflateCodesUsed`,
    `inflateValidate`, `inflateGetHeader`, `inflateEnd`, `inflateResetKeep`, `inflateReset`, `inflateReset2`,
-   `inflatePrime` (`Proof/public-inflate-control.lean`, `Proof/inflate.c.reset.lean`); `inflateInit2` establishes the
+   `inflatePrime` (`Proof/public-inflate-control.lean`, `Proof/inflate.c.reset.lean`), `inflateGetDictionary`
+   (`Proof/inflate.c.dict.lean`); `inflateInit2` establishes the
    invariant on success (`InflateAlloc.init2_inv`, every heap).
 2. `InflateReach.reach_inv (P : Pending) : InflateReachable h s → Inv h s` (`Proof/inflate.c.reach.lean`): the
    induction is written and every constructor case is proved (init, init2, caller step, the steps of 1) except the
-   fields of `Pending`: preservation by `inflate`, `inflateSync`, `inflateSetDictionary`, `inflateGetDictionary`, and
+   fields of `Pending`: preservation by `inflate`, `inflateSync`, `inflateSetDictionary`, and
    `inflateCopy` (source kept; destination established on `Z_OK`). Proving `Pending` closes the induction.
 3. Frames: each `*_inv` lemma gives the result heap exactly (`setZS h i z b st` for the resets; `{ h with istates :=
    upd h.istates b _ }` for `inflatePrime`, `inflateValidate`; plus `gzheaders k` for `inflateGetHeader`; bytes and

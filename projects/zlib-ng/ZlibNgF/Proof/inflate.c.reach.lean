@@ -1,5 +1,6 @@
 import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«public-inflate-init»
+import ZlibNgF.Proof.«inflate.c.dict»
 
 /-!
 # Reachable inflate streams have the structural invariant (`ZlibNgF`)
@@ -14,8 +15,8 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.InflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNgF.Proof.InflateInv
 
-/-- The preservation lemmas still to prove: `inflate`, `inflateSync`, `inflateSetDictionary`, `inflateGetDictionary`,
-and `inflateCopy` (on its source, and the invariant of a successful copy's destination). -/
+/-- The preservation lemmas still to prove: `inflate`, `inflateSync`, `inflateSetDictionary`, and `inflateCopy` (on
+its source, and the invariant of a successful copy's destination). -/
 structure Pending : Prop where
   inflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), Inv h s → StreamIO h s →
     C.run (ZlibNg.Inflate.inflate s flush) h = .ok (r, h') → Inv h' s
@@ -24,9 +25,6 @@ structure Pending : Prop where
   setDict : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (n : UInt32) (r : Int32), Inv h s →
     NullOrRead h d n.toNat → (∀ b, StateBlock h s b → NotInBlock b d) →
     C.run (inflateSetDictionary s d n) h = .ok (r, h') → Inv h' s
-  getDict : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (hasLen : Bool) (r : Int32 × Option UInt32), Inv h s →
-    NullOrWrite h d 32768 → (∀ b, StateBlock h s b → NotInBlock b d) →
-    C.run (inflateGetDictionary s d hasLen) h = .ok (r, h') → Inv h' s
   copySrc : ∀ (h h' : Heap) (s dst : StreamPtr) (r : Int32), Inv h s → InitReady h dst → dst ≠ s →
     C.run (inflateCopy dst s) h = .ok (r, h') → Inv h' s
   copyDst : ∀ (h h' : Heap) (src dst : StreamPtr), Inv h src → InitReady h dst → dst ≠ src →
@@ -84,7 +82,8 @@ theorem step_inv (P : Pending) {h h' : Heap} {s : StreamPtr} (hv : Inv h s) (hs 
   · obtain ⟨_, e0⟩ := InflateControl.inflateSyncPoint_inv hv
     rw [det e e0]; exact hv
   · exact P.setDict h h' s d n r hv hd hnb e
-  · exact P.getDict h h' s d hasLen r hv hd hnb e
+  · obtain ⟨_, _, e0, hi, _⟩ := InflateDict.getDict_inv hasLen hv hd hnb
+    rw [det e e0]; exact hi
   · rcases hok with rfl | ⟨k, g, rfl, hg, _⟩
     · rw [getHeader_none hv e]; exact hv
     · obtain ⟨_, _, e0, hi⟩ := InflateControl.inflateGetHeader_inv hv k g hg
@@ -202,5 +201,13 @@ theorem inflateReset2_safety_of (P : Pending) : Goal.inflateReset2_safety := by
     rcases InflateReset.reset2_run L w with e | ⟨_, _, _, e⟩
     · exact ⟨_, _, e, InflateInit.frame_refl h _ _ _ _⟩
     · exact ⟨_, _, e, frame_setZS L.hz L.hb _ _⟩
+
+theorem inflateGetDictionary_safety_of (P : Pending) : Goal.inflateGetDictionary_safety := by
+  intro h s d hasLen _ hh hd hnb
+  rcases hh with hn | hn | hr
+  · exact ⟨_, _, InflateDict.getDict_noState (Or.inl hn) d hasLen, InflateInit.frame_refl h _ _ _ _⟩
+  · exact ⟨_, _, InflateDict.getDict_noState (Or.inr hn) d hasLen, InflateInit.frame_refl h _ _ _ _⟩
+  · obtain ⟨r, h', e, _, f⟩ := InflateDict.getDict_inv hasLen (reach_inv P hr) hd hnb
+    exact ⟨r, h', e, f⟩
 
 end ZlibNgF.Proof.InflateReach
