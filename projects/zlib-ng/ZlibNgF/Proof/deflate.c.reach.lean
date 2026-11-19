@@ -2,7 +2,7 @@ import ZlibNgF.Proof.«public-deflate-bound»
 import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Proof.«public-deflate-init»
 import ZlibNgF.Proof.«deflate.c.reset»
-import ZlibNgF.Proof.«deflate.c.dict»
+import ZlibNgF.Proof.«deflate.c.prime»
 
 /-!
 # Reachable deflate streams have the structural invariant (`ZlibNgF`)
@@ -11,7 +11,7 @@ import ZlibNgF.Proof.«deflate.c.dict»
 `InflateReach.reach_inv` on the inflate side. The constructor cases proved: `deflateInit_` and `deflateInit2_`
 (`Proof/public-deflate-init.lean`), the caller step, and the steps `deflatePending`, `deflateUsed`, `deflateTune`,
 `deflateSetHeader`, `deflateBound`, `deflateBound_z`, `deflateReset`, `deflateResetKeep`, `deflateGetDictionary`
-(`Proof/deflate.c.dict.lean`). Every other case is a field of `DPending`, the list of
+(`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`). Every other case is a field of `DPending`, the list of
 preservation obligations not proved yet. The `*_safety_of` theorems
 derive registered goals from `DPending`; a goal is registered as proved only once `DPending` is.
 -/
@@ -34,8 +34,6 @@ structure DPending : Prop where
   setDictionary : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (n : UInt32) (r : Int32), DInv h s →
     NullOrRead h d n.toNat → (∀ b, StateBlock h s b → NotInBlock b d) →
     C.run (ZlibNg.Deflate.deflateSetDictionary s d n) h = .ok (r, h') → DInv h' s
-  prime : ∀ (h h' : Heap) (s : StreamPtr) (bits value r : Int32), DInv h s → PrimeReady h s →
-    C.run (ZlibNg.Deflate.deflatePrime s bits value) h = .ok (r, h') → DInv h' s
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -76,7 +74,8 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     rw [det e e0]; exact hv
   · obtain ⟨_, e0⟩ := DeflateControl.deflateUsed_inv hv hb
     rw [det e e0]; exact hv
-  · exact P.prime h h' s bits value r hv hpr e
+  · obtain ⟨_, _, _, _, _, _, _, _, e0, _, hi⟩ := DeflatePrime.prime_inv hv bits value
+    rw [det e e0]; exact hi hpr
   · obtain ⟨_, _, _, _, _, _, _, _, e0, hi⟩ := DeflateControl.deflateTune_inv hv g l n c
     rw [det e e0]; exact hi
   · rw [DeflateBound.RO.deflateBound s n h r h' e]; exact hv
@@ -194,5 +193,12 @@ theorem deflateGetDictionary_safety_of (P : DPending) : Goal.deflateGetDictionar
   · exact ⟨_, _, DeflateDict.getDict_noState hn d hasLen, dframe_refl h _ _ _ _⟩
   · obtain ⟨r, h', e, _, f⟩ := DeflateDict.getDict_inv hasLen (dreach_inv P hr) hd hnb
     exact ⟨r, h', e, f⟩
+
+theorem deflatePrime_safety_of (P : DPending) : Goal.deflatePrime_safety := by
+  intro h s bits value hh
+  rcases handle_cases hh with hn | hr
+  · exact ⟨_, _, DeflatePrime.prime_noState hn bits value, dframe_refl h _ _ _ _⟩
+  · obtain ⟨i, z, b, rfl, hz, hzb, r, h', e, f, _⟩ := DeflatePrime.prime_inv (dreach_inv P hr) bits value
+    exact ⟨r, h', e, by rw [stateIds_of hz hzb]; exact f⟩
 
 end ZlibNgF.Proof.DeflateReach
